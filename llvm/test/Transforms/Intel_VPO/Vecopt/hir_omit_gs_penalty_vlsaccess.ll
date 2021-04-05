@@ -34,11 +34,11 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP4:%.*]] = hir-copy i64 [[VP0]] , OriginPhiId: -1
 ; CMCHECK-NEXT:    Cost 16000 for i64 [[VP5:%.*]] = mul i64 2 i64 [[VP2]]
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[LP0:%.*]] i64 [[VP5]]
-; CMCHECK-NEXT:    Cost 18000 for i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]] ( OVLS )
+; CMCHECK-NEXT:    Cost 18000 for i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]] *OVLS*
 ; CMCHECK-NEXT:    Cost 16000 for i64 [[VP6:%.*]] = mul i64 2 i64 [[VP2]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP7:%.*]] = add i64 [[VP6]] i64 1
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[LP0]] i64 [[VP7]]
-; CMCHECK-NEXT:    Cost 0 for i64 [[VP_LOAD_1:%.*]] = load i64* [[VP_SUBSCRIPT_1]] ( OVLS )
+; CMCHECK-NEXT:    Cost 0 for i64 [[VP_LOAD_1:%.*]] = load i64* [[VP_SUBSCRIPT_1]] *OVLS*
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP8:%.*]] = add i64 [[VP_LOAD]] i64 [[VP4]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP1]] = add i64 [[VP8]] i64 [[VP_LOAD_1]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
@@ -51,7 +51,7 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; CMCHECK-NEXT:    Cost 0 for br <External Block>
 ;
-; HIRCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR{{.*}}***
+; HIRCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; HIRCHECK-NEXT:  Function: foo
 ; HIRCHECK-EMPTY:
 ; HIRCHECK-NEXT:  <0>          BEGIN REGION { modified }

@@ -62,6 +62,21 @@ HeuristicBase::HeuristicBase(VPlanTTICostModel *CM, std::string Name) :
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void HeuristicBase::printCostChange(raw_ostream *OS, unsigned RefCost,
+                                    unsigned NewCost) const {
+  if (!OS || NewCost == UnknownCost)
+    return;
+
+  if (NewCost > RefCost)
+    *OS << "Extra cost due to " << getName() << " heuristic is "
+        << NewCost - RefCost << '\n';
+  else if (RefCost > NewCost)
+    *OS << "Cost decrease due to " << getName() << " heuristic is "
+        << RefCost - NewCost << '\n';
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
 const RegDDRef* HeuristicSLP::getHIRMemref(
   const VPInstruction *VPInst) {
   unsigned Opcode = VPInst->getOpcode();
@@ -149,9 +164,13 @@ bool HeuristicSLP::ProcessSLPHIRMemrefs(
   return PatternFound;
 }
 
-void HeuristicSLP::apply(
-  unsigned TTICost, unsigned &Cost, const VPlanVector *Plan) const {
+void HeuristicSLP::apply(unsigned TTICost, unsigned &Cost,
+                         const VPlanVector *Plan, raw_ostream *OS) const {
   (void)TTICost;
+  if (VF == 1)
+    return;
+
+  unsigned NewCost = Cost;
   SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRLoadMemrefs;
   SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRStoreMemrefs;
   // Gather all Store and Load Memrefs since SLP starts pattern search on
@@ -167,11 +186,18 @@ void HeuristicSLP::apply(
 
   if (ProcessSLPHIRMemrefs(HIRStoreMemrefs, VPlanSLPStorePatternSize) &&
       ProcessSLPHIRMemrefs(HIRLoadMemrefs,  VPlanSLPLoadPatternSize))
-    Cost *= VF;
+    NewCost *= VF;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  printCostChange(OS, Cost, NewCost);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  Cost = NewCost;
 }
 
 void HeuristicSearchLoop::apply(
-  unsigned TTICost, unsigned &Cost, const VPlanVector *Plan) const {
+  unsigned TTICost, unsigned &Cost,
+  const VPlanVector *Plan, raw_ostream *OS) const {
   (void)TTICost;
   // Array ref which needs to be aligned via loop peeling, if any.
   RegDDRef *PeelArrayRef = nullptr;
@@ -416,7 +442,8 @@ unsigned HeuristicSpillFill::operator()(
 }
 
 void HeuristicSpillFill::apply(
-  unsigned TTICost, unsigned &Cost, const VPlanVector *Plan) const {
+  unsigned TTICost, unsigned &Cost,
+  const VPlanVector *Plan, raw_ostream *OS) const {
   (void)TTICost;
   // Don't run register pressure heuristics on TTI models that do not support
   // scalar or vector registers.
@@ -447,6 +474,7 @@ void HeuristicSpillFill::apply(
   // Keep track of vector and scalar live values in separate maps.
   LiveValuesTy VecLiveValues, ScalLiveValues;
 
+  unsigned NewCost = Cost;
   for (auto *Block : post_order(Plan->getEntryBlock())) {
     // For simplicity we pass LiveOut from previous block as LiveIn to the next
     // block in walk like walking through a linear sequence of BBs.
@@ -458,15 +486,44 @@ void HeuristicSpillFill::apply(
     // sequence.  Uniform conditions are moved out of the loop by LoopOpt
     // normally and we don't see non linear CFG in VPlan in the most cases for
     // HIR pipeline.
-    Cost += (*this)(Block, ScalLiveValues, false);
+    NewCost += (*this)(Block, ScalLiveValues, false);
 
     if (VF > 1)
-      Cost += (*this)(Block, VecLiveValues, true);
+      NewCost += (*this)(Block, VecLiveValues, true);
   }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  printCostChange(OS, Cost, NewCost);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  Cost = NewCost;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void HeuristicSpillFill::dump(raw_ostream &OS, const VPBasicBlock *VPBB) const {
+  LiveValuesTy LiveValues;
+  std::string ReturnStr;
+  unsigned ScalSpillFillCost = (*this)(VPBB, LiveValues, false);
+  if (ScalSpillFillCost > 0)
+    OS << "Block Scalar spill/fill approximate cost (not included "
+      "into total cost): " + std::to_string(ScalSpillFillCost) << '\n';
+
+  if (VF > 1) {
+    LiveValues.clear();
+    unsigned VecSpillFillCost = (*this)(VPBB, LiveValues, true);
+    if (VecSpillFillCost > 0)
+      OS << "Block Vector spill/fill approximate cost (not included into "
+        "total cost): " + std::to_string(VecSpillFillCost) << '\n';
+  }
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
 void HeuristicGatherScatter::apply(
-  unsigned TTICost, unsigned &Cost, const VPlanVector *Plan) const {
+  unsigned TTICost, unsigned &Cost,
+  const VPlanVector *Plan, raw_ostream *OS) const {
+  if (VF == 1)
+    return;
+
   unsigned GSCost = 0;
   for (auto *Block : depth_first(Plan->getEntryBlock()))
     // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
@@ -475,8 +532,15 @@ void HeuristicGatherScatter::apply(
 
   // Double GatherScatter cost contribution in case Gathers/Scatters take too
   // much to make it harder to choose this VF.
+  unsigned NewCost = Cost;
   if (TTICost * CMGatherScatterThreshold < GSCost * 100)
-    Cost += CMGatherScatterPenaltyFactor * GSCost;
+    NewCost += CMGatherScatterPenaltyFactor * GSCost;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  printCostChange(OS, Cost, NewCost);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  Cost = NewCost;
 }
 
 unsigned HeuristicGatherScatter::operator()(
@@ -503,6 +567,22 @@ unsigned HeuristicGatherScatter::operator()(
     return CM->getLoadStoreCost(VPInst, VF);
   return 0;
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void HeuristicGatherScatter::dump(raw_ostream &OS,
+                                  const VPBasicBlock *VPBB) const {
+  unsigned GatherScatterCost = (*this)(VPBB);
+  if (GatherScatterCost > 0)
+    OS << "Block total cost includes GS Cost: " <<
+      std::to_string(GatherScatterCost) << '\n';
+}
+
+void HeuristicGatherScatter::dump(raw_ostream &OS,
+                                  const VPInstruction *VPInst) const {
+  if ((*this)(VPInst) > 0)
+    OS << " *GS*";
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 // The utility below searches for patterns that form PSADBW instruction
 // semantics.  The current implementation searches for the following pattern:
@@ -559,8 +639,12 @@ bool HeuristicPsadbw::checkPsadwbPattern(
 
 // Does all neccesary target checks and return corrected VPlan Cost.
 void HeuristicPsadbw::apply(
-  unsigned TTICost, unsigned &Cost, const VPlanVector *Plan) const {
+  unsigned TTICost, unsigned &Cost,
+  const VPlanVector *Plan, raw_ostream *OS) const {
   (void)TTICost;
+  if (VF != 1)
+    return;
+
   unsigned PatternCost = 0;
 
   // Scaled PSADBW cost in terms of number of intructions.
@@ -760,13 +844,27 @@ void HeuristicPsadbw::apply(
     }
   }
 
+  unsigned NewCost;
   if (PatternCost > Cost)
     // TODO:
     // Consider returning PsadbwCost here.
-    Cost = 0;
+    NewCost = 0;
   else
-    Cost -= PatternCost;
+    NewCost = Cost - PatternCost;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  printCostChange(OS, Cost, NewCost);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  Cost = NewCost;
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void HeuristicPsadbw::dump(raw_ostream &OS, const VPInstruction *VPInst) const {
+  if (PsadbwPatternInsts.count(VPInst) > 0)
+    OS << " *PSADBW*";
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 } // namespace VPlanCostModelHeuristics
 

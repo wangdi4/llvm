@@ -27,30 +27,10 @@ public:
                                      const TargetLibraryInfo *TLI,
                                      const DataLayout *DL,
                                      VPlanVLSAnalysis *VLSA = nullptr)
-    : VPlanCostModel(Plan, VF, TTI, TLI, DL, VLSA) {
+    : VPlanCostModel(Plan, VF, TTI, TLI, DL, VLSA),
+      HeuristicsPipeline(this) {
     if (VLSA)
       VLSA->getOVLSMemrefs(Plan, VF);
-
-    // Clear out HeuristicsPipeline from Base Cost Model Heuristic and fill it
-    // up with Proprietary Cost Model heuristics set in the order they should
-    // be applied.
-    HeuristicsPipeline.clear();
-    HeuristicsPipeline.push_back(
-      std::make_unique<VPlanCostModelHeuristics::HeuristicSearchLoop>(this));
-    if (VF != 1) {
-      HeuristicsPipeline.push_back(
-        std::make_unique<VPlanCostModelHeuristics::HeuristicSLP>(this));
-      HeuristicsPipeline.push_back(
-        std::make_unique<VPlanCostModelHeuristics::HeuristicGatherScatter>(
-          this));
-    }
-    HeuristicsPipeline.push_back(
-      std::make_unique<VPlanCostModelHeuristics::HeuristicSpillFill>(this));
-    if (VF == 1)
-      // Don't apply bonus on VF != 1 plan as we exactly want to keep scalar
-      // VPlan in case psadbw pattern is found.
-      HeuristicsPipeline.push_back(
-        std::make_unique<VPlanCostModelHeuristics::HeuristicPsadbw>(this));
   }
 
   using VPlanCostModel::getCost;
@@ -62,6 +42,27 @@ public:
 
   ~VPlanCostModelProprietary() {}
 
+  // Temporal virtual methods to invoke apply facilities on HeuristicsPipeline.
+  void applyHeuristicsPipeline(
+    unsigned TTICost, unsigned &Cost,
+    const VPlanVector *Plan, raw_ostream *OS = nullptr) const final {
+    HeuristicsPipeline.apply(TTICost, Cost, Plan, OS);
+  }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Temporal virtual methods to invoke dump facilities on HeuristicsPipeline.
+  void dumpHeuristicsPipeline(raw_ostream &OS,
+                              const VPlanVector *Plan) const final {
+    HeuristicsPipeline.dump(OS, Plan);
+  }
+  void dumpHeuristicsPipeline(raw_ostream &OS,
+                              const VPBasicBlock *VPBB) const final {
+    HeuristicsPipeline.dump(OS, VPBB);
+  }
+  void dumpHeuristicsPipeline(raw_ostream &OS,
+                              const VPInstruction *VPInst) const final {
+    HeuristicsPipeline.dump(OS, VPInst);
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 private:
   unsigned getCost(const VPInstruction *VPInst) final;
   unsigned getLoadStoreCost(const VPInstruction *VPInst,
@@ -99,6 +100,15 @@ private:
   // holds 'true' for this group.  Otherwise 'false' is stored in the map.
   using OVLSGroupMap = DenseMap<const OVLSGroup *, bool>;
   OVLSGroupMap ProcessedOVLSGroups;
+
+  // Heuristics list type specific to proprietary cost model.
+  HeuristicsList<
+    const VPlanVector,
+    VPlanCostModelHeuristics::HeuristicSearchLoop,
+    VPlanCostModelHeuristics::HeuristicSLP,
+    VPlanCostModelHeuristics::HeuristicGatherScatter,
+    VPlanCostModelHeuristics::HeuristicSpillFill,
+    VPlanCostModelHeuristics::HeuristicPsadbw> HeuristicsPipeline;
 };
 
 } // namespace vpo

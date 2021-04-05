@@ -794,31 +794,14 @@ unsigned VPlanCostModel::getBlockRangeCost(const VPBasicBlock *Begin,
 unsigned VPlanCostModel::applyHeuristics(unsigned TTICost) {
   assert(TTICost != UnknownCost &&
          "Heuristics do not expect UnknownCost on input.");
-
   unsigned Cost = TTICost;
-  for (auto &H : heuristics()) {
-    H.apply(TTICost, Cost, Plan);
-    // Once any heuristics in the pipeline returns Unknown cost
-    // return it immediately.
-    if (Cost == UnknownCost) {
-      LLVM_DEBUG(
-        dbgs() << "Returning UnknownCost due to " << H.getName()
-               << "heuristic.\n");
-      return Cost;
-    }
-  }
+  applyHeuristicsPipeline(TTICost, Cost, Plan);
   return Cost;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 std::string VPlanCostModel::getAttrString(const VPInstruction *VPInst) const {
-  auto HeuristicsRange = heuristics();
-  return std::accumulate(
-    HeuristicsRange.begin(), HeuristicsRange.end(), std::string(""),
-    [VPInst](const std::string &S, auto &H) {
-      std::string Attr = H.getAttrString(VPInst);
-      return Attr.empty() ? S : S + " " + Attr;
-    });
+  return "";
 }
 
 void VPlanCostModel::printForVPInstruction(
@@ -826,22 +809,19 @@ void VPlanCostModel::printForVPInstruction(
   OS << "  Cost " << getCostNumberString(getCost(VPInst)) << " for ";
   VPInst->printWithoutAnalyses(OS);
 
-  std::string VPInstAttributes = getAttrString(VPInst);
-  if (!VPInstAttributes.empty())
-    OS << " (" << VPInstAttributes << " )";
-  OS << '\n';
+  dumpHeuristicsPipeline(OS, VPInst);
+  OS << getAttrString(VPInst) << '\n';
 }
 
 void VPlanCostModel::printForVPBasicBlock(raw_ostream &OS,
                                           const VPBasicBlock *VPBB) {
+  // BaseCost is sum of all VPInstructions cost within this block with
+  // all VPInstruction scope heuristics applied.
+  unsigned BaseCost = getCost(VPBB);
   OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: " <<
-    getCostNumberString(getCost(VPBB)) << '\n';
+    getCostNumberString(BaseCost) << '\n';
 
-  for (auto &H : heuristics()) {
-    std::string InstAttr = H.getAttrString(VPBB);
-    if (InstAttr != "")
-      OS << InstAttr << '\n';
-  }
+  dumpHeuristicsPipeline(OS, VPBB);
 
   for (const VPInstruction &VPInst : *VPBB)
     printForVPInstruction(OS, &VPInst);
@@ -856,22 +836,18 @@ void VPlanCostModel::print(raw_ostream &OS, const std::string &Header) {
   // TODO: we might want to merge 'print' routines with corresponding 'getCost'
   // routines eventually.
   unsigned TTICost = getTTICost();
-  if (TTICost != Cost) {
+  if (TTICost != Cost)
     OS << "Base Cost: " << TTICost << '\n';
-    for (auto &H : heuristics()) {
-      Cost = TTICost;
-      H.apply(TTICost, Cost, Plan);
 
-      if (Cost == UnknownCost)
-        break;
-      else if (Cost > TTICost)
-        OS << "Extra cost due to " << H.getName() << " heuristic is "
-           << Cost - TTICost << '\n';
-      else if (TTICost > Cost)
-        OS << "Cost decrease due to " << H.getName() << " heuristic is "
-           << TTICost - Cost << '\n';
-    }
-  }
+  Cost = TTICost;
+  // Temporal solution is to reapply the heursitics pipeline with debug OS
+  // enabled.  Eventually we will call getCost() interface with OS specified
+  // and pass it to the heuristics pipeline.
+  //
+  // print() won't exist in that scheme.  Neither dumpHeuristicsPipeline will.
+  // Heuristics dump() methods will be invoked from CM::applyHeuristics method.
+  applyHeuristicsPipeline(TTICost, Cost, Plan, &OS);
+  dumpHeuristicsPipeline(OS, Plan);
 
   LLVM_DEBUG(dbgs() << *Plan;);
 

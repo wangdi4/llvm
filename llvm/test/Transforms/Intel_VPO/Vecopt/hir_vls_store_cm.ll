@@ -29,12 +29,12 @@ define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost 16000 for i64 [[VP2:%.*]] = mul i64 2 i64 [[VP0]]
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[ARR0:%.*]] i64 [[VP2]]
-; CMCHECK-NEXT:    Cost 0 for store i64 [[VP0]] i64* [[VP_SUBSCRIPT]] ( OVLS )
+; CMCHECK-NEXT:    Cost 0 for store i64 [[VP0]] i64* [[VP_SUBSCRIPT]] *OVLS*
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP3:%.*]] = add i64 [[VP0]] i64 1
 ; CMCHECK-NEXT:    Cost 16000 for i64 [[VP4:%.*]] = mul i64 2 i64 [[VP0]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP5:%.*]] = add i64 [[VP4]] i64 1
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[ARR0]] i64 [[VP5]]
-; CMCHECK-NEXT:    Cost 32000 for store i64 [[VP3]] i64* [[VP_SUBSCRIPT_1]] ( OVLS )
+; CMCHECK-NEXT:    Cost 32000 for store i64 [[VP3]] i64* [[VP_SUBSCRIPT_1]] *OVLS*
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; CMCHECK-NEXT:    Cost 16000 for i1 [[VP6:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
@@ -44,7 +44,7 @@ define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; CMCHECK-NEXT:    Cost 0 for br <External Block>
 ;
-; HIRCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR{{.*}}***
+; HIRCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; HIRCHECK-NEXT:  Function: foo
 ; HIRCHECK-EMPTY:
 ; HIRCHECK-NEXT:  <0>          BEGIN REGION { modified }
