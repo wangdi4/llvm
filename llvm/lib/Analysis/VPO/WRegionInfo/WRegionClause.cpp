@@ -272,7 +272,7 @@ void InteropItem::populatePreferList(const Use *Args, unsigned NumArgs) {
       setIsPreferL0();
       PreferList.push_back(InitPreferL0);
     } else
-      assert("Non acceptable option of preference-list");
+      llvm_unreachable("Non acceptable option of preference-list");
   }
 }
 
