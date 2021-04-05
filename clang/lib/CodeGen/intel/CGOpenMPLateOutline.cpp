@@ -1902,7 +1902,6 @@ void OpenMPLateOutliner::emitOMPAcquireClause(const OMPAcquireClause *) {}
 void OpenMPLateOutliner::emitOMPReleaseClause(const OMPReleaseClause *) {}
 void OpenMPLateOutliner::emitOMPRelaxedClause(const OMPRelaxedClause *) {}
 void OpenMPLateOutliner::emitOMPDepobjClause(const OMPDepobjClause *) {}
-void OpenMPLateOutliner::emitOMPDestroyClause(const OMPDestroyClause *) {}
 void OpenMPLateOutliner::emitOMPDetachClause(const OMPDetachClause *) {}
 void OpenMPLateOutliner::emitOMPInclusiveClause(const OMPInclusiveClause *) {}
 void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *) {}
@@ -1910,10 +1909,82 @@ void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
     const OMPUsesAllocatorsClause *) {}
 void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *) {}
 void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
-void OpenMPLateOutliner::emitOMPInitClause(const OMPInitClause *) {}
-void OpenMPLateOutliner::emitOMPUseClause(const OMPUseClause *) {}
 void OpenMPLateOutliner::emitOMPNovariantsClause(const OMPNovariantsClause *) {}
 void OpenMPLateOutliner::emitOMPNocontextClause(const OMPNocontextClause *) {}
+
+static unsigned getForeignRuntimeID(StringRef Str) {
+  return llvm::StringSwitch<unsigned>(Str)
+#define OMP_FOREIGN_RUNTIME_ID(Id, Name) .Case(Name, Id)
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
+      .Default(0);
+}
+
+static bool isSupportedForeignRuntimeID(unsigned N) {
+  switch (N) {
+#define OMP_FOREIGN_RUNTIME_ID(Id, Name)                                       \
+  case Id:                                                                     \
+    return true;
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
+  default:
+    return false;
+  }
+}
+
+static unsigned getValidInteropPrefValue(ASTContext &C, const Expr *E) {
+  if (auto const *SL = dyn_cast<StringLiteral>(E))
+    return getForeignRuntimeID(SL->getString());
+
+  // An integer constant was specified.
+  unsigned V = E->EvaluateKnownConstInt(C).getExtValue();
+  if (isSupportedForeignRuntimeID(V))
+    return V;
+
+  return 0;
+}
+
+void OpenMPLateOutliner::emitOMPInitClause(const OMPInitClause *Cl) {
+  const VarDecl *PVD = getExplicitVarDecl(Cl->getInteropVar());
+  assert(PVD && "expected VarDecl in init clause");
+  addExplicit(PVD, OMPC_init);
+
+  // Gather any valid preferences first.
+  SmallVector<llvm::Value *, 3> PrefValues;
+  for (const Expr *PE : Cl->prefs())
+    if (unsigned PrefValue = getValidInteropPrefValue(CGF.getContext(), PE))
+      PrefValues.push_back(CGF.Builder.getInt64(PrefValue));
+
+  ClauseEmissionHelper CEH(*this, OMPC_init, "QUAL.OMP.INIT");
+  ClauseStringBuilder &CSB = CEH.getBuilder();
+  if (Cl->getIsTarget())
+    CSB.setTarget();
+  if (Cl->getIsTargetSync())
+    CSB.setTargetSync();
+  if (!PrefValues.empty())
+    CSB.setPrefer();
+  addArg(CSB.getString());
+  addArg(Cl->getInteropVar());
+  for (auto *V : PrefValues)
+    addArg(V);
+}
+
+void OpenMPLateOutliner::emitOMPUseClause(const OMPUseClause *Cl) {
+  const VarDecl *PVD = getExplicitVarDecl(Cl->getInteropVar());
+  assert(PVD && "expected VarDecl in use clause");
+  addExplicit(PVD, OMPC_use);
+  ClauseEmissionHelper CEH(*this, OMPC_use, "QUAL.OMP.USE");
+  addArg(CEH.getBuilder().getString());
+  addArg(Cl->getInteropVar());
+}
+
+void OpenMPLateOutliner::emitOMPDestroyClause(const OMPDestroyClause *Cl) {
+  if (const VarDecl *PVD = getExplicitVarDecl(Cl->getInteropVar())) {
+    assert(PVD && "expected VarDecl in use clause");
+    addExplicit(PVD, OMPC_destroy);
+    ClauseEmissionHelper CEH(*this, OMPC_use, "QUAL.OMP.DESTROY");
+    addArg(CEH.getBuilder().getString());
+    addArg(Cl->getInteropVar());
+  }
+}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   // Check current specific directive rather than directive kind (it can
@@ -2309,6 +2380,11 @@ void OpenMPLateOutliner::emitOMPTargetVariantDispatchDirective() {
 void OpenMPLateOutliner::emitOMPGenericLoopDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.GENERICLOOP", "DIR.OMP.END.GENERICLOOP",
                              OMPD_loop);
+}
+
+void OpenMPLateOutliner::emitOMPInteropDirective() {
+  startDirectiveIntrinsicSet("DIR.OMP.INTEROP", "DIR.OMP.END.INTEROP",
+                             OMPD_interop);
 }
 
 OpenMPLateOutliner &OpenMPLateOutliner::
@@ -2861,6 +2937,10 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     break;
   case OMPD_target_variant_dispatch:
     Outliner.emitOMPTargetVariantDispatchDirective();
+    break;
+
+  case OMPD_interop:
+    Outliner.emitOMPInteropDirective();
     break;
 
   // These directives are not yet implemented.

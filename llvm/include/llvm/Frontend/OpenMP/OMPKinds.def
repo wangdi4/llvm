@@ -1016,6 +1016,24 @@ __OMP_BIND_KIND(unknown)
 #undef OMP_BIND_KIND
 
 ///}
+
+/// Supported Foreign Runtime Ids
+///
+///{
+
+#ifndef OMP_FOREIGN_RUNTIME_ID
+#define OMP_FOREIGN_RUNTIME_ID(Id, Name)
+#endif
+
+#define __OMP_FOREIGN_RUNTIME_ID(Id, Name) OMP_FOREIGN_RUNTIME_ID(Id, #Name)
+
+__OMP_FOREIGN_RUNTIME_ID(3, opencl)
+__OMP_FOREIGN_RUNTIME_ID(4, sycl)
+__OMP_FOREIGN_RUNTIME_ID(6, level_zero)
+
+#undef __OMP_FOREIGN_RUNTIME_ID
+#undef OMP_FOREIGN_RUNTIME_ID
+///}
 #endif // INTEL_COLLAB
 
 /// Proc bind kinds
