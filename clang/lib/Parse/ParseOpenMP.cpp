@@ -2953,6 +2953,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_depobj:
   case OMPC_detach:
   case OMPC_novariants:
+  case OMPC_nocontext:
 #if INTEL_COLLAB
   case OMPC_subdevice:
 #endif // INTEL_COLLAB
@@ -2986,6 +2987,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
     // At most one detach clause can appear on the directive.
     // OpenMP 5.1, 2.3.6 dispatch Construct, Restrictions.
     // At most one novariants clause can appear on a dispatch directive.
+    // At most one nocontext clause can appear on a dispatch directive.
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     // Modeling this after similar clauses
