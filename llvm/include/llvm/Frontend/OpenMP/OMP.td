@@ -1866,6 +1866,7 @@ def OMP_dispatch : Directive<"dispatch"> {
     VersionedClause<OMPC_NoWait>,
     VersionedClause<OMPC_Depend>,
     VersionedClause<OMPC_Novariants>,
+    VersionedClause<OMPC_FirstPrivate>,  //Intel
     VersionedClause<OMPC_Nocontext>
   ];
 }

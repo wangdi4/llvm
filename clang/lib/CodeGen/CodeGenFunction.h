@@ -431,7 +431,10 @@ public:
     virtual void recordValueDefinition(llvm::Value *) {}
     virtual void recordValueReference(llvm::Value *) {}
     virtual void recordValueSuppression(llvm::Value *) {}
+    virtual void recordFirstPrivateVars(const VarDecl *VD) {}
     virtual bool inTargetVariantDispatchRegion() { return false; }
+    virtual bool isDispatchTargetCall(SourceLocation Loc) {return false; }
+    virtual bool inDispatchRegion() { return false; }
     virtual void enterTryStmt() { }
     virtual void exitTryStmt() { }
     virtual bool inTryStmt() { assert(false); return false; }

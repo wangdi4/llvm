@@ -796,7 +796,19 @@ void OpenMPLateOutliner::addImplicitClauses() {
       // scalar variables so they will become firstprivate instead.
       emitImplicit(VD, ICK_firstprivate);
     } else if (isImplicitTask(OMPD_task)) {
-      emitImplicit(VD, ICK_firstprivate);
+      // BE requests:
+      // 1> Variables in the dispatch region are default shared in the
+      //    implicit task.
+      // 2> CapturedExpr with novariant/context clause is firstprivate in
+      //    implicit task.
+      // 3> Variable with is_dev_ptr is firstprivate in implicit task.
+      // 4> Variable with firstprivate is firstprivate in implicit task.
+      if (Directive.getDirectiveKind() == OMPD_dispatch &&
+          !isa<OMPCapturedExprDecl>(VD) &&
+          FirstPrivateVars.find(VD) == FirstPrivateVars.end())
+        emitImplicit(VD, ICK_shared);
+      else
+        emitImplicit(VD, ICK_firstprivate);
     } else if (CurrentDirectiveKind == OMPD_loop ||
                isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared,
                                            CGF.getLangOpts().OpenMP)) {
@@ -863,6 +875,13 @@ void OpenMPLateOutliner::addRefsToOuter() {
     }
     for (const auto &It : ExplicitRefs) {
       CGF.CapturedStmtInfo->recordVariableReference(It.first);
+      if (CurrentDirectiveKind == OMPD_dispatch) {
+        for (const auto &CK : It.second)
+          if (CK == OMPC_is_device_ptr || CK == OMPC_firstprivate) {
+            CGF.CapturedStmtInfo->recordFirstPrivateVars(It.first);
+            break;
+          }
+      }
     }
     for (llvm::WeakTrackingVH &VH : DefinedValues) {
       if (VH.pointsToAliveValue())
@@ -1267,6 +1286,9 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
     }
     return;
   }
+  // FirstPrivate in dispatch directive only add to implicit task clause.
+  if (CurrentDirectiveKind == OMPD_dispatch)
+    return;
   // Firstprivate clauses may generate routines used in target region so
   // setup the TargetRegion context if needed.
   bool IsDeviceTarget =
@@ -1460,9 +1482,6 @@ void OpenMPLateOutliner::emitOMPUntiedClause(const OMPUntiedClause *) {
 void OpenMPLateOutliner::emitOMPDependClause(const OMPDependClause *Cl) {
   auto DepKind = Cl->getDependencyKind();
 
-  // The depend clause is added to the implicit task only.
-  if (isImplicitTask(OMPD_target))
-    return;
   if (DepKind == OMPC_DEPEND_source || DepKind == OMPC_DEPEND_sink) {
     ClauseEmissionHelper CEH(*this, OMPC_depend);
     if (DepKind == OMPC_DEPEND_source)
@@ -1878,6 +1897,19 @@ void OpenMPLateOutliner::emitOMPNontemporalClause(
   }
 }
 
+void OpenMPLateOutliner::emitOMPNovariantsClause(
+    const OMPNovariantsClause *Cl) {
+  ClauseEmissionHelper CEH(*this, OMPC_novariants);
+  addArg("QUAL.OMP.NOVARIANTS");
+  addArg(CGF.EvaluateExprAsBool(Cl->getCondition()));
+}
+
+void OpenMPLateOutliner::emitOMPNocontextClause(const OMPNocontextClause *Cl) {
+  ClauseEmissionHelper CEH(*this, OMPC_nocontext);
+  addArg("QUAL.OMP.NOCONTEXT");
+  addArg(CGF.EvaluateExprAsBool(Cl->getCondition()));
+}
+
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *) {assert(false);}
@@ -1909,8 +1941,6 @@ void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
     const OMPUsesAllocatorsClause *) {}
 void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *) {}
 void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
-void OpenMPLateOutliner::emitOMPNovariantsClause(const OMPNovariantsClause *) {}
-void OpenMPLateOutliner::emitOMPNocontextClause(const OMPNocontextClause *) {}
 
 static unsigned getForeignRuntimeID(StringRef Str) {
   return llvm::StringSwitch<unsigned>(Str)
@@ -2261,7 +2291,10 @@ void OpenMPLateOutliner::emitOMPTaskDirective() {
       addArg(CGF.Builder.getInt32(0));
     }
     ClauseEmissionHelper CEH(*this, OMPC_unknown);
-    addArg("QUAL.OMP.TARGET.TASK");
+    if (Directive.getDirectiveKind() == OMPD_dispatch)
+      addArg("QUAL.OMP.IMPLICIT");
+    else
+      addArg("QUAL.OMP.TARGET.TASK");
   }
 }
 void OpenMPLateOutliner::emitOMPTaskGroupDirective() {
@@ -2357,7 +2390,7 @@ void OpenMPLateOutliner::emitOMPCancellationPointDirective(
 
 /// return true if clause is not allowed in current pragma.
 bool OpenMPLateOutliner::shouldSkipExplicitClause(OpenMPClauseKind Kind) {
-  if (isImplicitTask(OMPD_target)) {
+  if (isImplicitTask(OMPD_target) || isImplicitTask(OMPD_dispatch)) {
     return Kind == OMPC_depend ||
            !isAllowedClauseForDirective(CurrentDirectiveKind, Kind,
                                         CGF.getLangOpts().OpenMP);
@@ -2375,6 +2408,11 @@ void OpenMPLateOutliner::emitOMPTargetVariantDispatchDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.TARGET.VARIANT.DISPATCH",
                              "DIR.OMP.END.TARGET.VARIANT.DISPATCH",
                              OMPD_target_variant_dispatch);
+}
+
+void OpenMPLateOutliner::emitOMPDispatchDirective() {
+  startDirectiveIntrinsicSet("DIR.OMP.DISPATCH", "DIR.OMP.END.DISPATCH",
+                             OMPD_dispatch);
 }
 
 void OpenMPLateOutliner::emitOMPGenericLoopDirective() {
@@ -2540,6 +2578,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_begin_declare_variant:
   case OMPD_end_declare_variant:
   case OMPD_target_variant_dispatch:
+  case OMPD_dispatch:
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_requires:
@@ -2591,6 +2630,7 @@ bool CodeGenFunction::requiresImplicitTask(
   if ((isOpenMPTargetExecutionDirective(Directive.getDirectiveKind()) ||
        Directive.getDirectiveKind() == OMPD_target_enter_data ||
        Directive.getDirectiveKind() == OMPD_target_exit_data ||
+       Directive.getDirectiveKind() == OMPD_dispatch ||
        Directive.getDirectiveKind() == OMPD_target_update) &&
       (Directive.hasClausesOfKind<OMPDependClause>() ||
        Directive.hasClausesOfKind<OMPNowaitClause>()))
@@ -2625,11 +2665,20 @@ FieldDecl *CGLateOutlineOpenMPRegionInfo::getThisFieldDecl() const {
   return nullptr;
 }
 
+bool CGLateOutlineOpenMPRegionInfo::isDispatchTargetCall(SourceLocation Loc) {
+  if (!inDispatchRegion())
+    return false;
+  const auto *DispatchD = cast<OMPDispatchDirective>(&D);
+  const SourceLocation TLoc = DispatchD->getTargetCallLoc();
+  return Loc.getRawEncoding() == TLoc.getRawEncoding();
+}
+
 static OpenMPDirectiveKind nextDirectiveKind(OpenMPDirectiveKind FullDirKind,
                                              OpenMPDirectiveKind CurrDirKind) {
   if (CurrDirKind == OMPD_task) {
     if (FullDirKind == OMPD_target_enter_data ||
         FullDirKind == OMPD_target_exit_data ||
+        FullDirKind == OMPD_dispatch ||
         FullDirKind == OMPD_target_update)
       return FullDirKind;
     return OMPD_target;
@@ -2938,6 +2987,9 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_target_variant_dispatch:
     Outliner.emitOMPTargetVariantDispatchDirective();
     break;
+  case OMPD_dispatch:
+    Outliner.emitOMPDispatchDirective();
+    break;
 
   case OMPD_interop:
     Outliner.emitOMPInteropDirective();
@@ -3021,6 +3073,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
         case OMPD_target_enter_data:
         case OMPD_target_exit_data:
         case OMPD_target_update:
+        case OMPD_dispatch:
           return EmitLateOutlineOMPDirective(S, NextKind);
         case OMPD_parallel_for:
         case OMPD_parallel_for_simd:
