@@ -116,29 +116,6 @@ static cl::opt<unsigned> ExpectNumSpecialInterchangeLoopnests(
     OPT_SWITCH "-expect-loopnests", cl::init(1), cl::Hidden,
     cl::desc(OPT_DESC "expect number of loopnests for special interchange"));
 
-// Flag to enable offline preparation for running array-scalarization cleanup.
-// [Note]
-// - This is part of preparation for special loop interchange over a 3-level
-//   loopnest.
-//
-// [Note]
-// - Currently, only the relevant LIT tests will turn this on.
-// - Driver will need to turn this flag on to trigger special loop interchange.
-//
-static cl::opt<bool> RunArrayScalarizationSymbases(
-    "run-" OPT_SWITCH "-array-scalarization-symbases", cl::init(false),
-    cl::Hidden, cl::desc("Run " OPT_DESC " Array Scalarization with Symbases"));
-
-// Symbase values provided to help offline preparation for running
-// array-scalarization cleanup.
-//
-// [Note]
-// - This is part of preparation for special loop interchange.
-//
-static cl::list<unsigned> ArrayScalarizationSymbases(
-    OPT_SWITCH "-array-scalarization-symbases", cl::CommaSeparated,
-    cl::desc("Symbases for Array Scalarization Cleanup"));
-
 // Threshold on arithmetic operations to help enable special loop interchange.
 static cl::opt<unsigned> SpecialInterchangeArithOpNumThreadshold(
     OPT_SWITCH "-special-interchange-arith-op-num-threshold", cl::init(1400),
@@ -581,9 +558,6 @@ class HIRSpecialLoopInterchange : public HIRLoopInterchange {
   // profit analysis.
   bool analyzeLoop(HLLoop *InnerLp);
 
-  // Perform array scalarization to cleanup certain memref(s) in the loopnest
-  bool doCleanup(HLLoop *InnerLp);
-
   // Use a heuristic-based profit model targeting the special interchange
   bool isProfitable(HLLoop *InnerLp);
 
@@ -936,18 +910,6 @@ bool HIRSpecialLoopInterchange::analyzeLoop(HLLoop *InnerLp) {
            << "SuitableGroupCount: " << ConstOnlySubsMemRefGroupCount << "\n";
   });
 
-  return true;
-}
-
-bool HIRSpecialLoopInterchange::doCleanup(HLLoop *InnerLp) {
-  // Collection and analysis are conducted inside analyzeLoop()
-  // - SBS is obtained from analyzeLoop()
-  if (!HIRTransformUtils::doScalarization(HIRF, HDDA, InnerLp, SBS)) {
-    LLVM_DEBUG(dbgs() << "Failure in innermostLp array scalarization\n";);
-    return false;
-  }
-
-  HIRInvalidationUtils::invalidateBody<HIRSafeReductionAnalysis>(InnerLp);
   return true;
 }
 
@@ -1325,9 +1287,6 @@ bool HIRSpecialLoopInterchange::generatePermutation(HLLoop *OuterLp,
 //
 // [Note]
 // - SortedLoops contains the desired permutation for the special interchange.
-// - The loopneet needs to be cleaned up using
-//   HIRTransformUtils::doArrayScalarization(.). Otherwise, the legal test
-//   will fail.
 //
 bool HIRSpecialLoopInterchange::isLegal(HLLoop *OuterLp) {
   bool IsLegal = HIRLoopInterchange::getPermutation(OuterLp);
@@ -1365,12 +1324,6 @@ bool HIRSpecialLoopInterchange::run() {
 
     if (!analyzeLoop(InnerLp)) {
       LLVM_DEBUG(dbgs() << "Failure in analyzeLoop()\n";);
-      continue;
-    }
-
-    if (!doCleanup(InnerLp)) {
-      LLVM_DEBUG(dbgs() << "Failure in "
-                           "HIRSpecialLoopInterchange::doCleanup()\n";);
       continue;
     }
 
