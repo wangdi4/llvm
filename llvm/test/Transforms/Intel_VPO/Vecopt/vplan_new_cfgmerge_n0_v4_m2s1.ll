@@ -67,14 +67,14 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP1:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP2:%.*]] = vector-trip-count i64 1024, UF = 1
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB5]]
+; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB5]]: # preds: Cloned.[[BB7]], new_latch
+; CHECK-NEXT:    Cloned.[[BB8]]: # preds: Cloned.[[BB7]], new_latch
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_1:%.*]] = phi  [ i64 [[VP0]], Cloned.[[BB7]] ],  [ i64 [[VP_INDVARS_IV_NEXT_1:%.*]], new_latch ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP_1:%.*]] = icmp ult i64 [[VP_INDVARS_IV_1]] i64 [[VP2]]
-; CHECK-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] br [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]]: # preds: Cloned.[[BB5]]
+; CHECK-NEXT:    [[BB9]]: # preds: Cloned.[[BB8]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_CMP_1]]
 ; CHECK-NEXT:     [DA: Div] i64* [[VP_PTR_1:%.*]] = getelementptr inbounds i64* [[ARY0]] i64 [[VP_INDVARS_IV_1]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_CC_1:%.*]] = sext i32 [[C0]] to i64
@@ -82,16 +82,16 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:     [DA: Div] store i64 [[VP_ADD_1]] i64* [[VP_PTR_1]]
 ; CHECK-NEXT:     [DA: Uni] br new_latch
 ; CHECK-EMPTY:
-; CHECK-NEXT:    new_latch: # preds: [[BB8]]
+; CHECK-NEXT:    new_latch: # preds: [[BB9]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1]] = add i64 [[VP_INDVARS_IV_1]] i64 [[VP1]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP_2:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP2]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_CMP_2]], Cloned.[[BB5]], Cloned.[[BB9:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_CMP_2]], Cloned.[[BB8]], Cloned.[[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB9]]: # preds: new_latch
+; CHECK-NEXT:    Cloned.[[BB10]]: # preds: new_latch
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP4:%.*]] = induction-final{add} i64 live-in0 i64 1
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB10:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB11:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB10]]: # preds: Cloned.[[BB9]]
+; CHECK-NEXT:    Cloned.[[BB11]]: # preds: Cloned.[[BB10]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:

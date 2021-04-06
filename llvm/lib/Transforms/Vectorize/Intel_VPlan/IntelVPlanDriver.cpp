@@ -296,15 +296,25 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   LVP.buildInitialVPlans();
 #endif // INTEL_CUSTOMIZATION
 
-  if (EnableMaskedVariant)
+  if (EnableMaskedVariant) {
+    DenseMap<VPlanVector *, std::shared_ptr<VPlanMasked>> OrigClonedVPlans;
     for (auto &Pair : LVP.getAllVPlans()) {
       std::shared_ptr<VPlanVector> Plan = Pair.second.MainPlan;
       if (!Pair.second.MaskedModeLoop) {
+        auto It = OrigClonedVPlans.find(Plan.get());
+        if (It != OrigClonedVPlans.end()) {
+          LVP.appendVPlanPair(Pair.first, LoopVectorizationPlanner::VPlanPair{
+                                              Plan, It->second});
+          continue;
+        }
         MaskedModeLoopCreator MML(cast<VPlanNonMasked>(Plan.get()), VPAF);
-        LVP.appendVPlanPair(Pair.first, LoopVectorizationPlanner::VPlanPair{
-                                            Plan, MML.createMaskedModeLoop()});
+        std::shared_ptr<VPlanMasked> MaskedPlan = MML.createMaskedModeLoop();
+        OrigClonedVPlans[Plan.get()] = MaskedPlan;
+        LVP.appendVPlanPair(
+            Pair.first, LoopVectorizationPlanner::VPlanPair{Plan, MaskedPlan});
       }
     }
+  }
 
   // VPlan Predicator
   LVP.predicate();
