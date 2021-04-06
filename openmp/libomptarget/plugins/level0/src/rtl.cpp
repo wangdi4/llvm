@@ -1220,11 +1220,12 @@ public:
     //  <PoolInfoList> := <PoolInfo>[,<PoolInfoList>]
     //  <PoolInfo>     := <MemType>[,<AllocMax>[,<Capacity>[,<PoolSize>]]]
     //  <MemType>      := all | device | host | shared
-    //  <AllocMax>     := positive integer, max allocation size in MB
+    //  <AllocMax>     := positive integer or empty, max allocation size in MB
     //                    (default: 1)
-    //  <Capacity>     := positive integer, number of allocations from a single
-    //                    block (default: 4)
-    //  <PoolSize>     := positive integer, max pool size in MB (default: 256)
+    //  <Capacity>     := positive integer or empty, number of allocations from
+    //                    a single block (default: 4)
+    //  <PoolSize>     := positive integer or empty, max pool size in MB
+    //                    (default: 256)
     if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_MEMORY_POOL")) {
       if (env[0] == '0' && env[1] == '\0') {
         Flags.UseMemoryPool = 0;
@@ -1260,6 +1261,8 @@ public:
               allInfo[offset++] = num;
             else if (num > 0)
               poolInfo[memType][offset++] = num;
+            else if (token.size() == 0)
+              offset++;
             else
               valid = 0;
           } else {
@@ -1295,11 +1298,11 @@ public:
           IDP("  <PoolInfo>     := "
               "<MemType>[,<AllocMax>[,<Capacity>[,<PoolSize>]]]\n");
           IDP("  <MemType>      := all | device | host | shared\n");
-          IDP("  <AllocMax>     := positive integer, "
+          IDP("  <AllocMax>     := positive integer or empty, "
               "max allocation size in MB (default: 1)\n");
-          IDP("  <Capacity>     := positive integer, number of allocations "
-              "from a single block (default: 4)\n");
-          IDP("  <PoolSize>     := positive integer, "
+          IDP("  <Capacity>     := positive integer or empty, "
+              "number of allocations from a single block (default: 4)\n");
+          IDP("  <PoolSize>     := positive integer or empty, "
               "max pool size in MB (default: 256)\n");
         }
       }

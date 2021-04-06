@@ -297,7 +297,7 @@ bool VPSOAAnalysis::isProfitableForSOA(const VPInstruction *I) {
   if (!GEP) {
     // The assert is triggered in DEBUG compiler and we return false in the
     // release compiler.
-    assert("Expect a GEP instruction at this point in the code.");
+    assert(false && "Expect a GEP instruction at this point in the code.");
     return false;
   }
 

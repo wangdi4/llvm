@@ -1468,14 +1468,13 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
   }
 
   unsigned NestingLevel = OrigLoop->getNestingLevel();
+  if (CurrentVPInstUnrollPart > 0)
+    WideRef->shift(NestingLevel, CurrentVPInstUnrollPart * VF);
 
   // For unit stride ref, nothing else to do. We assume unit stride for
   // interleaved access.
-  if (isUnitStrideRef(Ref) || InterLeaveAccess) {
-    if (CurrentVPInstUnrollPart > 0)
-      WideRef->shift(NestingLevel, CurrentVPInstUnrollPart * VF);
+  if (isUnitStrideRef(Ref) || InterLeaveAccess)
     return WideRef;
-  }
 
   SmallVector<const RegDDRef *, 4> AuxRefs;
   RegDDRef::CanonExprsTy WideRefCEs;
@@ -1516,8 +1515,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
       CE->getIVCoeff(NestingLevel, &BlobCoeff, &ConstCoeff);
 
       for (unsigned i = 0; i < VF; ++i) {
-        CA.push_back(ConstantInt::getSigned(
-            Int64Ty, ConstCoeff * (i + CurrentVPInstUnrollPart * VF)));
+        CA.push_back(ConstantInt::getSigned(Int64Ty, ConstCoeff * i));
       }
       ArrayRef<Constant *> AR(CA);
       auto CV = ConstantVector::get(AR);
@@ -3432,9 +3430,32 @@ RegDDRef *VPOCodeGenHIR::getOrCreateScalarRef(const VPValue *VPVal,
 
   assert(ScalarLaneID < getVF() && "Invalid lane ID.");
   RegDDRef *WideRef = widenRef(VPVal, getVF());
-  HLInst *ExtractInst = HLNodeUtilities.createExtractElementInst(
-      WideRef->clone(), (unsigned)ScalarLaneID,
-      "extract." + Twine(ScalarLaneID) + ".");
+  HLInst *ExtractInst = nullptr;
+
+  // Decide the extraction scheme based on type of VPValue - we need to extract
+  // subvector for re-vectorized incoming VectorType, while we do a simple
+  // extractelement for scalar type.
+  if (auto *VPValVecTy = dyn_cast<VectorType>(VPVal->getType())) {
+    // Here we assume that the widened vector we are extracting subvector from
+    // is in AOS layout. Consider the below example -
+    // VPVal              -  <v1, v2>
+    // WideRef (VF=2)     -  <v1_lane0, v2_lane0, v1_lane1, v2_lane1>
+    // ScalarRef (Lane=1) -  <v1_lane1, v2_lane1>
+    unsigned OrigNumElts = VPValVecTy->getNumElements();
+    SmallVector<Constant *, 8> ShuffleMask;
+    for (unsigned Start = ScalarLaneID * OrigNumElts,
+                  End = (ScalarLaneID * OrigNumElts) + OrigNumElts;
+         Start != End; ++Start)
+      ShuffleMask.push_back(ConstantInt::get(Type::getInt32Ty(Context), Start));
+
+    ExtractInst =
+        createShuffleWithUndef(WideRef->clone(), ShuffleMask, "extractsubvec.");
+  } else {
+    ExtractInst = HLNodeUtilities.createExtractElementInst(
+        WideRef->clone(), (unsigned)ScalarLaneID,
+        "extract." + Twine(ScalarLaneID) + ".");
+  }
+
   addInstUnmasked(ExtractInst);
   ScalarRef = ExtractInst->getLvalDDRef();
   return ScalarRef->clone();

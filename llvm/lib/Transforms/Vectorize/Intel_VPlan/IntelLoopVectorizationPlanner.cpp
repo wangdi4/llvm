@@ -1236,7 +1236,6 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   // 2. Widen each instruction in the old loop to a new one in the new loop.
   VPCallbackILV CallbackILV;
 
-  // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlanVector *Plan = getVPlanForVF(BestVF);
   assert(Plan && "No VPlan found for BestVF.");
 
@@ -1245,14 +1244,20 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   VPLiveInOutCreator LICreator(*Plan);
   LICreator.restoreLiveIns();
 
+  // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlanCallVecDecisions CallVecDecisions(*Plan);
-  CallVecDecisions.run(BestVF, TLI, TTI);
-  std::string Label("CallVecDecisions analysis for VF=" +
-                    std::to_string(BestVF));
+  std::string Label;
+  if (EnableCFGMerge && EmitPushPopVF) {
+    CallVecDecisions.runForMergedCFG(TLI, TTI);
+    Label = "CallVecDecisions analysis for merged CFG";
+  } else {
+    CallVecDecisions.runForVF(BestVF, TLI, TTI);
+    Label = "CallVecDecisions analysis for VF=" + std::to_string(BestVF);
+  }
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
 
   // Compute SVA results for final VPlan which will be used by CG.
-  Plan->runSVA(BestVF, TLI);
+  Plan->runSVA();
   VPLAN_DUMP(PrintSVAResults, "ScalVec analysis", Plan);
 
   VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ILV,

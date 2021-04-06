@@ -623,11 +623,11 @@ void VPlanVector::computePDT(void) {
 
 #endif // INTEL_CUSTOMIZATION
 
-void VPlanVector::runSVA(unsigned VF, const TargetLibraryInfo *TLI) {
+void VPlanVector::runSVA() {
   if (!EnableScalVecAnalysis)
     return;
   VPlanSVA = std::make_unique<VPlanScalVecAnalysis>();
-  VPlanSVA->compute(this, VF, TLI);
+  VPlanSVA->compute(this);
 }
 
 void VPlanVector::clearSVA() {

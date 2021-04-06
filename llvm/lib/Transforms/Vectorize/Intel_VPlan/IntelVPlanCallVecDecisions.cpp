@@ -29,15 +29,58 @@ bool VPlanVecNonReadonlyLibCalls = true;
 } // namespace vpo
 } // namespace llvm
 
-void VPlanCallVecDecisions::run(unsigned VF, const TargetLibraryInfo *TLI,
-                                const TargetTransformInfo *TTI) {
+static bool isVPPopVF(const VPInstruction *I) {
+  return I->getOpcode() == VPInstruction::PopVF;
+}
+
+void VPlanCallVecDecisions::runForVF(unsigned VF, const TargetLibraryInfo *TLI,
+                                     const TargetTransformInfo *TTI) {
   LLVM_DEBUG(dbgs() << "Running CallVecDecisions for VF=" << VF << "\n");
   for (VPBasicBlock &VPBB : Plan) {
     for (VPInstruction &Inst : VPBB) {
+      // Handle cases when incorrect interface is called for merged CFG.
+      if (isa<VPPushVF>(&Inst) || isVPPopVF(&Inst)) {
+        assert(false && "runForVF cannot be called for merged CFG. Use "
+                        "runForMergedCFG instead.");
+        // For release build, safely reset and call correct interface.
+        reset();
+        runForMergedCFG(TLI, TTI);
+        return;
+      }
+
       if (auto *VPCall = dyn_cast<VPCallInstruction>(&Inst))
         analyzeCall(VPCall, VF, TLI, TTI);
     }
   }
+}
+
+void VPlanCallVecDecisions::runForMergedCFG(const TargetLibraryInfo *TLI,
+                                            const TargetTransformInfo *TTI) {
+  LLVM_DEBUG(dbgs() << "Running CallVecDecisions for merged CFG\n");
+  // Stack to track various VFs encountered in merged CFG.
+  std::stack<unsigned> VFStack;
+  // Current VF that must be used to analyze a call. It effecively tracks the
+  // stack's top element.
+  unsigned CurrentVF;
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan.getEntryBlock());
+  for (VPBasicBlock *VPBB : RPOT) {
+    for (VPInstruction &Inst : *VPBB) {
+      if (auto *PushVF = dyn_cast<VPPushVF>(&Inst))
+        VFStack.push(PushVF->getVF());
+
+      if (isVPPopVF(&Inst))
+        VFStack.pop();
+
+      CurrentVF = VFStack.empty() ? 0 : VFStack.top();
+
+      if (auto *VPCall = dyn_cast<VPCallInstruction>(&Inst)) {
+        assert(CurrentVF != 0 && "Valid VF was not identified for merged CFG.");
+        analyzeCall(VPCall, CurrentVF, TLI, TTI);
+      }
+    }
+  }
+
+  assert(VFStack.empty() && "Expected empty VF stack.");
 }
 
 void VPlanCallVecDecisions::reset() {
