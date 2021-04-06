@@ -390,10 +390,9 @@ entry:
 ; CHECK: Both ModRef (MustAlias):   call void @an_argmemonly_func(i8* %q) #{{.*}} [ "unknown"() ] <->   call void @an_inaccessibleorargmemonly_func(i8* %q) #{{.*}} [ "unknown"() ]
 }
 
-
 ; CHECK:      attributes #{{.*}} = { argmemonly nofree nosync nounwind willreturn writeonly }
 ; CHECK-NEXT: attributes #{{.*}} = { argmemonly nofree nosync nounwind willreturn }
-; CHECK-NEXT: attributes #{{.*}} = { argmemonly nounwind willreturn }
+; CHECK-NEXT: attributes #{{.*}} = { argmemonly nosync nounwind willreturn }
 ; CHECK-NEXT: attributes #{{.*}} = { noinline nounwind readonly }
 ; CHECK-NEXT: attributes #{{.*}} = { noinline nounwind writeonly }
 ; CHECK-NEXT: attributes #{{.*}} = { nounwind ssp }
