@@ -303,6 +303,7 @@ class OpenMPLateOutliner {
   void emitOMPUseDeviceAddrClause(const OMPUseDeviceAddrClause *);
   void emitOMPInitClause(const OMPInitClause *);
   void emitOMPUseClause(const OMPUseClause *);
+  void emitOMPNovariantsClause(const OMPNovariantsClause *);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   void emitOMPDataflowClause(const OMPDataflowClause *);
