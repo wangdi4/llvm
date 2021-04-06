@@ -58,7 +58,7 @@
 // RUN:   %clang_cl -### --intel -fsycl -fno-sycl-device-lib=all -Qiopenmp -o %t.out --target=x86_64-pc-windows-msvc -Qopenmp-targets=spir64 %s 2>&1 \
 // RUN:   | FileCheck -check-prefixes=CHK-COMMANDS,CHK-COMMANDS-CL %s
 
-// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{(-coff)?}}" "-fsycl" "-fsycl-is-device" {{.*}} "-emit-llvm-bc" {{.*}} "-o" "[[SYCLBC:.+\.bc]]" {{.*}} "[[INPUT:.+\.c]]"
+// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{(-coff)?}}" "-fsycl-is-device" {{.*}} "-emit-llvm-bc" {{.*}} "-o" "[[SYCLBC:.+\.bc]]" {{.*}} "[[INPUT:.+\.c]]"
 // CHK-COMMANDS: llvm-link{{.*}} "[[SYCLBC]]" "-o" "[[SYCLLINKEDBC:.+\.bc]]"
 // CHK-COMMANDS: sycl-post-link{{.*}} "-o" "[[TABLE:.+\.table]]" "[[SYCLLINKEDBC]]"
 // CHK-COMMANDS: file-table-tform{{.*}} "-o" "[[FILELIST:.+\.txt]]" "[[TABLE]]"
@@ -68,11 +68,11 @@
 // CHK-COMMANDS: clang-offload-wrapper{{.*}} "-o=[[SYCLWRAPPERBC:.+\.bc]]" "-host=x86_64-pc-windows-msvc" "-target=spir64" "-kind=sycl"{{.*}} "[[TABLEFORWRAPPER]]"
 // CHK-COMMANDS-NOCL: llc{{.*}} "-filetype=obj" "-o" "[[SYCLWRAPPEROBJ:.+\.o]]" "[[SYCLWRAPPERBC]]"
 // CHK-COMMANDS-CL: llc{{.*}} "-filetype=obj" "-o" "[[SYCLWRAPPEROBJCL:.+\.obj]]" "[[SYCLWRAPPERBC]]"
-// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{.*}}" "-fsycl" "-fsycl-is-device" {{.*}} "-fsycl-int-header={{[a-zA-Z]:}}[[SYCLHEADER:.+\.h]]" "-mllvm" "-paropt=31" {{.*}} "-o" "{{.*}}[[SYCLHEADER]]" {{.*}} "[[INPUT]]"
-// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-include" "{{.*}}[[SYCLHEADER]]" "-dependency-filter" "{{.*}}[[SYCLHEADER]]" "-fsycl" "-fsycl-is-host" "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" "-fsycl-targets=spir64-unknown-unknown-sycldevice{{.*}}" {{.*}} "-o" "[[HOSTBC:.+\.bc]]" {{.*}} "[[INPUT]]"
+// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{.*}}" "-fsycl-is-device" {{.*}} "-fsycl-int-header={{[a-zA-Z]:}}[[SYCLHEADER:.+\.h]]" "-mllvm" "-paropt=31" {{.*}} "-o" "{{.*}}[[SYCLHEADER]]" {{.*}} "[[INPUT]]"
+// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-include" "{{.*}}[[SYCLHEADER]]" "-dependency-filter" "{{.*}}[[SYCLHEADER]]" "-fsycl-is-host" "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" "-fsycl-targets=spir64-unknown-unknown-sycldevice{{.*}}" {{.*}} "-o" "[[HOSTBC:.+\.bc]]" {{.*}} "[[INPUT]]"
 // CHK-COMMANDS-NOCL: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-obj" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" {{.*}} "-o" "[[HOSTOBJ:.+\.o]]" "-x" "ir" "[[HOSTBC]]"
 // CHK-COMMANDS-CL: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-obj" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" {{.*}} "-o" "[[HOSTOBJCL:.+\.obj]]" "-x" "ir" "[[HOSTBC]]"
-// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[HOSTBC]]" "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl" "-fsycl" "-fsycl-is-host" "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" {{.*}} "-o" "[[OMPBC:.+\.bc]]" {{.*}} "[[INPUT]]"
+// CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[HOSTBC]]" "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl" "-fsycl-is-host" "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" {{.*}} "-o" "[[OMPBC:.+\.bc]]" {{.*}} "[[INPUT]]"
 // CHK-COMMANDS-NOCL: llvm-link{{.*}} "[[OMPBC]]" "{{.*}}libomptarget-opencl.bc" "-o" "[[OMPLINKEDBC:.+\.out]]"
 // CHK-COMMANDS-NOCL: llvm-spirv{{.*}} "-o" "[[OMPSPIRV:.+\.out]]" "[[OMPLINKEDBC]]"
 // CHK-COMMANDS-NOCL: clang-offload-wrapper{{.*}} "-host" "x86_64-pc-windows-msvc{{.*}}" "-o" "[[OMPWRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[OMPSPIRV]]"
@@ -145,10 +145,10 @@
 // RUN:   %clang_cl -### --intel -fsycl -fno-sycl-device-lib=all -Qiopenmp -c -Fo%t.o --target=x86_64-pc-windows-msvc -Qopenmp-targets=spir64 %s 2>&1 \
 // RUN:   | FileCheck -check-prefixes=CHK-BUJOBS,CHK-BUJOBS-CL %s
 
-// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{.*}}" "-fsycl" "-fsycl-is-device" {{.*}} "-fsycl-int-header={{[a-zA-Z]:}}[[SYCLHEADER:.+\.h]]" "-mllvm" "-paropt=31" {{.*}} "-o" "{{.*}}[[SYCLHEADER]]" {{.*}} "[[INPUT:.+\.c]]"
-// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-include" "{{.*}}[[SYCLHEADER]]" "-dependency-filter" "{{.*}}[[SYCLHEADER]]" "-fsycl" "-fsycl-is-host" "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" "-fsycl-targets=spir64-unknown-unknown-sycldevice{{.*}}" {{.*}} "-o" "[[HOSTBC:.+\.bc]]" {{.*}} "[[INPUT]]"
-// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[HOSTBC]]" "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl" "-fsycl" "-fsycl-is-host" "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" {{.*}} "-o" "[[OMPBC:.+\.bc]]" {{.*}} "[[INPUT]]"
-// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{.*}}" "-fsycl" "-fsycl-is-device" {{.*}} "-emit-llvm-bc" {{.*}} "-o" "[[SYCLBC:.+\.bc]]" {{.*}} "[[INPUT]]"
+// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{.*}}" "-fsycl-is-device" {{.*}} "-fsycl-int-header={{[a-zA-Z]:}}[[SYCLHEADER:.+\.h]]" "-mllvm" "-paropt=31" {{.*}} "-o" "{{.*}}[[SYCLHEADER]]" {{.*}} "[[INPUT:.+\.c]]"
+// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-include" "{{.*}}[[SYCLHEADER]]" "-dependency-filter" "{{.*}}[[SYCLHEADER]]" "-fsycl-is-host" "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" "-fsycl-targets=spir64-unknown-unknown-sycldevice{{.*}}" {{.*}} "-o" "[[HOSTBC:.+\.bc]]" {{.*}} "[[INPUT]]"
+// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-emit-llvm-bc" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[HOSTBC]]" "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl" "-fsycl-is-host" "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" {{.*}} "-o" "[[OMPBC:.+\.bc]]" {{.*}} "[[INPUT]]"
+// CHK-BUJOBS: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice{{.*}}" "-fsycl-is-device" {{.*}} "-emit-llvm-bc" {{.*}} "-o" "[[SYCLBC:.+\.bc]]" {{.*}} "[[INPUT]]"
 // CHK-BUJOBS-NOCL: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-obj" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" {{.*}} "-o" "[[HOSTOBJ:.+\.o]]" "-x" "ir" "[[HOSTBC]]"
 // CHK-BUJOBS-NOCL: clang-offload-bundler{{.*}} "-type=o" "-targets=openmp-spir64,sycl-spir64-unknown-unknown-sycldevice,host-x86_64-pc-windows-msvc" "-outputs=[[FATOBJ:.+\.o]]" "-inputs=[[OMPBC]],[[SYCLBC]],[[HOSTOBJ]]"
 // CHK-BUJOBS-CL: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}}" {{.*}} "-emit-obj" {{.*}} "-fopenmp-late-outline" {{.*}} "-fopenmp" {{.*}} "-mllvm" "-paropt=31" "-fopenmp-targets=spir64" {{.*}} "-o" "[[HOSTOBJCL:.+\.obj]]" "-x" "ir" "[[HOSTBC]]"
