@@ -26,17 +26,20 @@ class Loop;
 namespace vpo {
 extern bool EmitPushPopVF;
 
+class SingleLoopVecScenario;
+class LoopVectorizationPlanner;
+class CfgMergerPlanDescr;
+
 // Utility class to merge CFG of VPlan.
 class VPlanCFGMerger {
   VPlanVector &Plan;
   VPExternalValues &ExtVals;
   VPVectorTripCountCalculation * VectorTripCount = nullptr;
-  unsigned VF;
-  unsigned UF;
-
+  unsigned MainVF;
+  unsigned MainUF;
 public:
   VPlanCFGMerger(VPlanVector &P, unsigned V, unsigned U)
-      : Plan(P), ExtVals(P.getExternals()), VF(V), UF(U) {}
+      : Plan(P), ExtVals(P.getExternals()), MainVF(V), MainUF(U) {}
 
   //
   // Create a simple chain of vectorized loop and scalar remainder.
@@ -62,6 +65,13 @@ public:
   //
   void createSimpleVectorRemainderChain(Loop *OrigLoop);
 
+  // Create a list of VPlan descriptors (along with the needed VPlans) by
+  // vectorization scenario \p Scen.
+  static void createPlans(LoopVectorizationPlanner &Planner,
+                          const SingleLoopVecScenario &Scen,
+                          std::list<CfgMergerPlanDescr> &Plans, Loop *OrigLoop,
+                          VPlan &MainPlan,
+                          VPAnalysesFactory &VPAF);
 private:
   // Create a new merge block (i.e. VPBasicBlock with VPPHINodes which have
   // non-undefined MergeId, see VPExternalUse::UndefMergeId) inserting it after
@@ -83,12 +93,12 @@ private:
   // Create scalar remainder for original loop \p OrigLoop, inserting it after
   // the VPBasicBlock \p InsertAfter. The \p InsertAfter is supposed to be a
   // merge block (i.e. containing special VPPHINodes).
-  // A block with VPReuseLoop and VPInstructions to get scalar liveouts is
-  // created and linked as successor to InsertAfter block. VPReuseLoop input
-  // values are linked to VPPHINodes from InsertAfter block, using VPlan scalar
-  // in/out list. \p FinalBB is the block in VPlan which should be used to jump
-  // from the last basic block of the loop (see FinalBB on the diagram above).
-  // Returns the block created.
+  // A block with VPScalarRemainder and VPInstructions to get scalar liveouts is
+  // created and linked as successor to InsertAfter block. VPScalarRemainder
+  // input values are linked to VPPHINodes from InsertAfter block, using VPlan
+  // scalar in/out list. \p FinalBB is the block in VPlan which should be used
+  // to jump from the last basic block of the loop (see FinalBB on the diagram
+  // above). Returns the block created.
   VPBasicBlock *createScalarRemainder(Loop *OrigLoop, VPBasicBlock *InsertAfter,
                                       VPBasicBlock *FinalBB);
 

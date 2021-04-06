@@ -185,7 +185,7 @@ void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {
   Builder.setInsertPointFirstNonPhi(PreHeader);
   VPValue *OrigTC;
   VPInstruction *Cond;
-  std::tie(OrigTC, Cond) = getLoopUpperBound(CandidateLoop);
+  std::tie(OrigTC, Cond) = CandidateLoop->getLoopUpperBound();
   assert((OrigTC && Cond) && "A normalized loop expected");
   if (auto Instr = dyn_cast<VPInstruction>(OrigTC)) {
     auto Parent = Instr->getParent();

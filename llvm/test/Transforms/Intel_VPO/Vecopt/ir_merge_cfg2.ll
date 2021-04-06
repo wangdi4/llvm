@@ -58,7 +58,7 @@ define void @foo2(i64 %N) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = re-use-loop for.body, LiveInMap:
+; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder for.body, LiveInMap:
 ; CHECK-NEXT:         {i64 [[K_IV_B0]] in {  [[K_IV0:%.*]] = phi i64 [ [[K_IV_B0]], [[FOR_BODY_LR_PH0:%.*]] ], [ [[K_IV_NEXT0:%.*]], [[LATCH0:%.*]] ]} -> i64 [[VP3]] }
 ; CHECK-NEXT:         {label [[FOR_COND_CLEANUP_LOOPEXIT0:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[FOR_COND_CLEANUP_LOOPEXIT0]], label [[FOR_BODY0:%.*]], !llvm.loop !0} -> label [[BB7]] }
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[K_IV_NEXT0]] = phi i64 [ [[K_IV_N10:%.*]], [[THEN0:%.*]] ], [ [[K_IV_N20:%.*]], [[ELSE0:%.*]] ]

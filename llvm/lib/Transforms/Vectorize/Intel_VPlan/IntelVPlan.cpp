@@ -25,6 +25,7 @@
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanVLSAnalysis.h"
+#include "IntelLoopVectorizationPlanner.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
 #else
 #include "VPlan.h"
@@ -324,15 +325,21 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "active-lane";
   case VPInstruction::ActiveLaneExtract:
     return "lane-extract";
-  case VPInstruction::ReuseLoop:
-    return "re-use-loop";
   case VPInstruction::OrigLiveOut:
     return "orig-live-out";
   case VPInstruction::PushVF:
     return "pushvf";
   case VPInstruction::PopVF:
     return "popvf";
- #endif
+  case VPInstruction::ScalarPeel:
+    return "scalar-peel";
+  case VPInstruction::ScalarRemainder:
+    return "scalar-remainder";
+  case VPInstruction::PlanAdapter:
+    return "vplan-adapter";
+  case VPInstruction::PlanPeelAdapter:
+    return "vplan-peel-adapter";
+#endif
   default:
     return Instruction::getOpcodeName(Opcode);
   }
@@ -469,8 +476,14 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   default:
     O << getOpcodeName(getOpcode());
   }
-  if (auto *ReuseLoop = dyn_cast<VPReuseLoop>(this)) {
-    ReuseLoop->printImpl(O);
+
+  if (auto *ScalarPeel = dyn_cast<VPScalarPeel>(this)) {
+    ScalarPeel->printImpl(O);
+    return;
+  }
+
+  if (auto *ScalarRemainder = dyn_cast<VPScalarRemainder>(this)) {
+    ScalarRemainder->printImpl(O);
     return;
   }
 
@@ -488,6 +501,9 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     auto *Self = cast<VPOrigTripCountCalculation>(this);
     O << " for original loop " << Self->getOrigLoop()->getName();
   }
+
+  if (auto *Adapter = dyn_cast<VPlanAdapter>(this))
+    Adapter->printImpl(O);
 
   // TODO: print type when this information will be available.
   // So far don't print anything, because PHI may not have Instruction
@@ -847,6 +863,41 @@ void VPlanVector::updateDominatorTree(DominatorTree *DT,
   }
 }
 
+VPlanAdapter::VPlanAdapter(VPlan &P)
+    : VPlanAdapter(VPInstruction::PlanAdapter, P) {}
+
+VPlanAdapter::VPlanAdapter(unsigned Opcode, VPlan &P)
+    : VPInstruction(Opcode, Type::getTokenTy(*P.getLLVMContext()), {}),
+      Plan(P) {}
+
+VPScalarPeel *VPlanPeelAdapter::getPeelLoop() const {
+  for (auto &BB : Plan)
+    for (auto &I : BB)
+      if (auto *PeelLoop = dyn_cast<VPScalarPeel>(&I))
+        return PeelLoop;
+  llvm_unreachable("can't find scalar peel");
+}
+
+const VPValue *VPlanPeelAdapter::getUpperBound() const {
+  return getPeelLoop()->getUpperBound();
+}
+
+void VPlanPeelAdapter::setUpperBound(VPValue *TC) {
+  if (isa<VPlanScalarPeel>(Plan)) {
+    VPScalarPeel *PeelLoop = getPeelLoop();
+    PeelLoop->setUpperBound(TC);
+    return;
+  }
+  assert(isa<VPlanMasked>(Plan) && "unexpected peel VPlan");
+
+  VPLoop *TopVPLoop = *cast<VPlanMasked>(Plan).getVPLoopInfo()->begin();
+  VPValue *OrigTC;
+  VPInstruction *Cond;
+  std::tie(OrigTC, Cond) = TopVPLoop->getLoopUpperBound();
+  assert((OrigTC && Cond) && "A normalized loop expected");
+  Cond->replaceUsesOfWith(OrigTC, TC);
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 const Twine VPlanPrinter::getUID(const VPBasicBlock *BB) {
   return "N" + Twine(getOrCreateBID(BB));
@@ -1147,7 +1198,28 @@ void VPCallInstruction::printImpl(raw_ostream &O) const {
   }
   }
 }
+
+void VPlanAdapter::printImpl(raw_ostream &O) const {
+  O << " for VPlan {" << Plan.getName() << "}";
+}
+
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+Use *VPScalarPeel::findUpperBoundUseInLatch() const {
+  Loop *L = getLoop();
+  BasicBlock *Latch = L->getLoopLatch();
+  auto BI = dyn_cast<BranchInst>(Latch->getTerminator());
+  assert((BI && BI->isConditional()) &&
+         "expected conditional branch instruction");
+  auto Cond = cast<CmpInst>(BI->getCondition());
+  if (L->isLoopInvariant(Cond->getOperand(0)))
+    return &Cond->getOperandUse(0);
+  else {
+    assert(L->isLoopInvariant(Cond->getOperand(1)) &&
+           "unexpectd non invariant");
+    return &Cond->getOperandUse(1);
+  }
+}
 
 void VPValue::replaceUsesWithIf(
     VPValue *NewVal, llvm::function_ref<bool(VPUser *U)> ShouldReplace,
@@ -1347,32 +1419,30 @@ void VPlanVector::copyData(VPAnalysesFactory &VPAF, UpdateDA UDA,
   }
 }
 
-std::unique_ptr<VPlanVector> VPlanMasked::clone(VPAnalysesFactory &VPAF,
-                                                UpdateDA UDA) {
+VPlanVector *VPlanMasked::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
   // Create new masked VPlan
-  std::unique_ptr<VPlanMasked> ClonedVPlan =
-      std::make_unique<VPlanMasked>(getExternals(), getUnlinkedVPInsts());
+  auto *ClonedVPlan = new VPlanMasked(getExternals(), getUnlinkedVPInsts());
   ClonedVPlan->setName(getName() + ".cloned");
-  copyData(VPAF, UDA, ClonedVPlan.get());
+
+  copyData(VPAF, UDA, ClonedVPlan);
   return ClonedVPlan;
 }
 
-std::unique_ptr<VPlanVector> VPlanNonMasked::clone(VPAnalysesFactory &VPAF,
-                                                   UpdateDA UDA) {
+VPlanVector *VPlanNonMasked::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
   // Create new non-masked VPlan
-  std::unique_ptr<VPlanNonMasked> ClonedVPlan =
-      std::make_unique<VPlanNonMasked>(getExternals(), getUnlinkedVPInsts());
+  auto *ClonedVPlan = new VPlanNonMasked(getExternals(), getUnlinkedVPInsts());
   ClonedVPlan->setName(getName() + ".cloned");
-  copyData(VPAF, UDA, ClonedVPlan.get());
+
+  copyData(VPAF, UDA, ClonedVPlan);
   return ClonedVPlan;
 }
 
-std::unique_ptr<VPlanMasked>
-VPlanNonMasked::cloneMasked(VPAnalysesFactory &VPAF, UpdateDA UDA) {
+VPlanMasked *VPlanNonMasked::cloneMasked(VPAnalysesFactory &VPAF,
+                                         UpdateDA UDA) {
   // Create new masked VPlan from a non-masked VPlan.
-  std::unique_ptr<VPlanMasked> ClonedVPlan =
-      std::make_unique<VPlanMasked>(getExternals(), getUnlinkedVPInsts());
+  auto *ClonedVPlan = new VPlanMasked(getExternals(), getUnlinkedVPInsts());
   ClonedVPlan->setName(getName() + ".cloned.masked");
-  copyData(VPAF, UDA, ClonedVPlan.get());
+
+  copyData(VPAF, UDA, ClonedVPlan);
   return ClonedVPlan;
 }

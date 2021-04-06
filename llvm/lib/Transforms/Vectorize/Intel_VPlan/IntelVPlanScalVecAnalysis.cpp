@@ -413,7 +413,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
-  case VPInstruction::ReuseLoop: {
+  case VPInstruction::ScalarRemainder: {
     // Instruction itself is unconditionally always scalar.
     setSVAKindForInst(Inst, SVAKind::FirstScalar);
     // All operands are always scalar too.
@@ -731,7 +731,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::OrigTripCountCalculation:
   case VPInstruction::ActiveLane:
   case VPInstruction::ActiveLaneExtract:
-  case VPInstruction::ReuseLoop:
+  case VPInstruction::ScalarRemainder:
   case VPInstruction::OrigLiveOut:
   case VPInstruction::PushVF:
   case VPInstruction::PopVF:

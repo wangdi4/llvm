@@ -122,8 +122,8 @@ TEST_F(CloneVPlan, TestCloneVPlan) {
   auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
   OrigVPlan->setVPlanDA(std::move(VPDA));
   OrigVPlan->computeDA();
-  std::unique_ptr<VPlanVector> ClonedVPlan =
-      OrigVPlan->clone(VPAF, VPlanVector::UpdateDA::RecalculateDA);
+  std::unique_ptr<VPlanVector> ClonedVPlan(
+      OrigVPlan->clone(VPAF, VPlanVector::UpdateDA::RecalculateDA));
   EXPECT_EQ(OrigVPlan->size(), ClonedVPlan->size());
 
   // Compare ClonedVPlan and OrigVPlan graphs.
@@ -168,8 +168,8 @@ TEST_F(CloneVPlan, TestCloneLoop) {
   auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
   OrigVPlan->setVPlanDA(std::move(VPDA));
   OrigVPlan->computeDA();
-  std::unique_ptr<VPlanVector> ClonedVPlan =
-      OrigVPlan->clone(VPAF, VPlanVector::UpdateDA::RecalculateDA);
+  std::unique_ptr<VPlanVector> ClonedVPlan(
+      OrigVPlan->clone(VPAF, VPlanVector::UpdateDA::RecalculateDA));
   EXPECT_EQ(OrigVPlan->size(), ClonedVPlan->size());
 
   // Create a map between the loops of the original and cloned plans.
@@ -277,8 +277,8 @@ TEST_F(CloneVPlan, TestCloneDA) {
   auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
   OrigVPlan->setVPlanDA(std::move(VPDA));
   OrigVPlan->computeDA();
-  std::unique_ptr<VPlanVector> ClonedVPlan =
-      OrigVPlan->clone(VPAF, VPlanVector::UpdateDA::CloneDA);
+  std::unique_ptr<VPlanVector> ClonedVPlan(
+      OrigVPlan->clone(VPAF, VPlanVector::UpdateDA::CloneDA));
   EXPECT_EQ(OrigVPlan->size(), ClonedVPlan->size());
 
   // Create the map between ClonedVPBBs and OrigVPBBs.
@@ -316,8 +316,8 @@ TEST_F(CloneVPlan, TestCloneVPLiveInOut) {
   OrigVPlan->setVPlanDA(std::move(VPDA));
   OrigVPlan->computeDA();
 
-  std::unique_ptr<VPlanVector> ClonedVPlan =
-      OrigVPlan->clone(VPAF, VPlanVector::UpdateDA::CloneDA);
+  std::unique_ptr<VPlanVector> ClonedVPlan(
+      OrigVPlan->clone(VPAF, VPlanVector::UpdateDA::CloneDA));
   EXPECT_EQ(OrigVPlan->size(), ClonedVPlan->size());
 
   // Compare ClonedVPlan and OrigVPlan graphs.

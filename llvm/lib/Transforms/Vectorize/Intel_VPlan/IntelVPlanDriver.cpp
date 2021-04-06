@@ -372,8 +372,10 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 
   // Do the preparation for CG: create auxiliary loops and merge them into one
   // piece of CFG.
-  if (VF > 1)
+  if (VF > 1) {
+    LVP.createMergerVPlans(VPAF);
     LVP.emitPeelRemainderVPLoops(VF, UF);
+  }
 
   if (DisableCodeGen)
     return false;
