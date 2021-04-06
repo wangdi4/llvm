@@ -989,6 +989,13 @@ void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
                   nullptr /*Materializer*/)
           .remapFunction(F);
 
+      // Attributes may need to be updated on the functions that do not get
+      // cloned when opaque pointers are enabled because the parameter type of
+      // 'p0' will not change, but the type of object pointed-to may be changed
+      // by DTrans.
+      if (UsingOpaquePtrs)
+        updateAttributeTypes(&F);
+
       // Let the derived class perform any additional actions needed on the
       // remapped function.
       postprocessFunction(F, /*is_clone=*/false);
@@ -1059,18 +1066,62 @@ void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
 }
 
 // Update the attributes which contain types which have been remapped to new
-// types, such as created when cloning the following function definition:
+// types. For example:
 //   define void @test01(%struct.type01b* byval(%struct.type01b) %in)
 //
-// CloneFunctionInto() will have propagated the source attributes to produce:
+// Changing the parameter type will create a function of the form:
 //  define void @test01.1(%_DT_struct.type01b* byval(%struct.type01b) %in)
 //
 // Update this to have the remapped type for the byval attribute.
 //   define void @test01.1(%_DT_struct.type01b* byval(%_DT_struct.type01b) %in)
 //
+// With opaque pointers, the parameter type will not be directly changed, but
+// the object type used in the attribute may still need to be updated.
+// For example:
+//   define void @test01(p0 byval(%struct.type01b) %in)
+// will need to be updated to:
+//   define void @test01(p0 byval(%_DT_struct.type01b) %in)
+//
 // Other attributes that contain types are: byref, sret, and preallocated.
-void DTransOPOptBase::updateAttributeTypes(Function *CloneFunc) {
-  // TODO: Check for attributes to update
+void DTransOPOptBase::updateAttributeTypes(Function *F) {
+  auto &TheRemapper = TypeRemapper;
+  auto TypeChangeNeeded = [&TheRemapper](llvm::Type *Ty) -> llvm::Type * {
+    llvm::Type *RemapTy = TheRemapper.remapType(Ty);
+    if (Ty != RemapTy)
+      return RemapTy;
+    return nullptr;
+  };
+  unsigned ArgIdx = 0;
+  LLVMContext &Context = F->getContext();
+  for (Argument &I : F->args()) {
+    // The attributes are mutually exclusive. Just find if any are present,
+    // and update the type if needed.
+    if (I.hasByValAttr()) {
+      if (auto *RemapTy = TypeChangeNeeded(I.getParamByValType())) {
+        F->removeParamAttr(ArgIdx, Attribute::ByVal);
+        F->addParamAttr(ArgIdx, Attribute::getWithByValType(Context, RemapTy));
+      }
+    } else if (I.hasByRefAttr()) {
+      if (auto *RemapTy = TypeChangeNeeded(I.getParamByRefType())) {
+        F->removeParamAttr(ArgIdx, Attribute::ByRef);
+        F->addParamAttr(ArgIdx, Attribute::getWithByRefType(Context, RemapTy));
+      }
+    } else if (I.hasStructRetAttr()) {
+      if (auto *RemapTy = TypeChangeNeeded(I.getParamStructRetType())) {
+        F->removeParamAttr(ArgIdx, Attribute::StructRet);
+        F->addParamAttr(ArgIdx,
+                        Attribute::getWithStructRetType(Context, RemapTy));
+      }
+    } else if (I.hasPreallocatedAttr()) {
+      AttributeSet ParamAttrs = F->getAttributes().getParamAttributes(ArgIdx);
+      if (auto *RemapTy = TypeChangeNeeded(ParamAttrs.getPreallocatedType())) {
+        F->removeParamAttr(ArgIdx, Attribute::Preallocated);
+        F->addParamAttr(ArgIdx,
+                        Attribute::getWithPreallocatedType(Context, RemapTy));
+      }
+    }
+    ++ArgIdx;
+  }
 }
 
 // Remove functions and global variables that have been completely
