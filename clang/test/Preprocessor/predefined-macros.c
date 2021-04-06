@@ -75,11 +75,6 @@
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-INTEL-FINITE-MATH-ONLY
 // CHECK-INTEL-FINITE-MATH-ONLY: #define __FINITE_MATH_ONLY__ 0
 //
-<<<<<<< HEAD
-// RUN: %clang_cc1 %s -E -dM -ffinite-math-only -o - \
-// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-INTEL-FINITE-MATH-ONLY-SYCL
-// CHECK-INTEL-FINITE-MATH-ONLY-SYCL: #define __FINITE_MATH_ONLY__ 0
-=======
 // RUN: %clang_cc1 %s -E -dM -ffinite-math-only -fsycl-is-device -o - \
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-FINITE-MATH-ONLY-SYCLDEVICE
 // CHECK-FINITE-MATH-ONLY-SYCLDEVICE: #define __FINITE_MATH_ONLY__ 0
@@ -87,7 +82,6 @@
 // RUN: %clang_cc1 %s -E -dM -ffinite-math-only -fsycl-is-host -o - \
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-FINITE-MATH-ONLY-SYCLHOST
 // CHECK-FINITE-MATH-ONLY-SYCLHOST: #define __FINITE_MATH_ONLY__ 0
->>>>>>> c901265576dc81dc645afa52270561d4e1c0d9ce
 // end INTEL_CUSTOMIZATION
 //
 // RUN: %clang %s -E -dM -fno-finite-math-only -o - \
