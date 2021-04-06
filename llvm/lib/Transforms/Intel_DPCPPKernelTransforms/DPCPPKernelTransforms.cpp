@@ -31,5 +31,7 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeImplicitArgsAnalysisLegacyPass(Registry);
   initializeAddImplicitArgsLegacyPass(Registry);
   initializeResolveWICallLegacyPass(Registry);
+  initializePrepareKernelArgsLegacyPass(Registry);
+  initializeCleanupWrappedKernelLegacyPass(Registry);
 }
 
