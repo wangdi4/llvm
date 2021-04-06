@@ -512,8 +512,45 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
       // optimization to those blocks.
       BasicBlock* Next = BB->getNextNode();
       // F.hasOptSize is already checked in the outer if statement.
-      if (!llvm::shouldOptimizeForSize(BB, PSI, BFI.get()))
-        EverMadeChange |= bypassSlowDivision(BB, BypassWidths);
+      if (!llvm::shouldOptimizeForSize(BB, PSI, BFI.get())) {
+#if INTEL_CUSTOMIZATION
+        // Divopt may split a block BB into a "diamond":
+        //
+        //      HeadBB (1st part of original BB)
+        // FastBB    SlowBB  (fast/slow division)
+        //      TailBB (2nd part of BB)
+        //
+        // HeadBB gets copied probs from original BB, and must be fixed.
+        // TailBB will have default probs, and we can restore them.
+
+        // Save the old branch prob from BB.
+        SmallVector<BranchProbability, 2> OrigProbs;
+        auto *OrigTerm = BB->getTerminator();
+        for (unsigned i = 0; i < BB->getTerminator()->getNumSuccessors(); ++i)
+          OrigProbs.push_back(BPI->getEdgeProbability(BB, i));
+
+        if (bypassSlowDivision(BB, BypassWidths)) {
+          EverMadeChange = true;
+
+          // If BB was split, and the new BB has a 2-way branch, set the probs
+          // to 50%.
+          auto *NewTerm = BB->getTerminator();
+          if (NewTerm != OrigTerm &&
+              BB->getTerminator()->getNumSuccessors() == 2) {
+            SmallVector<BranchProbability, 2> NewProbs = {
+                BranchProbability(1, 2), BranchProbability(1, 2)};
+            BPI->setEdgeProbability(BB, NewProbs);
+          }
+
+          // Restore the edge probs on TailBB.
+          (void)OrigTerm;
+          auto *TailBB = OrigTerm->getParent();
+          if (TailBB)
+            BPI->setEdgeProbability(TailBB, OrigProbs);
+        }
+#endif // INTEL_CUSTOMIZATION
+      }
+
       BB = Next;
     }
   }
