@@ -1,3 +1,4 @@
+; RUN: %oclopt -cl-add-nt-attr -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -cl-add-nt-attr -S < %s | FileCheck %s
 
 ; ModuleID = 'main'
@@ -224,3 +225,5 @@ attributes #3 = { convergent nounwind readnone }
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 1, i32 2}
 !2 = !{}
+
+; DEBUGIFY-NOT: WARNING

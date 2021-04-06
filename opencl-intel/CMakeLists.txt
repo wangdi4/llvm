@@ -51,6 +51,8 @@ endif (NOT WIN32)
 
 include(CheckCXXCompilerFlag)
 
+include(HandleLLVMOptions)
+
 # Include functions for opencl targets
 include(CMakeFuncs)
 

@@ -1,4 +1,6 @@
+; RUN: %oclopt -coerce-types -mtriple x86_64-pc-linux -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -coerce-types -mtriple x86_64-pc-linux -S %s -o - | FileCheck %s --check-prefix=X64-LINUX
+; RUN: %oclopt -coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -coerce-win64-types -mtriple x86_64-w64-mingw32 -S %s -o - | FileCheck %s --check-prefix=X64-WIN
 
 ; This test checks function comdat change
@@ -69,3 +71,5 @@ attributes #1 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disa
 !10 = !{!"any pointer", !11, i64 0}
 !11 = !{!"omnipotent char", !12, i64 0}
 !12 = !{!"Simple C++ TBAA"}
+
+; DEBUGIFY-NOT: WARNING

@@ -1,3 +1,4 @@
+; RUN: %oclopt -S -add-fast-math %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -S -add-fast-math %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -56,3 +57,5 @@ declare <2 x float> @foo_vec(i32)
 declare double @bar(i32)
 declare <2 x double> @bar_vec(i32)
 declare i32 @baz(float)
+
+; DEBUGIFY-NOT: WARNING

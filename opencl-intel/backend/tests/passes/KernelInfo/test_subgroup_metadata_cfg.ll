@@ -1,3 +1,4 @@
+; RUN: %oclopt -kernel-sub-group-info -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -kernel-sub-group-info -S < %s | FileCheck %s
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -34,3 +35,5 @@ declare i64 @_Z14get_local_sizej(i32)
 
 !0 = !{void (i32 addrspace(1)*)* @testKernel}
 ; CHECK: [[SGMD]] = !{i1 true}
+
+; DEBUGIFY-NOT: WARNING
