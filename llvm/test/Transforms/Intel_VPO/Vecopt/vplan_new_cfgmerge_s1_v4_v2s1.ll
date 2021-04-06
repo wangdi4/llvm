@@ -13,14 +13,14 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:   PeelLoop: scalar
 ; CHECK-NEXT:   Remainders: scalar,unmasked, VF=2,
 ; CHECK-NEXT:  VPlan after creation during merge:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body.ScalarPeel27
-; CHECK-NEXT:    PeelBlk28: # preds:
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.ScalarPeel
+; CHECK-NEXT:    [[PEELBLK0:PeelBlk[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-peel for.body, LiveInMap:
 ; CHECK-NEXT:         {label [[FOR_END0:%.*]] in {  br i1 [[CMP0:%.*]], label [[FOR_BODY0:%.*]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB0:BB[0-9]+]] }
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0:%.*]] = add nuw nsw i64 [[INDVARS_IV0:%.*]], 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB0]]: # preds: PeelBlk28
+; CHECK-NEXT:    [[BB0]]: # preds: [[PEELBLK0]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
@@ -58,15 +58,15 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after creation during merge:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body.ScalarRemainder30
-; CHECK-NEXT:    RemBlk31: # preds:
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.ScalarRemainder
+; CHECK-NEXT:    [[REMBLK0:RemBlk[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP_1:%.*]] = scalar-remainder for.body, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[INDVARS_IV_NEXT0]], [[FOR_BODY0]] ]} -> i64 live-in0 }
 ; CHECK-NEXT:         {label [[FOR_END0]] in {  br i1 [[CMP0]], label [[FOR_BODY0]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB6:BB[0-9]+]] }
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_LIVEOUT_1:%.*]] = orig-live-out token [[VP_ORIG_LOOP_1]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]: # preds: RemBlk31
+; CHECK-NEXT:    [[BB6]]: # preds: [[REMBLK0]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
@@ -104,13 +104,13 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  List of VPlans added for merging:
-; CHECK-NEXT:  VPlan: test_store:for.body.ScalarRemainder30
+; CHECK-NEXT:  VPlan: test_store:for.body.ScalarRemainder
 ; CHECK-NEXT:    Kind: remainder VF:1
 ; CHECK-NEXT:  VPlan: test_store:for.body.cloned
 ; CHECK-NEXT:    Kind: remainder VF:2
 ; CHECK-NEXT:  VPlan: test_store:for.body
 ; CHECK-NEXT:    Kind: main VF:4
-; CHECK-NEXT:  VPlan: test_store:for.body.ScalarPeel27
+; CHECK-NEXT:  VPlan: test_store:for.body.ScalarPeel
 ; CHECK-NEXT:    Kind: peel VF:1
 ;
 entry:
