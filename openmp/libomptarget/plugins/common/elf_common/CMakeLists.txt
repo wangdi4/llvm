@@ -29,6 +29,14 @@ elseif(NOT OPENMP_STANDALONE_BUILD)
   set(LINK_LLVM_LIBS LLVMBinaryFormat LLVMObject LLVMSupport)
   target_link_libraries(elf_common INTERFACE ${LINK_LLVM_LIBS})
   add_dependencies(elf_common ${LINK_LLVM_LIBS})
+# INTEL_CUSTOMIZATION
+  # Statically link C run-time library on Windows.
+  # Otherwise, we cannot use LLVMObject and LLVMSupport.
+  # Alternatively we can link LLVMSupport_dyn (which we already build)
+  # and LLVMObject_dyn (yet another component library to be built
+  # in two flavors).
+  set_msvc_crt_flags(elf_common)
+# end INTEL_CUSTOMIZATION
 else(LIBOMPTARGET_DEP_LIBELF_FOUND AND NOT LIBOMPTARGET_FORCE_LLVM_ELF)
   libomptarget_say("Not building elf_common offload plugin library: libelf dependency not found.")
 endif(LIBOMPTARGET_DEP_LIBELF_FOUND AND NOT LIBOMPTARGET_FORCE_LLVM_ELF)

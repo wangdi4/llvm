@@ -30,6 +30,11 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
 
         include_directories(${LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS})
         add_library(omptarget.rtl.opencl SHARED src/rtl.cpp src/ompt-opencl.cpp)
+        if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
+          # Statically link C run-time library on Windows.
+          # Otherwise, we cannot use LLVMObject and LLVMSupport.
+          set_msvc_crt_flags(omptarget.rtl.opencl)
+        endif()
 
         if (NOT OPENMP_STANDALONE_BUILD)
           # We have to disable EH for Windows compilation.
@@ -60,6 +65,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
         endif(INTEL_CUSTOMIZATION)
 
         target_link_libraries(omptarget.rtl.opencl PRIVATE
+          elf_common
           ${LIBOMPTARGET_DEP_OPENCL_LIBRARIES})
 
         if (CMAKE_SYSTEM_NAME MATCHES "Linux")
