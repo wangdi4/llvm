@@ -95,7 +95,7 @@ set(IL0_PREBUILT_COMPONENTS_STRUCTURE install CACHE STRING "")
 #   - This file has been updated as per previous bullet, but the environment
 #   - still contains the old data. We'll be able to notify the user to update
 #   - it.
-if($ENV{L0LOADERVER} MATCHES "1.0")
+if($ENV{L0LOADERVER} MATCHES "1.2.3")
 else()
   message(FATAL_ERROR "Unexpected value of L0LOADERVER environment variable!")
 endif()
