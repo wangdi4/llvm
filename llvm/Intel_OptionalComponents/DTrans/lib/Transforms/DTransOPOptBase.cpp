@@ -207,11 +207,10 @@ DTransOPTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
       ReplRetTy = ReplTy;
       NeedsReplaced = true;
     }
-    unsigned Total = FunctionTy->getNumParams();
-    for (unsigned Idx = 0; Idx < Total; ++Idx) {
-      Type *ParmTy = FunctionTy->getParamType(Idx);
-      Type *ReplParmTy = ParmTy;
-      Type *ReplTy = computeReplacementType(ParmTy);
+
+    for (Type* ParamTy : FunctionTy->params()) {
+      Type *ReplParmTy = ParamTy;
+      Type *ReplTy = computeReplacementType(ParamTy);
       if (ReplTy) {
         ReplParmTy = ReplTy;
         NeedsReplaced = true;
@@ -299,17 +298,17 @@ DTransOPTypeRemapper::computeReplacementType(DTransType *SrcTy) const {
       ReplRetTy = ReplTy;
       NeedsReplaced = true;
     }
-    unsigned Total = FunctionTy->getNumArgs();
-    for (unsigned Idx = 0; Idx < Total; ++Idx) {
-      DTransType *ParmTy = FunctionTy->getArgType(Idx);
-      DTransType *ReplParmTy = ParmTy;
-      DTransType *ReplTy = computeReplacementType(ParmTy);
+
+    for (auto *ArgTy : FunctionTy->args()) {
+      assert(ArgTy && "Incomplete function type");
+      DTransType *ReplArgTy = ArgTy;
+      DTransType *ReplTy = computeReplacementType(ArgTy);
       if (ReplTy) {
-        ReplParmTy = ReplTy;
+        ReplArgTy = ReplTy;
         NeedsReplaced = true;
       }
 
-      DataTypes.push_back(ReplParmTy);
+      DataTypes.push_back(ReplArgTy);
     }
 
     if (NeedsReplaced)
@@ -562,9 +561,7 @@ void DTransOPOptBase::collectDependenciesForType(DTransStructType *StructTy) {
       assert(RetTy && "Incomplete function type");
       AddDependentTypeEntry(RetTy, Dependee);
 
-      unsigned NumParams = FuncTy->getNumArgs();
-      for (unsigned Idx = 0; Idx < NumParams; ++Idx) {
-        DTransType *ArgTy = FuncTy->getArgType(Idx);
+      for (auto *ArgTy : FuncTy->args()) {
         assert(ArgTy && "Incomplete function type");
         AddDependentTypeEntry(ArgTy, Dependee);
       }
@@ -1010,11 +1007,9 @@ void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
     if (MDTuple *FuncMD = dyn_cast_or_null<MDTuple>(
             TypeMetadataReader::getDTransMDNode(*ResultFunc))) {
       SmallVector<Metadata *, 8> Remaps;
-      unsigned Count = FuncMD->getNumOperands();
-      for (unsigned Idx = 0; Idx < Count; ++Idx) {
-        auto *TypeNode = dyn_cast<MDNode>(FuncMD->getOperand(Idx));
-        Remaps.emplace_back(Mapper.mapMDNode(*TypeNode));
-      }
+      for (const MDOperand &TypeNode : FuncMD->operands())
+        Remaps.emplace_back(Mapper.mapMDNode(*cast<MDNode>(TypeNode.get())));
+
       auto *UpdatedMDTypes = MDTuple::getDistinct(F.getContext(), Remaps);
       TypeMetadataReader::addDTransMDNode(*ResultFunc, UpdatedMDTypes);
     }
@@ -1093,36 +1088,38 @@ void DTransOPOptBase::updateAttributeTypes(Function *F) {
       return RemapTy;
     return nullptr;
   };
-  unsigned ArgIdx = 0;
+
   LLVMContext &Context = F->getContext();
-  for (Argument &I : F->args()) {
+  for (auto &A : enumerate(F->args())) {
     // The attributes are mutually exclusive. Just find if any are present,
     // and update the type if needed.
-    if (I.hasByValAttr()) {
-      if (auto *RemapTy = TypeChangeNeeded(I.getParamByValType())) {
-        F->removeParamAttr(ArgIdx, Attribute::ByVal);
-        F->addParamAttr(ArgIdx, Attribute::getWithByValType(Context, RemapTy));
+    if (A.value().hasByValAttr()) {
+      if (auto *RemapTy = TypeChangeNeeded(A.value().getParamByValType())) {
+        F->removeParamAttr(A.index(), Attribute::ByVal);
+        F->addParamAttr(A.index(),
+                        Attribute::getWithByValType(Context, RemapTy));
       }
-    } else if (I.hasByRefAttr()) {
-      if (auto *RemapTy = TypeChangeNeeded(I.getParamByRefType())) {
-        F->removeParamAttr(ArgIdx, Attribute::ByRef);
-        F->addParamAttr(ArgIdx, Attribute::getWithByRefType(Context, RemapTy));
+    } else if (A.value().hasByRefAttr()) {
+      if (auto *RemapTy = TypeChangeNeeded(A.value().getParamByRefType())) {
+        F->removeParamAttr(A.index(), Attribute::ByRef);
+        F->addParamAttr(A.index(),
+                        Attribute::getWithByRefType(Context, RemapTy));
       }
-    } else if (I.hasStructRetAttr()) {
-      if (auto *RemapTy = TypeChangeNeeded(I.getParamStructRetType())) {
-        F->removeParamAttr(ArgIdx, Attribute::StructRet);
-        F->addParamAttr(ArgIdx,
+    } else if (A.value().hasStructRetAttr()) {
+      if (auto *RemapTy = TypeChangeNeeded(A.value().getParamStructRetType())) {
+        F->removeParamAttr(A.index(), Attribute::StructRet);
+        F->addParamAttr(A.index(),
                         Attribute::getWithStructRetType(Context, RemapTy));
       }
-    } else if (I.hasPreallocatedAttr()) {
-      AttributeSet ParamAttrs = F->getAttributes().getParamAttributes(ArgIdx);
+    } else if (A.value().hasPreallocatedAttr()) {
+      AttributeSet ParamAttrs =
+          F->getAttributes().getParamAttributes(A.index());
       if (auto *RemapTy = TypeChangeNeeded(ParamAttrs.getPreallocatedType())) {
-        F->removeParamAttr(ArgIdx, Attribute::Preallocated);
-        F->addParamAttr(ArgIdx,
+        F->removeParamAttr(A.index(), Attribute::Preallocated);
+        F->addParamAttr(A.index(),
                         Attribute::getWithPreallocatedType(Context, RemapTy));
       }
     }
-    ++ArgIdx;
   }
 }
 
