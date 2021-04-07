@@ -112,12 +112,13 @@ bool VPLoop::hasNormalizedInduction() const {
       if (!isDefOutside(SecOp) && !isa<VPConstant>(SecOp))
         return false;
       // Check step.
-      if (auto StepInit = dyn_cast<VPInductionInitStep>(AddI->getOperand(0)))
+      if (auto *StepInit = dyn_cast<VPInductionInitStep>(AddI->getOperand(0)))
         SecOp = StepInit->getOperand(0);
-      else {
-        StepInit = cast<VPInductionInitStep>(AddI->getOperand(1));
+      else if (auto *StepInit =
+                   dyn_cast<VPInductionInitStep>(AddI->getOperand(1)))
         SecOp = StepInit->getOperand(0);
-      }
+      else
+        return false;
       if (VPConstantInt *Step = dyn_cast<VPConstantInt>(SecOp))
         return Step->getValue() == 1;
     }
