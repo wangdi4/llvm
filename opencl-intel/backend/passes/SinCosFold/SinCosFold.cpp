@@ -61,6 +61,7 @@ namespace intel {
     Value * val = iData->sinInst->getArgOperand(0);
     Instruction* pEntryPoint = &*(iData->cosInst)->getParent()->getParent()->getEntryBlock().begin();
     AllocaInst * cos = new AllocaInst(val->getType(), 0, "cosPtr",pEntryPoint);
+    cos->setDebugLoc(iData->cosInst->getDebugLoc());
 
     reflection::FunctionDescriptor fd;
     fd.name = "sincos";
@@ -88,7 +89,9 @@ namespace intel {
     LoadInst *cosLoad =
         new LoadInst(val->getType(), cos, "cosVal", iData->firstCallInst);
 
-    sincos->setDebugLoc(iData->firstCallInst->getDebugLoc());
+    // SinCosFold pass will change the behavior of original code, so we can
+    // only guarantee that the debugger will have a place to stop.
+    sincos->setDebugLoc(iData->sinInst->getDebugLoc());
     cosLoad->setDebugLoc(iData->cosInst->getDebugLoc());
 
     Value * sinVal = sincos;

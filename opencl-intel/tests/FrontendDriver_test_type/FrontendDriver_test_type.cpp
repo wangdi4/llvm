@@ -102,6 +102,27 @@ TEST_F(ClangCompilerTestType, Test_FPAtomics)
                                << m_binary_result->GetErrorLog() << std::endl;
 }
 
+TEST_F(ClangCompilerTestType, Test_OptNone) {
+  const char kernel[] = "void __attribute__((optnone, noinline)) kern() {\n\
+                          }";
+  const char build_options[] = "";
+
+  FECompileProgramDescriptor desc;
+  desc.pProgramSource = kernel;
+  desc.uiNumInputHeaders = 0;
+  desc.pInputHeaders = nullptr;
+  desc.pszInputHeadersNames = nullptr;
+  desc.pszOptions = build_options;
+  desc.bFpgaEmulator = false;
+  desc.bEyeQEmulator = false;
+
+  int err = GetFECompiler()->CompileProgram(&desc, &m_binary_result);
+
+  ASSERT_EQ(CL_SUCCESS, err) << "Optnone attribute is supported." << std::endl
+                             << "The log: " << std::endl
+                             << m_binary_result->GetErrorLog() << std::endl;
+}
+
 TEST_F(ClangCompilerTestType, Test_PlainSpirvConversion)
 // take a simple spirv file and make FE Compiler convert it to llvm::Module
 {

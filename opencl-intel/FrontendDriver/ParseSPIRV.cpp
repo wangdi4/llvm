@@ -196,6 +196,8 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityAtomicFloat16MinMaxEXT:
     case spv::CapabilityAtomicFloat32MinMaxEXT:
     case spv::CapabilityAtomicFloat64MinMaxEXT:
+      // optnone attribute support
+    case spv::internal::CapabilityOptNoneINTEL:
       break;
     case spv::CapabilityInt64Atomics:
     case spv::CapabilityAtomicFloat64AddEXT:
@@ -349,12 +351,13 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
       llvm::readSpirv(*context, opts, inputStream, pModule, errorMsg);
 
   if (success) {
-    assert(!verifyModule(*pModule) &&
+    assert(!verifyModule(*pModule, &llvm::errs()) &&
            "SPIR-V consumer returned a broken module!");
     // Adapts the output of SPIR-V consumer to backend-friendly format.
     success = ClangFECompilerMaterializeSPIRVTask(m_pProgDesc, opts)
                    .MaterializeSPIRV(pModule);
-    assert(!verifyModule(*pModule) && "SPIRVMaterializer broke the module!");
+    assert(!verifyModule(*pModule, &llvm::errs()) &&
+           "SPIRVMaterializer broke the module!");
     // serialize to LLVM bitcode
     llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
     llvm::WriteBitcodeToFile(*pModule, ir_ostream);

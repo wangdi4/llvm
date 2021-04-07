@@ -81,7 +81,10 @@ bool ClangFECompilerMaterializeSPIRVTask::ifOptEnable() {
 
 bool ClangFECompilerMaterializeSPIRVTask::MaterializeSPIRV(llvm::Module *&pM) {
   if (ifOptEnable()) {
-    std::for_each(pM->begin(), pM->end(), removeNoInlineAttr);
+    std::for_each(pM->begin(), pM->end(), [&](llvm::Function &F) {
+      if (!F.hasOptNone())
+        removeNoInlineAttr(F);
+    });
   }
 
   if (m_opts.getDesiredBIsRepresentation() ==
