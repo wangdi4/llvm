@@ -189,6 +189,7 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
         m_compiler.CreateExecutionEngine(pProgram->GetModule());
         m_compiler.SetObjectCache(pCache);
         cpuProgram->SetExecutionEngine(m_compiler.GetExecutionEngine());
+        cpuProgram->GetExecutionEngine()->generateCodeForModule(pProgram->GetModule());
     } else {
         // create LLJIT
         std::unique_ptr<llvm::orc::LLJIT> LLJIT =
@@ -503,5 +504,39 @@ void CPUProgramBuilder::PostBuildProgramStep(
   assert(!pProgram->GetRuntimeService().isNull() && "RuntimeService in Program is NULL");
   // set in RuntimeService new BlockToKernelMapper object
   pProgram->GetRuntimeService()->SetBlockToKernelMapper(pMapper);
+
+  // Run static constructors
+  CPUProgram* pCPUProgram = static_cast<CPUProgram*>(pProgram);
+  llvm::ExecutionEngine *executionEngine = pCPUProgram->GetExecutionEngine();
+  llvm::orc::LLJIT *LLJIT = pCPUProgram->GetLLJIT();
+  assert(((executionEngine && !LLJIT) || (!executionEngine && LLJIT)) &&
+    "Only one of MCJIT and LLJIT should be enabled");
+  if (executionEngine) {
+    executionEngine->finalizeObject();
+    executionEngine->runStaticConstructorsDestructors(/*isDtors=*/false);
+  }
+  else {
+    if (pProgram->HasCachedExecutable()) {
+      using CtorTy = void (*)();
+      for (const std::string &name : pProgram->GetGlobalCtors()) {
+        auto ctor =
+            reinterpret_cast<CtorTy>(pCPUProgram->GetPointerToFunction(name));
+        ctor();
+      }
+    } else {
+      llvm::Error err = LLJIT->initialize(LLJIT->getMainJITDylib());
+      if (err) {
+        llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
+        throw Exceptions::CompilerException("Failed to run LLJIT initialize");
+      }
+    }
+  }
+
+  // Get pointer of global variables
+  std::vector<cl_prog_gv> &globalVariables = pProgram->GetGlobalVariables();
+  for (auto &gv : globalVariables) {
+    gv.pointer = pCPUProgram->GetPointerToGlobalValue(gv.name);
+    assert(gv.pointer && "failed to get address of global variable");
+  }
 }
 }}} // namespace

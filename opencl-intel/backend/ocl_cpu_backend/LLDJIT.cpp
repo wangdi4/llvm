@@ -163,18 +163,16 @@ std::string LLDJIT::getLastErrorMessage() {
   return std::string(Buf, Size);
 }
 
-void LLDJIT::mapDllFunctions(void *DLLHandle) {
+void LLDJIT::mapDllFunctions(llvm::Module *M, void *DLLHandle) {
   HMODULE HMod = reinterpret_cast<HMODULE>(DLLHandle);
-  for (auto *M : OwnedModules.finalized()) {
-    for (GlobalObject &GO : M->global_objects()) {
-      if (!GO.hasDLLExportStorageClass())
-        continue;
-      StringRef SymbolName = GO.getName();
-      void *Addr = GetProcAddress(HMod, SymbolName.data());
-      if (Addr)
-        updateGlobalMapping(SymbolName, static_cast<uint64_t>(
-                                            reinterpret_cast<uintptr_t>(Addr)));
-    }
+  for (GlobalObject &GO : M->global_objects()) {
+    if (!GO.hasDLLExportStorageClass())
+      continue;
+    StringRef SymbolName = GO.getName();
+    void *Addr = GetProcAddress(HMod, SymbolName.data());
+    if (Addr)
+      updateGlobalMapping(
+          SymbolName, static_cast<uint64_t>(reinterpret_cast<uintptr_t>(Addr)));
   }
 }
 
@@ -307,10 +305,12 @@ void LLDJIT::generateCodeForModule(Module *M) {
   }
 
   LoadedObjects.push_back(ObjectToLoad);
+  LoadDLL(M);
+
   OwnedModules.markModuleAsLoaded(M);
 }
 
-void LLDJIT::LoadDLL() {
+void LLDJIT::LoadDLL(Module *M) {
   TmpFile DLLFile = TmpFile("OpenCLKernel", "dll");
   TmpFile PDBFile = TmpFile("OpenCLKernel", "pdb");
   buildDllFromObjs(LoadedObjects, DLLFile.FileName(), PDBFile.FileName());
@@ -330,7 +330,7 @@ void LLDJIT::LoadDLL() {
     throw Exceptions::CompilerException("LoadLibrary(" + DLLPath +
                                         ") failed: " + getLastErrorMessage());
   DLLHandle = dllHandle;
-  mapDllFunctions(DLLHandle);
+  mapDllFunctions(M, DLLHandle);
 }
 
 void LLDJIT::finalizeLoadedModules() {
@@ -497,7 +497,6 @@ void LLDJIT::finalizeObject() {
     generateCodeForModule(M);
 
   finalizeLoadedModules();
-  LoadDLL();
 }
 
 void LLDJIT::finalizeModule(Module *M) {

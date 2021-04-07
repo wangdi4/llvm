@@ -344,8 +344,8 @@ protected:
                                     bool CheckFunctionsOnly);
   void DeleteTempFiles();
   void DeleteTempFiles(const llvm::SmallVectorImpl<std::string> &FilesToDelete);
-  void LoadDLL();
-  void mapDllFunctions(void *DllHandle);
+  void LoadDLL(llvm::Module *M);
+  void mapDllFunctions(llvm::Module *M, void *DllHandle);
   std::string getLastErrorMessage();
   void buildDllFromObjs(const llvm::SmallVector<std::string, 2> &InObjFiles,
                         const std::string &OutDLLPath,

@@ -2840,12 +2840,6 @@ cl_dev_err_code CPUDevice::clDevBuildProgram( cl_dev_program IN prog, const char
     return (cl_dev_err_code)m_pProgramService->BuildProgram(prog, options, buildStatus);
 }
 
-cl_dev_err_code CPUDevice::clDevFinalizeProgram(cl_dev_program IN prog) {
-  CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
-             TEXT("clDevFinalizeProgram Function enter"));
-  return m_pProgramService->FinalizeProgram(prog);
-}
-
 cl_dev_err_code CPUDevice::clDevGetFunctionPointerFor(cl_dev_program IN prog,
     const char* IN func_name, cl_ulong* OUT func_pointer_ret) const
 {

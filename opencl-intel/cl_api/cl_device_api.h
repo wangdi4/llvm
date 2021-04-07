@@ -247,7 +247,6 @@ enum cl_dev_err_code
     CL_DEV_OBJECT_ALREADY_LOCKED,               //!< Memory object is already locked
     CL_DEV_INVALID_OPERATION_MODE,              //!< Invalid operation mode
     CL_DEV_COMMAND_CANCELLED,                   //!< Command was canceled for any reason
-    CL_DEV_JIT_FAIL,                            //!< JIT failure
     CL_DEV_NOT_SUPPORTED                        //!< The operation is not supported by the device
 };
 
@@ -1406,8 +1405,6 @@ public:
                                            const char* IN options,
                                            cl_build_status* OUT buildStatus
                                            ) = 0;
-
-    virtual cl_dev_err_code clDevFinalizeProgram(cl_dev_program IN prog) = 0;
 
     //! Deletes previously created program object and releases all related resources.
     /*!

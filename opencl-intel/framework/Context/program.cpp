@@ -32,12 +32,12 @@ using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
-Program::Program(SharedPtr<Context> pContext)
-    : OCLObject<_cl_program_int>((_cl_context_int *)pContext->GetHandle(),
-                                 "Program"),
-      m_pContext(pContext), m_ppDevicePrograms(NULL),
-      m_szNumAssociatedDevices(0), m_isFinalized(false) {
-  m_afAutorunKernelsLaunched.clear();
+
+Program::Program(SharedPtr<Context> pContext) : OCLObject<_cl_program_int>(
+    (_cl_context_int*)pContext->GetHandle(), "Program"), m_pContext(pContext),
+    m_ppDevicePrograms(NULL), m_szNumAssociatedDevices(0)
+{
+    m_afAutorunKernelsLaunched.clear();
 }
 
 Program::~Program()
@@ -70,45 +70,11 @@ cl_err_code Program::GetBuildInfo(cl_device_id clDevice, cl_program_build_info c
     return pDeviceProgram->GetBuildInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
 
-bool Program::Finalize() {
-  if (!m_isFinalized) {
-    std::lock_guard<std::mutex> locked(m_finalizeMutex);
-    if (m_isFinalized)
-      return true;
-    for (cl_uint i = 0; i < m_szNumAssociatedDevices; ++i) {
-      DeviceProgram *deviceProgram = m_ppDevicePrograms[i].get();
-      if (CL_BUILD_SUCCESS != deviceProgram->GetBuildStatus())
-        continue;
-      auto &device = deviceProgram->GetDevice();
-      auto *programHandle = deviceProgram->GetDeviceProgramHandle();
-      assert(programHandle && "invalid program handle");
-      cl_dev_err_code err =
-          device->GetDeviceAgent()->clDevFinalizeProgram(programHandle);
-      assert(err == CL_DEV_SUCCESS && "failed to finalize program");
-      if (err != CL_DEV_SUCCESS)
-        return false;
-      deviceProgram->CollectGlobalVariablePointers();
-    }
-
-    AllocUSMForGVPointers();
-    m_isFinalized = true;
-  }
-  return true;
-}
-
 cl_err_code Program::GetDeviceFunctionPointer(cl_device_id device,
     const char* func_name, cl_ulong* func_pointer_ret)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(device);
     assert(pDeviceProgram && " pDeviceProgram is null");
-
-    // Program already built?
-    if (CL_BUILD_SUCCESS != pDeviceProgram->GetBuildStatus())
-      return CL_INVALID_PROGRAM_EXECUTABLE;
-
-    if (!Finalize())
-      return CL_INVALID_PROGRAM_EXECUTABLE;
-
     return pDeviceProgram->GetFunctionPointer(func_name, func_pointer_ret);
 }
 
@@ -122,9 +88,6 @@ cl_err_code Program::GetDeviceGlobalVariablePointer(cl_device_id device,
     // Program already built?
     if (CL_BUILD_SUCCESS != deviceProgram->GetBuildStatus())
         return CL_INVALID_PROGRAM_EXECUTABLE;
-
-    if (!Finalize())
-      return CL_INVALID_PROGRAM_EXECUTABLE;
 
     const std::map<std::string, cl_prog_gv> &gvs =
         deviceProgram->GetGlobalVariablePointers();
@@ -701,10 +664,7 @@ cl_err_code Program::CreateKernel(const char * psKernelName, SharedPtr<Kernel>* 
 		return CL_INVALID_PROGRAM_EXECUTABLE;
 	}
 
-        if (!Finalize())
-          return CL_INVALID_PROGRAM_EXECUTABLE;
-
-        // create new kernel object
+	// create new kernel object
     SharedPtr<Kernel> pKernel = Kernel::Allocate(this, psKernelName, m_szNumAssociatedDevices);
 	pKernel->SetLoggerClient(GET_LOGGER_CLIENT);
 
@@ -744,10 +704,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 		}
 	}
 
-        if (!Finalize())
-          return CL_INVALID_PROGRAM_EXECUTABLE;
-
-        cl_err_code clErrRet = CL_SUCCESS;
+	cl_err_code clErrRet = CL_SUCCESS;
 
 	//Todo: need to discuss this
 	//      Probably the best solution is just clDevGetProgramKernelNames

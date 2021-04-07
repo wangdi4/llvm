@@ -75,8 +75,6 @@ public:
     void GetGlobalVariablePointers(const cl_prog_gv **, size_t *)
         const override {}
 
-    cl_dev_err_code Finalize() override { return CL_DEV_SUCCESS; }
-
 protected:
     // Stores a list of MKL kernels perticipated in the Built-In kernel program
     typedef std::map<std::string, Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_*> BIKernelsMap_t;

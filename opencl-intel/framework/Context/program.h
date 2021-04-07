@@ -26,7 +26,6 @@
 #include "kernel.h"
 #include <vector>
 #include <memory>
-#include <mutex>
 
 namespace Intel { namespace OpenCL { namespace Framework {
 	class Context;
@@ -171,6 +170,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code GetDeviceGlobalVariablePointer(cl_device_id device,
             const char* gv_name, size_t* gv_size_ret, void** gv_pointer_ret);
 
+        // Allocate USM wrappers for global variable pointers
+        cl_err_code AllocUSMForGVPointers();
+
         // Free USM wrappers for global variable pointers
         void FreeUSMForGVPointers();
 
@@ -178,13 +180,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		virtual ~Program();
 
         DeviceProgram*  InternalGetDeviceProgram(cl_device_id clDeviceId);
-
-        // Allocate USM wrappers for global variable pointers
-        cl_err_code AllocUSMForGVPointers();
-
-        /// Finalize program, e.g. run global ctor, load program dll for windows
-        /// native debugger, and retrieve global variable address.
-        bool Finalize();
 
 		SharedPtr<Context>  m_pContext;
 		std::vector< unique_ptr<DeviceProgram> >     m_ppDevicePrograms;
@@ -202,8 +197,5 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 		// Mutex for m_deviceToProgram 
 		mutable Intel::OpenCL::Utils::OclMutex m_deviceProgramMapMutex;
-
-                volatile bool m_isFinalized;
-                std::mutex m_finalizeMutex;
 	};
 }}}

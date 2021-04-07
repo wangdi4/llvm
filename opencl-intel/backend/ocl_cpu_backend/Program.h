@@ -161,6 +161,22 @@ public:
     }
 
     /**
+     * Gets non-internal global variables.
+     * @return a vector of global variables.
+     */
+    virtual std::vector<cl_prog_gv>& GetGlobalVariables() {
+        return m_globalVariables;
+    }
+
+    /**
+     * Gets non-internal global variables.
+     * @return a vector of global variables.
+     */
+    virtual const std::vector<cl_prog_gv>& GetGlobalVariables() const {
+        return m_globalVariables;
+    }
+
+    /**
      * Set non-internal global variables.
      * @param gvs a vector of global variables.
      */
@@ -170,6 +186,13 @@ public:
      * Record name and promote linkage of global ctors and dtors.
      */
     void RecordCtorDtors(llvm::Module &M);
+
+    /**
+     * Return names of global ctors
+     */
+    const std::vector<std::string>& GetGlobalCtors() {
+        return m_globalCtors;
+    }
 
     /**
      * Return names of global dtors

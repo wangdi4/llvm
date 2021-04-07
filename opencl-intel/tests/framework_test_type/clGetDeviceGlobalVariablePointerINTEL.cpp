@@ -141,6 +141,13 @@ protected:
   // Test clCreateProgramWithBinary
   void TestProgramWithBinary(cl_program program, const char *gvName,
                              size_t gvSize, const char *negativeName) {
+#ifdef _WIN32
+    // LLDJIT doesn't support setObjectCache, therefore there isn't cached
+    // program binary.
+    if (GETENV("CL_CONFIG_USE_NATIVE_DEBUGGER"))
+      return;
+#endif
+
     cl_int err;
     size_t binarySize;
     err = clGetProgramInfo(program, CL_PROGRAM_BINARY_SIZES, sizeof(binarySize),

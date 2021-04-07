@@ -24,6 +24,7 @@
 #ifdef OCL_DEV_BACKEND_PLUGINS
 #include "plugin_manager.h"
 #endif
+
 #include <assert.h>
 #include <iostream>
 #include <map>
@@ -44,12 +45,6 @@ public:
   typedef void JIT_PTR(const void *, const size_t *, void *);
 
   virtual ~IKernelJITContainer() {}
-
-  // Get kernel function name.
-  virtual const std::string& GetFunctionName() const = 0;
-
-  // Set JIT address for a kernel function.
-  virtual void SetJITCode(const void* addr) = 0;
 
   /*
    * Free machine code
@@ -283,9 +278,6 @@ public:
    * Returns the kernel JIT buffer for the specified index
    */
   const IKernelJITContainer *GetKernelJIT(unsigned int index) const;
-
-  /// Returns the kernel JIT buffer for the specified index.
-  IKernelJITContainer *GetKernelJIT(unsigned index) { return m_JITs[index]; }
 
   /**
    * Returns the count of the JIT buffer for current kernel

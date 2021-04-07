@@ -404,23 +404,6 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code ProgramService::FinalizeProgram(cl_dev_program IN prog) {
-  CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"),
-             TEXT("FinalizeProgram enter"));
-
-  TProgramEntry *pEntry = reinterpret_cast<TProgramEntry *>(prog);
-
-  // Program already built?
-  if (CL_BUILD_SUCCESS != pEntry->clBuildStatus) {
-    return CL_DEV_INVALID_PROGRAM_EXECUTABLE;
-  }
-
-  cl_dev_err_code err = pEntry->pProgram->Finalize();
-
-  CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Exit"));
-  return err;
-}
-
 cl_dev_err_code ProgramService::GetFunctionPointerFor(cl_dev_program IN prog,
     const char* IN func_name, cl_ulong* OUT func_pointer_ret) const
 {
