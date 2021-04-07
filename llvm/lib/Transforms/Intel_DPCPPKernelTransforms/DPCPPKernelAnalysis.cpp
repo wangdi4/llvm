@@ -9,30 +9,59 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelAnalysis.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
-
-#include <string>
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
 
 using namespace llvm;
 
-INITIALIZE_PASS(DPCPPKernelAnalysis, "dpcpp-kernel-analysis",
-                "analyzes which function go in barrier route", false, false)
+namespace {
 
-namespace llvm {
+/// Legacy DPCPPKernel analysis pass.
+class DPCPPKernelAnalysisLegacy : public ModulePass {
+  DPCPPKernelAnalysisPass Impl;
 
-char DPCPPKernelAnalysis::ID = 0;
+public:
+  /// Pass identifier.
+  static char ID;
 
-DPCPPKernelAnalysis::DPCPPKernelAnalysis() : ModulePass(ID), M(nullptr) {}
+  DPCPPKernelAnalysisLegacy() : ModulePass(ID) {}
 
-DPCPPKernelAnalysis::~DPCPPKernelAnalysis() {}
+  StringRef getPassName() const override { return "DPCPPKernelAnalysisLegacy"; }
 
-void DPCPPKernelAnalysis::fillSyncUsersFuncs() {
+  bool runOnModule(Module &M) override { return Impl.runImpl(M); }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesCFG();
+  }
+
+private:
+  /// Print data collected by the pass on the given module.
+  /// OS stream to print the info to.
+  /// M pointer to the Module.
+  void print(raw_ostream &OS, const Module *M = 0) const override;
+};
+
+} // namespace
+
+char DPCPPKernelAnalysisLegacy::ID = 0;
+
+INITIALIZE_PASS(DPCPPKernelAnalysisLegacy, "dpcpp-kernel-analysis",
+                "Analyze which function go in barrier route", false, false)
+
+void DPCPPKernelAnalysisLegacy::print(raw_ostream &OS, const Module *M) const {
+  Impl.print(OS, M);
+}
+
+ModulePass *llvm::createDPCPPKernelAnalysisLegacyPass() {
+  return new DPCPPKernelAnalysisLegacy();
+}
+
+void DPCPPKernelAnalysisPass::fillSyncUsersFuncs() {
   FuncSet BarrierRootSet;
 
   DPCPPKernelCompilationUtils::FuncSet SyncFunctions;
@@ -45,14 +74,16 @@ void DPCPPKernelAnalysis::fillSyncUsersFuncs() {
   DPCPPKernelLoopUtils::fillFuncUsersSet(BarrierRootSet, UnsupportedFuncs);
 }
 
-void DPCPPKernelAnalysis::fillUnsupportedTIDFuncs() {
+void DPCPPKernelAnalysisPass::fillUnsupportedTIDFuncs() {
   FuncSet DirectTIDUsers;
-  std::string LID = "__builtin_get_local_id";
-  fillUnsupportedTIDFuncs(LID.c_str(), DirectTIDUsers);
+  std::string LID = DPCPPKernelCompilationUtils::mangledGetLID();
+  std::string GID = DPCPPKernelCompilationUtils::mangledGetGID();
+  fillUnsupportedTIDFuncs(LID, DirectTIDUsers);
+  fillUnsupportedTIDFuncs(GID, DirectTIDUsers);
   DPCPPKernelLoopUtils::fillFuncUsersSet(DirectTIDUsers, UnsupportedFuncs);
 }
 
-bool DPCPPKernelAnalysis::isUnsupportedDim(Value *V) {
+bool DPCPPKernelAnalysisPass::isUnsupportedDim(Value *V) {
   ConstantInt *ConstDim = dyn_cast<ConstantInt>(V);
   // If arg is not a constant return true OR,
   // if it is illegal constant.
@@ -61,8 +92,8 @@ bool DPCPPKernelAnalysis::isUnsupportedDim(Value *V) {
   return false;
 }
 
-void DPCPPKernelAnalysis::fillUnsupportedTIDFuncs(const char *Name,
-                                                  FuncSet &DirectTIDUsers) {
+void DPCPPKernelAnalysisPass::fillUnsupportedTIDFuncs(StringRef Name,
+                                                      FuncSet &DirectTIDUsers) {
   Function *F = M->getFunction(Name);
   if (!F)
     return;
@@ -79,7 +110,7 @@ void DPCPPKernelAnalysis::fillUnsupportedTIDFuncs(const char *Name,
   }
 }
 
-void DPCPPKernelAnalysis::fillKernelCallers() {
+void DPCPPKernelAnalysisPass::fillKernelCallers() {
   for (Function *Kernel : Kernels) {
     if (!Kernel)
       continue;
@@ -90,13 +121,8 @@ void DPCPPKernelAnalysis::fillKernelCallers() {
     // The kernel has user functions meaning it is called by another kernel.
     // Since there is no barrier in it's start it will be executed
     // multiple time (because of the WG loop of the calling kernel).
-    if (KernelUsers.size()) {
-      // TODO: Explore CallGraph fully to detect a case with
-      // a kernel calling a functions calling a kernel.
-      for (Function *F : KernelUsers)
-        if (F->hasFnAttribute("sycl_kernel"))
-          llvm_unreachable("Having a kernel calling a kernel is not supported!");
-    }
+    if (KernelUsers.size())
+      UnsupportedFuncs.insert(Kernel);
   }
 
   // Also can not use explicit loops on kernel callers since the barrier
@@ -105,15 +131,10 @@ void DPCPPKernelAnalysis::fillKernelCallers() {
   DPCPPKernelLoopUtils::fillFuncUsersSet(KernelSet, UnsupportedFuncs);
 }
 
-bool DPCPPKernelAnalysis::runOnModule(Module &M) {
+bool DPCPPKernelAnalysisPass::runImpl(Module &M) {
   this->M = &M;
   UnsupportedFuncs.clear();
-  Kernels.clear();
-
-  for (auto &F : M) {
-    if (F.hasFnAttribute("sycl_kernel"))
-      Kernels.push_back(&F);
-  }
+  Kernels = DPCPPKernelCompilationUtils::getKernels(M);
 
   fillKernelCallers();
   fillSyncUsersFuncs();
@@ -131,11 +152,11 @@ bool DPCPPKernelAnalysis::runOnModule(Module &M) {
   return (Kernels.size() != 0);
 }
 
-void DPCPPKernelAnalysis::print(raw_ostream &OS, const Module *M) const {
+void DPCPPKernelAnalysisPass::print(raw_ostream &OS, const Module *M) const {
   if (!M)
     return;
 
-  OS << "\nDPCPPKernelAnalysis\n";
+  OS << "\nDPCPPKernelAnalysisPass\n";
 
   for (Function *Kernel : Kernels) {
     assert(Kernel && "nullptr is not expected in KernelList!");
@@ -143,11 +164,12 @@ void DPCPPKernelAnalysis::print(raw_ostream &OS, const Module *M) const {
     std::string FuncName = Kernel->getName().str();
 
     assert(Kernel->hasFnAttribute(NO_BARRIER_PATH_ATTRNAME) &&
-           "DPCPPKernelAnalysis: " NO_BARRIER_PATH_ATTRNAME " has to be set!");
+           "DPCPPKernelAnalysisPass: " NO_BARRIER_PATH_ATTRNAME
+           " has to be set!");
     StringRef Value =
         Kernel->getFnAttribute(NO_BARRIER_PATH_ATTRNAME).getValueAsString();
     assert((Value == "true" || Value == "false") &&
-           "DPCPPKernelAnalysis: unexpected " NO_BARRIER_PATH_ATTRNAME
+           "DPCPPKernelAnalysisPass: unexpected " NO_BARRIER_PATH_ATTRNAME
            " value!");
     bool NoBarrierPath = Value == "true" ? true : false;
 
@@ -159,8 +181,9 @@ void DPCPPKernelAnalysis::print(raw_ostream &OS, const Module *M) const {
   }
 }
 
-ModulePass *createDPCPPKernelAnalysisPass() {
-  return new llvm::DPCPPKernelAnalysis();
+PreservedAnalyses DPCPPKernelAnalysisPass::run(Module &M,
+                                               ModuleAnalysisManager &AM) {
+  if (!runImpl(M))
+    return PreservedAnalyses::all();
+  return PreservedAnalyses::none();
 }
-
-} // namespace llvm

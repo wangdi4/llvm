@@ -14,13 +14,20 @@
 ; CHECK-NEXT: Profile summary info
 ; CHECK-NEXT:   ModulePass Manager
 ; CHECK:          Parse annotations and add a corresponding function attribute
-; CHECK-NEXT:     DPCPPKernelAnalysis
+; CHECK-NEXT:     DPCPPEqualizerLegacy
+; CHECK-NEXT:     DPCPPKernelAnalysisLegacy
 ; CHECK-NEXT:     VecClone
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       Unify function exit nodes
-; CHECK-NEXT:     WGLoopCreator
+; CHECK-NEXT:     WGLoopCreatorLegacy
 ; CHECK-NEXT:       FunctionPass Manager
 ; CHECK-NEXT:         Unify function exit nodes
+; CHECK:          ImplicitArgsAnalysisLegacy
+; CHECK:          LocalBufferAnalysisLegacy
+; CHECK-NEXT:     AddImplicitArgsLegacy
+; CHECK-NEXT:     ResolveWICallLegacy
+; CHECK-NEXT:     PrepareKernelArgsLegacy
+; CHECK-NEXT:     CleanupWrappedKernelLegacy
 
 define void @f() {
   ret void

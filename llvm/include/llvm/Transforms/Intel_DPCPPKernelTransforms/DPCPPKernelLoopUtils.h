@@ -11,11 +11,11 @@
 #ifndef __DPCPP_KERNEL_LOOP_UTILS_H__
 #define __DPCPP_KERNEL_LOOP_UTILS_H__
 
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 using namespace llvm;
 
@@ -53,6 +53,24 @@ LoopRegion createLoop(BasicBlock *Head, BasicBlock *Latch, Value *Begin,
                       Value *Increment, Value *End, std::string &Name,
                       LLVMContext &C);
 
+/// Create WI func (get_local_size, get_global_id etc) general
+///       util as they all have the same signature.
+/// M - module to add function to.
+/// name - name of the function.
+/// retTy - return type of the function.
+Function *getWIFunc(Module *M, StringRef name, Type *retTy);
+
+/// Creates work item call instruction.
+/// M - current module.
+/// funcName - name of the function.
+/// retTy - return type of the function.
+/// dim - argument of the WI call.
+/// BB - basic block to put the call at it's end.
+/// callName = name of the function call.
+/// Returns call to the given Work item function.
+CallInst *getWICall(Module *M, StringRef funcName, Type *retTy, unsigned dim,
+                    BasicBlock *BB, const Twine &callName = "");
+
 /// Fills call vector with all calls to function named func name in
 ///       funcToSearch
 /// FuncName - name of functions to obtain its calls.
@@ -69,14 +87,13 @@ Type *getIntTy(Module *M);
 /// TIDName - name of the tid generator get_global_id\ get_local_id.
 /// TidCalls - array of get_***_id call to fill.
 /// F - kernel to collect information for.
-void collectTIDCallInst(const char *TIDName, InstVecVec &TidCalls, Function *F);
+void collectTIDCallInst(StringRef TIDName, InstVecVec &TidCalls, Function *F);
 
 /// Fills the users function through call instructions of roots
 ///       (also indirect users) into userFuncs.
 /// Roots - function to obtain their user functions.
 /// UserFuncs - set to fill with users of roots
-void fillFuncUsersSet(FuncSet &Roots,
-                      FuncSet &UserFuncs);
+void fillFuncUsersSet(FuncSet &Roots, FuncSet &UserFuncs);
 
 /// Fills direct user functions through instructions of functions in
 ///       funcs set into userFuncs. If a function is introduced into
@@ -84,9 +101,7 @@ void fillFuncUsersSet(FuncSet &Roots,
 /// Funcs - function to obtain direct users.
 /// UserFuncs - set of users functions to fills.
 /// NewUsers - set of newly found users.
-void fillDirectUsers(FuncSet *Funcs,
-                     FuncSet *UserFuncs,
-                     FuncSet *NewUsers);
+void fillDirectUsers(FuncSet *Funcs, FuncSet *UserFuncs, FuncSet *NewUsers);
 
 /// Fill the user instructions (including users via other values)
 ///        of the input Function into the input vector.

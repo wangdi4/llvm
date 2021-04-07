@@ -9,16 +9,17 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelVecClone.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.h"
 
 #define SV_NAME "dpcpp-kernel-vec-clone"
@@ -438,7 +439,10 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
   // The FunctionsAndActions array has only the Kernel function built-ins that
   // are uniform.
   std::pair<std::string, FnAction> FunctionsAndActions[] = {
-      {"__builtin_get_local_id", FnAction::MoveAndUpdateUsesForDim},
+      {DPCPPKernelCompilationUtils::mangledGetGID(),
+       FnAction::MoveAndUpdateUsesForDim},
+      {DPCPPKernelCompilationUtils::mangledGetLID(),
+       FnAction::MoveAndUpdateUsesForDim},
       {"__builtin_get_sub_group_local_id", FnAction::MoveAndUpdateUses}};
 
   // Collect all Kernel function built-ins.
@@ -470,7 +474,8 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
           // no truncation, so we don't need to do special optimization.
           bool TIDIsInt32 = CI->getType()->isIntegerTy(32);
           if (!TIDIsInt32 &&
-              FuncName == "__builtin_get_local_id" && LT2GigWorkGroupSize)
+              FuncName == DPCPPKernelCompilationUtils::mangledGetLID() &&
+              LT2GigWorkGroupSize)
             optimizedUpdateAndMoveTID(CI, Phi, EntryBlock);
           else
             updateAndMoveTID(CI, Phi, EntryBlock);
@@ -501,20 +506,15 @@ void DPCPPKernelVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
 }
 
 void DPCPPKernelVecCloneImpl::languageSpecificInitializations(Module &M) {
-  SmallVector<Function *, 8> WorkList;
+  auto Kernels = DPCPPKernelCompilationUtils::getKernels(M);
 
-  for (auto &F : M) {
-    if (F.hasFnAttribute("sycl_kernel"))
-      WorkList.push_back(&F);
-  }
-
-  if (WorkList.empty()) {
+  if (Kernels.empty()) {
     LLVM_DEBUG(dbgs() << lv_name << ":"
                       << "No kernels found!\n");
     return;
   }
 
-  for (auto *F : WorkList) {
+  for (auto *F : Kernels) {
     // TODO: we might want to have certain conditions that would result
     // in no vectoriation, but until then...
     DPCPPPrepareKernelForVecClone PK(F, TTIWP->getTTI(*F));

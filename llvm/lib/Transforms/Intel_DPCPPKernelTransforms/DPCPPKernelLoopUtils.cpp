@@ -19,6 +19,29 @@
 namespace llvm {
 namespace DPCPPKernelLoopUtils {
 
+Function *getWIFunc(Module *M, StringRef FuncName, Type *RetTy) {
+  // First look in the module if it already exists
+  Function *F = M->getFunction(FuncName);
+  if (F)
+    return F;
+  // create declaration.
+  std::vector<Type *> ArgTypes(1, Type::getInt32Ty(RetTy->getContext()));
+  FunctionType *FType = FunctionType::get(RetTy, ArgTypes, false);
+  FunctionCallee FConst = M->getOrInsertFunction(FuncName, FType);
+  F = dyn_cast<Function>(FConst.getCallee());
+  assert(F && "null WI function");
+  return F;
+}
+
+CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, unsigned Dim,
+                    BasicBlock *BB, const Twine &CallName) {
+  Function *WIFunc = getWIFunc(M, FuncName, RetTy);
+  Constant *DimConst =
+      ConstantInt::get(Type::getInt32Ty(RetTy->getContext()), Dim);
+  CallInst *WICall = CallInst::Create(WIFunc, DimConst, CallName, BB);
+  return WICall;
+}
+
 Type *getIntTy(Module *M) {
   unsigned PointerSizeInBits = M->getDataLayout().getPointerSizeInBits(0);
   assert((32 == PointerSizeInBits || 64 == PointerSizeInBits) &&
@@ -40,8 +63,7 @@ void getAllCallInFunc(StringRef FuncName, Function *FuncToSearch,
   }
 }
 
-void collectTIDCallInst(const char *TIDName, InstVecVec &TidCalls,
-                        Function *F) {
+void collectTIDCallInst(StringRef TIDName, InstVecVec &TidCalls, Function *F) {
   const unsigned MAX_OCL_NUM_DIM = 3;
   InstVec EmptyVec;
   TidCalls.assign(MAX_OCL_NUM_DIM, EmptyVec);
@@ -128,8 +150,7 @@ LoopRegion createLoop(BasicBlock *Head, BasicBlock *Latch, Value *Begin,
   return LoopRegion(PreHead, Exit);
 }
 
-void fillFuncUsersSet(FuncSet &Roots,
-                      FuncSet &UserFuncs) {
+void fillFuncUsersSet(FuncSet &Roots, FuncSet &UserFuncs) {
   FuncSet NewUsers1, NewUsers2;
   FuncSet *NewUsersPtr = &NewUsers1;
   FuncSet *RootsPtr = &NewUsers2;
@@ -144,9 +165,7 @@ void fillFuncUsersSet(FuncSet &Roots,
   }
 }
 
-void fillDirectUsers(FuncSet *Funcs,
-                     FuncSet *UserFuncs,
-                     FuncSet *NewUsers) {
+void fillDirectUsers(FuncSet *Funcs, FuncSet *UserFuncs, FuncSet *NewUsers) {
   // Go through all of the Funcs.
   SmallVector<Instruction *, 8> UserInst;
   for (Function *F : *Funcs) {

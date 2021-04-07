@@ -11,10 +11,8 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_KERNEL_ANALYSIS_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_KERNEL_ANALYSIS_H
 
+#include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
 
 namespace llvm {
 
@@ -28,35 +26,21 @@ namespace llvm {
 // 3. does not contain call to kernel or called by another kernel.
 // 4. does not contain call to function that use get***id calls.
 // both 3,4 should be eliminated by the inliner.
+class DPCPPKernelAnalysisPass : PassInfoMixin<DPCPPKernelAnalysisPass> {
+public:
+  static StringRef name() { return "DPCPPKernelAnalysisPass"; }
 
-class DPCPPKernelAnalysis : public ModulePass {
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+
+  /// Glue for old PM.
+  bool runImpl(Module &M);
+
+  void print(raw_ostream &OS, const Module *M) const;
 
 private:
   using FuncVec = SmallVector<Function *, 8>;
   using FuncSet = DPCPPKernelCompilationUtils::FuncSet;
 
-public:
-  /// Pass identifier.
-  static char ID;
-
-  /// C'tor
-  DPCPPKernelAnalysis();
-
-  /// D'tor
-  ~DPCPPKernelAnalysis();
-
-  /// Provides name of pass
-  llvm::StringRef getPassName() const override { return "DPCPPKernelAnalysis"; }
-
-  /// LLVM interface.
-  /// M - module to process.
-  /// Returns true if the module changed
-  bool runOnModule(Module &M) override;
-
-  /// LLVM interface.
-  void getAnalysisUsage(AnalysisUsage &AU) const override {}
-
-private:
   /// Returns true iff the Value is constant int < 3
   /// V - value to check.
   bool isUnsupportedDim(Value *V);
@@ -78,23 +62,17 @@ private:
   /// into TIDUsers.
   /// Name - name of get***id.
   /// DirectTIDUsers - set of direct get***id users.
-  void fillUnsupportedTIDFuncs(const char *Name, FuncSet &DirectTIDUsers);
+  void fillUnsupportedTIDFuncs(StringRef Name, FuncSet &DirectTIDUsers);
 
   /// Current module.
   Module *M;
 
   /// Kernels.
-  FuncVec Kernels;
+  FuncSet Kernels;
 
   /// Set of unsupported funcs.
   FuncSet UnsupportedFuncs;
-
-  /// Print data collected by the pass on the given module.
-  /// OS stream to print the info to.
-  /// M pointer to the Module.
-  void print(raw_ostream &OS, const Module *M = 0) const override;
-
-}; // DPCPPKernelAnalysis
+};
 
 } // namespace llvm
 
