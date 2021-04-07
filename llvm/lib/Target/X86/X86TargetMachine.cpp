@@ -291,6 +291,21 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
       RequiredVectorWidth = Width;
     }
   }
+#if INTEL_CUSTOMIZATION
+  else {
+    if (PreferVectorWidthOverride &&
+        RequiredVectorWidth > PreferVectorWidthOverride) {
+      // if min-legal-vector-width attribute is not specified but
+      // prefer-vector-width attribute is specified then
+      // reduce RequiredVectorWidth to PreferVectorWidthOverride.
+      RequiredVectorWidth = PreferVectorWidthOverride;
+    } else if (Options.IntelAdvancedOptim &&
+        getOptLevel() >= CodeGenOpt::Aggressive) {
+      // Avoid CPU frequency drop issue.
+      RequiredVectorWidth = 0;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Add CPU to the Key.
   Key += CPU;

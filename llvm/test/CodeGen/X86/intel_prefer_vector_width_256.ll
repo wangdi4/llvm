@@ -25,16 +25,21 @@ define dso_local void @foo(float* nocapture readonly %in, float* noalias nocaptu
 ; CHECK-NEXT:    je .LBB0_4
 ; CHECK-NEXT:  # %bb.2: # %loop.20.preheader
 ; CHECK-NEXT:    xorl %edx, %edx
-; CHECK-NEXT:    vmovdqa64 {{.*#+}} zmm0 = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-; CHECK-NEXT:    vbroadcastss {{.*#+}} zmm1 = [2.0E+0,2.0E+0,2.0E+0,2.0E+0,2.0E+0,2.0E+0,2.0E+0,2.0E+0,2.0E+0,2.0E+0,2.0E+0,2.0E+0,2.0E+0,2.0E+0,2.0E+0,2.0E+0]
+; CHECK-NEXT:    vmovdqa {{.*#+}} ymm0 = [0,1,2,3,4,5,6,7]
+; CHECK-NEXT:    vmovdqa {{.*#+}} ymm1 = [8,9,10,11,12,13,14,15]
+; CHECK-NEXT:    vbroadcastss {{.*#+}} ymm2 = [2.0E+0,2.0E+0,2.0E+0,2.0E+0,2.0E+0,2.0E+0,2.0E+0,2.0E+0]
 ; CHECK-NEXT:    .p2align 4, 0x90
 ; CHECK-NEXT:  .LBB0_3: # %loop.20
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    vpbroadcastd %edx, %zmm2
-; CHECK-NEXT:    vpord %zmm0, %zmm2, %zmm2
-; CHECK-NEXT:    vcvtdq2ps %zmm2, %zmm2
-; CHECK-NEXT:    vfmadd231ps {{.*#+}} zmm2 = (zmm1 * mem) + zmm2
-; CHECK-NEXT:    vmovups %zmm2, (%rsi,%rdx,4)
+; CHECK-NEXT:    vpbroadcastd %edx, %ymm3
+; CHECK-NEXT:    vpor %ymm0, %ymm3, %ymm4
+; CHECK-NEXT:    vpor %ymm1, %ymm3, %ymm3
+; CHECK-NEXT:    vcvtdq2ps %ymm3, %ymm3
+; CHECK-NEXT:    vcvtdq2ps %ymm4, %ymm4
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} ymm4 = (ymm2 * mem) + ymm4
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} ymm3 = (ymm2 * mem) + ymm3
+; CHECK-NEXT:    vmovups %ymm3, 32(%rsi,%rdx,4)
+; CHECK-NEXT:    vmovups %ymm4, (%rsi,%rdx,4)
 ; CHECK-NEXT:    addq $16, %rdx
 ; CHECK-NEXT:    cmpq %rcx, %rdx
 ; CHECK-NEXT:    jb .LBB0_3
@@ -46,7 +51,7 @@ define dso_local void @foo(float* nocapture readonly %in, float* noalias nocaptu
 ; CHECK-NEXT:    .p2align 4, 0x90
 ; CHECK-NEXT:  .LBB0_6: # %loop.16
 ; CHECK-NEXT:    # =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    vcvtsi2ss %ecx, %xmm3, %xmm1
+; CHECK-NEXT:    vcvtsi2ss %ecx, %xmm5, %xmm1
 ; CHECK-NEXT:    vfmadd231ss {{.*#+}} xmm1 = (xmm0 * mem) + xmm1
 ; CHECK-NEXT:    vmovss %xmm1, (%rsi,%rcx,4)
 ; CHECK-NEXT:    incq %rcx
