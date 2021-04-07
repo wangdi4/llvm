@@ -4209,6 +4209,11 @@ def unroll_EQ : Joined<["-"], "unroll=">, Alias<unroll>;
 def vec : Flag<["-"], "vec">, Alias<fvectorize>,
   HelpText<"Enable the loop vectorization passes">;
 def no_vec : Flag<["-"], "no-vec">, Alias<fno_vectorize>;
+def vec_threshold_EQ : Joined<["-"], "vec-threshold=">;
+def : Joined<["-"], "vec-threshold">, Alias<vec_threshold_EQ>,
+      HelpText<"Sets a threshold for the vectorization of loops based on the "
+      "probability of profitable execution of the vectorized loop in "
+      "parallel.">;
 def Zp : Flag<["-"], "Zp">, Alias<fpack_struct_EQ>, AliasArgs<["1"]>;
 def Zp_EQ : Joined<["-"], "Zp">, Alias<fpack_struct_EQ>;
 #endif // INTEL_CUSTOMIZATION
@@ -6908,6 +6913,12 @@ def _SLASH_Qvec : CLFlag<"Qvec">,
   HelpText<"Enable the loop vectorization passes">, Alias<fvectorize>;
 def _SLASH_Qvec_ : CLFlag<"Qvec-">,
   HelpText<"Disable the loop vectorization passes">, Alias<fno_vectorize>;
+def : CLJoined<"Qvec-threshold=">, Alias<vec_threshold_EQ>;
+def : CLJoined<"Qvec-threshold:">, Alias<vec_threshold_EQ>;
+def : CLJoined<"Qvec-threshold">, Alias<vec_threshold_EQ>,
+      HelpText<"Sets a threshold for the vectorization of loops based on the "
+      "probability of profitable execution of the vectorized loop in "
+      "parallel.">;
 def _SLASH_Qintrinsic_promote : CLFlag<"Qintrinsic-promote">,
   Alias<intel_mintrinsic_promote>, HelpText<"For certain functions using "
   "intrinsics to promote their architectures and make the intrinsic headers "
