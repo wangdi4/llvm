@@ -213,6 +213,8 @@ public:
     virtual bool useLLDJITForExecution(llvm::Module* pModule) const = 0;
     virtual bool isObjectFromLLDJIT(llvm::StringRef ObjBuf) const = 0;
 
+    bool OptLTO() const { return m_optLTOLegacyPM; }
+
 protected:
     void LoadBuiltinModules(BuiltinLibrary* pLibrary,
       llvm::SmallVector<llvm::Module*, 2>& builtinsModules);
@@ -246,6 +248,7 @@ protected:
     bool                     m_useNativeDebugger;
     bool                     m_streamingAlways;
     unsigned                 m_expensiveMemOpts;
+    bool m_optLTOLegacyPM;
 
     static bool s_globalStateInitialized;
 

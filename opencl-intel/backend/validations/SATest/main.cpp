@@ -268,6 +268,19 @@ ExpensiveMemOpts("enable-expensive-mem-opts",
              llvm::cl::desc("Enable expensive memory optimization. See cl.cfg for value explanation"),
              llvm::cl::init(0));
 
+// Enable llvm legacy pass pipeline which contains passes in
+// Intel_DPCPPKernelTransforms.
+llvm::cl::opt<bool>
+    UseLTOLegacyPM("lto-legacy-pm",
+                   llvm::cl::desc("Enable llvm legacy pass pipeline."),
+                   llvm::cl::init(false));
+
+// Enable llvm new pass pipeline which contains passes in
+// Intel_DPCPPKernelTransforms.
+llvm::cl::opt<bool>
+    UseLTONewPM("lto-new-pm", llvm::cl::desc("Enable llvm new pass pipeline."),
+                llvm::cl::init(false));
+
 // Command line example:
 // SATest.exe -config=test.cfg
 // WARNING! To run OCL_CPU_DEVICE_BACKEND successfully built-in DLLs and RTLs is needed!

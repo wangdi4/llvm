@@ -61,6 +61,7 @@ namespace Validation
         RC_BR_PERF_LOG,
         RC_BR_OBJECT_FILE,
         RC_BR_EXPENSIVE_MEM_OPT,
+        RC_BR_USE_LTO_LEGACY_PM,
         // Reference runner specific options
         RC_REF_USE_NEAT,
         RC_REF_USE_FMA_NEAT,
@@ -116,6 +117,7 @@ namespace Validation
         VectorizerType m_vectorizerType;
         bool m_nativeSubgroups;
         bool m_enableSubgroupEmulation;
+        bool m_useLTOLegacyPM;
     };
 
     template<> bool BERunOptions::GetValue<bool>(RunConfigurationOption rc, bool defaultValue) const;

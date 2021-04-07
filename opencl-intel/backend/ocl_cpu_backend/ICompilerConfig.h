@@ -84,6 +84,8 @@ public:
     virtual unsigned GetExpensiveMemOpts() const = 0;
 
     virtual DeviceMode TargetDevice() const = 0;
+
+    virtual bool GetUseLTOLegacyPM() const = 0;
 };
 
 }}}

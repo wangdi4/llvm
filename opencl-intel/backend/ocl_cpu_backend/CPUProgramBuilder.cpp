@@ -12,22 +12,24 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "CPUProgramBuilder.h"
 #include "CPUBlockToKernelMapper.h"
 #include "CPUJITContainer.h"
-#include "CPUProgramBuilder.h"
 #include "CompilationUtils.h"
-#include "debuggingservicetype.h"
+#include "CompilerConfig.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
 #include "MetadataAPI.h"
 #include "Program.h"
 #include "StaticObjectLoader.h"
+#include "debuggingservicetype.h"
 
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 #include "BitCodeContainer.h"
 #include "CPUSerializationService.h"
@@ -253,91 +255,120 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
     std::unique_ptr<KernelSet> spKernels(new KernelSet);
 
     llvm::Module* pModule = pProgram->GetModule();
-    for (auto *pFunc : KernelList(pModule))
-    {
-        // Obtain kernel function from annotation
-        auto kimd = KernelInternalMetadataAPI(pFunc);
-        // Obtain kernel wrapper function from metadata info
-        assert(kimd.KernelWrapper.hasValue() && "Always expect a kernel wrapper to be present");
-        llvm::Function *pWrapperFunc = kimd.KernelWrapper.get();
+    auto Kernels = KernelList(pModule).getList();
+    // TODO [CMPLRLLVM-27268] replace opencl.kernels metadata with attribute so
+    // that DPCPPKernelCompilationUtils::getKernels query is enough.
+    if (Kernels.empty()) {
+      auto FSet = DPCPPKernelCompilationUtils::getKernels(*pModule);
+      for (auto *F : FSet)
+        Kernels.push_back(F);
+    }
+    for (auto *pFunc : Kernels) {
+      llvm::Function *pWrapperFunc = nullptr;
+      // Obtain kernel function from annotation
+      auto kimd = KernelInternalMetadataAPI(pFunc);
+      // Obtain kernel wrapper function from metadata info
+      if (kimd.KernelWrapper.hasValue())
+        pWrapperFunc = kimd.KernelWrapper.get();
+      else if (pFunc->hasFnAttribute("kernel_wrapper"))
+        pWrapperFunc = DPCPPKernelCompilationUtils::getFnAttributeFunction(
+            *pModule, *pFunc, "kernel_wrapper");
+      assert(pWrapperFunc && "Always expect a kernel wrapper to be present");
+      // Create a kernel and kernel JIT properties
+      CompilerBuildOptions buildOptions(pBuildOpts);
+      std::unique_ptr<KernelProperties> spKernelProps(
+          CreateKernelProperties(pProgram, pFunc, buildOptions, buildResult));
 
-        // Create a kernel and kernel JIT properties
-        CompilerBuildOptions buildOptions(pBuildOpts);
-        std::unique_ptr<KernelProperties> spKernelProps(
-            CreateKernelProperties(pProgram, pFunc, buildOptions, buildResult));
+      // get the vector size used to generate the function
+      unsigned int vecSize =
+          kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
+      spKernelProps->SetMinGroupSizeFactorial(vecSize);
 
-        // get the vector size used to generate the function
-        unsigned int vecSize = kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
-        spKernelProps->SetMinGroupSizeFactorial(vecSize);
+      std::unique_ptr<KernelJITProperties> spKernelJITProps(
+          CreateKernelJITProperties(vecSize));
 
-        std::unique_ptr<KernelJITProperties> spKernelJITProps( CreateKernelJITProperties( vecSize ));
-
+      bool useTLSGlobals = false;
+      if (!m_compiler.OptLTO()) {
         intel::DebuggingServiceType debugType = intel::getDebuggingServiceType(
-            buildOptions.GetDebugInfoFlag(), pModule, buildOptions.GetUseNativeDebuggerFlag());
-        bool useTLSGlobals = (debugType == intel::Native) && !m_isEyeQEmulator;
-        std::unique_ptr<Kernel> spKernel(
-            CreateKernel(pFunc, pWrapperFunc->getName().str(),
-                         spKernelProps.get(), useTLSGlobals));
+            buildOptions.GetDebugInfoFlag(), pModule,
+            buildOptions.GetUseNativeDebuggerFlag());
+        useTLSGlobals = (debugType == intel::Native) && !m_isEyeQEmulator;
+      }
+      std::unique_ptr<Kernel> spKernel(
+          CreateKernel(pFunc, pWrapperFunc->getName().str(),
+                       spKernelProps.get(), useTLSGlobals));
 
-        // We want the JIT of the wrapper function to be called
-        AddKernelJIT(static_cast<CPUProgram*>(pProgram),
-                     spKernel.get(),
-                     pWrapperFunc,
-                     spKernelJITProps.release());
+      // We want the JIT of the wrapper function to be called
+      AddKernelJIT(static_cast<CPUProgram *>(pProgram), spKernel.get(),
+                   pWrapperFunc, spKernelJITProps.release());
 
-        //TODO (AABOUD): is this redundant code?
-        const llvm::Type *vTypeHint = nullptr; //pFunc->getVectTypeHint(); //TODO: Read from metadata (Guy)
-        bool dontVectorize = false;
+      // TODO (AABOUD): is this redundant code?
+      const llvm::Type *vTypeHint =
+          nullptr; // pFunc->getVectTypeHint(); //TODO: Read from metadata (Guy)
+      bool dontVectorize = false;
 
-        if( nullptr != vTypeHint)
-        {
-            //currently if the vector_type_hint attribute is set
-            //we types that vector length is below 4, vectorizer restriction
-            const llvm::FixedVectorType* pVect = llvm::dyn_cast<llvm::FixedVectorType>(vTypeHint);
-            if( ( nullptr != pVect) && pVect->getNumElements() >= 4)
-            {
-                dontVectorize = true;
-            }
+      if (nullptr != vTypeHint) {
+        // currently if the vector_type_hint attribute is set
+        // we types that vector length is below 4, vectorizer restriction
+        const llvm::FixedVectorType *pVect =
+            llvm::dyn_cast<llvm::FixedVectorType>(vTypeHint);
+        if ((nullptr != pVect) && pVect->getNumElements() >= 4) {
+          dontVectorize = true;
         }
+      }
 
-        //Need to check if Vectorized Kernel Value exists, it is not guaranteed that
-        //Vectorized is running in all scenarios.
-        if (kimd.VectorizedKernel.hasValue())
-        {
-            Function *pVecFunc = kimd.VectorizedKernel.get();
-            assert(!(spKernelProps->IsVectorizedWithTail() && pVecFunc) &&
-                   "if the vector kernel is inlined the entry of the vector "
-                   "kernel should be nullptr");
-            if(nullptr != pVecFunc && !dontVectorize)
-            {
-                auto vkimd = KernelInternalMetadataAPI(pVecFunc);
-                // Obtain kernel wrapper function from metadata info
-                llvm::Function *pWrapperVecFunc = vkimd.KernelWrapper.get(); //TODO: stripPointerCasts());
-                //Update vecSize according to vectorWidth of vectorized function
-                vecSize = vkimd.VectorizedWidth.get();
-                // Create the vectorized kernel - no need to pass argument list here
-                std::unique_ptr<KernelJITProperties> spVKernelJITProps(CreateKernelJITProperties(vecSize));
-                spKernelProps->SetMinGroupSizeFactorial(vecSize);
-                AddKernelJIT(static_cast<CPUProgram*>(pProgram),
-                              spKernel.get(),
-                              pWrapperVecFunc,
-                              spVKernelJITProps.release());
-            }
+      // Need to check if Vectorized Kernel Value exists, it is not guaranteed
+      // that Vectorized is running in all scenarios.
+      Function *pVecFunc = nullptr;
+      llvm::Function *pWrapperVecFunc = nullptr;
+      if (kimd.VectorizedKernel.hasValue()) {
+        pVecFunc = kimd.VectorizedKernel.get();
+        assert(!(spKernelProps->IsVectorizedWithTail() && pVecFunc) &&
+               "if the vector kernel is inlined the entry of the vector "
+               "kernel should be nullptr");
+        if (nullptr != pVecFunc && !dontVectorize) {
+          auto vkimd = KernelInternalMetadataAPI(pVecFunc);
+          // Obtain kernel wrapper function from metadata info
+          pWrapperVecFunc =
+              vkimd.KernelWrapper.get(); // TODO: stripPointerCasts());
+          // Update vecSize according to vectorWidth of vectorized function
+          vecSize = vkimd.VectorizedWidth.get();
         }
+      } else if (pFunc->hasFnAttribute("vectorized_kernel")) {
+        pVecFunc = DPCPPKernelCompilationUtils::getFnAttributeFunction(
+            *pModule, *pFunc, "vectorized_kernel");
+        assert(!(spKernelProps->IsVectorizedWithTail() && pVecFunc) &&
+               "if the vector kernel is inlined the entry of the vector "
+               "kernel should be nullptr");
+        if (nullptr != pVecFunc && !dontVectorize) {
+          pWrapperVecFunc = DPCPPKernelCompilationUtils::getFnAttributeFunction(
+              *pModule, *pFunc, "kernel_wrapper");
+          DPCPPKernelCompilationUtils::getFnAttributeInt(
+              pFunc, "vectorized_width", vecSize);
+        }
+      }
+      if (nullptr != pVecFunc && !dontVectorize) {
+        // Create the vectorized kernel - no need to pass argument list here
+        std::unique_ptr<KernelJITProperties> spVKernelJITProps(
+            CreateKernelJITProperties(vecSize));
+        spKernelProps->SetMinGroupSizeFactorial(vecSize);
+        AddKernelJIT(static_cast<CPUProgram *>(pProgram), spKernel.get(),
+                     pWrapperVecFunc, spVKernelJITProps.release());
+      }
 
-        if ( dontVectorize )
-        {
-            buildResult.LogS() << "Vectorization of kernel <" << spKernel->GetKernelName() << "> was disabled by the developer\n";
-        }
-        else if (vecSize <= 1)
-        {
-            buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was not vectorized\n";
-        }
-        else
-        {
-            buildResult.LogS() << "Kernel <" << spKernel->GetKernelName() << "> was successfully vectorized (" <<
-                spKernelProps->GetMinGroupSizeFactorial() << ")\n";
-        }
+      if (dontVectorize) {
+        buildResult.LogS() << "Vectorization of kernel <"
+                           << spKernel->GetKernelName()
+                           << "> was disabled by the developer\n";
+      } else if (vecSize <= 1) {
+        buildResult.LogS() << "Kernel <" << spKernel->GetKernelName()
+                           << "> was not vectorized\n";
+      } else {
+        buildResult.LogS() << "Kernel <" << spKernel->GetKernelName()
+                           << "> was successfully vectorized ("
+                           << spKernelProps->GetMinGroupSizeFactorial()
+                           << ")\n";
+      }
 #ifdef OCL_DEV_BACKEND_PLUGINS
         // Notify the plugin manager
         m_pluginManger.OnCreateKernel(pProgram, spKernel.get(), pFunc);
@@ -458,11 +489,22 @@ void CPUProgramBuilder::JitProcessing(
 
   // Record kernel names and trigger JIT compilation of kernels
   std::vector<std::string> kernelNames;
-  for (auto *pFunc : Intel::MetadataAPI::KernelList(module)) {
+  using namespace Intel::MetadataAPI;
+  auto Kernels = KernelList(module).getList();
+  if (Kernels.empty()) {
+    auto FSet = DPCPPKernelCompilationUtils::getKernels(*module);
+    for (auto *F : FSet)
+      Kernels.push_back(F);
+  }
+  for (auto *pFunc : Kernels) {
+    llvm::Function *pWrapperFunc = nullptr;
     auto kimd = Intel::MetadataAPI::KernelInternalMetadataAPI(pFunc);
-    assert(kimd.KernelWrapper.hasValue() &&
-           "Always expect a kernel wrapper to be present");
-    llvm::Function *pWrapperFunc = kimd.KernelWrapper.get();
+    if (kimd.KernelWrapper.hasValue())
+      pWrapperFunc = kimd.KernelWrapper.get();
+    else if (pFunc->hasFnAttribute("kernel_wrapper"))
+      pWrapperFunc = module->getFunction(
+          pFunc->getFnAttribute("kernel_wrapper").getValueAsString());
+    assert(pWrapperFunc && "Always expect a kernel wrapper to be present");
     kernelNames.push_back(pWrapperFunc->getName().str());
   }
   llvm::orc::LLJIT *LLJIT = program->GetLLJIT();

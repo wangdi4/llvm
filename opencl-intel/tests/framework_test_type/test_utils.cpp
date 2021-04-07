@@ -783,8 +783,8 @@ bool compare_kernel_output(const string& expected, const string& actual)
     vector<string> expected_vec = tokenize(expected, "\n\r");
     vector<string> actual_vec = tokenize(actual, "\n\r");
 
-    sort(expected_vec.begin(), expected_vec.end());
-    sort(actual_vec.begin(), actual_vec.end());
+    std::sort(expected_vec.begin(), expected_vec.end());
+    std::sort(actual_vec.begin(), actual_vec.end());
 
     return expected_vec == actual_vec;
 }

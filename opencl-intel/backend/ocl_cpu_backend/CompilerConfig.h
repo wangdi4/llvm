@@ -39,7 +39,7 @@ public:
     std::string LLVMOptions() const override { return m_LLVMOptions; }
     DeviceMode TargetDevice() const override { return m_targetDevice; }
 
-private:
+  private:
     bool m_enableTiming;
     bool m_disableStackDump;
     std::string m_infoOutputFile;
@@ -115,6 +115,8 @@ public:
 
     DeviceMode TargetDevice() const override { return m_targetDevice; }
 
+    bool GetUseLTOLegacyPM() const override { return m_useLTOLegacyPM; }
+
 protected:
     std::string m_cpuArch;
     std::string m_cpuFeatures;
@@ -134,6 +136,7 @@ protected:
     bool        m_streamingAlways;
     unsigned    m_expensiveMemOpts;
     DeviceMode  m_targetDevice;
+    bool        m_useLTOLegacyPM;
 };
 
 }}}

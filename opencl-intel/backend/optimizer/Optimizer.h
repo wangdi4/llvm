@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2020 Intel Corporation.
+// Copyright 2012-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -22,104 +22,114 @@
 #include <vector>
 
 namespace intel {
-    class OptimizerConfig;
+class OptimizerConfig;
 }
 
 namespace llvm {
-    class Pass;
-    class Module;
-    class Function;
-    class ModulePass;
-    class LLVMContext;
-}
+class Pass;
+class Module;
+class Function;
+class ModulePass;
+class LLVMContext;
+} // namespace llvm
 
-namespace Intel { namespace OpenCL { namespace DeviceBackend {
+namespace Intel {
+namespace OpenCL {
+namespace DeviceBackend {
+
+class Optimizer {
+public:
+  Optimizer(llvm::Module *M);
+
+  virtual ~Optimizer() {}
+
+  enum InvalidFunctionType {
+    RECURSION,
+    RECURSION_WITH_BARRIER,
+    FPGA_PIPE_DYNAMIC_ACCESS,
+    VECTOR_VARIANT_FAILURE
+  };
+
+  enum InvalidGVType { FPGA_DEPTH_IS_IGNORED };
+
+  virtual void Optimize() = 0;
+
+  bool hasUndefinedExternals() const;
+
+  const std::vector<std::string> &GetUndefinedExternals() const;
+
+  const TStringToVFState &GetKernelVFStates() const;
+
+  /// @brief recursion was detected after standard LLVM optimizations
+  /// @return for SYCL returns true if the recursive function also calls
+  /// barrier; for OpenCL returns true if any recursive function is present.
+  bool hasUnsupportedRecursion();
+
+  /// @brief checks if some pipes access were not resolved statically
+  bool hasFpgaPipeDynamicAccess() const;
+
+  /// @brief checks if there are any issues with vector-varian attributes.
+  bool hasVectorVariantFailure() const;
+
+  /// @brief checks if there are some channels whose depths are differs from
+  /// real depth on FPGA hardware due to channel depth mode, so we should emit
+  /// diagnostic message
+  bool hasFPGAChannelsWithDepthIgnored() const;
+
+  /// @brief obtain functions names wich are not valid for OpenCL
+  /// @param Ty is a type of invalid function
+  /// @return std::vector with function names
+  std::vector<std::string> GetInvalidFunctions(InvalidFunctionType Ty) const;
+
+  /// @brief obtain global variable names wich are not valid due to some
+  /// limitations
+  /// @param Ty is a type of global variables to search
+  /// @return std::vector with global variable names
+  std::vector<std::string> GetInvalidGlobals(InvalidGVType Ty) const;
+
+protected:
+  llvm::Module *m_M;
+  std::vector<std::string> m_undefinedExternalFunctions;
+  // For OCLVPOCheckVF Pass
+  TStringToVFState m_kernelToVFState;
+  // Indicates whether the module comes from SYCL.
+  // The only noticeable difference between SYCL flow and OpenCL flow is the
+  // spirv.Source metadata: in SYCL the value for spirv.Source is OpenCL C++
+  // (because SYCL does not have a dedicated enum value yet), while in OpenCL
+  // spirv.Source is OpenCL C.
+  //
+  // spirv.Source is an *optional* metadata and can be omitted (optimized)
+  // during SPIR-V translation. It also is not emitted if we do not use SPIR-V
+  // as an intermediate. These two cases are not supported now.
+  bool m_IsSYCL;
+};
 
 /**
  *  Responsible for running the IR=>IR optimization passes on given program
+    using legacy OCL pass manager.
  */
-class Optimizer
-{
+class OptimizerOCL : public Optimizer {
 public:
-    Optimizer( llvm::Module* pModule,
+  OptimizerOCL(llvm::Module *pModule,
                llvm::SmallVector<llvm::Module *, 2> pRtlModuleList,
-               const intel::OptimizerConfig* pConfig);
+               const intel::OptimizerConfig *pConfig);
 
-    ~Optimizer();
+  ~OptimizerOCL();
 
-    void Optimize();
+  void Optimize() override;
 
-    bool hasUndefinedExternals() const;
-
-    const std::vector<std::string>& GetUndefinedExternals() const;
-
-    const TStringToVFState& GetKernelVFStates() const;
-
-    /// @brief recursion was detected after standard LLVM optimizations
-    /// @return for SYCL returns true if the recursive function also calls
-    /// barrier; for OpenCL returns true if any recursive function is present.
-    bool hasUnsupportedRecursion();
-
-    /// @brief checks if some pipes access were not resolved statically
-    bool hasFpgaPipeDynamicAccess();
-
-    /// @brief checks if there are any issues with vector-varian attributes.
-    bool hasVectorVariantFailure();
-
-    /// @brief checks if there are some channels whose depths are differs from
-    /// real depth on FPGA hardware due to channel depth mode, so we should emit
-    /// diagnostic message
-    bool hasFPGAChannelsWithDepthIgnored();
-
-    enum InvalidFunctionType {
-      RECURSION,
-      RECURSION_WITH_BARRIER,
-      FPGA_PIPE_DYNAMIC_ACCESS,
-      VECTOR_VARIANT_FAILURE
-    };
-
-    enum InvalidGVType {
-        FPGA_DEPTH_IS_IGNORED
-    };
-
-    /// @brief obtain functions names wich are not valid for OpenCL
-    /// @param Ty is a type of invalid function
-    /// @return std::vector with function names
-    std::vector<std::string> GetInvalidFunctions(InvalidFunctionType Ty);
-
-    /// @brief obtain global variable names wich are not valid due to some
-    /// limitations
-    /// @param Ty is a type of global variables to search
-    /// @return std::vector with global variable names
-    std::vector<std::string> GetInvalidGlobals(InvalidGVType Ty);
-
-    /// @brief register OpenCL passes to LLVM PassRegistry
-    static void initializePasses();
+  /// @brief register OpenCL passes to LLVM PassRegistry
+  static void initializePasses();
 
 private:
-
-    // hold the collection of passes
-    llvm::legacy::PassManager m_PostFailCheckPM;
-    llvm::legacy::PassManager m_PreFailCheckPM;
-    llvm::Module* m_pModule;
-    llvm::SmallVector<llvm::Module*, 2> m_pRtlModuleList;
-    std::vector<std::string> m_undefinedExternalFunctions;
-    bool m_IsFpgaEmulator;
-    bool m_IsEyeQEmulator;
-    // Indicates whether the module comes from SYCL.
-    // The only noticeable difference between SYCL flow and OpenCL flow is the
-    // spirv.Source metadata: in SYCL the value for spirv.Source is OpenCL C++
-    // (because SYCL does not have a dedicated enum value yet), while in OpenCL
-    // spirv.Source is OpenCL C.
-    //
-    // spirv.Source is an *optional* metadata and can be omitted (optimized)
-    // during SPIR-V translation. It also is not emitted if we do not use SPIR-V
-    // as an intermediate. These two cases are not supported now.
-    bool m_IsSYCL;
-    // For OCLVPOCheckVF Pass
-    TStringToVFState m_kernelToVFState;
+  // hold the collection of passes
+  llvm::legacy::PassManager m_PostFailCheckPM;
+  llvm::legacy::PassManager m_PreFailCheckPM;
+  llvm::SmallVector<llvm::Module *, 2> m_pRtlModuleList;
+  bool m_IsFpgaEmulator;
+  bool m_IsEyeQEmulator;
 };
 
-}}}
-
-
+} // namespace DeviceBackend
+} // namespace OpenCL
+} // namespace Intel
