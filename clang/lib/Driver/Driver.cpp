@@ -6746,8 +6746,9 @@ InputInfo Driver::BuildJobsForActionNoCache(
             C.getInputArgs().hasArg(options::OPT_static)) ||
            C.getInputArgs().hasArg(options::OPT_qdaal_EQ) ||
            C.getDriver().getOffloadStaticLibSeen() ||
-           JA->getType() == types::TY_Archive)) {
+           JA->getType() == types::TY_Archive) &&
 #endif // INTEL_CUSTOMIZATION
+          JA->getType() == types::TY_Archive) {
         // Host part of the unbundled static archive is not used.
         if (UI.DependentOffloadKind == Action::OFK_Host)
           continue;
