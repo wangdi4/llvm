@@ -4,6 +4,8 @@ set(LLVM_LINK_COMPONENTS
   Vectorize
   AsmParser
   CodeGen
+  Intel_LoopAnalysis   # INTEL
+  Intel_LoopTransforms # INTEL
   MC
   X86CodeGen
   X86Info
