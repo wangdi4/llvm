@@ -4699,7 +4699,8 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
 #if INTEL_CUSTOMIZATION
   // TODO: Doc. Another case is GetElementConstantExpr. I hope it will be
   // handled by the AA even without TBAA.
-  if (getLangOpts().isIntelCompat(LangOptions::IntelTBAA)) {
+  if (getLangOpts().isIntelCompat(LangOptions::IntelTBAA) &&
+      CGM.getCodeGenOpts().StructPathTBAA) {
     auto *GEP = dyn_cast<llvm::GetElementPtrInst>(addr.getPointer());
     if (GEP && !FieldTBAAInfo.isMayAlias()) {
       // HACK: If the base didn't have a base type we created the base type
