@@ -3861,7 +3861,7 @@ private:
   // within the subset are marked as completely written.
   void markStructFieldsWritten(dtrans::TypeInfo *TI, unsigned int FirstField,
                                unsigned int LastField, Instruction &I) {
-    assert(TI && TI->getLLVMType()->isStructTy() &&
+    assert(TI && isa<dtrans::StructInfo>(TI) &&
            "markStructFieldsWritten requires Structure type");
 
     auto *StInfo = cast<dtrans::StructInfo>(TI);

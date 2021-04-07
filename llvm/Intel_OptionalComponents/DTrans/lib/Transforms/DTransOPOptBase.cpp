@@ -719,9 +719,9 @@ void DTransOPOptBase::updateDTransTypesMetadata(Module &M,
       assert(TypeMD && isa<llvm::StructType>(TypeMD->getType()) &&
              "Expected struct type");
       llvm::StructType *StTy = cast<llvm::StructType>(TypeMD->getType());
-      if (!TypeRemapper.hasRemappedType(StTy))
+      if (!TypeRemapper.hasRemappedType(StTy)) {
         Remaps.emplace_back(Mapper.mapMDNode(*Op));
-      else {
+      } else {
         // Create metadata encoding.
         llvm::Type *ReplTy = TypeRemapper.remapType(StTy);
         if (!ReplTy->isStructTy())
@@ -729,6 +729,8 @@ void DTransOPOptBase::updateDTransTypesMetadata(Module &M,
 
         StructType *ReplStructTy = cast<StructType>(ReplTy);
         DTransStructType *DTReplTy = TM.getStructType(ReplStructTy->getName());
+        assert(DTReplTy && "Expected base class or transformation to create "
+                           "DTransStructType for remapped structure");
         Remaps.emplace_back(DTReplTy->createMetadataStructureDescriptor());
       }
     }
