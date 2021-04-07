@@ -70,20 +70,6 @@ namespace arraycontractionutils {
 class HIRArrayContractionUtil {
   HIRArrayContractionUtil() = delete;
 
-  // ** 2-way mapping of refs before and after contraction **
-  // forward map: BeforeContractRef -> AfterContractRef
-  static DenseMap<RegDDRef *, RegDDRef *> Pre2PostMap;
-  // reverse map: AfterContractRef -> BeforeContractRef
-  static DenseMap<RegDDRef *, RegDDRef *> Post2PreMap;
-
-  // Storage allocation record mapping:
-  // (MemRef's BaseCE Blob Index, ContractDims) -> AllocaInst
-  static DenseMap<std::pair<unsigned, unsigned>, HLInst *>
-      StorageBlobIdxAllocaMap;
-
-  // Map: contracted memref's BasePtrBlobIndex -> Symbase
-  static DenseMap<unsigned, unsigned> ContractedRefBlob2SB;
-
   // Check sanity of a given MemRef
   // Items to check:
   // - MemRef: ArrayType RegDDRef
@@ -101,122 +87,39 @@ class HIRArrayContractionUtil {
       Type *&RootTy /* Output : ArrayType's Root type */);
 
   // Check if new storage has been allocated for the Ref
-  static bool isStorageAllocated(
-      RegDDRef *Ref,                         /* Input: Ref to contract */
-      SmallSet<unsigned, 4> &PreservedDims,  /* Input: Dims to preserve */
-      SmallSet<unsigned, 4> &ToContractDims, /* Input: Dims to contract */
-      HLInst *&AllocaInst /* Output: existing or new allocated storage */
-  );
-
   // Allocate storage for new array
   // [Note]
   // - only support stack allocation at the moment.
   //   (May add heap support in future when needed.)
   static bool
-  allocateStorage(RegDDRef *Ref,                         /* Ref to contract */
-                  SmallSet<unsigned, 4> &PreservedDims,  /* Dims preserved */
-                  SmallSet<unsigned, 4> &ToContractDims, /* Dims to contract */
+  allocateStorage(RegDDRef *Ref, /* Ref to contract */
                   HLRegion &Reg, /* The relevant region */
                   SmallVectorImpl<unsigned>
                       &DimSizeVec, /* Dim Sizes of after-contract type */
-                  Type *&RootTy,
-                  HLInst *&AllocaInst /* Output: Alloca created */
-  );
+                  Type *RootTy,
+                  RegDDRef *&AfterContractRef, /* Existing contracted ref */
+                  unsigned &AllocaBlobIndex);  /* Output: alloca blob index */
 
   // Contract a given memref, obtain its contracted counterpart memref
-  static bool
+  static void
   contract(RegDDRef *Ref,
            SmallSet<unsigned, 4> &PreservedDims,  /* Input: Dims preserved */
            SmallSet<unsigned, 4> &ToContractDims, /* Input: Dims to contract */
-           HLInst *AllocInst,                     /* Input: Alloca created */
+           unsigned AllocaBlobIndex,              /* Input: Alloca blob index */
            RegDDRef *&ContractedRef /* Output: */);
-
-  // Search StorageAllocMap for a given before-contract ref,
-  // return the relevant HLAllocInst that allocates storage.
-  static HLInst *getHLAllocaInst(RegDDRef *ToContractRef,
-                                 SmallSet<unsigned, 4> &ToContractDims) {
-    return StorageBlobIdxAllocaMap[std::make_pair(
-        ToContractRef->getBasePtrBlobIndex(), ToContractDims.size())];
-  }
 
   static void addSBToLoopnestLiveIn(HLLoop *Lp, const unsigned SB);
 
 public:
+  // If \p AfterContractRef is null, new alloca is created for contraction
+  // otherwise alloca information is extracted from this ref.
   static bool contractMemRef(
       RegDDRef *ToContractRef,               /* Input: Ref to contract */
       SmallSet<unsigned, 4> &PreservedDims,  /* Input: Dims preserved */
       SmallSet<unsigned, 4> &ToContractDims, /* Input: Dims to contract */
       HLRegion &Reg,                         /* Input: the region */
-      RegDDRef *&AfterContractRef,           /* Output: Ref after contraction */
-      unsigned &AfterContractSB /* Output: Symbase of the contracted ref */
+      RegDDRef *&AfterContractRef            /* Output: Ref after contraction */
   );
-
-  // Give a BeforeContract Ref, find its matching after-contract Ref.
-  static RegDDRef *getAfterContractRef(RegDDRef *BeforeContractRef) {
-    return Pre2PostMap[BeforeContractRef];
-  }
-
-  // Give a AfterContract Ref, find its corresponding before-contract Ref.
-  static RegDDRef *getBeforeContractRef(RegDDRef *AfterContractRef) {
-    return Post2PreMap[AfterContractRef];
-  }
-
-  // For a given AfterContractMemRef:
-  // -if its BasePtrBlobIndex is already recorded, return true with its Symbase.
-  // -otherwise, create a new symbase, record it and return false;
-  static bool getOrCreateRefSB(RegDDRef *Ref, DDRefUtils &DDRU,
-                               unsigned &SymBase);
-
-  // Debug Printers:
-  void printPre2PostMap(formatted_raw_ostream &FOS);
-  void printPost2PreMap(formatted_raw_ostream &FOS);
-  void printStorageAllocaMap(formatted_raw_ostream &FOS);
-  void printContractRefBlob2SBMap(formatted_raw_ostream &FOS);
-
-#ifndef NDEBUG
-  LLVM_DUMP_METHOD void dumpPre2PostMap(void) {
-    formatted_raw_ostream FOS(dbgs());
-    printPre2PostMap(FOS);
-  }
-
-  LLVM_DUMP_METHOD void dumpPost2PreMap(void) {
-    formatted_raw_ostream FOS(dbgs());
-    printPost2PreMap(FOS);
-  }
-
-  LLVM_DUMP_METHOD void dumpStoragAllocaMap(void) {
-    formatted_raw_ostream FOS(dbgs());
-    printStorageAllocaMap(FOS);
-  }
-
-  LLVM_DUMP_METHOD void dumpContractRefBlob2SBMap(void) {
-    formatted_raw_ostream FOS(dbgs());
-    printContractRefBlob2SBMap(FOS);
-  }
-
-  LLVM_DUMP_METHOD void dump(bool PrintPre2PostMap = true,
-                             bool PrintPost2PreMap = false,
-                             bool PrintStorageAllocaMap = true,
-                             bool PrintContractRefBlob2SBMap = true) {
-    formatted_raw_ostream FOS(dbgs());
-
-    if (PrintPre2PostMap) {
-      printPre2PostMap(FOS);
-    }
-
-    if (PrintPost2PreMap) {
-      printPost2PreMap(FOS);
-    }
-
-    if (PrintStorageAllocaMap) {
-      printStorageAllocaMap(FOS);
-    }
-
-    if (PrintContractRefBlob2SBMap) {
-      printContractRefBlob2SBMap(FOS);
-    }
-  }
-#endif
 };
 
 } // namespace arraycontractionutils

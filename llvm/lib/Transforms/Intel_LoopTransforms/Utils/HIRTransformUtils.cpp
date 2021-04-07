@@ -1882,10 +1882,8 @@ bool HIRTransformUtils::contractMemRef(RegDDRef *ToContractRef,
                                        SmallSet<unsigned, 4> &PreservedDims,
                                        SmallSet<unsigned, 4> &ToContractDims,
                                        HLRegion &Reg,
-                                       RegDDRef *&AfterContractRef,
-                                       unsigned &AfterSB) {
+                                       RegDDRef *&AfterContractRef) {
 
-  return HIRArrayContractionUtil::contractMemRef(ToContractRef, PreservedDims,
-                                                 ToContractDims, Reg,
-                                                 AfterContractRef, AfterSB);
+  return HIRArrayContractionUtil::contractMemRef(
+      ToContractRef, PreservedDims, ToContractDims, Reg, AfterContractRef);
 }

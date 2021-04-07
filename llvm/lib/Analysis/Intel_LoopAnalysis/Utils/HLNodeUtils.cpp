@@ -362,40 +362,6 @@ unsigned HLNodeUtils::createAlloca(Type *Ty, HLRegion *Reg, const Twine &Name) {
   return AllocaBlobIndex;
 }
 
-HLInst *HLNodeUtils::createAlloca(Type *Ty, HLRegion *Reg,
-                                  RegDDRef *ArraySizeRvalRef,
-                                  const Twine &Name) {
-  auto SavedInsertPt = DummyIRBuilder->GetInsertPoint();
-  auto InsertBB = SavedInsertPt->getParent();
-
-  // If we have inserted dummy instructions before, insert before FirstDummyInst
-  if (FirstDummyInst) {
-    DummyIRBuilder->SetInsertPoint(FirstDummyInst);
-  }
-
-  auto InstV = DummyIRBuilder->CreateAlloca(Ty, nullptr, Name);
-
-  // Reset the insertion point.
-  DummyIRBuilder->SetInsertPoint(InsertBB, SavedInsertPt);
-
-  // Add a blob entry for the alloca instruction and return its index.
-  unsigned AllocaBlobIndex = 0;
-  const unsigned NewSymbase = getDDRefUtils().getNewSymbase();
-
-  getBlobUtils().createBlob(InstV, NewSymbase, true, &AllocaBlobIndex);
-  Reg->addLiveInTemp(NewSymbase, InstV);
-
-  // Create an HLInst to represent the newly created Alloca:
-  assert(isa<Instruction>(InstV) && "Expected instruction!");
-  Instruction *Inst = cast<Instruction>(InstV);
-
-  auto HInst = createHLInst(Inst);
-  HInst->setLvalDDRef(getDDRefUtils().createRegDDRef(NewSymbase));
-  HInst->setRvalDDRef(ArraySizeRvalRef);
-
-  return HInst;
-}
-
 HLInst *HLNodeUtils::createAlloca(Type *Ty, RegDDRef *ArraySizeRvalRef,
                                   const Twine &Name) {
   // Create dummy val.

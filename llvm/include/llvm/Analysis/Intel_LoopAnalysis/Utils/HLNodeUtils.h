@@ -656,9 +656,6 @@ public:
   /// GEP refs using the returned blob index as the base pointer.
   unsigned createAlloca(Type *Ty, HLRegion *Reg, const Twine &Name = "alloca");
 
-  HLInst *createAlloca(Type *Ty, HLRegion *Reg, RegDDRef *ArraySizeRvalRef,
-                       const Twine &Name = "alloca");
-
   /// Generated alloca with arraysize. Useful for var array.
   HLInst *createAlloca(Type *Ty, RegDDRef *ArraySizeRvalRef,
                        const Twine &Name = "alloca");
