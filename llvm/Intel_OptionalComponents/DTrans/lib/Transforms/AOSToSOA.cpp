@@ -1,6 +1,6 @@
 //===---------------- AOSToSOA.cpp - DTransAOStoSOAPass -------------------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -2348,15 +2348,15 @@ private:
   // being transformed, return nullptr.
   std::pair<llvm::Type *, AOSConvType>
   getCallInfoTypeToTransform(dtrans::CallInfo *CInfo) {
-    auto &TypeList = CInfo->getElementTypesRef().getElemTypes();
+    auto &TypeList = CInfo->getElementTypesRef();
 
     // Only cases with a single type will be allowed during the transformation.
     // If there's more than one, we don't need the type, because we won't be
     // transforming it.
-    if (TypeList.size() != 1)
+    if (TypeList.getNumTypes() != 1)
       return std::make_pair(nullptr, AOS_NoConv);
 
-    llvm::Type *ElemTy = *TypeList.begin();
+    llvm::Type *ElemTy = TypeList.getElemLLVMType(0);
     if (isTypeToTransform(ElemTy))
       return std::make_pair(ElemTy, AOS_SOAConv);
 
@@ -2745,7 +2745,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
     // calloc/malloc. Invalidate the information for all types.
     if (ACI->getAllocKind() != dtrans::AK_Calloc &&
         ACI->getAllocKind() != dtrans::AK_Malloc) {
-      for (auto *AllocatedTy : ACI->getElementTypesRef().getElemTypes()) {
+      for (auto *AllocatedTy : ACI->getElementTypesRef().element_llvm_types()) {
         auto *TI = DTInfo.getTypeInfo(AllocatedTy);
         if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
           LLVM_DEBUG({
@@ -2768,7 +2768,7 @@ bool AOSToSOAPass::qualifyAllocations(StructInfoVecImpl &CandidateTypes,
 
     // For supported allocations, update the association between the type and
     // allocating instruction.
-    for (auto *AllocatedTy : ACI->getElementTypesRef().getElemTypes()) {
+    for (auto *AllocatedTy : ACI->getElementTypesRef().element_llvm_types()) {
       auto *TI = DTInfo.getTypeInfo(AllocatedTy);
       if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
         if (TypeToAllocInstr.count(StInfo)) {

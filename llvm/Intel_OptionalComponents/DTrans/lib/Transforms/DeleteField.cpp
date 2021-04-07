@@ -1,6 +1,6 @@
 //===---------------- DeleteField.cpp - DTransDeleteFieldPass -------------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -734,7 +734,7 @@ void DeleteFieldImpl::postprocessCall(CallBase *Call) {
   // The number of types in the call element info and the number of types
   // in the OrigToNew type mapping should both be very small.
   auto CallElemTypes = CInfo->getElementTypesRef();
-  for (auto *PointeeTy : CallElemTypes.getElemTypes())
+  for (auto *PointeeTy : CallElemTypes.element_llvm_types())
 
     for (auto &ONPair : OrigToNewTypeMapping) {
       llvm::Type *OrigTy = ONPair.first;

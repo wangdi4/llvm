@@ -436,7 +436,7 @@ public:
 
 // Helper function to get associated StructType of \p CallInfo.
 StructType *ReorderFieldsImpl::getStructTyAssociatedWithCallInfo(CallInfo *CI) {
-  for (auto *StTy : CI->getElementTypesRef().getElemTypes()) {
+  for (auto *StTy : CI->getElementTypesRef().element_llvm_types()) {
     // StTy is original type, call getOrigTyOfTransformedType to
     // make sure the type is transformed.
     Type *OrigStTy = getOrigTyOfTransformedType(StTy);
@@ -472,7 +472,7 @@ StructType *ReorderFieldsImpl::unmapInclusiveType(CallInfo *CI) {
   }
 
   // Find the OrigTy of a matching ReorderedTy
-  for (auto *ElemTy : CI->getElementTypesRef().getElemTypes()) {
+  for (auto *ElemTy : CI->getElementTypesRef().element_llvm_types()) {
     StructType *ReorderedTy = dyn_cast<StructType>(ElemTy);
 
     // Search InclusiveStructTypeUnmap

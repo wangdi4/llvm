@@ -1070,11 +1070,25 @@ public:
     ElemTypes.push_back(Ty);
   }
 
-  TypeAliasSetRef getElemTypes() { return ElemTypes; }
+  struct element_llvm_types_iterator
+      : public iterator_adaptor_base<element_llvm_types_iterator,
+                                     TypeAliasSet::iterator,
+                                     std::forward_iterator_tag, AbstractType> {
+    explicit element_llvm_types_iterator(TypeAliasSet::iterator X)
+        : iterator_adaptor_base(X) {}
 
-  size_t getNumTypes() { return ElemTypes.size(); }
+    llvm::Type *operator*() const { return *I; }
+    llvm::Type *operator->() const { return operator*(); }
+  };
 
-  llvm::Type *getElemType(size_t Idx) const {
+  iterator_range<element_llvm_types_iterator> element_llvm_types() {
+    return make_range(element_llvm_types_iterator(ElemTypes.begin()),
+                      element_llvm_types_iterator(ElemTypes.end()));
+  }
+
+  size_t getNumTypes() const { return ElemTypes.size(); }
+
+  llvm::Type *getElemLLVMType(size_t Idx) const {
     assert(Idx < ElemTypes.size() && "Index out of range");
     return ElemTypes[Idx];
   }
