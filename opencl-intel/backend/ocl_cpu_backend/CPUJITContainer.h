@@ -50,7 +50,11 @@ public:
     /*
      * IJITContainer methods
      */
-    KernelJITProperties *GetProps() const override { return m_pProps; }
+    const std::string& GetFunctionName() const override {
+      return m_FuncName;
+    }
+    void SetJITCode(const void* addr) override { m_pFuncCode = addr; }
+    KernelJITProperties* GetProps() const override { return m_pProps; }
 
     /**
      * Serialization methods for the class (used by the serialization service)
@@ -62,6 +66,7 @@ public:
   private:
     const void*            m_pFuncCode;
     llvm::Function*        m_pFunction;
+    std::string            m_FuncName;
     llvm::Module*          m_pModule; // not owned by the class 
 
     KernelJITProperties*   m_pProps;

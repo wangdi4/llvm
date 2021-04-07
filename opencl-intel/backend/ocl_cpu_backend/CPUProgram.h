@@ -67,6 +67,8 @@ public:
 
     void SetObjectCache(ObjectCodeCache *);
 
+    cl_dev_err_code Finalize() override;
+
     cl_ulong GetFunctionPointerFor(const char *) const override;
 
     // Get a map from global variable name to its property (size/pointer).

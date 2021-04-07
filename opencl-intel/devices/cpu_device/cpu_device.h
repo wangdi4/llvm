@@ -185,9 +185,11 @@ public:
                                     cl_dev_program *OUT prog) override;
     cl_dev_err_code clDevCreateLibraryKernelProgram(
         cl_dev_program * OUT Prog, const char **OUT KernelNames) override;
+
     cl_dev_err_code
     clDevBuildProgram(cl_dev_program IN prog, const char *IN options,
                       cl_build_status *OUT buildStatus) override;
+    cl_dev_err_code clDevFinalizeProgram(cl_dev_program IN prog);
     cl_dev_err_code clDevReleaseProgram(cl_dev_program IN prog) override;
     cl_dev_err_code clDevUnloadCompiler() override;
     cl_dev_err_code clDevGetProgramBinary(cl_dev_program IN prog,
