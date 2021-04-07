@@ -3439,6 +3439,21 @@ EXTERN int32_t __tgt_rtl_release_interop(
   return OFFLOAD_SUCCESS;
 }
 
+EXTERN int32_t __tgt_rtl_use_interop(int32_t DeviceId, __tgt_interop *Interop) {
+  if (!Interop || Interop->DeviceNum != (intptr_t)DeviceId ||
+      Interop->FrId != OCLInterop::FrId) {
+    IDP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+    return OFFLOAD_FAIL;
+  }
+
+  if (Interop->TargetSync) {
+    auto cmdQueue = static_cast<cl_command_queue>(Interop->TargetSync);
+    CALL_CL_RET_FAIL(clFinish, cmdQueue);
+  }
+
+  return OFFLOAD_SUCCESS;
+}
+
 EXTERN int32_t __tgt_rtl_get_num_interop_properties(int32_t DeviceId) {
   // TODO: decide implementation-defined properties
   return 0;

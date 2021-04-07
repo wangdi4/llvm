@@ -859,6 +859,13 @@ int32_t DeviceTy::releaseInterop(__tgt_interop *Interop) {
     return OFFLOAD_FAIL;
 }
 
+int32_t DeviceTy::useInterop(__tgt_interop *Interop) {
+  if (RTL->use_interop)
+    return RTL->use_interop(RTLDeviceID, Interop);
+  else
+    return OFFLOAD_FAIL;
+}
+
 int32_t DeviceTy::getNumInteropProperties(void) {
   if (RTL->get_num_interop_properties)
     return RTL->get_num_interop_properties(RTLDeviceID);

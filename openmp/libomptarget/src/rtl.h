@@ -91,6 +91,7 @@ struct RTLInfoTy {
   typedef __tgt_interop *(create_interop_ty)(int32_t, int32_t, int32_t,
                                              intptr_t *);
   typedef int32_t(release_interop_ty)(int32_t, __tgt_interop *);
+  typedef int32_t(use_interop_ty)(int32_t, __tgt_interop *);
   typedef int32_t(get_num_interop_properties_ty)(int32_t);
   typedef int32_t(get_interop_property_value_ty)(int32_t, __tgt_interop *,
                                                  int32_t, int32_t, size_t,
@@ -166,6 +167,7 @@ struct RTLInfoTy {
   deinit_ty *deinit = nullptr;
   create_interop_ty *create_interop = nullptr;
   release_interop_ty *release_interop = nullptr;
+  use_interop_ty *use_interop = nullptr;
   get_num_interop_properties_ty *get_num_interop_properties = nullptr;
   get_interop_property_value_ty *get_interop_property_value = nullptr;
   get_interop_property_info_ty *get_interop_property_info = nullptr;

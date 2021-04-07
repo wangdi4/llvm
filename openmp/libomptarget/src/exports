@@ -40,6 +40,7 @@ VERS1.0 {
     __tgt_add_build_options;
     __tgt_create_interop;
     __tgt_release_interop;
+    __tgt_use_interop;
 # end INTEL_COLLAB
     omp_get_num_devices;
     omp_get_initial_device;

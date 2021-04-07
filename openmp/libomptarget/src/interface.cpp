@@ -811,6 +811,27 @@ EXTERN int __tgt_release_interop(omp_interop_t interop) {
   return PM->Devices[DeviceNum].releaseInterop(TgtInterop);
 }
 
+EXTERN int __tgt_use_interop(omp_interop_t interop) {
+  DP("Call to %s with interop " DPxMOD "\n", __func__, DPxPTR(interop));
+
+  if (isOffloadDisabled() || !interop)
+    return OFFLOAD_FAIL;
+
+  __tgt_interop *TgtInterop = static_cast<__tgt_interop *>(interop);
+  int64_t DeviceNum = TgtInterop->DeviceNum;
+
+  if (!device_is_ready(DeviceNum)) {
+    DP("Device %" PRId64 " is not ready when using an interop " DPxMOD "\n",
+       DeviceNum, DPxPTR(interop));
+    return OFFLOAD_FAIL;
+  }
+
+  if (!TgtInterop->TargetSync)
+    return OFFLOAD_SUCCESS;
+
+  return PM->Devices[DeviceNum].useInterop(TgtInterop);
+}
+
 EXTERN int __tgt_get_target_memory_info(
     void *interop_obj, int32_t num_ptrs, void *tgt_ptrs, void *ptr_info) {
   DP("Call to __tgt_get_target_memory_info with interop_obj " DPxMOD
