@@ -1424,11 +1424,12 @@ void VPOParoptTransform::genTgtInformationForPtrs(
 #ifndef NDEBUG
     if (V->hasName())
       return Builder.CreateGlobalString(
-          (";" + V->getName() + ";unknown;0;0;;").str());
+          (";" + V->getName() + ";unknown;0;0;;").str(), ".mapname");
 #endif
 
     if (!MapNameUnknown)
-      MapNameUnknown = Builder.CreateGlobalString(";unknown;unknown;0;0;;");
+      MapNameUnknown =
+          Builder.CreateGlobalString(";unknown;unknown;0;0;;", ".mapname");
     return MapNameUnknown;
   };
 
@@ -1513,9 +1514,13 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         // MapName looks like:
         //  @0 = private unnamed_addr constant [40 x i8]
         //       c";y[0][0:1];tgt_map_ptr_arrsec.cpp;7;7;;\00", align 1
-        if (auto *AggrName = Aggr->getName())
-          Names.push_back(cast<GlobalVariable>(AggrName));
-        else
+        if (auto *AggrName = Aggr->getName()) {
+          auto *MapName = cast<GlobalVariable>(AggrName);
+          // LTO assumes globals have names.
+          if (!MapName->hasName())
+            MapName->setName(".mapname");
+          Names.push_back(MapName);
+        } else
           Names.push_back(getMapNameForVar(Aggr->getBasePtr()));
 
         Mappers.push_back(Aggr->getMapper());
