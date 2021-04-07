@@ -47,5 +47,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   TransformUtils
 )
 
-target_include_directories(LLVMIntel_DPCPPKernelTransforms
+# llvm_component_libraries are OBJECT libraries, so target_include_directories
+# should be applied to obj.NAME instead. See https://reviews.llvm.org/D95727
+target_include_directories(obj.LLVMIntel_DPCPPKernelTransforms
   PRIVATE ${LLVM_MAIN_SRC_DIR}/lib/Transforms/Intel_DPCPPKernelTransforms/Utils)
