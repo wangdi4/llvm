@@ -16,7 +16,7 @@
 #ifndef LLVM_TRANSFORM_VECTORIZE_INTEL_VPLAN_INTELVLSCLIENTHIR_H
 #define LLVM_TRANSFORM_VECTORIZE_INTEL_VPLAN_INTELVLSCLIENTHIR_H
 
-#include "Intel_VPlan/IntelVPlanVLSClient.h"
+#include "../IntelVPlanVLSClient.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 

@@ -12990,25 +12990,16 @@ private:
   bool CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckX86BuiltinGatherScatterScale(unsigned BuiltinID, CallExpr *TheCall);
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
   bool CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall,
                                          ArrayRef<int> ArgNums, int Low = 0,
-                                         int High = 15);
+                                         int High = 7);
   bool CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall, int ArgNum,
-                                         int Low = 0, int High = 15);
+                                         int Low = 0, int High = 7);
   bool CheckX86BuiltinTileDuplicate(CallExpr *TheCall, ArrayRef<int> ArgNums);
   bool CheckX86BuiltinTileRangeAndDuplicate(CallExpr *TheCall,
                                             ArrayRef<int> ArgNums, int Low = 0,
-                                            int High = 15);
-#else // INTEL_FEATURE_ISA_AMX
-  bool CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall);
-  bool CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall,
-                                         ArrayRef<int> ArgNums);
-  bool CheckX86BuiltinTileDuplicate(CallExpr *TheCall, ArrayRef<int> ArgNums);
-  bool CheckX86BuiltinTileRangeAndDuplicate(CallExpr *TheCall,
-                                            ArrayRef<int> ArgNums);
-#endif // INTEL_FEATURE_ISA_AMX
+                                            int High = 7);
 #endif // INTEL_CUSTOMIZATION
   bool CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
                                    CallExpr *TheCall);

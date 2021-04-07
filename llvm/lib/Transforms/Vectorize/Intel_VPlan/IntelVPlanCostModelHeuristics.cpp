@@ -507,8 +507,20 @@ unsigned HeuristicGatherScatter::operator()(
 // The utility below searches for patterns that form PSADBW instruction
 // semantics.  The current implementation searches for the following pattern:
 //
+// EXPR1 can be one of:
 // %Add    = ZExt(A) + ZExt(B) * (-1)
+// OR:
+// %Add    = ZExt(A) - ZExt(B)
+//
+// EXPR2 can be one of:
 // %Abs    = Abs(%Add)
+// OR:
+// %Abs    = call %Add llvm.abs
+//
+// The pattern should be:
+//
+// EXPR1
+// EXPR2
 //
 // Returns true if pattern is detected.
 // Any outside users of instructions forming the pattern are ignored.
@@ -521,11 +533,14 @@ bool HeuristicPsadbw::checkPsadwbPattern(
   const VPValue *A = nullptr, *B = nullptr;
 
   auto MAdd =
-    m_Bind(m_c_Add(m_Bind(m_ZExt(m_Bind(A)), ZExtA),
-                   m_Bind(m_c_Mul(m_Bind(m_ZExt(m_Bind(B)), ZExtB),
-                                  m_ConstantInt<-1, VPConstantInt>()),
-                          Mul)), Add);
-  if (!match(AbsInst, m_VPAbs(MAdd)))
+    m_Bind(m_CombineOr(
+      m_c_Add(m_Bind(m_ZExt(m_Bind(A)), ZExtA),
+              m_Bind(m_c_Mul(m_Bind(m_ZExt(m_Bind(B)), ZExtB),
+                             m_ConstantInt<-1, VPConstantInt>()), Mul)),
+      m_Sub(m_Bind(m_ZExt(m_Bind(A)), ZExtA),
+            m_Bind(m_ZExt(m_Bind(B)), ZExtB))), Add);
+  if (!match(AbsInst, m_VPAbs(MAdd)) &&
+      !match(AbsInst, m_Intrinsic<Intrinsic::abs>(MAdd)))
     return false;
 
   if (A->getType()->getScalarSizeInBits() != 8 ||
@@ -535,7 +550,8 @@ bool HeuristicPsadbw::checkPsadwbPattern(
   // Store participating instructions into PatternInsts.
   PatternInsts.insert(AbsInst);
   PatternInsts.insert(Add);
-  PatternInsts.insert(Mul);
+  if (Mul)
+    PatternInsts.insert(Mul);
   PatternInsts.insert(ZExtA);
   PatternInsts.insert(ZExtB);
   return true;
@@ -692,7 +708,8 @@ void HeuristicPsadbw::apply(
       unsigned NumberOfPatterns = std::count_if(
         CurrPsadbwPatternInsts.begin(), CurrPsadbwPatternInsts.end(),
         [](const VPInstruction *I) {
-          return I->getOpcode() == VPInstruction::Abs; });
+          return I->getOpcode() == VPInstruction::Abs ||
+                 match(I, m_Intrinsic<Intrinsic::abs>(m_VPValue())); });
 
       if (!LoopTCI.IsEstimated && NumberOfPatterns < 4 &&
           (LoopTCI.TripCount == 8 || LoopTCI.TripCount == 16))

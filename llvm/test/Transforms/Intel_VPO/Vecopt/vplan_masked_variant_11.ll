@@ -59,59 +59,6 @@ define void @main(i32 %inner.tc, i32 %outer.tc) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  VPlan after emitting masked variant:
-; CHECK-NEXT:  VPlan IR for: main:outer.header.cloned.masked
-; CHECK-NEXT:    Cloned.[[BB10:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB11:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB11]]: # preds: Cloned.[[BB10]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP4:%.*]] = induction-init{add} i32 live-in0 i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP5:%.*]] = induction-init-step{add} i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP6:%.*]] = vector-trip-count i32 [[OUTER_TC0]], UF = 1
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB12:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB12]]: # preds: Cloned.[[BB11]], new_latch
-; CHECK-NEXT:     [DA: Div] i32 [[VP_OUTER_IV_1:%.*]] = phi  [ i32 [[VP4]], Cloned.[[BB11]] ],  [ i32 [[VP_OUTER_IV_NEXT_1:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_OUTER_BOTTOM_TEST_2:%.*]] = icmp eq i32 [[VP_OUTER_IV_1]] i32 [[VP6]]
-; CHECK-NEXT:     [DA: Div] br i1 [[VP_OUTER_BOTTOM_TEST_2]], [[BB13:BB[0-9]+]], new_latch
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB13]]: # preds: Cloned.[[BB12]]
-; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB14:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      Cloned.[[BB14]]: # preds: Cloned.[[BB15:BB[0-9]+]], [[BB13]]
-; CHECK-NEXT:       [DA: Uni] i32 [[VP_INNER_IV_1:%.*]] = phi  [ i32 0, [[BB13]] ],  [ i32 [[VP_INNER_IV_NEXT_1:%.*]], Cloned.[[BB15]] ]
-; CHECK-NEXT:       [DA: Uni] i32 [[VP_ADD_PHI_1:%.*]] = phi  [ i32 0, [[BB13]] ],  [ i32 [[VP_ADD_1:%.*]], Cloned.[[BB15]] ]
-; CHECK-NEXT:       [DA: Uni] i32 [[VP_ADD_1]] = add i32 [[VP_ADD_PHI_1]] i32 2
-; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB15]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      Cloned.[[BB15]]: # preds: Cloned.[[BB14]]
-; CHECK-NEXT:       [DA: Uni] i32 [[VP_INNER_IV_NEXT_1]] = add i32 [[VP_INNER_IV_1]] i32 1
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_INNER_BOTTOM_TEST_1:%.*]] = icmp eq i32 [[VP_INNER_IV_NEXT_1]] i32 [[INNER_TC0]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_INNER_BOTTOM_TEST_1]], Cloned.[[BB16:BB[0-9]+]], Cloned.[[BB14]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      Cloned.[[BB16]]: # preds: Cloned.[[BB15]]
-; CHECK-NEXT:       [DA: Uni] i32 [[VP_LCSSA_ADD_PHI_1_1:%.*]] = phi  [ i32 [[VP_ADD_1]], Cloned.[[BB15]] ]
-; CHECK-NEXT:       [DA: Uni] i32 [[VP_ADD_FINAL_1:%.*]] = add i32 [[VP_LCSSA_ADD_PHI_1_1]] i32 1
-; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB17:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      Cloned.[[BB17]]: # preds: Cloned.[[BB16]]
-; CHECK-NEXT:       [DA: Uni] br new_latch
-; CHECK-EMPTY:
-; CHECK-NEXT:    new_latch: # preds: Cloned.[[BB17]], Cloned.[[BB12]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_OUTER_IV_NEXT_1]] = add i32 [[VP_OUTER_IV_1]] i32 [[VP5]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_OUTER_BOTTOM_TEST_3:%.*]] = icmp eq i32 [[VP_OUTER_IV_NEXT_1]] i32 [[VP6]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_OUTER_BOTTOM_TEST_3]], Cloned.[[BB18:BB[0-9]+]], Cloned.[[BB12]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB18]]: # preds: new_latch
-; CHECK-NEXT:     [DA: Uni] i32 [[VP7:%.*]] = induction-final{add} i32 live-in0 i32 1
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB19:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB19]]: # preds: Cloned.[[BB18]]
-; CHECK-NEXT:     [DA: Uni] br <External Block>
-; CHECK-EMPTY:
-; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP7]]
 ;
 entry:
   br label %preheader

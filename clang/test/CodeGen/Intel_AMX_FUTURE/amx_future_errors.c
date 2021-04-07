@@ -12,69 +12,69 @@ void test_tile_coladdbcastps() {
 }
 
 void test_tile_coladdps(void *A) {
-  _tile_coladdps(A, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_coladdps(A, 16); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
 }
 
 // Memory
 void test_tile_broadcastrowd(const void *A) {
-  _tile_broadcastrowd(16, A); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_broadcastrowd(16, A); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
 }
 
 void test_tile_gatherrowd(const void *A, const void *B) {
-  _tile_gatherrowd(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_gatherrowd(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
 
 }
 
 void test_tile_gatherrowdt1(const void *A, const void *B) {
-  _tile_gatherrowdt1(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_gatherrowdt1(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
 }
 
 void test_tile_gatherrowq(const void *A, const void *B) {
-  _tile_gatherrowq(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_gatherrowq(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
 }
 
 void test_tile_gatherrowqt1(const void *A, const void *B) {
-  _tile_gatherrowqt1(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_gatherrowqt1(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
 }
 
 void test_tile_scatterrowd(void *A, void *B) {
-  _tile_scatterrowd(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_scatterrowd(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
 }
 
 void test_tile_scatterrowdt1(void *A, void *B) {
-  _tile_scatterrowdt1(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_scatterrowdt1(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
 }
 
 void test_tile_scatterrowq(void *A, void *B) {
-  _tile_scatterrowq(A, B, 16);  // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_scatterrowq(A, B, 16);  // expected-error {{argument value 16 is outside the valid range [0, 7]}}
 }
 
 void test_tile_scatterrowqt1(void *A, void *B) {
-  _tile_scatterrowqt1(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_scatterrowqt1(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
 }
 
 void test_tile_storehd(void *A, size_t B) {
-  _tile_storehd(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_storehd(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
 }
 
 void test_tile_storehdt1(void *A, size_t B) {
-  _tile_storehdt1(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_storehdt1(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
 }
 
 void test_tile_storentd(void *A, size_t B) {
-  _tile_storentd(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_storentd(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
 }
 
 void test_tile_storeqd(void *A, size_t B) {
-  _tile_storeqd(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_storeqd(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
 }
 
 void test_tile_storeqdt1(void *A, size_t B) {
-  _tile_storeqdt1(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_storeqdt1(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
 }
 
 void test_tile_storerowd(void *A) {
-  _tile_storerowd(A, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_storerowd(A, 16); // expected-error {{argument value 16 is outside the valid range [0, 7]}}
 }
 
 // Format

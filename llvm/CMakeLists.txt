@@ -892,11 +892,6 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_ISA_FP16)
 # end INTEL_FEATURE_ISA_FP16
 
-# INTEL_FEATURE_ISA_AMX
-      list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX)
-# end INTEL_FEATURE_ISA_AMX
-
 # INTEL_FEATURE_ISA_AMX_BF8
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_BF8)

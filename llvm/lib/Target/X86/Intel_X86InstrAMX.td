@@ -1348,11 +1348,11 @@ let Predicates = [HasAMXMEMADVISE, In64BitMode],
 #if INTEL_FEATURE_ISA_AMX_MEMADVISE_EVEX
 multiclass ADVISEE_BASE {
   let Predicates = [HasAMXMEMADVISEEVEX, In64BitMode], SchedRW = [WriteSystem] in {
-    def Z0ADVISEE : Ii8<0x76, MRMSrcMemFSIB, (outs TILEPair:$dst),
+    def Z0ADVISEE : Ii8<0x76, MRMSrcMemFSIB, (outs TILEPairX:$dst),
                       (ins sibmem:$src1, i32u8imm:$src2),
                       "t2rpntlvwz0advisee\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                       []>, EVEX, TAPS;
-    def Z1ADVISEE : Ii8<0x76, MRMSrcMemFSIB, (outs TILEPair:$dst),
+    def Z1ADVISEE : Ii8<0x76, MRMSrcMemFSIB, (outs TILEPairX:$dst),
                       (ins sibmem:$src1, i32u8imm:$src2),
                       "t2rpntlvwz1advisee\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                       []>, EVEX, TAPD;

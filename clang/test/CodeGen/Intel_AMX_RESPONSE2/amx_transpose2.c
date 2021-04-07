@@ -44,26 +44,26 @@ void test_tile_4rqntlvbz1t1(const void *A, size_t B) {
 
 void test_tile_4rqntlvbz2(const void *A, size_t B) {
   // CHECK-LABEL: @test_tile_4rqntlvbz2
-  // CHECK: call void @llvm.x86.t4rqntlvbz2(i8 8, i8* %{{.*}}, i64 %{{.*}})
-  _tile_4rqntlvbz2(8, A, B);
+  // CHECK: call void @llvm.x86.t4rqntlvbz2(i8 7, i8* %{{.*}}, i64 %{{.*}})
+  _tile_4rqntlvbz2(7, A, B);
 }
 
 void test_tile_4rqntlvbz2t1(const void *A, size_t B) {
   // CHECK-LABEL: @test_tile_4rqntlvbz2t1
-  // CHECK: call void @llvm.x86.t4rqntlvbz2t1(i8 12, i8* %{{.*}}, i64 %{{.*}})
-  _tile_4rqntlvbz2t1(12, A, B);
+  // CHECK: call void @llvm.x86.t4rqntlvbz2t1(i8 1, i8* %{{.*}}, i64 %{{.*}})
+  _tile_4rqntlvbz2t1(1, A, B);
 }
 
 void test_tile_4rqntlvbz3(const void *A, size_t B) {
   // CHECK-LABEL: @test_tile_4rqntlvbz3
-  // CHECK: call void @llvm.x86.t4rqntlvbz3(i8 12, i8* %{{.*}}, i64 %{{.*}})
-  _tile_4rqntlvbz3(12, A, B);
+  // CHECK: call void @llvm.x86.t4rqntlvbz3(i8 1, i8* %{{.*}}, i64 %{{.*}})
+  _tile_4rqntlvbz3(1, A, B);
 }
 
 void test_tile_4rqntlvbz3t1(const void *A, size_t B) {
   // CHECK-LABEL: @test_tile_4rqntlvbz3t1
-  // CHECK: call void @llvm.x86.t4rqntlvbz3t1(i8 12, i8* %{{.*}}, i64 %{{.*}})
-  _tile_4rqntlvbz3t1(12, A, B);
+  // CHECK: call void @llvm.x86.t4rqntlvbz3t1(i8 1, i8* %{{.*}}, i64 %{{.*}})
+  _tile_4rqntlvbz3t1(1, A, B);
 }
 
 void test_tile_tdpbssd() {

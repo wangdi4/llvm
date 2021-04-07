@@ -134,7 +134,7 @@ static LoadInst *createLoadForTLSGlobal(IRBuilder<> &Builder, Module *M,
                                         ImplicitArgsUtils::IMPLICIT_ARGS Arg) {
   auto TLSG = DPCPPKernelCompilationUtils::getTLSGlobal(M, Arg);
   assert(TLSG && "TLS Global cannot be nullptr");
-  return Builder.CreateLoad(TLSG->getType()->getPointerElementType(), TLSG);
+  return Builder.CreateLoad(TLSG->getValueType(), TLSG);
 }
 
 Function *ResolveWICallPass::runOnFunction(Function *F) {

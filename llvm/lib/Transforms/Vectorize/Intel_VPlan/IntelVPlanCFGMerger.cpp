@@ -253,23 +253,27 @@ VPBasicBlock *VPlanCFGMerger::createScalarRemainder(Loop *OrigLoop,
 
 template <typename VPlanType, typename VPInstructionType>
 class ScalarPeelOrRemainderVPlanFabBase {
-    virtual void addRemainderLiveIn(ScalarInOutDescr *Descr, VPInstructionType *I) {}
-    virtual void updateLoopExit(VPInstructionType *I, VPValue *Blk, Use *Val) = 0;
-    virtual void setPlanName(VPlan &MainPlan) = 0;
-    virtual const char* getFirstBlockName() = 0;
+  virtual void addRemainderLiveIn(ScalarInOutDescr *Descr,
+                                  VPInstructionType *I) {}
+  virtual void updateLoopExit(VPInstructionType *I, VPValue *Blk, Use *Val) = 0;
+  virtual void setPlanName(VPlan &MainPlan) = 0;
+  virtual const char *getFirstBlockName() = 0;
+
 protected:
+  virtual ~ScalarPeelOrRemainderVPlanFabBase() {}
   VPlanType *NewPlan;
 
   // Worker routine to create a body of a brand new VPlanScalarPeel
   // or VPlanScalarRemainder:
   //  - Create livein/liveout lists
-  //  - Create two basic blocks. The first one contains either VPScalarRemainder
-  //    or VPScalarPeel instruction (which does represent the loop) and a set
-  //    of VPOrigLiveOut instructions. The second block is empty. It will serve
-  //    as landing pad for the scalar loop (one behind the instruction). Exit
-  //    form the loop is redirected to the pad block.
-  //  - Liveins for the VPScalar{Peel,Remainder} instruction are also filled in,
-  //    except the peel count for a peel loop.
+  //  - Create two basic blocks. The first one contains either
+  //    VPScalarRemainder or VPScalarPeel instruction (which does represent
+  //    the loop) and a set of VPOrigLiveOut instructions.
+  //    The second block is empty. It will serve as landing pad for the scalar
+  //    loop (one behind the instruction). Exit form the loop is redirected
+  //    to the pad block.
+  //  - Liveins for the VPScalar{Peel,Remainder} instruction are also filled
+  //    in, except the peel count for a peel loop.
   //  - Create a new DA instance.
   VPlanType *runImpl(VPlan &MainPlan, Loop *OrigLoop) {
     NewPlan =
@@ -295,9 +299,9 @@ protected:
     auto *ScalarLoopInstr =
         Builder.create<VPInstructionType>("orig.loop", OrigLoop, false);
 
-    // Go through ScalarInOuts and add scalar remainder liveins (no liveins for
-    // peel) and VPOrigLiveOuts for original loop live out values. The needed
-    // scalar values are taken from the ScalarInOuts descriptor.
+    // Go through ScalarInOuts and add scalar remainder liveins (no liveins
+    // for peel) and VPOrigLiveOuts for original loop live out values. The
+    // needed scalar values are taken from the ScalarInOuts descriptor.
     DenseMap<int, VPValue *> LiveOuts;
     for (auto ScalarDescr : ScalarInOuts->list()) {
       int MergeId = ScalarDescr->getId();
@@ -311,8 +315,8 @@ protected:
         *ScalarInOuts, MainPlan.getLiveOutValuesSize(), LiveOuts);
 
     // Add info to replace the successor in scalar exit block.
-    // For that we create one more basic block in the scalar VPlan and set it as
-    // the exit block in the scalar loop.
+    // For that we create one more basic block in the scalar VPlan and set it
+    // as the exit block in the scalar loop.
     auto *FinalBB =
         new VPBasicBlock(VPlanUtils::createUniqueName("BB"), NewPlan);
     FinalBB->insertAfter(FirstBB);
@@ -320,11 +324,12 @@ protected:
     FirstBB->setTerminator(FinalBB);
 
     // Set the basic block where to jump after the scalar loop.
-    // For that we update the operand of the branch instruction that corresponds
-    // to the loop exit, taking either one its operand use or another.
-    // We have different interfaces for peel and remainder (see details in
-    // updateLoopExit specializations). Peel has restrictions on its arguments.
-    // For remainder we do that directly. For peel - using special interface.
+    // For that we update the operand of the branch instruction that
+    // corresponds to the loop exit, taking either one its operand use or
+    // another. We have different interfaces for peel and remainder (see
+    // details in updateLoopExit specializations). Peel has restrictions on
+    // its arguments. For remainder we do that directly. For peel - using
+    // special interface.
     updateLoopExit(ScalarLoopInstr, FinalBB, getExitBBUse(OrigLoop));
 
     // Finnaly, create DA.
@@ -542,7 +547,8 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
     CurPlan = Planner.addAuxiliaryVPlan(*ScalarPlan);
     PlanDescrs.push_front({LT::LTPeel, 1, CurPlan});
     dumpNewVPlan(CurPlan);
-  } break;
+    break;
+  }
   case LK::LKMasked:
     CurPlan = Planner.getMaskedVPlanForVF(Scen.getPeelVF());
     if (UsedPlans.count(CurPlan)) {
@@ -583,7 +589,8 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
       CurPlan = Planner.addAuxiliaryVPlan(*ScalarPlan);
       PlanDescrs.push_front({LT::LTRemainder, 1, CurPlan});
       dumpNewVPlan(CurPlan);
-    } break;
+      break;
+    }
     case LK::LKVector:
       CurPlan = Planner.getVPlanForVF(Rem.VF);
       if (UsedPlans.count(CurPlan)) {

@@ -675,6 +675,8 @@ void initializeImplicitArgsAnalysisLegacyPass(PassRegistry &);
 void initializeLocalBufferAnalysisLegacyPass(PassRegistry &);
 void initializeAddImplicitArgsLegacyPass(PassRegistry &);
 void initializeResolveWICallLegacyPass(PassRegistry &);
+void initializePrepareKernelArgsLegacyPass(PassRegistry &);
+void initializeCleanupWrappedKernelLegacyPass(PassRegistry &);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
 // Forced CMOV generation pass

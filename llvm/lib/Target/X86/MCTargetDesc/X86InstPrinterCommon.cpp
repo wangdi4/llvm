@@ -419,7 +419,7 @@ void X86InstPrinterCommon::printVKPair(const MCInst *MI, unsigned OpNo,
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
 void X86InstPrinterCommon::printTILEPair(const MCInst *MI, unsigned OpNo,
                                          raw_ostream &OS) {
   switch (MI->getOperand(OpNo).getReg()) {
@@ -447,10 +447,34 @@ void X86InstPrinterCommon::printTILEPair(const MCInst *MI, unsigned OpNo,
   case X86::TMM14_TMM15:
     printRegName(OS, X86::TMM14);
     return;
+  case X86::TMM16_TMM17:
+    printRegName(OS, X86::TMM16);
+    return;
+  case X86::TMM18_TMM19:
+    printRegName(OS, X86::TMM18);
+    return;
+  case X86::TMM20_TMM21:
+    printRegName(OS, X86::TMM20);
+    return;
+  case X86::TMM22_TMM23:
+    printRegName(OS, X86::TMM22);
+    return;
+  case X86::TMM24_TMM25:
+    printRegName(OS, X86::TMM24);
+    return;
+  case X86::TMM26_TMM27:
+    printRegName(OS, X86::TMM26);
+    return;
+  case X86::TMM28_TMM29:
+    printRegName(OS, X86::TMM28);
+    return;
+  case X86::TMM30_TMM31:
+    printRegName(OS, X86::TMM30);
+    return;
   }
   llvm_unreachable("Unknown tile pair register name");
 }
-#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 void X86InstPrinterCommon::printTILEQuad(const MCInst *MI, unsigned OpNo,
                                          raw_ostream &OS) {
@@ -460,12 +484,6 @@ void X86InstPrinterCommon::printTILEQuad(const MCInst *MI, unsigned OpNo,
     return;
   case X86::TMM4_TMM5_TMM6_TMM7:
     printRegName(OS, X86::TMM4);
-    return;
-  case X86::TMM8_TMM9_TMM10_TMM11:
-    printRegName(OS, X86::TMM8);
-    return;
-  case X86::TMM12_TMM13_TMM14_TMM15:
-    printRegName(OS, X86::TMM12);
     return;
   }
   llvm_unreachable("Unknown tile quad register name");

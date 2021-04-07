@@ -7,7 +7,7 @@
 // AMX-tile2
 void test_tile_tilemov()
 {
-  _tile_tilemov(16, 2); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-  _tile_tilemov(1, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_tilemov(8, 2); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
+  _tile_tilemov(1, 8); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 

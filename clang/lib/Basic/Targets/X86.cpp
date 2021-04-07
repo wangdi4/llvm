@@ -85,16 +85,14 @@ static const char *const GCCRegNames[] = {
     "cr0",   "cr2",   "cr3",   "cr4",   "cr8",
     "dr0",   "dr1",   "dr2",   "dr3",   "dr6",     "dr7",
     "bnd0",  "bnd1",  "bnd2",  "bnd3",
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
     "tmm0",  "tmm1",  "tmm2",  "tmm3",  "tmm4",    "tmm5",  "tmm6",  "tmm7",
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_LNC
     // Just align with ICC for tmm8-15
     "tmm8",  "tmm9",  "tmm10", "tmm11", "tmm12",   "tmm13", "tmm14", "tmm15",
     "tmm16", "tmm17", "tmm18", "tmm19", "tmm20",   "tmm21", "tmm22", "tmm23",
     "tmm24", "tmm25", "tmm26", "tmm27", "tmm28",   "tmm29", "tmm30", "tmm31",
-#else // INTEL_FEATURE_ISA_AMX
-    "tmm0",  "tmm1",  "tmm2",  "tmm3",  "tmm4",    "tmm5",  "tmm6",  "tmm7",
-#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
 };
 

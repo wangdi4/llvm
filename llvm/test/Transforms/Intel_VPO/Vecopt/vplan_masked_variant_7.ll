@@ -40,40 +40,6 @@ define void @main(i32 %N) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0     [[LCSSA_PHI0:%.*]] = phi i32 [ [[IV_NEXT0:%.*]], [[FOR_BODY0:%.*]] ] i32 [[VP3]] -> i32 [[IV_NEXT0]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  VPlan after emitting masked variant:
-; CHECK-NEXT:  VPlan IR for: main:for.body.cloned.masked
-; CHECK-NEXT:    Cloned.[[BB6:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB7:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB7]]: # preds: Cloned.[[BB6]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP4:%.*]] = induction-init{add} i32 live-in0 i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP5:%.*]] = induction-init-step{add} i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP6:%.*]] = vector-trip-count i32 [[N0]], UF = 1
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB8:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB8]]: # preds: Cloned.[[BB7]], new_latch
-; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_1:%.*]] = phi  [ i32 [[VP4]], Cloned.[[BB7]] ],  [ i32 [[VP_IV_NEXT_1:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BOTTOM_TEST_2:%.*]] = icmp ne i32 [[VP_IV_1]] i32 [[VP6]]
-; CHECK-NEXT:     [DA: Div] br i1 [[VP_BOTTOM_TEST_2]], [[BB9:BB[0-9]+]], new_latch
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB9]]: # preds: Cloned.[[BB8]]
-; CHECK-NEXT:       [DA: Uni] br new_latch
-; CHECK-EMPTY:
-; CHECK-NEXT:    new_latch: # preds: [[BB9]], Cloned.[[BB8]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_NEXT_1]] = add i32 [[VP_IV_1]] i32 [[VP5]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_BOTTOM_TEST_3:%.*]] = icmp ne i32 [[VP_IV_NEXT_1]] i32 [[VP6]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_BOTTOM_TEST_3]], Cloned.[[BB8]], Cloned.[[BB10:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB10]]: # preds: new_latch
-; CHECK-NEXT:     [DA: Uni] i32 [[VP7:%.*]] = induction-final{add} i32 live-in0 i32 1
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB11:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB11]]: # preds: Cloned.[[BB10]]
-; CHECK-NEXT:     [DA: Uni] br <External Block>
-; CHECK-EMPTY:
-; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0     [[LCSSA_PHI0]] = phi i32 [ [[IV_NEXT0]], [[FOR_BODY0]] ] i32 [[VP7]] -> i32 [[IV_NEXT0]]
 ;
 entry:
   br label %preheader
