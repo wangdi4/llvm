@@ -9764,38 +9764,37 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
       else
         MappedVarSet.insert(nullptr);
       // Generate default map information for a given capture
-      if (CurInfo.BasePointers.empty()) {
+      if (CurInfo.BasePointers.empty() && !PartialStruct.Base.isValid()) {
         // Skip captures without CapturedVar. This happens if we've decided in
         // GenerateOpenMPCapturedVars that we don't want default map info for
         // the Var.
         if (!*CV)
           continue;
         MEHandler.generateDefaultMapInfo(*CI, **RI, *CV, CurInfo);
-        // Generate correct mapping for variables captured by reference in
-        // lambdas.
-        if (CI->capturesVariable())
-          MEHandler.generateInfoForLambdaCaptures(CI->getCapturedVar(), *CV,
-                                                  CurInfo, LambdaPointers);
       }
+      // Generate correct mapping for variables captured by reference in
+      // lambdas.
+      if (CI->capturesVariable())
+        MEHandler.generateInfoForLambdaCaptures(CI->getCapturedVar(), *CV,
+                                                CurInfo, LambdaPointers);
       // Save the map argument's size of CombinedInfo.  This is used later
       // to determine if base map is added after call to emitCombinedEntry
       unsigned long SaveSize = CombinedInfo.BasePointers.size();
-      if (PartialStruct.Base.isValid())
+      if (PartialStruct.Base.isValid()) {
+        CombinedInfo.append(PartialStruct.PreliminaryMapData);
         // The partial struct case requires two steps.  The step above generates
         // expressions for each partial piece.  The call to emitCombinedEntry
         // creates the base that covers all the pieces.
-        MEHandler.emitCombinedEntry(CombinedInfo, CurInfo.Types, PartialStruct,
-                                    nullptr, /*NoTargetParam=*/false);
-
+        MEHandler.emitCombinedEntry(
+            CombinedInfo, CurInfo.Types, PartialStruct, nullptr,
+            !PartialStruct.PreliminaryMapData.BasePointers.empty());
+      }
       const VarDecl *VD = nullptr;
       if (!CI->capturesThis())
         VD = CI->getCapturedVar();
       CurInfo.VarChain.push_back(std::make_pair(VD, false));
-      for (int I = PartialStruct.Base.isValid() &&
-                           SaveSize < CombinedInfo.BasePointers.size()
-                       ? 0
-                       : 1,
-               E = CurInfo.BasePointers.size();
+      for (int I = 1, E = CurInfo.BasePointers.size() +
+                          CombinedInfo.BasePointers.size() - SaveSize;
            I < E; ++I)
         CurInfo.VarChain.push_back(std::make_pair(nullptr, true));
       CombinedInfo.append(CurInfo);
