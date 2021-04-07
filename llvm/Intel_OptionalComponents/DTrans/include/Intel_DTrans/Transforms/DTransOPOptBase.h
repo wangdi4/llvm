@@ -238,6 +238,14 @@ protected:
   virtual void postprocessGlobalVariable(GlobalVariable *OrigGV,
                                          GlobalVariable *NewGV) {}
 
+  // Derived classes may implement this to perform the transformation on a
+  // function.
+  virtual void processFunction(Function &F) {}
+
+  // Derived class may implement this to perform any work that is needed on
+  // the function following all the types being remapped to new types.
+  virtual void postprocessFunction(Function &OrigFunc, bool isCloned) {}
+
   //===-------------------------------------------------------------------===//
   // Methods that are exposed to the derived classes
   //===-------------------------------------------------------------------===//
@@ -279,6 +287,7 @@ private:
                                                    GlobalVariable *NewGV,
                                                    ValueMapper &Mapper);
   void transformIR(Module &M, ValueMapper &Mapper);
+  void updateAttributeTypes(Function *CloneFunc);
   void removeDeadValues();
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpTypeToTypeSetMapping(StringRef Header,
@@ -340,6 +349,14 @@ protected:
   // Initially, it will be primed with the global variables and functions that
   // need cloning. As the ValueMapper replaces values those will get inserted.
   ValueToValueMapTy VMap;
+
+  // A mapping from the original function to the clone function that will
+  // replace the original function.
+  DenseMap<Function *, Function *> OrigFuncToCloneFuncMap;
+
+  // A mapping from the clone function to the original function to enable
+  // lookups of the original function based on a clone function pointer.
+  DenseMap<Function *, Function *> CloneFuncToOrigFuncMap;
 
   // List of global variables that are being replaced with variables of the new
   // types due to type remapping. The variables in this list need to be

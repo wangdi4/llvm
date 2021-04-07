@@ -100,6 +100,9 @@ endif(INTEL_INCLUDE_DTRANS)
 # the PeelTC data member of class VPlanRemainderEvaluator.
 if ((HOST_LINUX OR HOST_WINNT) AND "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-private-field")
+# This is to fix the error about virtual destructor of various templated
+# classes in IntelVPlanCFGMerger.cpp
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-non-virtual-dtor")
 endif()
 
 # end INTEL_CUSTOMIZATION

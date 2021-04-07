@@ -13,14 +13,14 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:   PeelLoop: scalar
 ; CHECK-NEXT:   Remainders: masked, VF=4,
 ; CHECK-NEXT:  VPlan after creation during merge:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body.ScalarPeel27
-; CHECK-NEXT:    PeelBlk28: # preds:
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.ScalarPeel
+; CHECK-NEXT:    [[PEELBLK0:PeelBlk[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-peel for.body, LiveInMap:
 ; CHECK-NEXT:         {label [[FOR_END0:%.*]] in {  br i1 [[CMP0:%.*]], label [[FOR_BODY0:%.*]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB0:BB[0-9]+]] }
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0:%.*]] = add nuw nsw i64 [[INDVARS_IV0:%.*]], 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB0]]: # preds: PeelBlk28
+; CHECK-NEXT:    [[BB0]]: # preds: [[PEELBLK0]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
@@ -101,7 +101,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    Kind: remainder VF:4
 ; CHECK-NEXT:  VPlan: test_store:for.body
 ; CHECK-NEXT:    Kind: main VF:4
-; CHECK-NEXT:  VPlan: test_store:for.body.ScalarPeel27
+; CHECK-NEXT:  VPlan: test_store:for.body.ScalarPeel
 ; CHECK-NEXT:    Kind: peel VF:1
 ;
 entry:

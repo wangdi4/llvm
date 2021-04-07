@@ -38,6 +38,11 @@ using namespace llvm;
 using namespace llvm::loopopt;
 using namespace arraycontractionutils;
 
+STATISTIC(HIRLoopsWithArrayContraction,
+          "Number of HIR loop(s) activated with array contraction");
+STATISTIC(HIRArrayRefsContracted,
+          "Number of unique HIR array reference(s) contracted");
+
 static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(true),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
@@ -154,7 +159,8 @@ private:
   // symbase(s) and number of continuous dimensions contracted.
   bool contractMemRefsInLoop(HLLoop *Lp, SparseBitVector<> &DefBases,
                              const unsigned NumDimsContracted, HLRegion &Reg,
-                             SmallSet<unsigned, 4> &AfterContractSBS);
+                             SmallSet<unsigned, 4> &AfterContractSBS,
+                             unsigned &NumRefsContracted);
 
   HLVariant<HLLoop> &addOptimized(HLLoop *Loop);
 };
@@ -537,13 +543,14 @@ public:
 };
 
 static bool isArrayContractionCandidate(const RegDDRef *Ref) {
-    return Ref->isMemRef() && Ref->accessesAlloca() &&
-               Ref->getNumDimensions() >= MinMemRefNumDimension && Ref->hasIV();
+  return Ref->isMemRef() && Ref->accessesAlloca() &&
+         Ref->getNumDimensions() >= MinMemRefNumDimension && Ref->hasIV();
 }
 
 bool HIRCrossLoopArrayContraction::contractMemRefsInLoop(
     HLLoop *Lp, SparseBitVector<> &DefBases, const unsigned NumDimsContracted,
-    HLRegion &Reg, SmallSet<unsigned, 4> &AfterContractSBS) {
+    HLRegion &Reg, SmallSet<unsigned, 4> &AfterContractSBS,
+    unsigned &NumRefsContracted) {
 
   LLVM_DEBUG({
     dbgs() << "Loop: \n";
@@ -622,6 +629,7 @@ bool HIRCrossLoopArrayContraction::contractMemRefsInLoop(
                dbgs() << "\tAfterSB:" << AfterSB << "\n";);
 
     AfterContractSBS.insert(AfterSB);
+    ++NumRefsContracted;
   }
 
   return true;
@@ -644,18 +652,19 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
   }
 
   LLVM_DEBUG({
-      dbgs() << "Refs:<" << Refs.size() << ">\n";
-      unsigned Count = 0;
-      for (auto Ref : Refs) {
-        dbgs() << Count++ << ": ";
-        Ref->dump();
-        dbgs() << "\t";
-      }
-      dbgs() << "\n";
+    dbgs() << "Refs:<" << Refs.size() << ">\n";
+    unsigned Count = 0;
+    for (auto Ref : Refs) {
+      dbgs() << Count++ << ": ";
+      Ref->dump();
+      dbgs() << "\t";
+    }
+    dbgs() << "\n";
   });
 
   // Keep set of interesting references to ignore DD between them.
   SmallPtrSet<RegDDRef *, 32> RefsSet(Refs.begin(), Refs.end());
+  SmallSet<unsigned, 4> AfterContractSBS;
 
   // Get their loops and Base pointers.
   std::map<HLLoop *, SparseBitVector<>, TopSortComparator> LoopToBasePtr;
@@ -713,9 +722,8 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
     SmallVector<HLLoop *, 2> DefKillLoops;
 
-    for (auto &UsePair :
-         make_range(std::next(LoopToBasePtr.find(DefLp)),
-                    LoopToBasePtr.end())) {
+    for (auto &UsePair : make_range(std::next(LoopToBasePtr.find(DefLp)),
+                                    LoopToBasePtr.end())) {
       HLLoop *UseLp = UsePair.first;
       LLVM_DEBUG(dbgs() << "\t* Trying Use-loop <" << UseLp->getNumber()
                         << ">\n");
@@ -865,17 +873,24 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
       HLLoop *DefLoopClone = DefLp->clone();
 
       // Do array contraction on qualified memref(s) in a given loop:
-      SmallSet<unsigned, 4> AfterContractSBS;
+      unsigned Num0 = 0;
       if (!contractMemRefsInLoop(DefLoopClone, DefBases, NumDimsContracted, Reg,
-                                 AfterContractSBS)) {
+                                 AfterContractSBS, Num0)) {
         LLVM_DEBUG(dbgs() << "Fail to contract memref(s) in DefLoopClone: "
                           << DefLoopClone->getNumber() << "\n";);
+      } else {
+        ++HIRLoopsWithArrayContraction;
+        HIRArrayRefsContracted += Num0;
       }
 
+      Num0 = 0;
       if (!contractMemRefsInLoop(UseLp, DefBases, NumDimsContracted, Reg,
-                                 AfterContractSBS)) {
+                                 AfterContractSBS, Num0)) {
         LLVM_DEBUG(dbgs() << "Fail to contract memref(s) in UseLpClone: "
                           << UseLp->getNumber() << "\n";);
+      } else {
+        ++HIRLoopsWithArrayContraction;
+        HIRArrayRefsContracted += Num0;
       }
 
       HLNodeUtils::insertBefore(UseLp, DefLoopClone);

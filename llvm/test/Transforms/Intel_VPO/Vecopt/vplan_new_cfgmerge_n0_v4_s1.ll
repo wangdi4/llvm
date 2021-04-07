@@ -44,22 +44,22 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after creation during merge:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body.ScalarRemainder27
-; CHECK-NEXT:    RemBlk28: # preds:
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.ScalarRemainder
+; CHECK-NEXT:    [[REMBLK0:RemBlk[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder for.body, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0:%.*]] ]} -> i64 live-in0 }
 ; CHECK-NEXT:         {label [[FOR_END0:%.*]] in {  br i1 [[CMP0:%.*]], label [[FOR_BODY0]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB5:BB[0-9]+]] }
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]: # preds: RemBlk28
+; CHECK-NEXT:    [[BB5]]: # preds: [[REMBLK0]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_ORIG_LIVEOUT]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  List of VPlans added for merging:
-; CHECK-NEXT:  VPlan: test_store:for.body.ScalarRemainder27
+; CHECK-NEXT:  VPlan: test_store:for.body.ScalarRemainder
 ; CHECK-NEXT:    Kind: remainder VF:1
 ; CHECK-NEXT:  VPlan: test_store:for.body
 ; CHECK-NEXT:    Kind: main VF:4

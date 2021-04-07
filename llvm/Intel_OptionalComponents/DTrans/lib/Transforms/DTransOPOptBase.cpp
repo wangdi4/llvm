@@ -21,8 +21,11 @@
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #define DEBUG_TYPE "dtransop-optbase"
 
@@ -737,7 +740,42 @@ void DTransOPOptBase::updateDTransTypesMetadata(Module &M,
 
 // Identify and create new function prototypes for dependent functions
 void DTransOPOptBase::createCloneFunctionDeclarations(Module &M) {
-  // TODO: Create functions
+  LLVM_DEBUG(dbgs() << "\nDTransOP-OptBase: Identifying functions to clone:\n");
+
+  // Create a work list of all the function definitions that need to be
+  // considered for cloning.
+  std::vector<Function *> WL;
+  for (auto &F : M)
+    if (!F.isDeclaration())
+      WL.push_back(&F);
+
+  for (auto *F : WL) {
+    // If the function signature changes as a result of the type remapping,
+    // then a clone will be necessary.
+    Type *FuncValueTy = F->getValueType();
+    Type *FuncReplValueTy = TypeRemapper.remapType(FuncValueTy);
+    if (FuncReplValueTy != FuncValueTy) {
+      Function *NewF = Function::Create(cast<FunctionType>(FuncReplValueTy),
+                                        F->getLinkage(), F->getName(), &M);
+      NewF->copyAttributesFrom(F);
+      VMap[F] = NewF;
+      OrigFuncToCloneFuncMap[F] = NewF;
+      CloneFuncToOrigFuncMap[NewF] = F;
+
+      // Create VMap entries for the arguments that will be used during the
+      // call to cloneFunctionInfo. This must be done to make it available in
+      // the call to cloneFunctionInto made by the transformIR function.
+      Function::arg_iterator DestI = NewF->arg_begin();
+      for (Argument &I : F->args()) {
+        DestI->setName(I.getName());
+        VMap[&I] = &*DestI++;
+      }
+
+      LLVM_DEBUG(dbgs() << "DTransOP-OptBase: Will clone: " << F->getName()
+                        << " " << *F->getType() << " into: " << NewF->getName()
+                        << " " << *NewF->getType() << "\n");
+    }
+  }
 }
 
 // Remap global variables to new types.
@@ -875,7 +913,164 @@ void DTransOPOptBase::initializeGlobalVariableReplacementBaseImpl(
 }
 
 void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
-  // TODO: Change the IR to use the new types.
+  // Check for debug information that we do not want to be cloned when
+  // cloning/remapping functions, and set those debug information objects to map
+  // to themselves within the metadata portion of the Value-to-Value map.
+  // Specifically, we need to do this for all DISubprogram metadata objects.
+  // Otherwise the calls to CloneFunctionInto and remapFunction will create new
+  // versions of these objects. Multiple llvm.debug.value intrinsic calls can
+  // point to the same metadata object when the DILocalVariable comes from an
+  // inlined routine. This leads to consistency problems because there would be
+  // two DISubprogram scopes for the routine if we allowed the metadata to be
+  // cloned (the variable would point to one scope, but the debug line location
+  // would point to the other due to the way CloneFunctionInto operates.) We
+  // delete the original function after a cloned function is created, so in the
+  // end the DISubprogram object will be put on the clone.
+  //
+  // Note: we need to do this for all the DISubprograms that exist in the
+  // metadata, not just the functions that exist in the module because some
+  // inlined function bodies may have already been removed.
+  DebugInfoFinder DIFinder;
+  DIFinder.processModule(M);
+  auto &MDVMap = VMap.MD();
+  for (DISubprogram *SP : DIFinder.subprograms())
+    MDVMap[SP].reset(SP);
+
+  for (auto &F : M) {
+    Function *ResultFunc = &F;
+    if (F.isDeclaration())
+      continue;
+
+    // The clone function body will be populated when processing the original
+    // function. Skip over any functions that represent the clones.
+    if (CloneFuncToOrigFuncMap.count(&F))
+      continue;
+
+    // Let the derived class perform any IR translation needed for the function.
+    processFunction(F);
+
+    // Check whether the function should be cloned or remapped.
+    if (OrigFuncToCloneFuncMap.count(&F)) {
+      // The CloneFunctionInto function will populate a list of return
+      // instructions and some information gathered during the cloning process
+      // into these variables. We don't currently use that info.
+      SmallVector<ReturnInst *, 8> Returns;
+      ClonedCodeInfo CodeInfo;
+      Function *CloneFunc = OrigFuncToCloneFuncMap[&F];
+      assert(CloneFuncToOrigFuncMap[CloneFunc] == &F &&
+             "CloneFuncToOrigFuncMap is invalid");
+
+      CloneFunctionInto(CloneFunc, &F, VMap,
+                        CloneFunctionChangeType::LocalChangesOnly, Returns, "",
+                        &CodeInfo, &TypeRemapper, /*Materializer=*/nullptr);
+
+      // CloneFunctionInto() copies all the parameter attributes of the original
+      // function's arguments onto the arguments of the new function. For
+      // attributes that reference data types, we need to update these for
+      // the cloned function when changing the structure type. We do this after
+      // the function body is cloned, because otherwise we would need to change
+      // the attributes for the original function's arguments prior to the
+      // cloning, but we do not want to modify the original function.
+      updateAttributeTypes(CloneFunc);
+
+      // Let the derived class perform any additional actions needed on the
+      // cloned function. For example, if the transformation is changing
+      // data types that will create incompatible parameter attributes, the
+      // post-processing function should update them.
+      //
+      // Do the post processing before deleting the original function
+      // because the original instructions may be needed to identify the cloned
+      // instruction via the VMap table.
+      postprocessFunction(F, /*is_clone=*/true);
+      F.deleteBody();
+      ResultFunc = CloneFunc;
+    } else {
+      ValueMapper(VMap, RF_IgnoreMissingLocals, &TypeRemapper,
+                  nullptr /*Materializer*/)
+          .remapFunction(F);
+
+      // Let the derived class perform any additional actions needed on the
+      // remapped function.
+      postprocessFunction(F, /*is_clone=*/false);
+    }
+
+    // Update DTrans metadata attached to the function. This needs to be done
+    // even if the function is not being cloned because a function using opaque
+    // pointer types may not be cloned, but the type trcked for the pointer type
+    // by DTrans may change.
+    if (MDTuple *FuncMD = dyn_cast_or_null<MDTuple>(
+            TypeMetadataReader::getDTransMDNode(*ResultFunc))) {
+      SmallVector<Metadata *, 8> Remaps;
+      unsigned Count = FuncMD->getNumOperands();
+      for (unsigned Idx = 0; Idx < Count; ++Idx) {
+        auto *TypeNode = dyn_cast<MDNode>(FuncMD->getOperand(Idx));
+        Remaps.emplace_back(Mapper.mapMDNode(*TypeNode));
+      }
+      auto *UpdatedMDTypes = MDTuple::getDistinct(F.getContext(), Remaps);
+      TypeMetadataReader::addDTransMDNode(*ResultFunc, UpdatedMDTypes);
+    }
+  }
+
+  // After cloning or remapping functions, it may be necessary to update debug
+  // information for the local variables being used by each function. The
+  // metadata nodes for a DILocalVariable may have been cloned because the
+  // DILocation or DICompositeType object references were cloned. The IR will
+  // have been updated to reference the cloned instance within the
+  // llvm.debug.declare intrinsic calls. However, the DISubprogram nodes are not
+  // being cloned, causing the DISubprogram to still be referring to the
+  // original DILocalVariable object. This will result in two variable instances
+  // that have same name belonging to the same scope which will result in errors
+  // when processing the debug information later. To resolve this, walk the
+  // retained nodes element of the subprogram, and update the references for any
+  // variable that has been remapped. This needs to be done for all subprograms
+  // found by the DIFinder to handle the case of a function that has been
+  // optimized away after being inlined.
+  //
+  // Alternatively, we could just prevent cloning of the DILocalVariables by
+  // setting up the metadata remap table with self references to them, like
+  // was done for the DISubprograms above. However, this would cause issues
+  // with being able to update the structure type descriptions in the debug
+  // information if we get to a point where we want the debug info to describe
+  // the new types that DTrans is creating with DICompositeType entries.
+  for (DISubprogram *SP : DIFinder.subprograms()) {
+    if (auto *RawNode = SP->getRawRetainedNodes()) {
+      auto *Node = cast<MDTuple>(RawNode);
+      unsigned NumOperands = Node->getNumOperands();
+      LLVM_DEBUG({
+        if (NumOperands)
+          dbgs() << "Updating local variable references for DISubprogram:\n"
+                 << *SP << "\n";
+      });
+
+      for (unsigned i = 0; i < NumOperands; ++i) {
+        auto &Op = Node->getOperand(i);
+        Metadata *MDOp = *&Op;
+
+        auto MappedTo = MDVMap.find(MDOp);
+        if (MappedTo != MDVMap.end() && MDOp != MappedTo->second) {
+          Node->replaceOperandWith(i, MappedTo->second);
+          LLVM_DEBUG(dbgs() << "replacing retained node:\n"
+                            << "  Was: " << *MDOp << "\n"
+                            << "  Now: " << *MappedTo->second << "\n");
+        }
+      }
+    }
+  }
+}
+
+// Update the attributes which contain types which have been remapped to new
+// types, such as created when cloning the following function definition:
+//   define void @test01(%struct.type01b* byval(%struct.type01b) %in)
+//
+// CloneFunctionInto() will have propagated the source attributes to produce:
+//  define void @test01.1(%_DT_struct.type01b* byval(%struct.type01b) %in)
+//
+// Update this to have the remapped type for the byval attribute.
+//   define void @test01.1(%_DT_struct.type01b* byval(%_DT_struct.type01b) %in)
+//
+// Other attributes that contain types are: byref, sret, and preallocated.
+void DTransOPOptBase::updateAttributeTypes(Function *CloneFunc) {
+  // TODO: Check for attributes to update
 }
 
 // Remove functions and global variables that have been completely
@@ -886,6 +1081,13 @@ void DTransOPOptBase::removeDeadValues() {
   // references when deleting the objects.
   for (auto *GV : GlobalsForRemoval)
     GV->dropAllReferences();
+
+  // Cleanup the functions that were cloned.
+  for (auto &OTCPair : OrigFuncToCloneFuncMap)
+    OTCPair.first->eraseFromParent();
+
+  OrigFuncToCloneFuncMap.clear();
+  CloneFuncToOrigFuncMap.clear();
 
   for (auto *GV : GlobalsForRemoval)
     GV->eraseFromParent();

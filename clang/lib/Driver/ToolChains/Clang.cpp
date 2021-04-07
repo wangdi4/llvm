@@ -7283,7 +7283,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     if (Args.hasArg(options::OPT_fsycl) && Triple.isSPIR()) {
       // OpenMP device compile must use the same language options as the
       // host compile. So if this is SYCL source pass SYCL options.
-      CmdArgs.push_back("-fsycl");
       CmdArgs.push_back("-fsycl-is-host");
     }
 #endif //INTEL_CUSTOMIZATION

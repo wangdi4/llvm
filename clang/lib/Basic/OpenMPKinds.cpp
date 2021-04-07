@@ -232,6 +232,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
   case OMPC_nontemporal:
   case OMPC_destroy:
   case OMPC_novariants:
+  case OMPC_nocontext:
   case OMPC_detach:
   case OMPC_inclusive:
   case OMPC_exclusive:
@@ -500,6 +501,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_destroy:
   case OMPC_detach:
   case OMPC_novariants:
+  case OMPC_nocontext:
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_uses_allocators:

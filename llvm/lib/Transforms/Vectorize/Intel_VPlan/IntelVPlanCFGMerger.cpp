@@ -343,8 +343,7 @@ class ScalarPeelOrRemainderVPlanFab
 
   virtual const char *getFirstBlockName() override { return "PeelBlk"; }
   virtual void setPlanName(VPlan &MainPlan) override {
-    NewPlan->setName(
-        VPlanUtils::createUniqueName(MainPlan.getName() + ".ScalarPeel"));
+    NewPlan->setName(MainPlan.getName() + ".ScalarPeel");
   }
   virtual void updateLoopExit(VPInstructionType *I, VPValue *Blk,
                               Use *Val) override {
@@ -367,8 +366,7 @@ class ScalarPeelOrRemainderVPlanFab<false>
 
   virtual const char *getFirstBlockName() override { return "RemBlk"; }
   virtual void setPlanName(VPlan &MainPlan) override {
-    NewPlan->setName(
-        VPlanUtils::createUniqueName(MainPlan.getName() + ".ScalarRemainder"));
+    NewPlan->setName(MainPlan.getName() + ".ScalarRemainder");
   }
 
   virtual void addRemainderLiveIn(ScalarInOutDescr *Descr,
