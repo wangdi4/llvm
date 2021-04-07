@@ -14,9 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
-
 #include "llvm/Support/Debug.h"
 
+#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
 
 using namespace llvm;
@@ -675,4 +675,132 @@ bool DDRefUtils::isMemRefAllDimsConstOnly(const RegDDRef *Ref) {
   }
 
   return true;
+}
+
+bool DDRefUtils::hasConstantEntriesFromArray(const RegDDRef *Ref,
+                                             DTransImmutableInfo *DTII,
+                                             Constant *IndexInArray,
+                                             Constant **ConstVal) {
+  if (!DTII)
+    return false;
+
+  // Looking for a ref which accesses structure with array.
+  unsigned NumDims = Ref->getNumDimensions();
+  if (NumDims < 2)
+    return false;
+
+  // Last dimention should be array access.
+  if (!Ref->getDimensionType(1)->isArrayTy())
+    return false;
+
+  StructType *StructTy = dyn_cast<StructType>(Ref->getDimensionElementType(2));
+  if (!StructTy)
+    return false;
+
+  auto FieldOffsets = Ref->getTrailingStructOffsets(2);
+  if (FieldOffsets.empty())
+    return false;
+
+  // The structure could have array as its field:
+  //     %class.C = type <{i32, [4 x i32]}>
+  // Or the array could be wrapped in a structure as it often happens with boost
+  // libraries:
+  //     %class.C = type <{i32, %"class.boost::array"}>
+  //     %"class.boost::array" = type <{[4 x i32]}>
+  // In the second case the special wrapping structure s only one field - the
+  // boost array and could be used in the multiple outer structures. So DTrans
+  // uses outer structure to store corresponding constant array values. That's
+  // why in either case we use first field offset to access this information.
+  uint64_t IndexOfArray = FieldOffsets[0];
+
+  // If the current field is an array with constant integers, then store the
+  // entries (pair.first) and its constant values (pair.second).
+  auto *ConstantEntriesInArray =
+      DTII->getConstantEntriesFromArray(StructTy, IndexOfArray);
+
+  if (!ConstantEntriesInArray || ConstantEntriesInArray->empty())
+    return false;
+
+  // It is enough to check that DDRef is constant calculated by DTrans. No
+  // particular value is needed.
+  if (!ConstVal)
+    return true;
+
+  ConstantInt *ConstIndex = dyn_cast_or_null<ConstantInt>(IndexInArray);
+  if (!ConstIndex)
+    return false;
+
+  for (auto *I = ConstantEntriesInArray->begin(),
+            *E = ConstantEntriesInArray->end();
+       I != E; ++I) {
+    ConstantInt *ConstValue1 = dyn_cast<ConstantInt>(I->first);
+    if (ConstValue1 && ConstValue1->getValue().getSExtValue() ==
+            ConstIndex->getValue().getSExtValue()) {
+      *ConstVal = const_cast<Constant*>(I->second);
+      break;
+    }
+  }
+
+  if (*ConstVal) {
+    return true;
+  }
+
+  return false;
+}
+
+RegDDRef *DDRefUtils::simplifyConstArray(const RegDDRef *Ref,
+                                         DTransImmutableInfo *DTII) {
+  if (!Ref->isMemRef() || Ref->isFake() || Ref->getBitCastDestType()) {
+    return nullptr;
+  }
+
+  bool Precise;
+  auto *LocationGEP = dyn_cast<GetElementPtrInst>(Ref->getLocationPtr(Precise));
+
+  if (!LocationGEP || !Precise) {
+    return nullptr;
+  }
+
+  // DD ref excesses global constant array
+  if (Ref->accessesConstantArray()) {
+    auto *GV = cast<GlobalVariable>(LocationGEP->getPointerOperand());
+    if (!GV->hasDefinitiveInitializer()) {
+      return nullptr;
+    }
+
+    SmallVector<Constant *, 8> Indices;
+    // skip first index for global array
+    for (unsigned I = 2, E = LocationGEP->getNumOperands(); I != E; ++I) {
+      auto *Index = dyn_cast<Constant>(LocationGEP->getOperand(I));
+      if (!Index) {
+        return nullptr;
+      }
+      Indices.push_back(Index);
+    }
+
+    Constant *Val =
+        ConstantFoldLoadThroughGEPIndices(GV->getInitializer(), Indices);
+    // TODO: add support for constant GEP exprs.
+    if (!Val || isa<GEPOperator>(Val)) {
+      return nullptr;
+    }
+
+    return Ref->getDDRefUtils().createConstDDRef(Val);
+  }
+
+  // Check if DD ref has a constant value calculated by DTrans.
+  if (DTII && LocationGEP->getNumOperands() >= 4) {
+    Constant *IndexInArray = dyn_cast<Constant>(
+        LocationGEP->getOperand(LocationGEP->getNumOperands() - 1));
+    if (!IndexInArray)
+      return nullptr;
+
+    Constant *Val = nullptr;
+    if (hasConstantEntriesFromArray(Ref, DTII, IndexInArray, &Val)) {
+      if (Val && isa<ConstantInt>(Val))
+        return Ref->getDDRefUtils().createConstDDRef(Val);
+    }
+  }
+
+  return nullptr;
 }

@@ -26,6 +26,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/IR/Instructions.h"
+#include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 
 #include "HIRArrayScalarization.h"
 #include "HIRDeadStoreElimination.h"
@@ -1235,6 +1236,7 @@ private:
   unsigned NumFolded;
   unsigned NumConstGlobalLoads;
   unsigned NumInstsRemoved;
+  DTransImmutableInfo *DTII;
 
   // Node passed in by caller
   const HLNode *OriginNode;
@@ -1312,9 +1314,9 @@ private:
   }
 
 public:
-  ConstantPropagater(HLNode *Node)
+  ConstantPropagater(DTransImmutableInfo *DTII, HLNode *Node)
       : NumPropagated(0), NumFolded(0), NumConstGlobalLoads(0),
-        NumInstsRemoved(0), OriginNode(Node) {
+        NumInstsRemoved(0), DTII(DTII), OriginNode(Node) {
     if (isa<HLLoop>(Node) || isa<HLRegion>(Node)) {
       CurrLoopOrRegion = Node;
     } else if (HLLoop *ParentLoop = Node->getParentLoop()) {
@@ -1437,10 +1439,10 @@ public:
     for (RegDDRef *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
       propagateConstUse(Ref);
 
-      // Try to replace constant global array
-      if (auto ConstantRef = Ref->simplifyConstArray()) {
+      // Try to replace constant array
+      if (auto ConstantRef = DDRefUtils::simplifyConstArray(Ref, DTII)) {
         NumConstGlobalLoads++;
-        LLVM_DEBUG(dbgs() << "Replaced const global array load: "; Ref->dump();
+        LLVM_DEBUG(dbgs() << "Replaced const array load: "; Ref->dump();
                    dbgs() << "\n";);
         ReplacedNode = HIRTransformUtils::replaceOperand(Ref, ConstantRef);
       }
@@ -1624,11 +1626,12 @@ void ConstantPropagater::propagateConstUse(RegDDRef *Ref) {
   }
 }
 
-bool HIRTransformUtils::doConstantPropagation(HLNode *Node) {
+bool HIRTransformUtils::doConstantPropagation(HLNode *Node,
+                                              DTransImmutableInfo *DTII) {
   if (DisableConstantPropagation) {
     return false;
   }
-  ConstantPropagater CP(Node);
+  ConstantPropagater CP(DTII, Node);
   LLVM_DEBUG(dbgs() << "Before constprop\n"; Node->dump(););
   HLNodeUtils::visit(CP, Node);
   LLVM_DEBUG(dbgs() << "After constprop\n"; Node->dump(); CP.dumpStatistics(););

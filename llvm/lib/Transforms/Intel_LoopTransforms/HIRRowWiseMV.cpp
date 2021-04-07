@@ -101,6 +101,7 @@ static cl::opt<bool> SkipDTrans{
   OPT_SWITCH "-skip-dtrans", cl::init(false), cl::Hidden,
   cl::desc("Skip the DTrans check and multiversion for all arithmetically "
            "convenient values")};
+
 static cl::opt<double> CheckTolerance{
   OPT_SWITCH "-tolerance", cl::init(0.0001), cl::Hidden,
   cl::desc("The tolerance used by RWMV for checking that values in a row are "
@@ -709,8 +710,8 @@ static void applyPeepHole(HLLoop *Loop, HIRDDAnalysis &DDA) {
 /// candidate \p MVCand, putting the check loop just outside of \p
 /// SafeCheckLevelParent.
 static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
-                             HLLoop *SafeCheckLevelParent,
-                             HIRDDAnalysis &HDDA) {
+                             HLLoop *SafeCheckLevelParent, HIRDDAnalysis &HDDA,
+                             DTransImmutableInfo *DTII) {
   assert(MVCand);
   const RegDDRef *const MVRef   = MVCand.Ref;
   const ACVec &MVVals           = MVCand.Values;
@@ -1277,7 +1278,7 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     replaceAllEquivalentRefsWithConstant(MVLoop, MVRef, MVVals[MVInd],
                                          HDDA.getGraph(MVLoop));
 
-    if (HIRTransformUtils::doConstantPropagation(MVLoop)) {
+    if (HIRTransformUtils::doConstantPropagation(MVLoop, DTII)) {
       applyPeepHole(MVLoop, HDDA);
       HLNodeUtils::removeRedundantNodes(MVLoop);
     }
@@ -1362,7 +1363,7 @@ bool HIRRowWiseMV::run(HLLoop *Lp) {
       for (const RegDDRef *const Ref :
            make_range(CI->ddref_begin(), CI->ddref_end()))
         if (const MVCandidate MVCand = checkCandidateDDRef(
-              Ref, Lp, SafeCheckLevelParent, HDDA, HLS, DTII, FieldModRef))
+                Ref, Lp, SafeCheckLevelParent, HDDA, HLS, DTII, FieldModRef))
           MVCands.push_back(MVCand);
 
   LLVM_DEBUG(dbgs() << "\n");
@@ -1390,7 +1391,7 @@ bool HIRRowWiseMV::run(HLLoop *Lp) {
   // do the first one. Later, we may want to have fancier logic to choose one.
   const MVCandidate &ChosenCand = MVCands.front();
 
-  multiversionLoop(Lp, ChosenCand, SafeCheckLevelParent, HDDA);
+  multiversionLoop(Lp, ChosenCand, SafeCheckLevelParent, HDDA, DTII);
 
   return true;
 }

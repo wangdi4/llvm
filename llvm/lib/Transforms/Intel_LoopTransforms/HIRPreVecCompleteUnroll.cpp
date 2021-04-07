@@ -25,6 +25,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
+#include "Intel_DTrans/DTransCommon.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -39,12 +41,15 @@ PreservedAnalyses HIRPreVecCompleteUnrollPass::runImpl(
     return PreservedAnalyses::all();
   }
 
-  HIRCompleteUnroll(HIRF, AM.getResult<DominatorTreeAnalysis>(F),
-                    AM.getResult<TargetIRAnalysis>(F),
-                    AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                    AM.getResult<HIRDDAnalysisPass>(F),
-                    AM.getResult<HIRSafeReductionAnalysisPass>(F), OptLevel,
-                    true, PragmaOnlyUnroll)
+  auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
+  HIRCompleteUnroll(
+      HIRF, AM.getResult<DominatorTreeAnalysis>(F),
+      AM.getResult<TargetIRAnalysis>(F),
+      AM.getResult<HIRLoopStatisticsAnalysis>(F),
+      AM.getResult<HIRDDAnalysisPass>(F),
+      AM.getResult<HIRSafeReductionAnalysisPass>(F),
+      MAMProxy.getCachedResult<DTransImmutableAnalysis>(*F.getParent()),
+      OptLevel, true, PragmaOnlyUnroll)
       .run();
 
   return PreservedAnalyses::all();
@@ -85,6 +90,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
 INITIALIZE_PASS_END(HIRPreVecCompleteUnrollLegacyPass,
                     "hir-pre-vec-complete-unroll", "HIR PreVec Complete Unroll",
                     false, false)
