@@ -1,3 +1,4 @@
+; RUN: %oclopt -add-implicit-args -debugify -resolve-wi-call -check-debugify -S %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-implicit-args -resolve-wi-call -S %s -o %t.1.ll
 ; RUN: %oclopt -add-implicit-args -S %s -o %t.2.ll
 ; RUN: diff %t.1.ll %t.2.ll
@@ -63,3 +64,5 @@ attributes #2 = { convergent }
 !5 = !{!"none", !"none"}
 !6 = !{!"int*", !"int"}
 !7 = !{!"", !""}
+
+; DEBUGIFY-NOT: WARNING
