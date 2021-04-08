@@ -922,7 +922,7 @@ public:
 
   // Set InductionKind and default induction opcode using data type \p IndTy.
   void setKindAndOpcodeFromTy(Type *IndTy) {
-    unsigned Opc;
+    unsigned Opc = 0;
     VPInduction::InductionKind Kind;
     std::tie(Opc, Kind) = getKindAndOpcodeFromTy(IndTy);
     setKind(Kind);

@@ -157,7 +157,9 @@ inline unsigned getLoadStoreAddressSpace(const VPInstruction *VPI) {
   assert((VPI->getOpcode() == Instruction::Load ||
           VPI->getOpcode() == Instruction::Store) &&
          "Expect 'VPI' to be either a LoadInst or a StoreInst");
-  return getPointerOperand(VPI)->getType()->getPointerAddressSpace();
+  VPValue *OperandPtr = getPointerOperand(VPI);
+  assert(OperandPtr && "OperandPtr should not be null pointer.");
+  return OperandPtr->getType()->getPointerAddressSpace();
 }
 
 /// Helper function to get preferred alignment for a VPInstruction representing
