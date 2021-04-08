@@ -2114,4 +2114,14 @@ std::string CompilationUtils::AppendWithDimension(std::string S,
     D = C->getZExtValue();
   return AppendWithDimension(S, D);
 }
+
+ bool CompilationUtils::hasByvalByrefArgs(Function *F) {
+   bool HasByvalByrefArguments = false;
+   for (auto &Arg : F->args()) {
+     if (Arg.hasByValAttr() || Arg.hasByRefAttr())
+       HasByvalByrefArguments |= true;
+   }
+   return HasByvalByrefArguments;
+ }
+
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {
