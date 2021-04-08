@@ -3930,9 +3930,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   // TODO: Revisit when HIR vectorizer supports outer-loop vectorization.
   if (VPInst->isUnderlyingIRValid()) {
     const HLNode *HNode =
-        VPInst->HIR.isMaster()
-            ? VPInst->HIR.getUnderlyingNode()
-            : VPInst->HIR.getMaster()->HIR.getUnderlyingNode();
+        VPInst->HIR().isMaster()
+            ? VPInst->HIR().getUnderlyingNode()
+            : VPInst->HIR().getMaster()->HIR().getUnderlyingNode();
     if (isa<HLLoop>(HNode))
       if (VPInst->getOpcode() != Instruction::Add ||
           !MainLoopIVInsts.count(VPInst))
@@ -4588,7 +4588,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     addInst(NewInst, nullptr);
     // TODO: sincos handling uses underlying HLInst since it's designed to work
     // even for scalar remainder loop (replaceLibCallsInRemainderLoop).
-    auto *UnderlyingHLInst = cast<HLInst>(VPInst->HIR.getUnderlyingNode());
+    auto *UnderlyingHLInst = cast<HLInst>(VPInst->HIR().getUnderlyingNode());
     generateStoreForSinCos(UnderlyingHLInst, NewInst, Mask,
                            false /* IsRemainderLoop */);
     return;
@@ -4779,7 +4779,7 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
   }
 
   HLInst *WInst = nullptr;
-  const VPInstruction::HIRSpecifics &HIR = VPInst->HIR;
+  const HIRSpecifics HIR = VPInst->HIR();
   if (!Mask)
     Mask = CurMaskValue;
 

@@ -667,3 +667,14 @@
 // NO_UNALIGNED_VECTOR_MOVE: "-mllvm" "-x86-enable-unaligned-vector-move=false"
 // RUN: %clang -### -target x86_64-unknown-linux -fno-use-unaligned-vector-move -flto %s 2>&1 | FileCheck -check-prefix=LTO_NO_MUNALIGNED_VECTOR_MOVE %s
 // LTO_NO_MUNALIGNED_VECTOR_MOVE: "-plugin-opt=-x86-enable-unaligned-vector-move=false"
+
+// -vec-threshold
+// RUN: %clang -### -vec-threshold101 -c %s 2>&1 \
+// RUN:    | FileCheck -check-prefix=VEC_THRESHOLD %s
+// RUN: %clang -### -vec-threshold=101 -c %s 2>&1 \
+// RUN:    | FileCheck -check-prefix=VEC_THRESHOLD %s
+// RUN: %clang_cl -### -Qvec-threshold101 -c %s 2>&1 \
+// RUN:    | FileCheck -check-prefix=VEC_THRESHOLD %s
+// RUN: %clang_cl -### -Qvec-threshold:101 -c %s 2>&1 \
+// RUN:    | FileCheck -check-prefix=VEC_THRESHOLD %s
+// VEC_THRESHOLD: "-mllvm" "-vec-threshold=101"

@@ -215,10 +215,10 @@ Type *VPInstruction::getCMType() const {
   if (getUnderlyingValue())
     return getUnderlyingValue()->getType();
 
-  if (!HIR.isMaster())
+  if (!HIR().isMaster())
     return nullptr;
 
-  const loopopt::HLNode *Node = HIR.getUnderlyingNode();
+  const loopopt::HLNode *Node = HIR().getUnderlyingNode();
   const loopopt::HLInst *Inst = dyn_cast_or_null<loopopt::HLInst>(Node);
 
   if (!Inst)
@@ -1261,7 +1261,7 @@ void VPValue::replaceAllUsesWith(VPValue *NewVal, bool InvalidateIR) {
 
 bool VPValue::isUnderlyingIRValid() const {
   if (auto *VPI = dyn_cast<VPInstruction>(this))
-    return IsUnderlyingValueValid || VPI->HIR.isValid();
+    return VPI->isUnderlyingIRValid();
   else {
     // Non VPInstruction values can never be invalidated.
     return true;
@@ -1274,22 +1274,7 @@ void VPValue::invalidateUnderlyingIR() {
   // their underlying IR. Hence invalidation is strictly limited to
   // VPInstructions only.
   if (auto *VPI = dyn_cast<VPInstruction>(this)) {
-    IsUnderlyingValueValid = false;
-    // Temporary hook-up to ignore loop induction related instructions during CG
-    // by not invalidating them.
-    // TODO: Remove this code after VPInduction support is added to HIR CG.
-    const HLNode *HNode = VPI->HIR.getUnderlyingNode();
-    if (HNode && isa<HLLoop>(HNode))
-      return;
-    VPI->HIR.invalidate();
-
-    // At this point, we don't have a use-case where invalidation of users of
-    // instruction is needed. This is because VPInstructions mostly represent
-    // r-value of a HLInst and modifying the r-value should not affect l-value
-    // temp refs. For stores this was never an issue since store instructions
-    // cannot have users. In case of LLVM-IR invalidating an instruction might
-    // mean that the underlying bit value is different. If this is the case then
-    // invalidation should be propagated to users as well.
+    VPI->invalidateUnderlyingIR();
   }
 }
 

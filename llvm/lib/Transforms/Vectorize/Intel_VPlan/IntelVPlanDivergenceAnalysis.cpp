@@ -1565,7 +1565,7 @@ void VPlanDivergenceAnalysis::improveStrideUsingIR() {
       if (!getVectorShape(*PtrOp).isRandom())
         continue;
 
-      const loopopt::HLNode *HNode = VPInst.HIR.getUnderlyingNode();
+      const loopopt::HLNode *HNode = VPInst.HIR().getUnderlyingNode();
       if (!HNode)
         continue;
 

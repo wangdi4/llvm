@@ -346,8 +346,8 @@ public:
 
     VPBranchInst *BranchInst = InsPointVPBB->getTerminator();
     BranchInst->setDebugLocation(HGoto->getDebugLoc());
-    BranchInst->HIR.setUnderlyingNode(HGoto);
-    BranchInst->HIR.setValid();
+    BranchInst->HIR().setUnderlyingNode(HGoto);
+    BranchInst->HIR().setValid();
 
     return BranchInst;
   }

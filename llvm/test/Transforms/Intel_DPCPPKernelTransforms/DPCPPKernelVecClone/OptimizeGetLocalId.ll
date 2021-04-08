@@ -1,5 +1,5 @@
 ; The pass operates only on DPCPP kernels - functions having "sycl_kernel" attribute
-; Test to check that function calls to __builtin_get_local_id() are moved and uses replaced in an optimized
+; Test to check that function calls to _Z12get_local_idj() are moved and uses replaced in an optimized
 ; manner if it is known that max work group size is less than 2GB.
 
 ; Check for default case i.e. max work group size < 2GB. Note that %trunc.user is removed from function,
@@ -11,7 +11,7 @@
 ; LT2GB-LABEL: @_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_
 
 ; LT2GB-LABEL: entry:
-; LT2GB: [[LID_CALL:%.*]] = tail call i64 @__builtin_get_local_id(i64 0)
+; LT2GB: [[LID_CALL:%.*]] = tail call i64 @_Z12get_local_idj(i64 0)
 ; LT2GB-NEXT: [[LID_CALL_TRUNC:%.*]] = trunc i64 [[LID_CALL]] to i32
 
 ; LT2GB-LABEL: simd.loop:
@@ -41,7 +41,7 @@
 ; GT2GB-LABEL: @_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_
 
 ; GT2GB-LABEL: entry:
-; GT2GB: [[LID_CALL:%.*]] = tail call i64 @__builtin_get_local_id(i64 0)
+; GT2GB: [[LID_CALL:%.*]] = tail call i64 @_Z12get_local_idj(i64 0)
 
 ; GT2GB-LABEL: simd.loop:
 ; GT2GB-NEXT: %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop.exit ]
@@ -76,7 +76,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: noinline nounwind uwtable
 define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_(i32* nocapture readonly %in, i32* nocapture %out) #0 {
 entry:
-  %lid_call = tail call i64 @__builtin_get_local_id(i64 0) #2
+  %lid_call = tail call i64 @_Z12get_local_idj(i64 0) #2
   %non.trunc.user = add i64 %lid_call, 42
   %other.trunc = trunc i64 %non.trunc.user to i32
   %trunc.user = trunc i64 %lid_call to i32
@@ -115,7 +115,7 @@ declare i64 @dummy(i64)
 ;; Checks that we do not hit a label from the WRN region.
 ; CHECK-NOT: {{^[._a-zA-Z0-9]*}}:
 ;; get_local_id call should be hoisted outside region!
-; CHECK: %call = tail call i64 @__builtin_get_local_id(i64 0)
+; CHECK: %call = tail call i64 @_Z12get_local_idj(i64 0)
 ; CHECK: [[TRUNC:%.*]] = trunc i64 %call to i32
 ; CHECK: label %simd.begin.region
 
@@ -132,6 +132,6 @@ declare i64 @dummy(i64)
 ; CHECK-LABEL: simd.end.region:
 ; CHECK-NEXT: call void @llvm.directive.region.exit(token %entry.region)
 
-declare dso_local i64 @__builtin_get_local_id(i64 %0)
+declare dso_local i64 @_Z12get_local_idj(i64 %0)
 
 attributes #0 = { "prefer-vector-width"="512" "sycl_kernel" "target-cpu"="skylake-avx512" }

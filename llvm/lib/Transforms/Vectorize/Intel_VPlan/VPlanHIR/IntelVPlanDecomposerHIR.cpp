@@ -627,7 +627,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
     auto *HInst = dyn_cast<HLInst>(Ref->getHLDDNode());
     if (!HInst || !isa<LoadInst>(HInst->getLLVMInstruction()) ||
         HInst->getRvalDDRef() != Ref)
-      cast<VPInstruction>(MemOpVPI)->HIR.setOperandDDR(Ref);
+      cast<VPInstruction>(MemOpVPI)->HIR().setOperandDDR(Ref);
   }
 
   LLVM_DEBUG(dbgs() << "VPDecomp: MemOpVPI: "; MemOpVPI->dump();
@@ -763,7 +763,7 @@ void VPDecomposerHIR::setMasterForDecomposedVPIs(
     // DecompVPI is a new VPInstruction at this point. To be marked as
     // decomposed VPInstruction with the following 'setMaster'.
     assert(DecompVPI.isNew() && "Expected new VPInstruction!");
-    DecompVPI.HIR.setMaster(MasterVPI);
+    DecompVPI.HIR().setMaster(MasterVPI);
   }
 }
 
@@ -850,7 +850,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       // Set the underlying DDNode for the load instruction since it may be
       // master VPI for this node which will be the case if DDNode is non-null.
       if (DDNode)
-        NewVPInst->HIR.setUnderlyingNode(DDNode);
+        NewVPInst->HIR().setUnderlyingNode(DDNode);
     } else if (isa<StoreInst>(LLVMInst)) {
       // Decompose store instruction into VPLoadStoreInst.
       assert(VPOperands.size() == 2 &&
@@ -861,7 +861,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
         if (IntrinCall->getIntrinsicID() == Intrinsic::intel_subscript) {
           NewVPInst = cast<VPSubscriptInst>(VPOperands[0]);
           // Make subscript the master instruction since it was already created.
-          NewVPInst->HIR.setUnderlyingNode(DDNode);
+          NewVPInst->HIR().setUnderlyingNode(DDNode);
           return NewVPInst;
         }
       }
@@ -932,7 +932,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
     if (LvalDDR) {
       // Set Lval DDRef as VPOperandHIR for this VPInstruction. This includes
       // standalone loads.
-      NewVPInst->HIR.setOperandDDR(LvalDDR);
+      NewVPInst->HIR().setOperandDDR(LvalDDR);
 
       // Save away scalar memref symbase and original alignment for later use.
       if (NewVPInst->getOpcode() == Instruction::Store) {
@@ -950,7 +950,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       }
     } else if (RegDDRef *RvalDDR = HInst->getRvalDDRef())
       // Set single Rval as VPOperandHIR for HLInst without Lval DDRef.
-      NewVPInst->HIR.setOperandDDR(RvalDDR);
+      NewVPInst->HIR().setOperandDDR(RvalDDR);
   } else if (auto *HIf = dyn_cast<HLIf>(DDNode))
     // Handle decomposition of HLIf node.
     NewVPInst = createVPInstsForHLIf(HIf, VPOperands);
@@ -1006,7 +1006,7 @@ VPDecomposerHIR::createVPInstsForHLIf(HLIf *HIf,
 
   // Set underlying HLDDNode for current VPInst since it's the last created
   // instruction for decomposition of this HLIf
-  CurVPInst->HIR.setUnderlyingNode(HIf);
+  CurVPInst->HIR().setUnderlyingNode(HIf);
   return CurVPInst;
 }
 
@@ -1173,7 +1173,7 @@ void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
   IndVPPhi->addIncoming(IVStart, LpPH);
   assert(!HLLp2IVPhi.count(HLp) && "HLLoop has multiple IVs?");
   HLLp2IVPhi[HLp] = IndVPPhi;
-  IndVPPhi->HIR.setValid();
+  IndVPPhi->HIR().setValid();
 }
 
 VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
@@ -1271,19 +1271,19 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   if (auto *DecompUBVPI = dyn_cast<VPInstruction>(DecompUB)) {
     // #3. Turn last decomposed VPInstruction of UB as master VPInstruction of
     // the decomposed group.
-    DecompUBVPI->HIR.setUnderlyingNode(HLp);
+    DecompUBVPI->HIR().setUnderlyingNode(HLp);
 
     // Set DecompUBVPI as master VPInstruction of any other decomposed
     // VPInstruction of UB.
     setMasterForDecomposedVPIs(DecompUBVPI, LastVPIBeforeDec, LpPH);
-    DecompUBVPI->HIR.setValid();
+    DecompUBVPI->HIR().setValid();
   }
 
   // Set the underlying HIR of the new VPInstructions (and its potential
   // decomposed VPInstructions) to valid.
-  IndVPPhi->HIR.setValid();
-  IVNext->HIR.setValid();
-  BottomTest->HIR.setValid();
+  IndVPPhi->HIR().setValid();
+  IVNext->HIR().setValid();
+  BottomTest->HIR().setValid();
   return BottomTest;
 }
 
@@ -1360,13 +1360,13 @@ void VPDecomposerHIR::computeLiveInBlocks(
     // find out which comes first
     for (auto &VPI : *VPBB) {
       // Underlying HIR is not attached to non-master VPInstructions
-      if (!VPI.HIR.isMaster())
+      if (!VPI.HIR().isMaster())
         continue;
       // We don't need to analyze non DDNode nodes like HLGoto
-      if (!isa<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode()))
+      if (!isa<loopopt::HLDDNode>(VPI.HIR().getUnderlyingNode()))
         continue;
 
-      HLDDNode *DDNode = cast<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode());
+      HLDDNode *DDNode = cast<loopopt::HLDDNode>(VPI.HIR().getUnderlyingNode());
       // We reverse iterate over the DDRefs of the node to handle reduction
       // scenarios. For example - %t1 = %5 + %t1 If current symbase is for
       // %t1, forward iterating over DDRefs would incorrectly recognize it
@@ -1475,13 +1475,13 @@ void VPDecomposerHIR::addIDFPhiNodes() {
   // underlying HIR nodes of each VPBB
   for (VPBasicBlock *VPBB : depth_first(PlanEntry)) {
     for (auto &VPI : *VPBB) {
-      if (!VPI.HIR.isMaster())
+      if (!VPI.HIR().isMaster())
         continue;
       // We don't need to analyze non DDNode nodes like HLGoto
-      if (!isa<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode()))
+      if (!isa<loopopt::HLDDNode>(VPI.HIR().getUnderlyingNode()))
         continue;
 
-      HLDDNode *DDNode = cast<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode());
+      HLDDNode *DDNode = cast<loopopt::HLDDNode>(VPI.HIR().getUnderlyingNode());
       if (DDNode->hasLval()) {
         unsigned Sym = DDNode->getLvalDDRef()->getSymbase();
         if (TrackedSymbases.count(Sym)) {
@@ -1692,7 +1692,7 @@ void VPDecomposerHIR::fixPhiNodes() {
   } while (!PhiNodePassWorkList.empty());
 
   // TODO: validate correctness of the PHI nodes after fixing, also set their
-  // master VPI's HIR to valid (VPPhi->HIR.getMaster()->HIR.setValid())
+  // master VPI's HIR to valid (VPPhi->HIR().getMaster()->HIR().setValid())
   for (auto PhiMapIt : PhisToFix) {
     VPPHINode *FixedPhi = PhiMapIt.second.first;
 
@@ -1728,14 +1728,14 @@ void VPDecomposerHIR::fixPhiNodes() {
                  FixedPhi->dump(); dbgs() << "\n");
       HLDDNode *FirstDefNode = nullptr;
       for (auto &VPI : *(FixedPhi->getParent())) {
-        if (!VPI.HIR.isMaster())
+        if (!VPI.HIR().isMaster())
           continue;
 
-        if (!isa<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode()))
+        if (!isa<loopopt::HLDDNode>(VPI.HIR().getUnderlyingNode()))
           continue;
 
         HLDDNode *DDNode =
-            cast<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode());
+            cast<loopopt::HLDDNode>(VPI.HIR().getUnderlyingNode());
         if (DDNode->hasLval()) {
           unsigned Sym = DDNode->getLvalDDRef()->getSymbase();
           if (Sym == PhiToSymbaseMap[FixedPhi]) {
@@ -1914,9 +1914,9 @@ void VPDecomposerHIR::fixPhiNodePass(
   for (auto &VPI : *VPBB) {
     LLVM_DEBUG(dbgs() << "fixPhiNodePass: VPI: "; VPI.dump());
 
-    if (VPI.HIR.isMaster()) {
+    if (VPI.HIR().isMaster()) {
       if (auto *HInst =
-              dyn_cast<loopopt::HLInst>(VPI.HIR.getUnderlyingNode())) {
+              dyn_cast<loopopt::HLInst>(VPI.HIR().getUnderlyingNode())) {
         // If HLInst has no Lval then ignore the instruction and move to next
         // master VPI
         if (!HInst->hasLval())
@@ -2036,7 +2036,7 @@ VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
 
   // Set the underlying HIR of the new VPInstruction (and its potential
   // decomposed VPInstructions) to valid.
-  NewVPInst->HIR.setValid();
+  NewVPInst->HIR().setValid();
   return NewVPInst;
 }
 

@@ -147,7 +147,7 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
     const auto Inst = cast<const VPInstruction>(&InstRef);
 
     if (isa<const VPBranchInst>(Inst) ||
-        (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
+        (Inst->HIR().isDecomposed() && Inst->isUnderlyingIRValid()))
       continue;
 
     if (Inst->getOpcode() == VPInstruction::Not)
@@ -160,7 +160,7 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
     //    1) non-trivial exit BBs
     //    2) Any BB that postdominate any exiting node.
     // in both case exit mask is known and these operations can be done safely.
-    const HLDDNode *DDNode = cast<HLDDNode>(Inst->HIR.getUnderlyingNode());
+    const HLDDNode *DDNode = cast<HLDDNode>(Inst->HIR().getUnderlyingNode());
     if (const auto If = dyn_cast<const HLIf>(DDNode)) {
       unsigned NumPredicates = 0;
       HasIf = true;
@@ -276,7 +276,7 @@ VPlanIdioms::isStructPtrEqSearchLoop(const VPBasicBlock *Block,
     const auto Inst = cast<const VPInstruction>(&InstRef);
 
     if (isa<const VPBranchInst>(Inst) ||
-        (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
+        (Inst->HIR().isDecomposed() && Inst->isUnderlyingIRValid()))
       continue;
 
     if (Inst->getOpcode() == VPInstruction::Not)
@@ -284,7 +284,7 @@ VPlanIdioms::isStructPtrEqSearchLoop(const VPBasicBlock *Block,
 
     // FIXME: Without proper decomposition we have to parse predicates of
     // underlying IR
-    const HLDDNode *DDNode = cast<HLDDNode>(Inst->HIR.getUnderlyingNode());
+    const HLDDNode *DDNode = cast<HLDDNode>(Inst->HIR().getUnderlyingNode());
 
     // Only the if-block is expected in the search loop. Other allowed
     // VPInstructions in the loop Header are loop IV related instructions which
@@ -450,10 +450,10 @@ bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
       continue;
 
     if (isa<const VPBranchInst>(VPInst) ||
-        (VPInst.HIR.isDecomposed() && VPInst.isUnderlyingIRValid()))
+        (VPInst.HIR().isDecomposed() && VPInst.isUnderlyingIRValid()))
       continue;
 
-    const HLDDNode *DDNode = cast<HLDDNode>(VPInst.HIR.getUnderlyingNode());
+    const HLDDNode *DDNode = cast<HLDDNode>(VPInst.HIR().getUnderlyingNode());
     if (const auto HInst = dyn_cast<const HLInst>(DDNode)) {
       const RegDDRef *LvalRef = HInst->getLvalDDRef();
       const RegDDRef *RvalRef = HInst->getRvalDDRef();

@@ -94,6 +94,9 @@ class OpenMPLateOutliner {
     bool Chain = false;
     bool InScan = false;
     bool Task = false;
+    bool Target = false;
+    bool TargetSync = false;
+    bool Prefer = false;
 
     void addSeparated(StringRef QualString) {
       Str += Separator;
@@ -132,6 +135,12 @@ class OpenMPLateOutliner {
         addSeparated("INSCAN");
       if (Task)
         addSeparated("TASK");
+      if (Target)
+        addSeparated("TARGET");
+      if (TargetSync)
+        addSeparated("TARGETSYNC");
+      if (Prefer)
+        addSeparated("PREFER");
     }
 
   public:
@@ -152,6 +161,9 @@ class OpenMPLateOutliner {
     void setChain() { Chain = true; }
     void setInScan() { InScan = true; }
     void setTask() { Task = true; }
+    void setTarget() { Target = true; }
+    void setTargetSync() { TargetSync = true; }
+    void setPrefer() { Prefer = true; }
 
     void add(StringRef S) { Str += S; }
     StringRef getString() {
@@ -430,6 +442,7 @@ public:
   void emitOMPCancellationPointDirective(OpenMPDirectiveKind Kind);
   void emitOMPTargetVariantDispatchDirective();
   void emitOMPGenericLoopDirective();
+  void emitOMPInteropDirective();
   void emitVLAExpressions() {
     if (needsVLAExprEmission())
       CGF.VLASizeMapHandler->EmitVLASizeExpressions();

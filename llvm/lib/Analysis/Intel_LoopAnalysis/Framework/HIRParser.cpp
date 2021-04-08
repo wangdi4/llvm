@@ -4991,8 +4991,15 @@ bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
 
   // Push nullptr to indicate innermost dimension.
   Strides.push_back(nullptr);
-  assert(Strides.size() == Sizes.size() &&
-         "Strides and Sizes should be equal in size");
+
+  // I am not sure the current setup of trying to delinearize multiple refs
+  // is correct. This was previously an assertion which failed on two refs
+  // like this-
+  // A[b * i1 + i2]
+  // A[2 * b * i1 + i2]
+  if (Strides.size() != Sizes.size()) {
+    return false;
+  }
 
   // Use pool for new refs to remove them if it's impossible to delinearize all
   // of them.

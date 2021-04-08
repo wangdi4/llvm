@@ -337,10 +337,10 @@ static cl::opt<bool> EnableCSAPasses("enable-csa-passes",
 #endif  // INTEL_FEATURE_CSA
 
 // DPCPP Kernel transformations
-static cl::opt<bool>
-  EnableDPCPPKernelTransforms("enable-dpcpp-kernel-transforms",
-  cl::init(false), cl::Hidden, cl::ZeroOrMore,
-  cl::desc("Enable extra passes for DPCPP WGLoopCreator/Barrier approach."));
+static cl::opt<bool> EnableDPCPPKernelTransforms(
+    "enable-dpcpp-kernel-transforms", cl::init(false), cl::Hidden,
+    cl::ZeroOrMore,
+    cl::desc("Enable extra passes for DPCPP kernel on CPU device"));
 
 static cl::opt<bool> EnableArgNoAliasProp(
     "enable-arg-noalias-prop", cl::init(true), cl::Hidden, cl::ZeroOrMore,
@@ -961,7 +961,8 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_CUSTOMIZATION
     if (EnableDPCPPKernelTransforms && !PrepareForLTO) {
       MPM.add(createParseAnnotateAttributesPass());
-      MPM.add(createDPCPPKernelAnalysisPass());
+      MPM.add(createDPCPPEqualizerLegacyPass());
+      MPM.add(createDPCPPKernelAnalysisLegacyPass());
     }
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
@@ -978,7 +979,11 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_CUSTOMIZATION
     if (EnableDPCPPKernelTransforms && !PrepareForLTO) {
       MPM.add(createUnifyFunctionExitNodesPass());
-      MPM.add(createDPCPPKernelWGLoopCreatorPass());
+      MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
+      MPM.add(createAddImplicitArgsLegacyPass());
+      MPM.add(createResolveWICallLegacyPass(false, false));
+      MPM.add(createPrepareKernelArgsLegacyPass(false));
+      MPM.add(createCleanupWrappedKernelLegacyPass());
     }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1266,7 +1271,8 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_CUSTOMIZATION
     if (EnableDPCPPKernelTransforms && !PrepareForLTO) {
       MPM.add(createParseAnnotateAttributesPass());
-      MPM.add(createDPCPPKernelAnalysisPass());
+      MPM.add(createDPCPPEqualizerLegacyPass());
+      MPM.add(createDPCPPKernelAnalysisLegacyPass());
       MPM.add(createDPCPPKernelVecClonePass());
     }
 
@@ -1283,10 +1289,13 @@ void PassManagerBuilder::populateModulePassManager(
         MPM.add(createPromoteMemoryToRegisterPass());
         MPM.add(createAggressiveDCEPass());
         MPM.add(createUnifyFunctionExitNodesPass());
-        MPM.add(createDPCPPKernelWGLoopCreatorPass());
+        MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
 
         MPM.add(createLICMPass());
         MPM.add(createCFGSimplificationPass());
+        MPM.add(createAddImplicitArgsLegacyPass());
+        MPM.add(createResolveWICallLegacyPass(false, false));
+        MPM.add(createPrepareKernelArgsLegacyPass(false));
       }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1492,6 +1501,8 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_CUSTOMIZATION
   MPM.add(createInlineReportEmitterPass(OptLevel, SizeLevel,
                                         PrepareForLTO || PrepareForThinLTO));
+  if (EnableDPCPPKernelTransforms && !PrepareForLTO)
+    MPM.add(createCleanupWrappedKernelLegacyPass());
 #endif // INTEL_CUSTOMIZATION
 }
 

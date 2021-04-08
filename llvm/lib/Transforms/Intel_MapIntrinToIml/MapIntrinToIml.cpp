@@ -113,8 +113,9 @@ bool MapIntrinToImlImpl::isValidIMFAttribute(std::string AttrName) {
       AttrName == "accuracy-bits-128" || AttrName == "accuracy-bits-32" ||
       AttrName == "accuracy-bits-64" || AttrName == "accuracy-bits-80" ||
       AttrName == "arch-consistency" || AttrName == "configuration" ||
-      AttrName == "domain-exclusion" || AttrName == "max-error" ||
-      AttrName == "precision" || AttrName == "valid-status-bits")
+      AttrName == "domain-exclusion" || AttrName == "force-dynamic" ||
+      AttrName == "max-error" || AttrName == "precision" ||
+      AttrName == "valid-status-bits")
     return true;
 
   return false;

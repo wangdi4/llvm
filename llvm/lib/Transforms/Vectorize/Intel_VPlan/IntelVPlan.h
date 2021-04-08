@@ -368,223 +368,6 @@ class VPInstruction : public VPUser,
   // To get underlying HIRData until we have proper VPType.
   friend class VPVLSClientMemrefHIR;
   friend class VPOCodeGenHIR;
-
-  /// Hold all the HIR-specific data and interfaces for a VPInstruction.
-  class HIRSpecifics {
-    friend class VPValue;
-
-  private:
-    /// Return true if the underlying HIR data is valid. If it's a decomposed
-    /// VPInstruction, the HIR of the attached master VPInstruction is checked.
-    bool isValid() const {
-      if (isMaster() || isDecomposed())
-        return getVPInstData()->isValid();
-
-      // For other VPInstructions without underlying HIR.
-      assert(!isSet() && "HIR data must be unset!");
-      return false;
-    }
-
-    /// Invalidate underlying HIR deta. If decomposed VPInstruction, the HIR of
-    /// its master VPInstruction is invalidated.
-    void invalidate() {
-      if (isMaster() || isDecomposed())
-        getVPInstData()->setInvalid();
-    }
-
-  public:
-    HIRSpecifics() {}
-    ~HIRSpecifics() {
-      if (isMaster())
-        delete getVPInstData();
-    }
-
-    // DESIGN PRINCIPLE: IR-independent algorithms don't need to know about
-    // HIR-specific master, decomposed and new VPInstructions or underlying HIR
-    // information. For that reason, access to the following HIR-specific
-    // methods must be restricted. We achieve that goal by making
-    // VPInstruction's HIRSpecifics member private.
-
-    // Hold the underlying HIR information related to the LHS operand of this
-    // VPInstruction.
-    std::unique_ptr<VPOperandHIR> LHSHIROperand;
-
-    // Union used to save needed information based on instruction opcode.
-    // 1) For a load/store instruction, save the symbase of the corresponding
-    //    scalar memref. Vector memref generated during vector CG is assigned
-    //    the same symbase.
-    // 2) For convert instructions, save whether the convert represents a
-    //    convert of a loop IV that needs to be folded into the containing canon
-    //    expression.
-    union {
-      unsigned Symbase = loopopt::InvalidSymbase;
-      bool FoldIVConvert;
-    };
-
-    /// Pointer to access the underlying HIR data attached to this
-    /// VPInstruction, if any, depending on its sub-type:
-    ///   1) Master VPInstruction: MasterData points to a VPInstDataHIR holding
-    ///      the actual HIR data.
-    ///   2) Decomposed VPInstruction: MasterData points to master VPInstruction
-    ///      holding the actual HIR data.
-    ///   3) Other VPInstruction (!Master and !Decomposed): MasterData is null.
-    ///      We use a void pointer to represent this case.
-    PointerUnion<MasterVPInstData *, VPInstruction *, void *> MasterData =
-        (int *)nullptr;
-
-    // Return the VPInstruction data of this VPInstruction if it's a master or
-    // decomposed. Return nullptr otherwise.
-    MasterVPInstData *getVPInstData() {
-      if (isMaster())
-        return MasterData.get<MasterVPInstData *>();
-      if (isDecomposed())
-        return getMaster()->HIR.getVPInstData();
-      // New VPInstructions don't have VPInstruction data.
-      return nullptr;
-    }
-    const MasterVPInstData *getVPInstData() const {
-      return const_cast<HIRSpecifics *>(this)->getVPInstData();
-    }
-
-    void verifyState() const {
-      if (MasterData.is<MasterVPInstData *>())
-        assert(!MasterData.isNull() &&
-               "MasterData can't be null for master VPInstruction!");
-      else if (MasterData.is<VPInstruction *>())
-        assert(!MasterData.isNull() &&
-               "MasterData can't be null for decomposed VPInstruction!");
-      else
-        assert(MasterData.is<void *>() && MasterData.isNull() &&
-               "MasterData must be null for VPInstruction that is not master "
-               "or decomposed!");
-    }
-
-    /// Return true if this is a master VPInstruction.
-    bool isMaster() const {
-      verifyState();
-      return MasterData.is<MasterVPInstData *>();
-    }
-
-    /// Return true if this is a decomposed VPInstruction.
-    bool isDecomposed() const {
-      verifyState();
-      return MasterData.is<VPInstruction *>();
-    }
-
-    // Return true if MasterData contains actual HIR data.
-    bool isSet() const {
-      verifyState();
-      return !MasterData.is<void *>();
-    }
-
-    /// Return the underlying HIR attached to this master VPInstruction. Return
-    /// nullptr if the VPInstruction doesn't have underlying HIR.
-    loopopt::HLNode *getUnderlyingNode() {
-      MasterVPInstData *MastData = getVPInstData();
-      if (!MastData)
-        return nullptr;
-      return MastData->getNode();
-    }
-    loopopt::HLNode *getUnderlyingNode() const {
-      return const_cast<HIRSpecifics *>(this)->getUnderlyingNode();
-    }
-
-    /// Attach \p UnderlyingNode to this VPInstruction and turn it into a master
-    /// VPInstruction.
-    void setUnderlyingNode(loopopt::HLNode *UnderlyingNode) {
-      assert(!isSet() && "MasterData is already set!");
-      MasterData = new MasterVPInstData(UnderlyingNode);
-    }
-
-    /// Attach \p Def to this VPInstruction as its VPOperandHIR.
-    void setOperandDDR(const loopopt::DDRef *Def) {
-      assert(!LHSHIROperand && "LHSHIROperand is already set!");
-      LHSHIROperand.reset(new VPBlob(Def));
-    }
-
-    /// Attach \p IVLevel to this VPInstruction as its VPOperandHIR.
-    void setOperandIV(unsigned IVLevel) {
-      assert(!LHSHIROperand && "LHSHIROperand is already set!");
-      LHSHIROperand.reset(new VPIndVar(IVLevel));
-    }
-
-    /// Return the VPOperandHIR with the underlying HIR information of the LHS
-    /// operand.
-    VPOperandHIR *getOperandHIR() const { return LHSHIROperand.get(); }
-
-    /// Return the master VPInstruction attached to a decomposed VPInstruction.
-    VPInstruction *getMaster() {
-      assert(isDecomposed() && "Only decomposed VPInstructions have a pointer "
-                               "to a master VPInstruction!");
-      return MasterData.get<VPInstruction *>();
-    }
-    VPInstruction *getMaster() const {
-      return const_cast<HIRSpecifics *>(this)->getMaster();
-    }
-
-    /// Attach \p MasterVPI as master VPInstruction of a decomposed
-    /// VPInstruction.
-    void setMaster(VPInstruction *MasterVPI) {
-      assert(MasterVPI && "Master VPInstruction cannot be set to null!");
-      assert(!isMaster() &&
-             "A master VPInstruction can't point to a master VPInstruction!");
-      assert(!isSet() && "Master VPInstruction is already set!");
-      MasterData = MasterVPI;
-    }
-
-    /// Mark the underlying HIR data as valid.
-    void setValid() {
-      assert(isMaster() && "Only a master VPInstruction must set HIR!");
-      getVPInstData()->setValid();
-    }
-
-    /// Print HIR-specific flags. It's mainly for debugging purposes.
-    void printHIRFlags(raw_ostream &OS) const {
-      OS << "IsMaster=" << isMaster() << " IsDecomp=" << isDecomposed()
-         << " IsNew=" << !isSet() << " HasValidHIR= " << isValid() << "\n";
-    }
-
-    void setSymbase(unsigned SB) { Symbase = SB; }
-    unsigned getSymbase(void) const { return Symbase; }
-
-    void setFoldIVConvert(bool Fold) { FoldIVConvert = Fold; }
-    bool getFoldIVConvert(void) const { return FoldIVConvert; }
-
-    void cloneFrom(const HIRSpecifics &HIR, bool CopySymbase) {
-      if (HIR.isMaster()) {
-        setUnderlyingNode(HIR.getUnderlyingNode());
-        if (HIR.isValid())
-          setValid();
-      } else if (HIR.isDecomposed())
-        setMaster(HIR.getMaster());
-
-      // Copy the operand.
-      if (VPOperandHIR *HIROperand = HIR.getOperandHIR()) {
-        if (VPBlob *Blob = dyn_cast<VPBlob>(HIROperand))
-          setOperandDDR(Blob->getBlob());
-        else {
-          VPIndVar *IV = cast<VPIndVar>(HIROperand);
-          setOperandIV(IV->getIVLevel());
-        }
-      }
-
-      if (CopySymbase)
-        setSymbase(HIR.getSymbase());
-      else
-        setFoldIVConvert(HIR.getFoldIVConvert());
-
-      // Verify correctness of the cloned HIR.
-      assert(isMaster() == HIR.isMaster() &&
-             "Cloned isMaster() value should be equal to the original one");
-      assert(isDecomposed() == HIR.isDecomposed() &&
-             "Cloned isDecomposed() value should be equal to the original one");
-      assert(isSet() == HIR.isSet() &&
-             "Cloned isSet() value should be equal to the original one");
-      if (isSet())
-        assert(HIR.isValid() == isValid() &&
-               "Cloned isValid() value should be equal to the original one");
-    }
-  };
 #endif // INTEL_CUSTOMIZATION
 
   /// Central class to capture and differentiate operator-specific attributes
@@ -782,6 +565,15 @@ private:
   // Hold operator-related metadata attributes attached to this VPInstruction.
   VPOperatorIRFlags OperatorFlags;
 
+  // Hold the underlying HIR information, if any, attached to this
+  // VPInstruction.
+  HIRSpecificsData HIRData;
+
+protected:
+  HIRSpecifics HIR() { return HIRSpecifics(*this); }
+  const HIRSpecifics HIR() const { return HIRSpecifics(*this); }
+
+private:
   /// Utility method serving execute(): generates a single instance of the
   /// modeled instruction.
   void generateInstruction(VPTransformState &State, unsigned Part);
@@ -790,7 +582,7 @@ private:
 
   void copyUnderlyingFrom(const VPInstruction &Inst) {
 #if INTEL_CUSTOMIZATION
-    HIR.cloneFrom(Inst.HIR, canHaveSymbase());
+    HIR().cloneFrom(Inst.HIR(), canHaveSymbase());
 #endif // INTEL_CUSTOMIZATION
     Value *V = Inst.getUnderlyingValue();
     if (V)
@@ -819,12 +611,9 @@ protected:
 #if INTEL_CUSTOMIZATION
   /// Return true if this is a new VPInstruction (i.e., an VPInstruction that is
   /// not coming from the underlying IR.
-  bool isNew() const { return getUnderlyingValue() == nullptr && !HIR.isSet(); }
-
-  // Hold the underlying HIR information, if any, attached to this
-  // VPInstruction. This field is protected to provide access to derived
-  // subclasses of VPInstruction.
-  HIRSpecifics HIR;
+  bool isNew() const {
+    return getUnderlyingValue() == nullptr && !HIR().isSet();
+  }
 
   void setSymbase(unsigned Symbase) {
     assert(Opcode == Instruction::Store ||
@@ -832,16 +621,16 @@ protected:
                "setSymbase called for invalid VPInstruction");
     assert(Symbase != loopopt::InvalidSymbase &&
            "Unexpected invalid symbase assignment");
-    HIR.setSymbase(Symbase);
+    HIR().setSymbase(Symbase);
   }
 
   unsigned getSymbase(void) const {
     assert(Opcode == Instruction::Store ||
            Opcode == Instruction::Load &&
                "getSymbase called for invalid VPInstruction");
-    assert(HIR.Symbase != loopopt::InvalidSymbase &&
+    assert(HIR().getSymbase() != loopopt::InvalidSymbase &&
            "Unexpected invalid symbase");
-    return HIR.getSymbase();
+    return HIR().getSymbase();
   }
 
   void setFoldIVConvert(bool Fold) {
@@ -849,14 +638,14 @@ protected:
            Opcode == Instruction::Trunc ||
            Opcode == Instruction::ZExt &&
                "unexpected call to setFoldIVConvert");
-    HIR.setFoldIVConvert(Fold);
+    HIR().setFoldIVConvert(Fold);
   }
 
   bool getFoldIVConvert(void) const {
     assert(Opcode == Instruction::SExt || Opcode == Instruction::Trunc ||
            Opcode == Instruction::ZExt &&
                "getFoldIVConvert called for invalid VPInstruction");
-    return HIR.getFoldIVConvert();
+    return HIR().getFoldIVConvert();
   }
 #endif
 
@@ -1036,6 +825,29 @@ public:
     Cloned->copyAttributesFrom(*this);
     return Cloned;
   }
+
+  bool isUnderlyingIRValid() const {
+    return IsUnderlyingValueValid || HIR().isValid();
+  }
+
+  void invalidateUnderlyingIR() {
+    IsUnderlyingValueValid = false;
+    // Temporary hook-up to ignore loop induction related instructions during CG
+    // by not invalidating them.
+    // TODO: Remove this code after VPInduction support is added to HIR CG.
+    const loopopt::HLNode *HNode = HIR().getUnderlyingNode();
+    if (HNode && isa<loopopt::HLLoop>(HNode))
+      return;
+    HIR().invalidate();
+    // At this point, we don't have a use-case where invalidation of users of
+    // instruction is needed. This is because VPInstructions mostly represent
+    // r-value of a HLInst and modifying the r-value should not affect l-value
+    // temp refs. For stores this was never an issue since store instructions
+    // cannot have users. In case of LLVM-IR invalidating an instruction might
+    // mean that the underlying bit value is different. If this is the case then
+    // invalidation should be propagated to users as well.
+  }
+
 };
 
 /// Instruction to set vector factor and unroll factor explicitly.
@@ -1148,7 +960,7 @@ public:
 
   /// Returns underlying HLGoto node if any or nullptr otherwise.
   const loopopt::HLGoto *getHLGoto() const {
-    loopopt::HLNode *Node = HIR.getUnderlyingNode();
+    loopopt::HLNode *Node = HIR().getUnderlyingNode();
     if (!Node)
       return nullptr;
     return cast<loopopt::HLGoto>(Node);
@@ -1788,14 +1600,14 @@ public:
   // Get the HIR memory reference corresponding to the value being loaded
   // or value being stored into.
   const loopopt::RegDDRef *getHIRMemoryRef() const {
-    if (!HIR.getUnderlyingNode())
+    if (!HIR().getUnderlyingNode())
       return nullptr;
 
-    auto *OpHIR = cast<VPBlob>(HIR.getOperandHIR());
+    auto *OpHIR = cast<VPBlob>(HIR().getOperandHIR());
     auto *RDDR = cast<loopopt::RegDDRef>(OpHIR->getBlob());
     if (!RDDR->hasGEPInfo()) {
       // This corresponds to a standalone load instruction.
-      auto *HInst = cast<loopopt::HLInst>(HIR.getUnderlyingNode());
+      auto *HInst = cast<loopopt::HLInst>(HIR().getUnderlyingNode());
       assert(isa<LoadInst>(HInst->getLLVMInstruction()) &&
              "Expected standalone load HLInst.");
       RDDR = HInst->getRvalDDRef();
@@ -1811,7 +1623,7 @@ public:
     MDs.clear();
     if (auto *IRLoadStore = dyn_cast_or_null<Instruction>(getInstruction()))
       IRLoadStore->getAllMetadataOtherThanDebugLoc(MDs);
-    else if (HIR.getUnderlyingNode()) {
+    else if (HIR().getUnderlyingNode()) {
       const loopopt::RegDDRef *RDDR = getHIRMemoryRef();
       RDDR->getAllMetadataOtherThanDebugLoc(MDs);
     }
@@ -2008,7 +1820,7 @@ public:
   const CallInst *getUnderlyingCallInst() const {
     if (auto *IRCall = dyn_cast_or_null<CallInst>(getInstruction()))
       return IRCall;
-    else if (auto *HIRCall = HIR.getUnderlyingNode()) {
+    else if (auto *HIRCall = HIR().getUnderlyingNode()) {
       auto *IRCall = cast<loopopt::HLInst>(HIRCall)->getCallInst();
       assert (IRCall && "Underlying call instruction expected here.");
       return IRCall;

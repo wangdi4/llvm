@@ -842,6 +842,13 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
           << A->getOption().getName();
   }
 
+  // -vec-threshold
+  if (Arg *A = Args.getLastArg(options::OPT_vec_threshold_EQ)) {
+    StringRef Val = A->getValue();
+    if (!Val.empty())
+      addllvmOption(Args.MakeArgString(Twine("-vec-threshold=") + Val));
+  }
+
   // Handle --intel defaults.  Do not add for SYCL device (DPC++)
   if (TC.getDriver().IsIntelMode() &&
       !(TC.getTriple().getEnvironment() == llvm::Triple::SYCLDevice)) {
