@@ -1,77 +1,80 @@
 ; RUN: opt -disable-hir-inter-loop-blocking=false -hir-ssa-deconstruction -hir-temp-cleanup -hir-inter-loop-blocking -print-before=hir-inter-loop-blocking -hir-inter-loop-blocking-stripmine-size=2 -print-after=hir-inter-loop-blocking  < %s 2>&1 | FileCheck %s
 ; RUN: opt -disable-hir-inter-loop-blocking=false -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-inter-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-inter-loop-blocking-stripmine-size=2 2>&1 < %s | FileCheck %s
 
-; Variables used in the LB/UB of loops, which are loaded after the non-leading spatial loops, are cloned at the beginning of the body of
-; the outermost loop in order to be used in the LB/UB of by-strip loops.
-; TODO: If the loads could have been hoisted to the destination of the cloning, cloning was not needed. Once, alias analysis are done with more accuracy with fortran language feature (e.g. allocate, dope vector), loads are likely to be hoisted to the right place. Eventually, this cloning won't be needed. Once that hoist happens, it is more likely that we want to insert cloned (redundant) loads in-between loopnests to reduce register pressure.
+; Verify that non-load instructions can be cloned before by-strip loops as needed
 
 ; Before
 
-;          BEGIN REGION { }
-;                + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
-;                |   + DO i2 = 0, 2, 1   <DO_LOOP>
-;                |   |   + DO i3 = 0, 2, 1   <DO_LOOP>
-;                |   |   |   %add21 = (%"sub1_$B.addr_a0$_fetch")[i2 + 1][i3 + 1]  +  1.000000e+00;
-;                |   |   |   (%"sub1_$A.addr_a0$_fetch")[i2 + 1][i3 + 1] = %add21;
-;                |   |   + END LOOP
-;                |   + END LOOP
-;                |
-;                |
-;                |   + DO i2 = 0, 2, 1   <DO_LOOP>
-;                |   |   %globalvar_mod_mp_zstart__fetch = (@globalvar_mod_mp_zstart_)[0];
-;                |   |   %globalvar_mod_mp_zstop__fetch = (@globalvar_mod_mp_zstop_)[0];
-;                |   |
-;                |   |   + DO i3 = 0, sext.i32.i64(%globalvar_mod_mp_zstop__fetch) + -1 * sext.i32.i64(%globalvar_mod_mp_zstart__fetch), 1   <DO_LOOP>
-;                |   |   |   %add111 = (%"sub1_$A.addr_a0$_fetch")[i2 + 1][i3 + sext.i32.i64(%globalvar_mod_mp_zstart__fetch)]  +  2.000000e+00;
-;                |   |   |   (%"sub1_$B.addr_a0$_fetch")[i2 + 1][i3 + sext.i32.i64(%globalvar_mod_mp_zstart__fetch)] = %add111;
-;                |   |   + END LOOP
-;                |   + END LOOP
-;                + END LOOP
-;          END REGION
+;         BEGIN REGION { }
+;               + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+;               |   + DO i2 = 0, 2, 1   <DO_LOOP>
+;               |   |   + DO i3 = 0, 2, 1   <DO_LOOP>
+;               |   |   |   %add21 = (%"sub1_$B.addr_a0$_fetch")[i2 + 1][i3 + 1]  +  1.000000e+00;
+;               |   |   |   (%"sub1_$A.addr_a0$_fetch")[i2 + 1][i3 + 1] = %add21;
+;               |   |   + END LOOP
+;               |   + END LOOP
+;               |
+;               |
+;               |   + DO i2 = 0, 2, 1   <DO_LOOP>
+;               |   |   %globalvar_mod_mp_zstop__fetch = (@globalvar_mod_mp_zstop_)[0];
+;               |   |   %myrel = %MMM  |  %NNN;
+;               |   |   if (%globalvar_mod_mp_zstop__fetch >= (@globalvar_mod_mp_zstart_)[0])
+;               |   |   {
+;               |   |      + DO i3 = 0, sext.i32.i64(%globalvar_mod_mp_zstop__fetch) + -1 * sext.i32.i64(%myrel), 1   <DO_LOOP>
+;               |   |      |   %add111 = (%"sub1_$A.addr_a0$_fetch")[i2 + 1][i3 + sext.i32.i64(%myrel)]  +  2.000000e+00;
+;               |   |      |   (%"sub1_$B.addr_a0$_fetch")[i2 + 1][i3 + sext.i32.i64(%myrel)] = %add111;
+;               |   |      + END LOOP
+;               |   |   }
+;               |   + END LOOP
+;               + END LOOP
+;        END REGION
 
 ; After
 
-;          BEGIN REGION { modified }
-;                + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
-;                |   %clone_load = (@globalvar_mod_mp_zstart_)[0];
-;                |   %clone_load6 = (@globalvar_mod_mp_zstop_)[0];
-;                |
-;                |   + DO i2 = 1, 3, 2   <DO_LOOP>
-;                |   |   %tile_e_min = (i2 + 1 <= 3) ? i2 + 1 : 3;
-;                |   |
-;                |   |   + DO i3 = smin(1, sext.i32.i64(%clone_load)), smax(3, sext.i32.i64(%clone_load6)), 2   <DO_LOOP>
-;                |   |   |   %tile_e_min7 = (i3 + 1 <= smax(3, sext.i32.i64(%clone_load6))) ? i3 + 1 : smax(3, sext.i32.i64(%clone_load6));
-;                |   |   |   %lb_max8 = (1 <= i2) ? i2 : 1;
-;                |   |   |   %ub_min9 = (3 <= %tile_e_min) ? 3 : %tile_e_min;
-;                |   |   |
-;                |   |   |   + DO i4 = 0, -1 * %lb_max8 + %ub_min9, 1   <DO_LOOP>
-;                |   |   |   |   %lb_max = (1 <= i3) ? i3 : 1;
-;                |   |   |   |   %ub_min = (3 <= %tile_e_min7) ? 3 : %tile_e_min7;
-;                |   |   |   |
-;                |   |   |   |   + DO i5 = 0, -1 * %lb_max + %ub_min, 1   <DO_LOOP>
-;                |   |   |   |   |   %add21 = (%"sub1_$B.addr_a0$_fetch")[i4 + %lb_max8][i5 + %lb_max]  +  1.000000e+00;
-;                |   |   |   |   |   (%"sub1_$A.addr_a0$_fetch")[i4 + %lb_max8][i5 + %lb_max] = %add21;
-;                |   |   |   |   + END LOOP
-;                |   |   |   + END LOOP
-;                |   |   |
-;                |   |   |   %lb_max12 = (1 <= i2) ? i2 : 1;
-;                |   |   |   %ub_min13 = (3 <= %tile_e_min) ? 3 : %tile_e_min;
-;                |   |   |
-;                |   |   |   + DO i4 = 0, -1 * %lb_max12 + %ub_min13, 1   <DO_LOOP>
-;                |   |   |   |   %globalvar_mod_mp_zstart__fetch = (@globalvar_mod_mp_zstart_)[0];
-;                |   |   |   |   %globalvar_mod_mp_zstop__fetch = (@globalvar_mod_mp_zstop_)[0];
-;                |   |   |   |   %lb_max10 = (sext.i32.i64(%globalvar_mod_mp_zstart__fetch) <= i3) ? i3 : sext.i32.i64(%globalvar_mod_mp_zstart__fetch);
-;                |   |   |   |   %ub_min11 = (sext.i32.i64(%globalvar_mod_mp_zstop__fetch) <= %tile_e_min7) ? sext.i32.i64(%globalvar_mod_mp_zstop__fetch) : %tile_e_min7;
-;                |   |   |   |
-;                |   |   |   |   + DO i5 = 0, -1 * %lb_max10 + %ub_min11, 1   <DO_LOOP>
-;                |   |   |   |   |   %add111 = (%"sub1_$A.addr_a0$_fetch")[i4 + %lb_max12][i5 + %lb_max10]  +  2.000000e+00;
-;                |   |   |   |   |   (%"sub1_$B.addr_a0$_fetch")[i4 + %lb_max12][i5 + %lb_max10] = %add111;
-;                |   |   |   |   + END LOOP
-;                |   |   |   + END LOOP
-;                |   |   + END LOOP
-;                |   + END LOOP
-;                + END LOOP
-;          END REGION
+;         BEGIN REGION { modified }
+;               + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+;               |   %clone = %MMM  |  %NNN;    // This cloned instruction is NOT a load instruction.
+;               |   %clone6 = (@globalvar_mod_mp_zstop_)[0];
+;               |
+;               |   + DO i2 = 1, 3, 2   <DO_LOOP>
+;               |   |   %tile_e_min = (i2 + 1 <= 3) ? i2 + 1 : 3;
+;               |   |
+;               |   |   + DO i3 = smin(1, sext.i32.i64(%clone)), smax(3, sext.i32.i64(%clone6)), 2   <DO_LOOP>
+;               |   |   |   %tile_e_min7 = (i3 + 1 <= smax(3, sext.i32.i64(%clone6))) ? i3 + 1 : smax(3, sext.i32.i64(%clone6));
+;               |   |   |   %lb_max8 = (1 <= i2) ? i2 : 1;
+;               |   |   |   %ub_min9 = (3 <= %tile_e_min) ? 3 : %tile_e_min;
+;               |   |   |
+;               |   |   |   + DO i4 = 0, -1 * %lb_max8 + %ub_min9, 1   <DO_LOOP>
+;               |   |   |   |   %lb_max = (1 <= i3) ? i3 : 1;
+;               |   |   |   |   %ub_min = (3 <= %tile_e_min7) ? 3 : %tile_e_min7;
+;               |   |   |   |
+;               |   |   |   |   + DO i5 = 0, -1 * %lb_max + %ub_min, 1   <DO_LOOP>
+;               |   |   |   |   |   %add21 = (%"sub1_$B.addr_a0$_fetch")[i4 + %lb_max8][i5 + %lb_max]  +  1.000000e+00;
+;               |   |   |   |   |   (%"sub1_$A.addr_a0$_fetch")[i4 + %lb_max8][i5 + %lb_max] = %add21;
+;               |   |   |   |   + END LOOP
+;               |   |   |   + END LOOP
+;               |   |   |
+;               |   |   |   %lb_max12 = (1 <= i2) ? i2 : 1;
+;               |   |   |   %ub_min13 = (3 <= %tile_e_min) ? 3 : %tile_e_min;
+;               |   |   |
+;               |   |   |   + DO i4 = 0, -1 * %lb_max12 + %ub_min13, 1   <DO_LOOP>
+;               |   |   |   |   %globalvar_mod_mp_zstop__fetch = (@globalvar_mod_mp_zstop_)[0];
+;               |   |   |   |   %myrel = %MMM  |  %NNN;
+;               |   |   |   |   if (%globalvar_mod_mp_zstop__fetch >= (@globalvar_mod_mp_zstart_)[0])
+;               |   |   |   |   {
+;               |   |   |   |      %lb_max10 = (sext.i32.i64(%myrel) <= i3) ? i3 : sext.i32.i64(%myrel);
+;               |   |   |   |      %ub_min11 = (sext.i32.i64(%globalvar_mod_mp_zstop__fetch) <= %tile_e_min7) ? sext.i32.i64(%globalvar_mod_mp_zstop__fetch) : %tile_e_min7;
+;               |   |   |   |
+;               |   |   |   |      + DO i5 = 0, -1 * %lb_max10 + %ub_min11, 1   <DO_LOOP>
+;               |   |   |   |      |   %add111 = (%"sub1_$A.addr_a0$_fetch")[i4 + %lb_max12][i5 + %lb_max10]  +  2.000000e+00;
+;               |   |   |   |      |   (%"sub1_$B.addr_a0$_fetch")[i4 + %lb_max12][i5 + %lb_max10] = %add111;
+;               |   |   |   |      + END LOOP
+;               |   |   |   |   }
+;               |   |   |   + END LOOP
+;               |   |   + END LOOP
+;               |   + END LOOP
+;               + END LOOP
+;         END REGION
 
 ; CHECK: Function: sub1_
 
@@ -86,60 +89,65 @@
 ; CHECK:               |
 ; CHECK:               |
 ; CHECK:               |   + DO i2 = 0, 2, 1   <DO_LOOP>
-; CHECK:               |   |   %globalvar_mod_mp_zstart__fetch = (@globalvar_mod_mp_zstart_)[0];
 ; CHECK:               |   |   %globalvar_mod_mp_zstop__fetch = (@globalvar_mod_mp_zstop_)[0];
-; CHECK:               |   |
-; CHECK:               |   |   + DO i3 = 0, sext.i32.i64(%globalvar_mod_mp_zstop__fetch) + -1 * sext.i32.i64(%globalvar_mod_mp_zstart__fetch), 1   <DO_LOOP>
-; CHECK:               |   |   |   %add111 = (%"sub1_$A.addr_a0$_fetch")[i2 + 1][i3 + sext.i32.i64(%globalvar_mod_mp_zstart__fetch)]  +  2.000000e+00;
-; CHECK:               |   |   |   (%"sub1_$B.addr_a0$_fetch")[i2 + 1][i3 + sext.i32.i64(%globalvar_mod_mp_zstart__fetch)] = %add111;
-; CHECK:               |   |   + END LOOP
+; CHECK:               |   |   %myrel = %MMM  |  %NNN;
+; CHECK:               |   |   if (%globalvar_mod_mp_zstop__fetch >= (@globalvar_mod_mp_zstart_)[0])
+; CHECK:               |   |   {
+; CHECK:               |   |      + DO i3 = 0, sext.i32.i64(%globalvar_mod_mp_zstop__fetch) + -1 * sext.i32.i64(%myrel), 1   <DO_LOOP>
+; CHECK:               |   |      |   %add111 = (%"sub1_$A.addr_a0$_fetch")[i2 + 1][i3 + sext.i32.i64(%myrel)]  +  2.000000e+00;
+; CHECK:               |   |      |   (%"sub1_$B.addr_a0$_fetch")[i2 + 1][i3 + sext.i32.i64(%myrel)] = %add111;
+; CHECK:               |   |      + END LOOP
+; CHECK:               |   |   }
 ; CHECK:               |   + END LOOP
 ; CHECK:               + END LOOP
 ; CHECK:         END REGION
 
 ; CHECK: Function: sub1_
 
-; CHECK:         BEGIN REGION { modified }
-; CHECK:               + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
-; CHECK:               |   [[CLONE_1:%clone[0-9]*]] = (@globalvar_mod_mp_zstart_)[0];
-; CHECK:               |   [[CLONE_2:%clone[0-9]+]] = (@globalvar_mod_mp_zstop_)[0];
-; CHECK:               |
-; CHECK:               |   + DO i2 = 1, 3, 2   <DO_LOOP>
-; CHECK:               |   |   [[TILE_1:%tile_e_min[0-9]*]] = (i2 + 1 <= 3) ? i2 + 1 : 3;
-; CHECK:               |   |
-; CHECK:               |   |   + DO i3 = smin(1, sext.i32.i64([[CLONE_1]])), smax(3, sext.i32.i64([[CLONE_2]])), 2   <DO_LOOP>
-; CHECK:               |   |   |   [[TILE_2:%tile_e_min[0-9]+]] = (i3 + 1 <= smax(3, sext.i32.i64([[CLONE_2]]))) ? i3 + 1 : smax(3, sext.i32.i64([[CLONE_2]]));
-; CHECK:               |   |   |   [[LB_1:%lb_max[0-9]*]] = (1 <= i2) ? i2 : 1;
-; CHECK:               |   |   |   [[UB_1:%ub_min[0-9]*]] = (3 <= [[TILE_1]]) ? 3 : [[TILE_1]];
-; CHECK:               |   |   |
-; CHECK:               |   |   |   + DO i4 = 0, -1 * [[LB_1]] + [[UB_1]], 1   <DO_LOOP>
-; CHECK:               |   |   |   |   [[LB_2:%lb_max[0-9]*]] = (1 <= i3) ? i3 : 1;
-; CHECK:               |   |   |   |   [[UB_2:%ub_min[0-9]*]] = (3 <= [[TILE_2]]) ? 3 : [[TILE_2]];
-; CHECK:               |   |   |   |
-; CHECK:               |   |   |   |   + DO i5 = 0, -1 * [[LB_2]] + [[UB_2]], 1   <DO_LOOP>
-; CHECK:               |   |   |   |   |   %add21 = (%"sub1_$B.addr_a0$_fetch")[i4 + [[LB_1]]][i5 + [[LB_2]]]  +  1.000000e+00;
-; CHECK:               |   |   |   |   |   (%"sub1_$A.addr_a0$_fetch")[i4 + [[LB_1]]][i5 + [[LB_2]]] = %add21;
-; CHECK:               |   |   |   |   + END LOOP
-; CHECK:               |   |   |   + END LOOP
-; CHECK:               |   |   |
-; CHECK:               |   |   |   [[LB_3:%lb_max[0-9]*]] = (1 <= i2) ? i2 : 1;
-; CHECK:               |   |   |   [[UB_3:%ub_min[0-9]*]] = (3 <= [[TILE_1]]) ? 3 : [[TILE_1]];
-; CHECK:               |   |   |
-; CHECK:               |   |   |   + DO i4 = 0, -1 * [[LB_3]] + [[UB_3]], 1   <DO_LOOP>
-; CHECK:               |   |   |   |   %globalvar_mod_mp_zstart__fetch = (@globalvar_mod_mp_zstart_)[0];
-; CHECK:               |   |   |   |   %globalvar_mod_mp_zstop__fetch = (@globalvar_mod_mp_zstop_)[0];
-; CHECK:               |   |   |   |   [[LB_4:%lb_max[0-9]*]] = (sext.i32.i64(%globalvar_mod_mp_zstart__fetch) <= i3) ? i3 : sext.i32.i64(%globalvar_mod_mp_zstart__fetch);
-; CHECK:               |   |   |   |   [[UB_4:%ub_min[0-9]*]] = (sext.i32.i64(%globalvar_mod_mp_zstop__fetch) <= [[TILE_2]]) ? sext.i32.i64(%globalvar_mod_mp_zstop__fetch) : [[TILE_2]];
-; CHECK:               |   |   |   |
-; CHECK:               |   |   |   |   + DO i5 = 0, -1 * [[LB_4]] + [[UB_4]], 1   <DO_LOOP>
-; CHECK:               |   |   |   |   |   %add111 = (%"sub1_$A.addr_a0$_fetch")[i4 + [[LB_3]]][i5 + [[LB_4]]]  +  2.000000e+00;
-; CHECK:               |   |   |   |   |   (%"sub1_$B.addr_a0$_fetch")[i4 + [[LB_3]]][i5 + [[LB_4]]] = %add111;
-; CHECK:               |   |   |   |   + END LOOP
-; CHECK:               |   |   |   + END LOOP
-; CHECK:               |   |   + END LOOP
-; CHECK:               |   + END LOOP
-; CHECK:               + END LOOP
-; CHECK:         END REGION
+; CHECK:     BEGIN REGION { modified }
+; CHECK:           + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK:           |   [[CLONE_1:%clone[0-9]*]] = %MMM  |  %NNN;
+; CHECK:           |   [[CLONE_2:%clone[0-9]+]] = (@globalvar_mod_mp_zstop_)[0];
+; CHECK:           |
+; CHECK:           |   + DO i2 = 1, 3, 2   <DO_LOOP>
+; CHECK:           |   |   [[TILE_1:%tile_e_min[0-9]*]] = (i2 + 1 <= 3) ? i2 + 1 : 3;
+; CHECK:           |   |
+; CHECK:           |   |   + DO i3 = smin(1, sext.i32.i64([[CLONE_1]])), smax(3, sext.i32.i64([[CLONE_2]])), 2   <DO_LOOP>
+; CHECK:           |   |   |   [[TILE_2:%tile_e_min[0-9]+]] = (i3 + 1 <= smax(3, sext.i32.i64([[CLONE_2]]))) ? i3 + 1 : smax(3, sext.i32.i64([[CLONE_2]]));
+; CHECK:           |   |   |   [[LB_1:%lb_max[0-9]*]] = (1 <= i2) ? i2 : 1;
+; CHECK:           |   |   |   [[UB_1:%ub_min[0-9]*]] = (3 <= [[TILE_1]]) ? 3 : [[TILE_1]];
+; CHECK:           |   |   |
+; CHECK:           |   |   |   + DO i4 = 0, -1 * [[LB_1]] + [[UB_1]], 1   <DO_LOOP>
+; CHECK:           |   |   |   |   [[LB_2:%lb_max[0-9]*]] = (1 <= i3) ? i3 : 1;
+; CHECK:           |   |   |   |   [[UB_2:%ub_min[0-9]*]] = (3 <= [[TILE_2]]) ? 3 : [[TILE_2]];
+; CHECK:           |   |   |   |
+; CHECK:           |   |   |   |   + DO i5 = 0, -1 * [[LB_2]] + [[UB_2]], 1   <DO_LOOP>
+; CHECK:           |   |   |   |   |   %add21 = (%"sub1_$B.addr_a0$_fetch")[i4 + [[LB_1]]][i5 + [[LB_2]]]  +  1.000000e+00;
+; CHECK:           |   |   |   |   |   (%"sub1_$A.addr_a0$_fetch")[i4 + [[LB_1]]][i5 + [[LB_2]]] = %add21;
+; CHECK:           |   |   |   |   + END LOOP
+; CHECK:           |   |   |   + END LOOP
+; CHECK:           |   |   |
+; CHECK:           |   |   |   [[LB_3:%lb_max[0-9]*]] = (1 <= i2) ? i2 : 1;
+; CHECK:           |   |   |   [[UB_3:%ub_min[0-9]*]] = (3 <= [[TILE_1]]) ? 3 : [[TILE_1]];
+; CHECK:           |   |   |
+; CHECK:           |   |   |   + DO i4 = 0, -1 * [[LB_3]] + [[UB_3]], 1   <DO_LOOP>
+; CHECK:           |   |   |   |   %globalvar_mod_mp_zstop__fetch = (@globalvar_mod_mp_zstop_)[0];
+; CHECK:           |   |   |   |   %myrel = %MMM  |  %NNN;
+
+; CHECK:           |   |   |   |   if (%globalvar_mod_mp_zstop__fetch >= (@globalvar_mod_mp_zstart_)[0])
+; CHECK:           |   |   |   |   {
+; CHECK:           |   |   |   |      [[LB_4:%lb_max[0-9]*]] = (sext.i32.i64(%myrel) <= i3) ? i3 : sext.i32.i64(%myrel);
+; CHECK:           |   |   |   |      [[UB_4:%ub_min[0-9]*]] = (sext.i32.i64(%globalvar_mod_mp_zstop__fetch) <= [[TILE_2]]) ? sext.i32.i64(%globalvar_mod_mp_zstop__fetch) : [[TILE_2]];
+; CHECK:           |   |   |   |      + DO i5 = 0, -1 * [[LB_4]] + [[UB_4]], 1   <DO_LOOP>
+; CHECK:           |   |   |   |      |   %add111 = (%"sub1_$A.addr_a0$_fetch")[i4 + [[LB_3]]][i5 + [[LB_4]]]  +  2.000000e+00;
+; CHECK:           |   |   |   |      |   (%"sub1_$B.addr_a0$_fetch")[i4 + [[LB_3]]][i5 + [[LB_4]]] = %add111;
+; CHECK:           |   |   |   |      + END LOOP
+; CHECK:           |   |   |   |   }
+; CHECK:           |   |   |   + END LOOP
+; CHECK:           |   |   + END LOOP
+; CHECK:           |   + END LOOP
+; CHECK:           + END LOOP
+; CHECK:     END REGION
 
 ;Module Before HIR
 ; ModuleID = 'blob-index-inner.f90'
@@ -153,7 +161,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @globalvar_mod_mp_zstart_ = external local_unnamed_addr global i32, align 8
 
 ; Function Attrs: nofree nounwind uwtable
-define void @sub1_(%"QNCA_a0$double*$rank2$"* noalias nocapture readonly dereferenceable(96) "ptrnoalias" %"sub1_$A", %"QNCA_a0$double*$rank2$"* noalias nocapture readonly dereferenceable(96) "ptrnoalias" %"sub1_$B", i32* noalias nocapture readnone dereferenceable(4) %"sub1_$N", i32* noalias nocapture readonly dereferenceable(4) %"sub1_$NTIMES", i32* noalias nocapture readnone dereferenceable(4) %"sub1_$BLOB") local_unnamed_addr #0 {
+define void @sub1_(%"QNCA_a0$double*$rank2$"* noalias nocapture readonly dereferenceable(96) "ptrnoalias" %"sub1_$A", %"QNCA_a0$double*$rank2$"* noalias nocapture readonly dereferenceable(96) "ptrnoalias" %"sub1_$B", i32* noalias nocapture readnone dereferenceable(4) %"sub1_$N", i32* noalias nocapture readonly dereferenceable(4) %"sub1_$NTIMES", i32* noalias nocapture readnone dereferenceable(4) %"sub1_$BLOB", i32 %NNN, i32 %MMM) local_unnamed_addr #0 {
 alloca_0:
   %"sub1_$NTIMES_fetch" = load i32, i32* %"sub1_$NTIMES", align 1
   %rel = icmp slt i32 %"sub1_$NTIMES_fetch", 1
@@ -216,13 +224,14 @@ bb47:                                             ; preds = %bb47.preheader, %bb
   %indvars.iv205 = phi i64 [ %indvars.iv.next206, %bb52 ], [ 1, %bb47.preheader ]
   %globalvar_mod_mp_zstart__fetch = load i32, i32* @globalvar_mod_mp_zstart_, align 8
   %globalvar_mod_mp_zstop__fetch = load i32, i32* @globalvar_mod_mp_zstop_, align 8
+  %myrel = or i32 %MMM, %NNN
   %rel73 = icmp slt i32 %globalvar_mod_mp_zstop__fetch, %globalvar_mod_mp_zstart__fetch
   br i1 %rel73, label %bb52, label %bb51.preheader
 
 bb51.preheader:                                   ; preds = %bb47
   %"sub1_$A.addr_a0$_fetch[]109" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 %"sub1_$A.dim_info$.lower_bound$31[]_fetch", i64 %"sub1_$A.dim_info$.spacing$[]_fetch", double* %"sub1_$A.addr_a0$_fetch", i64 %indvars.iv205)
   %"sub1_$B.addr_a0$113_fetch[]" = tail call double* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64(i8 1, i64 %"sub1_$B.dim_info$.lower_bound$[]3_fetch", i64 %"sub1_$B.dim_info$.spacing$[]_fetch", double* %"sub1_$B.addr_a0$_fetch", i64 %indvars.iv205)
-  %1 = sext i32 %globalvar_mod_mp_zstart__fetch to i64
+  %1 = sext i32 %myrel to i64
   %2 = add nsw i32 %globalvar_mod_mp_zstop__fetch, 1
   %wide.trip.count = sext i32 %2 to i64
   br label %bb51
