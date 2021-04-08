@@ -36,6 +36,10 @@ class TargetTransformInfo;
 
 namespace vpo {
 
+extern bool EnableVectorizedPeel;
+extern bool EnableNonMaskedVectorizedRemainder;
+extern bool EnableMaskedVectorizedRemainder;
+
 class VPlanVector;
 class VPlanMasked;
 class VPlanCostModel;
