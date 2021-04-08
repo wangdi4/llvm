@@ -11527,7 +11527,6 @@ public:
                                       SourceLocation LParenLoc,
                                       SourceLocation VarLoc,
                                       SourceLocation EndLoc);
-
   /// Called on well-formed 'novariants' clause.
   OMPClause *ActOnOpenMPNovariantsClause(Expr *Condition,
                                          SourceLocation StartLoc,
