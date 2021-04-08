@@ -1843,6 +1843,16 @@ public:
   /// Loop Vectorize Hint.
   const LoopVectorizeHints *Hints;
 
+#if INTEL_CUSTOMIZATION
+  /// Contains vector factor values from "llvm.loop.vector.vectorlength"
+  /// metadata, not larger than the MaxVF value. If metadata is not specified,
+  /// contains default vector factor values (from 2 to MaxVF). If
+  /// "-force-vector-width=..." option is used, the value is written to the
+  /// UserVF and AllowedVFs is not used (in this case vectorization happens for
+  ///  UserVF).
+  SmallVector<unsigned, 5> AllowedVFs;
+#endif // INTEL_CUSTOMIZATION
+
   /// The interleave access information contains groups of interleaved accesses
   /// with the same stride and close to each other.
   InterleavedAccessInfo &InterleaveInfo;
@@ -5917,8 +5927,11 @@ LoopVectorizationCostModel::selectVectorizationFactor(ElementCount MaxVF) {
     Cost = std::numeric_limits<float>::max();
   }
 
-  for (auto i = ElementCount::getFixed(2); ElementCount::isKnownLE(i, MaxVF);
-       i *= 2) {
+#if INTEL_CUSTOMIZATION
+  for (unsigned AllowedVF : AllowedVFs) {
+    ElementCount i = ElementCount::getFixed(AllowedVF);
+#endif // INTEL_CUSTOMIZATION
+
     // Notice that the vector loop needs to be executed less times, so
     // we need to divide the cost of the vector loops by the width of
     // the vector elements.
@@ -7770,8 +7783,11 @@ LoopVectorizationPlanner::planInVPlanNativePath(ElementCount UserVF) {
   return VectorizationFactor::Disabled();
 }
 
+#if INTEL_CUSTOMIZATION
 Optional<VectorizationFactor>
-LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC) {
+LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC,
+                               ArrayRef<unsigned> VFs) {
+#endif // INTEL_CUSTOMIZATION
   assert(OrigLoop->isInnermost() && "Inner loop expected.");
   Optional<ElementCount> MaybeMaxVF = CM.computeMaxVF(UserVF, UserIC);
   if (!MaybeMaxVF) // Cases that should not to be vectorized nor interleaved.
@@ -7817,8 +7833,35 @@ LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC) {
   assert(!MaxVF.isScalable() &&
          "Scalable vectors not yet supported beyond this point");
 
-  for (ElementCount VF = ElementCount::getFixed(1);
-       ElementCount::isKnownLE(VF, MaxVF); VF *= 2) {
+#if INTEL_CUSTOMIZATION
+  if (VFs.size() == 0) {
+    for (unsigned I = 1; I <= MaxVF.getFixedValue(); I *= 2)
+      CM.AllowedVFs.push_back(I);
+  } else {
+    for (unsigned V : VFs) {
+      if (V <= MaxVF.getFixedValue()) {
+        assert((isPowerOf2_32(V) || V == 0) && "VF must be power of 2!");
+        if (V == 0)
+          CM.AllowedVFs.push_back(1);
+        else
+          CM.AllowedVFs.push_back(V);
+      }
+    }
+  }
+  if (CM.AllowedVFs.size() == 0)
+    CM.AllowedVFs.push_back(MaxVF.getFixedValue());
+
+  // Sort all the VF values ascending (MinVF will be the first element and MaxVF
+  // will be the last) and remove duplicate values.
+  if (CM.AllowedVFs.size() > 1) {
+    llvm::sort(CM.AllowedVFs.begin(), CM.AllowedVFs.end());
+    auto NewEnd = std::unique(CM.AllowedVFs.begin(), CM.AllowedVFs.end());
+    CM.AllowedVFs.erase(NewEnd, CM.AllowedVFs.end());
+  }
+
+  for (unsigned AllowedVF : CM.AllowedVFs) {
+    ElementCount VF = ElementCount::getFixed(AllowedVF);
+#endif // INTEL_CUSTOMIZATION
     // Collect Uniform and Scalar instructions after vectorization with VF.
     CM.collectUniformsAndScalars(VF);
 
@@ -7827,16 +7870,36 @@ LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC) {
     if (VF.isVector())
       CM.collectInstsToScalarize(VF);
   }
-
   CM.collectInLoopReductions();
-
-  buildVPlansWithVPRecipes(ElementCount::getFixed(1), MaxVF);
+#if INTEL_CUSTOMIZATION
+  ElementCount First = ElementCount::getFixed(CM.AllowedVFs[0]),
+               Last = ElementCount::getFixed(
+                   CM.AllowedVFs[CM.AllowedVFs.size() - 1]);
+  buildVPlansWithVPRecipes(First, Last);
   LLVM_DEBUG(printPlans(dbgs()));
-  if (MaxVF.isScalar())
+  // TODO: add information about specified vector lengths in opt-report
+  DEBUG_WITH_TYPE("loop-vectorize-vec-lengths",
+                  dbgs() << "Specified vectorlengths: ");
+  DEBUG_WITH_TYPE("loop-vectorize-vec-lengths",
+                  for (unsigned VF
+                       : CM.AllowedVFs) dbgs()
+                      << VF << " ";
+                  dbgs() << "\n";);
+
+  if (Last.isScalar())
     return VectorizationFactor::Disabled();
 
+  // We need to delete VF == 1 from AllowedVFs. If vectorization with VF > 1 is
+  // unprofitable, selectVectorizationFactor returns VF == 1: it is default VF
+  // value in selectVectorizationFactor, and we don't need to perform any
+  // additional analisis for it.
+  if (CM.AllowedVFs.size() > 1)
+    if (CM.AllowedVFs[0] <= 1)
+      CM.AllowedVFs.erase(CM.AllowedVFs.begin());
+
   // Select the optimal vectorization factor.
-  auto SelectedVF = CM.selectVectorizationFactor(MaxVF);
+  auto SelectedVF = CM.selectVectorizationFactor(Last /*MaxVF*/);
+#endif // INTEL_CUSTOMIZATION
 
   // Check if it is profitable to vectorize with runtime checks.
   unsigned NumRuntimePointerChecks = Requirements.getNumRuntimePointerChecks();
@@ -9750,10 +9813,11 @@ bool LoopVectorizePass::processLoop(Loop *L) {
   // Get user vectorization factor and interleave count.
   ElementCount UserVF = Hints.getWidth();
   unsigned UserIC = Hints.getInterleave();
-
+  ArrayRef<unsigned> VFs = Hints.getAllowedVFs(); // INTEL
   // Plan how to best vectorize, return the best VF and its cost.
-  Optional<VectorizationFactor> MaybeVF = LVP.plan(UserVF, UserIC);
-
+#if INTEL_CUSTOMIZATION
+  Optional<VectorizationFactor> MaybeVF = LVP.plan(UserVF, UserIC, VFs);
+#endif // INTEL_CUSTOMIZATION
   VectorizationFactor VF = VectorizationFactor::Disabled();
   unsigned IC = 1;
 

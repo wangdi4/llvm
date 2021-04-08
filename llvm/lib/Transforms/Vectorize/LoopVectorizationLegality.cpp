@@ -213,6 +213,15 @@ void LoopVectorizeHints::getHintsFromMetadata() {
     if (!S)
       continue;
 
+#if INTEL_CUSTOMIZATION
+    if (S->getString() == "llvm.loop.vector.vectorlength") {
+      llvm::transform(Args, std::back_inserter(AllowedVFs), [](Metadata *Arg) {
+        return mdconst::dyn_extract<ConstantInt>(Arg)->getZExtValue();
+      });
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
+
     // Check if the hint starts with the loop metadata prefix.
     StringRef Name = S->getString();
     if (Args.size() == 1)
