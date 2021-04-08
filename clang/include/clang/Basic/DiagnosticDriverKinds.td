@@ -273,7 +273,7 @@ def err_drv_omp_host_target_not_supported : Error<
 def err_drv_expecting_fopenmp_with_fopenmp_targets : Error<
   "The option -fopenmp-targets must be used in conjunction with a -fopenmp option compatible with offloading, please use -fopenmp=libomp or -fopenmp=libiomp5.">;
 #if INTEL_CUSTOMIZATION
-def err_drv_fopenmp_targets_requires_fiopenmp : Error<"The use of '-fopenmp-targets=spir64' requires '-fiopenmp'.">;
+def err_drv_opt_requires_opt : Error<"The use of '%0' requires '%1'.">;
 def err_drv_openmp_targets_spir64_unsupported_opt : Error<"The use of '%0' is not supported with '/Qiopenmp /Qopenmp-targets=spir64'.">;
 #endif // INTEL_CUSTOMIZATION
 def err_drv_expecting_fsycl_with_sycl_opt : Error<
