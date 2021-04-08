@@ -82,6 +82,16 @@ private:
   PointerUnion<llvm::Type *, dtransOP::DTransType *> Ty;
 };
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static inline raw_ostream &operator<<(raw_ostream &OS, const AbstractType &AT) {
+  if (AT.isDTransType())
+    OS << *AT.getDTransType();
+  else
+    OS << *AT.getLLVMType();
+  return OS;
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 //Type used for DTrans transformation bitmask
 typedef uint32_t Transform;
 
@@ -1046,9 +1056,8 @@ struct MemfuncRegion {
 // for more than a single function argument.
 class CallInfoElementTypes {
 public:
-  // TODO: Change to use AbstractType
-  typedef SmallVector<llvm::Type *, 2> TypeAliasSet;
-  typedef SmallVectorImpl<llvm::Type *> &TypeAliasSetRef;
+  typedef SmallVector<AbstractType, 2> TypeAliasSet;
+  typedef SmallVectorImpl<AbstractType> &TypeAliasSetRef;
 
   CallInfoElementTypes() : AliasesToAggregateType(false), Analyzed(false) {}
 
@@ -1066,7 +1075,7 @@ public:
 
   bool getAnalyzed() const { return Analyzed; }
 
-  void addElemType(llvm::Type *Ty) {
+  void addElemType(AbstractType Ty) {
     ElemTypes.push_back(Ty);
   }
 
@@ -1077,7 +1086,7 @@ public:
     explicit element_llvm_types_iterator(TypeAliasSet::iterator X)
         : iterator_adaptor_base(X) {}
 
-    llvm::Type *operator*() const { return *I; }
+    llvm::Type *operator*() const { return I->getLLVMType(); }
     llvm::Type *operator->() const { return operator*(); }
   };
 
@@ -1086,18 +1095,42 @@ public:
                       element_llvm_types_iterator(ElemTypes.end()));
   }
 
+  struct element_dtrans_types_iterator
+    : public iterator_adaptor_base<element_dtrans_types_iterator,
+    TypeAliasSet::iterator,
+    std::forward_iterator_tag, AbstractType> {
+    explicit element_dtrans_types_iterator(TypeAliasSet::iterator X)
+      : iterator_adaptor_base(X) {}
+
+    dtransOP::DTransType *operator*() const { return I->getDTransType(); }
+    dtransOP::DTransType *operator->() const { return operator*(); }
+  };
+
+  iterator_range<element_dtrans_types_iterator> element_dtrans_types() {
+    return make_range(element_dtrans_types_iterator(ElemTypes.begin()),
+      element_dtrans_types_iterator(ElemTypes.end()));
+  }
+
   size_t getNumTypes() const { return ElemTypes.size(); }
 
   llvm::Type *getElemLLVMType(size_t Idx) const {
     assert(Idx < ElemTypes.size() && "Index out of range");
-    return ElemTypes[Idx];
+    return ElemTypes[Idx].getLLVMType();
+  }
+
+  dtransOP::DTransType *getElemDTransType(size_t Idx) const {
+    assert(Idx < ElemTypes.size() && "Index out of range");
+    return ElemTypes[Idx].getDTransType();
   }
 
   // Change the type at index \p Idx to type \p Ty. This
   // function should only be used for updating a type based
   // on the type remapping done when processing a function.
-  void setElemType(size_t Idx, llvm::Type *Ty) {
+  void setElemType(size_t Idx, AbstractType Ty) {
     assert(Idx < ElemTypes.size() && "Index out of range");
+    assert(!(ElemTypes[Idx].isDTransType() ^ Ty.isDTransType()) &&
+      "Cannot switch between DTransTypes and llvm::Types");
+
     ElemTypes[Idx] = Ty;
   }
 
@@ -1144,7 +1177,7 @@ public:
 
   bool getAnalyzed() const { return ElementTypes.getAnalyzed(); }
 
-  void addElemType(llvm::Type *Ty) {
+  void addElemType(AbstractType Ty) {
     ElementTypes.addElemType(Ty);
   }
 

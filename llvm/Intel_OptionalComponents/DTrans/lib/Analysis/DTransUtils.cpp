@@ -1,6 +1,6 @@
 //===------------ Intel_DTransUtils.cpp - Utilities for DTrans ------------===//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1021,9 +1021,9 @@ void CallInfoElementTypes::print(raw_ostream &OS) {
   // it in sorted order to enable consistency for testing.
   std::vector<std::string> StrVec;
 
-  for (auto *T : ElemTypes) {
+  for (auto &AT : ElemTypes) {
     std::string Name;
-    raw_string_ostream(Name) << "    Type: " << *T;
+    raw_string_ostream(Name) << "    Type: " << AT;
     StrVec.push_back(Name);
   }
 
