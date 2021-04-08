@@ -14,6 +14,7 @@
 
 #include "host_program_common.h"
 #include "test_utils.h"
+#include "cl_config.h"
 #include "cl_utils.h"
 #include "test_pipe_thread.h"
 #include "cl_user_logger.h"
@@ -193,8 +194,9 @@ int main(int argc, char** argv)
     DTT_LOG("Starting debug_test_type");
 
 #ifdef _WIN32
-    char* envVar = getenv("CL_CONFIG_USE_NATIVE_DEBUGGER");
-    bool useNativeDebugger = (envVar && *envVar == '1');
+    const char *envVar = getenv("CL_CONFIG_USE_NATIVE_DEBUGGER");
+    bool useNativeDebugger =
+        Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(envVar);
     NamedPipeThread *thread = nullptr;
     if (!useNativeDebugger)
     {

@@ -12,10 +12,9 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include <stdlib.h>
-#include <string>
 #include "debuggingservicetype.h"
 #include "CompilationUtils.h"
+#include "cl_config.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 
@@ -24,25 +23,21 @@ using Intel::OpenCL::DeviceBackend::CompilationUtils;
 namespace intel {
 
 DebuggingServiceType getUserDefinedDebuggingServiceType() {
-    DebuggingServiceType serviceType = None;
+  DebuggingServiceType serviceType = None;
+  using Intel::OpenCL::Utils::ConfigFile;
 #if _WIN32
-    // User can set environment variable to define the service type:
-    // 0 = simulator, 1 = native
-    const char *val = getenv("CL_CONFIG_USE_NATIVE_DEBUGGER");
-    if (val) {
-        if (std::string(val) == "0")
-            serviceType = Simulator;
-        else if (std::string(val) == "1")
-            serviceType = Native;
-    }
+  // User can set environment variable to define the service type.
+  const char *var = getenv("CL_CONFIG_USE_NATIVE_DEBUGGER");
+  if (var)
+    serviceType =
+        ConfigFile::ConvertStringToType<bool>(var) ? Native : Simulator;
 #else
-    // CL_CONFIG_DBG_ENABLE == 1 implies Simulator debugging
-    const char* val = getenv("CL_CONFIG_DBG_ENABLE");
-    if (val && std::string(val) == "1") {
-        serviceType = Simulator;
-    }
+  // CL_CONFIG_DBG_ENABLE == True implies Simulator debugging.
+  const char *var = getenv("CL_CONFIG_DBG_ENABLE");
+  if (var && ConfigFile::ConvertStringToType<bool>(var))
+    serviceType = Simulator;
 #endif
-    return serviceType;
+  return serviceType;
 }
 
 DebuggingServiceType getDebuggingServiceType(bool debuggingEnabled,

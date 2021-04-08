@@ -341,11 +341,14 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	}
 
 	// Convert string argument to a bool type
-	// False cobnsidered as one of the followings: {"0", "false", "F", "no", "n"}
+	// False considered as one of the followings: empty string or
+        // {"0", "false", "F", "no", "n"}
 	// True considered as one of the followings: {"1", "True", "true", "T", "yes", "y", "-1", all others}
 	template<>
 	inline bool ConfigFile::ConvertStringToType<bool>( const string& str )
 	{
+                if (str.empty())
+                  return false;
 		string strInput = str;
 		string::iterator it = strInput.begin();
 		while ( it != strInput.end() )
