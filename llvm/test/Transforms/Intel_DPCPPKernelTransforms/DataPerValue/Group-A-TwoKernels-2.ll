@@ -33,20 +33,20 @@ L0:
   %p2 = alloca [10 x i64], align 8
   br label %L1
 L1:
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  call void @_Z18work_group_barrierj(i32 1)
   br label %L2
 L2:
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   ret void
 ; CHECK: L0:
 ; CHECK: %p1 = alloca i64, align 16
 ; CHECK: %p2 = alloca [10 x i64], align 8
 ; CHECK: br label %L1
 ; CHECK: L1:
-; CHECK: call void @__builtin_dpcpp_kernel_barrier(i32 1)
+; CHECK: call void @_Z18work_group_barrierj(i32 1)
 ; CHECK: br label %L2
 ; CHECK: L2:
-; CHECK: call void @__builtin_dpcpp_kernel_barrier_dummy()
+; CHECK: call void @barrier_dummy()
 ; CHECK: ret void
 }
 
@@ -56,19 +56,19 @@ L0:
   %p1 = alloca i64, align 16
   br label %L1
 L1:
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  call void @_Z18work_group_barrierj(i32 1)
   br label %L2
 L2:
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   ret void
 ; CHECK: L0:
 ; CHECK: %p1 = alloca i64, align 16
 ; CHECK: br label %L1
 ; CHECK: L1:
-; CHECK: call void @__builtin_dpcpp_kernel_barrier(i32 1)
+; CHECK: call void @_Z18work_group_barrierj(i32 1)
 ; CHECK: br label %L2
 ; CHECK: L2:
-; CHECK: call void @__builtin_dpcpp_kernel_barrier_dummy()
+; CHECK: call void @barrier_dummy()
 ; CHECK: ret void
 }
 
@@ -97,6 +97,6 @@ L2:
 ; CHECK-NOT: entry
 ; CHECK: DONE
 
-declare void @__builtin_dpcpp_kernel_barrier(i32)
-declare void @__builtin_dpcpp_kernel_barrier_dummy()
-declare i32 @__builtin_get_local_id(i32)
+declare void @_Z18work_group_barrierj(i32)
+declare void @barrier_dummy()
+declare i32 @_Z12get_local_idj(i32)

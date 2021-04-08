@@ -48,9 +48,7 @@ using BasicBlockSet = SetVector<llvm::BasicBlock *>;
 
 using FunctionToUnsigned = std::map<const Function *, unsigned>;
 
-static constexpr const char BarrierName[] = "__builtin_dpcpp_kernel_barrier";
-static constexpr const char DummyBarrierName[] =
-    "__builtin_dpcpp_kernel_barrier_dummy";
+static constexpr const char DummyBarrierName[] = "barrier_dummy";
 
 static std::string AppendWithDimension(std::string S, int Dimension) {
   if (Dimension >= 0)
@@ -137,6 +135,10 @@ public:
   /// Return all get_local_id call instructions in the module.
   /// Returns container with all get_local_id call instructions.
   InstVector &getAllGetLocalId();
+
+  /// Return all get_global_id call instructions in the module.
+  /// Returns container with all get_global_id call instructions.
+  InstVector &getAllGetGlobalId();
 
   /// @brief return true if there is a barrier in one of the pathes between
   ///  pValBB and pValUsageBB basic blocks.
@@ -245,8 +247,14 @@ private:
   /// This indecator for get_local_id data initialization.
   bool HasLIDInstsInitialized;
 
+  /// This indecator for get_global_id data initialization.
+  bool HasGIDInstsInitialized;
+
   /// This holds the all get_local_id instructions of the module.
   InstVector GetLIDInstructions;
+
+  /// This holds the all get_global_id instructions of the module.
+  InstVector GetGIDInstructions;
 };
 
 } // namespace llvm

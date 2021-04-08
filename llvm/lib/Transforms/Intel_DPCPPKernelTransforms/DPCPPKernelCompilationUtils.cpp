@@ -14,7 +14,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 
 #include "ImplicitArgsUtils.h"
 #include "NameMangleAPI.h"
@@ -42,6 +41,8 @@ const StringRef NAME_GET_NUM_GROUPS = "get_num_groups";
 const StringRef NAME_GET_WORK_DIM = "get_work_dim";
 const StringRef NAME_GET_GLOBAL_OFFSET = "get_global_offset";
 const StringRef NAME_GET_ENQUEUED_LOCAL_SIZE = "get_enqueued_local_size";
+const StringRef NAME_BARRIER = "barrier";
+const StringRef NAME_WG_BARRIER = "work_group_barrier";
 const StringRef NAME_PREFETCH = "prefetch";
 const StringRef SAMPLER = "sampler_t";
 
@@ -150,13 +151,14 @@ bool isPrefetch(StringRef S) { return isMangleOf(S, NAME_PREFETCH); }
 
 bool isPrintf(StringRef S) { return S == NAME_PRINTF; }
 
-template <reflection::TypePrimitiveEnum Ty>
+template <reflection::TypePrimitiveEnum... ParamTys>
 static std::string optionalMangleWithParam(StringRef N) {
   reflection::FunctionDescriptor FD;
   FD.Name = N;
-  reflection::ParamType *pTy = new reflection::PrimitiveType(Ty);
-  reflection::RefParamType UI(pTy);
-  FD.Parameters.push_back(UI);
+  for (auto PT : {ParamTys...}) {
+    reflection::RefParamType UI(new reflection::PrimitiveType(PT));
+    FD.Parameters.push_back(UI);
+  }
   return mangle(FD);
 }
 
@@ -171,6 +173,24 @@ std::string mangledGetLID() {
 std::string mangledGetLocalSize() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(
       NAME_GET_LOCAL_SIZE);
+}
+
+std::string mangledBarrier() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_BARRIER);
+}
+
+std::string mangledWGBarrier(BarrierType BT) {
+  switch (BT) {
+  case BARRIER_NO_SCOPE:
+    return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_WG_BARRIER);
+  case BARRIER_WITH_SCOPE:
+    return optionalMangleWithParam<reflection::PRIMITIVE_UINT,
+                                   reflection::PRIMITIVE_MEMORY_SCOPE>(
+        NAME_WG_BARRIER);
+  }
+
+  llvm_unreachable("Unknown work_group_barrier version");
+  return "";
 }
 
 FuncSet getKernels(Module &M) {
@@ -248,10 +268,15 @@ void getAllSyncBuiltinsDecls(FuncSet &FuncSet, Module *M) {
   FuncSet.clear();
 
   // TODO: port handling of WG collectives here as well
-  auto *F = M->getFunction(BarrierName);
+  std::string BarrierNames[] = {mangledBarrier(),
+                                mangledWGBarrier(BARRIER_NO_SCOPE),
+                                mangledWGBarrier(BARRIER_WITH_SCOPE)};
+  for (const auto &BarrierName : BarrierNames) {
+    auto *F = M->getFunction(BarrierName);
 
-  if (F && F->isDeclaration())
-    FuncSet.insert(F);
+    if (F && F->isDeclaration())
+      FuncSet.insert(F);
+  }
 }
 
 Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
@@ -468,24 +493,6 @@ GlobalVariable *getTLSGlobal(Module *M, unsigned Idx) {
 void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
                           std::vector<KernelArgument> &Arguments,
                           std::vector<unsigned int> &MemArguments) {
-  // Check maximum number of arguments to kernel
-
-  Function *OriginalFunc = F;
-  // Check if this is a vectorized version of the kernel
-  if (F->hasFnAttribute("scalarized_kernel")) {
-    // Get the scalarized version of the vectorized kernel
-    OriginalFunc = M->getFunction(
-        F->getFnAttribute("scalarized_kernel").getValueAsString());
-  }
-
-  FuncSet FSet = getKernels(*M);
-  if (!FSet.count(OriginalFunc)) {
-    assert(false && "Internal error: can't find the function info for the "
-                    "scalarized function");
-    // workaround to overcome klockwork issue
-    return;
-  }
-
   size_t ArgsCount = F->arg_size();
   if (!UseTLSGlobals)
     ArgsCount -= ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
@@ -661,8 +668,9 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
     } break;
 
     case Type::IntegerTyID: {
-      if (getFnAttributeStringInList(*OriginalFunc, "kernel_arg_base_type",
-                                     i) == SAMPLER) {
+      // FIXME: kernel_arg_*** is not attribute, it's metadata.
+      if (getFnAttributeStringInList(*F, "kernel_arg_base_type", i) ==
+          SAMPLER) {
         CurArg.Ty = KRNL_ARG_SAMPLER;
         CurArg.SizeInBytes = sizeof(_sampler_t);
       } else {

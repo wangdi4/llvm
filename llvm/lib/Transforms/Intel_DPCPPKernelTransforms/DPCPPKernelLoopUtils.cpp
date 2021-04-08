@@ -33,13 +33,32 @@ Function *getWIFunc(Module *M, StringRef FuncName, Type *RetTy) {
   return F;
 }
 
-CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, unsigned Dim,
+CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, Value *Dim,
                     BasicBlock *BB, const Twine &CallName) {
   Function *WIFunc = getWIFunc(M, FuncName, RetTy);
+  CallInst *WICall = CallInst::Create(WIFunc, Dim, CallName, BB);
+  return WICall;
+}
+
+CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, Value *Dim,
+                    Instruction *IP, const Twine &CallName) {
+  Function *WIFunc = getWIFunc(M, FuncName, RetTy);
+  CallInst *WICall = CallInst::Create(WIFunc, Dim, CallName, IP);
+  return WICall;
+}
+
+CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, unsigned Dim,
+                    BasicBlock *BB, const Twine &CallName) {
   Constant *DimConst =
       ConstantInt::get(Type::getInt32Ty(RetTy->getContext()), Dim);
-  CallInst *WICall = CallInst::Create(WIFunc, DimConst, CallName, BB);
-  return WICall;
+  return getWICall(M, FuncName, RetTy, DimConst, BB, CallName);
+}
+
+CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, unsigned Dim,
+                    Instruction *IP, const Twine &CallName) {
+  Constant *DimConst =
+      ConstantInt::get(Type::getInt32Ty(RetTy->getContext()), Dim);
+  return getWICall(M, FuncName, RetTy, DimConst, IP, CallName);
 }
 
 Type *getIntTy(Module *M) {

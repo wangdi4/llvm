@@ -15,7 +15,7 @@ target triple = "i686-pc-win32"
 define void @main(i32 %x) nounwind {
 L0:
   %p = alloca i64, align 4
-  %lid = call i32 @__builtin_get_local_id(i32 0)
+  %lid = call i32 @_Z12get_local_idj(i32 0)
   %y = xor i32 %x, %lid
   br label %L1
 L1:
@@ -25,7 +25,7 @@ L2:
   ret void
 ; CHECK: L0:
 ; CHECK: %p = alloca i64, align 4
-; CHECK: %lid = call i32 @__builtin_get_local_id(i32 0)
+; CHECK: %lid = call i32 @_Z12get_local_idj(i32 0)
 ; CHECK: %y = xor i32 %x, %lid
 ; CHECK: br label %L1
 ; CHECK: L1:
@@ -55,4 +55,4 @@ L2:
 ; CHECK: entry(0) : (8)
 ; CHECK: DONE
 
-declare i32 @__builtin_get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)

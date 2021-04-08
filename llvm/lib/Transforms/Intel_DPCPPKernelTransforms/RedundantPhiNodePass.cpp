@@ -12,19 +12,31 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
 
 using namespace llvm;
 
-INITIALIZE_PASS(RedundantPhiNode, "dpcpp-redundant-phi-node",
+INITIALIZE_PASS(RedundantPhiNodeLegacy, "dpcpp-kernel-redundant-phi-node",
                 "DPCPP Barrier Pass - Handle redundant Phi node", false, true)
 
-namespace llvm {
+char RedundantPhiNodeLegacy::ID = 0;
 
-char RedundantPhiNode::ID = 0;
+RedundantPhiNodeLegacy::RedundantPhiNodeLegacy() : FunctionPass(ID) {
+  initializeRedundantPhiNodeLegacyPass(*PassRegistry::getPassRegistry());
+}
 
-RedundantPhiNode::RedundantPhiNode() : FunctionPass(ID) {}
+bool RedundantPhiNodeLegacy::runOnFunction(Function &F) {
+  return Impl.runImpl(F);
+}
 
-bool RedundantPhiNode::runOnFunction(Function &F) {
+PreservedAnalyses RedundantPhiNode::run(Function &F,
+                                        FunctionAnalysisManager &) {
+  if (!runImpl(F))
+    return PreservedAnalyses::all();
+  return PreservedAnalyses::none();
+}
+
+bool RedundantPhiNode::runImpl(Function &F) {
   SmallVector<Instruction *, 8> InstsToRemove;
   for (auto &BB : F) {
     for (auto &I : BB) {
@@ -57,8 +69,6 @@ bool RedundantPhiNode::runOnFunction(Function &F) {
   return !InstsToRemove.empty();
 }
 
-FunctionPass *createRedundantPhiNodePass() {
-  return new llvm::RedundantPhiNode();
+FunctionPass *llvm::createRedundantPhiNodeLegacyPass() {
+  return new RedundantPhiNodeLegacy();
 }
-
-} // namespace llvm

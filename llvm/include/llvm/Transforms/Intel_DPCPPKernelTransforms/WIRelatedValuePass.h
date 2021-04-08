@@ -11,45 +11,23 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_WI_RELATED_VALUE_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_WI_RELATED_VALUE_H
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/ValueMap.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 
 namespace llvm {
 
-/// WIRelatedValue pass is a analysis module pass used to
-/// distinguish between values dependent on WI id and those who are not.
-class WIRelatedValue : public ModulePass {
-
+/// Distinguish between values dependent on WI id and those who are not.
+class WIRelatedValue {
 public:
-  static char ID;
-
-  WIRelatedValue();
-
-  ~WIRelatedValue() {}
-
-  llvm::StringRef getPassName() const override {
-    return "Intel Kernel WIRelatedValue";
-  }
-
-  bool runOnModule(Module &M) override;
+  explicit WIRelatedValue(Module &M);
 
   bool runOnFunction(Function &F);
-
-  /// Inform about usage/mofication/dependency of this pass.
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    // Analysis pass preserve all.
-    AU.setPreservesAll();
-  }
-
-  /// Print data collected by the pass on the given module.
-  /// OS stream to print the info regarding the module into.
-  /// M pointer to the Module.
-  void print(raw_ostream &OS, const Module *M = 0) const override;
 
   /// Return true if given value depends on WI Id.
   /// V is a pointer to Value.
@@ -61,6 +39,8 @@ public:
     }
     return SpecialValues[V];
   }
+
+  void print(raw_ostream &OS, const Module *M) const;
 
 protected:
   /// Update dependency relations between all values.
@@ -112,7 +92,53 @@ private:
 
   /// Analysis Data for pass user.
   /// This holds a map between value and it relation on WI-id (related or not).
-  ValueMap<Value *, bool> SpecialValues;
+  DenseMap<Value *, bool> SpecialValues;
+};
+
+/// WIRelatedValueAnalysis pass for new pass manager.
+class WIRelatedValueAnalysis
+    : public AnalysisInfoMixin<WIRelatedValueAnalysis> {
+  friend AnalysisInfoMixin<WIRelatedValueAnalysis>;
+  static AnalysisKey Key;
+
+public:
+  using Result = WIRelatedValue;
+  Result run(Module &M, ModuleAnalysisManager &AM);
+  static StringRef name() { return "Intel Kernel WIRelatedValue Analysis"; }
+};
+
+/// WIRelatedValueWrapper pass for legacy pass manager.
+class WIRelatedValueWrapper : public ModulePass {
+  std::unique_ptr<WIRelatedValue> WRV;
+
+public:
+  static char ID;
+
+  WIRelatedValueWrapper();
+
+  StringRef getPassName() const override {
+    return "Intel Kernel WIRelatedValue Analysis";
+  }
+
+  bool runOnModule(Module &M) override;
+
+  /// Inform about usage/modification/dependency of this pass.
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    // Analysis pass preserve all.
+    AU.setPreservesAll();
+  }
+
+  /// Print data collected by the pass on the given module.
+  /// OS stream to print the info regarding the module into.
+  /// M pointer to the Module.
+  void print(raw_ostream &OS, const Module *M) const override {
+    WRV->print(OS, M);
+  }
+
+  void releaseMemory() override { WRV.reset(); }
+
+  WIRelatedValue &getWRV() { return *WRV; }
+  const WIRelatedValue &getWRV() const { return *WRV; }
 };
 
 } // namespace llvm

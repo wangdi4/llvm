@@ -16,29 +16,45 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
 
 using namespace llvm;
 
-INITIALIZE_PASS_BEGIN(DataPerValue, "dpcpp-kernel-data-per-value-analysis",
+INITIALIZE_PASS_BEGIN(DataPerValueWrapper,
+                      "dpcpp-kernel-data-per-value-analysis",
                       "Barrier Pass - Collect Data per Value", false, true)
-INITIALIZE_PASS_DEPENDENCY(DataPerBarrier)
-INITIALIZE_PASS_DEPENDENCY(WIRelatedValue)
-INITIALIZE_PASS_END(DataPerValue, "dpcpp-kernel-data-per-value-analysis",
+INITIALIZE_PASS_DEPENDENCY(DataPerBarrierWrapper)
+INITIALIZE_PASS_DEPENDENCY(WIRelatedValueWrapper)
+INITIALIZE_PASS_END(DataPerValueWrapper, "dpcpp-kernel-data-per-value-analysis",
                     "Barrier Pass - Collect Data per Value", false, true)
 
-namespace llvm {
-char DataPerValue::ID = 0;
+char DataPerValueWrapper::ID = 0;
 
-DataPerValue::DataPerValue()
-    : ModulePass(ID), SyncInstructions(nullptr), DL(nullptr) {
-  initializeDataPerValuePass(*llvm::PassRegistry::getPassRegistry());
+DataPerValueWrapper::DataPerValueWrapper() : ModulePass(ID) {
+  initializeDataPerValueWrapperPass(*::PassRegistry::getPassRegistry());
 }
 
-bool DataPerValue::runOnModule(Module &M) {
-  // Get Analysis data.
-  DataPerBarrierAnalysis = &getAnalysis<DataPerBarrier>();
-  WIRelatedValueAnalysis = &getAnalysis<WIRelatedValue>();
+bool DataPerValueWrapper::runOnModule(Module &M) {
+  auto *DPB = &getAnalysis<DataPerBarrierWrapper>().getDPB();
+  auto *WRV = &getAnalysis<WIRelatedValueWrapper>().getWRV();
+  DPV.reset(new DataPerValue{M, DPB, WRV});
+  return false;
+}
 
+AnalysisKey DataPerValueAnalysis::Key;
+DataPerValue DataPerValueAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
+  auto *DPB = &AM.getResult<DataPerBarrierAnalysis>(M);
+  auto *WRV = &AM.getResult<WIRelatedValueAnalysis>(M);
+  return DataPerValue{M, DPB, WRV};
+}
+
+DataPerValue::DataPerValue(Module &M, DataPerBarrier *DPB, WIRelatedValue *WRV)
+    : SyncInstructions(nullptr), DL(nullptr), DataPerBarrierAnalysis(DPB),
+      WIRelatedValueAnalysis(WRV) {
+  analyze(M);
+}
+
+void DataPerValue::analyze(Module &M) {
   // Initialize barrier utils class with current module.
   BarrierUtils.init(&M);
 
@@ -73,7 +89,6 @@ bool DataPerValue::runOnModule(Module &M) {
     }
     EntryBufferPair.second.BufferTotalSize = CurrentOffset;
   }
-  return false;
 }
 
 bool DataPerValue::runOnFunction(Function &F) {
@@ -546,6 +561,6 @@ void DataPerValue::print(raw_ostream &OS, const Module *M) const {
   OS << "DONE\n";
 }
 
-ModulePass *createDataPerValuePass() { return new llvm::DataPerValue(); }
-
-} // namespace llvm
+ModulePass *llvm::createDataPerValueWrapperPass() {
+  return new DataPerValueWrapper();
+}

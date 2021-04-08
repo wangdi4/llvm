@@ -5,10 +5,10 @@
 ;;           which contains barrier itself and returns i32 value type,
 ;;           and receives uniform value "%x" that does not cross barrier.
 ;; The expected result:
-;;      1. Kernel "main" contains no more barrier/__builtin_dpcpp_kernel_barrier_dummyinstructions
+;;      1. Kernel "main" contains no more barrier/barrier_dummyinstructions
 ;;      2. Kernel "main" is still calling function "foo"
 ;;      3. Kernel "main" loads "%z" value from offset 4 in the special buffer after calling "foo".
-;;      4. function "foo" contains no more barrier/__builtin_dpcpp_kernel_barrier_dummyinstructions
+;;      4. function "foo" contains no more barrier/barrier_dummyinstructions
 ;;      5. function "foo" stores "%x" value to offset 4 in the special buffer before ret.
 ;;      5.1. This store of value "%x" happens in a new created loop over all WIs
 ;;*****************************************************************************
@@ -19,23 +19,23 @@ target triple = "i686-pc-win32"
 ; CHECK-LABEL: define void @main
 define void @main(i32 %x) #0 {
 L1:
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
-  %lid = call i32 @__builtin_get_local_id(i32 0)
+  call void @barrier_dummy()
+  %lid = call i32 @_Z12get_local_idj(i32 0)
   %y = xor i32 %x, %lid
   br label %L2
 L2:
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  call void @_Z18work_group_barrierj(i32 1)
   %z = call i32 @foo(i32 %x)
   br label %L3
 L3:
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   %w = and i32 %z, %z
   br label %L4
 L4:
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  call void @_Z18work_group_barrierj(i32 1)
   ret void
-; CHECK-NOT: @__builtin_dpcpp_kernel_barrier_dummy
-; CHECK-NOT: @__builtin_dpcpp_kernel_barrier
+; CHECK-NOT: @barrier_dummy
+; CHECK-NOT: @_Z18work_group_barrierj
 ; CHECK: xor
 ; CHECK-NOT: store i32 %x
 ; CHECK: call i32 @foo
@@ -61,21 +61,21 @@ L4:
 ; CHECK: %w = and i32 %loadedValue7, %loadedValue7
 ; CHECK: br label %L4
 ;; TODO_END ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; CHECK-NOT: @__builtin_dpcpp_kernel_barrier_dummy
-; CHECK-NOT: @__builtin_dpcpp_kernel_barrier
+; CHECK-NOT: @barrier_dummy
+; CHECK-NOT: @_Z18work_group_barrierj
 ; CHECK: ret
 }
 
 ; CHECK-LABEL: define i32 @foo
 define i32 @foo(i32 %x) #1 {
 L1:
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   br label %L2
 L2:
-  call void @__builtin_dpcpp_kernel_barrier(i32 2)
+  call void @_Z18work_group_barrierj(i32 2)
   ret i32 %x
-; CHECK-NOT: @__builtin_dpcpp_kernel_barrier_dummy
-; CHECK-NOT: @__builtin_dpcpp_kernel_barrier
+; CHECK-NOT: @barrier_dummy
+; CHECK-NOT: @_Z18work_group_barrierj
 ; The return BB
 ;;;; TODO: add regular expression for the below values.
 
@@ -94,9 +94,9 @@ L2:
 ; CHECK: ret i32 %x
 }
 
-declare void @__builtin_dpcpp_kernel_barrier(i32)
-declare i32 @__builtin_get_local_id(i32)
-declare void @__builtin_dpcpp_kernel_barrier_dummy()
+declare void @_Z18work_group_barrierj(i32)
+declare i32 @_Z12get_local_idj(i32)
+declare void @barrier_dummy()
 
 attributes #0 = { "dpcpp-no-barrier-path"="false" "sycl_kernel" }
 attributes #1 = { "dpcpp-no-barrier-path"="false" }

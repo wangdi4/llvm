@@ -12,7 +12,7 @@ define void @func_no_call_barrier() nounwind {
 }
 
 define void @func_call_barrier() nounwind {
-  tail call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  tail call void @_Z18work_group_barrierj(i32 1)
   ret void
 }
 
@@ -23,7 +23,7 @@ define void @func_call_func_call_barrier() nounwind {
 
 define void @kernel_contains_barrier() #0 {
 entry:
-  tail call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  tail call void @_Z18work_group_barrierj(i32 1)
   ret void
 }
 
@@ -50,7 +50,7 @@ entry:
   ret void
 }
 
-declare void @__builtin_dpcpp_kernel_barrier(i32 %0) #1
+declare void @_Z18work_group_barrierj(i32 %0) #1
 
 attributes #0 = { "sycl_kernel" }
 attributes #1 = { convergent }

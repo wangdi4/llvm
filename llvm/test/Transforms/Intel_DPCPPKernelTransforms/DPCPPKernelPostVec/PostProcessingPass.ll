@@ -8,16 +8,16 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_(i32* nocapture readonly %in, i32* nocapture %out) #0 {
 entry:
-  %call = tail call i64 @__builtin_get_local_id(i64 0) #3
+  %call = tail call i64 @_Z12get_local_idj(i64 0) #3
   %arrayidx = getelementptr inbounds i32, i32* %in, i64 %call
   %0 = load i32, i32* %arrayidx, align 4
-  %call1 = tail call i64 @__builtin_get_local_id(i64 0) #3
+  %call1 = tail call i64 @_Z12get_local_idj(i64 0) #3
   %arrayidx2 = getelementptr inbounds i32, i32* %out, i64 %call1
   store i32 %0, i32* %arrayidx2, align 4
   ret void
 }
 
-declare dso_local i64 @__builtin_get_local_id(i64)
+declare dso_local i64 @_Z12get_local_idj(i64)
 
 define dso_local void @_ZGVeN16uu_30ParallelForNDRangeImplKernel1DPiS_(i32* nocapture readonly %in, i32* nocapture %out) #1 {
 entry:
@@ -25,9 +25,9 @@ entry:
   store i32* %in, i32** %alloca.in
   %alloca.out = alloca i32*
   store i32* %out, i32** %alloca.out
-  %call1 = tail call i64 @__builtin_get_local_id(i64 0) #3
+  %call1 = tail call i64 @_Z12get_local_idj(i64 0) #3
   %0 = trunc i64 %call1 to i32
-  %call = tail call i64 @__builtin_get_local_id(i64 0) #3
+  %call = tail call i64 @_Z12get_local_idj(i64 0) #3
   %1 = trunc i64 %call to i32
   br label %simd.begin.region
 

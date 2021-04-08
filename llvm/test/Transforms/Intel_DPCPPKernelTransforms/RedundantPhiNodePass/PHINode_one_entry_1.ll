@@ -1,4 +1,4 @@
-; RUN: opt -dpcpp-redundant-phi-node %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-redundant-phi-node %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the RedundantPhiNode pass

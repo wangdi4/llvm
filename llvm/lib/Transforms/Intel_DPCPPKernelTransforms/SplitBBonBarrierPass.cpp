@@ -13,20 +13,27 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
 
 using namespace llvm;
 
-INITIALIZE_PASS(SplitBBonBarrier, "dpcpp-split-on-barrier",
+INITIALIZE_PASS(SplitBBonBarrierLegacy, "dpcpp-kernel-split-on-barrier",
                 "DPCPP Barrier Pass - Split Basic Block on Barrier", false,
                 true)
 
-namespace llvm {
+char SplitBBonBarrierLegacy::ID = 0;
 
-char SplitBBonBarrier::ID = 0;
+SplitBBonBarrierLegacy::SplitBBonBarrierLegacy() : ModulePass(ID) {}
 
-SplitBBonBarrier::SplitBBonBarrier() : ModulePass(ID) {}
+bool SplitBBonBarrierLegacy::runOnModule(Module &M) { return Impl.runImpl(M); }
 
-bool SplitBBonBarrier::runOnModule(Module &M) {
+PreservedAnalyses SplitBBonBarrier::run(Module &M, ModuleAnalysisManager &) {
+  if (!runImpl(M))
+    return PreservedAnalyses::all();
+  return PreservedAnalyses::none();
+}
+
+bool SplitBBonBarrier::runImpl(Module &M) {
   // Initialize barrier utils class with current module.
   BarrierUtils.init(&M);
 
@@ -51,8 +58,6 @@ bool SplitBBonBarrier::runOnModule(Module &M) {
   return Changed;
 }
 
-ModulePass *createSplitBBonBarrierPass() {
-  return new llvm::SplitBBonBarrier();
+ModulePass *llvm::createSplitBBonBarrierLegacyPass() {
+  return new SplitBBonBarrierLegacy();
 }
-
-} // namespace llvm

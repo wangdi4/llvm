@@ -5,13 +5,13 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-LABEL: define void @kernel
 define void @kernel() #0 {
 entry:
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   br label %L1
 L1:
-  tail call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  tail call void @_Z18work_group_barrierj(i32 1)
   br label %L2
 L2:
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  call void @_Z18work_group_barrierj(i32 1)
   ret void
 }
 
@@ -23,8 +23,8 @@ define void @func() {
   ret void
 }
 
-declare void @__builtin_dpcpp_kernel_barrier(i32 %0) #1
-declare void @__builtin_dpcpp_kernel_barrier_dummy()
+declare void @_Z18work_group_barrierj(i32 %0) #1
+declare void @barrier_dummy()
 
 attributes #0 = { "dpcpp-no-barrier-path"="false" "sycl_kernel" }
 attributes #1 = { convergent }
