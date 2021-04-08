@@ -3255,6 +3255,14 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
   bool IsUnitStride = isUnitStridePtr(VPPtr, IsNegOneStride);
   bool NeedScalarRef = IsUnitStride || Lane0Value;
   unsigned ScalSymbase = VPLdSt->HIR().getSymbase();
+  if (auto *Priv = getVPValuePrivateMemoryPtr(VPPtr)) {
+    // For accesses to private memory we need to use new private alloca's
+    // symbase.
+    auto *PrivAlloca = cast<VPAllocatePrivate>(Priv);
+    assert(PrivateMemBlobRefs.count(PrivAlloca) &&
+           "Private memory pointer not widened.");
+    ScalSymbase = PrivateMemBlobRefs[PrivAlloca].second;
+  }
   Align Alignment = VPLdSt->getAlignment();
   AAMDNodes AANodes;
   VPLdSt->getAAMetadata(AANodes);
@@ -3508,6 +3516,65 @@ void VPOCodeGenHIR::generateMinMaxIndex(const VPReductionFinal *RedFinal,
   }
 }
 
+RegDDRef *
+VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
+  assert(PrivateMemBlobRefs.count(VPPvt) &&
+         "Private memory pointer not widened.");
+
+  BlobDDRef *AllocaBlob = PrivateMemBlobRefs[VPPvt].first;
+  unsigned AllocaMemRefSym = PrivateMemBlobRefs[VPPvt].second;
+  PointerType *PvtTy = cast<PointerType>(VPPvt->getType());
+
+  // In order to create a vector of pointers, we generate a scalar base pointer
+  // and then use a vector of indices. Pseudo underlying LLVM-IR -
+  // %priv.mem.bc = bitcast <VF x Ty>* %priv.mem to Ty*
+  // %pvt.vec.ptrs = gep Ty, Ty* %priv.mem.bc, <VF x i32> <0, ..., VF-1>
+  //
+  // To achieve this sequence in HIR, we first create a self address-of DDRef
+  // using the widened private blob and bitcast it to compute base-address. This
+  // base-address is then used to generate another address-of DDRef with a
+  // vector of indices in first dimension. For example -
+  // AllocaBlob = <VF x i32>* %priv.mem
+  // BaseRef = &((i32*)(<VF x i32>* %priv.mem)[i32 0])
+  // VecPvtPtrs = &((<VF x i32*>)(i32* %priv.mem.bc)[<VFx i32> <0, .., VF-1])
+
+  auto *BaseRef = DDRefUtilities.createSelfAddressOfRef(
+      AllocaBlob->getSelfBlobIndex(), AllocaBlob->getDefinedAtLevel(),
+      AllocaMemRefSym);
+  BaseRef->setBitCastDestType(PvtTy);
+  // Need to create a copy inst to capture base-address since HIR does not allow
+  // GEP Refs to be embedded into each other.
+  HLInst *BaseRefCopy = HLNodeUtilities.createCopyInst(BaseRef, "priv.mem.bc");
+  HLNodeUtils::insertAsFirstPreheaderNode(MainLoop, BaseRefCopy);
+  MainLoop->addLiveInTemp(BaseRefCopy->getLvalDDRef()->getSymbase());
+  LLVM_DEBUG(dbgs() << "[VPOCGHIR] createVectorPrivatePtrs: BaseRef: ";
+             BaseRef->dump(1); dbgs() << "\n");
+
+  SmallVector<Constant *, 16> Indices;
+  // Create a vector of consecutive numbers from zero to VF-1.
+  // TODO: For allocas of the format -
+  //     %priv = alloca i32, i32 %n
+  // generating consecutive numbers is incorrect. We need -
+  //     <%n * 0, %n * 1,..., %n * VF-1>
+  // to correctly compute base addresses.
+  for (unsigned I = 0; I < getVF(); ++I)
+    Indices.push_back(
+        ConstantInt::get(Type::getInt32Ty(PvtTy->getContext()), I));
+
+  auto *Cv = ConstantVector::get(Indices);
+  CanonExpr *IndexCE =
+      CanonExprUtilities.createConstStandAloneBlobCanonExpr(Cv);
+
+  // Create address-of ref to compute vector of pointers using base-address and
+  // vector indices.
+  auto *VecPvtPtrs = DDRefUtilities.createAddressOfRef(
+      BaseRefCopy->getLvalDDRef()->getSelfBlobIndex(),
+      BaseRef->getDefinedAtLevel(), AllocaMemRefSym);
+  VecPvtPtrs->addDimension(IndexCE);
+  VecPvtPtrs->setBitCastDestType(getWidenedType(PvtTy, getVF()));
+  return VecPvtPtrs;
+}
+
 void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   HLInst *WInst = nullptr; // Track the last generated wide inst for VPInst
 
@@ -3643,6 +3710,65 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   case VPInstruction::InductionInit:
   case VPInstruction::InductionFinal: {
     // TODO: Add codegen for induction initialization/finalization
+    return;
+  }
+
+  case VPInstruction::AllocatePrivate: {
+    auto *VPAllocaPriv = cast<VPAllocatePrivate>(VPInst);
+    Type *OrigTy = cast<PointerType>(VPInst->getType())->getElementType();
+
+    // We need to allocate VF copies of element based on privatized memory type.
+    // For simple scalars we use <VF x Ty>, while for aggregate types we use [VF
+    // x Ty].
+    // TODO: Extend support for privates optimized using SOA layout.
+    Type *VecTyForAlloca = nullptr;
+    if (OrigTy->isAggregateType())
+      VecTyForAlloca = ArrayType::get(OrigTy, getVF());
+    else {
+      assert(!isa<VectorType>(OrigTy) &&
+             "VectorType for AllocatePrivate not supported.");
+      VecTyForAlloca = FixedVectorType::get(OrigTy, getVF());
+    }
+
+    // Create a new vector blob to represent the widened private memory and map
+    // it to the AllocatePrivate instruction.
+    unsigned AllocaBlobIdx = HLNodeUtilities.createAlloca(
+        VecTyForAlloca, OrigLoop->getParentRegion(), "priv.mem");
+    BlobDDRef *AllocaBlob =
+        DDRefUtilities.createBlobDDRef(AllocaBlobIdx, 0 /* Linear Level */);
+    // Obtain a new symbase to assign for all memory operations based on the new
+    // alloca.
+    unsigned AllocaMemRefSym = DDRefUtilities.getNewSymbase();
+    LLVM_DEBUG(dbgs() << "Private memory: "; VPInst->dump();
+               dbgs() << " got the BlobDDRef: "; AllocaBlob->dump(1);
+               dbgs() << "\n and unique memref symbase: " << AllocaMemRefSym
+                      << "\n");
+    PrivateMemBlobRefs[VPAllocaPriv] =
+        std::make_pair(AllocaBlob, AllocaMemRefSym);
+    // Add the newly generated alloca as live-in to the main loop.
+    MainLoop->addLiveInTemp(AllocaBlob->getSymbase());
+
+    // Generated blob provides a pointer to the widened memory, here we generate
+    // code to compute a vector of pointers pointing to each element of widened
+    // memory. For example -
+    // OrigTy = i32*
+    // VecTyForAlloca = <VF x i32>
+    // AllocaBlob = <VF x i32>* %priv.mem
+    // VecPvtPtrs = &((<VF x i32*>)(i32* %priv.mem.bc)[<VFx i32> <0, .., VF-1])
+    // ScalPvtPtr = &((<VF x i32>* %priv.mem)[i32 0])
+    RegDDRef *VecPvtPtrs = createVectorPrivatePtrs(VPAllocaPriv);
+    RegDDRef *ScalPvtPtr = DDRefUtilities.createSelfAddressOfRef(
+        AllocaBlob->getSelfBlobIndex(), AllocaBlob->getDefinedAtLevel(),
+        AllocaMemRefSym);
+
+    LLVM_DEBUG(dbgs() << "Private memory: "; VPInst->dump();
+               dbgs() << " got the vector of private pointers: ";
+               VecPvtPtrs->dump(1); dbgs() << "\n"
+                                           << "and scalar private pointer: ";
+               ScalPvtPtr->dump(1); dbgs() << "\n");
+
+    addVPValueWideRefMapping(VPInst, VecPvtPtrs);
+    addVPValueScalRefMapping(VPInst, ScalPvtPtr, 0 /*Lane*/);
     return;
   }
 
@@ -3965,6 +4091,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::InductionInit:
   case VPInstruction::InductionInitStep:
   case VPInstruction::InductionFinal:
+  case VPInstruction::AllocatePrivate:
   case VPInstruction::PrivateFinalUncond:
   case VPInstruction::PrivateFinalUncondMem:
     widenLoopEntityInst(VPInst);

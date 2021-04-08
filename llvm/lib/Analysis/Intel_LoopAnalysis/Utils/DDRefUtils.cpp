@@ -82,6 +82,20 @@ RegDDRef *DDRefUtils::createAddressOfRef(unsigned BasePtrBlobIndex,
   return createGEPRef(BasePtrBlobIndex, Level, SB, false, IsInBounds);
 }
 
+RegDDRef *DDRefUtils::createSelfAddressOfRef(unsigned BasePtrBlobIndex,
+                                             unsigned Level, unsigned SB) {
+  auto *SelfAddrRef =
+      createAddressOfRef(BasePtrBlobIndex, Level, SB, true /*IsInBounds*/);
+  auto *BlobTy =
+      cast<PointerType>(getBlobUtils().getBlob(BasePtrBlobIndex)->getType());
+  SelfAddrRef->addDimension(getCanonExprUtils().createCanonExpr(
+      getDataLayout().getIndexType(BlobTy)));
+
+  assert(SelfAddrRef->isSelfAddressOf() &&
+         "Self address-of ref was not created for blob index.");
+  return SelfAddrRef;
+}
+
 RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {
   RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
   CanonExpr *CE = getCanonExprUtils().createCanonExpr(Ty, 0, Val);

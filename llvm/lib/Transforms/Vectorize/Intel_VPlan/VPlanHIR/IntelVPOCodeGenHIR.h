@@ -683,8 +683,9 @@ private:
   // instruction(s).
   SmallPtrSet<const VPValue *, 8> MainLoopIVInsts;
   // Map of VPlan's private memory objects and their corresponding HIR BlobDDRef
-  // created to represent within vector loop.
-  DenseMap<const VPAllocatePrivate *, BlobDDRef *> PrivateMemBlobRefs;
+  // and unique symbase created to represent accesses within vector loop.
+  DenseMap<const VPAllocatePrivate *, std::pair<BlobDDRef *, unsigned>>
+      PrivateMemBlobRefs;
 
   // Set of masked private temp symbases that have been initialized to undef in
   // vector loop header.
@@ -868,6 +869,10 @@ private:
   void generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
                                RegDDRef *Mask, bool Widen,
                                unsigned ScalarLaneID);
+
+  // Get a vector of pointers corresponding to the private variable for each
+  // vector lane.
+  RegDDRef *createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt);
 
   // Implementation of widening of VPLoopEntity specific instructions. Some
   // notes on opcodes supported so far -
