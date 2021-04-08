@@ -344,6 +344,7 @@ void RTLsTy::LoadRTLs() {
     SET_OPTIONAL_INTERFACE_FN(deinit);
     SET_OPTIONAL_INTERFACE_FN(create_interop);
     SET_OPTIONAL_INTERFACE_FN(release_interop);
+    SET_OPTIONAL_INTERFACE_FN(use_interop);
     SET_OPTIONAL_INTERFACE_FN(get_num_interop_properties);
     SET_OPTIONAL_INTERFACE_FN(get_interop_property_value);
     SET_OPTIONAL_INTERFACE_FN(get_interop_property_info);

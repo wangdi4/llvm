@@ -1028,7 +1028,7 @@ void LoopVectorizationPlanner::emitVecSpecifics(VPlanVector *Plan) {
 
   VPBuilder Builder;
   Builder.setInsertPoint(PreHeader);
-  VPValue *OrigTC;
+  VPValue *OrigTC = nullptr;
   bool HasNormalizedInd = CandidateLoop->hasNormalizedInduction();
   if (!HasNormalizedInd) {
     // If loop does not have normalized induction then emit it.
@@ -1051,7 +1051,7 @@ void LoopVectorizationPlanner::emitVecSpecifics(VPlanVector *Plan) {
     emitVectorLoopIV(Plan, TC, VF);
   } else {
     // Having normalized induction we just replace the upper bound.
-    VPInstruction *Cond;
+    VPInstruction *Cond = nullptr;
     std::tie(OrigTC, Cond) = CandidateLoop->getLoopUpperBound();
     auto *VTC = Builder.create<VPVectorTripCountCalculation>(
         "vector.trip.count", OrigTC);

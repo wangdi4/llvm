@@ -265,6 +265,7 @@ struct DeviceTy {
   __tgt_interop *createInterop(int32_t InteropContext, int32_t NumPrefers,
                                intptr_t *PreferIDs);
   int32_t releaseInterop(__tgt_interop *Interop);
+  int32_t useInterop(__tgt_interop *Interop);
   int32_t getNumInteropProperties(void);
   int32_t getInteropPropertyValue(__tgt_interop *Interop,
                                   int32_t Property, int32_t ValueType,

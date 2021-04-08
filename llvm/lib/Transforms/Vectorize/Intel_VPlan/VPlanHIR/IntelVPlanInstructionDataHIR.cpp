@@ -16,32 +16,81 @@ using namespace llvm;
 using namespace llvm::loopopt;
 using namespace llvm::vpo;
 
+static bool hasSymbase(const VPInstruction &Inst) {
+  auto Opcode = Inst.getOpcode();
+  switch (Opcode) {
+  default:
+    return false;
+  case Instruction::Store:
+  case Instruction::Load:
+    return true;
+  }
+}
+
+static bool canHaveFoldIVConvert(const VPInstruction &Inst) {
+  auto Opcode = Inst.getOpcode();
+  switch (Opcode) {
+  default:
+    return false;
+  case Instruction::SExt:
+  case Instruction::ZExt:
+  case Instruction::Trunc:
+    assert(!hasSymbase(Inst) &&
+           "Can't have Symbase and FoldIVConvert simultaneously!");
+    return true;
+  }
+}
+
+HIRSpecificsData::HIRSpecificsData(const VPInstruction &Inst) {
+  if (!hasSymbase(Inst))
+    FoldIVConvert = false;
+}
+
+HIRSpecifics::HIRSpecifics(const VPInstruction &Inst)
+    : Inst(const_cast<VPInstruction &>(Inst)) {
+  assert(
+      (!HIRData().ExtraData.isNull() || HIRData().ExtraData.is<void *>()) &&
+      "Defined state can't contain nullptr!");
+}
+
 const HIRSpecificsData &HIRSpecifics::HIRData() const { return Inst.HIRData; }
 HIRSpecificsData &HIRSpecifics::HIRData() { return Inst.HIRData; }
 
 MasterVPInstData *HIRSpecifics::getVPInstData() {
   if (isMaster())
-    return HIRData().MasterData.get<MasterVPInstData *>();
+    return HIRData().ExtraData.get<MasterVPInstData *>();
   if (isDecomposed())
     return getMaster()->HIR().getVPInstData();
   // New VPInstructions don't have VPInstruction data.
   return nullptr;
 }
 
-void HIRSpecifics::verifyState() const {
-  if (HIRData().MasterData.is<MasterVPInstData *>())
-    assert(!HIRData().MasterData.isNull() &&
-           "MasterData can't be null for master VPInstruction!");
-  else if (HIRData().MasterData.is<VPInstruction *>())
-    assert(!HIRData().MasterData.isNull() &&
-           "MasterData can't be null for decomposed VPInstruction!");
-  else
-    assert(HIRData().MasterData.is<void *>() && HIRData().MasterData.isNull() &&
-           "MasterData must be null for VPInstruction that is not master "
-           "or decomposed!");
+void HIRSpecifics::setSymbase(unsigned SB) {
+  assert(hasSymbase(Inst) && "This VPInstruction can't have a symbase!");
+  assert(SB != loopopt::InvalidSymbase &&
+         "Unexpected invalid symbase assignment!");
+  HIRData().Symbase = SB;
 }
 
-void HIRSpecifics::cloneFrom(const HIRSpecifics HIR, bool CopySymbase) {
+unsigned HIRSpecifics::getSymbase() const {
+  assert(hasSymbase(Inst) && "This VPInstruction can't have a symbase!");
+  auto Symbase = HIRData().Symbase;
+  assert(Symbase != loopopt::InvalidSymbase && "Unexpected invalid symbase!");
+  return Symbase;
+}
+
+void HIRSpecifics::setFoldIVConvert(bool Fold) {
+  assert((!Fold || canHaveFoldIVConvert(Inst)) &&
+         "Unexpected call to setFoldIVConvert!");
+  HIRData().FoldIVConvert = Fold;
+}
+
+bool HIRSpecifics::getFoldIVConvert() const {
+  assert(canHaveFoldIVConvert(Inst) && "Unexpected call to getFoldIVConvert!");
+  return HIRData().FoldIVConvert;
+}
+
+void HIRSpecifics::cloneFrom(const HIRSpecifics HIR) {
   if (HIR.isMaster()) {
     setUnderlyingNode(HIR.getUnderlyingNode());
     if (HIR.isValid())
@@ -59,10 +108,11 @@ void HIRSpecifics::cloneFrom(const HIRSpecifics HIR, bool CopySymbase) {
     }
   }
 
-  if (CopySymbase)
-    setSymbase(HIR.getSymbase());
+  // Don't use getters/setters as Symbases might be invalid for LLVM IR path.
+  if (hasSymbase(Inst))
+    HIRData().Symbase = HIR.HIRData().Symbase;
   else
-    setFoldIVConvert(HIR.getFoldIVConvert());
+    HIRData().FoldIVConvert = HIR.HIRData().FoldIVConvert;
 
   // Verify correctness of the cloned HIR.
   assert(isMaster() == HIR.isMaster() &&

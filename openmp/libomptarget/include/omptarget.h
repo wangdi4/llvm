@@ -656,6 +656,9 @@ EXTERN omp_interop_t __tgt_create_interop(
 // Release an OpenMP 5.1 interop object.
 EXTERN int __tgt_release_interop(omp_interop_t interop);
 
+// Change OpenMP 5.1 interop object to usable state ("use" clause)
+EXTERN int __tgt_use_interop(omp_interop_t interop);
+
 // Returns an interop property from the given interop object.
 EXTERN int __tgt_get_interop_property(
     void *interop_obj, int32_t property_id, void **property_value);

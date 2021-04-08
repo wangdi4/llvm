@@ -304,6 +304,9 @@ EXTERN __tgt_interop *__tgt_rtl_create_interop(
 // Release OpenMP interop
 EXTERN int32_t __tgt_rtl_release_interop(int32_t ID, __tgt_interop *Interop);
 
+// Change OpenMP interop to usable state
+EXTERN int32_t __tgt_rtl_use_interop(int32_t ID, __tgt_interop *Interop);
+
 // Get number of implementation-defined interop properties
 EXTERN int32_t __tgt_rtl_get_num_interop_properties(int32_t ID);
 

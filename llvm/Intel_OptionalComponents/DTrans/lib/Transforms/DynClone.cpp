@@ -1,6 +1,6 @@
 //===---------------- DynClone.cpp - DTransDynClonePass -------------------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -655,10 +655,10 @@ Type *DynCloneImpl::getCallInfoElemTy(CallInfo *CInfo) const {
   if (CInfo->getCallInfoKind() != CallInfo::CIK_Alloc &&
       CInfo->getCallInfoKind() != CallInfo::CIK_Memfunc)
     return nullptr;
-  auto &CallTypes = CInfo->getElementTypesRef().getElemTypes();
-  if (CallTypes.size() != 1)
+  auto &CallTypes = CInfo->getElementTypesRef();
+  if (CallTypes.getNumTypes() != 1)
     return nullptr;
-  Type *ElemTy = *CallTypes.begin();
+  Type *ElemTy = CallTypes.getElemLLVMType(0);
   if (!isa<StructType>(ElemTy))
     return nullptr;
   return ElemTy;
@@ -936,10 +936,10 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
     if (isValueEqualToSize(Inst.getValue(), 0))
       return;
 
-    auto &CallTypes = CInfo->getElementTypesRef().getElemTypes();
-    if (CallTypes.size() != 1)
+    auto &CallTypes = CInfo->getElementTypesRef();
+    if (CallTypes.getNumTypes() != 1)
       return;
-    Type *ElemTy = *CallTypes.begin();
+    Type *ElemTy = CallTypes.getElemLLVMType(0);
     for (auto &CandidatePair : CandidateFields) {
       if (CandidatePair.first == ElemTy) {
         InvalidFields.insert(CandidatePair);

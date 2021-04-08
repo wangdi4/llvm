@@ -758,7 +758,7 @@ void SOAToAOSPrepCandidateInfo::replicateMemberFunctions() {
     size_t Num = ElementTypes.getNumTypes();
     for (size_t i = 0; i < Num; ++i)
       ElementTypes.setElemType(
-          i, TypeRemapper.remapType(ElementTypes.getElemType(i)));
+          i, TypeRemapper.remapType(ElementTypes.getElemLLVMType(i)));
   };
 
   ValueToValueMapTy VMap;
@@ -1166,7 +1166,7 @@ void SOAToAOSPrepCandidateInfo::postprocessFunction(Function &F,
       if (!CInfo || isa<dtrans::FreeCallInfo>(CInfo))
         continue;
 
-      for (auto *StTy : CInfo->getElementTypesRef().getElemTypes()) {
+      for (auto *StTy : CInfo->getElementTypesRef().element_llvm_types()) {
         if (StTy != NewElemTy)
           continue;
         DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,

@@ -1,27 +1,28 @@
 ; LLVM IR generated from following testcase using icx -O1 -S -emit-llvm
 ; int arr[128];
 ; double darr[128];
-; 
+;
 ; void foo()
 ; {
 ;   int index;
 ;   double *dp = darr;
-; 
+;
 ;   for (index = 0; index < 128; index++) {
 ;     *((int *)dp) = index;
 ;     arr[index] = index;
 ;     dp++;
 ;   }
 ; }
-; 
-; ModuleID = 'd.c'
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -S  < %s | FileCheck %s
-; CHECK: llvm.masked.scatter.v4i32
-; CHECK: store <4 x i32>
-; XFAIL: *
-; TO-DO : The test case fails upon removal of AVR Code. Analyze and fix it so that it works for VPlanDriverHIR
-; 
-source_filename = "d.c"
+;
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -vplan-force-vf=4 -print-after=VPlanDriverHIR -VPlanDriverHIR < %s 2>&1 -disable-output | FileCheck %s
+;
+; CHECK:      BEGIN REGION
+; CHECK-NEXT:  DO i1 = 0, 127, 4
+; CHECK-NEXT:  (<4 x i32>*)(@darr)[0][i1 + <i64 0, i64 1, i64 2, i64 3>] = i1 + <i64 0, i64 1, i64 2, i64 3>;
+; CHECK-NEXT:  (<4 x i32>*)(@arr)[0][i1] = i1 + <i64 0, i64 1, i64 2, i64 3>;
+; CHECK-NEXT:  END LOOP
+; CHECK-NEXT: END REGION
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

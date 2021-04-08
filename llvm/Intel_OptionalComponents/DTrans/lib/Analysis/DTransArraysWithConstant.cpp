@@ -1109,7 +1109,7 @@ analyzeCallInstruction(Instruction *I, DTransAnalysisInfo *DTInfo,
   // call site.
   if (MemRefTypes.getNumTypes() != 1) {
     bool ProcDisable = false;
-    for (auto &TypeRef : MemRefTypes.getElemTypes()) {
+    for (auto *TypeRef : MemRefTypes.element_llvm_types()) {
       if (llvm::StructType *Struct = dyn_cast<StructType>(TypeRef)) {
         if (auto *StructData = getStructWithArrayFields(Struct, DTInfo,
                                                         StructsWithConstArrays))
@@ -1133,7 +1133,7 @@ analyzeCallInstruction(Instruction *I, DTransAnalysisInfo *DTInfo,
     return;
   }
 
-  llvm::Type *MemFuncType = MemRefTypes.getElemType(0);
+  llvm::Type *MemFuncType = MemRefTypes.getElemLLVMType(0);
   if (llvm::ArrayType *ArrTy = dyn_cast<ArrayType>(MemFuncType)) {
     // TODO: This is conservative, we can expand the analysis to check if
     // the current type, which is an array of integers, is the field of a

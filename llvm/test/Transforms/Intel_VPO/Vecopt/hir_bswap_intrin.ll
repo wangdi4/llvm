@@ -2,7 +2,7 @@
 ;
 ; void gl_swap2(unsigned short *p, unsigned int n) {
 ;   register unsigned int i;
-; 
+;
 ;   for (i=0;i<n;i++) {
 ;     p[i] = (p[i] >> 8) | ((p[i] << 8) & 0xff00);
 ;   }
@@ -10,11 +10,13 @@
 
 ; Test vectorization of intrinsics, specifically bswap in this case.
 
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -print-after=VPODriverHIR -S  < %s 2>&1 | FileCheck %s
-; XFAIL: *
-; TO-DO : The test case fails upon removal of AVR Code. Analyze and fix it so that it works for VPlanDriverHIR
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR  < %s 2>&1 -disable-output | FileCheck %s
 
-; CHECK: call <8 x i16> @llvm.bswap.v8i16
+; CHECK:  DO i1 = 0, 8 * %tgu + -1, 8   <DO_LOOP>
+; CHECK-NEXT: %.vec = (<8 x i16>*)(%p)[i1];
+; CHECK-NEXT: %llvm.bswap.v8i16 = @llvm.bswap.v8i16(%.vec);
+; CHECK-NEXT: (<8 x i16>*)(%p)[i1] = %llvm.bswap.v8i16;
+; CHECK-NEXT: END LOOP
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -3,22 +3,20 @@
 ;   int arr1[100];
 ;   int arr2[100];
 ; } s1;
-; 
+;
 ; void foo()
 ; {
 ;   int index;
-; 
+;
 ;   for (index = 0; index < 100; index++)
 ;     s1.arr1[index] = index;
 ; }
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -default-vpo-vf=4 -print-after=VPODriverHIR -S < %s 2>&1 | FileCheck %s
-; XFAIL: *
-; TO-DO : The test case fails upon removal of AVR Code. Analyze and fix it so that it works for VPlanDriverHIR
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR < %s 2>&1 -disable-output | FileCheck %s
 
 ; HIR Test.
 ; CHECK: DO i1 = 0, 99, 4   <DO_LOOP>
-; CHECK: (<4 x i32>*)(@s1)[0].0[i1] = i1 + 
+; CHECK: (<4 x i32>*)(@s1)[0].0[i1] = i1 +
 ; CHECK: END LOOP
 source_filename = "tstr.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -744,7 +744,7 @@ void DTransOptBase::updateCallInfoForFunction(Function *F, bool isCloned) {
       size_t Num = ElementTypes.getNumTypes();
       for (size_t i = 0; i < Num; ++i)
         ElementTypes.setElemType(
-            i, TypeRemapper->remapType(ElementTypes.getElemType(i)));
+            i, TypeRemapper->remapType(ElementTypes.getElemLLVMType(i)));
     }
 }
 

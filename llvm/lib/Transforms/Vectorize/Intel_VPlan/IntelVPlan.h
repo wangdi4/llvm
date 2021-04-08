@@ -578,11 +578,9 @@ private:
   /// modeled instruction.
   void generateInstruction(VPTransformState &State, unsigned Part);
 
-  virtual bool canHaveSymbase() const { return false; }
-
   void copyUnderlyingFrom(const VPInstruction &Inst) {
 #if INTEL_CUSTOMIZATION
-    HIR().cloneFrom(Inst.HIR(), canHaveSymbase());
+    HIR().cloneFrom(Inst.HIR());
 #endif // INTEL_CUSTOMIZATION
     Value *V = Inst.getUnderlyingValue();
     if (V)
@@ -614,39 +612,6 @@ protected:
   bool isNew() const {
     return getUnderlyingValue() == nullptr && !HIR().isSet();
   }
-
-  void setSymbase(unsigned Symbase) {
-    assert(Opcode == Instruction::Store ||
-           Opcode == Instruction::Load &&
-               "setSymbase called for invalid VPInstruction");
-    assert(Symbase != loopopt::InvalidSymbase &&
-           "Unexpected invalid symbase assignment");
-    HIR().setSymbase(Symbase);
-  }
-
-  unsigned getSymbase(void) const {
-    assert(Opcode == Instruction::Store ||
-           Opcode == Instruction::Load &&
-               "getSymbase called for invalid VPInstruction");
-    assert(HIR().getSymbase() != loopopt::InvalidSymbase &&
-           "Unexpected invalid symbase");
-    return HIR().getSymbase();
-  }
-
-  void setFoldIVConvert(bool Fold) {
-    assert(Fold == false || Opcode == Instruction::SExt ||
-           Opcode == Instruction::Trunc ||
-           Opcode == Instruction::ZExt &&
-               "unexpected call to setFoldIVConvert");
-    HIR().setFoldIVConvert(Fold);
-  }
-
-  bool getFoldIVConvert(void) const {
-    assert(Opcode == Instruction::SExt || Opcode == Instruction::Trunc ||
-           Opcode == Instruction::ZExt &&
-               "getFoldIVConvert called for invalid VPInstruction");
-    return HIR().getFoldIVConvert();
-  }
 #endif
 
   virtual VPInstruction *cloneImpl() const {
@@ -660,18 +625,14 @@ protected:
 public:
   VPInstruction(unsigned Opcode, Type *BaseTy, ArrayRef<VPValue *> Operands)
       : VPUser(VPValue::VPInstructionSC, Operands, BaseTy), Opcode(Opcode),
-        OperatorFlags(Opcode, BaseTy) {
+        OperatorFlags(Opcode, BaseTy), HIRData(*this) {
     assert(BaseTy && "BaseTy can't be null!");
-    if (Opcode != Instruction::Load && Opcode != Instruction::Store)
-      setFoldIVConvert(false);
   }
   VPInstruction(unsigned Opcode, Type *BaseTy,
                 std::initializer_list<VPValue *> Operands)
       : VPUser(VPValue::VPInstructionSC, Operands, BaseTy), Opcode(Opcode),
-        OperatorFlags(Opcode, BaseTy) {
+        OperatorFlags(Opcode, BaseTy), HIRData(*this) {
     assert(BaseTy && "BaseTy can't be null!");
-    if (Opcode != Instruction::Load && Opcode != Instruction::Store)
-      setFoldIVConvert(false);
   }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -1681,8 +1642,6 @@ public:
     // is assigned to the cloned VPlan.
     return Cloned;
   }
-
-  bool canHaveSymbase() const override { return true; }
 
 private:
   // Captures alignment of underlying access.

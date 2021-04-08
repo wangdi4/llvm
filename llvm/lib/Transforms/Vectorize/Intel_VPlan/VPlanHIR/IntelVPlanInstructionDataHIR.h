@@ -331,21 +331,21 @@ class HIRSpecificsData {
 
   /// Pointer to access the underlying HIR data attached to this
   /// VPInstruction, if any, depending on its sub-type:
-  ///   1) Master VPInstruction: MasterData points to a VPInstDataHIR holding
+  ///   1) Master VPInstruction: ExtraData points to a VPInstDataHIR holding
   ///      the actual HIR data.
-  ///   2) Decomposed VPInstruction: MasterData points to master VPInstruction
+  ///   2) Decomposed VPInstruction: ExtraData points to master VPInstruction
   ///      holding the actual HIR data.
-  ///   3) Other VPInstruction (!Master and !Decomposed): MasterData is null.
+  ///   3) Other VPInstruction (!Master and !Decomposed): ExtraData is null.
   ///      We use a void pointer to represent this case.
-  PointerUnion<MasterVPInstData *, VPInstruction *, void *> MasterData =
+  PointerUnion<MasterVPInstData *, VPInstruction *, void *> ExtraData =
       (int *)nullptr;
 
-  HIRSpecificsData() {}
+  HIRSpecificsData(const VPInstruction &Inst);
 
 public:
   ~HIRSpecificsData() {
-    if (MasterData.is<MasterVPInstData *>())
-      delete MasterData.get<MasterVPInstData *>();
+    if (ExtraData.is<MasterVPInstData *>())
+      delete ExtraData.get<MasterVPInstData *>();
   }
 };
 
@@ -361,8 +361,7 @@ class HIRSpecifics {
   VPInstruction &Inst;
 
 private:
-  HIRSpecifics(const VPInstruction &Inst)
-      : Inst(const_cast<VPInstruction &>(Inst)) {}
+  HIRSpecifics(const VPInstruction &Inst);
 
   // VPInstruction is incomplete at this point, yet we have lots of one-liners
   // that would benefit from accessing it. Enable that by providing this helper.
@@ -395,24 +394,19 @@ public:
     return const_cast<HIRSpecifics *>(this)->getVPInstData();
   }
 
-  void verifyState() const;
-
   /// Return true if this is a master VPInstruction.
   bool isMaster() const {
-    verifyState();
-    return HIRData().MasterData.is<MasterVPInstData *>();
+    return HIRData().ExtraData.is<MasterVPInstData *>();
   }
 
   /// Return true if this is a decomposed VPInstruction.
   bool isDecomposed() const {
-    verifyState();
-    return HIRData().MasterData.is<VPInstruction *>();
+    return HIRData().ExtraData.is<VPInstruction *>();
   }
 
   // Return true if MasterData contains actual HIR data.
   bool isSet() const {
-    verifyState();
-    return !HIRData().MasterData.is<void *>();
+    return !HIRData().ExtraData.is<void *>();
   }
 
   /// Return the underlying HIR attached to this master VPInstruction. Return
@@ -431,7 +425,7 @@ public:
   /// VPInstruction.
   void setUnderlyingNode(loopopt::HLNode *UnderlyingNode) {
     assert(!isSet() && "MasterData is already set!");
-    HIRData().MasterData = new MasterVPInstData(UnderlyingNode);
+    HIRData().ExtraData = new MasterVPInstData(UnderlyingNode);
   }
 
   /// Attach \p Def to this VPInstruction as its VPOperandHIR.
@@ -454,7 +448,7 @@ public:
   VPInstruction *getMaster() {
     assert(isDecomposed() && "Only decomposed VPInstructions have a pointer "
                              "to a master VPInstruction!");
-    return HIRData().MasterData.get<VPInstruction *>();
+    return HIRData().ExtraData.get<VPInstruction *>();
   }
   VPInstruction *getMaster() const {
     return const_cast<HIRSpecifics *>(this)->getMaster();
@@ -467,7 +461,7 @@ public:
     assert(!isMaster() &&
            "A master VPInstruction can't point to a master VPInstruction!");
     assert(!isSet() && "Master VPInstruction is already set!");
-    HIRData().MasterData = MasterVPI;
+    HIRData().ExtraData = MasterVPI;
   }
 
   /// Mark the underlying HIR data as valid.
@@ -482,13 +476,13 @@ public:
        << " IsNew=" << !isSet() << " HasValidHIR= " << isValid() << "\n";
   }
 
-  void setSymbase(unsigned SB) { HIRData().Symbase = SB; }
-  unsigned getSymbase(void) const { return HIRData().Symbase; }
+  void setSymbase(unsigned SB);
+  unsigned getSymbase() const;
 
-  void setFoldIVConvert(bool Fold) { HIRData().FoldIVConvert = Fold; }
-  bool getFoldIVConvert(void) const { return HIRData().FoldIVConvert; }
+  void setFoldIVConvert(bool Fold);
+  bool getFoldIVConvert() const;
 
-  void cloneFrom(const HIRSpecifics HIR, bool CopySymbase);
+  void cloneFrom(const HIRSpecifics HIR);
 };
 
 } // namespace vpo

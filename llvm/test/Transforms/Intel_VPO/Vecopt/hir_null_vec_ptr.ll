@@ -3,21 +3,19 @@
 ; void foo(int **restrict ip1, int **restrict ip2)
 ; {
 ;   int index;
-; 
+;
 ;   for (index = 0; index <  1024; index++) {
 ;     *ip1++ = 0;
 ;     *ip2++ = 0;
 ;   }
 ; }
-; 
-; RUN: opt -default-vpo-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -print-after=VPODriverHIR -S < %s 2>&1 | FileCheck %s
-; XFAIL: *
-; TO-DO : The test case fails upon removal of AVR Code. Analyze and fix it so that it works for VPlanDriverHIR
+;
+; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR < %s 2>&1 -disable-output | FileCheck %s
 ;
 ; HIR Test.
 ; CHECK:      DO i1 = 0, 1023, 4
-; CHECK-NEXT:    (<4 x i32*>*)(%ip1)[i1] = 0;
-; CHECK-NEXT:    (<4 x i32*>*)(%ip2)[i1] = 0;
+; CHECK-NEXT:    (<4 x i32*>*)(%ip1)[i1] = null;
+; CHECK-NEXT:    (<4 x i32*>*)(%ip2)[i1] = null;
 ; CHECK-NEXT: END LOOP
 
 ; ModuleID = 'tsmall.c'

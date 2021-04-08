@@ -29,6 +29,11 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
 
     include_directories(${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS})
     add_library(omptarget.rtl.level0 SHARED src/rtl.cpp src/ompt-level0.cpp)
+    if(NOT LIBOMPTARGET_DEP_LIBELF_FOUND OR LIBOMPTARGET_FORCE_LLVM_ELF)
+      # Statically link C run-time library on Windows.
+      # Otherwise, we cannot use LLVMObject and LLVMSupport.
+      set_msvc_crt_flags(omptarget.rtl.level0)
+    endif()
 
     if(NOT OPENMP_STANDALONE_BUILD)
       # We have to disable EH for Windows compilation.
@@ -49,8 +54,10 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
 
     add_dependencies(omptarget.rtl.level0 libomptarget-libiomp-file)
 
+    target_link_libraries(omptarget.rtl.level0 PRIVATE elf_common)
+
     if(CMAKE_SYSTEM_NAME MATCHES "Linux")
-      target_link_libraries(omptarget.rtl.level0
+      target_link_libraries(omptarget.rtl.level0 PRIVATE
           ${LIBOMPTARGET_DEP_LEVEL0_LIBRARIES} ${LIBOMP_LIB_FILE} dl
           ${OPENMP_PTHREAD_LIB}
           "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports")

@@ -3766,6 +3766,21 @@ EXTERN int32_t __tgt_rtl_release_interop(
   return OFFLOAD_SUCCESS;
 }
 
+EXTERN int32_t __tgt_rtl_use_interop(int32_t DeviceId, __tgt_interop *Interop) {
+  if (!Interop || Interop->DeviceNum != (intptr_t)DeviceId ||
+      Interop->FrId != L0Interop::FrId) {
+    IDP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+    return OFFLOAD_FAIL;
+  }
+
+  if (Interop->TargetSync) {
+    auto cmdQueue = static_cast<ze_command_queue_handle_t>(Interop->TargetSync);
+    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
+  }
+
+  return OFFLOAD_SUCCESS;
+}
+
 EXTERN int32_t __tgt_rtl_get_num_interop_properties(int32_t DeviceId) {
   // TODO: decide implementation-defined properties
   return 0;

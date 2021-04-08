@@ -19,6 +19,9 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
+#if INTEL_COLLAB
+#include "llvm/BinaryFormat/ELF.h"
+#endif // INTEL_COLLAB
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -29,17 +32,30 @@
 #ifndef NDEBUG
 #include "llvm/IR/Verifier.h"
 #endif // NDEBUG
+#if INTEL_COLLAB
+#include "llvm/Object/ELFObjectFile.h"
+#include "llvm/Object/ObjectFile.h"
+#endif // INTEL_COLLAB
 #include "llvm/Support/CommandLine.h"
+#if INTEL_COLLAB
+#include "llvm/Support/EndianStream.h"
+#endif // INTEL_COLLAB
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/LineIterator.h"
 #include "llvm/Support/MemoryBuffer.h"
+#if INTEL_COLLAB
+#include "llvm/Support/Program.h"
+#endif // INTEL_COLLAB
 #include "llvm/Support/PropertySetIO.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/SimpleTable.h"
 #include "llvm/Support/ToolOutputFile.h"
+#if INTEL_COLLAB
+#include "llvm/Support/VCSRevision.h"
+#endif // INTEL_COLLAB
 #include "llvm/Support/WithColor.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -52,7 +68,14 @@
 #include <string>
 #include <tuple>
 
+#if INTEL_COLLAB
+#define OPENMP_OFFLOAD_IMAGE_VERSION "1.0"
+
+#endif // INTEL_COLLAB
 using namespace llvm;
+#if INTEL_COLLAB
+using namespace llvm::object;
+#endif // INTEL_COLLAB
 
 // Fields in the binary descriptor which are made available to SYCL runtime
 // by the offload wrapper. Must match across tools -
@@ -240,6 +263,14 @@ static StringRef formatToString(BinaryImageFormat Fmt) {
   return "<ERROR>";
 }
 
+#if INTEL_COLLAB
+static cl::opt<bool> SaveTemps(
+    "save-temps",
+    cl::desc("Save temporary files that may be produced by the tool. "
+             "This option forces print-out of the temporary files' names."),
+    cl::Hidden);
+
+#endif // INTEL_COLLAB
 namespace {
 
 struct OffloadKindToUint {
@@ -320,6 +351,17 @@ public:
         File, Manif, Tgt, Fmt, CompileOpts, LinkOpts, EntriesFile, PropsFile));
   }
 
+#if INTEL_COLLAB
+  std::string ToolName;
+  std::string ObjcopyPath;
+  // Temporary file names that may be created during adding notes
+  // to ELF offload images. Use -save-temps to keep them and also
+  // see their names. A temporary file's name includes the name
+  // of the original input ELF image, so you can easily match
+  // them, if you have multiple inputs.
+  std::vector<std::string> TempFiles;
+
+#endif // INTEL_COLLAB
 private:
   IntegerType *getSizeTTy() {
     switch (M.getDataLayout().getPointerTypeSize(Type::getInt8PtrTy(C))) {
@@ -803,6 +845,12 @@ private:
     return addStructArrayToModule(PropSetsInits, getSyclPropSetTy());
   }
 
+#if INTEL_COLLAB
+public:
+    MemoryBuffer *addELFNotes(MemoryBuffer *Buf, StringRef OriginalFileName);
+
+private:
+#endif // INTEL_COLLAB
   /// Creates binary descriptor for the given device images. Binary descriptor
   /// is an object that is passed to the offloading runtime at program startup
   /// and it describes all device images available in the executable or shared
@@ -989,6 +1037,12 @@ private:
       if (!BinOrErr)
         return BinOrErr.takeError();
       MemoryBuffer *Bin = *BinOrErr;
+#if INTEL_COLLAB
+      if (Img.File != "-" && Kind == OffloadKind::OpenMP) {
+        // Adding ELF notes for STDIN is not supported yet.
+        Bin = addELFNotes(Bin, Img.File);
+      }
+#endif // INTEL_COLLAB
       std::pair<Constant *, Constant *> Fbin = addDeviceImageToModule(
           makeArrayRef(Bin->getBufferStart(), Bin->getBufferSize()),
           Twine(OffloadKindTag) + Twine(ImgId) + Twine(".data"), Kind, Img.Tgt);
@@ -1116,9 +1170,68 @@ private:
   }
 
 public:
+#if INTEL_COLLAB
+  BinaryWrapper(StringRef Target, StringRef ToolName)
+      : M("offload.wrapper.object", C), ToolName(ToolName) {
+    M.setTargetTriple(Target);
+    // Look for llvm-objcopy in the same directory, from which
+    // clang-offload-wrapper is invoked. This helps OpenMP offload
+    // LIT tests.
+
+    // This just needs to be some symbol in the binary; C++ doesn't
+    // allow taking the address of ::main however.
+    void *P = (void *)(intptr_t)&Help;
+    std::string COWPath = sys::fs::getMainExecutable(ToolName.str().c_str(), P);
+    if (!COWPath.empty()) {
+      auto COWDir = sys::path::parent_path(COWPath);
+      ErrorOr<std::string> ObjcopyPathOrErr =
+          sys::findProgramByName("llvm-objcopy", {COWDir});
+      if (ObjcopyPathOrErr) {
+        ObjcopyPath = *ObjcopyPathOrErr;
+        return;
+      }
+
+      // Otherwise, look through PATH environment.
+    }
+
+    ErrorOr<std::string> ObjcopyPathOrErr =
+        sys::findProgramByName("llvm-objcopy");
+    if (!ObjcopyPathOrErr) {
+      WithColor::warning(errs(), ToolName)
+          << "cannot find llvm-objcopy[.exe] in PATH; ELF notes cannot be "
+             "added.\n";
+      return;
+    }
+
+    ObjcopyPath = *ObjcopyPathOrErr;
+  }
+
+  ~BinaryWrapper() {
+    if (TempFiles.empty())
+      return;
+
+    StringRef ToolNameRef(ToolName);
+    auto warningOS = [ToolNameRef]() -> raw_ostream & {
+      return WithColor::warning(errs(), ToolNameRef);
+    };
+
+    for (auto &F : TempFiles) {
+      if (SaveTemps) {
+        warningOS() << "keeping temporary file " << F << "\n";
+        continue;
+      }
+
+      auto EC = sys::fs::remove(F, false);
+      if (EC)
+        warningOS() << "cannot remove temporary file " << F << ": "
+                    << EC.message().c_str() << "\n";
+    }
+  }
+#else // INTEL_COLLAB
   BinaryWrapper(StringRef Target) : M("offload.wrapper.object", C) {
     M.setTargetTriple(Target);
   }
+#endif // INTEL_COLLAB
 
   Expected<const Module *> wrap() {
     for (auto &X : Packs) {
@@ -1287,7 +1400,211 @@ private:
 
   template <int N> my_enable_if_t<N == 0> inc() { incImpl<N>(); }
 };
+#if INTEL_COLLAB
+  // The whole function body is misaligned just to simplify
+  // conflict resolution, when https://reviews.llvm.org/D99551
+  // merges into xmain.
+  MemoryBuffer *BinaryWrapper::addELFNotes(
+      MemoryBuffer *Buf,
+      StringRef OriginalFileName) {
+    // Cannot add notes, if llvm-objcopy is not available.
+    //
+    // I did not find a clean way to add a new notes section into an existing
+    // ELF file. llvm-objcopy seems to recreate a new ELF from scratch,
+    // and we just try to use llvm-objcopy here.
+    if (ObjcopyPath.empty())
+      return Buf;
 
+    StringRef ToolNameRef(ToolName);
+
+    // Helpers to emit warnings.
+    auto warningOS = [ToolNameRef]() -> raw_ostream & {
+      return WithColor::warning(errs(), ToolNameRef);
+    };
+    auto handleErrorAsWarning = [&warningOS](Error E) {
+      logAllUnhandledErrors(std::move(E), warningOS());
+    };
+
+    Expected<std::unique_ptr<ObjectFile>> BinOrErr =
+        ObjectFile::createELFObjectFile(Buf->getMemBufferRef(),
+                                        /*InitContent=*/false);
+    if (Error E = BinOrErr.takeError()) {
+      consumeError(std::move(E));
+      // This warning is questionable, but let it be here,
+      // assuming that most OpenMP offload models use ELF offload images.
+      warningOS() << OriginalFileName
+                  << " is not an ELF image, so notes cannot be added to it.\n";
+      return Buf;
+    }
+
+    // If we fail to add the note section, we just pass through the original
+    // ELF image for wrapping. At some point we should enforce the note section
+    // and start emitting errors vs warnings.
+    support::endianness Endianness;
+    if (isa<ELF64LEObjectFile>(BinOrErr->get()) ||
+        isa<ELF32LEObjectFile>(BinOrErr->get())) {
+      Endianness = support::little;
+    } else if (isa<ELF64BEObjectFile>(BinOrErr->get()) ||
+               isa<ELF32BEObjectFile>(BinOrErr->get())) {
+      Endianness = support::big;
+    } else {
+      warningOS() << OriginalFileName
+                  << " is an ELF image of unrecognized format.\n";
+      return Buf;
+    }
+
+    // Create temporary file for the data of a new SHT_NOTE section.
+    // We fill it in with data and then pass to llvm-objcopy invocation
+    // for reading.
+    Twine NotesFileModel = OriginalFileName + Twine(".elfnotes.%%%%%%%.tmp");
+    Expected<sys::fs::TempFile> NotesTemp =
+        sys::fs::TempFile::create(NotesFileModel);
+    if (Error E = NotesTemp.takeError()) {
+      handleErrorAsWarning(createFileError(NotesFileModel, std::move(E)));
+      return Buf;
+    }
+    TempFiles.push_back(NotesTemp->TmpName);
+
+    // Create temporary file for the updated ELF image.
+    // This is an empty file that we pass to llvm-objcopy invocation
+    // for writing.
+    Twine ELFFileModel = OriginalFileName + Twine(".elfwithnotes.%%%%%%%.tmp");
+    Expected<sys::fs::TempFile> ELFTemp =
+        sys::fs::TempFile::create(ELFFileModel);
+    if (Error E = ELFTemp.takeError()) {
+      handleErrorAsWarning(createFileError(ELFFileModel, std::move(E)));
+      return Buf;
+    }
+    TempFiles.push_back(ELFTemp->TmpName);
+
+    // Keep the new ELF image file to reserve the name for the future
+    // llvm-objcopy invocation.
+    std::string ELFTmpFileName = ELFTemp->TmpName;
+    if (Error E = ELFTemp->keep(ELFTmpFileName)) {
+      handleErrorAsWarning(createFileError(ELFTmpFileName, std::move(E)));
+      return Buf;
+    }
+
+    // Write notes to the *elfnotes*.tmp file.
+    raw_fd_ostream NotesOS(NotesTemp->FD, false);
+
+    struct NoteTy {
+      // Note name is a null-terminated "LLVMOMPOFFLOAD".
+      std::string Name;
+      // Note type defined in llvm/include/llvm/BinaryFormat/ELF.h.
+      uint32_t Type = 0;
+      // Each note has type-specific associated data.
+      std::string Desc;
+
+      NoteTy(std::string &&Name, uint32_t Type, std::string &&Desc)
+          : Name(std::move(Name)), Type(Type), Desc(std::move(Desc)) {}
+    };
+
+    // So far we emit just three notes.
+    SmallVector<NoteTy, 3> Notes;
+    // Version of the offload image identifying the structure of the ELF image.
+    // Version 1.0 does not have any specific requirements.
+    // We may come up with some structure that has to be honored by all
+    // offload implementations in future (e.g. to let libomptarget
+    // get some information from the offload image).
+    Notes.emplace_back("LLVMOMPOFFLOAD", ELF::NT_LLVM_OPENMP_OFFLOAD_VERSION,
+                       OPENMP_OFFLOAD_IMAGE_VERSION);
+    // This is a producer identification string. We are LLVM!
+    Notes.emplace_back("LLVMOMPOFFLOAD", ELF::NT_LLVM_OPENMP_OFFLOAD_PRODUCER,
+                       "LLVM");
+    // This is a producer version. Use the same format that is used
+    // by clang to report the LLVM version.
+    Notes.emplace_back("LLVMOMPOFFLOAD",
+                       ELF::NT_LLVM_OPENMP_OFFLOAD_PRODUCER_VERSION,
+                       LLVM_VERSION_STRING
+#ifdef LLVM_REVISION
+                       " " LLVM_REVISION
+#endif
+    );
+
+    // Return the amount of padding required for a blob of N bytes
+    // to be aligned to Alignment bytes.
+    auto getPadAmount = [](uint32_t N, uint32_t Alignment) -> uint32_t {
+      uint32_t Mod = (N % Alignment);
+      if (Mod == 0)
+        return 0;
+      return Alignment - Mod;
+    };
+    auto emitPadding = [&getPadAmount](raw_ostream &OS, uint32_t Size) {
+      for (uint32_t I = 0; I < getPadAmount(Size, 4); ++I)
+        OS << '\0';
+    };
+
+    // Put notes into the file.
+    for (auto &N : Notes) {
+      assert(!N.Name.empty() && "We should not create notes with empty names.");
+      // Name must be null-terminated.
+      if (N.Name.back() != '\0')
+        N.Name += '\0';
+      uint32_t NameSz = N.Name.size();
+      uint32_t DescSz = N.Desc.size();
+      // A note starts with three 4-byte values:
+      //   NameSz
+      //   DescSz
+      //   Type
+      // These three fields are endian-sensitive.
+      support::endian::write<uint32_t>(NotesOS, NameSz, Endianness);
+      support::endian::write<uint32_t>(NotesOS, DescSz, Endianness);
+      support::endian::write<uint32_t>(NotesOS, N.Type, Endianness);
+      // Next, we have a null-terminated Name padded to a 4-byte boundary.
+      NotesOS << N.Name;
+      emitPadding(NotesOS, NameSz);
+      if (DescSz == 0)
+        continue;
+      // Finally, we have a descriptor, which is an arbitrary flow of bytes.
+      NotesOS << N.Desc;
+      emitPadding(NotesOS, DescSz);
+    }
+    NotesOS.flush();
+
+    // Keep the notes file.
+    std::string NotesTmpFileName = NotesTemp->TmpName;
+    if (Error E = NotesTemp->keep(NotesTmpFileName)) {
+      handleErrorAsWarning(createFileError(NotesTmpFileName, std::move(E)));
+      return Buf;
+    }
+
+    // Run llvm-objcopy like this:
+    //   llvm-objcopy --add-section=.note.openmp=<notes-tmp-file-name> \
+    //       <orig-file-name> <elf-tmp-file-name>
+    //
+    // This will add a SHT_NOTE section on top of the original ELF.
+    std::vector<StringRef> Args;
+    Args.push_back(ObjcopyPath);
+    std::string Option("--add-section=.note.openmp=" + NotesTmpFileName);
+    Args.push_back(Option);
+    Args.push_back(OriginalFileName);
+    Args.push_back(ELFTmpFileName);
+    bool ExecutionFailed = false;
+    std::string ErrMsg;
+    (void)sys::ExecuteAndWait(ObjcopyPath, Args,
+                              /*Env=*/llvm::None, /*Redirects=*/{},
+                              /*SecondsToWait=*/0,
+                              /*MemoryLimit=*/0, &ErrMsg, &ExecutionFailed);
+
+    if (ExecutionFailed) {
+      warningOS() << ErrMsg << "\n";
+      return Buf;
+    }
+
+    // Substitute the original ELF with new one.
+    ErrorOr<std::unique_ptr<MemoryBuffer>> BufOrErr =
+        MemoryBuffer::getFile(ELFTmpFileName);
+    if (!BufOrErr) {
+      handleErrorAsWarning(
+          createFileError(ELFTmpFileName, BufOrErr.getError()));
+      return Buf;
+    }
+
+    AutoGcBufs.emplace_back(std::move(*BufOrErr));
+    return AutoGcBufs.back().get();
+  }
+#endif // INTEL_COLLAB
 } // anonymous namespace
 
 int main(int argc, const char **argv) {
@@ -1377,8 +1694,11 @@ int main(int argc, const char **argv) {
 
   // Construct BinaryWrapper::Image instances based on command line args and
   // add them to the wrapper
-
+#if INTEL_COLLAB
+  BinaryWrapper Wr(Target, argv[0]);
+#else // INTEL_COLLAB
   BinaryWrapper Wr(Target);
+#endif // INTEL_COLLAB
   OffloadKind Knd = OffloadKind::Unknown;
   llvm::StringRef Tgt = "";
   BinaryImageFormat Fmt = BinaryImageFormat::none;
