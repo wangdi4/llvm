@@ -1210,7 +1210,7 @@ AliasResult BasicAAResult::aliasGEP(const AddressOperator *GEP1, // INTEL
   if (!V1Size.hasValue() && !V2Size.hasValue()) {
     // TODO: This limitation exists for compile-time reasons. Relax it if we
     // can avoid exponential pathological cases.
-    if (!isa<GEPOperator>(V2))
+    if (!isa<GEPOrSubsOperator>(V2)) // INTEL
       return MayAlias;
 
     // If both accesses have unknown size, we can only check whether the base
