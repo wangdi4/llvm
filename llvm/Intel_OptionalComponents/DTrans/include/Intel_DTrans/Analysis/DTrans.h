@@ -1358,6 +1358,83 @@ private:
   SmallVector<MemfuncRegion, 2> Regions;
 };
 
+// Container class for managing the mapping of Instructions to CallInfo objects.
+class CallInfoManager {
+public:
+  CallInfoManager() {}
+  ~CallInfoManager() { reset(); }
+
+  // This class owns pointers to CallInfo objects that will be destroyed when
+  // the destructor is run. Copying is not permitted, because that would lead
+  // to multiple instances holding the same pointer.
+  CallInfoManager(const CallInfoManager &) = delete;
+  CallInfoManager &operator=(const CallInfoManager &) = delete;
+
+  CallInfoManager(CallInfoManager &&) = default;
+  CallInfoManager &operator=(CallInfoManager &&) = default;
+
+  // Retrieve the CallInfo object for the instruction, if information exists.
+  // Otherwise, return nullptr.
+  dtrans::CallInfo *getCallInfo(const Instruction *I) const;
+
+  // Create an entry in the CallInfoMap about a memory allocation call.
+  dtrans::AllocCallInfo *createAllocCallInfo(Instruction *I,
+                                             dtrans::AllocKind AK);
+
+  // Create an entry in the CallInfoMap about a memory freeing call
+  dtrans::FreeCallInfo *createFreeCallInfo(Instruction *I, dtrans::FreeKind FK);
+
+  // Create an entry in the CallInfoMap about a memset call.
+  dtrans::MemfuncCallInfo *
+  createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+                        dtrans::MemfuncRegion &MR);
+
+  // Create an entry in the CallInfoMap about a memcpy/memmove call.
+  dtrans::MemfuncCallInfo *
+  createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+                        dtrans::MemfuncRegion &MR1, dtrans::MemfuncRegion &MR2);
+
+  // Destroy the CallInfo stored about the specific instruction.
+  void deleteCallInfo(Instruction *I);
+
+  // Update the instruction associated with the CallInfo object. This
+  // is necessary when a function is cloned during the DTrans optimizations to
+  // transfer the information to the newly created instruction of the cloned
+  // routine.
+  void replaceCallInfoInstruction(dtrans::CallInfo *Info, Instruction *NewI);
+
+  // Clear all the entries from the CallInfoMap.
+  void reset();
+
+  using CallInfoMapType = DenseMap<llvm::Instruction *, dtrans::CallInfo *>;
+
+  // Adaptor for directly iterating over the dtrans::CallInfo pointers.
+  struct call_info_iterator
+      : public iterator_adaptor_base<
+            call_info_iterator, CallInfoMapType::iterator,
+            std::forward_iterator_tag, CallInfoMapType::value_type> {
+    explicit call_info_iterator(CallInfoMapType::iterator X)
+        : iterator_adaptor_base(X) {}
+
+    dtrans::CallInfo *&operator*() const { return I->second; }
+    dtrans::CallInfo *&operator->() const { return operator*(); }
+  };
+
+  iterator_range<call_info_iterator> call_info_entries() {
+    return make_range(call_info_iterator(CallInfoMap.begin()),
+                      call_info_iterator(CallInfoMap.end()));
+  }
+
+private: // methods
+  void addCallInfo(llvm::Instruction *I, dtrans::CallInfo *Info);
+  void destructCallInfo(dtrans::CallInfo *Info);
+
+private: // data
+  // A mapping from function calls that special information is collected for
+  // (malloc, free, memset, etc) to the information stored about those calls.
+  CallInfoMapType CallInfoMap;
+};
+
 // Get the printable name for a SafetyData bit. The \p SafetyInfo value input to
 // this function may only have a single non-zero bit set.
 const char* getSafetyDataName(const SafetyData &SafetyInfo);
