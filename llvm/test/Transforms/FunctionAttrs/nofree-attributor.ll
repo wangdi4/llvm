@@ -1,4 +1,7 @@
-; RUN: opt -function-attrs --disable-nofree-inference=false -S < %s | FileCheck %s --check-prefix=FNATTR
+; INTEL_CUSTOMIZATION
+; CMPLRLLVM-27441: Force opt use new pass manager on this test (-enable-new-pm)
+; RUN: opt -enable-new-pm -function-attrs --disable-nofree-inference=false -S < %s | FileCheck %s --check-prefix=FNATTR
+; END INTEL_CUSTOMIZATION
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
