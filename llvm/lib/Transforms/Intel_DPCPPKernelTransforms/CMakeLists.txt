@@ -49,5 +49,9 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
 
 # llvm_component_libraries are OBJECT libraries, so target_include_directories
 # should be applied to obj.NAME instead. See https://reviews.llvm.org/D95727
+# FIXME: There is no corresponding argument in add_llvm_component_library with
+# the same semantic as target_include_directories. It's not typical to include
+# additional directories the way below. This require some redesign for headers
+# layout.
 target_include_directories(obj.LLVMIntel_DPCPPKernelTransforms
   PRIVATE ${LLVM_MAIN_SRC_DIR}/lib/Transforms/Intel_DPCPPKernelTransforms/Utils)

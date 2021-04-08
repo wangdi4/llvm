@@ -45,6 +45,10 @@ add_llvm_component_library(LLVMIntel_LoopAnalysis
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis/Intel_LoopAnalysis
 
+  DEPENDS
+  intrinsics_gen
+  directives_gen
+
   LINK_COMPONENTS
   Analysis
   Core
@@ -55,7 +59,6 @@ add_llvm_component_library(LLVMIntel_LoopAnalysis
   TransformUtils
   )
 
-add_dependencies(LLVMIntel_LoopAnalysis intrinsics_gen directives_gen)
 add_subdirectory(OptReport)
 
 if(INTEL_INCLUDE_DTRANS)
