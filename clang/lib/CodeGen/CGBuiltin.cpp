@@ -20075,6 +20075,63 @@ Value *CodeGenFunction::EmitRISCVBuiltinExpr(unsigned BuiltinID,
   llvm::SmallVector<llvm::Type *, 2> IntrinsicTypes;
   switch (BuiltinID) {
 #include "clang/Basic/riscv_vector_builtin_cg.inc"
+
+  // Zbb
+  case RISCV::BI__builtin_riscv_orc_b_32:
+  case RISCV::BI__builtin_riscv_orc_b_64:
+    ID = Intrinsic::riscv_orc_b;
+    IntrinsicTypes = {ResultType};
+    break;
+
+  // Zbc
+  case RISCV::BI__builtin_riscv_clmul:
+    ID = Intrinsic::riscv_clmul;
+    IntrinsicTypes = {ResultType};
+    break;
+  case RISCV::BI__builtin_riscv_clmulh:
+    ID = Intrinsic::riscv_clmulh;
+    IntrinsicTypes = {ResultType};
+    break;
+  case RISCV::BI__builtin_riscv_clmulr:
+    ID = Intrinsic::riscv_clmulr;
+    IntrinsicTypes = {ResultType};
+    break;
+
+  // Zbr
+  case RISCV::BI__builtin_riscv_crc32_b:
+    ID = Intrinsic::riscv_crc32_b;
+    IntrinsicTypes = {ResultType};
+    break;
+  case RISCV::BI__builtin_riscv_crc32_h:
+    ID = Intrinsic::riscv_crc32_h;
+    IntrinsicTypes = {ResultType};
+    break;
+  case RISCV::BI__builtin_riscv_crc32_w:
+    ID = Intrinsic::riscv_crc32_w;
+    IntrinsicTypes = {ResultType};
+    break;
+  case RISCV::BI__builtin_riscv_crc32_d:
+    ID = Intrinsic::riscv_crc32_d;
+    IntrinsicTypes = {ResultType};
+    break;
+  case RISCV::BI__builtin_riscv_crc32c_b:
+    ID = Intrinsic::riscv_crc32c_b;
+    IntrinsicTypes = {ResultType};
+    break;
+  case RISCV::BI__builtin_riscv_crc32c_h:
+    ID = Intrinsic::riscv_crc32c_h;
+    IntrinsicTypes = {ResultType};
+    break;
+  case RISCV::BI__builtin_riscv_crc32c_w:
+    ID = Intrinsic::riscv_crc32c_w;
+    IntrinsicTypes = {ResultType};
+    break;
+  case RISCV::BI__builtin_riscv_crc32c_d:
+    ID = Intrinsic::riscv_crc32c_d;
+    IntrinsicTypes = {ResultType};
+    break;
+  default:
+    llvm_unreachable("unexpected builtin ID");
   }
 
   assert(ID != Intrinsic::not_intrinsic);
