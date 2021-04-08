@@ -3486,8 +3486,6 @@ static int32_t runTargetTeamRegion(
       event = DeviceInfo->ProfileEvents.getEvent();
     CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, cmdList, kernel,
                      &groupCounts, event, 0, nullptr);
-    CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
-
     CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
     CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
                      nullptr);
