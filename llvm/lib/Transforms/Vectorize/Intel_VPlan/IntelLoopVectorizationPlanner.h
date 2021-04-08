@@ -58,6 +58,7 @@ extern bool PrintSVAResults;
 extern bool PrintAfterCallVecDecisions;
 extern bool LoopMassagingEnabled;
 extern bool EnableSOAAnalysis;
+extern bool EnableNewCFGMerge;
 
 /// Auxiliary class to keep vectorization scenario for a single loop
 /// vectorization. It describes which variants of the loops are selected for
@@ -207,6 +208,7 @@ inline raw_ostream &operator<<(raw_ostream &OS,
 // After selection of vectorization scenario, the list of the desriptors
 // is created and CFGMerger is run on that list, creating merged CFG.
 class CfgMergerPlanDescr {
+public:
   enum LoopType {
     LTRemainder,
     LTMain,
@@ -215,9 +217,16 @@ class CfgMergerPlanDescr {
   CfgMergerPlanDescr(LoopType LT, unsigned F, VPlan *P)
       : Type(LT), VF(F), Plan(P) {}
 
-  LoopType Type;
-  unsigned VF; // vector factor
-  VPlan *Plan; // VPlan
+
+  VPlan *getVPlan() const { return Plan; }
+  unsigned getVF() const { return VF; }
+
+  LoopType getLoopType() const { return Type; }
+
+private:
+  LoopType Type; // Loop-type.
+  unsigned VF;   // vector factor
+  VPlan *Plan;   // VPlan
 
   // Basic blocks used during merge
   VPBasicBlock *AdapterBB = nullptr;
@@ -378,6 +387,11 @@ public:
   VPlan *addAuxiliaryVPlan(VPlan &Plan) {
     AuxVPlans.push_back(std::unique_ptr<VPlan>(&Plan));
     return AuxVPlans.back().get();
+  }
+
+  // Return the list-range of VPlans created by the merger to the clients.
+  inline decltype(auto) mergerVPlans() const {
+    return make_range(MergerVPlans.begin(), MergerVPlans.end());
   }
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
