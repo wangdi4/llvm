@@ -1268,9 +1268,16 @@ StandardInstrumentations::StandardInstrumentations(bool DebugLogging,
                                                    bool VerifyEach)
     : PrintPass(DebugLogging), OptNone(DebugLogging),
 #if INTEL_CUSTOMIZATION
+    // The Intel customization here is only to exclude the IR printing
+    // in release builds. The upstream code in the "!defined(NDEBUG)"
+    // block should be accepted when it changes.
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      PrintChangedIR(PrintChanged != ChangePrinter::PrintChangedQuiet),
-      PrintChangedDiff(PrintChanged != ChangePrinter::PrintChangedDiffQuiet, false),
+      PrintChangedIR(PrintChanged == ChangePrinter::PrintChangedVerbose),
+      PrintChangedDiff(
+          PrintChanged == ChangePrinter::PrintChangedDiffVerbose ||
+              PrintChanged == ChangePrinter::PrintChangedColourDiffVerbose,
+          PrintChanged == ChangePrinter::PrintChangedColourDiffVerbose ||
+              PrintChanged == ChangePrinter::PrintChangedColourDiffQuiet),
 #else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       PrintChangedIR(false),
       PrintChangedDiff(false, false),
