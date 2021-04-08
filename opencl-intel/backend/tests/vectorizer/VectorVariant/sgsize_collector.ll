@@ -1,7 +1,7 @@
-; RUN: %oclopt %s -ocl-vector-variant-isa-encoding-override=AVX512Core -enable-direct-function-call-vectorization -sg-size-collector -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt %s -ocl-vector-variant-isa-encoding-override=AVX512Core -enable-direct-function-call-vectorization -sg-size-collector -S | FileCheck %s
-; RUN: %oclopt %s -ocl-vector-variant-isa-encoding-override=AVX512Core -sg-size-collector -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt %s -ocl-vector-variant-isa-encoding-override=AVX512Core -sg-size-collector -S | FileCheck %s -check-prefix CHECK-NO-FLAG
+; RUN: %oclopt %s -ocl-vector-variant-isa-encoding-override=AVX512Core -enable-direct-function-call-vectorization=true -sg-size-collector -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt %s -ocl-vector-variant-isa-encoding-override=AVX512Core -enable-direct-function-call-vectorization=true -sg-size-collector -S | FileCheck %s
+; RUN: %oclopt %s -ocl-vector-variant-isa-encoding-override=AVX512Core -enable-direct-function-call-vectorization=false -sg-size-collector -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt %s -ocl-vector-variant-isa-encoding-override=AVX512Core -enable-direct-function-call-vectorization=false -sg-size-collector -S | FileCheck %s -check-prefix CHECK-NO-FLAG
 
 define void @bar() #0 {
 ; CHECK: define void @bar() #[[ATTR0:[0-9]+]] {

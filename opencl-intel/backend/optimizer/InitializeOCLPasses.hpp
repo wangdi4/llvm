@@ -127,5 +127,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeAddFastMathPass(Registry);
     intel::initializeVectorKernelDiscardPass(Registry);
     intel::initializeReduceCrossBarrierValuesPass(Registry);
+    intel::initializeOCLVPOCheckVFPass(Registry);
 }
 #endif //INITIALIZE_OCL_PASSES_H
