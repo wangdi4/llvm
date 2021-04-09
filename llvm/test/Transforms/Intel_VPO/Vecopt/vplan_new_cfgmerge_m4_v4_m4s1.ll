@@ -10,48 +10,73 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-LABEL:  Single loop scenario:
 ; CHECK-NEXT:   MainLoop: unmasked, VF=4
-; CHECK-NEXT:   PeelLoop: scalar
+; CHECK-NEXT:   PeelLoop: masked, VF=4
 ; CHECK-NEXT:   Remainders: scalar,masked, VF=4,
-; CHECK-NEXT:  VPlan after creation during merge:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body.ScalarPeel
-; CHECK-NEXT:    [[PEELBLK0:PeelBlk[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-peel for.body, LiveInMap:
-; CHECK-NEXT:         {label [[FOR_END0:%.*]] in {  br i1 [[CMP0:%.*]], label [[FOR_BODY0:%.*]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB0:BB[0-9]+]] }
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0:%.*]] = add nuw nsw i64 [[INDVARS_IV0:%.*]], 1
-; CHECK-NEXT:     [DA: Uni] br [[BB0]]
+; CHECK-NEXT:  VPlan after adding existing one during merge:
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.cloned.masked
+; CHECK-NEXT:    Cloned.[[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB0]]: # preds: [[PEELBLK0]]
+; CHECK-NEXT:    Cloned.[[BB1]]: # preds: Cloned.[[BB0]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = induction-init{add} i64 live-in0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP1:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP2:%.*]] = vector-trip-count i64 1024, UF = 1
+; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB2:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    Cloned.[[BB2]]: # preds: Cloned.[[BB1]], new_latch
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP0]], Cloned.[[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], new_latch ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP:%.*]] = icmp ult i64 [[VP_INDVARS_IV]] i64 [[VP2]]
+; CHECK-NEXT:     [DA: Uni] br [[BB3:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]: # preds: Cloned.[[BB2]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_CMP]]
+; CHECK-NEXT:     [DA: Div] i64* [[VP_PTR:%.*]] = getelementptr inbounds i64* [[ARY0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_CC:%.*]] = sext i32 [[C0:%.*]] to i64
+; CHECK-NEXT:     [DA: Div] i64 [[VP_ADD:%.*]] = add i64 [[VP_CC]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] store i64 [[VP_ADD]] i64* [[VP_PTR]]
+; CHECK-NEXT:     [DA: Uni] br new_latch
+; CHECK-EMPTY:
+; CHECK-NEXT:    new_latch: # preds: [[BB3]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP_1:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP2]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_CMP_1]], Cloned.[[BB2]], Cloned.[[BB4:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    Cloned.[[BB4]]: # preds: new_latch
+; CHECK-NEXT:     [DA: Uni] i64 [[VP4:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB5:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    Cloned.[[BB5]]: # preds: Cloned.[[BB4]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_ORIG_LIVEOUT]]
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlan after adding existing one during merge:
 ; CHECK-NEXT:  VPlan IR for: test_store:for.body
-; CHECK-NEXT:    [[BB1:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
+; CHECK-NEXT:    [[BB6:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB7:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
+; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
 ; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1 (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB3:BB[0-9]+]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB8:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]], [[BB3]]
-; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_PTR:%.*]] = getelementptr inbounds i64* [[ARY0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_CC:%.*]] = sext i32 [[C0:%.*]] to i64 (SVAOpBits 0->F )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_ADD:%.*]] = add i64 [[VP_CC]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->V 1->V )
-; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_ADD]] i64* [[VP_PTR]] (SVAOpBits 0->V 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_CMP:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_CMP]], [[BB3]], [[BB4:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
+; CHECK-NEXT:    [[BB8]]: # preds: [[BB7]], [[BB8]]
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_1:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB7]] ],  [ i64 [[VP_INDVARS_IV_NEXT_1:%.*]], [[BB8]] ] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] i64* [[VP_PTR_1:%.*]] = getelementptr inbounds i64* [[ARY0]] i64 [[VP_INDVARS_IV_1]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_CC_1:%.*]] = sext i32 [[C0]] to i64 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_ADD_1:%.*]] = add i64 [[VP_CC_1]] i64 [[VP_INDVARS_IV_1]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i64 [[VP_ADD_1]] i64* [[VP_PTR_1]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT_1]] = add i64 [[VP_INDVARS_IV_1]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_CMP_2:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_CMP_2]], [[BB8]], [[BB9:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:    [[BB9]]: # preds: [[BB8]]
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1 (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB10:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
+; CHECK-NEXT:    [[BB10]]: # preds: [[BB9]]
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
@@ -60,66 +85,66 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  VPlan after creation during merge:
 ; CHECK-NEXT:  VPlan IR for: test_store:for.body.ScalarRemainder
 ; CHECK-NEXT:    [[REMBLK0:RemBlk[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP_1:%.*]] = scalar-remainder for.body, LiveInMap:
-; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[INDVARS_IV_NEXT0]], [[FOR_BODY0]] ]} -> i64 live-in0 }
-; CHECK-NEXT:         {label [[FOR_END0]] in {  br i1 [[CMP0]], label [[FOR_BODY0]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB6:BB[0-9]+]] }
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_LIVEOUT_1:%.*]] = orig-live-out token [[VP_ORIG_LOOP_1]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
-; CHECK-NEXT:     [DA: Uni] br [[BB6]]
+; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder for.body, LiveInMap:
+; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0:%.*]] ]} -> i64 live-in0 }
+; CHECK-NEXT:         {label [[FOR_END0:%.*]] in {  br i1 [[CMP0:%.*]], label [[FOR_BODY0]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB11:BB[0-9]+]] }
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
+; CHECK-NEXT:     [DA: Uni] br [[BB11]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]: # preds: [[REMBLK0]]
+; CHECK-NEXT:    [[BB11]]: # preds: [[REMBLK0]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_ORIG_LIVEOUT_1]]
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_ORIG_LIVEOUT]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlan after adding existing one during merge:
-; CHECK-NEXT:  VPlan IR for: test_store:for.body.cloned.masked
-; CHECK-NEXT:    Cloned.[[BB7:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB8:BB[0-9]+]]
+; CHECK-NEXT:  VPlan after creation during merge:
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.cloned.masked.cloned
+; CHECK-NEXT:    Cloned.Cloned.[[BB12:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni] br Cloned.Cloned.[[BB13:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB8]]: # preds: Cloned.[[BB7]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = induction-init{add} i64 live-in0 i64 1
-; CHECK-NEXT:     [DA: Uni] i64 [[VP1:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     [DA: Uni] i64 [[VP2:%.*]] = vector-trip-count i64 1024, UF = 1
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB9:BB[0-9]+]]
+; CHECK-NEXT:    Cloned.Cloned.[[BB13]]: # preds: Cloned.Cloned.[[BB12]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP5:%.*]] = induction-init{add} i64 live-in0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP6:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP7:%.*]] = vector-trip-count i64 1024, UF = 1
+; CHECK-NEXT:     [DA: Uni] br Cloned.Cloned.[[BB14:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB9]]: # preds: Cloned.[[BB8]], new_latch
-; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_1:%.*]] = phi  [ i64 [[VP0]], Cloned.[[BB8]] ],  [ i64 [[VP_INDVARS_IV_NEXT_1:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP_1:%.*]] = icmp ult i64 [[VP_INDVARS_IV_1]] i64 [[VP2]]
-; CHECK-NEXT:     [DA: Uni] br [[BB10:BB[0-9]+]]
+; CHECK-NEXT:    Cloned.Cloned.[[BB14]]: # preds: Cloned.Cloned.[[BB13]], Cloned.new_latch19
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_2:%.*]] = phi  [ i64 [[VP5]], Cloned.Cloned.[[BB13]] ],  [ i64 [[VP_INDVARS_IV_NEXT_2:%.*]], Cloned.new_latch19 ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP_3:%.*]] = icmp ult i64 [[VP_INDVARS_IV_2]] i64 [[VP7]]
+; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB15:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB10]]: # preds: Cloned.[[BB9]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_CMP_1]]
-; CHECK-NEXT:     [DA: Div] i64* [[VP_PTR_1:%.*]] = getelementptr inbounds i64* [[ARY0]] i64 [[VP_INDVARS_IV_1]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_CC_1:%.*]] = sext i32 [[C0]] to i64
-; CHECK-NEXT:     [DA: Div] i64 [[VP_ADD_1:%.*]] = add i64 [[VP_CC_1]] i64 [[VP_INDVARS_IV_1]]
-; CHECK-NEXT:     [DA: Div] store i64 [[VP_ADD_1]] i64* [[VP_PTR_1]]
-; CHECK-NEXT:     [DA: Uni] br new_latch
+; CHECK-NEXT:    Cloned.[[BB15]]: # preds: Cloned.Cloned.[[BB14]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP8:%.*]] = block-predicate i1 [[VP_CMP_3]]
+; CHECK-NEXT:     [DA: Div] i64* [[VP_PTR_2:%.*]] = getelementptr inbounds i64* [[ARY0]] i64 [[VP_INDVARS_IV_2]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_CC_2:%.*]] = sext i32 [[C0]] to i64
+; CHECK-NEXT:     [DA: Div] i64 [[VP_ADD_2:%.*]] = add i64 [[VP_CC_2]] i64 [[VP_INDVARS_IV_2]]
+; CHECK-NEXT:     [DA: Div] store i64 [[VP_ADD_2]] i64* [[VP_PTR_2]]
+; CHECK-NEXT:     [DA: Uni] br Cloned.new_latch19
 ; CHECK-EMPTY:
-; CHECK-NEXT:    new_latch: # preds: [[BB10]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1]] = add i64 [[VP_INDVARS_IV_1]] i64 [[VP1]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP_2:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP2]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_CMP_2]], Cloned.[[BB9]], Cloned.[[BB11:BB[0-9]+]]
+; CHECK-NEXT:    Cloned.new_latch19: # preds: Cloned.[[BB15]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_2]] = add i64 [[VP_INDVARS_IV_2]] i64 [[VP6]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP_4:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP7]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_CMP_4]], Cloned.Cloned.[[BB14]], Cloned.Cloned.[[BB16:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB11]]: # preds: new_latch
-; CHECK-NEXT:     [DA: Uni] i64 [[VP4:%.*]] = induction-final{add} i64 live-in0 i64 1
-; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB12:BB[0-9]+]]
+; CHECK-NEXT:    Cloned.Cloned.[[BB16]]: # preds: Cloned.new_latch19
+; CHECK-NEXT:     [DA: Uni] i64 [[VP9:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:     [DA: Uni] br Cloned.Cloned.[[BB17:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    Cloned.[[BB12]]: # preds: Cloned.[[BB11]]
+; CHECK-NEXT:    Cloned.Cloned.[[BB17]]: # preds: Cloned.Cloned.[[BB16]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP4]]
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  List of VPlans added for merging:
 ; CHECK-NEXT:  VPlan: test_store:for.body.ScalarRemainder
 ; CHECK-NEXT:    Kind: remainder VF:1
-; CHECK-NEXT:  VPlan: test_store:for.body.cloned.masked
+; CHECK-NEXT:  VPlan: test_store:for.body.cloned.masked.cloned
 ; CHECK-NEXT:    Kind: remainder VF:4
 ; CHECK-NEXT:  VPlan: test_store:for.body
 ; CHECK-NEXT:    Kind: main VF:4
-; CHECK-NEXT:  VPlan: test_store:for.body.ScalarPeel
-; CHECK-NEXT:    Kind: peel VF:1
+; CHECK-NEXT:  VPlan: test_store:for.body.cloned.masked
+; CHECK-NEXT:    Kind: peel VF:4
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
