@@ -15,14 +15,14 @@
 #ifndef __TYPE_ALIGNMRENT_H__
 #define __TYPE_ALIGNMRENT_H__
 
-#include "cl_kernel_arg_type.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/KernelArgType.h"
 #include "common_dev_limits.h"
 #include <cstring>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   /// @brief  TypeAlignment class used to provide alignment and size information
-  ///         for cl_kernel_argument and general alignment utilities 
+  ///         for KernelArgument and general alignment utilities 
   ///         (aligning offsets and pointers)
   class TypeAlignment
   {
@@ -31,12 +31,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Returns the size of the given argument
     /// @param arg         The argument for which to return its size
     /// @returns The size of the given argument
-    static size_t getSize(const cl_kernel_argument& arg);
+    static size_t getSize(const KernelArgument& arg);
     
     /// @brief Returns the alignment of the given argument
     /// @param arg         The argument for which to return its alignment
     /// @returns The alignment of the given argument
-    static size_t getAlignment(const cl_kernel_argument& arg);
+    static size_t getAlignment(const KernelArgument& arg);
     
     /// @brief Returns offest aligned based on the given alignment
     /// @param alignment    The alignment

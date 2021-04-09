@@ -76,7 +76,7 @@ namespace OpenCL {
 namespace DeviceBackend {
 
 Kernel::Kernel(const std::string &name,
-               const std::vector<cl_kernel_argument> &args,
+               const std::vector<KernelArgument> &args,
                const std::vector<unsigned int> &memArgs,
                KernelProperties *pProps)
     : m_name(name), m_CSRMask(0), m_CSRFlags(0), m_explicitArgs(args),
@@ -88,9 +88,9 @@ Kernel::Kernel(const std::string &name,
     // offset of the last argument in the buffer + argumentSize
     // and adjust each argument at least to size_t alignment
     // because of the implicit arguments
-    const cl_kernel_argument &lastArg = m_explicitArgs.back();
+    const KernelArgument &lastArg = m_explicitArgs.back();
     m_explicitArgsSizeInBytes = ImplicitArgsUtils::getAdjustedAlignment(
-        lastArg.offset_in_bytes + TypeAlignment::getSize(lastArg),
+        lastArg.OffsetInBytes + TypeAlignment::getSize(lastArg),
         sizeof(size_t));
   } else {
     m_explicitArgsSizeInBytes = 0;
@@ -374,7 +374,7 @@ const char *Kernel::GetKernelName() const { return m_name.c_str(); }
 
 int Kernel::GetKernelParamsCount() const { return m_explicitArgs.size(); }
 
-const cl_kernel_argument *Kernel::GetKernelParams() const {
+const KernelArgument *Kernel::GetKernelParams() const {
   return m_explicitArgs.empty() ? nullptr : &m_explicitArgs[0];
 }
 
@@ -415,7 +415,7 @@ const unsigned int *Kernel::GetMemoryObjectArgumentIndexes() const {
   return m_memArgs.empty() ? nullptr : &m_memArgs[0];
 }
 
-const std::vector<cl_kernel_argument> *Kernel::GetKernelParamsVector() const {
+const std::vector<KernelArgument> *Kernel::GetKernelParamsVector() const {
   return &m_explicitArgs;
 }
 
@@ -500,9 +500,9 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
   size_t privateSize = m_pProps->GetPrivateMemorySize();
   size_t localBufferSize = m_pProps->GetImplicitLocalMemoryBufferSize();
   for (auto &arg : m_explicitArgs) {
-    if (arg.type == CL_KRNL_ARG_PTR_LOCAL) {
-      char* pArgLocation = (char*)pKernelUniformArgs + arg.offset_in_bytes;
-      switch (arg.size_in_bytes) {
+    if (arg.Ty == KRNL_ARG_PTR_LOCAL) {
+      char* pArgLocation = (char*)pKernelUniformArgs + arg.OffsetInBytes;
+      switch (arg.SizeInBytes) {
         case sizeof(cl_uint):
           localBufferSize += *((cl_uint*)pArgLocation);
           break;
@@ -816,7 +816,7 @@ void Kernel::Serialize(IOutputStream& ost, SerializationStatus* stats) const
   unsigned int vectorSize = m_explicitArgs.size();
   Serializer::SerialPrimitive<unsigned int>(&vectorSize, ost);
   for (size_t i = 0; i < vectorSize; ++i) {
-    Serializer::SerialPrimitive<cl_kernel_argument>(&m_explicitArgs[i], ost);
+    Serializer::SerialPrimitive<KernelArgument>(&m_explicitArgs[i], ost);
   }
 
   // Serialize explicit argument buffer size
@@ -867,7 +867,7 @@ void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats, size_t m
   Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
   m_explicitArgs.resize(vectorSize);
   for (size_t i = 0; i < vectorSize; ++i) {
-    Serializer::DeserialPrimitive<cl_kernel_argument>(&m_explicitArgs[i], ist);
+    Serializer::DeserialPrimitive<KernelArgument>(&m_explicitArgs[i], ist);
   }
 
   // Deserial explicit argument buffer size

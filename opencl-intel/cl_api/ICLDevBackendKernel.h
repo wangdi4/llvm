@@ -318,7 +318,7 @@ public:
      *  In success will return the kernel arguments descriptor; otherwise, NULL
      *  value will be returned
      */
-    virtual const cl_kernel_argument* GetKernelParams() const = 0;
+    virtual const KernelArgument* GetKernelParams() const = 0;
 
     /**
      * Gets the kernel parameters extended information

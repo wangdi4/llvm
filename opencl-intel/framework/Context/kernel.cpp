@@ -135,13 +135,13 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
         return;
     }
 
-    size_t argsCount = argsSize / sizeof(cl_kernel_argument);
+    size_t argsCount = argsSize / sizeof(KernelArgument);
     assert(argsCount  <= CL_MAX_UINT32 && "Number or arguments is to high");
     if ( argsCount > 0)
     {
         m_sKernelPrototype.m_vArguments.resize(argsCount);
         clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_PROTOTYPE, 0, nullptr,
-                                                                    argsCount*sizeof(cl_kernel_argument), &(m_sKernelPrototype.m_vArguments[0]), nullptr);
+                                                                    argsCount*sizeof(KernelArgument), &(m_sKernelPrototype.m_vArguments[0]), nullptr);
         if (CL_DEV_FAILED(clErrRet))
         {
             LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"), pKernelName, clErrRet);
@@ -273,8 +273,8 @@ bool DeviceKernel::CheckKernelDefinition(const DeviceKernel * pKernel) const
     }
     for (size_t ui=0; ui<m_sKernelPrototype.m_vArguments.size(); ++ui)
     {
-        if ((sKernelPrototype.m_vArguments[ui].type != m_sKernelPrototype.m_vArguments[ui].type) ||
-            (sKernelPrototype.m_vArguments[ui].size_in_bytes != m_sKernelPrototype.m_vArguments[ui].size_in_bytes))
+        if ((sKernelPrototype.m_vArguments[ui].Ty != m_sKernelPrototype.m_vArguments[ui].Ty) ||
+            (sKernelPrototype.m_vArguments[ui].SizeInBytes != m_sKernelPrototype.m_vArguments[ui].SizeInBytes))
         {
             return false;
         }
@@ -289,19 +289,19 @@ bool DeviceKernel::CheckKernelDefinition(const DeviceKernel * pKernel) const
 //  KernelArg class
 //
 //////////////////////////////////////////////////////////////////////////////////////////////////
-void KernelArg::Init( char* baseAddress, const cl_kernel_argument& clKernelArgType )
+void KernelArg::Init( char* baseAddress, const KernelArgument& clKernelArgType )
 {
-    m_pValueLocation        = baseAddress + clKernelArgType.offset_in_bytes;
+    m_pValueLocation        = baseAddress + clKernelArgType.OffsetInBytes;
     m_bValid                = false;
     m_clKernelArgType       = clKernelArgType;
 
     // Correct complex sizes
-    const cl_uint size = m_clKernelArgType.size_in_bytes;
+    const cl_uint size = m_clKernelArgType.SizeInBytes;
     assert( 0 != size && "argument size can't be 0");
     const cl_uint mswSize = (size >> 16) & 0xFFFF;
     if ( 0 != mswSize )
     {
-        m_clKernelArgType.size_in_bytes = mswSize * (size & 0xFFFF);
+        m_clKernelArgType.SizeInBytes = mswSize * (size & 0xFFFF);
     }
 }
 
@@ -310,7 +310,7 @@ void KernelArg::SetValuePlaceHolder(void *pValuePlaceHolder,
   assert(NULL != pValuePlaceHolder && "Invalid placeholder was provided");
   m_pValueLocation = pValuePlaceHolder;
 
-  if (CL_KRNL_ARG_PTR_LOCAL == m_clKernelArgType.type) {
+  if (KRNL_ARG_PTR_LOCAL == m_clKernelArgType.Ty) {
     // Initial local pointer sizes with 0
     *(size_t *)pValuePlaceHolder = 0;
   }
@@ -1067,14 +1067,14 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize,
             return CL_INVALID_ARG_VALUE;
         }
 
-        cl_kernel_arg_type clArgType     = clArg.GetType(); 
+        KernelArgumentType clArgType     = clArg.GetType();
 
         // Depth channel is only used for 2D image.
         bool is_2dimage =
-          clArgType == CL_KRNL_ARG_PTR_IMG_2D_DEPTH ||
-          clArgType == CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH ||
-          clArgType == CL_KRNL_ARG_PTR_IMG_2D ||
-          clArgType == CL_KRNL_ARG_PTR_IMG_2D_ARR;
+          clArgType == KRNL_ARG_PTR_IMG_2D_DEPTH ||
+          clArgType == KRNL_ARG_PTR_IMG_2D_ARR_DEPTH ||
+          clArgType == KRNL_ARG_PTR_IMG_2D ||
+          clArgType == KRNL_ARG_PTR_IMG_2D_ARR;
         if (!is_2dimage && (imgFormat.image_channel_order == CL_DEPTH))
         {
             return CL_INVALID_ARG_VALUE;

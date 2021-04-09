@@ -226,15 +226,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param pModule the module to search kernel wrapper function inside
     static void getAllKernelWrappers(FunctionSet &functionSet, Module *pModule);
 
-    /// @brief  fills a vector of cl_kernel_argument with arguments representing pFunc's
+    /// @brief  fills a vector of KernelArgument with arguments representing pFunc's
     ///         OpenCL level arguments
     /// @param pModule    The module
     /// @param pFunc      The kernel for which to create argument vector
-    /// @param arguments  OUT param, the cl_kernel_argument which represent pFunc's
+    /// @param arguments  OUT param, the KernelArgument which represent pFunc's
     ///                   OpenCL level argument
     static void
     parseKernelArguments(Module *pModule, Function *pFunc, bool useTLSGlobals,
-                         std::vector<cl_kernel_argument> & /* OUT */ arguments,
+                         std::vector<KernelArgument> & /* OUT */ arguments,
                          std::vector<unsigned int> & /* OUT */ memoryArguments);
 
     /// @brief Returns a vector of cl_kernel_argument_info with arguments

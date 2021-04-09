@@ -28,7 +28,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Constructor
     /// @param pValue           Implict argument's value destination pointer
     /// @param arg              OpenCL argument
-    ExplicitGlobalMemArgument(char* pValue, const cl_kernel_argument& arg)
+    ExplicitGlobalMemArgument(char* pValue, const KernelArgument& arg)
     : ExplicitArgument(pValue, arg) { }
     
     /// @brief Overriding implementation

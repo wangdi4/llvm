@@ -46,7 +46,7 @@ CPUKernel::CPUKernel():
     { }
 
 CPUKernel::CPUKernel(const std::string& name,
-    const std::vector<cl_kernel_argument>& args,
+    const std::vector<KernelArgument>& args,
     const std::vector<unsigned int>& memArgs,
     KernelProperties* pProps) :
     Kernel(name, args, memArgs, pProps)

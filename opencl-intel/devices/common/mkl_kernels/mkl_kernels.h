@@ -49,17 +49,17 @@ DEFINE_TYPE_STRING(CBLAS_TRANSPOSE)
 
 // C type to OpenCL kernel argment type conversion
 template<typename>
-    struct cl_kernel_arg_type_of
+    struct KernelArgumentType_of
     {
-        static cl_kernel_arg_type get_type();
+        static KernelArgumentType get_type();
     };
-template<> struct cl_kernel_arg_type_of<float>
+template<> struct KernelArgumentType_of<float>
     {
-        static cl_kernel_arg_type get_type() {return CL_KRNL_ARG_FLOAT;}
+        static KernelArgumentType get_type() {return KRNL_ARG_FLOAT;}
     };
-template<> struct cl_kernel_arg_type_of<double>
+template<> struct KernelArgumentType_of<double>
     {
-        static cl_kernel_arg_type get_type() {return CL_KRNL_ARG_DOUBLE;}
+        static KernelArgumentType get_type() {return KRNL_ARG_DOUBLE;}
     };
 
 class MKLParamDescriptor
@@ -84,10 +84,10 @@ public:
         }
 
         cl_kernel_argument_info& GetArgumentInfoDescriptor() {return m_ArgInfoDesc;}
-        cl_kernel_argument& GetArgumentDescriptor() {return m_ArgDesc;}
+        KernelArgument& GetArgumentDescriptor() {return m_ArgDesc;}
 
     protected:
-        cl_kernel_argument      m_ArgDesc;
+        KernelArgument      m_ArgDesc;
         cl_kernel_argument_info m_ArgInfoDesc;
 
         std::string             m_szArgName;
@@ -101,16 +101,16 @@ public:
         MKLParam(const char* szArgName, const char* szArgTypeName,
             cl_kernel_arg_access_qualifier    accsQual,
             cl_kernel_arg_type_qualifier    typeQual,
-            cl_kernel_arg_type argType,
+            KernelArgumentType argType,
             MKLParamDescriptor* parent) :
             MKLParamBase(szArgName, szArgTypeName, OpenCL::BuiltInKernels::ArgType2AddrQual(argType), accsQual, typeQual), m_pParent(parent)
         {
-            m_ArgDesc.offset_in_bytes = parent->m_Offset;
+            m_ArgDesc.OffsetInBytes = parent->m_Offset;
             parent->m_Offset += sizeof(paramType);
-            m_ArgDesc.size_in_bytes = sizeof(paramType);
+            m_ArgDesc.SizeInBytes = sizeof(paramType);
             m_ArgDesc.type = argType;
             parent->m_lstParams.push_back(this);
-            if ( (argType >= CL_KRNL_ARG_PTR_GLOBAL) && (argType <= CL_KRNL_ARG_PTR_CONST) )
+            if ( (argType >= KRNL_ARG_PTR_GLOBAL) && (argType <= KRNL_ARG_PTR_CONST) )
             {
                 // Currently only GLOBAL and CONSTANT buffers are supported
                 unsigned int pramInx = parent->m_lstParams.size();
@@ -120,7 +120,7 @@ public:
 
         paramType GetValue(const void* paramBuffer) const
         {
-            return *((paramType*)(((char*)paramBuffer)+m_ArgDesc.offset_in_bytes));
+            return *((paramType*)(((char*)paramBuffer)+m_ArgDesc.OffsetInBytes));
         }
 
         MKLParamDescriptor*    m_pParent;
@@ -189,10 +189,10 @@ public:
     unsigned long long int GetKernelID() const { return (unsigned long long int)this;}
     const char*    GetKernelName() const {return m_szFuncName.c_str();}
     int GetKernelParamsCount() const {return (int)MKL_EXECUTOR_CLASS::MKL_GEMM_EXECUTOR_PAREMERTERS::GetParamCount();}
-    const cl_kernel_argument* GetKernelParams() const { return MKL_EXECUTOR_CLASS::MKL_GEMM_EXECUTOR_PAREMERTERS::GetKernelParams();}
+    const KernelArgument* GetKernelParams() const { return MKL_EXECUTOR_CLASS::MKL_GEMM_EXECUTOR_PAREMERTERS::GetKernelParams();}
     const cl_kernel_argument_info* GetKernelArgInfo() const { return MKL_EXECUTOR_CLASS::MKL_GEMM_EXECUTOR_PAREMERTERS::GetKernelArgInfo();}
     size_t GetExplicitArgumentBufferSize(void) const { return MKL_EXECUTOR_CLASS::MKL_GEMM_EXECUTOR_PAREMERTERS::GetParamSize(); }
-    size_t GetArgumentBufferRequiredAlignment(void) const { return MKL_EXECUTOR_CLASS::MKL_GEMM_EXECUTOR_PAREMERTERS::GetKernelParams()[0].size_in_bytes;}
+    size_t GetArgumentBufferRequiredAlignment(void) const { return MKL_EXECUTOR_CLASS::MKL_GEMM_EXECUTOR_PAREMERTERS::GetKernelParams()[0].SizeInBytes;}
     const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelRunner* GetKernelRunner(void) const { return nullptr;}
 
     int GetLineNumber(void* pointer) const { return -1;}

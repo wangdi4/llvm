@@ -180,7 +180,7 @@ protected:
 	static BuiltInKernelRegistry*	g_pMKLRegistery;
 };
 
-cl_kernel_arg_address_qualifier ArgType2AddrQual(cl_kernel_arg_type type);
+cl_kernel_arg_address_qualifier ArgType2AddrQual(KernelArgumentType type);
 
 #define REGISTER_BUILTIN_KERNEL(BI_KENREL_NAME,BI_CREATOR_FUNCTION) \
 	struct BI_KENREL_NAME##CreatorClassRegister\

@@ -27,24 +27,24 @@ class MKL_GEMM_Parameters : public MKLParamDescriptor
 {
 public:
     MKL_GEMM_Parameters():
-        order("order", type_string<CBLAS_ORDER>::type().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, CL_KRNL_ARG_INT, this),
-        transA("transA", type_string<CBLAS_TRANSPOSE>::type().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, CL_KRNL_ARG_INT, this),
-        pABuffer("pA", type_string<datatype>::const_ptr().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, CL_KRNL_ARG_PTR_GLOBAL, this),
-        transB("transB", type_string<CBLAS_TRANSPOSE>::type().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, CL_KRNL_ARG_INT, this),
-        pBBuffer("pB", type_string<datatype>::const_ptr().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, CL_KRNL_ARG_PTR_GLOBAL, this),
-        pCBuffer("pC", type_string<datatype>::ptr().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_NONE, CL_KRNL_ARG_PTR_GLOBAL,this),
+        order("order", type_string<CBLAS_ORDER>::type().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, KRNL_ARG_INT, this),
+        transA("transA", type_string<CBLAS_TRANSPOSE>::type().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, KRNL_ARG_INT, this),
+        pABuffer("pA", type_string<datatype>::const_ptr().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, KRNL_ARG_PTR_GLOBAL, this),
+        transB("transB", type_string<CBLAS_TRANSPOSE>::type().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, KRNL_ARG_INT, this),
+        pBBuffer("pB", type_string<datatype>::const_ptr().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, KRNL_ARG_PTR_GLOBAL, this),
+        pCBuffer("pC", type_string<datatype>::ptr().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_NONE, KRNL_ARG_PTR_GLOBAL,this),
         alpha("alpha", type_string<datatype>::type().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, cl_kernel_arg_type_of<datatype>::get_type(), this),
         beta("beta", type_string<datatype>::type().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, cl_kernel_arg_type_of<datatype>::get_type(), this),
         pArgDescriptor(nullptr), pArgInfoDescriptor(nullptr)
         {
             size_t paramCount = GetParamCount();
-            pArgDescriptor = new cl_kernel_argument[paramCount];
+            pArgDescriptor = new KernelArgument[paramCount];
             if ( nullptr != pArgDescriptor )
             {
                 for(size_t i=0; i<paramCount; ++i)
                 {
-                    MEMCPY_S(&pArgDescriptor[i], sizeof(cl_kernel_argument),
-                            &(m_lstParams.at(i)->GetArgumentDescriptor()), sizeof(cl_kernel_argument));
+                    MEMCPY_S(&pArgDescriptor[i], sizeof(KernelArgument),
+                            &(m_lstParams.at(i)->GetArgumentDescriptor()), sizeof(KernelArgument));
                 }
             }
             pArgInfoDescriptor = new cl_kernel_argument_info[paramCount];
@@ -73,7 +73,7 @@ public:
     // Static information info
     static size_t GetParamCount() {return s_Params.m_lstParams.size();}
     static size_t GetParamSize() {return s_Params.m_Offset;}
-    static const cl_kernel_argument* GetKernelParams() {return s_Params.pArgDescriptor;}
+    static const KernelArgument* GetKernelParams() {return s_Params.pArgDescriptor;}
     static const cl_kernel_argument_info* GetKernelArgInfo() {return s_Params.pArgInfoDescriptor;}
 
     static unsigned int GetMemoryObjectArgumentCount() { return s_Params.m_lstMemArgs.size();}
@@ -98,7 +98,7 @@ protected:
     MKLParam<datatype>          alpha;
     MKLParam<datatype>          beta;
 
-    cl_kernel_argument*         pArgDescriptor;
+    KernelArgument*         pArgDescriptor;
     cl_kernel_argument_info*    pArgInfoDescriptor;
 
     static const MKL_GEMM_Parameters<datatype>    s_Params;
