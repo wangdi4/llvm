@@ -373,6 +373,7 @@ class OpenMPLateOutliner {
     }
   };
   std::set<const VarDecl *, VarCompareTy> VarRefs;
+  llvm::DenseSet<const VarDecl *> FirstPrivateVars;
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
 
   std::vector<llvm::WeakTrackingVH> DefinedValues;
@@ -441,6 +442,7 @@ public:
   void emitOMPCancelDirective(OpenMPDirectiveKind Kind);
   void emitOMPCancellationPointDirective(OpenMPDirectiveKind Kind);
   void emitOMPTargetVariantDispatchDirective();
+  void emitOMPDispatchDirective();
   void emitOMPGenericLoopDirective();
   void emitOMPInteropDirective();
   void emitVLAExpressions() {
@@ -456,6 +458,7 @@ public:
   void emitImplicit(llvm::Value *V, ImplicitClauseKind K);
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
   void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
+  void addFirstPrivateVars(const VarDecl *VD) { FirstPrivateVars.insert(VD); }
   void addValueDef(llvm::Value *V) {
     llvm::WeakTrackingVH VH = V;
     DefinedValues.push_back(VH);
@@ -549,7 +552,7 @@ public:
                                 const OMPExecutableDirective &D)
       : CGCapturedStmtInfo(*cast<CapturedStmt>(D.getAssociatedStmt()),
                            CR_OpenMP),
-        OldCSI(CSI), Outliner(O) {}
+        OldCSI(CSI), Outliner(O), D(D) {}
 
   /// Retrieve the value of the context parameter.
   llvm::Value *getContextValue() const override;
@@ -559,6 +562,8 @@ public:
   const FieldDecl *lookup(const VarDecl *VD) const override;
 
   FieldDecl *getThisFieldDecl() const override;
+
+  bool isDispatchTargetCall(SourceLocation Loc) override;
 
   CodeGenFunction::CGCapturedStmtInfo *getOldCSI() const { return OldCSI; }
 
@@ -579,11 +584,17 @@ public:
   void recordValueSuppression(llvm::Value *V) override {
     Outliner.addValueSuppress(V);
   }
-
+  void recordFirstPrivateVars(const VarDecl *VD) override {
+    Outliner.addFirstPrivateVars(VD);
+  }
   bool inTargetVariantDispatchRegion() override {
     return Outliner.getCurrentDirectiveKind() ==
            llvm::omp::OMPD_target_variant_dispatch;
   }
+  bool inDispatchRegion() override {
+    return Outliner.getCurrentDirectiveKind() == llvm::omp::OMPD_dispatch;
+  }
+
   void enterTryStmt() override { ++TryStmts; }
   void exitTryStmt() override {
     assert(TryStmts > 0);
@@ -601,6 +612,7 @@ private:
   OpenMPLateOutliner &Outliner;
   /// Nesting of C++ 'try' statements in the OpenMP region.
   unsigned TryStmts = 0;
+  const OMPExecutableDirective &D;
 };
 
 /// RAII for emitting code of OpenMP constructs.

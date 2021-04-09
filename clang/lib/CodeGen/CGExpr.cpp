@@ -5252,7 +5252,8 @@ static CGCallee EmitDirectCallee(CodeGenFunction &CGF, GlobalDecl GD) {
 
 #if INTEL_COLLAB
   if (CGF.getLangOpts().OpenMPIsDevice && CGF.CapturedStmtInfo &&
-      CGF.CapturedStmtInfo->inTargetVariantDispatchRegion()) {
+      (CGF.CapturedStmtInfo->inTargetVariantDispatchRegion() ||
+       CGF.CapturedStmtInfo->inDispatchRegion())) {
     for (const auto *DVA : FD->specific_attrs<OMPDeclareVariantAttr>()) {
       // Force target emission of variants as they are conditionally called
       // based on the device clause.

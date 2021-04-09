@@ -5339,6 +5339,12 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 
   // Emit the actual call/invoke instruction.
   llvm::CallBase *CI;
+#if INTEL_COLLAB
+  if (CapturedStmtInfo && CapturedStmtInfo->isDispatchTargetCall(Loc)) {
+    BundleList.emplace_back("QUAL.OMP.DISPATCH.CALL",
+                            ArrayRef<llvm::Value *>{});
+  }
+#endif  // INTEL_COLLAB
   if (!InvokeDest) {
 #if INTEL_CUSTOMIZATION
     if (getContext().getLangOpts().SYCLIsDevice &&

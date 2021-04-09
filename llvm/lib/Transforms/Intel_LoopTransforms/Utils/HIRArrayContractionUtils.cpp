@@ -62,22 +62,6 @@ template <typename T> static bool isInRange(T V, T LB, T UB) {
   return (V >= LB) && (V <= UB);
 }
 
-DenseMap<std::pair<unsigned, unsigned>, HLInst *> llvm::loopopt::
-    arraycontractionutils::HIRArrayContractionUtil::StorageBlobIdxAllocaMap = {
-        {}};
-
-DenseMap<RegDDRef *, RegDDRef *>
-    llvm::loopopt::arraycontractionutils::HIRArrayContractionUtil::Pre2PostMap =
-        {{}};
-
-DenseMap<RegDDRef *, RegDDRef *>
-    llvm::loopopt::arraycontractionutils::HIRArrayContractionUtil::Post2PreMap =
-        {{}};
-
-// static DenseMap<unsigned, unsigned> ContractedRefBlob2SB;
-DenseMap<unsigned, unsigned> llvm::loopopt::arraycontractionutils::
-    HIRArrayContractionUtil::ContractedRefBlob2SB = {{}};
-
 static bool isPrimitiveType(Type *Ty) {
   return isa<IntegerType>(Ty) || Ty->isFloatingPointTy();
 }
@@ -406,44 +390,9 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
   return true;
 }
 
-bool HIRArrayContractionUtil::isStorageAllocated(
-    RegDDRef *Ref, SmallSet<unsigned, 4> &PreservedDims,
-    SmallSet<unsigned, 4> &ToContractDims, HLInst *&AllocaInst) {
-
-  bool Result = false;
-  // Check: if the MemRef's BaseCE's blob index has been used for storage
-  // allocation.
-  //
-  // E.g.
-  // If A[l][m][k][j][i] has been allocated AA[][][] for contraction over dim
-  // range [1-2], then %A's blob index (e.g. 1) will be recorded for
-  // contraction with a ToContract range of [1-2]: 2.
-  //
-  // Next time, when A[l][m][k][r][s] is to be contracted for range [1-2], the
-  // same AA[][][] will be used instead of allocating new storage.
-  //
-  // However, when A[l][m][k][r][s] is to be contracted for range [1-3], a new
-  // storage will be allocated for A'[][].
-  //
-  const unsigned BasePtrBlobIdx = Ref->getBasePtrBlobIndex();
-  const unsigned ToContractRange = ToContractDims.size();
-  auto Pair = std::make_pair(BasePtrBlobIdx, ToContractRange);
-
-  if (!StorageBlobIdxAllocaMap[Pair]) {
-    Result = false;
-  } else {
-    AllocaInst = StorageBlobIdxAllocaMap[Pair];
-    assert(AllocaInst && "Expect a valid AllocaInst");
-    Result = true;
-  }
-
-  return Result;
-}
-
 bool HIRArrayContractionUtil::allocateStorage(
-    RegDDRef *Ref, SmallSet<unsigned, 4> &PreservedDims,
-    SmallSet<unsigned, 4> &ToContractDims, HLRegion &Reg,
-    SmallVectorImpl<unsigned> &DimSizeVec, Type *&RootTy, HLInst *&AllocaInst) {
+    RegDDRef *Ref, HLRegion &Reg, SmallVectorImpl<unsigned> &DimSizeVec,
+    Type *RootTy, RegDDRef *&AfterContractRef, unsigned &AllocaBlobIndex) {
 
   // Check: support stack allocation only!
   if (!Ref->accessesAlloca()) {
@@ -452,15 +401,14 @@ bool HIRArrayContractionUtil::allocateStorage(
   }
 
   // Check: is storage already allocated?
-  if (isStorageAllocated(Ref, PreservedDims, ToContractDims, AllocaInst)) {
+  if (AfterContractRef) {
+    AllocaBlobIndex = AfterContractRef->getBasePtrBlobIndex();
     LLVM_DEBUG(dbgs() << "allocateStorage(.) - storage already allocated\n";);
-    assert(AllocaInst && "Expect a valid AllocaInst ptr");
     return true;
   }
 
   // Allocate new storage and record it:
   auto &HNU = Ref->getParentLoop()->getHLNodeUtils();
-  auto &DDRU = HNU.getDDRefUtils();
 
   // Obtain the After-Contract Ref's ArrayType
   // [Note]
@@ -479,38 +427,11 @@ bool HIRArrayContractionUtil::allocateStorage(
   // - no need to create a new symbase explicitly, the newly created alloca
   //   will come with a new symbase.
   // - size of alloca is implied by its type.
-  AllocaInst = HNU.createAlloca(
-      AfterContractTy, &Reg,
-      DDRU.createConstDDRef(Type::getInt64Ty(HNU.getModule().getContext()), 1),
-      ContractedArrayName);
-  assert(AllocaInst && "Expect a valid AllocaInst");
+  AllocaBlobIndex =
+      HNU.createAlloca(AfterContractTy, &Reg, ContractedArrayName);
   LLVM_DEBUG({
-    dbgs() << "AllocaInst: ";
-    AllocaInst->dump(1);
-    dbgs() << "\n";
-    AllocaInst->getLLVMInstruction()->dump();
-    dbgs() << "\n";
-  });
-
-  // Add the new symbase into the region's Livein and ref's loopnest's Livein:
-  // [Note]
-  // - Region is passed in through a parameter. This is because after cloning,
-  //   the loop may still be in detached mode from the region.
-  const unsigned NewSB = AllocaInst->getLvalDDRef()->getSymbase();
-  Reg.addLiveInTemp(NewSB, AllocaInst->getLLVMInstruction());
-  addSBToLoopnestLiveIn(Ref->getParentLoop(), NewSB);
-
-  // Record the alloca with the ref's baseptr blob index and ToContract dims
-  StorageBlobIdxAllocaMap[std::make_pair(Ref->getBasePtrBlobIndex(),
-                                         ToContractDims.size())] = AllocaInst;
-  LLVM_DEBUG({
-    dbgs() << "AllocaInst: ";
-    HLInst *AllocaI = StorageBlobIdxAllocaMap[std::make_pair(
-        Ref->getBasePtrBlobIndex(), ToContractDims.size())];
-    assert(AllocaI);
-    AllocaI->dump();
-    dbgs() << "LvalDDRef: ";
-    AllocaI->getLvalDDRef()->dump(1);
+    dbgs() << "AllocaBlobIndex: ";
+    Ref->getBlobUtils().getBlob(AllocaBlobIndex)->dump();
     dbgs() << "\n";
   });
 
@@ -560,19 +481,17 @@ static unsigned MapDimension(unsigned DimBefore,
   }
 }
 
-bool HIRArrayContractionUtil::contract(RegDDRef *Ref,
+void HIRArrayContractionUtil::contract(RegDDRef *Ref,
                                        SmallSet<unsigned, 4> &PreservedDims,
                                        SmallSet<unsigned, 4> &ToContractDims,
-                                       HLInst *AllocaInst,
+                                       unsigned AllocaBlobIndex,
                                        RegDDRef *&AfterContractRef) {
-  assert(AllocaInst && "Expect a valid AllocaInst");
-  const unsigned NewSB = AllocaInst->getLvalDDRef()->getSymbase();
+  assert(AllocaBlobIndex != InvalidBlobIndex &&
+         "Expect a valid AllocaBlobIndex");
+
   LLVM_DEBUG({
-    dbgs() << "AllocaInst: ";
-    AllocaInst->dump(1);
-    dbgs() << "\nAlloc's RvalDDRef: ";
-    AllocaInst->getLvalDDRef()->dump(1);
-    dbgs() << "\nNewSymbase: " << NewSB << "\n";
+    dbgs() << "\nAllocaSB: "
+           << Ref->getBlobUtils().getTempBlobSymbase(AllocaBlobIndex) << "\n";
   });
 
   // ** Create the after-contraction MemRef **
@@ -599,7 +518,7 @@ bool HIRArrayContractionUtil::contract(RegDDRef *Ref,
 
   // Adjust the AfterRef:
   // - Symbase, and each available Dim : (LB, Index, Stride)
-  AfterRef->setSymbase(NewSB);
+
   LLVM_DEBUG({
     for (unsigned PreservedDim : PreservedDims) {
       unsigned Dim = MapDimension(PreservedDim, ToContractDims);
@@ -625,7 +544,6 @@ bool HIRArrayContractionUtil::contract(RegDDRef *Ref,
     }
   });
 
-  auto &BU = Ref->getBlobUtils();
   auto &HNU = Ref->getParentLoop()->getHLNodeUtils();
   auto &DDRU = HNU.getDDRefUtils();
   auto &CEU = DDRU.getCanonExprUtils();
@@ -636,20 +554,12 @@ bool HIRArrayContractionUtil::contract(RegDDRef *Ref,
              dbgs() << "\tDefAtLevel: " << BaseCE->getDefinedAtLevel()
                     << "\n";);
 
-  // Create a new blob, representing the NewSB (from the target AllocaInst).
-  unsigned NewSBBlobIdx = BU.findOrInsertTempBlobIndex(NewSB);
-  LLVM_DEBUG({
-    dbgs() << "NewSBBlobIdx: " << NewSBBlobIdx << "\n";
-    BU.printBlob(dbgs(), BU.getBlob(NewSBBlobIdx));
-    dbgs() << "\n";
-  });
-
   // Create a new CanonExpr* that contains only the NewBlob
   // [Note]
   // - Alloca is defined at region-entry level, so its level is 0.
   // - Alignment is the same as the alignment for Ref.
   CanonExpr *NewBaseCE =
-      CEU.createSelfBlobCanonExpr(NewSBBlobIdx, BaseCE->getDefinedAtLevel());
+      CEU.createSelfBlobCanonExpr(AllocaBlobIndex, BaseCE->getDefinedAtLevel());
   LLVM_DEBUG(dbgs() << "NewBaseCE: "; NewBaseCE->dump(1); dbgs() << "\n";);
 
   // Set AfterRef's BaseCE to the NewBaseCE:
@@ -675,34 +585,19 @@ bool HIRArrayContractionUtil::contract(RegDDRef *Ref,
     dbgs() << "\n";
   });
 
-  // Save mapping:
-  Pre2PostMap[Ref] = AfterRef;
-  Post2PreMap[AfterRef] = Ref;
+  // Copy symbase from existing contracted ref if available, else create new
+  // symbase.
+  unsigned NewSB =
+      AfterContractRef ? AfterContractRef->getSymbase() : DDRU.getNewSymbase();
+  AfterRef->setSymbase(NewSB);
+
   AfterContractRef = AfterRef;
-
-  return true;
-}
-
-bool HIRArrayContractionUtil::getOrCreateRefSB(RegDDRef *Ref, DDRefUtils &DDRU,
-                                               unsigned &SymBase) {
-  unsigned BasePtrBlobIndex = Ref->getBasePtrBlobIndex();
-  unsigned SB = ContractedRefBlob2SB[BasePtrBlobIndex];
-  if (SB) {
-    // return the existing SB:
-    SymBase = SB;
-    return true;
-  } else {
-    // create a new SB, save it and return it:
-    SymBase = DDRU.getNewSymbase();
-    ContractedRefBlob2SB[BasePtrBlobIndex] = SymBase;
-    return false;
-  }
 }
 
 bool HIRArrayContractionUtil::contractMemRef(
     RegDDRef *ToContractRef, SmallSet<unsigned, 4> &PreservedDims,
     SmallSet<unsigned, 4> &ToContractDims, HLRegion &Reg,
-    RegDDRef *&AfterContractRef, unsigned &AfterContractSB) {
+    RegDDRef *&AfterContractRef) {
 
   SmallVector<unsigned, 4> DimSizeVec;
   Type *RootTy = nullptr;
@@ -728,93 +623,22 @@ bool HIRArrayContractionUtil::contractMemRef(
     dbgs() << " ================================================= \n";
   });
 
-  HLInst *AllocaInst = nullptr;
-  if (!allocateStorage(ToContractRef, PreservedDims, ToContractDims, Reg,
-                       DimSizeVec, RootTy, AllocaInst)) {
+  unsigned AllocaBlobIndex = InvalidBlobIndex;
+  if (!allocateStorage(ToContractRef, Reg, DimSizeVec, RootTy, AfterContractRef,
+                       AllocaBlobIndex)) {
     LLVM_DEBUG(dbgs() << "Failure in allocateStorage(.)\n");
     return false;
   }
 
-  if (!contract(ToContractRef, PreservedDims, ToContractDims, AllocaInst,
-                AfterContractRef)) {
-    LLVM_DEBUG(dbgs() << "Failure in contract(.)\n");
-    return false;
-  }
+  contract(ToContractRef, PreservedDims, ToContractDims, AllocaBlobIndex,
+           AfterContractRef);
 
-  // Set proper symbase for the newly contracted memref, and then do
-  // replacement:
-  auto &HNU = ToContractRef->getParentLoop()->getHLNodeUtils();
-  auto &DDRU = HNU.getDDRefUtils();
-  unsigned NewSB = 0;
-  if (getOrCreateRefSB(AfterContractRef, DDRU, NewSB)) {
-    LLVM_DEBUG(dbgs() << "\texisting SB: " << NewSB << "\n";);
-  } else {
-    LLVM_DEBUG(dbgs() << "\tnew SB: " << NewSB << "\n";);
-  }
-  assert(NewSB && "Expect a valid (positive integer) Symbase");
-  AfterContractRef->setSymbase(NewSB);
+  // Add alloca symbase as loopnest Livein:
+  unsigned AllocaSB =
+      ToContractRef->getBlobUtils().getTempBlobSymbase(AllocaBlobIndex);
+  addSBToLoopnestLiveIn(ToContractRef->getParentLoop(), AllocaSB);
 
-  HLLoop *Lp = ToContractRef->getParentLoop();
-  addSBToLoopnestLiveIn(Lp, NewSB);
-  const unsigned AllocaSB = AllocaInst->getLvalDDRef()->getSymbase();
-  addSBToLoopnestLiveIn(Lp, AllocaSB);
   HIRTransformUtils::replaceOperand(ToContractRef, AfterContractRef);
 
-  AfterContractSB = NewSB;
   return true;
-}
-
-// static DenseMap<RegDDRef *, RegDDRef *> Pre2PostMap;
-void HIRArrayContractionUtil::printPre2PostMap(formatted_raw_ostream &FOS) {
-  FOS << "Pre -> Post map: <" << Pre2PostMap.size() << ">\n";
-  for (auto &Pair : Pre2PostMap) {
-    RegDDRef *PreRef = Pair.first;
-    RegDDRef *PostRef = Pair.second;
-    PreRef->print(FOS);
-    FOS << " -> ";
-    PostRef->print(FOS);
-    FOS << "\n";
-  }
-}
-
-// static DenseMap<RegDDRef *, RegDDRef *> Post2PreMap;
-void HIRArrayContractionUtil::printPost2PreMap(formatted_raw_ostream &FOS) {
-  FOS << "Post -> Pre map: <" << Post2PreMap.size() << ">\n";
-  for (auto &Pair : Post2PreMap) {
-    RegDDRef *PostRef = Pair.first;
-    RegDDRef *PreRef = Pair.second;
-    PostRef->print(FOS);
-    FOS << " -> ";
-    PreRef->print(FOS);
-    FOS << "\n";
-  }
-}
-
-// static DenseMap<std::pair<unsigned, unsigned>, HLInst *>
-// StorageBlobIdxAllocaMap;
-void HIRArrayContractionUtil::printStorageAllocaMap(
-    formatted_raw_ostream &FOS) {
-
-  FOS << "StorageBlobIdxAllocaMap: <" << StorageBlobIdxAllocaMap.size()
-      << ">\n";
-  for (auto &Pair : StorageBlobIdxAllocaMap) {
-    unsigned U0 = Pair.first.first;
-    unsigned U1 = Pair.first.second;
-    HLInst *AllocaI = Pair.second;
-    FOS << "(" << U0 << "," << U1 << ") -> ";
-    AllocaI->print(FOS, 0);
-    FOS << "\n";
-  }
-}
-
-// static DenseMap<unsigned, unsigned> ContractedRefBlob2SB;
-void HIRArrayContractionUtil::printContractRefBlob2SBMap(
-    formatted_raw_ostream &FOS) {
-  FOS << "ContractedRefBlob -> SymBase: <" << ContractedRefBlob2SB.size()
-      << ">\n";
-  for (auto &Pair : ContractedRefBlob2SB) {
-    unsigned BlobIndex = Pair.first;
-    unsigned Symbase = Pair.second;
-    FOS << BlobIndex << " -> " << Symbase << "\n";
-  }
 }

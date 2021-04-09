@@ -16151,6 +16151,7 @@ OMPClause *Sema::ActOnOpenMPNovariantsClause(Expr *Condition,
     if (CaptureRegion != OMPD_unknown && !CurContext->isDependentContext()) {
       ValExpr = MakeFullExpr(ValExpr).get();
       llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
+      ValExpr = tryBuildCapture(*this, ValExpr, Captures).get();
       HelperValStmt = buildPreInits(Context, Captures);
     }
   }

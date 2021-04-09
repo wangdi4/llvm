@@ -424,8 +424,7 @@ public:
                  SmallSet<unsigned, 4> &PreservedDims,  /* Dims preserved */
                  SmallSet<unsigned, 4> &ToContractDims, /* Dims to contract */
                  HLRegion &Reg,
-                 RegDDRef *&AfterContractRef /* Ref after contraction */,
-                 unsigned &AfterSB /* After contraction ref's sybmase */);
+                 RegDDRef *&AfterContractRef /* Ref after contraction */);
 };
 
 } // End namespace loopopt

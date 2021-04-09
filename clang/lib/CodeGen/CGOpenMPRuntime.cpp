@@ -6806,6 +6806,7 @@ emitNumTeamsForTargetDirective(CodeGenFunction &CGF,
   case OMPD_declare_target:
   case OMPD_end_declare_target:
 #if INTEL_COLLAB
+  case OMPD_dispatch:
   case OMPD_target_variant_dispatch:
   case OMPD_loop:
   case OMPD_teams_loop:
@@ -7134,6 +7135,7 @@ emitNumThreadsForTargetDirective(CodeGenFunction &CGF,
   case OMPD_declare_target:
   case OMPD_end_declare_target:
 #if INTEL_COLLAB
+  case OMPD_dispatch:
   case OMPD_target_variant_dispatch:
   case OMPD_loop:
   case OMPD_teams_loop:
@@ -9978,6 +9980,7 @@ getNestedDistributeDirective(ASTContext &Ctx, const OMPExecutableDirective &D) {
     case OMPD_end_declare_target:
     case OMPD_declare_reduction:
 #if INTEL_COLLAB
+    case OMPD_dispatch:
     case OMPD_target_variant_dispatch:
     case OMPD_loop:
     case OMPD_teams_loop:
@@ -10835,6 +10838,7 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
     case OMPD_declare_target:
     case OMPD_end_declare_target:
 #if INTEL_COLLAB
+    case OMPD_dispatch:
     case OMPD_target_variant_dispatch:
     case OMPD_loop:
     case OMPD_teams_loop:
@@ -11701,6 +11705,7 @@ void CGOpenMPRuntime::emitTargetDataStandAloneCall(
     case OMPD_declare_target:
     case OMPD_end_declare_target:
 #if INTEL_COLLAB
+    case OMPD_dispatch:
     case OMPD_target_variant_dispatch:
     case OMPD_loop:
     case OMPD_teams_loop:
