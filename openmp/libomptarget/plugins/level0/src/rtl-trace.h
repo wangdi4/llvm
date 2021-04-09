@@ -326,6 +326,17 @@ TRACE_FN_DEF(zeDriverGet)(
   return rc;
 }
 
+TRACE_FN_DEF(zeDriverGetApiVersion)(
+    ze_driver_handle_t hDriver,
+    ze_api_version_t *version) {
+  auto rc = zeDriverGetApiVersion(hDriver, version);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hDriver);
+  TRACE_FN_ARG_PTR(version);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
 TRACE_FN_DEF(zeEventCreate)(
     ze_event_pool_handle_t hEventPool,
     const ze_event_desc_t *desc,
