@@ -82,6 +82,16 @@ private:
   PointerUnion<llvm::Type *, dtransOP::DTransType *> Ty;
 };
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static inline raw_ostream &operator<<(raw_ostream &OS, const AbstractType &AT) {
+  if (AT.isDTransType())
+    OS << *AT.getDTransType();
+  else
+    OS << *AT.getLLVMType();
+  return OS;
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 //Type used for DTrans transformation bitmask
 typedef uint32_t Transform;
 
@@ -1046,9 +1056,8 @@ struct MemfuncRegion {
 // for more than a single function argument.
 class CallInfoElementTypes {
 public:
-  // TODO: Change to use AbstractType
-  typedef SmallVector<llvm::Type *, 2> TypeAliasSet;
-  typedef SmallVectorImpl<llvm::Type *> &TypeAliasSetRef;
+  typedef SmallVector<AbstractType, 2> TypeAliasSet;
+  typedef SmallVectorImpl<AbstractType> &TypeAliasSetRef;
 
   CallInfoElementTypes() : AliasesToAggregateType(false), Analyzed(false) {}
 
@@ -1066,7 +1075,7 @@ public:
 
   bool getAnalyzed() const { return Analyzed; }
 
-  void addElemType(llvm::Type *Ty) {
+  void addElemType(AbstractType Ty) {
     ElemTypes.push_back(Ty);
   }
 
@@ -1077,7 +1086,7 @@ public:
     explicit element_llvm_types_iterator(TypeAliasSet::iterator X)
         : iterator_adaptor_base(X) {}
 
-    llvm::Type *operator*() const { return *I; }
+    llvm::Type *operator*() const { return I->getLLVMType(); }
     llvm::Type *operator->() const { return operator*(); }
   };
 
@@ -1086,18 +1095,42 @@ public:
                       element_llvm_types_iterator(ElemTypes.end()));
   }
 
+  struct element_dtrans_types_iterator
+    : public iterator_adaptor_base<element_dtrans_types_iterator,
+    TypeAliasSet::iterator,
+    std::forward_iterator_tag, AbstractType> {
+    explicit element_dtrans_types_iterator(TypeAliasSet::iterator X)
+      : iterator_adaptor_base(X) {}
+
+    dtransOP::DTransType *operator*() const { return I->getDTransType(); }
+    dtransOP::DTransType *operator->() const { return operator*(); }
+  };
+
+  iterator_range<element_dtrans_types_iterator> element_dtrans_types() {
+    return make_range(element_dtrans_types_iterator(ElemTypes.begin()),
+      element_dtrans_types_iterator(ElemTypes.end()));
+  }
+
   size_t getNumTypes() const { return ElemTypes.size(); }
 
   llvm::Type *getElemLLVMType(size_t Idx) const {
     assert(Idx < ElemTypes.size() && "Index out of range");
-    return ElemTypes[Idx];
+    return ElemTypes[Idx].getLLVMType();
+  }
+
+  dtransOP::DTransType *getElemDTransType(size_t Idx) const {
+    assert(Idx < ElemTypes.size() && "Index out of range");
+    return ElemTypes[Idx].getDTransType();
   }
 
   // Change the type at index \p Idx to type \p Ty. This
   // function should only be used for updating a type based
   // on the type remapping done when processing a function.
-  void setElemType(size_t Idx, llvm::Type *Ty) {
+  void setElemType(size_t Idx, AbstractType Ty) {
     assert(Idx < ElemTypes.size() && "Index out of range");
+    assert(!(ElemTypes[Idx].isDTransType() ^ Ty.isDTransType()) &&
+      "Cannot switch between DTransTypes and llvm::Types");
+
     ElemTypes[Idx] = Ty;
   }
 
@@ -1144,7 +1177,7 @@ public:
 
   bool getAnalyzed() const { return ElementTypes.getAnalyzed(); }
 
-  void addElemType(llvm::Type *Ty) {
+  void addElemType(AbstractType Ty) {
     ElementTypes.addElemType(Ty);
   }
 
@@ -1323,6 +1356,83 @@ public:
 private:
   MemfuncKind MK;
   SmallVector<MemfuncRegion, 2> Regions;
+};
+
+// Container class for managing the mapping of Instructions to CallInfo objects.
+class CallInfoManager {
+public:
+  CallInfoManager() {}
+  ~CallInfoManager() { reset(); }
+
+  // This class owns pointers to CallInfo objects that will be destroyed when
+  // the destructor is run. Copying is not permitted, because that would lead
+  // to multiple instances holding the same pointer.
+  CallInfoManager(const CallInfoManager &) = delete;
+  CallInfoManager &operator=(const CallInfoManager &) = delete;
+
+  CallInfoManager(CallInfoManager &&) = default;
+  CallInfoManager &operator=(CallInfoManager &&) = default;
+
+  // Retrieve the CallInfo object for the instruction, if information exists.
+  // Otherwise, return nullptr.
+  dtrans::CallInfo *getCallInfo(const Instruction *I) const;
+
+  // Create an entry in the CallInfoMap about a memory allocation call.
+  dtrans::AllocCallInfo *createAllocCallInfo(Instruction *I,
+                                             dtrans::AllocKind AK);
+
+  // Create an entry in the CallInfoMap about a memory freeing call
+  dtrans::FreeCallInfo *createFreeCallInfo(Instruction *I, dtrans::FreeKind FK);
+
+  // Create an entry in the CallInfoMap about a memset call.
+  dtrans::MemfuncCallInfo *
+  createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+                        dtrans::MemfuncRegion &MR);
+
+  // Create an entry in the CallInfoMap about a memcpy/memmove call.
+  dtrans::MemfuncCallInfo *
+  createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+                        dtrans::MemfuncRegion &MR1, dtrans::MemfuncRegion &MR2);
+
+  // Destroy the CallInfo stored about the specific instruction.
+  void deleteCallInfo(Instruction *I);
+
+  // Update the instruction associated with the CallInfo object. This
+  // is necessary when a function is cloned during the DTrans optimizations to
+  // transfer the information to the newly created instruction of the cloned
+  // routine.
+  void replaceCallInfoInstruction(dtrans::CallInfo *Info, Instruction *NewI);
+
+  // Clear all the entries from the CallInfoMap.
+  void reset();
+
+  using CallInfoMapType = DenseMap<llvm::Instruction *, dtrans::CallInfo *>;
+
+  // Adaptor for directly iterating over the dtrans::CallInfo pointers.
+  struct call_info_iterator
+      : public iterator_adaptor_base<
+            call_info_iterator, CallInfoMapType::iterator,
+            std::forward_iterator_tag, CallInfoMapType::value_type> {
+    explicit call_info_iterator(CallInfoMapType::iterator X)
+        : iterator_adaptor_base(X) {}
+
+    dtrans::CallInfo *&operator*() const { return I->second; }
+    dtrans::CallInfo *&operator->() const { return operator*(); }
+  };
+
+  iterator_range<call_info_iterator> call_info_entries() {
+    return make_range(call_info_iterator(CallInfoMap.begin()),
+                      call_info_iterator(CallInfoMap.end()));
+  }
+
+private: // methods
+  void addCallInfo(llvm::Instruction *I, dtrans::CallInfo *Info);
+  void destructCallInfo(dtrans::CallInfo *Info);
+
+private: // data
+  // A mapping from function calls that special information is collected for
+  // (malloc, free, memset, etc) to the information stored about those calls.
+  CallInfoMapType CallInfoMap;
 };
 
 // Get the printable name for a SafetyData bit. The \p SafetyInfo value input to

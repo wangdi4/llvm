@@ -102,6 +102,8 @@ bool IndirectCallCodeGenerator::vectorize(VPCallInstruction *VPCallInst) {
          "Intel indirect call is expected.");
   OrigCall = VPCallInst->getOriginalCall();
 
+  assert(OrigCall && "OriginalCall is expected.");
+
   // Check if there is a matched vector vaariant.
   VectorVariant *MatchedVecVariant =
       const_cast<VectorVariant *>(VPCallInst->getVectorVariant());

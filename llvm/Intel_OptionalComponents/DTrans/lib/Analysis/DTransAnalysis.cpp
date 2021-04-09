@@ -10363,67 +10363,6 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
   return DTransTy;
 }
 
-dtrans::CallInfo *
-DTransAnalysisInfo::getCallInfo(const llvm::Instruction *I) const {
-  auto Entry = CallInfoMap.find(I);
-  if (Entry == CallInfoMap.end())
-    return nullptr;
-
-  return Entry->second;
-}
-
-void DTransAnalysisInfo::addCallInfo(Instruction *I, dtrans::CallInfo *CI) {
-  assert(getCallInfo(I) == nullptr &&
-         "An instruction is only allowed a single CallInfo mapping");
-  CallInfoMap[I] = CI;
-}
-
-dtrans::AllocCallInfo *
-DTransAnalysisInfo::createAllocCallInfo(Instruction *I, dtrans::AllocKind AK) {
-  dtrans::AllocCallInfo *Info = new dtrans::AllocCallInfo(I, AK);
-  addCallInfo(I, Info);
-  return Info;
-}
-
-dtrans::FreeCallInfo *
-DTransAnalysisInfo::createFreeCallInfo(Instruction *I, dtrans::FreeKind FK) {
-  dtrans::FreeCallInfo *Info = new dtrans::FreeCallInfo(I, FK);
-  addCallInfo(I, Info);
-  return Info;
-}
-
-dtrans::MemfuncCallInfo *DTransAnalysisInfo::createMemfuncCallInfo(
-    Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
-    dtrans::MemfuncRegion &MR) {
-  dtrans::MemfuncCallInfo *Info = new dtrans::MemfuncCallInfo(I, MK, MR);
-  addCallInfo(I, Info);
-  return Info;
-}
-
-dtrans::MemfuncCallInfo *DTransAnalysisInfo::createMemfuncCallInfo(
-    Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
-    dtrans::MemfuncRegion &MR1, dtrans::MemfuncRegion &MR2) {
-  dtrans::MemfuncCallInfo *Info = new dtrans::MemfuncCallInfo(I, MK, MR1, MR2);
-  addCallInfo(I, Info);
-  return Info;
-}
-
-void DTransAnalysisInfo::deleteCallInfo(Instruction *I) {
-  dtrans::CallInfo *Info = getCallInfo(I);
-  if (!Info)
-    return;
-
-  CallInfoMap.erase(I);
-  delete Info;
-}
-
-void DTransAnalysisInfo::replaceCallInfoInstruction(dtrans::CallInfo *Info,
-                                                    Instruction *NewI) {
-  CallInfoMap.erase(Info->getInstruction());
-  addCallInfo(NewI, Info);
-  Info->setInstruction(NewI);
-}
-
 void DTransAnalysisInfo::addPtrSubMapping(llvm::BinaryOperator *BinOp,
                                           llvm::Type *Ty) {
   PtrSubInfoMap[BinOp] = Ty;
@@ -10534,25 +10473,6 @@ void DTransAnalysisInfo::printCallInfo(raw_ostream &OS) {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-// Helper to invoke the right destructor object for destroying a CallInfo
-// type object.
-void DTransAnalysisInfo::destructCallInfo(dtrans::CallInfo *Info) {
-  if (!Info)
-    return;
-
-  switch (Info->getCallInfoKind()) {
-  case dtrans::CallInfo::CIK_Alloc:
-    delete cast<dtrans::AllocCallInfo>(Info);
-    break;
-  case dtrans::CallInfo::CIK_Free:
-    delete cast<dtrans::FreeCallInfo>(Info);
-    break;
-  case dtrans::CallInfo::CIK_Memfunc:
-    delete cast<dtrans::MemfuncCallInfo>(Info);
-    break;
-  }
-}
-
 INITIALIZE_PASS_BEGIN(DTransAnalysisWrapper, "dtransanalysis",
                       "Data transformation analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
@@ -10646,8 +10566,7 @@ DTransAnalysisInfo::DTransAnalysisInfo()
 // Value map has a deleted move constructor, so we need a non-default
 // implementation of ours.
 DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
-    : TypeInfoMap(std::move(Other.TypeInfoMap)),
-      CallInfoMap(std::move(Other.CallInfoMap)) {
+    : TypeInfoMap(std::move(Other.TypeInfoMap)), CIM(std::move(Other.CIM)) {
   // These two maps don't actually own any pointers, so it's OK to just copy
   // them.
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
@@ -10674,7 +10593,7 @@ DTransAnalysisInfo::~DTransAnalysisInfo() { reset(); }
 DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
   reset();
   TypeInfoMap = std::move(Other.TypeInfoMap);
-  CallInfoMap = std::move(Other.CallInfoMap);
+  CIM = std::move(Other.CIM);
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
   ByteFlattenedGEPInfoMap.insert(Other.ByteFlattenedGEPInfoMap.begin(),
                                  Other.ByteFlattenedGEPInfoMap.end());
@@ -10697,10 +10616,7 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
 }
 
 void DTransAnalysisInfo::reset() {
-  // DTransAnalysisInfo owns the CallInfo pointers in the CallInfoMap.
-  for (auto Info : CallInfoMap)
-    destructCallInfo(Info.second);
-  CallInfoMap.clear();
+  CIM.reset();
 
   // DTransAnalysisInfo owns the TypeInfo pointers in the TypeInfoMap.
   for (auto Entry : TypeInfoMap) {

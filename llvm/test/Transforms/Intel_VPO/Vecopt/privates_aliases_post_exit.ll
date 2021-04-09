@@ -1,5 +1,5 @@
 ; Test verifies aliases collection for privates in loop post exit.
-; RUN: opt --vplan-print-privdescr -S -VPlanDriver -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-print-legality -S -VPlanDriver -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK: VPOLegality Descriptor Lists
 ; CHECK-EMPTY:

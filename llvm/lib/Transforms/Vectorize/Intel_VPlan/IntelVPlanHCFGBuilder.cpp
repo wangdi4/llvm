@@ -42,15 +42,14 @@ using namespace llvm::vpo;
 #if INTEL_CUSTOMIZATION
 static LoopVPlanDumpControl PlainCFGDumpControl("plain-cfg",
                                                 "importing plain CFG");
-static cl::opt<bool, true> VPlanPrintPrivDescrOpt(
-    "vplan-print-privdescr", cl::Hidden, cl::location(VPlanPrintPrivDescr),
-    cl::desc(
-        "Print privates' data structure details in VPlan LLVM-IR legality."));
+static cl::opt<bool, true> VPlanPrintLegalityOpt(
+    "vplan-print-legality", cl::Hidden, cl::location(VPlanPrintLegality),
+    cl::desc("Print SIMD clause data structure details in VPlan legality."));
 #endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 namespace vpo {
-bool VPlanPrintPrivDescr = false;
+bool VPlanPrintLegality = false;
 } // namespace vpo
 } // namespace llvm
 
@@ -214,6 +213,7 @@ public:
   using ExplicitReductionList = VPOVectorizationLegality::ExplicitReductionList;
   using InMemoryReductionList = VPOVectorizationLegality::InMemoryReductionList;
   using PrivDescrTy = VPOVectorizationLegality::PrivDescrTy;
+  using PrivDescrNonPODTy = VPOVectorizationLegality::PrivDescrNonPODTy;
 
   VPEntityConverterBase(PlainCFGBuilder &Bld) : Builder(Bld) {}
 
@@ -498,6 +498,12 @@ public:
     Descriptor.setIsLast(CurValue->isLast());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(true);
+    if (CurValue->isNonPOD()) {
+      auto *NonPODCurValue = cast<PrivDescrNonPODTy>(CurValue);
+      Descriptor.setCtor(NonPODCurValue->getCtor());
+      Descriptor.setDtor(NonPODCurValue->getDtor());
+      Descriptor.setCopyAssign(NonPODCurValue->getCopyAssign());
+    }
   }
 };
 
@@ -621,7 +627,7 @@ void VPlanHCFGBuilder::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
   typedef VPLoopEntitiesConverterTempl<Loop2VPLoopMapper> BaseConverter;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (VPlanPrintPrivDescr) {
+  if (VPlanPrintLegality) {
     Legal->dump(dbgs());
   }
 #endif

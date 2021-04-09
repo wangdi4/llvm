@@ -1,6 +1,6 @@
 //===------------ Intel_DTransUtils.cpp - Utilities for DTrans ------------===//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1021,9 +1021,9 @@ void CallInfoElementTypes::print(raw_ostream &OS) {
   // it in sorted order to enable consistency for testing.
   std::vector<std::string> StrVec;
 
-  for (auto *T : ElemTypes) {
+  for (auto &AT : ElemTypes) {
     std::string Name;
-    raw_string_ostream(Name) << "    Type: " << *T;
+    raw_string_ostream(Name) << "    Type: " << AT;
     StrVec.push_back(Name);
   }
 
@@ -1089,7 +1089,94 @@ void MemfuncCallInfo::print(raw_ostream &OS) {
     ElementTypes.print(OS);
   }
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+CallInfo *CallInfoManager::getCallInfo(const llvm::Instruction *I) const {
+  auto Entry = CallInfoMap.find(I);
+  if (Entry == CallInfoMap.end())
+    return nullptr;
+
+  return Entry->second;
+}
+
+void CallInfoManager::addCallInfo(Instruction *I, dtrans::CallInfo *CI) {
+  assert(getCallInfo(I) == nullptr &&
+         "An instruction is only allowed a single CallInfo mapping");
+  CallInfoMap[I] = CI;
+}
+
+dtrans::AllocCallInfo *
+CallInfoManager::createAllocCallInfo(Instruction *I, dtrans::AllocKind AK) {
+  dtrans::AllocCallInfo *Info = new dtrans::AllocCallInfo(I, AK);
+  addCallInfo(I, Info);
+  return Info;
+}
+
+dtrans::FreeCallInfo *CallInfoManager::createFreeCallInfo(Instruction *I,
+                                                          dtrans::FreeKind FK) {
+  dtrans::FreeCallInfo *Info = new dtrans::FreeCallInfo(I, FK);
+  addCallInfo(I, Info);
+  return Info;
+}
+
+dtrans::MemfuncCallInfo *
+CallInfoManager::createMemfuncCallInfo(Instruction *I,
+                                       dtrans::MemfuncCallInfo::MemfuncKind MK,
+                                       dtrans::MemfuncRegion &MR) {
+  dtrans::MemfuncCallInfo *Info = new dtrans::MemfuncCallInfo(I, MK, MR);
+  addCallInfo(I, Info);
+  return Info;
+}
+
+dtrans::MemfuncCallInfo *CallInfoManager::createMemfuncCallInfo(
+    Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+    dtrans::MemfuncRegion &MR1, dtrans::MemfuncRegion &MR2) {
+  dtrans::MemfuncCallInfo *Info = new dtrans::MemfuncCallInfo(I, MK, MR1, MR2);
+  addCallInfo(I, Info);
+  return Info;
+}
+
+void CallInfoManager::deleteCallInfo(Instruction *I) {
+  dtrans::CallInfo *Info = getCallInfo(I);
+  if (!Info)
+    return;
+
+  CallInfoMap.erase(I);
+  delete Info;
+}
+
+void CallInfoManager::replaceCallInfoInstruction(dtrans::CallInfo *Info,
+                                                 Instruction *NewI) {
+  CallInfoMap.erase(Info->getInstruction());
+  addCallInfo(NewI, Info);
+  Info->setInstruction(NewI);
+}
+
+void CallInfoManager::reset() {
+  for (auto Info : CallInfoMap)
+    destructCallInfo(Info.second);
+  CallInfoMap.clear();
+}
+
+// Helper to invoke the right destructor for destroying a CallInfo type object.
+void CallInfoManager::destructCallInfo(dtrans::CallInfo *Info) {
+  if (!Info)
+    return;
+
+  switch (Info->getCallInfoKind()) {
+  case dtrans::CallInfo::CIK_Alloc:
+    delete cast<dtrans::AllocCallInfo>(Info);
+    break;
+  case dtrans::CallInfo::CIK_Free:
+    delete cast<dtrans::FreeCallInfo>(Info);
+    break;
+  case dtrans::CallInfo::CIK_Memfunc:
+    delete cast<dtrans::MemfuncCallInfo>(Info);
+    break;
+  }
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Returns StringRef with the name of the transformation
 StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
   if (Trans == 0 || Trans & ~dtrans::DT_Legal)

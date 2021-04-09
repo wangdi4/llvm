@@ -375,6 +375,18 @@ VPPrivate *VPLoopEntityList::addPrivate(VPInstruction *FinalI,
   return Priv;
 }
 
+VPPrivateNonPOD *VPLoopEntityList::addNonPODPrivate(
+    VPEntityAliasesTy &Aliases, bool IsConditional, bool IsLast, bool Explicit,
+    Function *Ctor, Function *Dtor, Function *CopyAssign, VPValue *AI) {
+  VPPrivateNonPOD *Priv =
+      new VPPrivateNonPOD(std::move(Aliases), IsConditional, IsLast, Explicit,
+                          Ctor, Dtor, CopyAssign);
+  PrivatesList.emplace_back(Priv);
+  linkValue(PrivateMap, Priv, AI);
+  createMemDescFor(Priv, AI);
+  return Priv;
+}
+
 void VPLoopEntityList::createMemDescFor(VPLoopEntity *E, VPValue *AI) {
   if (!AI)
     return;
@@ -879,11 +891,28 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
   }
 }
 
+// Helper method to create ctor/dtor VPCalls for given non-POD private memory.
+static void createNonPODPrivateCtorDtorCalls(Function *F, VPValue *NonPODMemory,
+                                             VPBuilder &Builder,
+                                             VPlanVector &Plan) {
+  assert(F->arg_size() == 1 &&
+         "Expected ctor/dtor functions to accept single argument.");
+  assert(NonPODMemory &&
+         "Expected private memory allocated for non-POD private.");
+  auto *VPFunc = Plan.getVPConstant(cast<Constant>(F));
+
+  auto *VPCall =
+      new VPCallInstruction(VPFunc, {NonPODMemory}, F->getReturnType());
+  Builder.insert(VPCall);
+}
+
 // Insert VPInstructions related to VPPrivates.
 void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
-                                                   VPBasicBlock *Preheader) {
+                                                   VPBasicBlock *Preheader,
+                                                   VPBasicBlock *PostExit) {
 
   assert(Preheader && "Expect valid Preheader to be passed as input argument.");
+  assert(PostExit && "Expect valid PostExit to be passed as input argument.");
 
   // Set the insert-guard-point.
   VPBuilder::InsertPointGuard Guard(Builder);
@@ -922,7 +951,25 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       AI->replaceAllUsesWithInBlock(PrivateMem, *Preheader);
       AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
     }
-    // Add special handling for 'Cond' and 'Last' - privates
+
+    // For non-POD privates we create explicit VPCalls to constructor and
+    // destructor functions using the new memory created for the private as
+    // operand.
+    if (auto *PrivateNonPOD = dyn_cast<VPPrivateNonPOD>(Private)) {
+      if (auto *CtorFn = PrivateNonPOD->getCtor())
+        createNonPODPrivateCtorDtorCalls(CtorFn, PrivateMem, Builder, Plan);
+
+      if (auto *DtorFn = PrivateNonPOD->getDtor()) {
+        // Destructor calls should be emitted in PostExit BB, set insert point
+        // of Builder accordingly.
+        VPBuilder::InsertPointGuard Guard(Builder);
+        Builder.setInsertPoint(PostExit, PostExit->begin());
+        createNonPODPrivateCtorDtorCalls(DtorFn, PrivateMem, Builder, Plan);
+      }
+    }
+
+    // Add special handling for 'Cond' and 'Last' - privates. Also include
+    // support for non-POD CopyAssign specialization here.
   }
   LLVM_DEBUG(
       dbgs()
@@ -950,8 +997,7 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
   insertInductionVPInstructions(Builder, Preheader, PostExit);
 
   // Insert VPInstructions related to VPPrivates.
-  insertPrivateVPInstructions(Builder, Preheader);
-
+  insertPrivateVPInstructions(Builder, Preheader, PostExit);
 }
 
 // Create so called "close-form calculation" for induction. The close-form
@@ -1426,8 +1472,15 @@ VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
 
 void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
-  LE->addPrivate(FinalInst, PtrAliases, IsConditional, IsLast, IsExplicit,
-                 AllocaInst, isMemOnly());
+  // If private has non-null constructor/destructor fields, then it is expected
+  // to be of non-POD type. TODO: Add check for CopyAssign when support is added
+  // to insertPrivateVPInstructions.
+  if (Ctor || Dtor)
+    LE->addNonPODPrivate(PtrAliases, IsConditional, IsLast, IsExplicit, Ctor,
+                         Dtor, CopyAssign, AllocaInst);
+  else
+    LE->addPrivate(FinalInst, PtrAliases, IsConditional, IsLast, IsExplicit,
+                   AllocaInst, isMemOnly());
 }
 
 void PrivateDescr::checkParentVPLoop(const VPLoop *Loop) const {

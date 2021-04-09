@@ -1774,8 +1774,20 @@ public:
       VecScenario = CallVecScenarios::UnmaskedWiden;
   }
 
+  // Alternate constructor to create VPCall without any underlying CallInst, for
+  // example - constructor/destructor calls for non-POD private memory.
+  VPCallInstruction(VPValue *Callee, ArrayRef<VPValue *> ArgList,
+                    Type *CallType)
+      : VPInstruction(Instruction::Call, CallType, ArgList), OrigCall(nullptr) {
+    assert(Callee && "Call instruction does not have Callee");
+    // Add called value to end of operand list for def-use chain.
+    addOperand(Callee);
+    resetVecScenario(0 /*Initial VF*/);
+  }
+
   /// Helper utility to access underlying CallInst corresponding to this
   /// VPCallInstruction. The utility works for both LLVM-IR and HIR paths.
+  /// Returns nullptr if VPCall has no underlying CallInst.
   const CallInst *getUnderlyingCallInst() const {
     if (auto *IRCall = dyn_cast_or_null<CallInst>(getInstruction()))
       return IRCall;
@@ -1784,8 +1796,7 @@ public:
       assert (IRCall && "Underlying call instruction expected here.");
       return IRCall;
     } else
-      llvm_unreachable(
-          "VPlan created a new VPCallInstruction without underlying IR.");
+      return nullptr;
   }
 
   /// Helper function to access CalledValue (last operand).
@@ -1801,17 +1812,24 @@ public:
     return nullptr;
   }
 
-  /// Getter for original call's calling convention.
+  /// Getter for called function's calling convention.
   CallingConv::ID getOrigCallingConv() const {
-    return getUnderlyingCallInst()->getCallingConv();
+    if (const CallInst *Call = getUnderlyingCallInst())
+      return Call->getCallingConv();
+    return getCalledFunction()->getCallingConv();
   }
 
   /// Getter for original call's tail call attribute.
-  bool isOrigTailCall() const { return getUnderlyingCallInst()->isTailCall(); }
+  bool isOrigTailCall() const {
+    return getUnderlyingCallInst() && getUnderlyingCallInst()->isTailCall();
+  }
 
-  // Getter for original call's callsite attributes.
+  // Getter for original call's callsite attributes. If underlying call is
+  // absent, then return empty AttributesList.
   AttributeList getOrigCallAttrs() const {
-    return getUnderlyingCallInst()->getAttributes();
+    if (const CallInst *Call = getUnderlyingCallInst())
+      return Call->getAttributes();
+    return {};
   }
 
   // Some helpful getters based on underlying call's attributes.

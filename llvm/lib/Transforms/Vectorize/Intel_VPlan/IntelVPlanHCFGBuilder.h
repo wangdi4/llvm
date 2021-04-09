@@ -29,7 +29,7 @@ class Loop;
 
 namespace vpo {
 
-extern bool VPlanPrintPrivDescr;
+extern bool VPlanPrintLegality;
 
 class VPOVectorizationLegality;
 class VPlanVerifier;

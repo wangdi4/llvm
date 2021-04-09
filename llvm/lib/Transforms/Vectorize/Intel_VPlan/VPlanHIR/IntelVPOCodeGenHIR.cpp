@@ -4373,7 +4373,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
            "Cannot find call vectorization scenario for VF.");
 
     // Skip ignored calls (for example, lifetime intrinsics).
-    if (isIgnoredCall(VPCall->getUnderlyingCallInst()))
+    if (!VPCall->getUnderlyingCallInst() ||
+        isIgnoredCall(VPCall->getUnderlyingCallInst()))
       return;
 
     switch (VPCall->getVectorizationScenario()) {

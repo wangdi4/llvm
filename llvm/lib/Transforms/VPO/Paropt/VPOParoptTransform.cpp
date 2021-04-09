@@ -2131,6 +2131,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genLinearCodeForVecLoop(W, LoopExitBB);
             Changed |= genLastPrivatizationCode(W, LoopExitBB);
             Changed |= genReductionCode(W);
+            Changed |= genDestructorCode(W);
             Changed |= sinkSIMDDirectives(W);
             Changed |= genParallelAccessMetadata(W);
           }
