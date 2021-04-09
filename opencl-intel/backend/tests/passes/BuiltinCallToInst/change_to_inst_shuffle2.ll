@@ -1,3 +1,4 @@
+; RUN: %oclopt -builtin-call-to-inst -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -builtin-call-to-inst -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -66,3 +67,5 @@ declare <4 x double> @_Z8shuffle2Dv2_dS_Dv4_m(<2 x double>, <2 x double>, <4 x i
 ; no calls should remain
 ; CHECK-NOT:    call <4 x double> @_Z8shuffle2Dv2_dS_Dv4_m(<2 x double> %d, <2 x double> %d, <4 x i64> <i64 1, i64 0, i64 0, i64 1>)
 
+
+; DEBUGIFY-NOT: WARNING

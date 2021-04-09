@@ -1,3 +1,4 @@
+; RUN: %oclopt -builtin-call-to-inst -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -builtin-call-to-inst -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -61,3 +62,5 @@ declare <2 x double> @_Z7shuffleDv2_dDv2_m(<2 x double>, <2 x i64>) nounwind rea
 ; CHECK:        store <2 x double> [[NEW_SHUFFLE4]], <2 x double> addrspace(1)* %p6
 ; no calls should remain
 ; CHECK-NOT:    call <2 x double> @_Z7shuffleDv2_dDv2_m(<2 x double> %d, <2 x i64> <i64 1, i64 0>)
+
+; DEBUGIFY-NOT: WARNING
