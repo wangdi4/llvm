@@ -10081,12 +10081,10 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleSimpleAttribute<HLSDeviceAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_PreferDSP:
-    handleSimpleAttributeWithExclusions<PreferDSPAttr,
-                                        PreferSoftLogicAttr>(S, D, AL);
+    handleSimpleAttribute<PreferDSPAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_PreferSoftLogic:
-    handleSimpleAttributeWithExclusions<PreferSoftLogicAttr,
-                                        PreferDSPAttr>(S, D, AL);
+    handleSimpleAttribute<PreferSoftLogicAttr>(S, D, AL);
     break;
 #endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_SYCLKernel:
