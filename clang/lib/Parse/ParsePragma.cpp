@@ -1021,8 +1021,7 @@ StmtResult Parser::HandlePragmaLoopFuse() {
   ArgsUnion AttrArgs[] = {IndependentLoc, DepthExpr};
   Attrs.addNew(PragmaNameInfo, FuseScopeStmt->getSourceRange(), nullptr,
                AttrLoc, AttrArgs, 2, ParsedAttr::AS_Pragma);
-  R = Actions.ProcessStmtAttributes(FuseScopeStmt, Attrs,
-                                    FuseScopeStmt->getSourceRange());
+  R = Actions.ActOnAttributedStmt(Attrs, FuseScopeStmt);
   return R;
 }
 #endif // INTEL_CUSTOMIZATION
