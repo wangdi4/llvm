@@ -258,31 +258,29 @@ Value *ResolveSubGroupWICall::replaceGetSubGroupSize(Instruction *InsertBefore,
   auto *LocalSize = createWIFunctionCall(m_pModule, "", LocalSizeName,
                                          InsertBefore, VecDimVar);
 
-  auto *MinusVFVal =
-      BinaryOperator::Create(Instruction::Sub, ConstantInt::get(m_ret, 0),
-                             VFVal, "minus.vf", InsertBefore);
-  auto *MaxUniformId = BinaryOperator::Create(
-      Instruction::And, MinusVFVal, LocalSize, "uniform.id.max", InsertBefore);
-  auto *NonUniformSize =
-      BinaryOperator::Create(Instruction::Sub, LocalSize, MaxUniformId,
-                             "nonuniform.size", InsertBefore);
+  IRBuilder<> Builder(InsertBefore);
+  auto *MinusVFVal = Builder.CreateBinOp(
+      Instruction::Sub, ConstantInt::get(m_ret, 0), VFVal, "minus.vf");
+  auto *MaxUniformId = Builder.CreateBinOp(Instruction::And, MinusVFVal,
+                                           LocalSize, "uniform.id.max");
+  auto *NonUniformSize = Builder.CreateBinOp(Instruction::Sub, LocalSize,
+                                             MaxUniformId, "nonuniform.size");
   auto *LocalId =
       createWIFunctionCall(m_pModule, "", LocalIdName, InsertBefore, VecDimVar);
-  auto *Cond =
-      new ICmpInst(InsertBefore, CmpInst::ICMP_ULT, LocalId, MaxUniformId, "");
-  auto *SGSize =
-      SelectInst::Create(Cond, VFVal, NonUniformSize, "", InsertBefore);
-  auto *Ret = CastInst::CreateTruncOrBitCast(SGSize, Int32Ty, "subgroup.size",
-                                             InsertBefore);
+  auto *Cond = Builder.CreateICmpULT(LocalId, MaxUniformId);
+  auto *SGSize = Builder.CreateSelect(Cond, VFVal, NonUniformSize);
+  auto *Ret = Builder.CreateTruncOrBitCast(SGSize, Int32Ty, "subgroup.size");
   return Ret;
 }
 
 Value *
 ResolveSubGroupWICall::replaceGetMaxSubGroupSize(Instruction *InsertBefore,
                                                  Value *VFVal, int32_t /*VD*/) {
-  return CastInst::CreateTruncOrBitCast(
+  auto *MaxSGSize = CastInst::CreateTruncOrBitCast(
       VFVal, IntegerType::get(m_pModule->getContext(), 32), "max.sg.size",
       InsertBefore);
+  MaxSGSize->setDebugLoc(InsertBefore->getDebugLoc());
+  return MaxSGSize;
 }
 
 Value *ResolveSubGroupWICall::replaceGetEnqueuedNumSubGroups(
@@ -303,22 +301,19 @@ Value *ResolveSubGroupWICall::replaceGetEnqueuedNumSubGroups(
   auto *EnqdLsz2 = createWIFunctionCall(m_pModule, "enqdlz2", EnqdLocalSizeName,
                                         InsertBefore, m_two);
 
+  IRBuilder<> Builder(InsertBefore);
   Value *ValOne = ConstantInt::get(m_ret, 1);
   std::vector<Value *> EnqdLszs = {EnqdLsz0, EnqdLsz1, EnqdLsz2};
-  auto *Op0 = BinaryOperator::Create(Instruction::Sub, EnqdLszs[VD], ValOne, "",
-                                     InsertBefore);
-  auto *Op1 = BinaryOperator::CreateUDiv(Op0, VFVal, "", InsertBefore);
-  auto *Op2 = BinaryOperator::Create(Instruction::Add, Op1, ValOne,
-                                     "sg.num.vecdim.enqd", InsertBefore);
+  auto *Op0 = Builder.CreateBinOp(Instruction::Sub, EnqdLszs[VD], ValOne);
+  auto *Op1 = Builder.CreateBinOp(Instruction::UDiv, Op0, VFVal);
+  auto *Op2 =
+      Builder.CreateBinOp(Instruction::Add, Op1, ValOne, "sg.num.vecdim.enqd");
   EnqdLszs[VD] = Op2;
-
-  auto *SGNumOp0 = BinaryOperator::Create(Instruction::Mul, EnqdLszs[0],
-                                          EnqdLszs[1], "", InsertBefore);
-  auto *SGNumOp1 = BinaryOperator::Create(Instruction::Mul, SGNumOp0,
-                                          EnqdLszs[2], "", InsertBefore);
-  auto *Res = CastInst::CreateTruncOrBitCast(
-      SGNumOp1, Type::getInt32Ty(m_pModule->getContext()), "sg.num.enqd",
-      InsertBefore);
+  auto *SGNumOp0 =
+      Builder.CreateBinOp(Instruction::Mul, EnqdLszs[0], EnqdLszs[1]);
+  auto *SGNumOp1 = Builder.CreateBinOp(Instruction::Mul, SGNumOp0, EnqdLszs[2]);
+  auto *Res = Builder.CreateTruncOrBitCast(
+      SGNumOp1, Type::getInt32Ty(m_pModule->getContext()), "sg.num.enqd");
   return Res;
 }
 
@@ -340,27 +335,24 @@ Value *ResolveSubGroupWICall::replaceGetNumSubGroups(Instruction *InsertBefore,
   auto *Lsz2 = createWIFunctionCall(m_pModule, "lsz2", LocalSizeName,
                                     InsertBefore, m_two);
 
+  IRBuilder<> Builder(InsertBefore);
   Value *ValOne = ConstantInt::get(m_ret, 1);
   std::vector<Value *> Lszs = {Lsz0, Lsz1, Lsz2};
-  auto *Op0 = BinaryOperator::Create(Instruction::Sub, Lszs[VD], ValOne, "",
-                                     InsertBefore);
-  auto *Op1 = BinaryOperator::CreateUDiv(Op0, VFVal, "", InsertBefore);
-  auto *Op2 = BinaryOperator::Create(Instruction::Add, Op1, ValOne,
-                                     "sg.num.vecdim", InsertBefore);
+  auto *Op0 = Builder.CreateBinOp(Instruction::Sub, Lszs[VD], ValOne);
+  auto *Op1 = Builder.CreateBinOp(Instruction::UDiv, Op0, VFVal);
+  auto *Op2 =
+      Builder.CreateBinOp(Instruction::Add, Op1, ValOne, "sg.num.vecdim");
   Lszs[VD] = Op2;
-
-  auto *SGNumOp0 = BinaryOperator::Create(Instruction::Mul, Lszs[0], Lszs[1],
-                                          "", InsertBefore);
-  auto *SGNumOp1 = BinaryOperator::Create(Instruction::Mul, SGNumOp0, Lszs[2],
-                                          "", InsertBefore);
-  auto *Res = CastInst::CreateTruncOrBitCast(
-      SGNumOp1, Type::getInt32Ty(m_pModule->getContext()), "sg.num",
-      InsertBefore);
+  auto *SGNumOp0 = Builder.CreateBinOp(Instruction::Mul, Lszs[0], Lszs[1]);
+  auto *SGNumOp1 = Builder.CreateBinOp(Instruction::Mul, SGNumOp0, Lszs[2]);
+  auto *Res = Builder.CreateTruncOrBitCast(
+      SGNumOp1, Type::getInt32Ty(m_pModule->getContext()), "sg.num");
   return Res;
 }
 
 Value *ResolveSubGroupWICall::replaceGetSubGroupId(Instruction *InsertBefore,
                                                    Value *VFVal, int32_t VD) {
+  IRBuilder<> Builder(InsertBefore);
   // Assume vectorization dimension is 0
   // Replace get_sub_group_id() with the following sequence:
   // (get_local_id(2) * get_local_size(1) + get_local_id(1)) *
@@ -400,30 +392,22 @@ Value *ResolveSubGroupWICall::replaceGetSubGroupId(Instruction *InsertBefore,
   std::vector<Value *> Lszs = {Lsz0, Lsz1, Lsz2};
   Lszs = {Lszs[Dims[0]], Lszs[Dims[1]], Lszs[Dims[2]]};
 
-  auto *Op0 = BinaryOperator::Create(Instruction::Mul, Lids[2], Lszs[1],
-                                     "sg.id.op0", InsertBefore);
-  auto *Op1 = BinaryOperator::Create(Instruction::Add, Op0, Lids[1],
-                                     "sg.id.op1", InsertBefore);
+  auto *Op0 =
+      Builder.CreateBinOp(Instruction::Mul, Lids[2], Lszs[1], "sg.id.op0");
+  auto *Op1 = Builder.CreateBinOp(Instruction::Add, Op0, Lids[1], "sg.id.op1");
 
   Value *ValOne = ConstantInt::get(m_ret, 1);
 
-  auto *Op2 = BinaryOperator::Create(Instruction::Sub, Lszs[0], ValOne,
-                                     "sg.id.op2", InsertBefore);
-  auto *Op3 = BinaryOperator::CreateUDiv(Op2, VFVal, "sg.id.op3", InsertBefore);
-  auto *Op4 = BinaryOperator::Create(Instruction::Add, Op3, ValOne, "sg.id.op4",
-                                     InsertBefore);
-
-  auto *Op5 = BinaryOperator::Create(Instruction::Mul, Op4, Op1, "sg.id.op5",
-                                     InsertBefore);
-
+  auto *Op2 =
+      Builder.CreateBinOp(Instruction::Sub, Lszs[0], ValOne, "sg.id.op2");
+  auto *Op3 = Builder.CreateBinOp(Instruction::UDiv, Op2, VFVal, "sg.id.op3");
+  auto *Op4 = Builder.CreateBinOp(Instruction::Add, Op3, ValOne, "sg.id.op4");
+  auto *Op5 = Builder.CreateBinOp(Instruction::Mul, Op4, Op1, "sg.id.op5");
   auto *Op6 =
-      BinaryOperator::CreateUDiv(Lids[0], VFVal, "sg.id.op6", InsertBefore);
-
-  auto *Op7 = BinaryOperator::Create(Instruction::Add, Op5, Op6, "sg.id.res",
-                                     InsertBefore);
-  auto *Res = CastInst::CreateTruncOrBitCast(
-      Op7, Type::getInt32Ty(m_pModule->getContext()), "sg.id.res.trunc",
-      InsertBefore);
+      Builder.CreateBinOp(Instruction::UDiv, Lids[0], VFVal, "sg.id.op6");
+  auto *Op7 = Builder.CreateBinOp(Instruction::Add, Op5, Op6, "sg.id.res");
+  auto *Res = Builder.CreateTruncOrBitCast(
+      Op7, Type::getInt32Ty(m_pModule->getContext()), "sg.id.res.trunc");
   return Res;
 }
 
@@ -500,7 +484,8 @@ CallInst *ResolveSubGroupWICall::createWIFunctionCall(
     assert(Func && "Failed creating function");
   }
 
-  return CallInst::Create(Func, ActPar, ValueName, InsertBefore);
+  IRBuilder<> Builder(InsertBefore);
+  return Builder.CreateCall(Func, ActPar, ValueName);
 }
 
 } // namespace intel

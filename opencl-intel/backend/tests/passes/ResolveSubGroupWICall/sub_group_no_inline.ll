@@ -1,5 +1,6 @@
 ;; Verify the cases in which subgroup calls can't be inlined into the kernel body
 ; RUN: %oclopt -resolve-sub-group-wi-call -S < %s | FileCheck %s
+; RUN: %oclopt -enable-debugify -resolve-sub-group-wi-call -disable-output 2>&1 -S < %s | FileCheck %s -check-prefix=DEBUGIFY
 ; ModuleID = 'main'
 source_filename = "1"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -115,3 +116,4 @@ attributes #4 = { convergent nounwind }
 !25 = !{i32 16}
 !26 = !{i32 1}
 !27 = !{i32 8}
+; DEBUGIFY-NOT: WARNING

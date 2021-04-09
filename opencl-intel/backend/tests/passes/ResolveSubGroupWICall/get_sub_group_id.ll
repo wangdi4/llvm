@@ -1,4 +1,5 @@
 ; RUN: %oclopt -resolve-sub-group-wi-call -S < %s | FileCheck %s
+; RUN: %oclopt -enable-debugify -resolve-sub-group-wi-call -disable-output 2>&1 -S < %s | FileCheck %s -check-prefix=DEBUGIFY
 ; ModuleID = 'main'
 source_filename = "1"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -63,8 +64,7 @@ entry:
   %call4 = tail call i32 @_Z18get_sub_group_sizev() #4
 ; CHECK-NOT: @_Z18get_sub_group_sizev
 ; CHECK: [[local_size:%[0-9]+]] = call i64 @_Z14get_local_sizej(i32 0)
-; CHECK: %minus.vf = sub i64 0, 16
-; CHECK: %uniform.id.max = and i64 %minus.vf, %3
+; CHECK: %uniform.id.max = and i64 -16, %3
 ; CHECK: %nonuniform.size = sub i64 [[local_size]], %uniform.id.max
 ; CHECK: [[local_id:%[0-9]+]] = call i64 @_Z12get_local_idj(i32 0)
 ; CHECK: [[cond:%[0-9]+]] = icmp ult i64 [[local_id]], %uniform.id.max
@@ -121,3 +121,4 @@ attributes #4 = { convergent nounwind }
 !28 = !{i32 16}
 !29 = !{i1 false}
 !30 = !{i32 1}
+; DEBUGIFY-NOT: WARNING
