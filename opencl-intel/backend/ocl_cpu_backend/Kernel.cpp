@@ -516,7 +516,7 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
   }
 
   // barrier buffer is always allocated with the uniform size.
-  pKernelUniformImplicitArgs->stackSize = barrierSize * localNumUniform +
+  m_stackActualSize = barrierSize * localNumUniform +
                                           localBufferSize + m_stackExtraSize;
   // need to decide which entrypoint to run
   const IKernelJITContainer *pScalarJIT = GetKernelJIT(0);
@@ -529,7 +529,7 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
         CreateEntryPointHandle(pScalarJIT->GetJITCode());
     size_t nonBarrierPrivateSize = (privateSize - barrierSize) *
                                    (1 + m_pProps->GetMinGroupSizeFactorial());
-    pKernelUniformImplicitArgs->stackSize += nonBarrierPrivateSize;
+    m_stackActualSize += nonBarrierPrivateSize;
   } else {
     const IKernelJITContainer *pVectorJIT =
         GetKernelJITCount() > 1 ? GetKernelJIT(1) : nullptr;
@@ -559,13 +559,13 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
       // they have the same size between uniform and non uniform WGs. So there
       // should be no great difference between the two sizes. Using the uniform
       // stack size can simplify the stack reallocation.
-      pKernelUniformImplicitArgs->stackSize += nonBarrierPrivateSize;
+      m_stackActualSize += nonBarrierPrivateSize;
     } else {
       // Only scalar JIT is present.
       pKernelUniformImplicitArgs->pUniformJITEntryPoint =
       pKernelUniformImplicitArgs->pNonUniformJITEntryPoint =
           CreateEntryPointHandle(pScalarJIT->GetJITCode());
-      pKernelUniformImplicitArgs->stackSize += (privateSize - barrierSize);
+      m_stackActualSize += (privateSize - barrierSize);
     }
   }
 
@@ -729,7 +729,7 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
   AfterExecution();
 #else
   if (!m_useAutoMemory || m_pProps->TargetDevice() != FPGA_EMU_DEVICE ||
-      pKernelUniformImplicitArgs->stackSize < m_stackDefaultSize)
+      m_stackActualSize < m_stackDefaultSize)
     kernel(pKernelUniformArgs, pGroupID, pRuntimeHandle);
   else {
     bool isUniform = (pGroupID[0] != pKernelUniformImplicitArgs->WGCount[0] - 1);
@@ -741,7 +741,7 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
 
     FIBERDATA fiberData = {pKernelUniformArgs, pGroupID, pRuntimeHandle, kernel,
                            primaryFiber};
-    fiber = CreateFiberEx(pKernelUniformImplicitArgs->stackSize, 0,
+    fiber = CreateFiberEx(m_stackActualSize, 0,
                           0, CreateFiberExRoutineFunc, &fiberData);
     if (!fiber)
       ErrorExit((LPTSTR)TEXT("CreateFiberEx"));
@@ -750,11 +750,11 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
     DeleteFiber(fiber);
     ConvertFiberToThread();
 #else
-    void *stackBase = AllocaStack(pKernelUniformImplicitArgs->stackSize);
+    void *stackBase = AllocaStack(m_stackActualSize);
     ucontext_t originalContext, newContext;
     getcontext(&newContext);
     newContext.uc_stack.ss_sp = stackBase;
-    newContext.uc_stack.ss_size = pKernelUniformImplicitArgs->stackSize;
+    newContext.uc_stack.ss_size = m_stackActualSize;
     newContext.uc_link = &originalContext;
     // workaround "might be clobbered" warning
     if (isUniform)

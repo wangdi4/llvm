@@ -347,6 +347,7 @@ protected:
   mutable std::mutex m_stackMutex;
   cl_ulong m_stackDefaultSize;
   cl_ulong m_stackExtraSize;
+  mutable size_t m_stackActualSize;
   bool     m_useAutoMemory;
 
 private:
