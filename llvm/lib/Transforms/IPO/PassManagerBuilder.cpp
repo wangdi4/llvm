@@ -1853,12 +1853,14 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   if (EnableMultiVersioning) {
     PM.add(createMultiVersioningWrapperPass());
+#if INTEL_INCLUDE_DTRANS
     // 21914: If we ran cloning+MV+Dtrans, it is likely we have duplicate
     // code regions that need to be cleaned up. Community disabled hoisting
     // recently, we therefore need to run it explictly.
     if (EnableDTrans)
       PM.add(createCFGSimplificationPass(SimplifyCFGOptions()
                                              .hoistCommonInsts(true)));
+#endif // INTEL_INCLUDE_DTRANS
   }
 #endif // INTEL_CUSTOMIZATION
   // LTO provides additional opportunities for tailcall elimination due to

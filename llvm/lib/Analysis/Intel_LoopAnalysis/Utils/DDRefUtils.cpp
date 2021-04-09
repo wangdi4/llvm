@@ -677,6 +677,7 @@ bool DDRefUtils::isMemRefAllDimsConstOnly(const RegDDRef *Ref) {
   return true;
 }
 
+#if INTEL_INCLUDE_DTRANS
 bool DDRefUtils::hasConstantEntriesFromArray(const RegDDRef *Ref,
                                              DTransImmutableInfo *DTII,
                                              Constant *IndexInArray,
@@ -747,9 +748,14 @@ bool DDRefUtils::hasConstantEntriesFromArray(const RegDDRef *Ref,
 
   return false;
 }
+#endif // INTEL_INCLUDE_DTRANS
 
+#if INTEL_INCLUDE_DTRANS
 RegDDRef *DDRefUtils::simplifyConstArray(const RegDDRef *Ref,
                                          DTransImmutableInfo *DTII) {
+#else // INTEL_INCLUDE_DTRANS
+RegDDRef *DDRefUtils::simplifyConstArray(const RegDDRef *Ref) {
+#endif // INTEL_INCLUDE_DTRANS
   if (!Ref->isMemRef() || Ref->isFake() || Ref->getBitCastDestType()) {
     return nullptr;
   }
@@ -788,6 +794,7 @@ RegDDRef *DDRefUtils::simplifyConstArray(const RegDDRef *Ref,
     return Ref->getDDRefUtils().createConstDDRef(Val);
   }
 
+#if INTEL_INCLUDE_DTRANS
   // Check if DD ref has a constant value calculated by DTrans.
   if (DTII && LocationGEP->getNumOperands() >= 4) {
     Constant *IndexInArray = dyn_cast<Constant>(
@@ -801,6 +808,7 @@ RegDDRef *DDRefUtils::simplifyConstArray(const RegDDRef *Ref,
         return Ref->getDDRefUtils().createConstDDRef(Val);
     }
   }
+#endif // INTEL_INCLUDE_DTRANS
 
   return nullptr;
 }
