@@ -34,8 +34,10 @@ if(LLVM_BUILD_LLVM_DYLIB)
 
   list(REMOVE_DUPLICATES LIB_NAMES)
 
+  # INTEL_CUSTOMIZATION
   # Link against the object libraries instead of static libraries.
   list(TRANSFORM LIB_NAMES PREPEND "obj.")
+  # end INTEL_CUSTOMIZATION
 
   if(("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux") OR (MINGW) OR (HAIKU)
      OR ("${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD")
