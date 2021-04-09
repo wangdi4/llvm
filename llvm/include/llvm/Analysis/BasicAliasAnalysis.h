@@ -259,31 +259,25 @@ private:
 
   AliasResult aliasGEP(const AddressOperator *V1,   // INTEL
                        LocationSize V1Size,         // INTEL
-                       const AAMDNodes &V1AAInfo, const Value *V2,
-                       LocationSize V2Size, const AAMDNodes &V2AAInfo,
+                       const Value *V2, LocationSize V2Size,
                        const Value *UnderlyingV1, const Value *UnderlyingV2,
                        AAQueryInfo &AAQI);
 
   AliasResult aliasPHI(const PHINode *PN, LocationSize PNSize,
-                       const AAMDNodes &PNAAInfo, const Value *V2,
-                       LocationSize V2Size, const AAMDNodes &V2AAInfo,
-                       AAQueryInfo &AAQI);
+                       const Value *V2, LocationSize V2Size, AAQueryInfo &AAQI);
 
   AliasResult aliasSelect(const SelectInst *SI, LocationSize SISize,
-                          const AAMDNodes &SIAAInfo, const Value *V2,
-                          LocationSize V2Size, const AAMDNodes &V2AAInfo,
+                          const Value *V2, LocationSize V2Size,
                           AAQueryInfo &AAQI);
 
   AliasResult aliasCheck(const Value *V1, LocationSize V1Size,
-                         const AAMDNodes &V1AATag, const Value *V2,
-                         LocationSize V2Size, const AAMDNodes &V2AATag,
+                         const Value *V2, LocationSize V2Size,
                          AAQueryInfo &AAQI);
 
   const Value* getBaseValue(const Value *V1); // INTEL
 
   AliasResult aliasCheckRecursive(const Value *V1, LocationSize V1Size,
-                                  const AAMDNodes &V1AATag, const Value *V2,
-                                  LocationSize V2Size, const AAMDNodes &V2AATag,
+                                  const Value *V2, LocationSize V2Size,
                                   AAQueryInfo &AAQI, const Value *O1,
                                   const Value *O2);
 };
