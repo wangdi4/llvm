@@ -1,12 +1,11 @@
-; RUN: %oclopt --ocl-vec-clone-isa-encoding-override=AVX512Core -ChooseVectorizationDimensionModulePass -ocl-vecclone -S %s -o %s.tmp
+; RUN: %oclopt --ocl-vec-clone-isa-encoding-override=AVX512Core -ChooseVectorizationDimensionModulePass -ocl-vecclone -S %s -o %t
 ; The order of generated functions may vary, so we run FileCheck multiple times.
-; RUN: FileCheck -check-prefix CHECK0 %s -input-file=%s.tmp
-; RUN: FileCheck -check-prefix CHECK1 %s -input-file=%s.tmp
-; RUN: FileCheck -check-prefix CHECK2 %s -input-file=%s.tmp
-; RUN: FileCheck -check-prefix CHECK3 %s -input-file=%s.tmp
-; RUN: FileCheck -check-prefix CHECK4 %s -input-file=%s.tmp
-; RUN: FileCheck -check-prefix CHECK5 %s -input-file=%s.tmp
-; RUN: rm %s.tmp
+; RUN: FileCheck -check-prefix CHECK0 %s -input-file=%t
+; RUN: FileCheck -check-prefix CHECK1 %s -input-file=%t
+; RUN: FileCheck -check-prefix CHECK2 %s -input-file=%t
+; RUN: FileCheck -check-prefix CHECK3 %s -input-file=%t
+; RUN: FileCheck -check-prefix CHECK4 %s -input-file=%t
+; RUN: FileCheck -check-prefix CHECK5 %s -input-file=%t
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -17,6 +16,8 @@ define void @test_0(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocaptur
   %gid.0 = call i64 @_Z13get_global_idj(i32 0)
   %gid.1 = call i64 @_Z13get_global_idj(i32 1)
   %gid.2 = call i64 @_Z13get_global_idj(i32 2)
+  %use.0 = add i64 %gid.0, %gid.1
+  %use.1 = add i64 %use.0, %gid.2
   %mul = mul i64 %gid.0, 2
   %load.addr = getelementptr i32, i32 addrspace(1)* %in, i64 %mul
   %load = load i32, i32 addrspace(1)* %load.addr  ; good for dim 1 (uniform), bad for dim 0 (strided)
@@ -33,6 +34,8 @@ define void @test_1(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocaptur
   %gid.0 = call i64 @_Z13get_global_idj(i32 0)
   %gid.1 = call i64 @_Z13get_global_idj(i32 1)
   %gid.2 = call i64 @_Z13get_global_idj(i32 2)
+  %use.0 = add i64 %gid.0, %gid.1
+  %use.1 = add i64 %use.0, %gid.2
   %load.addr = getelementptr i32, i32 addrspace(1)* %in, i64 %gid.0
   %load = load i32, i32 addrspace(1)* %load.addr  ; good for both dim 0 (consecutive) and 1 (uniform)
   %store.addr = getelementptr i32, i32 addrspace(1)* %out, i64 %gid.1
@@ -49,6 +52,8 @@ define void @test_2(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocaptur
   %gid.0 = call i64 @_Z13get_global_idj(i32 0)
   %gid.1 = call i64 @_Z13get_global_idj(i32 1)
   %gid.2 = call i64 @_Z13get_global_idj(i32 2)
+  %use.0 = add i64 %gid.0, %gid.1
+  %use.1 = add i64 %use.0, %gid.2
   %mul = mul i64 %gid.0, 2
   %load.addr = getelementptr i32, i32 addrspace(1)* %in, i64 %mul
   %load = load i32, i32 addrspace(1)* %load.addr
@@ -66,6 +71,8 @@ define void @test_3(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocaptur
   %gid.0 = call i64 @_Z13get_global_idj(i32 0)
   %gid.1 = call i64 @_Z13get_global_idj(i32 1)
   %gid.2 = call i64 @_Z13get_global_idj(i32 2)
+  %use.0 = add i64 %gid.0, %gid.1
+  %use.1 = add i64 %use.0, %gid.2
   %mul = mul i64 %gid.0, 2
   %load.addr = getelementptr i32, i32 addrspace(1)* %in, i64 %mul
   %load = load i32, i32 addrspace(1)* %load.addr
@@ -82,6 +89,8 @@ define void @test_4(<4 x i32> addrspace(1)* nocapture %out, <4 x i32> addrspace(
   %gid.0 = call i64 @_Z13get_global_idj(i32 0)
   %gid.1 = call i64 @_Z13get_global_idj(i32 1)
   %gid.2 = call i64 @_Z13get_global_idj(i32 2)
+  %use.0 = add i64 %gid.0, %gid.1
+  %use.1 = add i64 %use.0, %gid.2
   %load.addr = getelementptr <4 x i32>, <4 x i32> addrspace(1)* %in, i64 %gid.0
   %load = load <4 x i32>, <4 x i32> addrspace(1)* %load.addr  ; good for dim 1 (uniform), bad for dim 0 (consecutive on vector type)
   %store.addr = getelementptr <4 x i32>, <4 x i32> addrspace(1)* %out, i64 %gid.0
@@ -97,6 +106,8 @@ define void @test_5(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocaptur
   %gid.0 = call i64 @_Z13get_global_idj(i32 0)
   %gid.1 = call i64 @_Z13get_global_idj(i32 1)
   %gid.2 = call i64 @_Z13get_global_idj(i32 2)
+  %use.0 = add i64 %gid.0, %gid.1
+  %use.1 = add i64 %use.0, %gid.2
   %load.addr = getelementptr i32, i32 addrspace(1)* %in, i64 %gid.0
   %load = load i32, i32 addrspace(1)* %load.addr  ; good for both dim 0 (consecutive) and 1, 2 (uniform)
   %cond = icmp ne i64 %gid.0, %gid.1
