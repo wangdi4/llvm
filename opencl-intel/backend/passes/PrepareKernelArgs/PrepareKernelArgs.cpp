@@ -107,9 +107,9 @@ namespace intel{
       pFunc->getAttributes().getAttributes(AttributeList::FunctionIndex);
     AttrBuilder B(std::move(FnAttrs));
     pNewF->addAttributes(AttributeList::FunctionIndex, B);
+    pFunc->removeFnAttr(llvm::Attribute::OptimizeNone);
     pFunc->removeFnAttr(llvm::Attribute::NoInline);
     pFunc->addFnAttr(llvm::Attribute::AlwaysInline);
-
     // pFunc is expected to be inlined anyway,
     // so no need to duplicate DISubprogram.
     pFunc->setSubprogram(nullptr);
