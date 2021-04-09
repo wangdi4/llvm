@@ -3599,15 +3599,6 @@ public:
                                           const AttributeCommonInfo &CI,
                                           const IdentifierInfo *Ident);
   MinSizeAttr *mergeMinSizeAttr(Decl *D, const AttributeCommonInfo &CI);
-  NoSpeculativeLoadHardeningAttr *
-  mergeNoSpeculativeLoadHardeningAttr(Decl *D,
-                                      const NoSpeculativeLoadHardeningAttr &AL);
-  SpeculativeLoadHardeningAttr *
-  mergeSpeculativeLoadHardeningAttr(Decl *D,
-                                    const SpeculativeLoadHardeningAttr &AL);
-  PreferDSPAttr *mergePreferDSPAttr(Decl *D, const PreferDSPAttr &AL);
-  PreferSoftLogicAttr *mergePreferSoftLogicAttr(Decl *D,
-                                                const PreferSoftLogicAttr &AL);
   SwiftNameAttr *mergeSwiftNameAttr(Decl *D, const SwiftNameAttr &SNA,
                                     StringRef Name);
   OptimizeNoneAttr *mergeOptimizeNoneAttr(Decl *D,
@@ -3615,8 +3606,6 @@ public:
   InternalLinkageAttr *mergeInternalLinkageAttr(Decl *D, const ParsedAttr &AL);
   InternalLinkageAttr *mergeInternalLinkageAttr(Decl *D,
                                                 const InternalLinkageAttr &AL);
-  CommonAttr *mergeCommonAttr(Decl *D, const ParsedAttr &AL);
-  CommonAttr *mergeCommonAttr(Decl *D, const CommonAttr &AL);
   WebAssemblyImportNameAttr *mergeImportNameAttr(
       Decl *D, const WebAssemblyImportNameAttr &AL);
   WebAssemblyImportModuleAttr *mergeImportModuleAttr(
