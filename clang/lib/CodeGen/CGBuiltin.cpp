@@ -19987,7 +19987,7 @@ RValue CodeGenFunction::EmitBuiltinIndirectCall(
     Args.push_back(Builder.CreatePointerBitCastOrAddrSpaceCast(
         FnPtr, CV->getPointerOperand()->getType()));
   } else {
-    assert("not an indirect call");
+    assert(false && "not an indirect call");
   }
   // llvm::Types Array contains return type, and types of the call.
   // llvm::Arg Array contains arguments for the call.
