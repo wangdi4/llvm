@@ -70,7 +70,7 @@ public:
   uint32_t cpuType;
   uint32_t cpuSubtype;
 
-  size_t pageZeroSize;
+  uint64_t pageZeroSize;
   size_t stubSize;
   size_t stubHelperHeaderSize;
   size_t stubHelperEntrySize;
@@ -89,7 +89,7 @@ struct LP64 {
   static constexpr uint32_t magic = llvm::MachO::MH_MAGIC_64;
   static constexpr uint32_t segmentLCType = llvm::MachO::LC_SEGMENT_64;
 
-  static constexpr size_t pageZeroSize = 1ull << 32;
+  static constexpr uint64_t pageZeroSize = 1ull << 32;
   static constexpr size_t wordSize = 8;
 };
 
@@ -102,7 +102,7 @@ struct ILP32 {
   static constexpr uint32_t magic = llvm::MachO::MH_MAGIC;
   static constexpr uint32_t segmentLCType = llvm::MachO::LC_SEGMENT;
 
-  static constexpr size_t pageZeroSize = 1ull << 12;
+  static constexpr uint64_t pageZeroSize = 1ull << 12;
   static constexpr size_t wordSize = 4;
 };
 
