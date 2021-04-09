@@ -18,6 +18,7 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/NoFolder.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -363,6 +364,7 @@ static void cloneFunctionsWithIOPipe(CallGraph &CG,
 
 static void replacePipeBuiltinCall(CallInst *PipeCall, GlobalVariable *TC,
                                    OCLBuiltins &Builtins) {
+  IRBuilder<NoFolder> Builder(PipeCall);
   Function *CF = PipeCall->getCalledFunction();
   assert(CF && "Indirect function call");
   PipeKind PK = CompilationUtils::getPipeKind(std::string(CF->getName()));
@@ -373,10 +375,10 @@ static void replacePipeBuiltinCall(CallInst *PipeCall, GlobalVariable *TC,
   FunctionType *FTy = Builtin->getFunctionType();
   Value *Args[] = {
       PipeCall->getArgOperand(0), PipeCall->getArgOperand(1),
-      CastInst::CreatePointerCast(TC, FTy->getParamType(2), "", PipeCall),
+      Builder.CreatePointerCast(TC, FTy->getParamType(2), ""),
       PipeCall->getArgOperand(2), PipeCall->getArgOperand(3)};
 
-  auto PC = CallInst::Create(Builtin, Args, PipeCall->getName(), PipeCall);
+  auto PC = Builder.CreateCall(Builtin, Args, PipeCall->getName());
   PipeCall->replaceAllUsesWith(PC);
   PipeCall->eraseFromParent();
 }

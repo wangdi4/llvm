@@ -30,6 +30,7 @@
 ; Optimizer options:
 ;   opt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
+; RUN: %oclopt -pipe-ordering %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -pipe-ordering -verify %s -S | FileCheck %s
 
 ; CHECK: define void @write_to_channel_in_loop(i32 %iters)
@@ -209,3 +210,5 @@ attributes #5 = { convergent }
 !16 = !{i32 0}
 !17 = !{!18, !18, i64 0}
 !18 = !{!"any pointer", !8, i64 0}
+
+; DEBUGIFY-NOT: WARNING

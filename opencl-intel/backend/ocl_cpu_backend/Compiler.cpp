@@ -14,16 +14,19 @@
 
 #define NOMINMAX
 
+#include "Compiler.h"
+#include "BuiltinModuleManager.h"
+#include "BuiltinModules.h"
+#include "CompilationUtils.h"
+#include "CompilerConfig.h"
+#include "MetadataAPI.h"
+#include "Optimizer.h"
+#include "OptimizerLTOLegacyPM.h"
+#include "VecConfig.h"
+#include "cl_config.h"
 #include "cl_types.h"
 #include "cpu_dev_limits.h"
-#include "Compiler.h"
-#include "Optimizer.h"
-#include "VecConfig.h"
-#include "BuiltinModules.h"
 #include "exceptions.h"
-#include "BuiltinModuleManager.h"
-#include "CompilationUtils.h"
-#include "MetadataAPI.h"
 
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Bitcode/BitcodeReader.h"
@@ -299,7 +302,7 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
         return;
     }
 
-    Optimizer::initializePasses();
+    OptimizerOCL::initializePasses();
 
     std::vector<std::string> args;
 
@@ -389,7 +392,8 @@ Compiler::Compiler(const ICompilerConfig& config):
     m_disableOptimization(false),
     m_useNativeDebugger(false),
     m_streamingAlways(config.GetStreamingAlways()),
-    m_expensiveMemOpts(config.GetExpensiveMemOpts())
+    m_expensiveMemOpts(config.GetExpensiveMemOpts()),
+    m_optLTOLegacyPM(config.GetUseLTOLegacyPM())
 {
     // WORKAROUND!!! See the notes in TerminationBlocker description
    static Utils::TerminationBlocker blocker;
@@ -566,18 +570,25 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                                             m_rtLoopUnrollFactor,
                                             m_streamingAlways,
                                             m_expensiveMemOpts);
-    Optimizer optimizer(pModule, GetBuiltinModuleList(), &optimizerConfig);
-    optimizer.Optimize();
+    std::unique_ptr<Optimizer> optimizer;
+    if (m_optLTOLegacyPM)
+      optimizer.reset(new OptimizerLTOLegacyPM(pModule, &optimizerConfig));
+    else
+      optimizer.reset(
+          new OptimizerOCL(pModule, GetBuiltinModuleList(), &optimizerConfig));
+
+    optimizer->Optimize();
 
     {
-        bool checkSuccess = Utils::LogKernelVFState(pResult->LogS(), optimizer.GetKernelVFStates());
-        if (!checkSuccess)
-        {
-            throw Exceptions::CompilerException("Checking vectorization factor failed", CL_DEV_INVALID_BINARY);
-        }
+      bool checkSuccess = Utils::LogKernelVFState(
+          pResult->LogS(), optimizer->GetKernelVFStates());
+      if (!checkSuccess) {
+        throw Exceptions::CompilerException(
+            "Checking vectorization factor failed", CL_DEV_INVALID_BINARY);
+      }
     }
 
-    if (optimizer.hasVectorVariantFailure()) {
+    if (optimizer->hasVectorVariantFailure()) {
       std::map<std::string, std::vector<std::string>> Reasons;
       for (auto &F : *pModule)
         if (F.hasFnAttribute(CompilationUtils::ATTR_VECTOR_VARIANT_FAILURE)) {
@@ -597,8 +608,8 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
           CL_DEV_INVALID_BINARY);
     }
 
-    if (optimizer.hasUndefinedExternals()) {
-      auto undefExternals = optimizer.GetUndefinedExternals();
+    if (optimizer->hasUndefinedExternals()) {
+      auto undefExternals = optimizer->GetUndefinedExternals();
       if (m_bIsFPGAEmulator && !this->getBuiltinInitLog().empty() &&
           isUndefinedExternalsFromMPIRLib(undefExternals)) {
         pResult->LogS() << this->getBuiltinInitLog() << "\n";
@@ -609,19 +620,18 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                                           CL_DEV_INVALID_BINARY);
     }
 
-    if (optimizer.hasUnsupportedRecursion()) {
+    if (optimizer->hasUnsupportedRecursion()) {
       Utils::LogHasRecursion(
-          pResult->LogS(), optimizer.GetInvalidFunctions(
+          pResult->LogS(), optimizer->GetInvalidFunctions(
               Optimizer::InvalidFunctionType::RECURSION));
-
       throw Exceptions::UserErrorCompilerException( "Recursive call detected.",
                                                    CL_DEV_INVALID_BINARY);
     }
 
-    if (optimizer.hasFpgaPipeDynamicAccess())
-    {
+    if (optimizer->hasFpgaPipeDynamicAccess()) {
       Utils::LogHasFpgaPipeDynamicAccess(
-          pResult->LogS(), optimizer.GetInvalidFunctions(
+          pResult->LogS(),
+          optimizer->GetInvalidFunctions(
               Optimizer::InvalidFunctionType::FPGA_PIPE_DYNAMIC_ACCESS));
 
       throw Exceptions::UserErrorCompilerException(
@@ -629,12 +639,12 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
           CL_DEV_INVALID_BINARY);
     }
 
-    if (optimizer.hasFPGAChannelsWithDepthIgnored())
-    {
-        // In this case build is not failed, we just need to show diagnostics
-        Utils::LogHasFPGAChannelsWithDepthIgnored(pResult->LogS(),
-            optimizer.GetInvalidGlobals(
-                Optimizer::InvalidGVType::FPGA_DEPTH_IS_IGNORED));
+    if (optimizer->hasFPGAChannelsWithDepthIgnored()) {
+      // In this case build is not failed, we just need to show diagnostics
+      Utils::LogHasFPGAChannelsWithDepthIgnored(
+          pResult->LogS(),
+          optimizer->GetInvalidGlobals(
+              Optimizer::InvalidGVType::FPGA_DEPTH_IS_IGNORED));
     }
 
     //

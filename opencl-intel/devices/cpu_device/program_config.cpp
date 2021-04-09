@@ -40,6 +40,7 @@ void ProgramConfig::InitFromCpuConfig(const CPUDeviceConfig& cpuConfig)
     m_cpuMaxWGSize = cpuConfig.GetCpuMaxWGSize();
     m_streamingAlways = cpuConfig.GetStreamingAlways();
     m_expensiveMemOpts = cpuConfig.GetExpensiveMemOpts();
+    m_useLTOLegacyPM = cpuConfig.GetUseLTOLegacyPM();
 }
 
 void ProgramDumpConfig::InitFromString(const char* options)

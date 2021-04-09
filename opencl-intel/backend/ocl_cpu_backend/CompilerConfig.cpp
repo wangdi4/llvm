@@ -12,11 +12,11 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#include "cl_sys_defines.h"
 #include "CompilerConfig.h"
 #include "OclTune.h"
 #include "PipeCommon.h"
-
+#include "cl_config.h"
+#include "cl_sys_defines.h"
 #include "llvm/Support/Debug.h"
 
 #include <sstream>
@@ -26,6 +26,7 @@
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 const char* CPU_ARCH_AUTO = "auto";
+using Intel::OpenCL::Utils::ConfigFile;
 
 void GlobalCompilerConfig::LoadDefaults()
 {
@@ -34,25 +35,6 @@ void GlobalCompilerConfig::LoadDefaults()
     m_infoOutputFile = "";
     m_LLVMOptions = "";
     m_targetDevice = CPU_DEVICE;
-}
-
-static bool parseBool(const char *val) {
-    if (!strcmp(val, "0")     ||
-        !strcmp(val, "FALSE") ||
-        !strcmp(val, "False") ||
-        !strcmp(val, "false") ||
-        !strcmp(val, "NO")    ||
-        !strcmp(val, "No")    ||
-        !strcmp(val, "no")    ||
-        !strcmp(val, "F")     ||
-        !strcmp(val, "f")     ||
-        !strcmp(val, "N")     ||
-        !strcmp(val, "n")     ||
-        !strcmp(val, "NONE")  ||
-        !strcmp(val, "None")  ||
-        !strcmp(val, "none"))
-        return false;
-    return true;
 }
 
 void GlobalCompilerConfig::LoadConfig()
@@ -69,7 +51,7 @@ void GlobalCompilerConfig::LoadConfig()
 #endif // NDEBUG
     if (const char *pEnv = getenv("CL_DISABLE_STACK_TRACE"))
     {
-        m_disableStackDump = parseBool(pEnv);
+      m_disableStackDump = ConfigFile::ConvertStringToType<bool>(pEnv);
     }
 #ifndef INTEL_PRODUCT_RELEASE
     // Stat options are set as llvm options for 2 reasons
@@ -161,6 +143,10 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     if (!EnableSubgroupEmulation) {
         m_LLVMOptions += " -enable-subgroup-emulation=false";
     }
+
+    if (pBackendOptions->GetBooleanValue(CL_DEV_BACKEND_OPTION_LTO_LEGACY_PM,
+                                         false))
+      m_LLVMOptions += " -enable-dpcpp-kernel-transforms=true";
 }
 
 void CompilerConfig::LoadDefaults()
@@ -181,6 +167,7 @@ void CompilerConfig::LoadDefaults()
     m_targetDevice = CPU_DEVICE;
     m_forcedPrivateMemorySize = 0;
     m_useAutoMemory = false;
+    m_useLTOLegacyPM = false;
 }
 
 void CompilerConfig::LoadConfig()
@@ -252,6 +239,8 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
     m_expensiveMemOpts = pBackendOptions->GetIntValue((int)CL_DEV_BACKEND_OPTION_EXPENSIVE_MEM_OPTS, m_expensiveMemOpts);
     m_targetDevice = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
         (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
+    m_useLTOLegacyPM = pBackendOptions->GetBooleanValue(
+        CL_DEV_BACKEND_OPTION_LTO_LEGACY_PM, m_useLTOLegacyPM);
 }
 
 }}}

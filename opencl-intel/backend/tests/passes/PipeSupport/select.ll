@@ -12,6 +12,7 @@
 ; Compile options: -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -x cl -cl-std=CL1.2
 ; Opt options: oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation -S
 ; ----------------------------------------------------
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-support %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-support -verify %s -S | FileCheck %s
 
 ; CHECK:      %[[SELECT:[0-9]+]] = select i1 %tobool, %opencl.pipe_rw_t
@@ -103,3 +104,5 @@ attributes #1 = { nounwind readnone }
 !12 = !{!"int", !13, i64 0}
 !13 = !{!"omnipotent char", !14, i64 0}
 !14 = !{!"Simple C/C++ TBAA"}
+
+; DEBUGIFY-NOT: WARNING

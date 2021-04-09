@@ -116,6 +116,12 @@ ObjectFile;
 extern llvm::cl::opt<unsigned>
 ExpensiveMemOpts;
 
+extern llvm::cl::opt<bool>
+UseLTOLegacyPM;
+
+extern llvm::cl::opt<bool>
+UseLTONewPM;
+
 namespace Validation
 {
     BERunOptions::BERunOptions():
@@ -142,7 +148,8 @@ namespace Validation
         m_dumpHeuristcIR(::DumpHeuristicIR),
         m_vectorizerType(::OptVectorizerType),
         m_nativeSubgroups(::NativeSubgroups),
-        m_enableSubgroupEmulation(::EnableSubgroupEmulation)
+        m_enableSubgroupEmulation(::EnableSubgroupEmulation),
+        m_useLTOLegacyPM(::UseLTOLegacyPM)
     {
     }
 
@@ -175,6 +182,8 @@ namespace Validation
             return m_nativeSubgroups;
         case RC_BR_ENABLE_SUBGROUP_EMULATION:
             return m_enableSubgroupEmulation;
+        case RC_BR_USE_LTO_LEGACY_PM:
+            return m_useLTOLegacyPM;
         default:
             return defaultValue;
         }

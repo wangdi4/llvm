@@ -1,3 +1,4 @@
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-io-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-io-transformation %s -S | FileCheck %s
 ;
 ; This test checks that io pipe is replaced with builtin correctly when
@@ -272,3 +273,5 @@ attributes #5 = { convergent }
 !24 = !{i32 0, i32 0, i32 0, i32 0, i32 0}
 !25 = !{!"pipe-io-0", !"pipe-io-2", !"", !"pipe-io-3", !""}
 !26 = !{!"", !"", !"", !"", !""}
+
+; DEBUGIFY-NOT: WARNING: Missing line

@@ -1,3 +1,4 @@
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-io-transformation %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-io-transformation %s -S | FileCheck %s
 ;
 ; This test checks that io channel is replaced with builtin correctly when
@@ -194,3 +195,5 @@ attributes #2 = { convergent noinline norecurse nounwind "correctly-rounded-divi
 !19 = !{!"Simple C/C++ TBAA"}
 !20 = !{!21, !21, i64 0}
 !21 = !{!"int", !18, i64 0}
+
+; DEBUGIFY-NOT: WARNING: Missing line

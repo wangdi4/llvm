@@ -280,6 +280,14 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		******************************************************************************************/
 		template<class T> static T ConvertStringToType( const string& str );
 
+                /// Convert C string to class T.
+                template<class T> static T ConvertStringToType(const char *str) {
+                  if (!str)
+                    return false;
+                  std::string strInput(str);
+                  return ConvertStringToType<T>(strInput);
+                }
+
         /******************************************************************************************
 		* Function: 	GetRegistryOrEtcValue
 		* Description:	Get a value from registry on Windows (in key SOFTWARE\Intel\OpenCL) or from a file in /etc/OpenCL/vendors/Intel/
@@ -678,6 +686,10 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
         {
           return m_pConfigFile->Read<unsigned>(
               "CL_CONFIG_CPU_EXPENSIVE_MEM_OPT", 0);
+        }
+
+        bool GetUseLTOLegacyPM() const {
+          return m_pConfigFile->Read<bool>("CL_CONFIG_LTO_LEGACY_PM", false);
         }
 
     private:

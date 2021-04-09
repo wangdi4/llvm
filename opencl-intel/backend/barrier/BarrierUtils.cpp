@@ -296,7 +296,8 @@ namespace intel {
       Type *memFenceType = m_barrierFunc->getFunctionType()->getParamType(0);
       m_localMemFenceValue = ConstantInt::get(memFenceType, CLK_LOCAL_MEM_FENCE);
     }
-    return CallInst::Create(m_barrierFunc, m_localMemFenceValue, "", pInsertBefore);
+    IRBuilder<> Builder(pInsertBefore);
+    return Builder.CreateCall(m_barrierFunc, m_localMemFenceValue, "");
   }
 
   Instruction* BarrierUtils::createDummyBarrier(Instruction *pInsertBefore){

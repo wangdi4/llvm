@@ -92,10 +92,49 @@ cl_ulong CPUProgram::GetFunctionPointerFor(const char *FunctionName) const {
 
 void CPUProgram::GetGlobalVariablePointers(const cl_prog_gv **GVs,
                                            size_t *GVCount) const {
-    const std::vector<cl_prog_gv> &GlobalVariables = GetGlobalVariables();
-    *GVCount = GlobalVariables.size();
-    if (*GVCount > 0)
-        *GVs = &GlobalVariables[0];
+  *GVCount = m_globalVariables.size();
+  if (*GVCount > 0)
+    *GVs = &m_globalVariables[0];
+}
+
+cl_dev_err_code CPUProgram::Finalize() {
+  assert(
+      ((m_pExecutionEngine && !m_LLJIT) || (!m_pExecutionEngine && m_LLJIT)) &&
+      "Only one of MCJIT and m_LLJIT should be enabled");
+  if (m_pExecutionEngine) {
+    m_pExecutionEngine->finalizeObject();
+    m_pExecutionEngine->runStaticConstructorsDestructors(/*isDtors*/ false);
+    // Setup kernel JIT address.
+    for (size_t i = 0; i < m_kernels->GetCount(); ++i) {
+      Kernel *kernel = m_kernels->GetKernel(i);
+      for (unsigned j =0; j < kernel->GetKernelJITCount(); ++j) {
+        IKernelJITContainer *jitContainer = kernel->GetKernelJIT(j);
+        const std::string &kernelName = jitContainer->GetFunctionName();
+        jitContainer->SetJITCode(GetPointerToFunction(kernelName));
+      }
+    }
+  } else {
+    if (HasCachedExecutable()) {
+      using CtorTy = void (*)();
+      for (const std::string &name : m_globalCtors) {
+        auto ctor = reinterpret_cast<CtorTy>(GetPointerToFunction(name));
+        ctor();
+      }
+    } else {
+      llvm::Error err = m_LLJIT->initialize(m_LLJIT->getMainJITDylib());
+      if (err) {
+        llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
+        return CL_DEV_JIT_FAIL;
+      }
+    }
+  }
+
+  // Get pointer of global variables
+  for (auto &gv : m_globalVariables) {
+    gv.pointer = GetPointerToGlobalValue(gv.name);
+    assert(gv.pointer && "failed to get address of global variable");
+  }
+  return CL_DEV_SUCCESS;
 }
 
 void CPUProgram::Deserialize(IInputStream& ist, SerializationStatus* stats,

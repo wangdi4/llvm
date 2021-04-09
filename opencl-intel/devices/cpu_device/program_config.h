@@ -52,7 +52,8 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             m_targetDevice(CPU_DEVICE),
             m_cpuMaxWGSize(CPU_MAX_WORK_GROUP_SIZE),
             m_streamingAlways(false),
-            m_expensiveMemOpts(0)
+            m_expensiveMemOpts(0),
+            m_useLTOLegacyPM(false)
         {}
 
         void InitFromCpuConfig(const CPUDeviceConfig& cpuConfig);
@@ -69,6 +70,8 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             return m_enableNativeSubgroups;
           case CL_DEV_BACKEND_OPTION_USE_AUTO_MEMORY:
             return m_useAutoMemory;
+          case CL_DEV_BACKEND_OPTION_LTO_LEGACY_PM:
+            return m_useLTOLegacyPM;
           default:
             return defaultValue;
           }
@@ -125,6 +128,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         size_t m_cpuMaxWGSize;
         bool m_streamingAlways;
         unsigned m_expensiveMemOpts;
+        bool m_useLTOLegacyPM;
     };
 
     /**

@@ -888,15 +888,14 @@ static void populatePassesPostFailCheck(
   }
 }
 
-Optimizer::~Optimizer() { }
+OptimizerOCL::~OptimizerOCL() {}
 
-Optimizer::Optimizer(llvm::Module *pModule,
-                     llvm::SmallVector<llvm::Module *, 2> pRtlModuleList,
-                     const intel::OptimizerConfig *pConfig)
-    : m_pModule(pModule), m_pRtlModuleList(pRtlModuleList),
+OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
+                           llvm::SmallVector<llvm::Module *, 2> pRtlModuleList,
+                           const intel::OptimizerConfig *pConfig)
+    : Optimizer(pModule), m_pRtlModuleList(pRtlModuleList),
       m_IsFpgaEmulator(pConfig->isFpgaEmulator()),
-      m_IsEyeQEmulator(pConfig->isEyeQEmulator()),
-      m_IsSYCL(CompilationUtils::generatedFromOCLCPP(*pModule)) {
+      m_IsEyeQEmulator(pConfig->isEyeQEmulator()) {
   TargetMachine* targetMachine = pConfig->GetTargetMachine();
   assert(targetMachine && "Uninitialized TargetMachine!");
 
@@ -940,11 +939,11 @@ Optimizer::Optimizer(llvm::Module *pModule,
                               IsOMP, m_kernelToVFState);
 }
 
-void Optimizer::Optimize() {
+void OptimizerOCL::Optimize() {
   legacy::PassManager materializerPM;
   materializerPM.add(createBuiltinLibInfoPass(m_pRtlModuleList, ""));
   materializerPM.add(createLLVMEqualizerPass());
-  Triple TargetTriple(m_pModule->getTargetTriple());
+  Triple TargetTriple(m_M->getTargetTriple());
   if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit()) {
     if (TargetTriple.isOSLinux())
       materializerPM.add(createCoerceTypesPass());
@@ -954,8 +953,8 @@ void Optimizer::Optimize() {
   if (m_IsFpgaEmulator) {
     materializerPM.add(createRemoveAtExitPass());
   }
-  materializerPM.run(*m_pModule);
-  m_PreFailCheckPM.run(*m_pModule);
+  materializerPM.run(*m_M);
+  m_PreFailCheckPM.run(*m_M);
 
   // if there are still unsupported recursive calls after standard LLVM
   // optimizations applied, compilation will report failure.
@@ -968,7 +967,7 @@ void Optimizer::Optimize() {
     return;
   }
 
-  m_PostFailCheckPM.run(*m_pModule);
+  m_PostFailCheckPM.run(*m_M);
 
   // if not all must vec functions have been vectorized.
   // Serves as a safe guard to not execute the code below that
@@ -977,6 +976,9 @@ void Optimizer::Optimize() {
     return;
   }
 }
+
+Optimizer::Optimizer(llvm::Module *M)
+    : m_M(M), m_IsSYCL(CompilationUtils::generatedFromOCLCPP(*M)) {}
 
 const TStringToVFState& Optimizer::GetKernelVFStates() const {
   return m_kernelToVFState;
@@ -991,32 +993,31 @@ const std::vector<std::string> &Optimizer::GetUndefinedExternals() const {
 }
 
 bool Optimizer::hasUnsupportedRecursion() {
-
   return m_IsSYCL
              ? !GetInvalidFunctions(InvalidFunctionType::RECURSION_WITH_BARRIER)
                     .empty()
              : !GetInvalidFunctions(InvalidFunctionType::RECURSION).empty();
 }
 
-bool Optimizer::hasFpgaPipeDynamicAccess() {
+bool Optimizer::hasFpgaPipeDynamicAccess() const {
   return !GetInvalidFunctions(
       InvalidFunctionType::FPGA_PIPE_DYNAMIC_ACCESS).empty();
 }
 
-bool Optimizer::hasVectorVariantFailure() {
-  return !GetInvalidFunctions(
-    InvalidFunctionType::VECTOR_VARIANT_FAILURE).empty();
+bool Optimizer::hasVectorVariantFailure() const {
+  return !GetInvalidFunctions(InvalidFunctionType::VECTOR_VARIANT_FAILURE)
+              .empty();
 }
 
-bool Optimizer::hasFPGAChannelsWithDepthIgnored() {
+bool Optimizer::hasFPGAChannelsWithDepthIgnored() const {
   return !GetInvalidGlobals(InvalidGVType::FPGA_DEPTH_IS_IGNORED).empty();
 }
 
-std::vector<std::string> Optimizer::GetInvalidGlobals(InvalidGVType Ty) {
-  assert(m_pModule && "Module is nullptr");
+std::vector<std::string> Optimizer::GetInvalidGlobals(InvalidGVType Ty) const {
+  assert(m_M && "Module is nullptr");
   std::vector<std::string> Res;
 
-  for (auto &GV : m_pModule->globals()) {
+  for (auto &GV : m_M->globals()) {
     auto GVM = MetadataAPI::GlobalVariableMetadataAPI(&GV);
 
     switch (Ty) {
@@ -1033,11 +1034,11 @@ std::vector<std::string> Optimizer::GetInvalidGlobals(InvalidGVType Ty) {
 }
 
 std::vector<std::string>
-Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) {
-  assert(m_pModule && "Module is NULL");
+Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) const {
+  assert(m_M && "Module is NULL");
   std::vector<std::string> Res;
 
-  for (auto &F : *m_pModule) {
+  for (auto &F : *m_M) {
     auto KMD = MetadataAPI::FunctionMetadataAPI(&F);
 
     bool Invalid = false;
@@ -1074,7 +1075,7 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) {
   return Res;
 }
 
-void Optimizer::initializePasses() {
+void OptimizerOCL::initializePasses() {
   // Initialize passes so that -print-after/-print-before work.
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
@@ -1119,5 +1120,4 @@ void Optimizer::initializePasses() {
 
   initializeOCLPasses(Registry);
 }
-
 }}}

@@ -38,6 +38,7 @@
 ;   clang -cc1 -triple spir64-unknown-unknown-intelfpga -disable-llvm-passes -x cl -emit-llvm -cl-std=CL1.2
 ;   oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -channel-pipe-transformation -verify %s -S
 ; ----------------------------------------------------
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-support %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -pipe-support -verify %s -S | FileCheck %s
 
 ; CHECK: define void @for_channel
@@ -286,3 +287,5 @@ attributes #9 = { convergent "uniform-work-group-size"="true" }
 !19 = !{!"int*"}
 !20 = !{!21, !21, i64 0}
 !21 = !{!"any pointer", !7, i64 0}
+
+; DEBUGIFY-NOT: WARNING

@@ -29,6 +29,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 using namespace Intel::MetadataAPI;
 
@@ -441,7 +442,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       std::vector<unsigned int> & /* OUT */ memoryArguments) {
     // Check maximum number of arguments to kernel
 
-    if (KernelList(pModule).empty()) {
+    auto FSet = DPCPPKernelCompilationUtils::getKernels(*pModule);
+    if (KernelList(pModule).empty() && FSet.empty()) {
       assert(false && "Internal Error: kernels metadata is missing");
       // workaround to overcome klockwork issue
       return;
@@ -452,10 +454,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     if (kimd.ScalarizedKernel.hasValue() && kimd.ScalarizedKernel.get()) {
       //Get the scalarized version of the vectorized kernel
       pOriginalFunc = kimd.ScalarizedKernel.get();
+    } else if (pFunc->hasFnAttribute("scalar_kernel")) {
+      pOriginalFunc = pModule->getFunction(
+          pFunc->getFnAttribute("scalar_kernel").getValueAsString());
     }
 
     auto kernels = KernelList(pModule);
-    if (std::find(kernels.begin(), kernels.end(), pOriginalFunc) == kernels.end()) {
+    if (!kernels.empty() && std::find(kernels.begin(), kernels.end(),
+                                      pOriginalFunc) == kernels.end()) {
       assert(false && "Intenal error: can't find the function info for the scalarized function");
       // workaround to overcome klockwork issue
       return;

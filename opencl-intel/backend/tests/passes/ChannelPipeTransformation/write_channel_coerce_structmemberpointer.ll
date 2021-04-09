@@ -1,3 +1,4 @@
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation -S %s -o - | FileCheck %s
 ; This test checks channel write functions transformation when type-coerced struct that contains pointer member is passed as argument.
 
@@ -53,3 +54,5 @@ declare void @_Z19write_channel_intel11ocl_channel2TSS_(%opencl.channel_t addrsp
 
 !0 = !{i32 16}
 !1 = !{i32 8}
+
+; DEBUGIFY-NOT: WARNING: Missing line
