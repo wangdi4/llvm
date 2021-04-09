@@ -261,15 +261,15 @@ LANGOPT(UseAutoOpenCLAddrSpaceForOpenMP, 1, 0,
     " - use LangAS::opencl_global for constant and global variables;"
     " - use LangAS::Default for all other pointer types;"
     " - map LangAS::Default to target AS 4.")
-LANGOPT(OpenMPUseSingleElemArrayFuncs , 1, 0,
+LANGOPT(OpenMPUseSingleElemArrayFuncs , 1, 1,
     "Use single element function for private arrays")
-LANGOPT(IntelPragmaPrefetch, 1, 0,
+LANGOPT(IntelPragmaPrefetch, 1, 1,
     "Enable Intel compatible #pragma prefetch")
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 LANGOPT(OpenMPLateOutlineTarget, 1, 1, "Outline OpenMP target construct in the back end")
 LANGOPT(OpenMPLateOutlineAtomic, 1, 0, "Outline OpenMP atomic construct in the back end")
-LANGOPT(OpenMPUseLLVMAtomic, 1, 0, "Use LLVM atomics for OpenMP SPIR-V targets")
+LANGOPT(OpenMPUseLLVMAtomic, 1, 1, "Use LLVM atomics for OpenMP SPIR-V targets")
 LANGOPT(OpenMPLateOutlineAllowUncollapsedLoops, 1, 1,
         "Generate an uncollapsed form of OpenMP loops")
 LANGOPT(OpenMPStableFileID, 1, 0,

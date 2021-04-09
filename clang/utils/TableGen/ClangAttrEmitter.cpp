@@ -4761,11 +4761,14 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
       HelpItems += "\n    \"  ";
       HelpItems += ItemName;
       HelpItems += "\\n\"";
-      DefaultStateInits += "  IntelCompatItemsState[";
+
+      if (!DefaultStateInits.empty())
+        DefaultStateInits += "\n,";
+      DefaultStateInits += "  /*";
       DefaultStateInits += ItemName;
-      DefaultStateInits += "] = ";
+      DefaultStateInits += "=*/";
       DefaultStateInits += std::to_string(Doc->getValueAsBit("Default"));
-      DefaultStateInits += ";\n";
+
       // If we have a user description for an Intel compatibility flag, ensure
       // formatting (with respect to newlines).
       if (!UserContent.empty()) {
@@ -4792,6 +4795,8 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
       Count++;
     }
     OS << "};\nstd::array<bool," << Count << "> " << StateName << " = {};\n";
+    OS << "std::array<bool," << Count << "> ";
+    OS << DocStateName << "State = {};\n";
     OS << "std::array<StringRef," << Count << "> " << DocStateName << " = {};\n";
     OS << "llvm::SmallVector<std::string, 0> Emit" << DocStateName << ";\n";
     OS << "bool Show" << OptionName << "Help = false;\n";
@@ -4827,9 +4832,14 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
     OS << "  return llvm::StringSwitch<int>(S)\n";
     OS << SwitchCases << "    .Default(-1);\n";
     OS << "}\n";
+
+    OS << "std::array<bool," << Count << "> " << StateName << "Default ";
+    OS << " = {\n  " << DefaultStateInits << "};\n";
+
     OS << "void setAll" << StateName << "Default() {\n";
-    OS << DefaultStateInits;
+    OS << "  " << StateName << " = " << StateName << "Default;\n";
     OS << "}\n";
+
     OS << "void setAll" << DocStateName << "Init() {\n";
     OS <<  UserDocs;
     OS << "}\n";
@@ -4844,6 +4854,7 @@ void EmitClangIntelCustImpl(RecordKeeper &Records, raw_ostream &OS) {
     OS << "  std::string Msg(S.str()+\"\\n\"+" << "Underline" << "+\"\\n\"+" << DocStateName << "[N].str());\n";
     OS << "  Emit" << DocStateName << ".push_back(Msg);\n";
     OS << "  " << DocStateName << "[N] = \"\";\n";
+    OS << "  " << DocStateName << "State[N] = true;\n";
     OS << "  return true;\n}\n";
   }
 }
