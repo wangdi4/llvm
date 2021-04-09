@@ -116,11 +116,6 @@ static cl::opt<unsigned> DTransMaxInstructionCount("dtrans-maxinstructioncount",
                                                    cl::ReallyHidden);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-/// Prints information that is saved during analysis about specific function
-/// calls (malloc, free, memset, etc) that may be useful to the transformations.
-static cl::opt<bool> DTransPrintAnalyzedCalls("dtrans-print-callinfo",
-                                              cl::ReallyHidden);
-
 // Enables identification of values that are loaded but never used.
 // See LocalPointerAnalyzer::identifyUnusedValue
 static cl::opt<bool> DTransIdentifyUnusedValues("dtrans-identify-unused-values",
@@ -11103,7 +11098,7 @@ bool DTransAnalysisInfo::analyzeModule(
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (DTransPrintAnalyzedCalls) {
+  if (dtrans::DTransPrintAnalyzedCalls) {
     printCallInfo(dbgs());
     dbgs().flush();
   }
