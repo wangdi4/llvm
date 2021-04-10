@@ -873,7 +873,7 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
 
     case CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES:
         stValSize = sizeof(cl_dev_dispatch_buffer_prop);
-        dispatchProperties.size = pKernel->GetExplicitArgumentBufferSize()+sizeof(cl_uniform_kernel_args);
+        dispatchProperties.size = pKernel->GetExplicitArgumentBufferSize()+sizeof(UniformKernelArgs);
         dispatchProperties.argumentOffset = 0;
         dispatchProperties.alignment = 64; // Currently ask for 64 byte aligment. Next BE will provide maximum aligment for the buffer.
         pValue = &dispatchProperties;

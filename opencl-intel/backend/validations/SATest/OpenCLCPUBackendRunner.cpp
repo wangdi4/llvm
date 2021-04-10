@@ -75,7 +75,7 @@ public:
                            cl_work_description_type workInfo, uint8_t* pArgsBuffer, size_t argsBufferSize):
         // allocate buffer for kernel's arguments
         m_pArgumentBuffer((char*)align_malloc(pKernel->GetExplicitArgumentBufferSize() +
-                                              sizeof(cl_uniform_kernel_args), CPU_DEV_MAXIMUM_ALIGN)),
+                                              sizeof(UniformKernelArgs), CPU_DEV_MAXIMUM_ALIGN)),
         m_uiVectorWidth(pKernel->GetKernelProporties()->GetMinGroupSizeFactorial()),
         m_pBlockLiteral(NULL) // pointer to BlockLiteral
     {
@@ -160,7 +160,7 @@ public:
             pArgValueDest += pArg->getAlignedSize();
         }
 
-        cl_uniform_kernel_args *pKernelArgs = reinterpret_cast<cl_uniform_kernel_args *>(m_pArgumentBuffer.get() + pKernel->GetExplicitArgumentBufferSize());
+        UniformKernelArgs *pKernelArgs = reinterpret_cast<UniformKernelArgs *>(m_pArgumentBuffer.get() + pKernel->GetExplicitArgumentBufferSize());
 
         size_t sizetMaxWorkDim = sizeof(size_t)*MAX_WORK_DIM;
 
@@ -179,10 +179,10 @@ public:
                                                                   nonUniWGSize;
         }
 
-        pKernelArgs->minWorkGroupNum = size_t(workInfo.minWorkGroupNum); // Filled by the runtime, Required by the heuristic
+        pKernelArgs->MinWorkGroupNum = size_t(workInfo.minWorkGroupNum); // Filled by the runtime, Required by the heuristic
 
-        pKernelArgs->pUniformJITEntryPoint = NULL;// Filled by the BE
-        pKernelArgs->pNonUniformJITEntryPoint = NULL;// Filled by the BE
+        pKernelArgs->UniformJITEntryPoint = NULL;// Filled by the BE
+        pKernelArgs->NonUniformJITEntryPoint = NULL;// Filled by the BE
 
         memset(pKernelArgs->WGCount,0,sizetMaxWorkDim); // Updated by the BE, based on GLOBAL/LOCAL
 

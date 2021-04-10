@@ -21,7 +21,7 @@
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-typedef void JIT_PTR(const cl_uniform_kernel_args *, const size_t *, void *);
+typedef void JIT_PTR(const UniformKernelArgs *, const size_t *, void *);
 /**
  * This interface represent the bitcode container responsible
  * for holding the bitcode buffer

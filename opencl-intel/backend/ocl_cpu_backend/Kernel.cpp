@@ -148,7 +148,7 @@ void Kernel::FreeAllJITs() {
   }
 }
 
-void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs,
+void Kernel::CreateWorkDescription(UniformKernelArgs *UniformImplicitArgs,
                                    size_t numOfComputeUnits) const {
   // assumption: LocalWorkSize GlobalSize and minWorkGroup already initialized
   size_t max_wg_private_size = m_pProps->GetMaxPrivateMemorySize();
@@ -264,7 +264,7 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs,
 
     const unsigned int globalWorkSize = globalWorkSizeX * globalWorkSizeYZ;
     // These variables hold the max utility of SIMD and work threads
-    const unsigned int workThreadUtils = UniformImplicitArgs->minWorkGroupNum;
+    const unsigned int workThreadUtils = UniformImplicitArgs->MinWorkGroupNum;
     const unsigned int simdUtilsLog = minMultiplyFactorLog;
     // Try to assure (if possible) the local-size is a multiply of vector
     // width.
@@ -451,13 +451,13 @@ cl_dev_err_code Kernel::InitRunner(void *pKernelUniformArgs) const {
   assert(pKernelUniformArgs && "Uniform Arguments Pointer is null");
   void *pKernelUniformImplicitArgsPosition =
       ((char *)pKernelUniformArgs) + m_explicitArgsSizeInBytes;
-  cl_uniform_kernel_args *pKernelUniformImplicitArgs =
-      static_cast<cl_uniform_kernel_args *>(pKernelUniformImplicitArgsPosition);
+  UniformKernelArgs *pKernelUniformImplicitArgs =
+      static_cast<UniformKernelArgs *>(pKernelUniformImplicitArgsPosition);
 
-  pKernelUniformImplicitArgs->pUniformJITEntryPoint =
-      ResolveEntryPointHandle(pKernelUniformImplicitArgs->pUniformJITEntryPoint);
-  pKernelUniformImplicitArgs->pNonUniformJITEntryPoint =
-      ResolveEntryPointHandle(pKernelUniformImplicitArgs->pNonUniformJITEntryPoint);
+  pKernelUniformImplicitArgs->UniformJITEntryPoint =
+      ResolveEntryPointHandle(pKernelUniformImplicitArgs->UniformJITEntryPoint);
+  pKernelUniformImplicitArgs->NonUniformJITEntryPoint =
+      ResolveEntryPointHandle(pKernelUniformImplicitArgs->NonUniformJITEntryPoint);
 
   assert(pKernelUniformImplicitArgs->RuntimeInterface);
   return CL_DEV_SUCCESS;
@@ -478,8 +478,8 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
   assert(pKernelUniformArgs && "Uniform Arguments Pointer is null");
   void *pKernelUniformImplicitArgsPosition =
       (char *)pKernelUniformArgs + m_explicitArgsSizeInBytes;
-  cl_uniform_kernel_args *pKernelUniformImplicitArgs =
-      static_cast<cl_uniform_kernel_args *>(pKernelUniformImplicitArgsPosition);
+  UniformKernelArgs *pKernelUniformImplicitArgs =
+      static_cast<UniformKernelArgs *>(pKernelUniformImplicitArgsPosition);
 
   CreateWorkDescription(pKernelUniformImplicitArgs, numOfComputeUnits);
 
@@ -545,8 +545,8 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
     // Vectorized kernel is inlined into scalar kernel,
     // so we have exactly one JIT function.
     // In this case pScalarJit contains this combination.
-    pKernelUniformImplicitArgs->pUniformJITEntryPoint =
-    pKernelUniformImplicitArgs->pNonUniformJITEntryPoint =
+    pKernelUniformImplicitArgs->UniformJITEntryPoint =
+    pKernelUniformImplicitArgs->NonUniformJITEntryPoint =
         CreateEntryPointHandle(pScalarJIT->GetJITCode());
     size_t nonBarrierPrivateSize = (privateSize - barrierSize) *
                                    (1 + m_pProps->GetMinGroupSizeFactorial());
@@ -562,7 +562,7 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
       // and scalar JIT otherwise.
       bool useVectorJit = pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][0] %
                           pVectorJIT->GetProps()->GetVectorSize() == 0;
-      pKernelUniformImplicitArgs->pUniformJITEntryPoint = useVectorJit ?
+      pKernelUniformImplicitArgs->UniformJITEntryPoint = useVectorJit ?
                                                         CreateEntryPointHandle(pVectorJIT->GetJITCode()) :
                                                         CreateEntryPointHandle(pScalarJIT->GetJITCode());
       size_t nonBarrierPrivateSize = useVectorJit ?
@@ -570,7 +570,7 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
                                      privateSize - barrierSize;
       useVectorJit = pKernelUniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][0] %
               pVectorJIT->GetProps()->GetVectorSize() == 0;
-      pKernelUniformImplicitArgs->pNonUniformJITEntryPoint = useVectorJit ?
+      pKernelUniformImplicitArgs->NonUniformJITEntryPoint = useVectorJit ?
                                                           CreateEntryPointHandle(pVectorJIT->GetJITCode()) :
                                                           CreateEntryPointHandle(pScalarJIT->GetJITCode());
       // Here we don't separete the stack size between uniform WGs and
@@ -583,8 +583,8 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
       m_stackActualSize += nonBarrierPrivateSize;
     } else {
       // Only scalar JIT is present.
-      pKernelUniformImplicitArgs->pUniformJITEntryPoint =
-      pKernelUniformImplicitArgs->pNonUniformJITEntryPoint =
+      pKernelUniformImplicitArgs->UniformJITEntryPoint =
+      pKernelUniformImplicitArgs->NonUniformJITEntryPoint =
           CreateEntryPointHandle(pScalarJIT->GetJITCode());
       m_stackActualSize += (privateSize - barrierSize);
     }
@@ -603,7 +603,7 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
     memcpy(workDesc.globalWorkOffset, pKernelUniformImplicitArgs->GlobalOffset, sizetMaxWorkDim);
     memcpy(workDesc.globalWorkSize, pKernelUniformImplicitArgs->GlobalSize, sizetMaxWorkDim);
     memcpy(workDesc.localWorkSize, pKernelUniformImplicitArgs->LocalSize, sizetMaxWorkDim);
-    workDesc.minWorkGroupNum = pKernelUniformImplicitArgs->minWorkGroupNum;
+    workDesc.minWorkGroupNum = pKernelUniformImplicitArgs->MinWorkGroupNum;
 
     m_pluginManager.OnCreateBinary(this->GetKernel(), &workDesc, size_t(devMemObjArrayLength), pDevMemObjArray);
 
@@ -623,26 +623,26 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
   return CL_DEV_SUCCESS;
 }
 
-void Kernel::DebugPrintUniformKernelArgs(const cl_uniform_kernel_args *A,
+void Kernel::DebugPrintUniformKernelArgs(const UniformKernelArgs *A,
                                          size_t offsetToImplicit,
                                          std::ostream &ss) const {
 #define PRINT3(X) " = {" << (X)[0] << ", " << (X)[1] << ", " << (X)[2] << "}"
   size_t O = offsetToImplicit;
   ss << "KernelWrapper's argument:\n "
-     << O + offsetof(cl_uniform_kernel_args, WorkDim) << ": size_t WorkDim = " << A->WorkDim << "\n"
-     << O + offsetof(cl_uniform_kernel_args, GlobalOffset) << ": size_t GlobalOffset[MAX_WORK_DIM]" << PRINT3(A->GlobalOffset) << "\n"
-     << O + offsetof(cl_uniform_kernel_args, GlobalSize) << ": size_t GlobalSize[MAX_WORK_DIM]" << PRINT3(A->GlobalSize) << "\n"
-     << O + offsetof(cl_uniform_kernel_args, LocalSize[UNIFORM_WG_SIZE_INDEX]) <<
+     << O + offsetof(UniformKernelArgs, WorkDim) << ": size_t WorkDim = " << A->WorkDim << "\n"
+     << O + offsetof(UniformKernelArgs, GlobalOffset) << ": size_t GlobalOffset[MAX_WORK_DIM]" << PRINT3(A->GlobalOffset) << "\n"
+     << O + offsetof(UniformKernelArgs, GlobalSize) << ": size_t GlobalSize[MAX_WORK_DIM]" << PRINT3(A->GlobalSize) << "\n"
+     << O + offsetof(UniformKernelArgs, LocalSize[UNIFORM_WG_SIZE_INDEX]) <<
          ": size_t LocalSize[UNIFORM_WG_SIZE_INDEX][MAX_WORK_DIM]" << PRINT3(A->LocalSize[UNIFORM_WG_SIZE_INDEX]) << "\n"
-     << O + offsetof(cl_uniform_kernel_args, LocalSize[NONUNIFORM_WG_SIZE_INDEX]) <<
+     << O + offsetof(UniformKernelArgs, LocalSize[NONUNIFORM_WG_SIZE_INDEX]) <<
         ": size_t LocalSize[NONUNIFORM_WG_SIZE_INDEX][MAX_WORK_DIM]" << PRINT3(A->LocalSize[NONUNIFORM_WG_SIZE_INDEX]) << "\n"
-     << O + offsetof(cl_uniform_kernel_args, WGCount) << ": size_t WGCount[MAX_WORK_DIM]" << PRINT3(A->WGCount) << "\n"
-     << O + offsetof(cl_uniform_kernel_args, RuntimeInterface)
+     << O + offsetof(UniformKernelArgs, WGCount) << ": size_t WGCount[MAX_WORK_DIM]" << PRINT3(A->WGCount) << "\n"
+     << O + offsetof(UniformKernelArgs, RuntimeInterface)
      << ": void* RuntimeInterface= " << A->RuntimeInterface << "\n"
-     << O + offsetof(cl_uniform_kernel_args, minWorkGroupNum) << ": size_t minWorkGroupNum= " << A->minWorkGroupNum << "\n"
-     << O+offsetof(cl_uniform_kernel_args, RuntimeInterface) << ": void* RuntimeInterface = " << A->RuntimeInterface << "\n"
-     << O + offsetof(cl_uniform_kernel_args, pUniformJITEntryPoint) << ": void* pUniformJITEntryPoint = " << A->pUniformJITEntryPoint << "\n"
-     << O + offsetof(cl_uniform_kernel_args, pNonUniformJITEntryPoint) << ": void* pNonUniformJITEntryPoint = " << A->pNonUniformJITEntryPoint << "\n";
+     << O + offsetof(UniformKernelArgs, MinWorkGroupNum) << ": size_t MinWorkGroupNum= " << A->MinWorkGroupNum << "\n"
+     << O+offsetof(UniformKernelArgs, RuntimeInterface) << ": void* RuntimeInterface = " << A->RuntimeInterface << "\n"
+     << O + offsetof(UniformKernelArgs, UniformJITEntryPoint) << ": void* UniformJITEntryPoint = " << A->UniformJITEntryPoint << "\n"
+     << O + offsetof(UniformKernelArgs, NonUniformJITEntryPoint) << ": void* NonUniformJITEntryPoint = " << A->NonUniformJITEntryPoint << "\n";
 #undef PRINT3
 }
 
@@ -715,8 +715,8 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
 
   const void *pKernelUniformImplicitArgsPosition =
       (const char *)pKernelUniformArgs + m_explicitArgsSizeInBytes;
-  const cl_uniform_kernel_args *pKernelUniformImplicitArgs =
-      static_cast<const cl_uniform_kernel_args *>(
+  const UniformKernelArgs *pKernelUniformImplicitArgs =
+      static_cast<const UniformKernelArgs *>(
           pKernelUniformImplicitArgsPosition);
 
 
@@ -733,8 +733,8 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
   }
   IKernelJITContainer::JIT_PTR *kernel =
       (IKernelJITContainer::JIT_PTR *)(size_t) ( pGroupID[0] != pKernelUniformImplicitArgs->WGCount[0] - 1 ?
-                 pKernelUniformImplicitArgs->pUniformJITEntryPoint :
-                 pKernelUniformImplicitArgs->pNonUniformJITEntryPoint);
+                 pKernelUniformImplicitArgs->UniformJITEntryPoint :
+                 pKernelUniformImplicitArgs->NonUniformJITEntryPoint);
 
   assert(kernel && "Kernel function is nullptr");
   // running the kernel with the specified args and (groupID, runtimeHandle)
@@ -781,12 +781,12 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
     if (isUniform)
       makecontext(&newContext,
                   (void (*)())(const_cast<void *>(
-                      pKernelUniformImplicitArgs->pUniformJITEntryPoint)),
+                      pKernelUniformImplicitArgs->UniformJITEntryPoint)),
                   3, pKernelUniformArgs, pGroupID, pRuntimeHandle);
     else
       makecontext(&newContext,
                   (void (*)())(const_cast<void *>(
-                      pKernelUniformImplicitArgs->pNonUniformJITEntryPoint)),
+                      pKernelUniformImplicitArgs->NonUniformJITEntryPoint)),
                   3, pKernelUniformArgs, pGroupID, pRuntimeHandle);
     swapcontext(&originalContext, &newContext);
     ReleaseStack(stackBase);

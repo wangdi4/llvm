@@ -118,7 +118,7 @@ public:
     MKL_GEMM_Executor(ptrdiff_t func_ptr, const void* params)
         : m_FuncPtr((MKL_FuncType) func_ptr), m_pParamBuffer(params)
         {
-            const cl_uniform_kernel_args* pKernelArgs = (const cl_uniform_kernel_args*)((const char*)params+ MKL_GEMM_EXECUTOR_PAREMERTERS::GetParamSize());
+            const UniformKernelArgs* pKernelArgs = (const UniformKernelArgs*)((const char*)params+ MKL_GEMM_EXECUTOR_PAREMERTERS::GetParamSize());
 
             m_iRowsA_M = (int)pKernelArgs->GlobalSize[0];
             m_iColsB_N = (int)pKernelArgs->GlobalSize[1];
