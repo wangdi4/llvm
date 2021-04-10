@@ -33,6 +33,7 @@
 #include <dlfcn.h>
 #endif // !_WIN32
 
+#include "elf_light.h"
 #include "omptargetplugin.h"
 #include "omptarget-tools.h"
 #include "rtl-trace.h"
@@ -2102,11 +2103,29 @@ static void dumpImageToFile(
 
 EXTERN
 int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
-  uint32_t magicWord = *(uint32_t *)Image->ImageStart;
+  char *ImgBegin = reinterpret_cast<char *>(Image->ImageStart);
+  char *ImgEnd = reinterpret_cast<char *>(Image->ImageEnd);
+  size_t ImgSize = ImgEnd - ImgBegin;
+  ElfL E(ImgBegin, ImgSize);
+  if (E.isValidElf()) {
+    for (auto I = E.sections_begin(), IE = E.sections_end(); I != IE; ++I) {
+      const char *Name = (*I).getName();
+      IDP1("Found section with size %" PRIu64 " and name '%s'.\n",
+           (*I).getSize(), Name ? Name : "");
+    }
+    // FIXME: handle ELF images here.
+  } else {
+    DP("Unable to get ELF handle: %s!\n", E.getErrmsg(-1));
+  }
+
+  // Fallback to legacy behavior, when the image is a plain
+  // SPIR-V file.
+  uint32_t MagicWord = *(uint32_t *)Image->ImageStart;
   // compare magic word in little endian and big endian:
-  int32_t ret = (magicWord == 0x07230203 || magicWord == 0x03022307);
-  IDP("Target binary is %s\n", ret ? "VALID" : "INVALID");
-  return ret;
+  int32_t Ret = (MagicWord == 0x07230203 || MagicWord == 0x03022307);
+  IDP("Target binary is %s\n", Ret ? "VALID" : "INVALID");
+
+  return Ret;
 }
 
 EXTERN int64_t __tgt_rtl_init_requires(int64_t RequiresFlags) {
