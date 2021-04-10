@@ -155,7 +155,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 			ICLDevBackendBinary** OUT pBinary) const = 0;
 
 		// return a pointer to the Kernel Arguments
-		virtual cl_dev_err_code GetKernelParams( const cl_kernel_argument* OUT *pArgsBuffer, cl_uint* OUT ArgCount ) const = 0;
+		virtual cl_dev_err_code GetKernelParams( const KernelArgument* OUT *pArgsBuffer, cl_uint* OUT ArgCount ) const = 0;
 
 		// Returns a pointer to the kernel name
 		virtual const char*	GetKernelName() const = 0;

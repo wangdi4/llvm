@@ -79,7 +79,7 @@ public:
     m_useAutoMemory = basicConfig.UseAutoMemory();
   }
 
-  Kernel(const std::string &name, const std::vector<cl_kernel_argument> &args,
+  Kernel(const std::string &name, const std::vector<KernelArgument> &args,
          const std::vector<unsigned int> &memArgs, KernelProperties *pProps);
 
   virtual ~Kernel();
@@ -116,7 +116,7 @@ public:
    *  In success will return the kernel arguments descriptor; otherwise, NULL
    *  value will be returned
    */
-  virtual const cl_kernel_argument *GetKernelParams() const override;
+  virtual const KernelArgument *GetKernelParams() const override;
 
   /**
    * Gets the kernel parameters extended information
@@ -272,7 +272,7 @@ public:
   /**
    * Returns the vector of kernel parameters
    */
-  const std::vector<cl_kernel_argument> *GetKernelParamsVector() const;
+  const std::vector<KernelArgument> *GetKernelParamsVector() const;
 
   /**
    * Adds kernel JIT version to the kernel.
@@ -333,7 +333,7 @@ protected:
   std::string m_name;
   unsigned int m_CSRMask;  // Mask to be applied to set the execution flags
   unsigned int m_CSRFlags; // Flags to be set during execution
-  std::vector<cl_kernel_argument> m_explicitArgs;
+  std::vector<KernelArgument> m_explicitArgs;
   std::vector<cl_kernel_argument_info> m_explicitArgsInfo;
   unsigned int m_explicitArgsSizeInBytes;
   unsigned int m_RequiredUniformKernelArgsAlignment;
@@ -347,6 +347,7 @@ protected:
   mutable std::mutex m_stackMutex;
   cl_ulong m_stackDefaultSize;
   cl_ulong m_stackExtraSize;
+  mutable size_t m_stackActualSize;
   bool     m_useAutoMemory;
 
 private:

@@ -438,7 +438,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   void CompilationUtils::parseKernelArguments(
       Module *pModule, Function *pFunc, bool useTLSGlobals,
-      std::vector<cl_kernel_argument> & /* OUT */ arguments,
+      std::vector<KernelArgument> & /* OUT */ arguments,
       std::vector<unsigned int> & /* OUT */ memoryArguments) {
     // Check maximum number of arguments to kernel
 
@@ -477,25 +477,24 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     llvm::Function::arg_iterator arg_it = pFunc->arg_begin();
     for (unsigned i=0; i<argsCount; ++i)
     {
-      cl_kernel_argument curArg;
+      KernelArgument curArg;
       bool               isMemoryObject = false;
-      curArg.access = CL_KERNEL_ARG_ACCESS_NONE;
 
       llvm::Argument* pArg = &*arg_it;
       // Set argument sizes and offsets
       switch (arg_it->getType()->getTypeID())
       {
       case llvm::Type::FloatTyID:
-          curArg.type = CL_KRNL_ARG_FLOAT;
-          curArg.size_in_bytes = sizeof(float);
+          curArg.Ty = KRNL_ARG_FLOAT;
+          curArg.SizeInBytes = sizeof(float);
           break;
 
       case llvm::Type::StructTyID:
           {
               llvm::StructType *STy = llvm::cast<llvm::StructType>(arg_it->getType());
-              curArg.type = CL_KRNL_ARG_COMPOSITE;
+              curArg.Ty = KRNL_ARG_COMPOSITE;
               DataLayout dataLayout(pModule);
-              curArg.size_in_bytes = dataLayout.getTypeAllocSize(STy);
+              curArg.SizeInBytes = dataLayout.getTypeAllocSize(STy);
               break;
           }
       case llvm::Type::PointerTyID:
@@ -510,8 +509,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             if (!PTy || !PTy->getElementType()->isIntegerTy(8))
               continue;
 
-            curArg.type = CL_KRNL_ARG_PTR_BLOCK_LITERAL;
-            curArg.size_in_bytes = kimd.BlockLiteralSize.get();
+            curArg.Ty = KRNL_ARG_PTR_BLOCK_LITERAL;
+            curArg.SizeInBytes = kimd.BlockLiteralSize.get();
             break;
            }
 
@@ -524,12 +523,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             unsigned int uiElemSize = pVector->getContainedType(0)->getPrimitiveSizeInBits()/8;
             //assert( ((uiElemSize*uiNumElem) < 8 || (uiElemSize*uiNumElem) > 4*16) &&
             //  "We have byval pointer for legal vector type larger than 64bit");
-            curArg.type = CL_KRNL_ARG_VECTOR_BY_REF;
-            curArg.size_in_bytes = uiNumElem & 0xFFFF;
-            curArg.size_in_bytes |= (uiElemSize << 16);
+            curArg.Ty = KRNL_ARG_VECTOR_BY_REF;
+            curArg.SizeInBytes = uiNumElem & 0xFFFF;
+            curArg.SizeInBytes |= (uiElemSize << 16);
             break;
           }
-          curArg.size_in_bytes = pModule->getDataLayout().getPointerSize(0);
+          curArg.SizeInBytes = pModule->getDataLayout().getPointerSize(0);
           // Detect pointer qualifier
           // Test for opaque types: images, queue_t, pipe_t
           StructType *ST = dyn_cast<StructType>(PTy->getElementType());
@@ -543,59 +542,55 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
               // Get opencl opaque type.
               // It is safe to use startswith while there are no names which aren't prefix of another name.
               if (structName.startswith("image1d_array_"))
-                  curArg.type = CL_KRNL_ARG_PTR_IMG_1D_ARR;
+                  curArg.Ty = KRNL_ARG_PTR_IMG_1D_ARR;
               else if (structName.startswith("image1d_buffer_"))
-                  curArg.type = CL_KRNL_ARG_PTR_IMG_1D_BUF;
+                  curArg.Ty = KRNL_ARG_PTR_IMG_1D_BUF;
               else if(structName.startswith("image1d_"))
-                  curArg.type = CL_KRNL_ARG_PTR_IMG_1D;
+                  curArg.Ty = KRNL_ARG_PTR_IMG_1D;
               else if (structName.startswith("image2d_depth_"))
-                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D_DEPTH;
+                  curArg.Ty = KRNL_ARG_PTR_IMG_2D_DEPTH;
               else if (structName.startswith("image2d_array_depth_"))
-                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH;
+                  curArg.Ty = KRNL_ARG_PTR_IMG_2D_ARR_DEPTH;
               else if (structName.startswith("image2d_array_"))
-                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D_ARR;
+                  curArg.Ty = KRNL_ARG_PTR_IMG_2D_ARR;
               else if (structName.startswith("image2d_"))
-                  curArg.type = CL_KRNL_ARG_PTR_IMG_2D;
+                  curArg.Ty = KRNL_ARG_PTR_IMG_2D;
               else if (structName.startswith("image3d_"))
-                  curArg.type = CL_KRNL_ARG_PTR_IMG_3D;
+                  curArg.Ty = KRNL_ARG_PTR_IMG_3D;
               else if (structName.startswith("pipe_ro_t")) {
-                  curArg.type = CL_KRNL_ARG_PTR_PIPE_T;
-                  curArg.access = CL_KERNEL_ARG_ACCESS_READ_ONLY;
+                  curArg.Ty = KRNL_ARG_PTR_PIPE_T;
               } else if (structName.startswith("pipe_wo_t")) {
-                  curArg.type = CL_KRNL_ARG_PTR_PIPE_T;
-                  curArg.access = CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
+                  curArg.Ty = KRNL_ARG_PTR_PIPE_T;
               } else if (structName.startswith("queue_t"))
-                  curArg.type = CL_KRNL_ARG_PTR_QUEUE_T;
+                  curArg.Ty = KRNL_ARG_PTR_QUEUE_T;
               else if (structName.startswith("clk_event_t"))
-                  curArg.type = CL_KRNL_ARG_PTR_CLK_EVENT_T;
+                  curArg.Ty = KRNL_ARG_PTR_CLK_EVENT_T;
               else if (structName.startswith("sampler_t"))
-                  curArg.type = CL_KRNL_ARG_PTR_SAMPLER_T;
+                  curArg.Ty = KRNL_ARG_PTR_SAMPLER_T;
               else {
                   assert(false && "did you forget to handle a new special OpenCL C opaque type?");
                   // TODO: Why default type is INTEGER????
-                  curArg.type = CL_KRNL_ARG_INT;
+                  curArg.Ty = KRNL_ARG_INT;
               }
 
-              switch(curArg.type) {
-                case CL_KRNL_ARG_PTR_IMG_1D:
-                case CL_KRNL_ARG_PTR_IMG_1D_ARR:
-                case CL_KRNL_ARG_PTR_IMG_1D_BUF:
-                case CL_KRNL_ARG_PTR_IMG_2D:
-                case CL_KRNL_ARG_PTR_IMG_2D_ARR:
-                case CL_KRNL_ARG_PTR_IMG_2D_DEPTH:
-                case CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
-                case CL_KRNL_ARG_PTR_IMG_3D:
+              switch(curArg.Ty) {
+                case KRNL_ARG_PTR_IMG_1D:
+                case KRNL_ARG_PTR_IMG_1D_ARR:
+                case KRNL_ARG_PTR_IMG_1D_BUF:
+                case KRNL_ARG_PTR_IMG_2D:
+                case KRNL_ARG_PTR_IMG_2D_ARR:
+                case KRNL_ARG_PTR_IMG_2D_DEPTH:
+                case KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
+                case KRNL_ARG_PTR_IMG_3D:
                 // Setup image pointer
                   isMemoryObject = true;
-                  curArg.access = (kmd.ArgAccessQualifierList.getItem(i) == READ_ONLY) ?
-                                  CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
                   break;
-                case CL_KRNL_ARG_PTR_PIPE_T:
+                case KRNL_ARG_PTR_PIPE_T:
                   isMemoryObject = true;
                   break;
-                case CL_KRNL_ARG_PTR_QUEUE_T:
-                case CL_KRNL_ARG_PTR_CLK_EVENT_T:
-                case CL_KRNL_ARG_PTR_SAMPLER_T:
+                case KRNL_ARG_PTR_QUEUE_T:
+                case KRNL_ARG_PTR_CLK_EVENT_T:
+                case KRNL_ARG_PTR_SAMPLER_T:
                   isMemoryObject = false;
                   break;
 
@@ -603,7 +598,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                   break;
               }
               // Check this is a special OpenCL C opaque type.
-              if(CL_KRNL_ARG_INT != curArg.type)
+              if(KRNL_ARG_INT != curArg.Ty)
                 break;
             }
             else if(dyn_cast<PointerType>(PTy->getElementType()))
@@ -623,8 +618,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
               assert(!STy->isOpaque() &&
                      "cannot handle user-defined opaque types with an unknown size");
               DataLayout dataLayout(pModule);
-              curArg.size_in_bytes = dataLayout.getTypeAllocSize(STy);
-              curArg.type = CL_KRNL_ARG_COMPOSITE;
+              curArg.SizeInBytes = dataLayout.getTypeAllocSize(STy);
+              curArg.Ty = KRNL_ARG_COMPOSITE;
               break;
             }
           }
@@ -632,15 +627,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           switch (PTy->getAddressSpace())
           {
           case 0: case 1: // Global Address space
-            curArg.type = CL_KRNL_ARG_PTR_GLOBAL;
+            curArg.Ty = KRNL_ARG_PTR_GLOBAL;
             isMemoryObject = true;
             break;
           case 2:
-            curArg.type = CL_KRNL_ARG_PTR_CONST;
+            curArg.Ty = KRNL_ARG_PTR_CONST;
             isMemoryObject = true;
             break;
           case 3: // Local Address space
-            curArg.type = CL_KRNL_ARG_PTR_LOCAL;
+            curArg.Ty = KRNL_ARG_PTR_LOCAL;
             ++localMemCount;
             break;
 
@@ -654,29 +649,29 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           {
             if (kmd.ArgBaseTypeList.hasValue() && kmd.ArgBaseTypeList.getItem(i) == SAMPLER)
             {
-              curArg.type = CL_KRNL_ARG_SAMPLER;
-              curArg.size_in_bytes = sizeof(_sampler_t);
+              curArg.Ty = KRNL_ARG_SAMPLER;
+              curArg.SizeInBytes = sizeof(_sampler_t);
             }
             else
             {
               llvm::IntegerType *ITy = llvm::cast<llvm::IntegerType>(arg_it->getType());
-              curArg.type = CL_KRNL_ARG_INT;
-              curArg.size_in_bytes = pModule->getDataLayout().getTypeAllocSize(ITy);
+              curArg.Ty = KRNL_ARG_INT;
+              curArg.SizeInBytes = pModule->getDataLayout().getTypeAllocSize(ITy);
             }
           }
           break;
 
       case llvm::Type::DoubleTyID:
-        curArg.type = CL_KRNL_ARG_DOUBLE;
-        curArg.size_in_bytes = sizeof(double);
+        curArg.Ty = KRNL_ARG_DOUBLE;
+        curArg.SizeInBytes = sizeof(double);
         break;
 
       case Type::FixedVectorTyID:
         {
           llvm::FixedVectorType *pVector = llvm::cast<llvm::FixedVectorType>(arg_it->getType());
-          curArg.type = CL_KRNL_ARG_VECTOR;
-          curArg.size_in_bytes = (unsigned int)(pVector->getNumElements() == 3 ? 4 : pVector->getNumElements());
-          curArg.size_in_bytes |= (pVector->getContainedType(0)->getPrimitiveSizeInBits()/8)<<16;
+          curArg.Ty = KRNL_ARG_VECTOR;
+          curArg.SizeInBytes = (unsigned int)(pVector->getNumElements() == 3 ? 4 : pVector->getNumElements());
+          curArg.SizeInBytes |= (pVector->getContainedType(0)->getPrimitiveSizeInBits()/8)<<16;
         }
         break;
 
@@ -685,10 +680,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
 
       // update offset
-      assert( 0 != curArg.size_in_bytes && "argument size must be set");
+      assert( 0 != curArg.SizeInBytes && "argument size must be set");
       // Align current location to meet type's requirements
       current_offset = TypeAlignment::align(TypeAlignment::getAlignment(curArg), current_offset);
-      curArg.offset_in_bytes = current_offset;
+      curArg.OffsetInBytes = current_offset;
       // Advance offset beyond this argument
       current_offset += TypeAlignment::getSize(curArg);
 

@@ -775,7 +775,7 @@ namespace Validation
         assert(NULL != pKernel);
         // get kernel arguments
         unsigned int argsCount = pKernel->GetKernelParamsCount();
-        const cl_kernel_argument *pKernelArgs = pKernel->GetKernelParams();
+        const KernelArgument *pKernelArgs = pKernel->GetKernelParams();
 
         // setup the buffer container list
         BufferContainerList bufferList;
@@ -789,14 +789,14 @@ namespace Validation
         {
             char* pData = NULL;
             size_t size = 0;
-            if (( CL_KRNL_ARG_PTR_IMG_2D == pKernelArgs[i].type ) ||
-                ( CL_KRNL_ARG_PTR_IMG_1D == pKernelArgs[i].type ) ||
-                ( CL_KRNL_ARG_PTR_IMG_1D_ARR == pKernelArgs[i].type ) ||
-                ( CL_KRNL_ARG_PTR_IMG_1D_BUF == pKernelArgs[i].type ) ||
-                ( CL_KRNL_ARG_PTR_IMG_2D_ARR == pKernelArgs[i].type ) ||
-                ( CL_KRNL_ARG_PTR_IMG_3D == pKernelArgs[i].type ))
+            if (( KRNL_ARG_PTR_IMG_2D == pKernelArgs[i].Ty ) ||
+                ( KRNL_ARG_PTR_IMG_1D == pKernelArgs[i].Ty ) ||
+                ( KRNL_ARG_PTR_IMG_1D_ARR == pKernelArgs[i].Ty ) ||
+                ( KRNL_ARG_PTR_IMG_1D_BUF == pKernelArgs[i].Ty ) ||
+                ( KRNL_ARG_PTR_IMG_2D_ARR == pKernelArgs[i].Ty ) ||
+                ( KRNL_ARG_PTR_IMG_3D == pKernelArgs[i].Ty ))
             {
-                cl_mem_obj_descriptor* mem_descriptor = *(cl_mem_obj_descriptor**)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes);
+                cl_mem_obj_descriptor* mem_descriptor = *(cl_mem_obj_descriptor**)((char*)pArgsBuffer + pKernelArgs[i].OffsetInBytes);
                 // create image
                 ImageDesc desc = Utils::GetImageDesc(mem_descriptor, *arg_it);
                 IMemoryObject* pImage = pBufferContainer->CreateImage(desc);
@@ -806,9 +806,9 @@ namespace Validation
                 size  = desc.GetSizeInBytes();
                 memcpy( pData, mem_descriptor->pData, size);
             }
-            else if ( CL_KRNL_ARG_PTR_GLOBAL <= pKernelArgs[i].type )
+            else if ( KRNL_ARG_PTR_GLOBAL <= pKernelArgs[i].Ty )
             {
-                cl_mem_obj_descriptor* mem_descriptor = *(cl_mem_obj_descriptor**)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes);
+                cl_mem_obj_descriptor* mem_descriptor = *(cl_mem_obj_descriptor**)((char*)pArgsBuffer + pKernelArgs[i].OffsetInBytes);
                 // create buffer
                 BufferDesc desc = Utils::GetBufferDesc(mem_descriptor, *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
@@ -819,9 +819,9 @@ namespace Validation
                 memset( pData, 0, desc.GetSizeInBytes());
                 memcpy( pData, mem_descriptor->pData, size);
             }
-            else if (CL_KRNL_ARG_PTR_LOCAL == pKernelArgs[i].type)
+            else if (KRNL_ARG_PTR_LOCAL == pKernelArgs[i].Ty)
             {
-                size_t localMemSize = *(size_t*)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes);
+                size_t localMemSize = *(size_t*)((char*)pArgsBuffer + pKernelArgs[i].OffsetInBytes);
                 BufferDesc desc = Utils::GetBufferDesc(localMemSize, *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
 
@@ -830,38 +830,38 @@ namespace Validation
                 size  = desc.GetSizeInBytes();
                 memset( pData, 0, size);
             }
-            else if (CL_KRNL_ARG_VECTOR == pKernelArgs[i].type || CL_KRNL_ARG_VECTOR_BY_REF == pKernelArgs[i].type)
+            else if (KRNL_ARG_VECTOR == pKernelArgs[i].Ty || KRNL_ARG_VECTOR_BY_REF == pKernelArgs[i].Ty)
             {
-                size_t elemSize = pKernelArgs[i].size_in_bytes >> 16;
-                size_t numElements = (pKernelArgs[i].size_in_bytes) & 0xFFFF;
+                size_t elemSize = pKernelArgs[i].SizeInBytes >> 16;
+                size_t numElements = (pKernelArgs[i].SizeInBytes) & 0xFFFF;
                 size = elemSize * numElements;
 
                 BufferDesc desc = Utils::GetBufferDesc(elemSize, numElements, *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
                 pData = (char*)pBuffer->GetDataPtr();
-                memcpy( pData, (void *)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes), size);
+                memcpy( pData, (void *)((char*)pArgsBuffer + pKernelArgs[i].OffsetInBytes), size);
             }
-            else if (CL_KRNL_ARG_SAMPLER == pKernelArgs[i].type)
+            else if (KRNL_ARG_SAMPLER == pKernelArgs[i].Ty)
             {
                 BufferDesc desc = Utils::GetBufferDesc(sizeof(unsigned int), *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
                 pData = (char*)pBuffer->GetDataPtr();
                 size = sizeof(unsigned int);
-                memcpy( pData, (void *)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes), size);
+                memcpy( pData, (void *)((char*)pArgsBuffer + pKernelArgs[i].OffsetInBytes), size);
             }
             else
             {
-                BufferDesc desc = Utils::GetBufferDesc((size_t)pKernelArgs[i].size_in_bytes, *arg_it, programContext.m_DL);
+                BufferDesc desc = Utils::GetBufferDesc((size_t)pKernelArgs[i].SizeInBytes, *arg_it, programContext.m_DL);
                 IMemoryObject* pBuffer = pBufferContainer->CreateBuffer(desc);
                 pData = (char*)pBuffer->GetDataPtr();
-                size = pKernelArgs[i].size_in_bytes;
-                memcpy( pData, (void *)((char*)pArgsBuffer + pKernelArgs[i].offset_in_bytes), size);
+                size = pKernelArgs[i].SizeInBytes;
+                memcpy( pData, (void *)((char*)pArgsBuffer + pKernelArgs[i].OffsetInBytes), size);
             }
             ++arg_it;
 
             assert (pData != NULL && "Data must be present at this point!");
             //If argument don't allocate in local address space then calculate md5 hash sum:
-            if( pKernelArgs[i].type != CL_KRNL_ARG_PTR_LOCAL)
+            if( pKernelArgs[i].Ty != KRNL_ARG_PTR_LOCAL)
             {
                 unsigned char* pObject = reinterpret_cast<unsigned char*>(pData);
                 MD5 md5Hash(pObject, size);

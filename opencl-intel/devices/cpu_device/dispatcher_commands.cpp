@@ -124,8 +124,8 @@ void DispatcherCommand::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigne
     m_pTaskDispatcher->NotifyCommandStatusChange(cmd, uStatus, iErr);
 }
 
-cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam, 
-                                                        const cl_kernel_argument*   pParams,
+cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam,
+                                                        const KernelArgument* pParams,
                                                         const unsigned int* pMemObjectIndx,
                                                         unsigned int uiMemObjCount,
                                                         std::vector<cl_mem_obj_descriptor*>* devMemObjects,
@@ -143,11 +143,13 @@ cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam,
     // Lock required memory objects, in place operation
     for(unsigned int i=0; i<uiMemObjCount; ++i)
     {
-        const cl_kernel_argument&   param       = pParams[pMemObjectIndx[i]];
-        size_t                      stOffset    = param.offset_in_bytes;
+        const KernelArgument&   param       = pParams[pMemObjectIndx[i]];
+        size_t                      stOffset    = param.OffsetInBytes;
         IOCLDevMemoryObject*        memObj     = *(IOCLDevMemoryObject**)(pLockedParams+stOffset);
 
-        assert( ((CL_KRNL_ARG_PTR_CONST == param.type) || (CL_KRNL_ARG_PTR_GLOBAL == param.type) || (nullptr != memObj)) && "NULL is not allowed for non buffer arguments");
+        assert(((KRNL_ARG_PTR_CONST == param.Ty) ||
+                (KRNL_ARG_PTR_GLOBAL == param.Ty) || (nullptr != memObj)) &&
+               "NULL is not allowed for non buffer arguments");
         if (nullptr != memObj)
         {
             char* loc = pLockedParams+stOffset;
@@ -828,7 +830,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
 #endif
 
     const ICLDevBackendKernel_* pKernel = ((const ProgramService::KernelMapEntry*)cmdParams->kernel)->pBEKernel;
-    const cl_kernel_argument*   pParams = pKernel->GetKernelParams();
+    const KernelArgument*   pParams = pKernel->GetKernelParams();
     const ICLDevBackendKernelProporties* pProperties = pKernel->GetKernelProporties();
     m_needSerializeWGs = pProperties->NeedSerializeWGs();
 
@@ -1543,7 +1545,7 @@ bool NativeKernelTask::Execute()
     cl_dev_cmd_param_kernel* pCmd_params = (cl_dev_cmd_param_kernel*)(m_pCmd->params);
     const ProgramService::KernelMapEntry* pEntry = ((const ProgramService::KernelMapEntry*)pCmd_params->kernel);
     const ICLDevBackendKernel_* pKernel = pEntry->pBEKernel;
-    const cl_kernel_argument*   pParams = pKernel->GetKernelParams();
+    const KernelArgument*   pParams = pKernel->GetKernelParams();
 
     NotifyCommandStatusChanged(m_pCmd, CL_RUNNING, CL_DEV_SUCCESS);
 

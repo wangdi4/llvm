@@ -96,24 +96,24 @@ public:
         const int kernelParamCnt = pKernel->GetKernelParamsCount();
 
         for (int i = 0; i < kernelParamCnt; i++) {
-            const cl_kernel_argument arg = pKernel->GetKernelParams()[i];
+            const KernelArgument arg = pKernel->GetKernelParams()[i];
 
             std::unique_ptr<IArgument> pArg;
 
-            switch (arg.type) {
-                case CL_KRNL_ARG_PTR_GLOBAL:
-                case CL_KRNL_ARG_PTR_CONST:
-                case CL_KRNL_ARG_PTR_IMG_2D:
-                case CL_KRNL_ARG_PTR_IMG_2D_DEPTH:
-                case CL_KRNL_ARG_PTR_IMG_3D:
-                case CL_KRNL_ARG_PTR_IMG_2D_ARR:
-                case CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
-                case CL_KRNL_ARG_PTR_IMG_1D:
-                case CL_KRNL_ARG_PTR_IMG_1D_ARR:
-                case CL_KRNL_ARG_PTR_IMG_1D_BUF:
+            switch (arg.Ty) {
+                case KRNL_ARG_PTR_GLOBAL:
+                case KRNL_ARG_PTR_CONST:
+                case KRNL_ARG_PTR_IMG_2D:
+                case KRNL_ARG_PTR_IMG_2D_DEPTH:
+                case KRNL_ARG_PTR_IMG_3D:
+                case KRNL_ARG_PTR_IMG_2D_ARR:
+                case KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
+                case KRNL_ARG_PTR_IMG_1D:
+                case KRNL_ARG_PTR_IMG_1D_ARR:
+                case KRNL_ARG_PTR_IMG_1D_BUF:
                     pArg.reset(new ExplicitGlobalMemArgument(pArgValueDest, arg));
                 break;
-                case CL_KRNL_ARG_PTR_BLOCK_LITERAL: {
+                case KRNL_ARG_PTR_BLOCK_LITERAL: {
 
                     assert(i == 0 && "Block literal is not 0th argument in kernel");
                     // pArgValueSrc - offset value
@@ -135,16 +135,16 @@ public:
                     break;
                 }
                 default:
-                  switch (arg.type) {
-                      case CL_KRNL_ARG_PTR_LOCAL:
-                      case CL_KRNL_ARG_INT:
-                      case CL_KRNL_ARG_UINT:
-                      case CL_KRNL_ARG_FLOAT:
-                      case CL_KRNL_ARG_DOUBLE:
-                      case CL_KRNL_ARG_VECTOR:
-                      case CL_KRNL_ARG_VECTOR_BY_REF:
-                      case CL_KRNL_ARG_SAMPLER:
-                      case CL_KRNL_ARG_COMPOSITE:
+                  switch (arg.Ty) {
+                      case KRNL_ARG_PTR_LOCAL:
+                      case KRNL_ARG_INT:
+                      case KRNL_ARG_UINT:
+                      case KRNL_ARG_FLOAT:
+                      case KRNL_ARG_DOUBLE:
+                      case KRNL_ARG_VECTOR:
+                      case KRNL_ARG_VECTOR_BY_REF:
+                      case KRNL_ARG_SAMPLER:
+                      case KRNL_ARG_COMPOSITE:
                           break;
                       default:
                           assert(false && "Unknown kind of argument");
@@ -581,7 +581,7 @@ void OpenCLCPUBackendRunner::ExecuteKernel(IBufferContainerList& input,
 
     // Get kernel arguments
     int kernelNumArgs = pKernel->GetKernelParamsCount();
-    const cl_kernel_argument* pKernelArgs = pKernel->GetKernelParams();
+    const KernelArgument* pKernelArgs = pKernel->GetKernelParams();
     std::vector<bool> ignoreList;
     FillIgnoreList(ignoreList, pKernelArgs, kernelNumArgs);
     runResult->SetComparatorIgnoreList(kernelName.c_str(), ignoreList);

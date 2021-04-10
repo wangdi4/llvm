@@ -29,7 +29,7 @@ endif()
 
 # Version of cached binary.
 # This value should be incremented each time cached binary format changes.
-add_definitions(-DOCL_CACHED_BINARY_VERSION=10)
+add_definitions(-DOCL_CACHED_BINARY_VERSION=11)
 
 set(OCL_OUTPUT_EXTENSION .rtl)
 set(OCL_PRECOMPILED_OUTPUT_EXTENSION .o)

@@ -66,7 +66,7 @@ public:
 protected:
     virtual void NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uStatus, int iErr);    
 
-    cl_dev_err_code ExtractNDRangeParams(void* pTargetTaskParam, const cl_kernel_argument*   pParams, 
+    cl_dev_err_code ExtractNDRangeParams(void* pTargetTaskParam, const KernelArgument* pParams,
                                          const unsigned int* pMemObjectIndx, unsigned int uiMemObjCount,
                                          std::vector<cl_mem_obj_descriptor*>* devMemObjects,
                                          std::vector<char>* kernelParamsVec);

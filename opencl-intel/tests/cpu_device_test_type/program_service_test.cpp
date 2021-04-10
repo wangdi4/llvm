@@ -110,7 +110,7 @@ bool BuildFromBinary_test(const char* szDLLName, unsigned int uiTotal, const cha
         dev_entry->clDevReleaseProgram(prog);
         return false;
     }
-    uiParams *= sizeof(cl_kernel_argument);
+    uiParams *= sizeof(KernelArgument);
     if ( stParamSize != uiParams )
     {
         printf("pclDevGetKernelInfo invalid parameters %zu <-> %u\n", stParamSize, uiParams);

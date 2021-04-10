@@ -234,7 +234,7 @@ Kernel *CPUProgramBuilder::CreateKernel(llvm::Function *pFunc,
                                         const std::string &funcName,
                                         KernelProperties *pProps,
                                         bool useTLSGlobals) const {
-    std::vector<cl_kernel_argument> arguments;
+    std::vector<KernelArgument> arguments;
     std::vector<unsigned int>       memoryArguments;
 
     // TODO : consider separating into a different analisys pass

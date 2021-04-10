@@ -27,7 +27,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Constructor
     /// @param pValue           Explicit argument's value destination pointer
     /// @param arg              OpenCL argument
-    ExplicitArgument(char* pValue, const cl_kernel_argument& arg)
+    ExplicitArgument(char* pValue, const KernelArgument& arg)
      : FunctionArgument(pValue, TypeAlignment::getSize(arg), TypeAlignment::getAlignment(arg)) { }
   
   };

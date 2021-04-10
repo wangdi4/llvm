@@ -31,7 +31,7 @@ using namespace Validation;
 const size_t  PaddingSize = 4096;
 const uint8_t PaddingVal  = 0xcc;
 
-OpenCLArgsBuffer::OpenCLArgsBuffer(const cl_kernel_argument * pKernelArgs, 
+OpenCLArgsBuffer::OpenCLArgsBuffer(const KernelArgument * pKernelArgs, 
                                    cl_uint kernelNumArgs, 
                                    IBufferContainerList * input,
                                    const ICLDevBackendImageService* pImageService,
@@ -168,14 +168,14 @@ void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList * input)
         IMemoryObject* pMemObj = input->GetBufferContainer(0)->GetMemoryObject(i);
         void * pData = pMemObj->GetDataPtr();
 
-        if (CL_KRNL_ARG_PTR_IMG_1D == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_1D_ARR == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_1D_BUF == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_2D_ARR == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_2D == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_2D_DEPTH == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_3D == m_pKernelArgs[i].type)
+        if (KRNL_ARG_PTR_IMG_1D == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_1D_ARR == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_1D_BUF == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_2D_ARR == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_2D == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_2D_DEPTH == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_2D_ARR_DEPTH == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_3D == m_pKernelArgs[i].Ty)
         {
             // TODO: This code is almost identical to the next branch. Rewrite it using common function.
             // Kernel argument is an image - need to pass a pointer in the arguments buffer
@@ -197,7 +197,7 @@ void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList * input)
 
             offset += sizeof(void *);
         }
-        else if ( CL_KRNL_ARG_PTR_GLOBAL <= m_pKernelArgs[i].type )
+        else if ( KRNL_ARG_PTR_GLOBAL <= m_pKernelArgs[i].Ty )
         {
             // Kernel argument is a buffer - need to pass a pointer in the arguments buffer
             BufferDesc bufferDesc = GetBufferDescription(pMemObj->GetMemoryObjectDesc());
@@ -233,7 +233,7 @@ void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList * input)
 
             offset += sizeof(void *);
         }
-        else if (CL_KRNL_ARG_PTR_LOCAL == m_pKernelArgs[i].type)
+        else if (KRNL_ARG_PTR_LOCAL == m_pKernelArgs[i].Ty)
         {
             // Kernel argument is a local buffer
             // Need to pass pointer to somewhere in local memory buffer
@@ -247,12 +247,12 @@ void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList * input)
 
             // Values are assigned in CreateExecutableContext
         }
-        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type || CL_KRNL_ARG_VECTOR_BY_REF == m_pKernelArgs[i].type)
+        else if (KRNL_ARG_VECTOR == m_pKernelArgs[i].Ty || KRNL_ARG_VECTOR_BY_REF == m_pKernelArgs[i].Ty)
         {
             // Upper part of uiSize is number of element in vector (int2/float4/...)
             // Lower part of uiSize is size of type in vector
 
-            unsigned int uiSize = m_pKernelArgs[i].size_in_bytes;
+            unsigned int uiSize = m_pKernelArgs[i].SizeInBytes;
             uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
 
             void* pBufferArg = (void *)(m_pArgsBuffer + offset);
@@ -260,7 +260,7 @@ void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList * input)
 
             offset += uiSize;
         }
-        else if (CL_KRNL_ARG_SAMPLER == m_pKernelArgs[i].type)
+        else if (KRNL_ARG_SAMPLER == m_pKernelArgs[i].Ty)
         {
             // Kernel argument is a sampler
             // Need to pass sampler flags
@@ -276,8 +276,8 @@ void OpenCLArgsBuffer::FillArgsBuffer(IBufferContainerList * input)
             // Need to pass the value itself in the arguments buffer
 
             void* pBufferArg = (void *)(m_pArgsBuffer + offset);
-            memcpy(pBufferArg, pData, m_pKernelArgs[i].size_in_bytes);
-            offset += m_pKernelArgs[i].size_in_bytes;
+            memcpy(pBufferArg, pData, m_pKernelArgs[i].SizeInBytes);
+            offset += m_pKernelArgs[i].SizeInBytes;
         }
     }
 }
@@ -288,14 +288,14 @@ void OpenCLArgsBuffer::DestroyArgsBuffer()
     size_t offset = 0;
     for (unsigned int i = 0; i < m_kernelNumArgs; i++)
     {
-        if (CL_KRNL_ARG_PTR_IMG_2D == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_3D == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_1D == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_1D_BUF == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_1D_ARR == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_2D_DEPTH == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_2D_ARR == m_pKernelArgs[i].type)
+        if (KRNL_ARG_PTR_IMG_2D == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_3D == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_1D == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_1D_BUF == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_1D_ARR == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_2D_DEPTH == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_2D_ARR_DEPTH == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_2D_ARR == m_pKernelArgs[i].Ty)
         {   // images
             void ** pBufferArg = (void **)(m_pArgsBuffer + offset);
             cl_mem_obj_descriptor* pMemDesc = *(cl_mem_obj_descriptor**)pBufferArg;
@@ -305,7 +305,7 @@ void OpenCLArgsBuffer::DestroyArgsBuffer()
             offset += sizeof(void *);
         }
 
-        else if ( CL_KRNL_ARG_PTR_GLOBAL <= m_pKernelArgs[i].type )
+        else if ( KRNL_ARG_PTR_GLOBAL <= m_pKernelArgs[i].Ty )
         {
             // Kernel argument is a buffer
             // Need to pass a pointer in the arguments buffer
@@ -320,7 +320,7 @@ void OpenCLArgsBuffer::DestroyArgsBuffer()
 
             offset += sizeof(void *);
         }
-        else if (CL_KRNL_ARG_PTR_LOCAL == m_pKernelArgs[i].type)
+        else if (KRNL_ARG_PTR_LOCAL == m_pKernelArgs[i].Ty)
         {
             // Kernel argument is a local buffer
             // Need to pass pointer to somewhere in local memory buffer
@@ -332,17 +332,17 @@ void OpenCLArgsBuffer::DestroyArgsBuffer()
 
             // TODO : do we need to delete this?
         }
-        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type || CL_KRNL_ARG_VECTOR_BY_REF == m_pKernelArgs[i].type)
+        else if (KRNL_ARG_VECTOR == m_pKernelArgs[i].Ty || KRNL_ARG_VECTOR_BY_REF == m_pKernelArgs[i].Ty)
         {
             // Upper part of uiSize is number of element in vector (int2/float4/...)
             // Lower part of uiSize is size of type in vector
 
-            unsigned int uiSize = m_pKernelArgs[i].size_in_bytes;
+            unsigned int uiSize = m_pKernelArgs[i].SizeInBytes;
             uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
 
             offset += uiSize;
         }
-        else if (CL_KRNL_ARG_SAMPLER == m_pKernelArgs[i].type)
+        else if (KRNL_ARG_SAMPLER == m_pKernelArgs[i].Ty)
         {
             // Kernel argument is a sampler
             // Need to pass sampler flags
@@ -353,7 +353,7 @@ void OpenCLArgsBuffer::DestroyArgsBuffer()
         {
             // Kernel argument is a simple type (int/float/...)
             // Need to pass the value itself in the arguments buffer
-            offset += m_pKernelArgs[i].size_in_bytes;
+            offset += m_pKernelArgs[i].SizeInBytes;
         }
     }
 }
@@ -368,14 +368,14 @@ void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output, const IBufferCon
     for (unsigned int i = 0; i < m_kernelNumArgs; i++)
     {
         const IMemoryObjectDesc * pMemObjDesc = pOutBC->GetMemoryObject(i)->GetMemoryObjectDesc();
-        if ( CL_KRNL_ARG_PTR_IMG_1D == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_1D_ARR == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_1D_BUF == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_2D_ARR == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_2D == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_2D_DEPTH == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH == m_pKernelArgs[i].type ||
-            CL_KRNL_ARG_PTR_IMG_3D == m_pKernelArgs[i].type)
+        if ( KRNL_ARG_PTR_IMG_1D == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_1D_ARR == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_1D_BUF == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_2D_ARR == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_2D == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_2D_DEPTH == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_2D_ARR_DEPTH == m_pKernelArgs[i].Ty ||
+            KRNL_ARG_PTR_IMG_3D == m_pKernelArgs[i].Ty)
         {
             // Kernel argument is a image
             // Need to pass a pointer in the arguments buffer
@@ -399,7 +399,7 @@ void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output, const IBufferCon
         IMemoryObject * buffer = bufferContainer->CreateBuffer(bufferDesc);
         void * pData = buffer->GetDataPtr();
 
-        if ( CL_KRNL_ARG_PTR_GLOBAL <= m_pKernelArgs[i].type )
+        if ( KRNL_ARG_PTR_GLOBAL <= m_pKernelArgs[i].Ty )
         {
             // Kernel argument is a buffer
             // Need to pass a pointer in the arguments buffer
@@ -438,7 +438,7 @@ void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output, const IBufferCon
 
             offset += sizeof(void*);
         }
-        else if (CL_KRNL_ARG_PTR_LOCAL == m_pKernelArgs[i].type)
+        else if (KRNL_ARG_PTR_LOCAL == m_pKernelArgs[i].Ty)
         {
             // Kernel argument is a local buffer
             // Need to pass pointer to somewhere in local memory buffer
@@ -449,12 +449,12 @@ void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output, const IBufferCon
             offset += sizeof(void*);
             // TODO : assign value
         }
-        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type || CL_KRNL_ARG_VECTOR_BY_REF == m_pKernelArgs[i].type)
+        else if (KRNL_ARG_VECTOR == m_pKernelArgs[i].Ty || KRNL_ARG_VECTOR_BY_REF == m_pKernelArgs[i].Ty)
         {
             // Upper part of uiSize is number of element in vector (int2/float4/...)
             // Lower part of uiSize is size of type in vector
 
-            unsigned int uiSize = m_pKernelArgs[i].size_in_bytes;
+            unsigned int uiSize = m_pKernelArgs[i].SizeInBytes;
             uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
 
             void* pBufferArg = (void *)(m_pArgsBuffer + offset);
@@ -462,7 +462,7 @@ void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output, const IBufferCon
 
             offset += uiSize;
         }
-        else if (CL_KRNL_ARG_SAMPLER == m_pKernelArgs[i].type)
+        else if (KRNL_ARG_SAMPLER == m_pKernelArgs[i].Ty)
         {
             // Kernel argument is a sampler
             // Need to pass sampler flags
@@ -478,8 +478,8 @@ void OpenCLArgsBuffer::CopyOutput(IBufferContainerList &output, const IBufferCon
             // Need to pass the value itself in the arguments buffer
 
             void* pBufferArg = (void *)(m_pArgsBuffer + offset);
-            memcpy(pData, pBufferArg, m_pKernelArgs[i].size_in_bytes);
-            offset += m_pKernelArgs[i].size_in_bytes;
+            memcpy(pData, pBufferArg, m_pKernelArgs[i].SizeInBytes);
+            offset += m_pKernelArgs[i].SizeInBytes;
         }
     }
 }
@@ -490,30 +490,30 @@ size_t OpenCLArgsBuffer::CalcArgsBufferSize()
 
     for (unsigned int i =0; i < m_kernelNumArgs; i++)
     {
-        if ( CL_KRNL_ARG_PTR_GLOBAL <= m_pKernelArgs[i].type )
+        if ( KRNL_ARG_PTR_GLOBAL <= m_pKernelArgs[i].Ty )
         {
             // Kernel argument is a buffer
             // Need to pass a pointer in the arguments buffer
             bufferSize += sizeof(void *);
         }
-        else if (CL_KRNL_ARG_PTR_LOCAL == m_pKernelArgs[i].type)
+        else if (KRNL_ARG_PTR_LOCAL == m_pKernelArgs[i].Ty)
         {
             // Kernel argument is a local buffer
             // Need to pass pointer to somewhere in local memory buffer
             bufferSize += sizeof(void *);
         }
-        else if (CL_KRNL_ARG_VECTOR == m_pKernelArgs[i].type || CL_KRNL_ARG_VECTOR_BY_REF == m_pKernelArgs[i].type)
+        else if (KRNL_ARG_VECTOR == m_pKernelArgs[i].Ty || KRNL_ARG_VECTOR_BY_REF == m_pKernelArgs[i].Ty)
         {
             // Kernel argument is a vector
             // Need to pass all the vector in the argument buffer
 
-            unsigned int uiSize = m_pKernelArgs[i].size_in_bytes;
+            unsigned int uiSize = m_pKernelArgs[i].SizeInBytes;
             // Upper part of uiSize is number of element in vector (int2/float4/...)
             // Lower part of uiSize is size of type in vector
             uiSize = (uiSize & 0xFFFF) * (uiSize >> 16);
             bufferSize += uiSize;
         }
-        else if (CL_KRNL_ARG_SAMPLER == m_pKernelArgs[i].type)
+        else if (KRNL_ARG_SAMPLER == m_pKernelArgs[i].Ty)
         {
             // Kernel argument is a sampler
             // Need to pass sampler flags
@@ -523,7 +523,7 @@ size_t OpenCLArgsBuffer::CalcArgsBufferSize()
         {
             // Kernel argument is a simple type (int/float/...)
             // Need to pass the value itself in the arguments buffer
-            bufferSize += m_pKernelArgs[i].size_in_bytes;
+            bufferSize += m_pKernelArgs[i].SizeInBytes;
         }
     }
 

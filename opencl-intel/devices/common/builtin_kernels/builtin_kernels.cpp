@@ -187,21 +187,22 @@ cl_dev_err_code BuiltInKernelRegistry::CreateBuiltInProgram(const char* szKernel
 	return CL_DEV_SUCCESS;
 }
 
-cl_kernel_arg_address_qualifier Intel::OpenCL::BuiltInKernels::ArgType2AddrQual(cl_kernel_arg_type type)
+cl_kernel_arg_address_qualifier
+Intel::OpenCL::BuiltInKernels::ArgType2AddrQual(KernelArgumentType type)
 {
 	switch(type)
 	{
-	case CL_KRNL_ARG_INT: case CL_KRNL_ARG_UINT: case CL_KRNL_ARG_FLOAT: case CL_KRNL_ARG_DOUBLE:
-	case CL_KRNL_ARG_VECTOR: case CL_KRNL_ARG_SAMPLER: case CL_KRNL_ARG_COMPOSITE:
+	case KRNL_ARG_INT: case KRNL_ARG_UINT: case KRNL_ARG_FLOAT: case KRNL_ARG_DOUBLE:
+	case KRNL_ARG_VECTOR: case KRNL_ARG_SAMPLER: case KRNL_ARG_COMPOSITE:
 		return CL_KERNEL_ARG_ADDRESS_PRIVATE;
 
-	case CL_KRNL_ARG_PTR_LOCAL:
+	case KRNL_ARG_PTR_LOCAL:
 		return CL_KERNEL_ARG_ADDRESS_LOCAL;
 
-	case CL_KRNL_ARG_PTR_CONST:
+	case KRNL_ARG_PTR_CONST:
 		return CL_KERNEL_ARG_ADDRESS_CONSTANT;
 
-	case CL_KRNL_ARG_PTR_GLOBAL:
+	case KRNL_ARG_PTR_GLOBAL:
 	default:
 		return CL_KERNEL_ARG_ADDRESS_GLOBAL;
 

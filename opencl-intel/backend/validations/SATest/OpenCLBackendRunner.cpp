@@ -200,80 +200,59 @@ void OpenCLBackendRunner::LoadInputBuffer(OpenCLKernelConfiguration* pKernelConf
     }
 }
 
-void OpenCLBackendRunner::FillIgnoreList( std::vector<bool>& ignoreList, const cl_kernel_argument* pKernelArgs, int kernelNumArgs )
+void OpenCLBackendRunner::FillIgnoreList( std::vector<bool>& ignoreList, const KernelArgument* pKernelArgs, int kernelNumArgs )
 {
     ignoreList.resize(kernelNumArgs);
     // perform pass OpenCL back-end kernel arguments and
     // mark which arguments to ignore in comparator
     for(int i=0; i<kernelNumArgs; ++i)
     {
-        //// Defines possible values for kernel argument types
-        //typedef enum _cl_kernel_arg_type
-        //{
-        //    CL_KRNL_ARG_INT		= 0,	// Argument is a signed integer.
-        //    CL_KRNL_ARG_UINT,             // Argument is an unsigned integer.
-        //    CL_KRNL_ARG_FLOAT,			// Argument is a float.
-        //    CL_KRNL_ARG_DOUBLE,			// Argument is a double.
-        //    CL_KRNL_ARG_VECTOR,			// Argument is a vector of basic types, like int8, float4, etc.
-        //    CL_KRNL_ARG_VECTOR_BY_REF,    //!< Argument is a byval pointer to a vector of basic types, like int8, float4, etc.
-        //    CL_KRNL_ARG_SAMPLER,          // Argument is a sampler object
-        //    CL_KRNL_ARG_PTR_LOCAL,		// Argument is a pointer to array declared in local memory
-        //    //	Memory object types bellow this line
-        //    CL_KRNL_ARG_PTR_GLOBAL,		// Argument is a pointer to array in global memory of various types
-        //    // The array type could be char, short, int, float or double
-        //    // User must pass a handle to a memory buffer for this argument type
-        //    CL_KRNL_ARG_PTR_CONST,		// Argument is a pointer to buffer declared in constant(global) memory
-        //    CL_KRNL_ARG_PTR_IMG_2D,		// Argument is a pointer to 2D image
-        //    CL_KRNL_ARG_PTR_IMG_3D,		// Argument is a pointer to 3D image
-        //    CL_KRNL_ARG_COMPOSITE			// Argument is a user defined struct
-        //} cl_kernel_arg_type;
-
-        switch(pKernelArgs[i].type)
+        switch(pKernelArgs[i].Ty)
         {
-        case CL_KRNL_ARG_INT:               // Argument is a signed integer.
-        case CL_KRNL_ARG_UINT:              // Argument is an unsigned integer.
-        case CL_KRNL_ARG_FLOAT:             // Argument is a float.
-        case CL_KRNL_ARG_DOUBLE:            // Argument is a double.
-        case CL_KRNL_ARG_VECTOR:            // Argument is a vector of basic types, like int8, float4, etc.
-        case CL_KRNL_ARG_VECTOR_BY_REF:     //!< Argument is a byval pointer to a vector of basic types, like int8, float4, etc.
+        case KRNL_ARG_INT:               // Argument is a signed integer.
+        case KRNL_ARG_UINT:              // Argument is an unsigned integer.
+        case KRNL_ARG_FLOAT:             // Argument is a float.
+        case KRNL_ARG_DOUBLE:            // Argument is a double.
+        case KRNL_ARG_VECTOR:            // Argument is a vector of basic types, like int8, float4, etc.
+        case KRNL_ARG_VECTOR_BY_REF:     //!< Argument is a byval pointer to a vector of basic types, like int8, float4, etc.
             // ignore arguments passed by value
             ignoreList[i] = true;
             break;
-        case CL_KRNL_ARG_PTR_LOCAL:
+        case KRNL_ARG_PTR_LOCAL:
             // ignore ptr to __local memory
             ignoreList[i] = true;
             break;
-        case CL_KRNL_ARG_PTR_GLOBAL:
+        case KRNL_ARG_PTR_GLOBAL:
             // ptr to __global memory. do not ignore it
             ignoreList[i] = false;
             break;
-        case CL_KRNL_ARG_PTR_CONST:        // Argument is a pointer to buffer declared in constant(global) memory
+        case KRNL_ARG_PTR_CONST:        // Argument is a pointer to buffer declared in constant(global) memory
             // ignore constant buffers
             ignoreList[i] = true;
             break;
-        case CL_KRNL_ARG_SAMPLER:
+        case KRNL_ARG_SAMPLER:
             // ignore sampler object
             ignoreList[i] = true;
             break;
-        case CL_KRNL_ARG_PTR_IMG_2D:        // Argument is a pointer to 2D image
-        case CL_KRNL_ARG_PTR_IMG_2D_DEPTH:
-        case CL_KRNL_ARG_PTR_IMG_3D:        // Argument is a pointer to 3D image
-        case CL_KRNL_ARG_PTR_IMG_2D_ARR:
-        case CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
-        case CL_KRNL_ARG_PTR_IMG_1D:
-        case CL_KRNL_ARG_PTR_IMG_1D_ARR:
-        case CL_KRNL_ARG_PTR_IMG_1D_BUF:
+        case KRNL_ARG_PTR_IMG_2D:        // Argument is a pointer to 2D image
+        case KRNL_ARG_PTR_IMG_2D_DEPTH:
+        case KRNL_ARG_PTR_IMG_3D:        // Argument is a pointer to 3D image
+        case KRNL_ARG_PTR_IMG_2D_ARR:
+        case KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
+        case KRNL_ARG_PTR_IMG_1D:
+        case KRNL_ARG_PTR_IMG_1D_ARR:
+        case KRNL_ARG_PTR_IMG_1D_BUF:
             // TODO: disable read-only images  are ready
             ignoreList[i] = false;
             break;
-        case CL_KRNL_ARG_COMPOSITE:         // Argument is a user defined struct
+        case KRNL_ARG_COMPOSITE:         // Argument is a user defined struct
             // ignore arguments passed by value
             ignoreList[i] = true;
             break;
         default:
             throw Exception::InvalidArgument("OpenCLBackendRunner::FillIgnoreList "
                 "Unknown kernel argument type\n");
-        } // switch(pKernelArgs[i].type)
+        } // switch(pKernelArgs[i].Ty)
     }
 }
 

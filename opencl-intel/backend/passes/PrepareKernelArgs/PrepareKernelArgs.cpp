@@ -121,7 +121,7 @@ namespace intel{
       IRBuilder<> &builder, Function *WrappedKernel, Argument *pArgsBuffer,
       Argument *pArgGID, Argument *RuntimeContext) {
     // Get old function's arguments list in the OpenCL level from its metadata
-    std::vector<cl_kernel_argument> arguments;
+    std::vector<KernelArgument> arguments;
     std::vector<unsigned int>       memoryArguments;
     CompilationUtils::parseKernelArguments(
         m_pModule, WrappedKernel, m_useTLSGlobals, arguments, memoryArguments);
@@ -134,13 +134,13 @@ namespace intel{
 
     // Handle explicit arguments
     for (unsigned ArgNo = 0; ArgNo < arguments.size(); ++ArgNo) {
-      cl_kernel_argument arg = arguments[ArgNo];
+      KernelArgument arg = arguments[ArgNo];
       //  %0 = getelementptr i8* %pBuffer, i32 currOffset
-      Value* pGEP = builder.CreateGEP(pArgsBuffer, ConstantInt::get(m_I32Ty, arg.offset_in_bytes));
+      Value* pGEP = builder.CreateGEP(pArgsBuffer, ConstantInt::get(m_I32Ty, arg.OffsetInBytes));
 
       Value* pArg;
 
-      if (arg.type == CL_KRNL_ARG_COMPOSITE || arg.type == CL_KRNL_ARG_VECTOR_BY_REF) {
+      if (arg.Ty == KRNL_ARG_COMPOSITE || arg.Ty == KRNL_ARG_VECTOR_BY_REF) {
         // If this is a struct argument, then the struct itself is passed by value inside pArgsBuffer
         // and the original kernel signature was:
         // foo(..., MyStruct* byval myStruct, ...)
@@ -152,7 +152,7 @@ namespace intel{
 
         Value* pPointerCast = builder.CreatePointerCast(pGEP, callIt->getType());
         pArg = pPointerCast;
-      } else if (arg.type == CL_KRNL_ARG_PTR_LOCAL) {
+      } else if (arg.Ty == KRNL_ARG_PTR_LOCAL) {
         // The argument is actually the size of the buffer
         Value *pPointerCast = builder.CreatePointerCast(pGEP, PointerType::get(m_SizetTy, 0));
         LoadInst *BufferSize = builder.CreateAlignedLoad(
@@ -176,7 +176,7 @@ namespace intel{
             m_I8Ty, AllocaAddrSpace, BufferSize, Align(Alignment));
         builder.Insert(Allocation);
         pArg = builder.CreatePointerCast(Allocation, callIt->getType());
-      } else if (arg.type == CL_KRNL_ARG_PTR_BLOCK_LITERAL) {
+      } else if (arg.Ty == KRNL_ARG_PTR_BLOCK_LITERAL) {
           pArg = builder.CreateAddrSpaceCast(pGEP, callIt->getType());
       } else {
         // Otherwise this is some other type, lets say int4, then int4 itself is passed by value inside pArgsBuffer
@@ -225,7 +225,7 @@ namespace intel{
     size_t currOffset = 0;
     if (!arguments.empty()) {
       assert(m_DL && "m_DL is nullptr!");
-      currOffset = arguments.back().offset_in_bytes +
+      currOffset = arguments.back().OffsetInBytes +
                    TypeAlignment::getSize(arguments.back());
       currOffset = ImplicitArgsUtils::getAdjustedAlignment(
           currOffset, m_DL->getPointerABIAlignment(m_DL->getAllocaAddrSpace()).value());

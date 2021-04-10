@@ -66,7 +66,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
         std::string                     m_szKernelName;
         cl_dev_dispatch_buffer_prop     m_dispatchBufferProperties;
-        std::vector<cl_kernel_argument> m_vArguments;
+        std::vector<KernelArgument> m_vArguments;
         std::vector<cl_uint>            m_MemArgumentsIndx;
         std::string                     m_szKernelAttributes;
     };
@@ -160,14 +160,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         KernelArg() : m_pValueLocation(NULL), m_bValid(false) {}
         
-        void Init( char* baseAddress, const cl_kernel_argument& clKernelArgType );
+        void Init( char* baseAddress, const KernelArgument& clKernelArgType );
 
-        cl_uint             GetOffset() const { return m_clKernelArgType.offset_in_bytes; }
+        cl_uint             GetOffset() const { return m_clKernelArgType.OffsetInBytes; }
 
         // return the size (in bytes) of the kernel arg's value
         // if Buffer / Image / ... returns sizeof(MemoryObject*)
-        size_t              GetSize()          const { return  m_clKernelArgType.size_in_bytes; }
-        cl_kernel_arg_type  GetType()          const { return m_clKernelArgType.type; }
+        size_t GetSize() const { return m_clKernelArgType.SizeInBytes; }
+        KernelArgumentType  GetType() const { return m_clKernelArgType.Ty; }
 
         // returns the value of the kernel argument
         void                GetValue( size_t size, void* pValue ) const;
@@ -179,32 +179,32 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t              GetLocalBufferSize() const
             { assert( IsLocalPtr() && (NULL!=m_pValueLocation) && "Not a local PTR or value location is not set"); return *(size_t*)m_pValueLocation; }
 
-        bool                IsMemObject()     const { return (CL_KRNL_ARG_PTR_GLOBAL  <= m_clKernelArgType.type); }
-        bool                IsBuffer()        const { return ((CL_KRNL_ARG_PTR_GLOBAL == m_clKernelArgType.type) ||
-                                                              (CL_KRNL_ARG_PTR_CONST  == m_clKernelArgType.type)); }
-        bool                IsImage()         const { return ((CL_KRNL_ARG_PTR_IMG_2D     <= m_clKernelArgType.type) &&
-                                                              (CL_KRNL_ARG_PTR_IMG_1D_BUF >= m_clKernelArgType.type)); }
-        bool                IsPipe()          const { return (CL_KRNL_ARG_PTR_PIPE_T == m_clKernelArgType.type); }
+        bool                IsMemObject()     const { return (KRNL_ARG_PTR_GLOBAL  <= m_clKernelArgType.Ty); }
+        bool                IsBuffer()        const { return ((KRNL_ARG_PTR_GLOBAL == m_clKernelArgType.Ty) ||
+                                                              (KRNL_ARG_PTR_CONST  == m_clKernelArgType.Ty)); }
+        bool                IsImage()         const { return ((KRNL_ARG_PTR_IMG_2D     <= m_clKernelArgType.Ty) &&
+                                                              (KRNL_ARG_PTR_IMG_1D_BUF >= m_clKernelArgType.Ty)); }
+        bool                IsPipe()          const { return (KRNL_ARG_PTR_PIPE_T == m_clKernelArgType.Ty); }
         bool                IsSampler()       const { return (IsOpaqueSampler() || IsInt32Sampler()); }
 
-        bool                IsOpaqueSampler() const { return (CL_KRNL_ARG_PTR_SAMPLER_T == m_clKernelArgType.type); }
-        bool                IsInt32Sampler()  const { return (   CL_KRNL_ARG_SAMPLER    == m_clKernelArgType.type); }
+        bool                IsOpaqueSampler() const { return (KRNL_ARG_PTR_SAMPLER_T == m_clKernelArgType.Ty); }
+        bool                IsInt32Sampler()  const { return (   KRNL_ARG_SAMPLER    == m_clKernelArgType.Ty); }
 
-        bool                IsLocalPtr()      const { return (CL_KRNL_ARG_PTR_LOCAL == m_clKernelArgType.type); }
+        bool                IsLocalPtr()      const { return (KRNL_ARG_PTR_LOCAL == m_clKernelArgType.Ty); }
 
         bool                IsValid()         const { return m_bValid; }
 
         bool                IsSvmPtr()        const { return nullptr != m_pSvmPtrArg.GetPtr(); }
         bool                IsUsmPtr()        const { return nullptr != m_pUsmPtrArg.GetPtr(); }
 
-        bool                IsQueueId()       const { return CL_KRNL_ARG_PTR_QUEUE_T == m_clKernelArgType.type; }
+        bool                IsQueueId()       const { return KRNL_ARG_PTR_QUEUE_T == m_clKernelArgType.Ty; }
 
     private:
         void SetValuePlaceHolder( void * pValuePlaceHolder, size_t offset );
 
 
         // type of kernel argument
-        cl_kernel_argument              m_clKernelArgType;
+        KernelArgument              m_clKernelArgType;
 
         void*                           m_pValueLocation;
         bool                            m_bValid;

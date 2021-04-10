@@ -149,6 +149,11 @@
 #             clEnqueueMemsetINTEL and clEnqueueMemFillINTEL is executed
 #             parallelly using internal kernels.
 #       False: parallel copy/fill is disabled.
+# CL_CONFIG_USE_NATIVE_DEBUGGER [bool]
+#       This env is only used on windows.
+#       True: enable native debugger on windows. Native debugging file (.pdb)
+#             will be generated for kernel program.
+#       False: (default) use simulator debugger.
 
 #CL_CONFIG_LOG_FILE = C:\cl.log
 
@@ -184,5 +189,6 @@ CL_GPA_CONFIG_SHOW_COMPLETED_MARKER = True
 #CL_CONFIG_CPU_VECTORIZER_MODE = 0
 #CL_CONFIG_CPU_EXPENSIVE_MEM_OPT = 0
 #CL_CONFIG_ENABLE_PARALLEL_COPY = True
+#CL_CONFIG_USE_NATIVE_DEBUGGER = False
 
 CL_CONFIG_DEVICES = ${CL_CONFIG_DEVICES}

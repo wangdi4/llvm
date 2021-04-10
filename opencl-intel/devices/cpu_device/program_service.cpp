@@ -800,7 +800,7 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
     case CL_DEV_KERNEL_PROTOTYPE:
         stValSize = pKernel->GetKernelParamsCount();
         pValue = (void*)pKernel->GetKernelParams();
-        stValSize *= sizeof(cl_kernel_argument);
+        stValSize *= sizeof(KernelArgument);
         break;
 
     case CL_DEV_KERNEL_WG_SIZE_REQUIRED:

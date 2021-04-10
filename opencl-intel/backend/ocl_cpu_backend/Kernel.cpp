@@ -76,7 +76,7 @@ namespace OpenCL {
 namespace DeviceBackend {
 
 Kernel::Kernel(const std::string &name,
-               const std::vector<cl_kernel_argument> &args,
+               const std::vector<KernelArgument> &args,
                const std::vector<unsigned int> &memArgs,
                KernelProperties *pProps)
     : m_name(name), m_CSRMask(0), m_CSRFlags(0), m_explicitArgs(args),
@@ -88,9 +88,9 @@ Kernel::Kernel(const std::string &name,
     // offset of the last argument in the buffer + argumentSize
     // and adjust each argument at least to size_t alignment
     // because of the implicit arguments
-    const cl_kernel_argument &lastArg = m_explicitArgs.back();
+    const KernelArgument &lastArg = m_explicitArgs.back();
     m_explicitArgsSizeInBytes = ImplicitArgsUtils::getAdjustedAlignment(
-        lastArg.offset_in_bytes + TypeAlignment::getSize(lastArg),
+        lastArg.OffsetInBytes + TypeAlignment::getSize(lastArg),
         sizeof(size_t));
   } else {
     m_explicitArgsSizeInBytes = 0;
@@ -374,7 +374,7 @@ const char *Kernel::GetKernelName() const { return m_name.c_str(); }
 
 int Kernel::GetKernelParamsCount() const { return m_explicitArgs.size(); }
 
-const cl_kernel_argument *Kernel::GetKernelParams() const {
+const KernelArgument *Kernel::GetKernelParams() const {
   return m_explicitArgs.empty() ? nullptr : &m_explicitArgs[0];
 }
 
@@ -415,7 +415,7 @@ const unsigned int *Kernel::GetMemoryObjectArgumentIndexes() const {
   return m_memArgs.empty() ? nullptr : &m_memArgs[0];
 }
 
-const std::vector<cl_kernel_argument> *Kernel::GetKernelParamsVector() const {
+const std::vector<KernelArgument> *Kernel::GetKernelParamsVector() const {
   return &m_explicitArgs;
 }
 
@@ -500,9 +500,9 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
   size_t privateSize = m_pProps->GetPrivateMemorySize();
   size_t localBufferSize = m_pProps->GetImplicitLocalMemoryBufferSize();
   for (auto &arg : m_explicitArgs) {
-    if (arg.type == CL_KRNL_ARG_PTR_LOCAL) {
-      char* pArgLocation = (char*)pKernelUniformArgs + arg.offset_in_bytes;
-      switch (arg.size_in_bytes) {
+    if (arg.Ty == KRNL_ARG_PTR_LOCAL) {
+      char* pArgLocation = (char*)pKernelUniformArgs + arg.OffsetInBytes;
+      switch (arg.SizeInBytes) {
         case sizeof(cl_uint):
           localBufferSize += *((cl_uint*)pArgLocation);
           break;
@@ -516,7 +516,7 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
   }
 
   // barrier buffer is always allocated with the uniform size.
-  pKernelUniformImplicitArgs->stackSize = barrierSize * localNumUniform +
+  m_stackActualSize = barrierSize * localNumUniform +
                                           localBufferSize + m_stackExtraSize;
   // need to decide which entrypoint to run
   const IKernelJITContainer *pScalarJIT = GetKernelJIT(0);
@@ -529,7 +529,7 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
         CreateEntryPointHandle(pScalarJIT->GetJITCode());
     size_t nonBarrierPrivateSize = (privateSize - barrierSize) *
                                    (1 + m_pProps->GetMinGroupSizeFactorial());
-    pKernelUniformImplicitArgs->stackSize += nonBarrierPrivateSize;
+    m_stackActualSize += nonBarrierPrivateSize;
   } else {
     const IKernelJITContainer *pVectorJIT =
         GetKernelJITCount() > 1 ? GetKernelJIT(1) : nullptr;
@@ -559,13 +559,13 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
       // they have the same size between uniform and non uniform WGs. So there
       // should be no great difference between the two sizes. Using the uniform
       // stack size can simplify the stack reallocation.
-      pKernelUniformImplicitArgs->stackSize += nonBarrierPrivateSize;
+      m_stackActualSize += nonBarrierPrivateSize;
     } else {
       // Only scalar JIT is present.
       pKernelUniformImplicitArgs->pUniformJITEntryPoint =
       pKernelUniformImplicitArgs->pNonUniformJITEntryPoint =
           CreateEntryPointHandle(pScalarJIT->GetJITCode());
-      pKernelUniformImplicitArgs->stackSize += (privateSize - barrierSize);
+      m_stackActualSize += (privateSize - barrierSize);
     }
   }
 
@@ -729,7 +729,7 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
   AfterExecution();
 #else
   if (!m_useAutoMemory || m_pProps->TargetDevice() != FPGA_EMU_DEVICE ||
-      pKernelUniformImplicitArgs->stackSize < m_stackDefaultSize)
+      m_stackActualSize < m_stackDefaultSize)
     kernel(pKernelUniformArgs, pGroupID, pRuntimeHandle);
   else {
     bool isUniform = (pGroupID[0] != pKernelUniformImplicitArgs->WGCount[0] - 1);
@@ -741,7 +741,7 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
 
     FIBERDATA fiberData = {pKernelUniformArgs, pGroupID, pRuntimeHandle, kernel,
                            primaryFiber};
-    fiber = CreateFiberEx(pKernelUniformImplicitArgs->stackSize, 0,
+    fiber = CreateFiberEx(m_stackActualSize, 0,
                           0, CreateFiberExRoutineFunc, &fiberData);
     if (!fiber)
       ErrorExit((LPTSTR)TEXT("CreateFiberEx"));
@@ -750,11 +750,11 @@ cl_dev_err_code Kernel::RunGroup(const void *pKernelUniformArgs,
     DeleteFiber(fiber);
     ConvertFiberToThread();
 #else
-    void *stackBase = AllocaStack(pKernelUniformImplicitArgs->stackSize);
+    void *stackBase = AllocaStack(m_stackActualSize);
     ucontext_t originalContext, newContext;
     getcontext(&newContext);
     newContext.uc_stack.ss_sp = stackBase;
-    newContext.uc_stack.ss_size = pKernelUniformImplicitArgs->stackSize;
+    newContext.uc_stack.ss_size = m_stackActualSize;
     newContext.uc_link = &originalContext;
     // workaround "might be clobbered" warning
     if (isUniform)
@@ -816,7 +816,7 @@ void Kernel::Serialize(IOutputStream& ost, SerializationStatus* stats) const
   unsigned int vectorSize = m_explicitArgs.size();
   Serializer::SerialPrimitive<unsigned int>(&vectorSize, ost);
   for (size_t i = 0; i < vectorSize; ++i) {
-    Serializer::SerialPrimitive<cl_kernel_argument>(&m_explicitArgs[i], ost);
+    Serializer::SerialPrimitive<KernelArgument>(&m_explicitArgs[i], ost);
   }
 
   // Serialize explicit argument buffer size
@@ -867,7 +867,7 @@ void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats, size_t m
   Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
   m_explicitArgs.resize(vectorSize);
   for (size_t i = 0; i < vectorSize; ++i) {
-    Serializer::DeserialPrimitive<cl_kernel_argument>(&m_explicitArgs[i], ist);
+    Serializer::DeserialPrimitive<KernelArgument>(&m_explicitArgs[i], ist);
   }
 
   // Deserial explicit argument buffer size

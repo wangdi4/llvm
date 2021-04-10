@@ -85,7 +85,7 @@ namespace Validation
         /// @param [OUT] ignoreList The list of marks which arguments to ignore in comparator.
         /// @param [IN] pKernelArgs Descriptions of kernel's arguments.
         /// @param [IN] kernelNumArgs Number of kernel's arguments.
-        void FillIgnoreList( std::vector<bool>& ignoreList, const cl_kernel_argument* pKernelArgs, int kernelNumArgs );
+        void FillIgnoreList( std::vector<bool>& ignoreList, const KernelArgument* pKernelArgs, int kernelNumArgs );
 
     protected:
         ICLDevBackendServiceFactory* m_pServiceFactory;

@@ -32,7 +32,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @param pValue           Implict argument's value destination pointer
     /// @param arg              OpenCL argument
     /// @param pBL              BlockLiteral pointers
-    ExplicitBlockLiteralArgument (char* pValue, const cl_kernel_argument& arg, const BlockLiteral* pBL)
+    ExplicitBlockLiteralArgument (char* pValue, const KernelArgument& arg, const BlockLiteral* pBL)
       : ExplicitArgument(pValue, arg), m_pBL(pBL) { }
 
     /// @brief Set argument as pointer to BlockLiteral structure. 

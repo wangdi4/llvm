@@ -20,76 +20,76 @@
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-size_t TypeAlignment::getSize(const cl_kernel_argument& arg) {
-  switch(arg.type)
+size_t TypeAlignment::getSize(const KernelArgument& arg) {
+  switch(arg.Ty)
   {
-  case CL_KRNL_ARG_INT:
-    return arg.size_in_bytes;
+  case KRNL_ARG_INT:
+    return arg.SizeInBytes;
 
-  case CL_KRNL_ARG_UINT:
-    return arg.size_in_bytes;
+  case KRNL_ARG_UINT:
+    return arg.SizeInBytes;
 
-  case CL_KRNL_ARG_FLOAT:
-    return arg.size_in_bytes;
+  case KRNL_ARG_FLOAT:
+    return arg.SizeInBytes;
 
-  case CL_KRNL_ARG_DOUBLE:
-    return arg.size_in_bytes;
+  case KRNL_ARG_DOUBLE:
+    return arg.SizeInBytes;
 
-  case CL_KRNL_ARG_VECTOR:
-  case CL_KRNL_ARG_VECTOR_BY_REF:
+  case KRNL_ARG_VECTOR:
+  case KRNL_ARG_VECTOR_BY_REF:
     {
       // Extract the vector element size and the number of vector elements
-      unsigned int elemSize = arg.size_in_bytes >> 16;
-      unsigned int numElements = (arg.size_in_bytes) & 0xFFFF;
+      unsigned int elemSize = arg.SizeInBytes >> 16;
+      unsigned int numElements = (arg.SizeInBytes) & 0xFFFF;
       return elemSize * numElements;
     }
 
-  case CL_KRNL_ARG_SAMPLER:
+  case KRNL_ARG_SAMPLER:
     return sizeof(cl_int);
 
-  case CL_KRNL_ARG_COMPOSITE:
-    return arg.size_in_bytes;
+  case KRNL_ARG_COMPOSITE:
+    return arg.SizeInBytes;
 
-  case CL_KRNL_ARG_PTR_LOCAL:
-  case CL_KRNL_ARG_PTR_GLOBAL:
-  case CL_KRNL_ARG_PTR_CONST:
-  case CL_KRNL_ARG_PTR_IMG_1D:
-  case CL_KRNL_ARG_PTR_IMG_1D_ARR:
-  case CL_KRNL_ARG_PTR_IMG_1D_BUF:
-  case CL_KRNL_ARG_PTR_IMG_2D:
-  case CL_KRNL_ARG_PTR_IMG_2D_DEPTH:
-  case CL_KRNL_ARG_PTR_IMG_3D:
-  case CL_KRNL_ARG_PTR_IMG_2D_ARR:
-  case CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
-  case CL_KRNL_ARG_PTR_BLOCK_LITERAL:
-  case CL_KRNL_ARG_PTR_QUEUE_T:
-  case CL_KRNL_ARG_PTR_SAMPLER_T:
-  case CL_KRNL_ARG_PTR_PIPE_T:
-  case CL_KRNL_ARG_PTR_CLK_EVENT_T:
-    return arg.size_in_bytes;
+  case KRNL_ARG_PTR_LOCAL:
+  case KRNL_ARG_PTR_GLOBAL:
+  case KRNL_ARG_PTR_CONST:
+  case KRNL_ARG_PTR_IMG_1D:
+  case KRNL_ARG_PTR_IMG_1D_ARR:
+  case KRNL_ARG_PTR_IMG_1D_BUF:
+  case KRNL_ARG_PTR_IMG_2D:
+  case KRNL_ARG_PTR_IMG_2D_DEPTH:
+  case KRNL_ARG_PTR_IMG_3D:
+  case KRNL_ARG_PTR_IMG_2D_ARR:
+  case KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
+  case KRNL_ARG_PTR_BLOCK_LITERAL:
+  case KRNL_ARG_PTR_QUEUE_T:
+  case KRNL_ARG_PTR_SAMPLER_T:
+  case KRNL_ARG_PTR_PIPE_T:
+  case KRNL_ARG_PTR_CLK_EVENT_T:
+    return arg.SizeInBytes;
   }
 
   // TODO : exception? assert?
-  assert(false && "Unknown cl_kernel_argument type");
+  assert(false && "Unknown KernelArgument type");
   return 0;
 }
 
-size_t TypeAlignment::getAlignment(const cl_kernel_argument& arg) {
+size_t TypeAlignment::getAlignment(const KernelArgument& arg) {
   
   size_t alignment;
-  switch(arg.type)
+  switch(arg.Ty)
   {
-  case CL_KRNL_ARG_VECTOR:
-  case CL_KRNL_ARG_VECTOR_BY_REF:
+  case KRNL_ARG_VECTOR:
+  case KRNL_ARG_VECTOR_BY_REF:
     {
       size_t vectorAlignment = getSize(arg);
     
-      unsigned int numElements = (arg.size_in_bytes) & 0xFFFF;
+      unsigned int numElements = (arg.SizeInBytes) & 0xFFFF;
     
       // Vectors of 3 elements need to be aligned to a 4-elements vector
       if (numElements == 3) {
         // Align num elems to 4 elements by adding elemSize
-        unsigned int elemSize = arg.size_in_bytes >> 16;
+        unsigned int elemSize = arg.SizeInBytes >> 16;
         vectorAlignment += elemSize;
       }
     
@@ -100,8 +100,8 @@ size_t TypeAlignment::getAlignment(const cl_kernel_argument& arg) {
       assert((0 == (alignment & (alignment - 1))) && "Alignment is not power of 2!");
     }
     break;
-  case CL_KRNL_ARG_PTR_BLOCK_LITERAL:
-  case CL_KRNL_ARG_COMPOSITE:
+  case KRNL_ARG_PTR_BLOCK_LITERAL:
+  case KRNL_ARG_COMPOSITE:
     // No alignment for structures
     alignment = 0;
     break;
