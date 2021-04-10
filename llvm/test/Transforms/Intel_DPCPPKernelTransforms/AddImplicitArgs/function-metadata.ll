@@ -1,4 +1,6 @@
 ; RUN: opt -dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
+
 ; check the metadata is preserved correctly during transformations
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

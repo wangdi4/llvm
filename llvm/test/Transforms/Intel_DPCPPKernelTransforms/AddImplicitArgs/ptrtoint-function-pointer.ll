@@ -1,5 +1,6 @@
 ; RUN: opt -dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
-;
+; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
+
 ; CHECK: define void @_ZTS1K
 ; CHECK: %[[ALLOCA:.*]] = alloca i32
 ; CHECK: %[[PTRTOINT:.*]] = ptrtoint i32 (i32, i32, {{.*}})* @_Z3addii to i32

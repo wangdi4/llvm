@@ -1,5 +1,6 @@
 ; RUN: opt -dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
-;
+; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
+
 ; CHECK: define i32 @foo(i32 %arg, i8 addrspace(3)* noalias %pLocalMemBase,
 ; CHECK-SAME:          { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim
 ; CHECK-SAME:          i64* noalias %pWGId,

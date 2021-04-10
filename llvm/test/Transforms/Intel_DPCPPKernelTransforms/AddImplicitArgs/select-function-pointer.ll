@@ -1,5 +1,6 @@
 ; RUN: opt -dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
-;
+; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
+
 ; CHECK: define i32 @_Z3addii(i32 %a, i32 %b,
 ; CHECK: define i32 @_Z3subii(i32 %a, i32 %b,
 ; CHECK: define void @_ZTS1K
