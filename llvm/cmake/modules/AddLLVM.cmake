@@ -514,9 +514,6 @@ function(llvm_add_library name)
           add_dependencies(${obj_name} ${link_lib})
         endif()
       endforeach()
-      # INTEL_CUSTOMIZATION
-      target_link_libraries(${obj_name} ${ARG_LINK_LIBS})
-      # end INTEL_CUSTOMIZATION
     endif()
   endif()
 
@@ -809,9 +806,7 @@ function(add_llvm_component_library name)
     "COMPONENT_NAME;ADD_TO_COMPONENT"
     ""
     ${ARGN})
-  # INTEL_CUSTOMIZATION
-  add_llvm_library(${name} COMPONENT_LIB OBJECT ${ARG_UNPARSED_ARGUMENTS})
-  # end INTEL_CUSTOMIZATION
+  add_llvm_library(${name} COMPONENT_LIB ${ARG_UNPARSED_ARGUMENTS})
   string(REGEX REPLACE "^LLVM" "" component_name ${name})
   set_property(TARGET ${name} PROPERTY LLVM_COMPONENT_NAME ${component_name})
 
