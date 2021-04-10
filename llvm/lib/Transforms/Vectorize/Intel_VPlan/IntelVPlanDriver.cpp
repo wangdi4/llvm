@@ -345,12 +345,13 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   VPLAN_DUMP(VPlanPrintInit,
              "initial VPlan for VF=" + std::to_string(VF), Plan);
 
-  // All-zero bypass is added after best plan selection because cost model
-  // tuning is not yet implemented and we don't want to prevent vectorization.
-  LVP.insertAllZeroBypasses(Plan, VF);
-
   unsigned UF = LVP.getLoopUnrollFactor();
-  LVP.unroll(*Plan);
+  // If EnableCFGMerge is disabled, run AZB and unroll at this point in the
+  // pipeline.
+  if (!EnableNewCFGMerge) {
+    LVP.insertAllZeroBypasses(Plan, VF);
+    LVP.unroll(*Plan);
+  }
 
   // Workaround for kernel vectorization. Kernel vectorization is done through
   // loop creation inside vec-clone) followed by loop vectorization. That
@@ -384,6 +385,32 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   // piece of CFG.
   if (VF > 1) {
     LVP.createMergerVPlans(VPAF);
+
+    for (const CfgMergerPlanDescr &PlanDescr : LVP.mergerVPlans()) {
+      auto LpKind = PlanDescr.getLoopType();
+      VPlan *Plan = PlanDescr.getVPlan();
+
+      if (isa<VPlanVector>(Plan))
+        // All-zero bypass is added after best plan selection because cost model
+        // tuning is not yet implemented and we don't want to prevent
+        // vectorization.
+        LVP.insertAllZeroBypasses(cast<VPlanVector>(Plan), PlanDescr.getVF());
+
+      // For unroller, we only want to pass the main-vector, i.e., the unmasked
+      // vector loop.
+      if (LpKind == CfgMergerPlanDescr::LoopType::LTMain)
+        if (auto *NonMaskedVPlan = dyn_cast<VPlanNonMasked>(Plan))
+          LVP.unroll(*NonMaskedVPlan);
+
+      // Transform SOA-GEPs.
+      // Do this transformation only for Masked and Non-masked, i.e.,
+      // vector-loops.
+      if (isa<VPlanVector>(Plan))
+        if (EnableSOAAnalysis) {
+          VPMemRefTransform VPMemRefTrans(*cast<VPlanVector>(Plan));
+          VPMemRefTrans.transformSOAGEPs(PlanDescr.getVF());
+        }
+    }
     LVP.emitPeelRemainderVPLoops(VF, UF);
   }
 
@@ -409,7 +436,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   VCodeGen.getVLS()->getOVLSMemrefs(Plan, VF);
 
   // Transform SOA-GEPs.
-  if (EnableSOAAnalysis) {
+  if (!EnableNewCFGMerge && EnableSOAAnalysis) {
     VPMemRefTransform VPMemRefTrans(*cast<VPlanVector>(Plan));
     VPMemRefTrans.transformSOAGEPs(VF);
   }
@@ -1190,7 +1217,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   unsigned UF = LVP.getLoopUnrollFactor();
 
   VPlanLoopUnroller::VPInstUnrollPartTy VPInstUnrollPart;
-  LVP.unroll(*Plan, &VPInstUnrollPart);
+  LVP.unroll(*cast<VPlanNonMasked>(Plan), &VPInstUnrollPart);
 
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {

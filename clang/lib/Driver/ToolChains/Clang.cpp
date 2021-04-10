@@ -6109,9 +6109,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // and not -fopenmp.
   if (IsOpenMPDevice && !Args.hasArg(options::OPT_fiopenmp) &&
       Args.hasArg(options::OPT_fopenmp_EQ, options::OPT_fopenmp) &&
-      Triple.isSPIR())
-    D.Diag(diag::err_drv_fopenmp_targets_requires_fiopenmp);
-
+      Triple.isSPIR()) {
+    if (!D.IsCLMode())
+        D.Diag(diag::err_drv_opt_requires_opt)
+          << "-fopenmp-targets=spir64" << "-fiopenmp";
+    else
+        D.Diag(diag::err_drv_opt_requires_opt)
+          << "-Qopenmp-targets=spir64" << "-Qiopenmp";
+  }
   if (Arg *A = Args.getLastArg(options::OPT_qopenmp_threadprivate_EQ)) {
     StringRef Value = A->getValue();
 
