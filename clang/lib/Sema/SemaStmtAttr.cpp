@@ -1587,29 +1587,24 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
   }
 }
 
-StmtResult Sema::ProcessStmtAttributes(Stmt *S,
-                                       const ParsedAttributesView &AttrList,
-                                       SourceRange Range) {
-  SmallVector<const Attr*, 8> Attrs;
-  for (const ParsedAttr &AL : AttrList) {
+void Sema::ProcessStmtAttributes(Stmt *S,
+                                 const ParsedAttributesWithRange &InAttrs,
+                                 SmallVectorImpl<const Attr *> &OutAttrs) {
+  for (const ParsedAttr &AL : InAttrs) {
 #if INTEL_CUSTOMIZATION
-    if (Attr *a = ProcessStmtAttribute(*this, S, AL, AttrList,  Range))
+    if (const Attr *A = ProcessStmtAttribute(*this, S, AL, InAttrs,
+                                             InAttrs.Range))
 #endif // INTEL_CUSTOMIZATION
-      Attrs.push_back(a);
+      OutAttrs.push_back(A);
   }
 
-  CheckForIncompatibleAttributes(*this, Attrs);
-  CheckForIncompatibleSYCLLoopAttributes(*this, Attrs);
-  CheckForIncompatibleUnrollHintAttributes(*this, Attrs, Range);
+  CheckForIncompatibleAttributes(*this, OutAttrs);
+  CheckForIncompatibleSYCLLoopAttributes(*this, OutAttrs);
+  CheckForIncompatibleUnrollHintAttributes(*this, OutAttrs, InAttrs.Range);
 #if INTEL_CUSTOMIZATION
-  CheckForIncompatibleHLSAttributes(*this, Attrs, Range);
-  CheckForDuplicateHLSAttributes(*this, Attrs, Range);
+  CheckForIncompatibleHLSAttributes(*this, OutAttrs, InAttrs.Range);
+  CheckForDuplicateHLSAttributes(*this, OutAttrs, InAttrs.Range);
 #endif // INTEL_CUSTOMIZATION
-
-  if (Attrs.empty())
-    return S;
-
-  return ActOnAttributedStmt(Range.getBegin(), Attrs, S);
 }
 bool Sema::CheckRebuiltAttributedStmtAttributes(ArrayRef<const Attr *> Attrs) {
   CheckRedundantSYCLIntelFPGAIVDepAttrs(*this, Attrs);
