@@ -13653,8 +13653,8 @@ def VMOVSHtoW64rr : AVX512<0x7E, MRMDestReg, (outs GR64:$dst), (ins VR128X:$src)
 }
 
 // Convert 16-bit float to i16/u16
-multiclass avx512_cvtph2w<bits<8> opc, string OpcodeStr, SDNode OpNode,
-                          SDNode MaskOpNode, SDNode OpNodeRnd,
+multiclass avx512_cvtph2w<bits<8> opc, string OpcodeStr, SDPatternOperator OpNode,
+                          SDPatternOperator MaskOpNode, SDNode OpNodeRnd,
                           AVX512VLVectorVTInfo _Dst,
                           AVX512VLVectorVTInfo _Src,
                           X86SchedWriteWidths sched> {
@@ -13673,8 +13673,8 @@ multiclass avx512_cvtph2w<bits<8> opc, string OpcodeStr, SDNode OpNode,
 }
 
 // Convert 16-bit float to i16/u16 truncate
-multiclass avx512_cvttph2w<bits<8> opc, string OpcodeStr, SDNode OpNode,
-                           SDNode MaskOpNode, SDNode OpNodeRnd,
+multiclass avx512_cvttph2w<bits<8> opc, string OpcodeStr, SDPatternOperator OpNode,
+                           SDPatternOperator MaskOpNode, SDNode OpNodeRnd,
                            AVX512VLVectorVTInfo _Dst, AVX512VLVectorVTInfo _Src,
                            X86SchedWriteWidths sched> {
   let Predicates = [HasFP16] in {
@@ -13717,8 +13717,8 @@ defm VCVTW2PH : avx512_cvtph2w<0x7D, "vcvtw2ph", any_sint_to_fp, sint_to_fp,
                                 T_MAP5XS, EVEX_CD8<16, CD8VF>;
 
 // Convert Half to Signed/Unsigned Doubleword
-multiclass avx512_cvtph2dq<bits<8> opc, string OpcodeStr, SDNode OpNode,
-                           SDNode MaskOpNode, SDNode OpNodeRnd,
+multiclass avx512_cvtph2dq<bits<8> opc, string OpcodeStr, SDPatternOperator OpNode,
+                           SDPatternOperator MaskOpNode, SDNode OpNodeRnd,
                            X86SchedWriteWidths sched> {
   let Predicates = [HasFP16] in {
     defm Z : avx512_vcvt_fp<opc, OpcodeStr, v16i32_info, v16f16x_info, OpNode,
@@ -13735,8 +13735,8 @@ multiclass avx512_cvtph2dq<bits<8> opc, string OpcodeStr, SDNode OpNode,
 }
 
 // Convert Half to Signed/Unsigned Doubleword with truncation
-multiclass avx512_cvttph2dq<bits<8> opc, string OpcodeStr, SDNode OpNode,
-                            SDNode MaskOpNode, SDNode OpNodeRnd,
+multiclass avx512_cvttph2dq<bits<8> opc, string OpcodeStr, SDPatternOperator OpNode,
+                            SDPatternOperator MaskOpNode, SDNode OpNodeRnd,
                             X86SchedWriteWidths sched> {
   let Predicates = [HasFP16] in {
     defm Z : avx512_vcvt_fp<opc, OpcodeStr, v16i32_info, v16f16x_info, OpNode,
@@ -13771,8 +13771,8 @@ defm VCVTTPH2UDQ : avx512_cvttph2dq<0x78, "vcvttph2udq", X86any_cvttp2ui,
                                  EVEX_CD8<16, CD8VH>;
 
 // Convert Half to Signed/Unsigned Quardword
-multiclass avx512_cvtph2qq<bits<8> opc, string OpcodeStr, SDNode OpNode,
-                           SDNode MaskOpNode, SDNode OpNodeRnd,
+multiclass avx512_cvtph2qq<bits<8> opc, string OpcodeStr, SDPatternOperator OpNode,
+                           SDPatternOperator MaskOpNode, SDNode OpNodeRnd,
                            X86SchedWriteWidths sched> {
   let Predicates = [HasFP16] in {
     defm Z : avx512_vcvt_fp<opc, OpcodeStr, v8i64_info, v8f16x_info, OpNode,
@@ -13795,8 +13795,8 @@ multiclass avx512_cvtph2qq<bits<8> opc, string OpcodeStr, SDNode OpNode,
 }
 
 // Convert Half to Signed/Unsigned Quardword with truncation
-multiclass avx512_cvttph2qq<bits<8> opc, string OpcodeStr, SDNode OpNode,
-                            SDNode MaskOpNode, SDNode OpNodeRnd,
+multiclass avx512_cvttph2qq<bits<8> opc, string OpcodeStr, SDPatternOperator OpNode,
+                            SDPatternOperator MaskOpNode, SDNode OpNodeRnd,
                             X86SchedWriteWidths sched> {
   let Predicates = [HasFP16] in {
     defm Z : avx512_vcvt_fp<opc, OpcodeStr, v8i64_info, v8f16x_info, OpNode,
@@ -13835,8 +13835,9 @@ defm VCVTTPH2UQQ : avx512_cvttph2qq<0x78, "vcvttph2uqq", X86any_cvttp2ui,
                                  EVEX_CD8<16, CD8VQ>;
 
 // Convert Signed/Unsigned Quardword to Half
-multiclass avx512_cvtqq2ph<bits<8> opc, string OpcodeStr, SDNode OpNode,
-                           SDNode MaskOpNode, SDNode OpNodeRnd, X86SchedWriteWidths sched> {
+multiclass avx512_cvtqq2ph<bits<8> opc, string OpcodeStr, SDPatternOperator OpNode,
+                           SDPatternOperator MaskOpNode, SDNode OpNodeRnd,
+                           X86SchedWriteWidths sched> {
   // we need "x"/"y"/"z" suffixes in order to distinguish between 128, 256 and
   // 512 memory forms of these instructions in Asm Parcer. They have the same
   // dest type - 'v8f16x_info'. We also specify the broadcast string explicitly
