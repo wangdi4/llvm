@@ -51,6 +51,10 @@ static cl::opt<unsigned> MinMemRefNumDimension(
     OPT_SWITCH "-min-memref-num-dimension", cl::init(5), cl::Hidden,
     cl::desc(OPT_DESC " Minimal MemRef Number of Dimensions"));
 
+static cl::opt<bool> PerformIdentitySubstitution(
+    OPT_SWITCH "-identity-substitution", cl::init(false), cl::Hidden,
+    cl::desc("Enables identity substitution in " OPT_DESC " pass"));
+
 namespace {
 
 class HIRCrossLoopArrayContractionLegacyPass : public HIRTransformPass {
@@ -68,6 +72,7 @@ public:
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRArraySectionAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
     AU.setPreservesAll();
   }
 };
@@ -80,6 +85,7 @@ INITIALIZE_PASS_BEGIN(HIRCrossLoopArrayContractionLegacyPass, OPT_SWITCH,
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRArraySectionAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRCrossLoopArrayContractionLegacyPass, OPT_SWITCH,
                     OPT_DESC, false, false)
 
@@ -141,13 +147,15 @@ class HIRCrossLoopArrayContraction {
   HIRFramework &HIRF;
   HIRDDAnalysis &DDA;
   HIRArraySectionAnalysis &ASA;
+  HIRLoopStatistics &HLS;
 
   SmallVector<HLVariant<HLLoop>, 4> Optimizations;
 
 public:
   HIRCrossLoopArrayContraction(HIRFramework &HIRF, HIRDDAnalysis &DDA,
-                               HIRArraySectionAnalysis &ASA)
-      : HIRF(HIRF), DDA(DDA), ASA(ASA) {}
+                               HIRArraySectionAnalysis &ASA,
+                               HIRLoopStatistics &HLS)
+      : HIRF(HIRF), DDA(DDA), ASA(ASA), HLS(HLS) {}
 
   bool run();
 
@@ -704,6 +712,27 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
     return DefASAR;
   };
 
+  // Find identity matrix to substitute later
+  if (PerformIdentitySubstitution) {
+    SmallVector<HLLoop *, 64> InnermostLoops;
+    HIRF.getHLNodeUtils().gatherInnermostLoops(InnermostLoops, &Reg);
+    unsigned IdentitySB = 0;
+
+    for (auto &Lp : InnermostLoops) {
+      SmallVector<const RegDDRef *, 2> Identity;
+      HLNodeUtils::findInner2DIdentityMatrix(&HLS, Lp, Identity);
+      if (!Identity.empty()) {
+        IdentitySB = Identity.front()->getSymbase();
+        LLVM_DEBUG(
+            dbgs() << Lp->getNumber()
+                   << ": Loop was found containing identity matrix - SB = "
+                   << IdentitySB << "!\n ");
+        break;
+      }
+    }
+    (void)IdentitySB;
+  }
+
   DDGraph DDG = DDA.getGraph(&Reg);
 
   for (auto &DefPair : LoopToBasePtr) {
@@ -996,14 +1025,16 @@ bool HIRCrossLoopArrayContractionLegacyPass::runOnFunction(Function &F) {
   return HIRCrossLoopArrayContraction(
              getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
              getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-             getAnalysis<HIRArraySectionAnalysisWrapperPass>().getASA())
+             getAnalysis<HIRArraySectionAnalysisWrapperPass>().getASA(),
+             getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
       .run();
 }
 
 PreservedAnalyses HIRCrossLoopArrayContractionPass::runImpl(
     Function &F, FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   HIRCrossLoopArrayContraction(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
-                               AM.getResult<HIRArraySectionAnalysisPass>(F))
+                               AM.getResult<HIRArraySectionAnalysisPass>(F),
+                               AM.getResult<HIRLoopStatisticsAnalysis>(F))
       .run();
   return PreservedAnalyses::all();
 }
