@@ -249,10 +249,10 @@ define <3 x i1> @test_urem_vec(<3 x i11> %X) nounwind {
 ; AVX512VL-NEXT:    vpternlogd $200, %xmm1, %xmm2, %xmm0
 ; AVX512VL-NEXT:    vpcmpnleud {{.*}}(%rip), %xmm0, %k0
 ; AVX512VL-NEXT:    kshiftrw $1, %k0, %k1
-; AVX512VL-NEXT:    kmovw %k1, %edx
-; AVX512VL-NEXT:    kshiftrw $2, %k0, %k1
-; AVX512VL-NEXT:    kmovw %k1, %ecx
-; AVX512VL-NEXT:    kmovw %k0, %eax
+; AVX512VL-NEXT:    kshiftrw $2, %k0, %k2 ;INTEL
+; AVX512VL-NEXT:    kmovw %k0, %eax ;INTEL
+; AVX512VL-NEXT:    kmovw %k1, %edx ;INTEL
+; AVX512VL-NEXT:    kmovw %k2, %ecx ;INTEL
 ; AVX512VL-NEXT:    # kill: def $al killed $al killed $eax
 ; AVX512VL-NEXT:    # kill: def $dl killed $dl killed $edx
 ; AVX512VL-NEXT:    # kill: def $cl killed $cl killed $ecx

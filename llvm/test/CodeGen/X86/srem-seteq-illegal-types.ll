@@ -425,10 +425,10 @@ define <3 x i1> @test_srem_vec(<3 x i33> %X) nounwind {
 ; AVX512VL-NEXT:    vpandq {{.*}}(%rip){1to4}, %ymm0, %ymm0
 ; AVX512VL-NEXT:    vpcmpneqq {{.*}}(%rip), %ymm0, %k0
 ; AVX512VL-NEXT:    kshiftrw $1, %k0, %k1
-; AVX512VL-NEXT:    kmovw %k1, %edx
-; AVX512VL-NEXT:    kshiftrw $2, %k0, %k1
-; AVX512VL-NEXT:    kmovw %k1, %ecx
-; AVX512VL-NEXT:    kmovw %k0, %eax
+; AVX512VL-NEXT:    kshiftrw $2, %k0, %k2 ;INTEL
+; AVX512VL-NEXT:    kmovw %k0, %eax ;INTEL
+; AVX512VL-NEXT:    kmovw %k1, %edx ;INTEL
+; AVX512VL-NEXT:    kmovw %k2, %ecx ;INTEL
 ; AVX512VL-NEXT:    # kill: def $al killed $al killed $eax
 ; AVX512VL-NEXT:    # kill: def $dl killed $dl killed $edx
 ; AVX512VL-NEXT:    # kill: def $cl killed $cl killed $ecx
