@@ -67,7 +67,7 @@ class RecurrenceDescriptorData { // INTEL
 public:
 #if INTEL_CUSTOMIZATION
   RecurKind getRecurrenceKind() const { return Kind; }
-  FastMathFlags getFastMathFlags() { return FMF; }
+  FastMathFlags getFastMathFlags() const { return FMF; }
 
   /// Returns the type of the recurrence. This type can be narrower than the
   /// actual type of the Phi if the recurrence has been type-promoted.
@@ -77,7 +77,8 @@ public:
   bool isSigned() const { return IsSigned; }
 
   /// Returns identity corresponding to the RecurrenceKind.
-  static Constant *getRecurrenceIdentity(RecurKind K, Type *Tp);
+  static Constant *getRecurrenceIdentity(RecurKind K, Type *Tp,
+                                         FastMathFlags FMF);
 
   /// Returns the opcode of binary operation corresponding to the RecurKind.
   static unsigned getOpcode(RecurKind Kind);
@@ -237,7 +238,8 @@ public:
 
 #if !INTEL_CUSTOMIZATION
   /// Returns identity corresponding to the RecurrenceKind.
-  static Constant *getRecurrenceIdentity(RecurKind K, Type *Tp);
+  static Constant *getRecurrenceIdentity(RecurKind K, Type *Tp,
+                                         FastMathFlags FMF);
 
   /// Returns the opcode corresponding to the RecurrenceKind.
   static unsigned getOpcode(RecurKind Kind);

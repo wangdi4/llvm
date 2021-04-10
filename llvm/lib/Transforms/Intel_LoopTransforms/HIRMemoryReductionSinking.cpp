@@ -372,7 +372,9 @@ static RegDDRef *createReductionInitializer(HLLoop *Lp, unsigned Opcode,
   // %tmp = <identity constant>
 
   auto &HNU = Lp->getHLNodeUtils();
-  auto *Const = HLInst::getRecurrenceIdentity(Opcode, Ty);
+  // TODO: get correct FastMathFlags value. Most probably, need to pass as
+  // parameter.
+  auto *Const = HLInst::getRecurrenceIdentity(Opcode, Ty, FastMathFlags());
 
   RegDDRef *InitRef = nullptr;
 
