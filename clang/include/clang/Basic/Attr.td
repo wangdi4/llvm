@@ -4497,6 +4497,8 @@ def PreferSoftLogic : InheritableAttr {
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
 }
+def : MutualExclusions<[PreferDSP, PreferSoftLogic]>;
+
 def PropagateDSPPreference : InheritableAttr {
   let Spellings = [CXX11<"intel", "propagate_dsp_preference">, GNU<"propagate_dsp_preference">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
