@@ -53539,7 +53539,29 @@ static SDValue combineBUILD_VECTOR(SDNode *N, SelectionDAG &DAG,
   // default lowering to CMOV.
   if (!(TLI.isTypeLegal(VecVT) && TLI.isTypeLegal(ResultVT) &&
         TLI.isCondCodeLegal(cast<CondCodeSDNode>(CC)->get(),
-                            VecVT.getSimpleVT())))
+                            VecVT.getSimpleVT()) &&
+        // If VT is v16i8, we combine
+        // t85: v16i8 = BUILD_VECTOR t81, ...
+        // --> to
+        // t97: v16i16 = BUILD_VECTOR t29, ...
+        // t98: v16i16 = BUILD_VECTOR Constant:i16<0>, ...
+        // t99: v16i8 = setcc t97, t98, seteq:ch
+        // --> t99 is lowered to
+        // t100: v16i8 = X86ISD::PCMPEQ t135, t98
+        // --> t100 is select to
+        // t100: v16i8 = VPCMPEQBrr t135, t98
+        // It caused wrong instruction selection to VPCMPEQBrr.
+        //
+        // We can first generate v16i16 and follow a truncate.
+        // t99: v16i16 = setcc t97, t98, seteq:ch
+        // t100: v16i8 = truncate t99
+        // then it is selected to VPCMPEQWYrr and VPMOVSWB, but it is not
+        // as good as not combining build vector.
+        // So if VT (result type) is not vxi1, then there is no chance to fold
+        // the setcc instruction to the following logic operation (.e.g 'and')
+        // We disable the combine for such case unless we can prove there is
+        // a way to generate more effient code later.
+        ResultVT == VT))
     return SDValue();
 
   LHS = DAG.getSplatBuildVector(VecVT, dl, LHS);
