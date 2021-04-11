@@ -2414,7 +2414,7 @@ void AADepGraph::dumpGraph() {
 
   std::error_code EC;
 
-  raw_fd_ostream File(Filename, EC, sys::fs::OF_Text);
+  raw_fd_ostream File(Filename, EC, sys::fs::OF_TextWithCRLF);
   if (!EC)
     llvm::WriteGraph(File, this);
 
