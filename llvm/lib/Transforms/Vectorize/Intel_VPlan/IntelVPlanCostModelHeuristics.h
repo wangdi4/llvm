@@ -43,34 +43,21 @@ protected:
   HeuristicBase(VPlanTTICostModel *CM, std::string Name);
 
 public:
-  virtual ~HeuristicBase() = default;
-  // Applies the heuristic on the input VPlan to calculate new adjusted Cost.
-  // TTICost argument holds heuristically unmodified TTI Cost on input VPlan.
-  // The heuristic is expected to modify Cost argument if the heuristics
-  // conditions trigger.
-  virtual void
-  apply(unsigned TTICost, unsigned &Cost, const VPlanVector *Plan) const = 0;
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   std::string getName() const {
     return Name;
   }
-  // Returns attribute string to dump additionally to each VPInstruction
-  // in CM debug dumps.
-  virtual std::string getAttrString(const VPInstruction *VPInst) const {
-    return "";
-  }
-  // Returns attribute string to dump additionally to each VPBasicBlock
-  // in CM debug dumps.
-  virtual std::string getAttrString(const VPBasicBlock *VPBlock) const {
-    return "";
-  }
-  // Implements debug dump output for Heuristic entities.
-  // Base implementation dumps heuristic name only.  Specifications are free
-  // to dump more details that are specific to each heuristic.
-  virtual void dump() const {
-    dbgs() << "Heuristic name: " << getName() << '\n';
-  }
+
+  // Heuristic dumping facility.  By default does nothing, but actual heuristic
+  // can redefine it at any Scope level (VPlan/VPBlock/VPInstruction). dump()
+  // methods of each heuristics is invoked regardless of the scope level the
+  // heuristics is declared for.
+  template <typename ScopeTy>
+  void dump(raw_ostream &OS, ScopeTy *Scope) const {}
+
+  // Formatted print of cost increase/decrease due to Heuristics.
+  void printCostChange(raw_ostream *OS,
+                       unsigned RefCost, unsigned NewCost) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
@@ -123,8 +110,8 @@ class HeuristicSLP : public HeuristicBase {
     unsigned PatternSize);
 public:
   HeuristicSLP(VPlanTTICostModel *CM) : HeuristicBase(CM, "SLP breaking") {};
-  void
-  apply(unsigned TTICost, unsigned &Cost, const VPlanVector *Plan) const final;
+  void apply(unsigned TTICost, unsigned &Cost,
+             const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
 };
 
 // Heurstic that searches for Search Loop idioms within VPlan.
@@ -134,8 +121,8 @@ class HeuristicSearchLoop : public HeuristicBase {
 public:
   HeuristicSearchLoop(VPlanTTICostModel *CM) :
     HeuristicBase(CM, "SearchLoop Idiom") {};
-  void
-  apply(unsigned TTICost, unsigned &Cost, const VPlanVector *Plan) const final;
+  void apply(unsigned TTICost, unsigned &Cost,
+             const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
 };
 
 // Heurstic that calculates Spill/Fill cost.
@@ -155,29 +142,11 @@ class HeuristicSpillFill : public HeuristicBase {
 public:
   HeuristicSpillFill(VPlanTTICostModel *CM) :
     HeuristicBase(CM, "Spill/Fill") {};
-  void
-  apply(unsigned TTICost, unsigned &Cost, const VPlanVector *Plan) const final;
+  void apply(unsigned TTICost, unsigned &Cost,
+             const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  std::string getAttrString(const VPBasicBlock *VPBB) const final {
-    LiveValuesTy LiveValues;
-    std::string ReturnStr;
-    unsigned ScalSpillFillCost = (*this)(VPBB, LiveValues, false);
-    if (ScalSpillFillCost > 0)
-      ReturnStr = "Block Scalar spill/fill approximate cost (not included "
-        "into total cost): " + std::to_string(ScalSpillFillCost);
-
-    if (VF > 1) {
-      LiveValues.clear();
-      unsigned VecSpillFillCost = (*this)(VPBB, LiveValues, true);
-      if (VecSpillFillCost > 0) {
-        if (ReturnStr != "")
-          ReturnStr += '\n';
-        ReturnStr += "Block Vector spill/fill approximate cost (not "
-          "included into total cost): " + std::to_string(VecSpillFillCost);
-      }
-    }
-    return ReturnStr;
-  }
+  using HeuristicBase::dump;
+  void dump(raw_ostream &OS, const VPBasicBlock *VPBB) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
@@ -192,21 +161,12 @@ class HeuristicGatherScatter : public HeuristicBase {
 public:
   HeuristicGatherScatter(VPlanTTICostModel *CM) :
     HeuristicBase(CM, "Gather/Scatter") {};
-  void
-  apply(unsigned TTICost, unsigned &Cost, const VPlanVector *Plan) const final;
+  void apply(unsigned TTICost, unsigned &Cost,
+             const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  std::string getAttrString(const VPInstruction *VPInst) const final {
-    if ((*this)(VPInst) > 0)
-      return "GS";
-    return HeuristicBase::getAttrString(VPInst);
-  }
-  std::string getAttrString(const VPBasicBlock *VPBB) const final {
-    unsigned GatherScatterCost = (*this)(VPBB);
-    if (GatherScatterCost > 0)
-      return
-        "total cost includes GS Cost: " + std::to_string(GatherScatterCost);
-    return HeuristicBase::getAttrString(VPBB);
-  }
+  using HeuristicBase::dump;
+  void dump(raw_ostream &OS, const VPBasicBlock *VPBB) const;
+  void dump(raw_ostream &OS, const VPInstruction *VPInst) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
@@ -235,14 +195,11 @@ public:
     HeuristicBase(CM, "psadbw pattern") {};
   // TODO:
   // The method should return Cost of psadbw instruction instead of zero.
-  void
-  apply(unsigned TTICost, unsigned &Cost, const VPlanVector *Plan) const final;
+  void apply(unsigned TTICost, unsigned &Cost,
+             const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  std::string getAttrString(const VPInstruction *VPInst) const final {
-    if (PsadbwPatternInsts.count(VPInst) > 0)
-      return "PSADBW";
-    return HeuristicBase::getAttrString(VPInst);
-  }
+  using HeuristicBase::dump;
+  void dump(raw_ostream &OS, const VPInstruction *VPInst) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 

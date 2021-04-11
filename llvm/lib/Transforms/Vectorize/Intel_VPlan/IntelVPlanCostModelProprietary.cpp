@@ -268,7 +268,7 @@ std::string VPlanCostModelProprietary::getAttrString(
 
   if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst))
     if (ProcessedOVLSGroups.count(Group) != 0)
-      VPInstAttributes += " OVLS";
+      VPInstAttributes += " *OVLS*";
 
   return VPInstAttributes;
 }

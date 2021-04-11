@@ -172,6 +172,61 @@ private:
   unsigned getTTICostForVF(const VPInstruction *VPInst, unsigned VF);
 };
 
+// Class HeuristicsList is designed to hold Heuristics objects. It is a
+// template class and should be specialized with Heuristics types.  An object
+// of HeuristicsList<Scope, HTy1, ... , HTyn> creates Heuristics objects of
+// specified types HTy1 ... HTyn on the specified Scope, which in turn can be
+// VPlan, VPBlock or VPInstruction.
+//
+// If a heuristics is created on scope 'Scope' it means that such heuristic is
+// applied on that scope (i.e. for VPlan/VPBlock/VPInstruction).
+// HeuristicsList implements facility to apply all heuristics it contains.
+template <typename Scope, typename... Ts> class HeuristicsList;
+
+// Recursive declaration for arbitrary number of Heuristics types on input.
+template <typename Scope, typename HTy, typename... HTys>
+class HeuristicsList<Scope, HTy, HTys...>
+    : public HeuristicsList<Scope, HTys...> {
+  using Base = HeuristicsList<Scope, HTys...>;
+  HTy H;
+public:
+  HeuristicsList() = delete;
+  HeuristicsList(VPlanTTICostModel *CM) : Base(CM), H(CM) {};
+  void apply(unsigned TTICost, unsigned &Cost,
+             Scope *S, raw_ostream *OS = nullptr) const {
+    H.apply(TTICost, Cost, S, OS);
+    // Once any heuristics in the pipeline returns Unknown cost
+    // return it immediately.
+    if (Cost == VPlanTTICostModel::UnknownCost)
+      return;
+    this->Base::apply(TTICost, Cost, S, OS);
+  }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Note that ScopeTy and Scope are different types.
+  template <typename ScopeTy>
+  void dump(raw_ostream &OS, ScopeTy *S) const {
+    H.dump(OS, S);
+    this->Base::dump(OS, S);
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
+// Specialization for empty Heuristics types list.
+template <typename Scope>
+class HeuristicsList<Scope> {
+public:
+  HeuristicsList() = delete;
+  HeuristicsList(VPlanTTICostModel *CM) {}
+  // There is no heuristics to apply, thus just be transparent.
+  void apply(unsigned TTICost, unsigned &Cost,
+             Scope *S, raw_ostream *OS = nullptr) const {}
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // No heuristics to emit dump.
+  template <typename ScopeTy>
+  void dump(raw_ostream &OS, ScopeTy *S) const {}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
 // TODO: VPlanCostModel class is temporal, for transition to template based
 // Cost Model types.
 class VPlanCostModel : public VPlanTTICostModel {
@@ -179,17 +234,9 @@ public:
   VPlanCostModel(const VPlanVector *Plan, const unsigned VF,
                  const TargetTransformInfo *TTI, const TargetLibraryInfo *TLI,
                  const DataLayout *DL, VPlanVLSAnalysis *VLSA = nullptr)
-      : VPlanTTICostModel(Plan, VF, TTI, TLI, DL, VLSA),
-        VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF) {
-
-    // Fill up HeuristicsPipeline with heuristics in the order they should be
-    // applied.
-    if (VF != 1)
-      HeuristicsPipeline.push_back(
-        std::make_unique<VPlanCostModelHeuristics::HeuristicSLP>(this));
-    HeuristicsPipeline.push_back(
-      std::make_unique<VPlanCostModelHeuristics::HeuristicSpillFill>(this));
-  }
+    : VPlanTTICostModel(Plan, VF, TTI, TLI, DL, VLSA),
+      VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF),
+      HeuristicsPipeline(this) {}
   // Get Cost for VPlan with specified peeling.
   unsigned getCost(VPlanPeelingVariant *PeelingVariant = nullptr);
   unsigned getMemInstAlignment(const VPInstruction *VPInst) const;
@@ -205,9 +252,6 @@ public:
   virtual ~VPlanCostModel() {}
 
 protected:
-  // Keeps Heuristics queue in order they are applied.
-  SmallVector<std::unique_ptr<VPlanCostModelHeuristics::HeuristicBase>, 8>
-    HeuristicsPipeline;
   VPlanPeelingVariant* DefaultPeelingVariant = nullptr;
   VPlanAlignmentAnalysis VPAA;
 
@@ -245,21 +289,36 @@ protected:
     return VPlanTTICostModel::getLoadStoreCost(VPInst, VF);
   }
 
-  // The method returns range with all Heuristics applicable to the current
-  // VPlan.
-  decltype(auto) heuristics() const {
-    auto AsHeuristicBaseRef =
-      [](decltype(*HeuristicsPipeline.begin()) P) ->
-      const VPlanCostModelHeuristics::HeuristicBase & {
-        return *P;
-      };
-    return map_range(HeuristicsPipeline, AsHeuristicBaseRef);
+  // Temporal virtual methods to invoke apply facilities on HeuristicsPipeline.
+  virtual void applyHeuristicsPipeline(
+    unsigned TTICost, unsigned &Cost,
+    const VPlanVector *Plan, raw_ostream *OS = nullptr) const {
+    HeuristicsPipeline.apply(TTICost, Cost, Plan, OS);
   }
-
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Temporal virtual methods to invoke dump facilities on HeuristicsPipeline.
+  virtual void dumpHeuristicsPipeline(raw_ostream &OS,
+                                      const VPlanVector *Plan) const {
+    HeuristicsPipeline.dump(OS, Plan);
+  }
+  virtual void dumpHeuristicsPipeline(raw_ostream &OS,
+                                      const VPBasicBlock *VPBB) const {
+    HeuristicsPipeline.dump(OS, VPBB);
+  }
+  virtual void dumpHeuristicsPipeline(raw_ostream &OS,
+                                      const VPInstruction *VPInst) const {
+    HeuristicsPipeline.dump(OS, VPInst);
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 private:
   // Apply all heuristics scheduled in the pipeline for the current VPlan
   // and return modified input Cost.
   unsigned applyHeuristics(unsigned Cost);
+
+  // Heuristics list type specific to base cost model.
+  HeuristicsList<const VPlanVector,
+    VPlanCostModelHeuristics::HeuristicSLP,
+    VPlanCostModelHeuristics::HeuristicSpillFill> HeuristicsPipeline;
 };
 
 } // namespace vpo
