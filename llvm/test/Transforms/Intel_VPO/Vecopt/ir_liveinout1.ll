@@ -27,7 +27,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
 ; CHECK-NEXT:     float* [[VP_X]] = allocate-priv float*, OrigAlign = 4
-; CHECK-NEXT:     float [[VP_X_RED_INIT]] = reduction-init float 0.000000e+00
+; CHECK-NEXT:     float [[VP_X_RED_INIT]] = reduction-init float -0.000000e+00
 ; CHECK-NEXT:     store float [[VP_X_RED_INIT]] float* [[VP_X]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1

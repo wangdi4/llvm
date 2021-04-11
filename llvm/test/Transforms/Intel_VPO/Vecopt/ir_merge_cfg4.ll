@@ -17,7 +17,7 @@ define float @expl_reduction_add(float* nocapture %a) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      vector.ph: # preds: [[BB1]]
 ; CHECK-NEXT:       [DA: Div] float* [[VP_X:%.*]] = allocate-priv float*, OrigAlign = 4
-; CHECK-NEXT:       [DA: Div] float [[VP_X_RED_INIT:%.*]] = reduction-init float 0.000000e+00
+; CHECK-NEXT:       [DA: Div] float [[VP_X_RED_INIT:%.*]] = reduction-init float -0.000000e+00
 ; CHECK-NEXT:       [DA: Div] store float [[VP_X_RED_INIT]] float* [[VP_X]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in2 i64 1
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
