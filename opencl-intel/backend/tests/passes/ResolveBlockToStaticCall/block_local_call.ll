@@ -1,3 +1,4 @@
+; RUN: %oclopt -resolve-block-call -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -resolve-block-call -S < %s | FileCheck %s
 ;
 ;kernel void global_scope(__global int* res)
@@ -96,3 +97,5 @@ attributes #4 = { convergent }
 !18 = !{!19, !19, i64 0}
 !19 = !{!"int", !15, i64 0}
 
+
+; DEBUGIFY-NOT: WARNING

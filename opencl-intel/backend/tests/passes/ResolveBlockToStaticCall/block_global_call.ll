@@ -1,3 +1,4 @@
+; RUN: %oclopt -resolve-block-call -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -resolve-block-call -S < %s | FileCheck %s
 ;
 ;int (^__constant globalBlock)(int) = ^int(int num)
@@ -83,3 +84,5 @@ icl-llvm bf01f1e4d64ee71eb4d0627ef0f9dda9273e65af)"}
 !17 = !{!18, !18, i64 0}
 !18 = !{!"any pointer", !8, i64 0}
 
+
+; DEBUGIFY-NOT: WARNING

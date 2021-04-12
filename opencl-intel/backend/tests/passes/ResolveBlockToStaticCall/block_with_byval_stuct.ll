@@ -1,3 +1,4 @@
+; RUN: %oclopt -debugify -resolve-block-call -check-debugify -add-implicit-args -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -resolve-block-call -add-implicit-args -S < %s | FileCheck %s
 ;
 ; Regression test. Check if byval stuct paasing to block always have
@@ -105,3 +106,5 @@ attributes #4 = { convergent }
 !11 = !{!"long", !7, i64 0}
 !12 = !{!10, !11, i64 8}
 
+
+; DEBUGIFY-NOT: WARNING

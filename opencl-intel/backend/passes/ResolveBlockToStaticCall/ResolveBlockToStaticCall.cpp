@@ -277,6 +277,7 @@ namespace intel {
     CallBase *CB = cast<CallBase>(CI);
     SmallVector<Value*, 4> params(CB->arg_begin(), CB->arg_end());
     CallInst *pNewCall = CallInst::Create(resolvedFunc, ArrayRef<Value*>(params), CI->getName(), CI);
+    pNewCall->setDebugLoc(CI->getDebugLoc());
     // Copy attributes from the callee which contains aligment for parameters
     pNewCall->setAttributes(resolvedFunc->getAttributes());
     // replace old call
