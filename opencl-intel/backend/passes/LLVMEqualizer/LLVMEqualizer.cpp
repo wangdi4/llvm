@@ -145,6 +145,7 @@ public:
           Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Generic);
       auto ResArg = BitCastInst::CreatePointerBitCastOrAddrSpaceCast(
           CI->getArgOperand(1), I8PTy, "", CI);
+      ResArg->setDebugLoc(CI->getDebugLoc());
       NewArgs.push_back(ResArg);
     } else {
       // copy packet argument as-is

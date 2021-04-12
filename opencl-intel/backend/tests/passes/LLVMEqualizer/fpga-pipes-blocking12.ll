@@ -21,6 +21,7 @@
 ; Compile options:
 ;   -cc1 -emit-llvm -triple spir64-unknown-unknown-intelfpga -x cl -cl-std=CL1.2 -disable-llvm-passes -finclude-default-header
 ; ----------------------------------------------------
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -demangle-fpga-pipes -llvm-equalizer -verify -S %s | FileCheck %s
 
 ; CHECK-LABEL: define void @test1
@@ -179,3 +180,5 @@ attributes #2 = { nounwind }
 !6 = !{!"Simple C/C++ TBAA"}
 !7 = !{!8, !8, i64 0}
 !8 = !{!"any pointer", !5, i64 0}
+
+; DEBUGIFY-NOT: WARNING

@@ -32,6 +32,7 @@
 ; Compilation command:
 ; clang -cc1 -x cl -cl-std=CL2.0 -triple spir64 -emit-llvm -disable-llvm-passes -finclude-default-header set_block_size_metadata.cl -o set_block_size_metadata.ll
 
+; RUN: %oclopt -llvm-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -llvm-equalizer -verify -S %s | FileCheck %s
 
 ; ModuleID = 'set_block_size_metadata.cl'
@@ -218,3 +219,5 @@ attributes #3 = { nounwind }
 
 ; CHECK: [[KER0]] = !{i32 21}
 ; CHECK: [[KER1]] = !{i32 8}
+
+; DEBUGIFY-NOT: WARNING
