@@ -10,6 +10,8 @@
 ; CommitAllocation: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE16commitAllocationEPS1_
 ;
 ; Destructor: _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEED2Ev
+;
+; Recognized Reset: _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE5resetEv
 
 ; RUN: opt < %s -dtrans-memmanagetrans -enable-dtrans-memmanagetrans -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetrans -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=dtrans-memmanagetrans -enable-dtrans-memmanagetrans -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetrans -disable-output 2>&1 | FileCheck %s
@@ -482,7 +484,280 @@ define internal zeroext i1 @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStrin
 
 ; Function Attrs: uwtable
 define internal void @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE5resetEv(%"ArenaAllocator"* nocapture nonnull dereferenceable(40) %0) unnamed_addr align 2 personality i32 (...)* @__gxx_personality_v0 {
-  tail call void @_ZN11xalanc_1_1013XStringCachedD2Ev(%"XStringCached"* nonnull dereferenceable(80) null)
+  %2 = getelementptr inbounds %"ArenaAllocator", %"ArenaAllocator"* %0, i64 0, i32 2
+  %3 = getelementptr inbounds %XalanList, %XalanList* %2, i64 0, i32 1
+  %4 = load %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"*, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %3, align 8
+  %5 = icmp eq %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %4, null
+  br i1 %5, label %6, label %28
+
+6:                                                ; preds = %1
+  %7 = getelementptr inbounds %XalanList, %XalanList* %2, i64 0, i32 0
+  %8 = load %"MemoryManager"*, %"MemoryManager"** %7, align 8
+  %9 = bitcast %"MemoryManager"* %8 to i8* (%"MemoryManager"*, i64)***
+  %10 = load i8* (%"MemoryManager"*, i64)**, i8* (%"MemoryManager"*, i64)*** %9, align 8
+  %11 = bitcast i8* (%"MemoryManager"*, i64)** %10 to i8*
+  %12 = tail call i1 @llvm.type.test(i8* %11, metadata !"_ZTSN11xercesc_2_713MemoryManagerE")
+  tail call void @llvm.assume(i1 %12)
+  %13 = getelementptr inbounds i8* (%"MemoryManager"*, i64)*, i8* (%"MemoryManager"*, i64)** %10, i64 2
+  %14 = load i8* (%"MemoryManager"*, i64)*, i8* (%"MemoryManager"*, i64)** %13, align 8
+  %15 = bitcast i8* (%"MemoryManager"*, i64)* %14 to i8*
+  %16 = bitcast i8* (%"MemoryManagerImpl"*, i64)* @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to i8*
+  %17 = icmp eq i8* %15, %16
+  br i1 %17, label %18, label %20
+
+18:                                               ; preds = %6
+  %19 = tail call i8* bitcast (i8* (%"MemoryManagerImpl"*, i64)* @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to i8* (%"MemoryManager"*, i64)*)(%"MemoryManager"* nonnull dereferenceable(8) %8, i64 24)
+  br label %22
+
+20:                                               ; preds = %6
+  %21 = tail call i8* bitcast (i8* (%"DummyMemoryManager"*, i64)* @_ZN11xalanc_1_1023XalanDummyMemoryManager8allocateEm to i8* (%"MemoryManager"*, i64)*)(%"MemoryManager"* nonnull dereferenceable(8) %8, i64 24)
+  br label %22
+
+22:                                               ; preds = %20, %18
+  %23 = phi i8* [ %19, %18 ], [ %21, %20 ]
+  br label %24
+
+24:                                               ; preds = %22
+  %25 = bitcast i8* %23 to %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"*
+  store %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %25, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %3, align 8
+  %26 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %25, i64 0, i32 2
+  store %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %25, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %26, align 8
+  %27 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %25, i64 0, i32 1
+  store %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %25, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %27, align 8
+  br label %152
+
+28:                                               ; preds = %1
+  %29 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %4, i64 0, i32 2
+  %30 = load %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"*, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %29, align 8
+  %31 = getelementptr inbounds %XalanList, %XalanList* %2, i64 0, i32 0
+  %32 = load %"MemoryManager"*, %"MemoryManager"** %31, align 8
+  %33 = icmp eq %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %30, %4
+  br i1 %33, label %128, label %34
+
+34:                                               ; preds = %28
+  %35 = bitcast %"MemoryManager"* %32 to void (%"MemoryManager"*, i8*)***
+  br label %36
+
+36:                                               ; preds = %122, %34
+  %37 = phi %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* [ %30, %34 ], [ %124, %122 ]
+  %38 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %37, i64 0, i32 0
+  %39 = load %"ReusableArenaBlock"*, %"ReusableArenaBlock"** %38, align 8
+  %40 = icmp eq %"ReusableArenaBlock"* %39, null
+  br i1 %40, label %122, label %41
+
+41:                                               ; preds = %36
+  %42 = getelementptr inbounds %"ReusableArenaBlock", %"ReusableArenaBlock"* %39, i64 0, i32 0
+  %43 = getelementptr inbounds %"ArenaBlockBase", %"ArenaBlockBase"* %42, i64 0, i32 1
+  %44 = getelementptr inbounds %"ArenaBlockBase", %"ArenaBlockBase"* %42, i64 0, i32 2
+  %45 = load i16, i16* %44, align 2
+  %46 = icmp eq i16 %45, 0
+  br i1 %46, label %55, label %47
+
+47:                                               ; preds = %41
+  %48 = getelementptr inbounds %"ArenaBlockBase", %"ArenaBlockBase"* %42, i64 0, i32 3
+  br label %49
+
+49:                                               ; preds = %102, %47
+  %50 = phi i64 [ 0, %47 ], [ %106, %102 ]
+  %51 = phi i16 [ %45, %47 ], [ %104, %102 ]
+  %52 = phi i16 [ 0, %47 ], [ %105, %102 ]
+  %53 = load i16, i16* %43, align 8
+  %54 = icmp ult i16 %52, %53
+  br i1 %54, label %79, label %55
+
+55:                                               ; preds = %102, %49, %41
+  %56 = getelementptr inbounds %"ArenaBlockBase", %"ArenaBlockBase"* %42, i64 0, i32 3
+  %57 = load %"XStringCached"*, %"XStringCached"** %56, align 8
+  %58 = icmp eq %"XStringCached"* %57, null
+  br i1 %58, label %108, label %59
+
+59:                                               ; preds = %55
+  %60 = getelementptr inbounds %"ArenaBlockBase", %"ArenaBlockBase"* %42, i64 0, i32 0
+  %61 = getelementptr inbounds %"XalanAllocator", %"XalanAllocator"* %60, i64 0, i32 0
+  %62 = load %"MemoryManager"*, %"MemoryManager"** %61, align 8
+  %63 = bitcast %"XStringCached"* %57 to i8*
+  %64 = bitcast %"MemoryManager"* %62 to void (%"MemoryManager"*, i8*)***
+  %65 = load void (%"MemoryManager"*, i8*)**, void (%"MemoryManager"*, i8*)*** %64, align 8
+  %66 = bitcast void (%"MemoryManager"*, i8*)** %65 to i8*
+  %67 = tail call i1 @llvm.type.test(i8* %66, metadata !"_ZTSN11xercesc_2_713MemoryManagerE")
+  tail call void @llvm.assume(i1 %67)
+  %68 = getelementptr inbounds void (%"MemoryManager"*, i8*)*, void (%"MemoryManager"*, i8*)** %65, i64 3
+  %69 = load void (%"MemoryManager"*, i8*)*, void (%"MemoryManager"*, i8*)** %68, align 8
+  %70 = bitcast void (%"MemoryManager"*, i8*)* %69 to i8*
+  %71 = bitcast void (%"MemoryManagerImpl"*, i8*)* @_ZN11xercesc_2_717MemoryManagerImpl10deallocateEPv to i8*
+  %72 = icmp eq i8* %70, %71
+  br i1 %72, label %73, label %74
+
+73:                                               ; preds = %59
+  invoke void bitcast (void (%"MemoryManagerImpl"*, i8*)* @_ZN11xercesc_2_717MemoryManagerImpl10deallocateEPv to void (%"MemoryManager"*, i8*)*)(%"MemoryManager"* nonnull dereferenceable(8) %62, i8* nonnull %63)
+          to label %75 unwind label %76
+
+74:                                               ; preds = %59
+  invoke void bitcast (void (%"DummyMemoryManager"*, i8*)* @_ZN11xalanc_1_1023XalanDummyMemoryManager10deallocateEPv to void (%"MemoryManager"*, i8*)*)(%"MemoryManager"* nonnull dereferenceable(8) %62, i8* nonnull %63)
+          to label %75 unwind label %76
+
+75:                                               ; preds = %74, %73
+  br label %108
+
+76:                                               ; preds = %74, %73
+  %77 = landingpad { i8*, i32 }
+          catch i8* null
+  %78 = extractvalue { i8*, i32 } %77, 0
+  tail call void @__clang_call_terminate(i8* %78)
+  unreachable
+
+79:                                               ; preds = %49
+  %80 = load %"XStringCached"*, %"XStringCached"** %48, align 8
+  %81 = getelementptr inbounds %"XStringCached", %"XStringCached"* %80, i64 %50
+  %82 = bitcast %"XStringCached"* %81 to %"ReusableArenaBlock<XStringCached>::NextBlock"*
+  %83 = zext i16 %51 to i64
+  %84 = icmp ult i64 %50, %83
+  br i1 %84, label %85, label %93
+
+85:                                               ; preds = %79
+  %86 = getelementptr inbounds %"ReusableArenaBlock<XStringCached>::NextBlock", %"ReusableArenaBlock<XStringCached>::NextBlock"* %82, i64 0, i32 1
+  %87 = load i32, i32* %86, align 4
+  %88 = icmp eq i32 %87, -2228259
+  br i1 %88, label %89, label %93
+
+89:                                               ; preds = %85
+  %90 = getelementptr inbounds %"ReusableArenaBlock<XStringCached>::NextBlock", %"ReusableArenaBlock<XStringCached>::NextBlock"* %82, i64 0, i32 0
+  %91 = load i16, i16* %90, align 4
+  %92 = icmp ugt i16 %91, %51
+  br i1 %92, label %93, label %102
+
+93:                                               ; preds = %89, %85, %79
+  %94 = bitcast %"XStringCached"* %81 to void (%"XStringCached"*)***
+  %95 = load void (%"XStringCached"*)**, void (%"XStringCached"*)*** %94, align 8
+  %96 = bitcast void (%"XStringCached"*)** %95 to i8*
+  %97 = tail call i1 @llvm.type.test(i8* %96, metadata !"_ZTSN11xalanc_1_1013XStringCachedE")
+  tail call void @llvm.assume(i1 %97)
+  %98 = load void (%"XStringCached"*)*, void (%"XStringCached"*)** %95, align 8
+  tail call void @_ZN11xalanc_1_1013XStringCachedD2Ev(%"XStringCached"* nonnull dereferenceable(80) %81)
+  %99 = add nuw i16 %52, 1
+  %100 = load i16, i16* %44, align 2
+  %101 = zext i16 %100 to i64
+  br label %102
+
+102:                                              ; preds = %93, %89
+  %103 = phi i64 [ %101, %93 ], [ %83, %89 ]
+  %104 = phi i16 [ %100, %93 ], [ %51, %89 ]
+  %105 = phi i16 [ %99, %93 ], [ %52, %89 ]
+  %106 = add nuw nsw i64 %50, 1
+  %107 = icmp ult i64 %106, %103
+  br i1 %107, label %49, label %55
+
+108:                                              ; preds = %75, %55
+  %109 = bitcast %"ReusableArenaBlock"* %39 to i8*
+  %110 = load void (%"MemoryManager"*, i8*)**, void (%"MemoryManager"*, i8*)*** %35, align 8
+  %111 = bitcast void (%"MemoryManager"*, i8*)** %110 to i8*
+  %112 = tail call i1 @llvm.type.test(i8* %111, metadata !"_ZTSN11xercesc_2_713MemoryManagerE")
+  tail call void @llvm.assume(i1 %112)
+  %113 = getelementptr inbounds void (%"MemoryManager"*, i8*)*, void (%"MemoryManager"*, i8*)** %110, i64 3
+  %114 = load void (%"MemoryManager"*, i8*)*, void (%"MemoryManager"*, i8*)** %113, align 8
+  %115 = bitcast void (%"MemoryManager"*, i8*)* %114 to i8*
+  %116 = bitcast void (%"MemoryManagerImpl"*, i8*)* @_ZN11xercesc_2_717MemoryManagerImpl10deallocateEPv to i8*
+  %117 = icmp eq i8* %115, %116
+  br i1 %117, label %118, label %119
+
+118:                                              ; preds = %108
+  tail call void bitcast (void (%"MemoryManagerImpl"*, i8*)* @_ZN11xercesc_2_717MemoryManagerImpl10deallocateEPv to void (%"MemoryManager"*, i8*)*)(%"MemoryManager"* nonnull dereferenceable(8) %32, i8* nonnull %109)
+  br label %120
+
+119:                                              ; preds = %108
+  tail call void bitcast (void (%"DummyMemoryManager"*, i8*)* @_ZN11xalanc_1_1023XalanDummyMemoryManager10deallocateEPv to void (%"MemoryManager"*, i8*)*)(%"MemoryManager"* nonnull dereferenceable(8) %32, i8* nonnull %109)
+  br label %120
+
+120:                                              ; preds = %119, %118
+  br label %121
+
+121:                                              ; preds = %120
+  br label %122
+
+122:                                              ; preds = %121, %36
+  %123 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %37, i64 0, i32 2
+  %124 = load %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"*, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %123, align 8
+  %125 = icmp eq %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %124, %4
+  br i1 %125, label %126, label %36
+
+126:                                              ; preds = %122
+  %127 = load %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"*, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %3, align 8
+  br label %128
+
+128:                                              ; preds = %126, %28
+  %129 = phi %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* [ %127, %126 ], [ %30, %28 ]
+  %130 = icmp eq %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %129, null
+  br i1 %130, label %131, label %152
+
+131:                                              ; preds = %128
+  %132 = load %"MemoryManager"*, %"MemoryManager"** %31, align 8
+  %133 = bitcast %"MemoryManager"* %132 to i8* (%"MemoryManager"*, i64)***
+  %134 = load i8* (%"MemoryManager"*, i64)**, i8* (%"MemoryManager"*, i64)*** %133, align 8
+  %135 = bitcast i8* (%"MemoryManager"*, i64)** %134 to i8*
+  %136 = tail call i1 @llvm.type.test(i8* %135, metadata !"_ZTSN11xercesc_2_713MemoryManagerE")
+  tail call void @llvm.assume(i1 %136)
+  %137 = getelementptr inbounds i8* (%"MemoryManager"*, i64)*, i8* (%"MemoryManager"*, i64)** %134, i64 2
+  %138 = load i8* (%"MemoryManager"*, i64)*, i8* (%"MemoryManager"*, i64)** %137, align 8
+  %139 = bitcast i8* (%"MemoryManager"*, i64)* %138 to i8*
+  %140 = bitcast i8* (%"MemoryManagerImpl"*, i64)* @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to i8*
+  %141 = icmp eq i8* %139, %140
+  br i1 %141, label %142, label %144
+
+142:                                              ; preds = %131
+  %143 = tail call i8* bitcast (i8* (%"MemoryManagerImpl"*, i64)* @_ZN11xercesc_2_717MemoryManagerImpl8allocateEm to i8* (%"MemoryManager"*, i64)*)(%"MemoryManager"* nonnull dereferenceable(8) %132, i64 24)
+  br label %146
+
+144:                                              ; preds = %131
+  %145 = tail call i8* bitcast (i8* (%"DummyMemoryManager"*, i64)* @_ZN11xalanc_1_1023XalanDummyMemoryManager8allocateEm to i8* (%"MemoryManager"*, i64)*)(%"MemoryManager"* nonnull dereferenceable(8) %132, i64 24)
+  br label %146
+
+146:                                              ; preds = %144, %142
+  %147 = phi i8* [ %143, %142 ], [ %145, %144 ]
+  br label %148
+
+148:                                              ; preds = %146
+  %149 = bitcast i8* %147 to %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"*
+  store %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %149, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %3, align 8
+  %150 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %149, i64 0, i32 2
+  store %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %149, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %150, align 8
+  %151 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %149, i64 0, i32 1
+  store %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %149, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %151, align 8
+  br label %172
+
+152:                                              ; preds = %128, %24
+  %153 = phi %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* [ %25, %24 ], [ %129, %128 ]
+  %154 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %153, i64 0, i32 2
+  %155 = load %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"*, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %154, align 8
+  %156 = getelementptr inbounds %XalanList, %XalanList* %2, i64 0, i32 2
+  %157 = icmp eq %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %155, %153
+  br i1 %157, label %172, label %158
+
+158:                                              ; preds = %152
+  %159 = load %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"*, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %156, align 8
+  br label %160
+
+160:                                              ; preds = %160, %158
+  %161 = phi %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* [ %159, %158 ], [ %162, %160 ]
+  %162 = phi %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* [ %155, %158 ], [ %164, %160 ]
+  %163 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %162, i64 0, i32 2
+  %164 = load %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"*, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %163, align 8
+  %165 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %162, i64 0, i32 1
+  %166 = load %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"*, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %165, align 8
+  %167 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %166, i64 0, i32 2
+  store %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %164, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %167, align 8
+  %168 = load %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"*, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %163, align 8
+  %169 = getelementptr inbounds %"XalanList<ReusableArenaBlock<XStringCached> *>::Node", %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %168, i64 0, i32 1
+  store %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %166, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %169, align 8
+  store %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* null, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %165, align 8
+  store %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %161, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %163, align 8
+  %170 = icmp eq %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %164, %153
+  br i1 %170, label %171, label %160
+
+171:                                              ; preds = %160
+  store %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* %162, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %156, align 8
+  br label %172
+
+172:                                              ; preds = %171, %152, %148
   ret void
 }
 
