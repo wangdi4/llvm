@@ -334,8 +334,9 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   if (VPlanEnablePeeling)
     LVP.selectBestPeelingVariants();
 
-  unsigned VF = LVP.selectBestPlan();
-  VPlanVector *Plan = LVP.getVPlanForVF(VF);
+  unsigned VF;
+  VPlanVector *Plan;
+  std::tie(VF, Plan) = LVP.selectBestPlan();
   assert(Plan && "Unexpected null VPlan");
 
   LLVM_DEBUG(std::string PlanName; raw_string_ostream RSO(PlanName);
@@ -386,6 +387,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   if (VF > 1) {
     LVP.createMergerVPlans(VPAF);
 
+    // Note, the loop is executed only when new cfg merger is enabled.
     for (const CfgMergerPlanDescr &PlanDescr : LVP.mergerVPlans()) {
       auto LpKind = PlanDescr.getLoopType();
       VPlan *Plan = PlanDescr.getVPlan();
@@ -1194,15 +1196,16 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     LVP.selectBestPeelingVariants();
 
   // TODO: don't force vectorization if getIsAutoVec() is set to true.
-  unsigned VF = LVP.selectBestPlan<VPlanCostModelProprietary>();
+  unsigned VF;
+  VPlanVector *Plan;
+  std::tie(VF, Plan) = LVP.selectBestPlan<VPlanCostModelProprietary>();
+  assert(Plan && "Unexpected null VPlan");
 
   // Set the final name for this initial VPlan.
   std::string PlanName;
   raw_string_ostream RSO(PlanName);
   RSO << "Initial VPlan for VF=" << VF;
   RSO.flush();
-  VPlanVector *Plan = LVP.getVPlanForVF(VF);
-  assert(Plan && "Unexpected null VPlan");
   Plan->setName(PlanName);
 
   LLVM_DEBUG(dbgs() << "VD:\n" << *Plan);

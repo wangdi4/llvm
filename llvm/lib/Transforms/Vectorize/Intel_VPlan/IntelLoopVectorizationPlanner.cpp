@@ -485,10 +485,19 @@ void LoopVectorizationPlanner::extractVFsFromMetadata(MDNode *MD,
 
 ArrayRef<unsigned> LoopVectorizationPlanner::getVectorFactors() { return VFs; }
 
+void LoopVectorizationPlanner::selectSimplestVecScenario(unsigned VF,
+                                                         unsigned UF) {
+  VecScenario.resetPeel();
+  VecScenario.resetRemainders();
+  VecScenario.addScalarRemainder();
+  VecScenario.setVectorMain(VF, UF);
+}
+
 /// Evaluate cost model for available VPlans and find the best one.
-/// \Returns VF which corresponds to the best VPlan (could be VF = 1).
+/// \Returns pair: VF which corresponds to the best VPlan (could be VF = 1) and
+/// the corresponding VPlan.
 template <typename CostModelTy>
-unsigned LoopVectorizationPlanner::selectBestPlan() {
+std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   LLVM_DEBUG(dbgs() << "Selecting VF for VPlan #" << VPlanOrderNumber << '\n');
   VPlanVector *ScalarPlan = getVPlanForVF(1);
   assert(ScalarPlan && "There is no scalar VPlan!");
@@ -504,23 +513,27 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   VPLoop *OuterMostVPLoop = *VPLI->begin();
   uint64_t TripCount = std::min(OuterMostVPLoop->getTripCountInfo().TripCount,
                                 (uint64_t)std::numeric_limits<unsigned>::max());
-  unsigned UF = getLoopUnrollFactor();
+  unsigned BestUF = getLoopUnrollFactor();
   unsigned ForcedVF = getForcedVF(WRLp);
-  if (ForcedVF > 0) {
-    BestVF = ForcedVF;
 
-    if (BestVF * UF > TripCount) {
+  // Reset the current selection to scalar loop only.
+  VecScenario.resetPeel();
+  VecScenario.resetMain();
+  VecScenario.resetRemainders();
+
+  if (ForcedVF > 0) {
+    if (ForcedVF * BestUF > TripCount) {
       LLVM_DEBUG(dbgs() << "Bailing out to scalar VPlan because ForcedVF("
-                        << ForcedVF << ") * UF(" << UF << ") > TripCount("
-                        << TripCount << ")\n");
-      return 1;
+                        << ForcedVF << ") * BestUF(" << BestUF
+                        << ") > TripCount(" << TripCount << ")\n");
+      // The scenario was reset just before the check.
+      return std::make_pair(VecScenario.getMainVF(), getBestVPlan());
     }
 
     // FIXME: this code should be revisited later to select best UF
     // even with forced VF.
     // FIXME: We may want to use BestUF in the Unroller.
-    BestUF = 1;
-    LLVM_DEBUG(dbgs() << "There is only VPlan with VF=" << BestVF
+    LLVM_DEBUG(dbgs() << "There is only VPlan with VF=" << ForcedVF
                       << ", selecting it.\n");
   }
 
@@ -531,15 +544,11 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   // FIXME: that multiplication should be the part of CostModel - see below.
   uint64_t ScalarCost = ScalarIterationCost * TripCount;
 
-  BestVF = 1;
   if (ForcedVF > 0) {
-    BestVF = ForcedVF;
     assert((VFs.size() == 1 && VFs[0] == ForcedVF && hasVPlanForVF(VFs[0])) &&
            "Expected only one forced VF and non-null VPlan");
   }
 
-  // FIXME: Currently, unroll is not in VPlan, so set it to 1.
-  BestUF = 1;
   uint64_t BestCost = ScalarCost;
   LLVM_DEBUG(dbgs() << "Cost of Scalar VPlan: " << ScalarCost << '\n');
 
@@ -560,11 +569,6 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   }
 #endif // INTEL_CUSTOMIZATION
 
-  // Reset the current selection to scalar loop only.
-  VecScenario.resetPeel();
-  VecScenario.resetMain();
-  VecScenario.resetRemainders();
-
   // FIXME: Currently limit this to VF = 16. Has to be fixed with more accurate
   // cost model.
   //
@@ -574,7 +578,7 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   // peeling.
   for (unsigned VF : getVectorFactors()) {
     assert(hasVPlanForVF(VF) && "expected non-null VPlan");
-    if (TripCount < VF * UF)
+    if (TripCount < VF * BestUF)
       continue; // FIXME: Consider masked low trip later.
 
     VPlanVector *Plan = getVPlanForVF(VF);
@@ -585,12 +589,17 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     const unsigned MainLoopIterationCost = MainLoopCM.getCost();
     if (MainLoopIterationCost == CostModelTy::UnknownCost) {
       LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " is unknown. Skip it.\n");
+      if (VF == ForcedVF) {
+        // If the VF is forced and loop cost for it is unknown select the
+        // simplest configuration: non-masked main loop + scalar remainder.
+        selectSimplestVecScenario(ForcedVF, BestUF);
+      }
       continue;
     }
-
+    VPlanPeelingVariant *PeelingVariant = Plan->getPreferredPeeling(VF);
     // Calculate the total cost of peel loop if there is one.
     VPlanPeelEvaluator PeelEvaluator(*this, ScalarIterationCost, TLI, TTI, DL,
-                                     VLSA, VF, Plan->getPreferredPeeling(VF));
+                                     VLSA, VF, PeelingVariant);
 
     // Calculate the total cost of remainder loop if there is one.
     VPlanRemainderEvaluator RemainderEvaluator(
@@ -646,27 +655,15 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
 
     if (VectorCost < BestCost || VF == ForcedVF) {
       BestCost = VectorCost;
-      BestVF = VF;
-      updateVecScenario(PeelEvaluator, RemainderEvaluator, BestVF, BestUF);
+      updateVecScenario(PeelEvaluator, RemainderEvaluator, VF, BestUF);
     }
   }
 #if INTEL_CUSTOMIZATION
   // Corner case: all available VPlans have UMAX cost.
   // With 'vector always' we have to vectorize with some VF, so select first
   // available VF.
-  if (BestVF == 1 && IsVectorAlways) {
-    BestVF = VFs[0];
-  }
-  if (BestVF != VecScenario.getMainVF()) {
-    // The VecScenario was not updated in the main CM loop. That
-    // may happen when the BestVF is forced and loop cost for it is unknown
-    // and when vectorization is forced but the scalar cost is the best.
-    // Select the simplest configuration: unmasked main loop + scalar
-    // remainder.
-    VecScenario.resetPeel();
-    VecScenario.resetRemainders();
-    VecScenario.addScalarRemainder();
-    VecScenario.setVectorMain(BestVF, BestUF);
+  if (VecScenario.getMainVF() == 1 && IsVectorAlways) {
+    selectSimplestVecScenario(VFs[0], 1);
   }
 #endif // INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -679,17 +676,16 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
       assert(P && "The VPlan for VF from string does not exist");
     }
     // just in case, to not face assert on null VPlan
-    BestVF = VecScenario.getMainVF();
+    unsigned VF = VecScenario.getMainVF();
     if (VecScenario.hasPeel()) {
-      VPlanVector *MPlan = getVPlanForVF(BestVF);
+      VPlanVector *MPlan = getVPlanForVF(VF);
       VPLoop *L = *(MPlan->getVPLoopInfo())->begin();
       if (VecScenario.hasMaskedPeel() && !L->hasNormalizedInduction()) {
         // replace by scalar loop if there is no normalized induction
         VecScenario.setScalarPeel();
       }
-      if (!MPlan->getPreferredPeeling(BestVF))
-        MPlan->setPreferredPeeling(BestVF,
-                                   std::make_unique<VPlanStaticPeeling>(1));
+      if (!MPlan->getPreferredPeeling(VF))
+        MPlan->setPreferredPeeling(VF, std::make_unique<VPlanStaticPeeling>(1));
     }
   }
   if (PrintVecScenario || !VecScenarioStr.empty()) {
@@ -704,13 +700,18 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     if (!UsedVFs.count(It.first))
       VPlans.erase(It.first);
   }
-  LLVM_DEBUG(dbgs() << "Selecting VPlan with VF=" << BestVF << '\n');
-  return BestVF;
+  LLVM_DEBUG(dbgs() << "Selecting VPlan with VF=" << getBestVF() << '\n');
+
+  return std::make_pair(getBestVF(), getBestVPlan());
 }
 
 void LoopVectorizationPlanner::updateVecScenario(
     VPlanPeelEvaluator const &PE, VPlanRemainderEvaluator const &RE,
     unsigned VF, unsigned UF) {
+  if (!isNewCFGMergeEnabled()) {
+    selectSimplestVecScenario(VF, UF);
+    return;
+  }
   using PeelKind = VPlanPeelEvaluator::PeelLoopKind;
   using RemKind = VPlanRemainderEvaluator::RemainderLoopKind;
   switch (PE.getPeelLoopKind()) {
@@ -745,10 +746,10 @@ void LoopVectorizationPlanner::updateVecScenario(
   VecScenario.setVectorMain(VF, UF);
 }
 
-template unsigned
+template std::pair<unsigned, VPlanVector *>
 LoopVectorizationPlanner::selectBestPlan<VPlanCostModel>(void);
 #if INTEL_CUSTOMIZATION
-template unsigned
+template std::pair<unsigned, VPlanVector *>
 LoopVectorizationPlanner::selectBestPlan<VPlanCostModelProprietary>(void);
 #endif // INTEL_CUSTOMIZATION
 
@@ -945,6 +946,7 @@ void SingleLoopVecScenario::fromString(StringRef S) {
   Peel = getDescr(Parts[0], E);
   Main = getDescr(Parts[1], E);
 
+  resetRemainders();
   StringRef R = Parts[2];
   while (R.size()) {
     AuxLoopDescr D = getDescr(R, E);
@@ -1323,8 +1325,25 @@ LoopVectorizationPlanner::EnterExplicitData<VPOVectorizationLegality>(
 } // namespace vpo
 } // namespace llvm
 
+VPlanVector *LoopVectorizationPlanner::getBestVPlan() {
+  unsigned VF = getBestVF();
+  assert(VF != 0 && "best vplan is not selected");
+  if (VecScenario.getMain().Kind == SingleLoopVecScenario::LKScalar) {
+    // Check for consitency. Just in case.
+    assert(VF == 1 && "expected VF=1 for scalar VPlan");
+    return getVPlanForVF(VF);
+  }
+  if (isNewCFGMergeEnabled())
+    // Get either masked or non-masked main VPlan, depending on
+    // selection.
+    return VecScenario.getMain().Kind == SingleLoopVecScenario::LKVector
+               ? getVPlanForVF(VF)
+               : getMaskedVPlanForVF(VF);
+  return getVPlanForVF(VF);
+}
+
 void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
-  assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
+  assert(getBestVF() > 1 && "Non-vectorized loop should be handled elsewhere!");
   ILV = &LB;
 
   // Perform the actual loop widening (vectorization).
@@ -1334,8 +1353,8 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   // 2. Widen each instruction in the old loop to a new one in the new loop.
   VPCallbackILV CallbackILV;
 
-  VPlanVector *Plan = getVPlanForVF(BestVF);
-  assert(Plan && "No VPlan found for BestVF.");
+  VPlanVector *Plan = getBestVPlan();
+  assert(Plan && "No best VPlan found.");
 
   // Temporary, until CFG merge is implemented. Replace VPLiveInValue-s by
   // original incoming values.
@@ -1345,12 +1364,12 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlanCallVecDecisions CallVecDecisions(*Plan);
   std::string Label;
-  if (EnableCFGMerge && EmitPushPopVF) {
+  if ((EnableCFGMerge && EmitPushPopVF) || EnableNewCFGMerge) {
     CallVecDecisions.runForMergedCFG(TLI, TTI);
     Label = "CallVecDecisions analysis for merged CFG";
   } else {
-    CallVecDecisions.runForVF(BestVF, TLI, TTI);
-    Label = "CallVecDecisions analysis for VF=" + std::to_string(BestVF);
+    CallVecDecisions.runForVF(getBestVF(), TLI, TTI);
+    Label = "CallVecDecisions analysis for VF=" + std::to_string(getBestVF());
   }
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
 
@@ -1358,8 +1377,8 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   Plan->runSVA();
   VPLAN_DUMP(PrintSVAResults, "ScalVec analysis", Plan);
 
-  VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ILV,
-                         CallbackILV, Plan->getVPLoopInfo());
+  VPTransformState State(getBestVF(), 1 /* UF */, LI, DT, ILV->getBuilder(),
+                         ILV, CallbackILV, Plan->getVPLoopInfo());
   State.CFG.PrevBB = ILV->getLoopVectorPH();
 
 #if INTEL_CUSTOMIZATION
@@ -1376,11 +1395,12 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF) {
   if (!EnableCFGMerge)
     return;
-  assert(BestVF > 1 && "Unexpected VF");
-  VPlanVector *Plan = getVPlanForVF(BestVF);
-  assert(Plan && "No VPlan found for BestVF.");
+  assert(getBestVF() > 1 && "Unexpected VF");
+  VPlanVector *Plan = getBestVPlan();
+  assert(Plan && "No best VPlan found.");
 
   VPlanCFGMerger CFGMerger(*Plan, VF, UF);
+
   CFGMerger.createSimpleVectorRemainderChain(TheLoop);
   VPLAN_DUMP(CfgMergeDumpControl, Plan);
 }
@@ -1388,9 +1408,10 @@ void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF
 void LoopVectorizationPlanner::createMergerVPlans(VPAnalysesFactory &VPAF) {
   assert(MergerVPlans.empty() && "Non-empty list of VPlans");
   if (EnableNewCFGMerge) {
-    assert(BestVF > 1 && "Unexpected VF");
-    VPlanVector *Plan = getVPlanForVF(BestVF);
-    assert(Plan && "No VPlan found for BestVF.");
+    assert(getBestVF() > 1 && "Unexpected VF");
+
+    VPlanVector *Plan = getBestVPlan();
+    assert(Plan && "No best VPlan found.");
 
     VPlanCFGMerger::createPlans(*this, VecScenario, MergerVPlans, TheLoop,
                                 *Plan, VPAF);

@@ -2,7 +2,7 @@
 ; Test VPlan unrolling feature for loops with Call instructions.
 
 ; RUN: opt -S -vector-library=SVML -VPlanDriver -vplan-force-vf=4 -vplan-force-uf=3 \
-; RUN: -vplan-print-after-unroll -vplan-enable-new-cfg-merge < %s | FileCheck %s
+; RUN: -vplan-print-after-unroll < %s | FileCheck %s
 
 define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after VPlan loop unrolling:

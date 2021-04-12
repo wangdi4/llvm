@@ -2,7 +2,7 @@
 ; TODO: enable cfg merge after private support enabled
 ; RUN: opt -vplan-enable-soa=false -S < %s -VPlanDriver -loop-simplify --vplan-force-vf=4\
 ; RUN: --vplan-force-uf=3 --vplan-print-after-unroll -vplan-enable-all-liveouts\
-; RUN: -vplan-enable-cfg-merge=0  -vplan-enable-new-cfg-merge -vplan-entities-dump | FileCheck %s
+; RUN: -vplan-enable-cfg-merge=0 -vplan-entities-dump | FileCheck %s
 
 ; int foo(int *a, int n) {
 ;   int res;

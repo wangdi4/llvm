@@ -34,8 +34,9 @@ static cl::opt<bool>
                            cl::Hidden, cl::desc("Enable in memory entities."));
 
 bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF) {
+  unsigned BestVF = getBestVF();
   assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
-  VPlanVector *Plan = getVPlanForVF(BestVF);
+  VPlanVector *Plan = getBestVPlan();
   assert(Plan && "Unexpected null VPlan");
 
   // Deconstruct SSA for final VPlan that will be lowered to HIR.

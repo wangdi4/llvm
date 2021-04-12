@@ -172,7 +172,10 @@ private:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   void resetPeel() { Peel = {LKNone, 0}; }
-  void resetMain() { Main = {LKScalar, 1}; }
+  void resetMain() {
+    Main = {LKScalar, 1};
+    MainUF = 1;
+  }
   void setScalarPeel() { Peel = {LKScalar, 1}; }
   void setMaskedPeel(unsigned VF) { Peel = {LKMasked, VF}; }
 
@@ -189,6 +192,11 @@ private:
     Main = {LKVector, VF};
     MainUF = UF;
   }
+  void setMaskedMain(unsigned VF) {
+    Main = {LKMasked, VF};
+    MainUF = 1;
+  }
+
 
   AuxLoopDescr Main;
   AuxLoopDescr Peel;
@@ -324,9 +332,18 @@ public:
   bool canProcessVPlan(const VPlanVector &Plan);
 
   /// Select the best plan and dispose all other VPlans.
-  /// \Returns the selected vectorization factor.
+  /// \Returns the selected vectorization factor and corresponding VPlan.
   template <typename CostModelTy = VPlanCostModel>
-  unsigned selectBestPlan(void);
+  std::pair<unsigned, VPlanVector *> selectBestPlan();
+
+  /// \Returns the VPlan for selected best vectorization factor.
+  VPlanVector *getBestVPlan();
+
+  /// \Returns the selected best vectorization factor.
+  unsigned getBestVF() {return VecScenario.getMainVF();}
+
+  /// \Returns the selected best unroll factor.
+  unsigned getBestUF() {return VecScenario.getMainUF();}
 
   /// Extracts VFs from "llvm.loop.vector.vectorlength" metadata
   void extractVFsFromMetadata(MDNode *MD, unsigned SafeLen);
@@ -352,6 +369,8 @@ public:
 
   template <typename CostModelTy = VPlanCostModel>
   void printCostModelAnalysisIfRequested(const std::string &Header);
+
+  virtual bool isNewCFGMergeEnabled() const { return EnableNewCFGMerge; }
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.
@@ -435,6 +454,10 @@ protected:
                          VPlanRemainderEvaluator const &RE, unsigned VF,
                          unsigned UF);
 
+  /// Select simplest vectorization scenario: no peel, non-masked main loop with
+  /// specified vector and unroll factors, scalar remainder.
+  void selectSimplestVecScenario(unsigned VF, unsigned UF);
+
   /// WRegion info of the loop we evaluate. It can be null.
   WRNVecLoopNode *WRLp;
 
@@ -464,8 +487,6 @@ protected:
     }
   };
   SmallVector<unsigned, 5> VFs;
-  unsigned BestVF = 0;
-  unsigned BestUF = 0;
   SingleLoopVecScenario VecScenario;
 
   // Storage for common external data (VPExternalDefs, Uses, Consts etc).
