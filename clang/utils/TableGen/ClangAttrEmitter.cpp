@@ -3776,6 +3776,16 @@ static void GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
         OS << " && ";
     }
     OS << ") {\n";
+#if INTEL_CUSTOMIZATION
+    if (IntelWarn) {
+      OS << "    if (S.getLangOpts().IntelCompat)\n";
+      OS << "      S.Diag(Attr.getLoc(), "
+            "diag::warn_attribute_wrong_decl_type_str)\n";
+      OS << "        << Attr << ";
+      OS << CalculateDiagnostic(*SubjectObj) << ";\n";
+      OS << "    else\n";
+    }
+#endif // INTEL_CUSTOMIZATION
     OS << "    S.Diag(Attr.getLoc(), diag::";
     OS << (Warn ? "warn_attribute_wrong_decl_type_str"
                 : "err_attribute_wrong_decl_type_str");
@@ -3811,14 +3821,14 @@ static void GenerateAppertainsTo(const Record &Attr, raw_ostream &OS) {
     }
     OS << ") {\n";
 #if INTEL_CUSTOMIZATION
-  if (IntelWarn) {
-    OS << "    if (S.getLangOpts().IntelCompat)\n";
-    OS << "      S.Diag(Attr.getLoc(), "
-          "diag::warn_attribute_wrong_decl_type_str)\n";
-    OS << "        << Attr << ";
-    OS << CalculateDiagnostic(*SubjectObj) << ";\n";
-    OS << "    else\n";
-  }
+    if (IntelWarn) {
+      OS << "    if (S.getLangOpts().IntelCompat)\n";
+      OS << "      S.Diag(Attr.getLoc(), "
+            "diag::warn_attribute_wrong_decl_type_str)\n";
+      OS << "        << Attr << ";
+      OS << CalculateDiagnostic(*SubjectObj) << ";\n";
+      OS << "    else\n";
+    }
 #endif // INTEL_CUSTOMIZATION
     OS << "    S.Diag(Attr.getLoc(), diag::";
     OS << (Warn ? "warn_attribute_wrong_decl_type_str"
