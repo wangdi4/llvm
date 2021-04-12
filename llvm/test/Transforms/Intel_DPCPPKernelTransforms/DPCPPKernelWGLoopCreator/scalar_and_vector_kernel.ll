@@ -19,6 +19,8 @@ define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocaptur
 ; CHECK-NEXT:    [[NUM_VECTOR_WI:%.*]] = shl i64 [[VECTOR_SIZE]], 4
 ; CHECK-NEXT:    [[MAX_VECTOR_GID:%.*]] = add i64 [[NUM_VECTOR_WI]], [[TMP1]]
 ; CHECK-NEXT:    [[SCALAR_SIZE:%.*]] = sub i64 [[TMP2]], [[NUM_VECTOR_WI]]
+; CHECK-NEXT:    [[DIM_0_VECTOR_INIT_LID:%.*]] = sub i64 [[TMP1]], [[TMP1]]
+; CHECK-NEXT:    [[DIM_0_SCALAR_INIT_LID:%.*]] = sub i64 [[MAX_VECTOR_GID]], [[TMP1]]
 ; CHECK-NEXT:    br label [[VECT_IF:%.*]]
 ; CHECK:       vect_if:
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp ne i64 [[VECTOR_SIZE]], 0
@@ -33,7 +35,7 @@ define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocaptur
 ; CHECK-NEXT:    br label [[ENTRYVECTOR_FUNC:%.*]]
 ; CHECK:       entryvector_func:
 ; CHECK-NEXT:    [[DIM_0_VECTOR_IND_VAR:%.*]] = phi i64 [ 0, [[DIM_0_VECTOR_PRE_HEAD]] ], [ [[DIM_0_VECTOR_INC_IND_VAR:%.*]], [[ENTRYVECTOR_FUNC]] ]
-; CHECK-NEXT:    [[DIM0__TID:%.*]] = phi i64 [ [[TMP1]], [[DIM_0_VECTOR_PRE_HEAD]] ], [ [[DIM0_INC_TID:%.*]], [[ENTRYVECTOR_FUNC]] ]
+; CHECK-NEXT:    [[DIM0__TID:%.*]] = phi i64 [ [[DIM_0_VECTOR_INIT_LID]], [[DIM_0_VECTOR_PRE_HEAD]] ], [ [[DIM0_INC_TID:%.*]], [[ENTRYVECTOR_FUNC]] ]
 ;; Check that trunc has been replaced correctly.
 ; CHECK-NEXT:    [[TMP8:%.*]] = trunc i64 [[DIM0__TID]] to i32
 ; CHECK-NEXT:    [[TMP9:%.*]] = add i32 0, [[TMP8]]
@@ -68,7 +70,7 @@ define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocaptur
 ; CHECK-NEXT:    br label [[SCALAR_KERNEL_ENTRY:%.*]]
 ; CHECK:       scalar_kernel_entry:
 ; CHECK-NEXT:    [[DIM_0_IND_VAR:%.*]] = phi i64 [ 0, [[DIM_0_PRE_HEAD]] ], [ [[DIM_0_INC_IND_VAR:%.*]], [[SCALAR_KERNEL_ENTRY]] ]
-; CHECK-NEXT:    [[DIM0__TID1:%.*]] = phi i64 [ [[MAX_VECTOR_GID]], [[DIM_0_PRE_HEAD]] ], [ [[DIM0_INC_TID2:%.*]], [[SCALAR_KERNEL_ENTRY]] ]
+; CHECK-NEXT:    [[DIM0__TID1:%.*]] = phi i64 [ [[DIM_0_SCALAR_INIT_LID]], [[DIM_0_PRE_HEAD]] ], [ [[DIM0_INC_TID2:%.*]], [[SCALAR_KERNEL_ENTRY]] ]
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[OUT]], i64 [[DIM0__TID1]]
 ; CHECK-NEXT:    store i32 12345, i32* [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    [[DIM_0_INC_IND_VAR]] = add nuw nsw i64 [[DIM_0_IND_VAR]], 1

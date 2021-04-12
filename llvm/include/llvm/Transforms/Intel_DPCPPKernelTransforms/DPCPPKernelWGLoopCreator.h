@@ -95,6 +95,9 @@ private:
   /// global_id lower bounds per dimension.
   ValueVec InitGIDs;
 
+  /// base_global_id per dimension.
+  ValueVec BaseGIDs;
+
   /// LoopSize per dimension.
   ValueVec LoopSizes;
 
