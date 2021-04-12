@@ -1,4 +1,6 @@
+; RUN: opt -dpcpp-kernel-add-implicit-args -debugify -dpcpp-kernel-resolve-wi-call -check-debugify -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -dpcpp-kernel-add-implicit-args -dpcpp-kernel-resolve-wi-call -S %s | FileCheck %s
+; RUN: opt -passes='dpcpp-kernel-add-implicit-args,debugify,dpcpp-kernel-resolve-wi-call,check-debugify' -S %s -disable-output 2>&1 | FileCheck %s -check-prefix=DEBUGIFY
 ; RUN: opt -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-resolve-wi-call' -S %s | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-f80:128-n8:16:32:64-S128"
@@ -23,3 +25,8 @@ define void @A(float addrspace(1)* nocapture %a, float addrspace(1)* nocapture %
 declare i32 @printf(i8 addrspace(2)*, ...)
 
 attributes #0 = { "sycl_kernel" }
+
+; The pass will generate some instructions without debug info. Since these
+; instructions are not from user code and they will not impact debuggability.
+; We can ignore the warnings related to them.
+; DEBUGIFY-NOT: WARNING: Missing line
