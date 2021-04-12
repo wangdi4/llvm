@@ -1,3 +1,4 @@
+; RUN: %oclopt -prevent-div-crash -instcombine -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -prevent-div-crash -instcombine -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -14,3 +15,5 @@ entry:
 ; CHECK-NEXT: 	[[NEW_DIVISOR:%[a-zA-Z0-9]+]] = select <2 x i1> [[IS_INTEGER_OVERFLOW]], <2 x i32> <i32 1, i32 1>, <2 x i32> <i32 -1, i32 6>
 ; CHECK-NEXT: 	sdiv <2 x i32> %x, [[NEW_DIVISOR]]
 
+
+; DEBUGIFY-NOT: WARNING
