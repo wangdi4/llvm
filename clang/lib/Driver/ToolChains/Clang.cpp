@@ -9059,8 +9059,14 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         }
       }
     }
+#if !INTEL_CUSTOMIZATION
+    // SPV_INTEL_optnone is enabled in xmain, but it is still should stay
+    // disabled in intel/llvm since version of OCL CPU backend that suppports
+    // this extension is not yet available there.
+
     // Temporary disable SPV_INTEL_optnone until some targets support it.
     ExtArg += ",-SPV_INTEL_optnone";
+#endif // !INTEL_CUSTOMIZATION
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
   }
 #if INTEL_CUSTOMIZATION
