@@ -3385,6 +3385,17 @@ void Generic_GCC::AddMultiarchPaths(const Driver &D,
     addPathIfExists(
         D, LibPath + "/../" + GCCTriple.str() + "/lib" + Multilib.osSuffix(),
                     Paths);
+#if INTEL_CUSTOMIZATION
+    // Removal of this PATH for library searches broke 32-bit usage using
+    // internal 'rdrive' gcc installations.
+    // FIXME: Remove this code once we get a better understanding of what
+    // the proper fix is.
+
+    // See comments above on the multilib variant for details of why this is
+    // only included from within the sysroot.
+    if (StringRef(LibPath).startswith(SysRoot))
+      addPathIfExists(D, LibPath, Paths);
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
