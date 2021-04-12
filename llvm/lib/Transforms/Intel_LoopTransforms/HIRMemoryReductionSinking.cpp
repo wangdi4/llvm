@@ -90,11 +90,13 @@ public:
 // A[5] = A[5] + t;
 struct MemoryReductionInfo {
   unsigned Opcode;
+  FastMathFlags FMF;
   RegDDRef *LoadRef;
   RegDDRef *StoreRef;
 
-  MemoryReductionInfo(unsigned Opcode, RegDDRef *LoadRef, RegDDRef *StoreRef)
-      : Opcode(Opcode), LoadRef(LoadRef), StoreRef(StoreRef) {}
+  MemoryReductionInfo(unsigned Opcode, FastMathFlags FMF, RegDDRef *LoadRef,
+                      RegDDRef *StoreRef)
+      : Opcode(Opcode), FMF(FMF), LoadRef(LoadRef), StoreRef(StoreRef) {}
 };
 
 class HIRMemoryReductionSinking {
@@ -186,6 +188,7 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
 
     auto *LLVMInst = HInst->getLLVMInstruction();
     unsigned Opcode;
+    FastMathFlags FMF;
     RegDDRef *LoadRef = nullptr;
     RegDDRef *AlternateLoadRef = nullptr;
     HLInst *StoreInst = nullptr;
@@ -210,8 +213,11 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
       //   A[5] = %add;
       auto *FPOp = dyn_cast<FPMathOperator>(LLVMInst);
 
-      if (FPOp && !FPOp->isFast()) {
-        continue;
+      if (FPOp) {
+        if (!FPOp->isFast()) {
+          continue;
+        }
+        FMF = FPOp->getFastMathFlags();
       }
 
       LoadRef = HInst->getOperandDDRef(1);
@@ -242,10 +248,11 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
     }
 
     if (LoadRef->isStructurallyInvariantAtLevel(Level)) {
-      InvariantMemoryReductions.emplace_back(Opcode, LoadRef,
+      InvariantMemoryReductions.emplace_back(Opcode, FMF, LoadRef,
                                              StoreInst->getLvalDDRef());
     } else {
-      MemoryReductions.emplace_back(Opcode, LoadRef, StoreInst->getLvalDDRef());
+      MemoryReductions.emplace_back(Opcode, FMF, LoadRef,
+                                    StoreInst->getLvalDDRef());
     }
   }
 
@@ -367,14 +374,12 @@ bool HIRMemoryReductionSinking::validateMemoryReductions(const HLLoop *Lp) {
 }
 
 static RegDDRef *createReductionInitializer(HLLoop *Lp, unsigned Opcode,
-                                            Type *Ty) {
+                                            FastMathFlags FMF, Type *Ty) {
   // Creates reduction initialization and inserts it in the loop preheader-
   // %tmp = <identity constant>
 
   auto &HNU = Lp->getHLNodeUtils();
-  // TODO: get correct FastMathFlags value. Most probably, need to pass as
-  // parameter.
-  auto *Const = HLInst::getRecurrenceIdentity(Opcode, Ty, FastMathFlags());
+  auto *Const = HLInst::getRecurrenceIdentity(Opcode, Ty, FMF);
 
   RegDDRef *InitRef = nullptr;
 
@@ -429,8 +434,8 @@ void HIRMemoryReductionSinking::sinkInvariantReductions(HLLoop *Lp) {
 
     unsigned Opcode = getCommutativeOpcode(RedIt->Opcode);
 
-    auto *RednTemp =
-        createReductionInitializer(Lp, Opcode, LoadRef->getDestType());
+    auto *RednTemp = createReductionInitializer(Lp, Opcode, RedIt->FMF,
+                                                LoadRef->getDestType());
 
     auto *BinOp = dyn_cast<BinaryOperator>(LoadInst->getLLVMInstruction());
     RegDDRef *RednOpRef = nullptr;
