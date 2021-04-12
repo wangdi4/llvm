@@ -1281,10 +1281,13 @@ define i32 @test_chr_14(i32* %i, i32* %j, i32 %sum0, i1 %pred, i32 %z) !prof !14
 ; CHECK-LABEL: @test_chr_14(
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[I0:%.*]] = load i32, i32* [[I:%.*]], align 4
-; CHECK-NEXT:    [[V1:%.*]] = icmp ne i32 [[Z:%.*]], 1
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[V1:%.*]] = icmp eq i32 [[Z:%.*]], 1
+; CHECK-NEXT:    [[V1_NOT:%.*]] = xor i1 [[V1]], true
 ; CHECK-NEXT:    [[V0:%.*]] = icmp eq i32 [[Z]], 0
 ; CHECK-NEXT:    [[V3_NONCHR:%.*]] = and i1 [[V0]], [[PRED:%.*]]
-; CHECK-NEXT:    [[OR_COND:%.*]] = and i1 [[V1]], [[V3_NONCHR]]
+; CHECK-NEXT:    [[OR_COND:%.*]] = and i1 [[V1_NOT]], [[V3_NONCHR]]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br i1 [[OR_COND]], label [[BB0_NONCHR:%.*]], label [[BB1:%.*]], !prof !19
 ; CHECK:       bb0.nonchr:
 ; CHECK-NEXT:    call void @foo()
