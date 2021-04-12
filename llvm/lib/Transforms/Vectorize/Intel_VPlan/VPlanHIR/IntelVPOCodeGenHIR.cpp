@@ -628,30 +628,7 @@ void HandledCheck::visit(HLDDNode *Node) {
       return;
     }
 
-    // Handling liveouts for privates/inductions is not implemented in
-    // VPValue-based CG.
     auto TLval = Inst->getLvalDDRef();
-    if (TLval && TLval->isTerminalRef() &&
-        OrigLoop->isLiveOut(TLval->getSymbase())) {
-      unsigned RedOpcode = 0;
-      if (EnableVPValueCodegenHIR && !CG->isReductionRef(TLval, RedOpcode)) {
-        LLVM_DEBUG(Inst->dump());
-        LLVM_DEBUG(
-            dbgs() << "VPLAN_OPTREPORT: VPValCG liveout induction/private not "
-                      "handled - forcing mixed CG\n");
-        CG->setForceMixedCG(true);
-        if (getVectorizableCallSeen()) {
-          DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
-          DEBUG_WITH_TYPE(
-              "VPOCGHIR-bailout",
-              dbgs() << "VPLAN_OPTREPORT: Loop not handled - call "
-                        "vectorization not supported in mixed CG mode\n");
-          IsHandled = false;
-          return;
-        }
-      }
-    }
-
     unsigned MaskedRedOpcode = 0;
     if (!CG->isSearchLoop() && TLval && TLval->isTerminalRef() &&
         OrigLoop->isLiveOut(TLval->getSymbase()) &&
@@ -668,6 +645,8 @@ void HandledCheck::visit(HLDDNode *Node) {
     if (const CallInst *Call = Inst->getCallInst()) {
       if (!CG->isIgnoredCall(Call) &&
           (CG->getForceMixedCG() || !EnableVPValueCodegenHIR)) {
+        // TODO: Is this case possible? We use mixed CG only for search loops
+        // now.
         LLVM_DEBUG(Inst->dump());
         DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
         DEBUG_WITH_TYPE(
@@ -3106,6 +3085,14 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
             BlobRef->getSelfBlobIndex(), BlobRef->getDefinedAtLevel());
       else {
         unsigned BlobIndex = Blob->getBlobIndex();
+        // If a valid blob index was not recorded for temp, then try to find the
+        // index using its symbase. For example -
+        // %t1 = %t2 (in preheader)
+        // Here %t1 is not a self blob and VPExternalDef for it is created via
+        // its symbase.
+        if (BlobIndex == loopopt::InvalidBlobIndex)
+          BlobIndex =
+              BlobUtilities.findOrInsertTempBlobIndex(BlobRef->getSymbase());
         const RegDDRef *RDDR = cast<RegDDRef>(BlobRef);
 
         // Create a RegDDREF containing blob with index BlobIndex.
@@ -3661,7 +3648,24 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
 
   case VPInstruction::PrivateFinalUncond:
   case VPInstruction::PrivateFinalUncondMem: {
-    // TODO: Add codegen for unconditional private finalization
+    assert(!VPInst->getOperand(0)->getType()->isVectorTy() &&
+           "Private finalization for VectorTy not supported yet.");
+
+    // Scalar result of private finalization should be written back to original
+    // private descriptor variable, obtained from external user.
+    assert(!hasNoExternalUsers(VPInst) &&
+           "Private final does not have any external uses.");
+    const VPExternalUse *ExtUse = getSingleExternalUse(VPInst, Plan);
+    RegDDRef *OrigPrivDescr = getUniformScalarRef(ExtUse);
+    RegDDRef *VecRef = widenRef(VPInst->getOperand(0), getVF());
+    // Mark the temp to extract from live-out of the loop.
+    MainLoop->addLiveOutTemp(VecRef->getSymbase());
+    auto *PrivExtract = HLNodeUtilities.createExtractElementInst(
+        VecRef, getVF() - 1, "extracted.priv", OrigPrivDescr);
+    // TODO: This should be changed to addInst interface once it is aware of
+    // Loop PH or Exit.
+    HLNodeUtils::insertAfter(MainLoop, PrivExtract);
+    addVPValueScalRefMapping(VPInst, PrivExtract->getLvalDDRef(), 0 /*Lane*/);
     return;
   }
 
@@ -4606,6 +4610,32 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   addInst(NewInst, Mask);
   if (NewInst->hasLval())
     addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
+}
+
+void VPOCodeGenHIR::makeConsistentAndAddToMap(
+    RegDDRef *Ref, const VPInstruction *VPInst,
+    SmallVectorImpl<const RegDDRef *> &AuxRefs, bool Widen,
+    unsigned ScalarLaneID) {
+  // Use AuxRefs if it is not empty to make Ref consistent
+  if (!AuxRefs.empty())
+    Ref->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
+  if (Widen) {
+    RegDDRef *WideRef = Ref;
+
+    if (getVPLoop()->isLiveOut(VPInst)) {
+      // Emit a copy instruction to prevent invalid folding during live-out
+      // finalization.
+      assert(Ref->getHLDDNode() == nullptr &&
+             "Only unattached DDRefs are expected.");
+      auto *LiveOutCopy = HLNodeUtilities.createCopyInst(Ref, "liveoutcopy");
+      // TODO: Is Mask needed for adding the copy?
+      addInstUnmasked(LiveOutCopy);
+      WideRef = LiveOutCopy->getLvalDDRef();
+    }
+
+    addVPValueWideRefMapping(VPInst, WideRef);
+  } else
+    addVPValueScalRefMapping(VPInst, Ref, ScalarLaneID);
 }
 
 void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
