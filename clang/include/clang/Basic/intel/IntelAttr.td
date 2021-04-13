@@ -367,6 +367,8 @@ def MaxConcurrency : InheritableAttr {
   }];
 }
 
+def : MutualExclusions<[IntelFPGARegister, MaxConcurrency]>;
+
 def MaxInterleaving : InheritableAttr {
   let Spellings = [GNU<"max_interleaving">];
   let Args = [ExprArgument<"Value">];
@@ -509,6 +511,7 @@ def StaticArrayReset : Attr {
     }
   }];
 }
+def : MutualExclusions<[IntelFPGARegister, StaticArrayReset]>;
 
 // IntrinsicPromotion implementation.
 // This is an AST only attribute that should never appear in customer code.
