@@ -1963,9 +1963,9 @@ def SYCLIntelFPGAMaxConcurrency : DeclOrStmtAttr {
   let Spellings = [CXX11<"intelfpga","max_concurrency">,
                    Pragma<"", "max_concurrency">, //INTEL
                    CXX11<"intel","max_concurrency">];
-  let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
-                             ErrorDiag,
-                             "'for', 'while', 'do' statements, and functions">;
+  let Subjects =
+      SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt, Function],
+                   ErrorDiag, "'for', 'while', 'do' statements, and functions">;
   let Args = [ExprArgument<"NThreadsExpr">];
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
   let HasCustomTypeTransform = 0; //INTEL
