@@ -14,10 +14,11 @@
 
 #include "BuiltinCallToInst.h"
 #include "NameMangleAPI.h"
-#include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
-#include "llvm/IR/InstIterator.h"
+#include "VectorizerUtils.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
 
 extern "C" {
   /// @brief Creates new BuiltinCallToInst pass
@@ -176,6 +177,7 @@ namespace intel{
     }
 
     Instruction* newShuffleInst = new ShuffleVectorInst(firstVec, secondVec, newMask, "newShuffle", shuffleCall);
+    newShuffleInst->setDebugLoc(shuffleCall->getDebugLoc());
 
     // Due to an optimization in clang, the return type of the original call may be a longer vector
     // than what the shuffle produces.
@@ -217,12 +219,14 @@ namespace intel{
     default:
       assert(false && "Unhandled relational built-in type");
     }
-    Instruction* newRelationalInst = new FCmpInst(relationalCall, cmpOpcode, operand1, operand2);
+    IRBuilder<> Builder(relationalCall);
+    Value *newRelationalInst =
+        Builder.CreateFCmp(cmpOpcode, operand1, operand2);
     Type *retType = relationalCall->getType();
     if (retType->isVectorTy()) {
-      newRelationalInst =  new SExtInst(newRelationalInst, retType, "", relationalCall);
+      newRelationalInst = Builder.CreateSExt(newRelationalInst, retType);
     } else {
-      newRelationalInst =  new ZExtInst(newRelationalInst, retType, "", relationalCall);
+      newRelationalInst = Builder.CreateZExt(newRelationalInst, retType);
     }
 
     relationalCall->replaceAllUsesWith(newRelationalInst);

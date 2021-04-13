@@ -37,6 +37,7 @@
 ;
 ; Compiled by the following command: clang -cc1 -triple spir-unknown-unknown-intelfpga %s -emit-llvm -o -
 
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -remove-fpga-reg -llvm-equalizer -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -remove-fpga-reg -llvm-equalizer -verify -S %s | FileCheck %s
 
 %struct.st = type { i32, float }
@@ -218,3 +219,11 @@ attributes #2 = { argmemonly nounwind }
 !2 = !{i32 1, i32 2}
 !3 = !{}
 !4 = !{!"clang version 7.0.0 (ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-clang 785365fbd2965b6d4b84ca2e99d66bf6935bbcd4)"}
+
+; 14 @llvm.fpga.reg.* instructions have been removed.
+; So debugify would report 14 warnings of "Missing line"
+; Other warnings are not expected.
+
+; DEBUGIFY-NOT: WARNING:
+; DEBUGIFY-COUNT-14: WARNING: Missing line
+; DEBUGIFY-NOT: WARNING:

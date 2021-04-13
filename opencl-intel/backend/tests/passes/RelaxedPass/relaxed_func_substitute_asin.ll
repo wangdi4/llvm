@@ -1,3 +1,4 @@
+; RUN: %oclopt -relaxed-funcs -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -relaxed-funcs -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -70,3 +71,5 @@ declare <16 x double> @_Z4asinDv16_d(<16 x double>)
 ; CHECK:        declare <4 x double> @_Z11native_asinDv4_d(<4 x double>)
 ; CHECK:        declare <8 x double> @_Z11native_asinDv8_d(<8 x double>)
 ; CHECK:        declare <16 x double> @_Z11native_asinDv16_d(<16 x double>)
+
+; DEBUGIFY-NOT: WARNING

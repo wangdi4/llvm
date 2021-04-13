@@ -100,6 +100,7 @@ namespace intel{
       // Create and instruction with the constant value that will zero the upper bits of each element in the shift value
       // %newShiftBy = and %shiftBy, %zeroUpperBitsVector
       BinaryOperator* newShiftBy = BinaryOperator::Create(Instruction::And, shiftBy, zeroUpperBitsVector, "", shiftInst);
+      newShiftBy->setDebugLoc(shiftInst->getDebugLoc());
 
       // Replace original shift value
       shiftInst->setOperand(SHIFT_BY_POSITION, newShiftBy);

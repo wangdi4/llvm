@@ -1,3 +1,4 @@
+; RUN: %oclopt -builtin-call-to-inst -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -builtin-call-to-inst -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -162,3 +163,5 @@ attributes #2 = { nounwind readnone }
 !8 = !{!"omnipotent char", !9}
 !9 = !{!"Simple C/C++ TBAA"}
 !10 = !{!"int", !8}
+
+; DEBUGIFY-NOT: WARNING

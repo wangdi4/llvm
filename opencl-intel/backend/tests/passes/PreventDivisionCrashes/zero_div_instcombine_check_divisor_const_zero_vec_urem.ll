@@ -1,3 +1,4 @@
+; RUN: %oclopt -debugify -prevent-div-crash -check-debugify -instcombine -S %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -prevent-div-crash  -instcombine -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -12,3 +13,5 @@ entry:
 ; %rem = urem %x, <1, 1, 1, ..., 1> = %x --> udiv instruction should disappear
 ; CHECK-NOT: 	urem <16 x i64> %x
 
+
+; DEBUGIFY-NOT: WARNING

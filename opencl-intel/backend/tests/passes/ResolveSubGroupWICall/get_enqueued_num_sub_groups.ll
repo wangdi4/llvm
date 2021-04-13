@@ -1,4 +1,5 @@
 ; RUN: %oclopt -resolve-sub-group-wi-call -S < %s | FileCheck %s
+; RUN: %oclopt -enable-debugify -resolve-sub-group-wi-call -disable-output 2>&1 -S < %s | FileCheck %s -check-prefix=DEBUGIFY
 ; ModuleID = 'main'
 source_filename = "1"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -101,4 +102,4 @@ attributes #4 = { convergent nounwind }
 !25 = !{!"Simple C/C++ TBAA"}
 !26 = !{i32 16}
 !27 = !{i32 1}
-
+; DEBUGIFY-NOT: WARNING

@@ -1,4 +1,5 @@
 ; RUN: %oclopt -deduce-max-dim -S < %s -runtimelib %p/../../vectorizer/Full/runtime.bc | FileCheck %s
+; RUN: %oclopt -enable-debugify -deduce-max-dim 2>&1 -disable-output -S < %s -runtimelib %p/../../vectorizer/Full/runtime.bc | FileCheck %s -check-prefix=DEBUGIFY
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
@@ -76,4 +77,4 @@ attributes #4 = { convergent nounwind readnone }
 !19 = !{!"Simple C/C++ TBAA"}
 !20 = !{i32 16}
 !21 = !{i32 5}
-
+; DEBUGIFY-NOT: WARNING

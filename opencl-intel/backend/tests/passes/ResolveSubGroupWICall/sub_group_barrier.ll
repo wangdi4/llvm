@@ -1,5 +1,6 @@
 ; RUN: llvm-as %S/builtin_lib.rtl -o %t.rtl.bc
 ; RUN: %oclopt -runtimelib=%t.rtl.bc -resolve-sub-group-wi-call -S < %s | FileCheck %s
+; RUN: %oclopt -runtimelib=%t.rtl.bc -resolve-sub-group-wi-call -enable-debugify -disable-output 2>&1 -S < %s | FileCheck %s --check-prefix=DEBUGIFY
 ; ModuleID = 'main'
 source_filename = "1"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -53,4 +54,4 @@ attributes #3 = { nounwind }
 !10 = !{i32 16}
 !11 = !{i32 0}
 !12 = !{i1 false}
-
+;DEBUGIFY-NOT: WARNING

@@ -17,8 +17,9 @@
 #include "PrintfArgumentsPromotion.h"
 #include "OCLPassSupport.h"
 
-#include <llvm/IR/Attributes.h>
-#include <llvm/IR/Module.h>
+#include "llvm/IR/Attributes.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Module.h"
 
 using namespace llvm;
 
@@ -90,6 +91,7 @@ namespace intel {
     assert(printfFunc->isVarArg() && "printf must be variadic");
 
     bool changed = false;
+    IRBuilder<> Builder(M.getContext());
     for(User * user: printfFunc->users()) {
       CallInst * printfCI = dyn_cast<CallInst>(user);
       if(!printfCI || printfCI->getNumArgOperands() < 2) continue;
@@ -99,6 +101,7 @@ namespace intel {
         printfCI->addAttribute(AttributeList::FunctionIndex,
                                Attribute::NoBuiltin);
 
+      Builder.SetInsertPoint(printfCI);
       for(Use & use: printfCI->arg_operands()) {
         Value * argVal = use;
         Type * argTy = argVal->getType();
@@ -117,10 +120,12 @@ namespace intel {
 
         // It is safe here to use Cast instructions instead of OpenCL built-ins since
         // the resulting type is wider so no need for truncation or rounding.
-        Type * promoTy = getPromotedTy(argTy);
-        Value * promoVal =  promoTy->getScalarType()->isIntegerTy() ?
-          CastInst::CreateIntegerCast(argVal, promoTy, false, "printf.promoted", printfCI) :
-          CastInst::CreateFPCast(argVal, promoTy, "printf.promoted", printfCI);
+        Type *promoTy = getPromotedTy(argTy);
+        Value *promoVal =
+            promoTy->getScalarType()->isIntegerTy()
+                ? Builder.CreateIntCast(argVal, promoTy, false,
+                                        "printf.promoted")
+                : Builder.CreateFPCast(argVal, promoTy, "printf.promoted");
         // Replace the operand with the promoted value. It should be OK that the values
         // have different types because these are variadic arguments.
         use.getUser()->setOperand(use.getOperandNo(), promoVal);

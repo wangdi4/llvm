@@ -1,3 +1,4 @@
+; RUN: %oclopt -prevent-div-crash  -instcombine -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -prevent-div-crash  -instcombine -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -12,3 +13,5 @@ entry:
 ; replacing 0 with 1 in the divisor vector
 ; CHECK: 	sdiv <4 x i32> %x, <i32 -2, i32 1, i32 632, i32 1>
 
+
+; DEBUGIFY-NOT: WARNING

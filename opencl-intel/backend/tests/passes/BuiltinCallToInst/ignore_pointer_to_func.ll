@@ -1,3 +1,4 @@
+; RUN: %oclopt -builtin-call-to-inst -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -builtin-call-to-inst -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -10,3 +11,5 @@ entry:
   store i32 %call, i32 addrspace(1)* %p1
   ret void
 }
+
+; DEBUGIFY-NOT: WARNING

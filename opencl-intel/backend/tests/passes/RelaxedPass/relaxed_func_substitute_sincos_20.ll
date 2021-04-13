@@ -1,3 +1,4 @@
+; RUN: %oclopt -relaxed-funcs -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -relaxed-funcs -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -45,3 +46,5 @@ declare <16 x float> @_Z6sincosDv16_fPU3AS1S_(<16 x float>, <16 x float> addrspa
 ; CHECK:        declare <4 x float> @_Z9sincos_rmDv4_fPU3AS1S_(<4 x float>, <4 x float> addrspace(1)*)
 ; CHECK:        declare <8 x float> @_Z9sincos_rmDv8_fPU3AS1S_(<8 x float>, <8 x float> addrspace(1)*)
 ; CHECK:        declare <16 x float> @_Z9sincos_rmDv16_fPU3AS1S_(<16 x float>, <16 x float> addrspace(1)*)
+
+; DEBUGIFY-NOT: WARNING

@@ -1,3 +1,4 @@
+; RUN: %oclopt -relaxed-funcs -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -relaxed-funcs -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -40,4 +41,4 @@ declare <16 x float> @_Z3expDv16_f(<16 x float>)
 ; CHECK:        declare <8 x float> @_Z6exp_rmDv8_f(<8 x float>)
 ; CHECK:        declare <16 x float> @_Z6exp_rmDv16_f(<16 x float>)
 
-
+; DEBUGIFY-NOT: WARNING

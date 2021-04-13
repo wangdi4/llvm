@@ -1,3 +1,4 @@
+; RUN: %oclopt -prevent-div-crash -eyeq-div-crash-behavior -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -prevent-div-crash -eyeq-div-crash-behavior -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -17,3 +18,5 @@ entry:
 ; CHECK-NEXT: [[NEW_DIVIDEND:%[a-zA-Z0-9.]+]] = select i1 [[IS_DIVISOR_ZERO]], i32 0, i32 %x
 ; CHECK-NEXT: urem i32 [[NEW_DIVIDEND]], [[NEW_DIVISOR]]
 
+
+; DEBUGIFY-NOT: WARNING

@@ -1,3 +1,4 @@
+; RUN: %oclopt -shift-ignore-upper-bits -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -shift-ignore-upper-bits -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -41,3 +42,5 @@ entry:
 ; CHECK-NEXT:   %res = shl i32 526, 33
 ; CHECK-NEXT:   ret void
 
+
+; DEBUGIFY-NOT: WARNING

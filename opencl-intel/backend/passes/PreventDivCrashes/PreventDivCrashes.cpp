@@ -13,17 +13,18 @@
 // License.
 
 #include "PreventDivCrashes.h"
-#include "OCLPassSupport.h"
-#include "NameMangleAPI.h"
-#include "ParameterType.h"
 #include "InitializePasses.h"
+#include "NameMangleAPI.h"
+#include "OCLPassSupport.h"
+#include "ParameterType.h"
 
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 
 extern "C" {
@@ -130,9 +131,11 @@ namespace intel {
     // %newDividend         =   select i1 %isDivisorZero, i32 0, i32 %0
     // %div                 =   sdiv i32 %newDividend, %newiDvisor
 
+    IRBuilder<> Builder(m_divInstuctions[0]);
     for (unsigned i=0; i< m_divInstuctions.size(); ++i) {
 
       BinaryOperator* divInst = m_divInstuctions[i];
+      Builder.SetInsertPoint(divInst);
 
       // Extract the context
       LLVMContext& context = divInst->getContext();
@@ -168,36 +171,48 @@ namespace intel {
         Constant* minInt   = ConstantInt::get(divisorType, APInt::getSignedMinValue(divisorType->getScalarSizeInBits()));    // Creates vector constant if divisorType is vectorType
 
         // %isDivisorNegOne = cmp %divisor, %negOne
-        CmpInst* isDivisorNegOne =  CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, divisor, negOne, "isDivisorNegOne", divInst);
+        Value *isDivisorNegOne =
+            Builder.CreateICmpEQ(divisor, negOne, "isDivisorNegOne");
 
         // %isDividendMinInt = cmp %dividend, %minInt
-        CmpInst* isDividendMinInt = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, dividend, minInt, "isDividendMinInt", divInst);
+        Value *isDividendMinInt =
+            Builder.CreateICmpEQ(dividend, minInt, "isDividendMinInt");
 
-
-        // Update isIntegerOverflow (whihc is currently flase) with the comparison result
-        // %isIntegerOverflow   =   and %isDivisorNegOne, %isDividendMinInt
-        isIntegerOverflow = BinaryOperator::Create(Instruction::And, isDivisorNegOne, isDividendMinInt, "isIntegerOverflow", divInst);
+        // Update isIntegerOverflow (whihc is currently flase) with the
+        // comparison result %isIntegerOverflow   =   and %isDivisorNegOne,
+        // %isDividendMinInt
+        isIntegerOverflow = Builder.CreateAnd(isDivisorNegOne, isDividendMinInt,
+                                              "isIntegerOverflow");
       }
 
       // Creare integer 0 and 1 constants
-      Constant* zero  = ConstantInt::get(divisorType, 0);    // Creates vector constant if divisorType is vectorType
-      Constant* one   = ConstantInt::get(divisorType, 1);    // Creates vector constant if divisorType is vectorType
+      Constant *zero = ConstantInt::get(
+          divisorType,
+          0); // Creates vector constant if divisorType is vectorType
+      Constant *one = ConstantInt::get(
+          divisorType,
+          1); // Creates vector constant if divisorType is vectorType
 
       // %isDivisorZero = cmp %divisor, %zero
-      CmpInst* isDivisorZero = CmpInst::Create(Instruction::ICmp, CmpInst::ICMP_EQ, divisor, zero, "isDivisorZero", divInst);
+      Value *isDivisorZero =
+          Builder.CreateICmpEQ(divisor, zero, "isDivisorZero");
 
       // %isDivisorBad        =   or %isIntegerOverflow, %isDivisorZero
-      Value* isDivisorBad = BinaryOperator::Create(Instruction::Or, isIntegerOverflow, isDivisorZero, "isDivisorBad", divInst);
+      Value *isDivisorBad =
+          Builder.CreateOr(isIntegerOverflow, isDivisorZero, "isDivisorBad");
 
       // %newdivisor = select %isDivisorBad, %one, %divisor
-      SelectInst* newDivisor = SelectInst::Create(isDivisorBad, one, divisor, "newiDvisor", divInst);
+      Value *newDivisor =
+          Builder.CreateSelect(isDivisorBad, one, divisor, "newDivisor");
 
       // Replace original divisor
       divInst->setOperand(DIVISOR_POSITION, newDivisor);
 
       if (EyeQDivCrashBehavior) {
-        // For EyeQ devices: %newDividend = select i1 %isDivisorZero, %zero, %dividend
-        SelectInst* newDividend = SelectInst::Create(isDivisorZero, zero, dividend, "NewDividend", divInst);
+        // For EyeQ devices: %newDividend = select i1 %isDivisorZero, %zero,
+        // %dividend
+        Value *newDividend =
+            Builder.CreateSelect(isDivisorZero, zero, dividend, "NewDividend");
         // Replace original dividend
         divInst->setOperand(DIVIDEND_POSITION, newDividend);
       }

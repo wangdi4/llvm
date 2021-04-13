@@ -1,3 +1,4 @@
+; RUN: %oclopt -prevent-div-crash -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -prevent-div-crash -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -17,3 +18,5 @@ entry:
 ; CHECK-NEXT: 	[[NEW_DIVISOR:%[a-zA-Z0-9]+]] = select <8 x i1> [[IS_DIVISOR_BAD]], <8 x i16> <i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1>, <8 x i16> %y
 ; CHECK-NEXT: 	sdiv <8 x i16> %x, [[NEW_DIVISOR]]
 
+
+; DEBUGIFY-NOT: WARNING

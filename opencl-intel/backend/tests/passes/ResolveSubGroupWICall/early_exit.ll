@@ -1,5 +1,6 @@
 ; RUN: llvm-as %S/builtin_lib.rtl -o %t.rtl.bc
 ; RUN: %oclopt -runtimelib=%t.rtl.bc -resolve-sub-group-wi-call -S < %s | FileCheck %s
+; RUN: %oclopt -runtimelib=%t.rtl.bc -enable-debugify -resolve-sub-group-wi-call -disable-output 2>&1 -S < %s | FileCheck -check-prefix=DEBUGIFY %s
 ; ModuleID = 'main'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -100,3 +101,4 @@ attributes #1 = { nounwind readnone }
 !25 = !{void (%struct._ZTS13pixel_block_t.pixel_block_t addrspace(1)*, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"*, %"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"*, i32, i32, i32, double, double, double, i32)* @_ZTS17mandelbrot_kernelIdE}
 !26 = !{i32 0}
 !27 = !{i1 false}
+; DEBUGIFY-NOT: WARNING

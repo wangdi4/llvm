@@ -1,3 +1,4 @@
+; RUN: %oclopt -prevent-div-crash -gvn -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -prevent-div-crash -gvn -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -22,3 +23,5 @@ entry:
 ; CHECK-NEXT: 	sdiv i32 %x, [[NEW_DIVISOR_SDIV]]
 
 
+
+; DEBUGIFY-NOT: WARNING

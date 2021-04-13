@@ -155,6 +155,9 @@ bool ChooseVectorizationDimensionImpl::hasDim(Function* F, unsigned int dim) {
     return false;
 
   for (auto *U : gid->users()) {
+    if (U->use_empty())
+      continue;
+
     CallInst *pInstCall = cast<CallInst>(U);
     if (pInstCall->getFunction() != F) {
       continue; // only interested if F uses the dim directly.
