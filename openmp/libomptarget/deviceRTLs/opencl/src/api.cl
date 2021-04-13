@@ -62,28 +62,24 @@ EXTERN int omp_get_team_size(int level) {
 }
 
 EXTERN int omp_get_thread_num(void) {
-  if (__omp_spirv_global_data.assume_simple_spmd_mode)
-    return __kmp_get_local_id();
-
+#if KMP_ASSUME_SIMPLE_SPMD_MODE
+  return __kmp_get_local_id();
+#else
   return __kmp_get_omp_thread_id(__kmp_is_spmd_mode());
+#endif
 }
 
 EXTERN int omp_get_num_threads(void) {
-  if (__omp_spirv_global_data.assume_simple_spmd_mode) {
-    // We are using team data for the cases that are not supposed to use team
-    // data. Target regions that use too many teams and push different
-    // num_threads each may produce incorrect results.
-    int spmd_num_threads =
-        __omp_spirv_local_data[__kmp_get_group_id() % KMP_MAX_NUM_GROUPS]
-        .spmd_num_threads;
-    if (spmd_num_threads > 0)
-      // was set by __kmpc_spmd_push_num_threads
-      return OP_MIN(__kmp_get_local_size(), spmd_num_threads, 0);
-    else
-      return __kmp_get_local_size();
-  }
-
+#if KMP_ASSUME_SIMPLE_SPMD_MODE
+  int spmd_num_threads = __omp_spirv_global_data.spmd_num_threads;
+  if (spmd_num_threads <= 0)
+    return __kmp_get_local_size();
+  else
+    // was set by __kmpc_spmd_push_num_threads
+    return OP_MIN(__kmp_get_local_size(), spmd_num_threads, 0);
+#else
   return __kmp_get_num_omp_threads(__kmp_is_spmd_mode());
+#endif
 }
 
 EXTERN void omp_set_num_threads(int num_threads) {
@@ -91,27 +87,28 @@ EXTERN void omp_set_num_threads(int num_threads) {
 }
 
 EXTERN int omp_get_max_threads(void) {
-  if (__omp_spirv_global_data.assume_simple_spmd_mode) {
-    // FIXME: this somehow fixes CMPLRLIBS-33306. Investigate why.
-    (void)omp_get_num_threads();
-    // Return thread_limit always.
-    return __kmp_get_local_size();
-  }
-
+#if KMP_ASSUME_SIMPLE_SPMD_MODE
+  // FIXME: this somehow fixes CMPLRLIBS-33306. Investigate why.
+  (void)omp_get_num_threads();
+  // Return thread_limit always.
+  return __kmp_get_local_size();
+#else
   kmp_local_state_t *local_state = __kmp_get_local_state();
   int level = local_state->parallel_level[__kmp_get_local_id()];
   int ret = 1;
   if (level == 0)
     ret = local_state->num_threads;
   return ret;
+#endif
 }
 
 EXTERN int omp_in_parallel(void) {
-  if (__omp_spirv_global_data.assume_simple_spmd_mode)
-    return 1;
-
+#if KMP_ASSUME_SIMPLE_SPMD_MODE
+  return 1;
+#else
   int level = __kmp_get_local_state()->parallel_level[__kmp_get_local_id()];
   return (level > KMP_ACTIVE_PARALLEL_BUMP);
+#endif
 }
 
 EXTERN int omp_get_thread_limit(void) {
