@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -O0 -emit-llvm -o - -std=c++17 -fsycl-is-device \
-// RUN: -fenable-variant-function-pointers  -fsycl-explicit-simd \
+// RUN: -fenable-variant-function-pointers \
 // RUN:  -triple spir64-unknown-linux-sycldevice %s | FileCheck %s
 
 template <typename name, typename Func>
@@ -13,7 +13,7 @@ extern SYCL_EXTERNAL int bar(int, int);
 extern SYCL_EXTERNAL int zoo(int);
 extern SYCL_EXTERNAL int moo(int);
 const func two = &bar;
-__attribute__((opencl_private)) fptr one_one;
+__attribute__((opencl_private)) __attribute__((sycl_explicit_simd)) fptr one_one;
 //CHECK: @"_Z3zooi$SIMDTable" = weak global [1 x i32 (i32)*] [i32 (i32)* @_Z3zooi]
 //CHECK: @"_Z3barii$SIMDTable" = weak global [1 x i32 (i32, i32)*] [i32 (i32, i32)* @_Z3barii]
 //CHECK: @"_Z3mooi$SIMDTable" = weak global [1 x i32 (i32)*] [i32 (i32)* @_Z3mooi]
@@ -23,13 +23,13 @@ void test(int i);
 //CHECK: define {{.*}}_ZZ4mainENK3$_0clEv
 int main()
 {
-  kernel_single_task<class kernel_function>([]() {
-   test(10);
-//CHECK: store{{.*}}@"_Z3zooi$SIMDTable"
-   one_one = &zoo;
-//CHECK:call{{.*}}@__intel_indirect_call_0
-   one_one(1);
-   test1();
+  kernel_single_task<class kernel_function>([]() __attribute__((sycl_explicit_simd)) {
+    test(10);
+    // CHECK: store{{.*}}@"_Z3zooi$SIMDTable"
+    one_one = &zoo;
+    // CHECK:call{{.*}}@__intel_indirect_call_0
+    one_one(1);
+    test1();
   });
 }
 
