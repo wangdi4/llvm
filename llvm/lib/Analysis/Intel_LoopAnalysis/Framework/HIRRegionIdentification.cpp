@@ -1626,12 +1626,6 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
       return false;
     }
 
-    // TODO: Need to add support of auxiliary (non-operand) data.
-    if (isa<ShuffleVectorInst>(Inst)) {
-      printOptReportRemark(Lp, "ShuffleVectorInst currently not supported.");
-      return false;
-    }
-
     if (auto CInst = dyn_cast<CallInst>(Inst)) {
       if (CInst->isInlineAsm()) {
         printOptReportRemark(Lp, "Inline assembly currently not supported.");

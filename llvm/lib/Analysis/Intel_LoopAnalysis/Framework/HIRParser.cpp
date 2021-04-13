@@ -4588,6 +4588,11 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
     }
   }
 
+  if (auto *Shuffle = dyn_cast<ShuffleVectorInst>(Inst)) {
+    Constant *Mask = Shuffle->getShuffleMaskForBitcode();
+    HInst->setOperandDDRef(DDRU.createConstDDRef(Mask), 3);
+  }
+
   // Process lval
   if (HasLval) {
     HInst->setLvalDDRef(createLvalDDRef(HInst, Level));
