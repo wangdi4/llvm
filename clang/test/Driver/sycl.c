@@ -50,7 +50,7 @@
 // DEFAULT-NOT: "-std=c++11"
 // DEFAULT-NOT: "-std=c++14"
 // NO-BITCODE: "-triple" "spir{{(64)?}}-unknown-{{.*}}-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
-// NO-BITCODE: "{{.*}}llvm-spirv"{{.*}} "-spirv-max-version=1.3"{{.*}} "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes,-SPV_INTEL_optnone"
+// NO-BITCODE: "{{.*}}llvm-spirv"{{.*}} "-spirv-max-version=1.3"{{.*}} "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes,-SPV_INTEL_optnone,-SPV_KHR_linkonce_odr"
 // In the "TARGET" case, we specified an explicit target triple on the
 // command line, so it will always be "spir64" here.
 // TARGET: "-triple" "spir64-unknown-linux-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
