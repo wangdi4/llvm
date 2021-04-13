@@ -370,6 +370,8 @@ private:
   /// Computes vector shape for extract element instructions.
   VPVectorShape computeVectorShapeForInsertExtractInst(const VPInstruction *I);
 
+  VPVectorShape computeVectorShapeForShuffleVectorInst(const VPInstruction *I);
+
   /// Computes vector shape for select instructions.
   VPVectorShape computeVectorShapeForSelectInst(const VPInstruction *I);
 
