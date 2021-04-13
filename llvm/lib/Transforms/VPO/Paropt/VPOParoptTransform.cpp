@@ -4609,7 +4609,7 @@ bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
         CallInst *Call = Builder.CreateAlignmentAssumption(DL, Ptr, Align);
 
         // And then add it to the assumption cache.
-        AC->registerAssumption(Call);
+        AC->registerAssumption(cast<AssumeInst>(Call));
       };
 
       // For ptr-to-ptr values create llvm.assume call after the instruction

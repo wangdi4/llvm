@@ -1457,7 +1457,7 @@ static void AddAlignmentAssumptions(CallBase &CB, InlineFunctionInfo &IFI) {
 
       CallInst *NewAsmp =
           IRBuilder<>(&CB).CreateAlignmentAssumption(DL, ArgVal, Align);
-      AC->registerAssumption(NewAsmp);
+      AC->registerAssumption(cast<AssumeInst>(NewAsmp));
     }
   }
 }
@@ -2523,9 +2523,8 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       for (BasicBlock &NewBlock :
            make_range(FirstNewBlock->getIterator(), Caller->end()))
         for (Instruction &I : NewBlock)
-          if (auto *II = dyn_cast<IntrinsicInst>(&I))
-            if (II->getIntrinsicID() == Intrinsic::assume)
-              IFI.GetAssumptionCache(*Caller).registerAssumption(II);
+          if (auto *II = dyn_cast<AssumeInst>(&I))
+            IFI.GetAssumptionCache(*Caller).registerAssumption(II);
 
     HandleVaArgPackAndLen(CB, FirstNewBlock, IR, MDIR); // INTEL
   }
