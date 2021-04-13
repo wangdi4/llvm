@@ -1,34 +1,7 @@
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-post-vec-complete-unroll -hir-complete-unroll-loopnest-trip-threshold=50 -hir-lmm -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-post-vec-complete-unroll,print<hir>,hir-lmm,print<hir>" -aa-pipeline="basic-aa" -hir-complete-unroll-loopnest-trip-threshold=50 < %s 2>&1 | FileCheck %s
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-post-vec-complete-unroll -hir-complete-unroll-loopnest-trip-threshold=50 -hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-temp-cleanup,hir-loop-interchange,hir-post-vec-complete-unroll,hir-lmm,print<hir>" -aa-pipeline="basic-aa" -hir-complete-unroll-loopnest-trip-threshold=50 < %s 2>&1 | FileCheck %s
 ; (This test is based on Interchange/matmul-coremark.ll)
 ;
-;[LLIMM Analysis]
-;MemRefCollection, entries: 25
-;  (@px)[0][25 * i1] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 1] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 2] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 3] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 4] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 5] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 6] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 7] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 8] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 9] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 10] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 11] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 12] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 13] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 14] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 15] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 16] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 17] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 18] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 19] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 20] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 21] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 22] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 23] {  R  W  } 1W : 1R  legal
-;  (@px)[0][25 * i1 + 24] {  R  W  } 1W : 1R  legal
 ;
 ; LIMM's Opportunity:
 ; - LILH:   (0)
@@ -36,229 +9,88 @@
 ; - LILHSS:(25)
 ;
 ;
-; ORIGINAL LOOP:
-;
-; CHECK: Function
-;
-; CHECK:  BEGIN REGION { modified }
-; CHECK:           + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 40>
-; CHECK:           |   + DO i2 = 0, %loop + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
-; CHECK:           |   |   + DO i3 = 0, 24, 1   <DO_LOOP>
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 1]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 1]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 1] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 2]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 2]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 2] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 3]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 3]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 3] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 4]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 4]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 4] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 5]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 5]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 5] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 6]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 6]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 6] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 7]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 7]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 7] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 8]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 8]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 8] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 9]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 9]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 9] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 10]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 10]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 10] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 11]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 11]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 11] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 12]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 12]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 12] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 13]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 13]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 13] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 14]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 14]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 14] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 15]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 15]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 15] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 16]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 16]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 16] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 17]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 17]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 17] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 18]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 18]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 18] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 19]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 19]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 19] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 20]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 20]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 20] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 21]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 21]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 21] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 22]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 22]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 22] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 23]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 23]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 23] = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 24]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1 + 24]  +  %mul20;
-; CHECK:           |   |   |   (@px)[0][25 * i1 + 24] = %add21;
-; CHECK:           |   |   + END LOOP
-; CHECK:           |   + END LOOP
-; CHECK:           + END LOOP
-; CHECK:   END REGION
-;
-; ***
-;
 ; CHECK: Function
 ; CHECK: matmul
 ;
 ; CHECK:  BEGIN REGION { modified }
-; CHECK:           + DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 40>
-; CHECK:           |   + DO i2 = 0, %loop + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
-; CHECK:           |   |      %limm = (@px)[0][25 * i1];
-; CHECK:           |   |      %limm4 = (@px)[0][25 * i1 + 1];
-; CHECK:           |   |      %limm6 = (@px)[0][25 * i1 + 2];
-; CHECK:           |   |      %limm8 = (@px)[0][25 * i1 + 3];
-; CHECK:           |   |      %limm10 = (@px)[0][25 * i1 + 4];
-; CHECK:           |   |      %limm12 = (@px)[0][25 * i1 + 5];
-; CHECK:           |   |      %limm14 = (@px)[0][25 * i1 + 6];
-; CHECK:           |   |      %limm16 = (@px)[0][25 * i1 + 7];
-; CHECK:           |   |      %limm18 = (@px)[0][25 * i1 + 8];
-; CHECK:           |   |      %limm20 = (@px)[0][25 * i1 + 9];
-; CHECK:           |   |      %limm22 = (@px)[0][25 * i1 + 10];
-; CHECK:           |   |      %limm24 = (@px)[0][25 * i1 + 11];
-; CHECK:           |   |      %limm26 = (@px)[0][25 * i1 + 12];
-; CHECK:           |   |      %limm28 = (@px)[0][25 * i1 + 13];
-; CHECK:           |   |      %limm30 = (@px)[0][25 * i1 + 14];
-; CHECK:           |   |      %limm32 = (@px)[0][25 * i1 + 15];
-; CHECK:           |   |      %limm34 = (@px)[0][25 * i1 + 16];
-; CHECK:           |   |      %limm36 = (@px)[0][25 * i1 + 17];
-; CHECK:           |   |      %limm38 = (@px)[0][25 * i1 + 18];
-; CHECK:           |   |      %limm40 = (@px)[0][25 * i1 + 19];
-; CHECK:           |   |      %limm42 = (@px)[0][25 * i1 + 20];
-; CHECK:           |   |      %limm44 = (@px)[0][25 * i1 + 21];
-; CHECK:           |   |      %limm46 = (@px)[0][25 * i1 + 22];
-; CHECK:           |   |      %limm48 = (@px)[0][25 * i1 + 23];
-; CHECK:           |   |      %limm50 = (@px)[0][25 * i1 + 24];
-; CHECK:           |   |   + DO i3 = 0, 24, 1   <DO_LOOP>
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm  +  %mul20;
-; CHECK:           |   |   |   %limm = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 1]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm4  +  %mul20;
-; CHECK:           |   |   |   %limm4 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 2]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm6  +  %mul20;
-; CHECK:           |   |   |   %limm6 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 3]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm8  +  %mul20;
-; CHECK:           |   |   |   %limm8 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 4]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm10  +  %mul20;
-; CHECK:           |   |   |   %limm10 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 5]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm12  +  %mul20;
-; CHECK:           |   |   |   %limm12 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 6]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm14  +  %mul20;
-; CHECK:           |   |   |   %limm14 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 7]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm16  +  %mul20;
-; CHECK:           |   |   |   %limm16 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 8]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm18  +  %mul20;
-; CHECK:           |   |   |   %limm18 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 9]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm20  +  %mul20;
-; CHECK:           |   |   |   %limm20 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 10]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm22  +  %mul20;
-; CHECK:           |   |   |   %limm22 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 11]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm24  +  %mul20;
-; CHECK:           |   |   |   %limm24 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 12]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm26  +  %mul20;
-; CHECK:           |   |   |   %limm26 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 13]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm28  +  %mul20;
-; CHECK:           |   |   |   %limm28 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 14]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm30  +  %mul20;
-; CHECK:           |   |   |   %limm30 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 15]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm32  +  %mul20;
-; CHECK:           |   |   |   %limm32 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 16]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm34  +  %mul20;
-; CHECK:           |   |   |   %limm34 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 17]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm36  +  %mul20;
-; CHECK:           |   |   |   %limm36 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 18]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm38  +  %mul20;
-; CHECK:           |   |   |   %limm38 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 19]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm40  +  %mul20;
-; CHECK:           |   |   |   %limm40 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 20]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm42  +  %mul20;
-; CHECK:           |   |   |   %limm42 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 21]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm44  +  %mul20;
-; CHECK:           |   |   |   %limm44 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 22]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm46  +  %mul20;
-; CHECK:           |   |   |   %limm46 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 23]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm48  +  %mul20;
-; CHECK:           |   |   |   %limm48 = %add21;
-; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3 + 24]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
-; CHECK:           |   |   |   %add21 = %limm50  +  %mul20;
-; CHECK:           |   |   |   %limm50 = %add21;
+; CHECK:           + DO i1
+; CHECK:           |   + DO i2
+; CHECK:           |   |      %limm = (@vy)[0][i1 + sext.i32.i64(%n) * i2];
+; CHECK:           |   |      %limm4 = (@px)[0][25 * i1];
+; CHECK:           |   |      %limm5 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 1];
+; CHECK:           |   |      %limm6 = (@px)[0][25 * i1 + 1];
+; CHECK:           |   |      %limm8 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 2];
+; CHECK:           |   |      %limm9 = (@px)[0][25 * i1 + 2];
+; CHECK:           |   |      %limm11 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 3];
+; CHECK:           |   |      %limm12 = (@px)[0][25 * i1 + 3];
+; CHECK:           |   |      %limm14 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 4];
+; CHECK:           |   |      %limm15 = (@px)[0][25 * i1 + 4];
+; CHECK:           |   |      %limm17 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 5];
+; CHECK:           |   |      %limm18 = (@px)[0][25 * i1 + 5];
+; CHECK:           |   |      %limm20 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 6];
+; CHECK:           |   |      %limm21 = (@px)[0][25 * i1 + 6];
+; CHECK:           |   |      %limm23 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 7];
+; CHECK:           |   |      %limm24 = (@px)[0][25 * i1 + 7];
+; CHECK:           |   |      %limm26 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 8];
+; CHECK:           |   |      %limm27 = (@px)[0][25 * i1 + 8];
+; CHECK:           |   |      %limm29 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 9];
+; CHECK:           |   |      %limm30 = (@px)[0][25 * i1 + 9];
+; CHECK:           |   |      %limm32 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 10];
+; CHECK:           |   |      %limm33 = (@px)[0][25 * i1 + 10];
+; CHECK:           |   |      %limm35 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 11];
+; CHECK:           |   |      %limm36 = (@px)[0][25 * i1 + 11];
+; CHECK:           |   |      %limm38 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 12];
+; CHECK:           |   |      %limm39 = (@px)[0][25 * i1 + 12];
+; CHECK:           |   |      %limm41 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 13];
+; CHECK:           |   |      %limm42 = (@px)[0][25 * i1 + 13];
+; CHECK:           |   |      %limm44 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 14];
+; CHECK:           |   |      %limm45 = (@px)[0][25 * i1 + 14];
+; CHECK:           |   |      %limm47 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 15];
+; CHECK:           |   |      %limm48 = (@px)[0][25 * i1 + 15];
+; CHECK:           |   |      %limm50 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 16];
+; CHECK:           |   |      %limm51 = (@px)[0][25 * i1 + 16];
+; CHECK:           |   |      %limm53 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 17];
+; CHECK:           |   |      %limm54 = (@px)[0][25 * i1 + 17];
+; CHECK:           |   |      %limm56 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 18];
+; CHECK:           |   |      %limm57 = (@px)[0][25 * i1 + 18];
+; CHECK:           |   |      %limm59 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 19];
+; CHECK:           |   |      %limm60 = (@px)[0][25 * i1 + 19];
+; CHECK:           |   |      %limm62 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 20];
+; CHECK:           |   |      %limm63 = (@px)[0][25 * i1 + 20];
+; CHECK:           |   |      %limm65 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 21];
+; CHECK:           |   |      %limm66 = (@px)[0][25 * i1 + 21];
+; CHECK:           |   |      %limm68 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 22];
+; CHECK:           |   |      %limm69 = (@px)[0][25 * i1 + 22];
+; CHECK:           |   |      %limm71 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 23];
+; CHECK:           |   |      %limm72 = (@px)[0][25 * i1 + 23];
+; CHECK:           |   |      %limm74 = (@vy)[0][i1 + sext.i32.i64(%n) * i2 + 24];
+; CHECK:           |   |      %limm75 = (@px)[0][25 * i1 + 24];
+; CHECK:           |   |   + DO i3
 ; CHECK:           |   |   + END LOOP
-; CHECK:           |   |      (@px)[0][25 * i1 + 24] = %limm50;
-; CHECK:           |   |      (@px)[0][25 * i1 + 23] = %limm48;
-; CHECK:           |   |      (@px)[0][25 * i1 + 22] = %limm46;
-; CHECK:           |   |      (@px)[0][25 * i1 + 21] = %limm44;
-; CHECK:           |   |      (@px)[0][25 * i1 + 20] = %limm42;
-; CHECK:           |   |      (@px)[0][25 * i1 + 19] = %limm40;
-; CHECK:           |   |      (@px)[0][25 * i1 + 18] = %limm38;
-; CHECK:           |   |      (@px)[0][25 * i1 + 17] = %limm36;
-; CHECK:           |   |      (@px)[0][25 * i1 + 16] = %limm34;
-; CHECK:           |   |      (@px)[0][25 * i1 + 15] = %limm32;
-; CHECK:           |   |      (@px)[0][25 * i1 + 14] = %limm30;
-; CHECK:           |   |      (@px)[0][25 * i1 + 13] = %limm28;
-; CHECK:           |   |      (@px)[0][25 * i1 + 12] = %limm26;
-; CHECK:           |   |      (@px)[0][25 * i1 + 11] = %limm24;
-; CHECK:           |   |      (@px)[0][25 * i1 + 10] = %limm22;
-; CHECK:           |   |      (@px)[0][25 * i1 + 9] = %limm20;
-; CHECK:           |   |      (@px)[0][25 * i1 + 8] = %limm18;
-; CHECK:           |   |      (@px)[0][25 * i1 + 7] = %limm16;
-; CHECK:           |   |      (@px)[0][25 * i1 + 6] = %limm14;
-; CHECK:           |   |      (@px)[0][25 * i1 + 5] = %limm12;
-; CHECK:           |   |      (@px)[0][25 * i1 + 4] = %limm10;
-; CHECK:           |   |      (@px)[0][25 * i1 + 3] = %limm8;
-; CHECK:           |   |      (@px)[0][25 * i1 + 2] = %limm6;
-; CHECK:           |   |      (@px)[0][25 * i1 + 1] = %limm4;
-; CHECK:           |   |      (@px)[0][25 * i1] = %limm;
+; CHECK:           |   |      (@px)[0][25 * i1 + 24] = %limm75;
+; CHECK:           |   |      (@px)[0][25 * i1 + 23] = %limm72;
+; CHECK:           |   |      (@px)[0][25 * i1 + 22] = %limm69;
+; CHECK:           |   |      (@px)[0][25 * i1 + 21] = %limm66;
+; CHECK:           |   |      (@px)[0][25 * i1 + 20] = %limm63;
+; CHECK:           |   |      (@px)[0][25 * i1 + 19] = %limm60;
+; CHECK:           |   |      (@px)[0][25 * i1 + 18] = %limm57;
+; CHECK:           |   |      (@px)[0][25 * i1 + 17] = %limm54;
+; CHECK:           |   |      (@px)[0][25 * i1 + 16] = %limm51;
+; CHECK:           |   |      (@px)[0][25 * i1 + 15] = %limm48;
+; CHECK:           |   |      (@px)[0][25 * i1 + 14] = %limm45;
+; CHECK:           |   |      (@px)[0][25 * i1 + 13] = %limm42;
+; CHECK:           |   |      (@px)[0][25 * i1 + 12] = %limm39;
+; CHECK:           |   |      (@px)[0][25 * i1 + 11] = %limm36;
+; CHECK:           |   |      (@px)[0][25 * i1 + 10] = %limm33;
+; CHECK:           |   |      (@px)[0][25 * i1 + 9] = %limm30;
+; CHECK:           |   |      (@px)[0][25 * i1 + 8] = %limm27;
+; CHECK:           |   |      (@px)[0][25 * i1 + 7] = %limm24;
+; CHECK:           |   |      (@px)[0][25 * i1 + 6] = %limm21;
+; CHECK:           |   |      (@px)[0][25 * i1 + 5] = %limm18;
+; CHECK:           |   |      (@px)[0][25 * i1 + 4] = %limm15;
+; CHECK:           |   |      (@px)[0][25 * i1 + 3] = %limm12;
+; CHECK:           |   |      (@px)[0][25 * i1 + 2] = %limm9;
+; CHECK:           |   |      (@px)[0][25 * i1 + 1] = %limm6;
 ; CHECK:           |   + END LOOP
 ; CHECK:           + END LOOP
 ; CHECK:  END REGION
