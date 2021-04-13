@@ -161,13 +161,6 @@ class VPExternalValues {
   /// main/peel/remainder loops).
   unsigned getLastMergeId() const { return VPExternalUses.size(); }
 
-  // Return the non-const iterator-range to the list of ExternalUses.
-  decltype(auto) externalUses() {
-    return map_range(
-        make_range(VPExternalUses.begin(), VPExternalUses.end()),
-        [](ExternalUsesListTy::value_type &It) { return It.get(); });
-  }
-
   decltype(auto) getVPExternalUsesHIR() {
     return map_range(
         make_filter_range(
