@@ -1157,45 +1157,6 @@ def ProcessorFeatures {
   list<SubtargetFeature> TRMFeatures =
     !listconcat(GLPFeatures, TRMAdditionalFeatures);
 
-#if INTEL_CUSTOMIZATION
-  // Alderlake
-  list<SubtargetFeature> IntelAnonymous2AdditionalFeatures =[
-    FeatureSERIALIZE,
-    FeaturePCONFIG,
-    FeatureWBNOINVD,
-    FeatureSHSTK,
-    FeatureKL,
-    FeatureINVPCID,
-    FeatureADX,
-    FeatureAVX,
-    FeatureAVX2,
-    FeatureAES,
-    FeatureVAES,
-    FeatureVPCLMULQDQ,
-    FeatureF16C,
-    FeatureBMI,
-    FeatureBMI2,
-    FeatureLZCNT,
-    // TODO: set feature of RAO-INT when it's ready
-    FeatureAVXVNNI,
-    FeaturePKU,
-    FeaturePCONFIG,
-    FeatureHRESET,
-    FeatureCLDEMOTE,
-    FeatureMOVDIRI,
-    FeatureMOVDIR64B,
-    FeatureWAITPKG
-  ];
-  // TODO: inherit from Snow Ridge when it's ready
-  list<SubtargetFeature> IntelAnonymous2Features =
-    !listconcat(TRMFeatures, IntelAnonymous2AdditionalFeatures);
-  // TODO: Is this correct tuning. It's GLP minus FeatureUseGLMDivSqrtCosts.
-  list<SubtargetFeature> IntelAnonymous2Tuning = [FeatureSlowTwoMemOps,
-                                                  FeatureSlowLEA,
-                                                  FeatureSlowIncDec,
-                                                  FeatureInsertVZEROUPPER];
-#endif // INTEL_CUSTOMIZATION
-
   // Alderlake
   list<SubtargetFeature> ADLAdditionalFeatures = [FeatureSERIALIZE,
                                                   FeaturePCONFIG,
@@ -1590,13 +1551,6 @@ def : ProcModel<"goldmont-plus", SLMModel, ProcessorFeatures.GLPFeatures,
                 ProcessorFeatures.GLPTuning>;
 def : ProcModel<"tremont", SLMModel, ProcessorFeatures.TRMFeatures,
                 ProcessorFeatures.TRMTuning>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_ADL
-def : ProcModel<"alderlake", SLMModel,
-                ProcessorFeatures.IntelAnonymous2Features,
-                ProcessorFeatures.IntelAnonymous2Tuning>;
-#endif // INTEL_FEATURE_CPU_ADL
-#endif // INTEL_CUSTOMIZATION
 
 // "Arrandale" along with corei3 and corei5
 foreach P = ["nehalem", "corei7"] in {
