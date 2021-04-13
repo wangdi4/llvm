@@ -44,10 +44,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 using namespace Intel::OpenCL::ELFUtils;
 
 CPUProgramBuilder::CPUProgramBuilder(IAbstractBackendFactory *pBackendFactory,
-                                     const ICompilerConfig &config)
-    : ProgramBuilder(pBackendFactory, config), m_compiler(config),
-      m_isFpgaEmulator(FPGA_EMU_DEVICE == config.TargetDevice()),
-      m_isEyeQEmulator(EYEQ_EMU_DEVICE == config.TargetDevice()) {}
+                                     std::unique_ptr<ICompilerConfig> config)
+    : ProgramBuilder(pBackendFactory, std::move(config)), m_compiler(*m_config),
+      m_isFpgaEmulator(FPGA_EMU_DEVICE == m_config->TargetDevice()),
+      m_isEyeQEmulator(EYEQ_EMU_DEVICE == m_config->TargetDevice()) {}
 
 CPUProgramBuilder::~CPUProgramBuilder()
 {

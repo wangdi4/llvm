@@ -26,6 +26,7 @@
 #include <vector>
 
 #ifdef _WIN32
+#define NOMINMAX
 #include <windows.h>
 #endif
 
@@ -670,6 +671,13 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
          * @returns maximum work-group size for cpu device.
          */
         size_t GetCpuMaxWGSize() const;
+
+        std::string GetForcedWGSize() const {
+          std::string WGSize;
+          (void)m_pConfigFile->ReadInto(WGSize,
+                                        "CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE");
+          return WGSize;
+        }
 
         /**
          * @returns the number of TBB workers.

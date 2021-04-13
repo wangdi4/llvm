@@ -125,18 +125,14 @@ void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelS
 }
 } //namespace Utils
 
-ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
-    m_pBackendFactory(pBackendFactory),
-    m_useVTune(config.GetUseVTune()),
-    m_serializeWorkGroups(config.GetSerializeWorkGroups()),
-    m_targetDevice(config.TargetDevice()),
-    m_forcedPrivateMemorySize(config.GetForcedPrivateMemorySize()),
-    m_cpuMaxWGSize(config.GetCpuMaxWGSize()),
-    m_statFileBaseName(config.GetStatFileBaseName())
-{
-
+ProgramBuilder::ProgramBuilder(IAbstractBackendFactory *pBackendFactory,
+                               std::unique_ptr<ICompilerConfig> config)
+    : m_pBackendFactory(pBackendFactory), m_config(std::move(config)),
+      m_targetDevice(m_config->TargetDevice()),
+      m_forcedPrivateMemorySize(m_config->GetForcedPrivateMemorySize()),
+      m_statFileBaseName(m_config->GetStatFileBaseName()) {
     if (m_forcedPrivateMemorySize == 0) {
-      if (m_targetDevice == FPGA_EMU_DEVICE && config.UseAutoMemory())
+      if (m_targetDevice == FPGA_EMU_DEVICE && m_config->UseAutoMemory())
         m_forcedPrivateMemorySize = FPGA_DEV_MAX_WG_PRIVATE_SIZE;
       else
         m_forcedPrivateMemorySize = CPU_DEV_MAX_WG_PRIVATE_SIZE;
@@ -333,7 +329,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram,
 KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vectorSize) const
 {
     KernelJITProperties* pProps = m_pBackendFactory->CreateKernelJITProperties();
-    pProps->SetUseVTune(m_useVTune);
+    pProps->SetUseVTune(m_config->GetUseVTune());
     pProps->SetVectorSize(vectorSize);
     pProps->SetMaxPrivateMemorySize(m_forcedPrivateMemorySize);
     return pProps;
@@ -470,7 +466,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   //   1. CL_CONFIG_CPU_TBB_NUM_WORKERS is 1
   //   2. Kernel has FPGA pipe/channel
   //   3. Kernel is FPGA autorun.
-  bool needSerializeWGs = m_serializeWorkGroups ||
+  bool needSerializeWGs = m_config->GetSerializeWorkGroups() ||
       (skimd.UseFPGAPipes.hasValue() && skimd.UseFPGAPipes.get()) || isAutorun;
 
   // Need to check if NoBarrierPath Value exists, it is not guaranteed that
@@ -559,7 +555,8 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   //
   pProps->SetTargetDevice(m_targetDevice);
 
-  pProps->SetCpuMaxWGSize(m_cpuMaxWGSize);
+  pProps->SetCpuMaxWGSize(m_config->GetCpuMaxWGSize());
+  pProps->SetForcedWGSize(m_config->GetForcedWGSize());
 
   // OpenCL 2.0 related properties
   if (OclVersion::CL_VER_2_0 <=

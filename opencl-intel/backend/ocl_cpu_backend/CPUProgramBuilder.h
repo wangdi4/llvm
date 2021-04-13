@@ -57,7 +57,8 @@ public:
     /**
      * Ctor
      */
-    CPUProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& pConfig);
+    CPUProgramBuilder(IAbstractBackendFactory* pBackendFactory,
+                      std::unique_ptr<ICompilerConfig> pConfig);
     ~CPUProgramBuilder();
 
     Compiler *GetCompiler() override { return &m_compiler; }

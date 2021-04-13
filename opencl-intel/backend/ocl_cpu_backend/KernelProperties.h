@@ -259,6 +259,9 @@ public:
     void SetHasDebugInfo(const bool value) { m_debugInfo = value; }
     void SetRequiredSubGroupSize(const size_t value) { m_reqdSubGroupSize = value; }
     void SetCpuMaxWGSize(const size_t value) { m_cpuMaxWGSize = value; }
+    void SetForcedWGSize(const std::vector<size_t> &value) {
+      m_forcedWGSize = value;
+    }
 
     unsigned int  GetOptWGSize()      const { return m_optWGSize; }
     const size_t* GetReqdWGSize()     const { return m_reqdWGSize; }
@@ -272,6 +275,9 @@ public:
     bool          GetCanUniteWG() const { return m_canUniteWG; }
     unsigned int  GetVectorizedDimention() const { return m_verctorizeOnDimention;}
     size_t        GetCpuMaxWGSize() const { return m_cpuMaxWGSize; }
+    const std::vector<size_t> &GetForcedWGSize() const {
+      return m_forcedWGSize;
+    }
 
     /**
      * Serialization methods for the class (used by the serialization service)
@@ -314,6 +320,7 @@ protected:
     bool m_debugInfo;
     DeviceMode m_targetDevice;
     size_t m_cpuMaxWGSize;
+    std::vector<size_t> m_forcedWGSize;
 };
 
 }}}

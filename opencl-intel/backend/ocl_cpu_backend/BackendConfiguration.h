@@ -14,6 +14,7 @@
 
 #pragma once
 #include "CompilerConfig.h"
+#include <memory>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -45,7 +46,9 @@ public:
     /**
      * Returns the CPU compiler instance configuration.
      */
-    CompilerConfig GetCPUCompilerConfig(const ICLDevBackendOptions* pBackendOptions) const;
+    std::unique_ptr<ICompilerConfig> GetCPUCompilerConfig(
+        const ICLDevBackendOptions *pBackendOptions, bool SkipBuiltins = false)
+        const;
 
 private:
     BackendConfiguration(){}

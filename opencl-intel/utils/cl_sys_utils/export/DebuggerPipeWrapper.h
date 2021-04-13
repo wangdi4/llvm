@@ -18,6 +18,7 @@
 #ifdef _WIN32
 
 #include <string>
+#define NOMINMAX
 #include <windows.h>
 
 class DebuggerPipeWrapper {

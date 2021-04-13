@@ -52,6 +52,7 @@ enum cl_dev_backend_options                            // Description           
     CL_DEV_BACKEND_OPTION_SUBGROUP_EMULATION,          //!< Enable subgroup emulation           |boolean                 |
     CL_DEV_BACKEND_OPTION_SERIALIZE_WORK_GROUPS,       //!< Serialize work-groups execution     |boolean                 |
     CL_DEV_BACKEND_OPTION_CPU_MAX_WG_SIZE,             //!< Max work-group size for cpu device  |size_t                  |
+    CL_DEV_BACKEND_OPTION_FORCED_WG_SIZE,              //!< Forced work-group size              |string                  | "128", "128,1,1"
     CL_DEV_BACKEND_OPTION_STREAMING_ALWAYS,            //!< Use Non-Temporal instruction        |boolean                 |
     CL_DEV_BACKEND_OPTION_EXPENSIVE_MEM_OPTS,          //!< Enable expensive memory optimization|unsigned                | See cl.cfg for value explanation
     CL_DEV_BACKEND_OPTION_LTO_LEGACY_PM                //!< Use llvm LTO legacy pass pipeline   |boolean

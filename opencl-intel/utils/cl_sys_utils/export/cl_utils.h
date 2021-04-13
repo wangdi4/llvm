@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "llvm/ADT/StringExtras.h"
 #include <cassert>
 #include <cl_device_api.h>
 #include <cl_monitor.h>
@@ -128,6 +129,26 @@ std::string ToNarrow(const wchar_t *s, char dfault = '?',
 std::vector<std::string> &SplitString(const std::string &s, char delim, std::vector<std::string> &elems);
 std::vector<std::string> SplitString(const std::string &s, char delim);
 
+/// Split the string using given delimiter and all elements are integer.
+/// Convert elements to a vector to integers.
+/// Return true if split is successful, false if there is no integer in the
+/// string.
+template <typename T>
+bool SplitStringInteger(const std::string &s, char delim,
+                        std::vector<T> &elems) {
+  std::vector<std::string> strs = SplitString(s, delim);
+  size_t elemsCount = strs.size();
+  if (0 == elemsCount)
+    return false;
+  elems.resize(elemsCount);
+  for (size_t i = 0; i < elemsCount; ++i) {
+    if (!llvm::to_integer(strs[i], elems[i])) {
+      elems.clear();
+      return false;
+    }
+  }
+  return true;
+}
 
 /**************************************************************************************************
 * Function: 	XXXtoString

@@ -49,7 +49,7 @@ public:
     /**
      * Ctor
      */
-    ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config);
+    ProgramBuilder(IAbstractBackendFactory* pBackendFactory, std::unique_ptr<ICompilerConfig> config);
     virtual ~ProgramBuilder();
 
     /**
@@ -111,11 +111,9 @@ protected:
 
     // pointer to the containers factory (not owned by this class)
     IAbstractBackendFactory* m_pBackendFactory;
-    bool m_useVTune;
-    bool m_serializeWorkGroups;
+    std::unique_ptr<ICompilerConfig> m_config;
     DeviceMode m_targetDevice;
     int m_forcedPrivateMemorySize;
-    size_t m_cpuMaxWGSize;
 
 private:
     /// @brief Dump stats collected for module if requested

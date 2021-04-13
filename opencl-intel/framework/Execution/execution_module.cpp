@@ -2046,7 +2046,7 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         return CL_INVALID_WORK_DIMENSION;
     }
 
-    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
+    if (m_opencl_ver < OPENCL_VERSION_2_1)
     {
         if( NULL == cpszGlobalWorkSize )
         {
@@ -2102,16 +2102,38 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         return CL_INVALID_KERNEL_ARGS;
     }
 
-    if( NULL != cpszGlobalWorkSize && NULL != cpszLocalWorkSize )
+    if(cpszGlobalWorkSize)
     {
-        for( unsigned int ui=0; ui<uiWorkDim; ui++)
-        {
-            LOG_DEBUG(TEXT("EnqueueNDRangeKernel local worksize dim #%u = %u"), ui, cpszLocalWorkSize[ui]);
-            if ((cpszLocalWorkSize[ui] == 0) || ((OPENCL_VERSION_1_2 == m_opencl_ver) && (0 != (cpszGlobalWorkSize[ui] % cpszLocalWorkSize[ui]))))
-            {
-                return CL_INVALID_WORK_GROUP_SIZE;
-            }
+      auto *config = FrameworkProxy::Instance()->GetOCLConfig();
+      std::string forcedWGSize = config->GetForcedWGSize();
+      bool useForcedWGSize = false;
+      if (!forcedWGSize.empty()) {
+        const DeviceKernel* deviceKernel = pKernel->GetDeviceKernel(pDevice.GetPtr());
+        std::vector<int> WGSizes;
+        SplitStringInteger(forcedWGSize, ',', WGSizes);
+        unsigned dim = std::min((unsigned)WGSizes.size(), uiWorkDim);
+        for (unsigned i = 0; i < dim; ++i) {
+          int size = WGSizes[i];
+          if (size <= 0 || (size_t)size > cpszGlobalWorkSize[i] ||
+              (isFPGAEmulator && size > FPGA_MAX_WORK_GROUP_SIZE) ||
+              (!isFPGAEmulator && (size_t)size > config->GetCpuMaxWGSize()))
+            return CL_INVALID_WORK_GROUP_SIZE;
+          if (!deviceKernel->GetKernelNonUniformWGSizeSupport() &&
+              (0 != cpszGlobalWorkSize[i] % size))
+            return CL_INVALID_WORK_GROUP_SIZE;
         }
+        useForcedWGSize = dim > 0;
+      }
+      if (!useForcedWGSize && cpszLocalWorkSize) {
+        for (unsigned int ui = 0; ui < uiWorkDim; ui++) {
+          LOG_DEBUG(TEXT("EnqueueNDRangeKernel local worksize dim #%u = %u"),
+                    ui, cpszLocalWorkSize[ui]);
+          if ((cpszLocalWorkSize[ui] == 0) ||
+              ((OPENCL_VERSION_1_2 == m_opencl_ver) &&
+               (0 != (cpszGlobalWorkSize[ui] % cpszLocalWorkSize[ui]))))
+            return CL_INVALID_WORK_GROUP_SIZE;
+        }
+      }
     }
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)

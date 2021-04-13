@@ -47,8 +47,8 @@ static int getAsmDumpFileId() {
 
 } // namespace Utils
 
-CPUCompileService::CPUCompileService(const ICompilerConfig& config)
-    :m_programBuilder(CPUDeviceBackendFactory::GetInstance(), config)
+CPUCompileService::CPUCompileService(std::unique_ptr<ICompilerConfig> config)
+    :m_programBuilder(CPUDeviceBackendFactory::GetInstance(), std::move(config))
 {
     m_backendFactory = CPUDeviceBackendFactory::GetInstance();
     LibraryProgramManager::getInstance()->createProgram(

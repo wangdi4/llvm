@@ -68,6 +68,9 @@ public:
     std::string GetCpuArch() const override { return m_cpuArch; }
     std::string GetCpuFeatures() const override { return m_cpuFeatures; }
     size_t GetCpuMaxWGSize() const override { return m_cpuMaxWGSize; }
+    const std::vector<size_t> &GetForcedWGSize() const override {
+      return m_forcedWGSize;
+    }
     ETransposeSize GetTransposeSize() const override { return m_transposeSize; }
     int GetRTLoopUnrollFactor() const override { return m_rtLoopUnrollFactor; }
     bool GetUseVTune() const override { return m_useVTune; }
@@ -121,6 +124,7 @@ protected:
     std::string m_cpuArch;
     std::string m_cpuFeatures;
     size_t      m_cpuMaxWGSize;
+    std::vector<size_t> m_forcedWGSize;
     ETransposeSize m_transposeSize;
     int         m_rtLoopUnrollFactor;
     bool        m_useVTune;
