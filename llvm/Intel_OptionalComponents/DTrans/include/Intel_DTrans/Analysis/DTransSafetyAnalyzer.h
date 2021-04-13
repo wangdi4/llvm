@@ -19,6 +19,7 @@
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANSSAFETYANALYZER_H
 #define INTEL_DTRANS_ANALYSIS_DTRANSSAFETYANALYZER_H
 
+#include "Intel_DTrans/Analysis/DTrans.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 
@@ -28,10 +29,6 @@ class Function;
 class Module;
 class TargetLibraryInfo;
 class WholeProgramInfo;
-
-namespace dtrans {
-class TypeInfo;
-} // end namespace dtrans
 
 namespace dtransOP {
 class DTransType;
@@ -107,14 +104,65 @@ public:
   // If there is no entry for the specified type, return nullptr.
   dtrans::TypeInfo *getTypeInfo(DTransType *Ty) const;
 
+  // Retrieve the CallInfo object for the instruction, if information exists.
+  // Otherwise, return nullptr.
+  dtrans::CallInfo *getCallInfo(const Instruction *I) const {
+    return CIM.getCallInfo(I);
+  }
+
+  // Create an entry in the CallInfoMap about a memory allocation call.
+  dtrans::AllocCallInfo *createAllocCallInfo(Instruction *I,
+                                             dtrans::AllocKind AK) {
+    return CIM.createAllocCallInfo(I, AK);
+  }
+
+  // Create an entry in the CallInfoMap about a memory freeing call
+  dtrans::FreeCallInfo *createFreeCallInfo(Instruction *I,
+                                           dtrans::FreeKind FK) {
+    return CIM.createFreeCallInfo(I, FK);
+  }
+
+  // Create an entry in the CallInfoMap about a memset call.
+  dtrans::MemfuncCallInfo *
+  createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+                        dtrans::MemfuncRegion &MR) {
+    return CIM.createMemfuncCallInfo(I, MK, MR);
+  }
+
+  // Create an entry in the CallInfoMap about a memcpy/memmove call.
+  dtrans::MemfuncCallInfo *
+  createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+                        dtrans::MemfuncRegion &MR1,
+                        dtrans::MemfuncRegion &MR2) {
+    return CIM.createMemfuncCallInfo(I, MK, MR1, MR2);
+  }
+
+  // Destroy the CallInfo stored about the specific instruction.
+  void deleteCallInfo(Instruction *I) { CIM.deleteCallInfo(I); }
+
+  // Update the instruction associated with the CallInfo object. This
+  // is necessary because when a function is cloned during the DTrans
+  // optimizations, the information needs to be transferred to the
+  // newly created instruction of the cloned routine.
+  void replaceCallInfoInstruction(dtrans::CallInfo *Info, Instruction *NewI) {
+    CIM.replaceCallInfoInstruction(Info, NewI);
+  }
+
   // Accessor for the set of TypeInfo objects.
   iterator_range<type_info_iterator> type_info_entries() {
     return make_range(type_info_iterator(TypeInfoMap.begin()),
                       type_info_iterator(TypeInfoMap.end()));
   }
 
+  // Accessor for the set of CallInfo objects.
+  iterator_range<dtrans::CallInfoManager::call_info_iterator>
+  call_info_entries() {
+    return CIM.call_info_entries();
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAnalyzedTypes();
+  void printCallInfo();
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
@@ -125,6 +173,10 @@ private:
   // A mapping from DTransTypes to the TypeInfo object that is used to
   // store information and safety bits about the types.
   DenseMap<DTransType *, dtrans::TypeInfo *> TypeInfoMap;
+
+  // A mapping from function calls that special information is collected for
+  // (malloc, free, memset, etc) to the information stored about those calls.
+  dtrans::CallInfoManager CIM;
 
   // Indicates DTrans safety information could not be computed because a Value
   // object was encountered that the PointerTypeAnalyzer could not collect

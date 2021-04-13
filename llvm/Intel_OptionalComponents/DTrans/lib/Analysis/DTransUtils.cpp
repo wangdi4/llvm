@@ -35,6 +35,11 @@ using namespace dtrans;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 cl::opt<bool> dtrans::DTransPrintAnalyzedTypes("dtrans-print-types",
                                                cl::ReallyHidden);
+
+/// Prints information that is saved during analysis about specific function
+/// calls (malloc, free, memset, etc) that may be useful to the transformations.
+cl::opt<bool> dtrans::DTransPrintAnalyzedCalls("dtrans-print-callinfo",
+                                               cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 //

@@ -2429,8 +2429,11 @@ public:
     if (isValueTypeInfoUnhandled(*Info))
       DTInfo.setUnhandledPtrType(Call);
 
-    // If the allocation wasn't cast to a type of interest, then nothing needs
-    // to be done.
+    dtrans::AllocCallInfo *ACI = DTInfo.createAllocCallInfo(Call, Kind);
+    populateCallInfo(*Info, ACI);
+
+    // If the allocation wasn't cast to a type of interest, then nothing more
+    // needs to be done.
     if (!Info->canAliasToAggregatePointer())
       return;
 
@@ -2450,8 +2453,6 @@ public:
       setBaseTypeInfoSafetyData(
           DomTy, dtrans::BadAllocSizeArg,
           "Allocation size does not match expected type size", Call);
-
-    // TODO: Create AllocCallInfo object about the allocation
   }
 
   // Return 'true' if the allocation size is valid for the type being allocated.
@@ -2518,7 +2519,52 @@ public:
   // just a convenience for migrating legacy code, since the transformation
   // could directly obtain the information from the DTransSafetyInfo class.
   void analyzeFreeCall(CallBase *Call, dtrans::FreeKind FK) {
-    // TODO: Create FreeCallInfo object about the deallocation
+    dtrans::FreeCallInfo *FCI = DTInfo.createFreeCallInfo(Call, FK);
+    unsigned PtrArgInd = -1U;
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+    getFreePtrArg(FK, Call, PtrArgInd, TLI);
+    assert(PtrArgInd != -1U && "getFreePtrArg failed to set PtrArgInd");
+
+    Value *Arg = Call->getArgOperand(PtrArgInd);
+    ValueTypeInfo *Info = PTA.getValueTypeInfo(Arg);
+    assert(Info && "Expected PtrTypeAnalyzer to have ValueTypeInfo for "
+                   "free call argument");
+
+    ValueTypeInfo::PointerTypeAliasSetRef &AliasSet =
+        Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+    if (AliasSet.empty())
+      return;
+
+    if (FK == dtrans::FK_Delete)
+      for (auto *Ty : AliasSet) {
+        LLVM_DEBUG(dbgs() << "dtrans-safety: C++ handling -- "
+                          << "delete/delete[] function call:\n  " << *Call
+                          << "\n");
+        setBaseTypeInfoSafetyData(Ty, dtrans::HasCppHandling,
+                                  "Type used by delete", Call);
+      }
+
+    populateCallInfo(*Info, FCI);
+  }
+
+  // This function is used to set the type information captured in the
+  // ValueTypeInfo structure into the CallInfo structure that is going to be
+  // exposed to the transforms.
+  void populateCallInfo(ValueTypeInfo &Info, dtrans::CallInfo *CI) {
+    CI->setAnalyzed(true);
+    if (Info.canAliasToAggregatePointer()) {
+      CI->setAliasesToAggregateType(true);
+      ValueTypeInfo::PointerTypeAliasSetRef &AliasSet =
+          Info.getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+      for (auto *Ty : AliasSet) {
+        if (!Ty->isPointerTy())
+          continue;
+
+        DTransType *ElemTy = Ty->getPointerElementType();
+        if (isTypeOfInterest(ElemTy))
+          CI->addElemType(ElemTy);
+      }
+    }
   }
 
   void visitIntrinsicInst(IntrinsicInst &I) {
@@ -3881,8 +3927,11 @@ private:
   // memset call.
   void createMemsetCallInfo(Instruction &I, DTransType *ElemTy,
                             dtrans::MemfuncRegion &RegionDesc) {
-    // TODO: create the MemfuncCallInfo when that class support DTransType
-    // objects.
+    dtrans::MemfuncCallInfo *MCI = DTInfo.createMemfuncCallInfo(
+        &I, dtrans::MemfuncCallInfo::MK_Memset, RegionDesc);
+    MCI->setAliasesToAggregateType(true);
+    MCI->setAnalyzed(true);
+    MCI->addElemType(ElemTy);
   }
 
   // Create a MemfuncCallInfo object that will store the details about a safe
@@ -3891,8 +3940,11 @@ private:
                                      dtrans::MemfuncCallInfo::MemfuncKind Kind,
                                      dtrans::MemfuncRegion &RegionDescDest,
                                      dtrans::MemfuncRegion &RegionDescSrc) {
-    // TODO: create the MemfuncCallInfo when that class support DTransType
-    // objects.
+    dtrans::MemfuncCallInfo *MCI =
+        DTInfo.createMemfuncCallInfo(&I, Kind, RegionDescDest, RegionDescSrc);
+    MCI->setAliasesToAggregateType(true);
+    MCI->setAnalyzed(true);
+    MCI->addElemType(ElemTy);
   }
 
   // Return 'true' if the DTransType is something that may require safety data
@@ -4017,6 +4069,9 @@ void DTransSafetyInfo::analyzeModule(
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (dtrans::DTransPrintAnalyzedTypes)
     printAnalyzedTypes();
+
+  if (dtrans::DTransPrintAnalyzedCalls)
+    printCallInfo();
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 }
 
@@ -4146,6 +4201,38 @@ void DTransSafetyInfo::printAnalyzedTypes() {
     else if (auto *SI = dyn_cast<dtrans::StructInfo>(TI))
       SI->print(dbgs());
 
+  dbgs().flush();
+}
+
+// Print the call info data
+void DTransSafetyInfo::printCallInfo() {
+
+  // To get consistency in the printing order, populate a tuple
+  // that can be sorted, then output the sorted list.
+  // Sort order is: Function name, CallInfoKind, Instruction
+  std::vector<std::tuple<StringRef, dtrans::CallInfo::CallInfoKind, std::string,
+                         dtrans::CallInfo *>>
+      Entries;
+
+  for (auto *CI : call_info_entries()) {
+    Instruction *I = CI->getInstruction();
+    std::string InstStr;
+    raw_string_ostream Stream(InstStr);
+    I->printAsOperand(Stream);
+    Stream.flush();
+    Entries.emplace_back(std::make_tuple(
+        I->getFunction()->getName(), CI->getCallInfoKind(), InstStr, CI));
+  }
+
+  std::sort(Entries.begin(), Entries.end());
+  for (auto &Entry : Entries) {
+    dtrans::CallInfo *CI = std::get<3>(Entry);
+    Instruction *I = CI->getInstruction();
+    dbgs() << "Function: " << I->getFunction()->getName() << "\n";
+    dbgs() << "Instruction: " << *I << "\n";
+    CI->print(dbgs());
+    dbgs() << "\n";
+  }
   dbgs().flush();
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
