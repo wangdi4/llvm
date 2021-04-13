@@ -12032,14 +12032,6 @@ bool IntExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     return BuiltinOp == Builtin::BI__atomic_always_lock_free ?
         Success(0, E) : Error(E);
   }
-#if !INTEL_CUSTOMIZATION
-  // Community seems to agree that this should not be handled as a builtin
-  // but as a variant added to omp.h.  Delete this code until that makes it
-  // through the process.
-  case Builtin::BIomp_is_initial_device:
-    // We can decide statically which value the runtime would return if called.
-    return Success(Info.getLangOpts().OpenMPIsDevice ? 0 : 1, E);
-#endif // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_add_overflow:
   case Builtin::BI__builtin_sub_overflow:
   case Builtin::BI__builtin_mul_overflow:

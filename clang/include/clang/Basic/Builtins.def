@@ -1913,13 +1913,6 @@ LANGBUILTIN(__builtin_load_halff, "fhC*", "nc", ALL_OCLC_LANGUAGES)
 BUILTIN(__builtin_os_log_format_buffer_size, "zcC*.", "p:0:nut")
 BUILTIN(__builtin_os_log_format, "v*v*cC*.", "p:0:nt")
 
-// OpenMP 4.0
-#if !INTEL_CUSTOMIZATION
-  // Community seems to agree that this should not be handled as a builtin
-  // but as a variant added to omp.h.  Delete this code until that makes it
-  // through the process.
-LANGBUILTIN(omp_is_initial_device, "i", "nc", OMP_LANG)
-#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 // These OMP library-defined functions are callable in device target regions
 // and have the "nothrow" property. This list is a subset representing the
