@@ -451,7 +451,6 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(
         Args.MakeArgString(Twine("-wholearchive:") + A->getValue()));
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Add other Intel specific libraries (libirc, svml, libdecimal)
   if (!Args.hasArg(options::OPT_nostdlib) && !C.getDriver().IsCLMode() &&
