@@ -1620,7 +1620,7 @@ if (INTEL_CUSTOMIZATION)
       # OpenMP components
       llvm-opencl-ompplugin omptarget clang-offload-bundler omptarget-opencl-rtl
       llvm-x86_64-ompplugin llvm-objcopy clang-offload-wrapper
-      llvm-level0-ompplugin libompdevice sycl-post-link
+      llvm-level0-ompplugin libompdevice sycl-post-link yaml2obj
 # INTEL_CUSTOMIZATION
 # INTEL_FEATURE_CSA
       llvm-csa-ompplugin

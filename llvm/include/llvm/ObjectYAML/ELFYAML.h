@@ -223,7 +223,7 @@ struct Section : public Chunk {
   Optional<ELF_SHF> Flags;
   Optional<llvm::yaml::Hex64> Address;
   Optional<StringRef> Link;
-  llvm::yaml::Hex64 AddressAlign;
+  llvm::yaml::Hex64 AddressAlign = 0; // INTEL
   Optional<llvm::yaml::Hex64> EntSize;
 
   Optional<yaml::BinaryRef> Content;
