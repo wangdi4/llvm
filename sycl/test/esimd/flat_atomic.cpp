@@ -1,4 +1,4 @@
-// RUN: %clangxx -fsycl -fsycl-explicit-simd -fsycl-device-only -fno-sycl-early-optimizations -fsyntax-only -Xclang -verify %s
+// RUN: %clangxx -fsycl -fsycl-device-only -fno-sycl-early-optimizations -fsyntax-only -Xclang -verify %s
 // expected-no-diagnostics
 
 #include <CL/sycl.hpp>

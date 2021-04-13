@@ -5091,10 +5091,11 @@ def fsycl : Flag<["-"], "fsycl">, Flags<[NoXarchOption, CoreOption, DpcppOption]
   HelpText<"Enables SYCL kernels compilation for device">;
 def fno_sycl : Flag<["-"], "fno-sycl">, Flags<[NoXarchOption, CoreOption, DpcppOption]>, Group<sycl_Group>,
   HelpText<"Disables SYCL kernels compilation for device">;
-defm sycl_esimd: BoolFOption<"sycl-explicit-simd",
-  LangOpts<"SYCLExplicitSIMD">, DefaultFalse,
-  PosFlag<SetTrue, [CC1Option], "Enable">, NegFlag<SetFalse, [], "Disable">,
-  BothFlags<[NoArgumentUnused, CoreOption, DpcppOption], "SYCL explicit SIMD extension.">>;
+// FIXME: -fsycl-explicit-simd is deprecated. remove it when support is dropped.
+def : Flag<["-"], "fsycl-explicit-simd">, Flags<[CoreOption]>, Group<clang_ignored_legacy_options_Group>,
+  HelpText<"Enable SYCL explicit SIMD extension. (deprecated)">;
+def : Flag<["-"], "fno-sycl-explicit-simd">, Flags<[CoreOption]>, Group<clang_ignored_legacy_options_Group>,
+  HelpText<"Disable SYCL explicit SIMD extension. (deprecated)">;
 defm sycl_early_optimizations : OptOutFFlag<"sycl-early-optimizations", "Enable", "Disable", " standard optimization pipeline for SYCL device compiler", [CoreOption, DpcppOption]>;
 def fsycl_enable_function_pointers : Flag<["-"],
   "fsycl-enable-function-pointers">, Flags<[CoreOption, DpcppOption]>,
