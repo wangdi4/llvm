@@ -390,11 +390,11 @@ void visualstudio::Linker::constructMSVCLibCommand(Compilation &C,
   if (Args.hasArg(options::OPT_fsycl_link_EQ) &&
       Args.hasArg(options::OPT_fintelfpga))
     CmdArgs.push_back("/IGNORE:4221");
-#if INTEL_CUSTOMIZATION
+
   // Suppress multiple section warning LNK4078
   if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false))
     CmdArgs.push_back("/IGNORE:4078");
-#endif // INTEL_CUSTOMIZATION
+
   CmdArgs.push_back(
       C.getArgs().MakeArgString(Twine("-OUT:") + Output.getFilename()));
 
@@ -451,6 +451,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(
         Args.MakeArgString(Twine("-wholearchive:") + A->getValue()));
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Add other Intel specific libraries (libirc, svml, libdecimal)
   if (!Args.hasArg(options::OPT_nostdlib) && !C.getDriver().IsCLMode() &&
@@ -496,10 +497,10 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       A->claim();
     }
   }
+#endif // INTEL_CUSTOMIZATION
   // Suppress multiple section warning LNK4078
   if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false))
     CmdArgs.push_back("/IGNORE:4078");
-#endif // INTEL_CUSTOMIZATION
 
   // If the VC environment hasn't been configured (perhaps because the user
   // did not run vcvarsall), try to build a consistent link environment.  If
