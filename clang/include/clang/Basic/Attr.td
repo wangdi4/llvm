@@ -2086,12 +2086,12 @@ def IntelFPGAConstVar : SubsetSubject<Var,
                             LangAS::opencl_constant)}],
                       "constant variables">;
 
-def IntelFPGALocalStaticSlaveMemVar : SubsetSubject<Var,
+def IntelFPGALocalStaticAgentMemVar : SubsetSubject<Var,
       [{S->getKind() != Decl::ImplicitParam &&
         S->getKind() != Decl::NonTypeTemplateParm &&
-        (S->getStorageClass() == SC_Static ||
-         S->hasLocalStorage())}],
-         "local variables, static variables, slave memory arguments">;
+       (S->getStorageClass() == SC_Static ||
+        S->hasLocalStorage())}],
+        "local variables, static variables, agent memory arguments">;
 
 def IntelFPGALocalOrStaticVar : SubsetSubject<Var,
                               [{S->getKind() != Decl::ImplicitParam &&
@@ -2106,7 +2106,7 @@ def IntelFPGADoublePump : Attr {
                    GNU<"doublepump">,                          // INTEL
                    CXX11<"intel", "doublepump">];
   let Subjects = SubjectList<[IntelFPGAConstVar,               // INTEL
-                              IntelFPGALocalStaticSlaveMemVar, // INTEL
+                              IntelFPGALocalStaticAgentMemVar, // INTEL
                               Field], ErrorDiag>;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];      // INTEL
   let Documentation = [IntelFPGADoublePumpAttrDocs];
@@ -2117,7 +2117,7 @@ def IntelFPGASinglePump : Attr {
                    GNU<"singlepump">,                          // INTEL
                    CXX11<"intel", "singlepump">];
   let Subjects = SubjectList<[IntelFPGAConstVar,               // INTEL
-                              IntelFPGALocalStaticSlaveMemVar, // INTEL
+                              IntelFPGALocalStaticAgentMemVar, // INTEL
                               Field], ErrorDiag>;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];      // INTEL
   let Documentation = [IntelFPGASinglePumpAttrDocs];
@@ -2138,7 +2138,7 @@ def IntelFPGAMemory : Attr {
       }
     }
   }];
-  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticAgentMemVar,
                               Field], ErrorDiag>;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];  // INTEL
   let Documentation = [IntelFPGAMemoryAttrDocs];
@@ -2158,7 +2158,7 @@ def IntelFPGABankWidth : Attr {
   let Spellings = [CXX11<"intelfpga","bankwidth">, GNU<"bankwidth">, // INTEL
                    CXX11<"intel","bankwidth">];
   let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticAgentMemVar,
                               Field], ErrorDiag>;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGABankWidthAttrDocs];
@@ -2168,7 +2168,7 @@ def IntelFPGANumBanks : Attr {
   let Spellings = [CXX11<"intelfpga","numbanks">, GNU<"numbanks">, // INTEL
                    CXX11<"intel","numbanks">];
   let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticAgentMemVar,
                               Field], ErrorDiag>;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS];  // INTEL
   let Documentation = [IntelFPGANumBanksAttrDocs];
@@ -2200,7 +2200,7 @@ def IntelFPGAMaxReplicates : InheritableAttr {
                    GNU<"max_replicates">, // INTEL
                    CXX11<"intel","max_replicates">];
   let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticAgentMemVar,
                               Field], ErrorDiag>;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGAMaxReplicatesAttrDocs];
@@ -2210,7 +2210,7 @@ def IntelFPGASimpleDualPort : Attr {
   let Spellings = [CXX11<"intelfpga","simple_dual_port">,
                    GNU<"simple_dual_port">, // INTEL
                    CXX11<"intel","simple_dual_port">];
-  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticAgentMemVar,
                               Field], ErrorDiag>;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGASimpleDualPortAttrDocs];
@@ -2236,7 +2236,7 @@ def IntelFPGABankBits : Attr {
   let Spellings = [CXX11<"intelfpga", "bank_bits">, GNU<"bank_bits">, // INTEL
                    CXX11<"intel", "bank_bits">];
   let Args = [VariadicExprArgument<"Args">];
-  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticAgentMemVar,
                               Field], ErrorDiag>;
   let LangOpts = [SYCLIsDevice, SYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGABankBitsDocs];
@@ -2247,7 +2247,7 @@ def IntelFPGAForcePow2Depth : InheritableAttr {
                    GNU<"force_pow2_depth">, // INTEL
                    CXX11<"intel","force_pow2_depth">];
   let Args = [ExprArgument<"Value">];
-  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticSlaveMemVar,
+  let Subjects = SubjectList<[IntelFPGAConstVar, IntelFPGALocalStaticAgentMemVar,
                               Field], ErrorDiag>;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; // INTEL
   let Documentation = [IntelFPGAForcePow2DepthAttrDocs];
