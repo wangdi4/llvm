@@ -486,10 +486,13 @@ class SYCLIntegrationFooter {
 public:
   SYCLIntegrationFooter(Sema &S) : S(S) {}
   bool emit(StringRef MainSrc);
+  void addVarDecl(const VarDecl *VD);
 
 private:
   bool emit(raw_ostream &O);
   Sema &S;
+  llvm::SmallVector<const VarDecl *> SpecConstants;
+  void emitSpecIDName(raw_ostream &O, const VarDecl *VD);
 };
 
 /// Tracks expected type during expression parsing, for use in code completion.
@@ -13441,6 +13444,11 @@ public:
     if (SyclIntFooter == nullptr)
       SyclIntFooter = std::make_unique<SYCLIntegrationFooter>(*this);
     return *SyclIntFooter.get();
+  }
+
+  void addSyclVarDecl(VarDecl *VD) {
+    if (LangOpts.SYCLIsDevice && !LangOpts.SYCLIntFooter.empty())
+      getSyclIntegrationFooter().addVarDecl(VD);
   }
 
   enum SYCLRestrictKind {

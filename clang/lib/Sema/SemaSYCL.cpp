@@ -73,7 +73,12 @@ public:
   template <size_t N>
   static constexpr DeclContextDesc MakeDeclContextDesc(Decl::Kind K,
                                                        const char (&Str)[N]) {
-    return DeclContextDesc{K, llvm::StringLiteral{Str}};
+    // FIXME: This SHOULD be able to use the StringLiteral constructor here
+    // instead, however this seems to fail with an 'invalid string literal' note
+    // on the correct constructor in some build configurations.  We need to
+    // figure that out before reverting this to use the StringLiteral
+    // constructor.
+    return DeclContextDesc{K, StringRef{Str, N - 1}};
   }
 
   static constexpr DeclContextDesc MakeDeclContextDesc(Decl::Kind K,
@@ -102,6 +107,10 @@ public:
   static bool isAccessorPropertyListType(QualType Ty);
 
   /// Checks whether given clang type is a full specialization of the SYCL
+  /// no_alias class.
+  static bool isSyclAccessorNoAliasPropertyType(QualType Ty);
+
+  /// Checks whether given clang type is a full specialization of the SYCL
   /// buffer_location class.
   static bool isSyclBufferLocationType(QualType Ty);
 
@@ -127,6 +136,10 @@ public:
   /// Checks whether given clang type is a full specialization of the SYCL
   /// specialization constant class.
   static bool isSyclSpecConstantType(QualType Ty);
+
+  /// Checks whether given clang type is a full specialization of the SYCL
+  /// specialization id class.
+  static bool isSyclSpecIdType(QualType Ty);
 
   /// Checks whether given clang type is a full specialization of the SYCL
   /// kernel_handler class.
@@ -1788,9 +1801,17 @@ class SyclKernelDeclCreator : public SyclKernelFieldHandler {
     for (TemplateArgument::pack_iterator Prop = TemplArg.pack_begin();
          Prop != TemplArg.pack_end(); ++Prop) {
       QualType PropTy = Prop->getAsType();
+      if (Util::isSyclAccessorNoAliasPropertyType(PropTy))
+        handleNoAliasProperty(Param, PropTy, Loc);
       if (Util::isSyclBufferLocationType(PropTy))
         handleBufferLocationProperty(Param, PropTy, Loc);
     }
+  }
+
+  void handleNoAliasProperty(ParmVarDecl *Param, QualType PropTy,
+                             SourceLocation Loc) {
+    ASTContext &Ctx = SemaRef.getASTContext();
+    Param->addAttr(RestrictAttr::CreateImplicit(Ctx, Loc));
   }
 
   // Obtain an integer value stored in a template parameter of buffer_location
@@ -4328,6 +4349,22 @@ SYCLIntegrationHeader::SYCLIntegrationHeader(bool _UnnamedLambdaSupport,
                                              Sema &_S)
     : UnnamedLambdaSupport(_UnnamedLambdaSupport), S(_S) {}
 
+void SYCLIntegrationFooter::addVarDecl(const VarDecl *VD) {
+  // Step 1: ensure that this is of the correct type-spec-constant template
+  // specialization).
+  if (!Util::isSyclSpecIdType(VD->getType()))
+    return;
+  // Step 2: ensure that this is a static member, or a namespace-scope.
+  // Note that isLocalVarDeclorParm excludes thread-local and static-local
+  // intentionally, as there is no way to 'spell' one of those in the
+  // specialization. We just don't generate the specialization for those, and
+  // let an error happen during host compilation.
+  if (!VD->hasGlobalStorage() || VD->isLocalVarDeclOrParm())
+    return;
+  // Step 3: Add to SpecConstants collection.
+  SpecConstants.push_back(VD);
+}
+
 // Post-compile integration header support.
 bool SYCLIntegrationFooter::emit(StringRef IntHeaderName) {
   if (IntHeaderName.empty())
@@ -4344,8 +4381,40 @@ bool SYCLIntegrationFooter::emit(StringRef IntHeaderName) {
   return emit(Out);
 }
 
+void SYCLIntegrationFooter::emitSpecIDName(raw_ostream &O, const VarDecl *VD) {
+  // FIXME: Figure out the spec-constant unique name here.
+  // Note that this changes based on the linkage of the variable.
+  // We typically want to use the __builtin_unique_stable_name for the variable
+  // (or the newer-equivilent for values, see the JIRA), but we also have to
+  // figure out if this has internal or external linkage.  In external-case this
+  // should be the same as the the unique-name.  However, this isn't the case
+  // with local-linkage, where we want to put the driver-provided random-value
+  // ahead of it, so that we make sure it is unique across translation units.
+  // This name should come from the yet implemented__builtin_unique_stable_name
+  // feature that accepts variables and gives the mangling for that.
+  O << "";
+}
+
 bool SYCLIntegrationFooter::emit(raw_ostream &O) {
-  O << "// Integration Footer contents to go here.\n";
+  PrintingPolicy Policy{S.getLangOpts()};
+  Policy.adjustForCPlusPlusFwdDecl();
+  Policy.SuppressTypedefs = true;
+  Policy.SuppressUnwrittenScope = true;
+
+  for (const VarDecl *D : SpecConstants) {
+    O << "template<>\n";
+    O << "inline const char *get_spec_constant_symbolic_ID<";
+    // Emit the FQN for this, but we probably need to do some funny-business for
+    // anonymous namespaces.
+    D->printQualifiedName(O, Policy);
+    O << ">() {\n";
+    O << "  return \"";
+    emitSpecIDName(O, D);
+    O << "\";\n";
+    O << "}\n";
+  }
+
+  O << "#include <CL/sycl/detail/spec_const_integration.hpp>\n";
   return true;
 }
 
@@ -4382,11 +4451,32 @@ bool Util::isSyclSpecConstantType(QualType Ty) {
   return matchQualifiedTypeName(Ty, Scopes);
 }
 
+bool Util::isSyclSpecIdType(QualType Ty) {
+  std::array<DeclContextDesc, 3> Scopes = {
+      Util::MakeDeclContextDesc(clang::Decl::Kind::Namespace, "cl"),
+      Util::MakeDeclContextDesc(clang::Decl::Kind::Namespace, "sycl"),
+      Util::MakeDeclContextDesc(Decl::Kind::ClassTemplateSpecialization,
+                                "specialization_id")};
+  return matchQualifiedTypeName(Ty, Scopes);
+}
+
 bool Util::isSyclKernelHandlerType(QualType Ty) {
   std::array<DeclContextDesc, 3> Scopes = {
       Util::MakeDeclContextDesc(Decl::Kind::Namespace, "cl"),
       Util::MakeDeclContextDesc(Decl::Kind::Namespace, "sycl"),
       Util::MakeDeclContextDesc(Decl::Kind::CXXRecord, "kernel_handler")};
+  return matchQualifiedTypeName(Ty, Scopes);
+}
+
+bool Util::isSyclAccessorNoAliasPropertyType(QualType Ty) {
+  std::array<DeclContextDesc, 6> Scopes = {
+      Util::DeclContextDesc{Decl::Kind::Namespace, "cl"},
+      Util::DeclContextDesc{Decl::Kind::Namespace, "sycl"},
+      Util::DeclContextDesc{Decl::Kind::Namespace, "ONEAPI"},
+      Util::DeclContextDesc{Decl::Kind::Namespace, "property"},
+      Util::DeclContextDesc{Decl::Kind::CXXRecord, "no_alias"},
+      Util::DeclContextDesc{Decl::Kind::ClassTemplateSpecialization,
+                            "instance"}};
   return matchQualifiedTypeName(Ty, Scopes);
 }
 
