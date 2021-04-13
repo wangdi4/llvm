@@ -106,9 +106,6 @@ private:
   /// \returns true if \p Val's pointee-type is a scalar.
   bool isSOASupportedTy(Type *Ty);
 
-  /// \returns true if \p Val's pointee-type is a scalar.
-  bool isScalarTy(Type *Ty);
-
   /// \return true if the incoming instruction is in the relevant scope.
   /// Specifically, we check if the instruction is non-null pointer and
   /// either

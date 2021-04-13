@@ -15,14 +15,18 @@ define void @simplify_for_cpystr_test(i8* align 32 %dst, i8* align 32 %src, i8* 
 ; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr i8, i8* [[DST2:%.*]], i64 18
 ; CHECK-NEXT:    call void @llvm.memmove.p0i8.p0i8.i64(i8* noundef nonnull align 1 dereferenceable(18) [[DST2]], i8* noundef nonnull align 1 dereferenceable(18) [[SRC2:%.*]], i64 18, i1 false)
 ; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* noundef nonnull align 1 dereferenceable(14) [[TMP4]], i8 32, i64 14, i1 false)
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr i8, i8* [[DST2]], i64 18
+; CHECK-NEXT:    call void @llvm.memmove.p0i8.p0i8.i64(i8* [[DST2]], i8* [[SRC2]], i64 18, i1 true)
+; CHECK-NEXT:    call void @llvm.memset.p0i8.i64(i8* [[TMP5]], i8 32, i64 14, i1 true)
 ; CHECK-NEXT:    ret void
 ;
-  call void @llvm.for.cpystr.i64.i64.i64(i8* %dst, i64 16, i8* %src, i64 32, i64 0)
-  call void @llvm.for.cpystr.i64.i64.i64(i8* %dst, i64 32, i8* %src, i64 16, i64 0)
-  call void @llvm.for.cpystr.i64.i64.i64(i8* %dst, i64 32, i8* %src, i64 17, i64 1)
-  call void @llvm.for.cpystr.i64.i64.i64(i8* %dst, i64 32, i8* %src, i64 18, i64 0)
-  call void @llvm.for.cpystr.i64.i64.i64(i8* %dst2, i64 32, i8* %src2, i64 18, i64 0)
+  call void @llvm.for.cpystr.i64.i64.i64(i8* %dst, i64 16, i8* %src, i64 32, i64 0, i1 0)
+  call void @llvm.for.cpystr.i64.i64.i64(i8* %dst, i64 32, i8* %src, i64 16, i64 0, i1 0)
+  call void @llvm.for.cpystr.i64.i64.i64(i8* %dst, i64 32, i8* %src, i64 17, i64 1, i1 0)
+  call void @llvm.for.cpystr.i64.i64.i64(i8* %dst, i64 32, i8* %src, i64 18, i64 0, i1 0)
+  call void @llvm.for.cpystr.i64.i64.i64(i8* %dst2, i64 32, i8* %src2, i64 18, i64 0, i1 0)
+  call void @llvm.for.cpystr.i64.i64.i64(i8* %dst2, i64 32, i8* %src2, i64 18, i64 0, i1 1)
   ret void
 }
 
-declare void @llvm.for.cpystr.i64.i64.i64(i8*, i64, i8*, i64, i64)
+declare void @llvm.for.cpystr.i64.i64.i64(i8*, i64, i8*, i64, i64, i1)

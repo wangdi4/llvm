@@ -1,4 +1,7 @@
 ; RUN: opt -S -mattr=avx2 -VPlanDriver -vplan-enable-peeling < %s | FileCheck %s
+; RUN: opt -S -mattr=avx2 -VPlanDriver -vplan-enable-peeling \
+; RUN:     -vplan-enable-general-peeling-cost-model=false < %s \
+; RUN: | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

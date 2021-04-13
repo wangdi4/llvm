@@ -184,6 +184,15 @@ bool isAllowedInTBBSubset(OpenMPDirectiveKind DKind);
 bool isAllowedInSPIRSubset(OpenMPDirectiveKind DKind);
 #endif //INTEL_CUSTOMIZATION
 
+#if INTEL_COLLAB
+/// OpenMP adjust-op kinds for 'adjust_args' clause.
+enum OpenMPAdjustArgsOpKind {
+#define OPENMP_ADJUST_ARGS_KIND(Name) OMPC_ADJUST_ARGS_##Name,
+#include "clang/Basic/OpenMPKinds.def"
+  OMPC_ADJUST_ARGS_unknown
+};
+#endif // INTEL_COLLAB
+
 unsigned getOpenMPSimpleClauseType(OpenMPClauseKind Kind, llvm::StringRef Str,
                                    unsigned OpenMPVersion);
 const char *getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind, unsigned Type);

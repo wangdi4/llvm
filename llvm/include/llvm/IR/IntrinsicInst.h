@@ -1137,7 +1137,14 @@ public:
 
   class ForCpyStrInst : public IntrinsicInst {
   private:
-    enum { ARG_DEST = 0, ARG_DESTLEN, ARG_SRC, ARG_SRCLEN, ARG_PADDING };
+    enum {
+      ARG_DEST = 0,
+      ARG_DESTLEN,
+      ARG_SRC,
+      ARG_SRCLEN,
+      ARG_PADDING,
+      ARG_VOLATILE
+    };
 
   public:
     Value *getDest() const {
@@ -1159,6 +1166,15 @@ public:
     Value *getPadding() const {
       return const_cast<Value *>(getArgOperand(ARG_PADDING));
     }
+
+    ConstantInt *getVolatileCst() const {
+      return cast<ConstantInt>(
+          const_cast<Value *>(getArgOperand(ARG_VOLATILE)));
+    }
+
+    bool isVolatile() const { return !getVolatileCst()->isZero(); }
+
+    void setVolatile(Constant *V) { setArgOperand(ARG_VOLATILE, V); }
 
     static bool classof(const IntrinsicInst *I) {
       return I->getIntrinsicID() == Intrinsic::for_cpystr;

@@ -19,6 +19,7 @@
 ; CHECK-NEXT:    Linked values: i64 [[VP3]], i64 [[VP2]],
 ; CHECK:       Private list
 ; CHECK-EMPTY:
+; CHECK-NEXT:    Private tag: InMemory
 ; CHECK-NEXT:    Linked values: i32* [[A20]],
 ; CHECK-NEXT:   Memory: i32* [[A20]]
 

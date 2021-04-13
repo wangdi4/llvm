@@ -127,7 +127,13 @@ Intrinsic::ID llvm::getVectorIntrinsicIDForCall(const CallInst *CI,
   if (isTriviallyVectorizable(ID) || ID == Intrinsic::lifetime_start ||
       ID == Intrinsic::lifetime_end || ID == Intrinsic::assume ||
       ID == Intrinsic::experimental_noalias_scope_decl ||
-      ID == Intrinsic::sideeffect || ID == Intrinsic::pseudoprobe)
+      ID == Intrinsic::sideeffect ||
+      ID == Intrinsic::pseudoprobe // INTEL
+#if INTEL_CUSTOMIZATION
+      // ldexp intrinsic is not vectorized by default, vectorize it only iff
+      // SVML is enabled.
+      || (TLI->isSVMLEnabled() && ID == Intrinsic::ldexp))
+#endif // INTEL_CUSTOMIZATION
     return ID;
   return Intrinsic::not_intrinsic;
 }

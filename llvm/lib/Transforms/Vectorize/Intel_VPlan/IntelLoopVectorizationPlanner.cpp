@@ -87,7 +87,7 @@ static cl::opt<unsigned> VPlanForceUF("vplan-force-uf", cl::init(0),
                                       cl::desc("Force VPlan to use given UF"));
 
 static cl::opt<bool> EnableGeneralPeelingCostModel(
-    "vplan-enable-general-peeling-cost-model", cl::init(false),
+    "vplan-enable-general-peeling-cost-model", cl::init(true),
     cl::desc("Use more advanced general cost model instead of a simple one for "
              "peeling decisions"));
 
@@ -356,6 +356,11 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(MDNode *MD,
   // TODO: revisit when we build multiple VPlans.
   std::shared_ptr<VPlanVector> Plan = buildInitialVPlan(*Externals, *UnlinkedVPInsts,
                                                         VPlanName, SE);
+
+  VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
+  VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
+  LE->analyzeImplicitLastPrivates();
+
   // Check legality of VPlan before proceeding with other transforms/analyses.
   if (!canProcessVPlan(*Plan.get())) {
     LLVM_DEBUG(dbgs() << "LVP: VPlan is not legal to process, bailing out.\n");

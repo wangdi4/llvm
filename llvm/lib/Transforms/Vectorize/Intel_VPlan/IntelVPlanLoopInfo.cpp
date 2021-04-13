@@ -140,10 +140,15 @@ bool VPLoop::hasNormalizedInduction() const {
       VPValue *Init = PN->getIncomingValue(Preheader);
       if (auto IndInit = dyn_cast<VPInductionInit>(Init)) {
         Init = IndInit->getStartValueOperand();
-        if (isa<VPConstantInt>(Init) &&
-            cast<VPConstantInt>(Init)->getValue() == 0)
-          continue;
+        if (auto *VPLiveIn = dyn_cast<VPLiveInValue>(Init))
+          Init = IndInit->getParent()
+                     ->getParent()
+                     ->getExternals()
+                     .getOriginalIncomingValue(VPLiveIn->getMergeId());
       }
+      if (isa<VPConstantInt>(Init) &&
+          cast<VPConstantInt>(Init)->getValue() == 0)
+        continue;
       // The starting value is not induction-init(0).
       return false;
     }

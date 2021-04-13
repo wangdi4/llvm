@@ -547,12 +547,13 @@ static Instruction *simplifyForCpyStr(ForCpyStrInst *FCSI, InstCombiner &IC) {
   const int64_t DestLen = DestLenC->getSExtValue();
   const int64_t SrcLen = SrcLenC->getSExtValue();
   const int64_t Padding = PaddingC->getSExtValue();
+  bool IsVol = FCSI->isVolatile();
   if (DestLen < 0 || SrcLen < 0)
     return nullptr;
 
   auto &Builder = IC.Builder;
   if (DestLen <= SrcLen) {
-    Builder.CreateMemMove(Dest, DestAlign, Src, SrcAlign, DestLen);
+    Builder.CreateMemMove(Dest, DestAlign, Src, SrcAlign, DestLen, IsVol);
   } else {
     auto *PaddingAddr = Builder.CreateConstGEP1_64(Dest, SrcLen);
     auto *PaddingVal = Padding == 0 ? Builder.getInt8(' ') : Builder.getInt8(0);
@@ -560,8 +561,9 @@ static Instruction *simplifyForCpyStr(ForCpyStrInst *FCSI, InstCombiner &IC) {
     MaybeAlign PaddingAlign;
     if (DestAlign)
       PaddingAlign = commonAlignment(DestAlign, SrcLen);
-    Builder.CreateMemMove(Dest, DestAlign, Src, SrcAlign, SrcLen);
-    Builder.CreateMemSet(PaddingAddr, PaddingVal, PaddingLen, PaddingAlign);
+    Builder.CreateMemMove(Dest, DestAlign, Src, SrcAlign, SrcLen, IsVol);
+    Builder.CreateMemSet(PaddingAddr, PaddingVal, PaddingLen, PaddingAlign,
+                         IsVol);
   }
   return IC.eraseInstFromFunction(*FCSI);
 }

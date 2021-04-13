@@ -66,7 +66,11 @@
 #ifndef OPENMP_REDUCTION_MODIFIER
 #define OPENMP_REDUCTION_MODIFIER(Name)
 #endif
-
+#if INTEL_COLLAB
+#ifndef OPENMP_ADJUST_ARGS_KIND
+#define OPENMP_ADJUST_ARGS_KIND(Name)
+#endif
+#endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION
 // OpenMP directives in the -qopenmp-simd subset
@@ -233,6 +237,13 @@ OPENMP_REDUCTION_MODIFIER(default)
 OPENMP_REDUCTION_MODIFIER(inscan)
 OPENMP_REDUCTION_MODIFIER(task)
 
+#if INTEL_COLLAB
+// Adjust-op kinds for the 'adjust_args' clause.
+OPENMP_ADJUST_ARGS_KIND(nothing)
+OPENMP_ADJUST_ARGS_KIND(need_device_ptr)
+
+#undef OPENMP_ADJUST_ARGS_KIND
+#endif // INTEL_COLLAB
 #undef OPENMP_REDUCTION_MODIFIER
 #undef OPENMP_DEVICE_MODIFIER
 #undef OPENMP_ORDER_KIND

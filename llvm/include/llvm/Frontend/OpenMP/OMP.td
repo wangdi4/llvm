@@ -329,6 +329,10 @@ def OMPC_Uniform : Clause<"uniform"> {
 }
 def OMPC_DeviceType : Clause<"device_type"> {}
 def OMPC_Match : Clause<"match"> {}
+#if INTEL_COLLAB
+def OMPC_AdjustArgs : Clause<"adjust_args"> { }
+def OMPC_AppendArgs : Clause<"append_args"> { }
+#endif // INTEL_COLLAB
 def OMPC_Depobj : Clause<"depobj"> {
   let clangClass = "OMPDepobjClause";
   let isImplicit = true;
@@ -1583,6 +1587,12 @@ def OMP_DeclareVariant : Directive<"declare variant"> {
   let allowedClauses = [
     VersionedClause<OMPC_Match>
   ];
+#if INTEL_COLLAB
+  let allowedExclusiveClauses = [
+    VersionedClause<OMPC_AdjustArgs, 51>,
+    VersionedClause<OMPC_AppendArgs, 51>
+  ];
+#endif // INTEL_COLLAB
 }
 def OMP_MasterTaskloop : Directive<"master taskloop"> {
   let allowedClauses = [

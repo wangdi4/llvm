@@ -5347,7 +5347,7 @@ declare i32* @llvm.intel.subscript.p0i32.i64.i64.p0i32.i64(i8, i64, i64, i32*, i
 declare dso_local i64 @for_trim(i8*, i64, i8*, i64) local_unnamed_addr #2
 
 ; Function Attrs: nounwind
-declare void @llvm.for.cpystr.i64.i64.i64(i8*, i64, i8*, i64, i64) #4
+declare void @llvm.for.cpystr.i64.i64.i64(i8*, i64, i8*, i64, i64, i1) #4
 
 ; Function Attrs: nofree
 declare dso_local i32 @for_open(i8*, i32, i64, i8*, i8*, ...) local_unnamed_addr #2

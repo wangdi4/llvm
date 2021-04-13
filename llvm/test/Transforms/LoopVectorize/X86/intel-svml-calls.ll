@@ -15,6 +15,12 @@ declare float @tandf(float) #0
 declare void @sincos(double, double*, double*) #0
 declare void @sincosf(float, float*, float*) #0
 
+declare double @ldexp(double, i32) #0
+declare float @ldexpf(float, i32) #0
+
+declare double @llvm.ldexp.f64(double, i32) #0
+declare float @llvm.ldexp.f32(float, i32) #0
+
 define void @sind_f64(double* nocapture %varray) {
 ; CHECK-LABEL: @sind_f64(
 ; CHECK:    [[TMP5:%.*]] = call <4 x double> @__svml_sind4(<4 x double> [[TMP4:%.*]])
@@ -217,6 +223,98 @@ for.body:                                         ; preds = %for.body, %entry
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
+}
+
+define void @ldexp_f64(double* nocapture %varray) {
+; CHECK-LABEL: @ldexp_f64(
+; CHECK:    [[TMP5:%.*]] = call <4 x double> @__svml_ldexp4(<4 x double> [[TMP4:%.*]], <4 x i32> [[TMP3:%.*]])
+; CHECK:    ret void
+;
+entry:
+  br label %for.body
+
+for.body:
+  %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
+  %tmp = trunc i64 %iv to i32
+  %conv = sitofp i32 %tmp to double
+  %call = tail call double @ldexp(double %conv, i32 %tmp)
+  %arrayidx = getelementptr inbounds double, double* %varray, i64 %iv
+  store double %call, double* %arrayidx, align 4
+  %iv.next = add nuw nsw i64 %iv, 1
+  %exitcond = icmp eq i64 %iv.next, 1000
+  br i1 %exitcond, label %for.end, label %for.body
+
+for.end:
+  ret void
+}
+
+define void @ldexpf_f32(float* nocapture %varray) {
+; CHECK-LABEL: @ldexpf_f32(
+; CHECK:    [[TMP5:%.*]] = call <4 x float> @__svml_ldexpf4(<4 x float> [[TMP4:%.*]], <4 x i32> [[TMP3:%.*]])
+; CHECK:    ret void
+;
+entry:
+  br label %for.body
+
+for.body:
+  %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
+  %tmp = trunc i64 %iv to i32
+  %conv = sitofp i32 %tmp to float
+  %call = tail call float @ldexpf(float %conv, i32 %tmp)
+  %arrayidx = getelementptr inbounds float, float* %varray, i64 %iv
+  store float %call, float* %arrayidx, align 4
+  %iv.next = add nuw nsw i64 %iv, 1
+  %exitcond = icmp eq i64 %iv.next, 1000
+  br i1 %exitcond, label %for.end, label %for.body
+
+for.end:
+  ret void
+}
+
+define void @lldexp_f64(double* nocapture %varray) {
+; CHECK-LABEL: @lldexp_f64(
+; CHECK:    [[TMP5:%.*]] = call <4 x double> @__svml_ldexp4(<4 x double> [[TMP4:%.*]], <4 x i32> [[TMP3:%.*]])
+; CHECK:    ret void
+;
+entry:
+  br label %for.body
+
+for.body:
+  %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
+  %tmp = trunc i64 %iv to i32
+  %conv = sitofp i32 %tmp to double
+  %call = tail call double @llvm.ldexp.f64(double %conv, i32 %tmp)
+  %arrayidx = getelementptr inbounds double, double* %varray, i64 %iv
+  store double %call, double* %arrayidx, align 4
+  %iv.next = add nuw nsw i64 %iv, 1
+  %exitcond = icmp eq i64 %iv.next, 1000
+  br i1 %exitcond, label %for.end, label %for.body
+
+for.end:
+  ret void
+}
+
+define void @lldexpf_f32(float* nocapture %varray) {
+; CHECK-LABEL: @lldexpf_f32(
+; CHECK:    [[TMP5:%.*]] = call <4 x float> @__svml_ldexpf4(<4 x float> [[TMP4:%.*]], <4 x i32> [[TMP3:%.*]])
+; CHECK:    ret void
+;
+entry:
+  br label %for.body
+
+for.body:
+  %iv = phi i64 [ 0, %entry ], [ %iv.next, %for.body ]
+  %tmp = trunc i64 %iv to i32
+  %conv = sitofp i32 %tmp to float
+  %call = tail call float @llvm.ldexp.f32(float %conv, i32 %tmp)
+  %arrayidx = getelementptr inbounds float, float* %varray, i64 %iv
+  store float %call, float* %arrayidx, align 4
+  %iv.next = add nuw nsw i64 %iv, 1
+  %exitcond = icmp eq i64 %iv.next, 1000
+  br i1 %exitcond, label %for.end, label %for.body
+
+for.end:
+  ret void
 }
 
 attributes #0 = { nounwind readnone }

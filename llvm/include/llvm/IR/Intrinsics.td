@@ -712,9 +712,14 @@ def int_objectsize : DefaultAttrsIntrinsic<[llvm_anyint_ty],
 //===----------------- Intel Fortran Library Intrinsics -------------------===//
 //
 
-def int_for_cpystr : Intrinsic<[],
+def int_for_cpystr : DefaultAttrsIntrinsic<[],
                                [llvm_ptr_ty, llvm_anyint_ty, llvm_ptr_ty,
-                                llvm_anyint_ty, llvm_anyint_ty]>;
+                                llvm_anyint_ty, llvm_anyint_ty, llvm_i1_ty],
+                               [IntrArgMemOnly, IntrWillReturn,
+                                NoCapture<ArgIndex<0>>, NoCapture<ArgIndex<2>>,
+                                NoAlias<ArgIndex<0>>, NoAlias<ArgIndex<2>>,
+                                WriteOnly<ArgIndex<0>>, ReadOnly<ArgIndex<2>>,
+                                ImmArg<ArgIndex<5>>]>;
 //===---------------- icc/ifort Compatibility Intrinsics ------------------===//
 //
 

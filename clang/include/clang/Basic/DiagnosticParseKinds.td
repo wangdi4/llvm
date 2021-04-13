@@ -1369,8 +1369,16 @@ def err_omp_mapper_illegal_identifier : Error<
   "illegal OpenMP user-defined mapper identifier">;
 def err_omp_mapper_expected_declarator : Error<
   "expected declarator on 'omp declare mapper' directive">;
+#if INTEL_COLLAB
+def err_omp_unexpected_append_op : Error<
+  "unexpected append-op in 'append_args' clause, expected 'interop'">;
+def err_omp_declare_variant_wrong_clause : Error<
+  "expected %select{'match'|'match',  'adjust_args', or 'append_args'}0 clause on "
+  "'omp declare variant' directive">;
+#else // INTEL_COLLAB
 def err_omp_declare_variant_wrong_clause : Error<
   "expected '%0' clause on 'omp declare variant' directive">;
+#endif // INTEL_COLLAB
 def err_omp_declare_variant_duplicate_nested_trait : Error<
   "nested OpenMP context selector contains duplicated trait '%0'"
   " in selector '%1' and set '%2' with different score">;

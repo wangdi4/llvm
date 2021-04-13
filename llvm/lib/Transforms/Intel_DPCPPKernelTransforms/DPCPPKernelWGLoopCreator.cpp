@@ -315,11 +315,13 @@ ReturnInst *DPCPPKernelWGLoopCreatorPass::getFunctionData(Function *F,
 void DPCPPKernelWGLoopCreatorPass::getLoopsBoundaries(Function *F) {
   LoopSizes.clear();
   InitGIDs.clear();
+  BaseGIDs.clear();
   for (unsigned Dim = 0; Dim < NumDim; ++Dim) {
     CallInst *BaseGID = DPCPPKernelLoopUtils::getWICall(
         F->getParent(), DPCPPKernelCompilationUtils::nameGetBaseGID(), IndTy,
         Dim, NewEntry);
     InitGIDs.push_back(BaseGID);
+    BaseGIDs.push_back(BaseGID);
     CallInst *LocalSize = DPCPPKernelLoopUtils::getWICall(
         F->getParent(), DPCPPKernelCompilationUtils::mangledGetLocalSize(),
         IndTy, Dim, NewEntry);
@@ -376,8 +378,10 @@ LoopRegion DPCPPKernelWGLoopCreatorPass::addWGLoops(
       replaceTIDsWithPHI(GIDs[ResolvedDim], InitGID, IncBy, Head,
                          Blocks.PreHeader, Latch);
     if (LIDs[ResolvedDim].size()) {
-      // TODO: Do I need base GID computations?
-      replaceTIDsWithPHI(LIDs[ResolvedDim], InitGID, IncBy, Head,
+      Value *InitLID =
+          BinaryOperator::Create(Instruction::Sub, InitGID, BaseGIDs[Dim],
+                                 DimStr + "init_lid", NewEntry);
+      replaceTIDsWithPHI(LIDs[ResolvedDim], InitLID, IncBy, Head,
                          Blocks.PreHeader, Latch);
     }
     // head, latch for the next loop are the pre header and exit

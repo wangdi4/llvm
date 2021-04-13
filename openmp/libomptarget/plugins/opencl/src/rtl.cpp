@@ -441,8 +441,9 @@ struct RTLFlagsTy {
   uint64_t EnableSimd : 1;
   uint64_t UseSVM : 1;
   uint64_t UseBuffer : 1;
+  uint64_t UseSingleContext : 1;
   // Add new flags here
-  uint64_t Reserved : 55;
+  uint64_t Reserved : 54;
   RTLFlagsTy() :
       CollectDataTransferLatency(0),
       EnableProfile(0),
@@ -453,6 +454,7 @@ struct RTLFlagsTy {
       EnableSimd(0),
       UseSVM(0),
       UseBuffer(0),
+      UseSingleContext(0),
       Reserved(0) {}
 };
 
@@ -486,6 +488,7 @@ public:
 
   // per device information
   std::vector<cl_platform_id> Platforms;
+  std::vector<cl_context> Contexts;
   std::vector<cl_device_id> deviceIDs;
   // Internal device type ID
   std::vector<uint64_t> DeviceArchs;
@@ -718,6 +721,12 @@ public:
         Flags.UseBuffer = 1;
     }
 
+    // Read LIBOMPTARGET_USE_SINGLE_CONTEXT
+    if ((env = readEnvVar("LIBOMPTARGET_USE_SINGLE_CONTEXT"))) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.UseSingleContext = 1;
+    }
+
 #if INTEL_INTERNAL_BUILD
     // Force work group sizes -- for internal experiments
     if ((env = readEnvVar("LIBOMPTARGET_LOCAL_WG_SIZE"))) {
@@ -776,8 +785,10 @@ public:
 
   /// Return context for the given device ID
   cl_context getContext(int32_t DeviceId) {
-    auto platformId = Platforms[DeviceId];
-    return PlatformInfos[platformId].Context;
+    if (Flags.UseSingleContext)
+      return PlatformInfos[Platforms[DeviceId]].Context;
+    else
+      return Contexts[DeviceId];
   }
 
   /// Return the extension function pointer for the given ID
@@ -1040,14 +1051,22 @@ static void closeRTL() {
     }
     // No entries may exist if offloading was done through MKL
     if (DeviceInfo->FuncGblEntries[i].Program)
-       CALL_CL_EXIT_FAIL(clReleaseProgram, DeviceInfo->FuncGblEntries[i].Program);
+      CALL_CL_EXIT_FAIL(clReleaseProgram, DeviceInfo->FuncGblEntries[i].Program);
+
     CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->Queues[i]);
+
     if (DeviceInfo->QueuesInOrder[i])
       CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->QueuesInOrder[i]);
+
     DeviceInfo->unloadOffloadTable(i);
+
+    if (!DeviceInfo->Flags.UseSingleContext)
+      CALL_CL_EXIT_FAIL(clReleaseContext, DeviceInfo->Contexts[i]);
   }
-  for (auto platformInfo : DeviceInfo->PlatformInfos)
-    CALL_CL_EXIT_FAIL(clReleaseContext, platformInfo.second.Context);
+
+  if (DeviceInfo->Flags.UseSingleContext)
+    for (auto platformInfo : DeviceInfo->PlatformInfos)
+      CALL_CL_EXIT_FAIL(clReleaseContext, platformInfo.second.Context);
 
   delete[] DeviceInfo->Mutexes;
   delete[] DeviceInfo->ProfileLocks;
@@ -1484,16 +1503,17 @@ int32_t __tgt_rtl_number_of_devices() {
     std::vector<cl_device_id> devices(numDevices);
     CALL_CL_RET_ZERO(clGetDeviceIDs, id, DeviceInfo->DeviceType, numDevices,
                      devices.data(), nullptr);
-    cl_context_properties contextProperties[] = {
-        CL_CONTEXT_PLATFORM,
-        (cl_context_properties)id,
-        0
-    };
+
     cl_context context = nullptr;
-    CALL_CL_RVRC(context, clCreateContext, rc, contextProperties,
-                 devices.size(), devices.data(), nullptr, nullptr);
-    if (rc != CL_SUCCESS)
-      continue;
+    if (DeviceInfo->Flags.UseSingleContext) {
+      cl_context_properties contextProperties[] = {
+          CL_CONTEXT_PLATFORM, (cl_context_properties)id, 0
+      };
+      CALL_CL_RVRC(context, clCreateContext, rc, contextProperties,
+                   devices.size(), devices.data(), nullptr, nullptr);
+      if (rc != CL_SUCCESS)
+        continue;
+    }
 
     DeviceInfo->PlatformInfos.emplace(id, PlatformInfoTy(id, context));
     for (auto device : devices) {
@@ -1503,6 +1523,8 @@ int32_t __tgt_rtl_number_of_devices() {
     DeviceInfo->numDevices += numDevices;
   }
 
+  if (!DeviceInfo->Flags.UseSingleContext)
+    DeviceInfo->Contexts.resize(DeviceInfo->numDevices);
   DeviceInfo->maxExecutionUnits.resize(DeviceInfo->numDevices);
   DeviceInfo->maxWorkGroupSize.resize(DeviceInfo->numDevices);
   DeviceInfo->Extensions.resize(DeviceInfo->numDevices);
@@ -1587,6 +1609,19 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   if (DeviceInfo->Flags.EnableProfile)
     qProperties.back() |= CL_QUEUE_PROFILING_ENABLE;
   qProperties.push_back(0);
+
+  if (!DeviceInfo->Flags.UseSingleContext) {
+    auto platform = DeviceInfo->Platforms[device_id];
+    auto device = DeviceInfo->deviceIDs[device_id];
+    cl_context_properties contextProperties[] = {
+        CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0
+    };
+    cl_int rc;
+    CALL_CL_RVRC(DeviceInfo->Contexts[device_id], clCreateContext, rc,
+                 contextProperties, 1, &device, nullptr, nullptr);
+    if (rc != CL_SUCCESS)
+      return OFFLOAD_FAIL;
+  }
 
   auto deviceID = DeviceInfo->deviceIDs[device_id];
   auto context = DeviceInfo->getContext(device_id);

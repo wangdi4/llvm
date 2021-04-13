@@ -10734,6 +10734,12 @@ def err_omp_interop_var_multiple_actions : Error<
 def err_omp_dispatch_statement_call
     : Error<"statement after '#pragma omp dispatch' must be a direct call"
             " to a target function or an assignment to one">;
+#if INTEL_COLLAB
+def err_omp_adjust_arg_multiple_clauses : Error<
+  "adjust_arg argument %0 used in multiple clauses">;
+def err_omp_clause_requires_dispatch_construct : Error<
+  "'%0' clause requires 'dispatch' context selector">;
+#endif // INTEL_COLLAB
 } // end of OpenMP category
 
 let CategoryName = "Related Result Type Issue" in {

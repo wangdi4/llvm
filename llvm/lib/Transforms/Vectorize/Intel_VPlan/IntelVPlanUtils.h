@@ -119,6 +119,12 @@ inline bool isVectorizableTy(Type *Ty) {
   return true;
 }
 
+/// \returns true if \p Ty's pointee-type is a scalar.
+inline bool isScalarTy(Type *Ty) {
+  assert(Ty && "Expect a non-null argument to isScalarTy function.");
+  return (!(Ty->isAggregateType() || Ty->isVectorTy()));
+}
+
 /////////// VPValue version of common LLVM load/store utilities ///////////
 
 /// A helper function that returns the pointer operand of a load or store

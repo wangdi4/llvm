@@ -2263,6 +2263,60 @@ void CodeGenModule::CreateFunctionTypeMetadataForIcall(const FunctionDecl *FD,
 }
 
 #if INTEL_COLLAB
+/// For the function associated with a declare variant directive, determine
+/// which of its parameters should be marked as needing device pointers
+/// (according to an adjust_args clause). Those that do will be marked as
+/// "T" in the 'needs_device_ptr' section of the openmp-variant string.
+/// Otherwise, it will be marked as "F". For a parameter that is a reference in
+/// the function declaration, the "T" marker will be replaced with "PTR_TO_PTR".
+static std::string getDevPtrAttrString(const FunctionDecl *FD,
+                                       const OMPDeclareVariantAttr *Attr) {
+  SmallString<128> Buffer;
+  llvm::raw_svector_ostream OS(Buffer);
+
+  for (unsigned N = 0, NumParams = FD->getNumParams(); N != NumParams; ++N) {
+    auto PD = FD->getParamDecl(N);
+    if (Attr->adjustArgsNeedDevicePtr_size()) {
+      if (N != 0)
+        OS << ",";
+      auto I = llvm::find_if(Attr->adjustArgsNeedDevicePtr(),
+          [&PD](Expr *&Param) {
+            Param = Param->IgnoreParenImpCasts();
+            const auto *PVD = cast<ParmVarDecl>(cast<DeclRefExpr>(Param)
+                              ->getDecl())->getCanonicalDecl();
+            if (PVD == PD)
+              return true;
+            return false;
+          });
+      if (I != Attr->adjustArgsNeedDevicePtr_end()) {
+        if (FD->getParamDecl(N)->getType()->isReferenceType())
+          OS << "PTR_TO_PTR";
+        else
+          OS << "T";
+      } else
+        OS << "F";
+    }
+  }
+  return std::string(OS.str());
+}
+
+static std::string getAppendArgsTypes(const OMPDeclareVariantAttr *Attr) {
+  SmallString<128> Buffer;
+  llvm::raw_svector_ostream OS(Buffer);
+
+  if (Attr->appendArgs_size()) {
+    for (auto InterOpType : Attr->appendArgs()) {
+      if (InterOpType == *Attr->appendArgs_begin())
+        OS << ";interop:";
+      else
+        OS << ",";
+      OS << OMPDeclareVariantAttr::ConvertInteropTypeToStr(InterOpType);
+    }
+    OS << ";";
+  }
+  return std::string(OS.str());
+}
+
 /// For functions with related 'omp declare variant' functions, create
 /// metadata on the base function for each variant. The format is:
 ///
@@ -2272,8 +2326,10 @@ void CodeGenModule::CreateFunctionTypeMetadataForIcall(const FunctionDecl *FD,
 ///
 /// variant-specifier :=
 ///   name:<mangled-name>;construct:<construct-list>;arch:<arch-list>
+///   ;need_device_ptr:<dev-ptr-list>;interop:<interop-type-list>
 ///
-/// construct-list and arch-list entries are separated by commas.
+/// construct-list, arch-list, dev-ptr-list, and interop-type-list entries
+/// are separated by commas.
 ///
 static void addDeclareVariantAttributes(CodeGenModule &CGM,
                                         const FunctionDecl *FD,
@@ -2291,59 +2347,66 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
 
     SmallString<256> Constructs;
     SmallString<256> Devices;
+    std::string NeedDevPtrs;
+    std::string AppendArgs;
     unsigned NumConstructs = 0;
     unsigned NumDevices = 0;
-
     SmallVector<Expr *, 8> VariantExprs;
     SmallVector<llvm::omp::VariantMatchInfo, 8> VMIs;
-    for (const auto *A : FD->specific_attrs<OMPDeclareVariantAttr>()) {
-      const OMPTraitInfo &TI = *A->getTraitInfos();
-      for (const auto &TS : TI.Sets) {
-        llvm::omp::TraitSet Kind = TS.Kind;
-        switch (Kind) {
-        case llvm::omp::TraitSet::construct: {
-          for (const auto &Sel : TS.Selectors) {
-            if (Sel.Kind ==
-                llvm::omp::TraitSelector::construct_target_variant_dispatch) {
-              if (NumConstructs++ != 0)
-                Constructs += ',';
-              Constructs += "target_variant_dispatch";
-            }
+    const OMPTraitInfo &TI = *Attr->getTraitInfos();
+    for (const auto &TS : TI.Sets) {
+      llvm::omp::TraitSet Kind = TS.Kind;
+      switch (Kind) {
+      case llvm::omp::TraitSet::construct: {
+        for (const auto &Sel : TS.Selectors) {
+          if (Sel.Kind ==
+              llvm::omp::TraitSelector::construct_target_variant_dispatch) {
+            if (NumConstructs++ != 0)
+              Constructs += ',';
+            Constructs += "target_variant_dispatch";
           }
-          break;
         }
-        case llvm::omp::TraitSet::device: {
-          for (const auto &Sel : TS.Selectors) {
-            if (Sel.Kind == llvm::omp::TraitSelector::device_arch) {
-              for (const auto &Prop : Sel.Properties) {
-                switch (Prop.Kind) {
-                case llvm::omp::TraitProperty::device_arch_x86_64:
-                case llvm::omp::TraitProperty::device_arch_gen:
-                case llvm::omp::TraitProperty::device_arch_gen9:
-                case llvm::omp::TraitProperty::device_arch_XeLP:
-                case llvm::omp::TraitProperty::device_arch_XeHP:
-                  if (NumDevices++ != 0)
-                    Devices += ',';
-                  Devices += llvm::omp::getOpenMPContextTraitPropertyName(
-                      Prop.Kind, "");
-                  break;
-                default:
-                  llvm_unreachable("unhandled device arch type");
-                }
+        break;
+      }
+      case llvm::omp::TraitSet::device: {
+        for (const auto &Sel : TS.Selectors) {
+          if (Sel.Kind == llvm::omp::TraitSelector::device_arch) {
+            for (const auto &Prop : Sel.Properties) {
+              switch (Prop.Kind) {
+              case llvm::omp::TraitProperty::device_arch_x86_64:
+              case llvm::omp::TraitProperty::device_arch_gen:
+              case llvm::omp::TraitProperty::device_arch_gen9:
+              case llvm::omp::TraitProperty::device_arch_XeLP:
+              case llvm::omp::TraitProperty::device_arch_XeHP:
+                if (NumDevices++ != 0)
+                  Devices += ',';
+                Devices +=
+                    llvm::omp::getOpenMPContextTraitPropertyName(Prop.Kind, "");
+                break;
+              default:
+                llvm_unreachable("unhandled device arch type");
               }
             }
           }
-          break;
         }
-        default:
-          break;
-        }
+        break;
+      }
+      default:
+        break;
       }
     }
+    NeedDevPtrs = getDevPtrAttrString(FD, Attr);
+    AppendArgs = getAppendArgsTypes(Attr);
     S += ";construct:";
     S += Constructs;
     S += ";arch:";
     S += Devices;
+    if (!NeedDevPtrs.empty()) {
+      S += ";need_device_ptr:";
+      S += NeedDevPtrs;
+    }
+    if (!AppendArgs.empty())
+      S += AppendArgs;
   }
   if (!S.empty())
     F->addFnAttr("openmp-variant", S);

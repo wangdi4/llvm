@@ -11319,6 +11319,12 @@ public:
   /// must be used instead of the original one, specified in \p DG.
   /// \param TI The context traits associated with the function variant.
   void ActOnOpenMPDeclareVariantDirective(FunctionDecl *FD, Expr *VariantRef,
+#if INTEL_COLLAB
+      MutableArrayRef<Expr *> AdjustArgsNothing,
+      MutableArrayRef<Expr *> AdjustArgsNeedDevicePtr,
+      MutableArrayRef<OMPDeclareVariantAttr::InteropType> AdjustArgs,
+      SourceLocation AdjustArgsLoc, SourceLocation AppendArgsLoc,
+#endif // INTEL_COLLAB
                                           OMPTraitInfo &TI, SourceRange SR);
 
   OMPClause *ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind,
