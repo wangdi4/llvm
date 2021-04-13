@@ -22,6 +22,12 @@ DataPerBarrier DataPerBarrierAnalysis::run(Module &M, ModuleAnalysisManager &) {
   return DataPerBarrier{M};
 }
 
+PreservedAnalyses DataPerBarrierPrinter::run(Module &M,
+                                             ModuleAnalysisManager &MAM) {
+  MAM.getResult<DataPerBarrierAnalysis>(M).print(OS, &M);
+  return PreservedAnalyses::all();
+}
+
 void DataPerBarrier::InitSynchronizeData() {
   // Internal Data used to calculate user Analysis Data.
   unsigned int CurrentAvailableID = 0;

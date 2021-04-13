@@ -1,3 +1,4 @@
+; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-barrier-wi-analysis>' %s -S -o - | FileCheck %s
 ; RUN: opt -analyze -dpcpp-kernel-barrier-wi-analysis %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************

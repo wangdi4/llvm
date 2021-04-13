@@ -1,3 +1,4 @@
+; RUN: opt -passes=dpcpp-kernel-barrier-in-function %s -S -o - | FileCheck %s
 ; RUN: opt -dpcpp-kernel-barrier-in-function %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************

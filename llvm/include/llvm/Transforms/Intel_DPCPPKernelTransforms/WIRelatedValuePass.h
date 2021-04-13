@@ -107,6 +107,15 @@ public:
   static StringRef name() { return "Intel Kernel WIRelatedValue Analysis"; }
 };
 
+/// Printer pass for WIRelatedValue.
+class WIRelatedValuePrinter : public PassInfoMixin<WIRelatedValuePrinter> {
+  raw_ostream &OS;
+
+public:
+  explicit WIRelatedValuePrinter(raw_ostream &OS) : OS(OS) {}
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+};
+
 /// WIRelatedValueWrapper pass for legacy pass manager.
 class WIRelatedValueWrapper : public ModulePass {
   std::unique_ptr<WIRelatedValue> WRV;

@@ -198,6 +198,15 @@ public:
   static StringRef name() { return "Intel Kernel DataPerBarrier Analysis"; }
 };
 
+/// Printer pass for DataPerBarrier.
+class DataPerBarrierPrinter : public PassInfoMixin<DataPerBarrierPrinter> {
+  raw_ostream &OS;
+
+public:
+  explicit DataPerBarrierPrinter(raw_ostream &OS) : OS(OS) {}
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+};
+
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_DATA_PER_BARRIER_PASS_H
