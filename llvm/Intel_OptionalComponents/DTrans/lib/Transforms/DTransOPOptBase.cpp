@@ -17,7 +17,9 @@
 
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
 
+#include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransOPUtils.h"
+#include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
@@ -385,10 +387,10 @@ void DTransOPTypeRemapper::dump() const {
 // Implementation for the DTransOPOptBase class methods
 //===----------------------------------------------------------------------===//
 
-DTransOPOptBase::DTransOPOptBase(LLVMContext &Ctx, DTransTypeManager &TM,
+DTransOPOptBase::DTransOPOptBase(LLVMContext &Ctx, DTransSafetyInfo *DTInfo,
                                  StringRef DepTypePrefix)
-    : TM(TM), DepTypePrefix(DepTypePrefix),
-      UsingOpaquePtrs(areOpaquePtrsEnabled(Ctx)),
+    : DTInfo(DTInfo), TM(DTInfo->getTypeManager()),
+      DepTypePrefix(DepTypePrefix), UsingOpaquePtrs(areOpaquePtrsEnabled(Ctx)),
       TypeRemapper(TM, UsingOpaquePtrs) {}
 
 bool DTransOPOptBase::run(Module &M) {
@@ -912,6 +914,51 @@ void DTransOPOptBase::initializeGlobalVariableReplacementBaseImpl(
 }
 
 void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
+  // The CallInfo objects may need to have their types updated
+  // following cloning/remapping of the function. This map is
+  // used to find which CallInfo objects to update after
+  // processing each function.
+  DenseMap<Function *, SmallVector<dtrans::CallInfo *, 4>>
+      FunctionToCallInfoVec;
+
+  DTransSafetyInfo *TheDTInfo = DTInfo;
+  auto InitializeFunctionCallInfoMapping = [TheDTInfo,
+                                            &FunctionToCallInfoVec]() {
+    for (auto *CInfo : TheDTInfo->call_info_entries()) {
+      Function *F = CInfo->getInstruction()->getFunction();
+      FunctionToCallInfoVec[F].push_back(CInfo);
+    }
+  };
+
+  // Update the CallInfo objects for the function so that the types are the
+  // remapped types. If the function was cloned, also update the Instruction
+  // mapping to use the Instruction in the cloned Function, instead of the
+  // original Function.
+  DTransOPTypeRemapper &TheTypeRemapper = TypeRemapper;
+  ValueToValueMapTy &TheVMap = VMap;
+  auto UpdateCallInfoForFunction = [TheDTInfo, &TheTypeRemapper, &TheVMap,
+                                    &FunctionToCallInfoVec](Function *F,
+                                                            bool isCloned) {
+    auto It = FunctionToCallInfoVec.find(F);
+    if (It == FunctionToCallInfoVec.end())
+      return;
+
+    for (auto *CInfo : It->second) {
+      if (isCloned)
+        TheDTInfo->replaceCallInfoInstruction(
+            CInfo, cast<Instruction>(TheVMap[CInfo->getInstruction()]));
+
+      dtrans::CallInfoElementTypes &ElementTypes = CInfo->getElementTypesRef();
+      for (auto &I : enumerate(ElementTypes))
+        ElementTypes.setElemType(
+            I.index(), TheTypeRemapper.remapType(I.value().getDTransType()));
+    }
+  };
+
+  // Set up the mapping of Functions to CallInfo objects that need to
+  // be processed as each function is transformed.
+  InitializeFunctionCallInfoMapping();
+
   // Check for debug information that we do not want to be cloned when
   // cloning/remapping functions, and set those debug information objects to map
   // to themselves within the metadata portion of the Value-to-Value map.
@@ -962,6 +1009,7 @@ void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
       CloneFunctionInto(CloneFunc, &F, VMap,
                         CloneFunctionChangeType::LocalChangesOnly, Returns, "",
                         &CodeInfo, &TypeRemapper, /*Materializer=*/nullptr);
+      UpdateCallInfoForFunction(&F, /* IsCloned=*/true);
 
       // CloneFunctionInto() copies all the parameter attributes of the original
       // function's arguments onto the arguments of the new function. For
@@ -987,6 +1035,7 @@ void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
       ValueMapper(VMap, RF_IgnoreMissingLocals, &TypeRemapper,
                   nullptr /*Materializer*/)
           .remapFunction(F);
+      UpdateCallInfoForFunction(&F, /* IsCloned=*/false);
 
       // Attributes may need to be updated on the functions that do not get
       // cloned when opaque pointers are enabled because the parameter type of
@@ -1060,6 +1109,11 @@ void DTransOPOptBase::transformIR(Module &M, ValueMapper &Mapper) {
       }
     }
   }
+
+  LLVM_DEBUG({
+    dbgs() << "Call info after transforming functions\n";
+    DTInfo->printCallInfo();
+  });
 }
 
 // Update the attributes which contain types which have been remapped to new

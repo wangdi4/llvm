@@ -29,7 +29,7 @@ namespace llvm {
 class Module;
 
 namespace dtransOP {
-
+class DTransSafetyInfo;
 class DTransStructType;
 class DTransType;
 class DTransTypeManager;
@@ -167,7 +167,7 @@ public:
   using DTransTypeToTypeSetMap =
       DenseMap<DTransType *, SetVector<DTransType *>>;
 
-  DTransOPOptBase(LLVMContext &Ctx, DTransTypeManager &TM,
+  DTransOPOptBase(LLVMContext &Ctx, DTransSafetyInfo *DTInfo,
                   StringRef DepTypePrefix);
 
   DTransOPOptBase(const DTransOPOptBase &) = delete;
@@ -300,6 +300,10 @@ protected:
   // TODO: Some of these could be made private, and just have accessors for
   // use by the derived classes.
   //===-------------------------------------------------------------------===//
+
+  // The DTransSafetyInfo object that analyzed the types and calls of the
+  // module.
+  DTransSafetyInfo *DTInfo;
 
   // Reference to the DTransTypeManager object being used.
   // NOTE: The same object must be used by the safety analyzer and the
