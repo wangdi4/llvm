@@ -16,6 +16,8 @@
 #include <cerrno>      // errno
 #include <libgen.h>    // dirname
 #include <unistd.h>    // readlink
+#include <fstream>
+#include <assert.h>
 
 bool GetEnv(std::string& result, const std::string& name) {
   char* buf;
@@ -97,4 +99,13 @@ std::string get_exe_dir(unsigned int pid) {
     path = std::string(dirname(&buffer.front())) + dir_sep();
   }
   return path;
+}
+
+void readBinary(std::string filename, std::vector<unsigned char> &binary) {
+  std::ifstream file(filename, std::fstream::binary | std::fstream::in);
+  assert(file.is_open() && "Unable to open file");
+  std::copy(std::istreambuf_iterator<char>(file),
+            std::istreambuf_iterator<char>(), std::back_inserter(binary));
+  file.close();
+  assert(binary.size() && "Unable to read binary");
 }

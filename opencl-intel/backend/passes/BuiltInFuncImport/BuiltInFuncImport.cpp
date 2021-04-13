@@ -102,6 +102,7 @@ namespace intel {
 
     // Get svml calling convention based on cpu perfix
     llvm::CallingConv::ID CC = llvm::CallingConv::C; // default
+    std::string cpu_prefix = m_cpuPrefix;
     if (m_cpuPrefix.compare(CPUDetect::GetCPUPrefixSSE(true)) == 0 ||
         m_cpuPrefix.compare(CPUDetect::GetCPUPrefixSSE(false)) == 0)
       CC = llvm::CallingConv::Intel_OCL_BI;
@@ -113,6 +114,19 @@ namespace intel {
     else if (m_cpuPrefix.compare(CPUDetect::GetCPUPrefixAVX512(true)) == 0 ||
              m_cpuPrefix.compare(CPUDetect::GetCPUPrefixAVX512(false)) == 0)
       CC = llvm::CallingConv::Intel_OCL_BI_AVX512;
+    else if (m_cpuPrefix.compare(CPUDetect::GetCPUPrefixAMX(true)) == 0) {
+      CC = llvm::CallingConv::Intel_OCL_BI_AVX512;
+      // FIXME:
+      // ocl_svml lib for AMX 64bit is not available yet (__ocl_svml_z1.so/dll)
+      // Use AVX512 implementations as a workaround
+      cpu_prefix = CPUDetect::GetCPUPrefixAVX512(true);
+    } else if (m_cpuPrefix.compare(CPUDetect::GetCPUPrefixAMX(false)) == 0) {
+      CC = llvm::CallingConv::Intel_OCL_BI_AVX512;
+      // FIXME:
+      // ocl_svml lib for AMX 32bit is not available yet (__ocl_svml_x1.so/dll)
+      // Use AVX512 implementations as a workaround
+      cpu_prefix = CPUDetect::GetCPUPrefixAVX512(false);
+    }
 
     for (auto &SvmlF : SvmlFunctions) {
       for (auto &RTL : m_runtimeModuleList) {
@@ -123,7 +137,7 @@ namespace intel {
         if (!F)
           continue;
         std::string NewName = FName.str();
-        NewName.replace(11, 6, m_cpuPrefix);
+        NewName.replace(11, 6, cpu_prefix);
         F->setName(NewName);
         F->setCallingConv(CC);
 

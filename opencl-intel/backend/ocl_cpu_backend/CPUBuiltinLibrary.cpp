@@ -29,6 +29,7 @@
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 using namespace llvm;
+using CPUDetect = Intel::OpenCL::Utils::CPUDetect;
 
 void CPUBuiltinLibrary::Load() {
   char Path[MAX_PATH];
@@ -36,12 +37,22 @@ void CPUBuiltinLibrary::Load() {
 
   // Klocwork warning - false alarm the Id is always in correct bounds
   const char *CPUPrefix = m_cpuId->GetCPUPrefix();
+
+  // FIXME:
+  // ocl_svml libs for AMX arch are not available yet (__ocl_svml_z1/x1)
+  // Use AVX512's ocl_svml libs as a workaround
+  const char *OCLSVMLCPUPrefix = CPUPrefix;
+  if (strcmp(CPUPrefix, CPUDetect::GetCPUPrefixAMX(true)) == 0)
+    OCLSVMLCPUPrefix = CPUDetect::GetCPUPrefixAVX512(true);
+  else if (strcmp(CPUPrefix, CPUDetect::GetCPUPrefixAMX(false)) == 0)
+    OCLSVMLCPUPrefix = CPUDetect::GetCPUPrefixAVX512(false);
+
   std::string PathStr(Path);
 
   if (m_useDynamicSvmlLibrary) {
     // Load SVML functions
-    assert(CPUPrefix && "CPUPrefix is null");
-    std::string SVMLPath = PathStr + "__ocl_svml_" + CPUPrefix;
+    assert(OCLSVMLCPUPrefix && "CPUPrefix is null");
+    std::string SVMLPath = PathStr + "__ocl_svml_" + OCLSVMLCPUPrefix;
 #if defined (_WIN32)
     SVMLPath += ".dll";
 #else

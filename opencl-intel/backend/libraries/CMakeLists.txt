@@ -92,11 +92,13 @@ endif(WIN32)
 
 # ARCH
 if (BUILD_X64)
+  set(PrefixAMX    z1)
   set(PrefixAVX512 z0)
   set(PrefixAVX2   l9)
   set(PrefixAVX    e9)
   set(PrefixSSE    h8)
 else()
+  set(PrefixAMX    x1)
   set(PrefixAVX512 x0)
   set(PrefixAVX2   s9)
   set(PrefixAVX    g9)
