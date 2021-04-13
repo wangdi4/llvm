@@ -24,9 +24,9 @@ using namespace llvm;
 extern "C" {
     /// @brief Creates new InstToFuncCall module pass
     /// @returns new InstToFuncCall module pass
-    void* createInstToFuncCallPass(const Intel::CPUId *CpuId) {
-        return new intel::InstToFuncCall(CpuId);
-    }
+void *createInstToFuncCallPass(const Intel::OpenCL::Utils::CPUDetect *CpuId) {
+  return new intel::InstToFuncCall(CpuId);
+}
 }
 
 
@@ -36,7 +36,7 @@ namespace intel{
 
     OCL_INITIALIZE_PASS(InstToFuncCall, "inst-to-func-call", "Replaces LLVM IR instructions with calls to functions", false, false)
 
-    InstToFuncCall::InstToFuncCall(const Intel::CPUId *CpuId)
+    InstToFuncCall::InstToFuncCall(const Intel::OpenCL::Utils::CPUDetect *CpuId)
         : ModulePass(ID), m_I2F(CpuId) {}
 
     /// Replaces instruction 'II' with call to function 'funcName' which has a
@@ -92,8 +92,9 @@ namespace intel{
         return changed;
     }
 
-    ModulePass *createInstToFuncCallPass(const Intel::CPUId *CpuId) {
-        return new InstToFuncCall(CpuId);
+    ModulePass *
+    createInstToFuncCallPass(const Intel::OpenCL::Utils::CPUDetect *CpuId) {
+      return new InstToFuncCall(CpuId);
     }
 
 } // namespace

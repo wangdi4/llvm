@@ -22,7 +22,7 @@ namespace intel {
 
 class SGSizeCollectorImpl {
 public:
-  SGSizeCollectorImpl(const Intel::CPUId &CPUId);
+  SGSizeCollectorImpl(const Intel::OpenCL::Utils::CPUDetect *CPUId);
 
   bool runImpl(Module &M);
 
@@ -31,14 +31,15 @@ protected:
   VectorVariant::ISAClass getCPUIdISA();
 
 private:
-  Intel::CPUId CPUId;
+  const Intel::OpenCL::Utils::CPUDetect *CPUId;
 };
 
 class SGSizeCollector : public ModulePass {
 public:
   static char ID;
 
-  SGSizeCollector(const Intel::CPUId &CPUId = Intel::CPUId());
+  SGSizeCollector(const Intel::OpenCL::Utils::CPUDetect *CPUId =
+                      Intel::OpenCL::Utils::CPUDetect::GetInstance());
 
 protected:
   bool runOnModule(Module &M) override;

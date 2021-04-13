@@ -30,7 +30,8 @@ using namespace llvm;
 
 extern "C" {
 Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2>, std::string);
-FunctionPass* createWeightedInstCounter(bool, Intel::CPUId);
+FunctionPass *
+createWeightedInstCounter(bool, const Intel::OpenCL::Utils::CPUDetect *);
 }
 
 namespace intel {

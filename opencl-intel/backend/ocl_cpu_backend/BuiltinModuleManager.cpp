@@ -62,38 +62,37 @@ BuiltinModuleManager* BuiltinModuleManager::GetInstance()
 }
 
 template <typename DeviceBuiltinLibrary>
-BuiltinLibrary* BuiltinModuleManager::GetOrLoadDeviceLibrary(Intel::CPUId cpuId)
-{
-    TIdCpuId key = std::make_pair(std::this_thread::get_id(), cpuId);
-    BuiltinsMap::iterator it = m_BuiltinLibs.find(key);
-    if( it != m_BuiltinLibs.end() )
-    {
-        return it->second;
-    }
+BuiltinLibrary *
+BuiltinModuleManager::GetOrLoadDeviceLibrary(const CPUDetect *cpuId) {
+  TIdCpuId key = std::make_pair(std::this_thread::get_id(), cpuId);
+  BuiltinsMap::iterator it = m_BuiltinLibs.find(key);
+  if (it != m_BuiltinLibs.end()) {
+    return it->second;
+  }
 
-    std::unique_ptr<BuiltinLibrary> pLibrary( new DeviceBuiltinLibrary(cpuId) );
-    pLibrary->Load();
+  std::unique_ptr<BuiltinLibrary> pLibrary(new DeviceBuiltinLibrary(cpuId));
+  pLibrary->Load();
 
-    m_BuiltinLibs[key] = pLibrary.get();
-    return pLibrary.release();
+  m_BuiltinLibs[key] = pLibrary.get();
+  return pLibrary.release();
 }
 
 // TODO: Make this method re-entrable
-BuiltinLibrary* BuiltinModuleManager::GetOrLoadCPULibrary(Intel::CPUId cpuId)
-{
-    return GetOrLoadDeviceLibrary<CPUBuiltinLibrary>(cpuId);
+BuiltinLibrary *
+BuiltinModuleManager::GetOrLoadCPULibrary(const CPUDetect *cpuId) {
+  return GetOrLoadDeviceLibrary<CPUBuiltinLibrary>(cpuId);
 }
 
 // TODO: Make this method re-entrable
-BuiltinLibrary* BuiltinModuleManager::GetOrLoadEyeQLibrary(Intel::CPUId cpuId)
-{
-    return GetOrLoadDeviceLibrary<EyeQBuiltinLibrary>(cpuId);
+BuiltinLibrary *
+BuiltinModuleManager::GetOrLoadEyeQLibrary(const CPUDetect *cpuId) {
+  return GetOrLoadDeviceLibrary<EyeQBuiltinLibrary>(cpuId);
 }
 
 // TODO: Make this method re-entrable
-BuiltinLibrary* BuiltinModuleManager::GetOrLoadFPGAEmuLibrary(Intel::CPUId cpuId)
-{
-    return GetOrLoadDeviceLibrary<FPGAEmuBuiltinLibrary>(cpuId);
+BuiltinLibrary *
+BuiltinModuleManager::GetOrLoadFPGAEmuLibrary(const CPUDetect *cpuId) {
+  return GetOrLoadDeviceLibrary<FPGAEmuBuiltinLibrary>(cpuId);
 }
 
 llvm::Error BuiltinModuleManager::RegisterCPUBIFunctionsToLLJIT(

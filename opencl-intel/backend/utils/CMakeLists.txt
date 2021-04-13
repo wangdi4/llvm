@@ -19,7 +19,6 @@ set(TARGET_EXTRA_INCLUDE_FILES
 set (TARGET_INCLUDE_FILES
   BlockUtils.h
   CompilationUtils.h
-  CPUDetect.h
   debuggingservicetype.h
   FunctionArgument.h
   IArgument.h
@@ -40,7 +39,6 @@ set (TARGET_INCLUDE_FILES
 set (TARGET_SOURCE_FILES
   BlockUtils.cpp
   CompilationUtils.cpp
-  CPUDetect.cpp
   debuggingservicetype.cpp
   FunctionArgument.cpp
   ImplicitArgsUtils.cpp

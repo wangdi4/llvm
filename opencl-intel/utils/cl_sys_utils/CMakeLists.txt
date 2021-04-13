@@ -29,18 +29,25 @@ else (CMAKE_SIZEOF_VOID_P EQUAL 8)
     endif (WIN32)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 
+# cpu id detect uses llvm::Support algorithms
+set(LINK_LIBS LLVMSupport)
+
 # add a target named ${TARGET_NAME}
 add_opencl_library (${TARGET_NAME} STATIC
     ${TARGET_SOURCES}
     ${UTILS_ASM_ADD_TO_SOURCES_LIST}
 
     INCLUDE_DIRS
+    ${LLVM_INCLUDE_DIRS}
     ${CCLANG_DEV_INCLUDE_DIRS}
     ${CL_API_HEADERS}
     ${OCL_BINARY_DIR}
     ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export
     ${OCL_SOURCE_DIR}/FrontendDriver
     ${OCL_SOURCE_DIR}/tools/OCLProfiler/Inc
+
+    LINK_LIBS
+    ${LINK_LIBS}
 
     INSTALL_PATH
     ${OUTPUT_ARCH_SUFF}

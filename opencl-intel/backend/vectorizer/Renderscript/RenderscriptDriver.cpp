@@ -102,26 +102,11 @@ RenderscriptVectorizer::RenderscriptVectorizer() :
 {
   // init debug prints
   initializeLoopInfoWrapperPassPass(*PassRegistry::getPassRegistry());
-  m_pCPUId = new Intel::CPUId();
-  m_pConfig = new OptimizerConfig(*m_pCPUId,
-            ETransposeSize::TRANSPOSE_SIZE_NOT_SET,
-            std::vector<int>(),
-            std::vector<int>(),
-            "",
-            nullptr,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            0,
-            1,
-            0,
-            0);
+  m_pCPUId = Intel::OpenCL::Utils::CPUDetect::GetInstance();
+  m_pConfig = new OptimizerConfig(
+      m_pCPUId, ETransposeSize::TRANSPOSE_SIZE_NOT_SET, std::vector<int>(),
+      std::vector<int>(), "", nullptr, false, false, false, false, false, false,
+      false, false, false, 0, 1, 0, 0);
   V_INIT_PRINT;
 }
 
@@ -130,7 +115,6 @@ RenderscriptVectorizer::~RenderscriptVectorizer()
   if (m_pCPUId) {
     // Can reach here only if run through opt using default constructor.
     // In this case need to delete following (internally allocated) pointers.
-    delete m_pCPUId;
     delete m_pConfig;
   }
   // Close the debug log elegantly
@@ -256,7 +240,10 @@ extern "C" intel::OptimizerConfig* createRenderscriptConfiguration(int width)
   std::vector<int> dumpIROptionAfter;
   std::vector<int> dumpIROptionBefore;
 
-  Intel::CPUId cpuId(Intel::CPU_COREI7, Intel::CFS_SSE42, false);
+  llvm::SmallVector<std::string, 8> forcedCpuFeatures;
+  forcedCpuFeatures.push_back("+sse4.2");
+  Intel::OpenCL::Utils::CPUDetect *cpuId = new Intel::OpenCL::Utils::CPUDetect(
+      Intel::OpenCL::Utils::CPU_COREI7, forcedCpuFeatures, false);
 
   return new intel::OptimizerConfig(cpuId,
             ETransposeSize(width),

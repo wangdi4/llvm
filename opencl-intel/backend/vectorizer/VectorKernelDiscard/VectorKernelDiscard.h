@@ -13,7 +13,6 @@
 // License.
 
 #include "InstCounter.h"
-#include "TargetArch.h"
 #include "VecConfig.h"
 
 #include "llvm/Analysis/TargetLibraryInfo.h"

@@ -22,7 +22,6 @@
 #include "Logger.h"
 #include "VectorizerCommon.h"
 #include "OclTune.h"
-#include "TargetArch.h"
 
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Support/Debug.h"
@@ -33,6 +32,7 @@
 #include <string>
 #include <sstream>
 
+#include "cl_cpu_detect.h"
 namespace intel {
 
 /// Enumeration to represent memory operation type
@@ -84,8 +84,9 @@ class PacketizeFunction : public FunctionPass {
 public:
 
   static char ID; // Pass identification, replacement for typeid
-  PacketizeFunction(Intel::ECPU Cpu = Intel::DEVICE_INVALID,
-                    unsigned int vectorizationDimension=0);
+  PacketizeFunction(
+      Intel::OpenCL::Utils::ECPU Cpu = Intel::OpenCL::Utils::ECPU::CPU_UNKNOWN,
+      unsigned int vectorizationDimension = 0);
   ~PacketizeFunction();
 
   /// @brief Provides name of pass
@@ -547,7 +548,7 @@ private:
   /// @brief the dimension by which we vectorize (usually 0).
   unsigned int m_vectorizedDim;
   // @brief target CPU
-  Intel::ECPU m_Cpu;
+  Intel::OpenCL::Utils::ECPU m_Cpu;
 
   // Statistics:
   Statistic::ActiveStatsT m_kernelStats;

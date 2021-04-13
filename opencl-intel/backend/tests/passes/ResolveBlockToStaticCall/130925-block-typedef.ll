@@ -1,5 +1,6 @@
 ; Regression test. Optimization pass crashed on following code.
 ; test that pass does not crash
+; RUN: %oclopt -resolve-block-call -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -resolve-block-call -S < %s
 
 
@@ -145,3 +146,5 @@ entry:
 !8 = !{}
 !9 = !{!"-cl-std=CL2.0"}
 
+
+; DEBUGIFY-NOT: WARNING

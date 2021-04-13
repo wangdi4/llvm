@@ -54,6 +54,6 @@ attributes #6 = { nounwind "vector-variant"="_ZGVxM0vv__Z3fooif" }
 attributes #7 = { nounwind "vector-variants"="_ZGVxN0lu_XXX,_ZGVxM0vv_XXX" }
 
 ; CHECK: attributes #[[ATTR1]] = { nounwind "vector-variants"="_ZGVxN0lu_XXX,_ZGVxM0vv_XXX" }
-; CHECK: attributes #[[ATTR2]] = { "vector-variants"="_ZGVbM8vv___intel_indirect_call_XXX,_ZGVbN8vv___intel_indirect_call_XXX" }
+; CHECK: attributes #[[ATTR2]] = { "vector-variants"="_ZGV{{[bcde]}}M8vv___intel_indirect_call_XXX,_ZGV{{[bcde]}}N8vv___intel_indirect_call_XXX" }
 
 !0 = !{i32 8}

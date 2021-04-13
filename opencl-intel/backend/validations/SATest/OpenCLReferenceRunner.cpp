@@ -16,7 +16,6 @@
 #include "BinaryDataWriter.h"
 #include "Buffer.h"
 #include "BufferContainerList.h"
-#include "CPUDetect.h"
 #include "ContainerCopier.h"
 #include "DataVersion.h"
 #include "Exception.h"
@@ -38,6 +37,7 @@
 #include "XMLDataReader.h"
 #include "XMLDataWriter.h"
 #include "cl_device_api.h"
+#include "cl_cpu_detect.h"
 #include "cpu_dev_limits.h"
 #include "mem_utils.h"
 

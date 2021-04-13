@@ -21,9 +21,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class EyeQBuiltinLibrary : public CPUBuiltinLibrary
 {
 public:
-    EyeQBuiltinLibrary(const Intel::CPUId &cpuId) :
-    CPUBuiltinLibrary(cpuId, false) { }
-    virtual ~EyeQBuiltinLibrary() { }
+    EyeQBuiltinLibrary(const Intel::OpenCL::Utils::CPUDetect *cpuId)
+        : CPUBuiltinLibrary(cpuId, false) {}
+    virtual ~EyeQBuiltinLibrary() {}
 
     virtual void Load() override;
 };

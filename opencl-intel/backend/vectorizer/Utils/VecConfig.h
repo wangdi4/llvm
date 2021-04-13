@@ -17,7 +17,7 @@
 
 #include "CompilationUtils.h"
 #include "ICLDevBackendOptions.h"
-#include "TargetArch.h"
+#include "cl_cpu_detect.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -30,49 +30,34 @@ namespace intel {
 class OptimizerConfig
 {
 public:
-    OptimizerConfig( const Intel::CPUId &cpuId, ETransposeSize tranposeSize,
-            std::vector<int> dumpIROptionAfter,
-            std::vector<int> dumpIROptionBefore,
-            std::string dumpIRDir,
-            llvm::TargetMachine* machine,
-            bool debugInfo,
-            bool useNativeDebugger,
-            bool profiling,
-            bool disableOpt,
-            bool relaxedMath,
-            bool uniformWGSize,
-            bool fpgaEmulator,
-            bool eyeqEmulator,
-            bool heuristicIR,
-            int  APFLevel,
-            int rtLoopUnrollFactor,
-            bool streamingAlways,
-            unsigned expensiveMemOpts):
-      m_cpuId(cpuId),
-      m_transposeSize(tranposeSize),
-      m_dumpIROptionsAfter(dumpIROptionAfter),
-      m_dumpIROptionsBefore(dumpIROptionBefore),
-      m_dumpIRDir(dumpIRDir),
-      m_targetMachine(machine),
-      m_debugInfo(debugInfo),
-      m_useNativeDebugger(useNativeDebugger),
-      m_profiling(profiling),
-      m_disableOpt(disableOpt),
-      m_relaxedMath(relaxedMath),
-      m_uniformWGSize(uniformWGSize),
-      m_fpgaEmulator(fpgaEmulator),
-      m_eyeqEmulator(eyeqEmulator),
-      m_dumpHeuristicIR(heuristicIR),
-      m_APFLevel(APFLevel),
-      m_rtLoopUnrollFactor(rtLoopUnrollFactor),
-      m_streamingAlways(streamingAlways),
-      m_expensiveMemOpts(expensiveMemOpts)
-    {}
+  OptimizerConfig(const Intel::OpenCL::Utils::CPUDetect *cpuId,
+                  ETransposeSize tranposeSize,
+                  std::vector<int> dumpIROptionAfter,
+                  std::vector<int> dumpIROptionBefore, std::string dumpIRDir,
+                  llvm::TargetMachine *machine, bool debugInfo,
+                  bool useNativeDebugger, bool profiling, bool disableOpt,
+                  bool relaxedMath, bool uniformWGSize, bool fpgaEmulator,
+                  bool eyeqEmulator, bool heuristicIR, int APFLevel,
+                  int rtLoopUnrollFactor, bool streamingAlways,
+                  unsigned expensiveMemOpts)
+      : m_cpuId(cpuId), m_transposeSize(tranposeSize),
+        m_dumpIROptionsAfter(dumpIROptionAfter),
+        m_dumpIROptionsBefore(dumpIROptionBefore), m_dumpIRDir(dumpIRDir),
+        m_targetMachine(machine), m_debugInfo(debugInfo),
+        m_useNativeDebugger(useNativeDebugger), m_profiling(profiling),
+        m_disableOpt(disableOpt), m_relaxedMath(relaxedMath),
+        m_uniformWGSize(uniformWGSize), m_fpgaEmulator(fpgaEmulator),
+        m_eyeqEmulator(eyeqEmulator), m_dumpHeuristicIR(heuristicIR),
+        m_APFLevel(APFLevel), m_rtLoopUnrollFactor(rtLoopUnrollFactor),
+        m_streamingAlways(streamingAlways),
+        m_expensiveMemOpts(expensiveMemOpts) {}
 
-    const Intel::CPUId &GetCpuId() const { return m_cpuId; }
-    ETransposeSize GetTransposeSize() const { return m_transposeSize; }
+  const Intel::OpenCL::Utils::CPUDetect *GetCpuId() const { return m_cpuId; }
+  ETransposeSize GetTransposeSize() const { return m_transposeSize; }
 
-    const std::vector<int>* GetIRDumpOptionsAfter() const{ return &m_dumpIROptionsAfter; }
+  const std::vector<int> *GetIRDumpOptionsAfter() const {
+    return &m_dumpIROptionsAfter;
+  }
     const std::vector<int>* GetIRDumpOptionsBefore() const{ return &m_dumpIROptionsBefore; }
     const std::string& GetDumpIRDir() const{ return m_dumpIRDir; }
     llvm::TargetMachine* GetTargetMachine() const { return m_targetMachine; }
@@ -91,31 +76,31 @@ public:
     bool EnableOCLAA() const { return m_expensiveMemOpts & ExpensiveMemOpts::OCLAA; }
 
 private:
-    Intel::CPUId m_cpuId;
-    ETransposeSize m_transposeSize;
+  const Intel::OpenCL::Utils::CPUDetect *m_cpuId;
+  ETransposeSize m_transposeSize;
 
-    std::vector<int> m_dumpIROptionsAfter;
-    std::vector<int> m_dumpIROptionsBefore;
-    const std::string m_dumpIRDir;
-    llvm::TargetMachine* m_targetMachine;
-    bool m_debugInfo;
-    bool m_useNativeDebugger;
-    bool m_profiling;
-    bool m_disableOpt;
-    bool m_relaxedMath;
-    bool m_uniformWGSize;
-    // Sets whether we are working as fpga emulator
-    bool m_fpgaEmulator;
-    // Sets whether we are working as EyeQ emulator
-    bool m_eyeqEmulator;
-    // Sets whether the vectorize should output heuristic LL IR inputs
-    bool m_dumpHeuristicIR;
-    // Auto prefetch disable options
-    int  m_APFLevel;
+  std::vector<int> m_dumpIROptionsAfter;
+  std::vector<int> m_dumpIROptionsBefore;
+  const std::string m_dumpIRDir;
+  llvm::TargetMachine *m_targetMachine;
+  bool m_debugInfo;
+  bool m_useNativeDebugger;
+  bool m_profiling;
+  bool m_disableOpt;
+  bool m_relaxedMath;
+  bool m_uniformWGSize;
+  // Sets whether we are working as fpga emulator
+  bool m_fpgaEmulator;
+  // Sets whether we are working as EyeQ emulator
+  bool m_eyeqEmulator;
+  // Sets whether the vectorize should output heuristic LL IR inputs
+  bool m_dumpHeuristicIR;
+  // Auto prefetch disable options
+  int m_APFLevel;
 
-    int m_rtLoopUnrollFactor;
-    bool m_streamingAlways;
-    unsigned m_expensiveMemOpts;
+  int m_rtLoopUnrollFactor;
+  bool m_streamingAlways;
+  unsigned m_expensiveMemOpts;
 };
 
 

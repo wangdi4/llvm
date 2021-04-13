@@ -47,14 +47,15 @@ OCL_INITIALIZE_PASS_BEGIN(SGSizeCollector, "sg-size-collector",
 OCL_INITIALIZE_PASS_END(SGSizeCollector, "sg-size-collector",
                         "Collecting subgroup size information", false, false)
 
-SGSizeCollector::SGSizeCollector(const Intel::CPUId &CPUId)
+SGSizeCollector::SGSizeCollector(const Intel::OpenCL::Utils::CPUDetect *CPUId)
     : ModulePass(ID), Impl(CPUId) {
   initializeSGSizeCollectorPass(*PassRegistry::getPassRegistry());
 }
 
 bool SGSizeCollector::runOnModule(Module &M) { return Impl.runImpl(M); }
 
-SGSizeCollectorImpl::SGSizeCollectorImpl(const Intel::CPUId &CPUId)
+SGSizeCollectorImpl::SGSizeCollectorImpl(
+    const Intel::OpenCL::Utils::CPUDetect *CPUId)
     : CPUId(CPUId) {}
 
 // This pass collects vector lengths from all existing functions and then
@@ -177,17 +178,18 @@ bool SGSizeCollectorImpl::hasVecLength(Function *F, int &VecLength) {
 }
 
 VectorVariant::ISAClass SGSizeCollectorImpl::getCPUIdISA() {
-  if (CPUId.HasAVX512Core())
+  if (CPUId->HasAVX512Core())
     return VectorVariant::ZMM;
-  if (CPUId.HasAVX2())
+  if (CPUId->HasAVX2())
     return VectorVariant::YMM2;
-  if (CPUId.HasAVX1())
+  if (CPUId->HasAVX1())
     return VectorVariant::YMM1;
   return VectorVariant::XMM;
 }
 
 extern "C" {
-ModulePass *createSGSizeCollectorPass(const Intel::CPUId &CPUId) {
+ModulePass *
+createSGSizeCollectorPass(const Intel::OpenCL::Utils::CPUDetect *CPUId) {
   return new intel::SGSizeCollector(CPUId);
 }
 }

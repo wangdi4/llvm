@@ -43,14 +43,15 @@ OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(ScalarizeFunction, "scalarize", "Scalarize functions", false, false)
 
-ScalarizeFunction::ScalarizeFunction(Intel::ECPU Cpu, bool InVPlanPipeline)
-  : FunctionPass(ID), m_rtServices(NULL), m_Cpu(Cpu),
-    InVPlanPipeline(InVPlanPipeline || ForceInVPlanPipeline)
-{
+ScalarizeFunction::ScalarizeFunction(Intel::OpenCL::Utils::ECPU Cpu,
+                                     bool InVPlanPipeline)
+    : FunctionPass(ID), m_rtServices(NULL), m_Cpu(Cpu),
+      InVPlanPipeline(InVPlanPipeline || ForceInVPlanPipeline) {
   initializeScalarizeFunctionPass(*llvm::PassRegistry::getPassRegistry());
 
   for (int i = 0; i < Instruction::OtherOpsEnd; i++) m_transposeCtr[i] = 0;
-  UseScatterGather = Intel::CPUId::HasGatherScatter(Cpu) || EnableScatterGather;
+  UseScatterGather = Intel::OpenCL::Utils::CPUDetect::HasGatherScatter(Cpu) ||
+                     EnableScatterGather;
 
   // Initialize SCM buffers and allocation
   m_SCMAllocationArray = new SCMEntry[ESTIMATED_INST_NUM];
@@ -1650,12 +1651,12 @@ bool ScalarizeFunction::isScalarizableLoadStoreType(FixedVectorType *type) {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createScalarizerPass(const Intel::CPUId& CpuId,
-                                     bool InVPlanPipeline = false) {
-    if (ForceInVPlanPipeline)
-      InVPlanPipeline = true;
-    return new intel::ScalarizeFunction(CpuId.GetCPU(), InVPlanPipeline);
-  }
+FunctionPass *createScalarizerPass(const Intel::OpenCL::Utils::CPUDetect *CpuId,
+                                   bool InVPlanPipeline = false) {
+  if (ForceInVPlanPipeline)
+    InVPlanPipeline = true;
+  return new intel::ScalarizeFunction(CpuId->GetCPU(), InVPlanPipeline);
+}
 }
 
 

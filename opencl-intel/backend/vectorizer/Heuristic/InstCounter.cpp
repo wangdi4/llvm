@@ -138,26 +138,18 @@ WeightedInstCounter::FuncCostEntry* WeightedInstCounter::getCostDB() const {
   return CostDB32Bit;
 }
 
-bool WeightedInstCounter::is64BitArch() const {
-  return m_cpuid.Is64BitOS();
-}
+bool WeightedInstCounter::is64BitArch() const { return m_cpuid->Is64BitOS(); }
 
-bool WeightedInstCounter::hasAVX512() const {
-  return m_cpuid.HasAVX512Core();
-}
+bool WeightedInstCounter::hasAVX512() const { return m_cpuid->HasAVX512Core(); }
 
-bool WeightedInstCounter::hasAVX() const {
-  return m_cpuid.HasAVX1();
-}
+bool WeightedInstCounter::hasAVX() const { return m_cpuid->HasAVX1(); }
 
-bool WeightedInstCounter::hasAVX2() const {
-  return m_cpuid.HasAVX2();
-}
+bool WeightedInstCounter::hasAVX2() const { return m_cpuid->HasAVX2(); }
 
-
-WeightedInstCounter::WeightedInstCounter(bool preVec, Intel::CPUId cpuId):
-                              FunctionPass(ID), m_cpuid(cpuId), m_preVec(preVec),
-                              m_desiredWidth(1), m_totalWeight(0) {
+WeightedInstCounter::WeightedInstCounter(bool preVec,
+                                         Intel::OpenCL::Utils::CPUDetect *cpuId)
+    : FunctionPass(ID), m_cpuid(cpuId), m_preVec(preVec), m_desiredWidth(1),
+      m_totalWeight(0) {
   initializeWeightedInstCounterPass(*PassRegistry::getPassRegistry());
 
   int i = 0;
@@ -1640,11 +1632,11 @@ bool CanVectorizeImpl::hasUnreachableInstructions(Function &F) {
 }
 
 extern "C" {
-  FunctionPass* createWeightedInstCounter(bool preVec = true,
-                                          Intel::CPUId cpuId = Intel::CPUId()) {
-    return new intel::WeightedInstCounter(preVec, cpuId);
-  }
+FunctionPass *
+createWeightedInstCounter(bool preVec = true,
+                          Intel::OpenCL::Utils::CPUDetect *cpuId = nullptr) {
+  return new intel::WeightedInstCounter(preVec, cpuId);
 }
-
+}
 
 } // namespace intel

@@ -40,7 +40,8 @@ OCL_INITIALIZE_PASS_BEGIN(VectorVariantLowering, "vector-variant-lowering",
 OCL_INITIALIZE_PASS_END(VectorVariantLowering, "vector-variant-lowering",
                         "Lowering vector-variant attributes", false, false)
 
-VectorVariantLowering::VectorVariantLowering(const Intel::CPUId &CPUId)
+VectorVariantLowering::VectorVariantLowering(
+    const Intel::OpenCL::Utils::CPUDetect *CPUId)
     : ModulePass(ID), CPUId(CPUId) {
   initializeVectorVariantLoweringPass(*PassRegistry::getPassRegistry());
 }
@@ -96,11 +97,11 @@ bool VectorVariantLowering::runOnModule(Module &M) {
           if (Variant.getISA() == VectorVariant::OTHER) {
             if (CPUIsaOverride.getNumOccurrences())
               Variant.setISA(CPUIsaOverride.getValue());
-            else if (CPUId.HasAVX512Core())
+            else if (CPUId->HasAVX512Core())
               Variant.setISA(VectorVariant::ZMM);
-            else if (CPUId.HasAVX2())
+            else if (CPUId->HasAVX2())
               Variant.setISA(VectorVariant::YMM2);
-            else if (CPUId.HasAVX1())
+            else if (CPUId->HasAVX1())
               Variant.setISA(VectorVariant::YMM1);
             else
               Variant.setISA(VectorVariant::XMM);
@@ -127,7 +128,8 @@ bool VectorVariantLowering::runOnModule(Module &M) {
 }
 
 extern "C" {
-ModulePass *createVectorVariantLoweringPass(const Intel::CPUId &CPUId) {
+ModulePass *
+createVectorVariantLoweringPass(const Intel::OpenCL::Utils::CPUDetect *CPUId) {
   return new intel::VectorVariantLowering(CPUId);
 }
 }

@@ -22,13 +22,13 @@ class VectorVariantLowering : public ModulePass {
 public:
   static char ID;
 
-  VectorVariantLowering(const Intel::CPUId &CPUId = Intel::CPUId());
+  VectorVariantLowering(const Intel::OpenCL::Utils::CPUDetect *CPUId = nullptr);
 
 protected:
   bool runOnModule(Module &M) override;
 
 private:
-  Intel::CPUId CPUId;
+  const Intel::OpenCL::Utils::CPUDetect *CPUId;
 };
 
 } // namespace intel

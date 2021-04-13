@@ -1,5 +1,6 @@
 ; Negative scenario for OCL2.0
 ; block call can NOT be resolved at compile time
+; RUN: %oclopt -resolve-block-call -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -resolve-block-call -S < %s | FileCheck %s
 
 ;kernel void global_scope(__global int* res)
@@ -80,3 +81,9 @@ define internal i32 @__global_scope_block_invoke_2(i8* %.block_descriptor, i32 %
   ret i32 2
 }
 
+; Known bug of debugify on PHI node: false alarm on missing line
+; Other warnings are not expected.
+
+; DEBUGIFY-NOT: WARNING
+; DEBUGIFY: WARNING: Missing line
+; DEBUGIFY-NOT: WARNING

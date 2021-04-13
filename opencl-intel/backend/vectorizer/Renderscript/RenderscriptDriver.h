@@ -17,14 +17,11 @@
 
 #include "BuiltinLibInfo.h"
 #include "Logger.h"
+#include "cl_cpu_detect.h"
 
 #include "llvm/Pass.h"
 
 using namespace llvm;
-
-namespace Intel {
-  class CPUId;
-}
 
 namespace intel {
 class OptimizerConfig;
@@ -88,7 +85,7 @@ private:
     const OptimizerConfig* m_pConfig;
 
     /// @brief CPU Id
-    const Intel::CPUId *m_pCPUId;
+    const Intel::OpenCL::Utils::CPUDetect *m_pCPUId;
 
     /// @brief pointer to optimizer vecorized functions buffer.
     SmallVectorImpl<Function*> *m_optimizerFunctions;

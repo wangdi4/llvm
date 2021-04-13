@@ -74,18 +74,20 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
     std::unique_ptr<llvm::MemoryBuffer> cachedObject = pCache->getObject(nullptr);
     size_t objSize = cachedObject->getBufferSize();
 
-    CLElfLib::E_EH_MACHINE bitOS = m_compiler.GetCpuId().Is64BitOS() ? CLElfLib::EM_X86_64 : CLElfLib::EM_860;
+    CLElfLib::E_EH_MACHINE bitOS = m_compiler.GetCpuId()->Is64BitOS()
+                                       ? CLElfLib::EM_X86_64
+                                       : CLElfLib::EM_860;
 
     //Checking maximum supported instruction
     CLElfLib::E_EH_FLAGS maxSupportedVectorISA = CLElfLib::EH_FLAG_SSE4;
-    if (m_compiler.GetCpuId().HasAVX512ICL())
-        maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX512_ICL;
-    else if (m_compiler.GetCpuId().HasAVX512SKX())
-        maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX512_SKX;
-    else if (m_compiler.GetCpuId().HasAVX2())
-        maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX2;
-    else if (m_compiler.GetCpuId().HasAVX1())
-        maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX1;
+    if (m_compiler.GetCpuId()->HasAVX512ICL())
+      maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX512_ICL;
+    else if (m_compiler.GetCpuId()->HasAVX512SKX())
+      maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX512_SKX;
+    else if (m_compiler.GetCpuId()->HasAVX2())
+      maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX2;
+    else if (m_compiler.GetCpuId()->HasAVX1())
+      maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX1;
 
     std::unique_ptr<CacheBinaryWriter> pWriter(new CacheBinaryWriter(bitOS, maxSupportedVectorISA));
 
