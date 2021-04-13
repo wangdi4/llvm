@@ -195,6 +195,10 @@ VPlanRemainderEvaluator::calculateBestVariant() {
                     << " masked cost=" << MaskedVectorCost
                     << " unmasked cost=" << UnMaskedVectorCost << "\n");
 
+  if (!Planner.isVecRemainderEnabled()) {
+    return RemainderKind;
+  }
+
   if (LoopCost > MaskedVectorCost && EnableMaskedVectorizedRemainderOpt) {
     RemainderKind = RemainderLoopKind::MaskedVector;
     LoopCost = MaskedVectorCost;

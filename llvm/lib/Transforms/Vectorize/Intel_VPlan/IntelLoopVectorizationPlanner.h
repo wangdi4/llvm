@@ -299,7 +299,7 @@ public:
   /// Build initial VPlans according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop.
   /// Returns the number of VPlans built, zero if failed.
-  unsigned buildInitialVPlans(MDNode *MD, LLVMContext *Context,
+  unsigned buildInitialVPlans(LLVMContext *Context,
                               const DataLayout *DL, std::string VPlanName,
                               ScalarEvolution *SE = nullptr);
 
@@ -357,8 +357,22 @@ public:
   /// \Returns the selected best unroll factor.
   unsigned getBestUF() {return VecScenario.getMainUF();}
 
+  /// Reads all metadata specified by pragmas
+  void readLoopMetadata() {
+    VectorlengthMD =
+        findOptionMDForLoop(TheLoop, "llvm.loop.vector.vectorlength");
+    IsVecRemainder = readVecRemainderEnabled(
+        findOptionMDForLoop(TheLoop, "llvm.loop.vector.vecremainder"));
+    IsDynAlign = readDynAlignEnabled(
+        findOptionMDForLoop(TheLoop, "llvm.loop.vectorize.dynamic_align"));
+  }
+
+  bool isVecRemainderEnabled() const { return IsVecRemainder; }
+
+  bool isDynAlignEnabled() const { return IsDynAlign; }
+
   /// Extracts VFs from "llvm.loop.vector.vectorlength" metadata
-  void extractVFsFromMetadata(MDNode *MD, unsigned SafeLen);
+  void extractVFsFromMetadata(unsigned SafeLen);
 
   /// Returns vector of allowed VFs
   ArrayRef<unsigned> getVectorFactors();
@@ -461,7 +475,25 @@ protected:
   /// with values from metadata. Else if "llvm.loop.vector.vectorlength"
   /// metadata is not specified, defines MinVF and MaxVF and fills vector of VFs
   /// with default vector values between MinVF and MaxVF.
-  int setDefaultVectorFactors(MDNode *MD);
+  int setDefaultVectorFactors();
+
+  /// Contains metadata slecified by "llvm.loop.vector.vectorlength"
+  MDNode *VectorlengthMD;
+
+    /// Contains true or false value from "llvm.loop.vector.vecremainder" metadata
+  bool IsVecRemainder = true;
+
+  /// Contains true or false value from "llvm.loop.vectorize.dynamic_align"
+  /// metadata
+  bool IsDynAlign = true;
+
+  /// Extracts true or false value from "llvm.loop.vector.vecremainder" metadata
+  /// if any. If there is no such metadata, returns true value.
+  bool readVecRemainderEnabled(MDNode *MD);
+
+  /// Extracts true or false value from "llvm.loop.vectorize.dynamic_align"
+  /// metadata if any. If there is no such metadata, returns true value.
+  bool readDynAlignEnabled(MDNode *MD);
 
   /// Transform to emit explict uniform Vector loop iv.
   virtual void emitVecSpecifics(VPlanVector *Plan);

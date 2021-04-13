@@ -235,7 +235,7 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-int LoopVectorizationPlanner::setDefaultVectorFactors(MDNode *MD) {
+int LoopVectorizationPlanner::setDefaultVectorFactors() {
   unsigned ForcedVF = getForcedVF(WRLp);
 
 #if INTEL_CUSTOMIZATION
@@ -278,8 +278,8 @@ int LoopVectorizationPlanner::setDefaultVectorFactors(MDNode *MD) {
     // min/max VF computation.
     VFs.push_back(1);
 #endif // INTEL_CUSTOMIZATION
-  } else if (MD != nullptr) {
-    extractVFsFromMetadata(MD, Safelen);
+  } else if (VectorlengthMD != nullptr) {
+    extractVFsFromMetadata(Safelen);
   } else {
     unsigned MinWidthInBits, MaxWidthInBits, MinVF, MaxVF;
     std::tie(MinWidthInBits, MaxWidthInBits) = getTypesWidthRangeInBits();
@@ -341,13 +341,12 @@ int LoopVectorizationPlanner::setDefaultVectorFactors(MDNode *MD) {
   return 1;
 }
 
-unsigned LoopVectorizationPlanner::buildInitialVPlans(MDNode *MD,
-                                                      LLVMContext *Context,
+unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
                                                       const DataLayout *DL,
                                                       std::string VPlanName,
                                                       ScalarEvolution *SE) {
   ++VPlanOrderNumber;
-  setDefaultVectorFactors(MD);
+  setDefaultVectorFactors();
   if (VFs[0] == 0)
     return 0;
 
@@ -456,11 +455,11 @@ unsigned LoopVectorizationPlanner::getLoopUnrollFactor(bool *Forced) {
   return VPlanForceUF;
 }
 
-void LoopVectorizationPlanner::extractVFsFromMetadata(MDNode *MD,
-                                                      unsigned Safelen) {
+void LoopVectorizationPlanner::extractVFsFromMetadata(unsigned Safelen) {
   SmallVector<unsigned, 5> TmpVFs;
-  for (unsigned I = 1; I < (MD->getNumOperands()); I++) {
-    ConstantInt *IntMD = mdconst::extract<ConstantInt>(MD->getOperand(I));
+  for (unsigned I = 1; I < (VectorlengthMD->getNumOperands()); I++) {
+    ConstantInt *IntMD =
+        mdconst::extract<ConstantInt>(VectorlengthMD->getOperand(I));
     if (IntMD->getZExtValue() <= Safelen)
       TmpVFs.push_back(IntMD->getZExtValue());
   }
@@ -470,10 +469,10 @@ void LoopVectorizationPlanner::extractVFsFromMetadata(MDNode *MD,
   TmpVFs.erase(NewEnd, TmpVFs.end());
 
   unsigned I = 0;
-  if(TmpVFs.size() > 1)
+  if (TmpVFs.size() > 1)
     if (TmpVFs[0] <= 1)
       I = 1;
-  if(TmpVFs.size() > 2)
+  if (TmpVFs.size() > 2)
     if (TmpVFs[1] <= 1)
       I = 2;
   for (; I < TmpVFs.size(); I++) {
@@ -495,6 +494,43 @@ void LoopVectorizationPlanner::selectSimplestVecScenario(unsigned VF,
   VecScenario.addScalarRemainder();
   VecScenario.setVectorMain(VF, UF);
 }
+
+bool LoopVectorizationPlanner::readVecRemainderEnabled(MDNode *MD) {
+  if (MD) {
+    if (mdconst::extract<ConstantInt>(MD->getOperand(1))
+            ->isOne()) {
+      DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                      dbgs() << "Vector Remainder was set by the user's "
+                                "#pragma vecremainder\n");
+      return true;
+    } else {
+      DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                      dbgs() << "Scalar Remainder was set by the user's #pragma "
+                                 "novecremainder\n");
+      return false;
+    }
+  }
+  return true;
+}
+
+bool LoopVectorizationPlanner::readDynAlignEnabled(MDNode *MD) {
+  if (MD) {
+    if (mdconst::extract<ConstantInt>(MD->getOperand(1))
+            ->isOne()) {
+      DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                      dbgs() << "Dynamic Align was set by the user's "
+                                "#pragma vector dynamic_align\n");
+      return true;
+    } else {
+      DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                      dbgs() << "No dynamic Align was set by the user's "
+                                "#pragma vector nodynamic_align\n");
+      return false;
+    }
+  }
+  return true;
+}
+
 
 /// Evaluate cost model for available VPlans and find the best one.
 /// \Returns pair: VF which corresponds to the best VPlan (could be VF = 1) and
@@ -596,11 +632,9 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       }
       continue;
     }
-    VPlanPeelingVariant *PeelingVariant = Plan->getPreferredPeeling(VF);
     // Calculate the total cost of peel loop if there is one.
     VPlanPeelEvaluator PeelEvaluator(*this, ScalarIterationCost, TLI, TTI, DL,
-                                     VLSA, VF, PeelingVariant);
-
+                                     VLSA, VF, Plan->getPreferredPeeling(VF));
     // Calculate the total cost of remainder loop if there is one.
     VPlanRemainderEvaluator RemainderEvaluator(
         *this, ScalarIterationCost, TLI, TTI, DL, VLSA, TripCount,

@@ -277,9 +277,9 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   VPlanName = std::string(Fn.getName()) + ":" + std::string(Lp->getName());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-  MDNode *MD = findOptionMDForLoop(Lp, "llvm.loop.vector.vectorlength");
+  LVP.readLoopMetadata();
 #if INTEL_CUSTOMIZATION
-  if (!LVP.buildInitialVPlans(MD, &Fn.getContext(), DL, VPlanName, &SE)) {
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, &SE)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }
@@ -334,7 +334,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 
   assert((WRLp || VPlanVectCand) && "WRLp can be null in stress testing only!");
 
-  if (VPlanEnablePeeling)
+  if (VPlanEnablePeeling && LVP.isDynAlignEnabled())
     LVP.selectBestPeelingVariants();
 
   unsigned VF;
@@ -1164,8 +1164,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   // just HLLoop number, thus it may be unstable to be captured in lit tests.
   VPlanName = std::string(Fn.getName()) + ":HIR";
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-  MDNode *MD = Lp->getLoopStringMetadata("llvm.loop.vector.vectorlength");
-  if (!LVP.buildInitialVPlans(MD, &Fn.getContext(), DL, VPlanName)) {
+  LVP.readLoopMetadata();
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     // Erase intrinsics before and after the loop if this loop is an auto
     // vectorization candidate.
@@ -1196,7 +1196,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   LVP.printCostModelAnalysisIfRequested<VPlanCostModelProprietary>(HeaderStr);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  if (VPlanEnablePeeling)
+  if (VPlanEnablePeeling && LVP.isDynAlignEnabled())
     LVP.selectBestPeelingVariants();
 
   // TODO: don't force vectorization if getIsAutoVec() is set to true.

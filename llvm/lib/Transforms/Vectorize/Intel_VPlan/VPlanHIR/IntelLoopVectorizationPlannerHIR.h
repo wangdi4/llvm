@@ -73,6 +73,16 @@ public:
   /// successful, false if there was any late bailout during CG.
   bool executeBestPlan(VPOCodeGenHIR *CG, unsigned UF);
 
+  /// Reads all metadata specified by pragmas
+  void readLoopMetadata() {
+    VectorlengthMD =
+        TheLoop->getLoopStringMetadata("llvm.loop.vector.vectorlength");
+    IsVecRemainder = readVecRemainderEnabled(
+        TheLoop->getLoopStringMetadata("llvm.loop.vector.vecremainder"));
+    IsDynAlign = readDynAlignEnabled(
+        TheLoop->getLoopStringMetadata("llvm.loop.vectorize.dynamic_align"));
+  }
+
   /// Return Loop Unroll Factor either forced by option or pragma
   /// or advised by optimizations.
   /// \p Forced indicates that Unroll Factor is forced.
