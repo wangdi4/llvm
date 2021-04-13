@@ -41,6 +41,7 @@ DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNTargetExitData, "target exit data"},
     {WRegionNode::WRNTargetUpdate, "target update"},
     {WRegionNode::WRNTargetVariant, "target variant dispatch"},
+    {WRegionNode::WRNDispatch, "dispatch"},
     {WRegionNode::WRNTask, "task"},
     {WRegionNode::WRNTaskloop, "taskloop"},
     {WRegionNode::WRNVecLoop, "simd"},
@@ -806,6 +807,12 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
       llvm_unreachable("QUAL_OMP_NAME opnd is not a string.");
 
   } break;
+  case QUAL_OMP_NOCONTEXT:
+    setNocontext(V);
+    break;
+  case QUAL_OMP_NOVARIANTS:
+    setNovariants(V);
+    break;
   case QUAL_OMP_NUM_THREADS:
     setNumThreads(V);
     break;
@@ -1885,6 +1892,7 @@ bool WRegionNode::canHaveNowait() const {
   case WRNTargetExitData:
   case WRNTargetUpdate:
   case WRNTargetVariant:
+  case WRNDispatch:
   case WRNWksLoop:
   case WRNSections:
   case WRNWorkshare:
@@ -1955,6 +1963,7 @@ bool WRegionNode::canHaveSubdevice() const {
   case WRNTargetExitData:
   case WRNTargetUpdate:
   case WRNTargetVariant:
+  case WRNDispatch:
     return true;
   }
   return false;
@@ -1971,8 +1980,12 @@ bool WRegionNode::canHaveInteropAction() const {
 
 bool WRegionNode::canHaveIsDevicePtr() const {
   unsigned SubClassID = getWRegionKindID();
-  // only WRNTargetNode can have a IsDevicePtr clause
-  return SubClassID==WRNTarget;
+  switch (SubClassID) {
+  case WRNTarget:
+  case WRNDispatch:
+    return true;
+  }
+  return false;
 }
 
 bool WRegionNode::canHaveUseDevicePtr() const {
@@ -1993,6 +2006,7 @@ bool WRegionNode::canHaveDepend() const {
   case WRNTargetEnterData:
   case WRNTargetExitData:
   case WRNTargetUpdate:
+  // exclude WRNDispatch; its depend clause is moved to the implicit task
     return true;
   }
   return false;
