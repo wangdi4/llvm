@@ -1977,6 +1977,7 @@ def SYCLIntelFPGAMaxConcurrency : DeclOrStmtAttr {
     // end INTEL_CUSTOMIZATION
   }];
   let Documentation = [SYCLIntelFPGAMaxConcurrencyAttrDocs];
+  let SupportsNonconformingLambdaSyntax = 1;
 }
 
 def SYCLIntelFPGALoopCoalesce : StmtAttr {
