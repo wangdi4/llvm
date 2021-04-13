@@ -4082,12 +4082,12 @@ def InitSeg : Attr {
 }
 
 // INTEL_CUSTOMIZATION
-def LoopFuse : Attr {
+def LoopFuse : StmtAttr {
   let Spellings = [Pragma<"", "loop_fuse">];
   let Args = [DefaultIntArgument<"Depth", 0>,
               DefaultBoolArgument<"Independent", /*default*/0, /*fake*/0>];
   let Documentation = [LoopFuseDocs];
-  let Subjects = SubjectList<[Block]>;
+  let Subjects = SubjectList<[CompoundStmt], ErrorDiag, "compound statements">;
   let AdditionalMembers = [{
   void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
     OS << "#pragma loop_fuse";
