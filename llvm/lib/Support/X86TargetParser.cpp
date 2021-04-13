@@ -235,35 +235,12 @@ constexpr FeatureBitset FeaturesGoldmontPlus =
     FeaturesGoldmont | FeaturePTWRITE | FeatureRDPID | FeatureSGX;
 constexpr FeatureBitset FeaturesTremont =
     FeaturesGoldmontPlus | FeatureCLWB | FeatureGFNI;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_ADL
-static constexpr FeatureBitset FeaturesAnonymousCPU2 =
-    FeatureAVXVNNI |
-    FeatureHRESET |
-    FeatureKL | FeatureWIDEKL |
-    FeatureSSE2;
-// TODO: set feature of RAO-INT when it's ready
-constexpr FeatureBitset FeaturesAlderlake =
-    FeaturesTremont | FeaturesAnonymousCPU2 | FeatureADX | FeatureAVX |
-    FeatureAVX2 | FeatureBMI | FeatureBMI2 | FeatureCLDEMOTE |
-    FeatureMOVDIR64B | FeatureMOVDIRI | FeatureF16C | FeatureFMA |
-    FeatureINVPCID | FeatureLZCNT | FeaturePCONFIG | FeaturePKU |
-    FeatureSERIALIZE | FeatureSHSTK | FeatureVAES | FeatureVPCLMULQDQ |
-    FeatureWAITPKG;
-#else // INTEL_FEATURE_CPU_ADL
-constexpr FeatureBitset FeaturesAlderlake =
-    FeaturesSkylakeClient | FeatureCLDEMOTE | FeatureHRESET | FeaturePTWRITE |
-    FeatureSERIALIZE | FeatureWAITPKG | FeatureAVXVNNI;
-#endif // INTEL_FEATURE_CPU_ADL
-#else  // INTEL_CUSTOMIZATION
 constexpr FeatureBitset FeaturesAlderlake =
     FeaturesTremont | FeatureADX | FeatureBMI | FeatureBMI2 | FeatureF16C |
     FeatureFMA | FeatureINVPCID | FeatureLZCNT | FeaturePCONFIG | FeaturePKU |
     FeatureSERIALIZE | FeatureSHSTK | FeatureVAES | FeatureVPCLMULQDQ |
     FeatureCLDEMOTE | FeatureMOVDIR64B | FeatureMOVDIRI | FeatureWAITPKG |
     FeatureAVXVNNI | FeatureHRESET | FeatureWIDEKL;
-#endif // INTEL_CUSTOMIZATION
 
 // Geode Processor.
 constexpr FeatureBitset FeaturesGeode =
