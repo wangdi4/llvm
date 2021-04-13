@@ -46,7 +46,7 @@
 // DEFAULT: "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"
 // DEFAULT: "-internal-isystem" "{{.*lib.*clang.*include}}"
 // DEFAULT: "-std=c++17"
-// DEFAULT-NOT: "{{.*}}llvm-spirv"{{.*}} "-spirv-max-version=1.3"{{.*}} "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes,-SPV_INTEL_optnone"
+// DEFAULT-NOT: "{{.*}}llvm-spirv"{{.*}} "-spirv-max-version=1.3"{{.*}} "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes,-SPV_INTEL_optnone,-SPV_KHR_linkonce_odr"
 // DEFAULT-NOT: "-std=c++11"
 // DEFAULT-NOT: "-std=c++14"
 // NO-BITCODE: "-triple" "spir{{(64)?}}-unknown-{{.*}}-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
