@@ -20,27 +20,27 @@ target triple = "x86_64-pc-win32"
 ; CHECK-LABEL: @main
 define void @main(i64 %x) #0 {
 L1:
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
-  %lid = call i64 @__builtin_get_local_id(i64 0)
+  call void @barrier_dummy()
+  %lid = call i64 @_Z12get_local_idj(i64 0)
   %y = xor i64 %x, %lid
   br label %L2
 L2:
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  call void @_Z18work_group_barrierj(i32 1)
   %z = call i64 @foo(i64 %y)
   br label %L3
 L3:
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   ret void
 }
 
 ; CHECK-LABEL: @foo
 define i64 @foo(i64 %a) nounwind {
 L1:
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   %b = xor i64 %a, %a
   br label %L2
 L2:
-  call void @__builtin_dpcpp_kernel_barrier(i32 2)
+  call void @_Z18work_group_barrierj(i32 2)
   %c = xor i64 %a, %b
   ret i64 %a
 }
@@ -53,8 +53,8 @@ L2:
 ; CHECK: b is WI related
 ; CHECK: c is WI related
 
-declare void @__builtin_dpcpp_kernel_barrier(i32)
-declare i64 @__builtin_get_local_id(i64)
-declare void @__builtin_dpcpp_kernel_barrier_dummy()
+declare void @_Z18work_group_barrierj(i32)
+declare i64 @_Z12get_local_idj(i64)
+declare void @barrier_dummy()
 
 attributes #0 = { "sycl_kernel" }

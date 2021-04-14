@@ -1,4 +1,4 @@
-; RUN: opt -phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 
 ; ModuleID = 'sample1.bc'

@@ -17,7 +17,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerBarrierPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerValuePass.h"
@@ -39,40 +39,16 @@ namespace llvm {
 ///   get_global_id() will be replaced with get_new_global_id()
 /// Non Inlined Internal Function
 ///   module functions with barriers that are called from inside the module
-class KernelBarrier : public ModulePass {
-
+class KernelBarrier : public PassInfoMixin<KernelBarrier> {
 public:
-  using MapFunctionNameToBufferStrideTy = std::map<std::string, unsigned int>;
-  using BasicBlockToBasicBlockTy = DenseMap<BasicBlock *, BasicBlock *>;
-  using BasicBlockToBasicBlockSetTy = DenseMap<BasicBlock *, BasicBlockSet>;
-  using BasicBlockToBasicBlockVectorTy =
-      DenseMap<BasicBlock *, SmallVector<BasicBlock *, 8>>;
-  using BasicBlockToInstructionMapVectorTy =
-      MapVector<BasicBlock *, SmallVector<Instruction *, 8>>;
+  explicit KernelBarrier(bool IsNativeDebug = false,
+                         bool useTLSGlobals = false);
 
-  static char ID;
+  static StringRef name() { return "Intel Kernel Barrier"; }
 
-  /// IsNativeDebug true if we are debugging natively (gdb).
-  KernelBarrier(bool IsNativeDebug = false, bool useTLSGlobals = false);
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
-  ~KernelBarrier() {}
-
-  /// Provides name of pass.
-  llvm::StringRef getPassName() const override {
-    return "Intel Kernel Barrier";
-  }
-
-  /// Execute pass on given module.
-  /// M module to optimize.
-  /// Returns True if module was modified.
-  bool runOnModule(Module &M) override;
-
-  /// Inform about usage/mofication/dependency of this pass.
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DataPerBarrier>();
-    AU.addRequired<DataPerValue>();
-    AU.addRequired<DominatorTreeWrapperPass>();
-  }
+  bool runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV);
 
   /// Return special buffer stride size map.
   /// BufferStrideMap - the map to output all data into.
@@ -83,10 +59,18 @@ public:
   }
 
 private:
+  using MapFunctionNameToBufferStrideTy = std::map<std::string, unsigned int>;
+  using BasicBlockToBasicBlockTy = DenseMap<BasicBlock *, BasicBlock *>;
+  using BasicBlockToBasicBlockSetTy = DenseMap<BasicBlock *, BasicBlockSet>;
+  using BasicBlockToBasicBlockVectorTy =
+      DenseMap<BasicBlock *, SmallVector<BasicBlock *, 8>>;
+  using BasicBlockToInstructionMapVectorTy =
+      MapVector<BasicBlock *, SmallVector<Instruction *, 8>>;
+
   /// Execute pass on given function.
   /// F function to optimize.
   /// Returns True if function was modified.
-  virtual bool runOnFunction(Function &F);
+  bool runOnFunction(Function &F);
 
   /// Use the stack for kernel function execution rather then the special
   /// work item buffer. This is needed for DWARF based debugging.
@@ -333,8 +317,6 @@ private:
   /// This holds instruction to be removed in the processed function/module.
   InstVector InstructionsToRemove;
 
-  /// This holds the data per value analysis pass.
-  DataPerValue *DPV;
   /// This holds the container of all Group-A values in processed function.
   ValueVector *AllocaValues;
   /// This holds the container of all Group-B.1 values in processed function.
@@ -342,10 +324,14 @@ private:
   /// This holds the container of all Group-B.2 values in processed function.
   ValueVector *CrossBarrierValues;
 
-  /// This holds the data per barrier analysis pass.
-  DataPerBarrier *DPB;
   /// This holds the container of all sync instructions in processed function.
   InstSet *SyncInstructions;
+
+  /// This holds the data per value analysis pass.
+  DataPerValue *DPV;
+
+  /// This holds the data per barrier analysis pass.
+  DataPerBarrier *DPB;
 
   struct BarrierKeyValues {
     BarrierKeyValues()
@@ -427,6 +413,31 @@ private:
   /// whether there is a barrier in any path from the basic block to another
   /// basic block.
   DenseMap<BasicBlock *, DenseMap<BasicBlock *, bool>> HasBarrierFromTo;
+};
+
+/// KernelBarrierLegacy pass for legacy pass manager.
+class KernelBarrierLegacy : public ModulePass {
+  KernelBarrier Impl;
+
+public:
+  static char ID;
+
+  /// IsNativeDebug true if we are debugging natively (gdb).
+  explicit KernelBarrierLegacy(bool IsNativeDebug = false,
+                               bool useTLSGlobals = false);
+
+  ~KernelBarrierLegacy() {}
+
+  /// Provides name of pass.
+  StringRef getPassName() const override { return "Intel Kernel Barrier"; }
+
+  /// Execute pass on given module.
+  /// M module to optimize.
+  /// Returns True if module was modified.
+  bool runOnModule(Module &M) override;
+
+  /// Inform about usage/modification/dependency of this pass.
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
 };
 
 } // namespace llvm

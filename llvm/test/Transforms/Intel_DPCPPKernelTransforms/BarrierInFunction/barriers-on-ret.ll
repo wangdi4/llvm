@@ -12,7 +12,7 @@ target triple = "i686-pc-win32"
 define void @foo(i32 %x) #0 {
 entry:
   %y = xor i32 %x, %x
-  call void @__builtin_dpcpp_kernel_barrier(i32 2)
+  call void @_Z18work_group_barrierj(i32 2)
   br label %reachable.exit
 
 reachable.exit:                                   ; preds = entry
@@ -21,12 +21,12 @@ reachable.exit:                                   ; preds = entry
 unreachable.exit:                                 ; No predecessors!
   ret void
 ; CHECK:      reachable.exit:
-; CHECK-NEXT: @__builtin_dpcpp_kernel_barrier(i32 1)
+; CHECK-NEXT: @_Z18work_group_barrierj(i32 1)
 ; CHECK:      unreachable.exit:
-; CHECK-NOT:  @__builtin_dpcpp_kernel_barrier(i32 1)
+; CHECK-NOT:  @_Z18work_group_barrierj(i32 1)
 ; CHECK-NEXT: ret void
 }
 
-declare void @__builtin_dpcpp_kernel_barrier(i32)
+declare void @_Z18work_group_barrierj(i32)
 
 attributes #1 = { "dpcpp-no-barrier-path"="false" }

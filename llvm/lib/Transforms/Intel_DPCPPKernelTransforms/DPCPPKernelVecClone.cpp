@@ -193,7 +193,6 @@ static void updateReferences(Function &F, Function *Clone) {
 
   // Set "vector_width" for the original kernel.
   F.addFnAttr("vectorized_width", utostr(1));
-  F.addFnAttr("scalar_kernel");
   F.addFnAttr("vectorized_kernel", Clone->getName());
 }
 

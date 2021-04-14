@@ -20,7 +20,6 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DataPerValuePass.cpp
   BarrierPass.cpp
   BarrierInFunctionPass.cpp
-  PostBarrierPass.cpp
   ResolveWICall.cpp
   SplitBBonBarrierPass.cpp
   WIRelatedValuePass.cpp

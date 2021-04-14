@@ -1,4 +1,4 @@
-; RUN: opt -dpcpp-split-on-barrier %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-split-on-barrier %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the SplitBBonBarrier pass
@@ -13,7 +13,7 @@ target triple = "x86_64-pc-win32"
 ; CHECK: @main
 define void @main(i32 %x) nounwind {
   %check = icmp ult i32 %x, 0
-  call void @__builtin_dpcpp_kernel_barrier(i32 2)
+  call void @_Z18work_group_barrierj(i32 2)
   br i1 %check, label %L1, label %L2
 L1:
   br label %L3
@@ -25,7 +25,7 @@ L3:
 ; CHECK-NEXT: %check = icmp ult i32 %x, 0
 ; CHECK-NEXT: br label %[[BARRIER_BB:.*]]
 ; CHECK:      [[BARRIER_BB]]:
-; CHECK-NEXT: call void @__builtin_dpcpp_kernel_barrier(i32 2)
+; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 2)
 ; CHECK-NEXT: br i1 %check, label %L1, label %L2
 ; CHECK:      L1:
 ; CHECK-NEXT: br label %L3
@@ -36,4 +36,4 @@ L3:
 ; CHECK-NEXT: ret void
 }
 
-declare void @__builtin_dpcpp_kernel_barrier(i32)
+declare void @_Z18work_group_barrierj(i32)

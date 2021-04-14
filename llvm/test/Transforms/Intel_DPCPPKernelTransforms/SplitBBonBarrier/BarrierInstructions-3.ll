@@ -1,4 +1,4 @@
-; RUN: opt -dpcpp-split-on-barrier %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-split-on-barrier %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the SplitBBonBarrier pass
@@ -14,40 +14,40 @@ target triple = "x86_64-pc-win32"
 ; CHECK: @main
 define void @main(i32 %x) nounwind {
   %check = icmp ult i32 %x, 0
-  call void @__builtin_dpcpp_kernel_barrier(i32 2)
+  call void @_Z18work_group_barrierj(i32 2)
   br i1 %check, label %L1, label %L2
 L1:
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
-  call void @__builtin_dpcpp_kernel_barrier(i32 2)
+  call void @_Z18work_group_barrierj(i32 1)
+  call void @_Z18work_group_barrierj(i32 2)
   br label %L3
 L2:
-  call void @__builtin_dpcpp_kernel_barrier(i32 2)
+  call void @_Z18work_group_barrierj(i32 2)
   br label %L3
 L3:
   %isOk = phi i1 [ false, %L1 ], [ true, %L2 ]
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  call void @_Z18work_group_barrierj(i32 1)
   ret void
 ; CHECK-NEXT: %check = icmp ult i32 %x, 0
 ; CHECK-NEXT: br label %[[BARRIER_BB:.*]]
 ; CHECK:      [[BARRIER_BB]]:
-; CHECK-NEXT: call void @__builtin_dpcpp_kernel_barrier(i32 2)
+; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 2)
 ; CHECK-NEXT: br i1 %check, label %L1, label %L2
 ; CHECK:      L1:
-; CHECK-NEXT: call void @__builtin_dpcpp_kernel_barrier(i32 1)
+; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 1)
 ; CHECK-NEXT: br label %[[BARRIER_BB_2:.*]]
 ; CHECK:     [[BARRIER_BB_2]]:
-; CHECK-NEXT: call void @__builtin_dpcpp_kernel_barrier(i32 2)
+; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 2)
 ; CHECK-NEXT: br label %L3
 ; CHECK:      L2:
-; CHECK-NEXT: call void @__builtin_dpcpp_kernel_barrier(i32 2)
+; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 2)
 ; CHECK-NEXT: br label %L3
 ; CHECK:      L3:
 ; CHECK-NEXT: %isOk = phi i1 [ false, %
   ; CHECK: ], [ true, %L2 ]
 ; CHECK-NEXT: br label %[[BARRIER_BB_3:.*]]
 ; CHECK:      [[BARRIER_BB_3]]:
-; CHECK-NEXT: call void @__builtin_dpcpp_kernel_barrier(i32 1)
+; CHECK-NEXT: call void @_Z18work_group_barrierj(i32 1)
 ; CHECK-NEXT: ret void
 }
 
-declare void @__builtin_dpcpp_kernel_barrier(i32)
+declare void @_Z18work_group_barrierj(i32)

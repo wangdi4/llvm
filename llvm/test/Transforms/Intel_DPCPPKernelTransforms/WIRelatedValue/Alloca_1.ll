@@ -20,12 +20,12 @@ define void @main(i32 %arg) #0 {
   %a = alloca [4 x float], align 4
   %p = getelementptr [4 x float], [4 x float]* %a, i32 0, i32 0
   %x = load float, float* %p, align 4
-  call void @__builtin_dpcpp_kernel_barrier(i32 2)
+  call void @_Z18work_group_barrierj(i32 2)
   ret void
 ; CHECK: %a = alloca [4 x float], align 4
 ; CHECK: %p = getelementptr [4 x float], [4 x float]* %a, i32 0, i32 0
 ; CHECK: %x = load float, float* %p, align 4
-; CHECK: call void @__builtin_dpcpp_kernel_barrier(i32 2)
+; CHECK: call void @_Z18work_group_barrierj(i32 2)
 ; CHECK: ret void
 }
 
@@ -34,6 +34,6 @@ define void @main(i32 %arg) #0 {
 ; CHECK: p is WI related
 ; CHECK: x is WI related
 
-declare void @__builtin_dpcpp_kernel_barrier(i32)
+declare void @_Z18work_group_barrierj(i32)
 
 attributes #0 = { "sycl_kernel" }

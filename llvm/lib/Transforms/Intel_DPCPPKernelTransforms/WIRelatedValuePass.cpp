@@ -14,22 +14,12 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
 
 #include <set>
 
 using namespace llvm;
-
-INITIALIZE_PASS(WIRelatedValue, "dpcpp-kernel-barrier-wi-analysis",
-                "Intel DPCPP Barrier Pass - Calculate WI relation per Value",
-                false, true)
-
-namespace llvm {
-
-char WIRelatedValue::ID = 0;
-
-WIRelatedValue::WIRelatedValue() : ModulePass(ID) {}
-
-bool WIRelatedValue::runOnModule(Module &M) {
+WIRelatedValue::WIRelatedValue(Module &M) {
   //Initialize barrier utils class with current module
   BarrierUtils.init(&M);
 
@@ -45,7 +35,6 @@ bool WIRelatedValue::runOnModule(Module &M) {
     updateArgumentsDep(F);
     runOnFunction(*F);
   }
-  return false;
 }
 
 bool WIRelatedValue::runOnFunction(Function &F) {
@@ -177,7 +166,7 @@ bool WIRelatedValue::calculateDep(CallInst *CI) {
   }
 
   // Check if call is TID-generator.
-  if (OrigFunc->getName() == "__builtin_get_local_id") {
+  if (OrigFunc->getName() == DPCPPKernelCompilationUtils::mangledGetLID()) {
     // These functions return WI Id, they are indeed WI Id related.
     return true;
   }
@@ -452,6 +441,28 @@ void WIRelatedValue::print(raw_ostream &OS, const Module *M) const {
   }
 }
 
-ModulePass *createWIRelatedValuePass() { return new llvm::WIRelatedValue(); }
+INITIALIZE_PASS(WIRelatedValueWrapper, "dpcpp-kernel-barrier-wi-analysis",
+                "Intel DPCPP Barrier Pass - Calculate WI relation per Value",
+                false, true)
 
-} // namespace llvm
+char WIRelatedValueWrapper::ID = 0;
+
+WIRelatedValueWrapper::WIRelatedValueWrapper() : ModulePass(ID) {
+  initializeWIRelatedValueWrapperPass(*PassRegistry::getPassRegistry());
+}
+
+bool WIRelatedValueWrapper::runOnModule(Module &M) {
+  WRV.reset(new WIRelatedValue{M});
+  return false;
+}
+
+AnalysisKey WIRelatedValueAnalysis::Key;
+
+WIRelatedValue WIRelatedValueAnalysis::run(Module &M,
+                                           ModuleAnalysisManager &AM) {
+  return WIRelatedValue{M};
+}
+
+ModulePass *llvm::createWIRelatedValueWrapperPass() {
+  return new WIRelatedValueWrapper();
+}

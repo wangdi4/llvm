@@ -10,11 +10,11 @@ entry:
 
 define dso_local void @bar() {
 entry:
-  tail call void @__builtin_dpcpp_kernel_barrier() #0
+  tail call void @_Z18work_group_barrierj() #0
   unreachable
 }
 
-declare dso_local void @__builtin_dpcpp_kernel_barrier()
+declare dso_local void @_Z18work_group_barrierj()
 
 define dso_local void @kernel() #1 {
 DIR.OMP.PARALLEL.LOOP.3:

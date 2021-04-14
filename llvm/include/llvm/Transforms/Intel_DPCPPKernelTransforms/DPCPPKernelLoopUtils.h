@@ -56,20 +56,26 @@ LoopRegion createLoop(BasicBlock *Head, BasicBlock *Latch, Value *Begin,
 /// Create WI func (get_local_size, get_global_id etc) general
 ///       util as they all have the same signature.
 /// M - module to add function to.
-/// name - name of the function.
-/// retTy - return type of the function.
-Function *getWIFunc(Module *M, StringRef name, Type *retTy);
+/// Name - name of the function.
+/// RetTy - return type of the function.
+Function *getWIFunc(Module *M, StringRef Name, Type *RetTy);
 
 /// Creates work item call instruction.
 /// M - current module.
-/// funcName - name of the function.
-/// retTy - return type of the function.
-/// dim - argument of the WI call.
+/// FuncName - name of the function.
+/// RetTy - return type of the function.
+/// Dim - argument of the WI call.
 /// BB - basic block to put the call at it's end.
-/// callName = name of the function call.
+/// CallName = name of the function call.
 /// Returns call to the given Work item function.
-CallInst *getWICall(Module *M, StringRef funcName, Type *retTy, unsigned dim,
-                    BasicBlock *BB, const Twine &callName = "");
+CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, Value *Dim,
+                    BasicBlock *BB, const Twine &CallName = "");
+CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, Value *Dim,
+                    Instruction *IP, const Twine &CallName = "");
+CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, unsigned Dim,
+                    BasicBlock *BB, const Twine &CallName = "");
+CallInst *getWICall(Module *M, StringRef FuncName, Type *RetTy, unsigned Dim,
+                    Instruction *IP, const Twine &CallName = "");
 
 /// Fills call vector with all calls to function named func name in
 ///       funcToSearch

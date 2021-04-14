@@ -1,4 +1,4 @@
-; RUN: opt -dpcpp-split-on-barrier %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-split-on-barrier %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************
 ;; This test checks the SplitBBonBarrier pass

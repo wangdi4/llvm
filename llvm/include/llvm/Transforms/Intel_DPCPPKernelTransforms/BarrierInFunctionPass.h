@@ -13,7 +13,7 @@
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 
 namespace llvm {
@@ -27,21 +27,14 @@ namespace llvm {
 /// and barrier call at its end.
 /// Remove each fiber instruction that is called from function that has no
 /// barrier.
-class BarrierInFunction : public ModulePass {
 
+class BarrierInFunction : public PassInfoMixin<BarrierInFunction> {
 public:
-  BarrierInFunction();
+  static StringRef name() { return "Intel Kernel BarrierInFunction"; }
 
-  static char ID;
+  bool runImpl(Module &M);
 
-  llvm::StringRef getPassName() const override {
-    return "Intel Kernel BarrierInFunction";
-  }
-
-  /// Execute pass on given module.
-  /// M module to optimize,
-  /// True if module was modified.
-  bool runOnModule(Module &M) override;
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
 private:
   /// Add dummyBarrier at function begin and barrier at function end.
@@ -56,6 +49,25 @@ private:
 private:
   /// This is barrier utility class.
   DPCPPKernelBarrierUtils BarrierUtils;
+};
+
+/// BarrierInFunctionLegacy pass for legacy pass manager.
+class BarrierInFunctionLegacy : public ModulePass {
+  BarrierInFunction Impl;
+
+public:
+  BarrierInFunctionLegacy();
+
+  static char ID;
+
+  StringRef getPassName() const override {
+    return "Intel Kernel BarrierInFunction";
+  }
+
+  /// Execute pass on given module.
+  /// M module to optimize,
+  /// True if module was modified.
+  bool runOnModule(Module &M) override;
 };
 
 } // namespace llvm

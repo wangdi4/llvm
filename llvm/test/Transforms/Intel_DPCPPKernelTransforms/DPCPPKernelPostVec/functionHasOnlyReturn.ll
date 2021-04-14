@@ -10,6 +10,6 @@ entry:
   ret void
 }
 
-declare dso_local i64 @__builtin_get_local_id(i64 %0) local_unnamed_addr
+declare dso_local i64 @_Z12get_local_idj(i64 %0) local_unnamed_addr
 
 attributes #0 = { "sycl_kernel" }

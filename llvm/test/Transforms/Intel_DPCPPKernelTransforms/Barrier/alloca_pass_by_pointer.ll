@@ -14,7 +14,7 @@ entry:
 ; CHECK: %dst.addr.addr = alloca i32 addrspace(1)**
 ; CHECK: %x.addr.addr = alloca i32 addrspace(3)**
 ; CHECK: %lid.addr.addr = alloca i32**
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   %dst.addr = alloca i32 addrspace(1)*, align 8
   %x.addr = alloca i32 addrspace(3)*, align 8
   %lid.addr = alloca i32*, align 8
@@ -40,7 +40,7 @@ entry:
 ; CHECK: %{{[0-9]+}} = load i32*, i32** [[L0]], align 8
 
 "Barrier BB1":                                    ; preds = %entry
-  call void @__builtin_dpcpp_kernel_barrier(i32 1) #4
+  call void @_Z18work_group_barrierj(i32 1) #4
   %3 = load i32 addrspace(3)*, i32 addrspace(3)** %x.addr, align 8
   %arrayidx1 = getelementptr inbounds i32, i32 addrspace(3)* %3, i64 0
   %4 = load i32, i32 addrspace(3)* %arrayidx1, align 4
@@ -53,12 +53,12 @@ entry:
   br label %"Barrier BB"
 
 "Barrier BB":                                     ; preds = %"Barrier BB1"
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  call void @_Z18work_group_barrierj(i32 1)
   ret void
 }
 
 ; Function Attrs: convergent
-declare void @__builtin_dpcpp_kernel_barrier(i32) #1
+declare void @_Z18work_group_barrierj(i32) #1
 
 define void @test(i32 addrspace(1)* noalias %dst, i32 addrspace(3)* noalias %x) #2 {
 entry:
@@ -66,13 +66,13 @@ entry:
 ; CHECK: %dst.addr.addr = alloca i32 addrspace(1)**
 ; CHECK: %x.addr.addr = alloca i32 addrspace(3)**
 ; CHECK: %lid.addr = alloca i32*
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   %dst.addr = alloca i32 addrspace(1)*, align 8
   %x.addr = alloca i32 addrspace(3)*, align 8
   %lid = alloca i32, align 4
   store i32 addrspace(1)* %dst, i32 addrspace(1)** %dst.addr, align 8
   store i32 addrspace(3)* %x, i32 addrspace(3)** %x.addr, align 8
-  %call = call i64 @__builtin_get_local_id(i32 0) #5
+  %call = call i64 @_Z12get_local_idj(i32 0) #5
   %conv = trunc i64 %call to i32
   store i32 %conv, i32* %lid, align 4
   %0 = load i32 addrspace(1)*, i32 addrspace(1)** %dst.addr, align 8
@@ -86,7 +86,7 @@ entry:
 ; CHECK-NEXT: store i32 %conv, i32* [[L1]], align 4
 
 "Barrier BB1":                                    ; preds = %entry
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  call void @_Z18work_group_barrierj(i32 1)
 
 ; CHECK-LABEL: SyncBB1:
 ; CHECK: store i32* %pSB_LocalId{{[0-9]+}}, i32** %lid.addr
@@ -97,18 +97,18 @@ entry:
   br label %"Barrier BB2"
 
 "Barrier BB2":                                    ; preds = %"Barrier BB1"
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   br label %"Barrier BB"
 
 "Barrier BB":                                     ; preds = %"Barrier BB2"
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  call void @_Z18work_group_barrierj(i32 1)
   ret void
 }
 
 ; Function Attrs: convergent nounwind readnone
-declare i64 @__builtin_get_local_id(i32) #3
+declare i64 @_Z12get_local_idj(i32) #3
 
-declare void @__builtin_dpcpp_kernel_barrier_dummy()
+declare void @barrier_dummy()
 
 attributes #0 = { convergent noinline "kernel-call-once" "kernel-convergent-call" }
 attributes #1 = { convergent "kernel-call-once" "kernel-convergent-call" }

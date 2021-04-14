@@ -13,7 +13,7 @@ entry:
 ; CHECK-LABEL: entry:
 ; CHECK: %i.addr = alloca i32*
 ; CHECK-NOT: %i = alloca i32
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   %i = alloca i32, align 4
   store i32 170, i32* %i, align 4
   br label %for.cond
@@ -38,7 +38,7 @@ for.body:                                         ; preds = %for.cond
   br label %"Barrier BB1"
 
 "Barrier BB1":                                    ; preds = %for.body
-  call void @__builtin_dpcpp_kernel_barrier(i32 1) #1
+  call void @_Z18work_group_barrierj(i32 1) #1
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
@@ -48,14 +48,14 @@ for.end:                                          ; preds = %for.cond
   br label %"Barrier BB"
 
 "Barrier BB":                                     ; preds = %for.end
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  call void @_Z18work_group_barrierj(i32 1)
   ret void
 }
 
 ; Function Attrs: convergent
-declare void @__builtin_dpcpp_kernel_barrier(i32) #1
+declare void @_Z18work_group_barrierj(i32) #1
 
-declare void @__builtin_dpcpp_kernel_barrier_dummy()
+declare void @barrier_dummy()
 
 attributes #0 = { convergent noinline "sycl_kernel" "kernel-call-once" "kernel-convergent-call" }
 attributes #1 = { convergent "kernel-call-once" "kernel-convergent-call" }

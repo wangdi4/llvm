@@ -29,7 +29,7 @@ entry:
 ; CHECK-NEXT: [[L0:%[0-9]+]] = load i32*, i32** %g.addr, align 8
 ; CHECK-NEXT: store i32 1, i32* [[L0]], align 4
 
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   %g = alloca i32, align 4
   store i32 1, i32* %g, align 4
   br label %while.cond
@@ -47,14 +47,14 @@ while.body:                                       ; preds = %while.cond
   unreachable
 
 while.end:                                        ; preds = %while.cond
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  call void @_Z18work_group_barrierj(i32 1)
   ret void
 }
 
-declare void @__builtin_dpcpp_kernel_barrier_dummy()
+declare void @barrier_dummy()
 
 ; Function Attrs: convergent
-declare void @__builtin_dpcpp_kernel_barrier(i32) #2
+declare void @_Z18work_group_barrierj(i32) #2
 
 attributes #0 = { convergent noinline norecurse nounwind }
 attributes #1 = { convergent noinline norecurse nounwind "dpcpp-no-barrier-path"="false" "sycl_kernel" }

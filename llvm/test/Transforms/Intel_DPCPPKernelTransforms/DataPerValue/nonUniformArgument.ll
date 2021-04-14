@@ -27,27 +27,27 @@ target triple = "x86_64-pc-win32"
 ; CHECK: @main
 define void @main(i64 %x) nounwind {
 L1:
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
-  %lid = call i64 @__builtin_get_local_id(i32 0)
+  call void @barrier_dummy()
+  %lid = call i64 @_Z12get_local_idj(i32 0)
   %y = xor i64 %x, %lid
   br label %L2
 L2:
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  call void @_Z18work_group_barrierj(i32 1)
   %z = call i64 @foo(i64 %y)
   br label %L3
 L3:
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   ret void
 }
 
 ; CHECK: @foo
 define i64 @foo(i64 %a) nounwind {
 L1:
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   %b = xor i64 %a, %a
   br label %L2
 L2:
-  call void @__builtin_dpcpp_kernel_barrier(i32 2)
+  call void @_Z18work_group_barrierj(i32 2)
   %c = xor i64 %a, %b
   ret i64 %a
 }
@@ -85,6 +85,6 @@ L2:
 ; CHECK-NOT: entry
 ; CHECK: DONE
 
-declare void @__builtin_dpcpp_kernel_barrier(i32)
-declare i64 @__builtin_get_local_id(i32)
-declare void @__builtin_dpcpp_kernel_barrier_dummy()
+declare void @_Z18work_group_barrierj(i32)
+declare i64 @_Z12get_local_idj(i32)
+declare void @barrier_dummy()

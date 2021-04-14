@@ -32,6 +32,8 @@ enum AddressSpace {
   ADDRESS_SPACE_GENERIC = 4
 };
 
+enum BarrierType : char { BARRIER_NO_SCOPE, BARRIER_WITH_SCOPE };
+
 namespace OclVersion {
 enum {
   CL_VER_1_0 = 100,
@@ -105,6 +107,12 @@ std::string mangledGetLID();
 
 /// Returns the mangled name of the function get_local_size.
 std::string mangledGetLocalSize();
+
+/// Returns the mangled name of the function barrier.
+std::string mangledBarrier();
+
+/// Returns the mangled name of the function work_group_barrier.
+std::string mangledWGBarrier(BarrierType BT);
 
 /// Collect all kernel functions which have "sycl_kernel" attribute.
 FuncSet getKernels(Module &M);
