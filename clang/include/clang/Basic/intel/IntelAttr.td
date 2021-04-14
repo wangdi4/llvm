@@ -367,8 +367,6 @@ def MaxConcurrency : InheritableAttr {
   }];
 }
 
-def : MutualExclusions<[IntelFPGARegister, MaxConcurrency]>;
-
 def MaxInterleaving : InheritableAttr {
   let Spellings = [GNU<"max_interleaving">];
   let Args = [ExprArgument<"Value">];

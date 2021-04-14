@@ -799,7 +799,7 @@ void other()
   type_temp(i);
 }
 
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+//expected-error@+1{{'__doublepump__' attribute only applies to constant variables, local variables, static variables, agent memory arguments, and non-static data members}}
 __attribute__((__doublepump__)) unsigned int ext_one[64];
 
 //expected-error@+1{{only applies to functions and local non-const variables}}
@@ -971,19 +971,19 @@ struct foo {
 
 };
 
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+//expected-error@+1{{'__memory__' attribute only applies to constant variables, local variables, static variables, agent memory arguments, and non-static data members}}
 __attribute__((__memory__)) int ext_2;
 
 //expected-error@+1{{attribute only applies to constant variables, local variables, static variables, and non-static data members}}
 __attribute__((__register__)) int ext_3;
 
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+//expected-error@+1{{'__singlepump__' attribute only applies to constant variables, local variables, static variables, agent memory arguments, and non-static data members}}
 __attribute__((__singlepump__)) int ext_4;
 
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+//expected-error@+1{{'__bankwidth__' attribute only applies to constant variables, local variables, static variables, agent memory arguments, and non-static data members}}
 __attribute__((__bankwidth__(4))) int ext_5;
 
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+//expected-error@+1{{'__numbanks__' attribute only applies to constant variables, local variables, static variables, agent memory arguments, and non-static data members}}
 __attribute__((__numbanks__(8))) int ext_6;
 
 //expected-error@+1{{attribute only applies to constant variables, local variables, static variables, and non-static data members}}
@@ -998,5 +998,5 @@ __attribute__((__static_array_reset__(0))) int ext_12;
 //expected-error@+1{{'__static_array_reset__' attribute only applies to constant variables, local static variables, and non-static data members}}
 __attribute__((__static_array_reset__(1))) int ext_13;
 
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+//expected-error@+1{{'__bank_bits__' attribute only applies to constant variables, local variables, static variables, agent memory arguments, and non-static data members}}
 __attribute__((__bank_bits__(2, 3, 4, 5))) int ext_17;

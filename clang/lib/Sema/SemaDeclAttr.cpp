@@ -6724,6 +6724,10 @@ static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
     if (!NBA->isImplicit() &&
         checkAttrMutualExclusion<IntelFPGANumBanksAttr>(S, D, Attr))
       InCompat = true;
+#if INTEL_CUSTOMIZATION
+  if (checkAttrMutualExclusion<MaxConcurrencyAttr>(S, D, Attr))
+    InCompat = true;
+#endif // INTEL_CUSTOMIZATION
 
   return InCompat;
 }
