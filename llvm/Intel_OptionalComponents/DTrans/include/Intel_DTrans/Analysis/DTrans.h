@@ -1111,6 +1111,9 @@ public:
       element_dtrans_types_iterator(ElemTypes.end()));
   }
 
+  TypeAliasSet::iterator begin() { return ElemTypes.begin(); }
+  TypeAliasSet::iterator end() { return ElemTypes.end(); }
+
   size_t getNumTypes() const { return ElemTypes.size(); }
 
   llvm::Type *getElemLLVMType(size_t Idx) const {

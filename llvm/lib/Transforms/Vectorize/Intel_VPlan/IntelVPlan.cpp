@@ -261,7 +261,8 @@ bool VPInstruction::mayHaveSideEffects() const {
       Instruction::isBitwiseLogicOp(Opcode) ||
       Instruction::isBinaryOp(Opcode) || Instruction::isUnaryOp(Opcode) ||
       Opcode == Instruction::ExtractElement ||
-      Opcode == Instruction::Select || Opcode == Instruction::GetElementPtr ||
+      Opcode == Instruction::ShuffleVector || Opcode == Instruction::Select ||
+      Opcode == Instruction::GetElementPtr ||
       Opcode == VPInstruction::Subscript || Opcode == Instruction::PHI ||
       Opcode == Instruction::ICmp || Opcode == Instruction::FCmp ||
       Opcode == VPInstruction::Not || Opcode == VPInstruction::Abs ||

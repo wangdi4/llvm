@@ -64,9 +64,9 @@ public:
 // This class tests and demonstrates usage of the DTransOptBase class.
 class DTransOptBaseTest : public DTransOPOptBase {
 public:
-  DTransOptBaseTest(LLVMContext &Ctx, DTransTypeManager &TM,
+  DTransOptBaseTest(LLVMContext &Ctx, DTransSafetyInfo *DTInfo,
                     StringRef DepTypePrefix)
-      : DTransOPOptBase(Ctx, TM, DepTypePrefix) {}
+      : DTransOPOptBase(Ctx, DTInfo, DepTypePrefix) {}
 
   virtual bool prepareTypes(Module &M) override {
     SmallVector<StringRef, 16> SubStrings;
@@ -157,8 +157,8 @@ dtransOP::DTransOPOptBaseTestPass::run(Module &M, ModuleAnalysisManager &AM) {
 
 bool dtransOP::DTransOPOptBaseTestPass::runImpl(Module &M,
                                                 DTransSafetyInfo *DTInfo) {
-  DTransOptBaseTest Transformer(M.getContext(), DTInfo->getTypeManager(),
-                                "__DDT_");
+  assert(DTInfo && "DTransSafetyInfo is required");
+  DTransOptBaseTest Transformer(M.getContext(), DTInfo, "__DDT_");
   return Transformer.run(M);
 }
 

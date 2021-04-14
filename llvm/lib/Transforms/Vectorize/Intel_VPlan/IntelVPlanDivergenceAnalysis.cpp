@@ -1302,6 +1302,19 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForInsertExtractInst(
   return VPVectorShape::joinShapes(VectorOpShape, IdxOpShape);
 }
 
+VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForShuffleVectorInst(
+    const VPInstruction *I) {
+  assert(isa<VPConstant>(I->getOperand(2)) &&
+         "Mask operand must be constant for ShuffleInst!");
+
+  VPVectorShape Vec0Shape = getVectorShape(*I->getOperand(0));
+  VPVectorShape Vec1Shape = getVectorShape(*I->getOperand(1));
+  if (Vec0Shape.isUniform() && Vec1Shape.isUniform())
+    return getUniformVectorShape();
+
+  return getRandomVectorShape();
+}
+
 VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForSelectInst(
     const VPInstruction *I) {
 
@@ -1491,6 +1504,8 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == Instruction::InsertElement ||
            Opcode == Instruction::ExtractElement)
     NewShape = computeVectorShapeForInsertExtractInst(I);
+  else if (Opcode == Instruction::ShuffleVector)
+    NewShape = computeVectorShapeForShuffleVectorInst(I);
   else if (Opcode == Instruction::Select)
     NewShape = computeVectorShapeForSelectInst(I);
   else if (Opcode == Instruction::Call)
