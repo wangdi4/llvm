@@ -350,6 +350,7 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
       }
       if (nullptr != pVecFunc && !dontVectorize) {
         // Create the vectorized kernel - no need to pass argument list here
+        assert(pWrapperVecFunc && "vectorized kernel should have wrapper");
         std::unique_ptr<KernelJITProperties> spVKernelJITProps(
             CreateKernelJITProperties(vecSize));
         spKernelProps->SetMinGroupSizeFactorial(vecSize);
