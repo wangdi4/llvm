@@ -317,8 +317,10 @@ static void computeFunctionSummary(
 
       auto *CalledValue = CB->getCalledOperand();
       auto *CalledFunction = CB->getCalledFunction();
+      auto *CalledGIF = dyn_cast_or_null<GlobalIFunc>(CalledValue); // INTEL
       if (CalledValue && !CalledFunction) {
         CalledValue = CalledValue->stripPointerCasts();
+        CalledGIF = dyn_cast_or_null<GlobalIFunc>(CalledValue); // INTEL
         // Stripping pointer casts can reveal a called function.
         CalledFunction = dyn_cast<Function>(CalledValue);
       }
@@ -330,15 +332,20 @@ static void computeFunctionSummary(
       }
       // Check if this is a direct call to a known function or a known
       // intrinsic, or an indirect call with profile data.
-      if (CalledFunction) {
-        if (CI && CalledFunction->isIntrinsic()) {
+#if INTEL_CUSTOMIZATION
+      // CMPLRLLVM-26286: Ensure that calls to GlobalIFuncs end up in
+      // the summary call graph. (This and related changes in this file
+      // could be pushed back to the community.)
+      if (CalledFunction || CalledGIF) {
+        if (CI && CalledFunction && CalledFunction->isIntrinsic()) {
+#endif // INTEL_CUSTOMIZATION
           addIntrinsicToSummary(
               CI, TypeTests, TypeTestAssumeVCalls, TypeCheckedLoadVCalls,
               TypeTestAssumeConstVCalls, TypeCheckedLoadConstVCalls, DT);
           continue;
         }
         // We should have named any anonymous globals
-        assert(CalledFunction->hasName());
+        assert(CalledGIF || CalledFunction->hasName()); // INTEL
         auto ScaledCount = PSI->getProfileCount(*CB, BFI);
         auto Hotness = ScaledCount ? getHotness(ScaledCount.getValue(), PSI)
                                    : CalleeInfo::HotnessType::Unknown;
