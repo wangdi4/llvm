@@ -144,8 +144,8 @@ TEST_F(TBAATest, checkTBAACommutativity) {
   auto AliasResult1 = TBAA.alias(Loc1, Loc2, AAQIP);
   auto AliasResult2 = TBAA.alias(Loc2, Loc1, AAQIP);
 
-  EXPECT_EQ(AliasResult1, MayAlias);
-  EXPECT_EQ(AliasResult2, MayAlias);
+  EXPECT_EQ(AliasResult1, AliasResult::MayAlias);
+  EXPECT_EQ(AliasResult2, AliasResult::MayAlias);
 }
 #endif // INTEL_CUSTOMIZATION
 
