@@ -180,6 +180,8 @@ class OpenMPLateOutliner {
     ICK_linear,
     ICK_linear_private,
     ICK_linear_lastprivate,
+    ICK_reduction,
+    ICK_inreduction,
     ICK_normalized_iv,
     ICK_normalized_ub,
     // A firstprivate specified with an implicit OMPFirstprivateClause.
@@ -238,7 +240,8 @@ class OpenMPLateOutliner {
   void emitOMPLastprivateClause(const OMPLastprivateClause *Cl);
   void emitOMPLinearClause(const OMPLinearClause *Cl);
   template <typename RedClause>
-  void emitOMPReductionClauseCommon(const RedClause *Cl, StringRef QualName);
+  void emitOMPReductionClauseCommon(const RedClause *Cl, StringRef QualName,
+                                    ImplicitClauseKind ICK = ICK_unknown);
   void emitOMPReductionClause(const OMPReductionClause *Cl);
   void emitOMPOrderedClause(const OMPOrderedClause *C);
   void buildMapQualifier(OpenMPLateOutliner::ClauseStringBuilder &CSB,
@@ -424,6 +427,7 @@ public:
   void emitRemark(std::string Str);
 #endif // INTEL_CUSTOMIZATION
   bool isImplicitTask(OpenMPDirectiveKind K);
+  bool isImplicitTaskgroup(OpenMPDirectiveKind K);
   bool shouldSkipExplicitClause(OpenMPClauseKind K);
   void emitOMPParallelDirective();
   void emitOMPParallelForDirective();

@@ -22,12 +22,14 @@ int main(int argc, char **argv) {
 
   // CHECK: DIR.OMP.TASKGROUP
   // CHECK: DIR.OMP.MASTER
+  // CHECK: DIR.OMP.TASKGROUP
+  // CHECK-SAME: QUAL.OMP.REDUCTION.MUL
   // CHECK: DIR.OMP.TASKLOOP
   // CHECK-SAME: QUAL.OMP.IF
   // CHECK-SAME: QUAL.OMP.FINAL
   // CHECK-SAME: QUAL.OMP.PRIORITY
   // CHECK-SAME: QUAL.OMP.NUM_TASKS
-  // CHECK-SAME: QUAL.OMP.REDUCTION.MUL
+  // CHECK-SAME: QUAL.OMP.INREDUCTION.MUL
   // CHECK-SAME: QUAL.OMP.INREDUCTION.ADD
   // CHECK: DIR.OMP.SIMD
   // CHECK-SAME: QUAL.OMP.SAFELEN
@@ -36,6 +38,7 @@ int main(int argc, char **argv) {
   // CHECK-SAME: QUAL.OMP.REDUCTION.MUL
   // CHECK: DIR.OMP.END.SIMD
   // CHECK: DIR.OMP.END.TASKLOOP
+  // CHECK: DIR.OMP.END.TASKGROUP
   // CHECK: DIR.OMP.END.MASTER
   // CHECK: DIR.OMP.END.TASKGROUP
 #pragma omp taskgroup task_reduction(+: d)
@@ -49,19 +52,22 @@ int main(int argc, char **argv) {
     a = 2;
 
   // CHECK: DIR.OMP.MASTER
+  // CHECK: DIR.OMP.TASKGROUP
+  // CHECK-SAME: QUAL.OMP.REDUCTION.MAX
   // CHECK: DIR.OMP.TASKLOOP
   // CHECK-SAME: QUAL.OMP.COLLAPSE
   // CHECK-SAME: QUAL.OMP.IF
   // CHECK-SAME: QUAL.OMP.MERGEABLE
   // CHECK-SAME: QUAL.OMP.PRIORITY
   // CHECK-SAME: QUAL.OMP.GRAINSIZE
-  // CHECK-SAME: QUAL.OMP.REDUCTION.MAX
+  // CHECK-SAME: QUAL.OMP.INREDUCTION.MAX
   // CHECK: DIR.OMP.SIMD
   // Should be here once we switch to OpenMP5.0 (allows if on simd)
   // CHECK-NOT: DIR.OMP.SIMD
   // CHECK-SAME: QUAL.OMP.SIMDLEN
   // CHECK: DIR.OMP.END.SIMD
   // CHECK: DIR.OMP.END.TASKLOOP
+  // CHECK: DIR.OMP.END.TASKGROUP
   // CHECK: DIR.OMP.END.MASTER
 #ifdef COMBINED
 #pragma omp master taskloop simd private(argv, b), firstprivate(argc, c), lastprivate(d, f) collapse(2) shared(g) if(argc) mergeable priority(argc) simdlen(16) grainsize(argc) reduction(max: a, e)

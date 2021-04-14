@@ -4,9 +4,11 @@
 
 void foo()
 {
+  // CHECK: DIR.OMP.TASKGROUP
   // CHECK: DIR.OMP.TASKLOOP
   // CHECK-SAME: QUAL.OMP.COLLAPSE
   // CHECK: DIR.OMP.END.TASKLOOP
+  // CHECK: DIR.OMP.END.TASKGROUP
   /* collapse allowed */
   {
     int i,j;
@@ -19,14 +21,18 @@ void foo()
   /* grainsize */
   {
     int i,j = 4;
+    // CHECK: DIR.OMP.TASKGROUP
     // CHECK: DIR.OMP.TASKLOOP
     // CHECK-SAME: QUAL.OMP.GRAINSIZE
     // CHECK: DIR.OMP.END.TASKLOOP
+    // CHECK: DIR.OMP.END.TASKGROUP
     #pragma omp taskloop grainsize(j)
     for(i=0;i<10;i++) {}
+    // CHECK: DIR.OMP.TASKGROUP
     // CHECK: DIR.OMP.TASKLOOP
     // CHECK-SAME: QUAL.OMP.GRAINSIZE
     // CHECK: DIR.OMP.END.TASKLOOP
+    // CHECK: DIR.OMP.END.TASKGROUP
     #pragma omp taskloop grainsize(j+4)
     for(i=0;i<10;i++) {}
   }
@@ -34,14 +40,18 @@ void foo()
   /* num_tasks */
   {
     int i,j = 4;
+    // CHECK: DIR.OMP.TASKGROUP
     // CHECK: DIR.OMP.TASKLOOP
     // CHECK-SAME: QUAL.OMP.NUM_TASKS
     // CHECK: DIR.OMP.END.TASKLOOP
+    // CHECK: DIR.OMP.END.TASKGROUP
     #pragma omp taskloop num_tasks(j)
     for(i=0;i<10;i++) {}
+    // CHECK: DIR.OMP.TASKGROUP
     // CHECK: DIR.OMP.TASKLOOP
     // CHECK-SAME: QUAL.OMP.NUM_TASKS
     // CHECK: DIR.OMP.END.TASKLOOP
+    // CHECK: DIR.OMP.END.TASKGROUP
     #pragma omp taskloop num_tasks(j+4)
     for(i=0;i<10;i++) {}
   }
