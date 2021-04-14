@@ -2087,6 +2087,17 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
 
+      case WRegionNode::WRNDispatch:
+        if (Mode & ParPrepare) {
+          debugPrintHeader(W, Mode);
+          if (!hasOffloadCompilation()) { // for host only
+          // TODO: codegen is under construction
+          //   Changed |= genDispatchCode(W);
+          }
+          RemoveDirectives = true;
+        }
+        break;
+
       case WRegionNode::WRNTaskgroup:
         debugPrintHeader(W, Mode);
         if ((Mode & OmpPar) && (Mode & ParTrans)) {

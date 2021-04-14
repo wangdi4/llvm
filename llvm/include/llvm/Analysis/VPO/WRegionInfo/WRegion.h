@@ -30,6 +30,7 @@
 ///   WRNTargetExitDataNode   | #pragma omp target exit data
 ///   WRNTargetUpdateNode     | #pragma omp target update
 ///   WRNTargetVariantNode    | #pragma omp target variand dispatch
+///   WRNDispatchNode         | #pragma omp dispatch
 ///   WRNTaskNode             | #pragma omp task
 ///   WRNTaskloopNode         | #pragma omp taskloop
 ///   WRNVecLoopNode          | #pragma omp simd
@@ -997,6 +998,46 @@ public:
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTargetVariant;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma omp dispatch
+/// \endcode
+class WRNDispatchNode : public WRegionNode {
+private:
+  // No need to represent depend clause here; it's moved to the implicit task
+  IsDevicePtrClause IsDevicePtr;
+  SubdeviceClause Subdevice;
+  EXPR Device;
+  EXPR Nocontext;
+  EXPR Novariants;
+  bool Nowait;
+
+public:
+  WRNDispatchNode(BasicBlock *BB);
+
+protected:
+  void setDevice(EXPR E) override { Device = E; }
+  void setNocontext(EXPR E) override { Nocontext = E; }
+  void setNovariants(EXPR E) override { Novariants = E; }
+  void setNowait(bool Flag) override { Nowait = Flag; }
+
+public:
+  DEFINE_GETTER(IsDevicePtrClause,  getIsDevicePtr,  IsDevicePtr)
+  DEFINE_GETTER(SubdeviceClause,    getSubdevice,    Subdevice)
+  EXPR getDevice() const override { return Device; }
+  EXPR getNocontext() const override { return Nocontext; }
+  EXPR getNovariants() const override { return Novariants; }
+  bool getNowait() const override { return Nowait; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                  unsigned Verbosity = 1) const override;
+
+  /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNDispatch;
   }
 };
 

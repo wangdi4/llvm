@@ -122,6 +122,9 @@ def "DIR.OMP.END.TARGET.EXIT.DATA" : Directive;
 def "DIR.OMP.TARGET.VARIANT.DISPATCH" : Directive;
 def "DIR.OMP.END.TARGET.VARIANT.DISPATCH" : Directive;
 
+def "DIR.OMP.DISPATCH" : Directive;
+def "DIR.OMP.END.DISPATCH" : Directive;
+
 def "DIR.OMP.CANCEL" : Directive;
 def "DIR.OMP.END.CANCEL" : Directive;
 
@@ -294,6 +297,8 @@ def "QUAL.OMP.BIND.PARALLEL" : Clause;
 def "QUAL.OMP.BIND.THREAD" : Clause;
 def "QUAL.OMP.ORDER.CONCURRENT" : Clause;
 def "QUAL.OMP.ALLOCATE" : Clause;
+def "QUAL.OMP.NOCONTEXT" : Clause;
+def "QUAL.OMP.NOVARIANTS" : Clause;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 // Support Intel extension for CSA.
@@ -309,6 +314,7 @@ def "QUAL.OMP.SA.PIPELINE" : Clause;
 
 def "QUAL.OMP.TARGET.TASK" : Clause;
 def "QUAL.OMP.IMPLICIT" : Clause;
+def "QUAL.OMP.DISPATCH.CALL" : Clause;
 def "QUAL.OMP.NORMALIZED.IV" : Clause;
 def "QUAL.OMP.NORMALIZED.UB" : Clause;
 def "QUAL.OMP.CANCELLATION.POINTS" : Clause;

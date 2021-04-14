@@ -461,7 +461,33 @@ void WRNTargetVariantNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                       unsigned Verbosity) const {
   unsigned Indent = 2 * Depth;
   vpo::printVal("DEVICE", getDevice(), OS, Indent, Verbosity);
-  vpo::printBool("NOWAIT", getNowait(), OS, 2*Depth, Verbosity);
+  vpo::printBool("NOWAIT", getNowait(), OS, Indent, Verbosity);
+}
+
+//
+// Methods for WRNDispatchNode
+//
+
+// constructor
+WRNDispatchNode::WRNDispatchNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNDispatch, BB) {
+  setDevice(nullptr);
+  setNocontext(nullptr);
+  setNovariants(nullptr);
+  setNowait(false);
+
+  LLVM_DEBUG(dbgs() << "\nCreated WRNDispatchNode<" << getNumber()
+                    << ">\n");
+}
+
+// printer
+void WRNDispatchNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                      unsigned Verbosity) const {
+  unsigned Indent = 2 * Depth;
+  vpo::printVal("DEVICE", getDevice(), OS, Indent, Verbosity);
+  vpo::printVal("NOCONTEXT", getNocontext(), OS, Indent, Verbosity);
+  vpo::printVal("NOVARIANTS", getNovariants(), OS, Indent, Verbosity);
+  vpo::printBool("NOWAIT", getNowait(), OS, Indent, Verbosity);
 }
 
 //

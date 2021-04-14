@@ -420,14 +420,18 @@ public:
   virtual bool getIsDoacross()         const {WRNERROR("DEPEND(SOURCE|SINK)");}
   virtual void setIsSIMD(bool Flag)          {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
   virtual bool getIsSIMD()             const {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
+  virtual void setIsTargetTask(bool Flag)     {WRNERROR(QUAL_OMP_TARGET_TASK);}
+  virtual bool getIsTargetTask()        const {WRNERROR(QUAL_OMP_TARGET_TASK);}
   virtual void setIsThreads(bool Flag)          {WRNERROR("THREADS/SIMD");    }
   virtual bool getIsThreads()             const {WRNERROR("THREADS/SIMD");    }
   virtual void setMergeable(bool Flag)          {WRNERROR(QUAL_OMP_MERGEABLE);}
   virtual bool getMergeable()             const {WRNERROR(QUAL_OMP_MERGEABLE);}
-  virtual void setIsTargetTask(bool Flag)     {WRNERROR(QUAL_OMP_TARGET_TASK);}
-  virtual bool getIsTargetTask()        const {WRNERROR(QUAL_OMP_TARGET_TASK);}
+  virtual void setNocontext(EXPR E)             {WRNERROR(QUAL_OMP_NOCONTEXT);}
+  virtual EXPR getNocontext()             const {WRNERROR(QUAL_OMP_NOCONTEXT);}
   virtual void setNogroup(bool Flag)            {WRNERROR(QUAL_OMP_NOGROUP);  }
   virtual bool getNogroup()               const {WRNERROR(QUAL_OMP_NOGROUP);  }
+  virtual void setNovariants(EXPR E)           {WRNERROR(QUAL_OMP_NOVARIANTS);}
+  virtual EXPR getNovariants()           const {WRNERROR(QUAL_OMP_NOVARIANTS);}
   virtual void setNowait(bool Flag)             {WRNERROR(QUAL_OMP_NOWAIT);   }
   virtual bool getNowait()                const {WRNERROR(QUAL_OMP_NOWAIT);   }
   virtual void setNumTasks(EXPR E)              {WRNERROR(QUAL_OMP_NUM_TASKS);}
@@ -802,6 +806,7 @@ public:
     WRNTargetExitData,                // IsTarget
     WRNTargetUpdate,                  // IsTarget
     WRNTargetVariant,                 // IsTarget
+    WRNDispatch,
     WRNTask,                          // IsTask
     WRNTaskloop,                      // IsTask, IsOmpLoop
 
