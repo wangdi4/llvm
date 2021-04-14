@@ -1226,7 +1226,8 @@ ElfLNote::ElfLNote(const void *IteratorImpl) {
 ElfLNote::ElfLNote(const ElfLNote &Other) {
   const ElfLNoteImplBase *NImpl =
       reinterpret_cast<const ElfLNoteImplBase *>(Impl);
-  Impl = NImpl->clone();
+  if (NImpl)
+    Impl = NImpl->clone();
 }
 
 ElfLNote::~ElfLNote() {
