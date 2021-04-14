@@ -147,6 +147,9 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB21]]: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LOAD:%.*]] = load i32* [[VP_I_LPRIV]]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOADED_PRIV_FINAL:%.*]] = private-final-uc-mem i32 [[VP_LOAD]]
+; CHECK-NEXT:     [DA: Uni] store i32 [[VP_LOADED_PRIV_FINAL]] i32* [[I_LPRIV0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] br [[BB22:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB22]]: # preds: [[BB21]]

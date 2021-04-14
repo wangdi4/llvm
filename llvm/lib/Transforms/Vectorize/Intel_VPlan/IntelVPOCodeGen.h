@@ -303,6 +303,9 @@ private:
   /// Fix up induction last value.
   void fixInductionLastVal(const VPInduction &Ind, VPInductionFinal *IndFinal);
 
+  /// Fix up private last value.
+  void fixPrivateLastVal(VPInstruction *PrivFinal);
+
   /// The Loop exit block may have single value PHI nodes where the incoming
   /// value is 'Undef'. While vectorizing we only handled real values that were
   /// defined inside the loop. Here we fix the 'undef case'.
@@ -368,6 +371,9 @@ private:
   /// Create a new widened alloca in the function entry BB. We allocate VF
   /// elements of the private element type.
   void vectorizeAllocatePrivate(VPAllocatePrivate *V);
+
+  /// Vectorize unconditional last private final value calculation.
+  void vectorizePrivateFinalUncond(VPInstruction *VPInst);
 
   /// Vectorize blend instructions using selects.
   void vectorizeBlend(VPBlendInst *Blend);

@@ -1002,8 +1002,28 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       }
     }
 
-    // Add special handling for 'Cond' and 'Last' - privates. Also include
-    // support for non-POD CopyAssign specialization here.
+    // TODO: include support for non-POD CopyAssign specialization here.
+
+    // Handling of last privates generating last value calculation.
+    if (!isa<VPPrivateNonPOD>(Private) && Private->isLast()) {
+      assert(!Private->isConditional() && "Unsupported conditional private");
+      VPBuilder::InsertPointGuard Guard(Builder);
+      Builder.setInsertPoint(PostExit);
+      VPValue *Exit =
+          Private->getIsMemOnly()
+              ? Builder.createLoad(
+                    PrivateMem->getType()->getPointerElementType(), PrivateMem)
+              : Private->getExitInst();
+      StringRef Name = Private->hasExitInstr()
+                           ? Private->getExitInst()->getName()
+                           : "loaded";
+      unsigned Opc = Private->getIsMemOnly()
+                         ? VPInstruction::PrivateFinalUncondMem
+                         : VPInstruction::PrivateFinalUncond;
+      auto *Final = Builder.createNaryOp(Opc, Exit->getType(), {Exit});
+      Final->setName(Name + ".priv.final");
+      processFinalValue(*Private, AI, Builder, *Final, Exit->getType(), Exit);
+    }
   }
   LLVM_DEBUG(
       dbgs()

@@ -14,6 +14,10 @@
 ; CHECK-NEXT:  AliasRef:   store double %conv735.lcssa, double* %d.lpriv, align 8
 ; CHECK-NEXT:    UpdateInstruction:
 ; CHECK-NEXT: PrivDescr: {IsCond: 1, IsLast: 1}
+;
+; TODO: Re-enable the test when added support for conditional privates
+; XFAIL: *
+;
 
 ; Function Attrs: nounwind uwtable
 ; outer loop

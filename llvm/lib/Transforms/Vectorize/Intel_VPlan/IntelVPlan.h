@@ -551,6 +551,11 @@ public:
     PopVF,
     PlanAdapter,
     PlanPeelAdapter,
+    PrivateFinalUncond,    // No special class implemented.
+    PrivateFinalUncondMem, // Temporarily needed to avoid memonly private
+                           // finalization during CG.
+                           // TODO: Remove when non-explicit remainder loop
+                           // support is deprecated.
   };
 
 private:

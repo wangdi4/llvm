@@ -339,6 +339,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "vplan-adapter";
   case VPInstruction::PlanPeelAdapter:
     return "vplan-peel-adapter";
+  case VPInstruction::PrivateFinalUncond:
+    return "private-final-uc";
+  case VPInstruction::PrivateFinalUncondMem:
+    return "private-final-uc-mem";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);

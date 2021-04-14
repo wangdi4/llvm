@@ -82,6 +82,8 @@ void VPlanCFGMerger::updateMergeBlockIncomings(VPBasicBlock *MergeBlock,
     VPValue *InVal = UseLiveIn ? ExtVals.getOriginalIncomingValue(MergeId)
                                : Plan.getLiveOutValue(MergeId);
     if (Node.getBlockIndex(SplitBlock) == -1) {
+      if (!InVal)
+        InVal = Plan.getVPConstant(UndefValue::get(Node.getType()));
       Node.addIncoming(InVal, SplitBlock);
       continue;
     }
@@ -243,8 +245,9 @@ VPBasicBlock *VPlanCFGMerger::createScalarRemainder(Loop *OrigLoop,
                                   ScalarDescr->getLiveOut(), Id);
     Plan.getVPlanDA()->markUniform(*LO);
     PHINode *OrigPhi = ScalarDescr->getPhi();
-    Remainder->addLiveIn(&I,
-                         &OrigPhi->getOperandUse(ScalarDescr->getStartOpNum()));
+    if (OrigPhi)
+      Remainder->addLiveIn(
+          &I, &OrigPhi->getOperandUse(ScalarDescr->getStartOpNum()));
   }
   // Add info to replace the successor in scalar exit block.
   Remainder->addLiveIn(FinalBB, getExitBBUse(OrigLoop));
@@ -377,9 +380,9 @@ class ScalarPeelOrRemainderVPlanFab<false>
   virtual void addRemainderLiveIn(ScalarInOutDescr *Descr,
                                   VPInstructionType *I) override {
     int Id = Descr->getId();
-    PHINode *OrigPhi = Descr->getPhi();
-    I->addLiveIn(const_cast<VPLiveInValue *>(NewPlan->getLiveInValue(Id)),
-                 &OrigPhi->getOperandUse(Descr->getStartOpNum()));
+    if (PHINode *OrigPhi = Descr->getPhi())
+      I->addLiveIn(const_cast<VPLiveInValue *>(NewPlan->getLiveInValue(Id)),
+                   &OrigPhi->getOperandUse(Descr->getStartOpNum()));
   }
   virtual void updateLoopExit(VPInstructionType *I, VPValue *Blk,
                               Use *Val) override {

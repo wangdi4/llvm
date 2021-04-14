@@ -1456,6 +1456,11 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     VPScalarMap[LiveOut][0] = const_cast<Value*>(LiveOut->getLiveOutVal());
     return;
   }
+  case VPInstruction::PrivateFinalUncondMem:
+  case VPInstruction::PrivateFinalUncond: {
+    vectorizePrivateFinalUncond(VPInst);
+    return;
+  }
   default: {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
     llvm_unreachable("VPVALCG: Opcode not uplifted yet.");
@@ -3659,6 +3664,27 @@ void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
   }
 }
 
+void VPOCodeGen::vectorizePrivateFinalUncond(VPInstruction *VPInst) {
+
+  Value *Ret;
+  Value *Operand = getVectorValue(VPInst->getOperand(0));
+  if (VPInst->getOperand(0)->getType()->isVectorTy())
+    Ret = generateExtractSubVector(Operand, VF - 1, VF, Builder,
+                                   "extracted.priv");
+  else
+    Ret = Builder.CreateExtractElement(Operand, VF - 1, "extracted.priv");
+  VPScalarMap[VPInst][0] = Ret;
+
+  if (!Plan->hasExplicitRemainder() &&
+      VPInst->getOpcode() != VPInstruction::PrivateFinalUncondMem) {
+    // Add info to update scalar loop livein and liveouts. We don't
+    // need this for in-memory privates.
+    const VPLoopEntity *Entity = VPEntities->getPrivate(VPInst);
+    assert(Entity && "Unexpected: private last value is not for entity");
+    EntitiesFinalVPInstMap[Entity] = VPInst;
+  }
+}
+
 void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
   Value *VecValue = getVectorValue(RedFinal->getOperand(0));
   Intrinsic::ID Intrin = RedFinal->getVectorReduceIntrinsic();
@@ -4005,6 +4031,9 @@ void VPOCodeGen::fixOutgoingValues() {
     if (auto *Induction = dyn_cast<VPInduction>(LastValPair.first))
       fixInductionLastVal(*Induction,
                           cast<VPInductionFinal>(LastValPair.second));
+    if (isa<VPPrivate>(LastValPair.first)) {
+      fixPrivateLastVal(cast<VPInstruction>(LastValPair.second));
+    }
   }
 }
 
@@ -4018,6 +4047,7 @@ void VPOCodeGen::attachPreferredAlignmentMetadata(Instruction *Memref,
 
 void VPOCodeGen::fixLiveOutValues(VPInstruction *FinalVPInst, Value *LastVal) {
   assert(isa<VPReductionFinal>(FinalVPInst) ||
+         FinalVPInst->getOpcode() == VPInstruction::PrivateFinalUncond ||
          isa<VPInductionFinal>(FinalVPInst) &&
              "Only loop entity finalization instructions can be live-out.");
   for (VPUser *User : FinalVPInst->users()) {
@@ -4112,6 +4142,11 @@ void VPOCodeGen::fixInductionLastVal(const VPInduction &Ind,
                                       LastVal);
     fixLiveOutValues(IndFinal, LastVal);
   }
+}
+
+void VPOCodeGen::fixPrivateLastVal(VPInstruction *PrivFinal) {
+  Value *LastVal = VPScalarMap[PrivFinal][0];
+  fixLiveOutValues(PrivFinal, LastVal);
 }
 
 void VPOCodeGen::fixNonInductionVPPhis() {
