@@ -437,16 +437,9 @@ void VPBasicBlock::execute(VPTransformState *State) {
   VPBasicBlock *SinglePred = nullptr;
   BasicBlock *NewBB = State->CFG.PrevBB; // Reuse it if possible.
 
-  VPLoopInfo *VPLI = State->VPLI;
-
-  // TODO: Won't take place with explicit peel/reminder. But we'd need much more
-  // fixes to support CG for such case anyway.
-  assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
-         "Expected single outermost loop!");
-
   bool DoesNotHaveExplicitRemainder = !getParent()->hasExplicitRemainder();
   if (DoesNotHaveExplicitRemainder) {
-    VPLoop *OuterMostVPLoop = *VPLI->begin();
+    VPLoop *OuterMostVPLoop = cast<VPlanVector>(getParent())->getMainLoop(true);
 
     // 1. Create an IR basic block, or reuse one already available if possible.
     // The last IR basic block is reused in four cases:

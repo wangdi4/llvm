@@ -480,12 +480,9 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlanVector *Plan,
   // could probably require bailout too. Seems to work for now though, and
   // should be heavily refactored soon enough to be moved from cost modeling
   // stage to early vectorizer transforms.
-  const VPLoopInfo *VPLI = Plan->getVPLoopInfo();
-  assert(std::distance(VPLI->begin(), VPLI->end()) == 1
-         && "Expected single outermost loop!");
 
   // For the search loop idiom we expect 1-2 exit blocks and two exiting block.
-  const VPLoop *VPL = *VPLI->begin();
+  const VPLoop *VPL = Plan->getMainLoop(true);
   SmallVector<VPBasicBlock *, 8> Exitings, Exits;
   VPL->getExitingBlocks(Exitings);
   VPL->getExitBlocks(Exits);

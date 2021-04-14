@@ -1592,11 +1592,18 @@ void VPlanCFGMerger::mergeVPlanBodies(std::list<PlanDescr> &Plans) {
 
 void VPlanCFGMerger::mergeVPlans(std::list<CfgMergerPlanDescr> &Plans) {
 
+  VPLoop *VLoop = Plan.getMainLoop(true);
+  (void) VLoop;
+
   copyDA(Plans);
   updateVPlansIncomings(Plans);
   mergeVPlanBodies(Plans);
 
   Plan.setExplicitRemainderUsed();
+
+  // Sanity check.
+  assert(VLoop == *Plan.getVPLoopInfo()->begin() &&
+         "Unexpected change of top loop");
 
   // Invalidate SVA results as VPlan has been changed.
   Plan.invalidateAnalyses({VPAnalysisID::SVA});

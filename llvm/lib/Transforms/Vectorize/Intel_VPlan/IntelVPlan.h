@@ -3709,7 +3709,24 @@ public:
 
   const VPLoopInfo *getVPLoopInfo() const { return VPLInfo.get(); }
 
-  VPlanScalarEvolution *getVPSE() const { return VPSE.get(); }
+  // Return main loop, making the sanity check for that we have
+  // the only one top loop in VPLoopInfo. If the \p StrictCheck is true than the
+  // check is performed unconditionally. Otherwise it allows multiple top loops
+  // when hasExplicitRemainder() is true.
+  VPLoop *getMainLoop(bool StrictCheck) {
+    assert(((!StrictCheck && hasExplicitRemainder()) ||
+            std::distance(VPLInfo->begin(), VPLInfo->end()) == 1) &&
+           "Expected single outermost loop!");
+    return *VPLInfo->begin();
+  }
+
+  const VPLoop *getMainLoop(bool StrictCheck) const {
+    return const_cast<VPlanVector *>(this)->getMainLoop(StrictCheck);
+  }
+
+  VPlanScalarEvolution *getVPSE() const {
+    return VPSE.get();
+  }
 
   VPlanValueTracking *getVPVT() const { return VPVT.get(); }
 

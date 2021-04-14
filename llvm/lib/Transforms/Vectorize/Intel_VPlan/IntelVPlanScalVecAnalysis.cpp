@@ -443,6 +443,13 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     setSVAKindForInst(Inst, SVAKind::FirstScalar);
     return true;
 
+  case VPInstruction::InvSCEVWrapper:
+    // Instruction itself is unconditionally always scalar.
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    // All operands are always scalar too.
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+
   case VPInstruction::Not:
   case VPInstruction::SMax:
   case VPInstruction::UMax:
@@ -791,6 +798,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::VLSExtract:
   case VPInstruction::VLSInsert:
   case VPInstruction::VLSStore:
+  case VPInstruction::InvSCEVWrapper:
     return true;
   default:
     return false;

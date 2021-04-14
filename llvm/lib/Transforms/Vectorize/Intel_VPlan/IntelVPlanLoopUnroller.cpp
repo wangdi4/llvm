@@ -24,10 +24,7 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
   assert(UF > 1 && "Can't unroll with unroll factor less than 2");
 
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
-  assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
-         "Expected single outermost loop!");
-
-  VPLoop *VPL = *VPLI->begin();
+  VPLoop *VPL = Plan.getMainLoop(true);
   assert(VPL->getSubLoops().empty() &&
          "Unrolling of loops with subloops is not supported");
 

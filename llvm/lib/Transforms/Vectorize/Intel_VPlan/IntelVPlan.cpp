@@ -740,9 +740,7 @@ void VPlanVector::invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses) {
 // LoopVectorBody basic block was created for this; introduces additional
 // basic blocks as needed, and fills them all.
 void VPlanVector::execute(VPTransformState *State) {
-  assert(std::distance(VPLInfo->begin(), VPLInfo->end()) == 1 &&
-         "Expected single outermost loop!");
-  VPLoop *VLoop = *VPLInfo->begin();
+  VPLoop *VLoop = getMainLoop(false);
   State->ILV->setVPlan(this, getLoopEntities(VLoop));
 
   IRBuilder<>::InsertPointGuard Guard(State->Builder);
