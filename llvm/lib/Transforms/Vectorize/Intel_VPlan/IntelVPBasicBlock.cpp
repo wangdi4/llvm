@@ -251,34 +251,32 @@ VPBasicBlock::VPBasicBlock(const Twine &Name, VPlan *Plan)
 
 VPBasicBlock::~VPBasicBlock() { dropAllReferences(); }
 
-void VPBasicBlock::dropTerminatorIfExists() {
-  if (!empty() && isa<VPBranchInst>(std::prev(end())))
-    eraseInstruction(getTerminator());
+template <class... Args> void VPBasicBlock::setTerminatorImpl(Args &&... args) {
+  DebugLoc DebugLocation;
+  if (!empty() && isa<VPBranchInst>(std::prev(end()))) {
+    VPInstruction *TI = getTerminator();
+    DebugLocation = TI->getDebugLocation();
+    eraseInstruction(TI);
+  }
+  auto *Instr = new VPBranchInst(std::forward<Args>(args)...);
+  if (DebugLocation)
+    Instr->setDebugLocation(DebugLocation);
+  insert(Instr, end());
+  if (Parent && Parent->getVPlanDA())
+    Parent->getVPlanDA()->updateDivergence(*Instr);
 }
 
 void VPBasicBlock::setTerminator() {
-  dropTerminatorIfExists();
-  VPBranchInst *Instr = new VPBranchInst(Type::getVoidTy(getType()->getContext()));
-  insert(Instr, end());
-  if (Parent && Parent->getVPlanDA())
-    Parent->getVPlanDA()->updateDivergence(*Instr);
+  setTerminatorImpl(Type::getVoidTy(getType()->getContext()));
 }
 
 void VPBasicBlock::setTerminator(VPBasicBlock *Succ) {
-  dropTerminatorIfExists();
-  VPBranchInst *Instr = new VPBranchInst(Succ);
-  insert(Instr, end());
-  if (Parent && Parent->getVPlanDA())
-    Parent->getVPlanDA()->updateDivergence(*Instr);
+  setTerminatorImpl(Succ);
 }
 
 void VPBasicBlock::setTerminator(VPBasicBlock *IfTrue, VPBasicBlock *IfFalse,
                                  VPValue *Cond) {
-  dropTerminatorIfExists();
-  VPBranchInst *Instr = new VPBranchInst(IfTrue, IfFalse, Cond);
-  insert(Instr, end());
-  if (Parent && Parent->getVPlanDA())
-    Parent->getVPlanDA()->updateDivergence(*Instr);
+  setTerminatorImpl(IfTrue, IfFalse, Cond);
 }
 
 void VPBasicBlock::replaceSuccessor(VPBasicBlock *OldSuccessor,
@@ -286,7 +284,7 @@ void VPBasicBlock::replaceSuccessor(VPBasicBlock *OldSuccessor,
   getTerminator()->replaceUsesOfWith(OldSuccessor, NewSuccessor);
 }
 
-VPBasicBlock * VPBasicBlock::getSuccessor(unsigned idx) const {
+VPBasicBlock *VPBasicBlock::getSuccessor(unsigned idx) const {
   return getTerminator()->getSuccessor(idx);
 }
 

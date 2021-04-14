@@ -300,6 +300,7 @@ void VPlanCFGBuilderBase<CFGBuilder>::processBB(BasicBlock *BB) {
   } else {
     llvm_unreachable("Number of successors not supported");
   }
+  VPBB->getTerminator()->setDebugLocation(TI->getDebugLoc());
 }
 
 void VPlanLoopCFGBuilder::buildCFG() {
@@ -324,6 +325,8 @@ void VPlanLoopCFGBuilder::buildCFG() {
   VPBasicBlock *HeaderVPBB = getOrCreateVPBB(TheLoop->getHeader());
   // Preheader's predecessors will be set during the loop RPO traversal below.
   PreheaderVPBB->setTerminator(HeaderVPBB);
+  PreheaderVPBB->getTerminator()->setDebugLocation(
+      PreheaderBB->getTerminator()->getDebugLoc());
 
   LoopBlocksRPO RPO(TheLoop);
   RPO.perform(LI);
@@ -361,6 +364,9 @@ void VPlanLoopCFGBuilder::buildCFG() {
   if (LoopExits.size() == 1) {
     VPBasicBlock *LoopExitVPBB = BB2VPBB[LoopExits.front()];
     LoopExitVPBB->setTerminator(NewPlanExitBB);
+    // For single loop exit we would like to retain debug location.
+    LoopExitVPBB->getTerminator()->setDebugLocation(
+        LoopExits.front()->getTerminator()->getDebugLoc());
   } else {
     // If there are multiple exits in the outermost loop, we need another dummy
     // block as landing pad for all of them.
