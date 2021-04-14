@@ -195,7 +195,7 @@ bool AAResults::escapes(const Value *V) {
 
 AliasResult AAResults::loopCarriedAlias(const MemoryLocation &LocA,
                                         const MemoryLocation &LocB) {
-  AAQueryInfo AAQIP(/*CacheOffsets*/ false, /*NeedLoopCarried*/ true);
+  AAQueryInfo AAQIP(/*NeedLoopCarried*/ true);
   return loopCarriedAlias(LocA, LocB, AAQIP);
 }
 
@@ -205,10 +205,10 @@ AliasResult AAResults::loopCarriedAlias(const MemoryLocation &LocA,
   assert(AAQI.NeedLoopCarried && "Unexpectedly missing loopCarried query flag");
   for (const auto &AA : AAs) {
     auto Result = AA->loopCarriedAlias(LocA, LocB, AAQI);
-    if (Result != MayAlias)
+    if (Result != AliasResult::MayAlias)
       return Result;
   }
-  return MayAlias;
+  return AliasResult::MayAlias;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -789,12 +789,13 @@ ModRefInfo AAResults::getModRefInfoForMaskedScatter(const IntrinsicInst *MS,
   for (unsigned i = 0; i < NumElts; i++) {
     if (MaskCV && dyn_cast<Constant>(MaskCV->getOperand(i))->isZeroValue())
       continue;
-    AliasResult R;
+    AliasResult R = AliasResult::MayAlias;
     if (PtrVecMemLocs[i].Ptr == nullptr)
-      R = PtrVecMemLocs[i].Size == 0 ? NoAlias : MayAlias;
+      R = PtrVecMemLocs[i].Size == 0 ? AliasResult::NoAlias
+                                     : AliasResult::MayAlias;
     else
       R = alias(PtrVecMemLocs[i], Loc);
-    if (R == NoAlias)
+    if (R == AliasResult::NoAlias)
       continue;
     return ModRefInfo::Mod;
   }
@@ -1113,17 +1114,6 @@ AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
       WrapperPass->CB(P, F, AAR);
 
   return AAR;
-}
-
-Optional<int64_t>
-BatchAAResults::getClobberOffset(const MemoryLocation &LocA,
-                                 const MemoryLocation &LocB) const {
-  if (!LocA.Size.hasValue() || !LocB.Size.hasValue())
-    return None;
-  const Value *V1 = LocA.Ptr->stripPointerCastsForAliasAnalysis();
-  const Value *V2 = LocB.Ptr->stripPointerCastsForAliasAnalysis();
-  return AAQI.getClobberOffset(V1, V2, LocA.Size.getValue(),
-                               LocB.Size.getValue());
 }
 
 bool llvm::isNoAliasCall(const Value *V) {

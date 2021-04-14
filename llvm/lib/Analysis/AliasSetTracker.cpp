@@ -71,7 +71,7 @@ void AliasSet::mergeSetIn(AliasSet &AS, AliasSetTracker &AST) {
     // If the pointers are not a must-alias pair, this set becomes a may alias.
     if (queryAA(AA, MemoryLocation(L->getValue(), L->getSize(), L->getAAInfo()), // INTEL
                  MemoryLocation(R->getValue(), R->getSize(), R->getAAInfo())) !=
-        MustAlias)
+        AliasResult::MustAlias)
       Alias = SetMayAlias;
   }
 

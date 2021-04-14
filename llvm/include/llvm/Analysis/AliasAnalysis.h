@@ -79,20 +79,63 @@ class Value;
 ///
 /// See docs/AliasAnalysis.html for more information on the specific meanings
 /// of these values.
-enum AliasResult : uint8_t {
-  /// The two locations do not alias at all.
-  ///
-  /// This value is arranged to convert to false, while all other values
-  /// convert to true. This allows a boolean context to convert the result to
-  /// a binary flag indicating whether there is the possibility of aliasing.
-  NoAlias = 0,
-  /// The two locations may or may not alias. This is the least precise result.
-  MayAlias,
-  /// The two locations alias, but only due to a partial overlap.
-  PartialAlias,
-  /// The two locations precisely alias each other.
-  MustAlias,
+class AliasResult {
+private:
+  static const int OffsetBits = 23;
+  static const int AliasBits = 8;
+  static_assert(AliasBits + 1 + OffsetBits <= 32,
+                "AliasResult size is intended to be 4 bytes!");
+
+  unsigned int Alias : AliasBits;
+  unsigned int HasOffset : 1;
+  signed int Offset : OffsetBits;
+
+public:
+  enum Result : uint8_t {
+    /// The two locations do not alias at all.
+    ///
+    /// This value is arranged to convert to false, while all other values
+    /// convert to true. This allows a boolean context to convert the result to
+    /// a binary flag indicating whether there is the possibility of aliasing.
+    NoAlias = 0,
+    /// The two locations may or may not alias. This is the least precise
+    /// result.
+    MayAlias,
+    /// The two locations alias, but only due to a partial overlap.
+    PartialAlias,
+    /// The two locations precisely alias each other.
+    MustAlias,
+  };
+  static_assert(MustAlias < (1 << AliasBits),
+                "Not enough bit field size for the enum!");
+
+  explicit AliasResult() = delete;
+  constexpr AliasResult(const Result &Alias)
+      : Alias(Alias), HasOffset(false), Offset(0) {}
+
+  operator Result() const { return static_cast<Result>(Alias); }
+
+  constexpr bool hasOffset() const { return HasOffset; }
+  constexpr int32_t getOffset() const {
+    assert(HasOffset && "No offset!");
+    return Offset;
+  }
+  void setOffset(int32_t NewOffset) {
+    if (isInt<OffsetBits>(NewOffset)) {
+      HasOffset = true;
+      Offset = NewOffset;
+    }
+  }
+
+  /// Helper for processing AliasResult for swapped memory location pairs.
+  void swap(bool DoSwap) {
+    if (DoSwap && hasOffset())
+      setOffset(-getOffset());
+  }
 };
+
+static_assert(sizeof(AliasResult) == 4,
+              "AliasResult size is intended to be 4 bytes!");
 
 /// << operator for AliasResult.
 raw_ostream &operator<<(raw_ostream &OS, AliasResult AR);
@@ -378,16 +421,6 @@ template <> struct DenseMapInfo<AACacheLoc> {
 /// AAQI to determine which interface it's responding to. Currently only
 /// BasicAA uses the `NeedLoopCarried` flag.
 class AAQueryInfo {
-  /// Storage for estimated relative offsets between two partially aliased
-  /// values. Used to optimize out redundant parts of loads/stores (in GVN/DSE).
-  /// These users cannot process quite complicated addresses (e.g. GEPs with
-  /// non-constant offsets). Used by BatchAAResults only.
-  bool CacheOffsets = false;
-  SmallDenseMap<std::pair<std::pair<const Value *, const Value *>,
-                          std::pair<uint64_t, uint64_t>>,
-                int64_t, 4>
-      ClobberOffsets;
-
 public:
   using LocPair = std::pair<AACacheLoc, AACacheLoc>;
   struct CacheEntry {
@@ -407,9 +440,8 @@ public:
 #ifdef INTEL_CUSTOMIZATION
   // Remember if this is a "loopCarriedAlias" query.
   const bool NeedLoopCarried = false;
-  AAQueryInfo(bool CacheOffsets, bool LoopCarried)
-      : CacheOffsets(CacheOffsets), ClobberOffsets(), AliasCache(),
-        IsCapturedCache(), NeedLoopCarried(LoopCarried) {}
+  AAQueryInfo(bool LoopCarried)
+      : AliasCache(), IsCapturedCache(), NeedLoopCarried(LoopCarried) {}
 #endif // INTEL_CUSTOMIZATION
 
   /// Query depth used to distinguish recursive queries.
@@ -423,9 +455,7 @@ public:
   /// assumption is disproven.
   SmallVector<AAQueryInfo::LocPair, 4> AssumptionBasedResults;
 
-  AAQueryInfo(bool CacheOffsets = false)
-      : CacheOffsets(CacheOffsets), ClobberOffsets(), AliasCache(),
-        IsCapturedCache() {}
+  AAQueryInfo() : AliasCache(), IsCapturedCache() {}
 
   /// Create a new AAQueryInfo based on this one, but with the cache cleared.
   /// This is used for recursive queries across phis, where cache results may
@@ -434,33 +464,6 @@ public:
     AAQueryInfo NewAAQI;
     NewAAQI.Depth = Depth;
     return NewAAQI;
-  }
-
-  Optional<int64_t> getClobberOffset(const Value *Ptr1, const Value *Ptr2,
-                                     uint64_t Size1, uint64_t Size2) const {
-    assert(CacheOffsets && "Clobber offset cached in batch mode only!");
-    const bool Swapped = Ptr1 > Ptr2;
-    if (Swapped) {
-      std::swap(Ptr1, Ptr2);
-      std::swap(Size1, Size2);
-    }
-    const auto IOff = ClobberOffsets.find({{Ptr1, Ptr2}, {Size1, Size2}});
-    if (IOff != ClobberOffsets.end())
-      return Swapped ? -IOff->second : IOff->second;
-    return None;
-  }
-
-  void setClobberOffset(const Value *Ptr1, const Value *Ptr2, uint64_t Size1,
-                        uint64_t Size2, int64_t Offset) {
-    // Cache offset for batch mode only.
-    if (!CacheOffsets)
-      return;
-    if (Ptr1 > Ptr2) {
-      std::swap(Ptr1, Ptr2);
-      std::swap(Size1, Size2);
-      Offset = -Offset;
-    }
-    ClobberOffsets[{{Ptr1, Ptr2}, {Size1, Size2}}] = Offset;
   }
 };
 
@@ -562,7 +565,7 @@ public:
   /// no-alias in the more dynamic \c loopCarriedAlias sense.
   bool isLoopCarriedNoAlias(const MemoryLocation &LocA,
                             const MemoryLocation &LocB) {
-    return loopCarriedAlias(LocA, LocB) == NoAlias;
+    return loopCarriedAlias(LocA, LocB) == AliasResult::NoAlias;
   }
 
   /// A convenience wrapper around the \c isLoopCarriedNoAlias helper interface.
@@ -582,14 +585,14 @@ public:
   /// must-alias in the loop-carried sense.
   bool isLoopCarriedMustAlias(const MemoryLocation &LocA,
                               const MemoryLocation &LocB) {
-    return loopCarriedAlias(LocA, LocB) == MustAlias;
+    return loopCarriedAlias(LocA, LocB) == AliasResult::MustAlias;
   }
 
   /// A convenience wrapper around the \c isLoopCarriedMustAlias helper
   /// interface.
   bool isLoopCarriedMustAlias(const Value *V1, const Value *V2) {
     return loopCarriedAlias(V1, LocationSize::precise(1), V2,
-                            LocationSize::precise(1)) == MustAlias;
+                            LocationSize::precise(1)) == AliasResult::MustAlias;
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1008,8 +1011,7 @@ class BatchAAResults {
   AAQueryInfo AAQI;
 
 public:
-  BatchAAResults(AAResults &AAR, bool CacheOffsets = false)
-      : AA(AAR), AAQI(CacheOffsets) {}
+  BatchAAResults(AAResults &AAR) : AA(AAR), AAQI() {}
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
     return AA.alias(LocA, LocB, AAQI);
   }
@@ -1043,8 +1045,6 @@ public:
                  MemoryLocation(V2, LocationSize::precise(1))) ==
            AliasResult::MustAlias;
   }
-  Optional<int64_t> getClobberOffset(const MemoryLocation &LocA,
-                                     const MemoryLocation &LocB) const;
 };
 
 /// Temporary typedef for legacy code that uses a generic \c AliasAnalysis
@@ -1378,7 +1378,7 @@ public:
                                const MemoryLocation &LocB, AAQueryInfo &AAQI) {
     assert(AAQI.NeedLoopCarried &&
            "Unexpectedly missing loopCarried query flag");
-    return MayAlias;
+    return AliasResult::MayAlias;
   }
 #endif // INTEL_CUSTOMIZATION
 

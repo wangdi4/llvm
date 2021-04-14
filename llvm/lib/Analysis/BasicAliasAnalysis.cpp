@@ -1210,14 +1210,15 @@ AliasResult BasicAAResult::aliasGEP(
     // TODO: This limitation exists for compile-time reasons. Relax it if we
     // can avoid exponential pathological cases.
     if (!isa<GEPOrSubsOperator>(V2)) // INTEL
-      return MayAlias;
+      return AliasResult::MayAlias;
 
     // If both accesses have unknown size, we can only check whether the base
     // objects don't alias.
     AliasResult BaseAlias = getBestAAResults().alias(
         MemoryLocation::getBeforeOrAfter(UnderlyingV1),
         MemoryLocation::getBeforeOrAfter(UnderlyingV2), AAQI);
-    return BaseAlias == NoAlias ? NoAlias : MayAlias;
+    return BaseAlias == AliasResult::NoAlias ? AliasResult::NoAlias
+                                             : AliasResult::MayAlias;
   }
 
   DecomposedGEP DecompGEP1 = DecomposeGEPExpression(GEP1, DL, &AC, DT);
@@ -1263,7 +1264,7 @@ AliasResult BasicAAResult::aliasGEP(
       DecompGEP2.Base == UnderlyingV2 && // INTEL
       DecompGEP1.VarIndices.empty()) {
 #if INTEL_CUSTOMIZATION
-    AliasResult PreciseBaseAlias;
+    AliasResult PreciseBaseAlias = AliasResult::MayAlias;
     if (AAQI.NeedLoopCarried)
       PreciseBaseAlias = getBestAAResults().loopCarriedAlias(
           MemoryLocation(UnderlyingV1, V1Size),
@@ -1278,7 +1279,7 @@ AliasResult BasicAAResult::aliasGEP(
 
   // Do the base pointers alias?
 #if INTEL_CUSTOMIZATION
-  AliasResult BaseAlias;
+  AliasResult BaseAlias = AliasResult::MayAlias;
   if (AAQI.NeedLoopCarried)
     BaseAlias = getBestAAResults().loopCarriedAlias(
         MemoryLocation::getBeforeOrAfter(UnderlyingV1),
@@ -1330,14 +1331,14 @@ AliasResult BasicAAResult::aliasGEP(
         // | MinCoeff                                     |
         if (GEP1BaseOffsetReduced.sge((int64_t)V2Size.getValue()) &&
             GEP1BaseOffsetReduced.sle(MinCoeff - (int64_t)V1Size.getValue()))
-          return NoAlias;
+          return AliasResult::NoAlias;
       } else if (GEP1BaseOffsetReduced.slt(0)) {
         // | V1 ... V1 + V1Size |
         // | GEP1BaseOffsetReduced | V2 ... V2 + V2Size
         // | MinCoeff                                     |
         if ((-GEP1BaseOffsetReduced).sge((int64_t)V1Size.getValue()) &&
             (-GEP1BaseOffsetReduced).sle(MinCoeff - (int64_t)V2Size.getValue()))
-          return NoAlias;
+          return AliasResult::NoAlias;
       }
     }
   }
@@ -1355,8 +1356,9 @@ AliasResult BasicAAResult::aliasGEP(
     const Value *RightPtr = GEP1;
     LocationSize VLeftSize = V2Size;
     LocationSize VRightSize = V1Size;
+    const bool Swapped = Off.isNegative();
 
-    if (Off.isNegative()) {
+    if (Swapped) {
       // Swap if we have the situation where:
       // +                +
       // | BaseOffset     |
@@ -1373,16 +1375,16 @@ AliasResult BasicAAResult::aliasGEP(
       if (Off.ult(LSize)) {
         // Conservatively drop processing if a phi was visited and/or offset is
         // too big.
+        AliasResult AR = AliasResult::PartialAlias;
         if (VisitedPhiBBs.empty() && VRightSize.hasValue() &&
-            Off.ule(INT64_MAX)) {
+            Off.ule(INT32_MAX) && (Off + VRightSize.getValue()).ule(LSize)) {
           // Memory referenced by right pointer is nested. Save the offset in
-          // cache.
-          const uint64_t RSize = VRightSize.getValue();
-          if ((Off + RSize).ule(LSize))
-            AAQI.setClobberOffset(LeftPtr, RightPtr, LSize, RSize,
-                                  Off.getSExtValue());
+          // cache. Note that originally offset estimated as GEP1-V2, but
+          // AliasResult contains the shift that represents GEP1+Offset=V2.
+          AR.setOffset(-Off.getSExtValue());
+          AR.swap(Swapped);
         }
-        return AliasResult::PartialAlias;
+        return AR;
       }
       return AliasResult::NoAlias;
     }
@@ -1518,7 +1520,7 @@ BasicAAResult::aliasSelect(const SelectInst *SI, LocationSize SISize,
   if (AAQI.NeedLoopCarried) {
     // Disambiguating based on selects can potentially violate loopCarriedAlias
     // semantics, so for now we exclude this logic.
-    return MayAlias;
+    return AliasResult::MayAlias;
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1744,7 +1746,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-  AliasResult Alias;
+  AliasResult Alias = AliasResult::MayAlias;
   if (UseAAQI->NeedLoopCarried)
     Alias = getBestAAResults().loopCarriedAlias(
         MemoryLocation(V2, V2Size),
@@ -1769,7 +1771,7 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
     Value *V = V1Srcs[i];
 
 #if INTEL_CUSTOMIZATION
-    AliasResult ThisAlias;
+    AliasResult ThisAlias = AliasResult::MayAlias;
     if (UseAAQI->NeedLoopCarried)
       ThisAlias = getBestAAResults().loopCarriedAlias(
             MemoryLocation(V2, V2Size),
@@ -2088,7 +2090,8 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
   // Check the cache before climbing up use-def chains. This also terminates
   // otherwise infinitely recursive queries.
   AAQueryInfo::LocPair Locs({V1, V1Size}, {V2, V2Size});
-  if (V1 > V2)
+  const bool Swapped = V1 > V2;
+  if (Swapped)
     std::swap(Locs.first, Locs.second);
   const auto &Pair = AAQI.AliasCache.try_emplace(
       Locs, AAQueryInfo::CacheEntry{AliasResult::NoAlias, 0});
@@ -2099,7 +2102,10 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
       ++Entry.NumAssumptionUses;
       ++AAQI.NumAssumptionUses;
     }
-    return Entry.Result;
+    // Cache contains sorted {V1,V2} pairs but we should return original order.
+    auto Result = Entry.Result;
+    Result.swap(Swapped);
+    return Result;
   }
 
   int OrigNumAssumptionUses = AAQI.NumAssumptionUses;
@@ -2120,6 +2126,8 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
   // This is a definitive result now, when considered as a root query.
   AAQI.NumAssumptionUses -= Entry.NumAssumptionUses;
   Entry.Result = Result;
+  // Cache contains sorted {V1,V2} pairs.
+  Entry.Result.swap(Swapped);
   Entry.NumAssumptionUses = -1;
 
   // If the assumption has been disproven, remove any results that may have
