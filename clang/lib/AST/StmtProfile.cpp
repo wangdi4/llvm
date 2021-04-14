@@ -602,6 +602,12 @@ void OMPClauseProfiler::VisitOMPDestroyClause(const OMPDestroyClause *C) {
     Profiler->VisitStmt(C->getInteropVar());
 }
 
+void OMPClauseProfiler::VisitOMPFilterClause(const OMPFilterClause *C) {
+  VistOMPClauseWithPreInit(C);
+  if (C->getThreadID())
+    Profiler->VisitStmt(C->getThreadID());
+}
+
 template<typename T>
 void OMPClauseProfiler::VisitOMPClauseList(T *Node) {
   for (auto *E : Node->varlists()) {
@@ -1222,6 +1228,10 @@ void StmtProfiler::VisitOMPInteropDirective(const OMPInteropDirective *S) {
 }
 
 void StmtProfiler::VisitOMPDispatchDirective(const OMPDispatchDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
+void StmtProfiler::VisitOMPMaskedDirective(const OMPMaskedDirective *S) {
   VisitOMPExecutableDirective(S);
 }
 

@@ -2438,6 +2438,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_target_teams_distribute_parallel_for_simd:
   case OMPD_target_teams_distribute_simd:
   case OMPD_dispatch:
+  case OMPD_masked:
     Diag(Tok, diag::err_omp_unexpected_directive)
         << 1 << getOpenMPDirectiveName(DKind);
     break;
@@ -2588,7 +2589,7 @@ bool Parser::isIgnoredOpenMPDirective() {
 ///         simd' | 'teams distribute parallel for simd' | 'teams distribute
 ///         parallel for' | 'target teams' | 'target teams distribute' | 'target
 ///         teams distribute parallel for' | 'target teams distribute parallel
-///         for simd' | 'target teams distribute simd' {clause}
+///         for simd' | 'target teams distribute simd' | 'masked' {clause}
 ///         annot_pragma_openmp_end
 ///
 StmtResult
@@ -2771,7 +2772,8 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   case OMPD_target_teams_distribute_parallel_for:
   case OMPD_target_teams_distribute_parallel_for_simd:
   case OMPD_target_teams_distribute_simd:
-  case OMPD_dispatch: {
+  case OMPD_dispatch:
+  case OMPD_masked: {
     // Special processing for flush and depobj clauses.
     Token ImplicitTok;
     bool ImplicitClauseAllowed = false;
@@ -3149,6 +3151,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+  case OMPC_filter:
     // OpenMP [2.5, Restrictions]
     //  At most one num_threads clause can appear on the directive.
     // OpenMP [2.8.1, simd construct, Restrictions]

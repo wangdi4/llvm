@@ -1941,6 +1941,7 @@ void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
     const OMPUsesAllocatorsClause *) {}
 void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *) {}
 void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
+void OpenMPLateOutliner::emitOMPFilterClause(const OMPFilterClause *C) {}
 
 static unsigned getForeignRuntimeID(StringRef Str) {
   return llvm::StringSwitch<unsigned>(Str)
