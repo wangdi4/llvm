@@ -872,7 +872,7 @@ static Instruction *foldNoWrapAdd(BinaryOperator &Add,
 Instruction *InstCombinerImpl::foldAddWithConstant(BinaryOperator &Add) {
   Value *Op0 = Add.getOperand(0), *Op1 = Add.getOperand(1);
   Constant *Op1C;
-  if (!match(Op1, m_Constant(Op1C)))
+  if (!match(Op1, m_ImmConstant(Op1C)))
     return nullptr;
 
   if (Instruction *NV = foldBinOpIntoSelectOrPhi(Add))
@@ -1734,12 +1734,13 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
   if (Instruction *R = factorizeMathWithShlOps(I, Builder))
     return R;
 
-  if (Constant *C = dyn_cast<Constant>(Op0)) {
+  Constant *C;
+  if (match(Op0, m_ImmConstant(C))) {
     Value *X;
     Constant *C2;
 
     // C-(X+C2) --> (C-C2)-X
-    if (match(Op1, m_Add(m_Value(X), m_Constant(C2))))
+    if (match(Op1, m_Add(m_Value(X), m_ImmConstant(C2))))
       return BinaryOperator::CreateSub(ConstantExpr::getSub(C, C2), X);
   }
 
@@ -1822,6 +1823,12 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
     }
   }
 #endif // INTEL_CUSTOMIZATION
+
+  // ((X - Y) - Op1)  -->  X - (Y + Op1)
+  if (match(Op0, m_OneUse(m_Sub(m_Value(X), m_Value(Y))))) {
+    Value *Add = Builder.CreateAdd(Y, Op1);
+    return BinaryOperator::CreateSub(X, Add);
+  }
 
   auto m_AddRdx = [](Value *&Vec) {
     return m_OneUse(m_Intrinsic<Intrinsic::vector_reduce_add>(m_Value(Vec)));

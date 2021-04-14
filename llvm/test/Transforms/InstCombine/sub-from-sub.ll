@@ -8,8 +8,8 @@ declare void @use8(i8)
 ; Basic test
 define i8 @t0(i8 %x, i8 %y, i8 %z) {
 ; CHECK-LABEL: @t0(
-; CHECK-NEXT:    [[I0:%.*]] = sub i8 [[X:%.*]], [[Y:%.*]]
-; CHECK-NEXT:    [[R:%.*]] = sub i8 [[I0]], [[Z:%.*]]
+; CHECK-NEXT:    [[TMP1:%.*]] = add i8 [[Y:%.*]], [[Z:%.*]]
+; CHECK-NEXT:    [[R:%.*]] = sub i8 [[X:%.*]], [[TMP1]]
 ; CHECK-NEXT:    ret i8 [[R]]
 ;
   %i0 = sub i8 %x, %y
@@ -20,8 +20,8 @@ define i8 @t0(i8 %x, i8 %y, i8 %z) {
 ; No flags are propagated
 define i8 @t1_flags(i8 %x, i8 %y, i8 %z) {
 ; CHECK-LABEL: @t1_flags(
-; CHECK-NEXT:    [[O0:%.*]] = sub nuw nsw i8 [[X:%.*]], [[Y:%.*]]
-; CHECK-NEXT:    [[R:%.*]] = sub nuw nsw i8 [[O0]], [[Z:%.*]]
+; CHECK-NEXT:    [[TMP1:%.*]] = add i8 [[Y:%.*]], [[Z:%.*]]
+; CHECK-NEXT:    [[R:%.*]] = sub i8 [[X:%.*]], [[TMP1]]
 ; CHECK-NEXT:    ret i8 [[R]]
 ;
   %o0 = sub nuw nsw i8 %x, %y
@@ -47,8 +47,8 @@ define i8 @n2(i8 %x, i8 %y, i8 %z) {
 
 define i8 @t3_c0(i8 %y, i8 %z) {
 ; CHECK-LABEL: @t3_c0(
-; CHECK-NEXT:    [[I0:%.*]] = sub i8 42, [[Y:%.*]]
-; CHECK-NEXT:    [[R:%.*]] = sub i8 [[I0]], [[Z:%.*]]
+; CHECK-NEXT:    [[TMP1:%.*]] = add i8 [[Y:%.*]], [[Z:%.*]]
+; CHECK-NEXT:    [[R:%.*]] = sub i8 42, [[TMP1]]
 ; CHECK-NEXT:    ret i8 [[R]]
 ;
   %i0 = sub i8 42, %y
@@ -167,4 +167,49 @@ define i8 @t12_c1_c2_exrause(i8 %x, i8 %z) {
   call void @use8(i8 %i0)
   %r = sub i8 %i0, 24
   ret i8 %r
+}
+
+; PR49870
+@g0 = external global i8, align 1
+@g1 = external global i8, align 1
+define i32 @constantexpr0(i32 %x, i8* %y) unnamed_addr {
+; CHECK-LABEL: @constantexpr0(
+; CHECK-NEXT:    [[I0:%.*]] = add i32 [[X:%.*]], ptrtoint (i8* @g0 to i32)
+; CHECK-NEXT:    [[R:%.*]] = sub i32 0, [[I0]]
+; CHECK-NEXT:    ret i32 [[R]]
+;
+  %i0 = add i32 %x, ptrtoint (i8* @g0 to i32)
+  %r = sub i32 0, %i0
+  ret i32 %r
+}
+define i32 @constantexpr1(i32 %x, i8* %y) unnamed_addr {
+; CHECK-LABEL: @constantexpr1(
+; CHECK-NEXT:    [[I0:%.*]] = add i32 [[X:%.*]], 42
+; CHECK-NEXT:    [[R:%.*]] = sub i32 ptrtoint (i8* @g1 to i32), [[I0]]
+; CHECK-NEXT:    ret i32 [[R]]
+;
+  %i0 = add i32 %x, 42
+  %r = sub i32 ptrtoint (i8* @g1 to i32), %i0
+  ret i32 %r
+}
+define i32 @constantexpr2(i32 %x, i8* %y) unnamed_addr {
+; CHECK-LABEL: @constantexpr2(
+; CHECK-NEXT:    [[I0:%.*]] = add i32 [[X:%.*]], ptrtoint (i8* @g0 to i32)
+; CHECK-NEXT:    [[R:%.*]] = sub i32 ptrtoint (i8* @g1 to i32), [[I0]]
+; CHECK-NEXT:    ret i32 [[R]]
+;
+  %i0 = add i32 %x, ptrtoint (i8* @g0 to i32)
+  %r = sub i32 ptrtoint (i8* @g1 to i32), %i0
+  ret i32 %r
+}
+
+define i64 @pr49870(i64 %x) {
+; CHECK-LABEL: @pr49870(
+; CHECK-NEXT:    [[I0:%.*]] = xor i64 [[X:%.*]], -1
+; CHECK-NEXT:    [[R:%.*]] = add i64 [[I0]], ptrtoint (i8* @g0 to i64)
+; CHECK-NEXT:    ret i64 [[R]]
+;
+  %i0 = xor i64 %x, -1
+  %r = add i64 %i0, ptrtoint (i8* @g0 to i64)
+  ret i64 %r
 }

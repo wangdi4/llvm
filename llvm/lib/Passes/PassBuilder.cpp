@@ -775,7 +775,7 @@ void PassBuilder::addInstCombinePass(FunctionPassManager &FPM,
 // Helper to check if the current compilation phase is preparing for LTO
 static bool isLTOPreLink(ThinOrFullLTOPhase Phase) {
   return Phase == ThinOrFullLTOPhase::ThinLTOPreLink ||
-         Phase == ThinOrFullLTOPhase::ThinLTOPreLink;
+         Phase == ThinOrFullLTOPhase::FullLTOPreLink;
 }
 
 // TODO: Investigate the cost/benefit of tail call elimination on debugging.
