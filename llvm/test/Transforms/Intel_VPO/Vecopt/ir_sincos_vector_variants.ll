@@ -17,8 +17,7 @@ define dso_local void @test() local_unnamed_addr #3 {
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 8
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [128 x double], <2 x [128 x double]*> [[BROADCAST_SPLAT:%.*]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    [[MM_VECTORGEP5:%.*]] = getelementptr inbounds [128 x double], <2 x [128 x double]*> [[BROADCAST_SPLAT4:%.*]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI]]
-; FIXME: sincos vector-variant should be called with 3 vector parameters. sinval/cosval pointers are missing below.
-; CHECK-NEXT:    call void @_ZGVbN2vvv_sincos(<2 x double> [[WIDE_LOAD]])
+; CHECK-NEXT:    call void @_ZGVbN2vvv_sincos(<2 x double> [[WIDE_LOAD]], <2 x double*> nonnull [[MM_VECTORGEP]], <2 x double*> nonnull [[MM_VECTORGEP5]])
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq i64 [[TMP2]], 128
