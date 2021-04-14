@@ -1,3 +1,4 @@
+; RUN: %oclopt -local-buffers -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -local-buffers -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
@@ -37,3 +38,5 @@ entry:
 ; CHECK-NEXT:   %dummyLong16 = load <16 x i64>, <16 x i64> addrspace(1)* @bar.localLong16, align 128
 ; CHECK-NEXT:   store <16 x i64> %dummyLong16, <16 x i64> addrspace(1)* %pLong16
 ; CHECK-NEXT:   ret void
+
+; DEBUGIFY-NOT: WARNING
