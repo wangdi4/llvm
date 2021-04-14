@@ -8812,6 +8812,9 @@ bool SLPVectorizerPass::vectorizeStores(ArrayRef<StoreInst *> Stores,
         break;
   }
 
+  // Tracks if we tried to vectorize stores starting from the given tail
+  // already.
+  SmallBitVector TriedTails(E, false);
   // For stores that start but don't end a link in the chain:
   for (int Cnt = E; Cnt > 0; --Cnt) {
     int I = Cnt - 1;
@@ -8828,8 +8831,9 @@ bool SLPVectorizerPass::vectorizeStores(ArrayRef<StoreInst *> Stores,
         // Mark the new end in the chain and go back, if required. It might be
         // required if the original stores come in reversed order, for example.
         if (ConsecutiveChain[I].first != E &&
-            Tails.test(ConsecutiveChain[I].first) &&
+            Tails.test(ConsecutiveChain[I].first) && !TriedTails.test(I) &&
             !VectorizedStores.count(Stores[ConsecutiveChain[I].first])) {
+          TriedTails.set(I);
           Tails.reset(ConsecutiveChain[I].first);
           if (Cnt < ConsecutiveChain[I].first + 2)
             Cnt = ConsecutiveChain[I].first + 2;
