@@ -1069,7 +1069,7 @@ void Sema::ActOnEndOfTranslationUnitFragment(TUFragmentKind Kind) {
       SyclIntHeader->emit(getLangOpts().SYCLIntHeader);
     if (SyclIntFooter != nullptr)
       SyclIntFooter->emit(getLangOpts().SYCLIntFooter);
-    MarkDevice();
+    MarkDevices();
   }
 
   emitDeferredDiags();
