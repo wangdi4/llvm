@@ -1393,7 +1393,7 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
   if (const Arg *A = Args.getLastArg(options::OPT_qmkl_EQ)) {
     // MKL Cluster library additions not supported for DPC++
     // MKL Parallel not supported with OpenMP and DPC++
-    if (Args.hasArg(options::OPT__dpcpp) &&
+    if (getDriver().IsDPCPPMode() &&
         (A->getValue() == StringRef("cluster") ||
          (A->getValue() == StringRef("parallel") &&
           Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
@@ -1411,7 +1411,7 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
     };
     MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_intel", getTriple())));
     if (A->getValue() == StringRef("parallel")) {
-      if (Args.hasArg(options::OPT_qtbb, options::OPT__dpcpp))
+      if (Args.hasArg(options::OPT_qtbb) || getDriver().IsDPCPPMode())
         // Use TBB when -tbb or DPC++
         MKLLibs.push_back("mkl_tbb_thread");
       else

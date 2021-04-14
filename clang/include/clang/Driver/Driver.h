@@ -191,6 +191,9 @@ public:
 #if INTEL_CUSTOMIZATION
   /// Whether the driver should follow Intel compiler behavior.
   bool IsIntelMode() const { return IntelMode; }
+
+  /// Whether the driver should follow Intel compiler behavior.
+  bool IsDPCPPMode() const { return DPCPPMode; }
 #endif // INTEL_CUSTOMIZATION
 
   /// Only print tool bindings, don't build any jobs.
@@ -500,6 +503,9 @@ public:
 
   /// Intel Compiler Pro selected via compiler-auth-pro file
   unsigned IntelPro : 1;
+
+  /// Intel DPC++ Compiler Mode
+  unsigned DPCPPMode : 1;
 #endif // INTEL_CUSTOMIZATION
 
   /// PrintSYCLToolHelp - Print help text from offline compiler tools.
@@ -658,6 +664,13 @@ private:
   /// Get bitmasks for which option flags to include and exclude based on
   /// the driver mode.
   std::pair<unsigned, unsigned> getIncludeExcludeOptionFlagMasks(bool IsClCompatMode) const;
+
+#if INTEL_CUSTOMIZATION
+  /// Specific to DPC++, specialization function for setting the option flags
+  /// to handle dpcpp behaviors on Windows.
+  std::pair<unsigned, unsigned> getIncludeExcludeOptionFlagMasksDpcpp(
+      bool IsClCompatMode, bool AllowLinux) const;
+#endif // INTEL_CUSTOMIZATION
 
   /// Helper used in BuildJobsForAction.  Doesn't use the cache when building
   /// jobs specifically for the given action, but will use the cache when

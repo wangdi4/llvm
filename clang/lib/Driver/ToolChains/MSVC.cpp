@@ -457,7 +457,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   // Add other Intel specific libraries (libirc, svml, libdecimal)
   if (!Args.hasArg(options::OPT_nostdlib) && !C.getDriver().IsCLMode() &&
-      (C.getDriver().IsIntelMode() || Args.hasArg(options::OPT__dpcpp))) {
+      C.getDriver().IsIntelMode()) {
     if (!Args.hasArg(options::OPT_i_no_use_libirc))
       CmdArgs.push_back("-defaultlib:libircmt");
     CmdArgs.push_back("-defaultlib:svml_dispmt");
@@ -476,7 +476,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       getToolChain().AddMKLLibArgs(Args, CmdArgs, "-defaultlib:");
   }
   if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
-      (Args.hasArg(options::OPT_qmkl_EQ) && Args.hasArg(options::OPT__dpcpp))) {
+      (Args.hasArg(options::OPT_qmkl_EQ) && C.getDriver().IsDPCPPMode())) {
     getToolChain().AddTBBLibPath(Args, CmdArgs, "-libpath:");
     if (!C.getDriver().IsCLMode())
       getToolChain().AddTBBLibArgs(Args, CmdArgs, "-defaultlib:");
