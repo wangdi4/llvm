@@ -1281,6 +1281,7 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
         if (const auto *DRE = dyn_cast<DeclRefExpr>(E)) {
           ImplicitMap.insert(std::make_pair(cast<VarDecl>(DRE->getDecl()),
                                             ICK_specified_firstprivate));
+          addFirstPrivateVars(cast<VarDecl>(DRE->getDecl()));
         }
       }
     }
@@ -1307,6 +1308,7 @@ void OpenMPLateOutliner::emitOMPFirstprivateClause(
     bool IsPODType = E->getType().isPODType(CGF.getContext());
     bool IsCapturedExpr = isa<OMPCapturedExprDecl>(PVD);
     bool IsRef = !IsCapturedExpr && PVD->getType()->isReferenceType();
+    addFirstPrivateVars(PVD);
     if (!IsPODType)
       CSB.setNonPod();
     if (IsRef)
@@ -1770,6 +1772,9 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
         ImplicitMap.insert(std::make_pair(I.Var, ICK_shared));
       } else
         addExplicit(I.Var, OMPC_map);
+      if (FirstPrivateVars.find(I.Var) != FirstPrivateVars.end() &&
+          Ty.isConstant(CGF.getContext()))
+        MapFPrivates.emplace_back(I.Base, I.Var);
       if (CurrentDirectiveKind == OMPD_target)
         if ((Ty->isReferenceType() || Ty->isAnyPointerType()) &&
             isa<llvm::LoadInst>(I.Base)) {

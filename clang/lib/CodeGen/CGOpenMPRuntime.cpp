@@ -11114,6 +11114,10 @@ CGOpenMPRuntime::registerTargetFirstprivateCopy(CodeGenFunction &CGF,
       getOrCreateInternalVariable(CGM.getTypes().ConvertTypeForMem(Ty), VarName,
                                   getDefaultFirstprivateAddressSpace());
   cast<llvm::GlobalValue>(Addr)->setLinkage(Linkage);
+#if INTEL_COLLAB
+  if (CGM.getLangOpts().OpenMPLateOutline)
+    cast<llvm::GlobalVariable>(Addr)->setTargetDeclare(true);
+#endif // INTEL_COLLAB
   CharUnits VarSize = CGM.getContext().getTypeSizeInChars(Ty);
   CGM.addCompilerUsedGlobal(cast<llvm::GlobalValue>(Addr));
   OffloadEntriesInfoManager.registerDeviceGlobalVarEntryInfo(
