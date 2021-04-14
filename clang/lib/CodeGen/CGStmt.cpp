@@ -439,6 +439,9 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     EmitOMPTargetTeamsDistributeSimdDirective(
         cast<OMPTargetTeamsDistributeSimdDirective>(*S));
     break;
+  case Stmt::OMPInteropDirectiveClass:
+    llvm_unreachable("Interop directive not supported yet.");
+    break;
   case Stmt::OMPDispatchDirectiveClass:
     llvm_unreachable("Dispatch directive not supported yet.");
     break;
@@ -456,8 +459,8 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   case Stmt::OMPTargetParallelGenericLoopDirectiveClass:
     llvm_unreachable("target parallel loop not supported with FE outlining");
 #endif // INTEL_COLLAB
-  case Stmt::OMPInteropDirectiveClass:
-    llvm_unreachable("Interop directive not supported yet.");
+  case Stmt::OMPMaskedDirectiveClass:
+    llvm_unreachable("Masked directive not supported yet.");
     break;
   }
 }

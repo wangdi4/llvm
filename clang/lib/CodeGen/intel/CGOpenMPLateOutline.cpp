@@ -1941,6 +1941,7 @@ void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
     const OMPUsesAllocatorsClause *) {}
 void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *) {}
 void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
+void OpenMPLateOutliner::emitOMPFilterClause(const OMPFilterClause *C) {}
 
 static unsigned getForeignRuntimeID(StringRef Str) {
   return llvm::StringSwitch<unsigned>(Str)
@@ -2025,6 +2026,7 @@ void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   case OMPD_critical:
   case OMPD_single:
   case OMPD_master:
+  case OMPD_masked:
     if (IsBegin)
       CGF.Builder.CreateFence(llvm::AtomicOrdering::Acquire);
     else
@@ -2239,6 +2241,10 @@ void OpenMPLateOutliner::emitOMPSingleDirective() {
 void OpenMPLateOutliner::emitOMPMasterDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.MASTER", "DIR.OMP.END.MASTER",
                              OMPD_master);
+}
+void OpenMPLateOutliner::emitOMPMaskedDirective() {
+  startDirectiveIntrinsicSet("DIR.OMP.MASTER", "DIR.OMP.END.MASTER",
+                             OMPD_masked);
 }
 void OpenMPLateOutliner::emitOMPCriticalDirective(const StringRef Name) {
   startDirectiveIntrinsicSet("DIR.OMP.CRITICAL", "DIR.OMP.END.CRITICAL",
@@ -2565,6 +2571,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_section:
   case OMPD_single:
   case OMPD_master:
+  case OMPD_masked:
   case OMPD_critical:
   case OMPD_taskyield:
   case OMPD_barrier:
@@ -2863,6 +2870,9 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     break;
   case OMPD_master:
     Outliner.emitOMPMasterDirective();
+    break;
+  case OMPD_masked:
+    Outliner.emitOMPMaskedDirective();
     break;
   case OMPD_critical: {
     const auto &CD = cast<OMPCriticalDirective>(S);

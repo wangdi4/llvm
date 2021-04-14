@@ -298,6 +298,7 @@ class OpenMPLateOutliner {
   void emitOMPAllocateClause(const OMPAllocateClause *);
   void emitOMPNontemporalClause(const OMPNontemporalClause *);
   void emitOMPTileClause(const OMPTileClause *);
+  void emitOMPFilterClause(const OMPFilterClause *);
   void emitOMPBindClause(const OMPBindClause *);
   void emitOMPOrderClause(const OMPOrderClause *);
   void emitOMPAcqRelClause(const OMPAcqRelClause *);
@@ -416,6 +417,7 @@ public:
   void emitOMPAtomicDirective(OMPAtomicClause ClauseKind);
   void emitOMPSingleDirective();
   void emitOMPMasterDirective();
+  void emitOMPMaskedDirective();
   void emitOMPCriticalDirective(const StringRef Name);
   void emitOMPOrderedDirective();
   void emitOMPTargetDirective(int OffloadEntryIndex);
@@ -496,7 +498,8 @@ public:
   static bool hasCapturedStmt(const OMPExecutableDirective &S) {
     auto Kind = S.getDirectiveKind();
     if (Kind == llvm::omp::OMPD_atomic || Kind == llvm::omp::OMPD_critical ||
-        Kind == llvm::omp::OMPD_section || Kind == llvm::omp::OMPD_master)
+        Kind == llvm::omp::OMPD_section || Kind == llvm::omp::OMPD_master ||
+        Kind == llvm::omp::OMPD_masked)
       return false;
     return true;
   }
