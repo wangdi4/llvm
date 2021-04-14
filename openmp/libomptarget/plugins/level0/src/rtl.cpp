@@ -725,11 +725,11 @@ static ze_fence_handle_t createFence(ze_command_queue_handle_t cmdQueue) {
 /// Create a module from SPIR-V
 static ze_module_handle_t createModule(
     ze_context_handle_t Context, ze_device_handle_t Device, size_t Size,
-    const uint8_t *Image, const char *Flags) {
+    const uint8_t *Image, const char *Flags, ze_module_format_t Format) {
   ze_module_desc_t moduleDesc = {
     ZE_STRUCTURE_TYPE_MODULE_DESC,
     nullptr, // extension
-    ZE_MODULE_FORMAT_IL_SPIRV,
+    Format,
     Size,
     Image,
     Flags,
@@ -741,13 +741,14 @@ static ze_module_handle_t createModule(
   CALL_ZE_RC(rc, zeModuleCreate, Context, Device, &moduleDesc, &module,
              &buildLog);
   if (rc != ZE_RESULT_SUCCESS) {
-    if (DebugLevel > 0) {
+    IDP("Warning: module creation failed "
+        "(use DebugLevel > 1 to see details below).\n");
+    if (DebugLevel > 1) {
       size_t logSize;
       CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize, nullptr);
       std::vector<char> logString(logSize);
       CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize,
                        logString.data());
-      IDP("Error: module creation failed -- see below for details.\n");
       fprintf(stderr, "%s\n", logString.data());
     }
     CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
@@ -761,7 +762,7 @@ static ze_module_handle_t createModule(
 /// Create a module from a file name
 static ze_module_handle_t createModule(
     ze_context_handle_t Context, ze_device_handle_t Device,
-    const char *FileName, const char *Flags) {
+    const char *FileName, const char *Flags, ze_module_format_t Format) {
   // Resolve full path using the location of the plugin
   std::string fullPath;
 #ifdef _WIN32
@@ -802,7 +803,8 @@ static ze_module_handle_t createModule(
     IDP("Error: module creation failed -- cannot read %s\n", fullPath.c_str());
     return nullptr;
   }
-  return createModule(Context, Device, size, (uint8_t *)image.data(), Flags);
+  return createModule(Context, Device, size, (uint8_t *)image.data(), Flags,
+                      Format);
 }
 #endif // ENABLE_LIBDEVICE_LINKING
 
@@ -1172,7 +1174,7 @@ public:
 
     // Compilation options for IGC
     if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS"))
-      UserCompilationOptions += env;
+      UserCompilationOptions += std::string(" ") + env;
 
     if (DeviceType == ZE_DEVICE_TYPE_GPU) {
       // Intel Graphics compilers that do not support that option
@@ -2101,22 +2103,62 @@ static void dumpImageToFile(
 #endif  // INTEL_INTERNAL_BUILD
 }
 
-EXTERN
-int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
+// FIXME: move this to llvm/BinaryFormat/ELF.h and elf.h:
+#define NT_INTEL_ONEOMP_OFFLOAD_VERSION 1
+#define NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT 2
+#define NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX 3
+
+static bool isValidOneOmpImage(__tgt_device_image *Image,
+                               uint64_t &MajorVer,
+                               uint64_t &MinorVer) {
   char *ImgBegin = reinterpret_cast<char *>(Image->ImageStart);
   char *ImgEnd = reinterpret_cast<char *>(Image->ImageEnd);
   size_t ImgSize = ImgEnd - ImgBegin;
   ElfL E(ImgBegin, ImgSize);
-  if (E.isValidElf()) {
-    for (auto I = E.sections_begin(), IE = E.sections_end(); I != IE; ++I) {
-      const char *Name = (*I).getName();
-      IDP1("Found section with size %" PRIu64 " and name '%s'.\n",
-           (*I).getSize(), Name ? Name : "");
-    }
-    // FIXME: handle ELF images here.
-  } else {
-    DP("Unable to get ELF handle: %s!\n", E.getErrmsg(-1));
+  if (!E.isValidElf()) {
+    DP("Warning: unable to get ELF handle: %s!\n", E.getErrmsg(-1));
+    return false;
   }
+
+  for (auto I = E.section_notes_begin(), IE = E.section_notes_end(); I != IE;
+       ++I) {
+    ElfLNote Note = *I;
+    if (Note.getNameSize() == 0)
+      continue;
+    std::string NameStr(Note.getName(), Note.getNameSize());
+    if (NameStr != "INTELONEOMPOFFLOAD")
+      continue;
+    uint64_t Type = Note.getType();
+    if (Type != NT_INTEL_ONEOMP_OFFLOAD_VERSION)
+      continue;
+    std::string DescStr(reinterpret_cast<const char *>(Note.getDesc()),
+                        Note.getDescSize());
+    auto DelimPos = DescStr.find('.');
+    if (DelimPos == std::string::npos) {
+      // The version has to look like "Major#.Minor#".
+      DP("Invalid NT_INTEL_ONEOMP_OFFLOAD_VERSION: '%s'\n", DescStr.c_str());
+      return false;
+    }
+    std::string MajorVerStr = DescStr.substr(0, DelimPos);
+    DescStr.erase(0, DelimPos + 1);
+    MajorVer = std::stoull(MajorVerStr);
+    MinorVer = std::stoull(DescStr);
+    bool isSupported = (MajorVer == 1 && MinorVer == 0);
+    return isSupported;
+  }
+
+  return false;
+}
+
+EXTERN
+int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
+  uint64_t MajorVer, MinorVer;
+  if (isValidOneOmpImage(Image, MajorVer, MinorVer)) {
+    DP("Target binary is a valid oneAPI OpenMP image.\n");
+    return 1;
+  }
+
+  DP("Target binary is *not* a valid oneAPI OpenMP image.\n");
 
   // Fallback to legacy behavior, when the image is a plain
   // SPIR-V file.
@@ -2441,6 +2483,181 @@ EXTERN int32_t __tgt_rtl_init_device(int32_t DeviceId) {
   return OFFLOAD_SUCCESS;
 }
 
+static ze_module_handle_t getModuleForImage(ze_context_handle_t Context,
+                                            ze_device_handle_t Device,
+                                            __tgt_device_image *Image,
+                                            std::string &CompilationOptions) {
+  uint64_t MajorVer, MinorVer;
+  if (!isValidOneOmpImage(Image, MajorVer, MinorVer)) {
+    // Handle legacy plain SPIR-V image.
+    uint8_t *ImgBegin = reinterpret_cast<uint8_t *>(Image->ImageStart);
+    uint8_t *ImgEnd = reinterpret_cast<uint8_t *>(Image->ImageEnd);
+    size_t ImgSize = ImgEnd - ImgBegin;
+    dumpImageToFile(ImgBegin, ImgSize, "OpenMP");
+    return createModule(Context, Device, ImgSize,
+                        ImgBegin, CompilationOptions.c_str(),
+                        ZE_MODULE_FORMAT_IL_SPIRV);
+  }
+
+  // Iterate over the images and pick the first one that fits.
+  char *ImgBegin = reinterpret_cast<char *>(Image->ImageStart);
+  char *ImgEnd = reinterpret_cast<char *>(Image->ImageEnd);
+  size_t ImgSize = ImgEnd - ImgBegin;
+  ElfL E(ImgBegin, ImgSize);
+  assert(E.isValidElf() &&
+         "isValidOneOmpImage() returns true for invalid ELF image.");
+  assert(MajorVer == 1 && MinorVer == 0 &&
+         "FIXME: update image processing for new oneAPI OpenMP version.");
+  // Collect auxiliary information.
+  uint64_t ImageCount = 0;
+  uint64_t MaxImageIdx = 0;
+  struct V1ImageInfo {
+    // 0 - native, 1 - SPIR-V
+    uint64_t Format =  (std::numeric_limits<uint64_t>::max)();
+    std::string CompileOpts;
+    std::string LinkOpts;
+    const uint8_t *Begin;
+    uint64_t Size;
+
+    V1ImageInfo(uint64_t Format, std::string CompileOpts,
+                std::string LinkOpts, const uint8_t *Begin, uint64_t Size)
+      : Format(Format), CompileOpts(CompileOpts),
+        LinkOpts(LinkOpts), Begin(Begin), Size(Size) {}
+  };
+
+  std::unordered_map<uint64_t, V1ImageInfo> AuxInfo;
+
+  for (auto I = E.section_notes_begin(), IE = E.section_notes_end(); I != IE;
+       ++I) {
+    ElfLNote Note = *I;
+    if (Note.getNameSize() == 0)
+      continue;
+    std::string NameStr(Note.getName(), Note.getNameSize());
+    if (NameStr != "INTELONEOMPOFFLOAD")
+      continue;
+    uint64_t Type = Note.getType();
+    std::string DescStr(reinterpret_cast<const char *>(Note.getDesc()),
+                        Note.getDescSize());
+    switch (Type) {
+    default:
+      DP("Warning: unrecognized INTELONEOMPOFFLOAD note.\n");
+      break;
+    case NT_INTEL_ONEOMP_OFFLOAD_VERSION:
+      break;
+    case NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT:
+      ImageCount = std::stoull(DescStr);
+      break;
+    case NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX: {
+      std::vector<std::string> Parts;
+      do {
+        auto DelimPos = DescStr.find('\0');
+        if (DelimPos == std::string::npos) {
+          Parts.push_back(DescStr);
+          break;
+        }
+        Parts.push_back(DescStr.substr(0, DelimPos));
+        DescStr.erase(0, DelimPos + 1);
+      } while (Parts.size() < 4);
+
+      // Ignore records with less than 4 strings.
+      if (Parts.size() != 4) {
+        DP("Warning: short NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX "
+           "record is ignored.\n");
+        continue;
+      }
+
+      uint64_t Idx = std::stoull(Parts[0]);
+      MaxImageIdx = (std::max)(MaxImageIdx, Idx);
+      if (AuxInfo.find(Idx) != AuxInfo.end()) {
+        DP("Warning: duplicate auxiliary information for image %" PRIu64
+           " is ignored.\n", Idx);
+        continue;
+      }
+      AuxInfo.emplace(std::piecewise_construct,
+                      std::forward_as_tuple(Idx),
+                      std::forward_as_tuple(std::stoull(Parts[1]),
+                                            Parts[2], Parts[3],
+                                            // Image pointer and size
+                                            // will be initialized later.
+                                            nullptr, 0));
+    }
+    }
+  }
+
+  if (MaxImageIdx >= ImageCount)
+    DP("Warning: invalid image index found in auxiliary information.\n");
+
+  for (auto I = E.sections_begin(), IE = E.sections_end(); I != IE; ++I) {
+    const char *Prefix = "__openmp_offload_spirv_";
+    std::string SectionName((*I).getName() ? (*I).getName() : "");
+    if (SectionName.find(Prefix) != 0)
+      continue;
+    SectionName.erase(0, std::strlen(Prefix));
+    uint64_t Idx = std::stoull(SectionName);
+    if (Idx >= ImageCount) {
+      DP("Warning: ignoring image section (index %" PRIu64
+         " is out of range).\n", Idx);
+      continue;
+    }
+
+    auto AuxInfoIt = AuxInfo.find(Idx);
+    if (AuxInfoIt == AuxInfo.end()) {
+      DP("Warning: ignoring image section (no aux info).\n");
+      continue;
+    }
+
+    AuxInfoIt->second.Begin = (*I).getContents();
+    AuxInfoIt->second.Size = (*I).getSize();
+  }
+
+  for (uint64_t Idx = 0; Idx < ImageCount; ++Idx) {
+    auto It = AuxInfo.find(Idx);
+    if (It == AuxInfo.end()) {
+      DP("Warning: image %" PRIu64
+         " without auxiliary information is ingored.\n", Idx);
+      continue;
+    }
+
+    const unsigned char *ImgBegin =
+        reinterpret_cast<const unsigned char *>(It->second.Begin);
+    size_t ImgSize = It->second.Size;
+    dumpImageToFile(ImgBegin, ImgSize, "OpenMP");
+    ze_module_handle_t Module = nullptr;
+    std::string Options =
+        CompilationOptions + " " + It->second.CompileOpts +
+        " " + It->second.LinkOpts;
+    bool IsBinary = false;
+
+    if (It->second.Format == 0) {
+      // Native format.
+      IsBinary = true;
+      Module = createModule(Context, Device, ImgSize,
+                            ImgBegin, Options.c_str(),
+                            ZE_MODULE_FORMAT_NATIVE);
+    } else if (It->second.Format == 1) {
+      // SPIR-V format.
+      Module = createModule(Context, Device, ImgSize,
+                            ImgBegin, Options.c_str(),
+                            ZE_MODULE_FORMAT_IL_SPIRV);
+    } else {
+      DP("Warning: image %" PRIu64 "is ignored due to unknown format.\n", Idx);
+      continue;
+    }
+
+    if (!Module) {
+      DP("Warning: failed to create program from %s (%" PRIu64 ").\n",
+         IsBinary ? "binary" : "SPIR-V", Idx);
+      continue;
+    }
+
+    DP("Created module from image #%" PRIu64 ".\n", Idx);
+    CompilationOptions = Options;
+    return Module;
+  }
+
+  return nullptr;
+}
+
 EXTERN
 __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
                                           __tgt_device_image *Image) {
@@ -2452,10 +2669,10 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   IDP("Expecting to have %zu entries defined\n", numEntries);
 
   std::string compilationOptions(
-      DeviceInfo->CompilationOptions + DeviceInfo->UserCompilationOptions);
-  IDP("Module compilation options: %s\n", compilationOptions.c_str());
+      DeviceInfo->CompilationOptions + " " +
+      DeviceInfo->UserCompilationOptions);
+  IDP("Base L0 module compilation options: %s\n", compilationOptions.c_str());
   compilationOptions += " " + DeviceInfo->InternalCompilationOptions;
-  IDPI("Final module compilation options: %s\n", compilationOptions.c_str());
 
   dumpImageToFile(Image->ImageStart, imageSize, "OpenMP");
 
@@ -2465,14 +2682,14 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   ScopedTimerTy tmModuleCompile(DeviceId, "Compiling");
 
   auto &modules = DeviceInfo->FuncGblEntries[DeviceId].Modules;
-  auto mainModule = createModule(context, device, imageSize,
-                                 (uint8_t *)Image->ImageStart,
-                                 compilationOptions.c_str());
+  auto mainModule = getModuleForImage(context, device, Image,
+                                      compilationOptions);
   if (!mainModule) {
     IDP("Error: failed to create main module\n");
     return nullptr;
   }
 
+  IDPI("Final L0 module compilation options: %s\n", compilationOptions.c_str());
   modules.push_back(mainModule);
 
   tmModuleCompile.stop();
@@ -2488,7 +2705,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
 
   for (auto name : deviceLibNames) {
     auto deviceLibModule = createModule(context, device, name,
-                                        compilationOptions.c_str());
+                                        compilationOptions.c_str(),
+                                        ZE_MODULE_FORMAT_IL_SPIRV);
     if (deviceLibModule) {
       IDP("Created a module for %s\n", name);
       modules.push_back(deviceLibModule);
