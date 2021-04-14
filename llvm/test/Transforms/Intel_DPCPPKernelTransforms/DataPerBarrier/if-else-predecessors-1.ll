@@ -1,3 +1,4 @@
+; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-barrier-analysis>' %s | FileCheck %s
 ; RUN: opt -analyze -dpcpp-kernel-data-per-barrier-analysis %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************

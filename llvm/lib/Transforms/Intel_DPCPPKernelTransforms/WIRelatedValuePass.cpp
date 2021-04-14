@@ -463,6 +463,12 @@ WIRelatedValue WIRelatedValueAnalysis::run(Module &M,
   return WIRelatedValue{M};
 }
 
+PreservedAnalyses WIRelatedValuePrinter::run(Module &M,
+                                             ModuleAnalysisManager &MAM) {
+  MAM.getResult<WIRelatedValueAnalysis>(M).print(OS, &M);
+  return PreservedAnalyses::all();
+}
+
 ModulePass *llvm::createWIRelatedValueWrapperPass() {
   return new WIRelatedValueWrapper();
 }

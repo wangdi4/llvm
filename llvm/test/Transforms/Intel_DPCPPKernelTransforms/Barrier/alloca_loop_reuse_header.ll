@@ -2,7 +2,8 @@
 ; not in the loop can reuse address loaded in loop header even if the loop has
 ; a barrier.
 ;
-; RUN: opt -dpcpp-kernel-analysis -dpcpp-kernel-data-per-value-analysis -dpcpp-kernel-barrier %s -S | FileCheck %s
+; RUN: opt -passes='dpcpp-kernel-analysis,dpcpp-kernel-barrier' %s -S | FileCheck %s
+; RUN: opt -dpcpp-kernel-analysis -dpcpp-kernel-barrier %s -S | FileCheck %s
 ;
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

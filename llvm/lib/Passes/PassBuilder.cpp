@@ -289,12 +289,17 @@
 
 // DPC++ CPU Kernel Transformation passes
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddImplicitArgs.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierInFunctionPass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/CleanupWrappedKernel.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPEqualizer.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelWGLoopCreator.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/PhiCanonicalization.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PrepareKernelArgs.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/RedundantPhiNodePass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveWICall.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SplitBBonBarrierPass.h"
 
 // Intel Loop Optimization framework
 // Framework passes

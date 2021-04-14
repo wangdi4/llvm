@@ -48,6 +48,12 @@ DataPerValue DataPerValueAnalysis::run(Module &M, ModuleAnalysisManager &AM) {
   return DataPerValue{M, DPB, WRV};
 }
 
+PreservedAnalyses DataPerValuePrinter::run(Module &M,
+                                           ModuleAnalysisManager &MAM) {
+  MAM.getResult<DataPerValueAnalysis>(M).print(OS, &M);
+  return PreservedAnalyses::all();
+}
+
 DataPerValue::DataPerValue(Module &M, DataPerBarrier *DPB, WIRelatedValue *WRV)
     : SyncInstructions(nullptr), DL(nullptr), DataPerBarrierAnalysis(DPB),
       WIRelatedValueAnalysis(WRV) {

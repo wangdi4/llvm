@@ -237,6 +237,15 @@ public:
   static StringRef name() { return "Intel Kernel DataPerValue Analysis"; }
 };
 
+/// Printer pass for DataPerValue.
+class DataPerValuePrinter : public PassInfoMixin<DataPerValuePrinter> {
+  raw_ostream &OS;
+
+public:
+  explicit DataPerValuePrinter(raw_ostream &OS) : OS(OS) {}
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
+};
+
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_DATA_PER_VALUE_H

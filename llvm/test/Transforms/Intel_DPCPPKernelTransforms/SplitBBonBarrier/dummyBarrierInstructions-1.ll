@@ -1,3 +1,4 @@
+; RUN: opt -passes=dpcpp-kernel-split-on-barrier %s -S -o - | FileCheck %s
 ; RUN: opt -dpcpp-kernel-split-on-barrier %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************
