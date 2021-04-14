@@ -1,4 +1,5 @@
 ; RUN: opt -dpcpp-kernel-add-implicit-args -dpcpp-kernel-prepare-args -S %s | FileCheck %s
+; RUN: opt -passes='dpcpp-kernel-add-implicit-args,dpcpp-kernel-prepare-args' -S %s | FileCheck %s
 
 ; Checks that the attributes of the old kernel is copied to the wrapper. And
 ; for the old kernel, these attributes are also kept, and 'alwaysinline' is

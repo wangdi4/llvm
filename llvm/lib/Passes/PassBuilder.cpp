@@ -287,6 +287,15 @@
 #include "llvm/Transforms/Vectorize/Intel_LoadCoalescing.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 
+// DPC++ CPU Kernel Transformation passes
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddImplicitArgs.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/CleanupWrappedKernel.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPEqualizer.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelWGLoopCreator.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/PrepareKernelArgs.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveWICall.h"
+
 // Intel Loop Optimization framework
 // Framework passes
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"

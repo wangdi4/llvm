@@ -38,6 +38,8 @@ MODULE_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
 MODULE_ANALYSIS("asan-globals-md", ASanGlobalsMetadataAnalysis())
 #if INTEL_CUSTOMIZATION
 MODULE_ANALYSIS("xm-optreport-options", OptReportOptionsAnalysis())
+MODULE_ANALYSIS("dpcpp-kernel-implicit-args-analysis", ImplicitArgsAnalysis())
+MODULE_ANALYSIS("dpcpp-kernel-local-buffer-analysis", LocalBufferAnalysis())
 #endif // INTEL_CUSTOMIZATION
 MODULE_ANALYSIS("inline-advisor", InlineAdvisorAnalysis())
 MODULE_ANALYSIS("ir-similarity", IRSimilarityAnalysis())
@@ -57,6 +59,13 @@ MODULE_ALIAS_ANALYSIS("anders-aa", AndersensAA())    // INTEL
 #if INTEL_CUSTOMIZATION
 MODULE_PASS("vec-clone",VecClonePass());
 MODULE_PASS("vplan-pragma-omp-ordered-simd-extract", VPlanPragmaOmpOrderedSimdExtractPass());
+MODULE_PASS("dpcpp-kernel-equalizer", DPCPPEqualizerPass())
+MODULE_PASS("dpcpp-kernel-analysis", DPCPPKernelAnalysisPass())
+MODULE_PASS("dpcpp-kernel-wgloop-creator", DPCPPKernelWGLoopCreatorPass())
+MODULE_PASS("dpcpp-kernel-add-implicit-args", AddImplicitArgsPass())
+MODULE_PASS("dpcpp-kernel-resolve-wi-call", ResolveWICallPass())
+MODULE_PASS("dpcpp-kernel-prepare-args", PrepareKernelArgsPass())
+MODULE_PASS("dpcpp-kernel-cleanup-wrapped", CleanupWrappedKernelPass())
 #endif //INTEL_CUSTOMIZATION
 MODULE_PASS("agginliner", AggInlinerPass()) // INTEL
 MODULE_PASS("always-inline", AlwaysInlinerPass())
