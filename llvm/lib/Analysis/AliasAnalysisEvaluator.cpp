@@ -166,19 +166,19 @@ void AAEvaluator::runInternal(Function &F, AAResults &AA) {
 
       AliasResult AR = AAQueryWrapper(*I1, I1Size, *I2, I2Size); // INTEL
       switch (AR) {
-      case NoAlias:
+      case AliasResult::NoAlias:
         PrintResults(AR, PrintNoAlias, *I1, *I2, F.getParent());
         ++NoAliasCount;
         break;
-      case MayAlias:
+      case AliasResult::MayAlias:
         PrintResults(AR, PrintMayAlias, *I1, *I2, F.getParent());
         ++MayAliasCount;
         break;
-      case PartialAlias:
+      case AliasResult::PartialAlias:
         PrintResults(AR, PrintPartialAlias, *I1, *I2, F.getParent());
         ++PartialAliasCount;
         break;
-      case MustAlias:
+      case AliasResult::MustAlias:
         PrintResults(AR, PrintMustAlias, *I1, *I2, F.getParent());
         ++MustAliasCount;
         break;
@@ -196,19 +196,19 @@ void AAEvaluator::runInternal(Function &F, AAResults &AA) {
                            MemoryLocation::get(cast<StoreInst>(Store)));
 #endif // INTEL_CUSTOMIZATION
         switch (AR) {
-        case NoAlias:
+        case AliasResult::NoAlias:
           PrintLoadStoreResults(AR, PrintNoAlias, Load, Store, F.getParent());
           ++NoAliasCount;
           break;
-        case MayAlias:
+        case AliasResult::MayAlias:
           PrintLoadStoreResults(AR, PrintMayAlias, Load, Store, F.getParent());
           ++MayAliasCount;
           break;
-        case PartialAlias:
+        case AliasResult::PartialAlias:
           PrintLoadStoreResults(AR, PrintPartialAlias, Load, Store, F.getParent());
           ++PartialAliasCount;
           break;
-        case MustAlias:
+        case AliasResult::MustAlias:
           PrintLoadStoreResults(AR, PrintMustAlias, Load, Store, F.getParent());
           ++MustAliasCount;
           break;
@@ -226,19 +226,19 @@ void AAEvaluator::runInternal(Function &F, AAResults &AA) {
                            MemoryLocation::get(cast<StoreInst>(*I2)));
 #endif // INTEL_CUSTOMIZATION
         switch (AR) {
-        case NoAlias:
+        case AliasResult::NoAlias:
           PrintLoadStoreResults(AR, PrintNoAlias, *I1, *I2, F.getParent());
           ++NoAliasCount;
           break;
-        case MayAlias:
+        case AliasResult::MayAlias:
           PrintLoadStoreResults(AR, PrintMayAlias, *I1, *I2, F.getParent());
           ++MayAliasCount;
           break;
-        case PartialAlias:
+        case AliasResult::PartialAlias:
           PrintLoadStoreResults(AR, PrintPartialAlias, *I1, *I2, F.getParent());
           ++PartialAliasCount;
           break;
-        case MustAlias:
+        case AliasResult::MustAlias:
           PrintLoadStoreResults(AR, PrintMustAlias, *I1, *I2, F.getParent());
           ++MustAliasCount;
           break;

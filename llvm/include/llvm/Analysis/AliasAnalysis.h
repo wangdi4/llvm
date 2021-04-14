@@ -530,7 +530,7 @@ public:
   /// A trivial helper function to check to see if the specified pointers are
   /// no-alias.
   bool isNoAlias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
-    return alias(LocA, LocB) == NoAlias;
+    return alias(LocA, LocB) == AliasResult::NoAlias;
   }
 
 #if INTEL_CUSTOMIZATION
@@ -608,13 +608,13 @@ public:
   /// A trivial helper function to check to see if the specified pointers are
   /// must-alias.
   bool isMustAlias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
-    return alias(LocA, LocB) == MustAlias;
+    return alias(LocA, LocB) == AliasResult::MustAlias;
   }
 
   /// A convenience wrapper around the \c isMustAlias helper interface.
   bool isMustAlias(const Value *V1, const Value *V2) {
     return alias(V1, LocationSize::precise(1), V2, LocationSize::precise(1)) ==
-           MustAlias;
+           AliasResult::MustAlias;
   }
 #if INTEL_CUSTOMIZATION
   // Returns true if the given value V is escaped.
@@ -1036,11 +1036,12 @@ public:
     return AA.getModRefBehavior(Call);
   }
   bool isMustAlias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
-    return alias(LocA, LocB) == MustAlias;
+    return alias(LocA, LocB) == AliasResult::MustAlias;
   }
   bool isMustAlias(const Value *V1, const Value *V2) {
     return alias(MemoryLocation(V1, LocationSize::precise(1)),
-                 MemoryLocation(V2, LocationSize::precise(1))) == MustAlias;
+                 MemoryLocation(V2, LocationSize::precise(1))) ==
+           AliasResult::MustAlias;
   }
   Optional<int64_t> getClobberOffset(const MemoryLocation &LocA,
                                      const MemoryLocation &LocB) const;
@@ -1348,7 +1349,7 @@ protected:
 public:
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
                     AAQueryInfo &AAQI) {
-    return MayAlias;
+    return AliasResult::MayAlias;
   }
 
   bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
