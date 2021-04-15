@@ -5022,6 +5022,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
         }
       }
 #endif // INTEL_CUSTOMIZATION
+  case CK_MatrixCast:
     return EmitUnsupportedLValue(E, "unexpected cast lvalue");
 
   case CK_Dependent:
