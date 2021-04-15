@@ -29,6 +29,8 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 
+#define AASaturationThresholdOveridden 600
+
 using namespace llvm;
 using namespace llvm::loopopt;
 
@@ -65,7 +67,7 @@ class HIRSymbaseAssignment::HIRSymbaseAssignmentVisitor
 
 public:
   HIRSymbaseAssignmentVisitor(HIRSymbaseAssignment &CurSA, AliasAnalysis &AA)
-      : SA(CurSA), AST(AA) {}
+      : SA(CurSA), AST(AA, AASaturationThresholdOveridden) {}
 
   HybridAliasSetTracker &getAST() { return AST; }
 

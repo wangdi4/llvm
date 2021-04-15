@@ -607,14 +607,18 @@ void AliasSetTracker::copyValue(Value *From, Value *To) {
 }
 
 AliasSet &AliasSetTracker::mergeAllAliasSets() {
-  assert(!AliasAnyAS && (TotalMayAliasSetSize > SaturationThreshold) &&
+#if INTEL_CUSTOMIZATION
+  unsigned SaturThres =
+      std::max(SaturationThreshold.getValue(), SaturationThresholdOverriden);
+  assert(!AliasAnyAS && (TotalMayAliasSetSize > SaturThres) &&
          "Full merge should happen once, when the saturation threshold is "
          "reached");
+#endif // INTEL_CUSTOMIZATION
 
   // Collect all alias sets, so that we can drop references with impunity
   // without worrying about iterator invalidation.
   std::vector<AliasSet *> ASVector;
-  ASVector.reserve(SaturationThreshold);
+  ASVector.reserve(SaturThres); // INTEL
   for (AliasSet &AS : *this)
     ASVector.push_back(&AS);
 
@@ -648,7 +652,11 @@ AliasSet &AliasSetTracker::addPointer(MemoryLocation Loc,
   AliasSet &AS = getAliasSetFor(Loc);
   AS.Access |= E;
 
-  if (!AliasAnyAS && (TotalMayAliasSetSize > SaturationThreshold)) {
+#if INTEL_CUSTOMIZATION
+  unsigned SaturThres =
+      std::max(SaturationThreshold.getValue(), SaturationThresholdOverriden);
+  if (!AliasAnyAS && (TotalMayAliasSetSize > SaturThres)) {
+#endif // INTEL_CUSTOMIZATION
     // The AST is now saturated. From here on, we conservatively consider all
     // pointers to alias each-other.
     return mergeAllAliasSets();
