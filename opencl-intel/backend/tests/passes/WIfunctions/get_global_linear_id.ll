@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
+; RUN: %oclopt -linear-id-resolver %t.bc -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -linear-id-resolver -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
@@ -34,3 +35,5 @@ declare i64 @_Z20get_global_linear_idv()
 
 !opencl.compiler.options = !{!0}
 !0 = !{!"-cl-std=CL2.0"}
+
+; DEBUGIFY-NOT: WARNING
