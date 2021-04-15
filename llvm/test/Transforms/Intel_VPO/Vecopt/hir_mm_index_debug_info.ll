@@ -104,16 +104,16 @@ define dso_local i32 @_Z6maxlocl(i64 %m) local_unnamed_addr #0 !dbg !14 {
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE:         [[BB1]]: # preds: [[BB0]]
 ; CHECKHIRVPE-NEXT:     i64 [[VP__RED_INIT:%.*]] = reduction-init i64 [[B_0250:%.*]]
-; CHECKHIRVPE-NEXT:      DbgLoc:
+; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:10:5
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP__RED_INIT_1:%.*]] = reduction-init i64 [[TMP_0260:%.*]]
-; CHECKHIRVPE-NEXT:      DbgLoc:
+; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:10:5
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
-; CHECKHIRVPE-NEXT:      DbgLoc:
+; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:10:5
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECKHIRVPE-NEXT:      DbgLoc:
+; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:10:5
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:10:5
@@ -161,10 +161,10 @@ define dso_local i32 @_Z6maxlocl(i64 %m) local_unnamed_addr #0 !dbg !14 {
 ; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:10:5
 ; CHECKHIRVPE:         [[BB3]]: # preds: [[BB2]]
 ; CHECKHIRVPE-NEXT:     i64 [[VP__RED_FINAL:%.*]] = reduction-final{u_smin} i64 [[VP7]]
-; CHECKHIRVPE-NEXT:      DbgLoc:
+; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:12:13
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP__RED_FINAL_1:%.*]] = reduction-final{s_smax} i64 [[VP5]] i64 [[VP7]] i64 [[VP__RED_FINAL]]
-; CHECKHIRVPE-NEXT:      DbgLoc:
+; CHECKHIRVPE-NEXT:      DbgLoc: mm_index.cpp:11:15
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECKHIRVPE-NEXT:      DbgLoc:
