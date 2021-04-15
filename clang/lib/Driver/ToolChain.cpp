@@ -10,8 +10,8 @@
 #include "InputInfo.h"
 #include "ToolChains/Arch/ARM.h"
 #include "ToolChains/Clang.h"
-#include "ToolChains/InterfaceStubs.h"
 #include "ToolChains/Flang.h"
+#include "ToolChains/InterfaceStubs.h"
 #include "clang/Basic/ObjCRuntime.h"
 #include "clang/Basic/Sanitizers.h"
 #include "clang/Config/config.h"
@@ -33,9 +33,7 @@
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
-#if INTEL_CUSTOMIZATION
 #include "llvm/Support/CommandLine.h"
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
