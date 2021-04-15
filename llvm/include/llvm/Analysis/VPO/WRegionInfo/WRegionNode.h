@@ -79,6 +79,9 @@ private:
   /// Unique number associated with this WRegionNode.
   unsigned Number;
 
+  /// Index of the current map Aggr (map-chain-link).
+  unsigned CurrentMapAggrIndex = 0;
+
   /// Nesting level of the WRN node in the WRN graph. Outermost level is 0.
   unsigned Level;
 
@@ -120,6 +123,24 @@ private:
 
   /// Sets the unique number associated with this WRegionNode.
   void setNextNumber() { Number = ++UniqueNum; }
+
+  /// Returns the index of the next map-chain Aggr for the region.
+  /// This is used in WRegion graph construction to track the
+  /// indices of original map-chains sent from the frontend. The need for this
+  /// is to track which Aggr in a map-chain a member-of field points to, so that
+  /// the value of member-of can be updated correctly, if needed. e.g.
+  /// \code
+  ///                Map Aggrs                      Index
+  ///             <a, b, 8, 0x22>                    1
+  ///   +         <c, d, 8, 0x20>                    2
+  ///   +- CHAIN: <e, f, 8, 0x00>                    3
+  ///   +- CHAIN: <g, h, 8, 0x0003000000000001>      4
+  ///
+  /// \endcode
+  /// Here, tracking the indices lets us know that Aggr 4 is a member-of Aggr 3.
+  /// This information is later used while updating member-of flags in Paropt
+  /// code-generation, if needed.
+  unsigned getNextMapAggrIndex() { return ++CurrentMapAggrIndex; }
 
   /// True for implicit constructs emitted by the frontend.
   /// Examples:
@@ -886,9 +907,9 @@ private:
                                         Clause<ClauseItemTy> &C);
 
   /// Extract operands from a map clause
-  static void extractMapOpndList(const Use *Args, unsigned NumArgs,
-                                 const ClauseSpecifier &ClauseInfo,
-                                 MapClause &C, unsigned MapKind);
+  void extractMapOpndList(const Use *Args, unsigned NumArgs,
+                          const ClauseSpecifier &ClauseInfo, MapClause &C,
+                          unsigned MapKind);
 
   /// Extract operands from a depend clause
   static void extractDependOpndList(const Use *Args, unsigned NumArgs,

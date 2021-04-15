@@ -1100,7 +1100,8 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
     if (AggrHasMapType) {
       ConstantInt *CI = cast<ConstantInt>(Args[3]);
       uint64_t MapType = CI->getZExtValue();
-      Aggr = new MapAggrTy(BasePtr, SectionPtr, Size, MapType);
+      Aggr = new MapAggrTy(BasePtr, SectionPtr, Size, MapType,
+                           getNextMapAggrIndex());
     } else {
       Aggr = new MapAggrTy(BasePtr, SectionPtr, Size);
     }
