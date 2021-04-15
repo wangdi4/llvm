@@ -83,6 +83,7 @@ public:
     // FIXME: Implement this!
     return {8, 64};
   }
+  virtual bool isNewCFGMergeEnabled() const override { return false;}
 };
 
 } // namespace vpo

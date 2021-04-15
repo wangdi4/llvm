@@ -23,7 +23,9 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
 #include "llvm/Support/Compiler.h"
+#if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
+#endif // INTEL_INCLUDE_DTRANS
 
 namespace llvm {
 
@@ -345,19 +347,25 @@ public:
   ///
   static bool isMemRefAllDimsConstOnly(const RegDDRef *Ref);
 
+#if INTEL_INCLUDE_DTRANS
   /// Returns true if the DDRef has a constant value calculated by DTrans.
   /// Returns value in \pVal if \pGetValue is true.
   static bool hasConstantEntriesFromArray(const RegDDRef *Ref,
                                           DTransImmutableInfo *DTII,
                                           Constant *IndexInArray = nullptr,
                                           Constant **Val = nullptr);
+#endif // INTEL_INCLUDE_DTRANS
 
   /// Does constant folding for the \pRef if it is a global const or a const
   /// calculated during DTrans, If the \pRef can be replaced with a constant
   /// value, that constant ref is returned, otherwise nullptr if no constant
   /// equivalent found.
+#if INTEL_INCLUDE_DTRANS
   static RegDDRef *simplifyConstArray(const RegDDRef *Ref,
                                       DTransImmutableInfo *DTII);
+#else // INTEL_INCLUDE_DTRANS
+  static RegDDRef *simplifyConstArray(const RegDDRef *Ref);
+#endif // INTEL_INCLUDE_DTRANS
 };
 
 } // End namespace loopopt

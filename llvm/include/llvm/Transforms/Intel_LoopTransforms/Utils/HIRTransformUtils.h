@@ -32,8 +32,10 @@
 namespace llvm {
 
 class LoopOptReportBuilder;
+#if INTEL_INCLUDE_DTRANS
 class FieldModRefResult;
 class DTransImmutableInfo;
+#endif // INTEL_INCLUDE_DTRANS
 
 namespace loopopt {
 
@@ -204,7 +206,9 @@ public:
   /// END DO
   static bool isLoopInvariant(const RegDDRef *MemRef, const HLLoop *Loop,
                               HIRDDAnalysis &HDDA, HIRLoopStatistics &HLS,
+#if INTEL_INCLUDE_DTRANS
                               FieldModRefResult *FieldModRef = nullptr,
+#endif // INTEL_INCLUDE_DTRANS
                               bool IgnoreIVs = false);
 
   /// This function creates and returns a new loop that will be used as the
@@ -350,7 +354,11 @@ public:
 
   /// Propagates constants to refs and does constant folding for instructions.
   /// Also substitutes constant global refs with equivalent constants.
+#if INTEL_INCLUDE_DTRANS
   static bool doConstantPropagation(HLNode *Node, DTransImmutableInfo *DTII);
+#else // INTEL_INCLUDE_DTRANS
+  static bool doConstantPropagation(HLNode *Node);
+#endif // INTEL_INCLUDE_DTRANS
 
   /// Returns true if instruction was folded, along with the new instruction.
   /// If the instruction is null, it folded into a self-assignment (no-op).

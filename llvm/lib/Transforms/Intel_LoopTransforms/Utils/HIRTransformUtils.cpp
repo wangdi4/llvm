@@ -26,7 +26,9 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/IR/Instructions.h"
+#if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
+#endif // INTEL_INCLUDE_DTRANS
 
 #include "HIRArrayScalarization.h"
 #include "HIRDeadStoreElimination.h"
@@ -145,7 +147,9 @@ void HIRTransformUtils::doLoopReversal(HLLoop *InnermostLp, HIRDDAnalysis &HDDA,
 bool HIRTransformUtils::isLoopInvariant(const RegDDRef *MemRef,
                                         const HLLoop *Loop, HIRDDAnalysis &HDDA,
                                         HIRLoopStatistics &HLS,
+#if INTEL_INCLUDE_DTRANS
                                         FieldModRefResult *FieldModRef,
+#endif // INTEL_INCLUDE_DTRANS
                                         bool IgnoreIVs) {
   assert(MemRef && "Memref is null!");
   assert(MemRef->isMemRef() && "Ref is not a memref!");
@@ -153,8 +157,11 @@ bool HIRTransformUtils::isLoopInvariant(const RegDDRef *MemRef,
   assert(HLNodeUtils::contains(Loop, MemRef->getHLDDNode()) &&
          "MemRef expected to be inside Loop!");
 
-  HIRLMM LMMPass(Loop->getHLNodeUtils().getHIRFramework(), HDDA, HLS, nullptr,
-                 FieldModRef);
+  HIRLMM LMMPass(Loop->getHLNodeUtils().getHIRFramework(), HDDA, HLS,
+#if INTEL_INCLUDE_DTRANS
+                 FieldModRef,
+#endif // INTEL_INCLUDE_DTRANS
+                 nullptr);
   return LMMPass.isLoopInvariant(MemRef, Loop, IgnoreIVs);
 }
 
@@ -1236,7 +1243,9 @@ private:
   unsigned NumFolded;
   unsigned NumConstGlobalLoads;
   unsigned NumInstsRemoved;
+#if INTEL_INCLUDE_DTRANS
   DTransImmutableInfo *DTII;
+#endif // INTEL_INCLUDE_DTRANS
 
   // Node passed in by caller
   const HLNode *OriginNode;
@@ -1314,9 +1323,17 @@ private:
   }
 
 public:
+#if INTEL_INCLUDE_DTRANS
   ConstantPropagater(DTransImmutableInfo *DTII, HLNode *Node)
+#else // INTEL_INCLUDE_DTRANS
+  ConstantPropagater(HLNode *Node)
+#endif // INTEL_INCLUDE_DTRANS
       : NumPropagated(0), NumFolded(0), NumConstGlobalLoads(0),
-        NumInstsRemoved(0), DTII(DTII), OriginNode(Node) {
+        NumInstsRemoved(0),
+#if INTEL_INCLUDE_DTRANS
+        DTII(DTII),
+#endif // INTEL_INCLUDE_DTRANS
+        OriginNode(Node) {
     if (isa<HLLoop>(Node) || isa<HLRegion>(Node)) {
       CurrLoopOrRegion = Node;
     } else if (HLLoop *ParentLoop = Node->getParentLoop()) {
@@ -1440,7 +1457,11 @@ public:
       propagateConstUse(Ref);
 
       // Try to replace constant array
+#if INTEL_INCLUDE_DTRANS
       if (auto ConstantRef = DDRefUtils::simplifyConstArray(Ref, DTII)) {
+#else // INTEL_INCLUDE_DTRANS
+      if (auto ConstantRef = DDRefUtils::simplifyConstArray(Ref)) {
+#endif // INTEL_INCLUDE_DTRANS
         NumConstGlobalLoads++;
         LLVM_DEBUG(dbgs() << "Replaced const array load: "; Ref->dump();
                    dbgs() << "\n";);
@@ -1626,12 +1647,20 @@ void ConstantPropagater::propagateConstUse(RegDDRef *Ref) {
   }
 }
 
+#if INTEL_INCLUDE_DTRANS
 bool HIRTransformUtils::doConstantPropagation(HLNode *Node,
                                               DTransImmutableInfo *DTII) {
+#else // INTEL_INCLUDE_DTRANS
+bool HIRTransformUtils::doConstantPropagation(HLNode *Node) {
+#endif // INTEL_INCLUDE_DTRANS
   if (DisableConstantPropagation) {
     return false;
   }
+#if INTEL_INCLUDE_DTRANS
   ConstantPropagater CP(DTII, Node);
+#else // INTEL_INCLUDE_DTRANS
+  ConstantPropagater CP(Node);
+#endif // INTEL_INCLUDE_DTRANS
   LLVM_DEBUG(dbgs() << "Before constprop\n"; Node->dump(););
   HLNodeUtils::visit(CP, Node);
   LLVM_DEBUG(dbgs() << "After constprop\n"; Node->dump(); CP.dumpStatistics(););

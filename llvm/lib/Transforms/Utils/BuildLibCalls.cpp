@@ -49,6 +49,7 @@ STATISTIC(NumReturnedArg, "Number of arguments inferred as returned");
 #if INTEL_CUSTOMIZATION
 STATISTIC(NumNoReturn, "Number of functions inferred as noreturn");
 STATISTIC(NumFortran, "Number of functions inferred as Fortran");
+STATISTIC(NumMustProgress, "Number of functions inferred as mustprogress");
 #endif // INTEL_CUSTOMIZATION
 STATISTIC(NumWillReturn, "Number of functions inferred as willreturn");
 
@@ -218,6 +219,14 @@ static bool setFortran(Function &F) {
     return false;
   F.setFortran();
   ++NumFortran;
+  return true;
+}
+
+static bool setMustProgress(Function &F) {
+  if (F.hasFnAttribute(Attribute::MustProgress))
+    return false;
+  F.addFnAttr(Attribute::MustProgress);
+  ++NumMustProgress;
   return true;
 }
 #endif // INTEL_CUSTOMIZATION
@@ -1344,8 +1353,8 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_dynamic_cast:
-    Changed |= setDoesNotThrow(F);
     Changed |= setOnlyReadsMemory(F);
+    Changed |= setMustProgress(F);
     return Changed;
   case LibFunc_errno_location:
     Changed |= setOnlyReadsMemory(F);
