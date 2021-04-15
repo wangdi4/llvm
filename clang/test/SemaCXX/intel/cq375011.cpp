@@ -9,7 +9,7 @@ float *f2(double a, char *b, unsigned c, float d, int e)
     __attribute__((__alloc_size__(3, 5)));
 
 // Check that attribute, applied to non-function, produces a warning.
-int *v __attribute__((__alloc_size__(1))); // expected-warning{{'__alloc_size__' attribute only applies to functions}}
+int *v __attribute__((__alloc_size__(1))); // expected-warning{{'__alloc_size__' attribute only applies to non-K&R-style functions}}
 
 // Check the amount of attribute's arguments.
 int *f3(int a) __attribute__((__alloc_size__)); // expected-error{{'__alloc_size__' attribute takes at least 1 argument}}
