@@ -1454,7 +1454,7 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
   }
 
   unsigned NestingLevel = OrigLoop->getNestingLevel();
-  if (CurrentVPInstUnrollPart > 0)
+  if (CurrentVPInstUnrollPart > 0 && !EnableVPValueCodegenHIR)
     WideRef->shift(NestingLevel, CurrentVPInstUnrollPart * VF);
 
   // For unit stride ref, nothing else to do. We assume unit stride for
