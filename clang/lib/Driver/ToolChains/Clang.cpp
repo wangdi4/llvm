@@ -4504,15 +4504,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       (IsSYCL || IsCuda || IsHIP) ? TC.getAuxTriple() : nullptr;
   bool IsWindowsMSVC = RawTriple.isWindowsMSVCEnvironment();
   bool IsIAMCU = RawTriple.isOSIAMCU();
-  bool IsSYCLDevice = (RawTriple.getEnvironment() == llvm::Triple::SYCLDevice ||
-                       Triple.getEnvironment() == llvm::Triple::SYCLDevice);
-  // Using just the sycldevice environment is not enough to determine usage
-  // of the device triple when considering fat static archives.  The
-  // compilation path requires the host object to be fed into the partial link
-  // step, and being part of the SYCL tool chain causes the incorrect target.
-  // FIXME - Is it possible to retain host environment when on a target
-  // device toolchain.
-  bool UseSYCLTriple = IsSYCLDevice && (!IsSYCL || IsSYCLOffloadDevice);
 
   // Adjust IsWindowsXYZ for CUDA/HIP/SYCL compilations.  Even when compiling in
   // device mode (i.e., getToolchain().getTriple() is NVPTX/AMDGCN, not
@@ -4531,20 +4522,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   // Add the "effective" target triple.
   CmdArgs.push_back("-triple");
-
-#if INTEL_CUSTOMIZATION
-  if ((!UseSYCLTriple && IsSYCLDevice) || (JA.isOffloading(Action::OFK_OpenMP)
-      && !IsOpenMPDevice && RawTriple.isSPIR())) {
-#endif // INTEL_CUSTOMIZATION
-    // Do not use device triple when we know the device is not SYCL
-    // FIXME: We override the toolchain triple in this instance to address a
-    // disconnect with fat static archives.  We should have a cleaner way of
-    // using the Host environment when on a device toolchain.
-    std::string NormalizedTriple =
-        llvm::Triple(llvm::sys::getProcessTriple()).normalize();
-    CmdArgs.push_back(Args.MakeArgString(NormalizedTriple));
-  } else
-    CmdArgs.push_back(Args.MakeArgString(TripleStr));
+  CmdArgs.push_back(Args.MakeArgString(TripleStr));
 
   if (const Arg *MJ = Args.getLastArg(options::OPT_MJ)) {
     DumpCompilationDatabase(C, MJ->getValue(), TripleStr, Output, Input, Args);
@@ -4594,7 +4572,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       Args.hasArg(options::OPT_fsycl_enable_function_pointers);
 #endif // INTEL_CUSTOMIZATION
 
-  if (UseSYCLTriple) {
+  if (IsSYCLOffloadDevice) {
+    // Pass the triple of host when doing SYCL
+    llvm::Triple AuxT = C.getDefaultToolChain().getTriple();
+    std::string NormalizedTriple = AuxT.normalize();
+    CmdArgs.push_back("-aux-triple");
+    CmdArgs.push_back(Args.MakeArgString(NormalizedTriple));
+
     // We want to compile sycl kernels.
     CmdArgs.push_back("-fsycl-is-device");
     CmdArgs.push_back("-fdeclare-spirv-builtins");
@@ -4614,18 +4598,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-mllvm");
       CmdArgs.push_back("-sycl-opt");
     }
+
     // Turn on Dead Parameter Elimination Optimization with early optimizations
     if (!RawTriple.isNVPTX() &&
         Args.hasFlag(options::OPT_fsycl_dead_args_optimization,
                      options::OPT_fno_sycl_dead_args_optimization, false))
       CmdArgs.push_back("-fenable-sycl-dae");
-
-    // Pass the triple of host when doing SYCL
-    llvm::Triple AuxT = C.getDefaultToolChain().getTriple();
-    std::string NormalizedTriple = AuxT.normalize();
-    CmdArgs.push_back("-aux-triple");
-    CmdArgs.push_back(Args.MakeArgString(NormalizedTriple));
-
     bool IsMSVC = AuxT.isWindowsMSVCEnvironment();
     if (IsMSVC) {
       CmdArgs.push_back("-fms-extensions");
@@ -4657,6 +4635,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       // along with marking the same function with explicit SYCL_EXTERNAL
       CmdArgs.push_back("-Wno-sycl-strict");
     }
+
+    // Add the integration header option to generate the header.
+    StringRef Header(D.getIntegrationHeader(Input.getBaseInput()));
+    if (!Header.empty()) {
+      SmallString<128> HeaderOpt("-fsycl-int-header=");
+      HeaderOpt.append(Header);
+      CmdArgs.push_back(Args.MakeArgString(HeaderOpt));
+    }
   }
 #if INTEL_CUSTOMIZATION
   if (enableFuncPointers) {
@@ -4664,14 +4650,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-fenable-variant-virtual-calls");
   }
 #endif // INTEL_CUSTOMIZATION
-  if (IsSYCL || UseSYCLTriple) {
+
+  if (IsSYCL) {
     // Set options for both host and device
     if (Arg *A = Args.getLastArg(options::OPT_fsycl_id_queries_fit_in_int,
                                  options::OPT_fno_sycl_id_queries_fit_in_int))
       A->render(Args, CmdArgs);
-  }
 
-  if (IsSYCL) {
     if (SYCLStdArg) {
       SYCLStdArg->render(Args, CmdArgs);
       CmdArgs.push_back("-fsycl-std-layout-kernel-params");
@@ -4679,6 +4664,50 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       // Ensure the default version in SYCL mode is 2020
       CmdArgs.push_back("-sycl-std=2020");
     }
+    if (Args.hasArg(options::OPT_fsycl_unnamed_lambda))
+      CmdArgs.push_back("-fsycl-unnamed-lambda");
+
+    // Enable generation of USM address spaces for FPGA.
+    // __ENABLE_USM_ADDR_SPACE__ will be used during compilation of SYCL headers
+    if (getToolChain().getTriple().getSubArch() ==
+        llvm::Triple::SPIRSubArch_fpga)
+      CmdArgs.push_back("-D__ENABLE_USM_ADDR_SPACE__");
+
+    // Add any options that are needed specific to SYCL offload while
+    // performing the host side compilation.
+    if (!IsSYCLOffloadDevice) {
+      // Add the -include option to add the integration header
+      StringRef Header = D.getIntegrationHeader(Input.getBaseInput());
+      if (types::getPreprocessedType(Input.getType()) != types::TY_INVALID &&
+          !Header.empty()) {
+        CmdArgs.push_back("-include");
+        CmdArgs.push_back(Args.MakeArgString(Header));
+        // When creating dependency information, filter out the generated
+        // header file.
+        CmdArgs.push_back("-dependency-filter");
+        CmdArgs.push_back(Args.MakeArgString(Header));
+      }
+      // Let the FE know we are doing a SYCL offload compilation, but we are
+      // doing the host pass.
+      CmdArgs.push_back("-fsycl-is-host");
+
+      if (!D.IsCLMode()) {
+        // SYCL library is guaranteed to work correctly only with dynamic
+        // MSVC runtime.
+        llvm::Triple AuxT = C.getDefaultToolChain().getTriple();
+        if (AuxT.isWindowsMSVCEnvironment()) {
+          CmdArgs.push_back("-D_MT");
+          CmdArgs.push_back("-D_DLL");
+          CmdArgs.push_back("--dependent-lib=msvcrt");
+        }
+      }
+    }
+#if INTEL_CUSTOMIZATION
+    if (Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
+                     options::OPT_fno_sycl_unnamed_lambda,
+                     Args.hasArg(options::OPT__dpcpp)))
+#endif // INTEL_CUSTOMIZATION
+      CmdArgs.push_back("-fsycl-unnamed-lambda");
   }
 
 #if INTEL_CUSTOMIZATION
@@ -4809,7 +4838,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-P");
     }
   } else if (isa<AssembleJobAction>(JA)) {
-    if (IsSYCLOffloadDevice && IsSYCLDevice) {
+    if (IsSYCLOffloadDevice) {
       CmdArgs.push_back("-emit-llvm-bc");
     } else {
       CmdArgs.push_back("-emit-obj");
@@ -6476,10 +6505,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // Forward -cl options to -cc1
   RenderOpenCLOptions(Args, CmdArgs, InputType);
 
-  // Forward -sycl-std option to -cc1 only if -fsycl is enabled.
-  if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false))
-    Args.AddLastArg(CmdArgs, options::OPT_sycl_std_EQ);
-
   // Forward -fsycl-instrument-device-code option to cc1. This option can only
   // be used with spir triple.
   if (Arg *A = Args.getLastArg(options::OPT_fsycl_instrument_device_code)) {
@@ -6999,7 +7024,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       getToolChain().getTriple().isSPIR())
     EnableVec = false;
 #endif // INTEL_CUSTOMIZATION
-  if (UseSYCLTriple && RawTriple.isSPIR() && EnableSYCLEarlyOptimizations)
+  if (RawTriple.isSPIR() && EnableSYCLEarlyOptimizations)
     EnableVec = false; // But disable vectorization for SYCL device code
   OptSpecifier VectorizeAliasOption =
       EnableVec ? options::OPT_O_Group : options::OPT_fvectorize;
@@ -7016,7 +7041,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       getToolChain().getTriple().isSPIR())
     EnableSLPVec = false;
 #endif // INTEL_CUSTOMIZATION
-  if (UseSYCLTriple && RawTriple.isSPIR() && EnableSYCLEarlyOptimizations)
+  if (RawTriple.isSPIR() && EnableSYCLEarlyOptimizations)
     EnableSLPVec = false; // But disable vectorization for SYCL device code
   OptSpecifier SLPVectAliasOption =
       EnableSLPVec ? options::OPT_O_Group : options::OPT_fslp_vectorize;
@@ -7226,57 +7251,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     if (Args.hasFlag(options::OPT_fcuda_short_ptr,
                      options::OPT_fno_cuda_short_ptr, false))
       CmdArgs.push_back("-fcuda-short-ptr");
-  }
-
-  if (IsSYCL) {
-    // Add any options that are needed specific to SYCL offload while
-    // performing the host side compilation.
-    if (!IsSYCLOffloadDevice) {
-      // Add the integration header option to generate the header.
-      StringRef Header = D.getIntegrationHeader(Input.getBaseInput());
-      if (types::getPreprocessedType(InputType) != types::TY_INVALID &&
-          !Header.empty()) {
-        CmdArgs.push_back("-include");
-        CmdArgs.push_back(Args.MakeArgString(Header));
-        // When creating dependency information, filter out the generated
-        // header file.
-        CmdArgs.push_back("-dependency-filter");
-        CmdArgs.push_back(Args.MakeArgString(Header));
-      }
-      // Let the FE know we are doing a SYCL offload compilation, but we are
-      // doing the host pass.
-      CmdArgs.push_back("-fsycl-is-host");
-
-      if (!D.IsCLMode()) {
-        // SYCL library is guaranteed to work correctly only with dynamic
-        // MSVC runtime.
-        llvm::Triple AuxT = C.getDefaultToolChain().getTriple();
-        if (AuxT.isWindowsMSVCEnvironment()) {
-          CmdArgs.push_back("-D_MT");
-          CmdArgs.push_back("-D_DLL");
-          CmdArgs.push_back("--dependent-lib=msvcrt");
-        }
-      }
-    }
-    if (IsSYCLOffloadDevice) {
-      // Add the integration header option to generate the header.
-      StringRef Header(D.getIntegrationHeader(Input.getBaseInput()));
-      if (!Header.empty()) {
-        SmallString<128> HeaderOpt("-fsycl-int-header=");
-        HeaderOpt.append(Header);
-        CmdArgs.push_back(Args.MakeArgString(HeaderOpt));
-      }
-    }
-    if (Args.hasFlag(options::OPT_fsycl_unnamed_lambda, // INTEL
-                     options::OPT_fno_sycl_unnamed_lambda,
-                     Args.hasArg(options::OPT__dpcpp)))
-      CmdArgs.push_back("-fsycl-unnamed-lambda");
-
-    // Enable generation of USM address spaces for FPGA.
-    // __ENABLE_USM_ADDR_SPACE__ will be used during compilation of SYCL headers
-    if (getToolChain().getTriple().getSubArch() ==
-        llvm::Triple::SPIRSubArch_fpga)
-      CmdArgs.push_back("-D__ENABLE_USM_ADDR_SPACE__");
   }
 
   if (IsCuda || IsHIP) {
