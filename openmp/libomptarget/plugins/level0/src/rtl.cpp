@@ -722,92 +722,6 @@ static ze_fence_handle_t createFence(ze_command_queue_handle_t cmdQueue) {
   return fence;
 }
 
-/// Create a module from SPIR-V
-static ze_module_handle_t createModule(
-    ze_context_handle_t Context, ze_device_handle_t Device, size_t Size,
-    const uint8_t *Image, const char *Flags, ze_module_format_t Format) {
-  ze_module_desc_t moduleDesc = {
-    ZE_STRUCTURE_TYPE_MODULE_DESC,
-    nullptr, // extension
-    Format,
-    Size,
-    Image,
-    Flags,
-    nullptr // pointer to specialization constants
-  };
-  ze_module_handle_t module;
-  ze_module_build_log_handle_t buildLog;
-  ze_result_t rc;
-  CALL_ZE_RC(rc, zeModuleCreate, Context, Device, &moduleDesc, &module,
-             &buildLog);
-  if (rc != ZE_RESULT_SUCCESS) {
-    IDP("Warning: module creation failed "
-        "(use DebugLevel > 1 to see details below).\n");
-    if (DebugLevel > 1) {
-      size_t logSize;
-      CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize, nullptr);
-      std::vector<char> logString(logSize);
-      CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize,
-                       logString.data());
-      fprintf(stderr, "%s\n", logString.data());
-    }
-    CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
-    return nullptr;
-  }
-  CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
-  return module;
-}
-
-#if ENABLE_LIBDEVICE_LINKING
-/// Create a module from a file name
-static ze_module_handle_t createModule(
-    ze_context_handle_t Context, ze_device_handle_t Device,
-    const char *FileName, const char *Flags, ze_module_format_t Format) {
-  // Resolve full path using the location of the plugin
-  std::string fullPath;
-#ifdef _WIN32
-  char rtlPath[_MAX_PATH];
-  HMODULE rtlModule = nullptr;
-  if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                          GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                          (LPCSTR) &DebugLevel, &rtlModule)) {
-    IDP("Error: module creation failed -- cannot resolve full path\n");
-    return nullptr;
-  }
-  if (!GetModuleFileNameA(rtlModule, rtlPath, sizeof(rtlPath))) {
-    IDP("Error: module creation failed -- cannot resolve full path\n");
-    return nullptr;
-  }
-  fullPath = rtlPath;
-#else // !defined(_WIN32)
-  Dl_info rtlInfo;
-  if (!dladdr(&DebugLevel, &rtlInfo)) {
-    IDP("Error: module creation failed -- cannot resolve full path\n");
-    return nullptr;
-  }
-  fullPath = rtlInfo.dli_fname;
-#endif // !defined(_WIN32)
-  size_t split = fullPath.find_last_of("/\\");
-  fullPath.replace(split + 1, std::string::npos, FileName);
-
-  // Now read from the full path
-  std::ifstream ifs(fullPath.c_str(), std::ios::binary);
-  // Ignore files that are not supported.
-  if (!ifs.good())
-    return nullptr;
-  ifs.seekg(0, ifs.end);
-  size_t size = static_cast<size_t>(ifs.tellg());
-  ifs.seekg(0);
-  std::vector<char> image(size);
-  if (!ifs.read(image.data(), size)) {
-    IDP("Error: module creation failed -- cannot read %s\n", fullPath.c_str());
-    return nullptr;
-  }
-  return createModule(Context, Device, size, (uint8_t *)image.data(), Flags,
-                      Format);
-}
-#endif // ENABLE_LIBDEVICE_LINKING
-
 /// RTL flags
 struct RTLFlagsTy {
   uint64_t DumpTargetImage : 1;
@@ -908,6 +822,45 @@ enum DeviceMode {
   DEVICE_MODE_SUB,      // Use only tiles
   DEVICE_MODE_SUBSUB,   // Use only c-slices
   DEVICE_MODE_ALL       // Use all
+};
+
+/// Specialization constants used for a module compilation.
+class SpecConstantsTy {
+  std::vector<uint32_t> ConstantIds;
+  std::vector<const void *> ConstantValues;
+
+public:
+  SpecConstantsTy() = default;
+  SpecConstantsTy(const SpecConstantsTy &) = delete;
+  SpecConstantsTy(const SpecConstantsTy &&Other)
+    : ConstantIds(std::move(Other.ConstantIds)),
+      ConstantValues(std::move(Other.ConstantValues)) {}
+
+  ~SpecConstantsTy() {
+    for (auto I : ConstantValues) {
+      const char *ValuePtr = reinterpret_cast<const char *>(I);
+      delete[] ValuePtr;
+    }
+  }
+
+  template <typename T>
+  void addConstant(uint32_t Id, T Val) {
+    const size_t ValSize = sizeof(Val);
+    char *ValuePtr = new char[ValSize];
+    *reinterpret_cast<T *>(ValuePtr) = Val;
+
+    ConstantIds.push_back(Id);
+    ConstantValues.push_back(reinterpret_cast<void *>(ValuePtr));
+  }
+
+  ze_module_constants_t getModuleConstants() const {
+    ze_module_constants_t Tmp{static_cast<uint32_t>(ConstantValues.size()),
+                              ConstantIds.data(),
+                              // Unfortunately we have to const_cast it.
+                              // L0 data type should probably be fixed.
+                              const_cast<const void **>(ConstantValues.data())};
+    return Tmp;
+  }
 };
 
 /// Device information
@@ -1085,6 +1038,9 @@ public:
   std::string CompilationOptions = "-cl-std=CL2.0 ";
   std::string InternalCompilationOptions;
   std::string UserCompilationOptions;
+
+  // Spec constants used for all modules.
+  SpecConstantsTy CommonSpecConstants;
 
   RTLDeviceInfoTy() {
     NumDevices = 0;
@@ -1388,6 +1344,13 @@ public:
         Flags.LinkLibDevice = 1;
     }
 #endif // ENABLE_LIBDEVICE_LINKING
+    if (char *env = readEnvVar("INTEL_LIBITTNOTIFY64")) {
+      // INTEL_LIBITTNOTIFY64 points to ittnotify_collector library.
+      // Ignore empty path, but, otherwise, do not analyze it.
+      if (env[0] != '\0') {
+        CommonSpecConstants.addConstant<char>(0xFF747469, 1);
+      }
+    }
   }
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
@@ -1515,6 +1478,94 @@ typedef struct {
 } TgtNDRangeDescTy;
 
 static RTLDeviceInfoTy *DeviceInfo = nullptr;
+
+/// Create a module from SPIR-V
+static ze_module_handle_t createModule(
+    ze_context_handle_t Context, ze_device_handle_t Device, size_t Size,
+    const uint8_t *Image, const char *Flags, ze_module_format_t Format) {
+  ze_module_constants_t specConstants =
+      DeviceInfo->CommonSpecConstants.getModuleConstants();
+  ze_module_desc_t moduleDesc = {
+    ZE_STRUCTURE_TYPE_MODULE_DESC,
+    nullptr, // extension
+    Format,
+    Size,
+    Image,
+    Flags,
+    &specConstants
+  };
+  ze_module_handle_t module;
+  ze_module_build_log_handle_t buildLog;
+  ze_result_t rc;
+  CALL_ZE_RC(rc, zeModuleCreate, Context, Device, &moduleDesc, &module,
+             &buildLog);
+  if (rc != ZE_RESULT_SUCCESS) {
+    IDP("Warning: module creation failed "
+        "(use DebugLevel > 1 to see details below).\n");
+    if (DebugLevel > 1) {
+      size_t logSize;
+      CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize, nullptr);
+      std::vector<char> logString(logSize);
+      CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize,
+                       logString.data());
+      fprintf(stderr, "%s\n", logString.data());
+    }
+    CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
+    return nullptr;
+  }
+  CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
+  return module;
+}
+
+#if ENABLE_LIBDEVICE_LINKING
+/// Create a module from a file name
+static ze_module_handle_t createModule(
+    ze_context_handle_t Context, ze_device_handle_t Device,
+    const char *FileName, const char *Flags, ze_module_format_t Format) {
+  // Resolve full path using the location of the plugin
+  std::string fullPath;
+#ifdef _WIN32
+  char rtlPath[_MAX_PATH];
+  HMODULE rtlModule = nullptr;
+  if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                          GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                          (LPCSTR) &DebugLevel, &rtlModule)) {
+    IDP("Error: module creation failed -- cannot resolve full path\n");
+    return nullptr;
+  }
+  if (!GetModuleFileNameA(rtlModule, rtlPath, sizeof(rtlPath))) {
+    IDP("Error: module creation failed -- cannot resolve full path\n");
+    return nullptr;
+  }
+  fullPath = rtlPath;
+#else // !defined(_WIN32)
+  Dl_info rtlInfo;
+  if (!dladdr(&DebugLevel, &rtlInfo)) {
+    IDP("Error: module creation failed -- cannot resolve full path\n");
+    return nullptr;
+  }
+  fullPath = rtlInfo.dli_fname;
+#endif // !defined(_WIN32)
+  size_t split = fullPath.find_last_of("/\\");
+  fullPath.replace(split + 1, std::string::npos, FileName);
+
+  // Now read from the full path
+  std::ifstream ifs(fullPath.c_str(), std::ios::binary);
+  // Ignore files that are not supported.
+  if (!ifs.good())
+    return nullptr;
+  ifs.seekg(0, ifs.end);
+  size_t size = static_cast<size_t>(ifs.tellg());
+  ifs.seekg(0);
+  std::vector<char> image(size);
+  if (!ifs.read(image.data(), size)) {
+    IDP("Error: module creation failed -- cannot read %s\n", fullPath.c_str());
+    return nullptr;
+  }
+  return createModule(Context, Device, size, (uint8_t *)image.data(), Flags,
+                      Format);
+}
+#endif // ENABLE_LIBDEVICE_LINKING
 
 /// Init/deinit DeviceInfo
 #ifdef _WIN32
