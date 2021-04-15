@@ -1544,18 +1544,16 @@ void KernelBarrier::updateStructureStride(Module &M,
       NoBarrierPath = Value == "true" ? true : false;
     }
     if (NoBarrierPath) {
-      Func->addFnAttr("dpcpp-kernel-barrier-buffer-size", utostr(0));
+      Func->addFnAttr("barrier_buffer_size", utostr(0));
       // if there are no barrier in the kernel, strideSize is the kernel
       // body's private memory usage. So need to add sub-function's memory size.
-      Func->addFnAttr(
-          "dpcpp-kernel-private-memory-size",
-          utostr(StrideSize + PrivateSize - DPV->getStrideSize(Func)));
+      Func->addFnAttr("private_memory_size", utostr(StrideSize + PrivateSize -
+                                                    DPV->getStrideSize(Func)));
     } else {
-      Func->addFnAttr("dpcpp-kernel-barrier-buffer-size", utostr(StrideSize));
+      Func->addFnAttr("barrier_buffer_size", utostr(StrideSize));
       // if there are some barriers in the kernel, stiderSize is barrier
       // buffer size. So need to add non barrier private memory.
-      Func->addFnAttr("dpcpp-kernel-private-memory-size",
-                       utostr(StrideSize + PrivateSize));
+      Func->addFnAttr("private_memory_size", utostr(StrideSize + PrivateSize));
     }
   }
 }
