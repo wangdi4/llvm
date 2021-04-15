@@ -52,25 +52,28 @@ void UniformWorkGroupTest() {
   size_t global_work_size[] = {7};
 
   for (unsigned i = 0; i < 3; ++i) {
+    std::string errMsg =
+        "Compile flag '" + std::string(compile_flag[i]) + "' failed";
+
     // Build program
     iRet =
         clBuildProgram(program, 0, nullptr, compile_flag[i], nullptr, nullptr);
-    ASSERT_OCL_SUCCESS(iRet, clBuildProgram);
+    ASSERT_OCL_SUCCESS(iRet, clBuildProgram) << errMsg;
 
     // Create kernel
     kernel = clCreateKernel(program, "dummy_kernel", &iRet);
-    ASSERT_OCL_SUCCESS(iRet, clCreateKernel);
+    ASSERT_OCL_SUCCESS(iRet, clCreateKernel) << errMsg;
 
     // Enqueue kernel
     iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size,
                                   local_work_size, 0, NULL, NULL);
-    EXPECT_OCL_EQ(enqueue_result[i], iRet, clEnqueueNDRangeKernel);
+    ASSERT_OCL_EQ(enqueue_result[i], iRet, clEnqueueNDRangeKernel) << errMsg;
 
     iRet = clFinish(queue);
-    ASSERT_OCL_SUCCESS(iRet, clFinish);
+    ASSERT_OCL_SUCCESS(iRet, clFinish) << errMsg;
 
     iRet = clReleaseKernel(kernel);
-    ASSERT_OCL_SUCCESS(iRet, clReleaseKernel);
+    ASSERT_OCL_SUCCESS(iRet, clReleaseKernel) << errMsg;
   }
 
   iRet = clReleaseProgram(program);

@@ -67,6 +67,7 @@ public:
     virtual std::string GetCpuArch() const = 0;
     virtual std::string GetCpuFeatures() const = 0;
     virtual size_t GetCpuMaxWGSize() const = 0;
+    virtual const std::vector<size_t> &GetForcedWGSize() const = 0;
     virtual ETransposeSize GetTransposeSize() const = 0;
     virtual int GetRTLoopUnrollFactor() const = 0;
     virtual bool GetUseVTune() const = 0;

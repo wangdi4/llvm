@@ -54,7 +54,7 @@ void ImplicitArgsUtils::initImplicitArgProps(unsigned int SizeT) {
   for(unsigned int i=0; i<NUMBER_IMPLICIT_ARGS; ++i) {
     switch (i) {
     case IA_WORK_GROUP_INFO:
-      m_implicitArgProps[i].m_size = sizeof(cl_uniform_kernel_args);
+      m_implicitArgProps[i].m_size = sizeof(UniformKernelArgs);
       break;
     default:
       m_implicitArgProps[i].m_size = SizeT;

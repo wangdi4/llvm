@@ -244,7 +244,7 @@ public:
 
     cl_int                                      m_lastError;
     const ICLDevBackendKernelRunner*            m_pRunner;
-    cl_uniform_kernel_args*                     m_pImplicitArgs;
+    UniformKernelArgs*                          m_pImplicitArgs;
     void*                                       m_pKernelArgs;
 
     static THREAD_LOCAL ICLDevBackendKernelRunner::ICLDevExecutionState    m_tExecState;

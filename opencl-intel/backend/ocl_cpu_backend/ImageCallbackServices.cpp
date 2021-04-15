@@ -93,7 +93,7 @@ const cl_image_format supportedRWImageFormats2D[] = { READ_WRITE_FORMATS, ONLY_2
 const cl_image_format supportedROImageFormats1D3D[] = { READ_WRITE_FORMATS, READ_ONLY_FORMATS };
 const cl_image_format supportedROImageFormats2D[] = { READ_WRITE_FORMATS, READ_ONLY_FORMATS, ONLY_2D_FORMATS };
 
-ImageCallbackService::ImageCallbackService(const CompilerConfig &config,
+ImageCallbackService::ImageCallbackService(const ICompilerConfig &config,
                                            bool isCpu)
     : m_CpuId(Intel::OpenCL::Utils::CPUDetect::GetInstance()) {
   ImageCallbackManager::GetInstance()->InitLibrary(config, isCpu, m_CpuId);

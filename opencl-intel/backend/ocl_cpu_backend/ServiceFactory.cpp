@@ -80,8 +80,10 @@ cl_dev_err_code ServiceFactory::GetCompilationService(
             }
         }
 
-        CompilerConfig config(BackendConfiguration::GetInstance().GetCPUCompilerConfig(pBackendOptions));
-        *ppBackendCompilationService = new CPUCompileService(config);
+        std::unique_ptr<ICompilerConfig> config =
+            BackendConfiguration::GetInstance().GetCPUCompilerConfig(
+                pBackendOptions);
+        *ppBackendCompilationService = new CPUCompileService(std::move(config));
         return CL_DEV_SUCCESS;
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )
@@ -195,10 +197,10 @@ cl_dev_err_code ServiceFactory::GetImageService(
 
         /// WORKAROUND!! Wee need to skip built-in module load for
         /// Image compiler instance
-        CompilerConfig config(BackendConfiguration::GetInstance().GetCPUCompilerConfig(pBackendOptions));
-        config.SkipBuiltins();
-
-        *ppBackendImageService = new ImageCallbackService(config, true);
+        std::unique_ptr<ICompilerConfig> config =
+            BackendConfiguration::GetInstance().GetCPUCompilerConfig(
+                pBackendOptions, /*SkipBuiltins*/ true);
+        *ppBackendImageService = new ImageCallbackService(*config, true);
         return CL_DEV_SUCCESS;
     }
     catch( Exceptions::DeviceBackendExceptionBase& e )

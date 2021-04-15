@@ -51,12 +51,14 @@ GlobalCompilerConfig BackendConfiguration::GetGlobalCompilerConfig( const ICLDev
     return config;
 }
 
-CompilerConfig BackendConfiguration::GetCPUCompilerConfig(const ICLDevBackendOptions* pBackendOptions ) const
-{
-    CompilerConfig config;
-    config.LoadDefaults();
-    config.LoadConfig();
-    config.ApplyRuntimeOptions(pBackendOptions);
-    return config;
+std::unique_ptr<ICompilerConfig> BackendConfiguration::GetCPUCompilerConfig(
+    const ICLDevBackendOptions *pBackendOptions, bool SkipBuiltins) const {
+  CompilerConfig *config(new CompilerConfig);
+  config->LoadDefaults();
+  config->LoadConfig();
+  config->ApplyRuntimeOptions(pBackendOptions);
+  if (SkipBuiltins)
+    config->SkipBuiltins();
+  return std::unique_ptr<ICompilerConfig>(config);
 }
 }}}

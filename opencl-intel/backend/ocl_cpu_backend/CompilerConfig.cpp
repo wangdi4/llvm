@@ -17,6 +17,7 @@
 #include "PipeCommon.h"
 #include "cl_config.h"
 #include "cl_sys_defines.h"
+#include "cl_utils.h"
 #include "llvm/Support/Debug.h"
 
 #include <sstream>
@@ -222,6 +223,11 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
     m_cpuFeatures   = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_SUBDEVICE_FEATURES, m_cpuFeatures.c_str());
     m_cpuMaxWGSize  = (size_t)pBackendOptions->GetIntValue(
         (int)CL_DEV_BACKEND_OPTION_CPU_MAX_WG_SIZE, (int)m_cpuMaxWGSize);
+
+    std::string ForcedWGSize = pBackendOptions->GetStringValue(
+        CL_DEV_BACKEND_OPTION_FORCED_WG_SIZE, "");
+    (void)SplitStringInteger(ForcedWGSize, ',', m_forcedWGSize);
+
     m_transposeSize = (ETransposeSize)pBackendOptions->GetIntValue((int)CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE, m_transposeSize);
     m_rtLoopUnrollFactor  = pBackendOptions->GetIntValue((int) CL_DEV_BACKEND_OPTION_RT_LOOP_UNROLL_FACTOR, m_rtLoopUnrollFactor);
     m_useVTune      = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_USE_VTUNE, m_useVTune);

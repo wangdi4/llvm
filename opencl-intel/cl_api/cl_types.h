@@ -193,47 +193,6 @@ typedef struct _cl_llvm_prog_header
     bool bEnableLinkOptions;
 } cl_llvm_prog_header;
 
-#ifdef _WIN32
-#pragma pack(push, 1)
-#define PACKED 
-#else
-#define PACKED __attribute__((packed)) 
-#endif
-
-/**
- * This struct hold all the uniform arguments which will be passed to the JIT
- * to start execution of OCL kernel
- */
-typedef struct _cl_uniform_kernel_args {
-    // ND Range Work Description
-    // Kernel explicit arguments in same order as in  kernel declaration
-    // Alignment of type must be same as sizeof returns on the type
-    //gentype arg1;
-    //gentype arg2;
-    // .  .  .
-    //gentype argN;
-    // Kernel implicit arguments continue here
-    size_t    WorkDim;                                 // Filled by the runtime
-    size_t    GlobalOffset[MAX_WORK_DIM];              // Filled by the runtime
-    size_t    GlobalSize[MAX_WORK_DIM];                // Filled by the runtime
-    size_t    LocalSize[WG_SIZE_NUM][MAX_WORK_DIM];    // Filled by the runtime, updated by the BE in case of (0,0,0)
-                                                       // LocalSize[0] contains unifrom local sizes
-                                                       // LocalSize[1] contains non-unifrom local sizes
-    size_t    WGCount[MAX_WORK_DIM];                   // Updated by the BE, based on GLOBAL/LOCAL
-    // For Opencl2.0: this is a IDeviceCommandManager: the printf interface thing
-    void*     RuntimeInterface;                      // Updated by runtime
-    /// reference to BlockToKernelMapper object. Class does not own it
-    void*     Block2KernelMapper;                      // Updated by the BE
-    size_t    minWorkGroupNum;                         // Filled by the runtime, Required by the heuristic
-    // Internal for Running the kernel
-    const void *pUniformJITEntryPoint;                 // Filled by the BE
-    const void *pNonUniformJITEntryPoint;              // Filled by the BE
-} PACKED cl_uniform_kernel_args;
-
-#ifdef _WIN32
-#pragma pack(pop)
-#endif 
-
 /*! \enum cl_dev_sampler_prop
  * Defines possible values of the kernel information that could be retrieved by clDevGetKernelInfo function.
  */

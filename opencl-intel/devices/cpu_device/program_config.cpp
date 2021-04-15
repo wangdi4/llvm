@@ -38,6 +38,7 @@ void ProgramConfig::InitFromCpuConfig(const CPUDeviceConfig& cpuConfig)
     m_channelDepthEmulationMode = cpuConfig.GetChannelDepthEmulationMode();
     m_serializeWorkGroups = (cpuConfig.GetNumTBBWorkers() == 1);
     m_cpuMaxWGSize = cpuConfig.GetCpuMaxWGSize();
+    m_forcedWGSize = cpuConfig.GetForcedWGSize();
     m_streamingAlways = cpuConfig.GetStreamingAlways();
     m_expensiveMemOpts = cpuConfig.GetExpensiveMemOpts();
     m_useLTOLegacyPM = cpuConfig.GetUseLTOLegacyPM();

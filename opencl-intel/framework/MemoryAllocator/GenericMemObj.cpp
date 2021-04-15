@@ -1055,7 +1055,7 @@ void GenericMemObject::updateHierarchicalMemoryMode()
         vSubBuffersRegion.push_back( sub_buffer_region((size_t)(pSubBuffersList->at(i)->m_BS->GetRawData()), pSubBuffersList->at(i)->m_BS->GetRawDataSize()) );
     }
     // Sort the sub-buffers region according to origion
-    sort(vSubBuffersRegion.begin(), vSubBuffersRegion.end(), tSubBufferRegion);
+    std::sort(vSubBuffersRegion.begin(), vSubBuffersRegion.end(), tSubBufferRegion);
     bool isSwitchToNormal = true;
     // Check in the sorted vector if the next sub-buffer is in the current sub-buffer, if so --> overlapping.
     for (unsigned int i = 1; i < vSubBuffersRegion.size(); i++)

@@ -56,6 +56,21 @@
 #       NOTE: Consider increasing CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE and
 #             CL_CONFIG_CPU_FORCE_PRIVATE_MEM_SIZE if the value is large.
 #
+# CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE [size or array of size] -
+#       examples: export CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE=128
+#                 export CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE=128,1,1
+#       Force CPU to work with specified workgroup size. If this env is set,
+#       local_work_size of clEnqueueNDRangeKernel is ignored.
+#       NOTE: If array size is larger than work_dim of clEnqueueNDRangeKernel,
+#             only the first work_dim values of the array are used.
+#             If array size is smaller than work_dim, workgroup size of higher
+#             dim will be set to 1.
+#       clEnqueueNDRangeKernel returns CL_INVALID_WORK_GROUP_SIZE if
+#       * any of the first work_dim values is negative.
+#       * or any of the first work_dim values is larger than global_work_size.
+#       * or maximum of the first work_dim values is larger than query result of
+#         CL_DEVICE_MAX_WORK_GROUP_SIZE.
+#
 # CL_CONFIG_CPU_FORCE_GLOBAL_MEM_SIZE [size with units] -
 #       examples: 2GB, 512MB, 65536KB, 16777216B
 #       force CPU to work with specified global memory size, this will also affect max memory

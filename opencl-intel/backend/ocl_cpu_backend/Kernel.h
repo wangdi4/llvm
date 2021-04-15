@@ -212,7 +212,7 @@ public:
 
   // InitRunner - Prepares the kernel's implicit uniform arguments
   // Called on the device at most once per NDRange.
-  // See description of cl_uniform_kernel_args for interpreting pKernelUniformArgs.
+  // See description of UniformKernelArgs for interpreting pKernelUniformArgs.
   virtual cl_dev_err_code InitRunner(void *pKernelUniformArgs) const override;
 
   /**
@@ -232,7 +232,7 @@ public:
    * Explicit arguments should be filled by the RT\Device agent
    *   before execution
    * @param pKernelUniformArgs pointer to the Uniform arguments object to be
-   *   updated by the device backend. See description of cl_uniform_kernel_args
+   *   updated by the device backend. See description of UniformKernelArgs
    * for interpreting pKernelUniformArgs
    * @param pDevMemObjArray [internal use] pointer to the exiplicit arguments
    * @param devMemObjArrayLength [internal use] size of the array
@@ -301,7 +301,7 @@ public:
    * Calculate the local workgroup sizes if one was not specified in the input
    * work sizes
    */
-  void CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs,
+  void CreateWorkDescription(UniformKernelArgs *UniformImplicitArgs,
                              size_t numOfComputeUnits) const;
   /**
    * get RuntimeService
@@ -324,7 +324,7 @@ public:
                            size_t maxPrivateMemSize);
 
 protected:
-  void DebugPrintUniformKernelArgs(const cl_uniform_kernel_args *Arguments,
+  void DebugPrintUniformKernelArgs(const UniformKernelArgs *Arguments,
                                    size_t offsetToImplicit,
                                    std::ostream &OS) const;
   void *AllocaStack(size_t size) const;

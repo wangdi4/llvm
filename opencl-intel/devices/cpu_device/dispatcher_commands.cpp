@@ -869,7 +869,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
         }
     }
     m_pKernelArgs = pLockedParams;
-    m_pImplicitArgs = (cl_uniform_kernel_args*)(pLockedParams+pKernel->GetExplicitArgumentBufferSize());
+    m_pImplicitArgs = (UniformKernelArgs*)(pLockedParams+pKernel->GetExplicitArgumentBufferSize());
     m_pImplicitArgs->WorkDim = cmdParams->work_dim;
     m_pImplicitArgs->RuntimeInterface = static_cast<IDeviceCommandManager*>(this);
     // Copy global_offset, global_size, uniform local_work_size, and non-uniform local_work_size
@@ -881,7 +881,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
         m_pImplicitArgs->GlobalSize[i]   = cmdParams->glb_wrk_size[i];
     }
 
-    m_pImplicitArgs->minWorkGroupNum = m_numThreads;
+    m_pImplicitArgs->MinWorkGroupNum = m_numThreads;
 
     m_pRunner = pKernel->GetKernelRunner();
 #ifdef OCLDEVICE_PLUGINS
@@ -1464,7 +1464,7 @@ void DeviceNDRange::InitBlockCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevB
             "Explicit arguments buffer size is not as expected" );
 
     // We should also allocate space for the implicit arguments
-    size_t const total_size = exp_arg_size + sizeof(cl_uniform_kernel_args);
+    size_t const total_size = exp_arg_size + sizeof(UniformKernelArgs);
 
     char* pAllocatedContext = (char*)ALIGNED_MALLOC(total_size,
                                                     pKernel->GetArgumentBufferRequiredAlignment());
@@ -1571,7 +1571,7 @@ bool NativeKernelTask::Execute()
         return false;
     }
 
-    cl_uniform_kernel_args* pUnifromArgs = (cl_uniform_kernel_args*)((char*)pCmd_params->arg_values + pKernel->GetExplicitArgumentBufferSize());
+    UniformKernelArgs* pUnifromArgs = (UniformKernelArgs*)((char*)pCmd_params->arg_values + pKernel->GetExplicitArgumentBufferSize());
     pUnifromArgs->WorkDim = pCmd_params->work_dim;
     memcpy(pUnifromArgs->GlobalSize, pCmd_params->glb_wrk_size, pCmd_params->work_dim*sizeof(size_t));
 #ifndef __OMP2TBB__
