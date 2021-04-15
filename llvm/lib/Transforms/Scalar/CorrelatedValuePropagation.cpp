@@ -146,7 +146,8 @@ static bool processSelect(SelectInst *S, LazyValueInfo *LVI) {
     if (C && Cmp->getParent() == S->getParent() && isa<PHINode>(Op0) &&
         cast<PHINode>(Op0)->getParent() == S->getParent()) {
       LazyValueInfo::Tristate Result =
-          LVI->getPredicateAt(Cmp->getPredicate(), Cmp->getOperand(0), C, Cmp);
+          LVI->getPredicateAt(Cmp->getPredicate(), Cmp->getOperand(0), C, Cmp,
+                              /*UseBlockValue=*/false);
       if (Result != LazyValueInfo::Unknown) {
         Value *ReplaceWith = S->getTrueValue();
         Value *Other = S->getFalseValue();
@@ -632,8 +633,8 @@ static bool processCallSite(CallBase &CB, LazyValueInfo *LVI) {
     if (Type && !CB.paramHasAttr(ArgNo, Attribute::NonNull) &&
         !isa<Constant>(V) &&
         LVI->getPredicateAt(ICmpInst::ICMP_EQ, V,
-                            ConstantPointerNull::get(Type),
-                            &CB) == LazyValueInfo::False)
+                            ConstantPointerNull::get(Type), &CB,
+                            /*UseBlockValue=*/false) == LazyValueInfo::False)
       ArgNos.push_back(ArgNo);
     ArgNo++;
   }
@@ -654,13 +655,15 @@ static bool processCallSite(CallBase &CB, LazyValueInfo *LVI) {
 
 static bool isNonNegative(Value *V, LazyValueInfo *LVI, Instruction *CxtI) {
   Constant *Zero = ConstantInt::get(V->getType(), 0);
-  auto Result = LVI->getPredicateAt(ICmpInst::ICMP_SGE, V, Zero, CxtI);
+  auto Result = LVI->getPredicateAt(ICmpInst::ICMP_SGE, V, Zero, CxtI,
+                                    /*UseBlockValue=*/false);
   return Result == LazyValueInfo::True;
 }
 
 static bool isNonPositive(Value *V, LazyValueInfo *LVI, Instruction *CxtI) {
   Constant *Zero = ConstantInt::get(V->getType(), 0);
-  auto Result = LVI->getPredicateAt(ICmpInst::ICMP_SLE, V, Zero, CxtI);
+  auto Result = LVI->getPredicateAt(ICmpInst::ICMP_SLE, V, Zero, CxtI,
+                                    /*UseBlockValue=*/false);
   return Result == LazyValueInfo::True;
 }
 
@@ -1056,8 +1059,8 @@ static Constant *getConstantAt(Value *V, Instruction *At, LazyValueInfo *LVI) {
   Constant *Op1 = dyn_cast<Constant>(C->getOperand(1));
   if (!Op1) return nullptr;
 
-  LazyValueInfo::Tristate Result =
-    LVI->getPredicateAt(C->getPredicate(), Op0, Op1, At);
+  LazyValueInfo::Tristate Result = LVI->getPredicateAt(
+      C->getPredicate(), Op0, Op1, At, /*UseBlockValue=*/false);
   if (Result == LazyValueInfo::Unknown)
     return nullptr;
 
