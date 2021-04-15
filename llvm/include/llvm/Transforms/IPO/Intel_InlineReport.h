@@ -288,7 +288,8 @@ private:
 
 typedef MapVector<Function *, InlineReportFunction *> InlineReportFunctionMap;
 struct IRFComparator {
-  bool operator()(InlineReportFunction *IRF1, InlineReportFunction *IRF2) {
+  bool operator()(InlineReportFunction *IRF1,
+                  InlineReportFunction *IRF2) const {
     return IRF1->getName() < IRF2->getName();
   }
 };
