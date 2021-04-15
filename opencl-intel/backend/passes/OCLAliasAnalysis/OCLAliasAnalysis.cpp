@@ -228,7 +228,7 @@ AliasResult OCLAAResult::alias(const MemoryLocation &LocA,
       if (isInSpace(V1PAddressSpace, m_disjointAddressSpaces) &&
           isInSpace(V2PAddressSpace, m_disjointAddressSpaces) &&
           V1PAddressSpace != V2PAddressSpace) {
-        return NoAlias;
+        return AliasResult::NoAlias;
       }
     }
   }
