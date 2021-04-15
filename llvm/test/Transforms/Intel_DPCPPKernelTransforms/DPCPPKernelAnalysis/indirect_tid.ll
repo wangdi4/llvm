@@ -66,4 +66,4 @@ declare dso_local i32 @_Z13get_global_idj(i32)
 
 declare dso_local i32 @_Z12get_local_idj(i32)
 
-attributes #0 = { "sycl_kernel" }
+attributes #0 = { "sycl-kernel" }

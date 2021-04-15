@@ -24,7 +24,7 @@ entry:
 
 ; CHECK: @__Vectorized_.test{{.*}} #0 !kernel_arg_addr_space ![[AS:[0-9]+]]
 
-attributes #0 = { "sycl_kernel" }
+attributes #0 = { "sycl-kernel" }
 
 !0 = !{}
 

@@ -131,7 +131,7 @@ Function *PrepareKernelArgsPass::createWrapper(Function *F) {
   auto FnAttrs = F->getAttributes().getAttributes(AttributeList::FunctionIndex);
   AttrBuilder B(std::move(FnAttrs));
   NewF->addAttributes(AttributeList::FunctionIndex, B);
-  NewF->removeFnAttr("sycl_kernel");
+  NewF->removeFnAttr(KernelAttribute::SyclKernel);
   F->removeFnAttr(Attribute::NoInline);
   F->addFnAttr(Attribute::AlwaysInline);
 
@@ -193,9 +193,9 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       // If the kernel was vectorized, choose an alignment that is good for the
       // *vectorized* type. This can be good for unaligned loads on targets that
       // support instructions such as MOVUPS
-      unsigned VecSize = 1;
-      DPCPPKernelCompilationUtils::getFnAttributeInt(
-          WrappedKernel, "vectorized_width", VecSize);
+      unsigned VecSize = KernelAttribute::getAttributeAsInt(
+          *WrappedKernel, KernelAttribute::VectorizedWidth,
+          /*Default*/ 1);
       if (VecSize != 1 && VectorType::isValidElementType(EltTy))
         EltTy = FixedVectorType::get(EltTy, VecSize);
       Alignment = NextPowerOf2(DL.getTypeAllocSize(EltTy) - 1);
@@ -271,9 +271,9 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
              "Mismatch in arg found in function and expected arg type");
     switch (I) {
     case ImplicitArgsUtils::IA_SLM_BUFFER: {
-      uint64_t SLMSizeInBytes = 0;
-      DPCPPKernelCompilationUtils::getFnAttributeInt(
-          WrappedKernel, "local_buffer_size", SLMSizeInBytes);
+      uint64_t SLMSizeInBytes = KernelAttribute::getAttributeAsInt(
+          *WrappedKernel, KernelAttribute::LocalBufferSize,
+          /*Default*/ 0);
       // TODO: when SLMSizeInBytes equal 0, we might want to set dummy
       // address for debugging!
       if (SLMSizeInBytes == 0) { // no need to create of pad this buffer.
@@ -347,9 +347,9 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
     case ImplicitArgsUtils::IA_BARRIER_BUFFER: {
       // We obtain the number of bytes needed per item from the Metadata
       // which is set by the Barrier pass
-      uint64_t SizeInBytes = 0;
-      DPCPPKernelCompilationUtils::getFnAttributeInt(
-          WrappedKernel, "barrier_buffer_size", SizeInBytes);
+      uint64_t SizeInBytes = KernelAttribute::getAttributeAsInt(
+          *WrappedKernel, KernelAttribute::BarrierBufferSize,
+          /*Default*/ 0);
       // BarrierBufferSize := BytesNeededPerWI
       //                      * ((LocalSize(0) + VF - 1) / VF) * VF
       //                      * LocalSize(1) * LocalSize(2)
@@ -366,9 +366,9 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       // Work-Group is vectorized with tail here, in such cases, this action
       // may waste a little memory.
       Value *LocalSizeProd = LocalSize[0];
-      unsigned VF = 1;
-      DPCPPKernelCompilationUtils::getFnAttributeInt(WrappedKernel,
-                                                     "vectorized_width", VF);
+      unsigned VF = KernelAttribute::getAttributeAsInt(
+          *WrappedKernel, KernelAttribute::VectorizedWidth,
+          /*Default*/ 1);
       if (VF > 1) {
         Value *VFValue = ConstantInt::get(SizetTy, VF);
         Value *VFMinus1 = ConstantInt::get(SizetTy, VF - 1);
@@ -530,7 +530,7 @@ bool PrepareKernelArgsPass::runOnFunction(Function *F) {
   // a call of a device execution built-in) by ones to the wrapper
   replaceFunctionPointers(Wrapper, F);
 
-  F->addFnAttr("kernel_wrapper", Wrapper->getName());
+  F->addFnAttr(KernelAttribute::KernelWrapper, Wrapper->getName());
   // TODO move stats from original kernel to the wrapper
 
   // Inline wrapped kernel.

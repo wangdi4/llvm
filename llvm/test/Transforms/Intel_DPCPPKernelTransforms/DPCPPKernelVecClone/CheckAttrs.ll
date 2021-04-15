@@ -18,16 +18,15 @@ entry:
 ; CHECK: @_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_{{.*}}#1
 
 ; CHECK:        attributes #0 = {
-; CHECK-SAME:         "dpcpp_kernel_recommended_vector_length"="16"
-; CHECK-SAME:         "vectorized_kernel"="_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_"
-; CHECK-SAME:         "vectorized_width"="1"
+; CHECK-SAME:         "recommended-vector-length"="16"
+; CHECK-SAME:         "vectorized-kernel"="_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_"
+; CHECK-SAME:         "vectorized-width"="1"
 
 ; CHECK:        attributes #1 = {
-; CHECK-SAME:         "dpcpp_kernel_recommended_vector_length"="16"
-; CHECK-SAME:         "scalar_kernel"="_Z30ParallelForNDRangeImplKernel1DPiS_"
-; CHECK-SAME:         "vectorized_kernel"
-; CHECK-SAME:         "vectorized_width"="16"
+; CHECK-SAME:         "recommended-vector-length"="16"
+; CHECK-SAME:         "scalar-kernel"="_Z30ParallelForNDRangeImplKernel1DPiS_"
+; CHECK-SAME:         "vectorized-width"="16"
 
 declare dso_local i64 @_Z12get_local_idj(i64 %0)
 
-attributes #0 = { "sycl_kernel" "target-cpu"="skylake-avx512" "prefer-vector-width"="512" }
+attributes #0 = { "sycl-kernel" "target-cpu"="skylake-avx512" "prefer-vector-width"="512" }

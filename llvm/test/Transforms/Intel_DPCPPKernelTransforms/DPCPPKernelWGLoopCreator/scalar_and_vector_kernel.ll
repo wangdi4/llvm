@@ -117,5 +117,5 @@ entry:
   ret void
 }
 
-attributes #0 = { noinline "dpcpp-no-barrier-path"="true" "scalar_kernel" "sycl_kernel" "vectorized_kernel"="_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm" "vectorized_width"="1" }
-attributes #1 = { noinline "scalar_kernel"="_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm" "vectorized_kernel" "vectorized_width"="16" }
+attributes #0 = { noinline "no-barrier-path"="true" "scalar-kernel" "sycl-kernel" "vectorized-kernel"="_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm" "vectorized-width"="1" }
+attributes #1 = { noinline "scalar-kernel"="_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm" "vectorized-kernel" "vectorized-width"="16" }

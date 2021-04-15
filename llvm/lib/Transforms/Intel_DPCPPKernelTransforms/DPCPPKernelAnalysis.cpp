@@ -14,6 +14,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
@@ -141,11 +142,10 @@ bool DPCPPKernelAnalysisPass::runImpl(Module &M) {
 
   for (Function *Kernel : Kernels) {
     assert(Kernel && "nullptr is not expected in KernelList!");
-    if (UnsupportedFuncs.count(Kernel)) {
-      Kernel->addFnAttr(NO_BARRIER_PATH_ATTRNAME, "false");
-    } else {
-      Kernel->addFnAttr(NO_BARRIER_PATH_ATTRNAME, "true");
-    }
+    if (UnsupportedFuncs.count(Kernel))
+      Kernel->addFnAttr(KernelAttribute::NoBarrierPath, "false");
+    else
+      Kernel->addFnAttr(KernelAttribute::NoBarrierPath, "true");
   }
 
   return (Kernels.size() != 0);
@@ -162,15 +162,8 @@ void DPCPPKernelAnalysisPass::print(raw_ostream &OS, const Module *M) const {
 
     std::string FuncName = Kernel->getName().str();
 
-    assert(Kernel->hasFnAttribute(NO_BARRIER_PATH_ATTRNAME) &&
-           "DPCPPKernelAnalysisPass: " NO_BARRIER_PATH_ATTRNAME
-           " has to be set!");
-    StringRef Value =
-        Kernel->getFnAttribute(NO_BARRIER_PATH_ATTRNAME).getValueAsString();
-    assert((Value == "true" || Value == "false") &&
-           "DPCPPKernelAnalysisPass: unexpected " NO_BARRIER_PATH_ATTRNAME
-           " value!");
-    bool NoBarrierPath = Value == "true" ? true : false;
+    bool NoBarrierPath = KernelAttribute::getAttributeAsBool(
+        *Kernel, KernelAttribute::NoBarrierPath);
 
     if (NoBarrierPath) {
       OS << FuncName << " yes\n";

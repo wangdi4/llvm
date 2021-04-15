@@ -14,6 +14,6 @@ define void @__test_if_separated_args() #0 {
 define void @test_if() #1 {
   ret void
 }
-
-attributes #0 = { alwaysinline "kernel_wrapper"="test_if" "sycl_kernel"}
+;; TODO: replace "kernel_wrapper" with "kernel-wrapper"
+attributes #0 = { alwaysinline "kernel_wrapper"="test_if" "sycl-kernel"}
 attributes #1 = { noinline }

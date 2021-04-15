@@ -25,8 +25,6 @@
 #define CLK_LOCAL_MEM_FENCE 0x01
 #define GET_SPECIAL_BUFFER "get_special_buffer."
 
-#define NO_BARRIER_PATH_ATTRNAME "dpcpp-no-barrier-path"
-
 namespace llvm {
 
 typedef enum {
@@ -167,8 +165,9 @@ public:
   /// KernelList - list of kernels,
   /// M - Module,
   /// Returns List - out list with collected functions.
-  static FuncVector getAllKernelsAndVectorizedCounterparts(
-      const SmallVectorImpl<Function *> &KernelList, Module *M);
+  static FuncVector
+  getAllKernelsAndVectorizedCounterparts(ArrayRef<Function *> KernelList,
+                                         Module *M);
 
 private:
   /// Clean all collected values and assure

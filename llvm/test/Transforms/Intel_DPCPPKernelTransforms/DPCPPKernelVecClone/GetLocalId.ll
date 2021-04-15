@@ -43,4 +43,4 @@ entry:
 
 declare dso_local i64 @_Z12get_local_idj(i64 %0)
 
-attributes #0 = { "prefer-vector-width"="512" "sycl_kernel" "target-cpu"="skylake-avx512" }
+attributes #0 = { "prefer-vector-width"="512" "sycl-kernel" "target-cpu"="skylake-avx512" }

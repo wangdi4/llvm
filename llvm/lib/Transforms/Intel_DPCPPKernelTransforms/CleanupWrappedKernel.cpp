@@ -36,7 +36,7 @@ bool runImpl(Module &M) {
   auto Kernels = DPCPPKernelCompilationUtils::getAllKernels(M);
   for (auto *Kernel : Kernels) {
     // If a kernel is wrapped - delete its body
-    if (Kernel->hasFnAttribute("kernel_wrapper")) {
+    if (Kernel->hasFnAttribute(KernelAttribute::KernelWrapper)) {
       Kernel->eraseMetadata(LLVMContext::MD_dbg);
       Kernel->eraseMetadata(LLVMContext::MD_prof);
       SmallVector<std::pair<unsigned, MDNode *>, 8> MDs;

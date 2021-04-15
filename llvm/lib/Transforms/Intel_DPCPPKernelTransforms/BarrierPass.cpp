@@ -123,7 +123,7 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
       if (!CI)
         continue;
       // Skip non-kernel calls.
-      if (!(CI->getFunction()->hasFnAttribute("sycl_kernel")))
+      if (!CI->getFunction()->hasFnAttribute(KernelAttribute::SyclKernel))
         continue;
       // Handle call instruction operands and return value, if needed.
       fixCallInstruction(CI);
@@ -235,7 +235,7 @@ void KernelBarrier::fixSynclessTIDUsers(Module &M,
   // instructions.
   for (unsigned WorkListIdx = 0; WorkListIdx < Worklist.size(); ++WorkListIdx) {
     Function *CalledF = Worklist[WorkListIdx];
-    for (auto *U :  CalledF->users()) {
+    for (auto *U : CalledF->users()) {
       // OCL2.0. handle constant expression with bitcast of function pointer.
       if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
         if ((CE->getOpcode() == Instruction::BitCast ||
@@ -660,7 +660,7 @@ void KernelBarrier::fixSpecialValues() {
       VectorType *VecType = dyn_cast<VectorType>(Inst->getType());
       if (VecType) {
         TypeInSP = FixedVectorType::get(IntegerType::get(*Context, 32),
-                                    VecType->getNumElements());
+                                        VecType->getNumElements());
       } else {
         TypeInSP = IntegerType::get(*Context, 32);
       }
@@ -759,9 +759,8 @@ void KernelBarrier::fixCrossBarrierValues(Instruction *InsertBefore) {
       NextInst = NextInst->getParent()->getFirstNonPHI();
     }
     // Create alloca of value type at begining of function.
-    AllocaInst *AI =
-        new AllocaInst(Inst->getType(), DL->getAllocaAddrSpace(),
-                       Inst->getName(), InsertBefore);
+    AllocaInst *AI = new AllocaInst(Inst->getType(), DL->getAllocaAddrSpace(),
+                                    Inst->getName(), InsertBefore);
     // Add Store instruction after the value instruction.
     StoreInst *SI = new StoreInst(Inst, AI, NextInst);
     SI->setDebugLoc(Inst->getDebugLoc());
@@ -792,8 +791,7 @@ void KernelBarrier::fixCrossBarrierValues(Instruction *InsertBefore) {
       }
       // Calculate the pointer of the current special in the special buffer.
       Instruction *LoadedValue =
-          new LoadInst(AI->getAllocatedType(), AI,
-                       "loadedValue", InsertBefore);
+          new LoadInst(AI->getAllocatedType(), AI, "loadedValue", InsertBefore);
       LoadedValue->setDebugLoc(UserInst->getDebugLoc());
       // Replace the use of old value with the new loaded value from special
       // buffer.
@@ -970,8 +968,7 @@ void KernelBarrier::replaceSyncInstructions() {
     SyncType SyncTy = DPB->getSyncType(Inst);
     BasicBlock *SyncBB = Inst->getParent();
     BasicBlock *PreSyncBB = PreSyncLoopHeader[SyncBB];
-    assert(PreSyncBB &&
-           "SyncBB assumed to have sync loop header basic block!");
+    assert(PreSyncBB && "SyncBB assumed to have sync loop header basic block!");
     if (SyncTypeDummyBarrier == SyncTy) {
       // This is a dummy barrier replace with the following
       // LocalId = 0
@@ -1061,8 +1058,8 @@ void KernelBarrier::createBarrierKeyValues(Function *Func,
   unsigned int StructureSize = DPV->getStrideSize(Func);
   BarrierKeyValuesPtr->StructureSizeValue =
       ConstantInt::get(SizeTTy, APInt(SizeT, StructureSize));
-  BarrierKeyValuesPtr->CurrentVectorizedWidthValue = ConstantInt::get(
-      SizeTTy, BarrierUtils.getKernelVectorizationWidth(Func));
+  BarrierKeyValuesPtr->CurrentVectorizedWidthValue =
+      ConstantInt::get(SizeTTy, BarrierUtils.getKernelVectorizationWidth(Func));
 }
 
 void KernelBarrier::getBarrierKeyValues(Function *Func) {
@@ -1102,7 +1099,8 @@ Value *KernelBarrier::getAddressInSpecialBuffer(unsigned int Offset,
   IRBuilder<> B(InsertBefore);
   if (DB)
     B.SetCurrentDebugLocation(*DB);
-  // Calculate the pointer of the given offset for LocalId in the special buffer.
+  // Calculate the pointer of the given offset for LocalId in the special
+  // buffer.
   Value *CurrSB = createGetCurrSBIndex(B);
   CurrSB = B.CreateNUWAdd(CurrSB, OffsetVal, "SB_LocalId_Offset");
   Value *Idxs[1] = {CurrSB};
@@ -1146,8 +1144,8 @@ Instruction *KernelBarrier::createOOBCheckGetLocalId(CallInst *Call) {
     IRBuilder<> B(Block);
     ConstantInt *MaxWorkDimI32 =
         ConstantInt::get(*Context, APInt(32U, uint64_t(MaxNumDims), false));
-    Value *CheckIndex = B.CreateICmpULT(
-        Call->getArgOperand(0), MaxWorkDimI32, "check.index.inbound");
+    Value *CheckIndex = B.CreateICmpULT(Call->getArgOperand(0), MaxWorkDimI32,
+                                        "check.index.inbound");
     B.CreateCondBr(CheckIndex, GetWIProperties, SplitContinue);
   }
 
@@ -1337,8 +1335,8 @@ void KernelBarrier::fixArgumentUsage(Value *OriginalArg,
     Value *AddrInSpecialBuffer =
         getAddressInSpecialBuffer(OffsetArg, PtrTy, InsertBefore, nullptr);
     Value *LoadedValue =
-        new LoadInst(OriginalArg->getType(), AddrInSpecialBuffer,
-                     "loadedValue", InsertBefore);
+        new LoadInst(OriginalArg->getType(), AddrInSpecialBuffer, "loadedValue",
+                     InsertBefore);
     UserInst->replaceUsesOfWith(OriginalArg, LoadedValue);
   }
 }
@@ -1399,8 +1397,7 @@ void KernelBarrier::fixCallInstruction(CallInst *CallToFix) {
         getAddressInSpecialBuffer(Offset, PtrTy, InsertBefore, &DB);
     // Add Store instruction before the synchronize instruction (in the pre
     // basic block).
-    StoreInst *SI =
-        new StoreInst(OpVal, AddrInSpecialBuffer, InsertBefore);
+    StoreInst *SI = new StoreInst(OpVal, AddrInSpecialBuffer, InsertBefore);
     SI->setDebugLoc(DB);
   }
   // Check if return value has usages.
@@ -1443,8 +1440,7 @@ void KernelBarrier::fixCallInstruction(CallInst *CallToFix) {
     Value *AddrInSpecialBuffer =
         getAddressInSpecialBuffer(OffsetRet, PtrTy, NextInst, &DB);
     // Add Store instruction to special buffer at return value offset.
-    StoreInst *SI =
-        new StoreInst(LoadedValue, AddrInSpecialBuffer, NextInst);
+    StoreInst *SI = new StoreInst(LoadedValue, AddrInSpecialBuffer, NextInst);
     SI->setDebugLoc(DB);
   } else {
     CallToFix->replaceAllUsesWith(LoadedValue);
@@ -1485,8 +1481,7 @@ static unsigned getPrivateSize(Function *Func, const CallGraph &CG,
                                 FnPrivSize, FnsWithSync));
   }
   FnPrivSize[Func] =
-      MaxSubPrivSize +
-      (AddrAllocaSize.count(Func) ? AddrAllocaSize[Func] : 0) +
+      MaxSubPrivSize + (AddrAllocaSize.count(Func) ? AddrAllocaSize[Func] : 0) +
       (FnsWithSync.count(Func) ? 0 : DataPerVal->getStrideSize(Func));
 
   return FnPrivSize[Func];
@@ -1496,30 +1491,16 @@ void KernelBarrier::updateStructureStride(Module &M,
                                           FuncSet &FunctionsWithSync) {
   // Collect functions to process.
   CallGraph CG{M};
-  FuncVector KernelList;
 
-  for (auto &F : M) {
-    if (F.hasFnAttribute("sycl_kernel"))
-      KernelList.push_back(&F);
-  }
   llvm::DenseMap<Function *, unsigned> FuncToPrivSize;
-  auto TodoList =
-      DPCPPKernelBarrierUtils::getAllKernelsAndVectorizedCounterparts(
-          KernelList, &M);
+  auto TodoList = DPCPPKernelCompilationUtils::getAllKernels(M);
 
   // Get the kernels using the barrier for work group loops.
-  for (auto Func : TodoList) {
+  for (auto *Func : TodoList) {
     // Need to check if Vectorized Width Value exists, it is not guaranteed
     // that Vectorized is running in all scenarios.
-    int VecWidth = 1;
-    if (Func->hasFnAttribute("vectorized_width")) {
-      bool Res = to_integer(
-          Func->getFnAttribute("vectorized_width").getValueAsString(),
-          VecWidth);
-      // Silence warning to avoid an extra call.
-      (void)Res;
-      assert(Res && "vectorized_width has to have a numeric value");
-    }
+    auto VecWidth = KernelAttribute::getAttributeAsInt(
+        *Func, KernelAttribute::VectorizedWidth, /*Default*/ 1);
     unsigned int StrideSize = DPV->getStrideSize(Func);
     assert(VecWidth && "VecWidth should not be 0!");
     StrideSize = (StrideSize + VecWidth - 1) / VecWidth;
@@ -1534,25 +1515,21 @@ void KernelBarrier::updateStructureStride(Module &M,
     // doesn't depend on non-uniform values) the private memory query returns a
     // smaller value than actual private memory usage. This subtle is taken into
     // account in the query for the maximum work-group.
-    bool NoBarrierPath = false;
-    if (Func->hasFnAttribute(NO_BARRIER_PATH_ATTRNAME)) {
-      StringRef Value =
-          Func->getFnAttribute(NO_BARRIER_PATH_ATTRNAME).getValueAsString();
-      assert((Value == "true" || Value == "false") &&
-             "Barrier: unexpected " NO_BARRIER_PATH_ATTRNAME " value!");
-      NoBarrierPath = Value == "true" ? true : false;
-    }
+    bool NoBarrierPath = KernelAttribute::getAttributeAsBool(
+        *Func, KernelAttribute::NoBarrierPath, /*Default*/ false);
     if (NoBarrierPath) {
-      Func->addFnAttr("barrier_buffer_size", utostr(0));
+      Func->addFnAttr(KernelAttribute::BarrierBufferSize, utostr(0));
       // if there are no barrier in the kernel, strideSize is the kernel
       // body's private memory usage. So need to add sub-function's memory size.
-      Func->addFnAttr("private_memory_size", utostr(StrideSize + PrivateSize -
-                                                    DPV->getStrideSize(Func)));
+      Func->addFnAttr(
+          KernelAttribute::PrivateMemorySize,
+          utostr(StrideSize + PrivateSize - DPV->getStrideSize(Func)));
     } else {
-      Func->addFnAttr("barrier_buffer_size", utostr(StrideSize));
+      Func->addFnAttr(KernelAttribute::BarrierBufferSize, utostr(StrideSize));
       // if there are some barriers in the kernel, stiderSize is barrier
       // buffer size. So need to add non barrier private memory.
-      Func->addFnAttr("private_memory_size", utostr(StrideSize + PrivateSize));
+      Func->addFnAttr(KernelAttribute::PrivateMemorySize,
+                      utostr(StrideSize + PrivateSize));
     }
   }
 }

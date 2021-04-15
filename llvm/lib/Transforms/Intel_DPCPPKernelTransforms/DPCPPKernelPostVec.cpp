@@ -52,14 +52,15 @@ bool DPCPPKernelPostVec::runOnModule(Module &M) {
 
   bool ModifiedModule = false;
   for (Function *F : Kernels) {
-    // Remove "dpcpp_kernel_recommended_vector_length" attribute.
-    F->removeFnAttr("dpcpp_kernel_recommended_vector_length");
+    // Remove "recommended-vector-length" attribute.
+    F->removeFnAttr(KernelAttribute::RecommendedVL);
 
-    Function *ClonedKernel = M.getFunction(
-        F->getFnAttribute("vectorized_kernel").getValueAsString());
+    Function *ClonedKernel =
+        DPCPPKernelCompilationUtils::getFnAttributeFunction(
+            M, *F, KernelAttribute::VectorizedKernel);
     if (ClonedKernel && !isKernelVectorized(ClonedKernel)) {
       // Unset the metadata of the original kernel.
-      F->removeFnAttr("vectorized_kernel");
+      F->removeFnAttr(KernelAttribute::VectorizedKernel);
       // If the kernel is not vectorized, then the cloned kernel is removed.
       ClonedKernel->eraseFromParent();
       ModifiedModule = true;

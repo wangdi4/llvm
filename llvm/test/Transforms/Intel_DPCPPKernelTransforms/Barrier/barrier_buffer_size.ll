@@ -59,9 +59,9 @@ declare void @_Z18work_group_barrierj(i32)
 declare i64 @_Z12get_local_idj(i32)
 declare void @barrier_dummy()
 
-; CHECK:      #[[SCAL]]{{.*}}"barrier_buffer_size"="24"
-; CHECK-NEXT: #[[VEC]]{{.*}}"barrier_buffer_size"="2"
+; CHECK:      #[[SCAL]]{{.*}}"barrier-buffer-size"="24"
+; CHECK-NEXT: #[[VEC]]{{.*}}"barrier-buffer-size"="2"
 
-attributes #0 = { "dpcpp-no-barrier-path"="false" "sycl_kernel" "vectorized_kernel"="__Vectorized_.main" }
-attributes #1 = { "vectorized_width"="16" }
+attributes #0 = { "no-barrier-path"="false" "sycl-kernel" "vectorized-kernel"="__Vectorized_.main" }
+attributes #1 = { "vectorized-width"="16" }
 

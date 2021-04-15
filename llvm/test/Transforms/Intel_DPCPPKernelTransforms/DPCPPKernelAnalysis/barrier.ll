@@ -52,6 +52,6 @@ entry:
 
 declare void @_Z18work_group_barrierj(i32 %0) #1
 
-attributes #0 = { "sycl_kernel" }
+attributes #0 = { "sycl-kernel" }
 attributes #1 = { convergent }
 

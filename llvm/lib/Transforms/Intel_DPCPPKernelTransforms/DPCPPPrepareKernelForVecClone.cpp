@@ -37,6 +37,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 #include <string>
 
@@ -100,10 +101,10 @@ void DPCPPPrepareKernelForVecClone::createEncodingForVectorVariants(
   }
 
   std::string Buffer;
-  if (Fn->hasFnAttribute("vector-variants")) {
-    llvm::Attribute Attr = Fn->getFnAttribute("vector-variants");
-    Buffer = Attr.getValueAsString().str();
-  }
+  if (Fn->hasFnAttribute(KernelAttribute::VectorVariants))
+    Buffer = KernelAttribute::getAttributeAsString(
+                 *Fn, KernelAttribute::VectorVariants)
+                 .str();
   llvm::raw_string_ostream Out(Buffer);
 
   for (auto Mask : Masked) {
@@ -141,7 +142,7 @@ void DPCPPPrepareKernelForVecClone::createEncodingForVectorVariants(
     Out.flush();
   }
 
-  Fn->addFnAttr("vector-variants", Out.str());
+  Fn->addFnAttr(KernelAttribute::VectorVariants, Out.str());
 }
 
 // For each kernel, it creates vector-variant attributes which are needed to
@@ -154,7 +155,7 @@ void DPCPPPrepareKernelForVecClone::addVectorVariantAttrsToKernel() {
       TTI.getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector) / 32;
   LLVM_DEBUG(dbgs() << "VectorLength: " << VectorLength << '\n';);
 
-  F->addFnAttr("dpcpp_kernel_recommended_vector_length", utostr(VectorLength));
+  F->addFnAttr(KernelAttribute::RecommendedVL, utostr(VectorLength));
 
   // Use "uniform" parameter for all arguments.
   SmallVector<ParamAttrTy, 4> ParamsVec;

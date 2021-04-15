@@ -155,7 +155,7 @@ void DPCPPEqualizerPass::setBlockLiteralSizeMetadata(Function &F) {
         llvm_unreachable("Unexpected instruction");
       }
 
-      F.addFnAttr("block-literal-size", utostr(BlockSize));
+      F.addFnAttr(KernelAttribute::BlockLiteralSize, utostr(BlockSize));
       return;
     }
   }
@@ -178,7 +178,7 @@ void DPCPPEqualizerPass::formKernelsMetadata(Module &M) {
       setBlockLiteralSizeMetadata(F);
     }
 
-    F.addFnAttr("sycl_kernel");
+    F.addFnAttr(KernelAttribute::SyclKernel);
   }
 }
 

@@ -114,7 +114,7 @@ declare void @barrier_dummy()
 
 attributes #0 = { convergent noinline "kernel-call-once" "kernel-convergent-call" }
 attributes #1 = { convergent "kernel-call-once" "kernel-convergent-call" }
-attributes #2 = { convergent noinline "sycl_kernel" "kernel-call-once" "kernel-convergent-call" }
+attributes #2 = { convergent noinline "sycl-kernel" "kernel-call-once" "kernel-convergent-call" }
 attributes #3 = { convergent readnone }
 attributes #4 = { convergent "kernel-call-once" "kernel-convergent-call" }
 attributes #5 = { convergent nounwind readnone }

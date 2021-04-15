@@ -66,7 +66,7 @@ entry:
   ret void
 }
 
-attributes #0 = { "sycl_kernel" }
+attributes #0 = { "sycl-kernel" }
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast

@@ -22,4 +22,4 @@ define void @main(i32 %x) #0 {
 ; CHECK: ret
 }
 
-attributes #0 = { "dpcpp-no-barrier-path"="false" "sycl_kernel" }
+attributes #0 = { "no-barrier-path"="false" "sycl-kernel" }

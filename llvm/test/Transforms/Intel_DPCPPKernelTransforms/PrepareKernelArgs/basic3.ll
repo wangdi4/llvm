@@ -68,4 +68,4 @@ define void @A(<4 x i8> %c, <4 x i8> %uc, <4 x i16> %s, <4 x i16> %us, <4 x i32>
 ; CHECK-NEXT: %pSpecialBuf = alloca i8, i64 %BarrierBufferSize, align 128
 ; CHECK-NEXT: ret void
 
-attributes #0 = { "sycl_kernel" }
+attributes #0 = { "sycl-kernel" }

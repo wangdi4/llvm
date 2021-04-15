@@ -45,5 +45,5 @@ define void @foo(i32 %x) {
 
 declare void @_Z18work_group_barrierj(i32)
 
-attributes #0 = { "dpcpp-no-barrier-path"="false" "sycl_kernel" }
-attributes #1 = { "dpcpp-no-barrier-path"="false" }
+attributes #0 = { "no-barrier-path"="false" "sycl-kernel" }
+attributes #1 = { "no-barrier-path"="false" }

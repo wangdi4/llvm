@@ -30,4 +30,4 @@ unreachable.exit:                                 ; No predecessors!
 
 declare void @_Z18work_group_barrierj(i32)
 
-attributes #1 = { "dpcpp-no-barrier-path"="false" }
+attributes #1 = { "no-barrier-path"="false" }
