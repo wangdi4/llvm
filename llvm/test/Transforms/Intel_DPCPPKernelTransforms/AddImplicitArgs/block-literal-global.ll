@@ -3,6 +3,8 @@
 ; Issue tested: previously kernelBlock_block_invoke was renamed to
 ;               kernelBlock_block_invoke_before.AddImplicitArgs in bitcast.
 
+; RUN: opt -dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
 
@@ -22,3 +24,5 @@ entry:
   %mul = mul nsw i32 %num, 5
   ret i32 %mul
 }
+
+; DEBUGIFY-NOT: WARNING

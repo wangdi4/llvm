@@ -1,3 +1,5 @@
+; RUN: opt -dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
 
@@ -32,3 +34,5 @@ entry:
 ; CHECK-NEXT:   call void @functionWithoutArgs()
 ; CHECK-NEXT:   %res = call i32 @functionWithArgs(i32 %x, i32 %y)
 ; CHECK-NEXT:   ret i32 %res
+
+; DEBUGIFY-NOT: WARNING

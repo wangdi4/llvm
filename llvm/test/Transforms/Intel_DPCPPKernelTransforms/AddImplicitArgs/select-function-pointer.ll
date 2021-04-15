@@ -1,3 +1,5 @@
+; RUN: opt -dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
 
@@ -65,3 +67,13 @@ entry:
 }
 
 attributes #0 = { "sycl_kernel" }
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} getelementptr
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} getelementptr
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
+; DEBUGIFY-NOT: WARNING

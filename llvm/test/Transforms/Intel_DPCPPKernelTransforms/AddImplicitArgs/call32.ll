@@ -1,3 +1,5 @@
+; RUN: opt -dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: opt -dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
 ; RUN: opt -passes=dpcpp-kernel-add-implicit-args %s -S | FileCheck %s
 
@@ -77,3 +79,7 @@ entry:
 ; CHECK-NEXT:   ret i32 [[VAR2]]
 
 ; CHECK: attributes #0 = { nounwind }
+
+; DEBUGIFY: Instruction with empty DebugLoc in function {{.*}} getelementptr
+; DEBUGIFY-NEXT: Instruction with empty DebugLoc in function {{.*}} getelementptr
+; DEBUGIFY-NOT: WARNING
