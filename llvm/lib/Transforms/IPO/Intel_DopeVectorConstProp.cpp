@@ -1,6 +1,6 @@
 //===------- Intel_DopeVectorConstProp.cpp --------------------------------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -22,14 +22,20 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 
 using namespace dvanalysis;
 
 #define DEBUG_TYPE "dopevectorconstprop"
+#define DEBUG_GLOBAL_CONSTPROP "dope-vector-global-const-prop"
 
 STATISTIC(NumFormalsDVConstProp, "Number of DV formals const propagated");
+
+// Enable the global dope vector constant propagation
+static cl::opt<bool> DVGlobalConstProp("dope-vector-global-const-prop",
+                                 cl::init(false), cl::ReallyHidden);
 
 //
 // Return 'true' if the formal argument 'Arg' of Function 'F' is a pointer
@@ -189,8 +195,8 @@ static bool replaceDopeVectorConstants(Argument &Arg,
     bool Change = false;
     // Find the GEP accessing the array of lower bounds, strides, and extents
     // in the dope vector.
-    auto DVFT = DVAFormal.identifyDopeVectorField(*GEP);
-    if (DVFT != DopeVectorAnalyzer::DV_PerDimensionArray) {
+    auto DVFT = DVAFormal.identifyDopeVectorField(*(cast<GEPOperator>(GEP)));
+    if (DVFT != DopeVectorFieldType::DV_PerDimensionArray) {
       LLVM_DEBUG(dbgs() << "COULD NOT FIND PER DIMENSION ARRAY\n");
       return Change;
     }
@@ -273,7 +279,99 @@ static bool replaceDopeVectorConstants(Argument &Arg,
   return Change;
 }
 
-static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo) {
+// Return true if the input CallBase is a call to a function that allocates
+// a space in memory (e.g. for_alloc_allocate_handle)
+static bool isCallToAllocFunction(CallBase *Call,
+    std::function<const TargetLibraryInfo &(Function &F)> GetTLI) {
+
+  if (!Call || !Call->getCalledFunction())
+    return false;
+
+  Function *F = Call->getCalledFunction();
+
+  LibFunc TheLibFunc;
+  const TargetLibraryInfo &TLI = GetTLI(*const_cast<Function *>(F));
+  if (TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc)) {
+    // TODO: We may want to expand this in the future for other forms of
+    // alloc
+    switch (TheLibFunc) {
+      case LibFunc_for_allocate_handle:
+      case LibFunc_for_alloc_allocatable_handle:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  return false;
+}
+
+// Traverse through the global variables, and collect the information for
+// those globals that are dope vectors.
+static void collectDopeVectorGlobals(Module &M, const DataLayout &DL,
+    std::function<const TargetLibraryInfo &(Function &F)> GetTLI) {
+
+  if (!DVGlobalConstProp)
+    return;
+
+  for (auto &Glob : M.globals()) {
+
+    bool AllocSiteFound = false;
+    Type *GlobType = Glob.getValueType();
+
+    if (!isDopeVectorType(GlobType, DL))
+      continue;
+
+    GlobalDopeVector GlobDV(&Glob, GlobType);
+    for (auto *U : Glob.users()) {
+      if (auto *BC = dyn_cast<BitCastOperator>(U)) {
+        // The BitCast should only be used for data allocation and
+        // should happen only once
+        if (!BC->hasOneUser() || AllocSiteFound) {
+          GlobDV.getGlobalDopeVectorInfo()->setAllocSite(nullptr);
+          break;
+        }
+
+        CallBase *Call = dyn_cast<CallBase>(BC->user_back());
+        if (!Call || !isCallToAllocFunction(Call, GetTLI)) {
+          GlobDV.getGlobalDopeVectorInfo()->setAllocSite(nullptr);
+          break;
+        }
+
+        AllocSiteFound = true;
+        GlobDV.getGlobalDopeVectorInfo()->setAllocSite(Call);
+      } else if (auto *GEP = dyn_cast<GEPOperator>(U)) {
+
+        // The fields of the global dope vector are accessed through
+        // a GEPOperator
+        if (!GlobDV.collectAndAnalyzeGlobalDopeVectorField(GEP)) {
+          GlobDV.getGlobalDopeVectorInfo()->setAllocSite(nullptr);
+          break;
+        }
+      } else {
+        // Any other use is invalid
+        GlobDV.getGlobalDopeVectorInfo()->setAllocSite(nullptr);
+        break;
+      }
+    }
+
+    // Make sure that none of the fields the in the dope vector are
+    // set to bottom
+    GlobDV.getGlobalDopeVectorInfo()->validateDopeVector();
+
+    // Collect any information related to the nested dope vectors
+    GlobDV.collectNestedDopeVectors(DL);
+
+    DEBUG_WITH_TYPE(DEBUG_GLOBAL_CONSTPROP, {
+      GlobDV.print();
+      dbgs() << "\n";
+    });
+  }
+
+}
+
+static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
+    std::function<const TargetLibraryInfo &(Function &F)> GetTLI) {
 
   // Return 'true' if not all of 'F's uses are CallBase.
   auto HasNonCallBaseUser = [](Function &F) -> bool {
@@ -296,6 +394,10 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo) {
 
   bool Change = false;
   const DataLayout &DL = M.getDataLayout();
+
+  // Collect the information related to the global dope vectors
+  collectDopeVectorGlobals(M, DL, GetTLI);
+
   for (auto &F : M.functions()) {
     // Cases we will give up on, at least for now.
     if (!F.hasLocalLinkage()) {
@@ -382,6 +484,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<WholeProgramWrapperPass>();
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
   }
@@ -390,7 +493,10 @@ public:
     if (skipModule(M))
       return false;
     auto WPInfo = getAnalysis<WholeProgramWrapperPass>().getResult();
-    return DopeVectorConstPropImpl(M, WPInfo);
+    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
+    return DopeVectorConstPropImpl(M, WPInfo, GetTLI);
   }
 };
 
@@ -400,6 +506,7 @@ char DopeVectorConstPropLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(DopeVectorConstPropLegacyPass, "dopevectorconstprop",
     "DopeVectorConstProp", false, false)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(DopeVectorConstPropLegacyPass, "dopevectorconstprop",
     "DopeVectorConstProp", false, false)
 
@@ -412,7 +519,11 @@ DopeVectorConstPropPass::DopeVectorConstPropPass(void) {}
 PreservedAnalyses DopeVectorConstPropPass::run(Module &M,
                                                ModuleAnalysisManager &AM) {
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
-  if (!DopeVectorConstPropImpl(M, WPInfo))
+  auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
+    return FAM.getResult<TargetLibraryAnalysis>(F);
+  };
+  if (!DopeVectorConstPropImpl(M, WPInfo, GetTLI))
     return PreservedAnalyses::all();
   auto PA = PreservedAnalyses();
   PA.preserve<AndersensAA>();

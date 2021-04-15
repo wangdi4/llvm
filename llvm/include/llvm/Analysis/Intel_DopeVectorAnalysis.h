@@ -1,6 +1,6 @@
 //===------- Intel_DopeVectorAnalysis.h -----------------------------------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -13,6 +13,7 @@
 #ifndef LLVM_ANALYSIS_INTELDOPEVECTORANALYSIS_H
 #define LLVM_ANALYSIS_INTELDOPEVECTORANALYSIS_H
 
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/PatternMatch.h"
@@ -32,6 +33,28 @@ const unsigned RankOpNum = 0;
 const unsigned LBOpNum = 1;
 const unsigned StrideOpNum = 2;
 const unsigned PtrOpNum = 3;
+
+// Enumeration fields related to dope vectors. The first 7 items in this
+// list correspond exactly to the field layout of the corresponding dope
+// vector fields, and correspond to GEP indices. Do not re-order these because
+// we directly map GEP index values to them.
+enum DopeVectorFieldType {
+  DV_ArrayPtr = 0, // Pointer to array
+  DV_ElementSize,  // size of one element of array
+  DV_Codim,        // number of co-dimensions
+  DV_Flags,        // flag bits
+  DV_Dimensions,   // Number of dimensions
+  DV_Reserved,
+  DV_PerDimensionArray, // Array of structures {extent, stride, lower bound}
+                        // for
+                        //  each dimension
+  // The following field types are indices used to represent the extent,
+  // stride or lower bound components for the variable-sized block array
+  DV_ExtentBase,
+  DV_StrideBase,
+  DV_LowerBoundBase,
+  DV_Invalid // End of enumeration
+};
 
 // Type to store a Function and an argument number
 using FuncArgPosPair = std::pair<Function *, unsigned int>;
@@ -54,7 +77,7 @@ using UplevelDVField = std::pair<Value *, uint64_t>;
 
 // Helper routine for checking and getting a constant integer from a GEP
 // operand. If the value is not a constant, returns an empty object.
-extern Optional<uint64_t> getConstGEPIndex(const GetElementPtrInst &GEP,
+extern Optional<uint64_t> getConstGEPIndex(const GEPOperator &GEP,
                                            unsigned int OpNum);
 
 // Helper routine to get the argument index corresponding to \p Val within the
@@ -116,11 +139,12 @@ public:
   using LoadInstSetIter = LoadInstSet::const_iterator;
 
   // Normally, we expect at most 1 store instruction
-       using StoreInstSet = SmallPtrSet<StoreInst *, 1>;
+  using StoreInstSet = SmallPtrSet<StoreInst *, 1>;
   using StoreInstSetIter = StoreInstSet::const_iterator;
 
   DopeVectorFieldUse()
-      : IsBottom(false), IsRead(false), IsWritten(false), FieldAddr(nullptr) {}
+      : IsBottom(false), IsRead(false), IsWritten(false), FieldAddr(nullptr),
+        ConstantValue(nullptr) {}
 
   DopeVectorFieldUse(const DopeVectorFieldUse &) = delete;
   DopeVectorFieldUse(DopeVectorFieldUse &&) = default;
@@ -141,7 +165,7 @@ public:
     // If we already saw an object that holds a pointer to the field address,
     // then we go to bottom since we only expect a single Value object to hold
     // the address for the entire function being analyzed.
-    if (FieldAddr)
+    if (FieldAddr && V != FieldAddr)
       IsBottom = true;
     FieldAddr = V;
   }
@@ -162,6 +186,23 @@ public:
   // Collect the load and store instructions that use the field address. Set the
   // field to Bottom if there are any unsupported uses.
   void analyzeUses();
+
+  // Collect the load and store instructions that access the field address
+  // through a subscript.
+  void analyzeSubscriptsUses();
+
+  // Insert a subscript instruction that will be processed by
+  // analyzeSubscriptsUses
+  void collectSubscriptInformation(SubscriptInst *I,
+                                   DopeVectorFieldType FieldType,
+                                   unsigned long DVRank);
+
+  // Return the constant value collected
+  ConstantInt *getConstantValue() { return ConstantValue; }
+
+  // Analyze the store instructions collected to identify the possible constant
+  // value for the current field
+  void identifyConstantValue();
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
@@ -184,6 +225,16 @@ private:
   // Set of locations the field is loaded. This will be used for examining the
   // usage for profitability heuristics and safety checks.
   LoadInstSet Loads;
+
+  // Store the subscripts that access the extent, stride or lower bound
+  SubscriptInstSet Subscripts;
+
+  // Constant value collected for the current field
+  ConstantInt *ConstantValue;
+
+  // Return true if the input value V is a load instruction, or a store
+  // instruction where the pointer operand is Pointer.
+  bool analyzeLoadOrStoreInstruction(Value *V, Value *Pointer);
 };
 
 // This class is for analyzing the uses of all the fields that make up a dope
@@ -210,29 +261,6 @@ private:
 // what values are stored, or whether the DV object is read-only.
 class DopeVectorAnalyzer {
 public:
-  // Enumeration fields related to dope vectors. The first 7 items in this
-  // list correspond exactly to the field layout of the corresponding dope
-  // vector fields, and correspond to GEP indices. Do not re-order these because
-  // we directly map GEP index values to them.
-  enum DopeVectorFieldType {
-    DV_ArrayPtr = 0, // Pointer to array
-    DV_ElementSize,  // size of one element of array
-    DV_Codim,        // number of co-dimensions
-    DV_Flags,        // flag bits
-    DV_Dimensions,   // Number of dimensions
-    DV_Reserved,
-    DV_PerDimensionArray, // Array of structures {extent, stride, lower bound}
-                          // for
-                          //  each dimension
-
-    // The following field types are indices used to represent the extent,
-    // stride or lower bound components for the variable-sized block array
-    DV_ExtentBase,
-    DV_StrideBase,
-    DV_LowerBoundBase,
-    DV_Invalid // End of enumeration
-  };
-
   // Each dimension in the dope vector is composed of a structure containing
   // the fields listed in this enumeration.
   enum DopeVectorRankFields { DVR_Extent, DVR_Stride, DVR_LowerBound };
@@ -384,7 +412,7 @@ public:
   // Identify the field a getelementptr instruction corresponds to in the dope
   // vector object. Return DV_Invalid if it is not a valid dope vector field.
   static DopeVectorFieldType
-  identifyDopeVectorField(const GetElementPtrInst &GEP);
+  identifyDopeVectorField(const GEPOperator &GEP);
 
   // For the per-dimension array, we expect to find a sequence of the following
   // form that gets the address of the per-dimensional fields: (This is the GEP
@@ -486,6 +514,185 @@ private:
   // created the dope vector, the same uplevel variable is passed to all of
   // them.
   UplevelDVField Uplevel;
+};
+
+// Helper class to handle all the information related to one dope vector.
+// The constructor and private fields are similar to the DopeVectorAnalyzer
+// class. A dope vector is a LLVM structure whith the following form:
+//
+//    {LLVMType*, i64, i64, i64, i64, i64, CONSTANT INT x [i64, i64, i64] }
+//
+// Each field represents the following:
+//
+//  0. Array pointer address
+//  1. Element size
+//  2. Co-Dimensions
+//  3. Flags
+//  4. Dimension (Rank)
+//  5. Reserved
+//  6. Per-Dimension array: {Extent, Stride, LowerBound}
+//
+class DopeVectorInfo {
+
+public:
+  // Constructor for DopeVectorInfo. Technically is the same constructor
+  // as DopeVectorAnalyzer, but the classes have different purposes.
+  DopeVectorInfo (Value *DVObject, Type *DVType);
+
+  ~DopeVectorInfo() {
+    ExtentAddr.clear();
+    StrideAddr.clear();
+    LowerBoundAddr.clear();
+  }
+
+  // Return the object that represents the dope vector
+  Value *getDVObject() { return DVObject; }
+
+  // Check if all fields in the dope vector are valid (not set to bottom) and
+  // if the allocation site was found.
+  void validateDopeVector();
+
+  // Return true if the dope vector is valid for propagation
+  bool isValid() { return IsValid; }
+
+  // Given a dope vector field type, return the dope vector field. If the field
+  // type is DV_ExtentBase, DV_StrideBase or DV_LowerBoundBase then the array
+  // entry is needed.
+  DopeVectorFieldUse *getDopeVectorField(
+      DopeVectorFieldType DVFieldType, uint64_t ArrayEntry = UINT_MAX);
+
+  // Return the dope vector rank
+  unsigned long getRank() { return Rank; }
+
+  // Set the allocation site
+  void setAllocSite(CallBase *Call) { AllocSite = Call; }
+
+  // Get the type that represents the current dope vector
+  StructType *getLLVMStructType() { return LLVMDVType; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Print the information for debug purposes
+  void print();
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+protected:
+  // Value object that represents a dope vector.
+  Value *DVObject;
+
+  // Rank for the source array.
+  unsigned long Rank;
+
+  // Indicates whether all the uses were successfully analyzed.
+  bool IsValid;
+
+  // Information about all field accesses for the dope vector.
+  DopeVectorFieldUse PtrAddr;
+  DopeVectorFieldUse ElementSizeAddr;
+  DopeVectorFieldUse CodimAddr;
+  DopeVectorFieldUse FlagsAddr;
+  DopeVectorFieldUse DimensionsAddr;
+  SmallVector<DopeVectorFieldUse, 4> ExtentAddr;
+  SmallVector<DopeVectorFieldUse, 4> StrideAddr;
+  SmallVector<DopeVectorFieldUse, 4> LowerBoundAddr;
+
+  // Store the instruction that will allocate the dope vector, this will be
+  // used for the purpose of analysis
+  CallBase *AllocSite;
+
+  // LLVM structure type of the current dope vector
+  StructType *LLVMDVType;
+};
+
+// Helper class to handle the nested dope vectors. Nested dope vectors are dope
+// vectors that are fields of a structure, and a pointer to the structure is
+// used as the array pointer (field 0) of another dope vector. For example:
+//
+//   %test.nested_dv = type {double*, i64, i64, i64, i64, i64,
+//                           3 x [i64, i64, i64] }
+//
+//   %test.struct = type { %test.nested_dv }
+//
+//   %test.dope_vector = type {%test.struct*, i64, i64, i64, i64, i64,
+//                             1 x [i64, i64, i64] }
+//
+// In the above case, the array pointer (field 0) for %test.dope_vector is a
+// pointer to the structure %test.struct. The field 0 for this structure is
+// another dope vector (%test.nested_dv). This means that %test.nested_dv is a
+// nested dope vector where the field number (FieldNum) is 0.
+class NestedDopeVectorInfo : public DopeVectorInfo {
+public:
+  NestedDopeVectorInfo(Value *DVObject, Type *DVType, uint64_t FieldNum) :
+      DopeVectorInfo(DVObject, DVType), FieldNum(FieldNum) { }
+  uint64_t getFieldNum() { return FieldNum; }
+
+private:
+  uint64_t FieldNum;
+};
+
+// Helper class to handle a dope vector that is a global variable. A global
+// dope vector is primarily composed of two parts:
+//
+//   1) GlobalDVInfo: The information related to the dope vector fields
+//   2) NestedDopeVectors: Set that stores the information of each
+//                         nested dope vector
+class GlobalDopeVector {
+
+public:
+  GlobalDopeVector(GlobalVariable *Glob, Type *DVType) :
+      GlobalDVInfo(new DopeVectorInfo(Glob, DVType)), Glob(Glob) {}
+
+  ~GlobalDopeVector() {
+    delete GlobalDVInfo;
+    Glob = nullptr;
+    for (auto NestedDV : NestedDopeVectors)
+      delete NestedDV;
+
+    NestedDopeVectors.clear();
+  }
+
+  // Return the dope vector information related to the global
+  DopeVectorInfo *getGlobalDopeVectorInfo() {
+    return GlobalDVInfo;
+  }
+
+  // Given an entry, return the nested dope vector in the pointer address if
+  // it exists, else return nullptr.
+  NestedDopeVectorInfo *getNestedDopeVector(uint64_t Entry) {
+    for (auto *NestedDV : NestedDopeVectors)
+      if (NestedDV->getFieldNum() == Entry)
+        return NestedDV;
+    return nullptr;
+  }
+
+  // Return all nested dope vectors
+  auto getAllNestedDopeVectors() const { return NestedDopeVectors; }
+
+  // Return true if the current global contains nested dope vectors
+  bool hasNestedDopeVectors() { return !NestedDopeVectors.empty(); }
+
+  // Return the number of nested dope vectors
+  uint64_t getNumNestedDopeVector() { return NestedDopeVectors.size(); }
+
+  // Given a GEP operator, check which dope vector field is being accessed,
+  // collect the data and analyze it.
+  bool collectAndAnalyzeGlobalDopeVectorField(GEPOperator *GEP);
+
+  // Collect the nested dope vectors for the global variable
+  void collectNestedDopeVectors(const DataLayout &DL);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Print the information for debug purposes
+  void print();
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+private:
+  // Store the dope vector information related to the global variable
+  DopeVectorInfo *GlobalDVInfo;
+
+  // Store the data related to the nested dope vectors
+  SetVector<NestedDopeVectorInfo*> NestedDopeVectors;
+
+  // Store the global
+  GlobalVariable *Glob;
 };
 
 } // end namespace dvanalysis
