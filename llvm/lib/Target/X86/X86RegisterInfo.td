@@ -384,6 +384,17 @@ def SS : X86Reg<"ss", 2>;
 def ES : X86Reg<"es", 0>;
 def FS : X86Reg<"fs", 4>;
 def GS : X86Reg<"gs", 5>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+def PHYSEG_SUPOVR : X86Reg<"physeg_supovr", 6>;
+def LINSEG_SUPOVR : X86Reg<"linseg_supovr", 12>;
+def LINSEG_NOSUPOVR : X86Reg<"linseg_nosupovr", 11>;
+def IDTR : X86Reg<"idtr", 9>;
+def GDTR : X86Reg<"gdtr", 7>;
+def LDTR : X86Reg<"ldtr", 8>;
+def TR : X86Reg<"tr", 10>;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
 // Debug registers
 def DR0  : X86Reg<"dr0",   0>;
