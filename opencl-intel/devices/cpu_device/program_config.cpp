@@ -41,7 +41,7 @@ void ProgramConfig::InitFromCpuConfig(const CPUDeviceConfig& cpuConfig)
     m_forcedWGSize = cpuConfig.GetForcedWGSize();
     m_streamingAlways = cpuConfig.GetStreamingAlways();
     m_expensiveMemOpts = cpuConfig.GetExpensiveMemOpts();
-    m_useLTOLegacyPM = cpuConfig.GetUseLTOLegacyPM();
+    m_passManagerType = cpuConfig.GetPassManagerType();
 }
 
 void ProgramDumpConfig::InitFromString(const char* options)

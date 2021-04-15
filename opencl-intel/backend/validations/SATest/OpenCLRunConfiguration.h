@@ -27,6 +27,8 @@
 
 namespace Validation
 {
+    using PassManagerType = Intel::OpenCL::DeviceBackend::PassManagerType;
+
     enum RunConfigurationOption {
         // Common options
         RC_COMMON_DEFAULT_LOCAL_WG_SIZE,
@@ -61,7 +63,7 @@ namespace Validation
         RC_BR_PERF_LOG,
         RC_BR_OBJECT_FILE,
         RC_BR_EXPENSIVE_MEM_OPT,
-        RC_BR_USE_LTO_LEGACY_PM,
+        RC_BR_PASS_MANAGER_TYPE,
         // Reference runner specific options
         RC_REF_USE_NEAT,
         RC_REF_USE_FMA_NEAT,
@@ -117,7 +119,7 @@ namespace Validation
         VectorizerType m_vectorizerType;
         bool m_nativeSubgroups;
         bool m_enableSubgroupEmulation;
-        bool m_useLTOLegacyPM;
+        PassManagerType m_passManagerType;
     };
 
     template<> bool BERunOptions::GetValue<bool>(RunConfigurationOption rc, bool defaultValue) const;
@@ -133,6 +135,8 @@ namespace Validation
     template<> const std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions>*
         BERunOptions::GetValue<const std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions> * >
         (RunConfigurationOption rc, const std::vector<Intel::OpenCL::DeviceBackend::IRDumpOptions>* defaultValue) const;
+    template<> PassManagerType
+        BERunOptions::GetValue<PassManagerType>(RunConfigurationOption rc, PassManagerType defaultValue) const;
     template<> void BERunOptions::SetValue<int>(RunConfigurationOption rc, int setValue);
 
     class ComparatorRunOptions : public IRunComponentConfiguration

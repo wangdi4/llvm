@@ -118,7 +118,7 @@ public:
 
     DeviceMode TargetDevice() const override { return m_targetDevice; }
 
-    bool GetUseLTOLegacyPM() const override { return m_useLTOLegacyPM; }
+    PassManagerType GetPassManagerType() const override { return m_passManagerType; }
 
 protected:
     std::string m_cpuArch;
@@ -140,7 +140,7 @@ protected:
     bool        m_streamingAlways;
     unsigned    m_expensiveMemOpts;
     DeviceMode  m_targetDevice;
-    bool        m_useLTOLegacyPM;
+    PassManagerType m_passManagerType;
 };
 
 }}}
