@@ -548,7 +548,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
 #if INTEL_CUSTOMIZATION
 static Attr *handleIntelInlineAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                                    SourceRange) {
-  IdentifierLoc *OptionLoc = A.getArgAsIdent(1);
+  IdentifierLoc *OptionLoc = A.getArgAsIdent(0);
   IntelInlineAttr::OptionType Option;
   if (OptionLoc) {
     if (OptionLoc->Ident->getName() != "recursive") {
