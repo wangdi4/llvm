@@ -1425,6 +1425,7 @@ bool JumpThreadingPass::processBlock(BasicBlock *BB) {
     LLVM_DEBUG(dbgs() << "  In block '" << BB->getName()
                       << "' folding undef terminator: " << *BBTerm << '\n');
     BranchInst::Create(BBTerm->getSuccessor(BestSucc), BBTerm);
+    ++NumFolds;
     BBTerm->eraseFromParent();
     DTU->applyUpdatesPermissive(Updates);
     if (FI)
@@ -1480,6 +1481,7 @@ bool JumpThreadingPass::processBlock(BasicBlock *BB) {
         BranchInst *UncondBr =
           BranchInst::Create(CondBr->getSuccessor(ToKeep), CondBr);
         UncondBr->setDebugLoc(CondBr->getDebugLoc());
+        ++NumFolds;
         CondBr->eraseFromParent();
         if (CondCmp->use_empty())
           CondCmp->eraseFromParent();
@@ -1835,6 +1837,7 @@ bool JumpThreadingPass::processImpliedCondition(BasicBlock *BB) {
       RemoveSucc->removePredecessor(BB);
       BranchInst *UncondBI = BranchInst::Create(KeepSucc, BI);
       UncondBI->setDebugLoc(BI->getDebugLoc());
+      ++NumFolds;
       BI->eraseFromParent();
       DTU->applyUpdatesPermissive({{DominatorTree::Delete, BB, RemoveSucc}});
       if (HasProfileData)
@@ -2319,6 +2322,7 @@ bool JumpThreadingPass::processThreadableEdges(Value *Cond, BasicBlock *BB,
       // Finally update the terminator.
       Instruction *Term = BB->getTerminator();
       BranchInst::Create(OnlyDest, Term);
+      ++NumFolds;
       Term->eraseFromParent();
       DTU->applyUpdatesPermissive(Updates);
       if (HasProfileData)

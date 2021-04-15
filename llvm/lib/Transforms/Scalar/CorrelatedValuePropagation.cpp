@@ -93,6 +93,8 @@ STATISTIC(NumAbs,       "Number of llvm.abs intrinsics removed");
 STATISTIC(NumOverflows, "Number of overflow checks removed");
 STATISTIC(NumSaturating,
     "Number of saturating arithmetics converted to normal arithmetics");
+STATISTIC(NumNonNull, "Number of function pointer arguments marked non-null");
+STATISTIC(NumMinMax, "Number of llvm.[us]{min,max} intrinsics removed");
 
 namespace {
 
@@ -534,6 +536,19 @@ static void processAbsIntrinsic(IntrinsicInst *II, LazyValueInfo *LVI) {
     processBinOp(BO, LVI);
 }
 
+// See if this min/max intrinsic always picks it's one specific operand.
+static void processMinMaxIntrinsic(MinMaxIntrinsic *MM, LazyValueInfo *LVI) {
+  CmpInst::Predicate Pred = CmpInst::getNonStrictPredicate(MM->getPredicate());
+  LazyValueInfo::Tristate Result = LVI->getPredicateAt(
+      Pred, MM->getLHS(), MM->getRHS(), MM, /*UseBlockValue=*/true);
+  if (Result == LazyValueInfo::Unknown)
+    return;
+
+  ++NumMinMax;
+  MM->replaceAllUsesWith(MM->getOperand(!Result));
+  MM->eraseFromParent();
+}
+
 // Rewrite this with.overflow intrinsic as non-overflowing.
 static void processOverflowIntrinsic(WithOverflowInst *WO, LazyValueInfo *LVI) {
   IRBuilder<> B(WO);
@@ -582,6 +597,11 @@ static bool processCallSite(CallBase &CB, LazyValueInfo *LVI) {
 
   if (CB.getIntrinsicID() == Intrinsic::abs) {
     processAbsIntrinsic(&cast<IntrinsicInst>(CB), LVI);
+    return true;
+  }
+
+  if (auto *MM = dyn_cast<MinMaxIntrinsic>(&CB)) {
+    processMinMaxIntrinsic(MM, LVI);
     return true;
   }
 
@@ -644,6 +664,7 @@ static bool processCallSite(CallBase &CB, LazyValueInfo *LVI) {
   if (ArgNos.empty())
     return Changed;
 
+  NumNonNull += ArgNos.size();
   AttributeList AS = CB.getAttributes();
   LLVMContext &Ctx = CB.getContext();
   AS = AS.addParamAttribute(Ctx, ArgNos,
@@ -656,14 +677,14 @@ static bool processCallSite(CallBase &CB, LazyValueInfo *LVI) {
 static bool isNonNegative(Value *V, LazyValueInfo *LVI, Instruction *CxtI) {
   Constant *Zero = ConstantInt::get(V->getType(), 0);
   auto Result = LVI->getPredicateAt(ICmpInst::ICMP_SGE, V, Zero, CxtI,
-                                    /*UseBlockValue=*/false);
+                                    /*UseBlockValue=*/true);
   return Result == LazyValueInfo::True;
 }
 
 static bool isNonPositive(Value *V, LazyValueInfo *LVI, Instruction *CxtI) {
   Constant *Zero = ConstantInt::get(V->getType(), 0);
   auto Result = LVI->getPredicateAt(ICmpInst::ICMP_SLE, V, Zero, CxtI,
-                                    /*UseBlockValue=*/false);
+                                    /*UseBlockValue=*/true);
   return Result == LazyValueInfo::True;
 }
 

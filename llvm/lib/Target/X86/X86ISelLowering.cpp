@@ -50170,14 +50170,16 @@ static SDValue combineXorBlend(SDNode *N, SelectionDAG &DAG) {
 static SDValue combineXor(SDNode *N, SelectionDAG &DAG,
                           TargetLowering::DAGCombinerInfo &DCI,
                           const X86Subtarget &Subtarget) {
+  SDValue N0 = N->getOperand(0);
+  SDValue N1 = N->getOperand(1);
   EVT VT = N->getValueType(0);
 
   // If this is SSE1 only convert to FXOR to avoid scalarization.
   if (Subtarget.hasSSE1() && !Subtarget.hasSSE2() && VT == MVT::v4i32) {
-    return DAG.getBitcast(
-        MVT::v4i32, DAG.getNode(X86ISD::FXOR, SDLoc(N), MVT::v4f32,
-                                DAG.getBitcast(MVT::v4f32, N->getOperand(0)),
-                                DAG.getBitcast(MVT::v4f32, N->getOperand(1))));
+    return DAG.getBitcast(MVT::v4i32,
+                          DAG.getNode(X86ISD::FXOR, SDLoc(N), MVT::v4f32,
+                                      DAG.getBitcast(MVT::v4f32, N0),
+                                      DAG.getBitcast(MVT::v4f32, N1)));
   }
 
   if (SDValue Cmp = foldVectorXorShiftIntoCmp(N, DAG, Subtarget))
@@ -50200,20 +50202,41 @@ static SDValue combineXor(SDNode *N, SelectionDAG &DAG,
   if (SDValue RV = foldXorTruncShiftIntoCmp(N, DAG))
     return RV;
 
+  // Fold not(iX bitcast(vXi1)) -> (iX bitcast(not(vec))) for legal boolvecs.
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+  if (llvm::isAllOnesConstant(N1) && N0.getOpcode() == ISD::BITCAST &&
+      N0.getOperand(0).getValueType().isVector() &&
+      N0.getOperand(0).getValueType().getVectorElementType() == MVT::i1 &&
+      TLI.isTypeLegal(N0.getOperand(0).getValueType()) && N0.hasOneUse()) {
+    return DAG.getBitcast(VT, DAG.getNOT(SDLoc(N), N0.getOperand(0),
+                                         N0.getOperand(0).getValueType()));
+  }
+
+  // Handle AVX512 mask widening.
+  // Fold not(insert_subvector(undef,sub)) -> insert_subvector(undef,not(sub))
+  if (ISD::isBuildVectorAllOnes(N1.getNode()) && VT.isVector() &&
+      VT.getVectorElementType() == MVT::i1 &&
+      N0.getOpcode() == ISD::INSERT_SUBVECTOR && N0.getOperand(0).isUndef() &&
+      TLI.isTypeLegal(N0.getOperand(1).getValueType())) {
+    return DAG.getNode(
+        ISD::INSERT_SUBVECTOR, SDLoc(N), VT, N0.getOperand(0),
+        DAG.getNOT(SDLoc(N), N0.getOperand(1), N0.getOperand(1).getValueType()),
+        N0.getOperand(2));
+  }
+
   // Fold xor(zext(xor(x,c1)),c2) -> xor(zext(x),xor(zext(c1),c2))
   // Fold xor(truncate(xor(x,c1)),c2) -> xor(truncate(x),xor(truncate(c1),c2))
   // TODO: Under what circumstances could this be performed in DAGCombine?
-  if ((N->getOperand(0).getOpcode() == ISD::TRUNCATE ||
-       N->getOperand(0).getOpcode() == ISD::ZERO_EXTEND) &&
-      N->getOperand(0).getOperand(0).getOpcode() == N->getOpcode() &&
-      isa<ConstantSDNode>(N->getOperand(1)) &&
-      isa<ConstantSDNode>(N->getOperand(0).getOperand(0).getOperand(1))) {
+  if ((N0.getOpcode() == ISD::TRUNCATE || N0.getOpcode() == ISD::ZERO_EXTEND) &&
+      N0.getOperand(0).getOpcode() == N->getOpcode() &&
+      isa<ConstantSDNode>(N1) &&
+      isa<ConstantSDNode>(N0.getOperand(0).getOperand(1))) {
     SDLoc DL(N);
-    SDValue TruncExtSrc = N->getOperand(0).getOperand(0);
+    SDValue TruncExtSrc = N0.getOperand(0);
     SDValue LHS = DAG.getZExtOrTrunc(TruncExtSrc.getOperand(0), DL, VT);
     SDValue RHS = DAG.getZExtOrTrunc(TruncExtSrc.getOperand(1), DL, VT);
     return DAG.getNode(ISD::XOR, DL, VT, LHS,
-                       DAG.getNode(ISD::XOR, DL, VT, RHS, N->getOperand(1)));
+                       DAG.getNode(ISD::XOR, DL, VT, RHS, N1));
   }
 
   if (SDValue FPLogic = convertIntLogicToFPLogic(N, DAG, Subtarget))
@@ -51530,9 +51553,9 @@ static SDValue combineSetCC(SDNode *N, SelectionDAG &DAG,
                            DAG.getNode(X86ISD::SETCC, DL, MVT::i8, X86CC, V));
     }
 
-    // cmpeq(or(X,Y),X) --> cmpeq(and(~X,Y),0)
-    // cmpne(or(X,Y),X) --> cmpne(and(~X,Y),0)
     if (OpVT.isScalarInteger()) {
+      // cmpeq(or(X,Y),X) --> cmpeq(and(~X,Y),0)
+      // cmpne(or(X,Y),X) --> cmpne(and(~X,Y),0)
       auto MatchOrCmpEq = [&](SDValue N0, SDValue N1) {
         if (N0.getOpcode() == ISD::OR && N0->hasOneUse()) {
           if (N0.getOperand(0) == N1)
@@ -51547,6 +51570,24 @@ static SDValue combineSetCC(SDNode *N, SelectionDAG &DAG,
       if (SDValue AndN = MatchOrCmpEq(LHS, RHS))
         return DAG.getSetCC(DL, VT, AndN, DAG.getConstant(0, DL, OpVT), CC);
       if (SDValue AndN = MatchOrCmpEq(RHS, LHS))
+        return DAG.getSetCC(DL, VT, AndN, DAG.getConstant(0, DL, OpVT), CC);
+
+      // cmpeq(and(X,Y),Y) --> cmpeq(and(~X,Y),0)
+      // cmpne(and(X,Y),Y) --> cmpne(and(~X,Y),0)
+      auto MatchAndCmpEq = [&](SDValue N0, SDValue N1) {
+        if (N0.getOpcode() == ISD::AND && N0->hasOneUse()) {
+          if (N0.getOperand(0) == N1)
+            return DAG.getNode(ISD::AND, DL, OpVT, N1,
+                               DAG.getNOT(DL, N0.getOperand(1), OpVT));
+          if (N0.getOperand(1) == N1)
+            return DAG.getNode(ISD::AND, DL, OpVT, N1,
+                               DAG.getNOT(DL, N0.getOperand(0), OpVT));
+        }
+        return SDValue();
+      };
+      if (SDValue AndN = MatchAndCmpEq(LHS, RHS))
+        return DAG.getSetCC(DL, VT, AndN, DAG.getConstant(0, DL, OpVT), CC);
+      if (SDValue AndN = MatchAndCmpEq(RHS, LHS))
         return DAG.getSetCC(DL, VT, AndN, DAG.getConstant(0, DL, OpVT), CC);
     }
   }
