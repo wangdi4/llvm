@@ -635,6 +635,9 @@ void PassManagerBuilder::populateFunctionPassManager(
 
   addInitialAliasAnalysisPasses(FPM);
 
+  // Lower llvm.expect to metadata before attempting transforms.
+  // Compare/branch metadata may alter the behavior of passes like SimplifyCFG.
+  FPM.add(createLowerExpectIntrinsicPass());
   FPM.add(createCFGSimplificationPass());
   FPM.add(createSROAPass());
 #if INTEL_CUSTOMIZATION
@@ -645,7 +648,6 @@ void PassManagerBuilder::populateFunctionPassManager(
 #endif // INTEL_CUSTOMIZATION
 
   FPM.add(createEarlyCSEPass());
-  FPM.add(createLowerExpectIntrinsicPass());
 }
 
 // Do PGO instrumentation generation or use pass as the option specified.
