@@ -188,6 +188,7 @@ llvm::ModulePass *createCoerceWin64TypesPass();
 llvm::FunctionPass *createAddFastMathPass();
 llvm::Pass *createResolveVariableTIDCallPass();
 llvm::ModulePass *createVectorKernelDiscardPass(const intel::OptimizerConfig *);
+llvm::ModulePass *createSetPreferVectorWidthPass(const CPUDetect *CPUID);
 }
 
 using namespace intel;
@@ -333,6 +334,7 @@ static void populatePassesPreFailCheck(
   bool HasGatherScatterPrefetch =
       pConfig->GetCpuId()->HasGatherScatterPrefetch();
 
+  PM.add(createSetPreferVectorWidthPass(pConfig->GetCpuId()));
   if (isSPIRV && pConfig->GetRelaxedMath()) {
     PM.add(createAddFastMathPass());
   }

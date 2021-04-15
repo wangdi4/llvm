@@ -128,5 +128,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeVectorKernelDiscardPass(Registry);
     intel::initializeReduceCrossBarrierValuesPass(Registry);
     intel::initializeOCLVPOCheckVFPass(Registry);
+    intel::initializeSetPreferVectorWidthPass(Registry);
 }
 #endif //INITIALIZE_OCL_PASSES_H

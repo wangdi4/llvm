@@ -141,6 +141,7 @@ void initializeAddFastMathPass(llvm::PassRegistry &);
 void initializeVectorKernelDiscardPass(llvm::PassRegistry &);
 void initializeReduceCrossBarrierValuesPass(llvm::PassRegistry &);
 void initializeOCLVPOCheckVFPass(llvm::PassRegistry &);
+void initializeSetPreferVectorWidthPass(llvm::PassRegistry &);
 }
 
 #endif

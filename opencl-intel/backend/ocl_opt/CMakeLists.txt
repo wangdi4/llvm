@@ -50,6 +50,7 @@ set(OCL_BE_PASSES
     ResolveBlockToStaticCall
     ResolveWICall
     ResolveSubGroupWICall
+    SetPreferVectorWidth
     ShiftZeroUpperBits
     SinCosFold
     SmartGVN
