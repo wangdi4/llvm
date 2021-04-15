@@ -14,6 +14,7 @@
 
 #include "Optimizer.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 namespace Intel {
 namespace OpenCL {
@@ -34,6 +35,18 @@ public:
 private:
   /// Add passes to pass managers.
   void CreatePasses();
+
+  /// Register a callback to the start of the pipeline.
+  void registerPipelineStartCallback(llvm::PassManagerBuilder &PMBuilder);
+
+  /// Register a callback to before the vectorizer.
+  void registerVectorizerStartCallback(llvm::PassManagerBuilder &PMBuilder);
+
+  /// Register a callback to the very end of the function optimization pipeline.
+  void registerOptimizerLastCallback(llvm::PassManagerBuilder &PMBuilder);
+
+  /// Register passes that run at the end of pipeline.
+  void registerLastPasses();
 
   const intel::OptimizerConfig *Config;
 

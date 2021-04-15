@@ -144,10 +144,6 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     if (!EnableSubgroupEmulation) {
         m_LLVMOptions += " -enable-subgroup-emulation=false";
     }
-
-    if (pBackendOptions->GetBooleanValue(CL_DEV_BACKEND_OPTION_LTO_LEGACY_PM,
-                                         false))
-      m_LLVMOptions += " -enable-dpcpp-kernel-transforms=true";
 }
 
 void CompilerConfig::LoadDefaults()

@@ -13,13 +13,14 @@
 #include "OptimizerLTOLegacyPM.h"
 #include "VecConfig.h"
 
-#include "llvm/ADT/Triple.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
+#include "llvm/Transforms/VPO/VPOPasses.h"
 
 using namespace llvm;
 
@@ -75,12 +76,74 @@ void OptimizerLTOLegacyPM::CreatePasses() {
   FPM.add(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
 
   MPM.add(new TargetLibraryInfoWrapperPass(*TLII));
-
-  // Set up the per-function pass manager.
   FPM.add(new TargetLibraryInfoWrapperPass(*TLII));
+
+  registerPipelineStartCallback(PMBuilder);
+  registerVectorizerStartCallback(PMBuilder);
+  registerOptimizerLastCallback(PMBuilder);
 
   PMBuilder.populateFunctionPassManager(FPM);
   PMBuilder.populateModulePassManager(MPM);
+
+  registerLastPasses();
+}
+
+void OptimizerLTOLegacyPM::registerPipelineStartCallback(
+    PassManagerBuilder &PMBuilder) {
+  FPM.add(createUnifyFunctionExitNodesPass());
+
+  auto EP = Config->GetDisableOpt()
+                ? PassManagerBuilder::EP_EnabledOnOptLevel0
+                : PassManagerBuilder::EP_ModuleOptimizerEarly;
+  PMBuilder.addExtension(
+      EP, [](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
+        MPM.add(createParseAnnotateAttributesPass());
+        MPM.add(createDPCPPEqualizerLegacyPass());
+        MPM.add(createDPCPPKernelAnalysisLegacyPass());
+      });
+}
+
+void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
+    PassManagerBuilder &PMBuilder) {
+  PMBuilder.addExtension(
+      PassManagerBuilder::EP_VectorizerStart,
+      [](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
+        MPM.add(createDPCPPKernelVecClonePass());
+      });
+}
+
+void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
+    PassManagerBuilder &PMBuilder) {
+  PMBuilder.addExtension(
+      PassManagerBuilder::EP_OptimizerLast,
+      [](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
+        MPM.add(createDPCPPKernelPostVecPass());
+        MPM.add(createVPODirectiveCleanupPass());
+        MPM.add(createInstructionCombiningPass());
+        MPM.add(createCFGSimplificationPass());
+        MPM.add(createPromoteMemoryToRegisterPass());
+        MPM.add(createAggressiveDCEPass());
+        MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
+
+        MPM.add(createLICMPass());
+        MPM.add(createCFGSimplificationPass());
+        MPM.add(createAddImplicitArgsLegacyPass());
+        MPM.add(createResolveWICallLegacyPass(false, false));
+        MPM.add(createPrepareKernelArgsLegacyPass(false));
+      });
+}
+
+void OptimizerLTOLegacyPM::registerLastPasses() {
+  if (Config->GetDisableOpt()) {
+    // In O0 pipeline, there is no EP_OptimizerLast extension point, so we add
+    // following passes to the end of pipeline.
+    MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
+    MPM.add(createAddImplicitArgsLegacyPass());
+    MPM.add(createResolveWICallLegacyPass(false, false));
+    MPM.add(createPrepareKernelArgsLegacyPass(false));
+  }
+
+  MPM.add(createCleanupWrappedKernelLegacyPass());
 }
 
 void OptimizerLTOLegacyPM::Optimize() {
