@@ -197,13 +197,13 @@ constexpr FeatureBitset FeaturesCannonlake =
     FeaturePKU | FeatureSHA;
 constexpr FeatureBitset FeaturesICLClient =
     FeaturesCannonlake | FeatureAVX512BITALG | FeatureAVX512VBMI2 |
-    FeatureAVX512VNNI | FeatureAVX512VPOPCNTDQ | FeatureCLWB | FeatureGFNI |
-    FeatureRDPID | FeatureVAES | FeatureVPCLMULQDQ;
+    FeatureAVX512VNNI | FeatureAVX512VPOPCNTDQ | FeatureGFNI | FeatureRDPID |
+    FeatureVAES | FeatureVPCLMULQDQ;
 constexpr FeatureBitset FeaturesICLServer =
-    FeaturesICLClient | FeaturePCONFIG | FeatureWBNOINVD;
+    FeaturesICLClient | FeatureCLWB | FeaturePCONFIG | FeatureWBNOINVD;
 constexpr FeatureBitset FeaturesTigerlake =
     FeaturesICLClient | FeatureAVX512VP2INTERSECT | FeatureMOVDIR64B |
-    FeatureMOVDIRI | FeatureSHSTK | FeatureKL | FeatureWIDEKL;
+    FeatureCLWB | FeatureMOVDIRI | FeatureSHSTK | FeatureKL | FeatureWIDEKL;
 constexpr FeatureBitset FeaturesSapphireRapids =
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
