@@ -168,6 +168,8 @@ private:
   bool contractMemRefs(HLLoop *DefLp, HLLoop *UseLp,
                        const SparseBitVector<> &CommonBases,
                        const unsigned NumDimsContracted, HLRegion &Reg,
+                       unsigned UseRefMappedDim,
+                       const CanonExpr *UseRefMappedCE,
                        SmallSet<unsigned, 4> &AfterContractSBS,
                        unsigned &NumRefsContracted);
 
@@ -221,9 +223,56 @@ struct TopSortComparator {
 static bool isPassedToMetadataIntrinsic(const RegDDRef *Ref) {
   auto *Inst = dyn_cast<HLInst>(Ref->getHLDDNode());
   Intrinsic::ID IntrinId;
-  return Inst->isIntrinCall(IntrinId) &&
+  return Inst && Inst->isIntrinCall(IntrinId) &&
          (IntrinId == Intrinsic::lifetime_start ||
           IntrinId == Intrinsic::lifetime_end);
+}
+
+static bool areIdenticalInsts(const HLInst *HInst1, const HLInst *HInst2) {
+
+  auto *Inst1 = HInst1->getLLVMInstruction();
+  auto *Inst2 = HInst2->getLLVMInstruction();
+
+  if (Inst1->getOpcode() != Inst2->getOpcode()) {
+    return false;
+  }
+
+  if (HInst1->isCallInst()) {
+    return false;
+  }
+
+  // Lval was already compared in caller, compare rvals.
+  auto *RvalIt1 = HInst1->rval_op_ddref_begin();
+  auto *RvalIt2 = HInst2->rval_op_ddref_begin();
+
+  for (auto End = HInst1->rval_op_ddref_end(); RvalIt1 != End;
+       ++RvalIt1, ++RvalIt2) {
+
+    auto *Ref1 = *RvalIt1;
+    auto *Ref2 = *RvalIt2;
+
+    if (!DDRefUtils::areEqual(Ref1, Ref2)) {
+      return false;
+    }
+
+    for (unsigned Level = 1; Level <= MaxLoopNestLevel; ++Level) {
+      if (!Ref1->hasIV(Level)) {
+        continue;
+      }
+
+      auto *OuterLp1 = HInst1->getParentLoopAtLevel(Level);
+      auto *OuterLp2 = HInst2->getParentLoopAtLevel(Level);
+
+      if (!OuterLp1->isDo() || !OuterLp2->isDo() || !OuterLp1->isNormalized() ||
+          !OuterLp2->isNormalized() ||
+          !CanonExprUtils::areEqual(OuterLp1->getUpperCanonExpr(),
+                                    OuterLp2->getUpperCanonExpr())) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 static unsigned computeDependencyMaxTopSortNumber(
@@ -250,18 +299,17 @@ static unsigned computeDependencyMaxTopSortNumber(
 
   unsigned MaxTopSortNumber = std::numeric_limits<unsigned>::max();
   unsigned LoopMaxTopSortNumber = Loop->getMaxTopSortNum();
+  unsigned LoopLevel = Loop->getNestingLevel();
 
   for (auto *Ref : Refs) {
     bool SrcIsCandidate = CandidateRefs.count(dyn_cast<RegDDRef>(Ref));
 
     for (auto &Edge : DDG.outgoing(Ref)) {
-      if (!Edge->isFlow() && !Edge->isOutput()) {
-        continue;
-      }
+      auto *SinkRef = Edge->getSink();
 
       if (SrcIsCandidate) {
         // May do cast<> because IgnoreRefs contain only mem refs.
-        auto SinkRegDDRef = cast<RegDDRef>(Edge->getSink());
+        auto SinkRegDDRef = cast<RegDDRef>(SinkRef);
 
         // Ignore edges between candidates, they will ba handled using Array
         // Section Analysis.
@@ -275,9 +323,26 @@ static unsigned computeDependencyMaxTopSortNumber(
         }
       }
 
-      HLNode *SinkNode = Edge->getSink()->getHLDDNode();
+      HLNode *SinkNode = SinkRef->getHLDDNode();
+
       auto TopSortNumber = SinkNode->getTopSortNum();
       if (TopSortNumber <= LoopMaxTopSortNumber) {
+        continue;
+      }
+
+      // Ignore anti-edges for temps if the temp is defined in the current
+      // loopnest. The output edge check below can take care of it.
+      if (Edge->isAnti() && Ref->isTerminalRef() &&
+          (Ref->getDefinedAtLevel() >= LoopLevel)) {
+        continue;
+      }
+
+      // Ignore identical temp redefinitions as it doesn't change legality of
+      // def loop forward substitution. These are introduced by loop
+      // distribution.
+      if (Edge->isOutput() && Ref->isTerminalRef() &&
+          areIdenticalInsts(cast<HLInst>(Ref->getHLDDNode()),
+                            cast<HLInst>(SinkNode))) {
         continue;
       }
 
@@ -371,8 +436,32 @@ static void promoteSectionIVs(ArraySectionInfo &Info, unsigned StartLevel) {
   }
 }
 
+// Class describing a dimension mapped from IV in def loop to some CEs in use
+// loop.
+class DefToUseMappedDimension {
+  unsigned IVLevel;
+  unsigned DimensionNum;
+  ArrayRef<const CanonExpr *> MappedCEs;
+
+public:
+  DefToUseMappedDimension() : IVLevel(0), DimensionNum(0) {}
+
+  bool empty() { return IVLevel == 0; }
+
+  void populate(unsigned Level, unsigned DimNum,
+                ArrayRef<const CanonExpr *> CEs) {
+    IVLevel = Level;
+    DimensionNum = DimNum;
+    MappedCEs = CEs;
+  }
+
+  unsigned getIVLevel() const { return IVLevel; }
+  unsigned getDimensionNum() const { return DimensionNum; }
+  ArrayRef<const CanonExpr *> getMappedCEs() const { return MappedCEs; }
+};
+
 // Compute a number of outer dimensions to contract between two array sections
-// described by \p InfoA and \p InfoB.
+// described by \p DefInfo and \p UseInfo.
 //
 // Dimensions may be contracted if dimensions with the same number are
 // accessed by the same index and within the same bounds. The function assumes
@@ -383,28 +472,58 @@ static void promoteSectionIVs(ArraySectionInfo &Info, unsigned StartLevel) {
 //
 // The function will return 2 because dimensions 3 and 4 are accessed with
 // [i][j] in both cases.
-static unsigned computeNumDimsContracted(const ArraySectionInfo &InfoA,
-                                         const ArraySectionInfo &InfoB) {
-  assert(InfoA.getNumDimensions() == InfoB.getNumDimensions() &&
+static unsigned
+computeNumDimsContracted(const ArraySectionInfo &DefInfo,
+                         const ArraySectionInfo &UseInfo,
+                         DefToUseMappedDimension &MappedDimInfo) {
+  assert(DefInfo.getNumDimensions() == UseInfo.getNumDimensions() &&
          "Unexpected number of dimensions");
 
-  int Dim = InfoA.getNumDimensions();
+  int Dim = DefInfo.getNumDimensions();
 
   // Determine dimensions that can be contracted.
   for (; Dim > 0; --Dim) {
-    auto IndA = InfoA.indices(Dim - 1);
-    auto IndB = InfoB.indices(Dim - 1);
+    auto DefIndices = DefInfo.indices(Dim - 1);
+    auto UseIndices = UseInfo.indices(Dim - 1);
 
-    if (IndA.size() != 1 || IndB.size() != 1) {
+    if (DefIndices.size() != 1) {
       break;
     }
 
-    if (!CanonExprUtils::areEqual(IndA.front(), IndB.front())) {
+    auto *DefIndex = DefIndices.front();
+
+    if (UseIndices.size() != 1) {
+      // Already mapped a dimension.
+      if (!MappedDimInfo.empty()) {
+        break;
+      }
+
+      unsigned Level;
+      if (!DefIndex->isStandAloneIV(false, &Level)) {
+        break;
+      }
+
+      bool IsValidMapping = true;
+      for (auto *UseIndex : UseIndices) {
+        int64_t Dist;
+        if (!CanonExprUtils::getConstDistance(DefIndex, UseIndex, &Dist)) {
+          IsValidMapping = false;
+          break;
+        }
+      }
+
+      if (!IsValidMapping) {
+        break;
+      }
+
+      MappedDimInfo.populate(Level, Dim, UseIndices);
+
+    } else if (!CanonExprUtils::areEqual(DefIndex, UseIndices.front())) {
       break;
     }
   }
 
-  return InfoA.getNumDimensions() - Dim;
+  return DefInfo.getNumDimensions() - Dim;
 }
 
 // Computes direction vector for a pair of sections \p InfoA and \p InfoB.
@@ -412,7 +531,8 @@ static unsigned computeNumDimsContracted(const ArraySectionInfo &InfoA,
 // determine the nesting level where loop fusion is possible.
 static DirectionVector computeDirectionVector(const ArraySectionInfo &InfoA,
                                               const ArraySectionInfo &InfoB,
-                                              unsigned StartLevel) {
+                                              unsigned StartLevel,
+                                              unsigned MappedLevel) {
   BitVector IVEqual;
   BitVector IVSeen;
 
@@ -455,7 +575,9 @@ static DirectionVector computeDirectionVector(const ArraySectionInfo &InfoA,
   for (unsigned I = StartLevel; I <= MaxLoopNestLevel; ++I) {
     DVKind Dir = DVKind::NONE;
 
-    if (IVSeen.test(I - 1)) {
+    if (I == MappedLevel) {
+      Dir = DVKind::EQ;
+    } else if (IVSeen.test(I - 1)) {
       if (IVEqual.test(I - 1)) {
         Dir = DVKind::EQ;
       } else {
@@ -558,8 +680,9 @@ static bool isArrayContractionCandidate(const RegDDRef *Ref) {
 
 bool HIRCrossLoopArrayContraction::contractMemRefs(
     HLLoop *DefLp, HLLoop *UseLp, const SparseBitVector<> &CommonBases,
-    const unsigned NumDimsContracted, HLRegion &Reg,
-    SmallSet<unsigned, 4> &AfterContractSBS, unsigned &NumRefsContracted) {
+    const unsigned NumDimsContracted, HLRegion &Reg, unsigned UseRefMappedDim,
+    const CanonExpr *UseRefMappedCE, SmallSet<unsigned, 4> &AfterContractSBS,
+    unsigned &NumRefsContracted) {
 
   LLVM_DEBUG({
     dbgs() << "Def Loop: \n";
@@ -578,8 +701,8 @@ bool HIRCrossLoopArrayContraction::contractMemRefs(
 
     DDRefGathererLambda<RegDDRef>::gather(
         DefLp, Refs, [&](const RegDDRef *Ref) {
-          return isArrayContractionCandidate(Ref) &&
-                 Ref->getBasePtrBlobIndex() == CommonBase;
+          return (Ref->hasGEPInfo() &&
+                  Ref->getBasePtrBlobIndex() == CommonBase);
         });
 
     if (Refs.empty()) {
@@ -590,8 +713,11 @@ bool HIRCrossLoopArrayContraction::contractMemRefs(
 
     DDRefGathererLambda<RegDDRef>::gather(
         UseLp, Refs, [&](const RegDDRef *Ref) {
-          return isArrayContractionCandidate(Ref) &&
-                 Ref->getBasePtrBlobIndex() == CommonBase;
+          return (
+              Ref->hasGEPInfo() && (Ref->getBasePtrBlobIndex() == CommonBase) &&
+              (!UseRefMappedCE ||
+               CanonExprUtils::areEqual(Ref->getDimensionIndex(UseRefMappedDim),
+                                        UseRefMappedCE)));
         });
 
     if (Refs.size() == NumDefRefs) {
@@ -660,6 +786,32 @@ bool HIRCrossLoopArrayContraction::contractMemRefs(
   }
 
   return true;
+}
+
+static void replaceIVByCE(HLLoop *Lp, unsigned IVLevel,
+                          const CanonExpr *ReplaceCE) {
+
+  if (ReplaceCE->hasIV(IVLevel)) {
+    unsigned ShiftAmt = ReplaceCE->getConstant();
+
+    if (ShiftAmt != 0) {
+      ForEach<RegDDRef>::visit(
+          Lp, [&](RegDDRef *Ref) { Ref->shift(IVLevel, ShiftAmt); });
+    }
+
+  } else {
+    llvm_unreachable("Unexpected IV replacement!");
+    /*
+    * TODO: Enable later.
+       ForEach<RegDDRef>::visit(Lp, [&](RegDDRef *Ref) {
+
+         for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
+           if (!replaceIVByCanonExpr(CE, IVLevel, ReplaceCE, false)) {
+             llvm_unreachable("CE merging failed");
+           }
+       });
+   */
+  }
 }
 
 bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
@@ -807,6 +959,11 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
       unsigned NumDimsContracted = -1u;
       unsigned FusionLevel = MaxLoopNestLevel + 1;
 
+      unsigned DefUseLevelDiff =
+          (UseLp->getNestingLevel() - DefLp->getNestingLevel());
+
+      DefToUseMappedDimension MappedDim;
+
       for (auto BaseIndex : CommonBases) {
         auto *DefSection = DefASAR.get(BaseIndex);
         auto *UseSection = UseASAR.get(BaseIndex);
@@ -843,7 +1000,8 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         FlowDependencyFound = true;
 
         ArraySectionInfo TmpDefSection;
-        if (DefLp->getNestingLevel() != UseLp->getNestingLevel()) {
+        // We bail out on difference greater than 1 later.
+        if (DefUseLevelDiff == 1) {
           TmpDefSection = DefSection->clone();
           promoteSectionIVs(TmpDefSection, DefLp->getNestingLevel());
           DefSection = &TmpDefSection;
@@ -851,12 +1009,13 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
         // Note: use a single number of dimensions to contract for all arrays.
         // We can extend this to "per array" if needed.
-        NumDimsContracted =
-            std::min(NumDimsContracted,
-                     computeNumDimsContracted(*DefSection, *UseSection));
+        NumDimsContracted = std::min(
+            NumDimsContracted,
+            computeNumDimsContracted(*DefSection, *UseSection, MappedDim));
 
         auto DV = computeDirectionVector(*DefSection, *UseSection,
-                                         UseLp->getNestingLevel());
+                                         UseLp->getNestingLevel(),
+                                         MappedDim.getIVLevel());
 
         unsigned CurFusionLevel = 0;
         while (CurFusionLevel < MaxLoopNestLevel &&
@@ -867,7 +1026,14 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         FusionLevel = std::min(FusionLevel, CurFusionLevel);
       }
 
-      if (!CommonArraySectionsAreEqual) {
+      if (FusionLevel <= 1) {
+        // mergeLoops() asserts on zero 'Levels' when FusionLevel is 1.
+        LLVM_DEBUG(dbgs() << "\t[SKIP] Invalid merging.\n");
+        continue;
+      }
+
+      if (!CommonArraySectionsAreEqual &&
+          (CommonBases.count() != 1 || MappedDim.empty())) {
         LLVM_DEBUG(dbgs() << "\t[SKIP] Incompatible array sections found.\n");
         continue;
       }
@@ -897,8 +1063,7 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         continue;
       }
 
-      if (DefLp->getNestingLevel() != UseLp->getNestingLevel() &&
-          DefLp->getNestingLevel() + 1 != UseLp->getNestingLevel()) {
+      if (DefUseLevelDiff != 0 && DefUseLevelDiff != 1) {
         // This is a limitation of the current implementation.
         LLVM_DEBUG(
             dbgs() << "\t[SKIP] Use loop must be nested at the same level or "
@@ -918,38 +1083,61 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
       addOptimized(UseLp);
 
-      HLLoop *DefLoopClone = DefLp->clone();
+      bool HasMappedDim = !MappedDim.empty();
+      unsigned UseRefMappedDim = HasMappedDim ? MappedDim.getDimensionNum() : 0;
+      unsigned NumClones = HasMappedDim ? MappedDim.getMappedCEs().size() : 1;
+      bool BailOut = false;
 
-      // Do array contraction on qualified memref(s) in a given loop:
-      unsigned NumContractedRefs = 0;
-      if (!contractMemRefs(DefLoopClone, UseLp, CommonBases, NumDimsContracted,
-                           Reg, AfterContractSBS, NumContractedRefs)) {
-        LLVM_DEBUG(dbgs() << "Fail to contract memref(s) in Def/Use loop "
-                          << DefLoopClone->getNumber() << "\n";);
-      } else {
-        HIRLoopsWithArrayContraction += 2;
-        HIRArrayRefsContracted += NumContractedRefs;
-      }
+      for (unsigned I = 0; I < NumClones; ++I) {
+        HLLoop *DefLoopClone = DefLp->clone();
 
-      HLNodeUtils::insertBefore(UseLp, DefLoopClone);
-      if (DefLp->getNestingLevel() != UseLp->getNestingLevel()) {
-        LLVM_DEBUG(dbgs() << "\t+ Need to promote IVs\n");
+        // Do array contraction on qualified memref(s) in a given loop:
+        unsigned NumContractedRefs = 0;
+        const CanonExpr *UseRefMappedCE =
+            HasMappedDim ? MappedDim.getMappedCEs()[I] : nullptr;
 
-        DefLoopClone->promoteNestingLevel(DefLp->getNestingLevel());
+        if (!contractMemRefs(DefLoopClone, UseLp, CommonBases,
+                             NumDimsContracted, Reg, UseRefMappedDim,
+                             UseRefMappedCE, AfterContractSBS,
+                             NumContractedRefs)) {
+          LLVM_DEBUG(dbgs() << "Fail to contract memref(s) in Def/Use loop "
+                            << DefLoopClone->getNumber() << "\n";);
+        } else {
+          HIRLoopsWithArrayContraction += 2;
+          HIRArrayRefsContracted += NumContractedRefs;
+        }
 
-        if (auto *ParentLoop = DefLoopClone->getParentLoop()) {
-          for (unsigned LiveInSB : make_range(DefLoopClone->live_in_begin(),
-                                              DefLoopClone->live_in_end())) {
-            ParentLoop->addLiveInTemp(LiveInSB);
+        HLNodeUtils::insertBefore(UseLp, DefLoopClone);
+        if (DefUseLevelDiff == 1) {
+          LLVM_DEBUG(dbgs() << "\t+ Need to promote IVs\n");
+
+          DefLoopClone->promoteNestingLevel(DefLp->getNestingLevel());
+
+          if (auto *ParentLoop = DefLoopClone->getParentLoop()) {
+            for (unsigned LiveInSB : make_range(DefLoopClone->live_in_begin(),
+                                                DefLoopClone->live_in_end())) {
+              ParentLoop->addLiveInTemp(LiveInSB);
+            }
           }
         }
+
+        if (HasMappedDim) {
+          replaceIVByCE(DefLoopClone, MappedDim.getIVLevel(), UseRefMappedCE);
+        }
+
+        // Merge loops
+        if (!mergeLoops(DefLoopClone, UseLp,
+                        FusionLevel - UseLp->getNestingLevel() + 1)) {
+          LLVM_DEBUG(dbgs() << "\t[SKIP] Can not merge loops.\n");
+          Optimizations.pop_back();
+          BailOut = true;
+          break;
+        }
+
+        HLNodeUtils::remove(DefLoopClone);
       }
 
-      // Merge loops
-      if (!mergeLoops(DefLoopClone, UseLp,
-                      FusionLevel - UseLp->getNestingLevel() + 1)) {
-        LLVM_DEBUG(dbgs() << "\t[SKIP] Can not merge loops.\n");
-        Optimizations.pop_back();
+      if (BailOut) {
         continue;
       }
 
@@ -959,8 +1147,6 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
       // Merge base pts but remove common bases which have been contracted.
       UsePair.second |= DefPair.second;
       UsePair.second = UsePair.second - CommonBases;
-
-      HLNodeUtils::remove(DefLoopClone);
 
       UsesTracking.remove(CommonBases);
 
