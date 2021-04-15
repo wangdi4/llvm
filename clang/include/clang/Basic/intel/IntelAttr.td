@@ -60,7 +60,6 @@ def IntelInline : Attr {
   let Args =  [EnumArgument<"Option", "OptionType",
                            ["recursive", "<unspecified>"],
                            ["Recursive", "NotRecursive"]>];
-  let HasCustomParsing = 1;
   let AdditionalMembers = [{
   void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
     OS << getDiagnosticName(Policy);
