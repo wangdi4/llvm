@@ -1645,13 +1645,17 @@ void HIRLoopInterchange::getNearbyPermutation(const HLLoop *Loop) {
     Node = Lp->getFirstChild();
   }
 
-  unsigned DstIndex = 1;
-  unsigned Iter = 0;
+  unsigned DstIndex = 0;
+  // NearByPerm contains [1,2,3...] in order
+  // LoopPermutation contains optimal permutation, i.e. [4,2,1,3]
   while (!LoopPermutation.empty()) {
-    for (auto &I : LoopPermutation) {
-      unsigned SrcLevel = I->getNestingLevel();
-      unsigned DstLevel = NearByPerm[DstIndex - 1]->getNestingLevel();
+    DstIndex++;
+    unsigned DstLevel = NearByPerm[DstIndex - 1]->getNestingLevel();
 
+    bool Permuted = false;
+    for (auto &I : LoopPermutation) {
+      // Compute the SrcLevel and Index based on the NearbyPerm
+      unsigned SrcLevel = I->getNestingLevel();
       auto Found_it = std::find_if(NearByPerm.begin(), NearByPerm.end(),
                                    [&SrcLevel](const auto &Lp) {
                                      return SrcLevel == Lp->getNestingLevel();
@@ -1660,20 +1664,18 @@ void HIRLoopInterchange::getNearbyPermutation(const HLLoop *Loop) {
       assert(Found_it != NearByPerm.end() && "Expected to find Loop!");
       unsigned SrcIndex = std::distance(NearByPerm.begin(), Found_it) + 1;
 
-      if (DDUtils::isLegalForPermutation(DstLevel, SrcLevel,
-                                         OutmostNestingLevel, DVs)) {
-        permuteNearBy(DstLevel, DstIndex, SrcLevel, SrcIndex);
-        LoopPermutation.erase(&I);
-        DstIndex++;
-        break;
+      if (!DDUtils::isLegalForPermutation(DstLevel, SrcLevel,
+                                          OutmostNestingLevel, DVs)) {
+        continue;
       }
-      Iter += 1;
-      //  Assert to avoid looping
-      if (Iter > (2 * MaxLoopNestLevel)) {
-        dbgs() << "NearbyPermutation is looping";
-        std::abort();
-      }
+
+      permuteNearBy(DstLevel, DstIndex, SrcLevel, SrcIndex);
+      LoopPermutation.erase(&I);
+      Permuted = true;
+      break;
     }
+    assert(Permuted && "Interchange expected to legally permute!");
+    (void)Permuted;
   }
 }
 
@@ -1695,16 +1697,16 @@ bool HIRLoopInterchange::isInPresentOrder(
 ///  1. Move Loop at SrcLevel to DstLevel loop
 ///  2. Update all DV accordingly
 ///  Levels are relative to 1
-void HIRLoopInterchange::permuteNearBy(unsigned DstLevel, unsigned Dstindex,
+void HIRLoopInterchange::permuteNearBy(unsigned DstLevel, unsigned DstIndex,
                                        unsigned SrcLevel, unsigned SrcIndex) {
-  if (SrcIndex == Dstindex) {
+  if (SrcIndex == DstIndex) {
     return;
   }
-  assert((SrcIndex > Dstindex) && "Loops are shifting to the left");
+  assert((SrcIndex > DstIndex) && "Loops are shifting to the left");
   assert(SrcIndex <= NearByPerm.size() && "SrcIndex out of bounds!");
   const HLLoop *LoopSave = NearByPerm[SrcIndex - 1];
   NearByPerm.erase(NearByPerm.begin() + SrcIndex - 1);
-  NearByPerm.insert(NearByPerm.begin() + Dstindex - 1, LoopSave);
+  NearByPerm.insert(NearByPerm.begin() + DstIndex - 1, LoopSave);
 
   for (auto &WorkDV : DVs) {
     DVKind DVSrc = WorkDV[SrcLevel - 1];
