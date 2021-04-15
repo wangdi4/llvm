@@ -46,7 +46,7 @@ define dso_local void @uniformDivergent(i32* nocapture %a, i32* nocapture %b) lo
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, LiveInMap:
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[DIR_OMP_SIMD_10:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ]} -> i64 [[VP0]] }
 ; CHECK-NEXT:         {label [[DIR_OMP_END_SIMD_30:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[DIR_OMP_END_SIMD_30]], label [[OMP_INNER_FOR_BODY0]], !llvm.loop !0} -> label [[BB4]] } (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1 (SVAOpBits 0->F )
@@ -127,7 +127,7 @@ define void @storesToUniformAddrs(i32* %src1, i32 %src2, i32* %dest1, i32* %dest
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, LiveInMap:
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ]} -> i64 [[VP0]] }
 ; CHECK-NEXT:         {label [[OMP_LOOP_EXIT0:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[OMP_INNER_FOR_BODY0]], label [[OMP_LOOP_EXIT0]], !llvm.loop !0} -> label [[BB4]] } (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1 (SVAOpBits 0->F )
@@ -208,7 +208,7 @@ define dso_local void @gatherScatter(i32* nocapture %a, i32* nocapture %b) local
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, LiveInMap:
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[DIR_OMP_SIMD_10:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ]} -> i64 [[VP0]] }
 ; CHECK-NEXT:         {label [[DIR_OMP_END_SIMD_30:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[DIR_OMP_END_SIMD_30]], label [[OMP_INNER_FOR_BODY0]], !llvm.loop !0} -> label [[BB4]] } (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1 (SVAOpBits 0->F )
@@ -289,7 +289,7 @@ define dso_local i32 @simpleReduction(i32* nocapture %a, i32 %b) local_unnamed_a
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, LiveInMap:
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i32 [[B0]] in {  [[REDUCTION_PHI0:%.*]] = phi i32 [ [[B0]], [[DIR_OMP_SIMD_10:%.*]] ], [ [[REDUCTION_ADD0:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ]} -> i32 [[VP0]] }
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[DIR_OMP_SIMD_10]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_BODY0]] ]} -> i64 [[VP1]] }
 ; CHECK-NEXT:         {label [[DIR_OMP_END_SIMD_30:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[DIR_OMP_END_SIMD_30]], label [[OMP_INNER_FOR_BODY0]], !llvm.loop !0} -> label [[BB4]] } (SVAOpBits 0->F 1->F 2->F )
@@ -380,7 +380,7 @@ define dso_local void @phiUsedByPhi(i64* nocapture %a, i64* nocapture %b) local_
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB7:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, LiveInMap:
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[DIR_OMP_SIMD_10:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[IF_END0:%.*]] ]} -> i64 [[VP1]] }
 ; CHECK-NEXT:         {label [[DIR_OMP_END_SIMD_30:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[DIR_OMP_END_SIMD_30]], label [[OMP_INNER_FOR_BODY0:%.*]], !llvm.loop !0} -> label [[BB6]] } (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1 (SVAOpBits 0->F )
@@ -466,7 +466,7 @@ define dso_local void @svmlFnCall(float* nocapture %a, float* nocapture %b) loca
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, LiveInMap:
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[DIR_OMP_SIMD_10:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ]} -> i64 [[VP0]] }
 ; CHECK-NEXT:         {label [[DIR_OMP_END_SIMD_30:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[DIR_OMP_END_SIMD_30]], label [[OMP_INNER_FOR_BODY0]], !llvm.loop !0} -> label [[BB4]] } (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1 (SVAOpBits 0->F )
@@ -544,7 +544,7 @@ define dso_local void @serialCallRepeatArgs(float* nocapture %a) local_unnamed_a
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, LiveInMap:
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[DIR_OMP_SIMD_10:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ]} -> i64 [[VP0]] }
 ; CHECK-NEXT:         {label [[DIR_OMP_END_SIMD_30:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[DIR_OMP_END_SIMD_30]], label [[OMP_INNER_FOR_BODY0]], !llvm.loop !0} -> label [[BB4]] } (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1 (SVAOpBits 0->F )

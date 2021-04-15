@@ -16,7 +16,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  VPlan after creation during merge:
 ; CHECK-NEXT:  VPlan IR for: test_store:for.body.ScalarPeel
 ; CHECK-NEXT:    [[PEELBLK0:PeelBlk[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-peel for.body, LiveInMap:
+; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-peel for.body, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {label [[FOR_END0:%.*]] in {  br i1 [[CMP0:%.*]], label [[FOR_BODY0:%.*]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB0:BB[0-9]+]] }
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0:%.*]] = add nuw nsw i64 [[INDVARS_IV0:%.*]], 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB0]]
@@ -61,7 +61,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  VPlan after creation during merge:
 ; CHECK-NEXT:  VPlan IR for: test_store:for.body.ScalarRemainder
 ; CHECK-NEXT:    [[REMBLK0:RemBlk[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP_1:%.*]] = scalar-remainder for.body, LiveInMap:
+; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP_1:%.*]] = scalar-remainder for.body, NeedsCloning: 1, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[INDVARS_IV_NEXT0]], [[FOR_BODY0]] ]} -> i64 live-in0 }
 ; CHECK-NEXT:         {label [[FOR_END0]] in {  br i1 [[CMP0]], label [[FOR_BODY0]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB6:BB[0-9]+]] }
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_LIVEOUT_1:%.*]] = orig-live-out token [[VP_ORIG_LOOP_1]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
@@ -237,7 +237,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[PEELBLK0]]: # preds: [[PEEL_CHECKV0]]
 ; CHECK-NEXT:         [DA: Uni] pushvf VF=1 UF=1
-; CHECK-NEXT:         [DA: Uni] token [[VP_ORIG_LOOP]] = scalar-peel for.body, LiveInMap:
+; CHECK-NEXT:         [DA: Uni] token [[VP_ORIG_LOOP]] = scalar-peel for.body, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {label [[FOR_END0]] in {  br i1 [[CMP0]], label [[FOR_BODY0]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB0]] }
 ; CHECK-NEXT:         {i64 1024 in {  [[CMP0]] = icmp ult i64 [[INDVARS_IV_NEXT0]], 1024} -> i64 [[VP_PEEL_COUNT]] }
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_ORIG_LIVEOUT]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
@@ -345,7 +345,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[REMBLK0]]: # preds: [[MERGE_BLK2]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=1 UF=1
-; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP_1]] = scalar-remainder for.body, LiveInMap:
+; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP_1]] = scalar-remainder for.body, NeedsCloning: 1, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0]] = phi i64 [ 0, [[ENTRY0]] ], [ [[INDVARS_IV_NEXT0]], [[FOR_BODY0]] ]} -> i64 [[VP13]] }
 ; CHECK-NEXT:         {label [[FOR_END0]] in {  br i1 [[CMP0]], label [[FOR_BODY0]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB6]] }
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT_1]] = orig-live-out token [[VP_ORIG_LOOP_1]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1

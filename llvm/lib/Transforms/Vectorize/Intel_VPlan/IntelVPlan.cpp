@@ -1163,6 +1163,21 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB, bool SkipInstructions)
 
 #if INTEL_CUSTOMIZATION
 
+void VPlanScalar::setNeedCloneOrigLoop(bool V) {
+  NeedCloneOrigLoop = V;
+  if (!V)
+    return;
+  for (VPBasicBlock &B : *this) {
+    auto LoopI = llvm::find_if(
+        B, [](const VPInstruction &I) { return isa<VPPeelRemainder>(I); });
+    if (LoopI != B.end()) {
+      cast<VPPeelRemainder>(*LoopI).setCloningRequired();
+      return;
+    }
+  }
+  llvm_unreachable("can't find loop instruction");
+}
+
 void VPBlendInst::addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *Plan) {
   addOperand(IncomingVal);
   if (!BlockPred && Plan) {

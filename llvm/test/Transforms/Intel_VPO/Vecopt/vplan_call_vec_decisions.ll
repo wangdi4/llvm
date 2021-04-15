@@ -74,7 +74,7 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CALLVECDEC-NEXT:       [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      [[BB7]]: # preds: scalar.ph
-; CALLVECDEC-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, LiveInMap:
+; CALLVECDEC-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
 ; CALLVECDEC-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_INC0:%.*]] ], [ 0, [[DIR_OMP_SIMD_10:%.*]] ]} -> i64 [[VP7]] }
 ; CALLVECDEC-NEXT:         {label [[DIR_OMP_END_SIMD_40:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[DIR_OMP_END_SIMD_40]], label [[OMP_INNER_FOR_BODY0:%.*]], !llvm.loop !0} -> label [[BB6]] }
 ; CALLVECDEC-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
@@ -153,7 +153,7 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br [[BB7:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      [[BB7]]: # preds: scalar.ph
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, LiveInMap:
+; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
 ; SVAPREFIX-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_INC0:%.*]] ], [ 0, [[DIR_OMP_SIMD_10:%.*]] ]} -> i64 [[VP7]] }
 ; SVAPREFIX-NEXT:         {label [[DIR_OMP_END_SIMD_40:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[DIR_OMP_END_SIMD_40]], label [[OMP_INNER_FOR_BODY0:%.*]], !llvm.loop !0} -> label [[BB6]] } (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1 (SVAOpBits 0->F )
@@ -269,7 +269,7 @@ define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32
 ; CALLVECDEC-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      [[BB5]]: # preds: scalar.ph
-; CALLVECDEC-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, LiveInMap:
+; CALLVECDEC-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
 ; CALLVECDEC-NEXT:         {i32 0 in {  [[DOTOMP_IV_LOCAL_0140:%.*]] = phi i32 [ [[ADD60:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ], [ 0, [[DIR_OMP_SIMD_10:%.*]] ]} -> i32 [[VP0]] }
 ; CALLVECDEC-NEXT:         {label [[DIR_OMP_END_SIMD_30:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[DIR_OMP_END_SIMD_30]], label [[OMP_INNER_FOR_BODY0]], !llvm.loop !0} -> label [[BB4]] }
 ; CALLVECDEC-NEXT:       [DA: Uni] i32 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[ADD60]] = add nuw nsw i32 [[DOTOMP_IV_LOCAL_0140]], 1
@@ -324,7 +324,7 @@ define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      [[BB5]]: # preds: scalar.ph
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, LiveInMap:
+; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
 ; SVAPREFIX-NEXT:         {i32 0 in {  [[DOTOMP_IV_LOCAL_0140:%.*]] = phi i32 [ [[ADD60:%.*]], [[OMP_INNER_FOR_BODY0:%.*]] ], [ 0, [[DIR_OMP_SIMD_10:%.*]] ]} -> i32 [[VP0]] }
 ; SVAPREFIX-NEXT:         {label [[DIR_OMP_END_SIMD_30:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[DIR_OMP_END_SIMD_30]], label [[OMP_INNER_FOR_BODY0]], !llvm.loop !0} -> label [[BB4]] } (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i32 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[ADD60]] = add nuw nsw i32 [[DOTOMP_IV_LOCAL_0140]], 1 (SVAOpBits 0->F )
@@ -427,7 +427,7 @@ define dso_local void @foo_unmasked_call_in_dpcpp(float* nocapture %A, float* no
 ; CALLVECDEC-NEXT:       [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      [[BB7]]: # preds: scalar.ph
-; CALLVECDEC-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder header, LiveInMap:
+; CALLVECDEC-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder header, NeedsCloning: 0, LiveInMap:
 ; CALLVECDEC-NEXT:         {i64 0 in {  [[IV0:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[IV_NEXT0:%.*]], [[LATCH0:%.*]] ]} -> i64 [[VP1]] }
 ; CALLVECDEC-NEXT:         {label [[LOOP_EXIT0:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[LOOP_EXIT0]], label [[HEADER0:%.*]], !llvm.loop !0} -> label [[BB6]] }
 ; CALLVECDEC-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[IV_NEXT0]] = add nuw nsw i64 [[IV0]], 1
@@ -488,7 +488,7 @@ define dso_local void @foo_unmasked_call_in_dpcpp(float* nocapture %A, float* no
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br [[BB7:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      [[BB7]]: # preds: scalar.ph
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder header, LiveInMap:
+; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder header, NeedsCloning: 0, LiveInMap:
 ; SVAPREFIX-NEXT:         {i64 0 in {  [[IV0:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[IV_NEXT0:%.*]], [[LATCH0:%.*]] ]} -> i64 [[VP1]] }
 ; SVAPREFIX-NEXT:         {label [[LOOP_EXIT0:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[LOOP_EXIT0]], label [[HEADER0:%.*]], !llvm.loop !0} -> label [[BB6]] } (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[IV_NEXT0]] = add nuw nsw i64 [[IV0]], 1 (SVAOpBits 0->F )

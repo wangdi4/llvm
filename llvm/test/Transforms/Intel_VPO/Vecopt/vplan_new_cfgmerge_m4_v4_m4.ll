@@ -203,7 +203,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br final.merge
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: [[BB19]], [[BB18]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP13]] = phi-merge  [ token [[VP_VPLAN_ADAPTER]], [[BB19]] ],  [ i64 live-out0, [[BB18]] ]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP21:%.*]] = phi-merge  [ token [[VP_VPLAN_ADAPTER]], [[BB19]] ],  [ i64 live-out0, [[BB18]] ]
 ; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
@@ -348,7 +348,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br final.merge
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: [[BB18]], Cloned.Cloned.[[BB16]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP13]] = phi-merge  [ i64 [[VP15]], Cloned.Cloned.[[BB16]] ],  [ i64 live-out0, [[BB18]] ]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP21]] = phi-merge  [ i64 [[VP15]], Cloned.Cloned.[[BB16]] ],  [ i64 live-out0, [[BB18]] ]
 ; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:

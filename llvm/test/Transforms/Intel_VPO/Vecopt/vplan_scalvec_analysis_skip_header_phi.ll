@@ -65,7 +65,7 @@ define void @test_uni_inner(i64 *%p) {
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB9:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB9]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder simd.header, LiveInMap:
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder simd.header, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[SIMD_IV0:%.*]] = phi i64 [ 0, [[SIMD_PREHEADER0:%.*]] ], [ [[SIMD_IV_NEXT0:%.*]], [[SIMD_LATCH0:%.*]] ]} -> i64 [[VP0]] }
 ; CHECK-NEXT:         {label [[SIMD_END0:%.*]] in {  br i1 [[SIMD_EXITCOND0:%.*]], label [[SIMD_END0]], label [[SIMD_HEADER0:%.*]], !llvm.loop !0} -> label [[BB8]] } (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[SIMD_IV_NEXT0]] = add nuw nsw i64 [[SIMD_IV0]], 1 (SVAOpBits 0->F )
@@ -176,7 +176,7 @@ define void @test_self_user_phi(i64 *%p) {
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB9:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB9]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder simd.header, LiveInMap:
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder simd.header, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[SIMD_IV0:%.*]] = phi i64 [ 0, [[SIMD_PREHEADER0:%.*]] ], [ [[SIMD_IV_NEXT0:%.*]], [[SIMD_LATCH0:%.*]] ]} -> i64 [[VP0]] }
 ; CHECK-NEXT:         {label [[SIMD_END0:%.*]] in {  br i1 [[SIMD_EXITCOND0:%.*]], label [[SIMD_END0]], label [[SIMD_HEADER0:%.*]], !llvm.loop !0} -> label [[BB8]] } (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[SIMD_IV_NEXT0]] = add nuw nsw i64 [[SIMD_IV0]], 1 (SVAOpBits 0->F )

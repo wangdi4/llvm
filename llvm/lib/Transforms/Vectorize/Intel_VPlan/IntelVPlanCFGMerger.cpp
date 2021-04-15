@@ -766,7 +766,8 @@ void VPlanCFGMerger::createAdapterBB(PlanDescr &Descr,
   Builder.setInsertPoint(NewBB);
   VPInstruction *AdapterI;
   if (Descr.Type == LT::LTPeel)
-    AdapterI = Builder.create<VPlanPeelAdapter>("vplan.peel.adapter", *Descr.Plan);
+    AdapterI =
+        Builder.create<VPlanPeelAdapter>("vplan.peel.adapter", *Descr.Plan);
   else
     AdapterI = Builder.create<VPlanAdapter>("vplan.adapter", *Descr.Plan);
   Plan.getVPlanDA()->markUniform(*AdapterI);

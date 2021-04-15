@@ -47,7 +47,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:  VPlan after creation during merge:
 ; CHECK-NEXT:  VPlan IR for: test_store:for.body.ScalarRemainder
 ; CHECK-NEXT:    [[REMBLK0:RemBlk[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder for.body, LiveInMap:
+; CHECK-NEXT:     [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder for.body, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0:%.*]] ]} -> i64 live-in0 }
 ; CHECK-NEXT:         {label [[FOR_END0:%.*]] in {  br i1 [[CMP0:%.*]], label [[FOR_BODY0]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB5:BB[0-9]+]] }
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
@@ -273,7 +273,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[REMBLK0]]: # preds: [[MERGE_BLK0]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=1 UF=1
-; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP]] = scalar-remainder for.body, LiveInMap:
+; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP]] = scalar-remainder for.body, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0]] = phi i64 [ 0, [[ENTRY0]] ], [ [[INDVARS_IV_NEXT0]], [[FOR_BODY0]] ]} -> i64 [[VP9]] }
 ; CHECK-NEXT:         {label [[FOR_END0]] in {  br i1 [[CMP0]], label [[FOR_BODY0]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB5]] }
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1

@@ -61,7 +61,7 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-IR-EMPTY:
 ; SVA-IR-NEXT:      [[BB5]]: # preds: scalar.ph
-; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder for.body, LiveInMap:
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder for.body, NeedsCloning: 0, LiveInMap:
 ; SVA-IR-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0:%.*]] ]} -> i64 [[VP2]] }
 ; SVA-IR-NEXT:         {label [[FOR_END0:%.*]] in {  br i1 [[CMP0:%.*]], label [[FOR_BODY0]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB4]] } (SVAOpBits 0->F 1->F )
 ; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 2 (SVAOpBits 0->F )

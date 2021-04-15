@@ -2682,8 +2682,16 @@ public:
   /// Get the original loop.
   Loop *getLoop() const { return Lp; }
 
+  /// Set the new original loop after cloning.
+  void setClonedLoop(Loop *L) {
+    assert(L && "unexpected null loop");
+    Lp = L;
+  }
+
   /// Return true if cloning is required.
   bool isCloningRequired() const { return NeedsCloning; }
+
+  void setCloningRequired() { NeedsCloning = true; }
 
   /// Get the live-in value corresponding to the \p Idx.
   Use *getLiveIn(unsigned Idx) const {
@@ -2692,9 +2700,29 @@ public:
     return OpLiveInMap[Idx];
   }
 
+  /// Get the live-in value corresponding to the \p Idx.
+  void setClonedLiveIn(unsigned Idx, Use *U) {
+    assert(Idx <= OpLiveInMap.size() - 1 &&
+           "Invalid entry in the live-in map requested.");
+    OpLiveInMap[Idx] = U;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ScalarPeel ||
+           V->getOpcode() == VPInstruction::ScalarRemainder;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   virtual void printImpl(raw_ostream &O) const {
-    O << " " << getLoop()->getName() << ", LiveInMap:";
+    O << " " << getLoop()->getName()
+      << ", NeedsCloning: " << isCloningRequired() << ", LiveInMap:";
     assert(getNumOperands() == OpLiveInMap.size() &&
            "Inconsistent live-ins data!");
     for (unsigned I = 0; I < getNumOperands(); ++I) {
@@ -3107,6 +3135,7 @@ public:
 
   // Only CG needs this...
   const Value *getLiveOutVal() const { return LiveOutVal; }
+  void setClonedLiveOutVal(Value *V) { LiveOutVal = V; }
 
   // Used during CFG merge.
   unsigned getMergeId() const { return MergeId;}
@@ -3662,7 +3691,7 @@ public:
   virtual void printSpecifics(raw_ostream &OS) const override {}
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  void setNeedCloneOrigLoop(bool V) { NeedCloneOrigLoop = V; }
+  void setNeedCloneOrigLoop(bool V);
   bool getNeedCloneOrigLoop() const { return NeedCloneOrigLoop; }
 
 protected:

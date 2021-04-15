@@ -50,7 +50,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder for.body, LiveInMap:
+; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder for.body, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[DIR_QUAL_LIST_END_20:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0:%.*]] ]} -> i64 [[VP0]] }
 ; CHECK-NEXT:         {float [[X_PROMOTED0]] in {  [[ADD70:%.*]] = phi float [ [[X_PROMOTED0]], [[DIR_QUAL_LIST_END_20]] ], [ [[ADD0:%.*]], [[FOR_BODY0]] ]} -> float [[VP1]] }
 ; CHECK-NEXT:         {label [[FOR_END0:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[FOR_END0]], label [[FOR_BODY0]], !llvm.loop !0} -> label [[BB4]] }
