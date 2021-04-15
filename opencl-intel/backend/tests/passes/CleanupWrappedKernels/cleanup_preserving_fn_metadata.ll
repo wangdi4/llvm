@@ -1,3 +1,4 @@
+; RUN: %oclopt -cleanup-wrapped-kernels -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -cleanup-wrapped-kernels -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -22,3 +23,9 @@ define void @test_if() {
 
 !4 = !{void ()* @__test_if_separated_args}
 !15 = !{void ()* @test_if}
+
+; DEBUGIFY-NOT: WARNING
+; __test_if_separated_args is wrapped, and will be removed in the pass, we ignore related warnings
+; DEBUGIFY: WARNING: Missing line 1
+; DEBUGIFY: WARNING: Missing variable 1
+; DEBUGIFY-NOT: WARNING

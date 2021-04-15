@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
+; RUN: %oclopt -generic-addr-dynamic-resolution %t.bc -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -generic-addr-dynamic-resolution -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
@@ -186,3 +187,11 @@ declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 ;;  float res = fract(param, pGen4 + 10);
  
 ;;}
+
+; DEBUGIFY-NOT: WARNING
+; Known issue of debugify on PHI node, ignore the “Missing line xxxx” warning
+; DEBUGIFY: WARNING: Missing line 14
+; DEBUGIFY: WARNING: Missing line 30
+; _Z9get_fencePU3AS4Kv is resolved, ignore the “Missing line xxxx” warning
+; DEBUGIFY: WARNING: Missing line 41
+; DEBUGIFY-NOT: WARNING

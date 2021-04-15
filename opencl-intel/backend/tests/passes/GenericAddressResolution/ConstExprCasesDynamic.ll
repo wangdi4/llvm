@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
+; RUN: %oclopt -generic-addr-dynamic-resolution %t.bc -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -generic-addr-dynamic-resolution -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
@@ -106,3 +107,5 @@ attributes #2 = { nounwind readnone }
 !9 = !{i32 2, i32 0}
 !10 = !{}
 !11 = !{!"clang version 3.6.0 (ssh://nnopencl-git-01.inn.intel.com/home/git/repo/opencl_qa-clang 83869a5aa2cc8e6efb5dab84d4f034a88fa5515f) (ssh://nnopencl-git-01.inn.intel.com/home/git/repo/opencl_qa-llvm 50546c308a35b18ee2afb43648a5c2b0e414227f)"}
+
+; DEBUGIFY-NOT: WARNING

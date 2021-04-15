@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
+; RUN: %oclopt -generic-addr-static-resolution %t.bc -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -generic-addr-static-resolution -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
@@ -134,3 +135,10 @@ declare i8* @__to_private(i8 addrspace(4)*)
 ;;  __private int* d = to_private(pGen5);
  
 ;;}
+
+; Known issue of debugify on PHI node, ignore the “Missing line xxxx” warning
+; DEBUGIFY-NOT: WARNING
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function func -- {{.*}} addrspacecast
+; DEBUGIFY: WARNING: Missing line 13
+; DEBUGIFY: WARNING: Missing line 18
+; DEBUGIFY-NOT: WARNING
