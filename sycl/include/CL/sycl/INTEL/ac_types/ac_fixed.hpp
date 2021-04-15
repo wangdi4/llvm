@@ -495,12 +495,7 @@ public:
     *this = f_op2;
   }
 
-  template <int disable = 1>
   constexpr ac_fixed(double d) {
-    static_assert (disable != 1, "ac_fixed is limited to use with native "
-        "float type. It cannot be constructed from a native double type. "
-        "Please update your program to use float in operations involving "
-        "ac_fixed.");
     Ulong s = __builtin_bit_cast(Ulong, d);
     bool sign = (bool)((s >> 63) & 1);
     Ulong biased_exponent =
@@ -1568,27 +1563,27 @@ inline std::ostream &operator<<(std::ostream &os,
 
 // Macros for Binary Operators with C Doubles
 // --------------------------------------------
-// #define FX_REL_OP_WITH_DOUBLE(REL_OP, S2)                                      \
-//   template <int W, int I, bool S, ac_q_mode Q, ac_o_mode O>                    \
-//   constexpr bool operator REL_OP(const ac_fixed<W, I, S, Q, O> &op,            \
-//                                  double op2) {                                 \
-//     return op.operator REL_OP(                                                 \
-//         ac_fixed<__HLS_AC_W_DOUBLE, __HLS_AC_I_DOUBLE, S2>(op2));              \
-//   }                                                                            \
-//   template <int W, int I, bool S, ac_q_mode Q, ac_o_mode O>                    \
-//   constexpr bool operator REL_OP(double op2,                                   \
-//                                  const ac_fixed<W, I, S, Q, O> &op) {          \
-//     return ac_fixed<__HLS_AC_W_DOUBLE, __HLS_AC_I_DOUBLE, S2>(op2).            \
-//     operator REL_OP(op);                                                       \
-//   }
+#define FX_REL_OP_WITH_DOUBLE(REL_OP, S2)                                      \
+  template <int W, int I, bool S, ac_q_mode Q, ac_o_mode O>                    \
+  constexpr bool operator REL_OP(const ac_fixed<W, I, S, Q, O> &op,            \
+                                 double op2) {                                 \
+    return op.operator REL_OP(                                                 \
+        ac_fixed<__HLS_AC_W_DOUBLE, __HLS_AC_I_DOUBLE, S2>(op2));              \
+  }                                                                            \
+  template <int W, int I, bool S, ac_q_mode Q, ac_o_mode O>                    \
+  constexpr bool operator REL_OP(double op2,                                   \
+                                 const ac_fixed<W, I, S, Q, O> &op) {          \
+    return ac_fixed<__HLS_AC_W_DOUBLE, __HLS_AC_I_DOUBLE, S2>(op2).            \
+    operator REL_OP(op);                                                       \
+  }
 
-// #define FX_OPS_WITH_DOUBLE(SI)                                                 \
-//   FX_REL_OP_WITH_DOUBLE(==, SI)                                                \
-//   FX_REL_OP_WITH_DOUBLE(!=, SI)                                                \
-//   FX_REL_OP_WITH_DOUBLE(>, SI)                                                 \
-//   FX_REL_OP_WITH_DOUBLE(>=, SI)                                                \
-//   FX_REL_OP_WITH_DOUBLE(<, SI)                                                 \
-//   FX_REL_OP_WITH_DOUBLE(<=, SI)
+#define FX_OPS_WITH_DOUBLE(SI)                                                 \
+  FX_REL_OP_WITH_DOUBLE(==, SI)                                                \
+  FX_REL_OP_WITH_DOUBLE(!=, SI)                                                \
+  FX_REL_OP_WITH_DOUBLE(>, SI)                                                 \
+  FX_REL_OP_WITH_DOUBLE(>=, SI)                                                \
+  FX_REL_OP_WITH_DOUBLE(<, SI)                                                 \
+  FX_REL_OP_WITH_DOUBLE(<=, SI)
 
 // --------------------------------------- End of Macros for Binary Operators
 // with C Doubles
@@ -1613,7 +1608,7 @@ FX_OPS_WITH_INT(Ulong, 64, false)
 // Binary Operators with C Floats & Doubles
 // --------------------------------------------
 FX_OPS_WITH_FLOAT(true)
-// FX_OPS_WITH_DOUBLE(true)
+FX_OPS_WITH_DOUBLE(true)
 // -------------------------------------- End of Binary Operators with Floats &
 // Doubles
 } // namespace ops_with_other_types

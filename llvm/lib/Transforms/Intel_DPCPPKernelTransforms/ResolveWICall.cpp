@@ -315,13 +315,16 @@ Value *ResolveWICallPass::updateGetFunction(CallInst *CI,
   ConstantInt *MaxWorkDimI32 = ConstantInt::get(I32Ty, MAX_WORK_DIM);
   ICmpInst *CheckIndex = new ICmpInst(ICmpInst::ICMP_ULT, CI->getArgOperand(0),
                                       MaxWorkDimI32, "check.index.inbound");
+  CheckIndex->setDebugLoc(CI->getDebugLoc());
   BB->getInstList().push_back(CheckIndex);
-  BranchInst::Create(getWIProperties, splitContinue, CheckIndex, BB);
+  BranchInst *CheckIndexBI = BranchInst::Create(getWIProperties, splitContinue, CheckIndex, BB);
+  CheckIndexBI->setDebugLoc(CI->getDebugLoc());
 
   // B.Build the get.wi.properties block
   // Now retrieve address of the DIM count
 
-  BranchInst::Create(splitContinue, getWIProperties);
+  BranchInst *SplitContinueBI = BranchInst::Create(splitContinue, getWIProperties);
+  SplitContinueBI->setDebugLoc(CI->getDebugLoc());
   Instruction *InsertBefore = getWIProperties->getTerminator();
   pResult = updateGetFunctionInBound(CI, CallType, InsertBefore);
 
