@@ -574,6 +574,8 @@ int64_t RTLProfileTy::Multiplier;
 struct PrivateHandlesTy {
   ze_command_list_handle_t CmdList = nullptr;
   ze_command_queue_handle_t CmdQueue = nullptr;
+  ze_command_list_handle_t CopyCmdList = nullptr;
+  ze_command_queue_handle_t CopyCmdQueue = nullptr;
   RTLProfileTy *Profile = nullptr;
 };
 
@@ -631,6 +633,29 @@ static uint32_t getCmdQueueGroupOrdinalCCS(ze_device_handle_t Device,
   if (groupOrdinal == UINT32_MAX)
     IDP("Could not find multi-context command queue group for device " DPxMOD
         "\n", DPxPTR(Device));
+  return groupOrdinal;
+}
+
+/// Get copy command queue group ordinal
+static uint32_t getCmdQueueGroupOrdinalCopy(ze_device_handle_t Device) {
+  uint32_t groupCount = 0;
+  CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
+              &groupCount, nullptr);
+  std::vector<ze_command_queue_group_properties_t> groupProperties(groupCount);
+  CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
+              &groupCount, groupProperties.data());
+  uint32_t groupOrdinal = UINT32_MAX;
+  for (uint32_t i = 0; i < groupCount; i++) {
+    auto &flags = groupProperties[i].flags;
+    if ((flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COPY) &&
+        (flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) == 0) {
+      groupOrdinal = i;
+      IDP("Found copy command queue for device " DPxMOD ", ordinal = %" PRIu32
+          "\n", DPxPTR(Device), groupOrdinal);
+      break;
+    }
+  }
+
   return groupOrdinal;
 }
 
@@ -731,7 +756,8 @@ struct RTLFlagsTy {
   uint64_t UseHostMemForUSM : 1;
   uint64_t UseMemoryPool : 1;
   uint64_t UseDriverGroupSizes : 1;
-  uint64_t Reserved : 57;
+  uint64_t UseCopyEngine : 1;
+  uint64_t Reserved : 56;
   RTLFlagsTy() :
       DumpTargetImage(0),
       EnableProfile(0),
@@ -740,6 +766,7 @@ struct RTLFlagsTy {
       UseHostMemForUSM(0),
       UseMemoryPool(1),
       UseDriverGroupSizes(0),
+      UseCopyEngine(1),
       Reserved(0) {}
 };
 
@@ -967,9 +994,14 @@ public:
   // Use per-thread command list/queue
   std::vector<std::vector<ze_command_list_handle_t>> CmdLists;
   std::vector<std::vector<ze_command_queue_handle_t>> CmdQueues;
+  std::vector<std::vector<ze_command_list_handle_t>> CopyCmdLists;
+  std::vector<std::vector<ze_command_queue_handle_t>> CopyCmdQueues;
 
   // Command queue group ordinals for each device
   std::vector<uint32_t> CmdQueueGroupOrdinals;
+
+  // Command queue group ordinals for copying
+  std::vector<uint32_t> CopyCmdQueueGroupOrdinals;
 
   // Command queue index for each device
   std::vector<uint32_t> CmdQueueIndices;
@@ -1287,6 +1319,18 @@ public:
       }
     }
 
+    // Use copy engine if available
+    if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE")) {
+      if (env[0] == 'F' || env[0] == 'f' || env[0] == '0') {
+        Flags.UseCopyEngine = 0;
+      } else {
+        IDP("Ignoring incorrect definition, "
+            "LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=%s\n", env);
+        IDP("LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=<Value>\n");
+        IDP("  <Value> := 0 | F | f\n");
+      }
+    }
+
     // Target image dump
     if (char *env = readEnvVar("LIBOMPTARGET_DUMP_TARGET_IMAGE",
                                "LIBOMPTARGET_SAVE_TEMPS")) {
@@ -1374,7 +1418,7 @@ public:
       ThreadLocalHandles.emplace(DeviceId, PrivateHandlesTy());
     }
     if (!ThreadLocalHandles[DeviceId].CmdQueue) {
-      auto cmdQueue = createCmdQueue(DeviceId);
+      auto cmdQueue = createCommandQueue(DeviceId);
       // Store it in the global list for clean up
       DataMutexes[DeviceId].lock();
       CmdQueues[DeviceId].push_back(cmdQueue);
@@ -1382,6 +1426,47 @@ public:
       ThreadLocalHandles[DeviceId].CmdQueue = cmdQueue;
     }
     return ThreadLocalHandles[DeviceId].CmdQueue;
+  }
+
+  ze_command_list_handle_t getCopyCmdList(int32_t DeviceId) {
+    if (!Flags.UseCopyEngine ||
+        CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX)
+      return getCmdList(DeviceId);
+
+    // Copy engine is available
+    if (ThreadLocalHandles.count(DeviceId) == 0) {
+      ThreadLocalHandles.emplace(DeviceId, PrivateHandlesTy());
+    }
+    if (!ThreadLocalHandles[DeviceId].CopyCmdList) {
+      auto cmdList = createCmdList(Context, Devices[DeviceId],
+          CopyCmdQueueGroupOrdinals[DeviceId], DeviceIdStr[DeviceId]);
+      DataMutexes[DeviceId].lock();
+      CopyCmdLists[DeviceId].push_back(cmdList);
+      DataMutexes[DeviceId].unlock();
+      ThreadLocalHandles[DeviceId].CopyCmdList = cmdList;
+    }
+
+    return ThreadLocalHandles[DeviceId].CopyCmdList;
+  }
+
+  ze_command_queue_handle_t getCopyCmdQueue(int32_t DeviceId) {
+    if (!Flags.UseCopyEngine ||
+        CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX)
+      return getCmdQueue(DeviceId);
+
+    // Copy engine is available
+    if (ThreadLocalHandles.count(DeviceId) == 0) {
+      ThreadLocalHandles.emplace(DeviceId, PrivateHandlesTy());
+    }
+    if (!ThreadLocalHandles[DeviceId].CopyCmdQueue) {
+      auto cmdQueue = createCmdQueue(Context, Devices[DeviceId],
+          CopyCmdQueueGroupOrdinals[DeviceId], 0, DeviceIdStr[DeviceId]);
+      DataMutexes[DeviceId].lock();
+      CopyCmdQueues[DeviceId].push_back(cmdQueue);
+      DataMutexes[DeviceId].unlock();
+      ThreadLocalHandles[DeviceId].CopyCmdQueue = cmdQueue;
+    }
+    return ThreadLocalHandles[DeviceId].CopyCmdQueue;
   }
 
   RTLProfileTy *getProfile(int32_t DeviceId) {
@@ -1453,7 +1538,7 @@ public:
   uint32_t getMemAllocType(void *Ptr);
 
   /// Create command queue with the given device ID
-  ze_command_queue_handle_t createCmdQueue(int32_t DeviceId);
+  ze_command_queue_handle_t createCommandQueue(int32_t DeviceId);
 };
 
 
@@ -1726,6 +1811,10 @@ static void closeRTL() {
       CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, cmdQueue);
     for (auto cmdList : DeviceInfo->CmdLists[i])
       CALL_ZE_EXIT_FAIL(zeCommandListDestroy, cmdList);
+    for (auto cmdQueue : DeviceInfo->CopyCmdQueues[i])
+      CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, cmdQueue);
+    for (auto cmdList : DeviceInfo->CopyCmdLists[i])
+      CALL_ZE_EXIT_FAIL(zeCommandListDestroy, cmdList);
     for (auto kernel : DeviceInfo->FuncGblEntries[i].Kernels) {
       if (kernel)
         CALL_ZE_EXIT_FAIL(zeKernelDestroy, kernel);
@@ -1782,8 +1871,8 @@ static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size,
     char *src = static_cast<char *>(Src);
     std::copy(src, src + Size, static_cast<char *>(Dest));
   } else {
-    auto cmdList = DeviceInfo->getCmdList(DeviceId);
-    auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
+    auto cmdList = DeviceInfo->getCopyCmdList(DeviceId);
+    auto cmdQueue = DeviceInfo->getCopyCmdQueue(DeviceId);
     bool ownsLock = false;
     if (!copyLock.owns_lock()) {
       copyLock.lock();
@@ -1996,8 +2085,8 @@ ze_kernel_indirect_access_flags_t RTLDeviceInfoTy::getKernelIndirectAccessFlags(
 /// Enqueue memory copy
 int32_t RTLDeviceInfoTy::enqueueMemCopy(
     int32_t DeviceId, void *Dst, void *Src, size_t Size) {
-  auto cmdList = getCmdList(DeviceId);
-  auto cmdQueue = getCmdQueue(DeviceId);
+  auto cmdList = getCopyCmdList(DeviceId);
+  auto cmdQueue = getCopyCmdQueue(DeviceId);
 
   CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, Dst, Src, Size,
                    nullptr, 0, nullptr);
@@ -2096,11 +2185,12 @@ void RTLDeviceInfoTy::initMemoryStat() {
 }
 
 /// Create a new command queue for the given OpenMP device ID
-ze_command_queue_handle_t RTLDeviceInfoTy::createCmdQueue(int32_t DeviceId) {
-  auto cmdQueue = ::createCmdQueue(Context, Devices[DeviceId],
-                                   CmdQueueGroupOrdinals[DeviceId],
-                                   CmdQueueIndices[DeviceId],
-                                   DeviceIdStr[DeviceId]);
+ze_command_queue_handle_t
+RTLDeviceInfoTy::createCommandQueue(int32_t DeviceId) {
+  auto cmdQueue = createCmdQueue(Context, Devices[DeviceId],
+                                 CmdQueueGroupOrdinals[DeviceId],
+                                 CmdQueueIndices[DeviceId],
+                                 DeviceIdStr[DeviceId]);
   return cmdQueue;
 }
 
@@ -2356,6 +2446,8 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
         DeviceInfo->CmdQueueGroupOrdinals.push_back(
             getCmdQueueGroupOrdinal(device));
         DeviceInfo->CmdQueueIndices.push_back(0);
+        DeviceInfo->CopyCmdQueueGroupOrdinals.push_back(
+            getCmdQueueGroupOrdinalCopy(device));
       }
 
       if (DeviceInfo->Flags.UseMemoryPool) {
@@ -2401,6 +2493,8 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
             DeviceInfo->CmdQueueGroupOrdinals.push_back(
                 getCmdQueueGroupOrdinal(subDevice));
             DeviceInfo->CmdQueueIndices.push_back(0);
+            DeviceInfo->CopyCmdQueueGroupOrdinals.push_back(
+                getCmdQueueGroupOrdinalCopy(subDevice));
           }
         }
         // Fill per-device data for subsubdevice
@@ -2441,6 +2535,8 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
 
   DeviceInfo->CmdLists.resize(DeviceInfo->NumDevices);
   DeviceInfo->CmdQueues.resize(DeviceInfo->NumDevices);
+  DeviceInfo->CopyCmdLists.resize(DeviceInfo->NumDevices);
+  DeviceInfo->CopyCmdQueues.resize(DeviceInfo->NumDevices);
   DeviceInfo->FuncGblEntries.resize(DeviceInfo->NumDevices);
   DeviceInfo->KernelProperties.resize(DeviceInfo->NumDevices);
   DeviceInfo->OwnedMemory.resize(DeviceInfo->NumDevices);
@@ -3247,8 +3343,8 @@ EXTERN int32_t __tgt_rtl_is_data_exchangable(int32_t SrcId, int32_t DstId) {
 
 EXTERN int32_t __tgt_rtl_data_exchange(
     int32_t SrcId, void *SrcPtr, int32_t DstId, void *DstPtr, int64_t Size) {
-  auto cmdList = DeviceInfo->getCmdList(DstId);
-  auto cmdQueue = DeviceInfo->getCmdQueue(DstId);
+  auto cmdList = DeviceInfo->getCopyCmdList(DstId);
+  auto cmdQueue = DeviceInfo->getCopyCmdQueue(DstId);
 
   CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, DstPtr, SrcPtr, Size,
                    nullptr, 0, nullptr);
@@ -3927,7 +4023,7 @@ EXTERN void __tgt_rtl_create_offload_queue(int32_t DeviceId, void *Interop) {
 
   // Create and return a new command queue for interop
   // TODO: check with MKL team and decide what to do with IsAsync
-  auto cmdQueue = DeviceInfo->createCmdQueue(deviceId);
+  auto cmdQueue = DeviceInfo->createCommandQueue(deviceId);
   obj->queue = cmdQueue;
   IDP("%s returns a new asynchronous command queue " DPxMOD "\n", __func__,
       DPxPTR(obj->queue));
@@ -4048,7 +4144,7 @@ EXTERN __tgt_interop *__tgt_rtl_create_interop(
     ret->DeviceContext = DeviceInfo->Context;
   }
   if (InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
-    ret->TargetSync = DeviceInfo->createCmdQueue(DeviceId);
+    ret->TargetSync = DeviceInfo->createCommandQueue(DeviceId);
   }
 
   // TODO: define implementation-defined interop properties
