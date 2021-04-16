@@ -1,6 +1,12 @@
 // UNSUPPORTED: system-windows
 // General tests that ld invocations on Linux targets sane. Note that we use
 // sysroot to make these tests independent of the host system.
+// INTEL_CUSTOMIZATION
+// FIXME - The internal rdrive gcc configurations need to be updated before
+//         we can turn this test back on.
+// XFAIL:*
+// end INTEL_CUSTOMIZATION
+
 //
 // RUN: %clang -no-canonical-prefixes %s -### -o %t.o 2>&1 \
 // RUN:     --target=i386-unknown-linux -rtlib=platform \
