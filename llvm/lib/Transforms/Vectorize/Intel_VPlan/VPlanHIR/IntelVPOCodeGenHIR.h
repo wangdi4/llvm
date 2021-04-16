@@ -805,19 +805,16 @@ private:
     return Widen ? getWidenedType(RefTy, VF) : RefTy;
   }
 
-  // Helper utility to make \p Ref consistent and map it to \p VPInst based on
-  // \p Widen.
+  // Helper utility to make a DDRef \p Ref  which is not attached to a HLDDNode
+  // consistent and map the same to \p VPInst based on \p Widen. If the
+  // instruction for which the Ref was created is also live-out, then we emit an
+  // explicit copy operation at the current insertion point in HLLoop to prevent
+  // invalid folding during liveout finalization. Note that this utility is
+  // expected to be used whenever VPInst is lowered to a standalone DDRef that
+  // will be used to fold operations.
   void makeConsistentAndAddToMap(RegDDRef *Ref, const VPInstruction *VPInst,
                                  SmallVectorImpl<const RegDDRef *> &AuxRefs,
-                                 bool Widen, unsigned ScalarLaneID) {
-    // Use AuxRefs if it is not empty to make Ref consistent
-    if (!AuxRefs.empty())
-      Ref->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
-    if (Widen)
-      addVPValueWideRefMapping(VPInst, Ref);
-    else
-      addVPValueScalRefMapping(VPInst, Ref, ScalarLaneID);
-  }
+                                 bool Widen, unsigned ScalarLaneID);
 
   // Implementation of generating needed HIR constructs for the given
   // VPInstruction. We generate new RegDDRefs or HLInsts that correspond to

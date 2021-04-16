@@ -1,24 +1,20 @@
-; Test to verify that VPlan HIR vectorizer codegen bails out for loops containing
-; unconditional liveouts and call instructions. We do not support call vectorization
-; feature in mixed CG mode which is currently used when candidate loop contains an
-; unconditional liveout.
+; Test to verify that VPlan HIR vectorizer codegen handles loops containing
+; unconditional liveouts and call instructions.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -print-after=VPlanDriverHIR -debug-only=VPOCGHIR -debug-only=VPOCGHIR-bailout < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -disable-output -debug-only=VPOCGHIR -debug-only=VPOCGHIR-bailout < %s 2>&1 | FileCheck %s
-
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
 define float @foo1(float* nocapture %a) {
-; CHECK: VPLAN_OPTREPORT: VPValCG liveout induction/private not handled - forcing mixed CG
-; CHECK: VPLAN_OPTREPORT: Loop not handled - call vectorization not supported in mixed CG mode
-
-; CHECK-LABEL:   BEGIN REGION { }
-; CHECK-NEXT:          + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK-NEXT:          |   %0 = (%a)[i1];
-; CHECK-NEXT:          |   %call = @llvm.sin.f32(%0);
-; CHECK-NEXT:          |   %add = %0  +  %call;
-; CHECK-NEXT:          |   (%a)[i1] = %add;
+; CHECK-LABEL:   BEGIN REGION { modified }
+; CHECK-NEXT:          + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:          |   %.vec = (<4 x float>*)(%a)[i1];
+; CHECK-NEXT:          |   %llvm.sin.v4f32 = @llvm.sin.v4f32(%.vec);
+; CHECK-NEXT:          |   %.vec1 = %.vec  +  %llvm.sin.v4f32;
+; CHECK-NEXT:          |   (<4 x float>*)(%a)[i1] = %.vec1;
 ; CHECK-NEXT:          + END LOOP
+; CHECK:               %0 = extractelement %.vec,  3;
 ; CHECK-NEXT:    END REGION
+;
 entry:
   br label %for.body
 
@@ -38,17 +34,16 @@ for.end:                                          ; preds = %for.body
 }
 
 define float @foo2(float* nocapture %a) {
-; CHECK: VPLAN_OPTREPORT: VPValCG liveout induction/private not handled - forcing mixed CG
-; CHECK: VPLAN_OPTREPORT: Loop not handled - call vectorization not supported in mixed CG mode
-
-; CHECK-LABEL:   BEGIN REGION { }
-; CHECK-NEXT:          + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK-NEXT:          |   %0 = (%a)[i1];
-; CHECK-NEXT:          |   %call = @llvm.sin.f32(%0);
-; CHECK-NEXT:          |   %add = %0  +  %call;
-; CHECK-NEXT:          |   (%a)[i1] = %add;
+; CHECK-LABEL:   BEGIN REGION { modified }
+; CHECK-NEXT:          + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:          |   %.vec = (<4 x float>*)(%a)[i1];
+; CHECK-NEXT:          |   %llvm.sin.v4f32 = @llvm.sin.v4f32(%.vec);
+; CHECK-NEXT:          |   %.vec1 = %.vec  +  %llvm.sin.v4f32;
+; CHECK-NEXT:          |   (<4 x float>*)(%a)[i1] = %.vec1;
 ; CHECK-NEXT:          + END LOOP
+; CHECK:               %add = extractelement %.vec1,  3;
 ; CHECK-NEXT:    END REGION
+;
 entry:
   br label %for.body
 

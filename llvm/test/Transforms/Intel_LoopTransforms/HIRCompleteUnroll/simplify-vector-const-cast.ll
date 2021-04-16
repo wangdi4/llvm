@@ -10,19 +10,21 @@
 ; Incoming vectorized HIR-
 ; + DO i1 = 0, 15, 1   <DO_LOOP>
 ; |   %3 = (@a)[0];
-; |   %.vec = (<16 x i32>*)(%c)[0][i1][0];
-; |   (<16 x i32>*)(%c)[0][<i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>][i1] = %.vec;
-; |   %4 = extractelement %.vec,  15;
+; |   %.vec = bitcast.<16 x i32*>.<16 x i8*>(%e.linear.iv);
+; |   %.unifload = (i32*)(%c)[0][i1][0];
+; |   (<16 x i32>*)(%c)[0][<i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>][i1] = %.unifload;
+; |   %.vec2 = bitcast.<16 x i32*>.<16 x i8*>(%e.linear.iv);
+; |   %4 = extractelement %.unifload,  15;
 ; |   (%3)[0] = %4;
 ; + END LOOP
 
 ; CHECK: Dump Before
 
-; CHECK: (<16 x i32>*)(LINEAR [16 x [16 x i32]]* %c)[<16 x i64> 0][LINEAR zext.<16 x i32>.<16 x i64>(i1)][<16 x i64> 0]
+; CHECK: (<16 x i32>*)(LINEAR [16 x [16 x i32]]* %c)[<16 x i64> 0][zext.<16 x i32>.<16 x i64>(<i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>)][LINEAR zext.<16 x i32>.<16 x i64>(i1)]
 
 ; CHECK: Dump After
 
-; CHECK: (<16 x i32>*)(LINEAR [16 x [16 x i32]]* %c)[<16 x i64> 0][<16 x i64> 0][<16 x i64> 0]
+; CHECK: (<16 x i32>*)(LINEAR [16 x [16 x i32]]* %c)[<16 x i64> 0][zext.<16 x i32>.<16 x i64>(<i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>)][<16 x i64> 0]
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

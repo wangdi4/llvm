@@ -423,7 +423,9 @@ VPlanTTICostModel::getIntrinsicForSVMLCall(
 unsigned VPlanTTICostModel::getIntrinsicInstrCost(
   Intrinsic::ID ID, const VPCallInstruction *VPCall, unsigned VF) {
 
-  const CallBase &CB = *(VPCall->getUnderlyingCallInst());
+  auto *CallInst = VPCall->getUnderlyingCallInst();
+  assert(CallInst && "Variable cannot be nullptr.");
+  const CallBase &CB = *CallInst;
   VPCallInstruction::CallVecScenariosTy VS = VPCall->getVectorizationScenario();
 
   // Intrinsics which have 0 cost are not lowered to actual code during ASM CG.

@@ -19,10 +19,10 @@
 ; CHECK:           BEGIN REGION { modified }
 ; CHECK:            + DO i1 = 0, 1023, 4   <DO_LOOP>
 ; CHECK:            |   %.vec = (<4 x float>*)(@arr1)[0][i1];
-; CHECK:            |   %conv1.vec = %.vec  +  1.000000e+00;
-; CHECK:            |   (<4 x float>*)(@arr2)[0][i1] = %conv1.vec;
+; CHECK:            |   %.vec1 = %.vec  +  1.000000e+00;
+; CHECK:            |   (<4 x float>*)(@arr2)[0][i1] = %.vec1;
 ; CHECK:            + END LOOP
-; CHECK:            %conv1 = extractelement %conv1.vec,  3;
+; CHECK:            %conv1 = extractelement %.vec1,  3;
 ; CHECK:           END REGION
 
 ; CHECK: loop
