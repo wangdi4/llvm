@@ -10859,6 +10859,13 @@ StmtResult Sema::ActOnOpenMPMaskedDirective(ArrayRef<OMPClause *> Clauses,
   if (!AStmt)
     return StmtError();
 
+#if INTEL_COLLAB
+  // filter is the only clause possible, if used give a warning that we
+  // don't suport it yet and will be ignoring it.
+  if (!Clauses.empty() && LangOpts.OpenMPLateOutline)
+    Diag(Clauses[0]->getBeginLoc(), diag::warn_omp_filter_not_yet_supported);
+#endif // INTEL_COLLAB
+
   setFunctionHasBranchProtectedScope();
 
   return OMPMaskedDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt);
