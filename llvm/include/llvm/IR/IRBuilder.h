@@ -1686,27 +1686,38 @@ public:
   }
 
   // Deprecated [opaque pointer types]
-  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateLoad(Value *Ptr,
-                                                 const char *Name),
-                            "Use the version that explicitly specifies the "
-                            "loaded type instead") {
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
+  LoadInst *CreateLoad(Value *Ptr, const char *Name) {
+#endif // INTEL_CUSTOMIZATION
     return CreateLoad(Ptr->getType()->getPointerElementType(), Ptr, Name);
   }
 
   // Deprecated [opaque pointer types]
-  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateLoad(Value *Ptr,
-                                                 const Twine &Name = ""),
-                            "Use the version that explicitly specifies the "
-                            "loaded type instead") {
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
+  LoadInst *CreateLoad(Value *Ptr, const Twine &Name = "") {
+#endif // INTEL_CUSTOMIZATION
     return CreateLoad(Ptr->getType()->getPointerElementType(), Ptr, Name);
   }
 
   // Deprecated [opaque pointer types]
-  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateLoad(Value *Ptr,
-                                                 bool isVolatile,
-                                                 const Twine &Name = ""),
-                            "Use the version that explicitly specifies the "
-                            "loaded type instead") {
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
+  LoadInst *CreateLoad(Value *Ptr, bool isVolatile, const Twine &Name = "") {
+#endif // INTEL_CUSTOMIZATION
     return CreateLoad(Ptr->getType()->getPointerElementType(), Ptr, isVolatile,
                       Name);
   }
@@ -1735,30 +1746,40 @@ public:
   }
 
   // Deprecated [opaque pointer types]
-  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateAlignedLoad(Value *Ptr,
-                                                        MaybeAlign Align,
-                                                        const char *Name),
-                            "Use the version that explicitly specifies the "
-                            "loaded type instead") {
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
+  LoadInst *CreateAlignedLoad(Value *Ptr, MaybeAlign Align, const char *Name) {
+#endif // INTEL_CUSTOMIZATION
     return CreateAlignedLoad(Ptr->getType()->getPointerElementType(), Ptr,
                              Align, Name);
   }
   // Deprecated [opaque pointer types]
-  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateAlignedLoad(Value *Ptr,
-                                                        MaybeAlign Align,
-                                                        const Twine &Name = ""),
-                            "Use the version that explicitly specifies the "
-                            "loaded type instead") {
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
+  LoadInst *CreateAlignedLoad(Value *Ptr, MaybeAlign Align,
+                              const Twine &Name = "") {
+#endif // INTEL_CUSTOMIZATION
     return CreateAlignedLoad(Ptr->getType()->getPointerElementType(), Ptr,
                              Align, Name);
   }
   // Deprecated [opaque pointer types]
-  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateAlignedLoad(Value *Ptr,
-                                                        MaybeAlign Align,
-                                                        bool isVolatile,
-                                                        const Twine &Name = ""),
-                            "Use the version that explicitly specifies the "
-                            "loaded type instead") {
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
+  LoadInst *CreateAlignedLoad(Value *Ptr, MaybeAlign Align,
+                              bool isVolatile, const Twine &Name = "") {
+#endif // INTEL_CUSTOMIZATION
     return CreateAlignedLoad(Ptr->getType()->getPointerElementType(), Ptr,
                              Align, isVolatile, Name);
   }
