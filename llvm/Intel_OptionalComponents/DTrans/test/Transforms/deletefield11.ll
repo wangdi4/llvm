@@ -1,8 +1,5 @@
-; RUN: opt -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt -passes=dtrans-deletefield -S -o - %s | FileCheck %s
-
-; This is failing because we don't have call info for cloned functions.
-; XFAIL: *
+; RUN: opt -whole-program-assume -dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -passes=dtrans-deletefield -S -o - %s | FileCheck %s
 
 ; This test verifies that the size argument of realloc calls are correctly
 ; updated in a cloned function.
@@ -28,8 +25,8 @@ define i32 @doSomething(%struct.test* %p_test) {
   ; Change the size of the buffer
   %p = bitcast %struct.test* %p_test to i8*
   %ra = call i8* @realloc(i8* %p, i64 %sz)
-  ; FIXME: This should be necessary, but apparently we don't transfer type
-  ;        alias information after a realloc.
+  ; FIXME: This bitcast should NOT be necessary, but we don't transfer the
+  ;        local pointer analyzer type alias information after a realloc.
   %p_test2 = bitcast i8* %ra to %struct.test*
 
   ; Use the value where we had the size constant.
@@ -70,7 +67,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK: %mul.dt = mul i32 32, %valC
 ; CHECK: %mul = mul i32 64, %valC
 ; CHECK: %sz = zext i32 %mul.dt to i64
-; CHECK: %ra2 = call i8* @realloc(i8* %p, i64 %sz)
+; CHECK: %ra = call i8* @realloc(i8* %p, i64 %sz)
 ; CHECK: icmp eq i32 128, %mul
 
 declare i8* @realloc(i8*, i64)

@@ -236,3 +236,17 @@
 // initializer:
 // OMPNOTES: @{{.+}} = internal unnamed_addr constant [{{[0-9]+}} x i8] c"{{.*}}LLVMOMPOFFLOAD{{.*}}LLVMOMPOFFLOAD{{.*}}LLVMOMPOFFLOAD{{.*}}"
 // end INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
+// Check that SPIR-V image is automatically containerized, and the notes
+// can be added into the container ELF:
+
+// RUN: clang-offload-wrapper                                                  \
+// RUN:   -host=x86_64-pc-linux-gnu -containerize-openmp-images=true           \
+// RUN:     -kind=openmp -target=spir64             -format=native %t3.tgt     \
+// RUN:   -o %t2.wrapper.bc 2>&1 |                                             \
+// RUN: FileCheck %s --allow-empty --check-prefix ELF-CONTAINER-WARNING
+// RUN: llvm-dis %t2.wrapper.bc -o - | FileCheck %s --check-prefix ELF-CONTAINER
+
+// ELF-CONTAINER-WARNING-NOT: notes cannot be added
+// ELF-CONTAINER: @{{.+}} = internal unnamed_addr constant [{{[0-9]+}} x i8] c"{{.*}}INTELONEOMPOFFLOAD{{.*}}INTELONEOMPOFFLOAD{{.*}}INTELONEOMPOFFLOAD{{.*}}", section "__CLANG_OFFLOAD_BUNDLE__openmp-spirv"
+// end INTEL_CUSTOMIZATION

@@ -40,6 +40,13 @@ cl::opt<bool> dtrans::DTransPrintAnalyzedTypes("dtrans-print-types",
 /// calls (malloc, free, memset, etc) that may be useful to the transformations.
 cl::opt<bool> dtrans::DTransPrintAnalyzedCalls("dtrans-print-callinfo",
                                                cl::ReallyHidden);
+
+// Enables identification of structure fields that are loaded but never used in
+// a way that affects the program. (e.g. a field may be loaded, and not used or
+// only used to compute some other value that is not used.)
+static cl::opt<bool> DTransIdentifyUnusedValues("dtrans-identify-unused-values",
+                                                cl::init(true),
+                                                cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 //
@@ -1973,6 +1980,11 @@ bool dtrans::isLoadedValueUnused(Value *V, Value *LoadAddr) {
     // If the value has no users, this path is unused.
     return true;
   };
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (!DTransIdentifyUnusedValues)
+      return false;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   SmallPtrSet<Value *, 4> UsedValues;
   return IsUnused(V, LoadAddr, UsedValues);

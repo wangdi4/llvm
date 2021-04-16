@@ -374,6 +374,81 @@ public:
   }
 };
 
+class ElfLSectionImpl {
+  Elf *EF = nullptr;
+  Elf_Scn *Section = nullptr;
+
+public:
+  ElfLSectionImpl(Elf *EF, Elf_Scn *Section) : EF(EF), Section(Section) {}
+
+  const char *getName() const {
+    size_t SHStrNdx;
+    if (elf_getshdrstrndx(EF, &SHStrNdx) != 0)
+      return "";
+
+    GElf_Shdr Shdr;
+    gelf_getshdr(Section, &Shdr);
+    char *Name = elf_strptr(EF, SHStrNdx, static_cast<size_t>(Shdr.sh_name));
+    return Name ? Name : "";
+  }
+
+  uint64_t getSize() const {
+    Elf_Data *Desc = elf_rawdata(Section, nullptr);
+    if (!Desc)
+      return 0;
+
+    return Desc->d_size;
+  }
+
+  const uint8_t *getContents() const {
+    Elf_Data *Desc = elf_rawdata(Section, nullptr);
+    if (!Desc)
+      return 0;
+
+    return reinterpret_cast<const uint8_t *>(Desc->d_buf);
+  }
+};
+
+class ElfLSectionIteratorImpl {
+  // A pointer to Elf object created by elf_memory() for
+  // the ELF image we are going to iterate.
+  Elf *EF = nullptr;
+
+  // A pointer to the current section.
+  Elf_Scn *CurrentSection = nullptr;
+
+  bool operator!=(const ElfLSectionIteratorImpl Other) const {
+    return !(*this == Other);
+  }
+
+public:
+  ElfLSectionIteratorImpl(Elf *RawElf, bool IsEnd = false) : EF(RawElf) {
+    assert(EF && "Trying to iterate invalid ELF.");
+    if (IsEnd)
+      return;
+
+    CurrentSection = elf_getscn(EF, 0);
+  }
+
+  bool operator==(const ElfLSectionIteratorImpl Other) const {
+    return CurrentSection == Other.CurrentSection;
+  }
+
+  ElfLSectionImpl *operator*() const {
+    assert(*this != ElfLSectionIteratorImpl(EF, true) &&
+           "Dereferencing the end iterator.");
+    return new ElfLSectionImpl(EF, CurrentSection);
+  }
+
+  ElfLSectionIteratorImpl &operator++() {
+    assert(*this != ElfLSectionIteratorImpl(EF, true) &&
+           "Dereferencing the end iterator.");
+
+    CurrentSection = elf_nextscn(EF, CurrentSection);
+    return *this;
+  }
+};
+
 // Actual implementation of ElfL via libelf.
 // It is constructed from an ELF image defined by its
 // starting pointer in memory and a length in bytes.
@@ -409,6 +484,11 @@ public:
   ElfLSegmentNoteIteratorImpl *
   createSegmentNoteIteratorImpl(bool IsEnd) const {
     return new ElfLSegmentNoteIteratorImpl(EF, IsEnd);
+  }
+
+  ElfLSectionIteratorImpl *
+  createSectionIteratorImpl(bool IsEnd) const {
+    return new ElfLSectionIteratorImpl(EF, IsEnd);
   }
 };
 
@@ -636,6 +716,93 @@ uint64_t ElfLNote::getType() const {
   return Note->n_type;
 }
 
+ElfLSection::ElfLSection(const void *I) {
+  Impl = I;
+}
+
+ElfLSection::ElfLSection(const ElfLSection &Other) {
+  const ElfLSectionImpl *SImpl =
+      reinterpret_cast<const ElfLSectionImpl *>(Other.Impl);
+  Impl = new ElfLSectionImpl(*SImpl);
+}
+
+ElfLSection::~ElfLSection() {
+  const ElfLSectionImpl *SImpl =
+      reinterpret_cast<const ElfLSectionImpl *>(Impl);
+  delete SImpl;
+}
+
+const char *ElfLSection::getName() const {
+  const ElfLSectionImpl *SImpl =
+      reinterpret_cast<const ElfLSectionImpl *>(Impl);
+  return SImpl->getName();
+}
+
+uint64_t ElfLSection::getSize() const {
+  const ElfLSectionImpl *SImpl =
+      reinterpret_cast<const ElfLSectionImpl *>(Impl);
+  return SImpl->getSize();
+}
+
+const uint8_t *ElfLSection::getContents() const {
+  const ElfLSectionImpl *SImpl =
+      reinterpret_cast<const ElfLSectionImpl *>(Impl);
+  return SImpl->getContents();
+}
+
+ElfLSectionIterator ElfL::sections_begin() const {
+  return ElfLSectionIterator(Impl);
+}
+
+ElfLSectionIterator ElfL::sections_end() const {
+  return ElfLSectionIterator(Impl, true);
+}
+
+ElfLSectionIterator::ElfLSectionIterator(const void *I, bool IsEnd) {
+  const ElfLImpl *EImpl = reinterpret_cast<const ElfLImpl *>(I);
+  Impl = EImpl->createSectionIteratorImpl(IsEnd);
+}
+
+ElfLSectionIterator::ElfLSectionIterator(
+    const ElfLSectionIterator &Other) {
+  ElfLSectionIteratorImpl *IImpl =
+      reinterpret_cast<ElfLSectionIteratorImpl *>(Other.Impl);
+  Impl = new ElfLSectionIteratorImpl(*IImpl);
+}
+
+ElfLSectionIterator::~ElfLSectionIterator() {
+  assert(Impl && "Invalid ElfLSectionIterator object.");
+  ElfLSectionIteratorImpl *IImpl =
+      reinterpret_cast<ElfLSectionIteratorImpl *>(Impl);
+  delete IImpl;
+}
+
+bool ElfLSectionIterator::operator==(
+    const ElfLSectionIterator Other) const {
+  const ElfLSectionIteratorImpl *Lhs =
+      reinterpret_cast<const ElfLSectionIteratorImpl *>(Impl);
+  const ElfLSectionIteratorImpl *Rhs =
+      reinterpret_cast<const ElfLSectionIteratorImpl *>(Other.Impl);
+  return (*Lhs == *Rhs);
+}
+
+bool ElfLSectionIterator::operator!=(
+    const ElfLSectionIterator Other) const {
+  return !(*this == Other);
+}
+
+ElfLSectionIterator &ElfLSectionIterator::operator++() {
+  ElfLSectionIteratorImpl *IImpl =
+      reinterpret_cast<ElfLSectionIteratorImpl *>(Impl);
+  ++(*IImpl);
+  return *this;
+}
+
+ElfLSection ElfLSectionIterator::operator*() const {
+  ElfLSectionIteratorImpl *IImpl =
+      reinterpret_cast<ElfLSectionIteratorImpl *>(Impl);
+  return ElfLSection(**IImpl);
+}
 #else // !MAY_USE_LIBELF
 
 // Implementation based on LLVM ELF binary format.
@@ -994,6 +1161,157 @@ public:
   }
 };
 
+class ElfLSectionImplBase {
+public:
+  virtual ~ElfLSectionImplBase() = default;
+  virtual ElfLSectionImplBase *clone() const = 0;
+  virtual const char *getName() const = 0;
+  virtual uint64_t getSize() const = 0;
+  virtual const uint8_t *getContents() const = 0;
+};
+
+template <class ELFT> class ElfLSectionImpl : public ElfLSectionImplBase {
+  using Elf_Shdr = typename ELFT::Shdr;
+
+  const ELFFile<ELFT> &EF;
+  const Elf_Shdr &Section;
+
+public:
+  ElfLSectionImpl(const ELFFile<ELFT> &EF, const Elf_Shdr &Section)
+    : EF(EF), Section(Section) {}
+  ElfLSectionImpl(const ElfLSectionImpl &) = default;
+  ElfLSectionImpl *clone() const override { return new ElfLSectionImpl(*this); }
+  ~ElfLSectionImpl() = default;
+
+  const char *getName() const override {
+    Expected<StringRef> NameOrErr = EF.getSectionName(Section);
+    if (!NameOrErr) {
+      consumeError(NameOrErr.takeError());
+      return "";
+    }
+    return NameOrErr->data();
+  }
+
+  uint64_t getSize() const override {
+    Expected<ArrayRef<uint8_t>> ContentsOrErr = EF.getSectionContents(Section);
+    if (!ContentsOrErr) {
+      consumeError(ContentsOrErr.takeError());
+      return 0;
+    }
+    return ContentsOrErr->size();
+  }
+
+  const uint8_t *getContents() const override {
+    Expected<ArrayRef<uint8_t>> ContentsOrErr = EF.getSectionContents(Section);
+    if (!ContentsOrErr) {
+      consumeError(ContentsOrErr.takeError());
+      return 0;
+    }
+    return ContentsOrErr->data();
+  }
+};
+
+class ElfLSectionIteratorImplBase {
+protected:
+  const endianness TargetEndianness;
+  const bool Is64Bits;
+
+  ElfLSectionIteratorImplBase(endianness TargetEndianness, bool Is64Bits)
+    : TargetEndianness(TargetEndianness), Is64Bits(Is64Bits) {}
+
+public:
+  ElfLSectionIteratorImplBase(const ElfLSectionIteratorImplBase &) = default;
+  virtual ~ElfLSectionIteratorImplBase() = default;
+  virtual ElfLSectionIteratorImplBase *clone() const = 0;
+  virtual ElfLSectionIteratorImplBase &operator++() = 0;
+  virtual bool operator==(const ElfLSectionIteratorImplBase &) const = 0;
+  virtual ElfLSectionImplBase *operator*() const = 0;
+
+  endianness getEndianness() const { return TargetEndianness; }
+
+  bool is64Bits() const { return Is64Bits; }
+};
+
+template <class ELFT>
+class ElfLSectionIteratorImpl : public ElfLSectionIteratorImplBase {
+  using Elf_Shdr = typename ELFT::Shdr;
+  using Elf_Shdr_Range = typename ELFT::ShdrRange;
+  using SectionsIteratorTy = typename Elf_Shdr_Range::iterator;
+
+  const ELFFile<ELFT> &EF;
+  SectionsIteratorTy SectionsIt;
+
+  const ELFFile<ELFT> &getEF() const { return EF; }
+
+  SectionsIteratorTy section_begin() const {
+    Expected<Elf_Shdr_Range> Sections = getEF().sections();
+    if (!Sections)
+      return SectionsIteratorTy();
+
+    return Sections->begin();
+  }
+
+  SectionsIteratorTy section_end() const {
+    Expected<Elf_Shdr_Range> Sections = getEF().sections();
+    if (!Sections)
+      return SectionsIteratorTy();
+
+    return Sections->end();
+  }
+
+  bool isEqual(const ElfLSectionIteratorImpl &Lhs,
+               const ElfLSectionIteratorImpl &Rhs) const {
+    return Lhs.SectionsIt == Rhs.SectionsIt;
+  }
+
+  bool operator!=(const ElfLSectionIteratorImpl Other) const {
+    return !(*this == Other);
+  }
+
+public:
+  ElfLSectionIteratorImpl(const ELFFile<ELFT> &EF, bool IsEnd = false)
+    : ElfLSectionIteratorImplBase(ELFT::TargetEndianness, ELFT::Is64Bits),
+      EF(EF) {
+    if (IsEnd) {
+      SectionsIt = section_end();
+      return;
+    }
+
+    SectionsIt = section_begin();
+  }
+
+  ElfLSectionIteratorImpl *clone() const override {
+    return new ElfLSectionIteratorImpl(*this);
+  }
+
+  bool operator==(const ElfLSectionIteratorImplBase &Other) const override {
+    if (const ElfLSectionIteratorImpl *OPtr =
+            dyn_cast<const ElfLSectionIteratorImpl>(&Other)) {
+      return isEqual(*this, *OPtr);
+    }
+    return false;
+  }
+
+  ElfLSectionImplBase *operator*() const override {
+    assert(*this != ElfLSectionIteratorImpl(EF, true) &&
+           "Dereferencing the end iterator.");
+    return new ElfLSectionImpl<ELFT>(EF, *SectionsIt);
+  }
+
+  ElfLSectionIteratorImpl &operator++() override {
+    assert(*this != ElfLSectionIteratorImpl(EF, true) &&
+           "Dereferencing the end iterator.");
+
+    ++SectionsIt;
+    return *this;
+  }
+
+  static bool classof(const ElfLSectionIteratorImplBase *B) {
+    return (B->getEndianness() == ELFT::TargetEndianness &&
+            B->is64Bits() == ELFT::Is64Bits);
+  }
+};
+
 class ElfLImplBase {
 public:
   ElfLImplBase() = default;
@@ -1007,6 +1325,8 @@ public:
   createSectionNoteIteratorImpl(bool IsEnd) const = 0;
   virtual ElfLNoteIteratorImplBase *
   createSegmentNoteIteratorImpl(bool IsEnd) const = 0;
+  virtual ElfLSectionIteratorImplBase *
+  createSectionIteratorImpl(bool IsEnd) const = 0;
 };
 
 template <class ELFT> class ElfLImpl : public ElfLImplBase {
@@ -1056,6 +1376,11 @@ public:
   createSegmentNoteIteratorImpl(bool IsEnd) const override {
     return new ElfLSegmentNoteIteratorImpl<ELFT>(File->getELFFile(), *Err,
                                                  IsEnd);
+  }
+
+  ElfLSectionIteratorImplBase *
+  createSectionIteratorImpl(bool IsEnd) const override {
+    return new ElfLSectionIteratorImpl<ELFT>(File->getELFFile(), IsEnd);
   }
 };
 
@@ -1264,6 +1589,96 @@ uint64_t ElfLNote::getType() const {
   const ElfLNoteImplBase *NImpl =
       reinterpret_cast<const ElfLNoteImplBase *>(Impl);
   return NImpl->getType();
+}
+
+ElfLSection::ElfLSection(const void *I) {
+  Impl = I;
+}
+
+ElfLSection::ElfLSection(const ElfLSection &Other) {
+  const ElfLSectionImplBase *SImpl =
+      reinterpret_cast<const ElfLSectionImplBase *>(Other.Impl);
+  Impl = SImpl->clone();
+}
+
+ElfLSection::~ElfLSection() {
+  const ElfLSectionImplBase *SImpl =
+      reinterpret_cast<const ElfLSectionImplBase *>(Impl);
+  delete SImpl;
+}
+
+const char *ElfLSection::getName() const {
+  const ElfLSectionImplBase *SImpl =
+      reinterpret_cast<const ElfLSectionImplBase *>(Impl);
+  return SImpl->getName();
+}
+
+uint64_t ElfLSection::getSize() const {
+  const ElfLSectionImplBase *SImpl =
+      reinterpret_cast<const ElfLSectionImplBase *>(Impl);
+  return SImpl->getSize();
+}
+
+const uint8_t *ElfLSection::getContents() const {
+  const ElfLSectionImplBase *SImpl =
+      reinterpret_cast<const ElfLSectionImplBase *>(Impl);
+  return SImpl->getContents();
+}
+
+ElfLSectionIterator ElfL::sections_begin() const {
+  assert(isValidElf() && "Invalid ELF.");
+  return ElfLSectionIterator(reinterpret_cast<const ElfLImplBase *>(Impl));
+}
+
+ElfLSectionIterator ElfL::sections_end() const {
+  assert(isValidElf() && "Invalid ELF.");
+  return ElfLSectionIterator(reinterpret_cast<const ElfLImplBase *>(Impl),
+                             true);
+}
+
+ElfLSectionIterator::ElfLSectionIterator(const void *I, bool IsEnd) {
+  const ElfLImplBase *EImpl = reinterpret_cast<const ElfLImplBase *>(I);
+  Impl = EImpl->createSectionIteratorImpl(IsEnd);
+}
+
+ElfLSectionIterator::ElfLSectionIterator(
+    const ElfLSectionIterator &Other) {
+  ElfLSectionIteratorImplBase *IImpl =
+      reinterpret_cast<ElfLSectionIteratorImplBase *>(Other.Impl);
+  Impl = IImpl->clone();
+}
+
+ElfLSectionIterator::~ElfLSectionIterator() {
+  ElfLSectionIteratorImplBase *IImpl =
+      reinterpret_cast<ElfLSectionIteratorImplBase *>(Impl);
+  delete IImpl;
+}
+
+bool ElfLSectionIterator::operator==(
+    const ElfLSectionIterator Other) const {
+  const ElfLSectionIteratorImplBase *Lhs =
+      reinterpret_cast<const ElfLSectionIteratorImplBase *>(Impl);
+  const ElfLSectionIteratorImplBase *Rhs =
+      reinterpret_cast<const ElfLSectionIteratorImplBase *>(Other.Impl);
+  return (*Lhs == *Rhs);
+}
+
+bool ElfLSectionIterator::operator!=(
+    const ElfLSectionIterator Other) const {
+  return !(*this == Other);
+}
+
+ElfLSectionIterator &ElfLSectionIterator::operator++() {
+  ElfLSectionIteratorImplBase *IImpl =
+      reinterpret_cast<ElfLSectionIteratorImplBase *>(Impl);
+  ++(*IImpl);
+  return *this;
+}
+
+ElfLSection ElfLSectionIterator::operator*() const {
+  ElfLSectionIteratorImplBase *IImpl =
+      reinterpret_cast<ElfLSectionIteratorImplBase *>(Impl);
+  return ElfLSection(**IImpl);
 }
 #endif // !MAY_USE_LIBELF
 #endif // INTEL_COLLAB

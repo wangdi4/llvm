@@ -106,6 +106,52 @@ public:
   ElfLNote operator*() const;
 };
 
+// Class representing ELF section.
+class ElfLSection {
+  const void *Impl = nullptr;
+
+  friend class ElfLSectionIterator;
+
+  // Only ElfLSectionIterator is allowed to create sections via its
+  // operator*().
+  explicit ElfLSection(const void *I);
+  ElfLSection &operator=(const ElfLSection &) = delete;
+
+public:
+  // FIXME: add move copy constructor and assignment operator.
+  ElfLSection(const ElfLSection &);
+  ~ElfLSection();
+
+  // Returns the section name, which is is a null-terminated string.
+  const char *getName() const;
+  // Returns the section size.
+  uint64_t getSize() const;
+  // Returns a pointer to the beginning of the section.
+  const uint8_t *getContents() const;
+};
+
+// Iterator over sections.
+class ElfLSectionIterator
+    : std::iterator<std::forward_iterator_tag, ElfLSection> {
+
+  void *Impl = nullptr;
+
+  friend class ElfL;
+
+  // Only ElfL is allowed to create iterators to itself.
+  ElfLSectionIterator(const void *I, bool IsEnd = false);
+  ElfLSectionIterator &operator=(const ElfLSectionIterator &) = delete;
+
+public:
+  // FIXME: add move copy constructor and assignment operator.
+  ElfLSectionIterator(const ElfLSectionIterator &Other);
+  ~ElfLSectionIterator();
+  ElfLSectionIterator &operator++();
+  bool operator==(const ElfLSectionIterator Other) const;
+  bool operator!=(const ElfLSectionIterator Other) const;
+  ElfLSection operator*() const;
+};
+
 // Wrapper around the given ELF image.
 class ElfL {
   // Opaque pointer to the actual implementation.
@@ -129,6 +175,8 @@ public:
   ElfLSectionNoteIterator section_notes_end() const;
   ElfLSegmentNoteIterator segment_notes_begin() const;
   ElfLSegmentNoteIterator segment_notes_end() const;
+  ElfLSectionIterator sections_begin() const;
+  ElfLSectionIterator sections_end() const;
 };
 
 #endif // LLVM_OPENMP_LIBOMPTARGET_PLUGINS_COMMON_ELF_COMMON_ELF_LIGHT_H

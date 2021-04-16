@@ -3,7 +3,9 @@ set(LLVM_LINK_COMPONENTS BitWriter Core Object Support TransformUtils)
 else(INTEL_COLLAB)
 set(LLVM_LINK_COMPONENTS BitWriter Core Support TransformUtils)
 endif(INTEL_COLLAB)
-
+if(INTEL_CUSTOMIZATION)
+list(APPEND LLVM_LINK_COMPONENTS ObjectYAML)
+endif(INTEL_CUSTOMIZATION)
 add_clang_tool(clang-offload-wrapper
   ClangOffloadWrapper.cpp
 

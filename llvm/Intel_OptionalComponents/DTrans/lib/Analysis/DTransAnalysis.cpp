@@ -115,14 +115,6 @@ static cl::opt<unsigned> DTransMaxInstructionCount("dtrans-maxinstructioncount",
                                                    cl::init(1500000),
                                                    cl::ReallyHidden);
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-// Enables identification of values that are loaded but never used.
-// See LocalPointerAnalyzer::identifyUnusedValue
-static cl::opt<bool> DTransIdentifyUnusedValues("dtrans-identify-unused-values",
-                                                cl::init(true),
-                                                cl::ReallyHidden);
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
 // Enable merging padded structures with base structures even if the
 // safety checks didn't pass. This option is for testing purposes and
 // must remain turned off.
@@ -7719,11 +7711,6 @@ private:
   // Returns true if the loaded value is stored to the same address from which
   // it was loaded and does not escape.
   bool identifyUnusedValue(LoadInst &LI) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (!DTransIdentifyUnusedValues)
-      return false;
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
     return dtrans::isLoadedValueUnused(&LI, LI.getPointerOperand());
   }
 

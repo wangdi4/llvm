@@ -57,6 +57,9 @@
 #include "llvm/Support/VCSRevision.h"
 #endif // INTEL_COLLAB
 #include "llvm/Support/WithColor.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/ObjectYAML/ELFYAML.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <cassert>
@@ -119,6 +122,11 @@ template <> struct DenseMapInfo<OffloadKind> {
 } // namespace llvm
 
 static cl::opt<bool> Help("h", cl::desc("Alias for -help"), cl::Hidden);
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> ContainerizeOpenMPImages(
+    "containerize-openmp-images", cl::Hidden, cl::init(true),
+    cl::desc("Place all OpenMP SPIR-V images into one ELF container"));
+#endif // INTEL_CUSTOMIZATION
 
 // Mark all our options with this category, everything else (except for -version
 // and -help) will be hidden.
@@ -362,6 +370,9 @@ public:
   std::vector<std::string> TempFiles;
 
 #endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  std::string Yaml2ObjPath;
+#endif // INTEL_CUSTOMIZATION
 private:
   IntegerType *getSizeTTy() {
     switch (M.getDataLayout().getPointerTypeSize(Type::getInt8PtrTy(C))) {
@@ -1170,10 +1181,45 @@ private:
   }
 
 public:
+#if INTEL_CUSTOMIZATION
+  void setToolPath(std::string &ToolPath, StringRef ToolName,
+                   StringRef FailMessage) {
+    // This just needs to be some symbol in the binary; C++ doesn't
+    // allow taking the address of ::main however.
+    void *P = (void *)(intptr_t)&Help;
+    std::string COWPath = sys::fs::getMainExecutable(ToolName.str().c_str(), P);
+    if (!COWPath.empty()) {
+      auto COWDir = sys::path::parent_path(COWPath);
+      ErrorOr<std::string> ToolPathOrErr =
+          sys::findProgramByName(ToolName, {COWDir});
+      if (ToolPathOrErr) {
+        ToolPath = *ToolPathOrErr;
+        return;
+      }
+
+      // Otherwise, look through PATH environment.
+    }
+
+    ErrorOr<std::string> ToolPathOrErr =
+        sys::findProgramByName(ToolName);
+    if (!ToolPathOrErr) {
+      WithColor::warning(errs(), ToolName)
+          << "cannot find " << ToolName << "[.exe] in PATH; "
+          << FailMessage << ".\n";
+      return;
+    }
+
+    ToolPath = *ToolPathOrErr;
+
+  }
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   BinaryWrapper(StringRef Target, StringRef ToolName)
       : M("offload.wrapper.object", C), ToolName(ToolName) {
     M.setTargetTriple(Target);
+#if INTEL_CUSTOMIZATION
+    setToolPath(Yaml2ObjPath, "yaml2obj", "ELF container cannot be created");
+#endif // INTEL_CUSTOMIZATION
     // Look for llvm-objcopy in the same directory, from which
     // clang-offload-wrapper is invoked. This helps OpenMP offload
     // LIT tests.
@@ -1249,6 +1295,271 @@ public:
     }
     return &M;
   }
+#if INTEL_CUSTOMIZATION
+  // FIXME: move this to llvm/BinaryFormat/ELF.h:
+#define NT_INTEL_ONEOMP_OFFLOAD_VERSION 1
+#define NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT 2
+#define NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX 3
+
+  // INTEL_ONEOMP_OFFLOAD_VERSION specifies the offload image
+  // structure for Intel oneAPI OpenMP (SPIR-V) offload.
+  // We used to use plain SPIR-V images for Intel oneAPI OpenMP offload,
+  // and this legacy representation may still be supported by OpenMP
+  // offload runtime. Newer toolchain is using ELF container
+  // to represent offload image(s) for a single loadable module
+  // (i.e. executable or DLL/shared library).
+  //
+  // Version 1.0:
+  //   1. Version 1.0 is identified by ELF note with "INTELONEOMPOFFLOAD"
+  //      name and type NT_INTEL_ONEOMP_OFFLOAD_VERSION - the note's descriptor
+  //      contains (not null-terminated) string "1.0".
+  //   2. The ELF image must have NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT note.
+  //      The note's descriptor is a (not null-terminated) string specifying
+  //      the integer number of images packed into the ELF image.
+  //      The number must be greater than zero.
+  //   3. The images may be found in sections named "__openmp_offload_spirv_#",
+  //      where '#' is from [0, NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT) interval.
+  //   4. The images in these sections are either SPIR-V images or native
+  //      images produced by device compilers (e.g. ocloc, etc.).
+  //   5. The ELF image may have up to NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT
+  //      notes of type NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX. Each such note's
+  //      descriptor provides auxiliary information for the packed images.
+  //      The descriptor has the following structure:
+  //        "#\0""<image format>\0""[compile options]\0""[link options]",
+  //      where # is from [0, NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT) interval;
+  //      <image format> is "0" for "native", and "1" for SPIR-V.
+  //      So for each image we can provide two optional strings containing
+  //      compilation and linking options for the SPIR-V runtime.
+  //      Note that the '\0' is required even when an optional string
+  //      is not specified.
+  //   6. ELF image for version 1.0 is always a 64-bit little-endian ELF.
+  //
+  // TODO: we may try to use MsgPack format to have more compact representation
+  //       for the auxiliary information. This will require new
+  //       NT_INTEL_ONEOMP_OFFLOAD_VERSION identifier (e.g. "1.1" or "2.0").
+#define INTEL_ONEOMP_OFFLOAD_VERSION "1.0"
+
+  Expected<StringRef> getTmpFile(Twine NamePattern) {
+    Expected<sys::fs::TempFile> TempFile =
+        sys::fs::TempFile::create(NamePattern);
+    if (!TempFile)
+      return TempFile.takeError();
+
+    std::string FileName = TempFile->TmpName;
+
+    if (Error E = TempFile->keep(FileName))
+      return std::move(E);
+
+    TempFiles.push_back(std::move(FileName));
+    return TempFiles.back();
+  }
+
+  // TODO: if this code stays here (vs migrating to the driver), we need to
+  //       return Error in case of failure and abort with a fatal error
+  //       in the caller.
+  void containerizeOpenMPImages() {
+    if (Yaml2ObjPath.empty() || ObjcopyPath.empty())
+      return;
+
+    // If there are not OpenMP images, there is nothing to do.
+    auto OpenMPPackIt = Packs.find(OffloadKind::OpenMP);
+    if (OpenMPPackIt == Packs.end())
+      return;
+    SameKindPack *OpenMPPack = OpenMPPackIt->second.get();
+
+    // Start creating notes for the ELF container.
+    std::vector<ELFYAML::NoteEntry> Notes;
+    std::string Version = toHex(INTEL_ONEOMP_OFFLOAD_VERSION);
+    Notes.emplace_back(ELFYAML::NoteEntry{"INTELONEOMPOFFLOAD",
+                                          yaml::BinaryRef(Version),
+                                          NT_INTEL_ONEOMP_OFFLOAD_VERSION});
+
+    SmallVector<StringRef, 2> ImageFiles;
+    // AuxInfos strings will hold auxiliary information for each image.
+    // ELFYAML::NoteEntry structures will hold references to these
+    // strings, so we have to make sure the strings are valid up to the point,
+    // where YAML is dropped into a file.
+    SmallVector<std::string, 2> AuxInfos;
+    size_t MaxImagesNum = OpenMPPack->size();
+    // To avoid references invalidation, we have to reserve a string
+    // for each image.
+    AuxInfos.reserve(MaxImagesNum);
+
+    // Find SPIR-V images and create notes with auxiliary information
+    // for each of them.
+    unsigned ImageIdx = 0;
+    for (auto I = OpenMPPack->begin(); I != OpenMPPack->end(); ++I) {
+      const BinaryWrapper::Image &Img = *(I->get());
+      if (Img.Tgt.find("spir") != 0)
+        continue;
+
+      unsigned ImageFmt = 1; // SPIR-V format
+      if (Img.Tgt.find("spir64_") == 0 || Img.Tgt.find("spir_") == 0)
+        ImageFmt = 0; // native format
+
+      ImageFiles.push_back(Img.File);
+      AuxInfos.push_back(toHex((Twine(ImageIdx) + Twine('\0') +
+                                Twine(ImageFmt) + Twine('\0') +
+                                Img.CompileOpts + Twine('\0') +
+                                Img.LinkOpts).str()));
+      Notes.emplace_back(ELFYAML::NoteEntry{
+          "INTELONEOMPOFFLOAD",
+          yaml::BinaryRef(AuxInfos.back()),
+          NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX});
+
+      ++ImageIdx;
+    }
+
+    // If there are no SPIR-V images, there is nothing to do.
+    if (ImageIdx == 0)
+      return;
+
+    std::string ImgCount = toHex(Twine(ImageIdx).str());
+    Notes.emplace_back(ELFYAML::NoteEntry{"INTELONEOMPOFFLOAD",
+                                          yaml::BinaryRef(ImgCount),
+                                          NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT});
+
+    StringRef ToolNameRef(ToolName);
+
+    // Helper to emit warnings.
+    auto warningOS = [ToolNameRef]() -> raw_ostream & {
+      return WithColor::warning(errs(), ToolNameRef);
+    };
+
+    // Reserve temporary file for a YAML template that will be used
+    // to create an initial ELF image, and a temporary file for
+    // the initial ELF image.
+    Expected<StringRef> YamlFileName =
+        getTmpFile(Output + Twine(".spirv.yamlimage.%%%%%%%.tmp"));
+    if (!YamlFileName) {
+      logAllUnhandledErrors(YamlFileName.takeError(), warningOS());
+      return;
+    }
+    Expected<StringRef> ImageFileName =
+        getTmpFile(Output + Twine(".spirv.elfimage.%%%%%%%.tmp"));
+    if (!ImageFileName) {
+      logAllUnhandledErrors(ImageFileName.takeError(), warningOS());
+      return;
+    }
+
+    std::error_code EC;
+    raw_fd_stream YamlOS(*YamlFileName, EC);
+    if (EC) {
+      warningOS() << "cannot open YAML template file " << *YamlFileName << ": "
+                  << EC.message() << "\n";
+      return;
+    }
+
+    // Write YAML template file.
+    {
+      yaml::Output YamlOut(YamlOS, NULL, 0);
+
+      // We use 64-bit little-endian ELF currently.
+      ELFYAML::FileHeader Header{};
+      Header.Class = ELF::ELFCLASS64;
+      Header.Data = ELF::ELFDATA2LSB;
+      Header.Type = ELF::ET_NONE;
+      // Do not use any existing machine, otherwise, other plugins
+      // may claim this image.
+      Header.Machine = ELF::EM_NONE;
+
+      // Create a section with notes.
+      ELFYAML::NoteSection Section{};
+      Section.Type = ELF::SHT_NOTE;
+      Section.Name = ".note.inteloneompoffload";
+      Section.Notes.emplace(std::move(Notes));
+
+      ELFYAML::Object Object{};
+      Object.Header = Header;
+      Object.Chunks.push_back(
+          std::make_unique<ELFYAML::NoteSection>(std::move(Section)));
+
+      YamlOut << Object;
+      // YamlOut is destructed here causing the YAML write out.
+    }
+    YamlOS.close();
+
+    if (YamlOS.has_error()) {
+      warningOS() << "cannot write YAML template file " << *YamlFileName << ": "
+                  << YamlOS.error().message() << "\n";
+      YamlOS.clear_error();
+      return;
+    }
+
+    // Invoke yaml2obj to produce the initial ELF container from the YAML
+    // template:
+    //   yaml2obj spirv.yamlimage.tmp -o=spirv.elfimage.tmp
+    {
+      std::vector<StringRef> Args;
+      Args.push_back(Yaml2ObjPath);
+      Args.push_back(*YamlFileName);
+      std::string OutFlag("-o=" + ImageFileName->str());
+      Args.push_back(OutFlag);
+      bool ExecutionFailed = false;
+      std::string ErrMsg;
+      (void)sys::ExecuteAndWait(Yaml2ObjPath, Args,
+                                /*Env=*/llvm::None, /*Redirects=*/{},
+                                /*SecondsToWait=*/0,
+                                /*MemoryLimit=*/0, &ErrMsg, &ExecutionFailed);
+
+      if (ExecutionFailed) {
+        warningOS() << ErrMsg << "\n";
+        return;
+      }
+    }
+
+    // Invoke objcopy to put each image into its own __openmp_offload_spirv_#
+    // section:
+    //   objcopy --add-section=__openmp_offload_spirv_0=ImgFile0 \
+    //       spirv.elfimage.tmp spirv.elfimage.tmp
+    //   objcopy --add-section=__openmp_offload_spirv_1=ImgFile1 \
+    //       spirv.elfimage.tmp spirv.elfimage.tmp
+    //   ...
+    ImageIdx = 0;
+    for (auto Name : ImageFiles) {
+      std::vector<StringRef> Args;
+      Args.push_back(ObjcopyPath);
+      std::string Option(("--add-section=__openmp_offload_spirv_" +
+                          Twine(ImageIdx) +
+                          "=" + Name).str());
+      Args.push_back(Option);
+      Args.push_back(*ImageFileName);
+      Args.push_back(*ImageFileName);
+      bool ExecutionFailed = false;
+      std::string ErrMsg;
+      (void)sys::ExecuteAndWait(ObjcopyPath, Args,
+                                /*Env=*/llvm::None, /*Redirects=*/{},
+                                /*SecondsToWait=*/0,
+                                /*MemoryLimit=*/0, &ErrMsg, &ExecutionFailed);
+
+      if (ExecutionFailed) {
+        warningOS() << ErrMsg << "\n";
+        return;
+      }
+
+      ++ImageIdx;
+    }
+
+    // Delete the original Images from the list and replace then
+    // with a single combined container ELF.
+    for (auto I = OpenMPPack->begin(); I != OpenMPPack->end();) {
+      const BinaryWrapper::Image &Img = *(I->get());
+      if (Img.Tgt.find("spir") != 0)
+        ++I;
+      else
+        I = OpenMPPack->erase(I);
+    }
+
+    OpenMPPack->emplace_back(std::make_unique<Image>(
+        *ImageFileName, /*Manif_=*/"",
+        // Use artificial spirv triple to simplify the extraction of the ELF
+        // container from the final loadable module. The container will be
+        // placed into __CLANG_OFFLOAD_BUNDLE__openmp-spirv section.
+        "spirv",
+        BinaryImageFormat::none, /*CompileOpts_=*/"", /*LinkOpts_=*/"",
+        /*EntriesFile_=*/"", /*PropsFile_=*/""));
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
@@ -1804,6 +2115,10 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (ContainerizeOpenMPImages)
+    Wr.containerizeOpenMPImages();
+#endif // INTEL_CUSTOMIZATION
   // Create a wrapper for device binaries.
   Expected<const Module *> ModOrErr = Wr.wrap();
   if (!ModOrErr) {

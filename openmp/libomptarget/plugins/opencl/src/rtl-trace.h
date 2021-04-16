@@ -798,6 +798,29 @@ cl_program TRACE_FN(clLinkProgram)(
   return ret;
 }
 
+cl_program TRACE_FN(clCreateProgramWithBinary)(
+    cl_context context,
+    cl_uint num_devices,
+    const cl_device_id *device_list,
+    const size_t *lengths,
+    const unsigned char **binaries,
+    cl_int *binary_status,
+    cl_int *errcode_ret) {
+  auto ret = clCreateProgramWithBinary(context, num_devices,
+                                       device_list, lengths,
+                                       binaries, binary_status,
+                                       errcode_ret);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(context);
+  TRACE_FN_ARG_UINT(num_devices);
+  TRACE_FN_ARG_PTR(device_list);
+  TRACE_FN_ARG_PTR(lengths);
+  TRACE_FN_ARG_PTR(binaries);
+  TRACE_FN_ARG_PTR(binary_status);
+  TRACE_FN_ARG_END();
+  return ret;
+}
+
 cl_int TRACE_FN(clMemFreeINTEL)(
     clMemFreeINTEL_fn funcptr,
     cl_context context,
