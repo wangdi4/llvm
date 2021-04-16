@@ -20,7 +20,8 @@
 
 kmp_global_state_t __omp_spirv_global_data = {
   .g_barrier = {{ATOMIC_VAR_INIT(0u), ATOMIC_VAR_INIT(0u)}},
-  .assume_simple_spmd_mode = 1
+  .assume_simple_spmd_mode = 1,
+  .spmd_num_threads = 0
 };
 
 kmp_program_data_t __omp_spirv_program_data = {

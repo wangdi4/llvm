@@ -84,6 +84,11 @@
 #define KMP_MAX_PARALLEL_LEVEL 8      // used for task object allocation
 #define KMP_MAX_SHAREDS 64            // used for data sharing
 
+/// Assume simple SPMD mode
+#ifndef KMP_ASSUME_SIMPLE_SPMD_MODE
+#define KMP_ASSUME_SIMPLE_SPMD_MODE 1
+#endif
+
 /// Enable extensions if available
 #if KMP_ATOMIC_FIXED8_SUPPORTED
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
@@ -281,6 +286,7 @@ typedef struct kmp_program_data {
 typedef struct kmp_global_state {
   kmp_barrier_t g_barrier;         // global barrier
   int assume_simple_spmd_mode;     // assume simple SPMD mode
+  int spmd_num_threads;            // for __kmpc_spmd_push/pop_num_threads
 } kmp_global_state_t;
 
 

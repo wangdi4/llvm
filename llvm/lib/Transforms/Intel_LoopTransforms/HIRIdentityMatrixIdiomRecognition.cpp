@@ -290,7 +290,7 @@ bool HIRIdentityMatrixIdiomRecognition::run() {
   if (EnableAltIdentityMatrixRecognition) {
     SmallVector<const RegDDRef *, 2> IDMatRefs;
     for (auto &Lp : InnermostLoops) {
-      HLNodeUtils::findIdentityMatrix(&HLS, Lp, IDMatRefs);
+      HLNodeUtils::findInner2DIdentityMatrix(&HLS, Lp, IDMatRefs);
     }
   }
 

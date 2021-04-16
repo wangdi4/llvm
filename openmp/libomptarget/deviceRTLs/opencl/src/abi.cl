@@ -156,10 +156,11 @@ EXTERN void __kmpc_end_critical(kmp_critical_name *name) {
 ///
 
 EXTERN int __kmpc_master() {
-  if (__omp_spirv_global_data.assume_simple_spmd_mode)
-    return (__kmp_get_local_id() == 0) ? KMP_TRUE : KMP_FALSE;
-
+#if KMP_ASSUME_SIMPLE_SPMD_MODE
+  return (__kmp_get_local_id() == 0) ? KMP_TRUE : KMP_FALSE;
+#else
   return (__kmp_get_omp_thread_id(__kmp_is_spmd_mode()) == 0);
+#endif
 }
 
 EXTERN void __kmpc_end_master() {
