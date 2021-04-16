@@ -1,3 +1,4 @@
+; RUN: %oclopt %s -sg-size-collector -enable-direct-subgroup-function-call-vectorization -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt %s -sg-size-collector -enable-direct-subgroup-function-call-vectorization -S | FileCheck %s
 
 define void @bar() #0 {
@@ -48,3 +49,5 @@ attributes #1 = { "has-sub-groups" }
 !0 = !{i32 8}
 !1 = !{i32 16}
 !2 = !{i32 32}
+
+; DEBUGIFY-NOT: WARNING

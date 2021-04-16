@@ -1,3 +1,4 @@
+; RUN: %oclopt %s -indirect-call-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt %s -indirect-call-lowering -S | FileCheck %s
 
 %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" = type { %"class._ZTSN2cl4sycl6detail5arrayILi1EEE.cl::sycl::detail::array" }
@@ -152,15 +153,14 @@ scalar_kernel_entry:                              ; preds = %scalar_kernel_entry
   %35 = bitcast i32 (i32, i32)* %32 to i32 (i32, i32)**
 ; CHECK: %36 = insertelement <16 x i32> undef, i32 %conv.i, i32 0
 ; CHECK-NEXT: %37 = insertelement <16 x i32> undef, i32 %conv7.i, i32 0
-; CHECK-NEXT: %38 = insertelement <16 x i32> zeroinitializer, i32 1, i32 0
-; CHECK-NEXT: %39 = bitcast i32 (i32, i32)** %35 to <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)**
-; CHECK-NEXT: %40 = getelementptr <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)*, <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)** %39, i32 0
-; CHECK-NEXT: %41 = load <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)*, <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)** %40, align 8
-; CHECK-NEXT: %42 = call <16 x i32> %41(<16 x i32> %36, <16 x i32> %37, <16 x i32> %38)
-; CHECK-NEXT: %43 = extractelement <16 x i32> %42, i32 0
+; CHECK-NEXT: %38 = bitcast i32 (i32, i32)** %35 to <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)**
+; CHECK-NEXT: %39 = getelementptr <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)*, <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)** %38, i32 0
+; CHECK-NEXT: %40 = load <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)*, <16 x i32> (<16 x i32>, <16 x i32>, <16 x i32>)** %39, align 8
+; CHECK-NEXT: %41 = call <16 x i32> %40(<16 x i32> %36, <16 x i32> %37, <16 x i32> <i32 1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>)
+; CHECK-NEXT: %42 = extractelement <16 x i32> %41, i32 0
   %36 = tail call i32 (i32 (i32, i32)**, i32, i32, ...) @__intel_indirect_call(i32 (i32, i32)** %35, i32 %conv.i, i32 %conv7.i) #7
 ; CHECK-NOT: call {{.*}} @__intel_indirect_call
-; CHECK-NEXT: %conv8.i = sext i32 %43 to i64
+; CHECK-NEXT: %conv8.i = sext i32 %42 to i64
   %conv8.i = sext i32 %36 to i64
   store i64 %conv8.i, i64 addrspace(1)* %ptridx.i19.i, align 8
   %dim_0_inc_ind_var = add nuw nsw i64 %dim_0_ind_var, 1
@@ -198,3 +198,19 @@ declare <16 x i32> @_ZGVdM16vv_3subii(<16 x i32> %A, <16 x i32> %B, <16 x i32> %
 declare <16 x i32> @_ZGVdN16vv_3subii(<16 x i32> %A, <16 x i32> %B)
 
 attributes #7 = { nounwind "vector-variants"="_ZGVdM16vv___intel_indirect_call_XXX,_ZGVdN16vv___intel_indirect_call_XXX" }
+
+; false alarm on phi nodes
+; DEBUGIFY: WARNING: Missing line 19
+; DEBUGIFY-NEXT: WARNING: Missing line 21
+; DEBUGIFY-NEXT: WARNING: Missing line 23
+; DEBUGIFY-NEXT: WARNING: Missing line 24
+; DEBUGIFY-NEXT: WARNING: Missing line 46
+; DEBUGIFY-NEXT: WARNING: Missing line 47
+; DEBUGIFY-NEXT: WARNING: Missing line 48
+; DEBUGIFY-NEXT: WARNING: Missing line 63
+; DEBUGIFY-NEXT: WARNING: Missing line 64
+; DEBUGIFY-NEXT: WARNING: Missing line 84
+; DEBUGIFY-NEXT: WARNING: Missing line 86
+; DEBUGIFY-NEXT: WARNING: Missing line 88
+; DEBUGIFY-NEXT: WARNING: Missing line 89
+; DEBUGIFY-NOT: WARNING

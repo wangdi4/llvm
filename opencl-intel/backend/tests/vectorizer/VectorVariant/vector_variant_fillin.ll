@@ -1,3 +1,4 @@
+; RUN: %oclopt %s -vector-variant-fillin -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt %s -instnamer -vector-variant-fillin -S | FileCheck %s
 
 %"class.cl::sycl::intel::SimdFunction" = type { %"struct.std::array" }
@@ -53,3 +54,7 @@ declare i32 @__intel_indirect_call_i32_p0p0f_i32i32f32f(i32 (i32, float)**, ...)
 attributes #5 = { nounwind "vector-variants"="_ZGVbN8lu__Z3fooif" }
 attributes #6 = { nounwind "vector-variants"="_ZGVbM8vv__Z3fooif" }
 attributes #7 = { nounwind "vector-variants"="_ZGVbN8lu_XXX,_ZGVbM8vv_XXX" }
+
+; false alarm on phi nodes
+; DEBUGIFY: WARNING: Missing line 14
+; DEBUGIFY-NOT: WARNING

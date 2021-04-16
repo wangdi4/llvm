@@ -150,6 +150,7 @@ bool VectorVariantFillIn::runOnModule(Module &M) {
       assert(Fn && "Function expected to be exist");
 
       BitCastInst *BitCast = new BitCastInst(Fn, Call.getType(), "", &Call);
+      BitCast->setDebugLoc(Call.getDebugLoc());
       for (User *U : Call.users())
         U->replaceUsesOfWith(&Call, BitCast);
 
