@@ -5000,6 +5000,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
   case CK_FixedPointToBoolean:
   case CK_FixedPointToIntegral:
   case CK_IntegralToFixedPoint:
+  case CK_MatrixCast:
 #if INTEL_CUSTOMIZATION
     // CQ#366312 - enable an extension that allows casts of lvalues to
     // be used as lvalues, as long as the size of the object is not lengthened
@@ -5022,7 +5023,6 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
         }
       }
 #endif // INTEL_CUSTOMIZATION
-  case CK_MatrixCast:
     return EmitUnsupportedLValue(E, "unexpected cast lvalue");
 
   case CK_Dependent:
