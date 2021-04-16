@@ -259,7 +259,10 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
       DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
          DPxPTR((uintptr_t)HstPtrBegin), Size,
          (UpdateRefCount ? " updated" : ""));
-      IsHostPtr = true;
+#if INTEL_COLLAB
+      if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
+#endif // INTEL_COLLAB
+         IsHostPtr = true;
       rc = HstPtrBegin;
     }
   } else if (HasPresentModifier) {
@@ -343,7 +346,10 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
     DP("Get HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
        DPxPTR((uintptr_t)HstPtrBegin), Size,
        (UpdateRefCount ? " updated" : ""));
-    IsHostPtr = true;
+#if INTEL_COLLAB
+    if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
+#endif // INTEL_COLLAB
+       IsHostPtr = true;
     rc = HstPtrBegin;
   }
 
