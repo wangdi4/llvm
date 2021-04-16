@@ -190,6 +190,57 @@ template <typename T, int N> struct is_fp_or_dword_type<simd<T, N>> {
   static const bool value = is_fp_or_dword_type<T>::value;
 };
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+
+template <typename T>
+struct is_hf_type
+    : std::integral_constant<
+          bool,
+          std::is_same<detail::half,
+                       typename sycl::detail::remove_const_t<T>>::value> {};
+
+template <typename T, int N> struct is_hf_type<vector_type<T, N>> {
+  static const bool value = is_hf_type<T>::value;
+};
+
+template <typename T, int N> struct is_hf_type<simd<T, N>> {
+  static const bool value = is_hf_type<T>::value;
+};
+
+// compile-time checks if first template parameter is equal for any other
+template <typename...> struct is_one_of {
+  static constexpr bool value = false;
+};
+
+template <typename Checked, typename First, typename... Other>
+struct is_one_of<Checked, First, Other...> {
+  static constexpr bool value =
+      std::is_same<typename std::remove_const<Checked>::type,
+                   typename std::remove_const<First>::type>::value ||
+      is_one_of<Checked, Other...>::value;
+};
+template <typename Checked, typename... T>
+inline constexpr bool is_one_of_v = is_one_of<Checked, T...>::value;
+
+// compile-time checks if compile-time known  element of enum class is equal for
+// any other compile-time known elements of enum
+template <typename enumClass, enumClass... E> struct is_one_of_enum {
+  static constexpr bool value = false;
+};
+
+template <typename enumClass, enumClass Checked, enumClass First,
+          enumClass... Else>
+struct is_one_of_enum<enumClass, Checked, First, Else...> {
+  static constexpr bool value =
+      (Checked == First) || is_one_of_enum<enumClass, Checked, Else...>::value;
+};
+template <typename enumClass, enumClass... T>
+inline constexpr bool is_one_of_enum_v = is_one_of_enum<enumClass, T...>::value;
+
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
 /// Convert types into vector types
 template <typename T> struct simd_type { using type = simd<T, 1>; };
 template <typename T, int N> struct simd_type<vector_type<T, N>> {
