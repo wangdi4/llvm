@@ -123,7 +123,7 @@ CudaInstallationDetector::CudaInstallationDetector(
     : D(D) {
 #if INTEL_CUSTOMIZATION
   // DPC++ does not support Cuda, do not do the installation check.
-  if (Args.hasArg(options::OPT__dpcpp))
+  if (D.IsDPCPPMode())
     return;
 #endif // INTEL_CUSTOMIZATION
   struct Candidate {

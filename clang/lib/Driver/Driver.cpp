@@ -153,7 +153,7 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
       GenReproducer(false),
 #if INTEL_CUSTOMIZATION
       SuppressMissingInputWarning(false), IntelPrintOptions(false),
-      IntelMode(false) {
+      IntelMode(false), DPCPPMode(false) {
 #endif // INTEL_CUSTOMIZATION
   // Provide a sane fallback if no VFS is specified.
   if (!this->VFS)
@@ -201,6 +201,8 @@ void Driver::setDriverModeFromOption(StringRef Opt) {
   if (Opt == getOpts().getOption(options::OPT__intel).getPrefixedName() ||
       Opt == getOpts().getOption(options::OPT__dpcpp).getPrefixedName()) {
     IntelMode = true;
+    if (Opt == getOpts().getOption(options::OPT__dpcpp).getPrefixedName())
+      DPCPPMode = true;
     return;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -230,8 +232,22 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
 
   unsigned IncludedFlagsBitmask;
   unsigned ExcludedFlagsBitmask;
-  std::tie(IncludedFlagsBitmask, ExcludedFlagsBitmask) =
-      getIncludeExcludeOptionFlagMasks(IsClCompatMode);
+#if INTEL_CUSTOMIZATION
+  if (IsDPCPPMode()) {
+    // Check for /Q_allow-linux.
+    bool AllowLinux = false;
+    for (StringRef Opt : ArgStrings) {
+      if (Opt == getOpts().getOption(options::OPT__SLASH_Q_allow_linux).getPrefixedName()) {
+        AllowLinux = true;
+        break;
+      }
+    }
+    std::tie(IncludedFlagsBitmask, ExcludedFlagsBitmask) =
+        getIncludeExcludeOptionFlagMasksDpcpp(IsClCompatMode, AllowLinux);
+  } else
+    std::tie(IncludedFlagsBitmask, ExcludedFlagsBitmask) =
+        getIncludeExcludeOptionFlagMasks(IsClCompatMode);
+#endif // INTEL_CUSTOMIZATION
 
   // Make sure that Flang-only options don't pollute the Clang output
   // TODO: Make sure that Clang-only options don't pollute Flang output
@@ -256,8 +272,7 @@ InputArgList Driver::ParseArgStrings(ArrayRef<const char *> ArgStrings,
   for (const Arg *A : Args) {
 #if INTEL_CUSTOMIZATION
     if (A->getOption().hasFlag(options::Unsupported) ||
-        (A->getOption().hasFlag(options::DpcppUnsupported) &&
-         Args.hasArg(options::OPT__dpcpp))) {
+        (A->getOption().hasFlag(options::DpcppUnsupported) && IsDPCPPMode())) {
 #endif // INTEL_CUSTOMIZATION
       unsigned DiagID;
       auto ArgString = A->getAsString(Args);
@@ -2170,7 +2185,7 @@ void Driver::PrintHelp(const llvm::opt::ArgList &Args) const {
 #if INTEL_CUSTOMIZATION
   if (!Args.hasArg(options::OPT__help_hidden))
     ExcludedFlagsBitmask |= HelpHidden;
-  if (Args.hasArg(options::OPT__dpcpp)) {
+  if (IsDPCPPMode()) {
     ExcludedFlagsBitmask |= options::DpcppUnsupported;
     ExcludedFlagsBitmask |= options::DpcppHidden;
     if (!Args.hasArg(options::OPT_v))
@@ -2188,7 +2203,7 @@ void Driver::PrintHelp(const llvm::opt::ArgList &Args) const {
                       IncludedFlagsBitmask, ExcludedFlagsBitmask,
                       /*ShowAllAliases=*/false);
 #if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT__dpcpp) && !Args.hasArg(options::OPT_v))
+  if (IsDPCPPMode() && !Args.hasArg(options::OPT_v))
     // Emit additional information for dpcpp -help to enable more verbose output
     llvm::outs() << "\nHelp displayed is for DPC++ specific options.\n"
                  << "Use '-help -v' to display more options.\n";
@@ -5621,6 +5636,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   // Claim usage of -i_no-use-libirc
   // TODO: Consider a more generic claiming for internal Intel options
   Args.ClaimAllArgs(options::OPT_i_no_use_libirc);
+  Args.ClaimAllArgs(options::OPT__SLASH_Q_allow_linux);
 #endif // INTEL_CUSTOMIZATION
 
   handleArguments(C, Args, Inputs, Actions);
@@ -7797,6 +7813,28 @@ Driver::getIncludeExcludeOptionFlagMasks(bool IsClCompatMode) const {
 }
 
 #if INTEL_CUSTOMIZATION
+std::pair<unsigned, unsigned>
+Driver::getIncludeExcludeOptionFlagMasksDpcpp(bool IsClCompatMode,
+                                              bool AllowLinux) const {
+  unsigned IncludedFlagsBitmask = 0;
+  unsigned ExcludedFlagsBitmask = options::NoDriverOption;
+
+  // For dpcpp on Windows, we are allowing both MSVC and Linux options to be
+  // accepted and parsed.  This allows for a transition period for using a more
+  // traditional set of drivers; dpcpp for Linux and dpcpp-cl for Windows.
+  if (IsClCompatMode) {
+    if (!AllowLinux) {
+      // Include CL and Core options.
+      IncludedFlagsBitmask |= options::CLOption;
+      IncludedFlagsBitmask |= options::CoreOption;
+    }
+  } else {
+    ExcludedFlagsBitmask |= options::CLOption;
+  }
+
+  return std::make_pair(IncludedFlagsBitmask, ExcludedFlagsBitmask);
+}
+
 bool clang::driver::isOptimizationLevelFast(const Driver &D,
                                             const ArgList &Args) {
   // For Intel and -Ofast is given, don't override if another -O is

@@ -509,7 +509,7 @@ static void addPerfLibPaths(ArgStringList &CmdArgs,
   if (Args.hasArg(options::OPT_qmkl_EQ))
     TC.AddMKLLibPath(Args, CmdArgs, "-L");
   if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
-      (Args.hasArg(options::OPT_qmkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
+      (Args.hasArg(options::OPT_qmkl_EQ) && TC.getDriver().IsDPCPPMode()))
     TC.AddTBBLibPath(Args, CmdArgs, "-L");
   if (Args.hasArg(options::OPT_qdaal_EQ))
     TC.AddDAALLibPath(Args, CmdArgs, "-L");
@@ -529,8 +529,8 @@ static bool mcmodelSet(const llvm::opt::ArgList &Args) {
 // Intel libraries are added in statically by default
 static void addIntelLib(const char* IntelLibName, const ToolChain &TC,
     ArgStringList &CmdArgs, const llvm::opt::ArgList &Args) {
-  // without --intel or --dpcpp, do not pull in Intel libs
-  if (!Args.hasArg(options::OPT__intel, options::OPT__dpcpp))
+  // Do not pull in Intel libs unless in Intel mode (--intel, --dpcpp)
+  if (!TC.getDriver().IsIntelMode())
     return;
 
   // FIXME - Right now this is rather simplistic - just check to see if
@@ -902,7 +902,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddAllArgs(CmdArgs, options::OPT_u);
 
 #if INTEL_CUSTOMIZATION
-  if (D.IsIntelMode() || Args.hasArg(options::OPT__dpcpp))
+  if (D.IsIntelMode())
     addIntelLibPaths(CmdArgs, Args, ToolChain);
   addPerfLibPaths(CmdArgs, Args, ToolChain);
 #endif // INTEL_CUSTOMIZATION
@@ -955,7 +955,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_qdaal_EQ))
     addDAALLibs(CmdArgs, Args, ToolChain);
   if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
-      (Args.hasArg(options::OPT_qmkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
+      (Args.hasArg(options::OPT_qmkl_EQ) && D.IsDPCPPMode()))
     addTBBLibs(CmdArgs, Args, ToolChain);
   if (Args.hasArg(options::OPT_qactypes))
     addACTypesLibs(CmdArgs, Args, ToolChain);
@@ -987,7 +987,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
     // Add -limf before -lm, it will be linked in the same manner as -lm so
     // don't add with addIntelLib
-    if (D.IsIntelMode() || Args.hasArg(options::OPT__dpcpp))
+    if (D.IsIntelMode())
       addIntelLibimf(ToolChain, CmdArgs, Args);
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lm");
@@ -996,7 +996,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // Add -lm for both C and C++ compilation
   else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
            (D.IsIntelMode() || Args.hasArg(options::OPT_qmkl_EQ))) {
-    if (D.IsIntelMode() || Args.hasArg(options::OPT__dpcpp))
+    if (D.IsIntelMode())
       addIntelLibimf(ToolChain, CmdArgs, Args);
     CmdArgs.push_back("-lm");
   }
