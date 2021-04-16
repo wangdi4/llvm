@@ -6457,6 +6457,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-fsycl-instrument-device-code");
   }
 
+#if INTEL_CUSTOMIZATION
+  // Enable instrumentation for OpenMP SPIR-V offload by default.
+  // Eventually, we will enable it by default for SYCL too, so this
+  // code will have to be merged with the above.
+  if (IsOpenMPDevice && Triple.isSPIR() &&
+      Args.hasFlag(options::OPT_fsycl_instrument_device_code,
+                   options::OPT_fno_sycl_instrument_device_code, true)) {
+    CmdArgs.push_back("-fsycl-instrument-device-code");
+  }
+#endif // INTEL_CUSTOMIZATION
   if (IsHIP) {
     if (Args.hasFlag(options::OPT_fhip_new_launch_api,
                      options::OPT_fno_hip_new_launch_api, true))
