@@ -6823,6 +6823,9 @@ def _SLASH_Q_no_use_libirc : CLFlag<"Q_no-use-libirc">, Alias<i_no_use_libirc>,
   HelpText<"Disable usage of libirc.">;
 def _SLASH_Q_save_temps : CLFlag<"Q_save-temps">, Alias<save_temps_EQ>,
   AliasArgs<["cwd"]>;
+def _SLASH_Q_allow_linux : Option<["/", "-"], "Q_allow-linux", KIND_FLAG>,
+  Flags<[CLOption, HelpHidden]>, HelpText<"Allow for Linux options to be "
+  "enabled when using the DPC++ enabled MSVC driver.">;
 // Intel specific options (Intel only)
 def : CLJoinedOrSeparate<"constexpr:steps">, Alias<fconstexpr_steps_EQ>;
 def : CLCommaJoined<"device-math-lib:">, Alias<device_math_lib_EQ>,

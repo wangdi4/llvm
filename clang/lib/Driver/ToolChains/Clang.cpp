@@ -7267,9 +7267,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back(Args.MakeArgString(HeaderOpt));
       }
     }
-    if (Args.hasFlag(options::OPT_fsycl_unnamed_lambda, // INTEL
-                     options::OPT_fno_sycl_unnamed_lambda,
-                     Args.hasArg(options::OPT__dpcpp)))
+#if INTEL_CUSTOMIZATION
+    if (Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
+        options::OPT_fno_sycl_unnamed_lambda, D.IsDPCPPMode()))
+#endif // INTEL_CUSTOMIZATION
       CmdArgs.push_back("-fsycl-unnamed-lambda");
 
     // Enable generation of USM address spaces for FPGA.
@@ -7971,8 +7972,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
   } else {
     CmdArgs.push_back(FlagForCRT.data());
 #if INTEL_CUSTOMIZATION
-    if (getToolChain().getDriver().IsIntelMode() ||
-        Args.hasArg(options::OPT__dpcpp)) {
+    if (getToolChain().getDriver().IsIntelMode()) {
       if (!Args.hasArg(options::OPT_i_no_use_libirc))
         CmdArgs.push_back("--dependent-lib=libircmt");
       CmdArgs.push_back(FlagForIntelSVMLLib.data());
@@ -8006,7 +8006,8 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
   if (Args.hasArg(options::OPT_qmkl_EQ))
     getToolChain().AddMKLLibArgs(Args, CmdArgs, "--dependent-lib=");
   if (Args.hasArg(options::OPT_qtbb, options::OPT_qdaal_EQ) ||
-      (Args.hasArg(options::OPT_qmkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
+      (Args.hasArg(options::OPT_qmkl_EQ) &&
+       getToolChain().getDriver().IsDPCPPMode()))
     getToolChain().AddTBBLibArgs(Args, CmdArgs, "--dependent-lib=");
   if (Args.hasArg(options::OPT_qdaal_EQ))
     getToolChain().AddDAALLibArgs(Args, CmdArgs, "--dependent-lib=");
