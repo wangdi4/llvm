@@ -1,4 +1,10 @@
 // UNSUPPORTED: system-windows
+// INTEL_CUSTOMIZATION
+// FIXME - The internal rdrive gcc configurations need to be updated before
+//         we can turn this test back on.
+// XFAIL:*
+// end INTEL_CUSTOMIZATION
+
 
 /// Test native x86-64 in the tree.
 // RUN: %clang -### %s --target=x86_64-linux-gnu --sysroot=%S/Inputs/debian_multiarch_tree \
