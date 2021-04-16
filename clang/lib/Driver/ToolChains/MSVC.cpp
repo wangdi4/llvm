@@ -191,17 +191,15 @@ findVCToolChainViaEnvironment(llvm::vfs::FileSystem &VFS, std::string &Path,
       if (IsBin) {
         llvm::StringRef ParentPath = llvm::sys::path::parent_path(TestPath);
         llvm::StringRef ParentFilename = llvm::sys::path::filename(ParentPath);
-        if (ParentFilename.equals_lower("VC")) { // INTEL
+        if (ParentFilename.equals_lower("VC")) {
           Path = std::string(ParentPath);
           VSLayout = MSVCToolChain::ToolsetLayout::OlderVS;
           return true;
         }
-#if INTEL_CUSTOMIZATION
         if (ParentFilename.equals_lower("x86ret") ||
             ParentFilename.equals_lower("x86chk") ||
             ParentFilename.equals_lower("amd64ret") ||
             ParentFilename.equals_lower("amd64chk")) {
-#endif // INTEL_CUSTOMIZATION
           Path = std::string(ParentPath);
           VSLayout = MSVCToolChain::ToolsetLayout::DevDivInternal;
           return true;
@@ -209,7 +207,7 @@ findVCToolChainViaEnvironment(llvm::vfs::FileSystem &VFS, std::string &Path,
 
       } else {
         // This could be a new (>=VS2017) toolchain. If it is, we should find
-        // path components with these prefixes when walking backwards through
+         // path components with these prefixes when walking backwards through
         // the path.
         // Note: empty strings match anything.
         llvm::StringRef ExpectedPrefixes[] = {"",     "Host",  "bin", "",
@@ -220,7 +218,7 @@ findVCToolChainViaEnvironment(llvm::vfs::FileSystem &VFS, std::string &Path,
         for (llvm::StringRef Prefix : ExpectedPrefixes) {
           if (It == End)
             goto NotAToolChain;
-          if (!It->startswith_lower(Prefix)) // INTEL
+          if (!It->startswith_lower(Prefix))
             goto NotAToolChain;
           ++It;
         }
@@ -228,7 +226,7 @@ findVCToolChainViaEnvironment(llvm::vfs::FileSystem &VFS, std::string &Path,
         // We've found a new toolchain!
         // Back up 3 times (/bin/Host/arch) to get the root path.
         llvm::StringRef ToolChainPath(PathEntry);
-        for (int i = 0; i < 3; ++i)
+       for (int i = 0; i < 3; ++i)
           ToolChainPath = llvm::sys::path::parent_path(ToolChainPath);
 
         Path = std::string(ToolChainPath);
