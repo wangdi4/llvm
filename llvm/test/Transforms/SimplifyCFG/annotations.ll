@@ -38,9 +38,12 @@ cont1:                                            ; preds = %cont
 define i32 @test_preserve_or(i8* %a, i8* %b, i8* %c, i8* %d) {
 ; CHECK-LABEL: define {{.*}} @test_preserve_or({{.*}}
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[C_1:%.*]] = icmp uge i8* [[A:%.*]], [[B:%.*]], !annotation !0
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[C_1:%.*]] = icmp ult i8* [[A:%.*]], [[B:%.*]], !annotation !0
+; CHECK-NEXT:    [[C_1_NOT:%.*]] = xor i1 [[C_1]], true, !annotation !0
 ; CHECK-NEXT:    [[C_2:%.*]] = icmp uge i8* [[C:%.*]], [[D:%.*]], !annotation !0
-; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[C_1]], i1 true, i1 [[C_2]], !annotation !0
+; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[C_1_NOT]], i1 true, i1 [[C_2]], !annotation !0
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br i1 [[OR_COND]], label [[TRAP:%.*]], label [[CONT1:%.*]], !annotation !0
 ; CHECK:       trap: ; preds = %entry
 ; CHECK-NEXT:    call void @fn1()

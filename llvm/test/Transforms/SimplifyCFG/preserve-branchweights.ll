@@ -771,9 +771,12 @@ exit:
 define void @or_icmps_useful(i32 %x, i32 %y, i8* %p) {
 ; CHECK-LABEL: @or_icmps_useful(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[EXPECTED_TRUE:%.*]] = icmp sle i32 [[X:%.*]], -1
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[EXPECTED_TRUE:%.*]] = icmp sgt i32 [[X:%.*]], -1
+; CHECK-NEXT:    [[EXPECTED_TRUE_NOT:%.*]] = xor i1 [[EXPECTED_TRUE]], true
 ; CHECK-NEXT:    [[EXPENSIVE:%.*]] = icmp eq i32 [[Y:%.*]], 0
-; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[EXPECTED_TRUE]], i1 true, i1 [[EXPENSIVE]]
+; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[EXPECTED_TRUE_NOT]], i1 true, i1 [[EXPENSIVE]]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br i1 [[OR_COND]], label [[EXIT:%.*]], label [[FALSE:%.*]], !prof !23
 ; CHECK:       false:
 ; CHECK-NEXT:    store i8 42, i8* [[P:%.*]], align 1
@@ -963,9 +966,12 @@ exit:
 define void @and_icmps_not_that_harmful_inverted(i32 %x, i32 %y, i8* %p) {
 ; CHECK-LABEL: @and_icmps_not_that_harmful_inverted(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[EXPECTED_TRUE:%.*]] = icmp sle i32 [[X:%.*]], -1
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[EXPECTED_TRUE:%.*]] = icmp sgt i32 [[X:%.*]], -1
+; CHECK-NEXT:    [[EXPECTED_TRUE_NOT:%.*]] = xor i1 [[EXPECTED_TRUE]], true
 ; CHECK-NEXT:    [[EXPENSIVE:%.*]] = icmp eq i32 [[Y:%.*]], 0
-; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[EXPECTED_TRUE]], i1 [[EXPENSIVE]], i1 false
+; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[EXPECTED_TRUE_NOT]], i1 [[EXPENSIVE]], i1 false
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br i1 [[OR_COND]], label [[FALSE:%.*]], label [[EXIT:%.*]], !prof !24
 ; CHECK:       false:
 ; CHECK-NEXT:    store i8 42, i8* [[P:%.*]], align 1
@@ -1025,9 +1031,12 @@ exit:
 define void @and_icmps_useful_inverted(i32 %x, i32 %y, i8* %p) {
 ; CHECK-LABEL: @and_icmps_useful_inverted(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[EXPECTED_FALSE:%.*]] = icmp sle i32 [[X:%.*]], -1
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[EXPECTED_FALSE:%.*]] = icmp sgt i32 [[X:%.*]], -1
+; CHECK-NEXT:    [[EXPECTED_FALSE_NOT:%.*]] = xor i1 [[EXPECTED_FALSE]], true
 ; CHECK-NEXT:    [[EXPENSIVE:%.*]] = icmp eq i32 [[Y:%.*]], 0
-; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[EXPECTED_FALSE]], i1 [[EXPENSIVE]], i1 false
+; CHECK-NEXT:    [[OR_COND:%.*]] = select i1 [[EXPECTED_FALSE_NOT]], i1 [[EXPENSIVE]], i1 false
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    br i1 [[OR_COND]], label [[FALSE:%.*]], label [[EXIT:%.*]], !prof !25
 ; CHECK:       false:
 ; CHECK-NEXT:    store i8 42, i8* [[P:%.*]], align 1
