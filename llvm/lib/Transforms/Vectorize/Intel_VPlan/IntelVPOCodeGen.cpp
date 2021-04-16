@@ -182,7 +182,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
   } else if (VPInst->getOpcode() == Instruction::Load) {
     assert(ScalarOperands.size() == 1 &&
            "Load VPInstruction has incorrect number of operands.");
-    SerialInst = Builder.CreateLoad(Ops[0]);
+    SerialInst = Builder.CreateLoad(VPInst->getType(), Ops[0]);
     auto *NewLoad = cast<LoadInst>(SerialInst);
     auto *VPLoad = cast<VPLoadStoreInst>(VPInst);
     NewLoad->setVolatile(VPLoad->isVolatile());
@@ -1851,8 +1851,8 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
   // Get the base-pointer for the widened CosPtr, i.e., <8 x float>*.
   // While vectorizing VPAllocatePrivate created for CosPtr, the base pointer to
   // wide alloca was added to LoopPrivateVPWidenMap.
-  AllocaInst *WideCosPtr = cast<AllocaInst>(LoopPrivateVPWidenMap[CosPtr]);
-  Instruction *WideSinPtr = WideCosPtr->clone();
+  auto *WideCosPtr = cast<AllocaInst>(LoopPrivateVPWidenMap[CosPtr]);
+  auto *WideSinPtr = cast<AllocaInst>(WideCosPtr->clone());
   WideSinPtr->insertAfter(WideCosPtr);
   WideSinPtr->setName("sinPtr.vec");
   VecArgs.push_back(Arg1);
@@ -1889,8 +1889,9 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
   analyzeCallArgMemoryReferences(Call, VecCall, TLI, PSE.getSE(), Lp);
 #endif
 
-  Value *WideSinLoad = Builder.CreateAlignedLoad(
-      WideSinPtr, cast<AllocaInst>(WideCosPtr)->getAlign(), "wide.sin.InitVal");
+  Value *WideSinLoad =
+      Builder.CreateAlignedLoad(WideSinPtr->getAllocatedType(), WideSinPtr,
+                                WideSinPtr->getAlign(), "wide.sin.InitVal");
   VPWidenMap[VPCall] = WideSinLoad;
 }
 
@@ -2277,7 +2278,8 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst,
                                         nullptr, "wide.masked.load");
   } else {
     ++OptRptStats.UnmaskedUnalignedUnitStrideLoads;
-    WideLoad = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
+    WideLoad = Builder.CreateAlignedLoad(getWidenedType(LoadType, VF), VecPtr,
+                                         Alignment, "wide.load");
   }
 
   if (auto *DynPeeling =
@@ -4108,7 +4110,8 @@ void VPOCodeGen::fixReductionLastVal(const VPReduction &Red,
     assert(OrigPtr && "Unexpected nullptr original memory");
     auto ScalarPtr = OrigPtr->getUnderlyingValue();
     Builder.SetInsertPoint(LoopScalarPreHeader->getTerminator());
-    MergedVal = Builder.CreateLoad(ScalarPtr, ScalarPtr->getName() + ".reload");
+    MergedVal = Builder.CreateLoad(RedFinal->getType(), ScalarPtr,
+                                   ScalarPtr->getName() + ".reload");
 #endif
   } else {
     // Reduction final value should be mapped only in scalar map always. TODO:
