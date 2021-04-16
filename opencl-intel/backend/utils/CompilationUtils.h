@@ -795,8 +795,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static std::string AppendWithDimension(std::string S, int Dimension);
     static std::string AppendWithDimension(std::string S,
                                            const Value *Dimension);
-
-    static bool hasByvalByrefArgs(Function *F);
   };
 
   class OCLBuiltins {
