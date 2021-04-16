@@ -10,6 +10,7 @@
 
 #include "SGSizeCollector.h"
 
+#include "CompilationUtils.h"
 #include "LoopHandler/CLWGBoundDecoder.h"
 #include "MetadataAPI.h"
 #include "llvm/ADT/DepthFirstIterator.h"
@@ -23,20 +24,26 @@
 #define DEBUG_TYPE "SGSizeCollector"
 
 using namespace llvm;
+using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::MetadataAPI;
 
-bool EnableDirectFunctionCallVectorization = false;
+bool EnableDirectFunctionCallVectorization = true;
 static cl::opt<bool, true> EnableDirectFunctionCallVectorizationOpt(
-    "enable-direct-function-call-vectorization", cl::location(EnableDirectFunctionCallVectorization),
-    cl::Hidden,
-    cl::desc(
-        "Enable direct function call vectorization"));
+    "enable-direct-function-call-vectorization",
+    cl::location(EnableDirectFunctionCallVectorization), cl::Hidden,
+    cl::desc("Enable direct function call vectorization"));
 
-bool EnableSubgroupDirectCallVectorization = false;
+bool EnableSubgroupDirectCallVectorization = true;
 static cl::opt<bool, true> EnableSubgroupDirectCallVectorizationOpt(
     "enable-direct-subgroup-function-call-vectorization",
     cl::location(EnableSubgroupDirectCallVectorization),
     cl::Hidden, cl::desc("Enable direct subgroup function call vectorization"));
+
+bool EnableVectorizationOfByvalByrefFunctions = false;
+static cl::opt<bool, true> EnableVectorizationOfByvalByrefFunctionsOpt(
+    "enable-byval-byref-function-call-vectorization",
+    cl::location(EnableVectorizationOfByvalByrefFunctions), cl::Hidden,
+    cl::desc("Enable direct function call vectorization for byval/byref functions"));
 
 namespace intel {
 
@@ -57,6 +64,12 @@ bool SGSizeCollector::runOnModule(Module &M) { return Impl.runImpl(M); }
 SGSizeCollectorImpl::SGSizeCollectorImpl(
     const Intel::OpenCL::Utils::CPUDetect *CPUId)
     : CPUId(CPUId) {}
+
+// Skip function when traversing CallGraph.
+static bool skipFunction(Function *F) {
+  return !F || F->isIntrinsic() || F->isDeclaration() ||
+    CLWGBoundDecoder::isWGBoundFunction(F->getName().str());
+}
 
 // This pass collects vector lengths from all existing functions and then
 // applies it as vector-variants attribute to all directly called functions.
@@ -86,19 +99,21 @@ bool SGSizeCollectorImpl::runImpl(Module &M) {
   for (auto &F : M) {
     int VecLength = 0;
     // Analyze if vectorization of direct function calls is enabled, or
-    // functions has subgroup callees down the call graph as indicated
-    // by the attribute.
-    if (EnableDirectFunctionCallVectorization ||
-        (EnableSubgroupDirectCallVectorization &&
-          F.hasFnAttribute(CompilationUtils::ATTR_HAS_SUBGROUPS))) {
+    // check whether workaround for Vectorizer not supporting byval/byref
+    // parameters is needed.
+    if (EnableDirectFunctionCallVectorization) {
       if (hasVecLength(&F, VecLength)) {
 
         CallGraphNode *Node = CG[&F];
         for (auto It = df_begin(Node); It != df_end(Node);) {
 
           Function *Fn = It->getFunction();
-          if (!Fn || Fn->isIntrinsic() || Fn->isDeclaration() ||
-              CLWGBoundDecoder::isWGBoundFunction(Fn->getName().str())) {
+          if (skipFunction(Fn) ||
+              // Workaround for Vectorizer not supporting byval/byref parameters.
+              // We can ignore the children as they won't be called in vector
+              // context.
+              (!EnableVectorizationOfByvalByrefFunctionsOpt &&
+                 CompilationUtils::hasByvalByrefArgs(Fn))) {
 
             It = It.skipChildren();
             continue;
