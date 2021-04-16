@@ -430,6 +430,8 @@ struct ProgramData {
   int DeviceNum = -1;
   uint32_t TotalEUs = 0;
   uint32_t HWThreadsPerEU = 0;
+  uintptr_t DynamicMemoryLB = 0;
+  uintptr_t DynamicMemoryUB = 0;
 };
 
 /// RTL flags
@@ -552,6 +554,8 @@ public:
   std::mutex *ProfileLocks;
   std::vector<std::vector<DeviceOffloadEntryTy>> OffloadTables;
   std::vector<std::set<void *>> ClMemBuffers;
+  // Memory owned by the plugin
+  std::vector<std::vector<void *>> OwnedMemory;
 
   // Requires flags
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
@@ -580,6 +584,9 @@ public:
   uint32_t ThreadLimit = 0;
   // Limit for the number of WGs.
   uint32_t NumTeams = 0;
+
+  /// Dynamic kernel memory size
+  size_t KernelDynamicMemorySize = 0; // Turned off by default
 
   // This is a factor applied to the number of WGs computed
   // for the execution, based on the HW characteristics.
@@ -767,6 +774,17 @@ public:
     if ((env = readEnvVar("LIBOMPTARGET_USE_SINGLE_CONTEXT"))) {
       if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
         Flags.UseSingleContext = 1;
+    }
+
+    // Read LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<SizeInMB>
+    if ((env = readEnvVar("LIBOMPTARGET_DYNAMIC_MEMORY_SIZE"))) {
+      size_t value = std::stoi(env);
+      const size_t maxValue = 2048;
+      if (value > maxValue) {
+        IDP("Adjusted dynamic memory size to %zu MB\n", maxValue);
+        value = maxValue;
+      }
+      KernelDynamicMemorySize = value << 20;
     }
 
 #if INTEL_INTERNAL_BUILD
@@ -1117,6 +1135,9 @@ static void closeRTL() {
 
     DeviceInfo->unloadOffloadTable(i);
 
+    for (auto mem : DeviceInfo->OwnedMemory[i])
+      CALL_CL_EXT_VOID(i, clMemFreeINTEL, DeviceInfo->getContext(i), mem);
+
     if (!DeviceInfo->Flags.UseSingleContext)
       CALL_CL_EXIT_FAIL(clReleaseContext, DeviceInfo->Contexts[i]);
   }
@@ -1172,12 +1193,28 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t deviceId) {
     numThreadsPerEU = 1;
   }
 
+  // Allocate dynamic memory for in-kernel allocation
+  void *memLB = 0;
+  uintptr_t memUB = 0;
+  if (KernelDynamicMemorySize > 0) {
+    cl_int rc;
+    CALL_CL_EXT_RVRC(deviceId, memLB, clDeviceMemAllocINTEL, rc,
+                     getContext(deviceId), deviceIDs[deviceId], nullptr,
+                     KernelDynamicMemorySize, 0);
+  }
+  if (memLB) {
+    OwnedMemory[deviceId].push_back(memLB);
+    memUB = (uintptr_t)memLB + KernelDynamicMemorySize;
+  }
+
   ProgramData hostData = {
     1,                   // Initialized
     (int32_t)numDevices, // Number of devices
     deviceId,            // Device ID
     totalEUs,            // Total EUs
-    numThreadsPerEU      // HW threads per EU
+    numThreadsPerEU,     // HW threads per EU
+    (uintptr_t)memLB,    // Dynamic memory LB
+    memUB                // Dynamic memory UB
   };
 
 #if INTEL_CUSTOMIZATION
@@ -1685,6 +1722,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->Mutexes = new std::mutex[DeviceInfo->numDevices];
   DeviceInfo->ProfileLocks = new std::mutex[DeviceInfo->numDevices];
   DeviceInfo->OffloadTables.resize(DeviceInfo->numDevices);
+  DeviceInfo->OwnedMemory.resize(DeviceInfo->numDevices);
 
   // get device specific information
   for (unsigned i = 0; i < DeviceInfo->numDevices; i++) {

@@ -89,6 +89,9 @@
 #define KMP_ASSUME_SIMPLE_SPMD_MODE 1
 #endif
 
+/// Default alignment
+#define KMP_MAX_ALIGNMENT 16
+
 /// Enable extensions if available
 #if KMP_ATOMIC_FIXED8_SUPPORTED
 #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
@@ -280,6 +283,8 @@ typedef struct kmp_program_data {
   int device_num;
   uint total_eus;
   uint hw_threads_per_eu;
+  uintptr_t dyna_mem_cur;
+  uintptr_t dyna_mem_ub;
 } kmp_program_data_t;
 
 /// Global state
@@ -704,6 +709,14 @@ EXTERN void __kmpc_reduction_add_float(const uint id, const uint size,
 EXTERN void __kmpc_reduction_add_double(const uint id, const uint size,
                                         void *local_result, void *output);
 #endif // HAVE_FP64_SUPPORT
+
+
+///
+/// Dynamic memory allocation support
+///
+
+EXTERN void *__kmpc_malloc(size_t align, size_t size);
+EXTERN void __kmpc_free(void *ptr);
 
 
 ///
