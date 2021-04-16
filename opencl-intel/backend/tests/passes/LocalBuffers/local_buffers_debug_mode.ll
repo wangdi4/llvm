@@ -1,3 +1,4 @@
+; RUN: %oclopt -add-implicit-args -debugify -local-buffers-debug -check-debugify -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-implicit-args -local-buffers-debug -S < %s | FileCheck %s
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32-S32"
 
@@ -73,3 +74,7 @@ entry:
 ; CHECK-NEXT:   call void @llvm.memcpy.p3i8.p3i8.i64(i8 addrspace(3)* align 128 bitcast (<16 x i64> addrspace(3)* @bar.localLong16 to i8 addrspace(3)*), i8 addrspace(3)* align 128 %2, i64 128, i1 false)
 
 ; CHECK:        ret void
+
+; DEBUGIFY-NOT: WARNING
+; DEBUGIFY-COUNT-10: WARNING: Instruction with empty DebugLoc in function {{foo|bar}} -- {{.*}} {{getelementptr|bitcast}}
+; DEBUGIFY-NOT: WARNING

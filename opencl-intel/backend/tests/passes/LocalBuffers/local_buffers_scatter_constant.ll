@@ -1,5 +1,6 @@
 ; Test to check that users of local buffers in scatter intrinsics are llvm::Constant and not llvm::ConstantExpr.
 
+; RUN: %oclopt -add-implicit-args -debugify -local-buffers -check-debugify -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-implicit-args -local-buffers -S < %s | FileCheck %s
 
 ; CHECK-LABEL: void @foo
@@ -26,3 +27,10 @@ entry:
 
 ; Function Attrs: nounwind
 declare void @llvm.masked.scatter.v2p4i32.v2p3p4i32(<2 x i32 addrspace(4)*>, <2 x i32 addrspace(4)* addrspace(3)*>, i32 immarg, <2 x i1>)
+
+; DEBUGIFY-NOT: WARNING
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- {{.*}} bitcast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- {{.*}} insertelement
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- {{.*}} insertelement
+; DEBUGIFY-NOT: WARNING
