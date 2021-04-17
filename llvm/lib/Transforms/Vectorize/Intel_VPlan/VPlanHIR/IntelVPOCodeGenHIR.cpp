@@ -98,6 +98,11 @@ static cl::opt<bool, true> EnableVPValueCodegenHIROpt(
     cl::location(EnableVPValueCodegenHIR),
     cl::desc("Enable VPValue based codegen for HIR vectorizer"));
 
+static cl::opt<bool> DisableCondLastPrivCG(
+    "disable-hir-cond-last-priv-cg", cl::init(true), cl::Hidden,
+    cl::desc(
+        "Disable HIR vector code generation for conditional last privates"));
+
 extern cl::opt<bool> AllowMemorySpeculation;
 
 /// Don't vectorize loops with a known constant trip count below this number if
@@ -630,8 +635,8 @@ void HandledCheck::visit(HLDDNode *Node) {
 
     auto TLval = Inst->getLvalDDRef();
     unsigned MaskedRedOpcode = 0;
-    if (!CG->isSearchLoop() && TLval && TLval->isTerminalRef() &&
-        OrigLoop->isLiveOut(TLval->getSymbase()) &&
+    if (DisableCondLastPrivCG && !CG->isSearchLoop() && TLval &&
+        TLval->isTerminalRef() && OrigLoop->isLiveOut(TLval->getSymbase()) &&
         Inst->getParent() != OrigLoop &&
         !CG->isReductionRef(TLval, MaskedRedOpcode)) {
       DEBUG_WITH_TYPE("VPOCGHIR-bailout", Inst->dump());
@@ -3812,9 +3817,57 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     return;
   }
 
-  case VPInstruction::PrivateFinalCond:
-  case VPInstruction::PrivateFinalCondMem: {
-    // TODO: Add codegen for unconditional private finalization
+  case VPInstruction::PrivateFinalCond: {
+    // Pseudo HIR generated to finalize conditional last private entity -
+    // %priv.final = private-final-c %exit, %idx, %orig
+    //
+    // ; Find max index where condition was true
+    // %idx.reduce = llvm.vector.reduce.smax.v2i64(%idx.vec)
+    // ; Identify where max index is set in final vector
+    // %max.idx.cmp = %idx.reduce == %idx.vec
+    // ; Obtain lane for extraction
+    // %bsfintmask = bitcast.<2 x i1>.i2(%max.idx.cmp);
+    // %lane = @llvm.cttz.i2(%bsfintmask,  1);
+    // ; Extract final value and store back to original
+    // %orig = extractelement %exit.vec, %lane
+    //
+    auto *CondPrivateFinal = cast<VPPrivateFinalCond>(VPInst);
+    RegDDRef *VecExit = widenRef(CondPrivateFinal->getExit(), getVF());
+    RegDDRef *VecIndex = widenRef(CondPrivateFinal->getIndex(), getVF());
+    // Mark the temps to extract from live-out of the loop.
+    MainLoop->addLiveOutTemp(VecExit->getSymbase());
+    MainLoop->addLiveOutTemp(VecIndex->getSymbase());
+
+    HLContainerTy CondPrivFinalInsts;
+
+    Function *IdxReduceFunc = Intrinsic::getDeclaration(
+        &HLNodeUtilities.getModule(), Intrinsic::vector_reduce_smax,
+        {VecIndex->getDestType()});
+    HLInst *IdxReduceCall = HLNodeUtilities.createCall(
+        IdxReduceFunc, {VecIndex->clone()}, "priv.idx.max");
+    CondPrivFinalInsts.push_back(*IdxReduceCall);
+
+    RegDDRef *MaxIdxBcast =
+        widenRef(IdxReduceCall->getLvalDDRef()->clone(), getVF());
+    HLInst *CmpInst = HLNodeUtilities.createCmp(
+        PredicateTy::ICMP_EQ, VecIndex->clone(), MaxIdxBcast, "priv.idx.cmp");
+    CondPrivFinalInsts.push_back(*CmpInst);
+
+    HLInst *BsfCall = createCTZCall(CmpInst->getLvalDDRef()->clone(),
+                                    Intrinsic::cttz, true, &CondPrivFinalInsts);
+
+    // Scalar result of private finalization should be written back to original
+    // private descriptor variable.
+    RegDDRef *OrigPrivDescr = getUniformScalarRef(CondPrivateFinal->getOrig());
+    HLInst *PrivExtract = HLNodeUtilities.createExtractElementInst(
+        VecExit->clone(), BsfCall->getLvalDDRef()->clone(), "priv.extract",
+        OrigPrivDescr);
+    CondPrivFinalInsts.push_back(*PrivExtract);
+
+    // TODO: This should be changed to addInst interface once it is aware of
+    // Loop PH or Exit.
+    HLNodeUtils::insertAfter(MainLoop, &CondPrivFinalInsts);
+    addVPValueScalRefMapping(VPInst, PrivExtract->getLvalDDRef(), 0 /*Lane*/);
     return;
   }
 
@@ -4921,6 +4974,21 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     }
 
     NewInst = HLNodeUtilities.createCopyInst(RefOp0, ".copy", LValTmp);
+    // TODO: Dirty hack to handle copy instructions outside the loop region.
+    // These are generated for conditional last private recurrent PHIs.
+    if (VPInst->getParent() == getVPLoop()->getLoopPreheader()) {
+      // TODO: Dirty hack to get around decomposition issue.
+      if (OrigLoop->isLiveOut(RefOp0->getSymbase()) &&
+          !OrigLoop->isLiveIn(RefOp0->getSymbase())) {
+        NewInst->setRvalDDRef(
+            DDRefUtilities.createUndefDDRef(RefOp0->getDestType()));
+      }
+      HLNodeUtils::insertBefore(MainLoop, NewInst);
+      addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
+      MainLoop->addLiveInTemp(NewInst->getLvalDDRef()->getSymbase());
+      return;
+    }
+
     break;
   }
 
