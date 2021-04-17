@@ -284,6 +284,35 @@ static cl::opt<unsigned> ArrayStructArgMinCallerArgs(
     "inline-for-array-struct-arg-min-caller-args", cl::Hidden, cl::init(6),
     cl::desc("Min number of caller args for array-struct-arg heuristic"));
 
+// worthInliningExposesLocalArrays()
+// Options to set the minimum number of formal arguments, mimimum number
+// of callsites, minimum number of array args, and the minimum number of
+// array dimensions for the "exposes local arrays" inline heuristic.
+// While searching back the call chain, limit the number of Functions
+// we can traverse through.
+//
+// The goal is to inline to expose local arrays that can be collapsed by
+// Loop Opt.
+static cl::opt<unsigned> ExposeLocalArraysMinArgs(
+    "inline-expose-local-arrays-min-args", cl::init(10), cl::ReallyHidden,
+    cl::desc("Minimum args for expose local arrays candidate"));
+
+static cl::opt<unsigned> ExposeLocalArraysMinCalls(
+    "inline-expose-local-arrays-min-calls", cl::init(6), cl::ReallyHidden,
+    cl::desc("Minimum calls for expose local arrays candidate"));
+
+static cl::opt<unsigned> ExposeLocalArraysMinArrayArgs(
+    "inline-expose-local-arrays-min-array-args", cl::init(2), cl::ReallyHidden,
+    cl::desc("Minimum array args for expose local arrays candidate"));
+
+static cl::opt<unsigned> ExposeLocalArraysMinDims(
+    "inline-expose-local-arrays-min-dims", cl::init(3), cl::ReallyHidden,
+    cl::desc("Minimum dimensions for expose local arrays candidate"));
+
+static cl::opt<unsigned> ExposeLocalArraysMaxDepth(
+    "inline-expose-local-arrays-max-depth", cl::init(5), cl::ReallyHidden,
+    cl::desc("Maximum traversal depth for expose local arrays candidate"));
+
 //
 // Implementation of the Intel LoopInfo Cache (ILIC).
 //
@@ -3428,12 +3457,216 @@ static bool worthInliningForSmallApp(CallBase &CB,
 //
 static bool preferFunctionLevelRegion(Function *F, bool PrepareForLTO,
                                       WholeProgramInfo *WPI) {
-  if (!F || PrepareForLTO  || !DTransInlineHeuristics || !WPI || !F->hasOneUse())
+  if (!F || PrepareForLTO  || !DTransInlineHeuristics || !WPI ||
+      !F->hasOneUse())
     return false;
   auto CB = dyn_cast<CallBase>(*(F->user_begin()));
   if (!CB)
     return false;
   return CB->getCaller() == WPI->getMainFunction();
+}
+
+//
+// Return the minimum number of dimensions of the arrays accessed by 'Arg'.
+// The number of dimensions is determined by counting the number of
+// subscripts in a chain starting with 'Arg' down to a LoadInst or StoreInst.
+//
+static unsigned ArrayDimCount(Argument &Arg) {
+
+  //
+  // Return 'true' if 'U' is a LoadInst or StoreInst with 'V' as its
+  // PointerOperand. As such, it would terminate a sequence of SubscriptInsts.
+  //
+  auto IsTerminalUserForValue = [](User *U, Value *V) -> bool {
+    if (isa<LoadInst>(U))
+      return true;
+    auto StI = dyn_cast<StoreInst>(U);
+    return StI && StI->getPointerOperand() == V;
+  };
+
+  // Use a WorkList to trace from the Arg through all of its uses recursively.
+  SmallVector<std::pair<Value *, unsigned>, 8> WorkList;
+  WorkList.push_back(std::make_pair(&Arg, 0));
+  unsigned DimCount = 0;
+  while (!WorkList.empty()) {
+    auto WLP = WorkList.pop_back_val();
+    Value *V = WLP.first;
+    unsigned SCount = WLP.second;
+    for (User *U : V->users()) {
+      auto SI = dyn_cast<SubscriptInst>(U);
+      if (SI && SI->getPointerOperand() == V) {
+        WorkList.push_back(std::make_pair(SI, SCount + 1));
+        continue;
+      }
+      // If at the end of a chain, record the first result, or take the
+      // minimum of all results up to this point.
+      if (IsTerminalUserForValue(U, V)) {
+        if (!DimCount || DimCount > SCount)
+          DimCount = SCount;
+        continue;
+      }
+      // Ignore a CallBase that may be transmitting the Arg.
+      if (isa<CallBase>(U))
+        continue;
+      // Return a conservative result for anything else.
+      return 0;
+    }
+  }
+  return DimCount;
+}
+
+//
+// Return 'true' if 'Arg' represents an array with at least
+// 'ExposeLocalArraysMinDims' dimensions, which is local because it is
+// allocated with an AllocaInst.
+//
+static bool isLocalArrayExposureCandidate(Argument &Arg) {
+  // Check if it is an array with enough dimensions.
+  if (ArrayDimCount(Arg) < ExposeLocalArraysMinDims)
+    return false;
+  // Trace its uses up the call chain to find an AllocaInst.
+  SmallVector<std::pair<Argument *, unsigned>, 4> WorkList;
+  WorkList.push_back(std::make_pair(&Arg, 0));
+  bool SawArrayTy = false;
+  while (!WorkList.empty()) {
+    auto VDP = WorkList.pop_back_val();
+    Argument *A = VDP.first;
+    unsigned Depth =  VDP.second;
+    Function *F = A->getParent();
+    for (User *U : F->users()) {
+      auto CB = dyn_cast<CallBase>(U);
+      // Exclude unusual cases where the address may be taken.
+      if (!CB || CB->getCalledFunction() != F)
+        return false;
+      // Allow the Arg to be used in a GetElementPtrInst when it is passed
+      // down to a call.
+      Value *AA = CB->getArgOperand(A->getArgNo());
+      if (auto GEPI = dyn_cast<GetElementPtrInst>(AA))
+        AA = GEPI->getPointerOperand();
+      // Found the AllocaInst for which we were looking.
+      auto AI = dyn_cast<AllocaInst>(AA);
+      if (AI && AI->getAllocatedType()->isArrayTy()) {
+        SawArrayTy = true;
+        continue;
+      }
+      // Traverse up the call chain to the calling Function if we haven't
+      // gone up too many levels.
+      if (auto FA = dyn_cast<Argument>(AA)) {
+        if (Depth + 1 > ExposeLocalArraysMaxDepth)
+          return false;
+        WorkList.push_back(std::make_pair(FA, Depth + 1));
+      }
+    }
+  }
+  return SawArrayTy;
+}
+
+//
+// Mark Functions with "prefer-expose-local-array" whose calls should be
+// inlined because inlining will expose local arrays to Loop Opt's array
+// contraction optimization.
+//
+static void localArrayExposureAnalysis(Module &M,
+                                       bool PrepareForLTO,
+                                       WholeProgramInfo *WPI) {
+  //
+  // Return 'true' if 'F' meets some minimum criteria for being marked
+  // with the "prefer-expose-local-array" attribute.
+  //
+  auto MeetsMinimalCriteria = [](Function &F) -> bool {
+    if (F.isDeclaration() || F.isIntrinsic())
+      return false;
+    if (F.arg_size() < ExposeLocalArraysMinArgs)
+      return false;
+    unsigned Count = 0;
+    for (User *U : F.users()) {
+      auto CB = dyn_cast<CallBase>(U);
+      if (CB && CB->getCalledFunction() == &F)
+        if (++Count >= ExposeLocalArraysMinCalls)
+          return true;
+    }
+    return false;
+  };
+
+  //
+  // Propagate the "prefer-expose-local-array" to wrapper Functions that
+  // make calls to the main "prefer-expose-local-array" candidate Function.
+  //
+  auto PropagateAttribute = [](Function &F,
+                               SmallPtrSetImpl<Argument *>& ArgSet) {
+    for (User *U : F.users()) {
+      auto CB = dyn_cast<CallBase>(U);
+      if (!CB || CB->getCalledFunction() != &F)
+        continue;
+      Function *Caller = CB->getCaller();
+      // A wrapper Function has a single BasicBlock.
+      if (Caller->size() != 1)
+        continue;
+      if (Caller->hasFnAttribute("prefer-expose-local-arrays"))
+        continue;
+      for (Argument *A : ArgSet)
+        if (isa<Argument>(CB->getArgOperand(A->getArgNo()))) {
+          Caller->addFnAttr("prefer-expose-local-arrays");
+          break;
+        }
+    }
+  };
+
+  //
+  // Test some very minimal conditions.
+  //
+  if (PrepareForLTO || !DTransInlineHeuristics ||
+      !WPI || !WPI->isWholeProgramRead())
+    return;
+
+  // Find the best candidate Function for the "prefer-expose-local-arrays"
+  // attribute. We limit this to one candidate right now. It can be extended
+  // if it is determined to be useful to do so.
+  Function *FBest = nullptr;
+  SmallPtrSet<Argument *, 2> ArgsBest;
+  for (auto &F : M.functions()) {
+    if (!F.isFortran())
+      continue;
+    SmallPtrSet<Argument *, 2> ArgCands;
+    if (!MeetsMinimalCriteria(F))
+      continue;
+    unsigned Count = 0;
+    for (auto &Arg : F.args()) {
+      if (isLocalArrayExposureCandidate(Arg)) {
+        ArgCands.insert(&Arg);
+        if (++Count >= ExposeLocalArraysMinArrayArgs) {
+          if (FBest)
+            return;
+          FBest = &F;
+          ArgsBest = ArgCands;
+          break;
+        }
+      }
+    }
+  }
+  if (!FBest)
+    return;
+  // Mark the best candidate Function.
+  FBest->addFnAttr("prefer-expose-local-arrays");
+  // Mark the wrapper Functions enclosing it.
+  PropagateAttribute(*FBest, ArgsBest);
+}
+
+//
+// Return 'true' if all callsites to 'F' should be inlined because
+// that might expose local arrays to Loop Opt's array contraction
+// optimization.
+//
+static bool worthInliningExposesLocalArrays(Function &F,
+                                            bool PrepareForLTO,
+                                            WholeProgramInfo *WPI) {
+  static bool RanArgAnalysis = false;
+  // Run the analysis only once at the beginning of inline analysis.
+  if (!RanArgAnalysis) {
+    localArrayExposureAnalysis(*(F.getParent()), PrepareForLTO, WPI);
+    RanArgAnalysis = true;
+  }
+  return F.hasFnAttribute("prefer-expose-local-arrays");
 }
 
 //
@@ -3544,6 +3777,10 @@ extern int intelWorthInlining(CallBase &CB, const InlineParams &Params,
   if (worthInliningForSmallApp(CB, CalleeTTI, *ILIC, WPI, LinkForLTO,
                                InlineOptLevel)) {
     YesReasonVector.push_back(InlrHasSmallAppBudget);
+    return -InlineConstants::InliningHeuristicBonus;
+  }
+  if (worthInliningExposesLocalArrays(*F, PrepareForLTO, WPI)) {
+    YesReasonVector.push_back(InlrExposesLocalArrays);
     return -InlineConstants::InliningHeuristicBonus;
   }
   return 0;
