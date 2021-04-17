@@ -82,6 +82,11 @@ cl::opt<bool> llvm::vpo::UseMapperAPI(
     "vpo-paropt-use-mapper-api", cl::Hidden, cl::init(true),
     cl::desc("Emit calls to mapper specific functions in tgt RTL."));
 
+static cl::opt<bool> ForceMemberofToPointToBase(
+    "vpo-paropt-force-member-of-to-point-to-base", cl::Hidden, cl::init(false),
+    cl::desc(
+        "Force all member-of maps to point to the base of the map-chain."));
+
 #if INTEL_CUSTOMIZATION
 // Controls adding noalias attribute to outlined target function arguments.
 static cl::opt<bool>
@@ -1442,8 +1447,12 @@ void VPOParoptTransform::genTgtInformationForPtrs(
                MapI->dump(); dbgs() << "'.\n");
     Type *T = MapI->getOrig()->getType()->getPointerElementType();
     if (MapI->getIsMapChain()) {
-      uint64_t MapTypeIndexForBaseOfChain = MapTypes.size() + 1;
       MapChainTy const &MapChain = MapI->getMapChain();
+      MapAggrTy *AggrHead = MapChain[0];
+      int CurrentIndexForBaseOfChain = MapTypes.size() + 1;
+      int InitialIndexForBaseOfChain =
+          AggrHead->hasInitialAggrIndex() ? AggrHead->getInitialAggrIndex() : 0;
+
       for (unsigned I = 0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
         auto ConstValue = dyn_cast<ConstantInt>(Aggr->getSize());
@@ -1461,21 +1470,48 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         uint64_t MapType = Aggr->getMapType();
         if (MapType || Aggr->hasExplicitMapType()) {
           // MemberOf flag is in the 16 MSBs of the 64 bit MapType.
-          uint64_t MemberOfFlag = MapType >> 48;
+          int OrigMemberOfFlag = static_cast<int>(MapType >> 48);
           uint64_t NewMapType = MapType;
 
-          if (MemberOfFlag && MemberOfFlag != MapTypeIndexForBaseOfChain) {
-            // We need to set MemberOf to the index of the base of the chain,
-            // instead of what the frontend sent in.
-            assert(MapTypeIndexForBaseOfChain < (1 << 16) &&
-                   "Too many maps. MemberOf flag exceeding 16 bits.");
-            uint64_t Mask = (~(0ull)) >> 16;
-            NewMapType = NewMapType & Mask;
-            NewMapType = NewMapType | (MapTypeIndexForBaseOfChain << 48);
-            LLVM_DEBUG(dbgs()
-                       << __FUNCTION__ << ": Updated MemberOf Flag from '"
-                       << MemberOfFlag << "' to '" << MapTypeIndexForBaseOfChain
-                       << "'.\n");
+          if (OrigMemberOfFlag) {
+            int NewMemberOfFlag = 0;
+            if (!InitialIndexForBaseOfChain || ForceMemberofToPointToBase) {
+              // TODO: Legacy code. Delete once deemed unnecessary.
+              // Since we don't know the initial index of the map-chain's base,
+              // we work off of the assumption that the member-of flag can only
+              // point to the base of a map-chain.
+              NewMemberOfFlag = CurrentIndexForBaseOfChain;
+#if INTEL_CUSTOMIZATION
+            } else if (F->isFortran()) {
+              // TODO: Delete once CMPLRLLVM-27688 is fixed by FFE.
+              // ifx does not currently set the appropriate member-of flag
+              // based on index. They only set member-of(1).
+              NewMemberOfFlag = CurrentIndexForBaseOfChain;
+#endif // INTEL_CUSTOMIZATION
+            } else {
+              if (CurrentIndexForBaseOfChain != InitialIndexForBaseOfChain)
+                LLVM_DEBUG(dbgs()
+                           << __FUNCTION__
+                           << ": Map index of base of chain shifted from '"
+                           << InitialIndexForBaseOfChain << "' to '"
+                           << CurrentIndexForBaseOfChain << "'.\n");
+
+              NewMemberOfFlag = OrigMemberOfFlag + (CurrentIndexForBaseOfChain -
+                                                    InitialIndexForBaseOfChain);
+            }
+
+            if (NewMemberOfFlag != OrigMemberOfFlag) {
+              assert(NewMemberOfFlag < (1 << 16) &&
+                     "Too many maps. MemberOf flag exceeding 16 bits.");
+              uint64_t Mask = (~(0ull)) >> 16;
+              NewMapType = NewMapType & Mask;
+              NewMapType =
+                  NewMapType | (static_cast<uint64_t>(NewMemberOfFlag) << 48);
+              LLVM_DEBUG(dbgs()
+                         << __FUNCTION__ << ": Updated MemberOf Flag from '"
+                         << OrigMemberOfFlag << "' to '" << NewMemberOfFlag
+                         << "'.\n");
+            }
           }
 
           // For operands in a map chain, as well as use_device_ptr clause, we

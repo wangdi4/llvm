@@ -459,6 +459,47 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return false;
   }
 
+  case VPInstruction::VLSLoad: {
+    // This is a low-level instruction and we treat the resulting vector as
+    // uniformly shared across all lanes, hence "FirstScalar".
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // This instruction currently has the semantics of a single wide continuous
+    // load.
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::VLSStore: {
+    // Although resulting type is void (and it doesn't matter if it's "scalar"
+    // or "vector"), be consistent with VLSLoad's properties.
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // This instruction currently has the semantics of a single wide continuous
+    // store. If that is changed, we'd need to update the kind of the pointer
+    // operand.
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::VLSExtract: {
+    // Each lanes has its own value.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // Wide value is shared across all lanes.
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::VLSInsert: {
+    // Wide value is shared across all lanes.
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::FirstScalar);
+    // Each lane has its own value that we insert into a wide vector.
+    setSVAKindForOperand(Inst, 1, SVAKind::Vector);
+    return true;
+  }
+
   default: {
     assert(Inst->getOpcode() <= Instruction::OtherOpsEnd &&
            "Unknown opcode seen in SVA.");
@@ -746,6 +787,10 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::PopVF:
   case VPInstruction::PrivateFinalUncondMem:
   case VPInstruction::PrivateFinalUncond:
+  case VPInstruction::VLSLoad:
+  case VPInstruction::VLSExtract:
+  case VPInstruction::VLSInsert:
+  case VPInstruction::VLSStore:
     return true;
   default:
     return false;

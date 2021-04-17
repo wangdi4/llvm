@@ -33,7 +33,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKPCFG-NEXT:      DbgLoc:
 ; CHECKPCFG:         [[BB1]]: # preds: [[BB0]]
 ; CHECKPCFG-NEXT:     br [[BB2:BB[0-9]+]]
-; CHECKPCFG-NEXT:      DbgLoc:
+; CHECKPCFG-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKPCFG:         [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECKPCFG-NEXT:     i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECKPCFG-NEXT:      DbgLoc: sum.cpp:0
@@ -69,10 +69,10 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKPCFG-NEXT:      DbgLoc: sum.cpp:11:5
 ; CHECKPCFG-EMPTY:
 ; CHECKPCFG-NEXT:     br i1 [[VP_EXITCOND_NOT]], [[BB3:BB[0-9]+]], [[BB2]]
-; CHECKPCFG-NEXT:      DbgLoc:
+; CHECKPCFG-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKPCFG:         [[BB3]]: # preds: [[BB2]]
 ; CHECKPCFG-NEXT:     br [[BB4:BB[0-9]+]]
-; CHECKPCFG-NEXT:      DbgLoc:
+; CHECKPCFG-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKPCFG:         [[BB4]]: # preds: [[BB3]]
 ; CHECKPCFG-NEXT:     br <External Block>
 ; CHECKPCFG-NEXT:      DbgLoc:
@@ -101,7 +101,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKVPE-NEXT:      DbgLoc:
 ; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     br [[BB2:BB[0-9]+]]
-; CHECKVPE-NEXT:      DbgLoc:
+; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKVPE:         [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECKVPE-NEXT:     i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:0
@@ -137,7 +137,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKVPE-NEXT:      DbgLoc: sum.cpp:11:5
 ; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     br i1 [[VP_EXITCOND_NOT]], [[BB3:BB[0-9]+]], [[BB2]]
-; CHECKVPE-NEXT:      DbgLoc:
+; CHECKVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKVPE:         [[BB3]]: # preds: [[BB2]]
 ; CHECKVPE-NEXT:     i32 [[VP_S_RED_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP_ADD1]]
 ; CHECKVPE-NEXT:      DbgLoc:
@@ -149,7 +149,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKVPE-NEXT:      DbgLoc:
 ; CHECKVPE-EMPTY:
 ; CHECKVPE-NEXT:     br [[BB4:BB[0-9]+]]
-; CHECKVPE-NEXT:      DbgLoc:
+; CHECKVPE-NEXT:      DbgLoc: sum.cpp:12:10
 ; CHECKVPE:         [[BB4]]: # preds: [[BB3]]
 ; CHECKVPE-NEXT:     br <External Block>
 ; CHECKVPE-NEXT:      DbgLoc:
@@ -168,7 +168,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
 ; CHECKHIRPCFG:         [[BB1]]: # preds: [[BB0]]
 ; CHECKHIRPCFG-NEXT:     br [[BB2:BB[0-9]+]]
-; CHECKHIRPCFG-NEXT:      DbgLoc:
+; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKHIRPCFG:         [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECKHIRPCFG-NEXT:     i32 [[VP3:%.*]] = phi  [ i32 [[TMP2:%.*]], [[BB1]] ],  [ i32 [[VP4:%.*]], [[BB2]] ]
 ; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:0
@@ -204,7 +204,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:11:5
 ; CHECKHIRPCFG-EMPTY:
 ; CHECKHIRPCFG-NEXT:     br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; CHECKHIRPCFG-NEXT:      DbgLoc:
+; CHECKHIRPCFG-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKHIRPCFG:         [[BB3]]: # preds: [[BB2]]
 ; CHECKHIRPCFG-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECKHIRPCFG-NEXT:      DbgLoc:
@@ -235,7 +235,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRVPE-NEXT:      DbgLoc:
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     br [[BB2:BB[0-9]+]]
-; CHECKHIRVPE-NEXT:      DbgLoc:
+; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKHIRVPE:         [[BB2]]: # preds: [[BB1]], [[BB2]]
 ; CHECKHIRVPE-NEXT:     i32 [[VP3:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP4:%.*]], [[BB2]] ]
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:0
@@ -271,7 +271,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr #0 !dbg !102 {
 ; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:11:5
 ; CHECKHIRVPE-EMPTY:
 ; CHECKHIRVPE-NEXT:     br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; CHECKHIRVPE-NEXT:      DbgLoc:
+; CHECKHIRVPE-NEXT:      DbgLoc: sum.cpp:10:1
 ; CHECKHIRVPE:         [[BB3]]: # preds: [[BB2]]
 ; CHECKHIRVPE-NEXT:     i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP4]]
 ; CHECKHIRVPE-NEXT:      DbgLoc:

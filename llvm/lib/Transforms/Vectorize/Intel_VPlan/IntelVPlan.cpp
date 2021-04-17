@@ -18,14 +18,15 @@
 
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
+#include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPSOAAnalysis.h"
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanClone.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
+#include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
-#include "IntelLoopVectorizationPlanner.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
 #else
 #include "VPlan.h"
@@ -348,6 +349,14 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "private-final-uc";
   case VPInstruction::PrivateFinalUncondMem:
     return "private-final-uc-mem";
+  case VPInstruction::VLSLoad:
+    return "vls-load";
+  case VPInstruction::VLSStore:
+    return "vls-store";
+  case VPInstruction::VLSExtract:
+    return "vls-extract";
+  case VPInstruction::VLSInsert:
+    return "vls-insert";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -609,6 +618,30 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
       auto *Self = cast<VPInductionFinal>(this);
       if (Self->isLastValPreIncrement())
         O << ", LastValPreInc = 1";
+      break;
+    }
+    case VPInstruction::VLSLoad: {
+      auto *VLSLoad = cast<VPVLSLoad>(this);
+      O << ", group_size=" << VLSLoad->getGroupSize()
+        << ", align=" << VLSLoad->getAlignment().value();
+      break;
+    }
+    case VPInstruction::VLSStore: {
+      auto *VLSStore = cast<VPVLSStore>(this);
+      O << ", group_size=" << VLSStore->getGroupSize()
+        << ", align=" << VLSStore->getAlignment().value();
+      break;
+    }
+    case VPInstruction::VLSExtract: {
+      auto *Extract = cast<VPVLSExtract>(this);
+      O << ", group_size=" << Extract->getGroupSize()
+        << ", offset=" << Extract->getOffset();
+      break;
+    }
+    case VPInstruction::VLSInsert: {
+      auto *Insert = cast<VPVLSInsert>(this);
+      O << ", group_size=" << Insert->getGroupSize()
+        << ", offset=" << Insert->getOffset();
       break;
     }
     }
@@ -1230,6 +1263,18 @@ Use *VPScalarPeel::findUpperBoundUseInLatch() const {
            "unexpectd non invariant");
     return &Cond->getOperandUse(1);
   }
+}
+
+unsigned VPVLSExtract::getNumGroupEltsPerValue() const {
+  const DataLayout &DL = *getParent()->getParent()->getDataLayout();
+  return llvm::vpo::getNumGroupEltsPerValue(DL, getOperand(0)->getType(),
+                                            getType());
+}
+
+unsigned VPVLSInsert::getNumGroupEltsPerValue() const {
+  const DataLayout &DL = *getParent()->getParent()->getDataLayout();
+  return llvm::vpo::getNumGroupEltsPerValue(DL, getOperand(0)->getType(),
+                                            getOperand(1)->getType());
 }
 
 void VPValue::replaceUsesWithIf(

@@ -456,12 +456,14 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
 
     assert(ActiveVPBB == HLN2VPBB[&*HLp->pre_begin()] &&
            "Loop PH generates more than one VPBB?");
-  } else
+  } else {
     // There is no PH in HLLoop. Create dummy VPBB as PH. We could introduce
     // this dummy VPBB in simplifyPlainCFG, but according to the design for
     // LLVM-IR, we expect to have a loop with a PH as input. It's then better to
     // introduce the dummy PH here.
     updateActiveVPBB();
+    ActiveVPBB->getTerminator()->setDebugLocation(HLp->getDebugLoc());
+  }
 
   VPBasicBlock *Preheader = ActiveVPBB;
 
@@ -503,6 +505,8 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
       Decomposer.createLoopIVNextAndBottomTest(HLp, Preheader, Latch);
   Latch->setTerminator(Header);
   CondBits[Latch] = LatchCondBit;
+
+  Latch->getTerminator()->setDebugLocation(HLp->getBranchDebugLoc());
 
   // - Loop Exits -
   // Force creation of a new VPBB for Exit.

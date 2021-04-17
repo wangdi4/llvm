@@ -287,13 +287,22 @@ static int readPrefixes(struct InternalInstruction *insn) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
       if (isREX(insn, nextByte) || nextByte == 0x0f || nextByte == 0x66 ||
-          insn->isIceCode)
+          insn->isIceCode) {
+        if (insn->isIceCode && byte == 0xf2 &&
+            insn->segmentOverride > SEG_OVERRIDE_NONE &&
+            insn->segmentOverride < SEG_OVERRIDE_PHYSEG_SUPOVR) {
+          insn->segmentOverride += SEG_OVERRIDE_PHYSEG_SUPOVR;
+          break;
+        } else {
+          insn->mandatoryPrefix = byte;
+        }
+      }
 #else // INTEL_FEATURE_ICECODE
       if (isREX(insn, nextByte) || nextByte == 0x0f || nextByte == 0x66)
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
         // The last of 0xf2 /0xf3 is mandatory prefix
         insn->mandatoryPrefix = byte;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
       insn->repeatPrefix = byte;
       break;
     }
@@ -1978,7 +1987,18 @@ static const uint8_t segmentRegnums[SEG_OVERRIDE_max] = {
   X86::DS,
   X86::ES,
   X86::FS,
-  X86::GS
+#if INTEL_CUSTOMIZATION
+  X86::GS,
+#if INTEL_FEATURE_ICECODE
+  X86::PHYSEG_SUPOVR,
+  X86::LDTR,
+  X86::IDTR,
+  X86::TR,
+  X86::GDTR,
+  X86::LINSEG_NOSUPOVR,
+  X86::LINSEG_SUPOVR,
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// translateSrcIndex   - Appends a source index operand to an MCInst.
