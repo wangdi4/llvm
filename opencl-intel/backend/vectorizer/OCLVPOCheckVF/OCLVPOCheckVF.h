@@ -17,10 +17,9 @@
 
 #include "Compiler.h"
 #include "InstCounter.h"
-#include "OCLPassSupport.h"
 #include "VecConfig.h"
 
-#include "llvm/Analysis/CallGraph.h"
+#include <llvm/Pass.h>
 
 #include <string>
 
@@ -33,16 +32,10 @@ class OCLVPOCheckVF : public llvm::ModulePass {
 public:
   static char ID;
 
-  /// Default ctor for opt testing.
-  OCLVPOCheckVF()
-    : llvm::ModulePass(ID), CpuId(Intel::OpenCL::Utils::CPUDetect::GetInstance()),
-      TransposeSize(TRANSPOSE_SIZE_AUTO),
-      CanFallBack(false), CheckState(nullptr) { }
-
   OCLVPOCheckVF(const OptimizerConfig &Config, TStringToVFState &CheckState)
       : llvm::ModulePass(ID), CpuId(Config.GetCpuId()),
         TransposeSize(Config.GetTransposeSize()), CanFallBack(false),
-        CheckState(&CheckState) {}
+        CheckState(CheckState) {}
 
   ~OCLVPOCheckVF() {}
 
@@ -61,7 +54,7 @@ private:
 
   bool CanFallBack;
 
-  TStringToVFState *CheckState;
+  TStringToVFState &CheckState;
 
   std::map<llvm::Function *, unsigned> KernelToVF;
   std::map<llvm::Function *, unsigned> KernelToSGEmuSize;
@@ -92,20 +85,13 @@ private:
 
   /// Check whether subgroups semantics is broken.
   /// Return true if subgroups semantics is maintained.
-  bool checkSGSemantics(llvm::Function *Kernel,
-                        llvm::CallGraph &CG,
+  bool checkSGSemantics(llvm::Function *F,
                         const std::set<llvm::Function *> &sgFuncUsers);
 
   /// Find all unimplement horizontal builtins (sub_group/work_group calls
   /// except for barrier) with given VF in the kernel.
   std::vector<std::pair<std::string, unsigned>>
   checkHorizontalOps(llvm::Function *F);
-
-  /// Workaround for the pass strictly accepting a mutable state.
-  void logState(const std::function<void()> &Action) {
-    if (CheckState)
-      Action();
-  }
 };
 } // namespace intel
 #endif

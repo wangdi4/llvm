@@ -213,7 +213,10 @@ public:
     virtual bool useLLDJITForExecution(llvm::Module* pModule) const = 0;
     virtual bool isObjectFromLLDJIT(llvm::StringRef ObjBuf) const = 0;
 
-    bool OptLTO() const { return m_optLTOLegacyPM; }
+    bool OptLTO() const {
+      return m_passManagerType == PM_LTO_LEGACY ||
+             m_passManagerType == PM_LTO_NEW;
+    }
 
 protected:
     void LoadBuiltinModules(BuiltinLibrary* pLibrary,
@@ -248,7 +251,7 @@ protected:
     bool                     m_useNativeDebugger;
     bool                     m_streamingAlways;
     unsigned                 m_expensiveMemOpts;
-    bool m_optLTOLegacyPM;
+    PassManagerType m_passManagerType;
 
     static bool s_globalStateInitialized;
 

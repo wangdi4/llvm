@@ -14,47 +14,40 @@
 
 #include "Optimizer.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/Passes/PassBuilder.h"
 
 namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
 /**
- *  Run llvm legacy pass manager on the given module.
+ *  Run llvm pass manager on the given module.
  */
-class OptimizerLTOLegacyPM : public Optimizer {
+class OptimizerLTO : public Optimizer {
 public:
-  OptimizerLTOLegacyPM(llvm::Module *M, const intel::OptimizerConfig *Config);
+  OptimizerLTO(llvm::Module *M, const intel::OptimizerConfig *Config);
 
-  ~OptimizerLTOLegacyPM();
+  ~OptimizerLTO();
 
   /// Run pass manager on a module.
   void Optimize() override;
 
 private:
-  /// Add passes to pass managers.
-  void CreatePasses();
-
   /// Register a callback to the start of the pipeline.
-  void registerPipelineStartCallback(llvm::PassManagerBuilder &PMBuilder);
+  void registerPipelineStartCallback(PassBuilder &PB);
 
   /// Register a callback to before the vectorizer.
-  void registerVectorizerStartCallback(llvm::PassManagerBuilder &PMBuilder);
+  void registerVectorizerStartCallback(PassBuilder &PB);
 
   /// Register a callback to the very end of the function optimization pipeline.
-  void registerOptimizerLastCallback(llvm::PassManagerBuilder &PMBuilder);
-
-  /// Register passes that run at the end of pipeline.
-  void registerLastPasses();
+  void registerOptimizerLastCallback(PassBuilder &PB);
 
   const intel::OptimizerConfig *Config;
 
-  std::unique_ptr<llvm::TargetLibraryInfoImpl> TLII;
+  bool DebugPassManager;
 
-  //  CodeGenOptions m_CodeGenOpts;
-  llvm::legacy::FunctionPassManager FPM;
-  llvm::legacy::PassManager MPM;
+  std::unique_ptr<llvm::TargetLibraryInfoImpl> TLII;
 };
 
 } // namespace DeviceBackend

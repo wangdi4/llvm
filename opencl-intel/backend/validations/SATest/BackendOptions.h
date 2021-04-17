@@ -37,8 +37,8 @@ public:
           runConfig.GetValue<VectorizerType>(RC_BR_VECTORIZER_TYPE, DEFAULT_VECTORIZER);
         m_nativeSubgroups = runConfig.GetValue<bool>(RC_BR_NATIVE_SUBGROUPS, false);
         m_enableSubgroupEmulation = runConfig.GetValue<bool>(RC_BR_ENABLE_SUBGROUP_EMULATION, true);
-        m_useLTOLegacyPM =
-            runConfig.GetValue<bool>(RC_BR_USE_LTO_LEGACY_PM, false);
+        m_passManagerType =
+            runConfig.GetValue<PassManagerType>(RC_BR_PASS_MANAGER_TYPE, PM_OCL);
     }
 
 
@@ -63,8 +63,6 @@ public:
             return m_nativeSubgroups;
         case CL_DEV_BACKEND_OPTION_SUBGROUP_EMULATION:
             return m_enableSubgroupEmulation;
-        case CL_DEV_BACKEND_OPTION_LTO_LEGACY_PM:
-            return m_useLTOLegacyPM;
         default:
             return defaultValue;
         }
@@ -77,6 +75,8 @@ public:
         {
         case CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE:
             return m_vectorizerType;
+        case CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE:
+            return (int)m_passManagerType;
         default:
             return defaultValue;
         }
@@ -91,9 +91,9 @@ private:
     std::string m_TimePasses;
     bool        m_DisableStackDump;
     VectorizerType m_vectorizerType;
+    PassManagerType m_passManagerType;
     bool        m_nativeSubgroups;
     bool        m_enableSubgroupEmulation;
-    bool        m_useLTOLegacyPM;
 };
 
 
@@ -122,8 +122,8 @@ public:
         m_vectorizerType = runConfig.GetValue<VectorizerType>(RC_BR_VECTORIZER_TYPE, DEFAULT_VECTORIZER);
         m_nativeSubgroups = runConfig.GetValue<bool>(RC_BR_NATIVE_SUBGROUPS, false);
         m_expensiveMemOpts = runConfig.GetValue<unsigned>(RC_BR_EXPENSIVE_MEM_OPT, false);
-        m_useLTOLegacyPM =
-            runConfig.GetValue<bool>(RC_BR_USE_LTO_LEGACY_PM, false);
+        m_passManagerType = runConfig.GetValue<PassManagerType>(
+            RC_BR_PASS_MANAGER_TYPE, PM_OCL);
     }
 
     virtual void InitTargetDescriptionSession(ICLDevBackendExecutionService* pExecutionService)
@@ -140,8 +140,6 @@ public:
             return m_dumpHeuristcIR;
         case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS :
             return m_nativeSubgroups;
-        case CL_DEV_BACKEND_OPTION_LTO_LEGACY_PM:
-            return m_useLTOLegacyPM;
         default:
             return defaultValue;
         }
@@ -159,6 +157,8 @@ public:
             return m_vectorizerType;
         case CL_DEV_BACKEND_OPTION_EXPENSIVE_MEM_OPTS:
             return m_expensiveMemOpts;
+        case CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE:
+            return (int)m_passManagerType;
         default:
              return defaultValue;
         }
@@ -206,12 +206,12 @@ protected:
     DeviceMode     m_deviceMode;
     bool           m_useVTune;
     unsigned       m_expensiveMemOpts;
-    bool           m_useLTOLegacyPM;
     const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
     const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
     std::string m_DumpIRDir;
     bool m_dumpHeuristcIR;
     VectorizerType m_vectorizerType;
+    PassManagerType m_passManagerType;
     bool m_nativeSubgroups;
 };
 

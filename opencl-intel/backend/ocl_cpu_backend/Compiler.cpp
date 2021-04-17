@@ -20,7 +20,7 @@
 #include "CompilationUtils.h"
 #include "CompilerConfig.h"
 #include "MetadataAPI.h"
-#include "Optimizer.h"
+#include "OptimizerLTO.h"
 #include "OptimizerLTOLegacyPM.h"
 #include "VecConfig.h"
 #include "cl_config.h"
@@ -393,7 +393,7 @@ Compiler::Compiler(const ICompilerConfig& config):
     m_useNativeDebugger(false),
     m_streamingAlways(config.GetStreamingAlways()),
     m_expensiveMemOpts(config.GetExpensiveMemOpts()),
-    m_optLTOLegacyPM(config.GetUseLTOLegacyPM())
+    m_passManagerType(config.GetPassManagerType())
 {
     // WORKAROUND!!! See the notes in TerminationBlocker description
    static Utils::TerminationBlocker blocker;
@@ -571,11 +571,19 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                                             m_streamingAlways,
                                             m_expensiveMemOpts);
     std::unique_ptr<Optimizer> optimizer;
-    if (m_optLTOLegacyPM)
-      optimizer.reset(new OptimizerLTOLegacyPM(pModule, &optimizerConfig));
-    else
-      optimizer.reset(
-          new OptimizerOCL(pModule, GetBuiltinModuleList(), &optimizerConfig));
+    switch (m_passManagerType) {
+    case PM_LTO_LEGACY:
+      optimizer =
+          std::make_unique<OptimizerLTOLegacyPM>(pModule, &optimizerConfig);
+      break;
+    case PM_LTO_NEW:
+      optimizer = std::make_unique<OptimizerLTO>(pModule, &optimizerConfig);
+      break;
+    default:
+      optimizer = std::make_unique<OptimizerOCL>(
+          pModule, GetBuiltinModuleList(), &optimizerConfig);
+      break;
+    };
 
     optimizer->Optimize();
 
