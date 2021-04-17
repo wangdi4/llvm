@@ -121,6 +121,11 @@ public:
     return getGroupForInstruction(Plan, Inst);
   }
 
+  auto groups(const VPlan *Plan) {
+    return make_range(Plan2VLSInfo[Plan].Groups.begin(),
+                      Plan2VLSInfo[Plan].Groups.end());
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(const VPlan *Plan) const;
   void dump() const;
@@ -141,6 +146,16 @@ int computeInterleaveFactor(OVLSMemref *Memref);
 Optional<std::tuple<OVLSGroup *, int, int>>
 getOptimizedVLSGroupData(const VPInstruction *VPInst,
                          const VPlanVLSAnalysis *VLSA, const VPlan *Plan);
+
+inline const VPLoadStoreInst *instruction(const OVLSMemref *Memref) {
+  return cast<VPLoadStoreInst>(
+      cast<VPVLSClientMemref>(Memref)->getInstruction());
+}
+
+inline auto instructions(OVLSGroup *Group) {
+  return map_range(*Group,
+                   [](OVLSMemref *Memref) { return instruction(Memref); });
+}
 
 } // namespace vpo
 } // namespace llvm

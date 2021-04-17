@@ -570,6 +570,17 @@ enum SegmentOverride {
   SEG_OVERRIDE_ES,
   SEG_OVERRIDE_FS,
   SEG_OVERRIDE_GS,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  SEG_OVERRIDE_PHYSEG_SUPOVR,
+  SEG_OVERRIDE_LDTR,
+  SEG_OVERRIDE_IDTR,
+  SEG_OVERRIDE_TR,
+  SEG_OVERRIDE_GDTR,
+  SEG_OVERRIDE_LINSEG_NOSUPOVR,
+  SEG_OVERRIDE_LINSEG_SUPOVR,
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   SEG_OVERRIDE_max
 };
 
@@ -639,7 +650,7 @@ struct InternalInstruction {
   // The value of the REX prefix, if present
   uint8_t rexPrefix;
   // The segment override type
-  SegmentOverride segmentOverride;
+  uint8_t segmentOverride; // INTEL
   // 1 if the prefix byte, 0xf2 or 0xf3 is xacquire or xrelease
   bool xAcquireRelease;
 

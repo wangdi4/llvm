@@ -645,6 +645,10 @@ private:
   /// Vectorize \p VPStore instruction that is part of a \p Group.
   void vectorizeInterleavedStore(VPInstruction *VPStore, OVLSGroup *Group);
 
+  /// Create a mask to be used in @llvm.masked.[load|store] for the wide VLS
+  /// memory operation.
+  Value *getVLSLoadStoreMask(VectorType *WidevalueType, int GroupSize);
+
   DenseMap<AllocaInst *, Value *> ReductionEofLoopVal;
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;
 

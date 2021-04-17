@@ -412,8 +412,8 @@ private:
   /// containing the block-predicate instruction after the split is used.
   VPBasicBlock *splitBlock(iterator I, const Twine &NewBBName = "");
 
-  /// Drop the terminator instruction if one exists.
-  void dropTerminatorIfExists();
+  /// Worker for setTerminator() methods
+  template <class... Args> void setTerminatorImpl(Args &&... args);
 
   VPUser::const_operand_range successors() const;
 

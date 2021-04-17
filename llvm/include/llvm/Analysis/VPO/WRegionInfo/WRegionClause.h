@@ -946,16 +946,19 @@ private:
   Value *SectionPtr;
   Value *Size;
   uint64_t MapType = 0;
-  bool HasExplicitMapType = false;
   GlobalVariable *Name = nullptr;
   Value *Mapper = nullptr;
+  // If non-zero, contains the initial index of the Aggr with respect to
+  // all map-chain Aggrs, in the IR coming from the frontend.
+  unsigned InitialAggrIndex = 0;
+  bool HasExplicitMapType = false;
 
 public:
   MapAggrTy(Value *BP, Value *SP, Value *Sz)
       : BasePtr(BP), SectionPtr(SP), Size(Sz) {}
-  MapAggrTy(Value *BP, Value *SP, Value *Sz, uint64_t MT)
+  MapAggrTy(Value *BP, Value *SP, Value *Sz, uint64_t MT, unsigned IAI = 0)
       : BasePtr(BP), SectionPtr(SP), Size(Sz), MapType(MT),
-        HasExplicitMapType(true) {}
+        InitialAggrIndex(IAI), HasExplicitMapType(true) {}
   void setBasePtr(Value *BP) { BasePtr = BP; }
   void setSectionPtr(Value *SP) { SectionPtr = SP; }
   void setSize(Value *Sz) { Size = Sz; }
@@ -965,12 +968,14 @@ public:
   Value *getSectionPtr() const { return SectionPtr; }
   Value *getSize() const { return Size; }
   bool hasExplicitMapType() { return HasExplicitMapType; }
+  bool hasInitialAggrIndex() { return InitialAggrIndex != 0; }
+  unsigned getInitialAggrIndex() { return InitialAggrIndex; }
   uint64_t getMapType() const { return MapType; }
   GlobalVariable *getName() const { return Name; }
   Value *getMapper() const { return Mapper; }
 };
 
-typedef SmallVector<MapAggrTy*, 2> MapChainTy;
+typedef SmallVector<MapAggrTy*, 8> MapChainTy;
 
 class UseDevicePtrItem;
 //

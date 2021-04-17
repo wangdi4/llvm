@@ -219,7 +219,7 @@ int computeInterleaveFactor(OVLSMemref *Memref) {
 
   auto ElementSizeInBits = Memref->getType().getElementSize();
   int InterleaveFactor = *Stride / (ElementSizeInBits / 8);
-  assert(InterleaveFactor * ElementSizeInBits == 8 * (*Stride) &&
+  assert(InterleaveFactor * (int)ElementSizeInBits == 8 * (*Stride) &&
          "Stride is not a multiple of element size");
 
   return InterleaveFactor;

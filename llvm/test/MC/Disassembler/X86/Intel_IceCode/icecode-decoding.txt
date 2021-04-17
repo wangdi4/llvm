@@ -1,5 +1,5 @@
 # REQUIRES: intel_feature_icecode
-# RUN: llvm-mc -triple x86_icecode-unknown-unknown --show-encoding --disassemble < %s  | FileCheck %s
+# RUN: llvm-mc -triple x86_icecode-unknown-unknown --disassemble < %s  | FileCheck %s
 
 # CHECK: gmovpphysw (%rdx), %ax
 0x66,0xf3,0x0f,0xb4,0x02
@@ -273,3 +273,39 @@
 
 # CHECK: gmovlinq %rax, (%rdx)
 0xf2,0x48,0x0f,0x02,0x02
+
+# CHECK: movl %es:(%rsi), %eax
+0x26,0x8b,0x06
+
+# CHECK: movl %cs:(%rsi), %eax
+0x2e,0x8b,0x06
+
+# CHECK: movl %ss:(%rsi), %eax
+0x36,0x8b,0x06
+
+# CHECK: movl %ds:(%rsi), %eax
+0x3e,0x8b,0x06
+
+# CHECK: movl %fs:(%rsi), %eax
+0x64,0x8b,0x06
+
+# CHECK: movl %gs:(%rsi), %eax
+0x65,0x8b,0x06
+
+# CHECK: movl %gdtr:(%rsi), %eax
+0x26,0xf2,0x8b,0x06
+
+# CHECK: movl %ldtr:(%rsi), %eax
+0x2e,0xf2,0x8b,0x06
+
+# CHECK: movl %idtr:(%rsi), %eax
+0x36,0xf2,0x8b,0x06
+
+# CHECK: movl %tr:(%rsi), %eax
+0x3e,0xf2,0x8b,0x06
+
+# CHECK: movl %linseg_nosupovr:(%rsi), %eax
+0x64,0xf2,0x8b,0x06
+
+# CHECK: movl %linseg_supovr:(%rsi), %eax
+0x65,0xf2,0x8b,0x06
