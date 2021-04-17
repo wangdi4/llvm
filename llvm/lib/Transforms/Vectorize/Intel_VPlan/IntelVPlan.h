@@ -1821,12 +1821,16 @@ public:
   CallingConv::ID getOrigCallingConv() const {
     if (const CallInst *Call = getUnderlyingCallInst())
       return Call->getCallingConv();
-    return getCalledFunction()->getCallingConv();
+    Function *F = getCalledFunction();
+    assert(F && "F is indirect call");
+    return F->getCallingConv();
   }
 
   /// Getter for original call's tail call attribute.
   bool isOrigTailCall() const {
-    return getUnderlyingCallInst() && getUnderlyingCallInst()->isTailCall();
+    if (const CallInst *Call = getUnderlyingCallInst())
+      return Call->isTailCall();
+    return false;
   }
 
   // Getter for original call's callsite attributes. If underlying call is

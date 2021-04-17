@@ -440,7 +440,10 @@ class RTLProfileTy {
   };
   int ThreadId;
   std::map<std::string, TimeTy> Data;
-  uint64_t TimestampFreq = 0;
+  // L0 RT will keep UseCyclesPerSecondTimer=1 to enable new timer resolution
+  // during transition period (until 20210504).
+  uint64_t TimestampNsec = 0; // For version < ZE_API_VERSION_1_1
+  uint64_t TimestampCyclePerSec = 0; // For version >= ZE_API_VERSION_1_1
   uint64_t TimestampMax = 0;
 public:
   static const int64_t MSEC_PER_SEC = 1000;
@@ -448,9 +451,19 @@ public:
   static const int64_t NSEC_PER_SEC = 1000000000;
   static int64_t Multiplier;
 
-  RTLProfileTy(const ze_device_properties_t &DeviceProperties) {
+  RTLProfileTy(const ze_device_properties_t &DeviceProperties,
+               bool UseCyclePerSec) {
     ThreadId = __kmpc_global_thread_num(nullptr);
-    TimestampFreq = DeviceProperties.timerResolution;
+
+    // TODO: this is an extra check to be on safe side for all driver versions.
+    // Remove this heuristic when it is not necessary any more.
+    if (DeviceProperties.timerResolution < 1000)
+      UseCyclePerSec = false;
+
+    if (UseCyclePerSec)
+      TimestampCyclePerSec = DeviceProperties.timerResolution;
+    else
+      TimestampNsec = DeviceProperties.timerResolution;
     auto validBits = DeviceProperties.kernelTimestampValidBits;
     if (validBits > 0 && validBits < 64)
       TimestampMax = ~(-1ULL << validBits);
@@ -538,13 +551,19 @@ public:
     ze_kernel_timestamp_result_t ts;
     CALL_ZE_EXIT_FAIL(zeEventQueryKernelTimestamp, Event, &ts);
     double wallTime = 0;
+
     if (ts.global.kernelEnd >= ts.global.kernelStart)
       wallTime = ts.global.kernelEnd - ts.global.kernelStart;
     else if (TimestampMax > 0)
       wallTime = TimestampMax - ts.global.kernelStart + ts.global.kernelEnd + 1;
     else
       WARNING("Timestamp overflow cannot be handled for this device.\n");
-    time.DeviceTime += wallTime * (double)TimestampFreq / NSEC_PER_SEC;
+
+    if (TimestampNsec > 0)
+      time.DeviceTime += wallTime * (double)TimestampNsec / NSEC_PER_SEC;
+    else
+      time.DeviceTime += wallTime / (double)TimestampCyclePerSec;
+
     CALL_ZE_EXIT_FAIL(zeEventHostReset, Event);
   }
 };
@@ -964,6 +983,7 @@ public:
   uint32_t NumRootDevices = 0;
   ze_driver_handle_t Driver = nullptr;
   ze_context_handle_t Context = nullptr;
+  ze_api_version_t DriverAPIVersion = ZE_API_VERSION_CURRENT;
 
   // Events for kernel profiling
   KernelProfileEventsTy ProfileEvents;
@@ -1404,7 +1424,9 @@ public:
     }
     if (!ThreadLocalHandles[DeviceId].Profile && Flags.EnableProfile) {
       auto &deviceProperties = DeviceProperties[DeviceId];
-      ThreadLocalHandles[DeviceId].Profile = new RTLProfileTy(deviceProperties);
+      bool useCyclePerSec = DriverAPIVersion >= ZE_API_VERSION_1_1;
+      ThreadLocalHandles[DeviceId].Profile =
+          new RTLProfileTy(deviceProperties, useCyclePerSec);
       DataMutexes[DeviceId].lock();
       Profiles[DeviceId].push_back(ThreadLocalHandles[DeviceId].Profile);
       DataMutexes[DeviceId].unlock();
@@ -2300,6 +2322,10 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
       IDP("-- %s\n", str.c_str());
     break;
   }
+
+  CALL_ZE_RET_ZERO(zeDriverGetApiVersion, DeviceInfo->Driver,
+                   &DeviceInfo->DriverAPIVersion);
+  IDP("Driver API version is %" PRIx32 "\n", DeviceInfo->DriverAPIVersion);
 
   DeviceInfo->CmdLists.resize(DeviceInfo->NumDevices);
   DeviceInfo->CmdQueues.resize(DeviceInfo->NumDevices);

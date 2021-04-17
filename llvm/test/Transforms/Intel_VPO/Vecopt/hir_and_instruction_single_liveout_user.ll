@@ -17,9 +17,9 @@
 
 
 ; CHECK:          + DO i1 = 0, 2 * %tgu + -1, 2   <DO_LOOP> <simd-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:     |   %and.vec = %uni1  &  127;
+; CHECK-NEXT:     |   %.vec = %uni1  &  127;
 ; CHECK-NEXT:     + END LOOP
-; CHECK:          %and = extractelement %and.vec,  1;
+; CHECK:          %and = extractelement %.vec,  1;
 
 
 define i32 @foo(i32 %uni1, i64 %n) local_unnamed_addr #0 {

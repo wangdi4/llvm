@@ -166,7 +166,8 @@ bool WIRelatedValue::calculateDep(CallInst *CI) {
   }
 
   // Check if call is TID-generator.
-  if (OrigFunc->getName() == DPCPPKernelCompilationUtils::mangledGetLID()) {
+  if (OrigFunc->getName() == DPCPPKernelCompilationUtils::mangledGetLID() ||
+      OrigFunc->getName() == DPCPPKernelCompilationUtils::mangledGetGID()) {
     // These functions return WI Id, they are indeed WI Id related.
     return true;
   }
