@@ -1,3 +1,4 @@
+; RUN: %oclopt -add-implicit-args -debugify -local-buffers -check-debugify -prepare-kernel-args -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-implicit-args -local-buffers -prepare-kernel-args -S < %s | FileCheck %s
 
 ; The test checks that global variables usages marked with the dbg_declare_inst metadata are ignored by the pass, and do not cause extra local memory allocation.
@@ -112,3 +113,9 @@ entry:
 !33 = !{i32 6, i32 0, !34, null}
 !34 = !{i32 786443, !12, i32 4, i32 0, !6, i32 1} ; [ DW_TAG_lexical_block ] [C:\ocl\tmp/2]
 !35 = !{i32 7, i32 0, !34, null}
+
+; DEBUGIFY-NOT: WARNING
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function mykernel -- {{.*}} getelementptr
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function mykernel -- {{.*}} bitcast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function mykernel -- {{.*}} getelementptr
+; DEBUGIFY-NOT: WARNING
