@@ -1,5 +1,5 @@
-; RUN: %oclopt %s -enable-direct-function-call-vectorization -sg-size-collector -S | FileCheck %s
-; RUN: %oclopt %s -sg-size-collector -S | FileCheck %s -check-prefix CHECK-NO-FLAG
+; RUN: %oclopt %s -enable-direct-function-call-vectorization=true  -sg-size-collector -S | FileCheck %s
+; RUN: %oclopt %s -enable-direct-function-call-vectorization=false -sg-size-collector -S | FileCheck %s -check-prefix CHECK-NO-FLAG
 
 define void @bar() #0 {
 ; CHECK: define void @bar() #[[ATTR0:[0-9]+]] {

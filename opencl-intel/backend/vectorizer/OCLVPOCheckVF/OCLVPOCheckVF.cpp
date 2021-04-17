@@ -44,6 +44,7 @@
 #include "OCLVPOCheckVF.h"
 
 #include "CompilationUtils.h"
+#include "LoopHandler/CLWGBoundDecoder.h"
 #include "LoopUtils.h"
 #include "MetadataAPI.h"
 
@@ -56,11 +57,55 @@ extern bool EnableSubGroupEmulation;
 
 extern bool EnableSubgroupDirectCallVectorization;
 extern bool EnableDirectFunctionCallVectorization;
+extern bool EnableVectorizationOfByvalByrefFunctions;
 
 #define DEBUG_TYPE "check-vf"
+
 namespace intel {
 
+// Skip function when traversing CallGraph.
+static bool skipFunction(Function *F) {
+  return !F || F->isIntrinsic() || F->isDeclaration() ||
+    CLWGBoundDecoder::isWGBoundFunction(F->getName().str());
+}
+
+static bool hasByvalByrefFuncCallingSG(Function *Kernel, CallGraph &CG) {
+  if (Kernel->isDeclaration())
+    return false;
+
+  CallGraphNode *Node = CG[Kernel];
+  for (auto It = df_begin(Node); It != df_end(Node);) {
+    Function *F = It->getFunction();
+
+    if (skipFunction(F)) {
+      It = It.skipChildren();
+      continue;
+    }
+
+    // Kernel itself may have byval params, as it has uniform params.
+    if (Kernel == F) {
+      It++;
+      continue;
+    }
+
+    if (CompilationUtils::hasByvalByrefArgs(F) &&
+        F->hasFnAttribute(CompilationUtils::ATTR_HAS_SUBGROUPS))
+      return true;
+
+    It++;
+  }
+
+  return false;
+}
+
 char OCLVPOCheckVF::ID = 0;
+
+OCL_INITIALIZE_PASS_BEGIN(OCLVPOCheckVF, DEBUG_TYPE,
+  "Check all vectorization factor related issues for OCL side and set proper VF",
+  false, false)
+OCL_INITIALIZE_PASS_END(OCLVPOCheckVF, DEBUG_TYPE,
+  "Check all vectorization factor related issues for OCL side and set proper VF",
+  false, false)
 
 bool OCLVPOCheckVF::checkVFConstraints(Function *F) {
   auto KMD = KernelMetadataAPI(F);
@@ -163,21 +208,28 @@ collectSubGroupIndirectUsers(Module *M, std::set<Function *> &SGIndirectUsers) {
 }
 
 bool OCLVPOCheckVF::checkSGSemantics(
-    Function *F, const std::set<Function *> &SGIndirectUsers) {
+    Function *Kernel, CallGraph &CG, const std::set<Function *> &SGIndirectUsers) {
   LLVM_DEBUG(dbgs() << "Checking SubGroup Semantics:\n");
-  auto KIMD = KernelInternalMetadataAPI(F);
+  // Kernel needs to be an OpenCL kernel.
+  auto KIMD = KernelInternalMetadataAPI(Kernel);
   if (KIMD.KernelHasSubgroups.hasValue() && KIMD.KernelHasSubgroups.get()) {
     // No need to check whether VF can be falled back, checkHorizontalOps did
     // this.
-    if (KernelToVF[F] == 1) {
+    if (KernelToVF[Kernel] == 1) {
       LLVM_DEBUG(dbgs() << "sub-group is broken<VF is 1> \n");
       return false;
     }
 
     // Check whether there is subgroup call is in a subroutine.
     if (!EnableSubgroupDirectCallVectorization &&
-        !EnableDirectFunctionCallVectorization && SGIndirectUsers.count(F)) {
+        !EnableDirectFunctionCallVectorization && SGIndirectUsers.count(Kernel)) {
       LLVM_DEBUG(dbgs() << "sub-group is broken<In a subroutine> \n");
+      return false;
+    }
+
+    if (!EnableVectorizationOfByvalByrefFunctions &&
+         hasByvalByrefFuncCallingSG(Kernel, CG)) {
+      LLVM_DEBUG(dbgs() << "sub-group is broken<byval/byref function> \n");
       return false;
     }
   }
@@ -212,7 +264,9 @@ OCLVPOCheckVF::checkHorizontalOps(Function *F) {
           SupportedSubGroupVFs.count(VF) == 0) {
         if (CanFallBack && KIMD.OclRecommendedVectorLength.hasValue()) {
           VF = KIMD.OclRecommendedVectorLength.get();
-          CheckState[std::string(F->getName())].isVFFalledBack = true;
+          logState([&](){
+            (*CheckState)[std::string(F->getName())].isVFFalledBack = true;
+          });
           LLVM_DEBUG(dbgs() << "VF fall back to " << VF
                             << " due to unsupported sub_group width");
         } else {
@@ -227,7 +281,9 @@ OCLVPOCheckVF::checkHorizontalOps(Function *F) {
           VF = KIMD.OclRecommendedVectorLength.get();
           LLVM_DEBUG(dbgs() << "VF fall back to " << VF
                             << " due to unsupported work_group width");
-          CheckState[std::string(F->getName())].isVFFalledBack = true;
+          logState([&](){
+            (*CheckState)[std::string(F->getName())].isVFFalledBack = true;
+          });
         } else {
           UnimplementBuiltins.push_back({std::string(FnName), VF});
           LLVM_DEBUG(dbgs() << VF << "is unsupported for work_group");
@@ -241,11 +297,15 @@ OCLVPOCheckVF::checkHorizontalOps(Function *F) {
 bool OCLVPOCheckVF::runOnModule(Module &M) {
 
   bool CheckFail = false;
-  CheckState.clear();
+  logState([&](){
+    CheckState->clear();
+  });
   KernelToVF.clear();
   KernelToSGEmuSize.clear();
 
   unsigned AutoEmuSize = getAutoEmuSize();
+
+  CallGraph CG(M);
 
   auto Kernels = KernelList(M).getList();
 
@@ -260,18 +320,24 @@ bool OCLVPOCheckVF::runOnModule(Module &M) {
     LLVM_DEBUG(dbgs() << "\nProcessing " << KernelName << "\n");
 
     if (!checkVFConstraints(Kernel)) {
-      CheckState[KernelName].isMultiConstraint = true;
+      logState([&](){
+        (*CheckState)[KernelName].isMultiConstraint = true;
+      });
       CheckFail = true;
     }
 
     applyVFConstraints(Kernel);
 
-    CheckState[KernelName].hasUnsupportedPatterns =
-        hasUnsupportedPatterns(Kernel);
+    logState([&](){
+      (*CheckState)[KernelName].hasUnsupportedPatterns =
+          hasUnsupportedPatterns(Kernel);
+    });
 
     auto unimplementOps = checkHorizontalOps(Kernel);
     if (!unimplementOps.empty()) {
-      CheckState[KernelName].unimplementOps = unimplementOps;
+      logState([&](){
+        (*CheckState)[KernelName].unimplementOps = unimplementOps;
+      });
       CheckFail = true;
     }
 
@@ -281,7 +347,7 @@ bool OCLVPOCheckVF::runOnModule(Module &M) {
                         << "\n");
     }
 
-    if (!checkSGSemantics(Kernel, sgIndirectUsers)) {
+    if (!checkSGSemantics(Kernel, CG, sgIndirectUsers)) {
       // Even if sub-group emulation is enabled, intel_reqd_sub_group_size
       // can't be 1 because we only support sub-group size 4, 8, 16, 32, 64.
       // intel_reqd_sub_group_size is different from vectorization mode and
@@ -291,7 +357,9 @@ bool OCLVPOCheckVF::runOnModule(Module &M) {
       unsigned ReqdSGSize =
           KMD.ReqdIntelSGSize.hasValue() ? KMD.ReqdIntelSGSize.get() : 0;
       if (!EnableSubGroupEmulation || ReqdSGSize == 1) {
-        CheckState[KernelName].isSubGroupBroken = true;
+        logState([&](){
+          (*CheckState)[KernelName].isSubGroupBroken = true;
+        });
         CheckFail = true;
       }
       // The check failure may come from "sub-group calls in a subroutine", so
