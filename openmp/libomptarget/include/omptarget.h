@@ -413,8 +413,17 @@ EXTERN void omp_unset_sub_device(int device_num);
 
 /// Explicit target memory allocators
 /// Using the llvm_ prefix until they become part of the OpenMP standard.
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void *llvm_omp_target_alloc_device(size_t size, int device_num);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void *llvm_omp_target_alloc_host(size_t size, int device_num);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void *llvm_omp_target_alloc_shared(size_t size, int device_num);
 
 /// add the clauses of the requires directives in a given file
