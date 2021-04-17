@@ -13,7 +13,6 @@
 // License.
 
 #include "cpu_config.h"
-#include "ICLDevBackendOptions.h"
 #include "ocl_supported_extensions.h"
 
 #include <cl_cpu_detect.h>
@@ -33,6 +32,7 @@
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::CPUDevice;
+using namespace Intel::OpenCL::DeviceBackend;
 
 std::string CPUDeviceConfig::m_extensions;
 
@@ -82,7 +82,6 @@ cl_ulong CPUDeviceConfig::GetForcedMaxMemAllocSize() const
 
 cl_int CPUDeviceConfig::GetVectorizerMode() const
 {
-    using namespace Intel::OpenCL::DeviceBackend;
     return m_pConfigFile->Read(CL_CONFIG_CPU_VECTORIZER_MODE,
                                static_cast<uint32_t>(TRANSPOSE_SIZE_NOT_SET));
 }
@@ -99,6 +98,16 @@ VectorizerType CPUDeviceConfig::GetVectorizerType() const
         return VOLCANO_VECTORIZER;
     }
     return DEFAULT_VECTORIZER;
+}
+
+PassManagerType CPUDeviceConfig::GetPassManagerType() const {
+  std::string PMType = m_pConfigFile->Read<string>("CL_CONFIG_LTO_PM", "");
+  std::transform(PMType.begin(), PMType.end(), PMType.begin(), ::tolower);
+  if ("legacy" == PMType)
+    return PM_LTO_LEGACY;
+  else if ("new" == PMType)
+    return PM_LTO_NEW;
+  return PM_OCL;
 }
 
 bool CPUDeviceConfig::GetUseNativeSubgroups() const {

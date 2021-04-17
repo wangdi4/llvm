@@ -2,11 +2,13 @@ set(TARGET_NAME OclOptimizer)
 
 set(TARGET_INCLUDE_FILES
     Optimizer.h
+    OptimizerLTO.h
     OptimizerLTOLegacyPM.h
 )
 
 set(TARGET_SOURCE_FILES
     Optimizer.cpp
+    OptimizerLTO.cpp
     OptimizerLTOLegacyPM.cpp
 )
 

@@ -144,10 +144,6 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     if (!EnableSubgroupEmulation) {
         m_LLVMOptions += " -enable-subgroup-emulation=false";
     }
-
-    if (pBackendOptions->GetBooleanValue(CL_DEV_BACKEND_OPTION_LTO_LEGACY_PM,
-                                         false))
-      m_LLVMOptions += " -enable-dpcpp-kernel-transforms=true";
 }
 
 void CompilerConfig::LoadDefaults()
@@ -168,7 +164,7 @@ void CompilerConfig::LoadDefaults()
     m_targetDevice = CPU_DEVICE;
     m_forcedPrivateMemorySize = 0;
     m_useAutoMemory = false;
-    m_useLTOLegacyPM = false;
+    m_passManagerType = PM_OCL;
 }
 
 void CompilerConfig::LoadConfig()
@@ -245,8 +241,8 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
     m_expensiveMemOpts = pBackendOptions->GetIntValue((int)CL_DEV_BACKEND_OPTION_EXPENSIVE_MEM_OPTS, m_expensiveMemOpts);
     m_targetDevice = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
         (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
-    m_useLTOLegacyPM = pBackendOptions->GetBooleanValue(
-        CL_DEV_BACKEND_OPTION_LTO_LEGACY_PM, m_useLTOLegacyPM);
+    m_passManagerType = static_cast<PassManagerType>(pBackendOptions->GetIntValue(
+        CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE, PM_OCL));
 }
 
 }}}

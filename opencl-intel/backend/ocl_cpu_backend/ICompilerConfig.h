@@ -86,7 +86,7 @@ public:
 
     virtual DeviceMode TargetDevice() const = 0;
 
-    virtual bool GetUseLTOLegacyPM() const = 0;
+    virtual PassManagerType GetPassManagerType() const = 0;
 };
 
 }}}

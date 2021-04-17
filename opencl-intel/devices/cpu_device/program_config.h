@@ -54,7 +54,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             m_forcedWGSize(""),
             m_streamingAlways(false),
             m_expensiveMemOpts(0),
-            m_useLTOLegacyPM(false)
+            m_passManagerType(PM_OCL)
         {}
 
         void InitFromCpuConfig(const CPUDeviceConfig& cpuConfig);
@@ -71,8 +71,6 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             return m_enableNativeSubgroups;
           case CL_DEV_BACKEND_OPTION_USE_AUTO_MEMORY:
             return m_useAutoMemory;
-          case CL_DEV_BACKEND_OPTION_LTO_LEGACY_PM:
-            return m_useLTOLegacyPM;
           default:
             return defaultValue;
           }
@@ -98,6 +96,8 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             return m_vectorizerType;
           case CL_DEV_BACKEND_OPTION_EXPENSIVE_MEM_OPTS:
             return m_expensiveMemOpts;
+          case CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE:
+            return (int)m_passManagerType;
           default:
             return defaultValue;
           }
@@ -135,7 +135,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         std::string m_forcedWGSize;
         bool m_streamingAlways;
         unsigned m_expensiveMemOpts;
-        bool m_useLTOLegacyPM;
+        PassManagerType m_passManagerType;
     };
 
     /**

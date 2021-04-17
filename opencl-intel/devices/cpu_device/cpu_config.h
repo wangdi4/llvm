@@ -17,6 +17,7 @@
 #include <string>
 
 #include "cl_config.h"
+#include "ICLDevBackendOptions.h"
 
 /**************************************************************************************************
 * Configuration keys
@@ -53,6 +54,8 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         int             GetNumDevices() const;
 
         VectorizerType  GetVectorizerType() const;
+        Intel::OpenCL::DeviceBackend::PassManagerType GetPassManagerType()
+            const;
         bool            GetUseNativeSubgroups() const;
         bool            DumpAsm() const {
             return m_pConfigFile->Read<bool>(CL_CONFIG_DUMP_ASM, false);
