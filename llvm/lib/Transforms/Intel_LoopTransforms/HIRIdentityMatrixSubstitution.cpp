@@ -125,7 +125,7 @@ bool HIRIdentityMatrixSubstitution::run() {
 
   for (auto &Lp : InnermostLoops) {
     SmallVector<const RegDDRef *, 2> IDMatRefs;
-    HLNodeUtils::findIdentityMatrix(&HLS, Lp, IDMatRefs);
+    HLNodeUtils::findInner2DIdentityMatrix(&HLS, Lp, IDMatRefs);
 
     if (IDMatRefs.empty()) {
       continue;
