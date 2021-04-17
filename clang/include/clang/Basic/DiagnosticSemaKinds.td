@@ -10152,6 +10152,9 @@ def err_omp_unexpected_clause_value : Error<
 // if INTEL_CUSTOMIZATION
 def err_omp_unexpected_lastprivate_conditional : Error<
   "expected 'scalar'%select{| or 'vector'}0 in OpenMP clause 'lastprivate' with conditional modifier">;
+def warn_omp_filter_not_yet_supported : Warning<
+  "'filter' clause is not supported yet and will be ignored">,
+  InGroup<OpenMPClauses>;
 // endif INTEL_CUSTOMIZATION
 def err_omp_expected_var_name_member_expr : Error<
   "expected variable name%select{| or data member of current class}0">;
