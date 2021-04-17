@@ -2,7 +2,8 @@ set(LLVM_LINK_COMPONENTS
   ObjectYAML
   Support
   )
-
-add_llvm_utility(yaml2obj
+# INTEL_CUSTOMIZATION
+add_llvm_tool(yaml2obj
+# end INTEL_CUSTOMIZATION
   yaml2obj.cpp
   )

@@ -1,11 +1,7 @@
-; RUN: opt -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt -passes=dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -dtrans-deletefield -dtrans-identify-unused-values=false -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -passes=dtrans-deletefield -dtrans-identify-unused-values=false -S -o - %s | FileCheck %s
 
-; GEP instructions aren't correctly updated when we delete fields from a
-; structure. (CMPLRS-51001)
-; XFAIL: *
-
-; This test verifies that the dtrans delete field pass correctly transforms
+; This test verifies that the DTrans delete field pass correctly transforms
 ; structures with global arrays of instances with non-default initializers
 ; and operator getelementptr accesses.
 
@@ -47,13 +43,13 @@ define i32 @main(i32 %argc, i8** %argv) {
 ; CHECK-SAME: %__DFT_struct.test { i32 400, i32 40000 }]
 
 ; CHECK-LABEL: define void @f() {
-; CHECK: %valA = load i32, i32 * getelementptr inbounds
+; CHECK: %valA = load i32, i32* getelementptr inbounds
 ; CHECK-SAME:                           ([4 x %__DFT_struct.test],
-; CHECK-SAME:                            [4 x %struct.test]* @g_test,
+; CHECK-SAME:                            [4 x %__DFT_struct.test]* @g_test,
 ; CHECK-SAME:                            i64 0, i32 2, i32 0)
-; CHECK: %valC = load i32, i32 * getelementptr inbounds
+; CHECK: %valC = load i32, i32* getelementptr inbounds
 ; CHECK-SAME:                           ([4 x %__DFT_struct.test],
-; CHECK-SAME:                            [4 x %struct.test]* @g_test,
+; CHECK-SAME:                            [4 x %__DFT_struct.test]* @g_test,
 ; CHECK-SAME:                            i64 0, i32 2, i32 1)
 ; CHECK-NOT: store i64 3
 
