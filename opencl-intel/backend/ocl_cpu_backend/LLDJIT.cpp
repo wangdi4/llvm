@@ -57,14 +57,14 @@ namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
-ExecutionEngine *LLDJIT::createJIT(std::unique_ptr<Module> M,
-                                   std::string *ErrorStr,
-                                   std::unique_ptr<TargetMachine> TM) {
+std::unique_ptr<ExecutionEngine>
+LLDJIT::createJIT(std::unique_ptr<Module> M, std::string *ErrorStr,
+                  std::unique_ptr<TargetMachine> TM) {
 
   // Try to register the program as a source of symbols to resolve against.
   sys::DynamicLibrary::LoadLibraryPermanently(nullptr, nullptr);
 
-  return new LLDJIT(std::move(M), std::move(TM));
+  return std::unique_ptr<LLDJIT>(new LLDJIT(std::move(M), std::move(TM)));
 }
 
 LLDJIT::LLDJIT(std::unique_ptr<Module> M, std::unique_ptr<TargetMachine> TM)

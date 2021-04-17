@@ -14,7 +14,6 @@
 
 #define NOMINMAX
 
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "BitCodeContainer.h"
 #include "CompilationUtils.h"
 #include "CPUProgram.h"
@@ -39,9 +38,6 @@ void CPUProgram::ReleaseExecutionEngine()
         {
             m_pExecutionEngine->removeModule(m_pIRCodeContainer->GetModule());
         }
-
-        delete m_pExecutionEngine;
-        m_pExecutionEngine = nullptr;
     }
 }
 

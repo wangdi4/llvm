@@ -28,7 +28,8 @@
 #include <memory>
 
 namespace llvm {
-    class Module;
+  class ExecutionEngine;
+  class Module;
 }
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -226,10 +227,9 @@ public:
      */
     std::unique_ptr<llvm::Module> GetModuleOwner();
 
-    virtual void
-    SetBuiltinModule(llvm::SmallVector<llvm::Module *, 2> /*bltnFuncList*/) {}
+    virtual void SetBuiltinModule(llvm::SmallVector<llvm::Module *, 2> &) = 0;
 
-    virtual void SetExecutionEngine(void * /*eE*/) {}
+    virtual void SetExecutionEngine(std::unique_ptr<llvm::ExecutionEngine>) = 0;
 
     virtual void SetLLJIT(std::unique_ptr<llvm::orc::LLJIT> LLJIT) = 0;
 

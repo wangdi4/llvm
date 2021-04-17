@@ -111,7 +111,7 @@ protected:
 class OptimizerOCL : public Optimizer {
 public:
   OptimizerOCL(llvm::Module *pModule,
-               llvm::SmallVector<llvm::Module *, 2> pRtlModuleList,
+               llvm::SmallVector<llvm::Module *, 2> &pRtlModuleList,
                const intel::OptimizerConfig *pConfig);
 
   ~OptimizerOCL();

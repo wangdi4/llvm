@@ -893,7 +893,7 @@ static void populatePassesPostFailCheck(
 OptimizerOCL::~OptimizerOCL() {}
 
 OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
-                           llvm::SmallVector<llvm::Module *, 2> pRtlModuleList,
+                           llvm::SmallVector<llvm::Module *, 2> &pRtlModuleList,
                            const intel::OptimizerConfig *pConfig)
     : Optimizer(pModule), m_pRtlModuleList(pRtlModuleList),
       m_IsFpgaEmulator(pConfig->isFpgaEmulator()),
