@@ -124,6 +124,14 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
         MPM.add(createPromoteMemoryToRegisterPass());
         MPM.add(createAggressiveDCEPass());
         MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
+        // Barrier passes begin.
+        MPM.add(createPhiCanonicalizationLegacyPass());
+        MPM.add(createRedundantPhiNodeLegacyPass());
+        MPM.add(createBarrierInFunctionLegacyPass());
+        MPM.add(createSplitBBonBarrierLegacyPass());
+        MPM.add(createKernelBarrierLegacyPass(/*IsNativeDebug*/ false,
+                                              /*UseTLSGlobals*/ false));
+        // Barrier passes end.
 
         MPM.add(createLICMPass());
         MPM.add(createCFGSimplificationPass());
@@ -138,6 +146,14 @@ void OptimizerLTOLegacyPM::registerLastPasses() {
     // In O0 pipeline, there is no EP_OptimizerLast extension point, so we add
     // following passes to the end of pipeline.
     MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
+    // Barrier passes begin.
+    MPM.add(createPhiCanonicalizationLegacyPass());
+    MPM.add(createRedundantPhiNodeLegacyPass());
+    MPM.add(createBarrierInFunctionLegacyPass());
+    MPM.add(createSplitBBonBarrierLegacyPass());
+    MPM.add(createKernelBarrierLegacyPass(/*IsNativeDebug*/ false,
+                                          /*UseTLSGlobals*/ false));
+    // Barrier passes end.
     MPM.add(createAddImplicitArgsLegacyPass());
     MPM.add(createResolveWICallLegacyPass(false, false));
     MPM.add(createPrepareKernelArgsLegacyPass(false));
