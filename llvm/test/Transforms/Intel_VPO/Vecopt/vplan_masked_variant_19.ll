@@ -13,32 +13,37 @@ define void @main(i32 %N) {
 ; CHECK-NEXT:    Cloned.[[BB1]]: # preds: Cloned.[[BB0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = induction-init{add} i32 live-in0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP1:%.*]] = induction-init-step{add} i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP2:%.*]] = vector-trip-count i32 [[N0:%.*]], UF = 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP2:%.*]] = induction-init-step{add} i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP3:%.*]] = orig-trip-count for original loop for.body
+; CHECK-NEXT:     [DA: Uni] i32 [[VP4:%.*]] = vector-trip-count i32 [[VP3]], UF = 1
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB2]]: # preds: Cloned.[[BB1]], new_latch
-; CHECK-NEXT:     [DA: Div] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP0]], Cloned.[[BB1]] ],  [ i32 [[VP_IV_NEXT:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = icmp ult i32 [[VP_IV]] i32 [[N0]]
-; CHECK-NEXT:     [DA: Div] br i1 [[VP3]], [[BB3:BB[0-9]+]], new_latch
+; CHECK-NEXT:     [DA: Uni] i32 [[VP5:%.*]] = phi  [ i32 0, Cloned.[[BB1]] ],  [ i32 [[VP6:%.*]], new_latch ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP0]], Cloned.[[BB1]] ],  [ i32 [[VP7:%.*]], new_latch ]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP8:%.*]] = icmp ult i32 [[VP5]] i32 [[VP3]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP8]], [[BB3:BB[0-9]+]], new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: Cloned.[[BB2]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_IV_NEXT:%.*]] = add i32 [[VP_IV]] i32 [[VP1]]
 ; CHECK-NEXT:       [DA: Uni] br new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    new_latch: # preds: [[BB3]], Cloned.[[BB2]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 [[VP1]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BOTTOM_TEST:%.*]] = icmp ult i32 [[VP_IV_NEXT]] i32 [[N0]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = all-zero-check i1 [[VP_BOTTOM_TEST]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP4]], Cloned.[[BB4:BB[0-9]+]], Cloned.[[BB2]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP7]] = phi  [ i32 [[VP_IV_NEXT]], [[BB3]] ],  [ i32 [[VP_IV]], Cloned.[[BB2]] ]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP6]] = add i32 [[VP5]] i32 [[VP2]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP9:%.*]] = icmp ult i32 [[VP6]] i32 [[VP3]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP10:%.*]] = all-zero-check i1 [[VP9]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP10]], Cloned.[[BB4:BB[0-9]+]], Cloned.[[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB4]]: # preds: new_latch
-; CHECK-NEXT:     [DA: Uni] i32 [[VP5:%.*]] = induction-final{add} i32 live-in0 i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP11:%.*]] = induction-final{add} i32 live-in0 i32 1
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB5]]: # preds: Cloned.[[BB4]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0     [[LCSSA_PHI0:%.*]] = phi i32 [ [[IV_NEXT0:%.*]], [[FOR_BODY0:%.*]] ] i32 [[VP5]] -> i32 [[IV_NEXT0]]
+; CHECK-NEXT:  Id: 0     [[LCSSA_PHI0:%.*]] = phi i32 [ [[IV_NEXT0:%.*]], [[FOR_BODY0:%.*]] ] i32 [[VP11]] -> i32 [[IV_NEXT0]]
 ;
 entry:
   br label %preheader
@@ -50,8 +55,8 @@ preheader:
 for.body:
   %iv = phi i32 [ 0, %preheader ], [ %iv.next, %for.body ]
   %iv.next = add nsw i32 %iv, 1
-  %bottom_test = icmp eq i32 %iv.next, %N
-  br i1 %bottom_test, label %loopexit, label %for.body
+  %bottom_test = icmp ule i32 %iv.next, %N
+  br i1 %bottom_test, label %for.body, label %loopexit
 
 loopexit:
   %lcssa.phi = phi i32 [ %iv.next, %for.body ]

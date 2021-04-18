@@ -23,7 +23,7 @@ define void @main(i32 %inner.tc, i32 %outer.tc) {
 ; CHECK-NEXT:    Cloned.[[BB2]]: # preds: Cloned.[[BB1]], new_latch
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP5:%.*]] = phi  [ i32 0, Cloned.[[BB1]] ],  [ i32 [[VP6:%.*]], new_latch ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_OUTER_IV:%.*]] = phi  [ i32 [[VP0]], Cloned.[[BB1]] ],  [ i32 [[VP7:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP8:%.*]] = icmp uge i32 [[VP5]] i32 [[VP4]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP8:%.*]] = icmp ult i32 [[VP5]] i32 [[VP3]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP8]], [[BB3:BB[0-9]+]], new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: Cloned.[[BB2]]
@@ -50,18 +50,19 @@ define void @main(i32 %inner.tc, i32 %outer.tc) {
 ; CHECK-NEXT:    new_latch: # preds: Cloned.[[BB6]], Cloned.[[BB2]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP7]] = phi  [ i32 [[VP_OUTER_IV_NEXT]], Cloned.[[BB6]] ],  [ i32 [[VP_OUTER_IV]], Cloned.[[BB2]] ]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP6]] = add i32 [[VP5]] i32 [[VP2]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP11:%.*]] = icmp uge i32 [[VP6]] i32 [[VP4]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP11]], Cloned.[[BB7:BB[0-9]+]], Cloned.[[BB2]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP11:%.*]] = icmp ult i32 [[VP6]] i32 [[VP3]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP12:%.*]] = all-zero-check i1 [[VP11]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP12]], Cloned.[[BB7:BB[0-9]+]], Cloned.[[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB7]]: # preds: new_latch
-; CHECK-NEXT:     [DA: Uni] i32 [[VP12:%.*]] = induction-final{add} i32 live-in0 i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP13:%.*]] = induction-final{add} i32 live-in0 i32 1
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB8]]: # preds: Cloned.[[BB7]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP12]]
+; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP13]]
 ;
 entry:
   br label %preheader

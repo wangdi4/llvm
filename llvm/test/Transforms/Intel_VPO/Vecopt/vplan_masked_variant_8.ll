@@ -20,8 +20,8 @@ define void @main(i32 %inner.tc, i32 %outer.tc) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB2]]: # preds: Cloned.[[BB1]], new_latch
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_OUTER_IV:%.*]] = phi  [ i32 [[VP0]], Cloned.[[BB1]] ],  [ i32 [[VP_OUTER_IV_NEXT:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_OUTER_BOTTOM_TEST:%.*]] = icmp eq i32 [[VP_OUTER_IV]] i32 [[VP2]]
-; CHECK-NEXT:     [DA: Div] br i1 [[VP_OUTER_BOTTOM_TEST]], [[BB3:BB[0-9]+]], new_latch
+; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = icmp ult i32 [[VP_OUTER_IV]] i32 [[OUTER_TC0]]
+; CHECK-NEXT:     [DA: Div] br i1 [[VP3]], [[BB3:BB[0-9]+]], new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: Cloned.[[BB2]]
 ; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB4:BB[0-9]+]]
@@ -40,18 +40,19 @@ define void @main(i32 %inner.tc, i32 %outer.tc) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    new_latch: # preds: Cloned.[[BB6]], Cloned.[[BB2]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_OUTER_IV_NEXT]] = add i32 [[VP_OUTER_IV]] i32 [[VP1]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_OUTER_BOTTOM_TEST_1:%.*]] = icmp eq i32 [[VP_OUTER_IV_NEXT]] i32 [[VP2]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_OUTER_BOTTOM_TEST_1]], Cloned.[[BB7:BB[0-9]+]], Cloned.[[BB2]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_OUTER_BOTTOM_TEST:%.*]] = icmp ult i32 [[VP_OUTER_IV_NEXT]] i32 [[OUTER_TC0]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = all-zero-check i1 [[VP_OUTER_BOTTOM_TEST]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP4]], Cloned.[[BB7:BB[0-9]+]], Cloned.[[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB7]]: # preds: new_latch
-; CHECK-NEXT:     [DA: Uni] i32 [[VP3:%.*]] = induction-final{add} i32 live-in0 i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP5:%.*]] = induction-final{add} i32 live-in0 i32 1
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB8]]: # preds: Cloned.[[BB7]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP3]]
+; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP5]]
 ;
 entry:
   br label %preheader
