@@ -2138,6 +2138,10 @@ private:
                                  SourceLocation *TrailingElseLoc,
                                  ParsedAttributesWithRange &Attrs);
 #if INTEL_CUSTOMIZATION
+  StmtResult ParsePragmaIntelFPGALoop(StmtVector &Stmts,
+                                      ParsedStmtContext StmtCtx,
+                                      SourceLocation *TrailingElseLoc,
+                                      ParsedAttributesWithRange &Attrs);
   // HLS loop pragmas
   std::unique_ptr<PragmaHandler> LoopCoalesceHandler;
   std::unique_ptr<PragmaHandler> IIHandler;

@@ -555,35 +555,33 @@ void foo_disable_loop_pipelining()
   #pragma disable_loop_pipelining 0
   for (int i=0;i<32;++i) {}
 
-  #pragma disable_loop_pipelining
-  #pragma max_concurrency 100 // expected-error{{'disable_loop_pipelining' and 'max_concurrency' attributes are not compatible}}
+  #pragma disable_loop_pipelining // expected-note {{conflicting attribute is here}}
+  #pragma max_concurrency 100 // expected-error{{'max_concurrency' and 'disable_loop_pipelining' attributes are not compatible}}
   for (int i=0;i<32;++i) {}
 
-  #pragma max_concurrency 100
-  #pragma disable_loop_pipelining // expected-error{{'max_concurrency' and 'disable_loop_pipelining' attributes are not compatible}}
+  #pragma max_concurrency 100 // expected-note {{conflicting attribute is here}}
+  #pragma disable_loop_pipelining // expected-error{{'disable_loop_pipelining' and 'max_concurrency' attributes are not compatible}}
   for (int i=0;i<32;++i) {}
 
-  // expected-error@+4{{'ii' and 'disable_loop_pipelining' attributes are not compatible}}
-  // expected-error@+3{{'max_concurrency' and 'disable_loop_pipelining' attributes are not compatible}}
-  #pragma ii  1
+  // expected-error@+3{{'disable_loop_pipelining' and 'ii' attributes are not compatible}}
+  #pragma ii  1 // expected-note {{conflicting attribute is here}}
   #pragma max_concurrency 100
   #pragma disable_loop_pipelining
   for (int i=0;i<32;++i) {}
 
   int i, myArray[10];
-  // expected-error@+3{{'disable_loop_pipelining' and 'ivdep' attributes are not compatible}}
-  // expected-error@+3{{'disable_loop_pipelining' and 'ivdep' attributes are not compatible}}
-  #pragma disable_loop_pipelining
+  // expected-error@+2{{'ivdep' and 'disable_loop_pipelining' attributes are not compatible}}
+  #pragma disable_loop_pipelining // expected-note {{conflicting attribute is here}}
   #pragma ivdep array(myArray)
   #pragma ivdep safelen(8)
   for (int i=0;i<32;++i) {}
 
-  #pragma ivdep safelen(8)
-  #pragma disable_loop_pipelining // expected-error{{'ivdep' and 'disable_loop_pipelining' attributes are not compatible}}
+  #pragma ivdep safelen(8) // expected-note {{conflicting attribute is here}}
+  #pragma disable_loop_pipelining // expected-error{{'disable_loop_pipelining' and 'ivdep' attributes are not compatible}}
   for (int i=0;i<32;++i) {}
 
-  #pragma disable_loop_pipelining
-  #pragma ii 4 // expected-error{{'disable_loop_pipelining' and 'ii' attributes are not compatible}}
+  #pragma disable_loop_pipelining // expected-note {{conflicting attribute is here}}
+  #pragma ii 4 // expected-error{{'ii' and 'disable_loop_pipelining' attributes are not compatible}}
   for (int i=0;i<32;++i) {}
 
   #pragma disable_loop_pipelining
@@ -610,12 +608,12 @@ void foo_disable_loop_pipelining()
   #pragma disable_loop_pipelining // expected-error {{incompatible directives}}
   for (int i=0;i<32;++i) {}
 
-  #pragma speculated_iterations 4
-  #pragma disable_loop_pipelining // expected-error{{'speculated_iterations' and 'disable_loop_pipelining' attributes are not compatible}}
+  #pragma speculated_iterations 4 // expected-note {{conflicting attribute is here}}
+  #pragma disable_loop_pipelining // expected-error{{'disable_loop_pipelining' and 'speculated_iterations' attributes are not compatible}}
   for (int i=0;i<32;++i) {}
 
-  #pragma disable_loop_pipelining
-  #pragma speculated_iterations 4 // expected-error{{'disable_loop_pipelining' and 'speculated_iterations' attributes are not compatible}}
+  #pragma disable_loop_pipelining // expected-note {{conflicting attribute is here}}
+  #pragma speculated_iterations 4 // expected-error{{'speculated_iterations' and 'disable_loop_pipelining' attributes are not compatible}}
   for (int i=0;i<32;++i) {}
 
   //CHECK: good

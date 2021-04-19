@@ -118,10 +118,6 @@ static Attr *handleSuppressAttr(Sema &S, Stmt *St, const ParsedAttr &A,
 
 template <typename FPGALoopAttrT>
 static Attr *handleIntelFPGALoopAttr(Sema &S, Stmt *St, const ParsedAttr &A) {
-#if INTEL_CUSTOMIZATION
-  if (A.getSyntax() == AttributeCommonInfo::AS_Pragma)
-    return S.BuildSYCLIntelFPGALoopAttr<FPGALoopAttrT>(A, A.getArgAsExpr(3));
-#endif // INTEL_CUSTOMIZATION
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 
   return S.BuildSYCLIntelFPGALoopAttr<FPGALoopAttrT>(

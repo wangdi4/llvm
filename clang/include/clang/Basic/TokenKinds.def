@@ -854,6 +854,18 @@ PRAGMA_ANNOTATION(pragma_align)
 // The lexer produces these so that they only take effect when the parser
 // handles them.
 PRAGMA_ANNOTATION(pragma_loop_fuse)
+
+// Annotation for the following FPGA pragma attributes:
+//
+//   disable_loop_pipelining
+//   ii
+//   loop_coalesce
+//   max_concurrency
+//   max_interleaving
+//   speculated_iterations
+//
+// Each of these attributes accepts one (possibly optional) argument.
+PRAGMA_ANNOTATION(pragma_intel_fpga_loop)
 #endif // INTEL_CUSTOMIZATION
 
 // Annotation for #pragma weak id
