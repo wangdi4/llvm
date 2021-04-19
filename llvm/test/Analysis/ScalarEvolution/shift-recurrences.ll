@@ -414,10 +414,7 @@ define void @unreachable_binop() {
 ; CHECK-LABEL: 'unreachable_binop'
 ; CHECK-NEXT:  Classifying expressions for: @unreachable_binop
 ; CHECK-NEXT:    %p_58.addr.1 = phi i32 [ undef, %header ], [ %sub2629, %unreachable ]
-; INTEL_CUSTOMIZATION
-; A customization merges both undef operands into an undef result.
-; CHECK-NEXT:    --> undef U: full-set S: full-set Exits: undef LoopDispositions: { %header: Invariant }
-; END INTEL_CUSTOMIZATION
+; CHECK-NEXT:    --> %p_58.addr.1 U: full-set S: full-set Exits: <<Unknown>> LoopDispositions: { %header: Variant }
 ; CHECK-NEXT:    %sub2629 = sub i32 %p_58.addr.1, 1
 ; CHECK-NEXT:    --> undef U: full-set S: full-set
 ; CHECK-NEXT:  Determining loop execution counts for: @unreachable_binop
