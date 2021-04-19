@@ -412,6 +412,25 @@ public:
   inline decltype(auto) mergerVPlans() const {
     return make_range(MergerVPlans.begin(), MergerVPlans.end());
   }
+
+  /// Returns true if the loop has normalized induction:
+  /// - the main induction is integer
+  /// - the induction is incremented with step 1
+  /// - start value is 0
+  /// - upper bound is invariant
+  /// - the update instruction is used only in latch condition and
+  ///   in the header phi
+  /// - the latch condition is used only as back-edge condition.
+  /// - the latch condition and back edge are in a form that allows
+  ///   us to use the upper bound as the loop trip count.
+  ///   One example of normalized case:
+  ///     cond = cmp lt iv_incr, ub
+  ///     br cond loopheader, loopexit
+  ///   One example of non-normalized case:
+  ///     cond = cmp le iv_incr, ub
+  ///     br cond loopheader, loopexit
+  static bool hasLoopNormalizedInduction(const VPLoop *Loop);
+
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop. \return a VPlan

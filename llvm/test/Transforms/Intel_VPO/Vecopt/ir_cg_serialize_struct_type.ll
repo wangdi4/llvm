@@ -6,7 +6,8 @@
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
 ; CHECK-NEXT:  VPlan IR for: simd_test:bb5
 ; CHECK:         [[BB2:BB[0-9]+]]: # preds: [[BB2]], [[VECTOR_PH:.*]]
-; CHECK-NEXT:     [DA: Div, SVA: (FV )] i32 [[VP_P0:%.*]] = phi  [ i32 [[VP_P0_IND_INIT:%.*]], [[VECTOR_PH]] ],  [ i32 [[VP_ADD21:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[VECTOR_PH]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_P0:%.*]] = phi  [ i32 [[VP_P0_IND_INIT:%.*]], [[VECTOR_PH]] ],  [ i32 [[VP_ADD21:%.*]], [[BB2]] ] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INT_SEXT17:%.*]] = sext i32 [[VP_P0]] to i64 (SVAOpBits 0->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] %complex_64bit* [[VP_PR:%.*]] = getelementptr inbounds [100 x %complex_64bit]* @pR i32 0 i64 [[VP_INT_SEXT17]] (SVAOpBits 0->V 1->V 2->V )
 ; CHECK-NEXT:     [DA: Div, SVA: ( V )] [[COMPLEX_64BIT0:%.*]] = type { float, float } [[VP_PR_FETCH:%.*]] = load %complex_64bit* [[VP_PR]] (SVAOpBits 0->V )
@@ -15,8 +16,9 @@
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] [[COMPLEX_64BIT0]] = type { float, float } [[VP_UNI_LOAD:%.*]] = load %complex_64bit* [[UNI_SRC0:%.*]] (SVAOpBits 0->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] store [[COMPLEX_64BIT0]] = type { float, float } [[VP_UNI_LOAD]] %complex_64bit* [[UNI_DEST0:%.*]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Div, SVA: (  L)] store [[COMPLEX_64BIT0]] = type { float, float } [[VP_PR_FETCH]] %complex_64bit* [[UNI_DEST0]] (SVAOpBits 0->L 1->F )
-; CHECK-NEXT:     [DA: Div, SVA: (FV )] i32 [[VP_ADD21]] = add i32 [[VP_P0]] i32 [[VP_P0_IND_INIT_STEP:%.*]] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp sle i32 [[VP_ADD21]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_ADD21]] = add i32 [[VP_P0]] i32 [[VP_P0_IND_INIT_STEP:%.*]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF:%.*]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 
 %complex_64bit = type { float, float }
@@ -27,7 +29,8 @@
 define void @simd_test(%complex_64bit* %uni.src, %complex_64bit* %uni.dest) local_unnamed_addr {
 ; CHECK-LABEL: @simd_test(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i32 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP5:%.*]], [[VECTOR_BODY:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP6:%.*]], [[VECTOR_BODY:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i32 [ 0, [[VECTOR_PH]] ], [ [[TMP5:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VECTOR_PH]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = sext <2 x i32> [[VEC_PHI]] to <2 x i64>
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [100 x %complex_64bit], <2 x [100 x %complex_64bit]*> <[100 x %complex_64bit]* @pR, [100 x %complex_64bit]* @pR>, <2 x i32> zeroinitializer, <2 x i64> [[TMP0]]
@@ -47,8 +50,9 @@ define void @simd_test(%complex_64bit* %uni.src, %complex_64bit* %uni.dest) loca
 ; CHECK-NEXT:    store [[COMPLEX_64BIT]] %2, %complex_64bit* [[UNI_DEST]], align 4
 ; CHECK-NEXT:    [[TMP4]] = add nsw <2 x i32> [[VEC_PHI]], <i32 2, i32 2>
 ; CHECK-NEXT:    [[TMP5]] = add nsw i32 [[UNI_PHI1]], 2
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp sle i32 [[TMP5]], 4
-; CHECK-NEXT:    br i1 [[TMP6]], label [[VECTOR_BODY]], label [[VPLANNEDBB:%.*]]
+; CHECK-NEXT:    [[TMP6]] = add i32 [[UNI_PHI]], 2
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i32 [[TMP6]], 6
+; CHECK-NEXT:    br i1 [[TMP7]], label [[VECTOR_BODY]], label [[VPLANNEDBB:%.*]]
 ;
 alloca:
   br label %simd.begin.region

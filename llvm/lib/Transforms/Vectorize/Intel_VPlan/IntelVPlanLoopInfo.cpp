@@ -18,6 +18,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanLoopInfo.h"
+#include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopIterator.h"
@@ -76,86 +77,8 @@ bool VPLoop::isLiveOut(const VPInstruction* VPInst) const {
   return false;
 }
 
-// The following code snippet illustrates what is detected by the
-// function.
-// ...
-// %ind.step = induction-init-step{add} i64 1
-// ...
-// %ind.phi = phi i64 [0, %preheader], [%add, %loop_latch]
-// ...
-// %add = add i64 %ind.phi, %ind.step
-// %cmp = icmp sle i64 %add, %loop.invariant
-//
-bool VPLoop::hasNormalizedInduction() const {
-  VPBasicBlock *Latch = getLoopLatch();
-  if (!Latch)
-    return false;
-  VPBranchInst *Br = Latch->getTerminator();
-  if (!Br || Br->getCondition() == nullptr)
-    return false;
-  VPCmpInst *Cond = dyn_cast<VPCmpInst>(Br->getCondition());
-  if (!Cond)
-    return false;
-  if (Cond->getNumUsers() != 1)
-    return false;
-  VPInstruction *AddI = nullptr;
-  auto getAddInstr = [&AddI, Cond, this](int NumOp) -> bool {
-    // Check that the NumOp-th operand of Cond is an "add" instruction inside
-    // the loop with one of operands equal to InductionInitStep(1) and another
-    // operand of Cond is a loop invariant. The add instriuction is stored to
-    // AddI for further checks.
-    // In the example above it's the %add instruction.
-    AddI = dyn_cast<VPInstruction>(Cond->getOperand(NumOp));
-    if (AddI && AddI->getOpcode() == Instruction::Add && contains(AddI)) {
-      VPValue *SecOp = Cond->getOperand(NumOp ^ 1);
-      // Check upper bound.
-      if (!isDefOutside(SecOp) && !isa<VPConstant>(SecOp))
-        return false;
-      // Check step.
-      if (auto *StepInit = dyn_cast<VPInductionInitStep>(AddI->getOperand(0)))
-        SecOp = StepInit->getOperand(0);
-      else if (auto *StepInit =
-                   dyn_cast<VPInductionInitStep>(AddI->getOperand(1)))
-        SecOp = StepInit->getOperand(0);
-      else
-        return false;
-      if (VPConstantInt *Step = dyn_cast<VPConstantInt>(SecOp))
-        return Step->getValue() == 1;
-    }
-    return false;
-  };
-  if (getAddInstr(0) || getAddInstr(1)) {
-    VPBasicBlock *Preheader = getLoopPreheader();
-    VPBasicBlock *Header = getHeader();
-    // Check that increment is used only in condition and in phi.
-    for (auto *U : AddI->users()) {
-      if (U == Cond)
-        continue;
-      VPPHINode *PN = dyn_cast<VPPHINode>(U);
-      if (!PN)
-        return false;
-      if (PN->getParent() != Header)
-        return false;
-      // Header phi, check start value for 0.
-      VPValue *Init = PN->getIncomingValue(Preheader);
-      if (auto IndInit = dyn_cast<VPInductionInit>(Init)) {
-        Init = IndInit->getStartValueOperand();
-        if (auto *VPLiveIn = dyn_cast<VPLiveInValue>(Init))
-          Init = IndInit->getParent()
-                     ->getParent()
-                     ->getExternals()
-                     .getOriginalIncomingValue(VPLiveIn->getMergeId());
-      }
-      if (isa<VPConstantInt>(Init) &&
-          cast<VPConstantInt>(Init)->getValue() == 0)
-        continue;
-      // The starting value is not induction-init(0).
-      return false;
-    }
-    // All checks succeeded.
-    return true;
-  }
-  return false;
+Optional<bool> VPLoop::hasNormalizedInduction() const {
+  return LoopVectorizationPlanner::hasLoopNormalizedInduction(this);
 }
 
 std::pair<VPValue *, VPInstruction *> VPLoop::getLoopUpperBound() const {
