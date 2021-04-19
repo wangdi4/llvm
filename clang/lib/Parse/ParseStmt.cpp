@@ -450,6 +450,13 @@ Retry:
     HandlePragmaMSVtorDisp();
     return StmtEmpty();
 
+#if INTEL_CUSTOMIZATION
+  case tok::annot_pragma_intel_fpga_loop:
+    ProhibitAttributes(Attrs);
+    return ParsePragmaIntelFPGALoop(Stmts, StmtCtx, TrailingElseLoc,
+                                    Attrs);
+#endif // INTEL_CUSTOMIZATION
+
   case tok::annot_pragma_loop_hint:
     ProhibitAttributes(Attrs);
     return ParsePragmaLoopHint(Stmts, StmtCtx, TrailingElseLoc, Attrs);
@@ -2281,6 +2288,50 @@ StmtResult Parser::ParseReturnStatement() {
     return Actions.ActOnCoreturnStmt(getCurScope(), ReturnLoc, R.get());
   return Actions.ActOnReturnStmt(ReturnLoc, R.get(), getCurScope());
 }
+
+#if INTEL_CUSTOMIZATION
+StmtResult Parser::ParsePragmaIntelFPGALoop(StmtVector &Stmts,
+                                            ParsedStmtContext StmtCtx,
+                                            SourceLocation *TrailingElseLoc,
+                                            ParsedAttributesWithRange &Attrs) {
+  // Create temporary attribute list.
+  ParsedAttributesWithRange TempAttrs(AttrFactory);
+
+  SourceLocation StartLoc = Tok.getLocation();
+
+  // Get fpga loop tokens and consume annotated token.
+  while (Tok.is(tok::annot_pragma_intel_fpga_loop)) {
+    LoopHint Hint;
+    if (!HandlePragmaLoopHint(Hint))
+      continue;
+
+    bool HasZeroArgs =
+      Hint.PragmaNameLoc->Ident->isStr("disable_loop_pipelining");
+
+    ArgsUnion ArgHints[] = {ArgsUnion(Hint.ValueExpr)};
+    TempAttrs.addNew(Hint.PragmaNameLoc->Ident, Hint.Range, nullptr,
+                     Hint.PragmaNameLoc->Loc,
+                     HasZeroArgs ? nullptr : ArgHints,
+                     HasZeroArgs ? 0 : 1,
+                     ParsedAttr::AS_Pragma);
+  }
+
+  // Get the next statement.
+  MaybeParseCXX11Attributes(Attrs);
+
+  StmtResult S = ParseStatementOrDeclarationAfterAttributes(
+      Stmts, StmtCtx, TrailingElseLoc, Attrs);
+
+  Attrs.takeAllFrom(TempAttrs);
+
+  // Start of attribute range may already be set for some invalid input.
+  // See PR46336.
+  if (Attrs.Range.getBegin().isInvalid())
+    Attrs.Range.setBegin(StartLoc);
+
+  return S;
+}
+#endif // INTEL_CUSTOMIZATION
 
 StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts,
                                        ParsedStmtContext StmtCtx,

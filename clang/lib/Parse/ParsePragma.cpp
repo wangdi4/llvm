@@ -1377,7 +1377,8 @@ static std::string PragmaLoopHintString(Token PragmaName, Token Option) {
 }
 
 bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
-  assert(Tok.is(tok::annot_pragma_loop_hint));
+  assert(Tok.isOneOf(tok::annot_pragma_loop_hint,
+                     tok::annot_pragma_intel_fpga_loop)); // INTEL
   PragmaLoopHintInfo *Info =
       static_cast<PragmaLoopHintInfo *>(Tok.getAnnotationValue());
 
@@ -3755,7 +3756,7 @@ void PragmaLoopCoalesceHandler::HandlePragma(Preprocessor &PP,
   // Generate the hint token.
   auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
-  TokenArray[0].setKind(tok::annot_pragma_loop_hint);
+  TokenArray[0].setKind(tok::annot_pragma_intel_fpga_loop);
   TokenArray[0].setLocation(PragmaName.getLocation());
   TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
   TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
@@ -3802,7 +3803,7 @@ void PragmaIIHandler::HandlePragma(Preprocessor &PP,
   // Generate the hint token.
   auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
-  TokenArray[0].setKind(tok::annot_pragma_loop_hint);
+  TokenArray[0].setKind(tok::annot_pragma_intel_fpga_loop);
   TokenArray[0].setLocation(PragmaName.getLocation());
   TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
   TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
@@ -3853,7 +3854,7 @@ void PragmaMaxConcurrencyHandler::HandlePragma(Preprocessor &PP,
   // Generate the hint token.
   auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
-  TokenArray[0].setKind(tok::annot_pragma_loop_hint);
+  TokenArray[0].setKind(tok::annot_pragma_intel_fpga_loop);
   TokenArray[0].setLocation(PragmaName.getLocation());
   TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
   TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
@@ -3900,7 +3901,7 @@ void PragmaMaxInterleavingHandler::HandlePragma(Preprocessor &PP,
   // Generate the hint token.
   auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
-  TokenArray[0].setKind(tok::annot_pragma_loop_hint);
+  TokenArray[0].setKind(tok::annot_pragma_intel_fpga_loop);
   TokenArray[0].setLocation(PragmaName.getLocation());
   TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
   TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
@@ -4215,7 +4216,12 @@ void PragmaHLSConstArgHandler::HandlePragma(
   // Generate the hint token.
   auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
-  TokenArray[0].setKind(tok::annot_pragma_loop_hint);
+  // FIXME: this is a hack, there should be a different handler for
+  // this pragma.
+  if (PragmaName.getIdentifierInfo()->isStr("speculated_iterations"))
+    TokenArray[0].setKind(tok::annot_pragma_intel_fpga_loop);
+  else
+    TokenArray[0].setKind(tok::annot_pragma_loop_hint);
   TokenArray[0].setLocation(PragmaName.getLocation());
   TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
   TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
@@ -4239,7 +4245,12 @@ void PragmaHLSNoArgHandler::HandlePragma(Preprocessor &PP,
       new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo(PragmaName);
   auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
-  TokenArray[0].setKind(tok::annot_pragma_loop_hint);
+  // FIXME: this is a hack, there should be a different handler for
+  // this pragma.
+  if (PragmaName.getIdentifierInfo()->isStr("disable_loop_pipelining"))
+    TokenArray[0].setKind(tok::annot_pragma_intel_fpga_loop);
+  else
+    TokenArray[0].setKind(tok::annot_pragma_loop_hint);
   TokenArray[0].setLocation(PragmaName.getLocation());
   TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
   TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
