@@ -95,10 +95,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
     VERBATIM
     )
 
-  if(FALSE)
-    # FIXME: enable this after https://github.com/intel/llvm/pull/3377
-    #        is merged.
-
+  if(TRUE)
     # Annotate device RTL code with ITT API calls.
     # This should be done after the regularization, because the annotation
     # pass only recognizes __spirv calls, and does not recognize OpenCL calls.
@@ -110,6 +107,7 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
       VERBATIM
       )
   else()
+    # FIME: remove this soon.
     add_custom_command(
       OUTPUT ${opencl_device_rtl_bc}
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
