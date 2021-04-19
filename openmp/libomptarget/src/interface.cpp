@@ -550,6 +550,7 @@ EXTERN void __kmpc_push_target_tripcount(ident_t *loc, int64_t device_id,
 #if INTEL_COLLAB
 EXTERN int32_t __tgt_is_device_available(int64_t device_num,
                                          void *device_type) {
+  device_num = EXTRACT_BITS(device_num, 31, 0);
   if (checkDeviceAndCtors(device_num, nullptr) != OFFLOAD_SUCCESS) {
     DP("Failed to get device %" PRId64 " ready\n", device_num);
     handleTargetOutcome(false, nullptr);
