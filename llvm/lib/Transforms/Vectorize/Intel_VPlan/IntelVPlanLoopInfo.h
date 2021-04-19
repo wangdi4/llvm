@@ -27,6 +27,7 @@ namespace vpo {
 class VPBasicBlock;
 class VPValue;
 class VPInstruction;
+class VPCmpInst;
 class VPlanDivergenceAnalysis;
 class VPlanScalVecAnalysis;
 class VPLoop;
@@ -76,6 +77,10 @@ public:
   /// If the loop has a normalized IV then return upper bound of the loop and
   /// compare instruction where it's used. Otherwise return <nullptr, nullptr>.
   std::pair<VPValue *, VPInstruction *> getLoopUpperBound() const;
+
+  /// Returns the comparison that is used for latch's condition. If the latch
+  /// condition does not use VPCmpInst return nullptr.
+  VPCmpInst *getLatchComparison() const;
 
   /// Added as a preparatory step to allow for subsequent changes to mark loop
   /// as having normalized induction early in the pipeline and return the value
