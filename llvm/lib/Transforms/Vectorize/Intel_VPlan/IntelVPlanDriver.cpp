@@ -301,19 +301,21 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     DenseMap<VPlanVector *, std::shared_ptr<VPlanMasked>> OrigClonedVPlans;
     for (auto &Pair : LVP.getAllVPlans()) {
       std::shared_ptr<VPlanVector> Plan = Pair.second.MainPlan;
-      if (!Pair.second.MaskedModeLoop) {
-        auto It = OrigClonedVPlans.find(Plan.get());
-        if (It != OrigClonedVPlans.end()) {
+      // Masked variant is not generated for loops without normalized induction.
+      if ((*(Plan->getVPLoopInfo())->begin())->hasNormalizedInduction())
+        if (!Pair.second.MaskedModeLoop) {
+          auto It = OrigClonedVPlans.find(Plan.get());
+          if (It != OrigClonedVPlans.end()) {
+            LVP.appendVPlanPair(Pair.first, LoopVectorizationPlanner::VPlanPair{
+                                                Plan, It->second});
+            continue;
+          }
+          MaskedModeLoopCreator MML(cast<VPlanNonMasked>(Plan.get()), VPAF);
+          std::shared_ptr<VPlanMasked> MaskedPlan = MML.createMaskedModeLoop();
+          OrigClonedVPlans[Plan.get()] = MaskedPlan;
           LVP.appendVPlanPair(Pair.first, LoopVectorizationPlanner::VPlanPair{
-                                              Plan, It->second});
-          continue;
+                                              Plan, MaskedPlan});
         }
-        MaskedModeLoopCreator MML(cast<VPlanNonMasked>(Plan.get()), VPAF);
-        std::shared_ptr<VPlanMasked> MaskedPlan = MML.createMaskedModeLoop();
-        OrigClonedVPlans[Plan.get()] = MaskedPlan;
-        LVP.appendVPlanPair(
-            Pair.first, LoopVectorizationPlanner::VPlanPair{Plan, MaskedPlan});
-      }
     }
   }
 

@@ -25,11 +25,11 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB2]]: # preds: Cloned.[[BB1]], new_latch
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP0]], Cloned.[[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP:%.*]] = icmp ult i64 [[VP_INDVARS_IV]] i64 [[VP2]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = icmp ult i64 [[VP_INDVARS_IV]] i64 1024
 ; CHECK-NEXT:     [DA: Uni] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: Cloned.[[BB2]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_CMP]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP3]]
 ; CHECK-NEXT:     [DA: Div] i64* [[VP_PTR:%.*]] = getelementptr inbounds i64* [[ARY0:%.*]] i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_CC:%.*]] = sext i32 [[C0:%.*]] to i64
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_ADD:%.*]] = add i64 [[VP_CC]] i64 [[VP_INDVARS_IV]]
@@ -38,18 +38,19 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    new_latch: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP1]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_CMP_1:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP2]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_CMP_1]], Cloned.[[BB2]], Cloned.[[BB4:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 1024
+; CHECK-NEXT:     [DA: Uni] i1 [[VP5:%.*]] = all-zero-check i1 [[VP_CMP]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP5]], Cloned.[[BB4:BB[0-9]+]], Cloned.[[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB4]]: # preds: new_latch
-; CHECK-NEXT:     [DA: Uni] i64 [[VP4:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP6:%.*]] = induction-final{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB5]]: # preds: Cloned.[[BB4]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP4]]
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  List of VPlans added for merging:
 ; CHECK-NEXT:  VPlan: test_store:for.body.cloned.masked

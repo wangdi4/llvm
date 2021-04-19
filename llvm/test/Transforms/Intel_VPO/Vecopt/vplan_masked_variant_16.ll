@@ -50,7 +50,7 @@ preheader:
 for.body:
   %iv = phi i32 [ 0, %preheader ], [ %iv.next, %for.body ]
   %iv.next = add nsw i32 %iv, 1
-  %bottom_test = icmp eq i32 %iv.next, %N
+  %bottom_test = icmp eq i32 %N, %iv.next
   br i1 %bottom_test, label %loopexit, label %for.body
 
 loopexit:
