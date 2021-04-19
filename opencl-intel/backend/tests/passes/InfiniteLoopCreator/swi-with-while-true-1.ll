@@ -19,7 +19,9 @@
 ; ----------------------------------------------------
 ; without -cl-loop-creator there are no ret instructions (or all of them are
 ; unreachable), check that pass doesn't change the ir
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -kernel-analysis -infinite-loop-creator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -kernel-analysis -infinite-loop-creator -verify %s -S > %t1.ll
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -kernel-analysis %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -kernel-analysis -verify %s -S > %t2.ll
 ; diff %t1.ll %t2.ll
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
@@ -89,3 +91,5 @@ attributes #4 = { convergent }
 !11 = !{!"omnipotent char", !12, i64 0}
 !12 = !{!"Simple C/C++ TBAA"}
 !13 = !{!11, !11, i64 0}
+
+; DEBUGIFY-NOT: WARNING
