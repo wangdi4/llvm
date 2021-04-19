@@ -1038,8 +1038,8 @@ ESIMD_INLINE ESIMD_NODEBUG void esimd_wait(uint16_t val) { __esimd_wait(val); }
 template <int NBlocks, int Height, int Width, bool Transposed>
 constexpr int esimd_get_block_2d_data_size() {
   if (Transposed)
-    return __esimd::getNextPowerOf2<Height>() * Width * NBlocks;
-  return __esimd::getNextPowerOf2<Width>() * Height * NBlocks;
+    return detail::getNextPowerOf2<Height>() * Width * NBlocks;
+  return detail::getNextPowerOf2<Width>() * Height * NBlocks;
 }
 
 /// @defgroup sycl_esimd_2d_stateless 2D stateless functions
