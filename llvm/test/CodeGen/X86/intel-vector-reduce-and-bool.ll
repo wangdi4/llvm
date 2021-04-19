@@ -28,9 +28,9 @@ define i1 @trunc_v2i64_v2i1(<2 x i64>) {
 ; AVX512-LABEL: trunc_v2i64_v2i1:
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    vpsllq $63, %xmm0, %xmm0
-; AVX512-NEXT:    vptestmq %xmm0, %xmm0, %k0
+; AVX512-NEXT:    vptestnmq %xmm0, %xmm0, %k0
 ; AVX512-NEXT:    kmovd %k0, %eax
-; AVX512-NEXT:    cmpb $3, %al
+; AVX512-NEXT:    testb $3, %al
 ; AVX512-NEXT:    sete %al
 ; AVX512-NEXT:    retq
   %a = trunc <2 x i64> %0 to <2 x i1>
@@ -58,9 +58,9 @@ define i1 @trunc_v4i32_v4i1(<4 x i32>) {
 ; AVX512-LABEL: trunc_v4i32_v4i1:
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    vpslld $31, %xmm0, %xmm0
-; AVX512-NEXT:    vptestmd %xmm0, %xmm0, %k0
+; AVX512-NEXT:    vptestnmd %xmm0, %xmm0, %k0
 ; AVX512-NEXT:    kmovd %k0, %eax
-; AVX512-NEXT:    cmpb $15, %al
+; AVX512-NEXT:    testb $15, %al
 ; AVX512-NEXT:    sete %al
 ; AVX512-NEXT:    retq
   %a = trunc <4 x i32> %0 to <4 x i1>
@@ -88,8 +88,8 @@ define i1 @trunc_v6i32_v6i1(<6 x i32>) {
 ; AVX-NEXT:    vpsllw $15, %xmm0, %xmm0
 ; AVX-NEXT:    vpacksswb %xmm0, %xmm0, %xmm0
 ; AVX-NEXT:    vpmovmskb %xmm0, %eax
-; AVX-NEXT:    andb $63, %al
-; AVX-NEXT:    cmpb $63, %al
+; AVX-NEXT:    notb %al
+; AVX-NEXT:    testb $63, %al
 ; AVX-NEXT:    sete %al
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
@@ -97,10 +97,9 @@ define i1 @trunc_v6i32_v6i1(<6 x i32>) {
 ; AVX512-LABEL: trunc_v6i32_v6i1:
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    vpslld $31, %ymm0, %ymm0
-; AVX512-NEXT:    vptestmd %ymm0, %ymm0, %k0
+; AVX512-NEXT:    vptestnmd %ymm0, %ymm0, %k0
 ; AVX512-NEXT:    kmovd %k0, %eax
-; AVX512-NEXT:    andb $63, %al
-; AVX512-NEXT:    cmpb $63, %al
+; AVX512-NEXT:    testb $63, %al
 ; AVX512-NEXT:    sete %al
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
@@ -194,9 +193,9 @@ define i1 @trunc_v4i64_v4i1(<4 x i64>) {
 ; AVX512-LABEL: trunc_v4i64_v4i1:
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    vpsllq $63, %ymm0, %ymm0
-; AVX512-NEXT:    vptestmq %ymm0, %ymm0, %k0
+; AVX512-NEXT:    vptestnmq %ymm0, %ymm0, %k0
 ; AVX512-NEXT:    kmovd %k0, %eax
-; AVX512-NEXT:    cmpb $15, %al
+; AVX512-NEXT:    testb $15, %al
 ; AVX512-NEXT:    sete %al
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
