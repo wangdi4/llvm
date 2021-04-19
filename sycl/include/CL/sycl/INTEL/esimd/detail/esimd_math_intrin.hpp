@@ -1331,8 +1331,8 @@ __esimd_dpas_inner(const sycl::INTEL::gpu::vector_type_t<RT, SZ> *src0,
   sycl::INTEL::gpu::vector_type_t<RT, SZ> retv;
 
   sycl::INTEL::gpu::uint sat1 =
-      EsimdEmulSys::SetSatur<T1, is_inttype<RT>::value>::set() ||
-              EsimdEmulSys::SetSatur<T2, is_inttype<RT>::value>::set();
+      __SIGED::SetSatur<T1, __SIGED::is_inttype<RT>::value>::set() ||
+      __SIGED::SetSatur<T2, __SIGED::is_inttype<RT>::value>::set();
 
   constexpr sycl::INTEL::gpu::uint ops_per_chan =
       src1_precision == sycl::INTEL::gpu::EsimdPrecisionType::BF16 ||
@@ -1381,7 +1381,8 @@ __esimd_dpas_inner(const sycl::INTEL::gpu::vector_type_t<RT, SZ> *src0,
       pvcBfOrHfDest = pvcBfDest || pvcHfDest,
 
       pvcBfDestChecks =
-          pvcBfDest && src1_precision == sycl::INTEL::gpu::EsimdPrecisionType::BF16 &&
+          pvcBfDest &&
+          src1_precision == sycl::INTEL::gpu::EsimdPrecisionType::BF16 &&
           src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::BF16,
 
       pvcHfDestChecks =
@@ -1391,10 +1392,12 @@ __esimd_dpas_inner(const sycl::INTEL::gpu::vector_type_t<RT, SZ> *src0,
            (src1_precision == sycl::INTEL::gpu::EsimdPrecisionType::BF16 &&
             src2_precision == sycl::INTEL::gpu::EsimdPrecisionType::BF16)),
 
-      destTypeChk = (!pvcBfOrHfDest && is_fp_or_dword_type<RT>::value) ||
+      destTypeChk = (!pvcBfOrHfDest &&
+                     sycl::INTEL::gpu::is_fp_or_dword_type<RT>::value) ||
                     (pvcBfOrHfDest && (pvcBfDestChecks || pvcHfDestChecks)),
 
-      srcTypeChk = is_dword_type<T1>::value && is_dword_type<T2>::value,
+      srcTypeChk = __SIGED::is_dword_type<T1>::value &&
+                   __SIGED::is_dword_type<T2>::value,
 
       destSizeChk = SZ >= /*TODO: ==*/SIMDSize * repeat_count,
 
@@ -1425,7 +1428,8 @@ __esimd_dpas_inner(const sycl::INTEL::gpu::vector_type_t<RT, SZ> *src0,
 
   using TmpAccEl = typename std::conditional<
       pvcBfOrHfDest, float,
-      typename restype_ex<RT, typename restype_ex<T1, T2>::type>::type>::type;
+      typename __SIGED::restype_ex<
+          RT, typename __SIGED::restype_ex<T1, T2>::type>::type>::type;
 
   sycl::INTEL::gpu::vector_type_t<TmpAccEl, SIMDSize> simdAcc;
 
@@ -1506,8 +1510,7 @@ __esimd_dpas_inner(const sycl::INTEL::gpu::vector_type_t<RT, SZ> *src0,
         retv[r * SIMDSize + n] =
             static_cast<short>(reinterpret_cast<uint32_t &>(tmpUint) >> 16);
       } else
-        retv[r * SIMDSize + n] =
-            EsimdEmulSys::satur<RT>::saturate(simdAcc[n], sat1);
+        retv[r * SIMDSize + n] = __SIGED::satur<RT>::saturate(simdAcc[n], sat1);
     }
 
   } // Repeat.
