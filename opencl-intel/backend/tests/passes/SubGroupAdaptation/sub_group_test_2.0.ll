@@ -1,3 +1,4 @@
+; RUN: %oclopt -sub-group-adaptation -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -sub-group-adaptation -verify -S < %s | FileCheck %s
 ;;*****************************************************************************
 ;; This test checks the SubGroupAdaptation pass
@@ -130,3 +131,10 @@ attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "
 ;;;			res = nsg;
 ;;;	}
 ;;;}
+
+; Instructions in these two functions are added to replace the originl instructions. No DebugLoc for them.
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z18get_sub_group_sizev
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z22get_max_sub_group_sizev
+; DEBUGIFY: WARNING: Missing line 15
+; DEBUGIFY: WARNING: Missing line 17
+; DEBUGIFY-NOT: WARNING

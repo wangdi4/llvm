@@ -1,3 +1,4 @@
+; RUN: %oclopt -sub-group-adaptation -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -sub-group-adaptation -verify -S < %s | FileCheck %s
 ; ModuleID = 'main'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -70,3 +71,9 @@ attributes #1 = { nounwind readnone }
 !7 = !{!"none", !"none", !"none"}
 !8 = !{!"long*", !"int2*", !"long*"}
 !9 = !{!"const", !"", !""}
+
+; Instructions in these two functions are added to replace one originl instruction. No DebugLoc.
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z22get_sub_group_local_idv
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z19sub_group_broadcastmj
+; DEBUGIFY: WARNING: Missing line 9
+; DEBUGIFY-NOT: WARNING

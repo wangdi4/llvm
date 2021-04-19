@@ -1,3 +1,4 @@
+; RUN: %oclopt -sub-group-adaptation -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -sub-group-adaptation -verify -S < %s | FileCheck %s
 ;;*****************************************************************************
 ;; This test checks the SubGroupAdaptation pass
@@ -108,3 +109,9 @@ attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "
 ;;;  uint sgid = get_sub_group_id();
 ;;;  res = sub_group_broadcast(b[sgid], id);
 ;;;}
+
+; Instructions in these two functions are added to replace one originl instruction. No DebugLoc.
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z22get_sub_group_local_idv
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z19sub_group_broadcastij
+; DEBUGIFY: WARNING: Missing line 18
+; DEBUGIFY-NOT: WARNING

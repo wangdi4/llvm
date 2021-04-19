@@ -1,3 +1,4 @@
+; RUN: %oclopt -sub-group-adaptation -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -sub-group-adaptation -verify -S < %s | FileCheck %s
 ;;*****************************************************************************
 ;; This test checks the SubGroupAdaptation pass
@@ -92,3 +93,5 @@ attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"=
 ;;;	sub_group_commit_read_pipe(num_packets, res_rrp);
 ;;;	sub_group_commit_write_pipe(num_packets, res_rwp);
 ;;;}
+
+; DEBUGIFY-NOT: WARNING
