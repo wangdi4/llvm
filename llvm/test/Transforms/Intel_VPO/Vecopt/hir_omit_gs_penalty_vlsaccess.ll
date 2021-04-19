@@ -60,8 +60,8 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; HIRCHECK-NEXT:  <20>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; HIRCHECK-NEXT:  <23>               |   [[DOTCOPY0:%.*]] = [[RED_VAR0]]
 ; HIRCHECK-NEXT:  <24>               |   [[DOTVLS_LOAD0:%.*]] = (<8 x i64>*)([[LP0:%.*]])[2 * i1]
-; HIRCHECK-NEXT:  <25>               |   [[VLS_SHUF0:%.*]] = shufflevector [[DOTVLS_LOAD0]],  undef,  <i32 0, i32 2, i32 4, i32 6>
-; HIRCHECK-NEXT:  <26>               |   [[VLS_SHUF10:%.*]] = shufflevector [[DOTVLS_LOAD0]],  undef,  <i32 1, i32 3, i32 5, i32 7>
+; HIRCHECK-NEXT:  <25>               |   [[VLS_SHUF0:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 0, i32 2, i32 4, i32 6>
+; HIRCHECK-NEXT:  <26>               |   [[VLS_SHUF10:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 1, i32 3, i32 5, i32 7>
 ; HIRCHECK-NEXT:  <27>               |   [[DOTVEC0:%.*]] = [[VLS_SHUF0]]  +  [[DOTCOPY0]]
 ; HIRCHECK-NEXT:  <28>               |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[VLS_SHUF10]]
 ; HIRCHECK-NEXT:  <20>               + END LOOP

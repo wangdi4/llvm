@@ -293,23 +293,30 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-EMPTY:
 ; HIR-NEXT:  BEGIN REGION { modified }
 ; HIR-NEXT:        + DO i1 = 0, 299, 4   <DO_LOOP> <simd-vectorized> <novectorize>
-; HIR-NEXT:        |   %.vec6 = undef;
-; HIR-NEXT:        |   %.vec5 = undef;
+; HIR-NEXT:        |   %.vls.load8 = undef;
 ; HIR-NEXT:        |   %.vec = (<4 x i64>*)(%ptr)[3 * i1 + 3 * <i64 0, i64 1, i64 2, i64 3>];
 ; HIR-NEXT:        |   %.vec2 = (<4 x i64>*)(%ptr)[3 * i1 + 3 * <i64 0, i64 1, i64 2, i64 3> + 1];
 ; HIR-NEXT:        |   (<4 x i64>*)(%ptr)[3 * i1 + 3 * <i64 0, i64 1, i64 2, i64 3>] = 41;
 ; HIR-NEXT:        |   (<4 x i64>*)(%ptr)[3 * i1 + 3 * <i64 0, i64 1, i64 2, i64 3> + 1] = %.vec;
 ; HIR-NEXT:        |   %.vls.load = (<8 x i64>*)(%ptr2)[2 * i1];
-; HIR-NEXT:        |   %vls.shuf = shufflevector %.vls.load,  undef,  <i32 0, i32 2, i32 4, i32 6>;
-; HIR-NEXT:        |   %vls.shuf3 = shufflevector %.vls.load,  undef,  <i32 1, i32 3, i32 5, i32 7>;
-; HIR-NEXT:        |   %comb.shuf = shufflevector 41,  %vls.shuf,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>;
-; HIR-NEXT:        |   %vls.interleave = shufflevector %comb.shuf,  undef,  <i32 0, i32 4, i32 1, i32 5, i32 2, i32 6, i32 3, i32 7>;
-; HIR-NEXT:        |   (<8 x i64>*)(%ptr2)[2 * i1] = %vls.interleave;
-; HIR-NEXT:        |   %.vec4 = %vls.shuf == 67;
-; HIR-NEXT:        |   %.vec5 = (<4 x i64>*)(%ptr3)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3>]; Mask = @{%.vec4}
-; HIR-NEXT:        |   %.vec6 = (<4 x i64>*)(%ptr3)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3> + 1]; Mask = @{%.vec4}
-; HIR-NEXT:        |   (<4 x i64>*)(%ptr4)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3>] = 41; Mask = @{%.vec4}
-; HIR-NEXT:        |   (<4 x i64>*)(%ptr4)[2 * i1 + 2 * <i64 0, i64 1, i64 2, i64 3> + 1] = 42; Mask = @{%.vec4}
+; HIR-NEXT:        |   %vls.extract = shufflevector %.vls.load,  %.vls.load,  <i32 0, i32 2, i32 4, i32 6>;
+; HIR-NEXT:        |   %vls.extract3 = shufflevector %.vls.load,  %.vls.load,  <i32 1, i32 3, i32 5, i32 7>;
+; HIR-NEXT:        |   %shuffle = shufflevector 41,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32 4>;
+; HIR-NEXT:        |   %shuffle4 = shufflevector undef,  %shuffle,  <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>;
+; HIR-NEXT:        |   %shuffle5 = shufflevector %vls.extract,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32 4>;
+; HIR-NEXT:        |   %shuffle6 = shufflevector %shuffle4,  %shuffle5,  <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>;
+; HIR-NEXT:        |   (<8 x i64>*)(%ptr2)[2 * i1] = %shuffle6;
+; HIR-NEXT:        |   %.vec7 = %vls.extract == 67;
+; HIR-NEXT:        |   %vls.mask = shufflevector %.vec7,  zeroinitializer,  <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>;
+; HIR-NEXT:        |   %.vls.load8 = (<8 x i64>*)(%ptr3)[2 * i1]; Mask = @{%vls.mask}
+; HIR-NEXT:        |   %vls.extract9 = shufflevector %.vls.load8,  %.vls.load8,  <i32 0, i32 2, i32 4, i32 6>;
+; HIR-NEXT:        |   %vls.extract10 = shufflevector %.vls.load8,  %.vls.load8,  <i32 1, i32 3, i32 5, i32 7>;
+; HIR-NEXT:        |   %shuffle11 = shufflevector 41,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32 4>;
+; HIR-NEXT:        |   %shuffle12 = shufflevector undef,  %shuffle11,  <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>;
+; HIR-NEXT:        |   %shuffle13 = shufflevector 42,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32 4>;
+; HIR-NEXT:        |   %shuffle14 = shufflevector %shuffle12,  %shuffle13,  <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>;
+; HIR-NEXT:        |   %vls.mask15 = shufflevector %.vec7,  zeroinitializer,  <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>;
+; HIR-NEXT:        |   (<8 x i64>*)(%ptr4)[2 * i1] = %shuffle14; Mask = @{%vls.mask15}
 ; HIR-NEXT:        + END LOOP
 ; HIR:             ret ;
 ; HIR-NEXT:  END REGION
@@ -324,14 +331,14 @@ define void @test_vls_mem(i64 *%ptr, i64 *%ptr2, i64 *%ptr3, i64 *%ptr4) #1 {
 ; HIR-NEXT:      remark #15451: unmasked unaligned unit stride stores: 0
 ; HIR-NEXT:      remark #15456: masked unaligned unit stride loads: 0
 ; HIR-NEXT:      remark #15457: masked unaligned unit stride stores: 0
-; HIR-NEXT:      remark #15458: masked indexed (or gather) loads: 2
-; HIR-NEXT:      remark #15459: masked indexed (or scatter) stores: 2
+; HIR-NEXT:      remark #15458: masked indexed (or gather) loads: 0
+; HIR-NEXT:      remark #15459: masked indexed (or scatter) stores: 0
 ; HIR-NEXT:      remark #15462: unmasked indexed (or gather) loads: 2
 ; HIR-NEXT:      remark #15463: unmasked indexed (or scatter) stores: 2
 ; HIR-NEXT:      remark #15554: Unmasked VLS-optimized loads (each part of the group counted separately): 2
-; HIR-NEXT:      remark #15555: Masked VLS-optimized loads (each part of the group counted separately): 0
+; HIR-NEXT:      remark #15555: Masked VLS-optimized loads (each part of the group counted separately): 2
 ; HIR-NEXT:      remark #15556: Unmasked VLS-optimized stores (each part of the group counted separately): 2
-; HIR-NEXT:      remark #15557: Masked VLS-optimized stores (each part of the group counted separately): 0
+; HIR-NEXT:      remark #15557: Masked VLS-optimized stores (each part of the group counted separately): 2
 ; HIR-NEXT:      remark #15474: --- end vector loop memory reference summary ---
 ; HIR:       LOOP END
 ; HIR-NEXT:  =================================================================

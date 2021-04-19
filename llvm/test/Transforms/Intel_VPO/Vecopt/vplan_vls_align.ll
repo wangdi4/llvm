@@ -27,8 +27,8 @@ for.body:                                         ; preds = %entry, %for.body
   %l1.014 = phi i64 [ 0, %entry ], [ %inc, %for.body ]
   %b = getelementptr inbounds [100 x %struct.f2], [100 x %struct.f2]* @farr, i64 0, i64 %l1.014, i32 1, !intel-tbaa !2
 ;
-; HIRCHECK:    %{{.*}} = (<8 x i32>*)([[ADDRCOPY:%.*]])[-1];
-; HIRCHECK:    <RVAL-REG> {al:8}(<8 x i32>*)(NON-LINEAR i32* [[ADDRCOPY]])[i64 -1]
+; HIRCHECK:    [[GEP_BASE:%.*]] = &((i32*)(@farr)[0][i1].1);
+; HIRCHECK:    <RVAL-REG> {al:8}(<8 x i32>*)(NON-LINEAR i32* [[GEP_BASE]])[i64 -1]
 ; LLVMCHECK:   %{{.*}} = load <8 x i32>, <8 x i32>* %{{.*}}, align 8
 ;
   %0 = load i32, i32* %b, align 4, !tbaa !2
