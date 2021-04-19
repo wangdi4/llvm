@@ -626,6 +626,36 @@ public:
     return false;
   }
 
+  /// Same as hasInMemoryEntity but restrict to reductions/inductions.
+  bool hasInMemoryReductionInduction() const {
+    for (auto &It : MemoryDescriptors) {
+      auto *VPEntity = It.first;
+      auto *MemoryDescr = It.second.get();
+      bool IsRedInd = isa<VPReduction>(VPEntity) || isa<VPInduction>(VPEntity);
+      // Return true if we have a reduction/induction with a memory descriptor
+      // that cannot be registerized.
+      if (IsRedInd && !MemoryDescr->canRegisterize())
+        return true;
+    }
+
+    return false;
+  }
+
+  /// Same as hasInMemoryEntity but restrict to liveout privates.
+  bool hasInMemoryLiveoutPrivate() const {
+    for (auto &It : MemoryDescriptors) {
+      auto *PrivEntity = dyn_cast<VPPrivate>(It.first);
+      auto *MemoryDescr = It.second.get();
+      bool IsLastPriv = PrivEntity && PrivEntity->isLast();
+      // Return true if we have a liveout private with a memory descriptor
+      // that cannot be registerized.
+      if (IsLastPriv && !MemoryDescr->canRegisterize())
+        return true;
+    }
+
+    return false;
+  }
+
   // Find implicit last privates in the loop and add their descriptors.
   // Implicit last private is a live out value which is assigned in the
   // loop and is not known as reduction/induction.

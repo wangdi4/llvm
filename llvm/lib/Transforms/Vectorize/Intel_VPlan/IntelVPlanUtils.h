@@ -255,6 +255,25 @@ inline unsigned getNumGroupEltsPerValue(const DataLayout &DL, Type *GroupTy,
   return ValueTypeSize / GroupElementTypeSize;
 }
 
+/// Helper function to check if VPValue is a private memory pointer that was
+/// allocated by VPlan. The implementation also checks for any aliases obtained
+/// via casts and gep instructions.
+// TODO: Check if this utility is still relevant after data layout
+// representation is finalized in VPlan.
+inline const VPValue *getVPValuePrivateMemoryPtr(const VPValue *V) {
+  if (isa<VPAllocatePrivate>(V))
+    return V;
+  // Check that it is a valid transform of private memory's address, by
+  // recurring into operand.
+  if (auto *VPI = dyn_cast<VPInstruction>(V))
+    if (VPI->isCast() || isa<VPGEPInstruction>(VPI) ||
+        isa<VPSubscriptInst>(VPI))
+      return getVPValuePrivateMemoryPtr(VPI->getOperand(0));
+
+  // All checks failed.
+  return nullptr;
+}
+
 #if INTEL_CUSTOMIZATION
 // Obtain stride information using loopopt interfaces for the given memory
 // reference MemRef. DDNode specifies the underlying HLDDNode for the

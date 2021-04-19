@@ -62,24 +62,6 @@ static bool LLVM_ATTRIBUTE_UNUSED isScalarPointeeTy(const VPValue *Val) {
             PointeeTy->isPointerTy()));
 }
 
-/// Helper function to check if VPValue is a private memory pointer that was
-/// allocated by VPlan. The implementation also checks for any aliases obtained
-/// via casts and gep instructions.
-// TODO: Check if this utility is still relevant after data layout
-// representation is finalized in VPlan.
-static const VPValue *getVPValuePrivateMemoryPtr(const VPValue *V) {
-  if (isa<VPAllocatePrivate>(V))
-    return V;
-  // Check that it is a valid transform of private memory's address, by
-  // recurring into operand.
-  if (auto *VPI = dyn_cast<VPInstruction>(V))
-    if (VPI->isCast() || isa<VPGEPInstruction>(VPI))
-      return getVPValuePrivateMemoryPtr(VPI->getOperand(0));
-
-  // All checks failed.
-  return nullptr;
-}
-
 /// Helper function to check if given VPValue has consecutive pointer stride(1
 /// or -1) and return true if this is the case. IsNegOneStride is set to true if
 /// stride is -1 and false otherwise.
