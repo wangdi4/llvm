@@ -4,6 +4,7 @@
 ; Check for default case i.e. max work group size < 2GB. Note that %trunc.user is removed from function,
 ; its uses replaced by %add. Similarly %shl.user and %ashr.inst are removed, with all uses of %ashr.inst
 ; replaced by %add.sext.
+; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s --check-prefix=LT2GB
 ; LT2GB-LABEL: @_ZGVeN8uu_foo
 
@@ -23,6 +24,7 @@
 
 
 ; Check for non-default case i.e. max work group size > 2GB.
+; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core --less-than-two-gig-max-work-group-size=false < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefixes=DEBUGIFY,DEBUGIFY2 %s
 ; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core --less-than-two-gig-max-work-group-size=false < %s -S -o - | FileCheck %s --check-prefix=GT2GB
 ; GT2GB-LABEL: @_ZGVeN8uu_foo
 
@@ -89,3 +91,13 @@ attributes #1 = { nounwind readnone }
 !10 = !{!"int*", !"float*"}
 !11 = !{i1 true}
 !12 = !{i32 8}
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_foo {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_foo {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_foo {{.*}} add
+; DEBUGIFY2-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_foo {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_foo {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_foo {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_foo {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uu_foo {{.*}} br
+; DEBUGIFY-NOT: WARNING

@@ -1,3 +1,4 @@
+; RUN: %oclopt -ocl-vec-clone-isa-encoding-override=SSE42 -ocl-vecclone -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -ocl-vec-clone-isa-encoding-override=SSE42 -ocl-vecclone -S %s | FileCheck %s
 
 ; According to the OpenCL spec, get-id calls shall return 0 on dims larger than
@@ -25,3 +26,12 @@ declare i32 @_Z12get_local_idj(i32) local_unnamed_addr
 
 !0 = !{void (i32 addrspace(1)*)* @foo}
 !1 = !{i32 4}
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_foo {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_foo {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_foo {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_foo {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_foo {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_foo {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_foo {{.*}} br
+; DEBUGIFY-NOT: WARNING

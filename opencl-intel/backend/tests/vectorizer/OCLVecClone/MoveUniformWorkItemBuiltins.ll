@@ -1,3 +1,4 @@
+; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s
 
 ; CHECK-LABEL:@_ZGVeN8uuu_f
@@ -147,3 +148,15 @@ attributes #2 = { convergent nounwind readnone }
 !17 = !{!"int", !18, i64 0}
 !18 = !{!"omnipotent char", !19, i64 0}
 !19 = !{!"Simple C/C++ TBAA"}
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Missing line 32
+; DEBUGIFY-NEXT: WARNING: Missing line 33
+; DEBUGIFY-NOT: WARNING

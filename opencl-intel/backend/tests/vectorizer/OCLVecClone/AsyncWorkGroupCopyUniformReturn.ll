@@ -1,3 +1,4 @@
+; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core -S < %s | FileCheck %s
 
 %opencl.event_t.5 = type opaque
@@ -26,3 +27,12 @@ attributes #0 = { convergent }
 
 !0 = !{void (i8 addrspace(3)*, i8 addrspace(1)*, i64, i64)* @test_fn}
 !1 = !{i32 4}
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_test_fn {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_test_fn {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_test_fn {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_test_fn {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_test_fn {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_test_fn {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_test_fn {{.*}} br
+; DEBUGIFY-NOT: WARNING

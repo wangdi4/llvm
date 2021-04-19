@@ -1,3 +1,4 @@
+; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -141,3 +142,16 @@ attributes #3 = { nounwind }
 !0 = !{void (i32 addrspace(1)*, i32, i32 addrspace(1)*, i32 addrspace(1)*, %opencl.pipe_wo_t.6 addrspace(1)*, %opencl.pipe_ro_t.7 addrspace(1)*, i8 addrspace(3)*, i8 addrspace(1)*, i64, i64)* @compute_sum}
 !1 = !{i32 4}
 !2 = !{i32 2, i32 0}
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuuuuuuuu_compute_sum {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuuuuuuuu_compute_sum {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuuuuuuuu_compute_sum {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuuuuuuuu_compute_sum {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuuuuuuuu_compute_sum {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuuuuuuuu_compute_sum {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuuuuuuuu_compute_sum {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Missing line 15
+; DEBUGIFY-NEXT: WARNING: Missing line 16
+; DEBUGIFY-NEXT: WARNING: Missing line 27
+; DEBUGIFY-NEXT: WARNING: Missing line 28
+; DEBUGIFY-NOT: WARNING

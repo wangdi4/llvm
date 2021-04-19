@@ -1,3 +1,4 @@
+; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt --ocl-vecclone -VPlanDriver --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s
 
 ; ModuleID = '<stdin>'
@@ -249,3 +250,13 @@ attributes #4 = { convergent nounwind }
 !13 = !{!"Simple C/C++ TBAA"}
 !14 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, %opencl.image2d_ro_t.4 addrspace(1)*, %opencl.image2d_wo_t.5 addrspace(1)*)* @a}
 !15 = !{i32 4}
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuu_a {{.*}} br
+; DEBUGIFY-NOT: WARNING
