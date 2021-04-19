@@ -1897,7 +1897,12 @@ public:
         setAllAliasedTypeSafetyData(
             LHSInfo, dtrans::BadPtrManipulation,
             "Pointer subtract result has non-divide by size use", &Sub);
+        return;
       }
+
+      // The subtraction is safe. Save the type information for queries by the
+      // transformations.
+      DTInfo.addPtrSubMapping(&Sub, ElementTy);
     };
 
     // Check that one operand is an instruction and the other is an integer
@@ -3990,7 +3995,12 @@ private:
 DTransSafetyInfo::DTransSafetyInfo(DTransSafetyInfo &&Other)
     : TM(std::move(Other.TM)), MDReader(std::move(Other.MDReader)),
       PtrAnalyzer(std::move(Other.PtrAnalyzer)),
-      DTransSafetyAnalysisRan(Other.DTransSafetyAnalysisRan) {}
+      TypeInfoMap(std::move(Other.TypeInfoMap)), CIM(std::move(Other.CIM)),
+      UnhandledPtrType(Other.UnhandledPtrType),
+      DTransSafetyAnalysisRan(Other.DTransSafetyAnalysisRan) {
+  PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
+  Other.PtrSubInfoMap.clear();
+}
 
 DTransSafetyInfo::~DTransSafetyInfo() { reset(); }
 
@@ -3999,8 +4009,13 @@ DTransSafetyInfo &DTransSafetyInfo::operator=(DTransSafetyInfo &&Other) {
   TM = std::move(Other.TM);
   MDReader = std::move(Other.MDReader);
   PtrAnalyzer = std::move(Other.PtrAnalyzer);
+  TypeInfoMap = std::move(Other.TypeInfoMap);
+  CIM = std::move(Other.CIM);
+  PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
+  Other.PtrSubInfoMap.clear();
   UnhandledPtrType = Other.UnhandledPtrType;
   DTransSafetyAnalysisRan = Other.DTransSafetyAnalysisRan;
+
   return *this;
 }
 
@@ -4171,6 +4186,21 @@ dtrans::TypeInfo *DTransSafetyInfo::getTypeInfo(DTransType *Ty) const {
     return It->second;
 
   return nullptr;
+}
+
+void DTransSafetyInfo::addPtrSubMapping(llvm::BinaryOperator *BinOp,
+  DTransType *Ty) {
+  DEBUG_WITH_TYPE(SAFETY_VERBOSE, {
+    dbgs() << "addPtrSubMapping: ";
+    if (auto *I = dyn_cast<Instruction>(BinOp))
+      dbgs() << I->getFunction()->getName() << ": ";
+    dbgs() << *BinOp << " -- " << *Ty << "\n";
+  });
+  PtrSubInfoMap[BinOp] = Ty;
+}
+
+DTransType *DTransSafetyInfo::getResolvedPtrSubType(BinaryOperator *BinOp) {
+  return PtrSubInfoMap.lookup(BinOp);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
