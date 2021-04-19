@@ -56,8 +56,13 @@ public:
   void dump(raw_ostream &OS, ScopeTy *Scope) const {}
 
   // Formatted print of cost increase/decrease due to Heuristics.
+  // The output is a full line.
   void printCostChange(raw_ostream *OS,
                        unsigned RefCost, unsigned NewCost) const;
+  // The short form of 'cost change' output. The utility is invoked during per
+  // instruction cost model debug dump.
+  void printCostChangeInline(raw_ostream *OS,
+                             unsigned RefCost, unsigned NewCost) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
@@ -201,6 +206,17 @@ public:
   using HeuristicBase::dump;
   void dump(raw_ostream &OS, const VPInstruction *VPInst) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
+// VPInstruction level heuristics that triggers on Integer DIV/REM instructions
+// to take into account that the compiler uses corresponding SVML Vector
+// entries to implement these operations.
+class HeuristicSVMLIDivIRem : public HeuristicBase {
+public:
+  HeuristicSVMLIDivIRem(VPlanTTICostModel *CM) :
+    HeuristicBase(CM, "IDiv/IRem") {};
+  void apply(unsigned TTICost, unsigned &Cost,
+             const VPInstruction *VPInst, raw_ostream *OS = nullptr) const;
 };
 
 } // namespace VPlanCostModelHeuristics
