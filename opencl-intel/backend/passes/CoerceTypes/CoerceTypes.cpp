@@ -47,6 +47,21 @@ OCL_INITIALIZE_PASS(CoerceTypes, "coerce-types",
 
 CoerceTypes::CoerceTypes() : ModulePass(ID) {}
 
+static Value *CreateAllocaInst(Type *Ty, Function *F, unsigned Alignment,
+                               unsigned AS) {
+  Module *M = F->getParent();
+  const DataLayout &DL = M->getDataLayout();
+  unsigned AllocaAS = DL.getAllocaAddrSpace();
+  IRBuilder<> Builder(&F->getEntryBlock().front());
+  AllocaInst *AllocaRes = Builder.CreateAlloca(Ty, AllocaAS);
+  // If the alignment is defined, set it.
+  if (Alignment)
+    AllocaRes->setAlignment(Align(Alignment));
+  if (AS != AllocaAS)
+    return Builder.CreateAddrSpaceCast(AllocaRes, PointerType::get(Ty, AS));
+  return AllocaRes;
+}
+
 bool CoerceTypes::runOnModule(Module &M) {
   m_pModule = &M;
   m_pDataLayout = &M.getDataLayout();
@@ -90,13 +105,23 @@ bool CoerceTypes::runOnFunction(Function *F) {
   unsigned NFreeIntRegs = 6;
   unsigned NFreeSSERegs = 8;
 
+  DenseMap<unsigned, std::pair<unsigned, uint64_t>> ValueMap;
   // Coerce function argument types
   for (auto &Arg : F->args()) {
     TypePair TP = getCoercedType(&Arg, NFreeIntRegs, NFreeSSERegs);
+    if (Arg.getType() == TP.first && Arg.hasByValAttr()) {
+      Changed = true;
+      Type *ArgMemTy = Arg.getParamByValType();
+      auto OldStructT = cast<StructType>(ArgMemTy);
+      uint64_t MemSize =
+          m_pDataLayout->getStructLayout(OldStructT)->getSizeInBytes();
+      ValueMap[Arg.getArgNo()] = {Arg.getParamAlignment(), MemSize};
+      TP = {Arg.getType(), nullptr};
+    }
+    Changed |= (Arg.getType() != TP.first);
     OldArgTypes.push_back(Arg.getType());
     NewArgTypePairs.push_back(TP);
     NewArgTypes.push_back(TP.first);
-    Changed |= (Arg.getType() != TP.first);
     if (TP.second)
       NewArgTypes.push_back(TP.second);
   }
@@ -141,7 +166,25 @@ bool CoerceTypes::runOnFunction(Function *F) {
         IRBuilder<> Builder(CI);
         for (const auto &NewArgTypePair : NewArgTypePairs) {
           if (NewArgTypePair.first == OldArgTypes[I]) {
-            Args.push_back(CI->getArgOperand(I));
+            // For the byval arguments that can not be split, we need to handle
+            // them as we do on windows.
+            if (CI->paramHasAttr(I, Attribute::ByVal)) {
+              Value *ArgI = CI->getArgOperand(I);
+              auto *PT = cast<PointerType>(ArgI->getType());
+              Type *ElementTy = PT->getElementType();
+              // In case that FE doesn't pass the size information.
+              unsigned Alignment = ValueMap[I].first;
+              uint64_t MemSize = ValueMap[I].second;
+              Value *Alloca =
+                  CreateAllocaInst(ElementTy, CI->getFunction(), Alignment,
+                                   PT->getAddressSpace());
+              Value *DstPtr = Builder.CreateInBoundsGEP(ElementTy, Alloca,
+                                                        Builder.getInt32(0));
+              Builder.CreateMemCpy(DstPtr, MaybeAlign(Alignment), ArgI,
+                                   MaybeAlign(Alignment), MemSize);
+              Args.push_back(Alloca);
+            } else
+              Args.push_back(CI->getArgOperand(I));
             ++I;
             continue;
           }
@@ -423,6 +466,9 @@ void CoerceTypes::copyAttributesAndArgNames(
   for (const auto &NewArgTypePair : NewArgTypePairs) {
     if (NewArgTypePair.first == OldArgI->getType()) {
       assert(!NewArgTypePair.second && "Unexpected second type");
+      if (OldAttrList.hasAttribute(I, Attribute::ByVal))
+        OldAttrList =
+            OldAttrList.removeParamAttributes(m_pModule->getContext(), I);
       ArgAttrs.push_back(
           OldAttrList.getAttributes(I + AttributeList::FirstArgIndex));
       NewArgI->setName(OldArgI->getName());

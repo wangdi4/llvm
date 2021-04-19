@@ -94,8 +94,9 @@ protected:
 
   // Move old function body to the new one, replace uses of old arguments with
   // the new ones
-  void moveFunctionBody(Function *OldF, Function *NewF,
-                        ArrayRef<TypePair> NewArgTypePairs);
+  void
+  moveFunctionBody(Function *OldF, Function *NewF,
+                   ArrayRef<TypePair> NewArgTypePairs);
 
   Module *m_pModule;
   const DataLayout *m_pDataLayout;
