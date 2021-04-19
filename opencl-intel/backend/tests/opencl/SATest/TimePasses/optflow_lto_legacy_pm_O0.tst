@@ -9,3 +9,11 @@
 ; CHECK-DAG: PrepareKernelArgsLegacy
 ; CHECK-DAG: ResolveWICallLegacy
 ; CHECK-DAG: WGLoopCreatorLegacy
+; CHECK-DAG: PhiCanonicalization
+; CHECK-DAG: Intel Kernel RedundantPhiNode
+; CHECK-DAG: Intel Kernel DataPerValue Analysis
+; CHECK-DAG: Intel Kernel DataPerBarrier Analysis
+; CHECK-DAG: Intel Kernel WIRelatedValue Analysis
+; CHECK-DAG: Intel Kernel BarrierInFunction
+; CHECK-DAG: Intel Kernel SplitBBonBarrier
+; CHECK-DAG: Intel Kernel Barrier
