@@ -284,12 +284,12 @@ static void processIVRemoval(CanonExpr *CE, unsigned LoopLevel,
 // Decompose a CanonExpr. Return the last VPValue resulting from its
 // decomposition.
 VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
+  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
   LLVM_DEBUG(dbgs() << "  Decomposing CanonExpr: "; CE->dump(); dbgs() << "\n");
   VPValue *DecompDef = nullptr;
   // Set debug locations for all newly created VPIs from decomposition of this
   // CE.
-  ScopeDbgLoc DbgLoc(Builder, CE->getDebugLoc());
-
+  Builder.setCurrentDebugLocation(CE->getDebugLoc());
   // Return true if we want to force regular decomposition of given
   // canon expression.
   auto forceRegularDecomposition = [](CanonExpr *CE, unsigned VecLoopLevel) {
@@ -488,6 +488,7 @@ static Align getAlignForMemref(RegDDRef *Ref) {
 //    as operand.
 //
 VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
+  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
   LLVM_DEBUG(dbgs() << "VPDecomp: Decomposing memory operand: "; Ref->dump();
              dbgs() << "\n");
 
@@ -496,8 +497,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
 
   // Final VPInstruction obtained on decomposing the MemOp
   VPValue *MemOpVPI;
-  ScopeDbgLoc GepDbgLoc(Builder, Ref->getGepDebugLoc());
-
+  Builder.setCurrentDebugLocation(Ref->getGepDebugLoc());
   VPValue *DecompBaseCE = decomposeCanonExpr(Ref, Ref->getBaseCE());
 
   LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompBaseCE: "; DecompBaseCE->dump();
@@ -601,7 +601,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   if (Ref->isAddressOf())
     return MemOpVPI;
 
-  ScopeDbgLoc DbgLoc(Builder, Ref->getMemDebugLoc());
+  Builder.setCurrentDebugLocation(Ref->getMemDebugLoc());
 
   if (Ref->isRval()) {
     // If memory reference is an RVal, then it corresponds to a load. Create a
@@ -899,11 +899,11 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   };
 
   if (auto *HInst = dyn_cast<HLInst>(Node)) {
+    VPBuilder::DbgLocGuard DbgLocGuard(Builder);
     const Instruction *LLVMInst = HInst->getLLVMInstruction();
     assert(LLVMInst && "Missing LLVM Instruction for HLInst.");
-
     // Set debug location for VPInstruction generated for given HLInst.
-    ScopeDbgLoc DbgLoc(Builder, HInst->getDebugLoc());
+    Builder.setCurrentDebugLocation(HInst->getDebugLoc());
 
     // Any LLVM instruction which semantically has a terminal lval/rval can
     // alternatively contain a memref operand in HIR. For example, an add
@@ -971,11 +971,12 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
 VPInstruction *
 VPDecomposerHIR::createVPInstsForHLIf(HLIf *HIf,
                                       ArrayRef<VPValue *> VPOperands) {
+  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
   // Check if number of operands for a HLIf is twice the number of its
   // predicates
   assert((HIf->getNumPredicates() * 2 == VPOperands.size()) &&
          "Incorrect number of operands for a HLIf");
-  ScopeDbgLoc DbgLoc(Builder, HIf->getDebugLoc());
+  Builder.setCurrentDebugLocation(HIf->getDebugLoc());
 
   auto FirstPred = HIf->pred_begin();
   // Create a new VPCmpInst corresponding to the first predicate
@@ -1207,8 +1208,9 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   // created VPInstruction. Only normalized loops are expected so we use step 1.
   assert(HLp->getStrideCanonExpr()->isOne() &&
          "Expected positive unit-stride HLLoop.");
+  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
   Builder.setInsertPoint(LpLatch);
-  ScopeDbgLoc DbgLocBottomTest(Builder, HLp->getCmpDebugLoc());
+  Builder.setCurrentDebugLocation(HLp->getCmpDebugLoc());
   VPConstant *One =
       Plan->getVPConstant(ConstantInt::getSigned(HLp->getIVType(), 1));
   auto *IVNext = cast<VPInstruction>(Builder.createAdd(IndVPPhi, One, HLp));
