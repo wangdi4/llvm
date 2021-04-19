@@ -123,8 +123,8 @@ if(LIBOMPTARGET_DEP_OPENCL_FOUND)
     COMMAND ${CMAKE_COMMAND} -E echo > empty_host.c
     COMMAND clang -c -o empty_host${objext} empty_host.c
     COMMAND clang-offload-bundler --type=o
-            --targets=${host_target_name},openmp-spir64
-            --inputs=empty_host${objext},${opencl_device_rtl_bc}
+            --targets=${host_target_name},openmp-spir64,openmp-spir64_gen
+            --inputs=empty_host${objext},${opencl_device_rtl_bc},${opencl_device_rtl_bc}
             --outputs=${opencl_device_rtl_obj}
     DEPENDS ${opencl_device_rtl_bc} clang clang-offload-bundler
     VERBATIM
