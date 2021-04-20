@@ -72,6 +72,12 @@ public:
                     const InputInfo &Output, const InputInfoList &Inputs,
                     const llvm::opt::ArgList &TCArgs,
                     const char *LinkingOutput) const override;
+
+private:
+  void constructOpenCLAOTCommand(Compilation &C, const JobAction &JA,
+                                 const InputInfo &Output,
+                                 const InputInfoList &InputFiles,
+                                 const llvm::opt::ArgList &Args) const;
 };
 
 } // end namespace fpga
@@ -131,9 +137,12 @@ public:
                          llvm::opt::ArgStringList &CC1Args,
                          Action::OffloadKind DeviceOffloadKind) const override;
 #if INTEL_CUSTOMIZATION
-  void TranslateBackendTargetArgs(const JobAction &JA,
+  void AddImpliedTargetArgs( const llvm::Triple &Triple,
+      const clang::driver::Driver &Driver, const llvm::opt::ArgList &Args,
+      llvm::opt::ArgStringList &CmdArgs) const;
+  void TranslateBackendTargetArgs(const Action::OffloadKind DeviceOffloadKind,
       const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const;
-  void TranslateLinkerTargetArgs(const JobAction &JA,
+  void TranslateLinkerTargetArgs(const Action::OffloadKind DeviceOffloadKind,
       const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const;
 #endif // INTEL_CUSTOMIZATION
 
@@ -166,9 +175,9 @@ protected:
 
 private:
 #if INTEL_CUSTOMIZATION
-  void TranslateTargetOpt(const JobAction &JA, const llvm::opt::ArgList &Args,
-      llvm::opt::ArgStringList &CmdArgs, llvm::opt::OptSpecifier Opt,
-      llvm::opt::OptSpecifier Opt_EQ) const;
+  void TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
+      const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs,
+      llvm::opt::OptSpecifier Opt, llvm::opt::OptSpecifier Opt_EQ) const;
 #endif // INTEL_CUSTOMIZATION
 };
 
