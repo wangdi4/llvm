@@ -50,7 +50,7 @@ bool ExternalizeGlobalVariables::runOnModule(Module &M) {
 
   for (auto &GVar : M.globals()) {
     bool SkipConvertLinkage =
-        TLSGlobals.count(&GVar) ||
+        TLSGlobals.count(&GVar) || !GVar.hasName() ||
         (GVar.hasName() && GVar.getName().startswith("llvm.")) ||
         (GVar.getLinkage() != GlobalValue::InternalLinkage &&
          GVar.getLinkage() != GlobalValue::PrivateLinkage);
