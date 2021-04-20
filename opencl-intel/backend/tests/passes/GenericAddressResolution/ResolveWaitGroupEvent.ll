@@ -1,3 +1,4 @@
+; RUN: %oclopt -generic-addr-dynamic-resolution -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -generic-addr-dynamic-resolution -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -42,3 +43,5 @@ attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "
 
 !0 = !{void (i32 addrspace(1)*)* @ker}
 !1 = !{!"-cl-std=CL2.0"}
+
+; DEBUGIFY-NOT: WARNING
