@@ -2875,6 +2875,13 @@ def fsycl_help : Flag<["-"], "fsycl-help">, Alias<fsycl_help_EQ>,
 def fsycl_libspirv_path_EQ : Joined<["-"], "fsycl-libspirv-path=">,
   Flags<[CC1Option, CoreOption, DpcppOption]>, HelpText<"Path to libspirv library">;
 def fno_sycl_libspirv : Flag<["-"], "fno-sycl-libspirv">, Flags<[DpcppOption]>, HelpText<"Disable check for libspirv">;
+def fsycl_host_compiler_EQ : Joined<["-"], "fsycl-host-compiler=">,
+  Flags<[CoreOption, DpcppOption]>, HelpText<"Specify C++ compiler binary to perform host "
+  "compilation with during SYCL offload compiles.">;
+def fsycl_host_compiler_options_EQ : Joined<["-"], "fsycl-host-compiler-options=">,
+  Flags<[CoreOption, DpcppOption]>, HelpText<"When performing the host compilation with "
+  "-fsycl-host-compiler specified, use the given options during that compile. "
+  "Options are expected to be a quoted list of space separated options.">;
 #endif // INTEL_CUSTOMIZATION
 def fsyntax_only : Flag<["-"], "fsyntax-only">,
   Flags<[NoXarchOption,CoreOption,CC1Option,FC1Option]>, Group<Action_Group>;
