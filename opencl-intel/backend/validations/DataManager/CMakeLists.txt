@@ -37,7 +37,7 @@ set (DM_INCLUDE_FILES
   )
 
 # Data Manager Library
-add_library(DataManager
+add_library(DataManager STATIC
   ${DM_INCLUDE_FILES}
   VectorWidth.cpp
   DataType.cpp

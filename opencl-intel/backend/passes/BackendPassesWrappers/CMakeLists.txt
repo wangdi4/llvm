@@ -12,7 +12,7 @@ set (PASSESWRAPPERS_SOURCE_FILES
     PassesWrappers.cpp
 )
 
-add_library(${TARGET_NAME}
+add_library(${TARGET_NAME} STATIC
     ${PASSESWRAPPERS_SOURCE_FILES}
 )
 

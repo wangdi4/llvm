@@ -1,6 +1,6 @@
 set(TARGET_NAME AddFastMath)
 
-add_library(${TARGET_NAME}
+add_library(${TARGET_NAME} STATIC
   AddFastMath.cpp
   AddFastMath.h)
 

@@ -8,7 +8,7 @@ set(TARGET_SOURCE_FILES
   ChannelsUsageAnalysis.cpp
 )
 
-add_library(${TARGET_NAME}
+add_library(${TARGET_NAME} STATIC
   ${TARGET_SOURCE_FILES}
 )
 

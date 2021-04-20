@@ -4,7 +4,7 @@ set(PROFILINGINFOPASS_SOURCE_FILES
     ProfilingInfoPass.cpp
 )
 
-add_library(${TARGET_NAME}
+add_library(${TARGET_NAME} STATIC
     ${PROFILINGINFOPASS_SOURCE_FILES}
 )
 

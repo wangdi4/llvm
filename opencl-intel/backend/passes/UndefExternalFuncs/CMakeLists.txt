@@ -12,7 +12,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo
 )
 
-add_library(${TARGET_NAME}
+add_library(${TARGET_NAME} STATIC
     ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}
 )

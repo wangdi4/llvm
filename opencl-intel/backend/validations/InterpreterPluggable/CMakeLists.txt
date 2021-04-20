@@ -7,7 +7,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/name_mangling
 )
 
-add_library(${TARGET_NAME}
+add_library(${TARGET_NAME} STATIC
   OpenCLCompilationFlags.h
   OpenCLCompilationFlags.cpp
   InterpreterPluggable.h

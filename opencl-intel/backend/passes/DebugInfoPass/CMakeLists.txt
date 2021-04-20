@@ -11,7 +11,7 @@ include_directories(
   ${CMAKE_BINARY_DIR}/include
 )
 
-add_library(${TARGET_NAME}
+add_library(${TARGET_NAME} STATIC
   ${DEBUGINFOPASS_SOURCE_FILES}
 )
 
