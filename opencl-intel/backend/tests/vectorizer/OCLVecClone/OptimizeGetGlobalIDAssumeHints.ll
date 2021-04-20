@@ -1,6 +1,7 @@
 ; Test to check that function calls to get_global_id() are moved and uses replaced in an optimized
 ; manner if assumption hints about range of the ID value is provided.
 
+; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s
 
 ; Check that %gid.trunc is removed from function and its uses replaced by %add1.
@@ -74,3 +75,12 @@ attributes #1 = { nounwind readnone }
 !10 = !{!"int*", !"float*"}
 !11 = !{i1 true}
 !12 = !{i32 8}
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_foo {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_foo {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_foo {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_foo {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_foo {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_foo {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_foo {{.*}} br
+; DEBUGIFY-NOT: WARNING
