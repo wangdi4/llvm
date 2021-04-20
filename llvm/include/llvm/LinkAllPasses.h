@@ -393,7 +393,6 @@ namespace {
       (void) llvm::createHIRArrayScalarizationTestLauncherPass();
 
       // DPCPP Kernel Transformations
-      (void)llvm::createBuiltinImportLegacyPass();
       (void)llvm::createDPCPPEqualizerLegacyPass();
       (void) llvm::createDPCPPKernelVecClonePass();
       (void) llvm::createDPCPPKernelPostVecPass();
