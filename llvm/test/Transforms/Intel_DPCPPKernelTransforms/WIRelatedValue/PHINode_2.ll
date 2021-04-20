@@ -28,7 +28,7 @@ L3:
   call void @_Z18work_group_barrierj(i32 2)
   ret void
 ; CHECK: WI related Values
-; CHECK: isOk is WI related
+; CHECK: %isOk is WI related
 }
 
 declare i32 @_Z12get_local_idj(i32)

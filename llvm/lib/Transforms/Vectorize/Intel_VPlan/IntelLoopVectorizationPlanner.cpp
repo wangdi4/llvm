@@ -510,10 +510,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
 
   // Even if TripCount is more than 2^32 we can safely assume that it's equal
   // to 2^32, otherwise all logic below will have a problem with overflow.
-  VPLoopInfo *VPLI = ScalarPlan->getVPLoopInfo();
-  assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
-         "Expected single outermost loop!");
-  VPLoop *OuterMostVPLoop = *VPLI->begin();
+  VPLoop *OuterMostVPLoop = ScalarPlan->getMainLoop(true);
   uint64_t TripCount = std::min(OuterMostVPLoop->getTripCountInfo().TripCount,
                                 (uint64_t)std::numeric_limits<unsigned>::max());
   unsigned BestUF = getLoopUnrollFactor();
@@ -765,10 +762,7 @@ void LoopVectorizationPlanner::predicate() {
     if (PredicatedVPlans.count(VPlan))
       return; // Already predicated.
 
-    VPLoopInfo *VPLI = VPlan->getVPLoopInfo();
-    assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
-           "There should be single outer loop!");
-    VPLoop *OuterLoop = *VPLI->begin();
+    VPLoop *OuterLoop = VPlan->getMainLoop(true);
     // Search loops require multiple hacks. Skipping LCSSA/LoopCFU is one of
     // them.
     bool SearchLoopHack = !OuterLoop->getExitBlock();

@@ -170,7 +170,7 @@ public:
   //  full support for cloning such loops would have to be tested before this
   //  function is used for cloning such loops.
   Loop *cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
-                        BasicBlock *NewLoopSucc,
+                        BasicBlock *NewLoopSucc, VPPeelRemainder *LoopInst,
                         const Twine &Name = "cloned.loop");
 
 private:
@@ -332,6 +332,9 @@ private:
   /// Return the right vector mask for a OpenCL vector select build-in.
   Value *getOpenCLSelectVectorMask(VPValue *ScalarMask);
 
+  /// Generate code for the VPPeelCount instruction.
+  Value *codeGenVPInvSCEVWrapper(VPInvSCEVWrapper *SW);
+
   /// Generate vector code for reduction finalization.
   /// The final vector reduction value is reduced horizontally using
   /// "llvm.experimental.vector.reduce" intrinsics. The scalar result is
@@ -378,6 +381,15 @@ private:
   /// Vectorize blend instructions using selects.
   void vectorizeBlend(VPBlendInst *Blend);
 
+  // In the original loop header phis remove operands coming from original
+  // preheader.
+  void unlinkOrigHeaderPhis();
+
+  // Drop values generated for externals (VPExternalDef, VPConstant etc) from
+  // value maps. This is done when we encounter VPPushVF/VPPopVF so we don't
+  // use values geneated for different loops/VPlans.
+  void dropExternalValsFromMaps();
+
   /// The original loop.
   Loop *OrigLoop;
 
@@ -423,11 +435,34 @@ private:
   // Unroll factor
   unsigned UF;
 
-  // Stack of pairs <vector factor, unroll vactor>.
-  SmallVector<std::pair<unsigned, unsigned>, 2> VFStack;
+  // Last VPPushVF encountered.
+  VPInstruction *LastPushVF = nullptr;
+
+  // Stack of triple <vector factor, unroll vactor, VPInstruction *>
+  SmallVector<std::tuple<unsigned, unsigned, VPInstruction *>, 2> VFStack;
+
+  // Set of VPValues which we should erase from the maps of already generated
+  // values when we encounter VPPushVF/VPPopVF instructions. The same
+  // VPConstants and VPExternalDefs can be used in different VPlans. But
+  // generating code for a VPlan we can't use the values generated in another
+  // VPlan, due to VFs mismatch and/or domination reasons. The VPPushVF/VPPopVF
+  // define the bounds between VPlans so we use them to drop those maps
+  SmallSet<VPValue*, 16> VPValsToFlushForVF;
 
   // IR Builder to use to generate instructions
   IRBuilder<> Builder;
+
+  // Flag to indicate that the original loop is used either as peel or
+  // remainder.
+  // In case it's not used, in the end of CG we need to update original header
+  // block phi-s removing incoming values from the loop preheader. E.g. the
+  // phi-s will remain in the form
+  //   %indvars.iv = phi i64 [ %indvars.iv.next, %for.end ], [ 0, %preheader ]
+  // but the %preheader is not a predecessor of the header anymore as we
+  // replaced it by the vector loop.
+  // When the original loop is used somehow we update those phis incoming values
+  // in a different way (see fixNonInductionVPPhis()).
+  bool OrigLoopUsed = false;
 
   /// Holds a mapping between the VPPHINode and the corresponding vector LLVM
   /// IR PHI node that needs fix up. The operands of the VPPHINode are used

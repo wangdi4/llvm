@@ -716,6 +716,16 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
   }
 }
 
+StringRef stripStructNameTrailingDigits(StringRef TyName) {
+  // remove a '.' followed by any number of digits
+  size_t Dot = TyName.find_last_of('.');
+  if (TyName.npos != Dot &&
+      TyName.npos == TyName.find_first_not_of("0123456789", Dot + 1))
+    return TyName.substr(0, Dot);
+
+  return TyName;
+}
+
 void updateFunctionMetadata(Module *M,
                             DenseMap<Function *, Function *> &FunctionMap) {
   // Update the references in Function metadata.

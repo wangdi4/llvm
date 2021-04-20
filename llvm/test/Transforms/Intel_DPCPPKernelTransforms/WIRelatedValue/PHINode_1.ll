@@ -1,4 +1,4 @@
-; RUN: opt -disable-output 2>&1 -passes=<dpcpp-kernel-barrier-wi-analysis> %s -S -o - | FileCheck %s
+; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-barrier-wi-analysis>' %s -S -o - | FileCheck %s
 ; RUN: opt -analyze -dpcpp-kernel-barrier-wi-analysis %s -S -o - | FileCheck %s
 ;; XFAIL: *
 
@@ -28,7 +28,7 @@ L3:
   call void @_Z18work_group_barrierj(i32 2)
   ret void
 ; CHECK: WI related Values
-; CHECK: isOk is not WI related
+; CHECK: %isOk is not WI related
 }
 
 declare void @_Z18work_group_barrierj(i32)

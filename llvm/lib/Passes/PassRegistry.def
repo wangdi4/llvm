@@ -62,6 +62,7 @@ MODULE_ALIAS_ANALYSIS("anders-aa", AndersensAA())    // INTEL
 #if INTEL_CUSTOMIZATION
 MODULE_PASS("vec-clone",VecClonePass());
 MODULE_PASS("vplan-pragma-omp-ordered-simd-extract", VPlanPragmaOmpOrderedSimdExtractPass());
+MODULE_PASS("dpcpp-kernel-builtin-import", BuiltinImportPass())
 MODULE_PASS("dpcpp-kernel-equalizer", DPCPPEqualizerPass())
 MODULE_PASS("dpcpp-kernel-analysis", DPCPPKernelAnalysisPass())
 MODULE_PASS("dpcpp-kernel-wgloop-creator", DPCPPKernelWGLoopCreatorPass())

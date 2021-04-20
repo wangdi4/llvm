@@ -1,0 +1,28 @@
+; This module is used by import_globals_referenced_by_declaration.ll
+
+target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
+target triple = "i686-pc-win32"
+
+@double_const_expMask = external addrspace(2) constant i64
+@double_const_mantissaBits = external addrspace(2) constant i32
+@double_const_expOffset = external addrspace(2) constant i32
+@double_const_not_used = external addrspace(2) constant i32
+
+; Function Attrs: nounwind readnone
+define i32 @_Z12native_ilogbd(double %x) #0 {
+entry:
+  %astype = bitcast double %x to i64
+  %0 = load i64, i64 addrspace(2)* @double_const_expMask, align 8
+  %and = and i64 %0, %astype
+  %1 = load i32, i32 addrspace(2)* @double_const_mantissaBits, align 4
+  %sh_prom = zext i32 %1 to i64
+  %shr.mask = and i64 %sh_prom, 63
+  %shr = ashr i64 %and, %shr.mask
+  %2 = load i32, i32 addrspace(2)* @double_const_expOffset, align 4
+  %conv = sext i32 %2 to i64
+  %sub = sub i64 %shr, %conv
+  %call.i = tail call i32 @__ocl_trunc_v1i64_v1i32(i64 %sub) #4
+  ret i32 %call.i
+}
+
+declare i32 @__ocl_trunc_v1i64_v1i32(i64)

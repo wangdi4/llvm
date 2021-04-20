@@ -5,8 +5,8 @@
 ;; This test checks the WIRelatedValue pass
 ;; The expected result:
 ;;   WI related Values
-;;   lid is WI related
-;;   gid is WI related
+;;   %lid is WI related
+;;   %gid is WI related
 ;;*****************************************************************************
 
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
@@ -19,8 +19,8 @@ define void @main() #0 {
   call void @_Z18work_group_barrierj(i32 2)
   ret void
 ; CHECK: WI related Values
-; CHECK: lid is WI related
-; CHECK: gid is WI related
+; CHECK: %lid is WI related
+; CHECK: %gid is WI related
 }
 
 declare void @_Z18work_group_barrierj(i32)

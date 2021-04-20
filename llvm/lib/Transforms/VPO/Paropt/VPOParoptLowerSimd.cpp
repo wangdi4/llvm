@@ -575,6 +575,129 @@ static Constant *getConstVector(Type *ITy, unsigned int n, unsigned int step) {
   return ConstantVector::get(vConsts);
 }
 
+static Instruction *createRdRegion(Value *Input, const Twine &Name,
+                                   Instruction *InsertBefore, int NumElements,
+                                   int StartIdx, int VStride, int Width,
+                                   int Stride) {
+  assert(isa<VectorType>(Input->getType()));
+  IntegerType *I32Ty = Type::getInt32Ty(Input->getContext());
+  Value *ParentWidthArg = UndefValue::get(I32Ty);
+  Value *Args[] = {
+      // Args to new rdregion:
+      Input,                             // input to original rdregion
+      ConstantInt::get(I32Ty, VStride),  // vstride
+      ConstantInt::get(I32Ty, Width),    // width
+      ConstantInt::get(I32Ty, Stride),   // stride
+      ConstantInt::get(I32Ty, StartIdx), // start index (in bytes)
+      ParentWidthArg                     // parent width
+  };
+  Type *ElTy = cast<VectorType>(Input->getType())->getElementType();
+  auto RegionTy = llvm::FixedVectorType::get(ElTy, NumElements);
+  Module *M = InsertBefore->getParent()->getParent()->getParent();
+  auto IID = ElTy->isFloatingPointTy() ? GenXIntrinsic::genx_rdregionf
+                                       : GenXIntrinsic::genx_rdregioni;
+  Type *Tys[] = {RegionTy, Args[0]->getType(), Args[4]->getType()};
+  auto Decl = GenXIntrinsic::getGenXDeclaration(M, IID, Tys);
+  Instruction *NewInst = CallInst::Create(Decl, Args, Name, InsertBefore);
+  return NewInst;
+}
+
+static Instruction *createWrRegion(Value *OldVal, Value *Input,
+                                   const Twine &Name, Instruction *InsertBefore,
+                                   int StartIdx, int VStride, int Width,
+                                   int Stride) {
+  assert(isa<VectorType>(Input->getType()));
+  assert(isa<VectorType>(OldVal->getType()));
+  assert(OldVal->getType()->getScalarType() ==
+         Input->getType()->getScalarType());
+  IntegerType *I32Ty = Type::getInt32Ty(Input->getContext());
+  Value *ParentWidthArg = UndefValue::get(I32Ty);
+  // Get the mask value. If R.Mask is 0, then the wrregion is unpredicated
+  // and we just use constant 1.
+  Value *MaskArg = ConstantInt::get(Type::getInt1Ty(Input->getContext()), 1);
+  // Build the wrregion.
+  Value *Args[] = {
+      // Args to new wrregion:
+      OldVal,                            // original vector
+      Input,                             // value to write into subregion
+      ConstantInt::get(I32Ty, VStride),  // vstride
+      ConstantInt::get(I32Ty, Width),    // width
+      ConstantInt::get(I32Ty, Stride),   // stride
+      ConstantInt::get(I32Ty, StartIdx), // start index (in bytes)
+      ParentWidthArg, // parent width (if variable start index)
+      MaskArg         // mask
+  };
+  Type *ElTy = cast<VectorType>(Input->getType())->getElementType();
+  auto IID = ElTy->isFloatingPointTy() ? GenXIntrinsic::genx_wrregionf
+                                       : GenXIntrinsic::genx_wrregioni;
+  Module *M = InsertBefore->getParent()->getParent()->getParent();
+  Type *Tys[] = {Args[0]->getType(), Args[1]->getType(), Args[5]->getType(),
+                 Args[7]->getType()};
+  auto Decl = GenXIntrinsic::getGenXDeclaration(M, IID, Tys);
+  Instruction *NewInst = CallInst::Create(Decl, Args, Name, InsertBefore);
+  return NewInst;
+}
+
+// change vector from llllllllhhhhhhhh to lhlhlhlhlhlhlhlh
+static Instruction *formDoubleVector(Value *InputVector,
+                                     Instruction *InsertBefore) {
+  auto VTy = InputVector->getType();
+  assert(VTy->isVectorTy());
+  auto VL = cast<VectorType>(VTy)->getNumElements();
+  assert(VL == 16 || VL == 32);
+  auto EltTy = cast<VectorType>(VTy)->getElementType();
+  auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+  auto Width = VL / 2;
+  // read low half
+  auto LowHalf = createRdRegion(
+      InputVector, InputVector->getName() + ".1stHalf", InsertBefore, Width,
+      0 /*StartIdx*/, 0 /*VStride*/, Width, 1 /*HStride*/);
+  // read high half
+  auto HighHalf = createRdRegion(
+      InputVector, InputVector->getName() + ".2ndHalf", InsertBefore, Width,
+      Width * EltBytes /*startIdx*/, 0 /*VStride*/, Width, 1 /*HStride*/);
+  auto Undef = UndefValue::get(VTy);
+  // write low half
+  auto Partial = createWrRegion(
+      Undef, LowHalf, InputVector->getName() + ".InsLow", InsertBefore,
+      0 /*StartIdx*/, 0 /*VStride*/, Width, 2 /*HStride*/);
+  // write high half
+  auto Complete = createWrRegion(
+      Partial, HighHalf, InputVector->getName() + ".InsHigh", InsertBefore,
+      EltBytes /*StartIdx*/, 0 /*VStride*/, Width, 2 /*HStride*/);
+  return Complete;
+}
+
+// change vector from lhlhlhlhlhlhlhlh to llllllllhhhhhhhh
+static Instruction *disbandDoubleVector(Value *InputVector,
+                                        Instruction *InsertBefore) {
+  auto VTy = InputVector->getType();
+  assert(VTy->isVectorTy());
+  auto VL = cast<VectorType>(VTy)->getNumElements();
+  assert(VL == 16 || VL == 32);
+  auto EltTy = cast<VectorType>(VTy)->getElementType();
+  auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
+  auto Width = VL / 2;
+  // read low elements
+  auto LowHalf = createRdRegion(InputVector, InputVector->getName() + "exLow",
+                                InsertBefore, Width, 0 /*StartIdx*/,
+                                0 /*VStride*/, Width, 2 /*HStride*/);
+  // read high elements
+  auto HighHalf = createRdRegion(InputVector, InputVector->getName() + "exHigh",
+                                 InsertBefore, Width, EltBytes /*startIdx*/,
+                                 0 /*VStride*/, Width, 2 /*HStride*/);
+  auto Undef = UndefValue::get(VTy);
+  // write low half
+  auto Partial =
+      createWrRegion(Undef, LowHalf, "", InsertBefore, 0 /*StartIdx*/,
+                     0 /*VStride*/, Width, 1 /*HStride*/);
+  // write high half
+  auto Complete = createWrRegion(Partial, HighHalf, "", InsertBefore,
+                                 Width * EltBytes /*StartIdx*/, 0 /*VStride*/,
+                                 Width, 1 /*HStride*/);
+  return Complete;
+}
+
 static Value *translateSLMLoad(LoadInst *LoadOp) {
   LLVMContext &CTX = LoadOp->getContext();
   IRBuilder<> Builder(LoadOp);
@@ -592,36 +715,65 @@ static Value *translateSLMLoad(LoadInst *LoadOp) {
   if (DTy->isVectorTy()) {
     auto VL = cast<VectorType>(DTy)->getNumElements();
     auto EltTy = cast<VectorType>(DTy)->getElementType();
-    std::string IntrName =
-        std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "gather.scaled";
-    auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
     auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
-    assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4);
-    int NumBlks = (EltBytes == 4) ? 2 : (EltBytes - 1);
     // create constant for offset
     auto VOffset = getConstVector(CIntTy, VL, EltBytes);
     // create constant for predicate
     auto PredVTy = llvm::FixedVectorType::get(IntegerType::getInt1Ty(CTX), VL);
     auto OnePredV = Constant::getAllOnesValue(PredVTy);
-    // crease constant for num-blocks
-    auto NumBlksC = ConstantInt::get(CIntTy, NumBlks);
     auto ScaleC = ConstantInt::get(Type::getInt16Ty(CTX), 0);
-    // create the intrinsic call
-    Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
-        LoadOp->getModule(), ID, {DTy, PredVTy, VOffset->getType()});
-    RepI = IntrinsicInst::Create(NewFDecl,
-                                 {OnePredV, NumBlksC, ScaleC, BTI, SLMOffset,
-                                  VOffset, UndefValue::get(DTy)},
-                                 "slm.block.gather", LoadOp);
+    if (EltBytes == 1 || EltBytes == 2 || EltBytes == 4) {
+      std::string IntrName =
+          std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+          "gather.scaled";
+      auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+      int NumBlks = (EltBytes == 4) ? 2 : (EltBytes - 1);
+      // crease constant for num-blocks
+      auto NumBlksC = ConstantInt::get(CIntTy, NumBlks);
+      // create the intrinsic call
+      Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+          LoadOp->getModule(), ID, {DTy, PredVTy, VOffset->getType()});
+      RepI = IntrinsicInst::Create(NewFDecl,
+                                   {OnePredV, NumBlksC, ScaleC, BTI, SLMOffset,
+                                    VOffset, UndefValue::get(DTy)},
+                                   "slm.block.gather", LoadOp);
+    } else if (EltBytes == 8) {
+      // there is no surface load of i64 type, therefore we need to use gather4
+      std::string IntrName =
+          std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+          "gather4.scaled";
+      auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+      // create constant for channel-mask GR-enabled
+      auto ChanMask = ConstantInt::get(CIntTy, 3);
+      // need to create the double-vec-type
+      auto Dx2Ty =
+          llvm::FixedVectorType::get(IntegerType::getInt32Ty(CTX), VL * 2);
+      // create the intrinsic call
+      Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+          LoadOp->getModule(), ID, {Dx2Ty, PredVTy, VOffset->getType()});
+      auto Gather4I =
+          IntrinsicInst::Create(NewFDecl,
+                                {OnePredV, ChanMask, ScaleC, BTI, SLMOffset,
+                                 VOffset, UndefValue::get(Dx2Ty)},
+                                "slm.block.gather", LoadOp);
+      // reorder the vector
+      auto ShuffleV = formDoubleVector(Gather4I, LoadOp);
+      // cast back to the original 64-bit type
+      RepI = CastInst::CreateBitOrPointerCast(ShuffleV, DTy, LoadOp->getName(),
+                                              LoadOp);
+    } else
+      assert(false);
   } else {
+    // scalar load
     std::string IntrName =
         std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "gather.scaled";
     auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
     auto EltBytes = DTy->getPrimitiveSizeInBits() / 8;
-    assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4);
-    int NumBlks = (EltBytes == 4) ? 2 : (EltBytes - 1);
+    assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4 || EltBytes == 8);
+    int NumBlks = (EltBytes >= 4) ? 2 : (EltBytes - 1);
+    auto EltTy = (EltBytes == 8) ? CIntTy : DTy;
     // create vector type
-    auto VDTy = llvm::FixedVectorType::get(DTy, 1);
+    auto VDTy = llvm::FixedVectorType::get(EltTy, 1);
     // create constant for offset
     auto VOffsetTy = llvm::FixedVectorType::get(CIntTy, 1);
     // create constant for predicate
@@ -630,19 +782,42 @@ static Value *translateSLMLoad(LoadInst *LoadOp) {
     // crease constant for num-blocks
     auto NumBlksC = ConstantInt::get(CIntTy, NumBlks);
     auto ScaleC = ConstantInt::get(Type::getInt16Ty(CTX), 0);
-    auto ZeroC = ConstantInt::get(CIntTy, 0);
     // create the intrinsic call
     Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
         LoadOp->getModule(), ID, {VDTy, PredV1Ty, VOffsetTy});
     auto VecOffset = CastInst::CreateBitOrPointerCast(
         SLMOffset, VOffsetTy, SLMOffset->getName(), LoadOp);
+    auto GOffsetC = ConstantInt::get(CIntTy, 0);
     Instruction *IntrI =
         IntrinsicInst::Create(NewFDecl,
-                              {OnePred1, NumBlksC, ScaleC, BTI, ZeroC,
+                              {OnePred1, NumBlksC, ScaleC, BTI, GOffsetC,
                                VecOffset, UndefValue::get(VDTy)},
                               "slm.gather", LoadOp);
-    RepI = Builder.CreateExtractElement(IntrI, ZeroC, LoadOp->getName());
+    auto ZeroC = ConstantInt::get(CIntTy, 0);
+    auto OneC = ConstantInt::get(CIntTy, 1);
+    if (EltBytes <= 4)
+      RepI = Builder.CreateExtractElement(IntrI, ZeroC, LoadOp->getName());
+    else {
+      // load high-half
+      auto ResTy = llvm::FixedVectorType::get(EltTy, 2);
+      GOffsetC = ConstantInt::get(CIntTy, 4);
+      Instruction *IntrI2 =
+          IntrinsicInst::Create(NewFDecl,
+                                {OnePred1, NumBlksC, ScaleC, BTI, GOffsetC,
+                                 VecOffset, UndefValue::get(VDTy)},
+                                "slm.gather", LoadOp);
+      auto LowHalf = Builder.CreateExtractElement(IntrI, ZeroC,
+                                                  LoadOp->getName() + ".low");
+      auto HighHalf = Builder.CreateExtractElement(IntrI2, ZeroC,
+                                                   LoadOp->getName() + ".high");
+      auto Partial =
+          Builder.CreateInsertElement(UndefValue::get(ResTy), LowHalf, ZeroC);
+      auto Complete = Builder.CreateInsertElement(Partial, HighHalf, OneC);
+      RepI = CastInst::CreateBitOrPointerCast(Complete, DTy, LoadOp->getName(),
+                                              LoadOp);
+    }
   }
+
   LoadOp->replaceAllUsesWith(RepI);
   return RepI;
 }
@@ -731,52 +906,96 @@ static Value *translateSLMStore(StoreInst *StoreOp) {
   auto CIntTy = Type::getInt32Ty(CTX);
   auto BTI = ConstantInt::get(CIntTy, SLM_BTI);
   if (DTy->isVectorTy()) {
-    std::string IntrName =
-        std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "scatter.scaled";
-    auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
     auto VL = cast<VectorType>(DTy)->getNumElements();
     auto EltTy = cast<VectorType>(DTy)->getElementType();
     auto EltBytes = EltTy->getPrimitiveSizeInBits() / 8;
-    assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4);
-    int NumBlks = (EltBytes == 4) ? 2 : (EltBytes - 1);
     auto VOffset = getConstVector(CIntTy, VL, EltBytes);
     // create constant for predicate
     auto PredVTy = llvm::FixedVectorType::get(IntegerType::getInt1Ty(CTX), VL);
     auto OnePredV = Constant::getAllOnesValue(PredVTy);
-    // create constant for num-blocks
-    auto NumBlksC = ConstantInt::get(CIntTy, NumBlks);
     auto ScaleC = ConstantInt::get(Type::getInt16Ty(CTX), 0);
-    // create the intrinsic call
-    Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
-        StoreOp->getModule(), ID, {PredVTy, VOffset->getType(), DTy});
-    RepI = Builder.CreateCall(
-        NewFDecl, {OnePredV, NumBlksC, ScaleC, BTI, SLMOffset, VOffset, DTV});
+    if (EltBytes == 1 || EltBytes == 2 || EltBytes == 4) {
+      std::string IntrName =
+          std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+          "scatter.scaled";
+      auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+      int NumBlks = (EltBytes == 4) ? 2 : (EltBytes - 1);
+      // create constant for num-blocks
+      auto NumBlksC = ConstantInt::get(CIntTy, NumBlks);
+      // create the intrinsic call
+      Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+          StoreOp->getModule(), ID, {PredVTy, VOffset->getType(), DTy});
+      RepI = Builder.CreateCall(
+          NewFDecl, {OnePredV, NumBlksC, ScaleC, BTI, SLMOffset, VOffset, DTV});
+    } else if (EltBytes == 8) {
+      // cast it into i32 vector
+      std::string IntrName =
+          std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) +
+          "scatter4.scaled";
+      auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
+      auto Dx2Ty = llvm::FixedVectorType::get(CIntTy, 2 * VL);
+      auto VecDTV = CastInst::CreateBitOrPointerCast(
+          DTV, Dx2Ty, DTV->getName() + ".cast", StoreOp);
+      // shuffle it into 2-channel
+      auto VectDTV2 = disbandDoubleVector(VecDTV, StoreOp);
+      // create the scatter4
+      // create channel-mask, red-green enabled
+      auto ChanMask = ConstantInt::get(CIntTy, 3);
+      // create the intrinsic call
+      Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
+          StoreOp->getModule(), ID, {PredVTy, VOffset->getType(), Dx2Ty});
+      RepI = Builder.CreateCall(NewFDecl, {OnePredV, ChanMask, ScaleC, BTI,
+                                           SLMOffset, VOffset, VectDTV2});
+    } else
+      assert(false);
   } else {
     std::string IntrName =
         std::string(GenXIntrinsic::getGenXIntrinsicPrefix()) + "scatter.scaled";
     auto ID = GenXIntrinsic::lookupGenXIntrinsicID(IntrName);
     auto EltBytes = DTy->getPrimitiveSizeInBits() / 8;
-    assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4);
-    int NumBlks = (EltBytes == 4) ? 2 : (EltBytes - 1);
+    assert(EltBytes == 1 || EltBytes == 2 || EltBytes == 4 || EltBytes == 8);
+    int NumBlks = (EltBytes >= 4) ? 2 : (EltBytes - 1);
+    auto EltTy = (EltBytes == 8) ? CIntTy : DTy;
+    auto NumElts = (EltBytes == 8) ? 2 : 1;
     // create vector type
-    auto VDTy = llvm::FixedVectorType::get(DTy, 1);
+    auto VDTy = llvm::FixedVectorType::get(EltTy, NumElts);
+    // cast data to vector
+    auto VecDTV = CastInst::CreateBitOrPointerCast(
+        DTV, VDTy, DTV->getName() + ".cast", StoreOp);
     auto VOffsetTy = llvm::FixedVectorType::get(SLMOffset->getType(), 1);
     // create constant for predicate
     auto PredV1Ty = llvm::FixedVectorType::get(IntegerType::getInt1Ty(CTX), 1);
     auto OnePred1 = Constant::getAllOnesValue(PredV1Ty);
     // create constant for num-blocks
     auto NumBlksC = ConstantInt::get(CIntTy, NumBlks);
-    auto ZeroC = ConstantInt::get(CIntTy, 0);
+    auto GOffsetC = ConstantInt::get(CIntTy, 0);
     auto ScaleC = ConstantInt::get(Type::getInt16Ty(CTX), 0);
     auto VecOffset = CastInst::CreateBitOrPointerCast(
         SLMOffset, VOffsetTy, SLMOffset->getName(), StoreOp);
     // create the intrinsic call
+    auto V1DTy = llvm::FixedVectorType::get(EltTy, 1);
     Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
-        StoreOp->getModule(), ID, {PredV1Ty, VOffsetTy, VDTy});
-    Value *VecDTV = Builder.CreateInsertElement(UndefValue::get(VDTy), DTV,
-                                                ZeroC, DTV->getName());
-    RepI = Builder.CreateCall(
-        NewFDecl, {OnePred1, NumBlksC, ScaleC, BTI, ZeroC, VecOffset, VecDTV});
+        StoreOp->getModule(), ID, {PredV1Ty, VOffsetTy, V1DTy});
+    if (NumElts == 1)
+      RepI = Builder.CreateCall(NewFDecl, {OnePred1, NumBlksC, ScaleC, BTI,
+                                           GOffsetC, VecOffset, VecDTV});
+    else {
+      auto IndexC = ConstantInt::get(CIntTy, 0);
+      auto DTVL =
+          Builder.CreateExtractElement(VecDTV, IndexC, DTV->getName() + ".low");
+      IndexC = ConstantInt::get(CIntTy, 1);
+      auto DTVH = Builder.CreateExtractElement(VecDTV, IndexC,
+                                               DTV->getName() + ".high");
+      auto TmpDTV = CastInst::CreateBitOrPointerCast(
+          DTVL, V1DTy, DTVL->getName() + ".cast", StoreOp);
+      RepI = Builder.CreateCall(NewFDecl, {OnePred1, NumBlksC, ScaleC, BTI,
+                                           GOffsetC, VecOffset, TmpDTV});
+      TmpDTV = CastInst::CreateBitOrPointerCast(
+          DTVH, V1DTy, DTVH->getName() + ".cast", StoreOp);
+      GOffsetC = ConstantInt::get(CIntTy, 4);
+      RepI = Builder.CreateCall(NewFDecl, {OnePred1, NumBlksC, ScaleC, BTI,
+                                           GOffsetC, VecOffset, TmpDTV});
+    }
   }
   return RepI;
 }
