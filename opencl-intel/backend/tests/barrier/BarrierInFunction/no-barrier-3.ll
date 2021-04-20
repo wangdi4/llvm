@@ -1,3 +1,4 @@
+; RUN: %oclopt -B-BarrierInFunction -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-BarrierInFunction -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
@@ -35,3 +36,7 @@ define void @__Vectorized_.main(i32 %x) nounwind {
 
 !0 = !{void (i32)* @main}
 !1 = !{void (i32)* @__Vectorized_.main}
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- call void @dummybarrier.()
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.main -- call void @dummybarrier.()
+; DEBUGIFY-NOT: WARNING

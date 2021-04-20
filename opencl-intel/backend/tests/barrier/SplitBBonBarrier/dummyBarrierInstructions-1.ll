@@ -1,3 +1,4 @@
+; RUN: %oclopt -B-SplitOnBarrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-SplitOnBarrier -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
@@ -36,3 +37,7 @@ L3:
 }
 
 declare void @dummybarrier.()
+
+;; PHINode
+; DEBUGIFY: WARNING: Missing line 6
+; DEBUGIFY-NOT: WARNING

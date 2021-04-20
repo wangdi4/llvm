@@ -1,4 +1,5 @@
 ; RUN: llvm-as %p/WGBuiltins64.ll -o %t.WGBuiltins64.bc
+; RUN: %oclopt -runtimelib=%t.WGBuiltins64.bc -B-ValueAnalysis -B-BarrierAnalysis -B-SplitOnBarrier -B-Barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%t.WGBuiltins64.bc -B-ValueAnalysis -B-BarrierAnalysis -B-SplitOnBarrier -B-Barrier -verify -S < %s | FileCheck %s
 
 ; ModuleID = 'main'
@@ -76,3 +77,5 @@ attributes #4 = { convergent }
 !10 = !{i1 0, i1 1}
 
 ; CHECK: %done = alloca i1, align 1
+
+; DEBUGIFY-NOT: WARNING

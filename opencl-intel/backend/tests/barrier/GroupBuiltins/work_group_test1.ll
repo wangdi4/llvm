@@ -1,4 +1,5 @@
 ; RUN: llvm-as %p/WGBuiltins64.ll -o %t.WGBuiltins64.ll.bc
+; RUN: %oclopt -runtimelib %t.WGBuiltins64.ll.bc -B-GroupBuiltins -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib %t.WGBuiltins64.ll.bc -B-GroupBuiltins -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
@@ -192,3 +193,28 @@ attributes #4 = { nounwind }
 !34 = !{!"global_variable_total_size", i64 0}
 !35 = !{!"gen_addr_space_pointer_counter", null}
 !36 = !{!"gen_addr_space_pointer_warnings"}
+
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %AllocaWGResult1 = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- store i32 1, i32* %AllocaWGResult1, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %AllocaWGResult = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- store i32 1, i32* %AllocaWGResult, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- store i32 1, i32* %AllocaWGResult1, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- store i32 1, i32* %AllocaWGResult, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.build_hash_table -- %AllocaWGResult1 = alloca <4 x i32>, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.build_hash_table -- store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* %AllocaWGResult1, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.build_hash_table -- %AllocaWGResult = alloca <4 x i32>, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.build_hash_table -- store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* %AllocaWGResult, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.build_hash_table -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.build_hash_table -- %LoadWGFinalResult3 = load <4 x i32>, <4 x i32>* %AllocaWGResult1, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.build_hash_table -- store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* %AllocaWGResult1, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.build_hash_table -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.build_hash_table -- %LoadWGFinalResult = load <4 x i32>, <4 x i32>* %AllocaWGResult, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.build_hash_table -- %CallFinalizeWG = call <4 x i32> @_Z25__finalize_work_group_allDv4_i(<4 x i32> %LoadWGFinalResult)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.build_hash_table -- store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* %AllocaWGResult, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.build_hash_table -- call void @dummybarrier.()
+;; PHINode
+;DEBUGIFY: WARNING: Missing line 13
+
+; DEBUGIFY-NOT: WARNING

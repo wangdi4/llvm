@@ -1,3 +1,4 @@
+; RUN: %oclopt -B-BarrierInFunction -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-BarrierInFunction -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
@@ -28,3 +29,6 @@ unreachable.exit:                                 ; No predecessors!
 }
 
 declare void @_Z7barrierj(i32)
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- call void @dummybarrier.()
+; DEBUGIFY-NOT: WARNING

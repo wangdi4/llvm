@@ -1,3 +1,4 @@
+; RUN: %oclopt -B-BarrierInFunction -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-BarrierInFunction -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
@@ -40,3 +41,6 @@ define void @foo(i32 %x) nounwind {
 !opencl.disabled.FP_CONTRACT = !{}
 
 !0 = !{void (i32)* @main}
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- call void @dummybarrier.()
+; DEBUGIFY-NOT: WARNING

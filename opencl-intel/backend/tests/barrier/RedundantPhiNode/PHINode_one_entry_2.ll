@@ -1,3 +1,4 @@
+; RUN: %oclopt -B-RedundantPhiNode -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-RedundantPhiNode -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
@@ -31,3 +32,7 @@ L3:
 ; CHECK: L3:
 ; CHECK-NEXT:   ret i1 %check
 }
+
+;; Phi node is removed
+; DEBUGIFY: WARNING: Missing line 5
+; DEBUGIFY-NOT: WARNING
