@@ -617,14 +617,12 @@ TEST(FrameworkTestType, cl_CheckBuildNumber)
     EXPECT_TRUE(cl_CheckBuildNumber());
 }
 
-TEST(FrameworkTestType, Test_cl12_atomic_add_float)
-{
-    EXPECT_TRUE(cl12_atomic_add_float_test());
+TEST(FrameworkTestType, Test_atomic_add_float) {
+  EXPECT_TRUE(atomic_add_float_test());
 }
 
-TEST(FrameworkTestType, Test_cl12_atomic_min_max_float)
-{
-    EXPECT_TRUE(cl12_atomic_min_max_float_test());
+TEST(FrameworkTestType, Test_atomic_min_max_float) {
+  EXPECT_TRUE(atomic_min_max_float_test());
 }
 
 TEST(FrameworkTestType, Test_clFuncIncompatParamASOnLinkageTest)
