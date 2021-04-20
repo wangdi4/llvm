@@ -4,7 +4,6 @@
 ; RUN: -disable-vplan-codegen -vplan-enable-masked-variant \
 ; RUN: -vplan-print-after-create-in-merge -vplan-print-after-merge-pass2 \
 ; RUN: -vplan-enable-peeling -vplan-print-after-merge-skeleton %s 2>&1 | FileCheck %s
-; UNSUPPORTED: windows, linux
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "x86_64-unknown-linux-gnu"
 
