@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
+; RUN: %oclopt -generic-addr-static-resolution %t.bc -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -generic-addr-static-resolution -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
@@ -317,3 +318,20 @@ declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 ;;  float res = fract(param, pGen4 + 10);
  
 ;;}
+
+; DEBUGIFY-NOT: WARNING
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} addrspacecast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} addrspacecast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} addrspacecast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} addrspacecast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} addrspacecast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test {{.*}} addrspacecast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z5test1PU3AS1i {{.*}} bitcast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z5test1PU3AS1i {{.*}} addrspacecast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z5test1PU3AS3i {{.*}} bitcast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z5test1PU3AS3i {{.*}} addrspacecast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z5test2PU3AS1iPU3AS3i {{.*}} bitcast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z5test2PU3AS1iPU3AS3i {{.*}} addrspacecast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z5test2PU3AS1iPU3AS3i {{.*}} bitcast
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _Z5test2PU3AS1iPU3AS3i {{.*}} addrspacecast
+; DEBUGIFY-NOT: WARNING

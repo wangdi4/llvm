@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
+; RUN: %oclopt -generic-addr-dynamic-resolution %t.bc -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -generic-addr-dynamic-resolution -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
@@ -21,3 +22,5 @@ entry:
   call void @llvm.memcpy.p4i8.p4i8.i32(i8 addrspace(4)* align 1 %0, i8 addrspace(4)* align 1 %1, i32 1000, i1 false)
   ret void
 }
+
+; DEBUGIFY-NOT: WARNING

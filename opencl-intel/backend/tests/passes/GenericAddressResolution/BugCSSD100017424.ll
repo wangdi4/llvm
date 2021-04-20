@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
+; RUN: %oclopt -generic-addr-dynamic-resolution %t.bc -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -generic-addr-dynamic-resolution -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
@@ -33,3 +34,5 @@ declare void @_Z12atomic_storePU3AS3Vii(i32 addrspace(3)*, i32)
 !1 = !{!"int", !2}
 !2 = !{!"omnipotent char", !3}
 !3 = !{!"Simple C/C++ TBAA"}
+
+; DEBUGIFY-NOT: WARNING

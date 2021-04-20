@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
+; RUN: %oclopt -generic-addr-static-resolution %t.bc -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -generic-addr-static-resolution -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
@@ -77,3 +78,5 @@ entry:
                
 ;;     dst[0] = ((int)loc1 ? (int*)loc1 : (int*)loc2)[0];
 ;;}
+
+; DEBUGIFY-NOT: WARNING
