@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
+; RUN: %oclopt -prefetch %t.bc -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -prefetch -verify %t.bc -S -o %t.oll
 ; RUN: FileCheck %s --input-file=%t.oll
 
@@ -64,3 +65,10 @@ __Triad_separated_args.exit:                      ; preds = %scalarIf.i, %scalar
   ret void
 }
 
+; Known bug of debugify on PHI node: false alarm on missing line
+; Other warnings are not expected.
+
+; DEBUGIFY-NOT: WARNING
+; DEBUGIFY: WARNING: Missing line
+; DEBUGIFY: WARNING: Missing line
+; DEBUGIFY-NOT: WARNING
