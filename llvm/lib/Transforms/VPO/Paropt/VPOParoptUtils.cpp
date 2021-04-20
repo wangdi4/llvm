@@ -1082,6 +1082,61 @@ CallInst *VPOParoptUtils::genTgtReleaseBuffer(Value *DeviceNum,
 }
 
 // Generate a call to
+// omp_interop_t __tgt_create_interop(
+//    int64_t device_id, int32_t interop_type, int32_t num_prefers,
+//   intptr_t* prefer_ids);
+
+CallInst *
+VPOParoptUtils::genTgtCreateInterop(Value *DeviceNum, int OmpInteropContext,
+                                    const SmallVectorImpl<unsigned> &PreferList,
+                                    Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
+  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+  IRBuilder<> Builder(InsertPt);
+
+  DeviceNum = Builder.CreateSExt(DeviceNum, Int64Ty);
+  Value *OmpInteropContextVal = ConstantInt::get(Int32Ty, OmpInteropContext);
+  Value *CountVal = ConstantInt::get(Int32Ty, PreferList.size());
+
+  SmallVector<Value *, 4> Args;
+  SmallVector<Type *, 4> ArgTypes;
+
+  Args.push_back(DeviceNum);
+  ArgTypes.push_back(Int64Ty);
+  Args.push_back(OmpInteropContextVal);
+  ArgTypes.push_back(Int32Ty);
+
+  Args.push_back(CountVal);
+  ArgTypes.push_back(Int32Ty);
+
+  if (PreferList.empty()) {
+    ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
+    Args.push_back(NullPtr);
+  } else {
+    Constant *PreferListInit =
+        ConstantDataArray::get(Builder.getContext(), PreferList);
+    auto *PreferListGblVar = new GlobalVariable(
+        *(F->getParent()), PreferListInit->getType(), true,
+        GlobalValue::PrivateLinkage, PreferListInit, ".prefer.list", nullptr);
+    PreferListGblVar->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+
+    Value *PreferListGblVarCast =
+        Builder.CreateBitCast(PreferListGblVar, Int8PtrTy);
+    Args.push_back(PreferListGblVarCast);
+  }
+  ArgTypes.push_back(Int8PtrTy);
+
+  CallInst *Call =
+      genCall("__tgt_create_interop", Int8PtrTy, Args, ArgTypes, InsertPt);
+
+  return Call;
+}
+
+// Generate a call to
 //   void *__tgt_create_interop_obj(int64_t device_id,
 //                                  bool    is_async,
 //                                  void   *async_obj)
@@ -1122,8 +1177,10 @@ CallInst *VPOParoptUtils::genTgtCreateInteropObj(Value *DeviceNum, bool IsAsync,
 
 // Generate a call to
 //   int __tgt_release_interop_obj(void *interop_obj)
-CallInst *VPOParoptUtils::genTgtReleaseInteropObj(Value *InteropObj,
-                                                  Instruction *InsertPt) {
+CallInst *VPOParoptUtils::genTgtReleaseInterop(Value* InteropObj,
+                                               Instruction* InsertPt,
+                                               bool EmitTgtReleaseInteropObj)
+{
   BasicBlock *B = InsertPt->getParent();
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
@@ -1133,9 +1190,32 @@ CallInst *VPOParoptUtils::genTgtReleaseInteropObj(Value *InteropObj,
   assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
          "InteropObj expected to be void*");
 
-  CallInst *Call = genCall("__tgt_release_interop_obj", Int32Ty, {InteropObj},
-                           {Int8PtrTy}, InsertPt);
+  CallInst* Call;
+  if(EmitTgtReleaseInteropObj)
+    Call = genCall("__tgt_release_interop_obj", Int32Ty, {InteropObj},
+                   {Int8PtrTy}, InsertPt);
+  else
+    Call = genCall("__tgt_release_interop", Int32Ty, {InteropObj},
+                   {Int8PtrTy}, InsertPt);
   return Call;
+}
+
+// Generate a call to
+//   int __tgt_use_interop(omp_interop_t interop)
+CallInst* VPOParoptUtils::genTgtUseInterop(Value* InteropObj,
+                                           Instruction* InsertPt) {
+    BasicBlock* B = InsertPt->getParent();
+    Function* F = B->getParent();
+    LLVMContext& C = F->getContext();
+    Type* Int32Ty = Type::getInt32Ty(C);
+    Type* Int8PtrTy = Type::getInt8PtrTy(C);
+
+    assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
+        "InteropObj expected to be void*");
+
+    CallInst *Call = genCall("__tgt_use_interop", Int32Ty, {InteropObj},
+                             {Int8PtrTy}, InsertPt);
+    return Call;
 }
 
 // Generate a call to
@@ -1739,6 +1819,21 @@ CallInst *VPOParoptUtils::genKmpcTaskAllocForAsyncObj(WRegionNode *W,
   return TaskAllocCall;
 }
 
+CallInst *VPOParoptUtils::genKmpcTaskAllocWithoutCallback(WRegionNode *W,
+                                                          StructType *IdentTy,
+                                                          Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  Type *Int32Ty = Builder.getInt32Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+
+  Value *ValueZero = ConstantInt::get(Int32Ty, 0);
+  ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
+
+  CallInst *TaskAllocCall =
+      genKmpcTaskAllocImpl(W, IdentTy, ValueZero, ValueZero, ValueZero, 0,
+                           NullPtr, InsertPt, false);
+  return TaskAllocCall;
+}
 // This function generates a call to notify the runtime system that the static
 // distribute loop scheduling for teams is started
 //

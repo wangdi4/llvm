@@ -2007,7 +2007,8 @@ bool WRegionNode::canHaveDepend() const {
   case WRNTargetEnterData:
   case WRNTargetExitData:
   case WRNTargetUpdate:
-  // exclude WRNDispatch; its depend clause is moved to the implicit task
+  case WRNInterop:
+    // exclude WRNDispatch; its depend clause is moved to the implicit task
     return true;
   }
   return false;

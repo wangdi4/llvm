@@ -1598,15 +1598,16 @@ public:
   bool getIsPreferOpenCL() const { return InitModifiers & InitPreferOpenCL; }
   bool getIsPreferSycl() const { return InitModifiers & InitPreferSycl; }
   bool getIsPreferL0() const { return InitModifiers & InitPreferL0; }
+  const SmallVectorImpl<unsigned>&  getPreferList() const { return PreferList;}
 
   void  printPreferList(formatted_raw_ostream& OS) const {
       OS << "PREFER_TYPE < ";
       for (unsigned I = 0; I < PreferList.size(); I++){
-        if(PreferList[I] == InitPreferOpenCL)
+        if(PreferList[I] == 3)
           OS << "3 (OpenCL) ";
-        else if (PreferList[I] == InitPreferSycl)
+        else if (PreferList[I] == 4)
           OS << "4 (SYCL) ";
-        else if (PreferList[I] == InitPreferL0)
+        else if (PreferList[I] == 6)
           OS << "6 (LEVEL0) ";
       }
       OS << "> ";

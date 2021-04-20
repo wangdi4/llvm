@@ -2100,6 +2100,9 @@ private:
   /// Emit dispatch code for the "target variant dispatch" construct
   bool genTargetVariantDispatchCode(WRegionNode *W);
 
+  /// Emit Interop code for the "interop" construct
+  bool genInteropCode(WRegionNode* W);
+
   /// Replace loop construct with the mapped directive in IR
   bool replaceGenericLoop(WRegionNode *W);
 
