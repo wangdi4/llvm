@@ -9,8 +9,8 @@
 ;;      //TODO: 0. Kernel "main" was not changed
 ;;  WI related Values analysis data collected as follow
 ;;      1. "%a" is non-uniform value (i.e. WI related)
-;;      2. "%x" is non-uniform value (i.e. WI related)
-;;      3. "%p" is non-uniform value (i.e. WI related)
+;;      2. "%p" is non-uniform value (i.e. WI related)
+;;      3. "%x" is non-uniform value (i.e. WI related)
 ;;*****************************************************************************
 
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
@@ -31,9 +31,9 @@ define void @main(i32 %arg) #0 {
 }
 
 ; CHECK: WI related Values
-; CHECK: a is WI related
-; CHECK: p is WI related
-; CHECK: x is WI related
+; CHECK: %a is WI related
+; CHECK: %p is WI related
+; CHECK: %x is WI related
 
 declare void @_Z18work_group_barrierj(i32)
 
