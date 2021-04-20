@@ -50,20 +50,20 @@ void func()
 
 //CHECK:attributes #[[FOO1BASE]] = {{.*}}"openmp-variant"=
 //CHECK-SAME:name:{{.*}}foo_v1
-//CHECK-SAME:construct:;arch:gen;need_device_ptr:T,PTR_TO_PTR,F;interop:target,targetsync;"
+//CHECK-SAME:construct:dispatch;arch:gen;need_device_ptr:T,PTR_TO_PTR,F;interop:target,targetsync;"
 
 //CHECK:attributes #[[FOO2BASE]] = {{.*}}"openmp-variant"=
 //CHECK-SAME:name:{{.*}}foo_v2
-//CHECK-SAME:construct:;arch:gen9;need_device_ptr:PTR_TO_PTR,F,F;interop:target,targetsync;"
+//CHECK-SAME:construct:dispatch;arch:gen9;need_device_ptr:PTR_TO_PTR,F,F;interop:target,targetsync;"
 
 //CHECK: attributes #[[FOO3BASE]] = {{.*}}"openmp-variant"=
 //CHECK-SAME:name:{{.*}}foo_v3
-//CHECK-SAME:construct:;arch:XeLP,XeHP;need_device_ptr:PTR_TO_PTR,PTR_TO_PTR,F;interop:target;interop:target;"
+//CHECK-SAME:construct:dispatch;arch:XeLP,XeHP;need_device_ptr:PTR_TO_PTR,PTR_TO_PTR,F;interop:target;interop:target;"
 
 // Unlike normal functions, the attribute number for template functions varies
 // from the number associated with the function definition. We can't verify the
 // number is the same, but we can verify we have an appropriate variant string.
 //CHECK:attributes #{{[0-9]+}} = {{.*}}"openmp-variant"=
 //CHECK:name:{{.*}}Foo_Var
-//CHECK-SAME:construct:;arch:XeHP;need_device_ptr:T,F;interop:target,targetsync;interop:target,targetsync;"
+//CHECK-SAME:construct:dispatch;arch:XeHP;need_device_ptr:T,F;interop:target,targetsync;interop:target,targetsync;"
 // end INTEL_COLLAB
