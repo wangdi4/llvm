@@ -2085,7 +2085,7 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
   // glibc scalar sincos function has 2 pointer out parameters, but SVML sincos
   // functions return the results directly in a struct. The pointers should be
   // omitted in vectorized call.
-  if (FnName == "sincos" || FnName == "sincosf")
+  if ((FnName == "sincos" || FnName == "sincosf") && !VecVariant)
     NumArgOperands -= 2;
 
   for (unsigned OrigArgIdx = VPCall->isIntelIndirectCall() ? 1 : 0,

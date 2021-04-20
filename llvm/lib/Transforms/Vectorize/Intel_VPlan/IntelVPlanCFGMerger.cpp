@@ -1341,10 +1341,6 @@ void VPlanCFGMerger::updateOrigUB() {
   else {
     // Get the UB from the latch condition (its invariant operand).
     VPLoop *L = *cast<VPlanMasked>(Plan).getVPLoopInfo()->begin();
-    VPBasicBlock *Latch = L->getLoopLatch();
-    auto BI = Latch->getTerminator();
-    assert((BI && BI->isConditional()) &&
-           "expected conditional branch instruction");
     VPCmpInst *Cond = L->getLatchComparison();
     assert(Cond && "expected comparison instruction");
     auto Op = Cond->getOperand(0);
