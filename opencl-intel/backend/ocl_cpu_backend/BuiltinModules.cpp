@@ -13,16 +13,23 @@
 // License.
 
 #include "BuiltinModules.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
+
+using namespace llvm;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-BuiltinModules::BuiltinModules(llvm::SmallVector<llvm::Module*, 2> builtinsModules):
-    m_BuiltinsModules(builtinsModules)
-{
+BuiltinModules::BuiltinModules(
+    SmallVector<std::unique_ptr<Module>, 2> builtinsModules) {
+  transform(builtinsModules, std::back_inserter(m_BuiltinsModules),
+            [](std::unique_ptr<Module> &M) { return M.release(); });
 }
 
-BuiltinModules::~BuiltinModules() { }
+BuiltinModules::~BuiltinModules() {
+  for (auto *M : m_BuiltinsModules)
+    delete M;
+}
 
 BuiltinLibrary::BuiltinLibrary(const Intel::OpenCL::Utils::CPUDetect *cpuId)
     : m_cpuId(cpuId), m_pRtlBuffer(nullptr), m_pRtlBufferSvmlShared(nullptr) {}

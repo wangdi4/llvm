@@ -182,7 +182,8 @@ public:
     virtual void CreateExecutionEngine(llvm::Module* m)  = 0;
 
     // Get the latest execution engine
-    virtual void *GetExecutionEngine() = 0;
+    virtual std::unique_ptr<llvm::ExecutionEngine>
+    GetOwningExecutionEngine() = 0;
 
     // Create LLJIT instance
     virtual std::unique_ptr<llvm::orc::LLJIT> CreateLLJIT(
@@ -193,7 +194,7 @@ public:
     virtual void *GetFunctionAddressResolver() { return NULL; }
 
     // Returns a list of pointers to the RTL libraries
-    virtual llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() = 0;
+    virtual llvm::SmallVector<llvm::Module*, 2> &GetBuiltinModuleList() = 0;
 
     std::unique_ptr<llvm::Module> ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
 
@@ -219,8 +220,8 @@ public:
     }
 
 protected:
-    void LoadBuiltinModules(BuiltinLibrary* pLibrary,
-      llvm::SmallVector<llvm::Module*, 2>& builtinsModules);
+    SmallVector<std::unique_ptr<Module>, 2> LoadBuiltinModules(BuiltinLibrary *
+                                                               pLibrary);
 
     // Create TargetMachine for X86.
     llvm::TargetMachine* GetTargetMachine(llvm::Module* pModule) const;

@@ -36,18 +36,16 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-llvm::ExecutionEngine *
+std::unique_ptr<llvm::ExecutionEngine>
 LLDJITBuilder::CreateExecutionEngine(llvm::Module *M, llvm::TargetMachine *TM) {
   std::string Err;
   std::unique_ptr<llvm::Module> ModuleOwner(M);
 
-  ExecutionEngine *EE = LLDJIT::createJIT(
-      std::move(ModuleOwner), &Err, std::unique_ptr<llvm::TargetMachine>(TM));
-
-  if (EE == nullptr) {
+  auto EE = LLDJIT::createJIT(std::move(ModuleOwner), &Err,
+                              std::unique_ptr<llvm::TargetMachine>(TM));
+  if (!EE)
     throw Exceptions::CompilerException(
         "Failed to create LLDJIT execution engine");
-  }
 
   return EE;
 }

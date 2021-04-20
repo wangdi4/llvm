@@ -48,6 +48,8 @@ static codegen::RegisterCodeGenFlags CGF;
 #include <string>
 #include <vector>
 
+using namespace llvm;
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 TargetOptions ExternInitTargetOptionsFromCodeGenFlags(llvm::Triple ModuleTriple) {
@@ -692,9 +694,9 @@ Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
 // RTL builtin modules consist of two libraries.
 // The first is shared across all HW architectures and the second one
 // is optimized for a specific HW architecture.
-void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
-                   llvm::SmallVector<llvm::Module*, 2>& builtinsModules)
-{
+SmallVector<std::unique_ptr<Module>, 2>
+Compiler::LoadBuiltinModules(BuiltinLibrary *pLibrary) {
+    SmallVector<std::unique_ptr<Module>, 2> builtinsModules;
     LLVMContext &Ctx = getLLVMContext();
     llvm::SmallVector<std::unique_ptr<llvm::MemoryBuffer>, 4>
         rtlBuffersForEyeQEmulationMode = pLibrary->GetRtlBuffersForEyeQEmulationMode();
@@ -712,8 +714,7 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
             throw Exceptions::CompilerException(
                 "Failed to allocate/parse buitin module");
         }
-        auto *pModule = spModuleOrErr.get().release();
-        builtinsModules.push_back(pModule);
+        builtinsModules.push_back(std::move(spModuleOrErr.get()));
     }
 
     std::unique_ptr<llvm::MemoryBuffer> rtlBuffer(pLibrary->GetRtlBuffer());
@@ -739,8 +740,9 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
         spModuleOrErr.get().get()->setModuleIdentifier("RTLibrary");
     }
 
-    auto* pModule = spModuleOrErr.get().release();
-    builtinsModules.push_back(pModule);
+    auto &spModule = spModuleOrErr.get();
+    auto *pModule = spModule.get();
+    builtinsModules.push_back(std::move(spModule));
 
     // the shared RTL is loaded here
     std::unique_ptr<llvm::MemoryBuffer> RtlBufferSvmlShared(
@@ -753,13 +755,14 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
           "Failed to allocate/parse buitin module");
     }
 
-    llvm::Module* pModuleSvmlShared = spModuleSvmlSharedOrErr.get().release();
+    auto &pModuleSvmlShared = spModuleSvmlSharedOrErr.get();
     // on both 64-bit and 32-bit platform the same shared RTL contatinig platform independent byte code is used,
     // so set triple and data layout for shared RTL from particular RTL in order to avoid warnings from linker.
     pModuleSvmlShared->setTargetTriple(pModule->getTargetTriple());
     pModuleSvmlShared->setDataLayout(pModule->getDataLayout());
 
-    builtinsModules.push_back(pModuleSvmlShared);
+    builtinsModules.push_back(std::move(pModuleSvmlShared));
+    return builtinsModules;
 }
 
 bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult) const

@@ -101,19 +101,18 @@ BuiltinModules* CPUCompiler::GetOrLoadBuiltinModules(bool ForceLoad)
     auto TID = std::this_thread::get_id();
     auto It = m_builtinModules.find(TID);
     if (ForceLoad && It != m_builtinModules.end())
-        delete It->second;
+        It->second.reset();
     if (ForceLoad || It == m_builtinModules.end()) {
         BuiltinModuleManager *Manager = BuiltinModuleManager::GetInstance();
         BuiltinLibrary *Library =
             m_bIsEyeQEmulator   ? Manager->GetOrLoadEyeQLibrary(m_CpuId)
             : m_bIsFPGAEmulator ? Manager->GetOrLoadFPGAEmuLibrary(m_CpuId)
                                 : Manager->GetOrLoadCPULibrary(m_CpuId);
-        llvm::SmallVector<llvm::Module *, 2> bltnFuncList;
-        LoadBuiltinModules(Library, bltnFuncList);
-        m_builtinModules[TID] = new BuiltinModules(bltnFuncList);
+        auto bltnModules = LoadBuiltinModules(Library);
+        m_builtinModules[TID].reset(new BuiltinModules(std::move(bltnModules)));
         setBuiltinInitLog(Library->getLog());
     }
-    return m_builtinModules[TID];
+    return m_builtinModules[TID].get();
 }
 // If binary not matchs current cpu arch
 // and cpu is backwards compatible,load builtin modules again
@@ -125,9 +124,7 @@ void CPUCompiler::SetBuiltinModules(const std::string &cpuName,
 }
 
 CPUCompiler::CPUCompiler(const ICompilerConfig& config):
-    Compiler(config),
-    m_pExecEngine(nullptr),
-    m_pVTuneListener(nullptr)
+    Compiler(config)
 {
     SelectCpu( config.GetCpuArch(), config.GetCpuFeatures());
     // Initialize the BuiltinModules
@@ -139,7 +136,8 @@ CPUCompiler::CPUCompiler(const ICompilerConfig& config):
     // Create the listener that allows Amplifier to profile OpenCL kernels
     if(config.GetUseVTune())
     {
-        m_pVTuneListener = llvm::JITEventListener::createIntelJITEventListener();
+        m_pVTuneListener.reset(
+            llvm::JITEventListener::createIntelJITEventListener());
     }
 
     // Initialize asm parsers to support inline assembly
@@ -150,8 +148,6 @@ CPUCompiler::~CPUCompiler() {
   // WORKAROUND!!! See the notes in TerminationBlocker description
   if (Utils::TerminationBlocker::IsReleased())
     return;
-
-  delete m_pVTuneListener;
 }
 
 void CPUCompiler::SelectCpu(const std::string &cpuName,
@@ -225,7 +221,11 @@ void CPUCompiler::CreateExecutionEngine(llvm::Module* pModule)
 {
     // Compiler keeps a pointer to the execution engine object
     // and is not responsible for EE release
-    m_pExecEngine = CreateCPUExecutionEngine(pModule);
+    CreateCPUExecutionEngine(pModule);
+}
+
+std::unique_ptr<llvm::ExecutionEngine> CPUCompiler::GetOwningExecutionEngine() {
+  return std::move(m_pExecEngine);
 }
 
 std::unique_ptr<llvm::orc::LLJIT>
@@ -315,25 +315,23 @@ bool CPUCompiler::isObjectFromLLDJIT(llvm::StringRef ObjBuf) const {
 #endif
 }
 
-llvm::ExecutionEngine *
-CPUCompiler::CreateCPUExecutionEngine(llvm::Module *pModule) const {
-  llvm::ExecutionEngine *pExecEngine = nullptr;
+void CPUCompiler::CreateCPUExecutionEngine(llvm::Module *pModule) {
 #ifdef _WIN32
-    LLDJITBuilder::prepareModuleForLLD(pModule);
-    auto TargetMachine = GetTargetMachine(pModule);
-    pExecEngine = LLDJITBuilder::CreateExecutionEngine(pModule, TargetMachine);
-    if ( nullptr == pExecEngine )
-        throw Exceptions::CompilerException("Failed to create execution engine");
+  LLDJITBuilder::prepareModuleForLLD(pModule);
+  auto TargetMachine = GetTargetMachine(pModule);
+  m_pExecEngine =
+      std::move(LLDJITBuilder::CreateExecutionEngine(pModule, TargetMachine));
+  if (!m_pExecEngine)
+    throw Exceptions::CompilerException("Failed to create execution engine");
 
-    if (m_pVTuneListener)
-        pExecEngine->RegisterJITEventListener(m_pVTuneListener);
+  if (m_pVTuneListener)
+    m_pExecEngine->RegisterJITEventListener(m_pVTuneListener.get());
+#else
+  (void)pModule;
 #endif
-    // The parameter is used in Windows code
-    (void)pModule;
-    return pExecEngine;
 }
 
-llvm::SmallVector<llvm::Module*, 2> CPUCompiler::GetBuiltinModuleList()
+llvm::SmallVector<llvm::Module*, 2> &CPUCompiler::GetBuiltinModuleList()
 {
     BuiltinModules *BM = GetOrLoadBuiltinModules();
     assert(BM && "Invalid BuiltinModules");
@@ -354,7 +352,8 @@ CPUCompiler::SimpleCompile(llvm::Module *module, ObjectCodeCache *objCache)
 
 void CPUCompiler::SetObjectCache(ObjectCodeCache* pCache)
 {
-    ((llvm::ExecutionEngine*)GetExecutionEngine())->setObjectCache(pCache);
+    assert(m_pExecEngine && "invalid ExecutionEngine");
+    m_pExecEngine->setObjectCache(pCache);
 }
 
 }}}

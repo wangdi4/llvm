@@ -192,7 +192,7 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     if (useLLDJIT) {
         m_compiler.CreateExecutionEngine(pProgram->GetModule());
         m_compiler.SetObjectCache(pCache);
-        cpuProgram->SetExecutionEngine(m_compiler.GetExecutionEngine());
+        cpuProgram->SetExecutionEngine(m_compiler.GetOwningExecutionEngine());
     } else {
         // create LLJIT
         std::unique_ptr<llvm::orc::LLJIT> LLJIT =
@@ -443,7 +443,7 @@ void CPUProgramBuilder::JitProcessing(
   bool useLLDJIT = m_compiler.useLLDJITForExecution(module);
   if (useLLDJIT) {
     m_compiler.SetObjectCache(objCache);
-    program->SetExecutionEngine(m_compiler.GetExecutionEngine());
+    program->SetExecutionEngine(m_compiler.GetOwningExecutionEngine());
   } else {
     auto LLJIT =
         m_compiler.CreateLLJIT(module, std::move(targetMachine), objCache);

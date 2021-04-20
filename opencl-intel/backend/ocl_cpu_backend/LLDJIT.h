@@ -308,11 +308,9 @@ public:
 
   llvm::TargetMachine *getTargetMachine() override { return TM.get(); }
 
-  static ExecutionEngine *createJIT(std::unique_ptr<llvm::Module> M,
-                                    std::string *ErrorStr,
-                                    std::unique_ptr<llvm::TargetMachine> TM);
-
-  // @}
+  static std::unique_ptr<ExecutionEngine> createJIT(
+      std::unique_ptr<llvm::Module> M, std::string * ErrorStr,
+      std::unique_ptr<llvm::TargetMachine> TM);
 
   // Takes a mangled name and returns the corresponding JITSymbol (if a
   // definition of that mangled name has been added to the JIT).
