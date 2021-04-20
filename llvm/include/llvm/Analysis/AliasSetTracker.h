@@ -369,6 +369,10 @@ class AliasSetTracker {
   ilist<AliasSet> AliasSets;
 #ifdef INTEL_CUSTOMIZATION
   const bool LoopCarriedDisam = false;
+  // If the pass requires to override the saturation threshold for Alias
+  // Analysis, we store a new threshold in this field. During the analysis we
+  // use maximum of the original option and the stored value.
+  unsigned SaturationThresholdOverriden = 0;
 #endif // INTEL_CUSTOMIZATION
 
   using PointerMapType = DenseMap<ASTCallbackVH, AliasSet::PointerRec *,
@@ -383,8 +387,8 @@ public:
   explicit AliasSetTracker(AAResults &AA) : AA(AA) {}
   ~AliasSetTracker() { clear(); }
 #ifdef INTEL_CUSTOMIZATION
-  explicit AliasSetTracker(AAResults &aa, bool NeedsLoopCarried)
-      : AA(aa), LoopCarriedDisam(NeedsLoopCarried) {}
+  explicit AliasSetTracker(AAResults &aa, bool NeedsLoopCarried, unsigned STO = 0)
+      : AA(aa), LoopCarriedDisam(NeedsLoopCarried), SaturationThresholdOverriden(STO) {}
   bool getLoopCarriedDisam() { return LoopCarriedDisam; }
 #endif // INTEL_CUSTOMIZATION
 
@@ -488,8 +492,8 @@ private:
 // loopCarriedAlias for disambiguation.
 class LoopCarriedAliasSetTracker : public AliasSetTracker {
 public:
-  explicit LoopCarriedAliasSetTracker(AAResults &AA)
-      : AliasSetTracker(AA, true) {}
+  explicit LoopCarriedAliasSetTracker(AAResults &AA, unsigned STO = 0)
+      : AliasSetTracker(AA, true, STO) {}
 };
 
 // This class wraps parallel ASTs; one with alias semantics, and one with
@@ -509,8 +513,8 @@ private:
   }
 
 public:
-  explicit HybridAliasSetTracker(AAResults &AA)
-      : LoopCarriedAliasSetTracker(AA), AliasAST(AA) {}
+  explicit HybridAliasSetTracker(AAResults &AA, unsigned STO = 0)
+      : LoopCarriedAliasSetTracker(AA, STO), AliasAST(AA, false, STO) {}
   void add(Value *Ptr, LocationSize Size, const AAMDNodes &AAInfo,
            bool LoopCarried = false) {
     // If we're transitioning from the "alias" AST to the "loopCarriedAlias"
