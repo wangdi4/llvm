@@ -291,6 +291,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddImplicitArgs.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierInFunctionPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierPass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinImport.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/CleanupWrappedKernel.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPEqualizer.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelAnalysis.h"

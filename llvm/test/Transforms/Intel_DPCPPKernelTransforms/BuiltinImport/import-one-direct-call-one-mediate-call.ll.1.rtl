@@ -1,0 +1,12 @@
+; This module is used by import_one_direct_call_one_mediate_call.ll
+
+target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
+target triple = "i686-pc-win32"
+
+define <4 x double> @function_module_1_foo_1(<4 x double> %in) nounwind {
+entry:
+  %0 = tail call <4 x double> @function_module_2_foo(<4 x double> %in)
+  ret <4 x double> %0
+}
+
+declare <4 x double> @function_module_2_foo(<4 x double>)

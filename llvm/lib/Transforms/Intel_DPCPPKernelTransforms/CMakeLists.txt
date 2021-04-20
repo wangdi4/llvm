@@ -1,5 +1,6 @@
 add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   AddImplicitArgs.cpp
+  BuiltinImport.cpp
   DPCPPEqualizer.cpp
   DPCPPKernelTransforms.cpp
   DPCPPKernelVecClone.cpp
@@ -26,6 +27,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   PrepareKernelArgs.cpp
   CleanupWrappedKernel.cpp
 
+  Utils/CPUDetect.cpp
   Utils/FunctionDescriptor.cpp
   Utils/ImplicitArgsUtils.cpp
   Utils/NameMangleAPI.cpp
@@ -42,6 +44,8 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   LINK_COMPONENTS
   Analysis
   Core
+  IRReader
+  Linker
   Support
   TransformUtils
 )
