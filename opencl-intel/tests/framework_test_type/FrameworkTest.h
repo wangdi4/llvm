@@ -188,8 +188,8 @@ bool cl_device_local_mem_size_unlimited_stack_test();
 bool TbbSetMaxThreads(int NumThreads);
 #endif
 bool cl_CheckBuildNumber();
-bool cl12_atomic_add_float_test();
-bool cl12_atomic_min_max_float_test();
+bool atomic_add_float_test();
+bool atomic_min_max_float_test();
 void clFuncIncompatParamASOnLinkageTest();
 void clFuncWrongNumParamsOnLinkageTest();
 #if (!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)) && !defined(_WIN32)
