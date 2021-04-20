@@ -51,7 +51,7 @@ public:
     void CreateExecutionEngine( llvm::Module* pModule ) override;
 
     // Get execution engine
-    void *GetExecutionEngine() override { return m_pExecEngine; }
+    std::unique_ptr<llvm::ExecutionEngine> GetOwningExecutionEngine() override;
 
     // Create LLJIT instance
     std::unique_ptr<llvm::orc::LLJIT> CreateLLJIT(
@@ -71,20 +71,21 @@ public:
 
 protected:
     // Returns a list of pointers to the RTL library modules
-    llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() override;
+    llvm::SmallVector<llvm::Module*, 2> &GetBuiltinModuleList() override;
 
 private:
     void SelectCpu( const std::string& cpuName, const std::string& cpuFeatures );
-    llvm::ExecutionEngine* CreateCPUExecutionEngine( llvm::Module* pModule ) const;
+    void CreateCPUExecutionEngine(llvm::Module* pModule);
     BuiltinModules* GetOrLoadBuiltinModules(bool ForceLoad = false);
 
 private:
-    std::unordered_map<std::thread::id, BuiltinModules*> m_builtinModules;
+    std::unordered_map<std::thread::id, std::unique_ptr<BuiltinModules>>
+        m_builtinModules;
     llvm::sys::Mutex        m_builtinModuleMutex;
 
-    llvm::ExecutionEngine*  m_pExecEngine;
+    std::unique_ptr<llvm::ExecutionEngine> m_pExecEngine;
 
-    llvm::JITEventListener* m_pVTuneListener;
+    std::unique_ptr<llvm::JITEventListener> m_pVTuneListener;
 };
 
 }}}

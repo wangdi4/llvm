@@ -35,11 +35,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class BuiltinModules
 {
 public:
-    BuiltinModules(llvm::SmallVector<llvm::Module*, 2> builtinsModules);
-    ~BuiltinModules();
+  BuiltinModules(llvm::SmallVector<std::unique_ptr<Module>, 2> builtinsModules);
+  ~BuiltinModules();
 
-    llvm::SmallVector<llvm::Module*, 2> GetBuiltinModuleList() { return m_BuiltinsModules; }
-    llvm::SmallVector<llvm::Module *, 2> m_BuiltinsModules;
+  llvm::SmallVector<llvm::Module *, 2> &GetBuiltinModuleList() {
+    return m_BuiltinsModules;
+  }
+
+private:
+  /// Builtin modules are owned by this class.
+  llvm::SmallVector<llvm::Module *, 2> m_BuiltinsModules;
 };
 
 class BuiltinLibrary : public IDynamicFunctionsResolver

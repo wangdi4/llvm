@@ -1,3 +1,4 @@
+; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -63,3 +64,29 @@ attributes #4 = { convergent nounwind "kernel-call-once" "kernel-convergent-call
 !14 = !{i32 16}
 
 
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN16u_test {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16u_test {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16u_test {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16u_test {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16u_test {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16u_test {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16u_test {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} alloca
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} store
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} alloca
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} bitcast
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} store
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} getelementptr
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} load
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeM16u_test {{.*}} br
+; DEBUGIFY-NOT: WARNING

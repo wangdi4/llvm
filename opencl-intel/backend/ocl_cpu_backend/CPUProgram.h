@@ -18,10 +18,10 @@
 
 #include "Program.h"
 #include "ObjectCodeCache.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include <memory>
 
 namespace llvm {
-  class ExecutionEngine;
   class Function;
 }
 
@@ -30,19 +30,21 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 class CPUProgram : public Program
 {
 public:
-    CPUProgram() : m_pExecutionEngine(nullptr) {}
+    CPUProgram() {}
     virtual ~CPUProgram();
 
-    virtual void SetBuiltinModule(
-        llvm::SmallVector<llvm::Module *, 2> bltnFuncList) override {
+    void SetBuiltinModule(llvm::SmallVector<llvm::Module *, 2> & bltnFuncList)
+        override {
       m_bltnFuncList = bltnFuncList;
     }
 
-    virtual void SetExecutionEngine(void* ee) override {
-        m_pExecutionEngine = (llvm::ExecutionEngine*)ee;
+    void SetExecutionEngine(std::unique_ptr<llvm::ExecutionEngine> EE) override {
+      m_pExecutionEngine = std::move(EE);
     }
 
-    llvm::ExecutionEngine* GetExecutionEngine() { return m_pExecutionEngine; }
+    llvm::ExecutionEngine* GetExecutionEngine() {
+      return m_pExecutionEngine.get();
+    }
 
     void SetLLJIT(std::unique_ptr<llvm::orc::LLJIT> LLJIT) override {
         m_LLJIT = std::move(LLJIT);
@@ -76,7 +78,7 @@ public:
         const override;
 
 private:
-    llvm::ExecutionEngine*  m_pExecutionEngine;
+    std::unique_ptr<llvm::ExecutionEngine> m_pExecutionEngine;
     std::unique_ptr<llvm::orc::LLJIT> m_LLJIT;
     llvm::SmallVector<llvm::Module*, 2> m_bltnFuncList;
     std::unique_ptr<ObjectCodeCache> m_ObjectCodeCache;

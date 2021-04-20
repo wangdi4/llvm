@@ -20,12 +20,17 @@
 #include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddImplicitArgs.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierInFunctionPass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/CleanupWrappedKernel.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPEqualizer.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelWGLoopCreator.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/PhiCanonicalization.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PrepareKernelArgs.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/RedundantPhiNodePass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveWICall.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SplitBBonBarrierPass.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 using namespace llvm;
@@ -109,13 +114,20 @@ void OptimizerLTO::registerVectorizerStartCallback(PassBuilder &PB) {
 }
 
 void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
-  PB.registerOptimizerLastEPCallback(
-      [](ModulePassManager &MPM, PassBuilder::OptimizationLevel Level) {
-        MPM.addPass(DPCPPKernelWGLoopCreatorPass());
-        MPM.addPass(AddImplicitArgsPass());
-        MPM.addPass(ResolveWICallPass());
-        MPM.addPass(PrepareKernelArgsPass());
-      });
+  PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
+                                        PassBuilder::OptimizationLevel Level) {
+    MPM.addPass(DPCPPKernelWGLoopCreatorPass());
+    // Barrier passes begin.
+    MPM.addPass(createModuleToFunctionPassAdaptor(PhiCanonicalization()));
+    MPM.addPass(createModuleToFunctionPassAdaptor(RedundantPhiNode()));
+    MPM.addPass(BarrierInFunction());
+    MPM.addPass(SplitBBonBarrier());
+    MPM.addPass(KernelBarrier(/*NativeDebug*/ false, /*UseTLSGlobals*/ false));
+    // Barrier passes end.
+    MPM.addPass(AddImplicitArgsPass());
+    MPM.addPass(ResolveWICallPass());
+    MPM.addPass(PrepareKernelArgsPass());
+  });
 }
 
 } // namespace DeviceBackend

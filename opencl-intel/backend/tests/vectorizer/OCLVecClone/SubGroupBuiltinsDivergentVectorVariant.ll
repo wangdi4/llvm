@@ -1,3 +1,4 @@
+; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt --ocl-vecclone -VPlanDriver --ocl-vec-clone-isa-encoding-override=AVX512Core < %s -S -o - | FileCheck %s
 
 ; ModuleID = '<stdin>'
@@ -101,3 +102,13 @@ declare i64 @_Z13get_global_idj(i32)
 !1 = !{}
 !2 = !{void (i32 addrspace(1)*, <2 x i32> addrspace(1)*)* @test}
 !3 = !{i32 16}
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN16uu_test {{.*}} br
+; DEBUGIFY-NOT: WARNING

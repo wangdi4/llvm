@@ -1,3 +1,4 @@
+; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt --ocl-vecclone --ocl-vec-clone-isa-encoding-override=AVX512Core -verify -S < %s | FileCheck %s
 %opencl.reserve_id_t.5 = type opaque
 %opencl.pipe_wo_t.6 = type opaque
@@ -39,3 +40,19 @@ attributes #0 = { convergent }
 !0 = !{i32 2, i32 0}
 !1 = !{i32 4}
 !2 = !{void (i32 addrspace(1)*, %opencl.pipe_wo_t.6 addrspace(1)*)* @test_pipe_workgroup_write_int, void (%opencl.pipe_ro_t.7 addrspace(1)*, i32 addrspace(1)*)* @test_pipe_workgroup_read_int}
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_pipe_workgroup_write_int {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_pipe_workgroup_write_int {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_pipe_workgroup_write_int {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_pipe_workgroup_write_int {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_pipe_workgroup_write_int {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_pipe_workgroup_write_int {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_pipe_workgroup_write_int {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_pipe_workgroup_read_int {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_pipe_workgroup_read_int {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_pipe_workgroup_read_int {{.*}} add
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_pipe_workgroup_read_int {{.*}} icmp
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_pipe_workgroup_read_int {{.*}} br
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_pipe_workgroup_read_int {{.*}} call
+; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uu_test_pipe_workgroup_read_int {{.*}} br
+; DEBUGIFY-NOT: WARNING
