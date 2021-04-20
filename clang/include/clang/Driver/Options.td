@@ -4885,6 +4885,11 @@ def qopt_jump_tables : Flag<["-"], "qopt-jump-tables">,Alias<fjump_tables>,
   HelpText<"Control the generation of jump tables">;
 def qno_opt_jump_tables : Flag<["-"], "qno-opt-jump-tables">,Alias<fno_jump_tables>,
   HelpText<"Do not use jump tables for lowering switches">;
+def qopt_for_throughput_EQ : Joined<["-"], "qopt-for-throughput=">,
+  Values<"single-job,multi-job">, Flags<[NoXarchOption]>, HelpText<"Optimize "
+  "for throughput performance, assuming multiple jobs are running.  The memory "
+  "optimizations for single job versus multiple jobs can be tuned in different "
+  "ways by the compiler. Valid arguments: multi-job, single-job">;
 def qopt_matmul : Flag<["-"], "qopt-matmul">, Flags<[NoXarchOption]>,
   HelpText<"Enables compiler-generated Matrix Multiply (matmul) library call">;
 def qno_opt_matmul : Flag<["-"], "qno-opt-matmul">, Flags<[NoXarchOption]>,
@@ -6986,6 +6991,12 @@ def : CLJoined<"Qopt-assume-no-loop-carried-dep:">,
 def : CLJoined<"Qopt-assume-no-loop-carried-dep=">, Alias<qopt_assume_no_loop_carried_dep_EQ>;
 def : CLFlag<"Qopt-assume-no-loop-carried-dep">,
   Alias<qopt_assume_no_loop_carried_dep_EQ>, AliasArgs<["1"]>;
+def : CLJoined<"Qopt-for-throughput=">, Alias<qopt_for_throughput_EQ>;
+def : CLJoined<"Qopt-for-throughput:">, Alias<qopt_for_throughput_EQ>,
+  HelpText<"Optimize for throughput performance, assuming multiple jobs are "
+  "running.  The memory optimizations for single job versus multiple jobs can "
+  "be tuned in different ways by the compiler. Valid arguments: multi-job, "
+  "single-job">;
 def _SLASH_Qopt_jump_tables_ : CLFlag<"Qopt-jump-tables-">,
   Alias<fno_jump_tables>, HelpText<"Do not use jump tables for lowering switches">;
 def _SLASH_Qopt_matmul : CLFlag<"Qopt-matmul">, Alias<qopt_matmul>,
