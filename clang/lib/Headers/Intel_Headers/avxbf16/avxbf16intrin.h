@@ -45,17 +45,6 @@ _mm256_cvtne2ps_avx_pbh(__m256 __A, __m256 __B) {
                                                     (__v8sf) __B);
 }
 
-static __inline__ __m128bh __DEFAULT_FN_ATTRS128
-_mm_cvtneps_avx_pbh(__m128 __A) {
-  return (__m128bh)__builtin_ia32_cvtneps2bf16vex128((__v4sf) __A);
-}
-
-
-static __inline__ __m128bh __DEFAULT_FN_ATTRS256
-_mm256_cvtneps_avx_pbh(__m256 __A) {
-  return (__m128bh)__builtin_ia32_cvtneps2bf16vex256((__v8sf)__A);
-}
-
 static __inline__ __m128 __DEFAULT_FN_ATTRS128
 _mm_dpbf16_avx_ps(__m128 __D, __m128bh __A, __m128bh __B) {
   return (__m128)__builtin_ia32_dpbf16psvex128((__v4sf)__D,
