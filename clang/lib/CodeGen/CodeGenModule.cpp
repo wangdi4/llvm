@@ -2375,6 +2375,11 @@ static void addDeclareVariantAttributes(CodeGenModule &CGM,
             if (NumConstructs++ != 0)
               Constructs += ',';
             Constructs += "target_variant_dispatch";
+          } else if (Sel.Kind ==
+              llvm::omp::TraitSelector::construct_dispatch) {
+            if (NumConstructs++ != 0)
+              Constructs += ',';
+            Constructs += "dispatch";
           }
         }
         break;
