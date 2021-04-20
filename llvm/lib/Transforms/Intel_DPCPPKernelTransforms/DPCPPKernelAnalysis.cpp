@@ -1,6 +1,6 @@
 //==--- DPCPPKernelAnalysis.cpp - Detect barriers in DPCPP kernels- C++ -*--==//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -63,8 +63,7 @@ ModulePass *llvm::createDPCPPKernelAnalysisLegacyPass() {
 
 void DPCPPKernelAnalysisPass::fillSyncUsersFuncs() {
   FuncSet BarrierRootSet;
-
-  DPCPPKernelCompilationUtils::FuncSet SyncFunctions;
+  FuncSet SyncFunctions;
 
   // Get all synchronize built-ins declared in module
   DPCPPKernelCompilationUtils::getAllSyncBuiltinsDecls(SyncFunctions, M);
