@@ -61,6 +61,7 @@ static cl::opt<bool>
 static cl::opt<bool>
     EnableCFGMerge("vplan-enable-cfg-merge", cl::init(true), cl::Hidden,
                    cl::desc("Enable CFG merge before VPlan code gen."));
+
 static cl::opt<bool, true>
     EnableNewCFGMergeOpt("vplan-enable-new-cfg-merge", cl::Hidden,
                          cl::location(EnableNewCFGMerge),
@@ -1395,7 +1396,7 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 }
 
 void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF) {
-  if (!EnableCFGMerge)
+  if (!EnableCFGMerge && !EnableNewCFGMerge)
     return;
   assert(getBestVF() > 1 && "Unexpected VF");
   VPlanVector *Plan = getBestVPlan();
@@ -1403,7 +1404,12 @@ void LoopVectorizationPlanner::emitPeelRemainderVPLoops(unsigned VF, unsigned UF
 
   VPlanCFGMerger CFGMerger(*Plan, VF, UF);
 
-  CFGMerger.createSimpleVectorRemainderChain(TheLoop);
+  // Run CFGMerger.
+  if (!EnableNewCFGMerge)
+    CFGMerger.createSimpleVectorRemainderChain(TheLoop);
+  else
+    CFGMerger.createMergedCFG(VecScenario, MergerVPlans);
+
   VPLAN_DUMP(CfgMergeDumpControl, Plan);
 }
 

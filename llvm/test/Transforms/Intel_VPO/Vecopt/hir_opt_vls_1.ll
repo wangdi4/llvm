@@ -21,10 +21,11 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -vplan-force-vf=4 -enable-vplan-vls-cg -enable-vp-value-codegen-hir=1 -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK: DO i1 = 0, 99, 4
-; CHECK: [[WLd:%.*]] = (<12 x i32>*)(@arr1)[0][3 * i1]
-; CHECK: [[V1:%.*]] = shufflevector [[WLd]],  undef,  <i32 1, i32 4, i32 7, i32 10>;
-; CHECK: [[V2:%.*]] = shufflevector [[WLd]],  undef,  <i32 2, i32 5, i32 8, i32 11>;
-; CHECK: [[V3:%.*]] = shufflevector [[WLd]],  undef,  <i32 0, i32 3, i32 6, i32 9>;
+; TODO: Better CG for geps
+; CHECK: [[WLd:%.*]] = (<16 x i32>*)(@arr1)[0][3 * i1]; Mask = @{<i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>}
+; CHECK: [[V1:%.*]] = shufflevector [[WLd]],  [[WLd]],  <i32 0, i32 3, i32 6, i32 9>;
+; CHECK: [[V2:%.*]] = shufflevector [[WLd]],  [[WLd]],  <i32 1, i32 4, i32 7, i32 10>;
+; CHECK: [[V3:%.*]] = shufflevector [[WLd]],  [[WLd]],  <i32 2, i32 5, i32 8, i32 11>;
 ; CHECK: (<4 x i32>*)(@arr2)[0][i1] = [[V1]] + [[V2]] + [[V3]];
 ; CHECK: END LOOP
 

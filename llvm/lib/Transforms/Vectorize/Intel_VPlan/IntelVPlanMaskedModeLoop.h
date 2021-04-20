@@ -9,7 +9,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file creates a masked variant for the current loop. This is done by
+// This file creates a masked variant for the current loop. The masked variant
+// is created only if the loop has normalized induction. This is done by
 // wrapping the loop body under an if statement as it is shown below. The if
 // statement triggers the predicator which emits the masked code. The following
 // example shows how the following code is transformed:
@@ -24,8 +25,8 @@
 //   br label %latch
 // latch:
 //   %add = add nsw i32 %add.phi, 1
-//   %bottom_test = icmp lt i32 %iv.next, 128
-//   br i1 %bottom_test, label %header, label %loopexit
+//   %bottom.test = icmp lt i32 %iv.next, 128
+//   br i1 %bottom.test, label %header, label %loopexit
 // loopexit:
 //   %lcssa.phi = phi i32 [ %add, %latch ]
 //   %add.final = add nsw i32 %lcssa.phi, 1
@@ -34,8 +35,13 @@
 //   ret void
 //
 // The following steps transforms the code:
-// 1. If it is needed, the induction increment is moved to the latch. Next,
-// the latch is split just before the induction increment.
+// 1. A new condition bit is created in the latch. This is needed to make sure
+// that the normalized induction is compared against the original trip count. In
+// addition, we need to make sure that we preserve the correct execution of the
+// blocks. The new condition bit is divergent. Since the latch condition bit
+// needs to be uniform, this is achieved by using allzerocheck. If it is needed,
+// the induction increment is moved to the latch. Next, the latch is split just
+// before the induction increment.
 // 2. The header is split after the last phi.
 // 3. A new comparison and branch is emitted in the header. The comparison will
 // be updated by later pass.
@@ -48,18 +54,19 @@
 // header:
 //   %iv = phi i32 [ 0, %preheader ], [ %iv.next, %new_latch ]
 //   %add.phi = phi i32 [ 0, %preheader ], [ %new.add.phi, %new_latch ]
-//   %cond = icmp lt i32 %iv, 128
+//   %cond = icmp ult i32 %iv, 128
 //   br i1 %cond, label %bb1, label %new_latch
 // bb1:
-//   %iv.next = add nsw i32 %iv, 1
 //   br label %latch
 // latch:
 //   %add = add nsw i32 %add.phi, 1
 //   br label %new_latch
 // new_latch:
 //   %new.add.phi = phi i32 [ %add, %latch ], [ %add.phi, %header ]
-//   %bottom_test = icmp lt i32 %iv.next, 128
-//   br i1 %bottom_test, label %header, label %loopexit
+//   %iv.next = add nsw i32 %iv, 1
+//   %new.bottom.test = icmp ult i32 %iv.next, 128
+//   %all.zero.chk = all-zero-check i1 %new.bottom.test
+//   br i1 %all.zero.chk, label %loopexit, label %header
 // loopexit:
 //   %lcssa.phi = phi i32 [ %new.add.phi, %new_latch ]
 //   %add.final = add nsw i32 %lcssa.phi, 1

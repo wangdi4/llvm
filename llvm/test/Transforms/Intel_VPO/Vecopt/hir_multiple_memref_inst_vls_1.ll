@@ -29,10 +29,12 @@
 
 
 ; CHECK:       DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:    %.vec = (<4 x i32>*)(@ip)[0][i1];
-; CHECK-NEXT:    %comb.shuf = shufflevector %.vec,  i1 + <i64 0, i64 1, i64 2, i64 3>,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>;
-; CHECK-NEXT:    %vls.interleave = shufflevector %comb.shuf,  undef,  <i32 0, i32 4, i32 1, i32 5, i32 2, i32 6, i32 3, i32 7>;
-; CHECK-NEXT:    (<8 x i32>*)(@arr)[0][i1].0 = %vls.interleave;
+; CHECK:         %.vec = (<4 x i32>*)(@ip)[0][i1];
+; CHECK-NEXT:    %shuffle = shufflevector %.vec,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32 4>;
+; CHECK-NEXT:    %shuffle1 = shufflevector undef,  %shuffle,  <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>;
+; CHECK-NEXT:    %shuffle2 = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3>,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32
+; CHECK-NEXT:    %shuffle3 = shufflevector %shuffle1,  %shuffle2,  <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>;
+; CHECK-NEXT:    (<8 x i32>*)(@arr)[0][i1].0 = %shuffle3;
 ; CHECK-NEXT:  END LOOP
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

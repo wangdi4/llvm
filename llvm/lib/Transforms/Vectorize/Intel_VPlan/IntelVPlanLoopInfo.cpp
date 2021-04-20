@@ -84,8 +84,7 @@ Optional<bool> VPLoop::hasNormalizedInduction() const {
 std::pair<VPValue *, VPInstruction *> VPLoop::getLoopUpperBound() const {
   if (!hasNormalizedInduction())
     return std::make_pair<VPValue *, VPInstruction *>(nullptr, nullptr);
-  VPCmpInst *Cond =
-      cast<VPCmpInst>(getLoopLatch()->getTerminator()->getCondition());
+  VPCmpInst *Cond = getLatchComparison();
   if (VPInstruction *Add = dyn_cast<VPInstruction>(Cond->getOperand(0)))
     if (Add->getOpcode() == Instruction::Add && contains(Add))
       return std::make_pair(Cond->getOperand(1), Cond);
@@ -95,6 +94,16 @@ std::pair<VPValue *, VPInstruction *> VPLoop::getLoopUpperBound() const {
          "Unexpected operand");
   (void)Add;
   return std::make_pair(Cond->getOperand(0), Cond);
+}
+
+VPCmpInst *VPLoop::getLatchComparison() const {
+  VPValue *CondBit = getLoopLatch()->getTerminator()->getCondition();
+  if (isa<VPCmpInst>(CondBit))
+    return cast<VPCmpInst>(CondBit);
+  auto *AllZeroCheck = dyn_cast<VPInstruction>(CondBit);
+  if (AllZeroCheck && AllZeroCheck->getOpcode() == VPInstruction::AllZeroCheck)
+    return dyn_cast<VPCmpInst>(AllZeroCheck->getOperand(0));
+  return nullptr;
 }
 
 // Check that 'BB' doesn't have any uses outside of the 'L'

@@ -489,6 +489,11 @@ public:
   RegDDRef *getMemoryRef(const VPLoadStoreInst *VPLdSt,
                          bool Lane0Value = false);
 
+  /// Given VPVLSLoad/VPVLSStore setup the memory ref to be used as wide memory
+  /// operation.
+  template <class VLSOpTy>
+  RegDDRef *getVLSMemoryRef(const VLSOpTy *LoadStore);
+
   bool isSearchLoop() const {
     return VPlanIdioms::isAnySearchLoop(SearchLoopType);
   }
@@ -683,8 +688,9 @@ private:
   // instruction(s).
   SmallPtrSet<const VPValue *, 8> MainLoopIVInsts;
   // Map of VPlan's private memory objects and their corresponding HIR BlobDDRef
-  // created to represent within vector loop.
-  DenseMap<const VPAllocatePrivate *, BlobDDRef *> PrivateMemBlobRefs;
+  // and unique symbase created to represent accesses within vector loop.
+  DenseMap<const VPAllocatePrivate *, std::pair<BlobDDRef *, unsigned>>
+      PrivateMemBlobRefs;
 
   // Set of masked private temp symbases that have been initialized to undef in
   // vector loop header.
@@ -869,6 +875,10 @@ private:
                                RegDDRef *Mask, bool Widen,
                                unsigned ScalarLaneID);
 
+  // Get a vector of pointers corresponding to the private variable for each
+  // vector lane.
+  RegDDRef *createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt);
+
   // Implementation of widening of VPLoopEntity specific instructions. Some
   // notes on opcodes supported so far -
   // 1. reduction-init  : We generate a broadcast/splat of reduction
@@ -956,6 +966,8 @@ private:
     return Widen ? widenRef(VPVal, getVF())
                  : getOrCreateScalarRef(VPVal, ScalarLaneID);
   }
+
+  RegDDRef *getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize);
 
   // For Generate PaddedCounter < 250 and insert it into the vector of runtime
   // checks if this is a search loop which needs the check.

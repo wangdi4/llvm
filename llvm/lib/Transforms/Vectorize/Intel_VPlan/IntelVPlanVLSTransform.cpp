@@ -105,6 +105,7 @@ createGroupLoad(OVLSGroup *Group, unsigned VF) {
       Builder.create<VPVLSLoad>("vls.load", LeaderAddress, Ty, Size,
                                 FirstGroupInst->getAlignment(), Group->size());
   Plan.getVPlanDA()->markUniform(*WideLoad);
+  WideLoad->HIR().setSymbase(FirstGroupInst->HIR().getSymbase());
 
   return {WideLoad, Size};
 }
@@ -265,12 +266,15 @@ void llvm::vpo::applyVLSTransform(VPlan &Plan, VPlanVLSAnalysis &VLSA,
     auto *FirstMemrefInst =
         const_cast<VPLoadStoreInst *>(instruction(Group->getFirstMemref()));
     auto *BaseAddr = FirstMemrefInst->getOperand(1);
-    Builder.create<VPVLSStore>("vls.store", WideValue, BaseAddr, Size,
-                               FirstMemrefInst->getAlignment(), Group->size());
+    auto *WideStore = Builder.create<VPVLSStore>(
+        "vls.store", WideValue, BaseAddr, Size, FirstMemrefInst->getAlignment(),
+        Group->size());
+    WideStore->HIR().setSymbase(FirstMemrefInst->HIR().getSymbase());
   }
 
   while (!InstsToRemove.empty()) {
     auto *Inst = *InstsToRemove.begin();
+    Inst->invalidateUnderlyingIR(); // For HIR.
     InstsToRemove.erase(Inst);
     SmallVector<VPValue *, 8> Operands(Inst->operands());
     Inst->getParent()->eraseInstruction(Inst);

@@ -18,7 +18,7 @@
 #include "IntelVPlan.h"
 
 namespace llvm {
-namespace vpo {    
+namespace vpo {
 
 class VPBuilder {
 protected:
@@ -406,8 +406,23 @@ public:
       Builder.restoreIP(VPInsertPoint(Block, Point));
     }
   };
-};
 
+  /// RAII object that stores the current builder debug location and restores it
+  /// when the object is destroyed.
+  class DbgLocGuard {
+    VPBuilder &Builder;
+    DebugLoc DbgLoc;
+
+  public:
+    DbgLocGuard(const DbgLocGuard &) = delete;
+    DbgLocGuard &operator=(const DbgLocGuard &) = delete;
+
+    DbgLocGuard(VPBuilder &B) : Builder(B) {
+      DbgLoc = Builder.getCurrentDebugLocation();
+    }
+    ~DbgLocGuard() { Builder.setCurrentDebugLocation(DbgLoc); }
+  };
+};
 } // namespace vpo
 } // namespace llvm
 

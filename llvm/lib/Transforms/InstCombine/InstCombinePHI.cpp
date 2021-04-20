@@ -1316,9 +1316,14 @@ Instruction *InstCombinerImpl::visitPHINode(PHINode &PN) {
     if (Instruction *Result = foldPHIArgOpIntoPHI(PN))
       return Result;
 
+#if INTEL_CUSTOMIZATION
+  // 27334: "catchswitch" blocks cannot have any non-phis.
+  bool isCatchSwitch = isa<CatchSwitchInst>(PN.getParent()->getTerminator());
+#endif // INTEL_CUSTOMIZATION
+
   // If the incoming values are pointer casts of the same original value,
   // replace the phi with a single cast.
-  if (PN.getType()->isPointerTy()) {
+  if (PN.getType()->isPointerTy() && !isCatchSwitch) { // INTEL
     Value *IV0 = PN.getIncomingValue(0);
     Value *IV0Stripped = IV0->stripPointerCasts();
     // Set to keep track of values known to be equal to IV0Stripped after

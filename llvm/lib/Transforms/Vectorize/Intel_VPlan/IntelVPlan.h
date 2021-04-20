@@ -560,6 +560,7 @@ public:
     VLSStore,
     VLSExtract,
     VLSInsert,
+    InvSCEVWrapper,
   };
 
 private:
@@ -577,10 +578,6 @@ private:
   // Hold the underlying HIR information, if any, attached to this
   // VPInstruction.
   HIRSpecificsData HIRData;
-
-protected:
-  HIRSpecifics HIR() { return HIRSpecifics(*this); }
-  const HIRSpecifics HIR() const { return HIRSpecifics(*this); }
 
 private:
   /// Utility method serving execute(): generates a single instance of the
@@ -818,6 +815,8 @@ public:
     // invalidation should be propagated to users as well.
   }
 
+  HIRSpecifics HIR() { return HIRSpecifics(*this); }
+  const HIRSpecifics HIR() const { return HIRSpecifics(*this); }
 };
 
 /// Instruction to set vector factor and unroll factor explicitly.
@@ -2820,6 +2819,46 @@ public:
   Use *getOrigUse(unsigned Idx) const { return getLiveIn(Idx); }
 };
 
+/// Class for representing the vp-scev-wrapper instruction.
+/// This class uses alignment analysis infrastructure to capture peeling
+/// information for the dynamic-peeling scenario. The CG is responsible to
+/// converting this VPInstruction to invoke the SCEVExpander and compute the
+/// actual pointer address.
+class VPInvSCEVWrapper : public VPInstruction {
+
+  // SCEV object.
+  VPlanSCEV *Scev;
+
+public:
+  // TODO: Not sure about this. We might have to revisit this when we support
+  // HIR.
+
+  VPInvSCEVWrapper(VPlanSCEV *S)
+      : VPInstruction(VPInstruction::InvSCEVWrapper,
+                      VPlanScalarEvolutionLLVM::toSCEV(S)->getType(), {}),
+        Scev(S) {
+    // We don't support AddREC SCEV.
+    assert(VPlanScalarEvolutionLLVM::toSCEV(Scev)->getSCEVType() !=
+               SCEVTypes::scAddRecExpr &&
+           "An add-expr SCEV is not expected here.");
+  }
+
+  VPlanSCEV *getSCEV() const { return Scev; }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::InvSCEVWrapper;
+  }
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printImpl(raw_ostream &O) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
 /// The VPlanAdapter is a placeholder for a VPlan in CFG of another VPlan.
 /// In some scenarios we have inner loops or some other additionally created
 /// loops (e.g. peel/remainder) inside a VPlan. We want those loops to be
@@ -3118,6 +3157,9 @@ public:
       : VPInstruction(VPInstruction::VLSLoad, Ty, {Ptr}), GroupSize(GroupSize),
         Alignment(Alignment), NumOrigLoads(NumOrigLoads) {}
 
+  VPValue *getPointerOperand() const { return getOperand(0); }
+  Type *getValueType() const { return getType(); }
+
   int getGroupSize() const { return GroupSize; }
   Align getAlignment() const { return Alignment; }
   int getNumOrigLoads() const { return NumOrigLoads; }
@@ -3183,6 +3225,7 @@ public:
 
   VPValue *getValueOperand() const { return getOperand(0); }
   VPValue *getPointerOperand() const { return getOperand(1); }
+  Type *getValueType() const { return getValueOperand()->getType(); }
 
   int getGroupSize() const { return GroupSize; }
   Align getAlignment() const { return Alignment; }
@@ -3416,6 +3459,18 @@ public:
     assert(front().getNumPredecessors() == 0 &&
            "Entry block should not have predecesors.");
     return &front();
+  }
+
+  /// Return the last VPBasicBlock in VPlan, i.e. the one with no successors.
+  const_iterator getExitBlock() const {
+    return find_if(*this, [](const VPBasicBlock &BB) {
+      return BB.getNumSuccessors() == 0;
+    });
+  }
+  iterator getExitBlock() {
+    return find_if(*this, [](const VPBasicBlock &BB) {
+      return BB.getNumSuccessors() == 0;
+    });
   }
 
   const VPBasicBlockListTy &getVPBasicBlockList() const {

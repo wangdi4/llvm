@@ -81,18 +81,6 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   assert(VPPhiUserIt != VPIndIncrement->users().end() &&
          "A phi user is expected.");
   VPPHINode *VPIndInstVPPhi = cast<VPPHINode>(*VPPhiUserIt);
-
-  // Find the upper bound of the current loop. For now, the masked loop will
-  // have the same upper bound as the scalar loop.
-  VPBasicBlock *Latch = TopVPLoop->getLoopLatch();
-  assert(Latch && "Latch is expected to exist.");
-  VPBranchInst *Term = Latch->getTerminator();
-  VPInstruction *CondBit = cast<VPInstruction>(Latch->getCondBit());
-  assert(*CondBit->users().begin() == Term && "CondBit has only one user.");
-  assert(*VPIndIncrement->users().begin() == VPIndInstVPPhi &&
-         *std::next(VPIndIncrement->users().begin()) == CondBit &&
-         "VPIndIncrement has only two users: CondBit and VPIndInstVPPhi");
-
   // Get the values which are live-outs of the loop and live-outs through
   // backedge.
   SmallVector<std::pair<VPPHINode *, VPInstruction *>, 2>
@@ -100,14 +88,47 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   collectRecurrentValuesAndLiveOuts(TopVPLoop, RecurrentValsAndLiveOuts,
                                     VPIndIncrement);
 
-  // The induction increment and the exit comparison might be in a different
-  // basic block than the latch. In this case, we have to move them to the
-  // bottom of the latch.
-  if (Term->getPrevNode() != CondBit)
-    CondBit->moveBefore(Term);
-  if (CondBit->getPrevNode() != VPIndIncrement)
-    VPIndIncrement->moveBefore(CondBit);
-
+  // Create a new condition bit in the latch.
+  VPBasicBlock *Latch = TopVPLoop->getLoopLatch();
+  assert(Latch && "Latch is expected to exist.");
+  VPBranchInst *Term = Latch->getTerminator();
+  VPInstruction *OrigCondBit = cast<VPInstruction>(Latch->getCondBit());
+  assert(*OrigCondBit->users().begin() == Term &&
+         OrigCondBit->getNumUsers() == 1 && "CondBit has only one user.");
+  assert(llvm::all_of(VPIndIncrement->users(),
+                      [VPIndInstVPPhi, OrigCondBit](auto U) {
+                        return U == VPIndInstVPPhi || U == OrigCondBit;
+                      }) &&
+         "VPIndIncrement has only two users: CondBit and VPIndInstVPPhi");
+  VPVectorTripCountCalculation *VectorTC;
+  if (auto *VTC =
+          dyn_cast<VPVectorTripCountCalculation>(OrigCondBit->getOperand(1)))
+    VectorTC = VTC;
+  else
+    VectorTC = cast<VPVectorTripCountCalculation>(OrigCondBit->getOperand(0));
+  auto *OrigTC = VectorTC->getOperand(0);
+  VPCmpInst *NewBottomTest =
+      new VPCmpInst(VPIndIncrement, OrigTC, CmpInst::ICMP_ULT);
+  Latch->addInstruction(NewBottomTest, Term);
+  // The new condition bit is divergent. However, in VPlan, it is required
+  // that the bottom test is uniform. For this reason, we need to create a new
+  // bottom test as it is shown below:
+  // NewBottomTest = cmp IV, OrigTC
+  // AllZeroChk = call allzero(NewBottomTest)
+  // br AllZeroChk, LoopExitBlock, Header
+  VPBuilder VPBldr;
+  VPBldr.setInsertPoint(Term);
+  auto *AllZeroChk = VPBldr.createAllZeroCheck(NewBottomTest);
+  Latch->setTerminator(TopVPLoop->getExitBlock(), Header, AllZeroChk);
+  // The induction increment might be in a different basic block than the latch.
+  // In this case, we have to move the induction increment at the bottom of the
+  // latch.
+  if (OrigCondBit->getPrevNode() != VPIndIncrement ||
+      VPIndIncrement->getParent() != Latch)
+    VPIndIncrement->moveBefore(NewBottomTest);
+  // Remove the original CondBit.
+  VPBasicBlock *OrigCondBitBB = OrigCondBit->getParent();
+  OrigCondBitBB->eraseInstruction(OrigCondBit);
   // Split latch before induction increment.
   VPBasicBlock *NewLoopLatch = VPBlockUtils::splitBlock(
       Latch, VPIndIncrement->getIterator(), MaskedVPlan->getVPLoopInfo());
@@ -116,19 +137,17 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   // Find first non phi instruction in Header.
   auto NonVPPhiIt = find_if(
       *Header, [](const VPInstruction &Inst) { return !isa<VPPHINode>(Inst); });
-
   // Split header before first non phi instruction.
   assert(Header->getTerminator() && "BB should have a terminator");
   VPBasicBlock *HeaderSucc = VPBlockUtils::splitBlock(
       Header, NonVPPhiIt, MaskedVPlan->getVPLoopInfo());
-  VPInstruction *NewHeaderCond = CondBit->clone();
+  VPInstruction *NewHeaderCond = NewBottomTest->clone();
   NewHeaderCond->replaceUsesOfWith(VPIndIncrement, VPIndInstVPPhi, true);
   Header->appendInstruction(NewHeaderCond);
   Header->setTerminator(HeaderSucc, NewLoopLatch, NewHeaderCond);
 
   // Create phi nodes in new latch for the values that are live-outs of the
   // loop and live-outs through backedge.
-  VPBuilder VPBldr;
   VPBldr.setInsertPoint(NewLoopLatch, NewLoopLatch->begin());
   auto InsnNotInLoop = [TopVPLoop](VPUser *U) {
     if (VPInstruction *I = dyn_cast<VPInstruction>(U))

@@ -1592,6 +1592,10 @@ void VPlanDivergenceAnalysis::improveStrideUsingIR() {
       if (!getVectorShape(*PtrOp).isRandom())
         continue;
 
+      // Don't try to improve stride using underlying HIR if it's invalidated.
+      if (!VPInst.isUnderlyingIRValid())
+        continue;
+
       const loopopt::HLNode *HNode = VPInst.HIR().getUnderlyingNode();
       if (!HNode)
         continue;

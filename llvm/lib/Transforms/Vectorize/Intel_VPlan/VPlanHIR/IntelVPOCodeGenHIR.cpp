@@ -3257,6 +3257,14 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
   bool IsUnitStride = isUnitStridePtr(VPPtr, IsNegOneStride);
   bool NeedScalarRef = IsUnitStride || Lane0Value;
   unsigned ScalSymbase = VPLdSt->HIR().getSymbase();
+  if (auto *Priv = getVPValuePrivateMemoryPtr(VPPtr)) {
+    // For accesses to private memory we need to use new private alloca's
+    // symbase.
+    auto *PrivAlloca = cast<VPAllocatePrivate>(Priv);
+    assert(PrivateMemBlobRefs.count(PrivAlloca) &&
+           "Private memory pointer not widened.");
+    ScalSymbase = PrivateMemBlobRefs[PrivAlloca].second;
+  }
   Align Alignment = VPLdSt->getAlignment();
   AAMDNodes AANodes;
   VPLdSt->getAAMetadata(AANodes);
@@ -3298,6 +3306,22 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
 
   // Set ref alignment using original alignment.
   MemRef->setAlignment(Alignment.value());
+  return MemRef;
+}
+
+template <class VLSOpTy>
+RegDDRef *VPOCodeGenHIR::getVLSMemoryRef(const VLSOpTy *LoadStore) {
+  RegDDRef *MemRef = getOrCreateScalarRef(LoadStore->getPointerOperand(), 0);
+  if (MemRef->isAddressOf())
+    MemRef->setAddressOf(false);
+  else
+    MemRef = createMemrefFromBlob(MemRef, 0, 1);
+  MemRef->setBitCastDestType(
+      PointerType::get(LoadStore->getValueType(),
+                       cast<PointerType>(LoadStore->getPointerOperand()->getType())
+                           ->getAddressSpace()));
+  MemRef->setAlignment(LoadStore->getAlignment().value());
+  MemRef->setSymbase(LoadStore->HIR().getSymbase());
   return MemRef;
 }
 
@@ -3510,6 +3534,65 @@ void VPOCodeGenHIR::generateMinMaxIndex(const VPReductionFinal *RedFinal,
   }
 }
 
+RegDDRef *
+VPOCodeGenHIR::createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt) {
+  assert(PrivateMemBlobRefs.count(VPPvt) &&
+         "Private memory pointer not widened.");
+
+  BlobDDRef *AllocaBlob = PrivateMemBlobRefs[VPPvt].first;
+  unsigned AllocaMemRefSym = PrivateMemBlobRefs[VPPvt].second;
+  PointerType *PvtTy = cast<PointerType>(VPPvt->getType());
+
+  // In order to create a vector of pointers, we generate a scalar base pointer
+  // and then use a vector of indices. Pseudo underlying LLVM-IR -
+  // %priv.mem.bc = bitcast <VF x Ty>* %priv.mem to Ty*
+  // %pvt.vec.ptrs = gep Ty, Ty* %priv.mem.bc, <VF x i32> <0, ..., VF-1>
+  //
+  // To achieve this sequence in HIR, we first create a self address-of DDRef
+  // using the widened private blob and bitcast it to compute base-address. This
+  // base-address is then used to generate another address-of DDRef with a
+  // vector of indices in first dimension. For example -
+  // AllocaBlob = <VF x i32>* %priv.mem
+  // BaseRef = &((i32*)(<VF x i32>* %priv.mem)[i32 0])
+  // VecPvtPtrs = &((<VF x i32*>)(i32* %priv.mem.bc)[<VFx i32> <0, .., VF-1])
+
+  auto *BaseRef = DDRefUtilities.createSelfAddressOfRef(
+      AllocaBlob->getSelfBlobIndex(), AllocaBlob->getDefinedAtLevel(),
+      AllocaMemRefSym);
+  BaseRef->setBitCastDestType(PvtTy);
+  // Need to create a copy inst to capture base-address since HIR does not allow
+  // GEP Refs to be embedded into each other.
+  HLInst *BaseRefCopy = HLNodeUtilities.createCopyInst(BaseRef, "priv.mem.bc");
+  HLNodeUtils::insertAsFirstPreheaderNode(MainLoop, BaseRefCopy);
+  MainLoop->addLiveInTemp(BaseRefCopy->getLvalDDRef()->getSymbase());
+  LLVM_DEBUG(dbgs() << "[VPOCGHIR] createVectorPrivatePtrs: BaseRef: ";
+             BaseRef->dump(1); dbgs() << "\n");
+
+  SmallVector<Constant *, 16> Indices;
+  // Create a vector of consecutive numbers from zero to VF-1.
+  // TODO: For allocas of the format -
+  //     %priv = alloca i32, i32 %n
+  // generating consecutive numbers is incorrect. We need -
+  //     <%n * 0, %n * 1,..., %n * VF-1>
+  // to correctly compute base addresses.
+  for (unsigned I = 0; I < getVF(); ++I)
+    Indices.push_back(
+        ConstantInt::get(Type::getInt32Ty(PvtTy->getContext()), I));
+
+  auto *Cv = ConstantVector::get(Indices);
+  CanonExpr *IndexCE =
+      CanonExprUtilities.createConstStandAloneBlobCanonExpr(Cv);
+
+  // Create address-of ref to compute vector of pointers using base-address and
+  // vector indices.
+  auto *VecPvtPtrs = DDRefUtilities.createAddressOfRef(
+      BaseRefCopy->getLvalDDRef()->getSelfBlobIndex(),
+      BaseRef->getDefinedAtLevel(), AllocaMemRefSym);
+  VecPvtPtrs->addDimension(IndexCE);
+  VecPvtPtrs->setBitCastDestType(getWidenedType(PvtTy, getVF()));
+  return VecPvtPtrs;
+}
+
 void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   HLInst *WInst = nullptr; // Track the last generated wide inst for VPInst
 
@@ -3645,6 +3728,65 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   case VPInstruction::InductionInit:
   case VPInstruction::InductionFinal: {
     // TODO: Add codegen for induction initialization/finalization
+    return;
+  }
+
+  case VPInstruction::AllocatePrivate: {
+    auto *VPAllocaPriv = cast<VPAllocatePrivate>(VPInst);
+    Type *OrigTy = cast<PointerType>(VPInst->getType())->getElementType();
+
+    // We need to allocate VF copies of element based on privatized memory type.
+    // For simple scalars we use <VF x Ty>, while for aggregate types we use [VF
+    // x Ty].
+    // TODO: Extend support for privates optimized using SOA layout.
+    Type *VecTyForAlloca = nullptr;
+    if (OrigTy->isAggregateType())
+      VecTyForAlloca = ArrayType::get(OrigTy, getVF());
+    else {
+      assert(!isa<VectorType>(OrigTy) &&
+             "VectorType for AllocatePrivate not supported.");
+      VecTyForAlloca = FixedVectorType::get(OrigTy, getVF());
+    }
+
+    // Create a new vector blob to represent the widened private memory and map
+    // it to the AllocatePrivate instruction.
+    unsigned AllocaBlobIdx = HLNodeUtilities.createAlloca(
+        VecTyForAlloca, OrigLoop->getParentRegion(), "priv.mem");
+    BlobDDRef *AllocaBlob =
+        DDRefUtilities.createBlobDDRef(AllocaBlobIdx, 0 /* Linear Level */);
+    // Obtain a new symbase to assign for all memory operations based on the new
+    // alloca.
+    unsigned AllocaMemRefSym = DDRefUtilities.getNewSymbase();
+    LLVM_DEBUG(dbgs() << "Private memory: "; VPInst->dump();
+               dbgs() << " got the BlobDDRef: "; AllocaBlob->dump(1);
+               dbgs() << "\n and unique memref symbase: " << AllocaMemRefSym
+                      << "\n");
+    PrivateMemBlobRefs[VPAllocaPriv] =
+        std::make_pair(AllocaBlob, AllocaMemRefSym);
+    // Add the newly generated alloca as live-in to the main loop.
+    MainLoop->addLiveInTemp(AllocaBlob->getSymbase());
+
+    // Generated blob provides a pointer to the widened memory, here we generate
+    // code to compute a vector of pointers pointing to each element of widened
+    // memory. For example -
+    // OrigTy = i32*
+    // VecTyForAlloca = <VF x i32>
+    // AllocaBlob = <VF x i32>* %priv.mem
+    // VecPvtPtrs = &((<VF x i32*>)(i32* %priv.mem.bc)[<VFx i32> <0, .., VF-1])
+    // ScalPvtPtr = &((<VF x i32>* %priv.mem)[i32 0])
+    RegDDRef *VecPvtPtrs = createVectorPrivatePtrs(VPAllocaPriv);
+    RegDDRef *ScalPvtPtr = DDRefUtilities.createSelfAddressOfRef(
+        AllocaBlob->getSelfBlobIndex(), AllocaBlob->getDefinedAtLevel(),
+        AllocaMemRefSym);
+
+    LLVM_DEBUG(dbgs() << "Private memory: "; VPInst->dump();
+               dbgs() << " got the vector of private pointers: ";
+               VecPvtPtrs->dump(1); dbgs() << "\n"
+                                           << "and scalar private pointer: ";
+               ScalPvtPtr->dump(1); dbgs() << "\n");
+
+    addVPValueWideRefMapping(VPInst, VecPvtPtrs);
+    addVPValueScalRefMapping(VPInst, ScalPvtPtr, 0 /*Lane*/);
     return;
   }
 
@@ -3918,6 +4060,48 @@ void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
              dbgs() << "\n");
 }
 
+RegDDRef *VPOCodeGenHIR::getVLSLoadStoreMask(VectorType *WideValueType,
+                                             int GroupSize) {
+  if (!CurMaskValue) {
+    if (VF * GroupSize == WideValueType->getNumElements())
+      // No mask needed.
+      return nullptr;
+
+    auto *True = ConstantInt::getTrue(WideValueType->getContext());
+    auto *False = ConstantInt::getFalse(WideValueType->getContext());
+    SmallVector<Constant *, 32> Mask;
+    unsigned Idx;
+    for (Idx = 0; Idx < VF*GroupSize; ++Idx)
+        Mask.push_back(True);
+    for (unsigned End = WideValueType->getNumElements(); Idx < End; ++Idx)
+      Mask.push_back(False);
+
+    return DDRefUtilities.createConstDDRef(ConstantVector::get(Mask));
+  }
+
+  auto *Int32Ty = Type::getInt32Ty(WideValueType->getContext());
+  SmallVector<Constant *, 32> ShuffleMask;
+  for (unsigned Lane = 0; Lane < VF; ++Lane)
+    for (int Elt = 0; Elt < GroupSize; ++Elt)
+      ShuffleMask.push_back(ConstantInt::get(Int32Ty, Lane));
+
+  for (unsigned Idx = VF * GroupSize; Idx < WideValueType->getNumElements();
+       ++Idx)
+    ShuffleMask.push_back(ConstantInt::get(Int32Ty, VF));
+
+  auto *ShuffleMaskRef =
+      DDRefUtilities.createConstDDRef(ConstantVector::get(ShuffleMask));
+
+  auto *False = DDRefUtilities.createConstDDRef(
+      ConstantInt::getFalse(CurMaskValue->getDestType()));
+
+  HLInst *Shuffle = HLNodeUtilities.createShuffleVectorInst(
+      CurMaskValue->clone(), False, ShuffleMaskRef, "vls.mask");
+  addInstUnmasked(Shuffle);
+
+  return Shuffle->getLvalDDRef();
+}
+
 void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                                 const OVLSGroup *Grp, int64_t InterleaveFactor,
                                 int64_t InterleaveIndex, bool Widen,
@@ -3967,10 +4151,135 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::InductionInit:
   case VPInstruction::InductionInitStep:
   case VPInstruction::InductionFinal:
+  case VPInstruction::AllocatePrivate:
   case VPInstruction::PrivateFinalUncond:
   case VPInstruction::PrivateFinalUncondMem:
     widenLoopEntityInst(VPInst);
     return;
+
+  case VPInstruction::VLSLoad: {
+    auto *VLSLoad = cast<VPVLSLoad>(VPInst);
+    RegDDRef *MemRef = getVLSMemoryRef(VLSLoad);
+    HLInst *WideLoad = HLNodeUtilities.createLoad(MemRef, ".vls.load");
+    RegDDRef *Mask = getVLSLoadStoreMask(cast<VectorType>(VPInst->getType()),
+                                         VLSLoad->getGroupSize());
+    addInst(WideLoad, Mask);
+
+    if (Mask)
+      OptRptStats.MaskedVLSLoads += VLSLoad->getNumOrigLoads();
+    else
+      OptRptStats.UnmaskedVLSLoads += VLSLoad->getNumOrigLoads();
+
+    addVPValueScalRefMapping(VLSLoad, WideLoad->getLvalDDRef(), 0);
+    return;
+  }
+  case VPInstruction::VLSExtract: {
+    auto *Extract = cast<VPVLSExtract>(VPInst);
+
+    auto NumEltsPerValue = Extract->getNumGroupEltsPerValue();
+
+    auto Offset = Extract->getOffset();
+    auto GroupSize = Extract->getGroupSize();
+
+    auto *Int32Ty = Type::getInt32Ty(Extract->getType()->getContext());
+
+    SmallVector<Constant *, 32> ShuffleMask;
+    for (unsigned Lane = 0; Lane < VF; ++Lane)
+      for (unsigned Part = 0; Part < NumEltsPerValue; ++Part)
+        ShuffleMask.push_back(
+            ConstantInt::get(Int32Ty, Lane * GroupSize + Offset + Part));
+
+    RegDDRef *WideValue = getOrCreateScalarRef(Extract->getOperand(0), 0);
+    HLInst *Shuffle = HLNodeUtilities.createShuffleVectorInst(
+        WideValue, WideValue->clone(),
+        DDRefUtilities.createConstDDRef(ConstantVector::get(ShuffleMask)),
+        "vls.extract");
+    addInstUnmasked(Shuffle);
+
+    auto *ResultRef = Shuffle->getLvalDDRef();
+    auto *ResultType = getWidenedType(Extract->getType(), VF);
+    if (ResultType != ResultRef->getDestType()) {
+      auto *Cast = HLNodeUtilities.createBitCast(ResultType, ResultRef->clone(),
+                                                 "vls.extract.cast");
+      ResultRef = Cast->getLvalDDRef();
+    }
+    addVPValueWideRefMapping(Extract, ResultRef);
+
+    return;
+  }
+  case VPInstruction::VLSInsert: {
+    auto *Insert = cast<VPVLSInsert>(VPInst);
+    RegDDRef *OrigWideValue = getOrCreateScalarRef(Insert->getOperand(0), 0);
+    RegDDRef *ValueToInsert = widenRef(Insert->getOperand(1), VF);
+
+    auto NumEltsPerValue = Insert->getNumGroupEltsPerValue();
+    auto *GroupType = cast<VectorType>(Insert->getOperand(0)->getType());
+    Type *GroupEltType = GroupType->getElementType();
+    auto NumEltsInGroup = GroupType->getNumElements();
+
+    auto *CastedType = getWidenedType(GroupEltType, VF * NumEltsPerValue);
+    RegDDRef *Casted = ValueToInsert;
+    if (CastedType != Casted->getDestType()) {
+      auto *Cast =
+          HLNodeUtilities.createBitCast(CastedType, Casted, "vls.insert.cast");
+      addInstUnmasked(Cast);
+      Casted = Cast->getLvalDDRef()->clone();
+    }
+
+    auto *Int32Ty = Type::getInt32Ty(Insert->getType()->getContext());
+
+    SmallVector<Constant *, 32> ExtendShuffleMask;
+    for (unsigned Idx = 0; Idx < VF * NumEltsPerValue; ++Idx)
+      ExtendShuffleMask.push_back(ConstantInt::get(Int32Ty, Idx));
+    for (unsigned Idx = VF * NumEltsPerValue; Idx < NumEltsInGroup; ++Idx)
+      ExtendShuffleMask.push_back(ConstantInt::get(Int32Ty, VF * NumEltsPerValue));
+
+    auto *Extend = HLNodeUtilities.createShuffleVectorInst(
+        // Why do I need to clone it?!
+        Casted->clone(), DDRefUtilities.createUndefDDRef(Casted->getDestType()),
+        DDRefUtilities.createConstDDRef(
+            ConstantVector::get(ExtendShuffleMask)));
+    addInstUnmasked(Extend);
+
+    auto Offset = Insert->getOffset();
+    auto GroupSize = Insert->getGroupSize();
+    SmallVector<Constant *, 32> ShuffleMask;
+
+    // Initialize as if we'd want to keep OrigWideValue only.
+    for (unsigned Idx = 0; Idx < NumEltsInGroup; ++Idx)
+      ShuffleMask.push_back(ConstantInt::get(Int32Ty, Idx));
+
+    // Now update indices where we'd like to change the data.
+    for (unsigned Lane = 0; Lane < VF; ++Lane)
+      for (unsigned Part = 0; Part < NumEltsPerValue; ++Part) {
+        auto TargetIdx = GroupSize * Lane + Offset + Part;
+        auto SrcIdx = NumEltsInGroup + Lane * NumEltsPerValue + Part;
+        ShuffleMask[TargetIdx] = ConstantInt::get(Int32Ty, SrcIdx);
+      }
+
+    auto *Result = HLNodeUtilities.createShuffleVectorInst(
+        OrigWideValue, Extend->getLvalDDRef()->clone(),
+        DDRefUtilities.createConstDDRef(ConstantVector::get(ShuffleMask)));
+    addInstUnmasked(Result);
+    addVPValueScalRefMapping(Insert, Result->getLvalDDRef(), 0);
+    return;
+  }
+  case VPInstruction::VLSStore: {
+    auto *VLSStore = cast<VPVLSStore>(VPInst);
+    RegDDRef *MemRef = getVLSMemoryRef(VLSStore);
+    HLInst *WideStore = HLNodeUtilities.createStore(
+        getOrCreateScalarRef(VPInst->getOperand(0), 0), ".vls.store", MemRef);
+    RegDDRef *Mask = getVLSLoadStoreMask(
+        cast<VectorType>(VLSStore->getOperand(0)->getType()),
+        VLSStore->getGroupSize());
+    addInst(WideStore, Mask);
+    if (Mask)
+      OptRptStats.MaskedVLSStores += VLSStore->getNumOrigStores();
+    else
+      OptRptStats.UnmaskedVLSStores += VLSStore->getNumOrigStores();
+
+    return;
+  }
 
   case Instruction::Br:
     // Do nothing.
@@ -4367,6 +4676,41 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       return;
     }
 
+    if (VPInst->getNumOperands() == 2) {
+      // VPlan VLS transformation introduces this kind of GEPs.
+      auto SVA = Plan->getVPlanSVA();
+      (void)SVA;
+      assert(SVA->retValNeedsFirstScalarCode(VPInst) &&
+             !SVA->retValNeedsLastScalarCode(VPInst) &&
+             !SVA->retValNeedsVectorCode(VPInst));
+      if (!Widen) {
+        // FIXME: generateHIR is called two times. Non-widen case has more
+        // conditions, so generate during the widening call.
+        return;
+      }
+
+      RegDDRef *PointerRef = getOrCreateScalarRef(VPInst->getOperand(0), 0);
+      if (PointerRef->getNumDimensions() > 0 &&
+          !PointerRef->hasTrailingStructOffsets()) {
+        if (auto *Const = dyn_cast<VPConstant>(VPInst->getOperand(1))) {
+          CanonExpr *CE = PointerRef->getDimensionIndex(1);
+          CE->addConstant(Const->getSExtValue(), true /* IsMathAdd */);
+          addVPValueScalRefMapping(VPInst, PointerRef, 0);
+          return;
+        }
+      }
+      auto *CopyInst = HLNodeUtilities.createCopyInst(PointerRef, "gep.base");
+      addInstUnmasked(CopyInst);
+      PointerRef = CopyInst->getLvalDDRef()->clone();
+
+      auto *NewRef = DDRefUtilities.createAddressOfRef(
+          PointerRef->getSelfBlobIndex(), PointerRef->getDefinedAtLevel());
+      RegDDRef *Idx = getOrCreateScalarRef(VPInst->getOperand(1), 0);
+      NewRef->addDimension(Idx->getSingleCanonExpr());
+      addVPValueScalRefMapping(VPInst, NewRef, 0);
+      return;
+    }
+
     // Any other case of GEP implies it was introduced after decomposer by some
     // VPlan-to-VPlan xform.
     assert(false && "VPlan-to-VPlan xform introduced a new IR-agnostic GEP.");
@@ -4587,7 +4931,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         widenRef(AllZeroCmp->clone(), getVF()), "all.zero.check");
     break;
   }
-
   default:
     LLVM_DEBUG(VPInst->dump());
     llvm_unreachable("Unexpected VPInstruction opcode");

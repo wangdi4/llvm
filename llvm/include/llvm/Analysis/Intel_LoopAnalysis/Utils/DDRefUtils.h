@@ -139,6 +139,15 @@ public:
                                unsigned SB = InvalidSymbase,
                                bool IsInBounds = true);
 
+  /// Create a self-addressOf ref using the \p BasePtrBlobIndex as the blob
+  /// index of the base pointer. \p Level is the defined at level of the base
+  /// pointer. If no symbase is supplied by the caller, a new one is assigned to
+  /// the ref. A single dimension (with 0 as index) is added to the ref. For
+  /// example, for input %blob it creates &((%blob)[0]).
+  RegDDRef *createSelfAddressOfRef(unsigned BasePtrBlobIndex,
+                                   unsigned Level = 0,
+                                   unsigned SB = InvalidSymbase);
+
   /// Returns a new constant RegDDRef from a int value.
   /// This routine will automatically create a single canon expr from the val
   /// and attach it to the new RegDDRef.
