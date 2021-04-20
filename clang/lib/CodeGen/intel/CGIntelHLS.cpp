@@ -46,8 +46,8 @@ void CodeGenFunction::EmitHLSComponentMetadata(const FunctionDecl *FD,
     const Type *ParamType = PVD->getType().getCanonicalType().getTypePtr();
 
     StringRef ArgType = "default";
-    if (PVD->getAttr<SlaveMemoryArgumentAttr>())
-      ArgType = "mm_slave";
+    if (PVD->getAttr<AgentMemoryArgumentAttr>())
+      ArgType = "mm_agent";
     else if (ParamType->isPointerType() || ParamType->isReferenceType())
       ArgType = "pointer";
     ArgTypeMD.push_back(llvm::MDString::get(Ctx, ArgType));

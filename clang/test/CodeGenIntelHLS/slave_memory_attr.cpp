@@ -1,7 +1,7 @@
 //RUN: %clang_cc1 -fhls -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
 //
 #define component __attribute__((ihc_component))
-#define slave_arg __attribute__((local_mem_size(32), slave_memory_argument))
+#define slave_arg __attribute__((local_mem_size(32), agent_memory_argument))
 
 //CHECK: define{{.*}}foo0a
 //CHECK-SAME: !ihc_component [[CFOO0A:![0-9]+]]
@@ -59,6 +59,6 @@ int foo0b(slave_arg __attribute__((memory("MLAB")))
 //CHECK-SAME: !"{readwritememory:READWRITE}"}
 
 //CHECK: [[CFOO1A]] = !{!"_Z5foo0bPi", i32 undef}
-//CHECK: [[ATFOO1A]] = !{!"mm_slave"}
+//CHECK: [[ATFOO1A]] = !{!"mm_agent"}
 //CHECK: [[MFOO1A]] = !{!"{memory:MLAB}{sizeinfo:8}{pump:1}{bankwidth:4}{numbanks:8}{bank_bits:4,3,2}
 //CHECK: [[LMSFOO1A]] = !{i32 32}

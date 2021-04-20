@@ -3325,8 +3325,8 @@ static void handleReadWriteMode(Sema &S, Decl *D, const ParsedAttr &Attr) {
     return;
   }
 
-  // ReadWrite attributes applies only to slavememory attributes.
-  if (!D->getAttr<SlaveMemoryArgumentAttr>()) {
+  // ReadWrite attributes applies only to agentmemory attributes.
+  if (!D->getAttr<AgentMemoryArgumentAttr>()) {
     S.Diag(Attr.getLoc(), diag::err_readwritememory_attribute_invalid) << Attr;
     return;
   }
@@ -3471,12 +3471,12 @@ static void handleStableArgumentAttr(Sema &S, Decl *D,
   handleSimpleAttribute<StableArgumentAttr>(S, D, Attr);
 }
 
-static void handleSlaveMemoryArgumentAttr(Sema &S, Decl *D,
+static void handleAgentMemoryArgumentAttr(Sema &S, Decl *D,
                                           const ParsedAttr &Attr) {
   if (!Attr.checkExactlyNumArgs(S, /*Num=*/0))
     return;
 
-  handleSimpleAttribute<SlaveMemoryArgumentAttr>(S, D, Attr);
+  handleSimpleAttribute<AgentMemoryArgumentAttr>(S, D, Attr);
 }
 
 template <typename AttrType, typename IncompatAttrType1,
@@ -3658,9 +3658,9 @@ static inline bool diagnoseMemoryAttrs(Sema &S, Decl *D) {
   return diagnoseMemoryAttrs<AttrTy2, AttrTys...>(S, D) || Diagnosed;
 }
 
-static bool IsSlaveMemory(Sema &S, Decl *D) {
+static bool IsAgentMemory(Sema &S, Decl *D) {
   return S.getLangOpts().HLS && D->hasAttr<OpenCLLocalMemSizeAttr>() &&
-         D->hasAttr<SlaveMemoryArgumentAttr>();
+         D->hasAttr<AgentMemoryArgumentAttr>();
 }
 
 static void handleAllowCpuFeaturesAttr(Sema &S, Decl *D,
@@ -10541,8 +10541,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_StableArgument:
     handleStableArgumentAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_SlaveMemoryArgument:
-    handleSlaveMemoryArgumentAttr(S, D, AL);
+  case ParsedAttr::AT_AgentMemoryArgument:
+    handleAgentMemoryArgumentAttr(S, D, AL);
     break;
   case ParsedAttr::AT_HLSII:
     handleHLSIIAttr<HLSIIAttr, HLSMinIIAttr, HLSMaxIIAttr>(S, D, AL);
@@ -10799,8 +10799,8 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
     }
   }
   if ((getLangOpts().HLS || getLangOpts().OpenCL) &&
-      D->getKind() == Decl::ParmVar && !IsSlaveMemory(*this, D)) {
-    // Check that memory attributes are only added to slave memory.
+      D->getKind() == Decl::ParmVar && !IsAgentMemory(*this, D)) {
+    // Check that memory attributes are only added to agent memory.
     if (diagnoseMemoryAttrs<
             IntelFPGAMemoryAttr, IntelFPGANumBanksAttr, IntelFPGABankWidthAttr,
             IntelFPGASinglePumpAttr, IntelFPGADoublePumpAttr,

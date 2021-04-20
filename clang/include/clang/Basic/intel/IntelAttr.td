@@ -237,9 +237,9 @@ def ComponentInterface : InheritableAttr {
   let Spellings = [GNU<"component_interface">];
   // If adding to the end of enum, modify generateValidStrings as well.
   let Args = [EnumArgument<"Type", "ComponentInterfaceType",
-                           ["avalon_streaming", "avalon_mm_slave",
+                           ["avalon_streaming", "avalon_mm_agent",
                             "always_run"],
-                           ["Streaming", "Slave", "AlwaysRun"]>];
+                           ["Streaming", "Agent", "AlwaysRun"]>];
   let LangOpts = [HLS];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
@@ -418,8 +418,8 @@ def ArgumentInterface : Attr {
   let Spellings = [GNU<"argument_interface">];
   // If adding to the end of enum, modify generateValidStrings as well.
   let Args = [EnumArgument<"Type", "ArgumentInterfaceType",
-                           ["wire","avalon_mm_slave", "avalon_streaming"],
-                           ["Wire", "Slave", "Streaming"]>];
+                           ["wire","avalon_mm_agent", "avalon_streaming"],
+                           ["Wire", "Agent", "Streaming"]>];
   let Subjects = SubjectList<[ParmVar], ErrorDiag>;
   let LangOpts = [HLS];
   let Documentation = [Undocumented];
@@ -444,8 +444,8 @@ def StableArgument : Attr {
   let PragmaAttributeSupport = 0;
 }
 
-def SlaveMemoryArgument : Attr {
-  let Spellings = [GNU<"slave_memory_argument">];
+def AgentMemoryArgument : Attr {
+  let Spellings = [GNU<"agent_memory_argument">];
   let Subjects = SubjectList<[ParmVar], ErrorDiag>;
   let LangOpts = [HLS];
   let Documentation = [Undocumented];
@@ -461,12 +461,12 @@ def HLSLocalOrStaticVar : SubsetSubject<Var,
                                  S->hasLocalStorage())}],
                               "local variables, static variables">;
 
-def HLSLocalStaticSlaveMemVar : SubsetSubject<Var,
+def HLSLocalStaticAgentMemVar : SubsetSubject<Var,
       [{S->getKind() != Decl::ImplicitParam &&
         S->getKind() != Decl::NonTypeTemplateParm &&
         (S->getStorageClass() == StorageClass::SC_Static ||
          S->hasLocalStorage())}],
-         "local variables, static variables, slave memory arguments">;
+         "local variables, static variables, agent memory arguments">;
 
 def StallFree : InheritableAttr {
   let Spellings = [GNU<"stall_free">];
@@ -480,7 +480,7 @@ def StallFree : InheritableAttr {
 def ReadWriteMode : Attr {
   let Spellings = [GNU<"readwrite_mode">];
   let Args = [StringArgument<"Type">];
-  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar, Field], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalStaticAgentMemVar, Field], ErrorDiag>;
   let LangOpts = [HLS];
   let Documentation = [ReadWriteModeDocs];
 }

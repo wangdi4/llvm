@@ -240,15 +240,15 @@ argument.
 def ReadWriteModeDocs : Documentation {
  let Category = DocCatType;
   let Content = [{
-The readwrite_mode attribute indicates to the compiler how the slave memory
+The readwrite_mode attribute indicates to the compiler how the agent memory
 will be accessed from outside the component.
 
 __attribute__((readwrite_mode("readonly"))) indicates to the compiler that
-users from outside the component can only read from the slave interface.
+users from outside the component can only read from the agent interface.
 __attribute__((readwrite_mode("writeonly"))) indicates to the compiler that
-users from outside the component can only write to the slave interface.
+users from outside the component can only write to the agent interface.
 __attribute__((readwrite_mode("readwrite"))) indicates to the compiler that
-users from outside the component can read from and write to the slave
+users from outside the component can read from and write to the agent
 interface.
   }];
 }
