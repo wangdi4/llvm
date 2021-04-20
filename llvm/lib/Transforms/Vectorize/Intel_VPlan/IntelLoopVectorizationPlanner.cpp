@@ -682,7 +682,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     if (VecScenario.hasPeel()) {
       VPlanVector *MPlan = getVPlanForVF(VF);
       VPLoop *L = *(MPlan->getVPLoopInfo())->begin();
-      if (VecScenario.hasMaskedPeel() && !L->hasNormalizedInduction()) {
+      if (VecScenario.hasMaskedPeel() && !hasLoopNormalizedInduction(L)) {
         // replace by scalar loop if there is no normalized induction
         VecScenario.setScalarPeel();
       }
@@ -1037,7 +1037,7 @@ void LoopVectorizationPlanner::emitVecSpecifics(VPlanVector *Plan) {
   VPBuilder Builder;
   Builder.setInsertPoint(PreHeader);
   VPValue *OrigTC = nullptr;
-  bool HasNormalizedInd = CandidateLoop->hasNormalizedInduction();
+  bool HasNormalizedInd = hasLoopNormalizedInduction(CandidateLoop);
   if (!HasNormalizedInd) {
     // If loop does not have normalized induction then emit it.
     Type *VectorLoopIVType = Legal->getWidestInductionType();
@@ -1418,4 +1418,128 @@ void LoopVectorizationPlanner::createMergerVPlans(VPAnalysesFactory &VPAF) {
     VPlanCFGMerger::createPlans(*this, VecScenario, MergerVPlans, TheLoop,
                                 *Plan, VPAF);
   }
+}
+
+// Return true if the compare and branch sequence guarantees the loop trip count
+// to match the invariant operand of the compare.
+static bool supportedCmpBranch(VPBasicBlock *Header, VPBasicBlock *Latch,
+                               VPBasicBlock *LoopExit, VPCmpInst *Cond,
+                               VPInstruction *AddI) {
+  auto Pred = Cond->getPredicate();
+  auto *CondOp0 = Cond->getOperand(0);
+  auto *CondOp1 = Cond->getOperand(1);
+  auto *LatchSucc0 = Latch->getSuccessor(0);
+  auto *LatchSucc1 = Latch->getSuccessor(1);
+
+  if (Pred == CmpInst::ICMP_EQ && LatchSucc0 == LoopExit &&
+      LatchSucc1 == Header)
+    return true;
+
+  if (Pred == CmpInst::ICMP_NE && LatchSucc0 == Header &&
+      LatchSucc1 == LoopExit)
+    return true;
+
+  if (ICmpInst::isLT(Pred) && CondOp0 == AddI && LatchSucc0 == Header &&
+      LatchSucc1 == LoopExit)
+    return true;
+
+  if (ICmpInst::isGE(Pred) && CondOp0 == AddI && LatchSucc0 == LoopExit &&
+      LatchSucc1 == Header)
+    return true;
+
+  if (ICmpInst::isGT(Pred) && CondOp1 == AddI && LatchSucc0 == Header &&
+      LatchSucc1 == LoopExit)
+    return true;
+
+  if (ICmpInst::isLE(Pred) && CondOp1 == AddI && LatchSucc0 == LoopExit &&
+      LatchSucc1 == Header)
+    return true;
+
+  return false;
+}
+
+// The following code snippet illustrates what is detected by the
+// function.
+// ...
+// %ind.step = induction-init-step{add} i64 1
+// ...
+// %ind.phi = phi i64 [0, %preheader], [%add, %loop_latch]
+// ...
+// %add = add i64 %ind.phi, %ind.step
+// %cmp = icmp sle i64 %add, %loop.invariant
+//
+bool LoopVectorizationPlanner::hasLoopNormalizedInduction(const VPLoop *Loop) {
+  VPBasicBlock *Latch = Loop->getLoopLatch();
+  if (!Latch)
+    return false;
+  VPBranchInst *Br = Latch->getTerminator();
+  if (!Br || Br->getCondition() == nullptr)
+    return false;
+  VPCmpInst *Cond = dyn_cast<VPCmpInst>(Br->getCondition());
+  if (!Cond)
+    return false;
+  if (Cond->getNumUsers() != 1)
+    return false;
+
+  VPBasicBlock *Header = Loop->getHeader();
+  VPBasicBlock *LoopExit = Loop->getExitBlock();
+  VPInstruction *AddI = nullptr;
+  auto getAddInstr = [&AddI, Cond, Loop](int NumOp) -> bool {
+    // Check that the NumOp-th operand of Cond is an "add" instruction inside
+    // the loop with one of operands equal to InductionInitStep(1) and another
+    // operand of Cond is a loop invariant. The add instriuction is stored to
+    // AddI for further checks.
+    // In the example above it's the %add instruction.
+    AddI = dyn_cast<VPInstruction>(Cond->getOperand(NumOp));
+    if (AddI && AddI->getOpcode() == Instruction::Add && Loop->contains(AddI)) {
+      VPValue *SecOp = Cond->getOperand(NumOp ^ 1);
+      // Check upper bound.
+      if (!Loop->isDefOutside(SecOp) && !isa<VPConstant>(SecOp))
+        return false;
+      // Check step.
+      if (auto *StepInit = dyn_cast<VPInductionInitStep>(AddI->getOperand(0)))
+        SecOp = StepInit->getOperand(0);
+      else if (auto *StepInit =
+                   dyn_cast<VPInductionInitStep>(AddI->getOperand(1)))
+        SecOp = StepInit->getOperand(0);
+      else
+        return false;
+
+      if (VPConstantInt *Step = dyn_cast<VPConstantInt>(SecOp))
+        return Step->getValue() == 1;
+    }
+    return false;
+  };
+  if (getAddInstr(0) || getAddInstr(1)) {
+    VPBasicBlock *Preheader = Loop->getLoopPreheader();
+    // Check that increment is used only in condition and in phi.
+    for (auto *U : AddI->users()) {
+      if (U == Cond)
+        continue;
+      VPPHINode *PN = dyn_cast<VPPHINode>(U);
+      if (!PN)
+        return false;
+      if (PN->getParent() != Header)
+        return false;
+      // Header phi, check start value for 0.
+      VPValue *Init = PN->getIncomingValue(Preheader);
+      if (auto IndInit = dyn_cast<VPInductionInit>(Init)) {
+        Init = IndInit->getStartValueOperand();
+        if (auto *VPLiveIn = dyn_cast<VPLiveInValue>(Init))
+          Init = IndInit->getParent()
+                     ->getParent()
+                     ->getExternals()
+                     .getOriginalIncomingValue(VPLiveIn->getMergeId());
+      }
+      if (isa<VPConstantInt>(Init) &&
+          cast<VPConstantInt>(Init)->getValue() == 0)
+        continue;
+      // The starting value is not induction-init(0).
+      return false;
+    }
+    // All checks succeeded so far. Return true if compare and branch
+    // are in supported form.
+    return supportedCmpBranch(Header, Latch, LoopExit, Cond, AddI);
+  }
+  return false;
 }
