@@ -16,6 +16,9 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
+#if INTEL_COLLAB
+#include "llvm/IR/IRBuilder.h"
+#endif // INTEL_COLLAB
 #include "llvm/IR/Type.h"
 #include "llvm/InitializePasses.h"
 
@@ -222,6 +225,12 @@ bool insertAtomicInstrumentationCall(Module &M, StringRef Name,
     Order = 3;
   else
     Order = 0;
+#if INTEL_COLLAB
+  IRBuilder<> Builder(Position);
+  // FIXME: do not use literal 4 for the generic address space.
+  Ptr = Builder.CreatePointerBitCastOrAddrSpaceCast(
+      Ptr, Builder.getInt8PtrTy(4));
+#endif // INTEL_COLLAB
   Value *MemOrder = ConstantInt::get(Int32Ty, Order);
   Value *Args[] = {Ptr, AtomicOp, MemOrder};
   Instruction *InstrumentationCall = emitCall(M, VoidTy, Name, Args, Position);
