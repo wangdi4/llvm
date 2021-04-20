@@ -422,7 +422,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
-  case VPInstruction::ScalarRemainder: {
+  case VPInstruction::ScalarRemainder:
+  case VPInstruction::ScalarPeel: {
     // Instruction itself is unconditionally always scalar.
     setSVAKindForInst(Inst, SVAKind::FirstScalar);
     // All operands are always scalar too.
@@ -441,6 +442,13 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   case VPInstruction::PushVF:
   case VPInstruction::PopVF:
     setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    return true;
+
+  case VPInstruction::InvSCEVWrapper:
+    // Instruction itself is unconditionally always scalar.
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    // All operands are always scalar too.
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
     return true;
 
   case VPInstruction::Not:
@@ -782,6 +790,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::ActiveLane:
   case VPInstruction::ActiveLaneExtract:
   case VPInstruction::ScalarRemainder:
+  case VPInstruction::ScalarPeel:
   case VPInstruction::OrigLiveOut:
   case VPInstruction::PushVF:
   case VPInstruction::PopVF:
@@ -791,6 +800,7 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::VLSExtract:
   case VPInstruction::VLSInsert:
   case VPInstruction::VLSStore:
+  case VPInstruction::InvSCEVWrapper:
     return true;
   default:
     return false;

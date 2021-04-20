@@ -2,7 +2,7 @@
 ; RUN: opt -vplan-vec-scenario="n0;m4;n0" \
 ; RUN: -disable-output -VPlanDriver -vplan-enable-new-cfg-merge \
 ; RUN: -disable-vplan-codegen -vplan-enable-masked-variant \
-; RUN: -vplan-print-after-create-in-merge \
+; RUN: -vplan-print-after-create-in-merge -vplan-print-after-merge-pass2 \
 ; RUN: -vplan-enable-peeling -vplan-print-after-merge-skeleton %s 2>&1 | FileCheck %s
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
@@ -98,6 +98,54 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: Cloned.[[BB5]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP8:%.*]] = phi-merge  [ i64 live-out0, Cloned.[[BB5]] ]
+; CHECK-NEXT:     [DA: Uni] popvf
+; CHECK-NEXT:     [DA: Uni] br <External Block>
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP7]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlan after final merge pass:
+; CHECK-NEXT:  VPlan IR for: test_store:for.body.cloned.masked
+; CHECK-NEXT:    Cloned.[[BB0]]: # preds:
+; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
+; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
+; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB1]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    Cloned.[[BB1]]: # preds: Cloned.[[BB0]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP0]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP1]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP2]] = vector-trip-count i64 1024, UF = 1
+; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB2]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    Cloned.[[BB2]]: # preds: Cloned.[[BB1]], new_latch
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP0]], Cloned.[[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], new_latch ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP3]] = icmp ult i64 [[VP_INDVARS_IV]] i64 1024
+; CHECK-NEXT:     [DA: Uni] br [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]: # preds: Cloned.[[BB2]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP4]] = block-predicate i1 [[VP3]]
+; CHECK-NEXT:     [DA: Div] i64* [[VP_PTR]] = getelementptr inbounds i64* [[ARY0]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_CC]] = sext i32 [[C0]] to i64
+; CHECK-NEXT:     [DA: Div] i64 [[VP_ADD]] = add i64 [[VP_CC]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     [DA: Div] store i64 [[VP_ADD]] i64* [[VP_PTR]]
+; CHECK-NEXT:     [DA: Uni] br new_latch
+; CHECK-EMPTY:
+; CHECK-NEXT:    new_latch: # preds: [[BB3]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP5]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 1024
+; CHECK-NEXT:     [DA: Uni] i1 [[VP6]] = all-zero-check i1 [[VP5]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP6]], Cloned.[[BB4]], Cloned.[[BB2]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    Cloned.[[BB4]]: # preds: new_latch
+; CHECK-NEXT:     [DA: Uni] i64 [[VP7]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB5]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    Cloned.[[BB5]]: # preds: Cloned.[[BB4]]
+; CHECK-NEXT:     [DA: Uni] popvf
+; CHECK-NEXT:     [DA: Uni] br final.merge
+; CHECK-EMPTY:
+; CHECK-NEXT:    final.merge: # preds: Cloned.[[BB5]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP8]] = phi-merge  [ i64 live-out0, Cloned.[[BB5]] ]
 ; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:

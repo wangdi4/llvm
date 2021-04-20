@@ -68,10 +68,7 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
       OrigVPlan->cloneMasked(VPAF, VPlanVector::UpdateDA::DoNotUpdateDA));
 
   // Collect information before applying masked mode transformation.
-  VPLoop *TopVPLoop = *MaskedVPlan->getVPLoopInfo()->begin();
-  assert(std::distance(MaskedVPlan->getVPLoopInfo()->begin(),
-                       MaskedVPlan->getVPLoopInfo()->end()) == 1 &&
-         "Expected single outermost loop!");
+  VPLoop *TopVPLoop = MaskedVPlan->getMainLoop(true);
   VPInstruction *VPIndIncrement = getInductionVariable(TopVPLoop);
   VPBasicBlock *Header = TopVPLoop->getHeader();
   // Find the phi node of the header that its incoming value is the induction

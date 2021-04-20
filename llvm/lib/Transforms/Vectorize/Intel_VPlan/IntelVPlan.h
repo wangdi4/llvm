@@ -46,6 +46,7 @@
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 #include "llvm/Support/raw_ostream.h"
@@ -942,7 +943,7 @@ public:
   static inline bool classof(const VPInstruction *VPI) {
     return VPI->getOpcode() == Instruction::Br;
   }
-  static bool classof(const VPUser *U) {
+  static bool classof(const VPValue *U) {
     return isa<VPInstruction>(U) && classof(cast<VPInstruction>(U));
   }
 
@@ -2681,8 +2682,16 @@ public:
   /// Get the original loop.
   Loop *getLoop() const { return Lp; }
 
+  /// Set the new original loop after cloning.
+  void setClonedLoop(Loop *L) {
+    assert(L && "unexpected null loop");
+    Lp = L;
+  }
+
   /// Return true if cloning is required.
   bool isCloningRequired() const { return NeedsCloning; }
+
+  void setCloningRequired() { NeedsCloning = true; }
 
   /// Get the live-in value corresponding to the \p Idx.
   Use *getLiveIn(unsigned Idx) const {
@@ -2691,9 +2700,29 @@ public:
     return OpLiveInMap[Idx];
   }
 
+  /// Get the live-in value corresponding to the \p Idx.
+  void setClonedLiveIn(unsigned Idx, Use *U) {
+    assert(Idx <= OpLiveInMap.size() - 1 &&
+           "Invalid entry in the live-in map requested.");
+    OpLiveInMap[Idx] = U;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPInstruction *V) {
+    return V->getOpcode() == VPInstruction::ScalarPeel ||
+           V->getOpcode() == VPInstruction::ScalarRemainder;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   virtual void printImpl(raw_ostream &O) const {
-    O << " " << getLoop()->getName() << ", LiveInMap:";
+    O << " " << getLoop()->getName()
+      << ", NeedsCloning: " << isCloningRequired() << ", LiveInMap:";
     assert(getNumOperands() == OpLiveInMap.size() &&
            "Inconsistent live-ins data!");
     for (unsigned I = 0; I < getNumOperands(); ++I) {
@@ -3106,6 +3135,7 @@ public:
 
   // Only CG needs this...
   const Value *getLiveOutVal() const { return LiveOutVal; }
+  void setClonedLiveOutVal(Value *V) { LiveOutVal = V; }
 
   // Used during CFG merge.
   unsigned getMergeId() const { return MergeId;}
@@ -3473,29 +3503,29 @@ public:
     });
   }
 
-  const VPBasicBlockListTy &getVPBasicBlockList() const {
+  const VPBasicBlockListTy &getBasicBlockList() const {
     return VPBasicBlocks;
   }
-  VPBasicBlockListTy &getVPBasicBlockList() { return VPBasicBlocks; }
+  VPBasicBlockListTy &getBasicBlockList() { return VPBasicBlocks; }
 
   void insertAtFront(VPBasicBlock *CurBB) {
-    getVPBasicBlockList().push_front(CurBB);
+    getBasicBlockList().push_front(CurBB);
   }
 
   void insertBefore(VPBasicBlock *CurBB, VPBasicBlock *MovePos) {
-    getVPBasicBlockList().insert(MovePos->getIterator(), CurBB);
+    getBasicBlockList().insert(MovePos->getIterator(), CurBB);
   }
 
   void insertAfter(VPBasicBlock *CurBB, VPBasicBlock *MovePos) {
-    getVPBasicBlockList().insertAfter(MovePos->getIterator(), CurBB);
+    getBasicBlockList().insertAfter(MovePos->getIterator(), CurBB);
   }
 
   void insertAtBack(VPBasicBlock *CurBB) {
-    getVPBasicBlockList().push_back(CurBB);
+    getBasicBlockList().push_back(CurBB);
   }
 
   void insertBefore(VPBasicBlock *CurBB, iterator InsertBefore) {
-    getVPBasicBlockList().insert(InsertBefore, CurBB);
+    getBasicBlockList().insert(InsertBefore, CurBB);
   }
 
   /// Returns a pointer to a member of VPBasicBlock list.
@@ -3661,7 +3691,7 @@ public:
   virtual void printSpecifics(raw_ostream &OS) const override {}
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  void setNeedCloneOrigLoop(bool V) { NeedCloneOrigLoop = V; }
+  void setNeedCloneOrigLoop(bool V);
   bool getNeedCloneOrigLoop() const { return NeedCloneOrigLoop; }
 
 protected:
@@ -3708,7 +3738,24 @@ public:
 
   const VPLoopInfo *getVPLoopInfo() const { return VPLInfo.get(); }
 
-  VPlanScalarEvolution *getVPSE() const { return VPSE.get(); }
+  // Return main loop, making the sanity check for that we have
+  // the only one top loop in VPLoopInfo. If the \p StrictCheck is true than the
+  // check is performed unconditionally. Otherwise it allows multiple top loops
+  // when hasExplicitRemainder() is true.
+  VPLoop *getMainLoop(bool StrictCheck) {
+    assert(((!StrictCheck && hasExplicitRemainder()) ||
+            std::distance(VPLInfo->begin(), VPLInfo->end()) == 1) &&
+           "Expected single outermost loop!");
+    return *VPLInfo->begin();
+  }
+
+  const VPLoop *getMainLoop(bool StrictCheck) const {
+    return const_cast<VPlanVector *>(this)->getMainLoop(StrictCheck);
+  }
+
+  VPlanScalarEvolution *getVPSE() const {
+    return VPSE.get();
+  }
 
   VPlanValueTracking *getVPVT() const { return VPVT.get(); }
 
@@ -4191,6 +4238,39 @@ inline void VPLAN_DUMP(const VPlanDumpControl &Control, const VPlan *Plan) {
   VPLAN_DUMP(Control, *Plan);
 }
 #endif
+
+using vpinst_iterator = InstIterator<VPlan::VPBasicBlockListTy, VPlan::iterator,
+                                     VPBasicBlock::iterator, VPInstruction>;
+using vpinst_range = iterator_range<vpinst_iterator>;
+
+inline vpinst_iterator vpinst_begin(VPlan *F) { return vpinst_iterator(*F); }
+inline vpinst_iterator vpinst_end(VPlan *F) { return vpinst_iterator(*F, true); }
+inline vpinst_range vpinstructions(VPlan *F) {
+  return vpinst_range(vpinst_begin(F), vpinst_end(F));
+}
+
+using const_vpinst_iterator =
+    InstIterator<const VPlan::VPBasicBlockListTy, VPlan::const_iterator,
+                 VPBasicBlock::const_iterator, const VPInstruction>;
+using const_vpinst_range = iterator_range<const_vpinst_iterator>;
+
+inline const_vpinst_iterator vpinst_begin(const VPlan *F) {
+  return const_vpinst_iterator(*F);
+}
+inline const_vpinst_iterator vpinst_end(const VPlan *F) {
+  return const_vpinst_iterator(*F, true);
+}
+inline const_vpinst_range vpinstructions(const VPlan *F) {
+  return const_vpinst_range(vpinst_begin(F), vpinst_end(F));
+}
+
+template <class DivergenceAnalysis>
+inline decltype(auto) vplan_da_shapes(const VPlan *P,
+                                      const DivergenceAnalysis *DA) {
+  return map_range(vpinstructions(P), [DA](auto &I) {
+    return std::make_pair<const VPValue *, VPVectorShape>(&I, DA->getVectorShape(I));
+  });
+}
 
 } // namespace vpo
 

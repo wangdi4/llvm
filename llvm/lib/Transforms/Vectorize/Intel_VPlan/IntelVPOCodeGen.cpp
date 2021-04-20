@@ -417,10 +417,30 @@ void VPOCodeGen::createEmptyLoop() {
   Builder.SetInsertPoint(&*LoopVectorPreHeader->getFirstInsertionPt());
 }
 
+void VPOCodeGen::unlinkOrigHeaderPhis() {
+  BasicBlock *Header = OrigLoop->getHeader();
+  for (auto &Phi: Header->phis())
+    Phi.removeIncomingValue(OrigPreHeader, false);
+}
+
+void VPOCodeGen::dropExternalValsFromMaps() {
+  for (auto V : VPValsToFlushForVF) {
+    assert((isa<VPExternalDef>(V) || isa<VPConstant>(V) ||
+            isa<VPMetadataAsValue>(V)) &&
+           "Unknown external VPValue.");
+
+    VPWidenMap.erase(V);
+    VPScalarMap.erase(V);
+  }
+}
+
 void VPOCodeGen::finalizeLoop() {
   if (Plan->hasExplicitRemainder()) {
     // Fix phis.
     fixNonInductionVPPhis();
+
+    if (!OrigLoopUsed)
+      unlinkOrigHeaderPhis();
 
     // Attach the new loop to the original preheader
     auto *Plan = const_cast<VPlanVector *>(this->Plan);
@@ -430,9 +450,7 @@ void VPOCodeGen::finalizeLoop() {
                             // FIXME: Better consts everywhere.
                             Plan->getEntryBlock(), 0));
     // Find last block in cfg.
-    auto LastVPBB = find_if(*Plan, [](const VPBasicBlock &BB) {
-      return BB.getNumSuccessors() == 0;
-    });
+    auto LastVPBB = Plan->getExitBlock();
     BasicBlock *LastBB = cast<BasicBlock>(getScalarValue(&*LastVPBB, 0));
 
     // Update external scalar uses.
@@ -590,6 +608,71 @@ bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
   return false;
 }
 
+// Clone loop body, w/o preheader. The existing llvm utilities are making
+// many things that we don't need (like updateing DOM) and require preheader and
+// some other data/info. This utility is much simpler. It clones all basic
+// blocks and loops that belong to the passed \p OrigLoop and inserts the cloned
+// blocks before \p Before. Nothing else is needed for us during CG - the loop
+// info and DOM/PDOM will be rebuilt after CG.
+static Loop *cloneLoopBody(BasicBlock *Before, Loop *OrigLoop,
+                           ValueToValueMapTy &VMap, const Twine &NameSuffix,
+                           LoopInfo *LI,
+                           SmallVectorImpl<BasicBlock *> &Blocks) {
+  Function *F = OrigLoop->getHeader()->getParent();
+  Loop *ParentLoop = OrigLoop->getParentLoop();
+  DenseMap<Loop *, Loop *> LMap;
+
+  Loop *NewLoop = LI->AllocateLoop();
+  LMap[OrigLoop] = NewLoop;
+  if (ParentLoop)
+    ParentLoop->addChildLoop(NewLoop);
+  else
+    LI->addTopLevelLoop(NewLoop);
+
+  // Clone the loop structure.
+  for (Loop *CurLoop : OrigLoop->getLoopsInPreorder()) {
+    Loop *&NewLoop = LMap[CurLoop];
+    if (!NewLoop) {
+      NewLoop = LI->AllocateLoop();
+      LMap[CurLoop] = NewLoop;
+
+      // Establish the parent/child relationship.
+      Loop *OrigParent = CurLoop->getParentLoop();
+      assert(OrigParent && "Could not find the original parent loop");
+      Loop *NewParentLoop = LMap[OrigParent];
+      assert(NewParentLoop && "Could not find the new parent loop");
+
+      NewParentLoop->addChildLoop(NewLoop);
+    }
+  }
+
+  // Clone basic blocks.
+  for (BasicBlock *BB : OrigLoop->getBlocks()) {
+    Loop *CurLoop = LI->getLoopFor(BB);
+    Loop *&NewLoop = LMap[CurLoop];
+    assert(NewLoop && "Expecting new loop to be allocated");
+
+    BasicBlock *NewBB = CloneBasicBlock(BB, VMap, NameSuffix, F);
+    VMap[BB] = NewBB;
+
+    // Update LoopInfo.
+    NewLoop->addBasicBlockToLoop(NewBB, *LI);
+    Blocks.push_back(NewBB);
+  }
+
+  for (BasicBlock *BB : OrigLoop->getBlocks()) {
+    // Update loop headers.
+    Loop *CurLoop = LI->getLoopFor(BB);
+    if (BB == CurLoop->getHeader())
+      LMap[CurLoop]->moveToHeader(cast<BasicBlock>(VMap[BB]));
+  }
+
+  F->getBasicBlockList().splice(Before->getIterator(), F->getBasicBlockList(),
+                                NewLoop->getHeader()->getIterator(), F->end());
+
+  return NewLoop;
+}
+
 // Clone the given Scalar-loop and connect it to nodes NewLoopPred and
 // NewLoopSucc in the CFG.
 //
@@ -608,7 +691,9 @@ bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
 //
 //
 Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
-                                  BasicBlock *NewLoopSucc, const Twine &Name) {
+                                  BasicBlock *NewLoopSucc,
+                                  VPPeelRemainder *LoopInst,
+                                  const Twine &Name) {
 
   // Make sure that NewLoopPred and NewLoopSucc are connected.
   assert(count(successors(NewLoopPred), NewLoopSucc) == 1 &&
@@ -625,15 +710,31 @@ Loop *VPOCodeGen::cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
   // This is the vector of blocks that would belong to the newly cloned loop.
   SmallVector<BasicBlock *, 16> ClonedLoopBlocks;
 
-  // Clone the loop.
-  Loop *NewLoop = cloneLoopWithPreheader(
-      NewLoopSucc,
-      NewLoopPred /*Block that you want to dominate the new loop.*/,
-      OrigLP /*The original loop.*/, VMap /*Value2Value Map*/, Name, LI, DT,
-      ClonedLoopBlocks);
+  // Clone the loop body.
+  Loop *NewLoop =
+      cloneLoopBody(NewLoopSucc, OrigLP /*The original loop.*/,
+                    VMap /*Value2Value Map*/, Name, LI, ClonedLoopBlocks);
 
-  // Adjust the target blocks in the newly cloned loops.
+  // Remap everything cloned.
   remapInstructionsInBlocks(ClonedLoopBlocks, VMap);
+
+  if (LoopInst) {
+    // Update VPPeelReainder instruction.
+    LoopInst->setClonedLoop(NewLoop);
+    // Remap uses in VPPeelRemainder.
+    for (unsigned I = 0; I < LoopInst->getNumOperands(); I++) {
+      Use *OrigU = LoopInst->getLiveIn(I);
+      User *NewUser = cast<User>(MapValue(OrigU->getUser(), VMap));
+      LoopInst->setClonedLiveIn(I,
+                                &NewUser->getOperandUse(OrigU->getOperandNo()));
+    }
+
+    // Remap liveouts.
+    for (auto U : LoopInst->users()) {
+      if (auto LO = dyn_cast<VPOrigLiveOut>(U))
+        LO->setClonedLiveOutVal(MapValue(LO->getLiveOutVal(), VMap));
+    }
+  }
 
   // Connect the NewLoopPred to the new-loop preheader.
   NewLoopPred->getTerminator()->replaceUsesOfWith(NewLoopSucc,
@@ -738,6 +839,18 @@ Value *VPOCodeGen::getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize)
   auto *False = ConstantInt::getFalse(MaskToUse->getType());
 
   return Builder.CreateShuffleVector(MaskToUse, False, ShuffleMask);
+}
+
+Value *VPOCodeGen::codeGenVPInvSCEVWrapper(VPInvSCEVWrapper *SW) {
+  VPlanSCEV *VPScev = SW->getSCEV();
+  VPlanScalarEvolutionLLVM *VPSE =
+      static_cast<VPlanScalarEvolutionLLVM *>(Plan->getVPSE());
+  auto *Scev = VPSE->toSCEV(VPScev);
+  SCEVExpander Exp(VPSE->getSE(), *Plan->getDataLayout(), ".Ind.");
+  Value *InvBase = Exp.expandCodeFor(
+      Scev, Scev->getType(), OrigLoop->getLoopPreheader()->getTerminator());
+
+  return InvBase;
 }
 
 void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
@@ -925,9 +1038,8 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   case Instruction::UIToFP:
   case Instruction::Trunc:
   case Instruction::FPTrunc: {
-    auto Opcode = static_cast<Instruction::CastOps>(VPInst->getOpcode());
-
     /// Vectorize casts.
+    auto Opcode = static_cast<Instruction::CastOps>(VPInst->getOpcode());
     Type *ScalTy = VPInst->getType();
     Type *VecTy = getWidenedType(ScalTy, VF);
     VPValue *ScalOp = VPInst->getOperand(0);
@@ -1425,40 +1537,74 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     unsigned NewVF = cast<VPPushVF>(VPInst)->getVF();
     unsigned NewUF = cast<VPPushVF>(VPInst)->getUF();
     assert((NewVF != 0 && NewUF != 0) && "expected nonzero VF and UF");
-    VFStack.emplace_back(VF, UF);
+    VFStack.emplace_back(VF, UF, LastPushVF);
+    dropExternalValsFromMaps();
     VF = NewVF;
     UF = NewUF;
+    LastPushVF = VPInst;
     return;
   }
   case VPInstruction::PopVF: {
     assert(!VFStack.empty() && "unexpected PopVF");
     auto V = VFStack.pop_back_val();
-    VF = V.first;
-    UF = V.second;
+    dropExternalValsFromMaps();
+    VF = std::get<0>(V);
+    UF = std::get<1>(V);
+    LastPushVF = std::get<2>(V);
     return;
   }
   case Instruction::Br:
     // Do nothing.
     return;
-  case VPInstruction::ScalarRemainder: {
-    auto *LoopReuse = cast<VPScalarRemainder>(VPInst);
+  case VPInstruction::ScalarRemainder:
+    OrigLoopUsed = true;
+    if (cast<VPPeelRemainder>(VPInst)->isCloningRequired()) {
+      // Clone before processing if needed.
+      auto LoopReuse = cast<VPPeelRemainder>(VPInst);
+      VPBasicBlock *ParentSucc = VPInst->getParent()->getSingleSuccessor();
+      BasicBlock *SuccBB = cast<BasicBlock>(getScalarValue(ParentSucc, 0));
+      ReplaceInstWithInst(Builder.GetInsertBlock()->getTerminator(),
+                          BranchInst::Create(SuccBB));
+      cloneScalarLoop(LoopReuse->getLoop(), Builder.GetInsertBlock(), SuccBB,
+                      LoopReuse, ".sr.clone");
+    }
+    LLVM_FALLTHROUGH;
+  case VPInstruction::ScalarPeel: {
+    auto *LoopReuse = cast<VPPeelRemainder>(VPInst);
     // Make the current block predecessor of the original loop header.
     ReplaceInstWithInst(Builder.GetInsertBlock()->getTerminator(),
                         BranchInst::Create(LoopReuse->getLoop()->getHeader()));
     // Replace operands (original incoming values) with the new ones from VPlan.
     // This includes the exit block.
     for (unsigned Idx = 0; Idx < LoopReuse->getNumOperands(); ++Idx) {
-      Use *OrigUse = LoopReuse->getOrigUse(Idx);
+      Use *OrigUse = LoopReuse->getLiveIn(Idx);
       OrigUse->set(getScalarValue(LoopReuse->getOperand(Idx), 0));
       if (auto *Phi = dyn_cast<PHINode>(OrigUse->getUser()))
         Phi->setIncomingBlock(OrigUse->getOperandNo(),
                               Builder.GetInsertBlock());
     }
+    // For scalar peel replace original preheader with the new one in the header
+    // phis.
+    if (VPInst->getOpcode() == VPInstruction::ScalarPeel) {
+      auto NewPH = Builder.GetInsertBlock();
+      for (auto &Phi : LoopReuse->getLoop()->getHeader()->phis())
+        Phi.replaceIncomingBlockWith(OrigPreHeader, NewPH);
+    }
     return;
   }
   case VPInstruction::OrigLiveOut: {
     auto *LiveOut = cast<VPOrigLiveOut>(VPInst);
-    VPScalarMap[LiveOut][0] = const_cast<Value*>(LiveOut->getLiveOutVal());
+    VPScalarMap[LiveOut][0] = const_cast<Value *>(LiveOut->getLiveOutVal());
+    return;
+  }
+  case VPInstruction::InvSCEVWrapper: {
+    auto *SCEVWrapper = cast<VPInvSCEVWrapper>(VPInst);
+    assert(isVPValueUniform(SCEVWrapper, Plan) &&
+           "Expect the inv-scev-wrapper instruction to be uniform.");
+    assert(Plan->getVPlanSVA()->instNeedsFirstScalarCode(SCEVWrapper) &&
+           "Expected inv-scev-wrapper instruction to be marked first-scalar by "
+           "SVA.");
+    VPScalarMap[SCEVWrapper][0] = codeGenVPInvSCEVWrapper(SCEVWrapper);
     return;
   }
   case VPInstruction::PrivateFinalUncondMem:
@@ -3190,9 +3336,18 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
     return getVectorValue(LiveOut->getOperand(0));
 
   auto getInsertPointPH = [this]() -> Instruction * {
-    auto LoopPH = State->CFG.FirstExecutableVPBB;
-    return State->CFG.VPBB2IRBB[const_cast<VPBasicBlock *>(LoopPH)]
-        ->getTerminator();
+    // Get insertion point for broadcasting externals.
+    // First try to get the block when we encounter the last VPPushVF.
+    BasicBlock *B = nullptr;
+    if (LastPushVF)
+      B = State->CFG
+              .VPBB2IRBB[const_cast<VPBasicBlock *>(LastPushVF->getParent())];
+    if (!B) {
+      // If it is not defined then try first executable basic block.
+      auto LoopPH = State->CFG.FirstExecutableVPBB;
+      B = State->CFG.VPBB2IRBB[const_cast<VPBasicBlock *>(LoopPH)];
+    }
+    return B->getTerminator();
   };
 
   // If the VPValue has not been vectorized, check if it has been scalarized
@@ -3270,6 +3425,9 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
   Value *UnderlyingV = getScalarValue(V, 0 /*Lane*/);
   assert(UnderlyingV &&
          "External VPValues are expected to have underlying IR value set.");
+
+  // Keep the VPValue for dropping when we switch VF.
+  VPValsToFlushForVF.insert(V);
 
   // Place the code for broadcasting invariant variables in the new preheader.
   IRBuilder<>::InsertPointGuard Guard(Builder);
@@ -3895,9 +4053,11 @@ void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
 
   VPScalarMap[RedFinal][0] = Ret;
 
-  const VPLoopEntity *Entity = VPEntities->getReduction(RedFinal);
-  assert(Entity && "Unexpected: reduction last value is not for entity");
-  EntitiesFinalVPInstMap[Entity] = RedFinal;
+  if (!Plan->hasExplicitRemainder()) {
+    const VPLoopEntity *Entity = VPEntities->getReduction(RedFinal);
+    assert(Entity && "Unexpected: reduction last value is not for entity");
+    EntitiesFinalVPInstMap[Entity] = RedFinal;
+  }
 }
 
 void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
@@ -4097,8 +4257,6 @@ void VPOCodeGen::vectorizeInductionInitStep(VPInductionInitStep *VPInst) {
 
 void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
   Value *LastValue = nullptr;
-  const VPLoopEntity *Entity = VPEntities->getInduction(VPInst);
-  assert(Entity && "Induction last value is not for entity");
   if (VPInst->getNumOperands() == 1) {
     // One operand - extract from vector
     Value *VecVal = getVectorValue(VPInst->getOperand(0));
@@ -4140,7 +4298,11 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
   }
   // The value is scalar
   VPScalarMap[VPInst][0] = LastValue;
-  EntitiesFinalVPInstMap[Entity] = VPInst;
+  if (!Plan->hasExplicitRemainder()) {
+    const VPLoopEntity *Entity = VPEntities->getInduction(VPInst);
+    assert(Entity && "Induction last value is not for entity");
+    EntitiesFinalVPInstMap[Entity] = VPInst;
+  }
 }
 
 void VPOCodeGen::fixOutgoingValues() {
@@ -4283,16 +4445,29 @@ void VPOCodeGen::fixNonInductionVPPhis() {
         auto *VPBB = VPPhi->getIncomingBlock(I);
         Value *IncValue =
             IsScalar ? getScalarValue(VPVal, 0) : getVectorValue(VPVal);
+        BasicBlock *BB = State->CFG.VPBB2IREndBB[VPBB];
         if (Plan->hasExplicitRemainder()) {
-          BasicBlock *BB = State->CFG.VPBB2IREndBB[VPBB];
-          if (auto *LiveOut = dyn_cast<VPOrigLiveOut>(VPVal))
-            BB = cast<VPScalarRemainder>(LiveOut->getOperand(0))
-                     ->getLoop()
-                     ->getLoopLatch();
-          Phi->addIncoming(IncValue, BB);
-        } else {
-          Phi->addIncoming(IncValue, State->CFG.VPBB2IREndBB[VPBB]);
+          auto *LiveOut = dyn_cast<VPOrigLiveOut>(VPVal);
+          if (LiveOut && !isa<VPScalarPeel>(LiveOut->getOperand(0))) {
+            // Add outgoing from the scalar loop.
+            Loop *L =
+                cast<VPScalarRemainder>(LiveOut->getOperand(0))->getLoop();
+            BB = L->getLoopLatch();
+            if (!any_of(predecessors(Phi->getParent()),
+                        [BB](auto Pred) { return Pred == BB; })) {
+              // If the latch is not a predecessor of the phi-block
+              // try its non-loop-header successor.
+              auto *Br = cast<BranchInst>(BB->getTerminator());
+              BB = Br->getOperand(1) == L->getHeader()
+                       ? cast<BasicBlock>(Br->getOperand(2))
+                       : cast<BasicBlock>(Br->getOperand(1));
+            }
+            assert(any_of(predecessors(Phi->getParent()),
+                          [BB](auto Pred) { return Pred == BB; }) &&
+                   "can't find correct incoming block");
+          }
         }
+        Phi->addIncoming(IncValue, BB);
       }
     }
     return;

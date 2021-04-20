@@ -57,7 +57,7 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder for.body, LiveInMap:
+; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder for.body, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[IV10:%.*]] = phi i64 [ 0, [[FOR_PREHEADER0:%.*]] ], [ [[IV1_NEXT0:%.*]], [[FOR_BODY0:%.*]] ]} -> i64 [[VP0]] }
 ; CHECK-NEXT:         {label [[FOR_END0:%.*]] in {  br i1 [[CMP0:%.*]], label [[FOR_BODY0]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB4]] }
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[IV1_NEXT0]] = add nuw nsw i64 [[IV10]], 1

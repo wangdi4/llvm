@@ -10,6 +10,7 @@
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WIRelatedValuePass.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
@@ -425,7 +426,9 @@ void WIRelatedValue::print(raw_ostream &OS, const Module *M) const {
 
   // Run on all WI related values.
   OS << "\nWI related Values\n";
+  ModuleSlotTracker MST(M);
   for (const auto &F : *M) {
+    MST.incorporateFunction(F);
     for (const auto &I : instructions(F)) {
       // Store and Return instructions has no value (i.e. no name) don't print
       // them!
@@ -435,7 +438,10 @@ void WIRelatedValue::print(raw_ostream &OS, const Module *M) const {
       bool IsWIRelated =
           SpecialValues.count(V) ? SpecialValues.find(V)->second : false;
       // Print vale name is (not) WI related!
-      OS << V->getName().str();
+      if (V->hasName() || MST.getLocalSlot(V) != -1)
+        V->printAsOperand(OS, /*PrintType*/ false, MST);
+      else
+        OS << '"' << *V << '"';
       OS << ((IsWIRelated) ? " is WI related" : " is not WI related");
       OS << "\n";
     }

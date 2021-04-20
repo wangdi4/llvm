@@ -19,6 +19,7 @@
 #include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"
+#include "IntelVPlanExternals.h"
 
 #define DEBUG_TYPE "VPlanCFGMerger"
 
@@ -44,6 +45,9 @@ static LoopVPlanDumpControl MergeNewPlansDumpControl("create-in-merge",
                                                      "creation during merge");
 static LoopVPlanDumpControl
     MergeSkeletonDumpControl("merge-skeleton", "merge skeleton creation");
+
+static LoopVPlanDumpControl
+    MergePass2DumpControl("merge-pass2", "final merge pass");
 
 // Forward declaration.
 static bool isMergeBlock(VPBasicBlock *BB);
@@ -762,7 +766,8 @@ void VPlanCFGMerger::createAdapterBB(PlanDescr &Descr,
   Builder.setInsertPoint(NewBB);
   VPInstruction *AdapterI;
   if (Descr.Type == LT::LTPeel)
-    AdapterI = Builder.create<VPlanPeelAdapter>("vplan.peel.adapter", *Descr.Plan);
+    AdapterI =
+        Builder.create<VPlanPeelAdapter>("vplan.peel.adapter", *Descr.Plan);
   else
     AdapterI = Builder.create<VPlanAdapter>("vplan.adapter", *Descr.Plan);
   Plan.getVPlanDA()->markUniform(*AdapterI);
@@ -778,8 +783,7 @@ void VPlanCFGMerger::createMergedCFG(SingleLoopVecScenario &Scen,
   MainVF = Scen.getMainVF();
   MainUF = Scen.getMainUF();
   emitSkeleton(Plans);
-
-  VPLAN_DUMP(MergeSkeletonDumpControl, Plan);
+  mergeVPlans(Plans);
 }
 
 void VPlanCFGMerger::createTCCheckAfter(PlanDescr &Descr,
@@ -1261,6 +1265,7 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans) {
     } else {
       // Special case for main loop. We don't create basic block with adaptor,
       // just setting First/Last basic blocks.
+      assert(P.Plan == &Plan && "incorrect main VPlan");
       P.FirstBB = findFirstNonEmptyBB();
       P.LastBB = LastVPBB;
       Succ = LastMerge;
@@ -1318,6 +1323,9 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans) {
     }
   }
 
+  // Set the merge-phis from FinalMerge as operands of VPExternalUses.
+  updateExternalUsesOperands(FinalMerge);
+
   // Now insert push/popVF once again around the whole merged CFG. We need this
   // for correct pre-main-loop tests (peel and top test).
   insertPushPopVF(Plan, MainVF, MainUF);
@@ -1326,6 +1334,7 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans) {
   // non-empty block. We use it in several places of CFG and need it to be in
   // the most dominating block.
   moveOrigUBToBegin();
+  VPLAN_DUMP(MergeSkeletonDumpControl, Plan);
 }
 
 // TODO: Implement the check. It should return true if we create peel loop
@@ -1404,4 +1413,202 @@ void VPlanCFGMerger::moveOrigUBToBegin() {
     (*I)->moveBefore(*FirstBB, MovePos);
     Moved.insert(*I);
   }
+}
+
+void VPlanCFGMerger::copyDA(std::list<PlanDescr> &Plans) {
+  using LT = CfgMergerPlanDescr::LoopType;
+  VPlanDivergenceAnalysis *DA =
+      cast<VPlanDivergenceAnalysis>(Plan.getVPlanDA());
+  for (auto P : Plans) {
+    if (P.Type == LT::LTMain)
+      continue;
+
+    if (isa<VPlanScalar>(P.Plan)) {
+      auto *ScalarDA = cast<VPlanDivergenceAnalysisScalar>(P.Plan->getVPlanDA());
+      auto ScalarShapes = vplan_da_shapes(P.Plan, ScalarDA);
+      DA->copyShapes(ScalarShapes.begin(), ScalarShapes.end());
+    } else {
+      // Specialize for non-scalar to have a faster version.
+      auto *VectorDA = cast<VPlanDivergenceAnalysis>(P.Plan->getVPlanDA());
+      auto VectorShapes = VectorDA->shapes();
+      DA->copyShapes(VectorShapes.begin(), VectorShapes.end());
+    }
+  }
+}
+
+// Replace live-in values of VPlan \p P by ones passed in \p Range.
+template <class IterRange>
+static void updateVPlanLiveIns(VPlan *P, IterRange &Range) {
+  for (auto &Op : Range) {
+    if (isa<VPBranchInst>(Op))
+      continue;
+    auto *Phi = dyn_cast<VPPHINode>(&Op);
+    assert(Phi && "expected a VPPHINode");
+
+    unsigned MergeId = Phi->getMergeId();
+    assert(MergeId != VPExternalUse::UndefMergeId &&
+           "Unexpected instruction in a merge block");
+    if (auto *LI = P->getLiveInValue(MergeId))
+      const_cast<VPLiveInValue *>(LI)->replaceAllUsesWith(Phi);
+  }
+}
+
+void VPlanCFGMerger::replaceAdapterUses(VPlanAdapter *Adapter, VPlan &P) {
+
+  VPBasicBlock *PlanEnd = &*find_if(
+      P, [](const VPBasicBlock &BB) { return BB.getNumSuccessors() == 0; });
+
+  VPBasicBlock *AdapterParent = Adapter->getParent();
+
+  for (auto U : Adapter->users()) {
+    auto *Phi = cast<VPPHINode>(U);
+    unsigned MergeId = Phi->getMergeId();
+    if (MergeId == VPExternalUse::UndefMergeId)
+      llvm_unreachable("Unexpected instruction in a merge block");
+
+    VPValue *NewOp;
+    if (auto *LO = P.getLiveOutValue(MergeId))
+      NewOp = LO->getOperand(0);
+    else
+      NewOp = Plan.getVPConstant(UndefValue::get(Phi->getType()));
+
+    int Idx = Phi->getBlockIndex(AdapterParent);
+    if (Idx >= 0) {
+      assert(Phi->getIncomingValue(Idx) == Adapter &&
+             "expected adapter as operand");
+      Phi->setIncomingValue(Idx, NewOp);
+      Phi->setIncomingBlock(Idx, PlanEnd);
+    } else {
+      Phi->replaceUsesOfWith(Adapter, NewOp);
+    }
+  }
+}
+
+void VPlanCFGMerger::updateVPlansIncomings(std::list<PlanDescr> &Plans) {
+  using LT = CfgMergerPlanDescr::LoopType;
+  for (auto Iter = Plans.begin(); Iter != Plans.end(); Iter++) {
+    auto &P = *Iter;
+
+    // Find VPlan adapter.
+    auto AdapterI = P.FirstBB->end();
+    if (P.Type != LT::LTMain) {
+      AdapterI = llvm::find_if(*P.FirstBB, [](const VPInstruction &I) {
+        return isa<VPlanAdapter>(I);
+      });
+      assert(AdapterI != P.FirstBB->end() && "expected vplan adapter");
+    }
+
+    if (std::next(Iter, 1) == Plans.end()) {
+      assert((P.Type == LT::LTPeel || P.Type == LT::LTMain) &&
+             "expected peel or main vplan");
+      // The last inserted VPlan (peel or main one), i.e. the most upper one in
+      // CFG, always uses original incoming values.
+      VPLiveInOutCreator LICreator(*P.Plan);
+      LICreator.restoreLiveIns();
+      if (P.Type != LT::LTMain)
+        // Update uses of Adapter by VPlan's outigoing values.
+        replaceAdapterUses(cast<VPlanAdapter>(&*AdapterI), *P.Plan);
+      continue;
+    }
+
+    if (P.Type == LT::LTMain) {
+      // If main VPlan has a predecessor VPlan in CFG then we update its
+      // incoming values from the predecessor merge block.
+      VPBasicBlock *MergeBB = P.MergeBefore;
+      assert((MergeBB && isMergeBlock(MergeBB)) &&
+             "expected non-null merge block");
+      updateVPlanLiveIns(P.Plan, *MergeBB);
+      continue;
+    }
+
+    // Now update VPlan incomings from adapter's operands.
+    // Need re-map pointers to references to align with VPBasicBlock iterator in
+    // the previous call to updateVPlanLiveIns.
+    auto OpRange = map_range(AdapterI->operands(),
+                             [](VPValue *Op) -> VPValue & { return *Op; });
+    updateVPlanLiveIns(P.Plan, OpRange);
+
+    // Update uses of Adapter by VPlan's outigoing values.
+    replaceAdapterUses(cast<VPlanAdapter>(&*AdapterI), *P.Plan);
+  }
+}
+
+// Merge VPLoopInfo from \p P into main vplan.
+// The merging includes:
+//    - copying of the loop structure to the upper level of the VPLoopInfo of
+//      the main VPlan.
+//    - adding the basic blocks from the old loops to the new ones
+// Of course, no clonning is done as the blocks from \p P should be in the main
+// VPlan.
+//
+void VPlanCFGMerger::mergeLoopInfo(VPlanVector &P) {
+  VPLoopInfo *DestLI = Plan.getVPLoopInfo();
+  VPLoopInfo *SrcLI = P.getVPLoopInfo();
+
+  auto CopyLoop = [DestLI, SrcLI](VPLoop *L, VPLoop *ParentL) -> VPLoop * {
+    VPLoop *NewLoop = DestLI->AllocateLoop();
+    if (ParentL)
+      ParentL->addChildLoop(NewLoop);
+    else
+      DestLI->addTopLevelLoop(NewLoop);
+
+    // Add all of the blocks in L to the new loop.
+    for (auto BB : L->getBlocks())
+      if (SrcLI->getLoopFor(BB) == L)
+        NewLoop->addBasicBlockToLoop(BB, *DestLI);
+    return NewLoop;
+  };
+  DenseMap<VPLoop * /*Src*/, VPLoop * /*Dest*/> LoopMap;
+  SmallVector<VPLoop *, 4> SrcLoops = SrcLI->getLoopsInPreorder();
+  for (auto L : SrcLoops) {
+    VPLoop *ParentL = L->getParentLoop();
+    if (ParentL)
+      ParentL = LoopMap[ParentL];
+    LoopMap[L] = CopyLoop(L, ParentL);
+  }
+}
+
+void VPlanCFGMerger::mergeVPlanBodies(std::list<PlanDescr> &Plans) {
+  using LT = CfgMergerPlanDescr::LoopType;
+  for (auto P : Plans) {
+    if (P.Type == LT::LTMain)
+      continue;
+    // Move blocks from inner VPlan into main VPlan.
+    VPBasicBlock *Begin = P.Plan->getEntryBlock();
+    VPBasicBlock *End = &*find_if(*P.Plan, [](const VPBasicBlock &BB) {
+      return BB.getNumSuccessors() == 0;
+    });
+    Plan.getBasicBlockList().splice(P.FirstBB->getIterator(),
+                                    P.Plan->getBasicBlockList());
+    // Relink blocks in CFG.
+    P.FirstBB->getSinglePredecessor()->replaceSuccessor(P.FirstBB, Begin);
+    End->setTerminator(P.FirstBB->getSingleSuccessor());
+    P.FirstBB->setTerminator();
+    Plan.getBasicBlockList().erase(P.FirstBB);
+    if (auto VecPlan = dyn_cast<VPlanVector>(P.Plan))
+      mergeLoopInfo(*VecPlan);
+  }
+  VPLAN_DUMP(MergePass2DumpControl, Plan);
+}
+
+void VPlanCFGMerger::mergeVPlans(std::list<CfgMergerPlanDescr> &Plans) {
+
+  VPLoop *VLoop = Plan.getMainLoop(true);
+  (void) VLoop;
+
+  copyDA(Plans);
+  updateVPlansIncomings(Plans);
+  mergeVPlanBodies(Plans);
+
+  Plan.setExplicitRemainderUsed();
+
+  // Sanity check.
+  assert(VLoop == *Plan.getVPLoopInfo()->begin() &&
+         "Unexpected change of top loop");
+
+  // Invalidate SVA results as VPlan has been changed.
+  Plan.invalidateAnalyses({VPAnalysisID::SVA});
+
+  Plan.computeDT();
+  Plan.computePDT();
 }

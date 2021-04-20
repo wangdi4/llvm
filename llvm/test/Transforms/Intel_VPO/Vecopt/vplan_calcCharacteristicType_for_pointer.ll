@@ -65,7 +65,7 @@ define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ; CHECK-NEXT:       [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder simd.loop, LiveInMap:
+; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder simd.loop, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i32 0 in {  [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_BEGIN_REGION0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]} -> i32 [[VP2]] }
 ; CHECK-NEXT:         {label [[SIMD_END_REGION0:%.*]] in {  br i1 [[VL_COND0:%.*]], label [[SIMD_LOOP0:%.*]], label [[SIMD_END_REGION0]], !llvm.loop !0} -> label [[BB7]] }
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVAR0]] = add nuw i32 [[INDEX0]], 1

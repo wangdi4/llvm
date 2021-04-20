@@ -1228,10 +1228,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
-    auto *VPLI = Plan->getVPLoopInfo();
-    assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
-           "Expected single outermost loop!");
-    VPLoop *OuterMostVPLoop = *VPLI->begin();
+    VPLoop *OuterMostVPLoop = Plan->getMainLoop(true);
     const VPLoopEntityList *Entities =
         Plan->getLoopEntities(OuterMostVPLoop);
     RegDDRef *PeelArrayRef = nullptr;

@@ -75,7 +75,7 @@ define dso_local void @divControlFlow(i32* nocapture %a, i32* nocapture %b, i32*
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB8:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, LiveInMap:
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[DIR_OMP_SIMD_2290:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_INC0:%.*]] ]} -> i64 [[VP5]] }
 ; CHECK-NEXT:         {label [[DIR_OMP_END_SIMD_30:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[DIR_OMP_END_SIMD_30]], label [[OMP_INNER_FOR_BODY0:%.*]], !llvm.loop !0} -> label [[BB7]] } (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1 (SVAOpBits 0->F )
@@ -211,7 +211,7 @@ define dso_local void @uniControlFlow(i32* nocapture %a, i32* nocapture %b, i32*
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB8:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, LiveInMap:
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder omp.inner.for.body, NeedsCloning: 0, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[DIR_OMP_SIMD_2290:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[OMP_INNER_FOR_INC0:%.*]] ]} -> i64 [[VP3]] }
 ; CHECK-NEXT:         {label [[DIR_OMP_END_SIMD_30:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[DIR_OMP_END_SIMD_30]], label [[OMP_INNER_FOR_BODY0:%.*]], !llvm.loop !0} -> label [[BB7]] } (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1 (SVAOpBits 0->F )

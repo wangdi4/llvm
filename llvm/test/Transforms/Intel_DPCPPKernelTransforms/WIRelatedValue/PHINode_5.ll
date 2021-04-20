@@ -16,7 +16,7 @@ target triple = "i686-pc-win32"
 
 ; CHECK-LABEL: @main
 define void @main(i32 %x) #0 {
-  %gid = call i32 @_Z12get_local_idj(i32 0)
+  %gid = call i32 @_Z13get_global_idj(i32 0)
   %y = icmp ult i32 %gid, 0
   %check = icmp ult i32 %x, 0
   br i1 %check, label %L1, label %L2
@@ -29,10 +29,10 @@ L3:
   call void @_Z18work_group_barrierj(i32 2)
   ret void
 ; CHECK: WI related Values
-; CHECK: isOk is WI related
+; CHECK: %isOk is WI related
 }
 
-declare i32 @_Z12get_local_idj(i32)
+declare i32 @_Z13get_global_idj(i32)
 declare void @_Z18work_group_barrierj(i32)
 
 attributes #0 = { "sycl_kernel" }

@@ -218,7 +218,20 @@ public:
   /// Returns true if OldShape is not equal to NewShape.
   bool shapesAreDifferent(VPVectorShape OldShape, VPVectorShape NewShape);
 
+  // Copy shapes from the passed range [\p Begin, \p End].
+  template<class Iter>
+  void copyShapes(Iter Begin, Iter End) {
+    VectorShapes.insert(Begin, End);
+  }
+
+  // Return the range of all shapes.
+  auto shapes() { return iterator_range<DataIter>(begin(), end());}
+
 private:
+  using DataIter = DenseMap<const VPValue *, VPVectorShape>::const_iterator;
+  DataIter begin() const { return VectorShapes.begin(); }
+  DataIter end() const { return VectorShapes.end(); }
+
   /// Propagate divergence to all instructions in the region.
   /// Divergence is seeded by calls to \p markDivergent.
   void computeImpl();
@@ -421,19 +434,19 @@ private:
   /// by underlying IR.
   void improveStrideUsingIR();
 
-  VPlanVector *Plan;
+  VPlanVector *Plan = nullptr;
 
   // If regionLoop != nullptr, analysis is only performed within \p RegionLoop.
   // Otw, analyze the whole function
-  VPLoop *RegionLoop;
+  VPLoop *RegionLoop = nullptr;
 
   // Shape information of divergent values.
   DenseMap<const VPValue *, VPVectorShape> VectorShapes;
 #endif // INTEL_CUSTOMIZATION
 
-  VPDominatorTree *DT;
-  VPPostDominatorTree *PDT;
-  VPLoopInfo *VPLI;
+  VPDominatorTree *DT = nullptr;
+  VPPostDominatorTree *PDT = nullptr;
+  VPLoopInfo *VPLI = nullptr;
 
   // Recognized divergent loops
   DenseSet<const VPLoop *> DivergentLoops;
@@ -442,7 +455,7 @@ private:
   std::unique_ptr<SyncDependenceAnalysis> SDA;
 
   // Use simplified code path for LCSSA form.
-  bool IsLCSSAForm;
+  bool IsLCSSAForm = false;
 
   // Blocks with joining divergent control from different predecessors.
   DenseSet<const VPBasicBlock *> DivergentJoinBlocks;

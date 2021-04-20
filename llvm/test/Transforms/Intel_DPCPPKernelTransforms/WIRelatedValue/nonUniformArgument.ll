@@ -12,7 +12,7 @@
 ;;      2. "%y" is non-uniform value (i.e. WI related)
 ;;      3. "%z" is non-uniform value (i.e. WI related)
 ;;      4. "%b" is non-uniform value (i.e. WI related)
-;;      4. "%b" is non-uniform value (i.e. WI related)
+;;      5. "%c" is non-uniform value (i.e. WI related)
 ;;*****************************************************************************
 
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
@@ -48,11 +48,11 @@ L2:
 
 
 ; CHECK: WI related Values
-; CHECK: lid is WI related
-; CHECK: y is WI related
-; CHECK: z is WI related
-; CHECK: b is WI related
-; CHECK: c is WI related
+; CHECK: %lid is WI related
+; CHECK: %y is WI related
+; CHECK: %z is WI related
+; CHECK: %b is WI related
+; CHECK: %c is WI related
 
 declare void @_Z18work_group_barrierj(i32)
 declare i64 @_Z12get_local_idj(i64)
