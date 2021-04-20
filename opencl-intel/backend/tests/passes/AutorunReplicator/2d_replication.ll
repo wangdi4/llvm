@@ -19,6 +19,7 @@
 ; ----------------------------------------------------
 ; Opt passes: -llvm-equalizer
 ; ----------------------------------------------------
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -autorun-replicator %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -autorun-replicator -verify %s -S | FileCheck %s --implicit-check-not get_compute_id
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown-intelfpga"
@@ -138,3 +139,9 @@ attributes #3 = { nounwind }
 !14 = !{!12, !12, i64 0}
 !15 = !{!16, !16, i64 0}
 !16 = !{!"int", !12, i64 0}
+
+; get_compute_id is resolved and the corresponding instructions are removed, we ignore the “Missing line xxxx” warning
+; DEBUGIFY-NOT: WARNING
+; DEBUGIFY: WARNING: Missing line 7
+; DEBUGIFY: WARNING: Missing line 11
+; DEBUGIFY-NOT: WARNING
