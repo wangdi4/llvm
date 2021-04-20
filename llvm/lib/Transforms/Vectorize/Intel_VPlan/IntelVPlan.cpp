@@ -26,6 +26,7 @@
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanUtils.h"
+#include "IntelVPlanScalarEvolution.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
 #else
@@ -357,6 +358,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "vls-extract";
   case VPInstruction::VLSInsert:
     return "vls-insert";
+  case VPInstruction::InvSCEVWrapper:
+    return "inv-scev-wrapper";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -504,6 +507,11 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
 
   if (auto *ScalarRemainder = dyn_cast<VPScalarRemainder>(this)) {
     ScalarRemainder->printImpl(O);
+    return;
+  }
+
+  if (auto *SCEVWrapper = dyn_cast<VPInvSCEVWrapper>(this)) {
+    SCEVWrapper->printImpl(O);
     return;
   }
 
@@ -1132,6 +1140,7 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB, bool SkipInstructions)
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
+
 void VPBlendInst::addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *Plan) {
   addOperand(IncomingVal);
   if (!BlockPred && Plan) {
@@ -1142,6 +1151,12 @@ void VPBlendInst::addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *P
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void VPInvSCEVWrapper::printImpl(raw_ostream & O) const {
+  O << "{ ";
+  VPlanScalarEvolutionLLVM::toSCEV(Scev)->print(O);
+  O << " }";
+}
+
 void VPBlendInst::printImpl(raw_ostream &O) const {
   O << getOpcodeName(getOpcode());
   auto PrintValueWithBP = [&](const unsigned i) {
