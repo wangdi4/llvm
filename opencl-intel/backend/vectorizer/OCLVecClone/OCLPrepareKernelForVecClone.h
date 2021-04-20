@@ -17,9 +17,8 @@
 
 #include "OCLPassSupport.h"
 #include "VecConfig.h"
-#include "WIAnalysis.h"
 
-#include <string>
+#include "llvm/Analysis/Intel_VectorVariant.h"
 
 namespace intel {
 
@@ -43,15 +42,13 @@ private:
         : Kind(Kind), StrideOrArg(StrideOrArg), Alignment(Alignment) {}
   };
 
-  enum MaskTy { MT_UndefinedMask = 0, MT_NonMask, MT_Mask };
-
   // \brief Adds vector-variant attributes to each kernel.
   void addVectorVariantAttrsToKernel(Function *F);
 
   // \brief Encodes vector-variants.
-  void createEncodingForVectorVariants(Function *Fn, unsigned VlenVal,
-                                       ArrayRef<ParamAttrTy> ParamAttrs,
-                                       MaskTy State);
+  void createEncodingForVectorVariants(Function *F, unsigned VecLength,
+                                       const std::vector<VectorKind> &ParamAttrs,
+                                       bool NeedMaskedVariant = false);
 
 public:
   void run(Function *F);
