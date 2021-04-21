@@ -444,8 +444,9 @@ struct RTLFlagsTy {
   uint64_t UseSVM : 1;
   uint64_t UseBuffer : 1;
   uint64_t UseSingleContext : 1;
+  uint64_t UseImageOptions : 1;
   // Add new flags here
-  uint64_t Reserved : 54;
+  uint64_t Reserved : 53;
   RTLFlagsTy() :
       CollectDataTransferLatency(0),
       EnableProfile(0),
@@ -457,6 +458,7 @@ struct RTLFlagsTy {
       UseSVM(0),
       UseBuffer(0),
       UseSingleContext(0),
+      UseImageOptions(1),
       Reserved(0) {}
 };
 
@@ -783,6 +785,13 @@ public:
       if (env[0] != '\0') {
         CommonSpecConstants.addConstant<char>(0xFF747469, 1);
       }
+    }
+
+    if ((env = readEnvVar("LIBOMPTARGET_ONEAPI_USE_IMAGE_OPTIONS"))) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.UseImageOptions = 1;
+      else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
+        Flags.UseImageOptions = 0;
     }
   }
 
@@ -2075,8 +2084,10 @@ static cl_program getOpenCLProgramForImage(int32_t DeviceId,
     }
 
     DP("Created offload program from image #%" PRIu64 ".\n", Idx);
-    CompilationOptions += " " + It->second.CompileOpts;
-    LinkingOptions += " " + It->second.LinkOpts;
+    if (DeviceInfo->Flags.UseImageOptions) {
+      CompilationOptions += " " + It->second.CompileOpts;
+      LinkingOptions += " " + It->second.LinkOpts;
+    }
     return Program;
   }
 
@@ -2127,6 +2138,21 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 #if INTEL_CUSTOMIZATION
   CompilationOptions += " " + DeviceInfo->InternalCompilationOptions;
   LinkingOptions += " " + DeviceInfo->InternalLinkingOptions;
+  if (DeviceInfo->DeviceType == CL_DEVICE_TYPE_GPU) {
+    // For some reason GPU RT ignores -g and -cl-opt-disable passed
+    // to clCompileProgram. At the same time CPU RT only accepts
+    // these options for clCompileProgram - it will fail, if we pass
+    // them to clLinkProgram. So here we try to look for these
+    // options in the CompilationOptions and copy them to the LinkingOptions
+    // only for GPU RT.
+
+    // Add spaces around to simplify matching.
+    CompilationOptions = " " + CompilationOptions + " ";
+    if (CompilationOptions.find(" -g ") != std::string::npos)
+      LinkingOptions += " -g ";
+    if (CompilationOptions.find(" -cl-opt-disable ") != std::string::npos)
+      LinkingOptions += " -cl-opt-disable ";
+  }
   DPI("Final OpenCL compilation options: %s\n", CompilationOptions.c_str());
   DPI("Final OpenCL linking options: %s\n", LinkingOptions.c_str());
 #else // INTEL_CUSTOMIZATION
@@ -2136,7 +2162,10 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   // clLinkProgram drops the last symbol. Work this around temporarily.
   LinkingOptions += " ";
 
-  if (IsBinary || DeviceInfo->Flags.EnableSimd) {
+  if (IsBinary || DeviceInfo->Flags.EnableSimd ||
+      // Work around GPU API issue: clCompileProgram/clLinkProgram
+      // does not work with -vc-codegen, so we have to use clBuildProgram.
+      CompilationOptions.find(" -vc-codegen ") != std::string::npos) {
     // Programs created from binary must still be built.
     CALL_CL(status, clBuildProgram, program, 0, nullptr,
       (CompilationOptions + " " + LinkingOptions).c_str(), nullptr, nullptr);

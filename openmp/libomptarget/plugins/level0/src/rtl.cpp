@@ -757,7 +757,8 @@ struct RTLFlagsTy {
   uint64_t UseMemoryPool : 1;
   uint64_t UseDriverGroupSizes : 1;
   uint64_t UseCopyEngine : 1;
-  uint64_t Reserved : 56;
+  uint64_t UseImageOptions : 1;
+  uint64_t Reserved : 55;
   RTLFlagsTy() :
       DumpTargetImage(0),
       EnableProfile(0),
@@ -767,6 +768,7 @@ struct RTLFlagsTy {
       UseMemoryPool(1),
       UseDriverGroupSizes(0),
       UseCopyEngine(1),
+      UseImageOptions(1),
       Reserved(0) {}
 };
 
@@ -1394,6 +1396,12 @@ public:
       if (env[0] != '\0') {
         CommonSpecConstants.addConstant<char>(0xFF747469, 1);
       }
+    }
+    if (char *env = readEnvVar("LIBOMPTARGET_ONEAPI_USE_IMAGE_OPTIONS")) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.UseImageOptions = 1;
+      else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
+        Flags.UseImageOptions = 0;
     }
   }
 
@@ -2770,10 +2778,10 @@ static ze_module_handle_t getModuleForImage(ze_context_handle_t Context,
     size_t ImgSize = It->second.Size;
     dumpImageToFile(ImgBegin, ImgSize, "OpenMP");
     ze_module_handle_t Module = nullptr;
-    std::string Options =
-        CompilationOptions + " " + It->second.CompileOpts +
-        " " + It->second.LinkOpts;
     bool IsBinary = false;
+    std::string Options = CompilationOptions;
+    if (DeviceInfo->Flags.UseImageOptions)
+      Options += " " + It->second.CompileOpts + " " + It->second.LinkOpts;
 
     if (It->second.Format == 0) {
       // Native format.
