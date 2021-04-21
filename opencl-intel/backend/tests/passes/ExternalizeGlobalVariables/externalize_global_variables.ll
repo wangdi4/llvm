@@ -14,6 +14,9 @@
 ; CHECK: @.omp_offloading.entry_name.1 = dso_local unnamed_addr addrspace(2) constant [40 x i8] c"_ZL2x2_002cf9b7666e54b7b348ad7bc7e73c7c\00"
 ; CHECK: @.str.as2.9 = dso_local unnamed_addr addrspace(2) constant [12 x i8] c"bar: %d %d\0A\00"
 
+; unnamed global variables should not be externalized
+; CHECK: @0 = internal unnamed_addr addrspace(2) constant [128 x i8] zeroinitializer
+
 %struct.__tgt_offload_entry = type { i8 addrspace(4)*, i8 addrspace(2)*, i64, i32, i32, i64 }
 
 @x1 = internal addrspace(1) global i32 0, align 4
@@ -30,6 +33,7 @@
 @.str.as2.9 = internal unnamed_addr addrspace(2) constant [12 x i8] c"bar: %d %d\0A\00"
 @__omp_offloading_entries_table = addrspace(2) constant [5 x %struct.__tgt_offload_entry] [%struct.__tgt_offload_entry { i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast (i32 addrspace(1)* @x1.3 to i8 addrspace(1)*) to i8 addrspace(4)*), i8 addrspace(2)* getelementptr inbounds ([40 x i8], [40 x i8] addrspace(2)* @.omp_offloading.entry_name.6, i32 0, i32 0), i64 4, i32 0, i32 0, i64 40 }, %struct.__tgt_offload_entry { i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast (i32 addrspace(1)* @x1 to i8 addrspace(1)*) to i8 addrspace(4)*), i8 addrspace(2)* getelementptr inbounds ([40 x i8], [40 x i8] addrspace(2)* @.omp_offloading.entry_name, i32 0, i32 0), i64 4, i32 0, i32 0, i64 40 }, %struct.__tgt_offload_entry { i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast (i32 addrspace(1)* @x2.2 to i8 addrspace(1)*) to i8 addrspace(4)*), i8 addrspace(2)* getelementptr inbounds ([40 x i8], [40 x i8] addrspace(2)* @.omp_offloading.entry_name.1, i32 0, i32 0), i64 4, i32 0, i32 0, i64 40 }, %struct.__tgt_offload_entry { i8 addrspace(4)* addrspacecast (i8 addrspace(1)* bitcast (i32 addrspace(1)* @x2 to i8 addrspace(1)*) to i8 addrspace(4)*), i8 addrspace(2)* getelementptr inbounds ([40 x i8], [40 x i8] addrspace(2)* @.omp_offloading.entry_name.4, i32 0, i32 0), i64 4, i32 0, i32 0, i64 40 }, %struct.__tgt_offload_entry { i8 addrspace(4)* null, i8 addrspace(2)* getelementptr inbounds ([41 x i8], [41 x i8] addrspace(2)* @.omp_offloading.entry_name.5, i32 0, i32 0), i64 0, i32 0, i32 0, i64 41 }]
 @__omp_offloading_entries_table_size = addrspace(2) constant i64 200
+@0 = internal unnamed_addr addrspace(2) constant [128 x i8] zeroinitializer
 
 ; Function Attrs: nounwind
 declare spir_func i64 @_Z12get_local_idj(i32) #0

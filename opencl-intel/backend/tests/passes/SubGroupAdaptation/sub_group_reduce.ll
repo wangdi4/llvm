@@ -1,3 +1,4 @@
+; RUN: %oclopt -sub-group-adaptation -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -sub-group-adaptation -verify -S < %s | FileCheck %s
 ;;*****************************************************************************
 ;; This test checks the SubGroupAdaptation pass
@@ -140,3 +141,5 @@ attributes #4 = { nounwind }
 ;;;  fOut[tid] = sub_group_reduce_min(fIn[tid]);
 ;;;  gOut[tid] = sub_group_reduce_max(gIn[tid]);
 ;;;}
+
+; DEBUGIFY-NOT: WARNING

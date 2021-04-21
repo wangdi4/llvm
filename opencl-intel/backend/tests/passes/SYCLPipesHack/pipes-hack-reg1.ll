@@ -1,3 +1,4 @@
+; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -sycl-pipes-hack -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%p/../../vectorizer/Full/runtime.bc -sycl-pipes-hack -verify -S %s -o - | FileCheck %s
 ; Compiled from:
 ; --------------
@@ -178,3 +179,6 @@ attributes #1 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="f
 !5 = !{i32 1, i32 0}
 !6 = !{}
 !7 = !{i16 6, i16 14}
+
+; All instuctions are added to call global constructor of pipe. Now DebugLoc for them.
+; DEBUGIFY-COUNT-3: WARNING:

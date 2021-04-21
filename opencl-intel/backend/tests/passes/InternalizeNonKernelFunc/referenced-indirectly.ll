@@ -1,3 +1,4 @@
+; RUN: %oclopt -internalize-nonkernel-functions -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -internalize-nonkernel-functions -S %s -o - | FileCheck %s
 ;
 ; Generated from:
@@ -64,3 +65,5 @@ attributes #2 = { convergent }
 !5 = !{!"none", !"none"}
 !6 = !{!"int*", !"int"}
 !7 = !{!"", !""}
+
+; DEBUGIFY-NOT: WARNING

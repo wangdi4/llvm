@@ -20,8 +20,9 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/Support/Debug.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/Support/Debug.h"
 
 #include <utility>
 
@@ -104,6 +105,7 @@ namespace intel {
     std::string idName   = CompilationUtils::mangledGetGID();
     std::string sizeName = CompilationUtils::mangledGetGlobalSize();
     std::string offName  = CompilationUtils::mangledGetGlobalOffset();
+    IRBuilder<> Builder(insertBefore);
 
     // call get_global_id(0), get_global_id(1), get_global_id(2)
     CallInst * gid2 = createWIFunctionCall(M, "gid2", idName, insertBefore, m_two);
@@ -123,18 +125,19 @@ namespace intel {
     assert (gsz0 && gsz1 && "Can't create get_global_size calls");
 
     // ((get_global_id(2) – get_global_offset(2))
-    BinaryOperator * op0 = BinaryOperator::Create(Instruction::Sub, gid2, gof2, "lgid.op0", insertBefore);
+    Value * op0 = Builder.CreateSub(gid2, gof2, "lgid.op0");
     //  * get_global_size(1)
-    BinaryOperator * op1 = BinaryOperator::Create(Instruction::Mul, op0,  gsz1, "lgid.op1", insertBefore);
+    Value * op1 = Builder.CreateMul(op0,  gsz1, "lgid.op1");
     //  + (get_global_id(1) – get_global_offset(1)))
-    BinaryOperator * op2 = BinaryOperator::Create(Instruction::Sub, gid1, gof1, "lgid.op2", insertBefore);
-    BinaryOperator * op3 = BinaryOperator::Create(Instruction::Add, op1,  op2,  "lgid.op3", insertBefore);
+    Value * op2 = Builder.CreateSub(gid1, gof1, "lgid.op2");
+    Value * op3 = Builder.CreateAdd(op1,  op2,  "lgid.op3");
     // * get_global_size(0)
-    BinaryOperator * op4 = BinaryOperator::Create(Instruction::Mul, op3,  gsz0, "lgid.op4", insertBefore);
+    Value * op4 = Builder.CreateMul(op3,  gsz0, "lgid.op4");
     // + (get_global_id(0) – get_global_offset(0))
-    BinaryOperator * op5 = BinaryOperator::Create(Instruction::Sub, gid0, gof0, "lgid.op5", insertBefore);
-    BinaryOperator * res = BinaryOperator::Create(Instruction::Add, op4,  op5,  "lgid.res", insertBefore);
-    return res;
+    Value * op5 = Builder.CreateSub(gid0, gof0, "lgid.op5");
+    Value * res = Builder.CreateAdd(op4,  op5,  "lgid.res");
+
+    return (Instruction *)res;
   }
 
   Instruction * LinearIdResolver::replaceGetLocalLinearId(Module * M, Instruction * insertBefore) {
@@ -149,6 +152,7 @@ namespace intel {
     // + get_local_id(0)
     std::string idName   = CompilationUtils::mangledGetLID();
     std::string sizeName = CompilationUtils::mangledGetLocalSize();
+    IRBuilder<> Builder(insertBefore);
 
     // call get_local_id(2), get_local_id(1), get_local_id(0)
     CallInst * lid2 = createWIFunctionCall(M, "lid2", idName, insertBefore, m_two);
@@ -162,14 +166,15 @@ namespace intel {
     assert (lsz0 && lsz1 && "Can't create get_local_size calls");
 
     // (get_local_id(2) * get_local_size(1)
-    BinaryOperator * op0 = BinaryOperator::Create(Instruction::Mul, lid2, lsz1, "llid.op0", insertBefore);
+    Value * op0 = Builder.CreateMul(lid2, lsz1, "llid.op0");
     //  + get_local_id(1))
-    BinaryOperator * op1 = BinaryOperator::Create(Instruction::Add, op0, lid1, "llid.op1", insertBefore);
+    Value * op1 = Builder.CreateAdd(op0, lid1, "llid.op1");
     // * get_local_size(0)
-    BinaryOperator * op2 = BinaryOperator::Create(Instruction::Mul, op1, lsz0, "llid.op2", insertBefore);
+    Value * op2 = Builder.CreateMul(op1, lsz0, "llid.op2");
     // + get_local_id(0)
-    BinaryOperator * res = BinaryOperator::Create(Instruction::Add, op2, lid0, "llid.res", insertBefore);
-    return res;
+    Value * res = Builder.CreateAdd(op2, lid0, "llid.res");
+
+    return (Instruction *)res;
   }
 
   CallInst * LinearIdResolver::createWIFunctionCall(Module * M, char const* twine, std::string const& name, Instruction * insertBefore, Value *actPar) {
@@ -185,7 +190,9 @@ namespace intel {
       assert(func && "Failed creating function");
     }
 
-    return CallInst::Create(func, actPar, twine, insertBefore);
+    CallInst * newInst = CallInst::Create(func, actPar, twine, insertBefore);
+    newInst->setDebugLoc(insertBefore->getDebugLoc());
+    return newInst;
   }
 
 }

@@ -1,3 +1,4 @@
+; RUN: %oclopt -sub-group-adaptation -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -sub-group-adaptation -verify -S < %s | FileCheck %s
 ;;*****************************************************************************
 ;; This test checks the SubGroupAdaptation pass for OpenCL 1.2.
@@ -92,3 +93,7 @@ attributes #6 = { convergent }
 !15 = !{!"long", !12, i64 0}
 !16 = !{!17, !17, i64 0}
 !17 = !{!"int", !12, i64 0}
+
+; Instructions in two functions are added to replace one originl instruction. No DebugLoc.
+; dbbugify count is used because other check detail warning check does not work here.
+; DEBUGIFY-COUNT-7: WARNING:
