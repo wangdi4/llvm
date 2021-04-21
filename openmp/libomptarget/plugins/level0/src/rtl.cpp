@@ -431,6 +431,8 @@ struct ModuleDataTy {
   int DeviceNum = -1;
   uint32_t TotalEUs = 0;
   uint32_t HWThreadsPerEU = 0;
+  uintptr_t DynamicMemoryLB = 0;
+  uintptr_t DynamicMemoryUB = 0;
 };
 
 /// RTL profile -- only host timer for now
@@ -1044,6 +1046,9 @@ public:
   uint32_t ThreadLimit = 0; // Global thread limit
   uint32_t NumTeams = 0; // Global max number of teams
 
+  /// Dynamic kernel memory size
+  size_t KernelDynamicMemorySize = 0; // Turned off by default
+
   /// Memory pool parameters
   /// MemPoolInfo[MemType] = {AllocMax(MB), Capacity, PoolSize(MB)}
   std::map<int32_t, std::vector<int32_t>> MemPoolInfo = {
@@ -1371,6 +1376,18 @@ public:
       int32_t value = std::stoi(env);
       if (value == 8 || value == 16 || value == 32)
         ForcedKernelWidth = value;
+    }
+
+    // Dynamic memory size
+    // LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<SizeInMB>
+    if (char *env = readEnvVar("LIBOMPTARGET_DYNAMIC_MEMORY_SIZE")) {
+      size_t value = std::stoi(env);
+      const size_t maxValue = 2048;
+      if (value > maxValue) {
+        IDP("Adjusted dynamic memory size to %zu MB\n", maxValue);
+        value = maxValue;
+      }
+      KernelDynamicMemorySize = value << 20;
     }
 
 #if INTEL_INTERNAL_BUILD
@@ -2033,12 +2050,26 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t DeviceId) {
   auto &P = DeviceProperties[DeviceId];
   uint32_t totalEUs =
       P.numSlices * P.numSubslicesPerSlice * P.numEUsPerSubslice;
+
+  // Allocate dynamic memory for in-kernel allocation
+  void *memLB = 0;
+  uintptr_t memUB = 0;
+  if (KernelDynamicMemorySize > 0)
+    memLB = allocDataExplicit(Devices[DeviceId], KernelDynamicMemorySize,
+                              TARGET_ALLOC_DEVICE);
+  if (memLB) {
+    OwnedMemory[DeviceId].push_back(memLB);
+    memUB = (uintptr_t)memLB + KernelDynamicMemorySize;
+  }
+
   ModuleDataTy hostData = {
     1,                   // Initialized
     (int32_t)NumDevices, // Number of devices
     DeviceId,            // Device ID
     totalEUs,            // Total EUs
-    P.numThreadsPerEU    // HW threads per EU
+    P.numThreadsPerEU,   // HW threads per EU
+    (uintptr_t)memLB,    // Dynamic memory LB
+    memUB                // Dynamic memory UB
   };
 
   // Look up program data location on device
