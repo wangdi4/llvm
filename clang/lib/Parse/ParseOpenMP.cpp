@@ -1458,7 +1458,11 @@ void Parser::ParseOMPDeclareVariantClauses(Parser::DeclGroupPtrTy Ptr,
 
   Optional<std::pair<FunctionDecl *, Expr *>> DeclVarData =
       Actions.checkOpenMPDeclareVariantFunction(
+#if INTEL_COLLAB
+          Ptr, AssociatedFunction.get(), AppendArgs.size(), TI,
+#else // INTEL_COLLAB
           Ptr, AssociatedFunction.get(), TI,
+#endif // INTEL_COLLAB
           SourceRange(Loc, Tok.getLocation()));
 
   // Skip last tokens.
