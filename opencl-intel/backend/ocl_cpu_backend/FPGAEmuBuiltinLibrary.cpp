@@ -32,8 +32,9 @@ void FPGAEmuBuiltinLibrary::Load() {
 #endif
   std::string MPIRPath = file_prefix + "dspba_mpir" + file_ext;
   std::string MPFRPath = file_prefix + "dspba_mpfr" + file_ext;
-  std::string FIX_P_M_Path = file_prefix + "hls_fixed_point_math_x86" + file_ext;
-  std::string HLS_VPFP_Path = file_prefix + "hls_vpfp_library" + file_ext;
+  std::string FIX_P_M_Path =
+      file_prefix + "ac_types_fixed_point_math_x86" + file_ext;
+  std::string VPFP_Path = file_prefix + "ac_types_vpfp_library" + file_ext;
   bool continue_load = true;
 
   // Load these 4 libraries one by one basing on their dependency.
@@ -50,17 +51,17 @@ void FPGAEmuBuiltinLibrary::Load() {
     m_builtinLibLog += "Loading MPFR library failed:";
     m_builtinLibLog += Err;
   }
-  // Load hls_fixed_point_math_x86 libary.
+  // Load the fixed point math libary.
   if (continue_load &&
       sys::DynamicLibrary::LoadLibraryPermanently(FIX_P_M_Path.c_str(), &Err)) {
     continue_load = false;
-    m_builtinLibLog += "Loading hls_fixed_point_math_x86 library failed: ";
+    m_builtinLibLog += "Loading ac_types_fixed_point_math_x86 library failed: ";
     m_builtinLibLog += Err;
   }
-  // Load  hls_vpfp_librarylibrary library.
+  // Load the variable precision floating point library.
   if (continue_load && sys::DynamicLibrary::LoadLibraryPermanently(
-                           HLS_VPFP_Path.c_str(), &Err)) {
-    m_builtinLibLog += "Loading hls_vpfp_library failed: ";
+                           VPFP_Path.c_str(), &Err)) {
+    m_builtinLibLog += "Loading ac_types_vpfp_library failed: ";
     m_builtinLibLog += Err;
   }
   CPUBuiltinLibrary::Load();
