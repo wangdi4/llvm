@@ -86,6 +86,31 @@ define dso_local spir_kernel void @test_slm_loadvi64() {
   ret void
 }
 
+define dso_local spir_kernel void @test_slm_masked_load64(<8 x i64>* nonnull %ptr) {
+  %1 = call <8 x i64> @llvm.masked.load.v8i64.p3v8i64(<8 x i64> addrspace(3)* bitcast (i64 addrspace(3)* getelementptr inbounds ([16 x i64], [16 x i64] addrspace(3)* @a.ascast.priv.__local, i64 0, i64 8) to <8 x i64> addrspace(3)*), i32 4, <8 x i1> <i1 false, i1 true, i1 true, i1 true, i1 false, i1 true, i1 true, i1 true>, <8 x i64> <i64 undef, i64 1, i64 2, i64 3, i64 undef, i64 5, i64 6, i64 7>)
+; CHECK: [[ADD:%.*]] = add i32 64, 64
+; CHECK-NEXT: [[GATHER:%.*]] = call <16 x i32> @llvm.genx.gather4.scaled.v16i32.v8i1.v8i32(<8 x i1> <i1 false, i1 true, i1 true, i1 true, i1 false, i1 true, i1 true, i1 true>, i32 3, i16 0, i32 254, i32 [[ADD]], <8 x i32> <i32 0, i32 8, i32 16, i32 24, i32 32, i32 40, i32 48, i32 56>, <16 x i32> undef)
+; CHECK-NEXT: [[CAST:%.*]] = bitcast <8 x i64> <i64 undef, i64 1, i64 2, i64 3, i64 undef, i64 5, i64 6, i64 7> to <16 x i32>
+; CHECK-NEXT: [[LOW:%.*]] = call <8 x i32> @llvm.genx.rdregioni.v8i32.v16i32.i32(<16 x i32> [[GATHER]], i32 0, i32 8, i32 1, i32 0, i32 undef)
+; CHECK-NEXT: [[HIGH:%.*]] = call <8 x i32> @llvm.genx.rdregioni.v8i32.v16i32.i32(<16 x i32> [[GATHER]], i32 0, i32 8, i32 1, i32 32, i32 undef)
+; CHECK-NEXT: [[WL:%.*]] = call <16 x i32> @llvm.genx.wrregioni.v16i32.v8i32.i32.v8i1(<16 x i32> [[CAST]], <8 x i32> [[LOW]], i32 0, i32 8, i32 2, i32 0, i32 undef, <8 x i1> <i1 false, i1 true, i1 true, i1 true, i1 false, i1 true, i1 true, i1 true>)
+; CHECK-NEXT: [[WH:%.*]] = call <16 x i32> @llvm.genx.wrregioni.v16i32.v8i32.i32.v8i1(<16 x i32> [[WL]], <8 x i32> [[HIGH]], i32 0, i32 8, i32 2, i32 4, i32 undef, <8 x i1> <i1 false, i1 true, i1 true, i1 true, i1 false, i1 true, i1 true, i1 true>)
+; CHECK-NEXT  [[RES:%.*]] = bitcast <16 x i32> [[WH]] to <8 x i64>
+  ret void
+}
+
+define dso_local spir_kernel void @test_slm_masked_store64(<8 x i64>* nonnull %ptr) {
+  call void @llvm.masked.store.v8i64.p3v8i64(<8 x i64> <i64 undef, i64 1, i64 2, i64 3, i64 undef, i64 5, i64 6, i64 7>, <8 x i64> addrspace(3)* bitcast (i64 addrspace(3)* getelementptr inbounds ([16 x i64], [16 x i64] addrspace(3)* @a.ascast.priv.__local, i64 0, i64 8) to <8 x i64> addrspace(3)*), i32 4, <8 x i1> <i1 false, i1 true, i1 true, i1 true, i1 false, i1 true, i1 true, i1 true>)
+; CHECK: [[ADD:%.*]] = add i32 64, 64
+; CHECK-NEXT: [[CAST:%.*]] = bitcast <8 x i64> <i64 undef, i64 1, i64 2, i64 3, i64 undef, i64 5, i64 6, i64 7> to <16 x i32>
+; CHECK-NEXT: [[LOW:%.*]] = call <8 x i32> @llvm.genx.rdregioni.v8i32.v16i32.i32(<16 x i32> [[CAST]], i32 0, i32 8, i32 2, i32 0, i32 undef)
+; CHECK-NEXT: [[HIGH:%.*]] = call <8 x i32> @llvm.genx.rdregioni.v8i32.v16i32.i32(<16 x i32> [[CAST]], i32 0, i32 8, i32 2, i32 4, i32 undef)
+; CHECK-NEXT: [[WL:%.*]] = call <16 x i32> @llvm.genx.wrregioni.v16i32.v8i32.i32.i1(<16 x i32> undef, <8 x i32> [[LOW]], i32 0, i32 8, i32 1, i32 0, i32 undef, i1 true)
+; CHECK-NEXT: [[WH:%.*]] = call <16 x i32> @llvm.genx.wrregioni.v16i32.v8i32.i32.i1(<16 x i32> [[WL]], <8 x i32> [[HIGH]], i32 0, i32 8, i32 1, i32 32, i32 undef, i1 true)
+; CHECK-NEXT: call void @llvm.genx.scatter4.scaled.v8i1.v8i32.v16i32(<8 x i1> <i1 false, i1 true, i1 true, i1 true, i1 false, i1 true, i1 true, i1 true>, i32 3, i16 0, i32 254, i32 [[ADD]], <8 x i32> <i32 0, i32 8, i32 16, i32 24, i32 32, i32 40, i32 48, i32 56>, <16 x i32> [[WH]])
+  ret void
+}
+
 define dso_local spir_kernel void @test_slm_masked_store(<8 x i32>* nonnull %ptr) {
   call void @llvm.masked.store.v8i32.p3v8i32(<8 x i32> <i32 undef, i32 1, i32 2, i32 3, i32 undef, i32 5, i32 6, i32 7>, <8 x i32> addrspace(3)* bitcast (float addrspace(3)* getelementptr inbounds ([16 x float], [16 x float] addrspace(3)* @b.ascast.priv.__local, i64 0, i64 8) to <8 x i32> addrspace(3)*), i32 4, <8 x i1> <i1 false, i1 true, i1 true, i1 true, i1 false, i1 true, i1 true, i1 true>)
 ; CHECK: [[ADD:%.*]] = add i32 0, 32
@@ -182,4 +207,6 @@ declare <8 x float> @llvm.log2.v8f32(<8 x float>)
 
 declare void @llvm.masked.store.v8i32.p0v8i32(<8 x i32>, <8 x i32>*, i32 immarg, <8 x i1>) #1
 declare void @llvm.masked.store.v8i32.p3v8i32(<8 x i32>, <8 x i32> addrspace(3)*, i32 immarg, <8 x i1>) #1
+declare void @llvm.masked.store.v8i64.p3v8i64(<8 x i64>, <8 x i64> addrspace(3)*, i32 immarg, <8 x i1>) #1
 declare void @llvm.masked.scatter.v8i32.v8p4i32(<8 x i32>, <8 x i32 addrspace(1)*>, i32 immarg, <8 x i1>)
+declare <8 x i64> @llvm.masked.load.v8i64.p3v8i64(<8 x i64> addrspace(3)*, i32 immarg, <8 x i1>, <8 x i64>)
