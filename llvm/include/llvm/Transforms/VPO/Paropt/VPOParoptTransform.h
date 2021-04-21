@@ -2097,8 +2097,31 @@ private:
   /// of the given region before the region.
   bool promoteClauseArgumentUses(WRegionNode *W);
 
+  /// Get substrings from the "openmp-variant" string attribute. Supports the
+  /// adjust_args(need_device_ptr:...) and append_args(interop(...)) clauses.
+  StringRef getVariantName(WRegionNode *W, CallInst *BaseCall,
+                           StringRef &MatchConstruct, uint64_t &DeviceArchs,
+                           StringRef &NeedDevicePtrStr, StringRef &InteropStr);
+
+  /// Get substrings from the "openmp-variant" string attribute
+  StringRef getVariantName(WRegionNode *W, CallInst *BaseCall,
+                           StringRef &MatchConstruct, uint64_t &DeviceArchs);
+
+  /// Emit code to get device pointers for variant dispatch
+  void getAndReplaceDevicePtrs(WRegionNode *W, CallInst *VariantCall);
+
   /// Emit dispatch code for the "target variant dispatch" construct
   bool genTargetVariantDispatchCode(WRegionNode *W);
+
+  /// Emit code to handle need_device_ptr for dispatch
+  void processNeedDevicePtr(WRegionNode *W, CallInst *VariantCall,
+                            StringRef &NeedDevicePtrStr);
+
+  /// Emit code to handle depend clause for dispatch
+  void genDependForDispatch(WRegionNode *W, CallInst *VariantCall);
+
+  /// Emit code for the OMP5.1 \b dispatch construct
+  bool genDispatchCode(WRegionNode *W);
 
   /// Emit Interop code for the "interop" construct
   bool genInteropCode(WRegionNode* W);

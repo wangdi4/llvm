@@ -417,6 +417,8 @@ public:
 
   virtual void setAtomicKind(WRNAtomicKind A)   {WRNERROR("ATOMIC_KIND");     }
   virtual WRNAtomicKind getAtomicKind()   const {WRNERROR("ATOMIC_KIND");     }
+  virtual void setCall(CallInst *CI)            {WRNERROR("DISPATCH CALL");   }
+  virtual CallInst *getCall()             const {WRNERROR("DISPATCH CALL");   }
   virtual void setCancelKind(WRNCancelKind CK)  {WRNERROR("CANCEL TYPE");     }
   virtual WRNCancelKind getCancelKind()   const {WRNERROR("CANCEL TYPE");     }
   virtual void setCollapse(int N)               {WRNERROR(QUAL_OMP_COLLAPSE); }

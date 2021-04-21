@@ -1895,6 +1895,16 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       case WRegionNode::WRNTask:
         if (Mode & ParPrepare) {
+          if (W->getIsImplicit()) {
+            // Currently implicit tasks are only created for the dispatch
+            // construct (when it has depend or nowait). We want to ignore
+            // these constructs as dispatch codegen no longer needs them.
+            // TODO: we may ask the FE to stop emitting these implicit tasks
+            // once the new dispatch spec (based on merged tasks) becomes
+            // official.
+            RemoveDirectives = true;
+            break;
+          }
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
@@ -2091,8 +2101,7 @@ bool VPOParoptTransform::paroptTransforms() {
         if (Mode & ParPrepare) {
           debugPrintHeader(W, Mode);
           if (!hasOffloadCompilation()) { // for host only
-          // TODO: codegen is under construction
-          //   Changed |= genDispatchCode(W);
+            Changed |= genDispatchCode(W);
           }
           RemoveDirectives = true;
         }
