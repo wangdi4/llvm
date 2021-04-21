@@ -21,6 +21,7 @@
 
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/ValueMap.h"
 #include "llvm/Pass.h"
 
 namespace llvm {
@@ -104,6 +105,13 @@ public:
   // If there is no entry for the specified type, return nullptr.
   dtrans::TypeInfo *getTypeInfo(DTransType *Ty) const;
 
+  // Add an entry to the 'PtrSubInfoMap'
+  void addPtrSubMapping(llvm::BinaryOperator *BinOp, DTransType *Ty);
+
+  // If the BinaryOperator has a type entry in the 'PtrSubInfoMap', return the
+  // type. Otherwise, return nullptr.
+  DTransType *getResolvedPtrSubType(BinaryOperator *BinOp);
+
   // Retrieve the CallInfo object for the instruction, if information exists.
   // Otherwise, return nullptr.
   dtrans::CallInfo *getCallInfo(const Instruction *I) const {
@@ -177,6 +185,12 @@ private:
   // A mapping from function calls that special information is collected for
   // (malloc, free, memset, etc) to the information stored about those calls.
   dtrans::CallInfoManager CIM;
+
+  // A mapping from BinaryOperator instructions that have been identified as
+  // subtracting two pointers to types of interest to the interesting type
+  // aliased by the operands.
+  using PtrSubInfoMapType = ValueMap<Value *, DTransType *>;
+  PtrSubInfoMapType PtrSubInfoMap;
 
   // Indicates DTrans safety information could not be computed because a Value
   // object was encountered that the PointerTypeAnalyzer could not collect
