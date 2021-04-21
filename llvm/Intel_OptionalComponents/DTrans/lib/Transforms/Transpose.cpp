@@ -530,21 +530,38 @@ public:
     // This lambda function will recurse down the subscript intrinsic call
     // chain, accumulating a gain value for each dimension which will be used to
     // determine which dimension should be given the smallest stride.
-    std::function<void(SubscriptInst *, LoopInfo &,
+    std::function<void(Instruction *, LoopInfo &,
                        std::array<Instruction *, FortranMaxRank> &,
                        std::array<unsigned, FortranMaxRank> &,
-                       std::array<double, FortranMaxRank> &)>
+                       std::array<double, FortranMaxRank> &,
+                       SmallPtrSetImpl<Instruction *> &)>
         ComputeGain;
     ComputeGain = [this, &ComputeGain, &EstimateLoopTripCount](
-                      SubscriptInst *Subs, LoopInfo &LI,
+                      Instruction *I, LoopInfo &LI,
                       std::array<Instruction *, FortranMaxRank> &IndexChain,
                       std::array<unsigned, FortranMaxRank> &IndexVarianceDepth,
-                      std::array<double, FortranMaxRank> &Gains) {
+                      std::array<double, FortranMaxRank> &Gains,
+                      SmallPtrSetImpl<Instruction *> &Visited) {
+      if (!Visited.insert(I).second)
+        return;
+
       // We want the transpose to enable processing of elements in the loop to
       // enable unit-stride accesses between successive elements to allow for
       // vectorization. This value sets a minimum estimated trip count that we
       // want in order to treat a loop as being worthwhile to have unit strides.
       const unsigned VectorMinForGain = 8;
+
+      if (isa<SelectInst>(I) || isa<PHINode>(I)) {
+        for (auto *UU : I->users())
+          if (auto *I2 = dyn_cast<Instruction>(UU))
+            ComputeGain(I2, LI, IndexChain, IndexVarianceDepth, Gains, Visited);
+        return;
+      }
+
+      auto *Subs = dyn_cast<SubscriptInst>(I);
+      if (!Subs) {
+        return;
+      }
 
       unsigned Dim = Subs->getRank();
       DEBUG_WITH_TYPE(DEBUG_PROFITABILITY, {
@@ -563,11 +580,9 @@ public:
       IndexVarianceDepth[Dim] = IndexLoopDepth;
 
       if (Dim != 0) {
-        for (auto *UU : Subs->users()) {
-          assert(isa<SubscriptInst>(UU) && "Expected SubscriptInst");
-          ComputeGain(cast<SubscriptInst>(UU), LI, IndexChain,
-                      IndexVarianceDepth, Gains);
-        }
+        for (auto *UU : Subs->users())
+          if (auto *I3 = dyn_cast<Instruction>(UU))
+            ComputeGain(I3, LI, IndexChain, IndexVarianceDepth, Gains, Visited);
       } else {
         // We are relying on the subscript calls being chained together
         // from highest dimension to lowest dimension, when we reach the
@@ -655,13 +670,14 @@ public:
     // nested loop.
     std::array<unsigned, FortranMaxRank> IndexVarianceDepth = {};
 
+    SmallPtrSet<Instruction *, 32> Visited;
     for (auto &KV : FuncToSubsVec) {
       auto &LI = (GetLI)(*KV.first);
       if (LI.empty())
         continue;
 
       for (auto *Subs : KV.second)
-        ComputeGain(Subs, LI, IndexChain, IndexVarianceDepth, Gains);
+        ComputeGain(Subs, LI, IndexChain, IndexVarianceDepth, Gains, Visited);
     }
     double CurrentUnitStridedGain = Gains[0];
 
@@ -827,15 +843,38 @@ private:
   // parameter which also need to be updated.
   void transposeSubscriptCall(SubscriptInst &Subs, bool TransposeStrides) {
 
+    std::function<void(SubscriptInst &, unsigned, bool,
+                       SmallPtrSetImpl<SubscriptInst *> &)>
+        ProcessSubscriptCall;
+
+    std::function<void(Instruction *, unsigned, bool,
+                       SmallPtrSetImpl<SubscriptInst *> &)>
+        ProcessUsers = [&ProcessSubscriptCall, &ProcessUsers](
+                           Instruction *I, unsigned Rank, bool TransposeStrides,
+                           SmallPtrSetImpl<SubscriptInst *> &Visited) -> void {
+      for (auto *UU : I->users()) {
+        if (auto *Subs2 = dyn_cast<SubscriptInst>(UU))
+          ProcessSubscriptCall(*Subs2, Rank - 1, TransposeStrides, Visited);
+        else if (isa<PHINode>(UU) || isa<SelectInst>(UU))
+          ProcessUsers(cast<Instruction>(UU), Rank, TransposeStrides, Visited);
+      }
+    };
+
     // Lambda to process one subscript call, and recurse to subscript calls that
     // use the result.
-    std::function<void(SubscriptInst &, unsigned, bool)> ProcessSubscriptCall =
-        [this, &ProcessSubscriptCall](SubscriptInst &Subs, unsigned Rank,
-                                      bool TransposeStrides) -> void {
+    ProcessSubscriptCall =
+        [this, &ProcessUsers](
+            SubscriptInst &Subs, unsigned Rank, bool TransposeStrides,
+            SmallPtrSetImpl<SubscriptInst *> &Visited) -> void {
+      if (!Visited.insert(&Subs).second)
+        return;
+
       // Check if this index is being transposed from its original rank.
       unsigned TransposeIdx = Transposition[Rank];
       if (TransposeIdx != Rank) {
-        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "Before: " << Subs << "\n");
+        DEBUG_WITH_TYPE(DEBUG_TRANSFORM,
+                        dbgs() << "Before: " << Subs.getFunction()->getName()
+                               << ":" << Subs << "\n");
         if (TransposeStrides) {
           assert(isa<Constant>(Subs.getArgOperand(StrideOpNum)) &&
                  "Subscript call expect to have constant stride");
@@ -852,18 +891,17 @@ private:
             RankOpNum,
             ConstantInt::get(Subs.getArgOperand(RankOpNum)->getType(),
                              TransposeIdx));
-        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "After : " << Subs << "\n");
+        DEBUG_WITH_TYPE(DEBUG_TRANSFORM,
+                        dbgs() << "After : " << Subs.getFunction()->getName()
+                               << ":" << Subs << "\n");
       }
 
       if (Rank != 0)
-        for (auto *UU : Subs.users()) {
-          assert(isa<SubscriptInst>(UU) && "Expected intrinsic subscript call");
-          auto *Subs2 = cast<SubscriptInst>(UU);
-          ProcessSubscriptCall(*Subs2, Rank - 1, TransposeStrides);
-        }
+        ProcessUsers(&Subs, Rank, TransposeStrides, Visited);
     };
 
-    ProcessSubscriptCall(Subs, ArrayRank - 1, TransposeStrides);
+    SmallPtrSet<SubscriptInst *, 32> Visited;
+    ProcessSubscriptCall(Subs, ArrayRank - 1, TransposeStrides, Visited);
   }
 
   // Modify the value stored into the stride fields of the dope vector.
