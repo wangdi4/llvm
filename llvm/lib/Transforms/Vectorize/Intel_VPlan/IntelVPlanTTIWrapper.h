@@ -90,7 +90,7 @@ public:
                        TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
                        const Instruction *I = nullptr) const {
     return Multiplier *
-           TTI.getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
+           *TTI.getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I).getValue();
   }
   int getCmpSelInstrCost(
       unsigned Opcode, Type *ValTy, Type *CondTy = nullptr,

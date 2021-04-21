@@ -7053,7 +7053,7 @@ InstructionCost LoopVectorizationCostModel::getReductionPatternCost(
         /*IsMLA=*/false, IsUnsigned, RdxDesc.getRecurrenceType(), ExtType,
         CostKind);
 
-    unsigned ExtCost =
+    InstructionCost ExtCost =
         TTI.getCastInstrCost(RedOp->getOpcode(), VectorTy, ExtType,
                              TTI::CastContextHint::None, CostKind, RedOp);
     if (RedCost.isValid() && RedCost < BaseCost + ExtCost)
@@ -7069,7 +7069,7 @@ InstructionCost LoopVectorizationCostModel::getReductionPatternCost(
       bool IsUnsigned = isa<ZExtInst>(Op0);
       auto *ExtType = VectorType::get(Op0->getOperand(0)->getType(), VectorTy);
       // reduce(mul(ext, ext))
-      unsigned ExtCost =
+      InstructionCost ExtCost =
           TTI.getCastInstrCost(Op0->getOpcode(), VectorTy, ExtType,
                                TTI::CastContextHint::None, CostKind, Op0);
       InstructionCost MulCost =

@@ -178,35 +178,47 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
   void visitConstant(const SCEVConstant *Constant) {}
 
   void visitTruncateExpr(const SCEVTruncateExpr *TruncBlob) {
-    unsigned Cost = LRV.getNormalizedCost(LRV.TTI.getCastInstrCost(
-        Instruction::Trunc, TruncBlob->getType(),
-        TruncBlob->getOperand()->getType(), TTI::CastContextHint::None));
+    unsigned Cost = LRV.getNormalizedCost(
+        *LRV.TTI
+             .getCastInstrCost(Instruction::Trunc, TruncBlob->getType(),
+                               TruncBlob->getOperand()->getType(),
+                               TTI::CastContextHint::None)
+             .getValue());
     LRV.SelfLRI->addIntOps(Cost);
 
     visit(TruncBlob->getOperand());
   }
   void visitZeroExtendExpr(const SCEVZeroExtendExpr *ZExtBlob) {
-    unsigned Cost = LRV.getNormalizedCost(LRV.TTI.getCastInstrCost(
-        Instruction::ZExt, ZExtBlob->getType(),
-        ZExtBlob->getOperand()->getType(), TTI::CastContextHint::None));
+    unsigned Cost = LRV.getNormalizedCost(
+        *LRV.TTI
+             .getCastInstrCost(Instruction::ZExt, ZExtBlob->getType(),
+                               ZExtBlob->getOperand()->getType(),
+                               TTI::CastContextHint::None)
+             .getValue());
     LRV.SelfLRI->addIntOps(Cost);
 
     visit(ZExtBlob->getOperand());
   }
 
   void visitSignExtendExpr(const SCEVSignExtendExpr *SExtBlob) {
-    unsigned Cost = LRV.getNormalizedCost(LRV.TTI.getCastInstrCost(
-        Instruction::SExt, SExtBlob->getType(),
-        SExtBlob->getOperand()->getType(), TTI::CastContextHint::None));
+    unsigned Cost = LRV.getNormalizedCost(
+        *LRV.TTI
+             .getCastInstrCost(Instruction::SExt, SExtBlob->getType(),
+                               SExtBlob->getOperand()->getType(),
+                               TTI::CastContextHint::None)
+             .getValue());
     LRV.SelfLRI->addIntOps(Cost);
 
     visit(SExtBlob->getOperand());
   }
 
   void visitPtrToIntExpr(const SCEVPtrToIntExpr* PtrToIntBlob) {
-    unsigned Cost = LRV.getNormalizedCost(LRV.TTI.getCastInstrCost(
-        Instruction::PtrToInt, PtrToIntBlob->getType(),
-        PtrToIntBlob->getOperand()->getType(), TTI::CastContextHint::None));
+    unsigned Cost = LRV.getNormalizedCost(
+        *LRV.TTI
+             .getCastInstrCost(Instruction::PtrToInt, PtrToIntBlob->getType(),
+                               PtrToIntBlob->getOperand()->getType(),
+                               TTI::CastContextHint::None)
+             .getValue());
     LRV.SelfLRI->addIntOps(Cost);
 
     visit(PtrToIntBlob->getOperand());
@@ -364,7 +376,8 @@ void LoopResourceInfo::LoopResourceVisitor::addCastCost(const CanonExpr *CE) {
                         ? Instruction::Trunc
                         : CE->isSExt() ? Instruction::SExt : Instruction::ZExt;
   unsigned Cost = getNormalizedCost(
-      TTI.getCastInstrCost(OpCode, DestTy, SrcTy, TTI::CastContextHint::None));
+      *TTI.getCastInstrCost(OpCode, DestTy, SrcTy, TTI::CastContextHint::None)
+           .getValue());
 
   SelfLRI->addIntOps(Cost);
 }
@@ -625,8 +638,9 @@ unsigned LoopResourceInfo::LoopResourceVisitor::getOperationCost(
 
   } else if (auto CInst = dyn_cast<CastInst>(Inst)) {
     Type *OpTy = CInst->getSrcTy();
-    Cost = TTI.getCastInstrCost(CInst->getOpcode(), InstTy, OpTy,
-                                TTI::CastContextHint::None);
+    Cost = *TTI.getCastInstrCost(CInst->getOpcode(), InstTy, OpTy,
+                                 TTI::CastContextHint::None)
+                .getValue();
 
   } else if (isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) {
     // Use operand type here as the CmpInst's type is 'i1'.
