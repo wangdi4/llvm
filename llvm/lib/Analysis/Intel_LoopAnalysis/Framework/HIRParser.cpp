@@ -525,12 +525,11 @@ bool HIRParser::replaceTempBlobByConstant(unsigned BlobIndex,
 
 static bool isUMaxBlob(BlobTy Blob) { return isa<SCEVUMaxExpr>(Blob); }
 static bool isUMinBlob(BlobTy Blob) { return isa<SCEVUMinExpr>(Blob); }
-static bool isMinMaxBlob(BlobTy Blob) { return isa<SCEVMinMaxExpr>(Blob); }
 
 /// Returns true if this Blob represents a min/max expr with an AddRec
 /// Operand.
 static bool isMinMaxWithAddRecOperand(BlobTy Blob) {
-  if (!isMinMaxBlob(Blob)) {
+  if (!isa<SCEVMinMaxExpr>(Blob)) {
     return false;
   }
 
@@ -759,22 +758,19 @@ bool HIRParser::BlobProcessor::canProcessSafely(BlobTy Blob) {
 
 const SCEV *
 HIRParser::BlobProcessor::getProfitableMinMaxExprMapping(const SCEV *MinMax) {
-  // This mapping is for profitability (not legality) so we can skip it in safe
-  // mode.
-  if (SafeMode) {
-    return nullptr;
-  }
+  assert(isa<SCEVMinMaxExpr>(MinMax) && "Unexpected SCEV type!");
 
-  // This mapping recovers original (select) instruction from min exprs with
-  // AddRec operands. This is more profitable as it avoids creation of IV blobs.
-  if (isMinMaxWithAddRecOperand(MinMax)) {
+  // This mapping recovers original (select/intrinsic) instruction from min/max
+  // exprs with AddRec operands. This is more profitable as it avoids creation
+  // of IV blobs.
+  if (HIRP->ScopedSE.containsAddRecurrence(MinMax)) {
     if (auto SubSCEV = getSubstituteSCEV(MinMax)) {
       return SubSCEV;
     }
   }
 
   // Avoids region livein max operations.
-  if (isMinMaxBlob(MinMax) && isRegionLiveIn(HIRP->CurRegion, MinMax)) {
+  if (isRegionLiveIn(HIRP->CurRegion, MinMax)) {
     if (auto SubSCEV = getSubstituteSCEV(MinMax)) {
       return SubSCEV;
     }
@@ -784,10 +780,6 @@ HIRParser::BlobProcessor::getProfitableMinMaxExprMapping(const SCEV *MinMax) {
 }
 
 const SCEV *HIRParser::BlobProcessor::visitAddExpr(const SCEVAddExpr *Add) {
-  if (auto *MappedSC = getProfitableMinMaxExprMapping(Add)) {
-    return MappedSC;
-  }
-
   return SCEVRewriteVisitor<BlobProcessor>::visitAddExpr(Add);
 }
 
@@ -824,10 +816,6 @@ const SCEV *HIRParser::BlobProcessor::visitMulExpr(const SCEVMulExpr *Mul) {
     }
   }
 
-  if (auto *MappedSC = getProfitableMinMaxExprMapping(Mul)) {
-    return MappedSC;
-  }
-
   return SCEVRewriteVisitor<BlobProcessor>::visitMulExpr(Mul);
 }
 
@@ -851,9 +839,9 @@ HIRParser::BlobProcessor::visitAddRecExpr(const SCEVAddRecExpr *AddRec) {
 }
 
 const SCEV *HIRParser::BlobProcessor::visitSMaxExpr(const SCEVSMaxExpr *Max) {
-  // This mapping recovers original (select) instruction from max exprs with
-  // AddRec operands. This is more profitable as it avoids creation of IV blobs.
-
+  // This mapping recovers original (select/intrinsic) instruction from max
+  // exprs with AddRec operands. This is more profitable as it avoids creation
+  // of IV blobs.
   if (auto *MappedSC = getProfitableMinMaxExprMapping(Max)) {
     return MappedSC;
   }
@@ -862,9 +850,9 @@ const SCEV *HIRParser::BlobProcessor::visitSMaxExpr(const SCEVSMaxExpr *Max) {
 }
 
 const SCEV *HIRParser::BlobProcessor::visitSMinExpr(const SCEVSMinExpr *Min) {
-  // This mapping recovers original (select) instruction from max exprs with
-  // AddRec operands. This is more profitable as it avoids creation of IV blobs.
-
+  // This mapping recovers original (select/intrinsic) instruction from max
+  // exprs with AddRec operands. This is more profitable as it avoids creation
+  // of IV blobs.
   if (auto *MappedSC = getProfitableMinMaxExprMapping(Min)) {
     return MappedSC;
   }
@@ -873,9 +861,9 @@ const SCEV *HIRParser::BlobProcessor::visitSMinExpr(const SCEVSMinExpr *Min) {
 }
 
 const SCEV *HIRParser::BlobProcessor::visitUMaxExpr(const SCEVUMaxExpr *Max) {
-  // This mapping recovers original (select) instruction from max exprs with
-  // AddRec operands. This is more profitable as it avoids creation of IV blobs.
-
+  // This mapping recovers original (select/intrinsic) instruction from max
+  // exprs with AddRec operands. This is more profitable as it avoids creation
+  // of IV blobs.
   if (auto *MappedSC = getProfitableMinMaxExprMapping(Max)) {
     return MappedSC;
   }
@@ -884,9 +872,9 @@ const SCEV *HIRParser::BlobProcessor::visitUMaxExpr(const SCEVUMaxExpr *Max) {
 }
 
 const SCEV *HIRParser::BlobProcessor::visitUMinExpr(const SCEVUMinExpr *Min) {
-  // This mapping recovers original (select) instruction from max exprs with
-  // AddRec operands. This is more profitable as it avoids creation of IV blobs.
-
+  // This mapping recovers original (select/intrinsic) instruction from max
+  // exprs with AddRec operands. This is more profitable as it avoids creation
+  // of IV blobs.
   if (auto *MappedSC = getProfitableMinMaxExprMapping(Min)) {
     return MappedSC;
   }
