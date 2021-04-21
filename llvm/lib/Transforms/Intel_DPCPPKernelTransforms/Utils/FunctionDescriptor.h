@@ -37,7 +37,7 @@ struct FunctionDescriptor {
   // prototype.
   std::string toString() const;
   // The name of the function (stripped).
-  StringRef Name;
+  std::string Name;
   // Parameter list of the function
   TypeVector Parameters;
   //'version width'; the width to which this function is suitable for

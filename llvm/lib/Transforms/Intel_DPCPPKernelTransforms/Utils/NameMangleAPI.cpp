@@ -658,10 +658,8 @@ bool DemangleParser::getAddressSpace(TypeAttributeEnum &AttrAddressSpace) {
   AddressSpaceLength -= TI_ADDRESS_SPACE_SUFFIX.TokenLength;
   StringRef AddressSpaceId =
       MangledString.substr(CurrentIndex, AddressSpaceLength);
-  char *endString;
-  int AddressSpace = (int)strtol(AddressSpaceId.data(), &endString, 10);
-  if ((unsigned int)(endString - AddressSpaceId.data()) != AddressSpaceLength) {
-    // Reachning here is not expected, set error and return false;
+  int AddressSpace;
+  if (!to_integer(AddressSpaceId, AddressSpace)) {
     setError();
     return false;
   }
@@ -837,7 +835,7 @@ reflection::FunctionDescriptor NameMangleAPI::demangle(StringRef Rawstring,
     return reflection::FunctionDescriptor::null();
   }
 
-  Ret.Name = FName;
+  Ret.Name = FName.str();
   Ret.Width = reflection::width::NONE;
 
   return Ret;

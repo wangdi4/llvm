@@ -154,7 +154,7 @@ bool isPrintf(StringRef S) { return S == NAME_PRINTF; }
 template <reflection::TypePrimitiveEnum... ParamTys>
 static std::string optionalMangleWithParam(StringRef N) {
   reflection::FunctionDescriptor FD;
-  FD.Name = N;
+  FD.Name = N.str();
   for (auto PT : {ParamTys...}) {
     reflection::RefParamType UI(new reflection::PrimitiveType(PT));
     FD.Parameters.push_back(UI);
