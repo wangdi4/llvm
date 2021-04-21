@@ -1,4 +1,5 @@
 ; RUN: llvm-as %p/WGBuiltins64.ll -o %t.WGBuiltins64.ll.bc
+; RUN: %oclopt -runtimelib=%t.WGBuiltins64.ll.bc -B-GroupBuiltins -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%t.WGBuiltins64.ll.bc -B-GroupBuiltins -verify -S < %s | FileCheck %s
 
 ;;****************************************************************************
@@ -39,3 +40,24 @@ declare spir_func float @_Z29work_group_scan_exclusive_minf(float) #0
 declare spir_func double @_Z29work_group_scan_exclusive_mind(double) #0
 
 attributes #0 = { nounwind }
+
+;; These are inserted by GroupBuiltin pass, should not have debug info
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- %AllocaWGResult5 = alloca double, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- store double 0x7FF0000000000000, double* %AllocaWGResult5, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- %AllocaWGResult3 = alloca float, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- store float 0x7FF0000000000000, float* %AllocaWGResult3, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- %AllocaWGResult1 = alloca double, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- store double 0xFFF0000000000000, double* %AllocaWGResult1, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- %AllocaWGResult = alloca float, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- store float 0xFFF0000000000000, float* %AllocaWGResult, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- store float 0xFFF0000000000000, float* %AllocaWGResult, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- store double 0xFFF0000000000000, double* %AllocaWGResult1, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- store float 0x7FF0000000000000, float* %AllocaWGResult3, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- store double 0x7FF0000000000000, double* %AllocaWGResult5, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test_work_group_scan_fp -- call void @dummybarrier.()
+
+; DEBUGIFY-NOT: WARNING

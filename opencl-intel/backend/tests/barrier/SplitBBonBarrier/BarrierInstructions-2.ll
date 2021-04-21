@@ -1,3 +1,4 @@
+; RUN: %oclopt -B-SplitOnBarrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-SplitOnBarrier -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
@@ -42,3 +43,7 @@ L3:
 }
 
 declare void @_Z7barrierj(i32)
+
+;; PHINode
+; DEBUGIFY: WARNING: Missing line 8
+; DEBUGIFY-NOT: WARNING

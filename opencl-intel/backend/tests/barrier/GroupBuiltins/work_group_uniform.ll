@@ -1,4 +1,5 @@
 ; RUN: llvm-as %p/WGBuiltins32.ll -o %t.WGBuiltins32.ll.bc
+; RUN: %oclopt -runtimelib=%t.WGBuiltins32.ll.bc -B-GroupBuiltins -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%t.WGBuiltins32.ll.bc -B-GroupBuiltins -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
@@ -184,3 +185,18 @@ declare void @__ocl_masked_store_int4(<4 x i32>*, <4 x i32>, <4 x i32>)
 ;;;    b[i] = a[i];
 ;;;  }
 ;;;}
+
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_uniform -- %AllocaWGResult = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_uniform -- store i32 1, i32* %AllocaWGResult, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_uniform -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_uniform -- store i32 1, i32* %AllocaWGResult, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_uniform -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_uniform -- %AllocaWGResult = alloca <4 x i32>, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_uniform -- store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* %AllocaWGResult, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_uniform -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_uniform -- %LoadWGFinalResult = load <4 x i32>, <4 x i32>* %AllocaWGResult, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_uniform -- %CallFinalizeWG = call <4 x i32> @_Z25__finalize_work_group_allDv4_i(<4 x i32> %LoadWGFinalResult)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_uniform -- store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* %AllocaWGResult, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_uniform -- call void @dummybarrier.()
+
+; DEBUGIFY-NOT: WARNING

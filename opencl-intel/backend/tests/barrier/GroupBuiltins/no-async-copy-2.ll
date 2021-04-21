@@ -1,3 +1,4 @@
+; RUN: %oclopt -B-GroupBuiltins -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-GroupBuiltins -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
@@ -52,3 +53,5 @@ define void @foo(i32 %x) nounwind {
 !14 = !{!"vectorized_width", null}
 !15 = !{!"kernel_wrapper", null}
 !16 = !{!"scalarized_kernel", null}
+
+; DEBUGIFY-NOT: WARNING

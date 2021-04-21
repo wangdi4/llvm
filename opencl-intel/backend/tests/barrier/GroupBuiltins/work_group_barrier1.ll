@@ -1,4 +1,5 @@
 ; RUN: llvm-as %p/WGBuiltins64.ll -o %t.WGBuiltins64.bc
+; RUN: %oclopt -runtimelib=%t.WGBuiltins64.bc -B-ValueAnalysis -B-BarrierAnalysis -B-SplitOnBarrier -B-Barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%t.WGBuiltins64.bc -B-ValueAnalysis -B-BarrierAnalysis -B-SplitOnBarrier -B-Barrier -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
@@ -64,3 +65,16 @@ attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "
 !7 = !{i32 2, i32 0}
 !8 = !{}
 !9 = !{!"clang version 3.6.2 "}
+
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %call4 = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %done.addr = alloca i32*, align 8
+;; barrier key values
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %pCurrSBIndex = alloca i64, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %pLocalIds = alloca [3 x i64], align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function build_hash_table -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
+
+; DEBUGIFY-NOT: WARNING

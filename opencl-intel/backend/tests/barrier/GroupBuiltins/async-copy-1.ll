@@ -1,3 +1,4 @@
+; RUN: %oclopt -B-GroupBuiltins -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-GroupBuiltins -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
@@ -86,3 +87,7 @@ declare void @_Z17wait_group_eventsiP9ocl_event(i32, %opencl.event_t**)
 !14 = !{!"vectorized_width", null}
 !15 = !{!"kernel_wrapper", null}
 !16 = !{!"scalarized_kernel", null}
+
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- call void @dummybarrier.()
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- call void @dummybarrier.()
+; DEBUGIFY-NOT: WARNING
