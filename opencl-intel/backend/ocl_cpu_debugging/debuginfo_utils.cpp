@@ -118,7 +118,7 @@ static string DescribeArrayType(const DICompositeType* di_type)
     for (auto elem : ranges_array) {
         assert(dyn_cast<DISubrange>(elem));
         DISubrange* subrange_elem = cast<DISubrange>(elem);
-        DISubrange::CountType Count = subrange_elem->getCount();
+        DISubrange::BoundType Count = subrange_elem->getCount();
         assert(Count.is<ConstantInt *>() &&
                "Count contains DIVariable instead of ConstantInt");
         if (auto *CI = Count.dyn_cast<ConstantInt*>()) {
@@ -446,7 +446,7 @@ VarTypeDescriptor Generator::GenerateVarTypeArray(const DICompositeType& di_arra
     for (auto di_range_i : di_ranges) {
         assert(dyn_cast<DISubrange>(di_range_i));
         DISubrange* di_subrange = cast<DISubrange>(di_range_i);
-        DISubrange::CountType Count = di_subrange->getCount();
+        DISubrange::BoundType Count = di_subrange->getCount();
         assert(Count.is<ConstantInt *>() &&
                "Count contains DIVariable instead of ConstantInt");
         if (auto *CI = Count.dyn_cast<ConstantInt*>()) {

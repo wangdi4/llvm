@@ -701,7 +701,7 @@ namespace intel {
             Offset, AI->getType(), InsertBefore, &InsertBefore->getDebugLoc());
         IRBuilder<> Builder(InsertBefore);
         Builder.CreateStore(AddrInSpecialBuffer, AddrAI);
-        LoadInst *LI = Builder.CreateLoad(AddrAI);
+        LoadInst *LI = Builder.CreateLoad(AddrAI->getAllocatedType(), AddrAI);
         if (m_isNativeDBG && DI) {
           DILocalVariable *Variable = DI->getVariable();
           DIExpression *Expression =

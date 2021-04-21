@@ -114,7 +114,8 @@ void AddTLSGlobals::runOnFunction(Function *pFunc) {
         Function *pCallee = pCall->getCalledFunction();
         if (nullptr != pCallee && !pCallee->isDeclaration()) {
           IRBuilder<> B(pCall);
-          Value *Load = B.CreateLoad(m_pLocalMemBase);
+          Value *Load =
+              B.CreateLoad(m_pLocalMemBase->getValueType(), m_pLocalMemBase);
           std::string ValName("pLocalMem_");
           ValName += pCallee->getName();
           Value *GEP = B.CreateGEP(

@@ -537,7 +537,8 @@ static void replaceChannelCallResult(CallInst *ChannelCall, ChannelKind CK,
       // Struct is passed by pointer as a first arugment.
       // void read_channel_nb(<struct ty> *, channel, bool*)
       if (!UsesStruct)
-        ChannelCall->replaceAllUsesWith(Builder.CreateLoad(PipePacketPtr));
+        ChannelCall->replaceAllUsesWith(Builder.CreateLoad(
+            PipePacketPtr->getType()->getPointerElementType(), PipePacketPtr));
 
       unsigned IsValidIdx = UsesStruct ? 2 : 1;
       auto *IsValid = ChannelCall->getArgOperand(IsValidIdx);
@@ -555,7 +556,8 @@ static void replaceChannelCallResult(CallInst *ChannelCall, ChannelKind CK,
   if (CK.Access == ChannelKind::READ) {
     if (!UsesStruct) {
       // <value ty> read_channel(channel);
-      ChannelCall->replaceAllUsesWith(Builder.CreateLoad(PipePacketPtr));
+      ChannelCall->replaceAllUsesWith(Builder.CreateLoad(
+          PipePacketPtr->getType()->getPointerElementType(), PipePacketPtr));
     }
     // Struct is passed by pointer as a first arugment. No return value,
     // nothing to do
