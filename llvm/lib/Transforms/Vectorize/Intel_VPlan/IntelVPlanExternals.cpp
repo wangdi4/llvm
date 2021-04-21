@@ -266,7 +266,8 @@ void VPLiveInOutCreator::createInOutsPrivates(
       if (!PrivFinal)
         continue;
       VPExternalUse *PrivFinalExternalUse = nullptr;
-      if (PrivFinal->getOpcode() == VPInstruction::PrivateFinalUncond)
+      if (PrivFinal->getOpcode() == VPInstruction::PrivateFinalUncond ||
+          PrivFinal->getOpcode() == VPInstruction::PrivateFinalCond)
         PrivFinalExternalUse = findExtUser(PrivFinal);
       else
         continue;
@@ -281,8 +282,15 @@ void VPLiveInOutCreator::createInOutsPrivates(
           PrivFinalExternalUse->getOperandIndex(PrivFinal));
       // Put live-in/out to their lists
       Plan.setLiveOutValue(LOV, MergeId);
+      if (auto PrivInst = dyn_cast<VPPrivateFinalCond>(PrivFinal)) {
+        VPValue *StartV = PrivInst->getOrig();
+        VPLiveInValue *LIV = createLiveInValue(MergeId, StartV->getType());
+        Plan.setLiveInValue(LIV, MergeId);
+        ExtVals.setOriginalIncomingValue(StartV, MergeId);
+        PrivInst->setOrig(LIV);
+      }
       addOriginalLiveInOut(VPLEntityList, OrigLoop, Priv, PrivFinalExternalUse,
-                         ScalarInOuts);
+                           ScalarInOuts);
     }
   }
 }

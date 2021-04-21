@@ -54,13 +54,14 @@ define dso_local i32 @main(i32* %x4, [100 x i32]* %u0, i64 %n) local_unnamed_add
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
 ; CHECK-NEXT:     i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP4]]
 ; CHECK-NEXT:     i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in2 i64 1
+; CHECK-NEXT:     i32 [[VP__PRIV_FINAL:%.*]] = private-final-uc i32 [[VP18]]
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
 ; CHECK-NEXT:     br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0   i32 [[VP18]] -> [[VP20:%.*]] = {%inc.lcssa45}
+; CHECK-NEXT:  Id: 0   i32 [[VP__PRIV_FINAL]] -> [[VP20:%.*]] = {%inc.lcssa45}
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1   i32 [[VP__RED_FINAL]] -> [[VP21:%.*]] = {%x4.sroa.0.140}
 ; CHECK-EMPTY:

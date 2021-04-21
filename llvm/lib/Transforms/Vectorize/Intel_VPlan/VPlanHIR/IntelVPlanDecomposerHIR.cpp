@@ -1594,10 +1594,11 @@ void VPDecomposerHIR::createExitPhisForExternalUses(VPBasicBlock *ExitBB) {
     auto *HIROpBlob = cast<VPBlob>(HIROp);
     DDRef *DDR = const_cast<DDRef *>(HIROpBlob->getBlob());
 
-    // If the live-out temp is also live-in, then proactively create a
-    // ExternalDef for it since it need not have any uses inside the loop.
-    if (OutermostHLp->isLiveIn(DDR->getSymbase()))
-      getVPExternalDefForDDRef(DDR);
+    // Always create ExternalDef for live-out symbases.
+    // TODO: This may lead to incorrect IR if ExternalDef of a liveout symbase
+    // is needed as r-val for any initialization/finalization. We may need to
+    // use undef instead in such cases.
+    Plan->getVPExternalDefForDDRef(DDR);
 
     auto *ExitPhi = getOrCreateEmptyPhiForDDRef(ExtUse->getType(), ExitBB, DDR);
     LLVM_DEBUG(dbgs() << "Empty PHI was created for live out temp: ";

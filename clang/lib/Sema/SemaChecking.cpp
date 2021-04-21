@@ -1593,8 +1593,8 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI__builtin_intel_hls_outstream_read:
   case Builtin::BI__builtin_intel_hls_instream_write:
   case Builtin::BI__builtin_intel_hls_outstream_write:
-  case Builtin::BI__builtin_intel_hls_mm_master_init:
-  case Builtin::BI__builtin_intel_hls_mm_master_load:
+  case Builtin::BI__builtin_intel_hls_mm_host_init:
+  case Builtin::BI__builtin_intel_hls_mm_host_load:
     if (!Context.getLangOpts().HLS) {
       Diag(TheCall->getBeginLoc(), diag::err_hls_builtin_without_fhls) << 1;
       return ExprError();
@@ -6224,10 +6224,10 @@ bool Sema::CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
       TheCall->setType(QualType{Pointer, 0});
     return false;
   }
-  case Builtin::BI__builtin_intel_hls_mm_master_init:
-  case Builtin::BI__builtin_intel_hls_mm_master_load: {
+  case Builtin::BI__builtin_intel_hls_mm_host_init:
+  case Builtin::BI__builtin_intel_hls_mm_host_load: {
     if (checkArgCount(*this, TheCall,
-                      BuiltinID == Builtin::BI__builtin_intel_hls_mm_master_init
+                      BuiltinID == Builtin::BI__builtin_intel_hls_mm_host_init
                           ? 11
                           : 12))
       return true;
@@ -6316,7 +6316,7 @@ bool Sema::CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
              << 4;
 
     // index (load only), a user provided integer.
-    if (BuiltinID == Builtin::BI__builtin_intel_hls_mm_master_load) {
+    if (BuiltinID == Builtin::BI__builtin_intel_hls_mm_host_load) {
       Expr *Index = TheCall->getArg(11);
       if (!Index->getType()->isIntegerType())
         return Diag(Index->getBeginLoc(), diag::err_hls_builtin_arg_mismatch)
@@ -6324,7 +6324,7 @@ bool Sema::CheckHLSBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
     }
 
     TheCall->setType(Context.VoidTy);
-    if (BuiltinID == Builtin::BI__builtin_intel_hls_mm_master_load)
+    if (BuiltinID == Builtin::BI__builtin_intel_hls_mm_host_load)
       TheCall->setType(QualType{Pointer, 0});
     return false;
   }

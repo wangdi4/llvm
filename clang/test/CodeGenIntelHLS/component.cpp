@@ -17,12 +17,12 @@ int foo1(
    __attribute__((argument_interface("wire")))
    __attribute__((stable_argument))
      int i2,
-   __attribute__((argument_interface("avalon_mm_slave")))
+   __attribute__((argument_interface("avalon_mm_agent")))
      int i3,
    __attribute__((stable_argument))
    __attribute__((argument_interface("avalon_streaming")))
      int i4,
-   __attribute__((slave_memory_argument))
+   __attribute__((agent_memory_argument))
    __attribute__((local_mem_size(32)))
      int *i5,
      int *i6,
@@ -33,10 +33,10 @@ int foo1(
 }
 
 //CHECK: @_Z4foo2v{{.*}}!ihc_component [[CFOO2:![0-9]+]]
-//CHECK-SAME: !component_interface [[A_MM_SLAVE:![0-9]+]]
+//CHECK-SAME: !component_interface [[A_MM_AGENT:![0-9]+]]
 //CHECK-SAME: !stall_free_return [[FALSE]] !use_single_clock [[FALSE]]
 __attribute__((ihc_component))
-__attribute__((component_interface("avalon_mm_slave")))
+__attribute__((component_interface("avalon_mm_agent")))
 int foo2() { return 0; }
 
 //CHECK: @_Z4foo3v{{.*}}!ihc_component [[CFOO3:![0-9]+]]
@@ -92,8 +92,8 @@ void foo7() {}
 // CHECK: define{{.*}}void @_Z4foo7v{{.*}} !scheduler_target_fmax_mhz ![[SPEP:[0-9]+]]
 
 //CHECK: [[CFOO1]] = !{!"_Z4foo1iiiiPiS_Ri", i32 undef}
-//CHECK: [[ATFOO1]] = !{!"default", !"default", !"default", !"default", !"mm_slave", !"pointer", !"pointer"}
-//CHECK: [[ITFOO1]] = !{!"wire", !"wire", !"avalon_mm_slave", !"avalon_streaming", !"wire", !"wire", !"wire"}
+//CHECK: [[ATFOO1]] = !{!"default", !"default", !"default", !"default", !"mm_agent", !"pointer", !"pointer"}
+//CHECK: [[ITFOO1]] = !{!"wire", !"wire", !"avalon_mm_agent", !"avalon_streaming", !"wire", !"wire", !"wire"}
 //CHECK: [[SFOO1]] = !{i32 0, i32 1, i32 0, i32 1, i32 0, i32 0, i32 0}
 //CHECK: [[CNFOO1]] = !{!"i1", !"i2", !"i3", !"i4", !"i5", !"i6", !"i7"}
 //CHECK: [[A_STREAMING]] = !{!"avalon_streaming"}
@@ -101,7 +101,7 @@ void foo7() {}
 //CHECK: [[LMSFOO1]] = !{i32 0, i32 0, i32 0, i32 0, i32 32, i32 0, i32 0}
 
 //CHECK: [[CFOO2]] = !{!"_Z4foo2v", i32 undef}
-//CHECK: [[A_MM_SLAVE]] = !{!"avalon_mm_slave"}
+//CHECK: [[A_MM_AGENT]] = !{!"avalon_mm_agent"}
 
 //CHECK: [[CFOO3]] = !{!"_Z4foo3v", i32 undef}
 //CHECK: [[ALWAYS_R]] = !{!"always_run"}

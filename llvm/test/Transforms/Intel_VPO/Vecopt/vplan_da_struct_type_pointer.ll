@@ -30,9 +30,6 @@ define dso_local void @foo(%struct.S* nocapture %SArr) local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LOAD:%.*]] = load i32* [[VP_I_LPRIV:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_LOADED_PRIV_FINAL:%.*]] = private-final-uc-mem i32 [[VP_LOAD]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] store i32 [[VP_LOADED_PRIV_FINAL]] i32* [[I_LPRIV0:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3]]

@@ -1174,6 +1174,7 @@ void LoopVectorizationPlanner::EnterExplicitData(
 #endif
   // Collect any SIMD loop private information
   if (WRLp) {
+    LVL.setIsSimd();
     LastprivateClause &LastPrivateClause = WRLp->getLpriv();
     for (LastprivateItem *PrivItem : LastPrivateClause.items()) {
 #if INTEL_CUSTOMIZATION

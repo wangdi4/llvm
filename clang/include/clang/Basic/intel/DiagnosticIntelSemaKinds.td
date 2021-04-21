@@ -135,7 +135,7 @@ def err_hls_memory_arg_invalid : Error<
   "%0 attribute requires either no argument or one of: %1">;
 def err_memory_attribute_invalid : Error<
   "%0 attribute only applies to "
-  "%select{|slave memory arguments, non-static field members, }1"
+  "%select{|agent memory arguments, non-static field members, }1"
   "constant variables, local variables and static variables">;
 def err_hls_force_loop_pipelining_invalid : Error<
   "%0 attribute argument must be 'on' or 'off'">;
@@ -144,7 +144,7 @@ def err_hls_force_loop_pipelining_conflict : Error<
 def err_hls_readwrite_arg_invalid : Error<
   "readwrite type must be 'readonly', 'writeonly' or 'readwrite'">;
 def err_readwritememory_attribute_invalid : Error<
-  "%0 attribute only applies to slave memory arguments">;
+  "%0 attribute only applies to agent memory arguments">;
 // Intel OpenCL FPGA extension
 def warn_opencl_attribute_only_for_local_address_space : Warning<
   "%0 attribute can be aplied only for parameters that reside "

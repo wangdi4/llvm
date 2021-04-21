@@ -1905,10 +1905,10 @@ static unsigned getHLSIntrinsic(unsigned BuiltinID) {
     return Intrinsic::intel_hls_instream_write;
   case Builtin::BI__builtin_intel_hls_outstream_write:
     return Intrinsic::intel_hls_outstream_write;
-  case Builtin::BI__builtin_intel_hls_mm_master_init:
-    return Intrinsic::intel_hls_mm_master_init;
-  case Builtin::BI__builtin_intel_hls_mm_master_load:
-    return Intrinsic::intel_hls_mm_master_load;
+  case Builtin::BI__builtin_intel_hls_mm_host_init:
+    return Intrinsic::intel_hls_mm_host_init;
+  case Builtin::BI__builtin_intel_hls_mm_host_load:
+    return Intrinsic::intel_hls_mm_host_load;
   default:
     llvm_unreachable("Invalid HLS Builtin ID");
   }
@@ -2025,7 +2025,7 @@ RValue CodeGenFunction::EmitHLSStreamBuiltin(unsigned BuiltinID,
   return RValue::get(Builder.CreateCall(Func, Args));
 }
 
-RValue CodeGenFunction::EmitHLSMemMasterBuiltin(unsigned BuiltinID,
+RValue CodeGenFunction::EmitHLSMemHostBuiltin(unsigned BuiltinID,
                                                 const CallExpr *E,
                                                 ReturnValueSlot ReturnValue) {
   CallArgList Args;
@@ -2050,7 +2050,7 @@ RValue CodeGenFunction::EmitHLSMemMasterBuiltin(unsigned BuiltinID,
   const Expr *WaitRequest = E->getArg(10);
   Args.add(RValue::get(EmitScalarExpr(WaitRequest)), Ctx.BoolTy);
 
-  if (BuiltinID == Builtin::BI__builtin_intel_hls_mm_master_load) {
+  if (BuiltinID == Builtin::BI__builtin_intel_hls_mm_host_load) {
     const Expr *Index = E->getArg(11);
     Args.add(RValue::get(EmitScalarExpr(Index)),
              Ctx.getIntTypeForBitwidth(32, /*Signed=*/true));
@@ -2916,9 +2916,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI__builtin_intel_hls_instream_write:
   case Builtin::BI__builtin_intel_hls_outstream_write:
     return EmitHLSStreamBuiltin(BuiltinID, E);
-  case Builtin::BI__builtin_intel_hls_mm_master_init:
-  case Builtin::BI__builtin_intel_hls_mm_master_load:
-    return EmitHLSMemMasterBuiltin(BuiltinID, E, ReturnValue);
+  case Builtin::BI__builtin_intel_hls_mm_host_init:
+  case Builtin::BI__builtin_intel_hls_mm_host_load:
+    return EmitHLSMemHostBuiltin(BuiltinID, E, ReturnValue);
   case Builtin::BI__builtin_fpga_reg:
     return EmitFPGARegBuiltin(BuiltinID, E, ReturnValue);
 #endif // INTEL_CUSTOMIZATION

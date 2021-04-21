@@ -244,6 +244,9 @@ public:
   /// instruction.
   void recordPotentialSIMDDescrUpdate(HLInst *UpdateInst);
 
+  void setIsSimd() { IsSimdLoop = true; }
+  bool getIsSimd() const { return IsSimdLoop; }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Debug print utility to display contents of the descriptor lists
   void dump(raw_ostream &OS) const;
@@ -296,6 +299,7 @@ private:
   // list of idioms on the fly if no entry is found for a given loop. Check
   // getVectorIdioms(HLLoop*).
   mutable std::map<HLLoop *, IdiomListTy> VecIdioms;
+  bool IsSimdLoop = false;
 };
 
 class VPlanHCFGBuilderHIR : public VPlanHCFGBuilder {

@@ -23,7 +23,7 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK:       Private list
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Exit instr: i32 [[VP0:%.*]] = load i32* [[VP_PTRIDX:%.*]]
-; CHECK-NEXT:    Linked values: i32 [[VP__PRIV_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i32 [[VP0]], i32 [[VP__PRIV_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:

@@ -226,7 +226,7 @@ public:
   }
 
   /// Return alias for specific value. If no alias is found return nullptr.
-  DescrValue<Value> *findAlias(const Value *RefV) {
+  DescrValue<Value> *findAlias(const Value *RefV) const {
     auto AliasIt = Aliases.find(RefV);
     if (AliasIt == Aliases.end())
       return nullptr;
