@@ -29,7 +29,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:   Memory: i32* [[B_PRIV0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Exit instr: [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX:%.*]]
-; CHECK-NEXT:    Linked values: i32 [[VP__PRIV_FINAL:%.*]],
+; CHECK-NEXT:    Linked values: i32 [[VP0]], i32 [[VP__PRIV_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:

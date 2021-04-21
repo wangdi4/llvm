@@ -135,6 +135,9 @@ public:
   /// Returns the widest induction type.
   Type *getWidestInductionType() { return WidestIndTy; }
 
+  void setIsSimd() { IsSimdLoop = true; }
+  bool getIsSimd() const { return IsSimdLoop; }
+
 private:
   /// The loop that we evaluate.
   Loop *TheLoop;
@@ -184,6 +187,8 @@ private:
   /// step values 1 and -1 and is used to generate unit-stride loads/stores
   /// when possible
   std::map<Value *, std::pair<Value *, int>> UnitStepLinears;
+
+  bool IsSimdLoop = false;
 
 public:
   /// Add stride information for pointer \p Ptr.
@@ -349,6 +354,25 @@ private:
   /// Return true if the explicit reduction variable uses private memory on
   /// each iteration.
   bool isReductionVarStoredInsideTheLoop(Value *RedVarPtr);
+
+  /// Check whether \p I is liveout.
+  bool isLiveOut(const Instruction *I) const;
+
+  /// Return operand of the \p Phi which is live-out. Live out phi or
+  /// a Recurrence phi is expected.
+  const Instruction *getLiveOutPhiOperand(const PHINode *Phi) const;
+
+  /// Check whether Phi can be private or private alias, update private
+  /// descriptor and return true if so. Otherwise return false. Live out phi or
+  /// a Recurrence phi is expected.
+  bool checkAndAddAliasForSimdLastPrivate(const PHINode *Phi);
+
+  /// If the \p Candidate is declared as private or is an alias for a private
+  /// then return the descriptor of private. Otherwise nullptr is returned.
+  PrivDescrTy *findPrivateOrAlias(const Value *Candidate) const;
+
+  /// Set \p ExitI as instruction for private.
+  void updatePrivateExitInst(PrivDescrTy *Priv, const Instruction *ExitI);
 
   /// Check the safety of aliasing of OMP clause variables outside of the loop.
   bool isAliasingSafe(DominatorTree &DT, const CallInst *RegionEntry);

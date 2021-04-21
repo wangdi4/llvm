@@ -365,6 +365,17 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::PrivateFinalCondMem:
+  case VPInstruction::PrivateFinalCond: {
+    // The instruction is extract. It produces a scalar return value.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 2, SVAKind::FirstScalar);
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::AllocatePrivate: {
     // We don't set any specific bits for the allocate-private instruction, it
     // will decided only based on uses of the instruction. If there are no
@@ -796,6 +807,8 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::PopVF:
   case VPInstruction::PrivateFinalUncondMem:
   case VPInstruction::PrivateFinalUncond:
+  case VPInstruction::PrivateFinalCondMem:
+  case VPInstruction::PrivateFinalCond:
   case VPInstruction::VLSLoad:
   case VPInstruction::VLSExtract:
   case VPInstruction::VLSInsert:

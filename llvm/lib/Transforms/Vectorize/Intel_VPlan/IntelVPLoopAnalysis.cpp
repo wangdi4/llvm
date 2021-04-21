@@ -392,6 +392,7 @@ VPPrivate *VPLoopEntityList::addPrivate(VPInstruction *FinalI,
   VPPrivate *Priv =
       new VPPrivate(FinalI, std::move(Aliases), K, Explicit, ValidMemOnly);
   PrivatesList.emplace_back(Priv);
+  linkValue(PrivateMap, Priv, FinalI);
   linkValue(PrivateMap, Priv, AI);
   createMemDescFor(Priv, AI);
   return Priv;
@@ -940,6 +941,151 @@ static void createNonPODPrivateCtorDtorCalls(Function *F, VPValue *NonPODMemory,
   Builder.insert(VPCall);
 }
 
+std::pair<const VPInduction *, bool>
+VPLoopEntityList::getLoopInduction() const {
+  // There are two ways.
+  // 1) Get latch -> condbit -> operand which is induction. This relies on that
+  //    we always have canonical loops with bottom test and will give exactly
+  //    loop IV.
+  // 2) Get header, scan phis until induction is found. That is more reliable
+  //    but will give the first IV which is not necessary loop IV.
+
+  // Going the first way.
+  VPBasicBlock *Latch = Loop.getLoopLatch();
+  VPCmpInst *CondBit = dyn_cast<VPCmpInst>(Latch->getCondBit());
+  assert((CondBit && CondBit->getOpcode() == Instruction::ICmp) &&
+         "Expected ICmp in latch cond");
+  bool IsSigned;
+  auto Pred = CondBit->getPredicate();
+  switch (Pred) {
+  case CmpInst::ICMP_SGT:
+  case CmpInst::ICMP_SGE:
+  case CmpInst::ICMP_SLT:
+  case CmpInst::ICMP_SLE:
+    IsSigned = true;
+    break;
+  default:
+    IsSigned = false;
+    break;
+  }
+  const VPInduction *Ret = getInduction(CondBit->getOperand(0));
+  if (!Ret)
+    Ret = getInduction(CondBit->getOperand(1));
+  return {Ret, IsSigned};
+}
+
+static void collectPhiOperands(VPPHINode *I, VPPHINode *HeaderPhi,
+                               SmallSet<VPPHINode *, 4> &PhiUsers) {
+  PhiUsers.insert(I);
+  for (auto V : I->operands())
+    if (V != HeaderPhi)
+      if (auto Phi = dyn_cast<VPPHINode>(V))
+        if (PhiUsers.find(Phi) == PhiUsers.end())
+          collectPhiOperands(Phi, HeaderPhi, PhiUsers);
+}
+
+
+// See comment in the header file.
+void VPLoopEntityList::insertConditionalLastPrivateInst(
+    VPPrivate &Private, VPBuilder &Builder, VPBasicBlock *Preheader,
+    VPBasicBlock *PostExit, VPValue *PrivateMem, VPValue *AI) {
+  assert(Private.isConditional() && "Expected conditional private");
+
+  const VPInduction *LoopIndex;
+  std::tie(LoopIndex, std::ignore) = getLoopInduction();
+  VPPHINode *InductionHeaderPhi = getRecurrentVPHINode(*LoopIndex);
+  VPConstant *IncomingVal =
+      Plan.getVPConstant(ConstantInt::get(InductionHeaderPhi->getType(), -1));
+
+  VPBuilder::InsertPointGuard Guard(Builder);
+  if (Private.hasExitInstr() && isa<VPPHINode>(Private.getExitInst())) {
+    // If we have registerized private.
+    auto ExitPhi = cast<VPPHINode>(Private.getExitInst());
+    VPPHINode *HeaderPhi = getRecurrentVPHINode(Private);
+    assert(HeaderPhi && "Expected non-null header phi");
+    // First collect phi nodes on the way from liveout to header phi.
+    SmallSet<VPPHINode *, 4> PhiUsers;
+    collectPhiOperands(ExitPhi, HeaderPhi, PhiUsers);
+    // First insert phi in the loop header, with one operand, starting -1.
+    Builder.setInsertPoint(InductionHeaderPhi);
+    VPPHINode *IndexStartPhi =
+        Builder.createPhiInstruction(InductionHeaderPhi->getType());
+    IndexStartPhi->setName("priv.idx.hdr");
+    IndexStartPhi->addIncoming(IncomingVal, Loop.getLoopPreheader());
+    // Then insert phis along the assignment chain to preserve SSA form.
+    DenseMap<VPBasicBlock *, VPPHINode *> InsertedPhis;
+    InsertedPhis[IndexStartPhi->getParent()] = IndexStartPhi;
+    for (VPPHINode *Phi : PhiUsers) {
+      Builder.setInsertPoint(Phi);
+      VPPHINode *IndexBBPhi =
+          Builder.createPhiInstruction(InductionHeaderPhi->getType());
+      IndexBBPhi->setName("priv.idx." + Phi->getParent()->getName());
+      for (unsigned I = 0; I < Phi->getNumIncomingValues(); I++) {
+        VPValue *Op = Phi->getIncomingValue(I);
+        VPBasicBlock *BB = Phi->getIncomingBlock(I);
+        VPValue *NewOp = nullptr;
+        if (InsertedPhis.count(BB))
+          NewOp = InsertedPhis[BB];
+        else {
+          NewOp = Op == HeaderPhi ? IndexStartPhi : InductionHeaderPhi;
+        }
+        IndexBBPhi->addIncoming(NewOp, BB);
+      }
+      InsertedPhis[Phi->getParent()] = IndexBBPhi;
+    }
+    // Add latch phi as operand to the header phi.
+    VPPHINode *LastPhi = InsertedPhis[ExitPhi->getParent()];
+    IndexStartPhi->addIncoming(LastPhi, ExitPhi->getParent());
+
+    // Create last value calculation instruction.
+    Builder.setInsertPoint(PostExit);
+    VPValue *Exit = Private.getIsMemOnly()
+                        ? cast<VPValue>(Builder.createLoad(
+                              PrivateMem->getType()->getPointerElementType(),
+                              PrivateMem, nullptr, "loaded.priv"))
+                        : cast<VPValue>(ExitPhi);
+    StringRef ExitName = ExitPhi ? ExitPhi->getName() : "";
+    Twine Name = ExitName + ".priv.final";
+    VPValue *Orig = HeaderPhi->getIncomingValue(Loop.getLoopPreheader());
+    VPInstruction *Final;
+    if (Private.getIsMemOnly())
+      Final = Builder.create<VPPrivateFinalCondMem>(Name, Exit, LastPhi, Orig);
+    else
+      Final = Builder.create<VPPrivateFinalCond>(Name, Exit, LastPhi, Orig);
+    processFinalValue(Private, AI, Builder, *Final, Exit->getType(), Exit);
+    return;
+  }
+  // For in-memory privates, create a variable for index and insert stores
+  // of the induciton variable at each store to private memory.
+  assert(Private.getPrivateTag() == VPPrivate::PrivateTag::PTInMemory &&
+         "Expected non null private mem");
+  Type *ElemTy = InductionHeaderPhi->getType();
+  Builder.setInsertPoint(Preheader);
+  // In preheader assign initial value.
+  VPValue *IdxMem = Builder.create<VPAllocatePrivate>(
+      "priv.idx.mem", PointerType::get(ElemTy, 0),
+      Plan.getDataLayout()->getPrefTypeAlign(ElemTy));
+  Builder.createStore(IncomingVal, IdxMem);
+
+  // Go through all stores and create stores to index variable.
+  for (auto U : PrivateMem->users()) {
+    if (auto StoreI = dyn_cast<VPLoadStoreInst>(U)) {
+      if (StoreI->getOpcode() == Instruction::Load)
+        continue;
+      Builder.setInsertPoint(StoreI);
+      Builder.createStore(InductionHeaderPhi, IdxMem);
+    }
+  }
+  Builder.setInsertPoint(PostExit);
+  VPValue *Exit =
+      Builder.createLoad(PrivateMem->getType()->getPointerElementType(),
+                         PrivateMem, nullptr, "loaded.priv");
+  auto IdxLoad = Builder.createLoad(ElemTy, IdxMem, nullptr, "loaded.priv.idx");
+  VPInstruction *Final =
+      Builder.create<VPPrivateFinalCondMem>(".priv.final", Exit, IdxLoad, AI);
+  processFinalValue(Private, AI, Builder, *Final, Exit->getType(), Exit);
+}
+
 // Insert VPInstructions related to VPPrivates.
 void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
                                                    VPBasicBlock *Preheader,
@@ -1000,13 +1146,32 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
         Builder.setInsertPoint(PostExit, PostExit->begin());
         createNonPODPrivateCtorDtorCalls(DtorFn, PrivateMem, Builder, Plan);
       }
-    }
 
-    // TODO: include support for non-POD CopyAssign specialization here.
+      // TODO: include support for non-POD CopyAssign specialization here.
 
-    // Handling of last privates generating last value calculation.
-    if (!isa<VPPrivateNonPOD>(Private) && Private->isLast()) {
-      assert(!Private->isConditional() && "Unsupported conditional private");
+    } else if (Private->isLast()) {
+
+      // Handling of last privates generating last value calculation.
+      if (Private->hasPrivateTag()) {
+        // No last value for non-pod types and arrays
+        assert(Private->getPrivateTag() != VPPrivate::PrivateTag::PTArray &&
+               Private->getPrivateTag() != VPPrivate::PrivateTag::PTNonPod &&
+               "Unsupported aggregate type");
+
+        if (Private->getPrivateTag() == VPPrivate::PrivateTag::PTInMemory) {
+          // No last value for unused in-memory privates. This is an explicit
+          // private which was completely registerized.
+          if (!VPEntityImportDescr::hasRealUserInLoop(PrivateMem, &Loop))
+            continue;
+        }
+      }
+
+      if (Private->isConditional()) {
+        insertConditionalLastPrivateInst(*Private, Builder, Preheader, PostExit,
+                                         PrivateMem, AI);
+        continue;
+      }
+
       VPBuilder::InsertPointGuard Guard(Builder);
       Builder.setInsertPoint(PostExit);
       VPValue *Exit =
@@ -1031,19 +1196,52 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
   LLVM_DEBUG(Preheader->dump());
 }
 
+// Detect whether Inst is linked to a conditional private. That means it is a
+// VPPHINode and either has a VPPHINode from the loop header as operand or is
+// operand of VPPHINode from the loop header.
+// Returns pair: if the VPPHINode from header is found then
+// <headerPhi, PrivateKind::Conditional> and <nullptr, PrivateKind::Last>
+// otherwise.
+static std::pair<VPValue *, VPPrivate::PrivateKind>
+getPrivateKind(const VPInstruction *Inst, const VPBasicBlock *HeaderBB) {
+
+  if (auto Phi = dyn_cast<VPPHINode>(Inst)) {
+
+    auto isHeaderPhi = [HeaderBB](const VPValue *V) {
+      if (auto I = dyn_cast<VPPHINode>(V))
+        if (I->getParent() == HeaderBB)
+          return true;
+      return false;
+    };
+
+    auto IterO = llvm::find_if(Phi->operands(), isHeaderPhi);
+    if (IterO != Phi->op_end())
+      return std::make_pair(*IterO, VPPrivate::PrivateKind::Conditional);
+
+    auto Iter = llvm::find_if(Phi->users(), isHeaderPhi);
+    if (Iter != Phi->user_end())
+      return std::make_pair(*Iter, VPPrivate::PrivateKind::Conditional);
+  }
+
+  return std::make_pair(nullptr, VPPrivate::PrivateKind::Last);
+}
+
 void VPLoopEntityList::analyzeImplicitLastPrivates() {
+  VPBasicBlock *HeaderBB = Loop.getHeader();
   for (auto *BB : Loop.blocks())
     for (VPInstruction &Inst : *BB)
       if (Loop.isLiveOut(&Inst) && !getReduction(&Inst) &&
           !getInduction(&Inst) && !getPrivate(&Inst)) {
-        // TODO: add phi analysis (as a separate change)
-        if (isa<VPPHINode>(&Inst))
-          continue;
+
+        VPPrivate::PrivateKind Kind;
+        VPValue *HeaderPhi;
+        std::tie(HeaderPhi, Kind) = getPrivateKind(&Inst, HeaderBB);
         // Add new private with empty alias list
         VPEntityAliasesTy EmptyAliases;
-        addPrivate(&Inst, EmptyAliases, VPPrivate::PrivateKind::Last,
-                   /* Explicit */ false, /* AI */ nullptr,
-                   /* MemOnly */ false);
+        auto Priv = addPrivate(&Inst, EmptyAliases, Kind,
+                               /* Explicit */ false, /* AI */ nullptr,
+                               /* MemOnly */ false);
+        linkValue(Priv, HeaderPhi);
       }
 }
 
@@ -1540,12 +1738,25 @@ VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
   return LoopExitVPI;
 }
 
+void PrivateDescr::updateKind(const VPLoop *Loop) {
+  if (ExitInst && ExitInst->getOpcode() != Instruction::Store) {
+    setIsMemOnly(false);
+    VPPrivate::PrivateKind Kind = VPPrivate::PrivateKind::Last;
+    std::tie(std::ignore, Kind) = getPrivateKind(ExitInst, Loop->getHeader());
+    IsLast = Kind >= VPPrivate::PrivateKind::Last;
+    IsConditional = Kind == VPPrivate::PrivateKind::Conditional;
+  }
+}
+
 void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   using PrivKind = VPPrivate::PrivateKind;
+
+  VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
+  updateKind(Loop);
+
   PrivKind K = !IsLast
                    ? PrivKind::NonLast
                    : (IsConditional ? PrivKind::Conditional : PrivKind::Last);
-  VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
   // If private has non-null constructor/destructor fields, then it is expected
   // to be of non-POD type. TODO: Add check for CopyAssign when support is added
   // to insertPrivateVPInstructions.
@@ -1569,6 +1780,17 @@ void PrivateDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
                                         const VPLoop *Loop) {
   setIsMemOnly(true);
 
+  for (auto It : PtrAliases) {
+    if (Loop->isLiveOut(It.second)) {
+      ExitInst = It.second;
+      break;
+    }
+  }
+  if (ExitInst) {
+    PTag = VPPrivate::PrivateTag::PTUndef;
+    return;
+  }
+
   if (AllocaInst->getType()->isPointerTy() &&
       !isScalarTy(AllocaInst->getType()->getPointerElementType()) &&
       !AllocaInst->getType()->getPointerElementType()->isVectorTy()) {
@@ -1586,7 +1808,7 @@ bool VPEntityImportDescr::isDuplicate(const VPlanVector *Plan,
   return LE && AllocaInst && LE->getMemoryDescriptor(AllocaInst);
 }
 
-static bool hasRealUserInLoop(VPValue *Val, const VPLoop *Loop) {
+bool VPEntityImportDescr::hasRealUserInLoop(VPValue *Val, const VPLoop *Loop) {
   SmallVector<VPValue *, 4> WorkList;
   for (auto *U : Val->users())
     WorkList.push_back(U);
@@ -1595,7 +1817,7 @@ static bool hasRealUserInLoop(VPValue *Val, const VPLoop *Loop) {
     if (isa<VPExternalUse>(Cur))
       continue;
     auto I = cast<VPInstruction>(Cur);
-    if (!Loop->contains(I))
+    if (!Loop->contains(I) && I->getParent() != Loop->getLoopPreheader())
       continue;
     if (I->getOpcode() == Instruction::BitCast ||
         I->getOpcode() == Instruction::AddrSpaceCast) {

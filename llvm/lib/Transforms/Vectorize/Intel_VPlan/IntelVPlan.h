@@ -562,6 +562,8 @@ public:
     VLSExtract,
     VLSInsert,
     InvSCEVWrapper,
+    PrivateFinalCond,
+    PrivateFinalCondMem,
   };
 
 private:
@@ -3080,6 +3082,46 @@ protected:
                                    cast<VPActiveLane>(getOperand(1)));
   }
 };
+
+/// PrivateFinalC calculates last value of conditional last private.
+/// The \p Exit  operand is value to extract from, the \p Index operand
+/// is used to calculate the lane to extract last value, \p Orig operand
+/// represents original incoming value of private and is returned when
+/// no assignment of private was done in the loop.
+template <unsigned InstOpcode> class VPPrivateFinalC : public VPInstruction {
+public:
+  VPPrivateFinalC(VPValue *Exit, VPValue *Index, VPValue *Orig)
+      : VPInstruction(InstOpcode, Exit->getType(), {Exit, Index, Orig}) {}
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPInstruction *V) {
+    return V->getOpcode() == InstOpcode;
+  }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  /// Named operands getters.
+  VPValue *getExit() const { return getOperand(0); }
+  VPValue *getIndex() const { return getOperand(1); }
+  VPValue *getOrig() const { return getOperand(2); }
+  void setOrig(VPValue *V) { setOperand(2, V); }
+
+
+protected:
+  VPPrivateFinalC *cloneImpl() const override {
+    return new VPPrivateFinalC(getExit(), getIndex(), getOrig());
+  }
+};
+
+/// VPPrivateFinalCond represents last value calculation for [partially]
+/// registerized last private.
+using VPPrivateFinalCond = VPPrivateFinalC<VPInstruction::PrivateFinalCond>;
+
+/// VPPrivateFinalCondMem represents last value calculation for in-memory
+/// lastprivate.
+using VPPrivateFinalCondMem = VPPrivateFinalC<VPInstruction::PrivateFinalCondMem>;
 
 /// VPOrigLiveOut represents the outgoing value from the scalar
 /// loop described by VPScalarRemainder, which is its operand. It links
