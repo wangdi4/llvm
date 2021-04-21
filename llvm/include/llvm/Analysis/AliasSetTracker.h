@@ -36,19 +36,16 @@
 namespace llvm {
 
 class AAResults;
+class AliasResult;
 class AliasSetTracker;
-class BasicBlock;
-class LoadInst;
-class Loop;
-class MemorySSA;
 class AnyMemSetInst;
 class AnyMemTransferInst;
+class BasicBlock;
+class LoadInst;
 class raw_ostream;
 class StoreInst;
 class VAArgInst;
 class Value;
-
-enum AliasResult : uint8_t;
 
 class AliasSet : public ilist_node<AliasSet> {
   friend class AliasSetTracker;
@@ -240,11 +237,16 @@ public:
   void dump() const;
 
   /// Define an iterator for alias sets... this is just a forward iterator.
-  class iterator : public std::iterator<std::forward_iterator_tag,
-                                        PointerRec, ptrdiff_t> {
+  class iterator {
     PointerRec *CurNode;
 
   public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = PointerRec;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
     explicit iterator(PointerRec *CN = nullptr) : CurNode(CN) {}
 
     bool operator==(const iterator& x) const {
@@ -364,8 +366,6 @@ class AliasSetTracker {
   struct ASTCallbackVHDenseMapInfo : public DenseMapInfo<Value *> {};
 
   AAResults &AA;
-  MemorySSA *MSSA = nullptr;
-  Loop *L = nullptr;
   ilist<AliasSet> AliasSets;
 #ifdef INTEL_CUSTOMIZATION
   const bool LoopCarriedDisam = false;
@@ -385,8 +385,6 @@ public:
   /// Create an empty collection of AliasSets, and use the specified alias
   /// analysis object to disambiguate load and store addresses.
   explicit AliasSetTracker(AAResults &AA) : AA(AA) {}
-  explicit AliasSetTracker(AAResults &AA, MemorySSA *MSSA, Loop *L)
-      : AA(AA), MSSA(MSSA), L(L) {}
   ~AliasSetTracker() { clear(); }
 #ifdef INTEL_CUSTOMIZATION
   explicit AliasSetTracker(AAResults &aa, bool NeedsLoopCarried, unsigned STO = 0)
@@ -417,7 +415,6 @@ public:
   void add(BasicBlock &BB);       // Add all instructions in basic block
   void add(const AliasSetTracker &AST); // Add alias relations from another AST
   void addUnknown(Instruction *I);
-  void addAllInstructionsInLoopUsingMSSA();
 
   void clear();
 

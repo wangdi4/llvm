@@ -56,7 +56,8 @@ void DPCPPPrepareKernelForVecClone::createEncodingForVectorVariants(
     Function *Fn, unsigned VlenVal, ArrayRef<ParamAttrTy> ParamAttrs,
     MaskTy State) {
 
-  unsigned MaxRegWidth = TTI.getRegisterBitWidth(true /*Vector*/);
+  unsigned MaxRegWidth =
+      TTI.getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector);
   // Finds the biggest vector type supported by the target and encodes.
   VectorVariant::ISAClass TargetIsaClass;
 
@@ -149,7 +150,8 @@ void DPCPPPrepareKernelForVecClone::addVectorVariantAttrsToKernel() {
   // The vector length is calculated by WeightedInstCounter pass. Metadata are
   // used to communicate the vector length value between the two passes.
   // TODO: make this more sophisticated.
-  unsigned VectorLength = TTI.getRegisterBitWidth(true /* Vector*/) / 32;
+  unsigned VectorLength =
+      TTI.getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector) / 32;
   LLVM_DEBUG(dbgs() << "VectorLength: " << VectorLength << '\n';);
 
   F->addFnAttr("dpcpp_kernel_recommended_vector_length", utostr(VectorLength));

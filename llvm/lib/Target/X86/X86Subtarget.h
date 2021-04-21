@@ -1263,7 +1263,7 @@ public:
     return TargetSubtargetInfo::ANTIDEP_CRITICAL;
   }
 
-  bool enableAdvancedRASplitCost() const override { return true; }
+  bool enableAdvancedRASplitCost() const override { return false; }
 #if INTEL_CUSTOMIZATION
   void overrideSchedPolicy(MachineSchedPolicy &Policy,
                            unsigned NumRegionInstrs) const override;

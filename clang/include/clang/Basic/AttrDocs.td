@@ -409,12 +409,12 @@ def SYCLSimdDocs : Documentation {
   let Category = DocCatFunction;
   let Content = [{
     The ``__attribute__((sycl_explicit_simd))`` attribute is used by the device
-    compiler front end to mark kernels and functions to be compiled and executed
-    in the explicit SIMD mode. In this mode subgroup size is always 1 and
-    explicit SIMD extensions - such as manual vectorization using wide vector
-    data types and operations can be used. Compiler may decide to compile such
-    functions using different optimization and code generation
-    pipeline.
+    compiler front end to mark ESIMD kernels and functions. In this mode,
+    subgroup size is always equal to 1 and explicit SIMD extensions, such as
+    manual vectorization using wide vector data types and operations can be used.
+    The compiler may decide to compile such functions using different optimization
+    and code generation pipeline. Also, this attribute is used to distinguish
+    ESIMD private globals from regular SYCL global variables.
   }];
 }
 
@@ -1123,6 +1123,16 @@ def NoDebugDocs : Documentation {
 The ``nodebug`` attribute allows you to suppress debugging information for a
 function or method, for a variable that is not a parameter or a non-static
 data member, or for a typedef or using declaration.
+  }];
+}
+
+def StandaloneDebugDocs : Documentation {
+  let Category = DocCatVariable;
+  let Content = [{
+The ``standalone_debug`` attribute causes debug info to be emitted for a record
+type regardless of the debug info optimizations that are enabled with
+-fno-standalone-debug. This attribute only has an effect when debug info
+optimizations are enabled (e.g. with -fno-standalone-debug), and is C++-only.
   }];
 }
 
@@ -2950,9 +2960,11 @@ def SYCLIntelFPGAInitiationIntervalAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::initiation_interval";
   let Content = [{
-This attribute applies to a loop. Indicates that the loop should be pipelined
-with an initiation interval of N. N must be a positive integer. Cannot be
-applied multiple times to the same loop.
+This attribute applies to a loop or a function. Indicates that the loop or
+function should be pipelined with an initiation interval of N. N must be a
+positive integer. Cannot be applied multiple times to the same loop or function.
+Cannot be used on the same loop or function in conjunction with
+disable_loop_pipelining.
 
 The ``[[intel::ii]]`` attribute spelling is a deprecated synonym for
 ``[[intel::initiation_interval]]`` and will be removed in the future.
@@ -2964,10 +2976,15 @@ The ``[[intel::ii]]`` attribute spelling is a deprecated synonym for
     [[intel::initiation_interval(4)]] for (int i = 0; i < 10; ++i) var++;
   }
 
+  [[intel::initiation_interval(4)]] void foo1 { }
+
   template<int N>
   void bar() {
     [[intel::initiation_interval(N)]] for(;;) { }
   }
+
+  template<int N>
+  [[intel::initiation_interval(N)]] void bar1 { }
 
   }];
 }
@@ -2976,10 +2993,11 @@ def SYCLIntelFPGAMaxConcurrencyAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::max_concurrency";
   let Content = [{
-This attribute applies to a loop. Indicates that the loop should allow no more
-than N threads or iterations to execute it simultaneously. N must be a non
-negative integer. '0' indicates the max_concurrency case to be unbounded. Cannot
-be applied multiple times to the same loop.
+This attribute applies to a loop or a function. It indicates that the
+loop/function should allow no more than N threads or iterations to execute it
+simultaneously. N must be a non negative integer. '0' indicates the
+max_concurrency case to be unbounded. Cannot be applied multiple times to the
+same loop or function, or in conjunction with ``disable_loop_pipelining``.
 
 .. code-block:: c++
 
@@ -2988,10 +3006,13 @@ be applied multiple times to the same loop.
     [[intel::max_concurrency(2)]] for (int i = 0; i != 10; ++i) a[i] = 0;
   }
 
+  [[intel::max_concurrency(2)]] void foo1 { }
   template<int N>
   void bar() {
     [[intel::max_concurrency(N)]] for(;;) { }
   }
+  template<int N>
+  [[intel::max_concurrency(N)]] void bar1() { }
 
   }];
 }
@@ -3039,17 +3060,21 @@ def SYCLIntelFPGADisableLoopPipeliningAttrDocs : Documentation {
   let Category = DocCatVariable;
   let Heading = "intel::disable_loop_pipelining";
   let Content = [{
-This attribute applies to a loop. Disables pipelining of the loop data path,
-causing the loop to be executed serially. Cannot be used on the same loop in
-conjunction with max_interleaving, speculated_iterations, max_concurrency, ii
-or ivdep.
+This attribute applies to a loop or a function. Takes no arguments and
+disables pipelining of the loop or function data path, causing the loop
+or function to be executed serially. Cannot be used on the same loop or
+function, or in conjunction with ``max_interleaving``,
+``speculated_iterations``, ``max_concurrency``, ``initiation_interval``,
+or ``ivdep``.
 
 .. code-block:: c++
 
   void foo() {
     int var = 0;
-    [[intel::disable_loop_pipelining] for (int i = 0; i < 10; ++i) var++;
+    [[intel::disable_loop_pipelining]] for (int i = 0; i < 10; ++i) var++;
   }
+
+  [[intel::disable_loop_pipelining]] void foo1() { }
 
   }];
 }
@@ -4175,16 +4200,55 @@ It is only supported when using the Microsoft C++ ABI.
 def LifetimeBoundDocs : Documentation {
   let Category = DocCatFunction;
   let Content = [{
-The ``lifetimebound`` attribute indicates that a resource owned by
-a function parameter or implicit object parameter
-is retained by the return value of the annotated function
-(or, for a parameter of a constructor, in the value of the constructed object).
-It is only supported in C++.
+The ``lifetimebound`` attribute on a function parameter or implicit object
+parameter indicates that objects that are referred to by that parameter may
+also be referred to by the return value of the annotated function (or, for a
+parameter of a constructor, by the value of the constructed object). It is only
+supported in C++.
 
-This attribute provides an experimental implementation of the facility
-described in the C++ committee paper `P0936R0 <http://wg21.link/p0936r0>`_,
-and is subject to change as the design of the corresponding functionality
-changes.
+By default, a reference is considered to refer to its referenced object, a
+pointer is considered to refer to its pointee, a ``std::initializer_list<T>``
+is considered to refer to its underlying array, and aggregates (arrays and
+simple ``struct``\s) are considered to refer to all objects that their
+transitive subobjects refer to.
+
+Clang warns if it is able to detect that an object or reference refers to
+another object with a shorter lifetime. For example, Clang will warn if a
+function returns a reference to a local variable, or if a reference is bound to
+a temporary object whose lifetime is not extended. By using the
+``lifetimebound`` attribute, this determination can be extended to look through
+user-declared functions. For example:
+
+.. code-block:: c++
+
+    // Returns m[key] if key is present, or default_value if not.
+    template<typename T, typename U>
+    const U &get_or_default(const std::map<T, U> &m [[clang::lifetimebound]],
+                            const T &key, /* note, not lifetimebound */
+                            const U &default_value [[clang::lifetimebound]]);
+
+    std::map<std::string, std::string> m;
+    // warning: temporary "bar"s that might be bound to local reference 'val'
+    // will be destroyed at the end of the full-expression
+    const std::string &val = get_or_default(m, "foo"s, "bar"s);
+
+    // No warning in this case.
+    std::string def_val = "bar"s;
+    const std::string &val = get_or_default(m, "foo"s, def_val);
+
+The attribute can be applied to the implicit ``this`` parameter of a member
+function by writing the attribute after the function type:
+
+.. code-block:: c++
+
+    struct string {
+      // The returned pointer should not outlive ``*this``.
+      const char *data() const [[clang::lifetimebound]];
+    };
+
+This attribute is inspired by the C++ committee paper `P0936R0
+<http://wg21.link/p0936r0>`_, but does not affect whether temporary objects
+have their lifetimes extended.
   }];
 }
 
@@ -5999,6 +6063,9 @@ def PatchableFunctionEntryDocs : Documentation {
 before the function entry and N-M NOPs after the function entry. This attribute
 takes precedence over the command line option ``-fpatchable-function-entry=N,M``.
 ``M`` defaults to 0 if omitted.
+
+This attribute is only supported on
+aarch64/aarch64-be/riscv32/riscv64/i386/x86-64 targets.
 }];
 }
 

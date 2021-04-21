@@ -881,6 +881,9 @@ public:
   /// will be the same type as that of \p Scaling.
   Value *CreateVScale(Constant *Scaling, const Twine &Name = "");
 
+  /// Creates a vector of type \p DstType with the linear sequence <0, 1, ...>
+  Value *CreateStepVector(Type *DstType, const Twine &Name = "");
+
   /// Create a call to intrinsic \p ID with 1 operand which is mangled on its
   /// type.
   CallInst *CreateUnaryIntrinsic(Intrinsic::ID ID, Value *V,
@@ -1683,17 +1686,38 @@ public:
   }
 
   // Deprecated [opaque pointer types]
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
   LoadInst *CreateLoad(Value *Ptr, const char *Name) {
+#endif // INTEL_CUSTOMIZATION
     return CreateLoad(Ptr->getType()->getPointerElementType(), Ptr, Name);
   }
 
   // Deprecated [opaque pointer types]
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
   LoadInst *CreateLoad(Value *Ptr, const Twine &Name = "") {
+#endif // INTEL_CUSTOMIZATION
     return CreateLoad(Ptr->getType()->getPointerElementType(), Ptr, Name);
   }
 
   // Deprecated [opaque pointer types]
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
   LoadInst *CreateLoad(Value *Ptr, bool isVolatile, const Twine &Name = "") {
+#endif // INTEL_CUSTOMIZATION
     return CreateLoad(Ptr->getType()->getPointerElementType(), Ptr, isVolatile,
                       Name);
   }
@@ -1722,19 +1746,40 @@ public:
   }
 
   // Deprecated [opaque pointer types]
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
   LoadInst *CreateAlignedLoad(Value *Ptr, MaybeAlign Align, const char *Name) {
+#endif // INTEL_CUSTOMIZATION
     return CreateAlignedLoad(Ptr->getType()->getPointerElementType(), Ptr,
                              Align, Name);
   }
   // Deprecated [opaque pointer types]
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
   LoadInst *CreateAlignedLoad(Value *Ptr, MaybeAlign Align,
                               const Twine &Name = "") {
+#endif // INTEL_CUSTOMIZATION
     return CreateAlignedLoad(Ptr->getType()->getPointerElementType(), Ptr,
                              Align, Name);
   }
   // Deprecated [opaque pointer types]
-  LoadInst *CreateAlignedLoad(Value *Ptr, MaybeAlign Align, bool isVolatile,
-                              const Twine &Name = "") {
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
+  LoadInst *CreateAlignedLoad(Value *Ptr, MaybeAlign Align,
+                              bool isVolatile, const Twine &Name = "") {
+#endif // INTEL_CUSTOMIZATION
     return CreateAlignedLoad(Ptr->getType()->getPointerElementType(), Ptr,
                              Align, isVolatile, Name);
   }
@@ -2533,6 +2578,9 @@ public:
   /// different from pointer to i8, it's casted to pointer to i8 in the same
   /// address space before call and casted back to Ptr type after call.
   Value *CreateStripInvariantGroup(Value *Ptr);
+
+  /// Return a vector value that contains the vector V reversed
+  Value *CreateVectorReverse(Value *V, const Twine &Name = "");
 
   /// Return a vector value that contains \arg V broadcasted to \p
   /// NumElts elements.

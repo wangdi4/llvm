@@ -3121,8 +3121,8 @@ void *RTLDeviceInfoTy::allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
   return mem;
 }
 
-EXTERN void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size,
-                                  void *HstPtr) {
+EXTERN void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
+                                  int32_t Kind) {
   return DeviceInfo->allocData(DeviceId, Size, HstPtr, HstPtr);
 }
 

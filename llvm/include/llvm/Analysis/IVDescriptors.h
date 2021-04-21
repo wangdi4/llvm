@@ -67,7 +67,7 @@ class RecurrenceDescriptorData { // INTEL
 public:
 #if INTEL_CUSTOMIZATION
   RecurKind getRecurrenceKind() const { return Kind; }
-  FastMathFlags getFastMathFlags() { return FMF; }
+  FastMathFlags getFastMathFlags() const { return FMF; }
 
   /// Returns the type of the recurrence. This type can be narrower than the
   /// actual type of the Phi if the recurrence has been type-promoted.
@@ -76,8 +76,12 @@ public:
   /// Returns true if all source operands of the recurrence are SExtInsts.
   bool isSigned() const { return IsSigned; }
 
+  /// Expose an ordered FP reduction to the instance users.
+  bool isOrdered() const { return IsOrdered; }
+
   /// Returns identity corresponding to the RecurrenceKind.
-  static Constant *getRecurrenceIdentity(RecurKind K, Type *Tp);
+  static Constant *getRecurrenceIdentity(RecurKind K, Type *Tp,
+                                         FastMathFlags FMF);
 
   /// Returns the opcode of binary operation corresponding to the RecurKind.
   static unsigned getOpcode(RecurKind Kind);
@@ -115,8 +119,9 @@ protected:
   RecurrenceDescriptorData() = default;
 
   RecurrenceDescriptorData(RecurKind K, FastMathFlags FMF, Type *RT,
-                           bool Signed)
-      : Kind(K), FMF(FMF), RecurrenceType(RT), IsSigned(Signed) {}
+                           bool Signed, bool Ordered)
+      : Kind(K), FMF(FMF), RecurrenceType(RT), IsSigned(Signed),
+        IsOrdered(Ordered) {}
 
   // The kind of the recurrence.
   RecurKind Kind = RecurKind::None;
@@ -127,6 +132,11 @@ protected:
   Type *RecurrenceType = nullptr;
   // True if all source operands of the recurrence are SExtInsts.
   bool IsSigned = false;
+
+  // True if this recurrence can be treated as an in-order reduction.
+  // Currently only a non-reassociative FAdd can be considered in-order,
+  // if it is also the only FAdd in the PHI's use chain.
+  bool IsOrdered = false;
 };
 
 /// This struct holds information about recurrence variables.
@@ -142,9 +152,10 @@ protected:
   RecurrenceDescriptorTempl() = default;
 
   RecurrenceDescriptorTempl(ValueTy *Start, InstructionTy *Exit, RecurKind K,
-                            FastMathFlags FMF, Type *RT, bool Signed)
-      : RDData(K, FMF, RT, Signed), StartValue(Start), LoopExitInstr(Exit) {
-  }
+                            FastMathFlags FMF, Type *RT, bool Signed,
+                            bool Ordered)
+      : RDData(K, FMF, RT, Signed, Ordered), StartValue(Start),
+        LoopExitInstr(Exit) {}
 
   ValueStorageTy StartValue;
   InstructionTy *LoopExitInstr = nullptr;
@@ -165,12 +176,11 @@ public:
 
   RecurrenceDescriptor(Value *Start, Instruction *Exit, RecurKind K,
                        FastMathFlags FMF, Instruction *ExactFP, Type *RT,
-                       bool Signed, SmallPtrSetImpl<Instruction *> &CI)
+                       bool Signed, bool Ordered,
+                       SmallPtrSetImpl<Instruction *> &CI)
 #if INTEL_CUSTOMIZATION
-      : RDTempl(Start, Exit, K, FMF, RT, Signed), ExactFPMathInst(ExactFP) {
-#else
-      : StartValue(Start), LoopExitInstr(Exit), Kind(K), FMF(FMF),
-        ExactFPMathInst(ExactFP), RecurrenceType(RT), IsSigned(Signed) {
+      : RDTempl(Start, Exit, K, FMF, RT, Signed, Ordered),
+        ExactFPMathInst(ExactFP) {
 #endif
     CastInsts.insert(CI.begin(), CI.end());
   }
@@ -235,14 +245,6 @@ public:
   /// Select(FCmp(X, Y), (Z = X op PHINode), PHINode) instruction pattern.
   static InstDesc isConditionalRdxPattern(RecurKind Kind, Instruction *I);
 
-#if !INTEL_CUSTOMIZATION
-  /// Returns identity corresponding to the RecurrenceKind.
-  static Constant *getRecurrenceIdentity(RecurKind K, Type *Tp);
-
-  /// Returns the opcode corresponding to the RecurrenceKind.
-  static unsigned getOpcode(RecurKind Kind);
-#endif
-
   /// Returns true if Phi is a reduction of type Kind and adds it to the
   /// RecurrenceDescriptor. If either \p DB is non-null or \p AC and \p DT are
   /// non-null, the minimal bit width needed to compute the reduction will be
@@ -276,18 +278,6 @@ public:
                          DenseMap<Instruction *, Instruction *> &SinkAfter,
                          DominatorTree *DT);
 
-#if !INTEL_CUSTOMIZATION
-  RecurKind getRecurrenceKind() const { return Kind; }
-
-  unsigned getOpcode() const { return getOpcode(getRecurrenceKind()); }
-
-  FastMathFlags getFastMathFlags() const { return FMF; }
-
-  TrackingVH<Value> getRecurrenceStartValue() const { return StartValue; }
-
-  Instruction *getLoopExitInstr() const { return LoopExitInstr; }
-
-#endif
   /// Returns true if the recurrence has floating-point math that requires
   /// precise (ordered) operations.
   bool hasExactFPMath() const { return ExactFPMathInst != nullptr; }
@@ -295,45 +285,9 @@ public:
   /// Returns 1st non-reassociative FP instruction in the PHI node's use-chain.
   Instruction *getExactFPMathInst() const { return ExactFPMathInst; }
 
-#if !INTEL_CUSTOMIZATION
-  /// Returns true if the recurrence kind is an integer kind.
-  static bool isIntegerRecurrenceKind(RecurKind Kind);
-
-  /// Returns true if the recurrence kind is a floating point kind.
-  static bool isFloatingPointRecurrenceKind(RecurKind Kind);
-
-  /// Returns true if the recurrence kind is an arithmetic kind.
-  static bool isArithmeticRecurrenceKind(RecurKind Kind);
-
-  /// Returns true if the recurrence kind is an integer min/max kind.
-  static bool isIntMinMaxRecurrenceKind(RecurKind Kind) {
-    return Kind == RecurKind::UMin || Kind == RecurKind::UMax ||
-           Kind == RecurKind::SMin || Kind == RecurKind::SMax;
-  }
-
-  /// Returns true if the recurrence kind is a floating-point min/max kind.
-  static bool isFPMinMaxRecurrenceKind(RecurKind Kind) {
-    return Kind == RecurKind::FMin || Kind == RecurKind::FMax;
-  }
-
-  /// Returns true if the recurrence kind is any min/max kind.
-  static bool isMinMaxRecurrenceKind(RecurKind Kind) {
-    return isIntMinMaxRecurrenceKind(Kind) || isFPMinMaxRecurrenceKind(Kind);
-  }
-
-  /// Returns the type of the recurrence. This type can be narrower than the
-  /// actual type of the Phi if the recurrence has been type-promoted.
-  Type *getRecurrenceType() const { return RecurrenceType; }
-
-#endif
   /// Returns a reference to the instructions used for type-promoting the
   /// recurrence.
   const SmallPtrSet<Instruction *, 8> &getCastInsts() const { return CastInsts; }
-
-#if !INTEL_CUSTOMIZATION
-  /// Returns true if all source operands of the recurrence are SExtInsts.
-  bool isSigned() const { return IsSigned; }
-#endif
 
   /// Attempts to find a chain of operations from Phi to LoopExitInst that can
   /// be treated as a set of reductions instructions for in-loop reductions.
@@ -341,26 +295,8 @@ public:
                                                     Loop *L) const;
 
 private:
-#if !INTEL_CUSTOMIZATION
-  // The starting value of the recurrence.
-  // It does not have to be zero!
-  TrackingVH<Value> StartValue;
-  // The instruction who's value is used outside the loop.
-  Instruction *LoopExitInstr = nullptr;
-  // The kind of the recurrence.
-  RecurKind Kind = RecurKind::None;
-  // The fast-math flags on the recurrent instructions.  We propagate these
-  // fast-math flags into the vectorized FP instructions we generate.
-  FastMathFlags FMF;
-#endif
   // First instance of non-reassociative floating-point in the PHI's use-chain.
   Instruction *ExactFPMathInst = nullptr;
-#if !INTEL_CUSTOMIZATION
-  // The type of the recurrence.
-  Type *RecurrenceType = nullptr;
-  // True if all source operands of the recurrence are SExtInsts.
-  bool IsSigned = false;
-#endif
   // Instructions used for type-promoting the recurrence.
   SmallPtrSet<Instruction *, 8> CastInsts;
 };
@@ -476,10 +412,9 @@ public:
   /// Returns floating-point induction operator that does not allow
   /// reassociation (transforming the induction requires an override of normal
   /// floating-point rules).
-  /// TODO: This should not require the full 'fast' FMF, but caller code
-  ///       may need to be fixed to propagate FMF correctly.
   Instruction *getExactFPMathInst() {
-    if (IK == IK_FpInduction && InductionBinOp && !InductionBinOp->isFast())
+    if (IK == IK_FpInduction && InductionBinOp &&
+        !InductionBinOp->hasAllowReassoc())
       return InductionBinOp;
     return nullptr;
   }

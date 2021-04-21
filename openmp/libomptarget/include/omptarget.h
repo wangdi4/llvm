@@ -93,7 +93,6 @@ enum OpenMPOffloadingRequiresDirFlags {
   OMP_REQ_DYNAMIC_ALLOCATORS      = 0x010
 };
 
-#if INTEL_COLLAB
 enum TargetAllocTy : int32_t {
   TARGET_ALLOC_DEVICE = 0,
   TARGET_ALLOC_HOST,
@@ -101,6 +100,7 @@ enum TargetAllocTy : int32_t {
   TARGET_ALLOC_DEFAULT
 };
 
+#if INTEL_COLLAB
 ///
 /// OpenMP 5.1 interop support types
 ///
@@ -411,6 +411,21 @@ EXTERN int omp_set_sub_device(int device_num, int level);
 EXTERN void omp_unset_sub_device(int device_num);
 #endif  // INTEL_COLLAB
 
+/// Explicit target memory allocators
+/// Using the llvm_ prefix until they become part of the OpenMP standard.
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
+void *llvm_omp_target_alloc_device(size_t size, int device_num);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
+void *llvm_omp_target_alloc_host(size_t size, int device_num);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
+void *llvm_omp_target_alloc_shared(size_t size, int device_num);
+
 /// add the clauses of the requires directives in a given file
 #if INTEL_COLLAB
 EXTERN
@@ -605,8 +620,13 @@ int __tgt_target_teams_nowait_mapper(
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __kmpc_push_target_tripcount(ident_t *loc, int64_t device_id,
-                                  uint64_t loop_tripcount);
+void __kmpc_push_target_tripcount(int64_t device_id, uint64_t loop_tripcount);
+
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
+void __kmpc_push_target_tripcount_mapper(ident_t *loc, int64_t device_id,
+                                         uint64_t loop_tripcount);
 
 #if INTEL_COLLAB
 EXTERN

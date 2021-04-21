@@ -559,6 +559,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   // sense that it's not weighted by profile counts at all.
   int ColdSize = 0;
 
+  // Whether inlining is decided by cost-benefit analysis.
+  bool DecidedByCostBenefit = false;
+
   unsigned SROACostSavings = 0;
   unsigned SROACostSavingsLost = 0;
 
@@ -767,14 +770,21 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
   }
 
   bool isCostBenefitAnalysisEnabled() {
-    if (!InlineEnableCostBenefitAnalysis)
-      return false;
-
     if (!PSI || !PSI->hasProfileSummary())
       return false;
 
     if (!GetBFI)
       return false;
+
+    if (InlineEnableCostBenefitAnalysis.getNumOccurrences()) {
+      // Honor the explicit request from the user.
+      if (!InlineEnableCostBenefitAnalysis)
+        return false;
+    } else {
+      // Otherwise, require instrumentation profile.
+      if (!PSI->hasInstrumentationProfile())
+        return false;
+    }
 
     auto *Caller = CandidateCall.getParent()->getParent();
     if (!Caller->getEntryCount())
@@ -788,7 +798,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     if (!PSI->isHotCallSite(CandidateCall, CallerBFI))
       return false;
 
-    if (!F.getEntryCount())
+    // Make sure we have a nonzero entry count.
+    auto EntryCount = F.getEntryCount();
+    if (!EntryCount || !EntryCount.getCount())
       return false;
 
     BlockFrequencyInfo *CalleeBFI = &(GetBFI(F));
@@ -844,9 +856,6 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
             CurrentSavings += InlineConstants::InstrCost;
           }
         }
-        // TODO: Consider other forms of savings like switch statements,
-        // indirect calls becoming direct, SROACostSavings, LoadEliminationCost,
-        // etc.
       }
 
       auto ProfileCount = CalleeBFI->getBlockProfileCount(&BB);
@@ -857,7 +866,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
     // Compute the cycle savings per call.
     auto EntryProfileCount = F.getEntryCount();
-    assert(EntryProfileCount.hasValue());
+    assert(EntryProfileCount.hasValue() && EntryProfileCount.getCount());
     auto EntryCount = EntryProfileCount.getCount();
     CycleSavings += EntryCount / 2;
     CycleSavings = CycleSavings.udiv(EntryCount);
@@ -932,6 +941,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 #endif // INTEL_CUSTOMIZATION
 
     if (auto Result = costBenefitAnalysis()) {
+      DecidedByCostBenefit = true;
       if (Result.getValue())
         return InlineResult::success();
       else
@@ -1113,6 +1123,7 @@ public:
   bool onDynamicAllocaInstException(AllocaInst &I) override;
 #endif // INTEL_CUSTOMIZATION
 
+  bool wasDecidedByCostBenefit() { return DecidedByCostBenefit; }
 };
 SmallPtrSet<Function *, 10> InlineCostCallAnalyzer::QueuedCallers; // INTEL
 } // namespace
@@ -1211,9 +1222,9 @@ bool CallAnalyzer::isGEPFree(GetElementPtrInst &GEP) {
       Operands.push_back(SimpleOp);
     else
       Operands.push_back(Op);
-  return TargetTransformInfo::TCC_Free ==
-         TTI.getUserCost(&GEP, Operands,
-                         TargetTransformInfo::TCK_SizeAndLatency);
+  return TTI.getUserCost(&GEP, Operands,
+                         TargetTransformInfo::TCK_SizeAndLatency) ==
+         TargetTransformInfo::TCC_Free;
 }
 
 bool CallAnalyzer::visitAlloca(AllocaInst &I) {
@@ -1487,8 +1498,8 @@ bool CallAnalyzer::visitPtrToInt(PtrToIntInst &I) {
   if (auto *SROAArg = getSROAArgForValueOrNull(I.getOperand(0)))
     SROAArgValues[&I] = SROAArg;
 
-  return TargetTransformInfo::TCC_Free ==
-         TTI.getUserCost(&I, TargetTransformInfo::TCK_SizeAndLatency);
+  return TTI.getUserCost(&I, TargetTransformInfo::TCK_SizeAndLatency) ==
+         TargetTransformInfo::TCC_Free;
 }
 
 bool CallAnalyzer::visitIntToPtr(IntToPtrInst &I) {
@@ -1512,8 +1523,8 @@ bool CallAnalyzer::visitIntToPtr(IntToPtrInst &I) {
   if (auto *SROAArg = getSROAArgForValueOrNull(Op))
     SROAArgValues[&I] = SROAArg;
 
-  return TargetTransformInfo::TCC_Free ==
-         TTI.getUserCost(&I, TargetTransformInfo::TCK_SizeAndLatency);
+  return TTI.getUserCost(&I, TargetTransformInfo::TCK_SizeAndLatency) ==
+         TargetTransformInfo::TCC_Free;
 }
 
 bool CallAnalyzer::visitCastInst(CastInst &I) {
@@ -1544,8 +1555,8 @@ bool CallAnalyzer::visitCastInst(CastInst &I) {
     break;
   }
 
-  return TargetTransformInfo::TCC_Free ==
-         TTI.getUserCost(&I, TargetTransformInfo::TCK_SizeAndLatency);
+  return TTI.getUserCost(&I, TargetTransformInfo::TCK_SizeAndLatency) ==
+         TargetTransformInfo::TCC_Free;
 }
 
 bool CallAnalyzer::visitUnaryInstruction(UnaryInstruction &I) {
@@ -1773,10 +1784,11 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
     }
   }
 
+  Threshold += TTI.adjustInliningThreshold(&Call);
+
   // Finally, take the target-specific inlining threshold multiplier into
   // account.
   Threshold *= TTI.getInliningThresholdMultiplier();
-  Threshold += TTI.adjustInliningThreshold(&Call);
 
   SingleBBBonus = Threshold * SingleBBBonusPercent / 100;
   VectorBonus = Threshold * VectorBonusPercent / 100;
@@ -2264,8 +2276,8 @@ bool CallAnalyzer::visitUnreachableInst(UnreachableInst &I) {
 bool CallAnalyzer::visitInstruction(Instruction &I) {
   // Some instructions are free. All of the free intrinsics can also be
   // handled by SROA, etc.
-  if (TargetTransformInfo::TCC_Free ==
-      TTI.getUserCost(&I, TargetTransformInfo::TCK_SizeAndLatency))
+  if (TTI.getUserCost(&I, TargetTransformInfo::TCK_SizeAndLatency) ==
+      TargetTransformInfo::TCC_Free)
     return true;
 
   // We found something we don't understand or can't handle. Mark any SROA-able
@@ -2938,6 +2950,16 @@ InlineCost llvm::getInlineCost(
 #endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(CA.dump());
+
+  // Always make cost benefit based decision explicit.
+  // We use always/never here since threshold is not meaningful,
+  // as it's not what drives cost-benefit analysis.
+  if (CA.wasDecidedByCostBenefit()) {
+    if (ShouldInline.isSuccess())
+      return InlineCost::getAlways("benefit over cost");
+    else
+      return InlineCost::getNever("cost over benefit");
+  }
 
   // Check if there was a reason to force inlining or no inlining.
   if (!ShouldInline.isSuccess() && CA.getCost() < CA.getThreshold())

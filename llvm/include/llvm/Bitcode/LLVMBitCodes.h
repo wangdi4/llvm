@@ -664,6 +664,7 @@ enum AttributeKindCodes {
   ATTR_KIND_NO_CALLBACK = 71,
   ATTR_KIND_HOT = 72,
   ATTR_KIND_NO_PROFILE = 73,
+  ATTR_KIND_VSCALE_RANGE = 74,
 };
 
 enum ComdatSelectionKindCodes {

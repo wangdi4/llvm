@@ -51,13 +51,13 @@ AliasResult StdContainerAAResult::alias(const MemoryLocation &LocA,
   M2 = LocB.AATags.StdContainerPtr;
 
   if (!mayAliasInStdContainer(M1, M2))
-    return NoAlias;
+    return AliasResult::NoAlias;
 
   M1 = LocA.AATags.StdContainerPtrIter;
   M2 = LocB.AATags.StdContainerPtrIter;
 
   if (!mayAliasInStdContainer(M1, M2))
-    return NoAlias;
+    return AliasResult::NoAlias;
 
   return AAResultBase::alias(LocA, LocB, AAQI);
 }

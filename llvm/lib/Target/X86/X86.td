@@ -1029,7 +1029,6 @@ def ProcessorFeatures {
                                                   FeatureVPCLMULQDQ,
                                                   FeatureVPOPCNTDQ,
                                                   FeatureGFNI,
-                                                  FeatureCLWB,
                                                   FeatureRDPID,
                                                   FeatureFSRM];
   list<SubtargetFeature> ICLTuning = CNLTuning;
@@ -1038,6 +1037,7 @@ def ProcessorFeatures {
 
   // Icelake Server
   list<SubtargetFeature> ICXAdditionalFeatures = [FeaturePCONFIG,
+                                                  FeatureCLWB,
                                                   FeatureWBNOINVD];
   list<SubtargetFeature> ICXTuning = CNLTuning;
   list<SubtargetFeature> ICXFeatures =
@@ -1046,6 +1046,7 @@ def ProcessorFeatures {
   //Tigerlake
   list<SubtargetFeature> TGLAdditionalFeatures = [FeatureVP2INTERSECT,
                                                   FeatureKL,
+                                                  FeatureCLWB,
                                                   FeatureMOVDIRI,
                                                   FeatureMOVDIR64B,
                                                   FeatureSHSTK];
@@ -1385,7 +1386,9 @@ def ProcessorFeatures {
                                                   FeaturePKU,
                                                   FeatureVAES,
                                                   FeatureVPCLMULQDQ];
-  list<SubtargetFeature> ZN3Tuning = ZNTuning;
+  list<SubtargetFeature> ZN3AdditionalTuning = [FeatureMacroFusion];
+  list<SubtargetFeature> ZN3Tuning =
+    !listconcat(ZNTuning, ZN3AdditionalTuning);
   list<SubtargetFeature> ZN3Features =
     !listconcat(ZN2Features, ZN3AdditionalFeatures);
 }

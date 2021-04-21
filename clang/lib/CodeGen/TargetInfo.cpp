@@ -6114,7 +6114,7 @@ Address AArch64ABIInfo::EmitAAPCSVAArg(Address VAListAddr,
   Address reg_top_p =
       CGF.Builder.CreateStructGEP(VAListAddr, reg_top_index, "reg_top_p");
   reg_top = CGF.Builder.CreateLoad(reg_top_p, "reg_top");
-  Address BaseAddr(CGF.Builder.CreateInBoundsGEP(reg_top, reg_offs),
+  Address BaseAddr(CGF.Builder.CreateInBoundsGEP(CGF.Int8Ty, reg_top, reg_offs),
                    CharUnits::fromQuantity(IsFPR ? 16 : 8));
   Address RegAddr = Address::invalid();
   llvm::Type *MemTy = CGF.ConvertTypeForMem(Ty);
@@ -6212,8 +6212,8 @@ Address AArch64ABIInfo::EmitAAPCSVAArg(Address VAListAddr,
     StackSize = TySize.alignTo(StackSlotSize);
 
   llvm::Value *StackSizeC = CGF.Builder.getSize(StackSize);
-  llvm::Value *NewStack =
-      CGF.Builder.CreateInBoundsGEP(OnStackPtr, StackSizeC, "new_stack");
+  llvm::Value *NewStack = CGF.Builder.CreateInBoundsGEP(
+      CGF.Int8Ty, OnStackPtr, StackSizeC, "new_stack");
 
   // Write the new value of __stack for the next call to va_arg
   CGF.Builder.CreateStore(NewStack, stack_p);
@@ -7390,6 +7390,18 @@ public:
       case Builtin::BI__builtin_isnan:
         TDCBits = 0xf;
         break;
+      case Builtin::BIfinite:
+      case Builtin::BI__finite:
+      case Builtin::BIfinitef:
+      case Builtin::BI__finitef:
+      case Builtin::BIfinitel:
+      case Builtin::BI__finitel:
+      case Builtin::BI__builtin_isfinite:
+        TDCBits = 0xfc0;
+        break;
+      case Builtin::BI__builtin_isinf:
+        TDCBits = 0x30;
+        break;
       default:
         break;
       }
@@ -8267,6 +8279,19 @@ class AVRTargetCodeGenInfo : public TargetCodeGenInfo {
 public:
   AVRTargetCodeGenInfo(CodeGenTypes &CGT)
       : TargetCodeGenInfo(std::make_unique<DefaultABIInfo>(CGT)) {}
+
+  LangAS getGlobalVarAddressSpace(CodeGenModule &CGM,
+                                  const VarDecl *D) const override {
+    // Check if a global/static variable is defined within address space 1
+    // but not constant.
+    LangAS AS = D->getType().getAddressSpace();
+    if (isTargetAddressSpace(AS) && toTargetAddressSpace(AS) == 1 &&
+        !D->getType().isConstQualified())
+      CGM.getDiags().Report(D->getLocation(),
+                            diag::err_verify_nonconst_addrspace)
+          << "__flash";
+    return TargetCodeGenInfo::getGlobalVarAddressSpace(CGM, D);
+  }
 
   void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
                            CodeGen::CodeGenModule &CGM) const override {
@@ -10903,8 +10928,8 @@ ABIArgInfo RISCVABIInfo::classifyArgumentType(QualType Ty, bool IsFixed,
     llvm::Type *Field2Ty = nullptr;
     CharUnits Field1Off = CharUnits::Zero();
     CharUnits Field2Off = CharUnits::Zero();
-    int NeededArgGPRs;
-    int NeededArgFPRs;
+    int NeededArgGPRs = 0;
+    int NeededArgFPRs = 0;
     bool IsCandidate =
         detectFPCCEligibleStruct(Ty, Field1Ty, Field1Off, Field2Ty, Field2Off,
                                  NeededArgGPRs, NeededArgFPRs);

@@ -14,8 +14,8 @@
 #ifdef FP64
 // expected-no-diagnostics
 #else
-// expected-error@+4 {{type 'double' requires cl_khr_fp64 extension}}
-// expected-error@+4 {{type 'double' requires cl_khr_fp64 extension}}
+// expected-error@+4 {{use of type 'double' requires cl_khr_fp64 support}}
+// expected-error@+4 {{use of type 'double' requires cl_khr_fp64 support}}
 // expected-warning@+4 {{double precision constant requires cl_khr_fp64}}
 #endif
 void kernel f1(double da) {

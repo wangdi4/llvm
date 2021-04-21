@@ -1089,7 +1089,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
   auto *V2 = const_cast<Value *>(LocB.Ptr);
 
   if (V1 == V2)
-    return MustAlias;
+    return AliasResult::MustAlias;
 
   if (PrintAndersAliasQueries)
       dbgs() << " Alias_Begin \n";
@@ -1109,7 +1109,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
     V2 = V;
   }
   if (V1 == V2)
-    return MustAlias;
+    return AliasResult::MustAlias;
 
   Node *N1 = &GraphNodes[FindNode(getNode(const_cast<Value*>(V1)))];
   Node *N2 = &GraphNodes[FindNode(getNode(const_cast<Value*>(V2)))];
@@ -1134,7 +1134,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
       dbgs() << " Result: NoAlias -- Local Memory Ptr and stdout\n";
       dbgs() << " Alias_End \n";
     }
-    return NoAlias;
+    return AliasResult::NoAlias;
   }
 
   if (N1->PointsTo->test(UniversalSet) && N2->PointsTo->test(UniversalSet)) {
@@ -1162,7 +1162,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
       dbgs() << " Result: NoAlias -- from escape analysis \n";
       dbgs() << " Alias_End \n";
     }
-    return NoAlias;
+    return AliasResult::NoAlias;
   } else if (N1->PointsTo->test(UniversalSet) ||
              N2->PointsTo->test(UniversalSet)) {
     if (PrintAndersAliasQueries) {
@@ -1178,7 +1178,7 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
         dbgs() << " Result: NoAlias \n";
         dbgs() << " Alias_End \n";
     }
-    return NoAlias;
+    return AliasResult::NoAlias;
   }
 
   if (PrintAndersAliasQueries) {
@@ -5872,7 +5872,7 @@ ModRefInfo IntelModRefImpl::getLibFuncModRefInfo(LibFunc TheLibFunc,
       MemoryLocation Loc2 = MemoryLocation(Object, LocationSize::beforeOrAfterPointer());
       AAQueryInfo AAQIP;
       AliasResult AR = Ander->alias(Loc, Loc2, AAQIP);
-      if (AR == NoAlias)
+      if (AR == AliasResult::NoAlias)
         continue;
 
       Result = unionModRef(Result, ModRefInfo::Ref);

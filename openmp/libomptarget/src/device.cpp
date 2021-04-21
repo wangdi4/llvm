@@ -455,8 +455,8 @@ __tgt_target_table *DeviceTy::load_binary(void *Img) {
   return rc;
 }
 
-void *DeviceTy::allocData(int64_t Size, void *HstPtr) {
-  return RTL->data_alloc(RTLDeviceID, Size, HstPtr);
+void *DeviceTy::allocData(int64_t Size, void *HstPtr, int32_t Kind) {
+  return RTL->data_alloc(RTLDeviceID, Size, HstPtr, Kind);
 }
 
 int32_t DeviceTy::deleteData(void *TgtPtrBegin) {
@@ -664,9 +664,11 @@ char *DeviceTy::get_device_name(char *Buffer, size_t BufferMaxSize) {
 void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
                                 void *HstPtrBase) {
   OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
-  void *ret = RTL->data_alloc_base
-      ? RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase)
-      : RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
+  void *ret =
+      RTL->data_alloc_base
+          ? RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase)
+          : RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin,
+                            TARGET_ALLOC_DEFAULT);
   OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, ret));
   return ret;
 }
@@ -674,8 +676,9 @@ void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
 void *DeviceTy::data_alloc_user(int64_t Size, void *HstPtrBegin) {
   OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
   void *ret = RTL->data_alloc_user
-      ? RTL->data_alloc_user(RTLDeviceID, Size, HstPtrBegin)
-      : RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
+                  ? RTL->data_alloc_user(RTLDeviceID, Size, HstPtrBegin)
+                  : RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin,
+                                    TARGET_ALLOC_DEFAULT);
   OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, ret));
   return ret;
 }

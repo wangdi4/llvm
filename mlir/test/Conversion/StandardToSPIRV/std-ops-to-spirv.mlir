@@ -864,7 +864,7 @@ func @select(%arg0 : i32, %arg1 : i32) {
 }
 
 //===----------------------------------------------------------------------===//
-// std load/store ops
+// memref load/store ops
 //===----------------------------------------------------------------------===//
 
 // CHECK-LABEL: @load_store_zero_rank_float
@@ -876,13 +876,13 @@ func @load_store_zero_rank_float(%arg0: memref<f32>, %arg1: memref<f32>) {
   // CHECK-SAME: [[ZERO1]], [[ZERO1]]
   // CHECK-SAME: ] :
   //      CHECK: spv.Load "StorageBuffer" %{{.*}} : f32
-  %0 = load %arg0[] : memref<f32>
+  %0 = memref.load %arg0[] : memref<f32>
   //      CHECK: [[ZERO2:%.*]] = spv.Constant 0 : i32
   //      CHECK: spv.AccessChain [[ARG1]][
   // CHECK-SAME: [[ZERO2]], [[ZERO2]]
   // CHECK-SAME: ] :
   //      CHECK: spv.Store "StorageBuffer" %{{.*}} : f32
-  store %0, %arg1[] : memref<f32>
+  memref.store %0, %arg1[] : memref<f32>
   return
 }
 
@@ -895,13 +895,13 @@ func @load_store_zero_rank_int(%arg0: memref<i32>, %arg1: memref<i32>) {
   // CHECK-SAME: [[ZERO1]], [[ZERO1]]
   // CHECK-SAME: ] :
   //      CHECK: spv.Load "StorageBuffer" %{{.*}} : i32
-  %0 = load %arg0[] : memref<i32>
+  %0 = memref.load %arg0[] : memref<i32>
   //      CHECK: [[ZERO2:%.*]] = spv.Constant 0 : i32
   //      CHECK: spv.AccessChain [[ARG1]][
   // CHECK-SAME: [[ZERO2]], [[ZERO2]]
   // CHECK-SAME: ] :
   //      CHECK: spv.Store "StorageBuffer" %{{.*}} : i32
-  store %0, %arg1[] : memref<i32>
+  memref.store %0, %arg1[] : memref<i32>
   return
 }
 
@@ -911,11 +911,39 @@ func @load_store_zero_rank_int(%arg0: memref<i32>, %arg1: memref<i32>) {
 
 // Check that access chain indices are properly adjusted if non-32-bit types are
 // emulated via 32-bit types.
-// TODO: Test i1 and i64 types.
+// TODO: Test i64 types.
 module attributes {
   spv.target_env = #spv.target_env<
     #spv.vce<v1.0, [Shader], [SPV_KHR_storage_buffer_storage_class]>, {}>
 } {
+
+// CHECK-LABEL: @load_i1
+func @load_i1(%arg0: memref<i1>) -> i1 {
+  //     CHECK: %[[ZERO:.+]] = spv.Constant 0 : i32
+  //     CHECK: %[[FOUR1:.+]] = spv.Constant 4 : i32
+  //     CHECK: %[[QUOTIENT:.+]] = spv.SDiv %[[ZERO]], %[[FOUR1]] : i32
+  //     CHECK: %[[PTR:.+]] = spv.AccessChain %{{.+}}[%[[ZERO]], %[[QUOTIENT]]]
+  //     CHECK: %[[LOAD:.+]] = spv.Load  "StorageBuffer" %[[PTR]]
+  //     CHECK: %[[FOUR2:.+]] = spv.Constant 4 : i32
+  //     CHECK: %[[EIGHT:.+]] = spv.Constant 8 : i32
+  //     CHECK: %[[IDX:.+]] = spv.UMod %[[ZERO]], %[[FOUR2]] : i32
+  //     CHECK: %[[BITS:.+]] = spv.IMul %[[IDX]], %[[EIGHT]] : i32
+  //     CHECK: %[[VALUE:.+]] = spv.ShiftRightArithmetic %[[LOAD]], %[[BITS]] : i32, i32
+  //     CHECK: %[[MASK:.+]] = spv.Constant 255 : i32
+  //     CHECK: %[[T1:.+]] = spv.BitwiseAnd %[[VALUE]], %[[MASK]] : i32
+  //     CHECK: %[[T2:.+]] = spv.Constant 24 : i32
+  //     CHECK: %[[T3:.+]] = spv.ShiftLeftLogical %[[T1]], %[[T2]] : i32, i32
+  //     CHECK: %[[T4:.+]] = spv.ShiftRightArithmetic %[[T3]], %[[T2]] : i32, i32
+  // Convert to i1 type.
+  //     CHECK: %[[ONE:.+]] = spv.Constant 1 : i32
+  //     CHECK: %[[ISONE:.+]]  = spv.IEqual %[[T4]], %[[ONE]] : i32
+  //     CHECK: %[[FALSE:.+]] = spv.Constant false
+  //     CHECK: %[[TRUE:.+]] = spv.Constant true
+  //     CHECK: %[[RES:.+]] = spv.Select %[[ISONE]], %[[TRUE]], %[[FALSE]] : i1, i1
+  //     CHECK: spv.ReturnValue %[[RES]] : i1
+  %0 = memref.load %arg0[] : memref<i1>
+  return %0 : i1
+}
 
 // CHECK-LABEL: @load_i8
 func @load_i8(%arg0: memref<i8>) {
@@ -934,7 +962,7 @@ func @load_i8(%arg0: memref<i8>) {
   //     CHECK: %[[T2:.+]] = spv.Constant 24 : i32
   //     CHECK: %[[T3:.+]] = spv.ShiftLeftLogical %[[T1]], %[[T2]] : i32, i32
   //     CHECK: spv.ShiftRightArithmetic %[[T3]], %[[T2]] : i32, i32
-  %0 = load %arg0[] : memref<i8>
+  %0 = memref.load %arg0[] : memref<i8>
   return
 }
 
@@ -960,7 +988,7 @@ func @load_i16(%arg0: memref<10xi16>, %index : index) {
   //     CHECK: %[[T2:.+]] = spv.Constant 16 : i32
   //     CHECK: %[[T3:.+]] = spv.ShiftLeftLogical %[[T1]], %[[T2]] : i32, i32
   //     CHECK: spv.ShiftRightArithmetic %[[T3]], %[[T2]] : i32, i32
-  %0 = load %arg0[%index] : memref<10xi16>
+  %0 = memref.load %arg0[%index] : memref<10xi16>
   return
 }
 
@@ -969,7 +997,7 @@ func @load_i32(%arg0: memref<i32>) {
   // CHECK-NOT: spv.SDiv
   //     CHECK: spv.Load
   // CHECK-NOT: spv.ShiftRightArithmetic
-  %0 = load %arg0[] : memref<i32>
+  %0 = memref.load %arg0[] : memref<i32>
   return
 }
 
@@ -978,7 +1006,32 @@ func @load_f32(%arg0: memref<f32>) {
   // CHECK-NOT: spv.SDiv
   //     CHECK: spv.Load
   // CHECK-NOT: spv.ShiftRightArithmetic
-  %0 = load %arg0[] : memref<f32>
+  %0 = memref.load %arg0[] : memref<f32>
+  return
+}
+
+// CHECK-LABEL: @store_i1
+//       CHECK: (%[[ARG0:.+]]: {{.*}}, %[[ARG1:.+]]: i1)
+func @store_i1(%arg0: memref<i1>, %value: i1) {
+  //     CHECK: %[[ZERO:.+]] = spv.Constant 0 : i32
+  //     CHECK: %[[FOUR:.+]] = spv.Constant 4 : i32
+  //     CHECK: %[[EIGHT:.+]] = spv.Constant 8 : i32
+  //     CHECK: %[[IDX:.+]] = spv.UMod %[[ZERO]], %[[FOUR]] : i32
+  //     CHECK: %[[OFFSET:.+]] = spv.IMul %[[IDX]], %[[EIGHT]] : i32
+  //     CHECK: %[[MASK1:.+]] = spv.Constant 255 : i32
+  //     CHECK: %[[TMP1:.+]] = spv.ShiftLeftLogical %[[MASK1]], %[[OFFSET]] : i32, i32
+  //     CHECK: %[[MASK:.+]] = spv.Not %[[TMP1]] : i32
+  //     CHECK: %[[ZERO1:.+]] = spv.Constant 0 : i32
+  //     CHECK: %[[ONE1:.+]] = spv.Constant 1 : i32
+  //     CHECK: %[[CASTED_ARG1:.+]] = spv.Select %[[ARG1]], %[[ONE1]], %[[ZERO1]] : i1, i32
+  //     CHECK: %[[CLAMPED_VAL:.+]] = spv.BitwiseAnd %[[CASTED_ARG1]], %[[MASK1]] : i32
+  //     CHECK: %[[STORE_VAL:.+]] = spv.ShiftLeftLogical %[[CLAMPED_VAL]], %[[OFFSET]] : i32, i32
+  //     CHECK: %[[FOUR2:.+]] = spv.Constant 4 : i32
+  //     CHECK: %[[ACCESS_IDX:.+]] = spv.SDiv %[[ZERO]], %[[FOUR2]] : i32
+  //     CHECK: %[[PTR:.+]] = spv.AccessChain %[[ARG0]][%[[ZERO]], %[[ACCESS_IDX]]]
+  //     CHECK: spv.AtomicAnd "Device" "AcquireRelease" %[[PTR]], %[[MASK]]
+  //     CHECK: spv.AtomicOr "Device" "AcquireRelease" %[[PTR]], %[[STORE_VAL]]
+  memref.store %value, %arg0[] : memref<i1>
   return
 }
 
@@ -1000,7 +1053,7 @@ func @store_i8(%arg0: memref<i8>, %value: i8) {
   //     CHECK: %[[PTR:.+]] = spv.AccessChain %[[ARG0]][%[[ZERO]], %[[ACCESS_IDX]]]
   //     CHECK: spv.AtomicAnd "Device" "AcquireRelease" %[[PTR]], %[[MASK]]
   //     CHECK: spv.AtomicOr "Device" "AcquireRelease" %[[PTR]], %[[STORE_VAL]]
-  store %value, %arg0[] : memref<i8>
+  memref.store %value, %arg0[] : memref<i8>
   return
 }
 
@@ -1026,7 +1079,7 @@ func @store_i16(%arg0: memref<10xi16>, %index: index, %value: i16) {
   //     CHECK: %[[PTR:.+]] = spv.AccessChain %[[ARG0]][%[[ZERO]], %[[ACCESS_IDX]]]
   //     CHECK: spv.AtomicAnd "Device" "AcquireRelease" %[[PTR]], %[[MASK]]
   //     CHECK: spv.AtomicOr "Device" "AcquireRelease" %[[PTR]], %[[STORE_VAL]]
-  store %value, %arg0[%index] : memref<10xi16>
+  memref.store %value, %arg0[%index] : memref<10xi16>
   return
 }
 
@@ -1035,7 +1088,7 @@ func @store_i32(%arg0: memref<i32>, %value: i32) {
   //     CHECK: spv.Store
   // CHECK-NOT: spv.AtomicAnd
   // CHECK-NOT: spv.AtomicOr
-  store %value, %arg0[] : memref<i32>
+  memref.store %value, %arg0[] : memref<i32>
   return
 }
 
@@ -1044,7 +1097,7 @@ func @store_f32(%arg0: memref<f32>, %value: f32) {
   //     CHECK: spv.Store
   // CHECK-NOT: spv.AtomicAnd
   // CHECK-NOT: spv.AtomicOr
-  store %value, %arg0[] : memref<f32>
+  memref.store %value, %arg0[] : memref<f32>
   return
 }
 
@@ -1077,7 +1130,7 @@ func @load_i8(%arg0: memref<i8>) {
   //     CHECK: %[[T2:.+]] = spv.Constant 24 : i32
   //     CHECK: %[[T3:.+]] = spv.ShiftLeftLogical %[[T1]], %[[T2]] : i32, i32
   //     CHECK: spv.ShiftRightArithmetic %[[T3]], %[[T2]] : i32, i32
-  %0 = load %arg0[] : memref<i8>
+  %0 = memref.load %arg0[] : memref<i8>
   return
 }
 
@@ -1086,7 +1139,7 @@ func @load_i16(%arg0: memref<i16>) {
   // CHECK-NOT: spv.SDiv
   //     CHECK: spv.Load
   // CHECK-NOT: spv.ShiftRightArithmetic
-  %0 = load %arg0[] : memref<i16>
+  %0 = memref.load %arg0[] : memref<i16>
   return
 }
 
@@ -1108,7 +1161,7 @@ func @store_i8(%arg0: memref<i8>, %value: i8) {
   //     CHECK: %[[PTR:.+]] = spv.AccessChain %[[ARG0]][%[[ZERO]], %[[ACCESS_IDX]]]
   //     CHECK: spv.AtomicAnd "Device" "AcquireRelease" %[[PTR]], %[[MASK]]
   //     CHECK: spv.AtomicOr "Device" "AcquireRelease" %[[PTR]], %[[STORE_VAL]]
-  store %value, %arg0[] : memref<i8>
+  memref.store %value, %arg0[] : memref<i8>
   return
 }
 
@@ -1117,7 +1170,7 @@ func @store_i16(%arg0: memref<10xi16>, %index: index, %value: i16) {
   //     CHECK: spv.Store
   // CHECK-NOT: spv.AtomicAnd
   // CHECK-NOT: spv.AtomicOr
-  store %value, %arg0[%index] : memref<10xi16>
+  memref.store %value, %arg0[%index] : memref<10xi16>
   return
 }
 

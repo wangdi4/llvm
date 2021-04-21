@@ -49,8 +49,8 @@ public:
   unsigned getRegisterClassForType(bool Vector, Type *Ty = nullptr) const {
     return TTI.getRegisterClassForType(Vector, Ty);
   }
-  unsigned getRegisterBitWidth(bool Vector) const {
-    return TTI.getRegisterBitWidth(Vector);
+  unsigned getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const {
+    return TTI.getRegisterBitWidth(K).getFixedSize();
   }
   unsigned getCacheLineSize() const { return TTI.getCacheLineSize(); }
   Optional<unsigned> getCacheSize(TargetTransformInfo::CacheLevel Level) const {
@@ -83,7 +83,7 @@ public:
   }
   int getShuffleCost(TargetTransformInfo::ShuffleKind Kind, VectorType *Tp,
                      int Index = 0, VectorType *SubTp = nullptr) const {
-    return Multiplier * TTI.getShuffleCost(Kind, Tp, Index, SubTp);
+    return Multiplier * TTI.getShuffleCost(Kind, Tp, llvm::None, Index, SubTp);
   }
   int getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
                        TTI::CastContextHint CCH,
@@ -147,7 +147,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
   int getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
                             TTI::TargetCostKind CostKind) const {
-    return Multiplier * TTI.getIntrinsicInstrCost(ICA, CostKind);
+    return Multiplier * *TTI.getIntrinsicInstrCost(ICA, CostKind).getValue();
   }
   unsigned getNumberOfParts(Type *Tp) const { return TTI.getNumberOfParts(Tp); }
 #if INTEL_CUSTOMIZATION

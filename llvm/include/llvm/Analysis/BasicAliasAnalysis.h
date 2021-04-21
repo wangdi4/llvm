@@ -37,7 +37,7 @@ class DataLayout;
 class DominatorTree;
 class Function;
 class AddressOperator; // INTEL
-class LoopInfo;
+class GEPOperator;
 class PHINode;
 class SelectInst;
 class SubscriptInst; // INTEL
@@ -59,7 +59,6 @@ class BasicAAResult : public AAResultBase<BasicAAResult> {
   const TargetLibraryInfo &TLI;
   AssumptionCache &AC;
   DominatorTree *DT;
-  LoopInfo *LI;
   PhiValues *PV;
 
 #if INTEL_CUSTOMIZATION
@@ -90,9 +89,9 @@ private:
 public:
   BasicAAResult(const DataLayout &DL, const Function &F,
                 const TargetLibraryInfo &TLI, AssumptionCache &AC,
-                DominatorTree *DT = nullptr, LoopInfo *LI = nullptr,
-                PhiValues *PV = nullptr, unsigned OptLevel = 2u) // INTEL
-      : AAResultBase(), DL(DL), F(F), TLI(TLI), AC(AC), DT(DT), LI(LI), PV(PV)
+                DominatorTree *DT = nullptr, PhiValues *PV = nullptr,
+                unsigned OptLevel = 2u) // INTEL
+      : AAResultBase(), DL(DL), F(F), TLI(TLI), AC(AC), DT(DT), PV(PV)
 #if INTEL_CUSTOMIZATION
   {
     setupWithOptLevel(OptLevel);
@@ -101,11 +100,11 @@ public:
 
   BasicAAResult(const BasicAAResult &Arg)
       : AAResultBase(Arg), DL(Arg.DL), F(Arg.F), TLI(Arg.TLI), AC(Arg.AC),
-        DT(Arg.DT), LI(Arg.LI), PV(Arg.PV),         // INTEL
+        DT(Arg.DT), PV(Arg.PV), // INTEL
         PtrCaptureMaxUses(Arg.PtrCaptureMaxUses) {} // INTEL
   BasicAAResult(BasicAAResult &&Arg)
       : AAResultBase(std::move(Arg)), DL(Arg.DL), F(Arg.F), TLI(Arg.TLI),
-        AC(Arg.AC), DT(Arg.DT), LI(Arg.LI), PV(Arg.PV), // INTEL
+        AC(Arg.AC), DT(Arg.DT), PV(Arg.PV), // INTEL
         PtrCaptureMaxUses(Arg.PtrCaptureMaxUses) {}     // INTEL
 
   /// Handle invalidation events in the new pass manager.
@@ -223,12 +222,6 @@ private:
   /// Tracks instructions visited by pointsToConstantMemory.
   SmallPtrSet<const Value *, 16> Visited;
 
-  static const Value *
-  GetLinearExpression(const Value *V, APInt &Scale, APInt &Offset,
-                      unsigned &ZExtBits, unsigned &SExtBits,
-                      const DataLayout &DL, unsigned Depth, AssumptionCache *AC,
-                      DominatorTree *DT, bool &NSW, bool &NUW);
-
 #if INTEL_CUSTOMIZATION
   /// Corresponds to processing of single GEP in DecomposeGEPExpression.
   static void DecomposeSubscript(const SubscriptInst *V,
@@ -266,31 +259,25 @@ private:
 
   AliasResult aliasGEP(const AddressOperator *V1,   // INTEL
                        LocationSize V1Size,         // INTEL
-                       const AAMDNodes &V1AAInfo, const Value *V2,
-                       LocationSize V2Size, const AAMDNodes &V2AAInfo,
+                       const Value *V2, LocationSize V2Size,
                        const Value *UnderlyingV1, const Value *UnderlyingV2,
                        AAQueryInfo &AAQI);
 
   AliasResult aliasPHI(const PHINode *PN, LocationSize PNSize,
-                       const AAMDNodes &PNAAInfo, const Value *V2,
-                       LocationSize V2Size, const AAMDNodes &V2AAInfo,
-                       AAQueryInfo &AAQI);
+                       const Value *V2, LocationSize V2Size, AAQueryInfo &AAQI);
 
   AliasResult aliasSelect(const SelectInst *SI, LocationSize SISize,
-                          const AAMDNodes &SIAAInfo, const Value *V2,
-                          LocationSize V2Size, const AAMDNodes &V2AAInfo,
+                          const Value *V2, LocationSize V2Size,
                           AAQueryInfo &AAQI);
 
   AliasResult aliasCheck(const Value *V1, LocationSize V1Size,
-                         const AAMDNodes &V1AATag, const Value *V2,
-                         LocationSize V2Size, const AAMDNodes &V2AATag,
+                         const Value *V2, LocationSize V2Size,
                          AAQueryInfo &AAQI);
 
   const Value* getBaseValue(const Value *V1); // INTEL
 
   AliasResult aliasCheckRecursive(const Value *V1, LocationSize V1Size,
-                                  const AAMDNodes &V1AATag, const Value *V2,
-                                  LocationSize V2Size, const AAMDNodes &V2AATag,
+                                  const Value *V2, LocationSize V2Size,
                                   AAQueryInfo &AAQI, const Value *O1,
                                   const Value *O2);
 };

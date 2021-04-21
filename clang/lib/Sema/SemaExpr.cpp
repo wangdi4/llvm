@@ -50,6 +50,7 @@
 // Needed for llvm::join
 #include "llvm/ADT/StringExtras.h"
 #endif // INTEL_CUSTOMIZATION
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/SaveAndRestore.h"
 using namespace clang;
@@ -222,14 +223,21 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
       bool IsRuntimeEvaluated =
           ExprEvalContexts.empty() ||
           (!isUnevaluatedContext() && !isConstantEvaluated());
+      bool IsEsimdPrivateGlobal = isSYCLEsimdPrivateGlobal(VD);
       if (IsRuntimeEvaluated && !IsConst && VD->getStorageClass() == SC_Static)
         SYCLDiagIfDeviceCode(*Locs.begin(), diag::err_sycl_restrict)
             << Sema::KernelNonConstStaticDataVariable;
       // Non-const globals are allowed for SYCL explicit SIMD.
-      else if (IsRuntimeEvaluated && !isSYCLEsimdPrivateGlobal(VD) &&
-               !IsConst && VD->hasGlobalStorage() && !isa<ParmVarDecl>(VD))
+      else if (IsRuntimeEvaluated && !IsEsimdPrivateGlobal && !IsConst &&
+               VD->hasGlobalStorage())
         SYCLDiagIfDeviceCode(*Locs.begin(), diag::err_sycl_restrict)
             << Sema::KernelGlobalVariable;
+      // ESIMD globals cannot be used in a SYCL context.
+      else if (IsRuntimeEvaluated && IsEsimdPrivateGlobal &&
+               VD->hasGlobalStorage())
+        SYCLDiagIfDeviceCode(*Locs.begin(),
+                             diag::err_esimd_global_in_sycl_context,
+                             Sema::DeviceDiagnosticReason::Sycl);
       // Disallow const statics and globals that are not zero-initialized
       // or constant-initialized.
       else if (IsRuntimeEvaluated && IsConst && VD->hasGlobalStorage() &&
@@ -685,7 +693,8 @@ ExprResult Sema::DefaultLvalueConversion(Expr *E) {
     return E;
 
   // OpenCL usually rejects direct accesses to values of 'half' type.
-  if (getLangOpts().OpenCL && !getOpenCLOptions().isEnabled("cl_khr_fp16") &&
+  if (getLangOpts().OpenCL &&
+      !getOpenCLOptions().isAvailableOption("cl_khr_fp16", getLangOpts()) &&
       T->isHalfType()) {
     Diag(E->getExprLoc(), diag::err_opencl_half_load_store)
       << 0 << T;
@@ -857,10 +866,10 @@ ExprResult Sema::DefaultArgumentPromotion(Expr *E) {
   if (BTy && (BTy->getKind() == BuiltinType::Half ||
               BTy->getKind() == BuiltinType::Float)) {
     if (getLangOpts().OpenCL &&
-        !getOpenCLOptions().isEnabled("cl_khr_fp64")) {
-        if (BTy->getKind() == BuiltinType::Half) {
-            E = ImpCastExprToType(E, Context.FloatTy, CK_FloatingCast).get();
-        }
+        !getOpenCLOptions().isAvailableOption("cl_khr_fp64", getLangOpts())) {
+      if (BTy->getKind() == BuiltinType::Half) {
+        E = ImpCastExprToType(E, Context.FloatTy, CK_FloatingCast).get();
+      }
     } else {
       E = ImpCastExprToType(E, Context.DoubleTy, CK_FloatingCast).get();
     }
@@ -3925,7 +3934,7 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
   } else if (Literal.isFloatingLiteral()) {
     QualType Ty;
     if (Literal.isHalf){
-      if (getOpenCLOptions().isEnabled("cl_khr_fp16"))
+      if (getOpenCLOptions().isAvailableOption("cl_khr_fp16", getLangOpts()))
         Ty = Context.HalfTy;
       else {
         Diag(Tok.getLocation(), diag::err_half_const_requires_fp16);
@@ -3949,8 +3958,8 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
         if (Ty->castAs<BuiltinType>()->getKind() != BuiltinType::Float) {
           Res = ImpCastExprToType(Res, Context.FloatTy, CK_FloatingCast).get();
         }
-      } else if (getLangOpts().OpenCL &&
-                 !getOpenCLOptions().isEnabled("cl_khr_fp64")) {
+      } else if (getLangOpts().OpenCL && !getOpenCLOptions().isAvailableOption(
+                                             "cl_khr_fp64", getLangOpts())) {
         // Impose single-precision float type when cl_khr_fp64 is not enabled.
         Diag(Tok.getLocation(), diag::warn_double_const_requires_fp64);
         Res = ImpCastExprToType(Res, Context.FloatTy, CK_FloatingCast).get();
@@ -3970,6 +3979,14 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
       else
         Diag(Tok.getLocation(), diag::ext_c99_longlong);
     }
+
+    // 'z/uz' literals are a C++2b feature.
+    if (Literal.isSizeT)
+      Diag(Tok.getLocation(), getLangOpts().CPlusPlus
+                                  ? getLangOpts().CPlusPlus2b
+                                        ? diag::warn_cxx20_compat_size_t_suffix
+                                        : diag::ext_cxx2b_size_t_suffix
+                                  : diag::err_cxx2b_size_t_suffix);
 
     // Get the value in the widest-possible width.
     unsigned MaxWidth = Context.getTargetInfo().getIntMaxTWidth();
@@ -4005,7 +4022,26 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
         }
       }
 
-      if (Ty.isNull() && !Literal.isLong && !Literal.isLongLong) {
+      // Check C++2b size_t literals.
+      if (Literal.isSizeT) {
+        assert(!Literal.MicrosoftInteger &&
+               "size_t literals can't be Microsoft literals");
+        unsigned SizeTSize = Context.getTargetInfo().getTypeWidth(
+            Context.getTargetInfo().getSizeType());
+
+        // Does it fit in size_t?
+        if (ResultVal.isIntN(SizeTSize)) {
+          // Does it fit in ssize_t?
+          if (!Literal.isUnsigned && ResultVal[SizeTSize - 1] == 0)
+            Ty = Context.getSignedSizeType();
+          else if (AllowUnsigned)
+            Ty = Context.getSizeType();
+          Width = SizeTSize;
+        }
+      }
+
+      if (Ty.isNull() && !Literal.isLong && !Literal.isLongLong &&
+          !Literal.isSizeT) {
         // Are int/unsigned possibilities?
         unsigned IntSize = Context.getTargetInfo().getIntWidth();
 
@@ -4021,7 +4057,7 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
       }
 
       // Are long/unsigned long possibilities?
-      if (Ty.isNull() && !Literal.isLongLong) {
+      if (Ty.isNull() && !Literal.isLongLong && !Literal.isSizeT) {
         unsigned LongSize = Context.getTargetInfo().getLongWidth();
 
         // Does it fit in a unsigned long?
@@ -4052,7 +4088,7 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
       }
 
       // Check long long if needed.
-      if (Ty.isNull()) {
+      if (Ty.isNull() && !Literal.isSizeT) {
         unsigned LongLongSize = Context.getTargetInfo().getLongLongWidth();
 
         // Does it fit in a unsigned long long?
@@ -4069,10 +4105,16 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
         }
       }
 
-      // If we still couldn't decide a type, we probably have something that
-      // does not fit in a signed long long, but has no U suffix.
+      // If we still couldn't decide a type, we either have 'size_t' literal
+      // that is out of range, or a decimal literal that does not fit in a
+      // signed long long and has no U suffix.
       if (Ty.isNull()) {
-        Diag(Tok.getLocation(), diag::ext_integer_literal_too_large_for_signed);
+        if (Literal.isSizeT)
+          Diag(Tok.getLocation(), diag::err_size_t_literal_too_large)
+              << Literal.isUnsigned;
+        else
+          Diag(Tok.getLocation(),
+               diag::ext_integer_literal_too_large_for_signed);
         Ty = Context.UnsignedLongLongTy;
         Width = Context.getTargetInfo().getLongLongWidth();
       }
@@ -5618,7 +5660,7 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
 
     BaseExpr = LHSExp;
     IndexExpr = RHSExp;
-    ResultType = LHSTy->getAs<PointerType>()->getPointeeType();
+    ResultType = LHSTy->castAs<PointerType>()->getPointeeType();
   } else if (RHSTy->isArrayType()) {
     // Same as previous, except for 123[f().a] case
     Diag(RHSExp->getBeginLoc(), diag::ext_subscript_non_lvalue)
@@ -5629,7 +5671,7 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
 
     BaseExpr = RHSExp;
     IndexExpr = LHSExp;
-    ResultType = RHSTy->getAs<PointerType>()->getPointeeType();
+    ResultType = RHSTy->castAs<PointerType>()->getPointeeType();
   } else {
     return ExprError(Diag(LLoc, diag::err_typecheck_subscript_value)
        << LHSExp->getSourceRange() << RHSExp->getSourceRange());
@@ -6785,24 +6827,30 @@ ExprResult Sema::BuildCallExpr(Scope *Scope, Expr *Fn, SourceLocation LParenLoc,
                                ExecConfig, IsExecConfig);
 }
 
-/// ActOnAsTypeExpr - create a new asType (bitcast) from the arguments.
+/// Parse a __builtin_astype expression.
 ///
 /// __builtin_astype( value, dst type )
 ///
 ExprResult Sema::ActOnAsTypeExpr(Expr *E, ParsedType ParsedDestTy,
                                  SourceLocation BuiltinLoc,
                                  SourceLocation RParenLoc) {
+  QualType DstTy = GetTypeFromParser(ParsedDestTy);
+  return BuildAsTypeExpr(E, DstTy, BuiltinLoc, RParenLoc);
+}
+
+/// Create a new AsTypeExpr node (bitcast) from the arguments.
+ExprResult Sema::BuildAsTypeExpr(Expr *E, QualType DestTy,
+                                 SourceLocation BuiltinLoc,
+                                 SourceLocation RParenLoc) {
   ExprValueKind VK = VK_RValue;
   ExprObjectKind OK = OK_Ordinary;
-  QualType DstTy = GetTypeFromParser(ParsedDestTy);
   QualType SrcTy = E->getType();
-  if (Context.getTypeSize(DstTy) != Context.getTypeSize(SrcTy))
-    return ExprError(Diag(BuiltinLoc,
-                          diag::err_invalid_astype_of_different_size)
-                     << DstTy
-                     << SrcTy
-                     << E->getSourceRange());
-  return new (Context) AsTypeExpr(E, DstTy, VK, OK, BuiltinLoc, RParenLoc);
+  if (!SrcTy->isDependentType() &&
+      Context.getTypeSize(DestTy) != Context.getTypeSize(SrcTy))
+    return ExprError(
+        Diag(BuiltinLoc, diag::err_invalid_astype_of_different_size)
+        << DestTy << SrcTy << E->getSourceRange());
+  return new (Context) AsTypeExpr(E, DestTy, VK, OK, BuiltinLoc, RParenLoc);
 }
 
 /// ActOnConvertVectorExpr - create a new convert-vector expression from the
@@ -7594,6 +7642,19 @@ bool Sema::isValidSveBitcast(QualType srcTy, QualType destTy) {
          ValidScalableConversion(destTy, srcTy);
 }
 
+/// Are the two types matrix types and do they have the same dimensions i.e.
+/// do they have the same number of rows and the same number of columns?
+bool Sema::areMatrixTypesOfTheSameDimension(QualType srcTy, QualType destTy) {
+  if (!destTy->isMatrixType() || !srcTy->isMatrixType())
+    return false;
+
+  const ConstantMatrixType *matSrcType = srcTy->getAs<ConstantMatrixType>();
+  const ConstantMatrixType *matDestType = destTy->getAs<ConstantMatrixType>();
+
+  return matSrcType->getNumRows() == matDestType->getNumRows() &&
+         matSrcType->getNumColumns() == matDestType->getNumColumns();
+}
+
 /// Are the two types lax-compatible vector types?  That is, given
 /// that one of them is a vector, do they have equal storage sizes,
 /// where the storage size is the number of elements times the element
@@ -7654,6 +7715,27 @@ bool Sema::isLaxVectorConversion(QualType srcTy, QualType destTy) {
   }
 
   return areLaxCompatibleVectorTypes(srcTy, destTy);
+}
+
+bool Sema::CheckMatrixCast(SourceRange R, QualType DestTy, QualType SrcTy,
+                           CastKind &Kind) {
+  if (SrcTy->isMatrixType() && DestTy->isMatrixType()) {
+    if (!areMatrixTypesOfTheSameDimension(SrcTy, DestTy)) {
+      return Diag(R.getBegin(), diag::err_invalid_conversion_between_matrixes)
+             << DestTy << SrcTy << R;
+    }
+  } else if (SrcTy->isMatrixType()) {
+    return Diag(R.getBegin(),
+                diag::err_invalid_conversion_between_matrix_and_type)
+           << SrcTy << DestTy << R;
+  } else if (DestTy->isMatrixType()) {
+    return Diag(R.getBegin(),
+                diag::err_invalid_conversion_between_matrix_and_type)
+           << DestTy << SrcTy << R;
+  }
+
+  Kind = CK_MatrixCast;
+  return false;
 }
 
 bool Sema::CheckVectorCast(SourceRange R, QualType VectorTy, QualType Ty,
@@ -10489,14 +10571,19 @@ QualType Sema::CheckMultiplyDivideOperands(ExprResult &LHS, ExprResult &RHS,
                                            bool IsCompAssign, bool IsDiv) {
   checkArithmeticNull(*this, LHS, RHS, Loc, /*IsCompare=*/false);
 
-  if (LHS.get()->getType()->isVectorType() ||
-      RHS.get()->getType()->isVectorType())
+  QualType LHSTy = LHS.get()->getType();
+  QualType RHSTy = RHS.get()->getType();
+  if (LHSTy->isVectorType() || RHSTy->isVectorType())
     return CheckVectorOperands(LHS, RHS, Loc, IsCompAssign,
                                /*AllowBothBool*/getLangOpts().AltiVec,
                                /*AllowBoolConversions*/false);
-  if (!IsDiv && (LHS.get()->getType()->isConstantMatrixType() ||
-                 RHS.get()->getType()->isConstantMatrixType()))
+  if (!IsDiv &&
+      (LHSTy->isConstantMatrixType() || RHSTy->isConstantMatrixType()))
     return CheckMatrixMultiplyOperands(LHS, RHS, Loc, IsCompAssign);
+  // For division, only matrix-by-scalar is supported. Other combinations with
+  // matrix types are invalid.
+  if (IsDiv && LHSTy->isConstantMatrixType() && RHSTy->isArithmeticType())
+    return CheckMatrixElementwiseOperands(LHS, RHS, Loc, IsCompAssign);
 
   QualType compType = UsualArithmeticConversions(
       LHS, RHS, Loc, IsCompAssign ? ACK_CompAssign : ACK_Arithmetic);
@@ -13242,8 +13329,9 @@ QualType Sema::CheckAssignmentOperands(Expr *LHSExpr, ExprResult &RHS,
   // OpenCL v1.2 s6.1.1.1 p2:
   // The half data type can only be used to declare a pointer to a buffer that
   // contains half values
-  if (getLangOpts().OpenCL && !getOpenCLOptions().isEnabled("cl_khr_fp16") &&
-    LHSType->isHalfType()) {
+  if (getLangOpts().OpenCL &&
+      !getOpenCLOptions().isAvailableOption("cl_khr_fp16", getLangOpts()) &&
+      LHSType->isHalfType()) {
     Diag(Loc, diag::err_opencl_half_load_store) << 1
         << LHSType.getUnqualifiedType();
     return QualType();
@@ -17760,6 +17848,107 @@ static bool captureInLambda(LambdaScopeInfo *LSI,
   return !Invalid;
 }
 
+static bool canCaptureVariableByCopy(VarDecl *Var, const ASTContext &Context) {
+  // Offer a Copy fix even if the type is dependent.
+  if (Var->getType()->isDependentType())
+    return true;
+  QualType T = Var->getType().getNonReferenceType();
+  if (T.isTriviallyCopyableType(Context))
+    return true;
+  if (CXXRecordDecl *RD = T->getAsCXXRecordDecl()) {
+
+    if (!(RD = RD->getDefinition()))
+      return false;
+    if (RD->hasSimpleCopyConstructor())
+      return true;
+    if (RD->hasUserDeclaredCopyConstructor())
+      for (CXXConstructorDecl *Ctor : RD->ctors())
+        if (Ctor->isCopyConstructor())
+          return !Ctor->isDeleted();
+  }
+  return false;
+}
+
+/// Create up to 4 fix-its for explicit reference and value capture of \p Var or
+/// default capture. Fixes may be omitted if they aren't allowed by the
+/// standard, for example we can't emit a default copy capture fix-it if we
+/// already explicitly copy capture capture another variable.
+static void buildLambdaCaptureFixit(Sema &Sema, LambdaScopeInfo *LSI,
+                                    VarDecl *Var) {
+  assert(LSI->ImpCaptureStyle == CapturingScopeInfo::ImpCap_None);
+  // Don't offer Capture by copy of default capture by copy fixes if Var is
+  // known not to be copy constructible.
+  bool ShouldOfferCopyFix = canCaptureVariableByCopy(Var, Sema.getASTContext());
+
+  SmallString<32> FixBuffer;
+  StringRef Separator = LSI->NumExplicitCaptures > 0 ? ", " : "";
+  if (Var->getDeclName().isIdentifier() && !Var->getName().empty()) {
+    SourceLocation VarInsertLoc = LSI->IntroducerRange.getEnd();
+    if (ShouldOfferCopyFix) {
+      // Offer fixes to insert an explicit capture for the variable.
+      // [] -> [VarName]
+      // [OtherCapture] -> [OtherCapture, VarName]
+      FixBuffer.assign({Separator, Var->getName()});
+      Sema.Diag(VarInsertLoc, diag::note_lambda_variable_capture_fixit)
+          << Var << /*value*/ 0
+          << FixItHint::CreateInsertion(VarInsertLoc, FixBuffer);
+    }
+    // As above but capture by reference.
+    FixBuffer.assign({Separator, "&", Var->getName()});
+    Sema.Diag(VarInsertLoc, diag::note_lambda_variable_capture_fixit)
+        << Var << /*reference*/ 1
+        << FixItHint::CreateInsertion(VarInsertLoc, FixBuffer);
+  }
+
+  // Only try to offer default capture if there are no captures excluding this
+  // and init captures.
+  // [this]: OK.
+  // [X = Y]: OK.
+  // [&A, &B]: Don't offer.
+  // [A, B]: Don't offer.
+  if (llvm::any_of(LSI->Captures, [](Capture &C) {
+        return !C.isThisCapture() && !C.isInitCapture();
+      }))
+    return;
+
+  // The default capture specifiers, '=' or '&', must appear first in the
+  // capture body.
+  SourceLocation DefaultInsertLoc =
+      LSI->IntroducerRange.getBegin().getLocWithOffset(1);
+
+  if (ShouldOfferCopyFix) {
+    bool CanDefaultCopyCapture = true;
+    // [=, *this] OK since c++17
+    // [=, this] OK since c++20
+    if (LSI->isCXXThisCaptured() && !Sema.getLangOpts().CPlusPlus20)
+      CanDefaultCopyCapture = Sema.getLangOpts().CPlusPlus17
+                                  ? LSI->getCXXThisCapture().isCopyCapture()
+                                  : false;
+    // We can't use default capture by copy if any captures already specified
+    // capture by copy.
+    if (CanDefaultCopyCapture && llvm::none_of(LSI->Captures, [](Capture &C) {
+          return !C.isThisCapture() && !C.isInitCapture() && C.isCopyCapture();
+        })) {
+      FixBuffer.assign({"=", Separator});
+      Sema.Diag(DefaultInsertLoc, diag::note_lambda_default_capture_fixit)
+          << /*value*/ 0
+          << FixItHint::CreateInsertion(DefaultInsertLoc, FixBuffer);
+    }
+  }
+
+  // We can't use default capture by reference if any captures already specified
+  // capture by reference.
+  if (llvm::none_of(LSI->Captures, [](Capture &C) {
+        return !C.isInitCapture() && C.isReferenceCapture() &&
+               !C.isThisCapture();
+      })) {
+    FixBuffer.assign({"&", Separator});
+    Sema.Diag(DefaultInsertLoc, diag::note_lambda_default_capture_fixit)
+        << /*reference*/ 1
+        << FixItHint::CreateInsertion(DefaultInsertLoc, FixBuffer);
+  }
+}
+
 bool Sema::tryCaptureVariable(
     VarDecl *Var, SourceLocation ExprLoc, TryCaptureKind Kind,
     SourceLocation EllipsisLoc, bool BuildAndDiagnose, QualType &CaptureType,
@@ -17857,6 +18046,7 @@ bool Sema::tryCaptureVariable(
           Diag(ExprLoc, diag::err_lambda_impcap) << Var;
           Diag(Var->getLocation(), diag::note_previous_decl) << Var;
           Diag(LSI->Lambda->getBeginLoc(), diag::note_lambda_decl);
+          buildLambdaCaptureFixit(*this, LSI, Var);
         } else
           diagnoseUncapturableValueReference(*this, ExprLoc, Var, DC);
       }
@@ -17935,9 +18125,11 @@ bool Sema::tryCaptureVariable(
       if (BuildAndDiagnose) {
         Diag(ExprLoc, diag::err_lambda_impcap) << Var;
         Diag(Var->getLocation(), diag::note_previous_decl) << Var;
-        if (cast<LambdaScopeInfo>(CSI)->Lambda)
-          Diag(cast<LambdaScopeInfo>(CSI)->Lambda->getBeginLoc(),
-               diag::note_lambda_decl);
+        auto *LSI = cast<LambdaScopeInfo>(CSI);
+        if (LSI->Lambda) {
+          Diag(LSI->Lambda->getBeginLoc(), diag::note_lambda_decl);
+          buildLambdaCaptureFixit(*this, LSI, Var);
+        }
         // FIXME: If we error out because an outer lambda can not implicitly
         // capture a variable that an inner lambda explicitly captures, we
         // should have the inner lambda do the explicit capture - because

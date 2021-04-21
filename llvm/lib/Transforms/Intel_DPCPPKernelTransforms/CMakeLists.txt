@@ -50,5 +50,9 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   TransformUtils
 )
 
+# FIXME: There is no corresponding argument in add_llvm_component_library with
+# the same semantic as target_include_directories. It's not typical to include
+# additional directories the way below. This require some redesign for headers
+# layout. Community changes can break this.
 target_include_directories(LLVMIntel_DPCPPKernelTransforms
   PRIVATE ${LLVM_MAIN_SRC_DIR}/lib/Transforms/Intel_DPCPPKernelTransforms/Utils)

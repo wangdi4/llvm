@@ -2547,9 +2547,18 @@ static bool mergeAlignedAttrs(Sema &S, NamedDecl *New, Decl *Old) {
   return AnyAdded;
 }
 
+#define WANT_DECL_MERGE_LOGIC
+#include "clang/Sema/AttrParsedAttrImpl.inc"
+#undef WANT_DECL_MERGE_LOGIC
+
 static bool mergeDeclAttribute(Sema &S, NamedDecl *D,
                                const InheritableAttr *Attr,
                                Sema::AvailabilityMergeKind AMK) {
+  // Diagnose any mutual exclusions between the attribute that we want to add
+  // and attributes that already exist on the declaration.
+  if (!DiagnoseMutualExclusions(S, D, Attr))
+    return false;
+
   // This function copies an attribute Attr from a previous declaration to the
   // new declaration D if the new declaration doesn't itself have that attribute
   // yet or if that attribute allows duplicates.
@@ -2599,8 +2608,6 @@ static bool mergeDeclAttribute(Sema &S, NamedDecl *D,
     NewAttr = S.mergeOptimizeNoneAttr(D, *OA);
   else if (const auto *InternalLinkageA = dyn_cast<InternalLinkageAttr>(Attr))
     NewAttr = S.mergeInternalLinkageAttr(D, *InternalLinkageA);
-  else if (const auto *CommonA = dyn_cast<CommonAttr>(Attr))
-    NewAttr = S.mergeCommonAttr(D, *CommonA);
   else if (isa<AlignedAttr>(Attr))
     // AlignedAttrs are handled separately, because we need to handle all
     // such attributes on a declaration at the same time.
@@ -2611,14 +2618,6 @@ static bool mergeDeclAttribute(Sema &S, NamedDecl *D,
     NewAttr = nullptr;
   else if (const auto *UA = dyn_cast<UuidAttr>(Attr))
     NewAttr = S.mergeUuidAttr(D, *UA, UA->getGuid(), UA->getGuidDecl());
-  else if (const auto *SLHA = dyn_cast<SpeculativeLoadHardeningAttr>(Attr))
-    NewAttr = S.mergeSpeculativeLoadHardeningAttr(D, *SLHA);
-  else if (const auto *SLHA = dyn_cast<NoSpeculativeLoadHardeningAttr>(Attr))
-    NewAttr = S.mergeNoSpeculativeLoadHardeningAttr(D, *SLHA);
-  else if (const auto *PDA = dyn_cast<PreferDSPAttr>(Attr))
-    NewAttr = S.mergePreferDSPAttr(D, *PDA);
-  else if (const auto *PSLA = dyn_cast<PreferSoftLogicAttr>(Attr))
-    NewAttr = S.mergePreferSoftLogicAttr(D, *PSLA);
   else if (const auto *IMA = dyn_cast<WebAssemblyImportModuleAttr>(Attr))
     NewAttr = S.mergeImportModuleAttr(D, *IMA);
   else if (const auto *INA = dyn_cast<WebAssemblyImportNameAttr>(Attr))
@@ -2639,6 +2638,12 @@ static bool mergeDeclAttribute(Sema &S, NamedDecl *D,
     NewAttr = S.MergeSYCLIntelNoGlobalWorkOffsetAttr(D, *A);
   else if (const auto *A = dyn_cast<IntelFPGAMaxReplicatesAttr>(Attr))
     NewAttr = S.MergeIntelFPGAMaxReplicatesAttr(D, *A);
+  else if (const auto *A = dyn_cast<SYCLIntelFPGAMaxConcurrencyAttr>(Attr))
+    NewAttr = S.MergeSYCLIntelFPGAMaxConcurrencyAttr(D, *A);
+  else if (const auto *A = dyn_cast<IntelFPGAForcePow2DepthAttr>(Attr))
+    NewAttr = S.MergeIntelFPGAForcePow2DepthAttr(D, *A);
+  else if (const auto *A = dyn_cast<SYCLIntelFPGAInitiationIntervalAttr>(Attr))
+    NewAttr = S.MergeSYCLIntelFPGAInitiationIntervalAttr(D, *A);
   else if (Attr->shouldInheritEvenIfAlreadyPresent() || !DeclHasAttr(D, Attr))
     NewAttr = cast<InheritableAttr>(Attr->clone(S.Context));
 #if INTEL_CUSTOMIZATION
@@ -5320,7 +5325,8 @@ Decl *Sema::BuildAnonymousStructOrUnion(Scope *S, DeclSpec &DS,
     // trivial in almost all cases, except if a union member has an in-class
     // initializer:
     //   union { int n = 0; };
-    ActOnUninitializedDecl(Anon);
+    if (!Invalid)
+      ActOnUninitializedDecl(Anon);
   }
   Anon->setImplicit();
 
@@ -6865,7 +6871,8 @@ static bool diagnoseOpenCLTypes(Scope *S, Sema &Se, Declarator &D,
   }
 
   // OpenCL v1.0 s6.8.a.3: Pointers to functions are not allowed.
-  if (!Se.getOpenCLOptions().isEnabled("__cl_clang_function_pointers")) {
+  if (!Se.getOpenCLOptions().isAvailableOption("__cl_clang_function_pointers",
+                                               Se.getLangOpts())) {
     QualType NR = R.getCanonicalType();
     while (NR->isPointerType() || NR->isMemberFunctionPointerType() ||
            NR->isReferenceType()) {
@@ -6880,7 +6887,8 @@ static bool diagnoseOpenCLTypes(Scope *S, Sema &Se, Declarator &D,
     }
   }
 
-  if (!Se.getOpenCLOptions().isEnabled("cl_khr_fp16")) {
+  if (!Se.getOpenCLOptions().isAvailableOption("cl_khr_fp16",
+                                               Se.getLangOpts())) {
     // OpenCL v1.2 s6.1.1.1: reject declaring variables of the half and
     // half array type (unless the cl_khr_fp16 extension is enabled).
     if (Se.Context.getBaseElementType(R)->isHalfType()) {
@@ -7029,6 +7037,16 @@ void Sema::DeclareOCLChannelBuiltins(QualType ChannelTy, Scope *S) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+template <typename AttrTy>
+static void copyAttrFromTypedefToDecl(Sema &S, Decl *D, const TypedefType *TT) {
+  const TypedefNameDecl *TND = TT->getDecl();
+  if (const auto *Attribute = TND->getAttr<AttrTy>()) {
+    AttrTy *Clone = Attribute->clone(S.Context);
+    Clone->setInherited(true);
+    D->addAttr(Clone);
+  }
+}
+
 NamedDecl *Sema::ActOnVariableDeclarator(
     Scope *S, Declarator &D, DeclContext *DC, TypeSourceInfo *TInfo,
     LookupResult &Previous, MultiTemplateParamsArg TemplateParamLists,
@@ -7039,7 +7057,8 @@ NamedDecl *Sema::ActOnVariableDeclarator(
 #if INTEL_CUSTOMIZATION
     // Intel OpenCL FPGA channels
     if (Context.getBaseElementType(R)->isChannelType()) {
-      if (!getOpenCLOptions().isEnabled("cl_intel_channels")) {
+      if (!getOpenCLOptions().isAvailableOption("cl_intel_channels",
+                                                getLangOpts())) {
         Diag(D.getIdentifierLoc(), diag::err_opencl_requires_extension)
             << 0 << R << "cl_intel_channels";
         D.setInvalidType();
@@ -7470,6 +7489,14 @@ NamedDecl *Sema::ActOnVariableDeclarator(
   // Handle attributes prior to checking for duplicates in MergeVarDecl
   ProcessDeclAttributes(S, NewVD, D);
 
+  // FIXME: This is probably the wrong location to be doing this and we should
+  // probably be doing this for more attributes (especially for function
+  // pointer attributes such as format, warn_unused_result, etc.). Ideally
+  // the code to copy attributes would be generated by TableGen.
+  if (R->isFunctionPointerType())
+    if (const auto *TT = R->getAs<TypedefType>())
+      copyAttrFromTypedefToDecl<AllocSizeAttr>(*this, NewVD, TT);
+
   if (getLangOpts().CUDA || getLangOpts().OpenMPIsDevice ||
       getLangOpts().SYCLIsDevice) {
     if (EmitTLSUnsupportedError &&
@@ -7699,6 +7726,7 @@ NamedDecl *Sema::ActOnVariableDeclarator(
   if (IsMemberSpecialization && !NewVD->isInvalidDecl())
     CompleteMemberSpecialization(NewVD, Previous);
 
+  addSyclVarDecl(NewVD);
   return NewVD;
 }
 
@@ -8111,7 +8139,8 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
   // OpenCL v1.2 s6.8 - The static qualifier is valid only in program
   // scope.
   if (getLangOpts().OpenCLVersion == 120 &&
-      !getOpenCLOptions().isEnabled("cl_clang_storage_class_specifiers") &&
+      !getOpenCLOptions().isAvailableOption("cl_clang_storage_class_specifiers",
+                                            getLangOpts()) &&
       NewVD->isStaticLocal()) {
     Diag(NewVD->getLocation(), diag::err_static_function_scope);
     NewVD->setInvalidDecl();
@@ -8892,7 +8921,8 @@ static OpenCLParamType getOpenCLKernelParameterType(Sema &S, QualType PT) {
   // OpenCL extension spec v1.2 s9.5:
   // This extension adds support for half scalar and vector types as built-in
   // types that can be used for arithmetic operations, conversions etc.
-  if (!S.getOpenCLOptions().isEnabled("cl_khr_fp16") && PT->isHalfType())
+  if (!S.getOpenCLOptions().isAvailableOption("cl_khr_fp16", S.getLangOpts()) &&
+      PT->isHalfType())
     return InvalidKernelParam;
 
   if (PT->isRecordType())
@@ -10049,7 +10079,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     if (II && II->isStr(getCudaConfigureFuncName()) &&
         !NewFD->isInvalidDecl() &&
         NewFD->getDeclContext()->getRedeclContext()->isTranslationUnit()) {
-      if (!R->getAs<FunctionType>()->getReturnType()->isScalarType())
+      if (!R->castAs<FunctionType>()->getReturnType()->isScalarType())
         Diag(NewFD->getLocation(), diag::err_config_scalar_return)
             << getCudaConfigureFuncName();
       Context.setcudaConfigureCallDecl(NewFD);
@@ -11205,24 +11235,6 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
     if (!CurContext->isRecord())
       CheckCXXDefaultArguments(NewFD);
 
-    // If this function declares a builtin function, check the type of this
-    // declaration against the expected type for the builtin.
-    if (unsigned BuiltinID = NewFD->getBuiltinID()) {
-      ASTContext::GetBuiltinTypeError Error;
-      LookupNecessaryTypesForBuiltin(S, BuiltinID);
-      QualType T = Context.GetBuiltinType(BuiltinID, Error);
-      // If the type of the builtin differs only in its exception
-      // specification, that's OK.
-      // FIXME: If the types do differ in this way, it would be better to
-      // retain the 'noexcept' form of the type.
-      if (!T.isNull() &&
-          !Context.hasSameFunctionTypeIgnoringExceptionSpec(T,
-                                                            NewFD->getType()))
-        // The type of this function differs from the type of the builtin,
-        // so forget about the builtin entirely.
-        Context.BuiltinInfo.forgetBuiltin(BuiltinID, Context.Idents);
-    }
-
     // If this function is declared as being extern "C", then check to see if
     // the function returns a UDT (class, struct, or union type) that is not C
     // compatible, and if it does, warn the user.
@@ -11443,6 +11455,25 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
   }
 }
 
+static bool isDefaultStdCall(FunctionDecl *FD, Sema &S) {
+
+  // Default calling convention for main and wmain is __cdecl
+  if (FD->getName() == "main" || FD->getName() == "wmain")
+    return false;
+
+  // Default calling convention for MinGW is __cdecl
+  const llvm::Triple &T = S.Context.getTargetInfo().getTriple();
+  if (T.isWindowsGNUEnvironment())
+    return false;
+
+  // Default calling convention for WinMain, wWinMain and DllMain
+  // is __stdcall on 32 bit Windows
+  if (T.isOSWindows() && T.getArch() == llvm::Triple::x86)
+    return true;
+
+  return false;
+}
+
 void Sema::CheckMSVCRTEntryPoint(FunctionDecl *FD) {
   QualType T = FD->getType();
   assert(T->isFunctionType() && "function decl is not of function type");
@@ -11456,6 +11487,21 @@ void Sema::CheckMSVCRTEntryPoint(FunctionDecl *FD) {
     // DllMain is exempt because a return value of zero means it failed.
     if (FD->getName() != "DllMain")
       FD->setHasImplicitReturnZero(true);
+
+  // Explicity specified calling conventions are applied to MSVC entry points
+  if (!hasExplicitCallingConv(T)) {
+    if (isDefaultStdCall(FD, *this)) {
+      if (FT->getCallConv() != CC_X86StdCall) {
+        FT = Context.adjustFunctionType(
+            FT, FT->getExtInfo().withCallingConv(CC_X86StdCall));
+        FD->setType(QualType(FT, 0));
+      }
+    } else if (FT->getCallConv() != CC_C) {
+      FT = Context.adjustFunctionType(FT,
+                                      FT->getExtInfo().withCallingConv(CC_C));
+      FD->setType(QualType(FT, 0));
+    }
+  }
 
   if (!FD->isInvalidDecl() && FD->getDescribedFunctionTemplate()) {
     Diag(FD->getLocation(), diag::err_mainlike_template_decl) << FD;
@@ -18631,6 +18677,15 @@ void Sema::ActOnPragmaWeakAlias(IdentifierInfo* Name,
 
 Decl *Sema::getObjCDeclContext() const {
   return (dyn_cast_or_null<ObjCContainerDecl>(CurContext));
+}
+
+Sema::DeviceDiagnosticReason Sema::getEmissionReason(const FunctionDecl *FD) {
+  if (FD->hasAttr<SYCLSimdAttr>())
+    return Sema::DeviceDiagnosticReason::Esimd;
+  else if (FD->hasAttr<SYCLDeviceAttr>() || FD->hasAttr<SYCLKernelAttr>())
+    return Sema::DeviceDiagnosticReason::Sycl;
+  // FIXME: Figure out the logic for OMP and CUDA.
+  return Sema::DeviceDiagnosticReason::All;
 }
 
 Sema::FunctionEmissionStatus Sema::getEmissionStatus(FunctionDecl *FD,

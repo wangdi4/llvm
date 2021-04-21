@@ -31,6 +31,17 @@ using namespace mlir::detail;
 #include "mlir/IR/BuiltinTypes.cpp.inc"
 
 //===----------------------------------------------------------------------===//
+// BuiltinDialect
+//===----------------------------------------------------------------------===//
+
+void BuiltinDialect::registerTypes() {
+  addTypes<
+#define GET_TYPEDEF_LIST
+#include "mlir/IR/BuiltinTypes.cpp.inc"
+      >();
+}
+
+//===----------------------------------------------------------------------===//
 /// ComplexType
 //===----------------------------------------------------------------------===//
 
@@ -190,6 +201,19 @@ LogicalResult OpaqueType::verify(function_ref<InFlightDiagnostic()> emitError,
                                  Identifier dialect, StringRef typeData) {
   if (!Dialect::isValidNamespace(dialect.strref()))
     return emitError() << "invalid dialect namespace '" << dialect << "'";
+
+  // Check that the dialect is actually registered.
+  MLIRContext *context = dialect.getContext();
+  if (!context->allowsUnregisteredDialects() &&
+      !context->getLoadedDialect(dialect.strref())) {
+    return emitError()
+           << "`!" << dialect << "<\"" << typeData << "\">"
+           << "` type created with unregistered dialect. If this is "
+              "intended, please call allowUnregisteredDialects() on the "
+              "MLIRContext, or use -allow-unregistered-dialect with "
+              "mlir-opt";
+  }
+
   return success();
 }
 
@@ -368,7 +392,7 @@ LogicalResult VectorType::verify(function_ref<InFlightDiagnostic()> emitError,
     return emitError() << "vector types must have at least one dimension";
 
   if (!isValidElementType(elementType))
-    return emitError() << "vector elements must be int or float type";
+    return emitError() << "vector elements must be int/index/float type";
 
   if (any_of(shape, [](int64_t i) { return i <= 0; }))
     return emitError() << "vector types must have positive constant sizes";
@@ -417,10 +441,12 @@ bool TensorType::isValidElementType(Type type) {
 
 LogicalResult
 RankedTensorType::verify(function_ref<InFlightDiagnostic()> emitError,
-                         ArrayRef<int64_t> shape, Type elementType) {
+                         ArrayRef<int64_t> shape, Type elementType,
+                         Attribute encoding) {
   for (int64_t s : shape)
     if (s < -1)
       return emitError() << "invalid tensor dimension size";
+  // TODO: verify contents of encoding attribute.
   return checkTensorElementType(emitError, elementType);
 }
 
@@ -453,6 +479,40 @@ unsigned BaseMemRefType::getMemorySpaceAsInt() const {
 //===----------------------------------------------------------------------===//
 // MemRefType
 //===----------------------------------------------------------------------===//
+
+/// Given an `originalShape` and a `reducedShape` assumed to be a subset of
+/// `originalShape` with some `1` entries erased, return the set of indices
+/// that specifies which of the entries of `originalShape` are dropped to obtain
+/// `reducedShape`. The returned mask can be applied as a projection to
+/// `originalShape` to obtain the `reducedShape`. This mask is useful to track
+/// which dimensions must be kept when e.g. compute MemRef strides under
+/// rank-reducing operations. Return None if reducedShape cannot be obtained
+/// by dropping only `1` entries in `originalShape`.
+llvm::Optional<llvm::SmallDenseSet<unsigned>>
+mlir::computeRankReductionMask(ArrayRef<int64_t> originalShape,
+                               ArrayRef<int64_t> reducedShape) {
+  size_t originalRank = originalShape.size(), reducedRank = reducedShape.size();
+  llvm::SmallDenseSet<unsigned> unusedDims;
+  unsigned reducedIdx = 0;
+  for (unsigned originalIdx = 0; originalIdx < originalRank; ++originalIdx) {
+    // Greedily insert `originalIdx` if no match.
+    if (reducedIdx < reducedRank &&
+        originalShape[originalIdx] == reducedShape[reducedIdx]) {
+      reducedIdx++;
+      continue;
+    }
+
+    unusedDims.insert(originalIdx);
+    // If no match on `originalIdx`, the `originalShape` at this dimension
+    // must be 1, otherwise we bail.
+    if (originalShape[originalIdx] != 1)
+      return llvm::None;
+  }
+  // The whole reducedShape must be scanned, otherwise we bail.
+  if (reducedIdx != reducedRank)
+    return llvm::None;
+  return unusedDims;
+}
 
 bool mlir::detail::isSupportedMemorySpace(Attribute memorySpace) {
   // Empty attribute is allowed as default memory space.
@@ -514,7 +574,7 @@ LogicalResult MemRefType::verify(function_ref<InFlightDiagnostic()> emitError,
   if (!BaseMemRefType::isValidElementType(elementType))
     return emitError() << "invalid memref element type";
 
-    // Negative sizes are not allowed except for `-1` that means dynamic size.
+  // Negative sizes are not allowed except for `-1` that means dynamic size.
   for (int64_t s : shape)
     if (s < -1)
       return emitError() << "invalid memref size";
@@ -628,25 +688,22 @@ LogicalResult mlir::getStridesAndOffset(MemRefType t,
                                         SmallVectorImpl<AffineExpr> &strides,
                                         AffineExpr &offset) {
   auto affineMaps = t.getAffineMaps();
-  // For now strides are only computed on a single affine map with a single
-  // result (i.e. the closed subset of linearization maps that are compatible
-  // with striding semantics).
-  // TODO: support more forms on a per-need basis.
-  if (affineMaps.size() > 1)
+
+  if (!affineMaps.empty() && affineMaps.back().getNumResults() != 1)
     return failure();
-  if (affineMaps.size() == 1 && affineMaps[0].getNumResults() != 1)
-    return failure();
+
+  AffineMap m;
+  if (!affineMaps.empty()) {
+    m = affineMaps.back();
+    for (size_t i = affineMaps.size() - 1; i > 0; --i)
+      m = m.compose(affineMaps[i - 1]);
+    assert(!m.isIdentity() && "unexpected identity map");
+  }
 
   auto zero = getAffineConstantExpr(0, t.getContext());
   auto one = getAffineConstantExpr(1, t.getContext());
   offset = zero;
   strides.assign(t.getRank(), zero);
-
-  AffineMap m;
-  if (!affineMaps.empty()) {
-    m = affineMaps.front();
-    assert(!m.isIdentity() && "unexpected identity map");
-  }
 
   // Canonical case for empty map.
   if (!m) {

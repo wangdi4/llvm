@@ -149,6 +149,12 @@ inline StringRef getInstrProfRuntimeHookVarName() {
   return INSTR_PROF_QUOTE(INSTR_PROF_PROFILE_RUNTIME_VAR);
 }
 
+/// Return the name of the compiler generated function that references the
+/// runtime hook variable. The function is a weak global.
+inline StringRef getInstrProfRuntimeHookVarUseFuncName() {
+  return "__llvm_profile_runtime_user";
+}
+
 inline StringRef getInstrProfCounterBiasVarName() {
   return "__llvm_profile_counter_bias";
 }
@@ -246,10 +252,6 @@ void annotateValueSite(Module &M, Instruction &Inst,
 void annotateValueSite(Module &M, Instruction &Inst,
                        ArrayRef<InstrProfValueData> VDs, uint64_t Sum,
                        InstrProfValueKind ValueKind, uint32_t MaxMDCount);
-
-/// Magic number in the value profile data showing a target has been
-/// promoted for the instruction and shouldn't be promoted again.
-const uint64_t NOMORE_ICP_MAGICNUM = -1;
 
 /// Extract the value profile data from \p Inst which is annotated with
 /// value profile meta data. Return false if there is no value data annotated,

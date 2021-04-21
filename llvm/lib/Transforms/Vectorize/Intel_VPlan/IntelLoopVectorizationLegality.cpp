@@ -518,7 +518,7 @@ void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
     RecurrenceDescriptor RD(StartV, MinMaxResultPhi, Kind, FMF, nullptr,
-                            StartV->getType(), true, CastInsts);
+                            StartV->getType(), true, false, CastInsts);
     ExplicitReductions[LoopHeaderPhiNode] = {RD, RedVarPtr};
   }
   InMemoryReductions[RedVarPtr] = Kind;
@@ -570,7 +570,7 @@ void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
     RecurrenceDescriptor RD(StartV, Combiner, Kind, FMF, nullptr,
-                            ReductionPhi->getType(), true, CastInsts);
+                            ReductionPhi->getType(), true, false, CastInsts);
     ExplicitReductions[ReductionPhi] = {RD, RedVarPtr};
   } else if ((UseMemory = isReductionVarStoredInsideTheLoop(RedVarPtr)))
     InMemoryReductions[RedVarPtr] = Kind;

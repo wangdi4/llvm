@@ -99,10 +99,10 @@ class VPReduction
 
 public:
   VPReduction(VPValue *Start, VPInstruction *Exit, RecurKind RdxKind,
-              FastMathFlags FMF, Type *RT, bool Signed,
-              bool IsMemOnly = false, unsigned char Id = Reduction)
+              FastMathFlags FMF, Type *RT, bool Signed, bool IsMemOnly = false,
+              unsigned char Id = Reduction)
       : VPLoopEntity(Id, IsMemOnly),
-        RDTempl(Start, Exit, RdxKind, FMF, RT, Signed) {}
+        RDTempl(Start, Exit, RdxKind, FMF, RT, Signed, false) {}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {

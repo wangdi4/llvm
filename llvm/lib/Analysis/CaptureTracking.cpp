@@ -76,8 +76,8 @@ bool CaptureTracker::isDereferenceableOrNull(Value *O, const DataLayout &DL) {
   if (isa<SubscriptInst>(O))
     return true;
 #endif // INTEL_CUSTOMIZATION
-  bool CanBeNull;
-  return O->getPointerDereferenceableBytes(DL, CanBeNull);
+  bool CanBeNull, CanBeFreed;
+  return O->getPointerDereferenceableBytes(DL, CanBeNull, CanBeFreed);
 }
 
 namespace {

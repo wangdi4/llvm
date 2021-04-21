@@ -2579,6 +2579,7 @@ enum CXCursorKind {
   /** OpenMP interop directive.
    */
   CXCursor_OMPInteropDirective = 290,
+
   /** OpenMP dispatch directive.
    */
   CXCursor_OMPDispatchDirective = 291,

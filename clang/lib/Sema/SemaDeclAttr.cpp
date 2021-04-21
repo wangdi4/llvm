@@ -447,10 +447,10 @@ appendDiagnostics(const Sema::SemaDiagnosticBuilder &Bldr, T &&ExtraArg,
                            std::forward<DiagnosticArgs>(ExtraArgs)...);
 }
 
-/// Add an attribute {@code AttrType} to declaration {@code D}, provided that
-/// {@code PassesCheck} is true.
-/// Otherwise, emit diagnostic {@code DiagID}, passing in all parameters
-/// specified in {@code ExtraArgs}.
+/// Add an attribute @c AttrType to declaration @c D, provided that
+/// @c PassesCheck is true.
+/// Otherwise, emit diagnostic @c DiagID, passing in all parameters
+/// specified in @c ExtraArgs.
 template <typename AttrType, typename... DiagnosticArgs>
 static void handleSimpleAttributeOrDiagnose(Sema &S, Decl *D,
                                             const AttributeCommonInfo &CI,
@@ -462,24 +462,6 @@ static void handleSimpleAttributeOrDiagnose(Sema &S, Decl *D,
     return;
   }
   handleSimpleAttribute<AttrType>(S, D, CI);
-}
-
-template <typename AttrType>
-static void handleSimpleAttributeWithExclusions(Sema &S, Decl *D,
-                                                const ParsedAttr &AL) {
-  handleSimpleAttribute<AttrType>(S, D, AL);
-}
-
-/// Applies the given attribute to the Decl so long as the Decl doesn't
-/// already have one of the given incompatible attributes.
-template <typename AttrType, typename IncompatibleAttrType,
-          typename... IncompatibleAttrTypes>
-static void handleSimpleAttributeWithExclusions(Sema &S, Decl *D,
-                                                const ParsedAttr &AL) {
-  if (checkAttrMutualExclusion<IncompatibleAttrType>(S, D, AL))
-    return;
-  handleSimpleAttributeWithExclusions<AttrType, IncompatibleAttrTypes...>(S, D,
-                                                                          AL);
 }
 
 /// Check if the passed-in expression is of type int or bool.
@@ -570,16 +552,9 @@ static bool checkRecordDeclForAttr(const RecordDecl *RD) {
 
   // Else check if any base classes have the attribute.
   if (const auto *CRD = dyn_cast<CXXRecordDecl>(RD)) {
-    CXXBasePaths BPaths(false, false);
-    if (CRD->lookupInBases(
-            [](const CXXBaseSpecifier *BS, CXXBasePath &) {
-              const auto &Ty = *BS->getType();
-              // If it's type-dependent, we assume it could have the attribute.
-              if (Ty.isDependentType())
-                return true;
-              return Ty.castAs<RecordType>()->getDecl()->hasAttr<AttrType>();
-            },
-            BPaths, true))
+    if (!CRD->forallBases([](const CXXRecordDecl *Base) {
+          return !Base->hasAttr<AttrType>();
+        }))
       return true;
   }
   return false;
@@ -870,20 +845,20 @@ static void handleAssertExclusiveLockAttr(Sema &S, Decl *D,
 ///
 /// AttrArgNo is used to actually retrieve the argument, so it's base-0.
 template <typename AttrInfo>
-static bool checkParamIsIntegerType(Sema &S, const FunctionDecl *FD,
-                                    const AttrInfo &AI, unsigned AttrArgNo) {
+static bool checkParamIsIntegerType(Sema &S, const Decl *D, const AttrInfo &AI,
+                                    unsigned AttrArgNo) {
   assert(AI.isArgExpr(AttrArgNo) && "Expected expression argument");
   Expr *AttrArg = AI.getArgAsExpr(AttrArgNo);
   ParamIdx Idx;
-  if (!checkFunctionOrMethodParameterIndex(S, FD, AI, AttrArgNo + 1, AttrArg,
+  if (!checkFunctionOrMethodParameterIndex(S, D, AI, AttrArgNo + 1, AttrArg,
                                            Idx))
     return false;
 
-  const ParmVarDecl *Param = FD->getParamDecl(Idx.getASTIndex());
-  if (!Param->getType()->isIntegerType() && !Param->getType()->isCharType()) {
+  QualType ParamTy = getFunctionOrMethodParamType(D, Idx.getASTIndex());
+  if (!ParamTy->isIntegerType() && !ParamTy->isCharType()) {
     SourceLocation SrcLoc = AttrArg->getBeginLoc();
     S.Diag(SrcLoc, diag::err_attribute_integers_only)
-        << AI << Param->getSourceRange();
+        << AI << getFunctionOrMethodParamRange(D, Idx.getASTIndex());
     return false;
   }
   return true;
@@ -893,8 +868,10 @@ static void handleAllocSizeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (!AL.checkAtLeastNumArgs(S, 1) || !AL.checkAtMostNumArgs(S, 2))
     return;
 
-  const auto *FD = cast<FunctionDecl>(D);
-  if (!FD->getReturnType()->isPointerType()) {
+  assert(isFunctionOrMethod(D) && hasFunctionProto(D));
+
+  QualType RetTy = getFunctionOrMethodResultType(D);
+  if (!RetTy->isPointerType()) {
     S.Diag(AL.getLoc(), diag::warn_attribute_return_pointers_only) << AL;
     return;
   }
@@ -904,7 +881,7 @@ static void handleAllocSizeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   // Parameter indices are 1-indexed, hence Index=1
   if (!checkPositiveIntArgument(S, AL, SizeExpr, SizeArgNoVal, /*Idx=*/1))
     return;
-  if (!checkParamIsIntegerType(S, FD, AL, /*AttrArgNo=*/0))
+  if (!checkParamIsIntegerType(S, D, AL, /*AttrArgNo=*/0))
     return;
   ParamIdx SizeArgNo(SizeArgNoVal, D);
 
@@ -915,7 +892,7 @@ static void handleAllocSizeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     // Parameter indices are 1-based, hence Index=2
     if (!checkPositiveIntArgument(S, AL, NumberExpr, Val, /*Idx=*/2))
       return;
-    if (!checkParamIsIntegerType(S, FD, AL, /*AttrArgNo=*/1))
+    if (!checkParamIsIntegerType(S, D, AL, /*AttrArgNo=*/1))
       return;
     NumberArgNo = ParamIdx(Val, D);
   }
@@ -2085,8 +2062,7 @@ static void handleCommonAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
   }
 
-  if (CommonAttr *CA = S.mergeCommonAttr(D, AL))
-    D->addAttr(CA);
+  D->addAttr(::new (S.Context) CommonAttr(S.Context, AL));
 }
 
 static void handleCmseNSEntryAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -2105,9 +2081,6 @@ static void handleCmseNSEntryAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static void handleNakedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-  if (checkAttrMutualExclusion<DisableTailCallsAttr>(S, D, AL))
-    return;
-
   if (AL.isDeclspecAttribute() && !S.getLangOpts().IntelCompat) { // INTEL
     const auto &Triple = S.getASTContext().getTargetInfo().getTriple();
     const auto &Arch = Triple.getArch();
@@ -2717,11 +2690,6 @@ static void handleVisibilityAttr(Sema &S, Decl *D, const ParsedAttr &AL,
     D->addAttr(newAttr);
 }
 
-static void handleObjCNonRuntimeProtocolAttr(Sema &S, Decl *D,
-                                             const ParsedAttr &AL) {
-  handleSimpleAttribute<ObjCNonRuntimeProtocolAttr>(S, D, AL);
-}
-
 static void handleObjCDirectAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   // objc_direct cannot be set on methods declared in the context of a protocol
   if (isa<ObjCProtocolDecl>(D->getDeclContext())) {
@@ -2896,8 +2864,10 @@ static void handleSentinelAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     QualType Ty = V->getType();
     if (Ty->isBlockPointerType() || Ty->isFunctionPointerType()) {
       const FunctionType *FT = Ty->isFunctionPointerType()
-       ? D->getFunctionType()
-       : Ty->castAs<BlockPointerType>()->getPointeeType()->getAs<FunctionType>();
+                                   ? D->getFunctionType()
+                                   : Ty->castAs<BlockPointerType>()
+                                         ->getPointeeType()
+                                         ->castAs<FunctionType>();
       if (!cast<FunctionProtoType>(FT)->isVariadic()) {
         int m = Ty->isFunctionPointerType() ? 0 : 1;
         S.Diag(AL.getLoc(), diag::warn_attribute_sentinel_not_variadic) << m;
@@ -3191,8 +3161,8 @@ static void handleOpenCLDepthAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (BaseTy->isChannelType())
     Ty = BaseTy;
 
-  if (Ty->isChannelType() &&
-      !S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
+  if (Ty->isChannelType() && !S.getOpenCLOptions().isAvailableOption(
+                                 "cl_intel_channels", S.getLangOpts())) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
         << Attr << "cl_intel_channels";
     return;
@@ -3235,8 +3205,8 @@ static void handleOpenCLIOAttr(Sema &S, Decl *D, const ParsedAttr &Attr) {
   if (BaseTy->isChannelType())
     Ty = BaseTy;
 
-  if (Ty->isChannelType() &&
-      !S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
+  if (Ty->isChannelType() && !S.getOpenCLOptions().isAvailableOption(
+                                 "cl_intel_channels", S.getLangOpts())) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
         << Attr << "cl_intel_channels";
     return;
@@ -3597,7 +3567,8 @@ static void handleOpenCLHostAccessible(Sema &S, Decl *D,
 
   QualType Ty = cast<VarDecl>(D)->getType();
 
-  if (!S.getOpenCLOptions().isEnabled("cl_intel_fpga_host_pipe")) {
+  if (!S.getOpenCLOptions().isAvailableOption("cl_intel_fpga_host_pipe",
+                                              S.getLangOpts())) {
     S.Diag(D->getLocation(),
            diag::err_intel_opencl_attribute_requires_extension)
         << Attr << "cl_intel_fpga_host_pipe";
@@ -3615,7 +3586,8 @@ static void handleOpenCLHostAccessible(Sema &S, Decl *D,
 }
 
 static void handleVecLenHint(Sema &S, Decl *D, const ParsedAttr &Attr) {
-  if (!S.getOpenCLOptions().isEnabled("cl_intel_vec_len_hint")) {
+  if (!S.getOpenCLOptions().isAvailableOption("cl_intel_vec_len_hint",
+                                              S.getLangOpts())) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
         << Attr << "cl_intel_vec_len_hint";
     return;
@@ -3990,10 +3962,12 @@ void Sema::AddIntelReqdSubGroupSize(Decl *D, const AttributeCommonInfo &CI,
       // If the other attribute argument is instantiation dependent, we won't
       // have converted it to a constant expression yet and thus we test
       // whether this is a null pointer.
-      const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue());
-      if (DeclExpr && ArgVal != DeclExpr->getResultAsAPSInt()) {
-        Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
-        Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
+      if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+        if (ArgVal != DeclExpr->getResultAsAPSInt()) {
+          Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
+          Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
+        }
+        // Drop the duplicate attribute.
         return;
       }
     }
@@ -4008,13 +3982,16 @@ Sema::MergeIntelReqdSubGroupSizeAttr(Decl *D,
   // Check to see if there's a duplicate attribute with different values
   // already applied to the declaration.
   if (const auto *DeclAttr = D->getAttr<IntelReqdSubGroupSizeAttr>()) {
-    const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue());
-    const auto *MergeExpr = dyn_cast<ConstantExpr>(A.getValue());
-    if (DeclExpr && MergeExpr &&
-        DeclExpr->getResultAsAPSInt() != MergeExpr->getResultAsAPSInt()) {
-      Diag(DeclAttr->getLoc(), diag::warn_duplicate_attribute) << &A;
-      Diag(A.getLoc(), diag::note_previous_attribute);
-      return nullptr;
+    if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+      if (const auto *MergeExpr = dyn_cast<ConstantExpr>(A.getValue())) {
+        if (DeclExpr->getResultAsAPSInt() != MergeExpr->getResultAsAPSInt()) {
+          Diag(DeclAttr->getLoc(), diag::warn_duplicate_attribute) << &A;
+          Diag(A.getLoc(), diag::note_previous_attribute);
+          return nullptr;
+        }
+        // Do not add a duplicate attribute.
+        return nullptr;
+      }
     }
   }
   return ::new (Context) IntelReqdSubGroupSizeAttr(Context, A, A.getValue());
@@ -4053,10 +4030,12 @@ void Sema::AddSYCLIntelNumSimdWorkItemsAttr(Decl *D,
       // If the other attribute argument is instantiation dependent, we won't
       // have converted it to a constant expression yet and thus we test
       // whether this is a null pointer.
-      const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue());
-      if (DeclExpr && ArgVal != DeclExpr->getResultAsAPSInt()) {
-        Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
-        Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
+      if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+        if (ArgVal != DeclExpr->getResultAsAPSInt()) {
+          Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
+          Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
+        }
+        // Drop the duplicate attribute.
         return;
       }
     }
@@ -4084,13 +4063,15 @@ SYCLIntelNumSimdWorkItemsAttr *Sema::MergeSYCLIntelNumSimdWorkItemsAttr(
   // Check to see if there's a duplicate attribute with different values
   // already applied to the declaration.
   if (const auto *DeclAttr = D->getAttr<SYCLIntelNumSimdWorkItemsAttr>()) {
-    const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue());
-    const auto *MergeExpr = dyn_cast<ConstantExpr>(A.getValue());
-    if (DeclExpr && MergeExpr &&
-        DeclExpr->getResultAsAPSInt() != MergeExpr->getResultAsAPSInt()) {
-      Diag(DeclAttr->getLoc(), diag::warn_duplicate_attribute) << &A;
-      Diag(A.getLoc(), diag::note_previous_attribute);
-      return nullptr;
+    if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+      if (const auto *MergeExpr = dyn_cast<ConstantExpr>(A.getValue())) {
+        if (DeclExpr->getResultAsAPSInt() != MergeExpr->getResultAsAPSInt()) {
+          Diag(DeclAttr->getLoc(), diag::warn_duplicate_attribute) << &A;
+          Diag(A.getLoc(), diag::note_previous_attribute);
+        }
+        // Do not add a duplicate attribute.
+        return nullptr;
+      }
     }
   }
   return ::new (Context)
@@ -4145,6 +4126,87 @@ static void handleUseStallEnableClustersAttr(Sema &S, Decl *D,
   handleSimpleAttribute<SYCLIntelUseStallEnableClustersAttr>(S, D, Attr);
 }
 
+// Handles disable_loop_pipelining attribute.
+static void handleSYCLIntelFPGADisableLoopPipeliningAttr(Sema &S, Decl *D,
+                                                         const ParsedAttr &A) {
+  S.CheckDeprecatedSYCLAttributeSpelling(A);
+  D->addAttr(::new (S.Context)
+                 SYCLIntelFPGADisableLoopPipeliningAttr(S.Context, A));
+}
+
+// Handles initiation_interval attribute.
+void Sema::AddSYCLIntelFPGAInitiationIntervalAttr(Decl *D,
+                                                  const AttributeCommonInfo &CI,
+                                                  Expr *E) {
+  if (!E->isValueDependent()) {
+    // Validate that we have an integer constant expression and then store the
+    // converted constant expression into the semantic attribute so that we
+    // don't have to evaluate it again later.
+    llvm::APSInt ArgVal;
+    ExprResult Res = VerifyIntegerConstantExpression(E, &ArgVal);
+    if (Res.isInvalid())
+      return;
+    E = Res.get();
+    // This attribute requires a strictly positive value.
+    if (ArgVal <= 0) {
+      Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
+          << CI << /*positive*/ 0;
+      return;
+    }
+    // Check to see if there's a duplicate attribute with different values
+    // already applied to the declaration.
+    if (const auto *DeclAttr =
+            D->getAttr<SYCLIntelFPGAInitiationIntervalAttr>()) {
+      // If the other attribute argument is instantiation dependent, we won't
+      // have converted it to a constant expression yet and thus we test
+      // whether this is a null pointer.
+      if (const auto *DeclExpr =
+              dyn_cast<ConstantExpr>(DeclAttr->getIntervalExpr())) {
+        if (ArgVal != DeclExpr->getResultAsAPSInt()) {
+          Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
+          Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
+        }
+        // Drop the duplicate attribute.
+        return;
+      }
+    }
+  }
+
+  D->addAttr(::new (Context)
+                 SYCLIntelFPGAInitiationIntervalAttr(Context, CI, E));
+}
+
+SYCLIntelFPGAInitiationIntervalAttr *
+Sema::MergeSYCLIntelFPGAInitiationIntervalAttr(
+    Decl *D, const SYCLIntelFPGAInitiationIntervalAttr &A) {
+  // Check to see if there's a duplicate attribute with different values
+  // already applied to the declaration.
+  if (const auto *DeclAttr =
+          D->getAttr<SYCLIntelFPGAInitiationIntervalAttr>()) {
+    if (const auto *DeclExpr =
+            dyn_cast<ConstantExpr>(DeclAttr->getIntervalExpr())) {
+      if (const auto *MergeExpr = dyn_cast<ConstantExpr>(A.getIntervalExpr())) {
+        if (DeclExpr->getResultAsAPSInt() != MergeExpr->getResultAsAPSInt()) {
+          Diag(DeclAttr->getLoc(), diag::warn_duplicate_attribute) << &A;
+          Diag(A.getLoc(), diag::note_previous_attribute);
+        }
+        // Do not add a duplicate attribute.
+        return nullptr;
+      }
+    }
+  }
+
+  return ::new (Context)
+      SYCLIntelFPGAInitiationIntervalAttr(Context, A, A.getIntervalExpr());
+}
+
+static void handleSYCLIntelFPGAInitiationIntervalAttr(Sema &S, Decl *D,
+                                                      const ParsedAttr &A) {
+  S.CheckDeprecatedSYCLAttributeSpelling(A);
+
+  S.AddSYCLIntelFPGAInitiationIntervalAttr(D, A, A.getArgAsExpr(0));
+}
+
 // Handle scheduler_target_fmax_mhz
 void Sema::AddSYCLIntelSchedulerTargetFmaxMhzAttr(Decl *D,
                                                   const AttributeCommonInfo &CI,
@@ -4172,10 +4234,12 @@ void Sema::AddSYCLIntelSchedulerTargetFmaxMhzAttr(Decl *D,
       // If the other attribute argument is instantiation dependent, we won't
       // have converted it to a constant expression yet and thus we test
       // whether this is a null pointer.
-      const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue());
-      if (DeclExpr && ArgVal != DeclExpr->getResultAsAPSInt()) {
-        Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
-        Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
+      if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+        if (ArgVal != DeclExpr->getResultAsAPSInt()) {
+          Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
+          Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
+        }
+        // Drop the duplicate attribute.
         return;
       }
     }
@@ -4192,13 +4256,16 @@ Sema::MergeSYCLIntelSchedulerTargetFmaxMhzAttr(
   // already applied to the declaration.
   if (const auto *DeclAttr =
           D->getAttr<SYCLIntelSchedulerTargetFmaxMhzAttr>()) {
-    const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue());
-    const auto *MergeExpr = dyn_cast<ConstantExpr>(A.getValue());
-    if (DeclExpr && MergeExpr &&
-        DeclExpr->getResultAsAPSInt() != MergeExpr->getResultAsAPSInt()) {
-      Diag(DeclAttr->getLoc(), diag::warn_duplicate_attribute) << &A;
-      Diag(A.getLoc(), diag::note_previous_attribute);
-      return nullptr;
+    if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+      if (const auto *MergeExpr = dyn_cast<ConstantExpr>(A.getValue())) {
+        if (DeclExpr->getResultAsAPSInt() != MergeExpr->getResultAsAPSInt()) {
+          Diag(DeclAttr->getLoc(), diag::warn_duplicate_attribute) << &A;
+          Diag(A.getLoc(), diag::note_previous_attribute);
+          return nullptr;
+        }
+        // Do not add a duplicate attribute.
+        return nullptr;
+      }
     }
   }
   return ::new (Context)
@@ -4272,15 +4339,6 @@ void Sema::AddSYCLIntelLoopFuseAttr(Decl *D, const AttributeCommonInfo &CI,
     // Check to see if there's a duplicate attribute with different values
     // already applied to the declaration.
     if (const auto *DeclAttr = D->getAttr<SYCLIntelLoopFuseAttr>()) {
-      // If the other attribute argument is instantiation dependent, we won't
-      // have converted it to a constant expression yet and thus we test
-      // whether this is a null pointer.
-      const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue());
-      if (DeclExpr && ArgVal != DeclExpr->getResultAsAPSInt()) {
-        Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
-        Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
-        return;
-      }
       // [[intel::loop_fuse]] and [[intel::loop_fuse_independent]] are
       // incompatible.
       // FIXME: If additional spellings are provided for this attribute,
@@ -4290,6 +4348,17 @@ void Sema::AddSYCLIntelLoopFuseAttr(Decl *D, const AttributeCommonInfo &CI,
         Diag(CI.getLoc(), diag::err_attributes_are_not_compatible)
             << CI << DeclAttr;
         Diag(DeclAttr->getLocation(), diag::note_conflicting_attribute);
+        return;
+      }
+      // If the other attribute argument is instantiation dependent, we won't
+      // have converted it to a constant expression yet and thus we test
+      // whether this is a null pointer.
+      if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+        if (ArgVal != DeclExpr->getResultAsAPSInt()) {
+          Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
+          Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
+        }
+        // Drop the duplicate attribute.
         return;
       }
     }
@@ -4303,14 +4372,6 @@ Sema::MergeSYCLIntelLoopFuseAttr(Decl *D, const SYCLIntelLoopFuseAttr &A) {
   // Check to see if there's a duplicate attribute with different values
   // already applied to the declaration.
   if (const auto *DeclAttr = D->getAttr<SYCLIntelLoopFuseAttr>()) {
-    const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue());
-    const auto *MergeExpr = dyn_cast<ConstantExpr>(A.getValue());
-    if (DeclExpr && MergeExpr &&
-        DeclExpr->getResultAsAPSInt() != MergeExpr->getResultAsAPSInt()) {
-      Diag(DeclAttr->getLoc(), diag::warn_duplicate_attribute) << &A;
-      Diag(A.getLoc(), diag::note_previous_attribute);
-      return nullptr;
-    }
     // [[intel::loop_fuse]] and [[intel::loop_fuse_independent]] are
     // incompatible.
     // FIXME: If additional spellings are provided for this attribute,
@@ -4321,6 +4382,16 @@ Sema::MergeSYCLIntelLoopFuseAttr(Decl *D, const SYCLIntelLoopFuseAttr &A) {
           << &A << DeclAttr;
       Diag(DeclAttr->getLoc(), diag::note_conflicting_attribute);
       return nullptr;
+    }
+    if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+      if (const auto *MergeExpr = dyn_cast<ConstantExpr>(A.getValue())) {
+        if (DeclExpr->getResultAsAPSInt() != MergeExpr->getResultAsAPSInt()) {
+          Diag(DeclAttr->getLoc(), diag::warn_duplicate_attribute) << &A;
+          Diag(A.getLoc(), diag::note_previous_attribute);
+        }
+        // Do not add a duplicate attribute.
+        return nullptr;
+      }
     }
   }
 
@@ -5683,20 +5754,6 @@ AlwaysInlineAttr *Sema::mergeAlwaysInlineAttr(Decl *D,
   return ::new (Context) AlwaysInlineAttr(Context, CI);
 }
 
-CommonAttr *Sema::mergeCommonAttr(Decl *D, const ParsedAttr &AL) {
-  if (checkAttrMutualExclusion<InternalLinkageAttr>(*this, D, AL))
-    return nullptr;
-
-  return ::new (Context) CommonAttr(Context, AL);
-}
-
-CommonAttr *Sema::mergeCommonAttr(Decl *D, const CommonAttr &AL) {
-  if (checkAttrMutualExclusion<InternalLinkageAttr>(*this, D, AL))
-    return nullptr;
-
-  return ::new (Context) CommonAttr(Context, AL);
-}
-
 InternalLinkageAttr *Sema::mergeInternalLinkageAttr(Decl *D,
                                                     const ParsedAttr &AL) {
   if (const auto *VD = dyn_cast<VarDecl>(D)) {
@@ -5714,9 +5771,6 @@ InternalLinkageAttr *Sema::mergeInternalLinkageAttr(Decl *D,
       return nullptr;
     }
   }
-
-  if (checkAttrMutualExclusion<CommonAttr>(*this, D, AL))
-    return nullptr;
 
   return ::new (Context) InternalLinkageAttr(Context, AL);
 }
@@ -5738,9 +5792,6 @@ Sema::mergeInternalLinkageAttr(Decl *D, const InternalLinkageAttr &AL) {
     }
   }
 
-  if (checkAttrMutualExclusion<CommonAttr>(*this, D, AL))
-    return nullptr;
-
   return ::new (Context) InternalLinkageAttr(Context, AL);
 }
 
@@ -5755,14 +5806,6 @@ MinSizeAttr *Sema::mergeMinSizeAttr(Decl *D, const AttributeCommonInfo &CI) {
     return nullptr;
 
   return ::new (Context) MinSizeAttr(Context, CI);
-}
-
-NoSpeculativeLoadHardeningAttr *Sema::mergeNoSpeculativeLoadHardeningAttr(
-    Decl *D, const NoSpeculativeLoadHardeningAttr &AL) {
-  if (checkAttrMutualExclusion<SpeculativeLoadHardeningAttr>(*this, D, AL))
-    return nullptr;
-
-  return ::new (Context) NoSpeculativeLoadHardeningAttr(Context, AL);
 }
 
 SwiftNameAttr *Sema::mergeSwiftNameAttr(Decl *D, const SwiftNameAttr &SNA,
@@ -5798,33 +5841,7 @@ OptimizeNoneAttr *Sema::mergeOptimizeNoneAttr(Decl *D,
   return ::new (Context) OptimizeNoneAttr(Context, CI);
 }
 
-SpeculativeLoadHardeningAttr *Sema::mergeSpeculativeLoadHardeningAttr(
-    Decl *D, const SpeculativeLoadHardeningAttr &AL) {
-  if (checkAttrMutualExclusion<NoSpeculativeLoadHardeningAttr>(*this, D, AL))
-    return nullptr;
-
-  return ::new (Context) SpeculativeLoadHardeningAttr(Context, AL);
-}
-
-PreferDSPAttr *Sema::mergePreferDSPAttr(Decl *D, const PreferDSPAttr &AL) {
-  if (checkAttrMutualExclusion<PreferSoftLogicAttr>(*this, D, AL))
-    return nullptr;
-
-  return ::new (Context) PreferDSPAttr(Context, AL);
-}
-
-PreferSoftLogicAttr *Sema::mergePreferSoftLogicAttr(
-    Decl *D, const PreferSoftLogicAttr &AL) {
-  if (checkAttrMutualExclusion<PreferDSPAttr>(*this, D, AL))
-    return nullptr;
-
-  return ::new (Context) PreferSoftLogicAttr(Context, AL);
-}
-
 static void handleAlwaysInlineAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-  if (checkAttrMutualExclusion<NotTailCalledAttr>(S, D, AL))
-    return;
-
   if (AlwaysInlineAttr *Inline =
           S.mergeAlwaysInlineAttr(D, AL, AL.getAttrName()))
     D->addAttr(Inline);
@@ -5897,9 +5914,6 @@ static void handleSYCLRegisterNumAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static void handleConstantAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-  if (checkAttrMutualExclusion<CUDASharedAttr>(S, D, AL) ||
-      checkAttrMutualExclusion<HIPManagedAttr>(S, D, AL))
-    return;
   const auto *VD = cast<VarDecl>(D);
   if (VD->hasLocalStorage()) {
     S.Diag(AL.getLoc(), diag::err_cuda_nonstatic_constdev);
@@ -5909,9 +5923,6 @@ static void handleConstantAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static void handleSharedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-  if (checkAttrMutualExclusion<CUDAConstantAttr>(S, D, AL) ||
-      checkAttrMutualExclusion<HIPManagedAttr>(S, D, AL))
-    return;
   const auto *VD = cast<VarDecl>(D);
   // extern __shared__ is only allowed on arrays with no length (e.g.
   // "int x[]").
@@ -5928,10 +5939,6 @@ static void handleSharedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static void handleGlobalAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-  if (checkAttrMutualExclusion<CUDADeviceAttr>(S, D, AL) ||
-      checkAttrMutualExclusion<CUDAHostAttr>(S, D, AL)) {
-    return;
-  }
   const auto *FD = cast<FunctionDecl>(D);
   if (!FD->getReturnType()->isVoidType() &&
       !FD->getReturnType()->getAs<AutoType>() &&
@@ -5965,10 +5972,6 @@ static void handleGlobalAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static void handleDeviceAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-  if (checkAttrMutualExclusion<CUDAGlobalAttr>(S, D, AL)) {
-    return;
-  }
-
   if (const auto *VD = dyn_cast<VarDecl>(D)) {
     if (VD->hasLocalStorage()) {
       S.Diag(AL.getLoc(), diag::err_cuda_nonstatic_constdev);
@@ -5985,11 +5988,6 @@ static void handleDeviceAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static void handleManagedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
-  if (checkAttrMutualExclusion<CUDAConstantAttr>(S, D, AL) ||
-      checkAttrMutualExclusion<CUDASharedAttr>(S, D, AL)) {
-    return;
-  }
-
   if (const auto *VD = dyn_cast<VarDecl>(D)) {
     if (VD->hasLocalStorage()) {
       S.Diag(AL.getLoc(), diag::err_cuda_nonstatic_constdev);
@@ -6142,7 +6140,10 @@ static void handleLifetimeCategoryAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   }
 
   // To check if earlier decl attributes do not conflict the newly parsed ones
-  // we always add (and check) the attribute to the cannonical decl.
+  // we always add (and check) the attribute to the cannonical decl. We need
+  // to repeat the check for attribute mutual exclusion because we're attaching
+  // all of the attributes to the canonical declaration rather than the current
+  // declaration.
   D = D->getCanonicalDecl();
   if (AL.getKind() == ParsedAttr::AT_Owner) {
     if (checkAttrMutualExclusion<PointerAttr>(S, D, AL))
@@ -6603,10 +6604,12 @@ void Sema::AddSYCLIntelNoGlobalWorkOffsetAttr(Decl *D,
       // If the other attribute argument is instantiation dependent, we won't
       // have converted it to a constant expression yet and thus we test
       // whether this is a null pointer.
-      const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue());
-      if (DeclExpr && ArgVal != DeclExpr->getResultAsAPSInt()) {
-        Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
-        Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
+      if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+        if (ArgVal != DeclExpr->getResultAsAPSInt()) {
+          Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
+          Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
+        }
+        // Drop the duplicate attribute.
         return;
       }
     }
@@ -6620,13 +6623,15 @@ SYCLIntelNoGlobalWorkOffsetAttr *Sema::MergeSYCLIntelNoGlobalWorkOffsetAttr(
   // Check to see if there's a duplicate attribute with different values
   // already applied to the declaration.
   if (const auto *DeclAttr = D->getAttr<SYCLIntelNoGlobalWorkOffsetAttr>()) {
-    const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue());
-    const auto *MergeExpr = dyn_cast<ConstantExpr>(A.getValue());
-    if (DeclExpr && MergeExpr &&
-        DeclExpr->getResultAsAPSInt() != MergeExpr->getResultAsAPSInt()) {
-      Diag(DeclAttr->getLoc(), diag::warn_duplicate_attribute) << &A;
-      Diag(A.getLoc(), diag::note_previous_attribute);
-      return nullptr;
+    if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+      if (const auto *MergeExpr = dyn_cast<ConstantExpr>(A.getValue())) {
+        if (DeclExpr->getResultAsAPSInt() != MergeExpr->getResultAsAPSInt()) {
+          Diag(DeclAttr->getLoc(), diag::warn_duplicate_attribute) << &A;
+          Diag(A.getLoc(), diag::note_previous_attribute);
+        }
+        // Do not add a duplicate attribute.
+        return nullptr;
+      }
     }
   }
   return ::new (Context)
@@ -6646,10 +6651,9 @@ static void handleSYCLIntelNoGlobalWorkOffsetAttr(Sema &S, Decl *D,
   S.AddSYCLIntelNoGlobalWorkOffsetAttr(D, A, E);
 }
 
-/// Handle the [[intelfpga::doublepump]] and [[intelfpga::singlepump]] attributes.
-/// One but not both can be specified
-/// Both are incompatible with the __register__ attribute.
-template <typename AttrType, typename IncompatAttrType>
+/// Handle the [[intelfpga::doublepump]] and [[intelfpga::singlepump]]
+/// attributes.
+template <typename AttrType>
 static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &A) {
 #if INTEL_CUSTOMIZATION
   if (checkValidSYCLSpelling(S, A))
@@ -6657,11 +6661,6 @@ static void handleIntelFPGAPumpAttr(Sema &S, Decl *D, const ParsedAttr &A) {
 #endif // INTEL_CUSTOMIZATION
 
   checkForDuplicateAttribute<AttrType>(S, D, A);
-  if (checkAttrMutualExclusion<IncompatAttrType>(S, D, A))
-    return;
-
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, A))
-    return;
 
   if (!D->hasAttr<IntelFPGAMemoryAttr>())
     D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
@@ -6721,14 +6720,6 @@ static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
     if (!MA->isImplicit() &&
         checkAttrMutualExclusion<IntelFPGAMemoryAttr>(S, D, Attr))
       InCompat = true;
-  if (checkAttrMutualExclusion<IntelFPGADoublePumpAttr>(S, D, Attr))
-    InCompat = true;
-  if (checkAttrMutualExclusion<IntelFPGASinglePumpAttr>(S, D, Attr))
-    InCompat = true;
-  if (checkAttrMutualExclusion<IntelFPGABankWidthAttr>(S, D, Attr))
-    InCompat = true;
-  if (checkAttrMutualExclusion<IntelFPGAPrivateCopiesAttr>(S, D, Attr))
-    InCompat = true;
   if (auto *NBA = D->getAttr<IntelFPGANumBanksAttr>())
     if (!NBA->isImplicit() &&
         checkAttrMutualExclusion<IntelFPGANumBanksAttr>(S, D, Attr))
@@ -6736,19 +6727,7 @@ static bool checkIntelFPGARegisterAttrCompatibility(Sema &S, Decl *D,
 #if INTEL_CUSTOMIZATION
   if (checkAttrMutualExclusion<MaxConcurrencyAttr>(S, D, Attr))
     InCompat = true;
-  if (checkAttrMutualExclusion<StaticArrayResetAttr>(S, D, Attr))
-    InCompat = true;
 #endif // INTEL_CUSTOMIZATION
-  if (checkAttrMutualExclusion<IntelFPGAMaxReplicatesAttr>(S, D, Attr))
-    InCompat = true;
-  if (checkAttrMutualExclusion<IntelFPGASimpleDualPortAttr>(S, D, Attr))
-    InCompat = true;
-  if (checkAttrMutualExclusion<IntelFPGAMergeAttr>(S, D, Attr))
-    InCompat = true;
-  if (checkAttrMutualExclusion<IntelFPGABankBitsAttr>(S, D, Attr))
-    InCompat = true;
-  if (checkAttrMutualExclusion<IntelFPGAForcePow2DepthAttr>(S, D, Attr))
-    InCompat = true;
 
   return InCompat;
 }
@@ -6801,9 +6780,6 @@ static void handleIntelFPGASimpleDualPortAttr(Sema &S, Decl *D,
 
   checkForDuplicateAttribute<IntelFPGASimpleDualPortAttr>(S, D, AL);
 
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, AL))
-    return;
-
   if (!D->hasAttr<IntelFPGAMemoryAttr>())
     D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
         S.Context, IntelFPGAMemoryAttr::Default));
@@ -6837,10 +6813,12 @@ void Sema::AddIntelFPGAMaxReplicatesAttr(Decl *D, const AttributeCommonInfo &CI,
       // If the other attribute argument is instantiation dependent, we won't
       // have converted it to a constant expression yet and thus we test
       // whether this is a null pointer.
-      const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue());
-      if (DeclExpr && ArgVal != DeclExpr->getResultAsAPSInt()) {
-        Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
-        Diag(DeclAttr->getLocation(), diag::note_previous_attribute);
+      if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+        if (ArgVal != DeclExpr->getResultAsAPSInt()) {
+          Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
+          Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
+        }
+        // Drop the duplicate attribute.
         return;
       }
     }
@@ -6856,6 +6834,12 @@ void Sema::AddIntelFPGAMaxReplicatesAttr(Decl *D, const AttributeCommonInfo &CI,
           Context, IntelFPGAMemoryAttr::Default));
   }
 
+  // If the declaration does not have an [[intel::fpga_memory]]
+  // attribute, this creates one as an implicit attribute.
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        Context, IntelFPGAMemoryAttr::Default));
+
   D->addAttr(::new (Context) IntelFPGAMaxReplicatesAttr(Context, CI, E));
 }
 
@@ -6865,19 +6849,17 @@ Sema::MergeIntelFPGAMaxReplicatesAttr(Decl *D,
   // Check to see if there's a duplicate attribute with different values
   // already applied to the declaration.
   if (const auto *DeclAttr = D->getAttr<IntelFPGAMaxReplicatesAttr>()) {
-    const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue());
-    const auto *MergeExpr = dyn_cast<ConstantExpr>(A.getValue());
-    if (DeclExpr && MergeExpr &&
-        DeclExpr->getResultAsAPSInt() != MergeExpr->getResultAsAPSInt()) {
-      Diag(DeclAttr->getLoc(), diag::warn_duplicate_attribute) << &A;
-      Diag(A.getLoc(), diag::note_previous_attribute);
-      return nullptr;
+    if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+      if (const auto *MergeExpr = dyn_cast<ConstantExpr>(A.getValue())) {
+        if (DeclExpr->getResultAsAPSInt() != MergeExpr->getResultAsAPSInt()) {
+          Diag(DeclAttr->getLoc(), diag::warn_duplicate_attribute) << &A;
+          Diag(A.getLoc(), diag::note_previous_attribute);
+        }
+        // Do not add a duplicate attribute.
+        return nullptr;
+      }
     }
   }
-  // [[intel::fpga_register]] and [[intel::max_replicates()]]
-  // attributes are incompatible.
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(*this, D, A))
-    return nullptr;
 
   return ::new (Context) IntelFPGAMaxReplicatesAttr(Context, A, A.getValue());
 }
@@ -6906,9 +6888,6 @@ static void handleIntelFPGAMergeAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 #endif // INTEL
 
   checkForDuplicateAttribute<IntelFPGAMergeAttr>(S, D, AL);
-
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, AL))
-    return;
 
   SmallVector<StringRef, 2> Results;
   for (int I = 0; I < 2; I++) {
@@ -6950,9 +6929,6 @@ static void handleIntelFPGABankBitsAttr(Sema &S, Decl *D, const ParsedAttr &A) {
   checkForDuplicateAttribute<IntelFPGABankBitsAttr>(S, D, A);
 
   if (!A.checkAtLeastNumArgs(S, 1))
-    return;
-
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, A))
     return;
 
   SmallVector<Expr *, 8> Args;
@@ -7051,23 +7027,22 @@ void Sema::AddIntelFPGAPrivateCopiesAttr(Decl *D, const AttributeCommonInfo &CI,
       // If the other attribute argument is instantiation dependent, we won't
       // have converted it to a constant expression yet and thus we test
       // whether this is a null pointer.
-      const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue());
-      if (DeclExpr && ArgVal != DeclExpr->getResultAsAPSInt()) {
-        Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
-        Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
+      if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+        if (ArgVal != DeclExpr->getResultAsAPSInt()) {
+          Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
+          Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
+        }
+        // Drop the duplicate attribute.
         return;
       }
     }
-    // [[intel::fpga_register]] and [[intel::private_copies()]]
-    // attributes are incompatible.
-    if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(*this, D, CI))
-      return;
-    // If the declaration does not have [[intel::memory]]
-    // attribute, this creates default implicit memory.
-    if (!D->hasAttr<IntelFPGAMemoryAttr>())
-      D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-          Context, IntelFPGAMemoryAttr::Default));
   }
+
+  // If the declaration does not have [[intel::memory]]
+  // attribute, this creates default implicit memory.
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        Context, IntelFPGAMemoryAttr::Default));
 
   D->addAttr(::new (Context) IntelFPGAPrivateCopiesAttr(Context, CI, E));
 }
@@ -7084,6 +7059,73 @@ static void handleIntelFPGAPrivateCopiesAttr(Sema &S, Decl *D,
   S.AddIntelFPGAPrivateCopiesAttr(D, A, A.getArgAsExpr(0));
 }
 
+void Sema::AddIntelFPGAForcePow2DepthAttr(Decl *D,
+                                          const AttributeCommonInfo &CI,
+                                          Expr *E) {
+  if (!E->isValueDependent()) {
+    // Validate that we have an integer constant expression and then store the
+    // converted constant expression into the semantic attribute so that we
+    // don't have to evaluate it again later.
+    llvm::APSInt ArgVal;
+    ExprResult Res = VerifyIntegerConstantExpression(E, &ArgVal);
+    if (Res.isInvalid())
+      return;
+    E = Res.get();
+
+    // This attribute requires a range of values.
+    if (ArgVal < 0 || ArgVal > 1) {
+      Diag(E->getBeginLoc(), diag::err_attribute_argument_out_of_range)
+          << CI << 0 << 1 << E->getSourceRange();
+      return;
+    }
+
+    // Check to see if there's a duplicate attribute with different values
+    // already applied to the declaration.
+    if (const auto *DeclAttr = D->getAttr<IntelFPGAForcePow2DepthAttr>()) {
+      // If the other attribute argument is instantiation dependent, we won't
+      // have converted it to a constant expression yet and thus we test
+      // whether this is a null pointer.
+      if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+        if (ArgVal != DeclExpr->getResultAsAPSInt()) {
+          Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
+          Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
+        }
+        // If there is no mismatch, drop any duplicate attributes.
+        return;
+      }
+    }
+  }
+
+  // If the declaration does not have an [[intel::fpga_memory]]
+  // attribute, this creates one as an implicit attribute.
+  if (!D->hasAttr<IntelFPGAMemoryAttr>())
+    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
+        Context, IntelFPGAMemoryAttr::Default));
+
+  D->addAttr(::new (Context) IntelFPGAForcePow2DepthAttr(Context, CI, E));
+}
+
+IntelFPGAForcePow2DepthAttr *
+Sema::MergeIntelFPGAForcePow2DepthAttr(Decl *D,
+                                       const IntelFPGAForcePow2DepthAttr &A) {
+  // Check to see if there's a duplicate attribute with different values
+  // already applied to the declaration.
+  if (const auto *DeclAttr = D->getAttr<IntelFPGAForcePow2DepthAttr>()) {
+    if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+      if (const auto *MergeExpr = dyn_cast<ConstantExpr>(A.getValue())) {
+        if (DeclExpr->getResultAsAPSInt() != MergeExpr->getResultAsAPSInt()) {
+          Diag(DeclAttr->getLoc(), diag::warn_duplicate_attribute) << &A;
+          Diag(A.getLoc(), diag::note_previous_attribute);
+        }
+        // If there is no mismatch, drop any duplicate attributes.
+        return nullptr;
+      }
+    }
+  }
+
+  return ::new (Context) IntelFPGAForcePow2DepthAttr(Context, A, A.getValue());
+}
+
 static void handleIntelFPGAForcePow2DepthAttr(Sema &S, Decl *D,
                                               const ParsedAttr &A) {
 #if INTEL_CUSTOMIZATION
@@ -7091,19 +7133,9 @@ static void handleIntelFPGAForcePow2DepthAttr(Sema &S, Decl *D,
    return;
 #endif // INTEL_CUSTOMIZATION
 
-  checkForDuplicateAttribute<IntelFPGAForcePow2DepthAttr>(S, D, A);
-
-  if (checkAttrMutualExclusion<IntelFPGARegisterAttr>(S, D, A))
-    return;
-
-  if (!D->hasAttr<IntelFPGAMemoryAttr>())
-    D->addAttr(IntelFPGAMemoryAttr::CreateImplicit(
-        S.Context, IntelFPGAMemoryAttr::Default));
-
   S.CheckDeprecatedSYCLAttributeSpelling(A);
 
-  S.AddOneConstantValueAttr<IntelFPGAForcePow2DepthAttr>(D, A,
-                                                         A.getArgAsExpr(0));
+  S.AddIntelFPGAForcePow2DepthAttr(D, A, A.getArgAsExpr(0));
 }
 
 static void handleXRayLogArgsAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -7176,6 +7208,64 @@ static void handleSYCLIntelPipeIOAttr(Sema &S, Decl *D,
 
   Expr *E = Attr.getArgAsExpr(0);
   S.addSYCLIntelPipeIOAttr(D, Attr, E);
+}
+
+SYCLIntelFPGAMaxConcurrencyAttr *Sema::MergeSYCLIntelFPGAMaxConcurrencyAttr(
+    Decl *D, const SYCLIntelFPGAMaxConcurrencyAttr &A) {
+  // Check to see if there's a duplicate attribute with different values
+  // already applied to the declaration.
+  if (const auto *DeclAttr = D->getAttr<SYCLIntelFPGAMaxConcurrencyAttr>()) {
+    const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getNThreadsExpr());
+    const auto *MergeExpr = dyn_cast<ConstantExpr>(A.getNThreadsExpr());
+    if (DeclExpr && MergeExpr &&
+        DeclExpr->getResultAsAPSInt() != MergeExpr->getResultAsAPSInt()) {
+      Diag(DeclAttr->getLoc(), diag::warn_duplicate_attribute) << &A;
+      Diag(A.getLoc(), diag::note_previous_attribute);
+    }
+    return nullptr;
+  }
+
+  return ::new (Context)
+      SYCLIntelFPGAMaxConcurrencyAttr(Context, A, A.getNThreadsExpr());
+}
+
+void Sema::AddSYCLIntelFPGAMaxConcurrencyAttr(Decl *D,
+                                              const AttributeCommonInfo &CI,
+                                              Expr *E) {
+  if (!E->isValueDependent()) {
+    llvm::APSInt ArgVal;
+    ExprResult Res = VerifyIntegerConstantExpression(E, &ArgVal);
+    if (Res.isInvalid())
+      return;
+    E = Res.get();
+
+    // This attribute requires a non-negative value.
+    if (ArgVal < 0) {
+      Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
+          << CI << /*non-negative*/ 1;
+      return;
+    }
+
+    if (const auto *DeclAttr = D->getAttr<SYCLIntelFPGAMaxConcurrencyAttr>()) {
+      const auto *DeclExpr =
+          dyn_cast<ConstantExpr>(DeclAttr->getNThreadsExpr());
+      if (DeclExpr && ArgVal != DeclExpr->getResultAsAPSInt()) {
+        Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
+        Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
+      }
+      return;
+    }
+  }
+
+  D->addAttr(::new (Context) SYCLIntelFPGAMaxConcurrencyAttr(Context, CI, E));
+}
+
+static void handleSYCLIntelFPGAMaxConcurrencyAttr(Sema &S, Decl *D,
+                                                  const ParsedAttr &A) {
+  S.CheckDeprecatedSYCLAttributeSpelling(A);
+
+  Expr *E = A.getArgAsExpr(0);
+  S.AddSYCLIntelFPGAMaxConcurrencyAttr(D, A, E);
 }
 
 namespace {
@@ -7856,7 +7946,7 @@ static void checkSwiftAsyncErrorBlock(Sema &S, Decl *D,
   // handleSwiftAsyncAttr already verified the type is correct, so no need to
   // double-check it here.
   const auto *FuncTy = HandlerParam->getType()
-                           ->getAs<BlockPointerType>()
+                           ->castAs<BlockPointerType>()
                            ->getPointeeType()
                            ->getAs<FunctionProtoType>();
   ArrayRef<QualType> BlockParams;
@@ -8333,8 +8423,8 @@ static void handleSwiftAsyncAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
       return;
     }
     QualType BlockTy =
-        CompletionBlockType->getAs<BlockPointerType>()->getPointeeType();
-    if (!BlockTy->getAs<FunctionType>()->getReturnType()->isVoidType()) {
+        CompletionBlockType->castAs<BlockPointerType>()->getPointeeType();
+    if (!BlockTy->castAs<FunctionType>()->getReturnType()->isVoidType()) {
       S.Diag(CompletionBlock->getLocation(),
              diag::err_swift_async_bad_block_type)
           << CompletionBlock->getType();
@@ -8610,6 +8700,8 @@ static void handleMipsInterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
   }
 
+  // We still have to do this manually because the Interrupt attributes are
+  // a bit special due to sharing their spellings across targets.
   if (checkAttrMutualExclusion<Mips16Attr>(S, D, AL))
     return;
 
@@ -9389,48 +9481,6 @@ static void handleOpenCLNoSVMAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
                                                                    << "2.0";
 }
 
-/// Handles semantic checking for features that are common to all attributes,
-/// such as checking whether a parameter was properly specified, or the correct
-/// number of arguments were passed, etc.
-static bool handleCommonAttributeFeatures(Sema &S, Decl *D,
-                                          const ParsedAttr &AL) {
-  // Several attributes carry different semantics than the parsing requires, so
-  // those are opted out of the common argument checks.
-  //
-  // We also bail on unknown and ignored attributes because those are handled
-  // as part of the target-specific handling logic.
-  if (AL.getKind() == ParsedAttr::UnknownAttribute)
-    return false;
-  // Check whether the attribute requires specific language extensions to be
-  // enabled.
-  if (!AL.diagnoseLangOpts(S))
-    return true;
-  // Check whether the attribute appertains to the given subject.
-  if (!AL.diagnoseAppertainsTo(S, D))
-    return true;
-  if (AL.hasCustomParsing())
-    return false;
-
-  if (AL.getMinArgs() == AL.getMaxArgs()) {
-    // If there are no optional arguments, then checking for the argument count
-    // is trivial.
-    if (!AL.checkExactlyNumArgs(S, AL.getMinArgs()))
-      return true;
-  } else {
-    // There are optional arguments, so checking is slightly more involved.
-    if (AL.getMinArgs() && !AL.checkAtLeastNumArgs(S, AL.getMinArgs()))
-      return true;
-    else if (!AL.hasVariadicArg() && AL.getMaxArgs() &&
-             !AL.checkAtMostNumArgs(S, AL.getMaxArgs()))
-      return true;
-  }
-
-  if (S.CheckAttrTarget(AL))
-    return true;
-
-  return false;
-}
-
 static void handleOpenCLAccessAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (D->isInvalidDecl())
     return;
@@ -9519,9 +9569,9 @@ static void handleDestroyAttr(Sema &S, Decl *D, const ParsedAttr &A) {
   }
 
   if (A.getKind() == ParsedAttr::AT_AlwaysDestroy)
-    handleSimpleAttributeWithExclusions<AlwaysDestroyAttr, NoDestroyAttr>(S, D, A);
+    handleSimpleAttribute<AlwaysDestroyAttr>(S, D, A);
   else
-    handleSimpleAttributeWithExclusions<NoDestroyAttr, AlwaysDestroyAttr>(S, D, A);
+    handleSimpleAttribute<NoDestroyAttr>(S, D, A);
 }
 
 static void handleUninitializedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -9777,7 +9827,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   // Ignore C++11 attributes on declarator chunks: they appertain to the type
   // instead.
   if (AL.isCXX11Attribute() && !IncludeCXX11Attributes &&
-      (!IsDeclLambdaCallOperator(D) || !AL.isAllowedOnLambdas()))
+      (!IsDeclLambdaCallOperator(D) || !AL.supportsNonconformingLambdaSyntax()))
     return;
 
   // Unknown attributes are automatically warned on. Target-specific attributes
@@ -9796,7 +9846,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     return;
   }
 
-  if (handleCommonAttributeFeatures(S, D, AL))
+  if (S.checkCommonAttributeFeatures(D, AL))
     return;
 
   switch (AL.getKind()) {
@@ -9808,6 +9858,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
       assert(AL.isTypeAttr() && "Non-type attribute not handled");
       break;
     }
+    // N.B., ClangAttrEmitter.cpp emits a diagnostic helper that ensures a
+    // statement attribute is not written on a declaration, but this code is
+    // needed for attributes in Attr.td that do not list any subjects.
     S.Diag(AL.getLoc(), diag::err_stmt_attribute_invalid_on_decl)
         << AL << D->getLocation();
     break;
@@ -9820,21 +9873,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_DLLExport:
   case ParsedAttr::AT_DLLImport:
     handleDLLAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_Mips16:
-    handleSimpleAttributeWithExclusions<Mips16Attr, MicroMipsAttr,
-                                        MipsInterruptAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_MicroMips:
-    handleSimpleAttributeWithExclusions<MicroMipsAttr, Mips16Attr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_MipsLongCall:
-    handleSimpleAttributeWithExclusions<MipsLongCallAttr, MipsShortCallAttr>(
-        S, D, AL);
-    break;
-  case ParsedAttr::AT_MipsShortCall:
-    handleSimpleAttributeWithExclusions<MipsShortCallAttr, MipsLongCallAttr>(
-        S, D, AL);
     break;
   case ParsedAttr::AT_AMDGPUFlatWorkGroupSize:
     handleAMDGPUFlatWorkGroupSizeAttr(S, D, AL);
@@ -9956,12 +9994,10 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleSimpleAttribute<HLSDeviceAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_PreferDSP:
-    handleSimpleAttributeWithExclusions<PreferDSPAttr,
-                                        PreferSoftLogicAttr>(S, D, AL);
+    handleSimpleAttribute<PreferDSPAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_PreferSoftLogic:
-    handleSimpleAttributeWithExclusions<PreferSoftLogicAttr,
-                                        PreferDSPAttr>(S, D, AL);
+    handleSimpleAttribute<PreferSoftLogicAttr>(S, D, AL);
     break;
 #endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_SYCLKernel:
@@ -10002,21 +10038,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_CUDADevice:
     handleDeviceAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_CUDAHost:
-    handleSimpleAttributeWithExclusions<CUDAHostAttr, CUDAGlobalAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_HIPManaged:
     handleManagedAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_CUDADeviceBuiltinSurfaceType:
-    handleSimpleAttributeWithExclusions<CUDADeviceBuiltinSurfaceTypeAttr,
-                                        CUDADeviceBuiltinTextureTypeAttr>(S, D,
-                                                                          AL);
-    break;
-  case ParsedAttr::AT_CUDADeviceBuiltinTextureType:
-    handleSimpleAttributeWithExclusions<CUDADeviceBuiltinTextureTypeAttr,
-                                        CUDADeviceBuiltinSurfaceTypeAttr>(S, D,
-                                                                          AL);
     break;
   case ParsedAttr::AT_GNUInline:
     handleGNUInlineAttr(S, D, AL);
@@ -10051,12 +10074,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_Ownership:
     handleOwnershipAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_Cold:
-    handleSimpleAttributeWithExclusions<ColdAttr, HotAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_Hot:
-    handleSimpleAttributeWithExclusions<HotAttr, ColdAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_Naked:
     handleNakedAttr(S, D, AL);
     break;
@@ -10065,9 +10082,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_AnyX86NoCfCheck:
     handleNoCfCheckAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_Leaf:
-    handleSimpleAttribute<LeafAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_NoThrow:
     if (!AL.isUsedAsTypeAttr())
@@ -10111,14 +10125,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_NSErrorDomain:
     handleNSErrorDomain(S, D, AL);
-    break;
-  case ParsedAttr::AT_CFAuditedTransfer:
-    handleSimpleAttributeWithExclusions<CFAuditedTransferAttr,
-                                        CFUnknownTransferAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_CFUnknownTransfer:
-    handleSimpleAttributeWithExclusions<CFUnknownTransferAttr,
-                                        CFAuditedTransferAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_CFConsumed:
   case ParsedAttr::AT_NSConsumed:
@@ -10177,14 +10183,16 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_SYCLIntelLoopFuse:
     handleSYCLIntelLoopFuseAttr(S, D, AL);
     break;
+  case ParsedAttr::AT_SYCLIntelFPGADisableLoopPipelining:
+    handleSYCLIntelFPGADisableLoopPipeliningAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_SYCLIntelFPGAInitiationInterval:
+    handleSYCLIntelFPGAInitiationIntervalAttr(S, D, AL);
+    break;
   case ParsedAttr::AT_VecTypeHint:
     handleVecTypeHint(S, D, AL);
     break;
   case ParsedAttr::AT_InitPriority:
-    if (S.Context.getTargetInfo().getTriple().isOSAIX())
-      llvm::report_fatal_error(
-          "'init_priority' attribute is not yet supported on AIX");
-    else
       handleInitPriorityAttr(S, D, AL);
     break;
   case ParsedAttr::AT_Packed:
@@ -10195,15 +10203,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_Section:
     handleSectionAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_SpeculativeLoadHardening:
-    handleSimpleAttributeWithExclusions<SpeculativeLoadHardeningAttr,
-                                        NoSpeculativeLoadHardeningAttr>(S, D,
-                                                                        AL);
-    break;
-  case ParsedAttr::AT_NoSpeculativeLoadHardening:
-    handleSimpleAttributeWithExclusions<NoSpeculativeLoadHardeningAttr,
-                                        SpeculativeLoadHardeningAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_CodeSeg:
     handleCodeSegAttr(S, D, AL);
@@ -10223,9 +10222,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_ObjCDirect:
     handleObjCDirectAttr(S, D, AL);
     break;
-  case ParsedAttr::AT_ObjCNonRuntimeProtocol:
-    handleObjCNonRuntimeProtocolAttr(S, D, AL);
-    break;
   case ParsedAttr::AT_ObjCDirectMembers:
     handleObjCDirectMembersAttr(S, D, AL);
     handleSimpleAttribute<ObjCDirectMembersAttr>(S, D, AL);
@@ -10235,17 +10231,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_Unused:
     handleUnusedAttr(S, D, AL);
-    break;
-  case ParsedAttr::AT_NotTailCalled:
-    handleSimpleAttributeWithExclusions<NotTailCalledAttr, AlwaysInlineAttr>(
-        S, D, AL);
-    break;
-  case ParsedAttr::AT_DisableTailCalls:
-    handleSimpleAttributeWithExclusions<DisableTailCallsAttr, NakedAttr>(S, D,
-                                                                         AL);
-    break;
-  case ParsedAttr::AT_NoMerge:
-    handleSimpleAttribute<NoMergeAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_Visibility:
     handleVisibilityAttr(S, D, AL, false);
@@ -10450,12 +10435,10 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 
   // Intel FPGA specific attributes
   case ParsedAttr::AT_IntelFPGADoublePump:
-    handleIntelFPGAPumpAttr<IntelFPGADoublePumpAttr, IntelFPGASinglePumpAttr>(
-        S, D, AL);
+    handleIntelFPGAPumpAttr<IntelFPGADoublePumpAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGASinglePump:
-    handleIntelFPGAPumpAttr<IntelFPGASinglePumpAttr, IntelFPGADoublePumpAttr>(
-        S, D, AL);
+    handleIntelFPGAPumpAttr<IntelFPGASinglePumpAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_IntelFPGAMemory:
     handleIntelFPGAMemoryAttr(S, D, AL);
@@ -10581,6 +10564,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_SYCLIntelPipeIO:
     handleSYCLIntelPipeIOAttr(S, D, AL);
     break;
+  case ParsedAttr::AT_SYCLIntelFPGAMaxConcurrency:
+    handleSYCLIntelFPGAMaxConcurrencyAttr(S, D, AL);
+    break;
 
   // Swift attributes.
   case ParsedAttr::AT_SwiftAsyncName:
@@ -10592,9 +10578,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_SwiftBridge:
     handleSwiftBridge(S, D, AL);
     break;
-  case ParsedAttr::AT_SwiftBridgedTypedef:
-    handleSimpleAttribute<SwiftBridgedTypedefAttr>(S, D, AL);
-    break;
   case ParsedAttr::AT_SwiftError:
     handleSwiftError(S, D, AL);
     break;
@@ -10603,12 +10586,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     break;
   case ParsedAttr::AT_SwiftNewType:
     handleSwiftNewType(S, D, AL);
-    break;
-  case ParsedAttr::AT_SwiftObjCMembers:
-    handleSimpleAttribute<SwiftObjCMembersAttr>(S, D, AL);
-    break;
-  case ParsedAttr::AT_SwiftPrivate:
-    handleSimpleAttribute<SwiftPrivateAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_SwiftAsync:
     handleSwiftAsyncAttr(S, D, AL);
@@ -10633,10 +10610,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 
   case ParsedAttr::AT_Uninitialized:
     handleUninitializedAttr(S, D, AL);
-    break;
-
-  case ParsedAttr::AT_LoaderUninitialized:
-    handleSimpleAttribute<LoaderUninitializedAttr>(S, D, AL);
     break;
 
   case ParsedAttr::AT_ObjCExternallyRetained:

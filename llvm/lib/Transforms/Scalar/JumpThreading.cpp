@@ -34,6 +34,7 @@
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"   // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/PostDominators.h"           // INTEL
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -1424,6 +1425,7 @@ bool JumpThreadingPass::processBlock(BasicBlock *BB) {
     LLVM_DEBUG(dbgs() << "  In block '" << BB->getName()
                       << "' folding undef terminator: " << *BBTerm << '\n');
     BranchInst::Create(BBTerm->getSuccessor(BestSucc), BBTerm);
+    ++NumFolds;
     BBTerm->eraseFromParent();
     DTU->applyUpdatesPermissive(Updates);
     if (FI)
@@ -1469,8 +1471,8 @@ bool JumpThreadingPass::processBlock(BasicBlock *BB) {
       assert(CondBr->isConditional() && "Threading on unconditional terminator");
 
       LazyValueInfo::Tristate Ret =
-        LVI->getPredicateAt(CondCmp->getPredicate(), CondCmp->getOperand(0),
-                            CondConst, CondBr);
+          LVI->getPredicateAt(CondCmp->getPredicate(), CondCmp->getOperand(0),
+                              CondConst, CondBr, /*UseBlockValue=*/false);
       if (Ret != LazyValueInfo::Unknown) {
         unsigned ToRemove = Ret == LazyValueInfo::True ? 1 : 0;
         unsigned ToKeep = Ret == LazyValueInfo::True ? 0 : 1;
@@ -1479,6 +1481,7 @@ bool JumpThreadingPass::processBlock(BasicBlock *BB) {
         BranchInst *UncondBr =
           BranchInst::Create(CondBr->getSuccessor(ToKeep), CondBr);
         UncondBr->setDebugLoc(CondBr->getDebugLoc());
+        ++NumFolds;
         CondBr->eraseFromParent();
         if (CondCmp->use_empty())
           CondCmp->eraseFromParent();
@@ -1834,6 +1837,7 @@ bool JumpThreadingPass::processImpliedCondition(BasicBlock *BB) {
       RemoveSucc->removePredecessor(BB);
       BranchInst *UncondBI = BranchInst::Create(KeepSucc, BI);
       UncondBI->setDebugLoc(BI->getDebugLoc());
+      ++NumFolds;
       BI->eraseFromParent();
       DTU->applyUpdatesPermissive({{DominatorTree::Delete, BB, RemoveSucc}});
       if (HasProfileData)
@@ -1943,10 +1947,14 @@ bool JumpThreadingPass::simplifyPartiallyRedundantLoad(LoadInst *LoadI) {
            "Attempting to CSE volatile or atomic loads");
     // If this is a load on a phi pointer, phi-translate it and search
     // for available load/store to the pointer in predecessors.
-    Value *Ptr = LoadedPtr->DoPHITranslation(LoadBB, PredBB);
-    PredAvailable = FindAvailablePtrLoadStore(
-        Ptr, LoadI->getType(), LoadI->isAtomic(), PredBB, BBIt,
-        DefMaxInstsToScan, AA, &IsLoadCSE, &NumScanedInst);
+    Type *AccessTy = LoadI->getType();
+    const auto &DL = LoadI->getModule()->getDataLayout();
+    MemoryLocation Loc(LoadedPtr->DoPHITranslation(LoadBB, PredBB),
+                       LocationSize::precise(DL.getTypeStoreSize(AccessTy)),
+                       AATags);
+    PredAvailable = findAvailablePtrLoadStore(Loc, AccessTy, LoadI->isAtomic(),
+                                              PredBB, BBIt, DefMaxInstsToScan,
+                                              AA, &IsLoadCSE, &NumScanedInst);
 
     // If PredBB has a single predecessor, continue scanning through the
     // single predecessor.
@@ -1956,8 +1964,8 @@ bool JumpThreadingPass::simplifyPartiallyRedundantLoad(LoadInst *LoadI) {
       SinglePredBB = SinglePredBB->getSinglePredecessor();
       if (SinglePredBB) {
         BBIt = SinglePredBB->end();
-        PredAvailable = FindAvailablePtrLoadStore(
-            Ptr, LoadI->getType(), LoadI->isAtomic(), SinglePredBB, BBIt,
+        PredAvailable = findAvailablePtrLoadStore(
+            Loc, AccessTy, LoadI->isAtomic(), SinglePredBB, BBIt,
             (DefMaxInstsToScan - NumScanedInst), AA, &IsLoadCSE,
             &NumScanedInst);
       }
@@ -2314,6 +2322,7 @@ bool JumpThreadingPass::processThreadableEdges(Value *Cond, BasicBlock *BB,
       // Finally update the terminator.
       Instruction *Term = BB->getTerminator();
       BranchInst::Create(OnlyDest, Term);
+      ++NumFolds;
       Term->eraseFromParent();
       DTU->applyUpdatesPermissive(Updates);
       if (HasProfileData)

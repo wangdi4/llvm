@@ -715,7 +715,7 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
         Triple.getVendor() != llvm::Triple::UnknownVendor ||
         !Triple.isOSBinFormatWasm())
       return nullptr;
-    switch (Triple.getOS()) {
+    switch (os) {
       case llvm::Triple::WASI:
         return new WASITargetInfo<WebAssembly32TargetInfo>(Triple, Opts);
       case llvm::Triple::Emscripten:
@@ -730,7 +730,7 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
         Triple.getVendor() != llvm::Triple::UnknownVendor ||
         !Triple.isOSBinFormatWasm())
       return nullptr;
-    switch (Triple.getOS()) {
+    switch (os) {
       case llvm::Triple::WASI:
         return new WASITargetInfo<WebAssembly64TargetInfo>(Triple, Opts);
       case llvm::Triple::Emscripten:

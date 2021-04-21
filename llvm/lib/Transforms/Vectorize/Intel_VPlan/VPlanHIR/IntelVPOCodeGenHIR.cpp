@@ -1417,7 +1417,9 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
       llvm_unreachable(
           "HIR vectorizer is trying to handle reductions without entities.");
 
-      auto Identity = HLInst::getRecurrenceIdentity(RedOpCode, RefDestTy);
+      // TODO: Pass correct FastMathFlags. We have them in VPReduction.
+      auto Identity =
+          HLInst::getRecurrenceIdentity(RedOpCode, RefDestTy, FastMathFlags());
       auto RedOpVecInst = insertReductionInitializer(Identity, Ref->clone());
 
       // Add to WidenMap and handle generating code for building reduction tail

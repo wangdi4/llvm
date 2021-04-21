@@ -11,10 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/AliasSetTracker.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/GuardUtils.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryLocation.h"
-#include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -71,7 +71,7 @@ void AliasSet::mergeSetIn(AliasSet &AS, AliasSetTracker &AST) {
     // If the pointers are not a must-alias pair, this set becomes a may alias.
     if (queryAA(AA, MemoryLocation(L->getValue(), L->getSize(), L->getAAInfo()), // INTEL
                  MemoryLocation(R->getValue(), R->getSize(), R->getAAInfo())) !=
-        MustAlias)
+        AliasResult::MustAlias)
       Alias = SetMayAlias;
   }
 
@@ -147,11 +147,14 @@ void AliasSet::addPointer(AliasSetTracker &AST, PointerRec &Entry,
         AliasResult Result = queryAA(AA, // INTEL
             MemoryLocation(P->getValue(), P->getSize(), P->getAAInfo()),
             MemoryLocation(Entry.getValue(), Size, AAInfo));
-        if (Result != MustAlias) {
+        if (Result != AliasResult::MustAlias) {
           Alias = SetMayAlias;
           AST.TotalMayAliasSetSize += size();
         }
-        //assert(Result != NoAlias && "Cannot be part of must set!"); // INTEL
+        // INTEL_CUSTOMIZATION
+        // assert(Result != AliasResult::NoAlias && "Cannot be part of must
+        // set!");
+        // end INTEL_CUSTOMIZATION
       } else if (!SkipSizeUpdate)
         P->updateSizeAndAAInfo(Size, AAInfo);
       }
@@ -201,7 +204,7 @@ AliasResult AliasSet::aliasesPointer(const Value *Ptr, LocationSize Size,
                                      const AAMDNodes &AAInfo,
                                      AliasAnalysis &AA) const {
   if (AliasAny)
-    return MayAlias;
+    return AliasResult::MayAlias;
 
   if (Alias == SetMustAlias) {
     assert(UnknownInsts.empty() && "Illegal must alias set!");
@@ -217,11 +220,12 @@ AliasResult AliasSet::aliasesPointer(const Value *Ptr, LocationSize Size,
 
   // If this is a may-alias set, we have to check all of the pointers in the set
   // to be sure it doesn't alias the set...
-  for (iterator I = begin(), E = end(); I != E; ++I)
+  for (iterator I = begin(), E = end(); I != E; ++I) {
     if (AliasResult AR = queryAA(AA, // INTEL
             MemoryLocation(Ptr, Size, AAInfo),
             MemoryLocation(I.getPointer(), I.getSize(), I.getAAInfo())))
       return AR;
+  }
 
   // Check the unknown instructions...
   if (!UnknownInsts.empty()) {
@@ -229,10 +233,10 @@ AliasResult AliasSet::aliasesPointer(const Value *Ptr, LocationSize Size,
       if (auto *Inst = getUnknownInst(i))
         if (isModOrRefSet(
                 AA.getModRefInfo(Inst, MemoryLocation(Ptr, Size, AAInfo))))
-          return MayAlias;
+          return AliasResult::MayAlias;
   }
 
-  return NoAlias;
+  return AliasResult::NoAlias;
 }
 
 bool AliasSet::aliasesUnknownInst(const Instruction *Inst,
@@ -313,10 +317,10 @@ AliasSet *AliasSetTracker::mergeAliasSetsForPointer(const Value *Ptr,
       continue;
 
     AliasResult AR = AS.aliasesPointer(Ptr, Size, AAInfo, AA);
-    if (AR == NoAlias)
+    if (AR == AliasResult::NoAlias)
       continue;
 
-    if (AR != MustAlias)
+    if (AR != AliasResult::MustAlias)
       MustAliasAll = false;
 
     if (!FoundSet) {
@@ -539,15 +543,6 @@ void AliasSetTracker::add(const AliasSetTracker &AST) {
           MemoryLocation(ASI.getPointer(), ASI.getSize(), ASI.getAAInfo()),
           (AliasSet::AccessLattice)AS.Access);
   }
-}
-
-void AliasSetTracker::addAllInstructionsInLoopUsingMSSA() {
-  assert(MSSA && L && "MSSA and L must be available");
-  for (const BasicBlock *BB : L->blocks())
-    if (auto *Accesses = MSSA->getBlockAccesses(BB))
-      for (auto &Access : *Accesses)
-        if (auto *MUD = dyn_cast<MemoryUseOrDef>(&Access))
-          add(MUD->getMemoryInst());
 }
 
 // deleteValue method - This method is used to remove a pointer value from the

@@ -100,13 +100,6 @@
 #include <f16cintrin.h>
 #endif
 
-/* INTEL_CUSTOMIZATION */
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__VPCLMULQDQ__) || defined(__M_INTRINSIC_PROMOTE__)
-/* end INTEL_CUSTOMIZATION */
-#include <vpclmulqdqintrin.h>
-#endif
-
 /* No feature check desired due to internal checks */
 #include <bmiintrin.h>
 
@@ -369,8 +362,13 @@
 
 /* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__VAES__) || defined(__M_INTRINSIC_PROMOTE__)
+    defined(__VPCLMULQDQ__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
+#include <vpclmulqdqintrin.h>
+#endif
+
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__VAES__)
 #include <vaesintrin.h>
 #endif
 

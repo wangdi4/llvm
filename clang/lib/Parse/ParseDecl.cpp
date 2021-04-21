@@ -162,15 +162,19 @@ void Parser::ParseAttributes(unsigned WhichAttrKinds,
 ///    ',' or ')' are ignored, otherwise they produce a parse error.
 ///
 /// We follow the C++ model, but don't allow junk after the identifier.
-void Parser::ParseGNUAttributes(ParsedAttributes &attrs,
-                                SourceLocation *endLoc,
-                                LateParsedAttrList *LateAttrs,
-                                Declarator *D) {
+void Parser::ParseGNUAttributes(ParsedAttributesWithRange &Attrs,
+                                SourceLocation *EndLoc,
+                                LateParsedAttrList *LateAttrs, Declarator *D) {
   assert(Tok.is(tok::kw___attribute) && "Not a GNU attribute list!");
+
+  SourceLocation StartLoc = Tok.getLocation(), Loc;
+
+  if (!EndLoc)
+    EndLoc = &Loc;
 
   while (Tok.is(tok::kw___attribute)) {
     SourceLocation AttrTokLoc = ConsumeToken();
-    unsigned OldNumAttrs = attrs.size();
+    unsigned OldNumAttrs = Attrs.size();
     unsigned OldNumLateAttrs = LateAttrs ? LateAttrs->size() : 0;
 
     if (ExpectAndConsume(tok::l_paren, diag::err_expected_lparen_after,
@@ -198,14 +202,14 @@ void Parser::ParseGNUAttributes(ParsedAttributes &attrs,
       SourceLocation AttrNameLoc = ConsumeToken();
 
       if (Tok.isNot(tok::l_paren)) {
-        attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
+        Attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
                      ParsedAttr::AS_GNU);
         continue;
       }
 
       // Handle "parameterized" attributes
       if (!LateAttrs || !isAttributeLateParsed(*AttrName)) {
-        ParseGNUAttributeArgs(AttrName, AttrNameLoc, attrs, endLoc, nullptr,
+        ParseGNUAttributeArgs(AttrName, AttrNameLoc, Attrs, EndLoc, nullptr,
                               SourceLocation(), ParsedAttr::AS_GNU, D);
         continue;
       }
@@ -238,8 +242,8 @@ void Parser::ParseGNUAttributes(ParsedAttributes &attrs,
     SourceLocation Loc = Tok.getLocation();
     if (ExpectAndConsume(tok::r_paren))
       SkipUntil(tok::r_paren, StopAtSemi);
-    if (endLoc)
-      *endLoc = Loc;
+    if (EndLoc)
+      *EndLoc = Loc;
 
     // If this was declared in a macro, attach the macro IdentifierInfo to the
     // parsed attribute.
@@ -251,8 +255,8 @@ void Parser::ParseGNUAttributes(ParsedAttributes &attrs,
           Lexer::getSourceText(ExpansionRange, SM, PP.getLangOpts());
       IdentifierInfo *MacroII = PP.getIdentifierInfo(FoundName);
 
-      for (unsigned i = OldNumAttrs; i < attrs.size(); ++i)
-        attrs[i].setMacroIdentifier(MacroII, ExpansionRange.getBegin());
+      for (unsigned i = OldNumAttrs; i < Attrs.size(); ++i)
+        Attrs[i].setMacroIdentifier(MacroII, ExpansionRange.getBegin());
 
       if (LateAttrs) {
         for (unsigned i = OldNumLateAttrs; i < LateAttrs->size(); ++i)
@@ -260,6 +264,8 @@ void Parser::ParseGNUAttributes(ParsedAttributes &attrs,
       }
     }
   }
+
+  Attrs.Range = SourceRange(StartLoc, *EndLoc);
 }
 
 #if INTEL_CUSTOMIZATION
@@ -1696,7 +1702,30 @@ void Parser::DiagnoseProhibitedAttributes(
 }
 
 void Parser::ProhibitCXX11Attributes(ParsedAttributesWithRange &Attrs,
-                                     unsigned DiagID) {
+                                     unsigned DiagID, bool DiagnoseEmptyAttrs) {
+
+  if (DiagnoseEmptyAttrs && Attrs.empty() && Attrs.Range.isValid()) {
+    // An attribute list has been parsed, but it was empty.
+    // This is the case for [[]].
+    const auto &LangOpts = getLangOpts();
+    auto &SM = PP.getSourceManager();
+    Token FirstLSquare;
+    Lexer::getRawToken(Attrs.Range.getBegin(), FirstLSquare, SM, LangOpts);
+
+    if (FirstLSquare.is(tok::l_square)) {
+      llvm::Optional<Token> SecondLSquare =
+          Lexer::findNextToken(FirstLSquare.getLocation(), SM, LangOpts);
+
+      if (SecondLSquare && SecondLSquare->is(tok::l_square)) {
+        // The attribute range starts with [[, but is empty. So this must
+        // be [[]], which we are supposed to diagnose because
+        // DiagnoseEmptyAttrs is true.
+        Diag(Attrs.Range.getBegin(), DiagID) << Attrs.Range;
+        return;
+      }
+    }
+  }
+
   for (const ParsedAttr &AL : Attrs) {
     if (!AL.isCXX11Attribute() && !AL.isC2xAttribute())
       continue;
@@ -2059,8 +2088,8 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
   // Check to see if we have a function *definition* which must have a body.
   if (D.isFunctionDeclarator()) {
     if (Tok.is(tok::equal) && NextToken().is(tok::code_completion)) {
-      Actions.CodeCompleteAfterFunctionEquals(D);
       cutOffParsing();
+      Actions.CodeCompleteAfterFunctionEquals(D);
       return nullptr;
     }
     // Look at the next token to make sure that this isn't a function
@@ -2399,9 +2428,9 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
       InitializerScopeRAII InitScope(*this, D, ThisDecl);
 
       if (Tok.is(tok::code_completion)) {
+        cutOffParsing();
         Actions.CodeCompleteInitializer(getCurScope(), ThisDecl);
         Actions.FinalizeDeclaration(ThisDecl);
-        cutOffParsing();
         return nullptr;
       }
 
@@ -3208,10 +3237,11 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
           = DSContext == DeclSpecContext::DSC_top_level ||
             (DSContext == DeclSpecContext::DSC_class && DS.isFriendSpecified());
 
+        cutOffParsing();
         Actions.CodeCompleteDeclSpec(getCurScope(), DS,
                                      AllowNonIdentifiers,
                                      AllowNestedNameSpecifiers);
-        return cutOffParsing();
+        return;
       }
 
       if (getCurScope()->getFnParent() || getCurScope()->getBlockParent())
@@ -3224,8 +3254,9 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       else if (CurParsedObjCImpl)
         CCC = Sema::PCC_ObjCImplementation;
 
+      cutOffParsing();
       Actions.CodeCompleteOrdinaryName(getCurScope(), CCC);
-      return cutOffParsing();
+      return;
     }
 
     case tok::coloncolon: // ::foo::bar
@@ -3771,8 +3802,8 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       // C++ for OpenCL does not allow virtual function qualifier, to avoid
       // function pointers restricted in OpenCL v2.0 s6.9.a.
       if (getLangOpts().OpenCLCPlusPlus &&
-          !getActions().getOpenCLOptions().isEnabled(
-              "__cl_clang_function_pointers")) {
+          !getActions().getOpenCLOptions().isAvailableOption(
+              "__cl_clang_function_pointers", getLangOpts())) {
         DiagID = diag::err_openclcxx_virtual_function;
         PrevSpec = Tok.getIdentifierInfo()->getNameStart();
         isInvalid = true;
@@ -4499,8 +4530,9 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
   // Parse the tag portion of this.
   if (Tok.is(tok::code_completion)) {
     // Code completion for an enum name.
+    cutOffParsing();
     Actions.CodeCompleteTag(getCurScope(), DeclSpec::TST_enum);
-    return cutOffParsing();
+    return;
   }
 
   // If attributes exist after tag, parse them.
@@ -4764,7 +4796,8 @@ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
   // or opaque-enum-declaration anywhere.
   if (IsElaboratedTypeSpecifier && !getLangOpts().MicrosoftExt &&
       !getLangOpts().ObjC) {
-    ProhibitAttributes(attrs);
+    ProhibitCXX11Attributes(attrs, diag::err_attributes_not_allowed,
+                            /*DiagnoseEmptyAttrs=*/true);
     if (BaseType.isUsable())
       Diag(BaseRange.getBegin(), diag::ext_enum_base_in_type_specifier)
           << (AllowEnumSpecifier == AllowDefiningTypeSpec::Yes) << BaseRange;
@@ -5224,7 +5257,8 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
 #if INTEL_CUSTOMIZATION
   case tok::kw_channel:
     return getLangOpts().OpenCL &&
-           getActions().getOpenCLOptions().isEnabled("cl_intel_channels");
+           getActions().getOpenCLOptions().isAvailableOption(
+               "cl_intel_channels", getLangOpts());
 #endif // INTEL_CUSTOMIZATION
 
   case tok::identifier:   // foo::bar
@@ -5620,11 +5654,12 @@ void Parser::ParseTypeQualifierListOpt(
 
     switch (Tok.getKind()) {
     case tok::code_completion:
+      cutOffParsing();
       if (CodeCompletionHandler)
         (*CodeCompletionHandler)();
       else
         Actions.CodeCompleteTypeQualifiers(DS);
-      return cutOffParsing();
+      return;
 
     case tok::kw_const:
       isInvalid = DS.SetTypeQual(DeclSpec::TQ_const   , Loc, PrevSpec, DiagID,
@@ -5772,7 +5807,7 @@ static bool isPtrOperatorToken(tok::TokenKind Kind, const LangOptions &Lang,
     return true;
 #if INTEL_CUSTOMIZATION
   if ((Kind == tok::kw_channel) && Lang.OpenCL &&
-      Actions.getOpenCLOptions().isEnabled("cl_intel_channels"))
+      Actions.getOpenCLOptions().isAvailableOption("cl_intel_channels", Lang))
     return true;
 #endif // INTEL_CUSTOMIZATION
 
@@ -7218,8 +7253,9 @@ void Parser::ParseBracketDeclarator(Declarator &D) {
                   std::move(attrs), T.getCloseLocation());
     return;
   } else if (Tok.getKind() == tok::code_completion) {
+    cutOffParsing();
     Actions.CodeCompleteBracketDeclarator(getCurScope());
-    return cutOffParsing();
+    return;
   }
 
   // If valid, this location is the position where we read the 'static' keyword.

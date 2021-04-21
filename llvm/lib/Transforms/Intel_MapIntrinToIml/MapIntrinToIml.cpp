@@ -125,7 +125,8 @@ unsigned MapIntrinToImlImpl::calculateNumReturns(TargetTransformInfo *TTI,
                                                  unsigned ComponentBitWidth,
                                                  unsigned LogicalVL,
                                                  unsigned *TargetVL) {
-  unsigned VectorBitWidth = TTI->getRegisterBitWidth(true);
+  unsigned VectorBitWidth =
+      TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector);
   // Under x86 architecture, getRegisterBitWidth() may return 0 for vectors
   // if no vector ISA is specified. In this case, there should not be any SVML
   // call in the input IR.

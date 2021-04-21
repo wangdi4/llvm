@@ -326,6 +326,9 @@ public:
   QualType FnRetTy;
   llvm::Function *CurFn = nullptr;
 
+  /// Save Parameter Decl for coroutine.
+  llvm::SmallVector<const ParmVarDecl *, 4> FnArgs;
+
   // Holds coroutine data if the current function is a coroutine. We use a
   // wrapper to manage its lifetime, so that we don't have to define CGCoroData
   // in this header.
@@ -1635,8 +1638,9 @@ private:
   };
   OpenMPCancelExitStack OMPCancelStack;
 
-  /// Calculate branch weights for the likelihood attribute
-  llvm::MDNode *createBranchWeights(Stmt::Likelihood LH) const;
+  /// Lower the Likelihood knowledge about the \p Cond via llvm.expect intrin.
+  llvm::Value *emitCondLikelihoodViaExpectIntrinsic(llvm::Value *Cond,
+                                                    Stmt::Likelihood LH);
 
   CodeGenPGO PGO;
 
@@ -1646,13 +1650,6 @@ private:
   llvm::MDNode *createProfileWeights(ArrayRef<uint64_t> Weights) const;
   llvm::MDNode *createProfileWeightsForLoop(const Stmt *Cond,
                                             uint64_t LoopCount) const;
-
-  /// Calculate the branch weight for PGO data or the likelihood attribute.
-  /// The function tries to get the weight of \ref createProfileWeightsForLoop.
-  /// If that fails it gets the weight of \ref createBranchWeights.
-  llvm::MDNode *createProfileOrBranchWeightsForLoop(const Stmt *Cond,
-                                                    uint64_t LoopCount,
-                                                    const Stmt *Body) const;
 
 public:
   /// Increment the profiler's counter for the given statement by \p StepV.
@@ -2268,8 +2265,9 @@ private:
   /// function attribute.
   unsigned LargestVectorWidth = 0;
 
-  /// True if we need emit the life-time markers.
-  const bool ShouldEmitLifetimeMarkers;
+  /// True if we need emit the life-time markers. This is initially set in
+  /// the constructor, but could be overwritten to true if this is a coroutine.
+  bool ShouldEmitLifetimeMarkers;
 
   /// Add OpenCL kernel arg metadata and the kernel attribute metadata to
   /// the function metadata.
@@ -4869,8 +4867,9 @@ public:
   /// variables.
   void GenerateCXXGlobalCleanUpFunc(
       llvm::Function *Fn,
-      const std::vector<std::tuple<llvm::FunctionType *, llvm::WeakTrackingVH,
-                                   llvm::Constant *>> &DtorsOrStermFinalizers);
+      ArrayRef<std::tuple<llvm::FunctionType *, llvm::WeakTrackingVH,
+                          llvm::Constant *>>
+          DtorsOrStermFinalizers);
 
   void GenerateCXXGlobalVarDeclInitFunc(llvm::Function *Fn,
                                         const VarDecl *D,
@@ -5196,7 +5195,6 @@ public:
 
   struct MultiVersionResolverOption {
     llvm::Function *Function;
-    FunctionDecl *FD;
     struct Conds {
       StringRef Architecture;
       llvm::SmallVector<StringRef, 8> Features;
@@ -5343,7 +5341,8 @@ inline llvm::Value *DominatingLLVMValue::restore(CodeGenFunction &CGF,
 
   // Otherwise, it should be an alloca instruction, as set up in save().
   auto alloca = cast<llvm::AllocaInst>(value.getPointer());
-  return CGF.Builder.CreateAlignedLoad(alloca, alloca->getAlign());
+  return CGF.Builder.CreateAlignedLoad(alloca->getAllocatedType(), alloca,
+                                       alloca->getAlign());
 }
 
 }  // end namespace CodeGen

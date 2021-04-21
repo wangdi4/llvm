@@ -445,7 +445,8 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
   case RecurKind::FMul:
   case RecurKind::FAdd: {
     Constant *C = VPReduction::getRecurrenceIdentity(Red->getRecurrenceKind(),
-                                                     Red->getRecurrenceType());
+                                                     Red->getRecurrenceType(),
+                                                     Red->getFastMathFlags());
     return Plan.getVPConstant(C);
   }
   case RecurKind::SMin:

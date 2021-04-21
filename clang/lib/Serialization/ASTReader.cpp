@@ -4172,7 +4172,8 @@ static void updateModuleTimestamp(ModuleFile &MF) {
   // Overwrite the timestamp file contents so that file's mtime changes.
   std::string TimestampFilename = MF.getTimestampFilename();
   std::error_code EC;
-  llvm::raw_fd_ostream OS(TimestampFilename, EC, llvm::sys::fs::OF_Text);
+  llvm::raw_fd_ostream OS(TimestampFilename, EC,
+                          llvm::sys::fs::OF_TextWithCRLF);
   if (EC)
     return;
   OS << "Timestamp file\n";
@@ -7666,9 +7667,10 @@ ASTReader::FindExternalVisibleDeclsByName(const DeclContext *DC,
 
   // Load the list of declarations.
   SmallVector<NamedDecl *, 64> Decls;
+  llvm::SmallPtrSet<NamedDecl *, 8> Found;
   for (DeclID ID : It->second.Table.find(Name)) {
     NamedDecl *ND = cast<NamedDecl>(GetDecl(ID));
-    if (ND->getDeclName() == Name)
+    if (ND->getDeclName() == Name && Found.insert(ND).second)
       Decls.push_back(ND);
   }
 

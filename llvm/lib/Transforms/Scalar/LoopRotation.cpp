@@ -15,6 +15,7 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
+#include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
@@ -117,6 +118,11 @@ public:
       AU.addPreserved<MemorySSAWrapperPass>();
     getLoopAnalysisUsage(AU);
     AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
+
+    // Lazy BFI and BPI are marked as preserved here so LoopRotate
+    // can remain part of the same loop pass manager as LICM.
+    AU.addPreserved<LazyBlockFrequencyInfoPass>();
+    AU.addPreserved<LazyBranchProbabilityInfoPass>();
   }
 
   bool runOnLoop(Loop *L, LPPassManager &LPM) override {

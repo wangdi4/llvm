@@ -136,31 +136,37 @@ unsigned X86TTIImpl::getNumberOfRegisters(unsigned ClassID) const {
   return 8;
 }
 
-unsigned X86TTIImpl::getRegisterBitWidth(bool Vector) const {
+TypeSize
+X86TTIImpl::getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const {
   unsigned PreferVectorWidth = ST->getPreferVectorWidth();
-  if (Vector) {
+  switch (K) {
+  case TargetTransformInfo::RGK_Scalar:
+    return TypeSize::getFixed(ST->is64Bit() ? 64 : 32);
+  case TargetTransformInfo::RGK_FixedWidthVector:
     if (ST->hasAVX512() && PreferVectorWidth >= 512)
-      return 512;
+      return TypeSize::getFixed(512);
     if (ST->hasAVX() && PreferVectorWidth >= 256)
-      return 256;
+      return TypeSize::getFixed(256);
 #if INTEL_CUSTOMIZATION
     // Avoid vectorization for SSE1 targets which will just need to be undone
     // in the backend for vXf64 and integer vectors. Also prevents creation
     // of v2f64 SVML functions the backend can't handle until SSE2.
     if (ST->hasSSE2() && PreferVectorWidth >= 128)
+      return TypeSize::getFixed(128);
 #endif
-      return 128;
-    return 0;
+    if (ST->hasSSE1() && PreferVectorWidth >= 128)
+      return TypeSize::getFixed(128);
+    return TypeSize::getFixed(0);
+  case TargetTransformInfo::RGK_ScalableVector:
+    return TypeSize::getScalable(0);
   }
 
-  if (ST->is64Bit())
-    return 64;
-
-  return 32;
+  llvm_unreachable("Unsupported register kind");
 }
 
 unsigned X86TTIImpl::getLoadStoreVecRegBitWidth(unsigned) const {
-  return getRegisterBitWidth(true);
+  return getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
+      .getFixedSize();
 }
 
 unsigned X86TTIImpl::getMaxInterleaveFactor(unsigned VF) {
@@ -1140,7 +1146,7 @@ int X86TTIImpl::getMatchingVectorVariant(
 
 const char *X86TTIImpl::getISASetForIMLFunctions() const {
   if (ST->hasAVX512()) {
-    if (getRegisterBitWidth(true) > 256)
+    if (getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector) > 256)
       return "coreavx512";
     else
       return "coreavx512zmmlow";
@@ -1159,7 +1165,8 @@ const char *X86TTIImpl::getISASetForIMLFunctions() const {
 #endif // INTEL_CUSTOMIZATION
 
 int X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind, VectorType *BaseTp,
-                               int Index, VectorType *SubTp) {
+                               ArrayRef<int> Mask, int Index,
+                               VectorType *SubTp) {
   // 64-bit packed float vectors (v2f32) are widened to type v4f32.
   // 64-bit packed integer vectors (v2i32) are widened to type v4i32.
   std::pair<int, MVT> LT = TLI->getTypeLegalizationCost(DL, BaseTp);
@@ -1223,7 +1230,7 @@ int X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind, VectorType *BaseTp,
         auto *SubTy = FixedVectorType::get(BaseTp->getElementType(),
                                            SubLT.second.getVectorNumElements());
         int ExtractIndex = alignDown((Index % NumElts), NumSubElts);
-        int ExtractCost = getShuffleCost(TTI::SK_ExtractSubvector, VecTy,
+        int ExtractCost = getShuffleCost(TTI::SK_ExtractSubvector, VecTy, None,
                                          ExtractIndex, SubTy);
 
         // If the original size is 32-bits or more, we can use pshufd. Otherwise
@@ -1297,11 +1304,11 @@ int X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind, VectorType *BaseTp,
                                               LegalVT.getVectorNumElements());
 
       unsigned NumOfShuffles = (NumOfSrcs - 1) * NumOfDests;
-      return NumOfShuffles *
-             getShuffleCost(TTI::SK_PermuteTwoSrc, SingleOpTy, 0, nullptr);
+      return NumOfShuffles * getShuffleCost(TTI::SK_PermuteTwoSrc, SingleOpTy,
+                                            None, 0, nullptr);
     }
 
-    return BaseT::getShuffleCost(Kind, BaseTp, Index, SubTp);
+    return BaseT::getShuffleCost(Kind, BaseTp, Mask, Index, SubTp);
   }
 
   // For 2-input shuffles, we must account for splitting the 2 inputs into many.
@@ -1636,7 +1643,7 @@ int X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind, VectorType *BaseTp,
     if (const auto *Entry = CostTableLookup(SSE1ShuffleTbl, Kind, LT.second))
       return LT.first * Entry->Cost;
 
-  return BaseT::getShuffleCost(Kind, BaseTp, Index, SubTp);
+  return BaseT::getShuffleCost(Kind, BaseTp, Mask, Index, SubTp);
 }
 
 int X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
@@ -2556,8 +2563,9 @@ int X86TTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
 
 unsigned X86TTIImpl::getAtomicMemIntrinsicMaxElementSize() const { return 16; }
 
-int X86TTIImpl::getTypeBasedIntrinsicInstrCost(
-  const IntrinsicCostAttributes &ICA, TTI::TargetCostKind CostKind) {
+InstructionCost
+X86TTIImpl::getTypeBasedIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
+                                           TTI::TargetCostKind CostKind) {
 
   // Costs should match the codegen from:
   // BITREVERSE: llvm\test\CodeGen\X86\vector-bitreverse.ll
@@ -3183,8 +3191,9 @@ int X86TTIImpl::getTypeBasedIntrinsicInstrCost(
   return BaseT::getIntrinsicInstrCost(ICA, CostKind);
 }
 
-int X86TTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
-                                      TTI::TargetCostKind CostKind) {
+InstructionCost
+X86TTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
+                                  TTI::TargetCostKind CostKind) {
   if (ICA.isTypeBasedOnly())
     return getTypeBasedIntrinsicInstrCost(ICA, CostKind);
 
@@ -3362,7 +3371,8 @@ int X86TTIImpl::getVectorInstrCost(unsigned Opcode, Type *Val, unsigned Index) {
       EVT VT = TLI->getValueType(DL, Val);
       if (VT.getScalarType() != MScalarTy || VT.getSizeInBits() >= 128)
         SubTy = FixedVectorType::get(ScalarType, SubNumElts);
-      ShuffleCost = getShuffleCost(TTI::SK_PermuteTwoSrc, SubTy, 0, SubTy);
+      ShuffleCost =
+          getShuffleCost(TTI::SK_PermuteTwoSrc, SubTy, None, 0, SubTy);
     }
     int IntOrFpCost = ScalarType->isFloatingPointTy() ? 0 : 1;
     return ShuffleCost + IntOrFpCost + RegisterFileMoveCost;
@@ -3600,14 +3610,14 @@ int X86TTIImpl::getMaskedMemoryOpCost(unsigned Opcode, Type *SrcTy,
   if (VT.isSimple() && LT.second != VT.getSimpleVT() &&
       LT.second.getVectorNumElements() == NumElem)
     // Promotion requires expand/truncate for data and a shuffle for mask.
-    Cost += getShuffleCost(TTI::SK_PermuteTwoSrc, SrcVTy, 0, nullptr) +
-            getShuffleCost(TTI::SK_PermuteTwoSrc, MaskTy, 0, nullptr);
+    Cost += getShuffleCost(TTI::SK_PermuteTwoSrc, SrcVTy, None, 0, nullptr) +
+            getShuffleCost(TTI::SK_PermuteTwoSrc, MaskTy, None, 0, nullptr);
 
   else if (LT.second.getVectorNumElements() > NumElem) {
     auto *NewMaskTy = FixedVectorType::get(MaskTy->getElementType(),
                                            LT.second.getVectorNumElements());
     // Expanding requires fill mask with zeroes
-    Cost += getShuffleCost(TTI::SK_InsertSubvector, NewMaskTy, 0, MaskTy);
+    Cost += getShuffleCost(TTI::SK_InsertSubvector, NewMaskTy, None, 0, MaskTy);
   }
 
   // Pre-AVX512 - each maskmov load costs 2 + store costs ~8.
@@ -3723,6 +3733,16 @@ int X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
   MVT MTy = LT.second;
 
   auto *ValVTy = cast<FixedVectorType>(ValTy);
+
+  // Special case: vXi8 mul reductions are performed as vXi16.
+  if (ISD == ISD::MUL && MTy.getScalarType() == MVT::i8) {
+    auto *WideSclTy = IntegerType::get(ValVTy->getContext(), 16);
+    auto *WideVecTy = FixedVectorType::get(WideSclTy, ValVTy->getNumElements());
+    return getCastInstrCost(Instruction::ZExt, WideVecTy, ValTy,
+                            TargetTransformInfo::CastContextHint::None,
+                            CostKind) +
+           getArithmeticReductionCost(Opcode, WideVecTy, IsPairwise, CostKind);
+  }
 
   unsigned ArithmeticCost = 0;
   if (LT.first != 1 && MTy.isVector() &&
@@ -3853,7 +3873,7 @@ int X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
     if (Size > 128) {
       auto *SubTy = FixedVectorType::get(ValVTy->getElementType(), NumVecElts);
       ReductionCost +=
-          getShuffleCost(TTI::SK_ExtractSubvector, Ty, NumVecElts, SubTy);
+          getShuffleCost(TTI::SK_ExtractSubvector, Ty, None, NumVecElts, SubTy);
       Ty = SubTy;
     } else if (Size == 128) {
       // Reducing from 128 bits is a permute of v2f64/v2i64.
@@ -3865,7 +3885,7 @@ int X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
         ShufTy =
             FixedVectorType::get(Type::getInt64Ty(ValVTy->getContext()), 2);
       ReductionCost +=
-          getShuffleCost(TTI::SK_PermuteSingleSrc, ShufTy, 0, nullptr);
+          getShuffleCost(TTI::SK_PermuteSingleSrc, ShufTy, None, 0, nullptr);
     } else if (Size == 64) {
       // Reducing from 64 bits is a shuffle of v4f32/v4i32.
       FixedVectorType *ShufTy;
@@ -3876,7 +3896,7 @@ int X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
         ShufTy =
             FixedVectorType::get(Type::getInt32Ty(ValVTy->getContext()), 4);
       ReductionCost +=
-          getShuffleCost(TTI::SK_PermuteSingleSrc, ShufTy, 0, nullptr);
+          getShuffleCost(TTI::SK_PermuteSingleSrc, ShufTy, None, 0, nullptr);
     } else {
       // Reducing from smaller size is a shift by immediate.
       auto *ShiftTy = FixedVectorType::get(
@@ -4163,7 +4183,7 @@ int X86TTIImpl::getMinMaxReductionCost(VectorType *ValTy, VectorType *CondTy,
     if (Size > 128) {
       auto *SubTy = FixedVectorType::get(ValVTy->getElementType(), NumVecElts);
       MinMaxCost +=
-          getShuffleCost(TTI::SK_ExtractSubvector, Ty, NumVecElts, SubTy);
+          getShuffleCost(TTI::SK_ExtractSubvector, Ty, None, NumVecElts, SubTy);
       Ty = SubTy;
     } else if (Size == 128) {
       // Reducing from 128 bits is a permute of v2f64/v2i64.
@@ -4174,7 +4194,7 @@ int X86TTIImpl::getMinMaxReductionCost(VectorType *ValTy, VectorType *CondTy,
       else
         ShufTy = FixedVectorType::get(Type::getInt64Ty(ValTy->getContext()), 2);
       MinMaxCost +=
-          getShuffleCost(TTI::SK_PermuteSingleSrc, ShufTy, 0, nullptr);
+          getShuffleCost(TTI::SK_PermuteSingleSrc, ShufTy, None, 0, nullptr);
     } else if (Size == 64) {
       // Reducing from 64 bits is a shuffle of v4f32/v4i32.
       FixedVectorType *ShufTy;
@@ -4183,7 +4203,7 @@ int X86TTIImpl::getMinMaxReductionCost(VectorType *ValTy, VectorType *CondTy,
       else
         ShufTy = FixedVectorType::get(Type::getInt32Ty(ValTy->getContext()), 4);
       MinMaxCost +=
-          getShuffleCost(TTI::SK_PermuteSingleSrc, ShufTy, 0, nullptr);
+          getShuffleCost(TTI::SK_PermuteSingleSrc, ShufTy, None, 0, nullptr);
     } else {
       // Reducing from smaller size is a shift by immediate.
       auto *ShiftTy = FixedVectorType::get(
@@ -4388,12 +4408,13 @@ int X86TTIImpl::getIntImmCostIntrin(Intrinsic::ID IID, unsigned Idx,
   return X86TTIImpl::getIntImmCost(Imm, Ty, CostKind);
 }
 
-unsigned
-X86TTIImpl::getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind) {
+unsigned X86TTIImpl::getCFInstrCost(unsigned Opcode,
+                                    TTI::TargetCostKind CostKind,
+                                    const Instruction *I) {
   if (CostKind != TTI::TCK_RecipThroughput)
     return Opcode == Instruction::PHI ? 0 : 1;
   // Branches are assumed to be predicted.
-  return CostKind == TTI::TCK_RecipThroughput ? 0 : 1;
+  return 0;
 }
 
 int X86TTIImpl::getGatherOverhead() const {
@@ -5054,12 +5075,13 @@ bool X86TTIImpl::shouldOptGatherToLoadPermute(Type *ArrayElemTy,
     return false;
 
   // Check if array size is bigger than max simd register size.
-  if (ArrayElemTy->getScalarSizeInBits() * ArrayNum > getRegisterBitWidth(true))
+  if (ArrayElemTy->getScalarSizeInBits() * ArrayNum >
+      getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector))
     return false;
 
   // Check if gather size is bigger than max simd register size.
   if (ArrayElemTy->getScalarSizeInBits() * GatherNum >
-      getRegisterBitWidth(true))
+      getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector))
     return false;
 
   // Only enable 256-bit load and permute currently, will enable 512-bit
@@ -5479,7 +5501,7 @@ int X86TTIImpl::getInterleavedMemoryOpCostAVX512(
         (NumOfMemOps > 1) ? TTI::SK_PermuteTwoSrc : TTI::SK_PermuteSingleSrc;
 
     unsigned ShuffleCost =
-        getShuffleCost(ShuffleKind, SingleMemOpTy, 0, nullptr);
+        getShuffleCost(ShuffleKind, SingleMemOpTy, None, 0, nullptr);
 
     unsigned NumOfLoadsInInterleaveGrp =
         Indices.size() ? Indices.size() : Factor;
@@ -5535,7 +5557,7 @@ int X86TTIImpl::getInterleavedMemoryOpCostAVX512(
   // shuffle.
   unsigned NumOfSources = Factor; // The number of values to be merged.
   unsigned ShuffleCost =
-      getShuffleCost(TTI::SK_PermuteTwoSrc, SingleMemOpTy, 0, nullptr);
+      getShuffleCost(TTI::SK_PermuteTwoSrc, SingleMemOpTy, None, 0, nullptr);
   unsigned NumOfShufflesPerStore = NumOfSources - 1;
 
   // The SK_MergeTwoSrc shuffle clobbers one of src operands.

@@ -10,6 +10,7 @@
 // that do not rely on any of the library functions.
 //
 //===----------------------------------------------------------------------===//
+
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/Dialect/Math/IR/Math.h"
@@ -17,18 +18,15 @@
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
+#include "mlir/Transforms/Bufferize.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include <limits.h>
+#include <climits>
 
 using namespace mlir;
 using namespace mlir::vector;
 
 using TypePredicate = llvm::function_ref<bool(Type)>;
-
-static bool isF32(Type type) { return type.isF32(); }
-
-static bool isI32(Type type) { return type.isInteger(32); }
 
 // Returns vector width if the element type is matching the predicate (scalars
 // that do match the predicate have width equal to `1`).
@@ -54,9 +52,15 @@ static int vectorWidth(Type type) {
 }
 
 // Returns vector element type. If the type is a scalar returns the argument.
-static Type elementType(Type type) {
+LLVM_ATTRIBUTE_UNUSED static Type elementType(Type type) {
   auto vectorType = type.dyn_cast<VectorType>();
   return vectorType ? vectorType.getElementType() : type;
+}
+
+LLVM_ATTRIBUTE_UNUSED static bool isF32(Type type) { return type.isF32(); }
+
+LLVM_ATTRIBUTE_UNUSED static bool isI32(Type type) {
+  return type.isInteger(32);
 }
 
 //----------------------------------------------------------------------------//
@@ -528,7 +532,7 @@ ExpApproximation::matchAndRewrite(math::ExpOp op,
 //----------------------------------------------------------------------------//
 
 void mlir::populateMathPolynomialApproximationPatterns(
-    OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  patterns.insert<TanhApproximation, LogApproximation, Log2Approximation,
-                  ExpApproximation>(ctx);
+    RewritePatternSet &patterns) {
+  patterns.add<TanhApproximation, LogApproximation, Log2Approximation,
+               ExpApproximation>(patterns.getContext());
 }

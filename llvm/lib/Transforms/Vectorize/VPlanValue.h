@@ -116,15 +116,13 @@ public:
   /// for any other purpose, as the values may change as LLVM evolves.
   unsigned getVPValueID() const { return SubclassID; }
 
-#if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAsOperand(raw_ostream &OS, VPSlotTracker &Tracker) const;
   void print(raw_ostream &OS, VPSlotTracker &Tracker) const;
 
   /// Dump the value to stderr (for debugging).
   void dump() const;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif // INTEL_CUSTOMIZATION
+#endif
 
   unsigned getNumUsers() const { return Users.size(); }
   void addUser(VPUser &User) { Users.push_back(&User); }
@@ -196,12 +194,10 @@ class VPUser {
   SmallVector<VPValue *, 2> Operands;
 
 protected:
-#if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Print the operands to \p O.
   void printOperands(raw_ostream &O, VPSlotTracker &SlotTracker) const;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif // INTEL_CUSTOMIZATION
+#endif
 
 public:
   VPUser() {}
@@ -355,16 +351,14 @@ public:
   /// for any other purpose, as the values may change as LLVM evolves.
   unsigned getVPDefID() const { return SubclassID; }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Dump the VPDef to stderr (for debugging).
   void dump() const;
 
-#if INTEL_CUSTOMIZATION
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Each concrete VPDef prints itself.
   virtual void print(raw_ostream &O, const Twine &Indent,
                      VPSlotTracker &SlotTracker) const = 0;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-#endif // INTEL_CUSTOMIZATION
+#endif
 };
 
 class VPlan;

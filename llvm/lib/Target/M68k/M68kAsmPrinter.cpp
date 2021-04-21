@@ -18,6 +18,7 @@
 
 #include "M68k.h"
 #include "M68kMachineFunction.h"
+#include "TargetInfo/M68kTargetInfo.h"
 
 #include "llvm/Support/TargetRegistry.h"
 
@@ -64,6 +65,6 @@ void M68kAsmPrinter::emitStartOfAsmFile(Module &M) {
 
 void M68kAsmPrinter::emitEndOfAsmFile(Module &M) {}
 
-extern "C" void LLVMInitializeM68kAsmPrinter() {
-  RegisterAsmPrinter<M68kAsmPrinter> X(TheM68kTarget);
+extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeM68kAsmPrinter() {
+  RegisterAsmPrinter<M68kAsmPrinter> X(getTheM68kTarget());
 }

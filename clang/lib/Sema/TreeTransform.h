@@ -1321,11 +1321,11 @@ public:
   /// By default, performs semantic analysis to build the new statement.
   /// Subclasses may override this routine to provide different behavior.
   StmtResult RebuildAttributedStmt(SourceLocation AttrLoc,
-                                   ArrayRef<const Attr*> Attrs,
+                                   ArrayRef<const Attr *> Attrs,
                                    Stmt *SubStmt) {
     if (SemaRef.CheckRebuiltAttributedStmtAttributes(Attrs))
       return StmtError();
-    return SemaRef.ActOnAttributedStmt(AttrLoc, Attrs, SubStmt);
+    return SemaRef.BuildAttributedStmt(AttrLoc, Attrs, SubStmt);
   }
 
   /// Build a new "if" statement.
@@ -14277,7 +14277,14 @@ TreeTransform<Derived>::TransformBlockExpr(BlockExpr *E) {
 template<typename Derived>
 ExprResult
 TreeTransform<Derived>::TransformAsTypeExpr(AsTypeExpr *E) {
-  llvm_unreachable("Cannot transform asType expressions yet");
+  ExprResult SrcExpr = getDerived().TransformExpr(E->getSrcExpr());
+  if (SrcExpr.isInvalid())
+    return ExprError();
+
+  QualType Type = getDerived().TransformType(E->getType());
+
+  return SemaRef.BuildAsTypeExpr(SrcExpr.get(), Type, E->getBuiltinLoc(),
+                                 E->getRParenLoc());
 }
 
 template<typename Derived>

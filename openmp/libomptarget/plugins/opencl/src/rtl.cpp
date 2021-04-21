@@ -2296,7 +2296,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       void *TgtAddr =
           DeviceInfo->getOffloadVarDeviceAddr(device_id, Name, Size);
       if (!TgtAddr) {
-        TgtAddr = __tgt_rtl_data_alloc(device_id, Size, HostAddr);
+        TgtAddr = __tgt_rtl_data_alloc(device_id, Size, HostAddr,
+                                       TARGET_ALLOC_DEFAULT);
         __tgt_rtl_data_submit(device_id, TgtAddr, HostAddr, Size);
         IDP("Warning: global variable '%s' allocated. "
           "Direct references will not work properly.\n", Name);
@@ -2764,7 +2765,8 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
 }
 
 EXTERN
-void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
+void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr,
+                           int32_t Kind) {
   return dataAlloc(device_id, size, hst_ptr, hst_ptr, 0);
 }
 

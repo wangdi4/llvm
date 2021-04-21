@@ -3220,6 +3220,9 @@ def warn_dllimport_dropped_from_inline_function : Warning<
   InGroup<IgnoredAttributes>;
 def warn_attribute_ignored : Warning<"%0 attribute ignored">,
   InGroup<IgnoredAttributes>;
+def warn_attribute_on_direct_kernel_callee_only : Warning<"%0 attribute allowed"
+  " only on a function directly called from a SYCL kernel function; attribute ignored">,
+  InGroup<IgnoredAttributes>;
 def warn_nothrow_attribute_ignored : Warning<"'nothrow' attribute conflicts with"
   " exception specification; attribute ignored">,
   InGroup<IgnoredAttributes>;
@@ -5864,6 +5867,9 @@ def note_goto_ms_asm_label : Note<
 def warn_unused_label : Warning<"unused label %0">,
   InGroup<UnusedLabel>, DefaultIgnore;
 
+def err_continue_from_cond_var_init : Error<
+  "cannot jump from this continue statement to the loop increment; "
+  "jump bypasses initialization of loop condition variable">;
 def err_goto_into_protected_scope : Error<
   "cannot jump from this goto statement to its label">;
 def ext_goto_into_protected_scope : ExtWarn<
@@ -7554,6 +7560,8 @@ let CategoryName = "Lambda Issue" in {
     "duration">;
   def err_this_capture : Error<
     "'this' cannot be %select{implicitly |}0captured in this context">;
+  def note_lambda_this_capture_fixit : Note<
+    "explicitly capture 'this'">;
   def err_lambda_capture_anonymous_var : Error<
     "unnamed variable cannot be implicitly captured in a lambda expression">;
   def err_lambda_capture_flexarray_type : Error<
@@ -7562,6 +7570,10 @@ let CategoryName = "Lambda Issue" in {
   def err_lambda_impcap : Error<
     "variable %0 cannot be implicitly captured in a lambda with no "
     "capture-default specified">;
+  def note_lambda_variable_capture_fixit : Note<
+    "capture %0 by %select{value|reference}1">;
+  def note_lambda_default_capture_fixit : Note<
+    "default capture by %select{value|reference}0">;
   def note_lambda_decl : Note<"lambda expression begins here">;
   def err_lambda_unevaluated_operand : Error<
     "lambda expression in an unevaluated operand">;
@@ -8273,6 +8285,9 @@ def err_atomic_op_needs_non_const_pointer : Error<
 def err_atomic_op_needs_trivial_copy : Error<
   "address argument to atomic operation must be a pointer to a "
   "trivially-copyable type (%0 invalid)">;
+def err_atomic_op_needs_atomic_int_ptr_or_fp : Error<
+  "address argument to atomic operation must be a pointer to %select{|atomic }0"
+  "integer, pointer or supported floating point type (%1 invalid)">;
 def err_atomic_op_needs_atomic_int_or_ptr : Error<
   "address argument to atomic operation must be a pointer to %select{|atomic }0"
   "integer or pointer (%1 invalid)">;
@@ -8388,6 +8403,9 @@ def note_cuda_device_builtin_surftex_should_be_template_class : Note<
     "%0 needs to be instantiated from a class template with proper "
     "template arguments">;
 
+def err_hip_invalid_args_builtin_mangled_name : Error<
+    "invalid argument: symbol must be a device-side function or global variable">;
+
 def warn_non_pod_vararg_with_format_string : Warning<
   "cannot pass %select{non-POD|non-trivial}0 object of type %1 to variadic "
   "%select{function|block|method|constructor}2; expected type from format "
@@ -8471,6 +8489,9 @@ def note_change_calling_conv_fixit : Note<
 def warn_bad_function_cast : Warning<
   "cast from function call of type %0 to non-matching type %1">,
   InGroup<BadFunctionCast>, DefaultIgnore;
+def warn_cast_function_type : Warning<
+  "cast %diff{from $ to $ |}0,1converts to incompatible function type">,
+  InGroup<CastFunctionType>, DefaultIgnore;
 def err_cast_pointer_to_non_pointer_int : Error<
   "pointer cannot be cast to type %0">;
 def err_cast_to_bfloat16 : Error<"cannot type-cast to __bf16">;
@@ -8656,6 +8677,12 @@ let CategoryName = "Inline Assembly Issue" in {
 
 let CategoryName = "Semantic Issue" in {
 
+def err_invalid_conversion_between_matrixes : Error<
+  "conversion between matrix types%diff{ $ and $|}0,1 of different size is not allowed">;
+
+def err_invalid_conversion_between_matrix_and_type : Error<
+  "conversion between matrix type %0 and incompatible type %1 is not allowed">;
+
 def err_invalid_conversion_between_vectors : Error<
   "invalid conversion between vector type%diff{ $ and $|}0,1 of different "
   "size">;
@@ -8691,6 +8718,15 @@ def warn_initializer_out_of_order : Warning<
   "%select{field|base class}0 %1 will be initialized after "
   "%select{field|base}2 %3">,
   InGroup<ReorderCtor>, DefaultIgnore;
+
+def warn_some_initializers_out_of_order : Warning<
+  "initializer order does not match the declaration order">,
+  InGroup<ReorderCtor>, DefaultIgnore;
+
+def note_initializer_out_of_order : Note<
+  "%select{field|base class}0 %1 will be initialized after "
+  "%select{field|base}2 %3">;
+
 def warn_abstract_vbase_init_ignored : Warning<
   "initializer for virtual base class %0 of abstract class %1 "
   "will never be used">,
@@ -9067,8 +9103,8 @@ def note_defaulted_comparison_calls_deleted : Note<
   "defaulted %0 is implicitly deleted because it would invoke a deleted "
   "comparison function%select{| for member %2| for base class %2}1">;
 def note_defaulted_comparison_no_viable_function : Note<
-  "defaulted %0 is implicitly deleted because there is no viable comparison "
-  "function%select{| for member %2| for base class %2}1">;
+  "defaulted %0 is implicitly deleted because there is no viable three-way "
+  "comparison function for%select{| member| base class}1 %2">;
 def note_defaulted_comparison_no_viable_function_synthesized : Note<
   "three-way comparison cannot be synthesized because there is no viable "
   "function for %select{'=='|'<'}0 comparison">;
@@ -10013,7 +10049,7 @@ def warn_opencl_attr_deprecated_ignored : Warning <
 def err_opencl_variadic_function : Error<
   "invalid prototype, variadic arguments are not allowed in OpenCL">;
 def err_opencl_requires_extension : Error<
-  "use of %select{type|declaration}0 %1 requires %2 extension to be enabled">;
+  "use of %select{type|declaration}0 %1 requires %2 support">;
 def warn_opencl_generic_address_space_arg : Warning<
   "passing non-generic address space pointer to %0"
   " may cause dynamic conversion affecting performance">,
@@ -10070,9 +10106,9 @@ def err_opencl_enqueue_kernel_blocks_no_args : Error<
 def err_opencl_builtin_expected_type : Error<
   "illegal call to %0, expected %1 argument type">;
 
-// OpenCL v2.2 s2.1.2.3 - Vector Component Access
+// OpenCL v3.0 s6.3.7 - Vector Components
 def ext_opencl_ext_vector_type_rgba_selector: ExtWarn<
-  "vector component name '%0' is an OpenCL version 2.2 feature">,
+  "vector component name '%0' is an OpenCL C version 3.0 feature">,
   InGroup<OpenCLUnsupportedRGBA>;
 
 def err_openclcxx_placement_new : Error<
@@ -11278,13 +11314,18 @@ def err_ext_int_max_size : Error<"%select{signed|unsigned}0 _ExtInt of bit "
                                  "sizes greater than %1 not supported">;
 def err_esimd_glob_cant_init : Error<
   "SYCL explicit SIMD does not permit private global variable to have an initializer">;
+def err_esimd_global_in_sycl_context : Error<
+  "ESIMD globals cannot be used in a SYCL context">;
 
-def err_sycl_kernel_incorrectly_named : Error<"%0 is an invalid kernel name type">;
-def note_invalid_type_in_sycl_kernel : Note<
-  "%select{%1 should be globally-visible"
+def err_nullptr_t_type_in_sycl_kernel : Error<"%0 is an invalid kernel name, "
+                                        "'std::nullptr_t' is declared in the 'std' namespace ">;
+def err_invalid_std_type_in_sycl_kernel : Error<"%0 is an invalid kernel name, " 
+                                          "%q1 is declared in the 'std' namespace ">;
+
+def err_sycl_kernel_incorrectly_named : Error<
+  "%select{%1 should be globally visible"
   "|unscoped enum %1 requires fixed underlying type"
-  "|type %1 cannot be in the \"std\" namespace"
-  "|unnamed type used in a SYCL kernel name"
+  "|unnamed lambda %1 used"
   "}0">;
 
 def err_sycl_kernel_not_function_object
@@ -11355,9 +11396,6 @@ def warn_sycl_implicit_decl
               "declaration for a kernel type name; your program may not "
               "be portable">,
       InGroup<SyclStrict>, ShowInSystemHeader, DefaultIgnore;
-def warn_sycl_restrict_recursion
-    : Warning<"SYCL kernel cannot call a recursive function">,
-      InGroup<SyclStrict>, DefaultError;
 def err_ivdep_duplicate_arg : Error<
   "duplicate argument to 'ivdep'; attribute requires one or both of a safelen "
   "and array">;
@@ -11405,7 +11443,7 @@ def warn_tcb_enforcement_violation : Warning<
   "calling %0 is a violation of trusted computing base '%1'">,
   InGroup<DiagGroup<"tcb-enforcement">>;
 
-// RISC-V V-extension
-def err_riscvv_builtin_requires_v : Error<
-   "builtin requires 'V' extension support to be enabled">;
+// RISC-V builtin required extension warning
+def err_riscv_builtin_requires_extension : Error<
+  "builtin requires '%0' extension support to be enabled">;
 } // end of sema component.

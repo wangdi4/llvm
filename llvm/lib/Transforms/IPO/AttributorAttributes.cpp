@@ -155,27 +155,22 @@ getAssumedConstantInt(Attributor &A, const Value &V,
 /// is set to false and the instruction is volatile, return nullptr.
 static const Value *getPointerOperand(const Instruction *I,
                                       bool AllowVolatile) {
+  if (!AllowVolatile && I->isVolatile())
+    return nullptr;
+
   if (auto *LI = dyn_cast<LoadInst>(I)) {
-    if (!AllowVolatile && LI->isVolatile())
-      return nullptr;
     return LI->getPointerOperand();
   }
 
   if (auto *SI = dyn_cast<StoreInst>(I)) {
-    if (!AllowVolatile && SI->isVolatile())
-      return nullptr;
     return SI->getPointerOperand();
   }
 
   if (auto *CXI = dyn_cast<AtomicCmpXchgInst>(I)) {
-    if (!AllowVolatile && CXI->isVolatile())
-      return nullptr;
     return CXI->getPointerOperand();
   }
 
   if (auto *RMWI = dyn_cast<AtomicRMWInst>(I)) {
-    if (!AllowVolatile && RMWI->isVolatile())
-      return nullptr;
     return RMWI->getPointerOperand();
   }
 
@@ -190,58 +185,55 @@ static const Value *getPointerOperand(const Instruction *I,
 ///
 /// TODO: This could probably live somewhere more prominantly if it doesn't
 ///       already exist.
-static Value *constructPointer(Type *ResTy, Value *Ptr, int64_t Offset,
-                               IRBuilder<NoFolder> &IRB, const DataLayout &DL) {
+static Value *constructPointer(Type *ResTy, Type *PtrElemTy, Value *Ptr,
+                               int64_t Offset, IRBuilder<NoFolder> &IRB,
+                               const DataLayout &DL) {
   assert(Offset >= 0 && "Negative offset not supported yet!");
   LLVM_DEBUG(dbgs() << "Construct pointer: " << *Ptr << " + " << Offset
                     << "-bytes as " << *ResTy << "\n");
 
-  // The initial type we are trying to traverse to get nice GEPs.
-  Type *Ty = Ptr->getType();
+  if (Offset) {
+    SmallVector<Value *, 4> Indices;
+    std::string GEPName = Ptr->getName().str() + ".0";
 
-  SmallVector<Value *, 4> Indices;
-  std::string GEPName = Ptr->getName().str();
-  while (Offset) {
-    uint64_t Idx, Rem;
+    // Add 0 index to look through the pointer.
+    assert((uint64_t)Offset < DL.getTypeAllocSize(PtrElemTy) &&
+           "Offset out of bounds");
+    Indices.push_back(Constant::getNullValue(IRB.getInt32Ty()));
 
-    if (auto *STy = dyn_cast<StructType>(Ty)) {
+    Type *Ty = PtrElemTy;
+    do {
+      auto *STy = dyn_cast<StructType>(Ty);
+      if (!STy)
+        // Non-aggregate type, we cast and make byte-wise progress now.
+        break;
+
       const StructLayout *SL = DL.getStructLayout(STy);
       if (int64_t(SL->getSizeInBytes()) < Offset)
         break;
-      Idx = SL->getElementContainingOffset(Offset);
+
+      uint64_t Idx = SL->getElementContainingOffset(Offset);
       assert(Idx < STy->getNumElements() && "Offset calculation error!");
-      Rem = Offset - SL->getElementOffset(Idx);
+      uint64_t Rem = Offset - SL->getElementOffset(Idx);
       Ty = STy->getElementType(Idx);
-    } else if (auto *PTy = dyn_cast<PointerType>(Ty)) {
-      Ty = PTy->getElementType();
-      if (!Ty->isSized())
-        break;
-      uint64_t ElementSize = DL.getTypeAllocSize(Ty);
-      assert(ElementSize && "Expected type with size!");
-      Idx = Offset / ElementSize;
-      Rem = Offset % ElementSize;
-    } else {
-      // Non-aggregate type, we cast and make byte-wise progress now.
-      break;
+
+      LLVM_DEBUG(errs() << "Ty: " << *Ty << " Offset: " << Offset
+                        << " Idx: " << Idx << " Rem: " << Rem << "\n");
+
+      GEPName += "." + std::to_string(Idx);
+      Indices.push_back(ConstantInt::get(IRB.getInt32Ty(), Idx));
+      Offset = Rem;
+    } while (Offset);
+
+    // Create a GEP for the indices collected above.
+    Ptr = IRB.CreateGEP(PtrElemTy, Ptr, Indices, GEPName);
+
+    // If an offset is left we use byte-wise adjustment.
+    if (Offset) {
+      Ptr = IRB.CreateBitCast(Ptr, IRB.getInt8PtrTy());
+      Ptr = IRB.CreateGEP(IRB.getInt8Ty(), Ptr, IRB.getInt32(Offset),
+                          GEPName + ".b" + Twine(Offset));
     }
-
-    LLVM_DEBUG(errs() << "Ty: " << *Ty << " Offset: " << Offset
-                      << " Idx: " << Idx << " Rem: " << Rem << "\n");
-
-    GEPName += "." + std::to_string(Idx);
-    Indices.push_back(ConstantInt::get(IRB.getInt32Ty(), Idx));
-    Offset = Rem;
-  }
-
-  // Create a GEP if we collected indices above.
-  if (Indices.size())
-    Ptr = IRB.CreateGEP(Ptr, Indices, GEPName);
-
-  // If an offset is left we use byte-wise adjustment.
-  if (Offset) {
-    Ptr = IRB.CreateBitCast(Ptr, IRB.getInt8PtrTy());
-    Ptr = IRB.CreateGEP(Ptr, IRB.getInt32(Offset),
-                        GEPName + ".b" + Twine(Offset));
   }
 
   // Ensure the result has the requested type.
@@ -1290,17 +1282,22 @@ struct AANoSyncImpl : AANoSync {
   /// or monotonic ordering
   static bool isNonRelaxedAtomic(Instruction *I);
 
-  /// Helper function used to determine whether an instruction is volatile.
-  static bool isVolatile(Instruction *I);
-
-  /// Helper function uset to check if intrinsic is volatile (memcpy, memmove,
-  /// memset).
+  /// Helper function specific for intrinsics which are potentially volatile
   static bool isNoSyncIntrinsic(Instruction *I);
 };
 
 bool AANoSyncImpl::isNonRelaxedAtomic(Instruction *I) {
   if (!I->isAtomic())
     return false;
+
+  if (auto *FI = dyn_cast<FenceInst>(I))
+    // All legal orderings for fence are stronger than monotonic.
+    return FI->getSyncScopeID() != SyncScope::SingleThread;
+  else if (auto *AI = dyn_cast<AtomicCmpXchgInst>(I)) {
+    // Unordered is not a legal ordering for cmpxchg.
+    return (AI->getSuccessOrdering() != AtomicOrdering::Monotonic ||
+            AI->getFailureOrdering() != AtomicOrdering::Monotonic);
+  }
 
   AtomicOrdering Ordering;
   switch (I->getOpcode()) {
@@ -1313,90 +1310,34 @@ bool AANoSyncImpl::isNonRelaxedAtomic(Instruction *I) {
   case Instruction::Load:
     Ordering = cast<LoadInst>(I)->getOrdering();
     break;
-  case Instruction::Fence: {
-    auto *FI = cast<FenceInst>(I);
-    if (FI->getSyncScopeID() == SyncScope::SingleThread)
-      return false;
-    Ordering = FI->getOrdering();
-    break;
-  }
-  case Instruction::AtomicCmpXchg: {
-    AtomicOrdering Success = cast<AtomicCmpXchgInst>(I)->getSuccessOrdering();
-    AtomicOrdering Failure = cast<AtomicCmpXchgInst>(I)->getFailureOrdering();
-    // Only if both are relaxed, than it can be treated as relaxed.
-    // Otherwise it is non-relaxed.
-    if (Success != AtomicOrdering::Unordered &&
-        Success != AtomicOrdering::Monotonic)
-      return true;
-    if (Failure != AtomicOrdering::Unordered &&
-        Failure != AtomicOrdering::Monotonic)
-      return true;
-    return false;
-  }
   default:
     llvm_unreachable(
         "New atomic operations need to be known in the attributor.");
   }
 
-  // Relaxed.
-  if (Ordering == AtomicOrdering::Unordered ||
-      Ordering == AtomicOrdering::Monotonic)
-    return false;
-  return true;
+  return (Ordering != AtomicOrdering::Unordered &&
+          Ordering != AtomicOrdering::Monotonic);
 }
 
-/// Checks if an intrinsic is nosync. Currently only checks mem* intrinsics.
-/// FIXME: We should ipmrove the handling of intrinsics.
+/// Return true if this intrinsic is nosync.  This is only used for intrinsics
+/// which would be nosync except that they have a volatile flag.  All other
+/// intrinsics are simply annotated with the nosync attribute in Intrinsics.td.
 bool AANoSyncImpl::isNoSyncIntrinsic(Instruction *I) {
-  if (auto *II = dyn_cast<IntrinsicInst>(I)) {
-    switch (II->getIntrinsicID()) {
-    /// Element wise atomic memory intrinsics are can only be unordered,
-    /// therefore nosync.
-    case Intrinsic::memset_element_unordered_atomic:
-    case Intrinsic::memmove_element_unordered_atomic:
-    case Intrinsic::memcpy_element_unordered_atomic:
-      return true;
-    case Intrinsic::memset:
-    case Intrinsic::memmove:
-    case Intrinsic::memcpy:
-      if (!cast<MemIntrinsic>(II)->isVolatile())
-        return true;
-      return false;
-    default:
-      return false;
-    }
-  }
+  if (auto *MI = dyn_cast<MemIntrinsic>(I))
+    return !MI->isVolatile();
   return false;
-}
-
-bool AANoSyncImpl::isVolatile(Instruction *I) {
-  assert(!isa<CallBase>(I) && "Calls should not be checked here");
-
-  switch (I->getOpcode()) {
-  case Instruction::AtomicRMW:
-    return cast<AtomicRMWInst>(I)->isVolatile();
-  case Instruction::Store:
-    return cast<StoreInst>(I)->isVolatile();
-  case Instruction::Load:
-    return cast<LoadInst>(I)->isVolatile();
-  case Instruction::AtomicCmpXchg:
-    return cast<AtomicCmpXchgInst>(I)->isVolatile();
-  default:
-    return false;
-  }
 }
 
 ChangeStatus AANoSyncImpl::updateImpl(Attributor &A) {
 
   auto CheckRWInstForNoSync = [&](Instruction &I) {
     /// We are looking for volatile instructions or Non-Relaxed atomics.
-    /// FIXME: We should improve the handling of intrinsics.
-
-    if (isa<IntrinsicInst>(&I) && isNoSyncIntrinsic(&I))
-      return true;
 
     if (const auto *CB = dyn_cast<CallBase>(&I)) {
       if (CB->hasFnAttr(Attribute::NoSync))
+        return true;
+
+      if (isNoSyncIntrinsic(&I))
         return true;
 
       const auto &NoSyncAA = A.getAAFor<AANoSync>(
@@ -1404,7 +1345,7 @@ ChangeStatus AANoSyncImpl::updateImpl(Attributor &A) {
       return NoSyncAA.isAssumedNoSync();
     }
 
-    if (!isVolatile(&I) && !isNonRelaxedAtomic(&I))
+    if (!I.isVolatile() && !isNonRelaxedAtomic(&I))
       return true;
 
     return false;
@@ -1753,8 +1694,9 @@ struct AANonNullImpl : AANonNull {
 
     AANonNull::initialize(A);
 
-    bool CanBeNull = true;
-    if (V.getPointerDereferenceableBytes(A.getDataLayout(), CanBeNull)) {
+    bool CanBeNull, CanBeFreed;
+    if (V.getPointerDereferenceableBytes(A.getDataLayout(), CanBeNull,
+                                         CanBeFreed)) {
       if (!CanBeNull) {
         indicateOptimisticFixpoint();
         return;
@@ -2336,13 +2278,37 @@ struct AAWillReturnImpl : public AAWillReturn {
   void initialize(Attributor &A) override {
     AAWillReturn::initialize(A);
 
-    Function *F = getAnchorScope();
-    if (!F || F->isDeclaration() || mayContainUnboundedCycle(*F, A))
-      indicatePessimisticFixpoint();
+    if (isImpliedByMustprogressAndReadonly(A, /* KnownOnly */ true)) {
+      indicateOptimisticFixpoint();
+      return;
+    }
+  }
+
+  /// Check for `mustprogress` and `readonly` as they imply `willreturn`.
+  bool isImpliedByMustprogressAndReadonly(Attributor &A, bool KnownOnly) {
+    // Check for `mustprogress` in the scope and the associated function which
+    // might be different if this is a call site.
+    if ((!getAnchorScope() || !getAnchorScope()->mustProgress()) &&
+        (!getAssociatedFunction() || !getAssociatedFunction()->mustProgress()))
+      return false;
+
+    const auto &MemAA = A.getAAFor<AAMemoryBehavior>(*this, getIRPosition(),
+                                                      DepClassTy::NONE);
+    if (!MemAA.isAssumedReadOnly())
+      return false;
+    if (KnownOnly && !MemAA.isKnownReadOnly())
+      return false;
+    if (!MemAA.isKnownReadOnly())
+      A.recordDependence(MemAA, *this, DepClassTy::OPTIONAL);
+
+    return true;
   }
 
   /// See AbstractAttribute::updateImpl(...).
   ChangeStatus updateImpl(Attributor &A) override {
+    if (isImpliedByMustprogressAndReadonly(A, /* KnownOnly */ false))
+      return ChangeStatus::UNCHANGED;
+
     auto CheckForWillReturn = [&](Instruction &I) {
       IRPosition IPos = IRPosition::callsite_function(cast<CallBase>(I));
       const auto &WillReturnAA =
@@ -2372,6 +2338,15 @@ struct AAWillReturnFunction final : AAWillReturnImpl {
   AAWillReturnFunction(const IRPosition &IRP, Attributor &A)
       : AAWillReturnImpl(IRP, A) {}
 
+  /// See AbstractAttribute::initialize(...).
+  void initialize(Attributor &A) override {
+    AAWillReturnImpl::initialize(A);
+
+    Function *F = getAnchorScope();
+    if (!F || F->isDeclaration() || mayContainUnboundedCycle(*F, A))
+      indicatePessimisticFixpoint();
+  }
+
   /// See AbstractAttribute::trackStatistics()
   void trackStatistics() const override { STATS_DECLTRACK_FN_ATTR(willreturn) }
 };
@@ -2383,7 +2358,7 @@ struct AAWillReturnCallSite final : AAWillReturnImpl {
 
   /// See AbstractAttribute::initialize(...).
   void initialize(Attributor &A) override {
-    AAWillReturn::initialize(A);
+    AAWillReturnImpl::initialize(A);
     Function *F = getAssociatedFunction();
     if (!F || !A.isFunctionIPOAmendable(*F))
       indicatePessimisticFixpoint();
@@ -2391,6 +2366,9 @@ struct AAWillReturnCallSite final : AAWillReturnImpl {
 
   /// See AbstractAttribute::updateImpl(...).
   ChangeStatus updateImpl(Attributor &A) override {
+    if (isImpliedByMustprogressAndReadonly(A, /* KnownOnly */ false))
+      return ChangeStatus::UNCHANGED;
+
     // TODO: Once we have call site specific value information we can provide
     //       call site specific liveness information and then it makes
     //       sense to specialize attributes for call sites arguments instead of
@@ -3515,10 +3493,10 @@ struct AADereferenceableImpl : AADereferenceable {
     const IRPosition &IRP = this->getIRPosition();
     NonNullAA = &A.getAAFor<AANonNull>(*this, IRP, DepClassTy::NONE);
 
-    bool CanBeNull;
+    bool CanBeNull, CanBeFreed;
     takeKnownDerefBytesMaximum(
         IRP.getAssociatedValue().getPointerDereferenceableBytes(
-            A.getDataLayout(), CanBeNull));
+            A.getDataLayout(), CanBeNull, CanBeFreed));
 
     bool IsFnInterface = IRP.isFnInterfaceKind();
     Function *FnScope = IRP.getAnchorScope();
@@ -3628,8 +3606,9 @@ struct AADereferenceableFloating : AADereferenceableImpl {
       if (!Stripped && this == &AA) {
         // Use IR information if we did not strip anything.
         // TODO: track globally.
-        bool CanBeNull;
-        DerefBytes = Base->getPointerDereferenceableBytes(DL, CanBeNull);
+        bool CanBeNull, CanBeFreed;
+        DerefBytes =
+          Base->getPointerDereferenceableBytes(DL, CanBeNull, CanBeFreed);
         T.GlobalState.indicatePessimisticFixpoint();
       } else {
         const DerefState &DS = AA.getState();
@@ -5606,8 +5585,9 @@ struct AAPrivatizablePtrArgument final : public AAPrivatizablePtrImpl {
       const StructLayout *PrivStructLayout = DL.getStructLayout(PrivStructType);
       for (unsigned u = 0, e = PrivStructType->getNumElements(); u < e; u++) {
         Type *PointeeTy = PrivStructType->getElementType(u)->getPointerTo();
-        Value *Ptr = constructPointer(
-            PointeeTy, &Base, PrivStructLayout->getElementOffset(u), IRB, DL);
+        Value *Ptr =
+            constructPointer(PointeeTy, PrivType, &Base,
+                             PrivStructLayout->getElementOffset(u), IRB, DL);
         new StoreInst(F.getArg(ArgNo + u), Ptr, &IP);
       }
     } else if (auto *PrivArrayType = dyn_cast<ArrayType>(PrivType)) {
@@ -5615,8 +5595,8 @@ struct AAPrivatizablePtrArgument final : public AAPrivatizablePtrImpl {
       Type *PointeePtrTy = PointeeTy->getPointerTo();
       uint64_t PointeeTySize = DL.getTypeStoreSize(PointeeTy);
       for (unsigned u = 0, e = PrivArrayType->getNumElements(); u < e; u++) {
-        Value *Ptr =
-            constructPointer(PointeePtrTy, &Base, u * PointeeTySize, IRB, DL);
+        Value *Ptr = constructPointer(PointeePtrTy, PrivType, &Base,
+                                      u * PointeeTySize, IRB, DL);
         new StoreInst(F.getArg(ArgNo + u), Ptr, &IP);
       }
     } else {
@@ -5646,7 +5626,7 @@ struct AAPrivatizablePtrArgument final : public AAPrivatizablePtrImpl {
       for (unsigned u = 0, e = PrivStructType->getNumElements(); u < e; u++) {
         Type *PointeeTy = PrivStructType->getElementType(u);
         Value *Ptr =
-            constructPointer(PointeeTy->getPointerTo(), Base,
+            constructPointer(PointeeTy->getPointerTo(), PrivType, Base,
                              PrivStructLayout->getElementOffset(u), IRB, DL);
         LoadInst *L = new LoadInst(PointeeTy, Ptr, "", IP);
         L->setAlignment(Alignment);
@@ -5657,8 +5637,8 @@ struct AAPrivatizablePtrArgument final : public AAPrivatizablePtrImpl {
       uint64_t PointeeTySize = DL.getTypeStoreSize(PointeeTy);
       Type *PointeePtrTy = PointeeTy->getPointerTo();
       for (unsigned u = 0, e = PrivArrayType->getNumElements(); u < e; u++) {
-        Value *Ptr =
-            constructPointer(PointeePtrTy, Base, u * PointeeTySize, IRB, DL);
+        Value *Ptr = constructPointer(PointeePtrTy, PrivType, Base,
+                                      u * PointeeTySize, IRB, DL);
         LoadInst *L = new LoadInst(PointeeTy, Ptr, "", IP);
         L->setAlignment(Alignment);
         ReplacementValues.push_back(L);
@@ -7348,13 +7328,10 @@ struct AAValueConstantRangeFloating : AAValueConstantRangeImpl {
     auto AllowedRegion =
         ConstantRange::makeAllowedICmpRegion(CmpI->getPredicate(), RHSAARange);
 
-    auto SatisfyingRegion = ConstantRange::makeSatisfyingICmpRegion(
-        CmpI->getPredicate(), RHSAARange);
-
     if (AllowedRegion.intersectWith(LHSAARange).isEmptySet())
       MustFalse = true;
 
-    if (SatisfyingRegion.contains(LHSAARange))
+    if (LHSAARange.icmp(CmpI->getPredicate(), RHSAARange))
       MustTrue = true;
 
     assert((!MustTrue || !MustFalse) &&

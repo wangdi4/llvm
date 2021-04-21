@@ -675,7 +675,7 @@ void foo1()
   unsigned int bb_ten[4];
 
   // force_pow2_depth
-  //expected-error@+1{{'force_pow2_depth' attribute requires integer constant between 0 and 1 inclusive}}
+  //expected-error@+1{{'__force_pow2_depth__' attribute requires integer constant between 0 and 1 inclusive}}
   __attribute__((__force_pow2_depth__(5))) unsigned int ml_one[4];
 
   //expected-error@+2{{'__memory__' and 'register' attributes are not compatible}}
@@ -683,10 +683,12 @@ void foo1()
    __attribute__((__register__)) __attribute__((__memory__(1)))
   unsigned int ml_two[4];
 
-   //expected-warning@+1{{attribute 'force_pow2_depth' is already applied}}
+   //expected-warning@+2{{attribute '__force_pow2_depth__' is already applied with different arguments}}
+   //expected-note@+1{{previous attribute is here}}
    __attribute__((__force_pow2_depth__(0))) __attribute__((__force_pow2_depth__(1))) unsigned int ml_three[4];
 
-   //expected-warning@+1{{attribute 'force_pow2_depth' is already applied}}
+   //expected-warning@+2{{attribute '__force_pow2_depth__' is already applied with different arguments}}
+   //expected-note@+1{{previous attribute is here}}
    __attribute__((__force_pow2_depth__(1))) __attribute__((__force_pow2_depth__(0))) unsigned int ml_four[4];
 
 }

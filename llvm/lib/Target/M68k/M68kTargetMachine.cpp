@@ -13,6 +13,7 @@
 
 #include "M68kTargetMachine.h"
 #include "M68k.h"
+#include "TargetInfo/M68kTargetInfo.h"
 
 #include "M68kSubtarget.h"
 #include "M68kTargetObjectFile.h"
@@ -27,8 +28,8 @@ using namespace llvm;
 
 #define DEBUG_TYPE "m68k"
 
-extern "C" void LLVMInitializeM68kTarget() {
-  RegisterTargetMachine<M68kTargetMachine> X(TheM68kTarget);
+extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeM68kTarget() {
+  RegisterTargetMachine<M68kTargetMachine> X(getTheM68kTarget());
 }
 
 namespace {

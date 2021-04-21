@@ -76,6 +76,12 @@ add_llvm_component_library(LLVMVPOTransforms
   ${LLVMGenXIntrinsics_SOURCE_DIR}/GenXIntrinsics/include
   ${LLVMGenXIntrinsics_BINARY_DIR}/GenXIntrinsics/include
 
+  DEPENDS
+  intrinsics_gen
+  directives_gen
+  LLVMDemangle
+  LLVMGenXIntrinsics
+
   LINK_LIBS
   LLVMDemangle
   LLVMGenXIntrinsics
@@ -93,7 +99,4 @@ add_llvm_component_library(LLVMVPOTransforms
   TransformUtils
   VPOAnalysis
 )
-
-add_dependencies(LLVMVPOTransforms intrinsics_gen directives_gen LLVMDemangle LLVMGenXIntrinsics)
-
 # end INTEL_COLLAB

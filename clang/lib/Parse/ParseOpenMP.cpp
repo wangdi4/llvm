@@ -460,9 +460,9 @@ void Parser::ParseOpenMPReductionInitializerForDecl(VarDecl *OmpPrivParm) {
     ConsumeToken();
 
     if (Tok.is(tok::code_completion)) {
+      cutOffParsing();
       Actions.CodeCompleteInitializer(getCurScope(), OmpPrivParm);
       Actions.FinalizeDeclaration(OmpPrivParm);
-      cutOffParsing();
       return;
     }
 
@@ -2337,9 +2337,18 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
 
     ParsingOpenMPDirectiveRAII NormalScope(*this, /*Value=*/false);
     llvm::SmallVector<Decl *, 4> Decls;
-    DKind = parseOpenMPDirectiveKind(*this);
-    while (DKind != OMPD_end_declare_target && Tok.isNot(tok::eof) &&
-           Tok.isNot(tok::r_brace)) {
+    while (Tok.isNot(tok::eof) && Tok.isNot(tok::r_brace)) {
+      if (Tok.isAnnotation() && Tok.is(tok::annot_pragma_openmp)) {
+        TentativeParsingAction TPA(*this);
+        ConsumeAnnotationToken();
+        DKind = parseOpenMPDirectiveKind(*this);
+        if (DKind != OMPD_end_declare_target)
+          TPA.Revert();
+        else
+          TPA.Commit();
+      }
+      if (DKind == OMPD_end_declare_target)
+        break;
       DeclGroupPtrTy Ptr;
       // Here we expect to see some function declaration.
       if (AS == AS_none) {
@@ -2354,15 +2363,6 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
       if (Ptr) {
         DeclGroupRef Ref = Ptr.get();
         Decls.append(Ref.begin(), Ref.end());
-      }
-      if (Tok.isAnnotation() && Tok.is(tok::annot_pragma_openmp)) {
-        TentativeParsingAction TPA(*this);
-        ConsumeAnnotationToken();
-        DKind = parseOpenMPDirectiveKind(*this);
-        if (DKind != OMPD_end_declare_target)
-          TPA.Revert();
-        else
-          TPA.Commit();
       }
     }
 

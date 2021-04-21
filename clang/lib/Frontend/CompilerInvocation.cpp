@@ -214,6 +214,7 @@ static void denormalizeStringImpl(SmallVectorImpl<const char *> &Args,
   switch (OptClass) {
   case Option::SeparateClass:
   case Option::JoinedOrSeparateClass:
+  case Option::JoinedAndSeparateClass:
     Args.push_back(Spelling);
     Args.push_back(SA(Value));
     break;
@@ -523,8 +524,10 @@ static bool FixupInvocation(CompilerInvocation &Invocation,
 static unsigned getOptimizationLevel(ArgList &Args, InputKind IK,
                                      DiagnosticsEngine &Diags) {
   unsigned DefaultOpt = llvm::CodeGenOpt::None;
-  if ((IK.getLanguage() == Language::OpenCL &&
-      !Args.hasArg(OPT_cl_opt_disable)) || Args.hasArg(OPT_fsycl_is_device))
+  if (((IK.getLanguage() == Language::OpenCL ||      //INTEL
+        IK.getLanguage() == Language::OpenCLCXX) &&  //INTEL
+       !Args.hasArg(OPT_cl_opt_disable)) ||          //INTEL
+      Args.hasArg(OPT_fsycl_is_device))              //INTEL
     DefaultOpt = llvm::CodeGenOpt::Default;
 
   if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
@@ -1319,6 +1322,16 @@ void CompilerInvocation::GenerateCodeGenArgs(
 #include "clang/Driver/Options.inc"
 #undef CODEGEN_OPTION_WITH_MARSHALLING
 
+#if INTEL_CUSTOMIZATION
+  if (Opts.MSDebugInfoFile == CodeGenOptions::MSDebugInfoObjFile)
+    GenerateArg(Args, OPT_fms_debug_info_file_type, "obj", SA);
+  else if (Opts.MSDebugInfoFile == CodeGenOptions::MSDebugInfoPdbFile)
+    GenerateArg(Args, OPT_fms_debug_info_file_type, "pdb", SA);
+
+  if (Opts.X87Precision)
+    GenerateArg(Args, OPT_mx87_precision, Twine(Opts.X87Precision), SA);
+#endif // INTEL_CUSTOMIZATION
+
   if (Opts.OptimizationLevel > 0) {
     if (Opts.Inlining == CodeGenOptions::NormalInlining)
       GenerateArg(Args, OPT_finline_functions, SA);
@@ -1559,13 +1572,6 @@ bool CompilerInvocation::ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args,
   }
   Opts.OptimizationLevel = OptimizationLevel;
 
-#if INTEL_CUSTOMIZATION
-  Opts.DisableIntelProprietaryOpts = Args.hasArg(
-    OPT_disable_intel_proprietary_opts);
-  Opts.IntelAdvancedOptim = Args.hasArg(OPT_fintel_advanced_optim);
-  Opts.DisableCpuDispatchIFuncs = Args.hasArg(OPT_disable_cpudispatch_ifuncs);
-#endif // INTEL_CUSTOMIZATION
-
   // The key paths of codegen options defined in Options.td start with
   // "CodeGenOpts.". Let's provide the expected variable name and type.
   CodeGenOptions &CodeGenOpts = Opts;
@@ -1636,12 +1642,6 @@ bool CompilerInvocation::ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args,
     if (Opts.getDebugInfo() == codegenoptions::LimitedDebugInfo)
       Opts.setDebugInfo(codegenoptions::DebugInfoConstructor);
 
-#if INTEL_CUSTOMIZATION
-  Opts.EmitTraceBack = Args.hasArg(OPT_traceback);
-  Opts.EmitIntelSTI = Args.hasArg(OPT_gintel_sti);
-  Opts.DebugOpenCLBasicTypes = Args.hasArg(OPT_gintel_opencl_builtin_types);
-#endif // INTEL_CUSTOMIZATION
-
   for (const auto &Arg : Args.getAllArgValues(OPT_fdebug_prefix_map_EQ)) {
     auto Split = StringRef(Arg).split('=');
     Opts.DebugPrefixMap.insert(
@@ -1667,6 +1667,12 @@ bool CompilerInvocation::ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args,
   if (Opts.OptimizationLevel > 0 && Opts.hasReducedDebugInfo() &&
       llvm::is_contained(DebugEntryValueArchs, T.getArch()))
     Opts.EmitCallSiteInfo = true;
+
+  if (!Opts.EnableDIPreservationVerify && Opts.DIBugsReportFilePath.size()) {
+    Diags.Report(diag::warn_ignoring_verify_debuginfo_preserve_export)
+        << Opts.DIBugsReportFilePath;
+    Opts.DIBugsReportFilePath = "";
+  }
 
   Opts.NewStructPathTBAA = !Args.hasArg(OPT_no_struct_path_tbaa) &&
                            Args.hasArg(OPT_new_struct_path_tbaa);
@@ -1826,9 +1832,6 @@ bool CompilerInvocation::ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args,
   }
 
 #if INTEL_CUSTOMIZATION
-  Opts.SPIRCompileOptions =
-      std::string(Args.getLastArgValue(OPT_cl_spir_compile_options));
-
   // CQ#368119 - support for '/Z7' and '/Zi' options.
   if (Arg *A = Args.getLastArg(OPT_fms_debug_info_file_type)) {
     StringRef Val = A->getValue();
@@ -1844,16 +1847,6 @@ bool CompilerInvocation::ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args,
           static_cast<CodeGenOptions::MSDebugInfoFileKind>(FileType));
     }
   }
-  // CQ#368125 - support for '/Fd' and '/Fo' options.
-  Opts.MSOutputObjFile =
-      std::string(Args.getLastArgValue(OPT_fms_debug_info_obj_file));
-  Opts.MSOutputPdbFile =
-      std::string(Args.getLastArgValue(OPT_fms_debug_info_pdb_file));
-  // CQ#366796 - support for '--no_expr_source_pos' option.
-  Opts.NoExprSourcePos = Args.hasArg(OPT_no_expr_source_pos);
-  // Support for '-fargument-noalias' option.
-  // isIntelCompat(LangOptions::FArgumentNoalias)
-  Opts.NoAliasForPtrArgs = Args.hasArg(OPT_fargument_noalias);
 
   // CMPLRLLVM-9854 - support for X87 precision control.
   unsigned X87Precision = 0;
@@ -2537,9 +2530,13 @@ static void GenerateFrontendArgs(const FrontendOptions &Opts,
 
   GenerateProgramAction();
 
-  for (const auto &PluginArgs : Opts.PluginArgs)
+  for (const auto &PluginArgs : Opts.PluginArgs) {
+    Option Opt = getDriverOptTable().getOption(OPT_plugin_arg);
+    const char *Spelling =
+        SA(Opt.getPrefix() + Opt.getName() + PluginArgs.first);
     for (const auto &PluginArg : PluginArgs.second)
-      GenerateArg(Args, OPT_plugin_arg, PluginArgs.first + PluginArg, SA);
+      denormalizeString(Args, Spelling, SA, Opt.getKind(), 0, PluginArg);
+  }
 
   for (const auto &Ext : Opts.ModuleFileExtensions)
     if (auto *TestExt = dyn_cast_or_null<TestModuleFileExtension>(Ext.get()))
@@ -2577,6 +2574,9 @@ static void GenerateFrontendArgs(const FrontendOptions &Opts,
       break;
     case Language::OpenCL:
       Lang = "cl";
+      break;
+    case Language::OpenCLCXX:
+      Lang = "clcpp";
       break;
     case Language::CUDA:
       Lang = "cuda";
@@ -2766,6 +2766,7 @@ static bool ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
     DashX = llvm::StringSwitch<InputKind>(XValue)
                 .Case("c", Language::C)
                 .Case("cl", Language::OpenCL)
+                .Case("clcpp", Language::OpenCLCXX)
                 .Case("cuda", Language::CUDA)
                 .Case("hip", Language::HIP)
                 .Case("c++", Language::CXX)
@@ -3102,13 +3103,6 @@ static bool ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
   for (const auto *A : Args.filtered(OPT_ivfsoverlay))
     Opts.AddVFSOverlayFile(A->getValue());
 
-#if INTEL_CUSTOMIZATION
-  if (const Arg *A = Args.getLastArg(OPT_header_base_path))
-    Opts.HeaderBasePath = A->getValue();
-  for (const auto *A : Args.filtered(OPT_ivfsoverlay_lib))
-    Opts.AddVFSOverlayLib(A->getValue());
-#endif // INTEL_CUSTOMIZATION
-
   return Success;
 }
 
@@ -3137,6 +3131,9 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
       llvm_unreachable("Invalid input kind!");
     case Language::OpenCL:
       LangStd = LangStandard::lang_opencl10;
+      break;
+    case Language::OpenCLCXX:
+      LangStd = LangStandard::lang_openclcpp;
       break;
     case Language::CUDA:
       LangStd = LangStandard::lang_cuda;
@@ -3214,7 +3211,6 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
 
   // OpenCL has some additional defaults.
   if (Opts.OpenCL) {
-#if INTEL_CUSTOMIZATION
     Opts.AltiVec = 0;
     Opts.ZVector = 0;
     Opts.setDefaultFPContractMode(LangOptions::FPM_On);
@@ -3223,13 +3219,15 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
     Opts.OpenCLGenericAddressSpace =
         Opts.OpenCLCPlusPlus || Opts.OpenCLVersion == 200;
 
-    // Community is currently implementing -fdeclare-opencl-builtins feature. Now
-    // -finclude-default-header and -fdeclare-opencl-builtins don't cowork in xmain.
     // Include default header file for OpenCL.
-    if (Opts.IncludeDefaultHeader && !Opts.DeclareOpenCLBuiltins) {
-      Includes.push_back("opencl-c.h");
+    if (Opts.IncludeDefaultHeader) {
+      if (Opts.DeclareOpenCLBuiltins) {
+        // Only include base header file for builtin types and constants.
+        Includes.push_back("opencl-c-base.h");
+      } else {
+        Includes.push_back("opencl-c.h");
+      }
     }
-#endif // INTEL_CUSTOMIZATION
   }
 
   Opts.HIP = IK.getLanguage() == Language::HIP;
@@ -3285,7 +3283,11 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
     return S.getLanguage() == Language::C;
 
   case Language::OpenCL:
-    return S.getLanguage() == Language::OpenCL;
+    return S.getLanguage() == Language::OpenCL ||
+           S.getLanguage() == Language::OpenCLCXX;
+
+  case Language::OpenCLCXX:
+    return S.getLanguage() == Language::OpenCLCXX;
 
   case Language::CXX:
   case Language::ObjCXX:
@@ -3331,6 +3333,8 @@ static const StringRef GetInputKindName(InputKind IK) {
     return "Objective-C++";
   case Language::OpenCL:
     return "OpenCL";
+  case Language::OpenCLCXX:
+    return "C++ for OpenCL";
   case Language::CUDA:
     return "CUDA";
   case Language::RenderScript:
@@ -3388,6 +3392,57 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
       IMPLIED_CHECK, IMPLIED_VALUE, DENORMALIZER, EXTRACTOR, TABLE_INDEX)
 #include "clang/Driver/Options.inc"
 #undef LANG_OPTION_WITH_MARSHALLING
+
+#if INTEL_CUSTOMIZATION
+  // If -fintel-compatibility is specified a default is applied.
+  // If not just -enable option is applied.
+  for (int I = 0, E = Opts.IntelCompatItemsState.size(); I < E; ++I) {
+    bool Opt = Opts.IntelCompatItemsState[I];
+    bool Default =
+        Opts.IntelCompat ? Opts.IntelCompatItemsStateDefault[I] : false;
+    if (Opt != Default) {
+      if (Default)
+        GenerateArg(Args, OPT_fintel_compatibility_disable,
+                    Opts.fromEnumIntelCompatItems(I), SA);
+      else
+        GenerateArg(Args, OPT_fintel_compatibility_enable,
+                    Opts.fromEnumIntelCompatItems(I), SA);
+    }
+  }
+  if (Opts.ShowIntelCompatUserDocsHelp) {
+    SmallString<256> Items;
+    for (int I = 0, E =  Opts.IntelCompatUserDocs.size(); I < E; ++I) {
+      if (Opts.IntelCompatUserDocsState[I]) {
+        if (!Items.empty())
+          Items += ",";
+        Items += Opts.fromEnumIntelCompatItems(I);
+      }
+    }
+    if (!Items.empty())
+      GenerateArg(Args, OPT_fintel_compatibility_doc, Items, SA);
+  }
+
+  if (Opts.IntelCompat) {
+    for (const auto& M : Opts.ImfAttrMap) {
+      SmallString<128> S;
+      S += M.first;  // property
+      S += ':';
+      S += M.second; // value
+      GenerateArg(Args, OPT_fintel_imf_attr_EQ, S, SA);
+    }
+    for (const auto& F : Opts.ImfAttrFuncMap) {
+      for (const auto &C : F.second) {
+        SmallString<128> S;
+        S += C.first;  // property
+        S += ':';
+        S += C.second; // value
+        S += ':';
+        S += F.first;  // function name
+        GenerateArg(Args, OPT_fintel_imf_attr_EQ, S, SA);
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // The '-fcf-protection=' option is generated by CodeGenOpts generator.
 
@@ -3464,11 +3519,17 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
   else if (Opts.LongDoubleSize == 64)
     GenerateArg(Args, OPT_mlong_double_64, SA);
 
+#if INTEL_CUSTOMIZATION
+  if (Opts.LongDoubleSize == 80)
+    GenerateArg(Args, OPT_fintel_long_double_size_EQ, "80", SA);
+#endif // INTEL_CUSTOMIZATION
+
   // Not generating '-mrtd', it's just an alias for '-fdefault-calling-conv='.
 
   // OpenMP was requested via '-fopenmp', not implied by '-fopenmp-simd' or
   // '-fopenmp-targets='.
-  if (Opts.OpenMP && !Opts.OpenMPSimd) {
+  if (Opts.OpenMP && !Opts.OpenMPSimd && !Opts.OpenMPSimdOnly && // INTEL
+      !Opts.OpenMPTBBOnly) {                                     // INTEL
     GenerateArg(Args, OPT_fopenmp, SA);
 
     if (Opts.OpenMP != 50)
@@ -3524,6 +3585,19 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
   if (Opts.OpenMPCUDAForceFullRuntime)
     GenerateArg(Args, OPT_fopenmp_cuda_force_full_runtime, SA);
 
+#if INTEL_COLLAB
+  if (Opts.OpenMPSimdDisabled)
+    GenerateArg(Args, OPT_fno_openmp_simd, SA);
+  if (Opts.OpenMPTBBDisabled)
+    GenerateArg(Args, OPT_fnointel_openmp_tbb, SA);
+  if (Opts.OpenMPSimdOnly)
+    GenerateArg(Args, OPT_fopenmp_simd, SA);
+  if (Opts.OpenMPTBBOnly)
+    GenerateArg(Args, OPT_fintel_openmp_tbb, SA);
+  if (Opts.OpenMPLateOutline)
+    GenerateArg(Args, OPT_fopenmp_late_outline, SA);
+#endif // INTEL_COLLAB
+
   // The arguments used to set Optimize, OptimizeSize and NoInlineDefine are
   // generated from CodeGenOptions.
 
@@ -3566,6 +3640,7 @@ void CompilerInvocation::GenerateLangArgs(const LangOptions &Opts,
   if (Opts.getSignReturnAddressKey() ==
       LangOptions::SignReturnAddressKeyKind::BKey)
     GenerateArg(Args, OPT_msign_return_address_key_EQ, "b_key", SA);
+
 }
 
 bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
@@ -3658,24 +3733,30 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
     }
   }
 
-#if INTEL_CUSTOMIZATION
-  Opts.EnableVariantVirtualCalls =
-      Args.hasFlag(options::OPT_fenable_variant_virtual_calls,
-                   options::OPT_fno_enable_variant_virtual_calls, false);
-  Opts.EnableVariantFunctionPointers =
-      Args.hasFlag(options::OPT_fenable_variant_function_pointers,
-                   options::OPT_fno_enable_variant_function_pointers, false);
-#endif // INTEL_CUSTOMIZATION
-
-  Opts.DeclareSPIRVBuiltins = Args.hasArg(OPT_fdeclare_spirv_builtins);
-
   // These need to be parsed now. They are used to set OpenCL defaults.
   Opts.IncludeDefaultHeader = Args.hasArg(OPT_finclude_default_header);
   Opts.DeclareOpenCLBuiltins = Args.hasArg(OPT_fdeclare_opencl_builtins);
 
   CompilerInvocation::setLangDefaults(Opts, IK, T, Includes, LangStd);
+
+  // The key paths of codegen options defined in Options.td start with
+  // "LangOpts->". Let's provide the expected variable name and type.
+  LangOptions *LangOpts = &Opts;
+  bool Success = true;
+
+#define LANG_OPTION_WITH_MARSHALLING(                                          \
+    PREFIX_TYPE, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,        \
+    HELPTEXT, METAVAR, VALUES, SPELLING, SHOULD_PARSE, ALWAYS_EMIT, KEYPATH,   \
+    DEFAULT_VALUE, IMPLIED_CHECK, IMPLIED_VALUE, NORMALIZER, DENORMALIZER,     \
+    MERGER, EXTRACTOR, TABLE_INDEX)                                            \
+  PARSE_OPTION_WITH_MARSHALLING(Args, Diags, Success, ID, FLAGS, PARAM,        \
+                                SHOULD_PARSE, KEYPATH, DEFAULT_VALUE,          \
+                                IMPLIED_CHECK, IMPLIED_VALUE, NORMALIZER,      \
+                                MERGER, TABLE_INDEX)
+#include "clang/Driver/Options.inc"
+#undef LANG_OPTION_WITH_MARSHALLING
+
 #if INTEL_CUSTOMIZATION
-  Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
   if (Opts.IntelCompat)
     Opts.setAllIntelCompatItemsStateDefault();
   for (const Arg *A : Args.filtered(OPT_fintel_compatibility_enable,
@@ -3707,11 +3788,6 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
       }
     }
   }
-
-  Opts.ShowIntelCompatHelp = Args.hasArg(OPT_fintel_compatibility_help);
-  Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
-  Opts.HLS = Args.hasArg(OPT_fhls);
-  Opts.IntelQuad = Args.hasArg(OPT_extended_float_types);
 
   if (Opts.isIntelCompat(LangOptions::IMFAttributes)) {
     for (StringRef IMFAttrs : Args.getAllArgValues(OPT_fintel_imf_attr_EQ)) {
@@ -3754,18 +3830,9 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
     }
   }
 
-  Opts.ShowIntelCompatUsed = Args.hasArg(OPT_fintel_compatibility_used);
-  Opts.ShowIntelCompatUnused = Args.hasArg(OPT_fintel_compatibility_unused);
-  Opts.OpenMPThreadPrivateLegacy =
-      Args.hasArg(OPT_fopenmp_threadprivate_legacy);
-  Opts.IntelDriverTempfileName =
-      std::string(Args.getLastArgValue(OPT_fintel_driver_tempfile_name_EQ));
   // Fix for CQ#373517: compilation fails with 'redefinition of default
   // argument'.
   Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode);
-
-  // IntrinsicPromotion implementation.
-  Opts.IntrinsicAutoPromote = Args.hasArg(OPT_intel_mintrinsic_promote);
 
   // cl_intel_channels is an OpenCL extension for Intel FPGA. It is supported
   // by default and can become unsupported according to -cl-ext option.
@@ -3778,25 +3845,7 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
         Opts.OpenCLChannel = 0;
     }
   }
-  Opts.OpenMPTargetSimd = Args.hasArg(OPT_fopenmp_target_simd);
-#endif  // INTEL_CUSTOMIZATION
-
-  // The key paths of codegen options defined in Options.td start with
-  // "LangOpts->". Let's provide the expected variable name and type.
-  LangOptions *LangOpts = &Opts;
-  bool Success = true;
-
-#define LANG_OPTION_WITH_MARSHALLING(                                          \
-    PREFIX_TYPE, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,        \
-    HELPTEXT, METAVAR, VALUES, SPELLING, SHOULD_PARSE, ALWAYS_EMIT, KEYPATH,   \
-    DEFAULT_VALUE, IMPLIED_CHECK, IMPLIED_VALUE, NORMALIZER, DENORMALIZER,     \
-    MERGER, EXTRACTOR, TABLE_INDEX)                                            \
-  PARSE_OPTION_WITH_MARSHALLING(Args, Diags, Success, ID, FLAGS, PARAM,        \
-                                SHOULD_PARSE, KEYPATH, DEFAULT_VALUE,          \
-                                IMPLIED_CHECK, IMPLIED_VALUE, NORMALIZER,      \
-                                MERGER, TABLE_INDEX)
-#include "clang/Driver/Options.inc"
-#undef LANG_OPTION_WITH_MARSHALLING
+#endif // INTEL_CUSTOMIZATION
 
   if (const Arg *A = Args.getLastArg(OPT_fcf_protection_EQ)) {
     StringRef Name = A->getValue();
@@ -3885,8 +3934,8 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
   // '-mignore-xcoff-visibility' is implied. The generated command line will
   // contain both '-fvisibility default' and '-mignore-xcoff-visibility' and
   // subsequent calls to `CreateFromArgs`/`generateCC1CommandLine` will always
-  // produce the same arguments. 
- 
+  // produce the same arguments.
+
   if (T.isOSAIX() && (Args.hasArg(OPT_mignore_xcoff_visibility) ||
                       !Args.hasArg(OPT_fvisibility)))
     Opts.IgnoreXCOFFVisibility = 1;
@@ -3947,42 +3996,16 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
                                                 << A->getValue();
     }
   }
+  // This should be removed by adding fintel_compatibility.KeyPath to the
+  // definition in Options.td, but leave it here until that is working.
+  Opts.DeclSpecKeyword =
+      Args.hasFlag(OPT_fdeclspec, OPT_fno_declspec,
+                   (Opts.MicrosoftExt || Opts.Borland ||
+                    Opts.CUDA || Opts.IntelCompat));
 #endif // INTEL_CUSTOMIZATION
-  Opts.EnableAIXExtendedAltivecABI = Args.hasArg(OPT_mabi_EQ_vec_extabi);
-  Opts.PICLevel = getLastArgIntValue(Args, OPT_pic_level, 0, Diags);
-  Opts.DumpRecordLayouts = Opts.DumpRecordLayoutsSimple
-                        || Args.hasArg(OPT_fdump_record_layouts);
   if (Opts.FastRelaxedMath)
     Opts.setDefaultFPContractMode(LangOptions::FPM_Fast);
   llvm::sort(Opts.ModuleFeatures);
-
-#if INTEL_CUSTOMIZATION
-  Opts.OpenCLForceVectorABI = Args.hasArg(OPT_fopencl_force_vector_abi);
-  // Temporary internal option to enable new support. When ready just
-  // switch default to true.
-  Opts.IntelPragmaPrefetch =
-      Args.hasFlag(OPT_fintel_pragma_prefetch, OPT_fno_intel_pragma_prefetch,
-                   /*default=*/true);
-#endif // INTEL_CUSTOMIZATION
-  Opts.XLPragmaPack = Args.hasArg(OPT_fxl_pragma_pack);
-  Opts.ModuleFeatures = Args.getAllArgValues(OPT_fmodule_feature);
-  llvm::sort(Opts.ModuleFeatures);
-
-  Opts.ArmSveVectorBits =
-      getLastArgIntValue(Args, options::OPT_msve_vector_bits_EQ, 0, Diags);
-
-  // __declspec is enabled by default for the PS4 by the driver, and also
-  // enabled for Microsoft Extensions or Borland Extensions, here.
-  //
-  // FIXME: __declspec is also currently enabled for CUDA, but isn't really a
-  // CUDA extension. However, it is required for supporting
-  // __clang_cuda_builtin_vars.h, which uses __declspec(property). Once that has
-  // been rewritten in terms of something more generic, remove the Opts.CUDA
-  // term here.
-  Opts.DeclSpecKeyword =
-      Args.hasFlag(OPT_fdeclspec, OPT_fno_declspec,
-                   (Opts.MicrosoftExt || Opts.Borland ||      // INTEL
-                    Opts.CUDA || Opts.IntelCompat));          // INTEL
 
   // -mrtd option
   if (Arg *A = Args.getLastArg(OPT_mrtd)) {
@@ -4019,10 +4042,6 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
   }
 #endif //INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
-  Opts.OpenMPUseSingleElemArrayFuncs =
-      Args.hasFlag(OPT_fopenmp_use_single_elem_array_funcs,
-                   OPT_fno_openmp_use_single_elem_array_funcs,
-                   /*default=*/true);
   Opts.OpenMPLateOutline =
       Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_late_outline);
 #endif // INTEL_COLLAB
@@ -4031,20 +4050,6 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
   if (!Opts.OpenMPLateOutline)
     Opts.OpenMPLateOutline =
         Opts.OpenMP && Args.hasArg(OPT_fintel_openmp_region);
-  Opts.OpenMPLateOutlineTarget = !Args.hasArg(OPT_fno_intel_openmp_offload);
-  Opts.OpenMPLateOutlineAtomic = Args.hasArg(OPT_fintel_openmp_region_atomic);
-
-  Opts.OpenMPUseLLVMAtomic = Args.hasFlag(
-          options::OPT_fintel_openmp_use_llvm_atomic,
-          options::OPT_fno_intel_openmp_use_llvm_atomic);
-  if (!Opts.OpenMPLateOutlineAllowUncollapsedLoops)
-    Opts.OpenMPLateOutlineAllowUncollapsedLoops =
-      Args.hasArg(OPT_fintel_openmp_region_late_collapsed_loops);
-  if (Opts.OpenMPLateOutlineAllowUncollapsedLoops)
-    Opts.OpenMPLateOutlineAllowUncollapsedLoops =
-      !Args.hasArg(OPT_fintel_openmp_region_early_collapsed_loops);
-  Opts.OpenMPStableFileID =
-      Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_stable_file_id);
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   if (Opts.OpenMPLateOutline && T.isSPIR())
@@ -4056,10 +4061,7 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
       Args.hasFlag(options::OPT_fopenmp_simd, options::OPT_fno_openmp_simd,
                    /*Default=*/false);
   Opts.OpenMPSimd = !Opts.OpenMP && IsSimdSpecified;
-  Opts.OpenMPUseTLS =
-#if INTEL_CUSTOMIZATION
-      !Args.hasArg(options::OPT_fopenmp_threadprivate_legacy) &&
-#endif  // INTEL_CUSTOMIZATION
+  Opts.OpenMPUseTLS = !Opts.OpenMPThreadPrivateLegacy && // INTEL
       Opts.OpenMP && !Args.hasArg(options::OPT_fnoopenmp_use_tls);
   Opts.OpenMPIsDevice =
       Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_is_device);
@@ -4190,12 +4192,6 @@ bool CompilerInvocation::ParseLangArgs(LangOptions &Opts, ArgList &Args,
           options::OPT_fno_inline_functions, options::OPT_fno_inline))
     if (InlineArg->getOption().matches(options::OPT_fno_inline))
       Opts.NoInlineDefine = true;
-
-#if INTEL_CUSTOMIZATION
-  Opts.HonorNaNCompares = Args.hasFlag(OPT_fhonor_nan_compares,
-                                       OPT_fno_honor_nan_compares,
-                                       false);
-#endif // INTEL_CUSTOMIZATION
 
   if (Arg *A = Args.getLastArg(OPT_ffp_contract)) {
     StringRef Val = A->getValue();
@@ -4600,6 +4596,22 @@ static bool ParseTargetArgs(TargetOptions &Opts, ArgList &Args,
   return Success && Diags.getNumErrors() == NumErrorsBefore;
 }
 
+static void CreateEmptyFile(StringRef HeaderName) {
+  if (HeaderName.empty())
+    return;
+
+  Expected<llvm::sys::fs::file_t> FT = llvm::sys::fs::openNativeFileForWrite(
+      HeaderName, llvm::sys::fs::CD_OpenAlways, llvm::sys::fs::OF_None);
+  if (FT)
+    llvm::sys::fs::closeFile(*FT);
+  else {
+    // Emit a message but don't terminate; compilation will fail
+    // later if this file is absent.
+    llvm::errs() << "Error: " << llvm::toString(FT.takeError())
+                 << " when opening " << HeaderName << "\n";
+  }
+}
+
 bool CompilerInvocation::CreateFromArgsImpl(
     CompilerInvocation &Res, ArrayRef<const char *> CommandLineArgs,
     DiagnosticsEngine &Diags, const char *Argv0) {
@@ -4686,21 +4698,9 @@ bool CompilerInvocation::CreateFromArgsImpl(
   if (LangOpts.SYCLIsDevice) {
     // Set the triple of the host for SYCL device compile.
     Res.getTargetOpts().HostTriple = Res.getFrontendOpts().AuxTriple;
-    // If specified, create an empty integration header file for now.
-    const StringRef &HeaderName = LangOpts.SYCLIntHeader;
-    if (!HeaderName.empty()) {
-      Expected<llvm::sys::fs::file_t> ft =
-          llvm::sys::fs::openNativeFileForWrite(
-              HeaderName, llvm::sys::fs::CD_OpenAlways, llvm::sys::fs::OF_None);
-      if (ft)
-        llvm::sys::fs::closeFile(*ft);
-      else {
-        // Emit a message but don't terminate; compilation will fail
-        // later if this file is absent.
-        llvm::errs() << "Error: " << llvm::toString(ft.takeError())
-                     << " when opening " << HeaderName << "\n";
-      }
-    }
+    // If specified, create empty integration header files for now.
+    CreateEmptyFile(LangOpts.SYCLIntHeader);
+    CreateEmptyFile(LangOpts.SYCLIntFooter);
   }
 
   Success &= ParseCodeGenArgs(Res.getCodeGenOpts(), Args, DashX, Diags, T,

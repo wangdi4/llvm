@@ -728,7 +728,8 @@ bool HLInst::isAbs() const {
 }
 
 Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty,
-                                        bool IsMin, bool IsSigned) {
+                                        FastMathFlags FMF, bool IsMin,
+                                        bool IsSigned) {
   RecurKind RDKind;
 
   assert(isValidReductionOpCode(RednOpCode) &&
@@ -783,7 +784,7 @@ Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty,
     break;
   }
 
-  return RecurrenceDescriptor::getRecurrenceIdentity(RDKind, Ty);
+  return RecurrenceDescriptor::getRecurrenceIdentity(RDKind, Ty, FMF);
 }
 
 const DebugLoc HLInst::getDebugLoc() const {

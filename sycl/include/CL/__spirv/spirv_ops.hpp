@@ -189,6 +189,30 @@ __SPIRV_ATOMICS(__SPIRV_ATOMIC_UNSIGNED, unsigned long long)
 __SPIRV_ATOMICS(__SPIRV_ATOMIC_MINMAX, Min)
 __SPIRV_ATOMICS(__SPIRV_ATOMIC_MINMAX, Max)
 
+extern SYCL_EXTERNAL __attribute__((opencl_global)) void *
+__spirv_GenericCastToPtrExplicit_ToGlobal(const void *Ptr,
+                                          __spv::StorageClass::Flag S) noexcept;
+
+extern SYCL_EXTERNAL __attribute__((opencl_local)) void *
+__spirv_GenericCastToPtrExplicit_ToLocal(const void *Ptr,
+                                         __spv::StorageClass::Flag S) noexcept;
+
+template <typename dataT>
+extern __attribute__((opencl_global)) dataT *
+__spirv_GenericCastToPtrExplicit_ToGlobal(
+    const void *Ptr, __spv::StorageClass::Flag S) noexcept {
+  return (__attribute__((opencl_global))
+          dataT *)__spirv_GenericCastToPtrExplicit_ToGlobal(Ptr, S);
+}
+
+template <typename dataT>
+extern __attribute__((opencl_local)) dataT *
+__spirv_GenericCastToPtrExplicit_ToLocal(const void *Ptr,
+                                         __spv::StorageClass::Flag S) noexcept {
+  return (__attribute__((opencl_local))
+          dataT *)__spirv_GenericCastToPtrExplicit_ToLocal(Ptr, S);
+}
+
 template <typename dataT>
 __SYCL_CONVERGENT__ extern SYCL_EXTERNAL dataT
 __spirv_SubgroupShuffleINTEL(dataT Data, uint32_t InvocationId) noexcept;
@@ -298,12 +322,13 @@ extern SYCL_EXTERNAL ap_int<Wout> __spirv_ArbitraryFloatCastINTEL(
 
 template <int WA, int Wout>
 extern SYCL_EXTERNAL ap_int<Wout> __spirv_ArbitraryFloatCastFromIntINTEL(
-    ap_int<WA> A, int32_t Mout, int32_t EnableSubnormals = 0,
-    int32_t RoundingMode = 0, int32_t RoundingAccuracy = 0) noexcept;
+    ap_int<WA> A, int32_t Mout, bool FromSign = false,
+    int32_t EnableSubnormals = 0, int32_t RoundingMode = 0,
+    int32_t RoundingAccuracy = 0) noexcept;
 
 template <int WA, int Wout>
 extern SYCL_EXTERNAL ap_int<Wout> __spirv_ArbitraryFloatCastToIntINTEL(
-    ap_int<WA> A, int32_t MA, int32_t EnableSubnormals = 0,
+    ap_int<WA> A, int32_t MA, bool ToSign = false, int32_t EnableSubnormals = 0,
     int32_t RoundingMode = 0, int32_t RoundingAccuracy = 0) noexcept;
 
 template <int WA, int WB, int Wout>

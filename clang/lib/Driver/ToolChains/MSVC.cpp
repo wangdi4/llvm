@@ -12,6 +12,7 @@
 #include "Arch/X86.h" // INTEL
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/Version.h"
+#include "clang/Config/config.h"
 #include "clang/Driver/Compilation.h"
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/DriverDiagnostic.h"
@@ -393,11 +394,11 @@ void visualstudio::Linker::constructMSVCLibCommand(Compilation &C,
   if (Args.hasArg(options::OPT_fsycl_link_EQ) &&
       Args.hasArg(options::OPT_fintelfpga))
     CmdArgs.push_back("/IGNORE:4221");
-#if INTEL_CUSTOMIZATION
+
   // Suppress multiple section warning LNK4078
   if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false))
     CmdArgs.push_back("/IGNORE:4078");
-#endif // INTEL_CUSTOMIZATION
+
   CmdArgs.push_back(
       C.getArgs().MakeArgString(Twine("-OUT:") + Output.getFilename()));
 
@@ -499,10 +500,10 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       A->claim();
     }
   }
+#endif // INTEL_CUSTOMIZATION
   // Suppress multiple section warning LNK4078
   if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false))
     CmdArgs.push_back("/IGNORE:4078");
-#endif // INTEL_CUSTOMIZATION
 
   // If the VC environment hasn't been configured (perhaps because the user
   // did not run vcvarsall), try to build a consistent link environment.  If
@@ -719,7 +720,10 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // translate 'lld' into 'lld-link', and in the case of the regular msvc
   // linker, we need to use a special search algorithm.
   llvm::SmallString<128> linkPath;
-  StringRef Linker = Args.getLastArgValue(options::OPT_fuse_ld_EQ, "link");
+  StringRef Linker
+    = Args.getLastArgValue(options::OPT_fuse_ld_EQ, CLANG_DEFAULT_LINKER);
+  if (Linker.empty())
+    Linker = "link";
   if (Linker.equals_lower("lld"))
     Linker = "lld-link";
 

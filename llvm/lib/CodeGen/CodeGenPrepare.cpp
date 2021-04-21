@@ -415,6 +415,7 @@ class TypePromotionTransaction;
     bool dupRetToEnableTailCallOpts(BasicBlock *BB, bool &ModifiedDT);
     bool fixupDbgValue(Instruction *I);
     bool placeDbgValues(Function &F);
+    bool placePseudoProbes(Function &F);
     bool canFormExtLd(const SmallVectorImpl<Instruction *> &MovedExts,
                       LoadInst *&LI, Instruction *&Inst, bool HasPromoted);
     bool tryToPromoteExts(TypePromotionTransaction &TPT,
@@ -624,6 +625,7 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
   // Do this last to clean up use-before-def scenarios introduced by other
   // preparatory transforms.
   EverMadeChange |= placeDbgValues(F);
+  EverMadeChange |= placePseudoProbes(F);
 
 #ifndef NDEBUG
   if (VerifyBFIUpdates)
@@ -639,12 +641,10 @@ bool CodeGenPrepare::eliminateAssumptions(Function &F) {
     CurInstIterator = BB.begin();
     while (CurInstIterator != BB.end()) {
       Instruction *I = &*(CurInstIterator++);
-      if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
-        if (II->getIntrinsicID() != Intrinsic::assume)
-          continue;
+      if (auto *Assume = dyn_cast<AssumeInst>(I)) {
         MadeChange = true;
-        Value *Operand = II->getOperand(0);
-        II->eraseFromParent();
+        Value *Operand = Assume->getOperand(0);
+        Assume->eraseFromParent();
 
         resetIteratorIfInvalidatedWhileCalling(&BB, [&]() {
           RecursivelyDeleteTriviallyDeadInstructions(Operand, TLInfo, nullptr);
@@ -1317,6 +1317,24 @@ static bool OptimizeNoopCopyExpression(CastInst *CI, const TargetLowering &TLI,
   return SinkCast(CI);
 }
 
+// Match a simple increment by constant operation.  Note that if a sub is
+// matched, the step is negated (as if the step had been canonicalized to
+// an add, even though we leave the instruction alone.)
+bool matchIncrement(const Instruction* IVInc, Instruction *&LHS,
+                    Constant *&Step) {
+  if (match(IVInc, m_Add(m_Instruction(LHS), m_Constant(Step))) ||
+      match(IVInc, m_ExtractValue<0>(m_Intrinsic<Intrinsic::uadd_with_overflow>(
+                       m_Instruction(LHS), m_Constant(Step)))))
+    return true;
+  if (match(IVInc, m_Sub(m_Instruction(LHS), m_Constant(Step))) ||
+      match(IVInc, m_ExtractValue<0>(m_Intrinsic<Intrinsic::usub_with_overflow>(
+                       m_Instruction(LHS), m_Constant(Step))))) {
+    Step = ConstantExpr::getNeg(Step);
+    return true;
+  }
+  return false;
+}
+
 /// If given \p PN is an inductive variable with value IVInc coming from the
 /// backedge, and on each iteration it gets increased by Step, return pair
 /// <IVInc, Step>. Otherwise, return None.
@@ -1327,28 +1345,26 @@ getIVIncrement(const PHINode *PN, const LoopInfo *LI) {
     return None;
   auto *IVInc =
       dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch()));
-  if (!IVInc)
+  if (!IVInc || LI->getLoopFor(IVInc->getParent()) != L)
     return None;
+  Instruction *LHS = nullptr;
   Constant *Step = nullptr;
-  if (match(IVInc, m_Sub(m_Specific(PN), m_Constant(Step))))
-    return std::make_pair(IVInc, ConstantExpr::getNeg(Step));
-  if (match(IVInc, m_Add(m_Specific(PN), m_Constant(Step))))
-    return std::make_pair(IVInc, Step);
-  if (match(IVInc, m_ExtractValue<0>(m_Intrinsic<Intrinsic::usub_with_overflow>(
-                       m_Specific(PN), m_Constant(Step)))))
-    return std::make_pair(IVInc, ConstantExpr::getNeg(Step));
-  if (match(IVInc, m_ExtractValue<0>(m_Intrinsic<Intrinsic::uadd_with_overflow>(
-                       m_Specific(PN), m_Constant(Step)))))
+  if (matchIncrement(IVInc, LHS, Step) && LHS == PN)
     return std::make_pair(IVInc, Step);
   return None;
 }
 
-static bool isIVIncrement(const BinaryOperator *BO, const LoopInfo *LI) {
-  auto *PN = dyn_cast<PHINode>(BO->getOperand(0));
-  if (!PN || LI->getLoopFor(BO->getParent()) != LI->getLoopFor(PN->getParent()))
+static bool isIVIncrement(const Value *V, const LoopInfo *LI) {
+  auto *I = dyn_cast<Instruction>(V);
+  if (!I)
     return false;
-  if (auto IVInc = getIVIncrement(PN, LI))
-    return IVInc->first == BO;
+  Instruction *LHS = nullptr;
+  Constant *Step = nullptr;
+  if (!matchIncrement(I, LHS, Step))
+    return false;
+  if (auto *PN = dyn_cast<PHINode>(LHS))
+    if (auto IVInc = getIVIncrement(PN, LI))
+      return IVInc->first == I;
   return false;
 }
 
@@ -3880,8 +3896,7 @@ bool AddressingModeMatcher::matchScaledValue(Value *ScaleReg, int64_t Scale,
   ConstantInt *CI = nullptr; Value *AddLHS = nullptr;
   if (isa<Instruction>(ScaleReg) && // not a constant expr.
       match(ScaleReg, m_Add(m_Value(AddLHS), m_ConstantInt(CI))) &&
-      !isIVIncrement(cast<BinaryOperator>(ScaleReg), &LI) &&
-      CI->getValue().isSignedIntN(64)) {
+      !isIVIncrement(ScaleReg, &LI) && CI->getValue().isSignedIntN(64)) {
     TestAddrMode.InBounds = false;
     TestAddrMode.ScaledReg = AddLHS;
     TestAddrMode.BaseOffs += CI->getSExtValue() * TestAddrMode.Scale;
@@ -3897,6 +3912,8 @@ bool AddressingModeMatcher::matchScaledValue(Value *ScaleReg, int64_t Scale,
     TestAddrMode = AddrMode;
   }
 
+  // If this is an add recurrence with a constant step, return the increment
+  // instruction and the canonicalized step.
   auto GetConstantStep = [this](const Value * V)
       ->Optional<std::pair<Instruction *, APInt> > {
     auto *PN = dyn_cast<PHINode>(V);
@@ -3933,6 +3950,11 @@ bool AddressingModeMatcher::matchScaledValue(Value *ScaleReg, int64_t Scale,
   if (AddrMode.BaseOffs) {
     if (auto IVStep = GetConstantStep(ScaleReg)) {
       Instruction *IVInc = IVStep->first;
+      // The following assert is important to ensure a lack of infinite loops.
+      // This transforms is (intentionally) the inverse of the one just above.
+      // If they don't agree on the definition of an increment, we'd alternate
+      // back and forth indefinitely.
+      assert(isIVIncrement(IVInc, &LI) && "implied by GetConstantStep");
       APInt Step = IVStep->second;
       APInt Offset = Step * AddrMode.Scale;
       if (Offset.isSignedIntN(64)) {
@@ -5544,12 +5566,14 @@ bool CodeGenPrepare::optimizeGatherScatterInst(Instruction *MemoryInst,
 
     IRBuilder<> Builder(MemoryInst);
 
+    Type *SourceTy = GEP->getSourceElementType();
     Type *ScalarIndexTy = DL->getIndexType(Ops[0]->getType()->getScalarType());
 
     // If the final index isn't a vector, emit a scalar GEP containing all ops
     // and a vector GEP with all zeroes final index.
     if (!Ops[FinalIndex]->getType()->isVectorTy()) {
-      NewAddr = Builder.CreateGEP(Ops[0], makeArrayRef(Ops).drop_front());
+      NewAddr = Builder.CreateGEP(SourceTy, Ops[0],
+                                  makeArrayRef(Ops).drop_front());
       auto *IndexTy = VectorType::get(ScalarIndexTy, NumElts);
       NewAddr = Builder.CreateGEP(NewAddr, Constant::getNullValue(IndexTy));
     } else {
@@ -5560,7 +5584,8 @@ bool CodeGenPrepare::optimizeGatherScatterInst(Instruction *MemoryInst,
       if (Ops.size() != 2) {
         // Replace the last index with 0.
         Ops[FinalIndex] = Constant::getNullValue(ScalarIndexTy);
-        Base = Builder.CreateGEP(Base, makeArrayRef(Ops).drop_front());
+        Base = Builder.CreateGEP(SourceTy, Base,
+                                 makeArrayRef(Ops).drop_front());
       }
 
       // Now create the GEP with scalar pointer and vector index.
@@ -6580,7 +6605,7 @@ static bool isFormingBranchFromSelectProfitable(const TargetTransformInfo *TTI,
     uint64_t Sum = TrueWeight + FalseWeight;
     if (Sum != 0) {
       auto Probability = BranchProbability::getBranchProbability(Max, Sum);
-      if (Probability > TLI->getPredictableBranchThreshold())
+      if (Probability > TTI->getPredictableBranchThreshold())
         return true;
     }
   }
@@ -7978,6 +8003,28 @@ bool CodeGenPrepare::placeDbgValues(Function &F) {
           DVI->insertAfter(VI);
         MadeChange = true;
         ++NumDbgValueMoved;
+      }
+    }
+  }
+  return MadeChange;
+}
+
+// Group scattered pseudo probes in a block to favor SelectionDAG. Scattered
+// probes can be chained dependencies of other regular DAG nodes and block DAG
+// combine optimizations.
+bool CodeGenPrepare::placePseudoProbes(Function &F) {
+  bool MadeChange = false;
+  for (auto &Block : F) {
+    // Move the rest probes to the beginning of the block.
+    auto FirstInst = Block.getFirstInsertionPt();
+    while (FirstInst != Block.end() && FirstInst->isDebugOrPseudoInst())
+      ++FirstInst;
+    BasicBlock::iterator I(FirstInst);
+    I++;
+    while (I != Block.end()) {
+      if (auto *II = dyn_cast<PseudoProbeInst>(I++)) {
+        II->moveBefore(&*FirstInst);
+        MadeChange = true;
       }
     }
   }

@@ -68,6 +68,11 @@ VERS1.0 {
     omp_unset_sub_device;
 # end INTEL_COLLAB
     __kmpc_push_target_tripcount;
+    __kmpc_push_target_tripcount;
+    __kmpc_push_target_tripcount_mapper;
+    llvm_omp_target_alloc_host;
+    llvm_omp_target_alloc_shared;
+    llvm_omp_target_alloc_device;
   local:
     *;
 };

@@ -63,7 +63,7 @@
 // RUN: %clang -### -no-canonical-prefixes --intel -target x86_64-unknown-linux --gcc-toolchain="" --sysroot=%S/Inputs/basic_linux_tree %t.o 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
 // CHECK-INTEL-LIBS: "{{.*}}ld{{(.exe)?}}" "--sysroot=[[SYSROOT:[^"]+]]"
 // CHECK-INTEL-LIBS: "-L{{.*}}../compiler/lib/intel64_lin" "-L{{.*}}bin/../lib"
-// CHECK-INTEL-LIBS: "-L[[SYSROOT]]/usr/lib/gcc/x86_64-unknown-linux/4.6.0"
+// CHECK-INTEL-LIBS: "-L[[SYSROOT]]/usr/lib/gcc/x86_64-unknown-linux/10.2.0"
 // CHECK-INTEL-LIBS: "-Bstatic" "-lsvml" "-Bdynamic"
 // CHECK-INTEL-LIBS: "-Bstatic" "-lirng" "-Bdynamic"
 // CHECK-INTEL-LIBS: "-lgcc"

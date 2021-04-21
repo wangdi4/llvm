@@ -1245,6 +1245,7 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
       // swaps out the particular function mapped to a particular node in the
       // graph.
       C.getOuterRefSCC().replaceNodeFunction(N, *NewF);
+      FAM.clear(OldF, OldF.getName());
       OldF.eraseFromParent();
     }
 

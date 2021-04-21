@@ -39,6 +39,7 @@ class IdentifierInfo;
 class LangOptions;
 class ParsedAttr;
 class Sema;
+class Stmt;
 class TargetInfo;
 
 struct ParsedAttrInfo {
@@ -60,6 +61,9 @@ struct ParsedAttrInfo {
   unsigned IsKnownToGCC : 1;
   /// True if this attribute is supported by #pragma clang attribute.
   unsigned IsSupportedByPragmaAttribute : 1;
+  /// True if this attribute supports a nonconforming behavior when applied to
+  /// a lambda in the type position.
+  unsigned SupportsNonconformingLambdaSyntax : 1;
   /// The syntaxes supported by this attribute and how they're spelled.
   struct Spelling {
     AttributeCommonInfo::Syntax Syntax;
@@ -78,6 +82,17 @@ struct ParsedAttrInfo {
   /// Check if this attribute appertains to D, and issue a diagnostic if not.
   virtual bool diagAppertainsToDecl(Sema &S, const ParsedAttr &Attr,
                                     const Decl *D) const {
+    return true;
+  }
+  /// Check if this attribute appertains to St, and issue a diagnostic if not.
+  virtual bool diagAppertainsToStmt(Sema &S, const ParsedAttr &Attr,
+                                    const Stmt *St) const {
+    return true;
+  }
+  /// Check if the given attribute is mutually exclusive with other attributes
+  /// already applied to the given declaration.
+  virtual bool diagMutualExclusion(Sema &S, const ParsedAttr &A,
+                                   const Decl *D) const {
     return true;
   }
   /// Check if this attribute is allowed by the language we are compiling, and
@@ -592,6 +607,14 @@ public:
   unsigned getMaxArgs() const;
   bool hasVariadicArg() const;
   bool diagnoseAppertainsTo(class Sema &S, const Decl *D) const;
+  bool diagnoseAppertainsTo(class Sema &S, const Stmt *St) const;
+  bool diagnoseMutualExclusion(class Sema &S, const Decl *D) const;
+  // This function stub exists for parity with the declaration checking code so
+  // that checkCommonAttributeFeatures() can work generically on declarations
+  // or statements.
+  bool diagnoseMutualExclusion(class Sema &S, const Stmt *St) const {
+    return true;
+  }
   bool appliesToDecl(const Decl *D, attr::SubjectMatchRule MatchRule) const;
   void getMatchRules(const LangOptions &LangOpts,
                      SmallVectorImpl<std::pair<attr::SubjectMatchRule, bool>>
@@ -600,6 +623,7 @@ public:
   bool existsInTarget(const TargetInfo &Target) const;
   bool isKnownToGCC() const;
   bool isSupportedByPragmaAttribute() const;
+  bool supportsNonconformingLambdaSyntax() const;
 
   /// If the parsed attribute has a semantic equivalent, and it would
   /// have a semantic Spelling enumeration (due to having semantically-distinct
@@ -1025,6 +1049,27 @@ public:
 
 private:
   mutable AttributePool pool;
+};
+
+struct ParsedAttributesWithRange : ParsedAttributes {
+  ParsedAttributesWithRange(AttributeFactory &factory)
+      : ParsedAttributes(factory) {}
+
+  void clear() {
+    ParsedAttributes::clear();
+    Range = SourceRange();
+  }
+
+  SourceRange Range;
+};
+struct ParsedAttributesViewWithRange : ParsedAttributesView {
+  ParsedAttributesViewWithRange() : ParsedAttributesView() {}
+  void clearListOnly() {
+    ParsedAttributesView::clearListOnly();
+    Range = SourceRange();
+  }
+
+  SourceRange Range;
 };
 
 /// These constants match the enumerated choices of

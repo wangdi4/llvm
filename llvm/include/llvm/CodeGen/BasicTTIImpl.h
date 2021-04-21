@@ -520,7 +520,7 @@ public:
         SimplifyAndSetOp);
   }
 
-  int getInstructionLatency(const Instruction *I) {
+  InstructionCost getInstructionLatency(const Instruction *I) {
     if (isa<LoadInst>(I))
       return getST()->getSchedModel().DefaultLoadLatency;
 
@@ -573,7 +573,9 @@ public:
   /// \name Vector TTI Implementations
   /// @{
 
-  unsigned getRegisterBitWidth(bool Vector) const { return 32; }
+  TypeSize getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const {
+    return TypeSize::getFixed(32);
+  }
 
   Optional<unsigned> getMaxVScale() const { return None; }
 
@@ -718,8 +720,8 @@ public:
     return OpCost;
   }
 
-  unsigned getShuffleCost(TTI::ShuffleKind Kind, VectorType *Tp, int Index,
-                          VectorType *SubTp) {
+  unsigned getShuffleCost(TTI::ShuffleKind Kind, VectorType *Tp,
+                          ArrayRef<int> Mask, int Index, VectorType *SubTp) {
 
     switch (Kind) {
     case TTI::SK_Broadcast:
@@ -902,8 +904,9 @@ public:
                                      TTI::CastContextHint::None, TTI::TCK_RecipThroughput);
   }
 
-  unsigned getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind) {
-    return BaseT::getCFInstrCost(Opcode, CostKind);
+  unsigned getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind,
+                          const Instruction *I = nullptr) {
+    return BaseT::getCFInstrCost(Opcode, CostKind, I);
   }
 
   unsigned getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
@@ -1238,8 +1241,8 @@ public:
   }
 
   /// Get intrinsic cost based on arguments.
-  unsigned getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
-                                 TTI::TargetCostKind CostKind) {
+  InstructionCost getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
+                                        TTI::TargetCostKind CostKind) {
     // Check for generically free intrinsics.
     if (BaseT::getIntrinsicInstrCost(ICA, CostKind) == 0)
       return 0;
@@ -1294,6 +1297,12 @@ public:
       return thisT()->getGatherScatterOpCost(Instruction::Load, RetTy, Args[0],
                                              VarMask, Alignment, CostKind, I);
     }
+    case Intrinsic::experimental_stepvector: {
+      if (isa<ScalableVectorType>(RetTy))
+        return BaseT::getIntrinsicInstrCost(ICA, CostKind);
+      // The cost of materialising a constant integer vector.
+      return TargetTransformInfo::TCC_Basic;
+    }
     case Intrinsic::experimental_vector_extract: {
       // FIXME: Handle case where a scalable vector is extracted from a scalable
       // vector
@@ -1301,7 +1310,7 @@ public:
         return BaseT::getIntrinsicInstrCost(ICA, CostKind);
       unsigned Index = cast<ConstantInt>(Args[1])->getZExtValue();
       return thisT()->getShuffleCost(TTI::SK_ExtractSubvector,
-                                     cast<VectorType>(Args[0]->getType()),
+                                     cast<VectorType>(Args[0]->getType()), None,
                                      Index, cast<VectorType>(RetTy));
     }
     case Intrinsic::experimental_vector_insert: {
@@ -1311,13 +1320,13 @@ public:
         return BaseT::getIntrinsicInstrCost(ICA, CostKind);
       unsigned Index = cast<ConstantInt>(Args[2])->getZExtValue();
       return thisT()->getShuffleCost(
-          TTI::SK_InsertSubvector, cast<VectorType>(Args[0]->getType()), Index,
-          cast<VectorType>(Args[1]->getType()));
+          TTI::SK_InsertSubvector, cast<VectorType>(Args[0]->getType()), None,
+          Index, cast<VectorType>(Args[1]->getType()));
     }
     case Intrinsic::experimental_vector_reverse: {
       return thisT()->getShuffleCost(TTI::SK_Reverse,
-                                     cast<VectorType>(Args[0]->getType()), 0,
-                                     cast<VectorType>(RetTy));
+                                     cast<VectorType>(Args[0]->getType()), None,
+                                     0, cast<VectorType>(RetTy));
     }
     case Intrinsic::vector_reduce_add:
     case Intrinsic::vector_reduce_mul:
@@ -1383,15 +1392,12 @@ public:
       return Cost;
     }
     }
-    // TODO: Handle the remaining intrinsic with scalable vector type
-    if (isa<ScalableVectorType>(RetTy))
-      return BaseT::getIntrinsicInstrCost(ICA, CostKind);
 
     // Assume that we need to scalarize this intrinsic.
     // Compute the scalarization overhead based on Args for a vector
     // intrinsic.
     unsigned ScalarizationCost = std::numeric_limits<unsigned>::max();
-    if (RetVF.isVector()) {
+    if (RetVF.isVector() && !RetVF.isScalable()) {
       ScalarizationCost = 0;
       if (!RetTy->isVoidTy())
         ScalarizationCost +=
@@ -1409,8 +1415,9 @@ public:
   /// If ScalarizationCostPassed is std::numeric_limits<unsigned>::max(), the
   /// cost of scalarizing the arguments and the return value will be computed
   /// based on types.
-  unsigned getTypeBasedIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
-                                          TTI::TargetCostKind CostKind) {
+  InstructionCost
+  getTypeBasedIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
+                                 TTI::TargetCostKind CostKind) {
     Intrinsic::ID IID = ICA.getID();
     Type *RetTy = ICA.getReturnType();
     const SmallVectorImpl<Type *> &Tys = ICA.getArgTypes();
@@ -1447,8 +1454,14 @@ public:
 #endif // #if INTEL_CUSTOMIZATION
     switch (IID) {
     default: {
+      // Scalable vectors cannot be scalarized, so return Invalid.
+      if (isa<ScalableVectorType>(RetTy) || any_of(Tys, [](const Type *Ty) {
+            return isa<ScalableVectorType>(Ty);
+          }))
+        return InstructionCost::getInvalid();
+
       // Assume that we need to scalarize this intrinsic.
-      unsigned ScalarizationCost = ScalarizationCostPassed;
+      InstructionCost ScalarizationCost = ScalarizationCostPassed;
       unsigned ScalarCalls = 1;
       Type *ScalarRetTy = RetTy;
       if (auto *RetVTy = dyn_cast<VectorType>(RetTy)) {
@@ -1474,7 +1487,7 @@ public:
         return 1; // Return cost of a scalar intrinsic. Assume it to be cheap.
 
       IntrinsicCostAttributes ScalarAttrs(IID, ScalarRetTy, ScalarTys, FMF);
-      unsigned ScalarCost =
+      InstructionCost ScalarCost =
           thisT()->getIntrinsicInstrCost(ScalarAttrs, CostKind);
 
       return ScalarCalls * ScalarCost + ScalarizationCost;
@@ -1658,7 +1671,7 @@ public:
 
       // SatMax -> Overflow && SumDiff < 0
       // SatMin -> Overflow && SumDiff >= 0
-      unsigned Cost = 0;
+      InstructionCost Cost = 0;
       IntrinsicCostAttributes Attrs(OverflowOp, OpTy, {RetTy, RetTy}, FMF,
                                     nullptr, ScalarizationCostPassed);
       Cost += thisT()->getIntrinsicInstrCost(Attrs, CostKind);
@@ -1679,7 +1692,7 @@ public:
                                      ? Intrinsic::uadd_with_overflow
                                      : Intrinsic::usub_with_overflow;
 
-      unsigned Cost = 0;
+      InstructionCost Cost = 0;
       IntrinsicCostAttributes Attrs(OverflowOp, OpTy, {RetTy, RetTy}, FMF,
                                     nullptr, ScalarizationCostPassed);
       Cost += thisT()->getIntrinsicInstrCost(Attrs, CostKind);
@@ -1697,7 +1710,7 @@ public:
           IID == Intrinsic::smul_fix ? Instruction::SExt : Instruction::ZExt;
       TTI::CastContextHint CCH = TTI::CastContextHint::None;
 
-      unsigned Cost = 0;
+      InstructionCost Cost = 0;
       Cost += 2 * thisT()->getCastInstrCost(ExtOp, ExtTy, RetTy, CCH, CostKind);
       Cost +=
           thisT()->getArithmeticInstrCost(Instruction::Mul, ExtTy, CostKind);
@@ -1766,7 +1779,7 @@ public:
           IID == Intrinsic::smul_fix ? Instruction::SExt : Instruction::ZExt;
       TTI::CastContextHint CCH = TTI::CastContextHint::None;
 
-      unsigned Cost = 0;
+      InstructionCost Cost = 0;
       Cost += 2 * thisT()->getCastInstrCost(ExtOp, ExtTy, MulTy, CCH, CostKind);
       Cost +=
           thisT()->getArithmeticInstrCost(Instruction::Mul, ExtTy, CostKind);
@@ -1862,6 +1875,12 @@ public:
     // this will emit a costly libcall, adding call overhead and spills. Make it
     // very expensive.
     if (auto *RetVTy = dyn_cast<VectorType>(RetTy)) {
+      // Scalable vectors cannot be scalarized, so return Invalid.
+      if (isa<ScalableVectorType>(RetTy) || any_of(Tys, [](const Type *Ty) {
+            return isa<ScalableVectorType>(Ty);
+          }))
+        return InstructionCost::getInvalid();
+
       unsigned ScalarizationCost = SkipScalarizationCost ?
         ScalarizationCostPassed : getScalarizationOverhead(RetVTy, true, false);
 
@@ -1874,7 +1893,8 @@ public:
         ScalarTys.push_back(Ty);
       }
       IntrinsicCostAttributes Attrs(IID, RetTy->getScalarType(), ScalarTys, FMF);
-      unsigned ScalarCost = thisT()->getIntrinsicInstrCost(Attrs, CostKind);
+      InstructionCost ScalarCost =
+          thisT()->getIntrinsicInstrCost(Attrs, CostKind);
       for (unsigned i = 0, ie = Tys.size(); i != ie; ++i) {
         if (auto *VTy = dyn_cast<VectorType>(Tys[i])) {
           if (!ICA.skipScalarizationCost())
@@ -1956,6 +1976,22 @@ public:
                                       TTI::TargetCostKind CostKind) {
     Type *ScalarTy = Ty->getElementType();
     unsigned NumVecElts = cast<FixedVectorType>(Ty)->getNumElements();
+    if ((Opcode == Instruction::Or || Opcode == Instruction::And) &&
+        ScalarTy == IntegerType::getInt1Ty(Ty->getContext()) &&
+        NumVecElts >= 2) {
+      // Or reduction for i1 is represented as:
+      // %val = bitcast <ReduxWidth x i1> to iReduxWidth
+      // %res = cmp ne iReduxWidth %val, 0
+      // And reduction for i1 is represented as:
+      // %val = bitcast <ReduxWidth x i1> to iReduxWidth
+      // %res = cmp eq iReduxWidth %val, 11111
+      Type *ValTy = IntegerType::get(Ty->getContext(), NumVecElts);
+      return thisT()->getCastInstrCost(Instruction::BitCast, ValTy, Ty,
+                                       TTI::CastContextHint::None, CostKind) +
+             thisT()->getCmpSelInstrCost(Instruction::ICmp, ValTy,
+                                         CmpInst::makeCmpResultType(ValTy),
+                                         CmpInst::BAD_ICMP_PREDICATE, CostKind);
+    }
     unsigned NumReduxLevels = Log2_32(NumVecElts);
     unsigned ArithCost = 0;
     unsigned ShuffleCost = 0;
@@ -1968,9 +2004,9 @@ public:
       NumVecElts /= 2;
       VectorType *SubTy = FixedVectorType::get(ScalarTy, NumVecElts);
       // Assume the pairwise shuffles add a cost.
-      ShuffleCost +=
-          (IsPairwise + 1) * thisT()->getShuffleCost(TTI::SK_ExtractSubvector,
-                                                     Ty, NumVecElts, SubTy);
+      ShuffleCost += (IsPairwise + 1) *
+                     thisT()->getShuffleCost(TTI::SK_ExtractSubvector, Ty, None,
+                                             NumVecElts, SubTy);
       ArithCost += thisT()->getArithmeticInstrCost(Opcode, SubTy, CostKind);
       Ty = SubTy;
       ++LongVectorCount;
@@ -1989,8 +2025,8 @@ public:
     unsigned NumShuffles = NumReduxLevels;
     if (IsPairwise && NumReduxLevels >= 1)
       NumShuffles += NumReduxLevels - 1;
-    ShuffleCost += NumShuffles *
-                   thisT()->getShuffleCost(TTI::SK_PermuteSingleSrc, Ty, 0, Ty);
+    ShuffleCost += NumShuffles * thisT()->getShuffleCost(
+                                     TTI::SK_PermuteSingleSrc, Ty, None, 0, Ty);
     ArithCost += NumReduxLevels * thisT()->getArithmeticInstrCost(Opcode, Ty);
     return ShuffleCost + ArithCost +
            thisT()->getVectorInstrCost(Instruction::ExtractElement, Ty, 0);
@@ -2028,9 +2064,9 @@ public:
       CondTy = FixedVectorType::get(ScalarCondTy, NumVecElts);
 
       // Assume the pairwise shuffles add a cost.
-      ShuffleCost +=
-          (IsPairwise + 1) * thisT()->getShuffleCost(TTI::SK_ExtractSubvector,
-                                                     Ty, NumVecElts, SubTy);
+      ShuffleCost += (IsPairwise + 1) *
+                     thisT()->getShuffleCost(TTI::SK_ExtractSubvector, Ty, None,
+                                             NumVecElts, SubTy);
       MinMaxCost +=
           thisT()->getCmpSelInstrCost(CmpOpcode, SubTy, CondTy,
                                       CmpInst::BAD_ICMP_PREDICATE, CostKind) +
@@ -2053,8 +2089,8 @@ public:
     unsigned NumShuffles = NumReduxLevels;
     if (IsPairwise && NumReduxLevels >= 1)
       NumShuffles += NumReduxLevels - 1;
-    ShuffleCost += NumShuffles *
-                   thisT()->getShuffleCost(TTI::SK_PermuteSingleSrc, Ty, 0, Ty);
+    ShuffleCost += NumShuffles * thisT()->getShuffleCost(
+                                     TTI::SK_PermuteSingleSrc, Ty, None, 0, Ty);
     MinMaxCost +=
         NumReduxLevels *
         (thisT()->getCmpSelInstrCost(CmpOpcode, Ty, CondTy,

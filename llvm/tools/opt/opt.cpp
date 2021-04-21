@@ -649,10 +649,10 @@ int main(int argc, char **argv) {
   initializeVPOAnalysis(Registry);
   initializeVPOTransforms(Registry);
 #endif // INTEL_COLLAB
-
   initializeSPIRITTAnnotationsLegacyPassPass(Registry);
   initializeESIMDLowerLoadStorePass(Registry);
   initializeESIMDLowerVecArgLegacyPassPass(Registry);
+  initializeSYCLLowerWGLocalMemoryLegacyPass(Registry);
 
 #ifdef BUILD_EXAMPLES
   initializeExampleIRTransforms(Registry);
@@ -757,8 +757,8 @@ int main(int argc, char **argv) {
       OutputFilename = "-";
 
     std::error_code EC;
-    sys::fs::OpenFlags Flags = OutputAssembly ? sys::fs::OF_Text
-                                              : sys::fs::OF_None;
+    sys::fs::OpenFlags Flags =
+        OutputAssembly ? sys::fs::OF_TextWithCRLF : sys::fs::OF_None;
     Out.reset(new ToolOutputFile(OutputFilename, EC, Flags));
     if (EC) {
       errs() << EC.message() << '\n';

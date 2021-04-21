@@ -1568,6 +1568,15 @@ public:
     setAttributes(PAL);
   }
 
+  /// Removes noundef and other attributes that imply undefined behavior if a
+  /// `undef` or `poison` value is passed from the given argument.
+  void removeParamUndefImplyingAttrs(unsigned ArgNo) {
+    assert(ArgNo < getNumArgOperands() && "Out of bounds");
+    AttributeList PAL = getAttributes();
+    PAL = PAL.removeParamUndefImplyingAttributes(getContext(), ArgNo);
+    setAttributes(PAL);
+  }
+
   /// adds the dereferenceable attribute to the list of attributes.
   void addDereferenceableAttr(unsigned i, uint64_t Bytes) {
     AttributeList PAL = getAttributes();
@@ -2026,12 +2035,7 @@ public:
 
   /// Return true if this operand bundle user has operand bundles that
   /// may read from the heap.
-  bool hasReadingOperandBundles() const {
-    // Implementation note: this is a conservative implementation of operand
-    // bundle semantics, where *any* operand bundle forces a callsite to be at
-    // least readonly.
-    return hasOperandBundles();
-  }
+  bool hasReadingOperandBundles() const;
 
   /// Return true if this operand bundle user has operand bundles that
   /// may write to the heap.

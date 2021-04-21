@@ -95,7 +95,7 @@ protected:
 
 TEST_F(VPlanTTIMemrefCostTest, CheckTMSetup) {
   // Check the max vector register width to verify TM setup.
-  EXPECT_EQ(VPTTI->getRegisterBitWidth(true), 256u);
+  EXPECT_EQ(VPTTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector), 256u);
 }
 
 TEST_F(VPlanTTIMemrefCostTest, ScalarLoadCost) {

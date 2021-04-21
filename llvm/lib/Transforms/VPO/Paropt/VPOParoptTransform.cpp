@@ -3744,9 +3744,9 @@ BasicBlock *VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
       //        for SPIR-V target) may introduce non-linear code outside
       //        the ZTT and before the exit block, so the loop below
       //        may not find the right block always.
-      while (distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 1)
+      while (std::distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 1)
         ExitBlock = *pred_begin(ExitBlock);
-      assert(distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 2 &&
+      assert(std::distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 2 &&
              "Expect two predecessors for the omp loop region exit.");
       auto PI = pred_begin(ExitBlock);
       auto Pred1 = *PI++;
@@ -4628,7 +4628,7 @@ bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
       // alignment to be equal to the size of the largest vector register.
       int Align = AI->getAlign();
       if (!Align)
-        Align = TTI->getRegisterBitWidth(true) / 8;
+        Align = TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector) / 8;
 
       auto AddAlignAssumption = [this, Align](Value *Ptr, Instruction *InsPt) {
         // Generate llvm.assume call for the specified value.
@@ -4637,7 +4637,7 @@ bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
         CallInst *Call = Builder.CreateAlignmentAssumption(DL, Ptr, Align);
 
         // And then add it to the assumption cache.
-        AC->registerAssumption(Call);
+        AC->registerAssumption(cast<AssumeInst>(Call));
       };
 
       // For ptr-to-ptr values create llvm.assume call after the instruction
@@ -7966,7 +7966,7 @@ void updateConstantLoopHeaderPhis(Loop *L) {
 
       IRBuilder<> ConstBuilder(LatchBB->getFirstNonPHI());
       unsigned NumPredecessors =
-          distance(pred_begin(LatchBB), pred_end(LatchBB));
+          std::distance(pred_begin(LatchBB), pred_end(LatchBB));
       PHINode *ConstPhi;
       ConstPhi = ConstBuilder.CreatePHI(
           IV->getType(), NumPredecessors,

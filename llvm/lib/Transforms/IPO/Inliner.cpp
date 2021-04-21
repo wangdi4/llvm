@@ -1101,7 +1101,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     if (CG.lookupSCC(N) != C)
       continue;
 
-    LLVM_DEBUG(dbgs() << "Inlining calls in: " << F.getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Inlining calls in: " << F.getName() << "\n"
+                      << "    Function size: " << F.getInstructionCount()
+                      << "\n");
 
     auto GetAssumptionCache = [&](Function &F) -> AssumptionCache & {
       return FAM.getResult<AssumptionAnalysis>(F);
@@ -1218,6 +1220,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       MDReport->updateInliningReport();
       MDReport->endUpdate();
 #endif // INTEL_CUSTOMIZATION
+      LLVM_DEBUG(dbgs() << "    Size after inlining: "
+                        << F.getInstructionCount() << "\n");
 
       // Add any new callsites to defined functions to the worklist.
       if (!IFI.InlinedCallSites.empty()) {

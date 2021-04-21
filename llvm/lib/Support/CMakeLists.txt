@@ -194,6 +194,7 @@ set (SUPPORT_SOURCES
   TrigramIndex.cpp
   Triple.cpp
   Twine.cpp
+  TypeSize.cpp
   Unicode.cpp
   UnicodeCaseFold.cpp
   VersionTuple.cpp

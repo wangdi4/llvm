@@ -23,6 +23,10 @@ add_llvm_component_library(LLVMVPOAnalysis
   WRegionInfo/WRegionUtils.cpp
   WRegionInfo/WRegionInfoAnalysis.cpp
 
+  DEPENDS
+  intrinsics_gen
+  directives_gen
+
   LINK_COMPONENTS
   Analysis
   Core
@@ -33,7 +37,4 @@ add_llvm_component_library(LLVMVPOAnalysis
   Support
   TransformUtils
 )
-
-add_dependencies(LLVMVPOAnalysis intrinsics_gen directives_gen)
-
 # end INTEL_COLLAB

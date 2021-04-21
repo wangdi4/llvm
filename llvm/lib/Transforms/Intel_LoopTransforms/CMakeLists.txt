@@ -71,6 +71,13 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
         ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_LoopTransforms
 
+        DEPENDS
+        intrinsics_gen
+        directives_gen
+
+        LINK_LIBS
+        LLVMIntel_DTransAnalysis
+
         LINK_COMPONENTS
         Analysis
         Core
@@ -79,7 +86,3 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         Support
         TransformUtils
         )
-
-target_link_libraries(LLVMIntel_LoopTransforms PRIVATE LLVMIntel_DTransAnalysis)
-
-add_dependencies(LLVMIntel_LoopTransforms intrinsics_gen directives_gen)

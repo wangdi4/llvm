@@ -1931,7 +1931,8 @@ Sema::SemaDiagnosticBuilder Sema::diagIfOpenMPDeviceCode(SourceLocation Loc,
     }
   }
 
-  return SemaDiagnosticBuilder(Kind, Loc, DiagID, FD, *this);
+  return SemaDiagnosticBuilder(Kind, Loc, DiagID, FD, *this,
+                               DeviceDiagnosticReason::OmpDevice);
 }
 
 Sema::SemaDiagnosticBuilder Sema::diagIfOpenMPHostCode(SourceLocation Loc,
@@ -1958,7 +1959,8 @@ Sema::SemaDiagnosticBuilder Sema::diagIfOpenMPHostCode(SourceLocation Loc,
     }
   }
 
-  return SemaDiagnosticBuilder(Kind, Loc, DiagID, FD, *this);
+  return SemaDiagnosticBuilder(Kind, Loc, DiagID, FD, *this,
+                               DeviceDiagnosticReason::OmpHost);
 }
 
 static OpenMPDefaultmapClauseKind
@@ -15498,10 +15500,21 @@ OMPClause *Sema::ActOnOpenMPProcBindClause(ProcBindKind Kind,
     Diag(KindKwLoc, diag::err_omp_unexpected_clause_value)
         << getListOfPossibleValues(OMPC_proc_bind,
                                    /*First=*/unsigned(OMP_PROC_BIND_master),
-                                   /*Last=*/5)
+                                   /*Last=*/
+                                   unsigned(LangOpts.OpenMP > 50
+                                                ? OMP_PROC_BIND_primary
+                                                : OMP_PROC_BIND_spread) +
+                                       1)
         << getOpenMPClauseName(OMPC_proc_bind);
     return nullptr;
   }
+  if (Kind == OMP_PROC_BIND_primary && LangOpts.OpenMP < 51)
+    Diag(KindKwLoc, diag::err_omp_unexpected_clause_value)
+        << getListOfPossibleValues(OMPC_proc_bind,
+                                   /*First=*/unsigned(OMP_PROC_BIND_master),
+                                   /*Last=*/
+                                   unsigned(OMP_PROC_BIND_spread) + 1)
+        << getOpenMPClauseName(OMPC_proc_bind);
   return new (Context)
       OMPProcBindClause(Kind, KindKwLoc, StartLoc, LParenLoc, EndLoc);
 }
@@ -18133,8 +18146,7 @@ static bool actOnOMPReductionKindClause(
     }
     if (RHSVD->isInvalidDecl())
       continue;
-    if (!RHSVD->hasInit() &&
-        (DeclareReductionRef.isUnset() || !S.LangOpts.CPlusPlus)) {
+    if (!RHSVD->hasInit() && DeclareReductionRef.isUnset()) {
       S.Diag(ELoc, diag::err_omp_reduction_id_not_compatible)
           << Type << ReductionIdRange;
       bool IsDecl = !VD || VD->isThisDeclarationADefinition(Context) ==

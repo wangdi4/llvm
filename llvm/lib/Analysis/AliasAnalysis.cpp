@@ -146,7 +146,7 @@ AliasResult AAResults::alias(const MemoryLocation &LocA,
 
 AliasResult AAResults::alias(const MemoryLocation &LocA,
                              const MemoryLocation &LocB, AAQueryInfo &AAQI) {
-  AliasResult Result = MayAlias;
+  AliasResult Result = AliasResult::MayAlias;
 
   if (EnableAATrace) {
     for (unsigned I = 0; I < AAQI.Depth; ++I)
@@ -158,7 +158,7 @@ AliasResult AAResults::alias(const MemoryLocation &LocA,
   AAQI.Depth++;
   for (const auto &AA : AAs) {
     Result = AA->alias(LocA, LocB, AAQI);
-    if (Result != MayAlias)
+    if (Result != AliasResult::MayAlias)
       break;
   }
   AAQI.Depth--;
@@ -171,9 +171,9 @@ AliasResult AAResults::alias(const MemoryLocation &LocA,
   }
 
   if (AAQI.Depth == 0) {
-    if (Result == NoAlias)
+    if (Result == AliasResult::NoAlias)
       ++NumNoAlias;
-    else if (Result == MustAlias)
+    else if (Result == AliasResult::MustAlias)
       ++NumMustAlias;
     else
       ++NumMayAlias;
@@ -195,7 +195,7 @@ bool AAResults::escapes(const Value *V) {
 
 AliasResult AAResults::loopCarriedAlias(const MemoryLocation &LocA,
                                         const MemoryLocation &LocB) {
-  AAQueryInfo AAQIP(/*CacheOffsets*/ false, /*NeedLoopCarried*/ true);
+  AAQueryInfo AAQIP(/*NeedLoopCarried*/ true);
   return loopCarriedAlias(LocA, LocB, AAQIP);
 }
 
@@ -205,10 +205,10 @@ AliasResult AAResults::loopCarriedAlias(const MemoryLocation &LocA,
   assert(AAQI.NeedLoopCarried && "Unexpectedly missing loopCarried query flag");
   for (const auto &AA : AAs) {
     auto Result = AA->loopCarriedAlias(LocA, LocB, AAQI);
-    if (Result != MayAlias)
+    if (Result != AliasResult::MayAlias)
       return Result;
   }
-  return MayAlias;
+  return AliasResult::MayAlias;
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -327,12 +327,12 @@ ModRefInfo AAResults::getModRefInfo(const CallBase *Call,
         MemoryLocation ArgLoc =
             MemoryLocation::getForArgument(Call, ArgIdx, TLI);
         AliasResult ArgAlias = alias(ArgLoc, Loc, AAQI);
-        if (ArgAlias != NoAlias) {
+        if (ArgAlias != AliasResult::NoAlias) {
           ModRefInfo ArgMask = getArgModRefInfo(Call, ArgIdx);
           AllArgsMask = unionModRef(AllArgsMask, ArgMask);
         }
         // Conservatively clear IsMustAlias unless only MustAlias is found.
-        IsMustAlias &= (ArgAlias == MustAlias);
+        IsMustAlias &= (ArgAlias == AliasResult::MustAlias);
       }
     }
     // Return NoModRef if no alias found with any argument.
@@ -523,16 +523,16 @@ FunctionModRefBehavior AAResults::getModRefBehavior(const Function *F) {
 
 raw_ostream &llvm::operator<<(raw_ostream &OS, AliasResult AR) {
   switch (AR) {
-  case NoAlias:
+  case AliasResult::NoAlias:
     OS << "NoAlias";
     break;
-  case MustAlias:
+  case AliasResult::MustAlias:
     OS << "MustAlias";
     break;
-  case MayAlias:
+  case AliasResult::MayAlias:
     OS << "MayAlias";
     break;
-  case PartialAlias:
+  case AliasResult::PartialAlias:
     OS << "PartialAlias";
     break;
   }
@@ -571,9 +571,9 @@ ModRefInfo AAResults::getModRefInfo(const LoadInst *L,
   // or write the specified memory.
   if (Loc.Ptr) {
     AliasResult AR = alias(getMemoryLocationWithSize(L, Size), Loc, AAQI); // INTEL
-    if (AR == NoAlias)
+    if (AR == AliasResult::NoAlias)
       return ModRefInfo::NoModRef;
-    if (AR == MustAlias)
+    if (AR == AliasResult::MustAlias)
       return ModRefInfo::MustRef;
   }
   // Otherwise, a load just reads.
@@ -597,7 +597,7 @@ ModRefInfo AAResults::getModRefInfo(const StoreInst *S,
     AliasResult AR = alias(getMemoryLocationWithSize(S, Size), Loc, AAQI); // INTEL
     // If the store address cannot alias the pointer in question, then the
     // specified memory cannot be modified by the store.
-    if (AR == NoAlias)
+    if (AR == AliasResult::NoAlias)
       return ModRefInfo::NoModRef;
 
     // If the pointer is a pointer to constant memory, then it could not have
@@ -606,7 +606,7 @@ ModRefInfo AAResults::getModRefInfo(const StoreInst *S,
       return ModRefInfo::NoModRef;
 
     // If the store address aliases the pointer as must alias, set Must.
-    if (AR == MustAlias)
+    if (AR == AliasResult::MustAlias)
       return ModRefInfo::MustMod;
   }
 
@@ -643,7 +643,7 @@ ModRefInfo AAResults::getModRefInfo(const VAArgInst *V,
     AliasResult AR = alias(getMemoryLocationWithSize(V, Size), Loc, AAQI); // INTEL
     // If the va_arg address cannot alias the pointer in question, then the
     // specified memory cannot be accessed by the va_arg.
-    if (AR == NoAlias)
+    if (AR == AliasResult::NoAlias)
       return ModRefInfo::NoModRef;
 
     // If the pointer is a pointer to constant memory, then it could not have
@@ -652,7 +652,7 @@ ModRefInfo AAResults::getModRefInfo(const VAArgInst *V,
       return ModRefInfo::NoModRef;
 
     // If the va_arg aliases the pointer as must alias, set Must.
-    if (AR == MustAlias)
+    if (AR == AliasResult::MustAlias)
       return ModRefInfo::MustModRef;
   }
 
@@ -718,11 +718,11 @@ ModRefInfo AAResults::getModRefInfo(const AtomicCmpXchgInst *CX,
     AliasResult AR = alias(getMemoryLocationWithSize(CX, Size), Loc, AAQI); // INTEL
     // If the cmpxchg address does not alias the location, it does not access
     // it.
-    if (AR == NoAlias)
+    if (AR == AliasResult::NoAlias)
       return ModRefInfo::NoModRef;
 
     // If the cmpxchg address aliases the pointer as must alias, set Must.
-    if (AR == MustAlias)
+    if (AR == AliasResult::MustAlias)
       return ModRefInfo::MustModRef;
   }
 
@@ -747,11 +747,11 @@ ModRefInfo AAResults::getModRefInfo(const AtomicRMWInst *RMW,
     AliasResult AR = alias(getMemoryLocationWithSize(RMW, Size), Loc, AAQI); // INTEL
     // If the atomicrmw address does not alias the location, it does not access
     // it.
-    if (AR == NoAlias)
+    if (AR == AliasResult::NoAlias)
       return ModRefInfo::NoModRef;
 
     // If the atomicrmw address aliases the pointer as must alias, set Must.
-    if (AR == MustAlias)
+    if (AR == AliasResult::MustAlias)
       return ModRefInfo::MustModRef;
   }
 
@@ -789,12 +789,13 @@ ModRefInfo AAResults::getModRefInfoForMaskedScatter(const IntrinsicInst *MS,
   for (unsigned i = 0; i < NumElts; i++) {
     if (MaskCV && dyn_cast<Constant>(MaskCV->getOperand(i))->isZeroValue())
       continue;
-    AliasResult R;
+    AliasResult R = AliasResult::MayAlias;
     if (PtrVecMemLocs[i].Ptr == nullptr)
-      R = PtrVecMemLocs[i].Size == 0 ? NoAlias : MayAlias;
+      R = PtrVecMemLocs[i].Size == 0 ? AliasResult::NoAlias
+                                     : AliasResult::MayAlias;
     else
       R = alias(PtrVecMemLocs[i], Loc);
-    if (R == NoAlias)
+    if (R == AliasResult::NoAlias)
       continue;
     return ModRefInfo::Mod;
   }
@@ -888,9 +889,9 @@ ModRefInfo AAResults::callCapturesBefore(const Instruction *I,
     // is impossible to alias the pointer we're checking.  If not, we have to
     // assume that the call could touch the pointer, even though it doesn't
     // escape.
-    if (AR != MustAlias)
+    if (AR != AliasResult::MustAlias)
       IsMustAlias = false;
-    if (AR == NoAlias)
+    if (AR == AliasResult::NoAlias)
       continue;
     if (Call->doesNotAccessMemory(ArgNo))
       continue;
@@ -1113,17 +1114,6 @@ AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
       WrapperPass->CB(P, F, AAR);
 
   return AAR;
-}
-
-Optional<int64_t>
-BatchAAResults::getClobberOffset(const MemoryLocation &LocA,
-                                 const MemoryLocation &LocB) const {
-  if (!LocA.Size.hasValue() || !LocB.Size.hasValue())
-    return None;
-  const Value *V1 = LocA.Ptr->stripPointerCastsForAliasAnalysis();
-  const Value *V2 = LocB.Ptr->stripPointerCastsForAliasAnalysis();
-  return AAQI.getClobberOffset(V1, V2, LocA.Size.getValue(),
-                               LocB.Size.getValue());
 }
 
 bool llvm::isNoAliasCall(const Value *V) {

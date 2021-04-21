@@ -122,7 +122,7 @@ Parser::ParseStatementOrDeclaration(StmtVector &Stmts,
   if (Attrs.empty() || Res.isInvalid())
     return Res;
 
-  return Actions.ProcessStmtAttributes(Res.get(), Attrs, Attrs.Range);
+  return Actions.ActOnAttributedStmt(Attrs, Res.get());
 }
 
 namespace {
@@ -174,14 +174,13 @@ Retry:
   switch (Kind) {
   case tok::at: // May be a @try or @throw statement
     {
-      ProhibitAttributes(Attrs); // TODO: is it correct?
       AtLoc = ConsumeToken();  // consume @
       return ParseObjCAtStatement(AtLoc, StmtCtx);
     }
 
   case tok::code_completion:
-    Actions.CodeCompleteOrdinaryName(getCurScope(), Sema::PCC_Statement);
     cutOffParsing();
+    Actions.CodeCompleteOrdinaryName(getCurScope(), Sema::PCC_Statement);
     return StmtError();
 
   case tok::identifier: {
@@ -451,6 +450,13 @@ Retry:
     HandlePragmaMSVtorDisp();
     return StmtEmpty();
 
+#if INTEL_CUSTOMIZATION
+  case tok::annot_pragma_intel_fpga_loop:
+    ProhibitAttributes(Attrs);
+    return ParsePragmaIntelFPGALoop(Stmts, StmtCtx, TrailingElseLoc,
+                                    Attrs);
+#endif // INTEL_CUSTOMIZATION
+
   case tok::annot_pragma_loop_hint:
     ProhibitAttributes(Attrs);
     return ParsePragmaLoopHint(Stmts, StmtCtx, TrailingElseLoc, Attrs);
@@ -688,8 +694,7 @@ StmtResult Parser::ParseLabeledStatement(ParsedAttributesWithRange &attrs,
       SubStmt = ParseStatementOrDeclarationAfterAttributes(Stmts, StmtCtx,
                                                            nullptr, TempAttrs);
       if (!TempAttrs.empty() && !SubStmt.isInvalid())
-        SubStmt = Actions.ProcessStmtAttributes(SubStmt.get(), TempAttrs,
-                                                TempAttrs.Range);
+        SubStmt = Actions.ActOnAttributedStmt(TempAttrs, SubStmt.get());
     } else {
       Diag(Tok, diag::err_expected_after) << "__attribute__" << tok::semi;
     }
@@ -763,8 +768,8 @@ StmtResult Parser::ParseCaseStatement(ParsedStmtContext StmtCtx,
     ColonLoc = SourceLocation();
 
     if (Tok.is(tok::code_completion)) {
-      Actions.CodeCompleteCase(getCurScope());
       cutOffParsing();
+      Actions.CodeCompleteCase(getCurScope());
       return StmtError();
     }
 
@@ -1203,7 +1208,7 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
         ExpectAndConsumeSemi(diag::err_expected_semi_after_expr);
         R = handleExprStmt(Res, SubStmtCtx);
         if (R.isUsable())
-          R = Actions.ProcessStmtAttributes(R.get(), attrs, attrs.Range);
+          R = Actions.ActOnAttributedStmt(attrs, R.get());
       }
     }
 
@@ -1530,8 +1535,8 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
     // Pop the 'else' scope if needed.
     InnerScope.Exit();
   } else if (Tok.is(tok::code_completion)) {
-    Actions.CodeCompleteAfterIf(getCurScope(), IsBracedThen);
     cutOffParsing();
+    Actions.CodeCompleteAfterIf(getCurScope(), IsBracedThen);
     return StmtError();
   } else if (InnerStatementTrailingElseLoc.isValid()) {
     Diag(InnerStatementTrailingElseLoc, diag::warn_dangling_else);
@@ -1889,10 +1894,10 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
   FullExprArg ThirdPart(Actions);
 
   if (Tok.is(tok::code_completion)) {
+    cutOffParsing();
     Actions.CodeCompleteOrdinaryName(getCurScope(),
                                      C99orCXXorObjC? Sema::PCC_ForInit
                                                    : Sema::PCC_Expression);
-    cutOffParsing();
     return StmtError();
   }
 
@@ -1960,8 +1965,8 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
       ConsumeToken(); // consume 'in'
 
       if (Tok.is(tok::code_completion)) {
-        Actions.CodeCompleteObjCForCollection(getCurScope(), DG);
         cutOffParsing();
+        Actions.CodeCompleteObjCForCollection(getCurScope(), DG);
         return StmtError();
       }
       Collection = ParseExpression();
@@ -1996,8 +2001,8 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
       ConsumeToken(); // consume 'in'
 
       if (Tok.is(tok::code_completion)) {
-        Actions.CodeCompleteObjCForCollection(getCurScope(), nullptr);
         cutOffParsing();
+        Actions.CodeCompleteObjCForCollection(getCurScope(), nullptr);
         return StmtError();
       }
       Collection = ParseExpression();
@@ -2021,7 +2026,6 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
   }
 
   // Parse the second part of the for specifier.
-  getCurScope()->AddFlags(Scope::BreakScope | Scope::ContinueScope);
   if (!ForEach && !ForRangeInfo.ParsedForRangeDecl() &&
       !SecondPart.isInvalid()) {
     // Parse the second part of the for specifier.
@@ -2037,7 +2041,8 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
         ColonProtectionRAIIObject ColonProtection(*this, MightBeForRangeStmt);
         SecondPart =
             ParseCXXCondition(nullptr, ForLoc, Sema::ConditionKind::Boolean,
-                              MightBeForRangeStmt ? &ForRangeInfo : nullptr);
+                              MightBeForRangeStmt ? &ForRangeInfo : nullptr,
+                              /*EnterForConditionScope*/ true);
 
         if (ForRangeInfo.ParsedForRangeDecl()) {
           Diag(FirstPart.get() ? FirstPart.get()->getBeginLoc()
@@ -2054,6 +2059,9 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
           }
         }
       } else {
+        // We permit 'continue' and 'break' in the condition of a for loop.
+        getCurScope()->AddFlags(Scope::BreakScope | Scope::ContinueScope);
+
         ExprResult SecondExpr = ParseExpression();
         if (SecondExpr.isInvalid())
           SecondPart = Sema::ConditionError();
@@ -2064,6 +2072,11 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
       }
     }
   }
+
+  // Enter a break / continue scope, if we didn't already enter one while
+  // parsing the second part.
+  if (!(getCurScope()->getFlags() & Scope::ContinueScope))
+    getCurScope()->AddFlags(Scope::BreakScope | Scope::ContinueScope);
 
   // Parse the third part of the for statement.
   if (!ForEach && !ForRangeInfo.ParsedForRangeDecl()) {
@@ -2250,9 +2263,9 @@ StmtResult Parser::ParseReturnStatement() {
       PreferredType.enterReturn(Actions, Tok.getLocation());
     // FIXME: Code completion for co_return.
     if (Tok.is(tok::code_completion) && !IsCoreturn) {
+      cutOffParsing();
       Actions.CodeCompleteExpression(getCurScope(),
                                      PreferredType.get(Tok.getLocation()));
-      cutOffParsing();
       return StmtError();
     }
 
@@ -2275,6 +2288,50 @@ StmtResult Parser::ParseReturnStatement() {
     return Actions.ActOnCoreturnStmt(getCurScope(), ReturnLoc, R.get());
   return Actions.ActOnReturnStmt(ReturnLoc, R.get(), getCurScope());
 }
+
+#if INTEL_CUSTOMIZATION
+StmtResult Parser::ParsePragmaIntelFPGALoop(StmtVector &Stmts,
+                                            ParsedStmtContext StmtCtx,
+                                            SourceLocation *TrailingElseLoc,
+                                            ParsedAttributesWithRange &Attrs) {
+  // Create temporary attribute list.
+  ParsedAttributesWithRange TempAttrs(AttrFactory);
+
+  SourceLocation StartLoc = Tok.getLocation();
+
+  // Get fpga loop tokens and consume annotated token.
+  while (Tok.is(tok::annot_pragma_intel_fpga_loop)) {
+    LoopHint Hint;
+    if (!HandlePragmaLoopHint(Hint))
+      continue;
+
+    bool HasZeroArgs =
+      Hint.PragmaNameLoc->Ident->isStr("disable_loop_pipelining");
+
+    ArgsUnion ArgHints[] = {ArgsUnion(Hint.ValueExpr)};
+    TempAttrs.addNew(Hint.PragmaNameLoc->Ident, Hint.Range, nullptr,
+                     Hint.PragmaNameLoc->Loc,
+                     HasZeroArgs ? nullptr : ArgHints,
+                     HasZeroArgs ? 0 : 1,
+                     ParsedAttr::AS_Pragma);
+  }
+
+  // Get the next statement.
+  MaybeParseCXX11Attributes(Attrs);
+
+  StmtResult S = ParseStatementOrDeclarationAfterAttributes(
+      Stmts, StmtCtx, TrailingElseLoc, Attrs);
+
+  Attrs.takeAllFrom(TempAttrs);
+
+  // Start of attribute range may already be set for some invalid input.
+  // See PR46336.
+  if (Attrs.Range.getBegin().isInvalid())
+    Attrs.Range.setBegin(StartLoc);
+
+  return S;
+}
+#endif // INTEL_CUSTOMIZATION
 
 StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts,
                                        ParsedStmtContext StmtCtx,

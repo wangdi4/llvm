@@ -134,24 +134,6 @@ static bool isMallocAllocatingHugeMemory(const CallInst *CI) {
   return true;
 }
 
-// Returns true if 'SI' store instruction is saving 'V' in formal
-// argument of current routine.
-//
-//   Ex:
-//      LBM_allocateGrid(double** %ptr)
-//      store i8* %V, i8** %ptr
-//
-static bool isValueSavedInArg(Value *V, StoreInst *SI) {
-  if (V != SI->getOperand(0))
-    return false;
-  Value *V2 = SI->getOperand(1);
-  if (Operator::getOpcode(V2) == Instruction::BitCast)
-    V2 = cast<Operator>(V2)->getOperand(0);
-  if (!isa<Argument>(V2))
-    return false;
-  return true;
-}
-
 // Returns true if return address of malloc is saved in formal argument
 // of current routine and not escaped to other places.
 // Example for allowed case:
@@ -167,6 +149,14 @@ static bool isValueSavedInArg(Value *V, StoreInst *SI) {
 //
 static bool isMallocAddressSavedInArg(Function &F, CallBase &CB) {
 
+  // Returns true if A == V. This routine ignores BitCastInst.
+  auto IsArgument = [] (Value *V, Argument *A) {
+    Value *ArgV = V;
+    if (auto *BC = dyn_cast<BitCastInst>(ArgV))
+      ArgV = BC->getOperand(0);
+    return ArgV == A;
+  };
+
   // Just limit to single formal pointer parameter for now
   FunctionType *FTy = F.getFunctionType();
   if (!FTy->getReturnType()->isVoidTy())
@@ -177,38 +167,66 @@ static bool isMallocAddressSavedInArg(Function &F, CallBase &CB) {
     return false;
 
   Value *V = &CB;
+  Argument *A = F.getArg(0);
 
-  bool malloc_saved_in_arg = false;
-  for (auto *I : V->users()) {
-    if (isa<ICmpInst>(I)) {
-      // Ignore use in ICmp
-      continue;
-    }
-    if (GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(I)) {
-      // %add.ptr = getelementptr inbounds i8, i8* %call, i64 0
-      // %1 = bitcast double** %ptr to i8**
-      // store i8* %add.ptr, i8** %1
-      if (!GEPI->hasOneUse()) {
+  // Memory allocation pointer is stored to Argument.
+  // Ex: *Arg = CB;
+  StoreInst *StoreI = nullptr;
+
+  // Incremented memory allocation pointer is stored to Argument
+  // Ex: *Arg = CB + some_constant;
+  StoreInst *StoreWithIncI = nullptr;
+  SmallVector<Value *, 16> WorkList;
+  // Incremented values from "CB".
+  // Ex: *ptr += 2000;
+  DenseMap<Value *, int64_t> PtrAliasOffsetMap;
+  WorkList.push_back(V);
+  PtrAliasOffsetMap[V] = 0;
+  while (!WorkList.empty()) {
+    Value *V = WorkList.pop_back_val();
+    for (auto &UI : V->uses()) {
+      Value *Ptr = UI.getUser();
+      // Ignore ICmp instructions.
+      if (isa<ICmpInst>(Ptr))
+        continue;
+      if (isa<BitCastInst>(Ptr)) {
+        WorkList.push_back(Ptr);
+        // No Change in offset.
+        PtrAliasOffsetMap[Ptr] = PtrAliasOffsetMap[V];
+      } else if (auto *GEPI = dyn_cast<GetElementPtrInst>(Ptr)) {
+        if (!GEPI || GEPI->getNumIndices() != 1)
+          return false;
+        auto CInt = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+
+        WorkList.push_back(Ptr);
+        // Increase offset for Ptr.
+        PtrAliasOffsetMap[Ptr] = PtrAliasOffsetMap[V] + CInt->getSExtValue();
+      } else if (auto *SI = dyn_cast<StoreInst>(Ptr)) {
+        if (!IsArgument(SI->getPointerOperand(), A))
+          return false;
+        if (SI->getValueOperand() != V)
+          return false;
+        if (PtrAliasOffsetMap[V] == 0) {
+          // Storing "CB" to the Arg.
+          if (StoreI)
+            return false;
+          StoreI = SI;
+        } else {
+          // Storing "CB + some_const" to the Arg.
+          if (StoreWithIncI)
+            return false;
+          StoreWithIncI = SI;
+        }
+      } else {
         return false;
       }
-      if (StoreInst *SI = dyn_cast<StoreInst>(*GEPI->user_begin())) {
-        if (isValueSavedInArg(GEPI, SI))
-          malloc_saved_in_arg = true;
-        else
-          return false;
-      } else
-        return false;
-    } else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
-      // store i8* %call, i8** %0
-      if (isValueSavedInArg(V, SI))
-        malloc_saved_in_arg = true;
-      else
-        return false;
-    } else {
-      return false;
     }
   }
-  return malloc_saved_in_arg;
+  // Recognize it as Allocation routine only if CB is used only by
+  // StoreI and StoreWithIncI.
+  if (!StoreI || !StoreWithIncI)
+    return false;
+  return true;
 }
 
 // Collect global variable pointers that allocated memory using

@@ -830,10 +830,10 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_atomic:
   case OMPD_target_data:
   case OMPD_distribute_simd:
-  case OMPD_dispatch:
 #if INTEL_COLLAB
   case OMPD_target_variant_dispatch:
 #endif // INTEL_COLLAB
+  case OMPD_dispatch:
     CaptureRegions.push_back(OMPD_unknown);
     break;
   case OMPD_tile:

@@ -95,6 +95,7 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
   bool OclCUnsupported = !LangOpts.OpenCL &&
                          (BuiltinInfo.Langs & ALL_OCLC_LANGUAGES);
   bool OpenMPUnsupported = !LangOpts.OpenMP && BuiltinInfo.Langs == OMP_LANG;
+  bool CUDAUnsupported = !LangOpts.CUDA && BuiltinInfo.Langs == CUDA_LANG;
   bool CPlusPlusUnsupported =
       !LangOpts.CPlusPlus && BuiltinInfo.Langs == CXX_LANG;
 #if INTEL_CUSTOMIZATION
@@ -103,7 +104,7 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
       (!BuiltinsUnsupported && !MathBuiltinsUnsupported && !OclCUnsupported &&
        !OclC1Unsupported && !OclC2Unsupported && !OpenMPUnsupported &&
        !GnuModeUnsupported && !MSModeUnsupported && !ObjCUnsupported &&
-       !CPlusPlusUnsupported), BuiltinInfo, LangOpts);
+       !CPlusPlusUnsupported && !CUDAUnsupported), BuiltinInfo, LangOpts);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -127,10 +128,6 @@ void Builtin::Context::initializeBuiltins(IdentifierTable &Table,
   for (unsigned i = 0, e = AuxTSRecords.size(); i != e; ++i)
     Table.get(AuxTSRecords[i].Name)
         .setBuiltinID(i + Builtin::FirstTSBuiltin + TSRecords.size());
-}
-
-void Builtin::Context::forgetBuiltin(unsigned ID, IdentifierTable &Table) {
-  Table.get(getRecord(ID).Name).setBuiltinID(0);
 }
 
 unsigned Builtin::Context::getRequiredVectorWidth(unsigned ID) const {

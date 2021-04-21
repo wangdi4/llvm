@@ -895,9 +895,9 @@ void CodeGenFunction::EmitTypeCheck(TypeCheckKind TCK, SourceLocation Loc,
                                             llvm::ConstantInt::get(IntPtrTy,
                                                                    CacheSize-1));
       llvm::Value *Indices[] = { Builder.getInt32(0), Slot };
-      llvm::Value *CacheVal =
-        Builder.CreateAlignedLoad(Builder.CreateInBoundsGEP(Cache, Indices),
-                                  getPointerAlign());
+      llvm::Value *CacheVal = Builder.CreateAlignedLoad(
+          IntPtrTy, Builder.CreateInBoundsGEP(HashTable, Cache, Indices),
+          getPointerAlign());
 
       // If the hash isn't in the cache, call a runtime handler to perform the
       // hard work of checking whether the vptr is for an object of the right
@@ -3735,6 +3735,7 @@ void CodeGenFunction::recordNoAliasPtr(llvm::Value *BasePtr, llvm::Value *Ptr) {
 #endif // INTEL_CUSTOMIZATION
 
 static llvm::Value *emitArraySubscriptGEP(CodeGenFunction &CGF,
+                                          llvm::Type *elemType,
                                           llvm::Value *ptr,
                                           ArrayRef<llvm::Value*> indices,
                                           bool inbounds,
@@ -3747,7 +3748,7 @@ static llvm::Value *emitArraySubscriptGEP(CodeGenFunction &CGF,
                                       name);
   } else {
 #if INTEL_CUSTOMIZATION
-    auto GEPVal = CGF.Builder.CreateGEP(ptr, indices, name);
+    auto GEPVal = CGF.Builder.CreateGEP(elemType, ptr, indices, name);
     CGF.recordNoAliasPtr(ptr, GEPVal);
     return GEPVal;
 #endif // INTEL_CUSTOMIZATION
@@ -3855,8 +3856,8 @@ static Address emitArraySubscriptGEP(CodeGenFunction &CGF, Address addr,
   if (!LastIndex ||
       (!CGF.IsInPreservedAIRegion && !IsPreserveAIArrayBase(CGF, Base))) {
     eltPtr = emitArraySubscriptGEP(
-        CGF, addr.getPointer(), indices, inbounds, signedIndices,
-        loc, name);
+        CGF, addr.getElementType(), addr.getPointer(), indices, inbounds,
+        signedIndices, loc, name);
     AddIVDepMetadata(CGF, arrayDecl, eltPtr);
   } else {
     // Remember the original array subscript for bpf target
@@ -3982,8 +3983,8 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
     CharUnits EltAlign =
       getArrayElementAlign(Addr.getAlignment(), Idx, InterfaceSize);
     llvm::Value *EltPtr =
-        emitArraySubscriptGEP(*this, Addr.getPointer(), ScaledIdx, false,
-                              SignedIndices, E->getExprLoc());
+        emitArraySubscriptGEP(*this, Addr.getElementType(), Addr.getPointer(),
+                              ScaledIdx, false, SignedIndices, E->getExprLoc());
     Addr = Address(EltPtr, EltAlign);
 
     // Cast back.
@@ -5000,6 +5001,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
   case CK_FixedPointToBoolean:
   case CK_FixedPointToIntegral:
   case CK_IntegralToFixedPoint:
+  case CK_MatrixCast:
 #if INTEL_CUSTOMIZATION
     // CQ#366312 - enable an extension that allows casts of lvalues to
     // be used as lvalues, as long as the size of the object is not lengthened
@@ -5518,9 +5520,9 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, const CGCallee &OrigCallee
         getContext().getFunctionTypeWithExceptionSpec(PointeeType, EST_None);
       llvm::Constant *FTRTTIConst =
           CGM.GetAddrOfRTTIDescriptor(ProtoTy, /*ForEH=*/true);
-      llvm::Type *PrefixStructTyElems[] = {PrefixSig->getType(), Int32Ty};
+      llvm::Type *PrefixSigType = PrefixSig->getType();
       llvm::StructType *PrefixStructTy = llvm::StructType::get(
-          CGM.getLLVMContext(), PrefixStructTyElems, /*isPacked=*/true);
+          CGM.getLLVMContext(), {PrefixSigType, Int32Ty}, /*isPacked=*/true);
 
       llvm::Value *CalleePtr = Callee.getFunctionPointer();
 
@@ -5529,7 +5531,7 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, const CGCallee &OrigCallee
       llvm::Value *CalleeSigPtr =
           Builder.CreateConstGEP2_32(PrefixStructTy, CalleePrefixStruct, 0, 0);
       llvm::Value *CalleeSig =
-          Builder.CreateAlignedLoad(CalleeSigPtr, getIntAlign());
+          Builder.CreateAlignedLoad(PrefixSigType, CalleeSigPtr, getIntAlign());
       llvm::Value *CalleeSigMatch = Builder.CreateICmpEQ(CalleeSig, PrefixSig);
 
       llvm::BasicBlock *Cont = createBasicBlock("cont");
@@ -5540,7 +5542,7 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, const CGCallee &OrigCallee
       llvm::Value *CalleeRTTIPtr =
           Builder.CreateConstGEP2_32(PrefixStructTy, CalleePrefixStruct, 0, 1);
       llvm::Value *CalleeRTTIEncoded =
-          Builder.CreateAlignedLoad(CalleeRTTIPtr, getPointerAlign());
+          Builder.CreateAlignedLoad(Int32Ty, CalleeRTTIPtr, getPointerAlign());
       llvm::Value *CalleeRTTI =
           DecodeAddrUsedInPrologue(CalleePtr, CalleeRTTIEncoded);
       llvm::Value *CalleeRTTIMatch =

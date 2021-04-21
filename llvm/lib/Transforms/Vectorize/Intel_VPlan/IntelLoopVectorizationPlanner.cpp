@@ -284,7 +284,9 @@ int LoopVectorizationPlanner::setDefaultVectorFactors(MDNode *MD) {
     unsigned MinWidthInBits, MaxWidthInBits, MinVF, MaxVF;
     std::tie(MinWidthInBits, MaxWidthInBits) = getTypesWidthRangeInBits();
     const unsigned MinVectorWidth = TTI->getMinVectorRegisterBitWidth();
-    const unsigned MaxVectorWidth = TTI->getRegisterBitWidth(true /* Vector */);
+    const unsigned MaxVectorWidth =
+        TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
+            .getFixedSize();
     MaxVF = MaxVectorWidth / MinWidthInBits;
     MinVF = std::max(MinVectorWidth / MaxWidthInBits, 1u);
 
