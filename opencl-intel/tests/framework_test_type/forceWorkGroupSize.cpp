@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020 Intel Corporation
+// Copyright (c) 2021 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -65,10 +65,10 @@ protected:
     ASSERT_OCL_SUCCESS(err, "clReleaseProgram");
 
     err = clReleaseCommandQueue(m_queue);
-    EXPECT_OCL_SUCCESS(err, "clReleaseCommandQueue");
+    ASSERT_OCL_SUCCESS(err, "clReleaseCommandQueue");
 
     err = clReleaseContext(m_context);
-    EXPECT_OCL_SUCCESS(err, "clReleaseContext");
+    ASSERT_OCL_SUCCESS(err, "clReleaseContext");
   }
 
   void BuildProgram(unsigned workDim) {
@@ -108,7 +108,7 @@ protected:
     }
 
     m_kernel = clCreateKernel(m_program, "test", &err);
-    ASSERT_OCL_SUCCESS(err, "clCreateKernel blocking_test");
+    ASSERT_OCL_SUCCESS(err, "clCreateKernel test");
   }
 
   bool IsNegative(unsigned workDim) {
@@ -256,3 +256,89 @@ TEST_P(ForceWGSizeTest, dim3) {
 static std::vector<std::vector<int>> sizes = {
     {32, 16, 8, 4}, {32, 16}, {32}, {-1, 1}, {1024}};
 INSTANTIATE_TEST_CASE_P(WG, ForceWGSizeTest, ::testing::ValuesIn(sizes), );
+
+class ForceWGSizeSingleTest : public ::testing::Test {
+protected:
+  virtual void SetUp() override {}
+
+  virtual void TearDown() override {}
+};
+
+/// This test covers a check of device kernel in ExecutionModule
+/// EnqueueNDRangeKernel when CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE is set.
+TEST_F(ForceWGSizeSingleTest, invalidDeviceProgram) {
+  ASSERT_TRUE(SETENV("CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE", "32"));
+
+  cl_platform_id platform;
+  cl_device_id device;
+
+  cl_int err = clGetPlatformIDs(1, &platform, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetPlatformIDs");
+
+  err = clGetDeviceIDs(platform, gDeviceType, 1, &device, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceIDs");
+
+  cl_uint numComputeUnits;
+  err = clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint),
+                        &numComputeUnits, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo CL_DEVICE_MAX_COMPUTE_UNITS");
+  if (numComputeUnits < 2)
+    return;
+
+  cl_uint numDevices = 2;
+  std::vector<cl_device_id> subDevices(numDevices);
+  cl_uint numDevicesRet;
+  std::vector<cl_device_partition_property> properties(numDevices + 2);
+  properties[0] = CL_DEVICE_PARTITION_BY_COUNTS;
+  for (int i = 1; i <= numDevices; ++i)
+    properties[i] = 1;
+  properties[numDevices + 1] = 0;
+  err = clCreateSubDevices(device, &properties[0], numDevices, &subDevices[0],
+                           &numDevicesRet);
+  ASSERT_OCL_SUCCESS(err, "clCreateSubDevices");
+  ASSERT_EQ(numDevices, numDevicesRet);
+
+  cl_context context =
+      clCreateContext(nullptr, 2, &subDevices[0], nullptr, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateContext");
+
+  const char *source = "kernel void test() {}";
+
+  cl_program program = clCreateProgramWithSource(
+      context, 1, (const char **)&source, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
+
+  // Build program for sub-device 0.
+  err = clBuildProgram(program, 1, &subDevices[0], nullptr, nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+
+  cl_kernel kernel = clCreateKernel(program, "test", &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateKernel test");
+
+  // Create command queue for sub-device 1.
+  cl_command_queue queue =
+      clCreateCommandQueueWithProperties(context, subDevices[1], nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties");
+
+  size_t gdim = 32;
+  err = clEnqueueNDRangeKernel(queue, kernel, 1, nullptr, &gdim, nullptr, 0,
+                               nullptr, nullptr);
+  ASSERT_EQ(CL_INVALID_PROGRAM_EXECUTABLE, err);
+
+  err = clReleaseCommandQueue(queue);
+  ASSERT_OCL_SUCCESS(err, "clReleaseCommandQueue");
+
+  err = clReleaseKernel(kernel);
+  ASSERT_OCL_SUCCESS(err, "clReleaseKernel");
+
+  err = clReleaseProgram(program);
+  ASSERT_OCL_SUCCESS(err, "clReleaseProgram");
+
+  err = clReleaseContext(context);
+  ASSERT_OCL_SUCCESS(err, "clReleaseContext");
+
+  for (auto *d : subDevices) {
+    err = clReleaseDevice(d);
+    ASSERT_OCL_SUCCESS(err, "clReleaseDevice");
+  }
+}

@@ -2109,6 +2109,8 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
       bool useForcedWGSize = false;
       if (!forcedWGSize.empty()) {
         const DeviceKernel* deviceKernel = pKernel->GetDeviceKernel(pDevice.GetPtr());
+        if (!deviceKernel)
+          return CL_INVALID_PROGRAM_EXECUTABLE;
         std::vector<int> WGSizes;
         SplitStringInteger(forcedWGSize, ',', WGSizes);
         unsigned dim = std::min((unsigned)WGSizes.size(), uiWorkDim);
