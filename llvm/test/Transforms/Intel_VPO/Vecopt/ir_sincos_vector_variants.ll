@@ -7,7 +7,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @test() local_unnamed_addr #3 {
+define dso_local void @test() local_unnamed_addr {
 ; CHECK-LABEL: @test(
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.*]] ]
@@ -39,7 +39,7 @@ omp.inner.for.body:                               ; preds = %DIR.OMP.SIMD.1, %om
   %phase.ld = load double, double* %arrayidx4, align 8
   %arrayidx6 = getelementptr inbounds [128 x double], [128 x double]* %sinval, i64 0, i64 %indvars.iv
   %arrayidx8 = getelementptr inbounds [128 x double], [128 x double]* %cosval, i64 0, i64 %indvars.iv
-  call void @sincos(double %phase.ld, double* nonnull %arrayidx6, double* nonnull %arrayidx8) #5
+  call void @sincos(double %phase.ld, double* nonnull %arrayidx6, double* nonnull %arrayidx8)
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond.not = icmp eq i64 %indvars.iv.next, 128
   br i1 %exitcond.not, label %DIR.OMP.END.SIMD.2, label %omp.inner.for.body
@@ -50,10 +50,10 @@ DIR.OMP.END.SIMD.2:                               ; preds = %omp.inner.for.body
 }
 
 ; Function Attrs: nounwind
-declare token @llvm.directive.region.entry() #5
+declare token @llvm.directive.region.entry()
 
 ; Function Attrs: nounwind
-declare void @llvm.directive.region.exit(token) #5
+declare void @llvm.directive.region.exit(token)
 
 ; Function Attrs: nofree nounwind
 declare dso_local void @sincos(double, double*, double*) local_unnamed_addr #6
