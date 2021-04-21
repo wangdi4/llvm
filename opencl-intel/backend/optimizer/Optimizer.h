@@ -39,7 +39,9 @@ namespace DeviceBackend {
 
 class Optimizer {
 public:
-  Optimizer(llvm::Module *M);
+  Optimizer(llvm::Module *M,
+            llvm::SmallVector<llvm::Module *, 2> &RtlModules,
+            const intel::OptimizerConfig *Config);
 
   virtual ~Optimizer() {}
 
@@ -89,6 +91,10 @@ public:
 
 protected:
   llvm::Module *m_M;
+  /// Builtin rtl modules (not owned by this class).
+  llvm::SmallVector<llvm::Module *, 2> m_RtlModules;
+  const intel::OptimizerConfig *Config;
+  StringRef CPUPrefix;
   std::vector<std::string> m_undefinedExternalFunctions;
   // For OCLVPOCheckVF Pass
   TStringToVFState m_kernelToVFState;
@@ -111,7 +117,7 @@ protected:
 class OptimizerOCL : public Optimizer {
 public:
   OptimizerOCL(llvm::Module *pModule,
-               llvm::SmallVector<llvm::Module *, 2> &pRtlModuleList,
+               llvm::SmallVector<llvm::Module *, 2> &RtlModules,
                const intel::OptimizerConfig *pConfig);
 
   ~OptimizerOCL();
@@ -125,7 +131,6 @@ private:
   // hold the collection of passes
   llvm::legacy::PassManager m_PostFailCheckPM;
   llvm::legacy::PassManager m_PreFailCheckPM;
-  llvm::SmallVector<llvm::Module *, 2> m_pRtlModuleList;
   bool m_IsFpgaEmulator;
   bool m_IsEyeQEmulator;
 };

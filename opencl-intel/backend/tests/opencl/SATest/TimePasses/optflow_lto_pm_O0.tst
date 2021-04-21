@@ -2,6 +2,7 @@
 ; RUN: FileCheck %s --input-file=%t2
 
 ; CHECK-DAG: AddImplicitArgsPass
+; CHECK-DAG: BuiltinImportPass
 ; CHECK-DAG: DPCPPEqualizerPass
 ; CHECK-DAG: DPCPPKernelAnalysisPass
 ; CHECK-DAG: DPCPPKernelWGLoopCreatorPass

@@ -893,9 +893,9 @@ static void populatePassesPostFailCheck(
 OptimizerOCL::~OptimizerOCL() {}
 
 OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
-                           llvm::SmallVector<llvm::Module *, 2> &pRtlModuleList,
+                           llvm::SmallVector<llvm::Module *, 2> &RtlModules,
                            const intel::OptimizerConfig *pConfig)
-    : Optimizer(pModule), m_pRtlModuleList(pRtlModuleList),
+    : Optimizer(pModule, RtlModules, pConfig),
       m_IsFpgaEmulator(pConfig->isFpgaEmulator()),
       m_IsEyeQEmulator(pConfig->isEyeQEmulator()) {
   TargetMachine* targetMachine = pConfig->GetTargetMachine();
@@ -928,13 +928,13 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
 
   bool IsOMP = CompilationUtils::generatedFromOMP(*pModule);
   // Add passes which will run unconditionally
-  populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_pRtlModuleList,
+  populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_RtlModules,
                              OptLevel, pConfig, isOcl20, m_IsFpgaEmulator,
                              UnrollLoops, EnableInferAS, isSPIRV, EnableVPlan);
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false
-  populatePassesPostFailCheck(m_PostFailCheckPM, pModule, m_pRtlModuleList,
+  populatePassesPostFailCheck(m_PostFailCheckPM, pModule, m_RtlModules,
                               OptLevel, pConfig, m_undefinedExternalFunctions,
                               isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
                               UnrollLoops, EnableInferAS, EnableVPlan, m_IsSYCL,
@@ -943,7 +943,7 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
 
 void OptimizerOCL::Optimize() {
   legacy::PassManager materializerPM;
-  materializerPM.add(createBuiltinLibInfoPass(m_pRtlModuleList, ""));
+  materializerPM.add(createBuiltinLibInfoPass(m_RtlModules, ""));
   materializerPM.add(createLLVMEqualizerPass());
   Triple TargetTriple(m_M->getTargetTriple());
   if (!m_IsEyeQEmulator && TargetTriple.isArch64Bit()) {
@@ -979,8 +979,14 @@ void OptimizerOCL::Optimize() {
   }
 }
 
-Optimizer::Optimizer(llvm::Module *M)
-    : m_M(M), m_IsSYCL(CompilationUtils::generatedFromOCLCPP(*M)) {}
+Optimizer::Optimizer(llvm::Module *M,
+                     llvm::SmallVector<llvm::Module *, 2> &RtlModules,
+                     const intel::OptimizerConfig *Config)
+    : m_M(M), m_RtlModules(RtlModules), Config(Config),
+      m_IsSYCL(CompilationUtils::generatedFromOCLCPP(*M)) {
+  assert(Config && Config->GetCpuId() && "Invalid OptimizerConfig");
+  CPUPrefix = Config->GetCpuId()->GetCPUPrefix();
+}
 
 const TStringToVFState& Optimizer::GetKernelVFStates() const {
   return m_kernelToVFState;
