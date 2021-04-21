@@ -2306,13 +2306,9 @@ static std::string getAppendArgsTypes(const OMPDeclareVariantAttr *Attr) {
 
   if (Attr->appendArgs_size()) {
     for (auto InterOpType : Attr->appendArgs()) {
-      if (InterOpType == *Attr->appendArgs_begin())
-        OS << ";interop:";
-      else
-        OS << ",";
+      OS << ";interop:";
       OS << OMPDeclareVariantAttr::ConvertInteropTypeToStr(InterOpType);
     }
-    OS << ";";
   }
   return std::string(OS.str());
 }
