@@ -10021,6 +10021,11 @@ getNestedDistributeDirective(ASTContext &Ctx, const OMPExecutableDirective &D) {
 ///                                           void *name = nullptr) {
 ///   // Allocate space for an array section first or add a base/begin for
 ///   // pointer dereference.
+#if INTEL_COLLAB
+///   // For late outlining (needed to support opencl plugin):
+///   if ((size > 1 || (base != begin)) && !maptype.IsDelete)
+///   // Otherwise:
+#endif // INTEL_COLLAB
 ///   if ((size > 1 || (base != begin && maptype.IsPtrAndObj)) &&
 ///       !maptype.IsDelete)
 ///     __tgt_push_mapper_component(rt_mapper_handle, base, begin,
@@ -10324,12 +10329,21 @@ void CGOpenMPRuntime::emitUDMapperArrayInitOrDel(
     // base != begin?
     llvm::Value *BaseIsBegin = MapperCGF.Builder.CreateIsNotNull(
         MapperCGF.Builder.CreatePtrDiff(Base, Begin));
+#if INTEL_COLLAB
+    // Late outlining: opencl plugin needs the base and begin pointers even
+    // for single-element array section maps with non-zero offset, like:
+    // C a[10]; ... #pragma omp target map(a[1])
+    if (!CGM.getLangOpts().OpenMPLateOutline) {
+#endif // INTEL_COLLAB
     // IsPtrAndObj?
     llvm::Value *PtrAndObjBit = MapperCGF.Builder.CreateAnd(
         MapType,
         MapperCGF.Builder.getInt64(MappableExprsHandler::OMP_MAP_PTR_AND_OBJ));
     PtrAndObjBit = MapperCGF.Builder.CreateIsNotNull(PtrAndObjBit);
     BaseIsBegin = MapperCGF.Builder.CreateAnd(BaseIsBegin, PtrAndObjBit);
+#if INTEL_COLLAB
+    }
+#endif // INTEL_COLLAB
     Cond = MapperCGF.Builder.CreateOr(IsArray, BaseIsBegin);
     DeleteCond = MapperCGF.Builder.CreateIsNull(
         DeleteBit, getName({"omp.array", Prefix, ".delete"}));
