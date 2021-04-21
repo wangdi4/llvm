@@ -1,3 +1,4 @@
+; RUN: %oclopt -internalize-nonkernel-functions -globaldce -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -internalize-nonkernel-functions -globaldce -S %s -o %t.ll
 ; RUN: FileCheck %s --input-file=%t.ll
 
@@ -17,3 +18,7 @@ define spir_kernel void @block_typedef_reassign(i32 addrspace(1)* %res) nounwind
 !3 = !{!"int*"}
 !5 = !{!""}
 !6 = !{!"res"}
+
+; DEBUGIFY: WARNING: Missing line 1
+; DEBUGIFY: WARNING: Missing variable 1
+; DEBUGIFY-NOT: WARNING

@@ -1,3 +1,4 @@
+; RUN: %oclopt -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -verify -S < %s
 ;; This file is used as Built-in module to test work group built-in pass for 32bit modules
 ;; The only requirment is to contain a valid LLVM IR.
@@ -1914,3 +1915,5 @@ declare <16 x double> @_Z29work_group_scan_inclusive_minDv16_dPS_(<16 x double> 
 
 attributes #3 = { nounwind readnone }
 attributes #5 = { nounwind }
+
+; DEBUGIFY-NOT: WARNING

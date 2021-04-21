@@ -3,8 +3,10 @@
 ; XFAIL: *
 
 ; XFAIL: x86
+; RUN: %oclopt -runtimelib=clbltfng9.rtl  -builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=clbltfng9.rtl  -builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc < %t1.ll -mattr=+avx -mtriple=i686-pc-Win32 | FileCheck %s -check-prefix=CHECK-AVX
+; RUN: %oclopt -runtimelib=clbltfns9.rtl  -builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=clbltfns9.rtl  -builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
 ; RUN: llc < %t2.ll -mattr=+avx2 -mtriple=i686-pc-Win32 | FileCheck %s -check-prefix=CHECK-AVX2
 
@@ -55,3 +57,5 @@ declare void @__ocl_load_transpose_float_4x4(<4 x float>* nocapture %pLoadAdd, <
 ;CHECK-AVX2:	vaddps	[[XMM21]], [[XMM3]], [[XMM2:%xmm[0-9]+]]
 ;CHECK-AVX2:	vaddps	[[XMM01:%xmm[0-9]+]], [[XMM1:%xmm[0-9]+]], [[XMM0:%xmm[0-9]+]]
 ;CHECK-AVX2:	vaddps	[[XMM2]], [[XMM0]], [[XMM02:%xmm[0-9]+]]
+
+; DEBUGIFY-NOT: WARNING

@@ -1,4 +1,5 @@
 ; RUN: llvm-as %p/WGBuiltins32.ll -o %t.WGBuiltins32.ll.bc
+; RUN: %oclopt -runtimelib=%t.WGBuiltins32.ll.bc -B-GroupBuiltins -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=%t.WGBuiltins32.ll.bc -B-GroupBuiltins -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
@@ -118,3 +119,17 @@ declare <4 x i32> @_Z29work_group_scan_exclusive_maxDv4_i(<4 x i32>) nounwind re
 ;;;  size_t i = get_global_id(0);
 ;;;  b[i] = work_group_scan_exclusive_max(a[i]);
 ;;;}
+
+;; These are inserted by GroupBuiltin pass, should not have debug info
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_scan -- %AllocaWGResult = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_scan -- store i32 -2147483648, i32* %AllocaWGResult, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_scan -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_scan -- store i32 -2147483648, i32* %AllocaWGResult, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_test_scan -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_scan -- %AllocaWGResult = alloca <4 x i32>, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_scan -- store <4 x i32> <i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648>, <4 x i32>* %AllocaWGResult, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_scan -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_scan -- store <4 x i32> <i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648>, <4 x i32>* %AllocaWGResult, align 16
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.wg_test_scan -- call void @dummybarrier.()
+
+; DEBUGIFY-NOT: WARNING

@@ -4,10 +4,12 @@
 
 ; XFAIL: i686
 
+; RUN: %oclopt -runtimelib=clbltfne9.rtl -builtin-import -builtin-call-to-inst -instcombine -inline -scalarrepl -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=clbltfne9.rtl -builtin-import -builtin-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc %t1.ll -mattr=+avx -mtriple=x86_64 -o %t2.asm
 ; RUN: FileCheck %s --input-file=%t2.asm -check-prefix=CHECK-AVX
 
+; RUN: %oclopt -runtimelib=clbltfnl9.rtl -builtin-import -builtin-call-to-inst -instcombine -inline -scalarrepl -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=clbltfnl9.rtl -builtin-import -builtin-call-to-inst -instcombine -inline -scalarrepl -S %s -o %t3.ll
 ; RUN: llc %t3.ll -mattr=+avx2 -mtriple=x86_64 -o %t4.asm
 ; RUN: FileCheck %s --input-file=%t4.asm -check-prefix=CHECK-AVX2
@@ -65,3 +67,5 @@ declare void @__ocl_load_transpose_short_4x8(<4 x i16>* nocapture %pLoadAdd, <8 
 ; CHECK-AVX2:    vpaddw %x[[MM2]], %x[[MM0]], %x[[MM0]]
 ; CHECK-AVX2:    vpaddw %x[[MM1]], %x[[MM0]], %x[[MM0]]
 
+
+; DEBUGIFY-NOT: WARNING

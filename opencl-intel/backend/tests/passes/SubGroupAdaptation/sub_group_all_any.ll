@@ -1,3 +1,4 @@
+; RUN: %oclopt -sub-group-adaptation -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -sub-group-adaptation -verify -S < %s | FileCheck %s
 ;;*****************************************************************************
 ;; This test checks the SubGroupAdaptation pass
@@ -107,3 +108,5 @@ attributes #3 = { nounwind readnone }
 ;;;	    sub_group_barrier(CLK_LOCAL_MEM_FENCE);
 ;;;	}
 ;;;} 
+
+; DEBUGIFY-NOT: WARNING

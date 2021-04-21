@@ -1,7 +1,9 @@
 ; XFAIL: * 
 ; XFAILx: x86
+; RUN: %oclopt -runtimelib=clbltfng9.rtl  -builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=clbltfng9.rtl  -builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc < %t1.ll -mattr=+avx -mtriple=i686-pc-Win32 | FileCheck %s -check-prefix=CHECK
+; RUN: %oclopt -runtimelib=clbltfns9.rtl  -builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=clbltfns9.rtl  -builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
 ; RUN: llc < %t2.ll -mattr=+avx2 -mtriple=i686-pc-Win32 | FileCheck %s -check-prefix=CHECK
 
@@ -31,3 +33,5 @@ declare  void @__ocl_load_transpose_char_4x4(<4 x i8>* %pLoadAdd, <4 x i8>* noca
 ;CHECK:    vpsrldq	[[REG0:[$_0-9]+]], [[XMM0]], [[XMM1:%xmm[0-9]+]]
 ;CHECK:    vpsrldq	[[REG1:[$_0-9]+]], [[XMM1]], [[XMM2:%xmm[0-9]+]]
 ;CHECK:    vpsrldq	[[REG2:[$_0-9]+]], [[XMM2]], [[XMM3:%xmm[0-9]+]]
+
+; DEBUGIFY-NOT: WARNING

@@ -3,8 +3,10 @@
 ; XFAIL: *
 
 ; XFAIL: i686-pc-win32
+; RUN: %oclopt -runtimelib=clbltfne9.rtl  -builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=clbltfne9.rtl  -builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc < %t1.ll -mattr=+avx -mtriple=x86_64-pc-Win64 | FileCheck %s -check-prefix=CHECK-AVX
+; RUN: %oclopt -runtimelib=clbltfnl9.rtl  -builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib=clbltfnl9.rtl  -builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
 ; RUN: llc < %t2.ll -mattr=+avx2 -mtriple=x86_64-pc-Win64 | FileCheck %s -check-prefix=CHECK-AVX2
 
@@ -77,3 +79,5 @@ declare void @__ocl_load_transpose_int_4x8(<4 x i32>* nocapture %pLoadAdd, <8 x 
 ;CHECK-AVX2:	vpunpckldq	[[YMM01]], [[YMM32]], [[YMM02:%ymm[0-9]+]]
 ;CHECK-AVX2:	vpaddd	[[YMM11]], [[YMM02]], [[YMM03:%ymm[0-9]+]]
 ;CHECK-AVX2:	vpaddd	[[YMM21]], [[YMM03]], [[YMM04:%ymm[0-9]+]]
+
+; DEBUGIFY-NOT: WARNING

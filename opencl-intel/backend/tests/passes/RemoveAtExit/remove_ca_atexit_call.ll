@@ -1,5 +1,6 @@
 ; This test case is to check that __cxa_atexit function call is removed
 ; by remove-atexit pass.
+; RUN: %oclopt -remove-atexit -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -remove-atexit -S %s | FileCheck %s
 
 ; CHECK: call void @_ZN4globC1Ei(%struct.glob* @globobj, i32 4)
@@ -49,3 +50,7 @@ entry:
 }
 
 attributes #0 = { nounwind "not-ocl-dpcpp"="true"}
+
+; The pass is to remove __cxa_atexit call instruction.
+; DEBUGIFY: WARNING: Missing line 2
+; DEBUGIFY-NOT: WARNING

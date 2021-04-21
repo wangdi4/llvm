@@ -1,3 +1,4 @@
+; RUN: %oclopt -B-GroupBuiltins %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-GroupBuiltins -verify %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************
@@ -67,6 +68,12 @@ define void @wg_commit_read(%opencl.pipe_t addrspace(1)* %p, %opencl.reserve_id_
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.ocl.version = !{!0}
 !opencl.compiler.options = !{!1}
-
 !0 = !{i32 2, i32 0}
 !1 = !{!"-cl-std=CL2.0"}
+
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_reserve_write -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_commit_write -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_reserve_read -- call void @dummybarrier.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function wg_commit_read -- call void @dummybarrier.()
+
+; DEBUGIFY-NOT: WARNING

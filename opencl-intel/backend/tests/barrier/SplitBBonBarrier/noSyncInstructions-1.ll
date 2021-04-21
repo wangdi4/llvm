@@ -1,3 +1,4 @@
+; RUN: %oclopt -B-SplitOnBarrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-SplitOnBarrier -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
@@ -30,3 +31,7 @@ L3:
 ; CHECK: %isOk = phi i1 [ false, %L1 ], [ true, %L2 ]
 ; CHECK: ret void
 }
+
+;; PHINode
+; DEBUGIFY: WARNING: Missing line 5
+; DEBUGIFY-NOT: WARNING
