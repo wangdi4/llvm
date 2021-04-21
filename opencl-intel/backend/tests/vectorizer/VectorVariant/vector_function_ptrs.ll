@@ -1,5 +1,5 @@
-; RUN: %oclopt %s -sg-size-collector-indirect -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt %s -sg-size-collector-indirect -S | FileCheck %s
+; RUN: %oclopt %s -ocl-vector-variant-isa-encoding-override=AVX512Core -sg-size-collector-indirect -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt %s -ocl-vector-variant-isa-encoding-override=AVX512Core -sg-size-collector-indirect -S | FileCheck %s
 
 %class.S1B.B = type { %class.S1A.A }
 %class.S1A.A = type { i32 (...)** }
@@ -137,8 +137,8 @@ entry:
 attributes #4 = { "vector_function_ptrs"="B_foo$SIMDTable()" }
 attributes #5 = { "vector_function_ptrs"="A_bar1(),A_foo$SIMDTable(),A_bar2()" }
 
-; CHECK: attributes #[[ATTRS1]] = { "vector-variants"="_ZGV{{[bcde]}}M8vv_B_foo,_ZGV{{[bcde]}}N8vv_B_foo" "vector_function_ptrs"="B_foo$SIMDTable(_ZGV{{[bcde]}}M8vv_B_foo,_ZGV{{[bcde]}}N8vv_B_foo)" }
-; CHECK: attributes #[[ATTRS2]] = { "vector-variants"="_ZGV{{[bcde]}}M8vv_A_foo,_ZGV{{[bcde]}}N8vv_A_foo" "vector_function_ptrs"="A_bar1(),A_foo$SIMDTable(_ZGV{{[bcde]}}M8vv_A_foo,_ZGV{{[bcde]}}N8vv_A_foo),A_bar2()" }
+; CHECK: attributes #[[ATTRS1]] = { "vector-variants"="_ZGVeM8vv_B_foo,_ZGVeN8vv_B_foo" "vector_function_ptrs"="B_foo$SIMDTable(_ZGVeM8vv_B_foo,_ZGVeN8vv_B_foo)" }
+; CHECK: attributes #[[ATTRS2]] = { "vector-variants"="_ZGVeM8vv_A_foo,_ZGVeN8vv_A_foo" "vector_function_ptrs"="A_bar1(),A_foo$SIMDTable(_ZGVeM8vv_A_foo,_ZGVeN8vv_A_foo),A_bar2()" }
 
 !0 = !{i32 8}
 

@@ -12,9 +12,7 @@
 #define BACKEND_VECTORIZER_VECTORVARIANT_VECTORVARIANTLOWERING_H
 
 #include "OCLPassSupport.h"
-#include "VecConfig.h"
-
-using namespace llvm;
+#include "cl_cpu_detect.h"
 
 namespace intel {
 
@@ -22,10 +20,14 @@ class VectorVariantLowering : public ModulePass {
 public:
   static char ID;
 
-  VectorVariantLowering(const Intel::OpenCL::Utils::CPUDetect *CPUId = nullptr);
+  VectorVariantLowering(
+    const Intel::OpenCL::Utils::CPUDetect *CPUId = nullptr);
+  llvm::StringRef getPassName() const override {
+    return "VectorVariantLowering pass";
+  }
 
 protected:
-  bool runOnModule(Module &M) override;
+  bool runOnModule(llvm::Module &M) override;
 
 private:
   const Intel::OpenCL::Utils::CPUDetect *CPUId;

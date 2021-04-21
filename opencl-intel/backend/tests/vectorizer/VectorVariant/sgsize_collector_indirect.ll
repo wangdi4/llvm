@@ -1,5 +1,5 @@
-; RUN: %oclopt %s -sg-size-collector-indirect -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt %s -sg-size-collector-indirect -S | FileCheck %s
+; RUN: %oclopt %s -ocl-vector-variant-isa-encoding-override=AVX512Core -sg-size-collector-indirect -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt %s -ocl-vector-variant-isa-encoding-override=AVX512Core -sg-size-collector-indirect -S | FileCheck %s
 
 %"class.cl::sycl::intel::SimdFunction" = type { %"struct.std::array" }
 %"struct.std::array" = type { [2 x i32 (i32, float)*] }
@@ -55,7 +55,7 @@ attributes #6 = { nounwind "vector-variant"="_ZGVxM0vv__Z3fooif" }
 attributes #7 = { nounwind "vector-variants"="_ZGVxN0lu_XXX,_ZGVxM0vv_XXX" }
 
 ; CHECK: attributes #[[ATTR1]] = { nounwind "vector-variants"="_ZGVxN0lu_XXX,_ZGVxM0vv_XXX" }
-; CHECK: attributes #[[ATTR2]] = { "vector-variants"="_ZGV{{[bcde]}}M8vv___intel_indirect_call_XXX,_ZGV{{[bcde]}}N8vv___intel_indirect_call_XXX" }
+; CHECK: attributes #[[ATTR2]] = { "vector-variants"="_ZGVeM8vv___intel_indirect_call_XXX,_ZGVeN8vv___intel_indirect_call_XXX" }
 
 !0 = !{i32 8}
 

@@ -9,6 +9,7 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "VectorVariantLowering.h"
+#include "VectorizerCommon.h"
 
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Function.h"
@@ -19,17 +20,9 @@
 #define DEBUG_TYPE "VectorVariantLowering"
 
 using namespace llvm;
+using namespace Intel::VectorizerCommon;
 
 extern bool EnableVectorVariantPasses;
-
-static cl::opt<VectorVariant::ISAClass>
-    CPUIsaOverride("vector-variant-isa-override", cl::Hidden,
-                   cl::desc("Override target CPU ISA encoding for the "
-                            "Vector Variant Lowering pass."),
-                   cl::values(clEnumValN(VectorVariant::XMM, "SSE2", "SSE2"),
-                              clEnumValN(VectorVariant::YMM1, "AVX1", "AVX1"),
-                              clEnumValN(VectorVariant::YMM2, "AVX2", "AVX2"),
-                              clEnumValN(VectorVariant::ZMM, "MIC", "MIC")));
 
 namespace intel {
 
@@ -95,16 +88,7 @@ bool VectorVariantLowering::runOnModule(Module &M) {
           VectorVariant Variant(Variants[I]);
 
           if (Variant.getISA() == VectorVariant::OTHER) {
-            if (CPUIsaOverride.getNumOccurrences())
-              Variant.setISA(CPUIsaOverride.getValue());
-            else if (CPUId->HasAVX512Core())
-              Variant.setISA(VectorVariant::ZMM);
-            else if (CPUId->HasAVX2())
-              Variant.setISA(VectorVariant::YMM2);
-            else if (CPUId->HasAVX1())
-              Variant.setISA(VectorVariant::YMM1);
-            else
-              Variant.setISA(VectorVariant::XMM);
+            Variant.setISA(getCPUIdISA(CPUId));
           }
 
           NewVariants.push_back(Variant.toString());

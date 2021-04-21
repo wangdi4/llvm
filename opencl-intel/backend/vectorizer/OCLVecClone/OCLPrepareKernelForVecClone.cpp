@@ -39,9 +39,9 @@
 using namespace llvm;
 using namespace Intel::MetadataAPI;
 
-static cl::opt<VectorVariant::ISAClass> CPUIsaEncodingOverride(
-    "ocl-vec-clone-isa-encoding-override", cl::Hidden,
-    cl::desc("Override target CPU ISA encoding for the OCL Vec Clone pass."),
+cl::opt<VectorVariant::ISAClass> CPUIsaEncodingOverride(
+    "ocl-vector-variant-isa-encoding-override", cl::Hidden,
+    cl::desc("Override target CPU ISA encoding for Vector Variant passes."),
     cl::values(clEnumValN(VectorVariant::ZMM,  "AVX512Core", "AVX512Core"),
                clEnumValN(VectorVariant::YMM2, "AVX2",       "AVX2"),
                clEnumValN(VectorVariant::YMM1, "AVX1",       "AVX1"),

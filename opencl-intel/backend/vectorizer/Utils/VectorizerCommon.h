@@ -1,20 +1,18 @@
-// INTEL CONFIDENTIAL
+//==---------------------- - Common  helpers  -*- C++ -*--------------------==//
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
-// This software and the related documents are Intel copyrighted materials, and
-// your use of them is governed by the express license under which they were
-// provided to you (License). Unless the License provides otherwise, you may not
-// use, modify, copy, publish, distribute, disclose or transmit this software or
-// the related documents without Intel's prior written permission.
+// The information and source code contained herein is the exclusive property
+// of Intel Corporation and may not be disclosed, examined or reproduced in
+// whole or in part without explicit written authorization from the company.
 //
-// This software and the related documents are provided as is, with no express
-// or implied warranties, other than those that are expressly stated in the
-// License.
+// ===--------------------------------------------------------------------=== //
 
 // this file includes naming conventions and constant shared by the vectorizer passes
 // this file should NOT include any environment specific data
 
+#include "cl_cpu_detect.h"
+#include "llvm/Analysis/Intel_VectorVariant.h"
 
 // Maximum width (in elements) supported as input
 // An AMX tile has a maximum size of 16 rows x 64 bytes. It could be flatten to
@@ -26,3 +24,14 @@
 
 // Maximum supported packetization width
 #define MAX_PACKET_WIDTH 16
+
+namespace Intel {
+namespace VectorizerCommon {
+
+// Get ISAClass from CPUDetect object, use command line toggle if
+// it is not available.
+VectorVariant::ISAClass getCPUIdISA(
+  const Intel::OpenCL::Utils::CPUDetect *CPUId = nullptr);
+
+} // namespace VectorizerCommon
+} // namespace Intel
