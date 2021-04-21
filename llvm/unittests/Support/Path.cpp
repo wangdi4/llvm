@@ -432,10 +432,10 @@ public:
 };
 #endif
 
-#if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
 // CMPLRLLVM-27652 - Disable test to unblock promotion
 #if 0
-#endif // INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
 TEST(Support, HomeDirectory) {
   std::string expected;
 #ifdef _WIN32
@@ -453,10 +453,10 @@ TEST(Support, HomeDirectory) {
     EXPECT_EQ(expected, HomeDir);
   }
 }
-#if INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
 // CMPLRLLVM-27652 - Disable test to unblock promotion
 #endif
-#endif // INTEL_CUSTOMIZATION
+// end INTEL_CUSTOMIZATION
 
 // Apple has their own solution for this.
 #if defined(LLVM_ON_UNIX) && !defined(__APPLE__)
