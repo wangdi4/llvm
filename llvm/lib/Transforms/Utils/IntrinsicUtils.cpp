@@ -209,8 +209,16 @@ CallInst *IntrinsicUtils::removeOperandBundlesFromCall(
     Args.push_back(*AI);
 
   FunctionType *FnTy = CI->getFunctionType();
-  auto *NewI = CallInst::Create(FnTy, CI->getCalledOperand(), Args,
-                                OpBundlesUpdated, "", CI);
+
+  CallInst *NewI; // This will replace CI
+
+  if (OpBundlesUpdated.empty())
+    // All Bundles were removed. This can happen after removing
+    // ["QUAL.OMP.DISPATCH.CALL"()] from the dispatch call
+    NewI = CallInst::Create(FnTy, CI->getCalledOperand(), Args, "", CI);
+  else
+    NewI = CallInst::Create(FnTy, CI->getCalledOperand(), Args,
+                            OpBundlesUpdated, "", CI);
 
   NewI->takeName(CI);
   NewI->setCallingConv(CI->getCallingConv());
