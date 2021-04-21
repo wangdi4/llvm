@@ -47,13 +47,13 @@
 // DEFAULT: "-internal-isystem" "{{.*lib.*clang.*include}}"
 // DEFAULT: "-std=c++17"
 // INTEL_CUSTOMIZATION
-// DEFAULT-NOT: "{{.*}}llvm-spirv"{{.*}} "-spirv-max-version=1.3"{{.*}} "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes,-SPV_KHR_linkonce_odr"
+// DEFAULT-NOT: "{{.*}}llvm-spirv{{.*}} "-spirv-max-version=1.3"{{.*}} "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes,-SPV_KHR_linkonce_odr"
 // end INTEL_CUSTOMIZATION
 // DEFAULT-NOT: "-std=c++11"
 // DEFAULT-NOT: "-std=c++14"
 // NO-BITCODE: "-triple" "spir{{(64)?}}-unknown-{{.*}}-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
 // INTEL_CUSTOMIZATION
-// NO-BITCODE: "{{.*}}llvm-spirv"{{.*}} "-spirv-max-version=1.3"{{.*}} "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes,-SPV_KHR_linkonce_odr"
+// NO-BITCODE: "{{.*}}llvm-spirv{{.*}} "-spirv-max-version=1.3"{{.*}} "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes,-SPV_KHR_linkonce_odr"
 // end INTEL_CUSTOMIZATION
 // In the "TARGET" case, we specified an explicit target triple on the
 // command line, so it will always be "spir64" here.
