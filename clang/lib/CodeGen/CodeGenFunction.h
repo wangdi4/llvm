@@ -4536,7 +4536,7 @@ public:
   RValue EmitFPGARegBuiltin(unsigned BuiltinID, const CallExpr *E,
                             ReturnValueSlot ReturnValue);
   RValue EmitHLSStreamBuiltin(unsigned BuiltinID, const CallExpr *E);
-  RValue EmitHLSMemMasterBuiltin(unsigned BuiltinID, const CallExpr *E,
+  RValue EmitHLSMemHostBuiltin(unsigned BuiltinID, const CallExpr *E,
                                  ReturnValueSlot ReturnValue);
 
   llvm::Value *EmitSVMLBuiltinExpr(unsigned BuiltinID, const char *LibCallName,

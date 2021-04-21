@@ -1,8 +1,8 @@
 //RUN: %clang_cc1 -fhls -fsyntax-only -ast-dump -verify -pedantic %s | FileCheck %s
 
-#define slave_arg __attribute__((local_mem_size(32), slave_memory_argument))
+#define slave_arg __attribute__((local_mem_size(32), agent_memory_argument))
 #define not_slave_arg1 __attribute__((local_mem_size(32)))
-#define not_slave_arg2 __attribute__((slave_memory_argument))
+#define not_slave_arg2 __attribute__((agent_memory_argument))
 #define not_slave_arg3
 
 __attribute__((ihc_component))
@@ -11,7 +11,7 @@ void foo0(slave_arg __attribute__((memory("MLAB"))) int *i_par1)
 // CHECK: FunctionDecl{{.*}}foo0
 // CHECK: ParmVarDecl{{.*}}i_par1
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: AgentMemoryArgumentAttr
 // CHECK-NEXT: MemoryAttr{{.*}}MLAB{{$}}
 // CHECK: ComponentAttr
 
@@ -21,7 +21,7 @@ void foo1(slave_arg __attribute__((memory("BLOCK_RAM"))) int *i_par1)
 // CHECK: FunctionDecl{{.*}}foo1
 // CHECK: ParmVarDecl{{.*}}i_par1
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: AgentMemoryArgumentAttr
 // CHECK-NEXT: MemoryAttr{{.*}}BlockRAM{{$}}
 // CHECK: ComponentAttr
 
@@ -31,7 +31,7 @@ void foo2(slave_arg __attribute__((numbanks(4))) int *i_par1)
 // CHECK: FunctionDecl{{.*}}foo2
 // CHECK: ParmVarDecl{{.*}}i_par1
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: AgentMemoryArgumentAttr
 // CHECK: NumBanks{{.*}}
 // CHECK-NEXT: ConstantExpr
 // CHECK-NEXT: value: Int 4
@@ -44,7 +44,7 @@ void foo3(slave_arg __attribute__((bankwidth(4))) int *i_par1)
 // CHECK: FunctionDecl{{.*}}foo3
 // CHECK: ParmVarDecl{{.*}}i_par1
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: AgentMemoryArgumentAttr
 // CHECK: BankWidthAttr
 // CHECK-NEXT: ConstantExpr
 // CHECK-NEXT: value: Int 4
@@ -57,7 +57,7 @@ void foo4(slave_arg __attribute__((singlepump)) int *i_par1)
 // CHECK: FunctionDecl{{.*}}foo4
 // CHECK: ParmVarDecl{{.*}}i_par1
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: AgentMemoryArgumentAttr
 // CHECK: SinglePumpAttr
 // CHECK: ComponentAttr
 
@@ -67,7 +67,7 @@ void foo5(slave_arg __attribute__((doublepump)) int *i_par1)
 // CHECK: FunctionDecl{{.*}}foo5
 // CHECK: ParmVarDecl{{.*}}i_par1
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: AgentMemoryArgumentAttr
 // CHECK: DoublePumpAttr
 // CHECK: ComponentAttr
 
@@ -77,7 +77,7 @@ void foo6(slave_arg int *i_par1)
 // CHECK: FunctionDecl{{.*}}foo6
 // CHECK: ParmVarDecl{{.*}}i_par1
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: AgentMemoryArgumentAttr
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
@@ -86,7 +86,7 @@ void foo7(slave_arg __attribute__((bank_bits(1,2,3))) int *i_par1)
 // CHECK: FunctionDecl{{.*}}foo7
 // CHECK: ParmVarDecl{{.*}}i_par1
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: AgentMemoryArgumentAttr
 // CHECK: BankBitsAttr
 // CHECK-NEXT: ConstantExpr
 // CHECK-NEXT: value: Int 1
@@ -105,7 +105,7 @@ void foo8(slave_arg int *i_par1)
 // CHECK: FunctionDecl{{.*}}foo8
 // CHECK: ParmVarDecl{{.*}}i_par1
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: AgentMemoryArgumentAttr
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
@@ -114,7 +114,7 @@ void foo9(slave_arg int *i_par1)
 // CHECK: FunctionDecl{{.*}}foo9
 // CHECK: ParmVarDecl{{.*}}i_par1
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: AgentMemoryArgumentAttr
 // CHECK: ComponentAttr
 
 __attribute__((ihc_component))
@@ -123,7 +123,7 @@ void foo13(slave_arg __attribute__((readwrite_mode("readonly"))) int *i)
 // CHECK: FunctionDecl{{.*}}foo13
 // CHECK: ParmVarDecl{{.*}}i
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: AgentMemoryArgumentAttr
 // CHECK-NEXT: ReadWriteModeAttr{{.*}} "readonly"
 
 __attribute__((ihc_component))
@@ -132,7 +132,7 @@ void foo14(slave_arg __attribute__((readwrite_mode("writeonly"))) int *i)
 // CHECK: FunctionDecl{{.*}}foo14
 // CHECK: ParmVarDecl{{.*}}i
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: AgentMemoryArgumentAttr
 // CHECK-NEXT: ReadWriteModeAttr{{.*}} "writeonly"
 
 __attribute__((ihc_component))
@@ -141,36 +141,36 @@ void foo15(slave_arg __attribute__((readwrite_mode("readwrite"))) int *i)
 // CHECK: FunctionDecl{{.*}}foo15
 // CHECK: ParmVarDecl{{.*}}i
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
-// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: AgentMemoryArgumentAttr
 // CHECK-NEXT: ReadWriteModeAttr{{.*}} "readwrite"
 
 // Diagnostics
 
-// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
+// expected-error@+3{{attribute only applies to agent memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar0a(
   not_slave_arg1 __attribute__((memory("MLAB")))
   int *i) {}
 
-// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
+// expected-error@+3{{attribute only applies to agent memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar1a(
   not_slave_arg1 __attribute__((memory("BLOCK_RAM")))
   int *i) {}
 
-// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
+// expected-error@+3{{attribute only applies to agent memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar2a(
   not_slave_arg1 __attribute__((numbanks(4)))
   int *i) {}
 
-// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
+// expected-error@+3{{attribute only applies to agent memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar3a(
   not_slave_arg1 __attribute__((bankwidth(4)))
   int *i) {}
 
-// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
+// expected-error@+3{{attribute only applies to agent memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar4a(
   not_slave_arg1 __attribute__((singlepump))
@@ -184,25 +184,25 @@ void bar4d(
   //expected-note@-2 {{conflicting attribute is here}}
   int *i) {}
 
-// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
+// expected-error@+3{{attribute only applies to agent memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar5a(
   not_slave_arg1 __attribute__((doublepump))
   int *i) {}
 
-// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
+// expected-error@+3{{attribute only applies to agent memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar7a(
   not_slave_arg1 __attribute__((bank_bits(3,4)))
   int *i) {}
 
-// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
+// expected-error@+3{{attribute only applies to agent memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar7b(
   not_slave_arg2 __attribute__((bank_bits(2,3)))
   int *i) {}
 
-// expected-error@+3{{attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
+// expected-error@+3{{attribute only applies to agent memory arguments, non-static field members, constant variables, local variables and static variables}}
 __attribute__((ihc_component))
 void bar7c(
   not_slave_arg3 __attribute__((bank_bits(1,2)))
@@ -210,7 +210,7 @@ void bar7c(
 
 __attribute__((ihc_component))
 void bar11(
-  //expected-error@+1{{'numbanks' attribute only applies to slave memory arguments, non-static field members, constant variables, local variables and static variables}}
+  //expected-error@+1{{'numbanks' attribute only applies to agent memory arguments, non-static field members, constant variables, local variables and static variables}}
   not_slave_arg3 __attribute__((numbanks(4))) int *i) {}
 
 __attribute__((ihc_component))
@@ -224,7 +224,7 @@ void bar13(slave_arg __attribute__((readwrite_mode("anythingelse")))
            int *i_par1)
 {}
 
-//expected-error@+1{{'readwrite_mode' attribute only applies to slave memory arguments}}
+//expected-error@+1{{'readwrite_mode' attribute only applies to agent memory arguments}}
 void bar14(not_slave_arg1 __attribute__((readwrite_mode("readwrite")))
            int *i_par1)
 {}
@@ -233,7 +233,7 @@ void bar15(not_slave_arg2 __attribute__((readwrite_mode("readonly")))
            int *i_par1)
 {}
 
-//expected-error@+1{{'readwrite_mode' attribute only applies to slave memory arguments}}
+//expected-error@+1{{'readwrite_mode' attribute only applies to agent memory arguments}}
 void bar16(not_slave_arg3 __attribute__((readwrite_mode("readonly")))
            int *i_par1)
 {}

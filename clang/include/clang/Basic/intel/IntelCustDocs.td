@@ -2889,12 +2889,12 @@ def ReadWriteModeDocs : Documentation {
   let RegressionTest = "";
   let Owner = "zahiraam";
   let Content = [{
-The 'readwrite_mode' attribute is applied to HLS slave memory pointer
+The 'readwrite_mode' attribute is applied to HLS agent memory pointer
 arguments. These are pointer arguments that already have the attribute
-"slave_memory_argument". The argument "type" is mandatory, and its values are
+"agent_memory_argument". The argument "type" is mandatory, and its values are
 "readonly", "writeonly", or "readwrite".
 It is illegal to apply the attribute readwrite_mode on pointer arguments that
-do not already have an attribute slave_memory_argument applied.
+do not already have an attribute agent_memory_argument applied.
 
 Syntax:
 
@@ -2907,7 +2907,7 @@ Example:
 
 .. code-block:: c++
 
-   void foo0_1(slave_arg __attribute__((readwrite_mode("readonly"))) int *i)
+   void foo0_1(agent_arg __attribute__((readwrite_mode("readonly"))) int *i)
    {}
 
 
@@ -2922,7 +2922,7 @@ AST:
    FunctionDecl 0x20cec836848 <t1.cpp:6:19, line:21:1> foo0_1 'void (int *)'
    |-ParmVarDecl 0x20cec836710 <line:2:19, line:18:82>
      |-OpenCLLocalMemSizeAttr 0x20cec836778 <line:2:34, col:51> 32
-     |-SlaveMemoryArgumentAttr 0x20cec8367b8 <col:54>
+     |-AgentMemoryArgumentAttr 0x20cec8367b8 <col:54>
      `-ReadWriteModeAttr 0x20cec8367c8 <line:18:48, col:73> "readonly"
 
 IR:
@@ -2941,7 +2941,7 @@ IR:
    }
    !2 = !{!"_Z6foo0_1Pi", !3}
    !3 = !{}
-   !4 = !{!"mm_slave"}
+   !4 = !{!"mm_agent"}
    !5 = !{!"wire"}
    !6 = !{i32 0}
    !7 = !{!"i"}
@@ -2949,12 +2949,12 @@ IR:
 
    }];
   let UserContent = [{
-The 'readwrite_mode' attribute is applied to HLS slave memory pointer
+The 'readwrite_mode' attribute is applied to HLS agent memory pointer
 arguments. These are pointer arguments that already have the attribute
-"slave_memory_argument". The argument "type" is mandatory, and its values are
+"agent_memory_argument". The argument "type" is mandatory, and its values are
 "readonly", "writeonly", or "readwrite".
 It is illegal to apply the attribute readwrite_mode on pointer arguments that
-do not already have an attribute slave_memory_argument applied.
+do not already have an attribute agent_memory_argument applied.
   }];
 }
 
