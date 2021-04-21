@@ -10675,7 +10675,12 @@ def err_omp_declare_variant_diff : Error<
   "|return type|constexpr specification|inline specification|storage class|"
   "linkage}0">;
 def err_omp_declare_variant_incompat_types : Error<
+#if INTEL_COLLAB
+  "variant in '#pragma omp declare variant' with type %0 is incompatible with"
+  " type %1%select{| with appended arguments}2"
+#else // INTEL_COLLAB
   "variant in '#pragma omp declare variant' with type %0 is incompatible with type %1"
+#endif // INTEL_COLLAB
   >;
 def warn_omp_declare_variant_marked_as_declare_variant : Warning<
   "variant function in '#pragma omp declare variant' is itself marked as '#pragma omp declare variant'"

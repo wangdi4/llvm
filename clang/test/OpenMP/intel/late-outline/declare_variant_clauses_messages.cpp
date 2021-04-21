@@ -2,16 +2,19 @@
 // This test is going to be removed after upstreaming is complete.
 //
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=51 \
-// RUN:  -DOMP51 -std=c++11 -o - %s
+// RUN:  -isystem %S/Inputs -DOMP51 -std=c++11 -o - %s
 
 // RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=50 \
-// RUN:  -DOMP50 -std=c++11 -o - %s
+// RUN:  -isystem %S/Inputs -DOMP50 -std=c++11 -o - %s
+
+#include <omp.h>
 
 int Other;
 
 void foo_v1(float *AAA, float *BBB, int *I) { return; }
 void foo_v2(float *AAA, float *BBB, int *I) { return; }
 void foo_v3(float *AAA, float *BBB, int *I) { return; }
+void foo_v4(float *AAA, float *BBB, int *I, omp_interop_t) { return; }
 
 #ifdef OMP51
 // expected-error@+3 {{adjust_arg argument 'AAA' used in multiple clauses}}
@@ -43,7 +46,7 @@ void foo_v3(float *AAA, float *BBB, int *I) { return; }
    adjust_args(nothing:BBB) match(device={arch(ppc)})
 
 // expected-error@+2 {{'append_args' clause requires 'dispatch' context selector}}
-#pragma omp declare variant(foo_v2)                          \
+#pragma omp declare variant(foo_v4)                          \
    append_args(interop(target)) match(device={arch(ppc)})
 
 // expected-error@+2 {{unexpected append-op in 'append_args' clause, expected 'interop'}}
@@ -56,7 +59,7 @@ void foo_v3(float *AAA, float *BBB, int *I) { return; }
 #pragma omp declare variant(foo_v2)                          \
    append_args(interop()) match(construct={dispatch}, device={arch(ppc)})
 // expected-warning@+2 {{interop type 'target' cannot be specified more than once}}
-#pragma omp declare variant(foo_v2)                          \
+#pragma omp declare variant(foo_v4)                          \
    append_args(interop(target,target)) match(construct={dispatch}, device={arch(ppc)})
 
 // expected-error@+5 {{directive '#pragma omp declare variant' cannot contain more than one 'append_args' clause}}
@@ -65,6 +68,29 @@ void foo_v3(float *AAA, float *BBB, int *I) { return; }
    append_args(interop(target)) \
    adjust_args(need_device_ptr:AAA,BBB) \
    append_args(interop(targetsync))
+
+// expected-error@+1 {{variant in '#pragma omp declare variant' with type 'void (float *, float *, int *)' is incompatible with type 'void (float *, float *, int *)' with appended arguments}}
+#pragma omp declare variant(foo_v1)                        \
+   match(construct={dispatch}, device={arch(gen)})         \
+   adjust_args(need_device_ptr:AAA,BBB) \
+   append_args(interop(targetsync))
+
+// expected-error@+1 {{variant in '#pragma omp declare variant' with type 'void (float *, float *, int *)' is incompatible with type 'void (float *, float *, int *)' with appended arguments}}
+#pragma omp declare variant(foo_v1)                        \
+   match(construct={dispatch}, device={arch(gen)})         \
+   adjust_args(need_device_ptr:AAA,BBB) \
+   append_args(interop(targetsync),interop(target))
+
+// expected-error@+1 {{variant in '#pragma omp declare variant' with type 'void (float *, float *, int *, omp_interop_t)' (aka 'void (float *, float *, int *, void *)') is incompatible with type 'void (float *, float *, int *)' with appended arguments}}
+#pragma omp declare variant(foo_v4)                        \
+   match(construct={dispatch}, device={arch(gen)})         \
+   adjust_args(need_device_ptr:AAA,BBB) \
+   append_args(interop(targetsync),interop(target))
+
+// expected-error@+1 {{variant in '#pragma omp declare variant' with type 'void (float *, float *, int *, omp_interop_t)' (aka 'void (float *, float *, int *, void *)') is incompatible with type 'void (float *, float *, int *)'}}
+#pragma omp declare variant(foo_v4)                        \
+   match(construct={dispatch}, device={arch(gen)})         \
+   adjust_args(need_device_ptr:AAA,BBB)
 #endif // OMP51
 #ifdef OMP50
 // expected-error@+2 {{expected 'match' clause on 'omp declare variant' directive}}
