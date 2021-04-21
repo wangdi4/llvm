@@ -714,6 +714,8 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
     case 0xa7:
     case 0xa8:
       CPU = "rocketlake";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_ROCKETLAKE;
       break;
 #endif // INTEL_FEATURE_CPU_RKL
 #endif // INTEL_CUSTOMIZATION
