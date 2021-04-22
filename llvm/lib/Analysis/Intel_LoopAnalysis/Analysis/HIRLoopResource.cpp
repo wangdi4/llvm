@@ -272,9 +272,11 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
 
 private:
   void visitMinMaxExpr(const SCEVMinMaxExpr *Expr) {
-    unsigned Cost = LRV.getNormalizedCost(LRV.TTI.getCmpSelInstrCost(
-        Instruction::ICmp, Expr->getType(),
-        CmpInst::makeCmpResultType(Expr->getType())));
+    unsigned Cost = LRV.getNormalizedCost(
+        *LRV.TTI
+             .getCmpSelInstrCost(Instruction::ICmp, Expr->getType(),
+                                 CmpInst::makeCmpResultType(Expr->getType()))
+             .getValue());
     LRV.SelfLRI->addIntOps(Cost, Expr->getNumOperands() - 1);
 
     visitNAryExpr(cast<SCEVNAryExpr>(Expr));
@@ -647,9 +649,11 @@ unsigned LoopResourceInfo::LoopResourceVisitor::getOperationCost(
     auto *CmpTy = (*HInst->rval_op_ddref_begin())->getDestType();
 
     PredicateTy Pred = HInst->getPredicate();
-    Cost = TTI.getCmpSelInstrCost(
-        CmpInst::isIntPredicate(Pred) ? Instruction::ICmp : Instruction::FCmp,
-        CmpTy, CmpInst::makeCmpResultType(CmpTy));
+    Cost = *TTI.getCmpSelInstrCost(CmpInst::isIntPredicate(Pred)
+                                       ? Instruction::ICmp
+                                       : Instruction::FCmp,
+                                   CmpTy, CmpInst::makeCmpResultType(CmpTy))
+                .getValue();
 
   } else if (Inst->mayReadOrWriteMemory()) {
     return LoopResourceInfo::OperationCost::MemOp;
@@ -693,8 +697,10 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const HLInst *HInst) {
     auto *OpTy = (*HInst->rval_op_ddref_begin())->getDestType();
 
     if (IsSelect) {
-      unsigned SelectCost = TTI.getCmpSelInstrCost(
-          Instruction::Select, OpTy, CmpInst::makeCmpResultType(OpTy));
+      unsigned SelectCost =
+          *TTI.getCmpSelInstrCost(Instruction::Select, OpTy,
+                                  CmpInst::makeCmpResultType(OpTy))
+               .getValue();
       SelfLRI->addIntOps(getNormalizedCost(SelectCost));
     }
 
@@ -717,13 +723,17 @@ void LoopResourceInfo::LoopResourceVisitor::addPredicateOps(Type *Ty,
 
   // Add number of compares.
   if (Ty->isFPOrFPVectorTy()) {
-    Cost = getNormalizedCost(TTI.getCmpSelInstrCost(
-        Instruction::FCmp, Ty, CmpInst::makeCmpResultType(Ty)));
+    Cost = getNormalizedCost(
+        *TTI.getCmpSelInstrCost(Instruction::FCmp, Ty,
+                                CmpInst::makeCmpResultType(Ty))
+             .getValue());
     SelfLRI->addFPOps(Cost, Num);
 
   } else {
-    Cost = getNormalizedCost(TTI.getCmpSelInstrCost(
-        Instruction::ICmp, Ty, CmpInst::makeCmpResultType(Ty)));
+    Cost = getNormalizedCost(
+        *TTI.getCmpSelInstrCost(Instruction::ICmp, Ty,
+                                CmpInst::makeCmpResultType(Ty))
+             .getValue());
     SelfLRI->addIntOps(Cost, Num);
   }
 }
