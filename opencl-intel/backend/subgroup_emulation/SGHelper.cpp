@@ -241,7 +241,9 @@ Value *SGHelper::createGetSubGroupSize(Instruction *IP) {
       assert(GetSGSizeF && "Failed to create Function");
     }
   }
-  return CallInst::Create(GetSGSizeF, "sg.size.", IP);
+  CallInst *CI = CallInst::Create(GetSGSizeF, "sg.size.", IP);
+  CI->setDebugLoc(IP->getDebugLoc());
+  return CI;
 }
 
 Value *SGHelper::createGetSubGroupLId(Instruction *IP) {
@@ -258,7 +260,9 @@ Value *SGHelper::createGetSubGroupLId(Instruction *IP) {
       assert(GetSGLIdF && "Failed to create Function");
     }
   }
-  return CallInst::Create(GetSGLIdF, "sg.lid.", IP);
+  CallInst *CI = CallInst::Create(GetSGLIdF, "sg.lid.", IP);
+  CI->setDebugLoc(IP->getDebugLoc());
+  return CI;
 }
 
 Instruction *SGHelper::createBarrierCall() {

@@ -1,3 +1,4 @@
+; RUN: %oclopt -sg-loop-construct -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -sg-loop-construct -S %s | FileCheck %s
 
 ; This test checks SGLoopConstruct:: updateTIDCalls(), resolveSGLIdCalls()
@@ -149,3 +150,10 @@ declare i32 @_Z18get_sub_group_sizev()
 !0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @testKernel}
 !1 = !{i1 true}
 !2 = !{i32 16}
+
+; TODO: The get_sub_group_local_id function will be optimized by this pass. Will
+; create tls storage and attach its debug info to the load instruction from
+; tls storage.
+; DEBUGIFY-COUNT-6: WARNING: Missing line
+
+; DEBUGIFY-NOT: WARNING

@@ -146,9 +146,8 @@ void SGLoopConstruct::createSGLoop() {
       // Increment sub-group local id and compare it with sub-group size, if
       // sub_group_local_id is less then sub-group size then goto latch block
       // else goto exit block.
-      PrevExitingBB->getTerminator()->eraseFromParent();
       PrevExitingBB->setName("sg.loop.exiting.");
-      IRBuilder<> Builder(PrevExitingBB);
+      IRBuilder<> Builder(PrevExitingBB->getTerminator());
       auto *ConstOne = Builder.getInt32(1);
       auto *SGLId =
           Builder.CreateLoad(Builder.getInt32Ty(), SGLIdPtr, "sg.lid.");
@@ -191,6 +190,11 @@ void SGLoopConstruct::createSGLoop() {
                           JumpTarget);
         }
       }
+
+      // Remove the terminator here so that its debug info will attach to the
+      // other instructions emitted above.
+      PrevExitingBB->getTerminator()->eraseFromParent();
+
       // Make exit block.
       // 1) Set the sub-group loop control variable to 0.
       // 2) Set the loop source to ID of current sync instruction.

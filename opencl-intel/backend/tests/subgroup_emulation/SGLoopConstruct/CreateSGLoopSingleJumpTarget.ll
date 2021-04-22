@@ -1,3 +1,4 @@
+; RUN: %oclopt -sg-loop-construct -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -sg-loop-construct -S %s | FileCheck %s
 
 ; This test checks SGLoopConstruct::createSGLoop() where each sg_barrier only has one jump target
@@ -87,3 +88,5 @@ declare void @dummy_sg_barrier()
 !0 = !{void (i32)* @test}
 !1 = !{i1 true}
 !2 = !{i32 16}
+
+; DEBUGIFY-NOT: WARNING
