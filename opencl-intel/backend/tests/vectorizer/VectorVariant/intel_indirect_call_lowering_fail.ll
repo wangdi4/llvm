@@ -1,3 +1,4 @@
+; RUN: %oclopt %s -indirect-call-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt %s -indirect-call-lowering -S | FileCheck %s
 
 ; CHECK: "vector-variant-failure"="failed to find a masked vector variant for an indirect call"
@@ -150,3 +151,15 @@ declare i32 @__intel_indirect_call(i32 (i32, i32)* addrspace(4)*, i32, i32, ...)
 declare [7 x i64] @"WG.boundaries._ZTSN2cl4sycl6detail19__pf_kernel_wrapperIZZ4mainENK3$_0clERNS0_7handlerEE1KEE"(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %0, i64 addrspace(1)* %1, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %2, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %3, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %4, %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFiiiENS1_8int_listIJLi4ELi8EEEEJFNS1_8unmaskedENS1_7varyingES7_EEEE.cl::sycl::INTEL::function_ref_tuned" addrspace(1)* %5, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %6, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %7, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %8, i64 addrspace(1)* %9, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %10, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %11, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %12)
 
 attributes #1 = { nounwind "vector-variants"="_ZGVdN4vv__$U0,_ZGVdN8vv__$U0" }
+
+; false alarm on phi nodes
+; DEBUGIFY: WARNING: Missing line 15
+; DEBUGIFY-NEXT: WARNING: Missing line 16
+; DEBUGIFY-NEXT: WARNING: Missing line 43
+; DEBUGIFY-NEXT: WARNING: Missing line 44
+; DEBUGIFY-NEXT: WARNING: Missing line 45
+; DEBUGIFY-NEXT: WARNING: Missing line 60
+; DEBUGIFY-NEXT: WARNING: Missing line 61
+; DEBUGIFY-NEXT: WARNING: Missing line 75
+; DEBUGIFY-NEXT: WARNING: Missing line 76
+; DEBUGIFY-NOT: WARNING

@@ -1,3 +1,4 @@
+; RUN: %oclopt %s -vector-variant-fillin -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt %s -vector-variant-fillin -S | FileCheck %s
 
 %class.S1B.B = type { %class.S1A.A }
@@ -143,3 +144,5 @@ attributes #4 = { "vector-variants"="_ZGVbM8vv_B_foo,_ZGVbN8vv_B_foo" "vector_fu
 attributes #5 = { "vector-variants"="_ZGVbM8vv_A_foo,_ZGVbN8vv_A_foo" "vector_function_ptrs"="A_bar1(),A_foo$SIMDTable(_ZGVbM8vv_A_foo,_ZGVbN8vv_A_foo),A_bar2()" }
 
 !0 = !{i32 8}
+
+; DEBUGIFY-NOT: WARNING

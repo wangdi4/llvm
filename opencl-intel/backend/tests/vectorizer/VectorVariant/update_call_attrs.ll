@@ -1,3 +1,4 @@
+; RUN: %oclopt %s -update-call-attrs -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt %s -update-call-attrs -S | FileCheck %s
 
 define void @bar() #0 {
@@ -28,3 +29,5 @@ entry:
 
 attributes #0 = { "vector-variants"="_ZGVxN8_bar,_ZGVxN16_bar,_ZGVxN32_bar" }
 attributes #1 = { "vector-variants"="_ZGVxN8_foo,_ZGVxN16_foo,_ZGVxN32_foo" }
+
+; DEBUGIFY-NOT: WARNING

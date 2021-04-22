@@ -1,4 +1,6 @@
+; RUN: %oclopt %s -enable-direct-function-call-vectorization -sg-size-collector -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt %s -enable-direct-function-call-vectorization -sg-size-collector -S | FileCheck %s
+; RUN: %oclopt %s -sg-size-collector -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt %s -sg-size-collector -S | FileCheck %s -check-prefix CHECK-NO-FLAG
 
 define void @bar() #0 {
@@ -44,3 +46,5 @@ attributes #0 = { "vector-variants"="_ZGVbM16_bar" }
 !0 = !{i32 8}
 !1 = !{i32 16}
 !2 = !{i32 32}
+
+; DEBUGIFY-NOT: WARNING

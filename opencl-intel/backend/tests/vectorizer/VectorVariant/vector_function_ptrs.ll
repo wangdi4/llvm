@@ -1,3 +1,4 @@
+; RUN: %oclopt %s -sg-size-collector-indirect -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt %s -sg-size-collector-indirect -S | FileCheck %s
 
 %class.S1B.B = type { %class.S1A.A }
@@ -140,3 +141,5 @@ attributes #5 = { "vector_function_ptrs"="A_bar1(),A_foo$SIMDTable(),A_bar2()" }
 ; CHECK: attributes #[[ATTRS2]] = { "vector-variants"="_ZGV{{[bcde]}}M8vv_A_foo,_ZGV{{[bcde]}}N8vv_A_foo" "vector_function_ptrs"="A_bar1(),A_foo$SIMDTable(_ZGV{{[bcde]}}M8vv_A_foo,_ZGV{{[bcde]}}N8vv_A_foo),A_bar2()" }
 
 !0 = !{i32 8}
+
+; DEBUGIFY-NOT: WARNING

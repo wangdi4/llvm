@@ -1,3 +1,4 @@
+; RUN: %oclopt %s -enable-vector-variant-passes -create-simd-variant-propagation -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt %s -enable-vector-variant-passes -create-simd-variant-propagation -S | FileCheck %s
 
 %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFiiiENS1_8int_listIJLi16ELi16EEEEJFNS1_6maskedENS1_7varyingENS1_6linearEEFNS1_8unmaskedENS1_7uniformESB_EEEE.cl::sycl::INTEL::function_ref_tuned" = type { %"struct._ZTSSt5arrayIPFiiiELm4EE.std::array" }
@@ -85,3 +86,5 @@ attributes #6 = { nounwind "vector-variants"="_ZGVxN16uu__Z3subii" }
 ; CHECK-NEXT: attributes #[[ATTRS6]] = { nounwind "vector-variants"="_ZGVxN16uu__Z3subii" }
 
 !7 = !{i32 16}
+
+; DEBUGIFY-NOT: WARNING

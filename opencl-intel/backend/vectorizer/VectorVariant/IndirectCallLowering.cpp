@@ -16,6 +16,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 
 #define DEBUG_TYPE "IndirectCallLowering"
@@ -94,6 +95,8 @@ bool IndirectCallLowering::runOnModule(Module &M) {
       ConstantInt *One = ConstantInt::get(M.getContext(), APInt(32, 1, true));
       FunctionType *FTy = Call.getFunctionType();
 
+      IRBuilder<> Builder(&Call);
+
       // Preparing vector arguments. Starting from the second operand because we
       // need to skip the first function-pointer operand.
       std::vector<Type *> VecArgTy;
@@ -108,8 +111,8 @@ bool IndirectCallLowering::runOnModule(Module &M) {
           VectorType *VecTy = VectorType::get(Ty, VecLen, false);
           VecArgTy.push_back(VecTy);
 
-          Value *VecArg = InsertElementInst::Create(UndefValue::get(VecTy),
-                                                    Operand, Zero, "", &Call);
+          Value *VecArg =
+            Builder.CreateInsertElement(UndefValue::get(VecTy), Operand, Zero);
           VecArgs.push_back(VecArg);
 
         } else {
@@ -124,8 +127,8 @@ bool IndirectCallLowering::runOnModule(Module &M) {
           VectorType::get(Type::getInt32Ty(M.getContext()), VecLen, false);
       VecArgTy.push_back(MaskTy);
 
-      Value *MaskArg = InsertElementInst::Create(
-          ConstantAggregateZero::get(MaskTy), One, Zero, "", &Call);
+      Value *MaskArg = Builder.CreateInsertElement(
+          ConstantAggregateZero::get(MaskTy), One, Zero);
       VecArgs.push_back(MaskArg);
 
       // Preparing chosen variant call.
@@ -140,15 +143,13 @@ bool IndirectCallLowering::runOnModule(Module &M) {
       PointerType *VecFPtrTy = PointerType::get(VecFTy, AS);
       PointerType *VecFPtrPtrTy = PointerType::get(VecFPtrTy, AS);
 
-      Value *Table = CastInst::CreateZExtOrBitCast(GV, VecFPtrPtrTy, "", &Call);
-      Value *FPtrPtr = GetElementPtrInst::Create(
+      Value *Table = Builder.CreateZExtOrBitCast(GV, VecFPtrPtrTy);
+      Value *FPtrPtr = Builder.CreateGEP(
           VecFPtrTy, Table,
-          {ConstantInt::get(M.getContext(), APInt(32, Index, true))}, "",
-          &Call);
-      Value *FPtr = new LoadInst(VecFPtrTy, FPtrPtr, "", &Call);
-
-      Value *VecRes = CallInst::Create(VecFTy, FPtr, VecArgs, "", &Call);
-      Value *Res = ExtractElementInst::Create(VecRes, Zero, "", &Call);
+          {ConstantInt::get(M.getContext(), APInt(32, Index, true))});
+      Value *FPtr = Builder.CreateLoad(VecFPtrTy, FPtrPtr);
+      Value *VecRes = Builder.CreateCall(VecFTy, FPtr, VecArgs);
+      Value *Res = Builder.CreateExtractElement(VecRes, Zero);
 
       Call.replaceAllUsesWith(Res);
       RemoveLater.insert(&Call);

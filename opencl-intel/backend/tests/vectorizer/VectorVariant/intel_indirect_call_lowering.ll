@@ -1,3 +1,4 @@
+; RUN: %oclopt %s -indirect-call-lowering -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt %s -indirect-call-lowering -S | FileCheck %s
 
 %"class._ZTSN2cl4sycl5intel18function_ref_tunedIFiiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingENS1_6linearEEFNS1_8unmaskedES7_S7_EEEE.cl::sycl::intel::function_ref_tuned" = type { %"struct._ZTSSt5arrayIPFiiiELm4EE.std::array" }
@@ -127,15 +128,14 @@ scalar_kernel_entry:                              ; preds = %scalar_kernel_entry
   %arraydecay.i.i.i.i = getelementptr inbounds %"class._ZTSN2cl4sycl5intel18function_ref_tunedIFiiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingENS1_6linearEEFNS1_8unmaskedES7_S7_EEEE.cl::sycl::intel::function_ref_tuned", %"class._ZTSN2cl4sycl5intel18function_ref_tunedIFiiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingENS1_6linearEEFNS1_8unmaskedES7_S7_EEEE.cl::sycl::intel::function_ref_tuned" addrspace(1)* %ptridx.i16.i, i64 0, i32 0, i32 0, i64 0
   %34 = addrspacecast i32 (i32, i32)* addrspace(1)* %arraydecay.i.i.i.i to i32 (i32, i32)* addrspace(4)*
 ; CHECK: %35 = insertelement <4 x i32> undef, i32 %conv.i, i32 0
-; CHECK-NEXT: %36 = insertelement <4 x i32> zeroinitializer, i32 1, i32 0
-; CHECK-NEXT: %37 = bitcast i32 (i32, i32)* addrspace(4)* %34 to <4 x i32> (<4 x i32>, i32, <4 x i32>) addrspace(4)* addrspace(4)*
-; CHECK-NEXT: %38 = getelementptr <4 x i32> (<4 x i32>, i32, <4 x i32>) addrspace(4)*, <4 x i32> (<4 x i32>, i32, <4 x i32>) addrspace(4)* addrspace(4)* %37, i32 0
-; CHECK-NEXT: %39 = load <4 x i32> (<4 x i32>, i32, <4 x i32>) addrspace(4)*, <4 x i32> (<4 x i32>, i32, <4 x i32>) addrspace(4)* addrspace(4)* %38, align 8
-; CHECK-NEXT: %40 = call addrspace(4) <4 x i32> %39(<4 x i32> %35, i32 %conv8.i, <4 x i32> %36)
-; CHECK-NEXT: %41 = extractelement <4 x i32> %40, i32 0
+; CHECK-NEXT: %36 = bitcast i32 (i32, i32)* addrspace(4)* %34 to <4 x i32> (<4 x i32>, i32, <4 x i32>) addrspace(4)* addrspace(4)*
+; CHECK-NEXT: %37 = getelementptr <4 x i32> (<4 x i32>, i32, <4 x i32>) addrspace(4)*, <4 x i32> (<4 x i32>, i32, <4 x i32>) addrspace(4)* addrspace(4)* %36, i32 0
+; CHECK-NEXT: %38 = load <4 x i32> (<4 x i32>, i32, <4 x i32>) addrspace(4)*, <4 x i32> (<4 x i32>, i32, <4 x i32>) addrspace(4)* addrspace(4)* %37, align 8
+; CHECK-NEXT: %39 = call addrspace(4) <4 x i32> %38(<4 x i32> %35, i32 %conv8.i, <4 x i32> <i32 1, i32 0, i32 0, i32 0>)
+; CHECK-NEXT: %40 = extractelement <4 x i32> %39, i32 0
   %35 = tail call i32 (i32 (i32, i32)* addrspace(4)*, i32, i32, ...) @__intel_indirect_call(i32 (i32, i32)* addrspace(4)* %34, i32 %conv.i, i32 %conv8.i) #16
 ; CHECK-NOT: call {{.*}} @__intel_indirect_call
-; CHECK-NEXT: %conv10.i = sext i32 %41 to i64
+; CHECK-NEXT: %conv10.i = sext i32 %40 to i64
   %conv10.i = sext i32 %35 to i64
   store i64 %conv10.i, i64 addrspace(1)* %ptridx.i24.i, align 8
   %dim_0_inc_ind_var = add nuw nsw i64 %dim_0_ind_var, 1
@@ -158,3 +158,15 @@ declare i32 @__intel_indirect_call(i32 (i32, i32)* addrspace(4)*, i32, i32, ...)
 declare [7 x i64] @"WG.boundaries._ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE1K"(i64 addrspace(1)* %0, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %1, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %2, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %3, %"class._ZTSN2cl4sycl5intel18function_ref_tunedIFiiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingENS1_6linearEEFNS1_8unmaskedES7_S7_EEEE.cl::sycl::intel::function_ref_tuned" addrspace(1)* %4, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %5, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %6, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %7, i64 addrspace(1)* %8, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %9, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %10, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* %11)
 
 attributes #16 = { nounwind "vector-variants"="_ZGVeM4vl__$U0,_ZGVeN4vv__$U0,_ZGVeM8vl__$U0,_ZGVeN8vv__$U0" }
+
+; false alarm on phi nodes
+; DEBUGIFY: WARNING: Missing line 15
+; DEBUGIFY-NEXT: WARNING: Missing line 16
+; DEBUGIFY-NEXT: WARNING: Missing line 43
+; DEBUGIFY-NEXT: WARNING: Missing line 44
+; DEBUGIFY-NEXT: WARNING: Missing line 45
+; DEBUGIFY-NEXT: WARNING: Missing line 61
+; DEBUGIFY-NEXT: WARNING: Missing line 62
+; DEBUGIFY-NEXT: WARNING: Missing line 76
+; DEBUGIFY-NEXT: WARNING: Missing line 77
+; DEBUGIFY-NOT: WARNING
