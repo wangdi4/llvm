@@ -547,8 +547,10 @@ Value *SGValueWiden::getWIValue(Instruction *U, Value *V) {
   Value *Src = VecValueMap[V];
   Instruction *IP = getInsertPoint(U, V);
   auto *Offset = getWIOffset(IP, Src);
-  return new LoadInst(Offset->getType()->getPointerElementType(), Offset, "",
-                      IP);
+  auto *LI =
+      new LoadInst(Offset->getType()->getPointerElementType(), Offset, "", IP);
+  LI->setDebugLoc(IP->getDebugLoc());
+  return LI;
 }
 
 Value *SGValueWiden::getWIOffset(Instruction *IP, Value *Src) {
@@ -610,8 +612,8 @@ void SGValueWiden::widenCalls() {
     // and store return value after dummybarrier call.
     Instruction *ParamIP = CI, *RetValIP = CI;
     if (Utils.getAllFunctionsWithSynchronization().count(WideFunc)) {
-      Instruction *PrevInst = CI->getPrevNode();
-      Instruction *NextInst = CI->getNextNode();
+      Instruction *PrevInst = CI->getPrevNonDebugInstruction();
+      Instruction *NextInst = CI->getNextNonDebugInstruction();
       assert(Utils.isBarrierCall(PrevInst) &&
              "there shoud be a barrier before widened call");
       assert(Utils.isDummyBarrierCall(NextInst) &&

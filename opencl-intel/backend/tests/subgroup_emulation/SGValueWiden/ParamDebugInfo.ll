@@ -1,3 +1,4 @@
+;RUN: %oclopt -sg-value-widen -enable-debug -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ;RUN: %oclopt -sg-value-widen -enable-debug -S %s | FileCheck %s
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -170,3 +171,5 @@ attributes #7 = { convergent nounwind readnone }
 !48 = !DILocation(line: 6, column: 8, scope: !30)
 !49 = !DILocation(line: 6, column: 1, scope: !30)
 !50 = !DILocation(line: 7, column: 1, scope: !30)
+
+; DEBUGIFY-NOT: WARNING

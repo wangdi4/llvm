@@ -1,3 +1,4 @@
+; RUN: %oclopt -S -sg-value-widen < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -S -sg-value-widen < %s | FileCheck %s
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -132,3 +133,8 @@ attributes #8 = { convergent "has-vplan-mask" }
 !13 = !{i1 true}
 !14 = !{i32 23}
 !15 = !{i32 4}
+
+; DEBUGIFY-NOT: WARNING
+; FIXME: SGValueWiden does not respect llvm.dbg.value and llvm.dbg.addr
+; DEBUGIFY-COUNT-3: WARNING: Missing line
+; DEBUGIFY-NOT: WARNING
