@@ -880,14 +880,14 @@ int TargetTransformInfo::getMaskedMemoryOpCost(
   return Cost;
 }
 
-int TargetTransformInfo::getGatherScatterOpCost(
+InstructionCost TargetTransformInfo::getGatherScatterOpCost(
     unsigned Opcode, Type *DataTy, const Value *Ptr, bool VariableMask,
     Align Alignment, TTI::TargetCostKind CostKind, // INTEL
     const Instruction *I, // INTEL
     bool UndefPassThru) const { // INTEL
-  int Cost = TTIImpl->getGatherScatterOpCost(Opcode, DataTy, Ptr, VariableMask,
-                                             Alignment, CostKind, I, // INTEL
-                                             UndefPassThru); // INTEL
+  InstructionCost Cost = TTIImpl->getGatherScatterOpCost(
+      Opcode, DataTy, Ptr, VariableMask, Alignment, CostKind, I,
+      UndefPassThru); // INTEL
   assert(Cost >= 0 && "TTI should not produce negative costs!");
   return Cost;
 }

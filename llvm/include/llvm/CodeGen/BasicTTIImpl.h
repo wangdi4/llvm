@@ -1069,11 +1069,12 @@ public:
 #if INTEL_CUSTOMIZATION
   using BaseT::getGatherScatterOpCost;
 #endif // INTEL_CUSTOMIZATION
-  unsigned getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
-                                  const Value *Ptr, bool VariableMask,
-                                  Align Alignment, TTI::TargetCostKind CostKind,
-                                  const Instruction *I = nullptr, // INTEL
-                                  bool UndefPassThru = false) {   // INTEL
+  InstructionCost
+  getGatherScatterOpCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
+                         bool VariableMask, Align Alignment,
+                         TTI::TargetCostKind CostKind,
+                         const Instruction *I = nullptr, // INTEL
+                         bool UndefPassThru = false) {   // INTEL
     auto *VT = cast<FixedVectorType>(DataTy);
     // Assume the target does not have support for gather/scatter operations
     // and provide a rough estimate.

@@ -151,10 +151,12 @@ public:
   int getMaskedMemoryOpCost(
       unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency);
-  int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
-                             bool VariableMask, Align Alignment,
-                             TTI::TargetCostKind CostKind,
-                             const Instruction *I, bool UndefPassThru); // INTEL
+  InstructionCost getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
+                                         const Value *Ptr, bool VariableMask,
+                                         Align Alignment,
+                                         TTI::TargetCostKind CostKind,
+                                         const Instruction *I,
+                                         bool UndefPassThru); // INTEL
 #if INTEL_CUSTOMIZATION
   int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
                              bool VariableMask, unsigned Alignment,

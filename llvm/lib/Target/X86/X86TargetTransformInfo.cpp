@@ -4684,12 +4684,11 @@ static unsigned getLoadPermuteCost(Type *ArrayElemTy, uint64_t ArrayNum,
 #endif // INTEL_CUSTOMIZATION
 
 /// Calculate the cost of Gather / Scatter operation
-int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
-                                       const Value *Ptr, bool VariableMask,
-                                       Align Alignment,
-                                       TTI::TargetCostKind CostKind,
-                                       const Instruction *I = nullptr, // INTEL
-                                       bool UndefPassThru = false) { // INTEL
+InstructionCost X86TTIImpl::getGatherScatterOpCost(
+    unsigned Opcode, Type *SrcVTy, const Value *Ptr, bool VariableMask,
+    Align Alignment, TTI::TargetCostKind CostKind,
+    const Instruction *I = nullptr, // INTEL
+    bool UndefPassThru = false) {   // INTEL
   if (CostKind != TTI::TCK_RecipThroughput) {
     if ((Opcode == Instruction::Load &&
          isLegalMaskedGather(SrcVTy, Align(Alignment))) ||
