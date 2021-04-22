@@ -114,8 +114,9 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
 
     // CE's SrcType:
     // expect either an IntegerType or a FloatingPointType.
-    const PointerType *PtrTy = dyn_cast<PointerType>(CE->getSrcType());
+    const PointerType *PtrTy = cast<PointerType>(CE->getSrcType());
     Type *ElemTy = PtrTy->getElementType();
+    assert(ElemTy && "Expect a valid ElemTy");
     if (isa<IntegerType>(ElemTy) || ElemTy->isFloatingPointTy()) {
       RootTy = ElemTy;
     } else {
@@ -212,7 +213,7 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
 
     // Analyze SrcType:
     // expect an array-type on each dimension, all the way to RootTy.
-    const PointerType *PtrTy = dyn_cast<PointerType>(CE->getSrcType());
+    const PointerType *PtrTy = cast<PointerType>(CE->getSrcType());
     const ArrayType *ArryTy = dyn_cast<ArrayType>(PtrTy->getElementType());
     if (!ArryTy) {
       Type *EleTy = PtrTy->getElementType();
@@ -222,6 +223,7 @@ bool HIRArrayContractionUtil::checkSanity(RegDDRef *Ref,
       LLVM_DEBUG(dbgs() << "Unknown type\n";);
       return false;
     }
+    assert(ArryTy && "Expect a valid ArryTy");
     LLVM_DEBUG(dbgs() << "ArrTy: "; ArryTy->dump(););
 
     unsigned Dim = Ref->getNumDimensions() - 1;
