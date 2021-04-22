@@ -1,3 +1,4 @@
+; RUN: %oclopt  -runtimelib %p/../Full/runtime.bc -scalarize -S  %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt  -runtimelib %p/../Full/runtime.bc -scalarize -verify -S -o - %s \
 ; RUN: | FileCheck %s
 
@@ -140,3 +141,7 @@ declare <2 x double> @_Z27__retbyvector_native_sincosd(double) nounwind readnone
 
 declare [2 x <4 x double>] @_Z19__retbyarray_sincosDv4_d(<4 x double>) nounwind readnone
 declare [2 x <4 x double>] @_Z26__retbyarray_native_sincosDv4_d(<4 x double>) nounwind readnone
+
+; extractelement and insertelement are reconstructed, and are hard to fix.
+; DEBUGIFY-COUNT-4: WARNING: Missing line
+; DEBUGIFY-NOT: WARNING

@@ -1,6 +1,7 @@
 ; XFAIL: *
 
 ; RUN: llvm-as %s -o %t.bc
+; RUN: %oclopt -runtimelib %p/../../Full/runtime.bc -scalarize -gather-scatter %t.bc -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib %p/../../Full/runtime.bc -scalarize -gather-scatter -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
@@ -41,3 +42,4 @@ declare i32 @_Z13get_global_idj(...)
 !0 = !{!"int", !1}
 !1 = !{!"omnipotent char", !2}
 !2 = !{!"Simple C/C++ TBAA"}
+; DEBUGIFY-NOT: WARNING

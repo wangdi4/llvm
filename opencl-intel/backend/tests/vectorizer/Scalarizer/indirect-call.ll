@@ -1,5 +1,6 @@
 ; RUN: llvm-as %s -o %t.bc
 ; check that SclaraizeFunction pass ignores indirect calls while in VPlan pipeline
+; RUN: %oclopt -scalarize -force-scalarizer-in-vplan-pipeline=true %t.bc -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -scalarize -force-scalarizer-in-vplan-pipeline=true -verify %t.bc -S -o %t.2.bc
 
 ; ModuleID = 'Program'
@@ -21,3 +22,4 @@ define void @_ZGVe4uuu_foovec(i32 %val, <4 x i32> %input, i32 addrspace(1)* %ret
 }
 
 
+; DEBUGIFY-NOT: WARNING

@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
+; RUN: %oclopt  -runtimelib %p/../Full/runtime.bc -scalarize %t.bc -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt  -runtimelib %p/../Full/runtime.bc -scalarize %t.bc -S
 
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
@@ -34,3 +35,7 @@ define void @math_kernel2(<2 x float> addrspace(1)* nocapture %out, <2 x float> 
 declare i64 @_Z13get_global_idj(i32)
 
 declare double @_Z5ldexpDv2_fDv2_i(double, double)
+
+; extractelement and insertelement are reconstructed, and are hard to fix.
+; DEBUGIFY-COUNT-2: WARNING: Missing line
+; DEBUGIFY-NOT: WARNING

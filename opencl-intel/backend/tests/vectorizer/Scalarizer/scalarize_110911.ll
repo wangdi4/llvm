@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
+; RUN: %oclopt  -runtimelib %p/../Full/runtime.bc -scalarize %t.bc -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt  -runtimelib %p/../Full/runtime.bc -scalarize -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
@@ -28,3 +29,4 @@ end:
 
 declare <4 x i32> @foo1(<4 x i32> %x, i64* %A) nounwind 
 declare void @boo1(<4 x i32> %x, i64* %A) nounwind 
+; DEBUGIFY-NOT: WARNING

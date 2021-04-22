@@ -22,9 +22,10 @@
 #include "FunctionDescriptor.h"
 #include "NameMangleAPI.h"
 
-#include "llvm/Support/CommandLine.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/Support/CommandLine.h"
 
 extern cl::opt<bool>
 EnableScatterGather;
@@ -887,8 +888,10 @@ void ScalarizeFunction::scalarizeInstruction(CallInst *CI)
   Value *newFuncCalls[MAX_INPUT_VECTOR_WIDTH];
   for (unsigned dup = 0; dup < vectorWidth; ++dup)
   {
-    newFuncCalls[dup] = CallInst::Create(scalarFunction,
-      ArrayRef<Value*>(newArgs[dup]), CI->getName(), CI);
+    auto NewCI = CallInst::Create(
+        scalarFunction, ArrayRef<Value *>(newArgs[dup]), CI->getName(), CI);
+    NewCI->setDebugLoc(CI->getDebugLoc());
+    newFuncCalls[dup] = NewCI;
   }
 
   // Make sure all vector arguments which weren't used as scalarized, still have their
@@ -1077,10 +1080,15 @@ void ScalarizeFunction::scalarizeInstruction(LoadInst *LI) {
     if (!operand || operand->getNumIndices() != 1) {
         return recoverNonScalarizableInst(LI);
     }
+
     // Apply the bit-cast on the GEP base and add base-offset then fix the index by multiply it with numElements. (assuming one index only).
+    IRBuilder<> B(LI);
     Value *GepPtr = operand->getPointerOperand();
     PointerType *GepPtrType = cast<PointerType>(GepPtr->getType());
-    Value *operandBase = CastInst::CreatePointerCast(GepPtr, dataType->getScalarType()->getPointerTo(GepPtrType->getAddressSpace()), "ptrVec2ptrScl", LI);
+    Value *operandBase = B.CreatePointerCast(
+        GepPtr,
+        dataType->getScalarType()->getPointerTo(GepPtrType->getAddressSpace()),
+        "ptrVec2ptrScl");
     Type * indexType = operand->getOperand(1)->getType();
     // Generate new (scalar) instructions
     Value *newScalarizedInsts[MAX_INPUT_VECTOR_WIDTH];
@@ -1090,18 +1098,19 @@ void ScalarizeFunction::scalarizeInstruction(LoadInst *LI) {
       Constant *laneVal = ConstantInt::get(indexType, dup);
       // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
       // (not using type from pointer as this functionality is planned to be removed.
-      Value *pGEP = GetElementPtrInst::Create(nullptr, operandBase, laneVal, "GEP_lane", LI);
-      Value *pIndex = BinaryOperator::CreateMul(operand->getOperand(1), elementNumVal, "GEPIndex_s", LI);
+      Value *pGEP = B.CreateGEP(nullptr, operandBase, laneVal, "GEP_lane");
+      Value *pIndex =
+          B.CreateMul(operand->getOperand(1), elementNumVal, "GEPIndex_s");
       // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
       // (not using type from pointer as this functionality is planned to be removed.
-      pGEP = GetElementPtrInst::Create(nullptr, pGEP, pIndex, "GEP_s", LI);
+      pGEP = B.CreateGEP(nullptr, pGEP, pIndex, "GEP_s");
       newScalarizedInsts[dup] =
-          new LoadInst(cast<GetElementPtrInst>(pGEP)->getResultElementType(),
-                       pGEP, LI->getName(), LI);
+          B.CreateLoad(cast<GetElementPtrInst>(pGEP)->getResultElementType(),
+                       pGEP, LI->getName());
     }
 
     // Add new value/s to SCM
-    updateSCMEntryWithValues(newEntry, newScalarizedInsts, LI, true);
+    updateSCMEntryWithValues(newEntry, newScalarizedInsts, LI, true, false);
 
     // Remove original instruction
     m_removedInsts.insert(LI);
@@ -1162,9 +1171,13 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
     obtainScalarizedValues(operand0, &opIsConst, SI->getOperand(indexData), SI);
 
     // Apply the bit-cast on the GEP base and add base-offset then fix the index by multiply it with numElements. (assuming one index only).
+    IRBuilder<> B(SI);
     Value *GepPtr = operand1->getPointerOperand();
     PointerType *GepPtrType = cast<PointerType>(GepPtr->getType());
-    Value *operandBase = CastInst::CreatePointerCast(GepPtr, dataType->getScalarType()->getPointerTo(GepPtrType->getAddressSpace()), "ptrVec2ptrScl", SI);
+    Value *operandBase = B.CreatePointerCast(
+        GepPtr,
+        dataType->getScalarType()->getPointerTo(GepPtrType->getAddressSpace()),
+        "ptrVec2ptrScl");
     Type * indexType = operand1->getOperand(1)->getType();
     // Generate new (scalar) instructions
     Constant *elementNumVal = ConstantInt::get(indexType, numElements);
@@ -1173,12 +1186,13 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
       Constant *laneVal = ConstantInt::get(indexType, dup);
       // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
       // (not using type from pointer as this functionality is planned to be removed.
-      Value *pGEP = GetElementPtrInst::Create(nullptr, operandBase, laneVal, "GEP_s", SI);
-      Value *pIndex = BinaryOperator::CreateMul(operand1->getOperand(1), elementNumVal, "GEPIndex_s", SI);
+      Value *pGEP = B.CreateGEP(nullptr, operandBase, laneVal, "GEP_s");
+      Value *pIndex =
+          B.CreateMul(operand1->getOperand(1), elementNumVal, "GEPIndex_s");
       // [LLVM 3.8 UPGRADE] ToDo: Replace nullptr for pointer type with actual type
       // (not using type from pointer as this functionality is planned to be removed.
-      pGEP = GetElementPtrInst::Create(nullptr, pGEP, pIndex, "GEP_s", SI);
-      new StoreInst(operand0[dup], pGEP, SI);
+      pGEP = B.CreateGEP(nullptr, pGEP, pIndex, "GEP_s");
+      B.CreateStore(operand0[dup], pGEP);
     }
 
     // Remove original instruction
@@ -1427,7 +1441,8 @@ void ScalarizeFunction::obtainVectorValueWhichMightBeScalarizedImpl(Value * vect
 
   // create SCM entry to represent the new vector value..
   SCMEntry *newEntry = getSCMEntry(assembledVector);
-  updateSCMEntryWithValues(newEntry, valueEntry->scalarValues, assembledVector, false);
+  updateSCMEntryWithValues(newEntry, valueEntry->scalarValues, assembledVector,
+                           false, false);
 }
 
 Value *ScalarizeFunction::obtainAssembledVector(Value *vectorVal, Instruction *loc)
@@ -1658,5 +1673,3 @@ FunctionPass *createScalarizerPass(const Intel::OpenCL::Utils::CPUDetect *CpuId,
   return new intel::ScalarizeFunction(CpuId->GetCPU(), InVPlanPipeline);
 }
 }
-
-

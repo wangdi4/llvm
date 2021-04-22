@@ -18,8 +18,9 @@
 #include "NameMangleAPI.h"
 
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 
 namespace intel{
@@ -380,6 +381,7 @@ Value *VectorizerUtils::RootReturnValue(Value *retVal, Type *rootType, CallInst 
     // Cast retval to an integer
     Instruction *castToInt = new BitCastInst(convertedVal, IntegerType::get(context, srcSize));
     castToInt->insertAfter(convertedVal);
+    castToInt->setDebugLoc(CI->getDebugLoc());
     convertedVal = castToInt;
   }
   if (srcSize > dstSize)
@@ -387,6 +389,7 @@ Value *VectorizerUtils::RootReturnValue(Value *retVal, Type *rootType, CallInst 
     // Shrink retval to the desired size
     Instruction *shrink = new TruncInst(convertedVal, IntegerType::get(context, dstSize));
     shrink->insertAfter(convertedVal);
+    shrink->setDebugLoc(CI->getDebugLoc());
     convertedVal = shrink;
   }
   if (convertedVal->getType() != rootType)
@@ -395,6 +398,7 @@ Value *VectorizerUtils::RootReturnValue(Value *retVal, Type *rootType, CallInst 
     // Bitcast to desired type
     Instruction *castToDesired = new BitCastInst(convertedVal, rootType);
     castToDesired->insertAfter(convertedVal);
+    castToDesired->setDebugLoc(CI->getDebugLoc());
     convertedVal = castToDesired;
   }
   assert(convertedVal->getType() == rootType && "Cast retval failed");
@@ -432,12 +436,13 @@ Instruction *VectorizerUtils::BitCastValToType(Value *orig, Type *targetType,
   assert (currType != targetType && "should get here in case of same type" );
   unsigned currSize = currType->getPrimitiveSizeInBits();
   unsigned rootSize = targetType->getPrimitiveSizeInBits();
-  Instruction *retVal;
+  Value *retVal;
+  IRBuilder<> B(insertPoint);
 
   if (currSize == rootSize)
   {
     // just bitcast from one to the other
-    retVal = new BitCastInst(orig, targetType, "cast_val", insertPoint);
+    retVal = B.CreateBitCast(orig, targetType, "cast_val");
   }
   else if (Instruction *shufConvert = convertUsingShuffle(orig, targetType, insertPoint))
   {
@@ -448,19 +453,18 @@ Instruction *VectorizerUtils::BitCastValToType(Value *orig, Type *targetType,
     Value *origInt = orig;
     // if orig is not integer bitcast it into integer
     if (!orig->getType()->isIntegerTy())
-      origInt = new BitCastInst(orig, IntegerType::get(context, currSize), "cast1", insertPoint);
+      origInt =
+          B.CreateBitCast(orig, IntegerType::get(context, currSize), "cast1");
 
     // zext / trunc to the targetType size
-    if (currSize < rootSize) // Zero-extend
-      retVal = new ZExtInst(origInt, IntegerType::get(context, rootSize), "zext_cast", insertPoint);
-    else
-      retVal = new TruncInst(origInt, IntegerType::get(context, rootSize), "trunc1", insertPoint);
+    retVal = B.CreateZExtOrTrunc(origInt, IntegerType::get(context, rootSize),
+                                 "conv");
 
     // if target is not integer bitcast to target type
     if (!targetType->isIntegerTy())
-        retVal = new BitCastInst(retVal, targetType, "cast_val", insertPoint);
+      retVal = B.CreateBitCast(retVal, targetType, "cast_val");
   }
-  return retVal;
+  return cast<Instruction>(retVal);
 }
 
 Instruction *VectorizerUtils::ExtendValToType(Value *orig, Type *targetType,
@@ -718,7 +722,9 @@ Instruction *VectorizerUtils::convertUsingShuffle(Value *v,
 
   // Return shuffle instruction.
   UndefValue *undefVect = UndefValue::get(vTy);
-  return new ShuffleVectorInst(v, undefVect, mask, "", loc);
+  Instruction *Shuffle = new ShuffleVectorInst(v, undefVect, mask, "", loc);
+  Shuffle->setDebugLoc(loc->getDebugLoc());
+  return Shuffle;
 }
 
 Value *VectorizerUtils::canRootInputByShuffle(SmallVector<Value *, 4> &valInChain,

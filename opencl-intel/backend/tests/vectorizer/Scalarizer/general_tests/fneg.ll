@@ -1,5 +1,6 @@
 ; Tests the LLVM fneg instruction is scalarized properly
 
+; RUN: %oclopt  -runtimelib %p/../../Full/runtime.bc -scalarize %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt  -runtimelib %p/../../Full/runtime.bc -scalarize -verify %s -S -o - \
 ; RUN: | FileCheck %s
 
@@ -38,3 +39,4 @@ define void @fneg_double(<4 x double> addrspace(1)* nocapture %X, <4 x double> a
   store <4 x double> %4, <4 x double> addrspace(1)* %5
   ret void
 }
+; DEBUGIFY-NOT: WARNING
