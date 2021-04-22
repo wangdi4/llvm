@@ -4667,7 +4667,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       // Ensure the default version in SYCL mode is 2020
       CmdArgs.push_back("-sycl-std=2020");
     }
-    if (Args.hasArg(options::OPT_fsycl_unnamed_lambda))
+#if INTEL_CUSTOMIZATION
+     if (Args.hasFlag(options::OPT_fsycl_unnamed_lambda,
+                     options::OPT_fno_sycl_unnamed_lambda,
+                     D.IsDPCPPMode()))
+#endif // INTEL_CUSTOMIZATION
       CmdArgs.push_back("-fsycl-unnamed-lambda");
 
     // Enable generation of USM address spaces for FPGA.
