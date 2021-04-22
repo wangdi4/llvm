@@ -64,14 +64,14 @@ class LLVM_LIBRARY_VISIBILITY InstCombinerImpl final
 public:
   InstCombinerImpl(InstCombineWorklist &Worklist, BuilderTy &Builder,
 #if INTEL_CUSTOMIZATION
-                   bool MinimizeSize, bool TypeLoweringOpts,
+                   bool MinimizeSize, bool PreserveForDTrans,
                    bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
                    bool EnableUpCasting, AAResults *AA,
                    AssumptionCache &AC, TargetLibraryInfo &TLI,
                    TargetTransformInfo &TTI, DominatorTree &DT,
                    OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
                    ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
-      : InstCombiner(Worklist, Builder, MinimizeSize, TypeLoweringOpts,
+      : InstCombiner(Worklist, Builder, MinimizeSize, PreserveForDTrans,
                      EnableFcmpMinMaxCombine, PreserveAddrCompute,
                      EnableUpCasting, AA, AC, TLI,
                      TTI, DT, ORE, BFI, PSI, DL, LI) {

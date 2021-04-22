@@ -1,8 +1,8 @@
-; RUN: opt -instcombine -disable-type-lowering-opts=false < %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes=instcombine -aa-pipeline=basic-aa -disable-type-lowering-opts=false < %s -S 2>&1 | FileCheck %s
+; RUN: opt -instcombine -instcombine-preserve-for-dtrans=false < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes=instcombine -aa-pipeline=basic-aa -instcombine-preserve-for-dtrans=false < %s -S 2>&1 | FileCheck %s
 
 ; Check that only one original GEPs is retained and one byte-flattened GEP
-; is generated when -disable-gepinst-opts=false.
+; is generated when -instcombine-preserve-for-dtrans=false.
 ; NOTE: The first call was changed to an unknown extern function bar because
 ; the community no longer does the GEP merging in the first case when the
 ; value operand of the store is a memory operation.
