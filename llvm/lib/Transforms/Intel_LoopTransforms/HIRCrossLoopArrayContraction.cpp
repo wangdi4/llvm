@@ -58,9 +58,9 @@ static cl::opt<unsigned> MinMemRefNumDimension(
     OPT_SWITCH "-min-memref-num-dimension", cl::init(5), cl::Hidden,
     cl::desc(OPT_DESC " Minimal MemRef Number of Dimensions"));
 
-static cl::opt<bool> PerformIdentitySubstitution(
-    OPT_SWITCH "-identity-substitution", cl::init(false), cl::Hidden,
-    cl::desc("Enables identity substitution in " OPT_DESC " pass"));
+static cl::opt<unsigned> NumPostProcSteps(
+    OPT_SWITCH "-num-postprocessors", cl::init(5), cl::Hidden,
+    cl::desc("Number of post-processors to run in " OPT_DESC " pass"));
 
 namespace {
 
@@ -132,7 +132,7 @@ private:
                        const unsigned NumDimsContracted, HLRegion &Reg,
                        unsigned UseRefMappedDim,
                        const CanonExpr *UseRefMappedCE,
-                       SmallSet<unsigned, 4> &AfterContractSBS,
+                       SmallSet<unsigned, 8> &AfterContractSBS,
                        unsigned &NumRefsContracted);
 
   void addPostProcCand(HLLoop *Loop);
@@ -141,7 +141,8 @@ private:
     PostProcessors.push_back(std::move(Func));
   }
 
-  void runPostProcessors(SmallSet<unsigned, 4> ContractedBases);
+  void runPostProcessors(SmallSet<unsigned, 8> &ContractedBases,
+                         const RegDDRef *IdentityRef);
 };
 
 void HIRCrossLoopArrayContraction::addPostProcCand(HLLoop *Loop) {
@@ -152,7 +153,11 @@ void HIRCrossLoopArrayContraction::addPostProcCand(HLLoop *Loop) {
   }
 }
 
-void HIRCrossLoopArrayContraction::runPostProcessors(SmallSet<unsigned, 4> ContractedBases) {
+void HIRCrossLoopArrayContraction::runPostProcessors(
+    SmallSet<unsigned, 8> &ContractedBases, const RegDDRef *IdentityRef) {
+
+  // Register postprocessors here
+  // Func for Complete Unroll
   addPostProcessor([](HLLoop *Loop) {
     ForPostEach<HLLoop>::visit(Loop, [](HLLoop *Loop) {
       uint64_t TC;
@@ -166,32 +171,66 @@ void HIRCrossLoopArrayContraction::runPostProcessors(SmallSet<unsigned, 4> Contr
     });
   });
 
+  addPostProcessor([&ContractedBases](HLLoop *Loop) {
+    LLVM_DEBUG(dbgs() << "[PostProc] Scalar Replacement on Loop "
+                      << Loop->getNumber() << "\n";
+               Loop->dump(); dbgs() << "\n";);
+    HIRTransformUtils::doArrayScalarization(Loop, ContractedBases);
+  });
+
+  // Func for identity matrix substitution
+  if (IdentityRef) {
+    addPostProcessor([IdentityRef](HLLoop *Loop) {
+      LLVM_DEBUG(dbgs() << "[PostProc] Identity Substitution run on Loop "
+                        << Loop->getNumber() << "\n";
+                 Loop->dump(); dbgs() << "\n";);
+      HIRTransformUtils::doIdentityMatrixSubstitution(Loop, IdentityRef);
+    });
+
+    // Func for Constant Propagation
+    addPostProcessor([](HLLoop *Loop) {
+      LLVM_DEBUG(dbgs() << "[PostProc] Constant Propagation run on Loop "
+                        << Loop->getNumber() << "\n";
+                 Loop->dump(); dbgs() << "\n";);
+
+#if INTEL_INCLUDE_DTRANS
+      HIRTransformUtils::doConstantPropagation(Loop, nullptr);
+#else
+      HIRTransformUtils::doConstantPropagation(Loop);
+#endif
+    });
+  }
+
+  // Func for Removing Redundant Nodes
   addPostProcessor([](HLLoop *Loop) {
     LLVM_DEBUG(dbgs() << "[PostProc] Removing Redundant Nodes on Loop "
                       << Loop->getNumber() << "\n";
                Loop->dump(); dbgs() << "\n";);
     HLNodeUtils::removeRedundantNodes(Loop);
-    return true;
   });
-
-  // Register additional postprocessors here
 
   unsigned Step = 1;
 
   if (DisablePostProcessing) {
-    LLVM_DEBUG(dbgs() << "[PostProc] Skipping due to the compiler option!\n");
+    LLVM_DEBUG(dbgs() << "[PostProc] Disabled due to the compiler option!\n");
     PostProcessors.clear();
   }
 
   for (auto &Func : PostProcessors) {
     for (auto Lp : PostProcLoops) {
+      if (Step >= NumPostProcSteps) {
+        LLVM_DEBUG(
+            dbgs() << "[PostProc] Skipping due to the compiler option!\n");
+        break;
+      }
+
       LLVM_DEBUG(dbgs() << "[PostProc] Running Step #" << Step << "!\n");
       Func(Lp);
       LLVM_DEBUG(dbgs() << "[PostProc] After Step #" << Step
                         << "!\n\t--------------\n");
       LLVM_DEBUG(Lp->dump(); dbgs() << "\n\t--------------\n");
-      ++Step;
     }
+    ++Step;
   }
 
   PostProcessors.clear();
@@ -750,7 +789,7 @@ static bool isArrayContractionCandidate(const RegDDRef *Ref) {
 bool HIRCrossLoopArrayContraction::contractMemRefs(
     HLLoop *DefLp, HLLoop *UseLp, const SparseBitVector<> &CommonBases,
     const unsigned NumDimsContracted, HLRegion &Reg, unsigned UseRefMappedDim,
-    const CanonExpr *UseRefMappedCE, SmallSet<unsigned, 4> &AfterContractSBS,
+    const CanonExpr *UseRefMappedCE, SmallSet<unsigned, 8> &AfterContractSBS,
     unsigned &NumRefsContracted) {
 
   LLVM_DEBUG({
@@ -997,6 +1036,62 @@ static void renameTemps(HLLoop *DefLoop, unsigned MaxMergeLevel) {
   HLNodeUtils::visit(TR, DefLoop);
 }
 
+// Try to find the identity matrix in the innerloops of the region. The target
+// ref should be defined at the beginning of the region, and we can trace ref
+// uses later in the region. Legality is verified when no output edges exist
+// besides the defloop.
+static const RegDDRef *findIdentityMatrixDef(HLRegion &Region, DDGraph &DDG,
+                                             HIRLoopStatistics &HLS) {
+
+  SmallVector<HLLoop *, 64> InnermostLoops;
+  Region.getHLNodeUtils().gatherInnermostLoops(InnermostLoops, &Region);
+
+  SmallVector<const RegDDRef *, 2> Identity;
+  for (auto &Lp : InnermostLoops) {
+    HLNodeUtils::findInner2DIdentityMatrix(&HLS, Lp, Identity);
+    if (!Identity.empty()) {
+      LLVM_DEBUG(dbgs() << Lp->getNumber()
+                        << ": Loop was found containing identity matrix - SB = "
+                        << Identity.front()->getSymbase() << "!\n ");
+      break;
+    }
+  }
+
+  if (Identity.empty()) {
+    return nullptr;
+  }
+
+  // Check legality for identity matrix substitution
+  bool LegalToSubIdent = true;
+  auto *IdentDiagRef = Identity.front();
+
+  for (auto &Edge : DDG.outgoing(IdentDiagRef)) {
+    HLNode *SinkNode = Edge->getSink()->getHLDDNode();
+
+    if (isPassedToMetadataIntrinsic(cast<RegDDRef>(Edge->getSink()))) {
+      continue;
+    }
+
+    if (Edge->isOutput()) {
+      // We expect a single output edge to the zero inst inside the same loop.
+      if (HLNodeUtils::contains(IdentDiagRef->getParentLoop(), SinkNode)) {
+        continue;
+      }
+
+      LegalToSubIdent = false;
+      break;
+    }
+  }
+
+  if (!LegalToSubIdent) {
+    LLVM_DEBUG(dbgs() << "[IDENT] Illegal to substitute in Region\n";);
+    return nullptr;
+  }
+
+  LLVM_DEBUG(dbgs() << "[IDENT] Legal to Substitute in Region\n";);
+  return IdentDiagRef;
+}
+
 bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
   if (!Reg.isFunctionLevel()) {
     LLVM_DEBUG(dbgs() << "Skipping non-function region.\n");
@@ -1014,7 +1109,7 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
   }
 
   SmallPtrSet<RegDDRef *, 32> RefsSet(Refs.begin(), Refs.end());
-  SmallSet<unsigned, 4> AfterContractSBS;
+  SmallSet<unsigned, 8> AfterContractSBS;
 
   // Get their loops and Base pointers.
   std::map<HLLoop *, SparseBitVector<>, TopSortComparator> LoopToBasePtr;
@@ -1035,29 +1130,12 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
     return DefASAR;
   };
 
-  // Find identity matrix to substitute later
-  if (PerformIdentitySubstitution) {
-    SmallVector<HLLoop *, 64> InnermostLoops;
-    HIRF.getHLNodeUtils().gatherInnermostLoops(InnermostLoops, &Reg);
-    unsigned IdentitySB = 0;
+  DDGraph DDG = DDA.getGraph(&Reg);
 
-    for (auto &Lp : InnermostLoops) {
-      SmallVector<const RegDDRef *, 2> Identity;
-      HLNodeUtils::findInner2DIdentityMatrix(&HLS, Lp, Identity);
-      if (!Identity.empty()) {
-        IdentitySB = Identity.front()->getSymbase();
-        LLVM_DEBUG(
-            dbgs() << Lp->getNumber()
-                   << ": Loop was found containing identity matrix - SB = "
-                   << IdentitySB << "!\n ");
-        break;
-      }
-    }
-    (void)IdentitySB;
-  }
+  // Find identity matrix to substitute later
+  const RegDDRef *IdentityRef = findIdentityMatrixDef(Reg, DDG, HLS);
 
   SmallVector<HLLoop *, 4> ModifiedDefLps;
-  DDGraph DDG = DDA.getGraph(&Reg);
 
   for (auto &DefPair : LoopToBasePtr) {
     auto *DefLp = DefPair.first;
@@ -1400,8 +1478,12 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
     }
   }
 
+  if (PostProcLoops.empty() && ModifiedDefLps.empty()) {
+    return false;
+  }
+
   // Run post-processors for UseLoop after contraction
-  runPostProcessors(AfterContractSBS);
+  runPostProcessors(AfterContractSBS, IdentityRef);
 
   // Invalidate Loop after Transformation.
   // DefLoops may have been modified that are not in PostProcLoops.
