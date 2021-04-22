@@ -3919,7 +3919,8 @@ X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
   return ReductionCost + getVectorInstrCost(Instruction::ExtractElement, Ty, 0);
 }
 
-int X86TTIImpl::getMinMaxCost(Type *Ty, Type *CondTy, bool IsUnsigned) {
+InstructionCost X86TTIImpl::getMinMaxCost(Type *Ty, Type *CondTy,
+                                          bool IsUnsigned) {
   std::pair<int, MVT> LT = TLI->getTypeLegalizationCost(DL, Ty);
 
   MVT MTy = LT.second;
@@ -4048,9 +4049,10 @@ int X86TTIImpl::getMinMaxCost(Type *Ty, Type *CondTy, bool IsUnsigned) {
                             CmpInst::BAD_ICMP_PREDICATE, CostKind);
 }
 
-int X86TTIImpl::getMinMaxReductionCost(VectorType *ValTy, VectorType *CondTy,
-                                       bool IsPairwise, bool IsUnsigned,
-                                       TTI::TargetCostKind CostKind) {
+InstructionCost
+X86TTIImpl::getMinMaxReductionCost(VectorType *ValTy, VectorType *CondTy,
+                                   bool IsPairwise, bool IsUnsigned,
+                                   TTI::TargetCostKind CostKind) {
   // Just use the default implementation for pair reductions.
   if (IsPairwise)
     return BaseT::getMinMaxReductionCost(ValTy, CondTy, IsPairwise, IsUnsigned,
@@ -4138,7 +4140,7 @@ int X86TTIImpl::getMinMaxReductionCost(VectorType *ValTy, VectorType *CondTy,
   unsigned NumVecElts = ValVTy->getNumElements();
 
   auto *Ty = ValVTy;
-  unsigned MinMaxCost = 0;
+  InstructionCost MinMaxCost = 0;
   if (LT.first != 1 && MTy.isVector() &&
       MTy.getVectorNumElements() < ValVTy->getNumElements()) {
     // Type needs to be split. We need LT.first - 1 operations ops.
