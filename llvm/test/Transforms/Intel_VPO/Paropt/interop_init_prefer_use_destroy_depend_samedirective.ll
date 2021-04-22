@@ -36,11 +36,12 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ;check output IR for interop creation, use and release
 ;CHECK:  call void @__kmpc_omp_task_begin_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %{{[^ ,]+}})
-;CHECK_NEXT:  %{{[^ ,]+}} = call i8* @__tgt_create_interop(i64 %{{[^ ,]+}}, i32 1, i32 2, i8* bitcast ([2 x i32]* @[[PREFER_LIST]] to i8*))
+;CHECK-NEXT:  %{{[^ ,]+}} = call i8* @__tgt_create_interop(i64 %{{[^ ,]+}}, i32 1, i32 2, i8* bitcast ([2 x i32]* @[[PREFER_LIST]] to i8*))
 ;CHECK:   %[[INTEROP_OBJ2:[^ ]+]] = load i8*, i8** %{{[^ ,]+}}, align 8
-;CHECK_NEXT:   %{{[^ ,]+}} = call i32 @__tgt_use_interop(i8* %[[INTEROP_OBJ2]])
-;CHECK_NEXT:  %[[INTEROP_OBJ3:[^ ]+]] = load i8*, i8** %{{[^ ,]+}}, align 8
-;CHECK_NEXT:  %{{[^ ,]+}} = call i32 @__tgt_release_interop(i8* %[[INTEROP_OBJ3]])
+;CHECK-NEXT:   %{{[^ ,]+}} = call i32 @__tgt_use_interop(i8* %[[INTEROP_OBJ2]])
+;CHECK-NEXT:  %[[INTEROP_OBJ3:[^ ]+]] = load i8*, i8** %obj3.addr, align 8
+;CHECK-NEXT:  %{{[^ ,]+}} = call i32 @__tgt_release_interop(i8* %[[INTEROP_OBJ3]])
+;CHECK-NEXT: store i8* null, i8** %obj3.addr, align 8
 ;CHECK:  call void @__kmpc_omp_task_complete_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %{{[^ ,]+}})
 
 ; Function Attrs: noinline nounwind optnone uwtable

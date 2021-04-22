@@ -27,8 +27,8 @@ entry:
 ;check for @__tgt_create_interop creation
 ;CHECK:  %[[TASK1:[^ ]+]] = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{[^ ,]+}}, i32 0, i32 0, i64 0, i64 0, i8* null)
 ;CHECK:  call void @__kmpc_omp_task_begin_if0(%struct.ident_t* @{{[^ ,]+}}, i32  %{{[^ ,]+}}, i8* %[[TASK1]])
-;CHECK_NEXT:  %[[CREATE_INTEROP:[^ ]+]] = call i8* @__tgt_create_interop(i64  %{{[^ ,]+}}, i32 0, i32 0, i8* null)
-;CHECK_NEXT:  store i8* %[[CREATE_INTEROP]], i8** %[[OBJ:[^ ]+]], align 8
+;CHECK-NEXT:  %[[CREATE_INTEROP:[^ ]+]] = call i8* @__tgt_create_interop(i64  %{{[^ ,]+}}, i32 0, i32 0, i8* null)
+;CHECK-NEXT:  store i8* %[[CREATE_INTEROP]], i8** %[[OBJ:[^ ]+]], align 8
 ;CHECK:  call void @__kmpc_omp_task_complete_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %[[TASK1]])
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.INTEROP"(), "QUAL.OMP.USE"(i8** %obj), "QUAL.OMP.NOWAIT"() ]
@@ -37,8 +37,8 @@ entry:
 ;check for @__tgt_use_interop(i8* %objinterop.obj.val)
 ;CHECK:  %[[TASK2:[^ ]+]] = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{[^ ,]+}}, i32 0, i32 0, i64 0, i64 0, i8* null)
 ;CHECK:  call void @__kmpc_omp_task_begin_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %[[TASK2]])
-;CHECK_NEXT:  %[[INTEROP_VAL:[^ ]+]]= load i8*, i8** %[[OBJ]], align 8
-;CHECK_NEXT:  %{{[^ ,]+}} = call i32 @__tgt_use_interop(i8* %[[INTEROP_VAL]])
+;CHECK-NEXT:  %[[INTEROP_VAL:[^ ]+]] = load i8*, i8** %[[OBJ]], align 8
+;CHECK-NEXT:  %{{[^ ,]+}} = call i32 @__tgt_use_interop(i8* %[[INTEROP_VAL]])
 ;CHECK:  call void @__kmpc_omp_task_complete_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %[[TASK2]])
 
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.INTEROP"(), "QUAL.OMP.DESTROY"(i8** %obj) ]
@@ -47,8 +47,9 @@ entry:
 ;check for @__tgt_release_interop
 ;CHECK:  %[[TASK3:[^ ]+]] = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @{{[^ ,]+}}, i32 0, i32 0, i64 0, i64 0, i8* null)
 ;CHECK:  call void @__kmpc_omp_task_begin_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %[[TASK3]])
-;CHECK_NEXT: %[[INTEROP_VAL2:[^ ]+]] = load i8*, i8** %[[OBJ]], align 8
-;CHECK_NEXT:  %{{[^ ,]+}} = call i32 @__tgt_release_interop(i8* %[[INTEROP_VAL2]])
+;CHECK-NEXT: %[[INTEROP_VAL2:[^ ]+]] = load i8*, i8** %[[OBJ]], align 8
+;CHECK-NEXT: %{{[^ ,]+}} = call i32 @__tgt_release_interop(i8* %[[INTEROP_VAL2]])
+;CHECK-NEXT: store i8* null, i8** %[[OBJ]], align 8
 ;CHECK:  call void @__kmpc_omp_task_complete_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %[[TASK3]])
   ret void
 }

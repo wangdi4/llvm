@@ -3781,11 +3781,14 @@ bool VPOParoptTransform::genInteropCode(WRegionNode* W) {
         Value *InteropVar =
             Builder.CreateLoad(Int8PtrTy, InteropVarAddrCast,
                                InteropVarAddr->getName() + "interop.obj.val");
-        if (Item->getIsDestroy())
+        if (Item->getIsDestroy()) {
           VPOParoptUtils::genTgtReleaseInterop(
               InteropVar, InsertPt, /*EmitTgtReleaseInteropObj=*/false);
-        else
+          Builder.CreateStore(ConstantPointerNull::get(Int8PtrTy),
+                              InteropVarAddrCast);
+        } else {
           VPOParoptUtils::genTgtUseInterop(InteropVar, InsertPt);
+        }
       } else {
         llvm_unreachable("Unexpected interop action clause item type");
       }
