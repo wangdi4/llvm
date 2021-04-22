@@ -33,6 +33,8 @@
 ; no other inner loops to check for invariance.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -disable-output -vplan-print-after-plain-cfg -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -disable-output -vplan-print-after-plain-cfg -vplan-force-vf=2 < %s 2>&1 | FileCheck %s
+
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -41,6 +43,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nofree norecurse nounwind uwtable writeonly
 define dso_local void @foo(i32 %n, i32* nocapture %A, i32 %C) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
+; CHECK-NEXT:  VPlan IR for: foo:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {2 * %C}
 ; CHECK-DAG:     [[VP1:%.*]] = {sext.i32.i64(%n) + -1}

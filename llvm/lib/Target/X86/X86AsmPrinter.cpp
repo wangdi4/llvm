@@ -686,8 +686,13 @@ void X86AsmPrinter::emitStartOfAsmFile(Module &M) {
       Feat00Flags |= 1;
     }
 
-    if (M.getModuleFlag("cfguard"))
+    if (M.getModuleFlag("cfguard")) {
       Feat00Flags |= 0x800; // Object is CFG-aware.
+    }
+
+    if (M.getModuleFlag("ehcontguard")) {
+      Feat00Flags |= 0x4000; // Object also has EHCont.
+    }
 
     OutStreamer->emitSymbolAttribute(S, MCSA_Global);
     OutStreamer->emitAssignment(
@@ -893,11 +898,14 @@ void X86AsmPrinter::emitNotifyTable(Module &M) {
   OutStreamer->SwitchSection(Notify);
 
   MCSymbol *NotifyStart = MMI->getContext().getOrCreateSymbol("itt_notify_tab");
-  MCSymbol *EntriesStart = MMI->getContext().createTempSymbol("notify_entries");
-  MCSymbol *StringsStart = MMI->getContext().createTempSymbol("notify_strings");
-  MCSymbol *ExprsStart = MMI->getContext().createTempSymbol("notify_exprs");
+  MCSymbol *EntriesStart =
+      MMI->getContext().createTempSymbol("notify_entries", true);
+  MCSymbol *StringsStart =
+      MMI->getContext().createTempSymbol("notify_strings", true);
+  MCSymbol *ExprsStart =
+      MMI->getContext().createTempSymbol("notify_exprs", true);
   MCSymbol *NotifyEnd =
-      MMI->getContext().createTempSymbol("itt_notify_tab_end");
+      MMI->getContext().createTempSymbol("itt_notify_tab_end", true);
 
   // Emit itt_notify_tab header
   OutStreamer->emitLabel(NotifyStart);

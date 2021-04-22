@@ -18,14 +18,14 @@
 
 ; OPTREPORT: LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         Remark: LOOP WAS VECTORIZED
-; OPTREPORT-NEXT:         Remark: vectorization support: vector length {{.*}}
+; OPTREPORT-NEXT:         remark #15300: LOOP WAS VECTORIZED
+; OPTREPORT-NEXT:         remark #15305: vectorization support: vector length {{.*}}
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:         <Remainder loop for vectorization>
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         Remark: Loop completely unrolled
+; OPTREPORT-NEXT:         remark: Loop completely unrolled
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
@@ -35,8 +35,8 @@
 ; CHECK: [[M2]] = distinct !{!"llvm.loop.optreport", [[M3:!.*]]}
 ; CHECK: [[M3]] = distinct !{!"intel.loop.optreport", [[M4:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.remarks", [[M5:!.*]], [[M6:!.*]]}
-; CHECK: [[M5]] = !{!"intel.optreport.remark", !"LOOP WAS VECTORIZED"}
-; CHECK: [[M6]] = !{!"intel.optreport.remark", !"vectorization support: vector length %s", {{.*}}}
+; CHECK: [[M5]] = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
+; CHECK: [[M6]] = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", {{.*}}}
 ; CHECK: [[M7:!.*]] = distinct !{[[M7]]{{.*}}[[M8:!.*]]{{.*}}}
 ; CHECK: [[M8]] = distinct !{!"llvm.loop.optreport", [[M9:!.*]]}
 ; CHECK: [[M9]] = distinct !{!"intel.loop.optreport", [[M10:!.*]], [[M15:!.*]]}
@@ -44,9 +44,9 @@
 ; CHECK: [[M11]] = distinct !{!"llvm.loop.optreport", [[M12:!.*]]}
 ; CHECK: [[M12]] = distinct !{!"intel.loop.optreport", [[M13:!.*]]}
 ; CHECK: [[M13]] = !{!"intel.optreport.remarks", [[M14:!.*]]}
-; CHECK: [[M14]] = !{!"intel.optreport.remark", !"Loop completely unrolled"}
+; CHECK: [[M14]] = !{!"intel.optreport.remark", i32 0, !"Loop completely unrolled"}
 ; CHECK: [[M15]] = !{!"intel.optreport.origin", [[M16:!.*]]}
-; CHECK: [[M16]] = !{!"intel.optreport.remark", !"Remainder loop for vectorization"}
+; CHECK: [[M16]] = !{!"intel.optreport.remark", i32 0, !"Remainder loop for vectorization"}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

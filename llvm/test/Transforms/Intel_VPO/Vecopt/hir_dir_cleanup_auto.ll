@@ -13,6 +13,8 @@
 ; }
 ;
 ; RUN: opt -vplan-force-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+
 ;
 ; HIR Test.
 ; CHECK: BEGIN REGION   

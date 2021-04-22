@@ -154,10 +154,10 @@ The main items that need to have metadata attached to them are:
 Descriptions of data structures
 -------------------------------
 In order for DTrans to have accurate information for all the data structures,
-a named metadata field "dtrans_types" will contain a list of metadata nodes that
-describe the field member types for each structure. The named metadata field
-from multiple source files get concatenated together by the IRMover when
-constructing the module for LTO.
+a named metadata field "intel.dtrans.types" will contain a list of metadata
+nodes that describe the field member types for each structure. During LTO,
+the lists get concatenated together by the IRMover when constructing the module
+for the LTO phase.
 
 Note: in the following descriptions, the metadata id values used in one
 example may refer to the metadata shown in another example.
@@ -313,48 +313,89 @@ Examples:
 
 References to encoded types
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-As seen above, a type often needs to refer the metadata encoding for another
-type. This present challenges for structure types, because it is possible to
-have circular references where a pointer to the type refers back to the original
-type. While it is possible to represent this in the metadata, doing so can
-result in redundant metadata when the Modules from separate byte-code files are
-merged together by the IRMover due to the way metadata pool works. For this
-reason, there are different encodings used depending on whether the reference is
-to a pointer to a structure type or a pointer to another non-first-class type.
+As seen above, describing one type often requires referring to the metadata
+encoding for another type. This presents challenges for structure types,
+because it is possible to have circular references where a pointer to a type
+refers back to the original type. It is possible to represent this in the
+metadata by using the metadata value of the node that described the structure
+body contents, however doing so will result in redundant metadata when
+Modules from different bitcode files are merged together because it prevents
+the IRMover from pooling metadata. For this reason, rather than referring to
+the node that described the structure body, a node will be used that just
+contains the named structure type with a zeroinitializer and pointer level,
+similar to how the first class types are encoded.
 
 Encoding:
 ^^^^^^^^^
 .. code-block:: llvm
 
-  Reference to struct type: !{!"R", <type> zeroinitializer, i32 <pointer level> }
+  Reference to struct type: !{<type> zeroinitializer, i32 <pointer level> }
   Pointer to (non-struct) complex type: !{!MDNode, i32 <pointer level> }
 
 Examples:
 ^^^^^^^^^
 .. code-block:: llvm
 
+  ; Pointer to a structure type
   ; %struct.bar*
-  !14 = {!"R", %struct.bar zeroinitializer, i32 1 }
+  !14 = {%struct.bar zeroinitializer, i32 1 }
 
-  ; %struct.foo*
-  !15 = {!"R", %struct.foo zeroinitializer, i32 1 }
-
-  ; %struct.bar
-  !16 = {!"R", %struct.bar zeroinitializer, i32 0 }
-
+  ; Pointer to pointer to function type
   ; i32 (...)**
-  !17 = {!8, i32 2}
+  !15 = {!8, i32 2}
 
 Metadata attached to IR
 -----------------------
-For metadata attached to the IR to describe global variables, alloca inst, or
-function signatures; these can be tagged with a metadata type 'dtrans_type' with
-a metadata of the "References to encoded types" type.
+Metadata needs to be attached to the IR to help DTrans identify what type an
+object is when it refers to a pointer type, but is only described in the IR
+as being type 'p0' or an array of type 'p0', etc. Without this information,
+DTrans would need to infer the type by looking at the uses, which could be
+computationally expensive and lead to less precise information. Specific items
+to be marked are the following when they involve a pointer type which would
+be represented as type 'p0'. In these cases, DTrans would not be able to
+determine a precise type using a getValueType() or getAllocatedType() call
+on the object:
 
+* Global variables
+* Alloca instructions
+* Indirect function calls
+* Function Signatures
+
+Global variables, Alloca instructions, and Indirect function calls can all be
+described using the type description encoding described above.
+
+For function signatures, a slightly different encoding is used to try to limit
+the cases where metadata would become invalidated due to transformations that
+eliminate a parameter or the return type. An attribute is attached to
+the return/parameter which provides an association to a metadata attachment on
+the function if the type directly references a pointer type that would be
+represented as 'p0' within the IR. Simple types, such as: 'i32' or 'float',
+will not have attributes attached to them. The value of this attribute will
+be an index (starting with 1) that indicates an operand to use from the
+metadata attachment. The metadata attachment contains a list of metadata
+nodes that are type encodings. The metadata node attached to the function will
+be marked as 'distinct' to avoid multiple functions from sharing a single
+metadata node if their types are identical so that functions can be modified
+independently.
+
+   For example:
+
+.. code-block:: llvm
+
+   ; %struct.op* bitop(%struct.op*, i32, i32*)
+   define intel_dtrans_func_index(1) p0 @bitop(
+       p0 intel_dtrans_func_index(2) %0, i32 %1
+       p0 intel_dtrans_func_index(3) %2)
+       !intel.dtrans.func.type !3
+
+   !1 = !{%struct.op zeroinitializer, i32 1} ; %struct.op*
+   !2 = !{i32 0, i32 1}                      ; i32*
+   !3 = distinct !{!1, !1, !2}               ; list of type encodings.
+
+Here the return type attribute indicates that the 1st item in the metadata list
+contains the encoding for the return type, and the pointer parameters are the
+2nd and 3rd items in the metadata list.
 
 Type Recovery Process
 =====================
 TBD
-
-
-

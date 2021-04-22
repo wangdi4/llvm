@@ -18,6 +18,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERLEGALITY_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERLEGALITY_H
 
+#include "IntelVPlanEntityDescr.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/IVDescriptors.h"
@@ -41,8 +42,14 @@ public:
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize(DominatorTree &DT, const CallInst *RegionEntry);
 
+  using DescrValueTy = DescrValue<Value>;
+  using DescrWithAliasesTy = DescrWithAliases<Value>;
+  using PrivDescrTy = PrivDescr<Value>;
+  using PrivDescrNonPODTy = PrivDescrNonPOD<Value>;
+  using PrivateKindTy = PrivDescrTy::PrivateKind;
+
   /// Container-class for storing the different types of Privates
-  using PrivatesListTy = SetVector<Value *>;
+  using PrivatesListTy = MapVector<const Value *, std::unique_ptr<PrivDescrTy>>;
 
   /// ReductionList contains the reduction descriptors for all
   /// of the reductions that were found in the loop.
@@ -52,8 +59,7 @@ public:
   using ExplicitReductionList =
       MapVector<PHINode *, std::pair<RecurrenceDescriptor, Value *>>;
   using InMemoryReductionList =
-      MapVector<Value *, std::pair<RecurrenceDescriptor::RecurrenceKind,
-                                   RecurrenceDescriptor::MinMaxRecurrenceKind>>;
+      MapVector<Value *, RecurKind>;
 
   /// InductionList saves induction variables and maps them to the
   /// induction descriptor.
@@ -129,6 +135,9 @@ public:
   /// Returns the widest induction type.
   Type *getWidestInductionType() { return WidestIndTy; }
 
+  void setIsSimd() { IsSimdLoop = true; }
+  bool getIsSimd() const { return IsSimdLoop; }
+
 private:
   /// The loop that we evaluate.
   Loop *TheLoop;
@@ -162,8 +171,6 @@ private:
 
   /// Vector of in memory loop private values(allocas)
   PrivatesListTy Privates;
-  PrivatesListTy LastPrivates;
-  PrivatesListTy CondLastPrivates;
 
   /// List of explicit linears.
   LinearListTy Linears;
@@ -181,6 +188,8 @@ private:
   /// when possible
   std::map<Value *, std::pair<Value *, int>> UnitStepLinears;
 
+  bool IsSimdLoop = false;
+
 public:
   /// Add stride information for pointer \p Ptr.
   // Used for a temporary solution of teaching legality based on DA.
@@ -191,14 +200,29 @@ public:
   // Used for a temporary solution of teaching legality based on DA.
   void erasePtrStride(Value *Ptr) { PtrStrides.erase(Ptr); }
 
-  /// Add an in memory private to the vector of private values.
+  /// Add an in memory non-POD private to the vector of private values.
+  void addLoopPrivate(Value *PrivVal, Function *Constr, Function *Destr,
+                      Function *CopyAssign, bool IsLast = false) {
+    PrivateKindTy Kind = PrivateKindTy::NonLast;
+    if (IsLast)
+      Kind = PrivateKindTy::Last;
+    std::unique_ptr<PrivDescrNonPODTy> PrivItem =
+        std::make_unique<PrivDescrNonPODTy>(PrivVal, Kind, Constr, Destr,
+                                            CopyAssign);
+    Privates.insert({PrivVal, std::move(PrivItem)});
+  }
+
+  /// Add an in memory POD private to the vector of private values.
   void addLoopPrivate(Value *PrivVal, bool IsLast = false,
                       bool IsConditional = false) {
-    Privates.insert(PrivVal);
+    PrivateKindTy Kind = PrivateKindTy::NonLast;
+    if (IsLast)
+      Kind = PrivateKindTy::Last;
     if (IsConditional)
-      CondLastPrivates.insert(PrivVal);
-    else if (IsLast)
-      LastPrivates.insert(PrivVal);
+      Kind = PrivateKindTy::Conditional;
+    std::unique_ptr<PrivDescrTy> PrivItem =
+        std::make_unique<PrivDescrTy>(PrivVal, Kind);
+    Privates.insert({PrivVal, std::move(PrivItem)});
   }
 
   /// Register explicit reduction variables provided from outside.
@@ -207,13 +231,13 @@ public:
   void addReductionAdd(Value *V);
   void addReductionMult(Value *V);
   void addReductionAnd(Value *V) {
-    return parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerAnd);
+    return parseExplicitReduction(V, RecurKind::And);
   }
   void addReductionXor(Value *V) {
-    return parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerXor);
+    return parseExplicitReduction(V, RecurKind::Xor);
   }
   void addReductionOr(Value *V) {
-    return parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerOr);
+    return parseExplicitReduction(V, RecurKind::Or);
   }
 
   bool isExplicitReductionPhi(PHINode *Phi);
@@ -262,28 +286,27 @@ public:
     return &Linears;
   }
 
-  // Return Pointer to Privates map
-  const PrivatesListTy &getPrivates() const { return Privates; }
+  // Analyze all instruction between the SIMD clause and the loop to identify
+  // any aliasing variables to the explicit SIMD descriptors.
+  void collectPreLoopDescrAliases();
 
-  // Return Pointer to CondPrivates map
-  const PrivatesListTy &getCondPrivates() const { return CondLastPrivates; }
-
-  // Return Pointer to LastPrivates map
-  const PrivatesListTy &getLastPrivates() const { return LastPrivates; }
+  // Analyze all instructions in loop post-exit to identify any aliasing
+  // variables to the explicit SIMD descriptor.
+  void collectPostExitLoopDescrAliases();
 
   // Return the iterator-range to the list of privates loop-entities.
+  // TODO: Windows compiler explicitly doesn't allow for const type specifier.
   inline decltype(auto) privates() const {
-    return make_range(Privates.begin(), Privates.end());
+    return map_range(
+        make_range(Privates.begin(), Privates.end()), [](auto &PrivatePair) {
+          return const_cast<const PrivDescrTy *>(PrivatePair.second.get());
+        });
   }
 
-  // Return the iterator-range to the list of conditional privates.
-  inline decltype(auto) condPrivates() const {
-    return make_range(CondLastPrivates.begin(), CondLastPrivates.end());
-  }
-
-  // Return the iterator-range to the list of last-privates.
-  inline decltype(auto) lastPrivates() const {
-    return make_range(LastPrivates.begin(), LastPrivates.end());
+  // Return the iterator-range to the list of privates loop-entities values.
+  inline decltype(auto) privateVals() const {
+    return map_range(make_range(Privates.begin(), Privates.end()),
+                     [](auto &PrivatePair) { return PrivatePair.first; });
   }
 
   // Return the iterator-range to the list of explicit reduction variables which
@@ -311,18 +334,19 @@ public:
                      [](auto &LinearStepPair) { return LinearStepPair.first; });
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const;
+  void dump() const { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
 private:
   // Find pattern inside the loop for matching the explicit
   // reduction variable \p V.
-  void parseExplicitReduction(Value *V,
-                              RecurrenceDescriptor::RecurrenceKind Kind,
-                              RecurrenceDescriptor::MinMaxRecurrenceKind Mrk =
-                                  RecurrenceDescriptor::MRK_Invalid);
+  void parseExplicitReduction(Value *V, RecurKind Kind);
   /// Parsing Min/Max reduction patterns.
-  void parseMinMaxReduction(Value *V, RecurrenceDescriptor::RecurrenceKind Kind,
-                            RecurrenceDescriptor::MinMaxRecurrenceKind Mrk);
+  void parseMinMaxReduction(Value *V, RecurKind Kind);
   /// Parsing arithmetic reduction patterns.
-  void parseBinOpReduction(Value *V, RecurrenceDescriptor::RecurrenceKind Kind);
+  void parseBinOpReduction(Value *V, RecurKind Kind);
 
   /// Return true if the explicit reduction uses Phi nodes.
   bool doesReductionUsePhiNodes(Value *RedVarPtr, PHINode *&LoopHeaderPhiNode,
@@ -330,6 +354,25 @@ private:
   /// Return true if the explicit reduction variable uses private memory on
   /// each iteration.
   bool isReductionVarStoredInsideTheLoop(Value *RedVarPtr);
+
+  /// Check whether \p I is liveout.
+  bool isLiveOut(const Instruction *I) const;
+
+  /// Return operand of the \p Phi which is live-out. Live out phi or
+  /// a Recurrence phi is expected.
+  const Instruction *getLiveOutPhiOperand(const PHINode *Phi) const;
+
+  /// Check whether Phi can be private or private alias, update private
+  /// descriptor and return true if so. Otherwise return false. Live out phi or
+  /// a Recurrence phi is expected.
+  bool checkAndAddAliasForSimdLastPrivate(const PHINode *Phi);
+
+  /// If the \p Candidate is declared as private or is an alias for a private
+  /// then return the descriptor of private. Otherwise nullptr is returned.
+  PrivDescrTy *findPrivateOrAlias(const Value *Candidate) const;
+
+  /// Set \p ExitI as instruction for private.
+  void updatePrivateExitInst(PrivDescrTy *Priv, const Instruction *ExitI);
 
   /// Check the safety of aliasing of OMP clause variables outside of the loop.
   bool isAliasingSafe(DominatorTree &DT, const CallInst *RegionEntry);
@@ -340,6 +383,10 @@ private:
   bool isEntityAliasingSafe(
       const LoopEntitiesRange &LERange,
       std::function<bool(const Instruction *)> IsAliasInRelevantScope);
+
+  /// Utility function to check whether given Instruction is end directive of
+  /// OMP.SIMD directive.
+  bool isEndDirective(Instruction *I) const;
 };
 
 } // namespace vpo

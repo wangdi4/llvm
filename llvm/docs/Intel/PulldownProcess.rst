@@ -90,18 +90,36 @@ developers and the merge tool.
 
 #. ``merge.status``: When the tool encounters merge conflicts, it writes
    information about the problem to ``merge.status`` and halts the merge
-   process. Once the problem is fixed, the developer deletes the contents of
-   the file to signal to the merge tool that it is okay to continue.
+   process.
 
    The file contains a link to the review created by the merge tool for a
    conflicting merge. The "resolution" is simply staging and committing the
    conflict markers. The job of pulldown coordinators is to resolve the
    conflicts and upload proper resolution as a new patchset for that review.
+   Once the conflict resolution is merged, the tool deletes the contents of
+   the file and resumes the merge process.
+
+   In case the developer needs to signal to the merge tool that it is okay
+   to continue, he should clean the contents of the ``merge.status`` file
+   manually.
 
 #. ``build.status``: When the tool encounters a build failure, it writes
    information about the problem to ``build.status`` and halts the merge
-   process. Once the problem is fixed, the developer deletes the contents of
-   the file to signal to the merge tool that it is okay to continue.
+   process.
+
+   If the build is broken, the tool starts to rollback recent commits to find
+   a guilty commit. Similarly to the ``merge.status`` the file contains the
+   link for the review where the resolution should be uploaded to. The
+   developer is responsible for fixing a build issue and uploading proper
+   resolution as a new patchset for that review. Once the build fix is merged,
+   the tool deletes the contents of the file and resumes the merge process.
+
+   It is possible that build fail occurs without creating a gerrit review
+   (ex.: first non-merge build after conflict resolution). In this case the
+   developer should create a new gerrit review to fix the build. Once the
+   problem is fixed, the developer deletes the contents of the file to signal
+   to the merge tool that it is okay to continue.
+
    It is not uncommon for open source developers to break the
    compiler build. These breakages are usually short lived. People will notice
    almost immediately, and the offending change will either get fixed or
@@ -115,9 +133,6 @@ developers and the merge tool.
    the build, the tool will again halt the merge process and notify developers
    as it would for a normal build breakage. Upon a successful build, the merge
    tool automatically clears the contents of ``build.status``.
-
-   Similarly to the ``merge.status`` the file contains the link for the review
-   where the resolution should be uploaded to.
 
 Checking merge tool progress
 --------------------
@@ -477,6 +492,26 @@ the normal branch promotion process, e.g.
      <Request gatekeeper approval>
      $ ics merge -push
 
+When requesting gatekeeper approval, pulldown coordinator should include
+information about
+
+* latest commits from ``main`` and ``sycl`` branches which merged to xmain-cand.
+  To find them, execute:
+
+   .. code-block:: bash
+
+     $ cd $ICS_WSDIR/llvm
+     $ git log -1 `git rev-list --first-parent origin/main --not HEAD | tail -1`~
+     $ git log -1 `git rev-list --first-parent origin/sycl --not HEAD | tail -1`~
+
+* stability and performance regressions, and performance gains provided by alloy.
+  All stability regressions must be covered by JIRA trackers. All performance
+  regressions described in :ref:`Performance issues <performance-issues>` section
+  must be covered by JIRA trackers.
+
+The same information should be included to the promotion notification message and
+sent to the whole members of the compiler organization.
+
 `ics merge -push` tries to push the results of the previous merge to ``xmain``
 branch via fast-forwarding. If that merge commit cannot be fast-forwarded,
 a new merge is created without making any push to ``xmain``. At this point,
@@ -496,15 +531,24 @@ Checkin criteria for ``xmain-cand``
 -----------------------------------
 Checkin criteria for pulldown is basically the same as for any other change and
 the final decision is done by the xmain gatekeeper. The main exception is the
-process of addressing performance regressions. Unlike regular checkin requests
-we do allow the pulldown to decrease performance and do not require the
-coordinators to analyze such regression prior to promotion. Instead a JIRA against
-project "Compiler Performance Tracking" (CMPLRPTA) setting component to
-"LLVM Performance Analysis" and assignee to "Automatic" should be submitted listing
-the performance drops from the Alloy testing. Depending on the current
-organizational goals it might be preferred to split the regressions into two
-parts - important ones and those that have lower priority.
+process of addressing performance regressions.
 
+.. _performance-issues:
+
+Performance issues
+----------------------------------
+Unlike regular checkin requests we do allow the pulldown to decrease performance
+and do not require the coordinators to analyze such regression prior to
+promotion. Instead a JIRA against project "Compiler Performance Tracking"
+(CMPLRPTA) setting component to "LLVM Performance Analysis" and assignee to
+"Automatic" should be submitted listing the performance drops from the Alloy
+testing. The JIRAs should be created for the performance drops over 2% on spec
+benchmarks, and the performance drops over 10% on non-spec benchmarks. Depending
+on the current organizational goals it might be preferred to split the
+regressions into two parts - important ones and those that have lower priority.
+
+Stability issues
+----------------------------------
 However, as the scope and effect of work for the pulldown coordinator might
 differ from the usual patches he/she works on, here is a brief reference to
 judge the quality of the chosen ``xmain-cand`` regarding its stability (as

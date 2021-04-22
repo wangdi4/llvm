@@ -11,7 +11,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:     Remark: Loop completely unrolled
+; OPTREPORT-NEXT:     remark: Loop completely unrolled
 ; OPTREPORT-NEXT: LOOP END
 
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-cg -intel-loop-optreport=low < %s -S | FileCheck %s
@@ -22,7 +22,7 @@
 ; CHECK: [[M4]] = distinct !{!"llvm.loop.optreport", [[M5:!.*]]}
 ; CHECK: [[M5]] = distinct !{!"intel.loop.optreport", [[M6:!.*]]}
 ; CHECK: [[M6]] = !{!"intel.optreport.remarks", [[M7:!.*]]}
-; CHECK: [[M7]] = !{!"intel.optreport.remark", !"Loop completely unrolled"}
+; CHECK: [[M7]] = !{!"intel.optreport.remark", i32 0, !"Loop completely unrolled"}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

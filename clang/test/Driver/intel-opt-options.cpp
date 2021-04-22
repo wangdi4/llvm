@@ -160,13 +160,19 @@
 // CHECK-FNO-IOPENMP-OFFLOAD: "-fno-intel-openmp-offload"
 // CHECK-FNO-IOPENMP-OFFLOAD: "-mllvm" "-vpo-paropt-use-offload-metadata=false"
 
-// Setting -disable-cpudispatch-ifuncs as default with --intel
-// RUN: %clang -### %s -c --intel 2>&1 | FileCheck %s --check-prefix=CHECK-DISABLE-CPUDISPATCH-IFUNCS
-// RUN: %clang_cl -### %s -c --intel 2>&1 | FileCheck %s --check-prefix=CHECK-DISABLE-CPUDISPATCH-IFUNCS-WIN
-// CHECK-DISABLE-CPUDISPATCH-IFUNCS: "-disable-cpudispatch-ifuncs"
-// CHECK-DISABLE-CPUDISPATCH-IFUNCS-WIN-NOT: "-disable-cpudispatch-ifuncs"
-
 // Check for -target-feature with -xHOST
 // RUN: %clang -### %s -c -xHOST 2>&1 | FileCheck %s --check-prefix=CHECK-XHOST
 // RUN: %clang_cl -### %s -c /QxHOST 2>&1 | FileCheck %s --check-prefix=CHECK-XHOST
 // CHECK-XHOST: "-cc1"{{.*}}"-target-cpu"{{.*}}"-target-feature"
+
+// RUN: %clang -qopt-for-throughput=single-job -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=THROUGHPUT-SINGLE %s
+// RUN: %clang_cl -Qopt-for-throughput:single-job -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=THROUGHPUT-SINGLE %s
+// THROUGHPUT-SINGLE: "-mllvm" "-unaligned-nontemporal-buffer-elements=16"
+
+// RUN: %clang -qopt-for-throughput=badarg -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=THROUGHPUT-BADARG %s
+// RUN: %clang_cl -Qopt-for-throughput=badarg -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=THROUGHPUT-BADARG %s
+// THROUGHPUT-BADARG: error: invalid argument 'badarg'

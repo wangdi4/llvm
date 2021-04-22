@@ -9,8 +9,9 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This pass performs register promotion for simple global
-// variables that are not escaped.
+// This pass performs alloca promotion for simple global
+// variables that are not escaped, live-in to the function, or loaded through
+// recursion.
 //
 //===----------------------------------------------------------------------===//
 
@@ -60,6 +61,7 @@ namespace {
 class NonLTOGlobalOptImpl {
   AliasAnalysis &AA;
   DominatorTree &DT;
+
 public:
   NonLTOGlobalOptImpl(AliasAnalysis &AA, DominatorTree &DT)
     : AA(AA), DT(DT) {}
@@ -151,7 +153,7 @@ bool NonLTOGlobalOptImpl::isGVLegalToBePromoted(
   return true;
 }
 
-// For the scalar global varialbe, the compiler checkes whether
+// For the scalar global variable, the compiler checks whether
 // it is legal to be promoted into the register. If so,
 // replace the use of global variable with registers.
 bool NonLTOGlobalOptImpl::processInternalGlobal(GlobalVariable *GV,
@@ -165,12 +167,14 @@ bool NonLTOGlobalOptImpl::processInternalGlobal(GlobalVariable *GV,
     if (!isGVLegalToBePromoted(GV, Stores, GVUsers))
       return false;
 
+    LLVM_DEBUG(dbgs() << "Promoting: " << GV->getName() << "\n");
+
     Instruction &FirstI = const_cast<Instruction &>(
         *GS.AccessingFunction->getEntryBlock().begin());
     Type *ElemTy = GV->getType()->getElementType();
     const DataLayout &DL = GS.AccessingFunction->getParent()->getDataLayout();
     AllocaInst *Alloca =
-        new AllocaInst(ElemTy, 
+        new AllocaInst(ElemTy,
                        DL.getAllocaAddrSpace(),
                        nullptr,
                        GV->getName(), &FirstI);
@@ -188,7 +192,6 @@ bool NonLTOGlobalOptImpl::run(Function &F) {
   bool Changed = false;
   Module *M = F.getParent();
 
-
   // The intel-GlobalOpt should abort if the ReturnsTwice functions such as
   // setjmp are present.
   if (F.callsFunctionThatReturnsTwice())
@@ -197,6 +200,15 @@ bool NonLTOGlobalOptImpl::run(Function &F) {
   unsigned NumBBsHasMoreThanTwoIncomingEdges = 0;
   unsigned NumBBsHasTwoIncomingEdges = 0;
   unsigned NumInsns = 0;
+
+  auto FIsLocalNotAddrTaken = [](Function &F) {
+    if (!F.isDSOLocal())
+      return false;
+    for (auto &U : F.uses())
+      if (!isa<CallBase>(U.getUser()))
+        return false;
+    return true;
+  };
 
   for (Function::iterator B = F.begin(), BE = F.end(); B != BE; ++B) {
     bool BBHasTwoIncomingEdges = false;
@@ -210,6 +222,24 @@ bool NonLTOGlobalOptImpl::run(Function &F) {
     for (BasicBlock::iterator I = B->begin(), IE = B->end(); I != IE; ++I) {
       if (dyn_cast<FenceInst>(I))
         return Changed;
+
+      // CMPLRLLVM-24756: If this function may recurse, we cannot replace
+      // globals with stack.
+      if (auto *CI = dyn_cast<CallInst>(I)) {
+        if (!F.doesNotRecurse()) {
+          auto *Callee = CI->getCalledFunction();
+          // 526.blender: assume some cases don't recurse.
+          // Notably, if F is local, not address-taken and the call is to a
+          // non-local function.
+          // setjmp has already been checked.
+          if (!Callee || Callee->isIntrinsic() ||
+              (FIsLocalNotAddrTaken(F) && Callee->isDeclaration()))
+            continue;
+          LLVM_DEBUG(dbgs() << F.getName() << " may recurse on callee: ");
+          LLVM_DEBUG(dbgs() << Callee->getName() << "\n");
+          return Changed;
+        }
+      }
       if (BBHasTwoIncomingEdges)
         NumInsns++;
     }

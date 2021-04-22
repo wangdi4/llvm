@@ -19,6 +19,9 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
+#if INTEL_COLLAB
+#include "llvm/BinaryFormat/ELF.h"
+#endif // INTEL_COLLAB
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -29,18 +32,34 @@
 #ifndef NDEBUG
 #include "llvm/IR/Verifier.h"
 #endif // NDEBUG
+#if INTEL_COLLAB
+#include "llvm/Object/ELFObjectFile.h"
+#include "llvm/Object/ObjectFile.h"
+#endif // INTEL_COLLAB
 #include "llvm/Support/CommandLine.h"
+#if INTEL_COLLAB
+#include "llvm/Support/EndianStream.h"
+#endif // INTEL_COLLAB
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/LineIterator.h"
 #include "llvm/Support/MemoryBuffer.h"
+#if INTEL_COLLAB
+#include "llvm/Support/Program.h"
+#endif // INTEL_COLLAB
 #include "llvm/Support/PropertySetIO.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/SimpleTable.h"
 #include "llvm/Support/ToolOutputFile.h"
+#if INTEL_COLLAB
+#include "llvm/Support/VCSRevision.h"
+#endif // INTEL_COLLAB
 #include "llvm/Support/WithColor.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/ObjectYAML/ELFYAML.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <cassert>
@@ -52,7 +71,14 @@
 #include <string>
 #include <tuple>
 
+#if INTEL_COLLAB
+#define OPENMP_OFFLOAD_IMAGE_VERSION "1.0"
+
+#endif // INTEL_COLLAB
 using namespace llvm;
+#if INTEL_COLLAB
+using namespace llvm::object;
+#endif // INTEL_COLLAB
 
 // Fields in the binary descriptor which are made available to SYCL runtime
 // by the offload wrapper. Must match across tools -
@@ -96,6 +122,11 @@ template <> struct DenseMapInfo<OffloadKind> {
 } // namespace llvm
 
 static cl::opt<bool> Help("h", cl::desc("Alias for -help"), cl::Hidden);
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> ContainerizeOpenMPImages(
+    "containerize-openmp-images", cl::Hidden, cl::init(true),
+    cl::desc("Place all OpenMP SPIR-V images into one ELF container"));
+#endif // INTEL_CUSTOMIZATION
 
 // Mark all our options with this category, everything else (except for -version
 // and -help) will be hidden.
@@ -218,9 +249,9 @@ static StringRef offloadKindToString(OffloadKind Kind) {
     return "hip";
   case OffloadKind::SYCL:
     return "sycl";
-  default:
-    llvm_unreachable("bad offload kind");
   }
+  llvm_unreachable("bad offload kind");
+
   return "<ERROR>";
 }
 
@@ -234,12 +265,20 @@ static StringRef formatToString(BinaryImageFormat Fmt) {
     return "llvmbc";
   case BinaryImageFormat::native:
     return "native";
-  default:
-    llvm_unreachable("bad format");
   }
+  llvm_unreachable("bad format");
+
   return "<ERROR>";
 }
 
+#if INTEL_COLLAB
+static cl::opt<bool> SaveTemps(
+    "save-temps",
+    cl::desc("Save temporary files that may be produced by the tool. "
+             "This option forces print-out of the temporary files' names."),
+    cl::Hidden);
+
+#endif // INTEL_COLLAB
 namespace {
 
 struct OffloadKindToUint {
@@ -320,6 +359,20 @@ public:
         File, Manif, Tgt, Fmt, CompileOpts, LinkOpts, EntriesFile, PropsFile));
   }
 
+#if INTEL_COLLAB
+  std::string ToolName;
+  std::string ObjcopyPath;
+  // Temporary file names that may be created during adding notes
+  // to ELF offload images. Use -save-temps to keep them and also
+  // see their names. A temporary file's name includes the name
+  // of the original input ELF image, so you can easily match
+  // them, if you have multiple inputs.
+  std::vector<std::string> TempFiles;
+
+#endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+  std::string Yaml2ObjPath;
+#endif // INTEL_CUSTOMIZATION
 private:
   IntegerType *getSizeTTy() {
     switch (M.getDataLayout().getPointerTypeSize(Type::getInt8PtrTy(C))) {
@@ -625,19 +678,6 @@ private:
   std::pair<Constant *, Constant *>
   addDeviceImageToModule(ArrayRef<char> Buf, const Twine &Name,
                          OffloadKind Kind, StringRef TargetTriple) {
-    // Do not bother adding 'size' section if target triple was not provided
-    // since we anyway won't be able to construct what bundler expects to see in
-    // the fat object.
-    if (!TargetTriple.empty()) {
-      // Create global data object for the image size.
-      size_t BufSize = Buf.size();
-      addGlobalArrayVariable(
-          Name + ".size",
-          makeArrayRef(reinterpret_cast<char *>(&BufSize), sizeof(BufSize)),
-          "__CLANG_OFFLOAD_BUNDLE_SIZE__" + offloadKindToString(Kind) + "-" +
-              TargetTriple);
-    }
-
     // Create global variable for the image data.
     return addArrayToModule(Buf, Name,
                             TargetTriple.empty()
@@ -816,6 +856,12 @@ private:
     return addStructArrayToModule(PropSetsInits, getSyclPropSetTy());
   }
 
+#if INTEL_COLLAB
+public:
+    MemoryBuffer *addELFNotes(MemoryBuffer *Buf, StringRef OriginalFileName);
+
+private:
+#endif // INTEL_COLLAB
   /// Creates binary descriptor for the given device images. Binary descriptor
   /// is an object that is passed to the offloading runtime at program startup
   /// and it describes all device images available in the executable or shared
@@ -1002,6 +1048,12 @@ private:
       if (!BinOrErr)
         return BinOrErr.takeError();
       MemoryBuffer *Bin = *BinOrErr;
+#if INTEL_COLLAB
+      if (Img.File != "-" && Kind == OffloadKind::OpenMP) {
+        // Adding ELF notes for STDIN is not supported yet.
+        Bin = addELFNotes(Bin, Img.File);
+      }
+#endif // INTEL_COLLAB
       std::pair<Constant *, Constant *> Fbin = addDeviceImageToModule(
           makeArrayRef(Bin->getBufferStart(), Bin->getBufferSize()),
           Twine(OffloadKindTag) + Twine(ImgId) + Twine(".data"), Kind, Img.Tgt);
@@ -1129,9 +1181,103 @@ private:
   }
 
 public:
+#if INTEL_CUSTOMIZATION
+  void setToolPath(std::string &ToolPath, StringRef ToolName,
+                   StringRef FailMessage) {
+    // This just needs to be some symbol in the binary; C++ doesn't
+    // allow taking the address of ::main however.
+    void *P = (void *)(intptr_t)&Help;
+    std::string COWPath = sys::fs::getMainExecutable(ToolName.str().c_str(), P);
+    if (!COWPath.empty()) {
+      auto COWDir = sys::path::parent_path(COWPath);
+      ErrorOr<std::string> ToolPathOrErr =
+          sys::findProgramByName(ToolName, {COWDir});
+      if (ToolPathOrErr) {
+        ToolPath = *ToolPathOrErr;
+        return;
+      }
+
+      // Otherwise, look through PATH environment.
+    }
+
+    ErrorOr<std::string> ToolPathOrErr =
+        sys::findProgramByName(ToolName);
+    if (!ToolPathOrErr) {
+      WithColor::warning(errs(), ToolName)
+          << "cannot find " << ToolName << "[.exe] in PATH; "
+          << FailMessage << ".\n";
+      return;
+    }
+
+    ToolPath = *ToolPathOrErr;
+
+  }
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  BinaryWrapper(StringRef Target, StringRef ToolName)
+      : M("offload.wrapper.object", C), ToolName(ToolName) {
+    M.setTargetTriple(Target);
+#if INTEL_CUSTOMIZATION
+    setToolPath(Yaml2ObjPath, "yaml2obj", "ELF container cannot be created");
+#endif // INTEL_CUSTOMIZATION
+    // Look for llvm-objcopy in the same directory, from which
+    // clang-offload-wrapper is invoked. This helps OpenMP offload
+    // LIT tests.
+
+    // This just needs to be some symbol in the binary; C++ doesn't
+    // allow taking the address of ::main however.
+    void *P = (void *)(intptr_t)&Help;
+    std::string COWPath = sys::fs::getMainExecutable(ToolName.str().c_str(), P);
+    if (!COWPath.empty()) {
+      auto COWDir = sys::path::parent_path(COWPath);
+      ErrorOr<std::string> ObjcopyPathOrErr =
+          sys::findProgramByName("llvm-objcopy", {COWDir});
+      if (ObjcopyPathOrErr) {
+        ObjcopyPath = *ObjcopyPathOrErr;
+        return;
+      }
+
+      // Otherwise, look through PATH environment.
+    }
+
+    ErrorOr<std::string> ObjcopyPathOrErr =
+        sys::findProgramByName("llvm-objcopy");
+    if (!ObjcopyPathOrErr) {
+      WithColor::warning(errs(), ToolName)
+          << "cannot find llvm-objcopy[.exe] in PATH; ELF notes cannot be "
+             "added.\n";
+      return;
+    }
+
+    ObjcopyPath = *ObjcopyPathOrErr;
+  }
+
+  ~BinaryWrapper() {
+    if (TempFiles.empty())
+      return;
+
+    StringRef ToolNameRef(ToolName);
+    auto warningOS = [ToolNameRef]() -> raw_ostream & {
+      return WithColor::warning(errs(), ToolNameRef);
+    };
+
+    for (auto &F : TempFiles) {
+      if (SaveTemps) {
+        warningOS() << "keeping temporary file " << F << "\n";
+        continue;
+      }
+
+      auto EC = sys::fs::remove(F, false);
+      if (EC)
+        warningOS() << "cannot remove temporary file " << F << ": "
+                    << EC.message().c_str() << "\n";
+    }
+  }
+#else // INTEL_COLLAB
   BinaryWrapper(StringRef Target) : M("offload.wrapper.object", C) {
     M.setTargetTriple(Target);
   }
+#endif // INTEL_COLLAB
 
   Expected<const Module *> wrap() {
     for (auto &X : Packs) {
@@ -1149,6 +1295,271 @@ public:
     }
     return &M;
   }
+#if INTEL_CUSTOMIZATION
+  // FIXME: move this to llvm/BinaryFormat/ELF.h:
+#define NT_INTEL_ONEOMP_OFFLOAD_VERSION 1
+#define NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT 2
+#define NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX 3
+
+  // INTEL_ONEOMP_OFFLOAD_VERSION specifies the offload image
+  // structure for Intel oneAPI OpenMP (SPIR-V) offload.
+  // We used to use plain SPIR-V images for Intel oneAPI OpenMP offload,
+  // and this legacy representation may still be supported by OpenMP
+  // offload runtime. Newer toolchain is using ELF container
+  // to represent offload image(s) for a single loadable module
+  // (i.e. executable or DLL/shared library).
+  //
+  // Version 1.0:
+  //   1. Version 1.0 is identified by ELF note with "INTELONEOMPOFFLOAD"
+  //      name and type NT_INTEL_ONEOMP_OFFLOAD_VERSION - the note's descriptor
+  //      contains (not null-terminated) string "1.0".
+  //   2. The ELF image must have NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT note.
+  //      The note's descriptor is a (not null-terminated) string specifying
+  //      the integer number of images packed into the ELF image.
+  //      The number must be greater than zero.
+  //   3. The images may be found in sections named "__openmp_offload_spirv_#",
+  //      where '#' is from [0, NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT) interval.
+  //   4. The images in these sections are either SPIR-V images or native
+  //      images produced by device compilers (e.g. ocloc, etc.).
+  //   5. The ELF image may have up to NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT
+  //      notes of type NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX. Each such note's
+  //      descriptor provides auxiliary information for the packed images.
+  //      The descriptor has the following structure:
+  //        "#\0""<image format>\0""[compile options]\0""[link options]",
+  //      where # is from [0, NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT) interval;
+  //      <image format> is "0" for "native", and "1" for SPIR-V.
+  //      So for each image we can provide two optional strings containing
+  //      compilation and linking options for the SPIR-V runtime.
+  //      Note that the '\0' is required even when an optional string
+  //      is not specified.
+  //   6. ELF image for version 1.0 is always a 64-bit little-endian ELF.
+  //
+  // TODO: we may try to use MsgPack format to have more compact representation
+  //       for the auxiliary information. This will require new
+  //       NT_INTEL_ONEOMP_OFFLOAD_VERSION identifier (e.g. "1.1" or "2.0").
+#define INTEL_ONEOMP_OFFLOAD_VERSION "1.0"
+
+  Expected<StringRef> getTmpFile(Twine NamePattern) {
+    Expected<sys::fs::TempFile> TempFile =
+        sys::fs::TempFile::create(NamePattern);
+    if (!TempFile)
+      return TempFile.takeError();
+
+    std::string FileName = TempFile->TmpName;
+
+    if (Error E = TempFile->keep(FileName))
+      return std::move(E);
+
+    TempFiles.push_back(std::move(FileName));
+    return TempFiles.back();
+  }
+
+  // TODO: if this code stays here (vs migrating to the driver), we need to
+  //       return Error in case of failure and abort with a fatal error
+  //       in the caller.
+  void containerizeOpenMPImages() {
+    if (Yaml2ObjPath.empty() || ObjcopyPath.empty())
+      return;
+
+    // If there are not OpenMP images, there is nothing to do.
+    auto OpenMPPackIt = Packs.find(OffloadKind::OpenMP);
+    if (OpenMPPackIt == Packs.end())
+      return;
+    SameKindPack *OpenMPPack = OpenMPPackIt->second.get();
+
+    // Start creating notes for the ELF container.
+    std::vector<ELFYAML::NoteEntry> Notes;
+    std::string Version = toHex(INTEL_ONEOMP_OFFLOAD_VERSION);
+    Notes.emplace_back(ELFYAML::NoteEntry{"INTELONEOMPOFFLOAD",
+                                          yaml::BinaryRef(Version),
+                                          NT_INTEL_ONEOMP_OFFLOAD_VERSION});
+
+    SmallVector<StringRef, 2> ImageFiles;
+    // AuxInfos strings will hold auxiliary information for each image.
+    // ELFYAML::NoteEntry structures will hold references to these
+    // strings, so we have to make sure the strings are valid up to the point,
+    // where YAML is dropped into a file.
+    SmallVector<std::string, 2> AuxInfos;
+    size_t MaxImagesNum = OpenMPPack->size();
+    // To avoid references invalidation, we have to reserve a string
+    // for each image.
+    AuxInfos.reserve(MaxImagesNum);
+
+    // Find SPIR-V images and create notes with auxiliary information
+    // for each of them.
+    unsigned ImageIdx = 0;
+    for (auto I = OpenMPPack->begin(); I != OpenMPPack->end(); ++I) {
+      const BinaryWrapper::Image &Img = *(I->get());
+      if (Img.Tgt.find("spir") != 0)
+        continue;
+
+      unsigned ImageFmt = 1; // SPIR-V format
+      if (Img.Tgt.find("spir64_") == 0 || Img.Tgt.find("spir_") == 0)
+        ImageFmt = 0; // native format
+
+      ImageFiles.push_back(Img.File);
+      AuxInfos.push_back(toHex((Twine(ImageIdx) + Twine('\0') +
+                                Twine(ImageFmt) + Twine('\0') +
+                                Img.CompileOpts + Twine('\0') +
+                                Img.LinkOpts).str()));
+      Notes.emplace_back(ELFYAML::NoteEntry{
+          "INTELONEOMPOFFLOAD",
+          yaml::BinaryRef(AuxInfos.back()),
+          NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX});
+
+      ++ImageIdx;
+    }
+
+    // If there are no SPIR-V images, there is nothing to do.
+    if (ImageIdx == 0)
+      return;
+
+    std::string ImgCount = toHex(Twine(ImageIdx).str());
+    Notes.emplace_back(ELFYAML::NoteEntry{"INTELONEOMPOFFLOAD",
+                                          yaml::BinaryRef(ImgCount),
+                                          NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT});
+
+    StringRef ToolNameRef(ToolName);
+
+    // Helper to emit warnings.
+    auto warningOS = [ToolNameRef]() -> raw_ostream & {
+      return WithColor::warning(errs(), ToolNameRef);
+    };
+
+    // Reserve temporary file for a YAML template that will be used
+    // to create an initial ELF image, and a temporary file for
+    // the initial ELF image.
+    Expected<StringRef> YamlFileName =
+        getTmpFile(Output + Twine(".spirv.yamlimage.%%%%%%%.tmp"));
+    if (!YamlFileName) {
+      logAllUnhandledErrors(YamlFileName.takeError(), warningOS());
+      return;
+    }
+    Expected<StringRef> ImageFileName =
+        getTmpFile(Output + Twine(".spirv.elfimage.%%%%%%%.tmp"));
+    if (!ImageFileName) {
+      logAllUnhandledErrors(ImageFileName.takeError(), warningOS());
+      return;
+    }
+
+    std::error_code EC;
+    raw_fd_stream YamlOS(*YamlFileName, EC);
+    if (EC) {
+      warningOS() << "cannot open YAML template file " << *YamlFileName << ": "
+                  << EC.message() << "\n";
+      return;
+    }
+
+    // Write YAML template file.
+    {
+      yaml::Output YamlOut(YamlOS, NULL, 0);
+
+      // We use 64-bit little-endian ELF currently.
+      ELFYAML::FileHeader Header{};
+      Header.Class = ELF::ELFCLASS64;
+      Header.Data = ELF::ELFDATA2LSB;
+      Header.Type = ELF::ET_NONE;
+      // Do not use any existing machine, otherwise, other plugins
+      // may claim this image.
+      Header.Machine = ELF::EM_NONE;
+
+      // Create a section with notes.
+      ELFYAML::NoteSection Section{};
+      Section.Type = ELF::SHT_NOTE;
+      Section.Name = ".note.inteloneompoffload";
+      Section.Notes.emplace(std::move(Notes));
+
+      ELFYAML::Object Object{};
+      Object.Header = Header;
+      Object.Chunks.push_back(
+          std::make_unique<ELFYAML::NoteSection>(std::move(Section)));
+
+      YamlOut << Object;
+      // YamlOut is destructed here causing the YAML write out.
+    }
+    YamlOS.close();
+
+    if (YamlOS.has_error()) {
+      warningOS() << "cannot write YAML template file " << *YamlFileName << ": "
+                  << YamlOS.error().message() << "\n";
+      YamlOS.clear_error();
+      return;
+    }
+
+    // Invoke yaml2obj to produce the initial ELF container from the YAML
+    // template:
+    //   yaml2obj spirv.yamlimage.tmp -o=spirv.elfimage.tmp
+    {
+      std::vector<StringRef> Args;
+      Args.push_back(Yaml2ObjPath);
+      Args.push_back(*YamlFileName);
+      std::string OutFlag("-o=" + ImageFileName->str());
+      Args.push_back(OutFlag);
+      bool ExecutionFailed = false;
+      std::string ErrMsg;
+      (void)sys::ExecuteAndWait(Yaml2ObjPath, Args,
+                                /*Env=*/llvm::None, /*Redirects=*/{},
+                                /*SecondsToWait=*/0,
+                                /*MemoryLimit=*/0, &ErrMsg, &ExecutionFailed);
+
+      if (ExecutionFailed) {
+        warningOS() << ErrMsg << "\n";
+        return;
+      }
+    }
+
+    // Invoke objcopy to put each image into its own __openmp_offload_spirv_#
+    // section:
+    //   objcopy --add-section=__openmp_offload_spirv_0=ImgFile0 \
+    //       spirv.elfimage.tmp spirv.elfimage.tmp
+    //   objcopy --add-section=__openmp_offload_spirv_1=ImgFile1 \
+    //       spirv.elfimage.tmp spirv.elfimage.tmp
+    //   ...
+    ImageIdx = 0;
+    for (auto Name : ImageFiles) {
+      std::vector<StringRef> Args;
+      Args.push_back(ObjcopyPath);
+      std::string Option(("--add-section=__openmp_offload_spirv_" +
+                          Twine(ImageIdx) +
+                          "=" + Name).str());
+      Args.push_back(Option);
+      Args.push_back(*ImageFileName);
+      Args.push_back(*ImageFileName);
+      bool ExecutionFailed = false;
+      std::string ErrMsg;
+      (void)sys::ExecuteAndWait(ObjcopyPath, Args,
+                                /*Env=*/llvm::None, /*Redirects=*/{},
+                                /*SecondsToWait=*/0,
+                                /*MemoryLimit=*/0, &ErrMsg, &ExecutionFailed);
+
+      if (ExecutionFailed) {
+        warningOS() << ErrMsg << "\n";
+        return;
+      }
+
+      ++ImageIdx;
+    }
+
+    // Delete the original Images from the list and replace then
+    // with a single combined container ELF.
+    for (auto I = OpenMPPack->begin(); I != OpenMPPack->end();) {
+      const BinaryWrapper::Image &Img = *(I->get());
+      if (Img.Tgt.find("spir") != 0)
+        ++I;
+      else
+        I = OpenMPPack->erase(I);
+    }
+
+    OpenMPPack->emplace_back(std::make_unique<Image>(
+        *ImageFileName, /*Manif_=*/"",
+        // Use artificial spirv triple to simplify the extraction of the ELF
+        // container from the final loadable module. The container will be
+        // placed into __CLANG_OFFLOAD_BUNDLE__openmp-spirv section.
+        "spirv",
+        BinaryImageFormat::none, /*CompileOpts_=*/"", /*LinkOpts_=*/"",
+        /*EntriesFile_=*/"", /*PropsFile_=*/""));
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &Out,
@@ -1300,7 +1711,211 @@ private:
 
   template <int N> my_enable_if_t<N == 0> inc() { incImpl<N>(); }
 };
+#if INTEL_COLLAB
+  // The whole function body is misaligned just to simplify
+  // conflict resolution, when https://reviews.llvm.org/D99551
+  // merges into xmain.
+  MemoryBuffer *BinaryWrapper::addELFNotes(
+      MemoryBuffer *Buf,
+      StringRef OriginalFileName) {
+    // Cannot add notes, if llvm-objcopy is not available.
+    //
+    // I did not find a clean way to add a new notes section into an existing
+    // ELF file. llvm-objcopy seems to recreate a new ELF from scratch,
+    // and we just try to use llvm-objcopy here.
+    if (ObjcopyPath.empty())
+      return Buf;
 
+    StringRef ToolNameRef(ToolName);
+
+    // Helpers to emit warnings.
+    auto warningOS = [ToolNameRef]() -> raw_ostream & {
+      return WithColor::warning(errs(), ToolNameRef);
+    };
+    auto handleErrorAsWarning = [&warningOS](Error E) {
+      logAllUnhandledErrors(std::move(E), warningOS());
+    };
+
+    Expected<std::unique_ptr<ObjectFile>> BinOrErr =
+        ObjectFile::createELFObjectFile(Buf->getMemBufferRef(),
+                                        /*InitContent=*/false);
+    if (Error E = BinOrErr.takeError()) {
+      consumeError(std::move(E));
+      // This warning is questionable, but let it be here,
+      // assuming that most OpenMP offload models use ELF offload images.
+      warningOS() << OriginalFileName
+                  << " is not an ELF image, so notes cannot be added to it.\n";
+      return Buf;
+    }
+
+    // If we fail to add the note section, we just pass through the original
+    // ELF image for wrapping. At some point we should enforce the note section
+    // and start emitting errors vs warnings.
+    support::endianness Endianness;
+    if (isa<ELF64LEObjectFile>(BinOrErr->get()) ||
+        isa<ELF32LEObjectFile>(BinOrErr->get())) {
+      Endianness = support::little;
+    } else if (isa<ELF64BEObjectFile>(BinOrErr->get()) ||
+               isa<ELF32BEObjectFile>(BinOrErr->get())) {
+      Endianness = support::big;
+    } else {
+      warningOS() << OriginalFileName
+                  << " is an ELF image of unrecognized format.\n";
+      return Buf;
+    }
+
+    // Create temporary file for the data of a new SHT_NOTE section.
+    // We fill it in with data and then pass to llvm-objcopy invocation
+    // for reading.
+    Twine NotesFileModel = OriginalFileName + Twine(".elfnotes.%%%%%%%.tmp");
+    Expected<sys::fs::TempFile> NotesTemp =
+        sys::fs::TempFile::create(NotesFileModel);
+    if (Error E = NotesTemp.takeError()) {
+      handleErrorAsWarning(createFileError(NotesFileModel, std::move(E)));
+      return Buf;
+    }
+    TempFiles.push_back(NotesTemp->TmpName);
+
+    // Create temporary file for the updated ELF image.
+    // This is an empty file that we pass to llvm-objcopy invocation
+    // for writing.
+    Twine ELFFileModel = OriginalFileName + Twine(".elfwithnotes.%%%%%%%.tmp");
+    Expected<sys::fs::TempFile> ELFTemp =
+        sys::fs::TempFile::create(ELFFileModel);
+    if (Error E = ELFTemp.takeError()) {
+      handleErrorAsWarning(createFileError(ELFFileModel, std::move(E)));
+      return Buf;
+    }
+    TempFiles.push_back(ELFTemp->TmpName);
+
+    // Keep the new ELF image file to reserve the name for the future
+    // llvm-objcopy invocation.
+    std::string ELFTmpFileName = ELFTemp->TmpName;
+    if (Error E = ELFTemp->keep(ELFTmpFileName)) {
+      handleErrorAsWarning(createFileError(ELFTmpFileName, std::move(E)));
+      return Buf;
+    }
+
+    // Write notes to the *elfnotes*.tmp file.
+    raw_fd_ostream NotesOS(NotesTemp->FD, false);
+
+    struct NoteTy {
+      // Note name is a null-terminated "LLVMOMPOFFLOAD".
+      std::string Name;
+      // Note type defined in llvm/include/llvm/BinaryFormat/ELF.h.
+      uint32_t Type = 0;
+      // Each note has type-specific associated data.
+      std::string Desc;
+
+      NoteTy(std::string &&Name, uint32_t Type, std::string &&Desc)
+          : Name(std::move(Name)), Type(Type), Desc(std::move(Desc)) {}
+    };
+
+    // So far we emit just three notes.
+    SmallVector<NoteTy, 3> Notes;
+    // Version of the offload image identifying the structure of the ELF image.
+    // Version 1.0 does not have any specific requirements.
+    // We may come up with some structure that has to be honored by all
+    // offload implementations in future (e.g. to let libomptarget
+    // get some information from the offload image).
+    Notes.emplace_back("LLVMOMPOFFLOAD", ELF::NT_LLVM_OPENMP_OFFLOAD_VERSION,
+                       OPENMP_OFFLOAD_IMAGE_VERSION);
+    // This is a producer identification string. We are LLVM!
+    Notes.emplace_back("LLVMOMPOFFLOAD", ELF::NT_LLVM_OPENMP_OFFLOAD_PRODUCER,
+                       "LLVM");
+    // This is a producer version. Use the same format that is used
+    // by clang to report the LLVM version.
+    Notes.emplace_back("LLVMOMPOFFLOAD",
+                       ELF::NT_LLVM_OPENMP_OFFLOAD_PRODUCER_VERSION,
+                       LLVM_VERSION_STRING
+#ifdef LLVM_REVISION
+                       " " LLVM_REVISION
+#endif
+    );
+
+    // Return the amount of padding required for a blob of N bytes
+    // to be aligned to Alignment bytes.
+    auto getPadAmount = [](uint32_t N, uint32_t Alignment) -> uint32_t {
+      uint32_t Mod = (N % Alignment);
+      if (Mod == 0)
+        return 0;
+      return Alignment - Mod;
+    };
+    auto emitPadding = [&getPadAmount](raw_ostream &OS, uint32_t Size) {
+      for (uint32_t I = 0; I < getPadAmount(Size, 4); ++I)
+        OS << '\0';
+    };
+
+    // Put notes into the file.
+    for (auto &N : Notes) {
+      assert(!N.Name.empty() && "We should not create notes with empty names.");
+      // Name must be null-terminated.
+      if (N.Name.back() != '\0')
+        N.Name += '\0';
+      uint32_t NameSz = N.Name.size();
+      uint32_t DescSz = N.Desc.size();
+      // A note starts with three 4-byte values:
+      //   NameSz
+      //   DescSz
+      //   Type
+      // These three fields are endian-sensitive.
+      support::endian::write<uint32_t>(NotesOS, NameSz, Endianness);
+      support::endian::write<uint32_t>(NotesOS, DescSz, Endianness);
+      support::endian::write<uint32_t>(NotesOS, N.Type, Endianness);
+      // Next, we have a null-terminated Name padded to a 4-byte boundary.
+      NotesOS << N.Name;
+      emitPadding(NotesOS, NameSz);
+      if (DescSz == 0)
+        continue;
+      // Finally, we have a descriptor, which is an arbitrary flow of bytes.
+      NotesOS << N.Desc;
+      emitPadding(NotesOS, DescSz);
+    }
+    NotesOS.flush();
+
+    // Keep the notes file.
+    std::string NotesTmpFileName = NotesTemp->TmpName;
+    if (Error E = NotesTemp->keep(NotesTmpFileName)) {
+      handleErrorAsWarning(createFileError(NotesTmpFileName, std::move(E)));
+      return Buf;
+    }
+
+    // Run llvm-objcopy like this:
+    //   llvm-objcopy --add-section=.note.openmp=<notes-tmp-file-name> \
+    //       <orig-file-name> <elf-tmp-file-name>
+    //
+    // This will add a SHT_NOTE section on top of the original ELF.
+    std::vector<StringRef> Args;
+    Args.push_back(ObjcopyPath);
+    std::string Option("--add-section=.note.openmp=" + NotesTmpFileName);
+    Args.push_back(Option);
+    Args.push_back(OriginalFileName);
+    Args.push_back(ELFTmpFileName);
+    bool ExecutionFailed = false;
+    std::string ErrMsg;
+    (void)sys::ExecuteAndWait(ObjcopyPath, Args,
+                              /*Env=*/llvm::None, /*Redirects=*/{},
+                              /*SecondsToWait=*/0,
+                              /*MemoryLimit=*/0, &ErrMsg, &ExecutionFailed);
+
+    if (ExecutionFailed) {
+      warningOS() << ErrMsg << "\n";
+      return Buf;
+    }
+
+    // Substitute the original ELF with new one.
+    ErrorOr<std::unique_ptr<MemoryBuffer>> BufOrErr =
+        MemoryBuffer::getFile(ELFTmpFileName);
+    if (!BufOrErr) {
+      handleErrorAsWarning(
+          createFileError(ELFTmpFileName, BufOrErr.getError()));
+      return Buf;
+    }
+
+    AutoGcBufs.emplace_back(std::move(*BufOrErr));
+    return AutoGcBufs.back().get();
+  }
+#endif // INTEL_COLLAB
 } // anonymous namespace
 
 int main(int argc, const char **argv) {
@@ -1390,8 +2005,11 @@ int main(int argc, const char **argv) {
 
   // Construct BinaryWrapper::Image instances based on command line args and
   // add them to the wrapper
-
+#if INTEL_COLLAB
+  BinaryWrapper Wr(Target, argv[0]);
+#else // INTEL_COLLAB
   BinaryWrapper Wr(Target);
+#endif // INTEL_COLLAB
   OffloadKind Knd = OffloadKind::Unknown;
   llvm::StringRef Tgt = "";
   BinaryImageFormat Fmt = BinaryImageFormat::none;
@@ -1497,6 +2115,10 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (ContainerizeOpenMPImages)
+    Wr.containerizeOpenMPImages();
+#endif // INTEL_CUSTOMIZATION
   // Create a wrapper for device binaries.
   Expected<const Module *> ModOrErr = Wr.wrap();
   if (!ModOrErr) {

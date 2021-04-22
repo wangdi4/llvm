@@ -1,5 +1,5 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload  -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -vpo-paropt-spirv-target-has-eu-fusion=false -vpo-paropt-enable-64bit-opencl-atomics=false -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(loop-rotate),vpo-cfg-restructuring,vpo-paropt-prepare,loop-simplify,sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload -vpo-paropt-spirv-target-has-eu-fusion=false -vpo-paropt-enable-64bit-opencl-atomics=false -S | FileCheck %s
 
 ; Original code (see at the end of the file).
 
@@ -19,30 +19,30 @@
 
 ; Signed min:
 ; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_mini(i32
-; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_mini(i32
+; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_min(i32 addrspace(4)* {{.*}}, i32
 ; CHECK-DAG: call spir_func i64 @_Z20sub_group_reduce_minl(i64
 
 ; Unsigned min:
 ; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_minj(i32
-; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_minj(i32
+; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4u_min(i32 addrspace(4)* {{.*}}, i32
 ; CHECK-DAG: call spir_func i64 @_Z20sub_group_reduce_minm(i64
 
 ; FP min:
-; CHECK-DAG: call spir_func float @_Z20sub_group_reduce_minf(float
+; CHECK-DAG: call spir_func void @__kmpc_atomic_float4_min(float addrspace(4)* {{.*}}, float
 ; CHECK-DAG: call spir_func double @_Z20sub_group_reduce_mind(double
 
 ; Signed max:
 ; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_maxi(i32
-; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_maxi(i32
+; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_max(i32 addrspace(4)* {{.*}}, i32
 ; CHECK-DAG: call spir_func i64 @_Z20sub_group_reduce_maxl(i64
 
 ; Unsigned max:
 ; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_maxj(i32
-; CHECK-DAG: call spir_func i32 @_Z20sub_group_reduce_maxj(i32
+; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4u_max(i32 addrspace(4)* {{.*}}, i32
 ; CHECK-DAG: call spir_func i64 @_Z20sub_group_reduce_maxm(i64
 
 ; FP max:
-; CHECK-DAG: call spir_func float @_Z20sub_group_reduce_maxf(float
+; CHECK-DAG: call spir_func void @__kmpc_atomic_float4_max(float addrspace(4)* {{.*}}, float
 ; CHECK-DAG: call spir_func double @_Z20sub_group_reduce_maxd(double
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"

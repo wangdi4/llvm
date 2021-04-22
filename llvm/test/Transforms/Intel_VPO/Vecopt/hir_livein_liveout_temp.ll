@@ -2,11 +2,12 @@
 ; Test to check that VPlan HIR decomposer generates correct exit PHI for a
 ; live-out temp that is also live-in. Since the temp does not have any uses
 ; inside the loop, VPExternalDef is created for it during Exit PHI creation.
+; Also check for correctness of generated vector code.
 
 ; Incoming HIR
 ;      + LiveIn symbases: 3, 7, 10, 11
 ;      + LiveOut symbases: 3
-;      + DO i64 i1 = 0, 5, 1   <DO_LOOP>
+;      + DO i64 i1 = 0, 68, 1   <DO_LOOP>
 ;      |   if ((@q)[0][i1 + 1] == 0)
 ;      |   <RVAL-REG> {al:4}(LINEAR [20 x i32]* @q)[i64 0][LINEAR i64 i1 + 1] inbounds  {sb:14}
 ;      |      <BLOB> LINEAR [20 x i32]* @q {sb:7}
@@ -25,13 +26,16 @@
 ;      |   }
 ;      + END LOOP
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -disable-output -vplan-print-after-plain-cfg < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -disable-output -vplan-print-after-plain-cfg -disable-hir-cond-last-priv-cg=false -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -disable-output -vplan-print-after-plain-cfg -disable-hir-cond-last-priv-cg=false < %s 2>&1 | FileCheck %s
+
 
 @s = dso_local local_unnamed_addr global i32 0, align 4
 @q = dso_local local_unnamed_addr global [20 x i32] zeroinitializer, align 16
 
 define dso_local i32 @main(i32 %add) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
+; CHECK-NEXT:  VPlan IR for: main:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%0}
 ; CHECK-DAG:     [[VP1:%.*]] = {@s}
@@ -61,7 +65,7 @@ define dso_local i32 @main(i32 %add) {
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB2]]
 ; CHECK-NEXT:     i32 [[VP5]] = phi  [ i32 [[VP10]], [[BB4]] ],  [ i32 [[VP4]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP6]] i64 1
-; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp sle i64 [[VP7]] i64 5
+; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp sle i64 [[VP7]] i64 68
 ; CHECK-NEXT:     br i1 [[VP11]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
@@ -72,6 +76,36 @@ define dso_local i32 @main(i32 %add) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   i32 [[VP5]] -> [[VP12:%.*]] = {%0}
+;
+; CHECK-LABEL:   BEGIN REGION { modified }
+; CHECK-NEXT:          %phi.temp = %0;
+; CHECK-NEXT:          %phi.temp1 = -1;
+
+; CHECK:               + DO i1 = 0, 67, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:          |   %.vec = (<4 x i32>*)(@q)[0][i1 + 1];
+; CHECK-NEXT:          |   %.vec3 = %.vec == 0;
+; CHECK-NEXT:          |   (<4 x i32>*)(@s)[0] = %add; Mask = @{%.vec3}
+; CHECK-NEXT:          |   %.copy4 = %add;
+; CHECK-NEXT:          |   %select = (%.vec3 == <i1 true, i1 true, i1 true, i1 true>) ? i1 + <i64 0, i64 1, i64 2, i64 3> : %phi.temp1;
+; CHECK-NEXT:          |   %select5 = (%.vec3 == <i1 true, i1 true, i1 true, i1 true>) ? %.copy4 : %phi.temp;
+; CHECK-NEXT:          |   %phi.temp = %select5;
+; CHECK-NEXT:          |   %phi.temp1 = %select;
+; CHECK-NEXT:          + END LOOP
+
+; CHECK:               %priv.idx.max = @llvm.vector.reduce.smax.v4i64(%select);
+; CHECK-NEXT:          %priv.idx.cmp = %select == %priv.idx.max;
+; CHECK-NEXT:          %bsfintmask = bitcast.<4 x i1>.i4(%priv.idx.cmp);
+; CHECK-NEXT:          %bsf = @llvm.cttz.i4(%bsfintmask,  1);
+; CHECK-NEXT:          %0 = extractelement %select5,  %bsf;
+
+; CHECK:               + DO i1 = 68, 68, 1   <DO_LOOP> <novectorize>
+; CHECK-NEXT:          |   if ((@q)[0][i1 + 1] == 0)
+; CHECK-NEXT:          |   {
+; CHECK-NEXT:          |      (@s)[0] = %add;
+; CHECK-NEXT:          |      %0 = %add;
+; CHECK-NEXT:          |   }
+; CHECK-NEXT:          + END LOOP
+; CHECK-NEXT:    END REGION
 ;
 entry:
   br label %for.body3
@@ -91,7 +125,7 @@ if.then:                                          ; preds = %for.body3
 for.inc6:                                         ; preds = %for.body3, %if.then
   %2 = phi i32 [ %0, %for.body3 ], [ %add, %if.then ]
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, 7
+  %exitcond = icmp eq i64 %indvars.iv.next, 70
   br i1 %exitcond, label %for.end8, label %for.body3
 
 for.end8:                                         ; preds = %for.inc6

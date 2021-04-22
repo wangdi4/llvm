@@ -26,7 +26,7 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-static bool isLoopHeaderPHI(VPlan *Plan, const VPPHINode *Phi) {
+static bool isLoopHeaderPHI(VPlanVector *Plan, const VPPHINode *Phi) {
   auto *PhiBlock = Phi->getParent();
   auto *Lp = Plan->getVPLoopInfo()->getLoopFor(PhiBlock);
   if (!Lp)
@@ -87,8 +87,8 @@ bool VPlanScalVecAnalysis::instNeedsExtractFromLastActiveLane(
 }
 
 bool VPlanScalVecAnalysis::computeSpecialInstruction(
-    const VPInstruction *Inst, unsigned VF, const TargetLibraryInfo *TLI) {
-  auto *DA = Plan->getVPlanDA();
+    const VPInstruction *Inst) {
+  auto *DA = cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA());
 
   switch (Inst->getOpcode()) {
   case Instruction::PHI: {
@@ -115,7 +115,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
         setSVABitsForInst(Phi, ExistingSVABits);
         setSVABitsForAllOperands(Phi, ExistingSVABits);
         // Special back propagation needed for loop header PHIs.
-        backPropagateSVABitsForRecurrentPHI(Phi, ExistingSVABits, VF, TLI);
+        backPropagateSVABitsForRecurrentPHI(Phi, ExistingSVABits);
         // Remove skipped phi from the list after it's processed (triggered via
         // back propagation).
         if (SkippedPHIs.count(Phi))
@@ -130,32 +130,17 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
 
   case Instruction::Load:
   case Instruction::Store: {
-    // Non-simple loads/stores should be vectorized always.
-    if (!Inst->isSimpleLoadStore()) {
-      setSVAKindForInst(Inst, SVAKind::Vector);
-      setSVAKindForAllOperands(Inst, SVAKind::Vector);
-      return true;
-    }
-
     // Loads/stores are processed uniquely since the nature of the instruction
-    // is not propagated to its operands. Specialization is done for
+    // is not propagated to its operands. Specialization is done for possible
     // unit-stride and uniform memory accesses.
+
     VPValue *Ptr = getLoadStorePointerOperand(Inst);
     unsigned PtrOpIdx = Inst->getOperandIndex(Ptr);
-    if (DA->isUnitStridePtr(Ptr)) {
-      // For a unit-stride access, pointer will be scalar in nature,
-      // specifically requiring first lane value.
-      setSVAKindForOperand(Inst, PtrOpIdx, SVAKind::FirstScalar);
-      // The access itself is vector in nature.
-      setSVAKindForInst(Inst, SVAKind::Vector);
-      // For stores, the value operand should be vector.
-      if (Inst->getOpcode() == Instruction::Store)
-        setSVAKindForOperand(Inst, 0 /*Value OpIdx*/, SVAKind::Vector);
-      return true;
-    }
-    if (!DA->isDivergent(*Ptr)) {
-      // If the pointer operand is uniform, then the access itself is uniform
-      // and hence scalar (for first lane) in nature.
+
+    if (Inst->isSimpleLoadStore() && !DA->isDivergent(*Ptr)) {
+      // If the load/store is simple (non-atomic and non-volatile) and the
+      // pointer operand is uniform, then the access itself is uniform and hence
+      // scalar (for first/last lane) in nature.
       setSVAKindForOperand(Inst, PtrOpIdx, SVAKind::FirstScalar);
       if (Inst->getOpcode() == Instruction::Load)
         setSVAKindForInst(Inst, SVAKind::FirstScalar);
@@ -170,6 +155,18 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
         setSVAKindForOperand(Inst, 0 /*Value OpIdx*/, StoreValOpKind);
         setSVAKindForInst(Inst, StoreValOpKind);
       }
+      return true;
+    }
+
+    if (isVectorizableLoadStore(Inst) && DA->isUnitStridePtr(Ptr)) {
+      // For a vectorizable unit-stride access, pointer will be scalar in
+      // nature, specifically requiring first lane value.
+      setSVAKindForOperand(Inst, PtrOpIdx, SVAKind::FirstScalar);
+      // The access itself is vector in nature.
+      setSVAKindForInst(Inst, SVAKind::Vector);
+      // For stores, the value operand should be vector.
+      if (Inst->getOpcode() == Instruction::Store)
+        setSVAKindForOperand(Inst, 0 /*Value OpIdx*/, SVAKind::Vector);
       return true;
     }
 
@@ -195,7 +192,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     };
 
     const VPCallInstruction *VPCall = cast<VPCallInstruction>(Inst);
-    assert(VPCall->getVFForScenario() == VF && "No available scenario for VF.");
+    assert(VPCall->getVFForScenario() > 0 &&
+           "CallVecScenario is not recorded for a valid VF.");
     switch (VPCall->getVectorizationScenario()) {
     case VPCallInstruction::CallVecScenariosTy::Undefined: {
       // No knowledge available for call, conservatively vectorize.
@@ -221,6 +219,13 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
       // Call will be emitted as single scalar copy in generated code.
       setSVAKindForInst(Inst, SVAKind::FirstScalar);
       SetSVAKindForArgOperands(VPCall, SVAKind::FirstScalar);
+      break;
+    }
+    case VPCallInstruction::CallVecScenariosTy::UnmaskedWiden: {
+      // Ther are no way to specify uniformity/linearity/etc. in the current
+      // DPC++ spec.
+      setSVAKindForInst(Inst, SVAKind::Vector);
+      SetSVAKindForArgOperands(VPCall, SVAKind::Vector);
       break;
     }
     case VPCallInstruction::CallVecScenariosTy::VectorVariant: {
@@ -270,8 +275,6 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
       setSVAKindForInst(Inst, SVAKind::Vector);
       break;
     }
-    default:
-      llvm_unreachable("Unknown vectorization scenario.");
     }
 
     // Last operand of call is called value, which should be left as scalar.
@@ -353,6 +356,26 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::PrivateFinalUncondMem:
+  case VPInstruction::PrivateFinalUncond: {
+    // The instruction is extract. It produces a scalar return value.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::PrivateFinalCondMem:
+  case VPInstruction::PrivateFinalCond: {
+    // The instruction is extract. It produces a scalar return value.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 1, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 2, SVAKind::FirstScalar);
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::AllocatePrivate: {
     // We don't set any specific bits for the allocate-private instruction, it
     // will decided only based on uses of the instruction. If there are no
@@ -410,7 +433,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
-  case VPInstruction::ReuseLoop: {
+  case VPInstruction::ScalarRemainder:
+  case VPInstruction::ScalarPeel: {
     // Instruction itself is unconditionally always scalar.
     setSVAKindForInst(Inst, SVAKind::FirstScalar);
     // All operands are always scalar too.
@@ -425,6 +449,18 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
     return true;
   }
+
+  case VPInstruction::PushVF:
+  case VPInstruction::PopVF:
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    return true;
+
+  case VPInstruction::InvSCEVWrapper:
+    // Instruction itself is unconditionally always scalar.
+    setSVAKindForInst(Inst, SVAKind::FirstScalar);
+    // All operands are always scalar too.
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
 
   case VPInstruction::Not:
   case VPInstruction::SMax:
@@ -442,6 +478,47 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return false;
   }
 
+  case VPInstruction::VLSLoad: {
+    // This is a low-level instruction and we treat the resulting vector as
+    // uniformly shared across all lanes, hence "FirstScalar".
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // This instruction currently has the semantics of a single wide continuous
+    // load.
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::VLSStore: {
+    // Although resulting type is void (and it doesn't matter if it's "scalar"
+    // or "vector"), be consistent with VLSLoad's properties.
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // This instruction currently has the semantics of a single wide continuous
+    // store. If that is changed, we'd need to update the kind of the pointer
+    // operand.
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::VLSExtract: {
+    // Each lanes has its own value.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    // Wide value is shared across all lanes.
+    setSVAKindForAllOperands(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
+  case VPInstruction::VLSInsert: {
+    // Wide value is shared across all lanes.
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForOperand(Inst, 0, SVAKind::FirstScalar);
+    // Each lane has its own value that we insert into a wide vector.
+    setSVAKindForOperand(Inst, 1, SVAKind::Vector);
+    return true;
+  }
+
   default: {
     assert(Inst->getOpcode() <= Instruction::OtherOpsEnd &&
            "Unknown opcode seen in SVA.");
@@ -452,8 +529,7 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
   }
 }
 
-void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst, unsigned VF,
-                                   const TargetLibraryInfo *TLI) {
+void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst) {
   auto *DA = Plan->getVPlanDA();
 
   // Allocate expected number of elements for OperandBits. Default state is
@@ -463,9 +539,11 @@ void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst, unsigned VF,
     VPlanSVAResults[VPInst].OperandBits.resize(VPInst->getNumOperands());
 
   // Case 1: Specially processed instruction in SVA.
-  if (computeSpecialInstruction(VPInst, VF, TLI)) {
+  if (computeSpecialInstruction(VPInst)) {
     LLVM_DEBUG(dbgs() << "[SVA] Specially processed instruction ";
                VPInst->dump());
+    assert(isSVASpecialProcessedInst(VPInst) &&
+           "Specially processed instruction interface not updated");
     return;
   }
 
@@ -541,8 +619,7 @@ void VPlanScalVecAnalysis::compute(const VPInstruction *VPInst, unsigned VF,
   }
 }
 
-void VPlanScalVecAnalysis::compute(VPlan *P, unsigned VF,
-                                   const TargetLibraryInfo *TLI) {
+void VPlanScalVecAnalysis::compute(VPlanVector *P) {
   Plan = P;
 
   // TODO: Is it okay to clear the table before a fresh compute cycle?
@@ -552,7 +629,7 @@ void VPlanScalVecAnalysis::compute(VPlan *P, unsigned VF,
     LLVM_DEBUG(dbgs() << "[SVA] Visiting BB " << VPBB->getName() << "\n");
     for (VPInstruction &Inst : reverse(*VPBB)) {
       // Compute SVA results for instruction during forward propagation.
-      compute(&Inst, VF, TLI);
+      compute(&Inst);
     }
   }
 }
@@ -566,6 +643,10 @@ VPlanScalVecAnalysis::getAllSetBitsFromUsers(const VPInstruction *Inst,
   SVABits CombinedUseBits;
   for (auto *User : Inst->users()) {
     if (auto *UserInst = dyn_cast<VPInstruction>(User)) {
+      // Ignore user if the instruction is used by itself.
+      if (UserInst == Inst)
+        continue;
+
       auto UserInstResults = VPlanSVAResults.find(UserInst);
       if (UserInstResults == VPlanSVAResults.end()) {
         // TODO: Only recurrent PHIs are allowed to be non-processed users. Fix
@@ -641,8 +722,7 @@ void VPlanScalVecAnalysis::orSVABitsForAllOperands(const VPInstruction *Inst,
 }
 
 void VPlanScalVecAnalysis::backPropagateSVABitsForRecurrentPHI(
-    const VPPHINode *Phi, SVABits &SetBits, unsigned VF,
-    const TargetLibraryInfo *TLI) {
+    const VPPHINode *Phi, SVABits &SetBits) {
   SetVector<const VPInstruction *> Worklist;
   auto AddInstOperandsToWorklist =
       [&Worklist, this, &SetBits](const VPInstruction *VPI) -> void {
@@ -691,7 +771,7 @@ void VPlanScalVecAnalysis::backPropagateSVABitsForRecurrentPHI(
     assert((OrigBits.any() || SkippedPHIs.count(cast<VPPHINode>(Inst))) &&
            "Trying to back propagate to an unprocessed instruction.");
     // Compute SVA results for instruction during back propagation.
-    compute(Inst, VF, TLI);
+    compute(Inst);
     SVABits NewBits = getSVABitsForInst(Inst);
     // Continue back propagation into operands only if nature of instruction has
     // changed.
@@ -714,13 +794,26 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::ReductionInit:
   case VPInstruction::ReductionFinal:
   case VPInstruction::Pred:
+  case VPInstruction::AllocatePrivate:
   case VPInstruction::AllZeroCheck:
   case VPInstruction::VectorTripCountCalculation:
   case VPInstruction::OrigTripCountCalculation:
   case VPInstruction::ActiveLane:
   case VPInstruction::ActiveLaneExtract:
-  case VPInstruction::ReuseLoop:
+  case VPInstruction::ScalarRemainder:
+  case VPInstruction::ScalarPeel:
   case VPInstruction::OrigLiveOut:
+  case VPInstruction::PushVF:
+  case VPInstruction::PopVF:
+  case VPInstruction::PrivateFinalUncondMem:
+  case VPInstruction::PrivateFinalUncond:
+  case VPInstruction::PrivateFinalCondMem:
+  case VPInstruction::PrivateFinalCond:
+  case VPInstruction::VLSLoad:
+  case VPInstruction::VLSExtract:
+  case VPInstruction::VLSInsert:
+  case VPInstruction::VLSStore:
+  case VPInstruction::InvSCEVWrapper:
     return true;
   default:
     return false;

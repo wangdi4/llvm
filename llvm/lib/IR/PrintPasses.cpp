@@ -57,11 +57,11 @@ static cl::list<std::string>
 /// after a pass.
 
 bool llvm::shouldPrintBeforeSomePass() {
-  return PrintBeforeAll || !PrintBefore.empty();
+  return PrintBeforeAll || HIRPrintBeforeAll || !PrintBefore.empty(); // INTEL
 }
 
 bool llvm::shouldPrintAfterSomePass() {
-  return PrintAfterAll || !PrintAfter.empty();
+  return PrintAfterAll || HIRPrintAfterAll || !PrintAfter.empty(); // INTEL
 }
 
 static bool shouldPrintBeforeOrAfterPass(StringRef PassID,
@@ -72,6 +72,12 @@ static bool shouldPrintBeforeOrAfterPass(StringRef PassID,
 bool llvm::shouldPrintBeforeAll() { return PrintBeforeAll; }
 
 bool llvm::shouldPrintAfterAll() { return PrintAfterAll; }
+
+#if INTEL_CUSTOMIZATION
+bool llvm::shouldHIRPrintBeforeAll() { return HIRPrintBeforeAll; }
+
+bool llvm::shouldHIRPrintAfterAll() { return HIRPrintAfterAll; }
+#endif //INTEL_CUSTOMIZATION
 
 bool llvm::shouldPrintBeforePass(StringRef PassID) {
 #if INTEL_CUSTOMIZATION

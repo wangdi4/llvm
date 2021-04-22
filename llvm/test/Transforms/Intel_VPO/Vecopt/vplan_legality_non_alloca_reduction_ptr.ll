@@ -6,6 +6,7 @@
 
 define internal void @test_legality_non_alloca(i8** %arr) #3 {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
+; CHECK-NEXT:  VPlan IR for: test_legality_non_alloca:omp.inner.for.body
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list
@@ -14,7 +15,7 @@ define internal void @test_legality_non_alloca(i8** %arr) #3 {
 ; CHECK-NEXT:   Memory: i32* [[ZII_RED_CAST0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 BinOp: i32 [[VP_INDVARS_IV_NEXT:%.*]] = add i32 [[VP_INDVARS_IV:%.*]] i32 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
+; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: i32 1025 BinOp: i32 [[VP_INDVARS_IV_NEXT:%.*]] = add i32 [[VP_INDVARS_IV:%.*]] i32 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP_INDVARS_IV]], i32 [[VP_INDVARS_IV_NEXT]], i32 [[VP_INDVARS_IV_IND_INIT:%.*]], i32 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]

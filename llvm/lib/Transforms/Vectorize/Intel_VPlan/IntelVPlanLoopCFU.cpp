@@ -32,7 +32,7 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
   if (EnableLiveOutsRematerialization)
     rematerializeLiveOuts(VPL);
 
-  VPlanDivergenceAnalysis *VPDA = Plan.getVPlanDA();
+  VPlanDivergenceAnalysisBase *VPDA = Plan.getVPlanDA();
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
 
   VPBasicBlock *VPLPreHeader = VPL->getLoopPreheader();
@@ -147,7 +147,7 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
   // Compute and set the new condition bit in the loop latch. If all the
   // lanes are inactive, new condition bit will be true.
   auto *NewCondBit = Builder.createAllZeroCheck(BottomTest);
-  Plan.getVPlanDA()->updateDivergence(*NewCondBit);
+  VPDA->updateDivergence(*NewCondBit);
   LoopBodyMask->addIncoming(BottomTest, NewLoopLatch);
 
   NewLoopLatch->setTerminator(VPLExitBlock, VPLHeader, NewCondBit);

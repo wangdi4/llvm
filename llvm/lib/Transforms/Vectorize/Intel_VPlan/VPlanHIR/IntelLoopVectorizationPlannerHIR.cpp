@@ -16,6 +16,7 @@
 
 #include "IntelLoopVectorizationPlannerHIR.h"
 #include "../IntelVPlanCallVecDecisions.h"
+#include "../IntelVPlanVLSTransform.h"
 #include "../IntelVPlanSSADeconstruction.h"
 #include "IntelVPOCodeGenHIR.h"
 #include "IntelVPlanBuilderHIR.h"
@@ -24,10 +25,6 @@
 
 using namespace llvm;
 using namespace llvm::vpo;
-
-cl::opt<uint64_t>
-    VPlanDefaultEstTripHIR("vplan-default-est-trip-hir", cl::init(300),
-                           cl::desc("Default estimated trip count"));
 
 static cl::opt<bool> ForceLinearizationHIR("vplan-force-linearization-hir",
                                            cl::init(false), cl::Hidden,
@@ -38,9 +35,10 @@ static cl::opt<bool>
                            cl::Hidden, cl::desc("Enable in memory entities."));
 
 bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF) {
+  unsigned BestVF = getBestVF();
   assert(BestVF != 1 && "Non-vectorized loop should be handled elsewhere!");
-  VPlan *Plan = getVPlanForVF(BestVF);
-  assert(Plan && "VPlan not found!");
+  VPlanVector *Plan = getBestVPlan();
+  assert(Plan && "Unexpected null VPlan");
 
   // Deconstruct SSA for final VPlan that will be lowered to HIR.
   VPlanSSADeconstruction SSADeconstructor(*Plan);
@@ -50,6 +48,8 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
   // Collect OVLS memrefs and groups for the VF chosen by cost modeling.
   VPlanVLSAnalysis *VLSA = CG->getVLS();
   VLSA->getOVLSMemrefs(Plan, BestVF);
+
+  applyVLSTransform(*Plan, *VLSA, BestVF);
 
   // Process all loop entities and create refs for them if needed.
   CG->createAndMapLoopEntityRefs(BestVF);
@@ -67,13 +67,15 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
 
   // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlanCallVecDecisions CallVecDecisions(*Plan);
-  CallVecDecisions.run(BestVF, TLI, TTI);
+  // TODO: Update to use runForMergedCFG when CFGMerger is available for HIR
+  // path.
+  CallVecDecisions.runForVF(BestVF, TLI, TTI);
   std::string Label("CallVecDecisions analysis for VF=" +
                     std::to_string(BestVF));
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
 
   // Compute SVA results for final VPlan which will be used by CG.
-  Plan->runSVA(BestVF, TLI);
+  Plan->runSVA();
   VPLAN_DUMP(PrintSVAResults, "ScalVec analysis", Plan);
 
   Plan->executeHIR(CG);
@@ -81,12 +83,14 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
   return true;
 }
 
-std::shared_ptr<VPlan> LoopVectorizationPlannerHIR::buildInitialVPlan(
-    unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext,
+std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
+    VPExternalValues &Ext, VPUnlinkedInstructions &UVPI, std::string VPlanName,
     ScalarEvolution *SE) {
   // Create new empty VPlan
-  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Ext);
-  VPlan *Plan = SharedPlan.get();
+  std::shared_ptr<VPlanVector> SharedPlan =
+      std::make_shared<VPlanNonMasked>(Ext, UVPI);
+  VPlanVector *Plan = SharedPlan.get();
+  Plan->setName(VPlanName);
 
   // Disable SOA-analysis for HIR.
   Plan->disableSOAAnalysis();
@@ -111,23 +115,60 @@ std::shared_ptr<VPlan> LoopVectorizationPlannerHIR::buildInitialVPlan(
   return SharedPlan;
 }
 
-bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlan &Plan,
+bool LoopVectorizationPlannerHIR::canProcessLoopBody(const VPlanVector &Plan,
                                                      const VPLoop &Loop) const {
-  // TODO: Privates are not being imported from HIRLegality to VPEntities, hence
-  // below checks for in-memory entities will not capture OMP SIMD private
-  // construct. Remove this check after importing is implemented.
-  if (HIRLegality->getPrivates().size() > 0)
-    return false;
-
   if (EnableInMemoryEntities)
     return true;
 
-  // HIR-CG is not setup to deal with instructions related to in-memory entities
-  // such as VPAllocatePrivate. Check and bail out for any in-memory entities.
-  // Walking the VPlan instructions will not work as this check is done before
-  // we insert entity related instructions.
   const VPLoopEntityList *LE = Plan.getLoopEntities(&Loop);
-  return !LE->hasInMemoryEntity();
+
+  for (auto *BB : Loop.blocks())
+    for (VPInstruction &Inst : *BB) {
+      // Entities code and CG need to be uplifted to handle vector type
+      // inductions and reductions.
+      if (LE->getReduction(&Inst) || LE->getInduction(&Inst))
+        if (isa<VectorType>(Inst.getType())) {
+          LLVM_DEBUG(dbgs() << "LVP: Vector type reduction/induction currently"
+                            << " not supported.\n"
+                            << Inst << "\n");
+          return false;
+        }
+
+      // Specialization for handling sincos functions in CG is done based on
+      // underlying HIR. Privatization for such sincos cannot be implemented
+      // until it is uplifted to be fully VPValue-based.
+      if (auto *VPCall = dyn_cast<VPCallInstruction>(&Inst)) {
+        auto *CalledF = VPCall->getCalledFunction();
+        if (!CalledF)
+          continue;
+
+        LibFunc CallF;
+        if (TLI->getLibFunc(*CalledF, CallF) &&
+            (CallF == LibFunc_sincos || CallF == LibFunc_sincosf)) {
+          // Check if sin/cos value pointer operands are marked as SIMD
+          // privates.
+          if (LE->getPrivate(VPCall->getOperand(1)) ||
+              LE->getPrivate(VPCall->getOperand(2))) {
+            LLVM_DEBUG(dbgs() << "LVP: sincos calls using private sin/cos "
+                                 "pointer operands not supported.\n"
+                              << Inst << "\n");
+            return false;
+          }
+        }
+      }
+    }
+
+  // HIR-CG is not setup to deal with memory instructions outside the loop
+  // region like load/store from privatized memory. Check and bail out for any
+  // in-memory reduction/induction or liveout private which introduce such
+  // operations during initialization and finalization. Walking the VPlan
+  // instructions will not work as this check is done before we insert entity
+  // related instructions.
+  if (LE->hasInMemoryReductionInduction() || LE->hasInMemoryLiveoutPrivate())
+    return false;
+
+  // All checks passed.
+  return true;
 }
 
 unsigned LoopVectorizationPlannerHIR::getLoopUnrollFactor(bool *Forced) {
@@ -155,4 +196,33 @@ unsigned LoopVectorizationPlannerHIR::getLoopUnrollFactor(bool *Forced) {
     *Forced = ForcedValue;
 
   return UF;
+}
+
+void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {
+  auto *VPLInfo = Plan->getVPLoopInfo();
+  VPLoop *CandidateLoop = *VPLInfo->begin();
+
+  // The multi-exit loops are processed in a special way
+  if (!CandidateLoop->getUniqueExitBlock())
+    return;
+
+  auto *PreHeader = CandidateLoop->getLoopPreheader();
+  assert(PreHeader && "Single pre-header is expected!");
+
+  VPBuilderHIR Builder;
+  Builder.setInsertPointFirstNonPhi(PreHeader);
+  VPValue *OrigTC;
+  VPInstruction *Cond;
+  std::tie(OrigTC, Cond) = CandidateLoop->getLoopUpperBound();
+  assert((OrigTC && Cond) && "A normalized loop expected");
+  if (auto Instr = dyn_cast<VPInstruction>(OrigTC)) {
+    auto Parent = Instr->getParent();
+    assert(
+        (Parent == PreHeader || Plan->getDT()->dominates(Parent, PreHeader)) &&
+        "Unexpected loop upper bound placement");
+    Builder.setInsertPoint(Parent, std::next(Instr->getIterator(),1));
+  }
+  auto *VTC = Builder.create<VPVectorTripCountCalculation>(
+      TheLoop, "vector.trip.count", OrigTC);
+  Cond->replaceUsesOfWith(OrigTC, VTC);
 }

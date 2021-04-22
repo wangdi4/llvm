@@ -1,3 +1,4 @@
+; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-barrier-wi-analysis>' %s -S -o - | FileCheck %s
 ; RUN: opt -analyze -dpcpp-kernel-barrier-wi-analysis %s -S -o - | FileCheck %s
 ;; XFAIL: *
 
@@ -24,12 +25,12 @@ L2:
   br label %L3
 L3:
   %isOk = phi i1 [ false, %L1 ], [ true, %L2 ]
-  call void @__builtin_dpcpp_kernel_barrier(i32 2)
+  call void @_Z18work_group_barrierj(i32 2)
   ret void
 ; CHECK: WI related Values
-; CHECK: isOk is not WI related
+; CHECK: %isOk is not WI related
 }
 
-declare void @__builtin_dpcpp_kernel_barrier(i32)
+declare void @_Z18work_group_barrierj(i32)
 
 attributes #0 = { "sycl_kernel" }

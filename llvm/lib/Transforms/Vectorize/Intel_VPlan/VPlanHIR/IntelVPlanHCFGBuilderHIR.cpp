@@ -119,13 +119,13 @@ DescrType *HIRVectorizationLegality::findDescr(ArrayRef<DescrType> List,
   for (auto &Descr : List) {
     // TODO: try to avoid returning the non-const ptr.
     DescrType *CurrentDescr = const_cast<DescrType *>(&Descr);
-    assert(isa<RegDDRef>(CurrentDescr->Ref) &&
+    assert(isa<RegDDRef>(CurrentDescr->getRef()) &&
            "The original SIMD descriptor Ref is not a RegDDRef.");
-    if (isSIMDDescriptorDDRef(cast<RegDDRef>(CurrentDescr->Ref), Ref))
+    if (isSIMDDescriptorDDRef(cast<RegDDRef>(CurrentDescr->getRef()), Ref))
       return CurrentDescr;
 
     // Check if Ref matches any aliases of current descriptor's ref
-    if (CurrentDescr->Aliases.count(Ref))
+    if (CurrentDescr->findAlias(Ref))
       return CurrentDescr;
   }
 
@@ -136,9 +136,10 @@ DescrType *HIRVectorizationLegality::findDescr(ArrayRef<DescrType> List,
 template HIRVectorizationLegality::RedDescr *
 HIRVectorizationLegality::findDescr(
     ArrayRef<HIRVectorizationLegality::RedDescr> List, const DDRef *Ref) const;
-template HIRVectorizationLegality::PrivDescr *
+template HIRVectorizationLegality::PrivDescrTy *
 HIRVectorizationLegality::findDescr(
-    ArrayRef<HIRVectorizationLegality::PrivDescr> List, const DDRef *Ref) const;
+    ArrayRef<HIRVectorizationLegality::PrivDescrTy> List,
+    const DDRef *Ref) const;
 template HIRVectorizationLegality::LinearDescr *
 HIRVectorizationLegality::findDescr(
     ArrayRef<HIRVectorizationLegality::LinearDescr> List,
@@ -146,24 +147,24 @@ HIRVectorizationLegality::findDescr(
 
 void HIRVectorizationLegality::recordPotentialSIMDDescrUse(DDRef *Ref) {
 
-  DescrWithAliases *Descr = getLinearRednDescriptors(Ref);
+  DescrWithInitValue *Descr = getLinearRednDescriptors(Ref);
 
-  // If Ref does not correspond to linear/reduction then nothing to do
+  // If Ref does not correspond to SIMD descriptor then nothing to do
   if (!Descr)
     return;
 
-  assert(isa<RegDDRef>(Descr->Ref) &&
+  assert(isa<RegDDRef>(Descr->getRef()) &&
          "The original SIMD descriptor Ref is not a RegDDRef.");
-  if (isSIMDDescriptorDDRef(cast<RegDDRef>(Descr->Ref), Ref)) {
+  if (isSIMDDescriptorDDRef(cast<RegDDRef>(Descr->getRef()), Ref)) {
     // Ref refers to the original descriptor
     // TODO: should we assert that InitVPValue is not set already?
-    Descr->InitValue = Ref;
+    Descr->setInitValue(Ref);
   } else {
     // Ref is an alias to the original descriptor
-    auto AliasIt = Descr->Aliases.find(Ref);
-    assert(AliasIt != Descr->Aliases.end() && "Alias not found.");
-    DescrValues *Alias = AliasIt->second.get();
-    Alias->InitValue = Ref;
+    auto AliasIt = Descr->findAlias(Ref);
+    assert(AliasIt && "Alias not found.");
+    auto *Alias = cast<DescrWithInitValue>(AliasIt);
+    Alias->setInitValue(Ref);
   }
 }
 
@@ -175,23 +176,24 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUpdate(
   if (!Ref)
     return;
 
-  DescrWithAliases *Descr = getLinearRednDescriptors(Ref);
+  DescrWithAliasesTy *Descr = isPrivate(Ref);
+  if (!Descr)
+    Descr = getLinearRednDescriptors(Ref);
 
-  // If Ref does not correspond to linear/reduction then nothing to do
+  // If Ref does not correspond to SIMD descriptor then nothing to do
   if (!Descr)
     return;
 
-  assert(isa<RegDDRef>(Descr->Ref) &&
+  assert(isa<RegDDRef>(Descr->getRef()) &&
          "The original SIMD descriptor Ref is not a RegDDRef.");
-  if (isSIMDDescriptorDDRef(cast<RegDDRef>(Descr->Ref), Ref)) {
+  if (isSIMDDescriptorDDRef(cast<RegDDRef>(Descr->getRef()), Ref)) {
     // Ref refers to the original descriptor
-    Descr->UpdateInstructions.push_back(UpdateInst);
+    Descr->addUpdateInstruction(UpdateInst);
   } else {
     // Ref is an alias to the original descriptor
-    auto AliasIt = Descr->Aliases.find(Ref);
-    assert(AliasIt != Descr->Aliases.end() && "Alias not found.");
-    DescrValues *Alias = AliasIt->second.get();
-    Alias->UpdateInstructions.push_back(UpdateInst);
+    auto Alias = Descr->findAlias(Ref);
+    assert(Alias && "Alias not found.");
+    Alias->addUpdateInstruction(UpdateInst);
   }
 }
 
@@ -200,7 +202,7 @@ void HIRVectorizationLegality::findAliasDDRefs(HLNode *ClauseNode,
 
   // Container to collect all nodes that are present before HLoop to process for
   // potential aliases
-  SmallVector<HLNode *, 8> PreLoopNodes;
+  SetVector<HLNode *> PreLoopNodes;
 
   // Collect nodes between the SIMD clause directive and the HLLoop node
   HLNode *CurNode = ClauseNode;
@@ -209,14 +211,14 @@ void HIRVectorizationLegality::findAliasDDRefs(HLNode *ClauseNode,
       break;
 
     LLVM_DEBUG(dbgs() << "PreHLLoop node: "; NextNode->dump(););
-    PreLoopNodes.push_back(NextNode);
+    PreLoopNodes.insert(NextNode);
     CurNode = NextNode;
   }
 
   // Collect nodes present in HLLoop's preheader
   for (auto &Pre : make_range(HLoop->pre_begin(), HLoop->pre_end())) {
     LLVM_DEBUG(dbgs() << "Preheader node: "; Pre.dump(););
-    PreLoopNodes.push_back(&Pre);
+    PreLoopNodes.insert(&Pre);
   }
 
   // Process all pre-loop nodes
@@ -230,7 +232,7 @@ void HIRVectorizationLegality::findAliasDDRefs(HLNode *ClauseNode,
         continue;
 
       // Check if RVal is any of explicit SIMD descriptors
-      DescrWithAliases *Descr = isPrivate(RVal);
+      DescrWithAliasesTy *Descr = isPrivate(RVal);
       if (Descr == nullptr)
         Descr = isLinear(RVal);
       if (Descr == nullptr)
@@ -244,7 +246,10 @@ void HIRVectorizationLegality::findAliasDDRefs(HLNode *ClauseNode,
                  RVal->dump(); dbgs() << "\n");
       RegDDRef *LVal = HInst->getLvalDDRef();
       assert(LVal && "HLInst in the preheader does not have an Lval.");
-      Descr->Aliases[LVal] = std::make_unique<DescrValues>(LVal);
+      if (isa<DescrWithInitValue>(Descr))
+        Descr->addAlias(LVal, std::make_unique<DescrWithInitValue>(LVal));
+      else
+        Descr->addAlias(LVal, std::make_unique<DescrWithAliasesTy>(LVal));
     }
   }
 }
@@ -265,12 +270,23 @@ bool HIRVectorizationLegality::isMinMaxIdiomTemp(const DDRef *Ref,
   auto *Idioms = getVectorIdioms(Loop);
   for (auto &IdiomDescr : make_range(Idioms->begin(), Idioms->end()))
     if ((IdiomDescr.second == HIRVectorIdioms::IdiomId::MinOrMax ||
-         IdiomDescr.second == HIRVectorIdioms::IdiomId::MMFirstLastLoc) &&
+         IdiomDescr.second == HIRVectorIdioms::IdiomId::MMFirstLastIdx ||
+         IdiomDescr.second == HIRVectorIdioms::IdiomId::MMFirstLastVal) &&
         DDRefUtils::areEqual(IdiomDescr.first->getLvalDDRef(), Ref))
       return true;
 
   return false;
 }
+
+// TODO: Dummy placeholder function which should be updated once common
+// interface will be established for VPOVectorizationLegality and for
+// HIRVectorizationLegality.
+void HIRVectorizationLegality::collectPreLoopDescrAliases() {}
+
+// TODO: Dummy placeholder function which should be updated once common
+// interface will be established for VPOVectorizationLegality and for
+// HIRVectorizationLegality.
+void HIRVectorizationLegality::collectPostExitLoopDescrAliases() {}
 
 // Build plain CFG from incomming IR using only VPBasicBlock's that contain
 // VPInstructions.
@@ -281,7 +297,7 @@ private:
   /// Outermost loop of the input loop nest.
   HLLoop *TheLoop;
 
-  VPlan *Plan;
+  VPlanVector *Plan;
 
   /// Map between loop header VPBasicBlock's and their respective HLLoop's. It
   /// is populated in this phase to keep the information necessary to create
@@ -331,7 +347,7 @@ private:
   void visit(HLLabel *HLabel);
 
 public:
-  PlainCFGBuilderHIR(HLLoop *Lp, const DDGraph &DDG, VPlan *Plan,
+  PlainCFGBuilderHIR(HLLoop *Lp, const DDGraph &DDG, VPlanVector *Plan,
                      SmallDenseMap<VPBasicBlock *, HLLoop *> &H2HLLp,
                      HIRVectorizationLegality *HIRLegality)
       : TheLoop(Lp), Plan(Plan), Header2HLLoop(H2HLLp),
@@ -440,12 +456,14 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
 
     assert(ActiveVPBB == HLN2VPBB[&*HLp->pre_begin()] &&
            "Loop PH generates more than one VPBB?");
-  } else
+  } else {
     // There is no PH in HLLoop. Create dummy VPBB as PH. We could introduce
     // this dummy VPBB in simplifyPlainCFG, but according to the design for
     // LLVM-IR, we expect to have a loop with a PH as input. It's then better to
     // introduce the dummy PH here.
     updateActiveVPBB();
+    ActiveVPBB->getTerminator()->setDebugLocation(HLp->getDebugLoc());
+  }
 
   VPBasicBlock *Preheader = ActiveVPBB;
 
@@ -487,6 +505,8 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
       Decomposer.createLoopIVNextAndBottomTest(HLp, Preheader, Latch);
   Latch->setTerminator(Header);
   CondBits[Latch] = LatchCondBit;
+
+  Latch->getTerminator()->setDebugLocation(HLp->getBranchDebugLoc());
 
   // - Loop Exits -
   // Force creation of a new VPBB for Exit.
@@ -703,7 +723,7 @@ void PlainCFGBuilderHIR::buildPlainCFG() {
 }
 
 VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
-                                         VPlan *Plan,
+                                         VPlanVector *Plan,
                                          HIRVectorizationLegality *Legal,
                                          const DDGraph &DDG)
     : VPlanHCFGBuilder(nullptr, nullptr, Lp->getHLNodeUtils().getDataLayout(),
@@ -716,8 +736,6 @@ VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
 
 class ReductionDescriptorHIR {
   using DataType = loopopt::HLInst;
-  using RecurrenceKind = VPReduction::RecurrenceKind;
-  using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
   friend class ReductionInputIteratorHIR;
   friend class MinMaxIdiomsInputIteratorHIR;
 
@@ -727,52 +745,44 @@ public:
   const DataType *getHLInst() const { return HLInst; }
   SafeRedChain getRedChain() const { return RedChain; }
   const DataType *getParentInst() const { return ParentInst; }
-  RecurrenceKind getKind() const { return RKind; }
-  MinMaxRecurrenceKind getMinMaxKind() const { return MK; }
+  RecurKind getKind() const { return RKind; }
   Type *getRedType() const { return RedType; }
   bool isSigned() const { return IsSigned; }
+  HIRVectorIdioms::IdiomId getIdiomKind() const {return IdiomKind;}
 
 private:
   void fillReductionKinds(Type *DestType, unsigned OpCode, PredicateTy Pred,
-                          bool IsMax) {
-    MK = MinMaxRecurrenceKind::MRK_Invalid;
+                          bool IsMax, HIRVectorIdioms::IdiomId IdKind) {
     RedType = DestType;
     IsSigned = false;
+    IdiomKind = IdKind;
     switch (OpCode) {
     case Instruction::FAdd:
     case Instruction::FSub:
-      RKind = RecurrenceKind::RK_FloatAdd;
+      RKind = RecurKind::FAdd;
       break;
     case Instruction::Add:
     case Instruction::Sub:
-      RKind = RecurrenceKind::RK_IntegerAdd;
+      RKind = RecurKind::Add;
       break;
     case Instruction::FMul:
-      RKind = RecurrenceKind::RK_FloatMult;
+      RKind = RecurKind::FMul;
       break;
     case Instruction::Mul:
-      RKind = RecurrenceKind::RK_IntegerMult;
+      RKind = RecurKind::Mul;
       break;
     case Instruction::And:
-      RKind = RecurrenceKind::RK_IntegerAnd;
+      RKind = RecurKind::And;
       break;
     case Instruction::Or:
-      RKind = RecurrenceKind::RK_IntegerOr;
+      RKind = RecurKind::Or;
       break;
     case Instruction::Xor:
-      RKind = RecurrenceKind::RK_IntegerXor;
+      RKind = RecurKind::Xor;
       break;
-    case Instruction::Select: {
-      if (RedType->isIntegerTy()) {
-        RKind = RecurrenceKind::RK_IntegerMinMax;
-      } else {
-        assert(RedType->isFloatingPointTy() &&
-               "Floating point type expected at this point!");
-        RKind = RecurrenceKind::RK_FloatMinMax;
-      }
+    case Instruction::Select:
       setMinMaxReductionKind(Pred, IsMax);
       break;
-    }
     default:
       llvm_unreachable("Unexpected reduction opcode");
       break;
@@ -785,20 +795,17 @@ private:
     case PredicateTy::ICMP_SGT:
     case PredicateTy::ICMP_SLE:
     case PredicateTy::ICMP_SLT:
-      MK = IsMax ? MinMaxRecurrenceKind::MRK_SIntMax
-                 : MinMaxRecurrenceKind::MRK_SIntMin;
+      RKind = IsMax ? RecurKind::SMax : RecurKind::SMin;
       IsSigned = true;
       break;
     case PredicateTy::ICMP_UGE:
     case PredicateTy::ICMP_UGT:
     case PredicateTy::ICMP_ULE:
     case PredicateTy::ICMP_ULT:
-      MK = IsMax ? MinMaxRecurrenceKind::MRK_UIntMax
-                 : MinMaxRecurrenceKind::MRK_UIntMin;
+      RKind = IsMax ? RecurKind::UMax : RecurKind::UMin;
       break;
     default:
-      MK = IsMax ? MinMaxRecurrenceKind::MRK_FloatMax
-                 : MinMaxRecurrenceKind::MRK_FloatMin;
+      RKind = IsMax ? RecurKind::FMax : RecurKind::FMin;
       break;
     }
   }
@@ -806,19 +813,19 @@ private:
   void clear() {
     HLInst = nullptr;
     ParentInst = nullptr;
-    RKind = RecurrenceKind::RK_NoRecurrence;
-    MK = MinMaxRecurrenceKind::MRK_Invalid;
+    RKind = RecurKind::None;
     RedType = nullptr;
     IsSigned = false;
+    IdiomKind = HIRVectorIdioms::NoIdiom;
   }
 
   const DataType *HLInst;
   SafeRedChain RedChain;
   const DataType *ParentInst; // Link to parent reduction.
-  RecurrenceKind RKind;
-  MinMaxRecurrenceKind MK;
+  RecurKind RKind;
   Type *RedType;
   bool IsSigned;
+  HIRVectorIdioms::IdiomId IdiomKind = HIRVectorIdioms::NoIdiom;
 };
 
 /// Class implements input iterator for reductions. The input is done
@@ -830,8 +837,6 @@ private:
 /// all statements so this iterator goes through both lists, first taking the
 /// HIRSafeRedInfo and then going through its list of statements.
 class ReductionInputIteratorHIR {
-  using RecurrenceKind = VPReduction::RecurrenceKind;
-  using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
 public:
   using iterator_category = std::input_iterator_tag;
   using value_type = ReductionDescriptorHIR;
@@ -897,7 +902,7 @@ private:
                         : PredicateTy::BAD_ICMP_PREDICATE;
         Descriptor.fillReductionKinds(
             (*RedCurrent)->getLvalDDRef()->getDestType(), Opcode, Pred,
-            (*RedCurrent)->isMax());
+            (*RedCurrent)->isMax(), HIRVectorIdioms::NoIdiom);
         Descriptor.RedChain = ChainCurrent->Chain;
         break;
       }
@@ -928,9 +933,6 @@ private:
 /// indexes. Both kinds of instructions are imported as reductions (VPReduction
 /// and VPReductionIndex).
 class MinMaxIdiomsInputIteratorHIR {
-  using RecurrenceKind = VPReduction::RecurrenceKind;
-  using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
-
 public:
   using iterator_category = std::input_iterator_tag;
   using value_type = ReductionDescriptorHIR;
@@ -943,6 +945,10 @@ public:
       : IdiomList(IList) {
     MainCurrent = Begin ? IdiomList.begin() : IdiomList.end();
     MainEnd = IdiomList.end();
+    // Skip idioms in IdiomList until Min/Max idiom is found.
+    while (MainCurrent != MainEnd &&
+           MainCurrent->second != HIRVectorIdioms::MinOrMax)
+      ++MainCurrent;
     resetRedIterators();
     fillData();
   }
@@ -984,20 +990,24 @@ private:
       LinkedCurrent = TempVector.begin();
       LinkedEnd = TempVector.end();
       assert(LinkedCurrent != LinkedEnd && "Unexpected empty list");
-      MainInst = *LinkedCurrent;
+      MainInst = LinkedCurrent->first;
     }
   }
 
   void fillData() {
     if (LinkedCurrent != LinkedEnd) {
-      assert(isa<SelectInst>((*LinkedCurrent)->getLLVMInstruction()) &&
+      const loopopt::HLInst *InstPtr = LinkedCurrent->first;
+      // Only select is expected here.
+      assert(isa<SelectInst>(InstPtr->getLLVMInstruction()) &&
              "expected select instruction");
-      Descriptor.fillReductionKinds(
-          (*LinkedCurrent)->getLvalDDRef()->getDestType(), Instruction::Select,
-          (*LinkedCurrent)->getPredicate(), (*LinkedCurrent)->isMax());
-      Descriptor.HLInst = *LinkedCurrent;
+      Descriptor.fillReductionKinds(InstPtr->getLvalDDRef()->getDestType(),
+                                    Instruction::Select, InstPtr->getPredicate(),
+                                    InstPtr->isMax(), LinkedCurrent->second);
+      Descriptor.HLInst = InstPtr;
       if (Descriptor.HLInst != MainInst)
         Descriptor.ParentInst = MainInst;
+      else
+        Descriptor.ParentInst = nullptr;
     } else
       Descriptor.clear();
   }
@@ -1014,16 +1024,20 @@ private:
   void fillTempArray() {
     TempVector.clear();
     if (MainCurrent != MainEnd) {
-      TempVector.push_back(MainCurrent->first);
+      TempVector.push_back({MainCurrent->first, HIRVectorIdioms::MinOrMax});
       auto *LinkedList = IdiomList.getLinkedIdioms(MainCurrent->first);
       if (LinkedList)
-        for (auto Linked : *LinkedList)
-          TempVector.push_back(Linked);
+        for (auto Linked : *LinkedList) {
+          HIRVectorIdioms::IdiomId Id = IdiomList.isIdiom(Linked);
+          TempVector.push_back({Linked, Id});
+        }
     }
   }
 
 private:
-  using TempVectorTy = SmallVector<const ReductionDescriptorHIR::DataType *, 2>;
+  using IdiomItem = std::pair<const ReductionDescriptorHIR::DataType *,
+                              HIRVectorIdioms::IdiomId>;
+  using TempVectorTy = SmallVector<IdiomItem, 2>;
 
   ReductionDescriptorHIR Descriptor;
   // Reduction instruction representing the main min/max reduction.
@@ -1049,8 +1063,6 @@ public:
   using LinearList = HIRVectorizationLegality::LinearListTy;
   using ExplicitReductionList = HIRVectorizationLegality::ReductionListTy;
   using PrivatesListTy = HIRVectorizationLegality::PrivatesListTy;
-  using RecurrenceKind = VPReduction::RecurrenceKind;
-  using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
   using InductionKind = VPInduction::InductionKind;
 
 
@@ -1077,6 +1089,8 @@ public:
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(ID->getStart());
     Descriptor.setStep(ID->getStep());
+    Descriptor.setStartVal(ID->getStartVal());
+    Descriptor.setEndVal(ID->getEndVal());
     Descriptor.setAllocaInst(nullptr);
   }
 };
@@ -1088,8 +1102,8 @@ public:
 
   void operator()(InductionDescr &Descriptor,
                   const LinearList::value_type &CurrValue) {
-    Type *IndTy = CurrValue.Ref->getDestType();
-    const HLDDNode *HLNode = CurrValue.Ref->getHLDDNode();
+    Type *IndTy = CurrValue.getRef()->getDestType();
+    const HLDDNode *HLNode = CurrValue.getRef()->getHLDDNode();
     Descriptor.setStartPhi(
         dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(HLNode)));
     Descriptor.setKindAndOpcodeFromTy(IndTy);
@@ -1102,7 +1116,8 @@ public:
       // not sized.
       assert(PointerElementType->isSized() &&
              "Can't determine size of pointed-to type");
-      const DataLayout &DL = CurrValue.Ref->getDDRefUtils().getDataLayout();
+      const DataLayout &DL =
+          CurrValue.getRef()->getDDRefUtils().getDataLayout();
       int64_t Size =
           static_cast<int64_t>(DL.getTypeAllocSize(PointerElementType));
       assert(Size && "Can't determine size of pointed-to type");
@@ -1141,7 +1156,6 @@ public:
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(nullptr);
     Descriptor.setKind(CurValue.getKind());
-    Descriptor.setMinMaxKind(CurValue.getMinMaxKind());
     Descriptor.setRecType(CurValue.getRedType());
     Descriptor.setSigned(CurValue.isSigned());
     Descriptor.setAllocaInst(nullptr);
@@ -1151,6 +1165,8 @@ public:
           dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(Inst)));
     else
       Descriptor.setLinkPhi(nullptr);
+    Descriptor.setIsLinearIndex(CurValue.getIdiomKind() ==
+                                HIRVectorIdioms::MMFirstLastIdx);
   }
 };
 
@@ -1161,14 +1177,14 @@ public:
   /// Fill in the data from list of explicit reductions
   void operator()(ReductionDescr &Descriptor,
                   const ExplicitReductionList::value_type &CurrValue) {
-    Type *RType = CurrValue.Ref->getDestType();
+    Type *RType = CurrValue.getRef()->getDestType();
     assert(isa<PointerType>(RType) &&
            "SIMD reduction descriptor DDRef is not pointer type.");
     // Get pointee type of descriptor ref
     RType = cast<PointerType>(RType)->getElementType();
     // Translate HIRLegality descriptor's UpdateInstructions to corresponding
     // VPInstructions
-    for (auto *UpdateInst : CurrValue.UpdateInstructions) {
+    for (auto *UpdateInst : CurrValue.getUpdateInstructions()) {
       VPValue *UpdateVPInst = Decomposer.getVPValueForNode(UpdateInst);
       assert(UpdateVPInst && isa<VPInstruction>(UpdateVPInst) &&
              "Instruction that updates reduction descriptor is not valid.");
@@ -1176,16 +1192,18 @@ public:
     }
     // Set start value of descriptor (can be null)
     Descriptor.setStart(
-        CurrValue.InitValue
-            ? Decomposer.getVPExternalDefForDDRef(CurrValue.InitValue)
+        CurrValue.getInitValue()
+            ? Decomposer.getVPExternalDefForDDRef(CurrValue.getInitValue())
             : nullptr);
 
-    if (HIRVectorizationLegality::DescrValues *Alias =
+    if (HIRVectorizationLegality::DescrValueTy *Alias =
             CurrValue.getValidAlias()) {
+      auto *RedAlias =
+          cast<HIRVectorizationLegality::DescrWithInitValue>(Alias);
       VPValue *AliasInit =
-          Decomposer.getVPExternalDefForDDRef(Alias->InitValue);
+          Decomposer.getVPExternalDefForDDRef(RedAlias->getInitValue());
       SmallVector<VPInstruction *, 4> AliasUpdates;
-      for (auto *UpdateInst : Alias->UpdateInstructions)
+      for (auto *UpdateInst : Alias->getUpdateInstructions())
         AliasUpdates.push_back(
             cast<VPInstruction>(Decomposer.getVPValueForNode(UpdateInst)));
       Descriptor.setAlias(AliasInit, AliasUpdates);
@@ -1200,55 +1218,50 @@ public:
 
     Descriptor.setStartPhi(nullptr);
     Descriptor.setKind(CurrValue.Kind);
-    Descriptor.setMinMaxKind(CurrValue.MMKind);
     // In the directive, we have the kinds always set as for integers. Need to
     // correct them for fp-data.
     if (RType->isFloatingPointTy()) {
-      if (CurrValue.Kind == RecurrenceKind::RK_IntegerAdd)
-        Descriptor.setKind( RecurrenceKind::RK_FloatAdd);
-      else if (CurrValue.Kind == RecurrenceKind::RK_IntegerMult)
-        Descriptor.setKind(RecurrenceKind::RK_FloatMult);
-      else if (CurrValue.Kind == RecurrenceKind::RK_IntegerMinMax) {
-        Descriptor.setKind(RecurrenceKind::RK_FloatMinMax);
-        if (CurrValue.MMKind == MinMaxRecurrenceKind::MRK_UIntMin ||
-            CurrValue.MMKind == MinMaxRecurrenceKind::MRK_SIntMin)
-          Descriptor.setMinMaxKind(MinMaxRecurrenceKind::MRK_FloatMin);
-        else
-          Descriptor.setMinMaxKind(MinMaxRecurrenceKind::MRK_FloatMax);
-      }
+      if (CurrValue.Kind == RecurKind::Add)
+        Descriptor.setKind(RecurKind::FAdd);
+      else if (CurrValue.Kind == RecurKind::Mul)
+        Descriptor.setKind(RecurKind::FMul);
+      else if (CurrValue.Kind == RecurKind::UMin ||
+               CurrValue.Kind == RecurKind::SMin)
+        Descriptor.setKind(RecurKind::FMin);
+      else if (CurrValue.Kind == RecurKind::UMax ||
+               CurrValue.Kind == RecurKind::SMax)
+        Descriptor.setKind(RecurKind::FMax);
     }
     Descriptor.setRecType(RType);
     Descriptor.setSigned(CurrValue.IsSigned);
     Descriptor.setLinkPhi(nullptr);
+    Descriptor.setIsLinearIndex(false);
   }
 };
 
 // Convert data from Privates list
 class PrivatesListCvt : public VPEntityConverterBase {
 public:
-  PrivatesListCvt(VPDecomposerHIR &Decomp, bool IsCond = false,
-                  bool IsLast = false)
-      : VPEntityConverterBase(Decomp), IsCondPriv(IsCond), IsLastPriv(IsLast) {}
+  PrivatesListCvt(VPDecomposerHIR &Decomp) : VPEntityConverterBase(Decomp) {}
 
   void operator()(PrivateDescr &Descriptor,
                   const PrivatesListTy::value_type &CurValue) {
-    Descriptor.setAllocaInst(nullptr);
-    Descriptor.setIsConditional(IsCondPriv);
-    Descriptor.setIsLast(IsLastPriv);
+    auto *DescrRef = cast<RegDDRef>(CurValue.getRef());
+    DDRef *BasePtrRef = DescrRef->getBlobDDRef(DescrRef->getBasePtrBlobIndex());
+    Descriptor.setAllocaInst(
+        Decomposer.getVPExternalDefForSIMDDescr(BasePtrRef));
+    Descriptor.setIsConditional(CurValue.isCond());
+    Descriptor.setIsLast(CurValue.isLast());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(false);
   }
-
-private:
-  bool IsCondPriv;
-  bool IsLastPriv;
 };
 
 class HLLoop2VPLoopMapper {
 public:
   HLLoop2VPLoopMapper() = delete;
   explicit HLLoop2VPLoopMapper(
-      const VPlan *Plan,
+      const VPlanVector *Plan,
       SmallDenseMap<VPBasicBlock *, HLLoop *> Header2HLLoop) {
 
     std::function<void(const VPLoop *)> mapLoop2VPLoop =
@@ -1276,6 +1289,8 @@ typedef VPLoopEntitiesConverter<ReductionDescr, HLLoop,
                                 HLLoop2VPLoopMapper> ReductionConverter;
 typedef VPLoopEntitiesConverter<InductionDescr, HLLoop,
                                 HLLoop2VPLoopMapper> InductionConverter;
+typedef VPLoopEntitiesConverter<PrivateDescr, HLLoop, HLLoop2VPLoopMapper>
+    PrivatesConverter;
 
 void PlainCFGBuilderHIR::convertEntityDescriptors(
     HIRVectorizationLegality *Legal,
@@ -1284,9 +1299,11 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
   using InductionList = VPDecomposerHIR::VPInductionHIRList;
   using LinearList = HIRVectorizationLegality::LinearListTy;
   using ExplicitReductionList = HIRVectorizationLegality::ReductionListTy;
+  using PrivatesList = HIRVectorizationLegality::PrivatesListTy;
 
   ReductionConverter *RedCvt = new ReductionConverter(Plan);
   InductionConverter *IndCvt = new InductionConverter(Plan);
+  PrivatesConverter *PrivCvt = new PrivatesConverter(Plan);
 
   for (auto LoopDescr = Header2HLLoop.begin(), End = Header2HLLoop.end();
        LoopDescr != End; ++LoopDescr) {
@@ -1337,6 +1354,12 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
     ExplicitReductionListCvt ExplRedCvt(Decomposer);
     auto ExplRedPair = std::make_pair(ExplRedRange, ExplRedCvt);
 
+    const PrivatesList &PL = Legal->getPrivates();
+    iterator_range<PrivatesList::const_iterator> PrivRange(PL.begin(),
+                                                           PL.end());
+    PrivatesListCvt PrivListCvt(Decomposer);
+    auto PrivatesPair = std::make_pair(PrivRange, PrivListCvt);
+
     const HIRVectorIdioms *Idioms = Legal->getVectorIdioms(HL);
     iterator_range<MinMaxIdiomsInputIteratorHIR> MinMaxIdiomRange(
         MinMaxIdiomsInputIteratorHIR(true, *Idioms),
@@ -1346,9 +1369,11 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
 
     RedCvt->createDescrList(HL, ReducPair, ExplRedPair, RedIdiomPair);
     IndCvt->createDescrList(HL, InducPair, LinearPair);
+    PrivCvt->createDescrList(HL, PrivatesPair);
   }
   CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(RedCvt));
   CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(IndCvt));
+  CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(PrivCvt));
 }
 
 void VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {
@@ -1362,8 +1387,12 @@ void VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {
 void VPlanHCFGBuilderHIR::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
   typedef VPLoopEntitiesConverterTempl<HLLoop2VPLoopMapper> BaseConverter;
 
-  // The HIRLegality lists should be populated by now
-  LLVM_DEBUG(HIRLegality->dump());
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (VPlanPrintLegality) {
+    // The HIRLegality lists should be populated by now
+    HIRLegality->dump(dbgs());
+  }
+#endif
 
   HLLoop2VPLoopMapper Mapper(Plan, Header2HLLoop);
   for (auto &Cvt : Cvts) {

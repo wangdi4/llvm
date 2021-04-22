@@ -43,8 +43,8 @@ entry:
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(i32** %array_device) ]
 
-; Check that the map created for %array_device has the correct map-type (96)
-; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 96]
+; Check that the map created for %array_device has the correct map-type (64)
+; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 64]
 
 ; Check that there is a new copy of %array_device created.
 ; CHECK: %array_device.new = alloca i32*

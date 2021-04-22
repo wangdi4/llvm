@@ -1,6 +1,6 @@
 //===- Intel_TransformSinAndCosCalls.h - Transform sin and cos calls -===//
 //
-// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -25,9 +25,11 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/PassManager.h"
 #include <atomic>
@@ -40,11 +42,14 @@ namespace intel_transform_sin_cos_calls {
 
 class TransformSinAndCosCalls {
   Function &F;
+  DominatorTree &DT;
+  LoopInfo &LI;
   TargetLibraryInfo &TLI;
 
 public:
-  TransformSinAndCosCalls(Function &F, TargetLibraryInfo &TLI)
-    : F(F), TLI(TLI) {};
+  TransformSinAndCosCalls(Function &F, DominatorTree &DT, LoopInfo &LI,
+      TargetLibraryInfo &TLI)
+    : F(F), DT(DT), LI(LI), TLI(TLI) {};
 
   /// Main entry point to the optimization.
   bool run();
@@ -61,7 +66,10 @@ private:
 class TransformSinAndCosCallsPass :
   public PassInfoMixin<TransformSinAndCosCallsPass> {
 public:
-  bool runImpl(Function &F, TargetLibraryInfo &TLI);
+  bool runImpl(Function &F,
+               DominatorTree &DT,
+               LoopInfo &LI,
+               TargetLibraryInfo &TLI);
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 
@@ -80,6 +88,8 @@ public:
   bool runOnFunction(Function &F) override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.setPreservesAll();
   }

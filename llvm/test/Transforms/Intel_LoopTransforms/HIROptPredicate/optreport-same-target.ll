@@ -91,11 +91,11 @@
 ;OPTREPORT:     LOOP END
 ;OPTREPORT:     LOOP BEGIN at bar.c (3, 5)
 ;OPTREPORT:     <Predicate Optimized v2>
-;OPTREPORT:         Remark: Invariant Condition at line 9 hoisted out of this loop
+;OPTREPORT:         remark #25422: Invariant Condition at line 9 hoisted out of this loop
 ;OPTREPORT:     LOOP END
 ;OPTREPORT:     LOOP BEGIN at bar.c (3, 5)
 ;OPTREPORT:     <Predicate Optimized v1>
-;OPTREPORT:         Remark: Invariant Condition at line 5 hoisted out of this loop
+;OPTREPORT:         remark #25422: Invariant Condition at line 5 hoisted out of this loop
 ;OPTREPORT:     LOOP END
 ;OPTREPORT: LOOP END
 

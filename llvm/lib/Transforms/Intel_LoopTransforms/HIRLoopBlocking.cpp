@@ -549,7 +549,14 @@ HLLoop *stripmineSelectedLoops(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
 
     BlockedLevels.push_back(CurLoopInfo.second);
 
-    HIRTransformUtils::stripmine(CurLoop, CurLoop, LoopMap[CurLoop]);
+    // By this time, we have already done normalization checks from analysis
+    // However, special normalization may be required for stencil case, which
+    // is called if regular normalization might fail.
+    if (CurLoop->canStripmine(LoopMap[CurLoop])) {
+      HIRTransformUtils::stripmine(CurLoop, CurLoop, LoopMap[CurLoop]);
+    } else {
+      HIRTransformUtils::stripmine(CurLoop, CurLoop, LoopMap[CurLoop], true);
+    }
 
     HLLoop *ByStripLoop = CurLoop->getParentLoop();
 
@@ -706,8 +713,8 @@ HLLoop *getHighestAncestorWithTCThreshold(const LoopNestTCTy &LoopToTC) {
   HLLoop *NewOutermost = const_cast<HLLoop *>(LoopToTC.Innermost);
   unsigned Level = LoopToTC.Innermost->getNestingLevel();
   for (const HLLoop *Lp = LoopToTC.Innermost,
-                  *ELp = LoopToTC.Outermost->getParentLoop();
-     Lp != ELp; Lp = Lp->getParentLoop(), Level--) {
+                    *ELp = LoopToTC.Outermost->getParentLoop();
+       Lp != ELp; Lp = Lp->getParentLoop(), Level--) {
     uint64_t TCAtLevel = LoopToTC[Level];
     // non-const TC has TCAtLevel zero
     if (TCAtLevel < LoopBlockingTCThreshold) {
@@ -879,6 +886,64 @@ static RefAnalysisResult analyzeRefs(SmallVectorImpl<RegDDRef *> &Refs,
   return SIV;
 }
 
+// The goal is to track all IVs that occur in memrefs for the loop. It
+// is possible that memrefs have blobrefs instead of IVs like:
+//
+// %mat[i1][%mod6][i3 + 1]
+//
+// Trace through DDG to find the corresponding IV for tempblobs:
+//
+// %mod6 = i2 + 1  %  %"mat_times_vec_$N";
+//
+// We expect that the temp has an iv term like i2 here.
+// If ModInst is a tempblob for Rem LHS term, we recurse again.
+// IV level is aggregated into \p IVsAtLevel for later analysis.
+static void getModBlobIVLevel(const BlobDDRef *BRef, DDGraph &DDG,
+                              SmallVector<int, MaxLoopNestLevel> &IVsAtLevel,
+                              DenseMap<const HLInst *, unsigned> &InstToIVmap) {
+  for (const auto *Edge : DDG.incoming(BRef)) {
+    const HLInst *ModInst = dyn_cast<HLInst>(Edge->getSrc()->getHLDDNode());
+    if (!ModInst) {
+      continue;
+    }
+
+    // Check if we've already found the IV for this inst
+    auto It = InstToIVmap.find(ModInst);
+    if (It != InstToIVmap.end()) {
+      IVsAtLevel[It->second]++;
+      continue;
+    }
+
+    const unsigned Opcode = ModInst->getLLVMInstruction()->getOpcode();
+    if (Opcode != Instruction::SRem && Opcode != Instruction::URem) {
+      continue;
+    }
+
+    // Check the LHS of Rem Instruction for IV term
+    const auto *RemLHS = *ModInst->rval_op_ddref_begin();
+    if (!RemLHS->isTerminalRef()) {
+      continue;
+    }
+
+    const CanonExpr *CE = RemLHS->getSingleCanonExpr();
+    if (CE->hasIV()) {
+      unsigned IVLevel = CE->getFirstIVLevel();
+      IVsAtLevel[IVLevel]++;
+      InstToIVmap[ModInst] = IVLevel;
+      LLVM_DEBUG(dbgs() << "IV found for Mod Inst: "; ModInst->dump(););
+      continue;
+    }
+
+    // LLVM_DEBUG(dbgs() << "Mod Inst without IV found: "; ModInst->dump(););
+    // In rare cases, we may see another blob instead of IV, like:
+    // %mod62.i.i = %mod66 + 1  %  %"mat_times_vec_$NX_fetch34";
+    // We can call function again with LHS BlobDDRef to trace with DDG
+    if (RemLHS->numBlobDDRefs() == 1) {
+      getModBlobIVLevel(*RemLHS->blob_begin(), DDG, IVsAtLevel, InstToIVmap);
+    }
+  }
+}
+
 // Checks if the innermost loop body has a certain stencil pattern.
 // Checks
 //  - kinds of binary operations.
@@ -896,12 +961,144 @@ public:
   StencilChecker(RefGroupVecTy &Groups, const HLLoop *Innermost, StringRef Func)
       : Groups(Groups), InnermostLoop(Innermost),
         MaxLevel(InnermostLoop->getNestingLevel()), MinLevel(MaxLevel + 1),
-        Func(Func){};
+        Func(Func), Type(StencilType::NONE){};
+
+  StencilType getStencilType() { return Type; }
+
+  bool isProfitable(HIRDDAnalysis &DDA) {
+    // Perfect stencil access with center point (CactuBSSN)
+    if (isStencilForm()) {
+      printDiag(STENCIL_PROFIT, Func, InnermostLoop, "Cactus stencil");
+      Type = StencilType::CACT;
+      return true;
+    }
+
+    // Has multiple ref groups, some exhibiting stencil features (Bwaves)
+    if (hasMajorityStencilRefs(DDA)) {
+      printDiag(STENCIL_PROFIT, Func, InnermostLoop, "Bwavs stencil");
+      Type = StencilType::BWAV;
+      return true;
+    }
+    return false;
+  }
+
+  // Aggregates IVsAtLevel for this RefGroup. Take example ref:
+  //
+  // %A[i1][2][i3]
+  //
+  // Would accumulate the count for i1 and i3 in IVsAtLevel
+  void aggregateAllRefIVs(const RefGroupTy &RefGroup,
+                          SmallVector<int, MaxLoopNestLevel> &IVsAtLevel,
+                          SmallVector<RegDDRef *, 16> &RefsWithModBlob) const {
+
+    for (auto &Ref : RefGroup) {
+      bool hasBlob = false;
+      for (auto &CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
+        if (CE->numIVs() == 1) {
+          IVsAtLevel[CE->getFirstIVLevel()]++;
+        } else if ((CE->numBlobs() == 1) && (Ref->isNonLinear())) {
+          // We only care about the %mod blob which we can trace inside the loop
+          hasBlob = true;
+        }
+        // ignore constants or other CE types
+      }
+
+      if (hasBlob) {
+        RefsWithModBlob.push_back(Ref);
+      }
+    }
+  }
+
+  // Look for multiple refgroups with majority stencil form.
+  // Not all IVs must exactly be +/- in one dimension.
+  // The mod blobs are pseudo stencil since they are IV +/- 1, but
+  // we need to trace to the temp definition.
+  bool hasMajorityStencilRefs(HIRDDAnalysis &DDA) {
+    if (Groups.size() < 5) {
+      LLVM_DEBUG(dbgs() << "Under Group Threshold Count: " << Groups.size()
+                        << "\n";);
+      return false;
+    }
+
+    unsigned StencilCount = 0;
+    SmallVector<int, MaxLoopNestLevel> IVsAtLevel;
+    IVsAtLevel.resize(MaxLoopNestLevel, 0);
+    SmallVector<RegDDRef *, 16> RefsWithModBlob;
+
+    for (auto &RefGroup : Groups) {
+      if (RefGroup.size() < 2 ||
+          DDRefUtils::isMemRefAllDimsConstOnly(RefGroup[0])) {
+        continue;
+      }
+
+      // Check if refs exhibit stencil pattern with relaxed check.
+      // Not all refs can be verified as stencil due to temp blobs.
+      if (stencilpattern::areStructuallyStencilRefs(RefGroup, true)) {
+        ++StencilCount;
+      }
+
+      // find all IV levels in memrefs
+      aggregateAllRefIVs(RefGroup, IVsAtLevel, RefsWithModBlob);
+    }
+
+    // Magic number
+    if (StencilCount < 4) {
+      return false;
+    }
+
+    // Some refs will have %mod in place of IV such as :
+    // (%X)[i3 + 2][i1 + 1][%mod + 1]
+    // Use DDG to trace to the HLinst where %mod is defined
+    // We want to verify that %mod is based on IV like so:
+    // %mod = i2 + 1  %  %"$NY_fetch36" + 1;
+    if (!RefsWithModBlob.empty()) {
+      DDGraph DDG = DDA.getGraph(InnermostLoop);
+      DenseMap<const HLInst *, unsigned> InstToIVmap;
+      for (const auto Ref : RefsWithModBlob) {
+        for (const auto &BRef :
+             make_range(Ref->blob_begin(), Ref->blob_end())) {
+          assert(BRef->getSingleCanonExpr()->numBlobs() == 1 &&
+                 "CE expected to have single blob");
+          getModBlobIVLevel(BRef, DDG, IVsAtLevel, InstToIVmap);
+        }
+      }
+    }
+
+    LLVM_DEBUG(int i = 0; for (auto IVs
+                               : IVsAtLevel) {
+      dbgs() << "Level - " << i++ << ", IVs - " << IVs << "\n";
+    });
+
+    // Target benchmark has 200+ IV counts for 3 levels
+    unsigned Max = 0;
+    unsigned ConsecutiveLevels = 0;
+    for (unsigned IVLevel = 0; IVLevel < MaxLoopNestLevel; IVLevel++) {
+      if (IVsAtLevel[IVLevel] > 100) {
+        ConsecutiveLevels++;
+      } else {
+        if (ConsecutiveLevels) {
+          Max = IVLevel - 1;
+          break;
+        }
+      }
+    }
+
+    if (!ConsecutiveLevels) {
+      return false;
+    }
+
+    // Set MinLevel here for later check - HasAllLevels
+    MinLevel = Max - ConsecutiveLevels + 1;
+    assert(Max == MaxLevel && "Stencil MaxLevel not innermost!");
+    LLVM_DEBUG(dbgs() << "Stencil Count: " << StencilCount << "\n";);
+
+    return true;
+  }
 
   // One time check, only dependent on the innermost loopbody.
   // We only consider loop blocking of the perfect loopnest.
   bool isStencilForm() {
-    if (!scanLoopBody()) {
+    if (!scanLoopBody(false)) {
       printDiag(NO_STENCIL_LOOP_BODY, Func, InnermostLoop);
       return false;
     }
@@ -922,7 +1119,7 @@ public:
       PrevMinimumLevel = Min;
     }
 
-    MinLevel = PrevMinimumLevel;
+    MinLevel = MinLevel <= PrevMinimumLevel ? MinLevel : PrevMinimumLevel;
 
     return true;
   }
@@ -970,7 +1167,9 @@ private:
     return stencilpattern::isSymetricCenteredAt(Median, Group);
   }
 
-  bool scanLoopBody() const {
+  // \p StrictlyStencil can be relaxed to allow non-stencil instructions
+  // inside the loop as well.
+  bool scanLoopBody(bool StrictlyStencil = true) const {
     bool LoadInstSeen = false;
     bool StoreInstSeen = false;
     bool StencilBinaryInstSeen = false;
@@ -997,7 +1196,7 @@ private:
       }
 
       if (isa<BinaryOperator>(Inst)) {
-        if (!isStencilBinaryOperator(Inst->getOpcode())) {
+        if (!isStencilBinaryOperator(Inst->getOpcode()) && StrictlyStencil) {
           LLVM_DEBUG_DIAG_DETAIL(dbgs()
                                  << "Opcode: " << Inst->getOpcode() << "\n");
           return false;
@@ -1024,16 +1223,19 @@ private:
   // Groups.
   // Common maximum level for all groups
   unsigned MaxLevel;
-  // Common minium level for all groups
+  // Common minimum level for all groups
   unsigned MinLevel;
 
   // Used only for diagnosis or debug purposes.
   StringRef Func;
+  StencilType Type;
 };
 
 // Arg is in-out.
 // Returns true if the argument has changed.
-bool updateLoopMapByStripmineApplicability(LoopMapTy &StripmineCandidateMap) {
+// \p RelaxNormalization will allow normalization util to relax CE typecheck
+bool updateLoopMapByStripmineApplicability(LoopMapTy &StripmineCandidateMap,
+                                           bool RelaxNormalization = false) {
   if (StripmineCandidateMap.empty()) {
     LLVM_DEBUG_DIAG_DETAIL(dbgs() << "LoopMap is empty.\n");
 
@@ -1049,7 +1251,7 @@ bool updateLoopMapByStripmineApplicability(LoopMapTy &StripmineCandidateMap) {
 
       It = StripmineCandidateMap.erase(It);
       IsUpdated = true;
-    } else if (!It->first->canStripmine(It->second)) {
+    } else if (!It->first->canStripmine(It->second, RelaxNormalization)) {
       LLVM_DEBUG_DIAG_DETAIL(dbgs() << "Stripmine can not be done\n");
 
       It = StripmineCandidateMap.erase(It);
@@ -1076,7 +1278,8 @@ public:
   void check(const HLLoop *InnermostLoop, const HLLoop *OutermostLoop,
              LoopMapTy &StripmineCandidateMap) {
 
-    unsigned LoopNestDepth = InnermostLoop->getNestingLevel() - OutermostLoop->getNestingLevel() + 1;
+    unsigned LoopNestDepth =
+        InnermostLoop->getNestingLevel() - OutermostLoop->getNestingLevel() + 1;
     assert(StripmineCandidateMap.empty());
 
     // Temporary comment-out for cactus
@@ -1319,8 +1522,7 @@ HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
     }
 
     LoopMap.clear();
-    KAndRProfitability.check(InnermostLoop, Lp,
-                             LoopMap);
+    KAndRProfitability.check(InnermostLoop, Lp, LoopMap);
     // Try inner loopnest
     if (LoopMap.empty()) {
       printDiag(NO_MISSING_IVS_OR_SMALL_STRIDES, Func);
@@ -1349,20 +1551,20 @@ HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
 }
 
 void pull3DStencilSmallStripmineSizes(const LoopNestTCTy &LoopNest,
-                                      LoopMapTy &LoopMap) {
-  // Special casing with (none * 8 * none)
-  // Block only the middle loop with 8
-  int Count = 0;
-  for (auto Level : make_range(LoopNest.level_from_outer_begin(),
-                               LoopNest.level_from_outer_end())) {
-    Count++;
-    if (Count != 2)
-      continue;
+                                      LoopMapTy &LoopMap, StencilType Type) {
 
-    LoopMap[LoopNest.getLoop(Level)] = 8;
+  assert(std::distance(LoopNest.level_from_outer_begin(),
+                       LoopNest.level_from_outer_end()) == 3 &&
+         "Expected 3 Levels for StencilBlocking\n");
+  unsigned InnerLevel = LoopNest.Innermost->getNestingLevel();
+  unsigned OuterLevel = LoopNest.Outermost->getNestingLevel();
+  unsigned Count = 0;
+  for (unsigned Lvl = InnerLevel; Lvl >= OuterLevel; Lvl--, Count++) {
+    // Only apply non-zero blocksizes
+    if (StencilBlockingFactors[Type][Count]) {
+      LoopMap[LoopNest.getLoop(Lvl)] = StencilBlockingFactors[Type][Count];
+    }
   }
-
-  assert(Count == 3);
 }
 
 // Used with 3d-stencil pattern check
@@ -1404,8 +1606,12 @@ HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
     // fill in LoopMap with [Outermost, Innermost]
     LoopNest.setOutermostLoop(Lp);
     LoopNest.populateLoops();
-    pull3DStencilSmallStripmineSizes(LoopNest, LoopMap);
-    updateLoopMapByStripmineApplicability(LoopMap);
+
+    pull3DStencilSmallStripmineSizes(LoopNest, LoopMap,
+                                     StencilProfitability.getStencilType());
+    // If we reach here, we want to always stripmine, so we add extra
+    // normalization flag, see normalize()
+    updateLoopMapByStripmineApplicability(LoopMap, true);
 
     if (LoopMap.empty()) {
       // Even with inner loop nest, it will be unlikely to
@@ -1429,9 +1635,8 @@ HLLoop *exploreLoopNest(HLLoop *InnermostLoop, HLLoop *OutermostLoop,
 
 HLLoop *tryKAndRWithFixedStripmineSizes(
     const MemRefGatherer::VectorTy &Refs, const LoopNestTCTy &LoopNestTC,
-    HLLoop *InnermostLoop, HLLoop *OutermostLoop,
-    HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA, StringRef Func,
-    LoopMapTy &LoopMap) {
+    HLLoop *InnermostLoop, HLLoop *OutermostLoop, HIRDDAnalysis &DDA,
+    HIRSafeReductionAnalysis &SRA, StringRef Func, LoopMapTy &LoopMap) {
 
   // Try K&R + fixed stripmine sizes
   // Just use existing logic for now to avoid regression
@@ -1440,9 +1645,9 @@ HLLoop *tryKAndRWithFixedStripmineSizes(
   adjustBlockSize(LoopNestTC, StripmineSizes);
 
   StripmineSizeExplorerByDefault StripmineExplorer(StripmineSizes);
-  HLLoop *ValidOutermost = exploreLoopNest(
-      InnermostLoop, OutermostLoop, KAndRProfitability,
-      StripmineExplorer, DDA, SRA, Func, LoopMap);
+  HLLoop *ValidOutermost =
+      exploreLoopNest(InnermostLoop, OutermostLoop, KAndRProfitability,
+                      StripmineExplorer, DDA, SRA, Func, LoopMap);
   if (ValidOutermost) {
     return ValidOutermost;
   }
@@ -1477,27 +1682,15 @@ bool isTrivialAntiPattern(const MemRefGatherer::VectorTy &Refs,
 
 // Returns the outermost loop where blocking will be applied
 // in the range of [outermost, InnermostLoop]
-HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
-                            HIRSafeReductionAnalysis &SRA,
+HLLoop *findLoopNestToBlock(HIRFramework &HIRF, StringRef Func,
+                            HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
                             HLLoop *InnermostLoop, bool Advanced,
                             LoopMapTy &LoopMap) {
 
   // Get the highest outermost ancestor of given InnermostLoop
   // that can make a perfect loop nest.
-  bool IsNearPerfect = false;
   const HLLoop *HighestAncestor =
-      HLNodeUtils::getHighestAncestorForPerfectLoopNest(InnermostLoop,
-                                                        IsNearPerfect);
-
-  // Sink-pass is run before, so all near-perfect would have been perfect by
-  // now.
-  // If it is still IsNearPerfect, sinking pass was not able to
-  // enable a perfect loop nest. Just bail out.
-  StringRef Func = HIRF.getFunction().getName();
-  if (IsNearPerfect) {
-    printDiag(NO_PERFECTNEST, Func);
-    return nullptr;
-  }
+      HLNodeUtils::getHighestAncestorForPerfectLoopNest(InnermostLoop);
 
   if (!HighestAncestor) {
     // Blocking is not applied to depth-1 loop nest.
@@ -1506,12 +1699,8 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
     return nullptr;
   }
 
-  if (HighestAncestor == InnermostLoop) {
-    // Blocking is not applied to depth-1 loop nest.
-    printDiag(INNERMOST_LOOP_ONLY, Func);
-
-    return nullptr;
-  }
+  assert(HLNodeUtils::isPerfectLoopNest(HighestAncestor) &&
+         "Expected Perfect LoopNest!");
 
   if (HighestAncestor->isMVFallBack()) {
     printDiag(MULTIVERSIONED_FALLBACK_LOOP, Func, HighestAncestor);
@@ -1554,7 +1743,8 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
   LoopNestTCTy LoopNestTC(HighestAncestor, InnermostLoop);
   LoopNestTC.populateLoops();
   populateTCs(LoopNestTC);
-  HLLoop *AdjustedHighestAncestor = getHighestAncestorWithTCThreshold(LoopNestTC);
+  HLLoop *AdjustedHighestAncestor =
+      getHighestAncestorWithTCThreshold(LoopNestTC);
 
   if (isTrivialAntiPattern(Refs, InnermostLoop->getNestingLevel(),
                            AdjustedHighestAncestor->getNestingLevel())) {
@@ -1565,8 +1755,8 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
   // Default to use K&R + fixed stripmine sizes
   // All linear refs and LoopTC above minimum threshold for blocked loops.
   HLLoop *ValidOutermost = tryKAndRWithFixedStripmineSizes(
-      Refs, LoopNestTC, InnermostLoop, AdjustedHighestAncestor,
-      DDA, SRA, Func, LoopMap);
+      Refs, LoopNestTC, InnermostLoop, AdjustedHighestAncestor, DDA, SRA, Func,
+      LoopMap);
 
   if (ValidOutermost) {
     printDiag(SUCCESS_NON_SIV_OR_NON_ADVANCED, Func, AdjustedHighestAncestor,
@@ -1578,7 +1768,9 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
 
   // Uniq refs for the purpose of memory footprint analysis.
   // For now, we won't do any memory footprint analysis.
-  if (!CommandLineBlockSize && (RefKind == RefAnalysisResult::SIV) &&
+  if (!CommandLineBlockSize &&
+      (RefKind == RefAnalysisResult::SIV ||
+       RefKind == RefAnalysisResult::NON_LINEAR_READ_ONLY) &&
       (!OldVersion || Advanced)) {
 
     // Grouping Refs for memory foot print and for stencil
@@ -1587,7 +1779,7 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
 
     // Try stencil pattern + fixed stripmine sizes.
     StencilChecker StencilProfitability(Groups, InnermostLoop, Func);
-    if (!StencilProfitability.isStencilForm()) {
+    if (!StencilProfitability.isProfitable(DDA)) {
       // No hope as a stencil with this innermost loop body.
       printDiag(NO_STENCIL_LOOP, Func, AdjustedHighestAncestor,
                 "Summary: No Blocking in this loop nest 1");
@@ -1805,16 +1997,39 @@ void hoistMinDefs(const LoopMapTy &LoopMap,
 
     unsigned DefMinLevel = DestLevel;
     unsigned UseMinLevel = FindUseMinLevel(OrigLevel);
-    // Update Def@level of Loop UB with min blob
-    CurLoopNests[getIndexForLoopVectors(UseMinLevel, OutermostLevel)]
-        ->getUpperDDRef()
-        ->getSingleCanonExpr()
-        ->setDefinedAtLevel(DefMinLevel);
+    const RegDDRef *MinDef = FirstInst->getLvalDDRef();
+
+    unsigned MinIndex = MinDef->getSelfBlobIndex();
+
+    // Update Def@level of Loop UB w.r.t min blob and lb blob if we added inst
+    // during normalization. The new UB needs to contain the correct level
+    // based on both blobs, otherwise the CE will be inconsistent. Example:
+    //   DO i2 = 0, 3, 1   <DO_LOOP>
+    //   %min = (-14 * i2 + 49 <= 13) ? -14 * i2 + 49 : 13;
+    //
+    //     %lb = 14 * i2;
+    //   DO i3 = 0, 14 * i2 + %min + -1 * %lb, 1   <DO_LOOP>  <MAX_TC_EST = 14>
+
+    RegDDRef *UB =
+        CurLoopNests[getIndexForLoopVectors(UseMinLevel, OutermostLevel)]
+            ->getUpperDDRef();
+
+    unsigned UBDefLevel = DefMinLevel;
+
+    for (const auto &BRef : make_range(UB->blob_begin(), UB->blob_end())) {
+      if (BRef->getBlobIndex() == MinIndex) {
+        BRef->setDefinedAtLevel(DefMinLevel);
+      }
+      if (BRef->getDefinedAtLevel() > UBDefLevel) {
+        UBDefLevel = BRef->getDefinedAtLevel();
+      }
+    }
+    UB->getSingleCanonExpr()->setDefinedAtLevel(UBDefLevel);
 
     // Update Live-in temp info.
     // From LpDest's child-loop to LpWithDef's child-loop,
     // "min" def is a live-in
-    unsigned MinSB = FirstInst->getLvalDDRef()->getSymbase();
+    unsigned MinSB = MinDef->getSymbase();
     LLVM_DEBUG(dbgs() << "MinSB: " << MinSB << " DefMinLevel: " << DefMinLevel
                       << " UseMinLevel: " << UseMinLevel << "\n");
     for (unsigned I = DefMinLevel + 1; I <= UseMinLevel; I++) {
@@ -1855,6 +2070,9 @@ void HIRLoopBlocking::doTransformation(HLLoop *InnermostLoop,
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   InnermostLoop->setIsUndoSinkingCandidate(false);
+
+  // Remove preheader/postexit before creating outer by-strip loops
+  OutermostLoop->extractPreheaderAndPostexit();
 
   // Stripmine
   HLLoop *NewOutermostLoop =
@@ -1953,8 +2171,8 @@ bool HIRLoopBlocking::run(bool ForPragma) {
     LoopToPragma.clear();
 
     if (!ForPragma && !HasPragma) {
-      OutermostLoop = findLoopNestToBlock(HIRF, HDDA, SRA, InnermostLoop,
-                                          Advanced, LoopMap);
+      OutermostLoop = findLoopNestToBlock(HIRF, FuncName, HDDA, SRA,
+                                          InnermostLoop, Advanced, LoopMap);
     } else if (ForPragma && HasPragma) {
       HLLoop *OutermostPragmaLoop =
           getLoopBlockingPragma(InnermostLoop, LoopToPragma);
@@ -2072,8 +2290,8 @@ bool HIRLoopBlockingLegacyPass::runOnFunction(Function &F) {
   return HIRLoopBlocking(HIRF, DDA, SRA, HLS, TTI).run(false);
 }
 
-PreservedAnalyses HIRLoopBlockingPass::run(llvm::Function &F,
-                                           llvm::FunctionAnalysisManager &AM) {
+PreservedAnalyses HIRLoopBlockingPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   // TODO: Is it a right way to skip function?
   if (DisablePass) {
     return PreservedAnalyses::all();
@@ -2081,8 +2299,7 @@ PreservedAnalyses HIRLoopBlockingPass::run(llvm::Function &F,
 
   LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
 
-  HIRLoopBlocking(AM.getResult<HIRFrameworkAnalysis>(F),
-                  AM.getResult<HIRDDAnalysisPass>(F),
+  HIRLoopBlocking(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                   AM.getResult<HIRSafeReductionAnalysisPass>(F),
                   AM.getResult<HIRLoopStatisticsAnalysis>(F),
                   AM.getResult<TargetIRAnalysis>(F))
@@ -2107,9 +2324,8 @@ bool HIRPragmaLoopBlockingLegacyPass::runOnFunction(Function &F) {
   return HIRLoopBlocking(HIRF, DDA, SRA, HLS, TTI).run(true);
 }
 
-PreservedAnalyses
-HIRPragmaLoopBlockingPass::run(llvm::Function &F,
-                               llvm::FunctionAnalysisManager &AM) {
+PreservedAnalyses HIRPragmaLoopBlockingPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   // TODO: Is it a right way to skip function?
   if (DisablePass) {
     return PreservedAnalyses::all();
@@ -2118,8 +2334,7 @@ HIRPragmaLoopBlockingPass::run(llvm::Function &F,
   LLVM_DEBUG(dbgs() << OPT_DESC_PRAGMA " for Function : " << F.getName()
                     << "\n");
 
-  HIRLoopBlocking(AM.getResult<HIRFrameworkAnalysis>(F),
-                  AM.getResult<HIRDDAnalysisPass>(F),
+  HIRLoopBlocking(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                   AM.getResult<HIRSafeReductionAnalysisPass>(F),
                   AM.getResult<HIRLoopStatisticsAnalysis>(F),
                   AM.getResult<TargetIRAnalysis>(F))

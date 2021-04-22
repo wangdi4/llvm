@@ -1,6 +1,6 @@
 //===------------ Intel_DTransUtils.cpp - Utilities for DTrans ------------===//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -35,6 +35,18 @@ using namespace dtrans;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 cl::opt<bool> dtrans::DTransPrintAnalyzedTypes("dtrans-print-types",
                                                cl::ReallyHidden);
+
+/// Prints information that is saved during analysis about specific function
+/// calls (malloc, free, memset, etc) that may be useful to the transformations.
+cl::opt<bool> dtrans::DTransPrintAnalyzedCalls("dtrans-print-callinfo",
+                                               cl::ReallyHidden);
+
+// Enables identification of structure fields that are loaded but never used in
+// a way that affects the program. (e.g. a field may be loaded, and not used or
+// only used to compute some other value that is not used.)
+static cl::opt<bool> DTransIdentifyUnusedValues("dtrans-identify-unused-values",
+                                                cl::init(true),
+                                                cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 //
@@ -480,8 +492,8 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Whole structure reference";
   if (SafetyInfo & dtrans::UnsafePointerStore)
     return "Unsafe pointer store";
-  if (SafetyInfo & dtrans::FieldAddressTaken)
-    return "Field address taken";
+  if (SafetyInfo & dtrans::FieldAddressTakenMemory)
+    return "Field address taken memory";
   if (SafetyInfo & dtrans::GlobalPtr)
     return "Global pointer";
   if (SafetyInfo & dtrans::GlobalInstance)
@@ -546,6 +558,10 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Memfunc partial write (nested structure)";
   if (SafetyInfo & dtrans::ComplexAllocSize)
     return "Complex alloc size";
+  if (SafetyInfo & dtrans::FieldAddressTakenCall)
+    return "Field address taken call";
+  if (SafetyInfo & dtrans::FieldAddressTakenReturn)
+    return "Field address taken return";
   if (SafetyInfo & dtrans::UnhandledUse)
     return "Unhandled use";
 
@@ -563,7 +579,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::BadCasting | dtrans::BadAllocSizeArg |
       dtrans::BadPtrManipulation | dtrans::AmbiguousGEP | dtrans::VolatileData |
       dtrans::MismatchedElementAccess | dtrans::WholeStructureReference |
-      dtrans::UnsafePointerStore | dtrans::FieldAddressTaken |
+      dtrans::UnsafePointerStore | dtrans::FieldAddressTakenMemory |
       dtrans::GlobalPtr | dtrans::GlobalInstance | dtrans::HasInitializerList |
       dtrans::BadMemFuncSize | dtrans::MemFuncPartialWrite |
       dtrans::BadMemFuncManipulation | dtrans::AmbiguousPointerTarget |
@@ -580,6 +596,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::MismatchedElementAccessRelatedTypes |
       dtrans::UnsafePointerStoreRelatedTypes |
       dtrans::MemFuncNestedStructsPartialWrite | dtrans::ComplexAllocSize |
+      dtrans::FieldAddressTakenCall | dtrans::FieldAddressTakenReturn |
       dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
@@ -589,7 +606,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::BadPtrManipulation ^ dtrans::AmbiguousGEP ^
            dtrans::VolatileData ^ dtrans::MismatchedElementAccess ^
            dtrans::WholeStructureReference ^ dtrans::UnsafePointerStore ^
-           dtrans::FieldAddressTaken ^ dtrans::GlobalPtr ^
+           dtrans::FieldAddressTakenMemory ^ dtrans::GlobalPtr ^
            dtrans::GlobalInstance ^ dtrans::HasInitializerList ^
            dtrans::BadMemFuncSize ^ dtrans::MemFuncPartialWrite ^
            dtrans::BadMemFuncManipulation ^ dtrans::AmbiguousPointerTarget ^
@@ -607,6 +624,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::MismatchedElementAccessRelatedTypes ^
            dtrans::UnsafePointerStoreRelatedTypes ^
            dtrans::MemFuncNestedStructsPartialWrite ^ dtrans::ComplexAllocSize ^
+           dtrans::FieldAddressTakenCall ^ dtrans::FieldAddressTakenReturn ^
            dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
 
@@ -1015,9 +1033,9 @@ void CallInfoElementTypes::print(raw_ostream &OS) {
   // it in sorted order to enable consistency for testing.
   std::vector<std::string> StrVec;
 
-  for (auto *T : ElemTypes) {
+  for (auto &AT : ElemTypes) {
     std::string Name;
-    raw_string_ostream(Name) << "    Type: " << *T;
+    raw_string_ostream(Name) << "    Type: " << AT;
     StrVec.push_back(Name);
   }
 
@@ -1083,7 +1101,94 @@ void MemfuncCallInfo::print(raw_ostream &OS) {
     ElementTypes.print(OS);
   }
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+CallInfo *CallInfoManager::getCallInfo(const llvm::Instruction *I) const {
+  auto Entry = CallInfoMap.find(I);
+  if (Entry == CallInfoMap.end())
+    return nullptr;
+
+  return Entry->second;
+}
+
+void CallInfoManager::addCallInfo(Instruction *I, dtrans::CallInfo *CI) {
+  assert(getCallInfo(I) == nullptr &&
+         "An instruction is only allowed a single CallInfo mapping");
+  CallInfoMap[I] = CI;
+}
+
+dtrans::AllocCallInfo *
+CallInfoManager::createAllocCallInfo(Instruction *I, dtrans::AllocKind AK) {
+  dtrans::AllocCallInfo *Info = new dtrans::AllocCallInfo(I, AK);
+  addCallInfo(I, Info);
+  return Info;
+}
+
+dtrans::FreeCallInfo *CallInfoManager::createFreeCallInfo(Instruction *I,
+                                                          dtrans::FreeKind FK) {
+  dtrans::FreeCallInfo *Info = new dtrans::FreeCallInfo(I, FK);
+  addCallInfo(I, Info);
+  return Info;
+}
+
+dtrans::MemfuncCallInfo *
+CallInfoManager::createMemfuncCallInfo(Instruction *I,
+                                       dtrans::MemfuncCallInfo::MemfuncKind MK,
+                                       dtrans::MemfuncRegion &MR) {
+  dtrans::MemfuncCallInfo *Info = new dtrans::MemfuncCallInfo(I, MK, MR);
+  addCallInfo(I, Info);
+  return Info;
+}
+
+dtrans::MemfuncCallInfo *CallInfoManager::createMemfuncCallInfo(
+    Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+    dtrans::MemfuncRegion &MR1, dtrans::MemfuncRegion &MR2) {
+  dtrans::MemfuncCallInfo *Info = new dtrans::MemfuncCallInfo(I, MK, MR1, MR2);
+  addCallInfo(I, Info);
+  return Info;
+}
+
+void CallInfoManager::deleteCallInfo(Instruction *I) {
+  dtrans::CallInfo *Info = getCallInfo(I);
+  if (!Info)
+    return;
+
+  CallInfoMap.erase(I);
+  delete Info;
+}
+
+void CallInfoManager::replaceCallInfoInstruction(dtrans::CallInfo *Info,
+                                                 Instruction *NewI) {
+  CallInfoMap.erase(Info->getInstruction());
+  addCallInfo(NewI, Info);
+  Info->setInstruction(NewI);
+}
+
+void CallInfoManager::reset() {
+  for (auto Info : CallInfoMap)
+    destructCallInfo(Info.second);
+  CallInfoMap.clear();
+}
+
+// Helper to invoke the right destructor for destroying a CallInfo type object.
+void CallInfoManager::destructCallInfo(dtrans::CallInfo *Info) {
+  if (!Info)
+    return;
+
+  switch (Info->getCallInfoKind()) {
+  case dtrans::CallInfo::CIK_Alloc:
+    delete cast<dtrans::AllocCallInfo>(Info);
+    break;
+  case dtrans::CallInfo::CIK_Free:
+    delete cast<dtrans::FreeCallInfo>(Info);
+    break;
+  case dtrans::CallInfo::CIK_Memfunc:
+    delete cast<dtrans::MemfuncCallInfo>(Info);
+    break;
+  }
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // Returns StringRef with the name of the transformation
 StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
   if (Trans == 0 || Trans & ~dtrans::DT_Legal)
@@ -1875,6 +1980,11 @@ bool dtrans::isLoadedValueUnused(Value *V, Value *LoadAddr) {
     // If the value has no users, this path is unused.
     return true;
   };
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (!DTransIdentifyUnusedValues)
+      return false;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   SmallPtrSet<Value *, 4> UsedValues;
   return IsUnused(V, LoadAddr, UsedValues);

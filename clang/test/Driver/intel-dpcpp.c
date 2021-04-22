@@ -26,7 +26,19 @@
 // RUN: %clang -### -no-canonical-prefixes --dpcpp -target x86_64-unknown-linux --gcc-toolchain="" --sysroot=%S/Inputs/basic_linux_tree %t.o 2>&1 | FileCheck -check-prefix CHECK-DPCPP-LIBS %s
 // CHECK-DPCPP-LIBS: "{{.*}}ld{{(.exe)?}}" "--sysroot=[[SYSROOT:[^"]+]]"
 // CHECK-DPCPP-LIBS: "-L{{.*}}../compiler/lib/intel64_lin" "-L{{.*}}bin/../lib"
-// CHECK-DPCPP-LIBS: "-L[[SYSROOT]]/usr/lib/gcc/x86_64-unknown-linux/4.6.0"
+// CHECK-DPCPP-LIBS: "-L[[SYSROOT]]/usr/lib/gcc/x86_64-unknown-linux/10.2.0"
 // CHECK-DPCPP-LIBS: "-lsvml"
 // CHECK-DPCPP-LIBS: "-lirc"
 
+/// --dpcpp on Windows will allow for Linux based options given the required
+/// enabling option.
+/// Check for default behaviors (Linux no allowed)
+// RUN: %clang_cl --dpcpp -### -qopenmp -c %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=DPCPP_CL_DEFAULT %s
+// DPCPP_CL_DEFAULT: unknown argument ignored in clang-cl '-qopenmp'
+// DPCPP_CL_DEFAULT-NOT: "-fopenmp"
+/// Check for allowing Linux options
+// RUN: %clang_cl --dpcpp /Q_allow-linux -### -qopenmp -c %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=DPCPP_CL_ALLOW_LINUX %s
+// DPCPP_CL_ALLOW_LINUX-NOT: unknown argument ignored in clang-cl '-qopenmp'
+// DPCPP_CL_ALLOW_LINUX: "-fopenmp"

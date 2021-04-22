@@ -343,7 +343,7 @@ bool HIRLoopCollapse::doPreliminaryChecks(void) {
 
     // Simplest case is single blob with constant==-1 and denominator==1.
     // This ensures trip count equals the blob value. Other cases require
-    // changes to the blob (refer to convertToStandAloneBlob())
+    // changes to the blob (refer to convertToStandAloneBlobOrConstant())
     // TODO: Handle non-unit denominator.
     if (UBCE->numBlobs() == 1 && !UBCE->hasIV() &&
         UBCE->getDenominator() == 1 && UBCE->getConstant() == -1) {
@@ -942,9 +942,9 @@ LLVM_DUMP_METHOD void HIRLoopCollapse::printUBTCArry(void) const {
 
 #endif
 
-PreservedAnalyses HIRLoopCollapsePass::run(llvm::Function &F,
-                                           llvm::FunctionAnalysisManager &AM) {
-  HIRLoopCollapse(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+PreservedAnalyses HIRLoopCollapsePass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRLoopCollapse(HIRF).run();
   return PreservedAnalyses::all();
 }
 

@@ -1,6 +1,6 @@
 //===---------------- ReorderFields.cpp - DTransReorderFieldsPass ---------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -436,7 +436,7 @@ public:
 
 // Helper function to get associated StructType of \p CallInfo.
 StructType *ReorderFieldsImpl::getStructTyAssociatedWithCallInfo(CallInfo *CI) {
-  for (auto *StTy : CI->getElementTypesRef().getElemTypes()) {
+  for (auto *StTy : CI->getElementTypesRef().element_llvm_types()) {
     // StTy is original type, call getOrigTyOfTransformedType to
     // make sure the type is transformed.
     Type *OrigStTy = getOrigTyOfTransformedType(StTy);
@@ -472,7 +472,7 @@ StructType *ReorderFieldsImpl::unmapInclusiveType(CallInfo *CI) {
   }
 
   // Find the OrigTy of a matching ReorderedTy
-  for (auto *ElemTy : CI->getElementTypesRef().getElemTypes()) {
+  for (auto *ElemTy : CI->getElementTypesRef().element_llvm_types()) {
     StructType *ReorderedTy = dyn_cast<StructType>(ElemTy);
 
     // Search InclusiveStructTypeUnmap
@@ -888,6 +888,8 @@ StructType *ReorderFieldsImpl::getAssociatedOrigTypeOfSub(Value *SubV) {
     return nullptr;
 
   Type *StTy = PtrTy->getPointerElementType();
+  if (!isa<StructType>(StTy))
+    return nullptr;
 
   // Get original struct Type from transformed type.
   if (Type *OrigStTy = getOrigTyOfTransformedType(StTy))

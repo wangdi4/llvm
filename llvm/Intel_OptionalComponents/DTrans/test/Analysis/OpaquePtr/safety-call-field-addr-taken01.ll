@@ -3,7 +3,7 @@
 ; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Test passing the address of a field to a function to trigger the "Field
-; address taken" safety bit.
+; address taken call" safety bit.
 
 %struct.test01 = type { i32, i32 }
 define void @test01() {
@@ -22,7 +22,7 @@ define void @test01h(i32* %pAddr) !dtrans_type !2 {
 ; CHECK-NEXT: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
 ; CHECK: Field info: ComplexUse AddressTaken{{ *$}}
-; CHECK: Safety data: Field address taken | Local instance{{ *$}}
+; CHECK: Safety data: Local instance | Field address taken call{{ *$}}
 
 !1 = !{i32 0, i32 0}  ; i32
 !2 = !{!"F", i1 false, i32 1, !3, !4}  ; void (i32*)

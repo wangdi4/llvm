@@ -258,35 +258,36 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.cond.
 define dso_local void @maskedSetElement(<4 x float>* %vec, float %val, i32* %arr) {
 ; CHECK-LABEL: @maskedSetElement(
 ; CHECK:       vector.body:
-; CHECK:         [[TMP7:%.*]] = srem <2 x i32> [[WIDE_MASKED_LOAD3:%.*]], <i32 4, i32 4>
+; CHECK:         [[WIDE_MASKED_LOAD:%.*]] = call <8 x float> @llvm.masked.load.v8f32.p0v8f32(<8 x float>* [[POINTER:%.*]], i32 16, <8 x i1> [[LOADMASK:%.*]], <8 x float> undef)
+; CHECK-NEXT:    [[EXTRACTSUBVEC_6:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[EXTRACTSUBVEC_:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK:         [[TMP7:%.*]] = srem <2 x i32> [[WIDE_MASKED_LOAD6:%.*]], <i32 4, i32 4>
 ; CHECK-NEXT:    [[DOTEXTRACT_1_:%.*]] = extractelement <2 x i32> [[TMP7]], i32 1
-; CHECK-NEXT:    [[DOTEXTRACT_0_4:%.*]] = extractelement <2 x i32> [[TMP7]], i32 0
+; CHECK-NEXT:    [[DOTEXTRACT_0_7:%.*]] = extractelement <2 x i32> [[TMP7]], i32 0
 ; CHECK-NEXT:    [[PREDICATE:%.*]] = extractelement <2 x i1> [[TMP2:%.*]], i64 0
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i1 [[PREDICATE]], true
-; CHECK-NEXT:    [[EXTRACTSUBVEC_:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD:%.*]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[PRED_INSERTELEMENT_IF:%.*]], label [[TMP10:%.*]]
 ; CHECK:       pred.insertelement.if:
-; CHECK-NEXT:    [[TMP9:%.*]] = insertelement <4 x float> [[EXTRACTSUBVEC_]], float [[VAL:%.*]], i32 [[DOTEXTRACT_0_4]]
+; CHECK-NEXT:    [[TMP9:%.*]] = insertelement <4 x float> [[EXTRACTSUBVEC_]], float [[VAL:%.*]], i32 [[DOTEXTRACT_0_7]]
 ; CHECK-NEXT:    br label [[TMP10]]
 ; CHECK:       10:
-; CHECK-NEXT:    [[TMP11:%.*]] = phi <4 x float> [ undef, [[VECTOR_BODY:%.*]] ], [ [[TMP9]], [[PRED_INSERTELEMENT_IF]] ]
+; CHECK-NEXT:    [[TMP11:%.*]] = phi <4 x float> [ undef, [[VPLANNEDBB4:%.*]] ], [ [[TMP9]], [[PRED_INSERTELEMENT_IF]] ]
 ; CHECK-NEXT:    br label [[PRED_INSERTELEMENT_CONTINUE:%.*]]
 ; CHECK:       pred.insertelement.continue:
-; CHECK-NEXT:    [[PREDICATE5:%.*]] = extractelement <2 x i1> [[TMP2]], i64 1
-; CHECK-NEXT:    [[TMP12:%.*]] = icmp eq i1 [[PREDICATE5]], true
-; CHECK-NEXT:    [[EXTRACTSUBVEC_6:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-; CHECK-NEXT:    br i1 [[TMP12]], label [[PRED_INSERTELEMENT_IF8:%.*]], label [[TMP14:%.*]]
-; CHECK:       pred.insertelement.if8:
-; CHECK-NEXT:    [[TMP13:%.*]] = insertelement <4 x float> [[EXTRACTSUBVEC_6]], float [[VAL]], i32 [[DOTEXTRACT_1_]]
+; CHECK-NEXT:    [[PREDICATE8:%.*]] = extractelement <2 x i1> [[TMP2]], i64 1
+; CHECK-NEXT:    [[TMP12:%.*]] = icmp eq i1 [[PREDICATE8]], true
+; CHECK-NEXT:    br i1 [[TMP12]], label [[PRED_INSERTELEMENT_IF18:%.*]], label [[TMP14:%.*]]
+; CHECK:       pred.insertelement.if17:
+; CHECK-NEXT:    [[TMP13:%.*]] = insertelement <4 x float> [[EXTRACTSUBVEC_9:%.*]], float [[VAL]], i32 [[DOTEXTRACT_1_]]
 ; CHECK-NEXT:    br label [[TMP14]]
 ; CHECK:       14:
-; CHECK-NEXT:    [[TMP15:%.*]] = phi <4 x float> [ undef, [[PRED_INSERTELEMENT_CONTINUE]] ], [ [[TMP13]], [[PRED_INSERTELEMENT_IF8]] ]
-; CHECK-NEXT:    br label [[PRED_INSERTELEMENT_CONTINUE9:%.*]]
-; CHECK:       pred.insertelement.continue9:
+; CHECK-NEXT:    [[TMP15:%.*]] = phi <4 x float> [ undef, [[PRED_INSERTELEMENT_CONTINUE]] ], [ [[TMP13]], [[PRED_INSERTELEMENT_IF18]] ]
+; CHECK-NEXT:    br label [[PRED_INSERTELEMENT_CONTINUE19:%.*]]
+; CHECK:       pred.insertelement.continue18:
 ; CHECK-NEXT:    [[TMP16:%.*]] = shufflevector <4 x float> [[TMP11]], <4 x float> [[TMP15]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK-NEXT:    [[TMP17:%.*]] = bitcast <4 x float>* [[SCALAR_GEP:%.*]] to <8 x float>*
-; CHECK-NEXT:    [[REPLICATEDMASKELTS_7:%.*]] = shufflevector <2 x i1> [[TMP2]], <2 x i1> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
-; CHECK-NEXT:    call void @llvm.masked.store.v8f32.p0v8f32(<8 x float> [[TMP16]], <8 x float>* [[TMP17]], i32 16, <8 x i1> [[REPLICATEDMASKELTS_7]])
+; CHECK-NEXT:    [[REPLICATEDMASKELTS_10:%.*]] = shufflevector <2 x i1> [[TMP2]], <2 x i1> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
+; CHECK-NEXT:    call void @llvm.masked.store.v8f32.p0v8f32(<8 x float> [[TMP16]], <8 x float>* [[TMP17]], i32 16, <8 x i1> [[REPLICATEDMASKELTS_10]])
 ;
 omp.inner.for.body.lr.ph:
   %t.priv = alloca <4 x float>, align 16
@@ -347,33 +348,34 @@ DIR.OMP.END.SIMD.3:
 define dso_local float @maskedGetElement(<4 x float>* %vec, float %val, i32 %i) {
 ; CHECK-LABEL: @maskedGetElement(
 ; CHECK:       vector.body:
-; CHECK:         [[TMP8:%.*]] = srem i32 [[CONV:%.*]], [[DOTEXTRACT_0_3:%.*]]
-; CHECK:         [[TMP12:%.*]] = srem i32 [[CONV]], [[DOTEXTRACT_1_:%.*]]
-; CHECK:         [[PREDICATE5:%.*]] = extractelement <2 x i1> [[TMP3:%.*]], i64 0
-; CHECK-NEXT:    [[TMP15:%.*]] = icmp eq i1 [[PREDICATE5]], true
+; CHECK:         [[WIDE_MASKED_LOAD:%.*]] = call <8 x float> @llvm.masked.load.v8f32.p0v8f32(<8 x float>* [[POINTER:%.*]], i32 16, <8 x i1> [[LOADMASK:%.*]], <8 x float> undef)
+; CHECK-NEXT:    [[EXTRACTSUBVEC_7:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
 ; CHECK-NEXT:    [[EXTRACTSUBVEC_:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK:         [[TMP8:%.*]] = srem i32 [[CONV:%.*]], [[DOTEXTRACT_0_6:%.*]]
+; CHECK:         [[TMP12:%.*]] = srem i32 [[CONV]], [[DOTEXTRACT_1_:%.*]]
+; CHECK:         [[PREDICATE8:%.*]] = extractelement <2 x i1> [[TMP3:%.*]], i64 0
+; CHECK-NEXT:    [[TMP15:%.*]] = icmp eq i1 [[PREDICATE8]], true
 ; CHECK-NEXT:    br i1 [[TMP15]], label [[PRED_EXTRACTELEMENT_IF:%.*]], label [[TMP18:%.*]]
 ; CHECK:       pred.extractelement.if:
 ; CHECK-NEXT:    [[TMP16:%.*]] = extractelement <4 x float> [[EXTRACTSUBVEC_]], i32 [[TMP10]]
 ; CHECK-NEXT:    [[TMP17:%.*]] = insertelement <2 x float> undef, float [[TMP16]], i32 0
 ; CHECK-NEXT:    br label [[TMP18]]
 ; CHECK:       18:
-; CHECK-NEXT:    [[TMP19:%.*]] = phi <2 x float> [ undef, [[PRED_SREM_CONTINUE9:%.*]] ], [ [[TMP17]], [[PRED_EXTRACTELEMENT_IF]] ]
+; CHECK-NEXT:    [[TMP19:%.*]] = phi <2 x float> [ undef, [[PRED_SREM_CONTINUE21:%.*]] ], [ [[TMP17]], [[PRED_EXTRACTELEMENT_IF]] ]
 ; CHECK-NEXT:    br label [[PRED_EXTRACTELEMENT_CONTINUE:%.*]]
 ; CHECK:       pred.extractelement.continue:
-; CHECK-NEXT:    [[PREDICATE6:%.*]] = extractelement <2 x i1> [[TMP3]], i64 1
-; CHECK-NEXT:    [[TMP20:%.*]] = icmp eq i1 [[PREDICATE6]], true
-; CHECK-NEXT:    [[EXTRACTSUBVEC_7:%.*]] = shufflevector <8 x float> [[WIDE_MASKED_LOAD]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
-; CHECK-NEXT:    br i1 [[TMP20]], label [[PRED_EXTRACTELEMENT_IF10:%.*]], label [[TMP23:%.*]]
-; CHECK:       pred.extractelement.if10:
-; CHECK-NEXT:    [[TMP21:%.*]] = extractelement <4 x float> [[EXTRACTSUBVEC_7]], i32 [[TMP14]]
+; CHECK-NEXT:    [[PREDICATE9:%.*]] = extractelement <2 x i1> [[TMP3]], i64 1
+; CHECK-NEXT:    [[TMP20:%.*]] = icmp eq i1 [[PREDICATE9]], true
+; CHECK-NEXT:    br i1 [[TMP20]], label [[PRED_EXTRACTELEMENT_IF22:%.*]], label [[TMP23:%.*]]
+; CHECK:       pred.extractelement.if21:
+; CHECK-NEXT:    [[TMP21:%.*]] = extractelement <4 x float> [[EXTRACTSUBVEC_10:%.*]], i32 [[TMP14]]
 ; CHECK-NEXT:    [[TMP22:%.*]] = insertelement <2 x float> [[TMP19]], float [[TMP21]], i32 1
 ; CHECK-NEXT:    br label [[TMP23]]
 ; CHECK:       23:
-; CHECK-NEXT:    [[TMP24:%.*]] = phi <2 x float> [ [[TMP19]], [[PRED_EXTRACTELEMENT_CONTINUE]] ], [ [[TMP22]], [[PRED_EXTRACTELEMENT_IF10]] ]
-; CHECK-NEXT:    br label [[PRED_EXTRACTELEMENT_CONTINUE11:%.*]]
-; CHECK:       pred.extractelement.continue11:
-; CHECK-NEXT:    [[TMP25:%.*]] = fadd <2 x float> [[VEC_PHI2:%.*]], [[TMP24]]
+; CHECK-NEXT:    [[TMP24:%.*]] = phi <2 x float> [ [[TMP19]], [[PRED_EXTRACTELEMENT_CONTINUE]] ], [ [[TMP22]], [[PRED_EXTRACTELEMENT_IF22]] ]
+; CHECK-NEXT:    br label [[PRED_EXTRACTELEMENT_CONTINUE23:%.*]]
+; CHECK:       pred.extractelement.continue22:
+; CHECK-NEXT:    [[TMP25:%.*]] = fadd <2 x float> [[VEC_PHI4:%.*]], [[TMP24]]
 ;
 omp.inner.for.body.lr.ph:
   %conv = fptosi float %val to i32

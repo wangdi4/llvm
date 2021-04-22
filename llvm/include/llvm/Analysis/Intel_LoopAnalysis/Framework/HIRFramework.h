@@ -1,6 +1,6 @@
 //===--- HIRFramework.h - public interface of HIR framework ---*-- C++ --*-===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -205,6 +205,11 @@ public:
   LoopOptReportBuilder &getLORBuilder() { return LORBuilder; }
 
   HIRAnalysisProvider &getHIRAnalysisProvider() { return AnalysisProvider; }
+
+  // Restores connection of underlying alias analyses to the original AAResults
+  // pointer in codegen. This is needed because HIRDDAnalysis's AA pipeline
+  // overwrites the AAResults pointer field.
+  void restoreOriginalAAResults();
 };
 
 class HIRFrameworkAnalysis : public AnalysisInfoMixin<HIRFrameworkAnalysis> {

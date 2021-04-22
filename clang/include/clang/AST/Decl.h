@@ -581,6 +581,16 @@ public:
     AnonOrFirstNamespaceAndInline.setInt(Inline);
   }
 
+  /// Returns true if the inline qualifier for \c Name is redundant.
+  bool isRedundantInlineQualifierFor(DeclarationName Name) const {
+    if (!isInline())
+      return false;
+    auto X = lookup(Name);
+    auto Y = getParent()->lookup(Name);
+    return std::distance(X.begin(), X.end()) ==
+      std::distance(Y.begin(), Y.end());
+  }
+
   /// Get the original (first) namespace declaration.
   NamespaceDecl *getOriginalNamespace();
 
@@ -1665,6 +1675,9 @@ public:
   bool isObjCMethodParameter() const {
     return ParmVarDeclBits.IsObjCMethodParam;
   }
+
+  /// Determines whether this parameter is destroyed in the callee function.
+  bool isDestroyedInCallee() const;
 
   unsigned getFunctionScopeDepth() const {
     if (ParmVarDeclBits.IsObjCMethodParam) return 0;

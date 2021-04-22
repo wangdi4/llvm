@@ -1,6 +1,6 @@
 //===------ HIRTransformUtils.h ---------------------------- --*- C++ -*---===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -32,7 +32,10 @@
 namespace llvm {
 
 class LoopOptReportBuilder;
+#if INTEL_INCLUDE_DTRANS
 class FieldModRefResult;
+class DTransImmutableInfo;
+#endif // INTEL_INCLUDE_DTRANS
 
 namespace loopopt {
 
@@ -203,7 +206,9 @@ public:
   /// END DO
   static bool isLoopInvariant(const RegDDRef *MemRef, const HLLoop *Loop,
                               HIRDDAnalysis &HDDA, HIRLoopStatistics &HLS,
+#if INTEL_INCLUDE_DTRANS
                               FieldModRefResult *FieldModRef = nullptr,
+#endif // INTEL_INCLUDE_DTRANS
                               bool IgnoreIVs = false);
 
   /// This function creates and returns a new loop that will be used as the
@@ -275,8 +280,16 @@ public:
   ///       do i2=64*i1, 64*i1 + N2
   ///          A[i2] = 1
   ///
+  /// When \p AllowExplicitBoundInst is set, the lower bound ref
+  /// gets its own instruction setting a selfblob, allowing normalization
+  /// to succeed when it would normally fail. Before the loop, we will see
+  /// %lb blob being set like so:
+  ///     %lb = 14 * i2;
+  ///   DO i3 = 0, 14 * i2 + %min + -1 * %lb, 1
+  ///
   static void stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
-                        unsigned StripmineSize);
+                        unsigned StripmineSize,
+                        bool AllowExplicitBoundInst = false);
 
   /// Performs complete unroll for \p Loop.
   /// NOTE: Does not handle non-constant lower bounds. For example-
@@ -341,13 +354,17 @@ public:
 
   /// Propagates constants to refs and does constant folding for instructions.
   /// Also substitutes constant global refs with equivalent constants.
+#if INTEL_INCLUDE_DTRANS
+  static bool doConstantPropagation(HLNode *Node, DTransImmutableInfo *DTII);
+#else // INTEL_INCLUDE_DTRANS
   static bool doConstantPropagation(HLNode *Node);
+#endif // INTEL_INCLUDE_DTRANS
 
   /// Returns true if instruction was folded, along with the new instruction.
   /// If the instruction is null, it folded into a self-assignment (no-op).
   /// \p Invalidate indicates that we need to invalidate the parent loop/region
-  static std::pair<bool, HLInst*> constantFoldInst(HLInst *Inst, bool Invalidate);
-
+  static std::pair<bool, HLInst *> constantFoldInst(HLInst *Inst,
+                                                    bool Invalidate);
 
   /// Conduct Array Scalarization for all memrefs provided in a set of symbases.
   ///
@@ -381,12 +398,12 @@ public:
   static bool doOptVarPredicate(HLLoop *Loop,
                                 SmallVectorImpl<HLLoop *> &OutLoops,
                                 SmallPtrSetImpl<HLNode *> &NodesToInvalidate);
+
   /// Set \p Ref to be \p Blob with \p BlobIndex
   /// The ref should be a single canon expr.
   /// Notice that makeConsistent over Ref is NOT called.
   /// It is user's responisbility.
-  static void setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
-                               unsigned BlobIndex);
+  static void setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob, unsigned BlobIndex);
 
   /// Replaces \p OldRef in its HLDDNode by \p NewRef. It returns the node where
   /// the replacement was performed. This may be different than the original
@@ -394,6 +411,28 @@ public:
   /// replaced by the new one in this case. Note: This utility does not
   /// invalidate analyses.
   static HLDDNode *replaceOperand(RegDDRef *OldRef, RegDDRef *NewRef);
+
+  /// Contract a single high-dimension memref into its equivalent low-dimension
+  /// memref counterpart.
+  ///  example [BEFORE]
+  ///  ..
+  ///    A[1][2][i][j][k] = .
+  ///  ..
+  ///
+  /// when information is provided to specify that dimensions 1, 2, and 3 are
+  /// to be contracted, the memref will become:
+  ///
+  ///  example [AFTER]
+  ///  ..
+  ///    AA[1][2] = .
+  ///  ..
+  ///
+  static bool
+  contractMemRef(RegDDRef *ToContractRef,               /* INPUT */
+                 SmallSet<unsigned, 4> &PreservedDims,  /* Dims preserved */
+                 SmallSet<unsigned, 4> &ToContractDims, /* Dims to contract */
+                 HLRegion &Reg,
+                 RegDDRef *&AfterContractRef /* Ref after contraction */);
 };
 
 } // End namespace loopopt

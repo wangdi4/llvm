@@ -26,10 +26,11 @@
 #ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_RESOURCE_H
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_RESOURCE_H
 
-#include "llvm/Pass.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Pass.h"
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Support/FormattedStream.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRAnalysisPass.h"
 
@@ -193,6 +194,13 @@ public:
 
   /// Prints the loop resource.
   void print(formatted_raw_ostream &OS, const HLLoop *Lp) const;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(const HLLoop *Lp) const {
+    formatted_raw_ostream FOS(dbgs());
+    print(FOS, Lp);
+  }
+#endif
 };
 
 class HIRLoopResource : public HIRAnalysis {
@@ -259,6 +267,13 @@ public:
   void print(raw_ostream &OS, const Module * = nullptr) const override {
     getHLR().printAnalysis(OS);
   }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const {
+    formatted_raw_ostream FOS(dbgs());
+    print(FOS);
+  }
+#endif
 
   HIRLoopResource &getHLR() { return *HLR; }
   const HIRLoopResource &getHLR() const { return *HLR; }

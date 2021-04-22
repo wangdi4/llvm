@@ -661,7 +661,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t ID, __tgt_device_image *Ptr) {
   return getDeviceInfo().loadImage(Ptr);
 }
 
-void *__tgt_rtl_data_alloc(int32_t ID, int64_t Size, void *HPtr) {
+void *__tgt_rtl_data_alloc(int32_t ID, int64_t Size, void *HPtr, int32_t Kind) {
   if (HPtr)
     return HPtr;
   return getDeviceInfo().getDevice(ID).alloc(Size);

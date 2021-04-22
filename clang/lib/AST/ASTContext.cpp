@@ -56,8 +56,8 @@
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/Linkage.h"
 #include "clang/Basic/Module.h"
+#include "clang/Basic/NoSanitizeList.h"
 #include "clang/Basic/ObjCRuntime.h"
-#include "clang/Basic/SanitizerBlacklist.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/Specifiers.h"
@@ -84,6 +84,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/MD5.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
@@ -965,10 +966,11 @@ ASTContext::ASTContext(LangOptions &LOpts, SourceManager &SM,
       SubstTemplateTemplateParmPacks(this_()),
       CanonTemplateTemplateParms(this_()), SourceMgr(SM), LangOpts(LOpts),
       DisabledFPContract(false), // INTEL
-      SanitizerBL(new SanitizerBlacklist(LangOpts.SanitizerBlacklistFiles, SM)),
+      NoSanitizeL(new NoSanitizeList(LangOpts.NoSanitizeFiles, SM)),
       XRayFilter(new XRayFunctionFilter(LangOpts.XRayAlwaysInstrumentFiles,
                                         LangOpts.XRayNeverInstrumentFiles,
                                         LangOpts.XRayAttrListFiles, SM)),
+      ProfList(new ProfileList(LangOpts.ProfileListFiles, SM)),
       PrintingPolicy(LOpts), Idents(idents), Selectors(sels),
       BuiltinInfo(builtins), DeclarationNames(*this), Comments(SM),
       CommentCommandTraits(BumpAlloc, LOpts.CommentOpts),
@@ -1444,6 +1446,12 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
 #include "clang/Basic/PPCTypes.def"
   }
 
+  if (Target.hasRISCVVTypes()) {
+#define RVV_TYPE(Name, Id, SingletonId)                                        \
+  InitBuiltinType(SingletonId, BuiltinType::Id);
+#include "clang/Basic/RISCVVTypes.def"
+  }
+
   // Builtin type for __objc_yes and __objc_no
   ObjCBuiltinBoolTy = (Target.useSignedCharForObjCBool() ?
                        SignedCharTy : BoolTy);
@@ -1453,7 +1461,7 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
   ObjCSuperType = QualType();
 
   // void * type
-  if (LangOpts.OpenCLVersion >= 200) {
+  if (LangOpts.OpenCLGenericAddressSpace) {
     auto Q = VoidTy.getQualifiers();
     Q.setAddressSpace(LangAS::opencl_generic);
     VoidPtrTy = getPointerType(getCanonicalType(
@@ -1796,6 +1804,13 @@ CharUnits ASTContext::getDeclAlign(const Decl *D, bool ForAlignof) const {
     }
   }
 
+  // Some targets have hard limitation on the maximum requestable alignment in
+  // aligned attribute for static variables.
+  const unsigned MaxAlignedAttr = getTargetInfo().getMaxAlignedAttribute();
+  const auto *VD = dyn_cast<VarDecl>(D);
+  if (MaxAlignedAttr && VD && VD->getStorageClass() == SC_Static)
+    Align = std::min(Align, MaxAlignedAttr);
+
   return toCharUnitsFromBits(Align);
 }
 
@@ -1834,13 +1849,6 @@ static getConstantArrayInfoInChars(const ASTContext &Context,
               (uint64_t)(-1)/Size) &&
          "Overflow in array type char size evaluation");
   uint64_t Width = EltInfo.Width.getQuantity() * Size;
-#if INTEL_CUSTOMIZATION
-  if (CAT->getElementType()->isArbPrecIntType() &&
-      !llvm::isPowerOf2_64(Context.getTypeSize(CAT->getElementType())))
-    Width = llvm::alignTo(EltInfo.Width.getQuantity(),
-                          EltInfo.Align.getQuantity()) *
-            Size;
-#endif // INTEL_CUSTOMIZATION
   unsigned Align = EltInfo.Align.getQuantity();
   if (!Context.getTargetInfo().getCXXABI().isMicrosoft() ||
       Context.getTargetInfo().getPointerWidth(0) == 64)
@@ -1854,14 +1862,7 @@ TypeInfoChars ASTContext::getTypeInfoInChars(const Type *T) const {
   if (const auto *CAT = dyn_cast<ConstantArrayType>(T))
     return getConstantArrayInfoInChars(*this, CAT);
   TypeInfo Info = getTypeInfo(T);
-#if INTEL_CUSTOMIZATION
-  // toCharUnitsFromBits always rounds down and is depended on, but
-  // AP-Int size needs to be the next size up.
-  return TypeInfoChars(toCharUnitsFromBits(Info.Width) +
-                            (Info.Width % getCharWidth() == 0
-                                 ? CharUnits::Zero()
-                                 : CharUnits::One()),
-#endif // INTEL_CUSTOMIZATION
+  return TypeInfoChars(toCharUnitsFromBits(Info.Width),
                        toCharUnitsFromBits(Info.Align),
                        Info.AlignIsRequired);
 }
@@ -1956,13 +1957,6 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     assert((Size == 0 || EltInfo.Width <= (uint64_t)(-1) / Size) &&
            "Overflow in array type bit size evaluation");
     Width = EltInfo.Width * Size;
-#if INTEL_CUSTOMIZATION
-    if (cast<ArrayType>(T)->getElementType()->isArbPrecIntType() &&
-        !llvm::isPowerOf2_64(EltInfo.Width))
-      Width = llvm::alignTo(EltInfo.Width,
-                            EltInfo.Align) *
-              Size;
-#endif // INTEL_CUSTOMIZATION
     Align = EltInfo.Align;
     AlignIsRequired = EltInfo.AlignIsRequired;
     if (!getTargetInfo().getCXXABI().isMicrosoft() ||
@@ -2134,7 +2128,7 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Align = Target->getDoubleAlign();
       break;
     case BuiltinType::LongDouble:
-      if (((getLangOpts().SYCL && getLangOpts().SYCLIsDevice) ||
+      if ((getLangOpts().SYCLIsDevice ||
            (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice)) &&
           AuxTarget != nullptr &&
 #if INTEL_COLLAB
@@ -2229,6 +2223,18 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     Align = Size;                                                              \
     break;
 #include "clang/Basic/PPCTypes.def"
+#define RVV_VECTOR_TYPE(Name, Id, SingletonId, ElKind, ElBits, NF, IsSigned,   \
+                        IsFP)                                                  \
+  case BuiltinType::Id:                                                        \
+    Width = 0;                                                                 \
+    Align = ElBits;                                                            \
+    break;
+#define RVV_PREDICATE_TYPE(Name, Id, SingletonId, ElKind)                      \
+  case BuiltinType::Id:                                                        \
+    Width = 0;                                                                 \
+    Align = 8;                                                                 \
+    break;
+#include "clang/Basic/RISCVVTypes.def"
     }
     break;
   case Type::ObjCObjectPointer:
@@ -2401,13 +2407,6 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     TypeInfo Info = getTypeInfo(cast<ChannelType>(T)->getElementType());
     Width = Info.Width;
     Align = Info.Align;
-    break;
-  }
-  case Type::ArbPrecInt: {
-    const ArbPrecIntType *AT = cast<ArbPrecIntType>(T);
-    Width = AT->getNumBits();
-    Align = std::min(std::max(getCharWidth(), llvm::PowerOf2Ceil(Width)),
-                     static_cast<uint64_t>(64));
     break;
   }
 #endif // INTEL_CUSTOMIZATION
@@ -3563,8 +3562,6 @@ QualType ASTContext::getVariableArrayDecayedType(QualType type) const {
   case Type::MemberPointer:
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
-  case Type::ArbPrecInt:
-  case Type::DependentSizedArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return type;
@@ -3894,6 +3891,19 @@ ASTContext::getBuiltinVectorTypeInfo(const BuiltinType *Ty) const {
     return SVE_ELTTY(BFloat16Ty, 8, 3);
   case BuiltinType::SveBFloat16x4:
     return SVE_ELTTY(BFloat16Ty, 8, 4);
+#define RVV_VECTOR_TYPE_INT(Name, Id, SingletonId, NumEls, ElBits, NF,         \
+                            IsSigned)                                          \
+  case BuiltinType::Id:                                                        \
+    return {getIntTypeForBitwidth(ElBits, IsSigned),                           \
+            llvm::ElementCount::getScalable(NumEls), NF};
+#define RVV_VECTOR_TYPE_FLOAT(Name, Id, SingletonId, NumEls, ElBits, NF)       \
+  case BuiltinType::Id:                                                        \
+    return {ElBits == 16 ? HalfTy : (ElBits == 32 ? FloatTy : DoubleTy),       \
+            llvm::ElementCount::getScalable(NumEls), NF};
+#define RVV_PREDICATE_TYPE(Name, Id, SingletonId, NumEls)                      \
+  case BuiltinType::Id:                                                        \
+    return {BoolTy, llvm::ElementCount::getScalable(NumEls), 1};
+#include "clang/Basic/RISCVVTypes.def"
   }
 }
 
@@ -3920,6 +3930,20 @@ QualType ASTContext::getScalableVectorType(QualType EltTy,
   if (EltTy->isBooleanType() && NumElts == NumEls)                             \
     return SingletonId;
 #include "clang/Basic/AArch64SVEACLETypes.def"
+  } else if (Target->hasRISCVVTypes()) {
+    uint64_t EltTySize = getTypeSize(EltTy);
+#define RVV_VECTOR_TYPE(Name, Id, SingletonId, NumEls, ElBits, NF, IsSigned,   \
+                        IsFP)                                                  \
+    if (!EltTy->isBooleanType() &&                                             \
+        ((EltTy->hasIntegerRepresentation() &&                                 \
+          EltTy->hasSignedIntegerRepresentation() == IsSigned) ||              \
+         (EltTy->hasFloatingRepresentation() && IsFP)) &&                      \
+        EltTySize == ElBits && NumElts == NumEls)                              \
+      return SingletonId;
+#define RVV_PREDICATE_TYPE(Name, Id, SingletonId, NumEls)                      \
+    if (EltTy->isBooleanType() && NumElts == NumEls)                           \
+      return SingletonId;
+#include "clang/Basic/RISCVVTypes.def"
   }
   return QualType();
 }
@@ -4466,70 +4490,6 @@ QualType ASTContext::getChannelType(QualType T) const {
   ChannelType *New = new (*this, TypeAlignment) ChannelType(T, Canonical);
   Types.push_back(New);
   ChannelTypes.InsertNode(New, InsertPos);
-  return QualType(New, 0);
-}
-
-QualType ASTContext::getArbPrecIntType(QualType Type, unsigned NumBits,
-                                       SourceLocation AttrLoc) const {
-  assert(Type->isIntegerType() || Type->isDependentType());
-
-  llvm::FoldingSetNodeID ID;
-  ArbPrecIntType::Profile(ID, Type, NumBits);
-
-  void *InsertPos = nullptr;
-  if (ArbPrecIntType *VTP = ArbPrecIntTypes.FindNodeOrInsertPos(ID, InsertPos))
-    return QualType(VTP, 0);
-
-  QualType Canonical;
-  if (!Type.isCanonical()) {
-    Canonical = getArbPrecIntType(getCanonicalType(Type), NumBits, AttrLoc);
-
-    ArbPrecIntType *NewIP = ArbPrecIntTypes.FindNodeOrInsertPos(ID, InsertPos);
-    assert(!NewIP && "Shouldn't be in the map!");
-    (void)NewIP;
-  }
-
-  ArbPrecIntType *New = new (*this, TypeAlignment)
-      ArbPrecIntType(Type, NumBits, Canonical, AttrLoc);
-  ArbPrecIntTypes.InsertNode(New, InsertPos);
-  Types.push_back(New);
-  return QualType(New, 0);
-}
-
-QualType
-ASTContext::getDependentSizedArbPrecIntType(QualType Type, Expr *NumBitsExpr,
-                                            SourceLocation AttrLoc) const {
-  llvm::FoldingSetNodeID ID;
-  DependentSizedArbPrecIntType::Profile(ID, *this, getCanonicalType(Type),
-                                        NumBitsExpr);
-
-  void *InsertPos = nullptr;
-  DependentSizedArbPrecIntType *Canon =
-      DependentSizedArbPrecIntTypes.FindNodeOrInsertPos(ID, InsertPos);
-  DependentSizedArbPrecIntType *New;
-
-  if (Canon) {
-    New = new (*this, TypeAlignment) DependentSizedArbPrecIntType(
-        *this, Type, QualType(Canon, 0), NumBitsExpr, AttrLoc);
-  } else {
-    QualType CanonTy = getCanonicalType(Type);
-    if (CanonTy == Type) {
-      New = new (*this, TypeAlignment) DependentSizedArbPrecIntType(
-          *this, Type, QualType(), NumBitsExpr, AttrLoc);
-      DependentSizedArbPrecIntType *CanonCheck =
-          DependentSizedArbPrecIntTypes.FindNodeOrInsertPos(ID, InsertPos);
-      assert(!CanonCheck && "Shouldn't be in the map!");
-      (void)CanonCheck;
-      DependentSizedArbPrecIntTypes.InsertNode(New, InsertPos);
-    } else {
-      QualType Canon =
-          getDependentSizedArbPrecIntType(CanonTy, NumBitsExpr, AttrLoc);
-      New = new (*this, TypeAlignment) DependentSizedArbPrecIntType(
-          *this, Type, Canon, NumBitsExpr, AttrLoc);
-    }
-  }
-
-  Types.push_back(New);
   return QualType(New, 0);
 }
 #endif // INTEL_CUSTOMIZATION
@@ -6015,9 +5975,8 @@ ASTContext::getNameForTemplate(TemplateName Name,
     } else {
       DName = DeclarationNames.getCXXOperatorName(DTN->getOperator());
       // DNInfo work in progress: FIXME: source locations?
-      DeclarationNameLoc DNLoc;
-      DNLoc.CXXOperatorName.BeginOpNameLoc = SourceLocation().getRawEncoding();
-      DNLoc.CXXOperatorName.EndOpNameLoc = SourceLocation().getRawEncoding();
+      DeclarationNameLoc DNLoc =
+          DeclarationNameLoc::makeCXXOperatorNameLoc(SourceRange());
       return DeclarationNameInfo(DName, NameLoc, DNLoc);
     }
   }
@@ -6412,11 +6371,6 @@ int ASTContext::getFloatingTypeSemanticOrder(QualType LHS, QualType RHS) const {
 /// or if it is not canonicalized.
 unsigned ASTContext::getIntegerRank(const Type *T) const {
   assert(T->isCanonicalUnqualified() && "T should be canonicalized");
-#if INTEL_CUSTOMIZATION
-  if (isa<ArbPrecIntType>(T)) {
-    return 7 + (getIntWidth(QualType(T, 0)) << 3);
-  }
-#endif // INTEL_CUSTOMIZATION
 
   // Results in this 'losing' to any type of the same size, but winning if
   // larger.
@@ -7401,13 +7355,15 @@ static char getObjCEncodingForPrimitiveType(const ASTContext *C,
 #define SVE_TYPE(Name, Id, SingletonId) \
     case BuiltinType::Id:
 #include "clang/Basic/AArch64SVEACLETypes.def"
-    {
-      DiagnosticsEngine &Diags = C->getDiagnostics();
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "cannot yet @encode type %0");
-      Diags.Report(DiagID) << BT->getName(C->getPrintingPolicy());
-      return ' ';
-    }
+#define RVV_TYPE(Name, Id, SingletonId) case BuiltinType::Id:
+#include "clang/Basic/RISCVVTypes.def"
+      {
+        DiagnosticsEngine &Diags = C->getDiagnostics();
+        unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                                "cannot yet @encode type %0");
+        Diags.Report(DiagID) << BT->getName(C->getPrintingPolicy());
+        return ' ';
+      }
 
     case BuiltinType::ObjCId:
     case BuiltinType::ObjCClass:
@@ -7497,6 +7453,40 @@ static void EncodeBitField(const ASTContext *Ctx, std::string& S,
     }
   }
   S += llvm::utostr(FD->getBitWidthValue(*Ctx));
+}
+
+// Helper function for determining whether the encoded type string would include
+// a template specialization type.
+static bool hasTemplateSpecializationInEncodedString(const Type *T,
+                                                     bool VisitBasesAndFields) {
+  T = T->getBaseElementTypeUnsafe();
+
+  if (auto *PT = T->getAs<PointerType>())
+    return hasTemplateSpecializationInEncodedString(
+        PT->getPointeeType().getTypePtr(), false);
+
+  auto *CXXRD = T->getAsCXXRecordDecl();
+
+  if (!CXXRD)
+    return false;
+
+  if (isa<ClassTemplateSpecializationDecl>(CXXRD))
+    return true;
+
+  if (!CXXRD->hasDefinition() || !VisitBasesAndFields)
+    return false;
+
+  for (auto B : CXXRD->bases())
+    if (hasTemplateSpecializationInEncodedString(B.getType().getTypePtr(),
+                                                 true))
+      return true;
+
+  for (auto *FD : CXXRD->fields())
+    if (hasTemplateSpecializationInEncodedString(FD->getType().getTypePtr(),
+                                                 true))
+      return true;
+
+  return false;
 }
 
 // FIXME: Use SmallString for accumulating string.
@@ -7589,6 +7579,15 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string &S,
       // GCC binary compat: Need to convert "struct objc_object *" to "@".
       if (RTy->getDecl()->getIdentifier() == &Idents.get("objc_object")) {
         S += '@';
+        return;
+      }
+      // If the encoded string for the class includes template names, just emit
+      // "^v" for pointers to the class.
+      if (getLangOpts().CPlusPlus &&
+          (!getLangOpts().EncodeCXXClassTemplateSpec &&
+           hasTemplateSpecializationInEncodedString(
+               RTy, Options.ExpandPointedToStructures()))) {
+        S += "^v";
         return;
       }
       // fall through...
@@ -7829,7 +7828,6 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string &S,
 
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
-  case Type::ArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
   case Type::ExtInt:
@@ -10043,33 +10041,6 @@ QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
       return RHS;
     return getChannelType(ResultType);
   }
-  case Type::ArbPrecInt:
-  {
-    // Merge two pointer types, while trying to preserve typedef info
-    QualType LHSValue = LHS->getAs<ArbPrecIntType>()->getUnderlyingType();
-    QualType RHSValue = RHS->getAs<ArbPrecIntType>()->getUnderlyingType();
-    unsigned LHSBits = LHS->getAs<ArbPrecIntType>()->getNumBits();
-    unsigned RHSBits = RHS->getAs<ArbPrecIntType>()->getNumBits();
-
-    if (Unqualified) {
-      LHSValue = LHSValue.getUnqualifiedType();
-      RHSValue = RHSValue.getUnqualifiedType();
-    }
-    QualType UnderlyingType = mergeTypes(LHSValue, RHSValue, false,
-                                     Unqualified);
-    if (UnderlyingType.isNull()) return QualType();
-
-    if (getCanonicalType(LHSValue) == getCanonicalType(UnderlyingType) &&
-        LHSBits == RHSBits)
-      return LHS;
-    if (getCanonicalType(RHSValue) == getCanonicalType(UnderlyingType) &&
-        LHSBits == RHSBits)
-      return RHS;
-
-    if (LHSBits >= RHSBits)
-      return LHS;
-    return RHS;
-  }
 #endif // INTEL_CUSTOMIZATION
 
   case Type::Pipe:
@@ -10818,7 +10789,10 @@ static GVALinkage adjustGVALinkageForAttributes(const ASTContext &Context,
       return GVA_StrongODR;
     // Single source offloading languages like CUDA/HIP need to be able to
     // access static device variables from host code of the same compilation
-    // unit. This is done by externalizing the static variable.
+    // unit. This is done by externalizing the static variable with a shared
+    // name between the host and device compilation which is the same for the
+    // same compilation unit whereas different among different compilation
+    // units.
     if (Context.shouldExternalizeStaticVar(D))
       return GVA_StrongExternal;
   } else if (Context.getLangOpts().SYCLIsDevice &&
@@ -11079,6 +11053,9 @@ void ASTContext::forEachMultiversionedFunctionVersion(
   assert(FD->isMultiVersion() && "Only valid for multiversioned functions");
   llvm::SmallDenseSet<const FunctionDecl*, 4> SeenDecls;
   FD = FD->getMostRecentDecl();
+  // FIXME: The order of traversal here matters and depends on the order of
+  // lookup results, which happens to be (mostly) oldest-to-newest, but we
+  // shouldn't rely on that.
   for (auto *CurDecl :
        FD->getDeclContext()->getRedeclContext()->lookup(FD->getDeclName())) {
     FunctionDecl *CurFD = CurDecl->getAsFunction()->getMostRecentDecl();
@@ -11708,7 +11685,14 @@ void ASTContext::getFunctionFeatureMap(llvm::StringMap<bool> &FeatureMap,
       NewFeats = split.second;
     }
 
-    Target->initFeatureMap(FeatureMap, getDiagnostics(), TargetCPU, FeaturesTmp);
+    Target->initFeatureMap(FeatureMap, getDiagnostics(), TargetCPU,
+                           FeaturesTmp);
+  } else if (const auto *AF = FD->getAttr<AllowCpuFeaturesAttr>()) {
+    std::vector<std::string> NewFeatures;
+    getAddCpuFeaturesFromBitmask(NewFeatures, AF->getPage1Value(),
+                                 AF->getPage2Value());
+    Target->initFeatureMap(FeatureMap, getDiagnostics(), TargetCPU,
+                           NewFeatures);
 #endif // INTEL_CUSTOMIZATION
   } else {
     FeatureMap = Target->getTargetOpts().FeatureMap;
@@ -11729,16 +11713,29 @@ operator<<(const StreamingDiagnostic &DB,
 }
 
 bool ASTContext::mayExternalizeStaticVar(const Decl *D) const {
-  return !getLangOpts().GPURelocatableDeviceCode &&
-         ((D->hasAttr<CUDADeviceAttr>() &&
-           !D->getAttr<CUDADeviceAttr>()->isImplicit()) ||
-          (D->hasAttr<CUDAConstantAttr>() &&
-           !D->getAttr<CUDAConstantAttr>()->isImplicit())) &&
-         isa<VarDecl>(D) && cast<VarDecl>(D)->isFileVarDecl() &&
-         cast<VarDecl>(D)->getStorageClass() == SC_Static;
+  bool IsStaticVar =
+      isa<VarDecl>(D) && cast<VarDecl>(D)->getStorageClass() == SC_Static;
+  bool IsExplicitDeviceVar = (D->hasAttr<CUDADeviceAttr>() &&
+                              !D->getAttr<CUDADeviceAttr>()->isImplicit()) ||
+                             (D->hasAttr<CUDAConstantAttr>() &&
+                              !D->getAttr<CUDAConstantAttr>()->isImplicit());
+  // CUDA/HIP: static managed variables need to be externalized since it is
+  // a declaration in IR, therefore cannot have internal linkage.
+  return IsStaticVar &&
+         (D->hasAttr<HIPManagedAttr>() || IsExplicitDeviceVar);
 }
 
 bool ASTContext::shouldExternalizeStaticVar(const Decl *D) const {
   return mayExternalizeStaticVar(D) &&
-         CUDAStaticDeviceVarReferencedByHost.count(cast<VarDecl>(D));
+         (D->hasAttr<HIPManagedAttr>() ||
+          CUDAStaticDeviceVarReferencedByHost.count(cast<VarDecl>(D)));
+}
+
+StringRef ASTContext::getCUIDHash() const {
+  if (!CUIDHash.empty())
+    return CUIDHash;
+  if (LangOpts.CUID.empty())
+    return StringRef();
+  CUIDHash = llvm::utohexstr(llvm::MD5Hash(LangOpts.CUID), /*LowerCase=*/true);
+  return CUIDHash;
 }

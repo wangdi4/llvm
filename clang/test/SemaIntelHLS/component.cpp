@@ -29,11 +29,11 @@ void foo3(int i) {}
 // CHECK: FunctionDecl{{.*}}foo3
 // CHECK: ComponentInterfaceAttr{{.*}}Streaming
 
-__attribute__((component_interface("avalon_mm_slave")))
+__attribute__((component_interface("avalon_mm_agent")))
 __attribute__((ihc_component))
 void foo4(int i) {}
 // CHECK: FunctionDecl{{.*}}foo4
-// CHECK: ComponentInterfaceAttr{{.*}}Slave
+// CHECK: ComponentInterfaceAttr{{.*}}Agent
 
 __attribute__((component_interface("always_run")))
 __attribute__((ihc_component))
@@ -48,10 +48,10 @@ void foo6(__attribute__((argument_interface("avalon_streaming"))) int i6) {}
 // CHECK-NEXT: ArgumentInterfaceAttr{{.*}}Streaming
 
 __attribute__((ihc_component))
-void foo7(__attribute__((argument_interface("avalon_mm_slave"))) int i7) {}
+void foo7(__attribute__((argument_interface("avalon_mm_agent"))) int i7) {}
 // CHECK: FunctionDecl{{.*}}foo7
 // CHECK-NEXT: ParmVarDecl{{.*}}i7
-// CHECK-NEXT: ArgumentInterfaceAttr{{.*}}Slave
+// CHECK-NEXT: ArgumentInterfaceAttr{{.*}}Agent
 
 __attribute__((ihc_component))
 void foo8(__attribute__((argument_interface("wire"))) int i8) {}
@@ -67,10 +67,10 @@ void foo9(__attribute__((stable_argument)) int i9) {}
 
 __attribute__((ihc_component))
 void foo10(
-   __attribute__((slave_memory_argument)) int i10) {}
+   __attribute__((agent_memory_argument)) int i10) {}
 // CHECK: FunctionDecl{{.*}}foo10
 // CHECK-NEXT: ParmVarDecl{{.*}}i10
-// CHECK-NEXT: SlaveMemoryArgumentAttr
+// CHECK-NEXT: AgentMemoryArgumentAttr
 
 __attribute__((ihc_component))
 void foo11(
@@ -115,7 +115,7 @@ __attribute__((ihc_component))
 void bar9(__attribute__((stable_argument(0))) int i) {} // expected-error{{'stable_argument' attribute takes no arguments}}
 
 __attribute__((ihc_component))
-void bar10(__attribute__((slave_memory_argument(0))) int i) {} // expected-error{{'slave_memory_argument' attribute takes no arguments}}
+void bar10(__attribute__((agent_memory_argument(0))) int i) {} // expected-error{{'agent_memory_argument' attribute takes no arguments}}
 
 __attribute__((stall_free)) //expected-error{{'stall_free' attribute only applies to functions}}
 __attribute__((scheduler_target_fmax_mhz(1))) //expected-error{{'scheduler_target_fmax_mhz' attribute only applies to functions}}
@@ -136,7 +136,7 @@ __attribute__((scheduler_target_fmax_mhz("sch"))) //expected-error{{integral con
 void bar14() {
 }
 
-__attribute__((scheduler_target_fmax_mhz(-12))) // expected-error{{'scheduler_target_fmax_mhz' attribute requires integer constant between 0 and 1048576 inclusive}}
+__attribute__((scheduler_target_fmax_mhz(-12))) // expected-error{{'scheduler_target_fmax_mhz' attribute requires a non-negative integral compile time constant expression}}
 void bar15() {
 }
 

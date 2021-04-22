@@ -1,5 +1,5 @@
 ; Checks that the CallTree Cloning transformation will pass the preliminary test stage even with a large number of
-; (5727+) user-defined calls.
+; (2450+) user-defined calls.
 ;
 ; This models a recent performance regression that is caused by an excessive number of user-defined calls
 ; on the module level.
@@ -8,8 +8,8 @@
 ; passing the value on cmdline.
 ;
 
-; RUN: opt < %s -debug-only=call-tree-clone -call-tree-clone -ctcmv-model-user-calls=1 -ctcmv-num-user-calls-modeled=5801 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=0 -S -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -debug-only=call-tree-clone -passes='module(call-tree-clone)' -ctcmv-model-user-calls=1 -ctcmv-num-user-calls-modeled=5801 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=0 -S -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -debug-only=call-tree-clone -call-tree-clone -ctcmv-model-user-calls=1 -ctcmv-num-user-calls-modeled=2450 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=0 -S -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -debug-only=call-tree-clone -passes='module(call-tree-clone)' -ctcmv-model-user-calls=1 -ctcmv-num-user-calls-modeled=2450 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2 -call-tree-clone-mv-bypass-coll-for-littest=0 -S -disable-output 2>&1 | FileCheck %s
 
 ;
 ; CHECK:        Call-Tree Cloning preliminary analysis:  good

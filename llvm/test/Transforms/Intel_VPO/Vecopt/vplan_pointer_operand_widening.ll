@@ -52,16 +52,22 @@ DIR.QUAL.LIST.END.2:
 }
 
 ; CHECK-LABEL: @foo_c
-;CHECK: [[VEC_BASE_PTR1:%.*]] = shufflevector <2 x i32*> {{.*}}, <2 x i32*> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>
-;CHECK-NEXT: [[ELEM_BASE_PTRS1:%.*]] = getelementptr i32, <6 x i32*> [[VEC_BASE_PTR1]], <6 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
-;CHECK: [[G1:%.*]] = call <6 x i32> @llvm.masked.gather.v6i32.v6p0i32(<6 x i32*> [[ELEM_BASE_PTRS1]], i32 4, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <6 x i32> undef)
-;CHECK: [[GEP2:%.*]] = getelementptr inbounds %Struct, <2 x %Struct*> [[GEP1:%.*]], <2 x i32> <i32 1, i32 1>, <2 x i32> zeroinitializer
-;CHECK-NEXT: [[GEP3:%.*]] = getelementptr inbounds %Struct, <2 x %Struct*> [[GEP1:%.*]], <2 x i32> zeroinitializer, <2 x i32> zeroinitializer
-;CHECK-NEXT: [[PRED_PHI:%.*]] = select <2 x i1> {{.*}}, <2 x <3 x i32>*> [[GEP3]], <2 x <3 x i32>*> [[GEP2]]
-;CHECK-NEXT: [[BASE_ADDR:%.*]] = bitcast <2 x <3 x i32>*> [[PRED_PHI]] to <2 x i32*>
-;CHECK-NEXT: [[VEC_BASE_PTR2:%.*]] = shufflevector <2 x i32*> [[BASE_ADDR]], <2 x i32*> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>
-;CHECK-NEXT: [[ELEM_BASE_PTRS2:%.*]] = getelementptr i32, <6 x i32*> [[VEC_BASE_PTR2]], <6 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
-;CHECK-NEXT: call void @llvm.masked.scatter.v6i32.v6p0i32(<6 x i32> [[G1]], <6 x i32*> [[ELEM_BASE_PTRS2]], i32 4, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
+; CHECK:         [[VECBASEPTR_0:%.*]] = shufflevector <2 x i32*> [[TMP0:%.*]], <2 x i32*> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>
+; CHECK-NEXT:    [[ELEMBASEPTR_0:%.*]] = getelementptr i32, <6 x i32*> [[VECBASEPTR_0]], <6 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER0:%.*]] = call <6 x i32> @llvm.masked.gather.v6i32.v6p0i32(<6 x i32*> [[ELEMBASEPTR_0]], i32 4, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <6 x i32> undef)
+; CHECK:         [[MM_VECTORGEP60:%.*]] = getelementptr inbounds [[STRUCT0:%.*]], <2 x %Struct*> [[MM_VECTORGEP0:%.*]], <2 x i32> <i32 1, i32 1>, <2 x i32> zeroinitializer
+; CHECK-NEXT:    br label [[VPLANNEDBB70:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB6:
+; CHECK-NEXT:    [[MM_VECTORGEP80:%.*]] = getelementptr inbounds [[STRUCT0]], <2 x %Struct*> [[MM_VECTORGEP0]], <2 x i32> zeroinitializer, <2 x i32> zeroinitializer
+; CHECK-NEXT:    br label [[VPLANNEDBB90:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB8:
+; CHECK-NEXT:    [[PREDBLEND0:%.*]] = select <2 x i1> [[TMP1:%.*]], <2 x <3 x i32>*> [[MM_VECTORGEP80]], <2 x <3 x i32>*> [[MM_VECTORGEP60]]
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <2 x <3 x i32>*> [[PREDBLEND0]] to <2 x i32*>
+; CHECK-NEXT:    [[VECBASEPTR_100:%.*]] = shufflevector <2 x i32*> [[TMP3]], <2 x i32*> undef, <6 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1>
+; CHECK-NEXT:    [[ELEMBASEPTR_110:%.*]] = getelementptr i32, <6 x i32*> [[VECBASEPTR_100]], <6 x i64> <i64 0, i64 1, i64 2, i64 0, i64 1, i64 2>
+; CHECK-NEXT:    call void @llvm.masked.scatter.v6i32.v6p0i32(<6 x i32> [[WIDE_MASKED_GATHER0]], <6 x i32*> [[ELEMBASEPTR_110]], i32 4, <6 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>)
 
 define void @foo_c(%Struct *%a) {
 entry:

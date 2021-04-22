@@ -5,6 +5,10 @@
 ; outlining. That would guarantee that each map clause's base pointer always
 ; results in a separate parameter after outlining.
 ;
+; This test is idetical to target_map_rename_duplicates_mappers.ll, except that
+; MAP clauses use 4-operand form without mappers support.
+
+;
 ; int foo() {
 ;   int yy = 55;
 ;   int zz = 57;

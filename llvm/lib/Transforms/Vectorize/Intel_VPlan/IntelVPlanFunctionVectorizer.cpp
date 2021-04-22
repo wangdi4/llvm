@@ -86,7 +86,8 @@ public:
   bool run() {
     auto Externals = std::make_unique<VPExternalValues>(
         &F.getContext(), &F.getParent()->getDataLayout());
-    auto Plan = std::make_unique<VPlan>(*Externals);
+    auto UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
+    auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UnlinkedVPInsts);
     VPlanFunctionCFGBuilder Builder(Plan.get(), F);
     Builder.buildCFG();
     Plan->setName(F.getName());
@@ -109,9 +110,9 @@ public:
 
     auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
     Plan->setVPlanDA(std::move(VPDA));
-    Plan->getVPlanDA()->compute(Plan.get(), nullptr, VPLInfo,
-                                *Plan->getDT(), *Plan->getPDT(),
-                                false /*Not in LCSSA form*/);
+    cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA())
+        ->compute(Plan.get(), nullptr, VPLInfo, *Plan->getDT(), *Plan->getPDT(),
+                  false /*Not in LCSSA form*/);
 
     VPLAN_DUMP(DADumpControl, *Plan);
 

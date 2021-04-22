@@ -1,6 +1,6 @@
 //===--------- HIRCodeGen.cpp - Implements HIRCodeGen class ---------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -167,8 +167,9 @@ private:
   getNewExitingBlocks(BasicBlock *OldExitingBB, BasicBlock *ExitBB) const;
 
   // Adds an unconditional branch from the current insertion point to \p ToBB
-  // if the last inserted instruction is not an unconditional branch.
-  void generateBranchIfRequired(BasicBlock *ToBB);
+  // if the last inserted instruction is not a terminator inst.
+  // Returns true if the branch was inserted.
+  bool generateBranchIfRequired(BasicBlock *ToBB);
 
   // Set the metadata for the instruction using the passed in MDNodes.
   static void setMetadata(Value *Val, const RegDDRef *Ref);
@@ -461,6 +462,8 @@ bool HIRCodeGen::run() {
   // No longer need to suppress scalar optimizations.
   HIRF.getFunction().resetPreLoopOpt();
 
+  HIRF.restoreOriginalAAResults();
+
   return Transformed;
 }
 
@@ -742,11 +745,10 @@ Value *CGVisitor::visitCanonExpr(CanonExpr *CE) {
   // TODO I dunno about htis more specially a pointer?
   // ie [i32 X 10] for type of base ptr what type to use?
   if (C0) {
-    if (isa<StructType>(SrcType) || isa<ArrayType>(SrcType) ||
-        isa<VectorType>(SrcType)) {
+    if (isa<StructType>(SrcType) || isa<ArrayType>(SrcType)) {
       // We should be generating a GEP for a pointer base with an offset. For
       // struct types, we need to follow the structure layout.
-      assert("Pointer base with offset not handled!");
+      llvm_unreachable("Pointer base with offset not handled!");
     }
     C0Value = ConstantInt::getSigned(SrcType, C0);
   }
@@ -901,19 +903,6 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
     }
   }
 
-  std::function<Value *(Value *, ArrayRef<Value *>)> CreateGEPInBoundsHelper =
-      [this](Value *BasePtr, ArrayRef<Value *> IndexV) {
-        return Builder.CreateInBoundsGEP(BasePtr, IndexV, "arrayIdx");
-      };
-
-  std::function<Value *(Value *, ArrayRef<Value *>)> CreateGEPHelper =
-      [this](Value *BasePtr, ArrayRef<Value *> IndexV) {
-        return Builder.CreateGEP(BasePtr, IndexV, "arrayIdx");
-      };
-
-  auto CreateGEP =
-      Ref->isInBounds() ? CreateGEPInBoundsHelper : CreateGEPHelper;
-
   auto &DL = HIRF.getDataLayout();
   Value *GEPVal = BaseV;
 
@@ -925,7 +914,6 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
     // GEP is not needed.
   } else {
     assert(DimNum && "No dimensions");
-    SmallVector<Value *, 4> IndexV;
 
     // stored as A[canon3][canon2][canon1], but gep requires them in reverse
     // order
@@ -934,41 +922,35 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
       auto *LowerVal = visitCanonExpr(Ref->getDimensionLower(DimNum));
       auto *StrideVal = visitCanonExpr(Ref->getDimensionStride(DimNum));
 
-      Type *GEPElementTy = Ref->getDimensionElementType(DimNum);
+      // TODO: add isExact field to the dimension info and pass it to the
+      // EmitSubsValue.
 
       // Create a GEP offset that corresponds to the current dimension.
-      Value *OffsetVal = emitBaseOffset(&Builder, DL, GEPElementTy, GEPVal,
-                                        LowerVal, IndexVal, StrideVal);
+      Type *GEPElementTy = Ref->getDimensionElementType(DimNum);
+      GEPVal = EmitSubsValue(&Builder, DL, GEPElementTy, GEPVal, LowerVal,
+                             IndexVal, StrideVal, Ref->isInBounds(), true);
 
-      // Adding an index to the GEP will change the result type to the element
-      // of an aggregate:
-      //   getelementptr [10 x float]*, 0    -> [10 x float]
-      //   getelementptr [10 x float]*, 0, 0 -> float
-      //
-      // For non-array dimensions instead of adding offset as a new index,
-      // another GEP should be created:
-      //
-      //   %p[0][i][j][k]
-      //        /   |   \
-      //      %vs1 %vs2 [10 x float];    %vs1, %vs2 - variable strides
-      //
-      //   %0 = getelementptr [10 x float]* %p, 0
-      //   %1 = getelementptr [10 x float]* %0, %offset1
-      //   %2 = getelementptr [10 x float]* %1, %offset2, %k
-      //
-      // The following check emits the indices for the previous dimension if the
-      // current dimension is not an array type.
-      if (!Ref->isDimensionLLVMArray(DimNum) && !IndexV.empty()) {
-        GEPVal = CreateGEP(GEPVal, IndexV);
-        IndexV.clear();
-      }
-
-      IndexV.push_back(OffsetVal);
-
-      // Push back indices for dimensions's trailing offsets.
+      // Emit gep for dimension struct access.
       auto Offsets = Ref->getTrailingStructOffsets(DimNum);
-
       if (!Offsets.empty()) {
+        // Add first zero index to dereference the pointer.
+        auto *OffsetTy = DL.getIndexType(GEPVal->getType());
+        SmallVector<Value *, 8> IndexV{ConstantInt::get(OffsetTy, 0)};
+
+        // Try to merge Struct Offset GEP into previous GEP.
+        auto *GepBase = dyn_cast<GetElementPtrInst>(GEPVal);
+        if (GepBase) {
+          IndexV.resize(GepBase->getNumOperands() - 1);
+          for (int I = 1, E = GepBase->getNumOperands(); I < E; ++I) {
+            IndexV[I - 1] = GepBase->getOperand(I);
+          }
+
+          GEPVal = GepBase->getPointerOperand();
+          if (GepBase->use_empty()) {
+            GepBase->eraseFromParent();
+          }
+        }
+
         // Structure fields are always i32 type.
         auto I32Ty = Type::getInt32Ty(F.getContext());
 
@@ -976,10 +958,10 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
           auto OffsetIndex = ConstantInt::get(I32Ty, OffsetVal);
           IndexV.push_back(OffsetIndex);
         }
+
+        GEPVal = Builder.CreateInBoundsGEP(GEPVal, IndexV);
       }
     }
-
-    GEPVal = CreateGEP(GEPVal, IndexV);
   }
 
   if (GEPVal->getType()->isVectorTy() && isa<PointerType>(BitCastDestTy)) {
@@ -1262,9 +1244,13 @@ Value *CGVisitor::visitRegion(HLRegion *Reg) {
   // current insertion point is at end of region, add jump to successor
   // and we are done
   if (RegionSuccessor) {
-    addOldToNewExitBlockEntry(Reg->getExitBBlock(), RegionSuccessor,
-                              Builder.GetInsertBlock());
-    generateBranchIfRequired(RegionSuccessor);
+    // In some cases the normal region exit is optimized away. For example,
+    // an early exit might become unconditional exit of the region after
+    // optimizations. It is important to check this before doing the mapping.
+    if (generateBranchIfRequired(RegionSuccessor)) {
+      addOldToNewExitBlockEntry(Reg->getExitBBlock(), RegionSuccessor,
+                                Builder.GetInsertBlock());
+    }
 
   } else if (Reg->isFunctionLevel()) {
     // It is possible that the function exiting statements for function level
@@ -1331,12 +1317,15 @@ Value *CGVisitor::generateAllPredicates(HLIf *HIf) {
   return CurPred;
 }
 
-void CGVisitor::generateBranchIfRequired(BasicBlock *ToBB) {
+bool CGVisitor::generateBranchIfRequired(BasicBlock *ToBB) {
   auto InsertBB = Builder.GetInsertBlock();
 
   if (InsertBB->empty() || !(InsertBB->back().isTerminator())) {
     Builder.CreateBr(ToBB);
+    return true;
   }
+
+  return false;
 }
 
 Value *CGVisitor::visitIf(HLIf *HIf, Value *IVAdd, AllocaInst *IVAlloca,
@@ -1889,6 +1878,9 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
 
     CallInst *ResCall =
         Builder.CreateCall(Call->getFunctionType(), FuncVal, Ops, Bundles);
+    getInlineReport()->cloneCallBaseToCallBase(const_cast<CallInst *>(Call),
+                                               ResCall);
+
 
     // TODO: Copy parameter attributes as well.
     ResCall->setCallingConv(Call->getCallingConv());

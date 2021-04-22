@@ -326,6 +326,12 @@ bool LegalityChecker::isLegalToPermute(const DirectionVector &DV,
   if (!IsInnermostLoopDV) {
     LastLevel++;
     InnermostDV = DVKind::ALL;
+
+  } else if (InnermostDV == DVKind::NONE) {
+    // Ideally, we should treat NONE the same as EQ as either of them shouldn't
+    // prevent unroll & jam but NONE seems to be incorrectly derived using
+    // noalias metadata so we use conservative ALL DV.
+    InnermostDV = DVKind::ALL;
   }
 
   // 1. We can always permute these combinations-
@@ -1205,15 +1211,15 @@ bool UnrollHelper::shouldCreateNewLvalTemp(unsigned LvalSymbase) const {
     return false;
   }
 
+  // Create new mapping for temps defined in outer loops.
+  if (!CurOrigLoop->isInnermost()) {
+    return true;
+  }
+
   // Do not rename temps in loopnest reductions.
   // These are the only allowed livein temps for unroll & jam.
   if (OrigTopLevelLoop->isLiveIn(LvalSymbase)) {
     return false;
-  }
-
-  // Create new mapping for temps defined in outer loops.
-  if (!CurOrigLoop->isInnermost()) {
-    return true;
   }
 
   // If the temp is liveout of innermost loop we should create a mapping as
@@ -1640,10 +1646,9 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
   }
 }
 
-PreservedAnalyses HIRUnrollAndJamPass::run(llvm::Function &F,
-                                           llvm::FunctionAnalysisManager &AM) {
-  HIRUnrollAndJam(AM.getResult<HIRFrameworkAnalysis>(F),
-                  AM.getResult<HIRLoopStatisticsAnalysis>(F),
+PreservedAnalyses HIRUnrollAndJamPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRUnrollAndJam(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
                   AM.getResult<HIRLoopResourceAnalysis>(F),
                   AM.getResult<HIRDDAnalysisPass>(F),
                   AM.getResult<HIRSafeReductionAnalysisPass>(F), false)

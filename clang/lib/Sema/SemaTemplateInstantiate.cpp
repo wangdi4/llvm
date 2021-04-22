@@ -1077,8 +1077,9 @@ namespace {
     const LoopHintAttr *TransformLoopHintAttr(const LoopHintAttr *LH);
     const SYCLIntelFPGAIVDepAttr *
     TransformSYCLIntelFPGAIVDepAttr(const SYCLIntelFPGAIVDepAttr *IV);
-    const SYCLIntelFPGAIIAttr *
-    TransformSYCLIntelFPGAIIAttr(const SYCLIntelFPGAIIAttr *II);
+    const SYCLIntelFPGAInitiationIntervalAttr *
+    TransformSYCLIntelFPGAInitiationIntervalAttr(
+        const SYCLIntelFPGAInitiationIntervalAttr *II);
     const SYCLIntelFPGAMaxConcurrencyAttr *
     TransformSYCLIntelFPGAMaxConcurrencyAttr(
         const SYCLIntelFPGAMaxConcurrencyAttr *MC);
@@ -1466,6 +1467,11 @@ static ExprResult TransformUniqueStableName(TemplateInstantiator &TI,
     if (SubExpr.isInvalid())
       return ExprError();
 
+    SubExpr = TI.getSema().CheckPlaceholderExpr(SubExpr.get());
+
+    if (SubExpr.isInvalid())
+      return ExprError();
+
     if (!TI.getDerived().AlwaysRebuild() && SubExpr.get() == E->getExpr())
       return E;
 
@@ -1676,12 +1682,14 @@ TemplateInstantiator::TransformSYCLIntelFPGAIVDepAttr(
   return getSema().BuildSYCLIntelFPGAIVDepAttr(*IVDep, Expr1, Expr2);
 }
 
-const SYCLIntelFPGAIIAttr *TemplateInstantiator::TransformSYCLIntelFPGAIIAttr(
-    const SYCLIntelFPGAIIAttr *II) {
+const SYCLIntelFPGAInitiationIntervalAttr *
+TemplateInstantiator::TransformSYCLIntelFPGAInitiationIntervalAttr(
+    const SYCLIntelFPGAInitiationIntervalAttr *II) {
   Expr *TransformedExpr =
       getDerived().TransformExpr(II->getIntervalExpr()).get();
-  return getSema().BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGAIIAttr>(
-      *II, TransformedExpr);
+  return getSema()
+      .BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGAInitiationIntervalAttr>(
+          *II, TransformedExpr);
 }
 
 const SYCLIntelFPGAMaxConcurrencyAttr *
@@ -1819,7 +1827,9 @@ TemplateInstantiator::TransformSubstNonTypeTemplateParmPackExpr(
 ExprResult
 TemplateInstantiator::TransformSubstNonTypeTemplateParmExpr(
                                           SubstNonTypeTemplateParmExpr *E) {
-  ExprResult SubstReplacement = TransformExpr(E->getReplacement());
+  ExprResult SubstReplacement = E->getReplacement();
+  if (!isa<ConstantExpr>(SubstReplacement.get()))
+    SubstReplacement = TransformExpr(E->getReplacement());
   if (SubstReplacement.isInvalid())
     return true;
   QualType SubstType = TransformType(E->getParameterType(getSema().Context));
@@ -3018,7 +3028,8 @@ Sema::InstantiateClass(SourceLocation PointOfInstantiation,
 
     Attr *NewAttr =
       instantiateTemplateAttribute(I->TmplAttr, Context, *this, TemplateArgs);
-    I->NewDecl->addAttr(NewAttr);
+    if (NewAttr)
+      I->NewDecl->addAttr(NewAttr);
     LocalInstantiationScope::deleteScopes(I->Scope,
                                           Instantiator.getStartingScope());
   }
@@ -3070,8 +3081,6 @@ Sema::InstantiateClass(SourceLocation PointOfInstantiation,
   SavedContext.pop();
 
   if (!Instantiation->isInvalidDecl()) {
-    Consumer.HandleTagDeclDefinition(Instantiation);
-
     // Always emit the vtable for an explicit instantiation definition
     // of a polymorphic class template specialization. Otherwise, eagerly
     // instantiate only constexpr virtual functions in preparation for their use
@@ -3082,6 +3091,8 @@ Sema::InstantiateClass(SourceLocation PointOfInstantiation,
       MarkVirtualMembersReferenced(PointOfInstantiation, Instantiation,
                                    /*ConstexprOnly*/ true);
   }
+
+  Consumer.HandleTagDeclDefinition(Instantiation);
 
   return Instantiation->isInvalidDecl();
 }
@@ -3641,7 +3652,8 @@ Sema::InstantiateClassMembers(SourceLocation PointOfInstantiation,
             Instantiation->getTemplateInstantiationPattern();
         DeclContext::lookup_result Lookup =
             ClassPattern->lookup(Field->getDeclName());
-        FieldDecl *Pattern = cast<FieldDecl>(Lookup.front());
+        FieldDecl *Pattern = Lookup.find_first<FieldDecl>();
+        assert(Pattern);
         InstantiateInClassInitializer(PointOfInstantiation, Field, Pattern,
                                       TemplateArgs);
       }

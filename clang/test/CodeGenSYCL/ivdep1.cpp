@@ -1,4 +1,6 @@
-//RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -disable-llvm-passes -O0 -fsycl-is-device  -emit-llvm -o - %s | FileCheck %s
+//RUN: %clang_cc1 -triple spir64-unknown-unknown-sycldevice -disable-llvm-passes -O0 -fsycl-is-device -internal-isystem %S/Inputs -emit-llvm -o - %s | FileCheck %s
+
+#include "sycl.hpp"
 
 #define SIZE 10
 unsigned char ucharVar[SIZE];
@@ -28,8 +30,9 @@ for (int i = 0; i < 10; ++i) {}
 void foo2()
 {
 //CHECK: alloca i32, align 4
-//CHECK: store i32 0, i32* %i, align 4
-//CHECK: load i32, i32* %i, align 4
+//CHECK: addrspacecast i32* %i to i32 addrspace(4)*
+//CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
+//CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD7:![0-9]+]]
 [[intelfpga::ivdep(ucharVar)]]
 for (int i = 0; i < 10; ++i) {}
@@ -40,8 +43,9 @@ for (int i = 0; i < 10; ++i) {}
 void foo2a()
 {
 //CHECK: alloca i32, align 4
-//CHECK: store i32 0, i32* %i, align 4
-//CHECK: load i32, i32* %i, align 4
+//CHECK: addrspacecast i32* %i to i32 addrspace(4)*
+//CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
+//CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD10:![0-9]+]]
 [[intelfpga::ivdep(ucharVar, 4)]]
 for (int i = 0; i < 10; ++i) {}
@@ -52,8 +56,9 @@ for (int i = 0; i < 10; ++i) {}
 void foo3()
 {
 //CHECK: alloca i32, align 4
-//CHECK: store i32 0, i32* %i, align 4
-//CHECK: load i32, i32* %i, align 4
+//CHECK: addrspacecast i32* %i to i32 addrspace(4)*
+//CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
+//CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD13:![0-9]+]]
 [[intelfpga::ivdep(structVar, 8)]]
 [[intelfpga::ivdep(ucharVar, 8)]]
@@ -64,8 +69,9 @@ for (int i = 0; i < 10; ++i) {}
 void foo4()
 {
 //CHECK: alloca i32, align 4
-//CHECK: store i32 0, i32* %i, align 4
-//CHECK: load i32, i32* %i, align 4
+//CHECK: addrspacecast i32* %i to i32 addrspace(4)*
+//CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
+//CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD17:![0-9]+]]
 [[intelfpga::ivdep(structVar, 8)]]
 [[intelfpga::ivdep(ucharVar, 4)]]
@@ -76,8 +82,9 @@ for (int i = 0; i < 10; ++i) {}
 void foo5()
 {
 //CHECK: alloca i32, align 4
-//CHECK: store i32 0, i32* %i, align 4
-//CHECK: load i32, i32* %i, align 4
+//CHECK: addrspacecast i32* %i to i32 addrspace(4)*
+//CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
+//CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD22:![0-9]+]]
 [[intelfpga::ivdep(structVar, 8)]]
 [[intelfpga::ivdep(ucharVar)]]
@@ -89,8 +96,9 @@ for (int i = 0; i < 10; ++i) {}
 void foo6()
 {
 //CHECK: alloca i32, align 4
-//CHECK: store i32 0, i32* %i, align 4
-//CHECK: load i32, i32* %i, align 4
+//CHECK: addrspacecast i32* %i to i32 addrspace(4)*
+//CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
+//CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD27:![0-9]+]]
 [[intelfpga::ivdep(ucharVar, 4)]]
 [[intelfpga::ivdep()]]
@@ -102,8 +110,9 @@ for (int i = 0; i < 10; ++i) {}
 void foo7()
 {
 //CHECK: alloca i32, align 4
-//CHECK: store i32 0, i32* %i, align 4
-//CHECK: load i32, i32* %i, align 4
+//CHECK: addrspacecast i32* %i to i32 addrspace(4)*
+//CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
+//CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD28:![0-9]+]]
 [[intelfpga::ivdep(structVar2.tmp, 8)]]
 [[intelfpga::ivdep(ucharVar, 4)]]
@@ -115,8 +124,9 @@ for (int i = 0; i < 10; ++i) {}
 void foo8()
 {
 //CHECK: alloca i32, align 4
-//CHECK: store i32 0, i32* %i, align 4
-//CHECK: load i32, i32* %i, align 4
+//CHECK: addrspacecast i32* %i to i32 addrspace(4)*
+//CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
+//CHECK: load i32, i32 addrspace(4)* %i.ascast, align 4
 //CHECK: br{{.*}}!llvm.loop [[MD33:![0-9]+]]
 [[intelfpga::ivdep(ucharVar, 8)]]
 [[intelfpga::ivdep(4)]]
@@ -128,7 +138,8 @@ for (int i = 0; i < 10; ++i) {}
 void foo9(long* buffer1)
 {
 //CHECK: buffer1.addr = alloca i64 addrspace(4)*, align 8
-//CHECK: store i64 addrspace(4)* %buffer1, i64 addrspace(4)** %buffer1.addr, align 8
+//CHECK: buffer1.addr.ascast = addrspacecast i64 addrspace(4)** %buffer1.addr to i64 addrspace(4)* addrspace(4)*
+//CHECK: store i64 addrspace(4)* %buffer1, i64 addrspace(4)* addrspace(4)* %buffer1.addr.ascast, align 8
 //CHECK: br label %while.body, !llvm.loop [[MD36:![0-9]+]]
 [[intelfpga::ivdep(buffer1)]]
 while (1) { }
@@ -140,11 +151,14 @@ template<int LEN>
 int do_stuff(int N) {
   int temp = 0;
   //CHECK: %N.addr = alloca i32, align 4
+  //CHECK: %N.addr.ascast = addrspacecast i32* %N.addr to i32 addrspace(4)*
   //CHECK: %temp = alloca i32, align 4
+  //CHECK: %temp.ascast = addrspacecast i32* %temp to i32 addrspace(4)*
   //CHECK: alloca i32, align 4
-  //CHECK: store i32 %N, i32* %N.addr, align 4
-  //CHECK: store i32 0, i32* %temp, align 4
-  //CHECK: store i32 0, i32* %i, align 4
+  //CHECK: addrspacecast i32* %i to i32 addrspace(4)*
+  //CHECK: store i32 %N, i32 addrspace(4)* %N.addr.ascast, align 4
+  //CHECK: store i32 0, i32 addrspace(4)* %temp.ascast, align 4
+  //CHECK: store i32 0, i32 addrspace(4)* %i.ascast, align 4
   //CHECK: br{{.*}}!llvm.loop [[MD39:![0-9]+]]
   [[intelfpga::ivdep(LEN)]]
   for (int i = 0; i < N; ++i) {
@@ -155,6 +169,24 @@ int do_stuff(int N) {
 
 int dut() {
   return do_stuff<5>(10);
+}
+
+int main() {
+  cl::sycl::kernel_single_task([]() {
+    long l;
+    foo0();
+    foo1();
+    foo2();
+    foo2a();
+    foo3();
+    foo4();
+    foo5();
+    foo6();
+    foo7();
+    foo8();
+    foo9(&l);
+    dut();
+  });
 }
 
 //CHECK: [[MD3]] = distinct !{[[MD3]], ![[LOOP_MUSTPROGRESS:[0-9]+]], [[MD4:![0-9]+]]}

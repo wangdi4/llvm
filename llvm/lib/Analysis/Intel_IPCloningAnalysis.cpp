@@ -1,6 +1,6 @@
 //===------- Intel_IPCloningAnalysis.cpp - IP Cloning Analysis -*------===//
 //
-// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -52,6 +52,9 @@ static cl::opt<bool> IPCloningSwitchHeuristic("ip-cloning-switch-heuristic",
 static cl::opt<bool> IPCloningIFHeuristic("ip-cloning-if-heuristic",
                                    cl::init(true), cl::ReallyHidden);
 
+static cl::opt<bool> IPCloningForceHeuristicsOff(
+                                   "ip-cloning-force-heuristics-off",
+                                   cl::init(false), cl::ReallyHidden);
 // Maximum number of formal uses explored while collecting formals that
 // are candidates for cloning using different heuristics.
 static cl::opt<unsigned> IPCloningNumOfFormalUsesExploredLimit(
@@ -482,6 +485,8 @@ extern bool findPotentialConstsAndApplyHeuristics(Function &F, Value *V,
                                                   unsigned *SwitchCount) {
   PotentialConstValuesAfterCloning.clear();
   collectPotentialConstantsAfterCloning(V);
+  if (IPCloningForceHeuristicsOff)
+    return true;
 
   // Apply loop heuristic for all potential constant values
   for (Value *V1 : PotentialConstValuesAfterCloning)

@@ -277,13 +277,13 @@ bool CallSiteInliningReport::isCallSiteInliningReportMetadata(
 
 void llvm::setMDReasonNotInlined(CallBase *Call, const InlineCost &IC) {
   InlineReason Reason = IC.getInlineReason();
-  assert(IsNotInlinedReason(Reason));
   llvm::setMDReasonNotInlined(Call, Reason);
   if (IC.isNever())
     return;
   Metadata *CSMD = Call->getMetadata(CallSiteTag);
   if (!CSMD)
     return;
+  assert(IsNotInlinedReason(Reason));
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
   assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");
@@ -309,10 +309,10 @@ void llvm::setMDReasonNotInlined(CallBase *Call, const InlineCost &IC) {
 }
 
 void llvm::setMDReasonNotInlined(CallBase *Call, InlineReason Reason) {
-  assert(IsNotInlinedReason(Reason));
   Metadata *CSMD = Call->getMetadata(CallSiteTag);
   if (!CSMD)
     return;
+  assert(IsNotInlinedReason(Reason));
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
   assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");
@@ -330,11 +330,11 @@ void llvm::setMDReasonNotInlined(CallBase *Call, InlineReason Reason) {
 
 void llvm::setMDReasonNotInlined(CallBase *Call, const InlineCost &IC,
                                  int TotalSecondaryCost) {
-  assert(IC.getInlineReason() == NinlrOuterInlining);
   llvm::setMDReasonNotInlined(Call, IC);
   Metadata *CSMD = Call->getMetadata(CallSiteTag);
   if (!CSMD)
     return;
+  assert(IC.getInlineReason() == NinlrOuterInlining);
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
   assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");
@@ -348,10 +348,10 @@ void llvm::setMDReasonNotInlined(CallBase *Call, const InlineCost &IC,
 
 // Set inlining reason
 void llvm::setMDReasonIsInlined(CallBase *Call, InlineReason Reason) {
-  assert(IsInlinedReason(Reason));
   Metadata *CSMD = Call->getMetadata(CallSiteTag);
   if (!CSMD)
     return;
+  assert(IsInlinedReason(Reason));
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
   assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");
@@ -365,11 +365,11 @@ void llvm::setMDReasonIsInlined(CallBase *Call, InlineReason Reason) {
 // Set inlining reason
 void llvm::setMDReasonIsInlined(CallBase *Call, const InlineCost &IC) {
   InlineReason Reason = IC.getInlineReason();
-  assert(IsInlinedReason(Reason));
   llvm::setMDReasonIsInlined(Call, Reason);
   Metadata *CSMD = Call->getMetadata(CallSiteTag);
   if (!CSMD)
     return;
+  assert(IsInlinedReason(Reason));
   auto *CSIR = dyn_cast<MDTuple>(CSMD);
   assert((CSIR && CSIR->getNumOperands() == CallSiteMDSize) &&
       "Incorrect call site inline report metadata");

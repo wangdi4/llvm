@@ -38,12 +38,12 @@ namespace vpo {
 // within each private-copy of the array.
 void VPMemRefTransform::transformSOAGEPs(unsigned VF) {
 
+  auto *DA = cast<VPlanDivergenceAnalysis>(Plan.getVPlanDA());
   // Return true if this is a non unit-stride SOA-access GEPs, where atleast one
   // user is a load/store instruction.
   auto IsNonUnitStrideSOAAccessGEP = [&](const VPInstruction *I) {
     return isa<VPGEPInstruction>(I) &&
-           (Plan.getVPlanDA()->isSOAShape(I) &&
-            !Plan.getVPlanDA()->isSOAUnitStride(I)) &&
+           (DA->isSOAShape(I) && !DA->isSOAUnitStride(I)) &&
            any_of(I->users(), [](const VPValue *User) {
              return isa<VPLoadStoreInst>(User);
            });
@@ -67,6 +67,7 @@ void VPMemRefTransform::transformSOAGEPs(unsigned VF) {
   // original GEP. These would continue to be used for load/store operation.
 
   VPBuilder Builder;
+  bool ResetSVA = false;
 
   for (auto &VPBB : Plan) {
     for (auto &I : VPBB) {
@@ -80,8 +81,7 @@ void VPMemRefTransform::transformSOAGEPs(unsigned VF) {
           auto *ClonedGEP = I.clone();
 
           // Copy over the shape from the previous instruction.
-          Plan.getVPlanDA()->updateVectorShape(
-              ClonedGEP, Plan.getVPlanDA()->getVectorShape(&I));
+          DA->updateVectorShape(ClonedGEP, DA->getVectorShape(I));
 
           // Use this GEP when we encounter the non-load/store user of this GEP.
           Builder.insert(ClonedGEP);
@@ -95,12 +95,16 @@ void VPMemRefTransform::transformSOAGEPs(unsigned VF) {
         VPInstruction *ConstVectorStepInst = Builder.create<VPConstStepVector>(
             "const.step", Type::getInt64Ty(*(Plan.getLLVMContext())), 0, 1, VF);
         I.addOperand(ConstVectorStepInst);
-        assert(Plan.getVPlanDA()->isDivergent(I) &&
-               "Expect the GEP to be divergent.");
-        Plan.getVPlanDA()->markDivergent(*ConstVectorStepInst);
+        assert(DA->isDivergent(I) && "Expect the GEP to be divergent.");
+        DA->markDivergent(*ConstVectorStepInst);
+        ResetSVA = true;
       }
     }
   }
+
+  if (ResetSVA)
+    Plan.invalidateAnalyses({VPAnalysisID::SVA});
+
   VPLAN_DUMP(SOAGEPsDumpsControl, Plan);
 }
 

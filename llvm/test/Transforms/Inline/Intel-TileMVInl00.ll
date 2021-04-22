@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -S -tilemvinlmarker -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes='tilemvinlmarker' -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -tilemvinlmarker -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -tile-candidate-mark=false 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes='tilemvinlmarker' -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -tile-candidate-mark=false 2>&1 | FileCheck %s
 
 ; Check that the loop indices and increments are correctly identified for
 ;   the loops within the tile candidates.
@@ -58,7 +58,7 @@
 ; CHECK-NOT: Provably
 
 ; Check that the tile choices were marked for inlining, since the internal
-; option -tile-candidate-mark is not passed.
+; option -tile-candidate-mark is false.
 
 ; CHECK-NOT: TMVINL: Marked leapfrog_ TO fun0_ FOR INLINING
 ; CHECK-NOT: TMVINL: Marked leapfrog_ TO fun1_ FOR INLINING

@@ -1,5 +1,7 @@
 ; Test to check HIR vector codegen support for vectorizable intrinsic calls with always scalar operands.
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -disable-output  < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -vplan-force-vf=4 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -disable-output  < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,hir-cg" -vplan-force-vf=4 -print-after=vplan-driver-hir -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s
+
 
 ; Check that intrinsic calls are vectorized.
 ; CHECK-LABEL: ctlz_f64
@@ -15,7 +17,6 @@
 ; CHECK-LABEL: powi_f64_variant
 ; CHECK: DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK: %call = @llvm.powi.f64(%0,  i1)
-
 
 declare i64  @llvm.ctlz.i64 (i64, i1) nounwind readnone
 

@@ -66,23 +66,25 @@ function(add_sycl_rt_library LIB_NAME)
     endif()
   endif()
 
+  target_compile_definitions(${LIB_OBJ_NAME} PRIVATE SYCL2020_DISABLE_DEPRECATION_WARNINGS)
+
   target_include_directories(
-      ${LIB_OBJ_NAME}
-      PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        "${sycl_inc_dir}"
-        ${OpenCL_INCLUDE_DIRS}
+    ${LIB_OBJ_NAME}
+    PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}
+      "${sycl_inc_dir}"
+      ${OpenCL_INCLUDE_DIRS}
   )
 
   find_package(Threads REQUIRED)
 
   target_link_libraries(${LIB_NAME}
-      PRIVATE
-        ${OpenCL_LIBRARIES}
-        ${CMAKE_DL_LIBS}
-        ${CMAKE_THREAD_LIBS_INIT}
-      PUBLIC
-        $<$<BOOL:${SYCL_BUILD_PI_CUDA}>:pi_cuda>
+    PRIVATE
+      ${OpenCL_LIBRARIES}
+      ${CMAKE_DL_LIBS}
+      ${CMAKE_THREAD_LIBS_INIT}
+    PUBLIC
+      $<$<BOOL:${SYCL_BUILD_PI_CUDA}>:pi_cuda>
   )
 # INTEL_CUSTOMIZATION
 # FIXME: Temporary fix for self-build after (#1597), needed for
@@ -96,7 +98,7 @@ function(add_sycl_rt_library LIB_NAME)
     PUBLIC
       $<$<BOOL:${SYCL_BUILD_PI_CUDA}>:USE_PI_CUDA>)
 
-  add_common_options(${LIB_NAME})
+  add_common_options(${LIB_NAME} ${LIB_OBJ_NAME})
 
   set_target_properties(${LIB_NAME} PROPERTIES
                         VERSION ${SYCL_VERSION_STRING}
@@ -122,6 +124,7 @@ set(SYCL_SOURCES
 # end INTEL_CUSTOMIZATION
     "backend/opencl.cpp"
     "backend/level_zero.cpp"
+    "backend.cpp"
     "detail/accessor_impl.cpp"
     "detail/buffer_impl.cpp"
     "detail/builtins_common.cpp"
@@ -154,6 +157,7 @@ set(SYCL_SOURCES
     "detail/queue_impl.cpp"
     "detail/online_compiler/online_compiler.cpp"
     "detail/os_util.cpp"
+    "detail/persistent_device_code_cache.cpp"
     "detail/platform_util.cpp"
     "detail/reduction.cpp"
     "detail/sampler_impl.cpp"
@@ -181,6 +185,7 @@ set(SYCL_SOURCES
     "interop_handle.cpp"
     "interop_handler.cpp"
     "kernel.cpp"
+    "kernel_bundle.cpp"
     "platform.cpp"
     "program.cpp"
     "queue.cpp"
@@ -256,9 +261,9 @@ set(SYCL_LIBRARY_INSTALL_DIR "lib${LLVM_LIBDIR_SUFFIX}")
 set(SYCL_RUNTIME_INSTALL_DIR "bin")
 
 install(TARGETS ${SYCL_RT_LIBS}
-    ARCHIVE DESTINATION ${SYCL_ARCHIVE_INSTALL_DIR} COMPONENT sycl
-    LIBRARY DESTINATION ${SYCL_LIBRARY_INSTALL_DIR} COMPONENT sycl
-    RUNTIME DESTINATION ${SYCL_RUNTIME_INSTALL_DIR} COMPONENT sycl)
+  ARCHIVE DESTINATION ${SYCL_ARCHIVE_INSTALL_DIR} COMPONENT sycl
+  LIBRARY DESTINATION ${SYCL_LIBRARY_INSTALL_DIR} COMPONENT sycl
+  RUNTIME DESTINATION ${SYCL_RUNTIME_INSTALL_DIR} COMPONENT sycl)
 
 # Copy SYCL config to build location
 add_custom_target(sycl-config-file ALL

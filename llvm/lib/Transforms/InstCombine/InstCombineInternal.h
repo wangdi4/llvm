@@ -66,12 +66,14 @@ public:
 #if INTEL_CUSTOMIZATION
                    bool MinimizeSize, bool TypeLoweringOpts,
                    bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
-                   AAResults *AA, AssumptionCache &AC, TargetLibraryInfo &TLI,
+                   bool EnableUpCasting, AAResults *AA,
+                   AssumptionCache &AC, TargetLibraryInfo &TLI,
                    TargetTransformInfo &TTI, DominatorTree &DT,
                    OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
                    ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
       : InstCombiner(Worklist, Builder, MinimizeSize, TypeLoweringOpts,
-                     EnableFcmpMinMaxCombine, PreserveAddrCompute, AA, AC, TLI,
+                     EnableFcmpMinMaxCombine, PreserveAddrCompute,
+                     EnableUpCasting, AA, AC, TLI,
                      TTI, DT, ORE, BFI, PSI, DL, LI) {
   }
 #endif // INTEL_CUSTOMIZATION
@@ -111,6 +113,7 @@ public:
   Value *simplifyRangeCheck(ICmpInst *Cmp0, ICmpInst *Cmp1, bool Inverted);
   Instruction *visitAnd(BinaryOperator &I);
   Instruction *visitOr(BinaryOperator &I);
+  bool sinkNotIntoOtherHandOfAndOrOr(BinaryOperator &I);
   Instruction *visitXor(BinaryOperator &I);
   Instruction *visitShl(BinaryOperator &I);
   Value *reassociateShiftAmtsOfTwoSameDirectionShifts(
@@ -344,6 +347,8 @@ private:
   Instruction *optimizeBitCastFromPhi(CastInst &CI, PHINode *PN);
   Instruction *matchSAddSubSat(SelectInst &MinMax1);
 
+  void freelyInvertAllUsersOf(Value *V);
+
   /// Determine if a pair of casts can be replaced by a single cast.
   ///
   /// \param CI1 The first of a pair of casts.
@@ -434,6 +439,7 @@ public:
                       << "    with " << *V << '\n');
 
     I.replaceAllUsesWith(V);
+    MadeIRChange = true;
     return &I;
   }
 
@@ -762,6 +768,9 @@ public:
                                              const APInt &C);
   Instruction *foldICmpEqIntrinsicWithConstant(ICmpInst &ICI, IntrinsicInst *II,
                                                const APInt &C);
+#if INTEL_CUSTOMIZATION
+  Instruction *foldNotCmpOverTwoSelects(ICmpInst &I, const SimplifyQuery &Q);
+#endif // INTEL_CUSTOMIZATION
 
   // Helpers of visitSelectInst().
   Instruction *foldSelectExtConst(SelectInst &Sel);
@@ -778,10 +787,10 @@ public:
   Instruction *PromoteCastOfAllocation(BitCastInst &CI, AllocaInst &AI);
   bool mergeStoreIntoSuccessor(StoreInst &SI);
 
-  /// Given an 'or' instruction, check to see if it is part of a
+  /// Given an initial instruction, check to see if it is the root of a
   /// bswap/bitreverse idiom. If so, return the equivalent bswap/bitreverse
   /// intrinsic.
-  Instruction *matchBSwapOrBitReverse(BinaryOperator &Or, bool MatchBSwaps,
+  Instruction *matchBSwapOrBitReverse(Instruction &I, bool MatchBSwaps,
                                       bool MatchBitReversals);
 
   Instruction *SimplifyAnyMemTransfer(AnyMemTransferInst *MI);

@@ -14,7 +14,7 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -58,7 +58,7 @@ class VecCloneImpl {
 #endif // INTEL_CUSTOMIZATION
 
     /// Set of allocas to mark private for the SIMD loop
-    SmallSet<Value*, 4> PrivateAllocas;
+    SetVector<Value*> PrivateAllocas;
 
     /// \brief Return true if the function has a complex type for the return
     /// or parameters.
@@ -99,7 +99,7 @@ class VecCloneImpl {
     /// corresponding to the expanded return and the instruction corresponding
     /// to the mask.
     Instruction *expandVectorParametersAndReturn(
-        Function *Clone, VectorVariant &V, Instruction **Mask,
+        Function *Clone, Function &F, VectorVariant &V, Instruction **Mask,
         BasicBlock *EntryBlock, BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
         std::vector<ParmRef *> &ParmMap, ValueToValueMapTy &VMap);
 
@@ -117,8 +117,9 @@ class VecCloneImpl {
     /// \brief Expand the function's return value to a vector type. LastAlloca
     /// indicates where the alloca of the return value should be placed in
     /// EntryBlock.
-    Instruction *expandReturn(Function *Clone, BasicBlock *EntryBlock,
-                              BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
+    Instruction *expandReturn(Function *Clone, Function &F,
+                              BasicBlock *EntryBlock, BasicBlock *LoopBlock,
+                              BasicBlock *ReturnBlock,
                               std::vector<ParmRef *> &ParmMap,
                               AllocaInst *&LastAlloca);
 
@@ -165,6 +166,7 @@ class VecCloneImpl {
     /// alloca of the return value should be placed.
     Instruction *createExpandedReturn(Function *F, BasicBlock *BB,
                                       VectorType *ReturnType,
+                                      Type *FuncReturnType,
                                       AllocaInst *&LastAlloca);
 
     /// \brief Return the position of the parameter in the function's parameter

@@ -43,7 +43,7 @@
 ; CHECK:       {
 ; CHECK:         %4 = (%ip.addr)[0];
 
-; CHECK:         + DO i1 = 0, -1 * sext.i32.i64(%2) + smax(sext.i32.i64(%2), ((smax((4294967296 + (-4294967296 * %n)), (-4294967296 + (4294967296 * %n))) /u 4294967296) * smin(1, smax(-1, (-4294967296 + (4294967296 * %n)))))), 1   <DO_LOOP>
+; CHECK:         + DO i1 = 0, -1 * sext.i32.i64(%2) + smax(sext.i32.i64(%2), %6), 1   <DO_LOOP>
 ; CHECK:         |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%i)[0]));
 ; CHECK:         |   (%4)[i1 + sext.i32.i64(%2)] = i1 + sext.i32.i64(%2);
 ; CHECK:         |   @llvm.lifetime.end.p0i8(4,  &((i8*)(%i)[0]));
@@ -61,7 +61,7 @@
 ; CHECK:       {
 ; CHECK:         %4 = (%ip.addr)[0];
 
-; CHECK:         + DO i1 = 0, -1 * sext.i32.i64(%2) + smax(sext.i32.i64(%2), ((smax((4294967296 + (-4294967296 * %n)), (-4294967296 + (4294967296 * %n))) /u 4294967296) * smin(1, smax(-1, (-4294967296 + (4294967296 * %n)))))), 1   <DO_LOOP> <parallel>
+; CHECK:         + DO i1 = 0, -1 * sext.i32.i64(%2) + smax(sext.i32.i64(%2), %6), 1   <DO_LOOP> <parallel>
 ; CHECK:         |   @llvm.lifetime.start.p0i8(4,  &((i8*)(%i)[0]));
 ; CHECK:         |   (%4)[i1 + sext.i32.i64(%2)] = i1 + sext.i32.i64(%2);
 ; CHECK:         |   @llvm.lifetime.end.p0i8(4,  &((i8*)(%i)[0]));

@@ -297,15 +297,10 @@ public:
       unsigned Symbase = I->first;
       auto Iter = TempSymbaseDefMap.find(Symbase);
 
+      // Region liveout definition can be optimized away as unreachable/dead
+      // code.
       if (Iter == TempSymbaseDefMap.end()) {
-        // Definition of region liveout symbase will not be found if the value
-        // is defined outside the region. In this case it is simply flowing
-        // through the region.
-        if (Region->isLiveIn(Symbase)) {
-          continue;
-        }
-
-        llvm_unreachable("Could not find region live out symbase");
+        continue;
       }
 
       HLLoop *DefLoop = Iter->second->getLexicalParentLoop();

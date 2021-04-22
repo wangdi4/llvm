@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanEvaluator.h"
+#include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanVLSAnalysis.h"
@@ -18,19 +19,39 @@
 
 #define DEBUG_TYPE "VPlanEvaluator"
 
-static cl::opt<bool>
-    DisablePeelAndRemainder("vplan-disable-vector-peel-and-vector-remainder", cl::init(true),
-                            cl::Hidden,
-                            cl::desc("Disable vector peel and vector remainder."));
+static cl::opt<bool, true>
+    EnableVectorizedPeelOpt("vplan-enable-vectorized-peel",
+                            cl::location(llvm::vpo::EnableVectorizedPeel),
+                            cl::desc("Enable vectorized peel."));
+
+static cl::opt<bool, true> EnableNonMaskedVectorizedRemainderOpt(
+    "vplan-enable-non-masked-vectorized-remainder",
+    cl::location(llvm::vpo::EnableNonMaskedVectorizedRemainder),
+    cl::desc("Enable non-masked vectorized remainder."));
+
+static cl::opt<bool, true> EnableMaskedVectorizedRemainderOpt(
+    "vplan-enable-masked-vectorized-remainder",
+    cl::location(llvm::vpo::EnableMaskedVectorizedRemainder),
+    cl::desc("Enable masked vectorized remainder."));
+
+namespace llvm {
+namespace vpo {
+bool EnableVectorizedPeel = false;
+bool EnableNonMaskedVectorizedRemainder = false;
+bool EnableMaskedVectorizedRemainder = false;
+} // namespace vpo
+} // namespace llvm
 
 using namespace llvm;
 using namespace llvm::vpo;
 
-// Calculates the cost of a Plan. If there is not any Plan available, then this
-// function returns UINT_MAX.
-unsigned VPlanEvaluator::calculatePlanCost(unsigned MainLoopVF, VPlan *Plan) {
+// Calculates the cost of a Plan. If there is not any Plan available, then
+// this function returns UINT_MAX.
+unsigned VPlanEvaluator::calculatePlanCost(unsigned VF, VPlanVector *Plan) {
   if (Plan) {
-    VPlanCostModel CM(Plan, MainLoopVF, TTI, TLI, DL, VLSA);
+    VPlanCostModel CM(Plan, VF, TTI, TLI, DL, VLSA);
+    // TODO: no peeling should be accounted here, update after interface
+    // changes.
     return CM.getCost();
   }
   return UINT_MAX;
@@ -51,7 +72,7 @@ unsigned VPlanPeelEvaluator::getScalarPeelTripCount(unsigned MainLoopVF) const {
 // Selects the best peeling variant (none, scalar, masked vector).
 VPlanPeelEvaluator::PeelLoopKind VPlanPeelEvaluator::calculateBestVariant() {
 
-  if (!PeelingVariant || DisablePeelAndRemainder) {
+  if (!PeelingVariant) {
     PeelKind = PeelLoopKind::None;
     LoopCost = 0;
     PeelTC = 0;
@@ -59,10 +80,11 @@ VPlanPeelEvaluator::PeelLoopKind VPlanPeelEvaluator::calculateBestVariant() {
   }
 
   // Calculates the total cost of the masked vector peel loop.
+  VPlanMasked *MaskedModePlan = Planner.getMaskedVPlanForVF(MainLoopVF);
   unsigned MaskedVectorCost = calculatePlanCost(MainLoopVF, MaskedModePlan);
 
   unsigned ScalarTC = getScalarPeelTripCount(MainLoopVF);
-  if (ScalarIterCost * ScalarTC > MaskedVectorCost) {
+  if (ScalarIterCost * ScalarTC > MaskedVectorCost && EnableVectorizedPeelOpt) {
     PeelKind = PeelLoopKind::MaskedVector;
     PeelTC = ScalarTC;
     LoopCost = MaskedVectorCost;
@@ -116,16 +138,29 @@ void VPlanPeelEvaluator::dump(raw_ostream &OS) const {
 // might have a new remainder loop for the remaining iterations of the
 // vectorized remainder loop.
 void VPlanRemainderEvaluator::calculateRemainderVFAndVectorCost() {
-  unsigned MaxRemainderTC = MainLoopVF * MainLoopUF;
+  unsigned MaxRemainderTC = MainLoopVF * MainLoopUF - 1;
   UnMaskedVectorCost = UINT_MAX;
   // The remainder loop cannot be vectorized with VF bigger than the one of the
   // main loop.
   for (unsigned TempVF = MainLoopVF / 2; TempVF > 1; TempVF /= 2) {
     // Cost of the vectorized remainder loop.
+    VPlanVector *RemPlan = Planner.getVPlanForVF(TempVF);
+    if (!RemPlan) {
+      LLVM_DEBUG(dbgs() << "Remainder evaluator: no unmasked VPlan for VF="
+                        << TempVF << "\n");
+      continue;
+    }
     unsigned TempCost =
-        calculatePlanCost(TempVF, MainPlan) * (MaxRemainderTC / TempVF);
+        calculatePlanCost(TempVF, RemPlan) * (MaxRemainderTC / TempVF);
+    LLVM_DEBUG(dbgs() << "Remainder evaluator unmasked cost for VF=" << TempVF
+                      << " :\n Pure vector cost=" << TempCost << " x "
+                      << (MaxRemainderTC / TempVF)
+                      << " iterations \n Scalar cost="
+                      << (ScalarIterCost * (MaxRemainderTC % TempVF)) << " x "
+                      << (MaxRemainderTC % TempVF) << " iterations\n");
     // Cost of the new scalar remainder loop.
     TempCost += ScalarIterCost * (MaxRemainderTC % TempVF);
+    LLVM_DEBUG(dbgs() << " Final cost=" << TempCost << "\n");
     if (TempCost < UnMaskedVectorCost) {
       UnMaskedVectorCost = TempCost;
       RemainderVF = TempVF;
@@ -144,6 +179,7 @@ VPlanRemainderEvaluator::calculateBestVariant() {
   }
 
   // Calculates the total cost for masked mode loop if it is available.
+  VPlanMasked *MaskedModePlan = Planner.getMaskedVPlanForVF(MainLoopVF);
   unsigned MaskedVectorCost =
       calculatePlanCost(MainLoopVF, MaskedModePlan) * MainLoopUF;
 
@@ -154,17 +190,20 @@ VPlanRemainderEvaluator::calculateBestVariant() {
   unsigned ScalarRemainderLoopCost = ScalarIterCost * RemainderTC;
   RemainderKind = RemainderLoopKind::Scalar;
   LoopCost = ScalarRemainderLoopCost;
-  if (!DisablePeelAndRemainder) {
-    if (ScalarRemainderLoopCost > MaskedVectorCost) {
-      RemainderKind = RemainderLoopKind::MaskedVector;
-      LoopCost = MaskedVectorCost;
-    }
-    if (ScalarRemainderLoopCost > UnMaskedVectorCost) {
-      RemainderKind = RemainderLoopKind::VectorScalar;
-      LoopCost = UnMaskedVectorCost;
-      RemainderTC = (MainLoopUF * MainLoopVF) / RemainderVF;
-      NewRemainderTC = (MainLoopUF * MainLoopVF) % RemainderVF;
-    }
+  LLVM_DEBUG(dbgs() << "Remainder evaluator: scalar cost="
+                    << ScalarRemainderLoopCost
+                    << " masked cost=" << MaskedVectorCost
+                    << " unmasked cost=" << UnMaskedVectorCost << "\n");
+
+  if (LoopCost > MaskedVectorCost && EnableMaskedVectorizedRemainderOpt) {
+    RemainderKind = RemainderLoopKind::MaskedVector;
+    LoopCost = MaskedVectorCost;
+  }
+  if (LoopCost > UnMaskedVectorCost && EnableNonMaskedVectorizedRemainderOpt) {
+    RemainderKind = RemainderLoopKind::VectorScalar;
+    LoopCost = UnMaskedVectorCost;
+    RemainderTC = (MainLoopUF * MainLoopVF - 1) / RemainderVF;
+    NewRemainderTC = (MainLoopUF * MainLoopVF - 1) % RemainderVF;
   }
   // TODO: calcualte the cost of run-time checks
   // LoopCost += calculateRTChecksCost(MainLoopVF);

@@ -2568,17 +2568,36 @@ enum CXCursorKind {
    */
   CXCursor_OMPScanDirective = 287,
 
-#if INTEL_COLLAB
-  CXCursor_OMPTargetVariantDispatchDirective = 288,
-  CXCursor_OMPGenericLoopDirective = 289,
-  CXCursor_OMPTeamsGenericLoopDirective = 290,
-  CXCursor_OMPTargetTeamsGenericLoopDirective = 291,
-  CXCursor_OMPParallelGenericLoopDirective = 292,
-  CXCursor_OMPTargetParallelGenericLoopDirective = 293,
+  /** OpenMP tile directive.
+   */
+  CXCursor_OMPTileDirective = 288,
 
+  /** OpenMP canonical loop.
+   */
+  CXCursor_OMPCanonicalLoop = 289,
+
+  /** OpenMP interop directive.
+   */
+  CXCursor_OMPInteropDirective = 290,
+
+  /** OpenMP dispatch directive.
+   */
+  CXCursor_OMPDispatchDirective = 291,
+
+  /** OpenMP masked directive.
+   */
+  CXCursor_OMPMaskedDirective = 292,
+
+#if INTEL_COLLAB
+  CXCursor_OMPTargetVariantDispatchDirective = 293,
+  CXCursor_OMPGenericLoopDirective = 294,
+  CXCursor_OMPTeamsGenericLoopDirective = 295,
+  CXCursor_OMPTargetTeamsGenericLoopDirective = 296,
+  CXCursor_OMPParallelGenericLoopDirective = 297,
+  CXCursor_OMPTargetParallelGenericLoopDirective = 298,
   CXCursor_LastStmt = CXCursor_OMPTargetParallelGenericLoopDirective,
 #else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPScanDirective,
+  CXCursor_LastStmt = CXCursor_OMPMaskedDirective,
 #endif /* INTEL_COLLAB */
 
   /**

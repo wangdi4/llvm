@@ -1,7 +1,7 @@
 ; Check that DO i2 loop will be transformed into memcpy.
 
-; RUN: opt -scoped-noalias-aa -hir-ssa-deconstruction -disable-output -hir-temp-cleanup -hir-runtime-dd -hir-idiom -print-after=hir-idiom < %s 2>&1 | FileCheck %s
-; RUN: opt -aa-pipeline="basic-aa,scoped-noalias-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-idiom,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-idiom-small-trip-count=0 -scoped-noalias-aa -hir-ssa-deconstruction -disable-output -hir-temp-cleanup -hir-runtime-dd -hir-idiom -print-after=hir-idiom < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-idiom-small-trip-count=0 -aa-pipeline="basic-aa,scoped-noalias-aa" -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-runtime-dd,hir-idiom,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; BEGIN REGION { }
 ;       + DO i1 = 0, 7, 1   <DO_LOOP>

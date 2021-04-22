@@ -837,6 +837,17 @@ public:
     }
   }
 
+  /// Adds all symbases attached at Ref as live out to the loop
+  void addLiveOutTemp(const RegDDRef *Ref) {
+    if (Ref->isSelfBlob()) {
+      addLiveOutTemp(Ref->getSymbase());
+    }
+
+    for (auto DRef : make_range(Ref->blob_begin(), Ref->blob_end())) {
+      addLiveOutTemp(DRef->getSymbase());
+    }
+  }
+
   // TODO: const
   void addLiveInTemp(ArrayRef<RegDDRef *> Refs) {
     for (auto Ref : Refs)
@@ -1199,15 +1210,24 @@ public:
   /// Marks loop not to block.
   void markDoNotBlock();
 
-  /// Supply Loop Lower Bound CanonExpr when normalization is using
-  /// that instead of the one in the Loop
-  bool canNormalize(const CanonExpr *LowerCE = nullptr) const;
+  /// Caller can supply loop lower bound in \p LowerCE to be used for
+  /// normalization instead of the one in the Loop. \p AllowExplicitBoundInst
+  /// allows the normalization utility to create an explicit instruction
+  /// representing the loop lower bound in the preheader, if necessary.
+  /// Normalization always succeeeds if this flag is true.
+  bool canNormalize(const CanonExpr *LowerCE = nullptr,
+                    bool AllowExplicitBoundInst = false) const;
 
-  bool normalize();
+  /// \p AllowExplicitBoundInst allows the utility to create an explicit
+  /// instruction representing the loop lower bound in the preheader, if
+  /// necessary. Normalization always succeeeds if this flag is true.
+  bool normalize(bool AllowExplicitBoundInst = false);
 
   /// Return false if loop cannot be stripmined - some stripmined
-  /// loop cannot be normalized.
-  bool canStripmine(unsigned StripmineSize) const;
+  /// loop cannot be normalized. When \p AllowExplicitBoundInst
+  /// is set, normalization will always succeed.
+  bool canStripmine(unsigned StripmineSize,
+                    bool AllowExplicitBoundInst = false) const;
 
   /// Stripmine is not required for trip counts <= \p StripmineSize.
   bool isStripmineRequired(unsigned StripmineSize) const;
@@ -1337,6 +1357,9 @@ public:
   ArrayRef<PrefetchingPragmaInfo> getPrefetchingPragmaInfo() const {
     return PrefetchingInfoVec;
   }
+
+  /// Clears the prefetching pragma vector
+  void clearPrefetchingPragmaInfo() { PrefetchingInfoVec.clear(); }
 };
 
 /// Loop information related to its parallel characteristics, such as

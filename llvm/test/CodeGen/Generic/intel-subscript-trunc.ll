@@ -1,7 +1,7 @@
 ; RUN: opt < %s -lower-subscript 2>&1 -S | FileCheck %s
 ; RUN: opt < %s -passes=lower-subscript -S 2>&1 | FileCheck %s
 
-; CHECK: getelementptr inbounds i32, i32* %p, i32 0
+; CHECK: getelementptr inbounds i32, i32* %p, i32 1
 ; CHECK: %[[T:.*]] = trunc i64 %add to i32
 ; CHECK: getelementptr inbounds i32, i32* %p, i32 %[[T]]
 
@@ -23,7 +23,7 @@ for.cond.cleanup:
 for.body:
   %i.07 = phi i64 [ 0, %for.body.lr.ph ], [ %add, %for.body ]
   %add = add nuw nsw i64 %i.07, 1
-  %arrayidx2 = call i32* @llvm.intel.subscript.p0i32.i64.i32.p0i32.i64(i8 0, i64 0, i32 4, i32* %p, i64 0)
+  %arrayidx2 = call i32* @llvm.intel.subscript.p0i32.i64.i32.p0i32.i64(i8 0, i64 0, i32 4, i32* %p, i64 1)
   %0 = load i32, i32* %arrayidx2, align 4
   %arrayidx1 = call i32* @llvm.intel.subscript.p0i32.i64.i32.p0i32.i64(i8 0, i64 0, i32 4, i32* %p, i64 %add)
   store i32 %0, i32* %arrayidx1, align 4

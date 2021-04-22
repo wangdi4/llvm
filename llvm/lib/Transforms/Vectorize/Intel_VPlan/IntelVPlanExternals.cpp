@@ -141,11 +141,14 @@ void VPLiveInOutCreator::addOriginalLiveInOut(
     // TODO: implement for HIR input
     return;
   VPPHINode *VPPhi = VPLEntityList->getRecurrentVPHINode(*E);
-  assert(VPPhi && "Unexpected null recurrent VPPhi");
-  PHINode *Phi = cast<PHINode>(VPPhi->getUnderlyingValue());
-  assert(Phi->getParent() == OrigLoop->getHeader() &&
-         "Unexpected recurrent phi");
-  int StartValOpNum = Phi->getBasicBlockIndex(OrigLoop->getLoopPreheader());
+  PHINode *Phi = nullptr;
+  if (VPPhi) {
+    Phi = cast<PHINode>(VPPhi->getUnderlyingValue());
+    assert(Phi->getParent() == OrigLoop->getHeader() &&
+           "Unexpected recurrent phi");
+  }
+  int StartValOpNum =
+      Phi ? Phi->getBasicBlockIndex(OrigLoop->getLoopPreheader()) : -1;
   const Value *LiveOut = nullptr;
   if (ExtUse->hasUnderlying())
     // If the external use exists and it has underlying value, we use it to
@@ -154,7 +157,7 @@ void VPLiveInOutCreator::addOriginalLiveInOut(
     LiveOut = ExtUse->getUnderlyingOperand(0);
   else {
     // Otherwise use phi node incoming operand that comes from latch.
-    assert(Phi->getNumOperands() == 2 && "Unexpected recurrent Phi");
+    assert((Phi && Phi->getNumOperands() == 2) && "Unexpected recurrent Phi");
     LiveOut = Phi->getOperand(StartValOpNum ^ 1);
   }
   ScalarInOuts.add(Phi, StartValOpNum, LiveOut, ExtUse->getMergeId());
@@ -192,11 +195,10 @@ void VPLiveInOutCreator::createInOutsReductions(
     const VPLoopEntityList *VPLEntityList, Loop *OrigLoop) {
 
   VPExternalValues &ExtVals = Plan.getExternals();
-  ScalarInOutList &ScalarInOuts = *ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
+  ScalarInOutList &ScalarInOuts =
+      *ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
 
   for (auto *Red : VPLEntityList->vpreductions()) {
-    if (Red->getIsMemOnly())
-      continue;
     VPReductionInit *RedInit = nullptr;
     VPReductionFinal *RedFinal = nullptr;
     VPExternalUse *RedFinalExternalUse = nullptr;
@@ -213,18 +215,14 @@ void VPLiveInOutCreator::createInOutsReductions(
     if (!RedFinalExternalUse) {
       // No external use can be possible for some auto-generated reductions,
       // e.g. fake linear index for min/max+index idiom or for reductions that
-      // are not used outside of the loop. Then we don't need to create an
-      // external use except when it's non-index minmax reduction and it's used
-      // to calculate index. In such cases we need to keep it's value after
-      // peel/main loop.
-      if (!Red->isMinMax() || isa<VPIndexReduction>(Red))
-        continue;
-      if (!VPLEntityList->getMinMaxIndex(Red))
-        continue;
-      // In those cases we create a fake external use, with symbase equal to
-      // symbase of start value.
+      // are not used outside of the loop or in-memory reductions. Then we
+      // create a fake external use, with symbase equal to symbase of start
+      // value.
+      // TODO: We don't need to create an external use in cases when it's a fake
+      // linear index. In other cases we need to keep it's value after peel/main
+      // loop.
       if (auto ExtDef = dyn_cast<VPExternalDef>(StartV))
-        if (auto VBlob = dyn_cast<VPBlob>(ExtDef->getOperandHIR())) {
+        if (auto VBlob = dyn_cast_or_null<VPBlob>(ExtDef->getOperandHIR())) {
           RedFinalExternalUse =
               ExtVals.getOrCreateVPExternalUseForDDRef(VBlob->getBlob());
           RedFinalExternalUse->addOperand(RedFinal);
@@ -243,28 +241,83 @@ void VPLiveInOutCreator::createInOutsReductions(
   }
 }
 
+void VPLiveInOutCreator::createInOutsPrivates(
+  const  VPLoopEntityList *VPLEntityList, Loop *OrigLoop) {
+
+  auto findExtUser = [](VPInstruction *I) -> VPExternalUse * {
+    auto Iter = llvm::find_if(
+        I->users(), [](VPUser *U) { return isa<VPExternalUse>(U); });
+    if (Iter == I->user_end())
+      return nullptr;
+    else
+      return cast<VPExternalUse>(*Iter);
+  };
+
+  VPExternalValues &ExtVals = Plan.getExternals();
+  ScalarInOutList &ScalarInOuts = *ExtVals.getOrCreateScalarLoopInOuts(OrigLoop);
+  for (auto *Priv : VPLEntityList->vpprivates()) {
+    if (Priv->getIsMemOnly())
+      continue;
+    if (!Priv->isLast())
+      continue;
+
+    for (VPValue *Val : Priv->getLinkedVPValues()) {
+      auto PrivFinal = dyn_cast<VPInstruction>(Val);
+      if (!PrivFinal)
+        continue;
+      VPExternalUse *PrivFinalExternalUse = nullptr;
+      if (PrivFinal->getOpcode() == VPInstruction::PrivateFinalUncond ||
+          PrivFinal->getOpcode() == VPInstruction::PrivateFinalCond)
+        PrivFinalExternalUse = findExtUser(PrivFinal);
+      else
+        continue;
+
+      assert(PrivFinalExternalUse && "Expected non-null external use");
+      // Create live-in/out descriptors
+      int MergeId = PrivFinalExternalUse->getMergeId();
+      // TODO.Conditional last private have start value.
+      VPLiveOutValue *LOV = createLiveOutValue(MergeId, PrivFinal);
+      // Unlink External use
+      PrivFinalExternalUse->removeOperand(
+          PrivFinalExternalUse->getOperandIndex(PrivFinal));
+      // Put live-in/out to their lists
+      Plan.setLiveOutValue(LOV, MergeId);
+      if (auto PrivInst = dyn_cast<VPPrivateFinalCond>(PrivFinal)) {
+        VPValue *StartV = PrivInst->getOrig();
+        VPLiveInValue *LIV = createLiveInValue(MergeId, StartV->getType());
+        Plan.setLiveInValue(LIV, MergeId);
+        ExtVals.setOriginalIncomingValue(StartV, MergeId);
+        PrivInst->setOrig(LIV);
+      }
+      addOriginalLiveInOut(VPLEntityList, OrigLoop, Priv, PrivFinalExternalUse,
+                           ScalarInOuts);
+    }
+  }
+}
+
 void VPLiveInOutCreator::createInOutValues(Loop *OrigLoop) {
-  const VPLoop *Loop = *Plan.getVPLoopInfo()->begin();
+  VPlanVector &VecPlan = cast<VPlanVector>(Plan);
+  const VPLoop *Loop = *VecPlan.getVPLoopInfo()->begin();
   if (!Loop->getUniqueExitBlock())
     return;
 
   VPExternalValues &ExtVals = Plan.getExternals();
   unsigned ExtUseCount = ExtVals.getLastMergeId();
 
-  const VPLoopEntityList *VPLEntityList =
-      Plan.getLoopEntities(Loop);
+  const VPLoopEntityList *VPLEntityList = VecPlan.getLoopEntities(Loop);
   assert(VPLEntityList && "VPLEntityList is expected to be non-null here.");
 
   // We need to allocate LiveIn/LiveOut lists here, along with
   // OriginalIncomingValues, due to we look through entities and the lookup is
-  // not in the order of VPExternalUses creation but we need to place the items
-  // in the needed order.
+  // not in the order of VPExternalUses creation but we need to place the
+  // items in the needed order.
   ExtVals.allocateOriginalIncomingValues(ExtUseCount);
   Plan.allocateLiveInValues(ExtUseCount);
   Plan.allocateLiveOutValues(ExtUseCount);
 
   createInOutsInductions(VPLEntityList, OrigLoop);
   createInOutsReductions(VPLEntityList, OrigLoop);
+  createInOutsPrivates(VPLEntityList, OrigLoop);
 }
 
 void VPLiveInOutCreator::restoreLiveIns() {
@@ -273,6 +326,31 @@ void VPLiveInOutCreator::restoreLiveIns() {
     if (LIV) // Might be not created for some MergeId-s.
       LIV->replaceAllUsesWith(
           ExtVals.getOriginalIncomingValue(LIV->getMergeId()));
+}
+
+void VPLiveInOutCreator::createLiveInsForScalarVPlan(
+    const ScalarInOutList &ScalarInOuts, int Count) {
+
+  Plan.allocateLiveInValues(Count);
+  for (auto Item : ScalarInOuts.list()) {
+    int MergeId = Item->getId();
+    VPLiveInValue *LIV = createLiveInValue(MergeId, Item->getLiveOut()->getType());
+    Plan.setLiveInValue(LIV, MergeId);
+  }
+}
+
+void VPLiveInOutCreator::createLiveOutsForScalarVPlan(
+    const ScalarInOutList &ScalarInOuts, int Count,
+    DenseMap<int, VPValue *> &Outgoing) {
+
+  Plan.allocateLiveOutValues(Count);
+  for (auto Item : ScalarInOuts.list()) {
+    int MergeId = Item->getId();
+    VPValue *Val = Outgoing[MergeId];
+    assert(Val && "Expected non-null outgoing value");
+    VPLiveOutValue *LOV = createLiveOutValue(MergeId, Val);
+    Plan.setLiveOutValue(LOV, MergeId);
+  }
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -307,7 +385,10 @@ void VPExternalValues::dumpScalarInOuts(raw_ostream &FOS, const Loop *L) const {
 
 void ScalarInOutDescr::dump(raw_ostream &OS) const {
   OS.indent(2) << "Id: " << MergeId << "\n";
-  OS.indent(4) << "Phi: " << *Phi;
+  if (Phi)
+    OS.indent(4) << "Phi: " << *Phi;
+  else
+    OS.indent(4) << "Phi: " << "nullptr";
   OS.indent(4) << "Start op: " << StartValOpNum << "\n";
   OS.indent(4) << "Live-Out: " << *LiveOut;
 }

@@ -18,6 +18,7 @@
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 #define DEBUG_TYPE "DPCPPKernelPostVec"
 #define SV_NAME "dpcpp-kernel-postvec"
@@ -43,20 +44,14 @@ bool DPCPPKernelPostVec::isKernelVectorized(Function *Clone) {
 }
 
 bool DPCPPKernelPostVec::runOnModule(Module &M) {
-  SmallVector<Function *, 8> WorkList;
-
-  for (auto &F : M) {
-    if (F.hasFnAttribute("sycl_kernel"))
-      WorkList.push_back(&F);
-  }
-
-  if (WorkList.empty()) {
+  auto Kernels = DPCPPKernelCompilationUtils::getKernels(M);
+  if (Kernels.empty()) {
     LLVM_DEBUG(dbgs() << "No kernels found!\n";);
     return false;
   }
 
   bool ModifiedModule = false;
-  for (Function *F : WorkList) {
+  for (Function *F : Kernels) {
     // Remove "dpcpp_kernel_recommended_vector_length" attribute.
     F->removeFnAttr("dpcpp_kernel_recommended_vector_length");
 

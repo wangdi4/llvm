@@ -3,53 +3,53 @@
 
 __attribute__((max_work_group_size(1024, 1, 1)))
 __kernel void k1() {}
-// CHECK: define spir_kernel void @k1{{[^{]+}} !max_work_group_size ![[MD1:[0-9]+]]
+// CHECK: define{{.*}}spir_kernel void @k1{{[^{]+}} !max_work_group_size ![[MD1:[0-9]+]]
 
 __attribute__((max_global_work_dim(0)))
 __kernel void k2() {}
-// CHECK: define spir_kernel void @k2{{[^{]+}} !max_global_work_dim ![[MD2:[0-9]+]]
+// CHECK: define{{.*}}spir_kernel void @k2{{[^{]+}} !max_global_work_dim ![[MD2:[0-9]+]]
 
 __attribute__((reqd_work_group_size(16,16,16)))
 __kernel void k3() {}
-// CHECK: define spir_kernel void @k3{{[^{]+}} !reqd_work_group_size ![[MD3:[0-9]+]]
+// CHECK: define{{.*}}spir_kernel void @k3{{[^{]+}} !reqd_work_group_size ![[MD3:[0-9]+]]
 
 __attribute__((max_work_group_size(16,16,16)))
 __kernel void k4() {}
-// CHECK: define spir_kernel void @k4{{[^{]+}} !max_work_group_size ![[MD3]]
+// CHECK: define{{.*}}spir_kernel void @k4{{[^{]+}} !max_work_group_size ![[MD3]]
 
 __attribute__((reqd_work_group_size(64,64,64)))
 __kernel void k5() {}
-// CHECK: define spir_kernel void @k5{{[^{]+}} !reqd_work_group_size ![[MD5:[0-9]+]]
+// CHECK: define{{.*}}spir_kernel void @k5{{[^{]+}} !reqd_work_group_size ![[MD5:[0-9]+]]
 
 __kernel void k6() __attribute__((num_compute_units(3))) {}
-// CHECK: define spir_kernel void @k6{{[^{]+}} !num_compute_units ![[MD6:[0-9]+]]
+// CHECK: define{{.*}}spir_kernel void @k6{{[^{]+}} !num_compute_units ![[MD6:[0-9]+]]
 
 __kernel void k7() __attribute__((num_simd_work_items(4))) {}
-// CHECK: define spir_kernel void @k7{{[^{]+}} !num_simd_work_items ![[MD7:[0-9]+]]
+// CHECK: define{{.*}}spir_kernel void @k7{{[^{]+}} !num_simd_work_items ![[MD7:[0-9]+]]
 
 __kernel void k8() __attribute__((num_compute_units(3, 2, 4))) {}
-// CHECK: define spir_kernel void @k8{{[^{]+}} !num_compute_units ![[MD8:[0-9]+]]
+// CHECK: define{{.*}}spir_kernel void @k8{{[^{]+}} !num_compute_units ![[MD8:[0-9]+]]
 
 __kernel void k9() __attribute__((max_global_work_dim(1))) {}
-// CHECK: define spir_kernel void @k9{{[^{]+}} !max_global_work_dim ![[MD9:[0-9]+]]
+// CHECK: define{{.*}}spir_kernel void @k9{{[^{]+}} !max_global_work_dim ![[MD9:[0-9]+]]
 
 __kernel void k10() __attribute__((max_global_work_dim(0))) __attribute__((autorun)) {}
-// CHECK: define spir_kernel void @k10{{[^{]+}} !max_global_work_dim ![[MD2]] !autorun ![[MD10:[0-9]+]]
+// CHECK: define{{.*}}spir_kernel void @k10{{[^{]+}} !max_global_work_dim ![[MD2]] !autorun ![[MD10:[0-9]+]]
 
 __kernel void k11() __attribute__((stall_free)) {}
-// CHECK: define spir_kernel void @k11{{[^{]+}} !stall_free ![[MD10]]
+// CHECK: define{{.*}}spir_kernel void @k11{{[^{]+}} !stall_free ![[MD10]]
 
 __kernel void k12() __attribute__((scheduler_target_fmax_mhz(12))) {}
-// CHECK: define spir_kernel void @k12{{[^{]+}} !scheduler_target_fmax_mhz ![[MD12:[0-9]+]]
+// CHECK: define{{.*}}spir_kernel void @k12{{[^{]+}} !scheduler_target_fmax_mhz ![[MD12:[0-9]+]]
 
 __kernel void k14() __attribute__((uses_global_work_offset(0))) {}
-// CHECK: define spir_kernel void @k14{{[^{]+}} !uses_global_work_offset ![[MD13:[0-9]+]]
+// CHECK: define{{.*}}spir_kernel void @k14{{[^{]+}} !uses_global_work_offset ![[MD13:[0-9]+]]
 
 __kernel void k15() __attribute__((uses_global_work_offset(1))) {}
-// CHECK: define spir_kernel void @k15{{[^{]+}} !uses_global_work_offset ![[MD10]]
+// CHECK: define{{.*}}spir_kernel void @k15{{[^{]+}} !uses_global_work_offset ![[MD10]]
 
 __kernel void k16() __attribute__((uses_global_work_offset(31))) {}
-// CHECK: define spir_kernel void @k16{{[^{]+}} !uses_global_work_offset ![[MD10]]
+// CHECK: define{{.*}}spir_kernel void @k16{{[^{]+}} !uses_global_work_offset ![[MD10]]
 
 // CHECK-DAG: [[MD1]] = !{i32 1024, i32 1, i32 1}
 // CHECK-DAG: [[MD2]] = !{i32 0}

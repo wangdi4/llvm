@@ -247,7 +247,6 @@ define void @test_scatter_v2i32_data_index(<2 x i32> %a1, i32* %base, <2 x i32> 
   ret void
 }
 
-; INTEL_CUSTOMIZATION
 define void @test_mscatter_v17f32(float* %base, <17 x i32> %index, <17 x float> %val)
 ; WIDEN_SKX-LABEL: test_mscatter_v17f32:
 ; WIDEN_SKX:       # %bb.0:
@@ -348,19 +347,19 @@ define void @test_mscatter_v17f32(float* %base, <17 x i32> %index, <17 x float> 
 ; WIDEN_AVX2-LABEL: test_mscatter_v17f32:
 ; WIDEN_AVX2:       # %bb.0:
 ; WIDEN_AVX2-NEXT:    vmovq %rdi, %xmm8
-; WIDEN_AVX2-NEXT:    vpbroadcastq %xmm8, %ymm9
-; WIDEN_AVX2-NEXT:    vmovd %esi, %xmm10
-; WIDEN_AVX2-NEXT:    vpinsrd $1, %edx, %xmm10, %xmm10
-; WIDEN_AVX2-NEXT:    vpinsrd $2, %ecx, %xmm10, %xmm10
-; WIDEN_AVX2-NEXT:    vpinsrd $3, %r8d, %xmm10, %xmm10
-; WIDEN_AVX2-NEXT:    vpmovsxdq %xmm10, %ymm10
-; WIDEN_AVX2-NEXT:    vpsllq $2, %ymm10, %ymm10
-; WIDEN_AVX2-NEXT:    vpaddq %ymm10, %ymm9, %ymm10
-; WIDEN_AVX2-NEXT:    vmovq %xmm10, %rax
+; WIDEN_AVX2-NEXT:    vpbroadcastq %xmm8, %ymm8
+; WIDEN_AVX2-NEXT:    vmovd %esi, %xmm9
+; WIDEN_AVX2-NEXT:    vpinsrd $1, %edx, %xmm9, %xmm9
+; WIDEN_AVX2-NEXT:    vpinsrd $2, %ecx, %xmm9, %xmm9
+; WIDEN_AVX2-NEXT:    vpinsrd $3, %r8d, %xmm9, %xmm9
+; WIDEN_AVX2-NEXT:    vpmovsxdq %xmm9, %ymm9
+; WIDEN_AVX2-NEXT:    vpsllq $2, %ymm9, %ymm9
+; WIDEN_AVX2-NEXT:    vpaddq %ymm9, %ymm8, %ymm9
+; WIDEN_AVX2-NEXT:    vmovq %xmm9, %rax
 ; WIDEN_AVX2-NEXT:    vmovss %xmm0, (%rax)
-; WIDEN_AVX2-NEXT:    vpextrq $1, %xmm10, %rax
+; WIDEN_AVX2-NEXT:    vpextrq $1, %xmm9, %rax
 ; WIDEN_AVX2-NEXT:    vmovss %xmm1, (%rax)
-; WIDEN_AVX2-NEXT:    vextracti128 $1, %ymm10, %xmm0
+; WIDEN_AVX2-NEXT:    vextracti128 $1, %ymm9, %xmm0
 ; WIDEN_AVX2-NEXT:    vmovq %xmm0, %rax
 ; WIDEN_AVX2-NEXT:    vmovss %xmm2, (%rax)
 ; WIDEN_AVX2-NEXT:    vpextrq $1, %xmm0, %rax
@@ -371,7 +370,7 @@ define void @test_mscatter_v17f32(float* %base, <17 x i32> %index, <17 x float> 
 ; WIDEN_AVX2-NEXT:    vpinsrd $3, {{[0-9]+}}(%rsp), %xmm0, %xmm0
 ; WIDEN_AVX2-NEXT:    vpmovsxdq %xmm0, %ymm0
 ; WIDEN_AVX2-NEXT:    vpsllq $2, %ymm0, %ymm0
-; WIDEN_AVX2-NEXT:    vpaddq %ymm0, %ymm9, %ymm0
+; WIDEN_AVX2-NEXT:    vpaddq %ymm0, %ymm8, %ymm0
 ; WIDEN_AVX2-NEXT:    vmovq %xmm0, %rax
 ; WIDEN_AVX2-NEXT:    vmovss %xmm4, (%rax)
 ; WIDEN_AVX2-NEXT:    vpextrq $1, %xmm0, %rax
@@ -380,13 +379,7 @@ define void @test_mscatter_v17f32(float* %base, <17 x i32> %index, <17 x float> 
 ; WIDEN_AVX2-NEXT:    vmovq %xmm0, %rax
 ; WIDEN_AVX2-NEXT:    vmovss %xmm6, (%rax)
 ; WIDEN_AVX2-NEXT:    vpextrq $1, %xmm0, %rax
-; WIDEN_AVX2-NEXT:    vmovd {{.*#+}} xmm0 = mem[0],zero,zero,zero
-; WIDEN_AVX2-NEXT:    vpinsrd $1, {{[0-9]+}}(%rsp), %xmm0, %xmm0
-; WIDEN_AVX2-NEXT:    vpinsrd $2, {{[0-9]+}}(%rsp), %xmm0, %xmm0
-; WIDEN_AVX2-NEXT:    vpinsrd $3, {{[0-9]+}}(%rsp), %xmm0, %xmm0
-; WIDEN_AVX2-NEXT:    vpmovsxdq %xmm0, %ymm0
-; WIDEN_AVX2-NEXT:    vpsllq $2, %ymm0, %ymm0
-; WIDEN_AVX2-NEXT:    vpaddq %ymm0, %ymm9, %ymm0
+; WIDEN_AVX2-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; WIDEN_AVX2-NEXT:    vmovss %xmm7, (%rax)
 ; WIDEN_AVX2-NEXT:    vmovd {{.*#+}} xmm1 = mem[0],zero,zero,zero
 ; WIDEN_AVX2-NEXT:    vpinsrd $1, {{[0-9]+}}(%rsp), %xmm1, %xmm1
@@ -394,31 +387,37 @@ define void @test_mscatter_v17f32(float* %base, <17 x i32> %index, <17 x float> 
 ; WIDEN_AVX2-NEXT:    vpinsrd $3, {{[0-9]+}}(%rsp), %xmm1, %xmm1
 ; WIDEN_AVX2-NEXT:    vpmovsxdq %xmm1, %ymm1
 ; WIDEN_AVX2-NEXT:    vpsllq $2, %ymm1, %ymm1
-; WIDEN_AVX2-NEXT:    vpaddq %ymm1, %ymm9, %ymm1
-; WIDEN_AVX2-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; WIDEN_AVX2-NEXT:    vpaddq %ymm1, %ymm8, %ymm1
 ; WIDEN_AVX2-NEXT:    vmovq %xmm1, %rax
-; WIDEN_AVX2-NEXT:    vmovss %xmm2, (%rax)
-; WIDEN_AVX2-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; WIDEN_AVX2-NEXT:    vmovss %xmm0, (%rax)
+; WIDEN_AVX2-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; WIDEN_AVX2-NEXT:    vpextrq $1, %xmm1, %rax
-; WIDEN_AVX2-NEXT:    vmovss %xmm2, (%rax)
-; WIDEN_AVX2-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
+; WIDEN_AVX2-NEXT:    vmovss %xmm0, (%rax)
+; WIDEN_AVX2-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; WIDEN_AVX2-NEXT:    vextracti128 $1, %ymm1, %xmm1
 ; WIDEN_AVX2-NEXT:    vmovq %xmm1, %rax
-; WIDEN_AVX2-NEXT:    vmovss %xmm2, (%rax)
+; WIDEN_AVX2-NEXT:    vmovss %xmm0, (%rax)
+; WIDEN_AVX2-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; WIDEN_AVX2-NEXT:    vpextrq $1, %xmm1, %rax
 ; WIDEN_AVX2-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
 ; WIDEN_AVX2-NEXT:    vmovss %xmm1, (%rax)
-; WIDEN_AVX2-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
-; WIDEN_AVX2-NEXT:    vmovq %xmm0, %rax
-; WIDEN_AVX2-NEXT:    vmovss %xmm1, (%rax)
-; WIDEN_AVX2-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
-; WIDEN_AVX2-NEXT:    vpextrq $1, %xmm0, %rax
-; WIDEN_AVX2-NEXT:    vmovss %xmm1, (%rax)
-; WIDEN_AVX2-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
-; WIDEN_AVX2-NEXT:    vextracti128 $1, %ymm0, %xmm0
-; WIDEN_AVX2-NEXT:    vmovq %xmm0, %rax
-; WIDEN_AVX2-NEXT:    vmovss %xmm1, (%rax)
-; WIDEN_AVX2-NEXT:    vpextrq $1, %xmm0, %rax
+; WIDEN_AVX2-NEXT:    vmovd {{.*#+}} xmm1 = mem[0],zero,zero,zero
+; WIDEN_AVX2-NEXT:    vpinsrd $1, {{[0-9]+}}(%rsp), %xmm1, %xmm1
+; WIDEN_AVX2-NEXT:    vpinsrd $2, {{[0-9]+}}(%rsp), %xmm1, %xmm1
+; WIDEN_AVX2-NEXT:    vpinsrd $3, {{[0-9]+}}(%rsp), %xmm1, %xmm1
+; WIDEN_AVX2-NEXT:    vpmovsxdq %xmm1, %ymm1
+; WIDEN_AVX2-NEXT:    vpsllq $2, %ymm1, %ymm1
+; WIDEN_AVX2-NEXT:    vpaddq %ymm1, %ymm8, %ymm1
+; WIDEN_AVX2-NEXT:    vmovq %xmm1, %rax
+; WIDEN_AVX2-NEXT:    vmovss %xmm0, (%rax)
+; WIDEN_AVX2-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; WIDEN_AVX2-NEXT:    vpextrq $1, %xmm1, %rax
+; WIDEN_AVX2-NEXT:    vmovss %xmm0, (%rax)
+; WIDEN_AVX2-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; WIDEN_AVX2-NEXT:    vextracti128 $1, %ymm1, %xmm1
+; WIDEN_AVX2-NEXT:    vmovq %xmm1, %rax
+; WIDEN_AVX2-NEXT:    vmovss %xmm0, (%rax)
+; WIDEN_AVX2-NEXT:    vpextrq $1, %xmm1, %rax
 ; WIDEN_AVX2-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; WIDEN_AVX2-NEXT:    vmovss %xmm0, (%rax)
 ; WIDEN_AVX2-NEXT:    vmovd {{.*#+}} xmm0 = mem[0],zero,zero,zero
@@ -551,7 +550,6 @@ define <17 x float> @test_mgather_v17f32(float* %base, <17 x i32> %index)
 
 declare <17 x float> @llvm.masked.gather.v17f32.v17p0f32(<17 x float*>, i32 immarg, <17 x i1>, <17 x float>)
 declare void @llvm.masked.scatter.v17f32.v17p0f32(<17 x float> , <17 x float*> , i32 , <17 x i1>)
-; end INTEL_CUSTOMIZATION
 
 declare <2 x double> @llvm.masked.gather.v2f64.v2p0f64(<2 x double*>, i32, <2 x i1>, <2 x double>)
 declare void @llvm.masked.scatter.v2f64.v2p0f64(<2 x double>, <2 x double*>, i32, <2 x i1>)

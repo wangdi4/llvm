@@ -12,23 +12,30 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "dpcpp-kernel-barrier-in-function"
 
 INITIALIZE_PASS(
-    BarrierInFunction, DEBUG_TYPE,
+    BarrierInFunctionLegacy, DEBUG_TYPE,
     "Barrier Pass - Handle barrier instructions called from functions", false,
     true)
 
-namespace llvm {
+char BarrierInFunctionLegacy::ID = 0;
 
-char BarrierInFunction::ID = 0;
+BarrierInFunctionLegacy::BarrierInFunctionLegacy() : ModulePass(ID) {}
 
-BarrierInFunction::BarrierInFunction() : ModulePass(ID) {}
+bool BarrierInFunctionLegacy::runOnModule(Module &M) { return Impl.runImpl(M); }
 
-bool BarrierInFunction::runOnModule(Module &M) {
+PreservedAnalyses BarrierInFunction::run(Module &M, ModuleAnalysisManager &) {
+  if (!runImpl(M))
+    return PreservedAnalyses::all();
+  return PreservedAnalyses::none();
+}
+
+bool BarrierInFunction::runImpl(Module &M) {
   // Initialize barrier utils class with current module.
   BarrierUtils.init(&M);
 
@@ -130,8 +137,6 @@ void BarrierInFunction::removeFibersFromNonHandledFunctions(
   // Don't need this for DPCPP.
 }
 
-ModulePass *createBarrierInFunctionPass() {
-  return new llvm::BarrierInFunction();
+ModulePass *llvm::createBarrierInFunctionLegacyPass() {
+  return new llvm::BarrierInFunctionLegacy();
 }
-
-} // namespace llvm

@@ -186,6 +186,9 @@ public:
   /// code, e.g., implicit constructors and destructors.
   bool shouldVisitImplicitCode() const { return false; }
 
+  /// Return whether this visitor should recurse into lambda body
+  bool shouldVisitLambdaBody() const { return true; }
+
   /// Return whether this visitor should traverse post-order.
   bool shouldTraversePostOrder() const { return false; }
 
@@ -468,6 +471,8 @@ public:
   DEF_TRAVERSE_TMPL_INST(Function)
 #undef DEF_TRAVERSE_TMPL_INST
 
+  bool dataTraverseNode(Stmt *S, DataRecursionQueue *Queue);
+
 private:
   // These are helper methods used by more than one Traverse* method.
   bool TraverseTemplateParameterListHelper(TemplateParameterList *TPL);
@@ -497,7 +502,6 @@ private:
   bool VisitOMPClauseWithPreInit(OMPClauseWithPreInit *Node);
   bool VisitOMPClauseWithPostUpdate(OMPClauseWithPostUpdate *Node);
 
-  bool dataTraverseNode(Stmt *S, DataRecursionQueue *Queue);
   bool PostVisitStmt(Stmt *S);
 };
 
@@ -1062,15 +1066,6 @@ DEF_TRAVERSE_TYPE(AtomicType, { TRY_TO(TraverseType(T->getValueType())); })
 
 #if INTEL_CUSTOMIZATION
 DEF_TRAVERSE_TYPE(ChannelType, { TRY_TO(TraverseType(T->getElementType())); })
-
-DEF_TRAVERSE_TYPE(ArbPrecIntType,
-                  { TRY_TO(TraverseType(T->getUnderlyingType())); })
-
-DEF_TRAVERSE_TYPE(DependentSizedArbPrecIntType, {
-  if (T->getNumBitsExpr())
-    TRY_TO(TraverseStmt(T->getNumBitsExpr()));
-  TRY_TO(TraverseType(T->getUnderlyingType()));
-})
 #endif // INTEL_CUSTOMIZATION
 
 DEF_TRAVERSE_TYPE(PipeType, { TRY_TO(TraverseType(T->getElementType())); })
@@ -1361,16 +1356,6 @@ DEF_TRAVERSE_TYPELOC(AtomicType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
 
 #if INTEL_CUSTOMIZATION
 DEF_TRAVERSE_TYPELOC(ChannelType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
-
-DEF_TRAVERSE_TYPELOC(ArbPrecIntType, {
-  TRY_TO(TraverseType(TL.getTypePtr()->getUnderlyingType()));
-})
-
-DEF_TRAVERSE_TYPELOC(DependentSizedArbPrecIntType, {
-  TRY_TO(TraverseType(TL.getTypePtr()->getUnderlyingType()));
-  TRY_TO(TraverseStmt(TL.getTypePtr()->getNumBitsExpr()));
-})
-
 #endif // INTEL_CUSTOMIZATION
 
 DEF_TRAVERSE_TYPELOC(PipeType, { TRY_TO(TraverseTypeLoc(TL.getValueLoc())); })
@@ -2082,6 +2067,15 @@ bool RecursiveASTVisitor<Derived>::TraverseFunctionHelper(FunctionDecl *D) {
       // Don't visit the function body if the function definition is generated
       // by clang.
       (!D->isDefaulted() || getDerived().shouldVisitImplicitCode());
+
+  if (const auto *MD = dyn_cast<CXXMethodDecl>(D)) {
+    if (const CXXRecordDecl *RD = MD->getParent()) {
+      if (RD->isLambda() &&
+          declaresSameEntity(RD->getLambdaCallOperator(), MD)) {
+        VisitBody = VisitBody && getDerived().shouldVisitLambdaBody();
+      }
+    }
+  }
 
   if (VisitBody) {
     TRY_TO(TraverseStmt(D->getBody())); // Function body.
@@ -2801,6 +2795,14 @@ bool RecursiveASTVisitor<Derived>::TraverseOMPExecutableDirective(
   return true;
 }
 
+DEF_TRAVERSE_STMT(OMPCanonicalLoop, {
+  if (!getDerived().shouldVisitImplicitCode()) {
+    // Visit only the syntactical loop.
+    TRY_TO(TraverseStmt(S->getLoopStmt()));
+    ShouldVisitChildren = false;
+  }
+})
+
 template <typename Derived>
 bool
 RecursiveASTVisitor<Derived>::TraverseOMPLoopDirective(OMPLoopDirective *S) {
@@ -2811,6 +2813,9 @@ DEF_TRAVERSE_STMT(OMPParallelDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
 DEF_TRAVERSE_STMT(OMPSimdDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
+DEF_TRAVERSE_STMT(OMPTileDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
 DEF_TRAVERSE_STMT(OMPForDirective,
@@ -2987,6 +2992,15 @@ DEF_TRAVERSE_STMT(OMPTargetTeamsDistributeParallelForSimdDirective,
 DEF_TRAVERSE_STMT(OMPTargetTeamsDistributeSimdDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
+DEF_TRAVERSE_STMT(OMPInteropDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
+DEF_TRAVERSE_STMT(OMPDispatchDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
+DEF_TRAVERSE_STMT(OMPMaskedDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
 // OpenMP clauses.
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::TraverseOMPClause(OMPClause *C) {
@@ -3105,6 +3119,13 @@ bool RecursiveASTVisitor<Derived>::VisitOMPSafelenClause(OMPSafelenClause *C) {
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPSimdlenClause(OMPSimdlenClause *C) {
   TRY_TO(TraverseStmt(C->getSimdlen()));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPSizesClause(OMPSizesClause *C) {
+  for (Expr *E : C->getSizesRefs())
+    TRY_TO(TraverseStmt(E));
   return true;
 }
 
@@ -3246,7 +3267,36 @@ bool RecursiveASTVisitor<Derived>::VisitOMPNogroupClause(OMPNogroupClause *) {
 }
 
 template <typename Derived>
-bool RecursiveASTVisitor<Derived>::VisitOMPDestroyClause(OMPDestroyClause *) {
+bool RecursiveASTVisitor<Derived>::VisitOMPInitClause(OMPInitClause *C) {
+  TRY_TO(VisitOMPClauseList(C));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPUseClause(OMPUseClause *C) {
+  TRY_TO(TraverseStmt(C->getInteropVar()));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPDestroyClause(OMPDestroyClause *C) {
+  TRY_TO(TraverseStmt(C->getInteropVar()));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPNovariantsClause(
+    OMPNovariantsClause *C) {
+  TRY_TO(VisitOMPClauseWithPreInit(C));
+  TRY_TO(TraverseStmt(C->getCondition()));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPNocontextClause(
+    OMPNocontextClause *C) {
+  TRY_TO(VisitOMPClauseWithPreInit(C));
+  TRY_TO(TraverseStmt(C->getCondition()));
   return true;
 }
 
@@ -3622,6 +3672,13 @@ bool RecursiveASTVisitor<Derived>::VisitOMPAffinityClause(
   TRY_TO(TraverseStmt(C->getModifier()));
   for (Expr *E : C->varlists())
     TRY_TO(TraverseStmt(E));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPFilterClause(OMPFilterClause *C) {
+  TRY_TO(VisitOMPClauseWithPreInit(C));
+  TRY_TO(TraverseStmt(C->getThreadID()));
   return true;
 }
 

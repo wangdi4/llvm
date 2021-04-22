@@ -3,7 +3,7 @@
 ; the correct solution when all symbols aren't internal.
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: %gold -shared -plugin %llvmshlibdir/icx-lto%shlibext \
+; RUN: %gold -m elf_x86_64  -plugin %llvmshlibdir/icx-lto%shlibext \
 ; RUN:    -plugin-opt=O3 \
 ; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
 ; RUN:    -plugin-opt=-whole-program-read-trace %t.bc -o %t \
@@ -19,7 +19,7 @@
 ; CHECK:  RESULT: RESOLVED BY LINKER
 
 ; CHECK: SYMBOL NAME: sub
-; CHECK:  RESULT: RESOLVED BY LINKER
+; CHECK:  RESULT:  RESOLVED BY LINKER
 
 ; CHECK: SYMBOLS RESOLVED BY LINKER: 3
 ; CHECK: SYMBOLS NOT RESOLVED BY LINKER: 0

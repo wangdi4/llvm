@@ -24,6 +24,18 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+namespace {
+// Returns a character separating the clause name from the modifiers.
+char getClauseSeparator() {
+  return ':';
+}
+
+// Returns a character separating the modifiers from each other.
+char getModifiersSeparator() {
+  return '.';
+}
+} // end anonymous namespace
+
 ClauseSpecifier::ClauseSpecifier(StringRef Name)
     : FullName(Name), IsArraySection(false), IsByRef(false), IsNonPod(false),
 #if INTEL_CUSTOMIZATION
@@ -35,13 +47,14 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       IsUnsigned(false), IsComplex(false), IsConditional(false),
       IsScheduleMonotonic(false), IsScheduleNonmonotonic(false),
       IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false),
-      IsMapChainLink(false), IsIV(false) {
+      IsMapChainLink(false), IsIV(false), IsInitTarget(false),
+      IsInitTargetSync(false), IsInitPrefer(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
 
   // Split Name into the BaseName and Modifier substrings
   SmallVector<StringRef, 2> SubString;
-  Name.split(SubString, ":");
+  Name.split(SubString, getClauseSeparator());
   int NumSubStrings = SubString.size();
   assert((NumSubStrings==1 || NumSubStrings==2) &&
          "Unexpected number of substrings in a clause specifier");
@@ -73,10 +86,23 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
   // update ClauseSpecifier's properties accordingly
   if (NumSubStrings == 2) {
     SmallVector<StringRef, 2> ModSubString;
-    Mod.split(ModSubString, ".");
+    Mod.split(ModSubString, getModifiersSeparator());
     unsigned NumberOfModifierStrings = ModSubString.size();
 
-    if (VPOAnalysisUtils::isScheduleClause(getId()))
+    if (getId() == QUAL_OMP_INIT)
+      for (unsigned i = 0; i < NumberOfModifierStrings; i++) {
+        LLVM_DEBUG(dbgs() << "ClauseSpecifier: modifier = " << ModSubString[i]
+              << "\n");
+        if (ModSubString[i] == "TARGET")
+          setIsInitTarget();
+        else if (ModSubString[i] == "TARGETSYNC")
+          setIsInitTargetSync();
+        else if (ModSubString[i] == "PREFER")
+          setIsInitPrefer();
+        else
+          llvm_unreachable("Unknown modifier string for the Init clause");
+      }
+    else if (VPOAnalysisUtils::isScheduleClause(getId()))
       for (unsigned i=0; i < NumberOfModifierStrings; i++) {
         LLVM_DEBUG(dbgs() << "ClauseSpecifier: modifier = " << ModSubString[i]
                           << "\n");
@@ -217,7 +243,10 @@ bool VPOAnalysisUtils::isOpenMPDirective(StringRef DirFullName) {
 }
 
 bool VPOAnalysisUtils::isOpenMPClause(StringRef ClauseFullName) {
-  return Directives::ClauseIDs.count(ClauseFullName);
+  size_t SeparatorPos = ClauseFullName.find(getClauseSeparator());
+  StringRef BaseName = ClauseFullName.take_front(SeparatorPos);
+
+  return Directives::ClauseIDs.count(BaseName);
 }
 
 int VPOAnalysisUtils::getDirectiveID(StringRef DirFullName) {
@@ -258,6 +287,7 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
   case DIR_OMP_TARGET:
   case DIR_OMP_TARGET_DATA:
   case DIR_OMP_TARGET_VARIANT_DISPATCH:
+  case DIR_OMP_DISPATCH:
   case DIR_OMP_TEAMS:
   case DIR_OMP_DISTRIBUTE:
   case DIR_OMP_DISTRIBUTE_PARLOOP:
@@ -333,6 +363,7 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
   case DIR_OMP_END_TARGET:
   case DIR_OMP_END_TARGET_DATA:
   case DIR_OMP_END_TARGET_VARIANT_DISPATCH:
+  case DIR_OMP_END_DISPATCH:
   case DIR_OMP_END_TEAMS:
   case DIR_OMP_END_DISTRIBUTE:
   case DIR_OMP_END_DISTRIBUTE_PARLOOP:
@@ -419,6 +450,7 @@ bool VPOAnalysisUtils::isStandAloneBeginDirective(int DirID) {
   case DIR_OMP_CANCEL:
   case DIR_OMP_CANCELLATION_POINT:
   case DIR_OMP_THREADPRIVATE:
+  case DIR_OMP_INTEROP:
     return true;
   }
   return false;
@@ -450,6 +482,7 @@ bool VPOAnalysisUtils::isStandAloneEndDirective(int DirID) {
   case DIR_OMP_END_TARGET_UPDATE:
   case DIR_OMP_END_CANCEL:
   case DIR_OMP_END_CANCELLATION_POINT:
+  case DIR_OMP_END_INTEROP:
     return true;
   }
   return false;
@@ -533,6 +566,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
     return DIR_OMP_END_TARGET_DATA;
   case DIR_OMP_TARGET_VARIANT_DISPATCH:
     return DIR_OMP_END_TARGET_VARIANT_DISPATCH;
+  case DIR_OMP_DISPATCH:
+    return DIR_OMP_END_DISPATCH;
   case DIR_OMP_TEAMS:
     return DIR_OMP_END_TEAMS;
   case DIR_OMP_DISTRIBUTE:
@@ -573,6 +608,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
     return DIR_OMP_END_CANCEL;
   case DIR_OMP_CANCELLATION_POINT:
     return DIR_OMP_END_CANCELLATION_POINT;
+  case DIR_OMP_INTEROP:
+      return DIR_OMP_END_INTEROP;
   }
   return -1;
 }
@@ -765,6 +802,7 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_CANCEL_SECTIONS:
     case QUAL_OMP_CANCEL_TASKGROUP:
     case QUAL_OMP_TARGET_TASK:
+    case QUAL_OMP_IMPLICIT:
     case QUAL_OMP_BIND_TEAMS:
     case QUAL_OMP_BIND_PARALLEL:
     case QUAL_OMP_BIND_THREAD:
@@ -778,6 +816,8 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_COLLAPSE:
     case QUAL_OMP_IF:
     case QUAL_OMP_NAME:
+    case QUAL_OMP_NOCONTEXT:
+    case QUAL_OMP_NOVARIANTS:
     case QUAL_OMP_NUM_THREADS:
     case QUAL_OMP_FINAL:
     case QUAL_OMP_GRAINSIZE:
@@ -787,6 +827,8 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_THREAD_LIMIT:
     case QUAL_OMP_DEVICE:
     case QUAL_OMP_OFFLOAD_ENTRY_IDX:
+    case QUAL_OMP_USE:
+    case QUAL_OMP_DESTROY:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     case QUAL_OMP_SA_NUM_WORKERS:

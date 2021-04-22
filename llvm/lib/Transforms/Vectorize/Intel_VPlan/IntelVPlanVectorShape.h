@@ -44,7 +44,7 @@ public:
                 Desc(Desc), Stride(Stride) {
     if (Desc == VPShapeDescriptor::Rnd && Stride)
       llvm_unreachable("Stride should not be set for random shapes");
-    if (Desc == VPShapeDescriptor::Uni && getStrideVal() != 0)
+    if (Desc == VPShapeDescriptor::Uni && Stride && getStrideVal() != 0)
       llvm_unreachable("Stride for uniform shapes should be 0");
     //TODO: add assert to enforce stride as integer
   };

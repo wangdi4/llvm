@@ -1,0 +1,93 @@
+# REQUIRES: intel_feature_isa_avx512_rao_fp
+# RUN: llvm-mc --disassemble %s -triple=i686 | FileCheck %s --check-prefixes=ATT
+# RUN: llvm-mc --disassemble %s -triple=i686 -x86-asm-syntax=intel --output-asm-variant=1 | FileCheck %s --check-prefixes=INTEL
+# RUN: llvm-mc --disassemble %s -triple=x86_64 | FileCheck %s --check-prefixes=ATT
+# RUN: llvm-mc --disassemble %s -triple=x86_64 -x86-asm-syntax=intel --output-asm-variant=1 | FileCheck %s --check-prefixes=INTEL
+
+# These test are to test LLIG prefixes.
+
+# FIXME: XED can't decode this. It seems EVEX.LL' can't be 11b.
+# ATT:        vaaddsbf16  %xmm2, 268435456(%{{e|r}}sp,%{{e|r}}si,8)
+# INTEL:      vaaddsbf16 word ptr [{{e|r}}sp + 8*{{e|r}}si + 268435456], xmm2
+0x62,0xf2,0x7f,0x68,0x94,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vaaddsd  %xmm2, 268435456(%{{e|r}}sp,%{{e|r}}si,8)
+# INTEL:      vaaddsd qword ptr [{{e|r}}sp + 8*{{e|r}}si + 268435456], xmm2
+0x62,0xf2,0xff,0x68,0x84,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vaaddsd  %xmm2, (%{{e|r}}ax)
+# INTEL:      vaaddsd qword ptr [{{e|r}}ax], xmm2
+0x62,0xf2,0xff,0x68,0x84,0x10
+
+# ATT:        vaaddsh  %xmm2, (%{{e|r}}ax)
+# INTEL:      vaaddsh word ptr [{{e|r}}ax], xmm2
+0x62,0xf2,0x7e,0x68,0x94,0x10
+
+# ATT:        vaaddss  %xmm2, -512(%{{e|r}}dx) {%k7}
+# INTEL:      vaaddss dword ptr [{{e|r}}dx - 512] {k7}, xmm2
+0x62,0xf2,0x7e,0x6f,0x84,0x52,0x80
+
+
+# Below is right decoding.
+
+# ATT:        vaaddsbf16  %xmm2, 268435456(%{{e|r}}sp,%{{e|r}}si,8)
+# INTEL:      vaaddsbf16 word ptr [{{e|r}}sp + 8*{{e|r}}si + 268435456], xmm2
+0x62,0xf2,0x7f,0x08,0x94,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vaaddsbf16  %xmm2, 268435456(%{{e|r}}sp,%{{e|r}}si,8)
+# INTEL:      vaaddsbf16 word ptr [{{e|r}}sp + 8*{{e|r}}si + 268435456], xmm2
+0x62,0xf2,0x7f,0x28,0x94,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vaaddsbf16  %xmm2, 268435456(%{{e|r}}sp,%{{e|r}}si,8)
+# INTEL:      vaaddsbf16 word ptr [{{e|r}}sp + 8*{{e|r}}si + 268435456], xmm2
+0x62,0xf2,0x7f,0x48,0x94,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vaaddsd  %xmm2, 268435456(%{{e|r}}sp,%{{e|r}}si,8)
+# INTEL:      vaaddsd qword ptr [{{e|r}}sp + 8*{{e|r}}si + 268435456], xmm2
+0x62,0xf2,0xff,0x08,0x84,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vaaddsd  %xmm2, 268435456(%{{e|r}}sp,%{{e|r}}si,8)
+# INTEL:      vaaddsd qword ptr [{{e|r}}sp + 8*{{e|r}}si + 268435456], xmm2
+0x62,0xf2,0xff,0x28,0x84,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vaaddsd  %xmm2, 268435456(%{{e|r}}sp,%{{e|r}}si,8)
+# INTEL:      vaaddsd qword ptr [{{e|r}}sp + 8*{{e|r}}si + 268435456], xmm2
+0x62,0xf2,0xff,0x48,0x84,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vaaddsd  %xmm2, (%{{e|r}}ax)
+# INTEL:      vaaddsd qword ptr [{{e|r}}ax], xmm2
+0x62,0xf2,0xff,0x08,0x84,0x10
+
+# ATT:        vaaddsd  %xmm2, (%{{e|r}}ax)
+# INTEL:      vaaddsd qword ptr [{{e|r}}ax], xmm2
+0x62,0xf2,0xff,0x28,0x84,0x10
+0x62,0xf2,0x7f,0x08,0x94,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vaaddsd  %xmm2, (%{{e|r}}ax)
+# INTEL:      vaaddsd qword ptr [{{e|r}}ax], xmm2
+0x62,0xf2,0xff,0x28,0x84,0x10
+0x62,0xf2,0x7f,0x48,0x94,0x94,0xf4,0x00,0x00,0x00,0x10
+
+# ATT:        vaaddsh  %xmm2, (%{{e|r}}ax)
+# INTEL:      vaaddsh word ptr [{{e|r}}ax], xmm2
+0x62,0xf2,0x7e,0x08,0x94,0x10
+
+# ATT:        vaaddsh  %xmm2, (%{{e|r}}ax)
+# INTEL:      vaaddsh word ptr [{{e|r}}ax], xmm2
+0x62,0xf2,0x7e,0x28,0x94,0x10
+
+# ATT:        vaaddsh  %xmm2, (%{{e|r}}ax)
+# INTEL:      vaaddsh word ptr [{{e|r}}ax], xmm2
+0x62,0xf2,0x7e,0x48,0x94,0x10
+
+# ATT:        vaaddss  %xmm2, -512(%{{e|r}}dx) {%k7}
+# INTEL:      vaaddss dword ptr [{{e|r}}dx - 512] {k7}, xmm2
+0x62,0xf2,0x7e,0x0f,0x84,0x52,0x80
+
+# ATT:        vaaddss  %xmm2, -512(%{{e|r}}dx) {%k7}
+# INTEL:      vaaddss dword ptr [{{e|r}}dx - 512] {k7}, xmm2
+0x62,0xf2,0x7e,0x2f,0x84,0x52,0x80
+
+# ATT:        vaaddss  %xmm2, -512(%{{e|r}}dx) {%k7}
+# INTEL:      vaaddss dword ptr [{{e|r}}dx - 512] {k7}, xmm2
+0x62,0xf2,0x7e,0x4f,0x84,0x52,0x80

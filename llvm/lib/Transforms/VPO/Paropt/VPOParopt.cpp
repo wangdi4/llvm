@@ -34,8 +34,9 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
-#endif  // INTEL_CUSTOMIZATION
+#include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#endif  // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "VPOParopt"
 
@@ -93,6 +94,7 @@ bool VPOParopt::runOnModule(Module &M) {
   auto &MTLI = getAnalysis<TargetLibraryInfoWrapperPass>();
 #if INTEL_CUSTOMIZATION
   auto OptLevel = getAnalysis<XmainOptLevelWrapperPass>().getOptLevel();
+  LegacyAARGetter AARGetter(*this);
 #endif // INTEL_CUSTOMIZATION
 
   auto WRegionInfoGetter = [&](Function &F, bool *Changed) -> WRegionInfo & {
@@ -104,6 +106,7 @@ bool VPOParopt::runOnModule(Module &M) {
     WRI.setAssumptionCache(&MAC.getAssumptionCache(F));
     WRI.setTargetLibraryInfo(&MTLI.getTLI(F));
 #if INTEL_CUSTOMIZATION
+    WRI.setAliasAnlaysis(&AARGetter(F));
     WRI.setupAAWithOptLevel(OptLevel);
 #endif // INTEL_CUSTOMIZATION
     return WRI;

@@ -1,6 +1,6 @@
 //===----------- HIRPrefetching.cpp Implements Prefetching class ---------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -72,7 +72,7 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
 // Threshold for min allowed number of cachelines
 static cl::opt<uint64_t>
     NumCachelinesThreshold("hir-prefetching-num-cachelines-threshold",
-                           cl::init(8192), cl::Hidden,
+                           cl::init(4096), cl::Hidden,
                            cl::desc("Threshold for number of cachelines"));
 
 // Threshold for min allowed number of memory streams
@@ -351,7 +351,9 @@ void HIRPrefetching::collectPrefetchPragmaInfo(
     int Dist = Info[I].Dist;
     int Hint = Info[I].Hint;
 
-    if (Dist != -1) {
+    if (Dist == -1) {
+      Dist = DefaultPrefetchDist;
+    } else {
       Dist *= LpStride;
     }
 
@@ -393,7 +395,7 @@ void HIRPrefetching::collectPrefetchPragmaInfo(
   // corresponding lval with the rval in the pragma vars until it hits the prev
   // loop
   HLNode *Node = Lp;
-  while (Node = Node->getPrevNode()) {
+  while ((Node = Node->getPrevNode())) {
     if (isa<HLLoop>(Node)) {
       break;
     } else if (auto *Inst = dyn_cast<HLInst>(Node)) {
@@ -458,7 +460,7 @@ bool HIRPrefetching::doAnalysis(
   }
 
   DenseMap<unsigned, std::pair<int, int>> CandidateVarSBsDistsHints;
-  int DefaultPrefetchDist = -1;
+  int DefaultPrefetchDist = getPrefetchingDist(Lp);
   int DefaultPrefetchHint = 4 - ForceHint;
 
   collectPrefetchPragmaInfo(Lp, CandidateVarSBsDistsHints, DefaultPrefetchDist,
@@ -491,10 +493,6 @@ bool HIRPrefetching::doAnalysis(
     // or before loop or the pragma var in the loop
     if (CandidateVarSBsDistsHints.count(FirstRefBasePtrSB)) {
       std::tie(Dist, Hint) = CandidateVarSBsDistsHints[FirstRefBasePtrSB];
-    }
-
-    if (Dist == -1) {
-      Dist = getPrefetchingDist(Lp);
     }
 
     // When Stride is a non-zero constant, we will go through the RefGroup and
@@ -581,10 +579,11 @@ bool HIRPrefetching::doPrefetching(
     RegDDRef *StrideRef = Lp->getStrideDDRef();
     int64_t Stride;
     StrideRef->isIntConstant(&Stride);
+    int Distance = PrefetchDist / Stride;
 
     LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
                               "Number of spatial prefetches=%d, dist=%d",
-                              NumSpatialPrefetches, PrefetchDist / Stride);
+                              NumSpatialPrefetches, Distance);
   }
 
   HIRInvalidationUtils::invalidateBody(Lp);
@@ -634,10 +633,10 @@ bool HIRPrefetching::run() {
   return Result;
 }
 
-PreservedAnalyses HIRPrefetchingPass::run(llvm::Function &F,
-                                          llvm::FunctionAnalysisManager &AM) {
-  HIRPrefetching(AM.getResult<HIRFrameworkAnalysis>(F),
-                 AM.getResult<HIRLoopLocalityAnalysis>(F),
+PreservedAnalyses HIRPrefetchingPass::runImpl(llvm::Function &F,
+                                              llvm::FunctionAnalysisManager &AM,
+                                              HIRFramework &HIRF) {
+  HIRPrefetching(HIRF, AM.getResult<HIRLoopLocalityAnalysis>(F),
                  AM.getResult<HIRLoopResourceAnalysis>(F),
                  AM.getResult<TargetIRAnalysis>(F))
       .run();

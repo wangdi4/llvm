@@ -16,6 +16,7 @@
 
 #include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"
 
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
 #include "llvm/IR/IRBuilder.h"
@@ -93,8 +94,25 @@ static bool foldIntrinsicWholeProgramSafe(Module &M, unsigned OptLevel,
           " wasn't removed correctly. The function definition still available.");
 
   // Since we have whole program then proceed to change the visibility of the
-  // virtual calls.
-  updateVCallVisibilityInModule(M, WPInfo->isWholeProgramSafe());
+  // virtual calls. The only symbols that won't be devirtualized are those
+  // marked as dynamic exports.
+  //
+  // This check is needed for the whole program devirtualization pass. The
+  // community does this check at the beginning of LTO, but it depends on an
+  // assumption flag. We can replace the assumption flag with the results from
+  // the analysis. For more details about this check, please refer to this
+  // change set from the community: https://reviews.llvm.org/D91583.
+  //
+  // NOTE: We may want to revisit this in the future. There is a chance that we
+  // may miss a possible vitual call that has external symbols. This is very
+  // common with MS Visual Studio libraries.
+  DenseSet<GlobalValue::GUID> DynamicExportSymbols;
+  for (auto Symbol : WPUtils.getSymbolsResolution())
+    if (Symbol.isExportDynamic())
+      DynamicExportSymbols.insert(GlobalValue::getGUID(Symbol.getName()));
+
+  updateVCallVisibilityInModule(M, WPInfo->isWholeProgramSafe(),
+                                DynamicExportSymbols);
 
   return true;
 }

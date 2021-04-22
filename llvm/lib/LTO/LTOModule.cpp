@@ -609,7 +609,11 @@ void LTOModule::parseSymbols() {
       continue;
     }
 
-    assert(isa<GlobalAlias>(GV));
+#if INTEL_CUSTOMIZATION
+    // This change and related changes could be ported back to the community
+    // to fix CMPLRLLVM-26177.
+    assert(isa<GlobalAlias>(GV) || isa<GlobalIFunc>(GV));
+#endif // INTEL_CUSTOMIZATION
     addDefinedDataSymbol(Sym);
   }
 

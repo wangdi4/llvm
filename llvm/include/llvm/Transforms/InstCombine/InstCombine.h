@@ -28,6 +28,7 @@ class InstCombinePass : public PassInfoMixin<InstCombinePass> {
   const bool PreserveAddrCompute; // INTEL
   const unsigned MaxIterations;
   const bool EnableFcmpMinMaxCombine; // INTEL
+  const bool EnableUpCasting;   // INTEL
 
 public:
   static StringRef name() { return "InstCombinePass"; }
@@ -35,10 +36,12 @@ public:
 #if INTEL_CUSTOMIZATION
   explicit InstCombinePass(bool TypeLoweringOpts = true,
                            bool PreserveAddrCompute = false,
-                           bool EnableFcmpMinMaxCombine = true);
+                           bool EnableFcmpMinMaxCombine = true,
+                           bool EnableUpCasting = true);
   explicit InstCombinePass(bool TypeLoweringOpts, bool PreserveAddrCompute,
                            unsigned MaxIterations,
-                           bool EnableFcmpMinMaxCombine);
+                           bool EnableFcmpMinMaxCombine,
+                           bool EnableUpCasting);
 #endif // INTEL_CUSTOMIZATION
 
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
@@ -53,6 +56,7 @@ class InstructionCombiningPass : public FunctionPass {
   const bool TypeLoweringOpts; // INTEL
   const bool PreserveAddrCompute; // INTEL
   const bool EnableFcmpMinMaxCombine; // INTEL
+  const bool EnableUpCasting; // INTEL
   const unsigned MaxIterations;
 
 public:
@@ -61,10 +65,12 @@ public:
 #if INTEL_CUSTOMIZATION
   InstructionCombiningPass(bool TypeLoweringOpts = true,
                            bool PreserveAddrCompute = false,
-                           bool EnableFcmpMinMaxCombine = true);
+                           bool EnableFcmpMinMaxCombine = true,
+                           bool EnableUpCasting = true);
   InstructionCombiningPass(bool TypeLoweringOpts, bool PreserveAddrCompute,
                            unsigned MaxInterations,
-                           bool EnableFcmpMinMaxCombine);
+                           bool EnableFcmpMinMaxCombine,
+                           bool EnableUpCasting);
 #endif // INTEL_CUSTOMIZATION
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
@@ -87,12 +93,14 @@ public:
 FunctionPass *
 createInstructionCombiningPass(bool TypeLoweringOpts = true,
                                bool PreserveAddrCompute = false,
-                               bool EnableFcmpMinMaxCombine = true);
+                               bool EnableFcmpMinMaxCombine = true,
+                               bool EnableUpCasting = true);
 FunctionPass *
 createInstructionCombiningPass(bool TypeLoweringOpts,
                                bool PreserveAddrCompute,
                                unsigned MaxIterations,
-                               bool EnableFcmpMinMaxCombine);
+                               bool EnableFcmpMinMaxCombine,
+                               bool EnableUpCasting);
 #endif // INTEL_CUSTOMIZATION
 }
 

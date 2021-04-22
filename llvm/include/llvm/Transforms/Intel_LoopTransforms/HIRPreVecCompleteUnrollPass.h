@@ -12,14 +12,14 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRPREVECCOMPLETEUNROLL_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRPREVECCOMPLETEUNROLL_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
 class HIRPreVecCompleteUnrollPass
-    : public PassInfoMixin<HIRPreVecCompleteUnrollPass> {
+    : public HIRPassInfoMixin<HIRPreVecCompleteUnrollPass> {
   unsigned OptLevel;
   bool PragmaOnlyUnroll;
 
@@ -27,7 +27,10 @@ public:
   HIRPreVecCompleteUnrollPass(unsigned OptLevel = 0,
                               bool PragmaOnlyUnroll = false)
       : OptLevel(OptLevel), PragmaOnlyUnroll(PragmaOnlyUnroll) {}
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+
+  static constexpr auto PassName = "hir-pre-vec-complete-unroll";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

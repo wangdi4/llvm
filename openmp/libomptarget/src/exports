@@ -38,6 +38,9 @@ VERS1.0 {
     __tgt_get_num_devices;
     __tgt_get_target_memory_info;
     __tgt_add_build_options;
+    __tgt_create_interop;
+    __tgt_release_interop;
+    __tgt_use_interop;
 # end INTEL_COLLAB
     omp_get_num_devices;
     omp_get_initial_device;
@@ -54,8 +57,22 @@ VERS1.0 {
     omp_target_alloc_host;
     omp_target_alloc_shared;
     omp_target_get_context;
+    omp_get_num_interop_properties;
+    omp_get_interop_int;
+    omp_get_interop_ptr;
+    omp_get_interop_str;
+    omp_get_interop_name;
+    omp_get_interop_type_desc;
+    omp_get_interop_rc_desc;
+    omp_set_sub_device;
+    omp_unset_sub_device;
 # end INTEL_COLLAB
     __kmpc_push_target_tripcount;
+    __kmpc_push_target_tripcount;
+    __kmpc_push_target_tripcount_mapper;
+    llvm_omp_target_alloc_host;
+    llvm_omp_target_alloc_shared;
+    llvm_omp_target_alloc_device;
   local:
     *;
 };

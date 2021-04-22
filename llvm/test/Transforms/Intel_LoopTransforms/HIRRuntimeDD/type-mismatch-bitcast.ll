@@ -40,10 +40,10 @@
 
 ; CHECK: Function
 ; CHECK-DAG: = &((%v)[2]) >=u &((%pDst1)[sext.i32.i64(%div1) * i1]);
-; CHECK-DAG: = &((i32*)(%pDst1)[sext.i32.i64(%div1) * i1 + 3 * ((-1 + smax(3, ((smax((12884901888 * %roi.coerce), (-12884901888 * %roi.coerce)) /u 4294967296) * smin(1, smax(-1, (12884901888 * %roi.coerce)))))) /u 3) + 2]) >=u &((i32*)(%v)[0]);
+; CHECK-DAG: = &((i32*)(%pDst1)[sext.i32.i64(%div1) * i1 + 3 * ((-1 + smax(3, %0)) /u 3) + 2]) >=u &((i32*)(%v)[0]);
 ; CHECK: %mv.and = %mv.test  &  %mv.test5;
-; CHECK-DAG: = &((%pSrc1)[sext.i32.i64(%div) * i1 + 3 * ((-1 + smax(3, ((smax((12884901888 * %roi.coerce), (-12884901888 * %roi.coerce)) /u 4294967296) * smin(1, smax(-1, (12884901888 * %roi.coerce)))))) /u 3) + 2]) >=u &((%pDst1)[sext.i32.i64(%div1) * i1]);
-; CHECK-DAG: = &((i32*)(%pDst1)[sext.i32.i64(%div1) * i1 + 3 * ((-1 + smax(3, ((smax((12884901888 * %roi.coerce), (-12884901888 * %roi.coerce)) /u 4294967296) * smin(1, smax(-1, (12884901888 * %roi.coerce)))))) /u 3) + 2]) >=u &((i32*)(%pSrc1)[sext.i32.i64(%div) * i1]);
+; CHECK-DAG: = &((i32*)(%pDst1)[sext.i32.i64(%div1) * i1 + 3 * ((-1 + smax(3, %0)) /u 3) + 2]) >=u &((i32*)(%pSrc1)[sext.i32.i64(%div) * i1]);
+; CHECK-DAG: = &((%pSrc1)[sext.i32.i64(%div) * i1 + 3 * ((-1 + smax(3, %0)) /u 3) + 2]) >=u &((%pDst1)[sext.i32.i64(%div1) * i1]);
 ; CHECK: %mv.and8 = %mv.test6  &  %mv.test7;
 ; CHECK: if (%mv.and == 0 && %mv.and8 == 0)
 

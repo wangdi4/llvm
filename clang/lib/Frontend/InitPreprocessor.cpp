@@ -474,7 +474,7 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
       Builder.defineMacro("__FAST_RELAXED_MATH__");
   }
 
-  if (LangOpts.SYCL) {
+  if (LangOpts.SYCLIsDevice || LangOpts.SYCLIsHost) {
 #if INTEL_CUSTOMIZATION
     Builder.defineMacro("__INTEL_DPCPP_COMPILER__");
 #endif // INTEL_CUSTOMIZATION
@@ -579,7 +579,7 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_aggregate_bases", "201603L");
     Builder.defineMacro("__cpp_structured_bindings", "201606L");
     Builder.defineMacro("__cpp_nontype_template_args",
-                        LangOpts.CPlusPlus20 ? "201911L" : "201411L");
+                        "201411L"); // (not latest)
     Builder.defineMacro("__cpp_fold_expressions", "201603L");
     Builder.defineMacro("__cpp_guaranteed_copy_elision", "201606L");
     Builder.defineMacro("__cpp_nontype_template_parameter_auto", "201606L");
@@ -603,6 +603,9 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     //Builder.defineMacro("__cpp_modules", "201907L");
     //Builder.defineMacro("__cpp_using_enum", "201907L");
   }
+  // C++2b features.
+  if (LangOpts.CPlusPlus2b)
+    Builder.defineMacro("__cpp_size_t_suffix", "202011L");
   if (LangOpts.Char8)
     Builder.defineMacro("__cpp_char8_t", "201811L");
   Builder.defineMacro("__cpp_impl_destroying_delete", "201806L");
@@ -677,17 +680,10 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // Support for #pragma redefine_extname (Sun compatibility)
   Builder.defineMacro("__PRAGMA_REDEFINE_EXTNAME", "1");
 
-#if INTEL_CUSTOMIZATION
-  // Version string for xmain: cq374831
-  if (LangOpts.IntelCompat)
-    Builder.defineMacro("__VERSION__", "\"" +
-                      Twine(getXMainFullCPPVersion()) + "\"");
-  else
-#endif // INTEL_CUSTOMIZATION
   // Previously this macro was set to a string aiming to achieve compatibility
   // with GCC 4.2.1. Now, just return the full Clang version
-  Builder.defineMacro("__VERSION__", "\"" +
-                      Twine(getClangFullCPPVersion()) + "\"");
+  Builder.defineMacro("__VERSION__",
+                      "\"" + Twine(getClangFullVersion()) + "\""); // INTEL
 
   // Initialize language-specific preprocessor defines.
 
@@ -1024,8 +1020,8 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // As a result,__FINITE_MATH_ONLY__ was defined and errors were thrown
   // due to incompatibility with Intel headers. To avoid this, the condition
   // was expanded to include SYCL compilations as well.
-  if ((LangOpts.FastMath || LangOpts.FiniteMathOnly) &&
-      !LangOpts.IntelCompat && !LangOpts.SYCL)
+  if ((LangOpts.FastMath || LangOpts.FiniteMathOnly) && !LangOpts.IntelCompat &&
+      !LangOpts.SYCLIsDevice && !LangOpts.SYCLIsHost)
     Builder.defineMacro("__FINITE_MATH_ONLY__", "1");
   else
     Builder.defineMacro("__FINITE_MATH_ONLY__", "0");
@@ -1181,12 +1177,16 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__SYCL_DEVICE_ONLY__", "1");
     Builder.defineMacro("SYCL_EXTERNAL", "__attribute__((sycl_device))");
 
+    // Enable __SYCL_DISABLE_PARALLEL_FOR_RANGE_ROUNDING__ macro for
+    // all FPGA compilations.
+    if (TI.getTriple().getSubArch() == llvm::Triple::SPIRSubArch_fpga) {
+      Builder.defineMacro("__SYCL_DISABLE_PARALLEL_FOR_RANGE_ROUNDING__", "1");
+    }
+
     if (TI.getTriple().isNVPTX()) {
         Builder.defineMacro("__SYCL_NVPTX__", "1");
     }
   }
-  if (LangOpts.SYCLExplicitSIMD)
-    Builder.defineMacro("__SYCL_EXPLICIT_SIMD__", "1");
   if (LangOpts.SYCLUnnamedLambda)
     Builder.defineMacro("__SYCL_UNNAMED_LAMBDA__", "1");
 
@@ -1199,10 +1199,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 
   // OpenCL definitions.
   if (LangOpts.OpenCL) {
-#define OPENCLEXT(Ext)                                                         \
-  if (TI.getSupportedOpenCLOpts().isSupported(#Ext, LangOpts))                 \
-    Builder.defineMacro(#Ext);
-#include "clang/Basic/OpenCLExtensions.def"
+    TI.getOpenCLFeatureDefines(LangOpts, Builder);
 
     if (TI.getTriple().isSPIR())
 #if INTEL_CUSTOMIZATION

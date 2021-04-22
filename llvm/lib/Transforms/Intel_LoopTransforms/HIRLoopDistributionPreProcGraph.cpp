@@ -326,6 +326,10 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
       }
     }
 
+    if (!RegRef) {
+      return false;
+    }
+
     // For Memory refs with (<=), only have 1 DD Edge is formed which
     // should be sufficent for most transformations that have no reordering
     // within the same iteration, for the purpose of fast compile time.
@@ -342,14 +346,10 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     //  Loop2
     //    s1
 
-    if (!RegRef) {
-      return false;
-    }
-
-    if (Edge->getDVAtLevel(LoopLevel) == DVKind::LE) {
-      if (!HLNodeUtils::dominates(SrcHIR, DstHIR)) {
-        return true;
-      }
+    auto DV = Edge->getDVAtLevel(LoopLevel);
+    if ((DV == DVKind::LE && Edge->isBackwardDep()) ||
+        (DV == DVKind::GE && Edge->isForwardDep())) {
+      return true;
     }
 
     return false;

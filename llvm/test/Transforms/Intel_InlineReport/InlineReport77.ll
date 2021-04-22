@@ -7,7 +7,7 @@
 ; CHECK: COMPILE FUNC: inlinedFunc
 ; CHECK: COMPILE FUNC: dummyCaller
 ; CHECK: INLINE: inlinedFunc.1{{.*}}Preferred for partial inlining
-; CHECK: COMPILE FUNC: inlinedFunc.1
+; CHECK: COMPILE FUNC: inlinedFunc.1.if.then
 
 define internal i32 @inlinedFunc(i1 %cond, i32* align 4 %align.val) {
 entry:

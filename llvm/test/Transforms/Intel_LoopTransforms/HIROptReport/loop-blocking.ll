@@ -9,13 +9,13 @@
 ; OPTREPORT:            LOOP BEGIN at m.c (10, 7)
 
 ; OPTREPORT:                 LOOP BEGIN at m.c (8, 3)
-; OPTREPORT:                 Remark: blocked by {{[1-9][0-9]*}}
+; OPTREPORT:                 remark: blocked by {{[1-9][0-9]*}}
 
 ; OPTREPORT:                    LOOP BEGIN at m.c (9, 5)
-; OPTREPORT:                 Remark: blocked by {{[1-9][0-9]*}}
+; OPTREPORT:                 remark: blocked by {{[1-9][0-9]*}}
 
 ; OPTREPORT:                        LOOP BEGIN at m.c (10, 7)
-; OPTREPORT:                 Remark: blocked by {{[1-9][0-9]*}}
+; OPTREPORT:                 remark: blocked by {{[1-9][0-9]*}}
 
 ; OPTREPORT:                   LOOP END
 ; OPTREPORT:               LOOP END

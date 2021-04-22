@@ -13,14 +13,13 @@
 
 #include "llvm/ADT/MapVector.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 
 namespace llvm {
 
-/// DataPerBarrier pass is an analysis module pass used to collect
-/// data on barrier/fiber/dummy barrier instructions.
-class DataPerBarrier : public ModulePass {
+/// Collect data on barrier/fiber/dummy barrier instructions.
+class DataPerBarrier {
 public:
   typedef struct {
     InstSet RelatedBarriers;
@@ -37,34 +36,17 @@ public:
   using BarrierDataPerBarrierMap = MapVector<Instruction *, BarrierData>;
 
 public:
-  static char ID;
-
-  DataPerBarrier();
-
-  ~DataPerBarrier() {}
-
-  llvm::StringRef getPassName() const override {
-    return "Intel Kernel DataPerBarrier";
-  }
-
-  bool runOnModule(Module &M) override {
+  explicit DataPerBarrier(Module &M) {
     BarrierUtils.init(&M);
     InitSynchronizeData();
     for (auto &F : M)
       runOnFunction(F);
-    return false;
-  }
-
-  /// Inform about usage/mofication/dependency of this pass.
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    // Analysis pass preserve all
-    AU.setPreservesAll();
   }
 
   /// Print data collected by the pass on the given module.
   /// OS stream to print the info regarding the module into.
   /// M pointer to the Module.
-  void print(raw_ostream &OS, const Module *M = 0) const override;
+  void print(raw_ostream &OS, const Module *M) const;
 
   /// Return sync instruction calls of given function.
   /// F pointer to Function.
@@ -172,6 +154,57 @@ private:
   BasicBlock2BasicBlockSetMap SuccessorMap;
   Barrier2BarrierSetMap BarrierPredecessorsMap;
   bool HasFiber;
+};
+
+/// DataPerBarrierWrapper pass for legacy pass manager.
+class DataPerBarrierWrapper : public ModulePass {
+  std::unique_ptr<DataPerBarrier> DPB;
+
+public:
+  static char ID;
+
+  DataPerBarrierWrapper();
+
+  StringRef getPassName() const override {
+    return "Intel Kernel DataPerBarrier Analysis";
+  }
+
+  /// Inform about usage/modification/dependency of this pass.
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    // Analysis pass preserve all
+    AU.setPreservesAll();
+  }
+
+  bool runOnModule(Module &M) override;
+
+  void print(raw_ostream &OS, const Module *M = nullptr) const override;
+
+  void releaseMemory() override { DPB.reset(); };
+
+  DataPerBarrier &getDPB() { return *DPB; }
+
+  const DataPerBarrier &getDPB() const { return *DPB; }
+};
+
+/// DataPerBarrierAnalysis pass for new pass manager.
+class DataPerBarrierAnalysis
+    : public AnalysisInfoMixin<DataPerBarrierAnalysis> {
+  friend AnalysisInfoMixin<DataPerBarrierAnalysis>;
+  static AnalysisKey Key;
+
+public:
+  using Result = DataPerBarrier;
+  Result run(Module &M, ModuleAnalysisManager &MAM);
+  static StringRef name() { return "Intel Kernel DataPerBarrier Analysis"; }
+};
+
+/// Printer pass for DataPerBarrier.
+class DataPerBarrierPrinter : public PassInfoMixin<DataPerBarrierPrinter> {
+  raw_ostream &OS;
+
+public:
+  explicit DataPerBarrierPrinter(raw_ostream &OS) : OS(OS) {}
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 };
 
 } // namespace llvm

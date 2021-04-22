@@ -11,15 +11,15 @@
 ;         + END LOOP
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
-; CHECK-LABEL:   IR Dump After VPlan Vectorization Driver HIR
-; CHECK:             + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:        |   %.addrcopy = &((i64*)(%sarr)[i1].1);
-; CHECK-NEXT:        |   %.vls.load = (<8 x i64>*)(%.addrcopy)[-1];
-; CHECK-NEXT:        |   %vls.shuf = shufflevector %.vls.load,  undef,  <i32 1, i32 3, i32 5, i32 7>;
-; CHECK-NEXT:        |   %vls.shuf1 = shufflevector %.vls.load,  undef,  <i32 0, i32 2, i32 4, i32 6>;
-; CHECK-NEXT:        |   (<4 x i32>*)(%arr)[i1] = %vls.shuf + %vls.shuf1;
-; CHECK-NEXT:        + END LOOP
-
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-vf=4 -disable-output -print-after=vplan-driver-hir < %s 2>&1 | FileCheck %s
+; CHECK-LABEL:   IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}
+; CHECK:        + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:   |   %gep.base = &((i64*)(%sarr)[i1].1);
+; CHECK-NEXT:   |   %.vls.load = (<8 x i64>*)(%gep.base)[-1];
+; CHECK-NEXT:   |   %vls.extract = shufflevector %.vls.load,  %.vls.load,  <i32 0, i32 2, i32 4, i32 6>;
+; CHECK-NEXT:   |   %vls.extract1 = shufflevector %.vls.load,  %.vls.load,  <i32 1, i32 3, i32 5, i32 7>;
+; CHECK-NEXT:   |   (<4 x i32>*)(%arr)[i1] = %vls.extract + %vls.extract1;
+; CHECK-NEXT:   + END LOOP
 target triple = "x86_64-unknown-linux-gnu"
 %struct.S1 = type { i64, i64 }
 

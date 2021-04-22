@@ -115,6 +115,9 @@ private:
   MachineRegisterInfo *MRI = nullptr;
   const TargetInstrInfo *TII = nullptr;
   const TargetRegisterInfo *TRI = nullptr;
+#if INTEL_CUSTOMIZATION
+  MachineLoopInfo *MLI = nullptr;
+#endif // INTEL_CUSTOMIZATION
   TargetSchedModel TSchedModel;
 
   /// List of consecutive CMOV instructions.
@@ -165,7 +168,9 @@ bool X86CmovConverterPass::runOnMachineFunction(MachineFunction &MF) {
                     << "**********\n");
 
   bool Changed = false;
-  MachineLoopInfo &MLI = getAnalysis<MachineLoopInfo>();
+#if INTEL_CUSTOMIZATION
+  MLI = &getAnalysis<MachineLoopInfo>();
+#endif // INTEL_CUSTOMIZATION
   const TargetSubtargetInfo &STI = MF.getSubtarget();
   MRI = &MF.getRegInfo();
   TII = STI.getInstrInfo();
@@ -221,7 +226,9 @@ bool X86CmovConverterPass::runOnMachineFunction(MachineFunction &MF) {
   //===--------------------------------------------------------------------===//
 
   // Build up the loops in pre-order.
-  SmallVector<MachineLoop *, 4> Loops(MLI.begin(), MLI.end());
+#if INTEL_CUSTOMIZATION
+  SmallVector<MachineLoop *, 4> Loops(MLI->begin(), MLI->end());
+#endif // INTEL_CUSTOMIZATION
   // Note that we need to check size on each iteration as we accumulate child
   // loops.
   for (int i = 0; i < (int)Loops.size(); ++i)
@@ -538,7 +545,7 @@ bool X86CmovConverterPass::checkForProfitableCmovCandidates(
       // This is another conservative check to avoid converting CMOV instruction
       // used with tree-search like algorithm, where the branch is unpredicted.
       auto UIs = MRI->use_instructions(MI->defs().begin()->getReg());
-      if (UIs.begin() != UIs.end() && ++UIs.begin() == UIs.end()) {
+      if (!UIs.empty() && ++UIs.begin() == UIs.end()) {
         unsigned Op = UIs.begin()->getOpcode();
         if (Op == X86::MOV64rm || Op == X86::MOV32rm) {
           WorthOpGroup = false;
@@ -877,6 +884,13 @@ void X86CmovConverterPass::convertCmovInstsToBranches(
 
   // Now remove the CMOV(s).
   MBB->erase(MIItBegin, MIItEnd);
+
+#if INTEL_CUSTOMIZATION
+  if (MachineLoop *L = MLI->getLoopFor(MBB)) {
+    L->addBasicBlockToLoop(FalseMBB, MLI->getBase());
+    L->addBasicBlockToLoop(SinkMBB, MLI->getBase());
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 INITIALIZE_PASS_BEGIN(X86CmovConverterPass, DEBUG_TYPE, "X86 cmov Conversion",

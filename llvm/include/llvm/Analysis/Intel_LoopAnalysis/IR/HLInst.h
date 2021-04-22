@@ -361,9 +361,17 @@ public:
   /// TODO: Extend to handle floating point abs().
   bool isAbs() const;
 
+  /// If the underlying instruction is a FPMathOperator returns its
+  /// FastMathFlags. Otherwise returns empty FastmathFlags.
+  FastMathFlags getFastMathFlags() const {
+    return isa<FPMathOperator>(Inst) ? Inst->getFastMathFlags()
+                                     : FastMathFlags();
+  }
   /// Return the identity value corresponding to the given reduction
   /// instruction opcode and specified type.
-  static Constant *getRecurrenceIdentity(unsigned RednOpCode, Type *Ty);
+  static Constant *getRecurrenceIdentity(unsigned RednOpCode, Type *Ty,
+                                         FastMathFlags FMF, bool IsMin = true,
+                                         bool IsSigned = true);
 
   /// Return true if OpCode is a valid reduction opcode.
   static bool isValidReductionOpCode(unsigned OpCode);

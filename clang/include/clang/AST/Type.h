@@ -2103,6 +2103,7 @@ public:
   bool isAtomicType() const;                    // C11 _Atomic()
   bool isUndeducedAutoType() const;             // C++11 auto or
                                                 // C++14 decltype(auto)
+  bool isTypedefNameType() const;               // typedef or alias template
 
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
   bool is##Id##Type() const;
@@ -2131,7 +2132,6 @@ public:
 
 #if INTEL_CUSTOMIZATION
   bool isChannelType() const;                   // OpenCL channel type
-  bool isArbPrecIntType() const;                // Arbitrary Precision Int type
 #endif // INTEL_CUSTOMIZATION
   bool isPipeType() const;                      // OpenCL pipe type
   bool isExtIntType() const;                    // Extended Int Type
@@ -2515,6 +2515,9 @@ public:
 // PPC MMA Types
 #define PPC_VECTOR_TYPE(Name, Id, Size) Id,
 #include "clang/Basic/PPCTypes.def"
+// RVV Types
+#define RVV_TYPE(Name, Id, SingletonId) Id,
+#include "clang/Basic/RISCVVTypes.def"
 // All other builtin types
 #define BUILTIN_TYPE(Id, SingletonId) Id,
 #define LAST_BUILTIN_TYPE(Id) LastKind = Id
@@ -5434,8 +5437,13 @@ class ElaboratedType final
   ElaboratedType(ElaboratedTypeKeyword Keyword, NestedNameSpecifier *NNS,
                  QualType NamedType, QualType CanonType, TagDecl *OwnedTagDecl)
       : TypeWithKeyword(Keyword, Elaborated, CanonType,
+                        // Any semantic dependence on the qualifier will have
+                        // been incorporated into NamedType. We still need to
+                        // track syntactic (instantiation / error / pack)
+                        // dependence on the qualifier.
                         NamedType->getDependence() |
-                            (NNS ? toTypeDependence(NNS->getDependence())
+                            (NNS ? toSyntacticDependence(
+                                       toTypeDependence(NNS->getDependence()))
                                  : TypeDependence::None)),
         NNS(NNS), NamedType(NamedType) {
     ElaboratedTypeBits.HasOwnedTagDecl = false;
@@ -6348,71 +6356,6 @@ public:
   }
 
 };
-
-/// ArbPrecIntType - Intel Arbitrary Precision Integer.
-class ArbPrecIntType : public Type, public llvm::FoldingSetNode {
-  friend class ASTContext;
-  QualType UnderlyingType;
-  unsigned NumBits;
-  SourceLocation Loc;
-
-protected:
-  ArbPrecIntType(QualType Type, unsigned NumBits, QualType CanonType,
-                 SourceLocation Loc);
-
-public:
-  QualType getUnderlyingType() const { return UnderlyingType; }
-  unsigned getNumBits() const { return NumBits; }
-  SourceLocation getAttributeLoc() const { return Loc; }
-
-  bool isSugared() const { return false; }
-  QualType desugar() const { return QualType(this, 0); }
-
-  void Profile(llvm::FoldingSetNodeID &ID) {
-    Profile(ID, getUnderlyingType(), getNumBits());
-  }
-
-  static void Profile(llvm::FoldingSetNodeID &ID, QualType UnderlyingType,
-                      unsigned NumBits) {
-    ID.AddPointer(UnderlyingType.getAsOpaquePtr());
-    ID.AddInteger(NumBits);
-  }
-
-  static bool classof(const Type *T) { return T->getTypeClass() == ArbPrecInt; }
-};
-
-/// DependentSizedArbPrecIntType - Intel Arbitrary Precision Integer with
-/// dependent size.
-class DependentSizedArbPrecIntType : public Type, public llvm::FoldingSetNode {
-  friend class ASTContext;
-  const ASTContext &Context;
-  QualType UnderlyingType;
-  Expr *NumBitsExpr;
-  SourceLocation Loc;
-
-  DependentSizedArbPrecIntType(const ASTContext &Context,
-                               QualType UnderlyingType, QualType CanonType,
-                               Expr *NumBitsExpr, SourceLocation Loc);
-
-public:
-  QualType getUnderlyingType() const { return UnderlyingType; }
-  Expr *getNumBitsExpr() const { return NumBitsExpr; }
-  SourceLocation getAttributeLoc() const { return Loc; }
-
-  bool isSugared() const { return false; }
-  QualType desugar() const { return QualType(this, 0); }
-
-  void Profile(llvm::FoldingSetNodeID &ID) {
-    Profile(ID, Context, getUnderlyingType(), getNumBitsExpr());
-  }
-
-  static void Profile(llvm::FoldingSetNodeID &ID, const ASTContext &Context,
-                      QualType UnderlyingType, Expr *NumBitsExpr);
-
-  static bool classof(const Type *T) {
-    return T->getTypeClass() == DependentSizedArbPrecInt;
-  }
-};
 #endif // INTEL_CUSTOMIZATION
 
 /// A fixed int type of a specified bitwidth.
@@ -7047,10 +6990,6 @@ inline bool Type::isOCLExtOpaqueType() const {
 inline bool Type::isChannelType() const {
   return isa<ChannelType>(CanonicalType);
 }
-
-inline bool Type::isArbPrecIntType() const {
-  return isa<ArbPrecIntType>(CanonicalType);
-}
 #endif // INTEL_CUSTOMIZATION
 
 inline bool Type::isOpenCLSpecificType() const {
@@ -7132,11 +7071,6 @@ inline bool Type::isIntegerType() const {
       !IsEnumDeclScoped(ET->getDecl());
   }
 
-#if INTEL_CUSTOMIZATION
-  if (isa<ArbPrecIntType>(CanonicalType))
-    return true;
-#endif // INTEL_CUSTOMIZATION
-
   return isExtIntType();
 }
 
@@ -7194,7 +7128,6 @@ inline bool Type::isScalarType() const {
          isa<BlockPointerType>(CanonicalType) ||
          isa<MemberPointerType>(CanonicalType) ||
          isa<ComplexType>(CanonicalType) ||
-         isa<ArbPrecIntType>(CanonicalType) || // INTEL
          isa<ObjCObjectPointerType>(CanonicalType) ||
          isExtIntType();
 }
@@ -7208,11 +7141,6 @@ inline bool Type::isIntegralOrEnumerationType() const {
   // enumeration type in the sense required here.
   if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
     return IsEnumDeclComplete(ET->getDecl());
-
-#if INTEL_CUSTOMIZATION
-  if (isa<ArbPrecIntType>(CanonicalType))
-    return true;
-#endif // INTEL_CUSTOMIZATION
 
   return isExtIntType();
 }
@@ -7232,6 +7160,15 @@ inline bool Type::isUndeducedType() const {
 /// an overloaded operator.
 inline bool Type::isOverloadableType() const {
   return isDependentType() || isRecordType() || isEnumeralType();
+}
+
+/// Determines whether this type is written as a typedef-name.
+inline bool Type::isTypedefNameType() const {
+  if (getAs<TypedefType>())
+    return true;
+  if (auto *TST = getAs<TemplateSpecializationType>())
+    return TST->isTypeAlias();
+  return false;
 }
 
 /// Determines whether this type can decay to a pointer type.

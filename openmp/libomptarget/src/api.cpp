@@ -11,12 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "device.h"
+#include "omptarget.h"
 #include "private.h"
 #include "rtl.h"
 
 #include <climits>
-#include <cstring>
 #include <cstdlib>
+#include <cstring>
 
 EXTERN int omp_get_num_devices(void) {
   TIMESCOPE();
@@ -39,7 +40,7 @@ EXTERN int omp_get_initial_device(void) {
 EXTERN void *omp_target_alloc(size_t size, int device_num) {
   TIMESCOPE();
   DP("Call to omp_target_alloc for device %d requesting %zu bytes\n",
-      device_num, size);
+     device_num, size);
 
   if (size <= 0) {
     DP("Call to omp_target_alloc with non-positive length\n");
@@ -67,17 +68,29 @@ EXTERN void *omp_target_alloc(size_t size, int device_num) {
     return rc;
   }
   rc = Device.data_alloc_user(size, NULL);
-#else // INTEL_COLLAB
-  rc = PM->Devices[device_num].allocData(size);
-#endif // INTEL_COLLAB
   DP("omp_target_alloc returns device ptr " DPxMOD "\n", DPxPTR(rc));
   return rc;
+#else  // INTEL_COLLAB
+  return targetAllocExplicit(size, device_num, TARGET_ALLOC_DEFAULT, __func__);
+#endif // INTEL_COLLAB
+}
+
+EXTERN void *llvm_omp_target_alloc_device(size_t size, int device_num) {
+  return targetAllocExplicit(size, device_num, TARGET_ALLOC_DEVICE, __func__);
+}
+
+EXTERN void *llvm_omp_target_alloc_host(size_t size, int device_num) {
+  return targetAllocExplicit(size, device_num, TARGET_ALLOC_HOST, __func__);
+}
+
+EXTERN void *llvm_omp_target_alloc_shared(size_t size, int device_num) {
+  return targetAllocExplicit(size, device_num, TARGET_ALLOC_SHARED, __func__);
 }
 
 EXTERN void omp_target_free(void *device_ptr, int device_num) {
   TIMESCOPE();
   DP("Call to omp_target_free for device %d and address " DPxMOD "\n",
-      device_num, DPxPTR(device_ptr));
+     device_num, DPxPTR(device_ptr));
 
   if (!device_ptr) {
     DP("Call to omp_target_free with NULL ptr\n");
@@ -102,7 +115,7 @@ EXTERN void omp_target_free(void *device_ptr, int device_num) {
 EXTERN int omp_target_is_present(void *ptr, int device_num) {
   TIMESCOPE();
   DP("Call to omp_target_is_present for device %d and address " DPxMOD "\n",
-      device_num, DPxPTR(ptr));
+     device_num, DPxPTR(ptr));
 
   if (!ptr) {
     DP("Call to omp_target_is_present with NULL ptr, returning false\n");
@@ -119,7 +132,7 @@ EXTERN int omp_target_is_present(void *ptr, int device_num) {
   PM->RTLsMtx.unlock();
   if (DevicesSize <= (size_t)device_num) {
     DP("Call to omp_target_is_present with invalid device ID, returning "
-        "false\n");
+       "false\n");
     return false;
   }
 
@@ -139,21 +152,21 @@ EXTERN int omp_target_is_present(void *ptr, int device_num) {
 }
 
 EXTERN int omp_target_memcpy(void *dst, void *src, size_t length,
-    size_t dst_offset, size_t src_offset, int dst_device, int src_device) {
+                             size_t dst_offset, size_t src_offset,
+                             int dst_device, int src_device) {
   TIMESCOPE();
   DP("Call to omp_target_memcpy, dst device %d, src device %d, "
-      "dst addr " DPxMOD ", src addr " DPxMOD ", dst offset %zu, "
-      "src offset %zu, length %zu\n", dst_device, src_device, DPxPTR(dst),
-      DPxPTR(src), dst_offset, src_offset, length);
+     "dst addr " DPxMOD ", src addr " DPxMOD ", dst offset %zu, "
+     "src offset %zu, length %zu\n",
+     dst_device, src_device, DPxPTR(dst), DPxPTR(src), dst_offset, src_offset,
+     length);
 
   if (!dst || !src || length <= 0) {
-#if INTEL_COLLAB
-    // This patch is identical to https://reviews.llvm.org/D94095.
     if (length == 0) {
       DP("Call to omp_target_memcpy with zero length, nothing to do\n");
       return OFFLOAD_SUCCESS;
     }
-#endif // INTEL_COLLAB
+
     REPORT("Call to omp_target_memcpy with invalid arguments\n");
     return OFFLOAD_FAIL;
   }
@@ -181,11 +194,13 @@ EXTERN int omp_target_memcpy(void *dst, void *src, size_t length,
   } else if (src_device == omp_get_initial_device()) {
     DP("copy from host to device\n");
     DeviceTy &DstDev = PM->Devices[dst_device];
-    rc = DstDev.submitData(dstAddr, srcAddr, length, nullptr);
+    AsyncInfoTy AsyncInfo(DstDev);
+    rc = DstDev.submitData(dstAddr, srcAddr, length, AsyncInfo);
   } else if (dst_device == omp_get_initial_device()) {
     DP("copy from device to host\n");
     DeviceTy &SrcDev = PM->Devices[src_device];
-    rc = SrcDev.retrieveData(dstAddr, srcAddr, length, nullptr);
+    AsyncInfoTy AsyncInfo(SrcDev);
+    rc = SrcDev.retrieveData(dstAddr, srcAddr, length, AsyncInfo);
   } else {
     DP("copy from device to device\n");
     DeviceTy &SrcDev = PM->Devices[src_device];
@@ -193,15 +208,21 @@ EXTERN int omp_target_memcpy(void *dst, void *src, size_t length,
     // First try to use D2D memcpy which is more efficient. If fails, fall back
     // to unefficient way.
     if (SrcDev.isDataExchangable(DstDev)) {
-      rc = SrcDev.dataExchange(srcAddr, DstDev, dstAddr, length, nullptr);
+      AsyncInfoTy AsyncInfo(SrcDev);
+      rc = SrcDev.dataExchange(srcAddr, DstDev, dstAddr, length, AsyncInfo);
       if (rc == OFFLOAD_SUCCESS)
         return OFFLOAD_SUCCESS;
     }
 
     void *buffer = malloc(length);
-    rc = SrcDev.retrieveData(buffer, srcAddr, length, nullptr);
-    if (rc == OFFLOAD_SUCCESS)
-      rc = DstDev.submitData(dstAddr, buffer, length, nullptr);
+    {
+      AsyncInfoTy AsyncInfo(SrcDev);
+      rc = SrcDev.retrieveData(buffer, srcAddr, length, AsyncInfo);
+    }
+    if (rc == OFFLOAD_SUCCESS) {
+      AsyncInfoTy AsyncInfo(SrcDev);
+      rc = DstDev.submitData(dstAddr, buffer, length, AsyncInfo);
+    }
     free(buffer);
   }
 
@@ -210,21 +231,24 @@ EXTERN int omp_target_memcpy(void *dst, void *src, size_t length,
 }
 
 EXTERN int omp_target_memcpy_rect(void *dst, void *src, size_t element_size,
-    int num_dims, const size_t *volume, const size_t *dst_offsets,
-    const size_t *src_offsets, const size_t *dst_dimensions,
-    const size_t *src_dimensions, int dst_device, int src_device) {
+                                  int num_dims, const size_t *volume,
+                                  const size_t *dst_offsets,
+                                  const size_t *src_offsets,
+                                  const size_t *dst_dimensions,
+                                  const size_t *src_dimensions, int dst_device,
+                                  int src_device) {
   TIMESCOPE();
   DP("Call to omp_target_memcpy_rect, dst device %d, src device %d, "
-      "dst addr " DPxMOD ", src addr " DPxMOD ", dst offsets " DPxMOD ", "
-      "src offsets " DPxMOD ", dst dims " DPxMOD ", src dims " DPxMOD ", "
-      "volume " DPxMOD ", element size %zu, num_dims %d\n", dst_device,
-      src_device, DPxPTR(dst), DPxPTR(src), DPxPTR(dst_offsets),
-      DPxPTR(src_offsets), DPxPTR(dst_dimensions), DPxPTR(src_dimensions),
-      DPxPTR(volume), element_size, num_dims);
+     "dst addr " DPxMOD ", src addr " DPxMOD ", dst offsets " DPxMOD ", "
+     "src offsets " DPxMOD ", dst dims " DPxMOD ", src dims " DPxMOD ", "
+     "volume " DPxMOD ", element size %zu, num_dims %d\n",
+     dst_device, src_device, DPxPTR(dst), DPxPTR(src), DPxPTR(dst_offsets),
+     DPxPTR(src_offsets), DPxPTR(dst_dimensions), DPxPTR(src_dimensions),
+     DPxPTR(volume), element_size, num_dims);
 
   if (!(dst || src)) {
     DP("Call to omp_target_memcpy_rect returns max supported dimensions %d\n",
-        INT_MAX);
+       INT_MAX);
     return INT_MAX;
   }
 
@@ -236,22 +260,23 @@ EXTERN int omp_target_memcpy_rect(void *dst, void *src, size_t element_size,
 
   int rc;
   if (num_dims == 1) {
-    rc = omp_target_memcpy(dst, src, element_size * volume[0],
-        element_size * dst_offsets[0], element_size * src_offsets[0],
-        dst_device, src_device);
+    rc = omp_target_memcpy(
+        dst, src, element_size * volume[0], element_size * dst_offsets[0],
+        element_size * src_offsets[0], dst_device, src_device);
   } else {
     size_t dst_slice_size = element_size;
     size_t src_slice_size = element_size;
-    for (int i=1; i<num_dims; ++i) {
+    for (int i = 1; i < num_dims; ++i) {
       dst_slice_size *= dst_dimensions[i];
       src_slice_size *= src_dimensions[i];
     }
 
     size_t dst_off = dst_offsets[0] * dst_slice_size;
     size_t src_off = src_offsets[0] * src_slice_size;
-    for (size_t i=0; i<volume[0]; ++i) {
-      rc = omp_target_memcpy_rect((char *) dst + dst_off + dst_slice_size * i,
-          (char *) src + src_off + src_slice_size * i, element_size,
+    for (size_t i = 0; i < volume[0]; ++i) {
+      rc = omp_target_memcpy_rect(
+          (char *)dst + dst_off + dst_slice_size * i,
+          (char *)src + src_off + src_slice_size * i, element_size,
           num_dims - 1, volume + 1, dst_offsets + 1, src_offsets + 1,
           dst_dimensions + 1, src_dimensions + 1, dst_device, src_device);
 
@@ -267,11 +292,12 @@ EXTERN int omp_target_memcpy_rect(void *dst, void *src, size_t element_size,
 }
 
 EXTERN int omp_target_associate_ptr(void *host_ptr, void *device_ptr,
-    size_t size, size_t device_offset, int device_num) {
+                                    size_t size, size_t device_offset,
+                                    int device_num) {
   TIMESCOPE();
   DP("Call to omp_target_associate_ptr with host_ptr " DPxMOD ", "
-      "device_ptr " DPxMOD ", size %zu, device_offset %zu, device_num %d\n",
-      DPxPTR(host_ptr), DPxPTR(device_ptr), size, device_offset, device_num);
+     "device_ptr " DPxMOD ", size %zu, device_offset %zu, device_num %d\n",
+     DPxPTR(host_ptr), DPxPTR(device_ptr), size, device_offset, device_num);
 
   if (!host_ptr || !device_ptr || size <= 0) {
     REPORT("Call to omp_target_associate_ptr with invalid arguments\n");
@@ -298,7 +324,8 @@ EXTERN int omp_target_associate_ptr(void *host_ptr, void *device_ptr,
 EXTERN int omp_target_disassociate_ptr(void *host_ptr, int device_num) {
   TIMESCOPE();
   DP("Call to omp_target_disassociate_ptr with host_ptr " DPxMOD ", "
-      "device_num %d\n", DPxPTR(host_ptr), device_num);
+     "device_num %d\n",
+     DPxPTR(host_ptr), device_num);
 
   if (!host_ptr) {
     REPORT("Call to omp_target_associate_ptr with invalid host_ptr\n");
@@ -348,6 +375,186 @@ EXTERN void * omp_get_mapped_ptr(void *host_ptr, int device_num) {
      DP("omp_get_mapped_ptr : cannot find device pointer\n");
   DP("omp_get_mapped_ptr returns " DPxMOD "\n", DPxPTR(rc));
   return rc;
+}
+
+static int32_t checkInteropCall(const omp_interop_t interop,
+                                const char *FnName) {
+  if (!interop) {
+    DP("Call to %s with invalid interop\n", FnName);
+    return omp_irc_empty;
+  }
+
+  int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
+
+  if (!device_is_ready(DeviceNum)) {
+    DP("Device %" PRId64 " is not ready in %s\n", DeviceNum, FnName);
+    return omp_irc_other;
+  }
+
+  return omp_irc_success;
+}
+
+EXTERN int omp_get_num_interop_properties(const omp_interop_t interop) {
+  DP("Call to %s with interop " DPxMOD "\n", __func__, DPxPTR(interop));
+
+  int32_t Rc = checkInteropCall(interop, __func__);
+  if (Rc != omp_irc_success)
+    return 0;
+
+  int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
+  DeviceTy &Device = PM->Devices[DeviceNum];
+  return Device.getNumInteropProperties();
+}
+
+/// Return interop property value for the given value type
+static int32_t getInteropValue(const omp_interop_t Interop, int32_t Ipr,
+                               int32_t ValueType, size_t Size, void *Value) {
+
+  __tgt_interop *TgtInterop = static_cast<__tgt_interop *>(Interop);
+  int32_t Rc = omp_irc_success;
+
+  switch (Ipr) {
+  case omp_ipr_fr_id:
+  case omp_ipr_vendor:
+  case omp_ipr_device_num:
+    if (ValueType != OMP_IPR_VALUE_INT)
+      Rc = omp_irc_type_int;
+    else if (Ipr == omp_ipr_fr_id)
+      *static_cast<intptr_t *>(Value) = TgtInterop->FrId;
+    else if (Ipr == omp_ipr_vendor)
+      *static_cast<intptr_t *>(Value) = TgtInterop->Vendor;
+    else
+      *static_cast<intptr_t *>(Value) = TgtInterop->DeviceNum;
+    break;
+
+  case omp_ipr_fr_name:
+  case omp_ipr_vendor_name:
+    if (ValueType != OMP_IPR_VALUE_STR)
+      Rc = omp_irc_type_str;
+    else if (Ipr == omp_ipr_fr_name)
+      *static_cast<const char **>(Value) = TgtInterop->FrName;
+    else
+      *static_cast<const char **>(Value) = TgtInterop->VendorName;
+    break;
+
+  case omp_ipr_platform:
+  case omp_ipr_device:
+  case omp_ipr_device_context:
+  case omp_ipr_targetsync:
+    if (ValueType != OMP_IPR_VALUE_PTR)
+      Rc = omp_irc_type_ptr;
+    else if (Ipr == omp_ipr_platform)
+      *static_cast<void **>(Value) = TgtInterop->Platform;
+    else if (Ipr == omp_ipr_device)
+      *static_cast<void **>(Value) = TgtInterop->Device;
+    else if (Ipr == omp_ipr_device_context)
+      *static_cast<void **>(Value) = TgtInterop->DeviceContext;
+    else
+      *static_cast<void **>(Value) = TgtInterop->TargetSync;
+    break;
+
+  default: {
+    // Get implementation-defined property value
+    DeviceTy &Device = PM->Devices[TgtInterop->DeviceNum];
+    Rc = Device.getInteropPropertyValue(TgtInterop, Ipr, ValueType, Size,
+                                        Value);
+  }
+  }
+
+  return Rc;
+}
+
+EXTERN omp_intptr_t omp_get_interop_int(const omp_interop_t interop,
+    omp_interop_property_t property_id, int *ret_code) {
+  DP("Call to %s with interop " DPxMOD ", property_id %" PRId32 "\n", __func__,
+     DPxPTR(interop), property_id);
+
+  omp_intptr_t Ret = 0;
+  int32_t Rc = checkInteropCall(interop, __func__);
+
+  if (Rc == omp_irc_success)
+    Rc = getInteropValue(interop, (int32_t)property_id, OMP_IPR_VALUE_INT,
+                         sizeof(Ret), &Ret);
+  if (ret_code)
+    *ret_code = Rc;
+
+  return Ret;
+}
+
+EXTERN void *omp_get_interop_ptr(const omp_interop_t interop,
+    omp_interop_property_t property_id, int *ret_code) {
+  DP("Call to %s with interop " DPxMOD ", property_id %" PRId32 "\n", __func__,
+     DPxPTR(interop), property_id);
+
+  void *Ret = NULL;
+  int32_t Rc = checkInteropCall(interop, __func__);
+
+  if (Rc == omp_irc_success)
+    Rc = getInteropValue(interop, (int32_t)property_id, OMP_IPR_VALUE_PTR,
+                         sizeof(Ret), &Ret);
+  if (ret_code)
+    *ret_code = Rc;
+
+  return Ret;
+}
+
+EXTERN const char *omp_get_interop_str(const omp_interop_t interop,
+    omp_interop_property_t property_id, int *ret_code) {
+  DP("Call to %s with interop " DPxMOD ", property_id %" PRId32 "\n", __func__,
+     DPxPTR(interop), property_id);
+
+  const char *Ret = NULL;
+  int32_t Rc = checkInteropCall(interop, __func__);
+
+  if (Rc == omp_irc_success)
+    Rc = getInteropValue(interop, (int32_t)property_id, OMP_IPR_VALUE_STR,
+                         sizeof(Ret), &Ret);
+  if (ret_code)
+    *ret_code = Rc;
+
+  return Ret;
+}
+
+EXTERN const char *omp_get_interop_name(const omp_interop_t interop,
+    omp_interop_property_t property_id) {
+  DP("Call to %s with interop " DPxMOD ", property_id %" PRId32 "\n", __func__,
+     DPxPTR(interop), property_id);
+
+  if (checkInteropCall(interop, __func__) != omp_irc_success)
+    return NULL;
+
+  int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
+  DeviceTy &Device = PM->Devices[DeviceNum];
+
+  return Device.getInteropPropertyInfo(property_id, OMP_IPR_INFO_NAME);
+}
+
+EXTERN const char *omp_get_interop_type_desc(const omp_interop_t interop,
+    omp_interop_property_t property_id) {
+  DP("Call to %s with interop " DPxMOD ", property_id %" PRId32 "\n", __func__,
+     DPxPTR(interop), property_id);
+
+  if (checkInteropCall(interop, __func__) != omp_irc_success)
+    return NULL;
+
+  int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
+  DeviceTy &Device = PM->Devices[DeviceNum];
+
+  return Device.getInteropPropertyInfo(property_id, OMP_IPR_INFO_TYPE_DESC);
+}
+
+EXTERN const char *omp_get_interop_rc_desc(const omp_interop_t interop,
+    omp_interop_rc_t ret_code) {
+  DP("Call to %s with interop " DPxMOD ", ret_code %" PRId32 "\n", __func__,
+     DPxPTR(interop), ret_code);
+
+  if (checkInteropCall(interop, __func__) != omp_irc_success)
+    return NULL;
+
+  int64_t DeviceNum = static_cast<__tgt_interop *>(interop)->DeviceNum;
+  DeviceTy &Device = PM->Devices[DeviceNum];
+
+  return Device.getInteropRcDesc(ret_code);
 }
 
 static void *target_alloc_explicit(
@@ -404,6 +611,34 @@ EXTERN void *omp_target_get_context(int device_num) {
   DP("%s returns " DPxMOD " for device %d\n", __func__, DPxPTR(context),
      device_num);
   return context;
+}
+
+EXTERN int omp_set_sub_device(int device_num, int level) {
+  if (device_num == omp_get_initial_device()) {
+    REPORT("%s returns 0 for the host device\n", __func__);
+    return 0;
+  }
+
+  if (!device_is_ready(device_num)) {
+    REPORT("%s returns 0 for device %d\n", __func__, device_num);
+    return 0;
+  }
+
+  return PM->Devices[device_num].setSubDevice(level);
+}
+
+EXTERN void omp_unset_sub_device(int device_num) {
+  if (device_num == omp_get_initial_device()) {
+    REPORT("%s does nothing for the host device\n", __func__);
+    return;
+  }
+
+  if (!device_is_ready(device_num)) {
+    REPORT("%s does nothing for device %d\n", __func__, device_num);
+    return;
+  }
+
+  PM->Devices[device_num].unsetSubDevice();
 }
 #endif  // INTEL_COLLAB
 

@@ -1,6 +1,6 @@
 //===-- IntelVPlanDriver.cpp ----------------------------------------------===//
 //
-//   Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -26,6 +26,7 @@
 #include "IntelVPlanIdioms.h"
 #include "IntelVPlanMaskedModeLoop.h"
 #include "IntelVPlanScalarEvolution.h"
+#include "IntelVPlanVLSTransform.h"
 #include "IntelVolcanoOpenCL.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/DemandedBits.h"  // INTEL
@@ -49,6 +50,8 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlanCostModelProprietary.h"
 #include "VPlanHIR/IntelLoopVectorizationPlannerHIR.h"
+#include "VPlanHIR/IntelVPlanScalarEvolutionHIR.h"
+#include "VPlanHIR/IntelVPlanValueTrackingHIR.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
@@ -270,9 +273,13 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   BasicBlock *Header = Lp->getHeader();
   VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, TTI);
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, TLI, TTI, DL, DT, &LVL, &VLSA);
-
+  std::string VPlanName = "";
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  VPlanName = std::string(Fn.getName()) + ":" + std::string(Lp->getName());
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  MDNode *MD = findOptionMDForLoop(Lp, "llvm.loop.vector.vectorlength");
 #if INTEL_CUSTOMIZATION
-  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, &SE)) {
+  if (!LVP.buildInitialVPlans(MD, &Fn.getContext(), DL, VPlanName, &SE)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }
@@ -290,15 +297,27 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   LVP.buildInitialVPlans();
 #endif // INTEL_CUSTOMIZATION
 
-  if (EnableMaskedVariant)
+  if (EnableMaskedVariant) {
+    DenseMap<VPlanVector *, std::shared_ptr<VPlanMasked>> OrigClonedVPlans;
     for (auto &Pair : LVP.getAllVPlans()) {
-      std::shared_ptr<VPlan> Plan = Pair.second.MainPlan;
-      if (!Pair.second.MaskedModeLoop) {
-        MaskedModeLoopCreator MML(Plan.get(), VPAF);
-        LVP.appendVPlanPair(Pair.first, LoopVectorizationPlanner::VPlanPair{
-                                            Plan, MML.createMaskedModeLoop()});
-      }
+      std::shared_ptr<VPlanVector> Plan = Pair.second.MainPlan;
+      // Masked variant is not generated for loops without normalized induction.
+      if ((*(Plan->getVPLoopInfo())->begin())->hasNormalizedInduction())
+        if (!Pair.second.MaskedModeLoop) {
+          auto It = OrigClonedVPlans.find(Plan.get());
+          if (It != OrigClonedVPlans.end()) {
+            LVP.appendVPlanPair(Pair.first, LoopVectorizationPlanner::VPlanPair{
+                                                Plan, It->second});
+            continue;
+          }
+          MaskedModeLoopCreator MML(cast<VPlanNonMasked>(Plan.get()), VPAF);
+          std::shared_ptr<VPlanMasked> MaskedPlan = MML.createMaskedModeLoop();
+          OrigClonedVPlans[Plan.get()] = MaskedPlan;
+          LVP.appendVPlanPair(Pair.first, LoopVectorizationPlanner::VPlanPair{
+                                              Plan, MaskedPlan});
+        }
     }
+  }
 
   // VPlan Predicator
   LVP.predicate();
@@ -318,8 +337,9 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   if (VPlanEnablePeeling)
     LVP.selectBestPeelingVariants();
 
-  unsigned VF = LVP.selectBestPlan();
-  VPlan *Plan = LVP.getVPlanForVF(VF);
+  unsigned VF;
+  VPlanVector *Plan;
+  std::tie(VF, Plan) = LVP.selectBestPlan();
   assert(Plan && "Unexpected null VPlan");
 
   LLVM_DEBUG(std::string PlanName; raw_string_ostream RSO(PlanName);
@@ -329,12 +349,13 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   VPLAN_DUMP(VPlanPrintInit,
              "initial VPlan for VF=" + std::to_string(VF), Plan);
 
-  // All-zero bypass is added after best plan selection because cost model
-  // tuning is not yet implemented and we don't want to prevent vectorization.
-  LVP.insertAllZeroBypasses(Plan, VF);
-
   unsigned UF = LVP.getLoopUnrollFactor();
-  LVP.unroll(*Plan);
+  // If EnableCFGMerge is disabled, run AZB and unroll at this point in the
+  // pipeline.
+  if (!EnableNewCFGMerge) {
+    LVP.insertAllZeroBypasses(Plan, VF);
+    LVP.unroll(*Plan);
+  }
 
   // Workaround for kernel vectorization. Kernel vectorization is done through
   // loop creation inside vec-clone) followed by loop vectorization. That
@@ -366,8 +387,37 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 
   // Do the preparation for CG: create auxiliary loops and merge them into one
   // piece of CFG.
-  if (VF > 1)
-    LVP.emitPeelRemainderVPLoops();
+  if (VF > 1) {
+    LVP.createMergerVPlans(VPAF);
+
+    // Note, the loop is executed only when new cfg merger is enabled.
+    for (const CfgMergerPlanDescr &PlanDescr : LVP.mergerVPlans()) {
+      auto LpKind = PlanDescr.getLoopType();
+      VPlan *Plan = PlanDescr.getVPlan();
+
+      if (isa<VPlanVector>(Plan))
+        // All-zero bypass is added after best plan selection because cost model
+        // tuning is not yet implemented and we don't want to prevent
+        // vectorization.
+        LVP.insertAllZeroBypasses(cast<VPlanVector>(Plan), PlanDescr.getVF());
+
+      // For unroller, we only want to pass the main-vector, i.e., the unmasked
+      // vector loop.
+      if (LpKind == CfgMergerPlanDescr::LoopType::LTMain)
+        if (auto *NonMaskedVPlan = dyn_cast<VPlanNonMasked>(Plan))
+          LVP.unroll(*NonMaskedVPlan);
+
+      // Transform SOA-GEPs.
+      // Do this transformation only for Masked and Non-masked, i.e.,
+      // vector-loops.
+      if (isa<VPlanVector>(Plan))
+        if (EnableSOAAnalysis) {
+          VPMemRefTransform VPMemRefTrans(*cast<VPlanVector>(Plan));
+          VPMemRefTrans.transformSOAGEPs(PlanDescr.getVF());
+        }
+    }
+    LVP.emitPeelRemainderVPLoops(VF, UF);
+  }
 
   if (DisableCodeGen)
     return false;
@@ -389,10 +439,11 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 
   // Run VLS analysis before IR for the current loop is modified.
   VCodeGen.getVLS()->getOVLSMemrefs(Plan, VF);
+  applyVLSTransform(*Plan, VLSA, VF);
 
   // Transform SOA-GEPs.
-  if (EnableSOAAnalysis) {
-    VPMemRefTransform VPMemRefTrans(*Plan);
+  if (!EnableNewCFGMerge && EnableSOAAnalysis) {
+    VPMemRefTransform VPMemRefTrans(*cast<VPlanVector>(Plan));
     VPMemRefTrans.transformSOAGEPs(VF);
   }
 
@@ -752,20 +803,17 @@ void VPlanDriverImpl::addOptReportRemarks(VPlanOptReportBuilder &VPORBuilder,
 template <typename... Args>
 void VPlanOptReportBuilder::addRemark(HLLoop *Lp,
                                       OptReportVerbosity::Level Verbosity,
-                                      unsigned MsgID, Args &&... args) {
-  LORBuilder(*Lp).addRemark(Verbosity, loopopt::OptReportDiag::getMsg(MsgID),
-                            std::forward<Args>(args)...);
+                                      unsigned MsgID, Args &&...args) {
+  LORBuilder(*Lp).addRemark(Verbosity, MsgID, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
 void VPlanOptReportBuilder::addRemark(Loop *Lp,
                                       OptReportVerbosity::Level Verbosity,
-                                      unsigned MsgID, Args &&... args) {
+                                      unsigned MsgID, Args &&...args) {
   // For LLVM-IR Loop, LORB needs a valid LoopInfo object
   assert(LI && "LoopInfo for opt-report builder is null.");
-  LORBuilder(*Lp, *LI).addRemark(Verbosity,
-                                 loopopt::OptReportDiag::getMsg(MsgID),
-                                 std::forward<Args>(args)...);
+  LORBuilder(*Lp, *LI).addRemark(Verbosity, MsgID, std::forward<Args>(args)...);
 }
 
 INITIALIZE_PASS_BEGIN(VPlanDriver, "VPlanDriver", "VPlan Vectorization Driver",
@@ -1024,9 +1072,9 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
                       WR, TTI, TLI, nullptr);
 }
 
-PreservedAnalyses VPlanDriverHIRPass::run(Function &F,
-                                          FunctionAnalysisManager &AM) {
-  auto HIRF = &AM.getResult<HIRFrameworkAnalysis>(F);
+PreservedAnalyses VPlanDriverHIRPass::runImpl(Function &F,
+                                              FunctionAnalysisManager &AM,
+                                              loopopt::HIRFramework &HIRF) {
   auto HIRLoopStats = &AM.getResult<HIRLoopStatisticsAnalysis>(F);
   auto DDA = &AM.getResult<HIRDDAnalysisPass>(F);
   auto Verbosity = AM.getResult<OptReportOptionsAnalysis>(F).getVerbosity();
@@ -1035,7 +1083,7 @@ PreservedAnalyses VPlanDriverHIRPass::run(Function &F,
   auto TLI = &AM.getResult<TargetLibraryAnalysis>(F);
   auto WR = &AM.getResult<WRegionInfoAnalysis>(F);
 
-  Impl.runImpl(F, HIRF, HIRLoopStats, DDA, SafeRedAnalysis, Verbosity, WR, TTI,
+  Impl.runImpl(F, &HIRF, HIRLoopStats, DDA, SafeRedAnalysis, Verbosity, WR, TTI,
                TLI, nullptr);
   return PreservedAnalyses::all();
 }
@@ -1110,14 +1158,28 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   // Find any DDRefs in loop pre-header that are aliases to the descriptor
   // variables
   HIRVecLegal.findAliasDDRefs(WRLp->getEntryHLNode(), HLoop);
-
-  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL)) {
+  std::string VPlanName = "";
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Lp->getNumber() is not used here because it returns HLNode number, not
+  // just HLLoop number, thus it may be unstable to be captured in lit tests.
+  VPlanName = std::string(Fn.getName()) + ":HIR";
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  MDNode *MD = Lp->getLoopStringMetadata("llvm.loop.vector.vectorlength");
+  if (!LVP.buildInitialVPlans(MD, &Fn.getContext(), DL, VPlanName)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     // Erase intrinsics before and after the loop if this loop is an auto
     // vectorization candidate.
     if (WRLp->getIsAutoVec())
       eraseLoopIntrins(Lp, WRLp);
     return false;
+  }
+
+  for (auto &Pair : LVP.getAllVPlans()) {
+    auto &Plan = *Pair.second.MainPlan;
+    if (!Plan.getVPSE())
+      Plan.setVPSE(std::make_unique<VPlanScalarEvolutionHIR>(Lp));
+    if (!Plan.getVPVT())
+      Plan.setVPVT(std::make_unique<VPlanValueTrackingHIR>(*DL));
   }
 
   // VPlan construction stress test ends here.
@@ -1134,16 +1196,20 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   LVP.printCostModelAnalysisIfRequested<VPlanCostModelProprietary>(HeaderStr);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+  if (VPlanEnablePeeling)
+    LVP.selectBestPeelingVariants();
+
   // TODO: don't force vectorization if getIsAutoVec() is set to true.
-  unsigned VF = LVP.selectBestPlan<VPlanCostModelProprietary>();
+  unsigned VF;
+  VPlanVector *Plan;
+  std::tie(VF, Plan) = LVP.selectBestPlan<VPlanCostModelProprietary>();
+  assert(Plan && "Unexpected null VPlan");
 
   // Set the final name for this initial VPlan.
   std::string PlanName;
   raw_string_ostream RSO(PlanName);
   RSO << "Initial VPlan for VF=" << VF;
   RSO.flush();
-  VPlan *Plan = LVP.getVPlanForVF(VF);
-  assert(Plan && "Unexpected null VPlan");
   Plan->setName(PlanName);
 
   LLVM_DEBUG(dbgs() << "VD:\n" << *Plan);
@@ -1158,14 +1224,11 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   unsigned UF = LVP.getLoopUnrollFactor();
 
   VPlanLoopUnroller::VPInstUnrollPartTy VPInstUnrollPart;
-  LVP.unroll(*Plan, &VPInstUnrollPart);
+  LVP.unroll(*cast<VPlanNonMasked>(Plan), &VPInstUnrollPart);
 
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
-    auto *VPLI = Plan->getVPLoopInfo();
-    assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
-           "Expected single outermost loop!");
-    VPLoop *OuterMostVPLoop = *VPLI->begin();
+    VPLoop *OuterMostVPLoop = Plan->getMainLoop(true);
     const VPLoopEntityList *Entities =
         Plan->getLoopEntities(OuterMostVPLoop);
     RegDDRef *PeelArrayRef = nullptr;
@@ -1313,7 +1376,7 @@ bool VPlanDriverImpl::isVPlanCandidate(Function &Fn, Loop *Lp) {
     return false;
 
   PredicatedScalarEvolution PSE(*SE, *Lp);
-  LoopVectorizationRequirements Requirements(*ORE);
+  LoopVectorizationRequirements Requirements;
   LoopVectorizeHints Hints(Lp, true, *ORE);
   LoopVectorizationLegality LVL(Lp, PSE, DT, TTI, TLI, AA, &Fn, GetLAA, LI, ORE,
                                 &Requirements, &Hints, DB, AC, BFI, PSI);

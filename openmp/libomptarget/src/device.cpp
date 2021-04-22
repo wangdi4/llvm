@@ -14,7 +14,6 @@
 #include "omptarget-tools.h"
 #endif // INTEL_COLLAB
 #include "device.h"
-#include "MemoryManager.h"
 #include "private.h"
 #include "rtl.h"
 
@@ -29,7 +28,7 @@ DeviceTy::DeviceTy(const DeviceTy &D)
       HostDataToTargetMap(D.HostDataToTargetMap),
       PendingCtorsDtors(D.PendingCtorsDtors), ShadowPtrMap(D.ShadowPtrMap),
       DataMapMtx(), PendingGlobalsMtx(), ShadowMtx(),
-      LoopTripCnt(D.LoopTripCnt), MemoryManager(nullptr) {}
+      LoopTripCnt(D.LoopTripCnt) {}
 
 DeviceTy &DeviceTy::operator=(const DeviceTy &D) {
   DeviceID = D.DeviceID;
@@ -48,14 +47,14 @@ DeviceTy &DeviceTy::operator=(const DeviceTy &D) {
 DeviceTy::DeviceTy(RTLInfoTy *RTL)
     : DeviceID(-1), RTL(RTL), RTLDeviceID(-1), IsInit(false), InitFlag(),
       HasPendingGlobals(false), HostDataToTargetMap(), PendingCtorsDtors(),
-      ShadowPtrMap(), DataMapMtx(), PendingGlobalsMtx(), ShadowMtx(),
-      MemoryManager(nullptr) {}
+      ShadowPtrMap(), DataMapMtx(), PendingGlobalsMtx(), ShadowMtx() {}
 
 DeviceTy::~DeviceTy() {
-  if (DeviceID == -1 || getInfoLevel() < 1)
+  if (DeviceID == -1 || !(getInfoLevel() & OMP_INFOTYPE_DUMP_TABLE))
     return;
 
-  dumpTargetPointerMappings(*this);
+  ident_t loc = {0, 0, 0, 0, ";libomptarget;libomptarget;0;0;;"};
+  dumpTargetPointerMappings(&loc, *this);
 }
 
 int DeviceTy::associatePtr(void *HstPtrBegin, void *TgtPtrBegin, int64_t Size) {
@@ -86,10 +85,10 @@ int DeviceTy::associatePtr(void *HstPtrBegin, void *TgtPtrBegin, int64_t Size) {
                               (uintptr_t)TgtPtrBegin /*TgtPtrBegin*/, nullptr,
                               true /*IsRefCountINF*/);
 
-  DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD ", HstEnd="
-      DPxMOD ", TgtBegin=" DPxMOD "\n", DPxPTR(newEntry.HstPtrBase),
-      DPxPTR(newEntry.HstPtrBegin), DPxPTR(newEntry.HstPtrEnd),
-      DPxPTR(newEntry.TgtPtrBegin));
+  DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD
+     ", HstEnd=" DPxMOD ", TgtBegin=" DPxMOD "\n",
+     DPxPTR(newEntry.HstPtrBase), DPxPTR(newEntry.HstPtrBegin),
+     DPxPTR(newEntry.HstPtrEnd), DPxPTR(newEntry.TgtPtrBegin));
   HostDataToTargetMap.insert(newEntry);
 
   DataMapMtx.unlock();
@@ -150,7 +149,7 @@ LookupResult DeviceTy::lookupMapping(void *HstPtrBegin, int64_t Size) {
   LookupResult lr;
 
   DP("Looking up mapping(HstPtrBegin=" DPxMOD ", Size=%" PRId64 ")...\n",
-      DPxPTR(hp), Size);
+     DPxPTR(hp), Size);
 
   if (HostDataToTargetMap.empty())
     return lr;
@@ -162,7 +161,7 @@ LookupResult DeviceTy::lookupMapping(void *HstPtrBegin, int64_t Size) {
     auto &HT = *lr.Entry;
     // Is it contained?
     lr.Flags.IsContained = hp >= HT.HstPtrBegin && hp < HT.HstPtrEnd &&
-        (hp+Size) <= HT.HstPtrEnd;
+                           (hp + Size) <= HT.HstPtrEnd;
     // Does it extend beyond the mapped region?
     lr.Flags.ExtendsAfter = hp < HT.HstPtrEnd && (hp + Size) > HT.HstPtrEnd;
   }
@@ -173,18 +172,19 @@ LookupResult DeviceTy::lookupMapping(void *HstPtrBegin, int64_t Size) {
     lr.Entry = upper;
     auto &HT = *lr.Entry;
     // Does it extend into an already mapped region?
-    lr.Flags.ExtendsBefore = hp < HT.HstPtrBegin && (hp+Size) > HT.HstPtrBegin;
+    lr.Flags.ExtendsBefore =
+        hp < HT.HstPtrBegin && (hp + Size) > HT.HstPtrBegin;
     // Does it extend beyond the mapped region?
-    lr.Flags.ExtendsAfter = hp < HT.HstPtrEnd && (hp+Size) > HT.HstPtrEnd;
+    lr.Flags.ExtendsAfter = hp < HT.HstPtrEnd && (hp + Size) > HT.HstPtrEnd;
   }
 
   if (lr.Flags.ExtendsBefore) {
     DP("WARNING: Pointer is not mapped but section extends into already "
-        "mapped data\n");
+       "mapped data\n");
   }
   if (lr.Flags.ExtendsAfter) {
     DP("WARNING: Pointer is already mapped but section extends beyond mapped "
-        "region\n");
+       "region\n");
   }
 
   return lr;
@@ -220,20 +220,21 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
       HT.incRefCount();
 
     uintptr_t tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
-    INFO(DeviceID,
+    INFO(OMP_INFOTYPE_MAPPING_EXISTS, DeviceID,
          "Mapping exists%s with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD
          ", "
          "Size=%" PRId64 ",%s RefCount=%s, Name=%s\n",
          (IsImplicit ? " (implicit)" : ""), DPxPTR(HstPtrBegin), DPxPTR(tp),
          Size, (UpdateRefCount ? " updated" : ""),
          HT.isRefCountInf() ? "INF" : std::to_string(HT.getRefCount()).c_str(),
-         (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "(null)");
+         (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "unknown");
     rc = (void *)tp;
   } else if ((lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter) && !IsImplicit) {
     // Explicit extension of mapped data - not allowed.
     MESSAGE("explicit extension not allowed: host address specified is " DPxMOD
-            " (%" PRId64 " bytes), but device allocation maps to host at "
-            DPxMOD " (%" PRId64 " bytes)",
+            " (%" PRId64
+            " bytes), but device allocation maps to host at " DPxMOD
+            " (%" PRId64 " bytes)",
             DPxPTR(HstPtrBegin), Size, DPxPTR(lr.Entry->HstPtrBegin),
             lr.Entry->HstPtrEnd - lr.Entry->HstPtrBegin);
     if (HasPresentModifier)
@@ -258,7 +259,10 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
       DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
          DPxPTR((uintptr_t)HstPtrBegin), Size,
          (UpdateRefCount ? " updated" : ""));
-      IsHostPtr = true;
+#if INTEL_COLLAB
+      if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
+#endif // INTEL_COLLAB
+         IsHostPtr = true;
       rc = HstPtrBegin;
     }
   } else if (HasPresentModifier) {
@@ -324,9 +328,10 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
 
     uintptr_t tp = HT.TgtPtrBegin + ((uintptr_t)HstPtrBegin - HT.HstPtrBegin);
     DP("Mapping exists with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", "
-        "Size=%" PRId64 ",%s RefCount=%s\n", DPxPTR(HstPtrBegin), DPxPTR(tp),
-        Size, (UpdateRefCount ? " updated" : ""),
-        HT.isRefCountInf() ? "INF" : std::to_string(HT.getRefCount()).c_str());
+       "Size=%" PRId64 ",%s RefCount=%s\n",
+       DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
+       (UpdateRefCount ? " updated" : ""),
+       HT.isRefCountInf() ? "INF" : std::to_string(HT.getRefCount()).c_str());
     rc = (void *)tp;
 #if INTEL_COLLAB
   } else if ((PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
@@ -339,8 +344,12 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
     // is on then it means we have stumbled upon a value which we need to
     // use directly from the host.
     DP("Get HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
-       DPxPTR((uintptr_t)HstPtrBegin), Size, (UpdateRefCount ? " updated" : ""));
-    IsHostPtr = true;
+       DPxPTR((uintptr_t)HstPtrBegin), Size,
+       (UpdateRefCount ? " updated" : ""));
+#if INTEL_COLLAB
+    if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
+#endif // INTEL_COLLAB
+       IsHostPtr = true;
     rc = HstPtrBegin;
   }
 
@@ -384,7 +393,7 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
       HT.resetRefCount();
     if (HT.decRefCount() == 0) {
       DP("Deleting tgt data " DPxMOD " of size %" PRId64 "\n",
-          DPxPTR(HT.TgtPtrBegin), Size);
+         DPxPTR(HT.TgtPtrBegin), Size);
 #if INTEL_COLLAB
       OMPT_TRACE(targetDataDeleteBegin(RTLDeviceID, (void *)HT.TgtPtrBegin));
 #endif // INTEL_COLLAB
@@ -393,8 +402,9 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
       OMPT_TRACE(targetDataDeleteEnd(RTLDeviceID, (void *)HT.TgtPtrBegin));
 #endif // INTEL_COLLAB
       DP("Removing%s mapping with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD
-          ", Size=%" PRId64 "\n", (ForceDelete ? " (forced)" : ""),
-          DPxPTR(HT.HstPtrBegin), DPxPTR(HT.TgtPtrBegin), Size);
+         ", Size=%" PRId64 "\n",
+         (ForceDelete ? " (forced)" : ""), DPxPTR(HT.HstPtrBegin),
+         DPxPTR(HT.TgtPtrBegin), Size);
       HostDataToTargetMap.erase(lr.Entry);
     }
     rc = OFFLOAD_SUCCESS;
@@ -417,16 +427,6 @@ void DeviceTy::init() {
   int32_t Ret = RTL->init_device(RTLDeviceID);
   if (Ret != OFFLOAD_SUCCESS)
     return;
-
-  // The memory manager will only be disabled when users provide a threshold via
-  // the environment variable \p LIBOMPTARGET_MEMORY_MANAGER_THRESHOLD and set
-  // it to 0.
-  if (const char *Env = std::getenv("LIBOMPTARGET_MEMORY_MANAGER_THRESHOLD")) {
-    size_t Threshold = std::stoul(Env);
-    if (Threshold)
-      MemoryManager = std::make_unique<MemoryManagerTy>(*this, Threshold);
-  } else
-    MemoryManager = std::make_unique<MemoryManagerTy>(*this);
 
   IsInit = true;
 }
@@ -455,72 +455,64 @@ __tgt_target_table *DeviceTy::load_binary(void *Img) {
   return rc;
 }
 
-void *DeviceTy::allocData(int64_t Size, void *HstPtr) {
-  // If memory manager is enabled, we will allocate data via memory manager.
-  if (MemoryManager)
-    return MemoryManager->allocate(Size, HstPtr);
-
-  return RTL->data_alloc(RTLDeviceID, Size, HstPtr);
+void *DeviceTy::allocData(int64_t Size, void *HstPtr, int32_t Kind) {
+  return RTL->data_alloc(RTLDeviceID, Size, HstPtr, Kind);
 }
 
 int32_t DeviceTy::deleteData(void *TgtPtrBegin) {
-  // If memory manager is enabled, we will deallocate data via memory manager.
-  if (MemoryManager)
-    return MemoryManager->free(TgtPtrBegin);
-
   return RTL->data_delete(RTLDeviceID, TgtPtrBegin);
 }
 
 // Submit data to device
 int32_t DeviceTy::submitData(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size,
-                             __tgt_async_info *AsyncInfoPtr) {
+                             AsyncInfoTy &AsyncInfo) {
 #if INTEL_COLLAB
   OMPT_TRACE(
       targetDataSubmitBegin(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
   int32_t ret;
-  if (!AsyncInfoPtr || !RTL->data_submit_async || !RTL->synchronize)
+  if (!AsyncInfo || !RTL->data_submit_async || !RTL->synchronize)
     ret = RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
   else
     ret = RTL->data_submit_async(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
-                                 AsyncInfoPtr);
+                                 AsyncInfo);
   OMPT_TRACE(targetDataSubmitEnd(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
   return ret;
 #else // INTEL_COLLAB
-  if (!AsyncInfoPtr || !RTL->data_submit_async || !RTL->synchronize)
+  if (!AsyncInfo || !RTL->data_submit_async || !RTL->synchronize)
     return RTL->data_submit(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size);
   else
     return RTL->data_submit_async(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size,
-                                  AsyncInfoPtr);
+                                  AsyncInfo);
 #endif // INTEL_COLLAB
 }
 
 // Retrieve data from device
 int32_t DeviceTy::retrieveData(void *HstPtrBegin, void *TgtPtrBegin,
-                               int64_t Size, __tgt_async_info *AsyncInfoPtr) {
+                               int64_t Size, AsyncInfoTy &AsyncInfo) {
 #if INTEL_COLLAB
   OMPT_TRACE(
       targetDataRetrieveBegin(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
   int32_t ret;
-  if (!AsyncInfoPtr || !RTL->data_retrieve_async || !RTL->synchronize)
+  if (!RTL->data_retrieve_async || !RTL->synchronize)
     ret = RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
   else
     ret = RTL->data_retrieve_async(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
-                                   AsyncInfoPtr);
+                                   AsyncInfo);
   OMPT_TRACE(
       targetDataRetrieveEnd(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
   return ret;
 #else // INTEL_COLLAB
-  if (!AsyncInfoPtr || !RTL->data_retrieve_async || !RTL->synchronize)
+  if (!RTL->data_retrieve_async || !RTL->synchronize)
     return RTL->data_retrieve(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size);
   else
     return RTL->data_retrieve_async(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size,
-                                    AsyncInfoPtr);
+                                    AsyncInfo);
 #endif // INTEL_COLLAB
 }
 
 // Copy data from current device to destination device directly
 int32_t DeviceTy::dataExchange(void *SrcPtr, DeviceTy &DstDev, void *DstPtr,
-                               int64_t Size, __tgt_async_info *AsyncInfo) {
+                               int64_t Size, AsyncInfoTy &AsyncInfo) {
   if (!AsyncInfo || !RTL->data_exchange_async || !RTL->synchronize) {
     assert(RTL->data_exchange && "RTL->data_exchange is nullptr");
     return RTL->data_exchange(RTLDeviceID, SrcPtr, DstDev.RTLDeviceID, DstPtr,
@@ -533,25 +525,25 @@ int32_t DeviceTy::dataExchange(void *SrcPtr, DeviceTy &DstDev, void *DstPtr,
 // Run region on device
 int32_t DeviceTy::runRegion(void *TgtEntryPtr, void **TgtVarsPtr,
                             ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                            __tgt_async_info *AsyncInfoPtr) {
+                            AsyncInfoTy &AsyncInfo) {
 #if INTEL_COLLAB
   OMPT_TRACE(targetSubmitBegin(RTLDeviceID, 1));
   int32_t ret;
-  if (!AsyncInfoPtr || !RTL->run_region || !RTL->synchronize)
+  if (!RTL->run_region || !RTL->synchronize)
     ret = RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
                           TgtVarsSize);
   else
     ret = RTL->run_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                TgtOffsets, TgtVarsSize, AsyncInfoPtr);
+                                TgtOffsets, TgtVarsSize, AsyncInfo);
   OMPT_TRACE(targetSubmitEnd(RTLDeviceID, 1));
   return ret;
 #else // INTEL_COLLAB
-  if (!AsyncInfoPtr || !RTL->run_region || !RTL->synchronize)
+  if (!RTL->run_region || !RTL->synchronize)
     return RTL->run_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr, TgtOffsets,
                            TgtVarsSize);
   else
     return RTL->run_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
-                                 TgtOffsets, TgtVarsSize, AsyncInfoPtr);
+                                 TgtOffsets, TgtVarsSize, AsyncInfo);
 #endif // INTEL_COLLAB
 }
 
@@ -560,29 +552,29 @@ int32_t DeviceTy::runTeamRegion(void *TgtEntryPtr, void **TgtVarsPtr,
                                 ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                 int32_t NumTeams, int32_t ThreadLimit,
                                 uint64_t LoopTripCount,
-                                __tgt_async_info *AsyncInfoPtr) {
+                                AsyncInfoTy &AsyncInfo) {
 #if INTEL_COLLAB
   OMPT_TRACE(targetSubmitBegin(RTLDeviceID, NumTeams));
   int32_t ret;
-  if (!AsyncInfoPtr || !RTL->run_team_region_async || !RTL->synchronize)
+  if (!RTL->run_team_region_async || !RTL->synchronize)
     ret = RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                 TgtOffsets, TgtVarsSize, NumTeams, ThreadLimit,
                                 LoopTripCount);
   else
     ret = RTL->run_team_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                       TgtOffsets, TgtVarsSize, NumTeams,
-                                      ThreadLimit, LoopTripCount, AsyncInfoPtr);
+                                      ThreadLimit, LoopTripCount, AsyncInfo);
   OMPT_TRACE(targetSubmitEnd(RTLDeviceID, NumTeams));
   return ret;
 #else // INTEL_COLLAB
-  if (!AsyncInfoPtr || !RTL->run_team_region_async || !RTL->synchronize)
+  if (!RTL->run_team_region_async || !RTL->synchronize)
     return RTL->run_team_region(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                 TgtOffsets, TgtVarsSize, NumTeams, ThreadLimit,
                                 LoopTripCount);
   else
     return RTL->run_team_region_async(RTLDeviceID, TgtEntryPtr, TgtVarsPtr,
                                       TgtOffsets, TgtVarsSize, NumTeams,
-                                      ThreadLimit, LoopTripCount, AsyncInfoPtr);
+                                      ThreadLimit, LoopTripCount, AsyncInfo);
 #endif // INTEL_COLLAB
 }
 
@@ -672,9 +664,11 @@ char *DeviceTy::get_device_name(char *Buffer, size_t BufferMaxSize) {
 void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
                                 void *HstPtrBase) {
   OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
-  void *ret = RTL->data_alloc_base
-      ? RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase)
-      : RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
+  void *ret =
+      RTL->data_alloc_base
+          ? RTL->data_alloc_base(RTLDeviceID, Size, HstPtrBegin, HstPtrBase)
+          : RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin,
+                            TARGET_ALLOC_DEFAULT);
   OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, ret));
   return ret;
 }
@@ -682,8 +676,9 @@ void *DeviceTy::data_alloc_base(int64_t Size, void *HstPtrBegin,
 void *DeviceTy::data_alloc_user(int64_t Size, void *HstPtrBegin) {
   OMPT_TRACE(targetDataAllocBegin(RTLDeviceID, Size));
   void *ret = RTL->data_alloc_user
-      ? RTL->data_alloc_user(RTLDeviceID, Size, HstPtrBegin)
-      : RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
+                  ? RTL->data_alloc_user(RTLDeviceID, Size, HstPtrBegin)
+                  : RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin,
+                                    TARGET_ALLOC_DEFAULT);
   OMPT_TRACE(targetDataAllocEnd(RTLDeviceID, Size, ret));
   return ret;
 }
@@ -770,10 +765,9 @@ int32_t DeviceTy::run_team_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
   return ret;
 }
 
-void *DeviceTy::create_offload_queue(bool IsAsync) {
-  if (!RTL->create_offload_queue)
-    return nullptr;
-  return RTL->create_offload_queue(RTLDeviceID, IsAsync);
+void DeviceTy::create_offload_queue(void *Interop) {
+  if (RTL->create_offload_queue)
+    RTL->create_offload_queue(RTLDeviceID, Interop);
 }
 
 int32_t DeviceTy::release_offload_queue(void *Queue) {
@@ -789,10 +783,9 @@ void *DeviceTy::get_platform_handle() {
   return RTL->get_platform_handle(RTLDeviceID);
 }
 
-void *DeviceTy::get_device_handle() {
-  if (!RTL->get_device_handle)
-    return nullptr;
-  return RTL->get_device_handle(RTLDeviceID);
+void DeviceTy::setDeviceHandle(void *Interop) {
+  if (RTL->set_device_handle)
+    RTL->set_device_handle(RTLDeviceID, Interop);
 }
 
 void *DeviceTy::get_context_handle() {
@@ -834,9 +827,12 @@ int32_t DeviceTy::get_data_alloc_info(
     return OFFLOAD_FAIL;
 }
 
-int32_t DeviceTy::pushSubDevice(int64_t ID) {
-  if (RTL->push_subdevice)
-    return RTL->push_subdevice(ID);
+int32_t DeviceTy::pushSubDevice(int64_t EncodedID, int64_t DeviceID) {
+  if (RTL->push_subdevice == nullptr)
+    return OFFLOAD_SUCCESS;
+
+  if (EncodedID != DeviceID)
+    return RTL->push_subdevice(EncodedID);
   else
     return OFFLOAD_SUCCESS;
 }
@@ -854,6 +850,90 @@ int32_t DeviceTy::isSupportedDevice(void *DeviceType) {
   else
     return false;
 }
+
+__tgt_interop *DeviceTy::createInterop(int32_t InteropContext,
+                                       int32_t NumPrefers,
+                                       intptr_t *PreferIDs) {
+  if (RTL->create_interop)
+    return RTL->create_interop(RTLDeviceID, InteropContext, NumPrefers,
+                               PreferIDs);
+  else
+    return NULL;
+}
+
+int32_t DeviceTy::releaseInterop(__tgt_interop *Interop) {
+  if (RTL->release_interop)
+    return RTL->release_interop(RTLDeviceID, Interop);
+  else
+    return OFFLOAD_FAIL;
+}
+
+int32_t DeviceTy::useInterop(__tgt_interop *Interop) {
+  if (RTL->use_interop)
+    return RTL->use_interop(RTLDeviceID, Interop);
+  else
+    return OFFLOAD_FAIL;
+}
+
+int32_t DeviceTy::getNumInteropProperties(void) {
+  if (RTL->get_num_interop_properties)
+    return RTL->get_num_interop_properties(RTLDeviceID);
+  else
+    return 0;
+}
+
+int32_t DeviceTy::getInteropPropertyValue(__tgt_interop *Interop,
+                                          int32_t Property, int32_t ValueType,
+                                          size_t Size, void *Value) {
+  if (RTL->get_interop_property_value)
+    return RTL->get_interop_property_value(RTLDeviceID, Interop, Property,
+                                           ValueType, Size, Value);
+  else
+    return OFFLOAD_FAIL;
+}
+
+const char *DeviceTy::getInteropPropertyInfo(int32_t Property,
+                                             int32_t InfoType) {
+  if (RTL->get_interop_property_info)
+    return RTL->get_interop_property_info(RTLDeviceID, Property, InfoType);
+  else
+    return NULL;
+}
+
+const char *DeviceTy::getInteropRcDesc(int32_t RetCode) {
+  if (RTL->get_interop_rc_desc)
+    return RTL->get_interop_rc_desc(RTLDeviceID, RetCode);
+  else
+    return NULL;
+}
+
+int32_t DeviceTy::setSubDevice(int32_t Level) {
+  if (RTL->get_num_sub_devices) {
+    if (PM->RootDeviceID >= 0 || PM->SubDeviceMask != 0) {
+      DP("WARNING: unexpected sub-device region detected -- "
+         "sub-device environment is not configured.\n");
+      return 0;
+    }
+    int32_t NumSubDevices = RTL->get_num_sub_devices(RTLDeviceID, Level);
+    if (NumSubDevices > 0) {
+      int64_t Mask = 1ULL << 63; // Sub-device is on
+      Mask |= static_cast<int64_t>(Level) << 56; // Level
+      // "start" bits will be written by the ID passed to __tgt* entries.
+      Mask |= 1ULL << 40; // Count
+      Mask |= 1ULL << 32; // Stride
+      PM->RootDeviceID = RTLDeviceID;
+      PM->SubDeviceMask = Mask;
+    }
+    return NumSubDevices;
+  } else {
+    return 0;
+  }
+}
+
+void DeviceTy::unsetSubDevice(void) {
+  PM->RootDeviceID = -1;
+  PM->SubDeviceMask = 0;
+}
 #endif // INTEL_COLLAB
 
 // Whether data can be copied to DstDevice directly
@@ -868,9 +948,9 @@ bool DeviceTy::isDataExchangable(const DeviceTy &DstDevice) {
   return false;
 }
 
-int32_t DeviceTy::synchronize(__tgt_async_info *AsyncInfoPtr) {
+int32_t DeviceTy::synchronize(AsyncInfoTy &AsyncInfo) {
   if (RTL->synchronize)
-    return RTL->synchronize(RTLDeviceID, AsyncInfoPtr);
+    return RTL->synchronize(RTLDeviceID, AsyncInfo);
   return OFFLOAD_SUCCESS;
 }
 
@@ -892,7 +972,7 @@ bool device_is_ready(int device_num) {
   DeviceTy &Device = PM->Devices[device_num];
 
   DP("Is the device %d (local ID %d) initialized? %d\n", device_num,
-       Device.RTLDeviceID, Device.IsInit);
+     Device.RTLDeviceID, Device.IsInit);
 
   // Init the device if not done before
   if (!Device.IsInit && Device.initOnce() != OFFLOAD_SUCCESS) {

@@ -108,7 +108,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; OPTREPORT:     LOOP END
 
 ; OPTREPORT:     LOOP BEGIN
-; OPTREPORT:         Remark: Loop has been row-wise multiversioned
+; OPTREPORT:         remark: Loop has been row-wise multiversioned
 ; OPTREPORT:     LOOP END
 ; OPTREPORT: LOOP END
 

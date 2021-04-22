@@ -16,16 +16,18 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRMEMORYREDUCTIONSINKINGPASS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRMEMORYREDUCTIONSINKINGPASS_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
 class HIRMemoryReductionSinkingPass
-    : public PassInfoMixin<HIRMemoryReductionSinkingPass> {
+    : public HIRPassInfoMixin<HIRMemoryReductionSinkingPass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-memory-reduction-sinking";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

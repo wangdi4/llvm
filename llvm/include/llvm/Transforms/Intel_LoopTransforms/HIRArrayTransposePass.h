@@ -12,15 +12,17 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRARRAYTRANSPOSE_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRARRAYTRANSPOSE_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
-class HIRArrayTransposePass : public PassInfoMixin<HIRArrayTransposePass> {
+class HIRArrayTransposePass : public HIRPassInfoMixin<HIRArrayTransposePass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-array-transpose";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

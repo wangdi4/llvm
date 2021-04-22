@@ -16,7 +16,7 @@
 ; If we unroll loop nest, we add the remark about complete unrolling only to the outer loop in the nest.
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:     Remark: Loopnest completely unrolled{{[[:space:]]}}
+; OPTREPORT-NEXT:     remark: Loopnest completely unrolled{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
@@ -29,7 +29,7 @@
 ; CHECK: [[M4]] = distinct !{!"llvm.loop.optreport", [[M5:!.*]]}
 ; CHECK: [[M5]] = distinct !{!"intel.loop.optreport", [[M6:!.*]], [[M8:!.*]]}
 ; CHECK: [[M6]] = !{!"intel.optreport.remarks", [[M7:!.*]]}
-; CHECK: [[M7]] = !{!"intel.optreport.remark", !"Loopnest completely unrolled"}
+; CHECK: [[M7]] = !{!"intel.optreport.remark", i32 0, !"Loopnest completely unrolled"}
 ; CHECK: [[M8]] = !{!"intel.optreport.first_child", [[M9:!.*]]}
 ; CHECK: [[M9]] = distinct !{!"llvm.loop.optreport", [[M10:!.*]]}
 ; CHECK: [[M10]] = !{!"intel.loop.optreport"}

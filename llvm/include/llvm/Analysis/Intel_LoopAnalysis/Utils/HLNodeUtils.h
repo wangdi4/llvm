@@ -1434,8 +1434,8 @@ public:
 
   /// Constant Node version of gatherLoopsWithLevel.
   template <typename T>
-  static void gatherLoopsWithLevel(const HLNode *Node, SmallVectorImpl<T> &Loops,
-                            unsigned Level) {
+  static void gatherLoopsWithLevel(const HLNode *Node,
+                                   SmallVectorImpl<T> &Loops, unsigned Level) {
     static_assert(std::is_const<typename std::remove_pointer<T>::type>::value,
                   "Type of SmallVector parameter should be const HLLoop *.");
     gatherLoopsWithLevel(const_cast<HLNode *>(Node), Loops, Level);
@@ -1472,20 +1472,16 @@ public:
                                 bool *IsNearPerfect = nullptr);
 
   /// Returns the loop at the outermost level, that makes
-  /// a perfect or near-perfect loop nest in the range,
-  /// [returned loop, InnermostLoop].
-  /// \p IsNearPerfect is set to true, when the resulting
-  /// loopnest is a near-perfect loop.
+  /// a perfect loop nest. Near Perfect loopnests are ignored.
   /// If the InnermostLoop is also the outermost loop it returns false
-  /// to conform to the logic of isPerfectLoopNest.
   static const HLLoop *
-  getHighestAncestorForPerfectLoopNest(const HLLoop *InnermostLoop,
-                                       bool &IsNearPerfect);
+  getHighestAncestorForPerfectLoopNest(const HLLoop *InnermostLoop);
 
   /// Collects the diagonal instructions corresponding to the initialization
   /// of the identity matrix in the loop
-  static void findIdentityMatrix(HIRLoopStatistics *HLS, const HLLoop *InnerLp,
-                                 SmallVector<const RegDDRef *, 2> &Diagonals);
+  static void
+  findInner2DIdentityMatrix(HIRLoopStatistics *HLS, const HLLoop *InnerLp,
+                            SmallVector<const RegDDRef *, 2> &Diagonals);
 
   /// Any memref with non-unit stride?
   /// Will take innermost for now.
@@ -1498,7 +1494,7 @@ public:
   static HLLoop *getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2);
 
   /// Returns the lexical lowest common ancestor parent of Node1 and Node2.
-  /// Returns null if there is no such parent.
+  /// Returns region node in the absence of any other common parent.
   static const HLNode *
   getLexicalLowestCommonAncestorParent(const HLNode *Node1,
                                        const HLNode *Node2);

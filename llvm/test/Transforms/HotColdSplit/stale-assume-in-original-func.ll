@@ -2,12 +2,12 @@
 
 ; CHECK-LABEL: define {{.*}} @foo(
 ; CHECK-NOT: llvm.assume
-; CHECK: call void @foo.cold.1()
+; CHECK: call void @foo.cold.1(i1 %cond) ;INTEL
 ; CHECK: llvm.assume
 ; CHECK-NEXT: ret void
 
 ; CHECK-LABEL: define {{.*}} @foo.cold.1(
-; CHECK-NOT: llvm.assume
+; CHECK: llvm.assume                     ;INTEL
 ; CHECK: call void @cold()
 ; CHECK-NOT: llvm.assume
 ; CHECK: }

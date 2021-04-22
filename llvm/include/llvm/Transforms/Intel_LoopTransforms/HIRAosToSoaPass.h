@@ -12,16 +12,17 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRAOSTOSOA_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRAOSTOSOA_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
-class HIRAosToSoaPass
-    : public PassInfoMixin<HIRAosToSoaPass> {
+class HIRAosToSoaPass : public HIRPassInfoMixin<HIRAosToSoaPass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-aos-to-soa";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

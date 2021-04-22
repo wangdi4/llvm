@@ -18,40 +18,61 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
 ;
-; CHECK-LABEL:  VPlan after live in/out lists creation
+; CHECK-LABEL:  VPlan after live in/out lists creation:
+; CHECK-NEXT:  VPlan IR for: foo:for.body
 ; CHECK-NEXT:  Live-in values:
-; CHECK-NEXT:  ID: 0 Value: i32 %Init
+; CHECK-NEXT:  ID: 0 Value: i32 [[INIT0:%.*]]
 ; CHECK-NEXT:  ID: 1 Value: i64 0
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list
-; CHECK-NEXT:   (+) Start: i32 [[INIT0:%.*]] Exit: i32 [[VP_ADD:%.*]]
+; CHECK-NEXT:   (+) Start: i32 [[INIT0]] Exit: i32 [[VP_ADD:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP_SUM_07:%.*]], i32 [[VP_ADD]], i32 [[VP_SUM_07_RED_INIT:%.*]], i32 [[VP_SUM_07_RED_FINAL:%.*]],
 ; CHECK:       Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 4294967295 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
-; CHECK:         [[BB2:BB[0-9]+]]: # preds
-; CHECK:          i32 [[VP_SUM_07_RED_INIT]] = reduction-init i32 0 i32 live-in0
+; CHECK:         [[BB1:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
+; CHECK-NEXT:     i32 [[VP_SUM_07_RED_INIT]] = reduction-init i32 0 i32 live-in0
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
-; CHECK:         [[BB3:BB[0-9]+]]: # preds
-; CHECK:          i32 [[VP_SUM_07_RED_FINAL]] = reduction-final{u_add} i32 [[VP_ADD]]
+; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[WIDE_TRIP_COUNT0:%.*]], UF = 1
+; CHECK-NEXT:     br [[BB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB0]]
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB0]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP_SUM_07]] = phi  [ i32 [[VP_ADD]], [[BB0]] ],  [ i32 [[VP_SUM_07_RED_INIT]], [[BB2]] ]
+; CHECK-NEXT:     i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     i32 [[VP_A_I:%.*]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:     i32 [[VP_ADD]] = add i32 [[VP_A_I]] i32 [[VP_SUM_07]]
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
+; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
+; CHECK-NEXT:     i32 [[VP_SUM_07_RED_FINAL]] = reduction-final{u_add} i32 [[VP_ADD]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 live-in1 i64 1
-; CHECK:       Live-out values:
+; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     br <External Block>
+; CHECK-EMPTY:
+; CHECK-NEXT:  Live-out values:
 ; CHECK-NEXT:  live-out0(i32 [[VP_SUM_07_RED_FINAL]])
 ; CHECK-NEXT:  live-out1(i64 [[VP_INDVARS_IV_IND_FINAL]])
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0     [[ADD_LCSSA0:%.*]] = phi i32 [ [[ADD0:%.*]], [[FOR_BODY0:%.*]] ] i32 [[VP_SUM_07_RED_FINAL]] -> i32 [[ADD0]];
+; CHECK-NEXT:  Id: 0     [[ADD_LCSSA0:%.*]] = phi i32 [ [[ADD0:%.*]], [[FOR_BODY0:%.*]] ] i32 [[VP_SUM_07_RED_FINAL]] -> i32 [[ADD0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 1     [[IND_LCSSA0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0]] ] i64 [[VP_INDVARS_IV_IND_FINAL]] -> i64 [[INDVARS_IV_NEXT0]]
 ; CHECK-EMPTY:
-; CHECK:       Original loop live-ins/live-outs:
+; CHECK-NEXT:  Original loop live-ins/live-outs:
 ; CHECK-NEXT:    Id: 1
 ; CHECK-NEXT:      Phi:   [[INDVARS_IV0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0]], [[FOR_BODY0]] ], [ 0, [[FOR_BODY_PH0:%.*]] ]    Start op: 1
 ; CHECK-NEXT:      Live-Out:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
 ; CHECK-NEXT:    Id: 0
-; CHECK-NEXT:      Phi:   [[SUM_070:%.*]] = phi i32 [ [[ADD0]], [[FOR_BODY0]] ], [ [[INIT0:%.*]], [[FOR_BODY_PH0]] ]    Start op: 1
+; CHECK-NEXT:      Phi:   [[SUM_070:%.*]] = phi i32 [ [[ADD0]], [[FOR_BODY0]] ], [ [[INIT0]], [[FOR_BODY_PH0]] ]    Start op: 1
 ; CHECK-NEXT:      Live-Out:   [[ADD0]] = add nsw i32 [[A_I0:%.*]], [[SUM_070]]
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

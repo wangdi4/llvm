@@ -109,6 +109,12 @@ struct LoopAttributes {
   /// Value for llvm.loop.intel.vector_aligned.enable metadata.
   bool VectorizeAlignedEnable;
 
+  /// Value for llvm.loop.intel.vector_dynamic_align.enable metadata.
+  bool VectorizeDynamicAlignEnable;
+
+  /// Value for llvm.loop.intel.vector_dddynamic_align.enable metadata.
+  bool VectorizeNoDynamicAlignEnable;
+
   /// Value for llvm.loop.intel.loopcount
   llvm::SmallVector<unsigned, 2> LoopCount;
 
@@ -134,6 +140,9 @@ struct LoopAttributes {
 
   /// Value for llvm.loop.vectorize.width metadata.
   unsigned VectorizeWidth;
+
+  // Value for llvm.loop.vectorize.scalable.enable
+  LVEnableState VectorizeScalable;
 
   /// Value for llvm.loop.interleave.count metadata.
   unsigned InterleaveCount;
@@ -465,6 +474,17 @@ public:
     StagedAttrs.VectorizeAlignedEnable = true;
   }
 
+
+  /// Set next pushed loop  'vector_dynamic_aligned.enable'
+  void setVectorizeDynamicAlignEnable() {
+    StagedAttrs.VectorizeDynamicAlignEnable = true;
+  }
+
+  /// Set next pushed loop  'vector_dynamic_aligned.enable'
+  void setVectorizeNoDynamicAlignEnable() {
+    StagedAttrs.VectorizeNoDynamicAlignEnable = true;
+  }
+
   /// Set the LoopCount for the next loop pushed.
   void setLoopCount(unsigned C) {
     StagedAttrs.LoopCount.push_back(C);
@@ -515,6 +535,10 @@ public:
 
   /// Set the vectorize width for the next loop pushed.
   void setVectorizeWidth(unsigned W) { StagedAttrs.VectorizeWidth = W; }
+
+  void setVectorizeScalable(const LoopAttributes::LVEnableState &State) {
+    StagedAttrs.VectorizeScalable = State;
+  }
 
   /// Set the interleave count for the next loop pushed.
   void setInterleaveCount(unsigned C) { StagedAttrs.InterleaveCount = C; }

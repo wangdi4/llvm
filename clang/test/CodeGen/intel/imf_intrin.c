@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
 // RUN:   -ffinite-math-only -menable-no-infs -menable-no-nans \
 // RUN:   -menable-unsafe-fp-math -freciprocal-math -ffp-contract=fast \
-// RUN:   -fno-trapping-math -fno-signed-zeros -ffast-math -mreassociate \
+// RUN:   -fno-signed-zeros -ffast-math -mreassociate \
 // RUN:   -fdenormal-fp-math=preserve-sign,preserve-sign -fno-rounding-math \
 // RUN:   -target-cpu skylake-avx512 -emit-llvm -fintel-compatibility \
 // RUN:   "-mGLOB_imf_attr=precision:high precision:low:sinf absolute-error:0.00001:sin" \

@@ -16,16 +16,15 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK-LABEL: var_tripcount
 ; CHECK: vector.body
-; CHECK: [[SCALAR_IV:%.*]] = phi i64 [ 0,
+; CHECK: [[SCALAR_IV:%.*]] = phi i64 [ %
 ; CHECK: [[VEC_IND:%.*]] = phi <4 x i64> [
 ; CHECK: store {{.*}} <4 x i32>
 ; CHECK: add nuw nsw <4 x i64> [[VEC_IND]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK: middle.block
 ; CHECK: scalar.ph
-; CHECK: %bc.resume.val = phi i64 [ 0, %for.body.preheader ], [ %{{.*}}, %middle.block ]
+; CHECK: [[UNI_PHI60:%.*]] = phi i64 [ [[TMP8:%.*]], [[MIDDLE_BLOCK0:%.*]] ], [ 0, [[VPLANNEDBB10:%.*]] ]
 ; CHECK: for.body:
-; CHECK: %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ %bc.resume.val, %scalar.ph ]
-
+; CHECK: [[INDVARS_IV0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0:%.*]] ], [ [[UNI_PHI60]], [[VPLANNEDBB70:%.*]] ]
 ; Function Attrs: nounwind uwtable
 define void @var_tripcount(i32* nocapture %ip, i32 %n) local_unnamed_addr #0 {
 entry:
@@ -51,7 +50,7 @@ for.body:                                         ; preds = %for.body.preheader,
 
 for.end:                                          ; preds = %for.body, %DIR.QUAL.LIST.END.2
   br label %for.cond.cleanup
-  
+
 for.cond.cleanup:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %DIR.QUAL.LIST.END.3

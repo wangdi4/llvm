@@ -15,39 +15,63 @@ define void @foo(i32* nocapture %ary) {
 ;    ary[i + 1] = t1;
 ;  }
 ; SVA-IR-LABEL:  VPlan after ScalVec analysis:
+; SVA-IR-NEXT:  VPlan IR for: foo:for.body
 ; SVA-IR-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-IR-EMPTY:
 ; SVA-IR-NEXT:    [[BB1]]: # preds: [[BB0]]
-; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 2 (SVAOpBits 0->F 1->F )
-; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 2 (SVAOpBits 0->F )
-; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body (SVAOpBits )
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1 (SVAOpBits 0->F )
-; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
+; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph (SVAOpBits 0->F 1->F 2->F )
 ; SVA-IR-EMPTY:
-; SVA-IR-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
-; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->V 1->V )
-; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[ARY0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->V 1->V )
-; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]] (SVAOpBits 0->V )
-; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_ADD7:%.*]] = add i32 [[VP0]] i32 7 (SVAOpBits 0->V 1->V )
-; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP1:%.*]] = add i64 [[VP_INDVARS_IV]] i64 1 (SVAOpBits 0->V 1->V )
-; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_ARRAYIDX4:%.*]] = getelementptr inbounds i32* [[ARY0]] i64 [[VP1]] (SVAOpBits 0->V 1->V )
-; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP2:%.*]] = load i32* [[VP_ARRAYIDX4]] (SVAOpBits 0->V )
-; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_ADD11:%.*]] = add i32 [[VP2]] i32 11 (SVAOpBits 0->V 1->V )
-; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP_ADD7]] i32* [[VP_ARRAYIDX]] (SVAOpBits 0->V 1->V )
-; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP_ADD11]] i32* [[VP_ARRAYIDX4]] (SVAOpBits 0->V 1->V )
-; SVA-IR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->V 1->V )
-; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
-; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
-; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
+; SVA-IR-NEXT:      vector.ph: # preds: [[BB1]]
+; SVA-IR-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 2 (SVAOpBits 0->F 1->F )
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 2 (SVAOpBits 0->F )
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-IR-EMPTY:
-; SVA-IR-NEXT:    [[BB3]]: # preds: [[BB2]]
-; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 2 (SVAOpBits 0->F 1->F )
-; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
+; SVA-IR-NEXT:      [[BB2]]: # preds: [[BB2]], vector.ph
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, vector.ph ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
+; SVA-IR-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], vector.ph ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
+; SVA-IR-NEXT:       [DA: Div, SVA: (F  )] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[ARY0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
+; SVA-IR-NEXT:       [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_LOAD:%.*]] = vls-load i32* [[VP_ARRAYIDX]], group_size=2, align=4 (SVAOpBits 0->F )
+; SVA-IR-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP0:%.*]] = vls-extract <8 x i32> [[VP_VLS_LOAD]], group_size=2, offset=0 (SVAOpBits 0->F )
+; SVA-IR-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP1:%.*]] = vls-extract <8 x i32> [[VP_VLS_LOAD]], group_size=2, offset=1 (SVAOpBits 0->F )
+; SVA-IR-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP_ADD7:%.*]] = add i32 [[VP0]] i32 7 (SVAOpBits 0->V 1->V )
+; SVA-IR-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP_ADD11:%.*]] = add i32 [[VP1]] i32 11 (SVAOpBits 0->V 1->V )
+; SVA-IR-NEXT:       [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_INSERT:%.*]] = vls-insert <8 x i32> undef i32 [[VP_ADD7]], group_size=2, offset=0 (SVAOpBits 0->F 1->V )
+; SVA-IR-NEXT:       [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_INSERT_1:%.*]] = vls-insert <8 x i32> [[VP_VLS_INSERT]] i32 [[VP_ADD11]], group_size=2, offset=1 (SVAOpBits 0->F 1->V )
+; SVA-IR-NEXT:       [DA: Div, SVA: RetVal:(F  ), Inst:( V )] vls-store <8 x i32> [[VP_VLS_INSERT_1]] i32* [[VP_ARRAYIDX]], group_size=2, align=4 (SVAOpBits 0->F 1->F )
+; SVA-IR-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]] (SVAOpBits 0->F 1->F )
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; SVA-IR-EMPTY:
-; SVA-IR-NEXT:    [[BB4]]: # preds: [[BB3]]
+; SVA-IR-NEXT:      [[BB3]]: # preds: [[BB2]]
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 2 (SVAOpBits 0->F 1->F )
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] br middle.block (SVAOpBits 0->F )
+; SVA-IR-EMPTY:
+; SVA-IR-NEXT:      middle.block: # preds: [[BB3]]
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 [[VP_ORIG_TRIP_COUNT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB4:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
+; SVA-IR-EMPTY:
+; SVA-IR-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP2:%.*]] = phi-merge  [ i64 live-out0, middle.block ],  [ i64 0, [[BB1]] ] (SVAOpBits 0->F 1->F )
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
+; SVA-IR-EMPTY:
+; SVA-IR-NEXT:      [[BB5]]: # preds: scalar.ph
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder for.body, NeedsCloning: 0, LiveInMap:
+; SVA-IR-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0:%.*]] ]} -> i64 [[VP2]] }
+; SVA-IR-NEXT:         {label [[FOR_END0:%.*]] in {  br i1 [[CMP0:%.*]], label [[FOR_BODY0]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB4]] } (SVAOpBits 0->F 1->F )
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 2 (SVAOpBits 0->F )
+; SVA-IR-NEXT:       [DA: Uni, SVA: (F  )] br [[BB4]] (SVAOpBits 0->F )
+; SVA-IR-EMPTY:
+; SVA-IR-NEXT:    [[BB4]]: # preds: [[BB5]], middle.block
+; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP3:%.*]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT]], [[BB5]] ],  [ i64 live-out0, middle.block ] (SVAOpBits 0->F 1->F )
+; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB6:BB[0-9]+]] (SVAOpBits 0->F )
+; SVA-IR-EMPTY:
+; SVA-IR-NEXT:    [[BB6]]: # preds: [[BB4]]
 ; SVA-IR-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
 ; SVA-IR-EMPTY:
 ; SVA-IR-NEXT:  External Uses:
@@ -62,31 +86,28 @@ define void @foo(i32* nocapture %ary) {
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-HIR-EMPTY:
 ; SVA-HIR-NEXT:    [[BB1]]: # preds: [[BB0]]
-; SVA-HIR-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
+; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1023, UF = 1 (SVAOpBits 0->F )
+; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; SVA-HIR-EMPTY:
 ; SVA-HIR-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
-; SVA-HIR-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP1:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP2:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP3:%.*]] = mul i64 2 i64 [[VP1]] (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[ARY0:%.*]] i64 [[VP3]] (SVAOpBits 0->V 1->V 2->V 3->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] (SVAOpBits 0->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP4:%.*]] = mul i64 2 i64 [[VP1]] (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP5:%.*]] = add i64 [[VP4]] i64 1 (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[ARY0]] i64 [[VP5]] (SVAOpBits 0->V 1->V 2->V 3->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]] (SVAOpBits 0->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP6:%.*]] = add i32 [[VP_LOAD]] i32 7 (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP7:%.*]] = mul i64 2 i64 [[VP1]] (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds i32* [[ARY0]] i64 [[VP7]] (SVAOpBits 0->V 1->V 2->V 3->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP6]] i32* [[VP_SUBSCRIPT_2]] (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP8:%.*]] = add i32 [[VP_LOAD_1]] i32 11 (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP9:%.*]] = mul i64 2 i64 [[VP1]] (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP10:%.*]] = add i64 [[VP9]] i64 1 (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds i32* [[ARY0]] i64 [[VP10]] (SVAOpBits 0->V 1->V 2->V 3->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP8]] i32* [[VP_SUBSCRIPT_3]] (SVAOpBits 0->V 1->V )
-; SVA-HIR-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP2]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
-; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP11:%.*]] = icmp sle i64 [[VP2]] i64 1023 (SVAOpBits 0->F 1->F )
-; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
+; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP1:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP2:%.*]], [[BB2]] ] (SVAOpBits 0->F 1->F )
+; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP3:%.*]] = mul i64 2 i64 [[VP1]] (SVAOpBits 0->F 1->F )
+; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[ARY0:%.*]] i64 [[VP3]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; SVA-HIR-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_LOAD:%.*]] = vls-load i32* [[VP_SUBSCRIPT]], group_size=2, align=4 (SVAOpBits 0->F )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD:%.*]] = vls-extract <8 x i32> [[VP_VLS_LOAD]], group_size=2, offset=0 (SVAOpBits 0->F )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_LOAD_1:%.*]] = vls-extract <8 x i32> [[VP_VLS_LOAD]], group_size=2, offset=1 (SVAOpBits 0->F )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP4:%.*]] = add i32 [[VP_LOAD]] i32 7 (SVAOpBits 0->V 1->V )
+; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP5:%.*]] = mul i64 2 i64 [[VP1]] (SVAOpBits 0->F 1->F )
+; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[ARY0]] i64 [[VP5]] (SVAOpBits 0->F 1->F 2->F 3->F )
+; SVA-HIR-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP6:%.*]] = add i32 [[VP_LOAD_1]] i32 11 (SVAOpBits 0->V 1->V )
+; SVA-HIR-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_INSERT:%.*]] = vls-insert <8 x i32> undef i32 [[VP4]], group_size=2, offset=0 (SVAOpBits 0->F 1->V )
+; SVA-HIR-NEXT:     [DA: Uni, SVA: RetVal:(F  ), Inst:( V )] <8 x i32> [[VP_VLS_INSERT_1:%.*]] = vls-insert <8 x i32> [[VP_VLS_INSERT]] i32 [[VP6]], group_size=2, offset=1 (SVAOpBits 0->F 1->V )
+; SVA-HIR-NEXT:     [DA: Div, SVA: RetVal:(F  ), Inst:( V )] vls-store <8 x i32> [[VP_VLS_INSERT_1]] i32* [[VP_SUBSCRIPT_1]], group_size=2, align=4 (SVAOpBits 0->F 1->F )
+; SVA-HIR-NEXT:     [DA: Div, SVA: (F  )] i64 [[VP2]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
+; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP7:%.*]] = icmp sle i64 [[VP2]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP7]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; SVA-HIR-EMPTY:
 ; SVA-HIR-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; SVA-HIR-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )

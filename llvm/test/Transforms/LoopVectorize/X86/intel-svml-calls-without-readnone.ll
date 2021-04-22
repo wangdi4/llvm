@@ -14,7 +14,7 @@ define dso_local void @foo(float* nocapture %a) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[TMP5:%.*]] = call float @logf(float [[TMP4]]) #2
 ; CHECK-NEXT:    [[TMP6:%.*]] = extractelement <2 x float> [[WIDE_LOAD]], i32 1
 ; CHECK-NEXT:    [[TMP7:%.*]] = call float @logf(float [[TMP6]]) #2
-; CHECK-NEXT:    [[TMP8:%.*]] = insertelement <2 x float> undef, float [[TMP5]], i32 0
+; CHECK-NEXT:    [[TMP8:%.*]] = insertelement <2 x float> poison, float [[TMP5]], i32 0
 ; CHECK-NEXT:    [[TMP9:%.*]] = insertelement <2 x float> [[TMP8]], float [[TMP7]], i32 1
 ;
 omp.inner.for.body.lr.ph:

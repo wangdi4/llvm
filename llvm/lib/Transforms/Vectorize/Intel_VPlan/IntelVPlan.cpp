@@ -18,11 +18,15 @@
 
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
+#include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPSOAAnalysis.h"
+#include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanClone.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
+#include "IntelVPlanUtils.h"
+#include "IntelVPlanScalarEvolution.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
 #else
@@ -64,6 +68,14 @@ static cl::opt<bool>
     VPlanDumpDetails("vplan-dump-details", cl::init(false), cl::Hidden,
                      cl::desc("Print VPlan instructions' details like "
                               "underlying attributes/metadata."));
+
+static cl::opt<bool> VPlanDumpDebugLoc(
+    "vplan-dump-debug-loc", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan instructions' debug location information."));
+
+static cl::opt<bool> VPlanDumpInductionInitDetails(
+  "vplan-dump-induction-init-details", cl::init(false), cl::Hidden,
+  cl::desc("Print induction value range information."));
 
 static cl::opt<bool> UseGetType(
   "vplan-cost-model-use-gettype", cl::init(true), cl::Hidden,
@@ -110,6 +122,24 @@ void ilist_traits<VPBasicBlock>::removeNodeFromList(VPBasicBlock *VPBB) {
 void ilist_traits<VPBasicBlock>::deleteNode(VPBasicBlock *VPBB) {
   assert(!VPBB->getParent() && "VPBasicBlock is still in a VPlan!");
   delete VPBB;
+}
+
+void ilist_traits<VPBasicBlock>::transferNodesFromList(ilist_traits &FromList,
+                                                       instr_iterator First,
+                                                       instr_iterator Last) {
+  // If it's within the same list, there's nothing to do.
+  if (this == &FromList)
+    return;
+
+  VPlan *CurP = getListOwner<VPlan, VPBasicBlock>(this);
+  VPlan *FromP = getListOwner<VPlan, VPBasicBlock>(&FromList);
+  assert(CurP != FromP && "Two lists have the same parent?");
+  (void)CurP;
+  (void)FromP;
+
+  // If splicing between two VPlans then update the parent pointers.
+  for (; First != Last; ++First)
+    First->setParent(getListOwner<VPlan, VPBasicBlock>(this));
 }
 
 void VPInstruction::moveBefore(VPInstruction *MovePos) {
@@ -182,101 +212,22 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   //  3) the decomposed VPInstructions have more than one use.
 
   const OVLSGroup *Group = nullptr;
-  const HLInst *GrpStartInst = nullptr;
-  int64_t InterleaveFactor = 0, InterleaveIndex = 0;
+  int InterleaveFactor = 0, InterleaveIndex = 0;
 
-  // Compute group information if we have a valid master instruction
-  if (HIR.isMaster() && isUnderlyingIRValid()) {
-    HLNode *HNode = HIR.getUnderlyingNode();
-    if (isa<HLInst>(HNode)) {
-      unsigned Opcode = getOpcode();
+  // Compute group information for VLS optimized accesses that we currently
+  // handle.
+  unsigned Opcode = getOpcode();
 
-      if (Opcode == Instruction::Load || Opcode == Instruction::Store) {
-        VPlanVLSAnalysis *VLSA = CG->getVLS();
-        const VPlan *Plan = CG->getPlan();
-        int32_t GrpSize = 0;
+  if (Opcode == Instruction::Load || Opcode == Instruction::Store) {
+    VPlanVLSAnalysis *VLSA = CG->getVLS();
+    const VPlan *Plan = CG->getPlan();
 
-        // Get OPTVLS group for current load/store instruction
-        Group = VLSA->getGroupsFor(Plan, this);
-        Optional<int64_t> GroupStride = Group ? Group->getConstStride() : None;
-
-        // Only handle strided OptVLS Groups with no access gaps for now.
-        if (GroupStride) {
-          GrpSize = Group->size();
-          APInt AccessMask = Group->computeByteAccessMask();
-
-          // Access mask is currently 64 bits, skip groups with group stride >
-          // 64 and access gaps.
-          if (*GroupStride > 64 || !AccessMask.isAllOnesValue() ||
-              AccessMask.getBitWidth() != *GroupStride)
-            Group = nullptr;
-        } else
-          Group = nullptr;
-
-        if (Group) {
-          VPVLSClientMemrefHIR *FirstMemref = nullptr;
-          const RegDDRef *FirstMemrefDD = nullptr;
-          uint64_t RefSizeInBytes = 0;
-
-          // Check that all members of the group have same type. Currently we
-          // do not handle groups such as a[i].i, a[i].d for
-          //   struct {int i; double d} a[100]
-          // Also setup GrpStartInst, FirstMemref, FirstMemrefDD, and
-          // RefSizeInBytes.
-          bool TypesMatch = true;
-          for (int64_t Index = 0; Index < Group->size(); ++Index) {
-            auto *Memref = cast<VPVLSClientMemrefHIR>(Group->getMemref(Index));
-            const HLInst *HInst;
-            const RegDDRef *MemrefDD;
-
-            // Members of the group can be memrefs which are not master
-            // VPInstructions (due to HIR Temp cleanup). Assertions for validity
-            // and to check if underlying HLInst is master VPI is not needed
-            // anymore. We directly obtain the HInst from memref's RegDDRef.
-            MemrefDD = Memref->getRegDDRef();
-            HInst = cast<HLInst>(MemrefDD->getHLDDNode());
-            if (Index == 0) {
-              auto DL = MemrefDD->getDDRefUtils().getDataLayout();
-
-              FirstMemref = Memref;
-              FirstMemrefDD = MemrefDD;
-              GrpStartInst = HInst;
-              RefSizeInBytes =
-                  DL.getTypeAllocSize(FirstMemrefDD->getDestType());
-            } else if (MemrefDD->getDestType() != FirstMemrefDD->getDestType())
-              TypesMatch = false;
-
-            // Setup the interleave index of the current instruction within the
-            // VLS group.
-            if (Memref->getInstruction() == this) {
-              auto DistOrNone = Memref->getConstDistanceFrom(*FirstMemref);
-              InterleaveIndex = DistOrNone.getValueOr(0) / RefSizeInBytes;
-            }
-          }
-
-          // Compute interleave factor based on the distance of the last memref
-          // in the group from the first memref. This may not be the same as
-          // the group size as we may see duplicate accesses like:
-          //     a[2*i]
-          //     a[2*i+1]
-          //     a[2*i]
-          auto *LastMemref =
-              cast<VPVLSClientMemrefHIR>(Group->getMemref(GrpSize - 1));
-          auto LastDistOrNone = LastMemref->getConstDistanceFrom(*FirstMemref);
-          InterleaveFactor = LastDistOrNone.getValueOr(0) / RefSizeInBytes + 1;
-
-          // If interleave factor is less than 2, nothing special needs to be
-          // done. Similarly, we do not handle the case where all memrefs in the
-          // group are not of the same type.
-          if (InterleaveFactor < 2 || !TypesMatch)
-            Group = nullptr;
-        }
-      }
-    }
+    auto GrpData = getOptimizedVLSGroupData(this, VLSA, Plan);
+    if (GrpData)
+      std::tie(Group, InterleaveFactor, InterleaveIndex) = GrpData.getValue();
   }
 
-  CG->widenNode(this, nullptr, Group, InterleaveFactor, InterleaveIndex,
-                GrpStartInst);
+  CG->widenNode(this, nullptr, Group, InterleaveFactor, InterleaveIndex);
   // Propagate debug location for the generated HIR construct.
   CG->propagateDebugLocation(this);
 }
@@ -288,10 +239,10 @@ Type *VPInstruction::getCMType() const {
   if (getUnderlyingValue())
     return getUnderlyingValue()->getType();
 
-  if (!HIR.isMaster())
+  if (!HIR().isMaster())
     return nullptr;
 
-  const loopopt::HLNode *Node = HIR.getUnderlyingNode();
+  const loopopt::HLNode *Node = HIR().getUnderlyingNode();
   const loopopt::HLInst *Inst = dyn_cast_or_null<loopopt::HLInst>(Node);
 
   if (!Inst)
@@ -333,7 +284,9 @@ bool VPInstruction::mayHaveSideEffects() const {
   if (Instruction::isCast(Opcode) || Instruction::isShift(Opcode) ||
       Instruction::isBitwiseLogicOp(Opcode) ||
       Instruction::isBinaryOp(Opcode) || Instruction::isUnaryOp(Opcode) ||
-      Opcode == Instruction::Select || Opcode == Instruction::GetElementPtr ||
+      Opcode == Instruction::ExtractElement ||
+      Opcode == Instruction::ShuffleVector || Opcode == Instruction::Select ||
+      Opcode == Instruction::GetElementPtr ||
       Opcode == VPInstruction::Subscript || Opcode == Instruction::PHI ||
       Opcode == Instruction::ICmp || Opcode == Instruction::FCmp ||
       Opcode == VPInstruction::Not || Opcode == VPInstruction::Abs ||
@@ -397,10 +350,38 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "active-lane";
   case VPInstruction::ActiveLaneExtract:
     return "lane-extract";
-  case VPInstruction::ReuseLoop:
-    return "re-use-loop";
   case VPInstruction::OrigLiveOut:
     return "orig-live-out";
+  case VPInstruction::PushVF:
+    return "pushvf";
+  case VPInstruction::PopVF:
+    return "popvf";
+  case VPInstruction::ScalarPeel:
+    return "scalar-peel";
+  case VPInstruction::ScalarRemainder:
+    return "scalar-remainder";
+  case VPInstruction::PlanAdapter:
+    return "vplan-adapter";
+  case VPInstruction::PlanPeelAdapter:
+    return "vplan-peel-adapter";
+  case VPInstruction::PrivateFinalUncond:
+    return "private-final-uc";
+  case VPInstruction::PrivateFinalUncondMem:
+    return "private-final-uc-mem";
+  case VPInstruction::VLSLoad:
+    return "vls-load";
+  case VPInstruction::VLSStore:
+    return "vls-store";
+  case VPInstruction::VLSExtract:
+    return "vls-extract";
+  case VPInstruction::VLSInsert:
+    return "vls-insert";
+  case VPInstruction::InvSCEVWrapper:
+    return "inv-scev-wrapper";
+  case VPInstruction::PrivateFinalCond:
+    return "private-final-c";
+  case VPInstruction::PrivateFinalCondMem:
+    return "private-final-c-mem";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -409,8 +390,11 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
 
 void VPInstruction::print(raw_ostream &O) const {
   const VPlan *Plan = getParent()->getParent();
-  const VPlanDivergenceAnalysis *DA = Plan->getVPlanDA();
-  const VPlanScalVecAnalysis *SVA = Plan->getVPlanSVA();
+  const VPlanDivergenceAnalysisBase *DA = Plan->getVPlanDA();
+  VPlanScalVecAnalysis *SVA = nullptr;
+  if (auto *VecVPlan = dyn_cast<VPlanVector>(Plan))
+    SVA = VecVPlan->getVPlanSVA();
+
   if (DA || SVA)
     O << "[";
   // Print DA information.
@@ -446,12 +430,14 @@ void VPInstruction::print(raw_ostream &O) const {
     O << ")";
   }
 
-  if (VPlanDumpDetails) {
+  if (VPlanDumpDetails || VPlanDumpDebugLoc) {
     O << "\n";
     // TODO: How to get Indent here?
     O << "    DbgLoc: ";
     getDebugLocation().print(O);
     O << "\n";
+  }
+  if (VPlanDumpDetails) {
     O << "    OperatorFlags -\n";
     O << "      FMF: " << hasFastMathFlags() << ", NSW: " << hasNoSignedWrap()
       << ", NUW: " << hasNoUnsignedWrap() << ", Exact: " << isExact() << "\n";
@@ -496,11 +482,14 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   case VPInstruction::Subscript:
     PrintOpcodeWithInBounds(cast<const VPSubscriptInst>(this));
     break;
-  case VPInstruction::InductionInit:
+  case VPInstruction::InductionInit: {
     O << getOpcodeName(getOpcode()) << "{"
-      << getOpcodeName(cast<const VPInductionInit>(this)->getBinOpcode())
-      << "}";
+      << getOpcodeName(cast<const VPInductionInit>(this)->getBinOpcode());
+    if (VPlanDumpInductionInitDetails)
+      cast<const VPInductionInit>(this)->printDetails(O);
+    O << "}";
     break;
+  }
   case VPInstruction::InductionInitStep:
     O << getOpcodeName(getOpcode()) << "{"
       << getOpcodeName(cast<const VPInductionInitStep>(this)->getBinOpcode())
@@ -532,8 +521,19 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   default:
     O << getOpcodeName(getOpcode());
   }
-  if (auto *ReuseLoop = dyn_cast<VPReuseLoop>(this)) {
-    ReuseLoop->printImpl(O);
+
+  if (auto *ScalarPeel = dyn_cast<VPScalarPeel>(this)) {
+    ScalarPeel->printImpl(O);
+    return;
+  }
+
+  if (auto *ScalarRemainder = dyn_cast<VPScalarRemainder>(this)) {
+    ScalarRemainder->printImpl(O);
+    return;
+  }
+
+  if (auto *SCEVWrapper = dyn_cast<VPInvSCEVWrapper>(this)) {
+    SCEVWrapper->printImpl(O);
     return;
   }
 
@@ -542,10 +542,18 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     return;
   }
 
+  if (auto *PushVF = dyn_cast<VPPushVF>(this)) {
+    PushVF->printImpl(O);
+    return;
+  }
+
   if (getOpcode() == VPInstruction::OrigTripCountCalculation) {
     auto *Self = cast<VPOrigTripCountCalculation>(this);
     O << " for original loop " << Self->getOrigLoop()->getName();
   }
+
+  if (auto *Adapter = dyn_cast<VPlanAdapter>(this))
+    Adapter->printImpl(O);
 
   // TODO: print type when this information will be available.
   // So far don't print anything, because PHI may not have Instruction
@@ -642,13 +650,44 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
         O << ", LastValPreInc = 1";
       break;
     }
+    case VPInstruction::VLSLoad: {
+      auto *VLSLoad = cast<VPVLSLoad>(this);
+      O << ", group_size=" << VLSLoad->getGroupSize()
+        << ", align=" << VLSLoad->getAlignment().value();
+      break;
+    }
+    case VPInstruction::VLSStore: {
+      auto *VLSStore = cast<VPVLSStore>(this);
+      O << ", group_size=" << VLSStore->getGroupSize()
+        << ", align=" << VLSStore->getAlignment().value();
+      break;
+    }
+    case VPInstruction::VLSExtract: {
+      auto *Extract = cast<VPVLSExtract>(this);
+      O << ", group_size=" << Extract->getGroupSize()
+        << ", offset=" << Extract->getOffset();
+      break;
+    }
+    case VPInstruction::VLSInsert: {
+      auto *Insert = cast<VPVLSInsert>(this);
+      O << ", group_size=" << Insert->getGroupSize()
+        << ", offset=" << Insert->getOffset();
+      break;
+    }
     }
   }
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
-VPlan::VPlan(VPExternalValues &E) : Externals(E) {}
+VPlanVector::VPlanVector(VPlanKind K, VPExternalValues &E,
+                         VPUnlinkedInstructions &UVPI)
+    : VPlan(K, E, UVPI) {}
+VPlanMasked::VPlanMasked(VPExternalValues &E, VPUnlinkedInstructions &UVPI)
+    : VPlanVector(VPlanKind::Masked, E, UVPI) {}
+VPlanNonMasked::VPlanNonMasked(VPExternalValues &E,
+                               VPUnlinkedInstructions &UVPI)
+    : VPlanVector(VPlanKind::NonMasked, E, UVPI) {}
 
 VPlan::~VPlan() {
   // After this it is safe to delete instructions.
@@ -660,13 +699,13 @@ VPlan::~VPlan() {
       LOV->dropAllReferences();
 }
 
-void VPlan::computeDT(void) {
+void VPlanVector::computeDT(void) {
   if (!PlanDT)
     PlanDT.reset(new VPDominatorTree);
   PlanDT->recalculate(*this);
 }
 
-void VPlan::computePDT(void) {
+void VPlanVector::computePDT(void) {
   if (!PlanPDT)
     PlanPDT.reset(new VPPostDominatorTree);
   PlanPDT->recalculate(*this);
@@ -674,14 +713,21 @@ void VPlan::computePDT(void) {
 
 #endif // INTEL_CUSTOMIZATION
 
-void VPlan::runSVA(unsigned VF, const TargetLibraryInfo *TLI) {
+void VPlanVector::runSVA() {
   if (!EnableScalVecAnalysis)
     return;
   VPlanSVA = std::make_unique<VPlanScalVecAnalysis>();
-  VPlanSVA->compute(this, VF, TLI);
+  VPlanSVA->compute(this);
 }
 
-void VPlan::invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses) {
+void VPlanVector::clearSVA() {
+  // Reset CallVecDecisions results that were recorded for this VPlan.
+  VPlanCallVecDecisions CVDA(*this);
+  CVDA.reset();
+  VPlanSVA.reset();
+}
+
+void VPlanVector::invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses) {
   for (auto ID : Analyses) {
     switch (ID) {
     case VPAnalysisID::SVA:
@@ -689,7 +735,6 @@ void VPlan::invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses) {
       break;
     case VPAnalysisID::DA:
     case VPAnalysisID::VLS:
-    default:
       llvm_unreachable("Add invalidation support for analysis.");
     }
   }
@@ -698,41 +743,95 @@ void VPlan::invalidateAnalyses(ArrayRef<VPAnalysisID> Analyses) {
 // Generate the code inside the body of the vectorized loop. Assumes a single
 // LoopVectorBody basic block was created for this; introduces additional
 // basic blocks as needed, and fills them all.
-void VPlan::execute(VPTransformState *State) {
-  assert(std::distance(VPLInfo->begin(), VPLInfo->end()) == 1 &&
-         "Expected single outermost loop!");
-  VPLoop *VLoop = *VPLInfo->begin();
+void VPlanVector::execute(VPTransformState *State) {
+  VPLoop *VLoop = getMainLoop(false);
   State->ILV->setVPlan(this, getLoopEntities(VLoop));
+
+  IRBuilder<>::InsertPointGuard Guard(State->Builder);
+  // The code below (until hasExplicitRemainder check) won't be needed when
+  // explicit remainder becomes the only option.
   BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
-  BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
-  assert(VectorHeaderBB && "Loop preheader does not have a single successor.");
-  // TODO: Represent all new BBs explicitly in the VPlan to remove any hidden
-  // dependencies/assumptions between BBs handling in VPCodeGen.cpp and this
-  // file.
-  auto *HTerm = VectorHeaderBB->getTerminator();
-  BasicBlock *MiddleBlock = HTerm->getSuccessor(0);
+  BasicBlock *MiddleBlock;
 
-  auto CurrIP = State->Builder.saveIP();
+  if (hasExplicitRemainder()) {
+    State->CFG.InsertBefore = State->ILV->getOrigLoop()->getExitBlock();
+    State->CFG.PrevBB = State->ILV->getOrigLoop()->getLoopPreheader();
+    // Find first VPBB that is on the path to vector loop. We can't
+    // place vector instructions before that block, this might lead
+    // to unnecessary vector code executed when the vector path is
+    // not taken (e.g. after TC check).
+    // Supposing that CFG is built like below
+    //
+    // pred.block:
+    //   %vectorTC = vector-trip-count %op
+    //   %c = icmp eq i64 %vectorTC, 0
+    //   br i1 %c, label vector.ph, label %scalar.ph
+    // vector.ph:
+    //   ...
+    // vector.body:
+    //   ...
+    // Here vector.ph is the needed block. We go from loop preheader
+    // back by single predecessor until find the block with more than
+    // one succesor.
+    // TODO. That might need correction if we will insert some
+    // if-then-else initilization sequences before VPLoop preheader.
+    VPBasicBlock *BB;
+    for (BB = VLoop->getLoopPreheader();
+         BB && BB->getSinglePredecessor() &&
+         BB->getSinglePredecessor()->getNumSuccessors() == 1;
+         BB = BB->getSinglePredecessor())
+      ;
+    assert(BB && "Can't find first executable VPlan block");
+    if (isa<VPlanNonMasked>(this)) {
+      // Sanity check: lookup for the VPVectorTripCountCalculation in
+      // the predecessor.
+      // We can create main loop w/o trip check, in case when TC is known and
+      // evenly divisible by VF, so check the predecessor.
+      VPBasicBlock* BBToCheck = BB->getSinglePredecessor();
+      if (!BBToCheck)
+        BBToCheck = BB;
+      auto I = llvm::find_if(*BBToCheck, [](VPInstruction &Inst) -> bool {
+        return isa<VPVectorTripCountCalculation>(Inst);
+      });
+      assert(I != BBToCheck->end() && "Incorrect basic block");
+      (void)I;
+    }
+    State->CFG.FirstExecutableVPBB = BB;
+  } else {
+    BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
+    assert(VectorHeaderBB &&
+           "Loop preheader does not have a single successor.");
+    // TODO: Represent all new BBs explicitly in the VPlan to remove any hidden
+    // dependencies/assumptions between BBs handling in VPCodeGen.cpp and this
+    // file.
+    auto *HTerm = VectorHeaderBB->getTerminator();
+    MiddleBlock = HTerm->getSuccessor(0);
+    assert(MiddleBlock->getName().startswith("middle.block") &&
+           "Code is not in sync!");
 
-  // Temporarily terminate with unreachable until CFG is rewired.
-  // Note: this asserts xform code's assumption that getFirstInsertionPt()
-  // can be dereferenced into an Instruction.
-  VectorHeaderBB->getTerminator()->eraseFromParent();
-  State->Builder.SetInsertPoint(VectorHeaderBB);
-  State->Builder.CreateUnreachable();
-  // Set insertion point to vector loop PH
-  State->Builder.SetInsertPoint(VectorPreHeaderBB->getTerminator());
+    // Temporarily terminate with unreachable until CFG is rewired.
+    // Note: this asserts xform code's assumption that getFirstInsertionPt()
+    VectorHeaderBB->getTerminator()->eraseFromParent();
+    State->Builder.SetInsertPoint(VectorHeaderBB);
+    State->Builder.CreateUnreachable();
+    // Set insertion point to vector loop PH
+    State->Builder.SetInsertPoint(VectorPreHeaderBB->getTerminator());
 
-  // Generate code in loop body of vectorized version.
-  State->CFG.PrevVPBB = nullptr;
-  State->CFG.PrevBB = VectorPreHeaderBB;
-  State->CFG.InsertBefore = MiddleBlock;
+    // Generate code in loop body of vectorized version.
+    State->CFG.PrevVPBB = nullptr;
+    State->CFG.PrevBB = VectorPreHeaderBB;
+    State->CFG.InsertBefore = MiddleBlock;
+  }
 
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
   for (VPBasicBlock *BB : RPOT) {
     LLVM_DEBUG(dbgs() << "LV: VPBlock in RPO " << BB->getName() << '\n');
     BB->execute(State);
   }
+
+  if (hasExplicitRemainder())
+    // The rest is not needed in this case.
+    return;
 
   // Fix the edges for blocks in VPBBsToFix list.
   for (auto VPBB : State->CFG.VPBBsToFix) {
@@ -767,11 +866,10 @@ void VPlan::execute(VPTransformState *State) {
   // with inner loops. Right now we are not marking any analyses as
   // preserved - so this should be ok.
   // updateDominatorTree(State->DT, VectorPreHeaderBB, VectorLatchBB);
-  State->Builder.restoreIP(CurrIP);
 }
 
 #if INTEL_CUSTOMIZATION
-void VPlan::executeHIR(VPOCodeGenHIR *CG) {
+void VPlanVector::executeHIR(VPOCodeGenHIR *CG) {
   assert(!isSOAAnalysisEnabled() &&
          "SOA Analysis and Codegen is not enabled along the HIR path.");
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
@@ -796,38 +894,17 @@ void VPlan::executeHIR(VPOCodeGenHIR *CG) {
 }
 #endif
 
-static bool maybePointerToPrivateMemory(const VPValue *V) {
-  if (isa<VPExternalDef>(V) || isa<VPConstant>(V))
-    return false;
-
-  const auto *VPI = cast<VPInstruction>(V);
-  if (VPI->isCast() || isa<VPGEPInstruction>(VPI))
-    return maybePointerToPrivateMemory(VPI->getOperand(0));
-
-  // TODO: Look through more instruction kinds. Particularly, we may want to
-  //       look through PHI nodes.
-
-  return true;
-}
-
-void VPlan::setVPSE(std::unique_ptr<VPlanScalarEvolution> A) {
+void VPlanVector::setVPSE(std::unique_ptr<VPlanScalarEvolution> A) {
   VPSE = std::move(A);
   for (auto &VPBB : VPBasicBlocks)
     for (auto &VPInst : VPBB)
-      if (auto *Memref = dyn_cast<VPLoadStoreInst>(&VPInst)) {
-        VPValue *Pointer = Memref->getPointerOperand();
-        // FIXME: Remove this check for private memory when VPlanSCEV becomes
-        //        not based on underlying IR/HIR. As of now, any access to
-        //        private memory can be modified in-place without even
-        //        invalidating the corresponding load/store instruction (e.g.
-        //        AOS to SOA transformation).
-        if (!maybePointerToPrivateMemory(Pointer))
-          Memref->setAddressSCEV(VPSE->getVPlanSCEV(*Pointer));
-      }
+      if (auto *Memref = dyn_cast<VPLoadStoreInst>(&VPInst))
+        Memref->setAddressSCEV(VPSE->computeAddressSCEV(*Memref));
 }
 
-void VPlan::updateDominatorTree(DominatorTree *DT, BasicBlock *LoopPreHeaderBB,
-                                BasicBlock *LoopLatchBB) {
+void VPlanVector::updateDominatorTree(DominatorTree *DT,
+                                      BasicBlock *LoopPreHeaderBB,
+                                      BasicBlock *LoopLatchBB) {
   BasicBlock *LoopHeaderBB = LoopPreHeaderBB->getSingleSuccessor();
   assert(LoopHeaderBB && "Loop preheader does not have a single successor.");
   DT->addNewBlock(LoopHeaderBB, LoopPreHeaderBB);
@@ -862,6 +939,41 @@ void VPlan::updateDominatorTree(DominatorTree *DT, BasicBlock *LoopPreHeaderBB,
     DT->addNewBlock(InterimSucc, BB);
     DT->addNewBlock(PostDomSucc, BB);
   }
+}
+
+VPlanAdapter::VPlanAdapter(VPlan &P)
+    : VPlanAdapter(VPInstruction::PlanAdapter, P) {}
+
+VPlanAdapter::VPlanAdapter(unsigned Opcode, VPlan &P)
+    : VPInstruction(Opcode, Type::getTokenTy(*P.getLLVMContext()), {}),
+      Plan(P) {}
+
+VPScalarPeel *VPlanPeelAdapter::getPeelLoop() const {
+  for (auto &BB : Plan)
+    for (auto &I : BB)
+      if (auto *PeelLoop = dyn_cast<VPScalarPeel>(&I))
+        return PeelLoop;
+  llvm_unreachable("can't find scalar peel");
+}
+
+const VPValue *VPlanPeelAdapter::getUpperBound() const {
+  return getPeelLoop()->getUpperBound();
+}
+
+void VPlanPeelAdapter::setUpperBound(VPValue *TC) {
+  if (isa<VPlanScalarPeel>(Plan)) {
+    VPScalarPeel *PeelLoop = getPeelLoop();
+    PeelLoop->setUpperBound(TC);
+    return;
+  }
+  assert(isa<VPlanMasked>(Plan) && "unexpected peel VPlan");
+
+  VPLoop *TopVPLoop = *cast<VPlanMasked>(Plan).getVPLoopInfo()->begin();
+  VPValue *OrigTC = nullptr;
+  VPInstruction *Cond = nullptr;
+  std::tie(OrigTC, Cond) = TopVPLoop->getLoopUpperBound();
+  assert((OrigTC && Cond) && "A normalized loop expected");
+  Cond->replaceUsesOfWith(OrigTC, TC);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -903,11 +1015,8 @@ void VPlan::dump(raw_ostream &OS) const {
   if (DumpVPlanLiveInsLiveOuts)
     printLiveIns(FOS);
 
-  for (auto EIter = LoopEntities.begin(), End = LoopEntities.end();
-       EIter != End; ++EIter) {
-    VPLoopEntityList *E = EIter->second.get();
-    E->dump(FOS, EIter->first->getHeader());
-  }
+  // Print Scalar/Vector VPlan-specific data.
+  printSpecifics(FOS);
 
   print(FOS, 1);
 
@@ -915,6 +1024,26 @@ void VPlan::dump(raw_ostream &OS) const {
     printLiveOuts(FOS);
 
   Externals.dumpExternalUses(FOS, LiveOutValues.size() ? this : nullptr);
+}
+
+void VPlan::dump() const { dump(dbgs()); }
+
+void VPlanVector::printVectorVPlanData() const {
+  LLVM_DEBUG(dbgs() << "Dominator Tree After initial VPlan transforms\n";
+             PlanDT->print(dbgs()));
+  LLVM_DEBUG(dbgs() << "PostDominator Tree After initial VPlan transforms :\n";
+             PlanPDT->print(dbgs()));
+  LLVM_DEBUG(dbgs() << "VPLoop Info After initial VPlan transforms:\n";
+             VPLInfo->print(dbgs()));
+}
+
+// Iterate over the list of entities and print relevant data.
+void VPlanVector::printSpecifics(raw_ostream &OS) const {
+  for (auto EIter = LoopEntities.begin(), End = LoopEntities.end();
+       EIter != End; ++EIter) {
+    VPLoopEntityList *E = EIter->second.get();
+    E->dump(OS, EIter->first->getHeader());
+  }
 }
 
 void VPlan::printLiveIns(raw_ostream &OS) const {
@@ -939,8 +1068,6 @@ void VPlan::printLiveOuts(raw_ostream &OS) const {
       LO->print(OS);
   }
 }
-
-void VPlan::dump() const { dump(dbgs()); }
 
 void VPlanPrinter::dump(bool CFGOnly) {
 #if INTEL_CUSTOMIZATION
@@ -1039,6 +1166,22 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB, bool SkipInstructions)
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
+
+void VPlanScalar::setNeedCloneOrigLoop(bool V) {
+  NeedCloneOrigLoop = V;
+  if (!V)
+    return;
+  for (VPBasicBlock &B : *this) {
+    auto LoopI = llvm::find_if(
+        B, [](const VPInstruction &I) { return isa<VPPeelRemainder>(I); });
+    if (LoopI != B.end()) {
+      cast<VPPeelRemainder>(*LoopI).setCloningRequired();
+      return;
+    }
+  }
+  llvm_unreachable("can't find loop instruction");
+}
+
 void VPBlendInst::addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *Plan) {
   addOperand(IncomingVal);
   if (!BlockPred && Plan) {
@@ -1049,6 +1192,12 @@ void VPBlendInst::addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *P
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void VPInvSCEVWrapper::printImpl(raw_ostream & O) const {
+  O << "{ ";
+  VPlanScalarEvolutionLLVM::toSCEV(Scev)->print(O);
+  O << " }";
+}
+
 void VPBlendInst::printImpl(raw_ostream &O) const {
   O << getOpcodeName(getOpcode());
   auto PrintValueWithBP = [&](const unsigned i) {
@@ -1136,11 +1285,53 @@ void VPCallInstruction::printImpl(raw_ostream &O) const {
     O << " [x " << getPumpFactor() << "]";
     break;
   }
-  default:
-    llvm_unreachable("Unexpected VecScenario.");
+  case CallVecScenarios::UnmaskedWiden: {
+    if (VecProperties.MatchedVecVariant) {
+      O << getVectorVariant()->toString();
+    } else {
+      O << "<VecVariant for ";
+      CalledValue->printAsOperand(O);
+      O << ">";
+    }
+    O << " [UnmaskedWiden]";
+    break;
+  }
   }
 }
+
+void VPlanAdapter::printImpl(raw_ostream &O) const {
+  O << " for VPlan {" << Plan.getName() << "}";
+}
+
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+Use *VPScalarPeel::findUpperBoundUseInLatch() const {
+  Loop *L = getLoop();
+  BasicBlock *Latch = L->getLoopLatch();
+  auto BI = dyn_cast<BranchInst>(Latch->getTerminator());
+  assert((BI && BI->isConditional()) &&
+         "expected conditional branch instruction");
+  auto Cond = cast<CmpInst>(BI->getCondition());
+  if (L->isLoopInvariant(Cond->getOperand(0)))
+    return &Cond->getOperandUse(0);
+  else {
+    assert(L->isLoopInvariant(Cond->getOperand(1)) &&
+           "unexpectd non invariant");
+    return &Cond->getOperandUse(1);
+  }
+}
+
+unsigned VPVLSExtract::getNumGroupEltsPerValue() const {
+  const DataLayout &DL = *getParent()->getParent()->getDataLayout();
+  return llvm::vpo::getNumGroupEltsPerValue(DL, getOperand(0)->getType(),
+                                            getType());
+}
+
+unsigned VPVLSInsert::getNumGroupEltsPerValue() const {
+  const DataLayout &DL = *getParent()->getParent()->getDataLayout();
+  return llvm::vpo::getNumGroupEltsPerValue(DL, getOperand(0)->getType(),
+                                            getOperand(1)->getType());
+}
 
 void VPValue::replaceUsesWithIf(
     VPValue *NewVal, llvm::function_ref<bool(VPUser *U)> ShouldReplace,
@@ -1182,7 +1373,7 @@ void VPValue::replaceAllUsesWith(VPValue *NewVal, bool InvalidateIR) {
 
 bool VPValue::isUnderlyingIRValid() const {
   if (auto *VPI = dyn_cast<VPInstruction>(this))
-    return IsUnderlyingValueValid || VPI->HIR.isValid();
+    return VPI->isUnderlyingIRValid();
   else {
     // Non VPInstruction values can never be invalidated.
     return true;
@@ -1195,23 +1386,17 @@ void VPValue::invalidateUnderlyingIR() {
   // their underlying IR. Hence invalidation is strictly limited to
   // VPInstructions only.
   if (auto *VPI = dyn_cast<VPInstruction>(this)) {
-    IsUnderlyingValueValid = false;
-    // Temporary hook-up to ignore loop induction related instructions during CG
-    // by not invalidating them.
-    // TODO: Remove this code after VPInduction support is added to HIR CG.
-    const HLNode *HNode = VPI->HIR.getUnderlyingNode();
-    if (HNode && isa<HLLoop>(HNode))
-      return;
-    VPI->HIR.invalidate();
-
-    // At this point, we don't have a use-case where invalidation of users of
-    // instruction is needed. This is because VPInstructions mostly represent
-    // r-value of a HLInst and modifying the r-value should not affect l-value
-    // temp refs. For stores this was never an issue since store instructions
-    // cannot have users. In case of LLVM-IR invalidating an instruction might
-    // mean that the underlying bit value is different. If this is the case then
-    // invalidation should be propagated to users as well.
+    VPI->invalidateUnderlyingIR();
   }
+}
+
+StringRef VPValue::getVPNamePrefix() const {
+  // FIXME: Define the VPNamePrefix in some analogue of the
+  // llvm::Context just like we plan for the 'Name' field.
+  static std::string VPNamePrefix = "vp.";
+  if (isa<VPBasicBlock>(this))
+    return "";
+  return VPNamePrefix;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1237,18 +1422,27 @@ using VPPostDomTree = PostDomTreeBase<VPBasicBlock>;
 template void DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);
 #endif
 
-void VPlan::computeDA() {
+void VPlanVector::computeDA() {
   VPLoopInfo *VPLInfo = getVPLoopInfo();
   VPLoop *CandidateLoop = *VPLInfo->begin();
-  getVPlanDA()->compute(this, CandidateLoop, VPLInfo, *getDT(), *getPDT(),
-                        false /*Not in LCSSA form*/);
+  auto *DA = cast<VPlanDivergenceAnalysis>(getVPlanDA());
+  DA->compute(this, CandidateLoop, VPLInfo, *getDT(), *getPDT(),
+              false /*Not in LCSSA form*/);
   if (isSOAAnalysisEnabled()) {
     // Do SOA-analysis for loop-privates.
     // TODO: Consider moving SOA-analysis to VPAnalysesFactory.
     VPSOAAnalysis VPSOAA(*this, *CandidateLoop);
     SmallPtrSet<VPInstruction *, 32> SOAVars;
     VPSOAA.doSOAAnalysis(SOAVars);
-    getVPlanDA()->recomputeShapes(SOAVars, true /*EnableVerifyAndPrintDA*/);
+    DA->recomputeShapes(SOAVars, true /*EnableVerifyAndPrintDA*/);
+  }
+}
+
+void VPlan::cloneLiveInValues(const VPlan &OrigPlan, VPValueMapper &Mapper) {
+  for (auto OrigLI : OrigPlan.liveInValues()) {
+    auto ClonedLI = OrigLI->clone();
+    addLiveInValue(ClonedLI);
+    Mapper.registerClone(OrigLI, ClonedLI);
   }
 }
 
@@ -1260,66 +1454,92 @@ void VPlan::cloneLiveOutValues(const VPlan &OrigPlan, VPValueMapper &Mapper) {
   }
 }
 
-std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
-  // Create new VPlan
-  std::unique_ptr<VPlan> ClonedVPlan = std::make_unique<VPlan>(getExternals());
-
+// Common functionality to do a deep-copy when cloning VPlans.
+void VPlanVector::copyData(VPAnalysesFactory &VPAF, UpdateDA UDA,
+                           VPlanVector *TargetPlan) {
   // Clone the basic blocks from the current VPlan to the new one
   VPCloneUtils::Value2ValueMapTy OrigClonedValuesMap;
   VPCloneUtils::cloneBlocksRange(&front(), &back(), OrigClonedValuesMap,
-                                 nullptr, "Cloned.", ClonedVPlan.get());
-  // Clone live out values.
+                                 nullptr, "Cloned.", TargetPlan);
+
+  // Clone live in and live out values.
   VPValueMapper Mapper(OrigClonedValuesMap);
-  ClonedVPlan->cloneLiveOutValues(*this, Mapper);
+  TargetPlan->cloneLiveOutValues(*this, Mapper);
+  TargetPlan->cloneLiveInValues(*this, Mapper);
 
   // Update cloned instructions' operands
   for (VPBasicBlock &OrigVPBB : *this)
     Mapper.remapOperands(&OrigVPBB);
 
-  for (auto LO : ClonedVPlan->liveOutValues())
+  for (auto LO : TargetPlan->liveOutValues())
     Mapper.remapInstruction(LO);
 
   // Update FullLinearizationForced
   if (isFullLinearizationForced())
-    ClonedVPlan->markFullLinearizationForced();
-
-  // Update ForceOuterLoopBackedgeUniformity
-  if (isBackedgeUniformityForced())
-    ClonedVPlan->markBackedgeUniformityForced();
+    TargetPlan->markFullLinearizationForced();
 
   if (areActiveLaneInstructionsDisabled())
-    ClonedVPlan->disableActiveLaneInstructions();
+    TargetPlan->disableActiveLaneInstructions();
 
   // Enable SOA-analysis if it was enabled in the original VPlan.
   if (isSOAAnalysisEnabled())
-    ClonedVPlan->enableSOAAnalysis();
+    TargetPlan->enableSOAAnalysis();
 
   // Set SCEV to Cloned Plan
-  ClonedVPlan->setVPSE(VPAF.createVPSE());
+  TargetPlan->setVPSE(VPAF.createVPSE());
 
   // Set Value Tracking to Cloned Plan
-  ClonedVPlan->setVPVT(VPAF.createVPVT(ClonedVPlan->getVPSE()));
+  TargetPlan->setVPVT(VPAF.createVPVT(TargetPlan->getVPSE()));
 
   // Update dominator tree and post-dominator tree of new VPlan
-  ClonedVPlan->computeDT();
-  ClonedVPlan->computePDT();
+  TargetPlan->computeDT();
+  TargetPlan->computePDT();
 
-  // Calclulate VPLoopInfo for the ClonedVPlan
-  ClonedVPlan->setVPLoopInfo(std::make_unique<VPLoopInfo>());
-  VPLoopInfo *ClonedVPLInfo = ClonedVPlan->getVPLoopInfo();
-  ClonedVPLInfo->analyze(*ClonedVPlan->getDT());
-  LLVM_DEBUG(ClonedVPLInfo->verify(*ClonedVPlan->getDT()));
+  // Calclulate VPLoopInfo for the TargetPlan
+  TargetPlan->setVPLoopInfo(std::make_unique<VPLoopInfo>());
+  VPLoopInfo *ClonedVPLInfo = TargetPlan->getVPLoopInfo();
+  ClonedVPLInfo->analyze(*TargetPlan->getDT());
+  LLVM_DEBUG(ClonedVPLInfo->verify(*TargetPlan->getDT()));
 
   // Update DA.
   if (UDA != UpdateDA::DoNotUpdateDA) {
-    auto ClonedVPlanDA = std::make_unique<VPlanDivergenceAnalysis>();
-    ClonedVPlan->setVPlanDA(std::move(ClonedVPlanDA));
+    auto TargetPlanDA = std::make_unique<VPlanDivergenceAnalysis>();
+    TargetPlan->setVPlanDA(std::move(TargetPlanDA));
     if (UDA == UpdateDA::RecalculateDA)
-      ClonedVPlan->computeDA();
+      TargetPlan->computeDA();
     else if (UDA == UpdateDA::CloneDA) {
-      getVPlanDA()->cloneVectorShapes(ClonedVPlan.get(), OrigClonedValuesMap);
-      ClonedVPlan->getVPlanDA()->disableDARecomputation();
+      cast<VPlanDivergenceAnalysis>(getVPlanDA())
+          ->cloneVectorShapes(TargetPlan, OrigClonedValuesMap);
+      cast<VPlanDivergenceAnalysis>(TargetPlan->getVPlanDA())
+          ->disableDARecomputation();
     }
   }
+}
+
+VPlanVector *VPlanMasked::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
+  // Create new masked VPlan
+  auto *ClonedVPlan = new VPlanMasked(getExternals(), getUnlinkedVPInsts());
+  ClonedVPlan->setName(getName() + ".cloned");
+
+  copyData(VPAF, UDA, ClonedVPlan);
+  return ClonedVPlan;
+}
+
+VPlanVector *VPlanNonMasked::clone(VPAnalysesFactory &VPAF, UpdateDA UDA) {
+  // Create new non-masked VPlan
+  auto *ClonedVPlan = new VPlanNonMasked(getExternals(), getUnlinkedVPInsts());
+  ClonedVPlan->setName(getName() + ".cloned");
+
+  copyData(VPAF, UDA, ClonedVPlan);
+  return ClonedVPlan;
+}
+
+VPlanMasked *VPlanNonMasked::cloneMasked(VPAnalysesFactory &VPAF,
+                                         UpdateDA UDA) {
+  // Create new masked VPlan from a non-masked VPlan.
+  auto *ClonedVPlan = new VPlanMasked(getExternals(), getUnlinkedVPInsts());
+  ClonedVPlan->setName(getName() + ".cloned.masked");
+
+  copyData(VPAF, UDA, ClonedVPlan);
   return ClonedVPlan;
 }

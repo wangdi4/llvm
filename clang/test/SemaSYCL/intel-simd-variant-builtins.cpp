@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -verify -fsyntax-only -std=c++17 -Wno-c++20-extensions \
-// RUN:  -fsycl -fsycl-is-device -triple spir64-unknown-unknown-sycldevice \
+// RUN:  -fsycl-is-device -triple spir64-unknown-unknown-sycldevice \
 // RUN:  %s
 
 namespace std {

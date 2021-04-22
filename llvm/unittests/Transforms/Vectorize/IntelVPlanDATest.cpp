@@ -46,7 +46,7 @@ TEST_F(VPlanVPDATest, TestVPlanDAPartialUpdate) {
     auto Plan = buildHCFG(LoopHeader);
     VPLoop *OuterMostVPL = *(Plan->getVPLoopInfo())->begin();
     Plan->setVPlanDA(std::make_unique<VPlanDivergenceAnalysis>());
-    auto *DA = Plan->getVPlanDA();
+    auto *DA = cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA());
     Plan->computeDT();
     Plan->computePDT();
     DA->compute(Plan.get(), OuterMostVPL, Plan->getVPLoopInfo(),
@@ -79,8 +79,8 @@ TEST_F(VPlanVPDATest, TestVPlanDAPartialUpdate) {
     // trigger the update of the second(dependent) instruction CmpInst2. Just
     // compare that the shapes of the two instructions are as expected.
     DA->updateDivergence(*CmpInst1);
-    auto Shape1 = DA->getVectorShape(CmpInst1);
-    auto Shape2 = DA->getVectorShape(CmpInst2);
+    auto Shape1 = DA->getVectorShape(*CmpInst1);
+    auto Shape2 = DA->getVectorShape(*CmpInst2);
     EXPECT_EQ(Shape1.isUniform(), true);
     EXPECT_EQ(Shape2.isUniform(), true);
   }

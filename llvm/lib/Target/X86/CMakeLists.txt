@@ -40,7 +40,9 @@ set(sources
   X86CmovConversion.cpp
   X86DomainReassignment.cpp
   X86DiscriminateMemOps.cpp
+  X86LowerTileCopy.cpp
   X86LowerAMXType.cpp
+  X86LowerAMXIntrinsics.cpp
   X86TileConfig.cpp
   X86PreTileConfig.cpp
   X86ExpandPseudo.cpp
@@ -99,6 +101,7 @@ add_llvm_target(X86CodeGen ${sources}
   SelectionDAG
   Support
   Target
+  TransformUtils
   X86Desc
   X86Info
   GlobalISel

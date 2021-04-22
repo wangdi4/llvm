@@ -216,8 +216,12 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   Type *CharacteristicType = calcCharacteristicType(F, V);
 
   // Expand return type to vector.
-  if (!ReturnType->isVoidTy())
-    ReturnType = FixedVectorType::get(ReturnType, V.getVlen());
+  if (!ReturnType->isVoidTy()) {
+    unsigned VF = V.getVlen();
+    if (auto *FVT = dyn_cast<FixedVectorType>(ReturnType))
+      VF *= FVT->getNumElements();
+    ReturnType = FixedVectorType::get(ReturnType->getScalarType(), VF);
+  }
 
   std::vector<VectorKind> ParmKinds = V.getParameters();
   SmallVector<Type*, 4> ParmTypes;
@@ -225,11 +229,14 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   FunctionType::param_iterator ParmEnd = OrigFunctionType->param_end();
   std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
   for (; ParmIt != ParmEnd; ++ParmIt, ++VKIt) {
-    if (VKIt->isVector())
-      ParmTypes.push_back(FixedVectorType::get((*ParmIt)->getScalarType(),
-                                          V.getVlen()));
-    else
+    if (VKIt->isVector()) {
+      unsigned VF = V.getVlen();
+      if (auto *FVT = dyn_cast<FixedVectorType>(*ParmIt))
+        VF *= FVT->getNumElements();
+      ParmTypes.push_back(FixedVectorType::get((*ParmIt)->getScalarType(), VF));
+    } else {
       ParmTypes.push_back(*ParmIt);
+    }
   }
 
   if (V.isMasked()) {
@@ -290,7 +297,8 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   }
 
   SmallVector<ReturnInst*, 8> Returns;
-  CloneFunctionInto(Clone, &F, VMap, true, Returns);
+  CloneFunctionInto(Clone, &F, VMap, CloneFunctionChangeType::LocalChangesOnly,
+                    Returns);
   // For some reason, this causes DCE to remove calls to these functions.
   // Disable for now.
   //Clone->setCallingConv(CallingConv::X86_RegCall);
@@ -682,6 +690,7 @@ Instruction *VecCloneImpl::expandVectorParameters(
 Instruction *VecCloneImpl::createExpandedReturn(Function *Clone,
                                                 BasicBlock *EntryBlock,
                                                 VectorType *ReturnType,
+                                                Type *FuncReturnType,
                                                 AllocaInst *&LastAlloca) {
   // Expand the return temp to a vector.
 
@@ -697,9 +706,8 @@ Instruction *VecCloneImpl::createExpandedReturn(Function *Clone,
     VecAlloca->insertBefore(&EntryBlock->front());
   LastAlloca = VecAlloca;
 
-  PointerType *ElemTypePtr =
-      PointerType::get(ReturnType->getElementType(),
-                       VecAlloca->getType()->getAddressSpace());
+  auto *ElemTypePtr =
+      PointerType::get(FuncReturnType, VecAlloca->getType()->getAddressSpace());
 
   BitCastInst *VecCast = new BitCastInst(VecAlloca, ElemTypePtr, "ret.cast");
   VecCast->insertBefore(EntryBlock->getTerminator());
@@ -707,7 +715,8 @@ Instruction *VecCloneImpl::createExpandedReturn(Function *Clone,
   return VecCast;
 }
 
-Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
+Instruction *VecCloneImpl::expandReturn(Function *Clone, Function &F,
+                                        BasicBlock *EntryBlock,
                                         BasicBlock *LoopBlock,
                                         BasicBlock *ReturnBlock,
                                         std::vector<ParmRef *> &VectorParmMap,
@@ -804,7 +813,8 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
 
     // Case 1
 
-    VecReturn = createExpandedReturn(Clone, EntryBlock, ReturnType, LastAlloca);
+    VecReturn = createExpandedReturn(Clone, EntryBlock, ReturnType,
+                                     F.getReturnType(), LastAlloca);
     Value *RetVal = FuncReturn->getReturnValue();
     Instruction *RetFromTemp = dyn_cast<Instruction>(RetVal);
 
@@ -826,9 +836,8 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
 
     // Generate a gep from the bitcast of the vector alloca used for the return
     // vector.
-    GetElementPtrInst *VecGep =
-        GetElementPtrInst::Create(ReturnType->getElementType(), VecReturn, Phi,
-                                  VecReturn->getName() + ".gep");
+    GetElementPtrInst *VecGep = GetElementPtrInst::Create(
+        F.getReturnType(), VecReturn, Phi, VecReturn->getName() + ".gep");
     VecGep->insertAfter(InsertPt);
 
     // Store the constant or temp to the appropriate lane in the return vector.
@@ -853,8 +862,8 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
     } else {
       // A new return vector is needed because we do not load the return value
       // from an alloca.
-      VecReturn =
-          createExpandedReturn(Clone, EntryBlock, ReturnType, LastAlloca);
+      VecReturn = createExpandedReturn(Clone, EntryBlock, ReturnType,
+                                       F.getReturnType(), LastAlloca);
       ParmRef *PRef = new ParmRef();
       PRef->VectorParm = Alloca;
       PRef->VectorParmCast = VecReturn;
@@ -866,7 +875,7 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
 }
 
 Instruction *VecCloneImpl::expandVectorParametersAndReturn(
-    Function *Clone, VectorVariant &V, Instruction **Mask,
+    Function *Clone, Function &F, VectorVariant &V, Instruction **Mask,
     BasicBlock *EntryBlock, BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
     std::vector<ParmRef *> &VectorParmMap, ValueToValueMapTy &VMap) {
 
@@ -883,7 +892,7 @@ Instruction *VecCloneImpl::expandVectorParametersAndReturn(
   // If the function returns void, then don't attempt to expand to vector.
   Instruction *ExpandedReturn = ReturnBlock->getTerminator();
   if (!Clone->getReturnType()->isVoidTy()) {
-    ExpandedReturn = expandReturn(Clone, EntryBlock, LoopBlock, ReturnBlock,
+    ExpandedReturn = expandReturn(Clone, F, EntryBlock, LoopBlock, ReturnBlock,
                                   VectorParmMap, LastAlloca);
     assert(ExpandedReturn && "The return value has not been widened.");
   }
@@ -1014,9 +1023,10 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
         PointerType *BitCastType = cast<PointerType>(BitCast->getType());
         Type *PointeeType = BitCastType->getElementType();
 
-        GetElementPtrInst *VecGep =
-            GetElementPtrInst::Create(PointeeType, BitCast, Phi,
-                                      BitCast->getName() + ".gep", User);
+        GetElementPtrInst *VecGep = nullptr;
+        if (!isa<PHINode>(User))
+          VecGep = GetElementPtrInst::Create(PointeeType, BitCast, Phi,
+                                             BitCast->getName() + ".gep", User);
 
         unsigned NumOps = User->getNumOperands();
         for (unsigned I = 0; I < NumOps; ++I) {
@@ -1041,6 +1051,12 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
               // Otherwise, we need to load the value from the gep first before
               // using it. This effectively loads the particular element from
               // the vector parameter.
+              if (PHINode *PHIUser = dyn_cast<PHINode>(User)) {
+                BasicBlock *IncommingBB = PHIUser->getIncomingBlock(I);
+                VecGep = GetElementPtrInst::Create(
+                    PointeeType, BitCast, Phi, BitCast->getName() + ".gep",
+                    IncommingBB->getTerminator());
+              }
               Type *LoadTy = VecGep->getResultElementType();
               LoadInst *ParmElemLoad = new LoadInst(
                   LoadTy, VecGep, "vec." + Parm->getName() + ".elem",
@@ -1691,7 +1707,7 @@ void VecCloneImpl::removeScalarAllocasForVectorParams(
 
       // The scalar alloca needs to be removed from the allocas that are marked
       // as SIMD loop private.
-      PrivateAllocas.erase(ScalarAlloca);
+      PrivateAllocas.remove(ScalarAlloca);
     }
   }
 }
@@ -1846,10 +1862,9 @@ bool VecCloneImpl::runImpl(Module &M) {
       // index.
 
       Instruction *Mask = NULL;
-      Instruction *ExpandedReturn =
-          expandVectorParametersAndReturn(Clone, Variant, &Mask, &*EntryBlock,
-                                          LoopBlock, ReturnBlock,
-                                          VectorParmMap, VMap);
+      Instruction *ExpandedReturn = expandVectorParametersAndReturn(
+          Clone, F, Variant, &Mask, &*EntryBlock, LoopBlock, ReturnBlock,
+          VectorParmMap, VMap);
       updateScalarMemRefsWithVector(Clone, F, &*EntryBlock, ReturnBlock, Phi,
                                     VectorParmMap);
 

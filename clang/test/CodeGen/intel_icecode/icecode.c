@@ -103,6 +103,13 @@ void test_icecode() {
 // CHECK: call void asm sideeffect "portout24", "{ax},{dx},~{dirflag},~{fpsr},~{flags}"(i32 %{{.*}}, i64 %{{.*}})
 // CHECK: call void asm sideeffect "load_tickle_gpa", "{ax},~{dirflag},~{fpsr},~{flags}"(i64 %{{.*}})
 // CHECK: call void asm sideeffect "store_tickle_gpa", "{ax},~{dirflag},~{fpsr},~{flags}"(i64 %{{.*}})
+// CHECK: call void asm sideeffect "flush_ifu"
+// CHECK: call i16 @llvm.x86.icecode.loadlin.16(i64 %{{.*}})
+// CHECK: call i32 @llvm.x86.icecode.loadlin.32(i64 %{{.*}})
+// CHECK: call i64 @llvm.x86.icecode.loadlin.64(i64 %{{.*}})
+// CHECK: call void @llvm.x86.icecode.storelin.16(i16 %{{.*}}, i64 %{{.*}})
+// CHECK: call void @llvm.x86.icecode.storelin.32(i32 %{{.*}}, i64 %{{.*}})
+// CHECK: call void @llvm.x86.icecode.storelin.64(i64 %{{.*}}, i64 %{{.*}})
   _ce_creg_xchg32(reg, data32);
   _ce_creg_xchg64(reg, data64);
   _ce_fscp_xchg32(reg, data32);
@@ -138,9 +145,16 @@ void test_icecode() {
   _ce_iceret_indirect(reg, reg);
   _ce_set_tracker(0);
   _ce_portin24(data64);
-  _ce_portout24(data64, data32);
+  _ce_portout24(data32, data64);
   _ce_load_tickle_gpa(data64);
   _ce_store_tickle_gpa(data64);
+  _ce_flush_ifu();
+  data16 = _ce_loadlin16(data64);
+  data32 = _ce_loadlin32(data64);
+  data64 = _ce_loadlin64(data64);
+  _ce_storelin16(data16, data64);
+  _ce_storelin32(data32, data64);
+  _ce_storelin64(data64, data64);
 }
 
 void test_ce_iceret(unsigned reg) {

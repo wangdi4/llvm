@@ -119,6 +119,12 @@ inline bool isVectorizableTy(Type *Ty) {
   return true;
 }
 
+/// \returns true if \p Ty's pointee-type is a scalar.
+inline bool isScalarTy(Type *Ty) {
+  assert(Ty && "Expect a non-null argument to isScalarTy function.");
+  return (!(Ty->isAggregateType() || Ty->isVectorTy()));
+}
+
 /////////// VPValue version of common LLVM load/store utilities ///////////
 
 /// A helper function that returns the pointer operand of a load or store
@@ -153,11 +159,13 @@ inline VPValue *getPointerOperand(const VPInstruction *VPI) {
 
 /// Helper function that returns the address space of the pointer operand of
 /// load or store VPInstruction.
-inline unsigned getLoadStoreAddressSpace(VPInstruction *VPI) {
+inline unsigned getLoadStoreAddressSpace(const VPInstruction *VPI) {
   assert((VPI->getOpcode() == Instruction::Load ||
           VPI->getOpcode() == Instruction::Store) &&
          "Expect 'VPI' to be either a LoadInst or a StoreInst");
-  return getPointerOperand(VPI)->getType()->getPointerAddressSpace();
+  VPValue *OperandPtr = getPointerOperand(VPI);
+  assert(OperandPtr && "OperandPtr should not be null pointer.");
+  return OperandPtr->getType()->getPointerAddressSpace();
 }
 
 /// Helper function to get preferred alignment for a VPInstruction representing
@@ -233,22 +241,48 @@ inline bool hasIrregularTypeForUnitStride(Type *Ty, const DataLayout *DL) {
   return DL->getTypeAllocSizeInBits(Ty) != DL->getTypeSizeInBits(Ty);
 }
 
-#if INTEL_CUSTOMIZATION
-// Obtain stride information using loopopt interfaces. HNode is expected to
-// specify the underlying node for a load/store VPInstruction. We return false
-// if this is not the case. Function returns true if the memory reference
-// corresponding to pointer operand of load/store VPInst has known stride. The
-// stride value is returned in Stride. Function returns false for unknown
-// stride.
-inline bool getStrideUsingHIR(const loopopt::HLNode &HNode, int64_t &Stride) {
-  const loopopt::HLInst *HInst = dyn_cast<loopopt::HLInst>(&HNode);
-  if (!HInst)
-    return false;
+/// Given a type \p GroupTy of a wide VLS-optimized operation, and a type \p
+/// ValueTy corresponding to an element, calculate how many group's base
+/// elements are fit into the value.
+inline unsigned getNumGroupEltsPerValue(const DataLayout &DL, Type *GroupTy,
+                                        Type *ValueTy) {
+  auto ValueTypeSize = DL.getTypeSizeInBits(ValueTy);
+  Type *GroupEltType = cast<VectorType>(GroupTy)->getElementType();
+  auto GroupElementTypeSize = DL.getTypeSizeInBits(GroupEltType);
 
-  const loopopt::RegDDRef *MemRef =
-      HInst->getLLVMInstruction()->getOpcode() == Instruction::Load
-          ? HInst->getRvalDDRef()
-          : HInst->getLvalDDRef();
+  assert(ValueTypeSize % GroupElementTypeSize == 0 &&
+         "Group element type is invalid!");
+  return ValueTypeSize / GroupElementTypeSize;
+}
+
+/// Helper function to check if VPValue is a private memory pointer that was
+/// allocated by VPlan. The implementation also checks for any aliases obtained
+/// via casts and gep instructions.
+// TODO: Check if this utility is still relevant after data layout
+// representation is finalized in VPlan.
+inline const VPValue *getVPValuePrivateMemoryPtr(const VPValue *V) {
+  if (isa<VPAllocatePrivate>(V))
+    return V;
+  // Check that it is a valid transform of private memory's address, by
+  // recurring into operand.
+  if (auto *VPI = dyn_cast<VPInstruction>(V))
+    if (VPI->isCast() || isa<VPGEPInstruction>(VPI) ||
+        isa<VPSubscriptInst>(VPI))
+      return getVPValuePrivateMemoryPtr(VPI->getOperand(0));
+
+  // All checks failed.
+  return nullptr;
+}
+
+#if INTEL_CUSTOMIZATION
+// Obtain stride information using loopopt interfaces for the given memory
+// reference MemRef. DDNode specifies the underlying HLDDNode for the
+// load/store VPInstruction. Function returns true if the given memory
+// reference has known stride. The stride value is returned in Stride.
+// Function returns false for unknown stride.
+inline bool getStrideUsingHIR(const loopopt::RegDDRef *MemRef,
+                              const loopopt::HLDDNode &DDNode,
+                              int64_t &Stride) {
 
   // Memref is expected to be non-null and a memory reference. If this is not
   // the case, return false. We assert in debug mode.
@@ -257,7 +291,9 @@ inline bool getStrideUsingHIR(const loopopt::HLNode &HNode, int64_t &Stride) {
     return false;
   }
 
-  const loopopt::HLLoop *HLoop = HInst->getParentLoop();
+  assert(MemRef->getHLDDNode() == &DDNode &&
+         "MemRef expected to be a ref in DDNode");
+  const loopopt::HLLoop *HLoop = DDNode.getParentLoop();
   // The code here assumes inner loop vectorization. TODO: Once we start
   // supporting outer loop vectorization, this interface will need to be changed
   // to also take the HLLoop being vectorized.

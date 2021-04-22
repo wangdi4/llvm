@@ -37,11 +37,16 @@ config.test_exec_root = os.path.join(config.sycl_obj_root, 'test')
 
 # Propagate some variables from the host environment.
 llvm_config.with_system_environment(['PATH', 'OCL_ICD_FILENAMES', 'SYCL_DEVICE_ALLOWLIST', 'SYCL_CONFIG_FILE_NAME'])
-llvm_config.with_system_environment(['SYCL_BE']) # INTEL
+llvm_config.with_system_environment(['TC_WRAPPER_PATH']) # INTEL_CUSTOMIZATION
 
 # Configure LD_LIBRARY_PATH or corresponding os-specific alternatives
+# Add 'libcxx' feature to filter out all SYCL abi tests when SYCL runtime
+# is built with llvm libcxx. This feature is added for Linux only since MSVC
+# CL compiler doesn't support to use llvm libcxx instead of MSVC STL.
 if platform.system() == "Linux":
     config.available_features.add('linux')
+    if config.sycl_use_libcxx == "ON":
+        config.available_features.add('libcxx')
     llvm_config.with_system_environment('LD_LIBRARY_PATH')
     llvm_config.with_environment('LD_LIBRARY_PATH', config.sycl_libs_dir, append_path=True)
     llvm_config.with_system_environment('CFLAGS')
@@ -105,20 +110,17 @@ llvm_config.use_clang(additional_flags=getAdditionalFlags())
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
 config.substitutions.append( ('%opencl_libs_dir',  config.opencl_libs_dir) )
 
-# INTEL_CUSTOMIZATION
-# Ask llvm-config about assertions.
-llvm_config.feature_config([('--assertion-mode', {'ON': 'asserts'})])
-llvm_config.feature_config([('--build-mode', {'Debug': 'debug'})])
-# end INTEL_CUSTOMIZATION
 llvm_config.add_tool_substitutions(['llvm-spirv'], [config.sycl_tools_dir])
 
 config.substitutions.append( ('%RUN_ON_HOST', "env SYCL_DEVICE_FILTER=host ") )
 
 # Every SYCL implementation provides a host implementation.
 config.available_features.add('host')
-triple=lit_config.params.get('SYCL_TRIPLE', 'spir64-unknown-linux-sycldevice')
+triple=lit_config.params.get('SYCL_TRIPLE', 'spir64-unknown-unknown-sycldevice')
 lit_config.note("Triple: {}".format(triple))
 config.substitutions.append( ('%sycl_triple',  triple ) )
+if triple == 'nvptx64-nvidia-cuda-sycldevice':
+    config.available_features.add('cuda')
 
 if triple == 'nvptx64-nvidia-cuda-sycldevice':
     config.available_features.add('cuda')

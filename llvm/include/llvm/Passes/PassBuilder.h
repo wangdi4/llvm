@@ -19,6 +19,7 @@
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
@@ -162,18 +163,6 @@ public:
   struct PipelineElement {
     StringRef Name;
     std::vector<PipelineElement> InnerPipeline;
-  };
-
-  /// ThinLTO phase.
-  ///
-  /// This enumerates the LLVM ThinLTO optimization phases.
-  enum class ThinLTOPhase {
-    /// No ThinLTO behavior needed.
-    None,
-    /// ThinLTO prelink (summary) phase.
-    PreLink,
-    /// ThinLTO postlink (backend compile) phase.
-    PostLink
   };
 
   /// LLVM-provided high-level optimization levels.
@@ -347,7 +336,7 @@ public:
   /// \p Phase indicates the current ThinLTO phase.
   FunctionPassManager
   buildFunctionSimplificationPipeline(OptimizationLevel Level,
-                                      ThinLTOPhase Phase);
+                                      ThinOrFullLTOPhase Phase);
 
   /// Construct the core LLVM module canonicalization and simplification
   /// pipeline.
@@ -365,13 +354,12 @@ public:
   ///
   /// \p Phase indicates the current ThinLTO phase.
   ModulePassManager buildModuleSimplificationPipeline(OptimizationLevel Level,
-                                                      ThinLTOPhase Phase);
+                                                      ThinOrFullLTOPhase Phase);
 
   /// Construct the module pipeline that performs inlining as well as
   /// the inlining-driven cleanups.
   ModuleInlinerWrapperPass buildInlinerPipeline(OptimizationLevel Level,
-                                                ThinLTOPhase Phase,
-                                                bool MandatoryOnly);
+                                                ThinOrFullLTOPhase Phase);
 
   /// Construct the core LLVM module optimization pipeline.
   ///
@@ -468,6 +456,9 @@ public:
 
   /// Build the default `AAManager` with the default alias analysis pipeline
   /// registered.
+  ///
+  /// This also adds target-specific alias analyses registered via
+  /// TargetMachine::registerDefaultAliasAnalyses().
   AAManager buildDefaultAAPipeline();
 
   /// Parse a textual pass pipeline description into a \c
@@ -548,9 +539,16 @@ public:
   bool isAnalysisPassName(StringRef PassName);
 
 #if INTEL_CUSTOMIZATION
-  /// Add Inst Combine Pass
-  void addInstCombinePass(FunctionPassManager &FPM) const;
+  /// Add Inst Combine Pass. If EnableUpCasting is true then it will enable
+  /// simplifying load instructions into bitcast instructions that could
+  /// produce an upcasting. If DTrans is disabled then the simplification
+  /// will always be true.
+  void addInstCombinePass(FunctionPassManager &FPM,
+                          bool EnableUpCasting) const;
 #endif // INTEL_CUSTOMIZATION
+
+  /// Print pass names.
+  void printPassNames(raw_ostream &OS);
 
   /// Register a callback for a default optimizer pipeline extension
   /// point
@@ -725,7 +723,7 @@ private:
   // O1 pass pipeline
   FunctionPassManager
   buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
-                                        ThinLTOPhase Phase);
+                                        ThinOrFullLTOPhase Phase);
 
   void addRequiredLTOPreLinkPasses(ModulePassManager &MPM);
 
@@ -807,6 +805,12 @@ private:
   // AA callbacks
   SmallVector<std::function<bool(StringRef Name, AAManager &AA)>, 2>
       AAParsingCallbacks;
+
+#if INTEL_CUSTOMIZATION
+  // True if the compiler is built to include DTrans and the option
+  // EnableDTrans is turned on.
+  bool DTransEnabled;
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// This utility template takes care of adding require<> and invalidate<>

@@ -36,7 +36,6 @@ using namespace llvm::vpo;
 static cl::opt<bool>
     UseSimdChannels("use-simd-channels", cl::init(true), cl::Hidden,
                     cl::desc("use simd versions of read/write pipe functions"));
-extern cl::opt<bool> EnableVPValueCodegen;
 
 #define DEBUG_TYPE "vpo-ir-loop-vectorize-legality"
 
@@ -57,30 +56,29 @@ static void collectAllRelevantUsers(Value *RedVarPtr,
   }
 }
 
-static bool checkCombinerOp(Value *CombinerV,
-                            RecurrenceDescriptor::RecurrenceKind Kind) {
+static bool checkCombinerOp(Value *CombinerV, RecurKind Kind) {
   switch (Kind) {
-  case RecurrenceDescriptor::RK_FloatAdd:
+  case RecurKind::FAdd:
     return isa<Instruction>(CombinerV) &&
            (cast<Instruction>(CombinerV)->getOpcode() == Instruction::FAdd ||
             cast<Instruction>(CombinerV)->getOpcode() == Instruction::FSub);
-  case RecurrenceDescriptor::RK_IntegerAdd:
+  case RecurKind::Add:
     return isa<Instruction>(CombinerV) &&
            (cast<Instruction>(CombinerV)->getOpcode() == Instruction::Add ||
             cast<Instruction>(CombinerV)->getOpcode() == Instruction::Sub);
-  case RecurrenceDescriptor::RK_IntegerMult:
+  case RecurKind::Mul:
     return isa<Instruction>(CombinerV) &&
            cast<Instruction>(CombinerV)->getOpcode() == Instruction::Mul;
-  case RecurrenceDescriptor::RK_FloatMult:
+  case RecurKind::FMul:
     return isa<Instruction>(CombinerV) &&
            cast<Instruction>(CombinerV)->getOpcode() == Instruction::FMul;
-  case RecurrenceDescriptor::RK_IntegerAnd:
+  case RecurKind::And:
     return isa<Instruction>(CombinerV) &&
            cast<Instruction>(CombinerV)->getOpcode() == Instruction::And;
-  case RecurrenceDescriptor::RK_IntegerOr:
+  case RecurKind::Or:
     return isa<Instruction>(CombinerV) &&
            cast<Instruction>(CombinerV)->getOpcode() == Instruction::Or;
-  case RecurrenceDescriptor::RK_IntegerXor:
+  case RecurKind::Xor:
     return isa<Instruction>(CombinerV) &&
            cast<Instruction>(CombinerV)->getOpcode() == Instruction::Xor;
   default:
@@ -194,6 +192,16 @@ static Type *getWiderType(const DataLayout &DL, Type *Ty0, Type *Ty1) {
     return Ty0;
   return Ty1;
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void VPOVectorizationLegality::dump(raw_ostream &OS) const {
+  OS << "VPOLegality Descriptor Lists\n";
+  OS << "\n\nVPOLegality PrivateList:\n";
+  for (auto const &Pvt : Privates) {
+    Pvt.second->print(OS);
+  }
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 /// Analyze reduction pattern for variable \p RedVarPtr and return true if we
 /// have Phi nodes inside. If yes, return the Phi node in \p LoopHeaderPhiNode
@@ -323,6 +331,81 @@ bool VPOVectorizationLegality::isReductionVarStoredInsideTheLoop(
   return false;
 }
 
+bool VPOVectorizationLegality::isEndDirective(Instruction *I) const {
+  return VPOAnalysisUtils::isEndDirective(I) &&
+         VPOAnalysisUtils::getDirectiveID(I) == DIR_OMP_SIMD;
+}
+
+// Utility to analyze all instructions between the SIMD clause and the loop to
+// identify any aliasing variables to the explicit SIMD descriptors. We traverse
+// the CFG backwards, starting from Loop pre-header to the BB where SIMD clause
+// is found.
+void VPOVectorizationLegality::collectPreLoopDescrAliases() {
+  BasicBlock *LpPH = TheLoop->getLoopPreheader();
+
+  if (!LpPH)
+    return;
+
+  for (auto *CurBB = LpPH; CurBB; CurBB = CurBB->getSinglePredecessor()) {
+    for (auto &I : reverse((*CurBB))) {
+      if (isEndDirective(&I))
+        return;
+      if (!isa<LoadInst>(&I))
+        continue;
+      LLVM_DEBUG(dbgs() << "VPOLegal: LoadInst: "; I.dump());
+      Value *LoadPtrOp = cast<LoadInst>(&I)->getPointerOperand();
+      if (Privates.count(LoadPtrOp)) {
+        std::unique_ptr<PrivDescrTy> &Descr = Privates.find(LoadPtrOp)->second;
+
+        LLVM_DEBUG(dbgs() << "Found an alias for a SIMD descriptor ref ";
+                   LoadPtrOp->dump());
+        Descr->addAlias(&I, std::make_unique<DescrValueTy>(&I));
+      }
+    }
+  }
+}
+
+// Utility to analyze all instructions in loop post-exit to identify any
+// aliasing variables to the explicit SIMD descriptor. We traverse CFG starting
+// from loop exit BB to the BB where END.SIMD clause is found.
+void VPOVectorizationLegality::collectPostExitLoopDescrAliases() {
+  BasicBlock *LpEx = TheLoop->getExitBlock();
+
+  if (!LpEx)
+    return;
+
+  for (auto *CurBB = LpEx; CurBB; CurBB = CurBB->getSingleSuccessor()) {
+    for (auto &I : *CurBB) {
+      if (isEndDirective(&I))
+        return;
+      if (!isa<StoreInst>(&I))
+        continue;
+      LLVM_DEBUG(dbgs() << "VPOLegal: StoreInst: "; I.dump());
+      Value *StorePtrOp = cast<StoreInst>(&I)->getPointerOperand();
+      if (!Privates.count(StorePtrOp))
+        continue;
+
+      std::unique_ptr<PrivDescrTy> &Descr = Privates.find(StorePtrOp)->second;
+      const Instruction *StoreOp =
+          dyn_cast<Instruction>(cast<StoreInst>(&I)->getValueOperand());
+      if (!StoreOp)
+        continue;
+      if (!TheLoop->contains(StoreOp)) {
+        auto *Phi = dyn_cast<PHINode>(StoreOp);
+        if (!Phi) // non-lcssa?
+          continue;
+        StoreOp = getLiveOutPhiOperand(Phi);
+        if (!StoreOp)
+          continue;
+      }
+      LLVM_DEBUG(dbgs() << "Found an alias for a SIMD descriptor ref ";
+                 StoreOp->dump());
+      Descr->addAlias(StoreOp, std::make_unique<DescrValueTy>(
+                                    const_cast<Instruction *>(StoreOp)));
+    }
+  }
+}
+
 // Check the safety of aliasing of particular class of clause-variables in \p
 // Range outside of the loop.
 template <typename LoopEntitiesRange>
@@ -330,12 +413,12 @@ bool VPOVectorizationLegality::isEntityAliasingSafe(
     const LoopEntitiesRange &LERange,
     std::function<bool(const Instruction *)> IsAliasInRelevantScope) {
   for (auto *En : LERange) {
-    SetVector<Value *> WL;
+    SetVector<const Value *> WL;
     WL.insert(En);
     while (!WL.empty()) {
       auto *HeadI = WL.pop_back_val();
       for (auto *Use : HeadI->users()) {
-        Instruction *UseInst = cast<Instruction>(Use);
+        const Instruction *UseInst = cast<Instruction>(Use);
 
         // We only want to analyze the blocks between the region-entry and the
         // loop-block (typically just simd.loop.preheader). This means we won't
@@ -346,7 +429,7 @@ bool VPOVectorizationLegality::isEntityAliasingSafe(
         // If this is a store of private pointer or any of its alias to an
         // external memory, treat the loop as unsafe for vectorization and
         // return false.
-        if (StoreInst *SI = dyn_cast<StoreInst>(UseInst))
+        if (const StoreInst *SI = dyn_cast<StoreInst>(UseInst))
           if (SI->getValueOperand() == HeadI)
             return false;
         if (isTrivialPointerAliasingInst(UseInst))
@@ -376,17 +459,14 @@ bool VPOVectorizationLegality::isAliasingSafe(DominatorTree &DT,
            DT.dominates(I, TheLoop->getHeader());
   };
 
-  return isEntityAliasingSafe(privates(), IsInstInRelevantScope) &&
-         isEntityAliasingSafe(condPrivates(), IsInstInRelevantScope) &&
-         isEntityAliasingSafe(lastPrivates(), IsInstInRelevantScope) &&
+  return isEntityAliasingSafe(privateVals(), IsInstInRelevantScope) &&
          isEntityAliasingSafe(explicitReductionVals(), IsInstInRelevantScope) &&
          isEntityAliasingSafe(inMemoryReductionVals(), IsInstInRelevantScope) &&
          isEntityAliasingSafe(linearVals(), IsInstInRelevantScope);
 }
 
-void VPOVectorizationLegality::parseMinMaxReduction(
-    Value *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind,
-    RecurrenceDescriptor::MinMaxRecurrenceKind Mrk) {
+void VPOVectorizationLegality::parseMinMaxReduction(Value *RedVarPtr,
+                                                    RecurKind Kind) {
 
   // Analyzing 2 possible scenarios:
   // (1)
@@ -437,15 +517,15 @@ void VPOVectorizationLegality::parseMinMaxReduction(
     }
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
-    RecurrenceDescriptor RD(StartV, MinMaxResultPhi, Kind, FMF, Mrk, nullptr,
-                            StartV->getType(), true, CastInsts);
+    RecurrenceDescriptor RD(StartV, MinMaxResultPhi, Kind, FMF, nullptr,
+                            StartV->getType(), true, false, CastInsts);
     ExplicitReductions[LoopHeaderPhiNode] = {RD, RedVarPtr};
   }
-  InMemoryReductions[RedVarPtr] = {Kind, Mrk};
+  InMemoryReductions[RedVarPtr] = Kind;
 }
 
-void VPOVectorizationLegality::parseBinOpReduction(
-    Value *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind) {
+void VPOVectorizationLegality::parseBinOpReduction(Value *RedVarPtr,
+                                                   RecurKind Kind) {
 
   // Analyzing 3 possible scenarios:
   // (1) -- Reduction Phi nodes, the new value is in reg
@@ -489,25 +569,23 @@ void VPOVectorizationLegality::parseBinOpReduction(
     Instruction *Combiner = cast<Instruction>(CombinerV);
     SmallPtrSet<Instruction *, 4> CastInsts;
     FastMathFlags FMF = FastMathFlags::getFast();
-    RecurrenceDescriptor RD(StartV, Combiner, Kind, FMF,
-                            RecurrenceDescriptor::MRK_Invalid, nullptr,
-                            ReductionPhi->getType(), true, CastInsts);
+    RecurrenceDescriptor RD(StartV, Combiner, Kind, FMF, nullptr,
+                            ReductionPhi->getType(), true, false, CastInsts);
     ExplicitReductions[ReductionPhi] = {RD, RedVarPtr};
   } else if ((UseMemory = isReductionVarStoredInsideTheLoop(RedVarPtr)))
-    InMemoryReductions[RedVarPtr] = {Kind, RecurrenceDescriptor::MRK_Invalid};
+    InMemoryReductions[RedVarPtr] = Kind;
 
   if (!UsePhi && !UseMemory)
     LLVM_DEBUG(dbgs() << "LV: Explicit reduction pattern is not recognized ");
 }
 
-void VPOVectorizationLegality::parseExplicitReduction(
-    Value *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind,
-    RecurrenceDescriptor::MinMaxRecurrenceKind Mrk) {
+void VPOVectorizationLegality::parseExplicitReduction(Value *RedVarPtr,
+                                                      RecurKind Kind) {
   assert(isa<PointerType>(RedVarPtr->getType()) &&
          "Expected reduction variable to be a pointer type");
 
-  if (Mrk != RecurrenceDescriptor::MRK_Invalid)
-    return parseMinMaxReduction(RedVarPtr, Kind, Mrk);
+  if (RecurrenceDescriptorData::isMinMaxRecurrenceKind(Kind))
+    return parseMinMaxReduction(RedVarPtr, Kind);
 
   return parseBinOpReduction(RedVarPtr, Kind);
 }
@@ -518,38 +596,32 @@ bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {
 
 void VPOVectorizationLegality::addReductionMult(Value *V) {
   if (V->getType()->getPointerElementType()->isIntegerTy())
-    parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerMult);
+    parseExplicitReduction(V, RecurKind::Mul);
   else
-    parseExplicitReduction(V, RecurrenceDescriptor::RK_FloatMult);
+    parseExplicitReduction(V, RecurKind::FMul);
 }
 
 void VPOVectorizationLegality::addReductionAdd(Value *V) {
   if (V->getType()->getPointerElementType()->isIntegerTy())
-    parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerAdd);
+    parseExplicitReduction(V, RecurKind::Add);
   else
-    parseExplicitReduction(V, RecurrenceDescriptor::RK_FloatAdd);
+    parseExplicitReduction(V, RecurKind::FAdd);
 }
 
 void VPOVectorizationLegality::addReductionMin(Value *V, bool IsSigned) {
   if (V->getType()->getPointerElementType()->isIntegerTy()) {
-    RecurrenceDescriptor::MinMaxRecurrenceKind Mrk =
-        IsSigned ? RecurrenceDescriptor::MRK_SIntMin
-                 : RecurrenceDescriptor::MRK_UIntMin;
-    parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerMinMax, Mrk);
+    RecurKind Kind = IsSigned ? RecurKind::SMin : RecurKind::UMin;
+    parseExplicitReduction(V, Kind);
   } else
-    parseExplicitReduction(V, RecurrenceDescriptor::RK_FloatMinMax,
-                           RecurrenceDescriptor::MRK_FloatMin);
+    parseExplicitReduction(V, RecurKind::FMin);
 }
 
 void VPOVectorizationLegality::addReductionMax(Value *V, bool IsSigned) {
   if (V->getType()->getPointerElementType()->isIntegerTy()) {
-    RecurrenceDescriptor::MinMaxRecurrenceKind Mrk =
-        IsSigned ? RecurrenceDescriptor::MRK_SIntMax
-                 : RecurrenceDescriptor::MRK_UIntMax;
-    parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerMinMax, Mrk);
+    RecurKind Kind = IsSigned ? RecurKind::SMax : RecurKind::UMax;
+    parseExplicitReduction(V, Kind);
   } else
-    parseExplicitReduction(V, RecurrenceDescriptor::RK_FloatMinMax,
-                           RecurrenceDescriptor::MRK_FloatMax);
+    parseExplicitReduction(V, RecurKind::FMax);
 }
 
 bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
@@ -599,8 +671,11 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
             continue;
           if (isUsedInReductionScheme(Phi, ExplicitReductions))
             continue;
+          if (checkAndAddAliasForSimdLastPrivate(Phi))
+            continue;
+
           LLVM_DEBUG(dbgs() << "LV: PHI value could not be identified as"
-                            << " an induction or reduction \n");
+                            << " an induction or reduction." << *Phi << "\n");
           return false;
         }
 
@@ -626,20 +701,12 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
           continue;
         }
 
+        if (checkAndAddAliasForSimdLastPrivate(Phi))
+          continue;
+
         LLVM_DEBUG(dbgs() << "LV: Found an unidentified PHI." << *Phi << "\n");
         return false;
       } // end of PHI handling
-
-      // Check for handled shuffles
-      if (auto ShufInst = dyn_cast<ShuffleVectorInst>(&I)) {
-        if (getSplatValue(ShufInst) || all_of(ShufInst->getShuffleMask(),
-                                              [](int Elt) { return Elt == 0; }))
-          continue;
-
-        LLVM_DEBUG(dbgs() << "LV: Unsupported shufflevector instruction."
-                          << *ShufInst << "\n");
-        return false;
-      }
 
       // Bail out if we need to scalarize the read/write pipe OpenCL calls. We
       // have to do this because there are no users of these calls directly
@@ -675,8 +742,109 @@ bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
     LLVM_DEBUG(dbgs() << "LV: Did not find one integer induction var.\n");
     return false;
   }
-
   return true;
+}
+
+bool VPOVectorizationLegality::isLiveOut(const Instruction *I) const {
+  if (!TheLoop->contains(I))
+    return false;
+  return (llvm::any_of(I->users(), [this](const User *U) {
+    return !TheLoop->contains(cast<Instruction>(U));
+  }));
+}
+
+const Instruction *
+VPOVectorizationLegality::getLiveOutPhiOperand(const PHINode *Phi) const {
+  if (isLiveOut(Phi))
+    return Phi;
+  auto Iter = llvm::find_if(Phi->operands(), [&](const Value *Oper) {
+    if (const Instruction *I = dyn_cast<Instruction>(Oper))
+      return isLiveOut(I);
+    return false;
+  });
+  return Iter == Phi->op_end() ? nullptr : cast<Instruction>(*Iter);
+}
+
+// The routine can be called for two cases of phi, when one is in the loop
+// header or for liveout phi.
+//
+// We detect two potential cases for private aliases here.
+//
+// 1) %LoopPreheader:
+//        %alias = load %private
+//        ...
+//    %LoopHeader:
+//        %priv_phi = phi [%alias, %LoopPreheader], ...
+//
+// 2) %LoopPreheader:
+//        ...
+//    %LoopHeader:
+//        %priv_phi = phi [%some_const, %LoopPreheader], [%liveout_phi, %Latch]
+//        ...
+//    %Body:
+//        %priv = something
+//        ...
+//    %Latch (or any other block)
+//        %liveout_phi = phi [%priv_phi, %LoopHeader], [%priv, %Body]
+//        ...
+//    %LoopExit:
+//        %lcssa_phi = phi [%liveout_phi, %Latch]
+//        store %lcssa.phi, %private
+//
+// In the first case, if the load from private is used in the phi then phi is
+// alias for private.
+// In the second case, we can have a check for both phis, from loop header and
+// liveout phi from latch. The loop header phi is checked when the check in the
+// first case does not work, e.g. the incoming value is constant.
+//
+// No other data dependency checks are done because we do this for simd loops
+// only.
+bool VPOVectorizationLegality::checkAndAddAliasForSimdLastPrivate(
+    const PHINode *Phi) {
+  if (!IsSimdLoop)
+    return false;
+  bool IsHeaderPhi = Phi->getParent() == TheLoop->getHeader();
+  const Instruction *LiveOut = Phi;
+  if (IsHeaderPhi) {
+    const BasicBlock *PreheaderBB = TheLoop->getLoopPreheader();
+    const Value *PHIncomingVal = Phi->getIncomingValueForBlock(PreheaderBB);
+    LiveOut = getLiveOutPhiOperand(Phi);
+    if (!LiveOut)
+      return false;
+    if (auto *Priv = findPrivateOrAlias(PHIncomingVal)) {
+      updatePrivateExitInst(Priv, LiveOut);
+      return true;
+    }
+    if (!isa<PHINode>(LiveOut))
+      return false;
+  } else if (!isLiveOut(Phi))
+    return false;
+
+  // Liveout [phi] not in loop header.
+  if (auto Priv = findPrivateOrAlias(LiveOut)) {
+    updatePrivateExitInst(Priv, LiveOut);
+    return true;
+  }
+  return false;
+}
+
+PrivDescr<Value>*
+VPOVectorizationLegality::findPrivateOrAlias(const Value *Candidate) const {
+  if (Privates.count(Candidate))
+    return Privates.find(Candidate)->second.get();
+  for (auto Priv : privates())
+    if (Priv->findAlias(Candidate))
+      return const_cast<PrivDescrTy*>(Priv);
+  return nullptr;
+}
+
+void VPOVectorizationLegality::updatePrivateExitInst(PrivDescrTy *Priv,
+                                                     const Instruction *ExitI) {
+  if (!Priv->getUpdateInstructions().empty()) {
+    assert(ExitI == Priv->getUpdateInstructions()[0] &&
+           "second liveout for private");
+  }
+  Priv->addUpdateInstruction(ExitI);
 }
 
 void VPOVectorizationLegality::addInductionPhi(
@@ -748,11 +916,15 @@ bool VPOVectorizationLegality::isInMemoryReduction(Value *V) const {
 }
 
 bool VPOVectorizationLegality::isLastPrivate(Value *V) const {
-  return LastPrivates.count(getPtrThruCast<BitCastInst>(V)) != 0;
+  if (Privates.count(getPtrThruCast<BitCastInst>(V)))
+    return Privates.find(V)->second->isLast();
+  return false;
 }
 
 bool VPOVectorizationLegality::isCondLastPrivate(Value *V) const {
-  return CondLastPrivates.count(getPtrThruCast<BitCastInst>(V));
+  if (Privates.count(getPtrThruCast<BitCastInst>(V)))
+    return Privates.find(V)->second->isCond();
+  return false;
 }
 
 bool VPOVectorizationLegality::isLinear(Value *Val, int *Step) {

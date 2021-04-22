@@ -95,6 +95,7 @@
 #include "llvm/Support/EndianStream.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/LEB128.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/OnDiskHashTable.h"
 #include "llvm/Support/Path.h"
@@ -498,14 +499,6 @@ void TypeLocWriter::VisitPipeTypeLoc(PipeTypeLoc TL) {
 #if INTEL_CUSTOMIZATION
 void TypeLocWriter::VisitChannelTypeLoc(ChannelTypeLoc TL) {
   Record.AddSourceLocation(TL.getKWLoc());
-}
-
-void TypeLocWriter::VisitArbPrecIntTypeLoc(ArbPrecIntTypeLoc TL) {
-  Record.AddSourceLocation(TL.getNameLoc());
-}
-void TypeLocWriter::VisitDependentSizedArbPrecIntTypeLoc(
-    DependentSizedArbPrecIntTypeLoc TL) {
-  Record.AddSourceLocation(TL.getNameLoc());
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1633,6 +1626,15 @@ static unsigned CreateSLocExpansionAbbrev(llvm::BitstreamWriter &Stream) {
   return Stream.EmitAbbrev(std::move(Abbrev));
 }
 
+/// Emit key length and data length as ULEB-encoded data, and return them as a
+/// pair.
+static std::pair<unsigned, unsigned>
+emitULEBKeyDataLength(unsigned KeyLen, unsigned DataLen, raw_ostream &Out) {
+  llvm::encodeULEB128(KeyLen, Out);
+  llvm::encodeULEB128(DataLen, Out);
+  return std::make_pair(KeyLen, DataLen);
+}
+
 namespace {
 
   // Trait used for the on-disk hash table of header search information.
@@ -1675,19 +1677,14 @@ namespace {
 
     std::pair<unsigned, unsigned>
     EmitKeyDataLength(raw_ostream& Out, key_type_ref key, data_type_ref Data) {
-      using namespace llvm::support;
-
-      endian::Writer LE(Out, little);
       unsigned KeyLen = key.Filename.size() + 1 + 8 + 8;
-      LE.write<uint16_t>(KeyLen);
       unsigned DataLen = 1 + 2 + 4 + 4;
       for (auto ModInfo : Data.KnownHeaders)
         if (Writer.getLocalOrImportedSubmoduleID(ModInfo.getModule()))
           DataLen += 4;
       if (Data.Unresolved.getPointer())
         DataLen += 4;
-      LE.write<uint8_t>(DataLen);
-      return std::make_pair(KeyLen, DataLen);
+      return emitULEBKeyDataLength(KeyLen, DataLen, Out);
     }
 
     void EmitKey(raw_ostream& Out, key_type_ref key, unsigned KeyLen) {
@@ -3026,11 +3023,7 @@ public:
   std::pair<unsigned, unsigned>
     EmitKeyDataLength(raw_ostream& Out, Selector Sel,
                       data_type_ref Methods) {
-    using namespace llvm::support;
-
-    endian::Writer LE(Out, little);
     unsigned KeyLen = 2 + (Sel.getNumArgs()? Sel.getNumArgs() * 4 : 4);
-    LE.write<uint16_t>(KeyLen);
     unsigned DataLen = 4 + 2 + 2; // 2 bytes for each of the method counts
     for (const ObjCMethodList *Method = &Methods.Instance; Method;
          Method = Method->getNext())
@@ -3040,8 +3033,7 @@ public:
          Method = Method->getNext())
       if (Method->getMethod())
         DataLen += 4;
-    LE.write<uint16_t>(DataLen);
-    return std::make_pair(KeyLen, DataLen);
+    return emitULEBKeyDataLength(KeyLen, DataLen, Out);
   }
 
   void EmitKey(raw_ostream& Out, Selector Sel, unsigned) {
@@ -3338,6 +3330,15 @@ public:
 
   std::pair<unsigned, unsigned>
   EmitKeyDataLength(raw_ostream& Out, IdentifierInfo* II, IdentID ID) {
+    // Record the location of the identifier data. This is used when generating
+    // the mapping from persistent IDs to strings.
+    Writer.SetIdentifierOffset(II, Out.tell());
+
+    // Emit the offset of the key/data length information to the interesting
+    // identifiers table if necessary.
+    if (InterestingIdentifierOffsets && isInterestingIdentifier(II))
+      InterestingIdentifierOffsets->push_back(Out.tell());
+
     unsigned KeyLen = II->getLength() + 1;
     unsigned DataLen = 4; // 4 bytes for the persistent ID << 1
     auto MacroOffset = Writer.getMacroDirectivesOffset(II);
@@ -3354,31 +3355,11 @@ public:
           DataLen += 4;
       }
     }
-
-    using namespace llvm::support;
-
-    endian::Writer LE(Out, little);
-
-    assert((uint16_t)DataLen == DataLen && (uint16_t)KeyLen == KeyLen);
-    LE.write<uint16_t>(DataLen);
-    // We emit the key length after the data length so that every
-    // string is preceded by a 16-bit length. This matches the PTH
-    // format for storing identifiers.
-    LE.write<uint16_t>(KeyLen);
-    return std::make_pair(KeyLen, DataLen);
+    return emitULEBKeyDataLength(KeyLen, DataLen, Out);
   }
 
   void EmitKey(raw_ostream& Out, const IdentifierInfo* II,
                unsigned KeyLen) {
-    // Record the location of the key data.  This is used when generating
-    // the mapping from persistent IDs to strings.
-    Writer.SetIdentifierOffset(II, Out.tell());
-
-    // Emit the offset of the key/data length information to the interesting
-    // identifiers table if necessary.
-    if (InterestingIdentifierOffsets && isInterestingIdentifier(II))
-      InterestingIdentifierOffsets->push_back(Out.tell() - 4);
-
     Out.write(II->getNameStart(), KeyLen);
   }
 
@@ -3591,9 +3572,6 @@ public:
   std::pair<unsigned, unsigned> EmitKeyDataLength(raw_ostream &Out,
                                                   DeclarationNameKey Name,
                                                   data_type_ref Lookup) {
-    using namespace llvm::support;
-
-    endian::Writer LE(Out, little);
     unsigned KeyLen = 1;
     switch (Name.getKind()) {
     case DeclarationName::Identifier:
@@ -3613,15 +3591,11 @@ public:
     case DeclarationName::CXXUsingDirective:
       break;
     }
-    LE.write<uint16_t>(KeyLen);
 
     // 4 bytes for each DeclID.
     unsigned DataLen = 4 * (Lookup.second - Lookup.first);
-    assert(uint16_t(DataLen) == DataLen &&
-           "too many decls for serialized lookup result");
-    LE.write<uint16_t>(DataLen);
 
-    return std::make_pair(KeyLen, DataLen);
+    return emitULEBKeyDataLength(KeyLen, DataLen, Out);
   }
 
   void EmitKey(raw_ostream &Out, DeclarationNameKey Name, unsigned) {
@@ -3994,8 +3968,10 @@ void ASTWriter::WriteOpenCLExtensions(Sema &SemaRef) {
     auto V = I.getValue();
     Record.push_back(V.Supported ? 1 : 0);
     Record.push_back(V.Enabled ? 1 : 0);
+    Record.push_back(V.WithPragma ? 1 : 0);
     Record.push_back(V.Avail);
     Record.push_back(V.Core);
+    Record.push_back(V.Opt);
   }
   Stream.EmitRecord(OPENCL_EXTENSIONS, Record);
 }
@@ -4169,24 +4145,24 @@ void ASTWriter::WriteMSPointersToMembersPragmaOptions(Sema &SemaRef) {
   Stream.EmitRecord(POINTERS_TO_MEMBERS_PRAGMA_OPTIONS, Record);
 }
 
-/// Write the state of 'pragma pack' at the end of the module.
+/// Write the state of 'pragma align/pack' at the end of the module.
 void ASTWriter::WritePackPragmaOptions(Sema &SemaRef) {
-  // Don't serialize pragma pack state for modules, since it should only take
-  // effect on a per-submodule basis.
+  // Don't serialize pragma align/pack state for modules, since it should only
+  // take effect on a per-submodule basis.
   if (WritingModule)
     return;
 
   RecordData Record;
-  Record.push_back(SemaRef.PackStack.CurrentValue);
-  AddSourceLocation(SemaRef.PackStack.CurrentPragmaLocation, Record);
-  Record.push_back(SemaRef.PackStack.Stack.size());
-  for (const auto &StackEntry : SemaRef.PackStack.Stack) {
-    Record.push_back(StackEntry.Value);
+  AddAlignPackInfo(SemaRef.AlignPackStack.CurrentValue, Record);
+  AddSourceLocation(SemaRef.AlignPackStack.CurrentPragmaLocation, Record);
+  Record.push_back(SemaRef.AlignPackStack.Stack.size());
+  for (const auto &StackEntry : SemaRef.AlignPackStack.Stack) {
+    AddAlignPackInfo(StackEntry.Value, Record);
     AddSourceLocation(StackEntry.PragmaLocation, Record);
     AddSourceLocation(StackEntry.PragmaPushLocation, Record);
     AddString(StackEntry.StackSlotLabel, Record);
   }
-  Stream.EmitRecord(PACK_PRAGMA_OPTIONS, Record);
+  Stream.EmitRecord(ALIGN_PACK_PRAGMA_OPTIONS, Record);
 }
 
 /// Write the state of 'pragma float_control' at the end of the module.
@@ -5125,6 +5101,12 @@ void ASTWriter::WriteDeclUpdatesBlocks(RecordDataImpl &OffsetsRecord) {
   }
 }
 
+void ASTWriter::AddAlignPackInfo(const Sema::AlignPackInfo &Info,
+                                 RecordDataImpl &Record) {
+  uint32_t Raw = Sema::AlignPackInfo::getRawEncoding(Info);
+  Record.push_back(Raw);
+}
+
 void ASTWriter::AddSourceLocation(SourceLocation Loc, RecordDataImpl &Record) {
   uint32_t Raw = Loc.getRawEncoding();
   Record.push_back((Raw << 1) | (Raw >> 31));
@@ -5137,144 +5119,6 @@ void ASTWriter::AddSourceRange(SourceRange Range, RecordDataImpl &Record) {
 
 void ASTRecordWriter::AddAPFloat(const llvm::APFloat &Value) {
   AddAPInt(Value.bitcastToAPInt());
-}
-
-static void WriteFixedPointSemantics(ASTRecordWriter &Record,
-                                     llvm::FixedPointSemantics FPSema) {
-  Record.push_back(FPSema.getWidth());
-  Record.push_back(FPSema.getScale());
-  Record.push_back(FPSema.isSigned() | FPSema.isSaturated() << 1 |
-                   FPSema.hasUnsignedPadding() << 2);
-}
-
-void ASTRecordWriter::AddAPValue(const APValue &Value) {
-  APValue::ValueKind Kind = Value.getKind();
-  push_back(static_cast<uint64_t>(Kind));
-  switch (Kind) {
-  case APValue::None:
-  case APValue::Indeterminate:
-    return;
-  case APValue::Int:
-    AddAPSInt(Value.getInt());
-    return;
-  case APValue::Float:
-    push_back(static_cast<uint64_t>(
-        llvm::APFloatBase::SemanticsToEnum(Value.getFloat().getSemantics())));
-    AddAPFloat(Value.getFloat());
-    return;
-  case APValue::FixedPoint: {
-    WriteFixedPointSemantics(*this, Value.getFixedPoint().getSemantics());
-    AddAPSInt(Value.getFixedPoint().getValue());
-    return;
-  }
-  case APValue::ComplexInt: {
-    AddAPSInt(Value.getComplexIntReal());
-    AddAPSInt(Value.getComplexIntImag());
-    return;
-  }
-  case APValue::ComplexFloat: {
-    assert(llvm::APFloatBase::SemanticsToEnum(
-               Value.getComplexFloatImag().getSemantics()) ==
-           llvm::APFloatBase::SemanticsToEnum(
-               Value.getComplexFloatReal().getSemantics()));
-    push_back(static_cast<uint64_t>(llvm::APFloatBase::SemanticsToEnum(
-        Value.getComplexFloatReal().getSemantics())));
-    AddAPFloat(Value.getComplexFloatReal());
-    AddAPFloat(Value.getComplexFloatImag());
-    return;
-  }
-  case APValue::Vector:
-    push_back(Value.getVectorLength());
-    for (unsigned Idx = 0; Idx < Value.getVectorLength(); Idx++)
-      AddAPValue(Value.getVectorElt(Idx));
-    return;
-  case APValue::Array:
-    push_back(Value.getArrayInitializedElts());
-    push_back(Value.getArraySize());
-    for (unsigned Idx = 0; Idx < Value.getArrayInitializedElts(); Idx++)
-      AddAPValue(Value.getArrayInitializedElt(Idx));
-    if (Value.hasArrayFiller())
-      AddAPValue(Value.getArrayFiller());
-    return;
-  case APValue::Struct:
-    push_back(Value.getStructNumBases());
-    push_back(Value.getStructNumFields());
-    for (unsigned Idx = 0; Idx < Value.getStructNumBases(); Idx++)
-      AddAPValue(Value.getStructBase(Idx));
-    for (unsigned Idx = 0; Idx < Value.getStructNumFields(); Idx++)
-      AddAPValue(Value.getStructField(Idx));
-    return;
-  case APValue::Union:
-    AddDeclRef(Value.getUnionField());
-    AddAPValue(Value.getUnionValue());
-    return;
-  case APValue::AddrLabelDiff:
-    AddStmt(const_cast<AddrLabelExpr *>(Value.getAddrLabelDiffLHS()));
-    AddStmt(const_cast<AddrLabelExpr *>(Value.getAddrLabelDiffRHS()));
-    return;
-  case APValue::MemberPointer: {
-    push_back(Value.isMemberPointerToDerivedMember());
-    AddDeclRef(Value.getMemberPointerDecl());
-    ArrayRef<const CXXRecordDecl *> RecordPath = Value.getMemberPointerPath();
-    push_back(RecordPath.size());
-    for (auto Elem : RecordPath)
-      AddDeclRef(Elem);
-    return;
-  }
-  case APValue::LValue: {
-    push_back(Value.hasLValuePath() | Value.isLValueOnePastTheEnd() << 1 |
-              Value.getLValueBase().is<const Expr *>() << 2 |
-              Value.getLValueBase().is<TypeInfoLValue>() << 3 |
-              Value.isNullPointer() << 4 |
-              static_cast<bool>(Value.getLValueBase()) << 5);
-    QualType ElemTy;
-    if (Value.getLValueBase()) {
-      assert(!Value.getLValueBase().is<DynamicAllocLValue>() &&
-             "in C++20 dynamic allocation are transient so they shouldn't "
-             "appear in the AST");
-      if (!Value.getLValueBase().is<TypeInfoLValue>()) {
-        push_back(Value.getLValueBase().getCallIndex());
-        push_back(Value.getLValueBase().getVersion());
-        if (const auto *E = Value.getLValueBase().dyn_cast<const Expr *>()) {
-          AddStmt(const_cast<Expr *>(E));
-          ElemTy = E->getType();
-        } else {
-          AddDeclRef(Value.getLValueBase().get<const ValueDecl *>());
-          ElemTy = Value.getLValueBase().get<const ValueDecl *>()->getType();
-        }
-      } else {
-        AddTypeRef(
-            QualType(Value.getLValueBase().get<TypeInfoLValue>().getType(), 0));
-        AddTypeRef(Value.getLValueBase().getTypeInfoType());
-        ElemTy = Value.getLValueBase().getTypeInfoType();
-      }
-    }
-    push_back(Value.getLValueOffset().getQuantity());
-    push_back(Value.getLValuePath().size());
-    if (Value.hasLValuePath()) {
-      ArrayRef<APValue::LValuePathEntry> Path = Value.getLValuePath();
-      for (auto Elem : Path) {
-        if (ElemTy->getAs<RecordType>()) {
-          push_back(Elem.getAsBaseOrMember().getInt());
-          const Decl *BaseOrMember = Elem.getAsBaseOrMember().getPointer();
-          if (const auto *RD = dyn_cast<CXXRecordDecl>(BaseOrMember)) {
-            AddDeclRef(RD);
-            ElemTy = Writer->Context->getRecordType(RD);
-          } else {
-            const auto *VD = cast<ValueDecl>(BaseOrMember);
-            AddDeclRef(VD);
-            ElemTy = VD->getType();
-          }
-        } else {
-          push_back(Elem.getAsArrayIndex());
-          ElemTy = Writer->Context->getAsArrayType(ElemTy)->getElementType();
-        }
-      }
-    }
-  }
-    return;
-  }
-  llvm_unreachable("Invalid APValue::ValueKind");
 }
 
 void ASTWriter::AddIdentifierRef(const IdentifierInfo *II, RecordDataImpl &Record) {
@@ -5562,19 +5406,15 @@ void ASTRecordWriter::AddDeclarationNameLoc(const DeclarationNameLoc &DNLoc,
   case DeclarationName::CXXConstructorName:
   case DeclarationName::CXXDestructorName:
   case DeclarationName::CXXConversionFunctionName:
-    AddTypeSourceInfo(DNLoc.NamedType.TInfo);
+    AddTypeSourceInfo(DNLoc.getNamedTypeInfo());
     break;
 
   case DeclarationName::CXXOperatorName:
-    AddSourceLocation(SourceLocation::getFromRawEncoding(
-        DNLoc.CXXOperatorName.BeginOpNameLoc));
-    AddSourceLocation(
-        SourceLocation::getFromRawEncoding(DNLoc.CXXOperatorName.EndOpNameLoc));
+    AddSourceRange(DNLoc.getCXXOperatorNameRange());
     break;
 
   case DeclarationName::CXXLiteralOperatorName:
-    AddSourceLocation(SourceLocation::getFromRawEncoding(
-        DNLoc.CXXLiteralOperatorName.OpNameLoc));
+    AddSourceLocation(DNLoc.getCXXLiteralOperatorNameLoc());
     break;
 
   case DeclarationName::Identifier:
@@ -5816,6 +5656,7 @@ void ASTRecordWriter::AddCXXDefinitionData(const CXXRecordDecl *D) {
     Record->push_back(Lambda.NumExplicitCaptures);
     Record->push_back(Lambda.HasKnownInternalLinkage);
     Record->push_back(Lambda.ManglingNumber);
+    Record->push_back(D->getDeviceLambdaManglingNumber());
     AddDeclRef(D->getLambdaContextDecl());
     AddTypeSourceInfo(Lambda.MethodTyInfo);
     for (unsigned I = 0, N = Lambda.NumCaptures; I != N; ++I) {
@@ -6322,6 +6163,13 @@ void OMPClauseWriter::VisitOMPSimdlenClause(OMPSimdlenClause *C) {
   Record.AddSourceLocation(C->getLParenLoc());
 }
 
+void OMPClauseWriter::VisitOMPSizesClause(OMPSizesClause *C) {
+  Record.push_back(C->getNumSizes());
+  for (Expr *Size : C->getSizesRefs())
+    Record.AddStmt(Size);
+  Record.AddSourceLocation(C->getLParenLoc());
+}
+
 void OMPClauseWriter::VisitOMPAllocatorClause(OMPAllocatorClause *C) {
   Record.AddStmt(C->getAllocator());
   Record.AddSourceLocation(C->getLParenLoc());
@@ -6409,7 +6257,45 @@ void OMPClauseWriter::VisitOMPSIMDClause(OMPSIMDClause *) {}
 
 void OMPClauseWriter::VisitOMPNogroupClause(OMPNogroupClause *) {}
 
-void OMPClauseWriter::VisitOMPDestroyClause(OMPDestroyClause *) {}
+void OMPClauseWriter::VisitOMPInitClause(OMPInitClause *C) {
+  Record.push_back(C->varlist_size());
+  for (Expr *VE : C->varlists())
+    Record.AddStmt(VE);
+  Record.writeBool(C->getIsTarget());
+  Record.writeBool(C->getIsTargetSync());
+  Record.AddSourceLocation(C->getLParenLoc());
+  Record.AddSourceLocation(C->getVarLoc());
+}
+
+void OMPClauseWriter::VisitOMPUseClause(OMPUseClause *C) {
+  Record.AddStmt(C->getInteropVar());
+  Record.AddSourceLocation(C->getLParenLoc());
+  Record.AddSourceLocation(C->getVarLoc());
+}
+
+void OMPClauseWriter::VisitOMPDestroyClause(OMPDestroyClause *C) {
+  Record.AddStmt(C->getInteropVar());
+  Record.AddSourceLocation(C->getLParenLoc());
+  Record.AddSourceLocation(C->getVarLoc());
+}
+
+void OMPClauseWriter::VisitOMPNovariantsClause(OMPNovariantsClause *C) {
+  VisitOMPClauseWithPreInit(C);
+  Record.AddStmt(C->getCondition());
+  Record.AddSourceLocation(C->getLParenLoc());
+}
+
+void OMPClauseWriter::VisitOMPNocontextClause(OMPNocontextClause *C) {
+  VisitOMPClauseWithPreInit(C);
+  Record.AddStmt(C->getCondition());
+  Record.AddSourceLocation(C->getLParenLoc());
+}
+
+void OMPClauseWriter::VisitOMPFilterClause(OMPFilterClause *C) {
+  VisitOMPClauseWithPreInit(C);
+  Record.AddStmt(C->getThreadID());
+  Record.AddSourceLocation(C->getLParenLoc());
+}
 
 void OMPClauseWriter::VisitOMPPrivateClause(OMPPrivateClause *C) {
   Record.push_back(C->varlist_size());

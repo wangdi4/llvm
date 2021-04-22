@@ -68,6 +68,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
 
   PassRegistry &PR = *PassRegistry::getPassRegistry();
   initializeX86SplitVectorValueTypePass(PR);  // INTEL
+  initializeX86LowerAMXIntrinsicsLegacyPassPass(PR);
   initializeX86LowerAMXTypeLegacyPassPass(PR);
   initializeGlobalISel(PR);
   initializeWinEHStatePassPass(PR);
@@ -80,6 +81,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializeX86CmovConverterPassPass(PR);
   initializeX86CiscizationHelperPassPass(PR); // INTEL
   initializeX86TileConfigPass(PR);
+  initializeX86LowerTileCopyPass(PR);
   initializeX86ExpandPseudoPass(PR);
   initializeX86ExecutionDomainFixPass(PR);
   initializeX86DomainReassignmentPass(PR);
@@ -271,7 +273,7 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
     StringRef Val = PreferVecWidthAttr.getValueAsString();
     unsigned Width;
     if (!Val.getAsInteger(0, Width)) {
-      Key += "prefer-vector-width=";
+      Key += 'p';
       Key += Val;
       PreferVectorWidthOverride = Width;
     }
@@ -284,17 +286,31 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
     StringRef Val = MinLegalVecWidthAttr.getValueAsString();
     unsigned Width;
     if (!Val.getAsInteger(0, Width)) {
-      Key += "min-legal-vector-width=";
+      Key += 'm';
       Key += Val;
       RequiredVectorWidth = Width;
     }
   }
+#if INTEL_CUSTOMIZATION
+  else {
+    if (PreferVectorWidthOverride &&
+        RequiredVectorWidth > PreferVectorWidthOverride) {
+      // if min-legal-vector-width attribute is not specified but
+      // prefer-vector-width attribute is specified then
+      // reduce RequiredVectorWidth to PreferVectorWidthOverride.
+      RequiredVectorWidth = PreferVectorWidthOverride;
+    } else if (Options.IntelAdvancedOptim &&
+        getOptLevel() >= CodeGenOpt::Aggressive) {
+      // Avoid CPU frequency drop issue.
+      RequiredVectorWidth = 0;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Add CPU to the Key.
   Key += CPU;
 
   // Add tune CPU to the Key.
-  Key += "tune=";
   Key += TuneCPU;
 
   // Keep track of the start of the feature portion of the string.
@@ -424,7 +440,11 @@ TargetPassConfig *X86TargetMachine::createPassConfig(PassManagerBase &PM) {
 void X86PassConfig::addIRPasses() {
   addPass(createAtomicExpandPass());
   addPass(createFloat128ExpandPass()); // INTEL
-  // addPass(createX86LowerAMXTypePass()); // INTEL
+
+  // We add both pass anyway and when these two passes run, we skip the pass
+  // based on the option level and option attribute.
+  addPass(createX86LowerAMXIntrinsicsPass());
+  addPass(createX86LowerAMXTypePass());
 
   TargetPassConfig::addIRPasses();
 
@@ -484,7 +504,7 @@ bool X86PassConfig::addRegBankSelect() {
 }
 
 bool X86PassConfig::addGlobalInstructionSelect() {
-  addPass(new InstructionSelect());
+  addPass(new InstructionSelect(getOptLevel()));
   return false;
 }
 
@@ -550,6 +570,7 @@ void X86PassConfig::addMachineSSAOptimization() {
 }
 
 void X86PassConfig::addPostRegAlloc() {
+  addPass(createX86LowerTileCopyPass());
   addPass(createX86FloatingPointStackifierPass());
   // When -O0 is enabled, the Load Value Injection Hardening pass will fall back
   // to using the Speculative Execution Side Effect Suppression pass for
@@ -610,9 +631,13 @@ void X86PassConfig::addPreEmitPass2() {
       (!TT.isOSWindows() ||
        MAI->getExceptionHandlingType() == ExceptionHandling::DwarfCFI))
     addPass(createCFIInstrInserter());
-  // Identify valid longjmp targets for Windows Control Flow Guard.
-  if (TT.isOSWindows())
+
+  if (TT.isOSWindows()) {
+    // Identify valid longjmp targets for Windows Control Flow Guard.
     addPass(createCFGuardLongjmpPass());
+    // Identify valid eh continuation targets for Windows EHCont Guard.
+    addPass(createEHContGuardCatchretPass());
+  }
   addPass(createX86LoadValueInjectionRetHardeningPass());
 }
 

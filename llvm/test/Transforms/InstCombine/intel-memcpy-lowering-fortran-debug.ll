@@ -90,7 +90,7 @@ define void @test2_(%"ESMF_BASETIMEMOD$.btESMF_BASETIME_NESTED"* %0, %"ESMF_BASE
 ; get lowered if it is NOT marked Fortran
 
 ; CHECK-LABEL: define void @test3_(%"ESMF_BASETIMEMOD$.btESMF_BASETIME"* %0, %"ESMF_BASETIMEMOD$.btESMF_BASETIME"* %1) {
-; CHECK-NEXT:  call void @"llvm.memcpy.p0s_ESMF_BASETIMEMOD$.btESMF_BASETIMEs.p0s_ESMF_BASETIMEMOD$.btESMF_BASETIMEs.i64"(%"ESMF_BASETIMEMOD$.btESMF_BASETIME"* nonnull align 1 dereferenceable(32) %0, %"ESMF_BASETIMEMOD$.btESMF_BASETIME"* nonnull align 8 dereferenceable(32) %1, i64 32, i1 false)
+; CHECK-NEXT:  call void @"llvm.memcpy.p0s_ESMF_BASETIMEMOD$.btESMF_BASETIMEs.p0s_ESMF_BASETIMEMOD$.btESMF_BASETIMEs.i64"(%"ESMF_BASETIMEMOD$.btESMF_BASETIME"* noundef nonnull align 1 dereferenceable(32) %0, %"ESMF_BASETIMEMOD$.btESMF_BASETIME"* noundef nonnull align 8 dereferenceable(32) %1, i64 32, i1 false)
 ; CHECK-NEXT:  ret void
 ; CHECK-NEXT: }
 
@@ -104,7 +104,7 @@ define void @test3_(%"ESMF_BASETIMEMOD$.btESMF_BASETIME"* %0, %"ESMF_BASETIMEMOD
 ; get lowered if it is NOT marked Fortran
 
 ; CHECK-LABEL: define void @test4_(%"ESMF_BASETIMEMOD$.btESMF_BASETIME_NESTED"* %0, %"ESMF_BASETIMEMOD$.btESMF_BASETIME_NESTED"* %1) {
-; CHECK-NEXT:  call void @"llvm.memcpy.p0s_ESMF_BASETIMEMOD$.btESMF_BASETIME_NESTEDs.p0s_ESMF_BASETIMEMOD$.btESMF_BASETIME_NESTEDs.i64"(%"ESMF_BASETIMEMOD$.btESMF_BASETIME_NESTED"* nonnull align 1 dereferenceable(48) %0, %"ESMF_BASETIMEMOD$.btESMF_BASETIME_NESTED"* nonnull align 8 dereferenceable(48) %1, i64 48, i1 false)
+; CHECK-NEXT:  call void @"llvm.memcpy.p0s_ESMF_BASETIMEMOD$.btESMF_BASETIME_NESTEDs.p0s_ESMF_BASETIMEMOD$.btESMF_BASETIME_NESTEDs.i64"(%"ESMF_BASETIMEMOD$.btESMF_BASETIME_NESTED"* noundef nonnull align 1 dereferenceable(48) %0, %"ESMF_BASETIMEMOD$.btESMF_BASETIME_NESTED"* noundef nonnull align 8 dereferenceable(48) %1, i64 48, i1 false)
 ; CHECK-NEXT:  ret void
 ; CHECK-NEXT: }
 

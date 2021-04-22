@@ -2,12 +2,12 @@
 set(binary_dir "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 if (WIN32)
   set(omp_compile_opts -Qiopenmp --driver-mode=cl)
-  set(omp_target_opts -Qopenmp-targets=spir64)
+  set(omp_target_opts -Qopenmp-targets=spir64_gen,spir64_x86_64,spir64)
   set(objext .obj)
   set(cmplr_obj_out -c -Fo)
 else()
   set(omp_compile_opts -fiopenmp)
-  set(omp_target_opts -fopenmp-targets=spir64)
+  set(omp_target_opts -fopenmp-targets=spir64_gen,spir64_x86_64,spir64)
   set(objext .o)
   set(cmplr_obj_out -c -o)
 endif()
@@ -112,12 +112,12 @@ endfunction()
 # Standard functionality.
 if (WIN32)
   add_obj_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/msvc_wrapper.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/crt_wrapper.cpp
     ${binary_dir}/libomp-msvc${objext}
     DEPENDS wrapper.h device.h)
 else(WIN32)
   add_obj_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/glibc_wrapper.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/crt_wrapper.cpp
     ${binary_dir}/libomp-glibc${objext}
     DEPENDS wrapper.h device.h)
 endif(WIN32)
@@ -194,6 +194,23 @@ add_spv_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/fallback-complex-fp64.cpp
   ${binary_dir}/libomp-fallback-complex-fp64.spv
   DEPENDS device_math.h device_complex.h device.h
+  )
+
+# ITT APIs
+add_obj_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/itt_stubs.cpp
+  ${binary_dir}/libomp-itt-stubs${objext}
+  DEPENDS device_itt.h spirv_vars.h device.h
+  )
+add_obj_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/itt_user_wrappers.cpp
+  ${binary_dir}/libomp-itt-user-wrappers${objext}
+  DEPENDS device_itt.h spirv_vars.h device.h
+  )
+add_obj_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/itt_compiler_wrappers.cpp
+  ${binary_dir}/libomp-itt-compiler-wrappers${objext}
+  DEPENDS device_itt.h spirv_vars.h device.h
   )
 
 add_custom_target(libompdevice-obj DEPENDS ${omplib_objs})

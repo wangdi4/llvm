@@ -1,3 +1,4 @@
+; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-barrier-analysis>' %s | FileCheck %s
 ; RUN: opt -analyze -dpcpp-kernel-data-per-barrier-analysis %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************
@@ -23,7 +24,7 @@ L0:
   %isOk = phi i1 [ false, %L1 ], [ true, %Entry ]
   br label %L1
 L1:
-  call void @__builtin_dpcpp_kernel_barrier(i32 2)
+  call void @_Z18work_group_barrierj(i32 2)
   br i1 %check, label %L0, label %Exit
 Exit:
   ret void
@@ -33,13 +34,13 @@ Exit:
 ; CHECK: %isOk = phi i1 [ false, %L1 ], [ true, %Entry ]
 ; CHECK: br label %L1
 ; CHECK: L1:
-; CHECK: call void @__builtin_dpcpp_kernel_barrier(i32 2)
+; CHECK: call void @_Z18work_group_barrierj(i32 2)
 ; CHECK: br i1 %check, label %L0, label %Exit
 ; CHECK: Exit:
 ; CHECK: ret void
 }
 
-declare void @__builtin_dpcpp_kernel_barrier(i32)
+declare void @_Z18work_group_barrierj(i32)
 
 ; CHECK: synchronize basic blocks
 

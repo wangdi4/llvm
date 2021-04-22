@@ -76,8 +76,8 @@ bool CaptureTracker::isDereferenceableOrNull(Value *O, const DataLayout &DL) {
   if (isa<SubscriptInst>(O))
     return true;
 #endif // INTEL_CUSTOMIZATION
-  bool CanBeNull;
-  return O->getPointerDereferenceableBytes(DL, CanBeNull);
+  bool CanBeNull, CanBeFreed;
+  return O->getPointerDereferenceableBytes(DL, CanBeNull, CanBeFreed);
 }
 
 namespace {
@@ -100,7 +100,7 @@ namespace {
         if (IgnoreNoAliasArgStCaptured) {
           Value *V2 = I->getOperand(1);
           V2 = V2->stripPointerCasts();
-          if (V2 && isNoAliasArgument(V2)) {
+          if (V2 && isNoAliasOrByValArgument(V2)) {
             return false;
           }
         }

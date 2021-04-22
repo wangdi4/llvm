@@ -1553,6 +1553,8 @@ bool CursorVisitor::VisitBuiltinTypeLoc(BuiltinTypeLoc TL) {
 #include "clang/Basic/AArch64SVEACLETypes.def"
 #define PPC_VECTOR_TYPE(Name, Id, Size) case BuiltinType::Id:
 #include "clang/Basic/PPCTypes.def"
+#define RVV_TYPE(Name, Id, SingletonId) case BuiltinType::Id:
+#include "clang/Basic/RISCVVTypes.def"
 #define BUILTIN_TYPE(Id, SingletonId)
 #define SIGNED_TYPE(Id, SingletonId) case BuiltinType::Id:
 #define UNSIGNED_TYPE(Id, SingletonId) case BuiltinType::Id:
@@ -1802,8 +1804,6 @@ bool CursorVisitor::VisitPipeTypeLoc(PipeTypeLoc TL) {
 bool CursorVisitor::VisitChannelTypeLoc(ChannelTypeLoc TL) {
   return Visit(TL.getValueLoc());
 }
-DEFAULT_TYPELOC_IMPL(ArbPrecInt, Type)
-DEFAULT_TYPELOC_IMPL(DependentSizedArbPrecInt, Type)
 #endif // INTEL_CUSTOMIZATION
 
 DEFAULT_TYPELOC_IMPL(Complex, Type)
@@ -2051,9 +2051,11 @@ public:
   void VisitOpaqueValueExpr(const OpaqueValueExpr *E);
   void VisitLambdaExpr(const LambdaExpr *E);
   void VisitOMPExecutableDirective(const OMPExecutableDirective *D);
+  void VisitOMPLoopBasedDirective(const OMPLoopBasedDirective *D);
   void VisitOMPLoopDirective(const OMPLoopDirective *D);
   void VisitOMPParallelDirective(const OMPParallelDirective *D);
   void VisitOMPSimdDirective(const OMPSimdDirective *D);
+  void VisitOMPTileDirective(const OMPTileDirective *D);
   void VisitOMPForDirective(const OMPForDirective *D);
   void VisitOMPForSimdDirective(const OMPForSimdDirective *D);
   void VisitOMPSectionsDirective(const OMPSectionsDirective *D);
@@ -2253,6 +2255,11 @@ void OMPClauseEnqueue::VisitOMPSimdlenClause(const OMPSimdlenClause *C) {
   Visitor->AddStmt(C->getSimdlen());
 }
 
+void OMPClauseEnqueue::VisitOMPSizesClause(const OMPSizesClause *C) {
+  for (auto E : C->getSizesRefs())
+    Visitor->AddStmt(E);
+}
+
 void OMPClauseEnqueue::VisitOMPAllocatorClause(const OMPAllocatorClause *C) {
   Visitor->AddStmt(C->getAllocator());
 }
@@ -2308,7 +2315,31 @@ void OMPClauseEnqueue::VisitOMPSIMDClause(const OMPSIMDClause *) {}
 
 void OMPClauseEnqueue::VisitOMPNogroupClause(const OMPNogroupClause *) {}
 
-void OMPClauseEnqueue::VisitOMPDestroyClause(const OMPDestroyClause *) {}
+void OMPClauseEnqueue::VisitOMPInitClause(const OMPInitClause *C) {
+  VisitOMPClauseList(C);
+}
+
+void OMPClauseEnqueue::VisitOMPUseClause(const OMPUseClause *C) {
+  Visitor->AddStmt(C->getInteropVar());
+}
+
+void OMPClauseEnqueue::VisitOMPDestroyClause(const OMPDestroyClause *C) {
+  if (C->getInteropVar())
+    Visitor->AddStmt(C->getInteropVar());
+}
+
+void OMPClauseEnqueue::VisitOMPNovariantsClause(const OMPNovariantsClause *C) {
+  Visitor->AddStmt(C->getCondition());
+}
+
+void OMPClauseEnqueue::VisitOMPNocontextClause(const OMPNocontextClause *C) {
+  Visitor->AddStmt(C->getCondition());
+}
+
+void OMPClauseEnqueue::VisitOMPFilterClause(const OMPFilterClause *C) {
+  VisitOMPClauseWithPreInit(C);
+  Visitor->AddStmt(C->getThreadID());
+}
 
 void OMPClauseEnqueue::VisitOMPUnifiedAddressClause(
     const OMPUnifiedAddressClause *) {}
@@ -2881,8 +2912,13 @@ void EnqueueVisitor::VisitOMPExecutableDirective(
     EnqueueChildren(*I);
 }
 
-void EnqueueVisitor::VisitOMPLoopDirective(const OMPLoopDirective *D) {
+void EnqueueVisitor::VisitOMPLoopBasedDirective(
+    const OMPLoopBasedDirective *D) {
   VisitOMPExecutableDirective(D);
+}
+
+void EnqueueVisitor::VisitOMPLoopDirective(const OMPLoopDirective *D) {
+  VisitOMPLoopBasedDirective(D);
 }
 
 void EnqueueVisitor::VisitOMPParallelDirective(const OMPParallelDirective *D) {
@@ -2891,6 +2927,10 @@ void EnqueueVisitor::VisitOMPParallelDirective(const OMPParallelDirective *D) {
 
 void EnqueueVisitor::VisitOMPSimdDirective(const OMPSimdDirective *D) {
   VisitOMPLoopDirective(D);
+}
+
+void EnqueueVisitor::VisitOMPTileDirective(const OMPTileDirective *D) {
+  VisitOMPLoopBasedDirective(D);
 }
 
 void EnqueueVisitor::VisitOMPForDirective(const OMPForDirective *D) {
@@ -3390,10 +3430,8 @@ RefNamePieces buildPieces(unsigned NameFlags, bool IsMemberRefExpr,
     Pieces.push_back(*TemplateArgsLoc);
 
   if (Kind == DeclarationName::CXXOperatorName) {
-    Pieces.push_back(SourceLocation::getFromRawEncoding(
-        NI.getInfo().CXXOperatorName.BeginOpNameLoc));
-    Pieces.push_back(SourceLocation::getFromRawEncoding(
-        NI.getInfo().CXXOperatorName.EndOpNameLoc));
+    Pieces.push_back(NI.getInfo().getCXXOperatorNameBeginLoc());
+    Pieces.push_back(NI.getInfo().getCXXOperatorNameEndLoc());
   }
 
   if (WantSinglePiece) {
@@ -5565,10 +5603,14 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("CXXAccessSpecifier");
   case CXCursor_ModuleImportDecl:
     return cxstring::createRef("ModuleImport");
+  case CXCursor_OMPCanonicalLoop:
+    return cxstring::createRef("OMPCanonicalLoop");
   case CXCursor_OMPParallelDirective:
     return cxstring::createRef("OMPParallelDirective");
   case CXCursor_OMPSimdDirective:
     return cxstring::createRef("OMPSimdDirective");
+  case CXCursor_OMPTileDirective:
+    return cxstring::createRef("OMPTileDirective");
   case CXCursor_OMPForDirective:
     return cxstring::createRef("OMPForDirective");
   case CXCursor_OMPForSimdDirective:
@@ -5688,6 +5730,12 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
         "OMPTargetTeamsDistributeParallelForSimdDirective");
   case CXCursor_OMPTargetTeamsDistributeSimdDirective:
     return cxstring::createRef("OMPTargetTeamsDistributeSimdDirective");
+  case CXCursor_OMPInteropDirective:
+    return cxstring::createRef("OMPInteropDirective");
+  case CXCursor_OMPDispatchDirective:
+    return cxstring::createRef("OMPDispatchDirective");
+  case CXCursor_OMPMaskedDirective:
+    return cxstring::createRef("OMPMaskedDirective");
   case CXCursor_OverloadCandidate:
     return cxstring::createRef("OverloadCandidate");
   case CXCursor_TypeAliasTemplateDecl:
@@ -9196,16 +9244,3 @@ cxindex::Logger::~Logger() {
     OS << "--------------------------------------------------\n";
   }
 }
-
-#ifdef CLANG_TOOL_EXTRA_BUILD
-// This anchor is used to force the linker to link the clang-tidy plugin.
-extern volatile int ClangTidyPluginAnchorSource;
-static int LLVM_ATTRIBUTE_UNUSED ClangTidyPluginAnchorDestination =
-    ClangTidyPluginAnchorSource;
-
-// This anchor is used to force the linker to link the clang-include-fixer
-// plugin.
-extern volatile int ClangIncludeFixerPluginAnchorSource;
-static int LLVM_ATTRIBUTE_UNUSED ClangIncludeFixerPluginAnchorDestination =
-    ClangIncludeFixerPluginAnchorSource;
-#endif

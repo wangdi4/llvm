@@ -4,7 +4,7 @@
 
 void bar();
 // foo1,foo2,foo3 should have the same attributes
-//CHECK: define void @_Z4foo1v() #[[FOO1:[0-9]+]]
+//CHECK: define{{.*}}void @_Z4foo1v() #[[FOO1:[0-9]+]]
 void foo1() {
   // CHECK: DIR.OMP.PARALLEL
   #pragma omp parallel
@@ -13,7 +13,7 @@ void foo1() {
   }
 }
 
-//CHECK: define void @_Z4foo2v() #[[FOO1]]
+//CHECK: define{{.*}}void @_Z4foo2v() #[[FOO1]]
 void foo2() {
   // CHECK: DIR.OMP.PARALLEL
   #pragma omp parallel for
@@ -22,7 +22,7 @@ void foo2() {
   }
 }
 
-//CHECK: define void @_Z4foo3v() #[[FOO1]]
+//CHECK: define{{.*}}void @_Z4foo3v() #[[FOO1]]
 void foo3() {
   // CHECK: DIR.OMP.PARALLEL
   #pragma omp parallel for
@@ -36,7 +36,7 @@ void foo3() {
   foo2();
 }
 
-//CHECK: define void @_Z4foo4v() #[[FOO4:[0-9]+]]
+//CHECK: define{{.*}}void @_Z4foo4v() #[[FOO4:[0-9]+]]
 void foo4() {}
 
 //CHECK: attributes #[[FOO1]] = {{.*}}"may-have-openmp-directive"="true"

@@ -90,6 +90,8 @@ public:
 #if INTEL_CUSTOMIZATION
   /// Propagate \p OptLevel to AA.
   void setupAAWithOptLevel(unsigned OptLevel);
+  /// Replace any AA pipeline with \p AA.
+  void setAliasAnlaysis(AAResults *AA) { this->AA = AA; };
 #endif // INTEL_CUSTOMIZATION
   void setTargetTransformInfo(TargetTransformInfo *TTI) { this->TTI = TTI; }
   const TargetTransformInfo *getTargetTransformInfo() { return TTI; }

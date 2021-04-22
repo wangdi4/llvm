@@ -1,0 +1,80 @@
+/*===----------------------- raointintrin.h - RAOINT ------------------------===
+ *
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ *
+ *===-----------------------------------------------------------------------===
+ */
+#ifndef __X86GPRINTRIN_H
+#error "Never use <raointintrin.h> directly; include <x86gprintrin.h> instead."
+#endif // __X86GPRINTRIN_H
+
+#ifndef __RAOINTINTRIN_H
+#define __RAOINTINTRIN_H
+
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("raoint")))
+
+// No non-data-return built-in functions that corresponds to these atomic
+// instruction currently. So we need these intrinsics so that we can use
+// raoint instructions in O0 optimization level.
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_aadd_si32(int *__A, int __B) {
+  __builtin_ia32_aadd32((int *)__A, __B);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_aand_si32(int *__A, int __B) {
+  __builtin_ia32_aand32((int *)__A, __B);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_aor_si32(int *__A, int __B) {
+  __builtin_ia32_aor32((int *)__A, __B);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_axor_si32(int *__A, int __B) {
+  __builtin_ia32_axor32((int *)__A, __B);
+}
+
+#ifdef __x86_64__
+static __inline__ void __DEFAULT_FN_ATTRS
+_aadd_si64(long long *__A, long long __B) {
+  __builtin_ia32_aadd64((long long *)__A, __B);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_aand_si64(long long *__A, long long __B) {
+  __builtin_ia32_aand64((long long *)__A, __B);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_aor_si64(long long *__A, long long __B) {
+  __builtin_ia32_aor64((long long *)__A, __B);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_axor_si64(long long *__A, long long __B) {
+  __builtin_ia32_axor64((long long *)__A, __B);
+}
+#endif // __x86_64__
+
+#undef __DEFAULT_FN_ATTRS
+#endif // __RAOINTINTRIN_H

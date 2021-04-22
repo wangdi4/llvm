@@ -26,6 +26,7 @@ namespace llvm {
 namespace vpo {
 
 class VPValue;
+class VPlanVector;
 class VPInstruction;
 class VPLoop;
 class VPLoopInfo;
@@ -42,13 +43,99 @@ class VPInductionInitStep;
 class VPDominatorTree;
 class VPPostDominatorTree;
 
+
+/// Base class for VPlan DivergenceAnalysis.
+class VPlanDivergenceAnalysisBase {
+
+protected:
+  // Enum for different DA-kinds.
+  enum class DAKind {
+    Scalar,
+    Vector,
+  };
+
+  VPlanDivergenceAnalysisBase(DAKind Kind) : Kind(Kind) {}
+
+public:
+  DAKind getDAKind() const { return Kind; }
+
+  /// Mark \p UniVal as a value that is non-divergent.
+  virtual void markUniform(const VPValue &UniVal) = 0;
+
+  /// Mark \p UniVal as a value that is non-divergent.
+  virtual void markDivergent(const VPValue &UniVal) = 0;
+
+  /// Update divergence information of a particular instruction.
+  virtual void updateDivergence(VPValue &Val) = 0;
+
+  /// Return whether \p Val is a divergent value.
+  virtual bool isDivergent(const VPValue &V) const = 0;
+
+  /// Get the vector-shape of the VPValue \p V.
+  virtual VPVectorShape getVectorShape(const VPValue &V) const = 0;
+
+  virtual ~VPlanDivergenceAnalysisBase() {}
+
+private:
+  DAKind Kind;
+};
+
+/// Class for Scalar-VPlan DivergenceAnalysis.
+/// This class currently has two methods which are common for both scalar and
+/// vector-VPlans. For scalar-DA, we always return 'false' for \p isDivergent
+/// method and 'Uniform' shape for \p getVectorShape method.
+class VPlanDivergenceAnalysisScalar final : public VPlanDivergenceAnalysisBase {
+
+public:
+  VPlanDivergenceAnalysisScalar()
+      : VPlanDivergenceAnalysisBase(DAKind::Scalar) {}
+
+  /// Mark \p Val as a value that is non-divergent.
+  void markUniform(const VPValue &UniVal) override {
+    llvm_unreachable("Call to markUniform is not supported for Scalar "
+                     "Divergence Analysis.");
+  }
+
+  /// Mark \p UniVal as a value that is divergent.
+  void markDivergent(const VPValue &DivVal) override {
+    llvm_unreachable("Call to markDivergent is not supported for Scalar "
+                     "Divergence Analysis.");
+  };
+
+  /// Update divergence information of a particular instruction.
+  void updateDivergence(VPValue &Val) override {
+    llvm_unreachable("Call to updateDivergence is not supported for Scalar "
+                     "Divergence Analysis.");
+  }
+
+  /// Return whether \p V is a divergent value.
+  bool isDivergent(const VPValue &V) const override { return false; }
+
+  /// Get the vector-shape of the VPValue \p V.
+  VPVectorShape getVectorShape(const VPValue &V) const override {
+    return {VPVectorShape::Uni};
+  };
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPlanDivergenceAnalysisBase *DAB) {
+    return DAB->getDAKind() == DAKind::Scalar;
+  }
+};
+
 /// Generic divergence analysis for reducible CFGs.
 ///
-/// This analysis propagates divergence in a data-parallel context from sources
+/// This analysis propagates divergence in a data-parallel
 /// of divergence to all users. It requires reducible CFGs. All assignments
 /// should be in SSA form.
-class VPlanDivergenceAnalysis {
+class VPlanDivergenceAnalysis final : public VPlanDivergenceAnalysisBase {
 public:
+  VPlanDivergenceAnalysis() : VPlanDivergenceAnalysisBase(DAKind::Vector) {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(VPlanDivergenceAnalysisBase const *V) {
+    return V->getDAKind() == DAKind::Vector;
+  }
+
   /// This instance will analyze the whole function \p F or the loop \p
   /// RegionLoop.
   ///
@@ -58,7 +145,7 @@ public:
   /// region is in LCSSA form.
   // Note: this compute is a public interface for VPlan because we may want to
   // compute DA on demand after other VPlan transformations.
-  void compute(VPlan *Plan, VPLoop *RegionLoop, VPLoopInfo *VPLI,
+  void compute(VPlanVector *Plan, VPLoop *RegionLoop, VPLoopInfo *VPLI,
                VPDominatorTree &DT, VPPostDominatorTree &PDT,
                bool IsLCSSA = true);
 
@@ -74,21 +161,21 @@ public:
                        bool EnableFullDAVerificationAndPrint = false);
 
   /// Mark \p DivVal as a value that is always divergent.
-  void markDivergent(const VPValue &DivVal);
+  void markDivergent(const VPValue &DivVal) override;
 
   /// Mark \p UniVal as a value that is non-divergent.
-  void markUniform(const VPValue &UniVal);
+  void markUniform(const VPValue &UniVal) override;
 
   /// Whether \p Val will always return a uniform value regardless of its
   /// operands
   bool isAlwaysUniform(const VPValue &Val) const;
 
-  /// Whether \p Val is a divergent value
-  bool isDivergent(const VPValue &Val) const;
+  /// Return whether \p Val is a divergent value
+  bool isDivergent(const VPValue &Val) const override;
 
 #if INTEL_CUSTOMIZATION
   /// Return the vector shape for \p V.
-  VPVectorShape getVectorShape(const VPValue *V) const;
+  VPVectorShape getVectorShape(const VPValue &V) const override;
 
   /// Updates the vector shape for \p V, if necessary.
   /// Returns true if the shape was updated.
@@ -112,7 +199,7 @@ public:
   /// Return true if the given variable has SOA unit-stride.
   bool isSOAUnitStride(const VPValue *Val) const;
 
-  void updateDivergence(VPValue &Val) {
+  void updateDivergence(VPValue &Val) override {
     assert(isa<VPInstruction>(&Val) &&
            "Expected a VPInstruction as input argument.");
     SmallPtrSet<VPInstruction *, 1> Seeds({cast<VPInstruction>(&Val)});
@@ -121,7 +208,7 @@ public:
 
   // Clone instructions' vector shapes when we clone VPlan. This function is
   // used when DA recomputation is not allowed.
-  void cloneVectorShapes(VPlan *ClonedVPlan,
+  void cloneVectorShapes(VPlanVector *ClonedVPlan,
                          DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap);
 
   // Disable DA recomputation. It is used when we clone DA during VPlan cloning.
@@ -131,7 +218,20 @@ public:
   /// Returns true if OldShape is not equal to NewShape.
   bool shapesAreDifferent(VPVectorShape OldShape, VPVectorShape NewShape);
 
+  // Copy shapes from the passed range [\p Begin, \p End].
+  template<class Iter>
+  void copyShapes(Iter Begin, Iter End) {
+    VectorShapes.insert(Begin, End);
+  }
+
+  // Return the range of all shapes.
+  auto shapes() { return iterator_range<DataIter>(begin(), end());}
+
 private:
+  using DataIter = DenseMap<const VPValue *, VPVectorShape>::const_iterator;
+  DataIter begin() const { return VectorShapes.begin(); }
+  DataIter end() const { return VectorShapes.end(); }
+
   /// Propagate divergence to all instructions in the region.
   /// Divergence is seeded by calls to \p markDivergent.
   void computeImpl();
@@ -161,7 +261,6 @@ private:
   /// divergence of its operands.
   ///
   /// \returns Whether \p Inst is divergent.
-  ///
   /// This should only be called for non-phi, non-terminator instructions.
   bool updateNormalInstruction(const VPInstruction &Inst) const;
 
@@ -284,6 +383,8 @@ private:
   /// Computes vector shape for extract element instructions.
   VPVectorShape computeVectorShapeForInsertExtractInst(const VPInstruction *I);
 
+  VPVectorShape computeVectorShapeForShuffleVectorInst(const VPInstruction *I);
+
   /// Computes vector shape for select instructions.
   VPVectorShape computeVectorShapeForSelectInst(const VPInstruction *I);
 
@@ -333,19 +434,19 @@ private:
   /// by underlying IR.
   void improveStrideUsingIR();
 
-  VPlan *Plan;
+  VPlanVector *Plan = nullptr;
 
   // If regionLoop != nullptr, analysis is only performed within \p RegionLoop.
   // Otw, analyze the whole function
-  VPLoop *RegionLoop;
+  VPLoop *RegionLoop = nullptr;
 
   // Shape information of divergent values.
   DenseMap<const VPValue *, VPVectorShape> VectorShapes;
 #endif // INTEL_CUSTOMIZATION
 
-  VPDominatorTree *DT;
-  VPPostDominatorTree *PDT;
-  VPLoopInfo *VPLI;
+  VPDominatorTree *DT = nullptr;
+  VPPostDominatorTree *PDT = nullptr;
+  VPLoopInfo *VPLI = nullptr;
 
   // Recognized divergent loops
   DenseSet<const VPLoop *> DivergentLoops;
@@ -354,7 +455,7 @@ private:
   std::unique_ptr<SyncDependenceAnalysis> SDA;
 
   // Use simplified code path for LCSSA form.
-  bool IsLCSSAForm;
+  bool IsLCSSAForm = false;
 
   // Blocks with joining divergent control from different predecessors.
   DenseSet<const VPBasicBlock *> DivergentJoinBlocks;

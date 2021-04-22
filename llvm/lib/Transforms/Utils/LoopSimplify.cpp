@@ -53,6 +53,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_Andersens.h"        // INTEL
+#include "llvm/Analysis/Intel_WP.h"               // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
@@ -128,9 +129,7 @@ BasicBlock *llvm::InsertPreheaderForLoop(Loop *L, DominatorTree *DT,
 
   // Compute the set of predecessors of the loop that are not in the loop.
   SmallVector<BasicBlock*, 8> OutsideBlocks;
-  for (pred_iterator PI = pred_begin(Header), PE = pred_end(Header);
-       PI != PE; ++PI) {
-    BasicBlock *P = *PI;
+  for (BasicBlock *P : predecessors(Header)) {
     if (!L->contains(P)) {         // Coming in from outside the loop?
       // If the loop is branched to from an indirect terminator, we won't
       // be able to fully transform the loop, because it prohibits
@@ -172,9 +171,7 @@ static void addBlockAndPredsToSet(BasicBlock *InputBB, BasicBlock *StopBlock,
     if (Blocks.insert(BB).second && BB != StopBlock)
       // If BB is not already processed and it is not a stop block then
       // insert its predecessor in the work list
-      for (BasicBlock *WBB : predecessors(BB)) {
-        Worklist.push_back(WBB);
-      }
+      append_range(Worklist, predecessors(BB));
   } while (!Worklist.empty());
 }
 
@@ -384,9 +381,7 @@ static BasicBlock *insertUniqueBackedgeBlock(Loop *L, BasicBlock *Preheader,
 
   // Figure out which basic blocks contain back-edges to the loop header.
   std::vector<BasicBlock*> BackedgeBlocks;
-  for (pred_iterator I = pred_begin(Header), E = pred_end(Header); I != E; ++I){
-    BasicBlock *P = *I;
-
+  for (BasicBlock *P : predecessors(Header)) {
     // Indirect edges cannot be split, so we must fail if we find one.
     if (P->getTerminator()->isIndirectTerminator())
       return nullptr;
@@ -508,12 +503,9 @@ ReprocessLoop:
     if (*BB == L->getHeader()) continue;
 
     SmallPtrSet<BasicBlock*, 4> BadPreds;
-    for (pred_iterator PI = pred_begin(*BB),
-         PE = pred_end(*BB); PI != PE; ++PI) {
-      BasicBlock *P = *PI;
+    for (BasicBlock *P : predecessors(*BB))
       if (!L->contains(P))
         BadPreds.insert(P);
-    }
 
     // Delete each unique out-of-loop (and thus dead) predecessor.
     for (BasicBlock *P : BadPreds) {
@@ -784,6 +776,7 @@ namespace {
       AU.addPreserved<AAResultsWrapperPass>();
       AU.addPreserved<GlobalsAAWrapperPass>();
       AU.addPreserved<AndersensAAWrapperPass>();      // INTEL
+      AU.addPreserved<WholeProgramWrapperPass>();      // INTEL
       AU.addPreserved<ScalarEvolutionWrapperPass>();
       AU.addPreserved<SCEVAAWrapperPass>();
       AU.addPreservedID(LCSSAID);
@@ -891,6 +884,7 @@ PreservedAnalyses LoopSimplifyPass::run(Function &F,
   // handled via ValueHandle callbacks w/in BPI.
   PA.preserve<BranchProbabilityAnalysis>();
   PA.preserve<AndersensAA>();                // INTEL
+  PA.preserve<WholeProgramAnalysis>();       // INTEL
   return PA;
 }
 
@@ -910,9 +904,8 @@ static void verifyLoop(Loop *L) {
   // Indirectbr can interfere with preheader and unique backedge insertion.
   if (!L->getLoopPreheader() || !L->getLoopLatch()) {
     bool HasIndBrPred = false;
-    for (pred_iterator PI = pred_begin(L->getHeader()),
-         PE = pred_end(L->getHeader()); PI != PE; ++PI)
-      if (isa<IndirectBrInst>((*PI)->getTerminator())) {
+    for (BasicBlock *Pred : predecessors(L->getHeader()))
+      if (isa<IndirectBrInst>(Pred->getTerminator())) {
         HasIndBrPred = true;
         break;
       }

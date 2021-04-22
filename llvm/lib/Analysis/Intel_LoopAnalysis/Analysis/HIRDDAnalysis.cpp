@@ -17,6 +17,7 @@
 #include "llvm/Pass.h"
 
 #include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -105,6 +106,10 @@ HIRDDAnalysis HIRDDAnalysisPass::run(Function &F, FunctionAnalysisManager &AM) {
     AAR->addAAResult(*AAResult);
   }
 
+  if (auto *AAResult = MAMProxy.getCachedResult<GlobalsAA>(*F.getParent())) {
+    AAR->addAAResult(*AAResult);
+  }
+
   if (auto *AAResult = AM.getCachedResult<BasicAA>(F)) {
     AAR->addAAResult(*AAResult);
   }
@@ -138,7 +143,6 @@ void HIRDDAnalysisWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
   AU.addUsedIfAvailable<StdContainerAAWrapperPass>();
   AU.addUsedIfAvailable<BasicAAWrapperPass>();
-  // TODO: Do we need to add scev alias analysis??
 }
 
 // \brief Because the graph is evaluated lazily, runOnFunction doesn't
@@ -160,6 +164,10 @@ bool HIRDDAnalysisWrapperPass::runOnFunction(Function &F) {
   }
 
   if (auto *Pass = getAnalysisIfAvailable<AndersensAAWrapperPass>()) {
+    AAR->addAAResult(Pass->getResult());
+  }
+
+  if (auto *Pass = getAnalysisIfAvailable<GlobalsAAWrapperPass>()) {
     AAR->addAAResult(Pass->getResult());
   }
 
@@ -225,6 +233,42 @@ DDGraph HIRDDAnalysis::getGraphImpl(const HLRegion *Region,
   return DDGraph(Node, &DDG);
 }
 
+static ConstructDDEdgeType refineEdgeTypeUsingPathAnalysis(const DDRef *Ref1,
+                                                           const DDRef *Ref2) {
+  auto *Node1 = Ref1->getHLDDNode();
+  auto *Node2 = Ref2->getHLDDNode();
+
+  auto *LCAParent =
+      HLNodeUtils::getLexicalLowestCommonAncestorParent(Node1, Node2);
+
+  if (isa<HLRegion>(LCAParent)) {
+    return ConstructDDEdgeType::Forward;
+  }
+
+  // If a common parent loop exists, there is no refinement based on paths.
+  if (isa<HLLoop>(LCAParent) || LCAParent->getParentLoop()) {
+    return ConstructDDEdgeType::Both;
+  }
+
+  // Check if nodes are in mutually exclusive paths of the parent if/switch.
+
+  if (auto *If = dyn_cast<HLIf>(LCAParent)) {
+    if (If->isThenChild(Node1) != If->isThenChild(Node2)) {
+      return ConstructDDEdgeType::None;
+    }
+
+  } else {
+    auto *Switch = cast<HLSwitch>(LCAParent);
+
+    if (Switch->getChildCaseNum(Node1) != Switch->getChildCaseNum(Node2)) {
+      return ConstructDDEdgeType::None;
+    }
+  }
+
+  // Only forward edge makes sense in the absence of any parent loop.
+  return ConstructDDEdgeType::Forward;
+}
+
 // Returns true if we must do dd testing between ref1 and ref2. We generally
 // do not need to do testing between rvals, unless we need explicitly need input
 // edges. There may be other reasons in the future certain refs will be excluded
@@ -232,9 +276,10 @@ DDGraph HIRDDAnalysis::getGraphImpl(const HLRegion *Region,
 static ConstructDDEdgeType edgeNeeded(const DDARefGatherer::VectorTy &Refs,
                                       unsigned R1, unsigned R2,
                                       unsigned LoopStart, unsigned LoopEnd,
-                                      const DominationMatrixTy &M) {
+                                      bool IsRegionBuild,
+                                      const DominationMatrixTy &DomMatrix) {
   // Note:
-  // M[I][J] == true when:
+  // DomMatrix[I][J] == true when:
   //   (I > J AND there is a Refs[J..I-1] that dominates Refs[I]) OR
   //   (I < J AND there is a Refs[I+1..J] that post-dominates Refs[I]);
   //   false otherwise.
@@ -246,32 +291,40 @@ static ConstructDDEdgeType edgeNeeded(const DDARefGatherer::VectorTy &Refs,
     return ConstructDDEdgeType::None;
   }
 
-  if (!Ref1->isTerminalRef()) {
-    return ConstructDDEdgeType::Both;
+  bool IsTerminalRef = Ref1->isTerminalRef();
+
+  // We do not build self edges for terminals.
+  if (IsTerminalRef && (Ref1 == Ref2)) {
+    return ConstructDDEdgeType::None;
   }
 
-  // We do not build self edges
-  if (Ref1 == Ref2) {
-    return ConstructDDEdgeType::None;
+  ConstructDDEdgeType PathEdgeType =
+      IsRegionBuild ? refineEdgeTypeUsingPathAnalysis(Ref1, Ref2)
+                    : ConstructDDEdgeType::Both;
+
+  if (!IsTerminalRef) {
+    return PathEdgeType;
   }
 
   // Look refs in-between Ref1 and Ref2 to ignore the forward edge
   bool NeedForwardEdge =
-      !M[R2][R1 + 1] && // is !true if there is a Ref between
-                        // R1 and R2 which dominates Ref[R2],
-      !M[R1][R2 - 1];   // is !true if there is a Ref between R1
-                        // and R2 which post-dominates Ref[R1].
+      (PathEdgeType & ConstructDDEdgeType::Forward) &&
+      !DomMatrix[R2][R1 + 1] && // is !true if there is a Ref between
+                                // R1 and R2 which dominates Ref[R2],
+      !DomMatrix[R1][R2 - 1];   // is !true if there is a Ref between R1
+                                // and R2 which post-dominates Ref[R1].
 
   // Look refs before Ref1 to ignore the backward edge
   bool NeedBackwardEdge =
-      !M[R1][LoopStart]; // is !true if there is a ref before R1 inside the same
-                         // loop that dominates Ref[R1].
+      (PathEdgeType & ConstructDDEdgeType::Backward) &&
+      !DomMatrix[R1][LoopStart]; // is !true if there is a ref before R1 inside
+                                 // the same loop that dominates Ref[R1].
 
   // Look refs after Ref2 to see if we can still ignore the backward edge
   if (NeedBackwardEdge && LoopEnd > R2) {
     NeedBackwardEdge =
-        !M[R2][LoopEnd]; // is !true if there is a ref after R2 inside the same
-                         // loop that post-dominates Ref[R2].
+        !DomMatrix[R2][LoopEnd]; // is !true if there is a ref after R2 inside
+                                 // the same loop that post-dominates Ref[R2].
   }
 
   if (NeedForwardEdge && NeedBackwardEdge) {
@@ -490,21 +543,22 @@ void HIRDDAnalysis::buildGraph(DDGraphTy &DDG, const HLNode *Node) {
 
   DDARefGatherer::MapTy RefMap;
   bool IsGraphForInnermostLoop = false;
+  bool IsRegionBuild = false;
 
   if (const HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
     DDARefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), RefMap);
     IsGraphForInnermostLoop = Loop->isInnermost();
   } else {
     DDARefGatherer::gather(Node, RefMap);
+    IsRegionBuild = true;
   }
 
   LLVM_DEBUG(dbgs() << "References:\n");
   LLVM_DEBUG(DDARefGatherer::dump(RefMap));
 
   // pairwise testing among all refs sharing a symbase
-  for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
-       SymVecPair != Last; ++SymVecPair) {
-    auto &RefVec = SymVecPair->second;
+  for (auto &SymVecPair : RefMap) {
+    auto &RefVec = SymVecPair.second;
     auto RefVecSize = RefVec.size();
     assert(RefVecSize && "Unexpected empty Refs");
 
@@ -540,8 +594,8 @@ void HIRDDAnalysis::buildGraph(DDGraphTy &DDG, const HLNode *Node) {
       for (auto J = I; J < RefVecSize; ++J) {
         DDRef *Ref2 = RefVec[J];
 
-        ConstructDDEdgeType NeededEdgeType =
-            edgeNeeded(RefVec, I, J, LoopStart, LoopStop, DominationMatrix);
+        ConstructDDEdgeType NeededEdgeType = edgeNeeded(
+            RefVec, I, J, LoopStart, LoopStop, IsRegionBuild, DominationMatrix);
 
         if (NeededEdgeType != ConstructDDEdgeType::None &&
             !isEdgeValid(Ref1, Ref2)) {

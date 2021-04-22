@@ -8,12 +8,12 @@
 
 from libcxx.test.dsl import *
 
-_allStandards = ['c++03', 'c++11', 'c++14', 'c++17', 'c++2a']
 _warningFlags = [
   '-Werror',
   '-Wall',
   '-Wextra',
   '-Wshadow',
+  '-Wundef',
   '-Wno-unused-command-line-argument',
   '-Wno-attributes',
   '-Wno-pessimizing-move',
@@ -37,14 +37,28 @@ _warningFlags = [
   '-Wno-unused-local-typedef',
 ]
 
+_allStandards = ['c++03', 'c++11', 'c++14', 'c++17', 'c++20', 'c++2b']
+def getStdFlag(cfg, std):
+  fallbacks = {
+    'c++11': 'c++0x',
+    'c++14': 'c++1y',
+    'c++17': 'c++1z',
+    'c++20': 'c++2a',
+  }
+  if hasCompileFlag(cfg, '-std='+std):
+    return '-std='+std
+  if std in fallbacks and hasCompileFlag(cfg, '-std='+fallbacks[std]):
+    return '-std='+fallbacks[std]
+  return None
+
 DEFAULT_PARAMETERS = [
   # Core parameters of the test suite
   Parameter(name='std', choices=_allStandards, type=str,
             help="The version of the standard to compile the test suite with.",
-            default=lambda cfg: next(s for s in reversed(_allStandards) if hasCompileFlag(cfg, '-std='+s)),
+            default=lambda cfg: next(s for s in reversed(_allStandards) if getStdFlag(cfg, s)),
             actions=lambda std: [
               AddFeature(std),
-              AddCompileFlag('-std={}'.format(std)),
+              AddCompileFlag(lambda cfg: getStdFlag(cfg, std)),
             ]),
 
   Parameter(name='enable_exceptions', choices=[True, False], type=bool, default=True,
@@ -86,17 +100,11 @@ DEFAULT_PARAMETERS = [
             ]),
 
   # Parameters to enable or disable parts of the test suite
-  Parameter(name='enable_filesystem', choices=[True, False], type=bool, default=True,
-            help="Whether to enable tests for the C++ <filesystem> library.",
-            actions=lambda filesystem: [] if filesystem else [
-              AddFeature('c++filesystem-disabled')
-            ]),
-
   Parameter(name='enable_experimental', choices=[True, False], type=bool, default=False,
             help="Whether to enable tests for experimental C++ libraries (typically Library Fundamentals TSes).",
             actions=lambda experimental: [] if not experimental else [
               AddFeature('c++experimental'),
-              AddLinkFlag('-lc++experimental')
+              PrependLinkFlag('-lc++experimental')
             ]),
 
   Parameter(name='long_tests', choices=[True, False], type=bool, default=True,

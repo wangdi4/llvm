@@ -1,3 +1,4 @@
+; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-value-analysis>' %s -S -o - | FileCheck %s
 ; RUN: opt -analyze -dpcpp-kernel-data-per-value-analysis %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************
@@ -25,26 +26,26 @@ target triple = "i686-pc-win32"
 ; CHECK: @main
 define void @main(i32 %x) nounwind {
 L0:
-  %lid = call i32 @__builtin_get_local_id(i32 0)
+  %lid = call i32 @_Z12get_local_idj(i32 0)
   %y = xor i32 %x, %lid
   br label %L1
 L1:
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  call void @_Z18work_group_barrierj(i32 1)
   call void @foo(i32 %y)
   br label %L2
 L2:
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   ret void
 ; CHECK: L0:
-; CHECK: %lid = call i32 @__builtin_get_local_id(i32 0)
+; CHECK: %lid = call i32 @_Z12get_local_idj(i32 0)
 ; CHECK: %y = xor i32 %x, %lid
 ; CHECK: br label %L1
 ; CHECK: L1:
-; CHECK: call void @__builtin_dpcpp_kernel_barrier(i32 1)
+; CHECK: call void @_Z18work_group_barrierj(i32 1)
 ; CHECK: call void @foo(i32 %y)
 ; CHECK: br label %L2
 ; CHECK: L2:
-; CHECK: call void @__builtin_dpcpp_kernel_barrier_dummy()
+; CHECK: call void @barrier_dummy()
 ; CHECK: ret void
 }
 
@@ -54,13 +55,13 @@ L3:
   %y = xor i32 %x, %x
   br label %L4
 L4:
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  call void @_Z18work_group_barrierj(i32 1)
   ret void
 ; CHECK: L3:
 ; CHECK: %y = xor i32 %x, %x
 ; CHECK: br label %L4
 ; CHECK: L4:
-; CHECK: @__builtin_dpcpp_kernel_barrier(i32 1)
+; CHECK: @_Z18work_group_barrierj(i32 1)
 ; CHECK: ret void
 }
 
@@ -90,6 +91,6 @@ L4:
 ; CHECK-NOT: entry
 ; CHECK: DONE
 
-declare void @__builtin_dpcpp_kernel_barrier(i32)
-declare void @__builtin_dpcpp_kernel_barrier_dummy()
-declare i32 @__builtin_get_local_id(i32)
+declare void @_Z18work_group_barrierj(i32)
+declare void @barrier_dummy()
+declare i32 @_Z12get_local_idj(i32)

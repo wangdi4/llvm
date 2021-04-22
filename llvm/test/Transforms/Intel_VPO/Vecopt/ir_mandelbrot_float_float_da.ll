@@ -19,13 +19,12 @@ define dso_local i32 @main() local_unnamed_addr #0 personality i8* bitcast (i32 
 ; CHECK-NEXT:      Loop at depth 2 containing: [[BB2]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB5:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB4]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB4]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB4]] ],  [ i64 [[VP_INDVARS_IV_IND_INIT:%.*]], [[BB5:BB[0-9]+]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 i8* [[VP0:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8
-; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP1:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
-; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_CONV3:%.*]] = sitofp i32 [[VP1]] to float
-; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_MUL4:%.*]] = fmul float [[VP_CONV3]] float 0x3F5063B3E0000000
-; CHECK-NEXT:  Divergent: [Shape: Random] float [[VP_ADD5:%.*]] = fadd float [[VP_MUL4]] float -2.000000e+00
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP1:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] float [[VP_CONV3:%.*]] = sitofp i32 [[VP1]] to float
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] float [[VP_MUL4:%.*]] = fmul float [[VP_CONV3]] float 0x3F5063B3E0000000
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: ?] float [[VP_ADD5:%.*]] = fadd float [[VP_MUL4]] float -2.000000e+00
 ; CHECK-NEXT:  Divergent: [Shape: Random] store float [[VP_ADD5]] float* [[VP_IN_VALS_TMP_REAL_PRIV_PRIV:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 i8* [[VP2:%.*]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:  Divergent: [Shape: Random] store float [[SUB0:%.*]] float* [[VP_IN_VALS_TMP_IMAGINE_PRIV_PRIV:%.*]]
@@ -70,9 +69,8 @@ define dso_local i32 @main() local_unnamed_addr #0 personality i8* bitcast (i32 
 ; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 i8* [[VP2]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB0]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB6]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1

@@ -237,7 +237,6 @@ struct GenKillInfo {
 /// backwards from the live out until the point in question.
 class ArrayUseInfo::RangeDataflow {
   ScalarEvolution &SE;
-  const ArrayUse &AU;
 
   DenseMap<BasicBlock *, SmallVector<GenKillInfo, 4>> BlockMap;
   DenseMap<BasicBlock *, ArrayRangeInfo> LiveOuts;
@@ -246,7 +245,7 @@ public:
   bool Valid = false;
 
   RangeDataflow(ScalarEvolution &SE, const ArrayUse &AU)
-    : SE(SE), AU(AU) {}
+    : SE(SE) {}
 
   void noteGenKillInfo(GenKillInfo GKI, Instruction *Point) {
     BlockMap[Point->getParent()].emplace_back(std::move(GKI));
@@ -452,7 +451,11 @@ void ArrayUseInfo::print(raw_ostream &OS) const {
 #endif
 
 ArrayUse::ArrayUse(Function &F, LoopInfo &LI, ScalarEvolution &SE)
-: F(F), LI(LI), SE(SE), ArrayUseMap(std::make_unique<ArrayUse::ArrayMapTy>()) {
+:
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  F(F),
+#endif
+  LI(LI), SE(SE), ArrayUseMap(std::make_unique<ArrayUse::ArrayMapTy>()) {
 }
 
 ArrayRangeInfo ArrayUse::getRangeUse(Instruction &I) const {
@@ -578,8 +581,7 @@ ArrayUseInfo *ArrayUse::getSourceArray(Value *V) const {
   if (!UseInfoPtr) {
     UseInfoPtr = ArrayUseInfo::make(ArrayVal, SE);
     if (UseInfoPtr) {
-      UseInfoPtr->DataflowResults = std::move(UseInfoPtr->computeDataflow(
-        SE, *this));
+      UseInfoPtr->DataflowResults = UseInfoPtr->computeDataflow(SE, *this);
     }
   }
   return UseInfoPtr.get();

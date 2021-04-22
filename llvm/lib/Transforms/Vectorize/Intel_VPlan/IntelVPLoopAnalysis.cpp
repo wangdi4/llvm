@@ -32,8 +32,6 @@ static cl::opt<bool> DumpVPlanEntities("vplan-entities-dump", cl::init(false),
                                        cl::Hidden,
                                        cl::desc("Print VPlan entities"));
 
-extern cl::opt<bool> EnableVPValueCodegen;
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 void VPReduction::dump(raw_ostream &OS) const {
@@ -43,48 +41,41 @@ void VPReduction::dump(raw_ostream &OS) const {
   default:
     OS << "unknown";
     break;
-  case RK_IntegerAdd:
-  case RK_FloatAdd:
+  case RecurKind::Add:
+  case RecurKind::FAdd:
     OS << "(+)";
     break;
-  case RK_IntegerMult:
-  case RK_FloatMult:
+  case RecurKind::Mul:
+  case RecurKind::FMul:
     OS << "(*)";
     break;
-  case RK_IntegerOr:
+  case RecurKind::Or:
     OS << "(|)";
     break;
-  case RK_IntegerAnd:
+  case RecurKind::And:
     OS << "(&)";
     break;
-  case RK_IntegerXor:
+  case RecurKind::Xor:
     OS << "(^)";
     break;
-  case RK_IntegerMinMax:
-  case RK_FloatMinMax:
-    switch (getMinMaxRecurrenceKind()) {
-    default:
-      OS << "unknown";
-      break;
-    case MRK_UIntMin:
-      OS << "(UIntMin)";
-      break;
-    case MRK_UIntMax:
-      OS << "(UIntMax)";
-      break;
-    case MRK_SIntMin:
-      OS << "(SIntMin)";
-      break;
-    case MRK_SIntMax:
-      OS << "(SIntMax)";
-      break;
-    case MRK_FloatMin:
-      OS << "(FloatMin)";
-      break;
-    case MRK_FloatMax:
-      OS << "(FloatMax)";
-      break;
-    }
+  case RecurKind::UMin:
+    OS << "(UIntMin)";
+    break;
+  case RecurKind::UMax:
+    OS << "(UIntMax)";
+    break;
+  case RecurKind::SMin:
+    OS << "(SIntMin)";
+    break;
+  case RecurKind::SMax:
+    OS << "(SIntMax)";
+    break;
+  case RecurKind::FMin:
+    OS << "(FloatMin)";
+    break;
+  case RecurKind::FMax:
+    OS << "(FloatMax)";
+    break;
   }
   if (getRecurrenceStartValue()) {
     OS << " Start: ";
@@ -99,7 +90,7 @@ void VPReduction::dump(raw_ostream &OS) const {
 
 void VPIndexReduction::dump(raw_ostream &OS) const {
   VPReduction::dump(OS);
-  OS << " Parent exit: ";
+  OS << "IsLinearIndex: " << isLinearIndex() << " Parent exit: ";
   ParentRed->getLoopExitInstr()->printAsOperand(OS);
 }
 
@@ -143,6 +134,16 @@ void VPInduction::dump(raw_ostream &OS) const {
     OS << " Step: ";
     Step->printAsOperand(OS);
   }
+  OS << " StartVal: ";
+  if (StartVal)
+    StartVal->printAsOperand(OS);
+  else
+    OS << "?";
+  OS << " EndVal: ";
+  if (EndVal)
+    EndVal->printAsOperand(OS);
+  else
+    OS << "?";
   if (getInductionBinOp()) {
     OS << " BinOp: ";
     getInductionBinOp()->print(OS);
@@ -153,7 +154,30 @@ void VPInduction::dump(raw_ostream &OS) const {
   printLinkedValues(OS);
 }
 
-void VPPrivate::dump(raw_ostream &OS) const { printLinkedValues(OS); }
+void VPPrivate::dump(raw_ostream &OS) const {
+  if (hasExitInstr()) {
+    OS << "\n  Exit instr: ";
+    getExitInst()->print(OS);
+  }
+  if (hasPrivateTag()) {
+    OS << "\n  Private tag: ";
+    switch (getPrivateTag()) {
+    case PrivateTag::PTUndef:
+      OS << "(undef)";
+      break;
+    case PrivateTag::PTArray:
+      OS << "Array";
+      break;
+    case PrivateTag::PTInMemory:
+      OS << "InMemory";
+      break;
+    case PrivateTag::PTNonPod:
+      OS << "Non-POD";
+      break;
+    }
+  }
+  printLinkedValues(OS);
+}
 
 void VPLoopEntityMemoryDescriptor::dump(raw_ostream &OS) const {
   MemoryPtr->print(OS);
@@ -172,6 +196,13 @@ void VPLoopEntity::printLinkedValues(raw_ostream &OS) const {
 #endif // NDEBUG || LLVM_ENABLE_DUMP
 
 VPLoopEntity::~VPLoopEntity() {}
+
+VPPrivate::~VPPrivate() {
+  for (auto &AliasMapIt : aliases())
+    // Drop references to alias instruction if it is not attached to VPlan CFG.
+    if (!AliasMapIt.second->getParent())
+      AliasMapIt.second->dropAllReferences();
+}
 
 static VPValue *getLiveInOrConstOperand(const VPInstruction *Instr,
                                         const VPLoop &Loop) {
@@ -214,30 +245,22 @@ static bool isTrivialBitcast(VPInstruction *VPI) {
   return true;
 }
 
-unsigned VPReduction::getReductionOpcode(RecurrenceKind K,
-                                         MinMaxRecurrenceKind MK) {
+unsigned VPReduction::getReductionOpcode(RecurKind K) {
   switch (K) {
-  case RecurrenceKind::RK_IntegerMinMax:
-  case RecurrenceKind::RK_FloatMinMax:
-    switch (MK) {
-    default:
-      llvm_unreachable("Unknown recurrence kind");
-      return Instruction::BinaryOpsEnd;
-    case MRK_UIntMin:
-      return VPInstruction::UMin;
-    case MRK_UIntMax:
-      return VPInstruction::UMax;
-    case MRK_SIntMin:
-      return VPInstruction::SMin;
-    case MRK_SIntMax:
-      return VPInstruction::SMax;
-    case MRK_FloatMin:
-      return VPInstruction::FMin;
-    case MRK_FloatMax:
-      return VPInstruction::FMax;
-    }
+  case RecurKind::UMin:
+    return VPInstruction::UMin;
+  case RecurKind::UMax:
+    return VPInstruction::UMax;
+  case RecurKind::SMin:
+    return VPInstruction::SMin;
+  case RecurKind::SMax:
+    return VPInstruction::SMax;
+  case RecurKind::FMin:
+    return VPInstruction::FMin;
+  case RecurKind::FMax:
+    return VPInstruction::FMax;
   default:
-    return RDTempl::getRecurrenceBinOp(K);
+    return RDTempl::getOpcode(K);
   }
 }
 
@@ -307,12 +330,14 @@ void VPLoopEntityList::replaceDuplicateInductionPHIs() {
   DuplicateInductionPHIs.clear();
 }
 
-VPReduction *VPLoopEntityList::addReduction(
-    VPInstruction *Instr, VPValue *Incoming, VPInstruction *Exit,
-    RecurrenceKind Kind, FastMathFlags FMF, MinMaxRecurrenceKind MKind,
-    Type *RedTy, bool Signed, VPValue *AI, bool ValidMemOnly) {
-  VPReduction *Red = new VPReduction(Incoming, Exit, Kind, FMF, MKind, RedTy,
-                                     Signed, ValidMemOnly);
+VPReduction *VPLoopEntityList::addReduction(VPInstruction *Instr,
+                                            VPValue *Incoming,
+                                            VPInstruction *Exit, RecurKind Kind,
+                                            FastMathFlags FMF, Type *RedTy,
+                                            bool Signed, VPValue *AI,
+                                            bool ValidMemOnly) {
+  VPReduction *Red =
+      new VPReduction(Incoming, Exit, Kind, FMF, RedTy, Signed, ValidMemOnly);
   ReductionList.emplace_back(Red);
   linkValue(ReductionMap, Red, Instr);
   linkValue(ReductionMap, Red, Exit);
@@ -322,27 +347,35 @@ VPReduction *VPLoopEntityList::addReduction(
 
 VPIndexReduction *VPLoopEntityList::addIndexReduction(
     VPInstruction *Instr, const VPReduction *Parent, VPValue *Incoming,
-    VPInstruction *Exit, Type *RedTy, bool Signed, bool ForLast, VPValue *AI,
-    bool ValidMemOnly) {
+    VPInstruction *Exit, Type *RedTy, bool Signed, bool ForLast,
+    bool IsLinIndex, VPValue *AI, bool ValidMemOnly) {
+
   assert(Parent && "null parent in index-reduction");
-  VPIndexReduction *Red = new VPIndexReduction(Parent, Incoming, Exit, RedTy,
-                                               Signed, ForLast, ValidMemOnly);
+  VPIndexReduction *Red = new VPIndexReduction(
+      Parent, Incoming, Exit, RedTy, Signed, ForLast, IsLinIndex, ValidMemOnly);
   ReductionList.emplace_back(Red);
   linkValue(ReductionMap, Red, Instr);
   linkValue(ReductionMap, Red, Exit);
-  MinMaxIndexes[Parent] = Red;
   createMemDescFor(Red, AI);
+
+  // Remember the first index for parent
+  if (IsLinIndex && !getMinMaxIndex(Parent))
+    MinMaxIndexes[Parent] = Red;
+
   return Red;
 }
 VPInduction *VPLoopEntityList::addInduction(VPInstruction *Start,
                                             VPValue *Incoming,
                                             InductionKind Kind, VPValue *Step,
+                                            VPValue *StartVal,
+                                            VPValue *EndVal,
                                             VPInstruction *InductionOp,
                                             unsigned int Opc, VPValue *AI,
                                             bool ValidMemOnly) {
   //  assert(Start && "null starting instruction");
   VPInduction *Ind =
-      new VPInduction(Incoming, Kind, Step, InductionOp, ValidMemOnly, Opc);
+      new VPInduction(Incoming, Kind, Step, StartVal, EndVal,
+                      InductionOp, ValidMemOnly, Opc);
   InductionList.emplace_back(Ind);
   linkValue(InductionMap, Ind, Start);
   if (InductionOp) {
@@ -354,11 +387,34 @@ VPInduction *VPLoopEntityList::addInduction(VPInstruction *Start,
 
 VPPrivate *VPLoopEntityList::addPrivate(VPInstruction *FinalI,
                                         VPEntityAliasesTy &Aliases,
-                                        bool IsConditional, bool IsLast,
-                                        bool Explicit, VPValue *AI,
-                                        bool ValidMemOnly) {
-  VPPrivate *Priv = new VPPrivate(FinalI, std::move(Aliases), IsConditional,
-                                  IsLast, Explicit, ValidMemOnly);
+                                        VPPrivate::PrivateKind K, bool Explicit,
+                                        VPValue *AI, bool ValidMemOnly) {
+  VPPrivate *Priv =
+      new VPPrivate(FinalI, std::move(Aliases), K, Explicit, ValidMemOnly);
+  PrivatesList.emplace_back(Priv);
+  linkValue(PrivateMap, Priv, FinalI);
+  linkValue(PrivateMap, Priv, AI);
+  createMemDescFor(Priv, AI);
+  return Priv;
+}
+
+VPPrivate *VPLoopEntityList::addPrivate(VPPrivate::PrivateTag Tag,
+                                        VPEntityAliasesTy &Aliases,
+                                        VPPrivate::PrivateKind K, bool Explicit,
+                                        VPValue *AI, bool ValidMemOnly) {
+  VPPrivate *Priv =
+      new VPPrivate(Tag, std::move(Aliases), K, Explicit, ValidMemOnly);
+  PrivatesList.emplace_back(Priv);
+  linkValue(PrivateMap, Priv, AI);
+  createMemDescFor(Priv, AI);
+  return Priv;
+}
+
+VPPrivateNonPOD *VPLoopEntityList::addNonPODPrivate(
+    VPEntityAliasesTy &Aliases, VPPrivate::PrivateKind K, bool Explicit,
+    Function *Ctor, Function *Dtor, Function *CopyAssign, VPValue *AI) {
+  VPPrivateNonPOD *Priv = new VPPrivateNonPOD(std::move(Aliases), K, Explicit,
+                                              Ctor, Dtor, CopyAssign);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, AI);
   createMemDescFor(Priv, AI);
@@ -381,20 +437,24 @@ void VPLoopEntityList::createMemDescFor(VPLoopEntity *E, VPValue *AI) {
 /// Returns identity corresponding to the RecurrenceKind.
 VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
   switch (Red->getRecurrenceKind()) {
-  case RecurrenceKind::RK_IntegerXor:
-  case RecurrenceKind::RK_IntegerAdd:
-  case RecurrenceKind::RK_IntegerOr:
-  case RecurrenceKind::RK_IntegerMult:
-  case RecurrenceKind::RK_IntegerAnd:
-  case RecurrenceKind::RK_FloatMult:
-  case RecurrenceKind::RK_FloatAdd: {
-    Constant *C = VPReduction::getRecurrenceIdentity(
-        Red->getRecurrenceKind(), Red->getMinMaxRecurrenceKind(),
-        Red->getRecurrenceType());
+  case RecurKind::Xor:
+  case RecurKind::Add:
+  case RecurKind::Or:
+  case RecurKind::Mul:
+  case RecurKind::And:
+  case RecurKind::FMul:
+  case RecurKind::FAdd: {
+    Constant *C = VPReduction::getRecurrenceIdentity(Red->getRecurrenceKind(),
+                                                     Red->getRecurrenceType(),
+                                                     Red->getFastMathFlags());
     return Plan.getVPConstant(C);
   }
-  case RecurrenceKind::RK_IntegerMinMax:
-  case RecurrenceKind::RK_FloatMinMax:
+  case RecurKind::SMin:
+  case RecurKind::SMax:
+  case RecurKind::UMin:
+  case RecurKind::UMax:
+  case RecurKind::FMin:
+  case RecurKind::FMax:
     return Red->getRecurrenceStartValue();
   default:
     llvm_unreachable("Unknown recurrence kind");
@@ -427,20 +487,19 @@ VPValue *VPLoopEntityList::getReductionIdentity(const VPReduction *Red) const {
 // comparison predicate and kind of reduction (MIN or MAX).
 //
 bool VPLoopEntityList::isMinMaxLastItem(const VPReduction &Red) const {
-  if (Red.getRecurrenceKind() != RecurrenceKind::RK_IntegerMinMax &&
-      Red.getRecurrenceKind() != RecurrenceKind::RK_FloatMinMax)
+  if (!Red.isMinMax())
     return false;
 
   bool IsMin;
-  switch (Red.getMinMaxRecurrenceKind()) {
-  case MinMaxRecurrenceKind::MRK_UIntMin:
-  case MinMaxRecurrenceKind::MRK_SIntMin:
-  case MinMaxRecurrenceKind::MRK_FloatMin:
+  switch (Red.getRecurrenceKind()) {
+  case RecurKind::SMin:
+  case RecurKind::UMin:
+  case RecurKind::FMin:
     IsMin = true;
     break;
-  case MinMaxRecurrenceKind::MRK_UIntMax:
-  case MinMaxRecurrenceKind::MRK_SIntMax:
-  case MinMaxRecurrenceKind::MRK_FloatMax:
+  case RecurKind::SMax:
+  case RecurKind::UMax:
+  case RecurKind::FMax:
     IsMin = false;
     break;
   default:
@@ -614,84 +673,89 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     VPReduction *Reduction, VPBuilder &Builder, VPBasicBlock *PostExit,
     VPBasicBlock *Preheader,
     DenseMap<const VPReduction *,
-             std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap) {
-    VPValue *AI = nullptr;
-    Builder.setInsertPoint(Preheader);
-    VPValue *Identity = getReductionIdentity(Reduction);
-    Type *Ty = Reduction->getRecurrenceType();
-    VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI);
-    if (Reduction->getIsMemOnly())
-      if (!isa<VPConstant>(Identity))
-        // min/max in-memory reductions. Need to generate a load.
-        Identity = Builder.createLoad(Ty, AI);
+             std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap,
+    SmallPtrSetImpl<const VPReduction *> &ProcessedReductions) {
+  VPValue *AI = nullptr;
+  Builder.setInsertPoint(Preheader);
+  VPValue *Identity = getReductionIdentity(Reduction);
+  Type *Ty = Reduction->getRecurrenceType();
+  VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI);
+  if (Reduction->getIsMemOnly())
+    if (!isa<VPConstant>(Identity))
+      // min/max in-memory reductions. Need to generate a load.
+      Identity = Builder.createLoad(Ty, AI);
 
-    // We can initialize reduction either with broadcasted identity only or
-    // inserting additionally the initial value into 0th element. In the
-    // second case we don't need an additional instruction when reducing.
-    // Currently, we use broadcast-only for FP data types and min/max
-    // reductions. For integers and pointers we use the broadcast-and-insert
-    // method.
-    StringRef Name;
-    if (AI)
-      Name = AI->getName();
-    else {
-      VPPHINode *PhiN = getRecurrentVPHINode(*Reduction);
-      Name = PhiN ? PhiN->getName() : "";
-    }
-    bool StartIncluded = !Ty->isFloatingPointTy() && !Reduction->isMinMax();
-    VPValue *StartValue =
-        StartIncluded ? Reduction->getRecurrenceStartValue() : nullptr;
-    bool UseStart = StartValue != nullptr || Reduction->isMinMax();
+  // We can initialize reduction either with broadcasted identity only or
+  // inserting additionally the initial value into 0th element. In the
+  // second case we don't need an additional instruction when reducing.
+  // Currently, we use broadcast-only for FP data types and min/max
+  // reductions. For integers and pointers we use the broadcast-and-insert
+  // method.
+  StringRef Name;
+  if (AI)
+    Name = AI->getName();
+  else {
+    VPPHINode *PhiN = getRecurrentVPHINode(*Reduction);
+    Name = PhiN ? PhiN->getName() : "";
+  }
+  bool StartIncluded = !Ty->isFloatingPointTy() && !Reduction->isMinMax();
+  VPValue *StartValue =
+      StartIncluded ? Reduction->getRecurrenceStartValue() : nullptr;
+  bool UseStart = StartValue != nullptr || Reduction->isMinMax();
 
-    VPInstruction *Init = Builder.createReductionInit(
-        Identity, StartValue, UseStart, Name + ".red.init");
+  VPInstruction *Init = Builder.createReductionInit(
+      Identity, StartValue, UseStart, Name + ".red.init");
 
-    processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
-                     *Reduction->getRecurrenceStartValue());
+  processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
+                   *Reduction->getRecurrenceStartValue());
 
-    // Create instruction for last value. If a register reduction does not have
-    // a liveout loop exit instruction (store to reduction variable after
-    // update), then last value computation should be done by loading from
-    // private memory created for the reduction.
-    Builder.setInsertPoint(PostExit);
-    VPInstruction *Exit = cast<VPInstruction>(
-        Reduction->getIsMemOnly() || !Reduction->getLoopExitInstr()
-            ? Builder.createLoad(Ty, PrivateMem)
-            : Reduction->getLoopExitInstr());
+  // Create instruction for last value. If a register reduction does not have
+  // a liveout loop exit instruction (store to reduction variable after
+  // update), then last value computation should be done by loading from
+  // private memory created for the reduction.
+  Builder.setInsertPoint(PostExit);
+  VPInstruction *Exit = cast<VPInstruction>(
+      Reduction->getIsMemOnly() || !Reduction->getLoopExitInstr()
+          ? Builder.createLoad(Ty, PrivateMem)
+          : Reduction->getLoopExitInstr());
 
-    VPReductionFinal *Final = nullptr;
-    if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
-      const VPReduction *Parent = IndexRed->getParentReduction();
-      VPInstruction *ParentExit;
-      VPReductionFinal *ParentFinal;
-      std::tie(ParentFinal, ParentExit) = RedFinalMap[Parent];
+  VPReductionFinal *Final = nullptr;
+  if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
+    const VPReduction *Parent = IndexRed->getParentReduction();
+    VPInstruction *ParentExit;
+    VPReductionFinal *ParentFinal;
+    std::tie(ParentFinal, ParentExit) = RedFinalMap[Parent];
+    Final = Builder.create<VPReductionFinal>(
+        Name + ".red.final", Reduction->getReductionOpcode(), Exit, ParentExit,
+        ParentFinal, Reduction->isSigned());
+    if (IndexRed->isLinearIndex())
+      Final->setIsLinearIndex();
+  } else {
+    if (StartIncluded || Reduction->isMinMax()) {
+      Final = Builder.create<VPReductionFinal>(
+          Name + ".red.final", Reduction->getReductionOpcode(), Exit);
+    } else {
+      // Create a load for Start value if it's a pointer.
+      VPValue *FinalStartValue = Reduction->getRecurrenceStartValue();
+      if (FinalStartValue->getType() != Ty) { // Ty is recurrence type
+        assert(isa<PointerType>(FinalStartValue->getType()) &&
+               "Expected pointer type here.");
+        FinalStartValue = Builder.createLoad(Ty, FinalStartValue);
+      }
       Final = Builder.create<VPReductionFinal>(
           Name + ".red.final", Reduction->getReductionOpcode(), Exit,
-          ParentExit, ParentFinal, Reduction->isSigned());
-    } else {
-      if (StartIncluded || Reduction->isMinMax()) {
-        Final = Builder.create<VPReductionFinal>(
-            Name + ".red.final", Reduction->getReductionOpcode(), Exit);
-      } else {
-        // Create a load for Start value if it's a pointer.
-        VPValue *FinalStartValue = Reduction->getRecurrenceStartValue();
-        if (FinalStartValue->getType() != Ty) { // Ty is recurrence type
-          assert(isa<PointerType>(FinalStartValue->getType()) &&
-                 "Expected pointer type here.");
-          FinalStartValue = Builder.createLoad(Ty, FinalStartValue);
-        }
-        Final = Builder.create<VPReductionFinal>(
-            Name + ".red.final", Reduction->getReductionOpcode(), Exit,
-            FinalStartValue, Reduction->isSigned());
-      }
-      RedFinalMap[Reduction] = std::make_pair(Final, Exit);
-
-      // Attach FastMathFlags to reduction-final.
-      FastMathFlags FMF = Reduction->getFastMathFlags();
-      if (FMF.any())
-        Final->setFastMathFlags(FMF);
+          FinalStartValue, Reduction->isSigned());
     }
-    processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
+  }
+  // Attach FastMathFlags to reduction-final.
+  FastMathFlags FMF = Reduction->getFastMathFlags();
+  if (FMF.any())
+    Final->setFastMathFlags(FMF);
+
+  processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
+
+  RedFinalMap[Reduction] = std::make_pair(Final, Exit);
+  ProcessedReductions.insert(Reduction);
 }
 
 // Insert VPInstructions related to VPReductions.
@@ -704,15 +768,73 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
 
   DenseMap<const VPReduction *, std::pair<VPReductionFinal *, VPInstruction *>>
       RedFinalMap;
+  SmallPtrSet<const VPReduction *, 4> ProcessedReductions;
 
   // Set the insert-guard-point.
   VPBuilder::InsertPointGuard Guard(Builder);
 
   // Process the list of Reductions.
-  for (VPReduction *Reduction : vpreductions())
-    insertOneReductionVPInstructions(Reduction, Builder, PostExit, Preheader,
-                                     RedFinalMap);
+  for (VPReduction *Reduction : vpreductions()) {
+    if (ProcessedReductions.find(Reduction) != ProcessedReductions.end())
+      continue;
+    SmallVector<const VPReduction *, 3> WorkList;
+    WorkList.push_back(Reduction);
+    if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
+      // For index part of min/max+index idioms, it's essential that
+      // parent reductions are processed before. As we don't care about
+      // reductions order during import we should make additional checks here
+      // and process parent reductions first.
+      const VPReduction *Parent = IndexRed->getParentReduction();
+      while (ProcessedReductions.find(Parent) == ProcessedReductions.end()) {
+        WorkList.push_back(Parent);
+        if (auto IndexRed = dyn_cast<VPIndexReduction>(Parent))
+          Parent = IndexRed->getParentReduction();
+        else
+          break;
+      }
+    }
+    while (!WorkList.empty()) {
+      Reduction = const_cast<VPReduction*>(WorkList.pop_back_val());
+      insertOneReductionVPInstructions(Reduction, Builder, PostExit, Preheader,
+                                    RedFinalMap, ProcessedReductions);
+    }
+  }
 }
+
+void VPLoopEntityList::preprocess() {
+  identifyMinMaxLinearIdxs();
+}
+
+void VPLoopEntityList::identifyMinMaxLinearIdxs() {
+  // Relink parents of non-linear indexes.
+  for (auto &RedPtr : ReductionList) {
+    auto *Reduction = dyn_cast<VPIndexReduction>(RedPtr.get());
+    if (!Reduction)
+      continue;
+    if (Reduction->isLinearIndex())
+      continue;
+    auto *Parent = Reduction->getParentReduction();
+    auto Index = getMinMaxIndex(Parent);
+    // TODO: implement adding of a new index-reduction in case when
+    // it's absent in the source.
+    assert(Index && "linear index is not set for reduction");
+    Reduction->replaceParentReduction(Index);
+  }
+}
+
+#if 0 //leaving for the future
+// Create linear index for min/max + index idiom.
+// 1) Emit the following set of VPInstructions:
+//    ; in the loop header
+//    %phi_val = phi [-1, preheader], [%select, loop_latch]
+//    ; in the loop body, just after NonLinNdx update instruction.
+//    %select = select NonLinNdx.cond, %loop_induction, %phi_val
+// 2) Create VPIndexReduction descriptor for these instructions, setting
+//    parent reduction to the parent of NonLinNdx.
+VPIndexReduction* createLinearIndexReduction(VPIndexReduction* NonLinNdx) {
+
+}
+#endif
 
 // Check whether \p Inst is a consistent update of induction, i.e. it
 // has correct opcode and contains induction step.
@@ -761,7 +883,8 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
       Name = PhiN ? PhiN->getName() : "";
     }
     VPInstruction *Init = Builder.create<VPInductionInit>(
-        Name + ".ind.init", Start, Induction->getStep(), Opc);
+        Name + ".ind.init", Start, Induction->getStep(),
+        Induction->getStartVal(), Induction->getEndVal(), Opc);
     processInitValue(*Induction, AI, PrivateMem, Builder, *Init, Ty, *Start);
     VPInstruction *InitStep = Builder.create<VPInductionInitStep>(
         Name + ".ind.init.step", Induction->getStep(), Opc);
@@ -803,11 +926,173 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
   }
 }
 
+// Helper method to create ctor/dtor VPCalls for given non-POD private memory.
+static void createNonPODPrivateCtorDtorCalls(Function *F, VPValue *NonPODMemory,
+                                             VPBuilder &Builder,
+                                             VPlanVector &Plan) {
+  assert(F->arg_size() == 1 &&
+         "Expected ctor/dtor functions to accept single argument.");
+  assert(NonPODMemory &&
+         "Expected private memory allocated for non-POD private.");
+  auto *VPFunc = Plan.getVPConstant(cast<Constant>(F));
+
+  auto *VPCall =
+      new VPCallInstruction(VPFunc, {NonPODMemory}, F->getReturnType());
+  Builder.insert(VPCall);
+}
+
+std::pair<const VPInduction *, bool>
+VPLoopEntityList::getLoopInduction() const {
+  // There are two ways.
+  // 1) Get latch -> condbit -> operand which is induction. This relies on that
+  //    we always have canonical loops with bottom test and will give exactly
+  //    loop IV.
+  // 2) Get header, scan phis until induction is found. That is more reliable
+  //    but will give the first IV which is not necessary loop IV.
+
+  // Going the first way.
+  VPBasicBlock *Latch = Loop.getLoopLatch();
+  VPCmpInst *CondBit = dyn_cast<VPCmpInst>(Latch->getCondBit());
+  assert((CondBit && CondBit->getOpcode() == Instruction::ICmp) &&
+         "Expected ICmp in latch cond");
+  bool IsSigned;
+  auto Pred = CondBit->getPredicate();
+  switch (Pred) {
+  case CmpInst::ICMP_SGT:
+  case CmpInst::ICMP_SGE:
+  case CmpInst::ICMP_SLT:
+  case CmpInst::ICMP_SLE:
+    IsSigned = true;
+    break;
+  default:
+    IsSigned = false;
+    break;
+  }
+  const VPInduction *Ret = getInduction(CondBit->getOperand(0));
+  if (!Ret)
+    Ret = getInduction(CondBit->getOperand(1));
+  return {Ret, IsSigned};
+}
+
+static void collectPhiOperands(VPPHINode *I, VPPHINode *HeaderPhi,
+                               SmallSet<VPPHINode *, 4> &PhiUsers) {
+  PhiUsers.insert(I);
+  for (auto V : I->operands())
+    if (V != HeaderPhi)
+      if (auto Phi = dyn_cast<VPPHINode>(V))
+        if (PhiUsers.find(Phi) == PhiUsers.end())
+          collectPhiOperands(Phi, HeaderPhi, PhiUsers);
+}
+
+
+// See comment in the header file.
+void VPLoopEntityList::insertConditionalLastPrivateInst(
+    VPPrivate &Private, VPBuilder &Builder, VPBasicBlock *Preheader,
+    VPBasicBlock *PostExit, VPValue *PrivateMem, VPValue *AI) {
+  assert(Private.isConditional() && "Expected conditional private");
+
+  const VPInduction *LoopIndex;
+  std::tie(LoopIndex, std::ignore) = getLoopInduction();
+  VPPHINode *InductionHeaderPhi = getRecurrentVPHINode(*LoopIndex);
+  VPConstant *IncomingVal =
+      Plan.getVPConstant(ConstantInt::get(InductionHeaderPhi->getType(), -1));
+
+  VPBuilder::InsertPointGuard Guard(Builder);
+  if (Private.hasExitInstr() && isa<VPPHINode>(Private.getExitInst())) {
+    // If we have registerized private.
+    auto ExitPhi = cast<VPPHINode>(Private.getExitInst());
+    VPPHINode *HeaderPhi = getRecurrentVPHINode(Private);
+    assert(HeaderPhi && "Expected non-null header phi");
+    // First collect phi nodes on the way from liveout to header phi.
+    SmallSet<VPPHINode *, 4> PhiUsers;
+    collectPhiOperands(ExitPhi, HeaderPhi, PhiUsers);
+    // First insert phi in the loop header, with one operand, starting -1.
+    Builder.setInsertPoint(InductionHeaderPhi);
+    VPPHINode *IndexStartPhi =
+        Builder.createPhiInstruction(InductionHeaderPhi->getType());
+    IndexStartPhi->setName("priv.idx.hdr");
+    IndexStartPhi->addIncoming(IncomingVal, Loop.getLoopPreheader());
+    // Then insert phis along the assignment chain to preserve SSA form.
+    DenseMap<VPBasicBlock *, VPPHINode *> InsertedPhis;
+    InsertedPhis[IndexStartPhi->getParent()] = IndexStartPhi;
+    for (VPPHINode *Phi : PhiUsers) {
+      Builder.setInsertPoint(Phi);
+      VPPHINode *IndexBBPhi =
+          Builder.createPhiInstruction(InductionHeaderPhi->getType());
+      IndexBBPhi->setName("priv.idx." + Phi->getParent()->getName());
+      for (unsigned I = 0; I < Phi->getNumIncomingValues(); I++) {
+        VPValue *Op = Phi->getIncomingValue(I);
+        VPBasicBlock *BB = Phi->getIncomingBlock(I);
+        VPValue *NewOp = nullptr;
+        if (InsertedPhis.count(BB))
+          NewOp = InsertedPhis[BB];
+        else {
+          NewOp = Op == HeaderPhi ? IndexStartPhi : InductionHeaderPhi;
+        }
+        IndexBBPhi->addIncoming(NewOp, BB);
+      }
+      InsertedPhis[Phi->getParent()] = IndexBBPhi;
+    }
+    // Add latch phi as operand to the header phi.
+    VPPHINode *LastPhi = InsertedPhis[ExitPhi->getParent()];
+    IndexStartPhi->addIncoming(LastPhi, ExitPhi->getParent());
+
+    // Create last value calculation instruction.
+    Builder.setInsertPoint(PostExit);
+    VPValue *Exit = Private.getIsMemOnly()
+                        ? cast<VPValue>(Builder.createLoad(
+                              PrivateMem->getType()->getPointerElementType(),
+                              PrivateMem, nullptr, "loaded.priv"))
+                        : cast<VPValue>(ExitPhi);
+    StringRef ExitName = ExitPhi ? ExitPhi->getName() : "";
+    Twine Name = ExitName + ".priv.final";
+    VPValue *Orig = HeaderPhi->getIncomingValue(Loop.getLoopPreheader());
+    VPInstruction *Final;
+    if (Private.getIsMemOnly())
+      Final = Builder.create<VPPrivateFinalCondMem>(Name, Exit, LastPhi, Orig);
+    else
+      Final = Builder.create<VPPrivateFinalCond>(Name, Exit, LastPhi, Orig);
+    processFinalValue(Private, AI, Builder, *Final, Exit->getType(), Exit);
+    return;
+  }
+  // For in-memory privates, create a variable for index and insert stores
+  // of the induciton variable at each store to private memory.
+  assert(Private.getPrivateTag() == VPPrivate::PrivateTag::PTInMemory &&
+         "Expected non null private mem");
+  Type *ElemTy = InductionHeaderPhi->getType();
+  Builder.setInsertPoint(Preheader);
+  // In preheader assign initial value.
+  VPValue *IdxMem = Builder.create<VPAllocatePrivate>(
+      "priv.idx.mem", PointerType::get(ElemTy, 0),
+      Plan.getDataLayout()->getPrefTypeAlign(ElemTy));
+  Builder.createStore(IncomingVal, IdxMem);
+
+  // Go through all stores and create stores to index variable.
+  for (auto U : PrivateMem->users()) {
+    if (auto StoreI = dyn_cast<VPLoadStoreInst>(U)) {
+      if (StoreI->getOpcode() == Instruction::Load)
+        continue;
+      Builder.setInsertPoint(StoreI);
+      Builder.createStore(InductionHeaderPhi, IdxMem);
+    }
+  }
+  Builder.setInsertPoint(PostExit);
+  VPValue *Exit =
+      Builder.createLoad(PrivateMem->getType()->getPointerElementType(),
+                         PrivateMem, nullptr, "loaded.priv");
+  auto IdxLoad = Builder.createLoad(ElemTy, IdxMem, nullptr, "loaded.priv.idx");
+  VPInstruction *Final =
+      Builder.create<VPPrivateFinalCondMem>(".priv.final", Exit, IdxLoad, AI);
+  processFinalValue(Private, AI, Builder, *Final, Exit->getType(), Exit);
+}
+
 // Insert VPInstructions related to VPPrivates.
 void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
-                                                   VPBasicBlock *Preheader) {
+                                                   VPBasicBlock *Preheader,
+                                                   VPBasicBlock *PostExit) {
 
   assert(Preheader && "Expect valid Preheader to be passed as input argument.");
+  assert(PostExit && "Expect valid PostExit to be passed as input argument.");
 
   // Set the insert-guard-point.
   VPBuilder::InsertPointGuard Guard(Builder);
@@ -846,12 +1131,118 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       AI->replaceAllUsesWithInBlock(PrivateMem, *Preheader);
       AI->replaceAllUsesWithInLoop(PrivateMem, Loop);
     }
-    // Add special handling for 'Cond' and 'Last' - privates
+
+    // For non-POD privates we create explicit VPCalls to constructor and
+    // destructor functions using the new memory created for the private as
+    // operand.
+    if (auto *PrivateNonPOD = dyn_cast<VPPrivateNonPOD>(Private)) {
+      if (auto *CtorFn = PrivateNonPOD->getCtor())
+        createNonPODPrivateCtorDtorCalls(CtorFn, PrivateMem, Builder, Plan);
+
+      if (auto *DtorFn = PrivateNonPOD->getDtor()) {
+        // Destructor calls should be emitted in PostExit BB, set insert point
+        // of Builder accordingly.
+        VPBuilder::InsertPointGuard Guard(Builder);
+        Builder.setInsertPoint(PostExit, PostExit->begin());
+        createNonPODPrivateCtorDtorCalls(DtorFn, PrivateMem, Builder, Plan);
+      }
+
+      // TODO: include support for non-POD CopyAssign specialization here.
+
+    } else if (Private->isLast()) {
+
+      // Handling of last privates generating last value calculation.
+      if (Private->hasPrivateTag()) {
+        // No last value for non-pod types and arrays
+        assert(Private->getPrivateTag() != VPPrivate::PrivateTag::PTArray &&
+               Private->getPrivateTag() != VPPrivate::PrivateTag::PTNonPod &&
+               "Unsupported aggregate type");
+
+        if (Private->getPrivateTag() == VPPrivate::PrivateTag::PTInMemory) {
+          // No last value for unused in-memory privates. This is an explicit
+          // private which was completely registerized.
+          if (!VPEntityImportDescr::hasRealUserInLoop(PrivateMem, &Loop))
+            continue;
+        }
+      }
+
+      if (Private->isConditional()) {
+        insertConditionalLastPrivateInst(*Private, Builder, Preheader, PostExit,
+                                         PrivateMem, AI);
+        continue;
+      }
+
+      VPBuilder::InsertPointGuard Guard(Builder);
+      Builder.setInsertPoint(PostExit);
+      VPValue *Exit =
+          Private->getIsMemOnly()
+              ? Builder.createLoad(
+                    PrivateMem->getType()->getPointerElementType(), PrivateMem)
+              : Private->getExitInst();
+      StringRef Name = Private->hasExitInstr()
+                           ? Private->getExitInst()->getName()
+                           : "loaded";
+      unsigned Opc = Private->getIsMemOnly()
+                         ? VPInstruction::PrivateFinalUncondMem
+                         : VPInstruction::PrivateFinalUncond;
+      auto *Final = Builder.createNaryOp(Opc, Exit->getType(), {Exit});
+      Final->setName(Name + ".priv.final");
+      processFinalValue(*Private, AI, Builder, *Final, Exit->getType(), Exit);
+    }
   }
   LLVM_DEBUG(
       dbgs()
       << "After replacement of private and aliases within the preheader.\n");
   LLVM_DEBUG(Preheader->dump());
+}
+
+// Detect whether Inst is linked to a conditional private. That means it is a
+// VPPHINode and either has a VPPHINode from the loop header as operand or is
+// operand of VPPHINode from the loop header.
+// Returns pair: if the VPPHINode from header is found then
+// <headerPhi, PrivateKind::Conditional> and <nullptr, PrivateKind::Last>
+// otherwise.
+static std::pair<VPValue *, VPPrivate::PrivateKind>
+getPrivateKind(const VPInstruction *Inst, const VPBasicBlock *HeaderBB) {
+
+  if (auto Phi = dyn_cast<VPPHINode>(Inst)) {
+
+    auto isHeaderPhi = [HeaderBB](const VPValue *V) {
+      if (auto I = dyn_cast<VPPHINode>(V))
+        if (I->getParent() == HeaderBB)
+          return true;
+      return false;
+    };
+
+    auto IterO = llvm::find_if(Phi->operands(), isHeaderPhi);
+    if (IterO != Phi->op_end())
+      return std::make_pair(*IterO, VPPrivate::PrivateKind::Conditional);
+
+    auto Iter = llvm::find_if(Phi->users(), isHeaderPhi);
+    if (Iter != Phi->user_end())
+      return std::make_pair(*Iter, VPPrivate::PrivateKind::Conditional);
+  }
+
+  return std::make_pair(nullptr, VPPrivate::PrivateKind::Last);
+}
+
+void VPLoopEntityList::analyzeImplicitLastPrivates() {
+  VPBasicBlock *HeaderBB = Loop.getHeader();
+  for (auto *BB : Loop.blocks())
+    for (VPInstruction &Inst : *BB)
+      if (Loop.isLiveOut(&Inst) && !getReduction(&Inst) &&
+          !getInduction(&Inst) && !getPrivate(&Inst)) {
+
+        VPPrivate::PrivateKind Kind;
+        VPValue *HeaderPhi;
+        std::tie(HeaderPhi, Kind) = getPrivateKind(&Inst, HeaderBB);
+        // Add new private with empty alias list
+        VPEntityAliasesTy EmptyAliases;
+        auto Priv = addPrivate(&Inst, EmptyAliases, Kind,
+                               /* Explicit */ false, /* AI */ nullptr,
+                               /* MemOnly */ false);
+        linkValue(Priv, HeaderPhi);
+      }
 }
 
 // Insert VPInstructions corresponding to the VPLoopEntities like
@@ -861,6 +1252,8 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
   // underlying IR and we don't need to emit anything here.
   if (!Loop.getUniqueExitBlock())
     return;
+
+  preprocess();
 
   VPBasicBlock *PostExit = Loop.getUniqueExitBlock();
   VPBasicBlock *Preheader = Loop.getLoopPreheader();
@@ -872,8 +1265,7 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
   insertInductionVPInstructions(Builder, Preheader, PostExit);
 
   // Insert VPInstructions related to VPPrivates.
-  insertPrivateVPInstructions(Builder, Preheader);
-
+  insertPrivateVPInstructions(Builder, Preheader, PostExit);
 }
 
 // Create so called "close-form calculation" for induction. The close-form
@@ -944,20 +1336,43 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
   auto Opc = Induction->getInductionOpcode();
   Type *Ty = Induction->getStartValue()->getType();
   if (auto BinOp = Induction->getInductionBinOp()) {
+    VPBasicBlock *Latch = Loop.getLoopLatch();
+    assert(Latch && "expected non-null latch");
+    VPBranchInst *Br = Latch->getTerminator();
+    auto *LatchCond = cast<VPInstruction>(Br->getCondition());
     // Non-memory induction.
     VPPHINode *StartPhi = findInductionStartPhi(Induction);
     assert(StartPhi && "null induction StartPhi");
-    VPBasicBlock *Block = BinOp->getParent();
-    Builder.setInsertPoint(Block);
-    VPValue *NewInd = nullptr;
-    // TODO. Replace by VPInstruction::clone
+    if (isa<VPPHINode>(BinOp)) {
+      VPBasicBlock *Block = BinOp->getParent();
+      Builder.setInsertPointFirstNonPhi(Block);
+    } else {
+      Builder.setInsertPoint(BinOp);
+    }
+    VPInstruction *NewInd = nullptr;
+    // Can't clone as BinOp can be of any opcode (even VPPHINode, see above).
     if ((Opc == Instruction::Add && Ty->isPointerTy()) ||
         Opc == Instruction::GetElementPtr)
       NewInd = Builder.createInBoundsGEP(StartPhi, &InitStep, nullptr);
     else
       NewInd = Builder.createNaryOp(Opc, Ty, {StartPhi, &InitStep});
-    auto Ndx = StartPhi->getOperandIndex(BinOp);
-    StartPhi->setOperand(Ndx, NewInd);
+    // TODO: add copying of other attributes.
+    NewInd->setDebugLocation(BinOp->getDebugLocation());
+
+    StartPhi->replaceUsesOfWith(BinOp, NewInd);
+    if (LatchCond->getNumOperandsFrom(BinOp) != 0 &&
+        LatchCond->getNumUsers() > 1) {
+      // If the latch condition uses this induction and is used somewhere else
+      // we need to duplicate it and leave all old uses untouched except one
+      // in the back edge.
+      VPInstruction *LatchCond2 = LatchCond->clone();
+      Builder.setInsertPoint(LatchCond);
+      Builder.insert(LatchCond2);
+      Latch->setCondBit(LatchCond2);
+      LatchCond = LatchCond2;
+    }
+    LatchCond->replaceUsesOfWith(BinOp, NewInd);
+
     VPInstruction *ExitIns = getInductionLoopExitInstr(Induction);
     if (ExitIns == BinOp)
       relinkLiveOuts(ExitIns, BinOp, Loop);
@@ -1020,7 +1435,7 @@ bool ReductionDescr::isIncomplete() const {
          Exit == nullptr;
 }
 
-bool ReductionDescr::isDuplicate(const VPlan *Plan, const VPLoop *Loop) const {
+bool ReductionDescr::isDuplicate(const VPlanVector *Plan, const VPLoop *Loop) const {
   if (VPEntityImportDescr::isDuplicate(Plan, Loop))
     return true;
 
@@ -1097,7 +1512,7 @@ VPPHINode *ReductionDescr::getLastNonheaderPHIUser(VPInstruction *VPInst,
 //
 // 6. Unknown recurrence type
 //    - Determined based on type of reduction's Exit/recurrence PHI/Start value.
-void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
+void ReductionDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
                                           const VPLoop *Loop) {
   if (!Exit) {
     // Explicit reduction descriptors need further analysis to identify Exit
@@ -1173,7 +1588,7 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
   }
 }
 
-void ReductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
+void ReductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   if (!Importing)
     return;
 
@@ -1194,14 +1609,15 @@ void ReductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
   }
 
   if (LinkPhi == nullptr)
-    VPRed = LE->addReduction(StartPhi, Start, Exit, K, RedFMF, MK, RT, Signed,
+    VPRed = LE->addReduction(StartPhi, Start, Exit, K, RedFMF, RT, Signed,
                              AllocaInst, ValidMemOnly);
   else {
     const VPReduction *Parent = LE->getReduction(LinkPhi);
     assert(Parent && "nullptr is unexpected");
     bool ForLast = LE->isMinMaxLastItem(*Parent);
-    VPRed = LE->addIndexReduction(StartPhi, Parent, Start, Exit, RT, Signed,
-                                  ForLast, AllocaInst, ValidMemOnly);
+    VPRed =
+        LE->addIndexReduction(StartPhi, Parent, Start, Exit, RT, Signed,
+                              ForLast, IsLinearIndex, AllocaInst, ValidMemOnly);
   }
 
   // Add all linked VPValues collected during Phase 2 analysis
@@ -1322,10 +1738,37 @@ VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
   return LoopExitVPI;
 }
 
-void PrivateDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
+void PrivateDescr::updateKind(const VPLoop *Loop) {
+  if (ExitInst && ExitInst->getOpcode() != Instruction::Store) {
+    setIsMemOnly(false);
+    VPPrivate::PrivateKind Kind = VPPrivate::PrivateKind::Last;
+    std::tie(std::ignore, Kind) = getPrivateKind(ExitInst, Loop->getHeader());
+    IsLast = Kind >= VPPrivate::PrivateKind::Last;
+    IsConditional = Kind == VPPrivate::PrivateKind::Conditional;
+  }
+}
+
+void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
+  using PrivKind = VPPrivate::PrivateKind;
+
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
-  LE->addPrivate(FinalInst, PtrAliases, IsConditional, IsLast, IsExplicit,
-                 AllocaInst, isMemOnly());
+  updateKind(Loop);
+
+  PrivKind K = !IsLast
+                   ? PrivKind::NonLast
+                   : (IsConditional ? PrivKind::Conditional : PrivKind::Last);
+  // If private has non-null constructor/destructor fields, then it is expected
+  // to be of non-POD type. TODO: Add check for CopyAssign when support is added
+  // to insertPrivateVPInstructions.
+  if (Ctor || Dtor)
+    LE->addNonPODPrivate(PtrAliases, K, IsExplicit, Ctor, Dtor, CopyAssign,
+                         AllocaInst);
+  else if (PTag == VPPrivate::PrivateTag::PTUndef) {
+    assert(ExitInst && "ExitInst is expected to be non-null here.");
+    LE->addPrivate(ExitInst, PtrAliases, K, IsExplicit, AllocaInst,
+                   isMemOnly());
+  } else
+    LE->addPrivate(PTag, PtrAliases, K, IsExplicit, AllocaInst, isMemOnly());
 }
 
 void PrivateDescr::checkParentVPLoop(const VPLoop *Loop) const {
@@ -1333,27 +1776,39 @@ void PrivateDescr::checkParentVPLoop(const VPLoop *Loop) const {
   // AllocaInst in this function.
 }
 
-void PrivateDescr::tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop) {
+void PrivateDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
+                                        const VPLoop *Loop) {
+  setIsMemOnly(true);
 
-  for (auto User : AllocaInst->users()) {
-    if (auto Inst = dyn_cast<VPInstruction>(User)) {
-      // TODO: Need to revisit the logic. This is not quite correct. We have to
-      // get the last, i.e., the store writing into the private which
-      // post-dominates all other stores in the loop.
-      if (Inst->getOpcode() == Instruction::Store && User->hasExternalUse())
-        FinalInst = Inst;
+  for (auto It : PtrAliases) {
+    if (Loop->isLiveOut(It.second)) {
+      ExitInst = It.second;
+      break;
     }
   }
+  if (ExitInst) {
+    PTag = VPPrivate::PrivateTag::PTUndef;
+    return;
+  }
+
+  if (AllocaInst->getType()->isPointerTy() &&
+      !isScalarTy(AllocaInst->getType()->getPointerElementType()) &&
+      !AllocaInst->getType()->getPointerElementType()->isVectorTy()) {
+    PTag = VPPrivate::PrivateTag::PTArray;
+    return;
+  }
+
+  PTag = VPPrivate::PrivateTag::PTInMemory;
 }
 
-bool VPEntityImportDescr::isDuplicate(const VPlan *Plan,
+bool VPEntityImportDescr::isDuplicate(const VPlanVector *Plan,
                                       const VPLoop *Loop) const {
   const VPLoopEntityList *LE = Plan->getLoopEntities(Loop);
   // It's not first (LE exists) and already have the same alloca instruction
   return LE && AllocaInst && LE->getMemoryDescriptor(AllocaInst);
 }
 
-static bool hasRealUserInLoop(VPValue *Val, const VPLoop *Loop) {
+bool VPEntityImportDescr::hasRealUserInLoop(VPValue *Val, const VPLoop *Loop) {
   SmallVector<VPValue *, 4> WorkList;
   for (auto *U : Val->users())
     WorkList.push_back(U);
@@ -1362,7 +1817,7 @@ static bool hasRealUserInLoop(VPValue *Val, const VPLoop *Loop) {
     if (isa<VPExternalUse>(Cur))
       continue;
     auto I = cast<VPInstruction>(Cur);
-    if (!Loop->contains(I))
+    if (!Loop->contains(I) && I->getParent() != Loop->getLoopPreheader())
       continue;
     if (I->getOpcode() == Instruction::BitCast ||
         I->getOpcode() == Instruction::AddrSpaceCast) {
@@ -1443,7 +1898,8 @@ bool InductionDescr::isIncomplete() const {
   return StartPhi == nullptr || InductionOp == nullptr || Step == nullptr;
 }
 
-bool InductionDescr::isDuplicate(const VPlan *Plan, const VPLoop *Loop) const {
+bool InductionDescr::isDuplicate(const VPlanVector *Plan,
+                                 const VPLoop *Loop) const {
   if (VPEntityImportDescr::isDuplicate(Plan, Loop))
     return true;
 
@@ -1595,19 +2051,19 @@ bool InductionDescr::inductionNeedsCloseForm(const VPLoop *Loop) const {
   return false;
 }
 
-void InductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
+void InductionDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
   if (!Importing)
     return;
 
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
   VPInduction *VPInd =
-      LE->addInduction(StartPhi, Start, K, Step, InductionOp, IndOpcode,
-                       AllocaInst, ValidMemOnly);
+      LE->addInduction(StartPhi, Start, K, Step, StartVal, EndVal,
+                       InductionOp, IndOpcode, AllocaInst, ValidMemOnly);
   if (inductionNeedsCloseForm(Loop))
     VPInd->setNeedCloseForm(true);
 }
 
-void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
+void InductionDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
                                           const VPLoop *Loop) {
   if (StartPhi == nullptr) {
     VPValue *V = InductionOp ? InductionOp : Start;

@@ -17,12 +17,12 @@ namespace loopopt {
 
 namespace stencilpattern {
 
-bool areStructuallyStencilRefs(RefGroupTy &Group) {
+bool areStructuallyStencilRefs(RefGroupTy &Group, bool Relaxed) {
 
   const RegDDRef *Median = getMedianRef(Group);
-  LLVM_DEBUG_STENCIL(dbgs() << "Median :"; Median->dump(); dbgs() << " ";);
+  LLVM_DEBUG_STENCIL(dbgs() << "Median :"; Median->dump(); dbgs() << "\n";);
 
-  return isSymetricCenteredAt(Median, Group);
+  return isSymetricCenteredAt(Median, Group, Relaxed);
 }
 
 const RegDDRef *getMedianRef(RefGroupTy &Group) {
@@ -31,7 +31,8 @@ const RegDDRef *getMedianRef(RefGroupTy &Group) {
   return Group[Group.size() / 2];
 }
 
-bool isSymetricCenteredAt(const RegDDRef *Center, const RefGroupTy &Group) {
+bool isSymetricCenteredAt(const RegDDRef *Center, const RefGroupTy &Group,
+                          bool Relaxed) {
   unsigned numCEs = Center->getNumDimensions();
 
   for (auto *Ref : Group) {
@@ -39,19 +40,22 @@ bool isSymetricCenteredAt(const RegDDRef *Center, const RefGroupTy &Group) {
       return false;
 
     unsigned numNonZeroDist = 0;
-    for (auto DimNum :
-         make_range(Ref->dim_num_begin(), Ref->dim_num_end())) {
+    for (auto DimNum : make_range(Ref->dim_num_begin(), Ref->dim_num_end())) {
       int64_t Dist = 0;
       if (!CanonExprUtils::getConstDistance(Center->getDimensionIndex(DimNum),
                                             Ref->getDimensionIndex(DimNum),
-                                            &Dist))
+                                            &Dist)) {
+        if (Relaxed) {
+          continue;
+        }
         return false;
+      }
 
       if (Dist != 0)
         numNonZeroDist++;
     }
 
-    // At leas one dimension has const dist of zero.
+    // At least one dimension has const dist of zero.
     // TODO: This solves rhs_body, but might need more checks to be
     //       conservative enough as stencil function
     if (numNonZeroDist >= numCEs) {

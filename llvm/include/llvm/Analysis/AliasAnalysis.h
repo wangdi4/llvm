@@ -79,20 +79,63 @@ class Value;
 ///
 /// See docs/AliasAnalysis.html for more information on the specific meanings
 /// of these values.
-enum AliasResult : uint8_t {
-  /// The two locations do not alias at all.
-  ///
-  /// This value is arranged to convert to false, while all other values
-  /// convert to true. This allows a boolean context to convert the result to
-  /// a binary flag indicating whether there is the possibility of aliasing.
-  NoAlias = 0,
-  /// The two locations may or may not alias. This is the least precise result.
-  MayAlias,
-  /// The two locations alias, but only due to a partial overlap.
-  PartialAlias,
-  /// The two locations precisely alias each other.
-  MustAlias,
+class AliasResult {
+private:
+  static const int OffsetBits = 23;
+  static const int AliasBits = 8;
+  static_assert(AliasBits + 1 + OffsetBits <= 32,
+                "AliasResult size is intended to be 4 bytes!");
+
+  unsigned int Alias : AliasBits;
+  unsigned int HasOffset : 1;
+  signed int Offset : OffsetBits;
+
+public:
+  enum Result : uint8_t {
+    /// The two locations do not alias at all.
+    ///
+    /// This value is arranged to convert to false, while all other values
+    /// convert to true. This allows a boolean context to convert the result to
+    /// a binary flag indicating whether there is the possibility of aliasing.
+    NoAlias = 0,
+    /// The two locations may or may not alias. This is the least precise
+    /// result.
+    MayAlias,
+    /// The two locations alias, but only due to a partial overlap.
+    PartialAlias,
+    /// The two locations precisely alias each other.
+    MustAlias,
+  };
+  static_assert(MustAlias < (1 << AliasBits),
+                "Not enough bit field size for the enum!");
+
+  explicit AliasResult() = delete;
+  constexpr AliasResult(const Result &Alias)
+      : Alias(Alias), HasOffset(false), Offset(0) {}
+
+  operator Result() const { return static_cast<Result>(Alias); }
+
+  constexpr bool hasOffset() const { return HasOffset; }
+  constexpr int32_t getOffset() const {
+    assert(HasOffset && "No offset!");
+    return Offset;
+  }
+  void setOffset(int32_t NewOffset) {
+    if (isInt<OffsetBits>(NewOffset)) {
+      HasOffset = true;
+      Offset = NewOffset;
+    }
+  }
+
+  /// Helper for processing AliasResult for swapped memory location pairs.
+  void swap(bool DoSwap) {
+    if (DoSwap && hasOffset())
+      setOffset(-getOffset());
+  }
 };
+
+static_assert(sizeof(AliasResult) == 4,
+              "AliasResult size is intended to be 4 bytes!");
 
 /// << operator for AliasResult.
 raw_ostream &operator<<(raw_ostream &OS, AliasResult AR);
@@ -336,6 +379,31 @@ createModRefInfo(const FunctionModRefBehavior FMRB) {
   return ModRefInfo(FMRB & static_cast<int>(ModRefInfo::ModRef));
 }
 
+/// Reduced version of MemoryLocation that only stores a pointer and size.
+/// Used for caching AATags independent BasicAA results.
+struct AACacheLoc {
+  const Value *Ptr;
+  LocationSize Size;
+};
+
+template <> struct DenseMapInfo<AACacheLoc> {
+  static inline AACacheLoc getEmptyKey() {
+    return {DenseMapInfo<const Value *>::getEmptyKey(),
+            DenseMapInfo<LocationSize>::getEmptyKey()};
+  }
+  static inline AACacheLoc getTombstoneKey() {
+    return {DenseMapInfo<const Value *>::getTombstoneKey(),
+            DenseMapInfo<LocationSize>::getTombstoneKey()};
+  }
+  static unsigned getHashValue(const AACacheLoc &Val) {
+    return DenseMapInfo<const Value *>::getHashValue(Val.Ptr) ^
+           DenseMapInfo<LocationSize>::getHashValue(Val.Size);
+  }
+  static bool isEqual(const AACacheLoc &LHS, const AACacheLoc &RHS) {
+    return LHS.Ptr == RHS.Ptr && LHS.Size == RHS.Size;
+  }
+};
+
 /// This class stores info we want to provide to or retain within an alias
 /// query. By default, the root query is stateless and starts with a freshly
 /// constructed info object. Specific alias analyses can use this query info to
@@ -354,8 +422,16 @@ createModRefInfo(const FunctionModRefBehavior FMRB) {
 /// BasicAA uses the `NeedLoopCarried` flag.
 class AAQueryInfo {
 public:
-  using LocPair = std::pair<MemoryLocation, MemoryLocation>;
-  using AliasCacheT = SmallDenseMap<LocPair, AliasResult, 8>;
+  using LocPair = std::pair<AACacheLoc, AACacheLoc>;
+  struct CacheEntry {
+    AliasResult Result;
+    /// Number of times a NoAlias assumption has been used.
+    /// 0 for assumptions that have not been used, -1 for definitive results.
+    int NumAssumptionUses;
+    /// Whether this is a definitive (non-assumption) result.
+    bool isDefinitive() const { return NumAssumptionUses < 0; }
+  };
+  using AliasCacheT = SmallDenseMap<LocPair, CacheEntry, 8>;
   AliasCacheT AliasCache;
 
   using IsCapturedCacheT = SmallDenseMap<const Value *, bool, 8>;
@@ -368,12 +444,26 @@ public:
       : AliasCache(), IsCapturedCache(), NeedLoopCarried(LoopCarried) {}
 #endif // INTEL_CUSTOMIZATION
 
+  /// Query depth used to distinguish recursive queries.
+  unsigned Depth = 0;
+
+  /// How many active NoAlias assumption uses there are.
+  int NumAssumptionUses = 0;
+
+  /// Location pairs for which an assumption based result is currently stored.
+  /// Used to remove all potentially incorrect results from the cache if an
+  /// assumption is disproven.
+  SmallVector<AAQueryInfo::LocPair, 4> AssumptionBasedResults;
+
   AAQueryInfo() : AliasCache(), IsCapturedCache() {}
 
-  AliasResult updateResult(const LocPair &Locs, AliasResult Result) {
-    auto It = AliasCache.find(Locs);
-    assert(It != AliasCache.end() && "Entry must have existed");
-    return It->second = Result;
+  /// Create a new AAQueryInfo based on this one, but with the cache cleared.
+  /// This is used for recursive queries across phis, where cache results may
+  /// not be valid.
+  AAQueryInfo withEmptyCache() {
+    AAQueryInfo NewAAQI;
+    NewAAQI.Depth = Depth;
+    return NewAAQI;
   }
 };
 
@@ -389,6 +479,11 @@ public:
 #if INTEL_CUSTOMIZATION
   // Do opt-level based initialization for each AAResult.
   void setupWithOptLevel(unsigned OptLevel);
+
+  // Sets the AAResults pointer of underlying AAs to this object.
+  // This is required to restore the connection after LoopOpt's AA
+  // pipeline breaks it.
+  void setAAResultsPtr();
 #endif // INTEL_CUSTOMIZATION
 
   /// Register a specific AA result.
@@ -438,7 +533,7 @@ public:
   /// A trivial helper function to check to see if the specified pointers are
   /// no-alias.
   bool isNoAlias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
-    return alias(LocA, LocB) == NoAlias;
+    return alias(LocA, LocB) == AliasResult::NoAlias;
   }
 
 #if INTEL_CUSTOMIZATION
@@ -470,7 +565,7 @@ public:
   /// no-alias in the more dynamic \c loopCarriedAlias sense.
   bool isLoopCarriedNoAlias(const MemoryLocation &LocA,
                             const MemoryLocation &LocB) {
-    return loopCarriedAlias(LocA, LocB) == NoAlias;
+    return loopCarriedAlias(LocA, LocB) == AliasResult::NoAlias;
   }
 
   /// A convenience wrapper around the \c isLoopCarriedNoAlias helper interface.
@@ -490,14 +585,14 @@ public:
   /// must-alias in the loop-carried sense.
   bool isLoopCarriedMustAlias(const MemoryLocation &LocA,
                               const MemoryLocation &LocB) {
-    return loopCarriedAlias(LocA, LocB) == MustAlias;
+    return loopCarriedAlias(LocA, LocB) == AliasResult::MustAlias;
   }
 
   /// A convenience wrapper around the \c isLoopCarriedMustAlias helper
   /// interface.
   bool isLoopCarriedMustAlias(const Value *V1, const Value *V2) {
     return loopCarriedAlias(V1, LocationSize::precise(1), V2,
-                            LocationSize::precise(1)) == MustAlias;
+                            LocationSize::precise(1)) == AliasResult::MustAlias;
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -516,13 +611,13 @@ public:
   /// A trivial helper function to check to see if the specified pointers are
   /// must-alias.
   bool isMustAlias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
-    return alias(LocA, LocB) == MustAlias;
+    return alias(LocA, LocB) == AliasResult::MustAlias;
   }
 
   /// A convenience wrapper around the \c isMustAlias helper interface.
   bool isMustAlias(const Value *V1, const Value *V2) {
     return alias(V1, LocationSize::precise(1), V2, LocationSize::precise(1)) ==
-           MustAlias;
+           AliasResult::MustAlias;
   }
 #if INTEL_CUSTOMIZATION
   // Returns true if the given value V is escaped.
@@ -902,9 +997,6 @@ private:
 
   std::vector<AnalysisKey *> AADeps;
 
-  /// Query depth used to distinguish recursive queries.
-  unsigned Depth = 0;
-
   friend class BatchAAResults;
 };
 
@@ -946,11 +1038,12 @@ public:
     return AA.getModRefBehavior(Call);
   }
   bool isMustAlias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
-    return alias(LocA, LocB) == MustAlias;
+    return alias(LocA, LocB) == AliasResult::MustAlias;
   }
   bool isMustAlias(const Value *V1, const Value *V2) {
     return alias(MemoryLocation(V1, LocationSize::precise(1)),
-                 MemoryLocation(V2, LocationSize::precise(1))) == MustAlias;
+                 MemoryLocation(V2, LocationSize::precise(1))) ==
+           AliasResult::MustAlias;
   }
 };
 
@@ -1069,7 +1162,7 @@ public:
 
 #if INTEL_CUSTOMIZATION
   // Do opt-level based initialization for each AAResult.
-  void setupWithOptLevel(unsigned OptLevel) {
+  void setupWithOptLevel(unsigned OptLevel) override {
     Result.setupWithOptLevel(OptLevel);
   }
 
@@ -1256,7 +1349,7 @@ protected:
 public:
   AliasResult alias(const MemoryLocation &LocA, const MemoryLocation &LocB,
                     AAQueryInfo &AAQI) {
-    return MayAlias;
+    return AliasResult::MayAlias;
   }
 
   bool pointsToConstantMemory(const MemoryLocation &Loc, AAQueryInfo &AAQI,
@@ -1285,7 +1378,7 @@ public:
                                const MemoryLocation &LocB, AAQueryInfo &AAQI) {
     assert(AAQI.NeedLoopCarried &&
            "Unexpectedly missing loopCarried query flag");
-    return MayAlias;
+    return AliasResult::MayAlias;
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1315,8 +1408,10 @@ public:
 /// Return true if this pointer is returned by a noalias function.
 bool isNoAliasCall(const Value *V);
 
+#if INTEL_CUSTOMIZATION
 /// Return true if this is an argument with the noalias attribute.
-bool isNoAliasArgument(const Value *V);
+bool isNoAliasOrByValArgument(const Value *V);
+#endif // INTEL_CUSTOMIZATION
 
 /// Return true if this pointer refers to a distinct and identifiable object.
 /// This returns true for:

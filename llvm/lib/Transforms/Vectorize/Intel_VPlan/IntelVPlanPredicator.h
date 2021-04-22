@@ -28,7 +28,7 @@ namespace vpo {
 class VPlanPredicator {
 private:
   // VPlan being predicated.
-  VPlan &Plan;
+  VPlanVector &Plan;
 
   // VPLoopInfo for Plan's HCFG.
   VPLoopInfo *VPLI;
@@ -105,16 +105,26 @@ private:
   // predicate in a separate map.
   DenseMap<VPBasicBlock *, VPValue *> Block2Predicate;
 
-  // Blocks where phis should be turned into blends as a result of
-  // linearization. The transformation is delayed to after-linearization as it
-  // might be needed to create extra blends and/or phis on the way through
-  // multiple edges in the final CFG (using IDF).
+  // Phis that should be turned into blends as a result of linearization. The
+  // transformation is delayed to after-linearization as it might be needed to
+  // create extra blends and/or phis on the way through multiple edges in the
+  // final CFG (using IDF).
   //
   // Also, we need blocks' predicates for the explicit VPBlend instruction, so
   // for the transform to be performed on-the-fly we would need keeping
   // VPLInfo/DomTree/PostDomTree up-to-date through the linearization process
   // which would be prohibitively hard.
-  SetVector<VPBasicBlock *> BlocksToBlendProcess;
+  //
+  // Note that recording just the blocks isn't enough becuase the PHIs created
+  // as part of predicates emission don't require the processing needed for
+  // regular phis. The semantics we put into them is "unmasked" calculation - we
+  // don't want any "undefs" and have a "false" value coming from edges where
+  // original condition definition isn't available. They are also already
+  // correct and in SSA form so no phi-to-blend processing is needed for them.
+  //
+  // Original phis, on the other hand, require both phi-to-blend processing and
+  // a special VPActiveLane handling for uniform ones.
+  DenseMap<VPBasicBlock *, SmallVector<VPPHINode *, 8>> PhisToBlendProcess;
 
   /// Returns the negation of the \p Cond inserted at the end of the block
   /// defining it or at VPlan's entry. Avoids creating duplicates by caching
@@ -194,7 +204,7 @@ private:
   bool shouldPreserveOutgoingEdges(VPBasicBlock *Block);
 
 public:
-  VPlanPredicator(VPlan &Plan);
+  VPlanPredicator(VPlanVector &Plan);
 
   /// Predicate Plan's HCFG.
   void predicate(void);

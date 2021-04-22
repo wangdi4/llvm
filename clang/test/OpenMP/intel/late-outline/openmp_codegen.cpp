@@ -334,16 +334,16 @@ int main(int argc, char **argv) {
 // CHECK: [[TARGD_TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry()
 // CHECK-SAME: "DIR.OMP.TARGET.DATA"()
 // CHECK-SAME: "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(i32** %a, i32** %b)
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* %z{{.*}}, i32* %z{{.*}}, i64 4, i64 35)
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L0]], i32* [[L0]], i64 0, i64 96)
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L1]], i32* [[L1]], i64 0, i64 96)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* %z{{.*}}, i32* %z{{.*}}, i64 4, i64 3
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L0]], i32* [[L0]], i64 0, i64 64
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L1]], i32* [[L1]], i64 0, i64 64
 // CHECK: region.exit(token [[TARGD_TOKENVAL]]) [ "DIR.OMP.END.TARGET.DATA"() ]
     #pragma omp target data map(tofrom:z) use_device_ptr(a,b)
     {
     }
 // CHECK: [[TARGU_TOKENVAL:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.OMP.TARGET.UPDATE"(),
-// CHECK-SAME "QUAL.OMP.FROMQUAL.OMP.MAP.FROM"(i32* %y{{.*}}, i32* %y{{.*}}, i64 4, i64 34),
-// CHECK-SAME "QUAL.OMP.FROMQUAL.OMP.MAP.TO"(i32* %z{{.*}}, i32* %z{{.*}}, i64 4, i64 34) ]
+// CHECK-SAME "QUAL.OMP.FROMQUAL.OMP.MAP.FROM"(i32* %y{{.*}}, i32* %y{{.*}}, i64 4, i64 34
+// CHECK-SAME "QUAL.OMP.FROMQUAL.OMP.MAP.TO"(i32* %z{{.*}}, i32* %z{{.*}}, i64 4, i64 34
 // CHECK: region.exit(token [[TARGU_TOKENVAL]]) [ "DIR.OMP.END.TARGET.UPDATE"() ]
     #pragma omp target update to(z) from(y)
   }
@@ -545,6 +545,25 @@ void enter_exit_data() {
   //CHECK-SAME: QUAL.OMP.MAP.FROM:ALWAYS
   //CHECK: "DIR.OMP.END.TARGET.EXIT.DATA"
   #pragma omp target exit data map(always,from: a[9:13])
+}
+
+class S {
+  public:
+    int *y;
+    void foo() {
+  //CHECK: "DIR.OMP.TARGET.DATA"
+  //CHECK-SAME: "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(i32** %y)
+  //CHECK: "DIR.OMP.END.TARGET.DATA"
+#pragma omp target data use_device_ptr(y)
+         y++;
+    }
+};
+
+void barfoo() {
+    int a[10];
+    S s; s.y = &a[0];
+    a[2] = 111;
+    s.foo();
 }
 
 #endif // HEADER

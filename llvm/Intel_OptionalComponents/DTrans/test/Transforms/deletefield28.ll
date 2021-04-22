@@ -1,8 +1,10 @@
-; RUN: opt -dtrans-deletefield -S -o - %s | FileCheck %s
-; RUN: opt -passes=dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -dtrans-deletefield -S -o - %s | FileCheck %s
+; RUN: opt -whole-program-assume -passes=dtrans-deletefield -S -o - %s | FileCheck %s
 
-; GEP instructions aren't correctly updated when we delete fields from a
-; structure. (CMPLRS-51001)
+; This test fails because the allocation size used for the @malloc
+; call does not update correctly to reflect the changed structure
+; type because the allocation type is cast to an array of structures
+; (CMPLRLLVM-27696)
 ; XFAIL: *
 
 ; This test verifies that the index arguments of GEP instructions are correctly
@@ -26,7 +28,8 @@ define i32 @doSomething([4 x %struct.test]* %p_test) {
   store i32 2, i32* %p_test_C
   %valC = load i32, i32* %p_test_C
 
-  ret i32 %valA
+  %sum = add i32 %valA, %valC
+  ret i32 %sum
 }
 
 define i32 @main(i32 %argc, i8** %argv) {

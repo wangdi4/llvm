@@ -5,6 +5,7 @@
 
 define void @foo(i64 *%p, i1 %uniform) #0 {
 ; VPLAN-LABEL:  VPlan after predication and linearization:
+; VPLAN-NEXT:  VPlan IR for: foo:header
 ; VPLAN-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP_UNIFORM_NOT:%.*]] = not i1 [[UNIFORM0:%.*]]
 ; VPLAN-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
@@ -12,13 +13,10 @@ define void @foo(i64 *%p, i1 %uniform) #0 {
 ; VPLAN-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop header
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 4, UF = 1
 ; VPLAN-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB3]] ]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = icmp sgt i64 [[VP_IV]] i64 0
 ; VPLAN-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
@@ -60,9 +58,8 @@ define void @foo(i64 *%p, i1 %uniform) #0 {
 ; VPLAN-NEXT:     [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr i64* [[P0:%.*]] i64 [[VP_IV]]
 ; VPLAN-NEXT:     [DA: Div] store i64 [[VP_ST_BLEND_BB8]] i64* [[VP_GEP]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB10:BB[0-9]+]], [[BB2]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND]], [[BB10:BB[0-9]+]], [[BB2]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB10]]: # preds: [[BB3]]
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
@@ -74,30 +71,53 @@ define void @foo(i64 *%p, i1 %uniform) #0 {
 ; VPLAN-NEXT:  External Uses:
 ; VPLAN-NEXT:  Id: 0   no underlying for i64 [[VP_IV_IND_FINAL]]
 ;
+;
 ; CG:  define void @foo(i64* [[P0:%.*]], i1 [[UNIFORM0:%.*]]) #0 {
 ; CG:       vector.body:
-; CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP10:%.*]], [[VECTOR_BODY0:%.*]] ]
-; CG-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP9:%.*]], [[VECTOR_BODY0]] ]
-; CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP8:%.*]], [[VECTOR_BODY0]] ]
+; CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB10:%.*]] ], [ [[TMP9:%.*]], [[VPLANNEDBB100:%.*]] ]
+; CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB10]] ], [ [[TMP8:%.*]], [[VPLANNEDBB100]] ]
 ; CG-NEXT:    [[TMP1:%.*]] = icmp sgt <2 x i64> [[VEC_PHI0]], zeroinitializer
+; CG-NEXT:    br label [[VPLANNEDBB30:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB3:
+; CG-NEXT:    br label [[VPLANNEDBB40:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB4:
 ; CG-NEXT:    [[TMP2:%.*]] = and <2 x i1> [[TMP1]], [[TMP0:%.*]]
 ; CG-NEXT:    [[TMP3:%.*]] = and <2 x i1> [[TMP1]], [[BROADCAST_SPLAT0:%.*]]
+; CG-NEXT:    br label [[VPLANNEDBB50:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB5:
+; CG-NEXT:    br label [[VPLANNEDBB60:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB6:
+; CG-NEXT:    br label [[VPLANNEDBB70:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB7:
 ; CG-NEXT:    [[PREDBLEND0:%.*]] = select <2 x i1> [[TMP3]], <2 x i64> <i64 1, i64 1>, <2 x i64> <i64 2, i64 2>
 ; CG-NEXT:    [[TMP4:%.*]] = bitcast <2 x i1> [[TMP1]] to i2
 ; CG-NEXT:    [[CTTZ0:%.*]] = call i2 @llvm.cttz.i2(i2 [[TMP4]], i1 false)
 ; CG-NEXT:    [[TMP5:%.*]] = extractelement <2 x i64> [[PREDBLEND0]], i2 [[CTTZ0]]
+; CG-NEXT:    br label [[VPLANNEDBB80:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB8:
 ; CG-NEXT:    [[TMP6:%.*]] = add i64 [[TMP5]], 1
-; CG-NEXT:    [[BROADCAST_SPLATINSERT20:%.*]] = insertelement <2 x i64> undef, i64 [[TMP6]], i32 0
-; CG-NEXT:    [[BROADCAST_SPLAT30:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT20]], <2 x i64> undef, <2 x i32> zeroinitializer
-; CG-NEXT:    [[PREDBLEND40:%.*]] = select <2 x i1> [[TMP1]], <2 x i64> [[BROADCAST_SPLAT30]], <2 x i64> <i64 -1, i64 -1>
-; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i64, i64* [[P0]], i64 [[UNI_PHI10]]
+; CG-NEXT:    [[BROADCAST_SPLATINSERT110:%.*]] = insertelement <2 x i64> poison, i64 [[TMP6]], i32 0
+; CG-NEXT:    [[BROADCAST_SPLAT120:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT110]], <2 x i64> poison, <2 x i32> zeroinitializer
+; CG-NEXT:    br label [[VPLANNEDBB90:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB9:
+; CG-NEXT:    br label [[VPLANNEDBB100]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB10:
+; CG-NEXT:    [[PREDBLEND130:%.*]] = select <2 x i1> [[TMP1]], <2 x i64> [[BROADCAST_SPLAT120]], <2 x i64> <i64 -1, i64 -1>
+; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i64, i64* [[P0]], i64 [[UNI_PHI0]]
 ; CG-NEXT:    [[TMP7:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <2 x i64>*
-; CG-NEXT:    store <2 x i64> [[PREDBLEND40]], <2 x i64>* [[TMP7]], align 4
+; CG-NEXT:    store <2 x i64> [[PREDBLEND130]], <2 x i64>* [[TMP7]], align 4
 ; CG-NEXT:    [[TMP8]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CG-NEXT:    [[TMP9]] = add nuw nsw i64 [[UNI_PHI10]], 2
-; CG-NEXT:    [[TMP10]] = add i64 [[UNI_PHI0]], 2
-; CG-NEXT:    [[TMP11:%.*]] = icmp uge i64 [[TMP10]], 4
-; CG-NEXT:    br i1 [[TMP11]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]]
+; CG-NEXT:    [[TMP9]] = add nuw nsw i64 [[UNI_PHI0]], 2
+; CG-NEXT:    [[TMP10:%.*]] = icmp eq i64 [[TMP9]], 4
+; CG-NEXT:    br i1 [[TMP10]], label [[VPLANNEDBB140:%.*]], label [[VECTOR_BODY0:%.*]], !llvm.loop !0
 ;
 ; HIR-CG-LABEL: BEGIN REGION { modified }
 ; HIR-CG-NEXT:        %.copy = -1;
@@ -189,19 +209,17 @@ exit:
 ; the same now that blends with undef are optimized inside predicator.
 define void @uniform_with_undef(i64 *%p, i64 %n) #0 {
 ; VPLAN-LABEL:  VPlan after predication and linearization:
+; VPLAN-NEXT:  VPlan IR for: uniform_with_undef:header
 ; VPLAN-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; VPLAN-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB1]]: # preds: [[BB0]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop header
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 4, UF = 1
 ; VPLAN-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB3]] ]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = icmp sgt i64 [[VP_IV]] i64 0
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp eq i64 [[VP_IV]] i64 [[N0:%.*]]
@@ -224,9 +242,8 @@ define void @uniform_with_undef(i64 *%p, i64 %n) #0 {
 ; VPLAN-NEXT:     [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr i64* [[P0:%.*]] i64 [[VP_IV]]
 ; VPLAN-NEXT:     [DA: Div] store i64 1 i64* [[VP_GEP]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB7:BB[0-9]+]], [[BB2]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND]], [[BB7:BB[0-9]+]], [[BB2]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB7]]: # preds: [[BB3]]
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
@@ -237,24 +254,34 @@ define void @uniform_with_undef(i64 *%p, i64 %n) #0 {
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:  External Uses:
 ; VPLAN-NEXT:  Id: 0   no underlying for i64 [[VP_IV_IND_FINAL]]
-
+;
+;
 ; CG:  define void @uniform_with_undef(i64* [[P0:%.*]], i64 [[N0:%.*]]) #0 {
-; CG-NEXT:  entry:
 ; CG:       vector.body:
-; CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[VECTOR_BODY0]] ]
-; CG-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
-; CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0]] ]
+; CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP5:%.*]], [[VPLANNEDBB60:%.*]] ]
+; CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP4:%.*]], [[VPLANNEDBB60]] ]
 ; CG-NEXT:    [[TMP0:%.*]] = icmp sgt <2 x i64> [[VEC_PHI0]], zeroinitializer
 ; CG-NEXT:    [[TMP1:%.*]] = icmp eq <2 x i64> [[VEC_PHI0]], [[BROADCAST_SPLAT0]]
 ; CG-NEXT:    [[TMP2:%.*]] = xor <2 x i1> [[TMP1]], <i1 true, i1 true>
-; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i64, i64* [[P0]], i64 [[UNI_PHI10]]
+; CG-NEXT:    br label [[VPLANNEDBB30:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB3:
+; CG-NEXT:    br label [[VPLANNEDBB40:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB4:
+; CG-NEXT:    br label [[VPLANNEDBB50:%.*]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB5:
+; CG-NEXT:    br label [[VPLANNEDBB60]]
+; CG-EMPTY:
+; CG-NEXT:  VPlannedBB6:
+; CG-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i64, i64* [[P0]], i64 [[UNI_PHI0]]
 ; CG-NEXT:    [[TMP3:%.*]] = bitcast i64* [[SCALAR_GEP0]] to <2 x i64>*
 ; CG-NEXT:    store <2 x i64> <i64 1, i64 1>, <2 x i64>* [[TMP3]], align 4
 ; CG-NEXT:    [[TMP4]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CG-NEXT:    [[TMP5]] = add nuw nsw i64 [[UNI_PHI10]], 2
-; CG-NEXT:    [[TMP6]] = add i64 [[UNI_PHI0]], 2
-; CG-NEXT:    [[TMP7:%.*]] = icmp uge i64 [[TMP6]], 4
-; CG-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]]
+; CG-NEXT:    [[TMP5]] = add nuw nsw i64 [[UNI_PHI0]], 2
+; CG-NEXT:    [[TMP6:%.*]] = icmp eq i64 [[TMP5]], 4
+; CG-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB70:%.*]], label [[VECTOR_BODY0]], !llvm.loop !
 ;
 
 entry:

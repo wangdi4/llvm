@@ -334,6 +334,9 @@ class SequenceChecker {
                        unsigned RF) const;
   bool isSequenceMatched(const unsigned II, const VecCEOpSeqTy &VecSeq) const;
 
+  template <typename SCEVCastExprType>
+  bool areEqualCastBlobs(const BlobTy &Blob1, const BlobTy &Blob2) const;
+
 public:
   explicit SequenceChecker(const HLLoop *Lp, const LoopInvariantBlobTy &Invs)
       : Loop(Lp), LoopInvariantBlobs(Invs) {}
@@ -341,6 +344,20 @@ public:
   std::pair<unsigned, unsigned>
   calcRerollFactor(const VecCEOpSeqTy &VecSeq) const;
 };
+
+template <typename SCEVCastExprType>
+bool SequenceChecker::areEqualCastBlobs(const BlobTy &Blob1,
+                                        const BlobTy &Blob2) const {
+  auto CastSCEV1 = cast<SCEVCastExprType>(Blob1);
+  auto CastSCEV2 = cast<SCEVCastExprType>(Blob2);
+  if (CastSCEV1->getOperand()->getType() !=
+      CastSCEV2->getOperand()->getType()) {
+    return false;
+  }
+
+  return areEqualBlobTyForReroll(CastSCEV1->getOperand(),
+                                 CastSCEV2->getOperand());
+}
 
 bool SequenceChecker::areEqualBlobTyForReroll(const BlobTy &Blob1,
                                               const BlobTy &Blob2) const {
@@ -361,15 +378,12 @@ bool SequenceChecker::areEqualBlobTyForReroll(const BlobTy &Blob1,
     return ConstSCEV1 == ConstSCEV2;
   }
 
-  if (auto CastSCEV1 = dyn_cast<SCEVIntegralCastExpr>(Blob1)) {
-    auto CastSCEV2 = cast<SCEVIntegralCastExpr>(Blob2);
-    if (CastSCEV1->getOperand()->getType() !=
-        CastSCEV2->getOperand()->getType()) {
-      return false;
-    }
+  if (isa<SCEVIntegralCastExpr>(Blob1)) {
+    return areEqualCastBlobs<SCEVIntegralCastExpr>(Blob1, Blob2);
+  }
 
-    return areEqualBlobTyForReroll(CastSCEV1->getOperand(),
-                                   CastSCEV2->getOperand());
+  if (isa<SCEVPtrToIntExpr>(Blob1)) {
+    return areEqualCastBlobs<SCEVPtrToIntExpr>(Blob1, Blob2);
   }
 
   if (auto NArySCEV1 = dyn_cast<SCEVNAryExpr>(Blob1)) {
@@ -1551,8 +1565,8 @@ bool SelfSRRerollAnalyzer::analyze(
 const RegDDRef *getNonReductionRval(const HLInst *Inst,
                                     const SafeRedChain *Chain, unsigned Index) {
 
-  if (std::distance(Inst->rval_op_ddref_begin(),
-                     Inst->rval_op_ddref_end()) != 2) {
+  if (std::distance(Inst->rval_op_ddref_begin(), Inst->rval_op_ddref_end()) !=
+      2) {
     return nullptr;
   }
 
@@ -1912,8 +1926,7 @@ bool isRerollCandidate(const HLLoop *Loop, HIRLoopStatistics &HLS,
 // delay this check after reroll.
 bool hasLiveOutTempsToBeRemoved(const HLLoop *Loop,
                                 HIRSafeReductionAnalysis &SRA) {
-  if (((SRA.getSafeRedInfoList(Loop)).size() == 0) &&
-      Loop->hasLiveOutTemps()) {
+  if (((SRA.getSafeRedInfoList(Loop)).size() == 0) && Loop->hasLiveOutTemps()) {
     return true;
   }
 
@@ -2047,18 +2060,19 @@ bool HIRLoopRerollLegacyPass::runOnFunction(Function &F) {
   return NumRerolled > 0;
 }
 
-PreservedAnalyses HIRLoopRerollPass::run(llvm::Function &F,
-                                         llvm::FunctionAnalysisManager &AM) {
+PreservedAnalyses HIRLoopRerollPass::runImpl(llvm::Function &F,
+                                             llvm::FunctionAnalysisManager &AM,
+                                             HIRFramework &HIRF) {
   if (DisablePass) {
     return PreservedAnalyses::all();
   }
 
   LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
 
-  unsigned NumRerolled = doLoopReroll(
-      AM.getResult<HIRFrameworkAnalysis>(F), AM.getResult<HIRDDAnalysisPass>(F),
-      AM.getResult<HIRLoopStatisticsAnalysis>(F),
-      AM.getResult<HIRSafeReductionAnalysisPass>(F));
+  unsigned NumRerolled =
+      doLoopReroll(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                   AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                   AM.getResult<HIRSafeReductionAnalysisPass>(F));
   LoopsRerolled += NumRerolled;
   if (NumRerolled > 0) {
     LLVM_DEBUG(dbgs() << "Reroll happend\n");

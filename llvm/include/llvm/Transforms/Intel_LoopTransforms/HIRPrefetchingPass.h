@@ -12,16 +12,17 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRPREFETCHING_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRPREFETCHING_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
-class HIRPrefetchingPass
-    : public PassInfoMixin<HIRPrefetchingPass> {
+class HIRPrefetchingPass : public HIRPassInfoMixin<HIRPrefetchingPass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-prefetching";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

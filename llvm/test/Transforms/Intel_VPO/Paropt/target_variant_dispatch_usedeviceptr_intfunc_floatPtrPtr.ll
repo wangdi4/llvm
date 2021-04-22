@@ -24,7 +24,7 @@
 
 ; Check that tgt_target_data_begin/end are used to obtain
 ; the device pointers for @a_cpu and %b_cpu, and the map-type for target data is
-; TGT_PARAM | TGT_RETURN_PARAM (96):
+; TGT_RETURN_PARAM (64):
 
 ;  %a_cpu.cast = bitcast i8** %5 to float**
 ;  %b_cpu.cast = bitcast i8** %9 to float**
@@ -32,7 +32,7 @@
 ;  %b_cpu.buffer.cast = load float*, float** %b_cpu.cast, align 8
 ;  %variant = call i32 @foo_gpu(float* %a_cpu.buffer.cast, float* %b_cpu.buffer.cast, i32 77777)
 
-; CHECK: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 96, i64 96]
+; CHECK: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 64, i64 64]
 
 ; Check that the maps are created on loads of use_device_ptr operands.
 ; CHECK: [[A_CAST:%[^ ]+]] = bitcast i8* bitcast (float** @a_cpu to i8*) to float**

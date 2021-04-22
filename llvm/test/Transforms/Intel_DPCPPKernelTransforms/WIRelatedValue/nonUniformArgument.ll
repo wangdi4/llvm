@@ -1,3 +1,4 @@
+; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-barrier-wi-analysis>' %s -S -o - | FileCheck %s
 ; RUN: opt -analyze -dpcpp-kernel-barrier-wi-analysis %s -S -o - | FileCheck %s
 
 ;;*****************************************************************************
@@ -11,7 +12,7 @@
 ;;      2. "%y" is non-uniform value (i.e. WI related)
 ;;      3. "%z" is non-uniform value (i.e. WI related)
 ;;      4. "%b" is non-uniform value (i.e. WI related)
-;;      4. "%b" is non-uniform value (i.e. WI related)
+;;      5. "%c" is non-uniform value (i.e. WI related)
 ;;*****************************************************************************
 
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
@@ -20,41 +21,41 @@ target triple = "x86_64-pc-win32"
 ; CHECK-LABEL: @main
 define void @main(i64 %x) #0 {
 L1:
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
-  %lid = call i64 @__builtin_get_local_id(i64 0)
+  call void @barrier_dummy()
+  %lid = call i64 @_Z12get_local_idj(i64 0)
   %y = xor i64 %x, %lid
   br label %L2
 L2:
-  call void @__builtin_dpcpp_kernel_barrier(i32 1)
+  call void @_Z18work_group_barrierj(i32 1)
   %z = call i64 @foo(i64 %y)
   br label %L3
 L3:
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   ret void
 }
 
 ; CHECK-LABEL: @foo
 define i64 @foo(i64 %a) nounwind {
 L1:
-  call void @__builtin_dpcpp_kernel_barrier_dummy()
+  call void @barrier_dummy()
   %b = xor i64 %a, %a
   br label %L2
 L2:
-  call void @__builtin_dpcpp_kernel_barrier(i32 2)
+  call void @_Z18work_group_barrierj(i32 2)
   %c = xor i64 %a, %b
   ret i64 %a
 }
 
 
 ; CHECK: WI related Values
-; CHECK: lid is WI related
-; CHECK: y is WI related
-; CHECK: z is WI related
-; CHECK: b is WI related
-; CHECK: c is WI related
+; CHECK: %lid is WI related
+; CHECK: %y is WI related
+; CHECK: %z is WI related
+; CHECK: %b is WI related
+; CHECK: %c is WI related
 
-declare void @__builtin_dpcpp_kernel_barrier(i32)
-declare i64 @__builtin_get_local_id(i64)
-declare void @__builtin_dpcpp_kernel_barrier_dummy()
+declare void @_Z18work_group_barrierj(i32)
+declare i64 @_Z12get_local_idj(i64)
+declare void @barrier_dummy()
 
 attributes #0 = { "sycl_kernel" }

@@ -28,7 +28,8 @@ using uint = unsigned int;
 // Mark a "ESIMD global": accessible from all functions in current translation
 // unit, separate copy per subgroup (work-item), mapped to SPIR-V private
 // storage class.
-#define ESIMD_PRIVATE __attribute__((opencl_private))
+#define ESIMD_PRIVATE                                                          \
+  __attribute__((opencl_private)) __attribute__((sycl_explicit_simd))
 // Bind a ESIMD global variable to a specific register.
 #define ESIMD_REGISTER(n) __attribute__((register_num(n)))
 #else
@@ -47,6 +48,8 @@ using uint = unsigned int;
 #define ESIMD_INLINE inline __attribute__((always_inline))
 
 // Enums
+// TODO FIXME convert the two enums below to nested enum or class enum to
+// remove enum values from the global namespace
 enum { GENX_NOSAT = 0, GENX_SAT };
 
 enum ChannelMaskType {
@@ -92,8 +95,31 @@ enum class EsimdAtomicOpType : uint16_t {
   ATOMIC_FMAX = 0x10,
   ATOMIC_FMIN = 0x11,
   ATOMIC_FCMPWR = 0x12,
+  /* INTEL_CUSTOMIZATION */
+  /* INTEL_FEATURE_ESIMD_EMBARGO */
+  ATOMIC_FADD = 0x13,
+  ATOMIC_FSUB = 0x14,
+  /* end INTEL_FEATURE_ESIMD_EMBARGO */
+  /* end INTEL_CUSTOMIZATION */
   ATOMIC_PREDEC = 0xff
 };
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+enum class EsimdPrecisionType {
+  U1 = 0,   // unsigned 1 bit
+  S1 = 1,   // signed 1 bit
+  U2 = 2,   // unsigned 2 bits
+  S2 = 3,   // signed 2 bits
+  U4 = 4,   // unsigned 4 bits
+  S4 = 5,   // signed 4 bits
+  U8 = 6,   // unsigned 8 bits
+  S8 = 7,   // signed 8 bits
+  BF16 = 8, // bfloat 16
+  FP16 = 9  // half float
+};
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
 
 // L1 or L3 cache hint kinds.
 enum class CacheHint : uint8_t {

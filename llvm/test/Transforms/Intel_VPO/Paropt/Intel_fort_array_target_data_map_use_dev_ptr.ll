@@ -42,8 +42,8 @@ alloca_0:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR"([10 x i32]* %"foo_$B_entry"), "QUAL.OMP.MAP.TOFROM"([10 x i32]* %"foo_$B_entry") ]
 
 ; Check that only one map is created, and map-type for %"foo_$B_entry" is
-; PARAM | RETURN_PARAM | TO_FROM, i.e. 99 (0x63).
-; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 99]
+; RETURN_PARAM | TO_FROM, i.e. 67 (0x23).
+; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 67]
 
 ; Check that the value in the baseptrs struct after the tgt_data call is
 ; used inside the region as the updated value of the pointer %"foo_$B_entry".

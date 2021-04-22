@@ -5,7 +5,7 @@
 ; if %n is signed max, the behavior is undefined.
 
 ; CHECK-LABEL: @foo
-; CHECK: %cmp = icmp sgt i32 %inc, %n
+; CHECK: [[CMP_NOT:%.*]] icmp sgt i32 %inc, %n
 
 define dso_local void @foo(i32* nocapture %A, i32 %n) "pre_loopopt" {
 entry:
@@ -26,7 +26,7 @@ for.end:                                          ; preds = %for.body, %entry
 }
 
 ; CHECK-LABEL: @bar
-; CHECK: %cmp = icmp slt i32 %i.06, %n
+; CHECK: [[CMP_NOT:%.*]] = icmp slt i32 %i.06, %n
 
 define dso_local void @bar(i32* nocapture %A, i32 %n) {
 entry:

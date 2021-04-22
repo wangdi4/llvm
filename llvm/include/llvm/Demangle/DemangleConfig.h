@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_DEMANGLE_COMPILER_H
-#define LLVM_DEMANGLE_COMPILER_H
+#ifndef LLVM_DEMANGLE_DEMANGLECONFIG_H
+#define LLVM_DEMANGLE_DEMANGLECONFIG_H
 
 #if INTEL_CUSTOMIZATION
 // This is a temporary change to avoid prod build failures.

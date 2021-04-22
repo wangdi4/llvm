@@ -14,8 +14,7 @@ define void @kernel_init_gpu_incoming(i64 %ptr1, i64 %ptr2) {
 ; CHECK-NEXT:      Loop at depth 2 containing: [[BB2]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB6:BB[0-9]+]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB5]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT:%.*]], [[BB6]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT:%.*]], [[BB6:BB[0-9]+]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB5]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i64 [[VP_SEXT:%.*]] = sext i32 [[VP_INDEX]] to i64
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD1:%.*]] = add i64 [[VP_SEXT]] i64 [[GLOBAL_IDJ00:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_ADD2:%.*]] = add i64 8 i64 8
@@ -43,9 +42,8 @@ define void @kernel_init_gpu_incoming(i64 %ptr1, i64 %ptr2) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB5]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB0]], [[BB7:BB[0-9]+]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VL_COND:%.*]] = icmp ult i32 [[VP_INDVAR]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VL_COND]], [[BB0]], [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB7]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1
@@ -116,8 +114,7 @@ define void @kernel_init_gpu_closed_inner_loop(i64 %ptr1, i64 %ptr2) {
 ; CHECK-NEXT:      Loop at depth 2 containing: [[BB2]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB6:BB[0-9]+]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB5]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT:%.*]], [[BB6]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT:%.*]], [[BB6:BB[0-9]+]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB5]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i64 [[VP_SEXT:%.*]] = sext i32 [[VP_INDEX]] to i64
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD1:%.*]] = add i64 [[VP_SEXT]] i64 [[GLOBAL_IDJ00:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_ADD2:%.*]] = add i64 8 i64 8
@@ -148,9 +145,8 @@ define void @kernel_init_gpu_closed_inner_loop(i64 %ptr1, i64 %ptr2) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB5]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB0]], [[BB7:BB[0-9]+]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VL_COND:%.*]] = icmp ult i32 [[VP_INDVAR]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VL_COND]], [[BB0]], [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB7]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1

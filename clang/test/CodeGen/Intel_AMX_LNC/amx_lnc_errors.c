@@ -8,33 +8,33 @@
 
 // Transpose
 void test_tile_2rpntlvw(const void *A, size_t B, unsigned short C) {
-  _tile_2rpntlvw(16, A, B, C); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_2rpntlvw(8, A, B, C); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 void test_tile_2rpntlvwt1(const void *A, size_t B, unsigned short C) {
-  _tile_2rpntlvwt1(16, A, B, C); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_2rpntlvwt1(8, A, B, C); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_2rpntlvwz0(const void *A, size_t B) {
-  _tile_2rpntlvwz0(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_2rpntlvwz0(8, A, B); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_2rpntlvwz0t1(const void *A, size_t B) {
-  _tile_2rpntlvwz0t1(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_2rpntlvwz0t1(8, A, B); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_2rpntlvwz1(const void *A, size_t B) {
-  _tile_2rpntlvwz1(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_2rpntlvwz1(8, A, B); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_2rpntlvwz1t1(const void *A, size_t B) {
-  _tile_2rpntlvwz1t1(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_2rpntlvwz1t1(8, A, B); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_tdpbf16ps()
 {
-  _tile_tdpbf16ps(16, 2, 3); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-  _tile_tdpbf16ps(1, 16, 3); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-  _tile_tdpbf16ps(1, 2, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_tdpbf16ps(8, 2, 3); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
+  _tile_tdpbf16ps(1, 8, 3); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
+  _tile_tdpbf16ps(1, 2, 8); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
   _tile_tdpbf16ps(1, 1, 3);  // expected-error {{tile arguments must refer to different tiles}}
   _tile_tdpbf16ps(1, 2, 1);  // expected-error {{tile arguments must refer to different tiles}}
   _tile_tdpbf16ps(1, 2, 2);  // expected-error {{tile arguments must refer to different tiles}}
@@ -42,9 +42,9 @@ void test_tile_tdpbf16ps()
 
 void test_tile_tdpfp16ps()
 {
-  _tile_tdpfp16ps(16, 5, 6); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-  _tile_tdpfp16ps(1, 16, 6); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-  _tile_tdpfp16ps(1, 5, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_tdpfp16ps(8, 5, 6); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
+  _tile_tdpfp16ps(1, 8, 6); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
+  _tile_tdpfp16ps(1, 5, 8); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
   _tile_tdpfp16ps(1, 1, 3);  // expected-error {{tile arguments must refer to different tiles}}
   _tile_tdpfp16ps(1, 2, 1);  // expected-error {{tile arguments must refer to different tiles}}
   _tile_tdpfp16ps(1, 2, 2);  // expected-error {{tile arguments must refer to different tiles}}
@@ -52,8 +52,8 @@ void test_tile_tdpfp16ps()
 
 void test_tile_transposed()
 {
-  _tile_transposed(16, 2); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-  _tile_transposed(1, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_transposed(8, 2); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
+  _tile_transposed(1, 8); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 // Reduce
@@ -62,41 +62,41 @@ void test_tile_coladdbcastps() {
 }
 
 void test_tile_coladdps(void *A) {
-  _tile_coladdps(A, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_coladdps(A, 8); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 // Memory
 void test_tile_gatherrowd(const void *A, const void *B) {
-  _tile_gatherrowd(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_gatherrowd(8, A, B); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 
 }
 
 void test_tile_gatherrowdt1(const void *A, const void *B) {
-  _tile_gatherrowdt1(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_gatherrowdt1(8, A, B); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_gatherrowq(const void *A, const void *B) {
-  _tile_gatherrowq(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_gatherrowq(8, A, B); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_gatherrowqt1(const void *A, const void *B) {
-  _tile_gatherrowqt1(16, A, B); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_gatherrowqt1(8, A, B); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_scatterrowd(void *A, void *B) {
-  _tile_scatterrowd(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_scatterrowd(A, B, 8); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_scatterrowdt1(void *A, void *B) {
-  _tile_scatterrowdt1(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_scatterrowdt1(A, B, 8); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_scatterrowq(void *A, void *B) {
-  _tile_scatterrowq(A, B, 16);  // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_scatterrowq(A, B, 8);  // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_scatterrowqt1(void *A, void *B) {
-  _tile_scatterrowqt1(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_scatterrowqt1(A, B, 8); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 // Format
@@ -387,48 +387,20 @@ void test_tile_mov16zmm(__m512 tsrc1, __m512 tsrc2, __m512 tsrc3, __m512 tsrc4,
   __m512 tsrc5, __m512 tsrc6, __m512 tsrc7, __m512 tsrc8, __m512 tsrc9,
   __m512 tsrc10, __m512 tsrc11, __m512 tsrc12, __m512 tsrc13, __m512 tsrc14,
   __m512 tsrc15, __m512 tsrc16) {
-  _tile_tile16move(16, tsrc1, tsrc2, tsrc3, tsrc4, tsrc5, tsrc6, tsrc7, tsrc8,// expected-error {{argument value 16 is outside the valid range [0, 15]}}
-              tsrc9, tsrc10, tsrc11, tsrc12, tsrc13, tsrc14, tsrc15, tsrc16);
+  _tile_tile16move(16, tsrc1, tsrc2, tsrc3, tsrc4, tsrc5, tsrc6, tsrc7, tsrc8,// expected-error {{argument value 16 is outside the valid range [0, 7]}}
+            tsrc9, tsrc10, tsrc11, tsrc12, tsrc13, tsrc14, tsrc15, tsrc16);
 }
 
 void test_tile_tilemovrowei() {
-  _tile_tilemovrowei(16, 1); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_tilemovrowei(8, 1); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 typedef unsigned int uint32_t;
 void test_tile_tilemovrowee(uint32_t A) {
-  _tile_tilemovrowee(16, A); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_tilemovrowee(8, A); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 typedef float __m128 __attribute__((__vector_size__(16)));
 void test_tile_tilemovrowex(__m128 A) {
-  _tile_tilemovrowex(16, A); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
-}
-
-void test_tile_cvtrowd2psei() {
-  _tile_cvtrowd2psei(32, 1); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_cvtrowd2psei(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
-}
-
-typedef unsigned int uint32_t;
-void test_tile_cvtrowd2psee(uint32_t A) {
-  _tile_cvtrowd2psee(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-}
-
-void test_tile_cvtrowps2bf16ei() {
-  _tile_cvtrowps2bf16ei(32, 1); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_cvtrowps2bf16ei(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
-}
-
-void test_tile_cvtrowps2bf16ee(uint32_t A) {
-  _tile_cvtrowps2bf16ee(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-}
-
-void test_tile_cvtrowps2phei() {
-  _tile_cvtrowps2phei(32, 1); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
-  _tile_cvtrowps2phei(31, 256); // expected-error {{argument value 256 is outside the valid range [0, 255]}}
-}
-
-void test_tile_cvtrowps2phee(uint32_t A) {
-  _tile_cvtrowps2phee(32, A); // expected-error {{argument value 32 is outside the valid range [0, 31]}}
+  _tile_tilemovrowex(8, A); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }

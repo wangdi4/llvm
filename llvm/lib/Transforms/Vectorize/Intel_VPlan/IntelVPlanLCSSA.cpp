@@ -96,7 +96,7 @@ static void formLCSSA(const VPLoop &L, const VPDominatorTree &DT,
         LCSSAPhi = Builder.createPhiInstruction(Inst.getType(),
                                                 Inst.getName() + ".lcssa");
         LCSSAPhi->addIncoming(&Inst, Exit->getSinglePredecessor());
-        if (VPlanDivergenceAnalysis *DA =
+        if (VPlanDivergenceAnalysisBase *DA =
                 LCSSAPhi->getParent()->getParent()->getVPlanDA())
           DA->updateDivergence(*LCSSAPhi);
       }
@@ -117,7 +117,7 @@ static void formLCSSARecursively(const VPLoop &L, const VPDominatorTree &DT,
   formLCSSA(L, DT, LI, SkipTopLoop);
 }
 
-void llvm::vpo::formLCSSA(VPlan &Plan, bool SkipTopLoop) {
+void llvm::vpo::formLCSSA(VPlanVector &Plan, bool SkipTopLoop) {
   const VPLoopInfo &LI = *Plan.getVPLoopInfo();
   const VPDominatorTree &DT = *Plan.getDT();
   for (auto *TopLevelLoop : LI)

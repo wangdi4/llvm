@@ -2,10 +2,16 @@
 
 ; Check if search loop was recognized
 ; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation -hir-multi-exit-loop-reroll -hir-vec-dir-insert -VPlanDriverHIR -debug-only=vplan-idioms < %s 2>&1 | FileCheck --check-prefix=WAS-RECOGNIZED-CHECK %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-multi-exit-loop-reroll,hir-vec-dir-insert,vplan-driver-hir" -xmain-opt-level=3 -debug-only=vplan-idioms < %s 2>&1 | FileCheck --check-prefix=WAS-RECOGNIZED-CHECK %s
+
 
 ; Check final vectorized codegen
 ; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:     -hir-multi-exit-loop-reroll -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR \
+; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck --check-prefix=CG-CHECK %s
+
+; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-multi-exit-loop-reroll,hir-vec-dir-insert,vplan-driver-hir"\
+; RUN:     -print-after=vplan-driver-hir \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts -disable-output < %s 2>&1 | FileCheck --check-prefix=CG-CHECK %s
 
 ; REQUIRES: asserts

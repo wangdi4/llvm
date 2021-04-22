@@ -1,4 +1,4 @@
-//      Copyright  (C) 2009-2019 Intel Corporation.
+//      Copyright  (C) 2009-2021 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -29,6 +29,8 @@
 #ifndef LIBIML_ATTR_IML_ACCURACY_INTERFACE_H_INCLUDED
 #define LIBIML_ATTR_IML_ACCURACY_INTERFACE_H_INCLUDED
 
+#include "llvm/ADT/Triple.h"
+
 #if defined __cplusplus
 extern "C" {
 #endif // __cplusplus
@@ -53,8 +55,16 @@ typedef struct ImfAttr {
 // attributes
 //    define desired constrains for the function. Attributes array is
 //    terminated by an attribute with NULL next pointer.
+//
+// arch
+//    define the architecture currently compiling to, e.g. x86 or x86_64.
+//
+// os
+//    define the operating system currently compiling to, e.g. Win32 or Linux.
 extern const char* get_library_function_name(const char* base_name,
-                                             const ImfAttr* attributes);
+                                             const ImfAttr* attributes,
+                                             llvm::Triple::ArchType arch,
+                                             llvm::Triple::OSType os);
 
 // This function returns true if function name is found in the LIBM library
 // description table (check iml_table_libm.inc)
@@ -76,10 +86,14 @@ extern bool is_libm_function(const char *name);
 //    define properties of some function implementation (presumably known to
 //    the compiler). Attributes array is terminated by a pair with the NULL
 //    attribute name.
+//
+// arch
+//    define the architecture currently compiling to, e.g. x86 or x86_64.
 int may_i_use_inline_implementation(
                             const char* function_name,
                             const ImfAttr* user_specified_attributes,
-                            const ImfAttr* inline_implementation_attributes);
+                            const ImfAttr* inline_implementation_attributes,
+                            llvm::Triple::ArchType arch);
 
 #if defined __cplusplus
 }

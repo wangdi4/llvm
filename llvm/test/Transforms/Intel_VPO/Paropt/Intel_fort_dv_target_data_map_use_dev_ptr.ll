@@ -35,9 +35,9 @@ target device_triples = "spir64"
 %"QNCA_a0$i32*$rank1$" = type { i32*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
 
 ; Check for the map type struct for target data region. It should have
-; 3 entries for the map clause and one (96) for use_device_ptr.
+; 3 entries for the map clause and one (64) for use_device_ptr.
 
-; CHECK: [[MAP_TYS:@.offload_maptypes[^ ]*]] = private unnamed_addr constant [4 x i64] [i64 32, i64 281474976710675, i64 281474976710657, i64 96]
+; CHECK: [[MAP_TYS:@.offload_maptypes[^ ]*]] = private unnamed_addr constant [4 x i64] [i64 32, i64 281474976710675, i64 281474976710657, i64 64]
 
 ; Function Attrs: nounwind uwtable
 define void @foo_(%"QNCA_a0$i32*$rank1$"* dereferenceable(72) "ptrnoalias" %"foo_$B") #0 {

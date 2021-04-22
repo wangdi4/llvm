@@ -23,6 +23,7 @@
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
+#include <functional>
 
 namespace llvm {
 
@@ -333,6 +334,10 @@ public:
   /// target regions from the target code after outlining is done.
   static bool hasTargetDirective(WRContainerImpl &WRC);
   static bool hasTargetDirective(WRegionInfo *WI);
+
+  /// \returns \b true iff \p W contains a WRN for which \p Predicate is true.
+  static bool containsWRNsWith(WRegionNode *W,
+                               std::function<bool(WRegionNode *)> Predicate);
 
   /// Given a loop-type WRN \p W, if there is an enclosed SIMD construct bound
   /// to the same loop as W, then return the pointer to the WRNVecLoopNode

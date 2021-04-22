@@ -1,6 +1,6 @@
 //===--------------- Transpose.cpp - DTransTransposePass------------------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -17,6 +17,7 @@
 
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -82,7 +83,10 @@ public:
                      uint64_t ArrayLength, uint64_t ElementSize,
                      llvm::Type *ElementType)
       : GV(GV), ArrayRank(ArrayRank), ArrayLength(ArrayLength),
-        ElementSize(ElementSize), ElementType(ElementType), IsValid(false),
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+        ElementSize(ElementSize),
+#endif
+        ElementType(ElementType), IsValid(false),
         IsProfitable(false) {
     assert(ArrayRank > 0 && ArrayRank <= FortranMaxRank && "Invalid Rank");
     uint64_t Stride = ElementSize;
@@ -443,7 +447,7 @@ public:
   // moved values that are invariant out of loops, so that we can tell which
   // loop level is varying the dimension's 'index' component of the subscript
   // call.
-  void computeProfitability(function_ref<LoopInfo &(Function &)> GetLI) {
+  void computeProfitability(dtrans::TransposeLoopInfoFuncType GetLI) {
     // Gain factor that a dimension with a high stride value must exceed the
     // gain value of a low stride value by to be considered worth performing the
     // transpose.
@@ -749,8 +753,10 @@ private:
   // the same length in all dimensions)
   uint64_t ArrayLength;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Size of one element in the array, in bytes.
   uint64_t ElementSize;
+#endif
 
   // Element type in the array
   llvm::Type *ElementType;
@@ -902,7 +908,7 @@ private:
 // when beneficial.
 class TransposeImpl {
 public:
-  TransposeImpl(function_ref<LoopInfo &(Function &)> GetLI) : GetLI(GetLI) {}
+  TransposeImpl(dtrans::TransposeLoopInfoFuncType GetLI) : GetLI(GetLI) {}
 
   bool run(Module &M) {
     const DataLayout &DL = M.getDataLayout();
@@ -936,7 +942,7 @@ public:
   }
 
 private:
-  function_ref<LoopInfo &(Function &)> GetLI;
+  dtrans::TransposeLoopInfoFuncType GetLI;
 
   // Global variable candidates for the transformation.
   SmallVector<TransposeCandidate, 8> Candidates;
@@ -1042,7 +1048,7 @@ public:
     if (skipModule(M))
       return false;
 
-    dtrans::LoopInfoFuncType GetLI = [this](Function &F) -> LoopInfo & {
+    auto GetLI = [this](Function &F) -> LoopInfo & {
       return this->getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
     };
 
@@ -1087,7 +1093,7 @@ PreservedAnalyses TransposePass::run(Module &M, ModuleAnalysisManager &AM) {
   FunctionAnalysisManager &FAM =
       AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
 
-  LoopInfoFuncType GetLI = [&FAM](Function &F) -> LoopInfo & {
+  auto GetLI = [&FAM](Function &F) -> LoopInfo & {
     return FAM.getResult<LoopAnalysis>(F);
   };
 
@@ -1098,8 +1104,7 @@ PreservedAnalyses TransposePass::run(Module &M, ModuleAnalysisManager &AM) {
   return PreservedAnalyses::all();
 }
 
-bool TransposePass::runImpl(Module &M,
-                            function_ref<LoopInfo &(Function &)> GetLI) {
+bool TransposePass::runImpl(Module &M, TransposeLoopInfoFuncType GetLI) {
   TransposeImpl Transpose(GetLI);
   return Transpose.run(M);
 }

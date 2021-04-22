@@ -3,14 +3,18 @@
 
 ; Check that only one original GEPs is retained and one byte-flattened GEP
 ; is generated when -disable-gepinst-opts=false.
+; NOTE: The first call was changed to an unknown extern function bar because
+; the community no longer does the GEP merging in the first case when the
+; value operand of the store is a memory operation.
 
 %struct.lzma_next_coder = type { i8*, i32, i32 }
 %struct.lzma_coder = type { i32, i32, %struct.lzma_next_coder* }
 
+declare dso_local noalias i8* @bar(i64)
 declare dso_local noalias i8* @malloc(i64)
 
 define dso_local void @foo(%struct.lzma_next_coder* %next) local_unnamed_addr {
-  %call = call noalias i8* @malloc(i64 16)
+  %call = call noalias i8* @bar(i64 16)
   %coder = getelementptr inbounds %struct.lzma_next_coder, %struct.lzma_next_coder* %next, i32 0, i32 0
   store i8* %call, i8** %coder, align 8
   %t0 = bitcast i8* %call to %struct.lzma_coder*

@@ -69,6 +69,13 @@ using namespace PatternMatch;
 
 #define DEBUG_TYPE "reassociate"
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    EarlyExitBoolExpr("reassoc-early-exit-for-boolean-expr", cl::init(true),
+                      cl::Hidden, cl::desc("Exit early from reassociation pass "
+                                           "when data type is boolean."));
+#endif // INTEL_CUSTOMIZATION
+
 STATISTIC(NumChanged, "Number of insts reassociated");
 STATISTIC(NumAnnihil, "Number of expr tree annihilated");
 STATISTIC(NumFactor , "Number of multiplies factored");
@@ -976,12 +983,13 @@ static bool isLoadCombineCandidate(Instruction *Or) {
 }
 
 /// Return true if it may be profitable to convert this (X|Y) into (X+Y).
-static bool ShouldConvertOrWithNoCommonBitsToAdd(Instruction *Or) {
+static bool shouldConvertOrWithNoCommonBitsToAdd(Instruction *Or) {
   // Don't bother to convert this up unless either the LHS is an associable add
   // or subtract or mul or if this is only used by one of the above.
   // This is only a compile-time improvement, it is not needed for correctness!
   auto isInteresting = [](Value *V) {
-    for (auto Op : {Instruction::Add, Instruction::Sub, Instruction::Mul})
+    for (auto Op : {Instruction::Add, Instruction::Sub, Instruction::Mul,
+                    Instruction::Shl})
       if (isReassociableOp(V, Op))
         return true;
     return false;
@@ -999,7 +1007,7 @@ static bool ShouldConvertOrWithNoCommonBitsToAdd(Instruction *Or) {
 
 /// If we have (X|Y), and iff X and Y have no common bits set,
 /// transform this into (X+Y) to allow arithmetics reassociation.
-static BinaryOperator *ConvertOrWithNoCommonBitsToAdd(Instruction *Or) {
+static BinaryOperator *convertOrWithNoCommonBitsToAdd(Instruction *Or) {
   // Convert an or into an add.
   BinaryOperator *New =
       CreateAdd(Or->getOperand(0), Or->getOperand(1), "", Or, Or);
@@ -1129,8 +1137,7 @@ static Value *EmitAddTreeOfValues(Instruction *I,
                                   SmallVectorImpl<WeakTrackingVH> &Ops) {
   if (Ops.size() == 1) return Ops.back();
 
-  Value *V1 = Ops.back();
-  Ops.pop_back();
+  Value *V1 = Ops.pop_back_val();
   Value *V2 = EmitAddTreeOfValues(I, Ops);
   return CreateAdd(V2, V1, "reass.add", I, I);
 }
@@ -1994,7 +2001,7 @@ Value *ReassociatePass::OptimizeExpression(BinaryOperator *I,
 void ReassociatePass::RecursivelyEraseDeadInsts(Instruction *I,
                                                 OrderedSet &Insts) {
   assert(isInstructionTriviallyDead(I) && "Trivially dead instructions only!");
-  SmallVector<Value *, 4> Ops(I->op_begin(), I->op_end());
+  SmallVector<Value *, 4> Ops(I->operands());
   ValueRankMap.erase(I);
   Insts.remove(I);
   RedoInsts.remove(I);
@@ -2011,7 +2018,7 @@ void ReassociatePass::EraseInst(Instruction *I) {
   assert(isInstructionTriviallyDead(I) && "Trivially dead instructions only!");
   LLVM_DEBUG(dbgs() << "Erasing dead inst: "; I->dump());
 
-  SmallVector<Value*, 8> Ops(I->op_begin(), I->op_end());
+  SmallVector<Value *, 8> Ops(I->operands());
   // Erase the dead instruction.
   ValueRankMap.erase(I);
   RedoInsts.remove(I);
@@ -2188,6 +2195,18 @@ void ReassociatePass::OptimizeInst(Instruction *I) {
       I = NI;
     }
 
+#if INTEL_CUSTOMIZATION
+  // Do not reassociate boolean (i1) expressions.  We want to preserve the
+  // original order of evaluation for short-circuited comparisons that
+  // SimplifyCFG has folded to AND/OR expressions.  If the expression
+  // is not further optimized, it is likely to be transformed back to a
+  // short-circuited form for code gen, and the source order may have been
+  // optimized for the most likely conditions.
+  // Perform this check here if EarlyExitBoolExpr is set
+  if (EarlyExitBoolExpr && (I->getType()->isIntegerTy(1)))
+    return;
+#endif // INTEL_CUSTOMIZATION
+
   // Commute binary operators, to canonicalize the order of their operands.
   // This can potentially expose more CSE opportunities, and makes writing other
   // transformations simpler.
@@ -2208,17 +2227,18 @@ void ReassociatePass::OptimizeInst(Instruction *I) {
   // is not further optimized, it is likely to be transformed back to a
   // short-circuited form for code gen, and the source order may have been
   // optimized for the most likely conditions.
-  if (I->getType()->isIntegerTy(1))
+  // Perform this check here if EarlyExitBoolExpr is not set // INTEL
+  if (!EarlyExitBoolExpr && (I->getType()->isIntegerTy(1))) // INTEL
     return;
 
   // If this is a bitwise or instruction of operands
   // with no common bits set, convert it to X+Y.
   if (I->getOpcode() == Instruction::Or &&
-      ShouldConvertOrWithNoCommonBitsToAdd(I) && !isLoadCombineCandidate(I) &&
+      shouldConvertOrWithNoCommonBitsToAdd(I) && !isLoadCombineCandidate(I) &&
       haveNoCommonBitsSet(I->getOperand(0), I->getOperand(1),
                           I->getModule()->getDataLayout(), /*AC=*/nullptr, I,
                           /*DT=*/nullptr)) {
-    Instruction *NI = ConvertOrWithNoCommonBitsToAdd(I);
+    Instruction *NI = convertOrWithNoCommonBitsToAdd(I);
     RedoInsts.insert(I);
     MadeChange = true;
     I = NI;

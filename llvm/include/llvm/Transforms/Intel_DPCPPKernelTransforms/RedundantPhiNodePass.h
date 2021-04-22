@@ -12,23 +12,32 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_REDUNDANT_PHIS_H
 
 #include "llvm/IR/Function.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 
 namespace llvm {
 
 /// RedundantPhiNode pass is a function pass that remove redundant PHINode
 /// such that return same value for each entry block.
-class RedundantPhiNode : public FunctionPass {
+class RedundantPhiNode : public PassInfoMixin<RedundantPhiNode> {
+public:
+  static StringRef name() { return "Intel Kernel RedundantPhiNode"; }
+
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
+
+  bool runImpl(Function &F);
+};
+
+/// RedundantPhiNodeLegacy pass for legacy pass manager.
+class RedundantPhiNodeLegacy : public FunctionPass {
+  RedundantPhiNode Impl;
 
 public:
   static char ID;
 
-  RedundantPhiNode();
+  RedundantPhiNodeLegacy();
 
-  ~RedundantPhiNode() {}
-
-  llvm::StringRef getPassName() const override {
-    return "Intel DPCPP RedundantPhiNode";
+  StringRef getPassName() const override {
+    return "Intel Kernel RedundantPhiNode";
   }
 
   bool runOnFunction(Function &F) override;

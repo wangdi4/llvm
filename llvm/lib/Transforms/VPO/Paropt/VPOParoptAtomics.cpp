@@ -78,8 +78,6 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
     case WRNAtomicCapture:
       handled = handleAtomicCapture(AtomicNode, IdentTy, TidPtr, IsTargetSPIRV);
       break;
-    default:
-      llvm_unreachable("Unexpected Atomic Kind");
     }
   }
 
@@ -157,7 +155,7 @@ bool VPOParoptAtomics::handleAtomicRW(WRNAtomicNode *AtomicNode,
   // We have the val and ptr operands now. So we can use them to get the
   // operand type, and find the KMPC intrinsic name, if it exists for the type.
   assert(isa<PointerType>(Ptr->getType()) && "Unexpected type for operand.");
-  Type* OpndTy = Ptr->getType()->getContainedType(0);
+  Type* OpndTy = Ptr->getType()->getPointerElementType();
   assert(OpndTy != nullptr && "Operand Type is null.");
   const std::string Name =
       getAtomicRWSIntrinsicName<AtomicKind>(*(Inst->getParent()), *OpndTy);
@@ -246,11 +244,12 @@ Instruction *VPOParoptAtomics::handleAtomicUpdateInBlock(
 
   // Now using AtomicOpnd, we try to extract other information about the atomic
   // update operation.
-  bool UpdateOpFound = extractAtomicUpdateOp(
-      BB, AtomicOpnd,                                             // In
-      OpInst, ValueOpnd, Reversed, AtomicOpndStore, InstsToDelete // Out
-      );
+  AtomicUpdateOp OpKind = extractAtomicUpdateOp(
+      BB, AtomicOpnd,                                              // In
+      OpInst, ValueOpnd, Reversed, AtomicOpndStore,                // Out
+      InstsToDelete);                                              // Out
 
+  bool UpdateOpFound = (OpKind != AtomicUpdateNone);
   if (!UpdateOpFound)
     return nullptr; // Handle using critical sections.
 
@@ -275,7 +274,7 @@ Instruction *VPOParoptAtomics::handleAtomicUpdateInBlock(
                     << "\n");
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Value Opnd: " << *ValueOpnd << "\n");
   const std::string Name = getAtomicUCIntrinsicName<WRNAtomicUpdate>(
-      *OpInst, Reversed, *AtomicOpnd, *ValueOpnd, IsTargetSPIRV);
+      *OpInst, OpKind, Reversed, *AtomicOpnd, *ValueOpnd, IsTargetSPIRV);
   if (Name.empty()) {
     if (ValueOpndCast)
       delete ValueOpndCast;
@@ -357,6 +356,7 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   Instruction *OpInst;
   StoreInst * AtomicStore;
   Value *AtomicOpnd, *ValueOpnd, *CaptureOpnd;
+  AtomicUpdateOp OpKind;
   bool Reversed; // true if update operation is reversed. (e.g. x = v - x).
   CastInst *CaptureOpndCast; // Cast to CaptureOpnd's data type from
                              // AtomicOpnd's type before the store to
@@ -370,6 +370,7 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
       extractAtomicCaptureOp(BB,                                         // In
                              OpInst, AtomicOpnd, ValueOpnd, CaptureOpnd, // Out
                              Reversed, AtomicStore, CaptureOpndCast,     // Out
+                             OpKind,                                     // Out
                              InstsToDelete); // In, Out
 
   if (CaptureKind == CaptureUnknown)
@@ -400,7 +401,8 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   assert(CaptureOpnd->getType()->isPointerTy() && "Unexpected CaptureOpnd.");
 
   const std::string Name = getAtomicCaptureIntrinsicName(
-      CaptureKind, BB, OpInst, Reversed, AtomicOpnd, ValueOpnd, IsTargetSPIRV);
+      CaptureKind, BB, OpInst, OpKind, Reversed, AtomicOpnd, ValueOpnd,
+      IsTargetSPIRV);
   if (Name.empty()) {
     if (ValueOpndCast != nullptr)
       delete ValueOpndCast;
@@ -436,7 +438,7 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   }
 
   // Second, the return type.
-  Type* ReturnTy = AtomicOpnd->getType()->getContainedType(0);
+  Type* ReturnTy = AtomicOpnd->getType()->getPointerElementType();
   assert(ReturnTy != nullptr && "Invalid return type for KMPC call.");
 
   // Now we can generate the call.
@@ -451,9 +453,10 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   // which may have a different type than the value returned by the call.
   Value* CaptureVal = AtomicCall;
   if (CaptureOpndCast != nullptr)
-    CaptureVal = CastInst::Create(CaptureOpndCast->getOpcode(), AtomicCall,
-                                  CaptureOpnd->getType()->getContainedType(0),
-                                  "cpt.opnd.cast", Anchor);
+    CaptureVal =
+        CastInst::Create(CaptureOpndCast->getOpcode(), AtomicCall,
+                         CaptureOpnd->getType()->getPointerElementType(),
+                         "cpt.opnd.cast", Anchor);
 
   // Now generate the store to CaptureOpnd.
   StoreInst *CaptureStore =
@@ -510,7 +513,7 @@ CallInst *VPOParoptAtomics::genAtomicCall(WRegionNode *W,
 //
 //  Instructions (i) to (v) will be added to InstsToDelete.
 //  Details are in the header file.
-bool VPOParoptAtomics::extractAtomicUpdateOp(
+VPOParoptAtomics::AtomicUpdateOp VPOParoptAtomics::extractAtomicUpdateOp(
     BasicBlock *BB, Value *AtomicOpnd,                       // In
     Instruction *&OpInst, Value *&ValueOpnd, bool &Reversed, // Out
     StoreInst *&AtomicOpndStore,                             // Out
@@ -518,6 +521,11 @@ bool VPOParoptAtomics::extractAtomicUpdateOp(
 
   assert(BB != nullptr && "BasicBlock is null.");
   assert(AtomicOpnd != nullptr && "AtomicOpnd is null.");
+  OpInst = nullptr;
+  ValueOpnd = nullptr;
+  Reversed = false;
+  AtomicOpndStore = nullptr;
+  AtomicUpdateOp OpKind = AtomicUpdateNone;
 
   // We have AtomicOpnd. We look for a store to it within the BasicBlock BB.
   // There should only be one.
@@ -526,9 +534,10 @@ bool VPOParoptAtomics::extractAtomicUpdateOp(
     LLVM_DEBUG(dbgs() << __FUNCTION__
                       << ": More than one stores in BB for AtomicOpnd:"
                       << *AtomicOpnd << "\n");
-    return false; // Handle using critical sections.
+    return AtomicUpdateNone; // Handle using critical sections.
   }
 
+  AtomicOpndStore = AtomicStore;
   InstsToDelete.push_back(AtomicStore); // (v)
 
   Instruction* Op; // atomic update operation e.g. `sub` for `x = x - expr`.
@@ -540,12 +549,91 @@ bool VPOParoptAtomics::extractAtomicUpdateOp(
 
   Op = dyn_cast<Instruction>(OpResult);
 
-  if (Op == nullptr || !isa<BinaryOperator>(Op)) {
+  if (Op == nullptr || (!isa<BinaryOperator>(Op) && !isa<SelectInst>(Op))) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Unexpected update Op:" << *OpResult
                       << "\n");
     InstsToDelete.clear();
-    return false;
+    return AtomicUpdateNone;
   }
+
+  if (isa<SelectInst>(Op)) {
+    // Recognize min/max updates.
+    //
+    // TODO: add recognition for boolean and/or and .eqv./.neqv. updates.
+    //       Note that reduction(.eqv.:) is recognized as AtomicUpdateXor
+    //       due to the its lowering in Paropt, but we may need to support
+    //       the atomic update pattern, if FE passes it to us (right now,
+    //       all FEs are lowering atomic updates themselves).
+    SmallVector<Instruction *, 8> CastInstructions;
+
+    CmpInst *PredicateInst = dyn_cast<CmpInst>(
+        VPOUtils::stripCasts(Op->getOperand(0), CastInstructions));
+    if (!PredicateInst) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Unexpected update Op:" << *Op
+                 << "\n");
+      InstsToDelete.clear();
+      return AtomicUpdateNone;
+    }
+
+    Value *LhsCmp =
+        VPOUtils::stripCasts(PredicateInst->getOperand(0), CastInstructions);
+    Value *RhsCmp =
+        VPOUtils::stripCasts(PredicateInst->getOperand(1), CastInstructions);
+    CmpInst::Predicate Pred = PredicateInst->getPredicate();
+    Value *TrueOp = VPOUtils::stripCasts(Op->getOperand(1), CastInstructions);
+    Value *FalseOp = VPOUtils::stripCasts(Op->getOperand(2), CastInstructions);
+
+    // MAX:
+    //   x = x <sgt> y ? x : y
+    //   x = x <ugt> y ? x : y
+    //   x = x <ogt> y ? x : y
+    if ((Pred == CmpInst::ICMP_SGT || Pred == CmpInst::ICMP_UGT ||
+         Pred == CmpInst::FCMP_OGT) &&
+        LhsCmp == TrueOp && RhsCmp == FalseOp && isa<LoadInst>(LhsCmp) &&
+        cast<LoadInst>(LhsCmp)->getPointerOperand() == AtomicOpnd) {
+      InstsToDelete.push_back(cast<LoadInst>(LhsCmp));
+      ValueOpnd = RhsCmp;
+      if (PredicateInst->isFPPredicate())
+        OpKind = AtomicUpdateFMax;
+      else if (PredicateInst->isUnsigned())
+        OpKind = AtomicUpdateUMax;
+      else
+        OpKind = AtomicUpdateSMax;
+    }
+
+    // MIN:
+    //   x = x <sgt> y ? y : x
+    //   x = x <ugt> y ? y : x
+    //   x = x <ogt> y ? y : x
+    if ((Pred == CmpInst::ICMP_SGT || Pred == CmpInst::ICMP_UGT ||
+         Pred == CmpInst::FCMP_OGT) &&
+        LhsCmp == FalseOp && RhsCmp == TrueOp && isa<LoadInst>(LhsCmp) &&
+        cast<LoadInst>(LhsCmp)->getPointerOperand() == AtomicOpnd) {
+      InstsToDelete.push_back(cast<LoadInst>(LhsCmp));
+      ValueOpnd = RhsCmp;
+      if (PredicateInst->isFPPredicate())
+        OpKind = AtomicUpdateFMin;
+      else if (PredicateInst->isUnsigned())
+        OpKind = AtomicUpdateUMin;
+      else
+        OpKind = AtomicUpdateSMin;
+    }
+
+    if (OpKind == AtomicUpdateNone) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Unexpected update Op:" << *Op
+                 << "\n");
+      InstsToDelete.clear();
+      return AtomicUpdateNone;
+    }
+
+    InstsToDelete.append(CastInstructions.begin(), CastInstructions.end());
+    InstsToDelete.push_back(PredicateInst);
+    OpInst = Op;
+    Reversed = false;
+
+    return OpKind;
+  }
+
   InstsToDelete.push_back(Op); // (iii)
 
   // Now, we have the operation. One of its two operands should be a load from
@@ -574,7 +662,7 @@ bool VPOParoptAtomics::extractAtomicUpdateOp(
     LLVM_DEBUG(dbgs() << __FUNCTION__
                       << ": Load of AtomicOpnd not used in Op:" << *Op << "\n");
     InstsToDelete.clear();
-    return false;
+    return AtomicUpdateNone;
   }
   // A load for AtomicOpnd was found at index `Idx`. So, the operand at position
   // `1-Idx` is ValueOpnd.
@@ -584,8 +672,111 @@ bool VPOParoptAtomics::extractAtomicUpdateOp(
   // AtomicOpnd is the second operand, then the update operation is reversed.
   Reversed = Idx == 1 && !Op->isCommutative();
   OpInst = Op;
-  AtomicOpndStore = AtomicStore;
-  return true;
+
+  Type *AtomicOpndTy  = AtomicOpndStore->getValueOperand()->getType();
+  Type *ValueOpndTy = ValueOpnd->getType();
+  return getAtomicUpdateOpForBinaryOp(Op, Reversed, AtomicOpndTy, ValueOpndTy);
+}
+
+VPOParoptAtomics::AtomicUpdateOp VPOParoptAtomics::getAtomicUpdateOpForBinaryOp(
+    const Instruction *Operation, bool Reversed,
+    const Type *AtomicOpndTy, const Type *ValueOpndTy) {
+  static std::map<unsigned, AtomicUpdateOp> UpdateOpsMap = {
+      {Instruction::AShr, AtomicUpdateAShr},
+      {Instruction::Add, AtomicUpdateAdd},
+      {Instruction::And, AtomicUpdateAnd},
+      {Instruction::FAdd, AtomicUpdateFAdd},
+      {Instruction::FDiv, AtomicUpdateFDiv},
+      {Instruction::FMul, AtomicUpdateFMul},
+      {Instruction::FSub, AtomicUpdateFSub},
+      {Instruction::LShr, AtomicUpdateLShr},
+      {Instruction::Mul, AtomicUpdateMul},
+      {Instruction::Or, AtomicUpdateOr},
+      {Instruction::SDiv, AtomicUpdateSDiv},
+      {Instruction::Shl, AtomicUpdateShl},
+      {Instruction::Sub, AtomicUpdateSub},
+      {Instruction::UDiv, AtomicUpdateUDiv},
+      {Instruction::Xor, AtomicUpdateXor}
+  };
+
+  auto It = UpdateOpsMap.find(Operation->getOpcode());
+  if (It == UpdateOpsMap.end())
+    return AtomicUpdateNone;
+
+  AtomicUpdateOp OpKind = It->second;
+
+  // Special case for atomic update:
+  // For the case: x = x/v, when x is an integer or unsigned, and y is
+  // float128, the IR looks like:
+  //     %3 = load fp128, fp128* %v, align 16
+  //     %div = fdiv fp128 %conv, %3
+  //
+  // where, %conv is different, based on whether x is an integer, or an
+  // unsigned:
+  //     %2 = load i32, i32* %x, align 4
+  //     %conv = sitofp i32 %2 to fp128  ; (1) x is signed integer
+  //     %conv = uitofp i32 %2 to fp128  ; (2) x is unsigned
+  //
+  // The KMPC intrinsic is different for the two cases, so to differentiate the
+  // two in OpToUpdateIntrinsicMap, Opcode for `fdiv` is used for case (1),
+  // and op code `udiv` is used for case (2).
+  if (OpKind == AtomicUpdateFDiv && ValueOpndTy->isFP128Ty() &&
+      isUIToFPCast(*(Operation->getOperand(Reversed ? 1 : 0)))) {
+    OpKind = AtomicUpdateUDiv;
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Changed FDiv to UDiv.\n");
+  }
+
+  // Similarly for multiplication of unsigned ints with F128, we use Mul
+  // instead of FMul.
+  if (OpKind == AtomicUpdateFMul && ValueOpndTy->isFP128Ty() &&
+      isUIToFPCast(*(Operation->getOperand(Reversed ? 1 : 0)))) {
+    OpKind = AtomicUpdateMul;
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Changed FMul to Mul.\n");
+  }
+
+  // Division, shift operations on uints may use the same operator as ints.
+  // uint32, uint64 use lshr/udiv instead of ashr/sdiv if both atomic and value
+  // operands are of the same type. Otherwise, sdiv/ashr are used for both int,
+  // uint. To identify the kmpc routines correctly, we need to check if there is
+  // a zext/sext on the atomic operand before the actual sdiv/ashr operation.
+  //
+  // -----------------------------------+---------------------------------------
+  //   int8_t i1; uint8_t u1; uint64_t rhs;
+  //                                    |
+  //   #pragma omp atomic               | #pragma omp atomic
+  //   i1 >>= rhs;                      | u1 >>= rhs;
+  // -----------------------------------+---------------------------------------
+  //               [ "DIR.OMP.ATOMIC"(), "QUAL.OMP.UPDATE"() ]
+  //                                    |
+  //  %25 = load i64, i64* %rhs.addr    | %28 = load i64, i64* %rhs.addr
+  //  %26 = load i8, i8* @i1            | %29 = load i8, i8* @u1
+  //  %conv20 = sext i8 %26 to i32      | %conv22 = zext i8 %29 to i32
+  //  %sh_prom = trunc i64 %25 to i32   | %sh_prom23 = trunc i64 %28 to i32
+  //  %shl.mask = and i32 %sh_prom, 31  | %shl.mask24 = and i32 %sh_prom23, 31
+  //  %shr = ashr i32 %conv20, %shl.mask| %shr25 = ashr i32 %conv22, %shl.mask24
+  //  %conv21 = trunc i32 %shr to i8    | %conv26 = trunc i32 %shr25 to i8
+  //  store i8 %conv21, i8* @i1         | store i8 %conv26, i8* @u1
+  //                                    |
+  //                        [ "DIR.OMP.END.ATOMIC"() ]
+  //                                    |
+
+  if (OpKind == AtomicUpdateSDiv &&
+      (AtomicOpndTy->isIntegerTy(8) || AtomicOpndTy->isIntegerTy(16) ||
+       AtomicOpndTy->isIntegerTy(32) || AtomicOpndTy->isIntegerTy(64)) &&
+      isa<ZExtInst>(*(Operation->getOperand(Reversed ? 1 : 0)))) {
+    OpKind = AtomicUpdateUDiv;
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Changed SDiv to UDiv.\n");
+  }
+
+  if (OpKind == AtomicUpdateAShr &&
+      (AtomicOpndTy->isIntegerTy(8) || AtomicOpndTy->isIntegerTy(16) ||
+       AtomicOpndTy->isIntegerTy(32) || AtomicOpndTy->isIntegerTy(64)) &&
+      isa<ZExtInst>(*(Operation->getOperand(Reversed ? 1 : 0)))) {
+    OpKind = AtomicUpdateLShr;
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Changed AShr to LShr.\n");
+  }
+
+  return OpKind;
 }
 
 // For a given BB, try to find the capture op and operands.
@@ -593,7 +784,7 @@ VPOParoptAtomics::AtomicCaptureKind VPOParoptAtomics::extractAtomicCaptureOp(
     BasicBlock *BB,                                                   // In
     Instruction *&OpInst,  Value *&AtomicOpnd, Value *&ValueOpnd,      // Out
     Value *&CaptureOpnd, bool &Reversed, StoreInst *&AtomicOpndStore, // Out
-    CastInst *&CaptureOpndCast,                                       // Out
+    CastInst *&CaptureOpndCast, AtomicUpdateOp &OpKind,               // Out
     SmallVectorImpl<Instruction *> &InstsToDelete) {                  // In, Out
 
   assert(BB != nullptr && "BB is null.");
@@ -618,11 +809,12 @@ VPOParoptAtomics::AtomicCaptureKind VPOParoptAtomics::extractAtomicCaptureOp(
   AtomicOpnd = (*StoreCandidates.rbegin())->getPointerOperand();
   CaptureOpnd = (*StoreCandidates.begin())->getPointerOperand();
 
-  bool UpdateOpFound =
+  OpKind =
       extractAtomicUpdateOp(BB, AtomicOpnd,                               // In
                             OpInst, ValueOpnd, Reversed, AtomicOpndStore, // Out
                             InstsToDelete); // In, Out
 
+  bool UpdateOpFound = (OpKind != AtomicUpdateNone);
   if (UpdateOpFound)
     CaptureKind =
         identifyNonSwapCaptureKind(BB, AtomicOpndStore, CaptureOpnd, // In
@@ -667,11 +859,12 @@ VPOParoptAtomics::AtomicCaptureKind VPOParoptAtomics::extractAtomicCaptureOp(
   AtomicOpnd =(*(StoreCandidates.rbegin() + 1))->getPointerOperand();
   CaptureOpnd =(*StoreCandidates.rbegin())->getPointerOperand();
 
-  UpdateOpFound =
+  OpKind =
       extractAtomicUpdateOp(BB, AtomicOpnd,                               // In
                             OpInst, ValueOpnd, Reversed, AtomicOpndStore, // Out
                             InstsToDelete); // In, Out
 
+  UpdateOpFound = (OpKind != AtomicUpdateNone);
   if (UpdateOpFound)
     CaptureKind =
         identifyNonSwapCaptureKind(BB, AtomicOpndStore, CaptureOpnd, // In
@@ -829,10 +1022,12 @@ bool VPOParoptAtomics::extractSwapOp(
   Instruction* OpInst;
   StoreInst* AtStore;
   bool Reversed;
-  assert(!extractAtomicUpdateOp(BB, AtomicOpnd,                       // In
-                                OpInst, ValueOpnd, Reversed, AtStore, // Out
-                                InstsToDelete) &&                     // In, Out
-         "Atomic capture is not of swap kind.");
+  AtomicUpdateOp OpKind =
+      extractAtomicUpdateOp(BB, AtomicOpnd,                       // In
+                            OpInst, ValueOpnd, Reversed, AtStore, // Out
+                            InstsToDelete);                       // In, Out
+  assert(OpKind == AtomicUpdateNone && "Atomic capture is not of swap kind.");
+  (void)OpKind;
 #endif
 
   StoreInst* AtomicStore = getStoreToOpndIfUnique(*BB, *AtomicOpnd);
@@ -889,13 +1084,13 @@ CastInst *VPOParoptAtomics::genCastForValueOpnd(const Instruction *Op,
          "Invalid atomic kind.");
   assert((Op != nullptr || AtomicKind == WRNAtomicCapture) &&
          "Op is needed for atomic update.");
-  assert((AtomicKind == WRNAtomicCapture || isa<BinaryOperator>(Op)) &&
-         "Unsupported Op type.");
+  assert((AtomicKind == WRNAtomicCapture || isa<BinaryOperator>(Op) ||
+          isa<SelectInst>(Op)) && "Unsupported Op type.");
   assert(AtomicOpnd != nullptr && "AtomicOpnd is null.");
   assert(ValueOpnd != nullptr && "ValueOpnd is null.");
 
   Type* ValueOpndTy = ValueOpnd->getType();
-  Type* AtomicOpndTy = AtomicOpnd->getType()->getContainedType(0);
+  Type* AtomicOpndTy = AtomicOpnd->getType()->getPointerElementType();
 
   if (AtomicOpndTy->isIntegerTy() && ValueOpndTy->isIntegerTy())
     return genTruncForValueOpnd(*AtomicOpnd, *ValueOpnd);
@@ -919,7 +1114,7 @@ CastInst *VPOParoptAtomics::genTruncForValueOpnd(const Value &AtomicOpnd,
 
   IntegerType *ValueOpndTy = dyn_cast<IntegerType>(ValueOpnd.getType());
   IntegerType *AtomicOpndTy =
-      dyn_cast<IntegerType>(AtomicOpnd.getType()->getContainedType(0));
+      dyn_cast<IntegerType>(AtomicOpnd.getType()->getPointerElementType());
 
   if (AtomicOpndTy == nullptr || ValueOpndTy == nullptr ||
       AtomicOpndTy->getBitWidth() >=
@@ -945,7 +1140,7 @@ CastInst *VPOParoptAtomics::genFPExtForValueOpnd(const Instruction &Op,
   Type *AtomicOpndTy = AtomicOpnd.getType();
   assert(AtomicOpndTy->isPointerTy() && "Unexpected type for Atomic operand.");
 
-  if (!AtomicOpndTy->getContainedType(0)->isIntegerTy() ||        // Ptr to Int
+  if (!AtomicOpndTy->getPointerElementType()->isIntegerTy() ||    // Ptr to Int
       !(ValueOpndTy->isFloatTy() || ValueOpndTy->isX86_FP80Ty())) // F32 or F80
     return nullptr;
 
@@ -981,7 +1176,7 @@ CastInst *VPOParoptAtomics::genFPTruncForValueOpnd(const Value &AtomicOpnd,
          "Unexpected type for Atomic operand.");
 
   Type *ValueOpndTy = ValueOpnd.getType();
-  Type *AtomicOpndTy = AtomicOpnd.getType()->getContainedType(0);
+  Type *AtomicOpndTy = AtomicOpnd.getType()->getPointerElementType();
 
   if (!AtomicOpndTy->isFloatingPointTy() || !ValueOpndTy->isFloatingPointTy() ||
       AtomicOpndTy->getScalarSizeInBits() >=
@@ -1177,14 +1372,15 @@ VPOParoptAtomics::getAtomicRWSIntrinsicName(const BasicBlock &BB,
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic found: " << MapEntry->second
                     << "\n");
-  return adjustIntrinsicNameForArchitecture(BB, MapEntry->second);
+  return adjustIntrinsicNameForArchitecture(*BB.getParent(), MapEntry->second);
 }
 
 // Does map lookup to find the atomic update/non-swap capture intrinsic name.
 template <WRNAtomicKind AtomicKind,
           VPOParoptAtomics::AtomicCaptureKind CaptureKind>
 const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
-    const Instruction &Operation, bool Reversed, const Value &AtomicOpnd,
+    const Instruction &Operation, AtomicUpdateOp OpKind,
+    bool Reversed, const Value &AtomicOpnd,
     const Value &ValueOpnd, bool IsTargetSPIRV) {
 
   assert((AtomicKind == WRNAtomicUpdate || ((AtomicKind == WRNAtomicCapture) &&
@@ -1195,12 +1391,10 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
          "Unexpected Reversed flag for commutative operation.");
   assert(isa<PointerType>(AtomicOpnd.getType()) && "Invalid AtomicOpnd.");
 
-  Type *AtomicOpndType = AtomicOpnd.getType()->getContainedType(0);
+  Type *AtomicOpndType = AtomicOpnd.getType()->getPointerElementType();
   Type *ValueOpndType = ValueOpnd.getType();
   assert(AtomicOpndType != nullptr && "AtomicOpndType is null");
   assert(ValueOpndType != nullptr && "ValueOpndType is null");
-
-  unsigned OpCode = Operation.getOpcode();
 
   const Function *F = Operation.getFunction();
 
@@ -1212,8 +1406,10 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
         ValueOpndType->getScalarSizeInBits() > 32))) {
     // If 64-bit OpenCL atomics are not supported,
     // then we have to use critical section.
+    //
+    // TODO: stringify AtomicUpdateOp enum for debug output.
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic not found for "
-               << Instruction::getOpcodeName(OpCode) << ".\n");
+               "atomic update "<< OpKind << ".\n");
 
     return std::string();
   }
@@ -1238,97 +1434,26 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
   const IntrinsicOperandTy ValueOpndTy = {
       ValueOpndType->getTypeID(), ValueOpndType->getPrimitiveSizeInBits()};
 
-  // Special case for atomic update:
-  // For the case: x = x/v, when x is an integer or unsigned, and y is
-  // float128, the IR looks like:
-  //     %3 = load fp128, fp128* %v, align 16
-  //     %div = fdiv fp128 %conv, %3
-  //
-  // where, %conv is different, based on whether x is an integer, or an
-  // unsigned:
-  //     %2 = load i32, i32* %x, align 4
-  //     %conv = sitofp i32 %2 to fp128  ; (1) x is signed integer
-  //     %conv = uitofp i32 %2 to fp128  ; (2) x is unsigned
-  //
-  // The KMPC intrinsic is different for the two cases, so to differentiate the
-  // two in OpToUpdateIntrinsicMap, Opcode for `fdiv` is used for case (1),
-  // and op code `udiv` is used for case (2).
-  if (OpCode == Instruction::FDiv && ValueOpndTy == F128 &&
-      isUIToFPCast(*(Operation.getOperand(Reversed ? 1 : 0)))) {
-    OpCode = Instruction::UDiv;
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Changed FDiv to UDiv.\n");
-  }
-
-  // Similarly for multiplication of unsigned ints with F128, we use Mul
-  // instead of FMul.
-  if (OpCode == Instruction::FMul && ValueOpndTy == F128 &&
-      isUIToFPCast(*(Operation.getOperand(Reversed ? 1 : 0)))) {
-    OpCode = Instruction::Mul;
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Changed FMul to Mul.\n");
-  }
-
-  // Division, shift operations on uints may use the same operator as ints.
-  // uint32, uint64 use lshr/udiv instead of ashr/sdiv if both atomic and value
-  // operands are of the same type. Otherwise, sdiv/ashr are used for both int,
-  // uint. To identify the kmpc routines correctly, we need to check if there is
-  // a zext/sext on the atomic operand before the actual sdiv/ashr operation.
-  //
-  // -----------------------------------+---------------------------------------
-  //   int8_t i1; uint8_t u1; uint64_t rhs;
-  //                                    |
-  //   #pragma omp atomic               | #pragma omp atomic
-  //   i1 >>= rhs;                      | u1 >>= rhs;
-  // -----------------------------------+---------------------------------------
-  //               [ "DIR.OMP.ATOMIC"(), "QUAL.OMP.UPDATE"() ]
-  //                                    |
-  //  %25 = load i64, i64* %rhs.addr    | %28 = load i64, i64* %rhs.addr
-  //  %26 = load i8, i8* @i1            | %29 = load i8, i8* @u1
-  //  %conv20 = sext i8 %26 to i32      | %conv22 = zext i8 %29 to i32
-  //  %sh_prom = trunc i64 %25 to i32   | %sh_prom23 = trunc i64 %28 to i32
-  //  %shl.mask = and i32 %sh_prom, 31  | %shl.mask24 = and i32 %sh_prom23, 31
-  //  %shr = ashr i32 %conv20, %shl.mask| %shr25 = ashr i32 %conv22, %shl.mask24
-  //  %conv21 = trunc i32 %shr to i8    | %conv26 = trunc i32 %shr25 to i8
-  //  store i8 %conv21, i8* @i1         | store i8 %conv26, i8* @u1
-  //                                    |
-  //                        [ "DIR.OMP.END.ATOMIC"() ]
-  //                                    |
-
-  if (OpCode == Instruction::SDiv &&
-      (AtomicOpndTy == I8 || AtomicOpndTy == I16 || AtomicOpndTy == I32 ||
-       AtomicOpndTy == I64) &&
-      isa<ZExtInst>(*(Operation.getOperand(Reversed ? 1 : 0)))) {
-    OpCode = Instruction::UDiv;
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Changed SDiv to UDiv.\n");
-  }
-
-  if (OpCode == Instruction::AShr &&
-      (AtomicOpndTy == I8 || AtomicOpndTy == I16 || AtomicOpndTy == I32 ||
-       AtomicOpndTy == I64) &&
-      isa<ZExtInst>(*(Operation.getOperand(Reversed ? 1 : 0)))) {
-    OpCode = Instruction::LShr;
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Changed AShr to LShr.\n");
-  }
-
   // Create the key from op code and opnd types, and do the map lookup.
-  const AtomicOperationTy OpTy = {OpCode, {AtomicOpndTy, ValueOpndTy}};
+  const AtomicOperationTy OpTy = {OpKind, {AtomicOpndTy, ValueOpndTy}};
   auto MapEntry = MapToUse.find(OpTy);
 
   if (MapEntry == MapToUse.end()) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic not found for "
-                      << Instruction::getOpcodeName(OpCode) << ".\n");
+               "atomic update "<< OpKind << ".\n");
     return std::string();
   }
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic found: " << MapEntry->second
                     << "\n");
-  return adjustIntrinsicNameForArchitecture(*(Operation.getParent()),
-                                            MapEntry->second);
+  return adjustIntrinsicNameForArchitecture(*F, MapEntry->second);
 }
 
 // Invokes appropriate functions to find the atomic capture intrinsic name.
 const std::string VPOParoptAtomics::getAtomicCaptureIntrinsicName(
     AtomicCaptureKind CaptureKind, const BasicBlock *BB,
-    const Instruction *Operation, bool Reversed, const Value *AtomicOpnd,
+    const Instruction *Operation, AtomicUpdateOp OpKind,
+    bool Reversed, const Value *AtomicOpnd,
     const Value *ValueOpnd, bool IsTargetSPIRV) {
 
   assert(CaptureKind != CaptureUnknown && "Unknown capture operation.");
@@ -1346,15 +1471,15 @@ const std::string VPOParoptAtomics::getAtomicCaptureIntrinsicName(
   switch (CaptureKind) {
   case CaptureSwap:
     return getAtomicRWSIntrinsicName<WRNAtomicCapture, CaptureSwap>(
-        *BB, *(AtomicOpnd->getType()->getContainedType(0)));
+        *BB, *(AtomicOpnd->getType()->getPointerElementType()));
 
   case CaptureBeforeOp:
     return getAtomicUCIntrinsicName<WRNAtomicCapture, CaptureBeforeOp>(
-        *Operation, Reversed, *AtomicOpnd, *ValueOpnd, IsTargetSPIRV);
+        *Operation, OpKind, Reversed, *AtomicOpnd, *ValueOpnd, IsTargetSPIRV);
 
   case CaptureAfterOp:
     return getAtomicUCIntrinsicName<WRNAtomicCapture, CaptureAfterOp>(
-        *Operation, Reversed, *AtomicOpnd, *ValueOpnd, IsTargetSPIRV);
+        *Operation, OpKind, Reversed, *AtomicOpnd, *ValueOpnd, IsTargetSPIRV);
   default:
     llvm_unreachable("Unknown capture kind in getAtomicCaptureIntrinsicName.");
   }
@@ -1362,7 +1487,7 @@ const std::string VPOParoptAtomics::getAtomicCaptureIntrinsicName(
 
 // Remove '_a16' from an intrinsic's name.
 const std::string VPOParoptAtomics::adjustIntrinsicNameForArchitecture(
-    const BasicBlock &BB, const std::string &IntrinsicName) {
+    const Function &F, const std::string &IntrinsicName) {
 
   assert(!IntrinsicName.empty() && "Intrinsic name is empty");
 
@@ -1372,8 +1497,7 @@ const std::string VPOParoptAtomics::adjustIntrinsicNameForArchitecture(
     return IntrinsicName;
 
   // Otherwise, find the architecture.
-  const Function *F = BB.getParent();
-  const Module *M = F->getParent();
+  const Module *M = F.getParent();
   assert(M != nullptr && "Unable to find module.");
 
   // And if architecture is X86, return IntrinsicName as is.
@@ -1436,444 +1560,504 @@ const std::map<IntrinsicOperandTy, const std::string>
 // Note: Fortran supports intrinsic calls: max, min, ior, ieor as well as
 // logical .and., .or., .neqv. and .eqv. operations.
 // Note: The entries for si = si/float and ui = ui/float are distinguished by
-// using Instruction::FDiv for the first case, and Instruction::UDiv for the
+// using AtomicUpdateFDiv for the first case, and AtomicUpdateUDiv for the
 // second.
 const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
     VPOParoptAtomics::OpToUpdateIntrinsicMap = {
         // I8 = I8 op I8
-        {{Instruction::Add, {I8, I8}}, "__kmpc_atomic_fixed1_add"},
-        {{Instruction::Sub, {I8, I8}}, "__kmpc_atomic_fixed1_sub"},
-        {{Instruction::Mul, {I8, I8}}, "__kmpc_atomic_fixed1_mul"},
-        {{Instruction::SDiv, {I8, I8}}, "__kmpc_atomic_fixed1_div"},
-        {{Instruction::UDiv, {I8, I8}}, "__kmpc_atomic_fixed1u_div"},
-        {{Instruction::And, {I8, I8}}, "__kmpc_atomic_fixed1_andb"},
-        {{Instruction::Or, {I8, I8}}, "__kmpc_atomic_fixed1_orb"},
-        {{Instruction::Xor, {I8, I8}}, "__kmpc_atomic_fixed1_xor"},
-        {{Instruction::Shl, {I8, I8}}, "__kmpc_atomic_fixed1_shl"},
-        {{Instruction::AShr, {I8, I8}}, "__kmpc_atomic_fixed1_shr"},
-        {{Instruction::LShr, {I8, I8}}, "__kmpc_atomic_fixed1u_shr"},
+        {{AtomicUpdateAdd, {I8, I8}}, "__kmpc_atomic_fixed1_add"},
+        {{AtomicUpdateSub, {I8, I8}}, "__kmpc_atomic_fixed1_sub"},
+        {{AtomicUpdateMul, {I8, I8}}, "__kmpc_atomic_fixed1_mul"},
+        {{AtomicUpdateSDiv, {I8, I8}}, "__kmpc_atomic_fixed1_div"},
+        {{AtomicUpdateUDiv, {I8, I8}}, "__kmpc_atomic_fixed1u_div"},
+        {{AtomicUpdateAnd, {I8, I8}}, "__kmpc_atomic_fixed1_andb"},
+        {{AtomicUpdateOr, {I8, I8}}, "__kmpc_atomic_fixed1_orb"},
+        {{AtomicUpdateXor, {I8, I8}}, "__kmpc_atomic_fixed1_xor"},
+        {{AtomicUpdateShl, {I8, I8}}, "__kmpc_atomic_fixed1_shl"},
+        {{AtomicUpdateAShr, {I8, I8}}, "__kmpc_atomic_fixed1_shr"},
+        {{AtomicUpdateLShr, {I8, I8}}, "__kmpc_atomic_fixed1u_shr"},
+        // There are no unsigned versions for min/max
+        // in the host OpenMP library.
+        {{AtomicUpdateSMax, {I8, I8}}, "__kmpc_atomic_fixed1_max"},
+        {{AtomicUpdateSMin, {I8, I8}}, "__kmpc_atomic_fixed1_min"},
         // I16 = I16 op I16
-        {{Instruction::Add, {I16, I16}}, "__kmpc_atomic_fixed2_add"},
-        {{Instruction::Sub, {I16, I16}}, "__kmpc_atomic_fixed2_sub"},
-        {{Instruction::Mul, {I16, I16}}, "__kmpc_atomic_fixed2_mul"},
-        {{Instruction::SDiv, {I16, I16}}, "__kmpc_atomic_fixed2_div"},
-        {{Instruction::UDiv, {I16, I16}}, "__kmpc_atomic_fixed2u_div"},
-        {{Instruction::And, {I16, I16}}, "__kmpc_atomic_fixed2_andb"},
-        {{Instruction::Or, {I16, I16}}, "__kmpc_atomic_fixed2_orb"},
-        {{Instruction::Xor, {I16, I16}}, "__kmpc_atomic_fixed2_xor"},
-        {{Instruction::Shl, {I16, I16}}, "__kmpc_atomic_fixed2_shl"},
-        {{Instruction::AShr, {I16, I16}}, "__kmpc_atomic_fixed2_shr"},
-        {{Instruction::LShr, {I16, I16}}, "__kmpc_atomic_fixed2u_shr"},
+        {{AtomicUpdateAdd, {I16, I16}}, "__kmpc_atomic_fixed2_add"},
+        {{AtomicUpdateSub, {I16, I16}}, "__kmpc_atomic_fixed2_sub"},
+        {{AtomicUpdateMul, {I16, I16}}, "__kmpc_atomic_fixed2_mul"},
+        {{AtomicUpdateSDiv, {I16, I16}}, "__kmpc_atomic_fixed2_div"},
+        {{AtomicUpdateUDiv, {I16, I16}}, "__kmpc_atomic_fixed2u_div"},
+        {{AtomicUpdateAnd, {I16, I16}}, "__kmpc_atomic_fixed2_andb"},
+        {{AtomicUpdateOr, {I16, I16}}, "__kmpc_atomic_fixed2_orb"},
+        {{AtomicUpdateXor, {I16, I16}}, "__kmpc_atomic_fixed2_xor"},
+        {{AtomicUpdateShl, {I16, I16}}, "__kmpc_atomic_fixed2_shl"},
+        {{AtomicUpdateAShr, {I16, I16}}, "__kmpc_atomic_fixed2_shr"},
+        {{AtomicUpdateLShr, {I16, I16}}, "__kmpc_atomic_fixed2u_shr"},
+        {{AtomicUpdateSMax, {I16, I16}}, "__kmpc_atomic_fixed2_max"},
+        {{AtomicUpdateSMin, {I16, I16}}, "__kmpc_atomic_fixed2_min"},
         // I32 = I32 op I32
-        {{Instruction::Add, {I32, I32}}, "__kmpc_atomic_fixed4_add"},
-        {{Instruction::Sub, {I32, I32}}, "__kmpc_atomic_fixed4_sub"},
-        {{Instruction::Mul, {I32, I32}}, "__kmpc_atomic_fixed4_mul"},
-        {{Instruction::SDiv, {I32, I32}}, "__kmpc_atomic_fixed4_div"},
-        {{Instruction::UDiv, {I32, I32}}, "__kmpc_atomic_fixed4u_div"},
-        {{Instruction::And, {I32, I32}}, "__kmpc_atomic_fixed4_andb"},
-        {{Instruction::Or, {I32, I32}}, "__kmpc_atomic_fixed4_orb"},
-        {{Instruction::Xor, {I32, I32}}, "__kmpc_atomic_fixed4_xor"},
-        {{Instruction::Shl, {I32, I32}}, "__kmpc_atomic_fixed4_shl"},
-        {{Instruction::AShr, {I32, I32}}, "__kmpc_atomic_fixed4_shr"},
-        {{Instruction::LShr, {I32, I32}}, "__kmpc_atomic_fixed4u_shr"},
+        {{AtomicUpdateAdd, {I32, I32}}, "__kmpc_atomic_fixed4_add"},
+        {{AtomicUpdateSub, {I32, I32}}, "__kmpc_atomic_fixed4_sub"},
+        {{AtomicUpdateMul, {I32, I32}}, "__kmpc_atomic_fixed4_mul"},
+        {{AtomicUpdateSDiv, {I32, I32}}, "__kmpc_atomic_fixed4_div"},
+        {{AtomicUpdateUDiv, {I32, I32}}, "__kmpc_atomic_fixed4u_div"},
+        {{AtomicUpdateAnd, {I32, I32}}, "__kmpc_atomic_fixed4_andb"},
+        {{AtomicUpdateOr, {I32, I32}}, "__kmpc_atomic_fixed4_orb"},
+        {{AtomicUpdateXor, {I32, I32}}, "__kmpc_atomic_fixed4_xor"},
+        {{AtomicUpdateShl, {I32, I32}}, "__kmpc_atomic_fixed4_shl"},
+        {{AtomicUpdateAShr, {I32, I32}}, "__kmpc_atomic_fixed4_shr"},
+        {{AtomicUpdateLShr, {I32, I32}}, "__kmpc_atomic_fixed4u_shr"},
+        {{AtomicUpdateSMax, {I32, I32}}, "__kmpc_atomic_fixed4_max"},
+        {{AtomicUpdateSMin, {I32, I32}}, "__kmpc_atomic_fixed4_min"},
         // I64 = I64 op I64
-        {{Instruction::Add, {I64, I64}}, "__kmpc_atomic_fixed8_add"},
-        {{Instruction::Sub, {I64, I64}}, "__kmpc_atomic_fixed8_sub"},
-        {{Instruction::Mul, {I64, I64}}, "__kmpc_atomic_fixed8_mul"},
-        {{Instruction::SDiv, {I64, I64}}, "__kmpc_atomic_fixed8_div"},
-        {{Instruction::UDiv, {I64, I64}}, "__kmpc_atomic_fixed8u_div"},
-        {{Instruction::And, {I64, I64}}, "__kmpc_atomic_fixed8_andb"},
-        {{Instruction::Or, {I64, I64}}, "__kmpc_atomic_fixed8_orb"},
-        {{Instruction::Xor, {I64, I64}}, "__kmpc_atomic_fixed8_xor"},
-        {{Instruction::Shl, {I64, I64}}, "__kmpc_atomic_fixed8_shl"},
-        {{Instruction::AShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr"},
-        {{Instruction::LShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr"},
+        {{AtomicUpdateAdd, {I64, I64}}, "__kmpc_atomic_fixed8_add"},
+        {{AtomicUpdateSub, {I64, I64}}, "__kmpc_atomic_fixed8_sub"},
+        {{AtomicUpdateMul, {I64, I64}}, "__kmpc_atomic_fixed8_mul"},
+        {{AtomicUpdateSDiv, {I64, I64}}, "__kmpc_atomic_fixed8_div"},
+        {{AtomicUpdateUDiv, {I64, I64}}, "__kmpc_atomic_fixed8u_div"},
+        {{AtomicUpdateAnd, {I64, I64}}, "__kmpc_atomic_fixed8_andb"},
+        {{AtomicUpdateOr, {I64, I64}}, "__kmpc_atomic_fixed8_orb"},
+        {{AtomicUpdateXor, {I64, I64}}, "__kmpc_atomic_fixed8_xor"},
+        {{AtomicUpdateShl, {I64, I64}}, "__kmpc_atomic_fixed8_shl"},
+        {{AtomicUpdateAShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr"},
+        {{AtomicUpdateLShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr"},
+        {{AtomicUpdateSMax, {I64, I64}}, "__kmpc_atomic_fixed8_max"},
+        {{AtomicUpdateSMin, {I64, I64}}, "__kmpc_atomic_fixed8_min"},
         // I8 = I8 op F64
-        {{Instruction::FMul, {I8, F64}}, "__kmpc_atomic_fixed1_mul_float8"},
-        {{Instruction::FDiv, {I8, F64}}, "__kmpc_atomic_fixed1_div_float8"},
+        {{AtomicUpdateFMul, {I8, F64}}, "__kmpc_atomic_fixed1_mul_float8"},
+        {{AtomicUpdateFDiv, {I8, F64}}, "__kmpc_atomic_fixed1_div_float8"},
         // I16 = I16 op F64
-        {{Instruction::FMul, {I16, F64}}, "__kmpc_atomic_fixed2_mul_float8"},
-        {{Instruction::FDiv, {I16, F64}}, "__kmpc_atomic_fixed2_div_float8"},
+        {{AtomicUpdateFMul, {I16, F64}}, "__kmpc_atomic_fixed2_mul_float8"},
+        {{AtomicUpdateFDiv, {I16, F64}}, "__kmpc_atomic_fixed2_div_float8"},
         // I32 = I32 op F64
-        {{Instruction::FMul, {I32, F64}}, "__kmpc_atomic_fixed4_mul_float8"},
-        {{Instruction::FDiv, {I32, F64}}, "__kmpc_atomic_fixed4_div_float8"},
+        {{AtomicUpdateFMul, {I32, F64}}, "__kmpc_atomic_fixed4_mul_float8"},
+        {{AtomicUpdateFDiv, {I32, F64}}, "__kmpc_atomic_fixed4_div_float8"},
         // I64 = I64 op F64
-        {{Instruction::FMul, {I64, F64}}, "__kmpc_atomic_fixed8_mul_float8"},
-        {{Instruction::FDiv, {I64, F64}}, "__kmpc_atomic_fixed8_div_float8"},
+        {{AtomicUpdateFMul, {I64, F64}}, "__kmpc_atomic_fixed8_mul_float8"},
+        {{AtomicUpdateFDiv, {I64, F64}}, "__kmpc_atomic_fixed8_div_float8"},
         // I8 = I8 op F128
-        {{Instruction::FAdd, {I8, F128}}, "__kmpc_atomic_fixed1_add_fp"},
-        {{Instruction::FSub, {I8, F128}}, "__kmpc_atomic_fixed1_sub_fp"},
-        {{Instruction::FMul, {I8, F128}}, "__kmpc_atomic_fixed1_mul_fp"},
-        {{Instruction::Mul,  {I8, F128}}, "__kmpc_atomic_fixed1u_mul_fp"},
-        {{Instruction::FDiv, {I8, F128}}, "__kmpc_atomic_fixed1_div_fp"},
-        {{Instruction::UDiv, {I8, F128}}, "__kmpc_atomic_fixed1u_div_fp"},
+        {{AtomicUpdateFAdd, {I8, F128}}, "__kmpc_atomic_fixed1_add_fp"},
+        {{AtomicUpdateFSub, {I8, F128}}, "__kmpc_atomic_fixed1_sub_fp"},
+        {{AtomicUpdateFMul, {I8, F128}}, "__kmpc_atomic_fixed1_mul_fp"},
+        {{AtomicUpdateMul,  {I8, F128}}, "__kmpc_atomic_fixed1u_mul_fp"},
+        {{AtomicUpdateFDiv, {I8, F128}}, "__kmpc_atomic_fixed1_div_fp"},
+        {{AtomicUpdateUDiv, {I8, F128}}, "__kmpc_atomic_fixed1u_div_fp"},
         // I16 = I16 op F128
-        {{Instruction::FAdd, {I16, F128}}, "__kmpc_atomic_fixed2_add_fp"},
-        {{Instruction::FSub, {I16, F128}}, "__kmpc_atomic_fixed2_sub_fp"},
-        {{Instruction::FMul, {I16, F128}}, "__kmpc_atomic_fixed2_mul_fp"},
-        {{Instruction::Mul,  {I16, F128}}, "__kmpc_atomic_fixed2u_mul_fp"},
-        {{Instruction::FDiv, {I16, F128}}, "__kmpc_atomic_fixed2_div_fp"},
-        {{Instruction::UDiv, {I16, F128}}, "__kmpc_atomic_fixed2u_div_fp"},
+        {{AtomicUpdateFAdd, {I16, F128}}, "__kmpc_atomic_fixed2_add_fp"},
+        {{AtomicUpdateFSub, {I16, F128}}, "__kmpc_atomic_fixed2_sub_fp"},
+        {{AtomicUpdateFMul, {I16, F128}}, "__kmpc_atomic_fixed2_mul_fp"},
+        {{AtomicUpdateMul,  {I16, F128}}, "__kmpc_atomic_fixed2u_mul_fp"},
+        {{AtomicUpdateFDiv, {I16, F128}}, "__kmpc_atomic_fixed2_div_fp"},
+        {{AtomicUpdateUDiv, {I16, F128}}, "__kmpc_atomic_fixed2u_div_fp"},
         // I32 = I32 op F128
-        {{Instruction::FAdd, {I32, F128}}, "__kmpc_atomic_fixed4_add_fp"},
-        {{Instruction::FSub, {I32, F128}}, "__kmpc_atomic_fixed4_sub_fp"},
-        {{Instruction::FMul, {I32, F128}}, "__kmpc_atomic_fixed4_mul_fp"},
-        {{Instruction::Mul,  {I32, F128}}, "__kmpc_atomic_fixed4u_mul_fp"},
-        {{Instruction::FDiv, {I32, F128}}, "__kmpc_atomic_fixed4_div_fp"},
-        {{Instruction::UDiv, {I32, F128}}, "__kmpc_atomic_fixed4u_div_fp"},
+        {{AtomicUpdateFAdd, {I32, F128}}, "__kmpc_atomic_fixed4_add_fp"},
+        {{AtomicUpdateFSub, {I32, F128}}, "__kmpc_atomic_fixed4_sub_fp"},
+        {{AtomicUpdateFMul, {I32, F128}}, "__kmpc_atomic_fixed4_mul_fp"},
+        {{AtomicUpdateMul,  {I32, F128}}, "__kmpc_atomic_fixed4u_mul_fp"},
+        {{AtomicUpdateFDiv, {I32, F128}}, "__kmpc_atomic_fixed4_div_fp"},
+        {{AtomicUpdateUDiv, {I32, F128}}, "__kmpc_atomic_fixed4u_div_fp"},
         // I64 = I64 op F128
-        {{Instruction::FAdd, {I64, F128}}, "__kmpc_atomic_fixed8_add_fp"},
-        {{Instruction::FSub, {I64, F128}}, "__kmpc_atomic_fixed8_sub_fp"},
-        {{Instruction::FMul, {I64, F128}}, "__kmpc_atomic_fixed8_mul_fp"},
-        {{Instruction::Mul,  {I64, F128}}, "__kmpc_atomic_fixed8u_mul_fp"},
-        {{Instruction::FDiv, {I64, F128}}, "__kmpc_atomic_fixed8_div_fp"},
-        {{Instruction::UDiv, {I64, F128}}, "__kmpc_atomic_fixed8u_div_fp"},
+        {{AtomicUpdateFAdd, {I64, F128}}, "__kmpc_atomic_fixed8_add_fp"},
+        {{AtomicUpdateFSub, {I64, F128}}, "__kmpc_atomic_fixed8_sub_fp"},
+        {{AtomicUpdateFMul, {I64, F128}}, "__kmpc_atomic_fixed8_mul_fp"},
+        {{AtomicUpdateMul,  {I64, F128}}, "__kmpc_atomic_fixed8u_mul_fp"},
+        {{AtomicUpdateFDiv, {I64, F128}}, "__kmpc_atomic_fixed8_div_fp"},
+        {{AtomicUpdateUDiv, {I64, F128}}, "__kmpc_atomic_fixed8u_div_fp"},
         // F32 = F32 op F32
-        {{Instruction::FAdd, {F32, F32}}, "__kmpc_atomic_float4_add"},
-        {{Instruction::FSub, {F32, F32}}, "__kmpc_atomic_float4_sub"},
-        {{Instruction::FMul, {F32, F32}}, "__kmpc_atomic_float4_mul"},
-        {{Instruction::FDiv, {F32, F32}}, "__kmpc_atomic_float4_div"},
+        {{AtomicUpdateFAdd, {F32, F32}}, "__kmpc_atomic_float4_add"},
+        {{AtomicUpdateFSub, {F32, F32}}, "__kmpc_atomic_float4_sub"},
+        {{AtomicUpdateFMul, {F32, F32}}, "__kmpc_atomic_float4_mul"},
+        {{AtomicUpdateFDiv, {F32, F32}}, "__kmpc_atomic_float4_div"},
+        {{AtomicUpdateFMax, {F32, F32}}, "__kmpc_atomic_float4_max"},
+        {{AtomicUpdateFMin, {F32, F32}}, "__kmpc_atomic_float4_min"},
         // F64 = F64 op F64
-        {{Instruction::FAdd, {F64, F64}}, "__kmpc_atomic_float8_add"},
-        {{Instruction::FSub, {F64, F64}}, "__kmpc_atomic_float8_sub"},
-        {{Instruction::FMul, {F64, F64}}, "__kmpc_atomic_float8_mul"},
-        {{Instruction::FDiv, {F64, F64}}, "__kmpc_atomic_float8_div"},
+        {{AtomicUpdateFAdd, {F64, F64}}, "__kmpc_atomic_float8_add"},
+        {{AtomicUpdateFSub, {F64, F64}}, "__kmpc_atomic_float8_sub"},
+        {{AtomicUpdateFMul, {F64, F64}}, "__kmpc_atomic_float8_mul"},
+        {{AtomicUpdateFDiv, {F64, F64}}, "__kmpc_atomic_float8_div"},
+        {{AtomicUpdateFMax, {F64, F64}}, "__kmpc_atomic_float8_max"},
+        {{AtomicUpdateFMin, {F64, F64}}, "__kmpc_atomic_float8_min"},
         // F80 = F80 op F80
-        {{Instruction::FAdd, {F80, F80}}, "__kmpc_atomic_float10_add"},
-        {{Instruction::FSub, {F80, F80}}, "__kmpc_atomic_float10_sub"},
-        {{Instruction::FMul, {F80, F80}}, "__kmpc_atomic_float10_mul"},
-        {{Instruction::FDiv, {F80, F80}}, "__kmpc_atomic_float10_div"},
+        {{AtomicUpdateFAdd, {F80, F80}}, "__kmpc_atomic_float10_add"},
+        {{AtomicUpdateFSub, {F80, F80}}, "__kmpc_atomic_float10_sub"},
+        {{AtomicUpdateFMul, {F80, F80}}, "__kmpc_atomic_float10_mul"},
+        {{AtomicUpdateFDiv, {F80, F80}}, "__kmpc_atomic_float10_div"},
         // F128 = F128 op F128
         // TODO: Make sure using _a16 version is correct
-        {{Instruction::FAdd, {F128, F128}}, "__kmpc_atomic_float16_add_a16"},
-        {{Instruction::FSub, {F128, F128}}, "__kmpc_atomic_float16_sub_a16"},
-        {{Instruction::FMul, {F128, F128}}, "__kmpc_atomic_float16_mul_a16"},
-        {{Instruction::FDiv, {F128, F128}}, "__kmpc_atomic_float16_div_a16"},
+        {{AtomicUpdateFAdd, {F128, F128}}, "__kmpc_atomic_float16_add_a16"},
+        {{AtomicUpdateFSub, {F128, F128}}, "__kmpc_atomic_float16_sub_a16"},
+        {{AtomicUpdateFMul, {F128, F128}}, "__kmpc_atomic_float16_mul_a16"},
+        {{AtomicUpdateFDiv, {F128, F128}}, "__kmpc_atomic_float16_div_a16"},
         // F32 = F32 op F64
-        {{Instruction::FAdd, {F32, F64}}, "__kmpc_atomic_float4_add_float8"},
-        {{Instruction::FSub, {F32, F64}}, "__kmpc_atomic_float4_sub_float8"},
-        {{Instruction::FMul, {F32, F64}}, "__kmpc_atomic_float4_mul_float8"},
-        {{Instruction::FDiv, {F32, F64}}, "__kmpc_atomic_float4_div_float8"}
+        {{AtomicUpdateFAdd, {F32, F64}}, "__kmpc_atomic_float4_add_float8"},
+        {{AtomicUpdateFSub, {F32, F64}}, "__kmpc_atomic_float4_sub_float8"},
+        {{AtomicUpdateFMul, {F32, F64}}, "__kmpc_atomic_float4_mul_float8"},
+        {{AtomicUpdateFDiv, {F32, F64}}, "__kmpc_atomic_float4_div_float8"}
 #if 0 // NOT Emitted in ICC
         // F32 = F32 op F128
-        ,{{Instruction::FAdd, {F32, F128}}, "__kmpc_atomic_float4_add_fp"},
-        {{Instruction::FSub, {F32, F128}}, "__kmpc_atomic_float4_sub_fp"},
-        {{Instruction::FMul, {F32, F128}}, "__kmpc_atomic_float4_mul_fp"},
-        {{Instruction::FDiv, {F32, F128}}, "__kmpc_atomic_float4_div_fp"},
+        ,{{AtomicUpdateFAdd, {F32, F128}}, "__kmpc_atomic_float4_add_fp"},
+        {{AtomicUpdateFSub, {F32, F128}}, "__kmpc_atomic_float4_sub_fp"},
+        {{AtomicUpdateFMul, {F32, F128}}, "__kmpc_atomic_float4_mul_fp"},
+        {{AtomicUpdateFDiv, {F32, F128}}, "__kmpc_atomic_float4_div_fp"},
         // F64 = F64 op F128
-        {{Instruction::FAdd, {F64, F128}}, "__kmpc_atomic_float8_add_fp"},
-        {{Instruction::FSub, {F64, F128}}, "__kmpc_atomic_float8_sub_fp"},
-        {{Instruction::FMul, {F64, F128}}, "__kmpc_atomic_float8_mul_fp"},
-        {{Instruction::FDiv, {F64, F128}}, "__kmpc_atomic_float8_div_fp"},
+        {{AtomicUpdateFAdd, {F64, F128}}, "__kmpc_atomic_float8_add_fp"},
+        {{AtomicUpdateFSub, {F64, F128}}, "__kmpc_atomic_float8_sub_fp"},
+        {{AtomicUpdateFMul, {F64, F128}}, "__kmpc_atomic_float8_mul_fp"},
+        {{AtomicUpdateFDiv, {F64, F128}}, "__kmpc_atomic_float8_div_fp"},
         // F80 = F80 op F128
-        {{Instruction::FAdd, {F80, F128}}, "__kmpc_atomic_float10_add_fp"},
-        {{Instruction::FSub, {F80, F128}}, "__kmpc_atomic_float10_sub_fp"},
-        {{Instruction::FMul, {F80, F128}}, "__kmpc_atomic_float10_mul_fp"},
-        {{Instruction::FDiv, {F80, F128}}, "__kmpc_atomic_float10_div_fp"}
+        {{AtomicUpdateFAdd, {F80, F128}}, "__kmpc_atomic_float10_add_fp"},
+        {{AtomicUpdateFSub, {F80, F128}}, "__kmpc_atomic_float10_sub_fp"},
+        {{AtomicUpdateFMul, {F80, F128}}, "__kmpc_atomic_float10_mul_fp"},
+        {{AtomicUpdateFDiv, {F80, F128}}, "__kmpc_atomic_float10_div_fp"}
 #endif
 };
 
 const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
     VPOParoptAtomics::OpToUpdateIntrinsicForTgtMap = {
         // I32 = I32 op I32
-        {{Instruction::Add, {I32, I32}}, "__kmpc_atomic_fixed4_add"},
-        {{Instruction::Sub, {I32, I32}}, "__kmpc_atomic_fixed4_sub"},
-        {{Instruction::Mul, {I32, I32}}, "__kmpc_atomic_fixed4_mul"},
-        {{Instruction::SDiv, {I32, I32}}, "__kmpc_atomic_fixed4_div"},
-        {{Instruction::UDiv, {I32, I32}}, "__kmpc_atomic_fixed4u_div"},
-        {{Instruction::And, {I32, I32}}, "__kmpc_atomic_fixed4_andb"},
-        {{Instruction::Or, {I32, I32}}, "__kmpc_atomic_fixed4_orb"},
-        {{Instruction::Xor, {I32, I32}}, "__kmpc_atomic_fixed4_xor"},
-        {{Instruction::Shl, {I32, I32}}, "__kmpc_atomic_fixed4_shl"},
-        {{Instruction::AShr, {I32, I32}}, "__kmpc_atomic_fixed4_shr"},
-        {{Instruction::LShr, {I32, I32}}, "__kmpc_atomic_fixed4u_shr"},
+        {{AtomicUpdateAdd, {I32, I32}}, "__kmpc_atomic_fixed4_add"},
+        {{AtomicUpdateSub, {I32, I32}}, "__kmpc_atomic_fixed4_sub"},
+        {{AtomicUpdateMul, {I32, I32}}, "__kmpc_atomic_fixed4_mul"},
+        {{AtomicUpdateSDiv, {I32, I32}}, "__kmpc_atomic_fixed4_div"},
+        {{AtomicUpdateUDiv, {I32, I32}}, "__kmpc_atomic_fixed4u_div"},
+        {{AtomicUpdateAnd, {I32, I32}}, "__kmpc_atomic_fixed4_andb"},
+        {{AtomicUpdateOr, {I32, I32}}, "__kmpc_atomic_fixed4_orb"},
+        {{AtomicUpdateXor, {I32, I32}}, "__kmpc_atomic_fixed4_xor"},
+        {{AtomicUpdateShl, {I32, I32}}, "__kmpc_atomic_fixed4_shl"},
+        {{AtomicUpdateAShr, {I32, I32}}, "__kmpc_atomic_fixed4_shr"},
+        {{AtomicUpdateLShr, {I32, I32}}, "__kmpc_atomic_fixed4u_shr"},
+        {{AtomicUpdateSMax, {I32, I32}}, "__kmpc_atomic_fixed4_max"},
+        {{AtomicUpdateUMax, {I32, I32}}, "__kmpc_atomic_fixed4u_max"},
+        {{AtomicUpdateSMin, {I32, I32}}, "__kmpc_atomic_fixed4_min"},
+        {{AtomicUpdateUMin, {I32, I32}}, "__kmpc_atomic_fixed4u_min"},
         // I64 = I64 op I64
-        {{Instruction::Add, {I64, I64}}, "__kmpc_atomic_fixed8_add"},
-        {{Instruction::Sub, {I64, I64}}, "__kmpc_atomic_fixed8_sub"},
-        {{Instruction::Mul, {I64, I64}}, "__kmpc_atomic_fixed8_mul"},
-        {{Instruction::SDiv, {I64, I64}}, "__kmpc_atomic_fixed8_div"},
-        {{Instruction::UDiv, {I64, I64}}, "__kmpc_atomic_fixed8u_div"},
-        {{Instruction::And, {I64, I64}}, "__kmpc_atomic_fixed8_andb"},
-        {{Instruction::Or, {I64, I64}}, "__kmpc_atomic_fixed8_orb"},
-        {{Instruction::Xor, {I64, I64}}, "__kmpc_atomic_fixed8_xor"},
-        {{Instruction::Shl, {I64, I64}}, "__kmpc_atomic_fixed8_shl"},
-        {{Instruction::AShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr"},
-        {{Instruction::LShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr"},
+        {{AtomicUpdateAdd, {I64, I64}}, "__kmpc_atomic_fixed8_add"},
+        {{AtomicUpdateSub, {I64, I64}}, "__kmpc_atomic_fixed8_sub"},
+        {{AtomicUpdateMul, {I64, I64}}, "__kmpc_atomic_fixed8_mul"},
+        {{AtomicUpdateSDiv, {I64, I64}}, "__kmpc_atomic_fixed8_div"},
+        {{AtomicUpdateUDiv, {I64, I64}}, "__kmpc_atomic_fixed8u_div"},
+        {{AtomicUpdateAnd, {I64, I64}}, "__kmpc_atomic_fixed8_andb"},
+        {{AtomicUpdateOr, {I64, I64}}, "__kmpc_atomic_fixed8_orb"},
+        {{AtomicUpdateXor, {I64, I64}}, "__kmpc_atomic_fixed8_xor"},
+        {{AtomicUpdateShl, {I64, I64}}, "__kmpc_atomic_fixed8_shl"},
+        {{AtomicUpdateAShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr"},
+        {{AtomicUpdateLShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr"},
+        {{AtomicUpdateSMax, {I64, I64}}, "__kmpc_atomic_fixed8_max"},
+        {{AtomicUpdateUMax, {I64, I64}}, "__kmpc_atomic_fixed8u_max"},
+        {{AtomicUpdateSMin, {I64, I64}}, "__kmpc_atomic_fixed8_min"},
+        {{AtomicUpdateUMin, {I64, I64}}, "__kmpc_atomic_fixed8u_min"},
         // F32 = F32 op F32
-        {{Instruction::FAdd, {F32, F32}}, "__kmpc_atomic_float4_add"},
-        {{Instruction::FSub, {F32, F32}}, "__kmpc_atomic_float4_sub"},
-        {{Instruction::FMul, {F32, F32}}, "__kmpc_atomic_float4_mul"},
-        {{Instruction::FDiv, {F32, F32}}, "__kmpc_atomic_float4_div"},
+        {{AtomicUpdateFAdd, {F32, F32}}, "__kmpc_atomic_float4_add"},
+        {{AtomicUpdateFSub, {F32, F32}}, "__kmpc_atomic_float4_sub"},
+        {{AtomicUpdateFMul, {F32, F32}}, "__kmpc_atomic_float4_mul"},
+        {{AtomicUpdateFDiv, {F32, F32}}, "__kmpc_atomic_float4_div"},
+        {{AtomicUpdateFMax, {F32, F32}}, "__kmpc_atomic_float4_max"},
+        {{AtomicUpdateFMin, {F32, F32}}, "__kmpc_atomic_float4_min"},
         // F64 = F64 op F64
-        {{Instruction::FAdd, {F64, F64}}, "__kmpc_atomic_float8_add"},
-        {{Instruction::FSub, {F64, F64}}, "__kmpc_atomic_float8_sub"},
-        {{Instruction::FMul, {F64, F64}}, "__kmpc_atomic_float8_mul"},
-        {{Instruction::FDiv, {F64, F64}}, "__kmpc_atomic_float8_div"},
+        {{AtomicUpdateFAdd, {F64, F64}}, "__kmpc_atomic_float8_add"},
+        {{AtomicUpdateFSub, {F64, F64}}, "__kmpc_atomic_float8_sub"},
+        {{AtomicUpdateFMul, {F64, F64}}, "__kmpc_atomic_float8_mul"},
+        {{AtomicUpdateFDiv, {F64, F64}}, "__kmpc_atomic_float8_div"},
+        {{AtomicUpdateFMax, {F64, F64}}, "__kmpc_atomic_float8_max"},
+        {{AtomicUpdateFMin, {F64, F64}}, "__kmpc_atomic_float8_min"},
 };
 
 const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
     VPOParoptAtomics::ReversedOpToUpdateIntrinsicMap = {
         // I8 = I8 op I8
-        {{Instruction::Sub, {I8, I8}}, "__kmpc_atomic_fixed1_sub_rev"},
-        {{Instruction::SDiv, {I8, I8}}, "__kmpc_atomic_fixed1_div_rev"},
-        {{Instruction::UDiv, {I8, I8}}, "__kmpc_atomic_fixed1u_div_rev"},
-        {{Instruction::Shl, {I8, I8}}, "__kmpc_atomic_fixed1_shl_rev"},
-        {{Instruction::AShr, {I8, I8}}, "__kmpc_atomic_fixed1_shr_rev"},
-        {{Instruction::LShr, {I8, I8}}, "__kmpc_atomic_fixed1u_shr_rev"},
+        {{AtomicUpdateSub, {I8, I8}}, "__kmpc_atomic_fixed1_sub_rev"},
+        {{AtomicUpdateSDiv, {I8, I8}}, "__kmpc_atomic_fixed1_div_rev"},
+        {{AtomicUpdateUDiv, {I8, I8}}, "__kmpc_atomic_fixed1u_div_rev"},
+        {{AtomicUpdateShl, {I8, I8}}, "__kmpc_atomic_fixed1_shl_rev"},
+        {{AtomicUpdateAShr, {I8, I8}}, "__kmpc_atomic_fixed1_shr_rev"},
+        {{AtomicUpdateLShr, {I8, I8}}, "__kmpc_atomic_fixed1u_shr_rev"},
         // I16 = I16 op I16
-        {{Instruction::Sub, {I16, I16}}, "__kmpc_atomic_fixed2_sub_rev"},
-        {{Instruction::SDiv, {I16, I16}}, "__kmpc_atomic_fixed2_div_rev"},
-        {{Instruction::UDiv, {I16, I16}}, "__kmpc_atomic_fixed2u_div_rev"},
-        {{Instruction::Shl, {I16, I16}}, "__kmpc_atomic_fixed2_shl_rev"},
-        {{Instruction::AShr, {I16, I16}}, "__kmpc_atomic_fixed2_shr_rev"},
-        {{Instruction::LShr, {I16, I16}}, "__kmpc_atomic_fixed2u_shr_rev"},
+        {{AtomicUpdateSub, {I16, I16}}, "__kmpc_atomic_fixed2_sub_rev"},
+        {{AtomicUpdateSDiv, {I16, I16}}, "__kmpc_atomic_fixed2_div_rev"},
+        {{AtomicUpdateUDiv, {I16, I16}}, "__kmpc_atomic_fixed2u_div_rev"},
+        {{AtomicUpdateShl, {I16, I16}}, "__kmpc_atomic_fixed2_shl_rev"},
+        {{AtomicUpdateAShr, {I16, I16}}, "__kmpc_atomic_fixed2_shr_rev"},
+        {{AtomicUpdateLShr, {I16, I16}}, "__kmpc_atomic_fixed2u_shr_rev"},
         // I32 = I32 op I32
-        {{Instruction::Sub, {I32, I32}}, "__kmpc_atomic_fixed4_sub_rev"},
-        {{Instruction::SDiv, {I32, I32}}, "__kmpc_atomic_fixed4_div_rev"},
-        {{Instruction::UDiv, {I32, I32}}, "__kmpc_atomic_fixed4u_div_rev"},
-        {{Instruction::Shl, {I32, I32}}, "__kmpc_atomic_fixed4_shl_rev"},
-        {{Instruction::AShr, {I32, I32}}, "__kmpc_atomic_fixed4_shr_rev"},
-        {{Instruction::LShr, {I32, I32}}, "__kmpc_atomic_fixed4u_shr_rev"},
+        {{AtomicUpdateSub, {I32, I32}}, "__kmpc_atomic_fixed4_sub_rev"},
+        {{AtomicUpdateSDiv, {I32, I32}}, "__kmpc_atomic_fixed4_div_rev"},
+        {{AtomicUpdateUDiv, {I32, I32}}, "__kmpc_atomic_fixed4u_div_rev"},
+        {{AtomicUpdateShl, {I32, I32}}, "__kmpc_atomic_fixed4_shl_rev"},
+        {{AtomicUpdateAShr, {I32, I32}}, "__kmpc_atomic_fixed4_shr_rev"},
+        {{AtomicUpdateLShr, {I32, I32}}, "__kmpc_atomic_fixed4u_shr_rev"},
         // I64 = I64 op I64
-        {{Instruction::Sub, {I64, I64}}, "__kmpc_atomic_fixed8_sub_rev"},
-        {{Instruction::SDiv, {I64, I64}}, "__kmpc_atomic_fixed8_div_rev"},
-        {{Instruction::UDiv, {I64, I64}}, "__kmpc_atomic_fixed8u_div_rev"},
-        {{Instruction::Shl, {I64, I64}}, "__kmpc_atomic_fixed8_shl_rev"},
-        {{Instruction::AShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr_rev"},
-        {{Instruction::LShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr_rev"},
+        {{AtomicUpdateSub, {I64, I64}}, "__kmpc_atomic_fixed8_sub_rev"},
+        {{AtomicUpdateSDiv, {I64, I64}}, "__kmpc_atomic_fixed8_div_rev"},
+        {{AtomicUpdateUDiv, {I64, I64}}, "__kmpc_atomic_fixed8u_div_rev"},
+        {{AtomicUpdateShl, {I64, I64}}, "__kmpc_atomic_fixed8_shl_rev"},
+        {{AtomicUpdateAShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr_rev"},
+        {{AtomicUpdateLShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr_rev"},
         // I8 = F128 op I8
-        {{Instruction::FSub, {I8, F128}}, "__kmpc_atomic_fixed1_sub_rev_fp"},
-        {{Instruction::FDiv, {I8, F128}}, "__kmpc_atomic_fixed1_div_rev_fp"},
-        {{Instruction::UDiv, {I8, F128}}, "__kmpc_atomic_fixed1u_div_rev_fp"},
+        {{AtomicUpdateFSub, {I8, F128}}, "__kmpc_atomic_fixed1_sub_rev_fp"},
+        {{AtomicUpdateFDiv, {I8, F128}}, "__kmpc_atomic_fixed1_div_rev_fp"},
+        {{AtomicUpdateUDiv, {I8, F128}}, "__kmpc_atomic_fixed1u_div_rev_fp"},
         // I16 = F128 op I16
-        {{Instruction::FSub, {I16, F128}}, "__kmpc_atomic_fixed2_sub_rev_fp"},
-        {{Instruction::FDiv, {I16, F128}}, "__kmpc_atomic_fixed2_div_rev_fp"},
-        {{Instruction::UDiv, {I16, F128}}, "__kmpc_atomic_fixed2u_div_rev_fp"},
+        {{AtomicUpdateFSub, {I16, F128}}, "__kmpc_atomic_fixed2_sub_rev_fp"},
+        {{AtomicUpdateFDiv, {I16, F128}}, "__kmpc_atomic_fixed2_div_rev_fp"},
+        {{AtomicUpdateUDiv, {I16, F128}}, "__kmpc_atomic_fixed2u_div_rev_fp"},
         // I32 = F128 op I32
-        {{Instruction::FSub, {I32, F128}}, "__kmpc_atomic_fixed4_sub_rev_fp"},
-        {{Instruction::FDiv, {I32, F128}}, "__kmpc_atomic_fixed4_div_rev_fp"},
-        {{Instruction::UDiv, {I32, F128}}, "__kmpc_atomic_fixed4u_div_rev_fp"},
+        {{AtomicUpdateFSub, {I32, F128}}, "__kmpc_atomic_fixed4_sub_rev_fp"},
+        {{AtomicUpdateFDiv, {I32, F128}}, "__kmpc_atomic_fixed4_div_rev_fp"},
+        {{AtomicUpdateUDiv, {I32, F128}}, "__kmpc_atomic_fixed4u_div_rev_fp"},
         // I64 = F128 op I64
-        {{Instruction::FSub, {I64, F128}}, "__kmpc_atomic_fixed8_sub_rev_fp"},
-        {{Instruction::FDiv, {I64, F128}}, "__kmpc_atomic_fixed8_div_rev_fp"},
-        {{Instruction::UDiv, {I64, F128}}, "__kmpc_atomic_fixed8u_div_rev_fp"},
+        {{AtomicUpdateFSub, {I64, F128}}, "__kmpc_atomic_fixed8_sub_rev_fp"},
+        {{AtomicUpdateFDiv, {I64, F128}}, "__kmpc_atomic_fixed8_div_rev_fp"},
+        {{AtomicUpdateUDiv, {I64, F128}}, "__kmpc_atomic_fixed8u_div_rev_fp"},
         // F32 = F32 op F32
-        {{Instruction::FSub, {F32, F32}}, "__kmpc_atomic_float4_sub_rev"},
-        {{Instruction::FDiv, {F32, F32}}, "__kmpc_atomic_float4_div_rev"},
+        {{AtomicUpdateFSub, {F32, F32}}, "__kmpc_atomic_float4_sub_rev"},
+        {{AtomicUpdateFDiv, {F32, F32}}, "__kmpc_atomic_float4_div_rev"},
         // F64 = F64 op F64
-        {{Instruction::FSub, {F64, F64}}, "__kmpc_atomic_float8_sub_rev"},
-        {{Instruction::FDiv, {F64, F64}}, "__kmpc_atomic_float8_div_rev"},
+        {{AtomicUpdateFSub, {F64, F64}}, "__kmpc_atomic_float8_sub_rev"},
+        {{AtomicUpdateFDiv, {F64, F64}}, "__kmpc_atomic_float8_div_rev"},
         // F80 = F80 op F80
-        {{Instruction::FSub, {F80, F80}}, "__kmpc_atomic_float10_sub_rev"},
-        {{Instruction::FDiv, {F80, F80}}, "__kmpc_atomic_float10_div_rev"},
+        {{AtomicUpdateFSub, {F80, F80}}, "__kmpc_atomic_float10_sub_rev"},
+        {{AtomicUpdateFDiv, {F80, F80}}, "__kmpc_atomic_float10_div_rev"},
         // F128 = F128 op F128
-        {{Instruction::FSub, {F128, F128}},
+        {{AtomicUpdateFSub, {F128, F128}},
          "__kmpc_atomic_float16_sub_a16_rev"},
-        {{Instruction::FDiv, {F128, F128}},
+        {{AtomicUpdateFDiv, {F128, F128}},
          "__kmpc_atomic_float16_div_a16_rev"}};
 
 // Note: The entries for si = si/float and ui = ui/float are distinguished by
-// using Instruction::FDiv for the first case, and Instruction::UDiv for the
+// using AtomicUpdateFDiv for the first case, and AtomicUpdateUDiv for the
 // second.
 const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
     VPOParoptAtomics::OpToCaptureIntrinsicMap = {
         // I8 = I8 op I8
-        {{Instruction::Add, {I8, I8}}, "__kmpc_atomic_fixed1_add_cpt"},
-        {{Instruction::Sub, {I8, I8}}, "__kmpc_atomic_fixed1_sub_cpt"},
-        {{Instruction::Mul, {I8, I8}}, "__kmpc_atomic_fixed1_mul_cpt"},
-        {{Instruction::SDiv, {I8, I8}}, "__kmpc_atomic_fixed1_div_cpt"},
-        {{Instruction::UDiv, {I8, I8}}, "__kmpc_atomic_fixed1u_div_cpt"},
-        {{Instruction::And, {I8, I8}}, "__kmpc_atomic_fixed1_andb_cpt"},
-        {{Instruction::Or, {I8, I8}}, "__kmpc_atomic_fixed1_orb_cpt"},
-        {{Instruction::Xor, {I8, I8}}, "__kmpc_atomic_fixed1_xor_cpt"},
-        {{Instruction::Shl, {I8, I8}}, "__kmpc_atomic_fixed1_shl_cpt"},
-        {{Instruction::AShr, {I8, I8}}, "__kmpc_atomic_fixed1_shr_cpt"},
-        {{Instruction::LShr, {I8, I8}}, "__kmpc_atomic_fixed1u_shr_cpt"},
+        {{AtomicUpdateAdd, {I8, I8}}, "__kmpc_atomic_fixed1_add_cpt"},
+        {{AtomicUpdateSub, {I8, I8}}, "__kmpc_atomic_fixed1_sub_cpt"},
+        {{AtomicUpdateMul, {I8, I8}}, "__kmpc_atomic_fixed1_mul_cpt"},
+        {{AtomicUpdateSDiv, {I8, I8}}, "__kmpc_atomic_fixed1_div_cpt"},
+        {{AtomicUpdateUDiv, {I8, I8}}, "__kmpc_atomic_fixed1u_div_cpt"},
+        {{AtomicUpdateAnd, {I8, I8}}, "__kmpc_atomic_fixed1_andb_cpt"},
+        {{AtomicUpdateOr, {I8, I8}}, "__kmpc_atomic_fixed1_orb_cpt"},
+        {{AtomicUpdateXor, {I8, I8}}, "__kmpc_atomic_fixed1_xor_cpt"},
+        {{AtomicUpdateShl, {I8, I8}}, "__kmpc_atomic_fixed1_shl_cpt"},
+        {{AtomicUpdateAShr, {I8, I8}}, "__kmpc_atomic_fixed1_shr_cpt"},
+        {{AtomicUpdateLShr, {I8, I8}}, "__kmpc_atomic_fixed1u_shr_cpt"},
+        {{AtomicUpdateSMax, {I8, I8}}, "__kmpc_atomic_fixed1_max_cpt"},
+        {{AtomicUpdateSMin, {I8, I8}}, "__kmpc_atomic_fixed1_min_cpt"},
         // I16 = I16 op I16
-        {{Instruction::Add, {I16, I16}}, "__kmpc_atomic_fixed2_add_cpt"},
-        {{Instruction::Sub, {I16, I16}}, "__kmpc_atomic_fixed2_sub_cpt"},
-        {{Instruction::Mul, {I16, I16}}, "__kmpc_atomic_fixed2_mul_cpt"},
-        {{Instruction::SDiv, {I16, I16}}, "__kmpc_atomic_fixed2_div_cpt"},
-        {{Instruction::UDiv, {I16, I16}}, "__kmpc_atomic_fixed2u_div_cpt"},
-        {{Instruction::And, {I16, I16}}, "__kmpc_atomic_fixed2_andb_cpt"},
-        {{Instruction::Or, {I16, I16}}, "__kmpc_atomic_fixed2_orb_cpt"},
-        {{Instruction::Xor, {I16, I16}}, "__kmpc_atomic_fixed2_xor_cpt"},
-        {{Instruction::Shl, {I16, I16}}, "__kmpc_atomic_fixed2_shl_cpt"},
-        {{Instruction::AShr, {I16, I16}}, "__kmpc_atomic_fixed2_shr_cpt"},
-        {{Instruction::LShr, {I16, I16}}, "__kmpc_atomic_fixed2u_shr_cpt"},
+        {{AtomicUpdateAdd, {I16, I16}}, "__kmpc_atomic_fixed2_add_cpt"},
+        {{AtomicUpdateSub, {I16, I16}}, "__kmpc_atomic_fixed2_sub_cpt"},
+        {{AtomicUpdateMul, {I16, I16}}, "__kmpc_atomic_fixed2_mul_cpt"},
+        {{AtomicUpdateSDiv, {I16, I16}}, "__kmpc_atomic_fixed2_div_cpt"},
+        {{AtomicUpdateUDiv, {I16, I16}}, "__kmpc_atomic_fixed2u_div_cpt"},
+        {{AtomicUpdateAnd, {I16, I16}}, "__kmpc_atomic_fixed2_andb_cpt"},
+        {{AtomicUpdateOr, {I16, I16}}, "__kmpc_atomic_fixed2_orb_cpt"},
+        {{AtomicUpdateXor, {I16, I16}}, "__kmpc_atomic_fixed2_xor_cpt"},
+        {{AtomicUpdateShl, {I16, I16}}, "__kmpc_atomic_fixed2_shl_cpt"},
+        {{AtomicUpdateAShr, {I16, I16}}, "__kmpc_atomic_fixed2_shr_cpt"},
+        {{AtomicUpdateLShr, {I16, I16}}, "__kmpc_atomic_fixed2u_shr_cpt"},
+        {{AtomicUpdateSMax, {I16, I16}}, "__kmpc_atomic_fixed2_max_cpt"},
+        {{AtomicUpdateSMin, {I16, I16}}, "__kmpc_atomic_fixed2_min_cpt"},
         // I32 = I32 op I32
-        {{Instruction::Add, {I32, I32}}, "__kmpc_atomic_fixed4_add_cpt"},
-        {{Instruction::Sub, {I32, I32}}, "__kmpc_atomic_fixed4_sub_cpt"},
-        {{Instruction::Mul, {I32, I32}}, "__kmpc_atomic_fixed4_mul_cpt"},
-        {{Instruction::SDiv, {I32, I32}}, "__kmpc_atomic_fixed4_div_cpt"},
-        {{Instruction::UDiv, {I32, I32}}, "__kmpc_atomic_fixed4u_div_cpt"},
-        {{Instruction::And, {I32, I32}}, "__kmpc_atomic_fixed4_andb_cpt"},
-        {{Instruction::Or, {I32, I32}}, "__kmpc_atomic_fixed4_orb_cpt"},
-        {{Instruction::Xor, {I32, I32}}, "__kmpc_atomic_fixed4_xor_cpt"},
-        {{Instruction::Shl, {I32, I32}}, "__kmpc_atomic_fixed4_shl_cpt"},
-        {{Instruction::AShr, {I32, I32}}, "__kmpc_atomic_fixed4_shr_cpt"},
-        {{Instruction::LShr, {I32, I32}}, "__kmpc_atomic_fixed4u_shr_cpt"},
+        {{AtomicUpdateAdd, {I32, I32}}, "__kmpc_atomic_fixed4_add_cpt"},
+        {{AtomicUpdateSub, {I32, I32}}, "__kmpc_atomic_fixed4_sub_cpt"},
+        {{AtomicUpdateMul, {I32, I32}}, "__kmpc_atomic_fixed4_mul_cpt"},
+        {{AtomicUpdateSDiv, {I32, I32}}, "__kmpc_atomic_fixed4_div_cpt"},
+        {{AtomicUpdateUDiv, {I32, I32}}, "__kmpc_atomic_fixed4u_div_cpt"},
+        {{AtomicUpdateAnd, {I32, I32}}, "__kmpc_atomic_fixed4_andb_cpt"},
+        {{AtomicUpdateOr, {I32, I32}}, "__kmpc_atomic_fixed4_orb_cpt"},
+        {{AtomicUpdateXor, {I32, I32}}, "__kmpc_atomic_fixed4_xor_cpt"},
+        {{AtomicUpdateShl, {I32, I32}}, "__kmpc_atomic_fixed4_shl_cpt"},
+        {{AtomicUpdateAShr, {I32, I32}}, "__kmpc_atomic_fixed4_shr_cpt"},
+        {{AtomicUpdateLShr, {I32, I32}}, "__kmpc_atomic_fixed4u_shr_cpt"},
+        {{AtomicUpdateSMax, {I32, I32}}, "__kmpc_atomic_fixed4_max_cpt"},
+        {{AtomicUpdateSMin, {I32, I32}}, "__kmpc_atomic_fixed4_min_cpt"},
         // I64 = I64 op I64
-        {{Instruction::Add, {I64, I64}}, "__kmpc_atomic_fixed8_add_cpt"},
-        {{Instruction::Sub, {I64, I64}}, "__kmpc_atomic_fixed8_sub_cpt"},
-        {{Instruction::Mul, {I64, I64}}, "__kmpc_atomic_fixed8_mul_cpt"},
-        {{Instruction::SDiv, {I64, I64}}, "__kmpc_atomic_fixed8_div_cpt"},
-        {{Instruction::UDiv, {I64, I64}}, "__kmpc_atomic_fixed8u_div_cpt"},
-        {{Instruction::And, {I64, I64}}, "__kmpc_atomic_fixed8_andb_cpt"},
-        {{Instruction::Or, {I64, I64}}, "__kmpc_atomic_fixed8_orb_cpt"},
-        {{Instruction::Xor, {I64, I64}}, "__kmpc_atomic_fixed8_xor_cpt"},
-        {{Instruction::Shl, {I64, I64}}, "__kmpc_atomic_fixed8_shl_cpt"},
-        {{Instruction::AShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr_cpt"},
-        {{Instruction::LShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr_cpt"},
+        {{AtomicUpdateAdd, {I64, I64}}, "__kmpc_atomic_fixed8_add_cpt"},
+        {{AtomicUpdateSub, {I64, I64}}, "__kmpc_atomic_fixed8_sub_cpt"},
+        {{AtomicUpdateMul, {I64, I64}}, "__kmpc_atomic_fixed8_mul_cpt"},
+        {{AtomicUpdateSDiv, {I64, I64}}, "__kmpc_atomic_fixed8_div_cpt"},
+        {{AtomicUpdateUDiv, {I64, I64}}, "__kmpc_atomic_fixed8u_div_cpt"},
+        {{AtomicUpdateAnd, {I64, I64}}, "__kmpc_atomic_fixed8_andb_cpt"},
+        {{AtomicUpdateOr, {I64, I64}}, "__kmpc_atomic_fixed8_orb_cpt"},
+        {{AtomicUpdateXor, {I64, I64}}, "__kmpc_atomic_fixed8_xor_cpt"},
+        {{AtomicUpdateShl, {I64, I64}}, "__kmpc_atomic_fixed8_shl_cpt"},
+        {{AtomicUpdateAShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr_cpt"},
+        {{AtomicUpdateLShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr_cpt"},
+        {{AtomicUpdateSMax, {I64, I64}}, "__kmpc_atomic_fixed8_max_cpt"},
+        {{AtomicUpdateSMin, {I64, I64}}, "__kmpc_atomic_fixed8_min_cpt"},
         // I8 = I8 op F128
-        {{Instruction::FAdd, {I8, F128}}, "__kmpc_atomic_fixed1_add_cpt_fp"},
-        {{Instruction::FSub, {I8, F128}}, "__kmpc_atomic_fixed1_sub_cpt_fp"},
-        {{Instruction::FMul, {I8, F128}}, "__kmpc_atomic_fixed1_mul_cpt_fp"},
-        {{Instruction::Mul,  {I8, F128}}, "__kmpc_atomic_fixed1u_mul_cpt_fp"},
-        {{Instruction::FDiv, {I8, F128}}, "__kmpc_atomic_fixed1_div_cpt_fp"},
-        {{Instruction::UDiv, {I8, F128}}, "__kmpc_atomic_fixed1u_div_cpt_fp"},
+        {{AtomicUpdateFAdd, {I8, F128}}, "__kmpc_atomic_fixed1_add_cpt_fp"},
+        {{AtomicUpdateFSub, {I8, F128}}, "__kmpc_atomic_fixed1_sub_cpt_fp"},
+        {{AtomicUpdateFMul, {I8, F128}}, "__kmpc_atomic_fixed1_mul_cpt_fp"},
+        {{AtomicUpdateMul,  {I8, F128}}, "__kmpc_atomic_fixed1u_mul_cpt_fp"},
+        {{AtomicUpdateFDiv, {I8, F128}}, "__kmpc_atomic_fixed1_div_cpt_fp"},
+        {{AtomicUpdateUDiv, {I8, F128}}, "__kmpc_atomic_fixed1u_div_cpt_fp"},
         // I16 = I16 op F128
-        {{Instruction::FAdd, {I16, F128}}, "__kmpc_atomic_fixed2_add_cpt_fp"},
-        {{Instruction::FSub, {I16, F128}}, "__kmpc_atomic_fixed2_sub_cpt_fp"},
-        {{Instruction::FMul, {I16, F128}}, "__kmpc_atomic_fixed2_mul_cpt_fp"},
-        {{Instruction::Mul,  {I16, F128}}, "__kmpc_atomic_fixed2u_mul_cpt_fp"},
-        {{Instruction::FDiv, {I16, F128}}, "__kmpc_atomic_fixed2_div_cpt_fp"},
-        {{Instruction::UDiv, {I16, F128}}, "__kmpc_atomic_fixed2u_div_cpt_fp"},
+        {{AtomicUpdateFAdd, {I16, F128}}, "__kmpc_atomic_fixed2_add_cpt_fp"},
+        {{AtomicUpdateFSub, {I16, F128}}, "__kmpc_atomic_fixed2_sub_cpt_fp"},
+        {{AtomicUpdateFMul, {I16, F128}}, "__kmpc_atomic_fixed2_mul_cpt_fp"},
+        {{AtomicUpdateMul,  {I16, F128}}, "__kmpc_atomic_fixed2u_mul_cpt_fp"},
+        {{AtomicUpdateFDiv, {I16, F128}}, "__kmpc_atomic_fixed2_div_cpt_fp"},
+        {{AtomicUpdateUDiv, {I16, F128}}, "__kmpc_atomic_fixed2u_div_cpt_fp"},
         // I32 = I32 op F128
-        {{Instruction::FAdd, {I32, F128}}, "__kmpc_atomic_fixed4_add_cpt_fp"},
-        {{Instruction::FSub, {I32, F128}}, "__kmpc_atomic_fixed4_sub_cpt_fp"},
-        {{Instruction::FMul, {I32, F128}}, "__kmpc_atomic_fixed4_mul_cpt_fp"},
-        {{Instruction::Mul,  {I32, F128}}, "__kmpc_atomic_fixed4u_mul_cpt_fp"},
-        {{Instruction::FDiv, {I32, F128}}, "__kmpc_atomic_fixed4_div_cpt_fp"},
-        {{Instruction::UDiv, {I32, F128}}, "__kmpc_atomic_fixed4u_div_cpt_fp"},
+        {{AtomicUpdateFAdd, {I32, F128}}, "__kmpc_atomic_fixed4_add_cpt_fp"},
+        {{AtomicUpdateFSub, {I32, F128}}, "__kmpc_atomic_fixed4_sub_cpt_fp"},
+        {{AtomicUpdateFMul, {I32, F128}}, "__kmpc_atomic_fixed4_mul_cpt_fp"},
+        {{AtomicUpdateMul,  {I32, F128}}, "__kmpc_atomic_fixed4u_mul_cpt_fp"},
+        {{AtomicUpdateFDiv, {I32, F128}}, "__kmpc_atomic_fixed4_div_cpt_fp"},
+        {{AtomicUpdateUDiv, {I32, F128}}, "__kmpc_atomic_fixed4u_div_cpt_fp"},
         // I64 = I64 op F128
-        {{Instruction::FAdd, {I64, F128}}, "__kmpc_atomic_fixed8_add_cpt_fp"},
-        {{Instruction::FSub, {I64, F128}}, "__kmpc_atomic_fixed8_sub_cpt_fp"},
-        {{Instruction::FMul, {I64, F128}}, "__kmpc_atomic_fixed8_mul_cpt_fp"},
-        {{Instruction::Mul,  {I64, F128}}, "__kmpc_atomic_fixed8u_mul_cpt_fp"},
-        {{Instruction::FDiv, {I64, F128}}, "__kmpc_atomic_fixed8_div_cpt_fp"},
-        {{Instruction::UDiv, {I64, F128}}, "__kmpc_atomic_fixed8u_div_cpt_fp"},
+        {{AtomicUpdateFAdd, {I64, F128}}, "__kmpc_atomic_fixed8_add_cpt_fp"},
+        {{AtomicUpdateFSub, {I64, F128}}, "__kmpc_atomic_fixed8_sub_cpt_fp"},
+        {{AtomicUpdateFMul, {I64, F128}}, "__kmpc_atomic_fixed8_mul_cpt_fp"},
+        {{AtomicUpdateMul,  {I64, F128}}, "__kmpc_atomic_fixed8u_mul_cpt_fp"},
+        {{AtomicUpdateFDiv, {I64, F128}}, "__kmpc_atomic_fixed8_div_cpt_fp"},
+        {{AtomicUpdateUDiv, {I64, F128}}, "__kmpc_atomic_fixed8u_div_cpt_fp"},
         // F32 = F32 op F32
-        {{Instruction::FAdd, {F32, F32}}, "__kmpc_atomic_float4_add_cpt"},
-        {{Instruction::FSub, {F32, F32}}, "__kmpc_atomic_float4_sub_cpt"},
-        {{Instruction::FMul, {F32, F32}}, "__kmpc_atomic_float4_mul_cpt"},
-        {{Instruction::FDiv, {F32, F32}}, "__kmpc_atomic_float4_div_cpt"},
+        {{AtomicUpdateFAdd, {F32, F32}}, "__kmpc_atomic_float4_add_cpt"},
+        {{AtomicUpdateFSub, {F32, F32}}, "__kmpc_atomic_float4_sub_cpt"},
+        {{AtomicUpdateFMul, {F32, F32}}, "__kmpc_atomic_float4_mul_cpt"},
+        {{AtomicUpdateFDiv, {F32, F32}}, "__kmpc_atomic_float4_div_cpt"},
+        {{AtomicUpdateFMax, {F32, F32}}, "__kmpc_atomic_float4_max_cpt"},
+        {{AtomicUpdateFMin, {F32, F32}}, "__kmpc_atomic_float4_min_cpt"},
         // F64 = F64 op F64
-        {{Instruction::FAdd, {F64, F64}}, "__kmpc_atomic_float8_add_cpt"},
-        {{Instruction::FSub, {F64, F64}}, "__kmpc_atomic_float8_sub_cpt"},
-        {{Instruction::FMul, {F64, F64}}, "__kmpc_atomic_float8_mul_cpt"},
-        {{Instruction::FDiv, {F64, F64}}, "__kmpc_atomic_float8_div_cpt"},
+        {{AtomicUpdateFAdd, {F64, F64}}, "__kmpc_atomic_float8_add_cpt"},
+        {{AtomicUpdateFSub, {F64, F64}}, "__kmpc_atomic_float8_sub_cpt"},
+        {{AtomicUpdateFMul, {F64, F64}}, "__kmpc_atomic_float8_mul_cpt"},
+        {{AtomicUpdateFDiv, {F64, F64}}, "__kmpc_atomic_float8_div_cpt"},
+        {{AtomicUpdateFMax, {F64, F64}}, "__kmpc_atomic_float8_max_cpt"},
+        {{AtomicUpdateFMin, {F64, F64}}, "__kmpc_atomic_float8_min_cpt"},
         // F80 = F80 op F80
-        {{Instruction::FAdd, {F80, F80}}, "__kmpc_atomic_float10_add_cpt"},
-        {{Instruction::FSub, {F80, F80}}, "__kmpc_atomic_float10_sub_cpt"},
-        {{Instruction::FMul, {F80, F80}}, "__kmpc_atomic_float10_mul_cpt"},
-        {{Instruction::FDiv, {F80, F80}}, "__kmpc_atomic_float10_div_cpt"},
+        {{AtomicUpdateFAdd, {F80, F80}}, "__kmpc_atomic_float10_add_cpt"},
+        {{AtomicUpdateFSub, {F80, F80}}, "__kmpc_atomic_float10_sub_cpt"},
+        {{AtomicUpdateFMul, {F80, F80}}, "__kmpc_atomic_float10_mul_cpt"},
+        {{AtomicUpdateFDiv, {F80, F80}}, "__kmpc_atomic_float10_div_cpt"},
         // F128 = F128 op F128
-        {{Instruction::FAdd, {F128, F128}},
+        {{AtomicUpdateFAdd, {F128, F128}},
          "__kmpc_atomic_float16_add_a16_cpt"},
-        {{Instruction::FSub, {F128, F128}},
+        {{AtomicUpdateFSub, {F128, F128}},
          "__kmpc_atomic_float16_sub_a16_cpt"},
-        {{Instruction::FMul, {F128, F128}},
+        {{AtomicUpdateFMul, {F128, F128}},
          "__kmpc_atomic_float16_mul_a16_cpt"},
-        {{Instruction::FDiv, {F128, F128}},
+        {{AtomicUpdateFDiv, {F128, F128}},
          "__kmpc_atomic_float16_div_a16_cpt"}};
 
 const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
     VPOParoptAtomics::OpToCaptureIntrinsicForTgtMap = {
         // I32 = I32 op I32
-        {{Instruction::Add, {I32, I32}}, "__kmpc_atomic_fixed4_add_cpt"},
-        {{Instruction::Sub, {I32, I32}}, "__kmpc_atomic_fixed4_sub_cpt"},
-        {{Instruction::Mul, {I32, I32}}, "__kmpc_atomic_fixed4_mul_cpt"},
-        {{Instruction::SDiv, {I32, I32}}, "__kmpc_atomic_fixed4_div_cpt"},
-        {{Instruction::UDiv, {I32, I32}}, "__kmpc_atomic_fixed4u_div_cpt"},
-        {{Instruction::And, {I32, I32}}, "__kmpc_atomic_fixed4_andb_cpt"},
-        {{Instruction::Or, {I32, I32}}, "__kmpc_atomic_fixed4_orb_cpt"},
-        {{Instruction::Xor, {I32, I32}}, "__kmpc_atomic_fixed4_xor_cpt"},
-        {{Instruction::Shl, {I32, I32}}, "__kmpc_atomic_fixed4_shl_cpt"},
-        {{Instruction::AShr, {I32, I32}}, "__kmpc_atomic_fixed4_shr_cpt"},
-        {{Instruction::LShr, {I32, I32}}, "__kmpc_atomic_fixed4u_shr_cpt"},
+        {{AtomicUpdateAdd, {I32, I32}}, "__kmpc_atomic_fixed4_add_cpt"},
+        {{AtomicUpdateSub, {I32, I32}}, "__kmpc_atomic_fixed4_sub_cpt"},
+        {{AtomicUpdateMul, {I32, I32}}, "__kmpc_atomic_fixed4_mul_cpt"},
+        {{AtomicUpdateSDiv, {I32, I32}}, "__kmpc_atomic_fixed4_div_cpt"},
+        {{AtomicUpdateUDiv, {I32, I32}}, "__kmpc_atomic_fixed4u_div_cpt"},
+        {{AtomicUpdateAnd, {I32, I32}}, "__kmpc_atomic_fixed4_andb_cpt"},
+        {{AtomicUpdateOr, {I32, I32}}, "__kmpc_atomic_fixed4_orb_cpt"},
+        {{AtomicUpdateXor, {I32, I32}}, "__kmpc_atomic_fixed4_xor_cpt"},
+        {{AtomicUpdateShl, {I32, I32}}, "__kmpc_atomic_fixed4_shl_cpt"},
+        {{AtomicUpdateAShr, {I32, I32}}, "__kmpc_atomic_fixed4_shr_cpt"},
+        {{AtomicUpdateLShr, {I32, I32}}, "__kmpc_atomic_fixed4u_shr_cpt"},
+        {{AtomicUpdateSMax, {I32, I32}}, "__kmpc_atomic_fixed4_max_cpt"},
+        {{AtomicUpdateUMax, {I32, I32}}, "__kmpc_atomic_fixed4u_max_cpt"},
+        {{AtomicUpdateSMin, {I32, I32}}, "__kmpc_atomic_fixed4_min_cpt"},
+        {{AtomicUpdateUMin, {I32, I32}}, "__kmpc_atomic_fixed4u_min_cpt"},
         // I64 = I64 op I64
-        {{Instruction::Add, {I64, I64}}, "__kmpc_atomic_fixed8_add_cpt"},
-        {{Instruction::Sub, {I64, I64}}, "__kmpc_atomic_fixed8_sub_cpt"},
-        {{Instruction::Mul, {I64, I64}}, "__kmpc_atomic_fixed8_mul_cpt"},
-        {{Instruction::SDiv, {I64, I64}}, "__kmpc_atomic_fixed8_div_cpt"},
-        {{Instruction::UDiv, {I64, I64}}, "__kmpc_atomic_fixed8u_div_cpt"},
-        {{Instruction::And, {I64, I64}}, "__kmpc_atomic_fixed8_andb_cpt"},
-        {{Instruction::Or, {I64, I64}}, "__kmpc_atomic_fixed8_orb_cpt"},
-        {{Instruction::Xor, {I64, I64}}, "__kmpc_atomic_fixed8_xor_cpt"},
-        {{Instruction::Shl, {I64, I64}}, "__kmpc_atomic_fixed8_shl_cpt"},
-        {{Instruction::AShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr_cpt"},
-        {{Instruction::LShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr_cpt"},
+        {{AtomicUpdateAdd, {I64, I64}}, "__kmpc_atomic_fixed8_add_cpt"},
+        {{AtomicUpdateSub, {I64, I64}}, "__kmpc_atomic_fixed8_sub_cpt"},
+        {{AtomicUpdateMul, {I64, I64}}, "__kmpc_atomic_fixed8_mul_cpt"},
+        {{AtomicUpdateSDiv, {I64, I64}}, "__kmpc_atomic_fixed8_div_cpt"},
+        {{AtomicUpdateUDiv, {I64, I64}}, "__kmpc_atomic_fixed8u_div_cpt"},
+        {{AtomicUpdateAnd, {I64, I64}}, "__kmpc_atomic_fixed8_andb_cpt"},
+        {{AtomicUpdateOr, {I64, I64}}, "__kmpc_atomic_fixed8_orb_cpt"},
+        {{AtomicUpdateXor, {I64, I64}}, "__kmpc_atomic_fixed8_xor_cpt"},
+        {{AtomicUpdateShl, {I64, I64}}, "__kmpc_atomic_fixed8_shl_cpt"},
+        {{AtomicUpdateAShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr_cpt"},
+        {{AtomicUpdateLShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr_cpt"},
+        {{AtomicUpdateSMax, {I64, I64}}, "__kmpc_atomic_fixed8_max_cpt"},
+        {{AtomicUpdateUMax, {I64, I64}}, "__kmpc_atomic_fixed8u_max_cpt"},
+        {{AtomicUpdateSMin, {I64, I64}}, "__kmpc_atomic_fixed8_min_cpt"},
+        {{AtomicUpdateUMin, {I64, I64}}, "__kmpc_atomic_fixed8u_min_cpt"},
         // F32 = F32 op F32
-        {{Instruction::FAdd, {F32, F32}}, "__kmpc_atomic_float4_add_cpt"},
-        {{Instruction::FSub, {F32, F32}}, "__kmpc_atomic_float4_sub_cpt"},
-        {{Instruction::FMul, {F32, F32}}, "__kmpc_atomic_float4_mul_cpt"},
-        {{Instruction::FDiv, {F32, F32}}, "__kmpc_atomic_float4_div_cpt"},
+        {{AtomicUpdateFAdd, {F32, F32}}, "__kmpc_atomic_float4_add_cpt"},
+        {{AtomicUpdateFSub, {F32, F32}}, "__kmpc_atomic_float4_sub_cpt"},
+        {{AtomicUpdateFMul, {F32, F32}}, "__kmpc_atomic_float4_mul_cpt"},
+        {{AtomicUpdateFDiv, {F32, F32}}, "__kmpc_atomic_float4_div_cpt"},
+        {{AtomicUpdateFMax, {F32, F32}}, "__kmpc_atomic_float4_max_cpt"},
+        {{AtomicUpdateFMin, {F32, F32}}, "__kmpc_atomic_float4_min_cpt"},
         // F64 = F64 op F64
-        {{Instruction::FAdd, {F64, F64}}, "__kmpc_atomic_float8_add_cpt"},
-        {{Instruction::FSub, {F64, F64}}, "__kmpc_atomic_float8_sub_cpt"},
-        {{Instruction::FMul, {F64, F64}}, "__kmpc_atomic_float8_mul_cpt"},
-        {{Instruction::FDiv, {F64, F64}}, "__kmpc_atomic_float8_div_cpt"},
+        {{AtomicUpdateFAdd, {F64, F64}}, "__kmpc_atomic_float8_add_cpt"},
+        {{AtomicUpdateFSub, {F64, F64}}, "__kmpc_atomic_float8_sub_cpt"},
+        {{AtomicUpdateFMul, {F64, F64}}, "__kmpc_atomic_float8_mul_cpt"},
+        {{AtomicUpdateFDiv, {F64, F64}}, "__kmpc_atomic_float8_div_cpt"},
+        {{AtomicUpdateFMax, {F64, F64}}, "__kmpc_atomic_float8_max_cpt"},
+        {{AtomicUpdateFMin, {F64, F64}}, "__kmpc_atomic_float8_min_cpt"},
 };
 
 const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
     VPOParoptAtomics::ReversedOpToCaptureIntrinsicMap = {
         // I8 = I8 op I8
-        {{Instruction::Sub, {I8, I8}}, "__kmpc_atomic_fixed1_sub_cpt_rev"},
-        {{Instruction::SDiv, {I8, I8}}, "__kmpc_atomic_fixed1_div_cpt_rev"},
-        {{Instruction::UDiv, {I8, I8}}, "__kmpc_atomic_fixed1u_div_cpt_rev"},
-        {{Instruction::Shl, {I8, I8}}, "__kmpc_atomic_fixed1_shl_cpt_rev"},
-        {{Instruction::AShr, {I8, I8}}, "__kmpc_atomic_fixed1_shr_cpt_rev"},
-        {{Instruction::LShr, {I8, I8}}, "__kmpc_atomic_fixed1u_shr_cpt_rev"},
+        {{AtomicUpdateSub, {I8, I8}}, "__kmpc_atomic_fixed1_sub_cpt_rev"},
+        {{AtomicUpdateSDiv, {I8, I8}}, "__kmpc_atomic_fixed1_div_cpt_rev"},
+        {{AtomicUpdateUDiv, {I8, I8}}, "__kmpc_atomic_fixed1u_div_cpt_rev"},
+        {{AtomicUpdateShl, {I8, I8}}, "__kmpc_atomic_fixed1_shl_cpt_rev"},
+        {{AtomicUpdateAShr, {I8, I8}}, "__kmpc_atomic_fixed1_shr_cpt_rev"},
+        {{AtomicUpdateLShr, {I8, I8}}, "__kmpc_atomic_fixed1u_shr_cpt_rev"},
         // I16 = I16 op I16
-        {{Instruction::Sub, {I16, I16}}, "__kmpc_atomic_fixed2_sub_cpt_rev"},
-        {{Instruction::SDiv, {I16, I16}}, "__kmpc_atomic_fixed2_div_cpt_rev"},
-        {{Instruction::UDiv, {I16, I16}}, "__kmpc_atomic_fixed2u_div_cpt_rev"},
-        {{Instruction::Shl, {I16, I16}}, "__kmpc_atomic_fixed2_shl_cpt_rev"},
-        {{Instruction::AShr, {I16, I16}}, "__kmpc_atomic_fixed2_shr_cpt_rev"},
-        {{Instruction::LShr, {I16, I16}}, "__kmpc_atomic_fixed2u_shr_cpt_rev"},
+        {{AtomicUpdateSub, {I16, I16}}, "__kmpc_atomic_fixed2_sub_cpt_rev"},
+        {{AtomicUpdateSDiv, {I16, I16}}, "__kmpc_atomic_fixed2_div_cpt_rev"},
+        {{AtomicUpdateUDiv, {I16, I16}}, "__kmpc_atomic_fixed2u_div_cpt_rev"},
+        {{AtomicUpdateShl, {I16, I16}}, "__kmpc_atomic_fixed2_shl_cpt_rev"},
+        {{AtomicUpdateAShr, {I16, I16}}, "__kmpc_atomic_fixed2_shr_cpt_rev"},
+        {{AtomicUpdateLShr, {I16, I16}}, "__kmpc_atomic_fixed2u_shr_cpt_rev"},
         // I32 = I32 op I32
-        {{Instruction::Sub, {I32, I32}}, "__kmpc_atomic_fixed4_sub_cpt_rev"},
-        {{Instruction::SDiv, {I32, I32}}, "__kmpc_atomic_fixed4_div_cpt_rev"},
-        {{Instruction::UDiv, {I32, I32}}, "__kmpc_atomic_fixed4u_div_cpt_rev"},
-        {{Instruction::Shl, {I32, I32}}, "__kmpc_atomic_fixed4_shl_cpt_rev"},
-        {{Instruction::AShr, {I32, I32}}, "__kmpc_atomic_fixed4_shr_cpt_rev"},
-        {{Instruction::LShr, {I32, I32}}, "__kmpc_atomic_fixed4u_shr_cpt_rev"},
+        {{AtomicUpdateSub, {I32, I32}}, "__kmpc_atomic_fixed4_sub_cpt_rev"},
+        {{AtomicUpdateSDiv, {I32, I32}}, "__kmpc_atomic_fixed4_div_cpt_rev"},
+        {{AtomicUpdateUDiv, {I32, I32}}, "__kmpc_atomic_fixed4u_div_cpt_rev"},
+        {{AtomicUpdateShl, {I32, I32}}, "__kmpc_atomic_fixed4_shl_cpt_rev"},
+        {{AtomicUpdateAShr, {I32, I32}}, "__kmpc_atomic_fixed4_shr_cpt_rev"},
+        {{AtomicUpdateLShr, {I32, I32}}, "__kmpc_atomic_fixed4u_shr_cpt_rev"},
         // I64 = I64 op I64
-        {{Instruction::Sub, {I64, I64}}, "__kmpc_atomic_fixed8_sub_cpt_rev"},
-        {{Instruction::SDiv, {I64, I64}}, "__kmpc_atomic_fixed8_div_cpt_rev"},
-        {{Instruction::UDiv, {I64, I64}}, "__kmpc_atomic_fixed8u_div_cpt_rev"},
-        {{Instruction::Shl, {I64, I64}}, "__kmpc_atomic_fixed8_shl_cpt_rev"},
-        {{Instruction::AShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr_cpt_rev"},
-        {{Instruction::LShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr_cpt_rev"},
+        {{AtomicUpdateSub, {I64, I64}}, "__kmpc_atomic_fixed8_sub_cpt_rev"},
+        {{AtomicUpdateSDiv, {I64, I64}}, "__kmpc_atomic_fixed8_div_cpt_rev"},
+        {{AtomicUpdateUDiv, {I64, I64}}, "__kmpc_atomic_fixed8u_div_cpt_rev"},
+        {{AtomicUpdateShl, {I64, I64}}, "__kmpc_atomic_fixed8_shl_cpt_rev"},
+        {{AtomicUpdateAShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr_cpt_rev"},
+        {{AtomicUpdateLShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr_cpt_rev"},
         // I8 = F128 op I8
-        {{Instruction::FSub, {I8, F128}}, "__kmpc_atomic_fixed1_sub_cpt_rev_fp"},
-        {{Instruction::FDiv, {I8, F128}}, "__kmpc_atomic_fixed1_div_cpt_rev_fp"},
-        {{Instruction::UDiv, {I8, F128}}, "__kmpc_atomic_fixed1u_div_cpt_rev_fp"},
+        {{AtomicUpdateFSub, {I8, F128}}, "__kmpc_atomic_fixed1_sub_cpt_rev_fp"},
+        {{AtomicUpdateFDiv, {I8, F128}}, "__kmpc_atomic_fixed1_div_cpt_rev_fp"},
+        {{AtomicUpdateUDiv, {I8, F128}},
+         "__kmpc_atomic_fixed1u_div_cpt_rev_fp"},
         // I16 = F128 op I16
-        {{Instruction::FSub, {I16, F128}}, "__kmpc_atomic_fixed2_sub_cpt_rev_fp"},
-        {{Instruction::FDiv, {I16, F128}}, "__kmpc_atomic_fixed2_div_cpt_rev_fp"},
-        {{Instruction::UDiv, {I16, F128}}, "__kmpc_atomic_fixed2u_div_cpt_rev_fp"},
+        {{AtomicUpdateFSub, {I16, F128}},
+         "__kmpc_atomic_fixed2_sub_cpt_rev_fp"},
+        {{AtomicUpdateFDiv, {I16, F128}},
+         "__kmpc_atomic_fixed2_div_cpt_rev_fp"},
+        {{AtomicUpdateUDiv, {I16, F128}},
+         "__kmpc_atomic_fixed2u_div_cpt_rev_fp"},
         // I32 = F128 op I32
-        {{Instruction::FSub, {I32, F128}}, "__kmpc_atomic_fixed4_sub_cpt_rev_fp"},
-        {{Instruction::FDiv, {I32, F128}}, "__kmpc_atomic_fixed4_div_cpt_rev_fp"},
-        {{Instruction::UDiv, {I32, F128}}, "__kmpc_atomic_fixed4u_div_cpt_rev_fp"},
+        {{AtomicUpdateFSub, {I32, F128}},
+         "__kmpc_atomic_fixed4_sub_cpt_rev_fp"},
+        {{AtomicUpdateFDiv, {I32, F128}},
+         "__kmpc_atomic_fixed4_div_cpt_rev_fp"},
+        {{AtomicUpdateUDiv, {I32, F128}},
+         "__kmpc_atomic_fixed4u_div_cpt_rev_fp"},
         // I64 = F128 op I64
-        {{Instruction::FSub, {I64, F128}}, "__kmpc_atomic_fixed8_sub_cpt_rev_fp"},
-        {{Instruction::FDiv, {I64, F128}}, "__kmpc_atomic_fixed8_div_cpt_rev_fp"},
-        {{Instruction::UDiv, {I64, F128}}, "__kmpc_atomic_fixed8u_div_cpt_rev_fp"},
+        {{AtomicUpdateFSub, {I64, F128}},
+         "__kmpc_atomic_fixed8_sub_cpt_rev_fp"},
+        {{AtomicUpdateFDiv, {I64, F128}},
+         "__kmpc_atomic_fixed8_div_cpt_rev_fp"},
+        {{AtomicUpdateUDiv, {I64, F128}},
+         "__kmpc_atomic_fixed8u_div_cpt_rev_fp"},
         // F32 = F32 op F32
-        {{Instruction::FSub, {F32, F32}}, "__kmpc_atomic_float4_sub_cpt_rev"},
-        {{Instruction::FDiv, {F32, F32}}, "__kmpc_atomic_float4_div_cpt_rev"},
+        {{AtomicUpdateFSub, {F32, F32}}, "__kmpc_atomic_float4_sub_cpt_rev"},
+        {{AtomicUpdateFDiv, {F32, F32}}, "__kmpc_atomic_float4_div_cpt_rev"},
         // F64 = F64 op F64
-        {{Instruction::FSub, {F64, F64}}, "__kmpc_atomic_float8_sub_cpt_rev"},
-        {{Instruction::FDiv, {F64, F64}}, "__kmpc_atomic_float8_div_cpt_rev"},
+        {{AtomicUpdateFSub, {F64, F64}}, "__kmpc_atomic_float8_sub_cpt_rev"},
+        {{AtomicUpdateFDiv, {F64, F64}}, "__kmpc_atomic_float8_div_cpt_rev"},
         // F80 = F80 op F80
-        {{Instruction::FSub, {F80, F80}}, "__kmpc_atomic_float10_sub_cpt_rev"},
-        {{Instruction::FDiv, {F80, F80}}, "__kmpc_atomic_float10_div_cpt_rev"},
+        {{AtomicUpdateFSub, {F80, F80}}, "__kmpc_atomic_float10_sub_cpt_rev"},
+        {{AtomicUpdateFDiv, {F80, F80}}, "__kmpc_atomic_float10_div_cpt_rev"},
         // F128 = F128 op F128
-        {{Instruction::FSub, {F128, F128}},
+        {{AtomicUpdateFSub, {F128, F128}},
          "__kmpc_atomic_float16_sub_a16_cpt_rev"},
-        {{Instruction::FDiv, {F128, F128}},
+        {{AtomicUpdateFDiv, {F128, F128}},
          "__kmpc_atomic_float16_div_a16_cpt_rev"}};
 #endif // INTEL_COLLAB

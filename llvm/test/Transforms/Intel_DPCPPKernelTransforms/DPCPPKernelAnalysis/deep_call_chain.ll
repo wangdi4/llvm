@@ -7,7 +7,7 @@
 ;; CFG for call chain with TID
 
 define void @func_with_lid_level_1(i32 addrspace(1)* %out) {
-  %id = call i32 @__builtin_get_local_id(i32 1) 
+  %id = call i32 @_Z12get_local_idj(i32 1) 
   %outptr = getelementptr inbounds i32, i32 addrspace(1)* %out, i32 %id
   store i32 0, i32 addrspace(1)* %outptr
   ret void
@@ -70,6 +70,6 @@ define void @kernel_call_func_without_tid(i32 addrspace(1)* %out) #0 {
   ret void
 }
 
-declare i32 @__builtin_get_local_id(i32)
+declare i32 @_Z12get_local_idj(i32)
 
 attributes #0 = { "sycl_kernel" }

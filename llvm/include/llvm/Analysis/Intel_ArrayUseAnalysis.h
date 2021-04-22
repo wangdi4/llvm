@@ -114,7 +114,9 @@ public:
 /// various points in the program.
 class ArrayUse {
   typedef ValueMap<const Value *, std::unique_ptr<ArrayUseInfo>> ArrayMapTy;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   Function &F;
+#endif
   LoopInfo &LI;
   ScalarEvolution &SE;
   std::unique_ptr<ArrayMapTy> ArrayUseMap;

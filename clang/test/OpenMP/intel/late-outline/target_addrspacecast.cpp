@@ -31,7 +31,7 @@ void map_with_overlap_elems() {
 //CHECK:[[SASC:%s.ascast]] = addrspacecast %struct.foo* %s to %struct.foo addrspace(4)*
 //CHECK: [[L:%[0-9]+]] = bitcast %struct.foo addrspace(4)* %s.ascast to i8 addrspace(4)*
 //CHECK: [[L1:%[0-9]+]] = getelementptr i8, i8 addrspace(4)* [[L]], i64 55
-//CHECK: [[L27:%[0-9]+]] = getelementptr i8, i8 addrspace(4)* [[L1]], i32 1
+//CHECK: [[L27:%[0-9]+]] = getelementptr %struct.foo, %struct.foo addrspace(4)* %s.ascast, i32 1
   #pragma omp target map(to:s, s.ptr1 [0:1], s.ptrBase1 [0:1])
   {
    s.val++; s.ptr1[0]++; s.ptrBase1[0] = 10001;
@@ -46,5 +46,19 @@ void test_delete() {
 #pragma omp target map(to: x[:N])
   x[i]=1;
 }
+
+typedef struct { int a; double *b; } C;
+#pragma omp declare mapper(id: C s) map(s.a)
+
+void foo() {
+  C s;
+  s.a = 10;
+  double x[2]; x[0] = 20;
+  s.b = &x[0];
+  #pragma omp target map(mapper(id), to:s)
+  s.a++;
+}
+//CHECK: declare void @__tgt_push_mapper_component(i8 addrspace(4)*, i8 addrspace(4)*, i8 addrspace(4)*, i64, i64, i8 addrspace(4)*)
+//CHECK: declare i64 @__tgt_mapper_num_components(i8 addrspace(4)*) #1
 
 // end INTEL_COLLAB

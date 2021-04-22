@@ -39,12 +39,11 @@ const char *SYCL::Linker::constructLLVMSpirvCommand(
     CmdArgs.push_back("-o");
     CmdArgs.push_back(OutputFileName);
   } else {
-    CmdArgs.push_back("-spirv-max-version=1.1");
+    CmdArgs.push_back("-spirv-max-version=1.3");
     CmdArgs.push_back("-spirv-ext=+all");
     CmdArgs.push_back("-spirv-debug-info-version=legacy");
     CmdArgs.push_back("-spirv-allow-extra-diexpressions");
-    if (C.getArgs().hasArg(options::OPT_fsycl_esimd))
-      CmdArgs.push_back("-spirv-allow-unknown-intrinsics");
+    CmdArgs.push_back("-spirv-allow-unknown-intrinsics=llvm.genx.");
     CmdArgs.push_back("-o");
     CmdArgs.push_back(Output.getFilename());
   }
@@ -175,12 +174,6 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
   } else
     for (const auto &II : InputFiles)
       Objs.push_back(II.getFilename());
-
-#if INTEL_CUSTOMIZATION
-  if (C.getDriver().IsIntelMode() && JA.isDeviceOffloading(Action::OFK_OpenMP))
-    Objs.push_back(Args.MakeArgString(C.getDriver().Dir +
-                                         "/../lib/libomptarget-opencl.bc"));
-#endif // INTEL_CUSTOMIZATION
 
   // Get llvm-link path.
   SmallString<128> ExecPath(C.getDriver().Dir);
@@ -318,6 +311,7 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
 
   InputInfoList ForeachInputs;
   InputInfoList FPGADepFiles;
+  StringRef CreatedReportName;
   ArgStringList CmdArgs{"-o", Output.getFilename()};
   for (const auto &II : Inputs) {
     std::string Filename(II.getFilename());
@@ -331,6 +325,23 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
       FPGADepFiles.push_back(II);
     else
       CmdArgs.push_back(C.getArgs().MakeArgString(Filename));
+    // Check for any AOCR input, if found use that as the project report name
+    StringRef Ext(llvm::sys::path::extension(Filename));
+    if (Ext.empty())
+      continue;
+    if (getToolChain().LookupTypeForExtension(Ext.drop_front()) ==
+        types::TY_FPGA_AOCR) {
+      // Keep the base of the .aocr file name.  Input file is a temporary,
+      // so we are stripping off the additional naming information for a
+      // cleaner name.  The suffix being stripped from the name is the
+      // added temporary string and the extension.
+      StringRef SuffixFormat("-XXXXXX.aocr");
+      SmallString<128> NameBase(
+          Filename.substr(0, Filename.length() - SuffixFormat.size()));
+      NameBase.append(".prj");
+      CreatedReportName =
+          Args.MakeArgString(llvm::sys::path::filename(NameBase));
+    }
   }
   CmdArgs.push_back("-sycl");
 
@@ -341,7 +352,6 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
       ForeachExt = "aocr";
     }
 
-  StringRef createdReportName;
   for (auto *A : Args) {
     // Any input file is assumed to have a dependency file associated and
     // the report folder can also be named based on the first input.
@@ -357,20 +367,20 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
     if (types::isSrcFile(Ty) || Ty == types::TY_Object) {
       // The project report is created in CWD, so strip off any directory
       // information if provided with the input file.
-      ArgName = llvm::sys::path::filename(ArgName);
+      StringRef TrimmedArgName = llvm::sys::path::filename(ArgName);
       if (types::isSrcFile(Ty)) {
         SmallString<128> DepName(
-            C.getDriver().getFPGATempDepFile(std::string(ArgName)));
+            C.getDriver().getFPGATempDepFile(std::string(TrimmedArgName)));
         if (!DepName.empty())
           FPGADepFiles.push_back(InputInfo(types::TY_Dependencies,
                                            Args.MakeArgString(DepName),
                                            Args.MakeArgString(DepName)));
       }
-      if (createdReportName.empty()) {
+      if (CreatedReportName.empty()) {
         // Project report should be saved into CWD, so strip off any
         // directory information if provided with the input file.
         llvm::sys::path::replace_extension(ArgName, "prj");
-        createdReportName = Args.MakeArgString(ArgName);
+        CreatedReportName = Args.MakeArgString(ArgName);
       }
     }
   }
@@ -399,8 +409,8 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
   } else {
     // Output directory is based off of the first object name as captured
     // above.
-    if (!createdReportName.empty())
-      ReportOptArg += createdReportName;
+    if (!CreatedReportName.empty())
+      ReportOptArg += CreatedReportName;
   }
   if (!ReportOptArg.empty())
     CmdArgs.push_back(C.getArgs().MakeArgString(
@@ -521,8 +531,17 @@ SYCLToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
 
   if (!DAL) {
     DAL = new DerivedArgList(Args.getBaseArgs());
-    for (Arg *A : Args)
-      DAL->append(A);
+    for (Arg *A : Args) {
+      // Filter out any options we do not want to pass along to the device
+      // compilation.
+      switch ((options::ID)A->getOption().getID()) {
+      default:
+        DAL->append(A);
+        break;
+      case options::OPT_fcoverage_mapping:
+        break;
+      }
+    }
   }
 
   const OptTable &Opts = getDriver().getOpts();
@@ -724,10 +743,14 @@ SYCLToolChain::GetCXXStdlibType(const ArgList &Args) const {
 void SYCLToolChain::AddSYCLIncludeArgs(const clang::driver::Driver &Driver,
                                        const ArgList &DriverArgs,
                                        ArgStringList &CC1Args) {
+  // Add ../include/sycl and ../include (in that order)
   SmallString<128> P(Driver.getInstalledDir());
   llvm::sys::path::append(P, "..");
   llvm::sys::path::append(P, "include");
-  llvm::sys::path::append(P, "sycl");
+  SmallString<128> SYCLP(P);
+  llvm::sys::path::append(SYCLP, "sycl");
+  CC1Args.push_back("-internal-isystem");
+  CC1Args.push_back(DriverArgs.MakeArgString(SYCLP));
   CC1Args.push_back("-internal-isystem");
   CC1Args.push_back(DriverArgs.MakeArgString(P));
 }

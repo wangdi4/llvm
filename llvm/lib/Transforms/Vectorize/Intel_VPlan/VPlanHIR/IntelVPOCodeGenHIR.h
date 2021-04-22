@@ -53,7 +53,7 @@ class VPOCodeGenHIR {
 public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                 HIRSafeReductionAnalysis *SRA, VPlanVLSAnalysis *VLSA,
-                const VPlan *Plan, Function &Fn, HLLoop *Loop,
+                const VPlanVector *Plan, Function &Fn, HLLoop *Loop,
                 LoopOptReportBuilder &LORB,
                 const VPLoopEntityList *VPLoopEntities,
                 const HIRVectorizationLegality *HIRLegality,
@@ -82,10 +82,6 @@ public:
     VPValWideRefMap.clear();
     SCEVWideRefMap.clear();
     VLSGroupLoadMap.clear();
-
-    for (auto StMap : VLSGroupStoreMap)
-      delete StMap.second;
-
     VLSGroupStoreMap.clear();
   }
 
@@ -169,8 +165,7 @@ public:
   // corresponding to the lowest memory address access in the group.
   void widenNode(const VPInstruction *VPInst, RegDDRef *Mask = nullptr,
                  const OVLSGroup *Group = nullptr, int64_t InterleaveFactor = 0,
-                 int64_t InterleaveIndex = 0,
-                 const HLInst *GrpStartInst = nullptr);
+                 int64_t InterleaveIndex = 0);
 
   /// Adjust arguments passed to SVML functions to handle masks
   void addMaskToSVMLCall(Function *OrigF, AttributeList OrigAttrs,
@@ -199,12 +194,6 @@ public:
 
   // Widen an interleaved memory access - operands correspond to operands of
   // WidenNode.
-  void widenInterleavedAccess(const HLInst *INode, RegDDRef *Mask,
-                              const OVLSGroup *Group, int64_t InterleaveFactor,
-                              int64_t InterleaveIndex,
-                              const HLInst *GrpStartInst,
-                              const VPInstruction *VPInst);
-
   void widenInterleavedAccess(const VPLoadStoreInst *VPLdSt, RegDDRef *Mask,
                               const OVLSGroup *Group, int64_t InterleaveFactor,
                               int64_t InterleaveIndex);
@@ -223,8 +212,32 @@ public:
   // however, if the last vector has fewer elements, it will be padded with
   // undefs. This function mimics the interface in VectorUtils.cpp modified to
   // work with HIR. Vector values are concatenated and masked using Mask.
-  RegDDRef *concatenateVectors(RegDDRef **VecsArray, int64_t NumVecs,
-                               RegDDRef *Mask);
+  RegDDRef *concatenateVectors(ArrayRef<RegDDRef *> VecsArray, RegDDRef *Mask);
+
+  /// Helper method to create a shuffle using \p Input and undef vectors based
+  /// on given \p Mask vector. Shuffle's result is writen to \p WLvalRef if
+  /// non-null.
+  HLInst *createShuffleWithUndef(RegDDRef *Input, ArrayRef<Constant *> Mask,
+                                 const StringRef &Name,
+                                 RegDDRef *WLvalRef = nullptr);
+
+  /// Extend the length of incoming vector \p Input to \p TargetLength using
+  /// undefs. This function mimics the equivalent LLVM-IR version in
+  /// VectorUtils.cpp. Example -
+  /// {0, 1, 2, 3} -> TargetLen = 8 -> { 0, 1, 2, 3, undef, undef, undef, undef}
+  HLInst *extendVector(RegDDRef *Input, unsigned TargetLength);
+
+  /// Helper method to replicate contents of \p Input vector by \p
+  /// ReplicationFactor number of times. This function mimics the equivalent
+  /// LLVM-IR version in VectorUtils.cpp. Example -
+  /// {v0, v1, v2, v3} -> RF = 2 -> { v0, v1, v2, v3, v0, v1, v2, v3 }
+  HLInst *replicateVector(RegDDRef *Input, unsigned ReplicationFactor);
+
+  /// Helper method to replicate each element of \p Input vector by \p
+  /// ReplicationFactor number of times. This function mimics the equivalent
+  /// LLVM-IR version in VectorUtils.cpp. Example -
+  /// {v0, v1, v2, v3} -> RF = 2 -> { v0, v0, v1, v1, v2, v2, v3, v3 }
+  HLInst *replicateVectorElts(RegDDRef *Input, unsigned ReplicationFactor);
 
   // Given the LvalRef of a load instruction belonging to an interleaved group,
   // and the result of the corresponding wide interleaved load WLoadRes,
@@ -252,7 +265,7 @@ public:
   //     %interleaved.vec = shuffle %R_G.vec, undef,
   //                                 <0, 4, 1, 5, 2, 6, 3, 7>
   //     store <8 x i32> %interleaved.vec, Pic[2*i]
-  HLInst *createInterleavedStore(RegDDRef **StoreVals, RegDDRef *WStorePtrRef,
+  HLInst *createInterleavedStore(ArrayRef<RegDDRef *> StoreVals, RegDDRef *WStorePtrRef,
                                  int64_t InterleaveFactor, RegDDRef *Mask);
 
   HLInst *createReverseVector(RegDDRef *ValRef);
@@ -359,6 +372,13 @@ public:
     addInst(Inst, nullptr, IsThenChild);
   }
 
+  // Generate and return an HLInst to initialize the given reference with undef
+  // value. The generated HLInst is used to avoid unnecessary false dependences.
+  HLInst *generateInitWithUndef(const RegDDRef *Ref) {
+    RegDDRef *UndefRef = DDRefUtilities.createUndefDDRef(Ref->getDestType());
+    return HLNodeUtilities.createCopyInst(UndefRef, "undef.init", Ref->clone());
+  }
+
   // Add the given instruction at the end of the main loop and mask
   // it with the provided mask value if non-null. If the masked instruction
   // writes into a loop private temp ref, then initialize the temp with undef
@@ -375,10 +395,7 @@ public:
       if (LvalRef && LvalRef->isTerminalRef() &&
           !MainLoop->isLiveIn(LvalRef->getSymbase()) &&
           InitializedPrivateTempSymbases.insert(LvalRef->getSymbase()).second) {
-        RegDDRef *Init =
-            DDRefUtilities.createUndefDDRef(LvalRef->getDestType());
-        auto InitInst =
-            HLNodeUtilities.createCopyInst(Init, "priv.init", LvalRef->clone());
+        auto InitInst = generateInitWithUndef(LvalRef);
         // We handle only innermost loop vectorization today, so initialize
         // temp in MainLoop header.
         HLNodeUtils::insertAsFirstChild(MainLoop, InitInst);
@@ -443,7 +460,8 @@ public:
   // Return true if the given VPPtr has a stride of 1 or -1. IsNegOneStride is
   // set to true if stride is -1 and false otherwise.
   bool isUnitStridePtr(const VPValue *VPPtr, bool &IsNegOneStride) const {
-    return Plan->getVPlanDA()->isUnitStridePtr(VPPtr, IsNegOneStride);
+    return cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA())
+        ->isUnitStridePtr(VPPtr, IsNegOneStride);
   }
 
   // Given a pointer ref that is a selfblob, create and return memory reference
@@ -451,6 +469,12 @@ public:
   // destination type of canon expr corresponding to Index appropriately.
   RegDDRef *createMemrefFromBlob(RegDDRef *PtrRef, int Index,
                                  unsigned NumElements);
+
+  // Returns the widened address-of DDRef for a pointer. The base pointer is
+  // replicated and flattened if we are dealing with re-vectorization scenarios.
+  // In the generated code, the returned DDRef is itself used as operand for
+  // Scatter/Gather memrefs.
+  RegDDRef *getWidenedAddressForScatterGather(const VPValue *VPPtr);
 
   // Given a load/store instruction, setup and return the memory ref to use in
   // generating the load/store HLInst. The given load/store instruction is also
@@ -464,6 +488,11 @@ public:
   // during serialization?
   RegDDRef *getMemoryRef(const VPLoadStoreInst *VPLdSt,
                          bool Lane0Value = false);
+
+  /// Given VPVLSLoad/VPVLSStore setup the memory ref to be used as wide memory
+  /// operation.
+  template <class VLSOpTy>
+  RegDDRef *getVLSMemoryRef(const VLSOpTy *LoadStore);
 
   bool isSearchLoop() const {
     return VPlanIdioms::isAnySearchLoop(SearchLoopType);
@@ -547,7 +576,7 @@ private:
   HIRSafeReductionAnalysis *SRA;
 
   // VPlan for which vector code is being generated.
-  const VPlan *Plan;
+  const VPlanVector *Plan;
 
   // VPLoop being vectorized - assumes VPlan contains one loop.
   const VPLoop *VLoop;
@@ -614,7 +643,7 @@ private:
 
   // Map of store OVLSGroup and the vector of values(RegDDRefs) being stored
   // into memrefs in this group.
-  SmallDenseMap<const OVLSGroup *, RegDDRef **> VLSGroupStoreMap;
+  SmallDenseMap<const OVLSGroup *, SmallVector<RegDDRef *, 2>> VLSGroupStoreMap;
 
   // The insertion points for reduction initializer and reduction last value
   // compute instructions.
@@ -659,8 +688,9 @@ private:
   // instruction(s).
   SmallPtrSet<const VPValue *, 8> MainLoopIVInsts;
   // Map of VPlan's private memory objects and their corresponding HIR BlobDDRef
-  // created to represent within vector loop.
-  DenseMap<const VPAllocatePrivate *, BlobDDRef *> PrivateMemBlobRefs;
+  // and unique symbase created to represent accesses within vector loop.
+  DenseMap<const VPAllocatePrivate *, std::pair<BlobDDRef *, unsigned>>
+      PrivateMemBlobRefs;
 
   // Set of masked private temp symbases that have been initialized to undef in
   // vector loop header.
@@ -737,7 +767,7 @@ private:
     case Instruction::GetElementPtr:
     case VPInstruction::Subscript:
     case Instruction::SExt:
-    case Instruction::Trunc:;
+    case Instruction::Trunc:
     case Instruction::ZExt:
       return true;
     default:
@@ -772,29 +802,25 @@ private:
   // using VF as the vector length. This interface is used by the public
   // interface when a VPInstruction has a valid underlying HLInst. This
   // function also adds the mapping between VPInst and the widened value.
-  void widenNodeImpl(const HLInst *Inst, RegDDRef *Mask, const OVLSGroup *Group,
-                     int64_t InterleaveFactor, int64_t InterleaveIndex,
-                     const HLInst *GrpStartInst, const VPInstruction *VPInst);
+  void widenNodeImpl(const HLInst *Inst, RegDDRef *Mask,
+                     const VPInstruction *VPInst);
 
   // Helper utility to get result type corresponding to \p RefTy based on \p
   // Widen.
   Type *getResultRefTy(Type *RefTy, unsigned VF, bool Widen) {
-    return Widen ? FixedVectorType::get(RefTy, VF) : RefTy;
+    return Widen ? getWidenedType(RefTy, VF) : RefTy;
   }
 
-  // Helper utility to make \p Ref consistent and map it to \p VPInst based on
-  // \p Widen.
+  // Helper utility to make a DDRef \p Ref  which is not attached to a HLDDNode
+  // consistent and map the same to \p VPInst based on \p Widen. If the
+  // instruction for which the Ref was created is also live-out, then we emit an
+  // explicit copy operation at the current insertion point in HLLoop to prevent
+  // invalid folding during liveout finalization. Note that this utility is
+  // expected to be used whenever VPInst is lowered to a standalone DDRef that
+  // will be used to fold operations.
   void makeConsistentAndAddToMap(RegDDRef *Ref, const VPInstruction *VPInst,
                                  SmallVectorImpl<const RegDDRef *> &AuxRefs,
-                                 bool Widen, unsigned ScalarLaneID) {
-    // Use AuxRefs if it is not empty to make Ref consistent
-    if (!AuxRefs.empty())
-      Ref->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
-    if (Widen)
-      addVPValueWideRefMapping(VPInst, Ref);
-    else
-      addVPValueScalRefMapping(VPInst, Ref, ScalarLaneID);
-  }
+                                 bool Widen, unsigned ScalarLaneID);
 
   // Implementation of generating needed HIR constructs for the given
   // VPInstruction. We generate new RegDDRefs or HLInsts that correspond to
@@ -803,14 +829,14 @@ private:
   // constructs for lane given in ScalarLaneID.
   void generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                    const OVLSGroup *Group, int64_t InterleaveFactor,
-                   int64_t InterleaveIndex, const HLInst *GrpStartInst,
-                   bool Widen, unsigned ScalarLaneID = -1);
+                   int64_t InterleaveIndex, bool Widen,
+                   unsigned ScalarLaneID = -1);
 
   // Wrapper used to call generateHIR appropriately based on nature of given
   // VPInstruction.
   void widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
                      const OVLSGroup *Group, int64_t InterleaveFactor,
-                     int64_t InterleaveIndex, const HLInst *GrpStartInst);
+                     int64_t InterleaveIndex);
 
   // Implementation of blend widening.
   void widenBlendImpl(const VPBlendInst *Blend, RegDDRef *Mask);
@@ -849,6 +875,10 @@ private:
                                RegDDRef *Mask, bool Widen,
                                unsigned ScalarLaneID);
 
+  // Get a vector of pointers corresponding to the private variable for each
+  // vector lane.
+  RegDDRef *createVectorPrivatePtrs(const VPAllocatePrivate *VPPvt);
+
   // Implementation of widening of VPLoopEntity specific instructions. Some
   // notes on opcodes supported so far -
   // 1. reduction-init  : We generate a broadcast/splat of reduction
@@ -879,10 +909,19 @@ private:
 
   // The following code is generated supposing we have
   //    reduction-final (pred) reduce_val, parent_final, parent_exit
-  // %bcst = broadcast parent_final
-  // %cmp_v = cmp eq %bcst, parent_exit
-  // %ndx_fixup = select %cmp_v  %reduce_val, (is_min(pred) ? MAX_INT:MIN_INT)
-  // %result = (is_min(pred) ? reduce_min: reduce_max)(%ndx_fixup)
+  // if (IsLinearIndex) {
+  //   // here parent is main component of min/max + index idiom
+  //   %bcst = broadcast parent_final
+  //   %cmp_v = cmp eq %bcst, parent_exit
+  //   %ndx_fixup = select %cmp_v  %reduce_val, (is_min(pred) ? MAX_INT:MIN_INT)
+  //   %result = (is_min(pred) ? reduce_min: reduce_max)(%ndx_fixup)
+  // } else {
+  //   // here parent is linear index reduction
+  //   %bcst = broadcast parent_final
+  //   %cmp_v = cmp eq %bcst, parent_exit
+  //   %ndx = cttz(cmp_v)
+  //   %result =  extract_element reduce_val, %ndx
+  // }
   //
   // For example, we have the following values for min+min_index.
   //  parent_exit:  {1,5,1,3}      // minimal values for 4 lanes
@@ -927,6 +966,8 @@ private:
     return Widen ? widenRef(VPVal, getVF())
                  : getOrCreateScalarRef(VPVal, ScalarLaneID);
   }
+
+  RegDDRef *getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize);
 
   // For Generate PaddedCounter < 250 and insert it into the vector of runtime
   // checks if this is a search loop which needs the check.

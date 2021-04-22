@@ -91,14 +91,11 @@ static bool findRefEdges(ModuleSummaryIndex &Index, const User *CurUser,
                          SmallPtrSet<const User *, 8> &Visited) {
   bool HasBlockAddress = false;
   SmallVector<const User *, 32> Worklist;
-  Worklist.push_back(CurUser);
+  if (Visited.insert(CurUser).second)
+    Worklist.push_back(CurUser);
 
   while (!Worklist.empty()) {
     const User *U = Worklist.pop_back_val();
-
-    if (!Visited.insert(U).second)
-      continue;
-
     const auto *CB = dyn_cast<CallBase>(U);
 
     for (const auto &OI : U->operands()) {
@@ -117,7 +114,8 @@ static bool findRefEdges(ModuleSummaryIndex &Index, const User *CurUser,
           RefEdges.insert(Index.getOrInsertValueInfo(GV));
         continue;
       }
-      Worklist.push_back(Operand);
+      if (Visited.insert(Operand).second)
+        Worklist.push_back(Operand);
     }
   }
   return HasBlockAddress;
@@ -145,7 +143,7 @@ static void addVCallToSet(DevirtCallSite Call, GlobalValue::GUID Guid,
                           SetVector<FunctionSummary::ConstVCall> &ConstVCalls) {
   std::vector<uint64_t> Args;
   // Start from the second argument to skip the "this" pointer.
-  for (auto &Arg : make_range(Call.CB.arg_begin() + 1, Call.CB.arg_end())) {
+  for (auto &Arg : drop_begin(Call.CB.args())) {
     auto *CI = dyn_cast<ConstantInt>(Arg);
     if (!CI || CI->getBitWidth() > 64) {
       VCalls.insert({Guid, Call.Offset});
@@ -178,11 +176,7 @@ static void addIntrinsicToSummary(
     // Intrinsics that are assumed are relevant only to the devirtualization
     // pass, not the type test lowering pass.
     bool HasNonAssumeUses = llvm::any_of(CI->uses(), [](const Use &CIU) {
-      auto *AssumeCI = dyn_cast<CallInst>(CIU.getUser());
-      if (!AssumeCI)
-        return true;
-      Function *F = AssumeCI->getCalledFunction();
-      return !F || F->getIntrinsicID() != Intrinsic::assume;
+      return !isa<AssumeInst>(CIU.getUser());
     });
     if (HasNonAssumeUses)
       TypeTests.insert(Guid);
@@ -319,8 +313,10 @@ static void computeFunctionSummary(
 
       auto *CalledValue = CB->getCalledOperand();
       auto *CalledFunction = CB->getCalledFunction();
+      auto *CalledGIF = dyn_cast_or_null<GlobalIFunc>(CalledValue); // INTEL
       if (CalledValue && !CalledFunction) {
         CalledValue = CalledValue->stripPointerCasts();
+        CalledGIF = dyn_cast_or_null<GlobalIFunc>(CalledValue); // INTEL
         // Stripping pointer casts can reveal a called function.
         CalledFunction = dyn_cast<Function>(CalledValue);
       }
@@ -332,15 +328,20 @@ static void computeFunctionSummary(
       }
       // Check if this is a direct call to a known function or a known
       // intrinsic, or an indirect call with profile data.
-      if (CalledFunction) {
-        if (CI && CalledFunction->isIntrinsic()) {
+#if INTEL_CUSTOMIZATION
+      // CMPLRLLVM-26286: Ensure that calls to GlobalIFuncs end up in
+      // the summary call graph. (This and related changes in this file
+      // could be pushed back to the community.)
+      if (CalledFunction || CalledGIF) {
+        if (CI && CalledFunction && CalledFunction->isIntrinsic()) {
+#endif // INTEL_CUSTOMIZATION
           addIntrinsicToSummary(
               CI, TypeTests, TypeTestAssumeVCalls, TypeCheckedLoadVCalls,
               TypeTestAssumeConstVCalls, TypeCheckedLoadConstVCalls, DT);
           continue;
         }
         // We should have named any anonymous globals
-        assert(CalledFunction->hasName());
+        assert(CalledGIF || CalledFunction->hasName()); // INTEL
         auto ScaledCount = PSI->getProfileCount(*CB, BFI);
         auto Hotness = ScaledCount ? getHotness(ScaledCount.getValue(), PSI)
                                    : CalleeInfo::HotnessType::Unknown;
@@ -459,9 +460,10 @@ static void computeFunctionSummary(
   bool NonRenamableLocal = isNonRenamableLocal(F);
   bool NotEligibleForImport =
       NonRenamableLocal || HasInlineAsmMaybeReferencingInternal;
-  GlobalValueSummary::GVFlags Flags(F.getLinkage(), NotEligibleForImport,
-                                    /* Live = */ false, F.isDSOLocal(),
-                                    F.hasLinkOnceODRLinkage() && F.hasGlobalUnnamedAddr());
+  GlobalValueSummary::GVFlags Flags(
+      F.getLinkage(), F.getVisibility(), NotEligibleForImport,
+      /* Live = */ false, F.isDSOLocal(),
+      F.hasLinkOnceODRLinkage() && F.hasGlobalUnnamedAddr());
   FunctionSummary::FFlags FunFlags{
       F.hasFnAttribute(Attribute::ReadNone),
       F.hasFnAttribute(Attribute::ReadOnly),
@@ -510,10 +512,8 @@ static void findFuncPointers(const Constant *I, uint64_t StartingOffset,
     assert(STy);
     const StructLayout *SL = DL.getStructLayout(C->getType());
 
-    for (StructType::element_iterator EB = STy->element_begin(), EI = EB,
-                                      EE = STy->element_end();
-         EI != EE; ++EI) {
-      auto Offset = SL->getElementOffset(EI - EB);
+    for (auto EI : llvm::enumerate(STy->elements())) {
+      auto Offset = SL->getElementOffset(EI.index());
       unsigned Op = SL->getElementContainingOffset(Offset);
       findFuncPointers(cast<Constant>(I->getOperand(Op)),
                        StartingOffset + Offset, M, Index, VTableFuncs);
@@ -580,9 +580,10 @@ static void computeVariableSummary(ModuleSummaryIndex &Index,
   SmallPtrSet<const User *, 8> Visited;
   bool HasBlockAddress = findRefEdges(Index, &V, RefEdges, Visited);
   bool NonRenamableLocal = isNonRenamableLocal(V);
-  GlobalValueSummary::GVFlags Flags(V.getLinkage(), NonRenamableLocal,
-                                    /* Live = */ false, V.isDSOLocal(),
-                                    V.hasLinkOnceODRLinkage() && V.hasGlobalUnnamedAddr());
+  GlobalValueSummary::GVFlags Flags(
+      V.getLinkage(), V.getVisibility(), NonRenamableLocal,
+      /* Live = */ false, V.isDSOLocal(),
+      V.hasLinkOnceODRLinkage() && V.hasGlobalUnnamedAddr());
 
   VTableFuncList VTableFuncs;
   // If splitting is not enabled, then we compute the summary information
@@ -617,14 +618,37 @@ static void computeVariableSummary(ModuleSummaryIndex &Index,
     GVarSummary->setVTableFuncs(VTableFuncs);
   Index.addGlobalValueSummary(V, std::move(GVarSummary));
 }
+#if INTEL_CUSTOMIZATION
+// This change and related changes could be ported back to the community
+// to fix CMPLRLLVM-26177.
+static void computeIFuncSummary(ModuleSummaryIndex &Index,
+                                const GlobalIFunc &GIF) {
+  GlobalValueSummary::GVFlags Flags(GIF.getLinkage(), GIF.getVisibility(),
+                                    /*NonRenamableLocal=*/false,
+                                    /*Live=*/false, GIF.isDSOLocal(),
+                                    GIF.hasLinkOnceODRLinkage() &&
+                                        GIF.hasGlobalUnnamedAddr());
+
+  auto AS = std::make_unique<AliasSummary>(Flags);
+  const Constant *Resolver = GIF.getResolver();
+  auto RF = cast<Function>(Resolver->stripPointerCasts());
+  auto ResolverVI = Index.getValueInfo(RF->getGUID());
+  assert(ResolverVI && "Expects resolver GUID to be available");
+  assert(ResolverVI.getSummaryList().size() == 1 &&
+         "Expected a single entry per ifunc in per-module index");
+  AS->setAliasee(ResolverVI, ResolverVI.getSummaryList()[0].get());
+  Index.addGlobalValueSummary(GIF, std::move(AS));
+}
+#endif // INTEL_CUSTOMIZATION
 
 static void
 computeAliasSummary(ModuleSummaryIndex &Index, const GlobalAlias &A,
                     DenseSet<GlobalValue::GUID> &CantBePromoted) {
   bool NonRenamableLocal = isNonRenamableLocal(A);
-  GlobalValueSummary::GVFlags Flags(A.getLinkage(), NonRenamableLocal,
-                                    /* Live = */ false, A.isDSOLocal(),
-                                    A.hasLinkOnceODRLinkage() && A.hasGlobalUnnamedAddr());
+  GlobalValueSummary::GVFlags Flags(
+      A.getLinkage(), A.getVisibility(), NonRenamableLocal,
+      /* Live = */ false, A.isDSOLocal(),
+      A.hasLinkOnceODRLinkage() && A.hasGlobalUnnamedAddr());
   auto AS = std::make_unique<AliasSummary>(Flags);
   auto *Aliasee = A.getBaseObject();
   auto AliaseeVI = Index.getValueInfo(Aliasee->getGUID());
@@ -661,12 +685,12 @@ ModuleSummaryIndex llvm::buildModuleSummaryIndex(
   // promotion, but we may have opaque uses e.g. in inline asm. We collect them
   // here because we use this information to mark functions containing inline
   // assembly calls as not importable.
-  SmallPtrSet<GlobalValue *, 8> LocalsUsed;
-  SmallPtrSet<GlobalValue *, 8> Used;
+  SmallPtrSet<GlobalValue *, 4> LocalsUsed;
+  SmallVector<GlobalValue *, 4> Used;
   // First collect those in the llvm.used set.
-  collectUsedGlobalVariables(M, Used, /*CompilerUsed*/ false);
+  collectUsedGlobalVariables(M, Used, /*CompilerUsed=*/false);
   // Next collect those in the llvm.compiler.used set.
-  collectUsedGlobalVariables(M, Used, /*CompilerUsed*/ true);
+  collectUsedGlobalVariables(M, Used, /*CompilerUsed=*/true);
   DenseSet<GlobalValue::GUID> CantBePromoted;
   for (auto *V : Used) {
     if (V->hasLocalLinkage()) {
@@ -697,11 +721,12 @@ ModuleSummaryIndex llvm::buildModuleSummaryIndex(
           if (!GV)
             return;
           assert(GV->isDeclaration() && "Def in module asm already has definition");
-          GlobalValueSummary::GVFlags GVFlags(GlobalValue::InternalLinkage,
-                                              /* NotEligibleToImport = */ true,
-                                              /* Live = */ true,
-                                              /* Local */ GV->isDSOLocal(),
-                                              GV->hasLinkOnceODRLinkage() && GV->hasGlobalUnnamedAddr());
+          GlobalValueSummary::GVFlags GVFlags(
+              GlobalValue::InternalLinkage, GlobalValue::DefaultVisibility,
+              /* NotEligibleToImport = */ true,
+              /* Live = */ true,
+              /* Local */ GV->isDSOLocal(),
+              GV->hasLinkOnceODRLinkage() && GV->hasGlobalUnnamedAddr());
           CantBePromoted.insert(GV->getGUID());
           // Create the appropriate summary type.
           if (Function *F = dyn_cast<Function>(GV)) {
@@ -778,6 +803,12 @@ ModuleSummaryIndex llvm::buildModuleSummaryIndex(
   // index.
   for (const GlobalAlias &A : M.aliases())
     computeAliasSummary(Index, A, CantBePromoted);
+#if INTEL_CUSTOMIZATION
+// This change and related changes could be ported back to the community
+// to fix CMPLRLLVM-26177.
+  for (const GlobalIFunc &GIF : M.ifuncs())
+    computeIFuncSummary(Index, GIF);
+#endif // INTEL_CUSTOMIZATION
 
   for (auto *V : LocalsUsed) {
     auto *Summary = Index.getGlobalValueSummary(*V);

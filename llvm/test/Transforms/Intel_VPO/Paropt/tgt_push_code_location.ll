@@ -1,5 +1,7 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -S < %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -S < %s  | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=true -S < %s | FileCheck %s --check-prefix=PCL -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=true -S < %s  | FileCheck %s --check-prefix=PCL -check-prefix=ALL
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=false -S < %s | FileCheck %s --check-prefix=NOPCL -check-prefix=ALL
+; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-use-mapper-api=false -vpo-paropt-enable-push-code-location=false -S < %s  | FileCheck %s --check-prefix=NOPCL -check-prefix=ALL
 ;
 ;Test src:
 ;void foo(int* p)
@@ -9,7 +11,6 @@
 ;     p[2] = 3;
 ;  }
 ;}
-; Check that we are generating __tgt_push_code_location call which pushes the source location and a pointer to the __tgt_target()call that follows
 
 ; ModuleID = '/tmp/icx1ar6aZ.bc'
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -18,7 +19,8 @@ target device_triples = "spir64"
 
 @llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }] [{ i32, void ()*, i8* } { i32 0, void ()* @.omp_offloading.requires_reg, i8* null }]
 
-; CHECK: [[SRC_STR:@[^ ]+]] = private unnamed_addr constant [18 x i8] c";unknown;foo;3;4;;"
+; PCL: [[SRC_STR:@[^ ]+]] = private unnamed_addr constant [18 x i8] c";unknown;foo;3;4;;"
+; NOPCL-NOT: private unnamed_addr constant [18 x i8] c";unknown;foo;3;4;;"
 
 ; Function Attrs: noinline nounwind optnone uwtable
 define dso_local void @foo(i32* %p) #0 !dbg !8 {
@@ -32,8 +34,10 @@ entry:
   %arrayidx = getelementptr inbounds i32, i32* %1, i64 0, !dbg !16
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM:AGGRHEAD"(i32* %0, i32* %arrayidx, i64 80), "QUAL.OMP.PRIVATE"(i32** %p.map.ptr.tmp) ], !dbg !15
 
-; CHECK: call void @__tgt_push_code_location(i8* getelementptr inbounds ([18 x i8], [18 x i8]* [[SRC_STR]], i32 0, i32 0), i8* bitcast (i32 (i64, i8*, i32, i8**, i8**, i64*, i64*)* @__tgt_target to i8*))
-; CHECK: call i32 @__tgt_target({{.*}})
+; Check that we are generating __tgt_push_code_location only when -vpo-paropt-enable-push-code-location=true
+; PCL: call void @__tgt_push_code_location(i8* getelementptr inbounds ([18 x i8], [18 x i8]* [[SRC_STR]], i32 0, i32 0), i8* bitcast (i32 (i64, i8*, i32, i8**, i8**, i64*, i64*)* @__tgt_target to i8*))
+; NOPCL-NOT: call void @__tgt_push_code_location
+; ALL: call i32 @__tgt_target({{.*}})
 
   store i32* %0, i32** %p.map.ptr.tmp, align 8, !dbg !15
   %3 = load i32*, i32** %p.map.ptr.tmp, align 8, !dbg !18

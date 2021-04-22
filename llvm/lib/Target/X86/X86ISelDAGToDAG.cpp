@@ -30,7 +30,8 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Support/MathExtras.h"
-#include <stdint.h>
+#include <cstdint>
+
 using namespace llvm;
 
 #define DEBUG_TYPE "x86-isel"
@@ -621,7 +622,7 @@ X86DAGToDAGISel::IsProfitableToFold(SDValue N, SDNode *U, SDNode *Root) const {
         // best of both worlds.
         if (U->getOpcode() == ISD::AND &&
             Imm->getAPIntValue().getBitWidth() == 64 &&
-            Imm->getAPIntValue().isSignedIntN(32))
+            Imm->getAPIntValue().isIntN(32))
           return false;
 
         // If this really a zext_inreg that can be represented with a movzx
@@ -4350,6 +4351,7 @@ bool X86DAGToDAGISel::shrinkAndImmediate(SDNode *And) {
 
   // A negative mask allows a smaller encoding. Create a new 'and' node.
   SDValue NewMask = CurDAG->getConstant(NegMaskVal, SDLoc(And), VT);
+  insertDAGNode(*CurDAG, SDValue(And, 0), NewMask);
   SDValue NewAnd = CurDAG->getNode(ISD::AND, SDLoc(And), VT, And0, NewMask);
   ReplaceNode(And, NewAnd.getNode());
   SelectCode(NewAnd.getNode());
@@ -4674,7 +4676,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       SDValue Index = Node->getOperand(5);
       SDValue Disp = CurDAG->getTargetConstant(0, dl, MVT::i32);
       SDValue Segment = CurDAG->getRegister(0, MVT::i16);
-      SDValue CFG = CurDAG->getRegister(0, MVT::Untyped);
       SDValue Chain = Node->getOperand(0);
       MachineSDNode *CNode;
       SDValue Ops[] = {Node->getOperand(2),
@@ -4684,28 +4685,8 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
                        Index,
                        Disp,
                        Segment,
-                       CFG,
                        Chain};
       CNode = CurDAG->getMachineNode(Opc, dl, {MVT::x86amx, MVT::Other}, Ops);
-      ReplaceNode(Node, CNode);
-      return;
-    }
-    case Intrinsic::x86_tdpbssd_internal: {
-      if (!Subtarget->hasAMXTILE())
-        break;
-      SDValue Chain = Node->getOperand(0);
-      unsigned Opc = X86::PTDPBSSDV;
-      SDValue CFG = CurDAG->getRegister(0, MVT::Untyped);
-      SDValue Ops[] = {Node->getOperand(2),
-                       Node->getOperand(3),
-                       Node->getOperand(4),
-                       Node->getOperand(5),
-                       Node->getOperand(6),
-                       Node->getOperand(7),
-                       CFG,
-                       Chain};
-      MachineSDNode *CNode =
-          CurDAG->getMachineNode(Opc, dl, {MVT::x86amx, MVT::Other}, Ops);
       ReplaceNode(Node, CNode);
       return;
     }
@@ -4774,7 +4755,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       SDValue Index = Node->getOperand(5);
       SDValue Disp = CurDAG->getTargetConstant(0, dl, MVT::i32);
       SDValue Segment = CurDAG->getRegister(0, MVT::i16);
-      SDValue CFG = CurDAG->getRegister(0, MVT::Untyped);
       SDValue Chain = Node->getOperand(0);
       MachineSDNode *CNode;
       SDValue Ops[] = {Node->getOperand(2),
@@ -4785,7 +4765,6 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
                        Disp,
                        Segment,
                        Node->getOperand(6),
-                       CFG,
                        Chain};
       CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
       ReplaceNode(Node, CNode);
@@ -6013,11 +5992,9 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
         if (auto *LoadN = dyn_cast<LoadSDNode>(N0.getOperand(0).getNode())) {
           if (!LoadN->isSimple()) {
             unsigned NumVolBits = LoadN->getValueType(0).getSizeInBits();
-            if (MOpc == X86::TEST8mi && NumVolBits != 8)
-              break;
-            else if (MOpc == X86::TEST16mi && NumVolBits != 16)
-              break;
-            else if (MOpc == X86::TEST32mi && NumVolBits != 32)
+            if ((MOpc == X86::TEST8mi && NumVolBits != 8) ||
+                (MOpc == X86::TEST16mi && NumVolBits != 16) ||
+                (MOpc == X86::TEST32mi && NumVolBits != 32))
               break;
           }
         }

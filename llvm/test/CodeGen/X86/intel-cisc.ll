@@ -1,4 +1,5 @@
 ; RUN: llc -x86-ciscization-helper-bb-inst-number-threshold=1 < %s -O3 -enable-intel-advanced-opts | FileCheck %s --check-prefixes=CHECK
+; RUN: opt -o - %s -x86-ciscization-helper-bb-inst-number-threshold=1 -enable-intel-advanced-opts -S -debugify -x86-ciscization -check-debugify -O3 2>&1 | FileCheck %s --check-prefixes=DBG
 
 ; Tests for x86 ciscization helper
 
@@ -9,6 +10,13 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @fun(i32 %l1, i32 %l2, i32 %l3, i32 %u1, i32 %u2, i32 %u3) local_unnamed_addr #0 {
+; DBG:WARNING: Missing line 12
+; DBG-NEXT:WARNING: Missing line 27
+; DBG-NEXT:WARNING: Missing line 45
+; DBG-NEXT:WARNING: Missing line 49
+; DBG-NEXT:WARNING: Missing line 68
+; DBG-NEXT:WARNING: Missing line 90
+; DBG-NEXT: CheckModuleDebugify: PASS
 ; CHECK-LABEL: fun:
 ; CHECK:       # %bb.0: # %entry
 ; Test for other blocks between BB1 and BB3

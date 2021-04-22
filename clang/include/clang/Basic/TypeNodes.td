@@ -107,8 +107,6 @@ def ObjCInterfaceType : TypeNode<ObjCObjectType>, LeafType;
 def ObjCObjectPointerType : TypeNode<Type>;
 #if INTEL_CUSTOMIZATION
 def ChannelType : TypeNode<Type>;
-def ArbPrecIntType : TypeNode<Type>;
-def DependentSizedArbPrecIntType : TypeNode<Type>, AlwaysDependent;
 #endif // INTEL_CUSTOMIZATION
 def PipeType : TypeNode<Type>;
 def AtomicType : TypeNode<Type>;

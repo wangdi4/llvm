@@ -13,23 +13,21 @@ target triple = "x86_64-unknown-linux-gnu"
 define float @foo(float* nocapture %a) #0 {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP8:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP7:%.*]], [[VECTOR_BODY]] ], !dbg !24
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP6:%.*]], [[VECTOR_BODY]] ], !dbg !24
-; CHECK-NEXT:    [[VEC_PHI2:%.*]] = phi <4 x float> [ zeroinitializer, [[VECTOR_PH]] ], [ [[TMP5:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = trunc <4 x i64> [[VEC_PHI]] to <4 x i32>, !dbg !27
-; CHECK-NEXT:    [[TMP1:%.*]] = sitofp <4 x i32> [[TMP0]] to <4 x double>, !dbg !27
-; CHECK-NEXT:    [[TMP2:%.*]] = fmul <4 x double> [[TMP1]], <double 1.800000e+00, double 1.800000e+00, double 1.800000e+00, double 1.800000e+00>, !dbg !28
-; CHECK-NEXT:    [[TMP3:%.*]] = fptrunc <4 x double> [[TMP2]] to <4 x float>, !dbg !27
-; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds float, float* [[A:%.*]], i64 [[UNI_PHI1]], !dbg !29
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast float* [[SCALAR_GEP]] to <4 x float>*, !dbg !30
-; CHECK-NEXT:    store <4 x float> [[TMP3]], <4 x float>* [[TMP4]], align 4, !dbg !30
-; CHECK-NEXT:    [[TMP5]] = fadd <4 x float> [[TMP3]], [[VEC_PHI2]], !dbg !31
-; CHECK-NEXT:    [[TMP6]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>, !dbg !23
-; CHECK-NEXT:    [[TMP7]] = add nuw nsw i64 [[UNI_PHI1]], 4, !dbg !23
-; CHECK-NEXT:    [[TMP8]] = add i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP9:%.*]] = icmp uge i64 [[TMP8]], 1000
-; CHECK-NEXT:    br i1 [[TMP9]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], !dbg !23
+; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP7:%.*]], [[VECTOR_BODY:%.*]] ], !dbg [[DBG24:![0-9]+]]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP6:%.*]], [[VECTOR_BODY]] ], !dbg [[DBG24]]
+; CHECK-NEXT:    [[VEC_PHI3:%.*]] = phi <4 x float> [ <float -0.000000e+00, float -0.000000e+00, float -0.000000e+00, float -0.000000e+00>, [[VECTOR_PH]] ], [ [[TMP5:%.*]], [[VECTOR_BODY]] ], !dbg [[DBG24]]
+; CHECK-NEXT:    [[TMP0:%.*]] = trunc <4 x i64> [[VEC_PHI]] to <4 x i32>, !dbg [[DBG27:![0-9]+]]
+; CHECK-NEXT:    [[TMP1:%.*]] = sitofp <4 x i32> [[TMP0]] to <4 x double>, !dbg [[DBG27]]
+; CHECK-NEXT:    [[TMP2:%.*]] = fmul <4 x double> [[TMP1]], <double 1.800000e+00, double 1.800000e+00, double 1.800000e+00, double 1.800000e+00>, !dbg [[DBG28:![0-9]+]]
+; CHECK-NEXT:    [[TMP3:%.*]] = fptrunc <4 x double> [[TMP2]] to <4 x float>, !dbg [[DBG27]]
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds float, float* [[A:%.*]], i64 [[UNI_PHI1]], !dbg [[DBG29:![0-9]+]]
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast float* [[SCALAR_GEP]] to <4 x float>*, !dbg [[DBG30:![0-9]+]]
+; CHECK-NEXT:    store <4 x float> [[TMP3]], <4 x float>* [[TMP4]], align 4, !dbg [[DBG30]]
+; CHECK-NEXT:    [[TMP5]] = fadd <4 x float> [[TMP3]], [[VEC_PHI3]], !dbg [[DBG31:![0-9]+]]
+; CHECK-NEXT:    [[TMP6]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>, !dbg [[DBG23:![0-9]+]]
+; CHECK-NEXT:    [[TMP7]] = add nuw nsw i64 [[UNI_PHI1]], 4, !dbg [[DBG23]]
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i64 [[TMP7]], 1000, !dbg [[DBG23]]
+; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB4:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP32:![0-9]+]]
 ;
 entry:
   %x = alloca float, align 4

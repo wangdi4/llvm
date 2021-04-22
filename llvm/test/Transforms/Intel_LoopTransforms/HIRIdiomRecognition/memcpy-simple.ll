@@ -20,9 +20,16 @@
 
 ;OPTREPORT: Global loop optimization report for : foo
 ;
-;OPTREPORT: LOOP BEGIN
-;OPTREPORT-NEXT:     Remark: The memcpy idiom has been recognized
-;OPTREPORT-NEXT: LOOP END
+
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT-NEXT: <Small trip count multiversioned v1>
+; OPTREPORT-NEXT: remark: The memcpy idiom has been recognized
+; OPTREPORT-NEXT: remark: The loop has been multiversioned for the small trip count
+; OPTREPORT-NEXT: LOOP END
+
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT-NEXT: <Small trip count multiversioned v2 (small)>
+; OPTREPORT-NEXT: LOOP END
 
 ;Module Before HIR; ModuleID = 'memcpy.c'
 source_filename = "memcpy.c"

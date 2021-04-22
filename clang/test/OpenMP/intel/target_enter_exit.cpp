@@ -11,7 +11,7 @@ void foo1() {
   // CHECK-DAG: "QUAL.OMP.MAP.TO:ALWAYS"(double* [[C]],
   // CHECK-DAG: "QUAL.OMP.MAP.TOFROM"(i32* [[X]],
   // CHECK-DAG: "QUAL.OMP.MAP.TO"(float* [[B]],
-  // CHECK-DAG: "QUAL.OMP.MAP.TOFROM"([5 x i32]* [[A]], i32* [[AI]], i64 4, i64 32)
+  // CHECK-DAG: "QUAL.OMP.MAP.TOFROM"([5 x i32]* [[A]], i32* [[AI]], i64 4, i64 0
   // CHECK: DIR.OMP.END.TARGET.ENTER.DATA
   #pragma omp target enter data map(alloc:x) \
                                 map (alloc:a[0:1]) map(to:b) map(always,to:c)
@@ -71,8 +71,8 @@ void foo5() {
   int x5, a5[2]; float b5; double c5;
   // CHECK: [[AI5:%.+]] = getelementptr{{.*}}[[A5]]
   // CHECK: DIR.OMP.TARGET.EXIT.DATA
-  // CHECK-DAG: "QUAL.OMP.MAP.TOFROM"(i32* [[X5]], i32* [[X5]], i64 4, i64 32)
-  // CHECK-DAG: "QUAL.OMP.MAP.DELETE"([2 x i32]* [[A5]], i32* [[AI5]], i64 4, i64 40)
+  // CHECK-DAG: "QUAL.OMP.MAP.TOFROM"(i32* [[X5]], i32* [[X5]], i64 4, i64 0
+  // CHECK-DAG: "QUAL.OMP.MAP.DELETE"([2 x i32]* [[A5]], i32* [[AI5]], i64 4, i64 8
   // CHECK-DAG: "QUAL.OMP.MAP.FROM"(float* [[B5]],
   // CHECK-DAG: "QUAL.OMP.MAP.FROM:ALWAYS"(double* [[C5]],
   //
@@ -86,7 +86,7 @@ void foo6() {
   int b6;
   // CHECK: DIR.OMP.TARGET.EXIT.DATA
   // CHECK-SAME: "QUAL.OMP.NOWAIT"()
-  // CHECK-SAME: "QUAL.OMP.MAP.FROM"(i32* [[B6]], i32* [[B6]], i64 4, i64 34)
+  // CHECK-SAME: "QUAL.OMP.MAP.FROM"(i32* [[B6]], i32* [[B6]], i64 4, i64 2
   // CHECK: DIR.OMP.END.TARGET.EXIT.DATA
   #pragma omp target exit data nowait map(from:b6)
 }

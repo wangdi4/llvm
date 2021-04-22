@@ -191,6 +191,10 @@ public:
   virtual void Print(llvm::raw_ostream &OS, const char *Terminator, bool Quote,
                      CrashReportInfo *CrashInfo = nullptr) const;
 
+#if INTEL_CUSTOMIZATION
+  virtual void PrintArgsFile(raw_ostream &OS, bool Quote) const;
+#endif // INTEL_CUSTOMIZATION
+
   virtual int Execute(ArrayRef<Optional<StringRef>> Redirects,
                       std::string *ErrMsg, bool *ExecutionFailed) const;
 
@@ -265,26 +269,6 @@ public:
               bool *ExecutionFailed) const override;
 
   void setEnvironment(llvm::ArrayRef<const char *> NewEnvironment) override;
-};
-
-/// Like Command, but with a fallback which is executed in case
-/// the primary command crashes.
-class FallbackCommand : public Command {
-public:
-  FallbackCommand(const Action &Source_, const Tool &Creator_,
-                  ResponseFileSupport ResponseSupport, const char *Executable_,
-                  const llvm::opt::ArgStringList &Arguments_,
-                  ArrayRef<InputInfo> Inputs, ArrayRef<InputInfo> Outputs,
-                  std::unique_ptr<Command> Fallback_);
-
-  void Print(llvm::raw_ostream &OS, const char *Terminator, bool Quote,
-             CrashReportInfo *CrashInfo = nullptr) const override;
-
-  int Execute(ArrayRef<Optional<StringRef>> Redirects, std::string *ErrMsg,
-              bool *ExecutionFailed) const override;
-
-private:
-  std::unique_ptr<Command> Fallback;
 };
 
 /// Like Command, but always pretends that the wrapped command succeeded.

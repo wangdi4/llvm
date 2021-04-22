@@ -83,6 +83,10 @@ class LoopVectorizeHints {
   /// Says whether we should use fixed width or scalable vectorization.
   Hint Scalable;
 
+#if INTEL_CUSTOMIZATION
+  SmallVector<unsigned, 5> AllowedVFs;
+#endif // INTEL_CUSTOMIZATION
+
   /// Return the loop metadata prefix.
   static StringRef Prefix() { return "llvm.loop."; }
 
@@ -104,6 +108,10 @@ public:
 
   bool allowVectorization(Function *F, Loop *L,
                           bool VectorizeOnlyWhenForced) const;
+
+#if INTEL_CUSTOMIZATION
+  ArrayRef<unsigned> getAllowedVFs() { return AllowedVFs; }
+#endif // INTEL_CUSTOMIZATION
 
   /// Dumps all the hint information.
   void emitRemarkWithHints() const;
@@ -177,24 +185,27 @@ private:
 /// followed by a non-expert user.
 class LoopVectorizationRequirements {
 public:
-  LoopVectorizationRequirements(OptimizationRemarkEmitter &ORE) : ORE(ORE) {}
-
-  void addUnsafeAlgebraInst(Instruction *I) {
-    // First unsafe algebra instruction.
-    if (!UnsafeAlgebraInst)
-      UnsafeAlgebraInst = I;
+  /// Track the 1st floating-point instruction that can not be reassociated.
+  void addExactFPMathInst(Instruction *I) {
+    if (I && !ExactFPMathInst)
+      ExactFPMathInst = I;
   }
 
   void addRuntimePointerChecks(unsigned Num) { NumRuntimePointerChecks = Num; }
 
-  bool doesNotMeet(Function *F, Loop *L, const LoopVectorizeHints &Hints);
+
+  Instruction *getExactFPInst() { return ExactFPMathInst; }
+  bool canVectorizeFPMath(const LoopVectorizeHints &Hints) const {
+    return !ExactFPMathInst || Hints.allowReordering();
+  }
+
+  unsigned getNumRuntimePointerChecks() const {
+    return NumRuntimePointerChecks;
+  }
 
 private:
   unsigned NumRuntimePointerChecks = 0;
-  Instruction *UnsafeAlgebraInst = nullptr;
-
-  /// Interface to emit optimization remarks.
-  OptimizationRemarkEmitter &ORE;
+  Instruction *ExactFPMathInst = nullptr;
 };
 
 /// LoopVectorizationLegality checks if it is legal to vectorize a loop, and
@@ -325,6 +336,10 @@ public:
 
   const LoopAccessInfo *getLAI() const { return LAI; }
 
+  bool isSafeForAnyVectorWidth() const {
+    return LAI->getDepChecker().isSafeForAnyVectorWidth();
+  }
+
   unsigned getMaxSafeDepDistBytes() { return LAI->getMaxSafeDepDistBytes(); }
 
   uint64_t getMaxSafeVectorWidthInBits() const {
@@ -335,13 +350,10 @@ public:
 
   /// Returns true if vector representation of the instruction \p I
   /// requires mask.
-  bool isMaskRequired(const Instruction *I) { return (MaskedOp.count(I) != 0); }
+  bool isMaskRequired(const Instruction *I) { return MaskedOp.contains(I); }
 
   unsigned getNumStores() const { return LAI->getNumStores(); }
   unsigned getNumLoads() const { return LAI->getNumLoads(); }
-
-  // Returns true if the NoNaN attribute is set on the function.
-  bool hasFunNoNaNAttr() const { return HasFunNoNaNAttr; }
 
   /// Returns all assume calls in predicated blocks. They need to be dropped
   /// when flattening the CFG.
@@ -490,9 +502,6 @@ private:
   /// Allowed outside users. This holds the variables that can be accessed from
   /// outside the loop.
   SmallPtrSet<Value *, 4> AllowedExit;
-
-  /// Can we assume the absence of NaNs.
-  bool HasFunNoNaNAttr = false;
 
   /// Vectorization requirements that will go through late-evaluation.
   LoopVectorizationRequirements *Requirements;

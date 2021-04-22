@@ -1,6 +1,6 @@
 //===---------------- DTransAnalysis.cpp - DTrans Analysis ----------------===//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -23,6 +23,7 @@
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
@@ -113,19 +114,6 @@ static cl::opt<unsigned> DTransMaxCallsiteCount("dtrans-maxcallsitecount",
 static cl::opt<unsigned> DTransMaxInstructionCount("dtrans-maxinstructioncount",
                                                    cl::init(1500000),
                                                    cl::ReallyHidden);
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-/// Prints information that is saved during analysis about specific function
-/// calls (malloc, free, memset, etc) that may be useful to the transformations.
-static cl::opt<bool> DTransPrintAnalyzedCalls("dtrans-print-callinfo",
-                                              cl::ReallyHidden);
-
-// Enables identification of values that are loaded but never used.
-// See LocalPointerAnalyzer::identifyUnusedValue
-static cl::opt<bool> DTransIdentifyUnusedValues("dtrans-identify-unused-values",
-                                                cl::init(true),
-                                                cl::ReallyHidden);
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Enable merging padded structures with base structures even if the
 // safety checks didn't pass. This option is for testing purposes and
@@ -4223,9 +4211,11 @@ public:
 
     bool IsFnLocal = F ? !F->isDeclaration() : false;
 
+    // Check if Arg is a pointer to a field, if so then mark the structure
+    // as field address taken call.
     LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Arg);
     if (LPI.pointsToSomeElement()) {
-      LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken call -- "
                         << "pointer to element passed as argument:\n"
                         << "  " << *Call << "\n  " << *Arg << "\n");
       // Selects and PHIs may have created a pointer that refers to
@@ -4237,7 +4227,7 @@ public:
         size_t Idx = Res.second;
         if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
           ParentStInfo->getField(Idx).setAddressTaken();
-          setBaseTypeInfoSafetyData(Res.first, dtrans::FieldAddressTaken);
+          setBaseTypeInfoSafetyData(Res.first, dtrans::FieldAddressTakenCall);
         }
       }
     }
@@ -4317,10 +4307,10 @@ public:
         // If the first element of the dominant type of the pointer is an
         // an array of the actual argument, don't report address taken.
         if (isElementZeroArrayOfType(AliasTy, ArgTy)) {
-          LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken call -- "
                             << "ptr to array element passed as argument:\n"
                             << "  " << *Call << "\n  " << *Arg << "\n");
-          setBaseTypeInfoSafetyData(AliasTy, dtrans::FieldAddressTaken);
+          setBaseTypeInfoSafetyData(AliasTy, dtrans::FieldAddressTakenCall);
           dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(AliasTy);
           if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI))
             ParentStInfo->getField(0).setAddressTaken();
@@ -4482,12 +4472,54 @@ public:
       }
     }
 
+    // Functions marked with callback metadata can take parameters and forward
+    // them to another function. Check these parameters against the type
+    // expected by the function the parameters will be forwarded to.
+    if (F && F->hasMetadata(LLVMContext::MD_callback)) {
+      // Populate the set of abstract calls that will be analyzed with the
+      // parameters passed to this call.
+      SmallVector<const Use *, 4> CallbackUses;
+      AbstractCallSite::getCallbackUses(Call, CallbackUses);
+      for (const Use *U : CallbackUses) {
+        AbstractCallSite ACS(U);
+        assert(ACS && ACS.isCallbackCall() && "must be a callback call");
+
+        Function *TargetFunc = ACS.getCalledFunction();
+        unsigned NumCalleeArgs = ACS.getNumArgOperands();
+        for (unsigned Idx = 0; Idx < NumCalleeArgs; ++Idx) {
+          // If the broker function passes the parameter through to the callee,
+          // get the parameter corresponding to the target function argument and
+          // check whether the types match. If the parameter is not forwarded,
+          // the safety checks will be done when checking parameters passed to
+          // the broker call.
+          Value *Param = ACS.getCallArgOperand(Idx);
+          if (Param) {
+            // This argument will be processed here because it is being
+            // forwarded to a call made by the callback routine. Mark it as a
+            // "special argument" so that it is not processed when iterating
+            // over the original function call arguments.
+            SpecialArguments.insert(Param);
+            if (TargetFunc && Idx < TargetFunc->arg_size()) {
+              Argument *FormalVal = TargetFunc->getArg(Idx);
+              checkArgTypeMismatch(&Call, TargetFunc, FormalVal, Param);
+            } else if (isValueOfInterest(Param)) {
+              LLVM_DEBUG(dbgs()
+                         << "dtrans-safety: Unhandled use -- "
+                         << "Value passed to callback function that uses an "
+                            "indirect function call\n"
+                         << *Param << "\n");
+              setValueTypeInfoSafetyData(Param, dtrans::UnhandledUse);
+            }
+          }
+        }
+      }
+    }
+
     // If this is an indirect call site, find out if there is a matching
     // address taken external call.  In this case, the indirect call must
     // be treated like an external call for the purpose of generating
     // the AddressTaken safety check.
     bool HasICMatch = hasICMatch(&Call);
-
     unsigned NextArgNo = 0;
     for (Value *Arg : Call.args()) {
       // Keep track of the argument index we're working with.
@@ -5236,11 +5268,12 @@ public:
         dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(Res.first);
         size_t Idx = Res.second;
         if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
-          LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken:\n"
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken memory:\n"
                             << "  " << *(ParentTI->getLLVMType()) << " @ "
                             << Idx << "\n"
                             << "  " << I << "\n");
-          setBaseTypeInfoSafetyData(Res.first, dtrans::FieldAddressTaken);
+          setBaseTypeInfoSafetyData(Res.first,
+                                    dtrans::FieldAddressTakenMemory);
           ParentStInfo->getField(Idx).setAddressTaken();
         }
       }
@@ -5723,10 +5756,11 @@ public:
         dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(Res.first);
         size_t Idx = Res.second;
         if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(ParentTI)) {
-          LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken -- "
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Field address taken return -- "
                             << "Address of a field is returned by function: "
                             << I.getParent()->getParent()->getName() << "\n");
-          setBaseTypeInfoSafetyData(Res.first, dtrans::FieldAddressTaken);
+          setBaseTypeInfoSafetyData(Res.first,
+                                    dtrans::FieldAddressTakenReturn);
           ParentStInfo->getField(Idx).setAddressTaken();
         }
       }
@@ -7677,11 +7711,6 @@ private:
   // Returns true if the loaded value is stored to the same address from which
   // it was loaded and does not escape.
   bool identifyUnusedValue(LoadInst &LI) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (!DTransIdentifyUnusedValues)
-      return false;
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
     return dtrans::isLoadedValueUnused(&LI, LI.getPointerOperand());
   }
 
@@ -9591,30 +9620,39 @@ private:
   // values used to compute the size matches with the result type of "new".
   bool isValidCallToNew(CallBase *Call, Value *V) {
 
+    // Return V cast as an Instruction if V is a Load instruction
+    // or V is a PtrToInt instruction, else return nullptr
+    auto GetOperandInstruction = [](Value *V) -> Instruction * {
+      if (isa<LoadInst>(V) || isa<PtrToIntInst>(V))
+        return cast<Instruction>(V);
+      return nullptr;
+    };
+
     // Return the dominant aggregate type for the input Value
-    auto CollectDominantAggregateType = [this](Value *V) -> Type * {
+    auto CollectDominantAggregateType = [this, GetOperandInstruction]
+        (Value *V) -> Type * {
       // If V is a binary operator then the dominant aggregate type
       // of the operands must match
       if (auto *BinOp = dyn_cast<BinaryOperator>(V)) {
 
-        LoadInst *LoadA = dyn_cast<LoadInst>(BinOp->getOperand(0));
-        LoadInst *LoadB = dyn_cast<LoadInst>(BinOp->getOperand(1));
-        if (!LoadA || !LoadB)
+        Instruction *InstA = GetOperandInstruction(BinOp->getOperand(0));
+        Instruction *InstB = GetOperandInstruction(BinOp->getOperand(1));
+        if (!InstA || !InstB)
           return nullptr;
 
-        LocalPointerInfo &LPILoadA = LPA.getLocalPointerInfo(LoadA);
-        LocalPointerInfo &LPILoadB = LPA.getLocalPointerInfo(LoadB);
+        LocalPointerInfo &LPIInstA = LPA.getLocalPointerInfo(InstA);
+        LocalPointerInfo &LPIInstB = LPA.getLocalPointerInfo(InstB);
 
-        Type *LoadADominantType = LPILoadA.getDominantAggregateTy();
-        Type *LoadBDominantType = LPILoadB.getDominantAggregateTy();
+        Type *InstADominantType = LPIInstA.getDominantAggregateTy();
+        Type *InstBDominantType = LPIInstB.getDominantAggregateTy();
 
-        if (!LoadADominantType || !LoadBDominantType)
+        if (!InstADominantType || !InstBDominantType)
           return nullptr;
 
-        if (LoadADominantType != LoadBDominantType)
+        if (InstADominantType != InstBDominantType)
           return nullptr;
 
-        return LoadADominantType;
+        return InstADominantType;
       }
 
       return nullptr;
@@ -9937,7 +9975,9 @@ private:
     switch (Data) {
     // We can add additional cases here to reduce the conservative behavior
     // as needs dictate.
-    case dtrans::FieldAddressTaken:
+    case dtrans::FieldAddressTakenMemory:
+    case dtrans::FieldAddressTakenCall:
+    case dtrans::FieldAddressTakenReturn:
     case dtrans::HasZeroSizedArray:
       return false;
     }
@@ -9975,13 +10015,15 @@ private:
 
       return true;
 
-      // FieldAddressTaken is treated as a pointer carried condition based on
-      // how out of bounds field accesses is set because the access is not
-      // permitted under the C/C++ rules, but is allowed within the definition
-      // of llvm IR. If an out of bounds access is permitted, then it would be
-      // possible to access elements of pointed-to objects, as well, in methods
-      // that DTrans would not be able to analyze.
-    case dtrans::FieldAddressTaken:
+      // All forms of FielAddressTaken are treated as a pointer carried
+      // condition based on how out of bounds field accesses is set because the
+      // access is not permitted under the C/C++ rules, but is allowed within
+      // the definition of llvm IR. If an out of bounds access is permitted,
+      // then it would be possible to access elements of pointed-to objects,
+      // as well, in methods that DTrans would not be able to analyze.
+    case dtrans::FieldAddressTakenMemory:
+    case dtrans::FieldAddressTakenCall:
+    case dtrans::FieldAddressTakenReturn:
       return DTInfo.getDTransOutOfBoundsOK();
 
     default:
@@ -10058,6 +10100,7 @@ private:
           FieldBaseTy = FieldBaseTy->getPointerElementType();
         dtrans::TypeInfo *FieldTI = DTInfo.getOrCreateTypeInfo(FieldBaseTy);
         if (!FieldTI->testSafetyData(Data)) {
+          (void)BaseTy;
           LLVM_DEBUG({
             dbgs()
                 << "dtrans-safety: Cascading pointer carried safety condition: "
@@ -10269,68 +10312,37 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
     if ((CurrNumFields - RelatedNumFields) == 1)
       CurrInfo->getField(CurrNumFields - 1).setPaddedField();
   }
+
+  if (Ty->isStructTy()) {
+    auto STy = cast<StructType>(Ty);
+    // If there is another structure that has base name then generate the
+    // type-info for it. For example, consider that the following structures
+    // are in the module:
+    //
+    //   %class.simple = type { i32, i64 }
+    //   %class.simple.1 = type { i32, i64 }
+    //
+    // Assume that we are generating the type-info for %class.simple.1. The
+    // base name will be %class.simple. In this case we need to generate the
+    // type-info for %class.simple too. The issue is that there is a chance
+    // that the base-named structure is never used in the module, which means
+    // that DTrans analysis will never generate a type-info for it when
+    // traversing the module. DTrans-opt-base collects the base-named structure
+    // and since the type-info wasn't generated then any transformation that
+    // tries to access it will produce a segmentation fault.
+    if (STy->hasName()) {
+      StringRef TyName = STy->getName();
+      StringRef BaseName = dtrans::getTypeBaseName(TyName);
+      if (TyName.size() != BaseName.size()) {
+        StructType *BaseTy =
+            StructType::getTypeByName(STy->getContext(), BaseName);
+        if (BaseTy && !getTypeInfo(BaseTy))
+          getOrCreateTypeInfo(BaseTy);
+      }
+    }
+  }
+
   return DTransTy;
-}
-
-dtrans::CallInfo *
-DTransAnalysisInfo::getCallInfo(const llvm::Instruction *I) const {
-  auto Entry = CallInfoMap.find(I);
-  if (Entry == CallInfoMap.end())
-    return nullptr;
-
-  return Entry->second;
-}
-
-void DTransAnalysisInfo::addCallInfo(Instruction *I, dtrans::CallInfo *CI) {
-  assert(getCallInfo(I) == nullptr &&
-         "An instruction is only allowed a single CallInfo mapping");
-  CallInfoMap[I] = CI;
-}
-
-dtrans::AllocCallInfo *
-DTransAnalysisInfo::createAllocCallInfo(Instruction *I, dtrans::AllocKind AK) {
-  dtrans::AllocCallInfo *Info = new dtrans::AllocCallInfo(I, AK);
-  addCallInfo(I, Info);
-  return Info;
-}
-
-dtrans::FreeCallInfo *
-DTransAnalysisInfo::createFreeCallInfo(Instruction *I, dtrans::FreeKind FK) {
-  dtrans::FreeCallInfo *Info = new dtrans::FreeCallInfo(I, FK);
-  addCallInfo(I, Info);
-  return Info;
-}
-
-dtrans::MemfuncCallInfo *DTransAnalysisInfo::createMemfuncCallInfo(
-    Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
-    dtrans::MemfuncRegion &MR) {
-  dtrans::MemfuncCallInfo *Info = new dtrans::MemfuncCallInfo(I, MK, MR);
-  addCallInfo(I, Info);
-  return Info;
-}
-
-dtrans::MemfuncCallInfo *DTransAnalysisInfo::createMemfuncCallInfo(
-    Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
-    dtrans::MemfuncRegion &MR1, dtrans::MemfuncRegion &MR2) {
-  dtrans::MemfuncCallInfo *Info = new dtrans::MemfuncCallInfo(I, MK, MR1, MR2);
-  addCallInfo(I, Info);
-  return Info;
-}
-
-void DTransAnalysisInfo::deleteCallInfo(Instruction *I) {
-  dtrans::CallInfo *Info = getCallInfo(I);
-  if (!Info)
-    return;
-
-  CallInfoMap.erase(I);
-  delete Info;
-}
-
-void DTransAnalysisInfo::replaceCallInfoInstruction(dtrans::CallInfo *Info,
-                                                    Instruction *NewI) {
-  CallInfoMap.erase(Info->getInstruction());
-  addCallInfo(NewI, Info);
-  Info->setInstruction(NewI);
 }
 
 void DTransAnalysisInfo::addPtrSubMapping(llvm::BinaryOperator *BinOp,
@@ -10443,25 +10455,6 @@ void DTransAnalysisInfo::printCallInfo(raw_ostream &OS) {
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-// Helper to invoke the right destructor object for destroying a CallInfo
-// type object.
-void DTransAnalysisInfo::destructCallInfo(dtrans::CallInfo *Info) {
-  if (!Info)
-    return;
-
-  switch (Info->getCallInfoKind()) {
-  case dtrans::CallInfo::CIK_Alloc:
-    delete cast<dtrans::AllocCallInfo>(Info);
-    break;
-  case dtrans::CallInfo::CIK_Free:
-    delete cast<dtrans::FreeCallInfo>(Info);
-    break;
-  case dtrans::CallInfo::CIK_Memfunc:
-    delete cast<dtrans::MemfuncCallInfo>(Info);
-    break;
-  }
-}
-
 INITIALIZE_PASS_BEGIN(DTransAnalysisWrapper, "dtransanalysis",
                       "Data transformation analysis", false, true)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
@@ -10555,8 +10548,7 @@ DTransAnalysisInfo::DTransAnalysisInfo()
 // Value map has a deleted move constructor, so we need a non-default
 // implementation of ours.
 DTransAnalysisInfo::DTransAnalysisInfo(DTransAnalysisInfo &&Other)
-    : TypeInfoMap(std::move(Other.TypeInfoMap)),
-      CallInfoMap(std::move(Other.CallInfoMap)) {
+    : TypeInfoMap(std::move(Other.TypeInfoMap)), CIM(std::move(Other.CIM)) {
   // These two maps don't actually own any pointers, so it's OK to just copy
   // them.
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
@@ -10583,7 +10575,7 @@ DTransAnalysisInfo::~DTransAnalysisInfo() { reset(); }
 DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
   reset();
   TypeInfoMap = std::move(Other.TypeInfoMap);
-  CallInfoMap = std::move(Other.CallInfoMap);
+  CIM = std::move(Other.CIM);
   PtrSubInfoMap.insert(Other.PtrSubInfoMap.begin(), Other.PtrSubInfoMap.end());
   ByteFlattenedGEPInfoMap.insert(Other.ByteFlattenedGEPInfoMap.begin(),
                                  Other.ByteFlattenedGEPInfoMap.end());
@@ -10606,10 +10598,7 @@ DTransAnalysisInfo &DTransAnalysisInfo::operator=(DTransAnalysisInfo &&Other) {
 }
 
 void DTransAnalysisInfo::reset() {
-  // DTransAnalysisInfo owns the CallInfo pointers in the CallInfoMap.
-  for (auto Info : CallInfoMap)
-    destructCallInfo(Info.second);
-  CallInfoMap.clear();
+  CIM.reset();
 
   // DTransAnalysisInfo owns the TypeInfo pointers in the TypeInfoMap.
   for (auto Entry : TypeInfoMap) {
@@ -11096,7 +11085,7 @@ bool DTransAnalysisInfo::analyzeModule(
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (DTransPrintAnalyzedCalls) {
+  if (dtrans::DTransPrintAnalyzedCalls) {
     printCallInfo(dbgs());
     dbgs().flush();
   }

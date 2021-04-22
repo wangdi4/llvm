@@ -20,10 +20,10 @@ endif (INTEL_CUSTOMIZATION)
 if (NOT DEFINED LEVEL_ZERO_LIBRARY OR NOT DEFINED LEVEL_ZERO_INCLUDE_DIR)
   message(STATUS "Download Level Zero loader and headers from github.com")
   if (CMAKE_C_COMPILER)
-      list(APPEND AUX_CMAKE_FLAGS -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER})
+    list(APPEND AUX_CMAKE_FLAGS -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER})
   endif()
   if (CMAKE_CXX_COMPILER)
-      list(APPEND AUX_CMAKE_FLAGS -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
+    list(APPEND AUX_CMAKE_FLAGS -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
   endif()
   file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/level_zero_loader_build)
   set(LEVEL_ZERO_LOADER_SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/level_zero/level_zero_loader")
@@ -64,7 +64,8 @@ if (NOT DEFINED LEVEL_ZERO_LIBRARY OR NOT DEFINED LEVEL_ZERO_INCLUDE_DIR)
     COMPONENT level-zero-loader
   )
 
-  set(LEVEL_ZERO_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/level_zero_loader_install/include/)
+  set(LEVEL_ZERO_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/level_zero_loader_install/include/
+	  CACHE INTERNAL "Path containing Level_Zero header files.")
 else()
   file(GLOB LEVEL_ZERO_LIBRARY_SRC "${LEVEL_ZERO_LIBRARY}*")
   get_filename_component(LEVEL_ZERO_LIB_NAME ${LEVEL_ZERO_LIBRARY} NAME)
@@ -158,5 +159,5 @@ endif()
 # end INTEL_CUSTOMIZATION
 
 install(TARGETS pi_level_zero
-    LIBRARY DESTINATION "lib" COMPONENT pi_level_zero
-    RUNTIME DESTINATION "bin" COMPONENT pi_level_zero)
+  LIBRARY DESTINATION "lib" COMPONENT pi_level_zero
+  RUNTIME DESTINATION "bin" COMPONENT pi_level_zero)

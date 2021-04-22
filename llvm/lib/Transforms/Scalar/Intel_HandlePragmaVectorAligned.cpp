@@ -132,9 +132,10 @@ void HandlePragmaVectorAligned::processAlignedLoop(const Loop *L) {
 
       // Build an alignment assumption.
       Value *Invariant = Base->getValue();
-      int Align = TTI->getRegisterBitWidth(true) / 8;
+      int Align =
+        TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector) / 8;
       IRBuilder<> Builder(Preheader->getTerminator());
-      Builder.CreateAlignmentAssumptionOld(*DL, Invariant, Align);
+      Builder.CreateAlignmentAssumption(*DL, Invariant, Align);
     }
   }
 }
@@ -156,7 +157,7 @@ public:
     AU.setPreservesCFG();
   }
 
-  bool runOnFunction(Function &F) {
+  bool runOnFunction(Function &F) override {
     if (skipFunction(F))
       return false;
 

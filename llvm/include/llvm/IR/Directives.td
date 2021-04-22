@@ -122,6 +122,9 @@ def "DIR.OMP.END.TARGET.EXIT.DATA" : Directive;
 def "DIR.OMP.TARGET.VARIANT.DISPATCH" : Directive;
 def "DIR.OMP.END.TARGET.VARIANT.DISPATCH" : Directive;
 
+def "DIR.OMP.DISPATCH" : Directive;
+def "DIR.OMP.END.DISPATCH" : Directive;
+
 def "DIR.OMP.CANCEL" : Directive;
 def "DIR.OMP.END.CANCEL" : Directive;
 
@@ -130,6 +133,9 @@ def "DIR.OMP.END.CANCELLATION.POINT" : Directive;
 
 def "DIR.OMP.GENERICLOOP" : Directive;
 def "DIR.OMP.END.GENERICLOOP" : Directive;
+
+def "DIR.OMP.INTEROP"     : Directive;
+def "DIR.OMP.END.INTEROP" : Directive;
 
 #if INTEL_CUSTOMIZATION
 // Directives used to mark begin/end of a loop determined by VPO vectorizer
@@ -199,6 +205,9 @@ def "QUAL.OMP.SCHEDULE.DYNAMIC" : Clause;
 def "QUAL.OMP.SCHEDULE.GUIDED" : Clause;
 def "QUAL.OMP.SCHEDULE.AUTO" : Clause;
 def "QUAL.OMP.SCHEDULE.RUNTIME" : Clause;
+def "QUAL.OMP.INIT" : Clause;
+def "QUAL.OMP.DESTROY" : Clause;
+def "QUAL.OMP.USE" : Clause;
 def "QUAL.OMP.SHARED" : Clause;
 def "QUAL.OMP.PRIVATE" : Clause;
 def "QUAL.OMP.FIRSTPRIVATE" : Clause;
@@ -246,6 +255,7 @@ def "QUAL.OMP.THREADPRIVATE" : Clause;
 def "QUAL.OMP.DEVICE" : Clause;
 def "QUAL.OMP.SUBDEVICE" : Clause;
 def "QUAL.OMP.IS_DEVICE_PTR" : Clause;
+def "QUAL.OMP.HAS_DEVICE_ADDR" : Clause;
 def "QUAL.OMP.USE_DEVICE_PTR" : Clause;
 def "QUAL.OMP.USE_DEVICE_ADDR" : Clause;
 def "QUAL.OMP.DEFAULTMAP.ALLOC" : Clause;
@@ -287,6 +297,8 @@ def "QUAL.OMP.BIND.PARALLEL" : Clause;
 def "QUAL.OMP.BIND.THREAD" : Clause;
 def "QUAL.OMP.ORDER.CONCURRENT" : Clause;
 def "QUAL.OMP.ALLOCATE" : Clause;
+def "QUAL.OMP.NOCONTEXT" : Clause;
+def "QUAL.OMP.NOVARIANTS" : Clause;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 // Support Intel extension for CSA.
@@ -301,6 +313,8 @@ def "QUAL.OMP.SA.PIPELINE" : Clause;
 // but are used to carry additional information for OpenMP constructs
 
 def "QUAL.OMP.TARGET.TASK" : Clause;
+def "QUAL.OMP.IMPLICIT" : Clause;
+def "QUAL.OMP.DISPATCH.CALL" : Clause;
 def "QUAL.OMP.NORMALIZED.IV" : Clause;
 def "QUAL.OMP.NORMALIZED.UB" : Clause;
 def "QUAL.OMP.CANCELLATION.POINTS" : Clause;

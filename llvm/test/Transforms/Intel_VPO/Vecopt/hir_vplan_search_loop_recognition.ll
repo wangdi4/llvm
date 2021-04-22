@@ -1,9 +1,17 @@
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -allow-memory-speculation \
 ; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=WAS_RECOGNIZED-CHECK %s
+
+; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" \
+; RUN:     -allow-memory-speculation \
+; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=WAS_RECOGNIZED-CHECK %s
 ;
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -vplan-use-padding-info=false \
+; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=WAS_NOT_RECOGNIZED-CHECK %s
+
+; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" \
+; RUN:     -vplan-use-padding-info=false \
 ; RUN:     -debug -debug-only=vplan-idioms 2>&1 | FileCheck --check-prefix=WAS_NOT_RECOGNIZED-CHECK %s
 ;
 ; REQUIRES: asserts

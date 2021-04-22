@@ -3,7 +3,7 @@
 ; the correct solution when there is no main.
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: %gold -shared -plugin %llvmshlibdir/icx-lto%shlibext \
+; RUN: %gold -m elf_x86_64 -plugin %llvmshlibdir/icx-lto%shlibext \
 ; RUN:    -plugin-opt=O3 \
 ; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
 ; RUN:    -plugin-opt=-whole-program-read-trace %t.bc -o %t \
@@ -13,7 +13,7 @@
 ; marked as internal
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ TRACE
 ; CHECK: SYMBOL NAME: foo
-; CHECK: RESULT: RESOLVED BY LINKER
+; CHECK: RESULT:  RESOLVED BY LINKER
 
 ; CHECK: SYMBOLS RESOLVED BY LINKER: 1
 ; CHECK: SYMBOLS NOT RESOLVED BY LINKER: 0

@@ -302,8 +302,13 @@ public:
     NoIdiom = 0,
     // Min or Max main instruction in minmax+index idiom.
     MinOrMax,
-    // Index instruction of minmax+index idiom.
-    MMFirstLastLoc,
+    // Index instructions of minmax+index idiom.
+    // Monotonic index, the last value can be calculated in one step.
+    MMFirstLastIdx,
+    // Non-monotonic value, the last value calculation requires a MMFirstLastIdx
+    // to be present and uses its last value for final calculation.
+    MMFirstLastVal,
+    VConflict,
   };
 
 private:
@@ -367,7 +372,9 @@ public:
   static bool isStandaloneIdiom(IdiomId Id) { return false; }
 
   /// Predicate whether \p Id marks idioms that require the linked ones.
-  static bool isMasterIdiom(IdiomId Id) { return Id == MinOrMax; }
+  static bool isMasterIdiom(IdiomId Id) {
+    return Id == MinOrMax || Id == VConflict;
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const {
@@ -391,7 +398,8 @@ public:
   }
 
   static const char *getIdiomName(IdiomId Id) {
-    static const char *Names[] = {"NoIdiom", "MinOrMax", "MMFirstLastLoc"};
+    static const char *Names[] = {"NoIdiom", "MinOrMax", "MMFirstLastIdx",
+                                  "MMFirstLastVal", "VConflict"};
     return Names[Id];
   }
 #endif

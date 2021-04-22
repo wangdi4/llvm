@@ -676,32 +676,6 @@ public:
       MDNode *TBAAStructTag = nullptr, MDNode *ScopeTag = nullptr,
       MDNode *NoAliasTag = nullptr);
 
-  LLVM_ATTRIBUTE_DEPRECATED(CallInst *CreateElementUnorderedAtomicMemCpy(
-                                Value *Dst, unsigned DstAlign, Value *Src,
-                                unsigned SrcAlign, uint64_t Size,
-                                uint32_t ElementSize, MDNode *TBAATag = nullptr,
-                                MDNode *TBAAStructTag = nullptr,
-                                MDNode *ScopeTag = nullptr,
-                                MDNode *NoAliasTag = nullptr),
-                            "Use the version that takes Align instead") {
-    return CreateElementUnorderedAtomicMemCpy(
-        Dst, Align(DstAlign), Src, Align(SrcAlign), getInt64(Size), ElementSize,
-        TBAATag, TBAAStructTag, ScopeTag, NoAliasTag);
-  }
-
-  LLVM_ATTRIBUTE_DEPRECATED(CallInst *CreateElementUnorderedAtomicMemCpy(
-                                Value *Dst, unsigned DstAlign, Value *Src,
-                                unsigned SrcAlign, Value *Size,
-                                uint32_t ElementSize, MDNode *TBAATag = nullptr,
-                                MDNode *TBAAStructTag = nullptr,
-                                MDNode *ScopeTag = nullptr,
-                                MDNode *NoAliasTag = nullptr),
-                            "Use the version that takes Align instead") {
-    return CreateElementUnorderedAtomicMemCpy(
-        Dst, Align(DstAlign), Src, Align(SrcAlign), Size, ElementSize, TBAATag,
-        TBAAStructTag, ScopeTag, NoAliasTag);
-  }
-
   CallInst *CreateMemMove(Value *Dst, MaybeAlign DstAlign, Value *Src,
                           MaybeAlign SrcAlign, uint64_t Size,
                           bool isVolatile = false, MDNode *TBAATag = nullptr,
@@ -731,32 +705,6 @@ public:
       uint32_t ElementSize, MDNode *TBAATag = nullptr,
       MDNode *TBAAStructTag = nullptr, MDNode *ScopeTag = nullptr,
       MDNode *NoAliasTag = nullptr);
-
-  LLVM_ATTRIBUTE_DEPRECATED(CallInst *CreateElementUnorderedAtomicMemMove(
-                                Value *Dst, unsigned DstAlign, Value *Src,
-                                unsigned SrcAlign, uint64_t Size,
-                                uint32_t ElementSize, MDNode *TBAATag = nullptr,
-                                MDNode *TBAAStructTag = nullptr,
-                                MDNode *ScopeTag = nullptr,
-                                MDNode *NoAliasTag = nullptr),
-                            "Use the version that takes Align instead") {
-    return CreateElementUnorderedAtomicMemMove(
-        Dst, Align(DstAlign), Src, Align(SrcAlign), getInt64(Size), ElementSize,
-        TBAATag, TBAAStructTag, ScopeTag, NoAliasTag);
-  }
-
-  LLVM_ATTRIBUTE_DEPRECATED(CallInst *CreateElementUnorderedAtomicMemMove(
-                                Value *Dst, unsigned DstAlign, Value *Src,
-                                unsigned SrcAlign, Value *Size,
-                                uint32_t ElementSize, MDNode *TBAATag = nullptr,
-                                MDNode *TBAAStructTag = nullptr,
-                                MDNode *ScopeTag = nullptr,
-                                MDNode *NoAliasTag = nullptr),
-                            "Use the version that takes Align instead") {
-    return CreateElementUnorderedAtomicMemMove(
-        Dst, Align(DstAlign), Src, Align(SrcAlign), Size, ElementSize, TBAATag,
-        TBAAStructTag, ScopeTag, NoAliasTag);
-  }
 
   /// Create a vector fadd reduction intrinsic of the source vector.
   /// The first parameter is a scalar accumulator value for ordered reductions.
@@ -791,11 +739,11 @@ public:
 
   /// Create a vector float max reduction intrinsic of the source
   /// vector.
-  CallInst *CreateFPMaxReduce(Value *Src, bool NoNaN = false);
+  CallInst *CreateFPMaxReduce(Value *Src);
 
   /// Create a vector float min reduction intrinsic of the source
   /// vector.
-  CallInst *CreateFPMinReduce(Value *Src, bool NoNaN = false);
+  CallInst *CreateFPMinReduce(Value *Src);
 
   /// Create a lifetime.start intrinsic.
   ///
@@ -813,50 +761,17 @@ public:
   CallInst *CreateInvariantStart(Value *Ptr, ConstantInt *Size = nullptr);
 
   /// Create a call to Masked Load intrinsic
-  LLVM_ATTRIBUTE_DEPRECATED(
-      CallInst *CreateMaskedLoad(Value *Ptr, unsigned Alignment, Value *Mask,
-                                 Value *PassThru = nullptr,
-                                 const Twine &Name = ""),
-      "Use the version that takes Align instead") {
-    return CreateMaskedLoad(Ptr, assumeAligned(Alignment), Mask, PassThru,
-                            Name);
-  }
   CallInst *CreateMaskedLoad(Value *Ptr, Align Alignment, Value *Mask,
                              Value *PassThru = nullptr, const Twine &Name = "");
 
   /// Create a call to Masked Store intrinsic
-  LLVM_ATTRIBUTE_DEPRECATED(CallInst *CreateMaskedStore(Value *Val, Value *Ptr,
-                                                        unsigned Alignment,
-                                                        Value *Mask),
-                            "Use the version that takes Align instead") {
-    return CreateMaskedStore(Val, Ptr, assumeAligned(Alignment), Mask);
-  }
-
   CallInst *CreateMaskedStore(Value *Val, Value *Ptr, Align Alignment,
                               Value *Mask);
-
-  /// Create a call to Masked Gather intrinsic
-  LLVM_ATTRIBUTE_DEPRECATED(
-      CallInst *CreateMaskedGather(Value *Ptrs, unsigned Alignment,
-                                   Value *Mask = nullptr,
-                                   Value *PassThru = nullptr,
-                                   const Twine &Name = ""),
-      "Use the version that takes Align instead") {
-    return CreateMaskedGather(Ptrs, Align(Alignment), Mask, PassThru, Name);
-  }
 
   /// Create a call to Masked Gather intrinsic
   CallInst *CreateMaskedGather(Value *Ptrs, Align Alignment,
                                Value *Mask = nullptr, Value *PassThru = nullptr,
                                const Twine &Name = "");
-
-  /// Create a call to Masked Scatter intrinsic
-  LLVM_ATTRIBUTE_DEPRECATED(
-      CallInst *CreateMaskedScatter(Value *Val, Value *Ptrs, unsigned Alignment,
-                                    Value *Mask = nullptr),
-      "Use the version that takes Align instead") {
-    return CreateMaskedScatter(Val, Ptrs, Align(Alignment), Mask);
-  }
 
   /// Create a call to Masked Scatter intrinsic
   CallInst *CreateMaskedScatter(Value *Val, Value *Ptrs, Align Alignment,
@@ -869,6 +784,13 @@ public:
   /// added to the call instruction.
   CallInst *CreateAssumption(Value *Cond,
                              ArrayRef<OperandBundleDef> OpBundles = llvm::None);
+
+  /// Create a llvm.experimental.noalias.scope.decl intrinsic call.
+  Instruction *CreateNoAliasScopeDeclaration(Value *Scope);
+  Instruction *CreateNoAliasScopeDeclaration(MDNode *ScopeTag) {
+    return CreateNoAliasScopeDeclaration(
+        MetadataAsValue::get(Context, ScopeTag));
+  }
 
   /// Create a call to the experimental.gc.statepoint intrinsic to
   /// start a new statepoint sequence.
@@ -952,12 +874,15 @@ public:
 
   /// Create a call to llvm.intel.subscript.
   Instruction *CreateSubscript(unsigned Rank, Value *LowerBound, Value *Stride,
-                               Value *Ptr, Value *Index);
+                               Value *Ptr, Value *Index, bool IsExact = true);
 #endif // INTEL_CUSTOMIZATION
 
   /// Create a call to llvm.vscale, multiplied by \p Scaling. The type of VScale
   /// will be the same type as that of \p Scaling.
   Value *CreateVScale(Constant *Scaling, const Twine &Name = "");
+
+  /// Creates a vector of type \p DstType with the linear sequence <0, 1, ...>
+  Value *CreateStepVector(Type *DstType, const Twine &Name = "");
 
   /// Create a call to intrinsic \p ID with 1 operand which is mangled on its
   /// type.
@@ -1649,6 +1574,18 @@ public:
     return Insert(BinOp, Name);
   }
 
+  Value *CreateLogicalAnd(Value *Cond1, Value *Cond2, const Twine &Name = "") {
+    assert(Cond2->getType()->isIntOrIntVectorTy(1));
+    return CreateSelect(Cond1, Cond2,
+                        ConstantInt::getNullValue(Cond2->getType()), Name);
+  }
+
+  Value *CreateLogicalOr(Value *Cond1, Value *Cond2, const Twine &Name = "") {
+    assert(Cond2->getType()->isIntOrIntVectorTy(1));
+    return CreateSelect(Cond1, ConstantInt::getAllOnesValue(Cond2->getType()),
+                        Cond2, Name);
+  }
+
   CallInst *CreateConstrainedFPBinOp(
       Intrinsic::ID ID, Value *L, Value *R, Instruction *FMFSource = nullptr,
       const Twine &Name = "", MDNode *FPMathTag = nullptr,
@@ -1749,17 +1686,38 @@ public:
   }
 
   // Deprecated [opaque pointer types]
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
   LoadInst *CreateLoad(Value *Ptr, const char *Name) {
+#endif // INTEL_CUSTOMIZATION
     return CreateLoad(Ptr->getType()->getPointerElementType(), Ptr, Name);
   }
 
   // Deprecated [opaque pointer types]
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
   LoadInst *CreateLoad(Value *Ptr, const Twine &Name = "") {
+#endif // INTEL_CUSTOMIZATION
     return CreateLoad(Ptr->getType()->getPointerElementType(), Ptr, Name);
   }
 
   // Deprecated [opaque pointer types]
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
   LoadInst *CreateLoad(Value *Ptr, bool isVolatile, const Twine &Name = "") {
+#endif // INTEL_CUSTOMIZATION
     return CreateLoad(Ptr->getType()->getPointerElementType(), Ptr, isVolatile,
                       Name);
   }
@@ -1768,35 +1726,16 @@ public:
     return CreateAlignedStore(Val, Ptr, MaybeAlign(), isVolatile);
   }
 
-  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateAlignedLoad(Type *Ty, Value *Ptr,
-                                                        unsigned Align,
-                                                        const char *Name),
-                            "Use the version that takes NaybeAlign instead") {
-    return CreateAlignedLoad(Ty, Ptr, MaybeAlign(Align), Name);
-  }
   LoadInst *CreateAlignedLoad(Type *Ty, Value *Ptr, MaybeAlign Align,
                               const char *Name) {
     return CreateAlignedLoad(Ty, Ptr, Align, /*isVolatile*/false, Name);
   }
 
-  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateAlignedLoad(Type *Ty, Value *Ptr,
-                                                        unsigned Align,
-                                                        const Twine &Name = ""),
-                            "Use the version that takes MaybeAlign instead") {
-    return CreateAlignedLoad(Ty, Ptr, MaybeAlign(Align), Name);
-  }
   LoadInst *CreateAlignedLoad(Type *Ty, Value *Ptr, MaybeAlign Align,
                               const Twine &Name = "") {
     return CreateAlignedLoad(Ty, Ptr, Align, /*isVolatile*/false, Name);
   }
 
-  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateAlignedLoad(Type *Ty, Value *Ptr,
-                                                        unsigned Align,
-                                                        bool isVolatile,
-                                                        const Twine &Name = ""),
-                            "Use the version that takes MaybeAlign instead") {
-    return CreateAlignedLoad(Ty, Ptr, MaybeAlign(Align), isVolatile, Name);
-  }
   LoadInst *CreateAlignedLoad(Type *Ty, Value *Ptr, MaybeAlign Align,
                               bool isVolatile, const Twine &Name = "") {
     if (!Align) {
@@ -1807,54 +1746,44 @@ public:
   }
 
   // Deprecated [opaque pointer types]
-  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateAlignedLoad(Value *Ptr,
-                                                        unsigned Align,
-                                                        const char *Name),
-                            "Use the version that takes MaybeAlign instead") {
-    return CreateAlignedLoad(Ptr->getType()->getPointerElementType(), Ptr,
-                             MaybeAlign(Align), Name);
-  }
-  // Deprecated [opaque pointer types]
-  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateAlignedLoad(Value *Ptr,
-                                                        unsigned Align,
-                                                        const Twine &Name = ""),
-                            "Use the version that takes MaybeAlign instead") {
-    return CreateAlignedLoad(Ptr->getType()->getPointerElementType(), Ptr,
-                             MaybeAlign(Align), Name);
-  }
-  // Deprecated [opaque pointer types]
-  LLVM_ATTRIBUTE_DEPRECATED(LoadInst *CreateAlignedLoad(Value *Ptr,
-                                                        unsigned Align,
-                                                        bool isVolatile,
-                                                        const Twine &Name = ""),
-                            "Use the version that takes MaybeAlign instead") {
-    return CreateAlignedLoad(Ptr->getType()->getPointerElementType(), Ptr,
-                             MaybeAlign(Align), isVolatile, Name);
-  }
-  // Deprecated [opaque pointer types]
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
   LoadInst *CreateAlignedLoad(Value *Ptr, MaybeAlign Align, const char *Name) {
+#endif // INTEL_CUSTOMIZATION
     return CreateAlignedLoad(Ptr->getType()->getPointerElementType(), Ptr,
                              Align, Name);
   }
   // Deprecated [opaque pointer types]
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
   LoadInst *CreateAlignedLoad(Value *Ptr, MaybeAlign Align,
                               const Twine &Name = "") {
+#endif // INTEL_CUSTOMIZATION
     return CreateAlignedLoad(Ptr->getType()->getPointerElementType(), Ptr,
                              Align, Name);
   }
   // Deprecated [opaque pointer types]
-  LoadInst *CreateAlignedLoad(Value *Ptr, MaybeAlign Align, bool isVolatile,
-                              const Twine &Name = "") {
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-27718: This function signature has been deprecated in llorg.
+  // However this function signature is being used in many places under
+  // Intel customization.
+  // TODO: Add LLVM_ATTRIBUTE_DEPRECATED back once all uses of this function
+  // signature have been removed.
+  LoadInst *CreateAlignedLoad(Value *Ptr, MaybeAlign Align,
+                              bool isVolatile, const Twine &Name = "") {
+#endif // INTEL_CUSTOMIZATION
     return CreateAlignedLoad(Ptr->getType()->getPointerElementType(), Ptr,
                              Align, isVolatile, Name);
   }
 
-  LLVM_ATTRIBUTE_DEPRECATED(
-      StoreInst *CreateAlignedStore(Value *Val, Value *Ptr, unsigned Align,
-                                    bool isVolatile = false),
-      "Use the version that takes MaybeAlign instead") {
-    return CreateAlignedStore(Val, Ptr, MaybeAlign(Align), isVolatile);
-  }
   StoreInst *CreateAlignedStore(Value *Val, Value *Ptr, MaybeAlign Align,
                                 bool isVolatile = false) {
     if (!Align) {
@@ -1869,21 +1798,30 @@ public:
     return Insert(new FenceInst(Context, Ordering, SSID), Name);
   }
 
-  AtomicCmpXchgInst *CreateAtomicCmpXchg(
-      Value *Ptr, Value *Cmp, Value *New, AtomicOrdering SuccessOrdering,
-      AtomicOrdering FailureOrdering, SyncScope::ID SSID = SyncScope::System) {
-    const DataLayout &DL = BB->getModule()->getDataLayout();
-    Align Alignment(DL.getTypeStoreSize(New->getType()));
-    return Insert(new AtomicCmpXchgInst(
-        Ptr, Cmp, New, Alignment, SuccessOrdering, FailureOrdering, SSID));
+  AtomicCmpXchgInst *
+  CreateAtomicCmpXchg(Value *Ptr, Value *Cmp, Value *New, MaybeAlign Align,
+                      AtomicOrdering SuccessOrdering,
+                      AtomicOrdering FailureOrdering,
+                      SyncScope::ID SSID = SyncScope::System) {
+    if (!Align) {
+      const DataLayout &DL = BB->getModule()->getDataLayout();
+      Align = llvm::Align(DL.getTypeStoreSize(New->getType()));
+    }
+
+    return Insert(new AtomicCmpXchgInst(Ptr, Cmp, New, *Align, SuccessOrdering,
+                                        FailureOrdering, SSID));
   }
 
-  AtomicRMWInst *CreateAtomicRMW(AtomicRMWInst::BinOp Op, Value *Ptr, Value *Val,
+  AtomicRMWInst *CreateAtomicRMW(AtomicRMWInst::BinOp Op, Value *Ptr,
+                                 Value *Val, MaybeAlign Align,
                                  AtomicOrdering Ordering,
                                  SyncScope::ID SSID = SyncScope::System) {
-    const DataLayout &DL = BB->getModule()->getDataLayout();
-    Align Alignment(DL.getTypeStoreSize(Val->getType()));
-    return Insert(new AtomicRMWInst(Op, Ptr, Val, Alignment, Ordering, SSID));
+    if (!Align) {
+      const DataLayout &DL = BB->getModule()->getDataLayout();
+      Align = llvm::Align(DL.getTypeStoreSize(Val->getType()));
+    }
+
+    return Insert(new AtomicRMWInst(Op, Ptr, Val, *Align, Ordering, SSID));
   }
 
   Value *CreateGEP(Value *Ptr, ArrayRef<Value *> IdxList,
@@ -2575,10 +2513,10 @@ public:
   }
 
   /// Create a unary shuffle. The second vector operand of the IR instruction
-  /// is undefined.
+  /// is poison.
   Value *CreateShuffleVector(Value *V, ArrayRef<int> Mask,
                              const Twine &Name = "") {
-    return CreateShuffleVector(V, UndefValue::get(V->getType()), Mask, Name);
+    return CreateShuffleVector(V, PoisonValue::get(V->getType()), Mask, Name);
   }
 
   Value *CreateExtractValue(Value *Agg,
@@ -2641,6 +2579,9 @@ public:
   /// address space before call and casted back to Ptr type after call.
   Value *CreateStripInvariantGroup(Value *Ptr);
 
+  /// Return a vector value that contains the vector V reversed
+  Value *CreateVectorReverse(Value *V, const Twine &Name = "");
+
   /// Return a vector value that contains \arg V broadcasted to \p
   /// NumElts elements.
   Value *CreateVectorSplat(unsigned NumElts, Value *V, const Twine &Name = "");
@@ -2696,27 +2637,6 @@ public:
   CallInst *CreateAlignmentAssumption(const DataLayout &DL, Value *PtrValue,
                                       Value *Alignment,
                                       Value *OffsetValue = nullptr);
-
-#if INTEL_CUSTOMIZATION
-  /// This interface creates old-style alignment assumptions without operand
-  /// bundles. The reason for that is that the ValueTracking does not understand
-  /// assumptions with operand bundles yet. As soon as
-  /// https://reviews.llvm.org/D82703 is merged and pulled down to xmain, we
-  /// need to remove this customization and replace its uses with calls to
-  /// CreateAlignmentAssumption.
-  CallInst *CreateAlignmentAssumptionOld(const DataLayout &DL, Value *PtrValue,
-                                         unsigned Alignment,
-                                         Value *OffsetValue = nullptr,
-                                         Value **TheCheck = nullptr);
-
-private:
-  CallInst *CreateAlignmentAssumptionHelperOld(const DataLayout &DL,
-                                               Value *PtrValue, Value *Mask,
-                                               Type *IntPtrTy,
-                                               Value *OffsetValue,
-                                               Value **TheCheck);
-  CallInst *CreateAssumptionOld(Value *Cond);
-#endif // INTEL_CUSTOMIZATION
 };
 
 /// This provides a uniform API for creating instructions and inserting

@@ -39,12 +39,12 @@ void foo_coalesce()
   #pragma loop_coalesce 4
   for (int i=0;i<32;++i) {}
 
-  #pragma loop_coalesce // expected-error {{duplicate Intel FPGA loop attribute}}
-  #pragma loop_coalesce 4
+  #pragma loop_coalesce
+  #pragma loop_coalesce 4 // expected-error{{duplicate Intel FPGA loop attribute 'loop_coalesce'}}
   for (int i=0;i<32;++i) {}
 
-  #pragma loop_coalesce // expected-error {{duplicate Intel FPGA loop attribute}}
   #pragma loop_coalesce
+  #pragma loop_coalesce // expected-error{{duplicate Intel FPGA loop attribute 'loop_coalesce'}}
   for (int i=0;i<32;++i) {}
 
   // expected-warning@+1 {{extra tokens at end of '#pragma loop_coalesce' - ignored}}
@@ -75,7 +75,7 @@ void foo_coalesce()
 void foo_ii()
 {
   //CHECK: AttributedStmt
-  //CHECK-NEXT: SYCLIntelFPGAIIAttr
+  //CHECK-NEXT: SYCLIntelFPGAInitiationIntervalAttr
   //CHECK-NEXT: IntegerLiteral{{.*}}4
   #pragma ii 4
   for (int i=0;i<32;++i) {}
@@ -83,8 +83,8 @@ void foo_ii()
   #pragma ii // expected-warning {{expected value}}
   for (int i=0;i<32;++i) {}
 
-  #pragma ii 4 // expected-error {{duplicate Intel FPGA loop attribute}}
-  #pragma ii 8
+  #pragma ii 4
+  #pragma ii 8 // expected-error {{duplicate Intel FPGA loop attribute 'ii'}}
   for (int i=0;i<32;++i) {}
 
   // expected-warning@+1 {{extra tokens at end of '#pragma ii' - ignored}}
@@ -126,8 +126,8 @@ void foo_max_concurrency()
   #pragma max_concurrency // expected-warning {{expected value}}
   for (int i=0;i<32;++i) {}
 
-  #pragma max_concurrency 4 // expected-error {{duplicate Intel FPGA loop attribute}}
-  #pragma max_concurrency 8
+  #pragma max_concurrency 4
+  #pragma max_concurrency 8 // expected-error{{duplicate Intel FPGA loop attribute 'max_concurrency'}}
   for (int i=0;i<32;++i) {}
 
   #pragma max_concurrency 0
@@ -168,8 +168,8 @@ void foo_max_interleaving()
   #pragma max_interleaving // expected-warning {{expected value}}
   for (int i=0;i<32;++i) {}
 
-  #pragma max_interleaving 4 // expected-error {{duplicate Intel FPGA loop attribute}}
-  #pragma max_interleaving 8
+  #pragma max_interleaving 4
+  #pragma max_interleaving 8 // expected-error{{duplicate Intel FPGA loop attribute 'max_interleaving'}}
   for (int i=0;i<32;++i) {}
 
   #pragma max_interleaving 0
@@ -482,8 +482,8 @@ void foo_speculated_iterations()
   #pragma speculated_iterations 2147483648 // expected-error {{is too large}}
   for (int i=0;i<32;++i) {}
 
-  #pragma speculated_iterations 4 // expected-error {{duplicate Intel FPGA loop attribute}}
-  #pragma speculated_iterations 8
+  #pragma speculated_iterations 4
+  #pragma speculated_iterations 8 // expected-error{{duplicate Intel FPGA loop attribute 'speculated_iterations'}}
   for (int i=0;i<32;++i) {}
 
   // expected-warning@+1 {{extra tokens at end of '#pragma speculated_iterations' - ignored}}
@@ -544,8 +544,8 @@ void foo_disable_loop_pipelining()
   #pragma disable_loop_pipelining
   for (int i=0;i<32;++i) {}
 
-  #pragma disable_loop_pipelining // expected-error {{duplicate Intel FPGA loop attribute}}
   #pragma disable_loop_pipelining
+  #pragma disable_loop_pipelining // expected-error{{duplicate Intel FPGA loop attribute 'disable_loop_pipelining'}}
   for (int i=0;i<32;++i) {}
 
   // expected-warning@+1 {{extra tokens at end of '#pragma disable_loop_pipelining' - ignored}}
@@ -555,35 +555,33 @@ void foo_disable_loop_pipelining()
   #pragma disable_loop_pipelining 0
   for (int i=0;i<32;++i) {}
 
-  #pragma disable_loop_pipelining // expected-error {{not compatible}}
-  #pragma max_concurrency 100
+  #pragma disable_loop_pipelining // expected-note {{conflicting attribute is here}}
+  #pragma max_concurrency 100 // expected-error{{'max_concurrency' and 'disable_loop_pipelining' attributes are not compatible}}
   for (int i=0;i<32;++i) {}
 
-  #pragma max_concurrency 100 // expected-error {{not compatible}}
-  #pragma disable_loop_pipelining
+  #pragma max_concurrency 100 // expected-note {{conflicting attribute is here}}
+  #pragma disable_loop_pipelining // expected-error{{'disable_loop_pipelining' and 'max_concurrency' attributes are not compatible}}
   for (int i=0;i<32;++i) {}
 
-  //expected-error@+2 {{disable_loop_pipelining and max_concurrency attributes are not compatible}}
-  //expected-error@+1 {{disable_loop_pipelining and ii attributes are not compatible}}
-  #pragma ii  1
+  // expected-error@+3{{'disable_loop_pipelining' and 'ii' attributes are not compatible}}
+  #pragma ii  1 // expected-note {{conflicting attribute is here}}
   #pragma max_concurrency 100
   #pragma disable_loop_pipelining
   for (int i=0;i<32;++i) {}
 
   int i, myArray[10];
-  //expected-error@+2 {{disable_loop_pipelining and ivdep attributes are not compatible}}
-  //expected-error@+1 {{disable_loop_pipelining and ivdep attributes are not compatible}}
-  #pragma disable_loop_pipelining
+  // expected-error@+2{{'ivdep' and 'disable_loop_pipelining' attributes are not compatible}}
+  #pragma disable_loop_pipelining // expected-note {{conflicting attribute is here}}
   #pragma ivdep array(myArray)
   #pragma ivdep safelen(8)
   for (int i=0;i<32;++i) {}
 
-  #pragma ivdep safelen(8) // expected-error {{not compatible}}
-  #pragma disable_loop_pipelining
+  #pragma ivdep safelen(8) // expected-note {{conflicting attribute is here}}
+  #pragma disable_loop_pipelining // expected-error{{'disable_loop_pipelining' and 'ivdep' attributes are not compatible}}
   for (int i=0;i<32;++i) {}
 
-  #pragma disable_loop_pipelining // expected-error {{not compatible}}
-  #pragma ii 4
+  #pragma disable_loop_pipelining // expected-note {{conflicting attribute is here}}
+  #pragma ii 4 // expected-error{{'ii' and 'disable_loop_pipelining' attributes are not compatible}}
   for (int i=0;i<32;++i) {}
 
   #pragma disable_loop_pipelining
@@ -610,12 +608,12 @@ void foo_disable_loop_pipelining()
   #pragma disable_loop_pipelining // expected-error {{incompatible directives}}
   for (int i=0;i<32;++i) {}
 
-  #pragma speculated_iterations 4 // expected-error {{not compatible}}
-  #pragma disable_loop_pipelining
+  #pragma speculated_iterations 4 // expected-note {{conflicting attribute is here}}
+  #pragma disable_loop_pipelining // expected-error{{'disable_loop_pipelining' and 'speculated_iterations' attributes are not compatible}}
   for (int i=0;i<32;++i) {}
 
-  #pragma disable_loop_pipelining // expected-error {{not compatible}}
-  #pragma speculated_iterations 4
+  #pragma disable_loop_pipelining // expected-note {{conflicting attribute is here}}
+  #pragma speculated_iterations 4 // expected-error{{'speculated_iterations' and 'disable_loop_pipelining' attributes are not compatible}}
   for (int i=0;i<32;++i) {}
 
   //CHECK: good
@@ -763,7 +761,7 @@ template <int size>
 void nontypeargument5()
 {
   // CHECK: AttributedStmt
-  // CHECK-NEXT: SYCLIntelFPGAIIAttr{{.*}}
+  // CHECK-NEXT: SYCLIntelFPGAInitiationIntervalAttr{{.*}}
   // CHECK: SubstNonTypeTemplateParmExpr{{.*}} 'int'
   // CHECK-NEXT: NonTypeTemplateParmDecl{{.*}} referenced 'int' depth 0 index 0 size
   // CHECK-NEXT: IntegerLiteral{{.*}}10
@@ -830,7 +828,7 @@ void max_concurrency_dependent() {
   for (int i = 0; i != 10; ++i)
     a[i] = 0;
 
-  // expected-error@+1 {{duplicate Intel FPGA loop attribute 'max_concurrency'}}
+  // expected-error@+2 {{duplicate Intel FPGA loop attribute 'max_concurrency'}}
   #pragma max_concurrency A
   #pragma max_concurrency B
   for (int i = 0; i != 10; ++i)
@@ -845,7 +843,7 @@ void max_interleaving_dependent() {
   for (int i = 0; i != 10; ++i)
     a[i] = 0;
 
-  // expected-error@+1 {{duplicate Intel FPGA loop attribute 'max_interleaving'}}
+  // expected-error@+2 {{duplicate Intel FPGA loop attribute 'max_interleaving'}}
   #pragma max_interleaving A
   #pragma max_interleaving B
   for (int i = 0; i != 10; ++i)
@@ -860,7 +858,7 @@ void ii_dependent() {
   for (int i = 0; i != 10; ++i)
     a[i] = 0;
 
-  // expected-error@+1 {{duplicate Intel FPGA loop attribute 'ii'}}
+  // expected-error@+2 {{duplicate Intel FPGA loop attribute 'ii'}}
   #pragma ii A
   #pragma ii B
   for (int i = 0; i != 10; ++i)
@@ -875,7 +873,7 @@ void speculated_iterations_dependent() {
   for (int i = 0; i != 10; ++i)
     a[i] = 0;
 
-  // expected-error@+1 {{duplicate Intel FPGA loop attribute 'speculated_iterations'}}
+  // expected-error@+2 {{duplicate Intel FPGA loop attribute 'speculated_iterations'}}
   #pragma speculated_iterations A
   #pragma speculated_iterations B
   for (int i = 0; i != 10; ++i)
@@ -890,7 +888,7 @@ void loop_coalesce_dependent() {
   for (int i = 0; i != 10; ++i)
     a[i] = 0;
 
-  // expected-error@+1 {{duplicate Intel FPGA loop attribute 'loop_coalesce'}}
+  // expected-error@+2 {{duplicate Intel FPGA loop attribute 'loop_coalesce'}}
   #pragma loop_coalesce A
   #pragma loop_coalesce B
   for (int i = 0; i != 10; ++i)

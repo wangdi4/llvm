@@ -19,6 +19,8 @@
 
 ; REQUIRES: asserts
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-dump-da -vplan-dump-subscript-details -print-after=VPlanDriverHIR -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-dump-da -vplan-dump-subscript-details -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+
 
 ; Check for results from DA.
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header><latch><exiting>
@@ -32,7 +34,7 @@
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 64] double* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds double* [[B0:%.*]] {i64 0 : i64 [[VP2]] : i64 32 : double*}
 ; CHECK-NEXT:  Divergent: [Shape: Random] store double 2.000000e+00 double* [[VP_SUBSCRIPT_2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP3:%.*]] = icmp sle i64 [[VP1]] i64 29
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP3:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP3]], [[BB0]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]

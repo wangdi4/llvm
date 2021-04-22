@@ -96,6 +96,22 @@ static cl::opt<bool, true> UseOmpRegionsInLoopopt(
     cl::Hidden, cl::location(UseOmpRegionsInLoopoptFlag), cl::init(false));
 #endif  // INTEL_CUSTOMIZATION
 
+static cl::opt<unsigned> IgnoreRegionsStartingWith(
+    "vpo-paropt-ignore-regions-starting-with", cl::Hidden, cl::init(0),
+    cl::desc("Ignore OpenMP regions starting with the one matching the given "
+             "index (>=1). Can be combined with "
+             "'-vpo-paropt-ignore-regions-up-to' to specify a range."));
+
+static cl::opt<unsigned> IgnoreRegionsUpTo(
+    "vpo-paropt-ignore-regions-up-to", cl::Hidden, cl::init(0),
+    cl::desc("Ignore OpenMP regions up to the one matching the given "
+             "index (>=1). Can be combined with "
+             "'-vpo-paropt-ignore-regions-starting-with' to specify a range."));
+
+static cl::list<unsigned> IgnoreRegionIDs(
+    "vpo-paropt-ignore-regions-matching", cl::Hidden, cl::CommaSeparated,
+    cl::desc("Ignore OpenMP regions matching the given indices."));
+
 static cl::opt<bool> OptimizeScalarFirstprivate(
     "vpo-paropt-opt-scalar-fp", cl::Hidden, cl::init(true),
     cl::desc("Pass scalar firstprivates as literals."));
@@ -1361,7 +1377,8 @@ bool VPOParoptTransform::addBranchToEndDirective(WRegionNode *W) {
   Value *CmpInst =
       Builder.CreateICmpNE(GlobLoad, Builder.getInt1(0), "cmp"); //     (4)
 
-  SplitBlockAndInsertIfThen(CmpInst, InsertPt, false, nullptr, nullptr, nullptr,
+  SplitBlockAndInsertIfThen(CmpInst, InsertPt, false, nullptr, // INTEL
+                            (DomTreeUpdater *)nullptr, nullptr, // INTEL
                             NewExitBB); //                              (5)
 
   StringRef ClauseString =
@@ -1601,6 +1618,29 @@ bool VPOParoptTransform::paroptTransforms() {
     bool RemoveDirectives = false;
     bool HandledWithoutRemovingDirectives = false;
 
+    auto ignoreRegion = [&](unsigned WID) {
+      if (!(Mode & ParPrepare))
+        return false;
+
+      if (IgnoreRegionsStartingWith && IgnoreRegionsUpTo) {
+        if (WID >= IgnoreRegionsStartingWith && WID <= IgnoreRegionsUpTo)
+          return true;
+      } else if (IgnoreRegionsStartingWith) {
+        if (WID >= IgnoreRegionsStartingWith)
+          return true;
+      } else if (IgnoreRegionsUpTo) {
+        if (WID <= IgnoreRegionsUpTo)
+          return true;
+      }
+      if (IgnoreRegionIDs.empty())
+        return false;
+      if (std::find(IgnoreRegionIDs.begin(), IgnoreRegionIDs.end(), WID) !=
+          IgnoreRegionIDs.end())
+        return true;
+
+      return false;
+    };
+
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     if (isTargetCSA() && !isSupportedOnCSA(W)) {
@@ -1612,18 +1652,24 @@ bool VPOParoptTransform::paroptTransforms() {
             break;
         }
       RemoveDirectives = true;
-    }
-    else
+    } else
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-    if (W->getIsOmpLoop() && !W->getIsSections()
-        &&  W->getWRNLoopInfo().getLoop()==nullptr) {
+    if (ignoreRegion(W->getNumber())) {
+      Function *F = W->getEntryDirective()->getFunction();
+      OptimizationRemark R("openmp", "Ignored", W->getEntryDirective());
+      R << ("construct " + Twine(W->getNumber()) + " (" + W->getName() +
+            ") ignored on user's direction")
+               .str();
+      F->getContext().diagnose(R);
+      RemoveDirectives = true;
+    } else if (W->getIsOmpLoop() && !W->getIsSections() &&
+               W->getWRNLoopInfo().getLoop() == nullptr) {
       // The WRN is a loop-type construct, but the loop is missing, most likely
       // because it has been optimized away. We skip the code transforms for
       // this WRN, and simply remove its directives.
       RemoveDirectives = true;
-    }
-    else {
+    } else {
       if (isModeOmpNoFECollapse() &&
           W->canHaveCollapse()) {
         Changed |= collapseOmpLoops(W);
@@ -1849,6 +1895,16 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       case WRegionNode::WRNTask:
         if (Mode & ParPrepare) {
+          if (W->getIsImplicit()) {
+            // Currently implicit tasks are only created for the dispatch
+            // construct (when it has depend or nowait). We want to ignore
+            // these constructs as dispatch codegen no longer needs them.
+            // TODO: we may ask the FE to stop emitting these implicit tasks
+            // once the new dispatch spec (based on merged tasks) becomes
+            // official.
+            RemoveDirectives = true;
+            break;
+          }
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
@@ -1933,6 +1989,7 @@ bool VPOParoptTransform::paroptTransforms() {
           // functions with target regions from being deleted by LTO.
           if (hasOffloadCompilation())
             F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
+          Changed |= addMapAndPrivateForIsDevicePtr(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
           if (isTargetSPIRV() && !hasParentTarget(W) &&
               !isFunctionOpenMPTargetDeclare())
@@ -1940,7 +1997,6 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= renameOperandsUsingStoreThenLoad(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= constructNDRangeInfo(W);
-          Changed |= addMapAndPrivateForIsDevicePtr(W);
           Changed |= promoteClauseArgumentUses(W);
           // The purpose is to generate place holder for global variable.
           Changed |= genGlobalPrivatizationLaunderIntrin(W);
@@ -2041,10 +2097,28 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
 
+      case WRegionNode::WRNDispatch:
+        if (Mode & ParPrepare) {
+          debugPrintHeader(W, Mode);
+          if (!hasOffloadCompilation()) { // for host only
+            Changed |= genDispatchCode(W);
+          }
+          RemoveDirectives = true;
+        }
+        break;
+
       case WRegionNode::WRNTaskgroup:
         debugPrintHeader(W, Mode);
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= genTaskgroupRegion(W);
+          RemoveDirectives = true;
+        }
+        break;
+
+      case WRegionNode::WRNInterop:
+        if (Mode & ParPrepare) {
+          if (!hasOffloadCompilation())
+            Changed |= genInteropCode(W);
           RemoveDirectives = true;
         }
         break;
@@ -2085,6 +2159,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genLinearCodeForVecLoop(W, LoopExitBB);
             Changed |= genLastPrivatizationCode(W, LoopExitBB);
             Changed |= genReductionCode(W);
+            Changed |= genDestructorCode(W);
             Changed |= sinkSIMDDirectives(W);
             Changed |= genParallelAccessMetadata(W);
           }
@@ -2382,7 +2457,7 @@ bool VPOParoptTransform::paroptTransforms() {
     if (RemoveDirectives) {
       bool DirRemoved = VPOUtils::stripDirectives(W);
       assert(DirRemoved && "Directive intrinsics not removed for WRN.\n");
-      (void) DirRemoved;
+      RoutineChanged |= DirRemoved;
     } else if (Mode & ParPrepare)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -3144,6 +3219,14 @@ void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
 //
 void VPOParoptTransform::genLprivFini(Item *I, Value *NewV, Value *OldV,
                                       Instruction *InsertPt) {
+#if INTEL_CUSTOMIZATION
+  if (I->getIsF90DopeVector()) {
+    VPOParoptUtils::genF90DVLastprivateCopyCall(NewV, OldV, InsertPt,
+                                                isTargetSPIRV());
+    return;
+  }
+
+#endif // INTEL_CUSTOMIZATION
   // NewV is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
   assert(GeneralUtils::isOMPItemLocalVAR(NewV) &&
          "genLprivFini: Expect isOMPItemLocalVAR().");
@@ -3159,14 +3242,6 @@ void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
   // For by-refs, do a pointer dereference to reach the actual operand.
   if (LprivI->getIsByRef())
     OldV = new LoadInst(NewV->getType(), OldV, "", InsertPt);
-
-#if INTEL_CUSTOMIZATION
-  if (LprivI->getIsF90DopeVector()) {
-    VPOParoptUtils::genF90DVLastprivateCopyCall(NewV, OldV, InsertPt,
-                                                isTargetSPIRV());
-    return;
-  }
-#endif // INTEL_CUSTOMIZATION
 
   if (Function *CpAssn = LprivI->getCopyAssign()) {
     genPrivatizationInitOrFini(LprivI, CpAssn, FK_CopyAssign, OldV, NewV,
@@ -3613,10 +3688,15 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   Value *OldV = RedI->getOrig();
   Value *NewV = RedI->getNew();
   if (NeedSrc) {
-    IRBuilder<> Builder(InsertPt);
-    // For by-refs, do a pointer dereference to reach the actual operand.
-    if (RedI->getIsByRef())
-      OldV = Builder.CreateLoad(OldV->getType()->getPointerElementType(), OldV);
+    if (Value *OrigArg = RedI->getTaskRedInitOrigArg()) {
+      OldV = OrigArg;
+    } else {
+      IRBuilder<> Builder(InsertPt);
+      // For by-refs, do a pointer dereference to reach the actual operand.
+      if (RedI->getIsByRef())
+        OldV =
+            Builder.CreateLoad(OldV->getType()->getPointerElementType(), OldV);
+    }
   }
 
 #if INTEL_CUSTOMIZATION
@@ -3634,7 +3714,7 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   }
   IRBuilder<> Builder(InsertPt);
   if (IsUDR) {
-    genReductionUdrInit(RedI, RedI->getOrig(), NewV, AllocaTy, Builder);
+    genReductionUdrInit(RedI, OldV, NewV, AllocaTy, Builder);
     return;
   }
 
@@ -3664,9 +3744,9 @@ BasicBlock *VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
       //        for SPIR-V target) may introduce non-linear code outside
       //        the ZTT and before the exit block, so the loop below
       //        may not find the right block always.
-      while (distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 1)
+      while (std::distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 1)
         ExitBlock = *pred_begin(ExitBlock);
-      assert(distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 2 &&
+      assert(std::distance(pred_begin(ExitBlock), pred_end(ExitBlock)) == 2 &&
              "Expect two predecessors for the omp loop region exit.");
       auto PI = pred_begin(ExitBlock);
       auto Pred1 = *PI++;
@@ -4445,7 +4525,9 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       LLVM_DEBUG(dbgs() << "genReductionCode: reduced " << *Orig << "\n");
     }
 
-    if (NeedsKmpcCritical) {
+    if (NeedsKmpcCritical && !isa<WRNVecLoopNode>(W)) {
+      // Reduction update does not have to be atomic/critical for SIMD loops.
+
       // Wrap the reduction fini code inside a critical region.
       // EndBB is created to be used as the insertion point for
       // end_critical()/end_reduce().
@@ -4482,6 +4564,32 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   return Changed;
 }
 
+// Replace all uses of value 'Val' in all ClauseID clauses in the given
+// begin directive call 'Entry' with 'null'.
+template <int ClauseID>
+static bool removeAllUsesInClauses(IntrinsicInst *Entry, Value *Val) {
+  assert(VPOAnalysisUtils::isBeginDirective(Entry));
+
+  bool Changed = false;
+  for (auto &BOI : make_range(std::next(Entry->bundle_op_info_begin()),
+                              Entry->bundle_op_info_end())) {
+    // Get clause ID and check if it is a clause of interest.
+    ClauseSpecifier CS(BOI.Tag->getKey());
+    if (CS.getId() != ClauseID)
+      continue;
+
+    // Check bundle operand uses and zap the ones matching given value.
+    for (unsigned I = BOI.Begin, E = BOI.End; I < E; ++I) {
+      Use &U = Entry->getOperandUse(I);
+      if (Val != U.get())
+        continue;
+      U.set(Constant::getNullValue(U->getType()));
+      Changed = true;
+    }
+  }
+  return Changed;
+}
+
 // Generate code for aligned clause.
 bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
   bool Changed = false;
@@ -4513,36 +4621,36 @@ bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
       // Replace reference to the 'orig' value with 'null' in the directive
       // since there is no need to keep it in the directive after paropt
       // lowering.
-      for (auto &BOI : make_range(std::next(EntryDir->bundle_op_info_begin()),
-                                  EntryDir->bundle_op_info_end())) {
-        // Get clause ID and check if it is a clause of interest.
-        ClauseSpecifier CS(BOI.Tag->getKey());
-        if (CS.getId() != QUAL_OMP_ALIGNED)
-          continue;
-
-        // Check bundle operand uses and zap the ones matching.
-        for (unsigned I = BOI.Begin, E = BOI.End; I < E; ++I) {
-          Use &U = EntryDir->getOperandUse(I);
-          if (Ptr != U.get())
-            continue;
-          U.set(Constant::getNullValue(U->getType()));
-        }
-      }
+      removeAllUsesInClauses<QUAL_OMP_ALIGNED>(EntryDir, Ptr);
 
       // According to the specification 'alignmnent' value is optional and when
       // it is not provided FE sets 'alignment' to 0. If this is the case, set
       // alignment to be equal to the size of the largest vector register.
       int Align = AI->getAlign();
       if (!Align)
-        Align = TTI->getRegisterBitWidth(true) / 8;
+        Align = TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector) / 8;
 
-      // Generate llvm.assume call for the specified value.
-      IRBuilder<> Builder(GetAlignedBlock()->getTerminator());
-      auto &DL = F->getParent()->getDataLayout();
-      CallInst *Call = Builder.CreateAlignmentAssumptionOld(DL, Ptr, Align);
+      auto AddAlignAssumption = [this, Align](Value *Ptr, Instruction *InsPt) {
+        // Generate llvm.assume call for the specified value.
+        IRBuilder<> Builder(InsPt);
+        auto &DL = F->getParent()->getDataLayout();
+        CallInst *Call = Builder.CreateAlignmentAssumption(DL, Ptr, Align);
 
-      // And then add it to the assumption cache.
-      AC->registerAssumption(Call);
+        // And then add it to the assumption cache.
+        AC->registerAssumption(cast<AssumeInst>(Call));
+      };
+
+      // For ptr-to-ptr values create llvm.assume call after the instruction
+      // that loads the aligned pointer. All other items should be defined
+      // before the region, so put assumption calls for them into the successor
+      // of the region entry block.
+      if (AI->getIsPointerToPointer()) {
+        for (auto *U : Ptr->users())
+          if (auto *LI = dyn_cast<LoadInst>(U))
+            if (W->contains(LI->getParent()))
+              AddAlignAssumption(LI, &*++LI->getIterator());
+      } else
+        AddAlignAssumption(Ptr, GetAlignedBlock()->getTerminator());
 
       Changed = true;
     }
@@ -4553,6 +4661,18 @@ bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
   W->resetBBSetIfChanged(Changed);
   return Changed;
 }
+
+#if INTEL_CUSTOMIZATION
+/// Determines if \p Usr is a subscript intrinsic.
+static bool isSubscript(const User *Usr) {
+  const auto *const IntrInst = dyn_cast<IntrinsicInst>(Usr);
+  if (!IntrInst)
+    return false;
+  const unsigned IntrID = IntrInst->getIntrinsicID();
+  return IntrID == Intrinsic::intel_subscript ||
+         IntrID == Intrinsic::intel_subscript_nonexact;
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
   W->populateBBSet();
@@ -4588,7 +4708,21 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
       }
     };
 
-    growWorkList(NtmpItem->getOrig());
+    Value *Val = NtmpItem->getOrig();
+    if (!Val)
+      continue;
+
+    // Remove references to a nontemporal value from bundle clauses since there
+    // is no need to keep it there after processing.
+    Changed |= removeAllUsesInClauses<QUAL_OMP_NONTEMPORAL>(
+        cast<IntrinsicInst>(W->getEntryDirective()), Val);
+
+    if (NtmpItem->getIsPointerToPointer()) {
+      for (auto *U : Val->users())
+        if (auto *Load = dyn_cast<LoadInst>(U))
+          growWorkList(Load);
+    } else
+      growWorkList(Val);
 
     while (!WorkList.empty()) {
       Use *U = WorkList.pop_back_val();
@@ -4606,7 +4740,11 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
           Changed = true;
         }
         Mrf->setMetadata(LLVMContext::MD_nontemporal, NtmpMD);
-      } else if (isa<GEPOperator>(Usr) || isa<BitCastOperator>(Usr)) {
+      } else if (isa<GEPOperator>(Usr) || isa<BitCastOperator>(Usr)
+#if INTEL_CUSTOMIZATION
+                 || isSubscript(Usr)
+#endif // INTEL_CUSTOMIZATION
+      ) {
         // Look through getelementptr and bitcast operators.
         growWorkList(Usr);
       }
@@ -5219,7 +5357,11 @@ static void genPrivatizationDebug(WRegionNode *W,
 
     if (CastInst *CI = dyn_cast_or_null<CastInst>(Current)) {
       if (CI->isNoopCast(M->getDataLayout()))
+        // No expression operator necessary for noop casts.
         Current = CI->getOperand(0);
+      else if (auto *ASCI = dyn_cast_or_null<AddrSpaceCastInst>(CI))
+        // Ignore, an addrSpace expression is not currently supported by LLVM.
+        Current = ASCI->getPointerOperand();
       else
         Current = nullptr;
     } else {
@@ -7220,11 +7362,9 @@ bool VPOParoptTransform::renameOperandsUsingStoreThenLoad(WRegionNode *W) {
       Changed |= rename(UdpI->getOrig(), true);
   }
 
-  if (W->canHaveIsDevicePtr()) {
-    IsDevicePtrClause &IdpClause = W->getIsDevicePtr();
-    for (IsDevicePtrItem *IdpI : IdpClause.items())
-      Changed |= rename(IdpI->getOrig(), true);
-  }
+  // is_device_ptr() clauses must have been transformed into
+  // map[+private], but W->getIsDevicePtr().items().empty()
+  // is still not empty. Just do nothing for these items.
 
   W->resetBBSetIfChanged(Changed); // Clear BBSet if transformed
 
@@ -7826,7 +7966,7 @@ void updateConstantLoopHeaderPhis(Loop *L) {
 
       IRBuilder<> ConstBuilder(LatchBB->getFirstNonPHI());
       unsigned NumPredecessors =
-          distance(pred_begin(LatchBB), pred_end(LatchBB));
+          std::distance(pred_begin(LatchBB), pred_end(LatchBB));
       PHINode *ConstPhi;
       ConstPhi = ConstBuilder.CreatePHI(
           IV->getType(), NumPredecessors,
@@ -8045,11 +8185,11 @@ bool VPOParoptTransform::genLoopSchedulingCode(
         if (auto *I = dyn_cast<Instruction>(U.getUser())) {
           if (VPOAnalysisUtils::isOpenMPDirective(I) || isa<LoadInst>(I) ||
               I->isLifetimeStartOrEnd() ||
-              isa<BitCastInst>(I) && all_of(I->uses(), [](Use &U) {
+              (isa<BitCastInst>(I) && all_of(I->uses(), [](Use &U) {
                 if (auto *I = dyn_cast<Instruction>(U.getUser()))
                   return I->isLifetimeStartOrEnd();
                 return false;
-              }))
+              })))
             continue;
 
           if (auto *SI = dyn_cast<StoreInst>(I))
@@ -8964,16 +9104,16 @@ unsigned VPOParoptTransform::getAlignmentCopyIn(Value *V, const DataLayout DL) {
   // Alignment : 1, BaseAlignment:32, Offset:1
   //
   GlobalVariable *GVPtr;
-  if (GVPtr = dyn_cast<GlobalVariable>(V))
+  if ((GVPtr = dyn_cast<GlobalVariable>(V)))
     return GVPtr->getAlignment();
 
   if (auto *BC = dyn_cast<BitCastOperator>(V)) {
     Value *BCOperand = BC->getOperand(0);
-    if (GVPtr = dyn_cast<GlobalVariable>(BCOperand))
+    if ((GVPtr = dyn_cast<GlobalVariable>(BCOperand)))
       return GVPtr->getAlignment();
     if (auto *GEP = dyn_cast<GEPOperator>(BCOperand)) {
       auto *BasePointer = GEP->getPointerOperand()->stripPointerCasts();
-      if (GVPtr = dyn_cast<GlobalVariable>(BasePointer)) {
+      if ((GVPtr = dyn_cast<GlobalVariable>(BasePointer))) {
         unsigned BaseAlignment = GVPtr->getAlignment();
         APInt ConstOffset(64, 0);
         GEP->accumulateConstantOffset(DL, ConstOffset);
@@ -9012,8 +9152,8 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
     const DataLayout NDL=NFn->getParent()->getDataLayout();
     bool FirstArg = true;
 
+    Instruction *Term = nullptr;
     for (auto C : CP.items()) {
-      Instruction *Term;
       if (FirstArg) {
         FirstArg = false;
 
@@ -9222,6 +9362,8 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W,
 
   BasicBlock *ThenMasterBB = MasterTestBB->getTerminator()->getSuccessor(0);
   BasicBlock *SuccEndMasterBB = MasterBB->getTerminator()->getSuccessor(0);
+  bool IDomOfSuccEndMasterBBNeedsUpdating =
+      DT->properlyDominates(MasterTestBB, SuccEndMasterBB);
 
   ThenMasterBB->setName("if.then.master." + Twine(W->getNumber()));
 
@@ -9239,10 +9381,13 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W,
                                                    SuccEndMasterBB, CondInst);
   ReplaceInstWithInst(TermInst, NewTermInst);
 
-  DT->changeImmediateDominator(ThenMasterBB,
-                               MasterCI->getParent());
-  DT->changeImmediateDominator(ThenMasterBB->getTerminator()->getSuccessor(0),
-                               MasterCI->getParent());
+  if (!DT->isReachableFromEntry(SuccEndMasterBB) ||
+      !DT->isReachableFromEntry(MasterTestBB))
+    DT->insertEdge(MasterTestBB, SuccEndMasterBB);
+  else if (IDomOfSuccEndMasterBBNeedsUpdating)
+    DT->changeImmediateDominator(SuccEndMasterBB, MasterTestBB);
+
+  assert(DT->verify() && "DominatorTree update failed after Master codegen.");
 
   W->resetBBSet(); // Invalidate BBSet
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genMasterThreadCode\n");
@@ -9318,6 +9463,8 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W,
 
   BasicBlock *ThenSingleBB = SingleTestBB->getTerminator()->getSuccessor(0);
   BasicBlock *EndSingleSuccBB = EndSingleBB->getTerminator()->getSuccessor(0);
+  bool IDomOfEndSingleSuccBBNeedsUpdating =
+      DT->properlyDominates(SingleTestBB, EndSingleSuccBB);
 
   ThenSingleBB->setName("if.then.single." + Twine(W->getNumber()));
 
@@ -9335,9 +9482,13 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W,
                                                    EndSingleSuccBB, CondInst);
   ReplaceInstWithInst(TermInst, NewTermInst);
 
-  DT->changeImmediateDominator(ThenSingleBB, SingleCI->getParent());
-  DT->changeImmediateDominator(ThenSingleBB->getTerminator()->getSuccessor(0),
-                               SingleCI->getParent());
+  if (!DT->isReachableFromEntry(EndSingleSuccBB) ||
+      !DT->isReachableFromEntry(SingleTestBB))
+    DT->insertEdge(SingleTestBB, EndSingleSuccBB);
+  else if (IDomOfEndSingleSuccBBNeedsUpdating)
+    DT->changeImmediateDominator(EndSingleSuccBB, SingleTestBB);
+
+  assert(DT->verify() && "DominatorTree update failed after Single codegen.");
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genSingleThreadCode\n");
 
@@ -10644,9 +10795,9 @@ bool VPOParoptTransform::canonicalizeGlobalVariableReferences(WRegionNode *W) {
     for (LinearItem *LrI : W->getLinear().items())
       rename(LrI);
 
-  if (W->canHaveIsDevicePtr())
-    for (IsDevicePtrItem *DPtrI : W->getIsDevicePtr().items())
-      rename(DPtrI);
+  // is_device_ptr() clauses must have been transformed into
+  // map[+private], but W->getIsDevicePtr().items().empty()
+  // is still not empty. Just do nothing for these items.
 
   if (W->canHaveMap()) {
     for (MapItem *MapI : W->getMap().items()) {
@@ -10708,6 +10859,7 @@ bool VPOParoptTransform::constructNDRangeInfo(WRegionNode *W) {
 bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   auto Exiter = [FunctionName = __FUNCTION__, W](bool Changed) {
     W->resetBBSetIfChanged(Changed);
+    (void)FunctionName;
     LLVM_DEBUG(dbgs() << FunctionName << ": finished loops collapsing\n");
     return Changed;
   };
@@ -11439,7 +11591,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   // them up to this target region.
   bool PassedTarget = !HoistCombinedUBBeforeTarget;
 
-  while (P = P->getParent()) {
+  while ((P = P->getParent())) {
 #if INTEL_CUSTOMIZATION
     // We generate explicit stores to the new LB and UB variables.
     // Stores inside target and teams regions are considered to be side-effect
@@ -11498,7 +11650,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
       PassedTarget = true;
   }
 
-  if (SetNDRange)
+  if (SetNDRange) {
     if (Use1DRange) {
       assert(HoistCombinedUBBeforeTarget &&
              "Inconsistent use of Use1DRange and HoistCombinedUBBeforeTarget.");
@@ -11511,7 +11663,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     } else
       // Add the original loops' upper bounds to OFFLOAD.NDRANGE clause.
       setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs());
-
+  }
   return Exiter(true);
 }
 

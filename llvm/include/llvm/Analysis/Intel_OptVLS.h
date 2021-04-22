@@ -485,7 +485,7 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(OVLSostream &OS, unsigned NumSpaces) const {
+  void print(OVLSostream &OS, unsigned NumSpaces) const override {
     OVLSType Type = getType();
     uint32_t NumElems = Type.getNumElements();
     OS << Type;
@@ -559,12 +559,12 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(OVLSostream &OS, unsigned NumSpaces) const {
+  void print(OVLSostream &OS, unsigned NumSpaces) const override {
     OS << getType() << "* "
        << "<Base:" << Base << " Offset:" << Offset << ">";
   }
 
-  void printAsOperand(OVLSostream &OS) const {
+  void printAsOperand(OVLSostream &OS) const override {
     OS << getType() << "* "
        << "<Base:" << Base << " Offset:" << Offset << ">";
   }
@@ -600,11 +600,12 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void printAsOperand(OVLSostream &OS) const { OS << Type << " %" << Id; }
+  void printAsOperand(OVLSostream &OS) const override
+  { OS << Type << " %" << Id; }
   virtual void dump() const = 0;
 #endif
 
-  uint64_t getId() const { return Id; }
+  uint64_t getId() const override { return Id; }
 
   OperationCode getKind() const { return OPCode; }
 
@@ -635,17 +636,17 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(OVLSostream &OS, unsigned NumSpaces) const;
+  void print(OVLSostream &OS, unsigned NumSpaces) const override;
 
-  void dump() const {
+  void dump() const override {
     print(OVLSdbgs(), 0);
     OVLSdbgs() << '\n';
   }
 #endif
 
   uint64_t getMask() const { return ElemMask; }
-  void setMask(uint64_t Mask) { ElemMask = Mask; }
-  void setType(OVLSType T) {
+  void setMask(uint64_t Mask) override { ElemMask = Mask; }
+  void setType(OVLSType T) override {
     Src.setType(T);
     OVLSOperand::setType(T);
   }
@@ -683,18 +684,18 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(OVLSostream &OS, unsigned NumSpaces) const;
+  void print(OVLSostream &OS, unsigned NumSpaces) const override;
 
-  void dump() const {
+  void dump() const override {
     print(OVLSdbgs(), 0);
     OVLSdbgs() << '\n';
   }
 #endif
 
   uint64_t getMask() const { return ElemMask; }
-  void setMask(uint64_t Mask) { ElemMask = Mask; }
+  void setMask(uint64_t Mask) override { ElemMask = Mask; }
   void updateValue(const OVLSOperand *const V) { Value = V; }
-  void setType(OVLSType T) {
+  void setType(OVLSType T) override {
     Dst.setType(T);
     OVLSOperand::setType(T);
   }
@@ -757,9 +758,9 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(OVLSostream &OS, unsigned NumSpaces) const;
+  void print(OVLSostream &OS, unsigned NumSpaces) const override ;
 
-  void dump() const {
+  void dump() const override {
     print(OVLSdbgs(), 0);
     OVLSdbgs() << '\n';
   }

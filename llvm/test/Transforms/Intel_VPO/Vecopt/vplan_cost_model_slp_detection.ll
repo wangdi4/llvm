@@ -1,8 +1,8 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -xmain-opt-level=3 -hir-vec-dir-insert -VPlanDriverHIR -vplan-cost-model-print-analysis-for-vf=4 -disable-output | FileCheck %s --check-prefix=CHECK-PROP
+; TODO: Enable a way to run with LLVM-IR VPlanDriver
 
-; CHECK-PROP: SLP breaking penalty applied to Base Cost.
-; TODO: Enable a way to run CHECK-BASE.
-; CHECK-BASE: SLP breaking penalty applied.
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -xmain-opt-level=3 -hir-vec-dir-insert -VPlanDriverHIR -vplan-cost-model-print-analysis-for-vf=4 -disable-output | FileCheck %s
+
+; CHECK: Extra cost due to SLP breaking heuristic
 
 target triple = "x86_64-unknown-linux-gnu"
 

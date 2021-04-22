@@ -26,20 +26,23 @@ for.body:                                         ; preds = %for.body.preheader,
   %arrayidx2 = getelementptr inbounds i64, i64* %ub, i64 %i.022
   %1 = load i64, i64* %arrayidx2, align 8
   %cmp319 = icmp slt i64 %0, %1
-; CHECK:  vector.body:
-; CHECK:    [[WIDE_LOAD:%.*]] = load <8 x i64>, <8 x i64>* [[TMP1:%.*]], align 8
-; CHECK:    [[WIDE_LOAD1:%.*]] = load <8 x i64>, <8 x i64>* [[TMP3:%.*]], align 8
-; CHECK:    [[TMP4:%.*]] = icmp slt <8 x i64> [[WIDE_LOAD]], [[WIDE_LOAD1]]
+; CHECK:       vector.body:
+; CHECK:         [[WIDE_LOAD0:%.*]] = load <8 x i64>, <8 x i64>* [[TMP1:%.*]], align 8
+; CHECK:         [[WIDE_LOAD50:%.*]] = load <8 x i64>, <8 x i64>* [[TMP2:%.*]], align 8
+; CHECK:         [[TMP3:%.*]] = icmp slt <8 x i64> [[WIDE_LOAD0]], [[WIDE_LOAD50]]
   br i1 %cmp319, label %for.body4.preheader, label %for.inc7
 
 for.body4.preheader:                              ; preds = %for.body
   br label %for.body4
 
 for.body4:                                        ; preds = %for.body4.preheader, %for.body4
-; CHECK:       VPlannedBB:
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i64> [ [[TMP14:%.*]], [[VPLANNEDBB:%.*]] ], [ [[WIDE_LOAD]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI2:%.*]] = phi <8 x i1> [ [[TMP4]], [[VECTOR_BODY]] ], [ [[TMP13:%.*]], [[VPLANNEDBB]] ]
-; CHECK-NEXT:    [[TMP5:%.*]] = and <8 x i1> [[TMP4]], [[VEC_PHI2]]
+; CHECK:       VPlannedBB6:
+; CHECK-NEXT:    [[VEC_PHI80:%.*]] = phi <8 x i64> [ [[TMP6:%.*]], [[VPLANNEDBB120:%.*]] ], [ [[WIDE_LOAD0]], [[VPLANNEDBB60:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI90:%.*]] = phi <8 x i1> [ [[TMP3]], [[VPLANNEDBB60]] ], [ [[TMP9:%.*]], [[VPLANNEDBB120:%.*]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB100:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB9:
+; CHECK-NEXT:    [[TMP4:%.*]] = and <8 x i1> [[TMP3]], [[VEC_PHI90]]
   %j.020 = phi i64 [ %inc, %for.body4 ], [ %0, %for.body4.preheader ]
   %shl = shl i64 %j.020, 3
   %arrayidx6 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @A, i64 0, i64 %j.020, i64 %i.022
@@ -48,13 +51,13 @@ for.body4:                                        ; preds = %for.body4.preheader
   %2 = load i64, i64* %arrayidx2, align 8
   %cmp3 = icmp slt i64 %inc, %2
 ; Verify that lanes masked out by [[TMP4]] don't take part in allzerocheck
-; CHECK:         [[TMP15:%.*]] = and <8 x i1> [[TMP13]], [[TMP4]]
-; CHECK-NEXT:    [[TMP16:%.*]] = bitcast <8 x i1> [[TMP15]] to i8
-; CHECK-NEXT:    [[TMP17:%.*]] = icmp eq i8 [[TMP16]], 0
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <8 x i1> undef, i1 [[TMP17]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <8 x i1> [[BROADCAST_SPLATINSERT]], <8 x i1> undef, <8 x i32> zeroinitializer
-; CHECK-NEXT:    [[COND:%.*]] = extractelement <8 x i1> [[BROADCAST_SPLAT]], i32 0
-; CHECK-NEXT:    br i1 [[COND]], label [[VPLANNEDBB3:%.*]], label [[VPLANNEDBB]]
+; CHECK:         [[TMP10:%.*]] = and <8 x i1> [[TMP9]], [[TMP3]]
+; CHECK-NEXT:    [[TMP11:%.*]] = bitcast <8 x i1> [[TMP10]] to i8
+; CHECK-NEXT:    [[TMP12:%.*]] = icmp eq i8 [[TMP11]], 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <8 x i1> poison, i1 [[TMP12]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <8 x i1> [[BROADCAST_SPLATINSERT0]], <8 x i1> poison, <8 x i32> zeroinitializer
+; CHECK-NEXT:    [[COND:%.*]] = extractelement <8 x i1> [[BROADCAST_SPLAT0]], i32 0
+; CHECK-NEXT:    br i1 [[COND]], label [[VPLANNEDBB130:%.*]], label [[VPLANNEDBB70:%.*]]
   br i1 %cmp3, label %for.body4, label %for.inc7.loopexit
 
 for.inc7.loopexit:                                ; preds = %for.body4

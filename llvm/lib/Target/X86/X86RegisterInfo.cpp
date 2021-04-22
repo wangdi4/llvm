@@ -307,6 +307,11 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   if (MF->getFunction().hasFnAttribute("no_caller_saved_registers"))
     CC = CallingConv::X86_INTR;
 
+  // If atribute specified, override the CSRs normally specified by the
+  // calling convention and use the empty set instead.
+  if (MF->getFunction().hasFnAttribute("no_callee_saved_registers"))
+    return CSR_NoRegs_SaveList;
+
   switch (CC) {
   case CallingConv::GHC:
   case CallingConv::HiPE:
@@ -669,15 +674,6 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-  // FIXME Just to keep tile register spill test case pass. Or may add an option
-  // to constrain the tile register number for the test case. In long term,
-  // we need another register class for tmm0 ~ tmm15.
-  for (unsigned n = 8; n != 16; ++n) {
-    for (MCRegAliasIterator AI(X86::TMM0 + n, this, true); AI.isValid(); ++AI)
-      Reserved.set(*AI);
-  }
-#endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ICECODE
   // Reserve the registers ZMM0~15 in IceCode mode.
   if (IsIceCode)
@@ -733,7 +729,7 @@ bool X86RegisterInfo::hasBasePointer(const MachineFunction &MF) const {
   // can't address variables from the stack pointer.  MS inline asm can
   // reference locals while also adjusting the stack pointer.  When we can't
   // use both the SP and the FP, we need a separate base pointer register.
-  bool CantUseFP = needsStackRealignment(MF);
+  bool CantUseFP = hasStackRealignment(MF);
   return CantUseFP && CantUseSP(MFI);
 }
 
@@ -813,8 +809,8 @@ X86RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   int FIOffset;
   Register BasePtr;
   if (MI.isReturn()) {
-    assert((!needsStackRealignment(MF) ||
-           MF.getFrameInfo().isFixedObjectIndex(FrameIndex)) &&
+    assert((!hasStackRealignment(MF) ||
+            MF.getFrameInfo().isFixedObjectIndex(FrameIndex)) &&
            "Return instruction can only reference SP relative frame objects");
     FIOffset =
         TFI->getFrameIndexReferenceSP(MF, FrameIndex, BasePtr, 0).getFixed();
@@ -960,9 +956,20 @@ static ShapeT getTileShape(Register VirtReg, VirtRegMap *VRM,
   default:
     llvm_unreachable("Unexpected machine instruction on tile register!");
     break;
+  case X86::COPY: {
+    Register SrcReg = MI->getOperand(1).getReg();
+    ShapeT Shape = getTileShape(SrcReg, VRM, MRI);
+    VRM->assignVirt2Shape(VirtReg, Shape);
+    return Shape;
+  }
   // We only collect the tile shape that is defined.
   case X86::PTILELOADDV:
   case X86::PTDPBSSDV:
+  case X86::PTDPBSUDV:
+  case X86::PTDPBUSDV:
+  case X86::PTDPBUUDV:
+  case X86::PTILEZEROV:
+  case X86::PTDPBF16PSV:
     MachineOperand &MO1 = MI->getOperand(1);
     MachineOperand &MO2 = MI->getOperand(2);
     ShapeT Shape(&MO1, &MO2, MRI);

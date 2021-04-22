@@ -67,6 +67,8 @@ def warn_arg_invalid_range_low_assumed : Warning<
   InGroup<IntelCompat>;
 def err_attribute_argument_is_not_in_range : Error<
   "invalid attribute value, possible values are: %0">;
+def err_allow_cpu_feature_invalid_bitmask : Error<
+  "invalid bitmask value specified for 'allow_cpu_features' attribute">;
 
 def warn_bad_cxx_cast_generic : Warning<
   "%select{const_cast|static_cast|reinterpret_cast|dynamic_cast|C-style cast|"
@@ -133,7 +135,7 @@ def err_hls_memory_arg_invalid : Error<
   "%0 attribute requires either no argument or one of: %1">;
 def err_memory_attribute_invalid : Error<
   "%0 attribute only applies to "
-  "%select{|slave memory arguments, non-static field members, }1"
+  "%select{|agent memory arguments, non-static field members, }1"
   "constant variables, local variables and static variables">;
 def err_hls_force_loop_pipelining_invalid : Error<
   "%0 attribute argument must be 'on' or 'off'">;
@@ -142,7 +144,7 @@ def err_hls_force_loop_pipelining_conflict : Error<
 def err_hls_readwrite_arg_invalid : Error<
   "readwrite type must be 'readonly', 'writeonly' or 'readwrite'">;
 def err_readwritememory_attribute_invalid : Error<
-  "%0 attribute only applies to slave memory arguments">;
+  "%0 attribute only applies to agent memory arguments">;
 // Intel OpenCL FPGA extension
 def warn_opencl_attribute_only_for_local_address_space : Warning<
   "%0 attribute can be aplied only for parameters that reside "
@@ -152,8 +154,6 @@ def warn_opencl_attribute_only_for_global_address_space : Warning<
   "%0 attribute can be aplied only for parameters that reside "
   "in global address space, attribute ignored">,
   InGroup<IgnoredAttributes>;
-def err_opencl_attributes_conflict : Error<
-  "%0 attribute conflicts with '%1' attribute">;
 def err_opencl_missing_actual_channel_type : Error<
   "missing actual type specifier for channel">;
 def err_intel_opencl_attribute_argument_type : Error<
@@ -166,8 +166,6 @@ def err_opencl_autorun_kernel_wrong_reqd_wg_size : Error<
   "of 2^32">;
 def err_opencl_autorun_kernel_cannot_have_arguments : Error<
   "Autorun kernel functions cannot have any arguments">;
-def err_opencl_x_y_z_arguments_must_be_one : Error<
-  "%0 X-, Y- and Z- sizes must be 1 when %1 attribute is used and equals to 0">;
 def err_intel_opencl_attribute_requires_extension : Error<
   "%0 attribute requires %1 extension to be enabled">;
 def warn_intel_opencl_attribute_wrong_decl_type : Warning<
@@ -256,10 +254,6 @@ def err_hls_builtin_arg_mismatch : Error<
 def err_hls_builtin_without_fhls : Error <
   "HLS builtin can only be used when the HLS flag is present on the command "
   "line invocation">;
-def err_ap_int_type : Error <
-  "invalid __ap_int element type %0; must be 'int' or 'unsigned int'">;
-def err_ap_int_bad_size : Error <
-  "%select{signed|unsigned|}0 __ap_int must have a size of at least %select{2|1|1}0">;
 def err_fpga_reg_limitations : Error <
   "Illegal %select{argument of type %1 |field in argument}0 to __builtin_fpga_reg.">;
 def err_pragma_loop_invalid_negative_value : Error<

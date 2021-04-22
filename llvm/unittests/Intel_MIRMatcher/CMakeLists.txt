@@ -25,3 +25,7 @@ include_directories(
     Intel_MIRMatcherTest.cpp
     )
 endif()
+
+if (HOST_LINUX AND "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" )
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c++17-extensions")
+endif()

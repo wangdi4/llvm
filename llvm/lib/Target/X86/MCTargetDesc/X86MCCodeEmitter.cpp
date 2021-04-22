@@ -125,12 +125,13 @@ static void emitConstant(uint64_t Val, unsigned Size, raw_ostream &OS) {
 /// Determine if this immediate can fit in a disp8 or a compressed disp8 for
 /// EVEX instructions. \p will be set to the value to pass to the ImmOffset
 /// parameter of emitImmediate.
-static bool isDispOrCDisp8(uint64_t TSFlags, int Value, int &ImmOffset) {
+static bool isDispOrCDisp8(uint64_t TSFlags, int Value, int &ImmOffset, // INTEL
+                           bool ForceSIB) {                             // INTEL
   bool HasEVEX = (TSFlags & X86II::EncodingMask) == X86II::EVEX;
 
   int CD8_Scale =
       (TSFlags & X86II::CD8_Scale_Mask) >> X86II::CD8_Scale_Shift;
-  if (!HasEVEX || CD8_Scale == 0)
+  if (!HasEVEX || CD8_Scale == 0 || ForceSIB) // INTEL
     return isInt<8>(Value);
 
   assert(isPowerOf2_32(CD8_Scale) && "Unexpected CD8 scale!");
@@ -585,7 +586,7 @@ void X86MCCodeEmitter::emitMemModRMByte(const MCInst &MI, unsigned Op,
     // disp8 if the {disp32} pseudo prefix is present.
     if (Disp.isImm() && AllowDisp8) {
       int ImmOffset = 0;
-      if (isDispOrCDisp8(TSFlags, Disp.getImm(), ImmOffset)) {
+      if (isDispOrCDisp8(TSFlags, Disp.getImm(), ImmOffset, ForceSIB)) { // INTEL
         emitByte(modRMByte(1, RegOpcodeField, BaseRegNo), OS);
         emitImmediate(Disp, MI.getLoc(), 1, FK_Data_1, StartByte, OS, Fixups,
                       ImmOffset);
@@ -627,7 +628,7 @@ void X86MCCodeEmitter::emitMemModRMByte(const MCInst &MI, unsigned Op,
     // Emit no displacement ModR/M byte
     emitByte(modRMByte(0, RegOpcodeField, 4), OS);
   } else if (Disp.isImm() && AllowDisp8 &&
-             isDispOrCDisp8(TSFlags, Disp.getImm(), ImmOffset)) {
+             isDispOrCDisp8(TSFlags, Disp.getImm(), ImmOffset, ForceSIB)) { // INTEL
     // Displacement fits in a byte or matches an EVEX compressed disp8, use
     // disp8 encoding. This also handles EBP/R13 base with 0 displacement unless
     // {disp32} pseudo prefix was used.

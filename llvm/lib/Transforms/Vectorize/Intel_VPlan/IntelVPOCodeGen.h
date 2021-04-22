@@ -26,8 +26,6 @@
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Vectorize.h"
 
-extern llvm::cl::opt<bool> EnableVPValueCodegen;
-
 namespace llvm {
 
 class TargetTransformInfo;
@@ -49,19 +47,18 @@ class VPOCodeGen {
 public:
   VPOCodeGen(Loop *OrigLoop, LLVMContext &Context,
              PredicatedScalarEvolution &PSE, LoopInfo *LI, DominatorTree *DT,
-             TargetLibraryInfo *TLI,
-             unsigned VecWidth, unsigned UnrollFactor,
+             TargetLibraryInfo *TLI, unsigned VecWidth, unsigned UnrollFactor,
              VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
-             const VPlan *Plan,
+             const VPlanVector *Plan,
              FatalErrorHandlerTy FatalErrorHandler = nullptr)
-      : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI),
-        Legal(LVL), VLSA(VLSA),
-        VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth), Plan(Plan),
-        VF(VecWidth), UF(UnrollFactor), Builder(Context),
+      : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), Legal(LVL),
+        VLSA(VLSA), VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth),
+        Plan(Plan), VF(VecWidth), UF(UnrollFactor), Builder(Context),
         PreferredPeeling(Plan->getPreferredPeeling(VF)),
+        OrigPreHeader(OrigLoop->getLoopPreheader()),
         FatalErrorHandler(FatalErrorHandler) {}
 
-  ~VPOCodeGen() {}
+  ~VPOCodeGen() { assert(VFStack.empty() && "expected empty VF stack"); }
 
   /// Initiate the scalar selects set.
   void initOpenCLScalarSelectSet(ArrayRef<const char *> OpenCLScalarSelects);
@@ -96,6 +93,7 @@ public:
   IRBuilder<> &getBuilder() { return Builder; }
 
   BasicBlock *getLoopVectorPH() { return LoopVectorPreHeader; }
+  BasicBlock *getOrigScalarExit() { return LoopExitBlock; }
 
   Loop *getMainLoop() const { return NewLoop; }
   Loop *getOrigLoop() const { return OrigLoop; }
@@ -132,6 +130,13 @@ public:
                          SmallVectorImpl<Type *> &VecArgTys,
                          SmallVectorImpl<AttributeSet> &VecArgAttrs);
 
+  /// Promote provided mask to a proper type and add it into
+  /// vector arguments/vector argument types arrays.
+  void createVectorMaskArg(VPCallInstruction *VPCall, VectorVariant *VecVariant,
+                           SmallVectorImpl<Value *> &VecArgs,
+                           SmallVectorImpl<Type *> &VecArgTys,
+                           unsigned PumpedVF, Value *MaskToUse);
+
   // Return true if the argument at position /p Idx for function /p FnName is
   // scalar.
   bool isScalarArgument(StringRef FnName, unsigned Idx);
@@ -151,7 +156,7 @@ public:
 
   VPlanVLSAnalysis *getVLS() { return VLSA; }
 
-  void setVPlan(const VPlan *P, const VPLoopEntityList *Entities) {
+  void setVPlan(const VPlanVector *P, const VPLoopEntityList *Entities) {
     Plan = P;
     VPEntities = Entities;
   }
@@ -165,7 +170,7 @@ public:
   //  full support for cloning such loops would have to be tested before this
   //  function is used for cloning such loops.
   Loop *cloneScalarLoop(Loop *OrigLP, BasicBlock *NewLoopPred,
-                        BasicBlock *NewLoopSucc,
+                        BasicBlock *NewLoopSucc, VPPeelRemainder *LoopInst,
                         const Twine &Name = "cloned.loop");
 
 private:
@@ -176,6 +181,9 @@ private:
   /// Return true if instruction \p V needs vector generated, i.e. is
   /// used in vector context after vectorization.
   bool needVectorCode(VPValue *V) { return true; }
+
+  /// Check that value  was vectorized with use of serialization
+  bool isSerialized(VPValue *V) const;
 
   /// Emit a bypass check to see if the vector trip count is nonzero.
   void emitVectorLoopEnteredCheck(Loop *L, BasicBlock *Bypass);
@@ -189,10 +197,10 @@ private:
   Value *getTripCount() const { return TripCount; }
 
   /// Returns (and creates if needed) the original loop trip count.
-  Value *getOrCreateTripCount(Loop *L);
+  Value *getOrCreateTripCount(Loop *L, IRBuilder<> &Builder);
 
   /// Returns (and creates if needed) the trip count of the widened loop.
-  Value *getOrCreateVectorTripCount(Loop *L);
+  Value *getOrCreateVectorTripCount(Loop *L, IRBuilder<> &Builder);
 
   /// Helper function to generate and insert a scalar LLVM instruction from
   /// VPInstruction based on its opcode and scalar versions of its operands.
@@ -295,6 +303,9 @@ private:
   /// Fix up induction last value.
   void fixInductionLastVal(const VPInduction &Ind, VPInductionFinal *IndFinal);
 
+  /// Fix up private last value.
+  void fixPrivateLastVal(VPInstruction *PrivFinal);
+
   /// The Loop exit block may have single value PHI nodes where the incoming
   /// value is 'Undef'. While vectorizing we only handled real values that were
   /// defined inside the loop. Here we fix the 'undef case'.
@@ -320,6 +331,9 @@ private:
 
   /// Return the right vector mask for a OpenCL vector select build-in.
   Value *getOpenCLSelectVectorMask(VPValue *ScalarMask);
+
+  /// Generate code for the VPPeelCount instruction.
+  Value *codeGenVPInvSCEVWrapper(VPInvSCEVWrapper *SW);
 
   /// Generate vector code for reduction finalization.
   /// The final vector reduction value is reduced horizontally using
@@ -361,8 +375,20 @@ private:
   /// elements of the private element type.
   void vectorizeAllocatePrivate(VPAllocatePrivate *V);
 
+  /// Vectorize unconditional last private final value calculation.
+  void vectorizePrivateFinalUncond(VPInstruction *VPInst);
+
   /// Vectorize blend instructions using selects.
   void vectorizeBlend(VPBlendInst *Blend);
+
+  // In the original loop header phis remove operands coming from original
+  // preheader.
+  void unlinkOrigHeaderPhis();
+
+  // Drop values generated for externals (VPExternalDef, VPConstant etc) from
+  // value maps. This is done when we encounter VPPushVF/VPPopVF so we don't
+  // use values geneated for different loops/VPlans.
+  void dropExternalValsFromMaps();
 
   /// The original loop.
   Loop *OrigLoop;
@@ -392,7 +418,7 @@ private:
   VPlanAlignmentAnalysis VPAA;
 
   /// VPlan for which vector code is generated, need to finalize external uses.
-  const VPlan *Plan;
+  const VPlanVector *Plan;
 
   // Loop entities, for correct reductions processing
   const VPLoopEntityList *VPEntities = nullptr;
@@ -409,8 +435,34 @@ private:
   // Unroll factor
   unsigned UF;
 
+  // Last VPPushVF encountered.
+  VPInstruction *LastPushVF = nullptr;
+
+  // Stack of triple <vector factor, unroll vactor, VPInstruction *>
+  SmallVector<std::tuple<unsigned, unsigned, VPInstruction *>, 2> VFStack;
+
+  // Set of VPValues which we should erase from the maps of already generated
+  // values when we encounter VPPushVF/VPPopVF instructions. The same
+  // VPConstants and VPExternalDefs can be used in different VPlans. But
+  // generating code for a VPlan we can't use the values generated in another
+  // VPlan, due to VFs mismatch and/or domination reasons. The VPPushVF/VPPopVF
+  // define the bounds between VPlans so we use them to drop those maps
+  SmallSet<VPValue*, 16> VPValsToFlushForVF;
+
   // IR Builder to use to generate instructions
   IRBuilder<> Builder;
+
+  // Flag to indicate that the original loop is used either as peel or
+  // remainder.
+  // In case it's not used, in the end of CG we need to update original header
+  // block phi-s removing incoming values from the loop preheader. E.g. the
+  // phi-s will remain in the form
+  //   %indvars.iv = phi i64 [ %indvars.iv.next, %for.end ], [ 0, %preheader ]
+  // but the %preheader is not a predecessor of the header anymore as we
+  // replaced it by the vector loop.
+  // When the original loop is used somehow we update those phis incoming values
+  // in a different way (see fixNonInductionVPPhis()).
+  bool OrigLoopUsed = false;
 
   /// Holds a mapping between the VPPHINode and the corresponding vector LLVM
   /// IR PHI node that needs fix up. The operands of the VPPHINode are used
@@ -465,6 +517,9 @@ private:
   BasicBlock *LoopVectorBody = nullptr;
   /// The scalar loop body.
   BasicBlock *LoopScalarBody = nullptr;
+  /// Original preheader of the original loop. During CG, we can't use
+  /// OrigLoop->getPreheader as we insert some basic blocks.
+  BasicBlock *OrigPreHeader;
   /// Current mask value for instructions being generated
   Value *MaskValue = nullptr;
   /// A list of all bypass blocks. The first block is the entry of the loop.
@@ -624,6 +679,10 @@ private:
 
   /// Vectorize \p VPStore instruction that is part of a \p Group.
   void vectorizeInterleavedStore(VPInstruction *VPStore, OVLSGroup *Group);
+
+  /// Create a mask to be used in @llvm.masked.[load|store] for the wide VLS
+  /// memory operation.
+  Value *getVLSLoadStoreMask(VectorType *WidevalueType, int GroupSize);
 
   DenseMap<AllocaInst *, Value *> ReductionEofLoopVal;
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;

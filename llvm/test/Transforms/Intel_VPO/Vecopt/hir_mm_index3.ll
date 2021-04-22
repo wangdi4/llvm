@@ -2,8 +2,14 @@
 ; Test for basic functionality of min/max+index idiom (main reduction + last linear index).
 ; REQUIRES: asserts
 ; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -disable-output -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=1 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck -check-prefix CGCHECK %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir,hir-cg" -disable-output -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=1 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-force-vf=4 -S -print-after=vplan-driver-hir < %s 2>&1 | FileCheck -check-prefix CGCHECK %s
+
 ; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=0 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck -check-prefix CGCHECK %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir,hir-cg" -disable-output -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=0 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-force-vf=4 -S -print-after=vplan-driver-hir < %s 2>&1 | FileCheck -check-prefix CGCHECK %s
+
 ;
 ; CHECK:       External Defs Start:
 ; CHECK:         [[VPMPLUS:%.*]] = {%m + -1}
@@ -14,10 +20,10 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   signed (SIntMax) Start: i32 [[TMP_0240:%.*]] Exit: i32 [[VP2:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP3:%.*]], i32 [[VP2]], i32 [[VP__RED_INIT_1:%.*]], i32 [[VP__RED_FINAL_1:%.*]],
-; CHECK-NEXT:   Parent exit: i32 [[VP0]]
+; CHECK-NEXT:   IsLinearIndex: 1   Parent exit: i32 [[VP0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 BinOp: i32 [[VP4:%.*]] = add i32 [[VP5:%.*]] i32 [[VP__IND_INIT_STEP:%.*]]
+; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: ? BinOp: i32 [[VP4:%.*]] = add i32 [[VP5:%.*]] i32 [[VP__IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP5]], i32 [[VP4]], i32 [[VP__IND_INIT:%.*]], i32 [[VP__IND_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]:
 ; CHECK:         [[BB2:BB[0-9]+]]:
@@ -43,7 +49,7 @@
 ; CHECK-NEXT:     i32 [[VP__RED_FINAL_1]] = reduction-final{s_smax} i32 [[VP2]] i32 [[VP0]] i32 [[VP__RED_FINAL]]
 ; CHECK-NEXT:     i32 [[VP__IND_FINAL]] = induction-final{add} i32 0 i32 1
 ;
-;CGCHECK-LABEL:*** IR Dump After VPlan Vectorization Driver HIR ***
+;CGCHECK-LABEL:*** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ;CGCHECK: Function: maxloc
 ;CGCHECK-EMPTY:
 ;CGCHECK-NEXT:  BEGIN REGION { modified }
@@ -84,7 +90,6 @@
 ;
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_unnamed_addr #0 {
-
 entry:
   %cmp22 = icmp sgt i32 %m, 0
   br i1 %cmp22, label %for.body.preheader, label %for.end
@@ -126,4 +131,3 @@ attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="fals
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C/C++ TBAA"}
-

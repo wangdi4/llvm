@@ -79,7 +79,7 @@
 ; OPTREPORT: Global loop optimization report for : foo
 ;
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT:     Remark: Number of spatial prefetches=6, dist=7
+; OPTREPORT:     remark: Number of spatial prefetches=6, dist=7
 ; OPTREPORT: LOOP END
 ;
 ;Module Before HIR

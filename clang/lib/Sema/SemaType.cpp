@@ -1278,26 +1278,6 @@ getImageAccess(const ParsedAttributesView &Attrs) {
   return OpenCLAccessAttr::Keyword_read_only;
 }
 
-static QualType ConvertConstrainedAutoDeclSpecToType(Sema &S, DeclSpec &DS,
-                                                     AutoTypeKeyword AutoKW) {
-  assert(DS.isConstrainedAuto());
-  TemplateIdAnnotation *TemplateId = DS.getRepAsTemplateId();
-  TemplateArgumentListInfo TemplateArgsInfo;
-  TemplateArgsInfo.setLAngleLoc(TemplateId->LAngleLoc);
-  TemplateArgsInfo.setRAngleLoc(TemplateId->RAngleLoc);
-  ASTTemplateArgsPtr TemplateArgsPtr(TemplateId->getTemplateArgs(),
-                                     TemplateId->NumArgs);
-  S.translateTemplateArguments(TemplateArgsPtr, TemplateArgsInfo);
-  llvm::SmallVector<TemplateArgument, 8> TemplateArgs;
-  for (auto &ArgLoc : TemplateArgsInfo.arguments())
-    TemplateArgs.push_back(ArgLoc.getArgument());
-  return S.Context.getAutoType(QualType(), AutoTypeKeyword::Auto, false,
-                               /*IsPack=*/false,
-                               cast<ConceptDecl>(TemplateId->Template.get()
-                                                 .getAsTemplateDecl()),
-                               TemplateArgs);
-}
-
 /// Convert the specified declspec to the appropriate type
 /// object.
 /// \param state Specifies the declarator containing the declaration specifier
@@ -1427,8 +1407,9 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
         declarator.setInvalidType(true);
 #if INTEL_CUSTOMIZATION
       } else if (S.getLangOpts().OpenCL &&
-                 S.getOpenCLOptions().isEnabled("cl_intel_channels") &&
-                 DS.isTypeSpecChannel()){
+                 S.getOpenCLOptions().isAvailableOption("cl_intel_channels",
+                                                        S.getLangOpts()) &&
+                 DS.isTypeSpecChannel()) {
         S.Diag(DeclLoc, diag::err_opencl_missing_actual_channel_type)
           << DS.getSourceRange();
         declarator.setInvalidType(true);
@@ -1697,27 +1678,37 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     }
     break;
   case DeclSpec::TST_auto:
+  case DeclSpec::TST_decltype_auto: {
+    auto AutoKW = DS.getTypeSpecType() == DeclSpec::TST_decltype_auto
+                      ? AutoTypeKeyword::DecltypeAuto
+                      : AutoTypeKeyword::Auto;
+
+    ConceptDecl *TypeConstraintConcept = nullptr;
+    llvm::SmallVector<TemplateArgument, 8> TemplateArgs;
     if (DS.isConstrainedAuto()) {
-      Result = ConvertConstrainedAutoDeclSpecToType(S, DS,
-                                                    AutoTypeKeyword::Auto);
-      break;
+      if (TemplateIdAnnotation *TemplateId = DS.getRepAsTemplateId()) {
+        TypeConstraintConcept =
+            cast<ConceptDecl>(TemplateId->Template.get().getAsTemplateDecl());
+        TemplateArgumentListInfo TemplateArgsInfo;
+        TemplateArgsInfo.setLAngleLoc(TemplateId->LAngleLoc);
+        TemplateArgsInfo.setRAngleLoc(TemplateId->RAngleLoc);
+        ASTTemplateArgsPtr TemplateArgsPtr(TemplateId->getTemplateArgs(),
+                                           TemplateId->NumArgs);
+        S.translateTemplateArguments(TemplateArgsPtr, TemplateArgsInfo);
+        for (const auto &ArgLoc : TemplateArgsInfo.arguments())
+          TemplateArgs.push_back(ArgLoc.getArgument());
+      } else {
+        declarator.setInvalidType(true);
+      }
     }
-    Result = Context.getAutoType(QualType(), AutoTypeKeyword::Auto, false);
+    Result = S.Context.getAutoType(QualType(), AutoKW,
+                                   /*IsDependent*/ false, /*IsPack=*/false,
+                                   TypeConstraintConcept, TemplateArgs);
     break;
+  }
 
   case DeclSpec::TST_auto_type:
     Result = Context.getAutoType(QualType(), AutoTypeKeyword::GNUAutoType, false);
-    break;
-
-  case DeclSpec::TST_decltype_auto:
-    if (DS.isConstrainedAuto()) {
-      Result =
-          ConvertConstrainedAutoDeclSpecToType(S, DS,
-                                               AutoTypeKeyword::DecltypeAuto);
-      break;
-    }
-    Result = Context.getAutoType(QualType(), AutoTypeKeyword::DecltypeAuto,
-                                 /*IsDependent*/ false);
     break;
 
   case DeclSpec::TST_unknown_anytype:
@@ -2103,10 +2094,9 @@ static QualType deduceOpenCLPointeeAddrSpace(Sema &S, QualType PointeeType) {
       !PointeeType->isSamplerT() &&
       !PointeeType.hasAddressSpace())
     PointeeType = S.getASTContext().getAddrSpaceQualType(
-        PointeeType,
-        S.getLangOpts().OpenCLCPlusPlus || S.getLangOpts().OpenCLVersion == 200
-            ? LangAS::opencl_generic
-            : LangAS::opencl_private);
+        PointeeType, S.getLangOpts().OpenCLGenericAddressSpace
+                         ? LangAS::opencl_generic
+                         : LangAS::opencl_private);
   return PointeeType;
 }
 
@@ -2132,8 +2122,10 @@ QualType Sema::BuildPointerType(QualType T,
     return QualType();
   }
 
-  if (T->isFunctionType() && getLangOpts().OpenCL) {
-    Diag(Loc, diag::err_opencl_function_pointer);
+  if (T->isFunctionType() && getLangOpts().OpenCL &&
+      !getOpenCLOptions().isAvailableOption("__cl_clang_function_pointers",
+                                            getLangOpts())) {
+    Diag(Loc, diag::err_opencl_function_pointer) << /*pointer*/ 0;
     return QualType();
   }
 
@@ -2205,6 +2197,13 @@ QualType Sema::BuildReferenceType(QualType T, bool SpelledAsLValue,
   if (checkQualifiedFunction(*this, T, Loc, QFK_Reference))
     return QualType();
 
+  if (T->isFunctionType() && getLangOpts().OpenCL &&
+      !getOpenCLOptions().isAvailableOption("__cl_clang_function_pointers",
+                                            getLangOpts())) {
+    Diag(Loc, diag::err_opencl_function_pointer) << /*reference*/ 1;
+    return QualType();
+  }
+
   // In ARC, it is forbidden to build references to unqualified pointers.
   if (getLangOpts().ObjCAutoRefCount)
     T = inferARCLifetimeForPointee(*this, T, Loc, /*reference*/ true);
@@ -2256,53 +2255,6 @@ QualType Sema::BuildChannelType(QualType T, SourceLocation Loc) {
 
   // Build the channel type.
   return Context.getChannelType(T);
-}
-
-/// Build an Arbitrary Precision Integer type.
-///
-/// \param T The underlying type for the ArbPrecInt
-///
-/// \param NumBitsExpr An expression representing the number of bits for this
-/// ArbPrecInt.
-///
-/// \param AttrLoc The Location of the attribute causing the ArbPrecInt.
-QualType Sema::BuildArbPrecIntType(QualType T, Expr *NumBitsExpr,
-                                   SourceLocation AttrLoc) {
-  if (!T->isDependentType() && T.getCanonicalType() != Context.IntTy &&
-      T.getCanonicalType() != Context.UnsignedIntTy) {
-    Diag(AttrLoc, diag::err_ap_int_type) << T;
-    return QualType();
-  }
-
-  if (!NumBitsExpr->isTypeDependent() && !NumBitsExpr->isValueDependent()) {
-    Optional<llvm::APSInt> Bits = NumBitsExpr->getIntegerConstantExpr(Context);
-    if (!Bits) {
-      Diag(AttrLoc, diag::err_attribute_argument_type)
-          << "__ap_int" << AANT_ArgumentIntegerConstant
-          << NumBitsExpr->getSourceRange();
-      return QualType();
-    }
-
-    int64_t NumBits = Bits->getSExtValue();
-    if (!T->isDependentType() && T->isSignedIntegerOrEnumerationType() &&
-        NumBits < 2) {
-      Diag(AttrLoc, diag::err_ap_int_bad_size) << 0;
-      return QualType();
-    }
-
-    if (!T->isDependentType() && !T->isSignedIntegerOrEnumerationType() &&
-        NumBits < 1) {
-      Diag(AttrLoc, diag::err_ap_int_bad_size) << 1;
-      return QualType();
-    }
-
-    if (T->isDependentType() && NumBits < 1) {
-      Diag(AttrLoc, diag::err_ap_int_bad_size) << 2;
-      return QualType();
-    }
-    return Context.getArbPrecIntType(T, NumBits, AttrLoc);
-  }
-  return Context.getDependentSizedArbPrecIntType(T, NumBitsExpr, AttrLoc);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2997,6 +2949,13 @@ QualType Sema::BuildMemberPointerType(QualType T, QualType Class,
     return QualType();
   }
 
+  if (T->isFunctionType() && getLangOpts().OpenCL &&
+      !getOpenCLOptions().isAvailableOption("__cl_clang_function_pointers",
+                                            getLangOpts())) {
+    Diag(Loc, diag::err_opencl_function_pointer) << /*pointer*/ 0;
+    return QualType();
+  }
+
   // Adjust the default free function calling convention to the default method
   // calling convention.
   bool IsCtorOrDtor =
@@ -3236,11 +3195,11 @@ static void diagnoseRedundantReturnTypeQualifiers(Sema &S, QualType RetTy,
           diag::warn_qual_return_type,
           PTI.TypeQuals,
           SourceLocation(),
-          SourceLocation::getFromRawEncoding(PTI.ConstQualLoc),
-          SourceLocation::getFromRawEncoding(PTI.VolatileQualLoc),
-          SourceLocation::getFromRawEncoding(PTI.RestrictQualLoc),
-          SourceLocation::getFromRawEncoding(PTI.AtomicQualLoc),
-          SourceLocation::getFromRawEncoding(PTI.UnalignedQualLoc));
+          PTI.ConstQualLoc,
+          PTI.VolatileQualLoc,
+          PTI.RestrictQualLoc,
+          PTI.AtomicQualLoc,
+          PTI.UnalignedQualLoc);
       return;
     }
 
@@ -5121,7 +5080,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       // FIXME: This really should be in BuildFunctionType.
       if (T->isHalfType()) {
         if (S.getLangOpts().OpenCL) {
-          if (!S.getOpenCLOptions().isEnabled("cl_khr_fp16")) {
+          if (!S.getOpenCLOptions().isAvailableOption("cl_khr_fp16",
+                                                      S.getLangOpts())) {
             S.Diag(D.getIdentifierLoc(), diag::err_opencl_invalid_return)
                 << T << 0 /*pointer hint*/;
             D.setInvalidType(true);
@@ -5157,6 +5117,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         // We also allow here any toolchain reserved identifiers.
         if (FTI.isVariadic &&
             !LangOpts.SYCLIsDevice &&
+            !S.getOpenCLOptions().isAvailableOption(
+                "__cl_clang_variadic_functions", S.getLangOpts()) &&
             !(D.getIdentifier() &&
               ((D.getIdentifier()->getName() == "printf" &&
                 (LangOpts.OpenCLCPlusPlus || LangOpts.OpenCLVersion >= 120)) ||
@@ -5351,7 +5313,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
             // Disallow half FP parameters.
             // FIXME: This really should be in BuildFunctionType.
             if (S.getLangOpts().OpenCL) {
-              if (!S.getOpenCLOptions().isEnabled("cl_khr_fp16")) {
+              if (!S.getOpenCLOptions().isAvailableOption("cl_khr_fp16",
+                                                          S.getLangOpts())) {
                 S.Diag(Param->getLocation(), diag::err_opencl_invalid_param)
                     << ParamTy << 0;
                 D.setInvalidType();
@@ -6091,6 +6054,8 @@ namespace {
       if (!DS.isConstrainedAuto())
         return;
       TemplateIdAnnotation *TemplateId = DS.getRepAsTemplateId();
+      if (!TemplateId)
+        return;
       if (DS.getTypeSpecScope().isNotEmpty())
         TL.setNestedNameSpecifierLoc(
             DS.getTypeSpecScope().getWithLocInContext(Context));
@@ -6241,7 +6206,7 @@ namespace {
       }
 
       // Finally fill in MemberPointerLocInfo fields.
-      TL.setStarLoc(SourceLocation::getFromRawEncoding(Chunk.Mem.StarLoc));
+      TL.setStarLoc(Chunk.Mem.StarLoc);
       TL.setClassTInfo(ClsTInfo);
     }
     void VisitLValueReferenceTypeLoc(LValueReferenceTypeLoc TL) {
@@ -6290,12 +6255,25 @@ namespace {
     void VisitMacroQualifiedTypeLoc(MacroQualifiedTypeLoc TL) {
       TL.setExpansionLoc(Chunk.Loc);
     }
+
 #if INTEL_CUSTOMIZATION
     void VisitChannelTypeLoc(ChannelTypeLoc TL) {
       assert(Chunk.Kind == DeclaratorChunk::Channel);
       TL.setKWLoc(Chunk.Loc);
     }
 #endif // INTEL_CUSTOMIZATION
+
+    void VisitVectorTypeLoc(VectorTypeLoc TL) { TL.setNameLoc(Chunk.Loc); }
+    void VisitDependentVectorTypeLoc(DependentVectorTypeLoc TL) {
+      TL.setNameLoc(Chunk.Loc);
+    }
+    void VisitExtVectorTypeLoc(ExtVectorTypeLoc TL) {
+      TL.setNameLoc(Chunk.Loc);
+    }
+    void
+    VisitDependentSizedExtVectorTypeLoc(DependentSizedExtVectorTypeLoc TL) {
+      TL.setNameLoc(Chunk.Loc);
+    }
 
     void VisitTypeLoc(TypeLoc TL) {
       llvm_unreachable("unsupported TypeLoc kind in declarator!");
@@ -6316,7 +6294,7 @@ static void fillAtomicQualLoc(AtomicTypeLoc ATL, const DeclaratorChunk &Chunk) {
     llvm_unreachable("cannot be _Atomic qualified");
 
   case DeclaratorChunk::Pointer:
-    Loc = SourceLocation::getFromRawEncoding(Chunk.Ptr.AtomicQualLoc);
+    Loc = Chunk.Ptr.AtomicQualLoc;
     break;
 
   case DeclaratorChunk::BlockPointer:
@@ -6600,25 +6578,7 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
       return;
     }
 
-    Expr *ASArgExpr;
-    if (Attr.isArgIdent(0)) {
-      // Special case where the argument is a template id.
-      CXXScopeSpec SS;
-      SourceLocation TemplateKWLoc;
-      UnqualifiedId id;
-      id.setIdentifier(Attr.getArgAsIdent(0)->Ident, Attr.getLoc());
-
-      ExprResult AddrSpace = S.ActOnIdExpression(
-          S.getCurScope(), SS, TemplateKWLoc, id, /*HasTrailingLParen=*/false,
-          /*IsAddressOfOperand=*/false);
-      if (AddrSpace.isInvalid())
-        return;
-
-      ASArgExpr = static_cast<Expr *>(AddrSpace.get());
-    } else {
-      ASArgExpr = static_cast<Expr *>(Attr.getArgAsExpr(0));
-    }
-
+    Expr *ASArgExpr = static_cast<Expr *>(Attr.getArgAsExpr(0));
     LangAS ASIdx;
     if (!BuildAddressSpaceIndex(S, ASIdx, ASArgExpr, Attr.getLoc())) {
       Attr.setInvalid();
@@ -7903,25 +7863,7 @@ static void HandleVectorSizeAttr(QualType &CurType, const ParsedAttr &Attr,
     return;
   }
 
-  Expr *SizeExpr;
-  // Special case where the argument is a template id.
-  if (Attr.isArgIdent(0)) {
-    CXXScopeSpec SS;
-    SourceLocation TemplateKWLoc;
-    UnqualifiedId Id;
-    Id.setIdentifier(Attr.getArgAsIdent(0)->Ident, Attr.getLoc());
-
-    ExprResult Size = S.ActOnIdExpression(S.getCurScope(), SS, TemplateKWLoc,
-                                          Id, /*HasTrailingLParen=*/false,
-                                          /*IsAddressOfOperand=*/false);
-
-    if (Size.isInvalid())
-      return;
-    SizeExpr = Size.get();
-  } else {
-    SizeExpr = Attr.getArgAsExpr(0);
-  }
-
+  Expr *SizeExpr = Attr.getArgAsExpr(0);
   QualType T = S.BuildVectorType(CurType, SizeExpr, Attr.getLoc());
   if (!T.isNull())
     CurType = T;
@@ -7940,70 +7882,11 @@ static void HandleExtVectorTypeAttr(QualType &CurType, const ParsedAttr &Attr,
     return;
   }
 
-  Expr *sizeExpr;
-
-  // Special case where the argument is a template id.
-  if (Attr.isArgIdent(0)) {
-    CXXScopeSpec SS;
-    SourceLocation TemplateKWLoc;
-    UnqualifiedId id;
-    id.setIdentifier(Attr.getArgAsIdent(0)->Ident, Attr.getLoc());
-
-    ExprResult Size = S.ActOnIdExpression(S.getCurScope(), SS, TemplateKWLoc,
-                                          id, /*HasTrailingLParen=*/false,
-                                          /*IsAddressOfOperand=*/false);
-    if (Size.isInvalid())
-      return;
-
-    sizeExpr = Size.get();
-  } else {
-    sizeExpr = Attr.getArgAsExpr(0);
-  }
-
-  // Create the vector type.
-  QualType T = S.BuildExtVectorType(CurType, sizeExpr, Attr.getLoc());
+  Expr *SizeExpr = Attr.getArgAsExpr(0);
+  QualType T = S.BuildExtVectorType(CurType, SizeExpr, Attr.getLoc());
   if (!T.isNull())
     CurType = T;
 }
-
-#if INTEL_CUSTOMIZATION
-static void HandleArbPrecIntAttr(QualType &CurType, const ParsedAttr &Attr,
-                                 Sema &S) {
-  // Warning message handled later, but prevent changing of the type.
-  if (!S.getLangOpts().HLS && !S.getLangOpts().OpenCL &&
-      !S.getLangOpts().SYCLIsDevice)
-    return;
-
-  // check the attribute arguments.
-  if (Attr.getNumArgs() != 1) {
-    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
-        << Attr << 1;
-    return;
-  }
-
-  Expr *NumBitsExpr;
-  // Special case where the argument is a template id.
-  if (Attr.isArgIdent(0)) {
-    CXXScopeSpec SS;
-    SourceLocation TemplateKWLoc;
-    UnqualifiedId Id;
-    Id.setIdentifier(Attr.getArgAsIdent(0)->Ident, Attr.getLoc());
-
-    ExprResult NumBits = S.ActOnIdExpression(S.getCurScope(), SS, TemplateKWLoc,
-                                             Id, false, false);
-    if (NumBits.isInvalid())
-      return;
-
-    NumBitsExpr = NumBits.get();
-  } else {
-    NumBitsExpr = Attr.getArgAsExpr(0);
-  }
-
-  QualType T = S.BuildArbPrecIntType(CurType, NumBitsExpr, Attr.getLoc());
-  if (!T.isNull())
-    CurType = T;
-}
-#endif // INTEL_CUSTOMIZATION
 
 static bool isPermittedNeonBaseType(QualType &Ty,
                                     VectorType::VectorKind VecKind, Sema &S) {
@@ -8272,49 +8155,8 @@ static void HandleMatrixTypeAttr(QualType &CurType, const ParsedAttr &Attr,
     return;
   }
 
-  Expr *RowsExpr = nullptr;
-  Expr *ColsExpr = nullptr;
-
-  // TODO: Refactor parameter extraction into separate function
-  // Get the number of rows
-  if (Attr.isArgIdent(0)) {
-    CXXScopeSpec SS;
-    SourceLocation TemplateKeywordLoc;
-    UnqualifiedId id;
-    id.setIdentifier(Attr.getArgAsIdent(0)->Ident, Attr.getLoc());
-    ExprResult Rows = S.ActOnIdExpression(S.getCurScope(), SS,
-                                          TemplateKeywordLoc, id, false, false);
-
-    if (Rows.isInvalid())
-      // TODO: maybe a good error message would be nice here
-      return;
-    RowsExpr = Rows.get();
-  } else {
-    assert(Attr.isArgExpr(0) &&
-           "Argument to should either be an identity or expression");
-    RowsExpr = Attr.getArgAsExpr(0);
-  }
-
-  // Get the number of columns
-  if (Attr.isArgIdent(1)) {
-    CXXScopeSpec SS;
-    SourceLocation TemplateKeywordLoc;
-    UnqualifiedId id;
-    id.setIdentifier(Attr.getArgAsIdent(1)->Ident, Attr.getLoc());
-    ExprResult Columns = S.ActOnIdExpression(
-        S.getCurScope(), SS, TemplateKeywordLoc, id, false, false);
-
-    if (Columns.isInvalid())
-      // TODO: a good error message would be nice here
-      return;
-    RowsExpr = Columns.get();
-  } else {
-    assert(Attr.isArgExpr(1) &&
-           "Argument to should either be an identity or expression");
-    ColsExpr = Attr.getArgAsExpr(1);
-  }
-
-  // Create the matrix type.
+  Expr *RowsExpr = Attr.getArgAsExpr(0);
+  Expr *ColsExpr = Attr.getArgAsExpr(1);
   QualType T = S.BuildMatrixType(CurType, RowsExpr, ColsExpr, Attr.getLoc());
   if (!T.isNull())
     CurType = T;
@@ -8327,8 +8169,6 @@ static void HandleLifetimeBoundAttr(TypeProcessingState &State,
     CurType = State.getAttributedType(
         createSimpleAttr<LifetimeBoundAttr>(State.getSema().Context, Attr),
         CurType, CurType);
-  } else {
-    Attr.diagnoseAppertainsTo(State.getSema(), nullptr);
   }
 }
 
@@ -8397,7 +8237,8 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
     default:
       // A C++11 attribute on a declarator chunk must appertain to a type.
       if (attr.isCXX11Attribute() && TAL == TAL_DeclChunk &&
-          (!state.isProcessingLambdaExpr() || !attr.isAllowedOnLambdas())) {
+          (!state.isProcessingLambdaExpr() ||
+           !attr.supportsNonconformingLambdaSyntax())) {
         state.getSema().Diag(attr.getLoc(), diag::err_attribute_not_type_attr)
             << attr;
         attr.setUsedAsTypeAttr();
@@ -8439,12 +8280,6 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
       HandleVectorSizeAttr(type, attr, state.getSema());
       attr.setUsedAsTypeAttr();
       break;
-#if INTEL_CUSTOMIZATION
-    case ParsedAttr::AT_ArbPrecInt:
-      HandleArbPrecIntAttr(type, attr, state.getSema());
-      attr.setUsedAsTypeAttr();
-      break;
-#endif // INTEL_CUSTOMIZATION
     case ParsedAttr::AT_ExtVectorType:
       HandleExtVectorTypeAttr(type, attr, state.getSema());
       attr.setUsedAsTypeAttr();
@@ -8655,6 +8490,20 @@ void Sema::completeExprArrayBound(Expr *E) {
   }
 }
 
+QualType Sema::getCompletedType(Expr *E) {
+  // Incomplete array types may be completed by the initializer attached to
+  // their definitions. For static data members of class templates and for
+  // variable templates, we need to instantiate the definition to get this
+  // initializer and complete the type.
+  if (E->getType()->isIncompleteArrayType())
+    completeExprArrayBound(E);
+
+  // FIXME: Are there other cases which require instantiating something other
+  // than the type to complete the type of an expression?
+
+  return E->getType();
+}
+
 /// Ensure that the type of the given expression is complete.
 ///
 /// This routine checks whether the expression \p E has a complete type. If the
@@ -8672,21 +8521,8 @@ void Sema::completeExprArrayBound(Expr *E) {
 /// otherwise.
 bool Sema::RequireCompleteExprType(Expr *E, CompleteTypeKind Kind,
                                    TypeDiagnoser &Diagnoser) {
-  QualType T = E->getType();
-
-  // Incomplete array types may be completed by the initializer attached to
-  // their definitions. For static data members of class templates and for
-  // variable templates, we need to instantiate the definition to get this
-  // initializer and complete the type.
-  if (T->isIncompleteArrayType()) {
-    completeExprArrayBound(E);
-    T = E->getType();
-  }
-
-  // FIXME: Are there other cases which require instantiating something other
-  // than the type to complete the type of an expression?
-
-  return RequireCompleteType(E->getExprLoc(), T, Kind, Diagnoser);
+  return RequireCompleteType(E->getExprLoc(), getCompletedType(E), Kind,
+                             Diagnoser);
 }
 
 bool Sema::RequireCompleteExprType(Expr *E, unsigned DiagID) {
@@ -9201,6 +9037,29 @@ QualType Sema::BuildTypeofExprType(Expr *E, SourceLocation Loc) {
   return Context.getTypeOfExprType(E);
 }
 
+/// getDecltypeForParenthesizedExpr - Given an expr, will return the type for
+/// that expression, as in [dcl.type.simple]p4 but without taking id-expressions
+/// and class member access into account.
+QualType Sema::getDecltypeForParenthesizedExpr(Expr *E) {
+  // C++11 [dcl.type.simple]p4:
+  //   [...]
+  QualType T = E->getType();
+  switch (E->getValueKind()) {
+  //     - otherwise, if e is an xvalue, decltype(e) is T&&, where T is the
+  //       type of e;
+  case VK_XValue:
+    return Context.getRValueReferenceType(T);
+  //     - otherwise, if e is an lvalue, decltype(e) is T&, where T is the
+  //       type of e;
+  case VK_LValue:
+    return Context.getLValueReferenceType(T);
+  //  - otherwise, decltype(e) is the type of e.
+  case VK_RValue:
+    return T;
+  }
+  llvm_unreachable("Unknown value kind");
+}
+
 /// getDecltypeForExpr - Given an expr, will return the decltype for
 /// that expression, according to the rules in C++11
 /// [dcl.type.simple]p4 and C++11 [expr.lambda.prim]p18.
@@ -9265,22 +9124,7 @@ static QualType getDecltypeForExpr(Sema &S, Expr *E) {
     }
   }
 
-
-  // C++11 [dcl.type.simple]p4:
-  //   [...]
-  QualType T = E->getType();
-  switch (E->getValueKind()) {
-  //     - otherwise, if e is an xvalue, decltype(e) is T&&, where T is the
-  //       type of e;
-  case VK_XValue: T = S.Context.getRValueReferenceType(T); break;
-  //     - otherwise, if e is an lvalue, decltype(e) is T&, where T is the
-  //       type of e;
-  case VK_LValue: T = S.Context.getLValueReferenceType(T); break;
-  //  - otherwise, decltype(e) is the type of e.
-  case VK_RValue: break;
-  }
-
-  return T;
+  return S.getDecltypeForParenthesizedExpr(E);
 }
 
 QualType Sema::BuildDecltypeType(Expr *E, SourceLocation Loc,

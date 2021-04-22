@@ -11,7 +11,7 @@ define dso_local i32 @main() #0 {
 ; FEATURE-INIT-NEXT:    .cfi_def_cfa_offset 16
 ; FEATURE-INIT-NEXT:    movl $32, %esi
 ; FEATURE-INIT-NEXT:    movl $3, %edi
-; FEATURE-INIT-NEXT:    callq __intel_new_feature_proc_init
+; FEATURE-INIT-NEXT:    callq __intel_new_feature_proc_init@PLT
 ; FEATURE-INIT-NEXT:    movl $0, {{[0-9]+}}(%rsp)
 ; FEATURE-INIT-NEXT:    xorl %eax, %eax
 ; FEATURE-INIT-NEXT:    popq %rcx
@@ -20,8 +20,8 @@ define dso_local i32 @main() #0 {
 ;
 ; NO-INIT-LABEL: main:
 ; NO-INIT:       # %bb.0: # %entry
-; NO-INIT-NEXT:    xorl %eax, %eax
 ; NO-INIT-NEXT:    movl $0, -{{[0-9]+}}(%rsp)
+; NO-INIT-NEXT:    xorl %eax, %eax
 ; NO-INIT-NEXT:    retq
 ;
 ; CHECK-PINIT-FTZ-LABEL: main:

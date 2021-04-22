@@ -1,6 +1,6 @@
 //===----- HIRParser.cpp - Parses SCEVs into CanonExprs -------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1470,22 +1470,28 @@ bool HIRParser::isRegionLiveOut(const Instruction *Inst) const {
 }
 
 bool HIRParser::isEssential(const Instruction *Inst) const {
-  bool Ret = false;
-
   // TODO: Add exception handling and other miscellaneous instruction types
   // later.
-  if (isa<CallInst>(Inst) && !isa<SubscriptInst>(Inst) &&
-      (cast<CallInst>(Inst)->getIntrinsicID() != Intrinsic::ssa_copy)) {
-    Ret = true;
-  } else if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
-    Ret = true;
-  } else if (isRegionLiveOut(Inst)) {
-    Ret = true;
-  } else if (!ScopedSE.isSCEVable(Inst->getType())) {
-    Ret = true;
+
+  auto *Call = dyn_cast<CallInst>(Inst);
+
+  if (Call && Call->mayHaveSideEffects()) {
+    return true;
   }
 
-  return Ret;
+  if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
+    return true;
+  }
+
+  if (isRegionLiveOut(Inst)) {
+    return true;
+  }
+
+  if (!ScopedSE.isSCEVable(Inst->getType())) {
+    return true;
+  }
+
+  return false;
 }
 
 int64_t HIRParser::getSCEVConstantValue(const SCEVConstant *ConstSCEV) const {
@@ -3583,8 +3589,13 @@ bool HIRParser::GEPChain::isCompatible(const ArrayInfo &NextArr) const {
 
   // For multi-dim NextArr allow merging only into existing dimensions or create
   // new outer dimensions.
-  return NextArr.getMinRank() == NextArr.getMaxRank() ||
-         NextArr.getMinRank() >= CurArr.getMinRank();
+  if (NextArr.getMinRank() != NextArr.getMaxRank() &&
+      (NextArr.getMinRank() < CurArr.getMinRank() ||
+       NextArr.getMaxRank() < CurArr.getMaxRank())) {
+    return false;
+  }
+
+  return true;
 }
 
 // Parses the \p GEPOp and updates chain state if GEPOp is compatible.
@@ -4266,7 +4277,7 @@ bool HIRParser::parsedDebugIntrinsic(const IntrinsicInst *Intrin) {
     return false;
   }
 
-  Value *Variable = DbgIntrin->getVariableLocation(true);
+  Value *Variable = DbgIntrin->getVariableLocationOp(0);
 
   // Sometimes DbgIntrin can be @llvm.dbg.value(!{}, ...);
   // !{} is returned as nullptr, we have to ignore such intrinsic.
@@ -4575,6 +4586,11 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
                  (!IsBundleOperand &&
                   (IsReadOnly || Call->paramHasAttr(I, Attribute::ReadOnly))));
     }
+  }
+
+  if (auto *Shuffle = dyn_cast<ShuffleVectorInst>(Inst)) {
+    Constant *Mask = Shuffle->getShuffleMaskForBitcode();
+    HInst->setOperandDDRef(DDRU.createConstDDRef(Mask), 3);
   }
 
   // Process lval
@@ -4980,8 +4996,15 @@ bool HIRParser::delinearizeRefs(ArrayRef<const loopopt::RegDDRef *> GepRefs,
 
   // Push nullptr to indicate innermost dimension.
   Strides.push_back(nullptr);
-  assert(Strides.size() == Sizes.size() &&
-         "Strides and Sizes should be equal in size");
+
+  // I am not sure the current setup of trying to delinearize multiple refs
+  // is correct. This was previously an assertion which failed on two refs
+  // like this-
+  // A[b * i1 + i2]
+  // A[2 * b * i1 + i2]
+  if (Strides.size() != Sizes.size()) {
+    return false;
+  }
 
   // Use pool for new refs to remove them if it's impossible to delinearize all
   // of them.

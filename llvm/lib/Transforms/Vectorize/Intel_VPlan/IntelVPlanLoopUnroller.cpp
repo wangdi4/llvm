@@ -24,10 +24,7 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
   assert(UF > 1 && "Can't unroll with unroll factor less than 2");
 
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
-  assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
-         "Expected single outermost loop!");
-
-  VPLoop *VPL = *VPLI->begin();
+  VPLoop *VPL = Plan.getMainLoop(true);
   assert(VPL->getSubLoops().empty() &&
          "Unrolling of loops with subloops is not supported");
 
@@ -60,8 +57,9 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
 
   SmallVector<VPCloneUtils::Value2ValueMapTy, 8> Clones(UF - 1);
   for (unsigned Part = 0; Part < UF - 1; Part++) {
-    VPCloneUtils::cloneBlocksRange(Header, Latch, Clones[Part],
-                                   Plan.getVPlanDA());
+    VPCloneUtils::cloneBlocksRange(
+        Header, Latch, Clones[Part],
+        cast<VPlanDivergenceAnalysis>(Plan.getVPlanDA()));
   }
 
   // Hold the current last update instruction for each header PHI node.
@@ -193,6 +191,9 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
     It.first->replaceUsesOfWith(It.second, ValueMap[It.second]);
 
   CurrentLatch->setCondBit(ValueMap[CurrentLatch->getCondBit()]);
+
+  // VPlan has been modified, thus we have to reset SVA results, if any.
+  Plan.invalidateAnalyses({VPAnalysisID::SVA});
 
   VPLAN_DUMP(UnrollDumpControl, Plan);
 }

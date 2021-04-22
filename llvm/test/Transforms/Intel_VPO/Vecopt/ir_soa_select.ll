@@ -1,5 +1,12 @@
-; RUN: opt -S -VPlanDriver -vplan-enable-all-liveouts %s | FileCheck %s
-; RUN: opt -S -passes="vplan-driver" -vplan-enable-all-liveouts %s | FileCheck %s
+; TODO: enable cfg merge after private support enabled
+; RUN: opt -S -VPlanDriver -vplan-enable-all-liveouts -vplan-enable-cfg-merge=0 -vplan-print-after-plain-cfg -vplan-entities-dump %s | FileCheck %s
+; RUN: opt -S -passes="vplan-driver" -vplan-enable-all-liveouts -vplan-enable-cfg-merge=0 -vplan-print-after-plain-cfg -vplan-entities-dump %s | FileCheck %s
+
+; CHECK-LABEL: Private list
+; CHECK-EMPTY:
+; CHECK-NEXT:   Private tag: InMemory
+; CHECK-NEXT:   Linked values: <2 x i32>* %tmp.priv,
+; CHECK-NEXT:  Memory: <2 x i32>* %tmp.priv
 
 ; CHECK-LABEL: simd_loop
 ; CHECK: %[[CmpRes:.*]] = icmp sgt <4 x i32> %{{.*}}, zeroinitializer

@@ -30,6 +30,11 @@ bool shouldPrintAfterPass(StringRef PassID);
 bool shouldPrintBeforeAll();
 bool shouldPrintAfterAll();
 
+#if INTEL_CUSTOMIZATION
+// Returns true if we should print before/after all HIR passes.
+bool shouldHIRPrintBeforeAll();
+bool shouldHIRPrintAfterAll();
+#endif //INTEL_CUSTOMIZATION
 // Returns true if we should always print the entire module.
 bool forcePrintModuleIR();
 

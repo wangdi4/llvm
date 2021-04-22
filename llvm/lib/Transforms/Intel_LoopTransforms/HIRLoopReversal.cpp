@@ -473,7 +473,7 @@ bool HIRLoopReversal::doLoopPreliminaryChecks(const HLLoop *Lp,
     }
 
     // UBCE can be converted to StandAloneBlob
-    if (!UBCE->canConvertToStandAloneBlob()) {
+    if (!UBCE->canConvertToStandAloneBlobOrConstant()) {
       return false;
     }
   }
@@ -754,10 +754,9 @@ void HIRLoopReversal::clearWorkingSetMemory(void) {
   MCEAV.clear();
 }
 
-PreservedAnalyses HIRLoopReversalPass::run(llvm::Function &F,
-                                           llvm::FunctionAnalysisManager &AM) {
-  HIRLoopReversal(AM.getResult<HIRFrameworkAnalysis>(F),
-                  AM.getResult<HIRDDAnalysisPass>(F),
+PreservedAnalyses HIRLoopReversalPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRLoopReversal(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                   AM.getResult<HIRLoopStatisticsAnalysis>(F),
                   AM.getResult<HIRSafeReductionAnalysisPass>(F))
       .run();

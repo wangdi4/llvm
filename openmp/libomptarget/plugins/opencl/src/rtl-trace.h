@@ -61,26 +61,31 @@ typedef cl_int (CL_API_CALL *clGetKernelSuggestedLocalWorkSizeINTEL_fn)(
     size_t *);
 #endif // INTEL_CUSTOMIZATION
 
+typedef cl_int (CL_API_CALL *clSetProgramSpecializationConstant_fn)(
+    cl_program, cl_uint, size_t, const void *);
+
 #if INTEL_CUSTOMIZATION
 #define FOR_EACH_EXTENSION_FN(M)                                               \
-  M(clGetMemAllocInfo)                                                         \
-  M(clHostMemAlloc)                                                            \
-  M(clDeviceMemAlloc)                                                          \
-  M(clSharedMemAlloc)                                                          \
-  M(clMemFree)                                                                 \
-  M(clSetKernelArgMemPointer)                                                  \
-  M(clEnqueueMemcpy)                                                           \
-  M(clGetDeviceGlobalVariablePointer)                                          \
-  M(clGetKernelSuggestedLocalWorkSize)
+  M(clGetMemAllocInfoINTEL)                                                    \
+  M(clHostMemAllocINTEL)                                                       \
+  M(clDeviceMemAllocINTEL)                                                     \
+  M(clSharedMemAllocINTEL)                                                     \
+  M(clMemFreeINTEL)                                                            \
+  M(clSetKernelArgMemPointerINTEL)                                             \
+  M(clEnqueueMemcpyINTEL)                                                      \
+  M(clGetDeviceGlobalVariablePointerINTEL)                                     \
+  M(clGetKernelSuggestedLocalWorkSizeINTEL)                                    \
+  M(clSetProgramSpecializationConstant)
 #else // INTEL_CUSTOMIZATION
 #define FOR_EACH_EXTENSION_FN(M)                                               \
-  M(clGetMemAllocInfo)                                                         \
-  M(clHostMemAlloc)                                                            \
-  M(clDeviceMemAlloc)                                                          \
-  M(clSharedMemAlloc)                                                          \
-  M(clMemFree)                                                                 \
-  M(clSetKernelArgMemPointer)                                                  \
-  M(clEnqueueMemcpy)
+  M(clGetMemAllocInfoINTEL)                                                    \
+  M(clHostMemAllocINTEL)                                                       \
+  M(clDeviceMemAllocINTEL)                                                     \
+  M(clSharedMemAllocINTEL)                                                     \
+  M(clMemFreeINTEL)                                                            \
+  M(clSetKernelArgMemPointerINTEL)                                             \
+  M(clEnqueueMemcpyINTEL)                                                      \
+  M(clSetProgramSpecializationConstant)
 #endif // INTEL_CUSTOMIZATION
 
 enum ExtensionIdTy {
@@ -798,6 +803,29 @@ cl_program TRACE_FN(clLinkProgram)(
   return ret;
 }
 
+cl_program TRACE_FN(clCreateProgramWithBinary)(
+    cl_context context,
+    cl_uint num_devices,
+    const cl_device_id *device_list,
+    const size_t *lengths,
+    const unsigned char **binaries,
+    cl_int *binary_status,
+    cl_int *errcode_ret) {
+  auto ret = clCreateProgramWithBinary(context, num_devices,
+                                       device_list, lengths,
+                                       binaries, binary_status,
+                                       errcode_ret);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(context);
+  TRACE_FN_ARG_UINT(num_devices);
+  TRACE_FN_ARG_PTR(device_list);
+  TRACE_FN_ARG_PTR(lengths);
+  TRACE_FN_ARG_PTR(binaries);
+  TRACE_FN_ARG_PTR(binary_status);
+  TRACE_FN_ARG_END();
+  return ret;
+}
+
 cl_int TRACE_FN(clMemFreeINTEL)(
     clMemFreeINTEL_fn funcptr,
     cl_context context,
@@ -1009,6 +1037,22 @@ cl_int TRACE_FN(clGetKernelSuggestedLocalWorkSizeINTEL)(
 }
 #endif // INTEL_CUSTOMIZATION
 
+cl_int TRACE_FN(clSetProgramSpecializationConstant)(
+    clSetProgramSpecializationConstant_fn funcptr,
+    cl_program program,
+    cl_uint spec_id,
+    size_t spec_size,
+    const void* spec_value) {
+  auto rc = funcptr(program, spec_id, spec_size, spec_value);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(program);
+  TRACE_FN_ARG_UINT(spec_id);
+  TRACE_FN_ARG_SIZE(spec_size);
+  TRACE_FN_ARG_PTR(spec_value);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
 /// Calls without error check
 #define CALL_CL_SILENT(Rc, Fn, ...)                                            \
   do {                                                                         \
@@ -1110,12 +1154,12 @@ cl_int TRACE_FN(clGetKernelSuggestedLocalWorkSizeINTEL)(
 /// Call extension function, return nothing
 #define CALL_CL_EXT_VOID(DeviceId, Name, ...)                                  \
   do {                                                                         \
-    Name##INTEL_fn Fn = reinterpret_cast<Name##INTEL_fn>(                      \
+    Name##_fn Fn = reinterpret_cast<Name##_fn>(                                \
         DeviceInfo->getExtensionFunctionPtr(DeviceId, Name##Id));              \
     if (DebugLevel > 1) {                                                      \
       IDP1("CL_CALLER: %s %s\n",                                               \
-           TO_STRING(Name##INTEL), TO_STRING(( __VA_ARGS__ )));                \
-      TRACE_FN(Name##INTEL)(Fn, __VA_ARGS__);                                  \
+           TO_STRING(Name), TO_STRING(( __VA_ARGS__ )));                       \
+      TRACE_FN(Name)(Fn, __VA_ARGS__);                                         \
     } else {                                                                   \
       (*Fn)(__VA_ARGS__);                                                      \
     }                                                                          \
@@ -1124,12 +1168,12 @@ cl_int TRACE_FN(clGetKernelSuggestedLocalWorkSizeINTEL)(
 /// Extension calls without error reporting
 #define CALL_CL_EXT_SILENT(DeviceId, Rc, Name, ...)                            \
   do {                                                                         \
-    Name##INTEL_fn Fn = reinterpret_cast<Name##INTEL_fn>(                      \
+    Name##_fn Fn = reinterpret_cast<Name##_fn>(                                \
         DeviceInfo->getExtensionFunctionPtr(DeviceId, Name##Id));              \
     if (DebugLevel > 1) {                                                      \
       IDP1("CL_CALLER: %s %s\n",                                               \
-           TO_STRING(Name##INTEL), TO_STRING(( __VA_ARGS__ )));                \
-      Rc = TRACE_FN(Name##INTEL)(Fn, __VA_ARGS__);                             \
+           TO_STRING(Name), TO_STRING(( __VA_ARGS__ )));                       \
+      Rc = TRACE_FN(Name)(Fn, __VA_ARGS__);                                    \
     } else {                                                                   \
       Rc = (*Fn)(__VA_ARGS__);                                                 \
     }                                                                          \
@@ -1141,25 +1185,25 @@ cl_int TRACE_FN(clGetKernelSuggestedLocalWorkSizeINTEL)(
     CALL_CL_EXT_SILENT(DeviceId, Rc, Name, __VA_ARGS__);                       \
     if (Rc != CL_SUCCESS) {                                                    \
       IDP("Error: %s:%s failed with error code %d, %s\n",                      \
-          __func__, TO_STRING(Name##INTEL), Rc, getCLErrorName(Rc));           \
+          __func__, TO_STRING(Name), Rc, getCLErrorName(Rc));                  \
     }                                                                          \
   } while (0)
 
 /// Extension calls that have return value and return code
 #define CALL_CL_EXT_RVRC(DeviceId, Rv, Name, Rc, ...)                          \
   do {                                                                         \
-    Name##INTEL_fn Fn = reinterpret_cast<Name##INTEL_fn>(                      \
+    Name##_fn Fn = reinterpret_cast<Name##_fn>(                                \
         DeviceInfo->getExtensionFunctionPtr(DeviceId, Name##Id));              \
     if (DebugLevel > 1) {                                                      \
       IDP1("CL_CALLER: %s %s\n",                                               \
-           TO_STRING(Name##INTEL), TO_STRING(( __VA_ARGS__ )));                \
-      Rv = TRACE_FN(Name##INTEL)(Fn, __VA_ARGS__, &Rc);                        \
+           TO_STRING(Name), TO_STRING(( __VA_ARGS__ )));                       \
+      Rv = TRACE_FN(Name)(Fn, __VA_ARGS__, &Rc);                               \
     } else {                                                                   \
       Rv = (*Fn)(__VA_ARGS__, &Rc);                                            \
     }                                                                          \
     if (Rc != CL_SUCCESS) {                                                    \
       IDP("Error: %s:%s failed with error code %d, %s\n",                      \
-          __func__, TO_STRING(Name##INTEL), Rc, getCLErrorName(Rc));           \
+          __func__, TO_STRING(Name), Rc, getCLErrorName(Rc));                  \
     }                                                                          \
   } while (0)
 

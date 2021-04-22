@@ -29,28 +29,80 @@ bool VPlanVecNonReadonlyLibCalls = true;
 } // namespace vpo
 } // namespace llvm
 
-void VPlanCallVecDecisions::run(unsigned VF, const TargetLibraryInfo *TLI,
-                                const TargetTransformInfo *TTI) {
+static bool isVPPopVF(const VPInstruction *I) {
+  return I->getOpcode() == VPInstruction::PopVF;
+}
+
+void VPlanCallVecDecisions::runForVF(unsigned VF, const TargetLibraryInfo *TLI,
+                                     const TargetTransformInfo *TTI) {
   LLVM_DEBUG(dbgs() << "Running CallVecDecisions for VF=" << VF << "\n");
   for (VPBasicBlock &VPBB : Plan) {
     for (VPInstruction &Inst : VPBB) {
+      // Handle cases when incorrect interface is called for merged CFG.
+      if (isa<VPPushVF>(&Inst) || isVPPopVF(&Inst)) {
+        assert(false && "runForVF cannot be called for merged CFG. Use "
+                        "runForMergedCFG instead.");
+        // For release build, safely reset and call correct interface.
+        reset();
+        runForMergedCFG(TLI, TTI);
+        return;
+      }
+
       if (auto *VPCall = dyn_cast<VPCallInstruction>(&Inst))
         analyzeCall(VPCall, VF, TLI, TTI);
     }
   }
 }
 
+void VPlanCallVecDecisions::runForMergedCFG(const TargetLibraryInfo *TLI,
+                                            const TargetTransformInfo *TTI) {
+  LLVM_DEBUG(dbgs() << "Running CallVecDecisions for merged CFG\n");
+  // Stack to track various VFs encountered in merged CFG.
+  std::stack<unsigned> VFStack;
+  // Current VF that must be used to analyze a call. It effecively tracks the
+  // stack's top element.
+  unsigned CurrentVF;
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan.getEntryBlock());
+  for (VPBasicBlock *VPBB : RPOT) {
+    for (VPInstruction &Inst : *VPBB) {
+      if (auto *PushVF = dyn_cast<VPPushVF>(&Inst))
+        VFStack.push(PushVF->getVF());
+
+      if (isVPPopVF(&Inst))
+        VFStack.pop();
+
+      CurrentVF = VFStack.empty() ? 0 : VFStack.top();
+
+      if (auto *VPCall = dyn_cast<VPCallInstruction>(&Inst)) {
+        assert(CurrentVF != 0 && "Valid VF was not identified for merged CFG.");
+        analyzeCall(VPCall, CurrentVF, TLI, TTI);
+      }
+    }
+  }
+
+  assert(VFStack.empty() && "Expected empty VF stack.");
+}
+
+void VPlanCallVecDecisions::reset() {
+  LLVM_DEBUG(dbgs() << "Resetting CallVecDecisions for Plan: " << Plan.getName()
+                    << "\n");
+  for (VPBasicBlock &VPBB : Plan) {
+    for (VPInstruction &Inst : VPBB) {
+      if (auto *VPCall = dyn_cast<VPCallInstruction>(&Inst))
+        VPCall->resetVecScenario(0 /*NewVF*/);
+    }
+  }
+}
+
 std::unique_ptr<VectorVariant>
 VPlanCallVecDecisions::getVectorVariantForCallParameters(
-    const VPCallInstruction *VPCall,
-    bool Masked,
-    int VF) {
+    const VPCallInstruction *VPCall, bool Masked, int VF) {
   auto *DA = Plan.getVPlanDA();
   std::vector<VectorKind> ParmKinds;
   for (unsigned I = VPCall->isIntelIndirectCall() ? 1 : 0;
        I < VPCall->getNumArgOperands(); ++I) {
     auto *CallArg = VPCall->getOperand(I);
-    auto CallArgShape = DA->getVectorShape(CallArg);
+    auto CallArgShape = DA->getVectorShape(*CallArg);
     if (CallArgShape.isRandom() || CallArgShape.isUndefined())
       ParmKinds.push_back(VectorKind::vector());
     else if (CallArgShape.isAnyStrided() && CallArgShape.hasKnownStride())
@@ -76,7 +128,9 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
                                           const TargetTransformInfo *TTI) {
 
   const CallInst *Call = VPCall->getUnderlyingCallInst();
-  if (!Call->hasFnAttr("vector-variants"))
+  // TODO: Add support to use called Function attributes when underlying Call is
+  // not available.
+  if (!Call || !Call->hasFnAttr("vector-variants"))
     return {};
 
   StringRef VecVariantStringValue =
@@ -104,12 +158,14 @@ VPlanCallVecDecisions::matchVectorVariant(const VPCallInstruction *VPCall,
     Variants.push_back(VectorVariant(VariantAttributes[I]));
   }
 
+  if (VPCall->isIntelIndirectCall())
+     Masked |= Plan.getVPlanDA()->isDivergent(*VPCall->getOperand(0));
+
   std::unique_ptr<VectorVariant> VariantForCall =
       getVectorVariantForCallParameters(VPCall, Masked, VF);
 
-  int VariantIdx =
-      TTI->getMatchingVectorVariant(*VariantForCall, Variants,
-                                    Call->getModule());
+  int VariantIdx = TTI->getMatchingVectorVariant(*VariantForCall, Variants,
+                                                 Call->getModule());
 
   if (VariantIdx >= 0) {
     LLVM_DEBUG(dbgs() << "\nMatched call to: " << Variants[VariantIdx].encode()
@@ -147,20 +203,30 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   if (VF == 1)
     return;
 
-  // 1. Ignored calls (do we need a new field in VecProperties for this?)
-  if (isa<DbgInfoIntrinsic>(UnderlyingCI))
+  // Ignored calls (do we need a new field in VecProperties for this?)
+  if (isa_and_nonnull<DbgInfoIntrinsic>(UnderlyingCI))
     return;
 
   Function *F = VPCall->getCalledFunction();
 
-  // 2. Call was already marked to be strictly not widended (for example, kernel
+  // Call was already marked to be strictly not widended (for example, kernel
   // convergent uniform calls).
   if (VPCall->getVectorizationScenario() ==
       VPCallInstruction::CallVecScenariosTy::DoNotWiden) {
     return;
   }
 
-  // 3. Indirect calls will be serialized, as of today.
+  // DPC++'s unmasked functions. The implementation is vector-variant based but
+  // no pumping allowed and the mask needs to be ignore when making the call
+  // (the whole purpose of the feature), hence separate scenario.
+  if (VPCall->getVectorizationScenario() ==
+      VPCallInstruction::CallVecScenariosTy::UnmaskedWiden) {
+    auto VecVariant = matchVectorVariant(VPCall, false, VF, TTI);
+    VPCall->setUnmaskedVectorVariant(VecVariant->first, VecVariant->second);
+    return;
+  }
+
+  // Indirect calls will be serialized, as of today.
   if (!F) {
     VPCall->setShouldBeSerialized();
     return;
@@ -171,25 +237,16 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   // call is masked only if its parent VPBB has predicate.
   VPBasicBlock *VPBB = VPCall->getParent();
   bool IsMasked = VPBB->getPredicate() != nullptr;
-  // 4. Vectorizable library function like SVML calls. Set vector function
-  // name in CallVecProperties. NOTE : Vector library calls can be used if call
-  // is known to read memory only (non-default behavior).
-  if (TLI->isFunctionVectorizable(CalledFuncName, VF, IsMasked) &&
-      (VPlanVecNonReadonlyLibCalls || UnderlyingCI->onlyReadsMemory())) {
-    VPCall->setVectorizeWithLibraryFn(
-        TLI->getVectorizedFunction(CalledFuncName, VF, IsMasked));
-    return;
-  }
 
-  // 5. Function calls with available vector variants.
+  // Function calls with available vector variants.
   if (auto VecVariant = matchVectorVariant(VPCall, IsMasked, VF, TTI)) {
     VPCall->setVectorizeWithVectorVariant(VecVariant.getValue().first,
                                           VecVariant.getValue().second);
     return;
   }
 
-  // 6. Use masked vector variant with all-zero mask for unmasked calls
-  // without matching vector variant.
+  // Use masked vector variant with all-zero mask for unmasked calls without
+  // matching vector variant.
   // TODO: Same optimization can be done for calls with vectorizable library
   // function.
   if (!IsMasked) {
@@ -202,7 +259,29 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     }
   }
 
-  // 7. Vectorize by pumping the call for a lower VF. Since pumping is only done
+  // If underlying CallInst is not available for further analysis, serialize
+  // conservatively.
+  if (!UnderlyingCI) {
+    VPCall->setShouldBeSerialized();
+    return;
+  }
+
+  // For all other scenarios below, underlying CI is a hard-requirement.
+  // TODO: Explore options to relax the hard-requirement for future.
+  assert(UnderlyingCI && "UnderlyingCI is nullptr.");
+
+  // Vectorizable library function like SVML calls. Set vector function name in
+  // CallVecProperties. NOTE : Vector library calls can be used if call
+  // is known to read memory only (non-default behavior).
+  if (TLI->isFunctionVectorizable(CalledFuncName, ElementCount::getFixed(VF),
+                                  IsMasked) &&
+      (VPlanVecNonReadonlyLibCalls || UnderlyingCI->onlyReadsMemory())) {
+    VPCall->setVectorizeWithLibraryFn(TLI->getVectorizedFunction(
+        CalledFuncName, ElementCount::getFixed(VF), IsMasked));
+    return;
+  }
+
+  // Vectorize by pumping the call for a lower VF. Since pumping is only done
   // for library calls today, ensure that call only reads memory. TODO: When
   // vector-variant pumping is implemented, restrict the check for library func
   // call.
@@ -210,15 +289,18 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
   if (PumpFactor > 1 &&
       (VPlanVecNonReadonlyLibCalls || UnderlyingCI->onlyReadsMemory())) {
     unsigned LowerVF = VF / PumpFactor;
-    assert(TLI->isFunctionVectorizable(CalledFuncName, LowerVF, IsMasked) &&
+    assert(TLI->isFunctionVectorizable(CalledFuncName,
+                                       ElementCount::getFixed(LowerVF),
+                                       IsMasked) &&
            "Library function cannot be vectorized with lower VF.");
     VPCall->setVectorizeWithLibraryFn(
-        TLI->getVectorizedFunction(CalledFuncName, LowerVF, IsMasked),
+        TLI->getVectorizedFunction(CalledFuncName,
+                                   ElementCount::getFixed(LowerVF), IsMasked),
         PumpFactor);
     return;
   }
 
-  // 8. Trivially vectorizable call using vector intrinsics.
+  // Trivially vectorizable call using vector intrinsics.
   Intrinsic::ID ID = getVectorIntrinsicIDForCall(UnderlyingCI, TLI);
   bool TrivialVectorIntrinsic =
       (ID != Intrinsic::not_intrinsic) && isTriviallyVectorizable(ID);
@@ -239,8 +321,8 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     return;
   }
 
-  // 9.  Deterministic function calls with no side effects that operate on
-  // uniform operands need to be marked as DoNotWiden.
+  // Deterministic function calls with no side effects that operate on uniform
+  // operands need to be marked as DoNotWiden.
   if (!Plan.getVPlanDA()->isDivergent(*VPCall) &&
       !VPCall->mayHaveSideEffects()) {
     // NOTE: If assert is triggered, it implies that DA has been updated to
@@ -256,7 +338,7 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     return;
   }
 
-  // 10. All other cases implies default properties i.e. call serialization.
+  // All other cases implies default properties i.e. call serialization.
   VPCall->setShouldBeSerialized();
   // TODO:
   // 1. OpenCLReadChannel/OpenCLWriteChannel calls?

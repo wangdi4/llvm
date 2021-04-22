@@ -20,7 +20,7 @@
 #include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
-#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/AliasAnalysis.h" // INTEL
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Metadata.h"
@@ -36,19 +36,16 @@
 namespace llvm {
 
 class AAResults;
+class AliasResult;
 class AliasSetTracker;
-class BasicBlock;
-class LoadInst;
-class Loop;
-class MemorySSA;
 class AnyMemSetInst;
 class AnyMemTransferInst;
+class BasicBlock;
+class LoadInst;
 class raw_ostream;
 class StoreInst;
 class VAArgInst;
 class Value;
-
-enum AliasResult : uint8_t;
 
 class AliasSet : public ilist_node<AliasSet> {
   friend class AliasSetTracker;
@@ -240,11 +237,16 @@ public:
   void dump() const;
 
   /// Define an iterator for alias sets... this is just a forward iterator.
-  class iterator : public std::iterator<std::forward_iterator_tag,
-                                        PointerRec, ptrdiff_t> {
+  class iterator {
     PointerRec *CurNode;
 
   public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = PointerRec;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
     explicit iterator(PointerRec *CN = nullptr) : CurNode(CN) {}
 
     bool operator==(const iterator& x) const {
@@ -364,11 +366,13 @@ class AliasSetTracker {
   struct ASTCallbackVHDenseMapInfo : public DenseMapInfo<Value *> {};
 
   AAResults &AA;
-  MemorySSA *MSSA = nullptr;
-  Loop *L = nullptr;
   ilist<AliasSet> AliasSets;
 #ifdef INTEL_CUSTOMIZATION
   const bool LoopCarriedDisam = false;
+  // If the pass requires to override the saturation threshold for Alias
+  // Analysis, we store a new threshold in this field. During the analysis we
+  // use maximum of the original option and the stored value.
+  unsigned SaturationThresholdOverriden = 0;
 #endif // INTEL_CUSTOMIZATION
 
   using PointerMapType = DenseMap<ASTCallbackVH, AliasSet::PointerRec *,
@@ -381,12 +385,10 @@ public:
   /// Create an empty collection of AliasSets, and use the specified alias
   /// analysis object to disambiguate load and store addresses.
   explicit AliasSetTracker(AAResults &AA) : AA(AA) {}
-  explicit AliasSetTracker(AAResults &AA, MemorySSA *MSSA, Loop *L)
-      : AA(AA), MSSA(MSSA), L(L) {}
   ~AliasSetTracker() { clear(); }
 #ifdef INTEL_CUSTOMIZATION
-  explicit AliasSetTracker(AAResults &aa, bool NeedsLoopCarried)
-      : AA(aa), LoopCarriedDisam(NeedsLoopCarried) {}
+  explicit AliasSetTracker(AAResults &aa, bool NeedsLoopCarried, unsigned STO = 0)
+      : AA(aa), LoopCarriedDisam(NeedsLoopCarried), SaturationThresholdOverriden(STO) {}
   bool getLoopCarriedDisam() { return LoopCarriedDisam; }
 #endif // INTEL_CUSTOMIZATION
 
@@ -413,7 +415,6 @@ public:
   void add(BasicBlock &BB);       // Add all instructions in basic block
   void add(const AliasSetTracker &AST); // Add alias relations from another AST
   void addUnknown(Instruction *I);
-  void addAllInstructionsInLoopUsingMSSA();
 
   void clear();
 
@@ -491,8 +492,8 @@ private:
 // loopCarriedAlias for disambiguation.
 class LoopCarriedAliasSetTracker : public AliasSetTracker {
 public:
-  explicit LoopCarriedAliasSetTracker(AAResults &AA)
-      : AliasSetTracker(AA, true) {}
+  explicit LoopCarriedAliasSetTracker(AAResults &AA, unsigned STO = 0)
+      : AliasSetTracker(AA, true, STO) {}
 };
 
 // This class wraps parallel ASTs; one with alias semantics, and one with
@@ -512,8 +513,8 @@ private:
   }
 
 public:
-  explicit HybridAliasSetTracker(AAResults &AA)
-      : LoopCarriedAliasSetTracker(AA), AliasAST(AA) {}
+  explicit HybridAliasSetTracker(AAResults &AA, unsigned STO = 0)
+      : LoopCarriedAliasSetTracker(AA, STO), AliasAST(AA, false, STO) {}
   void add(Value *Ptr, LocationSize Size, const AAMDNodes &AAInfo,
            bool LoopCarried = false) {
     // If we're transitioning from the "alias" AST to the "loopCarriedAlias"

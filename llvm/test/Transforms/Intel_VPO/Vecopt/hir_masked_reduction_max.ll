@@ -19,6 +19,8 @@
 ; END REGION
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -disable-output -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -disable-output -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s
+
 
 ; Check that reduction is imported and lowered into corresponding VPInstructions.
 
@@ -32,6 +34,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local float @ifmax1(i32 %N) local_unnamed_addr #0 {
 ;
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
+; CHECK-NEXT:  VPlan IR for: ifmax1:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%tmax.015}
 ; CHECK-DAG:     [[VP1:%.*]] = {@C}

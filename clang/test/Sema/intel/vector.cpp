@@ -60,4 +60,24 @@ void goo(int i, int *x, int *y) {
   for (i = 0; i < 10; ++i) {
     x[i] = y[i];
   }
+
+  // CHECK: AttributedStmt
+  // CHECK-NEXT: LoopHintAttr{{.*}}VectorizeDynamicAlign Enable
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: ForStmt
+  #pragma vector dynamic_align
+  for (i = 0; i < 10; ++i) {
+    x[i] = y[i];
+  }
+
+  // CHECK: AttributedStmt
+  // CHECK-NEXT: LoopHintAttr{{.*}}VectorizeNoDynamicAlign Enable
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: ForStmt
+  #pragma vector nodynamic_align
+  for (i = 0; i < 10; ++i) {
+    x[i] = y[i];
+  }
 }

@@ -19,24 +19,27 @@
 ; c0, a1, b1, c2, a2, b2, c2, a3, b3, c3> and do a wide store. Testing struct
 ; field accesses. Test also checks that TBAA metadata is updated appropriately.
 ;
-; RUN: opt -tbaa -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -enable-vp-value-codegen-hir=0 -S -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
+
 ; RUN: opt -tbaa -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -enable-vp-value-codegen-hir=1 -S -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -vplan-force-vf=4 -enable-vplan-vls-cg -enable-vp-value-codegen-hir=1 -S < %s 2>&1 | FileCheck %s
+
 ;
-; CHECK: DO i1 = 0, 99, 4
-; CHECK:  [[COMB:%.*]] = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3>,  i1 + <i64 0, i64 1, i64 2, i64 3> + 2,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>;
-; CHECK:  [[EXT:%.*]] = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3> + 3,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>;
-; CHECK:  [[COMB1:%.*]] = shufflevector [[COMB]],  [[EXT]],  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11>;
-; CHECK:  [[INT:%.*]] = shufflevector [[COMB1]],  undef,  <i32 0, i32 4, i32 8, i32 1, i32 5, i32 9, i32 2, i32 6, i32 10, i32 3, i32 7, i32 11>;
-; CHECK:  (<12 x i64>*)(@arr1)[0][i1].0 = [[INT]];
-; CHECK: END LOOP
+
+; CHECK:      DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:   %shuffle = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3>,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4>;
+; CHECK-NEXT:   %shuffle1 = shufflevector undef,  %shuffle,  <i32 16, i32 1, i32 2, i32 17, i32 4, i32 5, i32 18, i32 7, i32 8, i32 19, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>;
+; CHECK-NEXT:   %shuffle2 = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3> + 2,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4>;
+; CHECK-NEXT:   %shuffle3 = shufflevector %shuffle1,  %shuffle2,  <i32 0, i32 16, i32 2, i32 3, i32 17, i32 5, i32 6, i32 18, i32 8, i32 9, i32 19, i32 11, i32 12, i32 13, i32 14, i32 15>;
+; CHECK-NEXT:   %shuffle4 = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3> + 3,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4, i32 4>;
+; CHECK-NEXT:   %shuffle5 = shufflevector %shuffle3,  %shuffle4,  <i32 0, i32 1, i32 16, i32 3, i32 4, i32 17, i32 6, i32 7, i32 18, i32 9, i32 10, i32 19, i32 12, i32 13, i32 14, i32 15>;
+; CHECK-NEXT:   (<16 x i64>*)(@arr1)[0][i1].0 = %shuffle5; Mask = @{<i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>}
+; CHECK-NEXT: END LOOP
+
 ; Check TBAA metadata on the wide store after hir-cg
 ; CHECK: region.{{.*}}:
-; CHECK: %[[ARRAYIDX:.*]] = getelementptr inbounds [1024 x %struct.S1], [1024 x %struct.S1]* @arr1, i64 0, i64 %{{.*}}, i32 0
-; CHECK:  %[[BITCAST:.*]] = bitcast i64* %[[ARRAYIDX]] to <12 x i64>*
-; CHECK: store <12 x i64> %{{.*}}., <12 x i64>* %[[BITCAST]], align 8, !tbaa ![[TBAA:.*]]
-; CHECK: ![[TBAA1:.*]] = !{!"long", !{{.*}}, i64 0}
-; CHECK: ![[TBAA]] = !{![[TBAA1]], ![[TBAA1]], i64 0}
-
+; CHECK: [[ARRAYIDX:%.*]] = getelementptr inbounds [1024 x %struct.S1], [1024 x %struct.S1]* @arr1, i64 0, i64 %{{.*}}, i32 0
+; CHECK: [[BITCAST:%.*]] = bitcast i64* [[ARRAYIDX]] to <16 x i64>*
+; CHECK: @llvm.masked.store.v16i64.p0v16i64(<16 x i64> {{%.*}}, <16 x i64>* [[BITCAST]], i32 8,
 
 ; ModuleID = 't6.c'
 source_filename = "t6.c"

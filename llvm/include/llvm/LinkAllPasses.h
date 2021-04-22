@@ -44,6 +44,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/SYCLLowerIR/LowerESIMD.h"
+#include "llvm/SYCLLowerIR/LowerWGLocalMemory.h"
 #include "llvm/SYCLLowerIR/LowerWGScope.h"
 #include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h"
@@ -60,6 +61,7 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Instrumentation/BoundsChecking.h"
+#include "llvm/Transforms/Instrumentation/SPIRITTAnnotations.h"
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
@@ -266,6 +268,8 @@ namespace {
       (void)llvm::createSYCLLowerESIMDPass();
       (void)llvm::createESIMDLowerLoadStorePass();
       (void)llvm::createESIMDLowerVecArgPass();
+      (void)llvm::createSPIRITTAnnotationsPass();
+      (void)llvm::createSYCLLowerWGLocalMemoryLegacyPass();
       std::string buf;
       llvm::raw_string_ostream os(buf);
       (void) llvm::createPrintModulePass(os);
@@ -391,19 +395,26 @@ namespace {
       (void) llvm::createHIRArrayScalarizationTestLauncherPass();
 
       // DPCPP Kernel Transformations
+      (void)llvm::createBuiltinImportLegacyPass();
+      (void)llvm::createDPCPPEqualizerLegacyPass();
       (void) llvm::createDPCPPKernelVecClonePass();
       (void) llvm::createDPCPPKernelPostVecPass();
-      (void) llvm::createDPCPPKernelWGLoopCreatorPass();
-      (void) llvm::createDPCPPKernelAnalysisPass();
-      (void) llvm::createPhiCanonicalizationPass();
-      (void) llvm::createRedundantPhiNodePass();
-      (void) llvm::createSplitBBonBarrierPass();
-      (void) llvm::createWIRelatedValuePass();
-      (void) llvm::createDataPerBarrierPass();
-      (void) llvm::createDataPerValuePass();
-      (void) llvm::createKernelBarrierPass(false, false);
-      (void) llvm::createBarrierInFunctionPass();
-      (void) llvm::createPostBarrierPass();
+      (void)llvm::createDPCPPKernelWGLoopCreatorLegacyPass();
+      (void)llvm::createDPCPPKernelAnalysisLegacyPass();
+      (void)llvm::createPhiCanonicalizationLegacyPass();
+      (void)llvm::createRedundantPhiNodeLegacyPass();
+      (void)llvm::createSplitBBonBarrierLegacyPass();
+      (void)llvm::createWIRelatedValueWrapperPass();
+      (void)llvm::createDataPerBarrierWrapperPass();
+      (void)llvm::createDataPerValueWrapperPass();
+      (void)llvm::createKernelBarrierLegacyPass(false, false);
+      (void)llvm::createBarrierInFunctionLegacyPass();
+      (void)llvm::createImplicitArgsAnalysisLegacyPass();
+      (void)llvm::createLocalBufferAnalysisLegacyPass();
+      (void)llvm::createAddImplicitArgsLegacyPass();
+      (void)llvm::createResolveWICallLegacyPass(false, false);
+      (void)llvm::createPrepareKernelArgsLegacyPass(false);
+      (void)llvm::createCleanupWrappedKernelLegacyPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

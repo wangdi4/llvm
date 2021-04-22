@@ -62,6 +62,9 @@ add_clang_library(clangAST
   ExternalASTSource.cpp
   FormatString.cpp
   InheritViz.cpp
+# INTEL_CUSTOMIZATION
+  intel/IntelAST.cpp
+# end INTEL_CUSTOMIZATION
   Interp/ByteCodeEmitter.cpp
   Interp/ByteCodeExprGen.cpp
   Interp/ByteCodeGenError.cpp

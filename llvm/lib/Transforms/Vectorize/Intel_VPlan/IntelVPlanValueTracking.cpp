@@ -23,7 +23,7 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 KnownBits VPlanValueTrackingLLVM::getKnownBits(VPlanSCEV *Expr,
-                                               VPInstruction *CtxI) {
+                                               const VPInstruction *CtxI) {
   // FIXME: CtxI == NULL should probably mean the entry to the main loop.
   auto *UnderCtxI = (CtxI && CtxI->isUnderlyingIRValid())
                         ? cast<Instruction>(CtxI->getUnderlyingValue())

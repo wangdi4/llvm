@@ -1,6 +1,6 @@
 //===---------------- Transpose.h - DTransTransposePass -------------------===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -29,12 +29,15 @@ class LoopInfo;
 
 namespace dtrans {
 
+// Lambda function to collect the LoopInfo for a given function
+using TransposeLoopInfoFuncType = function_ref<LoopInfo &(Function &)>;
+
 class TransposePass : public PassInfoMixin<dtrans::TransposePass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
-  bool runImpl(Module &M, function_ref<LoopInfo &(Function &)> GetLI);
+  bool runImpl(Module &M, TransposeLoopInfoFuncType GetLI);
 };
 
 } // end namespace dtrans

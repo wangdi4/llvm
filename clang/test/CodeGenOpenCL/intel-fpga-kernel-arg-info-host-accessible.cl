@@ -9,6 +9,6 @@ kernel void k1(read_only pipe int p1 __attribute__((intel_host_accessible)),
                __global int* pi) {
 }
 
-// CHECK: define spir_kernel void @k1{{[^!]+}}
+// CHECK: define{{.*}}spir_kernel void @k1{{[^!]+}}
 // CHECK: !kernel_arg_host_accessible ![[MD:[0-9]+]]
 // CHECK: ![[MD]] = !{i1 true, i1 true, i1 false, i1 false, i1 false}

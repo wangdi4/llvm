@@ -24,6 +24,8 @@
 
 
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-temp-cleanup -VPlanDriverHIR -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,vplan-driver-hir" -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -34,6 +36,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local float @ifsum1(i32 %N) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after insertion of VPEntities instructions:
+; CHECK-NEXT:  VPlan IR for: ifsum1:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%tsum.015}
 ; CHECK-DAG:     [[VP1:%.*]] = {@B}
@@ -46,7 +49,7 @@ define dso_local float @ifsum1(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:   (+) Start: float [[TSUM_0150:%.*]] Exit: float [[VP4:%.*]]
 ; CHECK-NEXT:    Linked values: float [[VP5:%.*]], float [[VP4]], float [[VP6:%.*]], float [[VP__RED_INIT:%.*]], float [[VP__RED_FINAL:%.*]],
 ; CHECK:       Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 BinOp: i64 [[VP7:%.*]] = add i64 [[VP8:%.*]] i64 [[VP__IND_INIT_STEP:%.*]]
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: ? BinOp: i64 [[VP7:%.*]] = add i64 [[VP8:%.*]] i64 [[VP__IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i64 [[VP8]], i64 [[VP7]], i64 [[VP__IND_INIT:%.*]], i64 [[VP__IND_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]

@@ -118,6 +118,20 @@ namespace spirv {
     GroupOperationExclusiveScan = 2
   };
 
+  enum MemorySemantics {
+    None =                   0,
+    Acquire =                0x2,
+    Release =                0x4,
+    AcquireRelease =         0x8,
+    SequentiallyConsistent = 0x10,
+    UniformMemory =          0x40,
+    SubgroupMemory =         0x80,
+    WorkgroupMemory =        0x100,
+    CrossWorkgroupMemory =   0x200,
+    AtomicCounterMemory =    0x400,
+    ImageMemory =            0x800
+  };
+
   static const StringRef ExecutionSchemeOptionName(
       "vpo-paropt-gpu-execution-scheme");
 
@@ -1068,6 +1082,11 @@ public:
                    int KmpSharedTySz, PointerType *KmpRoutineEntryPtrTy,
                    Function *MicroTaskFn, Instruction *InsertPt, bool UseTbb);
 
+  /// Generate a call to `__kmpc_omp_task_alloc` without a callback
+  static CallInst *genKmpcTaskAllocWithoutCallback(WRegionNode *W,
+                                                   StructType *IdentTy,
+                                                   Instruction *InsertPt);
+
   /// Generate a call to `__kmpc_omp_task_alloc` to be used as an AsyncObj
   /// for the TARGET VARIANT DISPATCH NOWAIT construct corresponding to \p W
   static CallInst *genKmpcTaskAllocForAsyncObj(WRegionNode *W,
@@ -1492,12 +1511,30 @@ public:
                                           Value *AsyncObj,
                                           Instruction *InsertPt);
 
+  /// /// Generate a call to `__tgt_create_interop`.
+  /// \code
+  ///    void *__tgt_create_interop(int64_t device_id,
+  ///                               int32_t interop_type,
+  ///                               int32_t num_prefers,
+  ///                               intptr_t* prefer_ids)
+  /// \endcode
+  static CallInst *
+  genTgtCreateInterop(Value *DeviceNum, int32_t OmpInteropContext,
+                      const SmallVectorImpl<unsigned> &PreferList,
+                      Instruction *InsertPt);
+
+  /// Generate a call to `__tgt_release_interop_obj`
+  /// if \p EmitTgtReleaseInteropObj is true,
+  /// `__tgt_release_interop` otherwise.
+  static CallInst *genTgtReleaseInterop(Value *InteropObj,
+                                        Instruction *InsertPt,
+                                        bool EmitTgtReleaseInteropObj = false);
+
   /// Generate a call to
   /// \code
-  ///    int __tgt_release_interop_obj(void *interop_obj)
+  ///   int __tgt_use_interop(omp_interop_t interop)
   /// \endcode
-  static CallInst *genTgtReleaseInteropObj(Value *InteropObj,
-                                           Instruction *InsertPt);
+  static CallInst* genTgtUseInterop(Value* InteropObj, Instruction* InsertPt);
 
   /// Generate a call to
   /// \code
@@ -1533,9 +1570,13 @@ public:
                                         Value *SharedGep, Instruction *InsertPt,
                                         bool UseTbb);
 
-  /// Generate a call to `__kmpc_task_reduction_init`. Prototype:
+  /// Generate a call to `__kmpc_taskred_init`. Prototype:
   /// \code
-  ///   i8* @__kmpc_task_reduction_init(i32, i32, i8*)
+  ///   i8* @__kmpc_taskred_init(i32, i32, i8*)
+  /// \endcode
+  /// Or, if UseTbb is true:
+  /// \code
+  ///   i8* @__tbb_omp_task_reduction_init(i32, i32, i8*)
   /// \endcode
   static CallInst *genKmpcTaskReductionInit(WRegionNode *W, Value *TidPtr,
                                             int ParmNum, Value *RedRecord,
@@ -1667,6 +1708,16 @@ public:
                            ArrayRef<Value *> FnArgs,
                            ArrayRef<Type *> FnArgTypes, Instruction *InsertPt,
                            bool IsTail = false, bool IsVarArg = false);
+
+  // A genCall() interface where FnArgTypes and Module are omitted;
+  // FnArgTypes will be computed from FnArgs; Module will be computed
+  // from InsertPt.
+  // **WARNING**: do not use this interface for VarArg functions, as the list
+  // of FnArgTypes corresponding to the FnArgs may be longer than the actual
+  // list of params in the FunctionType.
+  static CallInst *genCall(StringRef FnName, Type *ReturnTy,
+                           ArrayRef<Value *> FnArgs,
+                           Instruction *InsertPt, bool IsTail = false);
 
   /// Given a call \p BaseCall, create another call with name \p VariantName
   /// using the same arguments from \p BaseCall. Both functions are expected

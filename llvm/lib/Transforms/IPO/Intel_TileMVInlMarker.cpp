@@ -26,6 +26,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
+#include "llvm/Transforms/Utils/Intel_CloneUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
@@ -38,7 +39,7 @@ using namespace llvm::PatternMatch;
 // until the actual tiling is performed, as the inlining alone will produce
 // a performance regression.
 //
-static cl::opt<bool> TileCandidateMark("tile-candidate-mark", cl::init(false),
+static cl::opt<bool> TileCandidateMark("tile-candidate-mark", cl::init(true),
                                        cl::ReallyHidden);
 
 // Enable the optimization for testing purposes
@@ -86,23 +87,6 @@ static Function *uniqueCaller(Function &F) {
     Caller = CB->getCaller();
   }
   return Caller;
-}
-
-//
-// Return the unique callsite of 'F', if there is a unique callsite.
-//
-static CallInst *uniqueCallSite(Function &F) {
-  CallInst *CISave = nullptr;
-  for (User *U : F.users()) {
-    auto BCO = dyn_cast<BitCastOperator>(U);
-    if (BCO && BCO->hasNUses(0))
-      continue;
-    auto CI = dyn_cast<CallInst>(U);
-    if (!CI || CISave)
-      return nullptr;
-    CISave = CI;
-  }
-  return CISave;
 }
 
 //
@@ -509,8 +493,6 @@ bool TileMVInlMarker::processLoop(Function &F, Loop &L) {
         return processLoopCaseFoundPHI(F, Item, BOV);
       case TS_FoundBoth:
         return processLoopCaseFoundBoth(F, Item, BOV);
-      default:
-        assert(false && "No default case");
       }
     }
     return false;
@@ -1632,6 +1614,7 @@ void TileMVInlMarker::simplifyConditionals(Function &F) {
     bool Sense = false;
     if (!HasProvableBranch(IC, ICN, Direction, Sense))
       return false;
+    (void)this;
     LLVM_DEBUG({
       dbgs() << "TMVINL: Testing     ";
       IC->dump();

@@ -42,20 +42,20 @@ private:
 
   HIRVectorizationLegality *HIRLegality;
 
-  std::shared_ptr<VPlan>
-  buildInitialVPlan(unsigned StartRangeVF, unsigned &EndRangeVF,
-                    VPExternalValues &Ext,
+  std::shared_ptr<VPlanVector>
+  buildInitialVPlan(VPExternalValues &Ext, VPUnlinkedInstructions &UVPI,
+                    std::string VPlanName,
                     ScalarEvolution *SE = nullptr) override;
 
-  void emitVecSpecifics(VPlan *Plan) override {
-    Plan->markBackedgeUniformityForced();
-  };
+  /// Replace original upper bound of the loop with
+  /// VPVectorTripCountCalculation.
+  void emitVecSpecifics(VPlanVector *Plan) override;
 
 protected:
   /// Check whether everything in the loop body is supported at the moment.
   /// We can have some unimplemented things and it's better to gracefully
   /// bailout in such cases than assert or generate incorrect code.
-  bool canProcessLoopBody(const VPlan &Plan, const VPLoop &Loop) const override;
+  bool canProcessLoopBody(const VPlanVector &Plan, const VPLoop &Loop) const override;
 
 public:
   LoopVectorizationPlannerHIR(WRNVecLoopNode *WRL, HLLoop *Lp,
@@ -83,6 +83,7 @@ public:
     // FIXME: Implement this!
     return {8, 64};
   }
+  virtual bool isNewCFGMergeEnabled() const override { return false;}
 };
 
 } // namespace vpo

@@ -12,8 +12,8 @@
 ; Since the module has debug information, the var "%0" does not have a name,
 ; or any associated debug metadata, check that a default "unknown"
 ; map-name is used for the map operand.
-; CHECK: [[NAME:@[^ ]+]] = private unnamed_addr constant [23 x i8] c";unknown;unknown;0;0;;\00", align 1
-; CHECK: @.offload_mapnames = private constant [1 x i8*] [i8* getelementptr inbounds ([23 x i8], [23 x i8]* [[NAME]], i32 0, i32 0)]
+; CHECK: @.mapname = private unnamed_addr constant [23 x i8] c";unknown;unknown;0;0;;\00", align 1
+; CHECK: @.offload_mapnames = private constant [1 x i8*] [i8* getelementptr inbounds ([23 x i8], [23 x i8]* @.mapname, i32 0, i32 0)]
 
 ; Check that tgt_mapper is called using the map-names struct.
 ; CHECK:  %{{[^ ]+}} = call i32 @__tgt_target_mapper(%struct.ident_t* @{{[^ ,]+}}, i64 %{{[^ ,]+}}, i8* @{{[^ ,]+}}, i32 1, i8** %{{[^ ,]}}, i8** %{{[^ ,]}}, i64* getelementptr inbounds ([1 x i64], [1 x i64]* @.offload_sizes, i32 0, i32 0), i64* getelementptr inbounds ([1 x i64], [1 x i64]* @.offload_maptypes, i32 0, i32 0), i8** getelementptr inbounds ([1 x i8*], [1 x i8*]* @.offload_mapnames, i32 0, i32 0), i8** null)

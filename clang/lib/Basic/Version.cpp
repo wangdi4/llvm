@@ -111,12 +111,14 @@ std::string getClangFullCPPVersion() {
 std::string getICXVersionString() {
   // XMAIN_BUILD_DATE_STAMP_STR is expected to be 8 characters of YYYYMMDD.
   // Update the string for our usage in the version, which should resemble
+  // MAJOR.x.PATCH.YYYYMMDD.  Product release builds should resemble
   // MAJOR.MINOR.PATCH.YYYYMMDD
   StringRef Date(XMAIN_BUILD_DATE_STAMP_STR);
   if (Date.size() == 8) {
     std::string buf;
     llvm::raw_string_ostream OS(buf);
-    OS << getDPCPPVersionString() << "." << Date;
+    OS << getDPCPPMajorVersionString() << "." << XMAIN_VERSION_STRING << "."
+       << Date;
     return OS.str();
   }
   return getDPCPPVersionString();
@@ -128,22 +130,6 @@ std::string getDPCPPProductName() {
 
 std::string getICXVersionNumber() {
   return XMAIN_VERSION_NUMBER;
-}
-
-std::string getXMainFullCPPVersion() {
-  // The version string we report in __VERSION__ is just a compacted version of
-  // the one we report on the command line.
-  std::string buf;
-  llvm::raw_string_ostream OS(buf);
-#ifdef CLANG_VENDOR
-  OS << CLANG_VENDOR;
-#endif
-#ifdef GNU_VERSION_STRING
-  OS << "Intel(R) Clang Based C++, gcc " << GNU_VERSION_STRING << " mode";
-#else
-  OS << "Intel(R) Clang Based C++, clang " << CLANG_VERSION_STRING;
-#endif // GNU_VERSION_STRING
-  return OS.str();
 }
 #endif // INTEL_CUSTOMIZATION
 

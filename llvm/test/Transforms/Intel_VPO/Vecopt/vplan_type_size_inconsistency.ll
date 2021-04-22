@@ -12,8 +12,7 @@ target triple = "x86_64-pc-linux"
 define void @vecInStruct(%vec3 addrspace(1)* %base.ptr) {
 ; CHECK-LABEL: @vecInStruct(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP3:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [[VEC3:%.*]], <8 x [[VEC3]] addrspace(1)*> [[BROADCAST_SPLAT:%.*]], <8 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [[VEC3]], <8 x [[VEC3]] addrspace(1)*> [[MM_VECTORGEP]], <8 x i64> zeroinitializer, <8 x i32> zeroinitializer
@@ -55,8 +54,7 @@ return:                                           ; preds = %simd.end.region
 define void @vecTy(<3 x i32>* %base.ptr) {
 ; CHECK-LABEL: @vecTy(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP3:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds <3 x i32>, <8 x <3 x i32>*> [[BROADCAST_SPLAT:%.*]], <8 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <8 x <3 x i32>*> [[MM_VECTORGEP]] to <8 x i32*>
@@ -97,8 +95,7 @@ return:                                           ; preds = %simd.end.region
 define void @structTy(%myStruct* %base.ptr) {
 ; CHECK-LABEL: @structTy(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP2:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP1:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VECTOR_PH]] ], [ [[TMP0:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [[MYSTRUCT:%.*]], <8 x %myStruct*> [[BROADCAST_SPLAT:%.*]], <8 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [[MYSTRUCT]], <8 x %myStruct*> [[MM_VECTORGEP]], <8 x i64> zeroinitializer, <8 x i32> zeroinitializer

@@ -16,7 +16,6 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/TinyPtrVector.h"
 #include "llvm/Analysis/Utils/Local.h"
@@ -152,20 +151,6 @@ bool replaceDbgUsesWithUndef(Instruction *I);
 //  Control Flow Graph Restructuring.
 //
 
-/// Like BasicBlock::removePredecessor, this method is called when we're about
-/// to delete Pred as a predecessor of BB. If BB contains any PHI nodes, this
-/// drops the entries in the PHI nodes for Pred.
-///
-/// Unlike the removePredecessor method, this attempts to simplify uses of PHI
-/// nodes that collapse into identity values.  For example, if we have:
-///   x = phi(1, 0, 0, 0)
-///   y = and x, z
-///
-/// .. and delete the predecessor corresponding to the '1', this will attempt to
-/// recursively fold the 'and' to 0.
-void RemovePredecessorAndSimplify(BasicBlock *BB, BasicBlock *Pred,
-                                  DomTreeUpdater *DTU = nullptr);
-
 /// BB is a block with one predecessor and its predecessor is known to have one
 /// successor (BB!). Eliminate the edge between them, moving the instructions in
 /// the predecessor into BB. This deletes the predecessor block.
@@ -193,7 +178,7 @@ extern cl::opt<bool> RequireAndPreserveDomTree;
 bool simplifyCFG(BasicBlock *BB, const TargetTransformInfo &TTI,
                  DomTreeUpdater *DTU = nullptr,
                  const SimplifyCFGOptions &Options = {},
-                 SmallPtrSetImpl<BasicBlock *> *LoopHeaders = nullptr);
+                 ArrayRef<WeakVH> LoopHeaders = {});
 
 /// This function is used to flatten a CFG. For example, it uses parallel-and
 /// and parallel-or mode to collapse if-conditions and merge if-regions with
@@ -255,6 +240,8 @@ CallInst *createCallMatchingInvoke(InvokeInst *II);
 void changeToCall(InvokeInst *II, DomTreeUpdater *DTU = nullptr);
 
 #if INTEL_CUSTOMIZATION
+namespace {
+
 template <typename IRBuilderTy>
 Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
                       Value *BasePtr, Value *Lower, Value *Index,
@@ -266,8 +253,10 @@ Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
   Type *OffsetTy = DL.getIndexType(BasePtr->getType());
 
   // Perform scalar/vector division of stride by sizeof(element).
-  {
+  if (ElTy) {
     unsigned ElementSize = DL.getTypeStoreSize(ElTy);
+    assert(ElementSize != 0 && "Element size should never be zero.");
+
     // Stride is known to be divisible by ElementSize exactly.
     Stride = Builder->CreateExactSDiv(
         Stride, ConstantInt::get(Stride->getType(), ElementSize), "el");
@@ -322,21 +311,112 @@ Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
   return Builder->CreateNSWMul(Builder->CreateSExt(Stride, OffsetTy),
                                Builder->CreateSExt(Diff, OffsetTy));
 }
+}
 
-/// Given a llvm.intel.subscript instruction, emit the code necessary to
-/// compute the offset from the base pointer (without adding in the base
-/// pointer). Return the result as a signed integer of intptr size.
+/// Given an llvm.intel.subscript instruction, emit the code representing the
+/// computed address.
 template <typename IRBuilderTy>
-Value *EmitSubsOffset(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
+Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
+                     Value *BasePtr, Value *Lower, Value *Index, Value *Stride,
+                     bool InBounds, bool IsExact) {
+  ConstantInt *ConstStride = dyn_cast<ConstantInt>(Stride);
+
+  // Emit base pointer right away if the stride is known zero.
+  if (ConstStride && ConstStride->isZero()) {
+    return BasePtr;
+  }
+
+  // Try to clarify IsExact flag.
+  if (!IsExact && ConstStride) {
+    APInt ElementSize(ConstStride->getBitWidth(), DL.getTypeStoreSize(ElTy));
+    APInt Q, R;
+    APInt::sdivrem(ConstStride->getValue(), ElementSize, Q, R);
+    IsExact = R.isNullValue();
+  }
+
+  Type *BasePtrTy = BasePtr->getType();
+
+  if (IsExact) {
+    // Emit offset in terms of elements.
+    Value *ElementOffset =
+        emitBaseOffset(Builder, DL, ElTy, BasePtr, Lower, Index, Stride);
+
+    // If addressing for the same type - use single index, prepend zero
+    // otherwise.
+    unsigned IndexLevel = 1;
+    Type *BaseElTy = BasePtrTy->getScalarType()->getPointerElementType();
+    while (BaseElTy != ElTy) {
+      ++IndexLevel;
+      BaseElTy = BaseElTy->isPointerTy() ? BaseElTy->getPointerElementType()
+                                         : BaseElTy->getArrayElementType();
+    }
+
+    // Do not create GEP instruction if the Offset is known zero and no type
+    // change is needed.
+    ConstantInt *ConstOffset = dyn_cast<ConstantInt>(ElementOffset);
+    if (ConstOffset && ConstOffset->isZero() && IndexLevel == 1) {
+      return BasePtr;
+    }
+
+    SmallVector<Value *, 8> Offsets(
+        IndexLevel, ConstantInt::get(ElementOffset->getType(), 0));
+
+    // Merge new gep with base gep if possible.
+    if (auto *BaseGep = dyn_cast<GetElementPtrInst>(BasePtr)) {
+      if (BaseGep->use_empty() && IndexLevel != 1) {
+
+        Offsets.resize(BaseGep->getNumOperands());
+        for (int I = 1, E = BaseGep->getNumOperands(); I < E; ++I) {
+          Offsets[I - 1] = BaseGep->getOperand(I);
+        }
+
+        BasePtr = BaseGep->getPointerOperand();
+        BaseGep->eraseFromParent();
+      }
+    }
+
+    Offsets.back() = ElementOffset;
+
+    return InBounds ? Builder->CreateInBoundsGEP(BasePtr, Offsets)
+                    : Builder->CreateGEP(BasePtr, Offsets);
+  }
+
+  /// The following scheme uses intermediate "bitcast to i8*" to support
+  /// polymorphic types. After shifting the base pointer to a computed number of
+  /// bytes the pointer is casted to the ElTy* type.
+
+  Type *I8Ty = Builder->getInt8PtrTy(BasePtrTy->getPointerAddressSpace());
+  Type *DestType = ElTy->getPointerTo(BasePtrTy->getPointerAddressSpace());
+  if (BasePtrTy->isVectorTy()) {
+    I8Ty = VectorType::get(I8Ty, cast<VectorType>(BasePtrTy));
+    DestType = VectorType::get(DestType, cast<VectorType>(BasePtrTy));
+  }
+
+  Value *BasePtrI8 =
+      Builder->CreateBitCast(BasePtr, I8Ty);
+
+  Value *ByteOffset =
+      emitBaseOffset(Builder, DL, nullptr, BasePtr, Lower, Index, Stride);
+
+  Value *NewBasePtr = InBounds
+                          ? Builder->CreateInBoundsGEP(BasePtrI8, ByteOffset)
+                          : Builder->CreateGEP(BasePtrI8, ByteOffset);
+
+  return Builder->CreateBitCast(NewBasePtr, DestType);
+}
+
+template <typename IRBuilderTy>
+Value *EmitSubsValue(IRBuilderTy *Builder, const DataLayout &DL, User *Subs) {
   SubscriptInst *CI = cast<SubscriptInst>(Subs);
 
-  // Extract element
+  // Extract element type.
   Type *ElemTy = CI->getType()
                      ->getScalarType() // Element of <vector of pointers>
                      ->getPointerElementType();
 
-  return emitBaseOffset(Builder, DL, ElemTy, CI->getPointerOperand(),
-                        CI->getLowerBound(), CI->getIndex(), CI->getStride());
+  return EmitSubsValue(Builder, DL, ElemTy, CI->getPointerOperand(),
+                       CI->getLowerBound(), CI->getIndex(), CI->getStride(),
+                       true, CI->isExact());
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -414,9 +494,11 @@ void salvageDebugInfoForDbgValues(Instruction &I,
 /// Given an instruction \p I and DIExpression \p DIExpr operating on it, write
 /// the effects of \p I into the returned DIExpression, or return nullptr if
 /// it cannot be salvaged. \p StackVal: whether DW_OP_stack_value should be
-/// appended to the expression.
+/// appended to the expression. \p LocNo: the index of the location operand to
+/// which \p I applies, should be 0 for debug info without a DIArgList.
 DIExpression *salvageDebugInfoImpl(Instruction &I, DIExpression *DIExpr,
-                                   bool StackVal);
+                                   bool StackVal, unsigned LocNo,
+                                   SmallVectorImpl<Value *> &AdditionalValues);
 
 /// Point debug users of \p From to \p To or salvage them. Use this function
 /// only when replacing all uses of \p From with \p To, with a guarantee that
@@ -458,7 +540,8 @@ BasicBlock *changeToInvokeAndSplitBasicBlock(CallInst *CI,
 #if INTEL_CUSTOMIZATION
                                              BasicBlock *UnwindEdge,
                                              InlineReport *IR,
-                                             InlineReportBuilder *MDIR);
+                                             InlineReportBuilder *MDIR,
+                                             DomTreeUpdater *DTU = nullptr);
 #endif // INTEL_CUSTOMIZATION
 
 /// Replace 'BB's terminator with one that does not have an unwind successor

@@ -149,10 +149,10 @@ struct TypeCloner {
                                       LLVMGetVectorSize(Src));
       case LLVMMetadataTypeKind:
         return LLVMMetadataTypeInContext(Ctx);
-      case LLVMX86_MMXTypeKind:
-        return LLVMX86MMXTypeInContext(Ctx);
       case LLVMX86_AMXTypeKind:
         return LLVMX86AMXTypeInContext(Ctx);
+      case LLVMX86_MMXTypeKind:
+        return LLVMX86MMXTypeInContext(Ctx);
       case LLVMTokenTypeKind:
         return LLVMTokenTypeInContext(Ctx);
     }
@@ -653,6 +653,7 @@ struct FunCloner {
         LLVMAtomicOrdering Ord = LLVMGetOrdering(Src);
         LLVMBool SingleThread = LLVMIsAtomicSingleThread(Src);
         Dst = LLVMBuildAtomicRMW(Builder, BinOp, Ptr, Val, Ord, SingleThread);
+        LLVMSetAlignment(Dst, LLVMGetAlignment(Src));
         LLVMSetVolatile(Dst, LLVMGetVolatile(Src));
         LLVMSetValueName2(Dst, Name, NameLen);
         break;
@@ -667,6 +668,7 @@ struct FunCloner {
 
         Dst = LLVMBuildAtomicCmpXchg(Builder, Ptr, Cmp, New, Succ, Fail,
                                      SingleThread);
+        LLVMSetAlignment(Dst, LLVMGetAlignment(Src));
         LLVMSetVolatile(Dst, LLVMGetVolatile(Src));
         LLVMSetWeak(Dst, LLVMGetWeak(Src));
         LLVMSetValueName2(Dst, Name, NameLen);

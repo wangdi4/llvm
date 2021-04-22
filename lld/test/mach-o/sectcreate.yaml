@@ -1,7 +1,7 @@
 # INTEL_CUSTOMIZATION
 # XFAIL: windows-gnu,windows-msvc
 # end INTEL_CUSTOMIZATION
-# RUN: ld64.lld -r -arch x86_64 -o %t -sectcreate __DATA __data \
+# RUN: ld64.lld.darwinold -r -arch x86_64 -o %t -sectcreate __DATA __data \
 # RUN:   %p/Inputs/hw.raw_bytes -print_atoms | FileCheck %s
 
 # CHECK: --- !native

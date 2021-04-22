@@ -19,7 +19,7 @@ void foo1() {
   // CHECK-SAME: "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0)
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(double* [[W]])
   // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i64* [[X]])
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i16* [[Y]], i16* [[Y]], i64 2, i64 35)
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i16* [[Y]], i16* [[Y]], i64 2, i64 35
   // CHECK: DIR.OMP.END.TARGET
   // CHECK: DIR.OMP.END.TASK
   #pragma omp target private(w) firstprivate(x) map(tofrom:y) depend(out:y)
@@ -48,7 +48,7 @@ void foo2() {
   // CHECK: DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1)
   // CHECK-SAME: "QUAL.OMP.NOWAIT"
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L1]], i32* [[AI]], i64 %10, i64 35)
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L1]], i32* [[AI]], i64 %10, i64 35
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32** [[YPMAP]])
   // CHECK: store i32* [[L1]], i32** [[YPMAP]], align 8
   // CHECK: DIR.OMP.END.TARGET

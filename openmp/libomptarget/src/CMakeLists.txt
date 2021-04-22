@@ -16,10 +16,13 @@ set(LIBOMPTARGET_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/api.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/device.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/interface.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/MemoryManager.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/rtl.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/omptarget.cpp
 )
+
+set(LIBOMPTARGET_SRC_FILES ${LIBOMPTARGET_SRC_FILES} PARENT_SCOPE)
+
+include_directories(${LIBOMPTARGET_LLVM_INCLUDE_DIRS})
 
 if(INTEL_CUSTOMIZATION)
   # Disable profiling to avoid creation of libomptarget with so version.
@@ -87,6 +90,11 @@ if(INTEL_CUSTOMIZATION)
     libomptarget_add_resource_file(omptarget)
   endif()
 endif(INTEL_CUSTOMIZATION)
+# libomptarget needs to be set separately because add_llvm_library doesn't
+# conform with location configuration of its parent scope.
+set_target_properties(omptarget
+  PROPERTIES
+  LIBRARY_OUTPUT_DIRECTORY ${LIBOMPTARGET_LIBRARY_DIR})
 
 # Install libomptarget under the lib destination folder.
 if(INTEL_COLLAB)

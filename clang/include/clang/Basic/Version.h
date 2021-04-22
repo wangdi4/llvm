@@ -83,9 +83,6 @@ namespace clang {
   std::string getICXVersionNumber();
 
   std::string getICXVersionString();
-
-  /// Version string for xmain: cq374831
-  std::string getXMainFullCPPVersion();
 #endif // INTEL_CUSTOMIZATION
 }
 

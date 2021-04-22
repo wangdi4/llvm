@@ -90,11 +90,13 @@ public:
 // A[5] = A[5] + t;
 struct MemoryReductionInfo {
   unsigned Opcode;
+  FastMathFlags FMF;
   RegDDRef *LoadRef;
   RegDDRef *StoreRef;
 
-  MemoryReductionInfo(unsigned Opcode, RegDDRef *LoadRef, RegDDRef *StoreRef)
-      : Opcode(Opcode), LoadRef(LoadRef), StoreRef(StoreRef) {}
+  MemoryReductionInfo(unsigned Opcode, FastMathFlags FMF, RegDDRef *LoadRef,
+                      RegDDRef *StoreRef)
+      : Opcode(Opcode), FMF(FMF), LoadRef(LoadRef), StoreRef(StoreRef) {}
 };
 
 class HIRMemoryReductionSinking {
@@ -132,7 +134,8 @@ FunctionPass *llvm::createHIRMemoryReductionSinkingPass() {
   return new HIRMemoryReductionSinkingLegacyPass();
 }
 
-static HLInst *getReductionStore(RegDDRef *LoadRef, HLInst *LoadInst) {
+static HLInst *getReductionStore(RegDDRef *LoadRef, HLInst *LoadInst,
+                                 bool CheckSelfBlobRval) {
   // We only handle consecutive load and store instructions when looking for
   // reductions.
   // TODO: Extend logic to handle non-consecutive loads and stores.
@@ -154,9 +157,16 @@ static HLInst *getReductionStore(RegDDRef *LoadRef, HLInst *LoadInst) {
   }
 
   unsigned TempIndex = LoadInst->getLvalDDRef()->getSelfBlobIndex();
-  if (!StoreRvalRef->getSingleCanonExpr()->containsStandAloneBlob(TempIndex,
-                                                                  false)) {
-    return nullptr;
+  if (CheckSelfBlobRval) {
+    if (!StoreRvalRef->isSelfBlob() ||
+        StoreRvalRef->getSelfBlobIndex() != TempIndex) {
+      return nullptr;
+    }
+  } else {
+    if (!StoreRvalRef->getSingleCanonExpr()->containsStandAloneBlob(TempIndex,
+                                                                    false)) {
+      return nullptr;
+    }
   }
 
   return SInst;
@@ -170,6 +180,7 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
   // look like memory reductions. DD based legality is checked later.
   for (auto &Node : make_range(Lp->child_begin(), Lp->child_end())) {
     auto *HInst = dyn_cast<HLInst>(&Node);
+    bool IsFirstPattern = true;
 
     if (!HInst) {
       continue;
@@ -177,12 +188,14 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
 
     auto *LLVMInst = HInst->getLLVMInstruction();
     unsigned Opcode;
+    FastMathFlags FMF;
     RegDDRef *LoadRef = nullptr;
     RegDDRef *AlternateLoadRef = nullptr;
     HLInst *StoreInst = nullptr;
 
     if (isa<LoadInst>(LLVMInst)) {
       // Looking for this pattern for integer types-
+      // (first pattern)
       //    %0 = A[5];
       //    A[5] = %0 + t;
       LoadRef = HInst->getRvalDDRef();
@@ -195,12 +208,16 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
 
     } else if (isa<BinaryOperator>(LLVMInst) && HInst->isReductionOp(&Opcode)) {
       // Looking for this pattern-
+      // (second pattern)
       //   %add = A[5]  +  %t;
       //   A[5] = %add;
       auto *FPOp = dyn_cast<FPMathOperator>(LLVMInst);
 
-      if (FPOp && !FPOp->isFast()) {
-        continue;
+      if (FPOp) {
+        if (!FPOp->isFast()) {
+          continue;
+        }
+        FMF = FPOp->getFastMathFlags();
       }
 
       LoadRef = HInst->getOperandDDRef(1);
@@ -213,16 +230,17 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
           AlternateLoadRef = nullptr;
         }
       }
+      IsFirstPattern = false;
 
     } else {
       continue;
     }
 
-    StoreInst = getReductionStore(LoadRef, HInst);
+    StoreInst = getReductionStore(LoadRef, HInst, !IsFirstPattern);
 
     if (!StoreInst && AlternateLoadRef) {
       LoadRef = AlternateLoadRef;
-      StoreInst = getReductionStore(LoadRef, HInst);
+      StoreInst = getReductionStore(LoadRef, HInst, !IsFirstPattern);
     }
 
     if (!StoreInst || !HLNodeUtils::postDominates(StoreInst, FirstChild)) {
@@ -230,10 +248,11 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
     }
 
     if (LoadRef->isStructurallyInvariantAtLevel(Level)) {
-      InvariantMemoryReductions.emplace_back(Opcode, LoadRef,
+      InvariantMemoryReductions.emplace_back(Opcode, FMF, LoadRef,
                                              StoreInst->getLvalDDRef());
     } else {
-      MemoryReductions.emplace_back(Opcode, LoadRef, StoreInst->getLvalDDRef());
+      MemoryReductions.emplace_back(Opcode, FMF, LoadRef,
+                                    StoreInst->getLvalDDRef());
     }
   }
 
@@ -300,6 +319,9 @@ isValidReductionRef(const DDRef *Ref, unsigned Opcode,
 
 bool HIRMemoryReductionSinking::validateMemoryReductions(const HLLoop *Lp) {
   DDGraph DDG = HDDA.getGraph(Lp);
+  LLVM_DEBUG(dbgs() << "[MRS] Loop DDG:\n");
+  LLVM_DEBUG(DDG.dump());
+
 
   if (!validateReductionTemp(DDG)) {
     return false;
@@ -352,12 +374,12 @@ bool HIRMemoryReductionSinking::validateMemoryReductions(const HLLoop *Lp) {
 }
 
 static RegDDRef *createReductionInitializer(HLLoop *Lp, unsigned Opcode,
-                                            Type *Ty) {
+                                            FastMathFlags FMF, Type *Ty) {
   // Creates reduction initialization and inserts it in the loop preheader-
   // %tmp = <identity constant>
 
   auto &HNU = Lp->getHLNodeUtils();
-  auto *Const = HLInst::getRecurrenceIdentity(Opcode, Ty);
+  auto *Const = HLInst::getRecurrenceIdentity(Opcode, Ty, FMF);
 
   RegDDRef *InitRef = nullptr;
 
@@ -412,8 +434,8 @@ void HIRMemoryReductionSinking::sinkInvariantReductions(HLLoop *Lp) {
 
     unsigned Opcode = getCommutativeOpcode(RedIt->Opcode);
 
-    auto *RednTemp =
-        createReductionInitializer(Lp, Opcode, LoadRef->getDestType());
+    auto *RednTemp = createReductionInitializer(Lp, Opcode, RedIt->FMF,
+                                                LoadRef->getDestType());
 
     auto *BinOp = dyn_cast<BinaryOperator>(LoadInst->getLLVMInstruction());
     RegDDRef *RednOpRef = nullptr;
@@ -544,11 +566,9 @@ bool HIRMemoryReductionSinkingLegacyPass::runOnFunction(Function &F) {
   return Result;
 }
 
-PreservedAnalyses
-HIRMemoryReductionSinkingPass::run(llvm::Function &F,
-                                   llvm::FunctionAnalysisManager &AM) {
-  runMemoryReductionSinking(AM.getResult<HIRFrameworkAnalysis>(F),
-                            AM.getResult<HIRLoopStatisticsAnalysis>(F),
+PreservedAnalyses HIRMemoryReductionSinkingPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  runMemoryReductionSinking(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
                             AM.getResult<HIRDDAnalysisPass>(F));
   return PreservedAnalyses::all();
 }

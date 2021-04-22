@@ -18,7 +18,7 @@
 ;
 ;OPTREPORT: LOOP BEGIN at t1.c (3, 3)
 ;OPTREPORT: <Predicate Optimized v1>
-;OPTREPORT:     Remark: Condition at line 4 was optimized
+;OPTREPORT:     remark: Condition at line 4 was optimized
 ;OPTREPORT: LOOP END
 ;
 ;OPTREPORT: LOOP BEGIN at t1.c (3, 3)

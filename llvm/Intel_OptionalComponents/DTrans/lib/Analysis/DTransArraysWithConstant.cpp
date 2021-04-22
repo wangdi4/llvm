@@ -1,6 +1,6 @@
 //===--- DTransArraysWithConstant.cpp - Arrays with constant entries -*---===//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -65,6 +65,7 @@
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -557,6 +558,8 @@ static void collectFromMultipleIndicesGEP(GetElementPtrInst *GEP,
 
   assert(NumIndices > 2 && "Number of indices lower than the required");
 
+  // If the first entry is not zero then there is a potential for an
+  // out of bounds access
   if (!match(GEP->getOperand(1), m_Zero())) {
     StructData->disableStructure();
     return;
@@ -674,6 +677,13 @@ static void collectFromMultipleGEPs(GetElementPtrInst *GEP,
   if (StructData->isStructureDisabled() || FieldData->isFieldDisabled())
     return;
 
+  // If the first entry is not zero then there is a potential for an
+  // out of bounds access
+  if (!match(GEP->getOperand(1), m_Zero())) {
+    StructData->disableStructure();
+    return;
+  }
+
   // If the field is an array of integers, then ArrayGEP will be GEP. Else,
   // if the field is a structure with one field, then we need to collect
   // the GetElementPtrInst instruction that accesses the entries in the
@@ -742,6 +752,41 @@ static void collectFromMultipleGEPs(GetElementPtrInst *GEP,
         return;
       }
     } else {
+      // If we reach this point then it means that the field is being used for
+      // something else than just storing or loading constants. Disable the field.
+      //
+      // TODO: This is a conservative check. We could have the case where
+      // the address of the field is passed to a function that initializes
+      // the constants. For example:
+      //
+      //   %class.TestClass = type <{i32, [4 x i32]}>
+      //
+      //   define void @bar([4 x i32]* %arr, i32 %var) {
+      //     %tmp1 = getelementptr inbounds [4 x i32], [4 x i32]* %arr,
+      //             i64 0, i32 0
+      //     store i32 1, i32* %tmp1
+      //     %tmp2 = getelementptr inbounds [4 x i32], [4 x i32]* %arr,
+      //             i64 0, i32 1
+      //     store i32 2, i32* %tmp2
+      //     %tmp3 = getelementptr inbounds [4 x i32], [4 x i32]* %arr,
+      //             i64 0, i32 2
+      //     store i32 %var, i32* %tmp3
+      //     %tmp4 = getelementptr inbounds [4 x i32], [4 x i32]* %arr,
+      //             i64 0, i32 3
+      //     store i32 %var, i32* %tmp4
+      //     ret void
+      //   }
+      //
+      //   define void @foo(%class.TestClass* %0, i32 %var) {
+      //     %tmp1 = getelementptr inbounds %class.TestClass,
+      //             %class.TestClass* %0, i64 0, i32 1
+      //     call void @bar([4 x i32]* %tmp1, i32 %var)
+      //     ret void
+      //   }
+      //
+      // In the example above, function @foo takes the address of field 1 in
+      // %class.TestClass and passes it to @bar. The function @bar will
+      // initialize and assign the constants. We need to handle this case.
       FieldData->disableField();
       return;
     }
@@ -889,6 +934,21 @@ analyzeGEPInstruction(GetElementPtrInst *GEP, DTransAnalysisInfo *DTInfo,
                       DenseMap<llvm::StructType *, StructWithArrayFields *>
                           &StructsWithConstArrays) {
 
+  // Return true if the GEP is used in an indirect call or a function
+  // declaration. If this is the case then disable the structure. The reason
+  // is that we don't have information on how the function will affect the
+  // field.
+  auto IsUsedForAnInvalidCallSite = [GEP]() -> bool {
+    for (auto *U : GEP->users()) {
+      if (auto *Call = dyn_cast<CallBase>(U)) {
+        auto *F = Call->getCalledFunction();
+        if (Call->isIndirectCall() || !F || F->isDeclaration())
+          return true;
+      }
+    }
+    return false;
+  };
+
   if (!GEP)
     return;
 
@@ -905,6 +965,15 @@ analyzeGEPInstruction(GetElementPtrInst *GEP, DTransAnalysisInfo *DTInfo,
 
   // If the GEP is not in bounds then we disable the structure
   if (!GEP->isInBounds()) {
+    StructData->disableStructure();
+    return;
+  }
+
+  // If at least one of the fields is used in an indirect call
+  // or a function declaration then disable the structure.
+  // The reason is that we don't have information on how the
+  // function will affect the field.
+  if (IsUsedForAnInvalidCallSite()) {
     StructData->disableStructure();
     return;
   }
@@ -998,6 +1067,7 @@ analyzeCallInstruction(Instruction *I, DTransAnalysisInfo *DTInfo,
   // This function wipes all the data in case we find something that
   // we can't handle at the moment.
   auto DisableAll = [&StructsWithConstArrays, I]() {
+    (void)I;
     for (auto StructData : StructsWithConstArrays) {
       StructData.second->clean();
       delete StructData.second;
@@ -1039,7 +1109,7 @@ analyzeCallInstruction(Instruction *I, DTransAnalysisInfo *DTInfo,
   // call site.
   if (MemRefTypes.getNumTypes() != 1) {
     bool ProcDisable = false;
-    for (auto &TypeRef : MemRefTypes.getElemTypes()) {
+    for (auto *TypeRef : MemRefTypes.element_llvm_types()) {
       if (llvm::StructType *Struct = dyn_cast<StructType>(TypeRef)) {
         if (auto *StructData = getStructWithArrayFields(Struct, DTInfo,
                                                         StructsWithConstArrays))
@@ -1063,7 +1133,7 @@ analyzeCallInstruction(Instruction *I, DTransAnalysisInfo *DTInfo,
     return;
   }
 
-  llvm::Type *MemFuncType = MemRefTypes.getElemType(0);
+  llvm::Type *MemFuncType = MemRefTypes.getElemLLVMType(0);
   if (llvm::ArrayType *ArrTy = dyn_cast<ArrayType>(MemFuncType)) {
     // TODO: This is conservative, we can expand the analysis to check if
     // the current type, which is an array of integers, is the field of a
@@ -1202,20 +1272,6 @@ cascadeBadResult(llvm::StructType *StructTy,
   }
 }
 
-// Return false if the input StructInfo doesn't pass the safety test
-// for arrays with constant entries, or if at least one field in
-// the structure is address taken. Else, return true.
-static bool checkStructure(dtrans::StructInfo *StrInfo) {
-  if (!StrInfo)
-    return false;
-
-  for (auto &FI : StrInfo->getFields())
-    if (FI.isAddressTaken())
-      return false;
-
-  return true;
-}
-
 // This function is used for analyzing the related types. Related types are
 // types that have a base form and a padded form. For example:
 //
@@ -1239,7 +1295,7 @@ analyzeRelatedType(dtrans::StructInfo *RelatedInfo,
   if (!RelatedInfo || StructsWithConstArrays.empty())
     return false;
 
-  if (!checkStructure(RelatedInfo))
+  if (RelatedInfo->testSafetyData(dtrans::SDArraysWithConstantEntries))
     return false;
 
   llvm::StructType *RelatedType =
@@ -1327,7 +1383,7 @@ static void analyzeData(DTransAnalysisInfo *DTInfo,
 
     // If the structure doesn't pass any of the safety information then
     // disable it.
-    if (!checkStructure(STInfo)) {
+    if (STInfo->testSafetyData(dtrans::SDArraysWithConstantEntries)) {
       DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
         StringRef StructName = dtrans::getStructName(StructureData.first);
         dbgs() << "  Removing: " << StructName << "\n"

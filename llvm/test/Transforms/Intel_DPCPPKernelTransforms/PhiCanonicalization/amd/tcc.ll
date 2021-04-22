@@ -1,4 +1,5 @@
-; RUN: opt -phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -passes=dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
+; RUN: opt -dpcpp-kernel-phi-canonicalization %s -S -o - | FileCheck %s
 
 ; ModuleID = 'tcc.cl'
 

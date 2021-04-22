@@ -29,6 +29,7 @@ add_llvm_component_library(LLVMCodeGen
   CFGuardLongjmp.cpp
   CFIInstrInserter.cpp
   CodeGen.cpp
+  CodeGenPassBuilder.cpp
   CodeGenPrepare.cpp
   CommandFlags.cpp
   CriticalAntiDepBreaker.cpp
@@ -38,6 +39,7 @@ add_llvm_component_library(LLVMCodeGen
   DwarfEHPrepare.cpp
   EarlyIfConversion.cpp
   EdgeBundles.cpp
+  EHContGuardCatchret.cpp
   ExecutionDomainFix.cpp
   ExpandMemCmp.cpp
   ExpandPostRAPseudos.cpp
@@ -161,6 +163,7 @@ add_llvm_component_library(LLVMCodeGen
   RegisterUsageInfo.cpp
   RegUsageInfoCollector.cpp
   RegUsageInfoPropagate.cpp
+  ReplaceWithVeclib.cpp
   ResetMachineFunctionPass.cpp
   SafeStack.cpp
   SafeStackLayout.cpp

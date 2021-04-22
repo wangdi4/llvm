@@ -172,6 +172,15 @@ bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
   Type *Ty1 = CE1->getSrcType();
   Type *Ty2 = CE2->getSrcType();
 
+  // Return true for Ty1 = <2 x i64> and Ty2 = i64.
+  // Vector CEs are allowed to contain scalar terms for ease of analysis. These
+  // are widened during CG so we can allow merging of a scalar CE into a vector
+  // CE. This check is asymmetric because we don't want to merge vector CE into
+  // scalar CE. Does the asymmetry matter?
+  if (Ty1->isVectorTy() && !Ty2->isVectorTy()) {
+    Ty1 = Ty1->getScalarType();
+  }
+
   bool SameSrcType = (Ty1 == Ty2);
   // Change related to normalize i2+2 in sitofp.i32.float(i2 + 2) to
   // (64 * i1 + i2 + 2).
@@ -182,7 +191,8 @@ bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
   }
 
   return (SameSrcType &&
-          (RelaxedMode || (CE1->getDestType() == CE2->getDestType() &&
+          (RelaxedMode || ((CE1->getDestType()->getScalarType() ==
+                            CE2->getDestType()->getScalarType()) &&
                            (CE1->isSExt() == CE2->isSExt()))));
 }
 
@@ -596,7 +606,7 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   // Try to merge first
   bool Mergeable = mergeable(CE1, CE2, RelaxedMode);
   if (!Mergeable) {
-    if (!CE2->canConvertToStandAloneBlob()) {
+    if (!CE2->canConvertToStandAloneBlobOrConstant()) {
       // If can not be casted
       return false;
     }
@@ -607,7 +617,8 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   if (!Mergeable) {
     // Not meargeable but could be casted to a blob with a correspondent type.
     // This allows merging into vector type CE.
-    Term->castStandAloneBlob(CE1->getSrcType()->getScalarType(), IsSigned);
+    Term->convertToCastedStandAloneBlobOrConstant(
+        CE1->getSrcType()->getScalarType(), IsSigned);
   }
 
   // It's safe to change the Term type as CE1 and CE2 are mergeable.

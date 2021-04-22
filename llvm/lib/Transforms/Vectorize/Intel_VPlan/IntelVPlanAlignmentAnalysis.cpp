@@ -12,6 +12,7 @@
 #include "IntelVPlanAlignmentAnalysis.h"
 
 #include "IntelVPlan.h"
+#include "IntelVPlanCostModel.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanValueTracking.h"
 
@@ -90,6 +91,11 @@ int VPlanPeelingCostModelSimple::getCost(VPInstruction *Mrf, int VF,
   llvm_unreachable("Unexpected Opcode");
 }
 
+int VPlanPeelingCostModelGeneral::getCost(VPInstruction *Mrf, int VF,
+                                          Align Alignment) {
+  return CM->getLoadStoreCost(Mrf, Alignment, VF);
+}
+
 VPlanPeelingCandidate::VPlanPeelingCandidate(VPInstruction *Memref,
                                              VPConstStepInduction AccessAddress,
                                              KnownBits InvariantBaseKnownBits)
@@ -106,23 +112,25 @@ VPlanPeelingCandidate::VPlanPeelingCandidate(VPInstruction *Memref,
 #endif
 }
 
-void VPlanPeelingAnalysis::collectMemrefs(VPlan &Plan) {
+void VPlanPeelingAnalysis::collectMemrefs(VPlanVector &Plan) {
   collectCandidateMemrefs(Plan);
   computeCongruentMemrefs();
   LLVM_DEBUG(dump());
 }
 
 std::unique_ptr<VPlanPeelingVariant>
-VPlanPeelingAnalysis::selectBestPeelingVariant(int VF) {
-  auto Static = selectBestStaticPeelingVariant(VF);
-  auto DynamicOrNone = selectBestDynamicPeelingVariant(VF);
+VPlanPeelingAnalysis::selectBestPeelingVariant(int VF,
+                                               VPlanPeelingCostModel &CM) {
+  auto Static = selectBestStaticPeelingVariant(VF, CM);
+  auto DynamicOrNone = selectBestDynamicPeelingVariant(VF, CM);
   if (DynamicOrNone && DynamicOrNone->second > Static.second)
     return std::make_unique<VPlanDynamicPeeling>(DynamicOrNone->first);
   return std::make_unique<VPlanStaticPeeling>(Static.first);
 }
 
 std::pair<VPlanStaticPeeling, int>
-VPlanPeelingAnalysis::selectBestStaticPeelingVariant(int VF) {
+VPlanPeelingAnalysis::selectBestStaticPeelingVariant(
+    int VF, VPlanPeelingCostModel &CM) {
   // We are going to compute profit for every possible static peel count and
   // select the most profitable one. The peel count can be any number in
   // [0...VF) interval. PeelCountProfit is a zero-initialized array of profits
@@ -145,7 +153,7 @@ VPlanPeelingAnalysis::selectBestStaticPeelingVariant(int VF) {
       continue;
 
     // Initial cost of the memory access.
-    int CostBasis = CM->getCost(Memref, VF, ReqAlign);
+    int CostBasis = CM.getCost(Memref, VF, ReqAlign);
 
     // How much we can improve alignment of the memref.
     int MaxExtraBits = std::min<int>(Known - Log2(ReqAlign), Log2_32(VF));
@@ -178,7 +186,7 @@ VPlanPeelingAnalysis::selectBestStaticPeelingVariant(int VF) {
     //
     for (int ExtraBits = 1; ExtraBits <= MaxExtraBits; ++ExtraBits) {
       Align TgtAlign = ReqAlign * (1ULL << ExtraBits);
-      int NewCost = CM->getCost(Memref, VF, TgtAlign);
+      int NewCost = CM.getCost(Memref, VF, TgtAlign);
 
       // Check if the new alignment is beneficial at all.
       if (NewCost == CostBasis)
@@ -229,22 +237,23 @@ VPlanPeelingAnalysis::selectBestStaticPeelingVariant(int VF) {
 }
 
 Optional<std::pair<VPlanDynamicPeeling, int>>
-VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(int VF) {
+VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(
+    int VF, VPlanPeelingCostModel &CM) {
   if (CandidateMemrefs.empty())
     return None;
 
   // Map every collected memref to {Peeling, Profit} pair.
   auto Map = map_range(
       CandidateMemrefs,
-      [this, VF](auto &Cand) -> std::pair<VPlanDynamicPeeling, int> {
+      [this, VF, &CM](auto &Cand) -> std::pair<VPlanDynamicPeeling, int> {
         Align ReqAlign(MinAlign(0, Cand.accessAddress().Step));
         int CostBasis = 0, CostAlign = 0;
-        CostBasis += CM->getCost(Cand.memref(), VF, ReqAlign);
-        CostAlign += CM->getCost(Cand.memref(), VF, ReqAlign * VF);
+        CostBasis += CM.getCost(Cand.memref(), VF, ReqAlign);
+        CostAlign += CM.getCost(Cand.memref(), VF, ReqAlign * VF);
         for (auto &Congr : CongruentMemrefs[Cand.memref()]) {
-          CostBasis += CM->getCost(Congr.first, VF, ReqAlign);
+          CostBasis += CM.getCost(Congr.first, VF, ReqAlign);
           auto TgtAlign = std::min(ReqAlign * VF, Congr.second);
-          CostAlign += CM->getCost(Congr.first, VF, TgtAlign);
+          CostAlign += CM.getCost(Congr.first, VF, TgtAlign);
         }
         int Profit = CostBasis - CostAlign;
         VPlanDynamicPeeling Peeling(Cand.memref(), Cand.accessAddress(),
@@ -261,7 +270,7 @@ VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(int VF) {
   return Reduce;
 }
 
-void VPlanPeelingAnalysis::collectCandidateMemrefs(VPlan &Plan) {
+void VPlanPeelingAnalysis::collectCandidateMemrefs(VPlanVector &Plan) {
   for (auto &VPBB : Plan)
     for (auto &VPInst : VPBB) {
       auto *LS = dyn_cast<VPLoadStoreInst>(&VPInst);
@@ -371,7 +380,7 @@ void VPlanPeelingAnalysis::dump() {
 }
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
-    VPLoadStoreInst &Memref, VPlanPeelingVariant &Peeling) {
+    const VPLoadStoreInst &Memref, VPlanPeelingVariant &Peeling) const {
   assert(isa<VPlanStaticPeeling>(Peeling) &&
          "Dynamic peeling is not supported yet");
   assert(cast<VPlanStaticPeeling>(Peeling).peelCount() == 0 &&

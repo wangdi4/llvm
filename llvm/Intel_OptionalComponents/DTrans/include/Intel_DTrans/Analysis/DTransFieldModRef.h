@@ -1,6 +1,6 @@
 //===-------DTransFieldModRef.h - DTrans Field ModRef Analysis-------------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -50,6 +50,11 @@ public:
 
   bool isCandidate(llvm::StructType *Ty, size_t FieldNum);
 
+  // Add an element to the FunctionToCalleeSet mapping to indicate that \p
+  // Callee may be reachable from \p F because the address of \p Callee is
+  // passed as a parameter to \p F.
+  void addFunctionParamBasedCallee(Function *F, Function *Callee);
+
   // Clear all stored information.
   void reset();
 
@@ -78,6 +83,11 @@ public:
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
+  void unionModRefInfo(ModRefInfo &Status, const CallBase *Call,
+                       llvm::StructType *StTy, unsigned FieldNum, bool Indirect,
+                       SmallPtrSetImpl<Function *> &Visited,
+                       unsigned Indent = 0);
+
   void unionModRefInfo(ModRefInfo &Status, Function *F, llvm::StructType *StTy,
                        unsigned FNum, bool Indirect,
                        SmallPtrSetImpl<Function *> &Visited,
@@ -103,6 +113,31 @@ private:
   using CandFieldTy = std::pair<llvm::StructType *, size_t>;
   using CandidateTy = DenseMap<CandFieldTy, FieldModRefCandidateInfo>;
   CandidateTy Candidates;
+
+  // Some function calls may be made based on the address of a function
+  // passed as an input parameter. This will map a Function to the set of
+  // Functions that may be called based on input parameters that correspond
+  // to an address taken function. This is used to allow some address taken
+  // functions to be present when identifying all the functions that are
+  // reachable from some function.
+  //
+  // For example:
+  //   call void @foo(void (%struct.info*)* @bar, %struct.info* %info)
+  //
+  //   define @foo(void (%struct.info*)* nocapture %1, %struct.info* %2) {
+  //     call void %1(%struct.info* %2)
+  //     ...
+  //   }
+  //
+  // @bar is an address taken function because the address is passed to @foo.
+  // However, because the address is nocapture and just used to make a function
+  // call from @foo, @bar should be considered as reachable from @foo. If all
+  // the address taken uses of @bar are for uses such as this, it will not be
+  // necessary to disqualify the structure fields used within @bar. When
+  // looking at the calls made by @foo during getModRefInfo, the information
+  // about @bar will also be considered, even though it is an address taken
+  // call, because it will be contained within this mapping.
+  DenseMap<Function *, SmallPtrSet<Function *, 4>> FunctionToCalleeSet;
 };
 
 // This class performs the safety analysis to identify candidates, and save
@@ -116,7 +151,7 @@ public:
                    WholeProgramInfo &WPInfo, FieldModRefResult &Result);
 
 private:
-  void initialize(Module &M);
+  void initialize(Module &M, FieldModRefResult &FMRResult);
   void analyzeModule(Module &M);
   void analyzeFunction(Function &F);
   void populateResults(FieldModRefResult &Result);
@@ -208,7 +243,6 @@ class DTransFieldModRefResult
 public:
   typedef FieldModRefResult Result;
   Result run(Module &M, ModuleAnalysisManager &AM);
-  Result run(Function &F, FunctionAnalysisManager &AM);
 };
 
 ModulePass *createDTransFieldModRefAnalysisWrapperPass();

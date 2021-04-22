@@ -21,6 +21,7 @@ add_clang_library(clangDependencyScanning
   clangFrontendTool
   clangLex
   clangParse
+  clangSema
   clangSerialization
   clangTooling
 )

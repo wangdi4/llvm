@@ -130,7 +130,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
 
   // Returns true if all value V users in given blocks are load instructions
   // or bitcasts/GEPs that are used by the loads.
-  auto allUsersAreLoads = [W](Value *V,
+  auto allUsersAreLoads = [](Value *V,
                               const SmallPtrSetImpl<BasicBlock *> &BBs) {
     // Predicate to check if given value is an instruction from BBs.
     auto IsFromBBs = [&BBs](Value *V) {
@@ -180,10 +180,20 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
         // should be safe to privatize it.
         MemoryLocation Loc{AI, LocationSize::precise(*Size)};
         if (any_of(BBs, [&](BasicBlock *BB) {
-              if (!AA->canBasicBlockModify(*BB, Loc))
-                return false;
-              LLVM_DEBUG(reportSkipped(AI, "is modified in " + BB->getName()));
-              return true;
+              for (const Instruction &I : *BB) {
+                // Ignore fences when checking if memory location is modified by
+                // the instruction since fences do not really modify it though
+                // AA assumes they do.
+                if (isa<FenceInst>(&I))
+                  continue;
+                if (isModOrRefSet(intersectModRef(AA->getModRefInfo(&I, Loc),
+                                                  ModRefInfo::Mod))) {
+                  LLVM_DEBUG(reportSkipped(AI, "is modified by");
+                             dbgs() << I << "\n";);
+                  return true;
+                }
+              }
+              return false;
             }))
           return false;
         return true;

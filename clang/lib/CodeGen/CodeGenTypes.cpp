@@ -627,7 +627,16 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
         llvm::FixedVectorType::get(ConvertType(Context.BoolTy), Size); \
       break;
 #include "clang/Basic/PPCTypes.def"
-    case BuiltinType::Dependent:
+#define RVV_TYPE(Name, Id, SingletonId) case BuiltinType::Id:
+#include "clang/Basic/RISCVVTypes.def"
+    {
+      ASTContext::BuiltinVectorTypeInfo Info =
+          Context.getBuiltinVectorTypeInfo(cast<BuiltinType>(Ty));
+      return llvm::ScalableVectorType::get(ConvertType(Info.ElementType),
+                                           Info.EC.getKnownMinValue() *
+                                           Info.NumVectors);
+    }
+   case BuiltinType::Dependent:
 #define BUILTIN_TYPE(Id, SingletonId)
 #define PLACEHOLDER_TYPE(Id, SingletonId) \
     case BuiltinType::Id:
@@ -807,11 +816,6 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
 #if INTEL_CUSTOMIZATION
   case Type::Channel: {
     ResultType = CGM.getOpenCLRuntime().getChannelType();
-    break;
-  }
-  case Type::ArbPrecInt: {
-    const auto *IntTy = cast<ArbPrecIntType>(Ty);
-    ResultType = llvm::Type::getIntNTy(getLLVMContext(), IntTy->getNumBits());
     break;
   }
 #endif // INTEL_CUSTOMIZATION

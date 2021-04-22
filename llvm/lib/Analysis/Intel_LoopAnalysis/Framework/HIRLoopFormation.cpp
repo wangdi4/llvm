@@ -276,6 +276,8 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
   // If the IVType is not an integer, assign it an integer type which is able to
   // represent the address space.
   if (!IVType || !IVType->isIntegerTy() ||
+      (!isa<SCEVCouldNotCompute>(BECount) &&
+       !BECount->getType()->isIntegerTy()) ||
       // Due to a quirk of SSA, it is possible for the loop trip count to be
       // oustide the range of IV with i1 type so we use pointer sized IV
       // instead. The trip count of this loop is 2-

@@ -35,12 +35,12 @@
 
 ATTR(cpu_specific(ivybridge))
 void SingleVersion(void) {}
-// LINUX: define void @SingleVersion.S() #[[S:[0-9]+]]
+// LINUX: define dso_local void @SingleVersion.S() #[[S:[0-9]+]]
 // WINDOWS: define dso_local void @SingleVersion.S() #[[S:[0-9]+]]
 
 ATTR(cpu_specific(ivybridge))
 void NotCalled(void) {}
-// LINUX: define void @NotCalled.S() #[[S]]
+// LINUX: define dso_local void @NotCalled.S() #[[S]]
 // WINDOWS: define dso_local void @NotCalled.S() #[[S:[0-9]+]]
 
 // Done before any of the implementations.  Also has an undecorated forward
@@ -268,7 +268,7 @@ int DispatchFirst(void);
 
 ATTR(cpu_specific(atom))
 int DispatchFirst(void) { return 0; }
-// LINUX: define i32 @DispatchFirst.O
+// LINUX: define dso_local i32 @DispatchFirst.O
 // LINUX: ret i32 0
 
 // WINDOWS: define dso_local i32 @DispatchFirst.O()
@@ -276,7 +276,7 @@ int DispatchFirst(void) { return 0; }
 
 ATTR(cpu_specific(pentium))
 int DispatchFirst(void) { return 1; }
-// LINUX: define i32 @DispatchFirst.B
+// LINUX: define dso_local i32 @DispatchFirst.B
 // LINUX: ret i32 1
 
 // WINDOWS: define dso_local i32 @DispatchFirst.B

@@ -10,7 +10,7 @@ void implicit_maps_double_complex (int a){
 // CHECK: [[DC:%dc]] = alloca { double, double },
 // CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.ALLOC:SCALAR"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"({ double, double }* [[DC]], { double, double }* [[DC]], i64 16, i64 544)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"({ double, double }* [[DC]], { double, double }* [[DC]], i64 16, i64 544
 // CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(alloc:scalar)
   {
@@ -26,7 +26,7 @@ void implicit_maps_double_complex_1 (int a){
 // CHECK: [[DC:%dc]] = alloca { double, double },
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.TO:SCALAR"()
-// CHECK-SAME: "QUAL.OMP.MAP.TO"({ double, double }* [[DC]], { double, double }* [[DC]], i64 16, i64 545)
+// CHECK-SAME: "QUAL.OMP.MAP.TO"({ double, double }* [[DC]], { double, double }* [[DC]], i64 16, i64 545
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(to:scalar)
   {
@@ -43,7 +43,7 @@ void implicit_maps_double_complex_2 (int a){
 // CHECK: [[DC:%dc]] = alloca { double, double },
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.FROM:SCALAR"()
-// CHECK-SAME: "QUAL.OMP.MAP.FROM"({ double, double }* [[DC]], { double, double }* [[DC]], i64 16, i64 546)
+// CHECK-SAME: "QUAL.OMP.MAP.FROM"({ double, double }* [[DC]], { double, double }* [[DC]], i64 16, i64 546
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(from:scalar)
   {
@@ -84,7 +84,7 @@ void implicit_maps_double_2 (int a){
 // CHECK: [[D:%d]] = alloca double
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.TO:SCALAR"()
-// CHECK-SAME: "QUAL.OMP.MAP.TO"(double* [[D]], double* [[D]], i64 8, i64 545)
+// CHECK-SAME: "QUAL.OMP.MAP.TO"(double* [[D]], double* [[D]], i64 8, i64 545
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(to: scalar)
   {
@@ -98,7 +98,7 @@ void implicit_maps_array (int a){
 // CHECK: [[DA:%darr]] = alloca [2 x double]
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.ALLOC:AGGREGATE"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"([2 x double]* [[DA]], [2 x double]* [[DA]], i64 16, i64 544)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"([2 x double]* [[DA]], [2 x double]* [[DA]], i64 16, i64 544
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(alloc: aggregate)
   {
@@ -113,7 +113,7 @@ void implicit_maps_array_1 (int a){
 // CHECK: [[DA:%darr]] = alloca [2 x double]
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.TO:AGGREGATE"()
-// CHECK-SAME: "QUAL.OMP.MAP.TO"([2 x double]* [[DA]], [2 x double]* [[DA]], i64 16, i64 545)
+// CHECK-SAME: "QUAL.OMP.MAP.TO"([2 x double]* [[DA]], [2 x double]* [[DA]], i64 16, i64 545
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(to: aggregate)
   {
@@ -129,7 +129,7 @@ void implicit_maps_array_2 (int a){
 // CHECK: [[DA:%darr]] = alloca [2 x double]
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.FROM:AGGREGATE"()
-// CHECK-SAME: "QUAL.OMP.MAP.FROM"([2 x double]* [[DA]], [2 x double]* [[DA]], i64 16, i64 546)
+// CHECK-SAME: "QUAL.OMP.MAP.FROM"([2 x double]* [[DA]], [2 x double]* [[DA]], i64 16, i64 546
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(from: aggregate)
   {
@@ -144,7 +144,7 @@ void implicit_maps_array_3 (int a){
 // CHECK: [[DA:%darr]] = alloca [2 x double]
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.TOFROM:AGGREGATE"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"([2 x double]* [[DA]], [2 x double]* [[DA]], i64 16, i64 547)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"([2 x double]* [[DA]], [2 x double]* [[DA]], i64 16, i64 547
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(tofrom: aggregate)
   {
@@ -160,7 +160,7 @@ void zero_size_section_and_private_maps (int ii){
 // CHECK: [[PA:%pvtArr]] = alloca [10 x i32]
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.FIRSTPRIVATE:AGGREGATE"()
-// CHECK-SAME: "QUAL.OMP.MAP.TO"([10 x i32]* [[PA]], [10 x i32]* [[PA]], i64 40, i64 673)
+// CHECK-SAME: "QUAL.OMP.MAP.TO"([10 x i32]* [[PA]], [10 x i32]* [[PA]], i64 40, i64 673
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(firstprivate:aggregate)
   {
@@ -175,7 +175,7 @@ void explicit_maps_single (){
 // CHECK: [[PA:%pa]] = alloca  i32*,
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.ALLOC:POINTER"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32** [[PA]], i32** [[PA]], i64 8, i64 544)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32** [[PA]], i32** [[PA]], i64 8, i64 544
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(alloc: pointer)
   {
@@ -191,7 +191,7 @@ void explicit_maps_single_1 (){
 // CHECK: [[PA:%pa]] = alloca  i32*,
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.TO:POINTER"()
-// CHECK-SAME: "QUAL.OMP.MAP.TO"(i32** [[PA]], i32** [[PA]], i64 8, i64 545)
+// CHECK-SAME: "QUAL.OMP.MAP.TO"(i32** [[PA]], i32** [[PA]], i64 8, i64 545
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(to: pointer)
   {
@@ -207,7 +207,7 @@ void explicit_maps_single_2 (){
 // CHECK: [[PA:%pa]] = alloca  i32*,
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.FROM:POINTER"()
-// CHECK-SAME: "QUAL.OMP.MAP.FROM"(i32** [[PA]], i32** [[PA]], i64 8, i64 546)
+// CHECK-SAME: "QUAL.OMP.MAP.FROM"(i32** [[PA]], i32** [[PA]], i64 8, i64 546
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(from: pointer)
   {
@@ -222,7 +222,7 @@ void explicit_maps_single_3 (){
 // CHECK: [[PA:%pa]] = alloca  i32*,
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.TOFROM:POINTER"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32** [[PA]], i32** [[PA]], i64 8, i64 547)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32** [[PA]], i32** [[PA]], i64 8, i64 547
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(tofrom: pointer)
   {
@@ -240,7 +240,7 @@ void explicit_maps_single_4 (){
 // CHECK: [[L:%[0-9]+]] = load i32*, i32** [[PA]],
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.FIRSTPRIVATE:POINTER"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L]], i32* [[L]], i64 0, i64 544)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L]], i32* [[L]], i64 0, i64 544
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(firstprivate: pointer)
   {
@@ -259,7 +259,7 @@ void implicit_maps_variable_length_array (int a){
 // CHECK: [[ARI:%arrayidx]] = getelementptr inbounds double, double* [[VLA]],
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.ALLOC:AGGREGATE"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(double* [[VLA]], double* [[ARI]], i64 [[L5]], i64 544)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(double* [[VLA]], double* [[ARI]], i64 [[L5]], i64 544
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(alloc: aggregate)
   {
@@ -280,7 +280,7 @@ void implicit_maps_struct (int a){
 // CHECK: [[S:%s]] =  alloca %class.SSS,
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.ALLOC:AGGREGATE"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.SSS* [[S]], %class.SSS* [[S]], i64 16, i64 544)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.SSS* [[S]], %class.SSS* [[S]], i64 16, i64 544
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(alloc: aggregate)
   {
@@ -297,7 +297,7 @@ void implicit_maps_struct_1 (int a){
 // CHECK: [[S:%s]] =  alloca %class.SSS,
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.TO:AGGREGATE"()
-// CHECK-SAME: "QUAL.OMP.MAP.TO"(%class.SSS* [[S]], %class.SSS* [[S]], i64 16, i64 545)
+// CHECK-SAME: "QUAL.OMP.MAP.TO"(%class.SSS* [[S]], %class.SSS* [[S]], i64 16, i64 545
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(to: aggregate)
   {
@@ -314,7 +314,7 @@ void implicit_maps_struct_2 (int a){
 // CHECK: [[S:%s]] =  alloca %class.SSS,
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.FROM:AGGREGATE"()
-// CHECK-SAME: "QUAL.OMP.MAP.FROM"(%class.SSS* [[S]], %class.SSS* [[S]], i64 16, i64 546)
+// CHECK-SAME: "QUAL.OMP.MAP.FROM"(%class.SSS* [[S]], %class.SSS* [[S]], i64 16, i64 546
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(from: aggregate)
   {
@@ -331,7 +331,7 @@ void implicit_maps_struct_3 (int a){
 // CHECK: [[S:%s]] =  alloca %class.SSS,
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.TOFROM:AGGREGATE"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.SSS* [[S]], %class.SSS* [[S]], i64 16, i64 547)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%class.SSS* [[S]], %class.SSS* [[S]], i64 16, i64 547
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(tofrom: aggregate)
   {
@@ -348,7 +348,7 @@ void implicit_maps_pointer (){
 // CHECK: [[L:%[0-9]+]] = load double*, double** [[DDY]],
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.DEFAULT:POINTER"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(double* [[L]], double* [[L]], i64 0, i64 544)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(double* [[L]], double* [[L]], i64 0, i64 544
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(default: pointer)
   {
@@ -440,7 +440,7 @@ void explicit_maps_single_5 (int ii){
 // CHECK: [[A:%a]] = alloca i32,
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.NONE:SCALAR"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CLOSE"(i32* [[A]], i32* [[A]], i64 4, i64 1059)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CLOSE"(i32* [[A]], i32* [[A]], i64 4, i64 1059
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(close, tofrom: a) defaultmap(none:scalar)
   {
@@ -450,7 +450,7 @@ void explicit_maps_single_5 (int ii){
 
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.NONE:SCALAR"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM:ALWAYS.CLOSE"(i32* [[A]], i32* [[A]], i64 4, i64 1063)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM:ALWAYS.CLOSE"(i32* [[A]], i32* [[A]], i64 4, i64 1063
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(always close tofrom: a) defaultmap(none:scalar)
   {
@@ -465,7 +465,7 @@ void declare_target_to()
 {
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.NONE:SCALAR"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* @x, i32* @x, i64 4, i64 547)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* @x, i32* @x, i64 4, i64 547
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target defaultmap(none : scalar)
   {
@@ -489,9 +489,9 @@ void declare_target_link()
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.NONE:SCALAR"()
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.NONE:AGGREGATE"()
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.NONE:POINTER"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"([1024 x float]** @Vector_decl_tgt_ref_ptr, [1024 x float]* @Vector, i64 4096, i64 531)
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32** @a_decl_tgt_ref_ptr, i32* @a, i64 4, i64 531)
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(double*** @ptr_decl_tgt_ref_ptr, double** @ptr, i64 8, i64 531)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"([1024 x float]** @Vector_decl_tgt_ref_ptr, [1024 x float]* @Vector, i64 4096, i64 531
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32** @a_decl_tgt_ref_ptr, i32* @a, i64 4, i64 531
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(double*** @ptr_decl_tgt_ref_ptr, double** @ptr, i64 8, i64 531
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
 #pragma omp target defaultmap(none:scalar) defaultmap(none:aggregate) defaultmap(none:pointer)
   {

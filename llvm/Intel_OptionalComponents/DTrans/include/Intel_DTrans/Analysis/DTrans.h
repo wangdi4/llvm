@@ -1,6 +1,6 @@
 //===--------------- DTrans.h - Class definition -*- C++ -*----------------===//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -61,27 +61,36 @@ namespace dtrans {
 // removed.
 class AbstractType {
 public:
-  AbstractType(llvm::Type* Ty) : Ty(Ty) {}
-  AbstractType(DTransType* Ty) : Ty(Ty) {}
+  AbstractType(llvm::Type *Ty) : Ty(Ty) {}
+  AbstractType(dtransOP::DTransType *Ty) : Ty(Ty) {}
 
   // Get the corresponding type in the llvm::Type class hierarchy.
   Type *getLLVMType() const {
-    return Ty.is<llvm::Type *>() ? Ty.get<llvm::Type *>()
-      : Ty.get<DTransType *>()->getLLVMType();
+    return Ty.is<llvm::Type *>()
+               ? Ty.get<llvm::Type *>()
+               : Ty.get<dtransOP::DTransType *>()->getLLVMType();
   }
 
-  bool isDTransType() const {
-    return Ty.is<DTransType*>();
-  }
+  bool isDTransType() const { return Ty.is<dtransOP::DTransType *>(); }
 
-  DTransType *getDTransType() const {
+  dtransOP::DTransType *getDTransType() const {
     assert(isDTransType() && "Only valid when using DTransTypes");
-    return Ty.get<DTransType*>();
+    return Ty.get<dtransOP::DTransType *>();
   }
 
 private:
-  PointerUnion<llvm::Type*, DTransType*> Ty;
+  PointerUnion<llvm::Type *, dtransOP::DTransType *> Ty;
 };
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static inline raw_ostream &operator<<(raw_ostream &OS, const AbstractType &AT) {
+  if (AT.isDTransType())
+    OS << *AT.getDTransType();
+  else
+    OS << *AT.getLLVMType();
+  return OS;
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 //Type used for DTrans transformation bitmask
 typedef uint32_t Transform;
@@ -115,7 +124,7 @@ public:
         Frequency(0) {}
 
   llvm::Type *getLLVMType() const { return Ty.getLLVMType(); }
-  DTransType *getDTransType() const { return Ty.getDTransType(); }
+  dtransOP::DTransType *getDTransType() const { return Ty.getDTransType(); }
   bool isDTransType() const { return Ty.isDTransType(); }
 
   bool isRead() const { return Read; }
@@ -413,9 +422,8 @@ const SafetyData WholeStructureReference = 0x0000'0000'0000'0040;
 /// pointer to that type.
 const SafetyData UnsafePointerStore = 0x0000'0000'0000'0080;
 
-/// The addresses of one or more fields within the type were written to memory,
-/// passed as an argument to a function call, or returned from a function.
-const SafetyData FieldAddressTaken = 0x0000'0000'0000'0100;
+/// The addresses of one or more fields within the type were written to memory.
+const SafetyData FieldAddressTakenMemory = 0x0000'0000'0000'0100;
 
 /// A global variable was found which is a pointer to the type.
 const SafetyData GlobalPtr = 0x0000'0000'0000'0200;
@@ -550,10 +558,24 @@ const SafetyData MemFuncNestedStructsPartialWrite = 0x0000'0080'0000'0000;
 /// is not a direct multiple of the element size. e.g. ElemSize * 4 + 128
 const SafetyData ComplexAllocSize = 0x0000'0100'0000'0000;
 
+/// This safety data is used when the address of a field is passed as an
+/// argument to a callsite.
+const SafetyData FieldAddressTakenCall = 0x0000'0200'0000'0000;
+
+/// This safety data is used when the address of a field is returned by a
+/// function.
+const SafetyData FieldAddressTakenReturn = 0x0000'0400'0000'0000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.
 const SafetyData UnhandledUse = 0x8000'0000'0000'0000;
+
+/// This condition encapsulates all forms of field address taken
+/// (FieldAddressTakenMemory, FieldAddressTakenCall and
+/// FieldAddressTakenReturn).
+static const SafetyData AnyFieldAddressTaken =
+    FieldAddressTakenMemory | FieldAddressTakenCall | FieldAddressTakenReturn;
 
 // TODO: Create a safety mask for the conditions that are common to all
 //       DTrans optimizations.
@@ -563,7 +585,7 @@ const SafetyData UnhandledUse = 0x8000'0000'0000'0000;
 const SafetyData SDDeleteField =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | FieldAddressTaken | BadMemFuncSize |
+    UnsafePointerStore | AnyFieldAddressTaken | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
     AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
     HasVTable | HasFnPtr | HasZeroSizedArray | HasFnPtr |
@@ -575,7 +597,7 @@ const SafetyData SDDeleteField =
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+    UnsafePointerStore | AnyFieldAddressTaken | GlobalInstance |
     HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
@@ -606,7 +628,7 @@ const SafetyData SDFieldSingleValueNoFieldAddressTaken =
     UnhandledUse;
 
 const SafetyData SDFieldSingleValue =
-    SDFieldSingleValueNoFieldAddressTaken | FieldAddressTaken;
+    SDFieldSingleValueNoFieldAddressTaken | AnyFieldAddressTaken;
 
 const SafetyData SDSingleAllocFunctionNoFieldAddressTaken =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
@@ -618,11 +640,11 @@ const SafetyData SDSingleAllocFunctionNoFieldAddressTaken =
     UnhandledUse;
 
 const SafetyData SDSingleAllocFunction =
-    SDSingleAllocFunctionNoFieldAddressTaken | FieldAddressTaken;
+    SDSingleAllocFunctionNoFieldAddressTaken | AnyFieldAddressTaken;
 
 const SafetyData SDElimROFieldAccess =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
-    MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
+    MismatchedElementAccess | UnsafePointerStore | AnyFieldAddressTaken |
     BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
     HasInitializerList | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
     BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
@@ -636,7 +658,7 @@ const SafetyData SDElimROFieldAccess =
 const SafetyData SDAOSToSOA =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+    UnsafePointerStore | AnyFieldAddressTaken | GlobalInstance |
     HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
@@ -682,7 +704,7 @@ const SafetyData SDAOSToSOADependentIndex32 =
 const SafetyData SDDynClone =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | FieldAddressTaken | GlobalInstance |
+    UnsafePointerStore | AnyFieldAddressTaken | GlobalInstance |
     HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
@@ -695,7 +717,7 @@ const SafetyData SDDynClone =
 
 const SafetyData SDSOAToAOS =
     BadCasting | BadPtrManipulation | VolatileData | MismatchedElementAccess |
-    WholeStructureReference | UnsafePointerStore | FieldAddressTaken |
+    WholeStructureReference | UnsafePointerStore | AnyFieldAddressTaken |
     GlobalInstance | HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
@@ -707,7 +729,7 @@ const SafetyData SDSOAToAOS =
 
 const SafetyData SDMemInitTrimDown =
     BadCasting | BadPtrManipulation | VolatileData | MismatchedElementAccess |
-    WholeStructureReference | UnsafePointerStore | FieldAddressTaken |
+    WholeStructureReference | UnsafePointerStore | AnyFieldAddressTaken |
     GlobalInstance | HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
     BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
     NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
@@ -725,15 +747,17 @@ const SafetyData SDPaddedStructures =
     AmbiguousPointerTarget | AddressTaken | MismatchedArgUse | UnhandledUse;
 
 // Safety conditions for arrays with constant entries
+// NOTE: FieldAddressTakenReturn is conservative. We can extend the analysis
+// to check if the fields we care about will never be returned by a function.
 const SafetyData SDArraysWithConstantEntries =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
     VolatileData | MismatchedElementAccess | WholeStructureReference |
-    UnsafePointerStore | FieldAddressTaken | HasInitializerList | GlobalArray |
-    GlobalInstance | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
-    BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
-    NoFieldsInStruct | SystemObject | MismatchedArgUse | BadCastingPending |
-    BadCastingConditional | UnsafePointerStorePending |
-    UnsafePointerStoreConditional | UnhandledUse;
+    UnsafePointerStore | FieldAddressTakenMemory | HasInitializerList |
+    GlobalArray | GlobalInstance | UnsafePtrMerge | BadMemFuncSize |
+    MemFuncPartialWrite | BadMemFuncManipulation | AmbiguousPointerTarget |
+    AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
+    BadCastingPending | BadCastingConditional | UnsafePointerStorePending |
+    UnsafePointerStoreConditional | FieldAddressTakenReturn | UnhandledUse;
 
 //
 // TODO: Update the list each time we add a new safety conditions check for a
@@ -779,7 +803,7 @@ protected:
 
 public:
   llvm::Type *getLLVMType() const { return Ty.getLLVMType(); }
-  DTransType *getDTransType() const { return Ty.getDTransType(); }
+  dtransOP::DTransType *getDTransType() const { return Ty.getDTransType(); }
   bool isDTransType() const { return Ty.isDTransType(); }
 
   bool testSafetyData(SafetyData Conditions) const {
@@ -976,7 +1000,7 @@ public:
 
   TypeInfo *getElementDTransInfo() const { return DTransElemTy; }
   llvm::Type *getElementLLVMType() const { return DTransElemTy->getLLVMType(); }
-  dtrans::DTransType *getElementDTransType() const {
+  dtransOP::DTransType *getElementDTransType() const {
     return DTransElemTy->getDTransType();
   }
   size_t getNumElements() const { return NumElements; }
@@ -1032,9 +1056,8 @@ struct MemfuncRegion {
 // for more than a single function argument.
 class CallInfoElementTypes {
 public:
-  // TODO: Change to use AbstractType
-  typedef SmallVector<llvm::Type *, 2> TypeAliasSet;
-  typedef SmallVectorImpl<llvm::Type *> &TypeAliasSetRef;
+  typedef SmallVector<AbstractType, 2> TypeAliasSet;
+  typedef SmallVectorImpl<AbstractType> &TypeAliasSetRef;
 
   CallInfoElementTypes() : AliasesToAggregateType(false), Analyzed(false) {}
 
@@ -1052,24 +1075,65 @@ public:
 
   bool getAnalyzed() const { return Analyzed; }
 
-  void addElemType(llvm::Type *Ty) {
+  void addElemType(AbstractType Ty) {
     ElemTypes.push_back(Ty);
   }
 
-  TypeAliasSetRef getElemTypes() { return ElemTypes; }
+  struct element_llvm_types_iterator
+      : public iterator_adaptor_base<element_llvm_types_iterator,
+                                     TypeAliasSet::iterator,
+                                     std::forward_iterator_tag, AbstractType> {
+    explicit element_llvm_types_iterator(TypeAliasSet::iterator X)
+        : iterator_adaptor_base(X) {}
 
-  size_t getNumTypes() { return ElemTypes.size(); }
+    llvm::Type *operator*() const { return I->getLLVMType(); }
+    llvm::Type *operator->() const { return operator*(); }
+  };
 
-  llvm::Type *getElemType(size_t Idx) const {
+  iterator_range<element_llvm_types_iterator> element_llvm_types() {
+    return make_range(element_llvm_types_iterator(ElemTypes.begin()),
+                      element_llvm_types_iterator(ElemTypes.end()));
+  }
+
+  struct element_dtrans_types_iterator
+    : public iterator_adaptor_base<element_dtrans_types_iterator,
+    TypeAliasSet::iterator,
+    std::forward_iterator_tag, AbstractType> {
+    explicit element_dtrans_types_iterator(TypeAliasSet::iterator X)
+      : iterator_adaptor_base(X) {}
+
+    dtransOP::DTransType *operator*() const { return I->getDTransType(); }
+    dtransOP::DTransType *operator->() const { return operator*(); }
+  };
+
+  iterator_range<element_dtrans_types_iterator> element_dtrans_types() {
+    return make_range(element_dtrans_types_iterator(ElemTypes.begin()),
+      element_dtrans_types_iterator(ElemTypes.end()));
+  }
+
+  TypeAliasSet::iterator begin() { return ElemTypes.begin(); }
+  TypeAliasSet::iterator end() { return ElemTypes.end(); }
+
+  size_t getNumTypes() const { return ElemTypes.size(); }
+
+  llvm::Type *getElemLLVMType(size_t Idx) const {
     assert(Idx < ElemTypes.size() && "Index out of range");
-    return ElemTypes[Idx];
+    return ElemTypes[Idx].getLLVMType();
+  }
+
+  dtransOP::DTransType *getElemDTransType(size_t Idx) const {
+    assert(Idx < ElemTypes.size() && "Index out of range");
+    return ElemTypes[Idx].getDTransType();
   }
 
   // Change the type at index \p Idx to type \p Ty. This
   // function should only be used for updating a type based
   // on the type remapping done when processing a function.
-  void setElemType(size_t Idx, llvm::Type *Ty) {
+  void setElemType(size_t Idx, AbstractType Ty) {
     assert(Idx < ElemTypes.size() && "Index out of range");
+    assert(!(ElemTypes[Idx].isDTransType() ^ Ty.isDTransType()) &&
+      "Cannot switch between DTransTypes and llvm::Types");
+
     ElemTypes[Idx] = Ty;
   }
 
@@ -1116,7 +1180,7 @@ public:
 
   bool getAnalyzed() const { return ElementTypes.getAnalyzed(); }
 
-  void addElemType(llvm::Type *Ty) {
+  void addElemType(AbstractType Ty) {
     ElementTypes.addElemType(Ty);
   }
 
@@ -1295,6 +1359,83 @@ public:
 private:
   MemfuncKind MK;
   SmallVector<MemfuncRegion, 2> Regions;
+};
+
+// Container class for managing the mapping of Instructions to CallInfo objects.
+class CallInfoManager {
+public:
+  CallInfoManager() {}
+  ~CallInfoManager() { reset(); }
+
+  // This class owns pointers to CallInfo objects that will be destroyed when
+  // the destructor is run. Copying is not permitted, because that would lead
+  // to multiple instances holding the same pointer.
+  CallInfoManager(const CallInfoManager &) = delete;
+  CallInfoManager &operator=(const CallInfoManager &) = delete;
+
+  CallInfoManager(CallInfoManager &&) = default;
+  CallInfoManager &operator=(CallInfoManager &&) = default;
+
+  // Retrieve the CallInfo object for the instruction, if information exists.
+  // Otherwise, return nullptr.
+  dtrans::CallInfo *getCallInfo(const Instruction *I) const;
+
+  // Create an entry in the CallInfoMap about a memory allocation call.
+  dtrans::AllocCallInfo *createAllocCallInfo(Instruction *I,
+                                             dtrans::AllocKind AK);
+
+  // Create an entry in the CallInfoMap about a memory freeing call
+  dtrans::FreeCallInfo *createFreeCallInfo(Instruction *I, dtrans::FreeKind FK);
+
+  // Create an entry in the CallInfoMap about a memset call.
+  dtrans::MemfuncCallInfo *
+  createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+                        dtrans::MemfuncRegion &MR);
+
+  // Create an entry in the CallInfoMap about a memcpy/memmove call.
+  dtrans::MemfuncCallInfo *
+  createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+                        dtrans::MemfuncRegion &MR1, dtrans::MemfuncRegion &MR2);
+
+  // Destroy the CallInfo stored about the specific instruction.
+  void deleteCallInfo(Instruction *I);
+
+  // Update the instruction associated with the CallInfo object. This
+  // is necessary when a function is cloned during the DTrans optimizations to
+  // transfer the information to the newly created instruction of the cloned
+  // routine.
+  void replaceCallInfoInstruction(dtrans::CallInfo *Info, Instruction *NewI);
+
+  // Clear all the entries from the CallInfoMap.
+  void reset();
+
+  using CallInfoMapType = DenseMap<llvm::Instruction *, dtrans::CallInfo *>;
+
+  // Adaptor for directly iterating over the dtrans::CallInfo pointers.
+  struct call_info_iterator
+      : public iterator_adaptor_base<
+            call_info_iterator, CallInfoMapType::iterator,
+            std::forward_iterator_tag, CallInfoMapType::value_type> {
+    explicit call_info_iterator(CallInfoMapType::iterator X)
+        : iterator_adaptor_base(X) {}
+
+    dtrans::CallInfo *&operator*() const { return I->second; }
+    dtrans::CallInfo *&operator->() const { return operator*(); }
+  };
+
+  iterator_range<call_info_iterator> call_info_entries() {
+    return make_range(call_info_iterator(CallInfoMap.begin()),
+                      call_info_iterator(CallInfoMap.end()));
+  }
+
+private: // methods
+  void addCallInfo(llvm::Instruction *I, dtrans::CallInfo *Info);
+  void destructCallInfo(dtrans::CallInfo *Info);
+
+private: // data
+  // A mapping from function calls that special information is collected for
+  // (malloc, free, memset, etc) to the information stored about those calls.
+  CallInfoMapType CallInfoMap;
 };
 
 // Get the printable name for a SafetyData bit. The \p SafetyInfo value input to

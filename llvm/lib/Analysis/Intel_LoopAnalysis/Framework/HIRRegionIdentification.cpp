@@ -63,6 +63,12 @@ static cl::opt<bool> CreateFunctionLevelRegion(
     cl::desc("force HIR to create a single function level region instead of "
              "creating regions for individual loopnests"));
 
+static cl::list<std::string> CreateFunctionLevelRegionFilterFunc(
+    "hir-create-function-level-region"
+    "-filter-func",
+    cl::desc("force HIR to create a single region for the given function."),
+    cl::CommaSeparated, cl::ReallyHidden);
+
 static cl::opt<bool> DisableFusionRegions(
     "disable-hir-create-fusion-regions", cl::init(true), cl::Hidden,
     cl::desc("Disable HIR to create regions for multiple loops"
@@ -642,6 +648,11 @@ class HIRRegionIdentification::CostModelAnalyzer
   unsigned UnstructuredJumpCount; // Approximates goto/label counts in HIR.
   unsigned IfCount;               // Approximates number of ifs in HIR.
 
+  // Current count of contiguous integer insts.
+  unsigned CurContiguousIntegerInsts;
+  // Max count of contiguous integer insts.
+  unsigned MaxContiguousIntegerInsts;
+
   unsigned MaxInstThreshold;
   unsigned MaxIfThreshold;
   unsigned MaxIfNestThreshold;
@@ -670,8 +681,8 @@ HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
     : RI(RI), Lp(Lp), IsInnermostLoop(Lp.isInnermost()),
       IsSingleExitLoop(Lp.getExitingBlock()),
       IsUnknownLoop(isa<SCEVCouldNotCompute>(BECount)), IsProfitable(true),
-      OptLevel(RI.OptLevel), InstCount(0), UnstructuredJumpCount(0),
-      IfCount(0) {
+      OptLevel(RI.OptLevel), InstCount(0), UnstructuredJumpCount(0), IfCount(0),
+      CurContiguousIntegerInsts(0), MaxContiguousIntegerInsts(0) {
 
   if (MaxInstThresholdOption.getNumOccurrences() != 0) {
     MaxInstThreshold = MaxInstThresholdOption;
@@ -768,16 +779,33 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBasicBlock(
   auto BBInstCount = BB.size();
 
   // Bail out early instead of analyzing each individual instruction.
-  if ((BBInstCount + InstCount) > 10 * MaxInstThreshold) {
+  // Factor of 2 is to add buffer for DbgInfoIntrinsic and other intructions
+  // which are usually eliminated in HIR.
+  if ((BBInstCount + InstCount) > 2 * MaxInstThreshold) {
+    // Update count to print more accurate stats when bailing out.
+    InstCount += BBInstCount;
     printOptReportRemark(&Lp,
                          "Throttled due to presence of too many statements.");
     return false;
   }
 
+  CurContiguousIntegerInsts = 0;
+
   for (auto &Inst : BB) {
     if (!visit(const_cast<Instruction &>(Inst))) {
       return false;
     }
+  }
+
+  // Number of contiguous integer insts are an indicator of the size of SCEV
+  // expressions that will be formed. Huge SCEV expressions are slow to analyze
+  // so we bail out on them.
+  if ((InstCount + MaxContiguousIntegerInsts) > MaxInstThreshold) {
+    // Update count to print more accurate stats when bailing out.
+    InstCount += MaxContiguousIntegerInsts;
+    printOptReportRemark(&Lp,
+                         "Throttled due to presence of too many statements.");
+    return false;
   }
 
   return true;
@@ -786,6 +814,7 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBasicBlock(
 bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
     const Instruction &Inst) {
 
+  bool IsIntegerInst = false;
   // This logic is very similar to HIRParser::isEssential().
   if (isa<CallInst>(Inst)) {
 
@@ -805,6 +834,16 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
     } else {
       ++InstCount;
     }
+  } else if (isa<IntegerType>(Inst.getType())) {
+    IsIntegerInst = true;
+  }
+
+  if (!IsIntegerInst) {
+    MaxContiguousIntegerInsts =
+        std::max(MaxContiguousIntegerInsts, CurContiguousIntegerInsts);
+    CurContiguousIntegerInsts = 0;
+  } else {
+    ++CurContiguousIntegerInsts;
   }
 
   bool Ret = (InstCount <= MaxInstThreshold);
@@ -874,6 +913,9 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   if (BI.isUnconditional()) {
     return visitInstruction(static_cast<const Instruction &>(BI));
   }
+
+  MaxContiguousIntegerInsts =
+      std::max(MaxContiguousIntegerInsts, CurContiguousIntegerInsts);
 
   auto ParentBB = BI.getParent();
 
@@ -1321,13 +1363,18 @@ static bool isMustProgressMetadata(MDNode *Node) {
   return Str && Str->getString().equals("llvm.loop.mustprogress");
 }
 
+static bool isVectorVectorlengthMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
+  return Str && Str->getString().equals("llvm.loop.vector.vectorlength");
+}
+
 static bool isSupportedMetadata(MDNode *Node) {
 
   if (isDebugMetadata(Node) || isUnrollMetadata(Node) ||
       isDistributeMetadata(Node) || isVectorizeMetadata(Node) ||
       isLoopCountMetadata(Node) || LoopOptReport::isOptReportMetadata(Node) ||
       isFusionMetadata(Node) || isParallelAccessMetadata(Node) ||
-      isMustProgressMetadata(Node)) {
+      isMustProgressMetadata(Node) || isVectorVectorlengthMetadata(Node)) {
     return true;
   }
 
@@ -1576,12 +1623,6 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
     if (Inst->isAtomic()) {
       printOptReportRemark(Lp,
                            "Atomic instructions are currently not supported.");
-      return false;
-    }
-
-    // TODO: Need to add support of auxiliary (non-operand) data.
-    if (isa<ShuffleVectorInst>(Inst)) {
-      printOptReportRemark(Lp, "ShuffleVectorInst currently not supported.");
       return false;
     }
 
@@ -2397,8 +2438,27 @@ void HIRRegionIdentification::runImpl(Function &F) {
     return;
   }
 
-  if (CreateFunctionLevelRegion || isLoopConcatenationCandidate() ||
-      F.hasFnAttribute("may_have_huge_local_malloc")) {
+  // -hir-create-function-level-region-filter-function
+  // overrides -hir-create-function-level-region.
+  // Whenever it is given, only that function is get formed of
+  // a function-level region.
+  bool BuildFunctionRegion = false;
+  if (!CreateFunctionLevelRegionFilterFunc.empty()) {
+    // A comma-separated list of names can be given. e.g. =foo,bar
+    for (auto &Name :
+         std::vector<std::string>(CreateFunctionLevelRegionFilterFunc)) {
+      if (F.getName().equals(Name)) {
+        BuildFunctionRegion = true;
+        break;
+      }
+    }
+  } else {
+    BuildFunctionRegion = CreateFunctionLevelRegion;
+  }
+
+  if (BuildFunctionRegion || isLoopConcatenationCandidate() ||
+      F.hasFnAttribute("may_have_huge_local_malloc") ||
+      F.hasFnAttribute("prefer-function-level-region")) {
     if (canFormFunctionLevelRegion(F)) {
       createFunctionLevelRegion(F);
     }

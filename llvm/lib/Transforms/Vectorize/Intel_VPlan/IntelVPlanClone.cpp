@@ -76,7 +76,7 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
     ClonedBlock->insert(ClonedInst, ClonedBlock->end());
     ValueMap.insert(std::make_pair(&Inst, ClonedInst));
     if (DA)
-      DA->updateVectorShape(ClonedInst, DA->getVectorShape(&Inst));
+      DA->updateVectorShape(ClonedInst, DA->getVectorShape(Inst));
   }
 
   ValueMap.insert({Block, ClonedBlock});

@@ -170,6 +170,12 @@ StringRef GlobalValue::getSection() const {
       return GO->getSection();
     return "";
   }
+#if INTEL_CUSTOMIZATION
+  // This change and related changes could be ported back to the community
+  // to fix CMPLRLLVM-26177.
+  if (isa<GlobalIFunc>(this))
+    return "";
+#endif // INTEL_CUSTOMIZATION
   return cast<GlobalObject>(this)->getSection();
 }
 

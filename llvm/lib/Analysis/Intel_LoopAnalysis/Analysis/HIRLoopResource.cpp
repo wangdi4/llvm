@@ -912,8 +912,6 @@ void LoopResourceInfo::print(formatted_raw_ostream &OS,
   case LoopResourceBound::Unknown:
     OS << "Unknown Bound \n";
     break;
-  default:
-    llvm_unreachable("Unexpected loop resource bound type!");
   }
 }
 
@@ -1006,7 +1004,9 @@ unsigned HIRLoopResource::getOperationCost(const Instruction &Inst) const {
   }
 
   return LoopResourceInfo::LoopResourceVisitor::getNormalizedCost(
-      TTI.getUserCost(&Inst, TargetTransformInfo::TCK_SizeAndLatency));
+      TTI.getUserCost(&Inst, TargetTransformInfo::TCK_SizeAndLatency)
+          .getValue()
+          .getValue());
 }
 
 unsigned HIRLoopResource::getLLVMLoopCost(const Loop &Lp) {

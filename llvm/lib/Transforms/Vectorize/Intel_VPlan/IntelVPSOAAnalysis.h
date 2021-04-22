@@ -27,7 +27,7 @@ class Type;
 namespace vpo {
 
 class VPAllocatePrivate;
-class VPlan;
+class VPlanVector;
 class VPLoop;
 class VPInstruction;
 class VPValue;
@@ -48,7 +48,7 @@ public:
   // We want to make sure that SOAAnalysis is run only after results of DA are
   // available. Similarly, it is good to have the VPlan and the VPLoop object
   // set before SOAAnalysis is run.
-  VPSOAAnalysis(const VPlan &Plan, const VPLoop &Loop)
+  VPSOAAnalysis(const VPlanVector &Plan, const VPLoop &Loop)
       : Plan(Plan), Loop(Loop) {}
 
   /// Public interface for SOA-analysis for all loop-privates. \p SOAVars is the
@@ -72,7 +72,7 @@ private:
   DenseMap<const VPInstruction *, bool> AccessProfitabilityInfo;
 
   // VPlan object.
-  const VPlan &Plan;
+  const VPlanVector &Plan;
 
   // VPLoop object.
   const VPLoop &Loop;
@@ -105,9 +105,6 @@ private:
 
   /// \returns true if \p Val's pointee-type is a scalar.
   bool isSOASupportedTy(Type *Ty);
-
-  /// \returns true if \p Val's pointee-type is a scalar.
-  bool isScalarTy(Type *Ty);
 
   /// \return true if the incoming instruction is in the relevant scope.
   /// Specifically, we check if the instruction is non-null pointer and

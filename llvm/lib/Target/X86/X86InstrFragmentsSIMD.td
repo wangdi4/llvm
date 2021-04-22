@@ -555,8 +555,6 @@ def X86fgetexpSAE   : SDNode<"X86ISD::FGETEXP_SAE", SDTFPUnaryOp>;
 def X86fgetexps     : SDNode<"X86ISD::FGETEXPS", SDTFPBinOp>;
 def X86fgetexpSAEs  : SDNode<"X86ISD::FGETEXPS_SAE", SDTFPBinOp>;
 
-def X86Fmadd        : SDNode<"ISD::FMA",          SDTFPTernaryOp, [SDNPCommutative]>;
-def X86strict_Fmadd : SDNode<"ISD::STRICT_FMA",   SDTFPTernaryOp, [SDNPCommutative, SDNPHasChain]>;
 def X86Fnmadd    : SDNode<"X86ISD::FNMADD",    SDTFPTernaryOp, [SDNPCommutative]>;
 def X86strict_Fnmadd : SDNode<"X86ISD::STRICT_FNMADD", SDTFPTernaryOp, [SDNPCommutative, SDNPHasChain]>;
 def X86any_Fnmadd : PatFrags<(ops node:$src1, node:$src2, node:$src3),
@@ -907,6 +905,28 @@ def X86Vmpsadbw : SDNode<"X86ISD::MPSADBW",
                                               SDTCVecEltisVT<1, i8>,
                                               SDTCisSameSizeAs<0,1>,
                                               SDTCisSameAs<1,2>, SDTCisVT<3, i8>]>>;
+
+#if INTEL_FEATURE_ISA_AVX512_RAO_INT
+def RAOINT_Store : SDTypeProfile<0, 3, [SDTCisPtrTy<0>,
+                                 SDTCisInt<1>, SDTCisVec<1>,
+                                 SDTCisVec<2>, SDTCisSameNumEltsAs<1, 2>]>;
+
+def X86vpaadd : SDNode<"X86ISD::VPAADD", RAOINT_Store,
+                        [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
+def X86vpaand : SDNode<"X86ISD::VPAAND", RAOINT_Store,
+                        [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
+def X86vpaor  : SDNode<"X86ISD::VPAOR" , RAOINT_Store,
+                        [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
+def X86vpaxor : SDNode<"X86ISD::VPAXOR", RAOINT_Store,
+                        [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_INT
+#if INTEL_FEATURE_ISA_AVX512_RAO_FP
+def X86vaaddf : SDNode<"X86ISD::VAADDF",
+                       SDTypeProfile<0, 3, [SDTCisPtrTy<0>,
+                                            SDTCisVec<1>, SDTCisVec<2>,
+                                            SDTCisSameNumEltsAs<1, 2>]>,
+                        [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // SSE pattern fragments

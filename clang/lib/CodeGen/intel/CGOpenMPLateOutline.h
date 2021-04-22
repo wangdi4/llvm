@@ -94,6 +94,9 @@ class OpenMPLateOutliner {
     bool Chain = false;
     bool InScan = false;
     bool Task = false;
+    bool Target = false;
+    bool TargetSync = false;
+    bool Prefer = false;
 
     void addSeparated(StringRef QualString) {
       Str += Separator;
@@ -132,6 +135,12 @@ class OpenMPLateOutliner {
         addSeparated("INSCAN");
       if (Task)
         addSeparated("TASK");
+      if (Target)
+        addSeparated("TARGET");
+      if (TargetSync)
+        addSeparated("TARGETSYNC");
+      if (Prefer)
+        addSeparated("PREFER");
     }
 
   public:
@@ -152,6 +161,9 @@ class OpenMPLateOutliner {
     void setChain() { Chain = true; }
     void setInScan() { InScan = true; }
     void setTask() { Task = true; }
+    void setTarget() { Target = true; }
+    void setTargetSync() { TargetSync = true; }
+    void setPrefer() { Prefer = true; }
 
     void add(StringRef S) { Str += S; }
     StringRef getString() {
@@ -286,6 +298,7 @@ class OpenMPLateOutliner {
   void emitOMPAllocateClause(const OMPAllocateClause *);
   void emitOMPNontemporalClause(const OMPNontemporalClause *);
   void emitOMPTileClause(const OMPTileClause *);
+  void emitOMPFilterClause(const OMPFilterClause *);
   void emitOMPBindClause(const OMPBindClause *);
   void emitOMPOrderClause(const OMPOrderClause *);
   void emitOMPAcqRelClause(const OMPAcqRelClause *);
@@ -299,7 +312,12 @@ class OpenMPLateOutliner {
   void emitOMPExclusiveClause(const OMPExclusiveClause *);
   void emitOMPUsesAllocatorsClause(const OMPUsesAllocatorsClause *);
   void emitOMPAffinityClause(const OMPAffinityClause *);
+  void emitOMPSizesClause(const OMPSizesClause *);
   void emitOMPUseDeviceAddrClause(const OMPUseDeviceAddrClause *);
+  void emitOMPInitClause(const OMPInitClause *);
+  void emitOMPUseClause(const OMPUseClause *);
+  void emitOMPNovariantsClause(const OMPNovariantsClause *);
+  void emitOMPNocontextClause(const OMPNocontextClause *);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   void emitOMPDataflowClause(const OMPDataflowClause *);
@@ -356,6 +374,7 @@ class OpenMPLateOutliner {
     }
   };
   std::set<const VarDecl *, VarCompareTy> VarRefs;
+  llvm::DenseSet<const VarDecl *> FirstPrivateVars;
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
 
   std::vector<llvm::WeakTrackingVH> DefinedValues;
@@ -398,6 +417,7 @@ public:
   void emitOMPAtomicDirective(OMPAtomicClause ClauseKind);
   void emitOMPSingleDirective();
   void emitOMPMasterDirective();
+  void emitOMPMaskedDirective();
   void emitOMPCriticalDirective(const StringRef Name);
   void emitOMPOrderedDirective();
   void emitOMPTargetDirective(int OffloadEntryIndex);
@@ -424,7 +444,9 @@ public:
   void emitOMPCancelDirective(OpenMPDirectiveKind Kind);
   void emitOMPCancellationPointDirective(OpenMPDirectiveKind Kind);
   void emitOMPTargetVariantDispatchDirective();
+  void emitOMPDispatchDirective();
   void emitOMPGenericLoopDirective();
+  void emitOMPInteropDirective();
   void emitVLAExpressions() {
     if (needsVLAExprEmission())
       CGF.VLASizeMapHandler->EmitVLASizeExpressions();
@@ -438,6 +460,7 @@ public:
   void emitImplicit(llvm::Value *V, ImplicitClauseKind K);
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
   void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
+  void addFirstPrivateVars(const VarDecl *VD) { FirstPrivateVars.insert(VD); }
   void addValueDef(llvm::Value *V) {
     llvm::WeakTrackingVH VH = V;
     DefinedValues.push_back(VH);
@@ -475,7 +498,8 @@ public:
   static bool hasCapturedStmt(const OMPExecutableDirective &S) {
     auto Kind = S.getDirectiveKind();
     if (Kind == llvm::omp::OMPD_atomic || Kind == llvm::omp::OMPD_critical ||
-        Kind == llvm::omp::OMPD_section || Kind == llvm::omp::OMPD_master)
+        Kind == llvm::omp::OMPD_section || Kind == llvm::omp::OMPD_master ||
+        Kind == llvm::omp::OMPD_masked)
       return false;
     return true;
   }
@@ -531,7 +555,7 @@ public:
                                 const OMPExecutableDirective &D)
       : CGCapturedStmtInfo(*cast<CapturedStmt>(D.getAssociatedStmt()),
                            CR_OpenMP),
-        OldCSI(CSI), Outliner(O) {}
+        OldCSI(CSI), Outliner(O), D(D) {}
 
   /// Retrieve the value of the context parameter.
   llvm::Value *getContextValue() const override;
@@ -541,6 +565,8 @@ public:
   const FieldDecl *lookup(const VarDecl *VD) const override;
 
   FieldDecl *getThisFieldDecl() const override;
+
+  bool isDispatchTargetCall(SourceLocation Loc) override;
 
   CodeGenFunction::CGCapturedStmtInfo *getOldCSI() const { return OldCSI; }
 
@@ -561,11 +587,17 @@ public:
   void recordValueSuppression(llvm::Value *V) override {
     Outliner.addValueSuppress(V);
   }
-
+  void recordFirstPrivateVars(const VarDecl *VD) override {
+    Outliner.addFirstPrivateVars(VD);
+  }
   bool inTargetVariantDispatchRegion() override {
     return Outliner.getCurrentDirectiveKind() ==
            llvm::omp::OMPD_target_variant_dispatch;
   }
+  bool inDispatchRegion() override {
+    return Outliner.getCurrentDirectiveKind() == llvm::omp::OMPD_dispatch;
+  }
+
   void enterTryStmt() override { ++TryStmts; }
   void exitTryStmt() override {
     assert(TryStmts > 0);
@@ -583,6 +615,7 @@ private:
   OpenMPLateOutliner &Outliner;
   /// Nesting of C++ 'try' statements in the OpenMP region.
   unsigned TryStmts = 0;
+  const OMPExecutableDirective &D;
 };
 
 /// RAII for emitting code of OpenMP constructs.

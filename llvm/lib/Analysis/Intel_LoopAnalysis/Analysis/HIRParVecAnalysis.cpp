@@ -1,6 +1,6 @@
 //===-- HIRParVecAnalysis.cpp ---------------------------------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -28,9 +28,9 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/Diag.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_OptReport/Diag.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/VectorUtils.h"
@@ -48,10 +48,14 @@ static cl::opt<bool>
                   "from ParVec analyzer"));
 
 cl::opt<bool>
-    MinMaxIndexEnabled("enable-mmindex", cl::init(false), cl::Hidden,
+    MinMaxIndexEnabled("enable-mmindex", cl::init(true), cl::Hidden,
                        cl::desc("Enable min/max+index idiom recognition"));
 
-static cl::opt<bool> DisableNonLinearMMIndexes(
+cl::opt<bool> VConflictIdiomEnabled("enable-vconflict-idiom", cl::init(false),
+                                    cl::Hidden,
+                                    cl::desc("Enable vconflict idiom"));
+
+static cl::opt<bool> DisableNonMonotonicIndexes(
     "disable-nonlinear-mmindex", cl::init(true), cl::Hidden,
     cl::desc("Disable min/max+index idiom recognition for non-linear indexes"));
 
@@ -162,6 +166,25 @@ public:
   void visit(HLNode *Node) {}
   /// \brief catch-all postVisit().
   void postVisit(HLNode *Node) {}
+};
+
+// Dumps bail-out messages when idiom recognition fails.
+struct MatchFail {
+  MatchFail(const char *IdiomName)
+#ifndef NDEBUG
+    : IdiomName(IdiomName)
+#endif
+  {
+  }
+  bool operator()(Twine Reason) {
+    LLVM_DEBUG(dbgs() << '[' << IdiomName << "] Skipped: " << Reason << '\n');
+    return false;
+  }
+
+private:
+#ifndef NDEBUG
+  const char *IdiomName;
+#endif
 };
 
 } // unnamed namespace
@@ -313,7 +336,9 @@ bool DDWalk::isSafeReductionFlowDep(const DDEdge *Edge) {
     return !SRI->HasUnsafeAlgebra;
   }
 
-  return IdiomList.isIdiom(Inst) != HIRVectorIdioms::NoIdiom;
+  return IdiomList.isIdiom(Inst) == HIRVectorIdioms::MinOrMax ||
+         IdiomList.isIdiom(Inst) == HIRVectorIdioms::MMFirstLastIdx ||
+         IdiomList.isIdiom(Inst) == HIRVectorIdioms::MMFirstLastVal;
 }
 
 void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
@@ -645,20 +670,24 @@ public:
   void visit(HLSwitch *Switch) {}
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
+  bool tryMinMaxIdiom(HLDDNode *Node);
+  bool tryVConflictIdiom(HLDDNode *Node);
 };
 
-void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
-  auto MinMaxInst = dyn_cast<HLInst>(Node);
+// Checks if the given Node is the beginning of Min/Max idiom. If the search
+// succeeds, then the Node and its linked instructions are added in IdiomList.
+bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
+  auto *MinMaxInst = dyn_cast<HLInst>(Node);
   if (!MinMaxInst)
-    return;
+    return false;
 
   // First hunt for min/max pattern
   if (!MinMaxInst->isMinOrMax())
-    return;
+    return false;
 
   // If the instruction is safe reduction then it can't be idiom.
   if (SRAnalysis.getSafeRedInfo(MinMaxInst))
-    return;
+    return false;
 
   // Get operands and predicate
   const RegDDRef *Operand1 = MinMaxInst->getOperandDDRef(1);
@@ -667,16 +696,22 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
   const RegDDRef *Operand4 = MinMaxInst->getOperandDDRef(4);
   const RegDDRef *Lval = MinMaxInst->getLvalDDRef();
 
+  // Temporary disable FP data types for primary minmax. For FP data type
+  // we need some additional checks to be generated (eg for NAN) which is
+  // not implemented yet.
+  if (!Lval->getDestType()->isIntegerTy())
+    return false;
+
   PredicateTy Pred = MinMaxInst->getPredicate();
 
   if (!Lval->isTerminalRef())
-    return;
+    return false;
 
   bool LvalEqualsThirdOp = DDRefUtils::areEqual(Lval, Operand3);
 
   // Lval should be involved in minmax idiom.
   if (!LvalEqualsThirdOp && !DDRefUtils::areEqual(Lval, Operand4))
-    return;
+    return false;
 
   // Supposing the MinMaxInst is in the form
   //  mm = (mm OP b) ? mm : b;
@@ -699,14 +734,13 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
   LLVM_DEBUG(dbgs() << "[MinMax+Index] Looking at candidate:";
              MinMaxInst->dump());
 
-  SmallPtrSet<HLInst *, 2> LinkedInstr;
+  MatchFail Mismatch("MinMax+Index");
+  DenseMap<HLInst *, HIRVectorIdioms::IdiomId> LinkedInstr;
 
   for (DDEdge *E : DDG.outgoing(Lval)) {
     if (E->isOutput()) {
-      if (E->getSink() != Lval) {
-        LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: dependency\n");
-        return;
-      }
+      if (E->getSink() != Lval)
+        return Mismatch("dependency");
     } else {
       assert(E->isFlow() && "Flow edge expected");
 
@@ -721,147 +755,222 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
       LLVM_DEBUG(dbgs() << "[MinMax+Index] Depends on:"; SinkNode->dump());
 
       // Node should be at top level.
-      if (SinkNode->getParent() != Loop) {
-        LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: in another loop\n");
-        return;
-      }
+      if (SinkNode->getParent() != Loop)
+        return Mismatch("in another loop");
 
       // Only backward edges are allowed.
-      if (SinkNode->getTopSortNum() > Node->getTopSortNum()) {
-        LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: incorrect nodes order\n");
-        return;
-      }
+      if (SinkNode->getTopSortNum() > Node->getTopSortNum())
+        return Mismatch("incorrect nodes order");
 
       auto *Select = dyn_cast<HLInst>(SinkNode);
-      if (!Select || !isa<SelectInst>(Select->getLLVMInstruction())) {
-        LLVM_DEBUG(
-            dbgs()
-            << "[MinMax+Index] Skipped: dependency on non-select node\n");
-        return;
-      }
+      if (!Select || !isa<SelectInst>(Select->getLLVMInstruction()))
+        return Mismatch("dependency on non-select node");
 
       auto *SelectLval = Select->getLvalDDRef();
-      if (!SelectLval->isTerminalRef()) {
-        LLVM_DEBUG(
-            dbgs() << "[MinMax+Index] Skipped: dependency on non-terminal\n");
-        return;
-      }
+      if (!SelectLval->isTerminalRef())
+        return Mismatch("dependency on non-terminal");
 
       auto *SelectOp1 = Select->getOperandDDRef(1);
       auto *SelectOp2 = Select->getOperandDDRef(2);
 
       // To make sure that SinkRef is the ref that occurs in the comparison, not
       // some blob embedded in the 3rd or 4th operand.
-      if (SinkRef != SelectOp1 && SinkRef != SelectOp2) {
-        LLVM_DEBUG(
-            dbgs()
-            << "[MinMax+Index] Skipped: dependency on comparison operand\n");
-        return;
-      }
+      if (SinkRef != SelectOp1 && SinkRef != SelectOp2)
+        return Mismatch("dependency on comparison operand");
 
       // This verifies that the two comparison operations are identical.
       if ((Select->getPredicate() != Pred) ||
           !DDRefUtils::areEqual(SelectOp1, Operand1) ||
-          !DDRefUtils::areEqual(SelectOp2, Operand2)) {
-        LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: dependency on not the "
-                             "same comparison\n");
-        return;
-      }
+          !DDRefUtils::areEqual(SelectOp2, Operand2))
+        return Mismatch("dependency on not the same comparison");
 
-      if (DisableNonLinearMMIndexes) {
-        // Non-linear indexes are disabled. Check for we have assignment of a
-        // linear value. In the example below the value to check is 'i1'.
-        // + DO i1 = 0, sext.i32.i64(%m) + -1, 1 <DO_LOOP>  <MAX_TC_EST = 1000>
+      HIRVectorIdioms::IdiomId IdiomKind = HIRVectorIdioms::NoIdiom;
+      const RegDDRef *Rhs = LvalEqualsThirdOp ? Select->getOperandDDRef(4)
+                                              : Select->getOperandDDRef(3);
+      StringRef Msg;
+      if (!Rhs->isLinear()) {
+        IdiomKind = HIRVectorIdioms::MMFirstLastVal;
+        Msg = "\n";
+      }
+      else {
+        IdiomKind = HIRVectorIdioms::MMFirstLastIdx;
+        // Check that we have assignment of a pure linear value.
+        // That means: exclude non-terminals, conversions, and values with
+        // division (like i1/4).
+        // In the example below the value to check is 'i1'.
+        // + DO i1 = 0, sext.i32.i64(%m) + -1, 1 <DO_LOOP> <MAX_TC_EST = 1000>
         // |   %0 = (@ordering)[0][i1];
         // |   %tmp.015 = (%0 > %best.014) ? i1 : %tmp.015;
         // |   %best.014 = (%0 > %best.014) ? %0 : %best.014;
         // + END LOOP
-        const RegDDRef *Rhs = LvalEqualsThirdOp ? Select->getOperandDDRef(4)
-                                                : Select->getOperandDDRef(3);
-        if (!Rhs->isLinear()) {
-          LLVM_DEBUG(dbgs()
-                     << "[MinMax+Index] Skipped: nonlinear rhs disabled\n");
-          return;
-        }
         if (!Rhs->isTerminalRef()) {
-          LLVM_DEBUG(
-              dbgs()
-              << "[MinMax+Index] Skipped: nonlinear rhs disabled (nonterm)\n");
-          return;
-        }
-        if (Rhs->getSrcType() != Rhs->getDestType()) {
+          IdiomKind = HIRVectorIdioms::MMFirstLastVal;
+          Msg = "(nonterm)\n";
+        } else if (Rhs->getSrcType() != Rhs->getDestType()) {
           // TODO: Currently, linears are usually promoted to 64-bit even in
           // source code they are 32-bit. Then in IR we have their truncation
           // 64->32 bit before using them. Our DA does not have capability to
-          // promote vector shape through that truncation so we have to bail out
-          // here. We need to improve linearity analysis in DA.
+          // promote vector shape through that truncation so we have to bail
+          // out here. We need to improve linearity analysis in DA.
           //
-          LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: nonlinear rhs disabled "
-                               "(conversion)\n");
-          return;
-        }
-        if (Rhs->getSingleCanonExpr()->getDenominator() != 1) {
+          IdiomKind = HIRVectorIdioms::MMFirstLastVal;
+          Msg = "(conversion)\n";
+        } else if (Rhs->getSingleCanonExpr()->getDenominator() != 1) {
           // Loopopt can declare as linear e.g. i1/3. But we need a monotonic
           // sequence so bail out on any denominator.
-          LLVM_DEBUG(
-              dbgs()
-              << "[MinMax+Index] Skipped: nonlinear rhs disabled (denom)\n");
-          return;
+          IdiomKind = HIRVectorIdioms::MMFirstLastVal;
+          Msg = "(denom)\n";
+        } else if (Rhs->getSingleCanonExpr()->isInvariantAtLevel(
+                       Loop->getNestingLevel())) {
+          // Can be invariant at that level.
+          IdiomKind = HIRVectorIdioms::MMFirstLastVal;
+          Msg = "(invariant)\n";
         }
       }
+      if (DisableNonMonotonicIndexes &&
+          IdiomKind != HIRVectorIdioms::MMFirstLastIdx)
+        return Mismatch(Twine("nonlinear rhs disabled ") + Msg);
 
       // This verifies that temp occurs in the rval in the same position as the
       // minmax temp.
       if (LvalEqualsThirdOp) {
-        if (!DDRefUtils::areEqual(SelectLval, Select->getOperandDDRef(3))) {
-          LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: dependency on "
-                               "not-same-order select\n");
-          return;
-        }
-      } else if (!DDRefUtils::areEqual(SelectLval,
-                                       Select->getOperandDDRef(4))) {
-        LLVM_DEBUG(
-            dbgs()
-            << "[MinMax+Index] Skipped: dependency on not-same-order select\n");
-        return;
-      }
-      // Need to check whether SinkLVal does not have other dependencies in the
-      // loop.
+        if (!DDRefUtils::areEqual(SelectLval, Select->getOperandDDRef(3)))
+          return Mismatch("dependency on not-same-order select");
+      } else if (!DDRefUtils::areEqual(SelectLval, Select->getOperandDDRef(4)))
+        return Mismatch("dependency on not-same-order select");
+
+      // Need to check whether SinkLVal does not have other dependencies in
+      // the loop.
       for (DDEdge *SinkLvalEdge : DDG.outgoing(SelectLval)) {
         auto SinkOtherNode = SinkLvalEdge->getSink()->getHLDDNode();
-        if (SinkOtherNode != SinkNode && SinkOtherNode->getParent() == Loop) {
+        if (SinkOtherNode != SinkNode && SinkOtherNode->getParent() == Loop)
           // TODO: Check wether we can allow dependencies between any of
           // gathered instructions (moving this check to out of the loop).
-          LLVM_DEBUG(dbgs() << "[MinMax+Index] Skipped: other dependency\n");
-          return;
-        }
+          return Mismatch("other dependency");
       }
 
       // Add HInst as recognized temp.
-      LinkedInstr.insert(Select);
+      LinkedInstr.insert({Select, IdiomKind});
     }
   }
   if (!LinkedInstr.empty()) {
     // Add Node as idiom.
     IdiomList.addIdiom(MinMaxInst, HIRVectorIdioms::MinOrMax);
     for (auto Linked : LinkedInstr) {
-      IdiomList.addLinked(MinMaxInst, Linked, HIRVectorIdioms::MMFirstLastLoc);
+      IdiomList.addLinked(MinMaxInst, Linked.first /* Instruction */,
+                          Linked.second /* IdiomKind */);
     }
     LLVM_DEBUG(dbgs() << "[MinMax+Index] Accepted\n");
+    return true;
   }
+  return false;
+}
+
+// The "vconflict idiom" refers to the user code with vector data dependencies
+// that can be resolved using vconflict instruction. Particularly, dependencies
+// due to possible overlapped indexes in statements like
+// a[index] = a[index] OP some_value
+// The example of incoming HIR is as follows
+// <0>          BEGIN REGION { }
+// <15>               + DO i1 = 0, 1023, 1   <DO_LOOP> <nounroll>
+// <3>                |   %0 = (%B)[i1];
+// <7>                |   %add = (%A)[%0]  +  1.000000e+00;
+// <8>                |   (%A)[%0] = %add;
+// <15>               + END LOOP
+// <0>          END REGION
+// In this routine, we detect possible dependencies that can be resolved using
+// vconflict. I.e. we check each store if it has memory dependency only on the
+// load from the same address.
+// There are three possible ways to generate code for vconflict idiom depending
+// on OP and some_value classification from above. We don't consider/recognize
+// those different kinds of idiom here, the classification is done in VPlan.
+bool HIRIdiomAnalyzer::tryVConflictIdiom(HLDDNode *CurNode) {
+  auto *StoreInst = dyn_cast<HLInst>(CurNode);
+  if (!StoreInst)
+    return false;
+
+  MatchFail Mismatch("VConflict Idiom");
+  RegDDRef *StoreMemDDRef = StoreInst->getLvalDDRef();
+  if (!StoreMemDDRef || !StoreMemDDRef->isMemRef())
+    return false;
+
+  LLVM_DEBUG(dbgs() << "[VConflict Idiom] Looking at store candidate:";
+             StoreInst->dump());
+
+  // The store address of the above example has two incoming edges:
+  // 7:8 (%A)[%0] --> (%A)[%0] ANTI (*) (?)
+  // 8:8 (%A)[%0] --> (%A)[%0] OUTPUT (*) (?)
+  int AntiDepCnt = 0;
+  for (DDEdge *E : DDG.incoming(StoreMemDDRef)) {
+    if (E->isOutput()) {
+      if (E->getSrc() != StoreMemDDRef)
+        return Mismatch(
+            "The output dependency is expected to be self-dependency.\n");
+    } else {
+      DDRef *SrcRef = E->getSrc();
+      HLDDNode *SrcNode = SrcRef->getHLDDNode();
+      LLVM_DEBUG(dbgs() << "[VConflict Idiom] Depends(WAR) on:";
+                 SrcNode->dump());
+
+      if (!E->isAnti())
+        return Mismatch("Expected anti-dependency.");
+
+      if (AntiDepCnt >= 1)
+        return Mismatch("Too many dependencies.");
+
+      AntiDepCnt++;
+      // TODO: Update VConflict search to work with multi-dimensional arrays.
+      // For now, we just bail-out.
+      if (StoreMemDDRef->getNumDimensions() > 1)
+        return Mismatch("Multidimensional arrays are not supported.");
+
+      // Check if both nodes are at top level.
+      if (SrcNode->getParent() != Loop)
+        return Mismatch("Source is in another loop.");
+
+      // Only backward edges are allowed.
+      if (SrcNode->getTopSortNum() > CurNode->getTopSortNum())
+        return Mismatch("Nodes are not in the right order.");
+
+      // Check if both source and sink nodes have the same memory reference.
+      if (SrcRef->isRval() && DDRefUtils::areEqual(SrcRef, StoreMemDDRef))
+        continue;
+
+      return Mismatch("Wrong memory dependency.");
+    }
+  }
+
+  if (AntiDepCnt == 0 || AntiDepCnt > 1)
+    return Mismatch("Store address should have one anti-dependency.");
+
+  LLVM_DEBUG(dbgs() << "[VConflict Idiom] Detected!\n");
+  IdiomList.addIdiom(StoreInst, HIRVectorIdioms::VConflict);
+  return true;
+}
+
+// The routine looks for some idiom patterns. If any is recognized, the Node is
+// added into IdiomList tagged with what kind of idiom was recognized.
+void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
+
+  if (MinMaxIndexEnabled && tryMinMaxIdiom(Node))
+    return;
+
+  if (VConflictIdiomEnabled && tryVConflictIdiom(Node))
+    return;
+
+  return;
 }
 
 void HIRVectorIdiomAnalysis::gatherIdioms(HIRVectorIdioms &IList,
                                           const DDGraph &DDG,
                                           HIRSafeReductionAnalysis &SRA,
                                           HLLoop *Loop) {
-  if (MinMaxIndexEnabled) {
+  if (MinMaxIndexEnabled || VConflictIdiomEnabled) {
     HIRIdiomAnalyzer IdiomAnalyzer(IList, DDG, SRA, Loop);
     Loop->getHLNodeUtils().visit(IdiomAnalyzer, Loop);
     LLVM_DEBUG(IList.dump());
-  }
-  else
-    LLVM_DEBUG(dbgs() << "MinMax+index recognition is disabled\n");
+  } else
+    LLVM_DEBUG(dbgs() << "Any idiom recognition is disabled\n");
 }
 
 extern void llvm::loopopt::deleteHIRVectorIdioms(HIRVectorIdioms *p) {

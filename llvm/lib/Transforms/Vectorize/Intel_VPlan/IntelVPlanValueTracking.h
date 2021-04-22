@@ -33,7 +33,8 @@ class VPValue;
 class VPlanValueTracking {
 public:
   /// Compute KnownBits for an arbitrary \p Expr at point \p CtxI.
-  virtual KnownBits getKnownBits(VPlanSCEV *Expr, VPInstruction *CtxI) = 0;
+  virtual KnownBits getKnownBits(
+    VPlanSCEV *Expr, const VPInstruction *CtxI) = 0;
 
   virtual ~VPlanValueTracking() {}
 };
@@ -45,7 +46,7 @@ public:
                          AssumptionCache *AC, const DominatorTree *DT)
       : VPSE(&VPSE), DL(&DL), AC(AC), DT(DT) {}
 
-  KnownBits getKnownBits(VPlanSCEV *Expr, VPInstruction *CtxI) override;
+  KnownBits getKnownBits(VPlanSCEV *Expr, const VPInstruction *CtxI) override;
 
 private:
   KnownBits getKnownBitsImpl(const SCEV *Scev, const Instruction *CtxI);

@@ -28,7 +28,7 @@ extern bool PrintAfterSSADeconstruction;
 class VPlanSSADeconstruction {
 
 public:
-  VPlanSSADeconstruction(VPlan &Plan) : Plan(Plan) {}
+  VPlanSSADeconstruction(VPlanVector &Plan) : Plan(Plan) {}
 
   /// A VPlan-to-VPlan transformation that breaks down PHIs to copy instructions
   /// inserted in appropriate incoming blocks. This transformation is done as
@@ -42,7 +42,7 @@ public:
   void run();
 
 private:
-  VPlan &Plan;
+  VPlanVector &Plan;
 };
 
 } // end namespace vpo

@@ -15,9 +15,9 @@
 ; }
 
 ; CHECK-DAG: @[[SIZE1:.+]] = {{.*}} constant {{.*}} [i64 52]
-; CHECK-DAG: @[[MAPTYPE1:.+]] = {{.*}} constant {{.*}} [i64 38]
+; CHECK-DAG: @[[MAPTYPE1:.+]] = {{.*}} constant {{.*}} [i64 6]
 ; CHECK-DAG: @[[SIZE2:.+]] = {{.*}} constant {{.*}} [i64 68]
-; CHECK-DAG: @[[MAPTYPE2:.+]] = {{.*}} constant {{.*}} [i64 37]
+; CHECK-DAG: @[[MAPTYPE2:.+]] = {{.*}} constant {{.*}} [i64 5]
 ; CHECK-DAG: %[[GEP1:.+]] = {{.*}}getelementptr {{.*}} @a, i64 0, i64 7
 ; CHECK-DAG: %[[A1:.+]] = bitcast i8*{{.*}}@a
 ; CHECK-DAG: %[[CAST1_1:.+]] = bitcast {{.*}} %[[A1]] to i8*

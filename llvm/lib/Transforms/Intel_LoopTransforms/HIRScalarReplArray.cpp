@@ -1413,11 +1413,9 @@ void HIRScalarReplArray::printRefGroupTy(RefGroupTy &Group, bool PrintNewLine) {
 }
 #endif
 
-PreservedAnalyses
-HIRScalarReplArrayPass::run(llvm::Function &F,
-                            llvm::FunctionAnalysisManager &AM) {
-  HIRScalarReplArray(AM.getResult<HIRFrameworkAnalysis>(F),
-                     AM.getResult<HIRDDAnalysisPass>(F),
+PreservedAnalyses HIRScalarReplArrayPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRScalarReplArray(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                      AM.getResult<HIRLoopStatisticsAnalysis>(F))
       .run();
 

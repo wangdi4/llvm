@@ -1,163 +1,163 @@
 // REQUIRES: intel_feature_isa_amx_memory
 // RUN: llvm-mc -triple x86_64-unknown-unknown -x86-asm-syntax=intel -output-asm-variant=1 --show-encoding %s | FileCheck %s
 
-// CHECK:      tgatherrowd tmm15, [rbp + 8*r14 + 268435456]
-// CHECK: encoding: [0xc4,0x22,0x7b,0x6e,0xbc,0xf5,0x00,0x00,0x00,0x10]
-               tgatherrowd tmm15, [rbp + 8*r14 + 268435456]
+// CHECK:     tgatherrowd     tmm5, [rbp + 8*r14 + 268435456]
+// CHECK: encoding: [0xc4,0xa2,0x7b,0x6e,0xac,0xf5,0x00,0x00,0x00,0x10]
+               tgatherrowd tmm5, [rbp + 8*r14 + 268435456]
 
-// CHECK:      tgatherrowd tmm3, [r8 + 4*rax + 291]
+// CHECK:     tgatherrowd     tmm3, [r8 + 4*rax + 291]
 // CHECK: encoding: [0xc4,0xc2,0x7b,0x6e,0x9c,0x80,0x23,0x01,0x00,0x00]
                tgatherrowd tmm3, [r8 + 4*rax + 291]
 
-// CHECK:      tgatherrowd tmm3, [2*rbp - 8]
+// CHECK:     tgatherrowd     tmm3, [2*rbp - 8]
 // CHECK: encoding: [0xc4,0xe2,0x7b,0x6e,0x1c,0x6d,0xf8,0xff,0xff,0xff]
                tgatherrowd tmm3, [2*rbp - 8]
 
-// CHECK:      tgatherrowd tmm15, [rcx + 31]
-// CHECK: encoding: [0xc4,0x62,0x7b,0x6e,0x7c,0x21,0x1f]
-               tgatherrowd tmm15, [rcx + 31]
+// CHECK:     tgatherrowd     tmm5, [rcx + 31]
+// CHECK: encoding: [0xc4,0xe2,0x7b,0x6e,0x6c,0x21,0x1f]
+               tgatherrowd tmm5, [rcx + 31]
 
-// CHECK:      tgatherrowd tmm3, [rdx - 32]
+// CHECK:     tgatherrowd     tmm3, [rdx - 32]
 // CHECK: encoding: [0xc4,0xe2,0x7b,0x6e,0x5c,0x22,0xe0]
                tgatherrowd tmm3, [rdx - 32]
 
-// CHECK:      tgatherrowdt1 tmm15, [rbp + 8*r14 + 268435456]
-// CHECK: encoding: [0xc4,0x22,0x7b,0x6f,0xbc,0xf5,0x00,0x00,0x00,0x10]
-               tgatherrowdt1 tmm15, [rbp + 8*r14 + 268435456]
+// CHECK:     tgatherrowdt1     tmm5, [rbp + 8*r14 + 268435456]
+// CHECK: encoding: [0xc4,0xa2,0x7b,0x6f,0xac,0xf5,0x00,0x00,0x00,0x10]
+               tgatherrowdt1 tmm5, [rbp + 8*r14 + 268435456]
 
-// CHECK:      tgatherrowdt1 tmm3, [r8 + 4*rax + 291]
+// CHECK:     tgatherrowdt1     tmm3, [r8 + 4*rax + 291]
 // CHECK: encoding: [0xc4,0xc2,0x7b,0x6f,0x9c,0x80,0x23,0x01,0x00,0x00]
                tgatherrowdt1 tmm3, [r8 + 4*rax + 291]
 
-// CHECK:      tgatherrowdt1 tmm3, [2*rbp - 8]
+// CHECK:     tgatherrowdt1     tmm3, [2*rbp - 8]
 // CHECK: encoding: [0xc4,0xe2,0x7b,0x6f,0x1c,0x6d,0xf8,0xff,0xff,0xff]
                tgatherrowdt1 tmm3, [2*rbp - 8]
 
-// CHECK:      tgatherrowdt1 tmm15, [rcx + 31]
-// CHECK: encoding: [0xc4,0x62,0x7b,0x6f,0x7c,0x21,0x1f]
-               tgatherrowdt1 tmm15, [rcx + 31]
+// CHECK:     tgatherrowdt1     tmm6, [rcx + 31]
+// CHECK: encoding: [0xc4,0xe2,0x7b,0x6f,0x74,0x21,0x1f]
+               tgatherrowdt1 tmm6, [rcx + 31]
 
-// CHECK:      tgatherrowdt1 tmm3, [rdx - 32]
+// CHECK:     tgatherrowdt1     tmm3, [rdx - 32]
 // CHECK: encoding: [0xc4,0xe2,0x7b,0x6f,0x5c,0x22,0xe0]
                tgatherrowdt1 tmm3, [rdx - 32]
 
-// CHECK:      tgatherrowq tmm15, [rbp + 8*r14 + 268435456]
-// CHECK: encoding: [0xc4,0x22,0xfb,0x6e,0xbc,0xf5,0x00,0x00,0x00,0x10]
-               tgatherrowq tmm15, [rbp + 8*r14 + 268435456]
+// CHECK:     tgatherrowq     tmm6, [rbp + 8*r14 + 268435456]
+// CHECK: encoding: [0xc4,0xa2,0xfb,0x6e,0xb4,0xf5,0x00,0x00,0x00,0x10]
+               tgatherrowq tmm6, [rbp + 8*r14 + 268435456]
 
-// CHECK:      tgatherrowq tmm3, [r8 + 4*rax + 291]
+// CHECK:     tgatherrowq     tmm3, [r8 + 4*rax + 291]
 // CHECK: encoding: [0xc4,0xc2,0xfb,0x6e,0x9c,0x80,0x23,0x01,0x00,0x00]
                tgatherrowq tmm3, [r8 + 4*rax + 291]
 
-// CHECK:      tgatherrowq tmm3, [2*rbp - 8]
+// CHECK:     tgatherrowq     tmm3, [2*rbp - 8]
 // CHECK: encoding: [0xc4,0xe2,0xfb,0x6e,0x1c,0x6d,0xf8,0xff,0xff,0xff]
                tgatherrowq tmm3, [2*rbp - 8]
 
-// CHECK:      tgatherrowq tmm15, [rcx + 31]
-// CHECK: encoding: [0xc4,0x62,0xfb,0x6e,0x7c,0x21,0x1f]
-               tgatherrowq tmm15, [rcx + 31]
+// CHECK:     tgatherrowq     tmm6, [rcx + 31]
+// CHECK: encoding: [0xc4,0xe2,0xfb,0x6e,0x74,0x21,0x1f]
+               tgatherrowq tmm6, [rcx + 31]
 
-// CHECK:      tgatherrowq tmm3, [rdx - 32]
+// CHECK:     tgatherrowq     tmm3, [rdx - 32]
 // CHECK: encoding: [0xc4,0xe2,0xfb,0x6e,0x5c,0x22,0xe0]
                tgatherrowq tmm3, [rdx - 32]
 
-// CHECK:      tgatherrowqt1 tmm15, [rbp + 8*r14 + 268435456]
-// CHECK: encoding: [0xc4,0x22,0xfb,0x6f,0xbc,0xf5,0x00,0x00,0x00,0x10]
-               tgatherrowqt1 tmm15, [rbp + 8*r14 + 268435456]
+// CHECK:     tgatherrowqt1     tmm7, [rbp + 8*r14 + 268435456]
+// CHECK: encoding: [0xc4,0xa2,0xfb,0x6f,0xbc,0xf5,0x00,0x00,0x00,0x10]
+               tgatherrowqt1 tmm7, [rbp + 8*r14 + 268435456]
 
-// CHECK:      tgatherrowqt1 tmm3, [r8 + 4*rax + 291]
+// CHECK:     tgatherrowqt1     tmm3, [r8 + 4*rax + 291]
 // CHECK: encoding: [0xc4,0xc2,0xfb,0x6f,0x9c,0x80,0x23,0x01,0x00,0x00]
                tgatherrowqt1 tmm3, [r8 + 4*rax + 291]
 
-// CHECK:      tgatherrowqt1 tmm3, [2*rbp - 8]
+// CHECK:     tgatherrowqt1     tmm3, [2*rbp - 8]
 // CHECK: encoding: [0xc4,0xe2,0xfb,0x6f,0x1c,0x6d,0xf8,0xff,0xff,0xff]
                tgatherrowqt1 tmm3, [2*rbp - 8]
 
-// CHECK:      tgatherrowqt1 tmm15, [rcx + 31]
-// CHECK: encoding: [0xc4,0x62,0xfb,0x6f,0x7c,0x21,0x1f]
-               tgatherrowqt1 tmm15, [rcx + 31]
+// CHECK:     tgatherrowqt1     tmm7, [rcx + 31]
+// CHECK: encoding: [0xc4,0xe2,0xfb,0x6f,0x7c,0x21,0x1f]
+               tgatherrowqt1 tmm7, [rcx + 31]
 
-// CHECK:      tgatherrowqt1 tmm3, [rdx - 32]
+// CHECK:     tgatherrowqt1     tmm3, [rdx - 32]
 // CHECK: encoding: [0xc4,0xe2,0xfb,0x6f,0x5c,0x22,0xe0]
                tgatherrowqt1 tmm3, [rdx - 32]
 
-// CHECK:      tscatterrowd [rbp + 8*r14 + 268435456], tmm15
-// CHECK: encoding: [0xc4,0x22,0x7a,0x6e,0xbc,0xf5,0x00,0x00,0x00,0x10]
-               tscatterrowd [rbp + 8*r14 + 268435456], tmm15
+// CHECK:     tscatterrowd     [rbp + 8*r14 + 268435456], tmm1
+// CHECK: encoding: [0xc4,0xa2,0x7a,0x6e,0x8c,0xf5,0x00,0x00,0x00,0x10]
+               tscatterrowd [rbp + 8*r14 + 268435456], tmm1
 
-// CHECK:      tscatterrowd [r8 + 4*rax + 291], tmm3
+// CHECK:     tscatterrowd     [r8 + 4*rax + 291], tmm3
 // CHECK: encoding: [0xc4,0xc2,0x7a,0x6e,0x9c,0x80,0x23,0x01,0x00,0x00]
                tscatterrowd [r8 + 4*rax + 291], tmm3
 
-// CHECK:      tscatterrowd [2*rbp - 8], tmm3
+// CHECK:     tscatterrowd     [2*rbp - 8], tmm3
 // CHECK: encoding: [0xc4,0xe2,0x7a,0x6e,0x1c,0x6d,0xf8,0xff,0xff,0xff]
                tscatterrowd [2*rbp - 8], tmm3
 
-// CHECK:      tscatterrowd [rcx + 31], tmm15
-// CHECK: encoding: [0xc4,0x62,0x7a,0x6e,0x7c,0x21,0x1f]
-               tscatterrowd [rcx + 31], tmm15
+// CHECK:     tscatterrowd     [rcx + 31], tmm5
+// CHECK: encoding: [0xc4,0xe2,0x7a,0x6e,0x6c,0x21,0x1f]
+               tscatterrowd [rcx + 31], tmm5
 
-// CHECK:      tscatterrowd [rdx - 32], tmm3
+// CHECK:     tscatterrowd     [rdx - 32], tmm3
 // CHECK: encoding: [0xc4,0xe2,0x7a,0x6e,0x5c,0x22,0xe0]
                tscatterrowd [rdx - 32], tmm3
 
-// CHECK:      tscatterrowdt1 [rbp + 8*r14 + 268435456], tmm15
-// CHECK: encoding: [0xc4,0x22,0x7a,0x6f,0xbc,0xf5,0x00,0x00,0x00,0x10]
-               tscatterrowdt1 [rbp + 8*r14 + 268435456], tmm15
+// CHECK:     tscatterrowdt1     [rbp + 8*r14 + 268435456], tmm5
+// CHECK: encoding: [0xc4,0xa2,0x7a,0x6f,0xac,0xf5,0x00,0x00,0x00,0x10]
+               tscatterrowdt1 [rbp + 8*r14 + 268435456], tmm5
 
-// CHECK:      tscatterrowdt1 [r8 + 4*rax + 291], tmm3
+// CHECK:     tscatterrowdt1     [r8 + 4*rax + 291], tmm3
 // CHECK: encoding: [0xc4,0xc2,0x7a,0x6f,0x9c,0x80,0x23,0x01,0x00,0x00]
                tscatterrowdt1 [r8 + 4*rax + 291], tmm3
 
-// CHECK:      tscatterrowdt1 [2*rbp - 8], tmm3
+// CHECK:     tscatterrowdt1     [2*rbp - 8], tmm3
 // CHECK: encoding: [0xc4,0xe2,0x7a,0x6f,0x1c,0x6d,0xf8,0xff,0xff,0xff]
                tscatterrowdt1 [2*rbp - 8], tmm3
 
-// CHECK:      tscatterrowdt1 [rcx + 31], tmm15
-// CHECK: encoding: [0xc4,0x62,0x7a,0x6f,0x7c,0x21,0x1f]
-               tscatterrowdt1 [rcx + 31], tmm15
+// CHECK:     tscatterrowdt1     [rcx + 31], tmm5
+// CHECK: encoding: [0xc4,0xe2,0x7a,0x6f,0x6c,0x21,0x1f]
+               tscatterrowdt1 [rcx + 31], tmm5
 
-// CHECK:      tscatterrowdt1 [rdx - 32], tmm3
+// CHECK:     tscatterrowdt1     [rdx - 32], tmm3
 // CHECK: encoding: [0xc4,0xe2,0x7a,0x6f,0x5c,0x22,0xe0]
                tscatterrowdt1 [rdx - 32], tmm3
 
-// CHECK:      tscatterrowq [rbp + 8*r14 + 268435456], tmm15
-// CHECK: encoding: [0xc4,0x22,0xfa,0x6e,0xbc,0xf5,0x00,0x00,0x00,0x10]
-               tscatterrowq [rbp + 8*r14 + 268435456], tmm15
+// CHECK:     tscatterrowq     [rbp + 8*r14 + 268435456], tmm5
+// CHECK: encoding: [0xc4,0xa2,0xfa,0x6e,0xac,0xf5,0x00,0x00,0x00,0x10]
+               tscatterrowq [rbp + 8*r14 + 268435456], tmm5
 
-// CHECK:      tscatterrowq [r8 + 4*rax + 291], tmm3
+// CHECK:     tscatterrowq     [r8 + 4*rax + 291], tmm3
 // CHECK: encoding: [0xc4,0xc2,0xfa,0x6e,0x9c,0x80,0x23,0x01,0x00,0x00]
                tscatterrowq [r8 + 4*rax + 291], tmm3
 
-// CHECK:      tscatterrowq [2*rbp - 8], tmm3
+// CHECK:     tscatterrowq     [2*rbp - 8], tmm3
 // CHECK: encoding: [0xc4,0xe2,0xfa,0x6e,0x1c,0x6d,0xf8,0xff,0xff,0xff]
                tscatterrowq [2*rbp - 8], tmm3
 
-// CHECK:      tscatterrowq [rcx + 31], tmm15
-// CHECK: encoding: [0xc4,0x62,0xfa,0x6e,0x7c,0x21,0x1f]
-               tscatterrowq [rcx + 31], tmm15
+// CHECK:     tscatterrowq     [rcx + 31], tmm5
+// CHECK: encoding: [0xc4,0xe2,0xfa,0x6e,0x6c,0x21,0x1f]
+               tscatterrowq [rcx + 31], tmm5
 
-// CHECK:      tscatterrowq [rdx - 32], tmm3
+// CHECK:     tscatterrowq     [rdx - 32], tmm3
 // CHECK: encoding: [0xc4,0xe2,0xfa,0x6e,0x5c,0x22,0xe0]
                tscatterrowq [rdx - 32], tmm3
 
-// CHECK:      tscatterrowqt1 [rbp + 8*r14 + 268435456], tmm15
-// CHECK: encoding: [0xc4,0x22,0xfa,0x6f,0xbc,0xf5,0x00,0x00,0x00,0x10]
-               tscatterrowqt1 [rbp + 8*r14 + 268435456], tmm15
+// CHECK:     tscatterrowqt1     [rbp + 8*r14 + 268435456], tmm5
+// CHECK: encoding: [0xc4,0xa2,0xfa,0x6f,0xac,0xf5,0x00,0x00,0x00,0x10]
+               tscatterrowqt1 [rbp + 8*r14 + 268435456], tmm5
 
-// CHECK:      tscatterrowqt1 [r8 + 4*rax + 291], tmm3
+// CHECK:     tscatterrowqt1     [r8 + 4*rax + 291], tmm3
 // CHECK: encoding: [0xc4,0xc2,0xfa,0x6f,0x9c,0x80,0x23,0x01,0x00,0x00]
                tscatterrowqt1 [r8 + 4*rax + 291], tmm3
 
-// CHECK:      tscatterrowqt1 [2*rbp - 8], tmm3
+// CHECK:     tscatterrowqt1     [2*rbp - 8], tmm3
 // CHECK: encoding: [0xc4,0xe2,0xfa,0x6f,0x1c,0x6d,0xf8,0xff,0xff,0xff]
                tscatterrowqt1 [2*rbp - 8], tmm3
 
-// CHECK:      tscatterrowqt1 [rcx + 31], tmm15
-// CHECK: encoding: [0xc4,0x62,0xfa,0x6f,0x7c,0x21,0x1f]
-               tscatterrowqt1 [rcx + 31], tmm15
+// CHECK:     tscatterrowqt1     [rcx + 31], tmm6
+// CHECK: encoding: [0xc4,0xe2,0xfa,0x6f,0x74,0x21,0x1f]
+               tscatterrowqt1 [rcx + 31], tmm6
 
-// CHECK:      tscatterrowqt1 [rdx - 32], tmm3
+// CHECK:     tscatterrowqt1     [rdx - 32], tmm3
 // CHECK: encoding: [0xc4,0xe2,0xfa,0x6f,0x5c,0x22,0xe0]
                tscatterrowqt1 [rdx - 32], tmm3
 

@@ -1,6 +1,6 @@
 //===------- DTransImmutableAnalysis.cpp - DTrans Immutable Analysis ------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
 
 using namespace llvm;
@@ -36,11 +37,6 @@ ImmutablePass *llvm::createDTransImmutableAnalysisWrapperPass() {
 
 DTransImmutableInfo DTransImmutableAnalysis::run(Module &M,
                                                  ModuleAnalysisManager &AM) {
-  return DTransImmutableInfo();
-}
-
-DTransImmutableInfo DTransImmutableAnalysis::run(Function &F,
-                                                 FunctionAnalysisManager &AM) {
   return DTransImmutableInfo();
 }
 

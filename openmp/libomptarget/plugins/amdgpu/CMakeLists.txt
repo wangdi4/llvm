@@ -30,8 +30,8 @@ if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)|(ppc64le)|(aarch64)$" AND CMAKE_
   return()
 endif()
 
-if (NOT LIBOMPTARGET_LLVM_MAIN_INCLUDE_DIR)
-  libomptarget_say("Not building AMDGPU plugin: Missing definition for LIBOMPTARGET_LLVM_MAIN_INCLUDE_DIR")
+if (NOT LIBOMPTARGET_LLVM_INCLUDE_DIRS)
+  libomptarget_say("Not building AMDGPU plugin: Missing definition for LIBOMPTARGET_LLVM_INCLUDE_DIRS")
   return()
 endif()
 
@@ -50,7 +50,7 @@ endif()
 
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/impl
-  ${LIBOMPTARGET_LLVM_MAIN_INCLUDE_DIR}
+  ${LIBOMPTARGET_LLVM_INCLUDE_DIRS}
 )
 
 add_library(omptarget.rtl.amdgpu SHARED
@@ -70,14 +70,29 @@ add_library(omptarget.rtl.amdgpu SHARED
 install(TARGETS omptarget.rtl.amdgpu LIBRARY DESTINATION "lib${OPENMP_LIBDIR_SUFFIX}")
 
 set_property(TARGET omptarget.rtl.amdgpu PROPERTY INSTALL_RPATH "$ORIGIN")
+if(INTEL_COLLAB)
 target_link_libraries(
   omptarget.rtl.amdgpu
   PRIVATE
+  elf_common
+  hsa-runtime64::hsa-runtime64
+  dl
+  ${LIBOMPTARGET_DEP_LIBELF_LIBRARIES}
+  ${OPENMP_PTHREAD_LIB}
+  "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports"
+  "-Wl,-z,defs"
+  )
+else(INTEL_COLLAB)
+target_link_libraries(
+  omptarget.rtl.amdgpu
+  PRIVATE
+  elf_common
   hsa-runtime64::hsa-runtime64
   pthread dl elf
   "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports"
   "-Wl,-z,defs"
   )
+endif(INTEL_COLLAB)
 
 # Report to the parent scope that we are building a plugin for amdgpu
 set(LIBOMPTARGET_SYSTEM_TARGETS "${LIBOMPTARGET_SYSTEM_TARGETS} amdgcn-amd-amdhsa" PARENT_SCOPE)

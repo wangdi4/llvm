@@ -18,7 +18,7 @@
 ; + END LOOP
 ; END REGION
 
-; CHECK: Loopnest Interchanged: ( 1 2 3 4 ) --> ( 4 1 2 3 )
+; CHECK: Loopnest Interchanged: ( 1 2 3 4 ) --> ( 4 2 1 3 )
 
 ;Module Before HIR; ModuleID = 'foo.c'
 source_filename = "foo.c"

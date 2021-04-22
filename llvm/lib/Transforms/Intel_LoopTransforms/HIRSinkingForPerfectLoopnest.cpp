@@ -48,7 +48,6 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSinkingForPerfectLoopnestPass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -86,6 +85,7 @@ public:
 
   bool run();
 };
+
 } // namespace
 
 // Gather all near perfect loop nests
@@ -181,12 +181,9 @@ bool HIRSinkingForPerfectLoopnest::run() {
   return SV.sinked();
 }
 
-PreservedAnalyses
-HIRSinkingForPerfectLoopnestPass::run(llvm::Function &F,
-                                      llvm::FunctionAnalysisManager &AM) {
-  HIRSinkingForPerfectLoopnest(AM.getResult<HIRFrameworkAnalysis>(F),
-                               AM.getResult<HIRDDAnalysisPass>(F))
-      .run();
+PreservedAnalyses HIRSinkingForPerfectLoopnestPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRSinkingForPerfectLoopnest(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
   return PreservedAnalyses::all();
 }
 

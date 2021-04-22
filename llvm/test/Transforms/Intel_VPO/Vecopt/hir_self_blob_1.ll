@@ -1,5 +1,7 @@
 ; Test for successful vectorization - test should not crash.
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -S -vplan-force-vf=4 -print-after=VPlanDriverHIR 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" < %s -S -vplan-force-vf=4 2>&1 | FileCheck %s
+
 ; CHECK: DO i2 = 0, {{.*}}, 4
 ; ModuleID = '111.c'
 source_filename = "111.c"

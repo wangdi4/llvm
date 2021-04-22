@@ -35,6 +35,8 @@
 
 
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -vplan-force-vf=2 -enable-vplan-vls-cg -hir-cg -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -vplan-force-vf=2 -enable-vplan-vls-cg -S < %s 2>&1 | FileCheck %s
+
 
 ; TODO: Currently only a single shuffle is seen since codegen does not handle decomposed load VPInstructions. The first two implicit
 ; loads are vectorized into gathers. This test should be updated to check for a wide load and 3 shuffles when that feature is added (Jira : CMPLRLLVM-7542).

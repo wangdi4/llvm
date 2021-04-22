@@ -13,6 +13,8 @@
 ; ModuleID = 'tva.c'
 ; Check that loop is vectorized
 ; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -S < %s 2>&1 | FileCheck %s
+
 ; CHECK-NOT: DO i1 = 0, 1023, 1{{[[:space:]]}}
 source_filename = "tva.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

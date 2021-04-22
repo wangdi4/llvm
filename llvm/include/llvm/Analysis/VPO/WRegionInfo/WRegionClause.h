@@ -367,10 +367,19 @@ class PrivateItem : public Item
       // PRIVATE nonPOD Args are: var, ctor, dtor
       Value *V = cast<Value>(Args[0]);
       setOrig(V);
+
+      // Make sure WRegion parsing doesn't crash while handling
+      // PRIVATE:NONPODs with "i8* null" constructor/destructors.
+      // (An example of when the ctor/dtor can be "i8* null" is found during
+      // device compilation for directives outside of a TARGET region.)
       V = cast<Value>(Args[1]);
-      Constructor = cast<Function>(V);
+      Constructor = dyn_cast<Function>(V);
+      assert(Constructor || isa<ConstantPointerNull>(V) &&
+             "Constructor must be a function pointer or null");
       V = cast<Value>(Args[2]);
-      Destructor = cast<Function>(V);
+      Destructor = dyn_cast<Function>(V);
+      assert(Destructor || isa<ConstantPointerNull>(V) &&
+             "Destructor must be a function pointer or null");
     }
     void setInAllocate(AllocateItem *AI) { InAllocate = AI; }
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
@@ -379,7 +388,7 @@ class PrivateItem : public Item
     RDECL getConstructor() const { return Constructor; }
     RDECL getDestructor()  const { return Destructor;  }
 
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
       if (getIsNonPod()) {
         OS << "NONPOD(";
         printOrig(OS, PrintType);
@@ -434,9 +443,13 @@ class FirstprivateItem : public Item
       Value *V = cast<Value>(Args[0]);
       setOrig(V);
       V = cast<Value>(Args[1]);
-      CopyConstructor = cast<Function>(V);
+      CopyConstructor = dyn_cast<Function>(V);
+      assert(CopyConstructor || isa<ConstantPointerNull>(V) &&
+             "CopyConstructor must be a function pointer or null");
       V = cast<Value>(Args[2]);
-      Destructor = cast<Function>(V);
+      Destructor = dyn_cast<Function>(V);
+      assert(Destructor || isa<ConstantPointerNull>(V) &&
+             "Destructor must be a function pointer or null");
     }
     void setInLastprivate(LastprivateItem *LI) { InLastprivate = LI; }
     void setInMap(MapItem *MI) { InMap = MI; }
@@ -451,7 +464,7 @@ class FirstprivateItem : public Item
     void setIsPointer(bool Val) { IsPointer = Val; }
     bool getIsPointer() const { return IsPointer; }
 
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
       if (getIsNonPod()) {
         OS << "NONPOD(";
         printOrig(OS, PrintType);
@@ -495,35 +508,39 @@ class LastprivateItem : public Item
       // LASTPRIVATE nonPOD Args are: var, ctor, copy-assign, dtor
       Value *V = cast<Value>(Args[0]);
       setOrig(V);
-      if (Constant *C = dyn_cast<Constant>(Args[1])) {
-        // If a nonpod var is both lastprivate and firstprivate, the ctor in
-        // the lastprivate OperanBundle is "i8* null" from clang. This is
-        // because the var will not be initialized with a default constructor,
-        // but rather with the copy-constructor from its firstprivate clause.
-        // In this case, we stay with Constructor=nullptr.
-        if (!(C->isNullValue())) {
-          Constructor = cast<Function>(C);
-        }
-      }
+
+      // If a nonpod var is both lastprivate and firstprivate, the ctor in
+      // the lastprivate OperanBundle is "i8* null" from clang. This is
+      // because the var will not be initialized with a default constructor,
+      // but rather with the copy-constructor from its firstprivate clause.
+      // In this case, we stay with Constructor=nullptr.
+      V = cast<Value>(Args[1]);
+      Constructor = dyn_cast<Function>(V);
+      assert(Constructor || isa<ConstantPointerNull>(V) &&
+             "Constructor must be a function pointer or null");
       V = cast<Value>(Args[2]);
-      CopyAssign = cast<Function>(V);
+      CopyAssign = dyn_cast<Function>(V);
+      assert(CopyAssign || isa<ConstantPointerNull>(V) &&
+             "CopyAssign must be a function pointer or null");
       V = cast<Value>(Args[3]);
-      Destructor = cast<Function>(V);
+      Destructor = dyn_cast<Function>(V);
+      assert(Destructor || isa<ConstantPointerNull>(V) &&
+             "Destructor must be a function pointer or null");
     }
-    void setIsConditional(bool B) { IsConditional = B; }
+    void setIsConditional(bool B) override { IsConditional = B; }
     void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
     void setInAllocate(AllocateItem *AI) { InAllocate = AI; }
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
     void setCopyAssign(RDECL Cpy) { CopyAssign = Cpy;         }
     void setDestructor(RDECL Dtor) { Destructor  = Dtor; }
-    bool getIsConditional() const { return IsConditional; }
+    bool getIsConditional() const override { return IsConditional; }
     FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
     AllocateItem *getInAllocate() const { return InAllocate; }
     RDECL getConstructor() const { return Constructor; }
     RDECL getCopyAssign() const { return CopyAssign; }
     RDECL getDestructor() const { return Destructor; }
 
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
       if (getIsNonPod()) {
         OS << "NONPOD(";
         printOrig(OS, PrintType);
@@ -645,7 +662,9 @@ public:
     RDECL Destructor;
     ArraySectionInfo ArrSecInfo;
     AllocateItem *InAllocate; // AllocateItem with the same opnd
-
+    Value *TaskRedInitOrigArg =
+        nullptr; // Tasks: 2nd argument in kmpc_taskred_init's
+                 // reduction init callback function.
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
         : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false), IsComplex(false),
@@ -747,6 +766,7 @@ public:
     void setConstructor(RDECL Ctor)   { Constructor = Ctor;  }
     void setDestructor(RDECL Dtor)    { Destructor = Dtor;   }
     void setInAllocate(AllocateItem *AI) { InAllocate = AI;  }
+    void setTaskRedInitOrigArg(Value *V) { TaskRedInitOrigArg = V; }
 
     WRNReductionKind getType() const { return Ty;            }
     bool getIsUnsigned()       const { return IsUnsigned;    }
@@ -757,6 +777,7 @@ public:
     RDECL getConstructor()     const { return Constructor;   }
     RDECL getDestructor()      const { return Destructor;    }
     AllocateItem *getInAllocate() const { return InAllocate; }
+    Value *getTaskRedInitOrigArg() const { return TaskRedInitOrigArg; }
 
     ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
     const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
@@ -772,7 +793,7 @@ public:
 
     // Don't use the default print() from the base class "Item", because
     // we need to print the Reduction operation too.
-    void print(formatted_raw_ostream &OS, bool PrintType = true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType = true) const override {
       OS << "(" << getOpName() << ": ";
       printOrig(OS, PrintType);
       if (getIsArraySection()) {
@@ -850,7 +871,7 @@ class LinearItem : public Item
     bool getIsIV() const { return IsIV; }
 
     // Specialized print() to output the stride as well
-    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
       if (getIsIV())
         OS << "IV";
       OS << "(";
@@ -924,30 +945,37 @@ private:
   Value *BasePtr;
   Value *SectionPtr;
   Value *Size;
-  uint64_t MapType;
+  uint64_t MapType = 0;
   GlobalVariable *Name = nullptr;
   Value *Mapper = nullptr;
+  // If non-zero, contains the initial index of the Aggr with respect to
+  // all map-chain Aggrs, in the IR coming from the frontend.
+  unsigned InitialAggrIndex = 0;
+  bool HasExplicitMapType = false;
 
 public:
   MapAggrTy(Value *BP, Value *SP, Value *Sz)
-      : BasePtr(BP), SectionPtr(SP), Size(Sz), MapType(0) {}
-  MapAggrTy(Value *BP, Value *SP, Value *Sz, uint64_t MT)
-      : BasePtr(BP), SectionPtr(SP), Size(Sz), MapType(MT) {}
+      : BasePtr(BP), SectionPtr(SP), Size(Sz) {}
+  MapAggrTy(Value *BP, Value *SP, Value *Sz, uint64_t MT, unsigned IAI = 0)
+      : BasePtr(BP), SectionPtr(SP), Size(Sz), MapType(MT),
+        InitialAggrIndex(IAI), HasExplicitMapType(true) {}
   void setBasePtr(Value *BP) { BasePtr = BP; }
   void setSectionPtr(Value *SP) { SectionPtr = SP; }
   void setSize(Value *Sz) { Size = Sz; }
-  void setMapType(uint64_t MT) { MapType = MT;}
   void setName(GlobalVariable *N) { Name = N; }
   void setMapper(Value *M) { Mapper = M; }
   Value *getBasePtr() const { return BasePtr; }
   Value *getSectionPtr() const { return SectionPtr; }
   Value *getSize() const { return Size; }
+  bool hasExplicitMapType() { return HasExplicitMapType; }
+  bool hasInitialAggrIndex() { return InitialAggrIndex != 0; }
+  unsigned getInitialAggrIndex() { return InitialAggrIndex; }
   uint64_t getMapType() const { return MapType; }
   GlobalVariable *getName() const { return Name; }
   Value *getMapper() const { return Mapper; }
 };
 
-typedef SmallVector<MapAggrTy*, 2> MapChainTy;
+typedef SmallVector<MapAggrTy*, 8> MapChainTy;
 
 class UseDevicePtrItem;
 //
@@ -1087,7 +1115,7 @@ public:
     return !ArrSecInfo.getArraySectionDims().empty();
   };
 
-  void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+  void print(formatted_raw_ostream &OS, bool PrintType=true) const override {
     if (getIsMapChain()) {
       OS << "CHAIN(" ;
       for (unsigned I=0; I < MapChain.size(); ++I) {
@@ -1105,7 +1133,10 @@ public:
         OS << ", ";
         Size->printAsOperand(OS, PrintType);
         OS << ", ";
-        OS << MapType;
+        if (Aggr->hasExplicitMapType())
+          OS << MapType << " (" << llvm::format_hex(MapType, 18, true) << ")";
+        else
+          OS << "UNSPECIFIED";
         OS << ", ";
         if (Name)
           Name->printAsOperand(OS, PrintType);
@@ -1292,17 +1323,23 @@ public:
 class AlignedItem
 {
   private:
-    VAR   Base;           // pointer or base of array
-    int   Alignment;      // 0 if unspecified
+    VAR Base;                // pointer or base of array
+    int Alignment;           // 0 if unspecified
+    bool IsPointerToPointer; // true if var is a pointer to pointer (e.g. i32**)
 
   public:
-    AlignedItem(VAR V=nullptr) : Base(V), Alignment(0) {}
+    AlignedItem(VAR V = nullptr)
+        : Base(V), Alignment(0), IsPointerToPointer(false) {}
     void setOrig(VAR V)      { Base = V; }
     void setAlign(int Align) { Alignment = Align; }
-    VAR  getOrig()  const { return Base; }
+    void setIsPointerToPointer(bool Flag) { IsPointerToPointer = Flag; }
+    VAR getOrig() const { return Base; }
     int  getAlign() const { return Alignment; }
+    bool getIsPointerToPointer() const { return IsPointerToPointer; }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsPointerToPointer())
+        OS << "PTR_TO_PTR";
       OS << "(";
       getOrig()->printAsOperand(OS, PrintType);
       OS << ", " << getAlign() << ") ";
@@ -1312,13 +1349,18 @@ class AlignedItem
 class NontemporalItem
 {
   private:
-    VAR Base; // pointer or base of array
+    VAR Base;                // pointer or base of array
+    bool IsPointerToPointer; // true if var is a pointer to pointer (e.g. i32**)
 
   public:
-    NontemporalItem(VAR V=nullptr) : Base(V) {}
+    NontemporalItem(VAR V = nullptr) : Base(V), IsPointerToPointer(false) {}
     VAR getOrig() const { return Base; }
+    void setIsPointerToPointer(bool Flag) { IsPointerToPointer = Flag; }
+    bool getIsPointerToPointer() const { return IsPointerToPointer; }
 
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      if (getIsPointerToPointer())
+        OS << "PTR_TO_PTR";
       OS << "(";
       getOrig()->printAsOperand(OS, PrintType);
       OS << ") ";
@@ -1442,7 +1484,11 @@ print(formatted_raw_ostream &OS, unsigned Depth, unsigned Verbosity) const {
 
   if (Verbosity==0 && !size())
     return false;  // Don't print absent clause message if Verbosity==0
-
+  if (getClauseID() == QUAL_OMP_INIT) {
+    for (auto I : items())
+      I->print(OS, Depth);
+    return true;
+  }
   StringRef Name = VPOAnalysisUtils::getOmpClauseName(getClauseID());
   OS.indent(2*Depth) << Name << " clause";
   if (!size()) {  // this clause was not used in the directive
@@ -1468,6 +1514,131 @@ typename std::vector<ClauseItem>::iterator Clause<ClauseItem>::findOrig(VAR V)
 }
 */
 
+class InteropItem {
+public:
+  typedef enum InteropAction {
+    InteropNone = 0,
+    InteropDestroy,
+    InteropUse,
+    InteropInit
+  } InteropAction;
+
+  enum InitClauseMod {
+    InitTarget       = 0x0001,
+    InitTargetSync   = 0x0002,
+    InitPrefer       = 0x0004,
+    InitPreferOpenCL = 0x0008,
+    InitPreferSycl   = 0x0010,
+    InitPreferL0     = 0x0020
+  } InitClauseMod;
+
+private:
+  VAR InteropObj;
+  InteropAction Action;
+  unsigned InitModifiers; // bit vector for INIT modifiers
+  SmallVector<unsigned, 4> PreferList;
+
+public:
+  InteropItem(VAR V = nullptr) : InteropObj(V), InitModifiers(0) {}
+  void setOrig(VAR V) { InteropObj = V; }
+  VAR getOrig() const { return InteropObj; }
+
+  void setIsDestroy() { Action = InteropDestroy; }
+  void setIsUse() { Action = InteropUse; }
+  void setIsInit() { Action = InteropInit; }
+
+  void setIsTarget() {
+    assert(Action == InteropInit &&
+           "Unexpected: Trying to set Target modifier for a non Init Clause");
+    InitModifiers |= InitTarget;
+  }
+
+  void setIsTargetSync() {
+    assert(
+        Action == InteropInit &&
+        "Unexpected: Trying to set TargetSync modifier for a non Init Clause");
+    InitModifiers |= InitTargetSync;
+  }
+
+  void setIsPrefer() {
+    assert(Action == InteropInit &&
+           "Unexpected: Trying to set Prefer modifier for a non Init Clause");
+    InitModifiers |= InitPrefer;
+  }
+
+  void setIsPreferOpenCL() {
+    assert(Action == InteropInit &&
+           "Unexpected: Trying to set Prefer modifier for a non Init Clause");
+    InitModifiers |= InitPreferOpenCL;
+  }
+
+  void setIsPreferSycl() {
+    assert(Action == InteropInit &&
+           "Unexpected: Trying to set Prefer modifier for a non Init Clause");
+    InitModifiers |= InitPreferSycl;
+  }
+
+  void setIsPreferL0() {
+    assert(Action == InteropInit &&
+           "Unexpected: Trying to set Prefer modifier for a non Init Clause");
+    InitModifiers |= InitPreferL0;
+  }
+
+  // Get prefer items from Args and populate the PreferList
+  void populatePreferList(const Use *Args, unsigned NumArgs);
+
+  unsigned getInteropAction() const { return Action; }
+  bool getIsDestroy() const { return Action == InteropDestroy; }
+  bool getIsUse() const { return Action == InteropUse; }
+  bool getIsInit() const { return Action == InteropInit; }
+
+  bool getIsTarget() const { return InitModifiers & InitTarget; }
+  bool getIsTargetSync() const { return InitModifiers & InitTargetSync; }
+  bool getIsPrefer() const { return InitModifiers & InitPrefer; }
+  bool getIsPreferOpenCL() const { return InitModifiers & InitPreferOpenCL; }
+  bool getIsPreferSycl() const { return InitModifiers & InitPreferSycl; }
+  bool getIsPreferL0() const { return InitModifiers & InitPreferL0; }
+  const SmallVectorImpl<unsigned>&  getPreferList() const { return PreferList;}
+
+  void  printPreferList(formatted_raw_ostream& OS) const {
+      OS << "PREFER_TYPE < ";
+      for (unsigned I = 0; I < PreferList.size(); I++){
+        if(PreferList[I] == 3)
+          OS << "3 (OpenCL) ";
+        else if (PreferList[I] == 4)
+          OS << "4 (SYCL) ";
+        else if (PreferList[I] == 6)
+          OS << "6 (LEVEL0) ";
+      }
+      OS << "> ";
+  }
+
+  void print(formatted_raw_ostream &OS, unsigned Depth = 0,
+             bool PrintType = true) const {
+    if(getIsDestroy()){
+      OS.indent(2 * Depth) << "DESTROY clause (size=1): (";
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ")\n";
+    }
+    else if(getIsUse()){
+      OS.indent(2 * Depth) << "USE clause (size=1): (";
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ")\n";
+    }
+    else {
+      OS.indent(2 * Depth) << "INIT clause (size=1): (";
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
+      if (getIsTarget())
+        OS << "TARGET ";
+      if (getIsTargetSync())
+        OS << "TARGETSYNC ";
+      if (getIsPrefer())
+        printPreferList(OS);
+      OS << "\n";
+    }
+  }
+};
 
 //
 // typedef for list-type clause classes and associated iterator types
@@ -1485,6 +1656,7 @@ typedef Clause<MapItem>           MapClause;
 typedef Clause<IsDevicePtrItem>   IsDevicePtrClause;
 typedef Clause<UseDevicePtrItem>  UseDevicePtrClause;
 typedef Clause<SubdeviceItem>     SubdeviceClause;
+typedef Clause<InteropItem>       InteropActionClause;
 typedef Clause<DependItem>        DependClause;
 typedef Clause<DepSinkItem>       DepSinkClause;
 typedef Clause<DepSourceItem>     DepSourceClause;
@@ -1506,6 +1678,7 @@ typedef std::vector<MapItem>::iterator           MapIter;
 typedef std::vector<IsDevicePtrItem>::iterator   IsDevicePtrIter;
 typedef std::vector<UseDevicePtrItem>::iterator  UseDevicePtrIter;
 typedef std::vector<SubdeviceItem>::iterator     SubdeviceIter;
+typedef std::vector<InteropItem>::iterator       InteropIter;
 typedef std::vector<DependItem>::iterator        DependIter;
 typedef std::vector<DepSinkItem>::iterator       DepSinkIter;
 typedef std::vector<DepSourceItem>::iterator     DepSourceIter;

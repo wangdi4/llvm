@@ -453,7 +453,7 @@ class LinearizationBlockOrdering {
 
 public:
   LinearizationBlockOrdering(
-      VPlan &Plan, const ReversePostOrderTraversal<VPBasicBlock *> &RPOT)
+      VPlanVector &Plan, const ReversePostOrderTraversal<VPBasicBlock *> &RPOT)
       : DT(Plan.getDT()) {
     Blocks.reserve(Plan.size());
     processBlockRec(*RPOT.begin(), RPOT.begin(), RPOT.end());
@@ -517,8 +517,11 @@ void VPlanPredicator::linearizeRegion() {
       // For now, just mark phis as blend to avoid phis in the middle of the
       // generated BB.
       if (UniformEdges.size() == 1 &&
-          CurrBlock->getSinglePredecessor()->getSingleSuccessor())
-        BlocksToBlendProcess.insert(CurrBlock);
+          CurrBlock->getSinglePredecessor()->getSingleSuccessor()) {
+        for (auto &Phi : CurrBlock->getVPPhis()) {
+          PhisToBlendProcess[CurrBlock].push_back(&Phi);
+        }
+      }
 
       // No more fixups needed, al predecessors are uniform edges that we didn't
       // touch.
@@ -607,7 +610,9 @@ void VPlanPredicator::linearizeRegion() {
                    }) &&
            "Uniform edge has been removed!");
 
-    BlocksToBlendProcess.insert(CurrBlock);
+    for (auto &Phi : CurrBlock->getVPPhis()) {
+      PhisToBlendProcess[CurrBlock].push_back(&Phi);
+    }
   }
 }
 
@@ -650,10 +655,11 @@ class PhiToBlendUpdater {
       MergePhiMaps;
 
 public:
-  PhiToBlendUpdater(VPBasicBlock *Block)
-      : VPDomTree(*Block->getParent()->getDT()),
-        VPPostDomTree(*Block->getParent()->getPDT()),
-        VPLI(Block->getParent()->getVPLoopInfo()), Block(Block) {}
+  PhiToBlendUpdater(VPBasicBlock *Block, ArrayRef<VPPHINode *> Phis)
+      : VPDomTree(*(*cast<VPlanVector>(Block->getParent())).getDT()),
+        VPPostDomTree(*(*cast<VPlanVector>(Block->getParent())).getPDT()),
+        VPLI(cast<VPlanVector>(Block->getParent())->getVPLoopInfo()),
+        Block(Block), Phis(Phis.begin(), Phis.end()) {}
 
   void processSingleIncomingValuePhis() {
     assert(Phis[0]->getNumIncomingValues() == 1 &&
@@ -801,11 +807,8 @@ public:
   }
 
   void run() {
-    if (Block->getVPPhis().empty())
+    if (Phis.empty())
       return;
-
-    for (VPPHINode &Phi : Block->getVPPhis())
-      Phis.push_back(&Phi);
 
     if (Phis[0]->getNumIncomingValues() == 1) {
       // LLVM IR CG merges (reuses) several VPBasicBlocks so we can't leave a
@@ -822,7 +825,7 @@ public:
       return;
     }
 
-    auto &SomePhi = cast<VPPHINode>(*Block->begin());
+    auto &SomePhi = *Phis[0];
     for (auto *PredicateBlock : SomePhi.blocks())
       DefBlocks.insert(PredicateBlock);
 
@@ -879,13 +882,41 @@ public:
       }
     }
 
-    auto *DA = Block->getParent()->getVPlanDA();
+    auto *VecVPlan = cast<VPlanVector>(Block->getParent());
+    auto *DA = cast<VPlanDivergenceAnalysis>(VecVPlan->getVPlanDA());
     if (is_contained(IDFPHIBlocks, Block)) {
-      assert(
-          all_of(
-              Phis,
-              [DA](const VPPHINode *Phi) { return DA->isDivergent(*Phi); }) &&
-          "Unimplemented support for uniform PHI in linearized control flow!");
+      if (VecVPlan->areActiveLaneInstructionsDisabled())
+        return;
+
+      VPActiveLane *ActiveLane = nullptr;
+      auto *BlockPredicate = Block->getBlockPredicate();
+      VPBuilder Builder;
+      if (BlockPredicate)
+        Builder.setInsertPoint(BlockPredicate);
+      else
+        Builder.setInsertPointFirstNonPhi(Block);
+
+      for (auto *Phi : Phis) {
+        if (DA->isDivergent(*Phi))
+          continue;
+
+        if (!ActiveLane) {
+          auto *Mask = Block->getPredicate();
+          if (!Mask)
+            Mask = Block->getParent()->getVPConstant(
+                ConstantInt::getTrue(*Block->getParent()->getLLVMContext()));
+          ActiveLane = Builder.create<VPActiveLane>("active.lane", Mask);
+          DA->markUniform(*ActiveLane);
+        }
+
+        auto *UniformVal = Builder.create<VPActiveLaneExtract>(
+            Phi->getName() + ".active", Phi, ActiveLane);
+        DA->markUniform(*UniformVal);
+        DA->markDivergent(*Phi);
+        Phi->replaceUsesWithIf(
+            UniformVal, [UniformVal](VPUser *U) { return U != UniformVal; });
+      }
+
       return;
     }
 
@@ -922,7 +953,7 @@ public:
     if (UniformBlends.empty())
       return;
 
-    if (Block->getParent()->areActiveLaneInstructionsDisabled())
+    if (VecVPlan->areActiveLaneInstructionsDisabled())
       return;
 
     auto SplitIt = Block->getBlockPredicate()
@@ -955,15 +986,13 @@ public:
 
 void VPlanPredicator::transformPhisToBlends() {
   for (VPBasicBlock *Block : RPOT) {
-    if (BlocksToBlendProcess.count(Block) == 0)
-      continue;
-
-    PhiToBlendUpdater Updater(Block);
+    PhiToBlendUpdater Updater(Block, PhisToBlendProcess[Block]);
     Updater.run();
   }
 }
 
 void VPlanPredicator::fixupUniformInnerLoops() {
+  VPlanDivergenceAnalysisBase *DA = Plan.getVPlanDA();
   for (auto *Loop : VPLI->getLoopsInPreorder()) {
     VPBasicBlock *Header = Loop->getHeader();
     auto *Predicate = Header->getPredicate();
@@ -990,16 +1019,16 @@ void VPlanPredicator::fixupUniformInnerLoops() {
     VPBuilder Builder;
     Builder.setInsertPoint(Latch);
     auto *NewAllZeroCheck = Builder.createAllZeroCheck(Predicate);
-    Plan.getVPlanDA()->updateDivergence(*NewAllZeroCheck);
+    DA->updateDivergence(*NewAllZeroCheck);
     VPValue *NewCondBit;
     if (!BackEdgeIsFalseSucc) {
       NewAllZeroCheck = Builder.createNot(NewAllZeroCheck);
-      Plan.getVPlanDA()->updateDivergence(*NewAllZeroCheck);
+      DA->updateDivergence(*NewAllZeroCheck);
       NewCondBit = Builder.createAnd(NewAllZeroCheck, CondBit);
     } else
       NewCondBit = Builder.createOr(NewAllZeroCheck, CondBit);
 
-    Plan.getVPlanDA()->updateDivergence(*NewCondBit);
+    DA->updateDivergence(*NewCondBit);
     Latch->setCondBit(NewCondBit);
   }
 }
@@ -1056,7 +1085,7 @@ void VPlanPredicator::emitPredicates() {
         auto *BlockPredicateInst =
             VPBuilder().setInsertPointAfterBlends(Block).createPred(Predicate);
         Block->setBlockPredicate(BlockPredicateInst);
-        Plan.getVPlanDA()->updateDivergence(*BlockPredicateInst);
+        DA->updateDivergence(*BlockPredicateInst);
       }
 
       continue;
@@ -1078,7 +1107,7 @@ void VPlanPredicator::emitPredicates() {
         (!shouldPreserveUniformBranches() || DA->isDivergent(*Predicate))) {
       auto *BlockPredicateInst = Builder.createPred(Predicate);
       Block->setBlockPredicate(BlockPredicateInst);
-      Plan.getVPlanDA()->updateDivergence(*BlockPredicateInst);
+      DA->updateDivergence(*BlockPredicateInst);
     }
   }
 }
@@ -1144,5 +1173,5 @@ void VPlanPredicator::predicate() {
   LLVM_DEBUG(Plan.dump());
 }
 
-VPlanPredicator::VPlanPredicator(VPlan &Plan)
+VPlanPredicator::VPlanPredicator(VPlanVector &Plan)
     : Plan(Plan), VPLI(Plan.getVPLoopInfo()), RPOT(Plan.getEntryBlock()) {}

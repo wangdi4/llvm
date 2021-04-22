@@ -16,6 +16,7 @@
 #include "IntelVPlanVLSAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanUtils.h"
+#include "IntelVPlanVLSTransform.h"
 #if INTEL_CUSTOMIZATION
 #include "VPlanHIR/IntelVPlanVLSAnalysisHIR.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -44,7 +45,7 @@ cl::opt<VPlanVLSLevelVariant> VPlanVLSLevel(
                           "Always run OptVLS during loop vectorization")),
     cl::init(VPlanVLSRunAuto));
 
-OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPInstruction *VPInst,
+OVLSMemref *VPlanVLSAnalysis::createVLSMemref(const VPLoadStoreInst *VPInst,
                                               const unsigned VF) const {
   int Opcode = VPInst->getOpcode();
   OVLSAccessKind AccKind = OVLSAccessKind::Unknown;
@@ -88,8 +89,7 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
 
   for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock())) {
     for (const VPInstruction &VPInst : *Block) {
-      auto Opcode = VPInst.getOpcode();
-      if (Opcode != Instruction::Load && Opcode != Instruction::Store)
+      if (!isa<VPLoadStoreInst>(VPInst))
         continue;
 
       // FIXME: VPOCodeGen does not support widening of VLS groups composed of
@@ -99,7 +99,7 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
       if (hasIrregularTypeForUnitStride(MrfTy, &DL))
         continue;
 
-      OVLSMemref *Memref = createVLSMemref(&VPInst, VF);
+      OVLSMemref *Memref = createVLSMemref(&cast<VPLoadStoreInst>(VPInst), VF);
       if (!Memref)
         continue;
 
@@ -220,10 +220,36 @@ int computeInterleaveFactor(OVLSMemref *Memref) {
 
   auto ElementSizeInBits = Memref->getType().getElementSize();
   int InterleaveFactor = *Stride / (ElementSizeInBits / 8);
-  assert(InterleaveFactor * ElementSizeInBits == 8 * (*Stride) &&
+  assert(InterleaveFactor * (int)ElementSizeInBits == 8 * (*Stride) &&
          "Stride is not a multiple of element size");
 
   return InterleaveFactor;
+}
+
+Optional<std::tuple<OVLSGroup *, int, int>>
+getOptimizedVLSGroupData(const VPInstruction *VPInst,
+                         const VPlanVLSAnalysis *VLSA, const VPlan *Plan) {
+  if (!VLSA)
+    return None;
+
+  if (!VPInst->isUnderlyingIRValid())
+    return None;
+
+  auto *Group = VLSA->getGroupsFor(Plan, VPInst);
+  if (!Group)
+    return None;
+
+  // We currently only handle group sizes > 1.
+
+  if (!isTransformableVLSGroup(Group))
+    return None;
+
+  VPVLSClientMemref *VPInstMemref = cast<VPVLSClientMemref>(
+      *find_if(*Group, [VPInst](const OVLSMemref *Memref) {
+        return instruction(Memref) == VPInst;
+      }));
+  return std::make_tuple(Group, computeInterleaveFactor(VPInstMemref),
+                         computeInterleaveIndex(VPInstMemref, Group));
 }
 
 } // namespace vpo

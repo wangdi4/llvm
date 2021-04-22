@@ -37,7 +37,7 @@ define dso_local i32 @main() local_unnamed_addr {
 ; CHECK-NEXT:    [[I127:%.*]] = bitcast i32* [[ARRAYIDX869]] to <8 x i32>*
 ; CHECK-NEXT:    [[I130:%.*]] = load <8 x i32>, <8 x i32>* [[I127]], align 8
 ; CHECK-NEXT:    [[I131:%.*]] = extractelement <8 x i32> [[I130]], i32 7
-; CHECK-NEXT:    [[TMP6:%.*]] = insertelement <4 x i32> undef, i32 [[I131]], i32 0
+; CHECK-NEXT:    [[TMP6:%.*]] = insertelement <4 x i32> poison, i32 [[I131]], i32 0
 ; CHECK-NEXT:    [[TMP7:%.*]] = extractelement <4 x i32> [[TMP5]], i32 0
 ; CHECK-NEXT:    [[TMP8:%.*]] = insertelement <4 x i32> [[TMP6]], i32 [[TMP7]], i32 1
 ; CHECK-NEXT:    [[TMP9:%.*]] = extractelement <4 x i32> [[TMP5]], i32 1

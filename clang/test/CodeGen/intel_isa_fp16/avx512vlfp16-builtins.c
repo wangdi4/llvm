@@ -3021,10 +3021,10 @@ __m256h test_mm256_permutexvar_ph(__m256i __A, __m256h __B) {
 _Float16 test_mm256_reduce_add_ph(__m256h __W){
   // CHECK-LABEL: @test_mm256_reduce_add_ph
   // CHECK:  %{{.*}} = bitcast <16 x half> %{{.*}} to <4 x i64>
-  // CHECK:  %{{.*}} = shufflevector <4 x i64> %{{.*}}, <4 x i64> undef, <2 x i32> <i32 0, i32 1>
+  // CHECK:  %{{.*}} = shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 0, i32 1>
   // CHECK:  %{{.*}} = bitcast <2 x i64> %{{.*}} to <8 x half>
   // CHECK:  %{{.*}} = bitcast <16 x half> %{{.*}} to <4 x i64>
-  // CHECK:  %{{.*}} = shufflevector <4 x i64> %{{.*}}, <4 x i64> undef, <2 x i32> <i32 2, i32 3>
+  // CHECK:  %{{.*}} = shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 2, i32 3>
   // CHECK:  %{{.*}} = bitcast <2 x i64> %{{.*}} to <8 x half>
   // CHECK:  %{{.*}} = fadd <8 x half> %{{.*}}, %{{.*}}
   // CHECK:  %{{.*}} = shufflevector <8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 4, i32 5, i32 6, i32 7>
@@ -3040,10 +3040,10 @@ _Float16 test_mm256_reduce_add_ph(__m256h __W){
 _Float16 test_mm256_reduce_mul_ph(__m256h __W){
   // CHECK-LABEL: @test_mm256_reduce_mul_ph
   // CHECK:  %{{.*}} = bitcast <16 x half> %{{.*}} to <4 x i64>
-  // CHECK:  %{{.*}} = shufflevector <4 x i64> %{{.*}}, <4 x i64> undef, <2 x i32> <i32 0, i32 1>
+  // CHECK:  %{{.*}} = shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 0, i32 1>
   // CHECK:  %{{.*}} = bitcast <2 x i64> %{{.*}} to <8 x half>
   // CHECK:  %{{.*}} = bitcast <16 x half> %{{.*}} to <4 x i64>
-  // CHECK:  %{{.*}} = shufflevector <4 x i64> %{{.*}}, <4 x i64> undef, <2 x i32> <i32 2, i32 3>
+  // CHECK:  %{{.*}} = shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 2, i32 3>
   // CHECK:  %{{.*}} = bitcast <2 x i64> %{{.*}} to <8 x half>
   // CHECK:  %{{.*}} = fmul <8 x half> %{{.*}}, %{{.*}}
   // CHECK:  %{{.*}} = shufflevector <8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 4, i32 5, i32 6, i32 7>
@@ -3059,10 +3059,10 @@ _Float16 test_mm256_reduce_mul_ph(__m256h __W){
 _Float16 test_mm256_reduce_max_ph(__m256h __W){
   // CHECK-LABEL: @test_mm256_reduce_max_ph
   // CHECK:  %{{.*}} = bitcast <16 x half> %{{.*}} to <4 x i64>
-  // CHECK:  %{{.*}} = shufflevector <4 x i64> %{{.*}}, <4 x i64> undef, <2 x i32> <i32 0, i32 1>
+  // CHECK:  %{{.*}} = shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 0, i32 1>
   // CHECK:  %{{.*}} = bitcast <2 x i64> %{{.*}} to <8 x half>
   // CHECK:  %{{.*}} = bitcast <16 x half> %{{.*}} to <4 x i64>
-  // CHECK:  %{{.*}} = shufflevector <4 x i64> %{{.*}}, <4 x i64> undef, <2 x i32> <i32 2, i32 3>
+  // CHECK:  %{{.*}} = shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 2, i32 3>
   // CHECK:  %{{.*}} = bitcast <2 x i64> %{{.*}} to <8 x half>
   // CHECK:  %{{.*}} = call <8 x half> @llvm.x86.avx512fp16.max.ph.128(<8 x half> %{{.*}}, <8 x half> %{{.*}})
   // CHECK:  %{{.*}} = shufflevector <8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 4, i32 5, i32 6, i32 7>
@@ -3078,10 +3078,10 @@ _Float16 test_mm256_reduce_max_ph(__m256h __W){
 _Float16 test_mm256_reduce_min_ph(__m256h __W){
   // CHECK-LABEL: @test_mm256_reduce_min_ph
   // CHECK:  %{{.*}} = bitcast <16 x half> %{{.*}} to <4 x i64>
-  // CHECK:  %{{.*}} = shufflevector <4 x i64> %{{.*}}, <4 x i64> undef, <2 x i32> <i32 0, i32 1>
+  // CHECK:  %{{.*}} = shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 0, i32 1>
   // CHECK:  %{{.*}} = bitcast <2 x i64> %{{.*}} to <8 x half>
   // CHECK:  %{{.*}} = bitcast <16 x half> %{{.*}} to <4 x i64>
-  // CHECK:  %{{.*}} = shufflevector <4 x i64> %{{.*}}, <4 x i64> undef, <2 x i32> <i32 2, i32 3>
+  // CHECK:  %{{.*}} = shufflevector <4 x i64> %{{.*}}, <4 x i64> poison, <2 x i32> <i32 2, i32 3>
   // CHECK:  %{{.*}} = bitcast <2 x i64> %{{.*}} to <8 x half>
   // CHECK:  %{{.*}} = call <8 x half> @llvm.x86.avx512fp16.min.ph.128(<8 x half> %{{.*}}, <8 x half> %{{.*}})
   // CHECK:  %{{.*}} = shufflevector <8 x half> %{{.*}}, <8 x half> %{{.*}}, <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 4, i32 5, i32 6, i32 7>

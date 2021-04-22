@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -O0 -emit-llvm -o - -std=c++17 -fsycl -fsycl-is-device\
-// RUN: -fenable-variant-function-pointers  -fsycl-explicit-simd \
+// RUN: %clang_cc1 -O0 -emit-llvm -o - -std=c++17 -fsycl-is-device \
+// RUN: -fenable-variant-function-pointers \
 // RUN:  -triple spir64-unknown-linux-sycldevice %s | FileCheck %s
 
 template <typename name, typename Func>
@@ -13,7 +13,7 @@ extern SYCL_EXTERNAL int bar(int, int);
 extern SYCL_EXTERNAL int zoo(int);
 extern SYCL_EXTERNAL int moo(int);
 const func two = &bar;
-__attribute__((opencl_private)) fptr one_one;
+__attribute__((opencl_private)) __attribute__((sycl_explicit_simd)) fptr one_one;
 //CHECK: @"_Z3zooi$SIMDTable" = weak global [1 x i32 (i32)*] [i32 (i32)* @_Z3zooi]
 //CHECK: @"_Z3barii$SIMDTable" = weak global [1 x i32 (i32, i32)*] [i32 (i32, i32)* @_Z3barii]
 //CHECK: @"_Z3mooi$SIMDTable" = weak global [1 x i32 (i32)*] [i32 (i32)* @_Z3mooi]
@@ -23,13 +23,13 @@ void test(int i);
 //CHECK: define {{.*}}_ZZ4mainENK3$_0clEv
 int main()
 {
-  kernel_single_task<class kernel_function>([]() {
-   test(10);
-//CHECK: store{{.*}}@"_Z3zooi$SIMDTable"
-   one_one = &zoo;
-//CHECK:call{{.*}}@__intel_indirect_call_0
-   one_one(1);
-   test1();
+  kernel_single_task<class kernel_function>([]() __attribute__((sycl_explicit_simd)) {
+    test(10);
+    // CHECK: store{{.*}}@"_Z3zooi$SIMDTable"
+    one_one = &zoo;
+    // CHECK:call{{.*}}@__intel_indirect_call_0
+    one_one(1);
+    test1();
   });
 }
 
@@ -40,30 +40,32 @@ void test(int i) {
   fp = &zoo;
   p = bar;
 //CHECK: [[FP:%fp]] = alloca i32 (i32)*,
+//CHECK: %[[FP_CAST:.+]] = addrspacecast i32 (i32)** [[FP]] to i32 (i32)* addrspace(4)*
 //CHECK: [[P:%p]] = alloca i32 (i32, i32)*,
-//CHECK: store i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z3zooi$SIMDTable" to i32 (i32)*), i32 (i32)** [[FP]],
-//CHECK: store i32 (i32, i32)* bitcast ([1 x i32 (i32, i32)*]* @"_Z3barii$SIMDTable" to i32 (i32, i32)*), i32 (i32, i32)** [[P]],
-//CHECK: store i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z3zooi$SIMDTable" to i32 (i32)*), i32 (i32)** [[FP]],
-//CHECK: store i32 (i32, i32)* bitcast ([1 x i32 (i32, i32)*]* @"_Z3barii$SIMDTable" to i32 (i32, i32)*), i32 (i32, i32)** [[P]],
-//CHECK: [[L2:%[0-9]+]] = load i32 (i32, i32)*, i32 (i32, i32)** [[P]],
-//CHECK: [[L3:%[0-9]+]] = bitcast i32 (i32, i32)* [[L2]] to i32 (i32, i32)**
-//CHECK: [[L4:%[0-9]+]] = call i32  @__intel_indirect_call_1(i32 (i32, i32)** [[L3]], i32 1, i32 1)
+//CHECK: %[[P_CAST:.+]] = addrspacecast i32 (i32, i32)** [[P]] to i32 (i32, i32)* addrspace(4)*
+//CHECK: store i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z3zooi$SIMDTable" to i32 (i32)*), i32 (i32)* addrspace(4)* %[[FP_CAST]],
+//CHECK: store i32 (i32, i32)* bitcast ([1 x i32 (i32, i32)*]* @"_Z3barii$SIMDTable" to i32 (i32, i32)*), i32 (i32, i32)* addrspace(4)* %[[P_CAST]],
+//CHECK: store i32 (i32)* bitcast ([1 x i32 (i32)*]* @"_Z3zooi$SIMDTable" to i32 (i32)*), i32 (i32)* addrspace(4)* %[[FP_CAST]],
+//CHECK: store i32 (i32, i32)* bitcast ([1 x i32 (i32, i32)*]* @"_Z3barii$SIMDTable" to i32 (i32, i32)*), i32 (i32, i32)* addrspace(4)* %[[P_CAST]],
+//CHECK: [[L2:%[0-9]+]] = load i32 (i32, i32)*, i32 (i32, i32)* addrspace(4)* %[[P_CAST]],
+//CHECK: [[L3:%[0-9]+]] = addrspacecast i32 (i32, i32)* [[L2]] to i32 (i32, i32)* addrspace(4)*
+//CHECK: [[L4:%[0-9]+]] = call i32  @__intel_indirect_call_1(i32 (i32, i32)* addrspace(4)* [[L3]], i32 1, i32 1)
   p(1, 1);
-//CHECK: [[L5:%[0-9]+]] = load i32 (i32)*, i32 (i32)** [[FP]], align 8
-//CHECK: [[L6:%[0-9]+]] = bitcast i32 (i32)* [[L5]] to i32 (i32)**
-//CHECK: [[L7:%[0-9]+]] = call i32  @__intel_indirect_call_0(i32 (i32)** [[L6]], i32 10
+//CHECK: [[L5:%[0-9]+]] = load i32 (i32)*, i32 (i32)* addrspace(4)* %[[FP_CAST]], align 8
+//CHECK: [[L6:%[0-9]+]] = addrspacecast i32 (i32)* [[L5]] to i32 (i32)* addrspace(4)*
+//CHECK: [[L7:%[0-9]+]] = call i32  @__intel_indirect_call_2(i32 (i32)* addrspace(4)* [[L6]], i32 10
   fp(10);
-//CHECK: store i32 (i32, i32)* null, i32 (i32, i32)** [[P]],
-//CHECK: [[L8:%[0-9]+]] = load i32 (i32, i32)*, i32 (i32, i32)** [[P]],
-//CHECK: [[L9:%[0-9]+]] = bitcast i32 (i32, i32)* [[L8]] to i32 (i32, i32)**
-//CHECK: [[L10:%[0-9]+]] = call i32 @__intel_indirect_call_1(i32 (i32, i32)** [[L9]], i32 1, i32 1)
+//CHECK: store i32 (i32, i32)* null, i32 (i32, i32)* addrspace(4)* %[[P_CAST]],
+//CHECK: [[L8:%[0-9]+]] = load i32 (i32, i32)*, i32 (i32, i32)* addrspace(4)* %[[P_CAST]],
+//CHECK: [[L9:%[0-9]+]] = addrspacecast i32 (i32, i32)* [[L8]] to i32 (i32, i32)* addrspace(4)*
+//CHECK: [[L10:%[0-9]+]] = call i32 @__intel_indirect_call_1(i32 (i32, i32)* addrspace(4)* [[L9]], i32 1, i32 1)
   p = nullptr;
   p(1,1);
 //CHECK:call spir_func i32 @_Z3barii(i32 1, i32 2)
   two(1,2);
 //CHECK:select{{.*}}@"_Z3mooi$SIMDTable"{{.*}}@"_Z3zooi$SIMDTable"
   fptr one = i ? &moo : &zoo;
-//CHECK:call{{.*}}@__intel_indirect_call_0
+//CHECK:call{{.*}}@__intel_indirect_call_2
   one(1);
 }
 

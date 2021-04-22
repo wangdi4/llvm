@@ -39,10 +39,10 @@
 ; CHECK-LLVMIR: [[RED_PHI:%.*]] = phi <4 x i32> [ <i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648>, %vector.ph ], [ [[RED_ADD:%.*]], %vector.body ]
 ; CHECK-LLVMIR: [[RED_CMP:%.*]] = icmp sgt <4 x i32> [[RED_PHI]], [[VEC_LD:%.*]]
 ; CHECK-LLVMIR: [[RED_SELECT:%.*]] = select <4 x i1> [[RED_CMP]], <4 x i32> [[RED_PHI]], <4 x i32> [[VEC_LD]]
-; CHECK-LLVMIR-LABEL: VPlannedBB:
+; CHECK-LLVMIR-LABEL: VPlannedBB5:
 ; CHECK-LLVMIR: [[RED_LVC:%.*]] = call i32 @llvm.vector.reduce.smax.v4i32(<4 x i32> [[RED_SELECT]])
 ; CHECK-LLVMIR-LABEL: scalar.ph:
-; CHECK-LLVMIR: [[MERGE_RED_PHI:%.*]] = phi i32 [ -2147483648, %DIR.OMP.SIMD.2 ], [ [[RED_LVC]], %middle.block ]
+; CHECK-LLVMIR: [[UNI_PHI80:%.*]] = phi i32 [ [[RED_LVC]], [[MIDDLE_BLOCK0:%.*]] ], [ -2147483648, [[VPLANNEDBB20:%.*]] ]
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

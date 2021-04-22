@@ -16,7 +16,7 @@
 #ifndef LLVM_TRANSFORM_VECTORIZE_INTEL_VPLAN_INTELVLSCLIENTHIR_H
 #define LLVM_TRANSFORM_VECTORIZE_INTEL_VPLAN_INTELVLSCLIENTHIR_H
 
-#include "Intel_VPlan/IntelVPlanVLSClient.h"
+#include "../IntelVPlanVLSClient.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 
@@ -40,7 +40,7 @@ private:
 
 public:
   explicit VPVLSClientMemrefHIR(OVLSAccessKind AccKind, const OVLSType &Ty,
-                                const VPInstruction *Inst,
+                                const VPLoadStoreInst *Inst,
                                 const unsigned LoopLevel, HIRDDAnalysis *DDA,
                                 const RegDDRef *Ref)
       : VPVLSClientMemref(VLSK_VPlanHIRVLSClientMemref, AccKind, Ty, Inst,
@@ -64,6 +64,20 @@ public:
 
     const RegDDRef *FromRef = getRegDDRef();
     const HLDDNode *FromDDNode = FromRef->getHLDDNode();
+
+    // OVLS analysis when forming a new group with the given memref, sets
+    // the OVLSMemref as the insertion point. When adding the memref to
+    // this new group subsequently, it later asserts to see if it is
+    // safe to insert the memref at the insertion point. This essentially
+    // causes canMoveTo be called with the same ToRef and FromRef. DD based
+    // checks will fail for this case and so we check and return true for
+    // this case here. Note that LLVM IR based VLS implementation also has
+    // the same check. TODO - see if we can special case this check in OptVLS
+    // analysis.
+    const VPLoadStoreInst *ToInst = ToHIR->getInstruction();
+    const VPLoadStoreInst *FromInst = getInstruction();
+    if (ToInst == FromInst)
+      return true;
 
     //(1) Check Control Flow: In terms of CFG FromRef and ToRef need to be
     //"equivalent": In the context of optVLS (which calls this utility), if

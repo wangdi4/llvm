@@ -8,49 +8,6 @@
 //
 // ===--------------------------------------------------------------------=== //
 
-def MaxGlobalWorkDimDocs : Documentation {
-  let Category = DocCatFunction;
-  let Content = [{
-This attribute is documented in `Intel FPGA SDK for OpenCL Programming Guide`_.
-See section *Omit Hardware that Generates and Dispatches Kernel IDs*.
-
-The ``max_global_work_dim(0)`` kernel attribute instructs the Intel FPGA SDK
-for OpenCL Offline compiler to omit logic that generates and dispatches global,
-local and group IDs into the compiler kernel. Semantically, the
-``max_global_work_dim(0)`` kernel attribute specifies that the global work
-dimension of the kernel is zero. Setting this kernel attribute means that the
-kernel does not use any global, local, or group IDs. The presence of this
-attribute in the kernel code serves as a guarantee to the offline compiler that
-the kernel is a single work-item kernel.
-
-Example usage:
-
-.. code-block:: c
-
-  channel int chan_in;
-  channel int chan_out;
-
-  __attribute__((max_global_work_dim(0)))
-  __kernel void plusK(int N, int k) {
-    for (int i = 0; i < N; ++i) {
-      int data_in = read_channel_intel(chan_in);
-      write_channel_intel(chan_out, data_in + k);
-    }
-  }
-
-If your current kernel implementation has multiple work-items but does not use
-global, local, or group IDs, you can use the ``max_global_work_dim(0)`` kernel
-attribute if you modify the kernel code accordingly:
-
-1. Wrap the kernel body in a ``for`` loop that iterates as many times as the
-   number of work-items.
-
-2. Launch the modified kernel with only one work-item.
-
-.. _`Intel FPGA SDK for OpenCL Programming Guide`: https://www.altera.com/documentation/mwh1391807965224.html#mwh1391807939093
-  }];
-}
-
 def NumComputeUnitsDocs : Documentation {
   let Category = DocCatFunction;
   let Content = [{
@@ -280,43 +237,18 @@ argument.
   }];
 }
 
-def ArbPrecIntDocs : Documentation {
-  let Category = DocCatType;
-  let Content = [{
-Since FPGAs have the ability to produce non-power-of-2 math units, there is a
-requirement to have an integer type that supports an arbitrary compile time bit
-representation. These need to be expressed in IR as the correct precision int
-types (such as i3, i46, etc).
-
-This implements an arbitrary precision integer type (and a version where the
-number of bits is Dependent). The syntax for declaring an integer with an
-arbitrary number of bits is via the attribute __ap_int(N), which is usable only
-on typedef/using clauses. For example:
-
-typedef int int3_tt __attribute__((__ap_int(3)));
-// Dependent Version:
-template <unsigned Size>
-using MyInt = int __attribute__((__ap_int(Size)));
-
-The typedef inherits its 'signedness' from the 'underlying type'. Otherwise,
-this type has no affect on the ArbPrecInt. All operations on an ArbPrecInt
-should take place as an ArbPrecInt type, promoting to the larger of the two
-types. All integer operations are currently supported.
-  }];
-}
-
 def ReadWriteModeDocs : Documentation {
  let Category = DocCatType;
   let Content = [{
-The readwrite_mode attribute indicates to the compiler how the slave memory
+The readwrite_mode attribute indicates to the compiler how the agent memory
 will be accessed from outside the component.
 
 __attribute__((readwrite_mode("readonly"))) indicates to the compiler that
-users from outside the component can only read from the slave interface.
+users from outside the component can only read from the agent interface.
 __attribute__((readwrite_mode("writeonly"))) indicates to the compiler that
-users from outside the component can only write to the slave interface.
+users from outside the component can only write to the agent interface.
 __attribute__((readwrite_mode("readwrite"))) indicates to the compiler that
-users from outside the component can read from and write to the slave
+users from outside the component can read from and write to the agent
 interface.
   }];
 }
@@ -335,4 +267,41 @@ def IntelOclBiccAVX512Docs : Documentation {
 On x86 targets, this attribute changes the calling convention of a function to
 match with the calling convention of Intel OpenCL SVML AVX512 builtin.
  }];
+}
+
+def AllowCPUFeatureDocs : Documentation {
+  let Category = DocCatFunction;
+  let Content = [{
+    the ``allow_cpu_features`` attribute works similarly to attribute ``target``
+    in that it permits the use of intrinsic functions and architecture specific
+    functionality in the attributed function. Unlike ``target``, it does NOT
+    cause multiversioning, and otherwise follows normal language rules.
+
+    The ``allow_cpu_features`` attribute accepts two integral constant expression
+    arguments that evaluate to a bitmask of permissible features from the libirc
+    cpu-id information. The evaluated type of these is an unsigned 64-bit integer
+    which permits use of template-dependent code. The first parameter is for the
+    page 1 bitmask, and the second parameter is the page 2 bitmask. The second
+    parameter is optional and can be omitted.
+
+.. code-block:: c
+
+  #include <immintrin.h> // contains all of the _FEATURE values.
+  __attribute__((allow_cpu_features(_FEATURE_AVX2)))
+  void my_function() {
+    // Code that either uses AVX2 features, or we want to be optimized for AVX2.
+  }
+
+  [[clang::allow_cpu_features(_FEATURE_SSE3)]]
+  void my_function2() {
+    // Code that either uses SSE3 features, or we want to be optimized for AVX2.
+  }
+
+  template<uint64_t FEATP1, uint64_t FEATP2>
+  __attribute__((allow_cpu_features(FEATP1, FEATP2)))
+  void my_dependent_function() {
+    // Code that we want optimized for the included features.
+  }
+
+  }];
 }

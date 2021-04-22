@@ -65,4 +65,4 @@ define %__DFDT__struct.str* @main() {
 ; CHECK-NEXT:    Single Value: i32 0 (ignored)
 ; CHECK-NEXT:    Multiple IA Value: [  ] <incomplete>
 ; CHECK-NEXT:    Bottom Alloc Function (ignored)
-; CHECK:  Safety data: Bad casting | Field address taken | Global instance
+; CHECK:  Safety data: Bad casting | Global instance | Field address taken return

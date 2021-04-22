@@ -1,6 +1,6 @@
 //===----- HIRLoopDistribution.cpp - Distribution of HIR loops  -----------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -735,6 +735,96 @@ void HIRLoopDistribution::replaceWithArrayTemp(
   }
 }
 
+// Returns the index of the first distributed loop which depends on the loop
+// preheader. Always keeping the preheader in the first loop prevents
+// distribution of outer loops.
+//
+// For example, the flow edge for t1 prevents i1 loop distribution-
+//
+// DO i1
+//    t1 =
+//   DO i2
+//     // t1 is unused
+//   END DO
+//
+//   DO i2
+//     = t1
+//   END DO
+// END DO
+static unsigned
+getPreheaderLoopIndex(HLLoop *Loop,
+                      const SmallVectorImpl<HLDDNodeList> &DistributedLoops,
+                      DistHeuristics DistCostModel) {
+
+  // Early-exit checks.
+  if ((DistCostModel != DistHeuristics::NestFormation) ||
+      !Loop->hasPreheader() || !Loop->isInnermost() || !Loop->getParentLoop()) {
+    return 0;
+  }
+
+  auto &BU = Loop->getHLNodeUtils().getBlobUtils();
+
+  SmallVector<unsigned, 8> PreheaderLvalTemps;
+  // Iterate through preheader nodes and check whether it can cause any
+  // side-effects. Also collect all the lval temps.
+  for (auto &Node : make_range(Loop->pre_begin(), Loop->pre_end())) {
+    auto *Inst = &cast<HLInst>(Node);
+
+    if (Inst->isCallInst()) {
+      return 0;
+    }
+
+    for (auto *Ref : make_range(Inst->ddref_begin(), Inst->ddref_end())) {
+      if (Ref->isMemRef()) {
+        return 0;
+      }
+
+      if (Ref->isLval()) {
+        unsigned Index = Ref->isSelfBlob()
+                             ? Ref->getSelfBlobIndex()
+                             : BU.findTempBlobIndex(Ref->getSymbase());
+
+        if (Index != InvalidBlobIndex) {
+          PreheaderLvalTemps.push_back(Index);
+        }
+      } else if (Ref->isNonLinear()) {
+        // Bail out as some temp may be getting redefined inside the loop.
+        return 0;
+      }
+    }
+  }
+
+  // Iterate through loop nodes and return the first loop which uses preheader
+  // temp.
+  for (auto List : enumerate(DistributedLoops)) {
+    unsigned LoopIndex = List.index();
+
+    // We are already at the last loop, just return its index.
+    if (LoopIndex == DistributedLoops.size() - 1) {
+      return LoopIndex;
+    }
+
+    for (HLDDNode *Node : List.value()) {
+      auto *Inst = dyn_cast<HLInst>(Node);
+
+      // Give up on non-inst nodes for simplicity.
+      if (!Inst) {
+        return LoopIndex;
+      }
+
+      for (auto *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
+        for (auto PreheaderIndex : PreheaderLvalTemps) {
+          if (Ref->usesTempBlob(PreheaderIndex)) {
+            return LoopIndex;
+          }
+        }
+      }
+    }
+  }
+
+  return 0;
+}
+
 /// distributeLoop handles distribution to enable perfect loop nests and
 /// breaking of
 ///   memref recurrences. In addition, loops with a lot of memory references
@@ -782,7 +872,6 @@ void HIRLoopDistribution::distributeLoop(
                     << " way distributed\n");
 
   TempArraySB.clear();
-  bool CopyPreHeader = true;
   HLLoop *LoopNode;
 
   RegionNode = Loop->getParentRegion();
@@ -796,6 +885,9 @@ void HIRLoopDistribution::distributeLoop(
     return;
   }
 
+  unsigned PreheaderLoopIndex =
+      getPreheaderLoopIndex(Loop, DistributedLoops, DistCostModel);
+
   for (auto List : enumerate(DistributedLoops)) {
     // Each PiBlockList forms a new loop
     // Clone Empty Loop. Copy preheader for 1st loop and
@@ -803,12 +895,10 @@ void HIRLoopDistribution::distributeLoop(
     // TODO: Determine which loop needs preheader/postexit
 
     LoopNode = Loop->cloneEmpty();
-    NewLoops[List.index()] = LoopNode;
+    unsigned CurLoopIndex = List.index();
+    NewLoops[CurLoopIndex] = LoopNode;
 
-    if (CopyPreHeader) {
-      HLNodeUtils::moveAsFirstPreheaderNodes(LoopNode, Loop->pre_begin(),
-                                             Loop->pre_end());
-      CopyPreHeader = false;
+    if (CurLoopIndex == 0) {
       if (ForDirective) {
         LORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low,
                                         OptReportMsg[Success]);
@@ -817,7 +907,12 @@ void HIRLoopDistribution::distributeLoop(
                                       "Loop distributed (%d way)", LoopCount);
     }
 
-    if (List.index() == LoopCount - 1) {
+    if (CurLoopIndex == PreheaderLoopIndex) {
+      HLNodeUtils::moveAsFirstPreheaderNodes(LoopNode, Loop->pre_begin(),
+                                             Loop->pre_end());
+    }
+
+    if (CurLoopIndex == LoopCount - 1) {
       HLNodeUtils::moveAsFirstPostexitNodes(LoopNode, Loop->post_begin(),
                                             Loop->post_end());
     }
@@ -830,7 +925,8 @@ void HIRLoopDistribution::distributeLoop(
       }
     }
 
-    LORBuilder(*LoopNode).addOrigin("Distributed chunk %d", List.index() + 1);
+    LORBuilder(*LoopNode).addOrigin("Distributed chunk %d",
+                                    (int)CurLoopIndex + 1);
   }
 
   // The loop is now empty, all its children are moved to new loops

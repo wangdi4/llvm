@@ -27,6 +27,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanCallVecDecisions.cpp
   Intel_VPlan/IntelVPlanClone.cpp
   Intel_VPlan/IntelVPlanCostModel.cpp
+  Intel_VPlan/IntelVPlanCostModelHeuristics.cpp
   Intel_VPlan/IntelVPlanCostModelProprietary.cpp
   Intel_VPlan/IntelVPlanDivergenceAnalysis.cpp
   Intel_VPlan/IntelVPlanDriver.cpp
@@ -48,9 +49,11 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanScalVecAnalysis.cpp
   Intel_VPlan/IntelVPlanSSADeconstruction.cpp
   Intel_VPlan/IntelVPlanSyncDependenceAnalysis.cpp
+  Intel_VPlan/IntelVPlanTTIWrapper.cpp
   Intel_VPlan/IntelVPlanValueTracking.cpp
   Intel_VPlan/IntelVPlanVLSAnalysis.cpp
   Intel_VPlan/IntelVPlanVLSClient.cpp
+  Intel_VPlan/IntelVPlanVLSTransform.cpp
   Intel_VPlan/IntelVPlanVectorShape.cpp
   Intel_VPlan/IntelVPlanVectorizeIndirectCalls.cpp
   Intel_VPlan/IntelVPlanVerifier.cpp
@@ -59,6 +62,9 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/VPlanHIR/IntelVPOCodeGenHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanDecomposerHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanHCFGBuilderHIR.cpp
+  Intel_VPlan/VPlanHIR/IntelVPlanInstructionDataHIR.cpp
+  Intel_VPlan/VPlanHIR/IntelVPlanScalarEvolutionHIR.cpp
+  Intel_VPlan/VPlanHIR/IntelVPlanValueTrackingHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanVLSAnalysisHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanVerifierHIR.cpp
 # end INTEL_CUSTOMIZATION
@@ -91,11 +97,11 @@ add_llvm_component_library(LLVMVectorize
 if(INTEL_INCLUDE_DTRANS)
   target_link_libraries(LLVMVectorize PRIVATE LLVMIntel_DTransOpt)
 endif(INTEL_INCLUDE_DTRANS)
-if (HOST_WINNT)
-if (NOT MSVC)
+
 # This is to fix the error (unused private field) with xmain self build about
 # the PeelTC data member of class VPlanRemainderEvaluator.
+if ((HOST_LINUX OR HOST_WINNT) AND "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-private-field")
 endif()
-endif()
+
 # end INTEL_CUSTOMIZATION

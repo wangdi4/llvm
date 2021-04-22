@@ -56,3 +56,8 @@
 // RUN: %clang_cl /debug:inline-debug-info -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=DEBUG_ENABLE %s
 // DEBUG_ENABLE: "-debug-info-kind={{.*}}"
+//
+// check -mdebug-line-version behavior
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -mdebug-line-version=2 -### %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=DEBUG_LINE_VERSION %s
+// DEBUG_LINE_VERSION: "-mllvm" "-debug-line-version=2"

@@ -147,7 +147,7 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
     const auto Inst = cast<const VPInstruction>(&InstRef);
 
     if (isa<const VPBranchInst>(Inst) ||
-        (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
+        (Inst->HIR().isDecomposed() && Inst->isUnderlyingIRValid()))
       continue;
 
     if (Inst->getOpcode() == VPInstruction::Not)
@@ -160,7 +160,7 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
     //    1) non-trivial exit BBs
     //    2) Any BB that postdominate any exiting node.
     // in both case exit mask is known and these operations can be done safely.
-    const HLDDNode *DDNode = cast<HLDDNode>(Inst->HIR.getUnderlyingNode());
+    const HLDDNode *DDNode = cast<HLDDNode>(Inst->HIR().getUnderlyingNode());
     if (const auto If = dyn_cast<const HLIf>(DDNode)) {
       unsigned NumPredicates = 0;
       HasIf = true;
@@ -276,7 +276,7 @@ VPlanIdioms::isStructPtrEqSearchLoop(const VPBasicBlock *Block,
     const auto Inst = cast<const VPInstruction>(&InstRef);
 
     if (isa<const VPBranchInst>(Inst) ||
-        (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
+        (Inst->HIR().isDecomposed() && Inst->isUnderlyingIRValid()))
       continue;
 
     if (Inst->getOpcode() == VPInstruction::Not)
@@ -284,7 +284,7 @@ VPlanIdioms::isStructPtrEqSearchLoop(const VPBasicBlock *Block,
 
     // FIXME: Without proper decomposition we have to parse predicates of
     // underlying IR
-    const HLDDNode *DDNode = cast<HLDDNode>(Inst->HIR.getUnderlyingNode());
+    const HLDDNode *DDNode = cast<HLDDNode>(Inst->HIR().getUnderlyingNode());
 
     // Only the if-block is expected in the search loop. Other allowed
     // VPInstructions in the loop Header are loop IV related instructions which
@@ -450,10 +450,10 @@ bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
       continue;
 
     if (isa<const VPBranchInst>(VPInst) ||
-        (VPInst.HIR.isDecomposed() && VPInst.isUnderlyingIRValid()))
+        (VPInst.HIR().isDecomposed() && VPInst.isUnderlyingIRValid()))
       continue;
 
-    const HLDDNode *DDNode = cast<HLDDNode>(VPInst.HIR.getUnderlyingNode());
+    const HLDDNode *DDNode = cast<HLDDNode>(VPInst.HIR().getUnderlyingNode());
     if (const auto HInst = dyn_cast<const HLInst>(DDNode)) {
       const RegDDRef *LvalRef = HInst->getLvalDDRef();
       const RegDDRef *RvalRef = HInst->getRvalDDRef();
@@ -471,7 +471,7 @@ bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
   return true;
 }
 
-VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
+VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlanVector *Plan,
                                               const unsigned VF,
                                               const bool CheckSafety,
                                               RegDDRef *&PeelArrayRef) {
@@ -480,12 +480,9 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
   // could probably require bailout too. Seems to work for now though, and
   // should be heavily refactored soon enough to be moved from cost modeling
   // stage to early vectorizer transforms.
-  const VPLoopInfo *VPLI = Plan->getVPLoopInfo();
-  assert(std::distance(VPLI->begin(), VPLI->end()) == 1
-         && "Expected single outermost loop!");
 
   // For the search loop idiom we expect 1-2 exit blocks and two exiting block.
-  const VPLoop *VPL = *VPLI->begin();
+  const VPLoop *VPL = Plan->getMainLoop(true);
   SmallVector<VPBasicBlock *, 8> Exitings, Exits;
   VPL->getExitingBlocks(Exitings);
   VPL->getExitBlocks(Exits);
@@ -567,7 +564,7 @@ VPlanIdioms::Opcode VPlanIdioms::isSearchLoop(const VPlan *Plan,
   return Opcode;
 }
 
-bool VPlanIdioms::isAnySearchLoop(const VPlan *Plan, const unsigned VF,
+bool VPlanIdioms::isAnySearchLoop(const VPlanVector *Plan, const unsigned VF,
                                   const bool CheckSafety) {
   RegDDRef *PeelArrayRef = nullptr;
   return isAnySearchLoop(isSearchLoop(Plan, VF, CheckSafety, PeelArrayRef));

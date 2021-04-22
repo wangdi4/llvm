@@ -63,9 +63,3 @@ if(INTEL_CUSTOMIZATION)
   target_link_libraries(LLVMAsmPrinter PRIVATE LLVMIntel_LoopOptReportSupport)
 endif(INTEL_CUSTOMIZATION)
 
-
-# INTEL_CUSTOMIZATION
-if (HOST_WINNT AND NOT MSVC)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-cast-qual")
-endif()
-# end INTEL_CUSTOMIZATION

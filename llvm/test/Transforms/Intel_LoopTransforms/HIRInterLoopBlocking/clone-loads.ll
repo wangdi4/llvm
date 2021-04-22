@@ -101,8 +101,8 @@
 
 ; CHECK:         BEGIN REGION { modified }
 ; CHECK:               + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
-; CHECK:               |   [[CLONE_1:%clone_load[0-9]*]] = (@globalvar_mod_mp_zstart_)[0];
-; CHECK:               |   [[CLONE_2:%clone_load[0-9]+]] = (@globalvar_mod_mp_zstop_)[0];
+; CHECK:               |   [[CLONE_1:%clone[0-9]*]] = (@globalvar_mod_mp_zstart_)[0];
+; CHECK:               |   [[CLONE_2:%clone[0-9]+]] = (@globalvar_mod_mp_zstop_)[0];
 ; CHECK:               |
 ; CHECK:               |   + DO i2 = 1, 3, 2   <DO_LOOP>
 ; CHECK:               |   |   [[TILE_1:%tile_e_min[0-9]*]] = (i2 + 1 <= 3) ? i2 + 1 : 3;

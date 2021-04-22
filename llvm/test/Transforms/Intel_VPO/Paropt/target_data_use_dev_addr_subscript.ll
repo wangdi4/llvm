@@ -33,8 +33,8 @@ entry:
   %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* %a, i64 0, i64 0
   store i32 111, i32* %arrayidx, align 16
 
-  ; Check that the map created for %a has the correct map-type (96)
-; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 96]
+  ; Check that the map created for %a has the correct map-type (64)
+; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 64]
 
 ; Check for the updated value of %a.
 ; CHECK: [[GEP:%[^ ]+]] = getelementptr inbounds [1 x i8*], [1 x i8*]* %.offload_baseptrs, i32 0, i32 0

@@ -125,7 +125,7 @@ bool HIRIdentityMatrixSubstitution::run() {
 
   for (auto &Lp : InnermostLoops) {
     SmallVector<const RegDDRef *, 2> IDMatRefs;
-    HLNodeUtils::findIdentityMatrix(&HLS, Lp, IDMatRefs);
+    HLNodeUtils::findInner2DIdentityMatrix(&HLS, Lp, IDMatRefs);
 
     if (IDMatRefs.empty()) {
       continue;
@@ -163,10 +163,9 @@ bool HIRIdentityMatrixSubstitution::run() {
   return Result;
 }
 
-PreservedAnalyses
-HIRIdentityMatrixSubstitutionPass::run(llvm::Function &F,
-                                       llvm::FunctionAnalysisManager &AM) {
-  HIRIdentityMatrixSubstitution(AM.getResult<HIRFrameworkAnalysis>(F),
+PreservedAnalyses HIRIdentityMatrixSubstitutionPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRIdentityMatrixSubstitution(HIRF,
                                 AM.getResult<HIRLoopStatisticsAnalysis>(F))
       .run();
   return PreservedAnalyses::all();

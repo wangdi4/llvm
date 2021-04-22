@@ -134,6 +134,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_DISTRIBUTE_PARLOOP:
       W = new WRNDistributeParLoopNode(EntryBB, LI);
       break;
+    case DIR_OMP_INTEROP:
+      W = new WRNInteropNode(EntryBB);
+      break;
     case DIR_OMP_TARGET:
       W = new WRNTargetNode(EntryBB);
       break;
@@ -151,6 +154,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
       break;
     case DIR_OMP_TARGET_VARIANT_DISPATCH:
       W = new WRNTargetVariantNode(EntryBB);
+      break;
+    case DIR_OMP_DISPATCH:
+      W = new WRNDispatchNode(EntryBB);
       break;
     case DIR_OMP_TASK:
       W = new WRNTaskNode(EntryBB);
@@ -382,9 +388,9 @@ int WRegionUtils::getClauseIdFromAtomicKind(WRNAtomicKind Kind) {
     return QUAL_OMP_WRITE;
   case WRNAtomicCapture:
     return QUAL_OMP_CAPTURE;
-  default:
-    llvm_unreachable("Unsupported Atomic Kind");
   }
+  llvm_unreachable("Unsupported Atomic Kind");
+
 }
 
 // gets the induction variable of the OMP loop.
@@ -881,6 +887,28 @@ bool WRegionUtils::hasTargetDirective(WRegionInfo *WI) {
   WRContainerImpl *WRGraph = WI->getWRGraph();
   if (WRGraph)
     return hasTargetDirective(*WRGraph);
+  return false;
+}
+
+// Returns true iff W contains a WRN for which Predicate is true.
+bool WRegionUtils::containsWRNsWith(
+    WRegionNode *W, std::function<bool(WRegionNode *)> Predicate) {
+  if (!W->hasChildren())
+    return false;
+
+  SmallVector<WRegionNode *, 32> ContainedWRNs{W->wrn_child_begin(),
+                                               W->wrn_child_end()};
+  while (!ContainedWRNs.empty()) {
+    auto *W = ContainedWRNs.pop_back_val();
+
+    if (Predicate(W))
+      return true;
+
+    if (!W->hasChildren())
+      continue;
+
+    ContainedWRNs.append(W->wrn_child_begin(), W->wrn_child_end());
+  }
   return false;
 }
 

@@ -21,10 +21,24 @@
 namespace llvm {
 namespace vpo {
 
-class VPlan;
+class VPlanVector;
 class VPLoopEntityList;
 class ScalarInOutList;
 class VPLoopEntity;
+class VPInstruction;
+
+/// Auxiliary class to keep VPInstructions that are removed from CFG. We can't
+/// delete them during removal because we might have links to them in the data
+/// structures that are not in the def-use chain (e.g. DA). The problem can be
+/// solved having a tracking mechanism but that is left for the future.
+class VPUnlinkedInstructions {
+public:
+  // Add a VPInstruction that needs to be erased in UnlinkedVPInsns vector.
+  void addUnlinkedVPInst(VPInstruction *I) { UnlinkedVPInsts.emplace_back(I); }
+
+private:
+  SmallVector<std::unique_ptr<VPInstruction>, 8> UnlinkedVPInsts;
+};
 
 // Auxiliary class to describe live-in/out values for scalar loop.
 class ScalarInOutDescr {
@@ -106,6 +120,9 @@ class VPExternalValues {
   // VPExternalUsesHIR container.
   friend class VPDecomposerHIR;
   friend class VPLiveInOutCreator;
+  // Codegen looks through the list of external uses and updates their original
+  // operands.
+  friend class VPOCodeGen;
 
   const DataLayout *DL = nullptr;
 
@@ -144,13 +161,6 @@ class VPExternalValues {
   /// main/peel/remainder loops).
   unsigned getLastMergeId() const { return VPExternalUses.size(); }
 
-  // Return the non-const iterator-range to the list of ExternalUses.
-  decltype(auto) externalUses() {
-    return map_range(
-        make_range(VPExternalUses.begin(), VPExternalUses.end()),
-        [](ExternalUsesListTy::value_type &It) { return It.get(); });
-  }
-
   decltype(auto) getVPExternalUsesHIR() {
     return map_range(
         make_filter_range(
@@ -174,6 +184,17 @@ class VPExternalValues {
 public:
   VPExternalValues(LLVMContext *Ctx, const DataLayout *L) : DL(L), Context(Ctx) {}
   VPExternalValues(const VPExternalValues &X) = delete;
+
+  ~VPExternalValues() {
+    // Release memory allocated for VPExternalDefs tracked in VPExternalDefsHIR.
+    // Temporary list to collect the pointers is needed to avoid invalid access
+    // error while iterating the FoldingSet.
+    SmallVector<const VPExternalDef *, 16> TmpExtDefList(
+        getVPExternalDefsHIR().begin(), getVPExternalDefsHIR().end());
+    VPExternalDefsHIR.clear();
+    for (auto *ExtDef : TmpExtDefList)
+      delete ExtDef;
+  }
 
   const DataLayout *getDataLayout() const { return DL; }
   LLVMContext *getLLVMContext(void) const { return Context; }
@@ -503,7 +524,7 @@ public:
   /// Looking through VPEntities of VPlan create live-in counterparts and
   /// wrappers for all live-out, also adding fake VPExternalUse when needed.
   /// The original incoming vaules are replaced by the newly created
-  /// VPLiveInValues and VExternalUse-users are replaced by VPLiveOutValues.
+  /// VPLiveInValues and VPExternalUse-users are replaced by VPLiveOutValues.
   /// Also, descriptors of in/out values for scalar loops are created in VPlan.
   void createInOutValues(Loop *OrigLoop);
 
@@ -511,6 +532,20 @@ public:
   /// Temporary, until CFG merge process is not implemented. Then all such
   /// occurences are expected to be replaced during CFG merge process.
   void restoreLiveIns();
+
+  /// Create VPLiveInValue-s list for VPlan that represents
+  /// scalar loop. Going through the list of descriptors for a scalar loop,
+  /// create live-ins of the appropriate type and update live-in list of VPlan.
+  void createLiveInsForScalarVPlan(const ScalarInOutList &ScalarInOuts,
+                                   int Count);
+
+  /// Create VPLiveOutValue-s list for VPlan that represents
+  /// scalar loop. Going through the list of descriptors for a scalar loop,
+  /// create live-outs with corresponding operands from \p Outgoing and update
+  /// the live-out list in VPlan.
+  void createLiveOutsForScalarVPlan(
+      const ScalarInOutList &ScalarInOuts, int Count,
+      DenseMap<int, VPValue *> &Outgoing);
 
 private:
   // Create list of VPLiveInValues/VPLiveOutValues for VPlan's inductions.
@@ -520,6 +555,10 @@ private:
   // Create list of VPLiveInValues/VPLiveOutValues for VPlan's reductions.
   void createInOutsReductions(const VPLoopEntityList *VPLEntityList,
                               Loop *OrigLoop);
+
+  // Create list of VPLiveInValues/VPLiveOutValues for VPlan's privates.
+  void createInOutsPrivates(const VPLoopEntityList *VPLEntityList,
+                            Loop *OrigLoop);
 
   VPLiveInValue *createLiveInValue(unsigned Id, Type *Ty) {
     VPLiveInValue *LiveIn = new VPLiveInValue(Id, Ty);

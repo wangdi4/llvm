@@ -1043,9 +1043,6 @@ private:
   /// Reset the expression value in Subdevice clause to be empty.
   void resetValueInSubdeviceClause(WRegionNode* W);
 
-  /// Reset the expression value in IsDevicePtr clause to be empty.
-  void resetValueInIsDevicePtrClause(WRegionNode *W);
-
   /// Set the value in num_teams, thread_limit and num_threads
   /// clauses to be empty.
   void resetValueInNumTeamsAndThreadsClause(WRegionNode *W);
@@ -1167,12 +1164,15 @@ private:
   /// \param [out]    Mappers         array of mappers.
   /// \param [out]    hasRuntimeEvaluationCaptureSize
   ///                 size cannot be determined at compile time.
+  /// \param [in] VIsTargetKernelArg `true` iff \p V is a kernel
+  /// function argument for a target construct.
   void genTgtInformationForPtrs(WRegionNode *W, Value *V,
                                 SmallVectorImpl<Constant *> &ConstSizes,
                                 SmallVectorImpl<uint64_t> &MapTypes,
                                 SmallVectorImpl<GlobalVariable *> &Names,
                                 SmallVectorImpl<Value *> &Mappers,
-                                bool &hasRuntimeEvaluationCaptureSize);
+                                bool &hasRuntimeEvaluationCaptureSize,
+                                bool VIsTargetKernelArg = false);
 
   /// Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
@@ -1561,9 +1561,11 @@ private:
   };
 
   /// Returns the corresponding flag for a given map clause modifier.
+  /// Does not set TARGET_PARAM may-type flag unless IsTargetKernelArg is true.
   uint64_t getMapTypeFlag(MapItem *MpI,
                          bool AddrIsTargetParamFlag,
-                         bool IsFirstComponentFlag);
+                         bool IsFirstComponentFlag,
+                         bool IsTargetKernelArg);
 
   /// Create a pointer, store address of \p V to the pointer, and replace uses
   /// of \p V with a load from that pointer.
@@ -2095,8 +2097,34 @@ private:
   /// of the given region before the region.
   bool promoteClauseArgumentUses(WRegionNode *W);
 
+  /// Get substrings from the "openmp-variant" string attribute. Supports the
+  /// adjust_args(need_device_ptr:...) and append_args(interop(...)) clauses.
+  StringRef getVariantName(WRegionNode *W, CallInst *BaseCall,
+                           StringRef &MatchConstruct, uint64_t &DeviceArchs,
+                           StringRef &NeedDevicePtrStr, StringRef &InteropStr);
+
+  /// Get substrings from the "openmp-variant" string attribute
+  StringRef getVariantName(WRegionNode *W, CallInst *BaseCall,
+                           StringRef &MatchConstruct, uint64_t &DeviceArchs);
+
+  /// Emit code to get device pointers for variant dispatch
+  void getAndReplaceDevicePtrs(WRegionNode *W, CallInst *VariantCall);
+
   /// Emit dispatch code for the "target variant dispatch" construct
   bool genTargetVariantDispatchCode(WRegionNode *W);
+
+  /// Emit code to handle need_device_ptr for dispatch
+  void processNeedDevicePtr(WRegionNode *W, CallInst *VariantCall,
+                            StringRef &NeedDevicePtrStr);
+
+  /// Emit code to handle depend clause for dispatch
+  void genDependForDispatch(WRegionNode *W, CallInst *VariantCall);
+
+  /// Emit code for the OMP5.1 \b dispatch construct
+  bool genDispatchCode(WRegionNode *W);
+
+  /// Emit Interop code for the "interop" construct
+  bool genInteropCode(WRegionNode* W);
 
   /// Replace loop construct with the mapped directive in IR
   bool replaceGenericLoop(WRegionNode *W);

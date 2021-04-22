@@ -9,9 +9,10 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/ADT/StringExtras.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
 namespace llvm {
 
@@ -44,6 +45,7 @@ void DPCPPKernelBarrierUtils::clean() {
   HasNonInlinedCallsInitialized = false;
 
   HasLIDInstsInitialized = false;
+  HasGIDInstsInitialized = false;
 }
 
 void DPCPPKernelBarrierUtils::initializeSyncData() {
@@ -57,9 +59,15 @@ void DPCPPKernelBarrierUtils::initializeSyncData() {
   DummyBarriers.clear();
 
   // Find all calls to barrier().
-  findAllUsesOfFunc(StringRef(BarrierName), Barriers);
+  findAllUsesOfFunc(DPCPPKernelCompilationUtils::mangledBarrier(), Barriers);
+  findAllUsesOfFunc(DPCPPKernelCompilationUtils::mangledWGBarrier(
+                        DPCPPKernelCompilationUtils::BARRIER_NO_SCOPE),
+                    Barriers);
+  findAllUsesOfFunc(DPCPPKernelCompilationUtils::mangledWGBarrier(
+                        DPCPPKernelCompilationUtils::BARRIER_WITH_SCOPE),
+                    Barriers);
   // Find all calls to dummyBarrier().
-  findAllUsesOfFunc(StringRef(DummyBarrierName), DummyBarriers);
+  findAllUsesOfFunc(DummyBarrierName, DummyBarriers);
 
   IsSyncDataInitialized = true;
   HasLIDInstsInitialized = false;
@@ -229,7 +237,8 @@ Instruction *DPCPPKernelBarrierUtils::createBarrier(Instruction *InsertBefore) {
   if (!BarrierFunc) {
     // Barrier function is not initialized yet,
     // Check if there is a declaration in the module.
-    BarrierFunc = M->getFunction(BarrierName);
+    BarrierFunc = M->getFunction(DPCPPKernelCompilationUtils::mangledWGBarrier(
+        DPCPPKernelCompilationUtils::BARRIER_NO_SCOPE));
   }
   if (!BarrierFunc) {
     // Module has no barrier declaration.
@@ -237,7 +246,10 @@ Instruction *DPCPPKernelBarrierUtils::createBarrier(Instruction *InsertBefore) {
     Type *Result = Type::getVoidTy(M->getContext());
     std::vector<Type *> FuncTyArgs;
     FuncTyArgs.push_back(IntegerType::get(M->getContext(), 32));
-    BarrierFunc = createFunctionDeclaration(BarrierName, Result, FuncTyArgs);
+    BarrierFunc = createFunctionDeclaration(
+        DPCPPKernelCompilationUtils::mangledWGBarrier(
+            DPCPPKernelCompilationUtils::BARRIER_NO_SCOPE),
+        Result, FuncTyArgs);
     BarrierFunc->setAttributes(BarrierFunc->getAttributes().addAttribute(
         BarrierFunc->getContext(), AttributeList::FunctionIndex,
         Attribute::Convergent));
@@ -355,7 +367,7 @@ Instruction *
 DPCPPKernelBarrierUtils::createGetLocalSize(unsigned Dim,
                                             Instruction *InsertBefore) {
   // Callee's declaration: size_t get_local_size(uint dimindx);
-  const std::string StrGID = "__builtin_get_local_size";
+  const std::string StrGID = DPCPPKernelCompilationUtils::mangledGetLocalSize();
   if (!GetLocalSizeFunc) {
     // Get existing get_local_size function.
     GetLocalSizeFunc = M->getFunction(StrGID);
@@ -394,7 +406,8 @@ DPCPPKernelBarrierUtils::getKernelVectorizationWidth(const Function *F) const {
 InstVector &DPCPPKernelBarrierUtils::getAllGetLocalId() {
   if (!HasLIDInstsInitialized) {
     GetLIDInstructions.clear();
-    Function *Func = M->getFunction("__builtin_get_local_id");
+    Function *Func =
+        M->getFunction(DPCPPKernelCompilationUtils::mangledGetLID());
     if (Func) {
       for (auto *U : Func->users()) {
         CallInst *CI = dyn_cast<CallInst>(U);
@@ -406,6 +419,25 @@ InstVector &DPCPPKernelBarrierUtils::getAllGetLocalId() {
     HasLIDInstsInitialized = true;
   }
   return GetLIDInstructions;
+}
+
+InstVector &DPCPPKernelBarrierUtils::getAllGetGlobalId() {
+  if (!HasGIDInstsInitialized) {
+    GetGIDInstructions.clear();
+    Function *Func =
+        M->getFunction(DPCPPKernelCompilationUtils::mangledGetGID());
+    if (Func) {
+      for (auto *U : Func->users()) {
+        CallInst *CI = dyn_cast<CallInst>(U);
+        assert(
+            CI &&
+            "Something other than CallInst is using get_global_id function!");
+        GetGIDInstructions.push_back(CI);
+      }
+    }
+    HasGIDInstsInitialized = true;
+  }
+  return GetGIDInstructions;
 }
 
 bool DPCPPKernelBarrierUtils::isCrossedByBarrier(InstSet &SyncInstructions,

@@ -119,9 +119,11 @@ const char *PASS_NAME = PASS_NAME_STR;
 const char *PASS_DESC =
     "clone functions in call trees specializing by constant parameter sets of "
     "the calls at the top of the tree";
+#ifndef NDEBUG
 const StringRef CTCSectionName = "Call-Tree Cloning";
 const StringRef PPSectionName = "Post Processing";
 const StringRef MVSectionName = "MultiVersioning";
+#endif
 } // namespace
 
 #define DEBUG_TYPE PASS_NAME_STR
@@ -161,7 +163,7 @@ static cl::opt<unsigned>
 
 // Maximum number of direct callsites allowed for CallTreeClone
 static cl::opt<unsigned> CTCloningMaxDirectCallSiteCount(
-    PASS_NAME_STR "-max-direct-callsites", cl::init(6145), cl::ReallyHidden,
+    PASS_NAME_STR "-max-direct-callsites", cl::init(2450), cl::ReallyHidden,
     cl::desc("maximum allowed number of direct callsites in linked module"));
 
 // Allows to specify "seed" functions and their parameter sets profitable to
@@ -955,9 +957,9 @@ StringRef to_string(ParamMappingResult R) {
     return "constant";
   case Params_unprocessed:
     return "unproc";
-  default:
-    return "unknown";
   }
+  return "unknown";
+
 }
 
 // Print a std::set of DCGNode *
@@ -1268,7 +1270,7 @@ public:
 class CTCDebugCostModel : public CTCCostModel {
 public:
   template <typename It> CTCDebugCostModel(It Beg, It End);
-  virtual SetOfParamIndSets assess(Function &F);
+  virtual SetOfParamIndSets assess(Function &F) override;
 
 #ifndef NDEBUG
   std::string toString(void) const {
@@ -1306,7 +1308,7 @@ public:
   //     }
   //   }
   // }
-  virtual SetOfParamIndSets assess(Function &F);
+  virtual SetOfParamIndSets assess(Function &F) override;
 
 protected:
   /// Retrieves some statistics about given function \p F and fills in the
@@ -1963,15 +1965,15 @@ protected:
     if (ModelArbitraryNumUserCalls)
       NumCallInst = NumUserCallsModeled;
     else {
-      // count direct calls only on module level:
-      // support both CallInst and InvokeInst and skip any DBG intrinsic.
+      // Support both CallInst and InvokeInst and skip any intrinsic.
       for (auto &F : M.functions())
-        for (BasicBlock &BB : F)
-          for (Instruction &I : BB)
-            if (!isa<DbgInfoIntrinsic>(&I))
-              if (CallBase *CB = dyn_cast<CallBase>(&I))
-                if (!CB->isIndirectCall())
-                  ++NumCallInst;
+        for (auto &I : instructions(F))
+          if (CallBase *CB = dyn_cast<CallBase>(&I))
+            if (!isa<IntrinsicInst>(CB)) {
+              Function *F = CB->getCalledFunction();
+              if (F && !F->isDeclaration())
+                ++NumCallInst;
+            }
     }
 
     LLVM_DEBUG(dbgs() << "NumCallInst:\t" << NumCallInst << "\n");
@@ -3096,7 +3098,8 @@ Function *CallTreeCloningImpl::cloneFunction(Function *F,
       ++NewI;
     }
   SmallVector<ReturnInst *, 8> Rets;
-  CloneFunctionInto(Clone, F, Old2New, true, Rets);
+  CloneFunctionInto(Clone, F, Old2New,
+                    CloneFunctionChangeType::LocalChangesOnly, Rets);
 
   // Redirect the calls in the input map to the cloned functions they map to.
   // Also fix the actual parameter lists removing the constants

@@ -69,7 +69,7 @@ TEST_F(VPlanPeelingVariantTest, DynamicPeelingParameters) {
 class VPlanPeelingAnalysisTest : public vpo::VPlanTestBase {
 protected:
   Function *FuncFoo;
-  std::unique_ptr<VPlan> Plan;
+  std::unique_ptr<VPlanVector> Plan;
   std::unique_ptr<VPlanScalarEvolutionLLVM> VPSE;
   std::unique_ptr<VPlanValueTrackingLLVM> VPVT;
   std::unique_ptr<VPlanPeelingAnalysis> VPPA;
@@ -81,10 +81,10 @@ protected:
     Plan = buildHCFG(LoopHeader);
   }
 
-  void setupPeelingAnalysis(VPlanPeelingCostModel &CM) {
+  void setupPeelingAnalysis() {
     VPSE = std::make_unique<VPlanScalarEvolutionLLVM>(*SE, *LI->begin());
     VPVT = std::make_unique<VPlanValueTrackingLLVM>(*VPSE, *DL, &*AC, &*DT);
-    VPPA = std::make_unique<VPlanPeelingAnalysis>(CM, *VPSE, *VPVT, *DL);
+    VPPA = std::make_unique<VPlanPeelingAnalysis>(*VPSE, *VPVT, *DL);
     VPPA->collectMemrefs(*Plan);
   }
 };
@@ -121,11 +121,12 @@ TEST_F(VPlanPeelingAnalysisTest, NoPeeling_NoUnitStride) {
     "}\n");
 
   VPlanPeelingCostModelLog CM;
-  setupPeelingAnalysis(CM);
+  setupPeelingAnalysis();
 
   int VFs[] = {2, 4, 8, 16, 32, 64};
   for (auto VF : VFs) {
-    std::unique_ptr<VPlanPeelingVariant> PV = VPPA->selectBestPeelingVariant(VF);
+    std::unique_ptr<VPlanPeelingVariant> PV =
+        VPPA->selectBestPeelingVariant(VF, CM);
     ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV));
     VPlanStaticPeeling &SP = cast<VPlanStaticPeeling>(*PV);
     EXPECT_EQ(SP.peelCount(), 0);
@@ -180,11 +181,12 @@ TEST_F(VPlanPeelingAnalysisTest, NoPeeling_Misalign) {
     "}\n");
 
   VPlanPeelingCostModelLog CM;
-  setupPeelingAnalysis(CM);
+  setupPeelingAnalysis();
 
   int VFs[] = {2, 4, 8, 16, 32, 64};
   for (auto VF : VFs) {
-    std::unique_ptr<VPlanPeelingVariant> PV = VPPA->selectBestPeelingVariant(VF);
+    std::unique_ptr<VPlanPeelingVariant> PV =
+        VPPA->selectBestPeelingVariant(VF, CM);
     ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV));
     VPlanStaticPeeling &SP = cast<VPlanStaticPeeling>(*PV);
     EXPECT_EQ(SP.peelCount(), 0);
@@ -212,10 +214,11 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Store) {
     "}\n");
 
   VPlanPeelingCostModelSimple CM(*DL);
-  setupPeelingAnalysis(CM);
+  setupPeelingAnalysis();
   VPlanSCEV *DstScev = VPSE->toVPlanSCEV(SE->getSCEV(FuncFoo->getArg(0)));
 
-  std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA->selectBestPeelingVariant(4);
+  std::unique_ptr<VPlanPeelingVariant> PV4 =
+      VPPA->selectBestPeelingVariant(4, CM);
   ASSERT_TRUE(isa<VPlanDynamicPeeling>(*PV4));
   VPlanDynamicPeeling &DP4 = cast<VPlanDynamicPeeling>(*PV4);
   EXPECT_EQ(DP4.memref()->getOpcode(), Instruction::Store);
@@ -224,7 +227,8 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Store) {
   EXPECT_EQ(DP4.targetAlignment(), 16);
   EXPECT_EQ(DP4.multiplier(), 3);
 
-  std::unique_ptr<VPlanPeelingVariant> PV16 = VPPA->selectBestPeelingVariant(16);
+  std::unique_ptr<VPlanPeelingVariant> PV16 =
+      VPPA->selectBestPeelingVariant(16, CM);
   ASSERT_TRUE(isa<VPlanDynamicPeeling>(*PV16));
   VPlanDynamicPeeling &DP16 = cast<VPlanDynamicPeeling>(*PV16);
   EXPECT_EQ(DP16.memref()->getOpcode(), Instruction::Store);
@@ -257,10 +261,11 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Load) {
     "}\n");
 
   VPlanPeelingCostModelSimple CM(*DL);
-  setupPeelingAnalysis(CM);
+  setupPeelingAnalysis();
   VPlanSCEV *SrcScev = VPSE->toVPlanSCEV(SE->getSCEV(FuncFoo->getArg(1)));
 
-  std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA->selectBestPeelingVariant(4);
+  std::unique_ptr<VPlanPeelingVariant> PV4 =
+      VPPA->selectBestPeelingVariant(4, CM);
   ASSERT_TRUE(isa<VPlanDynamicPeeling>(*PV4));
   VPlanDynamicPeeling &DP4 = cast<VPlanDynamicPeeling>(*PV4);
   EXPECT_EQ(DP4.memref()->getOpcode(), Instruction::Load);
@@ -269,7 +274,8 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Load) {
   EXPECT_EQ(DP4.targetAlignment(), 16);
   EXPECT_EQ(DP4.multiplier(), 3);
 
-  std::unique_ptr<VPlanPeelingVariant> PV16 = VPPA->selectBestPeelingVariant(16);
+  std::unique_ptr<VPlanPeelingVariant> PV16 =
+      VPPA->selectBestPeelingVariant(16, CM);
   ASSERT_TRUE(isa<VPlanDynamicPeeling>(*PV16));
   VPlanDynamicPeeling &DP16 = cast<VPlanDynamicPeeling>(*PV16);
   EXPECT_EQ(DP16.memref()->getOpcode(), Instruction::Load);
@@ -321,10 +327,11 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
     "}\n");
 
   VPlanPeelingCostModelLog CM;
-  setupPeelingAnalysis(CM);
+  setupPeelingAnalysis();
 
   // Check that the dynamic variant beats the static one.
-  std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA->selectBestPeelingVariant(4);
+  std::unique_ptr<VPlanPeelingVariant> PV4 =
+      VPPA->selectBestPeelingVariant(4, CM);
   EXPECT_TRUE(isa<VPlanDynamicPeeling>(*PV4));
 
   // VF = 4.
@@ -335,7 +342,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
   //   %ptr4: 4 ->  8 (cost -= 1)
   //   %ptr5: 4 -> 16 (cost -= 2)
   Optional<std::pair<VPlanDynamicPeeling, int>> P4 =
-      VPPA->selectBestDynamicPeelingVariant(4);
+      VPPA->selectBestDynamicPeelingVariant(4, CM);
   EXPECT_EQ(P4->second, 5);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -354,7 +361,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
   //   %ptr4: 4 ->  4 (cost -= 0)
   //   %ptr5: 4 ->  4 (cost -= 0)
   Optional<std::pair<VPlanDynamicPeeling, int>> P16 =
-      VPPA->selectBestDynamicPeelingVariant(16);
+      VPPA->selectBestDynamicPeelingVariant(16, CM);
   EXPECT_EQ(P16->second, 8);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -402,19 +409,22 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_LowPeelCount) {
     "}\n");
 
   VPlanPeelingCostModelSimple CM(*DL);
-  setupPeelingAnalysis(CM);
+  setupPeelingAnalysis();
 
-  std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA->selectBestPeelingVariant(4);
+  std::unique_ptr<VPlanPeelingVariant> PV4 =
+      VPPA->selectBestPeelingVariant(4, CM);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV4));
   VPlanStaticPeeling &SP4 = cast<VPlanStaticPeeling>(*PV4);
   EXPECT_EQ(SP4.peelCount(), 1); // Peel to align %p2 by 16.
 
-  std::unique_ptr<VPlanPeelingVariant> PV8 = VPPA->selectBestPeelingVariant(8);
+  std::unique_ptr<VPlanPeelingVariant> PV8 =
+      VPPA->selectBestPeelingVariant(8, CM);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV8));
   VPlanStaticPeeling &SP8 = cast<VPlanStaticPeeling>(*PV8);
   EXPECT_EQ(SP8.peelCount(), 2); // Peel to align %p3 by 32.
 
-  std::unique_ptr<VPlanPeelingVariant> PV16 = VPPA->selectBestPeelingVariant(16);
+  std::unique_ptr<VPlanPeelingVariant> PV16 =
+      VPPA->selectBestPeelingVariant(16, CM);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV16));
   VPlanStaticPeeling &SP16 = cast<VPlanStaticPeeling>(*PV16);
   EXPECT_EQ(SP16.peelCount(), 3); // Peel to align %p1 by 64.
@@ -449,29 +459,34 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_StoreVsLoad) {
     "}\n");
 
   VPlanPeelingCostModelSimple CM(*DL);
-  setupPeelingAnalysis(CM);
+  setupPeelingAnalysis();
 
-  std::unique_ptr<VPlanPeelingVariant> PV2 = VPPA->selectBestPeelingVariant(2);
+  std::unique_ptr<VPlanPeelingVariant> PV2 =
+      VPPA->selectBestPeelingVariant(2, CM);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV2));
   VPlanStaticPeeling &SP2 = cast<VPlanStaticPeeling>(*PV2);
   EXPECT_EQ(SP2.peelCount(), 1); // Make store aligned by 4
 
-  std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA->selectBestPeelingVariant(4);
+  std::unique_ptr<VPlanPeelingVariant> PV4 =
+      VPPA->selectBestPeelingVariant(4, CM);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV4));
   VPlanStaticPeeling &SP4 = cast<VPlanStaticPeeling>(*PV4);
   EXPECT_EQ(SP4.peelCount(), 3); // Make store aligned by 8
 
-  std::unique_ptr<VPlanPeelingVariant> PV8 = VPPA->selectBestPeelingVariant(8);
+  std::unique_ptr<VPlanPeelingVariant> PV8 =
+      VPPA->selectBestPeelingVariant(8, CM);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV8));
   VPlanStaticPeeling &SP8 = cast<VPlanStaticPeeling>(*PV8);
   EXPECT_EQ(SP8.peelCount(), 7); // Make store aligned by 16
 
-  std::unique_ptr<VPlanPeelingVariant> PV16 = VPPA->selectBestPeelingVariant(16);
+  std::unique_ptr<VPlanPeelingVariant> PV16 =
+      VPPA->selectBestPeelingVariant(16, CM);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV16));
   VPlanStaticPeeling &SP16 = cast<VPlanStaticPeeling>(*PV16);
   EXPECT_EQ(SP16.peelCount(), 15); // Make store aligned by 32
 
-  std::unique_ptr<VPlanPeelingVariant> PV32 = VPPA->selectBestPeelingVariant(32);
+  std::unique_ptr<VPlanPeelingVariant> PV32 =
+      VPPA->selectBestPeelingVariant(32, CM);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV32));
   VPlanStaticPeeling &SP32 = cast<VPlanStaticPeeling>(*PV32);
   EXPECT_EQ(SP32.peelCount(), 31); // Make store aligned by 64
@@ -513,34 +528,40 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_DoubleLoad) {
     "}\n");
 
   VPlanPeelingCostModelSimple CM(*DL);
-  setupPeelingAnalysis(CM);
+  setupPeelingAnalysis();
 
-  std::unique_ptr<VPlanPeelingVariant> PV2 = VPPA->selectBestPeelingVariant(2);
+  std::unique_ptr<VPlanPeelingVariant> PV2 =
+      VPPA->selectBestPeelingVariant(2, CM);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV2));
   VPlanStaticPeeling &SP2 = cast<VPlanStaticPeeling>(*PV2);
   EXPECT_EQ(SP2.peelCount(), 0); // Make loads aligned by 2.
 
-  std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA->selectBestPeelingVariant(4);
+  std::unique_ptr<VPlanPeelingVariant> PV4 =
+      VPPA->selectBestPeelingVariant(4, CM);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV4));
   VPlanStaticPeeling &SP4 = cast<VPlanStaticPeeling>(*PV4);
   EXPECT_EQ(SP4.peelCount(), 2); // Make loads aligned by 4.
 
-  std::unique_ptr<VPlanPeelingVariant> PV8 = VPPA->selectBestPeelingVariant(8);
+  std::unique_ptr<VPlanPeelingVariant> PV8 =
+      VPPA->selectBestPeelingVariant(8, CM);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV8));
   VPlanStaticPeeling &SP8 = cast<VPlanStaticPeeling>(*PV8);
   EXPECT_EQ(SP8.peelCount(), 2); // Make loads aligned by 8.
 
-  std::unique_ptr<VPlanPeelingVariant> PV16 = VPPA->selectBestPeelingVariant(16);
+  std::unique_ptr<VPlanPeelingVariant> PV16 =
+      VPPA->selectBestPeelingVariant(16, CM);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV16));
   VPlanStaticPeeling &SP16 = cast<VPlanStaticPeeling>(*PV16);
   EXPECT_EQ(SP16.peelCount(), 2); // Make loads aligned by 16.
 
-  std::unique_ptr<VPlanPeelingVariant> PV32 = VPPA->selectBestPeelingVariant(32);
+  std::unique_ptr<VPlanPeelingVariant> PV32 =
+      VPPA->selectBestPeelingVariant(32, CM);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV32));
   VPlanStaticPeeling &SP32 = cast<VPlanStaticPeeling>(*PV32);
   EXPECT_EQ(SP32.peelCount(), 18); // Make loads aligned by 32.
 
-  std::unique_ptr<VPlanPeelingVariant> PV64 = VPPA->selectBestPeelingVariant(64);
+  std::unique_ptr<VPlanPeelingVariant> PV64 =
+      VPPA->selectBestPeelingVariant(64, CM);
   ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV64));
   VPlanStaticPeeling &SP64 = cast<VPlanStaticPeeling>(*PV64);
   EXPECT_EQ(SP64.peelCount(), 50); // Make loads aligned by 64.
@@ -615,7 +636,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //   %p6 =  9 (mod 16)
 
   VPlanPeelingCostModelLog CM;
-  setupPeelingAnalysis(CM);
+  setupPeelingAnalysis();
 
   // In this test we check for exact profit values to make sure that the
   // algorithm captures correctly all the interconnections between alignments of
@@ -630,7 +651,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //   %p5: 4 -> 4 (cost -= 0)
   //   %p6: 8 -> 8 (cost -= 0)
   std::pair<VPlanStaticPeeling, int> P2 =
-      VPPA->selectBestStaticPeelingVariant(2);
+      VPPA->selectBestStaticPeelingVariant(2, CM);
   EXPECT_EQ(P2.first.peelCount(), 0);
   EXPECT_EQ(P2.second, 3);
 
@@ -643,7 +664,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //   %p5: 4 ->  4 (cost -= 0)
   //   %p6: 8 ->  8 (cost -= 0)
   std::pair<VPlanStaticPeeling, int> P4 =
-      VPPA->selectBestStaticPeelingVariant(4);
+      VPPA->selectBestStaticPeelingVariant(4, CM);
   EXPECT_EQ(P4.first.peelCount(), 2);
   EXPECT_EQ(P4.second, 5);
 
@@ -656,7 +677,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //  %p5: 4 ->  8 (cost -= 1)
   //  %p6: 8 -> 64 (cost -= 3)
   std::pair<VPlanStaticPeeling, int> P8 =
-      VPPA->selectBestStaticPeelingVariant(8);
+      VPPA->selectBestStaticPeelingVariant(8, CM);
   EXPECT_EQ(P8.first.peelCount(), 7);
   EXPECT_EQ(P8.second, 7);
 
@@ -669,7 +690,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost1) {
   //  %p5: 4 ->   8 (cost -= 1)
   //  %p6: 8 -> 128 (cost -= 4)
   std::pair<VPlanStaticPeeling, int> P16 =
-      VPPA->selectBestStaticPeelingVariant(16);
+      VPPA->selectBestStaticPeelingVariant(16, CM);
   EXPECT_EQ(P16.first.peelCount(), 7);
   EXPECT_EQ(P16.second, 8);
 }
@@ -745,7 +766,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //   %p6 = 9 (mod 32)
 
   VPlanPeelingCostModelLog CM;
-  setupPeelingAnalysis(CM);
+  setupPeelingAnalysis();
 
   // In this test we check for exact profit values to make sure that the
   // algorithm captures correctly all the interconnections between alignments of
@@ -760,7 +781,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p5: 4 ->  4 (cost -= 0)
   //  %p6: 8 -> 16 (cost -= 1)
   std::pair<VPlanStaticPeeling, int> P2 =
-      VPPA->selectBestStaticPeelingVariant(2);
+      VPPA->selectBestStaticPeelingVariant(2, CM);
   EXPECT_EQ(P2.first.peelCount(), 1);
   EXPECT_EQ(P2.second, 5);
 
@@ -773,7 +794,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p5: 4 ->  4 (cost -= 0)
   //  %p6: 8 -> 32 (cost -= 2)
   std::pair<VPlanStaticPeeling, int> P4 =
-      VPPA->selectBestStaticPeelingVariant(4);
+      VPPA->selectBestStaticPeelingVariant(4, CM);
   EXPECT_EQ(P4.first.peelCount(), 3);
   EXPECT_EQ(P4.second, 8);
 
@@ -786,7 +807,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p5: 4 ->  4 (cost -= 0)
   //  %p6: 8 -> 64 (cost -= 3)
   std::pair<VPlanStaticPeeling, int> P8 =
-      VPPA->selectBestStaticPeelingVariant(8);
+      VPPA->selectBestStaticPeelingVariant(8, CM);
   EXPECT_EQ(P8.first.peelCount(), 7);
   EXPECT_EQ(P8.second, 10);
 
@@ -799,7 +820,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p5: 4 ->   4 (cost -= 0)
   //  %p6: 8 -> 128 (cost -= 4)
   std::pair<VPlanStaticPeeling, int> P16 =
-      VPPA->selectBestStaticPeelingVariant(16);
+      VPPA->selectBestStaticPeelingVariant(16, CM);
   EXPECT_EQ(P16.first.peelCount(), 7);
   EXPECT_EQ(P16.second, 11);
 
@@ -812,7 +833,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p5: 4 ->   4 (cost -= 0)
   //  %p6: 8 -> 256 (cost -= 5)
   std::pair<VPlanStaticPeeling, int> P32 =
-      VPPA->selectBestStaticPeelingVariant(32);
+      VPPA->selectBestStaticPeelingVariant(32, CM);
   EXPECT_EQ(P32.first.peelCount(), 23);
   EXPECT_EQ(P32.second, 12);
 
@@ -825,7 +846,7 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   //  %p5: 4 ->   4 (cost -= 0)
   //  %p6: 8 -> 256 (cost -= 5)
   std::pair<VPlanStaticPeeling, int> P64 =
-      VPPA->selectBestStaticPeelingVariant(64);
+      VPPA->selectBestStaticPeelingVariant(64, CM);
   EXPECT_EQ(P64.first.peelCount(), 23);
   EXPECT_EQ(P64.second, 12);
 }

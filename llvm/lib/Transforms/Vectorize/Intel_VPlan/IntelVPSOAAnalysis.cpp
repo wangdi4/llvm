@@ -69,12 +69,6 @@ void VPSOAAnalysis::doSOAAnalysis(SmallPtrSetImpl<VPInstruction *> &SOAVars) {
 }
 
 // Returns true if the pointee type of the alloca-inst is a scalar value.
-bool VPSOAAnalysis::isScalarTy(Type *Ty) {
-  assert(Ty && "Expect a non-null argument to isScalarTy function.");
-  return (!(Ty->isAggregateType() || Ty->isVectorTy()));
-}
-
-// Returns true if the pointee type of the alloca-inst is a scalar value.
 bool VPSOAAnalysis::isSOASupportedTy(Type *Ty) {
 
   Type *PointeeTy = Ty->getPointerElementType();
@@ -297,7 +291,7 @@ bool VPSOAAnalysis::isProfitableForSOA(const VPInstruction *I) {
   if (!GEP) {
     // The assert is triggered in DEBUG compiler and we return false in the
     // release compiler.
-    assert("Expect a GEP instruction at this point in the code.");
+    assert(false && "Expect a GEP instruction at this point in the code.");
     return false;
   }
 

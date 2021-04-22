@@ -11,23 +11,24 @@
 define void @test_uniform_edge_to_uniform_block(i32* %a, i32 %b) local_unnamed_addr {
 ; CHECK-LABEL: @test_uniform_edge_to_uniform_block(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP16:%.*]], [[VPLANNEDBB8:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i32 [ 0, [[VECTOR_PH]] ], [ [[TMP15:%.*]], [[VPLANNEDBB8]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VECTOR_PH]] ], [ [[TMP14:%.*]], [[VPLANNEDBB8]] ]
-; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 [[UNI_PHI1]]
+; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i32 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP10:%.*]], [[VPLANNEDBB9:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VECTOR_PH]] ], [ [[TMP9:%.*]], [[VPLANNEDBB9]] ]
+; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr i32, i32* [[A:%.*]], i32 [[UNI_PHI3]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP]] to <2 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i32 [[B:%.*]], 42
+; CHECK-NEXT:    br label %[[VPLANNEDBB4:.*]]
+; CHECK:       [[VPLANNEDBB4]]:
 ; CHECK-NEXT:    [[TMP2:%.*]] = or i1 [[TMP1]], true
 ; CHECK-NEXT:    [[TMP3:%.*]] = add <2 x i32> [[WIDE_LOAD]], zeroinitializer
-; CHECK-NEXT:    br i1 [[TMP2]], label [[VPLANNEDBB:%.*]], label [[VPLANNEDBB2:%.*]]
-; CHECK:       VPlannedBB:
+; CHECK-NEXT:    br i1 [[TMP2]], label %[[VPLANNEDBB5:.*]], label %[[VPLANNEDBB6:.*]]
+; CHECK:       [[VPLANNEDBB5]]:
 ; CHECK-NEXT:    [[TMP4:%.*]] = or i1 [[TMP1]], true
 ; CHECK-NEXT:    [[TMP5:%.*]] = add <2 x i32> [[WIDE_LOAD]], <i32 1, i32 1>
-; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB3:%.*]], label [[VPLANNEDBB2]]
-; CHECK:       VPlannedBB2:
+; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB7:%.*]], label %[[VPLANNEDBB6]]
+; CHECK:       [[VPLANNEDBB6]]:
 ; CHECK-NEXT:    [[TMP6:%.*]] = add <2 x i32> [[WIDE_LOAD]], <i32 2, i32 2>
-; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
+; CHECK-NEXT:    br label [[VPLANNEDBB8:%.*]]
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

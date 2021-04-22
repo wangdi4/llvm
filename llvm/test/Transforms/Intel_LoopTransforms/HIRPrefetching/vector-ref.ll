@@ -42,9 +42,9 @@
 ; OPTREPORT: Global loop optimization report for : foo
 ;
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT:     Remark: LOOP WAS VECTORIZED
-; OPTREPORT:     Remark: vectorization support: vector length 4
-; OPTREPORT:     Remark: Number of spatial prefetches=4, dist=64
+; OPTREPORT:     remark #15300: LOOP WAS VECTORIZED
+; OPTREPORT:     remark #15305: vectorization support: vector length 4
+; OPTREPORT:     remark: Number of spatial prefetches=4, dist=64
 ; OPTREPORT: LOOP END
 ;
 ; OPTREPORT: LOOP BEGIN

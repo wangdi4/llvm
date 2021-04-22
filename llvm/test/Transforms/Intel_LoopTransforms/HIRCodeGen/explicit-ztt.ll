@@ -23,13 +23,14 @@
 ; i2 loop
 ; CHECK: br label %[[L2Label:loop.[0-9]+]]
 ; CHECK: [[L2Label]]:
+
 ; these arent fully reorderable, but verifier should eliminate illegal ones
 ; CHECK-DAG: [[I1:%[0-9]+]] = load i64, i64* %i1.i64
 ; CHECK-DAG: [[I1_MUL_2:%[0-9]+]] = mul i64 2, [[I1]]
+
 ; CHECK-DAG: [[I2:%[0-9]+]] = load i64, i64* %i2.i64
 ; CHECK-DAG: [[SEXT_K:%[0-9]+]] = sext i32 %k to i64
 ; CHECK-DAG: [[I2_MUL_K:%[0-9]+]] = mul i64 [[SEXT_K]], [[I2]]
-
 ; (@A)[2 * i1][sext.i32.i64(%k) * i2]
 ; CHECK:  getelementptr inbounds [10 x [10 x i32]], [10 x [10 x i32]]* @A, i64 0, i64 [[I1_MUL_2]], i64 [[I2_MUL_K]]
 

@@ -23,8 +23,8 @@
 ;   return arr[RetIdx];
 ; }
 
-
-; RUN: opt -vplan-enable-soa=false -VPlanDriver -vplan-force-vf=2 -S  %s | FileCheck %s
+; TODO: enable cfg merge after private support enabled
+; RUN: opt -vplan-enable-soa=false -VPlanDriver -vplan-force-vf=2 -vplan-enable-cfg-merge=0 -S  %s | FileCheck %s
 
 ; CHECK:      entry:
 ; CHECK:       [[PRIV1:%.*]] = alloca [2 x [1024 x i32]], align 4

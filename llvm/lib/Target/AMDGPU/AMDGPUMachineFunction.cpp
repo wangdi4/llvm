@@ -7,9 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "AMDGPUMachineFunction.h"
-#include "AMDGPUSubtarget.h"
 #include "AMDGPUPerfHintAnalysis.h"
+#include "AMDGPUSubtarget.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
+#include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;
 
@@ -61,6 +62,18 @@ unsigned AMDGPUMachineFunction::allocateLDSGlobal(const DataLayout &DL,
   LDSSize = alignTo(StaticLDSSize, DynLDSAlign);
 
   return Offset;
+}
+
+void AMDGPUMachineFunction::allocateModuleLDSGlobal(const Module *M) {
+  if (isModuleEntryFunction()) {
+    GlobalVariable *GV = M->getGlobalVariable("llvm.amdgcn.module.lds");
+    if (GV) {
+      unsigned Offset = allocateLDSGlobal(M->getDataLayout(), *GV);
+      (void)Offset;
+      assert(Offset == 0 &&
+             "Module LDS expected to be allocated before other LDS");
+    }
+  }
 }
 
 void AMDGPUMachineFunction::setDynLDSAlign(const DataLayout &DL,

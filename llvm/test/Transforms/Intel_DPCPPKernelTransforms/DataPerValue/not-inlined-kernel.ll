@@ -1,3 +1,4 @@
+; RUN: opt -disable-output 2>&1 -passes='print<dpcpp-kernel-data-per-value-analysis>' %s -S -o - | FileCheck %s
 ; RUN: opt -analyze -dpcpp-kernel-data-per-value-analysis %s -S -o - | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -10,11 +11,11 @@ entry:
 
 define dso_local void @bar() {
 entry:
-  tail call void @__builtin_dpcpp_kernel_barrier() #0
+  tail call void @_Z18work_group_barrierj() #0
   unreachable
 }
 
-declare dso_local void @__builtin_dpcpp_kernel_barrier()
+declare dso_local void @_Z18work_group_barrierj()
 
 define dso_local void @kernel() #1 {
 DIR.OMP.PARALLEL.LOOP.3:

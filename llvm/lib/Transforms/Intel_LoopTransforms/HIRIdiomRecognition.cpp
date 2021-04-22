@@ -52,6 +52,10 @@ static cl::list<unsigned>
     TransformNodes(OPT_SWITCH "-nodes", cl::Hidden,
                    cl::desc("List nodes to transform by " OPT_DESC));
 
+static cl::opt<unsigned>
+    SmallTripCount(OPT_SWITCH "-small-trip-count", cl::init(12), cl::Hidden,
+                   cl::desc("Generate small trip count check while " OPT_DESC));
+
 STATISTIC(NumMemSet, "Number of memset's formed from loop stores");
 STATISTIC(NumMemCpy, "Number of memcpy's formed from loop load+stores");
 
@@ -579,6 +583,39 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
   return true;
 }
 
+static HLIf *createTripCountCheck(const HLLoop *Loop) {
+  if (SmallTripCount == 0 || Loop->isConstTripLoop()) {
+    // It's already checked that constant trip count loop is not small.
+    return nullptr;
+  }
+
+  RegDDRef *TCRef = Loop->getTripCountDDRef();
+  assert(TCRef && "Only Unknown loops may not have a trip count");
+
+  return Loop->getHLNodeUtils().createHLIf(
+      CmpInst::ICMP_UGT, TCRef,
+      Loop->getDDRefUtils().createConstDDRef(TCRef->getDestType(),
+                                             SmallTripCount));
+}
+
+static bool isSmallCountLoop(const HLLoop *Loop) {
+  if (SmallTripCount == 0) {
+    return false;
+  }
+
+  auto MaxTCEstimate = Loop->getMaxTripCountEstimate();
+  if (MaxTCEstimate != 0 && MaxTCEstimate <= SmallTripCount) {
+    return true;
+  }
+
+  uint64_t ConstTC;
+  if (Loop->isConstTripLoop(&ConstTC) && ConstTC <= SmallTripCount) {
+    return true;
+  }
+
+  return false;
+}
+
 bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   LLVM_DEBUG(dbgs() << "\nProcessing Loop: <" << Loop->getNumber() << ">\n");
 
@@ -587,6 +624,11 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
     LLVM_DEBUG(
         dbgs() << "Skipping - non-DO-Loop / non-Normalized / Vec / unroll "
                   "pragma loop\n");
+    return false;
+  }
+
+  if (isSmallCountLoop(Loop)) {
+    LLVM_DEBUG(dbgs() << "Skipping small trip count loops\n");
     return false;
   }
 
@@ -623,7 +665,14 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
     Candidates.push_back(NewCandidate);
   }
 
+  HLLoop *OrigLoopClone = nullptr;
+  HLIf *SmallTripCountCheck = nullptr;
+
   if (!Candidates.empty()) {
+    if ((SmallTripCountCheck = createTripCountCheck(Loop))) {
+      OrigLoopClone = Loop->clone();
+    }
+
     LLVM_DEBUG(dbgs() << "Loop DD graph:\n");
     LLVM_DEBUG(DDA.getGraph(Loop).dump());
     LLVM_DEBUG(dbgs() << "\n");
@@ -649,11 +698,28 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   }
 
   if (Changed) {
-    // The transformation could hoist everything to the pre-header, making the
-    // loop empty.
-    // TODO: If the Loop is deleted here, we need to save its opt report with
-    // preserveLostLoopOptReport call. Probably we need to pass OptReportBuilder
-    // there.
+    // TODO: maybe do not multiversion the loop if it has other instructions
+    // apart from memset/memcpy calls.
+    if (SmallTripCountCheck) {
+      LoopOptReportBuilder &LORBuilder =
+          Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+      Loop->extractZtt();
+      HLNodeUtils::replace(Loop, SmallTripCountCheck);
+      HLNodeUtils::insertAsFirstThenChild(SmallTripCountCheck, Loop);
+      HLNodeUtils::insertAsFirstElseChild(SmallTripCountCheck, OrigLoopClone);
+
+      LORBuilder(*Loop)
+          .addOrigin("Small trip count multiversioned v1")
+          .addRemark(
+              OptReportVerbosity::Low,
+              "The loop has been multiversioned for the small trip count");
+
+      LORBuilder(*OrigLoopClone)
+          .addOrigin(
+              "Small trip count multiversioned v2 (small)");
+    }
+
     HLNodeUtils::removeEmptyNodes(Loop, false);
   }
 
@@ -722,11 +788,9 @@ bool HIRIdiomRecognition::run() {
   return false;
 }
 
-PreservedAnalyses
-HIRIdiomRecognitionPass::run(llvm::Function &F,
-                             llvm::FunctionAnalysisManager &AM) {
-  HIRIdiomRecognition(AM.getResult<HIRFrameworkAnalysis>(F),
-                      AM.getResult<HIRLoopStatisticsAnalysis>(F),
+PreservedAnalyses HIRIdiomRecognitionPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRIdiomRecognition(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
                       AM.getResult<HIRDDAnalysisPass>(F),
                       AM.getResult<TargetLibraryAnalysis>(F))
       .run();

@@ -1,6 +1,6 @@
 //===- Intel_TransformSinAndCosCalls.cpp - Transform sin and cos Calls -===//
 //
-// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -10,10 +10,11 @@
 //===-------------------------------------------------------------------===//
 //
 // This pass transforms calls to sin and cos to calls to sinpi, cospi, or
-// sincospi.
+// sincos.
 //
 //===-------------------------------------------------------------------===//
 
+#include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -22,6 +23,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/Intel_TransformSinAndCosCalls.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -36,59 +38,74 @@ using namespace llvm;
 using namespace llvm::PatternMatch;
 using namespace intel_transform_sin_cos_calls;
 
+
 #define DEBUG_TYPE "transform-sin-cos-calls"
 
-STATISTIC(NumTransformedSinAndCosCalls, "Number of transformed sin and cos calls");
+// Pi used in double-precision computations
+#ifndef M_PI
+    #define M_PI    3.14159265358979323846264338327950288
+#endif
+
+// Pi used in quad-precision computations
+APFloat PiQuad(APFloat::IEEEquad(),
+               APInt(128, {0x8469'898c'c517'01b8, 0x4000'921f'b544'42d1}));
+
+STATISTIC(NumTransformedSinAndCosCalls, "Number of transformed sin/cos calls");
+
+static cl::opt<bool> EnablePass(
+    "enable-transform-sin-cos",
+    cl::init(true), cl::Hidden,
+    cl::desc("Enable sin/cos transformations"));
+
+static cl::opt<bool> EnableTransformDoubleSinCos(
+    "enable-transform-sin-cos-double",
+    cl::init(false), cl::Hidden,
+    cl::desc("Enable transformation of double sin/cos to sinpi/cospi"));
 
 /*
- * This transformation is disabled by default. To enable, compile with:
- * -mllvm -enable-transform-sin-cos
+ * This function checks whether the call (CI) is call to the library
+ * function LF, or a call to the intrinsic with IntrinID whose type is
+ * indicated byIsFloatType.
+ *
+ * When checking for a library function, the LibFunc argument LF is
+ * sufficient to fully identify the library function.
+
+ * When checking for an intrinsic, IntrinID does not fully identify
+ * the intrinsic. We also need to specify the datatype of the
+ * intrinsic we are looking for. This is indicated by the argument
+ * IsFloatType.
+ *
+ * Examples:
+ *
+ * Check whether CI calls sinf (the float version of sin):
+ * bool IsSinf = isMathLibFunctionCall(UserCI, TLI, LibFunc_sinf,
+ *                                     Intrinsic::sin, true);
+ *
+ * Check whether CI calls cos (the double version of cos):
+ * bool IsCos = isMathLibFunctionCall(UserCI, TLI, LibFunc_cos,
+ *                                    Intrinsic::cos, false);
  */
-static cl::opt<bool> EnablePass("enable-transform-sin-cos",
-                                cl::init(false), cl::Hidden,
-                                cl::desc("Enable transform sin/cos to sinpi/cospi"));
-
-static bool isSinf(CallInst *CI, TargetLibraryInfo &TLI) {
+static bool isMathLibFunctionCall(CallInst *CI, TargetLibraryInfo &TLI,
+                                  LibFunc LF, Intrinsic::ID IntrinID,
+                                  bool IsFloatType) {
   Function *Callee = CI->getCalledFunction();
-  LibFunc LF;
+  LibFunc CalleeLF;
 
-  /* Check for sinf library call. */
-  if (Callee && TLI.getLibFunc(*Callee, LF)) {
-    if (LF == LibFunc_sinf) {
+  /* Check for library call. */
+  if (Callee && TLI.getLibFunc(*Callee, CalleeLF)) {
+    if (CalleeLF == LF) {
       return true;
     }
   }
 
-  /* Check for sin intrinsic call. */
+  /* Check for intrinsic call. */
   if (auto *Intrin = dyn_cast<IntrinsicInst>(CI)) {
-    if (Intrin->getIntrinsicID() == Intrinsic::sin) {
+    if (Intrin->getIntrinsicID() == IntrinID) {
       Value *Arg = CI->getArgOperand(0);
       auto *ArgType = Arg->getType();
-      if (ArgType->isFloatTy())
+      if (ArgType->isFloatTy() && IsFloatType)
         return true;
-    }
-  }
-
-  return false;
-}
-
-static bool isCosf(CallInst *CI, TargetLibraryInfo &TLI) {
-  Function *Callee = CI->getCalledFunction();
-  LibFunc LF;
-
-  /* Check for cosf library call. */
-  if (Callee && TLI.getLibFunc(*Callee, LF)) {
-    if (LF == LibFunc_cosf) {
-      return true;
-    }
-  }
-
-  /* Check for cos intrinsic call. */
-  if (auto *Intrin = dyn_cast<IntrinsicInst>(CI)) {
-    if (Intrin->getIntrinsicID() == Intrinsic::cos) {
-      Value *Arg = CI->getArgOperand(0);
-      auto *ArgType = Arg->getType();
-      if (ArgType->isFloatTy())
+      else if (ArgType->isDoubleTy() && (! IsFloatType))
         return true;
     }
   }
@@ -106,21 +123,156 @@ static bool callHasHighImfPrecisionAttr(CallInst *CI) {
 }
 
 /*
- * This function does the following transformation:
- * sin(expr * constant) -> sinpi(expr * (constant/pi))
- * cos(expr * constant) -> cospi(expr * (constant/pi))
+ * Return true if the sin/cos call instruction (CI) can be paired with
+ * another cos/sin call.
+ */
+static bool isPairedSinCos(CallInst *CI,
+                           DominatorTree &DT,
+                           TargetLibraryInfo &TLI) {
+
+  assert(CI->getNumArgOperands() == 1 && "Single argument call expected.");
+
+  Value *Arg = CI->getOperand(0);
+  bool IsSinf, IsCosf, IsSin, IsCos;
+
+  IsSinf = isMathLibFunctionCall(CI, TLI, LibFunc_sinf, Intrinsic::sin, true);
+  IsCosf = isMathLibFunctionCall(CI, TLI, LibFunc_cosf, Intrinsic::cos, true);
+  IsSin = isMathLibFunctionCall(CI, TLI, LibFunc_sin, Intrinsic::sin, false);
+  IsCos = isMathLibFunctionCall(CI, TLI, LibFunc_cos, Intrinsic::cos, false);
+
+
+  // Search the uses of "Arg" and check sin and cos calls that
+  // dominate or are dominated by the given call (CI).
+  for (User *U : Arg->users()) {
+    if (auto *UserCI = dyn_cast<CallInst>(U)) {
+      bool IsSinfUser, IsCosfUser, IsSinUser, IsCosUser;
+      IsSinfUser = isMathLibFunctionCall(UserCI, TLI, LibFunc_sinf,
+                                         Intrinsic::sin, true);
+      IsCosfUser = isMathLibFunctionCall(UserCI, TLI, LibFunc_cosf,
+                                         Intrinsic::cos, true);
+      IsSinUser  = isMathLibFunctionCall(UserCI, TLI, LibFunc_sin,
+                                         Intrinsic::sin, false);
+      IsCosUser  = isMathLibFunctionCall(UserCI, TLI, LibFunc_cos,
+                                         Intrinsic::cos, false);
+
+      if ((IsSinf && IsCosfUser) ||
+          (IsCosf && IsSinfUser) ||
+          (IsSin  && IsCosUser)  ||
+          (IsCos  && IsSinUser))
+        if (DT.dominates(UserCI, CI) || DT.dominates(CI, UserCI)) {
+          return true;
+        }
+    }
+  }
+
+  return false;
+}
+
+/*
+ * Return true if can convert sin to sinpi, and cos to cospi.
+ * Otherwise, return false.
+ */
+static bool doConvertToSinpiOrCospi(CallInst *CI,
+                                    DominatorTree &DT,
+                                    LoopInfo &LI,
+                                    TargetLibraryInfo &TLI) {
+
+  assert(CI->getNumArgOperands() == 1 && "Single argument call expected.");
+
+  // -ffast-math must be specified.
+  if (! CI->isFast())
+    return false;
+
+  // -fimf-precision must be low or medium.
+  if (callHasHighImfPrecisionAttr(CI))
+    return false;
+
+  // The call (CI) must be:
+  // (a) float (sinf or cosf)
+  // OR
+  // (b) double (sin or cos) and the transformation is enabled for double.
+  bool IsSinf, IsCosf, IsSin, IsCos;
+  IsSinf = isMathLibFunctionCall(CI, TLI, LibFunc_sinf, Intrinsic::sin, true);
+  IsCosf = isMathLibFunctionCall(CI, TLI, LibFunc_cosf, Intrinsic::cos, true);
+  IsSin = isMathLibFunctionCall(CI, TLI, LibFunc_sin, Intrinsic::sin, false);
+  IsCos = isMathLibFunctionCall(CI, TLI, LibFunc_cos, Intrinsic::cos, false);
+
+  if (! (IsSinf ||
+         IsCosf ||
+         (IsSin && EnableTransformDoubleSinCos) ||
+         (IsCos && EnableTransformDoubleSinCos)))
+    return false;
+
+  // If the call (CI) is enclosed by an OpenMP simd loop, then we do
+  // the transformation to sinpi/cospi because the call will be
+  // vectorized.
+  Loop *EnclosingLoop = LI.getLoopFor(CI->getParent());
+  if (EnclosingLoop && isOmpSIMDLoop(EnclosingLoop))
+    return true;
+
+  // The sin/cos call must not be paired with another cos/sin call.
+  // If the call is paired, we don't do the transformation to
+  // sinpi/cospi, but rather let the scalar sin/cos pair be merged
+  // into scalar sincos, which is generally faster.
+  if (! isPairedSinCos(CI, DT, TLI))
+    return true;
+
+  return false;
+}
+
+static Value * divideFloatConstByPi(ConstantFP *Const) {
+  // Do computation of new constant in double precision.
+  float ConstOverPi = (Const->getValueAPF().convertToFloat() / M_PI);
+  return ConstantFP::get(Const->getType(), ConstOverPi);
+}
+
+static Value * divideDoubleConstByPi(ConstantFP *Const) {
+  // Do computation of new constant in quad precision.
+  APFloat ConstVal = Const->getValueAPF();
+  bool Ignored;
+
+  ConstVal.convert(APFloat::IEEEquad(), APFloat::rmNearestTiesToEven,
+                   &Ignored);
+  ConstVal = ConstVal / PiQuad;
+  ConstVal.convert(APFloat::IEEEdouble(), APFloat::rmNearestTiesToEven,
+                   &Ignored);
+
+  return ConstantFP::get(Const->getType(), ConstVal);
+}
+
+/*
+ * This function transforms sin to sinpi, and cos to cospi.
  *
- * sin (cos) is converted to sinpi (cospi), if the following three
- * conditions hold:
- * . argument is of the form (expr * constant) or (constant * expr),
- * . -ffast-math is specified, and
- * . -imf-precision=low or medium
+ * The transformation is enabled if all the following three conditions hold:
+ * (a) Argument is of the form (Expr * Const)
+ *     OR
+ *     Argument is of the form ((Expr * MulConst) + AddConst)
+ * (b) -ffast-math is specified, AND
+ * (c) -imf-precision=low or medium
  *
- * To compute the new argument for sinpi (or cospi), we divide the
- * constant by pi in higher precision, then round to the required
- * precision. So the new argument is (expr * (constant/pi)).
+ * If arguments is of the form (Expr * Const), then the following
+ * transformations are applied:
+ * sin(Expr * Const) -> sinpi(Expr * (Const/Pi))
+ * cos(Expr * Const) -> cospi(Expr * (Const/Pi))
  *
- * For example, suppose we have:
+ * If argument is of the form ((Expr * MulConst) + AddConst), then
+ * the following transformations are applied:
+ * sin((Expr*MulConst) + AddConst) -> sinpi((Expr*MulConst/Pi) + AddConst/Pi)
+ * cos((Expr*MulConst) + AddConst) -> cospi((Expr*MulConst/Pi) + AddConst/Pi)
+ *
+ * ------
+ *
+ * In case of float sinf/cosf, we compute the new constant(s) for
+ * sinpif/cospif by dividing the constant(s) by Pi in double
+ * precision, and then rounding to float.
+ *
+ * In case of double sin/cos, we compute the new constant(s) for
+ * sinpi/cospi by dividing the constant(s) by Pi in quad
+ * precision, then rounding to double.
+ *
+ * ------
+ *
+ * To illustrate the transformation in LLVM IR, suppose we have:
  *   float arg, expr, x, y;
  *   arg = expr * 8.0;
  *   x = sinf(arg);
@@ -138,48 +290,95 @@ static bool callHasHighImfPrecisionAttr(CallInst *CI) {
  *   %y = fadd float %x, %arg
  *
  * Note that in this transformation, we generate a new argument
- * (8.0/pi) and change the existing sinf call to sinpif call,
+ * (8.0/Pi) and change the existing sinf call to sinpif call,
  * retaining all existing attributes on the call.
+ *
  */
 static bool convertToSinpiOrCospi(CallInst *CI, TargetLibraryInfo &TLI) {
   Value *Arg = CI->getArgOperand(0);
   auto *ArgType = Arg->getType();
-  Value *Expr;
-  ConstantFP *Const;
+  Value *Expr, *FSinCosArg;
+  ConstantFP *Const, *MulConst, *AddConst;
+  Value *NewConst, *NewMulConst, *NewAddConst;
+  bool PatternMatch = false;
 
   if (CI->getNumArgOperands() != 1)
     return false;
 
-  // Argument must be of the form (expr * constant) or *constant * expr).
+  if ((! ArgType->isFloatTy()) && (! ArgType->isDoubleTy()))
+    return false;
+
   if (match(Arg, m_FMul(m_Value(Expr), m_ConstantFP(Const)))) {
-    Module *M          = CI->getParent()->getModule();
+    // sin/cos argument is of the form: Arg = (Expr * Const)
+
+    // Compute new constant.
+    IRBuilder<> Builder(CI);
+
+    if (ArgType->isFloatTy()) {
+      NewConst = divideFloatConstByPi(Const);
+    } else {
+      NewConst = divideDoubleConstByPi(Const);
+    }
+
+    FSinCosArg = Builder.CreateFMulFMF(
+        Expr, NewConst, dyn_cast<Instruction>(Arg), Arg->getName() + ".overpi");
+
+    PatternMatch = true;
+
+  } else if (match(Arg,
+                   m_FAdd(
+                       m_FMul(m_Value(Expr), m_ConstantFP(MulConst)),
+                       m_ConstantFP(AddConst)))) {
+    // sin/cos argument is of the form:
+    // Mul = (MulConst * Expr)
+    // Arg = Mul + AddConst
+
+    // Compute new add and mul constants.
+    IRBuilder<> Builder(CI);
+
+    if (ArgType->isFloatTy()) {
+      NewMulConst = divideFloatConstByPi(MulConst);
+      NewAddConst = divideFloatConstByPi(AddConst);
+    }
+    else {
+      NewMulConst = divideDoubleConstByPi(MulConst);
+      NewAddConst = divideDoubleConstByPi(AddConst);
+    }
+
+    Value *OrigFMul = cast<Instruction>(Arg)->getOperand(0);
+    Value *FMul =
+        Builder.CreateFMulFMF(Expr, NewMulConst, dyn_cast<Instruction>(OrigFMul),
+                              OrigFMul->getName() + ".overpi");
+    FSinCosArg =
+        Builder.CreateFAddFMF(FMul, NewAddConst, dyn_cast<Instruction>(Arg),
+                              Arg->getName() + ".overpi");
+
+    PatternMatch = true;
+  }
+
+  // Update original sinf/cosf/sin/cos call instruction.
+  if (PatternMatch) {
+    Module *M = CI->getParent()->getModule();
     Function *origFunc = CI->getCalledFunction();
     FunctionCallee Callee;
 
-    // Compute new constant.
-    double ConstOverPi = Const->getValueAPF().convertToFloat()
-      / llvm::numbers::pi;
-    Value *newConst = ConstantFP::get(Const->getType(), ConstOverPi);
-
-    IRBuilder<> Builder(CI);
-    Value *FMul = Builder.CreateFMulFMF(Expr, newConst,
-      dyn_cast<Instruction>(Arg), Arg->getName() + ".overpi");
-
-    // Update orignal sin/cos call instruction.
-    if (isSinf(CI, TLI)) {
+    if (isMathLibFunctionCall(CI, TLI, LibFunc_sinf, Intrinsic::sin, true))
       Callee = M->getOrInsertFunction("sinpif", origFunc->getAttributes(),
-          ArgType, ArgType);
-    }
-    else {
+                                      ArgType, ArgType);
+    else if (isMathLibFunctionCall(CI, TLI, LibFunc_cosf, Intrinsic::cos, true))
       Callee = M->getOrInsertFunction("cospif", origFunc->getAttributes(),
-          ArgType, ArgType);
-    }
+                                      ArgType, ArgType);
+    else if (isMathLibFunctionCall(CI, TLI, LibFunc_sin,  Intrinsic::sin, false))
+      Callee = M->getOrInsertFunction("sinpi", origFunc->getAttributes(),
+                                      ArgType, ArgType);
+    else
+      Callee = M->getOrInsertFunction("cospi", origFunc->getAttributes(),
+                                      ArgType, ArgType);
 
     CI->setCalledFunction(Callee);
-    CI->setArgOperand(0, FMul);
+    CI->setArgOperand(0, FSinCosArg);
     return true;
   }
-
   return false;
 }
 
@@ -199,9 +398,17 @@ bool TransformSinAndCosCalls::run() {
       bool ConvertedInst = false;
 
       if (auto *CI = dyn_cast<CallInst>(I)) {
-        // TODO: Double
-        if (isSinf(CI, TLI) || isCosf(CI, TLI)) {
-          if (CI->isFast() && (! callHasHighImfPrecisionAttr(CI))) {
+        bool IsSinf, IsCosf, IsSin, IsCos;
+        IsSinf = isMathLibFunctionCall(CI, TLI, LibFunc_sinf, Intrinsic::sin,
+                                       true);
+        IsCosf = isMathLibFunctionCall(CI, TLI, LibFunc_cosf, Intrinsic::cos,
+                                       true);
+        IsSin  = isMathLibFunctionCall(CI, TLI, LibFunc_sin,  Intrinsic::sin,
+                                       false);
+        IsCos  = isMathLibFunctionCall(CI, TLI, LibFunc_cos,  Intrinsic::cos,
+                                       false);
+        if (IsSinf || IsCosf || IsSin || IsCos) {
+          if (doConvertToSinpiOrCospi(CI, DT, LI, TLI)) {
             ConvertedInst = convertToSinpiOrCospi(CI, TLI);
             if (ConvertedInst) {
               NumTransformedSinAndCosCalls++;
@@ -220,15 +427,20 @@ bool TransformSinAndCosCalls::run() {
  * New Pass Manager
  */
 
-bool TransformSinAndCosCallsPass::runImpl(Function &F, TargetLibraryInfo &TLI) {
-  return TransformSinAndCosCalls(F, TLI).run();
+bool TransformSinAndCosCallsPass::runImpl(Function &F,
+                                          DominatorTree &DT,
+                                          LoopInfo &LI,
+                                          TargetLibraryInfo &TLI) {
+  return TransformSinAndCosCalls(F, DT, LI, TLI).run();
 }
 
 PreservedAnalyses TransformSinAndCosCallsPass::run(Function &F,
                                                FunctionAnalysisManager &AM) {
+  auto &DT  = AM.getResult<DominatorTreeAnalysis>(F);
+  auto &LI  = AM.getResult<LoopAnalysis>(F);
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
 
-  bool Changed = runImpl(F, TLI);
+  bool Changed = runImpl(F, DT, LI, TLI);
   if (Changed) {
     return PreservedAnalyses::none();
   }
@@ -246,14 +458,18 @@ TransformSinAndCosCallsLegacyPass::TransformSinAndCosCallsLegacyPass() : Functio
 }
 
 bool TransformSinAndCosCallsLegacyPass::runOnFunction(Function &F) {
+  auto &DT  = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  auto &LI  = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   NumTransformedSinAndCosCalls = 0;
 
-  return Impl.runImpl(F, TLI);
+  return Impl.runImpl(F, DT, LI, TLI);
 }
 
 INITIALIZE_PASS_BEGIN(TransformSinAndCosCallsLegacyPass, DEBUG_TYPE,
                 "Transform sin and cos calls", false, false)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_END(TransformSinAndCosCallsLegacyPass, DEBUG_TYPE,
                 "Transform sin and cos calls", false, false)
@@ -263,7 +479,6 @@ INITIALIZE_PASS_END(TransformSinAndCosCallsLegacyPass, DEBUG_TYPE,
  * manager.
  */
 
-// Public interface to the pass
 FunctionPass *llvm::createTransformSinAndCosCallsPass() {
   return new TransformSinAndCosCallsLegacyPass();
 }

@@ -18,6 +18,11 @@
 namespace llvm {
 namespace vpo {
 
+/// Match an arbitrary VPValue and ignore it.
+inline PatternMatch::class_match<VPValue> m_VPValue() {
+  return PatternMatch::class_match<VPValue>();
+}
+
 // Matches abs VPInstruction.
 template <typename OP_t>
 struct m_VPAbs_matcher {

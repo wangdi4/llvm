@@ -147,7 +147,8 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
         auto *One = ConstantInt::getSigned(Call->getType(), 1);
         return VPIRBuilder.create<VPInductionInit>(
             Call->getName(), getOrCreateVPOperand(Zero),
-            getOrCreateVPOperand(One), Instruction::Add);
+            getOrCreateVPOperand(One), nullptr /* StartVal */,
+            nullptr /* EndVal */, Instruction::Add);
       }
     }
   }
@@ -165,6 +166,13 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
     SmallVector<VPValue *, 4> VPOperands;
     for (Value *Op : Inst->operands())
       VPOperands.push_back(getOrCreateVPOperand(Op));
+
+    if (auto *Shuffle = dyn_cast<ShuffleVectorInst>(Inst)) {
+      // TODO: Once the community cleans up the bitcode representation we'd want
+      // to have a separate subclass of VPInstruction to store the mask.
+      VPOperands.push_back(
+          getOrCreateVPOperand(Shuffle->getShuffleMaskForBitcode()));
+    }
 
     if (CmpInst *CI = dyn_cast<CmpInst>(Inst)) {
       assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
@@ -292,6 +300,7 @@ void VPlanCFGBuilderBase<CFGBuilder>::processBB(BasicBlock *BB) {
   } else {
     llvm_unreachable("Number of successors not supported");
   }
+  VPBB->getTerminator()->setDebugLocation(TI->getDebugLoc());
 }
 
 void VPlanLoopCFGBuilder::buildCFG() {
@@ -316,6 +325,8 @@ void VPlanLoopCFGBuilder::buildCFG() {
   VPBasicBlock *HeaderVPBB = getOrCreateVPBB(TheLoop->getHeader());
   // Preheader's predecessors will be set during the loop RPO traversal below.
   PreheaderVPBB->setTerminator(HeaderVPBB);
+  PreheaderVPBB->getTerminator()->setDebugLocation(
+      PreheaderBB->getTerminator()->getDebugLoc());
 
   LoopBlocksRPO RPO(TheLoop);
   RPO.perform(LI);
@@ -353,6 +364,9 @@ void VPlanLoopCFGBuilder::buildCFG() {
   if (LoopExits.size() == 1) {
     VPBasicBlock *LoopExitVPBB = BB2VPBB[LoopExits.front()];
     LoopExitVPBB->setTerminator(NewPlanExitBB);
+    // For single loop exit we would like to retain debug location.
+    LoopExitVPBB->getTerminator()->setDebugLocation(
+        LoopExits.front()->getTerminator()->getDebugLoc());
   } else {
     // If there are multiple exits in the outermost loop, we need another dummy
     // block as landing pad for all of them.
@@ -395,7 +409,7 @@ void VPlanFunctionCFGBuilder::buildCFG() {
              "Only void return is supported for region vectorization!");
       VPBasicBlock *VPBB = BB2VPBB[&BB];
 
-      Plan->getVPBasicBlockList().remove(VPBB->getIterator());
+      Plan->getBasicBlockList().remove(VPBB->getIterator());
       Plan->insertAtBack(VPBB);
       break;
     }

@@ -29,7 +29,7 @@ class TargetLibraryInfo;
 
 namespace vpo {
 
-class VPlan;
+class VPlanVector;
 class VPInstruction;
 class VPPHINode;
 class VPBasicBlock;
@@ -83,6 +83,22 @@ public:
 
   bool instNeedsExtractFromLastActiveLane(const VPInstruction *Inst) const;
 
+  // Getter interfaces for querying SVA results at return value level.
+  bool retValNeedsVectorCode(const VPInstruction *Inst) const {
+    return getSVABitsForReturnValue(Inst).test(
+      static_cast<unsigned>(SVAKind::Vector));
+  }
+
+  bool retValNeedsFirstScalarCode(const VPInstruction *Inst) const {
+    return getSVABitsForReturnValue(Inst).test(
+      static_cast<unsigned>(SVAKind::FirstScalar));
+  }
+
+  bool retValNeedsLastScalarCode(const VPInstruction *Inst) const {
+    return getSVABitsForReturnValue(Inst).test(static_cast<unsigned>(
+      SVAKind::LastScalar));
+  }
+
   // TODO: Public setter/add interfaces are not needed as of now since bits are
   // computed internally within SVA. Introduce them if needed in the future.
 
@@ -91,11 +107,9 @@ public:
   /// CFG and works on use->def chain to propagate the nature of VPInstructions
   /// and its corresponding operands. Information about divergence property of a
   /// VPValue is also used from DA for decisions about an instruction's nature.
-  /// Optionally a specific vector factor and TLI can be provided to the
-  /// analysis to compute more accurate results for Call instructions and their
-  /// argument operands.
-  void compute(VPlan *P, unsigned VF = 1,
-               const TargetLibraryInfo *TLI = nullptr);
+  /// Results of CallVecDecisions analysis are used to compute more accurate
+  /// results for Call instructions and their argument operands.
+  void compute(VPlanVector *P);
 
   void clear(void) { VPlanSVAResults.clear(); }
 
@@ -152,7 +166,7 @@ private:
   SmallDenseMap<const VPInstruction *, VPInstSVABits> VPlanSVAResults;
 
   // VPlan for which SVA results are computed for.
-  VPlan *Plan;
+  VPlanVector *Plan;
 
   // Container to track loop header PHIs that are skipped during forward
   // propagation. Such PHIs occur when they do not have any processed users i.e.
@@ -295,8 +309,7 @@ private:
   /// 1. Specially processed
   /// 2. Determine SVA nature using DA
   /// 3. Compute and refine SVA nature based on user-site bits
-  void compute(const VPInstruction *VPInst, unsigned VF,
-               const TargetLibraryInfo *TLI);
+  void compute(const VPInstruction *VPInst);
 
   /// Specialized method to back propagate SVA bits for a recurrent PHI node.
   /// Since these PHIs can represent back-edge or recurrence property, a chain
@@ -315,15 +328,13 @@ private:
   //  %iv.update and its operands. Currently recurrent PHIs are expected to be
   //  seen only at loop headers.
   void backPropagateSVABitsForRecurrentPHI(const VPPHINode *Phi,
-                                           SVABits &SetBits, unsigned VF,
-                                           const TargetLibraryInfo *TLI);
+                                           SVABits &SetBits);
 
   /// Compute SVA properties for instructions that need special processing. Such
   /// instructions are analyzed using more information and their SVA nature is
   /// not blindly propagated to operands. This utility returns false if given
   /// instruction is not processed specially.
-  bool computeSpecialInstruction(const VPInstruction *Inst, unsigned VF,
-                                 const TargetLibraryInfo *TLI);
+  bool computeSpecialInstruction(const VPInstruction *Inst);
 
   /// Helper utility to check if given instruction is processed specially in
   /// SVA.

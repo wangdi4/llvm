@@ -7,8 +7,8 @@ entry:
   br label %DIR.OMP.SIMD.1
 
 ; CHECK: vector.ph:
-; CHECK-NEXT: [[BSI:%.*]] = insertelement <4 x <2 x i32>*> undef, <2 x i32>* %a, i32 0
-; CHECK-NEXT: [[BCAST:%.*]] = shufflevector <4 x <2 x i32>*> [[BSI]], <4 x <2 x i32>*> undef, <4 x i32> zeroinitializer
+; CHECK-NEXT: [[BSI:%.*]] = insertelement <4 x <2 x i32>*> poison, <2 x i32>* %a, i32 0
+; CHECK-NEXT: [[BCAST:%.*]] = shufflevector <4 x <2 x i32>*> [[BSI]], <4 x <2 x i32>*> poison, <4 x i32> zeroinitializer
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]
@@ -27,8 +27,8 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.body,
 ; CHECK: [[BC1:%.*]] = bitcast <4 x <2 x i32>*> [[BCAST]] to <4 x i32*>
 ; CHECK-NEXT: [[E1:%.*]] = extractelement <4 x i32*> [[BC1]], i32 0
 ; CHECK-NEXT: [[GEP1:%.*]] = getelementptr i32, i32* [[E1]], i32 1
-; CHECK-NEXT: [[S1:%.*]] = insertelement <4 x i32*> undef, i32* %mm_vectorGEP, i32 0
-; CHECK-NEXT: shufflevector <4 x i32*> [[S1]], <4 x i32*> undef, <4 x i32> zeroinitializer
+; CHECK-NEXT: [[S1:%.*]] = insertelement <4 x i32*> poison, i32* %mm_vectorGEP, i32 0
+; CHECK-NEXT: shufflevector <4 x i32*> [[S1]], <4 x i32*> poison, <4 x i32> zeroinitializer
   %gep.vec = getelementptr i32, i32* %gep, i32 %trunc
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

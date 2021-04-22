@@ -123,6 +123,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Callee has vector instructions"},
     // InlrAggInline,
     {InlPrtCost, "Aggressive inline to expose uses of global ptrs"},
+    // InlrDTransInline,
+    {InlPrtCost, "inline to enable DTrans"},
     // InlrForFusion,
     {InlPrtCost,
      "Callee has multiple callsites with loops that could be fused"},
@@ -144,6 +146,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Callsite inlined for many recursive calls splitting"},
     // InlrHasSmallAppBudget
     {InlPrtCost, "Has inline budget for small application"},
+    // InlrExposesLocalArrays
+    {InlPrtCost, "Exposes local arrays"},
     // InlrProfitable,
     {InlPrtCost, "Inlining is profitable"},
     // InlrLast,

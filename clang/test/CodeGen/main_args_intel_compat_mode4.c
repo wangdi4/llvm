@@ -7,6 +7,6 @@ typedef struct S {
     unsigned short c;
 } SA;
 
-// CHECK: define i32 @main(double {{.*}}, %struct.S* {{.+}}, ...)
+// CHECK: define{{.*}}i32 @main(double {{.*}}, %struct.S* {{.+}}, ...)
 int main(double arg1, SA arg2, ...) {
 }

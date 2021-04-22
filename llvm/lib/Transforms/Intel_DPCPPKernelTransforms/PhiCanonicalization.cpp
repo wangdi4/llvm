@@ -9,33 +9,53 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PhiCanonicalization.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
 
 using namespace llvm;
 
-INITIALIZE_PASS_BEGIN(PhiCanonicalization, "phi-canonicalization", "Phi Canonicalizer pass (two-based Phi)", false, false)
+INITIALIZE_PASS_BEGIN(PhiCanonicalizationLegacy,
+                      "dpcpp-kernel-phi-canonicalization",
+                      "Phi Canonicalizer pass (two-based Phi)", false, false)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
-INITIALIZE_PASS_END(PhiCanonicalization, "phi-canonicalization", "Phi Canonicalizer pass (two-based Phi)", false, false)
+INITIALIZE_PASS_END(PhiCanonicalizationLegacy,
+                    "dpcpp-kernel-phi-canonicalization",
+                    "Phi Canonicalizer pass (two-based Phi)", false, false)
 
-namespace llvm {
+char PhiCanonicalizationLegacy::ID = 0;
 
-char PhiCanonicalization::ID = 0;
-
-PhiCanonicalization::PhiCanonicalization() : FunctionPass(ID) {
-  initializePhiCanonicalizationPass(*PassRegistry::getPassRegistry());
+PhiCanonicalizationLegacy::PhiCanonicalizationLegacy() : FunctionPass(ID) {
+  initializePhiCanonicalizationLegacyPass(*PassRegistry::getPassRegistry());
 }
 
-void PhiCanonicalization::getAnalysisUsage(AnalysisUsage &AU) const {
+void PhiCanonicalizationLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<PostDominatorTreeWrapperPass>();
 }
 
-bool PhiCanonicalization::runOnFunction(Function &F) {
+bool PhiCanonicalizationLegacy::runOnFunction(Function &F) {
+  DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  PostDominatorTree *PDT =
+      &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
+  return Impl.runImpl(F, DT, PDT);
+}
+
+PreservedAnalyses PhiCanonicalization::run(Function &F,
+                                           FunctionAnalysisManager &FAM) {
+  DominatorTree *DT = &FAM.getResult<DominatorTreeAnalysis>(F);
+  PostDominatorTree *PDT = &FAM.getResult<PostDominatorTreeAnalysis>(F);
+  if (!runImpl(F, DT, PDT))
+    return PreservedAnalyses::all();
+  return PreservedAnalyses::none();
+}
+
+bool PhiCanonicalization::runImpl(Function &F, DominatorTree *DT,
+                                  PostDominatorTree *PDT) {
   std::vector<BasicBlock*> bb_to_fix;
   bool changed = false;
 
@@ -51,7 +71,7 @@ bool PhiCanonicalization::runOnFunction(Function &F) {
   // Fix all of the multi entry that we found
   for(std::vector<BasicBlock*>::iterator
       it = bb_to_fix.begin() ; it != bb_to_fix.end() ; ++it) {
-    fixBlock(*it);
+    fixBlock(*it, DT, PDT);
   }
 
   // verify this module
@@ -66,13 +86,8 @@ bool PhiCanonicalization::runOnFunction(Function &F) {
   return changed;
 }
 
-void PhiCanonicalization::fixBlock(BasicBlock* toFix) {
-
-  DominatorTreeWrapperPass & DTPass = getAnalysis<DominatorTreeWrapperPass>();
-  DominatorTree *DT = &DTPass.getDomTree();
-  PostDominatorTreeWrapperPass & PDTPass = getAnalysis<PostDominatorTreeWrapperPass>();
-  PostDominatorTree *PDT = &PDTPass.getPostDomTree();
-
+void PhiCanonicalization::fixBlock(BasicBlock *toFix, DominatorTree *DT,
+                                   PostDominatorTree *PDT) {
   // Look for pair of BBs which comply with the following rules:
   // - none of them is dominated by the block-to-be-fixed
   // - there is a common dominator of these BBs, and it is postdominated by
@@ -128,8 +143,7 @@ void PhiCanonicalization::fixBlock(BasicBlock* toFix) {
         // all conditions are met - create new PHI block
         BasicBlock* new_bb = makeNewPhiBB(toFix, current_bb, scan_bb);
         // also - add new block to the dominator and postdominator trees
-        DTPass.runOnFunction(*(new_bb->getParent()));
-        DT = &DTPass.getDomTree();
+        DT->recalculate(*(new_bb->getParent()));
         pair_found = true;
         break;
       }
@@ -174,10 +188,8 @@ void PhiCanonicalization::fixBlock(BasicBlock* toFix) {
 
       BasicBlock* new_bb = makeNewPhiBB(toFix, current_bb, scan_bb);
       // also - add new block to the dominator and postdominator trees
-      DTPass.runOnFunction(*(new_bb->getParent()));
-      DT = &DTPass.getDomTree();
-      PDTPass.runOnFunction(*(new_bb->getParent()));
-      PDT = &PDTPass.getPostDomTree();
+      DT->recalculate(*(new_bb->getParent()));
+      PDT->recalculate(*(new_bb->getParent()));
       pair_found = true;
       break;
     }
@@ -206,7 +218,6 @@ void PhiCanonicalization::fixBlock(BasicBlock* toFix) {
   }
 
   assert(!verifyFunction(*toFix->getParent()) && "I broke this module");
-
 }
 
 BasicBlock* PhiCanonicalization::makeNewPhiBB(BasicBlock* toFix,
@@ -306,10 +317,6 @@ void PhiCanonicalization::fixBasicBlockSucessor(BasicBlock* to_fix,
   }
 }
 
-FunctionPass* createPhiCanonicalizationPass() {
-  return new llvm::PhiCanonicalization();
+FunctionPass *llvm::createPhiCanonicalizationLegacyPass() {
+  return new PhiCanonicalizationLegacy();
 }
-
-} // namespace
-
-

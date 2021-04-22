@@ -413,7 +413,7 @@ void foo1()
   __attribute__((__bankwidth__(3)))
   unsigned int bw_three[64];
 
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
+  //expected-error@+1{{attribute requires a positive integral compile time constant expression}}
   __attribute__((__bankwidth__(-4)))
   unsigned int bw_four[64];
 
@@ -428,7 +428,7 @@ void foo1()
   __attribute__((__bankwidth__(4,8)))
   unsigned int bw_six[64];
 
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
+  //expected-error@+1{{attribute requires a positive integral compile time constant expression}}
   __attribute__((__bankwidth__(0)))
   unsigned int bw_seven[64];
 
@@ -492,16 +492,13 @@ void foo1()
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
-  //CHECK: IntelFPGAPrivateCopiesAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 16
-  //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
-  //expected-warning@+2{{is already applied}}
+  //expected-warning@+3{{is already applied}}
   __attribute__((__private_copies__(8)))
+  //expected-note@-1{{previous attribute is here}}
   __attribute__((__private_copies__(16)))
   unsigned int pc_three[64];
 
-  //expected-error@+1{{requires integer constant between 0 and 1048576}}
+  //expected-error@+1{{attribute requires a non-negative integral compile time constant expression}}
   __attribute__((__private_copies__(-4)))
   unsigned int pc_four[64];
 
@@ -541,7 +538,7 @@ void foo1()
   __attribute__((__numbanks__(15)))
   unsigned int nb_three[64];
 
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
+  //expected-error@+1{{attribute requires a positive integral compile time constant expression}}
   __attribute__((__numbanks__(-4)))
   unsigned int nb_four[64];
 
@@ -556,7 +553,7 @@ void foo1()
   __attribute__((__numbanks__(4,8)))
   unsigned int nb_six[64];
 
-  //expected-error@+1{{requires integer constant between 1 and 1048576}}
+  //expected-error@+1{{attribute requires a positive integral compile time constant expression}}
   __attribute__((__numbanks__(0)))
   unsigned int nb_seven[64];
 
@@ -669,12 +666,12 @@ void foo1()
   __attribute__((bank_bits()))
   unsigned int bb_eight[4];
 
-  //expected-error@+1{{requires integer constant between 0 and 1048576}}
+  //expected-error@+1{{attribute requires a non-negative integral compile time constant expression}}
   __attribute__((bank_bits(-1)))
   unsigned int bb_ten[4];
 
   // force_pow2_depth
-  //expected-error@+1{{'force_pow2_depth' attribute requires integer constant between 0 and 1 inclusive}}
+  //expected-error@+1{{'__force_pow2_depth__' attribute requires integer constant between 0 and 1 inclusive}}
   __attribute__((__force_pow2_depth__(5))) unsigned int ml_one[4];
 
   //expected-error@+2{{'__memory__' and 'register' attributes are not compatible}}
@@ -682,10 +679,12 @@ void foo1()
    __attribute__((__register__)) __attribute__((__memory__(1)))
   unsigned int ml_two[4];
 
-   //expected-warning@+1{{attribute 'force_pow2_depth' is already applied}}
+   //expected-warning@+2{{attribute '__force_pow2_depth__' is already applied with different arguments}}
+   //expected-note@+1{{previous attribute is here}}
    __attribute__((__force_pow2_depth__(0))) __attribute__((__force_pow2_depth__(1))) unsigned int ml_three[4];
 
-   //expected-warning@+1{{attribute 'force_pow2_depth' is already applied}}
+   //expected-warning@+2{{attribute '__force_pow2_depth__' is already applied with different arguments}}
+   //expected-note@+1{{previous attribute is here}}
    __attribute__((__force_pow2_depth__(1))) __attribute__((__force_pow2_depth__(0))) unsigned int ml_four[4];
 
 }
@@ -750,7 +749,7 @@ void tattr() {
   __attribute__((__bank_bits__(bit1,3,bit3)))
   int var1;
 
-  //expected-error@+1{{'private_copies' attribute requires integer constant between 0 and 1048576 inclusive}}
+  //expected-error@+1{{attribute requires a non-negative integral compile time constant expression}}
   __attribute__((private_copies(private_copies)))
   int var2;
 }
@@ -800,7 +799,7 @@ void other()
   type_temp(i);
 }
 
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+//expected-error@+1{{'__doublepump__' attribute only applies to constant variables, local variables, static variables, agent memory arguments, and non-static data members}}
 __attribute__((__doublepump__)) unsigned int ext_one[64];
 
 //expected-error@+1{{only applies to functions and local non-const variables}}
@@ -972,19 +971,19 @@ struct foo {
 
 };
 
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+//expected-error@+1{{'__memory__' attribute only applies to constant variables, local variables, static variables, agent memory arguments, and non-static data members}}
 __attribute__((__memory__)) int ext_2;
 
 //expected-error@+1{{attribute only applies to constant variables, local variables, static variables, and non-static data members}}
 __attribute__((__register__)) int ext_3;
 
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+//expected-error@+1{{'__singlepump__' attribute only applies to constant variables, local variables, static variables, agent memory arguments, and non-static data members}}
 __attribute__((__singlepump__)) int ext_4;
 
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+//expected-error@+1{{'__bankwidth__' attribute only applies to constant variables, local variables, static variables, agent memory arguments, and non-static data members}}
 __attribute__((__bankwidth__(4))) int ext_5;
 
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+//expected-error@+1{{'__numbanks__' attribute only applies to constant variables, local variables, static variables, agent memory arguments, and non-static data members}}
 __attribute__((__numbanks__(8))) int ext_6;
 
 //expected-error@+1{{attribute only applies to constant variables, local variables, static variables, and non-static data members}}
@@ -999,5 +998,5 @@ __attribute__((__static_array_reset__(0))) int ext_12;
 //expected-error@+1{{'__static_array_reset__' attribute only applies to constant variables, local static variables, and non-static data members}}
 __attribute__((__static_array_reset__(1))) int ext_13;
 
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
+//expected-error@+1{{'__bank_bits__' attribute only applies to constant variables, local variables, static variables, agent memory arguments, and non-static data members}}
 __attribute__((__bank_bits__(2, 3, 4, 5))) int ext_17;

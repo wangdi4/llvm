@@ -26,7 +26,6 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/IR/Statepoint.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/IR/ValueSymbolTable.h"
 #include "llvm/Support/CommandLine.h"
@@ -37,6 +36,11 @@
 #include <algorithm>
 
 using namespace llvm;
+
+static cl::opt<unsigned> UseDerefAtPointSemantics(
+    "use-dereferenceable-at-point-semantics", cl::Hidden, cl::init(false),
+    cl::desc("Deref attributes and metadata infer facts at definition only"));
+
 
 static cl::opt<unsigned> NonGlobalValueMaxNameSize(
     "non-global-value-max-name-size", cl::Hidden, cl::init(1024),
@@ -201,8 +205,7 @@ void Value::dropDroppableUsesIn(User &Usr) {
 
 void Value::dropDroppableUse(Use &U) {
   U.removeFromList();
-  if (auto *Assume = dyn_cast<IntrinsicInst>(U.getUser())) {
-    assert(Assume->getIntrinsicID() == Intrinsic::assume);
+  if (auto *Assume = dyn_cast<AssumeInst>(U.getUser())) {
     unsigned OpNo = U.getOperandNo();
     if (OpNo == 0)
       U.set(ConstantInt::getTrue(Assume->getContext()));
@@ -430,6 +433,18 @@ void Value::takeName(Value *V) {
     ST->reinsertValue(this);
 }
 
+#ifndef NDEBUG
+std::string Value::getNameOrAsOperand() const {
+  if (!getName().empty())
+    return std::string(getName());
+
+  std::string BBName;
+  raw_string_ostream OS(BBName);
+  printAsOperand(OS, false);
+  return OS.str();
+}
+#endif
+
 void Value::assertModuleIsMaterializedImpl() const {
 #ifndef NDEBUG
   const GlobalValue *GV = dyn_cast<GlobalValue>(this);
@@ -539,7 +554,7 @@ enum PointerStripKind {
   PSK_ZeroIndices,
   PSK_ZeroIndicesAndAliases,
   PSK_ZeroIndicesSameRepresentation,
-  PSK_ZeroIndicesAndInvariantGroups,
+  PSK_ForAliasAnalysis,
   PSK_InBoundsConstantIndices,
   PSK_InBounds
 };
@@ -565,7 +580,7 @@ static const Value *stripPointerCastsAndOffsets(
       case PSK_ZeroIndices:
       case PSK_ZeroIndicesAndAliases:
       case PSK_ZeroIndicesSameRepresentation:
-      case PSK_ZeroIndicesAndInvariantGroups:
+      case PSK_ForAliasAnalysis:
         if (!GEP->hasAllZeroIndices())
           return V;
         break;
@@ -590,6 +605,9 @@ static const Value *stripPointerCastsAndOffsets(
       V = cast<Operator>(V)->getOperand(0);
     } else if (StripKind == PSK_ZeroIndicesAndAliases && isa<GlobalAlias>(V)) {
       V = cast<GlobalAlias>(V)->getAliasee();
+    } else if (StripKind == PSK_ForAliasAnalysis && isa<PHINode>(V) &&
+               cast<PHINode>(V)->getNumIncomingValues() == 1) {
+      V = cast<PHINode>(V)->getIncomingValue(0);
     } else {
       if (const auto *Call = dyn_cast<CallBase>(V)) {
         if (const Value *RV = Call->getReturnedArgOperand()) {
@@ -599,7 +617,7 @@ static const Value *stripPointerCastsAndOffsets(
         // The result of launder.invariant.group must alias it's argument,
         // but it can't be marked with returned attribute, that's why it needs
         // special case.
-        if (StripKind == PSK_ZeroIndicesAndInvariantGroups &&
+        if (StripKind == PSK_ForAliasAnalysis &&
             (Call->getIntrinsicID() == Intrinsic::launder_invariant_group ||
              Call->getIntrinsicID() == Intrinsic::strip_invariant_group)) {
           V = Call->getArgOperand(0);
@@ -610,7 +628,7 @@ static const Value *stripPointerCastsAndOffsets(
         if (auto *Subs = dyn_cast<SubscriptInst>(V)) {
           switch (StripKind) {
           case PSK_ZeroIndicesSameRepresentation:
-          case PSK_ZeroIndicesAndInvariantGroups:
+          case PSK_ForAliasAnalysis:
           case PSK_ZeroIndicesAndAliases:
           case PSK_ZeroIndices:
             return V;
@@ -655,8 +673,8 @@ const Value *Value::stripInBoundsConstantOffsets() const {
   return stripPointerCastsAndOffsets<PSK_InBoundsConstantIndices>(this);
 }
 
-const Value *Value::stripPointerCastsAndInvariantGroups() const {
-  return stripPointerCastsAndOffsets<PSK_ZeroIndicesAndInvariantGroups>(this);
+const Value *Value::stripPointerCastsForAliasAnalysis() const {
+  return stripPointerCastsAndOffsets<PSK_ForAliasAnalysis>(this);
 }
 
 const Value *Value::stripAndAccumulateConstantOffsets(
@@ -732,12 +750,74 @@ Value::stripInBoundsOffsets(function_ref<void(const Value *)> Func) const {
   return stripPointerCastsAndOffsets<PSK_InBounds>(this, Func);
 }
 
+bool Value::canBeFreed() const {
+  assert(getType()->isPointerTy());
+
+  // Cases that can simply never be deallocated
+  // *) Constants aren't allocated per se, thus not deallocated either.
+  if (isa<Constant>(this))
+    return false;
+
+  // Handle byval/byref/sret/inalloca/preallocated arguments.  The storage
+  // lifetime is guaranteed to be longer than the callee's lifetime.
+  if (auto *A = dyn_cast<Argument>(this))
+    if (A->hasPointeeInMemoryValueAttr())
+      return false;
+
+  const Function *F = nullptr;
+  if (auto *I = dyn_cast<Instruction>(this))
+    F = I->getFunction();
+  if (auto *A = dyn_cast<Argument>(this))
+    F = A->getParent();
+
+  if (!F)
+    return true;
+
+  // A pointer to an object in a function which neither frees, nor can arrange
+  // for another thread to free on its behalf, can not be freed in the scope
+  // of the function.
+  if (F->doesNotFreeMemory() && F->hasNoSync())
+    return false;
+
+  // With garbage collection, deallocation typically occurs solely at or after
+  // safepoints.  If we're compiling for a collector which uses the
+  // gc.statepoint infrastructure, safepoints aren't explicitly present
+  // in the IR until after lowering from abstract to physical machine model.
+  // The collector could chose to mix explicit deallocation and gc'd objects
+  // which is why we need the explicit opt in on a per collector basis.
+  if (!F->hasGC())
+    return true;
+  
+  const auto &GCName = F->getGC();
+  const StringRef StatepointExampleName("statepoint-example");
+  if (GCName != StatepointExampleName)
+    return true;
+
+  auto *PT = cast<PointerType>(this->getType());
+  if (PT->getAddressSpace() != 1)
+    // For the sake of this example GC, we arbitrarily pick addrspace(1) as our
+    // GC managed heap.  This must match the same check in
+    // RewriteStatepointsForGC (and probably needs better factored.)
+    return true;
+
+  // It is cheaper to scan for a declaration than to scan for a use in this
+  // function.  Note that gc.statepoint is a type overloaded function so the
+  // usual trick of requesting declaration of the intrinsic from the module
+  // doesn't work.
+  for (auto &Fn : *F->getParent())
+    if (Fn.getIntrinsicID() == Intrinsic::experimental_gc_statepoint)
+      return true;
+  return false;
+}
+
 uint64_t Value::getPointerDereferenceableBytes(const DataLayout &DL,
-                                               bool &CanBeNull) const {
+                                               bool &CanBeNull,
+                                               bool &CanBeFreed) const {
   assert(getType()->isPointerTy() && "must be pointer");
 
   uint64_t DerefBytes = 0;
   CanBeNull = false;
+  CanBeFreed = UseDerefAtPointSemantics && canBeFreed();
   if (const Argument *A = dyn_cast<Argument>(this)) {
     DerefBytes = A->getDereferenceableBytes();
     if (DerefBytes == 0) {
@@ -792,6 +872,7 @@ uint64_t Value::getPointerDereferenceableBytes(const DataLayout &DL,
       DerefBytes =
           DL.getTypeStoreSize(AI->getAllocatedType()).getKnownMinSize();
       CanBeNull = false;
+      CanBeFreed = false;
     }
   } else if (auto *GV = dyn_cast<GlobalVariable>(this)) {
     if (GV->getValueType()->isSized() && !GV->hasExternalWeakLinkage()) {

@@ -261,32 +261,6 @@ DependentSizedExtVectorType::Profile(llvm::FoldingSetNodeID &ID,
   SizeExpr->Profile(ID, Context, true);
 }
 
-#if INTEL_CUSTOMIZATION
-ArbPrecIntType::ArbPrecIntType(QualType UnderlyingType, unsigned NumBits,
-                               QualType CanonType, SourceLocation Loc)
-    : Type(ArbPrecInt, CanonType, UnderlyingType->getDependence()),
-      UnderlyingType(UnderlyingType), NumBits(NumBits), Loc(Loc) {}
-
-DependentSizedArbPrecIntType::DependentSizedArbPrecIntType(
-    const ASTContext &Context, QualType UnderlyingType, QualType CanonType,
-    Expr *NumBitsExpr, SourceLocation Loc)
-    : Type(DependentSizedArbPrecInt, CanonType,
-           TypeDependence::DependentInstantiation |
-               UnderlyingType->getDependence() |
-               (NumBitsExpr ? toTypeDependence(NumBitsExpr->getDependence())
-                            : TypeDependence::None)),
-      Context(Context), UnderlyingType(UnderlyingType),
-      NumBitsExpr(NumBitsExpr), Loc(Loc) {}
-
-void DependentSizedArbPrecIntType::Profile(llvm::FoldingSetNodeID &ID,
-                                       const ASTContext &Context,
-                                       QualType UnderlyingType,
-                                       Expr *SizeExpr) {
-  ID.AddPointer(UnderlyingType.getAsOpaquePtr());
-  SizeExpr->Profile(ID, Context, true);
-}
-#endif // INTEL_CUSTOMIZATION
-
 DependentAddressSpaceType::DependentAddressSpaceType(const ASTContext &Context,
                                                      QualType PointeeType,
                                                      QualType can,
@@ -1948,10 +1922,6 @@ bool Type::isIntegralType(const ASTContext &Ctx) const {
     if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
       return ET->getDecl()->isComplete();
 
-#if INTEL_CUSTOMIZATION
-  if (isa<ArbPrecIntType>(CanonicalType))
-    return true;
-#endif // INTEL_CUSTOMIZATION
   return isExtIntType();
 }
 
@@ -1959,11 +1929,6 @@ bool Type::isIntegralOrUnscopedEnumerationType() const {
   if (const auto *BT = dyn_cast<BuiltinType>(CanonicalType))
     return BT->getKind() >= BuiltinType::Bool &&
            BT->getKind() <= BuiltinType::Int128;
-
-#if INTEL_CUSTOMIZATION
-  if (isa<ArbPrecIntType>(CanonicalType))
-    return true;
-#endif // INTEL_CUSTOMIZATION
 
   if (isExtIntType())
     return true;
@@ -2048,11 +2013,6 @@ bool Type::isSignedIntegerType() const {
       return ET->getDecl()->getIntegerType()->isSignedIntegerType();
   }
 
-#if INTEL_CUSTOMIZATION
-  if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
-    return AP->getUnderlyingType()->isSignedIntegerType();
-#endif // INTEL_CUSTOMIZATION
-
   if (const ExtIntType *IT = dyn_cast<ExtIntType>(CanonicalType))
     return IT->isSigned();
 
@@ -2069,11 +2029,6 @@ bool Type::isSignedIntegerOrEnumerationType() const {
     if (ET->getDecl()->isComplete())
       return ET->getDecl()->getIntegerType()->isSignedIntegerType();
   }
-
-#if INTEL_CUSTOMIZATION
-  if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
-    return AP->getUnderlyingType()->isSignedIntegerOrEnumerationType();
-#endif // INTEL_CUSTOMIZATION
 
   if (const ExtIntType *IT = dyn_cast<ExtIntType>(CanonicalType))
     return IT->isSigned();
@@ -2105,11 +2060,6 @@ bool Type::isUnsignedIntegerType() const {
       return ET->getDecl()->getIntegerType()->isUnsignedIntegerType();
   }
 
-#if INTEL_CUSTOMIZATION
-  if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
-    return AP->getUnderlyingType()->isUnsignedIntegerType();
-#endif // INTEL_CUSTOMIZATION
-
   if (const ExtIntType *IT = dyn_cast<ExtIntType>(CanonicalType))
     return IT->isUnsigned();
 
@@ -2127,11 +2077,6 @@ bool Type::isUnsignedIntegerOrEnumerationType() const {
       return ET->getDecl()->getIntegerType()->isUnsignedIntegerType();
   }
 
-#if INTEL_CUSTOMIZATION
-  if (const auto *AP = dyn_cast<ArbPrecIntType>(CanonicalType))
-    return AP->getUnderlyingType()->isUnsignedIntegerOrEnumerationType();
-#endif // INTEL_CUSTOMIZATION
-
   if (const ExtIntType *IT = dyn_cast<ExtIntType>(CanonicalType))
     return IT->isUnsigned();
 
@@ -2141,8 +2086,9 @@ bool Type::isUnsignedIntegerOrEnumerationType() const {
 bool Type::hasUnsignedIntegerRepresentation() const {
   if (const auto *VT = dyn_cast<VectorType>(CanonicalType))
     return VT->getElementType()->isUnsignedIntegerOrEnumerationType();
-  else
-    return isUnsignedIntegerOrEnumerationType();
+  if (const auto *VT = dyn_cast<MatrixType>(CanonicalType))
+    return VT->getElementType()->isUnsignedIntegerOrEnumerationType();
+  return isUnsignedIntegerOrEnumerationType();
 }
 
 bool Type::isFloatingType() const {
@@ -2190,10 +2136,6 @@ bool Type::isArithmeticType() const {
     return BT->getKind() >= BuiltinType::Bool &&
            BT->getKind() <= BuiltinType::Float128 &&
            BT->getKind() != BuiltinType::BFloat16;
-#if INTEL_CUSTOMIZATION
-  if (isa<ArbPrecIntType>(CanonicalType))
-    return true;
-#endif //INTEL_CUSTOMIZATION
   if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
     // GCC allows forward declaration of enum types (forbid by C99 6.7.2.3p2).
     // If a body isn't seen by the time we get here, return false.
@@ -2216,10 +2158,6 @@ Type::ScalarTypeKind Type::getScalarTypeKind() const {
     if (BT->isFloatingPoint()) return STK_Floating;
     if (BT->isFixedPointType()) return STK_FixedPoint;
     llvm_unreachable("unknown scalar builtin type");
-#if INTEL_CUSTOMIZATION
-  } else if (isa<ArbPrecIntType>(T)) {
-    return STK_Integral;
-#endif //INTEL_CUSTOMIZATION
   } else if (isa<PointerType>(T)) {
     return STK_CPointer;
   } else if (isa<BlockPointerType>(T)) {
@@ -2300,10 +2238,11 @@ bool Type::isIncompleteType(NamedDecl **Def) const {
     return !Rec->isCompleteDefinition();
   }
   case ConstantArray:
+  case VariableArray:
     // An array is incomplete if its element type is incomplete
     // (C++ [dcl.array]p1).
-    // We don't handle variable arrays (they're not allowed in C++) or
-    // dependent-sized arrays (dependent types are never treated as incomplete).
+    // We don't handle dependent-sized arrays (dependent types are never treated
+    // as incomplete).
     return cast<ArrayType>(CanonicalType)->getElementType()
              ->isIncompleteType(Def);
   case IncompleteArray:
@@ -2355,6 +2294,8 @@ bool Type::isSizelessBuiltinType() const {
       // SVE Types
 #define SVE_TYPE(Name, Id, SingletonId) case BuiltinType::Id:
 #include "clang/Basic/AArch64SVEACLETypes.def"
+#define RVV_TYPE(Name, Id, SingletonId) case BuiltinType::Id:
+#include "clang/Basic/RISCVVTypes.def"
       return true;
     default:
       return false;
@@ -2456,10 +2397,6 @@ bool QualType::isCXX98PODType(const ASTContext &Context) const {
 
     // C struct/union is POD.
     return true;
-#if INTEL_CUSTOMIZATION
-  case Type::ArbPrecInt:
-    return true;
-#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -3178,6 +3115,10 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case Id: \
     return #Name;
 #include "clang/Basic/PPCTypes.def"
+#define RVV_TYPE(Name, Id, SingletonId)                                        \
+  case Id:                                                                     \
+    return Name;
+#include "clang/Basic/RISCVVTypes.def"
   }
 
   llvm_unreachable("Invalid builtin type.");
@@ -3996,8 +3937,6 @@ static CachedProperties computeCachedProperties(const Type *T) {
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
     return Cache::get(cast<ChannelType>(T)->getElementType());
-  case Type::ArbPrecInt:
-    return Cache::get(cast<ArbPrecIntType>(T)->getUnderlyingType());
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return Cache::get(cast<PipeType>(T)->getElementType());
@@ -4090,8 +4029,6 @@ LinkageInfo LinkageComputer::computeTypeLinkageInfo(const Type *T) {
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
     return computeTypeLinkageInfo(cast<ChannelType>(T)->getElementType());
-  case Type::ArbPrecInt:
-    return computeTypeLinkageInfo(cast<ArbPrecIntType>(T)->getUnderlyingType());
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return computeTypeLinkageInfo(cast<PipeType>(T)->getElementType());
@@ -4225,6 +4162,8 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
 #define PPC_VECTOR_TYPE(Name, Id, Size) \
     case BuiltinType::Id:
 #include "clang/Basic/PPCTypes.def"
+#define RVV_TYPE(Name, Id, SingletonId) case BuiltinType::Id:
+#include "clang/Basic/RISCVVTypes.def"
     case BuiltinType::BuiltinFn:
     case BuiltinType::NullPtr:
     case BuiltinType::IncompleteMatrixIdx:
@@ -4263,8 +4202,6 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
   case Type::Atomic:
 #if INTEL_CUSTOMIZATION
   case Type::Channel:
-  case Type::ArbPrecInt:
-  case Type::DependentSizedArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
   case Type::ExtInt:

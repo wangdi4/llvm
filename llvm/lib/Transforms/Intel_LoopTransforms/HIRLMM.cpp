@@ -75,8 +75,10 @@
 //
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLMMPass.h"
 
+#if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/Analysis/DTransFieldModRef.h"
 #include "Intel_DTrans/DTransCommon.h"
+#endif // INTEL_INCLUDE_DTRANS
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
@@ -550,7 +552,11 @@ bool HIRLMM::isLoopInvariant(const RegDDRef *MemRef, const HLLoop *Lp,
   clearWorkingSetMemory();
   LoopLevel = Lp->getNestingLevel();
 
+#if INTEL_INCLUDE_DTRANS
   if (!doLoopPreliminaryChecks(Lp, FieldModRef != nullptr)) {
+#else // INTEL_INCLUDE_DTRANS
+  if (!doLoopPreliminaryChecks(Lp, false)) {
+#endif // INTEL_INCLUDE_DTRANS
     LLVM_DEBUG(dbgs() << "HIRLMM: failed Loop Preliminary Checks\n";);
     return false;
   }
@@ -707,8 +713,12 @@ bool HIRLMM::isLegal(const HLLoop *Lp, const MemRefGroup &Group,
     }
   }
 
+#if INTEL_INCLUDE_DTRANS
   if (!UnknownAliasingCallInsts.empty()) {
-    assert(FieldModRef && "FieldModRef expected!");
+    // Bail out if analysis is not available.
+    if (!FieldModRef) {
+      return false;
+    }
 
     // Use BasePtrLoadRef for mod-ref queries as it returns result for both
     // itself and its dereference(FirstRef).
@@ -723,6 +733,7 @@ bool HIRLMM::isLegal(const HLLoop *Lp, const MemRefGroup &Group,
       }
     }
   }
+#endif // INTEL_INCLUDE_DTRANS
 
   return true;
 }
@@ -1349,13 +1360,20 @@ void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
   // LLVM_DEBUG(Lp->dump(););
 }
 
-PreservedAnalyses HIRLMMPass::run(llvm::Function &F,
-                                  llvm::FunctionAnalysisManager &AM) {
-  HIRLMM(AM.getResult<HIRFrameworkAnalysis>(F),
-         AM.getResult<HIRDDAnalysisPass>(F),
+PreservedAnalyses HIRLMMPass::runImpl(llvm::Function &F,
+                                      llvm::FunctionAnalysisManager &AM,
+                                      HIRFramework &HIRF) {
+
+#if INTEL_INCLUDE_DTRANS
+  auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
+#endif // INTEL_INCLUDE_DTRANS
+
+  HIRLMM(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
          AM.getResult<HIRLoopStatisticsAnalysis>(F),
+#if INTEL_INCLUDE_DTRANS
+         MAMProxy.getCachedResult<DTransFieldModRefResult>(*F.getParent()),
+#endif // INTEL_INCLUDE_DTRANS
          &AM.getResult<DominatorTreeAnalysis>(F),
-         &AM.getResult<DTransFieldModRefResult>(F),
          (LoopNestHoistingOnly || ForceLoopNestHoisting))
       .run();
   return PreservedAnalyses::all();
@@ -1376,7 +1394,9 @@ public:
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+#if INTEL_INCLUDE_DTRANS
     AU.addRequiredTransitive<DTransFieldModRefResultWrapper>();
+#endif // INTEL_INCLUDE_DTRANS
     AU.setPreservesAll();
   }
 
@@ -1388,8 +1408,10 @@ public:
     return HIRLMM(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
                   getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
                   getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(),
-                  &getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
+#if INTEL_INCLUDE_DTRANS
                   &getAnalysis<DTransFieldModRefResultWrapper>().getResult(),
+#endif // INTEL_INCLUDE_DTRANS
+                  &getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
                   (LoopNestHoistingOnly || ForceLoopNestHoisting))
         .run();
   }
@@ -1402,7 +1424,9 @@ INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+#if INTEL_INCLUDE_DTRANS
 INITIALIZE_PASS_DEPENDENCY(DTransFieldModRefResultWrapper)
+#endif // INTEL_INCLUDE_DTRANS
 INITIALIZE_PASS_END(HIRLMMLegacyPass, "hir-lmm", "HIR Loop Memory Motion",
                     false, false)
 

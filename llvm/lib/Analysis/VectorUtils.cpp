@@ -126,7 +126,14 @@ Intrinsic::ID llvm::getVectorIntrinsicIDForCall(const CallInst *CI,
 
   if (isTriviallyVectorizable(ID) || ID == Intrinsic::lifetime_start ||
       ID == Intrinsic::lifetime_end || ID == Intrinsic::assume ||
-      ID == Intrinsic::sideeffect || ID == Intrinsic::pseudoprobe)
+      ID == Intrinsic::experimental_noalias_scope_decl ||
+      ID == Intrinsic::sideeffect ||
+      ID == Intrinsic::pseudoprobe // INTEL
+#if INTEL_CUSTOMIZATION
+      // ldexp intrinsic is not vectorized by default, vectorize it only iff
+      // SVML is enabled.
+      || (TLI->isSVMLEnabled() && ID == Intrinsic::ldexp))
+#endif // INTEL_CUSTOMIZATION
     return ID;
   return Intrinsic::not_intrinsic;
 }
@@ -601,8 +608,8 @@ llvm::computeMinimumValueSizes(ArrayRef<BasicBlock *> Blocks, DemandedBits &DB,
 
   for (auto I = ECs.begin(), E = ECs.end(); I != E; ++I) {
     uint64_t LeaderDemandedBits = 0;
-    for (auto MI = ECs.member_begin(I), ME = ECs.member_end(); MI != ME; ++MI)
-      LeaderDemandedBits |= DBits[*MI];
+    for (Value *M : llvm::make_range(ECs.member_begin(I), ECs.member_end()))
+      LeaderDemandedBits |= DBits[M];
 
     uint64_t MinBW = (sizeof(LeaderDemandedBits) * 8) -
                      llvm::countLeadingZeros(LeaderDemandedBits);
@@ -615,22 +622,22 @@ llvm::computeMinimumValueSizes(ArrayRef<BasicBlock *> Blocks, DemandedBits &DB,
     // indvars.
     // If we are required to shrink a PHI, abandon this entire equivalence class.
     bool Abort = false;
-    for (auto MI = ECs.member_begin(I), ME = ECs.member_end(); MI != ME; ++MI)
-      if (isa<PHINode>(*MI) && MinBW < (*MI)->getType()->getScalarSizeInBits()) {
+    for (Value *M : llvm::make_range(ECs.member_begin(I), ECs.member_end()))
+      if (isa<PHINode>(M) && MinBW < M->getType()->getScalarSizeInBits()) {
         Abort = true;
         break;
       }
     if (Abort)
       continue;
 
-    for (auto MI = ECs.member_begin(I), ME = ECs.member_end(); MI != ME; ++MI) {
-      if (!isa<Instruction>(*MI))
+    for (Value *M : llvm::make_range(ECs.member_begin(I), ECs.member_end())) {
+      if (!isa<Instruction>(M))
         continue;
-      Type *Ty = (*MI)->getType();
-      if (Roots.count(*MI))
-        Ty = cast<Instruction>(*MI)->getOperand(0)->getType();
+      Type *Ty = M->getType();
+      if (Roots.count(M))
+        Ty = cast<Instruction>(M)->getOperand(0)->getType();
       if (MinBW < Ty->getScalarSizeInBits())
-        MinBWs[cast<Instruction>(*MI)] = MinBW;
+        MinBWs[cast<Instruction>(M)] = MinBW;
     }
   }
 
@@ -807,7 +814,7 @@ bool llvm::isSVMLFunction(const TargetLibraryInfo *TLI, StringRef FnName,
 unsigned llvm::getPumpFactor(StringRef FnName, bool IsMasked, unsigned VF,
                              const TargetLibraryInfo *TLI) {
   // Call can already be vectorized for current VF, pumping not needed.
-  if (TLI->isFunctionVectorizable(FnName, VF, IsMasked))
+  if (TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(VF), IsMasked))
     return 1;
 
   // TODO: Pumping is supported only for simple SVML functions.
@@ -819,7 +826,8 @@ unsigned llvm::getPumpFactor(StringRef FnName, bool IsMasked, unsigned VF,
   // TODO: This filtering is temporary until we start supporting pumping feature
   // for SIMD functions with vector-variants.
   StringRef VecFnName =
-      TLI->getVectorizedFunction(FnName, 4 /*dummy VF*/, IsMasked);
+      TLI->getVectorizedFunction(FnName, ElementCount::getFixed(4) /*dummy VF*/,
+                                 IsMasked);
   if (VecFnName.empty() || !isSVMLFunction(TLI, FnName, VecFnName))
     return 1;
 
@@ -829,7 +837,8 @@ unsigned llvm::getPumpFactor(StringRef FnName, bool IsMasked, unsigned VF,
          "Pumping analysis is not supported for non-power of two VF.");
   unsigned LowerVF;
   for (LowerVF = VF / 2; LowerVF > 1; LowerVF /= 2) {
-    if (TLI->isFunctionVectorizable(FnName, LowerVF, IsMasked))
+    if (TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(LowerVF),
+                                    IsMasked))
       return VF / LowerVF;
   }
 
@@ -851,20 +860,18 @@ template <typename CastInstTy> Value *llvm::getPtrThruCast(Value *Ptr) {
 template Value *llvm::getPtrThruCast<BitCastInst>(Value *Ptr);
 template Value *llvm::getPtrThruCast<AddrSpaceCastInst>(Value *Ptr);
 
-void llvm::copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall) {
-  AttributeList Attrs = OrigCall->getAttributes();
+void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall) {
   VecCall->setAttributes(Attrs.removeAttribute(
-    OrigCall->getContext(), AttributeList::FunctionIndex, "vector-variants"));
+      VecCall->getContext(), AttributeList::FunctionIndex, "vector-variants"));
 }
 
-void llvm::copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall,
-                                  ArrayRef<AttributeSet> ArgAttrs) {
-  AttributeList Attrs = OrigCall->getAttributes();
+void llvm::setRequiredAttributes(AttributeList Attrs, CallInst *VecCall,
+                                 ArrayRef<AttributeSet> ArgAttrs) {
   AttributeSet FnAttrs = Attrs.getFnAttributes().removeAttribute(
-      OrigCall->getContext(), "vector-variants");
+      VecCall->getContext(), "vector-variants");
 
   VecCall->setAttributes(AttributeList::get(
-      OrigCall->getContext(), FnAttrs, Attrs.getRetAttributes(), ArgAttrs));
+      VecCall->getContext(), FnAttrs, Attrs.getRetAttributes(), ArgAttrs));
 }
 
 Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
@@ -879,8 +886,9 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   // an intrinsic.
   assert(OrigF && "Function not found for call instruction");
   StringRef FnName = OrigF->getName();
-  if (!TLI->isFunctionVectorizable(FnName, VL) && !ID && !VecVariant &&
-      !isOpenCLReadChannel(FnName) && !isOpenCLWriteChannel(FnName))
+  if (!TLI->isFunctionVectorizable(FnName, ElementCount::getFixed(VL)) &&
+      !ID && !VecVariant && !isOpenCLReadChannel(FnName) &&
+      !isOpenCLWriteChannel(FnName))
     return nullptr;
 
   Module *M = OrigF->getParent();
@@ -952,7 +960,9 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   }
 
   // Generate a vector library call.
-  StringRef VFnName = TLI->getVectorizedFunction(FnName, VL, Masked);
+  StringRef VFnName =
+      TLI->getVectorizedFunction(FnName, ElementCount::getFixed(VL),
+                                 Masked);
   Function *VectorF = M->getFunction(VFnName);
   if (!VectorF) {
     // isFunctionVectorizable() returned true, so it is guaranteed that
@@ -1324,8 +1334,7 @@ static Value *concatenateTwoVectors(IRBuilderBase &Builder, Value *V1,
   if (NumElts1 > NumElts2) {
     // Extend with UNDEFs.
     V2 = Builder.CreateShuffleVector(
-        V2, UndefValue::get(VecTy2),
-        createSequentialMask(0, NumElts2, NumElts1 - NumElts2));
+        V2, createSequentialMask(0, NumElts2, NumElts1 - NumElts2));
   }
 
   return Builder.CreateShuffleVector(
@@ -1798,10 +1807,14 @@ void InterleaveGroup<Instruction>::addMetadata(Instruction *NewInst) const {
 
 std::string VFABI::mangleTLIVectorName(StringRef VectorName,
                                        StringRef ScalarName, unsigned numArgs,
-                                       unsigned VF) {
+                                       ElementCount VF) {
   SmallString<256> Buffer;
   llvm::raw_svector_ostream Out(Buffer);
-  Out << "_ZGV" << VFABI::_LLVM_ << "N" << VF;
+  Out << "_ZGV" << VFABI::_LLVM_ << "N";
+  if (VF.isScalable())
+    Out << 'x';
+  else
+    Out << VF.getFixedValue();
   for (unsigned I = 0; I < numArgs; ++I)
     Out << "v";
   Out << "_" << ScalarName << "(" << VectorName << ")";

@@ -31,7 +31,7 @@
 ; NOENABLESPLITFLAG-DAG: typeidCompatibleVTable: (name: "_ZTS1B", summary: ((offset: 16, [[B]])))
 ; NOENABLESPLITFLAG-DAG: typeidCompatibleVTable: (name: "_ZTS1C", summary: ((offset: 16, [[C]])))
 ; Type Id on _ZTV1D should have been promoted
-; NOENABLESPLITFLAG-DAG: typeidCompatibleVTable: (name: "1${{.*}}", summary: ((offset: 16, [[D]])))
+; NOENABLESPLITFLAG-DAG: typeidCompatibleVTable: (name: "1.{{.*}}", summary: ((offset: 16, [[D]])))
 
 ; INTEL_CUSTOMIZATION
 ; These customizations are for turning off the multiversioning

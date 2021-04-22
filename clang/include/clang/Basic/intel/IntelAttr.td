@@ -175,16 +175,6 @@ def OpenCLBufferLocation : Attr {
   let LangOpts = [OpenCL];
 }
 
-def MaxWorkGroupSize : InheritableAttr {
-  let Spellings = [GNU<"max_work_group_size">];
-  let Args = [UnsignedArgument<"XDim">, UnsignedArgument<"YDim">,
-              UnsignedArgument<"ZDim">];
-  let Subjects = SubjectList<[Function]>;
-// FIXME: Add documentation
-  let Documentation = [Undocumented];
-  let PragmaAttributeSupport = 0;
-}
-
 def NumComputeUnits : InheritableAttr {
   let Spellings = [GNU<"num_compute_units">];
   let LangOpts = [OpenCL];
@@ -192,23 +182,6 @@ def NumComputeUnits : InheritableAttr {
               DefaultIntArgument<"ZDim", 1>];
   let Subjects = SubjectList<[Function]>;
   let Documentation = [NumComputeUnitsDocs];
-}
-
-def NumSimdWorkItems : InheritableAttr {
-  let Spellings = [GNU<"num_simd_work_items">];
-  let Args = [UnsignedArgument<"NumSimdWorkItems">];
-  let Subjects = SubjectList<[Function]>;
-// FIXME: Add documentation
-  let Documentation = [Undocumented];
-  let PragmaAttributeSupport = 0;
-}
-
-def MaxGlobalWorkDim : InheritableAttr {
-  let Spellings = [GNU<"max_global_work_dim">];
-  let LangOpts = [OpenCL];
-  let Args = [UnsignedArgument<"MaxGlobalWorkDimValue">];
-  let Subjects = SubjectList<[Function]>;
-  let Documentation = [MaxGlobalWorkDimDocs];
 }
 
 def Autorun : InheritableAttr {
@@ -264,9 +237,9 @@ def ComponentInterface : InheritableAttr {
   let Spellings = [GNU<"component_interface">];
   // If adding to the end of enum, modify generateValidStrings as well.
   let Args = [EnumArgument<"Type", "ComponentInterfaceType",
-                           ["avalon_streaming", "avalon_mm_slave",
+                           ["avalon_streaming", "avalon_mm_agent",
                             "always_run"],
-                           ["Streaming", "Slave", "AlwaysRun"]>];
+                           ["Streaming", "Agent", "AlwaysRun"]>];
   let LangOpts = [HLS];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [Undocumented];
@@ -445,8 +418,8 @@ def ArgumentInterface : Attr {
   let Spellings = [GNU<"argument_interface">];
   // If adding to the end of enum, modify generateValidStrings as well.
   let Args = [EnumArgument<"Type", "ArgumentInterfaceType",
-                           ["wire","avalon_mm_slave", "avalon_streaming"],
-                           ["Wire", "Slave", "Streaming"]>];
+                           ["wire","avalon_mm_agent", "avalon_streaming"],
+                           ["Wire", "Agent", "Streaming"]>];
   let Subjects = SubjectList<[ParmVar], ErrorDiag>;
   let LangOpts = [HLS];
   let Documentation = [Undocumented];
@@ -471,8 +444,8 @@ def StableArgument : Attr {
   let PragmaAttributeSupport = 0;
 }
 
-def SlaveMemoryArgument : Attr {
-  let Spellings = [GNU<"slave_memory_argument">];
+def AgentMemoryArgument : Attr {
+  let Spellings = [GNU<"agent_memory_argument">];
   let Subjects = SubjectList<[ParmVar], ErrorDiag>;
   let LangOpts = [HLS];
   let Documentation = [Undocumented];
@@ -484,16 +457,16 @@ def HLSLocalOrStaticVar : SubsetSubject<Var,
                               [{S->getKind() != Decl::ImplicitParam &&
                                 S->getKind() != Decl::ParmVar &&
                                 S->getKind() != Decl::NonTypeTemplateParm &&
-                                (S->getStorageClass() == SC_Static ||
+                                (S->getStorageClass() == StorageClass::SC_Static ||
                                  S->hasLocalStorage())}],
                               "local variables, static variables">;
 
-def HLSLocalStaticSlaveMemVar : SubsetSubject<Var,
+def HLSLocalStaticAgentMemVar : SubsetSubject<Var,
       [{S->getKind() != Decl::ImplicitParam &&
         S->getKind() != Decl::NonTypeTemplateParm &&
-        (S->getStorageClass() == SC_Static ||
+        (S->getStorageClass() == StorageClass::SC_Static ||
          S->hasLocalStorage())}],
-         "local variables, static variables, slave memory arguments">;
+         "local variables, static variables, agent memory arguments">;
 
 def StallFree : InheritableAttr {
   let Spellings = [GNU<"stall_free">];
@@ -507,13 +480,13 @@ def StallFree : InheritableAttr {
 def ReadWriteMode : Attr {
   let Spellings = [GNU<"readwrite_mode">];
   let Args = [StringArgument<"Type">];
-  let Subjects = SubjectList<[HLSLocalStaticSlaveMemVar, Field], ErrorDiag>;
+  let Subjects = SubjectList<[HLSLocalStaticAgentMemVar, Field], ErrorDiag>;
   let LangOpts = [HLS];
   let Documentation = [ReadWriteModeDocs];
 }
 
 def HLSLocalStaticVar : SubsetSubject<Var,
-                              [{S->getStorageClass() == SC_Static &&
+                              [{S->getStorageClass() == StorageClass::SC_Static &&
                                 S->getKind() != Decl::ImplicitParam &&
                                 S->getKind() != Decl::ParmVar &&
                                 S->getKind() != Decl::NonTypeTemplateParm}],
@@ -536,15 +509,7 @@ def StaticArrayReset : Attr {
     }
   }];
 }
-
-def ArbPrecInt : TypeAttr {
-  let Spellings = [Clang<"__ap_int">];
-  let Subjects = SubjectList<[TypedefName], ErrorDiag>;
-  let Args = [ExprArgument<"NumBits">];
-  let LangOpts = [OpenCL, HLS, SYCLIsDevice];
-  let Documentation = [ArbPrecIntDocs];
-  let ASTNode = 0;
-}
+def : MutualExclusions<[IntelFPGARegister, StaticArrayReset]>;
 
 // IntrinsicPromotion implementation.
 // This is an AST only attribute that should never appear in customer code.
@@ -562,4 +527,28 @@ def IntelOclBiccAVX : DeclOrTypeAttr {
 def IntelOclBiccAVX512 : DeclOrTypeAttr {
   let Spellings = [Clang<"intel_ocl_bicc_avx512", 0>];
   let Documentation = [IntelOclBiccAVX512Docs];
+}
+
+def AllowCpuFeatures : InheritableAttr,
+                       TargetSpecificAttr<TargetAnyX86> {
+  let Spellings = [Clang<"allow_cpu_features">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [AllowCPUFeatureDocs];
+  let Args = [ExprArgument<"Page1">, ExprArgument<"Page2", 1>];
+  let AdditionalMembers = [{
+    uint64_t getPage1Value() const {
+      assert(page1 && "Page1 expression is not optional");
+      const auto *P1CE = dyn_cast<ConstantExpr>(page1);
+
+      if (!P1CE)
+        return 0;
+      return P1CE->getResultAsAPSInt().getZExtValue();
+    }
+    uint64_t getPage2Value() const {
+      const auto *P2CE = dyn_cast_or_null<ConstantExpr>(page2);
+      if (!P2CE)
+        return 0;
+      return P2CE->getResultAsAPSInt().getZExtValue();
+    }
+  }];
 }

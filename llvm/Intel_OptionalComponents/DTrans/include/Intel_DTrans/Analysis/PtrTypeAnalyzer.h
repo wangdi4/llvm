@@ -1,6 +1,6 @@
 //===------------------------PtrTypeAnalyzer.h----------------------------===//
 //
-// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -36,7 +36,7 @@ class User;
 class Value;
 class raw_ostream;
 
-namespace dtrans {
+namespace dtransOP {
 
 class DTransArrayType;
 class DTransType;
@@ -163,7 +163,12 @@ public:
   typedef SmallPtrSetImpl<DTransType *> &PointerTypeAliasSetRef;
   typedef SmallPtrSetImpl<DTransType *> const &PointerTypeAliasSetConstRef;
 
-  ValueTypeInfo(Value *V) : V(V) {}
+  ValueTypeInfo(Value *V)
+#ifndef NDEBUG
+      : V(V)
+#endif
+  {
+  }
 
   // @param Kind        - Indicates whether this modification is for the
   //                      'declared' type set or the 'usage' type set. An item
@@ -172,7 +177,7 @@ public:
   //                      type will only go to the 'usage' type set.
   // @param Ty          - Type to be added to the PointerTypeAliasSet.
   // @return            - 'true' if the sets changed as a result of the addition
-  bool addTypeAlias(ValueAnalysisType Kind, dtrans::DTransType *Ty);
+  bool addTypeAlias(ValueAnalysisType Kind, DTransType *Ty);
 
   // This function is used to capture that a value is the address of some
   // field within an aggregate type.
@@ -186,10 +191,10 @@ public:
   // @param ElemIdx     - Element number of aggregate.
   // @return            - 'true' if the sets changed as a result of the
   //                      addition. Otherwise false.
-  bool addElementPointee(ValueAnalysisType Kind, dtrans::DTransType *BaseTy,
+  bool addElementPointee(ValueAnalysisType Kind, DTransType *BaseTy,
                          size_t ElemIdx);
 
-  bool addElementPointee(ValueAnalysisType Kind, dtrans::DTransType *BaseTy,
+  bool addElementPointee(ValueAnalysisType Kind, DTransType *BaseTy,
                          size_t ElemIdx,
                          PointeeLoc::ElementOfTypeImpl &ElementOf);
 
@@ -205,11 +210,11 @@ public:
   // @param ByteOffset  - Byte offset from start of aggregate.
   // @return            - 'true' if the sets changed as a result of the
   //                      addition. Otherwise false.
-  bool addElementPointeeByOffset(ValueAnalysisType Kind,
-                                 dtrans::DTransType *BaseTy, size_t ByteOffset);
+  bool addElementPointeeByOffset(ValueAnalysisType Kind, DTransType *BaseTy,
+                                 size_t ByteOffset);
 
-  bool addElementPointeeByOffset(ValueAnalysisType Kind,
-                                 dtrans::DTransType *BaseTy, size_t ByteOffset,
+  bool addElementPointeeByOffset(ValueAnalysisType Kind, DTransType *BaseTy,
+                                 size_t ByteOffset,
                                  PointeeLoc::ElementOfTypeImpl &ElementOfTypes);
 
   // This function is used to capture that a value is the address of some
@@ -226,11 +231,10 @@ public:
   // @return            - 'true' if the sets changed as a result of the
   //                      addition. Otherwise false.
   bool addElementPointeeUnknownOffset(ValueAnalysisType Kind,
-                                      dtrans::DTransType *BaseTy);
+                                      DTransType *BaseTy);
 
   bool
-  addElementPointeeUnknownOffset(ValueAnalysisType Kind,
-                                 dtrans::DTransType *BaseTy,
+  addElementPointeeUnknownOffset(ValueAnalysisType Kind, DTransType *BaseTy,
                                  PointeeLoc::ElementOfTypeImpl &ElementOfTypes);
 
   // Copy an existing element pointee pair to this object.
@@ -327,12 +331,13 @@ public:
 
 private:
   // Internal implementation for updating the ElementPointees set.
-  bool addElementPointeeImpl(ValueAnalysisType Kind, dtrans::DTransType *BaseTy,
+  bool addElementPointeeImpl(ValueAnalysisType Kind, DTransType *BaseTy,
                              const PointeeLoc &Loc);
 
+#ifndef NDEBUG
   // The value object this type information is for.
   Value *V = nullptr;
-
+#endif
   // Keep a set of values for the type aliases and element-of types for both the
   // 'declared' type and the 'usage' type.
   PointerTypeAliasSet PointerTypeAliases[2];
@@ -484,7 +489,7 @@ private:
   std::unique_ptr<PtrTypeAnalyzerImpl> Impl;
 };
 
-} // end namespace dtrans
+} // end namespace dtransOP
 } // end namespace llvm
 
 #endif // INTEL_DTRANS_ANALYSIS_PTRYPEANALYZER_H

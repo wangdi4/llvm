@@ -32,18 +32,30 @@ bool PrintAfterSSADeconstruction = false;
 void VPlanSSADeconstruction::run() {
   assert(Plan.getVPLoopInfo()->size() == 1 && "Expected one loop");
   VPLoop *VLoop = *(Plan.getVPLoopInfo()->begin());
+  // Can't handle search loops.
+  if (VLoop->getUniqueExitBlock() == nullptr)
+    return;
   VPBuilderHIR Builder;
   unsigned DeconstructedPhiId = 0;
+  bool ResetSVA = false;
 
   for (VPBasicBlock &VPBB : Plan) {
-    // Outermost loop header PHIs are either inductions or reductions (loop
-    // entities). Copies are not needed for them since they are processed
-    // specially in VPOCodeGenHIR::createAndMapLoopEntityRefs. TODO: Consider
-    // using this copy-based implementation for loop entities too.
-    if (&VPBB == VLoop->getHeader())
-      continue;
-
     for (VPPHINode &Phi : VPBB.getVPPhis()) {
+      if (&VPBB == VLoop->getHeader()) {
+        auto IsReductionOrInductionInit = [](VPValue *V) -> bool {
+          return isa<VPReductionInit>(V) || isa<VPInductionInit>(V);
+        };
+
+        // If outermost loop header PHI is either inductions or reductions (loop
+        // entities), then copies are not needed for them since they are
+        // processed specially in VPOCodeGenHIR::createAndMapLoopEntityRefs.
+        // TODO: Consider using this copy-based implementation for these loop
+        // entities too.
+        if (IsReductionOrInductionInit(Phi.getOperand(0)) ||
+            IsReductionOrInductionInit(Phi.getOperand(1)))
+          continue;
+      }
+
       LLVM_DEBUG(dbgs() << "[SSADecons] Inserting copies for: "; Phi.dump());
       // Create a new ID to tag the copies generated for the PHI.
       unsigned PhiId = DeconstructedPhiId++;
@@ -100,6 +112,12 @@ void VPlanSSADeconstruction::run() {
       // Update incoming values of PHI to the newly inserted copy instructions.
       for (auto &UpdateKey : PhiInValUpdates)
         Phi.setIncomingValue(UpdateKey.first, UpdateKey.second);
+
+      ResetSVA = true;
     }
   }
+
+  // Invalidate SVA results as VPlan has been changed.
+  if (ResetSVA)
+    Plan.invalidateAnalyses({VPAnalysisID::SVA});
 }

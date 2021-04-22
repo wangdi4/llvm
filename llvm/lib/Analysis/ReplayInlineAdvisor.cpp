@@ -6,8 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements ReplayInlineAdvisor that replays inline decision based
-// on previous inline remarks from optimization remark log.
+// This file implements ReplayInlineAdvisor that replays inline decisions based
+// on previous inline remarks from optimization remark log. This is a best
+// effort approach useful for testing compiler/source changes while holding
+// inlining steady.
 //
 //===----------------------------------------------------------------------===//
 
@@ -20,10 +22,12 @@ using namespace llvm;
 
 #define DEBUG_TYPE "inline-replay"
 
-ReplayInlineAdvisor::ReplayInlineAdvisor(FunctionAnalysisManager &FAM,
-                                         LLVMContext &Context,
-                                         StringRef RemarksFile)
-    : InlineAdvisor(FAM), HasReplayRemarks(false) {
+ReplayInlineAdvisor::ReplayInlineAdvisor(
+    Module &M, FunctionAnalysisManager &FAM, LLVMContext &Context,
+    std::unique_ptr<InlineAdvisor> OriginalAdvisor, StringRef RemarksFile,
+    bool EmitRemarks)
+    : InlineAdvisor(M, FAM), OriginalAdvisor(std::move(OriginalAdvisor)),
+      HasReplayRemarks(false), EmitRemarks(EmitRemarks) {
   auto BufferOrErr = MemoryBuffer::getFileOrSTDIN(RemarksFile);
   std::error_code EC = BufferOrErr.getError();
   if (EC) {
@@ -32,33 +36,67 @@ ReplayInlineAdvisor::ReplayInlineAdvisor(FunctionAnalysisManager &FAM,
   }
 
   // Example for inline remarks to parse:
-  //   _Z3subii inlined into main [details] at callsite sum:1 @ main:3.1
+  //   main:3:1.1: _Z3subii inlined into main at callsite sum:1 @ main:3:1.1
   // We use the callsite string after `at callsite` to replay inlining.
   line_iterator LineIt(*BufferOrErr.get(), /*SkipBlanks=*/true);
   for (; !LineIt.is_at_eof(); ++LineIt) {
     StringRef Line = *LineIt;
     auto Pair = Line.split(" at callsite ");
-    if (Pair.second.empty())
+
+    auto Callee = Pair.first.split(" inlined into").first.rsplit(": ").second;
+
+    auto CallSite = Pair.second.split(";").first;
+
+    if (Callee.empty() || CallSite.empty())
       continue;
-    InlineSitesFromRemarks.insert(Pair.second);
+
+    std::string Combined = (Callee + CallSite).str();
+    InlineSitesFromRemarks.insert(Combined);
   }
+
   HasReplayRemarks = true;
 }
 
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
-ReplayInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                               WholeProgramInfo *WPI, InlineCost **IC) {
+ReplayInlineAdvisor::getAdviceImpl(CallBase &CB, InliningLoopInfoCache *ILIC,
+                                   WholeProgramInfo *WPI, InlineCost **IC) {
 #endif // INTEL_CUSTOMIZATION
   assert(HasReplayRemarks);
 
   Function &Caller = *CB.getCaller();
   auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(Caller);
 
-  if (InlineSitesFromRemarks.empty())
-    return std::make_unique<InlineAdvice>(this, CB, ORE, false);
+#if INTEL_CUSTOMIZATION
+  if (InlineSitesFromRemarks.empty()) {
+    InlineCost LIC = InlineCost::getNever("nothing found in replay");
+    auto UP = std::make_unique<DefaultInlineAdvice>(this, CB, LIC,
+        ORE, EmitRemarks);
+    if (IC)
+      *IC = UP->getInlineCost();
+    return UP;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   std::string CallSiteLoc = getCallSiteLocation(CB.getDebugLoc());
-  bool InlineRecommended = InlineSitesFromRemarks.count(CallSiteLoc) > 0;
-  return std::make_unique<InlineAdvice>(this, CB, ORE, InlineRecommended);
+  StringRef Callee = CB.getCalledFunction()->getName();
+  std::string Combined = (Callee + CallSiteLoc).str();
+  auto Iter = InlineSitesFromRemarks.find(Combined);
+
+#if INTEL_CUSTOMIZATION
+  if (Iter != InlineSitesFromRemarks.end()) {
+    InlineCost LIC = llvm::InlineCost::getAlways("found in replay");
+    auto UP = std::make_unique<DefaultInlineAdvice>(this, CB, LIC, ORE,
+        EmitRemarks);
+    if (IC)
+      *IC = UP->getInlineCost();
+    return UP;
+  }
+  InlineCost LIC = llvm::InlineCost::getNever("nothing found in replay");
+  auto UP = std::make_unique<DefaultInlineAdvice>(this, CB, LIC, ORE,
+      EmitRemarks);
+  if (IC)
+    *IC = UP->getInlineCost();
+  return UP;
+#endif // INTEL_CUSTOMIZATION
 }

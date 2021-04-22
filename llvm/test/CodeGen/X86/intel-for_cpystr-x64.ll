@@ -10,8 +10,8 @@ define void @for_cpystr_libcall_test_x64(i8* %dst, i64 %dstlen, i8 *%src, i64 %s
 ; CHECK-NEXT:    popq %rax
 ; CHECK-NEXT:    .cfi_def_cfa_offset 8
 ; CHECK-NEXT:    retq
-  call void @llvm.for.cpystr.i64.i64.i64(i8 *%dst, i64 %dstlen, i8 *%src, i64 %srclen, i64 %padding)
+  call void @llvm.for.cpystr.i64.i64.i64(i8 *%dst, i64 %dstlen, i8 *%src, i64 %srclen, i64 %padding, i1 1)
   ret void
 }
 
-declare void @llvm.for.cpystr.i64.i64.i64(i8 *, i64, i8 *, i64, i64)
+declare void @llvm.for.cpystr.i64.i64.i64(i8 *, i64, i8 *, i64, i64, i1)

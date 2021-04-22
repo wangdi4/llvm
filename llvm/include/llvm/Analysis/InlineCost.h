@@ -124,6 +124,7 @@ typedef enum {
    InlrDoubleNonLocalCall,
    InlrVectorBonus,
    InlrAggInline,
+   InlrDTransInline,
    InlrForFusion,
    InlrDeeplyNestedIfs,
    InlrAddressComputations,
@@ -134,6 +135,7 @@ typedef enum {
    InlrPreferTileChoice,
    InlrManyRecursiveCallsSplitting,
    InlrHasSmallAppBudget,
+   InlrExposesLocalArrays,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason
@@ -217,8 +219,8 @@ class InlineCost {
   const char *Reason = nullptr;
 
 #if INTEL_CUSTOMIZATION
-  InlineReportTypes::InlineReason IntelReason;
   bool IsRecommended = false;
+  InlineReportTypes::InlineReason IntelReason;
 
   /// \brief The cost and the threshold used for early exit from usual inlining
   /// process. A value of INT_MAX for either of these indicates that no value
@@ -236,10 +238,12 @@ class InlineCost {
 
 #if INTEL_CUSTOMIZATION
   InlineCost(int Cost, int Threshold, const char* Reason = nullptr,
+    bool IsRecommended = false,
     InlineReportTypes::InlineReason IntelReason
     = InlineReportTypes::NinlrNoReason, int EarlyExitCost = INT_MAX,
     int EarlyExitThreshold = INT_MAX, int TotalSecondaryCost = INT_MAX) :
-    Cost(Cost), Threshold(Threshold), Reason(Reason), IntelReason(IntelReason),
+    Cost(Cost), Threshold(Threshold), Reason(Reason),
+    IsRecommended(IsRecommended), IntelReason(IntelReason),
     EarlyExitCost(EarlyExitCost), EarlyExitThreshold(EarlyExitThreshold),
     TotalSecondaryCost(TotalSecondaryCost) {
     assert((isVariable() || Reason) &&
@@ -255,28 +259,30 @@ public:
   }
 #if INTEL_CUSTOMIZATION
   static InlineCost get(int Cost, int Threshold, const char* Reason,
-    InlineReportTypes::InlineReason IntelReason, int EarlyExitCost,
-    int EarlyExitThreshold) {
+    bool IsRecommended, InlineReportTypes::InlineReason IntelReason,
+    int EarlyExitCost, int EarlyExitThreshold) {
     assert(Cost > AlwaysInlineCost && "Cost crosses sentinel value");
     assert(Cost < NeverInlineCost && "Cost crosses sentinel value");
-    return InlineCost(Cost, Threshold, Reason, IntelReason, EarlyExitCost,
-        EarlyExitThreshold);
+    return InlineCost(Cost, Threshold, Reason, IsRecommended, IntelReason,
+        EarlyExitCost, EarlyExitThreshold);
   }
 #endif // INTEL_CUSTOMIZATION
   static InlineCost getAlways(const char *Reason) {
-    return InlineCost(AlwaysInlineCost, 0, Reason);
+    return InlineCost(AlwaysInlineCost, 0, Reason, true,     // INTEL
+                      InlineReportTypes::InlrAlwaysInline);  // INTEL
   }
   static InlineCost getNever(const char *Reason) {
-    return InlineCost(NeverInlineCost, 0, Reason);
+    return InlineCost(NeverInlineCost, 0, Reason, false,     // INTEL
+                      InlineReportTypes::NinlrNeverInline);  // INTEL
   }
 #if INTEL_CUSTOMIZATION
   static InlineCost getAlways(const char* Reason,
                               InlineReportTypes::InlineReason IntelReason) {
-    return InlineCost(AlwaysInlineCost, 0, Reason, IntelReason);
+    return InlineCost(AlwaysInlineCost, 0, Reason, true, IntelReason);
   }
   static InlineCost getNever(const char* Reason,
                              InlineReportTypes::InlineReason IntelReason) {
-    return InlineCost(NeverInlineCost, 0, Reason, IntelReason);
+    return InlineCost(NeverInlineCost, 0, Reason, false, IntelReason);
   }
 #endif // INTEL_CUSTOMIZATION
 

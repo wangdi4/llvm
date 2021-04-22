@@ -56,8 +56,8 @@
 //===----------------------------------------------------------------------===//
 #include "llvm/Transforms/Intel_LoopTransforms/HIRUndoSinkingForPerfectLoopnestPass.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -81,10 +81,12 @@ namespace {
 
 class HIRUndoSinkingForPerfectLoopnest {
   HIRFramework &HIRF;
+  HIRDDAnalysis &DDA;
   struct MatchingStoreFinder;
 
 public:
-  HIRUndoSinkingForPerfectLoopnest(HIRFramework &HIRF) : HIRF(HIRF) {}
+  HIRUndoSinkingForPerfectLoopnest(HIRFramework &HIRF, HIRDDAnalysis &DDA)
+      : HIRF(HIRF), DDA(DDA) {}
 
   bool run();
 
@@ -96,9 +98,8 @@ private:
 };
 } // namespace
 
-static bool haveSameLoopBounds(HLInst *MatchingStoreInst,
-                               HLInst *SinkedLoadInst) {
-  HLLoop *MatchingStoreLp = MatchingStoreInst->getLexicalParentLoop();
+static bool haveSameLoopBounds(HLInst *CopyInst, HLInst *SinkedLoadInst) {
+  HLLoop *MatchingStoreLp = CopyInst->getLexicalParentLoop();
   unsigned StoreNodeLevel = MatchingStoreLp->getNestingLevel();
   HLLoop *SinkedLoadLp = SinkedLoadInst->getLexicalParentLoop();
   unsigned LoadNodeLevel = SinkedLoadLp->getNestingLevel();
@@ -135,12 +136,11 @@ static bool haveSameLoopBounds(HLInst *MatchingStoreInst,
 struct HIRUndoSinkingForPerfectLoopnest::MatchingStoreFinder final
     : public HLNodeVisitorBase {
   HLInst *SinkedLoadInst;
-  HLInst *&MatchingStoreInst;
+  HLInst *&CopyInst;
   bool IsDone;
 
-  MatchingStoreFinder(HLInst *SinkedLoadInst, HLInst *&MatchingStoreInst)
-      : SinkedLoadInst(SinkedLoadInst), MatchingStoreInst(MatchingStoreInst),
-        IsDone(false) {}
+  MatchingStoreFinder(HLInst *SinkedLoadInst, HLInst *&CopyInst)
+      : SinkedLoadInst(SinkedLoadInst), CopyInst(CopyInst), IsDone(false) {}
 
   void visit(HLDDNode *Node) {
     HLInst *HInst = dyn_cast<HLInst>(Node);
@@ -193,7 +193,7 @@ struct HIRUndoSinkingForPerfectLoopnest::MatchingStoreFinder final
     auto &HNU = Node->getHLNodeUtils();
     RegDDRef *RHS = RvalRef->clone();
     RegDDRef *LHS = SinkedLoadInst->getLvalDDRef()->clone();
-    MatchingStoreInst = HNU.createCopyInst(RHS, "copy", LHS);
+    CopyInst = HNU.createCopyInst(RHS, "copy", LHS);
     IsDone = true;
   }
 
@@ -255,6 +255,28 @@ HIRUndoSinkingForPerfectLoopnest::findCandidateSiblingLoop(HLLoop *Lp,
   return SiblingLp;
 }
 
+static void setLinear(DDRef *TmpRef, unsigned LoopLevel) {
+  TmpRef->getSingleCanonExpr()->setDefinedAtLevel(LoopLevel - 1);
+
+  if (auto BlobRef = dyn_cast<BlobDDRef>(TmpRef)) {
+    BlobRef->getParentDDRef()->updateDefLevel();
+  } else {
+    assert(cast<RegDDRef>(TmpRef)->isTerminalRef() &&
+           "Expecting a terminal ref");
+  }
+}
+
+static void insertInstToPreheader(HLLoop *Lp, HLInst *Inst,
+                                  HLInst *&PreheaderInst) {
+  if (!PreheaderInst) {
+    HLNodeUtils::insertAsLastPreheaderNode(Lp, Inst);
+  } else {
+    HLNodeUtils::insertBefore(PreheaderInst, Inst);
+  }
+
+  PreheaderInst = Inst;
+}
+
 bool HIRUndoSinkingForPerfectLoopnest::run() {
   if (DisablePass) {
     LLVM_DEBUG(dbgs() << "HIR UndoSinking For Perfect Loopnest Disabled \n");
@@ -271,15 +293,17 @@ bool HIRUndoSinkingForPerfectLoopnest::run() {
   HNU.gatherInnermostLoops(InnermostLoops);
 
   bool Result = false;
-
   for (auto *Lp : InnermostLoops) {
     if (!Lp->isUndoSinkingCandidate()) {
       continue;
     }
 
-    HLInst *LastPostexitInst = nullptr;
+    SmallSet<unsigned, 8> StoreRvalSBs;
+    HLInst *PreheaderInst = nullptr;
+    DDGraph DDG = DDA.getGraph(Lp);
+    unsigned LoopLevel = Lp->getNestingLevel();
 
-    for (auto I = Lp->child_begin(), Next = I, E = Lp->child_end(); I != E;
+    for (auto I = Lp->child_rbegin(), Next = I, E = Lp->child_rend(); I != E;
          I = Next) {
       Next++;
 
@@ -296,40 +320,54 @@ bool HIRUndoSinkingForPerfectLoopnest::run() {
       auto Inst = HInst->getLLVMInstruction();
 
       if (isa<LoadInst>(Inst)) {
-        HLInst *MatchingStoreInst = nullptr;
+        // Create a copy inst when a matching store is found
+        HLInst *CopyInst = nullptr;
 
         HLLoop *SiblingLp = findCandidateSiblingLoop(Lp, HInst->getRvalDDRef());
 
         if (SiblingLp) {
-          MatchingStoreFinder USV(HInst, MatchingStoreInst);
+          MatchingStoreFinder USV(HInst, CopyInst);
           HLNodeUtils::visitRange<true, true, false>(
               USV, SiblingLp->child_begin(), SiblingLp->child_end());
         }
 
-        if (MatchingStoreInst) {
-          HLNodeUtils::insertAsLastPreheaderNode(Lp, MatchingStoreInst);
-          Lp->addLiveInTemp(MatchingStoreInst->getLvalDDRef()->getSymbase());
-          MatchingStoreInst->getRvalDDRef()->makeConsistent(
-              {}, Lp->getNestingLevel() - 1);
-          HLNodeUtils::remove(HInst);
+        RegDDRef *LRef = HInst->getLvalDDRef();
+        HLNodeUtils::remove(HInst);
+
+        if (CopyInst) {
+          insertInstToPreheader(Lp, CopyInst, PreheaderInst);
+          CopyInst->getRvalDDRef()->makeConsistent({}, LoopLevel - 1);
         } else {
-          HLNodeUtils::moveAsLastPreheaderNode(Lp, HInst);
-          Lp->addLiveInTemp(HInst->getLvalDDRef()->getSymbase());
+          insertInstToPreheader(Lp, HInst, PreheaderInst);
           HInst->setIsSinked(false);
+        }
+
+        Lp->addLiveInTemp(LRef->getSymbase());
+
+        if (!StoreRvalSBs.count(LRef->getSymbase())) {
+          for (const DDEdge *Edge : DDG.outgoing(LRef)) {
+            if (Edge->isFlow()) {
+              DDRef *DDRefSink = Edge->getSink();
+
+              if (!HLNodeUtils::contains(Lp, DDRefSink->getHLDDNode())) {
+                continue;
+              }
+
+              setLinear(DDRefSink, LoopLevel);
+            }
+          }
         }
       } else {
         assert(isa<StoreInst>(Inst) &&
                "Only load/store are expected to be sinked.");
 
-        if (!LastPostexitInst) {
-          HLNodeUtils::moveAsFirstPostexitNode(Lp, HInst);
-        } else {
-          HLNodeUtils::moveAfter(LastPostexitInst, HInst);
-        }
-        LastPostexitInst = HInst;
+        StoreRvalSBs.insert(HInst->getRvalDDRef()->getSymbase());
 
-        Lp->addLiveOutTemp(HInst->getRvalDDRef()->getSymbase());
-        HInst->getLvalDDRef()->makeConsistent({}, Lp->getNestingLevel() - 1);
+        HLNodeUtils::moveAsFirstPostexitNode(Lp, HInst);
+
+        Lp->addLiveOutTemp(HInst->getRvalDDRef());
+
+        HInst->getLvalDDRef()->makeConsistent({}, LoopLevel - 1);
         HInst->setIsSinked(false);
       }
       Result = true;
@@ -345,10 +383,10 @@ bool HIRUndoSinkingForPerfectLoopnest::run() {
   return Result;
 }
 
-PreservedAnalyses
-HIRUndoSinkingForPerfectLoopnestPass::run(llvm::Function &F,
-                                          llvm::FunctionAnalysisManager &AM) {
-  HIRUndoSinkingForPerfectLoopnest(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+PreservedAnalyses HIRUndoSinkingForPerfectLoopnestPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRUndoSinkingForPerfectLoopnest(HIRF, AM.getResult<HIRDDAnalysisPass>(F))
+      .run();
   return PreservedAnalyses::all();
 }
 
@@ -363,6 +401,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.setPreservesAll();
   }
 
@@ -372,7 +411,8 @@ public:
     }
 
     return HIRUndoSinkingForPerfectLoopnest(
-               getAnalysis<HIRFrameworkWrapperPass>().getHIR())
+               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+               getAnalysis<HIRDDAnalysisWrapperPass>().getDDA())
         .run();
   }
 };
@@ -381,6 +421,7 @@ char HIRUndoSinkingForPerfectLoopnestLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRUndoSinkingForPerfectLoopnestLegacyPass, OPT_SWITCH,
                       OPT_DESC, false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRUndoSinkingForPerfectLoopnestLegacyPass, OPT_SWITCH,
                     OPT_DESC, false, false)
 

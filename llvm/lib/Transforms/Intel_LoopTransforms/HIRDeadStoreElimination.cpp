@@ -76,6 +76,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/InitializePasses.h"
@@ -102,6 +103,10 @@ STATISTIC(NumHIRDeadRegularStoreEliminated,
 // Count for local dead store:
 STATISTIC(NumHIRDeadLocalStoreEliminated,
           "Number of Local Dead Stores Eliminated");
+
+// Count for loads eliminated using forward substitution:
+STATISTIC(NumHIRForwardSubstitutedLoads,
+          "Number of loads eliminated using forward substitution");
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static void printRefGroupTy(RefGroupTy &Group, std::string Msg = "",
@@ -224,113 +229,103 @@ FunctionPass *llvm::createHIRDeadStoreEliminationPass() {
   return new HIRDeadStoreEliminationLegacyPass();
 }
 
-// Check whether the DDRefs in other groups have the same symbase as the
-// current DDRef group and then check the distance between each other. If
-// the distance is less than the size of current DDRef, return true and
-// skip this case. If false, then send this DDRef group to process in dead
-// store elimination. The following is an example
-// A[i]   = .
-// A[i+1] = .
-// A[i]   = .
+// Returns true if there is an intervening load between \p StoreRef and \p
+// PostDomStoreRef which aliases with \p StoreRef. For example-
+//
+// A[i] =
+//      = B[i]
+// A[i] =
 static bool
-overlapsWithAnotherGroup(HIRDDAnalysis &HDDA,
-                         HIRLoopLocality::RefGroupTy &RefGroup,
-                         HIRLoopLocality::RefGroupVecTy &EqualityGroups) {
-  auto *FirstRef = RefGroup.front();
+foundInterveningLoad(HIRDDAnalysis &HDDA, const RegDDRef *StoreRef,
+                     const RegDDRef *PostDomStoreRef,
+                     SmallVectorImpl<const RegDDRef *> &SubstitutibleLoads,
+                     HIRLoopLocality::RefGroupVecTy &EqualityGroups) {
 
-  // A[0] and (i32*)A[0] are put in the same group. We need to take the max size
-  // to check overlap correctly and also return the memref with largest size.
-  auto GetMaxRefSize = [](HIRLoopLocality::RefGroupTy &Group) {
-    uint64_t Size = 0;
-    const RegDDRef *MaxRef = nullptr;
+  assert((PostDomStoreRef->getDestTypeSizeInBytes() >=
+          StoreRef->getDestTypeSizeInBytes()) &&
+         "Post-dominating ref's size cannot be smaller than the other ref!");
 
-    for (auto *Ref : Group) {
-      // Can happen for fake refs with opaque destination types.
-      uint64_t RefSize = Ref->getDestType()->isSized()
-                             ? Ref->getDestTypeSizeInBytes()
-                             : UINT64_MAX;
-      // Use >= here to avoid case when RefSize is 0 and MaxRef can be nullptr.
-      if (RefSize >= Size) {
-        Size = RefSize;
-        MaxRef = Ref;
+  unsigned StoreSymbase = StoreRef->getSymbase();
+  unsigned MinTopSortNum = StoreRef->getHLDDNode()->getTopSortNum();
+  unsigned MaxTopSortNum = PostDomStoreRef->getHLDDNode()->getTopSortNum();
+  unsigned MaxSubstitutibleLoadTopSortNum =
+      !SubstitutibleLoads.empty()
+          ? SubstitutibleLoads[0]->getHLDDNode()->getTopSortNum()
+          : 0;
+
+  for (auto &LoadRefGroup : EqualityGroups) {
+
+    if (LoadRefGroup.front()->getSymbase() != StoreSymbase) {
+      continue;
+    }
+
+    // Refs are ordered in reverse lexical order.
+    for (auto *LoadRef : LoadRefGroup) {
+
+      // Don't need to analyze same group as this is done in the caller.
+      if (LoadRef == PostDomStoreRef) {
+        break;
       }
-    }
 
-    std::pair<uint64_t, const RegDDRef *> MaxRefSizePair = {Size, MaxRef};
-    return MaxRefSizePair;
-  };
+      unsigned LoadTopSortNum = LoadRef->getHLDDNode()->getTopSortNum();
 
-  auto GetRefGroupTopSortNumRange = [](HIRLoopLocality::RefGroupTy &Group) {
-    std::pair<unsigned, unsigned> TopSortNumRange = {UINT_MAX, 0};
-
-    for (auto *Ref : Group) {
-      unsigned TopSortNum = Ref->getHLDDNode()->getTopSortNum();
-      TopSortNumRange.first = std::min(TopSortNumRange.first, TopSortNum);
-      TopSortNumRange.second = std::max(TopSortNumRange.second, TopSortNum);
-    }
-    return TopSortNumRange;
-  };
-
-  uint64_t MaxRefSize;
-  const RegDDRef *MaxRef = nullptr;
-
-  std::tie(MaxRefSize, MaxRef) = GetMaxRefSize(RefGroup);
-
-  unsigned MinTopSortNum;
-  unsigned MaxTopSortNum;
-  std::tie(MinTopSortNum, MaxTopSortNum) = GetRefGroupTopSortNumRange(RefGroup);
-
-  for (auto &TmpRefGroup : EqualityGroups) {
-    auto *CurRef = TmpRefGroup.front();
-
-    if (FirstRef == CurRef) {
-      continue;
-    }
-
-    if (CurRef->getSymbase() != FirstRef->getSymbase()) {
-      continue;
-    }
-
-    unsigned TmpMinTopSortNum;
-    unsigned TmpMaxTopSortNum;
-    std::tie(TmpMinTopSortNum, TmpMaxTopSortNum) =
-        GetRefGroupTopSortNumRange(TmpRefGroup);
-
-    if (MinTopSortNum > TmpMaxTopSortNum || MaxTopSortNum < TmpMinTopSortNum) {
-      continue;
-    }
-
-    uint64_t CurMaxRefSize;
-    const RegDDRef *CurMaxRef = nullptr;
-    std::tie(CurMaxRefSize, CurMaxRef) = GetMaxRefSize(TmpRefGroup);
-    int64_t Distance;
-
-    if (!DDRefUtils::getConstByteDistance(FirstRef, CurRef, &Distance)) {
-      if (!HDDA.doRefsAlias(MaxRef, CurMaxRef)) {
+      // We can ignore refs which are lexically after PostDomStoreRef.
+      if (LoadTopSortNum > MaxTopSortNum) {
         continue;
       }
-      return true;
-    }
 
-    if (Distance <= 0) {
-      // Handles this case-
-      //
-      // %A is i8* type
-      // FirstRef - (i16*)(%A)[0]
-      // CurRef - (%A)[1]
-      //
-      if ((uint64_t)(-Distance) < MaxRefSize) {
+      // We have already reached lexically before StoreRef. Others refs in the
+      // group don't need to be analyzed.
+      if (LoadTopSortNum <= MinTopSortNum) {
+        break;
+      }
+
+      int64_t Distance;
+
+      bool IsFake = LoadRef->isFake();
+
+      // In the absence of substitutible loads, only intervening loads are a
+      // problem and stores can be ignored. In the presence of substitutible
+      // loads, aliasing stores between StoreRef and loads are also a problem.
+      // Fake stores cannot be ignored as they can be either reads or writes in
+      // the callee.
+      if (!IsFake && LoadRef->isLval() &&
+          (LoadTopSortNum >= MaxSubstitutibleLoadTopSortNum)) {
+        continue;
+      }
+
+      if (!DDRefUtils::getConstByteDistance(StoreRef, LoadRef, &Distance)) {
+        if (!HDDA.doRefsAlias(StoreRef, LoadRef)) {
+          continue;
+        }
         return true;
       }
 
-    } else if ((uint64_t)Distance < CurMaxRefSize) {
-      // Handles this case-
-      //
-      // %A is i8* type
-      // FirstRef - (%A)[1]
-      // CurRef - (i16*)(%A)[0]
-      //
-      return true;
+      // Access pattern of fake refs is not known so distance cannot be used.
+      if (IsFake) {
+        return true;
+      }
+
+      if (Distance <= 0) {
+        // Handles this case-
+        //
+        // %A is i8* type
+        // StoreRef - (i16*)(%A)[0]
+        // LoadRef - (%A)[1]
+        //
+        if ((uint64_t)(-Distance) < StoreRef->getDestTypeSizeInBytes()) {
+          return true;
+        }
+
+      } else if ((uint64_t)Distance < LoadRef->getDestTypeSizeInBytes()) {
+        // Handles this case-
+        //
+        // %A is i8* type
+        // StoreRef - (%A)[1]
+        // LoadRef - (i16*)(%A)[0]
+        //
+        return true;
+      }
     }
   }
   return false;
@@ -557,7 +552,8 @@ bool HIRDeadStoreElimination::doSingleItemGroup(
     dbgs() << "\n";
   });
 
-  if (Ref->isRval() || !Ref->accessesAlloca() || Ref->isFake()) {
+  if (Ref->isRval() || !Ref->accessesAlloca() || Ref->isFake() ||
+      !UniqueGroupSymbases.count(Ref->getSymbase())) {
     return false;
   }
 
@@ -601,12 +597,96 @@ bool HIRDeadStoreElimination::doSingleItemGroup(
   return true;
 }
 
-bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
-  auto CompareRefPairTOPODesc = [](const RegDDRef *Ref0, const RegDDRef *Ref1) {
-    return Ref0->getHLDDNode()->getTopSortNum() >
-           Ref1->getHLDDNode()->getTopSortNum();
-  };
+// Somtimes we can eliminate the store by forward substituting its RHS into
+// loads. For example-
+//
+// A[0] = 0;
+// %t = A[0];
+// A[0] = 5;
+//
+// Can be optimized to-
+//
+// %t = 0;
+// A[0] = 5;
+//
+// This function returns true if the collected loads can be substituted.
+// Loads are collected in reverse lexical order.
+static bool
+canSubstituteLoads(const HLRegion &Region, const RegDDRef *StoreRef,
+                   SmallVectorImpl<const RegDDRef *> &SubstitutibleLoads) {
+  if (SubstitutibleLoads.empty()) {
+    return true;
+  }
 
+  // Give up if load and store are not identical which can happen due to
+  // bitcasts.
+  if (!DDRefUtils::areEqual(StoreRef, SubstitutibleLoads[0])) {
+    return false;
+  }
+
+  const HLInst *SInst = cast<HLInst>(StoreRef->getHLDDNode());
+
+  // Only handle store instructions which is the common case, for simplicity.
+  if (!isa<StoreInst>(SInst->getLLVMInstruction())) {
+    return false;
+  }
+
+  auto *StoreRHS = SInst->getRvalDDRef();
+
+  // Forward substituting a load requires additional aliasing checks so give up
+  // for now.
+  if (StoreRHS->isMemRef()) {
+    return false;
+  }
+
+  // Check if store can be legally substituted.
+  const HLLoop *ParLoop = SInst->getLexicalParentLoop();
+
+  // Check if it is structurally legal to substitute the StoreRHS into loads.
+  unsigned Symbase = StoreRHS->getSymbase();
+  bool IsRegionInvariant =
+      ((Symbase == ConstantSymbase) || Region.isLiveIn(Symbase));
+
+  // Non-linear RHS can also be handled by checking for invalidating definitions
+  // between the store and loads but it can increase the live-range of the
+  // non-linear temps thereby increasing register pressure and nullify the
+  // benefit of eliminating load/store.
+  // TODO: Try extending in a separate changeset.
+  if (!IsRegionInvariant &&
+      (!ParLoop || !StoreRHS->isLinearAtLevel(ParLoop->getNestingLevel()))) {
+    return false;
+  }
+
+  for (auto *LoadRef : SubstitutibleLoads) {
+    auto *LoadNode = LoadRef->getHLDDNode();
+    if ((ParLoop != LoadNode->getLexicalParentLoop()) ||
+        !HLNodeUtils::dominates(SInst, LoadNode)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static void
+removeDeadStore(const HLDDNode *StoreNode,
+                SmallVectorImpl<const RegDDRef *> &SubstitutibleLoads) {
+  auto *StoreRHS = StoreNode->getRvalDDRef();
+
+  for (auto *LoadRef : SubstitutibleLoads) {
+    HIRTransformUtils::replaceOperand(const_cast<RegDDRef *>(LoadRef),
+                                      StoreRHS->clone());
+  }
+
+  auto *StoreParent = StoreNode->getParent();
+  HLNodeUtils::remove(const_cast<HLDDNode *>(StoreNode));
+  HLNodeUtils::removeRedundantNodes(StoreParent, true);
+
+  ++NumHIRDeadRegularStoreEliminated;
+  NumHIRForwardSubstitutedLoads += SubstitutibleLoads.size();
+}
+
+bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
   // It isn't worth optimizing incoming single bblock regions.
   if (Region.isLoopMaterializationCandidate()) {
     return false;
@@ -617,21 +697,24 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
     return false;
   }
 
+  // Refs returned by populateEqualityGroups() are in lexical order within the
+  // group. We neet to reverse them as they are processed in reverse lexical
+  // order. This needs to be done before calling foundInterveningLoad()
+  // below
+  // TODO: Is it worth changing the setup so reversal is not required?
+  for (auto &RefGroup : EqualityGroups) {
+    std::reverse(RefGroup.begin(), RefGroup.end());
+  }
+
   bool Result = false;
+  SmallPtrSet<const HLLoop *, 8> OptimizedLoops;
+
   for (auto &RefGroup : EqualityGroups) {
     auto *Ref = RefGroup.front();
 
     if (Ref->isNonLinear()) {
       continue;
     }
-
-    if (!UniqueGroupSymbases.count(Ref->getSymbase())) {
-      if (overlapsWithAnotherGroup(HDDA, RefGroup, EqualityGroups)) {
-        continue;
-      }
-    }
-
-    llvm::sort(RefGroup.begin(), RefGroup.end(), CompareRefPairTOPODesc);
 
     LLVM_DEBUG({
       printRefGroupTy(RefGroup, "RefGroup: ");
@@ -646,8 +729,30 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
       continue;
     }
 
-    // For each store, check whether it post dominates another store and there
-    // is no load interleaving between these two stores.
+    bool IsUniqueSymbase = UniqueGroupSymbases.count(Ref->getSymbase());
+
+    // For each store, check whether it post dominates another store and
+    // eliminate the dominated store if-
+    //
+    // 1) There are no aliasing loads in between these two stores.
+    //
+    // Example with i8* type %A-
+    //       %A[0] =
+    // (i16*)%A[0] =
+    //
+    // Or,
+    //
+    // 2) All the intermediate loads are identical to the lexically first store
+    // and can be forward substituted by its RHS.
+    //
+    // Example-
+    // %A[0] = 0;
+    //       = %A[0]
+    //       = %A[0]
+    // %A[0] =
+    //
+    // Forward substitution is performed in this case.
+    //
     for (unsigned Index = 0; Index != RefGroup.size(); ++Index) {
       auto *PostDomRef = RefGroup[Index];
       // Skip any load/fake/masked ref.
@@ -656,16 +761,32 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
         continue;
       }
 
+      SmallVector<const RegDDRef *, 4> SubstitutibleLoads;
       const HLDDNode *PostDomDDNode = PostDomRef->getHLDDNode();
+
       for (unsigned I = Index + 1; I != RefGroup.size();) {
         auto *PrevRef = RefGroup[I];
 
-        // Skip if we encounter a load or fake ref in between two stores.
+        // Skip if we encounter a fake ref in between two stores.
         // Also skip if the PostDomRef's size is smaller than PrevRef as it does
         // not make PrevRef completely dead.
-        if (PrevRef->isRval() || PrevRef->isFake() ||
-            PrevRef->getDestTypeSizeInBytes() >
-                PostDomRef->getDestTypeSizeInBytes()) {
+        if (PrevRef->isFake() || PrevRef->getDestTypeSizeInBytes() >
+                                     PostDomRef->getDestTypeSizeInBytes()) {
+          break;
+        }
+
+        // Refer to comments on canSubstituteLoads() for explanation.
+        if (PrevRef->isRval()) {
+          if (SubstitutibleLoads.empty() ||
+              // Give up if the loads are not identical which can happen
+              // due to bitcasts.
+              DDRefUtils::areEqual(PrevRef, SubstitutibleLoads[0])) {
+            SubstitutibleLoads.push_back(PrevRef);
+            ++I;
+            continue;
+          }
+          break;
+        } else if (!canSubstituteLoads(Region, PrevRef, SubstitutibleLoads)) {
           break;
         }
 
@@ -683,19 +804,33 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
           continue;
         }
 
-        // Delete the StoreInst on PrevRef, possibly even the entire loop.
-        if (auto *PrevLoop = PrevDDNode->getLexicalParentLoop()) {
-          HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(PrevLoop);
+        // If there is aliasing load between the two stores, give up on current
+        // PostDomRef.
+        if (!IsUniqueSymbase &&
+            foundInterveningLoad(HDDA, PrevRef, PostDomRef, SubstitutibleLoads,
+                                 EqualityGroups)) {
+          break;
         }
 
-        auto *PrevParent = PrevDDNode->getParent();
-        HLNodeUtils::remove(const_cast<HLDDNode *>(PrevDDNode));
-        HLNodeUtils::removeRedundantNodes(PrevParent, true);
-        ++NumHIRDeadRegularStoreEliminated;
-        Result = true;
+        // After complete unroll, we may optimize multiple stores from the same
+        // loop so postpone the invalidation.
+        if (auto *ParLoop = PrevDDNode->getLexicalParentLoop()) {
+          OptimizedLoops.insert(ParLoop);
+        }
 
-        // Remove Index I from collection and continue to iterate.
-        RefGroup.erase(RefGroup.begin() + I);
+        // Delete the StoreInst on PrevRef, possibly even the entire loop.
+        removeDeadStore(PrevDDNode, SubstitutibleLoads);
+
+        // Remove Store and SubstitutibleLoads from collection and continue to
+        // iterate.
+        unsigned NumLoads = SubstitutibleLoads.size();
+        auto BegIt = RefGroup.begin() + I - NumLoads;
+        auto EndIt = RefGroup.begin() + I + 1;
+        RefGroup.erase(BegIt, EndIt);
+        SubstitutibleLoads.clear();
+
+        I -= NumLoads;
+        Result = true;
       }
     }
   }
@@ -704,6 +839,12 @@ bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
 
   if (!Result) {
     return false;
+  }
+
+  for (auto *Lp : OptimizedLoops) {
+    if (Lp->isAttached()) {
+      HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Lp);
+    }
   }
 
   Region.setGenCode();
@@ -740,11 +881,9 @@ bool HIRDeadStoreEliminationLegacyPass::runOnFunction(Function &F) {
       getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS());
 }
 
-PreservedAnalyses
-HIRDeadStoreEliminationPass::run(llvm::Function &F,
-                                 llvm::FunctionAnalysisManager &AM) {
-  runDeadStoreElimination(AM.getResult<HIRFrameworkAnalysis>(F),
-                          AM.getResult<HIRDDAnalysisPass>(F),
+PreservedAnalyses HIRDeadStoreEliminationPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  runDeadStoreElimination(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
                           AM.getResult<HIRLoopStatisticsAnalysis>(F));
   return PreservedAnalyses::all();
 }

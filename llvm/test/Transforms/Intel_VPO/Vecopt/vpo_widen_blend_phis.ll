@@ -126,56 +126,76 @@ for.end:
 %"Globals" = type <{ %"GPU_AABB", %"GPU_AABB", i32, i32, [14 x i32], i32, i32, i32, i32, i32, [11 x i32], i32, i32, i32, i32, i32, i32, i32, i32, i32, float, i32, float, i32, i32, i32, i32, i32, i32, [8 x i8] }>
 
 ; CHECK-LABEL:@test
-; CHECK: vector.body:
-; CHECK:   [[VEC_IND:%.*]] = phi <2 x i64>
-; CHECK:   [[CMP1:%.*]] = icmp ult <2 x i64> [[VEC_IND]], {{.*}}
-; CHECK:   br label %[[VPlannedBB1:.*]]
-
-; CHECK: [[VPlannedBB1]]:
-; CHECK:   [[VEC_PHI2:%.*]] = phi <8 x float>
-; CHECK:   [[VEC_PHI3:%.*]] = phi <2 x i64>
-; CHECK:   [[VEC_PHI4:%.*]] = phi <2 x i1>
-; CHECK:   [[VEC_PHI1:%.*]] = phi <8 x float>
-; CHECK:   [[AND1:%.*]] = and <2 x i1> [[CMP1]], [[VEC_PHI4]]
-; CHECK:   [[FADD:%.*]] = fadd <8 x float> [[VEC_PHI2]], [[VEC_PHI2]]
-; CHECK:   [[PRED0:%.*]] = extractelement <2 x i1> [[AND1]], i64 0
-; CHECK:   [[CMP0:%.*]] = icmp eq i1 [[PRED0]], true
-; CHECK:   br i1 [[CMP0]], label %[[PRED_CALL_IF1:.*]], label %[[LBL1:.*]]
-
-; CHECK: [[PRED_CALL_IF1]]:
-; CHECK:   [[MAX1:%.*]] = call <4 x float> @_Z11fmax_commonDv4_fS_(<4 x float> {{.*}}, <4 x float> {{.*}})
-; CHECK:   br label %[[LBL1:.*]]
-
-; CHECK: [[LBL1]]:
-; CHECK:   [[PHI1:%.*]] = phi <4 x float>
-; CHECK:   br label %[[PRED_CALL_CONTINUE1:.*]]
-
-; CHECK: [[PRED_CALL_CONTINUE1]]:
-; CHECK:   [[PRED1:%.*]] = extractelement <2 x i1> [[AND1]], i64 1
-; CHECK:   [[CMP2:%.*]] = icmp eq i1 [[PRED1]], true
-; CHECK:   br i1 [[CMP2]], label %[[PRED_CALL_IF2:.*]], label %[[LBL2:.*]]
-
-; CHECK: [[PRED_CALL_IF2:[0-9]+]]:
-; CHECK:   [[MAX2:%.*]] = call <4 x float> @_Z11fmax_commonDv4_fS_(<4 x float> {{.*}}, <4 x float> {{.*}})
-; CHECK:   br label %[[LBL2:.*]]
-
-; CHECK: [[LBL2]]:
-; CHECK:   [[PHI2:%.*]] = phi <4 x float>
-; CHECK:   br label %[[PRED_CALL_CONTINUE2:.*]]
-
-; CHECK: [[PRED_CALL_CONTINUE2]]:
-; CHECK:   [[SHUF1:%.*]] = shufflevector <4 x float> [[PHI1]], <4 x float> [[PHI2]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
-; CHECK:   [[ADD1:%.*]] = add <2 x i64> [[VEC_PHI3]], {{.*}}
-; CHECK:   [[CMP3:%.*]] = icmp ult <2 x i64> [[ADD1]], {{.*}}
-; CHECK:   [[VEC_PHI49:%.*]] = shufflevector <2 x i1> [[VEC_PHI4]], <2 x i1> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
-; CHECK:   [[WIDE_SELECT1:%.*]] = select <8 x i1> [[VEC_PHI49]], <8 x float> [[SHUF1]], <8 x float> [[VEC_PHI1]]
-; CHECK:   br i1 {{.*}}, label %[[VPlannedBB2:.*]], label %[[VPlannedBB1]]
-
-; CHECK: [[VPlannedBB2]]:
-; CHECK:   [[VEC_PHI:%.*]] = phi <8 x float> [ [[WIDE_SELECT1]], %[[PRED_CALL_CONTINUE2]] ]
-; CHECK:   [[SHUF2:%.*]] = shufflevector <2 x i1> [[CMP1]], <2 x i1> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
-; CHECK:   [[PRED_PHI:%.*]] = select <8 x i1> [[SHUF2]], <8 x float> [[VEC_PHI]], <8 x float>
-; CHECK:   br i1 [[EXIT_COND:%.*]]
+; CHECK:       vector.body:
+; CHECK:         [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0:%.*]] ], [ [[TMP24:%.*]], [[VPLANNEDBB230:%.*]] ]
+; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult <2 x i64> [[VEC_PHI0]], [[BROADCAST_SPLAT0:%.*]]
+; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB3:
+; CHECK-NEXT:    [[TMP4:%.*]] = trunc <2 x i64> [[VEC_PHI0]] to <2 x i32>
+; CHECK-NEXT:    br label [[VPLANNEDBB50:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB4:
+; CHECK-NEXT:    [[VEC_PHI60:%.*]] = phi <8 x float> [ <float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 0.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 0.000000e+00>, [[VPLANNEDBB40]] ], [ [[TMP15:%.*]], [[VPLANNEDBB160:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI70:%.*]] = phi <2 x i64> [ [[VEC_PHI0]], [[VPLANNEDBB40]] ], [ [[TMP16:%.*]], [[VPLANNEDBB160]] ]
+; CHECK-NEXT:    [[VEC_PHI80:%.*]] = phi <2 x i1> [ [[TMP3]], [[VPLANNEDBB40]] ], [ [[TMP19:%.*]], [[VPLANNEDBB160]] ]
+; CHECK-NEXT:    [[VEC_PHI90:%.*]] = phi <8 x float> [ undef, [[VPLANNEDBB40]] ], [ [[TMP18:%.*]], [[VPLANNEDBB160]] ]
+; CHECK-NEXT:    [[EXTRACTSUBVEC_140:%.*]] = shufflevector <8 x float> [[VEC_PHI60]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[EXTRACTSUBVEC_0:%.*]] = shufflevector <8 x float> [[VEC_PHI60]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    br label [[VPLANNEDBB100:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB9:
+; CHECK-NEXT:    [[TMP5:%.*]] = and <2 x i1> [[TMP3]], [[VEC_PHI80]]
+; CHECK-NEXT:    br label [[VPLANNEDBB110:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB10:
+; CHECK-NEXT:    [[TMP6:%.*]] = fadd <8 x float> [[VEC_PHI60]], [[VEC_PHI60]]
+; CHECK-NEXT:    [[EXTRACTSUBVEC_150:%.*]] = shufflevector <8 x float> [[TMP6]], <8 x float> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[EXTRACTSUBVEC_120:%.*]] = shufflevector <8 x float> [[TMP6]], <8 x float> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[PREDICATE0:%.*]] = extractelement <2 x i1> [[TMP5]], i64 0
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i1 [[PREDICATE0]], true
+; CHECK-NEXT:    br i1 [[TMP7]], label [[PRED_CALL_IF0:%.*]], label [[TMP9:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  pred.call.if:
+; CHECK-NEXT:    [[TMP8:%.*]] = call <4 x float> @_Z11fmax_commonDv4_fS_(<4 x float> [[EXTRACTSUBVEC_0]], <4 x float> [[EXTRACTSUBVEC_120]])
+; CHECK-NEXT:    br label [[TMP9]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  9:
+; CHECK-NEXT:    [[TMP10:%.*]] = phi <4 x float> [ undef, [[VPLANNEDBB110]] ], [ [[TMP8]], [[PRED_CALL_IF0]] ]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  pred.call.continue:
+; CHECK-NEXT:    [[PREDICATE130:%.*]] = extractelement <2 x i1> [[TMP5]], i64 1
+; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i1 [[PREDICATE130]], true
+; CHECK-NEXT:    br i1 [[TMP11]], label [[PRED_CALL_IF300:%.*]], label [[TMP13:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  pred.call.if29:
+; CHECK-NEXT:    [[TMP12:%.*]] = call <4 x float> @_Z11fmax_commonDv4_fS_(<4 x float> [[EXTRACTSUBVEC_140]], <4 x float> [[EXTRACTSUBVEC_150]])
+; CHECK-NEXT:    br label [[TMP13]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  13:
+; CHECK-NEXT:    [[TMP14:%.*]] = phi <4 x float> [ undef, [[PRED_CALL_CONTINUE0]] ], [ [[TMP12]], [[PRED_CALL_IF300]] ]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE310:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  pred.call.continue30:
+; CHECK-NEXT:    [[TMP15]] = shufflevector <4 x float> [[TMP10]], <4 x float> [[TMP14]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[TMP16]] = add <2 x i64> [[VEC_PHI70]], [[VEC_PHI0]]
+; CHECK-NEXT:    [[TMP17:%.*]] = icmp ult <2 x i64> [[TMP16]], [[BROADCAST_SPLAT0]]
+; CHECK-NEXT:    br label [[VPLANNEDBB160]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB15:
+; CHECK-NEXT:    [[VEC_PHI8170:%.*]] = shufflevector <2 x i1> [[VEC_PHI80]], <2 x i1> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
+; CHECK-NEXT:    [[TMP18]] = select <8 x i1> [[VEC_PHI8170]], <8 x float> [[TMP15]], <8 x float> [[VEC_PHI90]]
+; CHECK:         br i1 [[BROADCAST_SPLAT19_EXTRACT_0_0:%.*]], label [[VPLANNEDBB200:%.*]], label [[VPLANNEDBB50]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB19:
+; CHECK-NEXT:    [[VEC_PHI210:%.*]] = phi <8 x float> [ [[TMP18]], [[VPLANNEDBB160]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB220:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB21:
+; CHECK-NEXT:    [[TMP23:%.*]] = shufflevector <2 x i1> [[TMP3]], <2 x i1> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
+; CHECK-NEXT:    [[PREDBLEND0:%.*]] = select <8 x i1> [[TMP23]], <8 x float> [[VEC_PHI210]], <8 x float> <float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 0.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 0.000000e+00>
+; CHECK-NEXT:    br label [[VPLANNEDBB230]]
 
 
 ; This is a minimalist IR which is identical to the control-flow from one of the Embree kernels.

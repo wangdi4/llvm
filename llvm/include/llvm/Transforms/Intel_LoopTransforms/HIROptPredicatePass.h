@@ -12,13 +12,13 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIROPTPREDICATE_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIROPTPREDICATE_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
-class HIROptPredicatePass : public PassInfoMixin<HIROptPredicatePass> {
+class HIROptPredicatePass : public HIRPassInfoMixin<HIROptPredicatePass> {
   bool EnablePartialUnswitch;
   bool KeepLoopnestPerfect;
 
@@ -27,7 +27,9 @@ public:
                       bool KeepLoopnestPerfect = false)
       : EnablePartialUnswitch(EnablePartialUnswitch),
         KeepLoopnestPerfect(KeepLoopnestPerfect) {}
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-opt-predicate";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

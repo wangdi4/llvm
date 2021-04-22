@@ -276,6 +276,19 @@ void VPOParoptTransform::genKmpRoutineEntryT() {
 
 // internal structure for reduction data item related info
 //
+// typedef struct kmp_taskred_input {
+//   void *reduce_shar; // shared between tasks item to reduce into
+//   void *reduce_orig; // original reduction item used for initialization
+//   size_t reduce_size; // size of data item
+//   // three compiler-generated routines (init, fini are optional):
+//   void *reduce_init; // data initialization routine (two parameters)
+//   void *reduce_fini; // data finalization routine
+//   void *reduce_comb; // data combiner routine
+//   kmp_taskred_flags_t flags; // flags for additional info from compiler
+// } kmp_taskred_input_t;
+//
+// Or if Mode is OmpTbb (uses old API):
+//
 // typedef struct kmp_task_red_input {
 //    void       *reduce_shar; // shared reduction item
 //    size_t      reduce_size; // size of data item
@@ -294,10 +307,15 @@ void VPOParoptTransform::genTaskTRedType() {
   IntegerType *Int64Ty = Type::getInt64Ty(C);
   PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
 
-
-  KmpTaskTRedTy = VPOParoptUtils::getOrCreateStructType(
-      F, "__struct.kmp_task_t_red_item",
-      {Int8PtrTy, Int64Ty, Int8PtrTy, Int8PtrTy, Int8PtrTy, Int32Ty});
+  if (Mode & OmpTbb)
+    KmpTaskTRedTy = VPOParoptUtils::getOrCreateStructType(
+        F, "__struct.kmp_task_t_red_item",
+        {Int8PtrTy, Int64Ty, Int8PtrTy, Int8PtrTy, Int8PtrTy, Int32Ty});
+  else
+    KmpTaskTRedTy = VPOParoptUtils::getOrCreateStructType(
+        F, "__struct.kmp_taskred_input_t",
+        {Int8PtrTy, Int8PtrTy, Int64Ty, Int8PtrTy, Int8PtrTy, Int8PtrTy,
+         Int32Ty});
 }
 
 // internal structure for dependInfo
@@ -600,7 +618,7 @@ void VPOParoptTransform::linkPrivateItemToBufferAtEndOfThunkIfApplicable(
   Type *Int8PtrTy = Builder.getInt8PtrTy();
   Value *TaskThunkBasePtr = Builder.CreateBitCast(TaskTWithPrivates, Int8PtrTy,
                                                   ".taskt.withprivates.base");
-  Value *NewVData = Builder.CreateGEP(TaskThunkBasePtr, {NewVDataOffset},
+  Value *NewVData = Builder.CreateGEP(TaskThunkBasePtr, NewVDataOffset,
                                       OrigName + ".priv.data");
 
   Builder.CreateStore(NewVData, Builder.CreateBitCast(
@@ -1011,13 +1029,13 @@ Value *VPOParoptTransform::computeExtraBufferSpaceNeededAfterEndOfTaskThunk(
   for (FirstprivateItem *FprivI : W->getFpriv().items())
     computeOffsetForItem(FprivI);
 
-  if (W->canHaveLastprivate())
+  if (W->canHaveLastprivate()) {
     for (LastprivateItem *LprivI : W->getLpriv().items())
       if (FirstprivateItem *FprivI = LprivI->getInFirstprivate())
         LprivI->setThunkBufferOffset(FprivI->getThunkBufferOffset());
       else
         computeOffsetForItem(LprivI);
-
+  }
   CurrentOffset->setName("sizeof.taskt.with.privates.and.buffer");
   return CurrentOffset;
 }
@@ -1120,8 +1138,10 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
           KmpTaskTTWithPrivates, Int8PtrTy, ".taskt.with.privates.base");
 
       Value *NewData =
-          Builder.CreateGEP(TaskThunkBasePtr, {FprivI->getThunkBufferOffset()},
+          Builder.CreateGEP(TaskThunkBasePtr,
+                            FprivI->getThunkBufferOffset(),
                             NamePrefix + ".priv.data");
+
       Value *OrigCast =
           Builder.CreateBitCast(OrigV, Int8PtrTy, NamePrefix + ".cast");
 
@@ -1212,7 +1232,14 @@ void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
   STPtr = Stride;
 }
 
-// Generate the outline function of reduction initilaization
+// Generate the outline function to be used as the reduce_init callback.
+// The callback function has two arguments by default (for
+// kmpc_taskred_init):
+//   void reduce_init(&omp_priv, &omp_orig)
+//
+// For OmpTbb Mode (which uses the older task_reduction_init library function),
+// the callback has one argument:
+//   void reduce_init(&omp_priv)
 Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
                                                      ReductionItem *RedI) {
   LLVMContext &C = F->getContext();
@@ -1220,8 +1247,12 @@ Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
 
   Type *ElementType = nullptr;
   std::tie(ElementType, std::ignore, std::ignore) = getItemInfo(RedI);
+  Type *ElementPtrType = PointerType::getUnqual(ElementType);
 
-  Type *TaskLoopRedInitParams[] = {PointerType::getUnqual(ElementType)};
+  SmallVector<Type *, 2> TaskLoopRedInitParams{ElementPtrType};
+  if (!(Mode & OmpTbb))
+    TaskLoopRedInitParams.push_back(ElementPtrType);
+
   FunctionType *TaskLoopRedInitFnTy =
       FunctionType::get(Type::getVoidTy(C), TaskLoopRedInitParams, false);
 
@@ -1230,7 +1261,8 @@ Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
       F->getName() + "_task_red_init_" + Twine(W->getNumber()), M);
   FnTaskLoopRedInit->setCallingConv(CallingConv::C);
 
-  Value *Arg = &*FnTaskLoopRedInit->arg_begin();
+  Value *PrivArg = FnTaskLoopRedInit->getArg(0);
+  Value *OrigArg = Mode & OmpTbb ? nullptr : FnTaskLoopRedInit->getArg(1);
 
   BasicBlock *EntryBB = BasicBlock::Create(C, "entry", FnTaskLoopRedInit);
 
@@ -1245,9 +1277,10 @@ Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
       genPrivatizationAlloca(RedI, EntryBB->getFirstNonPHI(), ".red");
 
   RedI->setNew(NewRedInst);
+  RedI->setTaskRedInitOrigArg(OrigArg);
   genReductionInit(W, RedI, EntryBB->getTerminator(), &DT);
 
-  NewRedInst->replaceAllUsesWith(Arg);
+  NewRedInst->replaceAllUsesWith(PrivArg);
 
   return FnTaskLoopRedInit;
 }
@@ -1543,6 +1576,7 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
 
   const DataLayout DL = F->getParent()->getDataLayout();
   unsigned Count = 0;
+  unsigned Idx = 0;
   for (ReductionItem *RedI : RedClause.items()) {
 
     // For non-taskgroups, computeArraySectionTypeOffsetSize is called as part
@@ -1556,8 +1590,9 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
         KmpTaskTTRedRecTy, DummyTaskTRedRec, {Zero, Builder.getInt32(Count++)},
         NamePrefix + ".red.struct");
 
-    Value *Gep = Builder.CreateInBoundsGEP(
-        KmpTaskTRedTy, BaseTaskTRedGep, {Zero, Zero}, NamePrefix + ".red.item");
+    Value *Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
+                                           {Zero, Builder.getInt32(Idx++)},
+                                           NamePrefix + ".red.item");
 
     // The reduction item struct needs to store the starting address of the
     // actual data to be reduced (after any offset computation, or  dereference
@@ -1576,8 +1611,19 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
     Builder.CreateStore(Builder.CreateBitCast(RedIBase, Type::getInt8PtrTy(C)),
                         Gep);
 
+    if (!(Mode & OmpTbb)) {
+      // The new task reduction API (kmpc_taskred_init) allows keeping a pointer
+      // to the original reduction item in the second field, in case it is
+      // needed in a call to the reduction init function for UDR.
+      Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
+                                      {Zero, Builder.getInt32(Idx++)},
+                                      NamePrefix + ".red.orig");
+      Builder.CreateStore(
+          Builder.CreateBitCast(RedIBase, Type::getInt8PtrTy(C)), Gep);
+    }
+
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                    {Zero, Builder.getInt32(1)},
+                                    {Zero, Builder.getInt32(Idx++)},
                                     NamePrefix + ".red.size");
 
     Type *ElementType = nullptr;
@@ -1594,25 +1640,25 @@ void VPOParoptTransform::genRedInitForTask(WRegionNode *W,
 
     Function *RedInitFunc = genTaskLoopRedInitFunc(W, RedI);
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                    {Zero, Builder.getInt32(2)},
+                                    {Zero, Builder.getInt32(Idx++)},
                                     NamePrefix + ".red.init");
     Builder.CreateStore(
         Builder.CreateBitCast(RedInitFunc, Type::getInt8PtrTy(C)), Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                    {Zero, Builder.getInt32(3)},
+                                    {Zero, Builder.getInt32(Idx++)},
                                     NamePrefix + ".red.fini");
     Builder.CreateStore(ConstantPointerNull::get(Type::getInt8PtrTy(C)), Gep);
 
     Function *RedCombFunc = genTaskLoopRedCombFunc(W, RedI);
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                    {Zero, Builder.getInt32(4)},
+                                    {Zero, Builder.getInt32(Idx++)},
                                     NamePrefix + ".red.comb");
     Builder.CreateStore(
         Builder.CreateBitCast(RedCombFunc, Type::getInt8PtrTy(C)), Gep);
 
     Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
-                                    {Zero, Builder.getInt32(5)},
+                                    {Zero, Builder.getInt32(Idx++)},
                                     NamePrefix + ".red.flags");
     Builder.CreateStore(Builder.getInt32(0), Gep);
   }

@@ -1,6 +1,6 @@
 //===--------------------DTransSafetyAnalyzer.h--------------------------===//
 //
-// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -19,7 +19,9 @@
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANSSAFETYANALYZER_H
 #define INTEL_DTRANS_ANALYSIS_DTRANSSAFETYANALYZER_H
 
+#include "Intel_DTrans/Analysis/DTrans.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/ValueMap.h"
 #include "llvm/Pass.h"
 
 namespace llvm {
@@ -29,11 +31,10 @@ class Module;
 class TargetLibraryInfo;
 class WholeProgramInfo;
 
-namespace dtrans {
+namespace dtransOP {
 class DTransType;
 class DTransTypeManager;
 class PtrTypeAnalyzer;
-class TypeInfo;
 class TypeMetadataReader;
 
 // This class holds the results of the safety analysis of the aggregate
@@ -67,6 +68,20 @@ public:
 
   ~DTransSafetyInfo();
 
+  // Access methods to get the classes used when constructing the DTransTypes.
+  DTransTypeManager &getTypeManager() {
+    assert(TM.get() && "DTransTypeManager not initialized");
+    return *TM;
+  }
+  TypeMetadataReader &getTypeMetadataReader() {
+    assert(MDReader.get() && "TypeMetadataReader not initialized");
+    return *MDReader;
+  }
+  PtrTypeAnalyzer &getPtrTypeAnalyzer() {
+    assert(PtrAnalyzer.get() && "PtrTypeAnalyzer not initialized");
+    return *PtrAnalyzer;
+  }
+
   // Collect the safety bits for the structure types
   void analyzeModule(Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
                      function_ref<BlockFrequencyInfo &(Function &)> GetBFI);
@@ -84,11 +99,62 @@ public:
 
   // Retrieve the DTrans type information entry for the specified type.
   // If there is no entry for the specified type, create one.
-  TypeInfo *getOrCreateTypeInfo(DTransType *Ty);
+  dtrans::TypeInfo *getOrCreateTypeInfo(DTransType *Ty);
 
   // Retrieve the DTrans type information entry for the specified type.
   // If there is no entry for the specified type, return nullptr.
-  TypeInfo *getTypeInfo(DTransType *Ty) const;
+  dtrans::TypeInfo *getTypeInfo(DTransType *Ty) const;
+
+  // Add an entry to the 'PtrSubInfoMap'
+  void addPtrSubMapping(llvm::BinaryOperator *BinOp, DTransType *Ty);
+
+  // If the BinaryOperator has a type entry in the 'PtrSubInfoMap', return the
+  // type. Otherwise, return nullptr.
+  DTransType *getResolvedPtrSubType(BinaryOperator *BinOp);
+
+  // Retrieve the CallInfo object for the instruction, if information exists.
+  // Otherwise, return nullptr.
+  dtrans::CallInfo *getCallInfo(const Instruction *I) const {
+    return CIM.getCallInfo(I);
+  }
+
+  // Create an entry in the CallInfoMap about a memory allocation call.
+  dtrans::AllocCallInfo *createAllocCallInfo(Instruction *I,
+                                             dtrans::AllocKind AK) {
+    return CIM.createAllocCallInfo(I, AK);
+  }
+
+  // Create an entry in the CallInfoMap about a memory freeing call
+  dtrans::FreeCallInfo *createFreeCallInfo(Instruction *I,
+                                           dtrans::FreeKind FK) {
+    return CIM.createFreeCallInfo(I, FK);
+  }
+
+  // Create an entry in the CallInfoMap about a memset call.
+  dtrans::MemfuncCallInfo *
+  createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+                        dtrans::MemfuncRegion &MR) {
+    return CIM.createMemfuncCallInfo(I, MK, MR);
+  }
+
+  // Create an entry in the CallInfoMap about a memcpy/memmove call.
+  dtrans::MemfuncCallInfo *
+  createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
+                        dtrans::MemfuncRegion &MR1,
+                        dtrans::MemfuncRegion &MR2) {
+    return CIM.createMemfuncCallInfo(I, MK, MR1, MR2);
+  }
+
+  // Destroy the CallInfo stored about the specific instruction.
+  void deleteCallInfo(Instruction *I) { CIM.deleteCallInfo(I); }
+
+  // Update the instruction associated with the CallInfo object. This
+  // is necessary because when a function is cloned during the DTrans
+  // optimizations, the information needs to be transferred to the
+  // newly created instruction of the cloned routine.
+  void replaceCallInfoInstruction(dtrans::CallInfo *Info, Instruction *NewI) {
+    CIM.replaceCallInfoInstruction(Info, NewI);
+  }
 
   // Accessor for the set of TypeInfo objects.
   iterator_range<type_info_iterator> type_info_entries() {
@@ -96,8 +162,15 @@ public:
                       type_info_iterator(TypeInfoMap.end()));
   }
 
+  // Accessor for the set of CallInfo objects.
+  iterator_range<dtrans::CallInfoManager::call_info_iterator>
+  call_info_entries() {
+    return CIM.call_info_entries();
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printAnalyzedTypes();
+  void printCallInfo();
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
@@ -107,7 +180,17 @@ private:
 
   // A mapping from DTransTypes to the TypeInfo object that is used to
   // store information and safety bits about the types.
-  DenseMap<DTransType *, TypeInfo *> TypeInfoMap;
+  DenseMap<DTransType *, dtrans::TypeInfo *> TypeInfoMap;
+
+  // A mapping from function calls that special information is collected for
+  // (malloc, free, memset, etc) to the information stored about those calls.
+  dtrans::CallInfoManager CIM;
+
+  // A mapping from BinaryOperator instructions that have been identified as
+  // subtracting two pointers to types of interest to the interesting type
+  // aliased by the operands.
+  using PtrSubInfoMapType = ValueMap<Value *, DTransType *>;
+  PtrSubInfoMapType PtrSubInfoMap;
 
   // Indicates DTrans safety information could not be computed because a Value
   // object was encountered that the PointerTypeAnalyzer could not collect
@@ -129,7 +212,23 @@ private:
   static char PassID;
 };
 
-} // end namespace dtrans
+class DTransSafetyAnalyzerWrapper : public ModulePass {
+public:
+  static char ID;
+
+  DTransSafetyAnalyzerWrapper();
+
+  DTransSafetyInfo &getDTransSafetyInfo(Module &M);
+
+  bool runOnModule(Module &M) override;
+  bool doFinalization(Module &M) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+private:
+  DTransSafetyInfo Result;
+};
+
+} // end namespace dtransOP
 
 ModulePass *createDTransSafetyAnalyzerTestWrapperPass();
 

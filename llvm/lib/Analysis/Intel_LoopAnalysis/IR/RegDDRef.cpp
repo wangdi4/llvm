@@ -1398,7 +1398,7 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
   assert(CanonExpr::isValidLinearDefLevel(NewLevel) &&
          "Invalid nesting level.");
 
-  // Refine Defined At Level, when DefLeve returned from
+  // Refine Defined At Level, when DefLevel returned from
   // findTempBlobLevel is NonLinearLevel.
   auto RefineDefLevel = [](const RegDDRef *AuxRef, unsigned DefLevel,
                            unsigned Index) {
@@ -1899,6 +1899,29 @@ void RegDDRef::addDimension(CanonExpr *IndexCE,
   GepInfo->DimTypes.insert(GepInfo->DimTypes.begin(), DimTy);
 }
 
+void RegDDRef::removeDimension(unsigned DimensionIndex) {
+  assert(isDimensionValid(DimensionIndex) && "DimensionIndex is out of range!");
+  assert((getNumDimensions() > 1) && "Attempt to remove the only dimension!");
+  const unsigned ToRemoveDim = DimensionIndex - 1;
+  CanonExprs.erase(CanonExprs.begin() + ToRemoveDim);
+  if (hasGEPInfo()) {
+    assert((GepInfo->LowerBounds.size() >= DimensionIndex) &&
+           "DimensionNum is out of range for LowerBounds!");
+    assert((GepInfo->Strides.size() >= DimensionIndex) &&
+           "DimensionNum is out of range for Strides!");
+    assert((GepInfo->DimTypes.size() >= DimensionIndex) &&
+           "DimensionNum is out of range for DimTypes!");
+    GepInfo->LowerBounds.erase(GepInfo->LowerBounds.begin() + ToRemoveDim);
+    GepInfo->Strides.erase(GepInfo->Strides.begin() + ToRemoveDim);
+    GepInfo->DimTypes.erase(GepInfo->DimTypes.begin() + ToRemoveDim);
+
+    if (GepInfo->DimensionOffsets.size() > DimensionIndex) {
+      GepInfo->DimensionOffsets.erase(GepInfo->DimensionOffsets.begin() +
+                                      ToRemoveDim);
+    }
+  }
+}
+
 void RegDDRef::setTrailingStructOffsets(unsigned DimensionNum,
                                         ArrayRef<unsigned> Offsets) {
   createGEP();
@@ -2106,41 +2129,4 @@ void RegDDRef::clear(bool AssumeLvalIfDetached) {
   if (!IsLval) {
     setSymbase(ConstantSymbase);
   }
-}
-
-RegDDRef *RegDDRef::simplifyConstArray() {
-  if (!isMemRef() || isFake() || !accessesConstantArray() ||
-      getBitCastDestType()) {
-    return nullptr;
-  }
-
-  bool Precise;
-  auto *LocationGEP = dyn_cast<GetElementPtrInst>(getLocationPtr(Precise));
-  if (!LocationGEP || !Precise) {
-    return nullptr;
-  }
-
-  auto *GV = cast<GlobalVariable>(LocationGEP->getPointerOperand());
-  if (!GV->hasDefinitiveInitializer()) {
-    return nullptr;
-  }
-
-  SmallVector<Constant *, 8> Indices;
-  // skip first index for global array
-  for (unsigned I = 2, E = LocationGEP->getNumOperands(); I != E; ++I) {
-    auto *Index = dyn_cast<Constant>(LocationGEP->getOperand(I));
-    if (!Index) {
-      return nullptr;
-    }
-    Indices.push_back(Index);
-  }
-
-  Constant *Val =
-      ConstantFoldLoadThroughGEPIndices(GV->getInitializer(), Indices);
-  // TODO: add support for constant GEP exprs.
-  if (!Val || isa<GEPOperator>(Val)) {
-    return nullptr;
-  }
-
-  return getDDRefUtils().createConstDDRef(Val);
 }

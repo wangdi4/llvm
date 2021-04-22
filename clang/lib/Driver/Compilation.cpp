@@ -13,6 +13,7 @@
 #include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/Job.h"
 #include "clang/Driver/Options.h"
+#include "clang/Driver/Tool.h"  // INTEL
 #include "clang/Driver/ToolChain.h"
 #include "clang/Driver/Util.h"
 #include "llvm/ADT/None.h"
@@ -23,6 +24,7 @@
 #include "llvm/Option/OptSpecifier.h"
 #include "llvm/Option/Option.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"  // INTEL
 #include "llvm/Support/SimpleTable.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
@@ -196,6 +198,41 @@ bool Compilation::CleanupFileMap(const ArgStringMap &Files,
   return Success;
 }
 
+#if INTEL_CUSTOMIZATION
+int Compilation::GenArgFiles(const Command &C,
+                             const Command *&FailingCommand) const {
+  const ToolChain *TC = &(C.getCreator().getToolChain());
+  raw_ostream *OS = &llvm::errs();
+  std::unique_ptr<llvm::raw_fd_ostream> OwnedStream;
+  std::error_code EC;
+  StringRef ToolName = llvm::sys::path::filename(C.getExecutable());
+
+  // Host only compile: generates <exe>.arg file
+  //   For eg: clang-12.arg, ld.arg
+  // Host + Offloading: generates <exe>.<stage>.<arch>.arg
+  //   eg: clang-12.backend.spir64.arg
+  std::string ToolOptionsFilename = ToolName.str();
+  std::string classname = (C.getSource()).getClassName();
+  ToolOptionsFilename += "." + classname;
+  ToolOptionsFilename += "." + (TC->getArchName()).str();
+
+  ToolOptionsFilename += ".arg";
+  OwnedStream.reset(new llvm::raw_fd_ostream(ToolOptionsFilename.c_str(), EC,
+                                             llvm::sys::fs::OF_Append |
+                                                 llvm::sys::fs::OF_Text));
+  if (EC) {
+    getDriver().Diag(diag::err_drv_cc_print_options_failure) << EC.message();
+    FailingCommand = &C;
+    return 1;
+  }
+  OS = OwnedStream.get();
+
+  C.PrintArgsFile(*OS, /*Quote=*/false);
+  return 0;
+}
+
+#endif // INTEL_CUSTOMIZATION
+
 int Compilation::ExecuteCommand(const Command &C,
                                 const Command *&FailingCommand) const {
   if ((getDriver().CCPrintOptions ||
@@ -205,11 +242,12 @@ int Compilation::ExecuteCommand(const Command &C,
 
     // Follow gcc implementation of CC_PRINT_OPTIONS; we could also cache the
     // output stream.
-    if (getDriver().CCPrintOptions && getDriver().CCPrintOptionsFilename) {
+    if (getDriver().CCPrintOptions &&
+        !getDriver().CCPrintOptionsFilename.empty()) {
       std::error_code EC;
       OwnedStream.reset(new llvm::raw_fd_ostream(
-          getDriver().CCPrintOptionsFilename, EC,
-          llvm::sys::fs::OF_Append | llvm::sys::fs::OF_Text));
+          getDriver().CCPrintOptionsFilename.c_str(), EC,
+          llvm::sys::fs::OF_Append | llvm::sys::fs::OF_TextWithCRLF));
       if (EC) {
         getDriver().Diag(diag::err_drv_cc_print_options_failure)
             << EC.message();

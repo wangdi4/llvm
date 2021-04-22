@@ -12,16 +12,17 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRUNROLLANDJAM_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRUNROLLANDJAM_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
-class HIRUnrollAndJamPass
-    : public PassInfoMixin<HIRUnrollAndJamPass> {
+class HIRUnrollAndJamPass : public HIRPassInfoMixin<HIRUnrollAndJamPass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-unroll-and-jam";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

@@ -14,11 +14,12 @@
 #include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
+#include "llvm/Analysis/ReplayInlineAdvisor.h"
+#include "llvm/Analysis/Utils/ImportedFunctionsInliningStatistics.h"
 #include "llvm/ADT/SmallSet.h"    // INTEL
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL
-#include "llvm/Transforms/Utils/ImportedFunctionsInliningStatistics.h"
 #include <utility>
 
 namespace llvm {
@@ -111,12 +112,14 @@ protected:
 /// passes be composed to achieve the same end result.
 class InlinerPass : public PassInfoMixin<InlinerPass> {
 public:
-  InlinerPass(); // INTEL
-  ~InlinerPass();
-  InlinerPass(InlinerPass &&Arg)
 #if INTEL_CUSTOMIZATION
-      : ImportedFunctionsStats(std::move(Arg.ImportedFunctionsStats)),
-        Report(std::move(Arg.Report)), MDReport(std::move(Arg.MDReport)) {}
+  InlinerPass(bool OnlyMandatory = false);
+#endif // INTEL_CUSTOMIZATION
+  ~InlinerPass();
+#if INTEL_CUSTOMIZATION
+  InlinerPass(InlinerPass &&Arg)
+      : OnlyMandatory(Arg.OnlyMandatory), Report(std::move(Arg.Report)),
+        MDReport(std::move(Arg.MDReport)) {}
 #endif // INTEL_CUSTOMIZATION
 
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
@@ -130,8 +133,8 @@ public:
 private:
   InlineAdvisor &getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
                             FunctionAnalysisManager &FAM, Module &M);
-  std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
-  Optional<DefaultInlineAdvisor> OwnedDefaultAdvisor;
+  std::unique_ptr<InlineAdvisor> OwnedAdvisor;
+  const bool OnlyMandatory;
 
   // INTEL The inline report
   InlineReport *Report; // INTEL
@@ -149,6 +152,7 @@ class ModuleInlinerWrapperPass
 public:
   ModuleInlinerWrapperPass(
       InlineParams Params = getInlineParams(), bool Debugging = false,
+      bool MandatoryFirst = true,
       InliningAdvisorMode Mode = InliningAdvisorMode::Default,
       unsigned MaxDevirtIterations = 0);
   ModuleInlinerWrapperPass(ModuleInlinerWrapperPass &&Arg) = default;

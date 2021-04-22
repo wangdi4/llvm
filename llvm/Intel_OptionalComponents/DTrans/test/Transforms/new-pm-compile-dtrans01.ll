@@ -2,16 +2,16 @@
 ;
 ; Test passes run under -enable-dtrans in the compile step in thew new pass manager
 ;
-; RUN: opt -disable-output -disable-verify -enable-npm-dtrans -debug-pass=Executions \
+; RUN: opt -disable-output -disable-verify -enable-npm-dtrans \
 ; RUN:   -debug-pass-manager -passes='lto-pre-link<O0>' %s 2>&1 | FileCheck %s \
 ; RUN:   --check-prefixes=CHECK-NEWPM-O0
-; RUN: opt -disable-output -disable-verify -enable-npm-dtrans -debug-pass=Executions \
+; RUN: opt -disable-output -disable-verify -enable-npm-dtrans \
 ; RUN:   -debug-pass-manager -passes='lto-pre-link<O1>' %s 2>&1 | FileCheck %s \
 ; RUN:   --check-prefixes=CHECK-NEWPM-O123
-; RUN: opt -disable-output -disable-verify -enable-npm-dtrans -debug-pass=Executions \
+; RUN: opt -disable-output -disable-verify -enable-npm-dtrans \
 ; RUN:   -debug-pass-manager -passes='lto-pre-link<O3>' %s 2>&1 | FileCheck %s \
 ; RUN:   --check-prefixes=CHECK-NEWPM-O123
-; RUN: opt -disable-output -disable-verify -enable-npm-dtrans -debug-pass=Executions \
+; RUN: opt -disable-output -disable-verify -enable-npm-dtrans \
 ; RUN:   -debug-pass-manager -passes='lto-pre-link<O3>' %s 2>&1 | FileCheck %s \
 ; RUN:   --check-prefixes=CHECK-NEWPM-O123
 

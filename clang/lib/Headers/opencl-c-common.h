@@ -40,6 +40,21 @@
 #endif // defined(__SPIR__)
 #endif // (defined(__OPENCL_CPP_VERSION__) || __OPENCL_C_VERSION__ >= 200)
 
+// Define feature macros for OpenCL C 2.0
+#if (defined(__OPENCL_CPP_VERSION__) || __OPENCL_C_VERSION__ == 200)
+#define __opencl_c_pipes 1
+#define __opencl_c_generic_address_space 1
+#define __opencl_c_work_group_collective_functions 1
+#define __opencl_c_atomic_order_acq_rel 1
+#define __opencl_c_atomic_order_seq_cst 1
+#define __opencl_c_atomic_scope_device 1
+#define __opencl_c_atomic_scope_all_devices 1
+#define __opencl_c_device_enqueue 1
+#define __opencl_c_read_write_images 1
+#define __opencl_c_program_scope_global_variables 1
+#define __opencl_c_images 1
+#endif
+
 // built-in scalar data types:
 
 /**
@@ -9546,6 +9561,7 @@ ulong16 __ovld __cnfn upsample(uint16 hi, uint16 lo);
 /*
  * popcount(x): returns the number of set bit in x
  */
+#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_1_2)
 char __ovld __cnfn popcount(char x);
 uchar __ovld __cnfn popcount(uchar x);
 char2 __ovld __cnfn popcount(char2 x);
@@ -9594,6 +9610,7 @@ long8 __ovld __cnfn popcount(long8 x);
 ulong8 __ovld __cnfn popcount(ulong8 x);
 long16 __ovld __cnfn popcount(long16 x);
 ulong16 __ovld __cnfn popcount(ulong16 x);
+#endif // defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_1_2)
 
 /**
  * Multiply two 24-bit integer values x and y and add

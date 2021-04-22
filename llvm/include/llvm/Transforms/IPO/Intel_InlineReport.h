@@ -43,7 +43,8 @@ public:
                                 InlineReportTypes::InlineReason Reason,
                                 Module *Module, DebugLoc *DLoc, CallBase *CB,
                                 bool SuppressPrint = false)
-      : IRCallee(IRCallee), IsInlined(IsInlined), Reason(Reason),
+      : IRCallee(IRCallee), IRCaller(nullptr), IRParent(nullptr),
+        IsInlined(IsInlined), Reason(Reason),
         InlineCost(-1), OuterInlineCost(-1), InlineThreshold(-1),
         EarlyExitInlineCost(INT_MAX), EarlyExitInlineThreshold(INT_MAX),
         Call(CB), M(Module), SuppressPrint(SuppressPrint) {
@@ -65,6 +66,12 @@ public:
 
   InlineReportFunction *getIRCallee() const { return IRCallee; }
   void setIRCallee(InlineReportFunction *IRF) { IRCallee = IRF; }
+
+  InlineReportFunction *getIRCaller() const { return IRCaller; }
+  void setIRCaller(InlineReportFunction *IRF) { IRCaller = IRF; }
+
+  InlineReportCallSite *getIRParent() const { return IRParent; }
+  void setIRParent(InlineReportCallSite *IRCS) { IRParent = IRCS; }
 
   InlineReportTypes::InlineReason getReason() const { return Reason; }
   void setReason(InlineReportTypes::InlineReason MyReason) {
@@ -114,7 +121,11 @@ public:
   }
   CallBase *getCall() const { return Call; }
   void setCall(CallBase *Call) { this->Call = Call; }
-  void addChild(InlineReportCallSite *IRCS) { Children.push_back(IRCS); }
+  void addChild(InlineReportCallSite *IRCS) {
+    IRCS->setIRCaller(IRCaller);
+    IRCS->setIRParent(this);
+    Children.push_back(IRCS);
+  }
 
   /// Print the info in the inlining instance for the inling report
   /// indenting 'indentCount' indentations, assuming an inlining report
@@ -144,6 +155,8 @@ public:
 
 private:
   InlineReportFunction *IRCallee;
+  InlineReportFunction *IRCaller;
+  InlineReportCallSite *IRParent;
   bool IsInlined;
   InlineReportTypes::InlineReason Reason;
   int InlineCost;
@@ -192,7 +205,11 @@ public:
 
   /// Add an InlineReportCallSite to the list of top-level calls for
   /// this function.
-  void addCallSite(InlineReportCallSite *IRCS) { CallSites.push_back(IRCS); }
+  void addCallSite(InlineReportCallSite *IRCS) {
+    IRCS->setIRCaller(this);
+    IRCS->setIRParent(nullptr);
+    CallSites.push_back(IRCS);
+  }
 
   /// Return true if the function has been dead code eliminated.
   bool getDead() const { return IsDead; }
@@ -270,7 +287,13 @@ private:
 };
 
 typedef MapVector<Function *, InlineReportFunction *> InlineReportFunctionMap;
-typedef std::vector<InlineReportFunction *> InlineReportFunctionVector;
+struct IRFComparator {
+  bool operator()(InlineReportFunction *IRF1,
+                  InlineReportFunction *IRF2) const {
+    return IRF1->getName() < IRF2->getName();
+  }
+};
+typedef std::set<InlineReportFunction *, IRFComparator> InlineReportFunctionSet;
 typedef std::map<CallBase *, InlineReportCallSite *>
     InlineReportCallBaseCallSiteMap;
 
@@ -358,8 +381,18 @@ public:
                           InlineReportTypes::InlineReason Reason);
   void setReasonIsInlined(CallBase *Call, const InlineCost &IC);
 
+  /// Replace 'OldFunction' with 'NewFunction' in the inlining report,
+  /// so that 'NewFunction' inherits the properties of 'OldFunction'.
   void replaceFunctionWithFunction(Function *OldFunction,
                                    Function *NewFunction);
+
+  /// Replace 'CB0' with 'CB1' in the inlining report, so that 'CB1'
+  /// inherits the properties of 'CB0'.
+  void replaceCallBaseWithCallBase(CallBase *CB0, CallBase *CB1);
+
+  /// Clone 'CB0' to produce 'CB1' in the inlining report, so that 'CB1'
+  /// inherits the properties of 'CB0'.
+  void cloneCallBaseToCallBase(CallBase *CB0, CallBase *CB1);
 
   /// Clone 'OldFunction' into 'New Function', using 'VMap' to get
   /// the mapping from old to new callsites.
@@ -371,9 +404,11 @@ public:
   void replaceAllUsesWith(Function *OldFunction, Function *NewFunction);
 
   /// Ensure that 'F' and all Functions that call it directly are in the
-  /// inlining report. These are the Functions that will participate in
-  /// the partial inlining.
-  void initFunctionForPartialInlining(Function *F);
+  /// inlining report.
+  void initFunctionClosure(Function *F);
+
+  /// Ensure that all of the Functions in 'M' are in the inlining report.
+  void initModule(Module *M);
 
   /// Record that outling of 'OldF' (original function) into 'OutF'
   /// (extracted or splinter function). 'OldF' calls 'OutF' via 'OutCB'.
@@ -382,7 +417,7 @@ public:
   /// Add a pair of old and new call sites.  The 'NewCall' is a clone of
   /// the 'OldCall' produced by InlineFunction().
   void addActiveCallSitePair(Value *OldCall, Value *NewCall) {
-    if (!isClassicIREnabled())
+    if (!isClassicIREnabled() || !NewCall)
       return;
     ActiveOriginalCalls.push_back(OldCall);
     ActiveInlinedCalls.push_back(NewCall);
@@ -433,7 +468,7 @@ public:
       setDead(&F);
       IRF->setLinkageChar(&F);
       IRFunctionMap.erase(MapIt);
-      IRDeadFunctionVector.push_back(IRF);
+      IRDeadFunctionSet.insert(IRF);
     }
   }
 
@@ -443,6 +478,9 @@ public:
       return;
     addFunction(F, true /*MakeNewCurrent */);
   }
+
+  // Change the called Function of 'CB' to 'F'.
+  void setCalledFunction(CallBase *CB, Function *F);
 
 private:
   /// The Level is specified by the option -inline-report=N.
@@ -481,7 +519,7 @@ private:
 
   /// A vector of InlineReportFunctions of Functions that have
   /// been eliminated by dead static function elimination
-  InlineReportFunctionVector IRDeadFunctionVector;
+  InlineReportFunctionSet IRDeadFunctionSet;
 
   /// Ensure that a current version of 'F' is in the inlining report.
   void beginFunction(Function *F);
@@ -526,7 +564,7 @@ private:
     virtual ~InlineReportCallback() {};
   };
 
-  SmallVector<InlineReportCallback *, 16> IRCallbackVector;
+  DenseMap<Value *, InlineReportCallback *> CallbackMap;
 
   // Create an InlineReportFunction to represent F
   // If 'MakeNewCurrent', make the newly created InlineReportFunction current.
@@ -560,8 +598,17 @@ private:
   void makeAllNotCurrent(void);
 
   void addCallback(Value *V) {
-    InlineReportCallback *IRCB = new InlineReportCallback(V, this);
-    IRCallbackVector.push_back(IRCB);
+    if (CallbackMap.count(V))
+      return;
+    CallbackMap[V] = new InlineReportCallback(V, this);
+  }
+
+  void removeCallback(Value *V) {
+    if (!CallbackMap.count(V))
+      return;
+    InlineReportCallback *CB = CallbackMap[V];
+    CallbackMap.erase(V);
+    delete CB;
   }
 
   InlineReportCallSite *getCallSite(CallBase *Call);

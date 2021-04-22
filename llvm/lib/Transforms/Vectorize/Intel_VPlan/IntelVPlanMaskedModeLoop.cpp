@@ -27,6 +27,9 @@ cl::opt<bool> EnableMaskedVariant("vplan-enable-masked-variant",
                                   cl::init(false), cl::Hidden,
                                   cl::desc("Enable masked variant"));
 
+static LoopVPlanDumpControl
+    MaskedVariantDumpControl("create-masked-vplan", "emitting masked variant");
+
 VPUser::user_iterator getLoopHeaderVPPHIUser(const VPUser::user_range &Users,
                                              VPLoop *TopVPLoop) {
   return llvm::find_if(Users, [TopVPLoop](auto &User) {
@@ -44,13 +47,14 @@ static void collectRecurrentValuesAndLiveOuts(
     SmallVectorImpl<
         std::pair<VPPHINode * /*header's phi node*/,
                   VPInstruction * /* recurrent value in header's phi node*/>>
-        &RecurrentValsAndLiveOuts) {
+        &RecurrentValsAndLiveOuts,
+    VPInstruction *MainInduction) {
 
   for (VPBasicBlock *VPBB : TopVPLoop->getBlocks()) {
     for (VPInstruction &VPInst : *VPBB) {
       VPUser::user_iterator VPPhiUserIt =
           getLoopHeaderVPPHIUser(VPInst.users(), TopVPLoop);
-      if (VPPhiUserIt != VPInst.users().end())
+      if (&VPInst != MainInduction && VPPhiUserIt != VPInst.users().end())
         RecurrentValsAndLiveOuts.push_back(
             std::make_pair(cast<VPPHINode>(*VPPhiUserIt), &VPInst));
       else if (TopVPLoop->isLiveOut(&VPInst))
@@ -59,15 +63,12 @@ static void collectRecurrentValuesAndLiveOuts(
   }
 }
 
-std::shared_ptr<VPlan> MaskedModeLoopCreator::createMaskedModeLoop(void) {
-  std::shared_ptr<VPlan> MaskedVPlan =
-      OrigVPlan->clone(VPAF, VPlan::UpdateDA::DoNotUpdateDA);
+std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
+  std::shared_ptr<VPlanMasked> MaskedVPlan(
+      OrigVPlan->cloneMasked(VPAF, VPlanVector::UpdateDA::DoNotUpdateDA));
 
   // Collect information before applying masked mode transformation.
-  VPLoop *TopVPLoop = *MaskedVPlan->getVPLoopInfo()->begin();
-  assert(std::distance(MaskedVPlan->getVPLoopInfo()->begin(),
-                       MaskedVPlan->getVPLoopInfo()->end()) == 1 &&
-         "Expected single outermost loop!");
+  VPLoop *TopVPLoop = MaskedVPlan->getMainLoop(true);
   VPInstruction *VPIndIncrement = getInductionVariable(TopVPLoop);
   VPBasicBlock *Header = TopVPLoop->getHeader();
   // Find the phi node of the header that its incoming value is the induction
@@ -77,32 +78,54 @@ std::shared_ptr<VPlan> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   assert(VPPhiUserIt != VPIndIncrement->users().end() &&
          "A phi user is expected.");
   VPPHINode *VPIndInstVPPhi = cast<VPPHINode>(*VPPhiUserIt);
-
-  // Find the upper bound of the current loop. For now, the masked loop will
-  // have the same upper bound as the scalar loop.
-  VPBasicBlock *Latch = TopVPLoop->getLoopLatch();
-  assert(Latch && "Latch is expected to exist.");
-  VPBranchInst *Term = Latch->getTerminator();
-  VPInstruction *CondBit = cast<VPInstruction>(Latch->getCondBit());
-  assert(*CondBit->users().begin() == Term && "CondBit has only one user.");
-  assert(*VPIndIncrement->users().begin() == VPIndInstVPPhi &&
-         *std::next(VPIndIncrement->users().begin()) == CondBit &&
-         "VPIndIncrement has only two users: CondBit and VPIndInstVPPhi");
-
   // Get the values which are live-outs of the loop and live-outs through
   // backedge.
   SmallVector<std::pair<VPPHINode *, VPInstruction *>, 2>
       RecurrentValsAndLiveOuts;
-  collectRecurrentValuesAndLiveOuts(TopVPLoop, RecurrentValsAndLiveOuts);
+  collectRecurrentValuesAndLiveOuts(TopVPLoop, RecurrentValsAndLiveOuts,
+                                    VPIndIncrement);
 
-  // The induction increment and the exit comparison might be in a different
-  // basic block than the latch. In this case, we have to move them to the
-  // bottom of the latch.
-  if (Term->getPrevNode() != CondBit)
-    CondBit->moveBefore(Term);
-  if (CondBit->getPrevNode() != VPIndIncrement)
-    VPIndIncrement->moveBefore(CondBit);
-
+  // Create a new condition bit in the latch.
+  VPBasicBlock *Latch = TopVPLoop->getLoopLatch();
+  assert(Latch && "Latch is expected to exist.");
+  VPBranchInst *Term = Latch->getTerminator();
+  VPInstruction *OrigCondBit = cast<VPInstruction>(Latch->getCondBit());
+  assert(*OrigCondBit->users().begin() == Term &&
+         OrigCondBit->getNumUsers() == 1 && "CondBit has only one user.");
+  assert(llvm::all_of(VPIndIncrement->users(),
+                      [VPIndInstVPPhi, OrigCondBit](auto U) {
+                        return U == VPIndInstVPPhi || U == OrigCondBit;
+                      }) &&
+         "VPIndIncrement has only two users: CondBit and VPIndInstVPPhi");
+  VPVectorTripCountCalculation *VectorTC;
+  if (auto *VTC =
+          dyn_cast<VPVectorTripCountCalculation>(OrigCondBit->getOperand(1)))
+    VectorTC = VTC;
+  else
+    VectorTC = cast<VPVectorTripCountCalculation>(OrigCondBit->getOperand(0));
+  auto *OrigTC = VectorTC->getOperand(0);
+  VPCmpInst *NewBottomTest =
+      new VPCmpInst(VPIndIncrement, OrigTC, CmpInst::ICMP_ULT);
+  Latch->addInstruction(NewBottomTest, Term);
+  // The new condition bit is divergent. However, in VPlan, it is required
+  // that the bottom test is uniform. For this reason, we need to create a new
+  // bottom test as it is shown below:
+  // NewBottomTest = cmp IV, OrigTC
+  // AllZeroChk = call allzero(NewBottomTest)
+  // br AllZeroChk, LoopExitBlock, Header
+  VPBuilder VPBldr;
+  VPBldr.setInsertPoint(Term);
+  auto *AllZeroChk = VPBldr.createAllZeroCheck(NewBottomTest);
+  Latch->setTerminator(TopVPLoop->getExitBlock(), Header, AllZeroChk);
+  // The induction increment might be in a different basic block than the latch.
+  // In this case, we have to move the induction increment at the bottom of the
+  // latch.
+  if (OrigCondBit->getPrevNode() != VPIndIncrement ||
+      VPIndIncrement->getParent() != Latch)
+    VPIndIncrement->moveBefore(NewBottomTest);
+  // Remove the original CondBit.
+  VPBasicBlock *OrigCondBitBB = OrigCondBit->getParent();
+  OrigCondBitBB->eraseInstruction(OrigCondBit);
   // Split latch before induction increment.
   VPBasicBlock *NewLoopLatch = VPBlockUtils::splitBlock(
       Latch, VPIndIncrement->getIterator(), MaskedVPlan->getVPLoopInfo());
@@ -111,39 +134,44 @@ std::shared_ptr<VPlan> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   // Find first non phi instruction in Header.
   auto NonVPPhiIt = find_if(
       *Header, [](const VPInstruction &Inst) { return !isa<VPPHINode>(Inst); });
-
   // Split header before first non phi instruction.
   assert(Header->getTerminator() && "BB should have a terminator");
   VPBasicBlock *HeaderSucc = VPBlockUtils::splitBlock(
       Header, NonVPPhiIt, MaskedVPlan->getVPLoopInfo());
-  VPInstruction *NewHeaderCond = CondBit->clone();
+  VPInstruction *NewHeaderCond = NewBottomTest->clone();
   NewHeaderCond->replaceUsesOfWith(VPIndIncrement, VPIndInstVPPhi, true);
   Header->appendInstruction(NewHeaderCond);
   Header->setTerminator(HeaderSucc, NewLoopLatch, NewHeaderCond);
 
   // Create phi nodes in new latch for the values that are live-outs of the
   // loop and live-outs through backedge.
-  VPBuilder VPBldr;
   VPBldr.setInsertPoint(NewLoopLatch, NewLoopLatch->begin());
+  auto InsnNotInLoop = [TopVPLoop](VPUser *U) {
+    if (VPInstruction *I = dyn_cast<VPInstruction>(U))
+      return !TopVPLoop->contains(I);
+    return false;
+  };
   for (auto &Pair : RecurrentValsAndLiveOuts) {
     VPInstruction *LiveOutVal = Pair.second;
     VPPHINode *LiveOutVPPhi =
         VPBldr.createPhiInstruction(LiveOutVal->getType());
-    auto InsnNotInLoop = [TopVPLoop](VPUser *U) {
-      if (VPInstruction *I = dyn_cast<VPInstruction>(U))
-        return !TopVPLoop->contains(I);
-      if (VPPHINode *VPPHI = dyn_cast<VPPHINode>(U))
-        return TopVPLoop->contains(VPPHI) &&
-               VPPHI->getParent() == TopVPLoop->getHeader();
-      return false;
-    };
     LiveOutVal->replaceUsesWithIf(LiveOutVPPhi, InsnNotInLoop);
-    LiveOutVPPhi->addIncoming(LiveOutVal, Latch);
+    // New loop latch has two predecessors: loop header and the first part of
+    // the old loop latch.
+    auto NewLoopLatchPred =
+        llvm::find_if(NewLoopLatch->getPredecessors(),
+                      [Header](VPBasicBlock *Pred) { return Pred != Header; });
+    assert(NewLoopLatchPred != NewLoopLatch->getPredecessors().end() &&
+           "Basic block is not a predecessor of the new loop latch.");
+    LiveOutVPPhi->addIncoming(LiveOutVal, *NewLoopLatchPred);
     VPValue *IncomingValFromHeader =
         Pair.first ? cast<VPValue>(Pair.first)
                    : cast<VPValue>(MaskedVPlan->getVPConstant(
                          UndefValue::get(LiveOutVPPhi->getType())));
     LiveOutVPPhi->addIncoming(IncomingValFromHeader, Header);
+    if (Pair.first)
+      Pair.first->setIncomingValue(Pair.first->getBlockIndex(NewLoopLatch),
+                                   LiveOutVPPhi);
   }
 
   MaskedVPlan->getDT()->recalculate(*MaskedVPlan.get());
@@ -152,8 +180,7 @@ std::shared_ptr<VPlan> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   MaskedVPlan->setVPlanDA(std::move(MaskedVPlanDA));
   MaskedVPlan->computeDA();
 
-  VPLAN_DUMP(EnableMaskedVariant, "After emitting masked variant",
-             MaskedVPlan.get());
+  VPLAN_DUMP(MaskedVariantDumpControl, MaskedVPlan.get());
 
   return MaskedVPlan;
 }

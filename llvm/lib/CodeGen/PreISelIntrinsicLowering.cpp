@@ -98,7 +98,7 @@ static bool lowerObjCCall(Function &F, const char *NewFn,
     ++I;
 
     IRBuilder<> Builder(CI->getParent(), CI->getIterator());
-    SmallVector<Value *, 8> Args(CI->arg_begin(), CI->arg_end());
+    SmallVector<Value *, 8> Args(CI->args());
     CallInst *NewCI = Builder.CreateCall(FCache, Args);
     NewCI->setName(CI->getName());
 
@@ -136,9 +136,7 @@ static bool lowerSubscript(Function &F) {
       continue;
 
     IRBuilder<> Builder(CI);
-    Value *Offset[] = {EmitSubsOffset(&Builder, DL, CI)};
-    CI->replaceAllUsesWith(
-        Builder.CreateInBoundsGEP(CI->getPointerOperand(), Offset));
+    CI->replaceAllUsesWith(EmitSubsValue(&Builder, DL, CI));
     salvageDebugInfo(*CI);
     CI->eraseFromParent();
 
@@ -244,6 +242,41 @@ static bool lowerIntelHonorFCmp(Function &F) {
   }
   return Changed;
 }
+
+static bool lowerDirectiveRegionEntryExit(Function &F) {
+  if (F.use_empty())
+    return false;
+
+  bool Changed = false;
+
+  for (auto I = F.use_begin(), E = F.use_end(); I != E;) {
+    auto *Intrin = dyn_cast<IntrinsicInst>(I->getUser());
+    ++I;
+
+    if (!Intrin || !Intrin->hasOperandBundles())
+      continue;
+
+    OperandBundleUse BU = Intrin->getOperandBundleAt(0);
+
+    StringRef TagName = BU.getTagName();
+
+    // Only handle LoopOpt related tags.
+    // Others can be added, if needed.
+    if (TagName.equals("DIR.PRAGMA.DISTRIBUTE_POINT") ||
+        TagName.equals("DIR.PRAGMA.BLOCK_LOOP") ||
+        TagName.equals("DIR.PRAGMA.PREFETCH_LOOP") ||
+        TagName.equals("DIR.PRAGMA.END.DISTRIBUTE_POINT") ||
+        TagName.equals("DIR.PRAGMA.END.BLOCK_LOOP") ||
+        TagName.equals("DIR.PRAGMA.END.PREFETCH_LOOP")) {
+
+      Intrin->replaceAllUsesWith(UndefValue::get(Intrin->getType()));
+      Intrin->eraseFromParent();
+      Changed = true;
+    }
+  }
+
+  return Changed;
+}
 #endif // INTEL_CUSTOMIZATION
 
 static bool lowerIntrinsics(Module &M) {
@@ -257,7 +290,8 @@ static bool lowerIntrinsics(Module &M) {
 #if INTEL_CUSTOMIZATION
     // TODO: These checks could be placed under the switch case once they are
     // fully tested in xmain.
-    if (F.getIntrinsicID() == Intrinsic::intel_subscript)
+    if (F.getIntrinsicID() == Intrinsic::intel_subscript ||
+        F.getIntrinsicID() == Intrinsic::intel_subscript_nonexact)
       Changed |= lowerSubscript(F);
 
     if (F.getIntrinsicID() == Intrinsic::intel_fakeload)
@@ -271,6 +305,10 @@ static bool lowerIntrinsics(Module &M) {
 
     if (F.getIntrinsicID() == Intrinsic::intel_honor_fcmp)
       Changed |= lowerIntelHonorFCmp(F);
+
+    if (F.getIntrinsicID() == Intrinsic::directive_region_entry ||
+        F.getIntrinsicID() == Intrinsic::directive_region_exit)
+      Changed |= lowerDirectiveRegionEntryExit(F);
 #endif // INTEL_CUSTOMIZATION
 
     switch (F.getIntrinsicID()) {

@@ -41,6 +41,7 @@ enum ClangFlags {
 #if INTEL_CUSTOMIZATION
   DpcppUnsupported = (1 << 18),
   DpcppHidden = (1 << 19),
+  DpcppOption = (1 << 20)
 #endif // INTEL_CUSTOMIZATION
 };
 

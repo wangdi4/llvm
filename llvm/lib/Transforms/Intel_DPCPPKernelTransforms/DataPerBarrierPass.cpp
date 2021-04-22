@@ -13,17 +13,20 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
-
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
 using namespace llvm;
 
-INITIALIZE_PASS(DataPerBarrier, "dpcpp-kernel-data-per-barrier-analysis",
-                "Intel DPCPP Barrier Pass - Collect Data per Barrier", false,
-                true)
+AnalysisKey DataPerBarrierAnalysis::Key;
 
-namespace llvm {
-char DataPerBarrier::ID = 0;
+DataPerBarrier DataPerBarrierAnalysis::run(Module &M, ModuleAnalysisManager &) {
+  return DataPerBarrier{M};
+}
 
-DataPerBarrier::DataPerBarrier() : ModulePass(ID) {}
+PreservedAnalyses DataPerBarrierPrinter::run(Module &M,
+                                             ModuleAnalysisManager &MAM) {
+  MAM.getResult<DataPerBarrierAnalysis>(M).print(OS, &M);
+  return PreservedAnalyses::all();
+}
 
 void DataPerBarrier::InitSynchronizeData() {
   // Internal Data used to calculate user Analysis Data.
@@ -238,6 +241,25 @@ void DataPerBarrier::print(raw_ostream &OS, const Module *M) const {
   OS << "DONE";
 }
 
-ModulePass *createDataPerBarrierPass() { return new llvm::DataPerBarrier(); }
+INITIALIZE_PASS(DataPerBarrierWrapper, "dpcpp-kernel-data-per-barrier-analysis",
+                "Intel DPCPP Barrier Pass - Collect Data per Barrier", false,
+                true)
 
-} // namespace llvm
+char DataPerBarrierWrapper::ID = 0;
+
+DataPerBarrierWrapper::DataPerBarrierWrapper() : ModulePass(ID) {
+  initializeDataPerBarrierWrapperPass(*PassRegistry::getPassRegistry());
+}
+
+bool DataPerBarrierWrapper::runOnModule(Module &M) {
+  DPB.reset(new DataPerBarrier{M});
+  return false;
+}
+
+void DataPerBarrierWrapper::print(raw_ostream &OS, const Module *M) const {
+  DPB->print(OS, M);
+}
+
+ModulePass *llvm::createDataPerBarrierWrapperPass() {
+  return new DataPerBarrierWrapper();
+}

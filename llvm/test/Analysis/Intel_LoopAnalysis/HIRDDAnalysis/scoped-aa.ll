@@ -1,13 +1,12 @@
 ; Check that we do not form edges between (%a)[i1 + %i] and (%a)[i1 + %j] when scoped alias analysis is on.
 
 ; RUN: opt -hir-ssa-deconstruction %s | opt -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck %s
-; RUN: opt < %s -passes="hir-ssa-deconstruction" | opt -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction" | opt -aa-pipeline=basic-aa -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck %s
 
-; CHECK-DAG: (%a)[i1 + %j] --> (%a)[i1 + %i] ANTI
-; CHECK-DAG: (%a)[i1 + %i] --> (%a)[i1 + %j] FLOW
+; CHECK-DAG: (%a)[i1 + %i] --> (%a)[i1 + %i] ANTI
 
 ; RUN: opt -hir-ssa-deconstruction < %s | opt -scoped-noalias-aa -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck --check-prefix=SCOPED-AA %s
-; RUN: opt < %s -passes="hir-ssa-deconstruction" | opt -passes="require<scoped-noalias-aa>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck --check-prefix=SCOPED-AA %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction" | opt -aa-pipeline=basic-aa,scoped-noalias-aa -passes="print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck --check-prefix=SCOPED-AA %s
 
 ; SCOPED-AA-NOT: (%a)[i1 + %j] --> (%a)[i1 + %i] ANTI
 ; SCOPED-AA-NOT: (%a)[i1 + %i] --> (%a)[i1 + %j] FLOW

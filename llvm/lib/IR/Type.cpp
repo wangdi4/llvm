@@ -95,8 +95,15 @@ bool Type::canLosslesslyBitCastTo(Type *Ty) const {
   // else is not lossless. Conservatively assume we can't losslessly convert
   // between pointers with different address spaces.
   if (auto *PTy = dyn_cast<PointerType>(this)) {
-    if (auto *OtherPTy = dyn_cast<PointerType>(Ty))
+    if (auto *OtherPTy = dyn_cast<PointerType>(Ty)) {
+      // Don't bitcast "load <256 x i32>, <256 x i32>*" to
+      // "load x86_amx, x86_amx*", because we don't have a corresponding
+      // instruction to load x86_amx. Doing the transform causes trouble
+      // to lower "load x86_amx" instruction in backend.
+      if (OtherPTy->getElementType()->isX86_AMXTy())
+        return false;
       return PTy->getAddressSpace() == OtherPTy->getAddressSpace();
+    }
     return false;
   }
   return false;  // Other types have no identity values
@@ -390,6 +397,18 @@ StructType *StructType::get(LLVMContext &Context, ArrayRef<Type*> ETypes,
   return ST;
 }
 
+bool StructType::containsScalableVectorType() const {
+  for (Type *Ty : elements()) {
+    if (isa<ScalableVectorType>(Ty))
+      return true;
+    if (auto *STy = dyn_cast<StructType>(Ty))
+      if (STy->containsScalableVectorType())
+        return true;
+  }
+
+  return false;
+}
+
 void StructType::setBody(ArrayRef<Type*> Elements, bool isPacked) {
   assert(isOpaque() && "Struct body already set!");
 
@@ -509,9 +528,14 @@ bool StructType::isSized(SmallPtrSetImpl<Type*> *Visited) const {
   // Okay, our struct is sized if all of the elements are, but if one of the
   // elements is opaque, the struct isn't sized *yet*, but may become sized in
   // the future, so just bail out without caching.
-  for (element_iterator I = element_begin(), E = element_end(); I != E; ++I)
-    if (!(*I)->isSized(Visited))
+  for (Type *Ty : elements()) {
+    // If the struct contains a scalable vector type, don't consider it sized.
+    // This prevents it from being used in loads/stores/allocas/GEPs.
+    if (isa<ScalableVectorType>(Ty))
       return false;
+    if (!Ty->isSized(Visited))
+      return false;
+  }
 
   // Here we cheat a bit and cast away const-ness. The goal is to memoize when
   // we find a sized type, as types can only move from opaque to sized, not the
@@ -531,7 +555,7 @@ StringRef StructType::getName() const {
 bool StructType::isValidElementType(Type *ElemTy) {
   return !ElemTy->isVoidTy() && !ElemTy->isLabelTy() &&
          !ElemTy->isMetadataTy() && !ElemTy->isFunctionTy() &&
-         !ElemTy->isTokenTy() && !isa<ScalableVectorType>(ElemTy);
+         !ElemTy->isTokenTy();
 }
 
 bool StructType::isLayoutIdentical(StructType *Other) const {

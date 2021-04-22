@@ -12,6 +12,11 @@
 // RUN:  -triple x86_64-unknown-linux-gnu -verify %s \
 // RUN:  | FileCheck %s -check-prefix=CHECK-THREE
 
+// RUN: %clang_cc1 -emit-llvm -o - -DFOUR -fopenmp-simd -Werror \
+// RUN:  -Wsource-uses-openmp -fintel-compatibility -fopenmp-late-outline \
+// RUN:  -triple x86_64-unknown-linux-gnu -x c++ %s \
+// RUN:  | FileCheck %s -check-prefix=CHECK-FOUR
+
 #ifdef ONE
 // Full OpenMP not enabled, only simd
 // CHECK-ONE-LABEL: foo1
@@ -57,5 +62,47 @@ void foo3()
   for (i=0;i<10;++i) {
     arr[i] = i;
   }
+}
+#endif
+
+#ifdef FOUR
+struct ComplexType {
+  int min_val;
+  int *min_it;
+  bool operator<(const ComplexType& obj) {
+    if(obj.min_val < min_val) { return false; }
+    else if(min_val < obj.min_val) { return true; }
+    else { return !(obj.min_it < min_it); }
+  }
+};
+
+void my_comb(ComplexType& out, ComplexType& in) {
+  out = ((in < out) ? in : out);
+}
+
+void my_init(ComplexType& out, ComplexType& in) {
+  out = in;
+}
+
+// CHECK-FOUR-LABEL: simd_min
+int* simd_min(int *first, int n) noexcept {
+
+  ComplexType init{*first, first};
+
+  #pragma omp declare reduction(min_func : ComplexType : \
+    my_comb(omp_out, omp_in))               \
+    initializer(my_init(omp_priv, omp_orig))
+
+  // CHECK-FOUR: "DIR.OMP.SIMD"
+  // CHECK-FOUR-SAME: "QUAL.OMP.REDUCTION.UDR"
+  // CHECK-FOUR: DIR.OMP.END.SIMD
+  #pragma omp simd reduction(min_func:init)
+  for (int i = 1; i < n; ++i) {
+    if (first[i] < init.min_val){
+      init.min_val = first[i];
+      init.min_it  = first+i;
+    }
+  }
+  return init.min_it;
 }
 #endif

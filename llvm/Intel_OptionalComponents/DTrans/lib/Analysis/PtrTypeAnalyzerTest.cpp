@@ -1,6 +1,6 @@
 //===---------------------PtrTypeAnalyzerTest.cpp-------------------------===//
 //
-// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -16,11 +16,13 @@
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "llvm/Analysis/Intel_WP.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
+using namespace dtransOP;
 
 #define DEBUG_TYPE "dtrans-ptrtypeanalyzertest"
 
@@ -30,8 +32,8 @@ namespace {
 // testing the behavior of the analysis.
 class PtrTypeAnalyzerTest {
 private:
-  dtrans::DTransTypeManager TM;
-  dtrans::TypeMetadataReader Reader;
+  DTransTypeManager TM;
+  TypeMetadataReader Reader;
 
 public:
   PtrTypeAnalyzerTest(LLVMContext &Ctx) : TM(Ctx), Reader(TM) {}
@@ -46,14 +48,14 @@ public:
       return;
     }
     LLVMContext &Ctx = M.getContext();
-    dtrans::DTransTypeManager TM(Ctx);
-    dtrans::TypeMetadataReader Reader(TM);
+    DTransTypeManager TM(Ctx);
+    TypeMetadataReader Reader(TM);
     if (!Reader.initialize(M)) {
       LLVM_DEBUG(dbgs() << "Failed to initialize type metadata reader\n");
       return;
     }
     const DataLayout &DL = M.getDataLayout();
-    dtrans::PtrTypeAnalyzer Analyzer(Ctx, TM, Reader, DL, GetTLI);
+    PtrTypeAnalyzer Analyzer(Ctx, TM, Reader, DL, GetTLI);
     Analyzer.run(M);
   }
 };
@@ -105,7 +107,7 @@ ModulePass *llvm::createDTransPtrTypeAnalyzerTestWrapperPass() {
 
 // Interface for new pass manager
 namespace llvm {
-namespace dtrans {
+namespace dtransOP {
 
 PreservedAnalyses
 DTransPtrTypeAnalyzerTestPass::run(Module &M, ModuleAnalysisManager &AM) {
@@ -121,7 +123,7 @@ DTransPtrTypeAnalyzerTestPass::run(Module &M, ModuleAnalysisManager &AM) {
   return PreservedAnalyses::all();
 }
 
-} // end namespace dtrans
+} // end namespace dtransOP
 } // end namespace llvm
 
 #endif // !INTEL_PRODUCT_RELEASE

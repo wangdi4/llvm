@@ -1423,18 +1423,15 @@ bool HIRLoopRematerializeLegacyPass::runOnFunction(Function &F) {
       .run();
 }
 
-PreservedAnalyses
-HIRLoopRematerializePass::run(llvm::Function &F,
-                              llvm::FunctionAnalysisManager &AM) {
+PreservedAnalyses HIRLoopRematerializePass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   if (DisablePass) {
     return PreservedAnalyses::all();
   }
 
   LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
 
-  HIRLoopRematerialize(AM.getResult<HIRFrameworkAnalysis>(F),
-                       AM.getResult<HIRDDAnalysisPass>(F))
-      .run();
+  HIRLoopRematerialize(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
 
   return PreservedAnalyses::all();
 }

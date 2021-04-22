@@ -1,6 +1,6 @@
 //===------ Intel_CloneUtils.cpp - Utilities for Cloning -----===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -18,7 +18,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
@@ -513,6 +513,20 @@ extern bool isRecProgressionCloneCandidate(Function &F,
     }
   }
   return false;
+}
+
+extern CallInst *uniqueCallSite(Function &F) {
+  CallInst *CISave = nullptr;
+  for (User *U : F.users()) {
+    auto BCO = dyn_cast<BitCastOperator>(U);
+    if (BCO && BCO->hasNUses(0))
+      continue;
+    auto CI = dyn_cast<CallInst>(U);
+    if (!CI || CISave)
+      return nullptr;
+    CISave = CI;
+  }
+  return CISave;
 }
 
 } // namespace llvm

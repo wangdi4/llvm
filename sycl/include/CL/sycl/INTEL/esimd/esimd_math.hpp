@@ -15,6 +15,11 @@
 #include <CL/sycl/INTEL/esimd/detail/esimd_util.hpp>
 #include <CL/sycl/INTEL/esimd/esimd.hpp>
 #include <CL/sycl/INTEL/esimd/esimd_enum.hpp>
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+#include <CL/sycl/INTEL/esimd/esimd_view.hpp>
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
 #include <cstdint>
 
 __SYCL_INLINE_NAMESPACE(cl) {
@@ -1879,7 +1884,7 @@ T0 esimd_reduce_single(simd<T1, SZ> v) {
   if constexpr (SZ == 1) {
     return v[0];
   } else {
-    static_assert(__esimd::isPowerOf2(SZ),
+    static_assert(detail::isPowerOf2(SZ),
                   "Invaid input for esimd_reduce_single - the vector size must "
                   "be power of two.");
     constexpr int N = SZ / 2;
@@ -1903,7 +1908,7 @@ T0 esimd_reduce_pair(simd<T1, N1> v1, simd<T1, N2> v2) {
     return esimd_reduce_pair<T0, T0, N1, N, OpType>(tmp1, tmp2);
   } else {
     static_assert(
-        __esimd::isPowerOf2(N1),
+        detail::isPowerOf2(N1),
         "Invaid input for esimd_reduce_pair - N1 must be power of two.");
     constexpr int N = N1 / 2;
     simd<T0, N> tmp = OpType<T0, T1, N>()(v1.template select<N, 1>(0),
@@ -1917,11 +1922,11 @@ T0 esimd_reduce_pair(simd<T1, N1> v1, simd<T1, N2> v2) {
 template <typename T0, typename T1, int SZ,
           template <typename RT, typename T, int N> class OpType>
 T0 esimd_reduce(simd<T1, SZ> v) {
-  constexpr bool isPowerOf2 = __esimd::isPowerOf2(SZ);
+  constexpr bool isPowerOf2 = detail::isPowerOf2(SZ);
   if constexpr (isPowerOf2) {
     return esimd_reduce_single<T0, T1, SZ, OpType>(v);
   } else {
-    constexpr unsigned N1 = 1u << __esimd::log2<SZ>();
+    constexpr unsigned N1 = 1u << detail::log2<SZ>();
     constexpr unsigned N2 = SZ - N1;
 
     simd<T1, N1> v1 = v.template select<N1, 1>(0);
@@ -1980,6 +1985,463 @@ simd<T, N> esimd_dp4(simd<T, N> v1, simd<T, N> v2) {
   auto retv = __esimd_dp4<T, N>(v1, v2);
   return retv;
 }
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+
+// TODO: the following are temporary implementation for
+// deprecated hardware functions, which will be replaced
+// by compiler emulation support.
+template <typename T = void>
+ESIMD_INLINE float esimd_impl_hex2float(uint32_t val) {
+  simd<uint32_t, 1> su = val;
+  simd<float, 1> sf = su.format<float>();
+  return sf[0];
+}
+
+// RZ rounding mode is needed for some of the steps
+// It is fine to use RZ mode throughout the FP computation
+template <int N>
+ESIMD_INLINE simd<uint32_t, N> esimd_impl_udivrem(simd<uint32_t, N> la,
+                                                  simd<uint32_t, N> lb,
+                                                  simd<uint32_t, N> &prem) {
+  simd<float, N> ah, al, bh, bl;
+  simd<float, N> y, Qh, Ql, Rh, Rl;
+  simd<uint32_t, N> la_h, lb_h, la_l, lb_l, lQh, lQl, lQ, lR, corr_mask;
+
+  // uint32 -> single precision convert, with truncation (RZ mode)
+  bh = convert<float>(lb);
+
+  // convert back to uint32, to get low part
+  lb_h = convert<uint32_t>(bh);
+  lb_l = lb - lb_h;
+
+  // low part of input, in single precision
+  bl = convert<float>(lb_l);
+
+  // uint32 -> single precision convert, with truncation (RZ mode)
+  ah = convert<float>(la);
+
+  // convert back to uint32, to get low part
+  la_h = convert<uint32_t>(ah);
+  la_l = la - la_h;
+
+  // low part of input, in single precision
+  al = convert<float>(la_l);
+
+  // y = RCP(bh)
+  simd<float, N> tmp = 1.0f;
+  y = tmp / convert<float>(bh);
+
+  // y = y*(1 - 3*2^(-23))
+  // RZ mode not required, used for convenience
+  y += y * esimd_impl_hex2float(0xb4c00000u);
+
+  // Qh = ah*y
+  Qh = ah * y;
+
+  // Qh = (unsigned)Qh, with truncation
+  lQh = convert<uint32_t>(Qh);
+
+  // convert lQh back to SP, any rounding mode is fine
+  Qh = convert<float>(lQh);
+
+  // ah - bh*Qh
+  Rh = ah - bh * Qh;
+
+  // al - bl*Qh
+  Rl = al - bl * Qh;
+
+  // Ql = y*(Rh+Rl)
+  Rl = Rh + Rl;
+  Ql = y * Rl;
+
+  // convert Ql to integer, with truncation
+  lQl = convert<uint32_t>(Ql);
+
+  // integer quotient
+  lQ = lQh + lQl;
+
+  // integer remainder
+  lR = la - lb * lQ;
+
+  // apply correction if needed
+  // if (lR >= lb) { lQ++;  lR -= lb; }
+  corr_mask.merge(0xffffffff, 0, (lR >= lb));
+  lQ += (corr_mask & 1);
+  lR -= (lb & corr_mask);
+
+  // remainder
+  prem = lR;
+
+  return lQ;
+}
+
+// Emulated function for INT DIV
+#define ESIMD_UDIV_SCALAR_IMPL(TYPE, REM_TYPE, N, MODE)                        \
+  template <typename T = void>                                                 \
+  ESIMD_INLINE TYPE esimd_emu_impl_udiv(TYPE a, TYPE b) {                      \
+    simd<TYPE, N> tmp_a = a;                                                   \
+    simd<TYPE, N> tmp_b = b;                                                   \
+    simd<REM_TYPE, N> tmp_r;                                                   \
+    simd<TYPE, N> tmp_q = esimd_impl_udivrem(tmp_a, tmp_b, tmp_r);             \
+    return tmp_q[0];                                                           \
+  }
+
+// Emulated function for INT REM
+#define ESIMD_UREM_SCALAR_IMPL(TYPE, REM_TYPE, N, MODE)                        \
+  template <typename T = void>                                                 \
+  ESIMD_INLINE REM_TYPE esimd_emu_impl_urem(TYPE a, TYPE b) {                  \
+    simd<TYPE, N> tmp_a = a;                                                   \
+    simd<TYPE, N> tmp_b = b;                                                   \
+    simd<REM_TYPE, N> tmp_r;                                                   \
+    esimd_impl_udivrem(tmp_a, tmp_b, tmp_r);                                   \
+    return tmp_r[0];                                                           \
+  }
+
+ESIMD_UDIV_SCALAR_IMPL(uint32_t, uint32_t, 1, ESIMD_RTZ)
+ESIMD_UREM_SCALAR_IMPL(uint32_t, uint32_t, 1, ESIMD_RTZ)
+
+constexpr unsigned get_ops_per_channel(EsimdPrecisionType src1_precision,
+                                       EsimdPrecisionType src2_precision) {
+  if ((src1_precision == EsimdPrecisionType::U8) ||
+      (src1_precision == EsimdPrecisionType::S8)) {
+    if ((src2_precision == EsimdPrecisionType::U8) ||
+        (src2_precision == EsimdPrecisionType::S8) ||
+        (src2_precision == EsimdPrecisionType::U4) ||
+        (src2_precision == EsimdPrecisionType::S4) ||
+        (src2_precision == EsimdPrecisionType::U2) ||
+        (src2_precision == EsimdPrecisionType::S2)) {
+      return 4;
+    }
+  } else if ((src1_precision == EsimdPrecisionType::U4) ||
+             (src1_precision == EsimdPrecisionType::S4) ||
+             (src1_precision == EsimdPrecisionType::U2) ||
+             (src1_precision == EsimdPrecisionType::S2)) {
+    if ((src2_precision == EsimdPrecisionType::U8) ||
+        (src2_precision == EsimdPrecisionType::S8)) {
+      return 4;
+    } else if ((src2_precision == EsimdPrecisionType::U4) ||
+               (src2_precision == EsimdPrecisionType::S4) ||
+               (src2_precision == EsimdPrecisionType::U2) ||
+               (src2_precision == EsimdPrecisionType::S2)) {
+      return 8;
+    }
+  } else if ((src1_precision == EsimdPrecisionType::BF16) &&
+             (src2_precision == EsimdPrecisionType::BF16)) {
+    return 2;
+  } else if ((src1_precision == EsimdPrecisionType::FP16) &&
+             (src2_precision == EsimdPrecisionType::FP16)) {
+    return 2;
+  }
+  return 0xFFFFFFFF;
+}
+
+constexpr unsigned get_precision_bits(EsimdPrecisionType src_precision) {
+  if ((src_precision == EsimdPrecisionType::U8) ||
+      (src_precision == EsimdPrecisionType::S8)) {
+    return 8;
+  } else if ((src_precision == EsimdPrecisionType::U4) ||
+             (src_precision == EsimdPrecisionType::S4)) {
+    return 4;
+  } else if ((src_precision == EsimdPrecisionType::U2) ||
+             (src_precision == EsimdPrecisionType::S2)) {
+    return 2;
+  } else if ((src_precision == EsimdPrecisionType::BF16) ||
+             (src_precision == EsimdPrecisionType::FP16)) {
+    return 16;
+  }
+  return 0;
+}
+
+/// \defgroup sycl_esimd_systolic_array_api Systolic Array APIs
+/// APIs below are used to implement dot product accumulate systolic functions
+/// \ingroup sycl_esimd
+/// @{
+/// DPAS
+/// \param src0 is the source operand that represents accumulator for the dpas
+/// function, which must have the same type as return value.
+/// \param src1 is the first source perand with data precision type specified
+/// by src1_precision.
+/// \param src2 is the second source operand with data precision type specified
+/// by src2_precision.
+/// \param flag is the saturation flag, which has default value of GENX_NOSAT.
+/// \return the vector value of DPAS computation result.
+template <EsimdPrecisionType src1_precision, EsimdPrecisionType src2_precision,
+          int systolic_depth, int repeat_count, typename T, typename T1,
+          typename T2, int N, int N1, int N2>
+ESIMD_NODEBUG ESIMD_INLINE simd<T, N>
+esimd_dpas(simd<T, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
+           int flag = GENX_NOSAT) {
+  constexpr bool is_4xhf =
+      (is_type<T, cl::sycl::detail::half_impl::StorageT>()) &&
+      src1_precision == src2_precision && src1_precision == EsimdPrecisionType::FP16;
+
+  constexpr bool is_4xbf = detail::is_word_type<T>::value &&
+                           src1_precision == src2_precision &&
+                           src1_precision == EsimdPrecisionType::BF16;
+
+  constexpr bool is_common_dpas = detail::is_fp_or_dword_type<T>::value;
+
+  static_assert((is_4xhf || is_4xbf || is_common_dpas),
+                "unsupported dpas type");
+
+  static_assert(detail::is_dword_type<T1>::value, "Src1 must be DWORD type");
+
+  static_assert(detail::is_dword_type<T2>::value, "Src2 must be DWORD type");
+
+  static_assert((systolic_depth == 8) || (systolic_depth == 4),
+                "systolic_depth must be 8 or 4");
+
+  static_assert((repeat_count >= 1) && (repeat_count <= 8),
+                "repeat_count must be within 1 to 8");
+
+  constexpr unsigned ops_per_channel =
+      get_ops_per_channel(src1_precision, src2_precision);
+  static_assert(ops_per_channel != 0xFFFFFFFF,
+                "invalid combination of Src1/Src2 precision");
+
+  constexpr unsigned src1_precision_bits = get_precision_bits(src1_precision);
+  static_assert(
+      N1 == ((src1_precision_bits * systolic_depth * ops_per_channel * N) /
+             (repeat_count * sizeof(T1) * 8)),
+      "invalid size for Src1");
+
+  constexpr unsigned src2_precision_bits = get_precision_bits(src2_precision);
+  static_assert(N2 == ((src2_precision_bits * systolic_depth * ops_per_channel *
+                        repeat_count) /
+                       (sizeof(T2) * 8)),
+                "invalid size for Src2");
+
+#if defined(__SYCL_DEVICE_ONLY__) && defined(__SYCL_EXPLICIT_SIMD__)
+  int dpas_info = (repeat_count << 24) + (systolic_depth << 16) +
+                  (((int)src2_precision + 1) << 8) + ((int)src1_precision + 1);
+  simd<T, N> result =
+      __esimd_dpas<T, T1, T2, N, N1, N2>(src0, src1, src2, dpas_info);
+#else
+  simd<T, N> result =
+      __esimd_dpas<src1_precision, src2_precision, systolic_depth, repeat_count,
+                   T, T1, T2, N, N1, N2>(src0, src1, src2);
+#endif // __SYCL_DEVICE_ONLY__ && __SYCL_EXPLICIT_SIMD__
+
+  if (flag != GENX_SAT)
+    return result;
+
+  return esimd_sat<T>(result);
+}
+
+/// DPAS2
+/// \param src1 is the first source perand with data precision type specified
+/// by src1_precision.
+/// \param src2 is the second source operand with data precision type specified
+/// by src2_precision.
+/// \param flag is the saturation flag, which has default value of GENX_NOSAT.
+/// \return the vector value of DPAS computation result.
+template <EsimdPrecisionType src1_precision, EsimdPrecisionType src2_precision,
+          int systolic_depth, int repeat_count, typename T, typename T1,
+          typename T2, int N, int N1, int N2>
+ESIMD_NODEBUG ESIMD_INLINE simd<T, N>
+esimd_dpas2(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
+  static_assert(detail::is_fp_or_dword_type<T>::value,
+                "Dst must be FP or DWORD type");
+
+  static_assert(detail::is_dword_type<T1>::value, "Src1 must be DWORD type");
+
+  static_assert(detail::is_dword_type<T2>::value, "Src2 must be DWORD type");
+
+  static_assert((N == 8 * repeat_count) || (N == 16 * repeat_count),
+                "Execution size must be 8 or 16");
+
+  static_assert((systolic_depth == 8) || (systolic_depth == 4),
+                "systolic_depth must be 8 or 4");
+
+  static_assert((repeat_count >= 1) && (repeat_count <= 8),
+                "repeat_count must be within 1 to 8");
+
+  constexpr unsigned ops_per_channel =
+      get_ops_per_channel(src1_precision, src2_precision);
+  static_assert(ops_per_channel != 0xFFFFFFFF,
+                "invalid combination of Src1/Src2 precision");
+
+  constexpr unsigned src1_precision_bits = get_precision_bits(src1_precision);
+  static_assert(
+      N1 == ((src1_precision_bits * systolic_depth * ops_per_channel * N) /
+             (repeat_count * sizeof(T1) * 8)),
+      "invalid size for Src1");
+
+  constexpr unsigned src2_precision_bits = get_precision_bits(src2_precision);
+  static_assert(N2 == ((src2_precision_bits * systolic_depth * ops_per_channel *
+                        repeat_count) /
+                       (sizeof(T2) * 8)),
+                "invalid size for Src2");
+
+#if defined(__SYCL_DEVICE_ONLY__) && defined(__SYCL_EXPLICIT_SIMD__)
+  int dpas_info = (repeat_count << 24) + (systolic_depth << 16) +
+                  (((int)src2_precision + 1) << 8) + ((int)src1_precision + 1);
+  simd<T, N> result =
+      __esimd_dpas2<T, T1, T2, N, N1, N2>(src1, src2, dpas_info);
+#else
+  simd<T, N> result =
+      __esimd_dpas2<src1_precision, src2_precision, systolic_depth,
+                    repeat_count, T, T1, T2, N, N1, N2>(src1, src2);
+#endif // __SYCL_DEVICE_ONLY__ && __SYCL_EXPLICIT_SIMD__
+
+  if (flag != GENX_SAT)
+    return result;
+
+  return esimd_sat<T>(result);
+}
+
+/// DPASW
+/// \param src0 is the source operand that represents accumulator for the dpas
+/// function, which must have the same type as return value.
+/// \param src1 is the first source perand with data precision type specified
+/// by src1_precision.
+/// \param src2 is the second source operand with data precision type specified
+/// by src2_precision.
+/// \param flag is the saturation flag, which has default value of GENX_NOSAT.
+/// \return the vector value of DPAS computation result.
+template <EsimdPrecisionType src1_precision, EsimdPrecisionType src2_precision,
+          int systolic_depth, int repeat_count, typename T, typename T1,
+          typename T2, int N, int N1, int N2>
+ESIMD_NODEBUG ESIMD_INLINE simd<T, N>
+esimd_dpasw(simd<T, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
+            int flag = GENX_NOSAT) {
+  constexpr bool is_4xhf =
+      (is_type<T, cl::sycl::detail::half_impl::StorageT>()) &&
+      src1_precision == src2_precision && src1_precision == EsimdPrecisionType::FP16;
+
+  constexpr bool is_4xbf = detail::is_word_type<T>::value &&
+                           src1_precision == src2_precision &&
+                           src1_precision == EsimdPrecisionType::BF16;
+
+  constexpr bool is_common_dpas = detail::is_fp_or_dword_type<T>::value;
+
+  static_assert((is_4xhf || is_4xbf || is_common_dpas),
+                "unsupported dpas type");
+
+  static_assert(detail::is_dword_type<T1>::value, "Src1 must be DWORD type");
+
+  static_assert(detail::is_dword_type<T2>::value, "Src2 must be DWORD type");
+
+  static_assert((N == 8 * repeat_count) || (N == 16 * repeat_count),
+                "Execution size must be 8 or 16");
+
+  static_assert((systolic_depth == 8) || (systolic_depth == 4),
+                "systolic_depth must be 8 or 4");
+
+  static_assert((repeat_count >= 1) && (repeat_count <= 8),
+                "repeat_count must be within 1 to 8");
+
+  constexpr unsigned ops_per_channel =
+      get_ops_per_channel(src1_precision, src2_precision);
+  static_assert(ops_per_channel != 0xFFFFFFFF,
+                "invalid combination of Src1/Src2 precision");
+
+  constexpr unsigned src1_precision_bits = get_precision_bits(src1_precision);
+  static_assert(
+      N1 == ((src1_precision_bits * systolic_depth * ops_per_channel * N) /
+             (repeat_count * sizeof(T1) * 8)),
+      "invalid size for Src1");
+
+  constexpr unsigned src2_precision_bits = get_precision_bits(src2_precision);
+  static_assert(N2 == ((src2_precision_bits * systolic_depth * ops_per_channel *
+                        ((repeat_count + 1) / 2)) /
+                       (sizeof(T2) * 8)),
+                "invalid size for Src2");
+
+#if defined(__SYCL_DEVICE_ONLY__) && defined(__SYCL_EXPLICIT_SIMD__)
+  int dpas_info = (repeat_count << 24) + (systolic_depth << 16) +
+                  (((int)src2_precision + 1) << 8) + ((int)src1_precision + 1);
+  simd<T, N> result =
+      __esimd_dpasw<T, T1, T2, N, N1, N2>(src0, src1, src2, dpas_info);
+#else
+  simd<T, N> result =
+      __esimd_dpasw<src1_precision, src2_precision, systolic_depth,
+                    repeat_count, T, T1, T2, N, N1, N2>(src0, src1, src2);
+#endif // __SYCL_DEVICE_ONLY__ && __SYCL_EXPLICIT_SIMD__
+
+  if (flag != GENX_SAT)
+    return result;
+
+  return esimd_sat<T>(result);
+}
+
+/// DPASW2
+/// \param src1 is the first source perand with data precision type specified
+/// by src1_precision.
+/// \param src2 is the second source operand with data precision type specified
+/// by src2_precision.
+/// \param flag is the saturation flag, which has default value of GENX_NOSAT.
+/// \return the vector value of DPAS computation result.
+template <EsimdPrecisionType src1_precision, EsimdPrecisionType src2_precision,
+          int systolic_depth, int repeat_count, typename T, typename T1,
+          typename T2, int N, int N1, int N2>
+ESIMD_NODEBUG ESIMD_INLINE simd<T, N>
+esimd_dpasw2(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
+  constexpr bool is_4xhf =
+      (is_type<T, cl::sycl::detail::half_impl::StorageT>()) &&
+      src1_precision == src2_precision && src1_precision == EsimdPrecisionType::FP16;
+
+  constexpr bool is_4xbf = detail::is_word_type<T>::value &&
+                           src1_precision == src2_precision &&
+                           src1_precision == EsimdPrecisionType::BF16;
+
+  constexpr bool is_common_dpas = detail::is_fp_or_dword_type<T>::value;
+
+  static_assert((is_4xhf || is_4xbf || is_common_dpas),
+                "unsupported dpas type");
+
+  static_assert(detail::is_dword_type<T1>::value, "Src1 must be DWORD type");
+
+  static_assert(detail::is_dword_type<T2>::value, "Src2 must be DWORD type");
+
+  static_assert((N == 8 * repeat_count) || (N == 16 * repeat_count),
+                "Execution size must be 8 or 16");
+
+  static_assert((systolic_depth == 8) || (systolic_depth == 4),
+                "systolic_depth must be 8 or 4");
+
+  static_assert((repeat_count >= 1) && (repeat_count <= 8),
+                "repeat_count must be within 1 to 8");
+
+  constexpr unsigned ops_per_channel =
+      get_ops_per_channel(src1_precision, src2_precision);
+  static_assert(ops_per_channel != 0xFFFFFFFF,
+                "invalid combination of Src1/Src2 precision");
+
+  constexpr unsigned src1_precision_bits = get_precision_bits(src1_precision);
+  static_assert(
+      N1 == ((src1_precision_bits * systolic_depth * ops_per_channel * N) /
+             (repeat_count * sizeof(T1) * 8)),
+      "invalid size for Src1");
+
+  constexpr unsigned src2_precision_bits = get_precision_bits(src2_precision);
+  static_assert(N2 == ((src2_precision_bits * systolic_depth * ops_per_channel *
+                        ((repeat_count + 1) / 2)) /
+                       (sizeof(T2) * 8)),
+                "invalid size for Src2");
+
+#if defined(__SYCL_DEVICE_ONLY__) && defined(__SYCL_EXPLICIT_SIMD__)
+  int dpas_info = (repeat_count << 24) + (systolic_depth << 16) +
+                  (((int)src2_precision + 1) << 8) + ((int)src1_precision + 1);
+  simd<T, N> result =
+      __esimd_dpasw2<T, T1, T2, N, N1, N2>(src1, src2, dpas_info);
+#else
+  simd<T, N> result =
+      __esimd_dpasw2<src1_precision, src2_precision, systolic_depth,
+                     repeat_count, T, T1, T2, N, N1, N2>(src1, src2);
+#endif // __SYCL_DEVICE_ONLY__ && __SYCL_EXPLICIT_SIMD__
+
+  if (flag != GENX_SAT)
+    return result;
+
+  return esimd_sat<T>(result);
+}
+/// @}
+
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
 
 } // namespace gpu
 } // namespace INTEL

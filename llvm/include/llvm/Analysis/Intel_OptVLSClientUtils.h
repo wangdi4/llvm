@@ -34,7 +34,7 @@ public:
 
   /// \brief Returns target-specific cost for \p I based on the
   /// Target Transformation Information (TTI) interface.
-  uint64_t getInstructionCost(const OVLSInstruction *I) const;
+  uint64_t getInstructionCost(const OVLSInstruction *I) const override;
 
   /// \brief Return the internal data type accessed by this memory reference
   // CHECKME: Move this to OVLSMemref?

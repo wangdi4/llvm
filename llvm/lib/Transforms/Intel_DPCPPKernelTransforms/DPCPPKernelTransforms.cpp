@@ -1,6 +1,6 @@
 //==----- DPCPPKernelTransforms.cpp - passes initialization -*- C++ -*------==//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -13,18 +13,25 @@
 using namespace llvm;
 
 void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
+  initializeBuiltinImportLegacyPass(Registry);
+  initializeDPCPPEqualizerLegacyPass(Registry);
   initializeDPCPPKernelVecClonePass(Registry);
   initializeDPCPPKernelPostVecPass(Registry);
-  initializeDPCPPKernelWGLoopCreatorLegacyPassPass(Registry);
-  initializeDPCPPKernelAnalysisPass(Registry);
-  initializePhiCanonicalizationPass(Registry);
-  initializeRedundantPhiNodePass(Registry);
-  initializeSplitBBonBarrierPass(Registry);
-  initializeWIRelatedValuePass(Registry);
-  initializeDataPerBarrierPass(Registry);
-  initializeDataPerValuePass(Registry);
-  initializeKernelBarrierPass(Registry);
-  initializeBarrierInFunctionPass(Registry);
-  initializePostBarrierPass(Registry);
+  initializeDPCPPKernelWGLoopCreatorLegacyPass(Registry);
+  initializeDPCPPKernelAnalysisLegacyPass(Registry);
+  initializePhiCanonicalizationLegacyPass(Registry);
+  initializeRedundantPhiNodeLegacyPass(Registry);
+  initializeSplitBBonBarrierLegacyPass(Registry);
+  initializeWIRelatedValueWrapperPass(Registry);
+  initializeDataPerBarrierWrapperPass(Registry);
+  initializeDataPerValueWrapperPass(Registry);
+  initializeKernelBarrierLegacyPass(Registry);
+  initializeBarrierInFunctionLegacyPass(Registry);
+  initializeLocalBufferAnalysisLegacyPass(Registry);
+  initializeImplicitArgsAnalysisLegacyPass(Registry);
+  initializeAddImplicitArgsLegacyPass(Registry);
+  initializeResolveWICallLegacyPass(Registry);
+  initializePrepareKernelArgsLegacyPass(Registry);
+  initializeCleanupWrappedKernelLegacyPass(Registry);
 }
 

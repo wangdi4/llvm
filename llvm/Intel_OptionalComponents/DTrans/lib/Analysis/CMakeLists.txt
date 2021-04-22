@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+#    Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 #
 #    The information and source code contained herein is the exclusive
 #    property of Intel Corporation. and may not be disclosed, examined
@@ -12,15 +12,16 @@
 #
 
 add_llvm_component_library(LLVMIntel_DTransAnalysis
-  DTransUtils.cpp
   DTransAllocAnalyzer.cpp
   DTransAnalysis.cpp
   DTransAnnotator.cpp
   DTransArraysWithConstant.cpp
   DTransFieldModRef.cpp
   DTransImmutableAnalysis.cpp
+  DTransOPUtils.cpp
   DTransSafetyAnalyzer.cpp
   DTransTypes.cpp
+  DTransUtils.cpp
   PtrTypeAnalyzer.cpp
   PtrTypeAnalyzerTest.cpp
   TypeMetadataReader.cpp

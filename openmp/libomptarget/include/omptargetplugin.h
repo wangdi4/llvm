@@ -40,7 +40,15 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image);
 // Return an integer other than zero if the data can be exchaned from SrcDevId
 // to DstDevId. If it is data exchangable, the device plugin should provide
 // function to move data from source device to destination device directly.
+#if INTEL_COLLAB
+EXTERN
+#endif // INTEL_COLLAB
 int32_t __tgt_rtl_is_data_exchangable(int32_t SrcDevId, int32_t DstDevId);
+
+// Return an integer other than zero if the plugin can handle images which do
+// not contain target regions and global variables (but can contain other
+// functions)
+int32_t __tgt_rtl_supports_empty_images();
 
 // Initialize the requires flags for the device.
 #if INTEL_COLLAB
@@ -75,11 +83,13 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t ID,
 // initialize the target data mapping structures. These addresses are
 // used to generate a table of target variables to pass to
 // __tgt_rtl_run_region(). The __tgt_rtl_data_alloc() returns NULL in
-// case an error occurred on the target device.
+// case an error occurred on the target device. Kind dictates what allocator
+// to use (e.g. shared, host, device).
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void *__tgt_rtl_data_alloc(int32_t ID, int64_t Size, void *HostPtr);
+void *__tgt_rtl_data_alloc(int32_t ID, int64_t Size, void *HostPtr,
+                           int32_t Kind);
 
 // Pass the data content to the target device using the target address. In case
 // of success, return zero. Otherwise, return an error code.
@@ -93,8 +103,7 @@ int32_t __tgt_rtl_data_submit(int32_t ID, void *TargetPtr, void *HostPtr,
 EXTERN
 #endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_submit_async(int32_t ID, void *TargetPtr, void *HostPtr,
-                                    int64_t Size,
-                                    __tgt_async_info *AsyncInfoPtr);
+                                    int64_t Size, __tgt_async_info *AsyncInfo);
 
 // Retrieve the data content from the target device using its address. In case
 // of success, return zero. Otherwise, return an error code.
@@ -110,19 +119,22 @@ EXTERN
 #endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_retrieve_async(int32_t ID, void *HostPtr,
                                       void *TargetPtr, int64_t Size,
-                                      __tgt_async_info *AsyncInfoPtr);
+                                      __tgt_async_info *AsyncInfo);
 
 // Copy the data content from one target device to another target device using
 // its address. This operation does not need to copy data back to host and then
 // from host to another device. In case of success, return zero. Otherwise,
 // return an error code.
+#if INTEL_COLLAB
+EXTERN
+#endif // INTEL_COLLAB
 int32_t __tgt_rtl_data_exchange(int32_t SrcID, void *SrcPtr, int32_t DstID,
                                 void *DstPtr, int64_t Size);
 
 // Asynchronous version of __tgt_rtl_data_exchange
 int32_t __tgt_rtl_data_exchange_async(int32_t SrcID, void *SrcPtr,
                                       int32_t DesID, void *DstPtr, int64_t Size,
-                                      __tgt_async_info *AsyncInfoPtr);
+                                      __tgt_async_info *AsyncInfo);
 
 // De-allocate the data referenced by target ptr on the device. In case of
 // success, return zero. Otherwise, return an error code.
@@ -134,8 +146,8 @@ int32_t __tgt_rtl_data_delete(int32_t ID, void *TargetPtr);
 // Transfer control to the offloaded entry Entry on the target device.
 // Args and Offsets are arrays of NumArgs size of target addresses and
 // offsets. An offset should be added to the target address before passing it
-// to the outlined function on device side. If AsyncInfoPtr is nullptr, it is
-// synchronous; otherwise it is asynchronous. However, AsyncInfoPtr may be
+// to the outlined function on device side. If AsyncInfo is nullptr, it is
+// synchronous; otherwise it is asynchronous. However, AsyncInfo may be
 // ignored on some platforms, like x86_64. In that case, it is synchronous. In
 // case of success, return zero. Otherwise, return an error code.
 #if INTEL_COLLAB
@@ -150,12 +162,12 @@ EXTERN
 #endif  // INTEL_COLLAB
 int32_t __tgt_rtl_run_target_region_async(int32_t ID, void *Entry, void **Args,
                                           ptrdiff_t *Offsets, int32_t NumArgs,
-                                          __tgt_async_info *AsyncInfoPtr);
+                                          __tgt_async_info *AsyncInfo);
 
 // Similar to __tgt_rtl_run_target_region, but additionally specify the
 // number of teams to be created and a number of threads in each team. If
-// AsyncInfoPtr is nullptr, it is synchronous; otherwise it is asynchronous.
-// However, AsyncInfoPtr may be ignored on some platforms, like x86_64. In that
+// AsyncInfo is nullptr, it is synchronous; otherwise it is asynchronous.
+// However, AsyncInfo may be ignored on some platforms, like x86_64. In that
 // case, it is synchronous.
 #if INTEL_COLLAB
 EXTERN
@@ -172,14 +184,14 @@ EXTERN
 int32_t __tgt_rtl_run_target_team_region_async(
     int32_t ID, void *Entry, void **Args, ptrdiff_t *Offsets, int32_t NumArgs,
     int32_t NumTeams, int32_t ThreadLimit, uint64_t loop_tripcount,
-    __tgt_async_info *AsyncInfoPtr);
+    __tgt_async_info *AsyncInfo);
 
 // Device synchronization. In case of success, return zero. Otherwise, return an
 // error code.
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int32_t __tgt_rtl_synchronize(int32_t ID, __tgt_async_info *AsyncInfoPtr);
+int32_t __tgt_rtl_synchronize(int32_t ID, __tgt_async_info *AsyncInfo);
 
 #if INTEL_COLLAB
 // Manifest target pointers, which are not passed as arguments,
@@ -240,21 +252,16 @@ int32_t __tgt_rtl_run_target_team_nd_region_nowait(
     int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc, void *AsyncData);
 
 // Creates an opaque handle to a device-dependent offload queue.
-EXTERN
-void *__tgt_rtl_create_offload_queue(int32_t ID, bool IsAsync);
+EXTERN void __tgt_rtl_create_offload_queue(int32_t ID, void *InteropObj);
 
 // Releases a device-dependent offload queue.
-EXTERN
-int32_t __tgt_rtl_release_offload_queue(int32_t ID, void *Queue);
+EXTERN int32_t __tgt_rtl_release_offload_queue(int32_t ID, void *Queue);
 
 // Creates an opaque handle to the platform handle.
-// TODO: remove this if it is not necessary.
-EXTERN
-void *__tgt_rtl_get_platform_handle(int32_t ID);
+EXTERN void *__tgt_rtl_get_platform_handle(int32_t ID);
 
 // Creates an opaque handle to the  device  handle.
-EXTERN
-void *__tgt_rtl_get_device_handle(int32_t ID);
+EXTERN void __tgt_rtl_set_device_handle(int32_t ID, void *InteropObj);
 
 // Creates an opaque handle to the  context handle.
 EXTERN void *__tgt_rtl_get_context_handle(int32_t ID);
@@ -288,6 +295,35 @@ EXTERN int32_t __tgt_rtl_is_supported_device(int32_t ID, void *DeviceType);
 
 // Deinit RTL
 EXTERN void __tgt_rtl_deinit(void);
+
+// Create OpenMP interop with the given interop context
+EXTERN __tgt_interop *__tgt_rtl_create_interop(
+    int32_t ID, int32_t InteropContext, int32_t NumPrefers,
+    intptr_t *PreferIDs);
+
+// Release OpenMP interop
+EXTERN int32_t __tgt_rtl_release_interop(int32_t ID, __tgt_interop *Interop);
+
+// Change OpenMP interop to usable state
+EXTERN int32_t __tgt_rtl_use_interop(int32_t ID, __tgt_interop *Interop);
+
+// Get number of implementation-defined interop properties
+EXTERN int32_t __tgt_rtl_get_num_interop_properties(int32_t ID);
+
+// Get interop property value from plugin
+EXTERN int32_t __tgt_rtl_get_interop_property_value(
+    int32_t ID, __tgt_interop *Interop, int32_t Property, int32_t ValueType,
+    size_t Size, void *Value);
+
+// Get interop property info from plugin
+EXTERN const char *__tgt_rtl_get_interop_property_info(
+    int32_t ID, int32_t Property, int32_t InfoType);
+
+// Get interop return code description from plugin
+EXTERN const char *__tgt_rtl_get_interop_rc_desc(int32_t ID, int32_t Rc);
+
+// Return number of available sub-devices at the given level
+EXTERN int32_t __tgt_rtl_get_num_sub_devices(int32_t ID, int32_t Level);
 #endif // INTEL_COLLAB
 #ifdef __cplusplus
 }

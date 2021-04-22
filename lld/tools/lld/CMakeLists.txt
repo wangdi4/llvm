@@ -15,9 +15,12 @@ target_link_libraries(lld
   lldCOFF
   lldDriver
   lldELF
-  lldMachO2
-  lldMinGW
-  lldWasm
+# INTEL_CUSTOMIZATION
+# Disable unused functionality to speed up builds.
+#  lldMachO2
+#  lldMinGW
+#  lldWasm
+# end INTEL_CUSTOMIZATION
   )
 
 install(TARGETS lld
@@ -25,8 +28,17 @@ install(TARGETS lld
 
 if(NOT LLD_SYMLINKS_TO_CREATE)
   set(LLD_SYMLINKS_TO_CREATE
-      lld-link ld.lld ld64.lld ld64.lld.darwinnew wasm-ld)
+      lld-link ld.lld ld64.lld ld64.lld.darwinnew ld64.lld.darwinold wasm-ld)
 endif()
+
+if(INTEL_CUSTOMIZATION)
+  # All LLD symlinks are installed as part of LLD component.
+  # We do not need to deploy darwin and wasm symlinks.
+  set(INTEL_LLD_SYMLINKS_TO_DELETE ld64.lld ld64.lld.darwinnew wasm-ld)
+  foreach(link ${INTEL_LLD_SYMLINKS_TO_DELETE})
+    list(REMOVE_ITEM LLD_SYMLINKS_TO_CREATE ${link})
+  endforeach()
+endif(INTEL_CUSTOMIZATION)
 
 foreach(link ${LLD_SYMLINKS_TO_CREATE})
   add_lld_symlink(${link} lld)

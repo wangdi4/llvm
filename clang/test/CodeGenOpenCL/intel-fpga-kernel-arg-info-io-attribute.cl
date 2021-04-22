@@ -8,6 +8,6 @@ kernel void k1(read_only pipe int p1 __attribute__((io("test1"))),
                __global int* pi) {
 }
 
-// CHECK: define spir_kernel void @k1{{[^!]+}}
+// CHECK: define{{.*}}spir_kernel void @k1{{[^!]+}}
 // CHECK: !kernel_arg_pipe_io ![[MD:[0-9]+]]
 // CHECK: ![[MD]] = !{!"test1", !"test2", !"", !"", !""}

@@ -34,38 +34,39 @@ public:
     return ScaledCost / Multiplier;
   }
 
-  explicit VPlanTTIWrapper(const TargetTransformInfo &TTI) : Impl(TTI) {}
+  explicit VPlanTTIWrapper(const TargetTransformInfo &TTI, const DataLayout &DL)
+      : TTI(TTI), DL(DL) {}
 
   /// Required to pass actual TTI along. Ideally it is not exposed.
-  const TargetTransformInfo &getTTI() { return Impl; }
+  const TargetTransformInfo &getTTI() const { return TTI; }
 
   /// TTI methods.
   /// Only the methods required by VPlan Cost Model are listed here.
 
   unsigned getNumberOfRegisters(unsigned ClassID) const {
-    return Impl.getNumberOfRegisters(ClassID);
+    return TTI.getNumberOfRegisters(ClassID);
   }
   unsigned getRegisterClassForType(bool Vector, Type *Ty = nullptr) const {
-    return Impl.getRegisterClassForType(Vector, Ty);
+    return TTI.getRegisterClassForType(Vector, Ty);
   }
-  unsigned getRegisterBitWidth(bool Vector) const {
-    return Impl.getRegisterBitWidth(Vector);
+  unsigned getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const {
+    return TTI.getRegisterBitWidth(K).getFixedSize();
   }
-  unsigned getCacheLineSize() const { return Impl.getCacheLineSize(); }
+  unsigned getCacheLineSize() const { return TTI.getCacheLineSize(); }
   Optional<unsigned> getCacheSize(TargetTransformInfo::CacheLevel Level) const {
-    return Impl.getCacheSize(Level);
+    return TTI.getCacheSize(Level);
   }
   bool isLegalMaskedStore(Type *DataType, Align Alignment) const {
-    return Impl.isLegalMaskedStore(DataType, Alignment);
+    return TTI.isLegalMaskedStore(DataType, Alignment);
   }
   bool isLegalMaskedLoad(Type *DataType, Align Alignment) const {
-    return Impl.isLegalMaskedLoad(DataType, Alignment);
+    return TTI.isLegalMaskedLoad(DataType, Alignment);
   }
   bool isLegalMaskedScatter(Type *DataType, Align Alignment) const {
-    return Impl.isLegalMaskedScatter(DataType, Alignment);
+    return TTI.isLegalMaskedScatter(DataType, Alignment);
   }
   bool isLegalMaskedGather(Type *DataType, Align Alignment) const {
-    return Impl.isLegalMaskedGather(DataType, Alignment);
+    return TTI.isLegalMaskedGather(DataType, Alignment);
   }
   unsigned getArithmeticInstrCost(
       unsigned Opcode, Type *Ty,
@@ -77,54 +78,50 @@ public:
       ArrayRef<const Value *> Args = ArrayRef<const Value *>(),
       const Instruction *CxtI = nullptr) const {
     return Multiplier *
-           Impl.getArithmeticInstrCost(Opcode, Ty, CostKind, Opd1Info, Opd2Info,
-                                       Opd1PropInfo, Opd2PropInfo, Args, CxtI);
+           TTI.getArithmeticInstrCost(Opcode, Ty, CostKind, Opd1Info, Opd2Info,
+                                      Opd1PropInfo, Opd2PropInfo, Args, CxtI);
   }
   int getShuffleCost(TargetTransformInfo::ShuffleKind Kind, VectorType *Tp,
                      int Index = 0, VectorType *SubTp = nullptr) const {
-    return Multiplier * Impl.getShuffleCost(Kind, Tp, Index, SubTp);
+    return Multiplier * TTI.getShuffleCost(Kind, Tp, llvm::None, Index, SubTp);
   }
   int getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
                        TTI::CastContextHint CCH,
                        TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
                        const Instruction *I = nullptr) const {
     return Multiplier *
-           Impl.getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
+           TTI.getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
   }
-
   int getCmpSelInstrCost(
       unsigned Opcode, Type *ValTy, Type *CondTy = nullptr,
       CmpInst::Predicate VecPred = CmpInst::BAD_ICMP_PREDICATE,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       const Instruction *I = nullptr) const {
     return Multiplier *
-           Impl.getCmpSelInstrCost(Opcode, ValTy, CondTy, VecPred, CostKind, I);
+           TTI.getCmpSelInstrCost(Opcode, ValTy, CondTy, VecPred, CostKind, I);
   }
 
   int getVectorInstrCost(unsigned Opcode, Type *Val,
                          unsigned Index = -1) const {
-    return Multiplier * Impl.getVectorInstrCost(Opcode, Val, Index);
+    return Multiplier * TTI.getVectorInstrCost(Opcode, Val, Index);
   }
   int getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                       unsigned AddressSpace,
                       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
-                      const Instruction *I = nullptr) const {
-    return Multiplier * Impl.getMemoryOpCost(Opcode, Src, Alignment,
-                                             AddressSpace, CostKind, I);
-  }
+                      const Instruction *I = nullptr) const;
   int getMaskedMemoryOpCost(
       unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput) const {
-    return Multiplier * Impl.getMaskedMemoryOpCost(Opcode, Src, Alignment,
-                                                   AddressSpace, CostKind);
+    return Multiplier * TTI.getMaskedMemoryOpCost(Opcode, Src, Alignment,
+                                                  AddressSpace, CostKind);
   }
   int getGatherScatterOpCost(
       unsigned Opcode, Type *DataTy, const Value *Ptr, bool VariableMask,
       Align Alignment, TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       const Instruction *I = nullptr) const {
-    return Multiplier * Impl.getGatherScatterOpCost(Opcode, DataTy, Ptr,
-                                                    VariableMask, Alignment,
-                                                    CostKind, I);
+    return Multiplier * TTI.getGatherScatterOpCost(Opcode, DataTy, Ptr,
+                                                   VariableMask, Alignment,
+                                                   CostKind, I);
   }
 #if INTEL_CUSTOMIZATION
   int getGatherScatterOpCost(
@@ -132,32 +129,47 @@ public:
       unsigned Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       const Instruction *I = nullptr) const {
-    return Multiplier * Impl.getGatherScatterOpCost(Opcode, DataTy, IndexSize,
-                                                    VariableMask, Alignment,
-                                                    AddressSpace, CostKind, I);
+    return Multiplier * TTI.getGatherScatterOpCost(Opcode, DataTy, IndexSize,
+                                                   VariableMask, Alignment,
+                                                   AddressSpace, CostKind, I);
+  }
+  int getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy, unsigned Factor,
+                                 ArrayRef<unsigned> Indices, Align Alignment,
+                                 unsigned AddressSpace,
+                                 TTI::TargetCostKind CostKind,
+                                 bool UseMaskForCond,
+                                 bool UseMaskForGaps) const {
+    return Multiplier *
+           TTI.getInterleavedMemoryOpCost(Opcode, VecTy, Factor, Indices,
+                                          Alignment, AddressSpace, CostKind,
+                                          UseMaskForCond, UseMaskForGaps);
   }
 #endif // INTEL_CUSTOMIZATION
   int getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
                             TTI::TargetCostKind CostKind) const {
-    return Multiplier * Impl.getIntrinsicInstrCost(ICA, CostKind);
+    return Multiplier * *TTI.getIntrinsicInstrCost(ICA, CostKind).getValue();
   }
-  unsigned getNumberOfParts(Type *Tp) const {
-    return Impl.getNumberOfParts(Tp);
-  }
+  unsigned getNumberOfParts(Type *Tp) const { return TTI.getNumberOfParts(Tp); }
 #if INTEL_CUSTOMIZATION
-  bool isVPlanVLSProfitable() const { return Impl.isVPlanVLSProfitable(); }
+  bool isVPlanVLSProfitable() const { return TTI.isVPlanVLSProfitable(); }
 
   bool isAggressiveVLSProfitable() const {
-    return Impl.isAggressiveVLSProfitable();
+    return TTI.isAggressiveVLSProfitable();
   }
 
 #endif // INTEL_CUSTOMIZATION
   unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const {
-    return Impl.getLoadStoreVecRegBitWidth(AddrSpace);
+    return TTI.getLoadStoreVecRegBitWidth(AddrSpace);
   }
 
 protected:
-  const TargetTransformInfo &Impl;
+  const TargetTransformInfo &TTI;
+  const DataLayout &DL;
+
+protected:
+  // Determine cost adjustment for a memref with specific Alignment.
+  int getNonMaskedMemOpCostAdj(unsigned Opcode, Type *Src,
+                                Align Alignment) const;
 };
 
 } // namespace vpo

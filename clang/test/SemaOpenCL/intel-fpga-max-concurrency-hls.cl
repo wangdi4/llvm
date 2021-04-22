@@ -8,6 +8,7 @@ void __attribute((max_concurrency(4))) foo1()
 // CHECK: FunctionDecl{{.*}}foo1
 // CHECK: MaxConcurrencyAttr
 // CHECK-NEXT: ConstantExpr
+// CHECK-NEXT: value: Int 4
 // CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 
 void __attribute((max_concurrency(0))) foo2()
@@ -17,6 +18,7 @@ void __attribute((max_concurrency(0))) foo2()
 // CHECK: FunctionDecl{{.*}}foo2
 // CHECK: MaxConcurrencyAttr
 // CHECK-NEXT: ConstantExpr
+// CHECK-NEXT: value: Int 0
 // CHECK-NEXT: IntegerLiteral{{.*}}0{{$}}
 
 //expected-error@+1{{requires integer constant between 0 and 1048576}}

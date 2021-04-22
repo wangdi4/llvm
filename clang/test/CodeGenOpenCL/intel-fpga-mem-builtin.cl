@@ -12,7 +12,7 @@ struct State {
 // CHECK: [[ANN1:@.str[\.]*[0-9]*]] = {{.*}}{params:384}{cache-size:0}
 // CHECK: [[ANN2:@.str[\.]*[0-9]*]] = {{.*}}{params:384}{cache-size:127}
 
-// CHECK: define spir_func void @foo(float addrspace(1)* %A, i32 addrspace(1)* %B, %struct.State addrspace(1)* %C, i128 addrspace(1)* %D)
+// CHECK: define{{.*}}spir_func void @foo(float addrspace(1)* %A, i32 addrspace(1)* %B, %struct.State addrspace(1)* %C, i128 addrspace(1)* %D)
 void foo(global float *A, global int *B, global struct State *C, global long long *D) {
   global float *x;
   global int *y;

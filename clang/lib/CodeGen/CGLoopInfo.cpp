@@ -219,7 +219,8 @@ LoopInfo::createLoopVectorizeMetadata(const LoopAttributes &Attrs,
     Enabled = false;
   else if (Attrs.VectorizeEnable != LoopAttributes::Unspecified ||
            Attrs.VectorizePredicateEnable != LoopAttributes::Unspecified ||
-           Attrs.InterleaveCount != 0 || Attrs.VectorizeWidth != 0)
+           Attrs.InterleaveCount != 0 || Attrs.VectorizeWidth != 0 ||
+           Attrs.VectorizeScalable != LoopAttributes::Unspecified)
     Enabled = true;
 
   if (Enabled != true) {
@@ -251,12 +252,10 @@ LoopInfo::createLoopVectorizeMetadata(const LoopAttributes &Attrs,
   Args.push_back(nullptr);
   Args.append(LoopProperties.begin(), LoopProperties.end());
 
-  // Setting vectorize.predicate
+  // Setting vectorize.predicate when it has been specified and vectorization
+  // has not been disabled.
   bool IsVectorPredicateEnabled = false;
-  if (Attrs.VectorizePredicateEnable != LoopAttributes::Unspecified &&
-      Attrs.VectorizeEnable != LoopAttributes::Disable &&
-      Attrs.VectorizeWidth < 1) {
-
+  if (Attrs.VectorizePredicateEnable != LoopAttributes::Unspecified) {
     IsVectorPredicateEnabled =
         (Attrs.VectorizePredicateEnable == LoopAttributes::Enable);
 
@@ -273,6 +272,16 @@ LoopInfo::createLoopVectorizeMetadata(const LoopAttributes &Attrs,
         MDString::get(Ctx, "llvm.loop.vectorize.width"),
         ConstantAsMetadata::get(ConstantInt::get(llvm::Type::getInt32Ty(Ctx),
                                                  Attrs.VectorizeWidth))};
+
+    Args.push_back(MDNode::get(Ctx, Vals));
+  }
+
+  if (Attrs.VectorizeScalable != LoopAttributes::Unspecified) {
+    bool IsScalable = Attrs.VectorizeScalable == LoopAttributes::Enable;
+    Metadata *Vals[] = {
+        MDString::get(Ctx, "llvm.loop.vectorize.scalable.enable"),
+        ConstantAsMetadata::get(
+            ConstantInt::get(llvm::Type::getInt1Ty(Ctx), IsScalable))};
     Args.push_back(MDNode::get(Ctx, Vals));
   }
 
@@ -288,10 +297,17 @@ LoopInfo::createLoopVectorizeMetadata(const LoopAttributes &Attrs,
   // vectorize.enable is set if:
   // 1) loop hint vectorize.enable is set, or
   // 2) it is implied when vectorize.predicate is set, or
-  // 3) it is implied when vectorize.width is set.
+  // 3) it is implied when vectorize.width is set to a value > 1
+  // 4) it is implied when vectorize.scalable.enable is true
+  // 5) it is implied when vectorize.width is unset (0) and the user
+  //    explicitly requested fixed-width vectorization, i.e.
+  //    vectorize.scalable.enable is false.
   if (Attrs.VectorizeEnable != LoopAttributes::Unspecified ||
-      IsVectorPredicateEnabled ||
-      Attrs.VectorizeWidth > 1 ) {
+      (IsVectorPredicateEnabled && Attrs.VectorizeWidth != 1) ||
+      Attrs.VectorizeWidth > 1 ||
+      Attrs.VectorizeScalable == LoopAttributes::Enable ||
+      (Attrs.VectorizeScalable == LoopAttributes::Disable &&
+       Attrs.VectorizeWidth != 1)) {
     bool AttrVal = Attrs.VectorizeEnable != LoopAttributes::Disable;
     Args.push_back(
         MDNode::get(Ctx, {MDString::get(Ctx, "llvm.loop.vectorize.enable"),
@@ -597,6 +613,20 @@ MDNode *LoopInfo::createMetadata(
     Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.vector.aligned")};
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
+  if (Attrs.VectorizeDynamicAlignEnable) {
+    LLVMContext &Ctx = Header->getContext();
+    llvm::SmallVector<llvm::Metadata *, 4> Vals;
+    Vals.push_back(MDString::get(Ctx, "llvm.loop.intel.vector.dynamic_align"));
+    Vals.push_back(MDString::get(Ctx, "true"));
+    LoopProperties.push_back(MDNode::get(Ctx, Vals));
+  }
+  if (Attrs.VectorizeNoDynamicAlignEnable) {
+    LLVMContext &Ctx = Header->getContext();
+    llvm::SmallVector<llvm::Metadata *, 4> Vals;
+    Vals.push_back(MDString::get(Ctx, "llvm.loop.intel.vector.nodynamic_align"));
+    Vals.push_back(MDString::get(Ctx, "true"));
+    LoopProperties.push_back(MDNode::get(Ctx, Vals));
+  }
   // Setting loop_count count
   if (Attrs.LoopCount.size() > 0) {
     LLVMContext &Ctx = Header->getContext();
@@ -723,13 +753,16 @@ LoopAttributes::LoopAttributes(bool IsParallel)
       ForceHyperoptEnable(LoopAttributes::Unspecified),
       FusionEnable(LoopAttributes::Unspecified), IVDepLoop(false),
       IVDepBack(false), VectorizeAlwaysEnable(false),
-      VectorizeAlignedEnable(false), LoopCountMin(0), LoopCountMax(0),
+      VectorizeAlignedEnable(false), VectorizeDynamicAlignEnable(false),
+      VectorizeNoDynamicAlignEnable(false),
+      LoopCountMin(0), LoopCountMax(0),
       LoopCountAvg(0),
 #endif // INTEL_CUSTOMIZATION
       UnrollEnable(LoopAttributes::Unspecified),
       UnrollAndJamEnable(LoopAttributes::Unspecified),
       VectorizePredicateEnable(LoopAttributes::Unspecified), VectorizeWidth(0),
-      InterleaveCount(0), SYCLIInterval(0), SYCLMaxConcurrencyEnable(false),
+      VectorizeScalable(LoopAttributes::Unspecified), InterleaveCount(0),
+      SYCLIInterval(0), SYCLMaxConcurrencyEnable(false),
       SYCLMaxConcurrencyNThreads(0), SYCLLoopCoalesceEnable(false),
       SYCLLoopCoalesceNLevels(0), SYCLLoopPipeliningDisable(false),
       SYCLMaxInterleavingEnable(false), SYCLMaxInterleavingNInvocations(0),
@@ -755,12 +788,16 @@ void LoopAttributes::clear() {
   IVDepBack = false;
   VectorizeAlwaysEnable = false;
   VectorizeAlignedEnable = false;
+  VectorizeDynamicAlignEnable = false;
+  VectorizeNoDynamicAlignEnable = false;
   LoopCount.clear();
   LoopCountMin = 0;
   LoopCountMax = 0;
   LoopCountAvg = 0;
 #endif // INTEL_CUSTOMIZATION
   VectorizeWidth = 0;
+  VectorizeScalable = LoopAttributes::Unspecified;
+  InterleaveCount = 0;
   GlobalSYCLIVDepInfo.reset();
   ArraySYCLIVDepInfo.clear();
   SYCLIInterval = 0;
@@ -773,7 +810,6 @@ void LoopAttributes::clear() {
   SYCLMaxInterleavingNInvocations = 0;
   SYCLSpeculatedIterationsEnable = false;
   SYCLSpeculatedIterationsNIterations = 0;
-  InterleaveCount = 0;
   UnrollCount = 0;
   UnrollAndJamCount = 0;
   VectorizeEnable = LoopAttributes::Unspecified;
@@ -810,10 +846,13 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       Attrs.FusionEnable == LoopAttributes::Unspecified &&
       !Attrs.VectorizeAlwaysEnable && Attrs.LoopCount.size() == 0 &&
       !Attrs.VectorizeAlignedEnable &&
+      !Attrs.VectorizeDynamicAlignEnable &&
+      !Attrs.VectorizeNoDynamicAlignEnable &&
       Attrs.LoopCountMin == 0 && Attrs.LoopCountMax == 0 &&
       Attrs.LoopCountAvg == 0 &&
 #endif // INTEL_CUSTOMIZATION
-      !Attrs.GlobalSYCLIVDepInfo.hasValue() &&
+      Attrs.VectorizeScalable == LoopAttributes::Unspecified &&
+      Attrs.InterleaveCount == 0 && !Attrs.GlobalSYCLIVDepInfo.hasValue() &&
       Attrs.ArraySYCLIVDepInfo.empty() && Attrs.SYCLIInterval == 0 &&
       Attrs.SYCLMaxConcurrencyEnable == false &&
       Attrs.SYCLLoopCoalesceEnable == false &&
@@ -857,6 +896,7 @@ void LoopInfo::finish() {
     BeforeJam.IsParallel = AfterJam.IsParallel = Attrs.IsParallel;
 
     BeforeJam.VectorizeWidth = Attrs.VectorizeWidth;
+    BeforeJam.VectorizeScalable = Attrs.VectorizeScalable;
     BeforeJam.InterleaveCount = Attrs.InterleaveCount;
     BeforeJam.VectorizeEnable = Attrs.VectorizeEnable;
     BeforeJam.DistributeEnable = Attrs.DistributeEnable;
@@ -899,7 +939,8 @@ void LoopInfo::finish() {
       SmallVector<Metadata *, 1> BeforeLoopProperties;
       if (BeforeJam.VectorizeEnable != LoopAttributes::Unspecified ||
           BeforeJam.VectorizePredicateEnable != LoopAttributes::Unspecified ||
-          BeforeJam.InterleaveCount != 0 || BeforeJam.VectorizeWidth != 0)
+          BeforeJam.InterleaveCount != 0 || BeforeJam.VectorizeWidth != 0 ||
+          BeforeJam.VectorizeScalable == LoopAttributes::Enable)
         BeforeLoopProperties.push_back(
             MDNode::get(Ctx, MDString::get(Ctx, "llvm.loop.isvectorized")));
 
@@ -982,6 +1023,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::Vectorize:
         // Disable vectorization by specifying a width of 1.
         setVectorizeWidth(1);
+        setVectorizeScalable(LoopAttributes::Unspecified);
         break;
       case LoopHintAttr::Interleave:
         // Disable interleaving by speciyfing a count of 1.
@@ -1019,6 +1061,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::MinIIAtFmax:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::VectorizeAligned:
+      case LoopHintAttr::VectorizeDynamicAlign:
+      case LoopHintAttr::VectorizeNoDynamicAlign:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMax:
       case LoopHintAttr::LoopCountMin:
@@ -1083,6 +1127,12 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeAligned:
         setVectorizeAlignedEnable();
         break;
+      case LoopHintAttr::VectorizeDynamicAlign:
+        setVectorizeDynamicAlignEnable();
+        break;
+      case LoopHintAttr::VectorizeNoDynamicAlign:
+        setVectorizeNoDynamicAlignEnable();
+        break;
       case LoopHintAttr::IIAtMost:
       case LoopHintAttr::IIAtLeast:
       case LoopHintAttr::LoopCount:
@@ -1121,6 +1171,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::Fusion:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::VectorizeAligned:
+      case LoopHintAttr::VectorizeDynamicAlign:
+      case LoopHintAttr::VectorizeNoDynamicAlign:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMin:
       case LoopHintAttr::LoopCountMax:
@@ -1163,6 +1215,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::VectorizeAligned:
+      case LoopHintAttr::VectorizeDynamicAlign:
+      case LoopHintAttr::VectorizeNoDynamicAlign:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMin:
       case LoopHintAttr::LoopCountMax:
@@ -1182,11 +1236,23 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
         break;
       }
       break;
-    case LoopHintAttr::Numeric:
+    case LoopHintAttr::FixedWidth:
+    case LoopHintAttr::ScalableWidth:
       switch (Option) {
       case LoopHintAttr::VectorizeWidth:
-        setVectorizeWidth(ValueInt);
+        setVectorizeScalable(State == LoopHintAttr::ScalableWidth
+                                 ? LoopAttributes::Enable
+                                 : LoopAttributes::Disable);
+        if (LH->getValue())
+          setVectorizeWidth(ValueInt);
         break;
+      default:
+        llvm_unreachable("Options cannot be used with 'scalable' hint.");
+        break;
+      }
+      break;
+    case LoopHintAttr::Numeric:
+      switch (Option) {
       case LoopHintAttr::InterleaveCount:
         setInterleaveCount(ValueInt);
         break;
@@ -1230,11 +1296,14 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::VectorizeAligned:
+      case LoopHintAttr::VectorizeDynamicAlign:
+      case LoopHintAttr::VectorizeNoDynamicAlign:
 #endif // INTEL_CUSTOMIZATION
       case LoopHintAttr::Unroll:
       case LoopHintAttr::UnrollAndJam:
       case LoopHintAttr::VectorizePredicate:
       case LoopHintAttr::Vectorize:
+      case LoopHintAttr::VectorizeWidth:
       case LoopHintAttr::Interleave:
       case LoopHintAttr::Distribute:
       case LoopHintAttr::PipelineDisabled:
@@ -1269,6 +1338,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLSIntel:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::VectorizeAligned:
+      case LoopHintAttr::VectorizeDynamicAlign:
+      case LoopHintAttr::VectorizeNoDynamicAlign:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMax:
       case LoopHintAttr::LoopCountMin:
@@ -1307,49 +1378,27 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
   // emitted
   // For attribute nofusion:
   // 'llvm.loop.fusion.disable' metadata will be emitted
-  for (const auto *Attr : Attrs) {
-    const SYCLIntelFPGAIVDepAttr *IntelFPGAIVDep =
-      dyn_cast<SYCLIntelFPGAIVDepAttr>(Attr);
-    const SYCLIntelFPGAIIAttr *IntelFPGAII =
-      dyn_cast<SYCLIntelFPGAIIAttr>(Attr);
-    const SYCLIntelFPGAMaxConcurrencyAttr *IntelFPGAMaxConcurrency =
-      dyn_cast<SYCLIntelFPGAMaxConcurrencyAttr>(Attr);
-
-    const SYCLIntelFPGALoopCoalesceAttr *IntelFPGALoopCoalesce =
-        dyn_cast<SYCLIntelFPGALoopCoalesceAttr>(Attr);
-    const SYCLIntelFPGADisableLoopPipeliningAttr
-        *IntelFPGADisableLoopPipelining =
-            dyn_cast<SYCLIntelFPGADisableLoopPipeliningAttr>(Attr);
-    const SYCLIntelFPGAMaxInterleavingAttr *IntelFPGAMaxInterleaving =
-        dyn_cast<SYCLIntelFPGAMaxInterleavingAttr>(Attr);
-    const SYCLIntelFPGASpeculatedIterationsAttr *IntelFPGASpeculatedIterations =
-        dyn_cast<SYCLIntelFPGASpeculatedIterationsAttr>(Attr);
-    const SYCLIntelFPGANofusionAttr *IntelFPGANofusion =
-        dyn_cast<SYCLIntelFPGANofusionAttr>(Attr);
-
-    if (!IntelFPGAIVDep && !IntelFPGAII && !IntelFPGAMaxConcurrency &&
-        !IntelFPGALoopCoalesce && !IntelFPGADisableLoopPipelining &&
-        !IntelFPGAMaxInterleaving && !IntelFPGASpeculatedIterations &&
-        !IntelFPGANofusion)
-      continue;
-
-    if (IntelFPGAIVDep)
+  for (const auto *A : Attrs) {
+    if (const auto *IntelFPGAIVDep = dyn_cast<SYCLIntelFPGAIVDepAttr>(A))
       addSYCLIVDepInfo(Header->getContext(), IntelFPGAIVDep->getSafelenValue(),
                        IntelFPGAIVDep->getArrayDecl());
 
-    if (IntelFPGAII)
+    if (const auto *IntelFPGAII =
+            dyn_cast<SYCLIntelFPGAInitiationIntervalAttr>(A))
       setSYCLIInterval(IntelFPGAII->getIntervalExpr()
                            ->getIntegerConstantExpr(Ctx)
                            ->getSExtValue());
 
-    if (IntelFPGAMaxConcurrency) {
+    if (const auto *IntelFPGAMaxConcurrency =
+            dyn_cast<SYCLIntelFPGAMaxConcurrencyAttr>(A)) {
       setSYCLMaxConcurrencyEnable();
       setSYCLMaxConcurrencyNThreads(IntelFPGAMaxConcurrency->getNThreadsExpr()
                                         ->getIntegerConstantExpr(Ctx)
                                         ->getSExtValue());
     }
 
-    if (IntelFPGALoopCoalesce) {
+    if (const auto *IntelFPGALoopCoalesce =
+            dyn_cast<SYCLIntelFPGALoopCoalesceAttr>(A)) {
       if (auto *LCE = IntelFPGALoopCoalesce->getNExpr())
         setSYCLLoopCoalesceNLevels(
             LCE->getIntegerConstantExpr(Ctx)->getSExtValue());
@@ -1357,18 +1406,19 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
         setSYCLLoopCoalesceEnable();
     }
 
-    if (IntelFPGADisableLoopPipelining) {
+    if (isa<SYCLIntelFPGADisableLoopPipeliningAttr>(A))
       setSYCLLoopPipeliningDisable();
-    }
 
-    if (IntelFPGAMaxInterleaving) {
+    if (const auto *IntelFPGAMaxInterleaving =
+            dyn_cast<SYCLIntelFPGAMaxInterleavingAttr>(A)) {
       setSYCLMaxInterleavingEnable();
       setSYCLMaxInterleavingNInvocations(IntelFPGAMaxInterleaving->getNExpr()
                                              ->getIntegerConstantExpr(Ctx)
                                              ->getSExtValue());
     }
 
-    if (IntelFPGASpeculatedIterations) {
+    if (const auto *IntelFPGASpeculatedIterations =
+            dyn_cast<SYCLIntelFPGASpeculatedIterationsAttr>(A)) {
       setSYCLSpeculatedIterationsEnable();
       setSYCLSpeculatedIterationsNIterations(
           IntelFPGASpeculatedIterations->getNExpr()
@@ -1376,7 +1426,7 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
               ->getSExtValue());
     }
 
-    if (IntelFPGANofusion)
+    if (isa<SYCLIntelFPGANofusionAttr>(A))
       setSYCLNofusionEnable();
   }
 

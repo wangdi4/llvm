@@ -75,9 +75,13 @@
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-INTEL-FINITE-MATH-ONLY
 // CHECK-INTEL-FINITE-MATH-ONLY: #define __FINITE_MATH_ONLY__ 0
 //
-// RUN: %clang_cc1 %s -E -dM -ffinite-math-only -fsycl -o - \
-// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-INTEL-FINITE-MATH-ONLY-SYCL
-// CHECK-INTEL-FINITE-MATH-ONLY-SYCL: #define __FINITE_MATH_ONLY__ 0
+// RUN: %clang_cc1 %s -E -dM -ffinite-math-only -fsycl-is-device -o - \
+// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-FINITE-MATH-ONLY-SYCLDEVICE
+// CHECK-FINITE-MATH-ONLY-SYCLDEVICE: #define __FINITE_MATH_ONLY__ 0
+//
+// RUN: %clang_cc1 %s -E -dM -ffinite-math-only -fsycl-is-host -o - \
+// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-FINITE-MATH-ONLY-SYCLHOST
+// CHECK-FINITE-MATH-ONLY-SYCLHOST: #define __FINITE_MATH_ONLY__ 0
 // end INTEL_CUSTOMIZATION
 //
 // RUN: %clang %s -E -dM -fno-finite-math-only -o - \
@@ -219,9 +223,15 @@
 // RUN: %clang_cc1 %s -E -dM -o - -x cl -triple spir-unknown-unknown-intelfpga \
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-INTEL-FPGA
 // CHECK-INTEL-FPGA-NOT: #define __IMAGE_SUPPORT__ 1
-// RUN: %clang_cc1 %s -E -dM -fsycl -o - -triple spir64\
+// RUN: %clang_cc1 %s -E -dM -fsycl-is-device -o - -triple spir64\
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-FSYCL
 // CHECK-FSYCL: #define __INTEL_DPCPP_COMPILER__ 1
+// RUN: %clang_cc1 %s -E -dM -fsycl-is-device -o - -triple spir64\
+// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-FSYCLDEVICE
+// CHECK-FSYCLDEVICE: #define __INTEL_DPCPP_COMPILER__ 1
+// RUN: %clang_cc1 %s -E -dM -fsycl-is-host -o - -triple x86_64-pc-linux-gnu\
+// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-FSYCLHOST
+// CHECK-FSYCLHOST: #define __INTEL_DPCPP_COMPILER__ 1
 // RUN: %clang_cc1 %s -E -dM -o - -triple spir64\
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-NO-FSYCL
 // CHECK-NO-FSYCL-NOT: #define __INTEL_DPCPP_COMPILER__ 1
@@ -241,3 +251,16 @@
 // CHECK-HIP-DEV: #define __HIPCC__ 1
 // CHECK-HIP-DEV: #define __HIP_DEVICE_COMPILE__ 1
 // CHECK-HIP-DEV: #define __HIP__ 1
+
+// RUN: %clang_cc1 %s -E -dM -fsycl-is-device \
+// RUN:   -triple spir64_fpga-unknown-unknown-sycldevice -o - \
+// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-RANGE
+// CHECK-RANGE: #define __SYCL_DISABLE_PARALLEL_FOR_RANGE_ROUNDING__ 1
+
+// RUN: %clang_cc1 %s -E -dM -fsycl-is-device -o - \
+// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-NO-RANGE
+
+// RUN: %clang_cc1 %s -E -dM -o - \
+// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-NO-RANGE
+
+// CHECK-NO-RANGE-NOT: #define __SYCL_DISABLE_PARALLEL_FOR_RANGE_ROUNDING__ 1

@@ -218,11 +218,10 @@ with the pointer operand %tmp2 (%p2). In this case, both %struct.A and
     ret void store i8* %tmp1, i8** %tmp2
   }
 
-FieldAddressTaken
+FieldAddressTakenMemory
 ~~~~~~~~~~~~~~~~~
 This indicates that the addresses of one or more fields within the type were
-either written to memory, passed to a function call or returned by a
-function.
+written to memory.
 
 GlobalPtr
 ~~~~~~~~~
@@ -451,6 +450,17 @@ a structure definition may not be able to simply adjust the allocation size
 with the following formula when this flag is set.
   byte_count = old_byte_count * new_struct_size / old_struct_size
 
+FieldAddressTakenCall
+~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is used when the address of a field is passed as an argument
+to a callsite.
+
+FieldAddressTakenReturn
+~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is used when the address of a field is returned by a function.
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we
@@ -588,7 +598,7 @@ If the called function is an unknown externally defined function and any of the
 arguments is a pointer to an aggregate type, that type is marked with the
 `AddressTaken`_ safety condition, and if any of the arguments is a pointer to
 an element within a structure then that structure is marked with the
-`FieldAddressTaken`_ safety condition.
+`FieldAddressTakenCall`_ safety condition.
 
 If the called function is a locally defined function, its arguments are handled
 as described above for external functions except that arguments which point
@@ -839,7 +849,7 @@ pointer operand is known to alias some other type of interest, that type will
 also receive the UnsafePointerStore safety condition.
 
 If the value operand is known to point to an element within an aggregate type,
-the `FieldAddressTaken`_ safety condition will be set for the parent type.
+the `FieldAddressTakenMemory`_ safety condition will be set for the parent type.
 
 
 PHI Nodes
@@ -888,7 +898,7 @@ address is returned will be marked with the `AddressTaken`_ safety condition.
 
 If the returned value is known to be the address of an element within an
 aggregate object, the type of the object containing the element will be
-marked with the `FieldAddressTaken`_ safety condition.
+marked with the `FieldAddressTakenReturn`_ safety condition.
 
 In the uncommon case where an instance of an aggregate is returned the type
 of the aggregate will be marked with the `WholeStructureReference`_

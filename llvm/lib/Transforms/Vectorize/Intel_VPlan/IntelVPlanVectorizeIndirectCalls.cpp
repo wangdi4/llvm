@@ -102,6 +102,8 @@ bool IndirectCallCodeGenerator::vectorize(VPCallInstruction *VPCallInst) {
          "Intel indirect call is expected.");
   OrigCall = VPCallInst->getOriginalCall();
 
+  assert(OrigCall && "OriginalCall is expected.");
+
   // Check if there is a matched vector vaariant.
   VectorVariant *MatchedVecVariant =
       const_cast<VectorVariant *>(VPCallInst->getVectorVariant());
@@ -138,7 +140,8 @@ IndirectCallCodeGenerator::generateIndirectCall(VPCallInstruction *VPCallInst,
 
   Value *VariantGep =
       State->Builder.CreateConstGEP1_32(BitCast, MatchedVecVariantIdx);
-  LoadInst *LoadVariant = State->Builder.CreateLoad(VariantGep);
+  LoadInst *LoadVariant =
+      State->Builder.CreateLoad(VecFuncTy->getPointerTo(AS), VariantGep);
 
   FunctionCallee VariantCallee(VecFuncTy, LoadVariant);
   CallInst *VariantCall = State->Builder.CreateCall(VariantCallee, CallArgs);
@@ -176,13 +179,10 @@ void IndirectCallCodeGenerator::generateCodeForNonUniformIndirectCall(
   NextBB = CurrentBB->getNextNode();
   IndirectCallLoopEntryBB = BasicBlock::Create(
       *Plan->getLLVMContext(), "indirect.call.loop.entry", CurFunc, NextBB);
-  CurVectorizedLoop->addBasicBlockToLoop(IndirectCallLoopEntryBB, *LI);
   VectorIndirectCallBB = BasicBlock::Create(
       *Plan->getLLVMContext(), "vector.indirect.call", CurFunc, NextBB);
-  CurVectorizedLoop->addBasicBlockToLoop(VectorIndirectCallBB, *LI);
   IndirectCallLoopLatchBB = BasicBlock::Create(
       *Plan->getLLVMContext(), "indirect.call.loop.latch", CurFunc, NextBB);
-  CurVectorizedLoop->addBasicBlockToLoop(IndirectCallLoopLatchBB, *LI);
   IndirectCallLoopExitBB = BasicBlock::Create(
       *Plan->getLLVMContext(), "indirect.call.loop.exit", CurFunc, NextBB);
 
@@ -258,28 +258,21 @@ void IndirectCallCodeGenerator::fillVectorIndirectCallBB(
   if (IsMasked)
     FinalMask = State->Builder.CreateAnd(FuncPtrMask, MaskValue, "final_mask");
 
-  // The function pointer mask should be added in indirect call's arguments.
-  Value *VecMask = State->Builder.CreateSExt(
-      FuncPtrMask, VectorType::get(VPCallInst->getType(), EC),
-      "vector_func_ptr_mask");
-  // If the loop has a mask (MaskValue), then this mask will have already been
+  VectorVariant *MatchedVariant =
+      const_cast<VectorVariant *>(VPCallInst->getVectorVariant());
+  assert(MatchedVariant && "Unexpected null matched vector variant");
+
+  // If matched vector variant has a mask, then this mask will have already been
   // added in indirect call's arguments by vectorizeCallArgs. Thus, we have to
-  // retrieve it from the arguments list, blend it with the function pointer
-  // mask and push it back to the arguments list.
-  if (IsMasked) {
-    Value *LoopMask = CallArgs.back();
+  // pop it out from the arguments list.
+  if (MatchedVariant->isMasked()) {
     CallArgs.pop_back();
-    Type *LoopMaskTy = CallArgsTy.back();
     CallArgsTy.pop_back();
-    if (VecMask->getType() != LoopMaskTy)
-      VecMask = State->Builder.CreateBitCast(VecMask, LoopMask->getType(),
-                                             "mask_cast");
-    VecMask = State->Builder.CreateAnd(VecMask, LoopMask, "and_masks");
-    assert(VecMask->getType() == LoopMaskTy &&
-           "The merged mask should have the same type as the loop mask!");
   }
-  CallArgs.push_back(VecMask);
-  CallArgsTy.push_back(VecMask->getType());
+
+  CodeGen->createVectorMaskArg(VPCallInst, MatchedVariant, CallArgs, CallArgsTy,
+                               VF, FinalMask);
+
   // Generate the call to the vectorized version of the function pointer.
   Value *IndirectCallReturn = generateIndirectCall(VPCallInst, CurrentFPtr);
   // Blend the return value of the current function pointer in a vector.
@@ -347,6 +340,5 @@ void IndirectCallCodeGenerator::fillIndirectCallLoopExitBB(
   CodeGen->addToWidenMap(VPCallInst, IndirectCallReturnLCSSAPhi);
   UnreachableInst *Terminator = State->Builder.CreateUnreachable();
   State->Builder.SetInsertPoint(Terminator);
-  CurVectorizedLoop->addBasicBlockToLoop(IndirectCallLoopExitBB, *LI);
   State->CFG.PrevBB = IndirectCallLoopExitBB;
 }

@@ -23,8 +23,7 @@
 namespace llvm {
 
 // Helper class to store the information collected for each symbol during
-// whole program read analysis. This class is used for debugging.
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// whole program read analysis.
 class WholeProgramReadSymbol {
 private:
 
@@ -50,6 +49,9 @@ public:
   // Symbol was resolved by the linker
   static const unsigned AttrResolved = 1 << 2;
 
+  // Symbol was set as dynamic exported by the linker
+  static const unsigned AttrExportDynamic = 1 << 3;
+
   // Return the symbol's name
   StringRef getName() { return SymbolName; }
 
@@ -61,8 +63,10 @@ public:
 
   // Return true if the symbol was resolved by the linker
   bool isResolvedByLinker() { return Attributes & AttrResolved; }
+
+  // Return true if the symbol was set as dynamic exported by the linker
+  bool isExportDynamic() { return Attributes & AttrExportDynamic; }
 }; // WholeProgramReadSymbol
-#endif // NDEBUG || LLVM_ENABLE_DUMP
 
 class WholeProgramUtils {
 private:
@@ -75,11 +79,8 @@ private:
   // linked modules or dynamic libraries.
   bool WholeProgramRead = false;
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // SetVector used to store the symbols resolution found by the linker.
-  // This information wll be used for debugging.
   std::vector<WholeProgramReadSymbol> SymbolsVector;
-#endif // NDEBUG || LLVM_ENABLE_DUMP
 
   SmallVector<StringRef, 6> MainNames = { "main", "MAIN__", "wmain", "WinMain",
       "wWinMain", "DllMain" };
@@ -107,6 +108,8 @@ public:
   // else return false.
   bool isMainEntryPoint(llvm::StringRef GlobName);
 
+  auto &getSymbolsResolution() const { return SymbolsVector; }
+
   // Return the possible names that "main" can have.
   // NOTE: we don't return the Function* that points to "main" from here.
   // The issue is that this utility file is used across multiple applications
@@ -115,10 +118,10 @@ public:
   // WholeProgramInfo::getMainFunction.
   SmallVector<StringRef, 6> getMainNames() { return MainNames; }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Insert a new symbol in the SymbolsVector
   void AddSymbolResolution(llvm::StringRef SymbolName, unsigned Attributes);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Print the symbol resultion
   void PrintSymbolsResolution();
 #endif // NDEBUG || LLVM_ENABLE_DUMP

@@ -107,7 +107,7 @@ public:
   void setVPLoopInfo(const VPLoopInfo *VPLI) { VPLInfo = VPLI; }
 
   /// Verify CFG externals, VPLoopInfo, VPLoop and number of loops in loop nest
-  void verifyLoops(const VPlan *Plan, const VPDominatorTree &VPDomTree,
+  void verifyLoops(const VPlanVector *Plan, const VPDominatorTree &VPDomTree,
                    VPLoopInfo *VPLInfo);
 };
 } // namespace vpo

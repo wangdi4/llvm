@@ -1,22 +1,21 @@
 ; Test to verify that VPlan HIR vectorizer codegen does not bail out for loops
-; containing unconditional liveouts and calls to ignored functions. CG ignores
-; calls to functions like the lifetime intrinsics and hence mixed CG path can
-; be enabled for such cases trivially.
-; NOTE : This test shows a workaround added to bridge deficiencies between
-; VPValue-CG and mixed-CG. It should be removed when VPValue-based CG is updated
-; to handle liveouts.
+; containing unconditional liveouts and calls to ignored functions.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vplan-force-vf=4 -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+
 
 define float @foo1(float* nocapture %a, float %const, i64* %lt.arg) {
 ; CHECK:          BEGIN REGION { modified }
 ; CHECK-NEXT:           + DO i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
-; CHECK-NEXT:           |   %.vec = (<4 x float>*)(%a)[i1];
-; CHECK-NEXT:           |   %add.vec = %.vec  +  %const;
-; CHECK-NEXT:           |   (<4 x float>*)(%a)[i1] = %add.vec;
+; CHECK-NEXT:           |   %.vec = bitcast.<4 x i64*>.<4 x i8*>(%lt.arg);
+; CHECK-NEXT:           |   %.vec2 = (<4 x float>*)(%a)[i1];
+; CHECK-NEXT:           |   %.vec3 = %.vec2  +  %const;
+; CHECK-NEXT:           |   (<4 x float>*)(%a)[i1] = %.vec3;
+; CHECK-NEXT:           |   %.vec4 = bitcast.<4 x i64*>.<4 x i8*>(%lt.arg);
 ; CHECK-NEXT:           + END LOOP
 
-; CHECK:                %0 = extractelement %.vec,  3;
+; CHECK:                %0 = extractelement %.vec2,  3;
 ; CHECK-NEXT:           ret %0;
 ; CHECK-NEXT:     END REGION
 

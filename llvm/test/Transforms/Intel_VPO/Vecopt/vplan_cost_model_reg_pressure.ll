@@ -22,10 +22,10 @@
 ; penalty for VF < 16 for sse2 target, and no spill/fill penalty even for VF = 16
 ; for avx2 target.
 
-; CHECK-VF16-SSE2: spill/fill cost
-; CHECK-VF8-SSE2-NOT: spill/fill cost
-; CHECK-VF16-AVX2-NOT: spill/fill cost
-; CHECK-VF8-AVX2-NOT: spill/fill cost
+; CHECK-VF16-SSE2: Extra cost due to Spill/Fill heuristic
+; CHECK-VF8-SSE2-NOT: Extra cost due to Spill/Fill heuristic
+; CHECK-VF16-AVX2-NOT: Extra cost due to Spill/Fill heuristic
+; CHECK-VF8-AVX2-NOT: Extra cost due to Spill/Fill heuristic
 
 @arr.double.1 = external local_unnamed_addr global [1024 x double], align 16
 @arr.double.2 = external local_unnamed_addr global [1024 x double], align 16

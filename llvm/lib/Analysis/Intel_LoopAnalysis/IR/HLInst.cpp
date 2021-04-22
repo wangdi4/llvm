@@ -727,8 +727,10 @@ bool HLInst::isAbs() const {
   return Ret;
 }
 
-Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty) {
-  RecurrenceDescriptor::RecurrenceKind RDKind;
+Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty,
+                                        FastMathFlags FMF, bool IsMin,
+                                        bool IsSigned) {
+  RecurKind RDKind;
 
   assert(isValidReductionOpCode(RednOpCode) &&
          "Expected a valid reduction opcode");
@@ -736,41 +738,44 @@ Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty) {
   switch (RednOpCode) {
   case Instruction::FAdd:
   case Instruction::FSub:
-    RDKind = RecurrenceDescriptor::RK_FloatAdd;
+    RDKind = RecurKind::FAdd;
     break;
 
   case Instruction::Add:
   case Instruction::Sub:
-    RDKind = RecurrenceDescriptor::RK_IntegerAdd;
+    RDKind = RecurKind::Add;
     break;
 
   case Instruction::FMul:
-    RDKind = RecurrenceDescriptor::RK_FloatMult;
+    RDKind = RecurKind::FMul;
     break;
 
   case Instruction::Mul:
-    RDKind = RecurrenceDescriptor::RK_IntegerMult;
+    RDKind = RecurKind::Mul;
     break;
 
   case Instruction::And:
-    RDKind = RecurrenceDescriptor::RK_IntegerAnd;
+    RDKind = RecurKind::And;
     break;
 
   case Instruction::Or:
-    RDKind = RecurrenceDescriptor::RK_IntegerOr;
+    RDKind = RecurKind::Or;
     break;
 
   case Instruction::Xor:
-    RDKind = RecurrenceDescriptor::RK_IntegerXor;
+    RDKind = RecurKind::Xor;
     break;
 
   case Instruction::Select:
     if (Ty->isIntegerTy()) {
-      RDKind = RecurrenceDescriptor::RK_IntegerMinMax;
+      if (IsSigned)
+        RDKind = IsMin? RecurKind::SMin : RecurKind::SMax;
+      else
+        RDKind = IsMin? RecurKind::UMin : RecurKind::UMax;
     } else {
       assert(Ty->isFloatingPointTy() &&
              "Floating point type expected at this point!");
-      RDKind = RecurrenceDescriptor::RK_FloatMinMax;
+      RDKind = IsMin? RecurKind::FMin : RecurKind::FMax;
     }
     break;
 
@@ -779,8 +784,7 @@ Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty) {
     break;
   }
 
-  return RecurrenceDescriptor::getRecurrenceIdentity(
-      RDKind, RecurrenceDescriptor::MRK_Invalid, Ty);
+  return RecurrenceDescriptor::getRecurrenceIdentity(RDKind, Ty, FMF);
 }
 
 const DebugLoc HLInst::getDebugLoc() const {

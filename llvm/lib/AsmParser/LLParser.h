@@ -285,6 +285,7 @@ namespace llvm {
     bool parseOptionalCommaInAlloca(bool &IsInAlloca);
     bool parseAllocSizeArguments(unsigned &BaseSizeArg,
                                  Optional<unsigned> &HowManyArg);
+    bool parseVScaleRangeArguments(unsigned &MinValue, unsigned &MaxValue);
     bool parseIndexList(SmallVectorImpl<unsigned> &Indices,
                         bool &AteExtraComma);
     bool parseIndexList(SmallVectorImpl<unsigned> &Indices) {
@@ -345,6 +346,7 @@ namespace llvm {
                                     bool inAttrGrp, LocTy &BuiltinLoc);
     bool parseRequiredTypeAttr(Type *&Result, lltok::Kind AttrName);
     bool parsePreallocated(Type *&Result);
+    bool parseInalloca(Type *&Result);
     bool parseByRef(Type *&Result);
 
     // Module Summary Index Parsing.
@@ -551,6 +553,8 @@ namespace llvm {
 #define HANDLE_SPECIALIZED_MDNODE_LEAF(CLASS)                                  \
   bool parse##CLASS(MDNode *&Result, bool IsDistinct);
 #include "llvm/IR/Metadata.def"
+    bool parseDIArgList(MDNode *&Result, bool IsDistinct,
+                        PerFunctionState *PFS);
 
     // Function Parsing.
     struct ArgInfo {

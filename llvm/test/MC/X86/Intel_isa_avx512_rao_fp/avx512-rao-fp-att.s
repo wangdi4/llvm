@@ -1,0 +1,195 @@
+// REQUIRES: intel_feature_isa_avx512_rao_fp
+// RUN: llvm-mc -triple i686-unknown-unknown --show-encoding %s | FileCheck %s
+
+// CHECK:      vaaddpbf16  %zmm2, 268435456(%esp,%esi,8)
+// CHECK: encoding: [0x62,0xf2,0x7d,0x48,0x94,0x94,0xf4,0x00,0x00,0x00,0x10]
+               vaaddpbf16  %zmm2, 268435456(%esp,%esi,8)
+
+// CHECK:      vaaddpbf16  %zmm2, 291(%edi,%eax,4) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7d,0x4f,0x94,0x94,0x87,0x23,0x01,0x00,0x00]
+               vaaddpbf16  %zmm2, 291(%edi,%eax,4) {%k7}
+
+// CHECK:      vaaddpbf16  %zmm2, (%eax)
+// CHECK: encoding: [0x62,0xf2,0x7d,0x48,0x94,0x10]
+               vaaddpbf16  %zmm2, (%eax)
+
+// CHECK:      vaaddpbf16  %zmm2, -2048(,%ebp,2)
+// CHECK: encoding: [0x62,0xf2,0x7d,0x48,0x94,0x14,0x6d,0x00,0xf8,0xff,0xff]
+               vaaddpbf16  %zmm2, -2048(,%ebp,2)
+
+// CHECK:      vaaddpbf16  %zmm2, 8128(%ecx) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7d,0x4f,0x94,0x51,0x7f]
+               vaaddpbf16  %zmm2, 8128(%ecx) {%k7}
+
+// CHECK:      vaaddpbf16  %zmm2, -8192(%edx) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7d,0x4f,0x94,0x52,0x80]
+               vaaddpbf16  %zmm2, -8192(%edx) {%k7}
+
+// CHECK:      vaaddpd  %zmm2, 268435456(%esp,%esi,8)
+// CHECK: encoding: [0x62,0xf2,0xfd,0x48,0x84,0x94,0xf4,0x00,0x00,0x00,0x10]
+               vaaddpd  %zmm2, 268435456(%esp,%esi,8)
+
+// CHECK:      vaaddpd  %zmm2, 291(%edi,%eax,4) {%k7}
+// CHECK: encoding: [0x62,0xf2,0xfd,0x4f,0x84,0x94,0x87,0x23,0x01,0x00,0x00]
+               vaaddpd  %zmm2, 291(%edi,%eax,4) {%k7}
+
+// CHECK:      vaaddpd  %zmm2, (%eax)
+// CHECK: encoding: [0x62,0xf2,0xfd,0x48,0x84,0x10]
+               vaaddpd  %zmm2, (%eax)
+
+// CHECK:      vaaddpd  %zmm2, -2048(,%ebp,2)
+// CHECK: encoding: [0x62,0xf2,0xfd,0x48,0x84,0x14,0x6d,0x00,0xf8,0xff,0xff]
+               vaaddpd  %zmm2, -2048(,%ebp,2)
+
+// CHECK:      vaaddpd  %zmm2, 8128(%ecx) {%k7}
+// CHECK: encoding: [0x62,0xf2,0xfd,0x4f,0x84,0x51,0x7f]
+               vaaddpd  %zmm2, 8128(%ecx) {%k7}
+
+// CHECK:      vaaddpd  %zmm2, -8192(%edx) {%k7}
+// CHECK: encoding: [0x62,0xf2,0xfd,0x4f,0x84,0x52,0x80]
+               vaaddpd  %zmm2, -8192(%edx) {%k7}
+
+// CHECK:      vaaddph  %zmm2, 268435456(%esp,%esi,8)
+// CHECK: encoding: [0x62,0xf2,0x7c,0x48,0x94,0x94,0xf4,0x00,0x00,0x00,0x10]
+               vaaddph  %zmm2, 268435456(%esp,%esi,8)
+
+// CHECK:      vaaddph  %zmm2, 291(%edi,%eax,4) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7c,0x4f,0x94,0x94,0x87,0x23,0x01,0x00,0x00]
+               vaaddph  %zmm2, 291(%edi,%eax,4) {%k7}
+
+// CHECK:      vaaddph  %zmm2, (%eax)
+// CHECK: encoding: [0x62,0xf2,0x7c,0x48,0x94,0x10]
+               vaaddph  %zmm2, (%eax)
+
+// CHECK:      vaaddph  %zmm2, -2048(,%ebp,2)
+// CHECK: encoding: [0x62,0xf2,0x7c,0x48,0x94,0x14,0x6d,0x00,0xf8,0xff,0xff]
+               vaaddph  %zmm2, -2048(,%ebp,2)
+
+// CHECK:      vaaddph  %zmm2, 8128(%ecx) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7c,0x4f,0x94,0x51,0x7f]
+               vaaddph  %zmm2, 8128(%ecx) {%k7}
+
+// CHECK:      vaaddph  %zmm2, -8192(%edx) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7c,0x4f,0x94,0x52,0x80]
+               vaaddph  %zmm2, -8192(%edx) {%k7}
+
+// CHECK:      vaaddps  %zmm2, 268435456(%esp,%esi,8)
+// CHECK: encoding: [0x62,0xf2,0x7c,0x48,0x84,0x94,0xf4,0x00,0x00,0x00,0x10]
+               vaaddps  %zmm2, 268435456(%esp,%esi,8)
+
+// CHECK:      vaaddps  %zmm2, 291(%edi,%eax,4) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7c,0x4f,0x84,0x94,0x87,0x23,0x01,0x00,0x00]
+               vaaddps  %zmm2, 291(%edi,%eax,4) {%k7}
+
+// CHECK:      vaaddps  %zmm2, (%eax)
+// CHECK: encoding: [0x62,0xf2,0x7c,0x48,0x84,0x10]
+               vaaddps  %zmm2, (%eax)
+
+// CHECK:      vaaddps  %zmm2, -2048(,%ebp,2)
+// CHECK: encoding: [0x62,0xf2,0x7c,0x48,0x84,0x14,0x6d,0x00,0xf8,0xff,0xff]
+               vaaddps  %zmm2, -2048(,%ebp,2)
+
+// CHECK:      vaaddps  %zmm2, 8128(%ecx) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7c,0x4f,0x84,0x51,0x7f]
+               vaaddps  %zmm2, 8128(%ecx) {%k7}
+
+// CHECK:      vaaddps  %zmm2, -8192(%edx) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7c,0x4f,0x84,0x52,0x80]
+               vaaddps  %zmm2, -8192(%edx) {%k7}
+
+// CHECK:      {evex} vaaddsbf16  %xmm2, 268435456(%esp,%esi,8)
+// CHECK: encoding: [0x62,0xf2,0x7f,0x08,0x94,0x94,0xf4,0x00,0x00,0x00,0x10]
+               {evex} vaaddsbf16  %xmm2, 268435456(%esp,%esi,8)
+
+// CHECK:      {evex} vaaddsbf16  %xmm2, 291(%edi,%eax,4) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7f,0x0f,0x94,0x94,0x87,0x23,0x01,0x00,0x00]
+               {evex} vaaddsbf16  %xmm2, 291(%edi,%eax,4) {%k7}
+
+// CHECK:      {evex} vaaddsbf16  %xmm2, (%eax)
+// CHECK: encoding: [0x62,0xf2,0x7f,0x08,0x94,0x10]
+               {evex} vaaddsbf16  %xmm2, (%eax)
+
+// CHECK:      {evex} vaaddsbf16  %xmm2, -64(,%ebp,2)
+// CHECK: encoding: [0x62,0xf2,0x7f,0x08,0x94,0x14,0x6d,0xc0,0xff,0xff,0xff]
+               {evex} vaaddsbf16  %xmm2, -64(,%ebp,2)
+
+// CHECK:      {evex} vaaddsbf16  %xmm2, 254(%ecx) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7f,0x0f,0x94,0x51,0x7f]
+               {evex} vaaddsbf16  %xmm2, 254(%ecx) {%k7}
+
+// CHECK:      {evex} vaaddsbf16  %xmm2, -256(%edx) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7f,0x0f,0x94,0x52,0x80]
+               {evex} vaaddsbf16  %xmm2, -256(%edx) {%k7}
+
+// CHECK:      {evex} vaaddsd  %xmm2, 268435456(%esp,%esi,8)
+// CHECK: encoding: [0x62,0xf2,0xff,0x08,0x84,0x94,0xf4,0x00,0x00,0x00,0x10]
+               {evex} vaaddsd  %xmm2, 268435456(%esp,%esi,8)
+
+// CHECK:      {evex} vaaddsd  %xmm2, 291(%edi,%eax,4) {%k7}
+// CHECK: encoding: [0x62,0xf2,0xff,0x0f,0x84,0x94,0x87,0x23,0x01,0x00,0x00]
+               {evex} vaaddsd  %xmm2, 291(%edi,%eax,4) {%k7}
+
+// CHECK:      {evex} vaaddsd  %xmm2, (%eax)
+// CHECK: encoding: [0x62,0xf2,0xff,0x08,0x84,0x10]
+               {evex} vaaddsd  %xmm2, (%eax)
+
+// CHECK:      {evex} vaaddsd  %xmm2, -256(,%ebp,2)
+// CHECK: encoding: [0x62,0xf2,0xff,0x08,0x84,0x14,0x6d,0x00,0xff,0xff,0xff]
+               {evex} vaaddsd  %xmm2, -256(,%ebp,2)
+
+// CHECK:      {evex} vaaddsd  %xmm2, 1016(%ecx) {%k7}
+// CHECK: encoding: [0x62,0xf2,0xff,0x0f,0x84,0x51,0x7f]
+               {evex} vaaddsd  %xmm2, 1016(%ecx) {%k7}
+
+// CHECK:      {evex} vaaddsd  %xmm2, -1024(%edx) {%k7}
+// CHECK: encoding: [0x62,0xf2,0xff,0x0f,0x84,0x52,0x80]
+               {evex} vaaddsd  %xmm2, -1024(%edx) {%k7}
+
+// CHECK:      {evex} vaaddsh  %xmm2, 268435456(%esp,%esi,8)
+// CHECK: encoding: [0x62,0xf2,0x7e,0x08,0x94,0x94,0xf4,0x00,0x00,0x00,0x10]
+               {evex} vaaddsh  %xmm2, 268435456(%esp,%esi,8)
+
+// CHECK:      {evex} vaaddsh  %xmm2, 291(%edi,%eax,4) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7e,0x0f,0x94,0x94,0x87,0x23,0x01,0x00,0x00]
+               {evex} vaaddsh  %xmm2, 291(%edi,%eax,4) {%k7}
+
+// CHECK:      {evex} vaaddsh  %xmm2, (%eax)
+// CHECK: encoding: [0x62,0xf2,0x7e,0x08,0x94,0x10]
+               {evex} vaaddsh  %xmm2, (%eax)
+
+// CHECK:      {evex} vaaddsh  %xmm2, -64(,%ebp,2)
+// CHECK: encoding: [0x62,0xf2,0x7e,0x08,0x94,0x14,0x6d,0xc0,0xff,0xff,0xff]
+               {evex} vaaddsh  %xmm2, -64(,%ebp,2)
+
+// CHECK:      {evex} vaaddsh  %xmm2, 254(%ecx) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7e,0x0f,0x94,0x51,0x7f]
+               {evex} vaaddsh  %xmm2, 254(%ecx) {%k7}
+
+// CHECK:      {evex} vaaddsh  %xmm2, -256(%edx) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7e,0x0f,0x94,0x52,0x80]
+               {evex} vaaddsh  %xmm2, -256(%edx) {%k7}
+
+// CHECK:      {evex} vaaddss  %xmm2, 268435456(%esp,%esi,8)
+// CHECK: encoding: [0x62,0xf2,0x7e,0x08,0x84,0x94,0xf4,0x00,0x00,0x00,0x10]
+               {evex} vaaddss  %xmm2, 268435456(%esp,%esi,8)
+
+// CHECK:      {evex} vaaddss  %xmm2, 291(%edi,%eax,4) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7e,0x0f,0x84,0x94,0x87,0x23,0x01,0x00,0x00]
+               {evex} vaaddss  %xmm2, 291(%edi,%eax,4) {%k7}
+
+// CHECK:      {evex} vaaddss  %xmm2, (%eax)
+// CHECK: encoding: [0x62,0xf2,0x7e,0x08,0x84,0x10]
+               {evex} vaaddss  %xmm2, (%eax)
+
+// CHECK:      {evex} vaaddss  %xmm2, -128(,%ebp,2)
+// CHECK: encoding: [0x62,0xf2,0x7e,0x08,0x84,0x14,0x6d,0x80,0xff,0xff,0xff]
+               {evex} vaaddss  %xmm2, -128(,%ebp,2)
+
+// CHECK:      {evex} vaaddss  %xmm2, 508(%ecx) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7e,0x0f,0x84,0x51,0x7f]
+               {evex} vaaddss  %xmm2, 508(%ecx) {%k7}
+
+// CHECK:      {evex} vaaddss  %xmm2, -512(%edx) {%k7}
+// CHECK: encoding: [0x62,0xf2,0x7e,0x0f,0x84,0x52,0x80]
+               {evex} vaaddss  %xmm2, -512(%edx) {%k7}
+

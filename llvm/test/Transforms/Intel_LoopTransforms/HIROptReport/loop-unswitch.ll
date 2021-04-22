@@ -23,7 +23,7 @@
 ; CHECK: [[M2]] = distinct !{!"llvm.loop.optreport", [[M3:!.*]]}
 ; CHECK: [[M3]] = distinct !{!"intel.loop.optreport", [[M4:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.remarks", [[M5:!.*]]}
-; CHECK: [[M5]] = !{!"intel.optreport.remark", !"Loop has been unswitched via %s", {{.*}}}
+; CHECK: [[M5]] = !{!"intel.optreport.remark", i32 25422, !"Invariant Condition%s hoisted out of this loop", {{.*}}}
 
 ; Check the proper optreport for loop unswitching.
 ; RUN: opt -loop-unswitch -intel-loop-optreport=low -intel-ir-optreport-emitter -simplifycfg < %s -S 2>&1 | FileCheck %s -check-prefix=CHECK-EMITTER --strict-whitespace
@@ -35,7 +35,7 @@
 ; CHECK-EMITTER-NEXT:     LOOP END
 ; CHECK-EMITTER-NEXT: LOOP END
 ; CHECK-EMITTER: LOOP BEGIN
-; CHECK-EMITTER-NEXT:     Remark: Loop has been unswitched via cmp113{{[[:space:]]}}
+; CHECK-EMITTER-NEXT:     remark #25422: Invariant Condition hoisted out of this loop{{[[:space:]]}}
 ; CHECK-EMITTER-NEXT:     LOOP BEGIN
 ; CHECK-EMITTER-NEXT:     LOOP END{{[[:space:]]}}
 ; CHECK-EMITTER-NEXT:     LOOP BEGIN
@@ -47,14 +47,14 @@
 
 ; CHECK-HIR:      LOOP BEGIN
 ; CHECK-HIR:          LOOP BEGIN
-; CHECK-HIR-NEXT:         Remark: LOOP WAS VECTORIZED
-; CHECK-HIR-NEXT:         Remark: vectorization support: vector length {{.*}}
+; CHECK-HIR-NEXT:         remark #15300: LOOP WAS VECTORIZED
+; CHECK-HIR-NEXT:         remark #15305: vectorization support: vector length {{.*}}
 ; CHECK-HIR-NEXT:     LOOP END{{[[:space:]]}}
 ; CHECK-HIR-NEXT:     LOOP BEGIN
 ; CHECK-HIR-NEXT:         <Remainder loop for vectorization>
 ; CHECK-HIR-NEXT:     LOOP END{{[[:space:]]}}
 ; CHECK-HIR-NEXT:     LOOP BEGIN
-; CHECK-HIR-NEXT:         Remark: Loop completely unrolled
+; CHECK-HIR-NEXT:         remark: Loop completely unrolled
 ; CHECK-HIR-NEXT:     LOOP END
 ; CHECK-HIR-NEXT: LOOP END
 ;

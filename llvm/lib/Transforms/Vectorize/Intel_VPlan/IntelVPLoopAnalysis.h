@@ -38,7 +38,7 @@ class LoopInfo;
 namespace vpo {
 
 class VPValue;
-class VPlan;
+class VPlanVector;
 class IntelVPlanUtils;
 class VPLoop;
 class VPlan;
@@ -56,7 +56,7 @@ class VPLoopEntity {
 public:
   using LinkedVPValuesTy = SetVector<VPValue *>;
 
-  enum { Reduction, IndexReduction, Induction, Private };
+  enum { Reduction, IndexReduction, Induction, Private, PrivateNonPOD };
   unsigned char getID() const { return SubclassID; }
 
   virtual ~VPLoopEntity() = 0;
@@ -98,11 +98,11 @@ class VPReduction
   using RDTempl = RecurrenceDescriptorTempl<VPValue, VPInstruction, VPValue *>;
 
 public:
-  VPReduction(VPValue *Start, VPInstruction *Exit, RecurrenceKind K,
-              FastMathFlags FMF, MinMaxRecurrenceKind MK, Type *RT, bool Signed,
-              bool IsMemOnly = false, unsigned char Id = Reduction)
+  VPReduction(VPValue *Start, VPInstruction *Exit, RecurKind RdxKind,
+              FastMathFlags FMF, Type *RT, bool Signed, bool IsMemOnly = false,
+              unsigned char Id = Reduction)
       : VPLoopEntity(Id, IsMemOnly),
-        RDTempl(Start, Exit, K, FMF, MK, RT, Signed) {}
+        RDTempl(Start, Exit, RdxKind, FMF, RT, Signed, false) {}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
@@ -110,15 +110,18 @@ public:
   }
 
   unsigned getReductionOpcode() const {
-    return getReductionOpcode(getRecurrenceKind(), getMinMaxRecurrenceKind());
+    return getReductionOpcode(getRecurrenceKind());
   }
 
-  bool isMinMax() const { return MinMaxKind != MRK_Invalid; }
+  bool isMinMax() const {
+    return RecurrenceDescriptorData::isMinMaxRecurrenceKind(
+        getRecurrenceKind());
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  virtual void dump(raw_ostream &OS) const;
+  virtual void dump(raw_ostream &OS) const override;
 #endif
-  static unsigned getReductionOpcode(RecurrenceKind K, MinMaxRecurrenceKind MK);
+  static unsigned getReductionOpcode(RecurKind K);
 };
 
 /// Descriptor of the index part of min/max+index reduction.
@@ -128,17 +131,25 @@ class VPIndexReduction : public VPReduction {
 public:
   VPIndexReduction(const VPReduction *Parent, VPValue *Start,
                    VPInstruction *Exit, Type *RT, bool Signed, bool ForLast,
-                   bool IsMemOnly = false)
-      : VPReduction(Start, Exit, RK_IntegerMinMax, FastMathFlags::getFast(),
-                    ForLast ? (Signed ? MRK_SIntMax : MRK_UIntMax)
-                            : (Signed ? MRK_SIntMin : MRK_UIntMin),
-                    RT, Signed, IsMemOnly, IndexReduction),
-        ParentRed(Parent) {
-    assert((Parent && Parent->getMinMaxRecurrenceKind() != MRK_Invalid) &&
-           "Incorrect parent reduction");
+                   bool IsLinIndex, bool IsMemOnly = false)
+      : VPReduction(Start, Exit,
+                    ForLast ? (Signed ? RecurKind::SMax : RecurKind::UMax)
+                            : (Signed ? RecurKind::SMin : RecurKind::UMin),
+                    FastMathFlags(), RT, Signed, IsMemOnly,
+                    IndexReduction),
+        ParentRed(Parent), IsLinearIndex(IsLinIndex) {
+    assert((Parent && Parent->isMinMax()) && "Incorrect parent reduction");
   }
 
   const VPReduction *getParentReduction() const { return ParentRed; }
+  void replaceParentReduction(const VPReduction *NewParent) {
+    assert((NewParent && NewParent->isMinMax()) &&
+           "Incorrect parent reduction");
+    ParentRed = NewParent;
+  }
+
+  bool isLinearIndex() const { return IsLinearIndex; }
+  void setIsLinearIndex(bool V) { IsLinearIndex = V; }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
@@ -150,6 +161,32 @@ public:
 private:
   // Parent reduction, either min or max.
   const VPReduction *ParentRed;
+
+  // Flag shows that this entity is created for a linear index. This rules
+  // the last value calculation. If the flag is true then the value is simply
+  // calculated as horizontal min or max value of indexes in the vector that
+  // correspond to parent reduction last value. Otherwise, the last value is
+  // taken from vector by position that corresponds to the min/max linear index.
+  // For example, we have the following values for min+min_index reduction
+  //    if (b>a[i]) {
+  //      b = a[i];  // min value
+  //      n = i;     // min linear index
+  //      t = log(c[i/3]);  // other non-linear index
+  //    }
+  // main value : {1, 2, 1, 3}  -> last value is 1.
+  // linear index: {10, 4, 6, 2} -> last value is 6, min index of value 1.
+  // non-linear index {20, 2, 60, 10} -> last value is 60, at position of
+  //                                     min index.
+  // A min/max+index idiom should contain at least one linear index. If
+  // there is no such indexes then it is added using main induction
+  // variable.
+  //
+  // The following relations are established between main reduction and linear
+  // and non-linear indexes:
+  // - main reduction is a parent for all linear indexes.
+  // - the first encountered linear index is a parent for all non-linear indexes.
+  //
+  bool IsLinearIndex;
 };
 
 /// Induction descriptor.
@@ -160,17 +197,22 @@ class VPInduction
 
 public:
   VPInduction(VPValue *Start, InductionKind K, VPValue *Step,
-              VPInstruction *InductionOp, bool IsMemOnly = false,
+              VPValue *StartVal, VPValue *EndVal, VPInstruction *InductionOp,
+              bool IsMemOnly = false,
               unsigned int Opc = Instruction::BinaryOpsEnd)
       : VPLoopEntity(Induction, IsMemOnly),
         InductionDescriptorTempl(Start, K, InductionOp), Step(Step),
-        IndOpcode(Opc) {
+        StartVal(StartVal), EndVal(EndVal), IndOpcode(Opc) {
     assert((getInductionBinOp() || IndOpcode != Instruction::BinaryOpsEnd) &&
            "Induction opcode should be set");
   }
 
   /// Return stride
   VPValue *getStep() const { return Step; }
+
+  /// Return lower/upper range of values for induction
+  VPValue *getStartVal() const { return StartVal; }
+  VPValue *getEndVal() const { return EndVal; }
 
   /// Return true if the induction needs a close-form generation at the
   /// beginning of the loop body. These cases are: explicit linears w/o
@@ -209,6 +251,8 @@ public:
 #endif
 private:
   VPValue *Step;
+  VPValue *StartVal;
+  VPValue *EndVal;
   unsigned int IndOpcode; // Explicitly set opcode.
   bool NeedCloseForm = false;
 };
@@ -219,23 +263,58 @@ class VPPrivate : public VPLoopEntity {
   friend class VPLoopEntityList;
 
 public:
-  // The assignment instruction.
-  // This is currently public to suppress an xmain self-build error.
-  VPInstruction *FinalInst;
+  enum class PrivateKind {
+    NonLast,    // A simple non-live out private.
+    Last,       // The lastvalue is used outside the loop or it was declared as
+                // "lastprivate" in directive.
+    Conditional // The assignment of last private is under condition or it's
+                // declared as "lastprivate:conditional" in the directive.
+  };
+
+  // An additional classification flag for privates without assigned exit
+  // instruction.
+  enum class PrivateTag {
+    PTUndef,    // Not specified.
+    PTArray,    // Private of an array type.
+    PTInMemory, // In-memory allocated private.
+    PTNonPod,   // Non-POD private.
+  };
+
+  // Explicit destructor to drop references to alias VPInstructions. This is
+  // needed to avoid memory leak in cases where aliases are not lowered into
+  // instructions in VPlan CFG.
+  ~VPPrivate();
 
   // Currently only used for VPPrivates. In future, this can be hoisted to
   // VPLoopEntity.
   using VPEntityAliasesTy = MapVector<VPValue *, VPInstruction *>;
 
-  VPPrivate(VPInstruction *FinalI, VPEntityAliasesTy &&InAliases,
-            bool Conditional, bool Last, bool Explicit, bool IsMemOnly = false)
-      : VPLoopEntity(Private, IsMemOnly), FinalInst(FinalI),
-        IsConditional(Conditional), IsLast(Last), IsExplicit(Explicit),
-        Aliases(std::move(InAliases)) {}
+  VPPrivate(VPInstruction *ExitI, VPEntityAliasesTy &&InAliases, PrivateKind K,
+            bool Explicit, bool IsMemOnly = false, unsigned char Id = Private)
+      : VPLoopEntity(Id, IsMemOnly), Kind(K), IsExplicit(Explicit),
+        TagOrExit(ExitI), Aliases(std::move(InAliases)) {}
 
-  bool isConditional() const { return IsConditional; }
-  bool isLast() const { return IsLast; }
+  VPPrivate(PrivateTag PTag, VPEntityAliasesTy &&InAliases, PrivateKind K,
+            bool Explicit, bool IsMemOnly = false, unsigned char Id = Private)
+      : VPLoopEntity(Id, IsMemOnly), Kind(K), IsExplicit(Explicit),
+        TagOrExit(PTag), Aliases(std::move(InAliases)) {}
+
+  bool isConditional() const { return Kind == PrivateKind::Conditional; }
+  bool isLast() const { return Kind != PrivateKind::NonLast; }
   bool isExplicit() const { return IsExplicit; }
+
+  PrivateTag getPrivateTag() const {
+    assert(hasPrivateTag() && "expected tag");
+    return TagOrExit.T;
+  }
+  VPInstruction *getExitInst() const {
+    assert(hasExitInstr() && "expected instruction");
+    return TagOrExit.I;
+  }
+  void setExitInst(VPInstruction *I) { TagOrExit.assignInstr(I); }
+
+  bool hasExitInstr() const { return TagOrExit.IsInstr; }
+  bool hasPrivateTag() const { return !TagOrExit.IsInstr; }
 
   // TODO: Consider making this method virtual and hence available to all
   // entities.
@@ -247,25 +326,68 @@ public:
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPLoopEntity *V) {
-    return V->getID() == Private;
+    return V->getID() == Private || V->getID() == PrivateNonPOD;
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const override;
 #endif
 
 private:
-  // The assignment is under condition.
-  bool IsConditional;
+  struct PrivData {
+    bool IsInstr : 1;
+    // Storage for the private classification flag or exit instruction.
+    union {
+      PrivateTag T;
+      VPInstruction *I;
+    };
+    PrivData(PrivateTag AT) : IsInstr(false), T(AT) {}
+    PrivData(VPInstruction *AI) : IsInstr(true), I(AI) {}
 
-  // The last-value is used outside the loop.
-  bool IsLast;
+    void assignInstr(VPInstruction *AI) {
+      assert(IsInstr && "expected instruction");
+      I = AI;
+    }
+  };
+
+  // Kind of private;
+  PrivateKind Kind;
 
   // Is defined explicitly.
   bool IsExplicit;
 
+  // The Exit Instruction or an additional classification flag
+  PrivData TagOrExit;
+
   // Map that stores the VPExternalDef->VPInstruction mapping. These are alias
   // instructions to existing loop-private, which are outside the loop-region.
   VPEntityAliasesTy Aliases;
+};
+
+class VPPrivateNonPOD : public VPPrivate {
+public:
+  VPPrivateNonPOD(VPEntityAliasesTy &&InAliases, PrivateKind K, bool IsExplicit,
+                  Function *Ctor, Function *Dtor, Function *CopyAssign)
+      : VPPrivate(PrivateTag::PTNonPod, std::move(InAliases), K, IsExplicit,
+                  true /*IsMemOnly*/, PrivateNonPOD),
+        Ctor(Ctor), Dtor(Dtor), CopyAssign(CopyAssign) {}
+
+  Function *getCtor() const { return Ctor; }
+  Function *getDtor() const { return Dtor; }
+  Function *getCopyAssign() const { return CopyAssign; }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPLoopEntity *V) {
+    return V->getID() == PrivateNonPOD;
+  }
+
+  static inline bool classof(const VPPrivate *V) {
+    return V->getID() == PrivateNonPOD;
+  }
+
+private:
+  Function *Ctor;
+  Function *Dtor;
+  Function *CopyAssign;
 };
 
 /// Complimentary class that describes memory locations of the loop entities.
@@ -314,8 +436,6 @@ private:
 /// be able to operate in terms of VPValue. It encapsulates also some additional
 /// analysis that can be done on VPLoop body.
 class VPLoopEntityList {
-  using RecurrenceKind = VPReduction::RecurrenceKind;
-  using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
   using InductionKind = VPInduction::InductionKind;
   using VPEntityAliasesTy = VPPrivate::VPEntityAliasesTy;
 
@@ -324,9 +444,9 @@ public:
   /// with starting instruction \p Instr, incoming value \p Incoming, exiting
   /// instruction \p Exit and alloca-instruction \p AI.
   VPReduction *addReduction(VPInstruction *Instr, VPValue *Incoming,
-                    VPInstruction *Exit, RecurrenceKind K, FastMathFlags FMF,
-                    MinMaxRecurrenceKind MK, Type *RT, bool Signed,
-                    VPValue *AI = nullptr, bool ValidMemOnly = false);
+                            VPInstruction *Exit, RecurKind K,
+                            FastMathFlags FMF, Type *RT, bool Signed,
+                            VPValue *AI = nullptr, bool ValidMemOnly = false);
   /// Add index part of min/max+index reduction with parent (min/max) reduction
   /// \p Parent, starting instruction \pInstr, incoming value \p Incoming,
   /// exiting instruction \p Exit, \p Signed data type \p RT, and
@@ -336,7 +456,7 @@ public:
                                       const VPReduction *Parent,
                                       VPValue *Incoming, VPInstruction *Exit,
                                       Type *RT, bool Signed, bool ForLast,
-                                      VPValue *AI = nullptr,
+                                      bool IsLinNdx, VPValue *AI = nullptr,
                                       bool ValidMemOnly = false);
 
   /// Add induction of kind \p K, with opcode \p Opc or binary operation
@@ -344,6 +464,7 @@ public:
   /// \p Incoming, stride \p Step, and alloca-instruction \p AI.
   VPInduction *addInduction(VPInstruction *Start, VPValue *Incoming,
                             InductionKind K, VPValue *Step,
+                            VPValue *StartVal, VPValue *EndVal,
                             VPInstruction *InductionOp, unsigned int Opc,
                             VPValue *AI = nullptr, bool ValidMemOnly = false);
 
@@ -351,9 +472,23 @@ public:
   /// instruction which writes to the private memory witin the for-loop. Also
   /// store other relavant attributes of the private like the conditional, last
   /// and explicit.
-  VPPrivate *addPrivate(VPInstruction *FinalI, VPEntityAliasesTy &PtrAliases,
-                        bool IsConditional, bool IsLast, bool Explicit,
+  VPPrivate *addPrivate(VPInstruction *ExitI, VPEntityAliasesTy &PtrAliases,
+                        VPPrivate::PrivateKind K, bool Explicit,
                         VPValue *AI = nullptr, bool ValidMemOnly = false);
+
+  /// Add private corresponding to \p Alloca along with the specified private
+  /// tag. Also store other relavant attributes of the private like the
+  /// conditional, last and explicit.
+  VPPrivate *addPrivate(VPPrivate::PrivateTag Tag,
+                        VPEntityAliasesTy &PtrAliases, VPPrivate::PrivateKind K,
+                        bool Explicit, VPValue *AI = nullptr,
+                        bool ValidMemOnly = false);
+
+  VPPrivateNonPOD *addNonPODPrivate(VPEntityAliasesTy &PtrAliases,
+                                    VPPrivate::PrivateKind K, bool Explicit,
+                                    Function *Ctor, Function *Dtor,
+                                    Function *CopyAssign,
+                                    VPValue *AI = nullptr);
 
   /// Final stage of importing data from IR. Go through all imported descriptors
   /// and check/create links to VPInstructions.
@@ -439,12 +574,14 @@ public:
 
   VPIndexReduction *getMinMaxIndex(const VPReduction *Red) const {
     MinMaxIndexTy::const_iterator It = MinMaxIndexes.find(Red);
-    if (It != MinMaxIndexes.end())
+    if (It != MinMaxIndexes.end()) {
+      assert(It->second->isLinearIndex() && "expected linear index reduction");
       return It->second;
+    }
     return nullptr;
   }
 
-  VPLoopEntityList(VPlan &P, VPLoop &L) : Plan(P), Loop(L) {}
+  VPLoopEntityList(VPlanVector &P, VPLoop &L) : Plan(P), Loop(L) {}
 
   VPValue *getReductionIdentity(const VPReduction *Red) const;
   bool isMinMaxLastItem(const VPReduction &Red) const;
@@ -489,8 +626,43 @@ public:
     return false;
   }
 
+  /// Same as hasInMemoryEntity but restrict to reductions/inductions.
+  bool hasInMemoryReductionInduction() const {
+    for (auto &It : MemoryDescriptors) {
+      auto *VPEntity = It.first;
+      auto *MemoryDescr = It.second.get();
+      bool IsRedInd = isa<VPReduction>(VPEntity) || isa<VPInduction>(VPEntity);
+      // Return true if we have a reduction/induction with a memory descriptor
+      // that cannot be registerized.
+      if (IsRedInd && !MemoryDescr->canRegisterize())
+        return true;
+    }
+
+    return false;
+  }
+
+  /// Same as hasInMemoryEntity but restrict to liveout privates.
+  bool hasInMemoryLiveoutPrivate() const {
+    for (auto &It : MemoryDescriptors) {
+      auto *PrivEntity = dyn_cast<VPPrivate>(It.first);
+      auto *MemoryDescr = It.second.get();
+      bool IsLastPriv = PrivEntity && PrivEntity->isLast();
+      // Return true if we have a liveout private with a memory descriptor
+      // that cannot be registerized.
+      if (IsLastPriv && !MemoryDescr->canRegisterize())
+        return true;
+    }
+
+    return false;
+  }
+
+  // Find implicit last privates in the loop and add their descriptors.
+  // Implicit last private is a live out value which is assigned in the
+  // loop and is not known as reduction/induction.
+  void analyzeImplicitLastPrivates();
+
 private:
-  VPlan &Plan;
+  VPlanVector &Plan;
   VPLoop &Loop;
 
   VPReductionList ReductionList;
@@ -502,17 +674,16 @@ private:
   VPPrivateMap PrivateMap;
 
   // Mapping of VPLoopEntity to VPLoopEntityMemoryDescriptor.
-  typedef DenseMap<VPLoopEntity *,
-                   std::unique_ptr<VPLoopEntityMemoryDescriptor>>
-      MemDescrTy;
+  using MemDescrTy =
+      DenseMap<VPLoopEntity *, std::unique_ptr<VPLoopEntityMemoryDescriptor>>;
   MemDescrTy MemoryDescriptors;
 
   // Mapping alloca instructions to memory descriptors.
-  typedef DenseMap<VPValue *, VPLoopEntityMemoryDescriptor *> MemInstDescrMapTy;
+  using MemInstDescrMapTy = DenseMap<VPValue *, VPLoopEntityMemoryDescriptor *>;
   MemInstDescrMapTy MemInstructions;
 
   // MinMax reduction to index reduction
-  typedef DenseMap<const VPReduction *, VPIndexReduction *> MinMaxIndexTy;
+  using MinMaxIndexTy = DenseMap<const VPReduction *, VPIndexReduction *>;
   MinMaxIndexTy MinMaxIndexes;
 
   // Collection of duplicate induction PHI nodes. First element of the pair
@@ -618,6 +789,8 @@ private:
 
   VPInstruction *getInductionLoopExitInstr(const VPInduction *Induction) const;
 
+  std::pair<const VPInduction *, bool> getLoopInduction() const;
+
   /// Return true if live out value of the induction \p Ind is calculated on the
   /// penultimate iteration of the loop.
   bool isInductionLastValPreInc(const VPInduction *Ind) const;
@@ -633,14 +806,23 @@ private:
                                      VPBasicBlock *PostExit);
 
   // Insert VPInstructions related to VPPrivates.
-  void insertPrivateVPInstructions(VPBuilder &Builder, VPBasicBlock *Preheader);
+  void insertPrivateVPInstructions(VPBuilder &Builder, VPBasicBlock *Preheader,
+                                   VPBasicBlock *PostExit);
 
-  // Insert VPInstructions related to one VPReduction
-  void insertOneReductionVPInstructions(
-    VPReduction *Reduction, VPBuilder &Builder, VPBasicBlock *PostExit,
-    VPBasicBlock *Preheader,
-    DenseMap<const VPReduction *,
-             std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap);
+  // Each update/store in the chain from the outer vectorized loop header to
+  // liveout instruction is accompanied by the assignment/store of the loop
+  // induction to an additional variable. Each phi in this chain is accompanied
+  // by the phi for that additional variable. The variable keeps the index of
+  // the iteration at which the value was assigned. In SSA form, the explicit
+  // assignments are unneeded and only phis with loop-induction operands from
+  // corresponding blocks are inserted.
+  // That is done for the last value calculation: after the loop, we find the
+  // maximum index and extract the vector element from the same position where
+  // that maximum index resides.
+  void insertConditionalLastPrivateInst(VPPrivate &Private, VPBuilder &Builder,
+                                        VPBasicBlock *Preheader,
+                                        VPBasicBlock *PostExit,
+                                        VPValue *PrivateMem, VPValue *AI);
 
   // Mapping function that returns the underlying raw pointer.
   template <typename EntityType>
@@ -648,6 +830,28 @@ private:
   getRawPointer(const std::unique_ptr<EntityType> &En) {
     return En.get();
   }
+
+  // Preprocess entities before instructions insertion.
+  // - Identify/fix indexes of index reductions
+  void preprocess();
+
+  // Insert VPInstructions (init/final) for the reduction \p Reduction,
+  // keeping its final and exit instructions in a special map \p RedFinalMap,
+  // and inserting the reduction into list of processed reductions
+  // \p ProcessedReductions.
+  void insertOneReductionVPInstructions(
+      VPReduction *Reduction, VPBuilder &Builder, VPBasicBlock *PostExit,
+      VPBasicBlock *Preheader,
+      // The map contains, for each reduction, pairs {ReductionFinal,
+      // ReductionExit} and is used to obtain parent reduction values needed for
+      // the index part of min/max+index last value code generation.
+      DenseMap<const VPReduction *,
+               std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap,
+      SmallPtrSetImpl<const VPReduction *> &ProcessedReductions);
+
+  // Look through min/max+index reductions and identify which ones
+  // are linears. See comment for VPIndexReduction::isLinearIndex().
+  void identifyMinMaxLinearIdxs();
 };
 
 class VPEntityImportDescr {
@@ -663,7 +867,7 @@ protected:
 public:
   virtual ~VPEntityImportDescr() {}
 
-  virtual bool isDuplicate(const VPlan *Plan, const VPLoop *Loop) const;
+  virtual bool isDuplicate(const VPlanVector *Plan, const VPLoop *Loop) const;
 
   VPValue *getAllocaInst() const { return AllocaInst; }
   bool getValidMemOnly() const { return ValidMemOnly; }
@@ -680,6 +884,10 @@ public:
     Alias = Optional<DescrAlias>(NewAlias);
     HasAlias = true;
   }
+
+  // Return true if \p Val is used in the \p Loop or in its
+  // preheader, not in lifetimestart/end.
+  static bool hasRealUserInLoop(VPValue *Val, const VPLoop *Loop);
 
 protected:
   VPValue *findMemoryUses(VPValue *Start, const VPLoop *Loop);
@@ -705,8 +913,6 @@ protected:
 /// cases it can be obtained only after some analysis, at the second stage of
 /// importing.
 class ReductionDescr : public VPEntityImportDescr {
-  using RecurrenceKind = VPReduction::RecurrenceKind;
-  using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
   using BaseT = VPEntityImportDescr;
 public:
   ReductionDescr() = default;
@@ -714,11 +920,11 @@ public:
   VPInstruction *getStartPhi() const { return StartPhi; }
   VPValue *getStart() const { return Start; }
   VPInstruction *getExit() const { return Exit; }
-  RecurrenceKind getKind() const { return K; }
-  MinMaxRecurrenceKind getMinMaxKind() const { return MK; }
+  RecurKind getKind() const { return K; }
   Type *getRecType() const { return RT; }
   bool getSigned() const { return Signed; }
   VPInstruction *getLinkPhi() const { return LinkPhi; }
+  bool getLinearIndex() const { return IsLinearIndex; }
   iterator_range<SmallVectorImpl<VPInstruction *>::iterator>
   getUpdateVPInsts() {
     return make_range(UpdateVPInsts.begin(), UpdateVPInsts.end());
@@ -727,11 +933,11 @@ public:
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setStart(VPValue *V) { Start = V; }
   void setExit(VPInstruction *V) { Exit = V; }
-  void setKind(RecurrenceKind V) { K = V; }
-  void setMinMaxKind(MinMaxRecurrenceKind V) { MK = V; }
+  void setKind(RecurKind V) { K = V; }
   void setRecType(Type *V) { RT = V; }
   void setSigned(bool V) { Signed = V; }
   void setLinkPhi(VPInstruction *V) { LinkPhi = V; }
+  void setIsLinearIndex(bool V) { IsLinearIndex = V; }
   void addUpdateVPInst(VPInstruction *V) { UpdateVPInsts.push_back(V); }
   void addLinkedVPValue(VPValue *V) { LinkedVPVals.push_back(V); }
 
@@ -742,12 +948,12 @@ public:
     Start = nullptr;
     UpdateVPInsts.clear();
     Exit = nullptr;
-    K = RecurrenceKind::RK_NoRecurrence;
-    MK = MinMaxRecurrenceKind::MRK_Invalid;
+    K = RecurKind::None;
     RT = nullptr;
     Signed = false;
     LinkPhi = nullptr;
     LinkedVPVals.clear();
+    IsLinearIndex = false;
   }
   /// Check for that all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
@@ -756,12 +962,12 @@ public:
   /// Return true if not all data is completed.
   bool isIncomplete() const;
   /// Attempt to fix incomplete data using VPlan and VPLoop.
-  void tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop);
+  void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop);
   /// Pass the data to VPlan
-  void passToVPlan(VPlan *Plan, const VPLoop *Loop);
+  void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);
   /// Check if current reduction descriptor duplicates another that is already
   /// imported.
-  bool isDuplicate(const VPlan *Plan, const VPLoop *Loop) const override;
+  bool isDuplicate(const VPlanVector *Plan, const VPLoop *Loop) const override;
 
 private:
   // Some analysis methods used by tryToCompleteByVPlan
@@ -787,11 +993,12 @@ private:
   /// Instruction(s) in VPlan that update the reduction variable
   SmallVector<VPInstruction *, 4> UpdateVPInsts;
   VPInstruction *Exit = nullptr;
-  RecurrenceKind K = RecurrenceKind::RK_NoRecurrence;
-  MinMaxRecurrenceKind MK = MinMaxRecurrenceKind::MRK_Invalid;
+  RecurKind K = RecurKind::None;
   Type *RT = nullptr;
   bool Signed = false;
   VPInstruction *LinkPhi = nullptr; // TODO: Consider changing to VPPHINode.
+  bool IsLinearIndex = false;
+
   /// VPValues that are associated with reduction variable
   /// NOTE: This list is accessed and populated internally within the descriptor
   /// object, hence no getters or setters.
@@ -826,6 +1033,8 @@ public:
   InductionKind getKind() const { return K; }
   VPValue *getStart() const { return Start; }
   VPValue *getStep() const { return Step; }
+  VPValue *getStartVal() const { return StartVal; }
+  VPValue *getEndVal() const { return EndVal; }
   VPInstruction *getInductionOp() const { return InductionOp; }
   unsigned getIndOpcode() const { return IndOpcode; }
 
@@ -833,6 +1042,8 @@ public:
   void setKind(InductionKind V) { K = V; }
   void setStart(VPValue *V) { Start = V; }
   void setStep(VPValue *V) { Step = V; }
+  void setStartVal(VPValue *V) { StartVal = V; }
+  void setEndVal(VPValue *V) { EndVal = V; }
   void setInductionOp(VPInstruction *V) { InductionOp = V; }
   void setIndOpcode(unsigned V) { IndOpcode = V; }
   void setIsExplicitInduction(bool V) { IsExplicitInduction = V; }
@@ -855,7 +1066,7 @@ public:
 
   // Set InductionKind and default induction opcode using data type \p IndTy.
   void setKindAndOpcodeFromTy(Type *IndTy) {
-    unsigned Opc;
+    unsigned Opc = 0;
     VPInduction::InductionKind Kind;
     std::tie(Opc, Kind) = getKindAndOpcodeFromTy(IndTy);
     setKind(Kind);
@@ -869,6 +1080,8 @@ public:
     K = InductionKind::IK_NoInduction;
     Start = nullptr;
     Step = nullptr;
+    StartVal = nullptr;
+    EndVal = nullptr;
     InductionOp = nullptr;
     IndOpcode = Instruction::BinaryOpsEnd;
     IsExplicitInduction = false;
@@ -880,12 +1093,12 @@ public:
   /// Return true if not all data is completed.
   bool isIncomplete() const;
   /// Attemp to fix incomplete data using VPlan and VPLoop.
-  void tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop);
+  void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop);
   /// Pass the data to VPlan
-  void passToVPlan(VPlan *Plan, const VPLoop *Loop);
+  void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);
   /// Check if current induction descriptor duplicates another that is already
   /// imported.
-  bool isDuplicate(const VPlan *Plan, const VPLoop *Loop) const override;
+  bool isDuplicate(const VPlanVector *Plan, const VPLoop *Loop) const override;
   /// Check if induction needs close form representation in vector code.
   // NOTE: This analysis is done for both auto-recognized and explicit
   // inductions.
@@ -903,6 +1116,8 @@ private:
   InductionKind K = InductionKind::IK_NoInduction;
   VPValue *Start = nullptr;
   VPValue *Step = nullptr;
+  VPValue *StartVal = nullptr;
+  VPValue *EndVal = nullptr;
   VPInstruction *InductionOp =nullptr;
   SmallVector<VPInstruction *, 4> UpdateVPInsts; // TODO: unpopulated
   unsigned IndOpcode = Instruction::BinaryOpsEnd;
@@ -923,40 +1138,55 @@ public:
   bool isLast() const { return IsLast; }
   bool isExplicit() const { return IsExplicit; }
   bool isMemOnly() const { return getValidMemOnly(); }
+  Function *getCtor() const { return Ctor; }
+  Function *getDtor() const { return Dtor; }
+  Function *getCopyAssign() const { return CopyAssign; }
 
   /// Clear the content.
   void clear() override {
     BaseT::clear();
     PtrAliases.clear();
     AllocaInst = nullptr;
-    FinalInst = nullptr;
+    ExitInst = nullptr;
     IsConditional = false;
     IsLast = false;
     IsExplicit = false;
+    PTag = VPPrivate::PrivateTag::PTUndef;
   }
   /// Check for all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
   void checkParentVPLoop(const VPLoop *Loop) const;
 
   /// Return true if not all data is completed.
-  bool isIncomplete() const { return FinalInst == nullptr; }
+  bool isIncomplete() const { return ExitInst == nullptr; }
 
   /// Attemp to fix incomplete data using VPlan and VPLoop.
-  void tryToCompleteByVPlan(const VPlan *Plan, const VPLoop *Loop);
+  void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop);
 
   /// Pass the data to VPlan
-  void passToVPlan(VPlan *Plan, const VPLoop *Loop);
+  void passToVPlan(VPlanVector *Plan, const VPLoop *Loop);
 
   void setAllocaInst(VPValue *AllocaI) { AllocaInst = AllocaI; }
   void setIsConditional(bool IsCond) { IsConditional = IsCond; }
   void setIsLast(bool IsLastPriv) { IsLast = IsLastPriv; }
   void setIsExplicit(bool IsExplicitVal) { IsExplicit = IsExplicitVal; }
   void setIsMemOnly(bool IsMem) { setValidMemOnly(IsMem); }
+  void setExitInst(VPInstruction *EI) { ExitInst = EI; }
   void addAlias(VPValue *Alias, VPInstruction *I) { PtrAliases[Alias] = I; }
+  void setCtor(Function *CtorFn) { Ctor = CtorFn; }
+  void setDtor(Function *DtorFn) { Dtor = DtorFn; }
+  void setCopyAssign(Function *CopyAssignFn) { CopyAssign = CopyAssignFn; }
 
 private:
+  /// Set fields to define PrivateKind for the imported private.
+  /// Sometimes it can differ from one that was set by user. E.g. the
+  /// "conditional" modifier can be set on the private that assigned in both
+  /// branches of an IF statement. But those assignments can be merged into one
+  /// select instruction.
+  void updateKind(const VPLoop *Loop);
+
   VPValue *AllocaInst = nullptr;
-  VPInstruction *FinalInst = nullptr;
+  VPInstruction *ExitInst = nullptr;
   // These are Pointer-aliases. Each Loop-private memory descriptor can have
   // multiple aliases as opposed to memory descriptors for inductions or
   // reductions. Hence, we have a separate field. TODO: consider using a
@@ -965,6 +1195,10 @@ private:
   bool IsConditional = false;
   bool IsLast = false;
   bool IsExplicit = false;
+  Function *Ctor = nullptr;
+  Function *Dtor = nullptr;
+  Function *CopyAssign = nullptr;
+  VPPrivate::PrivateTag PTag = VPPrivate::PrivateTag::PTUndef;
 };
 
 // Base class for loop entities converter. Used to create a list of converters
@@ -993,7 +1227,7 @@ public:
       : VPLoopEntitiesConverterBase(K) {}
   VPLoopEntitiesConverterTempl(const VPLoopEntitiesConverterTempl &) = delete;
 
-  virtual void passToVPlan(VPlan *Plan, MapperT &M) = 0;
+  virtual void passToVPlan(VPlanVector *Plan, MapperT &M) = 0;
 
   static bool classof(const VPLoopEntitiesConverterBase *B) {
     return B->getKind() != C_Unknown;
@@ -1016,7 +1250,7 @@ class VPLoopEntitiesConverter : public VPLoopEntitiesConverterTempl<MapperT> {
   typedef SmallVector<LoopListItemT, 2> LoopListT;
 
 public:
-  explicit VPLoopEntitiesConverter(VPlan *P)
+  explicit VPLoopEntitiesConverter(VPlanVector *P)
       : VPLoopEntitiesConverterTempl<MapperT>(
             VPLoopEntitiesConverterBase::C_Final),
         Plan(P) {}
@@ -1035,7 +1269,7 @@ public:
   }
 
   /// Sending pass.
-  void passToVPlan(VPlan *Plan, MapperT &M) override {
+  void passToVPlan(VPlanVector *Plan, MapperT &M) override {
     for (auto &LLItem : LoopList) {
       const VPLoop *Loop = M[LLItem.first];
       assert(Loop != nullptr && "Can't find corresponding VPLoop");
@@ -1071,7 +1305,7 @@ private:
 
   void processIterators(DescrList &Lst) {}
 
-  VPlan *Plan;
+  VPlanVector *Plan;
   LoopListT LoopList;
 };
 

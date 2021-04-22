@@ -17,6 +17,10 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRTRANSFORMPASS_H
 
 #include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/IR/PrintPasses.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 namespace llvm {
@@ -53,6 +57,57 @@ public:
     return createHIRPrinterPass(OS, Banner);
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+};
+
+// Base class for HIR passes in the new pass manager.
+// Passed should be derived like this-
+//
+// class HIRTempCleanupPass : public HIRPassInfoMixin<HIRTempCleanupPass> {
+// public:
+//   // PassName should match the name using which the pass is registered in
+//   // PassRegistery.def.
+//   static constexpr auto PassName = "hir-temp-cleanup";
+//
+//   // Derived class should define runImpl() instead of run() with the
+//   // following signature-
+//   PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+//                             HIRFramework &HIRF);
+// };
+
+template <typename DerivedTy>
+class HIRPassInfoMixin : public PassInfoMixin<DerivedTy> {
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
+
+    auto &HIRF = AM.getResult<HIRFrameworkAnalysis>(F);
+
+    auto *DerivedPtr = static_cast<DerivedTy*>(this);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    bool ShouldPrintFunc = isFunctionInPrintList(F.getName());
+
+    if (ShouldPrintFunc && shouldPrintBeforePass(DerivedTy::PassName)) {
+      dbgs() << "*** IR Dump Before " << DerivedPtr->name() << " ***\n";
+      dbgs() << "Function: " << F.getName() << "\n";
+      HIRF.print(false, dbgs());
+    }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+    auto PA = DerivedPtr->runImpl(F, AM, HIRF);
+
+    // Run framework verifier.
+    HIRF.verify();
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (ShouldPrintFunc && shouldPrintAfterPass(DerivedTy::PassName)) {
+      dbgs() << "*** IR Dump After " << DerivedPtr->name() << " ***\n";
+      dbgs() << "Function: " << F.getName() << "\n";
+      HIRF.print(false, dbgs());
+    }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+    return PA;
+  }
 };
 
 } // End namespace loopopt

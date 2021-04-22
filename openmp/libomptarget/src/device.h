@@ -22,14 +22,13 @@
 #include <set>
 #include <vector>
 
+#include "omptarget.h"
 #include "rtl.h"
 
 // Forward declarations.
 struct RTLInfoTy;
 struct __tgt_bin_desc;
 struct __tgt_target_table;
-struct __tgt_async_info;
-class MemoryManagerTy;
 
 using map_var_info_t = void *;
 
@@ -45,7 +44,7 @@ typedef enum kmp_target_offload_kind kmp_target_offload_kind_t;
 struct HostDataToTargetTy {
   uintptr_t HstPtrBase; // host info.
   uintptr_t HstPtrBegin;
-  uintptr_t HstPtrEnd; // non-inclusive.
+  uintptr_t HstPtrEnd;       // non-inclusive.
   map_var_info_t HstPtrName; // Optional source name of mapped variable.
 
   uintptr_t TgtPtrBegin; // target info.
@@ -61,9 +60,7 @@ public:
       : HstPtrBase(BP), HstPtrBegin(B), HstPtrEnd(E), HstPtrName(Name),
         TgtPtrBegin(TB), RefCount(IsINF ? INFRefCount : 1) {}
 
-  uint64_t getRefCount() const {
-    return RefCount;
-  }
+  uint64_t getRefCount() const { return RefCount; }
 
   uint64_t resetRefCount() const {
     if (RefCount != INFRefCount)
@@ -90,9 +87,7 @@ public:
     return RefCount;
   }
 
-  bool isRefCountInf() const {
-    return RefCount == INFRefCount;
-  }
+  bool isRefCountInf() const { return RefCount == INFRefCount; }
 };
 
 typedef uintptr_t HstPtrBeginTy;
@@ -111,14 +106,14 @@ typedef std::set<HostDataToTargetTy, std::less<>> HostDataToTargetListTy;
 
 struct LookupResult {
   struct {
-    unsigned IsContained   : 1;
+    unsigned IsContained : 1;
     unsigned ExtendsBefore : 1;
-    unsigned ExtendsAfter  : 1;
+    unsigned ExtendsAfter : 1;
   } Flags;
 
   HostDataToTargetListTy::iterator Entry;
 
-  LookupResult() : Flags({0,0,0}), Entry() {}
+  LookupResult() : Flags({0, 0, 0}), Entry() {}
 };
 
 /// Map for shadow pointers
@@ -164,9 +159,6 @@ struct DeviceTy {
   // moved into the target task in libomp.
   std::map<int32_t, uint64_t> LoopTripCnt;
 
-  /// Memory manager
-  std::unique_ptr<MemoryManagerTy> MemoryManager;
-
   DeviceTy(RTLInfoTy *RTL);
 
   // The existence of mutexes makes DeviceTy non-copyable. We need to
@@ -178,7 +170,7 @@ struct DeviceTy {
   ~DeviceTy();
 
   // Return true if data can be copied to DstDevice directly
-  bool isDataExchangable(const DeviceTy& DstDevice);
+  bool isDataExchangable(const DeviceTy &DstDevice);
 
   uint64_t getMapEntryRefCnt(void *HstPtrBegin);
   LookupResult lookupMapping(void *HstPtrBegin, int64_t Size);
@@ -200,35 +192,38 @@ struct DeviceTy {
   __tgt_target_table *load_binary(void *Img);
 
   // device memory allocation/deallocation routines
-  /// Allocates \p Size bytes on the device and returns the address/nullptr when
+  /// Allocates \p Size bytes on the device, host or shared memory space
+  /// (depending on \p Kind) and returns the address/nullptr when
   /// succeeds/fails. \p HstPtr is an address of the host data which the
   /// allocated target data will be associated with. If it is unknown, the
   /// default value of \p HstPtr is nullptr. Note: this function doesn't do
   /// pointer association. Actually, all the __tgt_rtl_data_alloc
-  /// implementations ignore \p HstPtr.
-  void *allocData(int64_t Size, void *HstPtr = nullptr);
+  /// implementations ignore \p HstPtr. \p Kind dictates what allocator should
+  /// be used (host, shared, device).
+  void *allocData(int64_t Size, void *HstPtr = nullptr,
+                  int32_t Kind = TARGET_ALLOC_DEFAULT);
   /// Deallocates memory which \p TgtPtrBegin points at and returns
   /// OFFLOAD_SUCCESS/OFFLOAD_FAIL when succeeds/fails.
   int32_t deleteData(void *TgtPtrBegin);
 
-  // Data transfer. When AsyncInfoPtr is nullptr, the transfer will be
+  // Data transfer. When AsyncInfo is nullptr, the transfer will be
   // synchronous.
   // Copy data from host to device
   int32_t submitData(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size,
-                     __tgt_async_info *AsyncInfoPtr);
+                     AsyncInfoTy &AsyncInfo);
   // Copy data from device back to host
   int32_t retrieveData(void *HstPtrBegin, void *TgtPtrBegin, int64_t Size,
-                       __tgt_async_info *AsyncInfoPtr);
+                       AsyncInfoTy &AsyncInfo);
   // Copy data from current device to destination device directly
   int32_t dataExchange(void *SrcPtr, DeviceTy &DstDev, void *DstPtr,
-                       int64_t Size, __tgt_async_info *AsyncInfo);
+                       int64_t Size, AsyncInfoTy &AsyncInfo);
 
   int32_t runRegion(void *TgtEntryPtr, void **TgtVarsPtr, ptrdiff_t *TgtOffsets,
-                    int32_t TgtVarsSize, __tgt_async_info *AsyncInfoPtr);
+                    int32_t TgtVarsSize, AsyncInfoTy &AsyncInfo);
   int32_t runTeamRegion(void *TgtEntryPtr, void **TgtVarsPtr,
                         ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                         int32_t NumTeams, int32_t ThreadLimit,
-                        uint64_t LoopTripCount, __tgt_async_info *AsyncInfoPtr);
+                        uint64_t LoopTripCount, AsyncInfoTy &AsyncInfo);
 
 #if INTEL_COLLAB
   int32_t manifest_data_for_region(void *TgtEntryPtr);
@@ -254,24 +249,36 @@ struct DeviceTy {
                                  ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                  int32_t NumTeams, int32_t ThreadLimit,
                                  uint64_t LoopTripCount, void *AsyncData);
-  void *create_offload_queue(bool);
+  void create_offload_queue(void *Interop);
   int32_t release_offload_queue(void *);
   void *get_platform_handle();
-  void *get_device_handle();
+  void setDeviceHandle(void *Interop);
   void *get_context_handle();
   void *data_alloc_managed(int64_t Size);
   int32_t is_device_accessible_ptr(void *Ptr);
   int32_t managed_memory_supported();
   void *data_alloc_explicit(int64_t Size, int32_t Kind);
   int32_t get_data_alloc_info(int32_t NumPtrs, void *Ptrs, void *Infos);
-  int32_t pushSubDevice(int64_t ID);
+  int32_t pushSubDevice(int64_t EncodedID, int64_t DeviceID);
   int32_t popSubDevice(void);
   int32_t isSupportedDevice(void *DeviceType);
+  __tgt_interop *createInterop(int32_t InteropContext, int32_t NumPrefers,
+                               intptr_t *PreferIDs);
+  int32_t releaseInterop(__tgt_interop *Interop);
+  int32_t useInterop(__tgt_interop *Interop);
+  int32_t getNumInteropProperties(void);
+  int32_t getInteropPropertyValue(__tgt_interop *Interop,
+                                  int32_t Property, int32_t ValueType,
+                                  size_t Size, void *Value);
+  const char *getInteropPropertyInfo(int32_t Property, int32_t InfoType);
+  const char *getInteropRcDesc(int32_t RetCode);
+  int32_t setSubDevice(int32_t Level);
+  void unsetSubDevice(void);
 #endif // INTEL_COLLAB
 
-  /// Synchronize device/queue/event based on \p AsyncInfoPtr and return
+  /// Synchronize device/queue/event based on \p AsyncInfo and return
   /// OFFLOAD_SUCCESS/OFFLOAD_FAIL when succeeds/fails.
-  int32_t synchronize(__tgt_async_info *AsyncInfoPtr);
+  int32_t synchronize(AsyncInfoTy &AsyncInfo);
 
 private:
   // Call to RTL
@@ -295,6 +302,8 @@ struct PluginManager {
   /// Translation table retreived from the binary
   HostEntriesBeginToTransTableTy HostEntriesBeginToTransTable;
   std::mutex TrlTblMtx; ///< For Translation Table
+  /// Host offload entries in order of image registration
+  std::vector<__tgt_offload_entry *> HostEntriesBeginRegistrationOrder;
 
   /// Map from ptrs on the host to an entry in the Translation Table
   HostPtrToTableMapTy HostPtrToTableMap;
@@ -303,6 +312,12 @@ struct PluginManager {
   // Store target policy (disabled, mandatory, default)
   kmp_target_offload_kind_t TargetOffloadPolicy = tgt_default;
   std::mutex TargetOffloadMtx; ///< For TargetOffloadPolicy
+#if INTEL_COLLAB
+  /// Root device ID and sub-device mask set by user
+  /// These should be global to all threads.
+  int64_t RootDeviceID = -1;
+  int64_t SubDeviceMask = 0;
+#endif // INTEL_COLLAB
 };
 
 extern PluginManager *PM;

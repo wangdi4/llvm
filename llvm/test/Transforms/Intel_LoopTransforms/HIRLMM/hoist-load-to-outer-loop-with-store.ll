@@ -58,26 +58,26 @@
 ;CHECK:            |   %0 = (@A)[0][i1];
 ;CHECK:            |   (@B)[0][i1] = i1 + %0;
 ;CHECK:            |
-;CHECK:            |      %limm = (@B)[0][0];
-;CHECK:            |      %limm4 = (@B)[0][1];
-;CHECK:            |      %limm6 = (@B)[0][2];
-;CHECK:            |      %limm8 = (@B)[0][3];
-;CHECK:            |      %limm10 = (@B)[0][4];
+;CHECK:            |      %[[LIMM:limm[0-9]*]] = (@B)[0][0];
+;CHECK:            |      %[[LIMM2:limm[0-9]*]] = (@B)[0][1];
+;CHECK:            |      %[[LIMM3:limm[0-9]*]] = (@B)[0][2];
+;CHECK:            |      %[[LIMM4:limm[0-9]*]] = (@B)[0][3];
+;CHECK:            |      %[[LIMM5:limm[0-9]*]] = (@B)[0][4];
 ;CHECK:            |   + DO i2 = 0, 9, 1   <DO_LOOP>
 ;CHECK:            |   |   + DO i3 = 0, 19, 1   <DO_LOOP>
-;CHECK:            |   |   |   %3 = %limm;
+;CHECK:            |   |   |   %3 = %[[LIMM]];
 ;CHECK:            |   |   |   %5 = (@A)[0][i2 + i3];
 ;CHECK:            |   |   |   (@A)[0][i2 + i3] = %3 + %5;
-;CHECK:            |   |   |   %3 = %limm4;
+;CHECK:            |   |   |   %3 = %[[LIMM2]];
 ;CHECK:            |   |   |   %5 = (@A)[0][i2 + i3 + 1];
 ;CHECK:            |   |   |   (@A)[0][i2 + i3 + 1] = %3 + %5;
-;CHECK:            |   |   |   %3 = %limm6;
+;CHECK:            |   |   |   %3 = %[[LIMM3]];
 ;CHECK:            |   |   |   %5 = (@A)[0][i2 + i3 + 2];
 ;CHECK:            |   |   |   (@A)[0][i2 + i3 + 2] = %3 + %5;
-;CHECK:            |   |   |   %3 = %limm8;
+;CHECK:            |   |   |   %3 = %[[LIMM4]];
 ;CHECK:            |   |   |   %5 = (@A)[0][i2 + i3 + 3];
 ;CHECK:            |   |   |   (@A)[0][i2 + i3 + 3] = %3 + %5;
-;CHECK:            |   |   |   %3 = %limm10;
+;CHECK:            |   |   |   %3 = %[[LIMM5]];
 ;CHECK:            |   |   |   %5 = (@A)[0][i2 + i3 + 4];
 ;CHECK:            |   |   |   (@A)[0][i2 + i3 + 4] = %3 + %5;
 ;CHECK:            |   |   + END LOOP

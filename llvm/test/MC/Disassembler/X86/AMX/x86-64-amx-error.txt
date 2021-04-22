@@ -1,5 +1,9 @@
 # RUN: llvm-mc --disassemble %s -triple=x86_64 2>&1 | FileCheck %s
-# UNSUPPORTED: intel_feature_isa_amx
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_ISA_AMX_LNC
+# UNSUPPORTED: intel_feature_isa_amx_lnc
+# end INTEL_FEATURE_ISA_AMX_LNC
+# end INTEL_CUSTOMIZATION
 
 # CHECK: invalid instruction encoding
 0xc4,0xe2,0x1a,0x5c,0xf5

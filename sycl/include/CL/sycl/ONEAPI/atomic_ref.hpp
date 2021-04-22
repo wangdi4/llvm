@@ -69,9 +69,6 @@ template <> struct memory_order_traits<memory_order::seq_cst> {
   static constexpr memory_order write_order = memory_order::seq_cst;
 };
 
-// Cannot use switch statement in constexpr before C++14
-// Nested ternary conditions in else branch required for C++11
-#if __cplusplus >= 201402L
 inline constexpr memory_order getLoadOrder(memory_order order) {
   switch (order) {
   case memory_order_relaxed:
@@ -87,14 +84,6 @@ inline constexpr memory_order getLoadOrder(memory_order order) {
     return memory_order_seq_cst;
   }
 }
-#else
-inline constexpr memory_order getLoadOrder(memory_order order) {
-  return (order == memory_order_relaxed)
-             ? memory_order_relaxed
-             : (order == memory_order_seq_cst) ? memory_order_seq_cst
-                                               : memory_order_acquire;
-}
-#endif
 
 template <typename T, typename = void> struct bit_equal;
 
@@ -496,7 +485,6 @@ public:
 
   T fetch_min(T operand, memory_order order = default_read_modify_write_order,
               memory_scope scope = default_scope) const noexcept {
-/* INTEL_CUSTOMIZATION */
 // TODO: Remove the "native atomics" macro check once implemented for all
 // backends
 #if defined(__SYCL_DEVICE_ONLY__) && defined(SYCL_USE_NATIVE_FP_ATOMICS)
@@ -509,12 +497,10 @@ public:
     }
     return old;
 #endif
-    /* end INTEL_CUSTOMIZATION */
   }
 
   T fetch_max(T operand, memory_order order = default_read_modify_write_order,
               memory_scope scope = default_scope) const noexcept {
-/* INTEL_CUSTOMIZATION */
 // TODO: Remove the "native atomics" macro check once implemented for all
 // backends
 #if defined(__SYCL_DEVICE_ONLY__) && defined(SYCL_USE_NATIVE_FP_ATOMICS)
@@ -527,7 +513,6 @@ public:
     }
     return old;
 #endif
-    /* end INTEL_CUSTOMIZATION */
   }
 
 private:

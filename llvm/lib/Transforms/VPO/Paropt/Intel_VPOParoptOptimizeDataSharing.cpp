@@ -279,6 +279,49 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems(
       SmallVector<Instruction *, 8> Users;
       WRegionUtils::findUsersInRegion(W, DV, &Users, false);
       for (auto *U : Users) {
+        if (auto *II = dyn_cast<IntrinsicInst>(U)) {
+        // Ignore uses by directive entry calls.
+          if (II->getIntrinsicID() == Intrinsic::directive_region_entry)
+            continue;
+
+          // Not captured if the callee is readonly, doesn't return
+          // a copy through its return value and doesn't unwind
+          // (a readonly function can leak bits by throwing an exception
+          // or not depending on the input value).
+          //
+          // FIXME: this is copied from llvm::PointerMayBeCaptured().
+          //        We should try to reuse it. There are cases that
+          //        we currently handle incorrectly, e.g. pointer
+          //        comparison.
+          if (II->onlyReadsMemory() && II->doesNotThrow() &&
+              II->getType()->isVoidTy())
+            continue;
+
+          // Recognize the lifetime markers explicitly,
+          // since they do not classify as onlyReadsMemory().
+          if (II->getIntrinsicID() == Intrinsic::lifetime_end ||
+              II->getIntrinsicID() == Intrinsic::lifetime_start)
+            continue;
+        }
+
+        auto *BB = U->getParent();
+        auto I = BBToWRNMap.find(BB);
+        if (I == BBToWRNMap.end()) {
+          // This should not happen, but we just return true conservatively.
+          return true;
+        }
+        // Get the owning WRegionNode for the using instruction.
+        WRegionNode *UseWRN = I->second;
+
+        // Any use of DV inside a descendant region is "safe", if the value
+        // is privatized by any region that is a descendant of W and is
+        // an ancestor of UseWRN, or if the value is privated by UseWRN itself.
+        //
+        // We do not need to consider such uses as derivatives or analyze
+        // them at all.
+        if (UseWRN != W && ValueIsPrivatizedByInnerRegion(W, UseWRN, DV))
+          continue;
+
         if (auto *GEP = dyn_cast<GEPOperator>(U))
           Derivatives.push(GEP);
         else if (auto *BCO = dyn_cast<BitCastOperator>(U))
@@ -291,50 +334,32 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems(
             // the variable address space. We only allow the optimization
             // if the volatile load is inside an enclosed region,
             // where the variable is private.
-            auto *BB = LI->getParent();
-            auto I = BBToWRNMap.find(BB);
-            if (I == BBToWRNMap.end())
-              // This should not happen, but we just return true conservatively.
-              return true;
-            // Get the owning WRegionNode for the load instruction.
-            WRegionNode *LoadWRN = I->second;
-            if (LoadWRN == W)
-              // The volatile load is inside the region itself.
-              // Returning true here is not actually the right answer
-              // to the query made by this lambda, but we want to return
-              // true to avoid optimizing for the given pointer V.
-              return true;
 
-            if (!ValueIsPrivatizedByInnerRegion(W, LoadWRN, DV))
-              // The value is not privatized by any region enclosed
-              // into W, so we cannot optimize it.
-              return true;
+            // If the volatile load is inside the region itself:
+            // Returning true here is not actually the right answer
+            // to the query made by this lambda, but we want to return
+            // true to avoid optimizing for the given pointer V.
+            //
+            // If the volatile load is inside the enclosed region.
+            // We have already checked that the location is not privatized
+            // by an enclosed region. So this use is not safe for optimization.
+            return true;
           }
         } else if (auto *SI = dyn_cast<StoreInst>(U)) {
           if (DV != SI->getPointerOperand())
             // This may be a capture.
             return true;
-
-          auto *BB = SI->getParent();
-          auto I = BBToWRNMap.find(BB);
-          if (I == BBToWRNMap.end())
-              // This should not happen, but we just return true conservatively.
-            return true;
-          // Get the owning WRegionNode for the store instruction.
-          WRegionNode *StoreWRN = I->second;
           // Stores inside the given region W are OK.
-          // If the store is inside the enclosed region, we have to check
-          // whether the store is actually made into the private copy
-          // of the variable.
-          if (StoreWRN != W &&
-              !ValueIsPrivatizedByInnerRegion(W, StoreWRN, DV))
-            return true;
-        } else if (auto *II = dyn_cast<IntrinsicInst>(U)) {
-          if (II->getIntrinsicID() != Intrinsic::directive_region_entry)
-            return true;
-        } else
+          if (UseWRN == W)
+            continue;
+          // The store is inside the enclosed region.
+          // We have already checked that the location is not privatized
+          // by an enclosed region. So this use is a modification.
+          return true;
+        } else {
           // Unknown user, so assume the worst.
           return true;
+        }
       }
     }
 
@@ -421,15 +446,16 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems(
             Modifier = ":WILOCAL";
         }
 
-        if (Modifier[0] != '\0')
+        if (Modifier[0] != '\0') {
           if (DataSharingOptNumCase >= 0 &&
-              NumOptimizedItems >= DataSharingOptNumCase)
+              NumOptimizedItems >= DataSharingOptNumCase) {
             Modifier = "";
-          else {
+          } else {
             ++NumOptimizedItems;
             ModifierAdded = true;
             Changed = true;
           }
+        }
       }
 
       OperandBundleDef B(ClauseString.str() + Modifier,

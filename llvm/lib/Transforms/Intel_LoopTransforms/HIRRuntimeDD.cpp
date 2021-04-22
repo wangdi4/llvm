@@ -144,6 +144,10 @@ static cl::opt<unsigned>
                          cl::init(60), cl::Hidden,
                          cl::desc("Maximum number of runtime tests for loop."));
 
+static cl::opt<bool> IgnoreIVDepLoopLoops(
+    OPT_SWITCH "-ignore-ivdeploop-loops", cl::init(false), cl::Hidden,
+    cl::desc("Ignore loops with \"ivdep loop\" in " OPT_DESCR "."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 namespace DbgMessage {
 enum Kind {
@@ -451,11 +455,12 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
       // upper bound. This is because b*(x/d) != (b*x)/d.
       if ((UpperBoundCE->getDenominator() != 1 ||
            !CanonExprUtils::mergeable(CE, UpperBoundCE, true)) &&
-          !UpperBoundCE->canConvertToStandAloneBlob()) {
+          !UpperBoundCE->canConvertToStandAloneBlobOrConstant()) {
         return UPPER_SUB_TYPE_MISMATCH;
       }
       assert((CanonExprUtils::mergeable(CE, LoopI->getLowerCanonExpr(), true) ||
-              LoopI->getLowerCanonExpr()->canConvertToStandAloneBlob()) &&
+              LoopI->getLowerCanonExpr()
+                  ->canConvertToStandAloneBlobOrConstant()) &&
              "Assuming that the Lower bound is also mergeable or can be "
              "represented as a blob if Upper is mergeable or can be represented"
              " as a blob");
@@ -545,9 +550,9 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "SIMD Loop";
   case UNKNOWN_MIN_MAX:
     return "Could not find MIN and MAX bounds";
-  default:
-    llvm_unreachable("Unexpected give up reason");
   }
+  llvm_unreachable("Unexpected give up reason");
+
 }
 #endif
 
@@ -902,7 +907,11 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   Context.Loop = Loop;
 
   if (Loop->hasVectorizeIVDepPragma()) {
-    return IVDEP_PRAGMA_LOOP;
+    // Historically we don't consider loops with "ivdep" pragmas. However,
+    // OpenMP "parallel for" semantics may be preserved for LoopOpt as "ivdep
+    // loop." Don't ignore these.
+    if (!Loop->hasVectorizeIVDepLoopPragma() || IgnoreIVDepLoopLoops)
+      return IVDEP_PRAGMA_LOOP;
   }
 
   if (Loop->getMVTag()) {
@@ -1620,12 +1629,13 @@ bool HIRRuntimeDD::run() {
   return true;
 }
 
-PreservedAnalyses HIRRuntimeDDPass::run(llvm::Function &F,
-                                        llvm::FunctionAnalysisManager &AM) {
-  HIRRuntimeDD(
-      AM.getResult<HIRFrameworkAnalysis>(F), AM.getResult<HIRDDAnalysisPass>(F),
-      AM.getResult<HIRLoopStatisticsAnalysis>(F),
-      AM.getResult<TargetLibraryAnalysis>(F), AM.getResult<TargetIRAnalysis>(F))
+PreservedAnalyses HIRRuntimeDDPass::runImpl(llvm::Function &F,
+                                            llvm::FunctionAnalysisManager &AM,
+                                            HIRFramework &HIRF) {
+  HIRRuntimeDD(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+               AM.getResult<HIRLoopStatisticsAnalysis>(F),
+               AM.getResult<TargetLibraryAnalysis>(F),
+               AM.getResult<TargetIRAnalysis>(F))
       .run();
 
   return PreservedAnalyses::all();

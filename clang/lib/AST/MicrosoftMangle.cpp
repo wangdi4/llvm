@@ -234,6 +234,34 @@ public:
     return true;
   }
 
+  std::string getLambdaString(const CXXRecordDecl *Lambda) override {
+    assert(Lambda->isLambda() && "RD must be a lambda!");
+    std::string Name("<lambda_");
+
+    Decl *LambdaContextDecl = Lambda->getLambdaContextDecl();
+    unsigned LambdaManglingNumber = Lambda->getLambdaManglingNumber();
+    unsigned LambdaId;
+    const ParmVarDecl *Parm = dyn_cast_or_null<ParmVarDecl>(LambdaContextDecl);
+    const FunctionDecl *Func =
+        Parm ? dyn_cast<FunctionDecl>(Parm->getDeclContext()) : nullptr;
+
+    if (Func) {
+      unsigned DefaultArgNo =
+          Func->getNumParams() - Parm->getFunctionScopeIndex();
+      Name += llvm::utostr(DefaultArgNo);
+      Name += "_";
+    }
+
+    if (LambdaManglingNumber)
+      LambdaId = LambdaManglingNumber;
+    else
+      LambdaId = getLambdaIdForDebugInfo(Lambda);
+
+    Name += llvm::utostr(LambdaId);
+    Name += ">";
+    return Name;
+  }
+
   unsigned getLambdaId(const CXXRecordDecl *RD) {
     assert(RD->isLambda() && "RD must be a lambda!");
     assert(!RD->isExternallyVisible() && "RD must not be visible!");
@@ -242,6 +270,19 @@ public:
     std::pair<llvm::DenseMap<const CXXRecordDecl *, unsigned>::iterator, bool>
         Result = LambdaIds.insert(std::make_pair(RD, LambdaIds.size()));
     return Result.first->second;
+  }
+
+  unsigned getLambdaIdForDebugInfo(const CXXRecordDecl *RD) {
+    assert(RD->isLambda() && "RD must be a lambda!");
+    assert(!RD->isExternallyVisible() && "RD must not be visible!");
+    assert(RD->getLambdaManglingNumber() == 0 &&
+           "RD must not have a mangling number!");
+    llvm::DenseMap<const CXXRecordDecl *, unsigned>::iterator Result =
+        LambdaIds.find(RD);
+    // The lambda should exist, but return 0 in case it doesn't.
+    if (Result == LambdaIds.end())
+      return 0;
+    return Result->second;
   }
 
   /// Return a character sequence that is (somewhat) unique to the TU suitable
@@ -2438,6 +2479,8 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
 #define PPC_VECTOR_TYPE(Name, Id, Size) \
   case BuiltinType::Id:
 #include "clang/Basic/PPCTypes.def"
+#define RVV_TYPE(Name, Id, SingletonId) case BuiltinType::Id:
+#include "clang/Basic/RISCVVTypes.def"
   case BuiltinType::ShortAccum:
   case BuiltinType::Accum:
   case BuiltinType::LongAccum:
@@ -2729,6 +2772,7 @@ void MicrosoftCXXNameMangler::mangleCallingConvention(CallingConv CC) {
   //                      ::= I # __fastcall
   //                      ::= J # __export __fastcall
   //                      ::= Q # __vectorcall
+  //                      ::= S # __attribute__((__swiftcall__)) // Clang-only
   //                      ::= w # __regcall
   // The 'export' calling conventions are from a bygone era
   // (*cough*Win16*cough*) when functions were declared for export with
@@ -3324,28 +3368,6 @@ void MicrosoftCXXNameMangler::mangleType(const ChannelType *T, Qualifiers,
   Extra.mangleType(ElementType, Range, QMM_Escape);
 
   mangleArtificialTagType(TTK_Struct, TemplateMangling, {"__clang"});
-}
-
-void MicrosoftCXXNameMangler::mangleType(const ArbPrecIntType *T, Qualifiers,
-                                         SourceRange Range) {
-  QualType UnderlyingType = T->getUnderlyingType();
-  llvm::SmallString<64> TemplateMangling;
-  llvm::raw_svector_ostream Stream(TemplateMangling);
-  MicrosoftCXXNameMangler Extra(Context, Stream);
-  Stream << "?$";
-  Extra.mangleSourceName("__ap_int");
-  Extra.mangleNumber(T->getNumBits());
-  Extra.mangleType(UnderlyingType, Range, QMM_Escape);
-  mangleArtificialTagType(TTK_Struct, TemplateMangling, {"__clang"});
-}
-
-void MicrosoftCXXNameMangler::mangleType(const DependentSizedArbPrecIntType *T,
-                                         Qualifiers, SourceRange Range) {
-  DiagnosticsEngine &Diags = Context.getDiags();
-  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
-    "cannot mangle this Dependent ArbPrecInt type yet");
-  Diags.Report(Range.getBegin(), DiagID)
-    << Range;
 }
 #endif // INTEL_CUSTOMIZATION
 

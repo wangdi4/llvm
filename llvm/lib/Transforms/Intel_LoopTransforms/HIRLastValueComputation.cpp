@@ -239,7 +239,7 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
   bool NeedConvertToStandAloneBlob = false;
 
   if (UBCE->getDenominator() != 1) {
-    if (!UBCE->canConvertToStandAloneBlob()) {
+    if (!UBCE->canConvertToStandAloneBlobOrConstant()) {
       return false;
     } else {
       NeedConvertToStandAloneBlob = true;
@@ -289,7 +289,7 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
   SmallDenseMap<HLGoto *, HLNode *, 16> GotoInsertPosition;
 
   if (NeedConvertToStandAloneBlob) {
-    UBCE->convertToStandAloneBlob();
+    UBCE->convertToStandAloneBlobOrConstant();
   }
 
   for (auto *HInst : CandidateInsts) {
@@ -369,12 +369,9 @@ bool HIRLastValueComputation::run() {
   return Result;
 }
 
-PreservedAnalyses
-HIRLastValueComputationPass::run(llvm::Function &F,
-                                 llvm::FunctionAnalysisManager &AM) {
-  HIRLastValueComputation(AM.getResult<HIRFrameworkAnalysis>(F),
-                          AM.getResult<HIRDDAnalysisPass>(F))
-      .run();
+PreservedAnalyses HIRLastValueComputationPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRLastValueComputation(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
   return PreservedAnalyses::all();
 }
 

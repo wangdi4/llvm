@@ -16,81 +16,166 @@ declare void @llvm.directive.region.exit(token) #3
 define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ;
 ; CHECK-LABEL:  VPlan after CallVecDecisions analysis for VF=4:
+; CHECK-NEXT:  VPlan IR for: _ZGVbM4_direct:simd.loop
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_INDEX_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_VF:%.*]] = induction-init-step{add} i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop simd.loop
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 [[VP_ORIG_TRIP_COUNT]], UF = 1
-; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 4, UF = 1
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i32 0 i32 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP_MASK_GEP:%.*]] = getelementptr i32* [[MASK_CAST0:%.*]] i32 [[VP_INDEX]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_MASK_PARM:%.*]] = load i32* [[VP_MASK_GEP]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_MASK_COND:%.*]] = icmp ne i32 [[VP_MASK_PARM]] i32 0
-; CHECK-NEXT:     [DA: Div] i1 [[VP_MASK_COND_NOT:%.*]] = not i1 [[VP_MASK_COND]]
-; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
+; CHECK-NEXT:      vector.ph: # preds: [[BB1]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_INDEX_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:       [DA: Uni] i32 [[VP_INDEX_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
+; CHECK-NEXT:       [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_MASK_COND_NOT]]
-; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
+; CHECK-NEXT:      [[BB2]]: # preds: [[BB3:BB[0-9]+]], vector.ph
+; CHECK-NEXT:       [DA: Div] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT]], vector.ph ],  [ i32 [[VP_INDVAR:%.*]], [[BB3]] ]
+; CHECK-NEXT:       [DA: Div] i32* [[VP_MASK_GEP:%.*]] = getelementptr i32* [[MASK_CAST0:%.*]] i32 [[VP_INDEX]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_MASK_PARM:%.*]] = load i32* [[VP_MASK_GEP]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_MASK_COND:%.*]] = icmp ne i32 [[VP_MASK_PARM]] i32 0
+; CHECK-NEXT:       [DA: Div] i1 [[VP_MASK_COND_NOT:%.*]] = not i1 [[VP_MASK_COND]]
+; CHECK-NEXT:       [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_MASK_COND]]
-; CHECK-NEXT:     [DA: Div] <4 x i32> [[VP_CALL_I:%.*]] = call i32 5 _ZGVbM4v_Z3barPif [x 1] [@CurrMask]
-; CHECK-NEXT:     [DA: Uni] br [[BB3]]
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_MASK_COND_NOT]]
+; CHECK-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 false, [[BB2]], [[BB6:BB[0-9]+]]
-; CHECK-NEXT:     Condition(external): i1 false
+; CHECK-NEXT:      [[BB5]]: # preds: [[BB4]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_MASK_COND]]
+; CHECK-NEXT:       [DA: Div] <4 x i32> [[VP_CALL_I:%.*]] = call i32 5 _ZGVbM4v_Z3barPif [x 1] [@CurrMask]
+; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]: # preds: [[BB3]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
+; CHECK-NEXT:      [[BB3]]: # preds: [[BB5]]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_VL_COND:%.*]] = icmp ult i32 [[VP_INDVAR]] i32 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:       [DA: Uni] br i1 false, [[BB2]], [[BB6:BB[0-9]+]]
+; CHECK-NEXT:       Condition(external): i1 false
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
+; CHECK-NEXT:      [[BB6]]: # preds: [[BB3]]
+; CHECK-NEXT:       [DA: Uni] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
+; CHECK-NEXT:       [DA: Uni] br middle.block
+; CHECK-EMPTY:
+; CHECK-NEXT:      middle.block: # preds: [[BB6]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i32 4 i32 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB7:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
+; CHECK-NEXT:       [DA: Uni] i32 [[VP2:%.*]] = phi-merge  [ i32 live-out0, middle.block ],  [ i32 0, [[BB1]] ]
+; CHECK-NEXT:       [DA: Uni] br [[BB8:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB8]]: # preds: scalar.ph
+; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder simd.loop, NeedsCloning: 0, LiveInMap:
+; CHECK-NEXT:         {i32 0 in {  [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_BEGIN_REGION0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]} -> i32 [[VP2]] }
+; CHECK-NEXT:         {label [[SIMD_END_REGION0:%.*]] in {  br i1 [[VL_COND0:%.*]], label [[SIMD_LOOP0:%.*]], label [[SIMD_END_REGION0]], !llvm.loop !0} -> label [[BB7]] }
+; CHECK-NEXT:       [DA: Uni] i32 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
+; CHECK-NEXT:       [DA: Uni] br [[BB7]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB7]]: # preds: [[BB8]], middle.block
+; CHECK-NEXT:     [DA: Uni] i32 [[VP3:%.*]] = phi-merge  [ i32 [[VP_ORIG_LIVEOUT]], [[BB8]] ],  [ i32 live-out0, middle.block ]
+; CHECK-NEXT:     [DA: Uni] br [[BB9:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB9]]: # preds: [[BB7]]
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i32 [[VP_INDEX_IND_FINAL]]
+; CHECK:       target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+; CHECK-NEXT:  target triple = "x86_64-unknown-linux-gnu"
+; CHECK-EMPTY:
+; CHECK-NEXT:  declare dso_local <4 x i32> @_Z3barPif(i32) #0
+; CHECK:       declare token @llvm.directive.region.entry() #1
+; CHECK:       declare void @llvm.directive.region.exit(token) #1
 ;
 ; CHECK:  define void @_ZGVbM4_direct(<4 x i32> [[MASK0:%.*]]) #2 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[VEC_MASK0:%.*]] = alloca <4 x i32>, align 16
 ; CHECK-NEXT:    [[MASK_CAST0]] = bitcast <4 x i32>* [[VEC_MASK0]] to i32*
 ; CHECK-NEXT:    store <4 x i32> [[MASK0]], <4 x i32>* [[VEC_MASK0]], align 16
-; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
+; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
+; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB:
+; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB1:
 ; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.ph:
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[UNI_PHI10]]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VPLANNEDBB50:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP4:%.*]], [[VPLANNEDBB50]] ]
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 4
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp ne <4 x i32> [[WIDE_LOAD0]], zeroinitializer
 ; CHECK-NEXT:    [[TMP2:%.*]] = xor <4 x i1> [[TMP1]], <i1 true, i1 true, i1 true, i1 true>
+; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB3:
+; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB4:
 ; CHECK-NEXT:    [[MASKEXT0:%.*]] = sext <4 x i1> [[TMP1]] to <4 x i32>
 ; CHECK-NEXT:    [[TMP3:%.*]] = call <16 x i32> @_ZGVbM4v_Z3barPif(<4 x i32> <i32 5, i32 5, i32 5, i32 5>, <4 x i32> [[MASKEXT0]])
-; CHECK-NEXT:    [[TMP4]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP5]] = add nuw i32 [[UNI_PHI10]], 4
-; CHECK-NEXT:    [[TMP6]] = add i32 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i32 [[TMP6]], 4
-; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB0:%.*]], !llvm.loop !0
+; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB:
+; CHECK-NEXT:  VPlannedBB5:
+; CHECK-NEXT:    [[TMP4]] = add nuw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP5]] = add nuw i32 [[UNI_PHI0]], 4
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp ult i32 [[TMP5]], 4
+; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB60:%.*]], !llvm.loop !0
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB6:
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  middle.block:
+; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0]], label [[VPLANNEDBB70:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  scalar.ph:
+; CHECK-NEXT:    [[UNI_PHI80:%.*]] = phi i32 [ 4, [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB90:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB9:
+; CHECK-NEXT:    br label [[SIMD_LOOP0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB7:
+; CHECK-NEXT:    [[UNI_PHI100:%.*]] = phi i32 [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ], [ 4, [[MIDDLE_BLOCK0]] ]
+; CHECK-NEXT:    br label [[VPLANNEDBB110:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB11:
+; CHECK-NEXT:    br label [[SIMD_END_REGION0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop:
+; CHECK-NEXT:    [[INDEX0]] = phi i32 [ [[UNI_PHI80]], [[VPLANNEDBB90]] ], [ [[INDVAR0]], [[SIMD_LOOP_EXIT0]] ]
+; CHECK-NEXT:    [[MASK_GEP0:%.*]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[INDEX0]]
+; CHECK-NEXT:    [[MASK_PARM0:%.*]] = load i32, i32* [[MASK_GEP0]], align 4
+; CHECK-NEXT:    [[MASK_COND0:%.*]] = icmp ne i32 [[MASK_PARM0]], 0
+; CHECK-NEXT:    br i1 [[MASK_COND0]], label [[SIMD_LOOP_THEN0:%.*]], label [[SIMD_LOOP_ELSE0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.then:
+; CHECK-NEXT:    [[CALL_I0:%.*]] = call <4 x i32> @_Z3barPif(i32 5) #0
+; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.else:
+; CHECK-NEXT:    br label [[SIMD_LOOP_EXIT0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.loop.exit:
+; CHECK-NEXT:    [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
+; CHECK-NEXT:    [[VL_COND0]] = icmp ult i32 [[INDVAR0]], 4
+; CHECK-NEXT:    br i1 [[VL_COND0]], label [[SIMD_LOOP0]], label [[VPLANNEDBB70]], !llvm.loop !2
+; CHECK-EMPTY:
+; CHECK-NEXT:  simd.end.region:
+; CHECK-NEXT:    br label [[RETURN0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  return:
+; CHECK-NEXT:    ret void
+; CHECK-NEXT:  }
 ;
 entry:
   %vec.mask = alloca <4 x i32>, align 16

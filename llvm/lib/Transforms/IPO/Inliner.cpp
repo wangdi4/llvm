@@ -36,6 +36,7 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/Utils/ImportedFunctionsInliningStatistics.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/DataLayout.h"
@@ -59,10 +60,10 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/CallPromotionUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/Transforms/Utils/ImportedFunctionsInliningStatistics.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/Transforms/MemManageInfoImpl.h" // INTEL
 #include "Intel_DTrans/Transforms/StructOfArraysInfoImpl.h" // INTEL
 #include "Intel_DTrans/Transforms/SOAToAOSExternal.h" // INTEL
 #endif // INTEL_INCLUDE_DTRANS
@@ -94,25 +95,7 @@ static cl::opt<bool>
     DisableInlinedAllocaMerging("disable-inlined-alloca-merging",
                                 cl::init(false), cl::Hidden);
 
-namespace {
-
-enum class InlinerFunctionImportStatsOpts {
-  No = 0,
-  Basic = 1,
-  Verbose = 2,
-};
-
-} // end anonymous namespace
-
-static cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats(
-    "inliner-function-import-stats",
-    cl::init(InlinerFunctionImportStatsOpts::No),
-    cl::values(clEnumValN(InlinerFunctionImportStatsOpts::Basic, "basic",
-                          "basic statistics"),
-               clEnumValN(InlinerFunctionImportStatsOpts::Verbose, "verbose",
-                          "printing of statistics for each inlined function")),
-    cl::Hidden, cl::desc("Enable inliner stats for imported functions"));
-
+extern cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats;
 
 #if INTEL_CUSTOMIZATION
 LegacyInlinerBase::LegacyInlinerBase(char &ID)
@@ -127,6 +110,13 @@ LegacyInlinerBase::LegacyInlinerBase(char &ID, bool InsertLifetime)
   MDReport = getMDInlineReport();
 }
 #endif // INTEL_CUSTOMIZATION
+
+static cl::opt<std::string> CGSCCInlineReplayFile(
+    "cgscc-inline-replay", cl::init(""), cl::value_desc("filename"),
+    cl::desc(
+        "Optimization remarks file containing inline remarks to be replayed "
+        "by inlining from cgscc inline remarks."),
+    cl::Hidden);
 
 /// For this class, we declare that we require and preserve the call graph.
 /// If the derived class implements this method, it should
@@ -411,6 +401,54 @@ static void collectDtransFuncs(Module &M) {
   for (Function *F: MemInitFuncs)
     if (!IsEmptyFunction(F))
       F->addFnAttr("noinline-dtrans");
+
+  // MEMMANAGETRANS:
+  // Force inlining for all inner functions of Allocator.
+  std::set<Function *> MemManageInlineMethods;
+  // Suppress inlining for interface functions, StringAllocator
+  // functions and StringObject functions.
+  SmallSet<Function *, 16> MemManageNoInlineMethods;
+  for (auto *Str : M.getIdentifiedStructTypes()) {
+    dtrans::MemManageCandidateInfo MemManageInfo(M);
+    if (!MemManageInfo.isCandidateType(Str))
+      continue;
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFO, {
+      dbgs() << "MemManageTrans considering candidate: ";
+      Str->print(dbgs(), true, true);
+      dbgs() << "\n";
+    });
+    if (!MemManageInfo.collectMemberFunctions(false)) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFO, {
+        dbgs() << "  Failed: member functions collections.\n";
+      });
+      continue;
+    }
+    if (!MemManageInlineMethods.empty() || !MemManageNoInlineMethods.empty()) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFO, {
+        dbgs() << "  Failed: More than one candidate found.\n";
+      });
+      MemManageInlineMethods.clear();
+      MemManageNoInlineMethods.clear();
+      break;
+    }
+    if (!MemManageInfo.collectInlineNoInlineMethods(&MemManageInlineMethods,
+                                               &MemManageNoInlineMethods)) {
+      DEBUG_WITH_TYPE(DTRANS_MEMMANAGEINFO, {
+        dbgs() << "  Failed: Heuristics\n";
+      });
+      MemManageInlineMethods.clear();
+      MemManageNoInlineMethods.clear();
+      break;
+    }
+  }
+  // Suppress inlining.
+  for (Function *F: MemManageNoInlineMethods)
+    if (!IsEmptyFunction(F))
+      F->addFnAttr("noinline-dtrans");
+  // Force inlining.
+  for (Function *F: MemManageInlineMethods)
+    F->addFnAttr("prefer-inline-dtrans");
+
 #endif // INTEL_INCLUDE_DTRANS
 }
 #endif // INTEL_CUSTOMIZATION
@@ -809,15 +847,6 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
                                             bool AlwaysInlineOnly) {
   SmallVector<CallGraphNode *, 16> FunctionsToRemove;
   SmallVector<Function *, 16> DeadFunctionsInComdats;
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-10061: Use a std::set with the Function name as a comparator
-  // to ensure that the DEAD STATIC FUNCTIONs in the inlining report are
-  // emitted in a consistent order.
-  auto cmp = [](Function *F1, Function *F2) {
-    return F1->getName().compare(F2->getName()) < 0;
-  };
-  std::set<Function *, decltype(cmp)> InlineReportFunctionsToRemove(cmp);
-#endif // INTEL_CUSTOMIZATION
 
   auto RemoveCGN = [&](CallGraphNode *CGN) {
     // Remove any call graph edges from the function to its callees.
@@ -830,7 +859,6 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
 
     // Removing the node for callee from the call graph and delete it.
     FunctionsToRemove.push_back(CGN);
-    InlineReportFunctionsToRemove.insert(CGN->getFunction()); // INTEL
   };
 
   // Scan for all of the functions, looking for ones that should now be removed
@@ -878,13 +906,6 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
   if (FunctionsToRemove.empty())
     return false;
 
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-10061: Remove references to these newly dead functions
-  // in a consistent order.
-  for (auto F : InlineReportFunctionsToRemove)
-    getReport()->removeFunctionReference(*F);
-#endif // INTEL_CUSTOMIZATION
-
   // Now that we know which functions to delete, do so.  We didn't want to do
   // this inline, because that would invalidate our CallGraph::iterator
   // objects. :(
@@ -904,24 +925,22 @@ bool LegacyInlinerBase::removeDeadFunctions(CallGraph &CG,
 }
 
 #if INTEL_CUSTOMIZATION
-InlinerPass::InlinerPass() {
+InlinerPass::InlinerPass(bool OnlyMandatory): OnlyMandatory(OnlyMandatory) {
   Report = getInlineReport();
   MDReport = getMDInlineReport();
 }
 #endif  // INTEL_CUSTOMIZATION
 
 InlinerPass::~InlinerPass() {
-  if (ImportedFunctionsStats) {
-    assert(InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No);
-    ImportedFunctionsStats->dump(InlinerFunctionImportStats ==
-                                 InlinerFunctionImportStatsOpts::Verbose);
-  }
-  getReport()->testAndPrint(this); // INTEL
+  getReport()->testAndPrint(this);
 }
 
 InlineAdvisor &
 InlinerPass::getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
                         FunctionAnalysisManager &FAM, Module &M) {
+  if (OwnedAdvisor)
+    return *OwnedAdvisor;
+
   auto *IAA = MAM.getCachedResult<InlineAdvisorAnalysis>(M);
   if (!IAA) {
     // It should still be possible to run the inliner as a stand-alone SCC pass,
@@ -932,8 +951,16 @@ InlinerPass::getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
     // duration of the inliner pass, and thus the lifetime of the owned advisor.
     // The one we would get from the MAM can be invalidated as a result of the
     // inliner's activity.
-    OwnedDefaultAdvisor.emplace(FAM, getInlineParams());
-    return *OwnedDefaultAdvisor;
+    OwnedAdvisor =
+        std::make_unique<DefaultInlineAdvisor>(M, FAM, getInlineParams());
+
+    if (!CGSCCInlineReplayFile.empty())
+      OwnedAdvisor = std::make_unique<ReplayInlineAdvisor>(
+          M, FAM, M.getContext(), std::move(OwnedAdvisor),
+          CGSCCInlineReplayFile,
+          /*EmitRemarks=*/true);
+
+    return *OwnedAdvisor;
   }
   assert(IAA->getAdvisor() &&
          "Expected a present InlineAdvisorAnalysis also have an "
@@ -963,13 +990,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   Advisor.onPassEntry();
 
   auto AdvisorOnExit = make_scope_exit([&] { Advisor.onPassExit(); });
-
-  if (!ImportedFunctionsStats &&
-      InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No) {
-    ImportedFunctionsStats =
-        std::make_unique<ImportedFunctionsInliningStatistics>();
-    ImportedFunctionsStats->setModuleInfo(M);
-  }
 
 #if INTEL_CUSTOMIZATION
   Report->beginSCC(InitialC, this);
@@ -1068,15 +1088,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   // Track the dead functions to delete once finished with inlining calls. We
   // defer deleting these to make it easier to handle the call graph updates.
   SmallVector<Function *, 4> DeadFunctions;
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-10061: Use a std::set with the Function name as a comparator
-  // to ensure that the DEAD STATIC FUNCTIONs in the inlining report are
-  // emitted in a consistent order.
-  auto cmp = [](Function *F1, Function *F2) {
-    return F1->getName().compare(F2->getName()) < 0;
-  };
-  std::set<Function *, decltype(cmp)> InlineReportDeadFunctions(cmp);
-#endif // INTEL_CUSTOMIZATION
 
   // Loop forward over all of the calls. Note that we cannot cache the size as
   // inlining can introduce new calls that need to be processed.
@@ -1089,14 +1100,10 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     LazyCallGraph::Node &N = *CG.lookup(F);
     if (CG.lookupSCC(N) != C)
       continue;
-    if (!Calls[I].first->getCalledFunction()->hasFnAttribute(
-            Attribute::AlwaysInline) &&
-        F.hasOptNone()) {
-      setInlineRemark(*Calls[I].first, "optnone attribute");
-      continue;
-    }
 
-    LLVM_DEBUG(dbgs() << "Inlining calls in: " << F.getName() << "\n");
+    LLVM_DEBUG(dbgs() << "Inlining calls in: " << F.getName() << "\n"
+                      << "    Function size: " << F.getInstructionCount()
+                      << "\n");
 
     auto GetAssumptionCache = [&](Function &F) -> AssumptionCache & {
       return FAM.getResult<AssumptionAnalysis>(F);
@@ -1132,8 +1139,10 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         setInlineRemark(*CB, "recursive SCC split");
         continue;
       }
-      InlineCost *IC = nullptr; // INTEL
-      auto Advice = Advisor.getAdvice(*CB, ILIC, WPI, &IC); // INTEL
+#if INTEL_CUSTOMIZATION
+      InlineCost *IC = nullptr;
+      auto Advice = Advisor.getAdvice(*CB, ILIC, WPI, &IC, OnlyMandatory);
+#endif // INTEL_CUSTOMIZATION
       // Check whether we want to inline this callsite.
       if (!Advice->isInliningRecommended()) {
         Advice->recordUnattemptedInlining();
@@ -1211,6 +1220,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       MDReport->updateInliningReport();
       MDReport->endUpdate();
 #endif // INTEL_CUSTOMIZATION
+      LLVM_DEBUG(dbgs() << "    Size after inlining: "
+                        << F.getInstructionCount() << "\n");
 
       // Add any new callsites to defined functions to the worklist.
       if (!IFI.InlinedCallSites.empty()) {
@@ -1232,9 +1243,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
               Calls.push_back({ICB, NewHistoryID});
         }
       }
-
-      if (InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No)
-        ImportedFunctionsStats->recordInline(F, Callee);
 
       // Merge the attributes based on the inlining.
       AttributeFuncs::mergeAttributesForInlining(F, Callee);
@@ -1264,9 +1272,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           assert(!is_contained(DeadFunctions, &Callee) &&
                  "Cannot put cause a function to become dead twice!");
           DeadFunctions.push_back(&Callee);
-          InlineReportDeadFunctions.insert(&Callee); // INTEL
           ILIC->invalidateFunction(&Callee);         // INTEL
-          Report->setDead(&Callee);                  // INTEL
           CalleeWasDeleted = true;
         }
       }
@@ -1330,12 +1336,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     InlinedCallees.clear();
   }
 
-#if INTEL_CUSTOMIZATION
-  // CMPLRLLVM-10061: Remove references to these newly dead functions
-  // in a consistent order.
-  for (auto F : InlineReportDeadFunctions)
-    getReport()->removeFunctionReference(*F);
-#endif // INTEL_CUSTOMIZATION
   // Now that we've finished inlining all of the calls across this SCC, delete
   // all of the trivially dead functions, updating the call graph and the CGSCC
   // pass manager in the process.
@@ -1384,6 +1384,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 
 ModuleInlinerWrapperPass::ModuleInlinerWrapperPass(InlineParams Params,
                                                    bool Debugging,
+                                                   bool MandatoryFirst,
                                                    InliningAdvisorMode Mode,
                                                    unsigned MaxDevirtIterations)
     : Params(Params), Mode(Mode), MaxDevirtIterations(MaxDevirtIterations),
@@ -1393,13 +1394,15 @@ ModuleInlinerWrapperPass::ModuleInlinerWrapperPass(InlineParams Params,
   // into the callers so that our optimizations can reflect that.
   // For PreLinkThinLTO pass, we disable hot-caller heuristic for sample PGO
   // because it makes profile annotation in the backend inaccurate.
+  if (MandatoryFirst)
+    PM.addPass(InlinerPass(/*OnlyMandatory*/ true));
   PM.addPass(InlinerPass());
 }
 
 PreservedAnalyses ModuleInlinerWrapperPass::run(Module &M,
                                                 ModuleAnalysisManager &MAM) {
   auto &IAA = MAM.getResult<InlineAdvisorAnalysis>(M);
-  if (!IAA.tryCreate(Params, Mode)) {
+  if (!IAA.tryCreate(Params, Mode, CGSCCInlineReplayFile)) {
     M.getContext().emitError(
         "Could not setup Inlining Advisor for the requested "
         "mode and/or options");

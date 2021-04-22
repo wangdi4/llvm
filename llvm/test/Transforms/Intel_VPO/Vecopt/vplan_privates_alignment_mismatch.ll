@@ -28,8 +28,7 @@ define void @foo(i32* nocapture readonly %iarr) {
 ; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [3 x double], <2 x [3 x double]*> [[F1_PRIV_INSERT_1]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP5:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH]] ], [ [[TMP3:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = sitofp <2 x i64> [[VEC_PHI]] to <2 x double>
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v2f64.v2p0f64(<2 x double> [[TMP0]], <2 x double*> [[MM_VECTORGEP2]], i32 16, <2 x i1> <i1 true, i1 true>)
@@ -39,9 +38,8 @@ define void @foo(i32* nocapture readonly %iarr) {
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v2f64.v2p0f64(<2 x double> [[TMP2]], <2 x double*> [[MM_VECTORGEP]], i32 16, <2 x i1> <i1 true, i1 true>)
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI3]], 2
-; CHECK-NEXT:    [[TMP5]] = add i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP5]], 100
-; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], !llvm.loop !0
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i64 [[TMP4]], 100
+; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], !llvm.loop !0
 ;
 entry:
   %f1.priv = alloca [3 x double], align 16

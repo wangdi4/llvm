@@ -86,4 +86,4 @@
 // STATIC_LIB_NOSRC: llvm-spirv{{.*}} "-o" "[[OUTFILE2:.+\.spv]]" {{.*}} "[[BCFILE]]"
 // STATIC_LIB_NOSRC: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[BCFILE2:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[OUTFILE2]]"
 // STATIC_LIB_NOSRC: clang{{.*}} "-o" "[[FINALOBJ:.+\.o]]" {{.*}} "[[BCFILE2]]"
-// STATIC_LIB_NOSRC: ld{{.*}} "-L/dummy/dir" {{.*}} "[[INPUTLIB]]" "[[FINALOBJ]]"
+// STATIC_LIB_NOSRC: ld{{.*}} "-L/dummy/dir" {{.*}} "[[INPUTLIB]]"{{.*}}"[[FINALOBJ]]"

@@ -24,6 +24,10 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
+#include "Intel_DTrans/DTransCommon.h"
+#endif // INTEL_INCLUDE_DTRANS
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -33,20 +37,25 @@ cl::opt<bool>
                          cl::desc("Disables post vec complete unroll"),
                          cl::Hidden, cl::init(false));
 
-PreservedAnalyses
-HIRPostVecCompleteUnrollPass::run(llvm::Function &F,
-                                  llvm::FunctionAnalysisManager &AM) {
+PreservedAnalyses HIRPostVecCompleteUnrollPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   if (DisablePostVecUnroll) {
     return PreservedAnalyses::all();
   }
 
-  HIRCompleteUnroll(AM.getResult<HIRFrameworkAnalysis>(F),
-                    AM.getResult<DominatorTreeAnalysis>(F),
-                    AM.getResult<TargetIRAnalysis>(F),
-                    AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                    AM.getResult<HIRDDAnalysisPass>(F),
-                    AM.getResult<HIRSafeReductionAnalysisPass>(F), OptLevel,
-                    false, PragmaOnlyUnroll)
+#if INTEL_INCLUDE_DTRANS
+  auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
+#endif // INTEL_INCLUDE_DTRANS
+  HIRCompleteUnroll(
+      HIRF, AM.getResult<DominatorTreeAnalysis>(F),
+      AM.getResult<TargetIRAnalysis>(F),
+      AM.getResult<HIRLoopStatisticsAnalysis>(F),
+      AM.getResult<HIRDDAnalysisPass>(F),
+      AM.getResult<HIRSafeReductionAnalysisPass>(F),
+#if INTEL_INCLUDE_DTRANS
+      MAMProxy.getCachedResult<DTransImmutableAnalysis>(*F.getParent()),
+#endif // INTEL_INCLUDE_DTRANS
+      OptLevel, false, PragmaOnlyUnroll)
       .run();
 
   return PreservedAnalyses::all();
@@ -86,6 +95,9 @@ INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
+#if INTEL_INCLUDE_DTRANS
+INITIALIZE_PASS_DEPENDENCY(DTransAnalysisWrapper)
+#endif // INTEL_INCLUDE_DTRANS
 INITIALIZE_PASS_END(HIRPostVecCompleteUnrollLegacyPass,
                     "hir-post-vec-complete-unroll",
                     "HIR PostVec Complete Unroll", false, false)

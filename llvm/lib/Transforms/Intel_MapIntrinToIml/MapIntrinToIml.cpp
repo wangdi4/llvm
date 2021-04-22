@@ -1,7 +1,7 @@
 //==--- MapIntrinToIml.cpp - Legalize svml calls and apply IMF -*- C++ -*---==//
 //                           attributes.
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -113,8 +113,9 @@ bool MapIntrinToImlImpl::isValidIMFAttribute(std::string AttrName) {
       AttrName == "accuracy-bits-128" || AttrName == "accuracy-bits-32" ||
       AttrName == "accuracy-bits-64" || AttrName == "accuracy-bits-80" ||
       AttrName == "arch-consistency" || AttrName == "configuration" ||
-      AttrName == "domain-exclusion" || AttrName == "max-error" ||
-      AttrName == "precision" || AttrName == "valid-status-bits")
+      AttrName == "domain-exclusion" || AttrName == "force-dynamic" ||
+      AttrName == "max-error" || AttrName == "precision" ||
+      AttrName == "valid-status-bits")
     return true;
 
   return false;
@@ -124,7 +125,13 @@ unsigned MapIntrinToImlImpl::calculateNumReturns(TargetTransformInfo *TTI,
                                                  unsigned ComponentBitWidth,
                                                  unsigned LogicalVL,
                                                  unsigned *TargetVL) {
-  unsigned VectorBitWidth = TTI->getRegisterBitWidth(true);
+  unsigned VectorBitWidth =
+      TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector);
+  // Under x86 architecture, getRegisterBitWidth() may return 0 for vectors
+  // if no vector ISA is specified. In this case, there should not be any SVML
+  // call in the input IR.
+  assert(VectorBitWidth != 0 && "SVML call is not expected when compiling to a "
+                                "target without vector ISA support.");
   *TargetVL = VectorBitWidth / ComponentBitWidth;
   unsigned NumRet = LogicalVL / *TargetVL;
 
@@ -165,6 +172,13 @@ void MapIntrinToImlImpl::createImfAttributeList(Instruction *I,
   CallInst *CI = dyn_cast<CallInst>(I);
   if (!CI)
     return;
+
+  // Try to select an SVML function variant for the ISAs enabled in the current
+  // function statically
+  ImfAttr *ISASetAttr = new ImfAttr();
+  ISASetAttr->name = "isa-set";
+  ISASetAttr->value = TTI->getISASetForIMLFunctions();
+  addAttributeToList(List, &Tail, ISASetAttr);
 
   // Build the linked list of IMF attributes that will be used to query
   // the IML interface.
@@ -765,8 +779,9 @@ StringRef MapIntrinToImlImpl::findX86SVMLVariantForScalarFunction(
 
   // External libiml_attr interface that returns the SVML/libm variant if the
   // parent function and IMF attributes match. Return NULL otherwise.
-  const char *VariantFuncName =
-    get_library_function_name(ParentFuncName, AttrList);
+  Triple T(M->getTargetTriple());
+  const char *VariantFuncName = get_library_function_name(
+      ParentFuncName, AttrList, T.getArch(), T.getOS());
 
   // No longer need the IMF attribute list at this point, so free up the memory.
   // Note: this does not remove the attributes from the instruction, only the
@@ -1051,10 +1066,9 @@ bool MapIntrinToImlImpl::runImpl() {
 
   const DataLayout DL = M->getDataLayout();
 
-  Triple *T = new Triple(M->getTargetTriple());
-  bool X86Target = (T->getArch() == Triple::x86 ||
-                    T->getArch() == Triple::x86_64);
-  delete T;
+  Triple T(M->getTargetTriple());
+  llvm::Triple::ArchType Arch = T.getArch();
+  bool X86Target = (Arch == Triple::x86 || Arch == Triple::x86_64);
 
   // Will be populated with the call instructions that will be replaced with
   // legalized/refined svml calls.
@@ -1311,8 +1325,8 @@ bool MapIntrinToImlImpl::runImpl() {
 
       // If iml accuracy interface returns a non-null variant then replace
       // current scalar function with variant function name.
-      if (const char *VariantFuncStr =
-              get_library_function_name(ScalarFuncName.c_str(), AttrList)) {
+      if (const char *VariantFuncStr = get_library_function_name(
+              ScalarFuncName.c_str(), AttrList, Arch, T.getOS())) {
         VariantFuncName = StringRef(VariantFuncStr);
       }
 

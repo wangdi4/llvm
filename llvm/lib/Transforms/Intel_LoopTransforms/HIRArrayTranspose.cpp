@@ -1027,10 +1027,9 @@ void HIRArrayTranspose::performTranspose() {
   transposeStridedRefs(TransposedOffset);
 }
 
-PreservedAnalyses
-HIRArrayTransposePass::run(llvm::Function &F,
-                           llvm::FunctionAnalysisManager &AM) {
-  HIRArrayTranspose(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+PreservedAnalyses HIRArrayTransposePass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRArrayTranspose(HIRF).run();
   return PreservedAnalyses::all();
 }
 
@@ -1042,12 +1041,12 @@ public:
     initializeHIRArrayTransposeLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
-  void getAnalysisUsage(AnalysisUsage &AU) const {
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.setPreservesAll();
   }
 
-  bool runOnFunction(Function &F) {
+  bool runOnFunction(Function &F) override {
     if (skipFunction(F)) {
       LLVM_DEBUG(dbgs() << "HIR array transpose skipped\n");
       return false;

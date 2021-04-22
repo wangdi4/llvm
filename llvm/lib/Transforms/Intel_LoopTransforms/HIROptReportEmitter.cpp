@@ -152,12 +152,11 @@ bool HIROptReportEmitterWrapperPass::runOnFunction(Function &F) {
   return false;
 }
 
-PreservedAnalyses HIROptReportEmitterPass::run(Function &F,
-                                               FunctionAnalysisManager &AM) {
+PreservedAnalyses HIROptReportEmitterPass::runImpl(Function &F,
+                                                   FunctionAnalysisManager &AM,
+                                                   HIRFramework &HIRF) {
   if (DisableHIROptReportEmitter)
     return PreservedAnalyses::all();
-
-  HIRFramework &HIRF = AM.getResult<HIRFrameworkAnalysis>(F);
 
   HIROptReportEmitter Emitter;
   Emitter.run(F, HIRF);

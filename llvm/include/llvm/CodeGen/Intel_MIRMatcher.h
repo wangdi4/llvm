@@ -20,6 +20,44 @@
 
 #include <type_traits>
 
+#ifndef HAS_CPP_ATTR
+#if defined(__cplusplus) && defined(__has_cpp_attribute)
+#define HAS_CPP_ATTR(X) __has_cpp_attribute(X)
+#else
+#define HAS_CPP_ATTR(X) 0
+#endif
+#endif
+
+#ifndef HAS_C_ATTR
+#if defined(__STDC__) && defined(__has_c_attribute)
+#define HAS_C_ATTR(X) __has_c_attribute(X)
+#else
+#define HAS_C_ATTR(X) 0
+#endif
+#endif
+
+#ifndef HAS_GNU_ATTR
+#if defined(__has_attribute)
+#define HAS_GNU_ATTR(X) __has_attribute(X)
+#else
+#define HAS_GNU_ATTR(X) 0
+#endif
+#endif
+
+#ifndef LLVM_ATTRIBUTE_MAYBE_UNUSED
+#if HAS_CPP_ATTR(maybe_unused) || HAS_C_ATTR(maybe_unused)
+#define LLVM_ATTRIBUTE_MAYBE_UNUSED [[maybe_unused]]
+#elif HAS_CPP_ATTR(gnu::maybe_unused)
+#define LLVM_ATTRIBUTE_MAYBE_UNUSED [[gnu::maybe_unused]]
+#elif HAS_CPP_ATTR(clang::maybe_unused)
+#define LLVM_ATTRIBUTE_MAYBE_UNUSED [[clang::maybe_unused]]
+#elif HAS_GNU_ATTR(maybe_unused)
+#define LLVM_ATTRIBUTE_MAYBE_UNUSED __attribute__((maybe_unused))
+#else
+#define LLVM_ATTRIBUTE_MAYBE_UNUSED
+#endif
+#endif
+
 namespace llvm {
 namespace mirmatch {
 
@@ -474,7 +512,8 @@ struct nop_struct {
   MIRMATCHER_COND_DECL_REG(18, R18, MIRMATCHER_2_ARGS R18) \
   MIRMATCHER_COND_DECL_REG(19, R19, MIRMATCHER_2_ARGS R19) \
   MIRMATCHER_COND_DECL_REG(20, R20, MIRMATCHER_2_ARGS R20) \
-  static constexpr llvm::mirmatch::nop_struct mirreg_empty_decl ## __LINE__ {}
+  LLVM_ATTRIBUTE_MAYBE_UNUSED static constexpr llvm::mirmatch::nop_struct \
+      mirreg_empty_decl ## __LINE__ {}
 
 // If invoked with parenthesis, generates two arguments, else not expanded.
 #define MIRMATCHER_2_ARGS() 1, 2

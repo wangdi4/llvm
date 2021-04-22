@@ -16,6 +16,7 @@
 #endif // INTEL_COLLAB
 
 #include "device.h"
+#include "omptarget.h"
 #include "private.h"
 #include "rtl.h"
 
@@ -27,63 +28,27 @@
 #include <string.h>
 #endif  // INTEL_COLLAB
 
-////////////////////////////////////////////////////////////////////////////////
-/// manage the success or failure of a target construct
-static void HandleDefaultTargetOffload() {
-  PM->TargetOffloadMtx.lock();
-  if (PM->TargetOffloadPolicy == tgt_default) {
-    if (omp_get_num_devices() > 0) {
-      DP("Default TARGET OFFLOAD policy is now mandatory "
-         "(devices were found)\n");
-      PM->TargetOffloadPolicy = tgt_mandatory;
-    } else {
-      DP("Default TARGET OFFLOAD policy is now disabled "
-         "(no devices were found)\n");
-      PM->TargetOffloadPolicy = tgt_disabled;
-    }
+extern bool isOffloadDisabled();
+
+#if INTEL_COLLAB
+static int64_t GetEncodedDeviceID(int64_t &DeviceID) {
+  if (DeviceID == OFFLOAD_DEVICE_DEFAULT)
+    return omp_get_default_device();
+
+  int64_t EncodedID = DeviceID;
+  if (EncodedID < 0) {
+    // DeviceID is already encoded (e.g., subdevice clause)
+    DeviceID = EXTRACT_BITS(EncodedID, 31, 0);
+  } else if (PM->RootDeviceID >= 0) {
+    // DeviceID is sub-device ID -- move it to "start" bits and replace it with
+    // the stored root device ID.
+    EncodedID = PM->SubDeviceMask | (DeviceID << 48);
+    DeviceID = PM->RootDeviceID;
   }
-  PM->TargetOffloadMtx.unlock();
-}
 
-static int IsOffloadDisabled() {
-  if (PM->TargetOffloadPolicy == tgt_default)
-    HandleDefaultTargetOffload();
-  return PM->TargetOffloadPolicy == tgt_disabled;
+  return EncodedID;
 }
-
-static void HandleTargetOutcome(bool success, ident_t *loc = nullptr) {
-  switch (PM->TargetOffloadPolicy) {
-  case tgt_disabled:
-    if (success) {
-      FATAL_MESSAGE0(1, "expected no offloading while offloading is disabled");
-    }
-    break;
-  case tgt_default:
-    FATAL_MESSAGE0(1, "default offloading policy must be switched to "
-                      "mandatory or disabled");
-    break;
-  case tgt_mandatory:
-    if (!success) {
-      if (getInfoLevel() > 1)
-        for (const auto &Device : PM->Devices)
-          dumpTargetPointerMappings(Device);
-      else
-        FAILURE_MESSAGE("run with env LIBOMPTARGET_INFO>1 to dump host-target "
-                        "pointer maps\n");
-
-      SourceInfo info(loc);
-      if (info.isAvailible())
-        fprintf(stderr, "%s:%d:%d: ", info.getFilename(), info.getLine(),
-                info.getColumn());
-      else
-        FAILURE_MESSAGE(
-            "Build with debug information to provide more information");
-      FATAL_MESSAGE0(
-          1, "failure of target construct while offloading is mandatory");
-    }
-    break;
-  }
-}
+#endif // INTEL_COLLAB
 
 ////////////////////////////////////////////////////////////////////////////////
 /// adds requires flags
@@ -96,6 +61,14 @@ EXTERN void __tgt_register_requires(int64_t flags) {
 /// adds a target shared library to the target execution image
 EXTERN void __tgt_register_lib(__tgt_bin_desc *desc) {
   TIMESCOPE();
+  std::call_once(PM->RTLs.initFlag, &RTLsTy::LoadRTLs, &PM->RTLs);
+  for (auto &RTL : PM->RTLs.AllRTLs) {
+    if (RTL.register_lib) {
+      if ((*RTL.register_lib)(desc) != OFFLOAD_SUCCESS) {
+        DP("Could not register library with %s", RTL.RTLName.c_str());
+      }
+    }
+  }
   PM->RTLs.RegisterLib(desc);
 }
 
@@ -104,22 +77,32 @@ EXTERN void __tgt_register_lib(__tgt_bin_desc *desc) {
 EXTERN void __tgt_unregister_lib(__tgt_bin_desc *desc) {
   TIMESCOPE();
   PM->RTLs.UnregisterLib(desc);
+  for (auto &RTL : PM->RTLs.UsedRTLs) {
+    if (RTL->unregister_lib) {
+      if ((*RTL->unregister_lib)(desc) != OFFLOAD_SUCCESS) {
+        DP("Could not register library with %s", RTL->RTLName.c_str());
+      }
+    }
+  }
 }
 
 /// creates host-to-target data mapping, stores it in the
 /// libomptarget.so internal structure (an entry in a stack of data maps)
 /// and passes the data to the device.
 EXTERN void __tgt_target_data_begin(int64_t device_id, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types) {
+                                    void **args_base, void **args,
+                                    int64_t *arg_sizes, int64_t *arg_types) {
   TIMESCOPE();
   __tgt_target_data_begin_mapper(nullptr, device_id, arg_num, args_base, args,
                                  arg_sizes, arg_types, nullptr, nullptr);
 }
 
 EXTERN void __tgt_target_data_begin_nowait(int64_t device_id, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types,
-    int32_t depNum, void *depList, int32_t noAliasDepNum,
-    void *noAliasDepList) {
+                                           void **args_base, void **args,
+                                           int64_t *arg_sizes,
+                                           int64_t *arg_types, int32_t depNum,
+                                           void *depList, int32_t noAliasDepNum,
+                                           void *noAliasDepList) {
   TIMESCOPE();
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
@@ -134,51 +117,42 @@ EXTERN void __tgt_target_data_begin_mapper(ident_t *loc, int64_t device_id,
                                            int64_t *arg_types,
                                            map_var_info_t *arg_names,
                                            void **arg_mappers) {
-  TIMESCOPE();
-  if (IsOffloadDisabled()) return;
+  TIMESCOPE_WITH_IDENT(loc);
 #if INTEL_COLLAB
-  int64_t encodedId = device_id;
-  if (encodedId < 0 && encodedId != OFFLOAD_DEVICE_DEFAULT)
-    device_id = EXTRACT_BITS(encodedId, 31, 0);
+  int64_t encodedId = GetEncodedDeviceID(device_id);
 #endif // INTEL_COLLAB
-
   DP("Entering data begin region for device %" PRId64 " with %d mappings\n",
-      device_id, arg_num);
-
-  // No devices available?
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-#if INTEL_COLLAB
-    encodedId = device_id;
-#endif // INTEL_COLLAB
-    DP("Use default device id %" PRId64 "\n", device_id);
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false, loc);
+     device_id, arg_num);
+  if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
+    DP("Not offloading to device %" PRId64 "\n", device_id);
     return;
   }
 
   DeviceTy &Device = PM->Devices[device_id];
 
+  if (getInfoLevel() & OMP_INFOTYPE_KERNEL_ARGS)
+    printKernelArguments(loc, device_id, arg_num, arg_sizes, arg_types,
+                         arg_names, "Entering OpenMP data region");
 #ifdef OMPTARGET_DEBUG
   for (int i = 0; i < arg_num; ++i) {
     DP("Entry %2d: Base=" DPxMOD ", Begin=" DPxMOD ", Size=%" PRId64
        ", Type=0x%" PRIx64 ", Name=%s\n",
        i, DPxPTR(args_base[i]), DPxPTR(args[i]), arg_sizes[i], arg_types[i],
-       (arg_names) ? getNameFromMapping(arg_names[i]).c_str() : "(null)");
+       (arg_names) ? getNameFromMapping(arg_names[i]).c_str() : "unknown");
   }
 #endif
 
 #if INTEL_COLLAB
-  if (encodedId != device_id)
-    PM->Devices[device_id].pushSubDevice(encodedId);
+  Device.pushSubDevice(encodedId, device_id);
   OMPT_TRACE(targetDataEnterBegin(device_id));
 #endif // INTEL_COLLAB
-  int rc = targetDataBegin(Device, arg_num, args_base, args, arg_sizes,
-                           arg_types, arg_names, arg_mappers, nullptr);
-  HandleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
+
+  AsyncInfoTy AsyncInfo(Device);
+  int rc = targetDataBegin(loc, Device, arg_num, args_base, args, arg_sizes,
+                           arg_types, arg_names, arg_mappers, AsyncInfo);
+  if (rc == OFFLOAD_SUCCESS)
+    rc = AsyncInfo.synchronize();
+  handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataEnterEnd(device_id));
   if (encodedId != device_id)
@@ -191,7 +165,7 @@ EXTERN void __tgt_target_data_begin_nowait_mapper(
     void **args, int64_t *arg_sizes, int64_t *arg_types,
     map_var_info_t *arg_names, void **arg_mappers, int32_t depNum,
     void *depList, int32_t noAliasDepNum, void *noAliasDepList) {
-  TIMESCOPE();
+  TIMESCOPE_WITH_IDENT(loc);
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(loc, __kmpc_global_thread_num(loc));
 
@@ -203,16 +177,19 @@ EXTERN void __tgt_target_data_begin_nowait_mapper(
 /// the host-target mapping (top entry from the stack of data maps)
 /// created by the last __tgt_target_data_begin.
 EXTERN void __tgt_target_data_end(int64_t device_id, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types) {
+                                  void **args_base, void **args,
+                                  int64_t *arg_sizes, int64_t *arg_types) {
   TIMESCOPE();
   __tgt_target_data_end_mapper(nullptr, device_id, arg_num, args_base, args,
                                arg_sizes, arg_types, nullptr, nullptr);
 }
 
 EXTERN void __tgt_target_data_end_nowait(int64_t device_id, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types,
-    int32_t depNum, void *depList, int32_t noAliasDepNum,
-    void *noAliasDepList) {
+                                         void **args_base, void **args,
+                                         int64_t *arg_sizes, int64_t *arg_types,
+                                         int32_t depNum, void *depList,
+                                         int32_t noAliasDepNum,
+                                         void *noAliasDepList) {
   TIMESCOPE();
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
@@ -227,56 +204,41 @@ EXTERN void __tgt_target_data_end_mapper(ident_t *loc, int64_t device_id,
                                          int64_t *arg_types,
                                          map_var_info_t *arg_names,
                                          void **arg_mappers) {
-  TIMESCOPE();
-  if (IsOffloadDisabled()) return;
+  TIMESCOPE_WITH_IDENT(loc);
+#if INTEL_COLLAB
+  int64_t encodedId = GetEncodedDeviceID(device_id);
+#endif // INTEL_COLLAB
   DP("Entering data end region with %d mappings\n", arg_num);
-#if INTEL_COLLAB
-  int64_t encodedId = device_id;
-  if (encodedId < 0 && encodedId != OFFLOAD_DEVICE_DEFAULT)
-    device_id = EXTRACT_BITS(encodedId, 31, 0);
-#endif // INTEL_COLLAB
-
-  // No devices available?
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-#if INTEL_COLLAB
-    encodedId = device_id;
-#endif // INTEL_COLLAB
-  }
-
-  PM->RTLsMtx.lock();
-  size_t DevicesSize = PM->Devices.size();
-  PM->RTLsMtx.unlock();
-  if (DevicesSize <= (size_t)device_id) {
-    DP("Device ID  %" PRId64 " does not have a matching RTL.\n", device_id);
-    HandleTargetOutcome(false, loc);
+  if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
+    DP("Not offloading to device %" PRId64 "\n", device_id);
     return;
   }
 
   DeviceTy &Device = PM->Devices[device_id];
-  if (!Device.IsInit) {
-    DP("Uninit device: ignore");
-    HandleTargetOutcome(false, loc);
-    return;
-  }
 
+  if (getInfoLevel() & OMP_INFOTYPE_KERNEL_ARGS)
+    printKernelArguments(loc, device_id, arg_num, arg_sizes, arg_types,
+                         arg_names, "Exiting OpenMP data region");
 #ifdef OMPTARGET_DEBUG
-  for (int i=0; i<arg_num; ++i) {
+  for (int i = 0; i < arg_num; ++i) {
     DP("Entry %2d: Base=" DPxMOD ", Begin=" DPxMOD ", Size=%" PRId64
        ", Type=0x%" PRIx64 ", Name=%s\n",
        i, DPxPTR(args_base[i]), DPxPTR(args[i]), arg_sizes[i], arg_types[i],
-       (arg_names) ? getNameFromMapping(arg_names[i]).c_str() : "(null)");
+       (arg_names) ? getNameFromMapping(arg_names[i]).c_str() : "unknown");
   }
 #endif
 
 #if INTEL_COLLAB
-  if (encodedId != device_id)
-    PM->Devices[device_id].pushSubDevice(encodedId);
+  Device.pushSubDevice(encodedId, device_id);
   OMPT_TRACE(targetDataExitBegin(device_id));
 #endif // INTEL_COLLAB
-  int rc = targetDataEnd(Device, arg_num, args_base, args, arg_sizes, arg_types,
-                         arg_names, arg_mappers, nullptr);
-  HandleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
+
+  AsyncInfoTy AsyncInfo(Device);
+  int rc = targetDataEnd(loc, Device, arg_num, args_base, args, arg_sizes,
+                         arg_types, arg_names, arg_mappers, AsyncInfo);
+  if (rc == OFFLOAD_SUCCESS)
+    rc = AsyncInfo.synchronize();
+  handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataExitEnd(device_id));
   if (encodedId != device_id)
@@ -289,7 +251,7 @@ EXTERN void __tgt_target_data_end_nowait_mapper(
     void **args, int64_t *arg_sizes, int64_t *arg_types,
     map_var_info_t *arg_names, void **arg_mappers, int32_t depNum,
     void *depList, int32_t noAliasDepNum, void *noAliasDepList) {
-  TIMESCOPE();
+  TIMESCOPE_WITH_IDENT(loc);
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(loc, __kmpc_global_thread_num(loc));
 
@@ -298,16 +260,17 @@ EXTERN void __tgt_target_data_end_nowait_mapper(
 }
 
 EXTERN void __tgt_target_data_update(int64_t device_id, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types) {
+                                     void **args_base, void **args,
+                                     int64_t *arg_sizes, int64_t *arg_types) {
   TIMESCOPE();
   __tgt_target_data_update_mapper(nullptr, device_id, arg_num, args_base, args,
                                   arg_sizes, arg_types, nullptr, nullptr);
 }
 
-EXTERN void __tgt_target_data_update_nowait(int64_t device_id, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types,
-    int32_t depNum, void *depList, int32_t noAliasDepNum,
-    void *noAliasDepList) {
+EXTERN void __tgt_target_data_update_nowait(
+    int64_t device_id, int32_t arg_num, void **args_base, void **args,
+    int64_t *arg_sizes, int64_t *arg_types, int32_t depNum, void *depList,
+    int32_t noAliasDepNum, void *noAliasDepList) {
   TIMESCOPE();
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
@@ -322,38 +285,31 @@ EXTERN void __tgt_target_data_update_mapper(ident_t *loc, int64_t device_id,
                                             int64_t *arg_types,
                                             map_var_info_t *arg_names,
                                             void **arg_mappers) {
-  TIMESCOPE();
-  if (IsOffloadDisabled()) return;
+  TIMESCOPE_WITH_IDENT(loc);
   DP("Entering data update with %d mappings\n", arg_num);
 #if INTEL_COLLAB
-  int64_t encodedId = device_id;
-  if (encodedId < 0 && encodedId != OFFLOAD_DEVICE_DEFAULT)
-    device_id = EXTRACT_BITS(encodedId, 31, 0);
+  int64_t encodedId = GetEncodedDeviceID(device_id);
 #endif // INTEL_COLLAB
-
-  // No devices available?
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-#if INTEL_COLLAB
-    encodedId = device_id;
-#endif // INTEL_COLLAB
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false, loc);
+  if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
+    DP("Not offloading to device %" PRId64 "\n", device_id);
     return;
   }
 
+  if (getInfoLevel() & OMP_INFOTYPE_KERNEL_ARGS)
+    printKernelArguments(loc, device_id, arg_num, arg_sizes, arg_types,
+                         arg_names, "Updating OpenMP data");
+
+  DeviceTy &Device = PM->Devices[device_id];
+  AsyncInfoTy AsyncInfo(Device);
 #if INTEL_COLLAB
-  if (encodedId != device_id)
-    PM->Devices[device_id].pushSubDevice(encodedId);
+  Device.pushSubDevice(encodedId, device_id);
   OMPT_TRACE(targetDataUpdateBegin(device_id));
 #endif // INTEL_COLLAB
-  DeviceTy &Device = PM->Devices[device_id];
-  int rc = targetDataUpdate(Device, arg_num, args_base, args, arg_sizes,
-                            arg_types, arg_names, arg_mappers);
-  HandleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
+  int rc = targetDataUpdate(loc, Device, arg_num, args_base, args, arg_sizes,
+                            arg_types, arg_names, arg_mappers, AsyncInfo);
+  if (rc == OFFLOAD_SUCCESS)
+    rc = AsyncInfo.synchronize();
+  handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataUpdateEnd(device_id));
   if (encodedId != device_id)
@@ -366,7 +322,7 @@ EXTERN void __tgt_target_data_update_nowait_mapper(
     void **args, int64_t *arg_sizes, int64_t *arg_types,
     map_var_info_t *arg_names, void **arg_mappers, int32_t depNum,
     void *depList, int32_t noAliasDepNum, void *noAliasDepList) {
-  TIMESCOPE();
+  TIMESCOPE_WITH_IDENT(loc);
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(loc, __kmpc_global_thread_num(loc));
 
@@ -375,16 +331,18 @@ EXTERN void __tgt_target_data_update_nowait_mapper(
 }
 
 EXTERN int __tgt_target(int64_t device_id, void *host_ptr, int32_t arg_num,
-    void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types) {
+                        void **args_base, void **args, int64_t *arg_sizes,
+                        int64_t *arg_types) {
   TIMESCOPE();
   return __tgt_target_mapper(nullptr, device_id, host_ptr, arg_num, args_base,
                              args, arg_sizes, arg_types, nullptr, nullptr);
 }
 
 EXTERN int __tgt_target_nowait(int64_t device_id, void *host_ptr,
-    int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
-    int64_t *arg_types, int32_t depNum, void *depList, int32_t noAliasDepNum,
-    void *noAliasDepList) {
+                               int32_t arg_num, void **args_base, void **args,
+                               int64_t *arg_sizes, int64_t *arg_types,
+                               int32_t depNum, void *depList,
+                               int32_t noAliasDepNum, void *noAliasDepList) {
   TIMESCOPE();
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
@@ -397,48 +355,43 @@ EXTERN int __tgt_target_mapper(ident_t *loc, int64_t device_id, void *host_ptr,
                                int32_t arg_num, void **args_base, void **args,
                                int64_t *arg_sizes, int64_t *arg_types,
                                map_var_info_t *arg_names, void **arg_mappers) {
-  TIMESCOPE();
-  if (IsOffloadDisabled()) return OFFLOAD_FAIL;
+  TIMESCOPE_WITH_IDENT(loc);
 #if INTEL_COLLAB
-  int64_t encodedId = device_id;
-  // Extract root device ID
-  if (encodedId < 0 && encodedId != OFFLOAD_DEVICE_DEFAULT)
-    device_id = EXTRACT_BITS(encodedId, 31, 0);
+  int64_t encodedId = GetEncodedDeviceID(device_id);
 #endif // INTEL_COLLAB
-  DP("Entering target region with entry point " DPxMOD " and device Id %"
-      PRId64 "\n", DPxPTR(host_ptr), device_id);
-
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-#if INTEL_COLLAB
-    encodedId = device_id;
-#endif // INTEL_COLLAB
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
-    REPORT("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false, loc);
+  DP("Entering target region with entry point " DPxMOD " and device Id %" PRId64
+     "\n",
+     DPxPTR(host_ptr), device_id);
+  if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
+    DP("Not offloading to device %" PRId64 "\n", device_id);
     return OFFLOAD_FAIL;
   }
 
+  if (getInfoLevel() & OMP_INFOTYPE_KERNEL_ARGS)
+    printKernelArguments(loc, device_id, arg_num, arg_sizes, arg_types,
+                         arg_names, "Entering OpenMP kernel");
 #ifdef OMPTARGET_DEBUG
-  for (int i=0; i<arg_num; ++i) {
+  for (int i = 0; i < arg_num; ++i) {
     DP("Entry %2d: Base=" DPxMOD ", Begin=" DPxMOD ", Size=%" PRId64
        ", Type=0x%" PRIx64 ", Name=%s\n",
        i, DPxPTR(args_base[i]), DPxPTR(args[i]), arg_sizes[i], arg_types[i],
-       (arg_names) ? getNameFromMapping(arg_names[i]).c_str() : "(null)");
+       (arg_names) ? getNameFromMapping(arg_names[i]).c_str() : "unknown");
   }
 #endif
 
 #if INTEL_COLLAB
   // Push device encoding
-  if (encodedId != device_id)
-    PM->Devices[device_id].pushSubDevice(encodedId);
+  PM->Devices[device_id].pushSubDevice(encodedId, device_id);
   OMPT_TRACE(targetBegin(device_id));
 #endif // INTEL_COLLAB
-  int rc = target(device_id, host_ptr, arg_num, args_base, args, arg_sizes,
-                  arg_types, arg_names, arg_mappers, 0, 0, false /*team*/);
-  HandleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
+  DeviceTy &Device = PM->Devices[device_id];
+  AsyncInfoTy AsyncInfo(Device);
+  int rc = target(loc, Device, host_ptr, arg_num, args_base, args, arg_sizes,
+                  arg_types, arg_names, arg_mappers, 0, 0, false /*team*/,
+                  AsyncInfo);
+  if (rc == OFFLOAD_SUCCESS)
+    rc = AsyncInfo.synchronize();
+  handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
 #if INTEL_COLLAB
   OMPT_TRACE(targetEnd(device_id));
   if (encodedId != device_id)
@@ -452,7 +405,7 @@ EXTERN int __tgt_target_nowait_mapper(
     void **args_base, void **args, int64_t *arg_sizes, int64_t *arg_types,
     map_var_info_t *arg_names, void **arg_mappers, int32_t depNum,
     void *depList, int32_t noAliasDepNum, void *noAliasDepList) {
-  TIMESCOPE();
+  TIMESCOPE_WITH_IDENT(loc);
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(loc, __kmpc_global_thread_num(loc));
 
@@ -461,8 +414,9 @@ EXTERN int __tgt_target_nowait_mapper(
 }
 
 EXTERN int __tgt_target_teams(int64_t device_id, void *host_ptr,
-    int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
-    int64_t *arg_types, int32_t team_num, int32_t thread_limit) {
+                              int32_t arg_num, void **args_base, void **args,
+                              int64_t *arg_sizes, int64_t *arg_types,
+                              int32_t team_num, int32_t thread_limit) {
   TIMESCOPE();
   return __tgt_target_teams_mapper(nullptr, device_id, host_ptr, arg_num,
                                    args_base, args, arg_sizes, arg_types,
@@ -470,9 +424,12 @@ EXTERN int __tgt_target_teams(int64_t device_id, void *host_ptr,
 }
 
 EXTERN int __tgt_target_teams_nowait(int64_t device_id, void *host_ptr,
-    int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
-    int64_t *arg_types, int32_t team_num, int32_t thread_limit, int32_t depNum,
-    void *depList, int32_t noAliasDepNum, void *noAliasDepList) {
+                                     int32_t arg_num, void **args_base,
+                                     void **args, int64_t *arg_sizes,
+                                     int64_t *arg_types, int32_t team_num,
+                                     int32_t thread_limit, int32_t depNum,
+                                     void *depList, int32_t noAliasDepNum,
+                                     void *noAliasDepList) {
   TIMESCOPE();
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(NULL, __kmpc_global_thread_num(NULL));
@@ -489,55 +446,48 @@ EXTERN int __tgt_target_teams_mapper(ident_t *loc, int64_t device_id,
                                      map_var_info_t *arg_names,
                                      void **arg_mappers, int32_t team_num,
                                      int32_t thread_limit) {
-  TIMESCOPE();
-  if (IsOffloadDisabled()) return OFFLOAD_FAIL;
 #if INTEL_COLLAB
-  int64_t encodedId = device_id;
-  // Extract root device ID
-  if (encodedId < 0 && encodedId != OFFLOAD_DEVICE_DEFAULT)
-    device_id = EXTRACT_BITS(encodedId, 31, 0);
+  int64_t encodedId = GetEncodedDeviceID(device_id);
 #endif // INTEL_COLLAB
-  DP("Entering target region with entry point " DPxMOD " and device Id %"
-      PRId64 "\n", DPxPTR(host_ptr), device_id);
-
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-#if INTEL_COLLAB
-    encodedId = device_id;
-#endif // INTEL_COLLAB
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
-    REPORT("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false, loc);
+  DP("Entering target region with entry point " DPxMOD " and device Id %" PRId64
+     "\n",
+     DPxPTR(host_ptr), device_id);
+  if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
+    DP("Not offloading to device %" PRId64 "\n", device_id);
     return OFFLOAD_FAIL;
   }
 
+  if (getInfoLevel() & OMP_INFOTYPE_KERNEL_ARGS)
+    printKernelArguments(loc, device_id, arg_num, arg_sizes, arg_types,
+                         arg_names, "Entering OpenMP kernel");
 #ifdef OMPTARGET_DEBUG
-  for (int i=0; i<arg_num; ++i) {
+  for (int i = 0; i < arg_num; ++i) {
     DP("Entry %2d: Base=" DPxMOD ", Begin=" DPxMOD ", Size=%" PRId64
        ", Type=0x%" PRIx64 ", Name=%s\n",
        i, DPxPTR(args_base[i]), DPxPTR(args[i]), arg_sizes[i], arg_types[i],
-       (arg_names) ? getNameFromMapping(arg_names[i]).c_str() : "(null)");
+       (arg_names) ? getNameFromMapping(arg_names[i]).c_str() : "unknown");
   }
 #endif
 
 #if INTEL_COLLAB
   // Push device encoding
-  if (encodedId != device_id)
-    PM->Devices[device_id].pushSubDevice(encodedId);
+  PM->Devices[device_id].pushSubDevice(encodedId, device_id);
   OMPT_TRACE(targetBegin(device_id));
 #endif // INTEL_COLLAB
-  int rc = target(device_id, host_ptr, arg_num, args_base, args, arg_sizes,
+  DeviceTy &Device = PM->Devices[device_id];
+  AsyncInfoTy AsyncInfo(Device);
+  int rc = target(loc, Device, host_ptr, arg_num, args_base, args, arg_sizes,
                   arg_types, arg_names, arg_mappers, team_num, thread_limit,
-                  true /*team*/);
-  HandleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
+                  true /*team*/, AsyncInfo);
+  if (rc == OFFLOAD_SUCCESS)
+    rc = AsyncInfo.synchronize();
+
+  handleTargetOutcome(rc == OFFLOAD_SUCCESS, loc);
 #if INTEL_COLLAB
   OMPT_TRACE(targetEnd(device_id));
   if (encodedId != device_id)
     PM->Devices[device_id].popSubDevice();
 #endif // INTEL_COLLAB
-
   return rc;
 }
 
@@ -547,7 +497,7 @@ EXTERN int __tgt_target_teams_nowait_mapper(
     map_var_info_t *arg_names, void **arg_mappers, int32_t team_num,
     int32_t thread_limit, int32_t depNum, void *depList, int32_t noAliasDepNum,
     void *noAliasDepList) {
-  TIMESCOPE();
+  TIMESCOPE_WITH_IDENT(loc);
   if (depNum + noAliasDepNum > 0)
     __kmpc_omp_taskwait(loc, __kmpc_global_thread_num(loc));
 
@@ -568,36 +518,34 @@ EXTERN int64_t __tgt_mapper_num_components(void *rt_mapper_handle) {
 
 // Push back one component for a user-defined mapper.
 EXTERN void __tgt_push_mapper_component(void *rt_mapper_handle, void *base,
-                                        void *begin, int64_t size,
-                                        int64_t type) {
+                                        void *begin, int64_t size, int64_t type,
+                                        void *name) {
   TIMESCOPE();
   DP("__tgt_push_mapper_component(Handle=" DPxMOD
      ") adds an entry (Base=" DPxMOD ", Begin=" DPxMOD ", Size=%" PRId64
-     ", Type=0x%" PRIx64 ").\n",
-     DPxPTR(rt_mapper_handle), DPxPTR(base), DPxPTR(begin), size, type);
+     ", Type=0x%" PRIx64 ", Name=%s).\n",
+     DPxPTR(rt_mapper_handle), DPxPTR(base), DPxPTR(begin), size, type,
+     (name) ? getNameFromMapping(name).c_str() : "unknown");
   auto *MapperComponentsPtr = (struct MapperComponentsTy *)rt_mapper_handle;
   MapperComponentsPtr->Components.push_back(
-      MapComponentInfoTy(base, begin, size, type));
+      MapComponentInfoTy(base, begin, size, type, name));
 }
 
-EXTERN void __kmpc_push_target_tripcount(ident_t *loc, int64_t device_id,
+EXTERN void __kmpc_push_target_tripcount(int64_t device_id,
                                          uint64_t loop_tripcount) {
-  TIMESCOPE();
-  if (IsOffloadDisabled())
-    return;
+  __kmpc_push_target_tripcount_mapper(nullptr, device_id, loop_tripcount);
+}
 
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
-    DP("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false, loc);
+EXTERN void __kmpc_push_target_tripcount_mapper(ident_t *loc, int64_t device_id,
+                                                uint64_t loop_tripcount) {
+  TIMESCOPE_WITH_IDENT(loc);
+  if (checkDeviceAndCtors(device_id, loc) != OFFLOAD_SUCCESS) {
+    DP("Not offloading to device %" PRId64 "\n", device_id);
     return;
   }
 
   DP("__kmpc_push_target_tripcount(%" PRId64 ", %" PRIu64 ")\n", device_id,
-      loop_tripcount);
+     loop_tripcount);
   PM->TblMapMtx.lock();
   PM->Devices[device_id].LoopTripCnt.emplace(__kmpc_global_thread_num(NULL),
                                              loop_tripcount);
@@ -607,16 +555,10 @@ EXTERN void __kmpc_push_target_tripcount(ident_t *loc, int64_t device_id,
 #if INTEL_COLLAB
 EXTERN int32_t __tgt_is_device_available(int64_t device_num,
                                          void *device_type) {
-  if (IsOffloadDisabled())
-    return false;
-
-  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
-    device_num = omp_get_default_device();
-  }
-
-  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
+  device_num = EXTRACT_BITS(device_num, 31, 0);
+  if (checkDeviceAndCtors(device_num, nullptr) != OFFLOAD_SUCCESS) {
     DP("Failed to get device %" PRId64 " ready\n", device_num);
-    HandleTargetOutcome(false);
+    handleTargetOutcome(false, nullptr);
     return false;
   }
 
@@ -629,16 +571,12 @@ EXTERN char *__tgt_get_device_name(
      "buffer_max_size %zu.\n",
      device_num, buffer_max_size);
 
-  if (!buffer || buffer_max_size == 0 || IsOffloadDisabled())
+  if (!buffer || buffer_max_size == 0 || isOffloadDisabled())
     return NULL;
 
-  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
-    device_num = omp_get_default_device();
-  }
-
-  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
+  if (checkDeviceAndCtors(device_num, nullptr) != OFFLOAD_SUCCESS) {
     DP("Failed to get device %" PRId64 " ready\n", device_num);
-    HandleTargetOutcome(false);
+    handleTargetOutcome(false, nullptr);
     return NULL;
   }
 
@@ -654,16 +592,13 @@ EXTERN char *__tgt_get_device_rtl_name(
      "buffer_max_size %zu.\n",
      device_num, buffer_max_size);
 
-  if (!buffer || buffer_max_size == 0 || IsOffloadDisabled())
+  if (!buffer || buffer_max_size == 0 || isOffloadDisabled())
     return NULL;
 
-  if (device_num == OFFLOAD_DEVICE_DEFAULT) {
-    device_num = omp_get_default_device();
-  }
 
-  if (CheckDeviceAndCtors(device_num) != OFFLOAD_SUCCESS) {
+  if (checkDeviceAndCtors(device_num, nullptr) != OFFLOAD_SUCCESS) {
     DP("Failed to get device %" PRId64 " ready\n", device_num);
-    HandleTargetOutcome(false);
+    handleTargetOutcome(false, nullptr);
     return NULL;
   }
 
@@ -695,28 +630,16 @@ typedef struct {
 }
 
 EXTERN void *__tgt_create_interop_obj(
-    int64_t device_id, bool is_async, void *async_obj) {
-  // Use root device ID if subdevice was requested
-  // TODO: Add subdevice support when a single queue can handle multiple
-  //       sub-devices
-  if (device_id < 0 && device_id != OFFLOAD_DEVICE_DEFAULT)
-    device_id = EXTRACT_BITS(device_id, 31, 0);
+    int64_t device_code, bool is_async, void *async_obj) {
+  int64_t device_id = EXTRACT_BITS(device_code, 31, 0);
 
   DP("Call to __tgt_create_interop_obj with device_id %" PRId64 ", is_async %s"
      ", async_obj " DPxMOD "\n", device_id, is_async ? "true" : "false",
      DPxPTR(async_obj));
 
-  if (IsOffloadDisabled()) {
-    return NULL;
-  }
-
-  if (device_id == OFFLOAD_DEVICE_DEFAULT) {
-    device_id = omp_get_default_device();
-  }
-
-  if (CheckDeviceAndCtors(device_id) != OFFLOAD_SUCCESS) {
+  if (checkDeviceAndCtors(device_id, nullptr) != OFFLOAD_SUCCESS) {
     DP("Failed to get device %" PRId64 " ready\n", device_id);
-    HandleTargetOutcome(false);
+    handleTargetOutcome(false, nullptr);
     return NULL;
   }
 
@@ -744,13 +667,14 @@ EXTERN void *__tgt_create_interop_obj(
   }
 
   obj->device_id = device_id;
+  obj->device_code = device_code; // Preserve 64-bit device encoding
   obj->is_async = is_async;
   obj->async_obj = async_obj;
   obj->async_handler = &__tgt_offload_proxy_task_complete_ooo;
   obj->queue = nullptr; // Will be created when property is requested.
   obj->platform_handle = Device.get_platform_handle();
   obj->context_handle = Device.get_context_handle();
-  obj->device_handle = Device.get_device_handle();
+  Device.setDeviceHandle(obj);
   obj->plugin_interface = plugin;
 
   return obj;
@@ -760,9 +684,9 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj) {
   DP("Call to __tgt_release_interop_obj with interop_obj " DPxMOD "\n",
      DPxPTR(interop_obj));
 
-  assert(!IsOffloadDisabled() &&
+  assert(!isOffloadDisabled() &&
           "Freeing interop object with Offload Disabled.");
-  if (IsOffloadDisabled() || !interop_obj)
+  if (!interop_obj)
     return OFFLOAD_FAIL;
 
   __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(interop_obj);
@@ -779,7 +703,7 @@ EXTERN int __tgt_set_interop_property(
   DP("Call to __tgt_set_interop_property with interop_obj " DPxMOD
      ", property_id %" PRId32 "\n", DPxPTR(interop_obj), property_id);
 
-  if (IsOffloadDisabled() || !interop_obj || !property_value) {
+  if (isOffloadDisabled() || !interop_obj || !property_value) {
     return OFFLOAD_FAIL;
   }
 
@@ -806,7 +730,7 @@ EXTERN int __tgt_get_interop_property(
   DP("Call to __tgt_get_interop_property with interop_obj " DPxMOD
      ", property_id %" PRId32 "\n", DPxPTR(interop_obj), property_id);
 
-  if (IsOffloadDisabled() || !interop_obj || !property_value) {
+  if (isOffloadDisabled() || !interop_obj || !property_value) {
     return OFFLOAD_FAIL;
   }
 
@@ -826,8 +750,7 @@ EXTERN int __tgt_get_interop_property(
     break;
   case INTEROP_OFFLOAD_QUEUE:
     if (!interop->queue)
-      interop->queue = PM->Devices[interop->device_id].
-          create_offload_queue(interop->is_async);
+      PM->Devices[interop->device_id].create_offload_queue(interop);
     *property_value = interop->queue;
     break;
   case INTEROP_PLATFORM_HANDLE:
@@ -850,13 +773,78 @@ EXTERN int __tgt_get_interop_property(
   return OFFLOAD_SUCCESS;
 }
 
+EXTERN omp_interop_t __tgt_create_interop(
+    int64_t device_num, int32_t interop_type, int32_t num_prefers,
+    intptr_t *prefer_ids) {
+  DP("Call to %s with device_num %" PRId64 ", interop_type %" PRId32
+     ", num_prefers %" PRId32 ", prefer_ids " DPxMOD "\n",
+     __func__, device_num, interop_type, num_prefers, DPxPTR(prefer_ids));
+
+  if (isOffloadDisabled())
+    return omp_interop_none;
+
+  omp_interop_t Interop = omp_interop_none;
+
+  // Now, try to create an interop with device_num.
+  if (device_num == OFFLOAD_DEVICE_DEFAULT)
+    device_num = omp_get_default_device();
+
+  if (device_is_ready(device_num)) {
+    Interop = PM->Devices[device_num].createInterop(interop_type, num_prefers,
+                                                    prefer_ids);
+    DP("Created an interop " DPxMOD " from device_num %" PRId64 "\n",
+       DPxPTR(Interop), device_num);
+  }
+
+  return Interop;
+}
+
+EXTERN int __tgt_release_interop(omp_interop_t interop) {
+  DP("Call to %s with interop " DPxMOD "\n", __func__, DPxPTR(interop));
+
+  if (isOffloadDisabled() || !interop)
+    return OFFLOAD_FAIL;
+
+  __tgt_interop *TgtInterop = static_cast<__tgt_interop *>(interop);
+  int64_t DeviceNum = TgtInterop->DeviceNum;
+
+  if (!device_is_ready(DeviceNum)) {
+    DP("Device %" PRId64 " is not ready when releasing an interop " DPxMOD "\n",
+       DeviceNum, DPxPTR(interop));
+    return OFFLOAD_FAIL;
+  }
+
+  return PM->Devices[DeviceNum].releaseInterop(TgtInterop);
+}
+
+EXTERN int __tgt_use_interop(omp_interop_t interop) {
+  DP("Call to %s with interop " DPxMOD "\n", __func__, DPxPTR(interop));
+
+  if (isOffloadDisabled() || !interop)
+    return OFFLOAD_FAIL;
+
+  __tgt_interop *TgtInterop = static_cast<__tgt_interop *>(interop);
+  int64_t DeviceNum = TgtInterop->DeviceNum;
+
+  if (!device_is_ready(DeviceNum)) {
+    DP("Device %" PRId64 " is not ready when using an interop " DPxMOD "\n",
+       DeviceNum, DPxPTR(interop));
+    return OFFLOAD_FAIL;
+  }
+
+  if (!TgtInterop->TargetSync)
+    return OFFLOAD_SUCCESS;
+
+  return PM->Devices[DeviceNum].useInterop(TgtInterop);
+}
+
 EXTERN int __tgt_get_target_memory_info(
     void *interop_obj, int32_t num_ptrs, void *tgt_ptrs, void *ptr_info) {
   DP("Call to __tgt_get_target_memory_info with interop_obj " DPxMOD
      ", num_ptrs %" PRId32 ", tgt_ptrs " DPxMOD ", ptr_info " DPxMOD
      "\n", DPxPTR(interop_obj), num_ptrs, DPxPTR(tgt_ptrs), DPxPTR(ptr_info));
 
-  if (IsOffloadDisabled() || !interop_obj || !tgt_ptrs || !ptr_info ||
+  if (isOffloadDisabled() || !interop_obj || !tgt_ptrs || !ptr_info ||
       num_ptrs <= 0) {
     return OFFLOAD_FAIL;
   }

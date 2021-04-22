@@ -2,14 +2,21 @@
 ; Check VPlan decomposition and codegen approaches for a complex Fortran-based loop nest.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -vplan-dump-subscript-details -disable-output< %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-plain-cfg -vplan-dump-subscript-details -disable-output< %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
+
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -enable-vp-value-codegen-hir=false -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MIXED-CG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-vf=2 -enable-vp-value-codegen-hir=false -print-after=vplan-driver-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MIXED-CG
+
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -enable-vp-value-codegen-hir=true -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPVALUE-CG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-vf=2 -enable-vp-value-codegen-hir=true -print-after=vplan-driver-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPVALUE-CG
+
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 define void @interp1(double* noalias nocapture readonly %"interp_$Z", i32* noalias nocapture readonly %"interp_$M", double* noalias %"interp_$U", i32* noalias %"interp_$N") local_unnamed_addr {
 ; VPLAN-IR-LABEL:  VPlan after importing plain CFG:
+; VPLAN-IR-NEXT:  VPlan IR for: interp1:HIR
 ; VPLAN-IR-NEXT:  External Defs Start:
 ; VPLAN-IR-DAG:     [[VP0:%.*]] = {8 * (sext.i32.i64(%"interp_$M5") * sext.i32.i64(%"interp_$M5"))}
 ; VPLAN-IR-DAG:     [[VP1:%.*]] = {%"interp_$Z"}
@@ -52,7 +59,7 @@ define void @interp1(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; VPLAN-IR-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; VPLAN-IR-NEXT:     br <External Block>
 ;
-; MIXED-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; MIXED-CG-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; MIXED-CG-NEXT:  Function: interp1
 ; MIXED-CG-EMPTY:
 ; MIXED-CG-NEXT:  <0>          BEGIN REGION { modified }
@@ -68,7 +75,7 @@ define void @interp1(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; MIXED-CG-NEXT:  <50>               + END LOOP
 ; MIXED-CG-NEXT:  <0>          END REGION
 ;
-; VPVALUE-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; VPVALUE-CG-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; VPVALUE-CG-NEXT:  Function: interp1
 ; VPVALUE-CG-EMPTY:
 ; VPVALUE-CG-NEXT:  <0>          BEGIN REGION { modified }
@@ -158,6 +165,7 @@ bb77:                                             ; preds = %bb77.loopexit, %all
 
 define void @interp2(double* noalias nocapture readonly %"interp_$Z", i32* noalias nocapture readonly %"interp_$M", double* noalias %"interp_$U", i32* noalias %"interp_$N") local_unnamed_addr {
 ; VPLAN-IR-LABEL:  VPlan after importing plain CFG:
+; VPLAN-IR-NEXT:  VPlan IR for: interp2:HIR
 ; VPLAN-IR-NEXT:  External Defs Start:
 ; VPLAN-IR-DAG:     [[VP0:%.*]] = {8 * (sext.i32.i64(%"interp_$M5") * sext.i32.i64(%"interp_$M5"))}
 ; VPLAN-IR-DAG:     [[VP1:%.*]] = {%"interp_$U"}
@@ -204,7 +212,7 @@ define void @interp2(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; VPLAN-IR-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; VPLAN-IR-NEXT:     br <External Block>
 ;
-; MIXED-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; MIXED-CG-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; MIXED-CG-NEXT:  Function: interp2
 ; MIXED-CG-EMPTY:
 ; MIXED-CG-NEXT:  <0>          BEGIN REGION { modified }
@@ -223,7 +231,7 @@ define void @interp2(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; MIXED-CG-NEXT:  <63>               + END LOOP
 ; MIXED-CG-NEXT:  <0>          END REGION
 ;
-; VPVALUE-CG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; VPVALUE-CG-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; VPVALUE-CG-NEXT:  Function: interp2
 ; VPVALUE-CG-EMPTY:
 ; VPVALUE-CG-NEXT:  <0>          BEGIN REGION { modified }

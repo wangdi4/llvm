@@ -2,7 +2,9 @@
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-linearization -disable-output \
 ; RUN:     | FileCheck %s
-;
+
+; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" \
+; RUN:     -vplan-print-after-linearization -disable-output | FileCheck %s
 
 ; Test to verify predicator behavior for our hacky support of search loops
 ; vectorization. The main issue is that we don't merge loop exits nor perform
@@ -17,6 +19,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocapture readnone %b, i8 signext %val) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after predication and linearization:
+; CHECK-NEXT:  VPlan IR for: _Z3fooiPKaPaa:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%val}
 ; CHECK-DAG:     [[VP1:%.*]] = {%a}

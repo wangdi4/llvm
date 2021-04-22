@@ -96,11 +96,13 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeARMTarget() {
   initializeARMExpandPseudoPass(Registry);
   initializeThumb2SizeReducePass(Registry);
   initializeMVEVPTBlockPass(Registry);
-  initializeMVEVPTOptimisationsPass(Registry);
+  initializeMVETPAndVPTOptimisationsPass(Registry);
   initializeMVETailPredicationPass(Registry);
   initializeARMLowOverheadLoopsPass(Registry);
+  initializeARMBlockPlacementPass(Registry);
   initializeMVEGatherScatterLoweringPass(Registry);
   initializeARMSLSHardeningPass(Registry);
+  initializeMVELaneInterleavingPass(Registry);
 }
 
 static std::unique_ptr<TargetLoweringObjectFile> createTLOF(const Triple &TT) {
@@ -415,6 +417,7 @@ void ARMPassConfig::addIRPasses() {
         }));
 
   addPass(createMVEGatherScatterLoweringPass());
+  addPass(createMVELaneInterleavingPass());
 
   TargetPassConfig::addIRPasses();
 
@@ -486,13 +489,13 @@ bool ARMPassConfig::addRegBankSelect() {
 }
 
 bool ARMPassConfig::addGlobalInstructionSelect() {
-  addPass(new InstructionSelect());
+  addPass(new InstructionSelect(getOptLevel()));
   return false;
 }
 
 void ARMPassConfig::addPreRegAlloc() {
   if (getOptLevel() != CodeGenOpt::None) {
-    addPass(createMVEVPTOptimisationsPass());
+    addPass(createMVETPAndVPTOptimisationsPass());
 
     addPass(createMLxExpansionPass());
 
@@ -552,16 +555,21 @@ void ARMPassConfig::addPreEmitPass() {
     return MF.getSubtarget<ARMSubtarget>().isThumb2();
   }));
 
-  // Don't optimize barriers at -O0.
-  if (getOptLevel() != CodeGenOpt::None)
+  // Don't optimize barriers or block placement at -O0.
+  if (getOptLevel() != CodeGenOpt::None) {
+    addPass(createARMBlockPlacementPass());
     addPass(createARMOptimizeBarriersPass());
+  }
 }
 
 void ARMPassConfig::addPreEmitPass2() {
   addPass(createARMConstantIslandPass());
   addPass(createARMLowOverheadLoopsPass());
 
-  // Identify valid longjmp targets for Windows Control Flow Guard.
-  if (TM->getTargetTriple().isOSWindows())
+  if (TM->getTargetTriple().isOSWindows()) {
+    // Identify valid longjmp targets for Windows Control Flow Guard.
     addPass(createCFGuardLongjmpPass());
+    // Identify valid eh continuation targets for Windows EHCont Guard.
+    addPass(createEHContGuardCatchretPass());
+  }
 }

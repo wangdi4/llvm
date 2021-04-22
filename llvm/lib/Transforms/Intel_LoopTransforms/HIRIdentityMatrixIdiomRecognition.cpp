@@ -290,17 +290,16 @@ bool HIRIdentityMatrixIdiomRecognition::run() {
   if (EnableAltIdentityMatrixRecognition) {
     SmallVector<const RegDDRef *, 2> IDMatRefs;
     for (auto &Lp : InnermostLoops) {
-      HLNodeUtils::findIdentityMatrix(&HLS, Lp, IDMatRefs);
+      HLNodeUtils::findInner2DIdentityMatrix(&HLS, Lp, IDMatRefs);
     }
   }
 
   return Result;
 }
 
-PreservedAnalyses
-HIRIdentityMatrixIdiomRecognitionPass::run(llvm::Function &F,
-                                           llvm::FunctionAnalysisManager &AM) {
-  HIRIdentityMatrixIdiomRecognition(AM.getResult<HIRFrameworkAnalysis>(F),
+PreservedAnalyses HIRIdentityMatrixIdiomRecognitionPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRIdentityMatrixIdiomRecognition(HIRF,
                                     AM.getResult<HIRLoopStatisticsAnalysis>(F))
       .run();
   return PreservedAnalyses::all();

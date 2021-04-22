@@ -492,8 +492,8 @@ BUILTIN(__builtin_intel_hls_instream_write, "v.", "nt")
 BUILTIN(__builtin_intel_hls_outstream_write, "v.", "nt")
 BUILTIN(__builtin_intel_hls_instream_tryWrite, "v.", "nt")
 BUILTIN(__builtin_intel_hls_outstream_tryWrite, "v.", "nt")
-BUILTIN(__builtin_intel_hls_mm_master_init, "v.", "nt")
-BUILTIN(__builtin_intel_hls_mm_master_load, "v.", "nt")
+BUILTIN(__builtin_intel_hls_mm_host_init, "v.", "nt")
+BUILTIN(__builtin_intel_hls_mm_host_load, "v.", "nt")
 #endif // INTEL_CUSTOMIZATION
 
 // FP Comparisons.
@@ -1913,13 +1913,6 @@ LANGBUILTIN(__builtin_load_halff, "fhC*", "nc", ALL_OCLC_LANGUAGES)
 BUILTIN(__builtin_os_log_format_buffer_size, "zcC*.", "p:0:nut")
 BUILTIN(__builtin_os_log_format, "v*v*cC*.", "p:0:nt")
 
-// OpenMP 4.0
-#if !INTEL_CUSTOMIZATION
-  // Community seems to agree that this should not be handled as a builtin
-  // but as a variant added to omp.h.  Delete this code until that makes it
-  // through the process.
-LANGBUILTIN(omp_is_initial_device, "i", "nc", OMP_LANG)
-#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 // These OMP library-defined functions are callable in device target regions
 // and have the "nothrow" property. This list is a subset representing the
@@ -1953,6 +1946,9 @@ LIBBUILTIN(omp_set_max_active_levels, "vi", "nf", "omp.h", OMP_LANG)
 LIBBUILTIN(omp_set_num_threads, "vi", "nf", "omp.h", OMP_LANG)
 LIBBUILTIN(omp_set_nested, "vi", "nf", "omp.h", OMP_LANG)
 #endif // INTEL_COLLAB
+
+// CUDA/HIP
+LANGBUILTIN(__builtin_get_device_side_mangled_name, "cC*.", "ncT", CUDA_LANG)
 
 // Builtins for XRay
 BUILTIN(__xray_customevent, "vcC*z", "")

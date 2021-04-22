@@ -1,14 +1,15 @@
 ; RUN: opt -S -VPlanDriver -vplan-force-vf=4 < %s | FileCheck %s
 ; RUN: opt -S -passes="vplan-driver" -vplan-force-vf=4 < %s | FileCheck %s
 
-; CHECK: vector.body:
-; CHECK: VPlannedBB:{{.*}} preds = %VPlannedBB{{.*}}, %vector.body
+; CHECK: vector.body: ; preds = %[[VPlannedBB11:.*]], %vector.ph
+; CHECK: [[VPlannedBB4:.*]]: ; preds = %[[VPlannedBB10:.*]], %vector.body
+; CHECK: [[VPlannedBB6:.*]]: ; preds = %[[VPlannedBB6]], %[[VPlannedBB4]]
 ; CHECK:  store <4 x i32>
 ; CHECK:  icmp eq {{.*}} 100
-; CHECK: VPlannedBB{{.*}} preds = %VPlannedBB{{.*}}
+; CHECK: [[VPlannedBB10]]: ; preds = %[[VPlannedBB6]]
 ; CHECK:  icmp eq {{.*}} 200
-; CHECK: VPlannedBB{{.*}} preds = %VPlannedBB{{.*}}
-; CHECK:  icmp uge {{.*}} 300
+; CHECK: [[VPlannedBB11]]: ; preds = %[[VPlannedBB10]]
+; CHECK:  icmp eq {{.*}} 300
 ; CHECK: middle.block:
 
 ; ModuleID = 'krtest2.c'

@@ -1,6 +1,6 @@
 //===------ SOAToAOSPrepare.cpp - SOAToAOSPreparePass ---------------------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -211,6 +211,7 @@
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "Intel_DTrans/Transforms/SOAToAOSExternal.h"
 
@@ -757,7 +758,7 @@ void SOAToAOSPrepCandidateInfo::replicateMemberFunctions() {
     size_t Num = ElementTypes.getNumTypes();
     for (size_t i = 0; i < Num; ++i)
       ElementTypes.setElemType(
-          i, TypeRemapper.remapType(ElementTypes.getElemType(i)));
+          i, TypeRemapper.remapType(ElementTypes.getElemLLVMType(i)));
   };
 
   ValueToValueMapTy VMap;
@@ -793,8 +794,9 @@ void SOAToAOSPrepCandidateInfo::replicateMemberFunctions() {
 
     SmallVector<ReturnInst *, 8> Returns;
     ClonedCodeInfo CodeInfo;
-    CloneFunctionInto(NewF, OrigF, VMap, true, Returns, "", &CodeInfo,
-                      &TypeRemapper);
+    CloneFunctionInto(NewF, OrigF, VMap,
+                      CloneFunctionChangeType::LocalChangesOnly, Returns, "",
+                      &CodeInfo, &TypeRemapper);
 
     DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE, {
       dbgs() << "    Cloning " << OrigF->getName() << "\n";
@@ -1164,7 +1166,7 @@ void SOAToAOSPrepCandidateInfo::postprocessFunction(Function &F,
       if (!CInfo || isa<dtrans::FreeCallInfo>(CInfo))
         continue;
 
-      for (auto *StTy : CInfo->getElementTypesRef().getElemTypes()) {
+      for (auto *StTy : CInfo->getElementTypesRef().element_llvm_types()) {
         if (StTy != NewElemTy)
           continue;
         DEBUG_WITH_TYPE(DTRANS_SOATOAOSPREPARE,
@@ -2019,7 +2021,8 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
       A++;
     }
     SmallVector<ReturnInst *, 8> Rets;
-    CloneFunctionInto(NewF, CtorF, VMap1, true, Rets);
+    CloneFunctionInto(NewF, CtorF, VMap1,
+                      CloneFunctionChangeType::LocalChangesOnly, Rets);
 
     // Fix store instructions in the cloned routines.
     Argument *CopyArg = NewF->getArg(1);

@@ -66,7 +66,11 @@
 #ifndef OPENMP_REDUCTION_MODIFIER
 #define OPENMP_REDUCTION_MODIFIER(Name)
 #endif
-
+#if INTEL_COLLAB
+#ifndef OPENMP_ADJUST_ARGS_KIND
+#define OPENMP_ADJUST_ARGS_KIND(Name)
+#endif
+#endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION
 // OpenMP directives in the -qopenmp-simd subset
@@ -75,6 +79,7 @@
 #endif
 OPENMP_DIRECTIVE_SIMD_SUBSET(simd)
 OPENMP_DIRECTIVE_SIMD_SUBSET(declare_simd)
+OPENMP_DIRECTIVE_SIMD_SUBSET(declare_reduction)
 
 // OpenMP directives in the -qopenmp-tbb subset
 #ifndef OPENMP_DIRECTIVE_TBB_SUBSET
@@ -102,8 +107,10 @@ OPENMP_DIRECTIVE_SPIR_SUBSET(target_parallel_for_simd)
 OPENMP_DIRECTIVE_SPIR_SUBSET(target_teams_distribute_parallel_for)
 OPENMP_DIRECTIVE_SPIR_SUBSET(target_teams_distribute_parallel_for_simd)
 OPENMP_DIRECTIVE_SPIR_SUBSET(target_variant_dispatch)
+OPENMP_DIRECTIVE_SPIR_SUBSET(dispatch)
 OPENMP_DIRECTIVE_SPIR_SUBSET(simd)
 OPENMP_DIRECTIVE_SPIR_SUBSET(master)
+OPENMP_DIRECTIVE_SPIR_SUBSET(masked)
 OPENMP_DIRECTIVE_SPIR_SUBSET(atomic)
 OPENMP_DIRECTIVE_SPIR_SUBSET(barrier)
 OPENMP_DIRECTIVE_SPIR_SUBSET(parallel_for)
@@ -231,6 +238,13 @@ OPENMP_REDUCTION_MODIFIER(default)
 OPENMP_REDUCTION_MODIFIER(inscan)
 OPENMP_REDUCTION_MODIFIER(task)
 
+#if INTEL_COLLAB
+// Adjust-op kinds for the 'adjust_args' clause.
+OPENMP_ADJUST_ARGS_KIND(nothing)
+OPENMP_ADJUST_ARGS_KIND(need_device_ptr)
+
+#undef OPENMP_ADJUST_ARGS_KIND
+#endif // INTEL_COLLAB
 #undef OPENMP_REDUCTION_MODIFIER
 #undef OPENMP_DEVICE_MODIFIER
 #undef OPENMP_ORDER_KIND

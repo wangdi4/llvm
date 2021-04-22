@@ -28,7 +28,7 @@ int bar(void)
 //CHECK: [[AR:%arrayidx]] = getelementptr inbounds i32,
 //CHECK: [[L3:%[0-9]+]] = mul nuw i64
 //CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-//CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32** @arr, i32* [[AR]], i64 [[L3]], i64 51)
+//CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32** @arr, i32* [[AR]], i64 [[L3]], i64 19
   #pragma omp target map(tofrom: arr[:len])
   for( int i = 0; i < 10; i++)
     foo(i);
@@ -37,7 +37,7 @@ int bar(void)
 //CHECK: [[AR1:%arrayidx1]] =  getelementptr inbounds %struct.st
 //CHECK: [[L11:%[0-9]+]] = mul nuw i64
 //CHECK: [[T1:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-//CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.st** @sta, %struct.st* [[AR1]], i64 [[L11]], i64 51)
+//CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.st** @sta, %struct.st* [[AR1]], i64 [[L11]], i64 19
   #pragma omp target map(tofrom: sta[:len])
   for( int i = 0; i < 10; i++)
     xoo(i);

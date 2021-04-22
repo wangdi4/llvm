@@ -13,7 +13,7 @@ if(NOT DEFINED ITTAPI_GIT_REPOSITORY)
 endif()
 
 if(NOT DEFINED ITTAPI_GIT_TAG)
-    set(ITTAPI_GIT_TAG v3.18.8)
+    set(ITTAPI_GIT_TAG v3.18.10)
 endif()
 
 if(NOT DEFINED ITTAPI_SOURCE_DIR)
@@ -56,6 +56,9 @@ add_llvm_component_library(LLVMIntelJITEvents
   jitprofiling.c
   ${ITTAPI_SOURCE_DIR}/ittapi/src/ittnotify/ittnotify_static.c
 
+  DEPENDS
+  LLVMCodeGen
+
   LINK_LIBS ${LLVM_INTEL_JIT_LIBS}
 
   LINK_COMPONENTS
@@ -66,5 +69,3 @@ add_llvm_component_library(LLVMIntelJITEvents
   Object
   ExecutionEngine
 )
-
-add_dependencies(LLVMIntelJITEvents LLVMCodeGen)

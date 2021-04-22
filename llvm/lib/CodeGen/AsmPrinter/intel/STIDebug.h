@@ -30,12 +30,12 @@ public:
 
   virtual ~STIDebug();
 
-  virtual void setSymbolSize(const MCSymbol *Symbol, uint64_t size) = 0;
-  virtual void endModule() = 0;
-  virtual void beginFunction(const MachineFunction *MF) = 0;
-  virtual void endFunction(const MachineFunction *MF) = 0;
-  virtual void beginInstruction(const MachineInstr *MI) = 0;
-  virtual void endInstruction() = 0;
+  virtual void setSymbolSize(const MCSymbol *Symbol, uint64_t size) override = 0 ;
+  virtual void endModule() override = 0;
+  virtual void beginFunction(const MachineFunction *MF) override = 0;
+  virtual void endFunction(const MachineFunction *MF) override = 0;
+  virtual void beginInstruction(const MachineInstr *MI) override = 0;
+  virtual void endInstruction() override = 0;
 
 protected:
   STIDebug();

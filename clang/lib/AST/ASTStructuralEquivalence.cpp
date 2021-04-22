@@ -1207,27 +1207,6 @@ static bool IsStructurallyEquivalent(StructuralEquivalenceContext &Context,
       return false;
     break;
   }
-  case Type::ArbPrecInt: {
-    const ArbPrecIntType *Int1 = cast<ArbPrecIntType>(T1);
-    const ArbPrecIntType *Int2 = cast<ArbPrecIntType>(T2);
-    if (!IsStructurallyEquivalent(Context, Int1->getUnderlyingType(),
-                                  Int2->getUnderlyingType()) ||
-        Int1->getNumBits() != Int2->getNumBits())
-      return false;
-    break;
-  }
-  case Type::DependentSizedArbPrecInt: {
-    const DependentSizedArbPrecIntType *Int1 =
-        cast<DependentSizedArbPrecIntType>(T1);
-    const DependentSizedArbPrecIntType *Int2 =
-        cast<DependentSizedArbPrecIntType>(T2);
-    if (!IsStructurallyEquivalent(Context, Int1->getUnderlyingType(),
-                                  Int2->getUnderlyingType()) ||
-        !IsStructurallyEquivalent(Context, Int1->getNumBitsExpr(),
-                                  Int2->getNumBitsExpr()))
-      return false;
-    break;
-  }
 #endif // INTEL_CUSTOMIZATION
 
   case Type::Pipe:

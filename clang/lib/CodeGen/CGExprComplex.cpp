@@ -47,9 +47,16 @@ class ComplexExprEmitter
   CGBuilderTy &Builder;
   bool IgnoreReal;
   bool IgnoreImag;
+#if INTEL_CUSTOMIZATION
+  bool IsComplexType; // Expression type IsComplexType() i.e. floating
+#endif // INTEL_CUSTOMIZATION
 public:
-  ComplexExprEmitter(CodeGenFunction &cgf, bool ir=false, bool ii=false)
-    : CGF(cgf), Builder(CGF.Builder), IgnoreReal(ir), IgnoreImag(ii) {
+#if INTEL_CUSTOMIZATION
+  ComplexExprEmitter(CodeGenFunction &cgf, bool ir = false, bool ii = false,
+                     bool isComplex = true)
+      : CGF(cgf), Builder(CGF.Builder), IgnoreReal(ir), IgnoreImag(ii),
+        IsComplexType(isComplex) {
+#endif // INTEL_CUSTOMIZATION
   }
 
 
@@ -81,6 +88,12 @@ public:
   /// specified value pointer.
   void EmitStoreOfComplex(ComplexPairTy Val, LValue LV, bool isInit);
 
+#if INTEL_CUSTOMIZATION
+  /// CreateComplexFieldGEP
+  /// Create metadata for access to complex field.
+  Address CreateComplexFieldGEP(bool IsReal, LValue LV, llvm::MDNode **MD);
+
+#endif // INTEL_CUSTOMIZATION
   /// Emit a cast from complex value Val to DestType.
   ComplexPairTy EmitComplexToComplexCast(ComplexPairTy Val, QualType SrcType,
                                          QualType DestType, SourceLocation Loc);
@@ -357,18 +370,88 @@ ComplexPairTy ComplexExprEmitter::EmitLoadOfLValue(LValue lvalue,
   llvm::Value *Real = nullptr, *Imag = nullptr;
 
   if (!IgnoreReal || isVolatile) {
-    Address RealP = CGF.emitAddrOfRealComponent(SrcPtr, lvalue.getType());
-    Real = Builder.CreateLoad(RealP, isVolatile, SrcPtr.getName() + ".real");
+#if INTEL_CUSTOMIZATION
+    if (IsComplexType &&
+        CGF.getLangOpts().isIntelCompat(LangOptions::IntelTBAA) &&
+        CGF.CGM.getCodeGenOpts().StructPathTBAA) {
+      llvm::MDNode *MD = nullptr;
+      Address RealP = CreateComplexFieldGEP(/*IsReal*/ true, lvalue, &MD);
+      Real = Builder.CreateLoad(RealP, isVolatile, SrcPtr.getName() + ".real");
+      cast<llvm::Instruction>(Real)->setMetadata("tbaa", MD);
+    } else {
+      Address RealP = CGF.emitAddrOfRealComponent(SrcPtr, lvalue.getType());
+      Real = Builder.CreateLoad(RealP, isVolatile, SrcPtr.getName() + ".real");
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (!IgnoreImag || isVolatile) {
-    Address ImagP = CGF.emitAddrOfImagComponent(SrcPtr, lvalue.getType());
-    Imag = Builder.CreateLoad(ImagP, isVolatile, SrcPtr.getName() + ".imag");
+#if INTEL_CUSTOMIZATION
+    if (IsComplexType &&
+        CGF.getLangOpts().isIntelCompat(LangOptions::IntelTBAA) &&
+        CGF.CGM.getCodeGenOpts().StructPathTBAA) {
+      llvm::MDNode *MD = nullptr;
+      Address ImagP = CreateComplexFieldGEP(/*IsReal*/ false, lvalue, &MD);
+      Imag = Builder.CreateLoad(ImagP, isVolatile, SrcPtr.getName() + ".imag");
+      cast<llvm::Instruction>(Imag)->setMetadata("tbaa", MD);
+    } else {
+      Address ImagP = CGF.emitAddrOfImagComponent(SrcPtr, lvalue.getType());
+      Imag = Builder.CreateLoad(ImagP, isVolatile, SrcPtr.getName() + ".imag");
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   return ComplexPairTy(Real, Imag);
 }
 
+#if INTEL_CUSTOMIZATION
+Address ComplexExprEmitter::CreateComplexFieldGEP(bool IsReal, LValue LV,
+                                                  llvm::MDNode **MD) {
+  assert(IsComplexType && "Expected complex type");
+  QualType FieldType = LV.getType()->castAs<ComplexType>()->getElementType();
+  TBAAAccessInfo FieldTBAAInfo;
+  *MD = nullptr;
+  if (LV.getTBAAInfo().isMayAlias() || FieldType->isVectorType()) {
+    FieldTBAAInfo = TBAAAccessInfo::getMayAliasInfo();
+  } else {
+    // If no base type been assigned for the base access, then try to generate
+    // one for this base LV.
+    FieldTBAAInfo = LV.getTBAAInfo();
+    if (!FieldTBAAInfo.BaseType) {
+      FieldTBAAInfo.BaseType = CGF.CGM.getTBAABaseTypeInfo(LV.getType());
+      assert(!FieldTBAAInfo.Offset &&
+             "Nonzero offset for an access with no base type!");
+    }
+
+    // Update the final access type and size.
+    FieldTBAAInfo.AccessType = CGF.CGM.getTBAATypeInfo(FieldType);
+    FieldTBAAInfo.Size =
+        CGF.getContext().getTypeSizeInChars(FieldType).getQuantity();
+
+    // Adjust offset to be relative to the base type.
+    if (FieldTBAAInfo.BaseType)
+      FieldTBAAInfo.Offset = IsReal ? 0 : FieldTBAAInfo.Size;
+  }
+  Address Ptr = LV.getAddress(CGF);
+  Address FieldP = IsReal ? CGF.emitAddrOfRealComponent(Ptr, LV.getType())
+                          : CGF.emitAddrOfImagComponent(Ptr, LV.getType());
+  if (CGF.getLangOpts().isIntelCompat(LangOptions::IntelTBAA)) {
+    auto *GEP = dyn_cast<llvm::GetElementPtrInst>(FieldP.getPointer());
+    if (GEP && !FieldTBAAInfo.isMayAlias()) {
+      auto BaseType = LV.getTBAAInfo().BaseType ? LV.getTBAAInfo().AccessType
+                                                : FieldTBAAInfo.BaseType;
+      if (BaseType) {
+        TBAAAccessInfo AI(BaseType, FieldTBAAInfo.AccessType,
+                          IsReal ? 0 : FieldTBAAInfo.Size, FieldTBAAInfo.Size);
+        *MD = CGF.CGM.getTBAAAccessTagInfo(AI);
+        GEP->setMetadata("intel-tbaa", *MD);
+      }
+    }
+  }
+  return FieldP;
+}
+
+#endif // INTEL_CUSTOMIZATION
 /// EmitStoreOfComplex - Store the specified real/imag parts into the
 /// specified value pointer.
 void ComplexExprEmitter::EmitStoreOfComplex(ComplexPairTy Val, LValue lvalue,
@@ -377,6 +460,23 @@ void ComplexExprEmitter::EmitStoreOfComplex(ComplexPairTy Val, LValue lvalue,
       (!isInit && CGF.LValueIsSuitableForInlineAtomic(lvalue)))
     return CGF.EmitAtomicStore(RValue::getComplex(Val), lvalue, isInit);
 
+#if INTEL_CUSTOMIZATION
+  if (IsComplexType &&
+      CGF.getLangOpts().isIntelCompat(LangOptions::IntelTBAA) &&
+      CGF.CGM.getCodeGenOpts().StructPathTBAA) {
+    llvm::MDNode *MD;
+    llvm::Instruction *SI;
+
+    Address RealPtr = CreateComplexFieldGEP(/*IsReal*/ true, lvalue, &MD);
+    SI = Builder.CreateStore(Val.first, RealPtr, lvalue.isVolatileQualified());
+    SI->setMetadata("tbaa", MD);
+
+    Address ImagPtr = CreateComplexFieldGEP(/*IsReal*/ false, lvalue, &MD);
+    SI = Builder.CreateStore(Val.second, ImagPtr, lvalue.isVolatileQualified());
+    SI->setMetadata("tbaa", MD);
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
   Address Ptr = lvalue.getAddress(CGF);
   Address RealPtr = CGF.emitAddrOfRealComponent(Ptr, lvalue.getType());
   Address ImagPtr = CGF.emitAddrOfImagComponent(Ptr, lvalue.getType());
@@ -532,6 +632,7 @@ ComplexPairTy ComplexExprEmitter::EmitCast(CastKind CK, Expr *Op,
   case CK_FixedPointToBoolean:
   case CK_FixedPointToIntegral:
   case CK_IntegralToFixedPoint:
+  case CK_MatrixCast:
     llvm_unreachable("invalid cast kind for complex value");
 
   case CK_FloatingRealToComplex:
@@ -1119,7 +1220,10 @@ ComplexPairTy CodeGenFunction::EmitComplexExpr(const Expr *E, bool IgnoreReal,
   assert(E && getComplexType(E->getType()) &&
          "Invalid complex expression to emit");
 
-  return ComplexExprEmitter(*this, IgnoreReal, IgnoreImag)
+#if INTEL_CUSTOMIZATION
+  return ComplexExprEmitter(*this, IgnoreReal, IgnoreImag,
+                            E->getType()->isComplexType())
+#endif // INTEL_CUSTOMIZATION
       .Visit(const_cast<Expr *>(E));
 }
 

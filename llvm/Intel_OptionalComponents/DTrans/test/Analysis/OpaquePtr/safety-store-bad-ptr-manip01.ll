@@ -12,7 +12,7 @@
 ; manipulation".
 ;
 ; When -dtrans-outofboundsok=false, it is assumed to access a location within
-; the array and will trigger the "Field address taken" flag instead because
+; the array and will trigger the "Field address taken memory" flag instead because
 ; the address could be for the zeroth element.
 
 %struct.test01a = type { i64, float, %struct.test01b }
@@ -32,7 +32,7 @@ define void @test01(i64 %arg)  {
 ; CHECK_ALWAYS-LABEL: DTRANS_StructInfo:
 ; CHECK_ALWAYS: Name: struct.test01b
 ; CHECK_OOB_T: Safety data: Bad pointer manipulation | Global instance | Nested structure{{ *$}}
-; CHECK_OOB_F: Safety data: Field address taken | Global instance | Nested structure{{ *$}}
+; CHECK_OOB_F: Safety data: Field address taken memory | Global instance | Nested structure{{ *$}}
 
 
 !1 = !{i64 0, i32 0}  ; i64

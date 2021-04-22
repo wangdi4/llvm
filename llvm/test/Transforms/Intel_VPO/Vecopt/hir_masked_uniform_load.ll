@@ -13,6 +13,8 @@
 ;    END LOOP
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -disable-output -tbaa < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s
+
 
 define void @foo(i64* nocapture readonly %lp, double* nocapture %darr, i64* nocapture readonly %arr) {
 ; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
@@ -21,6 +23,7 @@ define void @foo(i64* nocapture readonly %lp, double* nocapture %darr, i64* noca
 ; CHECK-NEXT:       %.vec2 = sitofp.<4 x i64>.<4 x double>(i1 + <i64 0, i64 1, i64 2, i64 3>);
 ; CHECK-NEXT:       %0 = bitcast.<4 x i1>.i4(%.vec1);
 ; CHECK-NEXT:       %cmp = %0 != 0;
+; CHECK-NEXT:       %.unifload = undef;
 ; CHECK-NEXT:       if (%cmp == 1)
 ; CHECK-NEXT:       {
 ; CHECK-NEXT:          %.unifload = (%lp)[0];

@@ -837,7 +837,8 @@ private:
   void emitUDMapperArrayInitOrDel(CodeGenFunction &MapperCGF,
                                   llvm::Value *Handle, llvm::Value *BasePtr,
                                   llvm::Value *Ptr, llvm::Value *Size,
-                                  llvm::Value *MapType, CharUnits ElementSize,
+                                  llvm::Value *MapType, llvm::Value *MapName,
+                                  CharUnits ElementSize,
                                   llvm::BasicBlock *ExitBB, bool IsInit);
 
   struct TaskResultTy {
@@ -919,6 +920,8 @@ public:
     OpenMPMapClauseKind MapType;
     const VarDecl *Var;
     bool IsChain;
+    llvm::Value *OffloadName;
+    const ValueDecl *Mapper;
   };
 
   static void getLOMapInfo(const OMPExecutableDirective &Dir,

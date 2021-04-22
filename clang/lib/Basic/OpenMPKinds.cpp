@@ -174,6 +174,13 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
 #define OPENMP_REDUCTION_MODIFIER(Name) .Case(#Name, OMPC_REDUCTION_##Name)
 #include "clang/Basic/OpenMPKinds.def"
         .Default(OMPC_REDUCTION_unknown);
+#if INTEL_COLLAB
+  case OMPC_adjust_args:
+    return llvm::StringSwitch<OpenMPAdjustArgsOpKind>(Str)
+#define OPENMP_ADJUST_ARGS_KIND(Name) .Case(#Name, OMPC_ADJUST_ARGS_##Name)
+#include "clang/Basic/OpenMPKinds.def"
+        .Default(OMPC_ADJUST_ARGS_unknown);
+#endif // INTEL_COLLAB
   case OMPC_unknown:
 #if INTEL_COLLAB
   case OMPC_subdevice:
@@ -184,6 +191,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
   case OMPC_num_threads:
   case OMPC_safelen:
   case OMPC_simdlen:
+  case OMPC_sizes:
   case OMPC_allocator:
   case OMPC_allocate:
   case OMPC_collapse:
@@ -230,11 +238,16 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
   case OMPC_match:
   case OMPC_nontemporal:
   case OMPC_destroy:
+  case OMPC_novariants:
+  case OMPC_nocontext:
   case OMPC_detach:
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_uses_allocators:
   case OMPC_affinity:
+#if INTEL_COLLAB
+  case OMPC_append_args:
+#endif // INTEL_COLLAB
     break;
   default:
     break;
@@ -442,6 +455,18 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "clang/Basic/OpenMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'reduction' clause modifier");
+#if INTEL_COLLAB
+  case OMPC_adjust_args:
+    switch (Type) {
+    case OMPC_ADJUST_ARGS_unknown:
+      return "unknown";
+#define OPENMP_ADJUST_ARGS_KIND(Name)                                          \
+  case OMPC_ADJUST_ARGS_##Name:                                                \
+    return #Name;
+#include "clang/Basic/OpenMPKinds.def"
+    }
+    llvm_unreachable("Invalid OpenMP 'adjust_args' clause kind");
+#endif // INTEL_COLLAB
   case OMPC_unknown:
   case OMPC_threadprivate:
   case OMPC_if:
@@ -449,6 +474,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_num_threads:
   case OMPC_safelen:
   case OMPC_simdlen:
+  case OMPC_sizes:
   case OMPC_allocator:
   case OMPC_allocate:
   case OMPC_collapse:
@@ -496,10 +522,15 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_nontemporal:
   case OMPC_destroy:
   case OMPC_detach:
+  case OMPC_novariants:
+  case OMPC_nocontext:
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_uses_allocators:
   case OMPC_affinity:
+#if INTEL_COLLAB
+  case OMPC_append_args:
+#endif // INTEL_COLLAB
     break;
   default:
     break;
@@ -533,7 +564,7 @@ bool clang::isOpenMPLoopDirective(OpenMPDirectiveKind DKind) {
          DKind == OMPD_target_teams_distribute ||
          DKind == OMPD_target_teams_distribute_parallel_for ||
          DKind == OMPD_target_teams_distribute_parallel_for_simd ||
-         DKind == OMPD_target_teams_distribute_simd;
+         DKind == OMPD_target_teams_distribute_simd || DKind == OMPD_tile;
 }
 
 bool clang::isOpenMPWorksharingDirective(OpenMPDirectiveKind DKind) {
@@ -689,6 +720,10 @@ bool clang::isOpenMPLoopBoundSharingDirective(OpenMPDirectiveKind Kind) {
          Kind == OMPD_target_teams_distribute_parallel_for_simd;
 }
 
+bool clang::isOpenMPLoopTransformationDirective(OpenMPDirectiveKind DKind) {
+  return DKind == OMPD_tile;
+}
+
 void clang::getOpenMPCaptureRegions(
     SmallVectorImpl<OpenMPDirectiveKind> &CaptureRegions,
     OpenMPDirectiveKind DKind) {
@@ -798,7 +833,11 @@ void clang::getOpenMPCaptureRegions(
 #if INTEL_COLLAB
   case OMPD_target_variant_dispatch:
 #endif // INTEL_COLLAB
+  case OMPD_dispatch:
     CaptureRegions.push_back(OMPD_unknown);
+    break;
+  case OMPD_tile:
+    // loop transformations do not introduce captures.
     break;
   case OMPD_threadprivate:
   case OMPD_allocate:

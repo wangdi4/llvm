@@ -44,6 +44,18 @@
 //RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
 //RUN:  -verify -Wno-simd-unsupported -DNOWARNING -o - %s
 
+// Verify -fopenmp-target-simd also eliminates simdlen warning.
+//RUN: %clang_cc1 -triple spir64 \
+//RUN:  -fopenmp -fopenmp-targets=spir64 \
+//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
+//RUN:  -verify -fopenmp-target-simd -DNOWARNING -o - %s
+
+//RUN: %clang_cc1 -triple spir \
+//RUN:  -fopenmp -fopenmp-targets=spir \
+//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host.bc \
+//RUN:  -verify -fopenmp-target-simd -DNOWARNING -o - %s
 #ifdef NOWARNING
 // expected-no-diagnostics
 #endif

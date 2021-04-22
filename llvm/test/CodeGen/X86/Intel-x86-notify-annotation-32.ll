@@ -65,12 +65,12 @@ declare void @llvm.notify.nzc(i8*, i8*) #1
 ;X86-NEXT:         .byte   0
 ;X86-NEXT:         .short  257
 ;X86-NEXT:         .short  3
-;X86-NEXT:         .long   .Ltmp1-itt_notify_tab
-;X86-NEXT:         .long   .Ltmp2-.Ltmp1
-;X86-NEXT:         .long   .Ltmp2-itt_notify_tab
-;X86-NEXT:         .long   .Ltmp3-.Ltmp2
+;X86-NEXT:         .long   .Lnotify_strings0-itt_notify_tab
+;X86-NEXT:         .long   .Lnotify_exprs0-.Lnotify_strings0
+;X86-NEXT:         .long   .Lnotify_exprs0-itt_notify_tab
+;X86-NEXT:         .long   .Litt_notify_tab_end0-.Lnotify_exprs0
 ;X86-NEXT:         .p2align        2
-;X86-NEXT: .Ltmp0:
+;X86-NEXT: .Lnotify_entries0:
 ;X86-NEXT:         .long   .Lnotify_zc0
 ;X86-NEXT:         .long   0
 ;X86-NEXT:         .long   .Lnotify_zc_probe0-.Lnotify_zc0
@@ -86,18 +86,18 @@ declare void @llvm.notify.nzc(i8*, i8*) #1
 ;X86-NEXT:         .long   .Lnotify_zc_probe1-.Lnotify_zc1
 ;X86-NEXT:         .long   37
 ;X86-NEXT:         .long   4
-;X86-NEXT: .Ltmp1:
+;X86-NEXT: .Lnotify_strings0:
 ;X86-NEXT:         .ascii  "__itt_sync_create"
 ;X86-NEXT:         .byte   0
 ;X86-NEXT:         .ascii  "__itt_sync_destroy"
 ;X86-NEXT:         .byte   0
 ;X86-NEXT:         .ascii  "__itt_sync_destroy"
 ;X86-NEXT:         .byte   0
-;X86-NEXT: .Ltmp2:
+;X86-NEXT: .Lnotify_exprs0:
 ;X86-NEXT:         .short  20481
 ;X86-NEXT:         .short  20737
 ;X86-NEXT:         .short  20481
-;X86-NEXT: .Ltmp3:
+;X86-NEXT: .Litt_notify_tab_end0:
 ;X86-NEXT: .Lsec_end0:
 
 
@@ -135,12 +135,12 @@ declare void @llvm.notify.nzc(i8*, i8*) #1
 ;X86Win-NEXT:         .byte   0
 ;X86Win-NEXT:         .short  257
 ;X86Win-NEXT:         .short  3
-;X86Win-NEXT:         .long   Ltmp1-itt_notify_tab
-;X86Win-NEXT:         .long   Ltmp2-Ltmp1
-;X86Win-NEXT:         .long   Ltmp2-itt_notify_tab
-;X86Win-NEXT:         .long   Ltmp3-Ltmp2
+;X86Win-NEXT:         .long   Lnotify_strings0-itt_notify_tab
+;X86Win-NEXT:         .long   Lnotify_exprs0-Lnotify_strings0
+;X86Win-NEXT:         .long   Lnotify_exprs0-itt_notify_tab
+;X86Win-NEXT:         .long   Litt_notify_tab_end0-Lnotify_exprs0
 ;X86Win-NEXT:         .p2align        2
-;X86Win-NEXT: Ltmp0:
+;X86Win-NEXT: Lnotify_entries0:
 ;X86Win-NEXT:         .long   Lnotify_zc0
 ;X86Win-NEXT:         .long   0
 ;X86Win-NEXT:         .long   Lnotify_zc_probe0-Lnotify_zc0
@@ -156,16 +156,16 @@ declare void @llvm.notify.nzc(i8*, i8*) #1
 ;X86Win-NEXT:         .long   Lnotify_zc_probe1-Lnotify_zc1
 ;X86Win-NEXT:         .long   37
 ;X86Win-NEXT:         .long   4
-;X86Win-NEXT: Ltmp1:
+;X86Win-NEXT: Lnotify_strings0:
 ;X86Win-NEXT:         .ascii  "__itt_sync_create"
 ;X86Win-NEXT:         .byte   0
 ;X86Win-NEXT:         .ascii  "__itt_sync_destroy"
 ;X86Win-NEXT:         .byte   0
 ;X86Win-NEXT:         .ascii  "__itt_sync_destroy"
 ;X86Win-NEXT:         .byte   0
-;X86Win-NEXT: Ltmp2:
+;X86Win-NEXT: Lnotify_exprs0:
 ;X86Win-NEXT:         .short  20481
 ;X86Win-NEXT:         .short  20737
 ;X86Win-NEXT:         .short  20481
-;X86Win-NEXT: Ltmp3:
+;X86Win-NEXT: Litt_notify_tab_end0:
 ;X86Win-NEXT: Lsec_end0:

@@ -284,6 +284,9 @@ public:
   /// isSized - Return true if this is a sized type.
   bool isSized(SmallPtrSetImpl<Type *> *Visited = nullptr) const;
 
+  /// Returns true if this struct contains a scalable vector.
+  bool containsScalableVectorType() const;
+
   /// Return true if this is a named struct that has a non-empty name.
   bool hasName() const { return SymbolTableEntry != nullptr; }
 
@@ -315,7 +318,7 @@ public:
 
   element_iterator element_begin() const { return ContainedTys; }
   element_iterator element_end() const { return &ContainedTys[NumContainedTys];}
-  ArrayRef<Type *> const elements() const {
+  ArrayRef<Type *> elements() const {
     return makeArrayRef(element_begin(), element_end());
   }
 
@@ -702,14 +705,17 @@ Type *Type::getExtendedType() const {
   return cast<IntegerType>(this)->getExtendedType();
 }
 
+Type *Type::getWithNewType(Type *EltTy) const {
+  if (auto *VTy = dyn_cast<VectorType>(this))
+    return VectorType::get(EltTy, VTy->getElementCount());
+  return EltTy;
+}
+
 Type *Type::getWithNewBitWidth(unsigned NewBitWidth) const {
   assert(
       isIntOrIntVectorTy() &&
       "Original type expected to be a vector of integers or a scalar integer.");
-  Type *NewType = getIntNTy(getContext(), NewBitWidth);
-  if (auto *VTy = dyn_cast<VectorType>(this))
-    NewType = VectorType::get(NewType, VTy->getElementCount());
-  return NewType;
+  return getWithNewType(getIntNTy(getContext(), NewBitWidth));
 }
 
 unsigned Type::getPointerAddressSpace() const {

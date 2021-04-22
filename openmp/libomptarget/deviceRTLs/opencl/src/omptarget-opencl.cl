@@ -20,7 +20,8 @@
 
 kmp_global_state_t __omp_spirv_global_data = {
   .g_barrier = {{ATOMIC_VAR_INIT(0u), ATOMIC_VAR_INIT(0u)}},
-  .assume_simple_spmd_mode = 1
+  .assume_simple_spmd_mode = 1,
+  .spmd_num_threads = 0
 };
 
 kmp_program_data_t __omp_spirv_program_data = {
@@ -28,7 +29,9 @@ kmp_program_data_t __omp_spirv_program_data = {
   .num_devices = 0,
   .device_num = -1,
   .total_eus = 0,
-  .hw_threads_per_eu = 0
+  .hw_threads_per_eu = 0,
+  .dyna_mem_cur = 0,
+  .dyna_mem_ub = 0
 };
 
 kmp_local_state_t __omp_spirv_local_data[KMP_MAX_NUM_GROUPS];

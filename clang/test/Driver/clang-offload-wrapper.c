@@ -100,6 +100,7 @@
 // -------
 // Check bitcode produced by the wrapper tool.
 //
+// INTEL_CUSTOMIZATION
 // RUN: clang-offload-wrapper                                                         \
 // RUN:   -host=x86_64-pc-linux-gnu                                                   \
 // RUN:     -kind=openmp -target=tg2                -format=native %t3.tgt %t1_mf.txt \
@@ -107,9 +108,13 @@
 // RUN:                  -format spirv  %t1.tgt                                       \
 // RUN:                  -target=tg2 -compile-opts= -link-opts=                       \
 // RUN:                  -format native %t2.tgt                                       \
-// RUN:   -o %t.wrapper.bc
+// RUN:   -o %t.wrapper.bc 2>&1 | FileCheck %s --check-prefix ELF-WARNING
+// end INTEL_CUSTOMIZATION
 // RUN: llvm-dis %t.wrapper.bc -o - | FileCheck %s --check-prefix CHECK-IR
 
+// INTEL_CUSTOMIZATION
+// ELF-WARNING: is not an ELF image, so notes cannot be added to it.
+// end INTEL_CUSTOMIZATION
 // CHECK-IR: target triple = "x86_64-pc-linux-gnu"
 
 // --- OpenMP device binary image descriptor structure
@@ -209,3 +214,39 @@
 // RUN: %clang -target x86_64-pc-linux-gnu -c %t.wrapper.bc -o %t.wrapper.o
 // RUN: clang-offload-bundler --type=o --inputs=%t.wrapper.o --targets=sycl-spir64-unknown-linux-sycldevice --outputs=%t1.out --unbundle
 // RUN: diff %t1.out %t1.tgt
+// INTEL_CUSTOMIZATION
+// Check that clang-offload-wrapper adds LLVMOMPOFFLOAD notes
+// into the ELF offload images:
+// RUN: yaml2obj %S/Inputs/empty-elf-template.yaml -o %t.64le -DBITS=64 -DENCODING=LSB
+// RUN: clang-offload-wrapper -kind=openmp -target=x86_64-pc-linux-gnu -o %t.wrapper.elf64le.bc %t.64le
+// RUN: llvm-dis %t.wrapper.elf64le.bc -o - | FileCheck %s --check-prefix OMPNOTES
+// RUN: yaml2obj %S/Inputs/empty-elf-template.yaml -o %t.64be -DBITS=64 -DENCODING=MSB
+// RUN: clang-offload-wrapper -kind=openmp -target=x86_64-pc-linux-gnu -o %t.wrapper.elf64be.bc %t.64be
+// RUN: llvm-dis %t.wrapper.elf64be.bc -o - | FileCheck %s --check-prefix OMPNOTES
+// RUN: yaml2obj %S/Inputs/empty-elf-template.yaml -o %t.32le -DBITS=32 -DENCODING=LSB
+// RUN: clang-offload-wrapper -kind=openmp -target=x86_64-pc-linux-gnu -o %t.wrapper.elf32le.bc %t.32le
+// RUN: llvm-dis %t.wrapper.elf32le.bc -o - | FileCheck %s --check-prefix OMPNOTES
+// RUN: yaml2obj %S/Inputs/empty-elf-template.yaml -o %t.32be -DBITS=32 -DENCODING=MSB
+// RUN: clang-offload-wrapper -kind=openmp -target=x86_64-pc-linux-gnu -o %t.wrapper.elf32be.bc %t.32be
+// RUN: llvm-dis %t.wrapper.elf32be.bc -o - | FileCheck %s --check-prefix OMPNOTES
+
+// There is no clean way for extracting the offload image
+// from the object file currently, so try to find
+// the inserted ELF notes in the device image variable's
+// initializer:
+// OMPNOTES: @{{.+}} = internal unnamed_addr constant [{{[0-9]+}} x i8] c"{{.*}}LLVMOMPOFFLOAD{{.*}}LLVMOMPOFFLOAD{{.*}}LLVMOMPOFFLOAD{{.*}}"
+// end INTEL_CUSTOMIZATION
+// INTEL_CUSTOMIZATION
+// Check that SPIR-V image is automatically containerized, and the notes
+// can be added into the container ELF:
+
+// RUN: clang-offload-wrapper                                                  \
+// RUN:   -host=x86_64-pc-linux-gnu -containerize-openmp-images=true           \
+// RUN:     -kind=openmp -target=spir64             -format=native %t3.tgt     \
+// RUN:   -o %t2.wrapper.bc 2>&1 |                                             \
+// RUN: FileCheck %s --allow-empty --check-prefix ELF-CONTAINER-WARNING
+// RUN: llvm-dis %t2.wrapper.bc -o - | FileCheck %s --check-prefix ELF-CONTAINER
+
+// ELF-CONTAINER-WARNING-NOT: notes cannot be added
+// ELF-CONTAINER: @{{.+}} = internal unnamed_addr constant [{{[0-9]+}} x i8] c"{{.*}}INTELONEOMPOFFLOAD{{.*}}INTELONEOMPOFFLOAD{{.*}}INTELONEOMPOFFLOAD{{.*}}", section "__CLANG_OFFLOAD_BUNDLE__openmp-spirv"
+// end INTEL_CUSTOMIZATION

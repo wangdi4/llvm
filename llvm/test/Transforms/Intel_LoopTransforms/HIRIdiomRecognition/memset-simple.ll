@@ -6,24 +6,39 @@
 ; HIR:
 ;           BEGIN REGION { }
 ; <14>            + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-; <6>             |   (%p)[i1] = 0;
+; <6>             |   (%p)[i1 + 1] = null;
 ; <14>            + END LOOP
 ;           END REGION
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK: memset
+; CHECK:      if (%n >u 12)
+; CHECK:      {
+; CHECK:         @llvm.memset.p0i8.i32(&((i8*)(%p)[1]),  0,  8 * %n,  0);
+; CHECK:      }
+; CHECK:      else
+; CHECK:      {
+; CHECK:         + DO i1 = 0, %n + -1, 1   <DO_LOOP>
+; CHECK:         |   (%p)[i1 + 1] = null;
+; CHECK:         + END LOOP
+; CHECK:      }
+; CHECK: END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-idiom -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-idiom -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter -disable-output 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-idiom,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -intel-loop-optreport=low -disable-output 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ;
 ;OPTREPORT: Global loop optimization report for : foo
 ;
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT-NEXT:     Remark: The memset idiom has been recognized
+;OPTREPORT-NEXT: <Small trip count multiversioned v1>
+;OPTREPORT-NEXT:     remark: The memset idiom has been recognized
+;OPTREPORT-NEXT:     remark: The loop has been multiversioned for the small trip count
 ;OPTREPORT-NEXT: LOOP END
 ;
-; ModuleID = 'memset.ll'
-source_filename = "memset.c"
+;OPTREPORT: LOOP BEGIN
+;OPTREPORT-NEXT: <Small trip count multiversioned v2 (small)>
+;OPTREPORT-NEXT: LOOP END
+
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

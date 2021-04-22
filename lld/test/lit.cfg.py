@@ -28,6 +28,10 @@ config.suffixes = ['.ll', '.s', '.test', '.yaml', '.objtxt']
 # subdirectories contain auxiliary inputs for various tests in their parent
 # directories.
 config.excludes = ['Inputs']
+# INTEL_CUSTOMIZATION
+# Exclude tests for disabled functionality.
+config.excludes.extend(['darwin', 'mach-o', 'MachO', 'MinGW'])
+# end INTEL_CUSTOMIZATION
 
 # test_source_root: The root path where tests are located.
 config.test_source_root = os.path.dirname(__file__)
@@ -134,11 +138,13 @@ if config.sizeof_void_p == 8:
 
 tar_executable = lit.util.which('tar', config.environment['PATH'])
 if tar_executable:
+    env = os.environ
+    env['LANG'] = 'C'
     tar_version = subprocess.Popen(
         [tar_executable, '--version'],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        env={'LANG': 'C'})
+        env=env)
     sout, _ = tar_version.communicate()
     if 'GNU tar' in sout.decode():
         config.available_features.add('gnutar')

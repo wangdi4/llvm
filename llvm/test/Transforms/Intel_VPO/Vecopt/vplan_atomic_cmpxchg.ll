@@ -8,31 +8,32 @@ define void @test_cmpxchg(float* %counter_N0, i32* %op2) {
 ;
 ; CHECK:  define void @test_cmpxchg(float* [[COUNTER_N00:%.*]], i32* [[OP20:%.*]]) {
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP7:%.*]], [[VECTOR_BODY0:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP6:%.*]], %[[VPLANNEDBB90:.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], %[[VPLANNEDBB90]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = add <2 x i64> [[VEC_PHI0]], <i64 1, i64 1>
 ; CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr i32, <2 x i32*> [[BROADCAST_SPLAT0:%.*]], <2 x i64> [[VEC_PHI0]]
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_1_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP0]], i32 1
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP0]], i32 0
-; CHECK-NEXT:    [[MM_VECTORGEP20:%.*]] = getelementptr i32, <2 x i32*> [[BROADCAST_SPLAT0]], <2 x i64> [[TMP0]]
-; CHECK-NEXT:    [[MM_VECTORGEP2_EXTRACT_1_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP20]], i32 1
-; CHECK-NEXT:    [[MM_VECTORGEP2_EXTRACT_0_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP20]], i32 0
+; CHECK-NEXT:    [[MM_VECTORGEP40:%.*]] = getelementptr i32, <2 x i32*> [[BROADCAST_SPLAT0]], <2 x i64> [[TMP0]]
+; CHECK-NEXT:    [[MM_VECTORGEP4_EXTRACT_1_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP40]], i32 1
+; CHECK-NEXT:    [[MM_VECTORGEP4_EXTRACT_0_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP40]], i32 0
 ; CHECK-NEXT:    [[TMP1:%.*]] = load atomic i32, i32* [[MM_VECTORGEP_EXTRACT_0_0]] monotonic, align 4
 ; CHECK-NEXT:    [[TMP2:%.*]] = load atomic i32, i32* [[MM_VECTORGEP_EXTRACT_1_0]] monotonic, align 4
-; CHECK-NEXT:    [[TMP3:%.*]] = load atomic i32, i32* [[MM_VECTORGEP2_EXTRACT_0_0]] monotonic, align 4
-; CHECK-NEXT:    [[TMP4:%.*]] = load atomic i32, i32* [[MM_VECTORGEP2_EXTRACT_1_0]] monotonic, align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = load atomic i32, i32* [[MM_VECTORGEP4_EXTRACT_0_0]] monotonic, align 4
+; CHECK-NEXT:    [[TMP4:%.*]] = load atomic i32, i32* [[MM_VECTORGEP4_EXTRACT_1_0]] monotonic, align 4
 ; CHECK-NEXT:    [[SERIAL_CMPXCHG0:%.*]] = cmpxchg i32* [[BC10:%.*]], i32 [[TMP1]], i32 [[TMP3]] monotonic monotonic
-; CHECK-NEXT:    [[SERIAL_CMPXCHG30:%.*]] = cmpxchg i32* [[BC10]], i32 [[TMP2]], i32 [[TMP4]] monotonic monotonic
+; CHECK-NEXT:    [[SERIAL_CMPXCHG50:%.*]] = cmpxchg i32* [[BC10]], i32 [[TMP2]], i32 [[TMP4]] monotonic monotonic
 ; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE0:%.*]] = extractvalue { i32, i1 } [[SERIAL_CMPXCHG0]], 0
-; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE40:%.*]] = extractvalue { i32, i1 } [[SERIAL_CMPXCHG30]], 0
-; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE50:%.*]] = extractvalue { i32, i1 } [[SERIAL_CMPXCHG0]], 1
-; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE60:%.*]] = extractvalue { i32, i1 } [[SERIAL_CMPXCHG30]], 1
+; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE60:%.*]] = extractvalue { i32, i1 } [[SERIAL_CMPXCHG50]], 0
+; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE70:%.*]] = extractvalue { i32, i1 } [[SERIAL_CMPXCHG0]], 1
+; CHECK-NEXT:    [[SERIAL_EXTRACTVALUE80:%.*]] = extractvalue { i32, i1 } [[SERIAL_CMPXCHG50]], 1
+; CHECK-NEXT:    br label %[[VPLANNEDBB90]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  [[VPLANNEDBB90]]:
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI10]], 2
-; CHECK-NEXT:    [[TMP7]] = add i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp ult i64 [[TMP7]], 1024
-; CHECK-NEXT:    br i1 [[TMP8]], label [[VECTOR_BODY0]], label [[VPLANNEDBB0:%.*]], !llvm.loop !0
+; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI30]], 2
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i64 [[TMP6]], 1024
+; CHECK-NEXT:    br i1 [[TMP7]], label [[VECTOR_BODY0:%.*]], label [[VPLANNEDBB100:%.*]]
 ;
 entry:
   %bc1 = bitcast float* %counter_N0 to i32*

@@ -361,16 +361,16 @@ void IntrinsicLowering::LowerIntrinsicCall(CallInst *CI) {
     LowerIntelHonorFCmp(Builder, cast<IntelHonorFCmpIntrinsic>(CI));
     break;
 
+  case Intrinsic::intel_subscript_nonexact:
   case Intrinsic::intel_subscript: {
     // Do not unlink intrinsic
-    Value * Offset[] = {EmitSubsOffset(&Builder, DL, CI)};
-    CI->replaceAllUsesWith(Builder.CreateInBoundsGEP(
-        cast<SubscriptInst>(CI)->getPointerOperand(), Offset));
+    CI->replaceAllUsesWith(EmitSubsValue(&Builder, DL, CI));
     break;
   }
 #endif // INTEL_CUSTOMIZATION
 
   case Intrinsic::assume:
+  case Intrinsic::experimental_noalias_scope_decl:
   case Intrinsic::var_annotation:
     break;   // Strip out these intrinsics
 

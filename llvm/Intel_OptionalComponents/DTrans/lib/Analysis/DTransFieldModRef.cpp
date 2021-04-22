@@ -1,6 +1,6 @@
 //===-------DTransFieldModRef.cpp - DTrans Field ModRef Analysis-----------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -22,6 +22,7 @@
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
@@ -129,6 +130,11 @@ bool FieldModRefResult::isCandidate(llvm::StructType *Ty, size_t FieldNum) {
   return Candidates.count(std::make_pair(Ty, FieldNum));
 }
 
+void FieldModRefResult::addFunctionParamBasedCallee(Function *F,
+                                                    Function *Callee) {
+  FunctionToCalleeSet[F].insert(Callee);
+}
+
 void FieldModRefResult::reset() { Candidates.clear(); }
 
 ModRefInfo FieldModRefResult::getModRefInfo(const CallBase *Call,
@@ -229,12 +235,53 @@ ModRefInfo FieldModRefResult::getModRefInfo(const CallBase *Call,
   // modified or referenced by the call.
   ModRefInfo MRI = ModRefInfo::NoModRef;
   SmallPtrSet<Function *, 16> Visited;
-  unionModRefInfo(MRI, Call->getCalledFunction(), StTy, FieldNum,
-                  /*Indirect=*/true, Visited);
+  unionModRefInfo(MRI, Call, StTy, FieldNum, /*Indirect=*/true, Visited);
   DEBUG_WITH_TYPE(DTRANS_FMR_QUERIES,
-                  dbgs() << "Result: " << ModRefInfoToString(MRI) << "\n");
+                  dbgs() << "Result: " << ModRefInfoToString(MRI) << " ["
+                         << *StTy << "@" << FieldNum << "]\n");
 
   return MRI;
+}
+
+// Update the \p Status value to add Mod or Ref (or both) based on the
+// behavior that \p Call may have on field number \p FieldNum of StructureType
+// \p StTy.
+//
+// When \p Indirect is set, also include the functions that read or write values
+// within the indirect array pointed to by a pointer field.
+// \p Visited is used to store the functions that have been already by visited
+// during the current query.
+// \p Indent is used for the debug traces.
+void FieldModRefResult::unionModRefInfo(ModRefInfo &Status,
+                                        const CallBase *Call,
+                                        llvm::StructType *StTy,
+                                        unsigned FieldNum, bool Indirect,
+                                        SmallPtrSetImpl<Function *> &Visited,
+                                        unsigned Indent) {
+
+  if (Call->isIndirectCall())
+    return;
+
+  Function *Callee = Call->getCalledFunction();
+  assert(Callee && "unexpected indirect call");
+
+  // A call to a broker function needs to merge in the behavior of the functions
+  // that will be called as callbacks.
+  if (Callee->hasMetadata(LLVMContext::MD_callback)) {
+    SmallVector<const Use *, 4> CallbackUses;
+    AbstractCallSite::getCallbackUses(*Call, CallbackUses);
+    for (const Use *U : CallbackUses) {
+      AbstractCallSite ACS(U);
+      Function *TargetFunc = ACS.getCalledFunction();
+      unionModRefInfo(Status, TargetFunc, StTy, FieldNum, Indirect, Visited,
+                      FieldNum);
+      // No need to continue, once the worst case is encountered.
+      if (isModAndRefSet(Status))
+        return;
+    }
+  }
+
+  unionModRefInfo(Status, Callee, StTy, FieldNum, Indirect, Visited, Indent);
 }
 
 // Update the \p Status value to add Mod or Ref (or both) based on the
@@ -281,21 +328,22 @@ void FieldModRefResult::unionModRefInfo(ModRefInfo &Status, Function *F,
   // without caching results because we don't expect many queries to be made
   // from LoopOpt. If this changes to be an AliasAnalysis result, this may need
   // to be changed.
-  SmallPtrSet<Function *, 16> ToCheck;
-  for (auto &I : instructions(F)) {
+  for (auto &I : instructions(F))
     if (auto *Call = dyn_cast<CallBase>(&I)) {
-      // We only need to check direct calls here, because any field accessible
-      // by an indirect function call has been disqualified as a candidate.
-      if (Function *Callee = Call->getCalledFunction())
-        ToCheck.insert(Callee);
+      unionModRefInfo(Status, Call, StTy, FNum, Indirect, Visited, Indent + 2);
+      // No need to continue, once the worst case is encountered.
+      if (isModAndRefSet(Status))
+        return;
     }
-  }
 
-  for (auto *Callee : ToCheck) {
-    unionModRefInfo(Status, Callee, StTy, FNum, Indirect, Visited, Indent + 2);
-    if (isModAndRefSet(Status))
-      return;
-  }
+  // Check for indirect calls made to functions that are passed in as arguments.
+  auto It = FunctionToCalleeSet.find(F);
+  if (It != FunctionToCalleeSet.end())
+    for (auto *F : It->second) {
+      unionModRefInfo(Status, F, StTy, FNum, Indirect, Visited, Indent + 2);
+      if (isModAndRefSet(Status))
+        return;
+    }
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -337,6 +385,11 @@ void FieldModRefResult::print(raw_ostream &OS) const {
   dtrans::printCollectionSorted(OS, Candidates.begin(), Candidates.end(), "",
                                 PrintCandidate);
   OS << "\n";
+
+  OS << "Pass-through function map:\n";
+  for (auto &KV : FunctionToCalleeSet)
+    for (auto *F : KV.second)
+      dbgs() << KV.first->getName() << " -> " << F->getName() << "\n";
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -353,7 +406,7 @@ bool DTransModRefAnalyzer::runAnalysis(Module &M,
   if (!DTInfo->useDTransAnalysis())
     return false;
 
-  initialize(M);
+  initialize(M, FMRResult);
   DEBUG_WITH_TYPE(DTRANS_FMR_CANDIDATES_PRE, {
     printCandidateInfo("ModRef candidate structures before analysis:");
   });
@@ -384,7 +437,7 @@ bool DTransModRefAnalyzer::runAnalysis(Module &M,
 // Do an initial pruning of fields that may not be able to be analyzed for the
 // sets of functions that modify or reference the fields based on the DTrans
 // safety data of their container structures.
-void DTransModRefAnalyzer::initialize(Module &M) {
+void DTransModRefAnalyzer::initialize(Module &M, FieldModRefResult &FMRResult) {
   // Helper to collect all the functions that may be called from Function \p
   // F. Also, include all the functions those calls make.
   std::function<void(Function *, SmallPtrSetImpl<Function *> &)>
@@ -429,20 +482,288 @@ void DTransModRefAnalyzer::initialize(Module &M) {
   // When DTransOutOfBoundsOK is set, the address of any field is assumed to
   // be able to be used to access any other field.
   if (DTInfo->getDTransOutOfBoundsOK())
-    ModRefSafetyMask |= dtrans::FieldAddressTaken;
+    ModRefSafetyMask |= dtrans::AnyFieldAddressTaken;
 
-  // Find all the address taken functions. Any field that is read/written by
-  // an address taken function (or is reachable from an address taken
-  // function) will be disqualified from the analysis.
+  auto IsDirectCall = [](const Use *U) -> bool {
+    if (auto *Call = dyn_cast<CallBase>(U->getUser()))
+      return Call->isCallee(U);
+    return false;
+  };
+
+  auto GetCallSiteAndArgNum =
+      [](const Use *U) -> Optional<std::pair<CallBase *, unsigned>> {
+    if (auto *Call = dyn_cast<CallBase>(U->getUser())) {
+      if (Call->isArgOperand(U))
+        return std::make_pair(Call, Call->getDataOperandNo(U));
+      else
+        return None;
+    }
+    // If the use is a constant cast expression which itself has only one use,
+    // we look through the constant cast expression to identify the Call.
+    if (auto *CE = dyn_cast<ConstantExpr>(U->getUser()))
+      if (CE->hasOneUse() && CE->isCast()) {
+        Use *CastU = &*CE->use_begin();
+        if (auto *Call = dyn_cast<CallBase>(CastU->getUser()))
+          if (Call->isArgOperand(CastU))
+            return std::make_pair(Call, Call->getDataOperandNo(CastU));
+      }
+
+    return None;
+  };
+
+  // Check whether the argument at index \p ArgNum of Function \p F is a safe
+  // use for passing a pointer to a function. A safe use should only require
+  // that the parameter is nocapture, but we will further restrict it to only
+  // being used to make a function call, and not allow the argument to be passed
+  // to another function.
+  auto IsSafeATUse = [](const Function *F, unsigned ArgNum) {
+    if (!F->hasParamAttribute(ArgNum, Attribute::NoCapture))
+      return false;
+
+    Argument *A = F->getArg(ArgNum);
+    for (auto U : A->users()) {
+      auto *Call = dyn_cast<CallBase>(U);
+      if (!Call)
+        return false;
+      if (Call->getCalledOperand() != F->getArg(ArgNum))
+        return false;
+    }
+
+    return true;
+  };
+
+  // Find all the address taken functions that could prevent the computation of
+  // the mod/ref results. Any field that is read/written by a function within
+  // this set (or is reachable from an address taken function) will be
+  // disqualified from the analysis. This is done so that if a mod/ref query of
+  // a function using the getModRefInfo() function reaches a function that makes
+  // an indirect function call, it can be known that the indirect function call
+  // is not one that affects the structure field.
+  //
+  // Functions that are address taken to pass the address of one function to
+  // another can be permitted in some cases. For example:
+  //     call void @nonbroker(i64 0, %struct.test01* %in, i32
+  //                          (%struct.test01*)* @test01filter)
+  //
+  // @test01filter is address taken, but if the use within @nonbroker is simply
+  // to call the @test01filter, then the analysis can still be performed to
+  // identify what fields can be read/written by a call to @nonbroker, and
+  // fields accessed by @test01filter will not need to be disqualified.
   SmallPtrSet<Function *, 8> AddrTakenFuncs;
-  for (auto &F : M)
-    if (F.hasAddressTaken())
-      AddrTakenFuncs.insert(&F);
+  SmallPtrSet<CallBase *, 8> BrokerCallsToCheck;
+  for (auto &F : M) {
+    if (F.hasAddressTaken()) {
+      DEBUG_WITH_TYPE(
+          DTRANS_FMR_VERBOSE,
+          dbgs() << "Checking AddressTaken Function: " << F.getName() << "\n");
+
+      for (auto &U : F.uses()) {
+        if (IsDirectCall(&U))
+          continue;
+
+        // Check if the use is a parameter to a function call. If not, treat
+        // it as address taken. This could be relaxed for some uses, such as
+        // pointer comparison, in the future, if needed.
+        auto CallArg = GetCallSiteAndArgNum(&U);
+        if (!CallArg) {
+          AddrTakenFuncs.insert(&F);
+          DEBUG_WITH_TYPE(
+              DTRANS_FMR_VERBOSE,
+              dbgs() << "    Not a call parameter: Marked as address-taken: "
+                     << F.getName() << "\n");
+          break;
+        }
+
+        CallBase *Call = CallArg->first;
+        Function *Callee = Call->getCalledFunction();
+        unsigned ArgNum = CallArg->second;
+        if (!Callee) {
+          AddrTakenFuncs.insert(&F);
+          DEBUG_WITH_TYPE(
+              DTRANS_FMR_VERBOSE,
+              dbgs() << "    Unknown call target: Marked as address-taken: "
+                     << F.getName() << "\n");
+          break;
+        }
+
+        // The "Address Taken" function is being used as a parameter to a
+        // function call. There are three possibilities in this case.
+        //   1) The Callee is a non-broker function.
+        //   2) The Callee is a broker function (i.e. function is marked as a
+        //      callback function) and the "Address Taken" function is a
+        //      function that may be called by the broker function.
+        //   3) The Callee is a broker function, and the "Address Taken"
+        //      function will be forwarded as a parameter to a function called
+        //      by the broker function.
+        //
+        // For example:
+        //     call void @nonbroker(i64 0, %struct.test01* %in, i32
+        //                          (%struct.test01*)* @worker)
+        //
+        //     tail call void (%struct.ident_t*, i32, void (...)*, ...) @broker(
+        //       void(...)* bitcast
+        //         (void(i64, %struct.test01*, i32(%struct.test01*)*)*
+        //         @test01callee to void(...)*),
+        //       i32 (%struct.test01*)* @test01filter
+        //     )
+        //
+        //   Where the callback descriptor of 'broker' is:
+        //      !1 = !{i64 2, i1 true}
+        //
+        // Case 1: The address of @worker is being passed to a non-broker
+        // function.
+        //
+        // Case 2: The address of @test01callee is being passed to a broker
+        // function to be called as a callback.
+        //
+        // Case 3: The address of @test01filter is being passed to a broker
+        // function as a parameter to be forwarded to the target function.
+        //
+        // When the address is passed to a function, it may be used to save the
+        // location into memory, which will be unsafe for the modref
+        // information. However, the address taken function may just be used to
+        // invoke the function, making it reachable from the called function,
+        // and this analysis can treat it as safe.
+        //
+        // For case 1, check whether the parameter is safe.
+        // For case 2, save the call to be checked later. There may be multiple
+        // function addresses passed to the broker function, and we need to
+        // analyze them all at once using the AbstractCallSite interface.
+        //
+        if (Callee->hasMetadata(LLVMContext::MD_callback)) {
+          BrokerCallsToCheck.insert(CallArg->first);
+          continue;
+        }
+
+        if (!IsSafeATUse(Callee, ArgNum)) {
+          DEBUG_WITH_TYPE(
+              DTRANS_FMR_VERBOSE,
+              dbgs() << "    Argument is not a safe address-taken parameter: "
+                     << Callee->getName() << "@" << ArgNum << "\n");
+          AddrTakenFuncs.insert(&F);
+          break;
+        }
+
+        DEBUG_WITH_TYPE(
+            DTRANS_FMR_VERBOSE,
+            dbgs() << "    Argument is a safe address-taken parameter: "
+                   << Callee->getName() << "@" << ArgNum << "\n");
+        FMRResult.addFunctionParamBasedCallee(Callee, &F);
+      }
+    }
+
+    // Analyze the cases of function addresses passed to broker functions.
+    for (auto *Call : BrokerCallsToCheck) {
+      DEBUG_WITH_TYPE(DTRANS_FMR_VERBOSE,
+                      dbgs() << "Checking Broker function call: " << *Call
+                             << "\n");
+
+      SmallVector<const Use *, 4> CallbackUses;
+      AbstractCallSite::getCallbackUses(*Call, CallbackUses);
+
+      // For the broker function, map the arguments of the call to the
+      // broker function to how the argument is used. This is to identify any
+      // parameters that do not get used as the callback callee or passed
+      // through to one of the callees.
+      enum ArgUse { ArgUnknown, ArgCallee, ArgPassThrough };
+      unsigned NumArgs = Call->arg_size();
+      std::vector<ArgUse> ArgumentUse(NumArgs);
+      bool AllTargetsKnown = true;
+
+      for (const Use *U : CallbackUses) {
+        AbstractCallSite ACS(U);
+        Function *TargetFunc = ACS.getCalledFunction();
+        if (!TargetFunc) {
+          AllTargetsKnown = false;
+          break;
+        }
+
+        ArgumentUse[ACS.getCallArgOperandNoForCallee()] = ArgCallee;
+        DEBUG_WITH_TYPE(DTRANS_FMR_VERBOSE, dbgs() << "    Callback Target: "
+                                                   << TargetFunc->getName()
+                                                   << "\n");
+
+        // Look for function addresses that are passed to the broker for use by
+        // the callback target.
+        unsigned NumCalleeArgs = ACS.getNumArgOperands();
+        for (unsigned TargetArgNum = 0; TargetArgNum < NumCalleeArgs;
+             ++TargetArgNum) {
+          Value *Param = ACS.getCallArgOperand(TargetArgNum);
+          if (Param) {
+            int BrokerArgNum = ACS.getCallArgOperandNo(TargetArgNum);
+            ArgumentUse[BrokerArgNum] = ArgPassThrough;
+
+            if (auto *CE = dyn_cast<ConstantExpr>(Param)) {
+              // Because a constant cast expression was allowed for passing a
+              // use to a call, we need to check for the possibility of a cast
+              // here.
+              if (CE->isCast()) {
+                Param = CE->getOperand(0);
+              }
+            }
+
+            if (auto ParamFunc = dyn_cast<Function>(Param)) {
+              if (!IsSafeATUse(TargetFunc, TargetArgNum)) {
+                DEBUG_WITH_TYPE(
+                    DTRANS_FMR_VERBOSE,
+                    dbgs() << "    Argument is a safe address-taken parameter: "
+                           << ParamFunc->getName() << "@" << TargetArgNum
+                           << "\n");
+                AddrTakenFuncs.insert(ParamFunc);
+              } else {
+                DEBUG_WITH_TYPE(
+                    DTRANS_FMR_VERBOSE,
+                    dbgs() << "    Argument is a safe address-taken parameter: "
+                           << ParamFunc->getName() << "@" << TargetArgNum
+                           << "\n");
+
+                FMRResult.addFunctionParamBasedCallee(TargetFunc, ParamFunc);
+              }
+            }
+          }
+        }
+      }
+
+      // Check for any unprocessed parameters to the broker function.
+      for (unsigned ArgNum = 0; ArgNum < NumArgs; ++ArgNum) {
+        if (!AllTargetsKnown || ArgumentUse[ArgNum] == ArgUnknown) {
+          Value *Arg = Call->getArgOperand(ArgNum);
+
+          if (auto *CE = dyn_cast<ConstantExpr>(Arg)) {
+            // Because a constant cast expression was allowed for passing a use
+            // to a call, we need to check for the possibility of a cast here.
+            if (CE->isCast()) {
+              Arg = CE->getOperand(0);
+            }
+          }
+          if (auto *Func = dyn_cast<Function>(Arg)) {
+            dbgs() << "    ArgUnknown: Marked as address-taken: "
+                   << Func->getName() << "\n";
+            AddrTakenFuncs.insert(Func);
+          }
+        }
+      }
+    }
+  }
+
+  DEBUG_WITH_TYPE(DTRANS_FMR_VERBOSE, {
+    dbgs() << "---------------------------------------\n";
+    dbgs() << "Address taken functions BEFORE closure:\n";
+    for (auto *F : AddrTakenFuncs)
+      dbgs() << "  " << F->getName() << "\n";
+  });
 
   // Add all the functions that are reachable from the address taken calls
   SmallPtrSet<Function *, 16> AddrTakenClosure;
   for (auto *F : AddrTakenFuncs)
     CollectReachable(F, AddrTakenClosure);
+
+  DEBUG_WITH_TYPE(DTRANS_FMR_VERBOSE, {
+    dbgs() << "--------------------------------------\n";
+    dbgs() << "Address taken functions AFTER closure:\n";
+    for (auto *F : AddrTakenFuncs)
+      dbgs() << "  " << F->getName() << "\n";
+  });
 
   for (dtrans::TypeInfo *TI : DTInfo->type_info_entries()) {
     auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
@@ -483,17 +804,16 @@ void DTransModRefAnalyzer::initialize(Module &M) {
                                            << " of " << *StInfo->getLLVMType()
                                            << ": Address taken field\n");
         FI.setRWBottom();
-      }
-      else if (FI.isMismatchedElementAccess()) {
-        DEBUG_WITH_TYPE(DTRANS_FMR, dbgs() << "Disqualifying field #" << FNum
-          << " of " << *StInfo->getLLVMType()
-          << ": Mismatched element access on field\n");
+      } else if (FI.isMismatchedElementAccess()) {
+        DEBUG_WITH_TYPE(DTRANS_FMR,
+                        dbgs() << "Disqualifying field #" << FNum << " of "
+                               << *StInfo->getLLVMType()
+                               << ": Mismatched element access on field\n");
         FI.setRWBottom();
-      }
-      else if (std::any_of(FI.writers().begin(), FI.writers().end(),
-                           [&AddrTakenClosure](Function *F) {
-                             return AddrTakenClosure.count(F) == true;
-                           })) {
+      } else if (std::any_of(FI.writers().begin(), FI.writers().end(),
+                             [&AddrTakenClosure](Function *F) {
+                               return AddrTakenClosure.count(F) == true;
+                             })) {
         // Disqualify the field if a function that writes it is address taken,
         // or may be called from a function that is address taken.
         DEBUG_WITH_TYPE(DTRANS_FMR, dbgs()
@@ -1107,17 +1427,18 @@ void DTransModRefAnalyzer::printQueryResults(Module &M,
         Calls.push_back(Call);
     }
 
+    const int MaxResultLen = 10;
     for (auto *Call : Calls)
       for (auto *I : MemInst) {
-        dbgs() << "FieldModRefQuery Begin:\n  Function: " << F.getName()
-               << "\n";
-        dbgs() << "  Instruction: " << *I << "\n";
-        dbgs() << "  Call       : " << *Call << "\n";
         MemoryLocation Loc = MemoryLocation::get(I);
         ModRefInfo LocResult = Result.getModRefInfo(Call, Loc);
+        StringRef Result = ModRefInfoToString(LocResult);
 
-        dbgs() << "  Result     : " << ModRefInfoToString(LocResult) << "\n";
-        dbgs() << "FieldModRefQuery End\n\n";
+        // Print test inputs and results on one line to allow LIT tests to match
+        // specific queries.
+        dbgs() << "FieldModRefQuery: - " << Result;
+        dbgs().indent(MaxResultLen - Result.size() > 0 ? MaxResultLen - Result.size() : 0);
+        dbgs()  << " : [" << F.getName() << "] " << *I << " -- " << *Call << "\n";
       }
   }
 }
@@ -1206,7 +1527,3 @@ FieldModRefResult DTransFieldModRefResult::run(Module &M,
   return FieldModRefResult();
 }
 
-FieldModRefResult DTransFieldModRefResult::run(Function &F,
-                                               FunctionAnalysisManager &AM) {
-  return FieldModRefResult();
-}

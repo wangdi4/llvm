@@ -13,11 +13,11 @@
 ; RUN: opt -hir-loop-interchange -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:     Remark: Loopnest Interchanged: ( 1 2 ) --> ( 2 1 ){{[[:space:]]}}
+; OPTREPORT-NEXT:     remark: Loopnest Interchanged: ( 1 2 ) --> ( 2 1 ){{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         Remark: Loop completely unrolled
+; OPTREPORT-NEXT:         remark: Loop completely unrolled
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
@@ -30,12 +30,12 @@
 ; CHECK: [[M5]] = distinct !{!"llvm.loop.optreport", [[M6:!.*]]}
 ; CHECK: [[M6]] = distinct !{!"intel.loop.optreport", [[M7:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
-; CHECK: [[M8]] = !{!"intel.optreport.remark", !"Loop completely unrolled"}
+; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 0, !"Loop completely unrolled"}
 ; CHECK: [[M9:!.*]] = distinct !{[[M9]], [[M10:!.*]]}
 ; CHECK: [[M10]] = distinct !{!"llvm.loop.optreport", [[M11:!.*]]}
 ; CHECK: [[M11]] = distinct !{!"intel.loop.optreport", [[M12:!.*]]}
 ; CHECK: [[M12]] = !{!"intel.optreport.remarks", [[M13:!.*]]}
-; CHECK: [[M13]] = !{!"intel.optreport.remark", !"Loopnest Interchanged: ( 1 2 ) --> ( 2 1 )"}
+; CHECK: [[M13]] = !{!"intel.optreport.remark", i32 0, !"Loopnest Interchanged: ( 1 2 ) --> ( 2 1 )"}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -93,4 +93,4 @@ define void @foo(i32** noalias nocapture readonly %A, i32 %N) local_unnamed_addr
 !12 = distinct !{!"llvm.loop.optreport", !13}
 !13 = distinct !{!"intel.loop.optreport", !14}
 !14 = !{!"intel.optreport.remarks", !15}
-!15 = !{!"intel.optreport.remark", !"Loop completely unrolled"}
+!15 = !{!"intel.optreport.remark", i32 0, !"Loop completely unrolled"}

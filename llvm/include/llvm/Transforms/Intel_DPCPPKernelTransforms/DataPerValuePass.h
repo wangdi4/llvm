@@ -17,7 +17,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DataPerBarrierPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/WIRelatedValuePass.h"
 
@@ -25,38 +25,20 @@
 
 namespace llvm {
 
-/// DataPerValue pass is a analysis module pass used to collect
-/// data on Values (instructions) that needs special handling.
-class DataPerValue : public ModulePass {
+/// Collect data on Values (instructions) that needs special handling.
+class DataPerValue {
 public:
   typedef MapVector<Function *, ValueVector> ValuesPerFunctionMap;
   typedef DenseMap<Value *, unsigned int> ValueToOffsetMap;
   typedef SetVector<Value *> ValueSet;
 
 public:
-  static char ID;
-
-  DataPerValue();
-
-  ~DataPerValue() {}
-
-  llvm::StringRef getPassName() const override {
-    return "Intel Kernel DataPerValue";
-  }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DataPerBarrier>();
-    AU.addRequired<WIRelatedValue>();
-    // Analysis pass preserve all.
-    AU.setPreservesAll();
-  }
+  DataPerValue(Module &M, DataPerBarrier *DPB, WIRelatedValue *WRV);
 
   /// Print data collected by the pass on the given module.
   /// OS stream to print the info regarding the module into,
   /// M pointer to the Module.
-  void print(raw_ostream &OS, const Module *M = 0) const override;
+  void print(raw_ostream &OS, const Module *M) const;
 
   /// Return all values to handle in given function.
   /// F pointer to Function,
@@ -127,7 +109,7 @@ private:
   /// Execute pass on given function.
   /// F function to analyze,
   /// Return true if function was modified.
-  virtual bool runOnFunction(Function &F);
+  bool runOnFunction(Function &F);
 
   typedef enum {
     SpecialValueTypeNone,
@@ -171,20 +153,26 @@ private:
   /// F function to process its arguments.
   void markSpecialArguments(Function &F);
 
+  /// Entry point of the main logic.
+  void analyze(Module &M);
+
 private:
   /// This is barrier utility class.
   DPCPPKernelBarrierUtils BarrierUtils;
 
   /// Internal Data used to calculate user Analysis Data.
 
-  /// This holds DataPerBarrier analysis pass.
-  DataPerBarrier *DataPerBarrierAnalysis;
   /// This holds container of synchronize instructions in processed module.
   InstSet *SyncInstructions;
-  /// This holds WIRelatedValue analysis pass.
-  WIRelatedValue *WIRelatedValueAnalysis;
+
   /// This holds DataLayout of processed module.
   const DataLayout *DL;
+
+  /// This holds DataPerBarrier analysis pass.
+  DataPerBarrier *DataPerBarrierAnalysis;
+
+  /// This holds WIRelatedValue analysis pass.
+  WIRelatedValue *WIRelatedValueAnalysis;
 
   /// Analysis Data for pass user.
 
@@ -204,6 +192,58 @@ private:
   FunctionToEntryMap FunctionEntryMap;
   /// This holds a map between unique entry and buffer data.
   EntryToBufferDataMap EntryBufferDataMap;
+};
+
+/// DataPerValueWrapper pass for legacy pass manager.
+class DataPerValueWrapper : public ModulePass {
+  std::unique_ptr<DataPerValue> DPV;
+
+public:
+  static char ID;
+
+  DataPerValueWrapper();
+
+  StringRef getPassName() const override {
+    return "Intel Kernel DataPerValue Analysis";
+  }
+
+  bool runOnModule(Module &M) override;
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<DataPerBarrierWrapper>();
+    AU.addRequired<WIRelatedValueWrapper>();
+    // Analysis pass preserve all.
+    AU.setPreservesAll();
+  }
+
+  void print(raw_ostream &OS, const Module *M) const override {
+    DPV->print(OS, M);
+  };
+
+  void releaseMemory() override { DPV.reset(); };
+
+  DataPerValue &getDPV() { return *DPV; };
+  const DataPerValue &getDPV() const { return *DPV; }
+};
+
+/// DataPerValueAnalysis pass for new pass manager.
+class DataPerValueAnalysis : public AnalysisInfoMixin<DataPerValueAnalysis> {
+  friend AnalysisInfoMixin<DataPerValueAnalysis>;
+  static AnalysisKey Key;
+
+public:
+  using Result = DataPerValue;
+  Result run(Module &M, ModuleAnalysisManager &);
+  static StringRef name() { return "Intel Kernel DataPerValue Analysis"; }
+};
+
+/// Printer pass for DataPerValue.
+class DataPerValuePrinter : public PassInfoMixin<DataPerValuePrinter> {
+  raw_ostream &OS;
+
+public:
+  explicit DataPerValuePrinter(raw_ostream &OS) : OS(OS) {}
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 };
 
 } // namespace llvm

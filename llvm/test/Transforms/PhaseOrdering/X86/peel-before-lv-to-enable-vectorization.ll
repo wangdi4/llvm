@@ -1,6 +1,12 @@
 ; RUN: opt -O2 -S %s | FileCheck %s
 ; RUN: opt -passes='default<O2>' -S %s | FileCheck %s
 
+; INTEL: Vplan doesn't vectorize this loop as it is not applying the trick
+; that is described below.
+; https://reviews.llvm.org/D88471 has minor SPEC degradation, this needs
+; more investigation before implementing.
+; XFAIL: *
+
 target datalayout = "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx"
 
@@ -11,7 +17,9 @@ target triple = "x86_64-apple-macosx"
 
 define i32 @test(i32* readonly %p, i32* readnone %q) {
 ; CHECK-LABEL: define i32 @test(
-; CHECK-NOT: vector.body
+; CHECK: vector.body:
+; CHECK:   %index.next = add i64 %index, 8
+; CHECK: middle.block:
 ;
 entry:
   %cmp.not7 = icmp eq i32* %p, %q

@@ -1,4 +1,5 @@
 ; RUN: opt --mcpu=skylake-avx512 -S --x86-split-vector-value-type --verify < %s | FileCheck %s
+; RUN: opt -o - %s --mcpu=skylake-avx512 -S -debugify --x86-split-vector-value-type -check-debugify 2>&1 | FileCheck %s --check-prefixes=DBG
 
 ; Tests for x86-split-vector-value-type pass.
 ; If an instruction has name, the split instructions will be name as [original inst name].(l|h)
@@ -6,6 +7,40 @@
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
+
+; DBG:      WARNING: Missing line 31
+; DBG-NEXT: WARNING: Missing line 79
+; DBG-NEXT: WARNING: Missing line 81
+; DBG-NEXT: WARNING: Missing line 83
+; DBG-NEXT: WARNING: Missing line 104
+; DBG-NEXT: WARNING: Missing line 109
+; DBG-NEXT: WARNING: Missing line 110
+; DBG-NEXT: WARNING: Missing line 111
+; DBG-NEXT: WARNING: Missing line 112
+; DBG-NEXT: WARNING: Missing line 132
+; DBG-NEXT: WARNING: Missing line 159
+; DBG-NEXT: WARNING: Missing line 160
+; DBG-NEXT: WARNING: Missing line 161
+; DBG-NEXT: WARNING: Missing line 162
+; DBG-NEXT: WARNING: Missing line 163
+; DBG-NEXT: WARNING: Missing line 182
+; DBG-NEXT: WARNING: Missing line 212
+; DBG-NEXT: WARNING: Missing line 213
+; DBG-NEXT: WARNING: Missing line 214
+; DBG-NEXT: WARNING: Missing line 215
+; DBG-NEXT: WARNING: Missing line 216
+; DBG-NEXT: WARNING: Missing line 217
+; DBG-NEXT: WARNING: Missing line 218
+; DBG-NEXT: WARNING: Missing line 230
+; DBG-NEXT: WARNING: Missing line 245
+; DBG-NEXT: WARNING: Missing line 246
+; DBG-NEXT: WARNING: Missing line 247
+; DBG-NEXT: WARNING: Missing line 248
+; DBG-NEXT: WARNING: Missing line 249
+; DBG-NEXT: WARNING: Missing line 250
+; DBG-NEXT: WARNING: Missing line 251
+; DBG-NEXT: WARNING: Missing line 263
+; DBG-NEXT: CheckModuleDebugify: PASS
 
 ; CMPLRLLVM-19311: Avoid to split instructions chain if it contains supported vector value.
 define <16 x i1> @overSplitTest(<16 x i32>* %x0_ptr, <16 x i32>* %y0_ptr, <16 x i64>* %x1_ptr, <16 x i64>* %y1_ptr) {

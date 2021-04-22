@@ -1907,7 +1907,8 @@ bool IPOPrefetcher::createPrefetchFunction(void) {
     }
 
     SmallVector<ReturnInst *, 8> Rets;
-    CloneFunctionInto(Clone, F, Old2New, true, Rets);
+    CloneFunctionInto(Clone, F, Old2New,
+                      CloneFunctionChangeType::LocalChangesOnly, Rets);
 
     // Aim to have the prefetch function ALWAYS inlined later in IPO
     if (!Clone->hasFnAttribute(Attribute::AlwaysInline))

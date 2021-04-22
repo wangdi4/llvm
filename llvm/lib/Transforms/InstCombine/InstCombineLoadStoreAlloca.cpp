@@ -273,12 +273,7 @@ bool PointerReplacer::collectUsers(Instruction &I) {
   return true;
 }
 
-Value *PointerReplacer::getReplacement(Value *V) {
-  auto Loc = WorkMap.find(V);
-  if (Loc != WorkMap.end())
-    return Loc->second;
-  return nullptr;
-}
+Value *PointerReplacer::getReplacement(Value *V) { return WorkMap.lookup(V); }
 
 void PointerReplacer::replace(Instruction *I) {
   if (getReplacement(I))
@@ -411,7 +406,10 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
     Align SourceAlign = getOrEnforceKnownAlignment(
       TheSrc, AllocaAlign, DL, &AI, &AC, &DT);
     if (AllocaAlign <= SourceAlign &&
-        isDereferenceableForAllocaSize(TheSrc, &AI, DL)) {
+        isDereferenceableForAllocaSize(TheSrc, &AI, DL) &&
+        !isa<Instruction>(TheSrc)) {
+      // FIXME: Can we sink instructions without violating dominance when TheSrc
+      // is an instruction instead of a constant or argument?
       LLVM_DEBUG(dbgs() << "Found alloca equal to global: " << AI << '\n');
       LLVM_DEBUG(dbgs() << "  memcpy = " << *Copy << '\n');
       unsigned SrcAddrSpace = TheSrc->getType()->getPointerAddressSpace();
@@ -598,16 +596,60 @@ static Instruction *combineLoadToOperationType(InstCombinerImpl &IC,
   // Fold away bit casts of the loaded value by loading the desired type.
   // Note that we should not do this for pointer<->integer casts,
   // because that would result in type punning.
-  if (LI.hasOneUse())
+  if (LI.hasOneUse()) {
+    // Don't transform when the type is x86_amx, it makes the pass that lower
+    // x86_amx type happy.
+    if (auto *BC = dyn_cast<BitCastInst>(LI.user_back())) {
+      assert(!LI.getType()->isX86_AMXTy() &&
+             "load from x86_amx* should not happen!");
+      if (BC->getType()->isX86_AMXTy())
+        return nullptr;
+    }
+
     if (auto* CI = dyn_cast<CastInst>(LI.user_back()))
       if (CI->isNoopCast(DL) && LI.getType()->isPtrOrPtrVectorTy() ==
                                     CI->getDestTy()->isPtrOrPtrVectorTy())
         if (!LI.isAtomic() || isSupportedAtomicType(CI->getDestTy())) {
+#if INTEL_CUSTOMIZATION
+          // Field-by-field Memcpy lowering (if possible) helps to retain
+          // tbaa metadata to have better AA. Structure types for the source
+          // operand and destination operand in memcpy are needed to trigger
+          // field-by-field Memcpy lowering.
+          // Inhibit eliminating BitCast if it is used by a Memcpy instruction
+          // that is a potential candidate for lowering. It is difficult to
+          // find types for the source and destination operands in a Memcpy
+          // during Memcpy lowering if BitCast is optimized away.
+          //   Ex:
+          //     %i12 = load %struct.Pixel*, %struct.Pixel** %q9,
+          //     %i15 = bitcast %struct.Pixel* %i12 to i8*
+          //     call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 2 %i15,
+          //          i8* align 2 %i16, i64 8, i1 false), !tbaa.struct !11
+          //
+          if (any_of(CI->users(), [&](User *CIU) {
+                auto *MI = dyn_cast<MemTransferInst>(CIU);
+                if (!MI)
+                  return false;
+                auto *MemOpLength = dyn_cast<ConstantInt>(MI->getLength());
+                if (!MemOpLength)
+                  return false;
+                // Heuristic: Check if MI is a potential candidate for lowering.
+                // This could be improved by calling IsGoodStructMemcpy if
+                // needed in future.
+                uint64_t Size = MemOpLength->getLimitedValue();
+                if (Size > 8 || (Size & (Size - 1)) ||
+                    !MI->getMetadata(LLVMContext::MD_tbaa_struct))
+                  return false;
+                return true;
+              }))
+            return nullptr;
+#endif // INTEL_CUSTOMIZATION
+
           LoadInst *NewLoad = IC.combineLoadToNewType(LI, CI->getDestTy());
           CI->replaceAllUsesWith(NewLoad);
           IC.eraseInstFromFunction(*CI);
           return &LI;
         }
+  }
 
   // FIXME: We should also canonicalize loads of vectors when their elements are
   // cast to other types.
@@ -752,8 +794,7 @@ static bool isObjectSizeLessThanOrEq(Value *V, uint64_t MaxSize,
     }
 
     if (PHINode *PN = dyn_cast<PHINode>(P)) {
-      for (Value *IncValue : PN->incoming_values())
-        Worklist.push_back(IncValue);
+      append_range(Worklist, PN->incoming_values());
       continue;
     }
 
@@ -1057,6 +1098,115 @@ static Value *matchDeBruijnTableLookup(InstCombiner &IC, LoadInst &LI) {
                                        ConstantInt::get(X->getType(), ZVal));
   return IC.Builder.CreateZExtOrTrunc(Sel, LI.getType());
 }
+
+#if INTEL_INCLUDE_DTRANS
+// Return true if there is a possible upcasting from SrcTy to DestTy. This
+// means that the field 0 in DestTy encloses SrcTy.
+static bool possibleUpcasting(Type *SrcTy, Type *DestTy) {
+
+  // Return the structure type from the input pointer type
+  auto GetStructFromPtr = [](Type *InTy) -> StructType * {
+    assert(InTy && "Trying to collect type data from a nullptr");
+    Type *CurrType = InTy;
+    // NOTE: This won't work with opaque pointers type. We may need to return
+    // to this once we fix the issue with opaque pointers in DTrans.
+    if (CurrType->isPointerTy())
+      CurrType = CurrType->getPointerElementType();
+    return dyn_cast<StructType>(CurrType);
+  };
+
+  // Return true if BaseStr is a possible base form of PaddedStr. For example,
+  // consider the following classes:
+  //
+  // class A {
+  //   int a;
+  //   int b;
+  //   int c;
+  // }
+  //
+  // class B : public A {
+  //   int d;
+  // }
+  //
+  // Also consider that if there is an instantiation of A and B, then we will
+  // see something like this in the IR:
+  //
+  // %class.A = type <{i32, i32, i32, [ 4 x i8 ]}>
+  // %class.A.base = type <{i32, i32, i32}>
+  // %class.B = type {%class.A.base, i32}
+  //
+  // The IR creates two forms of class A. The ".base" form is used for the
+  // structure hierarchy, and the padded form (non ".base") is used across
+  // the whole IR (bitcasting, GEPs, etc.). The padding is added by the CFE
+  // and is used by the application binary interface (ABI). These types are
+  // treated as related types in DTrans and the analysis' results are merged.
+  // We identify a base and padded structure as follows:
+  //
+  //   1) Base structure have the same name as padded structure with
+  //      ".base" at the end.
+  //
+  //   2) They have the same fields, but the padded structure have an extra
+  //      field at the end (array of integers) that used for padding.
+  //
+  auto StructsAreBaseAndPadded = [](StructType *BaseStr,
+                                    StructType *PaddedStr) -> bool {
+
+    assert((BaseStr && PaddedStr) && "Trying to collect structures from"
+                                 " null pointers");
+
+    // Both structures must have name
+    if (!BaseStr->hasName() || !PaddedStr->hasName())
+      return false;
+
+    // Padded structures only have one more extra field
+    if (PaddedStr->getNumElements() - BaseStr->getNumElements() != 1)
+      return false;
+
+    // Padded field is the last one and must be an array of integers
+    Type *PaddedField =
+        PaddedStr->getElementType(PaddedStr->getNumElements() - 1);
+    if (!PaddedField->isArrayTy() ||
+        !PaddedField->getArrayElementType()->isIntegerTy())
+      return false;
+
+    // Base name must be the same as padded structure + ".base"
+    std::string BaseName = PaddedStr->getName().str() + ".base";
+    StringRef BaseNameRef = StringRef(BaseName);
+    if (BaseNameRef != BaseStr->getName())
+      return false;
+
+    // The rest of the fields must be the same
+    for (unsigned I = 0, E = BaseStr->getNumElements(); I < E; I++)
+      if (PaddedStr->getElementType(I) != BaseStr->getElementType(I))
+        return false;
+
+    return true;
+  };
+
+  if (!SrcTy || !DestTy || SrcTy == DestTy)
+    return false;
+
+  // Source and destination must be structures
+  auto *SrcTyStr = GetStructFromPtr(SrcTy);
+  auto *DestTyStr = GetStructFromPtr(DestTy);
+  if (!SrcTyStr || !DestTyStr)
+    return false;
+
+  // Check if the destination type encloses the source type
+  StructType *CurrTy = DestTyStr;
+  while (CurrTy && CurrTy->getNumElements() != 0) {
+    if (CurrTy == SrcTyStr)
+      return true;
+    else if (StructsAreBaseAndPadded(CurrTy, SrcTyStr) ||
+             StructsAreBaseAndPadded(SrcTyStr, CurrTy))
+      return true;
+
+    CurrTy = dyn_cast<StructType>(CurrTy->getElementType(0));
+  }
+
+  return false;
+}
+#endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
 Instruction *InstCombinerImpl::visitLoadInst(LoadInst &LI) {
@@ -1084,10 +1234,19 @@ Instruction *InstCombinerImpl::visitLoadInst(LoadInst &LI) {
   // Do really simple store-to-load forwarding and load CSE, to catch cases
   // where there are several consecutive memory accesses to the same location,
   // separated by a few arithmetic operations.
-  BasicBlock::iterator BBI(LI);
   bool IsLoadCSE = false;
-  if (Value *AvailableVal = FindAvailableLoadedValue(
-          &LI, LI.getParent(), BBI, DefMaxInstsToScan, AA, &IsLoadCSE)) {
+  if (Value *AvailableVal = FindAvailableLoadedValue(&LI, *AA, &IsLoadCSE)) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+    // If DTrans is enabled and we are in the LTO phase, then we may want to
+    // disable the process of simplifying a load into a bitcast if it could
+    // produce an upcasting. It could produce misleading information in the
+    // DTrans analysis.
+    if (!enableUpCasting() &&
+        possibleUpcasting(AvailableVal->getType(), LI.getType()))
+      return nullptr;
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
     if (IsLoadCSE)
       combineMetadataForCSE(cast<LoadInst>(AvailableVal), &LI, false);
 
@@ -1265,10 +1424,12 @@ static bool combineStoreToValueType(InstCombinerImpl &IC, StoreInst &SI) {
 
   // Fold away bit casts of the stored value by storing the original type.
   if (auto *BC = dyn_cast<BitCastInst>(V)) {
+    assert(!BC->getType()->isX86_AMXTy() &&
+           "store to x86_amx* should not happen!");
     V = BC->getOperand(0);
-    // Don't transform when the type is x86_amx, it make the pass that lower
+    // Don't transform when the type is x86_amx, it makes the pass that lower
     // x86_amx type happy.
-    if (BC->getType()->isX86_AMXTy() || V->getType()->isX86_AMXTy())
+    if (V->getType()->isX86_AMXTy())
       return false;
     if (!SI.isAtomic() || isSupportedAtomicType(V->getType())) {
       combineStoreToNewValue(IC, SI, V);

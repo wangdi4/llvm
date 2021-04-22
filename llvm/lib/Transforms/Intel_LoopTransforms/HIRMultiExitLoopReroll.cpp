@@ -857,11 +857,9 @@ bool HIRMultiExitLoopReroll::run() {
   return Rerolled;
 }
 
-PreservedAnalyses
-HIRMultiExitLoopRerollPass::run(llvm::Function &F,
-                                llvm::FunctionAnalysisManager &AM) {
-  HIRMultiExitLoopReroll(AM.getResult<HIRFrameworkAnalysis>(F),
-                         AM.getResult<HIRLoopStatisticsAnalysis>(F))
+PreservedAnalyses HIRMultiExitLoopRerollPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRMultiExitLoopReroll(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F))
       .run();
   return PreservedAnalyses::all();
 }

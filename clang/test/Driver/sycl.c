@@ -42,18 +42,22 @@
 // INTEL_CUSTOMIZATION
 // For 32-bit host compilers (xmainx86oclwin) the spir target defaults to
 // "spir" but for 64-bit compilers it is "spir64".
-// DEFAULT: "-triple" "spir{{(64)?}}-unknown-{{.*}}-sycldevice{{.*}}" "-fsycl-is-device"{{.*}} "-sycl-std=2020"{{.*}} "-emit-llvm-bc"
+// DEFAULT: "-triple" "spir{{(64)?}}-unknown-{{.*}}-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-sycl-std=2020"{{.*}} "-emit-llvm-bc"
 // DEFAULT: "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"
 // DEFAULT: "-internal-isystem" "{{.*lib.*clang.*include}}"
 // DEFAULT: "-std=c++17"
-// DEFAULT-NOT: "{{.*}}llvm-spirv"{{.*}} "-spirv-max-version=1.1"{{.*}} "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes"
+// INTEL_CUSTOMIZATION
+// DEFAULT-NOT: "{{.*}}llvm-spirv"{{.*}} "-spirv-max-version=1.3"{{.*}} "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes,-SPV_KHR_linkonce_odr"
+// end INTEL_CUSTOMIZATION
 // DEFAULT-NOT: "-std=c++11"
 // DEFAULT-NOT: "-std=c++14"
 // NO-BITCODE: "-triple" "spir{{(64)?}}-unknown-{{.*}}-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
-// NO-BITCODE: "{{.*}}llvm-spirv"{{.*}} "-spirv-max-version=1.1"{{.*}} "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes"
+// INTEL_CUSTOMIZATION
+// NO-BITCODE: "{{.*}}llvm-spirv"{{.*}} "-spirv-max-version=1.3"{{.*}} "-spirv-ext=+all,-SPV_INTEL_usm_storage_classes,-SPV_KHR_linkonce_odr"
+// end INTEL_CUSTOMIZATION
 // In the "TARGET" case, we specified an explicit target triple on the
 // command line, so it will always be "spir64" here.
-// TARGET: "-triple" "spir64-unknown-linux-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
+// TARGET: "-triple" "spir64-unknown-linux-sycldevice"{{.*}} "-emit-llvm-bc"
 // COMBINED: "-triple" "spir{{(64)?}}-unknown-{{.*}}-sycldevice"{{.*}} "-fsycl-is-device"{{.*}} "-emit-llvm-bc"
 // TEXTUAL: "-triple" "spir{{(64)?}}-unknown-{{.*}}-sycldevice{{.*}}" "-fsycl-is-device"{{.*}} "-emit-llvm"
 // end INTEL_CUSTOMIZATION
@@ -64,13 +68,13 @@
 // RUN:  | FileCheck --check-prefix=DEVICE-64 %s
 // RUN: %clang_cl -fsycl-device-only --target=x86_64-unknown-linux-gnu -### %s 2>&1 \
 // RUN:  | FileCheck --check-prefix=DEVICE-64 %s
-// DEVICE-64: clang{{.*}} "-triple" "spir64-unknown-unknown-sycldevice" {{.*}} "-aux-triple" "x86_64-unknown-linux-gnu"
+// DEVICE-64: clang{{.*}} "-triple" "spir64-unknown-unknown-sycldevice" "-aux-triple" "x86_64-unknown-linux-gnu"
 
 // RUN: %clang -fsycl-device-only -target i386-unknown-linux-gnu -### %s 2>&1 \
 // RUN:  | FileCheck --check-prefix=DEVICE-32 %s
 // RUN: %clang_cl -fsycl-device-only --target=i386-unknown-linux-gnu -### %s 2>&1 \
 // RUN:  | FileCheck --check-prefix=DEVICE-32 %s
-// DEVICE-32: clang{{.*}} "-triple" "spir-unknown-unknown-sycldevice" {{.*}} "-aux-triple" "i386-unknown-linux-gnu"
+// DEVICE-32: clang{{.*}} "-triple" "spir-unknown-unknown-sycldevice" "-aux-triple" "i386-unknown-linux-gnu"
 
 /// Verify that the sycl header directory is before /usr/include
 // RUN: %clangxx -### -fsycl-device-only %s 2>&1 | FileCheck %s --check-prefix=HEADER_ORDER

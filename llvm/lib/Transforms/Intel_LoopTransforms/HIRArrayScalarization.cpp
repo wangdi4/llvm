@@ -19,6 +19,7 @@
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
@@ -193,12 +194,12 @@ bool ArrayScalarizationMemRefGroup::transform(void) {
   // [FROM]
   // (i64*)A[0][0]  = 0    ;   0 is i64 type
   //  ...
-  //                = A[0][0]
+  //     .          = A[0][0]
   //
   // [TO]
   // (i64*)A[0][0]  = 0.0  ;   0.0 is f64 type
   //  ...
-  //                = A[0][0]
+  //     .          = A[0][0]
   //
   // After this compile-time cast, the relaxed group can be transformed as a
   // regular group.
@@ -206,23 +207,52 @@ bool ArrayScalarizationMemRefGroup::transform(void) {
     HLInst *PInst = dyn_cast<HLInst>(Ref0->getHLDDNode());
     RegDDRef *Rval = PInst->getRvalDDRef();
 
-    // Only support integer const 0:
-    int64_t Val = -1;
-    if (!Rval->isIntConstant(&Val) || (Val != 0)) {
-      LLVM_DEBUG(
-          dbgs()
-              << "Can't handle a relaxed group with a non-0 RHS on store\n";);
+    // Only support integer const 0 or floating-point 0.00:
+    int64_t IVal = -1;
+    bool IsIntConstant = Rval->isIntConstant(&IVal);
+    // --------------------------------------------------------------
+    // To identify the usage cases in LIT, search the immed value
+    // --------------------------------------------------------------
+    // case0:
+    // (i64*)(@"mat_times_vec_$AE_IP1")[0][0][0] = 0;
+    //
+    // case1:
+    // (i64*)(@"mat_times_vec_$AE_IP1")[0][1][0] = 4607182418800017408;
+    //
+    // case2:
+    // store i64 4562254508917369340, i64* %1848, align 8, !noalias !73
+    // --------------------------------------------------------------
+    // raw bit stream          |  float value
+    // 0                       |  0.0
+    // 4607182418800017408     |  1.00000
+    // 4562254508917369340     |  0.01000
+    // ..                      |  ..
+    // --------------------------------------------------------------
+    if (!IsIntConstant) {
+      LLVM_DEBUG(dbgs() << "Error! -- Can't handle a relaxed group with a "
+                           "non-constant integer RHS on store\n";);
       return false;
     }
 
-    // on Rval: replace int 0 with float 0.0
     auto &DRU = Rval->getDDRefUtils();
-    RegDDRef *NullRef = DRU.createNullDDRef(Ref0->getSrcType());
-    PInst->setRvalDDRef(NullRef);
+    assert(Ref0->getSrcType()->isFloatingPointTy() &&
+           "Expect Ref0's SrcType is a floating-point type");
+    HLNodeUtils &HNU = Lp->getHLNodeUtils();
+    ConstantInt *ConstInt =
+        llvm::ConstantInt::get(Type::getInt64Ty(HNU.getContext()), IVal);
+    auto *DoubleVal = ConstantFoldCastOperand(
+        Instruction::BitCast, ConstInt, Type::getDoubleTy(HNU.getContext()),
+        HNU.getDataLayout());
+    RegDDRef *ConstRef = DRU.createConstDDRef(DoubleVal);
+    PInst->setRvalDDRef(ConstRef);
+
     LLVM_DEBUG({
+      const APFloat &APF = dyn_cast<ConstantFP>(DoubleVal)->getValue();
+      double FPConst = APF.convertToDouble();
+      dbgs() << "int val: " << IVal << "\tdouble val: " << FPConst << "\n";
       dbgs() << "DestType: ";
       Rval->getDestType()->dump();
-      dbgs() << "Node: ";
+      dbgs() << "Node:\n";
       PInst->dump(1);
     });
   }

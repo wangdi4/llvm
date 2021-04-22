@@ -7,35 +7,34 @@
 ; RUN: opt -VPlanDriver -vplan-print-after-live-inout-list -vplan-dump-live-inout -vplan-entities-dump -S < %s 2>&1 | FileCheck %s
 
 define float @load_store_reduction_add(float* nocapture %a) {
-; CHECK-LABEL:  VPlan after live in/out lists creation
+; CHECK-LABEL:  VPlan after live in/out lists creation:
+; CHECK-NEXT:  VPlan IR for: load_store_reduction_add:for.body
 ; CHECK-NEXT:  Live-in values:
 ; CHECK-NEXT:  ID: 0 Value: i64 0
+; CHECK-NEXT:  ID: 1 Value: float [[X_PROMOTED0:%.*]]
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list
-; CHECK-NEXT:   (+) Start: float [[X_PROMOTED0:%.*]]
-; CHECK-NEXT:    Linked values: float [[VP_ADD7:%.*]], float [[VP_ADD:%.*]], float* [[VP_X:%.*]], float [[VP_X_RED_INIT:%.*]], void [[VP0:%.*]], float [[VP_X_RED_FINAL:%.*]],
+; CHECK-NEXT:   (+) Start: float [[X_PROMOTED0]]
+; CHECK-NEXT:    Linked values: float [[VP_ADD7:%.*]], float [[VP_ADD:%.*]], float* [[VP_X:%.*]], float [[VP_X_RED_INIT:%.*]], void [[VP_STORE:%.*]], float [[VP_X_RED_FINAL:%.*]],
 ; CHECK-NEXT:   Memory: float* [[X0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
+; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 StartVal: i64 0 EndVal: i64 1000 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK:         [[BB1:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]]
-; CHECK-NEXT:     float* [[VP_X]] = allocate-priv float*
-; CHECK-NEXT:     float [[VP_X_RED_INIT]] = reduction-init float 0.000000e+00
+; CHECK-NEXT:     float* [[VP_X]] = allocate-priv float*, OrigAlign = 4
+; CHECK-NEXT:     float [[VP_X_RED_INIT]] = reduction-init float -0.000000e+00
 ; CHECK-NEXT:     store float [[VP_X_RED_INIT]] float* [[VP_X]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body
-; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; CHECK-NEXT:     i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1000, UF = 1
 ; CHECK-NEXT:     br [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]: # preds: [[BB2]], [[BB0]]
-; CHECK-NEXT:     i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB2]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB0]] ]
 ; CHECK-NEXT:     float [[VP_ADD7]] = phi  [ float [[VP_X_RED_INIT]], [[BB2]] ],  [ float [[VP_ADD]], [[BB0]] ]
 ; CHECK-NEXT:     float* [[VP_A_GEP:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
@@ -43,13 +42,12 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:     float [[VP_ADD]] = fadd float [[VP_ADD7]] float [[VP_A_LOAD]]
 ; CHECK-NEXT:     store float [[VP_ADD]] float* [[VP_X]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:     i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB0]]
+; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
-; CHECK-NEXT:     float [[VP1:%.*]] = load float* [[VP_X]]
-; CHECK-NEXT:     float [[VP_X_RED_FINAL]] = reduction-final{fadd} float [[VP1]] float [[X_PROMOTED0]]
+; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load float* [[VP_X]]
+; CHECK-NEXT:     float [[VP_X_RED_FINAL]] = reduction-final{fadd} float [[VP_LOAD]] float live-in1
 ; CHECK-NEXT:     store float [[VP_X_RED_FINAL]] float* [[X0]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
@@ -59,13 +57,19 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Live-out values:
 ; CHECK-NEXT:  live-out0(i64 [[VP_INDVARS_IV_IND_FINAL]])
+; CHECK-NEXT:  live-out1(float [[VP_X_RED_FINAL]])
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Id: 1   no underlying for float [[VP_X_RED_FINAL]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Original loop live-ins/live-outs:
 ; CHECK-NEXT:    Id: 0
 ; CHECK-NEXT:      Phi:   [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[DIR_QUAL_LIST_END_20:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0:%.*]] ]    Start op: 0
 ; CHECK-NEXT:      Live-Out:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
+; CHECK-NEXT:    Id: 1
+; CHECK-NEXT:      Phi:   [[ADD70:%.*]] = phi float [ [[X_PROMOTED0]], [[DIR_QUAL_LIST_END_20]] ], [ [[ADD0:%.*]], [[FOR_BODY0]] ]    Start op: 0
+; CHECK-NEXT:      Live-Out:   [[ADD0]] = fadd float [[ADD70]], [[A_LOAD0:%.*]]
 ;
 entry:
   %x = alloca float, align 4

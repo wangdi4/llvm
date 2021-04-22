@@ -117,7 +117,8 @@ bool MemInstGroup::isCoalescingLoadsProfitable(
     if (VectorType *GroupMemVecType = dyn_cast<VectorType>(GroupMemType))
       ShuffleCost +=
           TTI->getShuffleCost(TargetTransformInfo::SK_ExtractSubvector, GroupTy,
-                              CoalescedLoadScalarOffset, GroupMemVecType);
+                              llvm::None, CoalescedLoadScalarOffset,
+                              GroupMemVecType);
     else
       ShuffleCost += TTI->getVectorInstrCost(
           Instruction::ExtractElement, GroupTy, CoalescedLoadScalarOffset);
@@ -522,8 +523,8 @@ void LoadCoalescing::codeGen(const MemInstGroup &G) {
   Builder.SetInsertPoint(Head->getNextNode());
   Value *WidePtr = Builder.CreateBitCast(Head->getPointerOperand(),
                                          G.getWideType()->getPointerTo(AS));
-  Instruction *WideLoad = cast<Instruction>(
-      Builder.CreateAlignedLoad(WidePtr, Head->getAlign(), "CoalescedLoad"));
+  Instruction *WideLoad = cast<Instruction>(Builder.CreateAlignedLoad(
+      G.getWideType(), WidePtr, Head->getAlign(), "CoalescedLoad"));
   LLVM_DEBUG(dbgs() << "LC: Emitted WideLoad: " << *WideLoad << "\n");
 
   Instruction *InsertPointForShuffle = WideLoad->getNextNode();
@@ -622,10 +623,16 @@ bool LoadCoalescing::run(BasicBlock &Block) {
 
 
 bool LoadCoalescing::run() {
-  MaxVecRegSize = (MaxVecRegSizeOpt == 0) ? TTI->getRegisterBitWidth(true)
-                                          : MaxVecRegSizeOpt;
-  MinVecRegSize = (MinVecRegSizeOpt == 0) ? TTI->getRegisterBitWidth(true)
-                                          : MinVecRegSizeOpt;
+  MaxVecRegSize =
+      (MaxVecRegSizeOpt == 0)
+          ? TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
+                .getFixedSize()
+          : MaxVecRegSizeOpt;
+  MinVecRegSize =
+      (MinVecRegSizeOpt == 0)
+          ? TTI->getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector)
+                .getFixedSize()
+          : MinVecRegSizeOpt;
 
   bool Changed = false;
 

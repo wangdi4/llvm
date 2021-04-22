@@ -1,6 +1,6 @@
 //===- LoopOptReportSupport.cpp - Utils to support emitters -*- C++ -*------==//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -45,7 +45,7 @@ std::string formatBinaryStream(LoopOptReport OptReport) {
     return "";
 
   for (const LoopOptRemark Remark : OptReport.origin()) {
-    const MDString *R = cast<MDString>(Remark.getOperand(0));
+    const MDString *R = cast<MDString>(Remark.getOperand(1));
     std::string OriginString = std::string(R->getString());
 
     if (OriginString == "Remainder loop for vectorization") {
@@ -66,7 +66,7 @@ std::string formatBinaryStream(LoopOptReport OptReport) {
   }
 
   for (const LoopOptRemark Remark : OptReport.remarks()) {
-    const auto *R = cast<MDString>(Remark.getOperand(0));
+    const auto *R = cast<MDString>(Remark.getOperand(1));
     std::string FormatString = std::string(R->getString());
 
     if (FormatString == "LOOP WAS VECTORIZED") {
@@ -77,8 +77,8 @@ std::string formatBinaryStream(LoopOptReport OptReport) {
       LLVM_DEBUG(dbgs() << "VecBits: bits 0-0 set to 1\n");
     } else if (FormatString == "vectorization support: vector length %s") {
       const MDString *SM = nullptr;
-      if (Remark.getNumOperands() >= 2)
-        SM = dyn_cast<MDString>(Remark.getOperand(1));
+      if (Remark.getNumOperands() >= 3)
+        SM = dyn_cast<MDString>(Remark.getOperand(2));
       else
         llvm_unreachable("Missing 'vector length' operand.");
 
@@ -107,8 +107,8 @@ std::string formatBinaryStream(LoopOptReport OptReport) {
     } else if (FormatString == "Loop has been unrolled by %d factor" ||
                FormatString == "LLorg: Loop has been unrolled by %d factor") {
       const ConstantAsMetadata *CM = nullptr;
-      if (Remark.getNumOperands() >= 2)
-        CM = dyn_cast<ConstantAsMetadata>(Remark.getOperand(1));
+      if (Remark.getNumOperands() >= 3)
+        CM = dyn_cast<ConstantAsMetadata>(Remark.getOperand(2));
       else
         llvm_unreachable("Missing 'unroll factor' operand.");
 

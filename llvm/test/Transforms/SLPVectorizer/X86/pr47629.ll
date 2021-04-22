@@ -159,7 +159,7 @@ define void @gather_load_2(i32* noalias nocapture %0, i32* noalias nocapture rea
 ; end INTEL_CUSTOMIZATION
 ;
 ; AVX512-LABEL: @gather_load_2(
-; AVX512-NEXT:    [[TMP3:%.*]] = insertelement <4 x i32*> undef, i32* [[TMP1:%.*]], i32 0
+; AVX512-NEXT:    [[TMP3:%.*]] = insertelement <4 x i32*> poison, i32* [[TMP1:%.*]], i32 0
 ; AVX512-NEXT:    [[TMP4:%.*]] = shufflevector <4 x i32*> [[TMP3]], <4 x i32*> undef, <4 x i32> zeroinitializer
 ; AVX512-NEXT:    [[TMP5:%.*]] = getelementptr i32, <4 x i32*> [[TMP4]], <4 x i64> <i64 1, i64 10, i64 3, i64 5>
 ; AVX512-NEXT:    [[TMP6:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[TMP5]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef), [[TBAA0:!tbaa !.*]]
@@ -200,7 +200,7 @@ define void @gather_load_2(i32* noalias nocapture %0, i32* noalias nocapture rea
 ; XMAINAVX-NEXT:    [[TMP8:%.*]] = load i32, i32* [[TMP7]], align 4, [[TBAA0]]
 ; XMAINAVX-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 5
 ; XMAINAVX-NEXT:    [[TMP10:%.*]] = load i32, i32* [[TMP9]], align 4, [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> undef, i32 [[TMP4]], i32 0
+; XMAINAVX-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> poison, i32 [[TMP4]], i32 0
 ; XMAINAVX-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP11]], i32 [[TMP6]], i32 1
 ; XMAINAVX-NEXT:    [[TMP13:%.*]] = insertelement <4 x i32> [[TMP12]], i32 [[TMP8]], i32 2
 ; XMAINAVX-NEXT:    [[TMP14:%.*]] = insertelement <4 x i32> [[TMP13]], i32 [[TMP10]], i32 3
@@ -218,7 +218,7 @@ define void @gather_load_2(i32* noalias nocapture %0, i32* noalias nocapture rea
 ; XMAINAVX2-NEXT:    [[TMP8:%.*]] = load i32, i32* [[TMP7]], align 4, [[TBAA0]]
 ; XMAINAVX2-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 5
 ; XMAINAVX2-NEXT:    [[TMP10:%.*]] = load i32, i32* [[TMP9]], align 4, [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> undef, i32 [[TMP4]], i32 0
+; XMAINAVX2-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> poison, i32 [[TMP4]], i32 0
 ; XMAINAVX2-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP11]], i32 [[TMP6]], i32 1
 ; XMAINAVX2-NEXT:    [[TMP13:%.*]] = insertelement <4 x i32> [[TMP12]], i32 [[TMP8]], i32 2
 ; XMAINAVX2-NEXT:    [[TMP14:%.*]] = insertelement <4 x i32> [[TMP13]], i32 [[TMP10]], i32 3
@@ -236,7 +236,7 @@ define void @gather_load_2(i32* noalias nocapture %0, i32* noalias nocapture rea
 ; XMAINAVX512F-NEXT:    [[TMP8:%.*]] = load i32, i32* [[TMP7]], align 4, [[TBAA0]]
 ; XMAINAVX512F-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 5
 ; XMAINAVX512F-NEXT:    [[TMP10:%.*]] = load i32, i32* [[TMP9]], align 4, [[TBAA0]]
-; XMAINAVX512F-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> undef, i32 [[TMP4]], i32 0
+; XMAINAVX512F-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> poison, i32 [[TMP4]], i32 0
 ; XMAINAVX512F-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP11]], i32 [[TMP6]], i32 1
 ; XMAINAVX512F-NEXT:    [[TMP13:%.*]] = insertelement <4 x i32> [[TMP12]], i32 [[TMP8]], i32 2
 ; XMAINAVX512F-NEXT:    [[TMP14:%.*]] = insertelement <4 x i32> [[TMP13]], i32 [[TMP10]], i32 3
@@ -254,7 +254,7 @@ define void @gather_load_2(i32* noalias nocapture %0, i32* noalias nocapture rea
 ; XMAINAVX512-NEXT:    [[TMP8:%.*]] = load i32, i32* [[TMP7]], align 4, [[TBAA0]]
 ; XMAINAVX512-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 5
 ; XMAINAVX512-NEXT:    [[TMP10:%.*]] = load i32, i32* [[TMP9]], align 4, [[TBAA0]]
-; XMAINAVX512-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> undef, i32 [[TMP4]], i32 0
+; XMAINAVX512-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> poison, i32 [[TMP4]], i32 0
 ; XMAINAVX512-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP11]], i32 [[TMP6]], i32 1
 ; XMAINAVX512-NEXT:    [[TMP13:%.*]] = insertelement <4 x i32> [[TMP12]], i32 [[TMP8]], i32 2
 ; XMAINAVX512-NEXT:    [[TMP14:%.*]] = insertelement <4 x i32> [[TMP13]], i32 [[TMP10]], i32 3
@@ -463,7 +463,7 @@ define void @gather_load_3(i32* noalias nocapture %0, i32* noalias nocapture rea
 ; AVX512-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 9
 ; AVX512-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 6
 ; AVX512-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 21
-; AVX512-NEXT:    [[TMP10:%.*]] = insertelement <8 x i32*> undef, i32* [[TMP1]], i32 0
+; AVX512-NEXT:    [[TMP10:%.*]] = insertelement <8 x i32*> poison, i32* [[TMP1]], i32 0
 ; AVX512-NEXT:    [[TMP11:%.*]] = insertelement <8 x i32*> [[TMP10]], i32* [[TMP3]], i32 1
 ; AVX512-NEXT:    [[TMP12:%.*]] = insertelement <8 x i32*> [[TMP11]], i32* [[TMP4]], i32 2
 ; AVX512-NEXT:    [[TMP13:%.*]] = insertelement <8 x i32*> [[TMP12]], i32* [[TMP5]], i32 3
@@ -534,7 +534,7 @@ define void @gather_load_3(i32* noalias nocapture %0, i32* noalias nocapture rea
 ; XMAINAVX-NEXT:    [[TMP15:%.*]] = load i32, i32* [[TMP14]], align 4, [[TBAA0]]
 ; XMAINAVX-NEXT:    [[TMP16:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 21
 ; XMAINAVX-NEXT:    [[TMP17:%.*]] = load i32, i32* [[TMP16]], align 4, [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP18:%.*]] = insertelement <8 x i32> undef, i32 [[TMP3]], i32 0
+; XMAINAVX-NEXT:    [[TMP18:%.*]] = insertelement <8 x i32> poison, i32 [[TMP3]], i32 0
 ; XMAINAVX-NEXT:    [[TMP19:%.*]] = insertelement <8 x i32> [[TMP18]], i32 [[TMP5]], i32 1
 ; XMAINAVX-NEXT:    [[TMP20:%.*]] = insertelement <8 x i32> [[TMP19]], i32 [[TMP7]], i32 2
 ; XMAINAVX-NEXT:    [[TMP21:%.*]] = insertelement <8 x i32> [[TMP20]], i32 [[TMP9]], i32 3
@@ -563,7 +563,7 @@ define void @gather_load_3(i32* noalias nocapture %0, i32* noalias nocapture rea
 ; XMAINAVX2-NEXT:    [[TMP15:%.*]] = load i32, i32* [[TMP14]], align 4, [[TBAA0]]
 ; XMAINAVX2-NEXT:    [[TMP16:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 21
 ; XMAINAVX2-NEXT:    [[TMP17:%.*]] = load i32, i32* [[TMP16]], align 4, [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP18:%.*]] = insertelement <8 x i32> undef, i32 [[TMP3]], i32 0
+; XMAINAVX2-NEXT:    [[TMP18:%.*]] = insertelement <8 x i32> poison, i32 [[TMP3]], i32 0
 ; XMAINAVX2-NEXT:    [[TMP19:%.*]] = insertelement <8 x i32> [[TMP18]], i32 [[TMP5]], i32 1
 ; XMAINAVX2-NEXT:    [[TMP20:%.*]] = insertelement <8 x i32> [[TMP19]], i32 [[TMP7]], i32 2
 ; XMAINAVX2-NEXT:    [[TMP21:%.*]] = insertelement <8 x i32> [[TMP20]], i32 [[TMP9]], i32 3
@@ -584,7 +584,7 @@ define void @gather_load_3(i32* noalias nocapture %0, i32* noalias nocapture rea
 ; XMAINAVX512F-NEXT:    [[TMP7:%.*]] = load i32, i32* [[TMP6]], align 4, [[TBAA0]]
 ; XMAINAVX512F-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 15
 ; XMAINAVX512F-NEXT:    [[TMP9:%.*]] = load i32, i32* [[TMP8]], align 4, [[TBAA0]]
-; XMAINAVX512F-NEXT:    [[TMP10:%.*]] = insertelement <4 x i32> undef, i32 [[TMP3]], i32 0
+; XMAINAVX512F-NEXT:    [[TMP10:%.*]] = insertelement <4 x i32> poison, i32 [[TMP3]], i32 0
 ; XMAINAVX512F-NEXT:    [[TMP11:%.*]] = insertelement <4 x i32> [[TMP10]], i32 [[TMP5]], i32 1
 ; XMAINAVX512F-NEXT:    [[TMP12:%.*]] = insertelement <4 x i32> [[TMP11]], i32 [[TMP7]], i32 2
 ; XMAINAVX512F-NEXT:    [[TMP13:%.*]] = insertelement <4 x i32> [[TMP12]], i32 [[TMP9]], i32 3
@@ -600,7 +600,7 @@ define void @gather_load_3(i32* noalias nocapture %0, i32* noalias nocapture rea
 ; XMAINAVX512F-NEXT:    [[TMP22:%.*]] = load i32, i32* [[TMP21]], align 4, [[TBAA0]]
 ; XMAINAVX512F-NEXT:    [[TMP23:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 21
 ; XMAINAVX512F-NEXT:    [[TMP24:%.*]] = load i32, i32* [[TMP23]], align 4, [[TBAA0]]
-; XMAINAVX512F-NEXT:    [[TMP25:%.*]] = insertelement <4 x i32> undef, i32 [[TMP18]], i32 0
+; XMAINAVX512F-NEXT:    [[TMP25:%.*]] = insertelement <4 x i32> poison, i32 [[TMP18]], i32 0
 ; XMAINAVX512F-NEXT:    [[TMP26:%.*]] = insertelement <4 x i32> [[TMP25]], i32 [[TMP20]], i32 1
 ; XMAINAVX512F-NEXT:    [[TMP27:%.*]] = insertelement <4 x i32> [[TMP26]], i32 [[TMP22]], i32 2
 ; XMAINAVX512F-NEXT:    [[TMP28:%.*]] = insertelement <4 x i32> [[TMP27]], i32 [[TMP24]], i32 3
@@ -617,7 +617,7 @@ define void @gather_load_3(i32* noalias nocapture %0, i32* noalias nocapture rea
 ; XMAINAVX512-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 9
 ; XMAINAVX512-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 6
 ; XMAINAVX512-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, i32* [[TMP1]], i64 21
-; XMAINAVX512-NEXT:    [[TMP10:%.*]] = insertelement <8 x i32*> undef, i32* [[TMP1]], i32 0
+; XMAINAVX512-NEXT:    [[TMP10:%.*]] = insertelement <8 x i32*> poison, i32* [[TMP1]], i32 0
 ; XMAINAVX512-NEXT:    [[TMP11:%.*]] = insertelement <8 x i32*> [[TMP10]], i32* [[TMP3]], i32 1
 ; XMAINAVX512-NEXT:    [[TMP12:%.*]] = insertelement <8 x i32*> [[TMP11]], i32* [[TMP4]], i32 2
 ; XMAINAVX512-NEXT:    [[TMP13:%.*]] = insertelement <8 x i32*> [[TMP12]], i32* [[TMP5]], i32 3
@@ -848,7 +848,7 @@ define void @gather_load_4(i32* noalias nocapture %t0, i32* noalias nocapture re
 ; AVX512-NEXT:    [[T22:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 9
 ; AVX512-NEXT:    [[T26:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 6
 ; AVX512-NEXT:    [[T30:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 21
-; AVX512-NEXT:    [[TMP1:%.*]] = insertelement <8 x i32*> undef, i32* [[T1]], i32 0
+; AVX512-NEXT:    [[TMP1:%.*]] = insertelement <8 x i32*> poison, i32* [[T1]], i32 0
 ; AVX512-NEXT:    [[TMP2:%.*]] = insertelement <8 x i32*> [[TMP1]], i32* [[T6]], i32 1
 ; AVX512-NEXT:    [[TMP3:%.*]] = insertelement <8 x i32*> [[TMP2]], i32* [[T10]], i32 2
 ; AVX512-NEXT:    [[TMP4:%.*]] = insertelement <8 x i32*> [[TMP3]], i32* [[T14]], i32 3
@@ -919,7 +919,7 @@ define void @gather_load_4(i32* noalias nocapture %t0, i32* noalias nocapture re
 ; XMAINAVX-NEXT:    [[T23:%.*]] = load i32, i32* [[T22]], align 4, [[TBAA0]]
 ; XMAINAVX-NEXT:    [[T27:%.*]] = load i32, i32* [[T26]], align 4, [[TBAA0]]
 ; XMAINAVX-NEXT:    [[T31:%.*]] = load i32, i32* [[T30]], align 4, [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP1:%.*]] = insertelement <8 x i32> undef, i32 [[T3]], i32 0
+; XMAINAVX-NEXT:    [[TMP1:%.*]] = insertelement <8 x i32> poison, i32 [[T3]], i32 0
 ; XMAINAVX-NEXT:    [[TMP2:%.*]] = insertelement <8 x i32> [[TMP1]], i32 [[T7]], i32 1
 ; XMAINAVX-NEXT:    [[TMP3:%.*]] = insertelement <8 x i32> [[TMP2]], i32 [[T11]], i32 2
 ; XMAINAVX-NEXT:    [[TMP4:%.*]] = insertelement <8 x i32> [[TMP3]], i32 [[T15]], i32 3
@@ -948,7 +948,7 @@ define void @gather_load_4(i32* noalias nocapture %t0, i32* noalias nocapture re
 ; XMAINAVX2-NEXT:    [[T23:%.*]] = load i32, i32* [[T22]], align 4, [[TBAA0]]
 ; XMAINAVX2-NEXT:    [[T27:%.*]] = load i32, i32* [[T26]], align 4, [[TBAA0]]
 ; XMAINAVX2-NEXT:    [[T31:%.*]] = load i32, i32* [[T30]], align 4, [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP1:%.*]] = insertelement <8 x i32> undef, i32 [[T3]], i32 0
+; XMAINAVX2-NEXT:    [[TMP1:%.*]] = insertelement <8 x i32> poison, i32 [[T3]], i32 0
 ; XMAINAVX2-NEXT:    [[TMP2:%.*]] = insertelement <8 x i32> [[TMP1]], i32 [[T7]], i32 1
 ; XMAINAVX2-NEXT:    [[TMP3:%.*]] = insertelement <8 x i32> [[TMP2]], i32 [[T11]], i32 2
 ; XMAINAVX2-NEXT:    [[TMP4:%.*]] = insertelement <8 x i32> [[TMP3]], i32 [[T15]], i32 3
@@ -978,12 +978,12 @@ define void @gather_load_4(i32* noalias nocapture %t0, i32* noalias nocapture re
 ; XMAINAVX512F-NEXT:    [[T23:%.*]] = load i32, i32* [[T22]], align 4, [[TBAA0]]
 ; XMAINAVX512F-NEXT:    [[T27:%.*]] = load i32, i32* [[T26]], align 4, [[TBAA0]]
 ; XMAINAVX512F-NEXT:    [[T31:%.*]] = load i32, i32* [[T30]], align 4, [[TBAA0]]
-; XMAINAVX512F-NEXT:    [[TMP1:%.*]] = insertelement <4 x i32> undef, i32 [[T3]], i32 0
+; XMAINAVX512F-NEXT:    [[TMP1:%.*]] = insertelement <4 x i32> poison, i32 [[T3]], i32 0
 ; XMAINAVX512F-NEXT:    [[TMP2:%.*]] = insertelement <4 x i32> [[TMP1]], i32 [[T7]], i32 1
 ; XMAINAVX512F-NEXT:    [[TMP3:%.*]] = insertelement <4 x i32> [[TMP2]], i32 [[T11]], i32 2
 ; XMAINAVX512F-NEXT:    [[TMP4:%.*]] = insertelement <4 x i32> [[TMP3]], i32 [[T15]], i32 3
 ; XMAINAVX512F-NEXT:    [[TMP5:%.*]] = add <4 x i32> [[TMP4]], <i32 1, i32 2, i32 3, i32 4>
-; XMAINAVX512F-NEXT:    [[TMP6:%.*]] = insertelement <4 x i32> undef, i32 [[T19]], i32 0
+; XMAINAVX512F-NEXT:    [[TMP6:%.*]] = insertelement <4 x i32> poison, i32 [[T19]], i32 0
 ; XMAINAVX512F-NEXT:    [[TMP7:%.*]] = insertelement <4 x i32> [[TMP6]], i32 [[T23]], i32 1
 ; XMAINAVX512F-NEXT:    [[TMP8:%.*]] = insertelement <4 x i32> [[TMP7]], i32 [[T27]], i32 2
 ; XMAINAVX512F-NEXT:    [[TMP9:%.*]] = insertelement <4 x i32> [[TMP8]], i32 [[T31]], i32 3
@@ -1002,7 +1002,7 @@ define void @gather_load_4(i32* noalias nocapture %t0, i32* noalias nocapture re
 ; XMAINAVX512-NEXT:    [[T22:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 9
 ; XMAINAVX512-NEXT:    [[T26:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 6
 ; XMAINAVX512-NEXT:    [[T30:%.*]] = getelementptr inbounds i32, i32* [[T1]], i64 21
-; XMAINAVX512-NEXT:    [[TMP1:%.*]] = insertelement <8 x i32*> undef, i32* [[T1]], i32 0
+; XMAINAVX512-NEXT:    [[TMP1:%.*]] = insertelement <8 x i32*> poison, i32* [[T1]], i32 0
 ; XMAINAVX512-NEXT:    [[TMP2:%.*]] = insertelement <8 x i32*> [[TMP1]], i32* [[T6]], i32 1
 ; XMAINAVX512-NEXT:    [[TMP3:%.*]] = insertelement <8 x i32*> [[TMP2]], i32* [[T10]], i32 2
 ; XMAINAVX512-NEXT:    [[TMP4:%.*]] = insertelement <8 x i32*> [[TMP3]], i32* [[T14]], i32 3
@@ -1068,7 +1068,7 @@ define void @gather_load_div(float* noalias nocapture %0, float* noalias nocaptu
 ; SSE-NEXT:    [[TMP3:%.*]] = getelementptr inbounds float, float* [[TMP1:%.*]], i64 10
 ; SSE-NEXT:    [[TMP4:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 3
 ; SSE-NEXT:    [[TMP5:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 14
-; SSE-NEXT:    [[TMP6:%.*]] = insertelement <4 x float*> undef, float* [[TMP1]], i32 0
+; SSE-NEXT:    [[TMP6:%.*]] = insertelement <4 x float*> poison, float* [[TMP1]], i32 0
 ; SSE-NEXT:    [[TMP7:%.*]] = insertelement <4 x float*> [[TMP6]], float* [[TMP3]], i32 1
 ; SSE-NEXT:    [[TMP8:%.*]] = insertelement <4 x float*> [[TMP7]], float* [[TMP4]], i32 2
 ; SSE-NEXT:    [[TMP9:%.*]] = insertelement <4 x float*> [[TMP8]], float* [[TMP5]], i32 3
@@ -1097,7 +1097,7 @@ define void @gather_load_div(float* noalias nocapture %0, float* noalias nocaptu
 ; AVX-NEXT:    [[TMP7:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 8
 ; AVX-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 5
 ; AVX-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 20
-; AVX-NEXT:    [[TMP10:%.*]] = insertelement <8 x float*> undef, float* [[TMP1]], i32 0
+; AVX-NEXT:    [[TMP10:%.*]] = insertelement <8 x float*> poison, float* [[TMP1]], i32 0
 ; AVX-NEXT:    [[TMP11:%.*]] = insertelement <8 x float*> [[TMP10]], float* [[TMP3]], i32 1
 ; AVX-NEXT:    [[TMP12:%.*]] = insertelement <8 x float*> [[TMP11]], float* [[TMP4]], i32 2
 ; AVX-NEXT:    [[TMP13:%.*]] = insertelement <8 x float*> [[TMP12]], float* [[TMP5]], i32 3
@@ -1121,7 +1121,7 @@ define void @gather_load_div(float* noalias nocapture %0, float* noalias nocaptu
 ; AVX2-NEXT:    [[TMP3:%.*]] = getelementptr inbounds float, float* [[TMP1:%.*]], i64 10
 ; AVX2-NEXT:    [[TMP4:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 3
 ; AVX2-NEXT:    [[TMP5:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 14
-; AVX2-NEXT:    [[TMP6:%.*]] = insertelement <4 x float*> undef, float* [[TMP1]], i32 0
+; AVX2-NEXT:    [[TMP6:%.*]] = insertelement <4 x float*> poison, float* [[TMP1]], i32 0
 ; AVX2-NEXT:    [[TMP7:%.*]] = insertelement <4 x float*> [[TMP6]], float* [[TMP3]], i32 1
 ; AVX2-NEXT:    [[TMP8:%.*]] = insertelement <4 x float*> [[TMP7]], float* [[TMP4]], i32 2
 ; AVX2-NEXT:    [[TMP9:%.*]] = insertelement <4 x float*> [[TMP8]], float* [[TMP5]], i32 3
@@ -1150,7 +1150,7 @@ define void @gather_load_div(float* noalias nocapture %0, float* noalias nocaptu
 ; AVX512F-NEXT:    [[TMP7:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 8
 ; AVX512F-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 5
 ; AVX512F-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 20
-; AVX512F-NEXT:    [[TMP10:%.*]] = insertelement <8 x float*> undef, float* [[TMP1]], i32 0
+; AVX512F-NEXT:    [[TMP10:%.*]] = insertelement <8 x float*> poison, float* [[TMP1]], i32 0
 ; AVX512F-NEXT:    [[TMP11:%.*]] = insertelement <8 x float*> [[TMP10]], float* [[TMP3]], i32 1
 ; AVX512F-NEXT:    [[TMP12:%.*]] = insertelement <8 x float*> [[TMP11]], float* [[TMP4]], i32 2
 ; AVX512F-NEXT:    [[TMP13:%.*]] = insertelement <8 x float*> [[TMP12]], float* [[TMP5]], i32 3
@@ -1176,7 +1176,7 @@ define void @gather_load_div(float* noalias nocapture %0, float* noalias nocaptu
 ; AVX512-NEXT:    [[TMP7:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 8
 ; AVX512-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 5
 ; AVX512-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 20
-; AVX512-NEXT:    [[TMP10:%.*]] = insertelement <8 x float*> undef, float* [[TMP1]], i32 0
+; AVX512-NEXT:    [[TMP10:%.*]] = insertelement <8 x float*> poison, float* [[TMP1]], i32 0
 ; AVX512-NEXT:    [[TMP11:%.*]] = insertelement <8 x float*> [[TMP10]], float* [[TMP3]], i32 1
 ; AVX512-NEXT:    [[TMP12:%.*]] = insertelement <8 x float*> [[TMP11]], float* [[TMP4]], i32 2
 ; AVX512-NEXT:    [[TMP13:%.*]] = insertelement <8 x float*> [[TMP12]], float* [[TMP5]], i32 3
@@ -1210,11 +1210,11 @@ define void @gather_load_div(float* noalias nocapture %0, float* noalias nocaptu
 ; XMAINSSE-NEXT:    [[TMP15:%.*]] = load float, float* [[TMP14]], align 4, [[TBAA0]]
 ; XMAINSSE-NEXT:    [[TMP16:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 44
 ; XMAINSSE-NEXT:    [[TMP17:%.*]] = load float, float* [[TMP16]], align 4, [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP18:%.*]] = insertelement <4 x float> undef, float [[TMP3]], i32 0
+; XMAINSSE-NEXT:    [[TMP18:%.*]] = insertelement <4 x float> poison, float [[TMP3]], i32 0
 ; XMAINSSE-NEXT:    [[TMP19:%.*]] = insertelement <4 x float> [[TMP18]], float [[TMP7]], i32 1
 ; XMAINSSE-NEXT:    [[TMP20:%.*]] = insertelement <4 x float> [[TMP19]], float [[TMP11]], i32 2
 ; XMAINSSE-NEXT:    [[TMP21:%.*]] = insertelement <4 x float> [[TMP20]], float [[TMP15]], i32 3
-; XMAINSSE-NEXT:    [[TMP22:%.*]] = insertelement <4 x float> undef, float [[TMP5]], i32 0
+; XMAINSSE-NEXT:    [[TMP22:%.*]] = insertelement <4 x float> poison, float [[TMP5]], i32 0
 ; XMAINSSE-NEXT:    [[TMP23:%.*]] = insertelement <4 x float> [[TMP22]], float [[TMP9]], i32 1
 ; XMAINSSE-NEXT:    [[TMP24:%.*]] = insertelement <4 x float> [[TMP23]], float [[TMP13]], i32 2
 ; XMAINSSE-NEXT:    [[TMP25:%.*]] = insertelement <4 x float> [[TMP24]], float [[TMP17]], i32 3
@@ -1238,11 +1238,11 @@ define void @gather_load_div(float* noalias nocapture %0, float* noalias nocaptu
 ; XMAINSSE-NEXT:    [[TMP42:%.*]] = load float, float* [[TMP41]], align 4, [[TBAA0]]
 ; XMAINSSE-NEXT:    [[TMP43:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 23
 ; XMAINSSE-NEXT:    [[TMP44:%.*]] = load float, float* [[TMP43]], align 4, [[TBAA0]]
-; XMAINSSE-NEXT:    [[TMP45:%.*]] = insertelement <4 x float> undef, float [[TMP30]], i32 0
+; XMAINSSE-NEXT:    [[TMP45:%.*]] = insertelement <4 x float> poison, float [[TMP30]], i32 0
 ; XMAINSSE-NEXT:    [[TMP46:%.*]] = insertelement <4 x float> [[TMP45]], float [[TMP34]], i32 1
 ; XMAINSSE-NEXT:    [[TMP47:%.*]] = insertelement <4 x float> [[TMP46]], float [[TMP38]], i32 2
 ; XMAINSSE-NEXT:    [[TMP48:%.*]] = insertelement <4 x float> [[TMP47]], float [[TMP42]], i32 3
-; XMAINSSE-NEXT:    [[TMP49:%.*]] = insertelement <4 x float> undef, float [[TMP32]], i32 0
+; XMAINSSE-NEXT:    [[TMP49:%.*]] = insertelement <4 x float> poison, float [[TMP32]], i32 0
 ; XMAINSSE-NEXT:    [[TMP50:%.*]] = insertelement <4 x float> [[TMP49]], float [[TMP36]], i32 1
 ; XMAINSSE-NEXT:    [[TMP51:%.*]] = insertelement <4 x float> [[TMP50]], float [[TMP40]], i32 2
 ; XMAINSSE-NEXT:    [[TMP52:%.*]] = insertelement <4 x float> [[TMP51]], float [[TMP44]], i32 3
@@ -1283,7 +1283,7 @@ define void @gather_load_div(float* noalias nocapture %0, float* noalias nocaptu
 ; XMAINAVX-NEXT:    [[TMP31:%.*]] = load float, float* [[TMP30]], align 4, [[TBAA0]]
 ; XMAINAVX-NEXT:    [[TMP32:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 23
 ; XMAINAVX-NEXT:    [[TMP33:%.*]] = load float, float* [[TMP32]], align 4, [[TBAA0]]
-; XMAINAVX-NEXT:    [[TMP34:%.*]] = insertelement <8 x float> undef, float [[TMP3]], i32 0
+; XMAINAVX-NEXT:    [[TMP34:%.*]] = insertelement <8 x float> poison, float [[TMP3]], i32 0
 ; XMAINAVX-NEXT:    [[TMP35:%.*]] = insertelement <8 x float> [[TMP34]], float [[TMP7]], i32 1
 ; XMAINAVX-NEXT:    [[TMP36:%.*]] = insertelement <8 x float> [[TMP35]], float [[TMP11]], i32 2
 ; XMAINAVX-NEXT:    [[TMP37:%.*]] = insertelement <8 x float> [[TMP36]], float [[TMP15]], i32 3
@@ -1291,7 +1291,7 @@ define void @gather_load_div(float* noalias nocapture %0, float* noalias nocaptu
 ; XMAINAVX-NEXT:    [[TMP39:%.*]] = insertelement <8 x float> [[TMP38]], float [[TMP23]], i32 5
 ; XMAINAVX-NEXT:    [[TMP40:%.*]] = insertelement <8 x float> [[TMP39]], float [[TMP27]], i32 6
 ; XMAINAVX-NEXT:    [[TMP41:%.*]] = insertelement <8 x float> [[TMP40]], float [[TMP31]], i32 7
-; XMAINAVX-NEXT:    [[TMP42:%.*]] = insertelement <8 x float> undef, float [[TMP5]], i32 0
+; XMAINAVX-NEXT:    [[TMP42:%.*]] = insertelement <8 x float> poison, float [[TMP5]], i32 0
 ; XMAINAVX-NEXT:    [[TMP43:%.*]] = insertelement <8 x float> [[TMP42]], float [[TMP9]], i32 1
 ; XMAINAVX-NEXT:    [[TMP44:%.*]] = insertelement <8 x float> [[TMP43]], float [[TMP13]], i32 2
 ; XMAINAVX-NEXT:    [[TMP45:%.*]] = insertelement <8 x float> [[TMP44]], float [[TMP17]], i32 3
@@ -1336,7 +1336,7 @@ define void @gather_load_div(float* noalias nocapture %0, float* noalias nocaptu
 ; XMAINAVX2-NEXT:    [[TMP31:%.*]] = load float, float* [[TMP30]], align 4, [[TBAA0]]
 ; XMAINAVX2-NEXT:    [[TMP32:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 23
 ; XMAINAVX2-NEXT:    [[TMP33:%.*]] = load float, float* [[TMP32]], align 4, [[TBAA0]]
-; XMAINAVX2-NEXT:    [[TMP34:%.*]] = insertelement <8 x float> undef, float [[TMP3]], i32 0
+; XMAINAVX2-NEXT:    [[TMP34:%.*]] = insertelement <8 x float> poison, float [[TMP3]], i32 0
 ; XMAINAVX2-NEXT:    [[TMP35:%.*]] = insertelement <8 x float> [[TMP34]], float [[TMP7]], i32 1
 ; XMAINAVX2-NEXT:    [[TMP36:%.*]] = insertelement <8 x float> [[TMP35]], float [[TMP11]], i32 2
 ; XMAINAVX2-NEXT:    [[TMP37:%.*]] = insertelement <8 x float> [[TMP36]], float [[TMP15]], i32 3
@@ -1344,7 +1344,7 @@ define void @gather_load_div(float* noalias nocapture %0, float* noalias nocaptu
 ; XMAINAVX2-NEXT:    [[TMP39:%.*]] = insertelement <8 x float> [[TMP38]], float [[TMP23]], i32 5
 ; XMAINAVX2-NEXT:    [[TMP40:%.*]] = insertelement <8 x float> [[TMP39]], float [[TMP27]], i32 6
 ; XMAINAVX2-NEXT:    [[TMP41:%.*]] = insertelement <8 x float> [[TMP40]], float [[TMP31]], i32 7
-; XMAINAVX2-NEXT:    [[TMP42:%.*]] = insertelement <8 x float> undef, float [[TMP5]], i32 0
+; XMAINAVX2-NEXT:    [[TMP42:%.*]] = insertelement <8 x float> poison, float [[TMP5]], i32 0
 ; XMAINAVX2-NEXT:    [[TMP43:%.*]] = insertelement <8 x float> [[TMP42]], float [[TMP9]], i32 1
 ; XMAINAVX2-NEXT:    [[TMP44:%.*]] = insertelement <8 x float> [[TMP43]], float [[TMP13]], i32 2
 ; XMAINAVX2-NEXT:    [[TMP45:%.*]] = insertelement <8 x float> [[TMP44]], float [[TMP17]], i32 3
@@ -1365,7 +1365,7 @@ define void @gather_load_div(float* noalias nocapture %0, float* noalias nocaptu
 ; XMAINAVX512F-NEXT:    [[TMP7:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 8
 ; XMAINAVX512F-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 5
 ; XMAINAVX512F-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 20
-; XMAINAVX512F-NEXT:    [[TMP10:%.*]] = insertelement <8 x float*> undef, float* [[TMP1]], i32 0
+; XMAINAVX512F-NEXT:    [[TMP10:%.*]] = insertelement <8 x float*> poison, float* [[TMP1]], i32 0
 ; XMAINAVX512F-NEXT:    [[TMP11:%.*]] = insertelement <8 x float*> [[TMP10]], float* [[TMP3]], i32 1
 ; XMAINAVX512F-NEXT:    [[TMP12:%.*]] = insertelement <8 x float*> [[TMP11]], float* [[TMP4]], i32 2
 ; XMAINAVX512F-NEXT:    [[TMP13:%.*]] = insertelement <8 x float*> [[TMP12]], float* [[TMP5]], i32 3
@@ -1390,7 +1390,7 @@ define void @gather_load_div(float* noalias nocapture %0, float* noalias nocaptu
 ; XMAINAVX512-NEXT:    [[TMP7:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 8
 ; XMAINAVX512-NEXT:    [[TMP8:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 5
 ; XMAINAVX512-NEXT:    [[TMP9:%.*]] = getelementptr inbounds float, float* [[TMP1]], i64 20
-; XMAINAVX512-NEXT:    [[TMP10:%.*]] = insertelement <8 x float*> undef, float* [[TMP1]], i32 0
+; XMAINAVX512-NEXT:    [[TMP10:%.*]] = insertelement <8 x float*> poison, float* [[TMP1]], i32 0
 ; XMAINAVX512-NEXT:    [[TMP11:%.*]] = insertelement <8 x float*> [[TMP10]], float* [[TMP3]], i32 1
 ; XMAINAVX512-NEXT:    [[TMP12:%.*]] = insertelement <8 x float*> [[TMP11]], float* [[TMP4]], i32 2
 ; XMAINAVX512-NEXT:    [[TMP13:%.*]] = insertelement <8 x float*> [[TMP12]], float* [[TMP5]], i32 3

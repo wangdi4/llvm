@@ -14,7 +14,6 @@
 ; CHECK-NEXT: [[IVLOAD2:%.*]] = load i64, i64* %i1.i64
 ; CHECK-NEXT: getelementptr inbounds [64 x i32], [64 x i32]* %A, i64 [[IVLOAD1]], i64 [[IVLOAD2]]
 
-
 ; Check that HIR metadata is cleaned up by CG when we do not generate code for the region.
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -S | FileCheck %s -check-prefix=NOCG
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-cg" < %s -S | FileCheck %s -check-prefix=NOCG

@@ -1,6 +1,6 @@
 //===-----------TypeMetadataReader.h - Decode metadata annotations---------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -24,11 +24,13 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 
-
 namespace llvm {
-namespace dtrans {
+class NamedMDNode;
+
+namespace dtransOP {
 
 class DTransType;
+class DTransFunctionType;
 class DTransStructType;
 class DTransTypeManager;
 class TypeMetadataTester;
@@ -56,7 +58,20 @@ class TypeMetadataReader {
   // clients should not know about the specific metadata tags, and therefore
   // need to use the getDTransTypeFromMD interface.
   friend class TypeMetadataTester;
+
 public:
+  // Get the NameMDNode for the module that contains the list of metadata nodes
+  // used to describe all the structure types.
+  static NamedMDNode* getDTransTypesMetadata(Module &M);
+
+  // Get the DTrans metadata node for a specific value. This can be used by
+  // the transformations to be able to update the metadata when changing types.
+  static MDNode *getDTransMDNode(const Value &V);
+
+  // Set the metadata on the Value using an appropriate tag based on the Value
+  // type. If MD is nullptr, clear any existing DTrans metadata from the object.
+  static void addDTransMDNode(Value &V, MDNode *MD);
+
   TypeMetadataReader(DTransTypeManager &TM) : TM(TM) {}
 
   // This method should be called first to walk the named metadata node,
@@ -68,7 +83,6 @@ public:
   // If the Value has DTrans type metadata that can be decoded, return the
   // DTransType, otherwise nullptr.
   DTransType *getDTransTypeFromMD(Value *V);
-
 private:
   // This method returns a DTransType* by decoding the information in the
   // metadata node. Returns nullptr, if an error occurs during decoding.
@@ -82,13 +96,24 @@ private:
   DTransType *decodeMDArrayNode(MDNode *MD);
   DTransType *decodeMDVectorNode(MDNode *MD);
 
+  // Lookup a value from the FunctionToDTransTypeMap table.
+  DTransFunctionType *getDTransType(Function *F) const;
+
+  // Build of cache of DTransFunctionType objects to map Functions to a
+  // DTransFunctionType for each function that has DTrans metadata tags.
+  void buildFunctionTypeTable(Module &M);
+
+  // Decode the metadata 'MDTypeListNode' attached to Function 'F'.
+  DTransFunctionType *decodeDTransFuncType(Function &F,
+                                           const MDNode &MDTypeListNode);
+
   // Utility methods
   DTransType *createPointerToLevel(DTransType *DTTy, unsigned PtrLevel);
   void cacheMDDecoding(MDNode *MD, DTransType *DTTy);
 
-  dtrans::DTransStructType *constructDTransStructType(MDNode *MD);
+  DTransStructType *constructDTransStructType(MDNode *MD);
   llvm::StructType *populateDTransStructType(Module &M, MDNode *MD,
-                                             dtrans::DTransStructType *DTStTy);
+                                             DTransStructType *DTStTy);
 
   DTransTypeManager &TM;
 
@@ -97,9 +122,14 @@ private:
   // and should not be destroyed by destruction of this class. This also
   // means that the lifetime of the DTransTypeManager must exceed the lifetime
   // of calls to this class.
-  DenseMap<MDNode *, dtrans::DTransType *> MDToDTransTypeMap;
+  DenseMap<MDNode *, DTransType *> MDToDTransTypeMap;
 
+  // Map of functions with DTrans metadata tags to a DTransFunctionType.
+  DenseMap<Function *, DTransFunctionType *> FunctionToDTransTypeMap;
+
+  // Deprecated:
   // Map of external symbol name to MDNode that describes the type.
+  // TODO: Remove when LIT tests are updated.
   StringMap<MDNode *> SymbolNameToMDNodeMap;
 };
 
@@ -114,7 +144,7 @@ public:
 };
 
 #endif // !INTEL_PRODUCT_RELEASE
-} // end namespace dtrans
+} // end namespace dtransOP
 
 #if !INTEL_PRODUCT_RELEASE
 ModulePass *createDTransMetadataReaderTestWrapperPass();

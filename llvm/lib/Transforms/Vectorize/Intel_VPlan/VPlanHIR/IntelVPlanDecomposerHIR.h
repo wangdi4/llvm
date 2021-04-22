@@ -42,17 +42,24 @@ public:
     // Incoming (starting) value of induction. Can be null, in that case the
     // initial value can be obtained from the phi that uses the UpdateInstr.
     VPValue *Start;
+    // Constant lower/upper bound of induction; nullptr otherwise.
+    VPValue *StartVal = nullptr;
+    VPValue *EndVal = nullptr;
 
   public:
     explicit VPInductionHIR(VPInstruction *Instr, VPValue *Stride,
-                            VPValue *Incoming)
-        : UpdateInstr(Instr), Step(Stride), Start(Incoming) {}
+                            VPValue *Incoming, VPValue *StartVal,
+                            VPValue *EndVal)
+        : UpdateInstr(Instr), Step(Stride), Start(Incoming),
+          StartVal(StartVal), EndVal(EndVal) {}
 
     VPInductionHIR() = delete;
 
     VPInstruction *getUpdateInstr() { return UpdateInstr; }
     VPValue *getStep() { return Step; }
     VPValue *getStart() { return Start; }
+    VPValue *getStartVal() { return StartVal; }
+    VPValue *getEndVal() { return EndVal; }
   };
   typedef SmallVector<std::unique_ptr<VPInductionHIR>, 2> VPInductionHIRList;
   typedef DenseMap<const loopopt::HLLoop *, std::unique_ptr<VPInductionHIRList>>
@@ -60,7 +67,7 @@ public:
 
 private:
   /// The VPlan we are working on.
-  VPlan *Plan;
+  VPlanVector *Plan;
 
   /// Outermost HLLoop in this VPlan.
   const loopopt::HLLoop *OutermostHLp;
@@ -170,8 +177,8 @@ private:
   // Private helper method to create CmpInsts in VPlan using given HLPredicate
   // and operands.
   VPCmpInst *createCmpInst(const HLPredicate &P, VPValue *LHS, VPValue *RHS) {
-    ScopeDbgLoc DbgLoc(Builder, P.DbgLoc);
     VPCmpInst *Inst = Builder.createCmpInst(P.Kind, LHS, RHS);
+    Inst->setDebugLocation(P.DbgLoc);
     if (CmpInst::isFPPredicate(P.Kind))
       Inst->setFastMathFlags(P.FMF);
     return Inst;
@@ -239,29 +246,8 @@ private:
   };
   friend class VPBlobDecompVisitor;
 
-  // Helper class to track debug location of VPInstructions obtained via
-  // decomposition of HIR constructs. Inspired by namesake helper in HIRCodeGen.
-  class ScopeDbgLoc {
-    VPBuilderHIR &Builder;
-    DebugLoc OldDbgLoc;
-
-  public:
-    ScopeDbgLoc(ScopeDbgLoc &&Scope) : Builder(Scope.Builder) {}
-    ScopeDbgLoc(const ScopeDbgLoc &) = delete;
-
-    ScopeDbgLoc(VPBuilderHIR &Builder, const DebugLoc &Loc) : Builder(Builder) {
-      OldDbgLoc = Builder.getCurrentDebugLocation();
-
-      if (Loc) {
-        Builder.setCurrentDebugLocation(Loc);
-      }
-    }
-
-    ~ScopeDbgLoc() { Builder.setCurrentDebugLocation(OldDbgLoc); }
-  };
-
 public:
-  VPDecomposerHIR(VPlan *P, const loopopt::HLLoop *OHLp,
+  VPDecomposerHIR(VPlanVector *P, const loopopt::HLLoop *OHLp,
                   const loopopt::DDGraph &DDG,
                   HIRVectorizationLegality &HIRLegality)
       : Plan(P), OutermostHLp(OHLp), DDG(DDG), HIRLegality(HIRLegality){};
@@ -325,6 +311,15 @@ public:
     return Plan->getVPExternalDefForDDRef(Ref);
   }
 
+  VPExternalDef *getVPExternalDefForSIMDDescr(const loopopt::DDRef *Ref) {
+    bool IsSIMDDescr = HIRLegality.isReduction(Ref) != nullptr ||
+                       HIRLegality.isLinear(Ref) != nullptr ||
+                       HIRLegality.isPrivate(Ref) != nullptr;
+    assert(IsSIMDDescr && "DDRef is not a SIMD entity descriptor.");
+    (void)IsSIMDDescr;
+    return Plan->getVPExternalDefForDDRef(Ref);
+  }
+
   /// Return induction list.
   VPInductionHIRList &getInductions(const loopopt::HLLoop *L) {
     return *(Inductions[L]);
@@ -339,8 +334,8 @@ public:
 
     VPBranchInst *BranchInst = InsPointVPBB->getTerminator();
     BranchInst->setDebugLocation(HGoto->getDebugLoc());
-    BranchInst->HIR.setUnderlyingNode(HGoto);
-    BranchInst->HIR.setValid();
+    BranchInst->HIR().setUnderlyingNode(HGoto);
+    BranchInst->HIR().setValid();
 
     return BranchInst;
   }

@@ -22,7 +22,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  return arr1[RetIdx];
 ;}
 
-; RUN: opt -vplan-enable-soa=false -VPlanDriver -disable-output -vplan-dump-da -vplan-print-after-linearization -vplan-enable-all-liveouts %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -VPlanDriver -disable-output -vplan-dump-da -vplan-print-after-linearization -vplan-enable-all-liveouts -vplan-enable-cfg-merge=0 %s 2>&1 | FileCheck %s
 
 ; REQUIRES:asserts
 
@@ -52,13 +52,13 @@ define dso_local i32 @getElement(i32 %RetIdx) local_unnamed_addr {
 ; CHECK-NEXT: Divergent: [Shape: Random] store i32 [[VAL_TO_STORE]] i32* [[PRIV_GEP3]]
 
 ; CHECK: VPlan after predication and linearization
-; CHECK:  [DA: Div] [1024 x i32]* [[PRIV1:%.*]] = allocate-priv [1024 x i32]*
+; CHECK:  [DA: Div] i32* [[PRIV2:%.*]] = allocate-priv i32*
+; CHECK-NEXT:  [DA: Div] [1024 x i32]* [[PRIV1:%.*]] = allocate-priv [1024 x i32]*
 ; CHECK-NEXT:  [DA: Div] i32* [[GEP1:%.*]]  = getelementptr inbounds [1024 x i32]* [[PRIV1]] i64 0 i64 0
 ; CHECK-NEXT:  [DA: Div] i8* [[BC1:%.*]] = bitcast i32* [[GEP1]]
 ; CHECK-NEXT:  [DA: Div] i82* [[BC2:%.*]] = bitcast i8* [[BC1]]
 ; CHECK-NEXT:  [DA: Div] i64* [[BC3:%.*]] = bitcast i82* [[BC2]]
 ; CHECK-NEXT:  [DA: Div] i64* [[GEP2:%.*]] = getelementptr inbounds i64* [[BC3]] i64 6
-; CHECK-NEXT:  [DA: Div] i32* [[PRIV2:%.*]] = allocate-priv i32*
 ; CHECK-NEXT:  [DA: Div] i32 [[IND1:%.*]] = induction-init{add} i32 live-in0 i32 1
 ; CHECK-NEXT:  [DA: Uni] i32 [[IND2:%.*]] = induction-init-step{add} i32 1
 ; CHECK:       [DA: Uni] i64 [[IDX1:%.*]] = sext i32 {{.*}} to i64
@@ -181,10 +181,10 @@ define dso_local i32 @scalPrivate(i32 %RetIdx) local_unnamed_addr #0 {
 ; CHECK-NEXT: [DA: Div] i32* [[L_PRIV:%.*]] = allocate-priv i32*
 
 ; CHECK:      [DA: Div] i32 [[PHI5:%.*]] = phi  [ i32 {{.*}}, {{.*}} ],  [ i32 [[ADD1:%.*]], {{.*}}]
-; CHECK:      [DA: Div] store i32 [[PHI5]] i32* [[L_PRIV]]
-; CHECK:      [DA: Div] store i32 {{.*}} i32* [[PRIV2]]
+; CHECK:      [DA: Div] store i32 [[PHI5]] i32* [[PRIV2]]
+; CHECK:      [DA: Div] store i32 {{.*}} i32* [[L_PRIV]]
 ; CHECK-NEXT: [DA: Div] i32 {{.*}} = call i32 {{.*}} i32 (i32)* @helper
-; CHECK-NEXT: [DA: Div] i32 {{.*}} = call i32* [[PRIV2]] i32 (i32*)* @helperPtr
+; CHECK-NEXT: [DA: Div] i32 {{.*}} = call i32* [[L_PRIV]] i32 (i32*)* @helperPtr
 ; CHECK:      [DA: Div] i32 [[ADD1]] = add i32 [[PHI5]] i32 {{.*}}
 omp.inner.for.body.lr.ph:
   %j.priv = alloca i32, align 4

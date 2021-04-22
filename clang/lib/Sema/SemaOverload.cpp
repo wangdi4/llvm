@@ -422,10 +422,7 @@ NarrowingKind StandardConversionSequence::getNarrowingKind(
   case ICK_Integral_Conversion:
   IntegralConversion: {
     assert(FromType->isIntegralOrUnscopedEnumerationType());
-#if INTEL_CUSTOMIZATION
-    assert(ToType->isIntegralOrUnscopedEnumerationType() ||
-           ToType->isArbPrecIntType());
-#endif // INTEL_CUSTOMIZATION
+    assert(ToType->isIntegralOrUnscopedEnumerationType());
     const bool FromSigned = FromType->isSignedIntegerOrEnumerationType();
     const unsigned FromWidth = Ctx.getIntWidth(FromType);
     const bool ToSigned = ToType->isSignedIntegerOrEnumerationType();
@@ -1472,6 +1469,7 @@ TryImplicitConversion(Sema &S, Expr *From, QualType ToType,
 
     return ICS;
   }
+
   return TryUserDefinedConversion(S, From, ToType, SuppressUserConversions,
                                   AllowExplicit, InOverloadResolution, CStyle,
                                   AllowObjCWritebackConversion,
@@ -1672,26 +1670,6 @@ static bool IsVectorConversion(Sema &S, QualType FromType,
   return false;
 }
 
-#if INTEL_CUSTOMIZATION
-static bool IsArbPrecIntConversion(Sema &S, QualType FromType, QualType ToType,
-                               ImplicitConversionKind &ICK) {
-  if (!ToType->isArbPrecIntType() && !FromType->isArbPrecIntType())
-    return false;
-  if (S.Context.hasSameUnqualifiedType(FromType, ToType))
-    return false;
-  if (FromType->isArbPrecIntType() && ToType->isBooleanType()) {
-    ICK = ICK_Boolean_Conversion;
-    return true;
-  }
-  if ((ToType->isArbPrecIntType() || ToType->isIntegerType()) &&
-      (FromType->isArbPrecIntType() || FromType->isIntegerType())) {
-    ICK = ICK_Integral_Conversion;
-    return true;
-  }
-  return false;
-}
-#endif // INTEL_CUSTOMIZATION
-
 static bool tryAtomicConversion(Sema &S, Expr *From, QualType ToType,
                                 bool InOverloadResolution,
                                 StandardConversionSequence &SCS,
@@ -1876,11 +1854,6 @@ static bool IsStandardConversion(Sema &S, Expr* From, QualType ToType,
     // Boolean conversions (C++ 4.12).
     SCS.Second = ICK_Boolean_Conversion;
     FromType = S.Context.BoolTy;
-#if INTEL_CUSTOMIZATION
-  } else if (IsArbPrecIntConversion(S, FromType, ToType, SecondICK)) {
-    SCS.Second = SecondICK;
-    FromType = ToType.getUnqualifiedType();
-#endif // INTEL_CUSTOMIZATION
   } else if (FromType->isIntegralOrUnscopedEnumerationType() &&
              ToType->isIntegralType(S.Context)) {
     // Integral conversions (C++ 4.7).
@@ -3746,7 +3719,7 @@ compareConversionFunctions(Sema &S, FunctionDecl *Function1,
         CallOp->getType()->getAs<FunctionProtoType>();
 
     CallingConv CallOpCC =
-        CallOp->getType()->getAs<FunctionType>()->getCallConv();
+        CallOp->getType()->castAs<FunctionType>()->getCallConv();
     CallingConv DefaultFree = S.Context.getDefaultCallingConvention(
         CallOpProto->isVariadic(), /*IsCXXMethod=*/false);
     CallingConv DefaultMember = S.Context.getDefaultCallingConvention(
@@ -3967,7 +3940,7 @@ getFixedEnumPromtion(Sema &S, const StandardConversionSequence &SCS) {
   if (!FromType->isEnumeralType())
     return FixedEnumPromotion::None;
 
-  EnumDecl *Enum = FromType->getAs<EnumType>()->getDecl();
+  EnumDecl *Enum = FromType->castAs<EnumType>()->getDecl();
   if (!Enum->isFixed())
     return FixedEnumPromotion::None;
 
@@ -4146,7 +4119,7 @@ CompareStandardConversionSequences(Sema &S, SourceLocation Loc,
     }
   }
 
-  // In Microsoft mode, prefer an integral conversion to a
+  // In Microsoft mode (below 19.28), prefer an integral conversion to a
   // floating-to-integral conversion if the integral conversion
   // is between types of the same size.
   // For example:
@@ -4158,7 +4131,9 @@ CompareStandardConversionSequences(Sema &S, SourceLocation Loc,
   // }
   // Here, MSVC will call f(int) instead of generating a compile error
   // as clang will do in standard mode.
-  if (S.getLangOpts().MSVCCompat && SCS1.Second == ICK_Integral_Conversion &&
+  if (S.getLangOpts().MSVCCompat &&
+      !S.getLangOpts().isCompatibleWithMSVC(LangOptions::MSVC2019_8) &&
+      SCS1.Second == ICK_Integral_Conversion &&
       SCS2.Second == ICK_Floating_Integral &&
       S.Context.getTypeSize(SCS1.getFromType()) ==
           S.Context.getTypeSize(SCS1.getToType(2)))
@@ -6462,11 +6437,11 @@ void Sema::AddOverloadCandidate(
   // supported is not viable.
   if (getLangOpts().OpenCL) {
     bool HasHalf =
-      getOpenCLOptions().isSupported("cl_khr_fp16", getLangOpts())
-      && getOpenCLOptions().isEnabled("cl_khr_fp16");
+        getOpenCLOptions().isSupported("cl_khr_fp16", getLangOpts()) &&
+        getOpenCLOptions().isAvailableOption("cl_khr_fp16", getLangOpts());
     bool HasDouble =
-      getOpenCLOptions().isSupported("cl_khr_fp64", getLangOpts())
-      && getOpenCLOptions().isEnabled("cl_khr_fp64");
+        getOpenCLOptions().isSupported("cl_khr_fp64", getLangOpts()) &&
+        getOpenCLOptions().isAvailableOption("cl_khr_fp64", getLangOpts());
 
     if ((!HasHalf && Function->getReturnType()->isHalfType()) ||
         (!HasDouble && Function->getReturnType()->isDoubleType())) {
@@ -9995,6 +9970,7 @@ bool Sema::isEquivalentInternalLinkageDeclaration(const NamedDecl *A,
 
 void Sema::diagnoseEquivalentInternalLinkageDeclarations(
     SourceLocation Loc, const NamedDecl *D, ArrayRef<const NamedDecl *> Equiv) {
+  assert(D && "Unknown declaration");
   Diag(Loc, diag::ext_equivalent_internal_linkage_decl_in_modules) << D;
 
   Module *M = getOwningModule(D);
@@ -10310,10 +10286,10 @@ static bool shouldSkipNotingLambdaConversionDecl(FunctionDecl *Fn) {
 
   CXXMethodDecl *CallOp = RD->getLambdaCallOperator();
   CallingConv CallOpCC =
-      CallOp->getType()->getAs<FunctionType>()->getCallConv();
-  QualType ConvRTy = ConvD->getType()->getAs<FunctionType>()->getReturnType();
+      CallOp->getType()->castAs<FunctionType>()->getCallConv();
+  QualType ConvRTy = ConvD->getType()->castAs<FunctionType>()->getReturnType();
   CallingConv ConvToCC =
-      ConvRTy->getPointeeType()->getAs<FunctionType>()->getCallConv();
+      ConvRTy->getPointeeType()->castAs<FunctionType>()->getCallConv();
 
   return ConvToCC != CallOpCC;
 }
@@ -10423,18 +10399,15 @@ void ImplicitConversionSequence::DiagnoseAmbiguousConversion(
                                  const PartialDiagnostic &PDiag) const {
   S.Diag(CaretLoc, PDiag)
     << Ambiguous.getFromType() << Ambiguous.getToType();
-  // FIXME: The note limiting machinery is borrowed from
-  // OverloadCandidateSet::NoteCandidates; there's an opportunity for
-  // refactoring here.
-  const OverloadsShown ShowOverloads = S.Diags.getShowOverloads();
   unsigned CandsShown = 0;
   AmbiguousConversionSequence::const_iterator I, E;
   for (I = Ambiguous.begin(), E = Ambiguous.end(); I != E; ++I) {
-    if (CandsShown >= 4 && ShowOverloads == Ovl_Best)
+    if (CandsShown >= S.Diags.getNumOverloadCandidatesToShow())
       break;
     ++CandsShown;
     S.NoteOverloadCandidate(I->first, I->second);
   }
+  S.Diags.overloadCandidatesShown(CandsShown);
   if (I != E)
     S.Diag(SourceLocation(), diag::note_ovl_too_many_candidates) << int(E - I);
 }
@@ -11712,7 +11685,7 @@ bool OverloadCandidateSet::shouldDeferDiags(Sema &S, ArrayRef<Expr *> Args,
                  (Cand.Function->template hasAttr<CUDAHostAttr>() &&
                   Cand.Function->template hasAttr<CUDADeviceAttr>());
         });
-    DeferHint = WrongSidedCands.size();
+    DeferHint = !WrongSidedCands.empty();
   }
   return DeferHint;
 }
@@ -11745,10 +11718,8 @@ void OverloadCandidateSet::NoteCandidates(Sema &S, ArrayRef<Expr *> Args,
   for (; I != E; ++I) {
     OverloadCandidate *Cand = *I;
 
-    // Set an arbitrary limit on the number of candidate functions we'll spam
-    // the user with.  FIXME: This limit should depend on details of the
-    // candidate list.
-    if (CandsShown >= 4 && ShowOverloads == Ovl_Best) {
+    if (CandsShown >= S.Diags.getNumOverloadCandidatesToShow() &&
+        ShowOverloads == Ovl_Best) {
       break;
     }
     ++CandsShown;
@@ -11776,6 +11747,10 @@ void OverloadCandidateSet::NoteCandidates(Sema &S, ArrayRef<Expr *> Args,
       NoteBuiltinOperatorCandidate(S, Opc, OpLoc, Cand);
     }
   }
+
+  // Inform S.Diags that we've shown an overload set with N elements.  This may
+  // inform the future value of S.Diags.getNumOverloadCandidatesToShow().
+  S.Diags.overloadCandidatesShown(CandsShown);
 
   if (I != E)
     S.Diag(OpLoc, diag::note_ovl_too_many_candidates,
@@ -12992,7 +12967,7 @@ BuildRecoveryCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
     return ExprError();
   }
 
-  // Build an implicit member access expression if appropriate. Just drop the
+  // Build an implicit member call if appropriate.  Just drop the
   // casts and such from the call, we don't really care.
   ExprResult NewFn = ExprError();
   if ((*R.begin())->isCXXClassMember())
@@ -13007,19 +12982,12 @@ BuildRecoveryCallExpr(Sema &SemaRef, Scope *S, Expr *Fn,
   if (NewFn.isInvalid())
     return ExprError();
 
-  auto CallE =
-      SemaRef.BuildCallExpr(/*Scope*/ nullptr, NewFn.get(), LParenLoc,
-                            MultiExprArg(Args.data(), Args.size()), RParenLoc);
-  if (CallE.isInvalid())
-    return ExprError();
-  // We now have recovered a callee. However, building a real call may lead to
-  // incorrect secondary diagnostics if our recovery wasn't correct.
-  // We keep the recovery behavior but suppress all following diagnostics by
-  // using RecoveryExpr. We deliberately drop the return type of the recovery
-  // function, and rely on clang's dependent mechanism to suppress following
-  // diagnostics.
-  return SemaRef.CreateRecoveryExpr(CallE.get()->getBeginLoc(),
-                                    CallE.get()->getEndLoc(), {CallE.get()});
+  // This shouldn't cause an infinite loop because we're giving it
+  // an expression with viable lookup results, which should never
+  // end up here.
+  return SemaRef.BuildCallExpr(/*Scope*/ nullptr, NewFn.get(), LParenLoc,
+                               MultiExprArg(Args.data(), Args.size()),
+                               RParenLoc);
 }
 
 /// Constructs and populates an OverloadedCandidateSet from
@@ -13790,6 +13758,15 @@ ExprResult Sema::CreateOverloadedBinOp(SourceLocation OpLoc,
         // Check for a self move.
         if (Op == OO_Equal)
           DiagnoseSelfMove(Args[0], Args[1], OpLoc);
+
+        if (ImplicitThis) {
+          QualType ThisType = Context.getPointerType(ImplicitThis->getType());
+          QualType ThisTypeFromDecl = Context.getPointerType(
+              cast<CXXMethodDecl>(FnDecl)->getThisObjectType());
+
+          CheckArgAlignment(OpLoc, FnDecl, "'this'", ThisType,
+                            ThisTypeFromDecl);
+        }
 
         checkCall(FnDecl, nullptr, ImplicitThis, ArgsArray,
                   isa<CXXMethodDecl>(FnDecl), OpLoc, TheCall->getSourceRange(),

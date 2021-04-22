@@ -1,6 +1,6 @@
 //===-----------DTransTypes.h - Type model for DTrans ---------------------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -30,10 +30,13 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/IR/DerivedTypes.h"
 
+#include <vector>
+
 namespace llvm {
 class LLVMContext;
+class MDNode;
 
-namespace dtrans {
+namespace dtransOP {
 
 class DTransTypeManager;
 class DTransType;
@@ -57,6 +60,13 @@ public:
 
   // Get the list of possible type for this field.
   const SmallPtrSetImpl<DTransType *> &getTypes() const { return DTTypes; }
+
+  // Get the field type if decoding the metadata resulted in a unique type.
+  DTransType *getType() const {
+    if (DTTypes.size() != 1)
+      return nullptr;
+    return *DTTypes.begin();
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD void dump() const;
@@ -92,7 +102,8 @@ protected:
   // memory management on them.
   DTransType(const DTransType &) = delete;
   DTransType(DTransType &&) = delete;
-  DTransType &operator=(const DTransType) = delete;
+  DTransType &operator=(const DTransType &) = delete;
+  DTransType &operator=(DTransType &&) = delete;
 
   ~DTransType() = default;
 
@@ -110,10 +121,14 @@ public:
   // This is needed to support getLLVMType().
   llvm::LLVMContext &getContext() const { return Ctx; }
 
+  // Return a metadata node that describes the type.
+  MDNode *createMetadataReference() const;
+
   // Compare two DTrans types for equivalence.
   bool compare(const DTransType &Other) const;
 
   // Helper utilities that match frequently used methods of llvm::Type.
+  bool isAtomicTy() const { return getTypeID() == DTransAtomicTypeID; }
   bool isPointerTy() const { return getTypeID() == DTransPointerTypeID; }
   bool isStructTy() const { return getTypeID() == DTransStructTypeID; }
   bool isArrayTy() const { return getTypeID() == DTransArrayTypeID; }
@@ -140,7 +155,7 @@ public:
   // \p Detailed - When 'true', internals of structure types have their
   //               field types printed.
   LLVM_DUMP_METHOD void print(llvm::raw_ostream &OS,
-                              bool Detailed = false) const;
+                              bool Detailed = true) const;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
@@ -155,7 +170,7 @@ private:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static inline raw_ostream &operator<<(raw_ostream &OS,
                                       const DTransType &DTType) {
-  DTType.print(OS, false);
+  DTType.print(OS, true);
   return OS;
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -208,6 +223,11 @@ public:
   }
 
   llvm::Type *getLLVMType() const { return LLVMType; }
+  bool isVoidTy() const { return LLVMType->isVoidTy(); }
+  bool isMetadataTy() const { return LLVMType->isMetadataTy(); }
+
+  // Return a metadata node that describes the type.
+  MDNode *createMetadataReference(unsigned PtrLevel = 0) const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD void print(llvm::raw_ostream &OS) const;
@@ -262,6 +282,9 @@ public:
   llvm::Type *getLLVMType() const {
     return getPointerElementType()->getLLVMType()->getPointerTo();
   }
+
+  // Return a metadata node that describes the type.
+  MDNode *createMetadataReference() const;
 
 private:
   // The "pointed-to" object type.
@@ -375,6 +398,20 @@ public:
       IsOpaque = false;
   }
 
+  // Set the body of an opaque structure type.
+  void setBody(ArrayRef<DTransType *> Fields) {
+    assert(IsOpaque && "Adding a body requires structure type to be opaque");
+    size_t FieldCount = Fields.size();
+    IsOpaque = false;
+    if (FieldCount == 0)
+      return;
+
+    resizeFieldCount(FieldCount);
+    unsigned Idx = 0;
+    for (auto *FieldType : Fields)
+      getField(Idx++).addResolvedType(FieldType);
+  }
+
   bool compare(const DTransStructType &Other) const {
     // For non-literal structures, we will assume for now that structures with
     // the same name are equal, because otherwise walking the elements member by
@@ -429,7 +466,8 @@ public:
     return Fields[N];
   }
 
-  // If the field was resolved to be a single type, return it. Otherwise, nullptr.
+  // If the field was resolved to be a single type, return it. Otherwise,
+  // nullptr.
   DTransType *getFieldType(size_t N) {
     if (getReconstructError())
       return nullptr;
@@ -463,6 +501,22 @@ public:
     return LitSt;
   }
 
+  // Return a metadata node that describes the type.
+  MDNode *createMetadataReference(unsigned PtrLevel = 0) const;
+
+  // Return a metadata node that is used to describe the body of the structure.
+  MDNode *createMetadataStructureDescriptor() const;
+
+  using DTransFieldMemberContainerTy = SmallVector<DTransFieldMember, 16>;
+  using FieldsIterator = DTransFieldMemberContainerTy::iterator;
+  using FieldsConstIterator = DTransFieldMemberContainerTy::const_iterator;
+  iterator_range<FieldsIterator> elements() {
+    return make_range(Fields.begin(), Fields.end());
+  }
+  iterator_range<FieldsConstIterator> elements() const {
+    return make_range(Fields.begin(), Fields.end());
+  }
+
 private:
   // The corresponding LLVMType for non-literal structures, if one exists. We do
   // not map literal structures to llvm types because when there are opaque
@@ -477,7 +531,7 @@ private:
   std::string Name;
 
   // Members of the structure.
-  SmallVector<DTransFieldMember, 16> Fields;
+  DTransFieldMemberContainerTy Fields;
 
   // Various attributes of the structure being represented.
   // TODO: IsPacked may not be needed, include it for now.
@@ -524,6 +578,9 @@ public:
   llvm::Type *getLLVMType() const {
     return ArrayType::get(getTypeAtIndex(0)->getLLVMType(), getNumElements());
   }
+
+  // Return a metadata node that describes the type.
+  MDNode *createMetadataReference() const;
 
   bool compare(const DTransSequentialType &Other) const {
     return getNumElements() == Other.getNumElements() &&
@@ -678,9 +735,12 @@ public:
     return FunctionType::get(FuncRetTy, makeArrayRef(DataTypes), isVarArg());
   }
 
-  static DTransFunctionType *
-  get(DTransTypeManager &TM, dtrans::DTransType *DTRetTy,
-      SmallVectorImpl<dtrans::DTransType *> &ParamTypes, bool IsVarArg);
+  // Return a metadata node that describes the type.
+  MDNode *createMetadataReference() const;
+
+  static DTransFunctionType *get(DTransTypeManager &TM, DTransType *DTRetTy,
+                                 SmallVectorImpl<DTransType *> &ParamTypes,
+                                 bool IsVarArg);
 
   // Create a DTransFunctionType, without known types.
   static DTransFunctionType *get(DTransTypeManager &TM, unsigned NumArgs,
@@ -755,6 +815,14 @@ public:
   DTransTypeManager(LLVMContext &Ctx) : Ctx(Ctx) {}
   ~DTransTypeManager();
 
+  // Disallow copying because the class owns all the DTransType pointers.
+  // Disallow movement. The safety analyzer should create the object, and let
+  // the other passes use a reference to it.
+  DTransTypeManager(const DTransTypeManager &) = delete;
+  DTransTypeManager(DTransTypeManager &&) = delete;
+  DTransTypeManager &operator=(const DTransTypeManager &) = delete;
+  DTransTypeManager &operator=(DTransTypeManager &&) = delete;
+
   // Create a DTransAtomicType to represent a void type or first class llvm
   // type. Returns existing type, if one already exists.
   DTransAtomicType *getOrCreateAtomicType(llvm::Type *Ty);
@@ -788,8 +856,8 @@ public:
   // Create a DTransFunctionType with a signature based on the \p DTRetTy and \p
   // ParamTypes. Returns existing type, if one already exists.
   DTransFunctionType *
-  getOrCreateFunctionType(dtrans::DTransType *DTRetTy,
-                          SmallVectorImpl<dtrans::DTransType *> &ParamTypes,
+  getOrCreateFunctionType(DTransType *DTRetTy,
+                          SmallVectorImpl<DTransType *> &ParamTypes,
                           bool IsVarArg);
 
   // We don't supply a method for looking up a type based on an
@@ -821,6 +889,10 @@ public:
   // types, because those are the only types that will have a one-to-one mapping
   // between llvm::Type objects and llvm::DTransType objects.
   DTransType *findType(llvm::Type *Ty) const;
+
+  // Return a vector of all the named structures. i.e. No literal structure
+  // types will be included in the vector returned.
+  std::vector<DTransStructType *> getIdentifiedStructTypes() const;
 
 private:
   void DeleteType(DTransType *DTTy);
@@ -860,7 +932,7 @@ private:
   SmallVector<DTransFunctionType *, 32> FunctionTypeVec;
 };
 
-} // namespace dtrans
+} // namespace dtransOP
 } // end namespace llvm
 
 #endif // INTEL_DTRANS_ANALYSIS_DTRANSTYPES_H

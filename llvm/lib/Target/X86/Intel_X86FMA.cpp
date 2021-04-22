@@ -400,8 +400,8 @@ const FMAOpcodesInfo::FMAOpcodeDesc FMAOpcodesInfo::EVEXOpcodes[15][8] = {
     { X86::VFNMADD132PDZ128r, X86::VFNMADD132PDZ128m, MVT::v2f64  },
     { X86::VFNMADD132PSZ256r, X86::VFNMADD132PSZ256m, MVT::v8f32  },
     { X86::VFNMADD132PDZ256r, X86::VFNMADD132PDZ256m, MVT::v4f64  },
-    { X86::VFNMADD132PSZr,    X86::VFNMADD132PSZm,    MVT::v8f32  },
-    { X86::VFNMADD132PDZr,    X86::VFNMADD132PDZm,    MVT::v4f64  },
+    { X86::VFNMADD132PSZr,    X86::VFNMADD132PSZm,    MVT::v16f32 },
+    { X86::VFNMADD132PDZr,    X86::VFNMADD132PDZm,    MVT::v8f64  },
   },
   { // FNMA231
     { X86::VFNMADD231SSZr,    X86::VFNMADD231SSZm,    MVT::f32    },
@@ -745,6 +745,10 @@ private:
                                const SmallVectorImpl<MachineOperand> &MOs,
                                const DebugLoc &DL);
 
+  MachineInstr *genInstruction(unsigned Opcode,
+                               const SmallVectorImpl<MachineOperand> &MOs,
+                               const DebugLoc &DL);
+
   /// Generates a machine operand for the given FMA term \p Term.
   /// The parameter \p InsertPointMI gives the insertion point for any
   /// additional machine instructions that may need to be generated.
@@ -970,7 +974,6 @@ unsigned X86FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI) {
     std::array<FMANode *, 3u> Ops;
     FMATerm *MemTerm = IsMem ? createMemoryTerm(VT, &MI) : nullptr;
     switch (OpcodeKind) {
-    default: llvm_unreachable("Unexpected opcode kind!");
     case FMAOpcodesInfo::MULOpc: // op1 * op2 + 0
       Ops[0] = createRegisterOrSpecialTerm(VT, MI.getOperand(1));
       Ops[1] =
@@ -1140,6 +1143,20 @@ X86GlobalFMA::genInstruction(unsigned Opcode, unsigned DstReg,
   MachineInstrBuilder MIB(*MF, NewMI);
 
   MIB.add(MachineOperand::CreateReg(DstReg, true));
+  for (auto &MO : MOs)
+    MIB.add(MO);
+
+  return NewMI;
+}
+
+MachineInstr *
+X86GlobalFMA::genInstruction(unsigned Opcode,
+                             const SmallVectorImpl<MachineOperand> &MOs,
+                             const DebugLoc &DL) {
+  const MCInstrDesc &MCID = TII->get(Opcode);
+  MachineInstr *NewMI = MF->CreateMachineInstr(MCID, DL, false);
+  MachineInstrBuilder MIB(*MF, NewMI);
+
   for (auto &MO : MOs)
     MIB.add(MO);
 
@@ -1381,8 +1398,20 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag) {
                               << *MI);
     MBB.erase(MI);
   };
-  for (auto *MI : Expr.getConsumedMIs())
+  for (auto *MI : Expr.getConsumedMIs()) {
+    // Set DBG_VALUE MI's first operand to noreg.
+    if (MI->isDebugValue()) {
+      SmallVector<MachineOperand, 3> MOs;
+      const DebugLoc &DL = MI->getDebugLoc();
+      MachineOperand Noreg = MachineOperand::CreateReg(Register(), false);
+      MOs.push_back(Noreg);
+      for (unsigned i = 1; i < MI->getNumOperands(); i++)
+        MOs.push_back(MI->getOperand(i));
+      MachineInstr *NewMI = genInstruction(MI->getOpcode(), MOs, DL);
+      MBB.insert(MI, NewMI);
+    }
     DeleteMI(MI);
+  }
   DeleteMI(MI);
 }
 

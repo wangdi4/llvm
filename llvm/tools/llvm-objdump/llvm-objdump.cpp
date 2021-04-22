@@ -29,7 +29,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/CodeGen/FaultMaps.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include "llvm/DebugInfo/Intel_TraceBack/TraceContext.h" // INTEL
 #include "llvm/DebugInfo/Symbolize/Symbolize.h"
@@ -50,6 +50,7 @@
 #include "llvm/Object/COFF.h"
 #include "llvm/Object/COFFImportFile.h"
 #include "llvm/Object/ELFObjectFile.h"
+#include "llvm/Object/FaultMapParser.h"
 #include "llvm/Object/MachO.h"
 #include "llvm/Object/MachOUniversal.h"
 #include "llvm/Object/ObjectFile.h"
@@ -364,6 +365,12 @@ cl::opt<std::string> objdump::Prefix("prefix",
                                      cl::desc("Add prefix to absolute paths"),
                                      cl::cat(ObjdumpCat));
 
+cl::opt<uint32_t>
+    objdump::PrefixStrip("prefix-strip",
+                         cl::desc("Strip out initial directories from absolute "
+                                  "paths. No effect without --prefix"),
+                         cl::init(0), cl::cat(ObjdumpCat));
+
 enum DebugVarsFormat {
   DVDisabled,
   DVUnicode,
@@ -455,7 +462,7 @@ std::string objdump::getFileNameForError(const object::Archive::Child &C,
   return "<file index: " + std::to_string(Index) + ">";
 }
 
-void objdump::reportWarning(Twine Message, StringRef File) {
+void objdump::reportWarning(const Twine &Message, StringRef File) {
   // Output order between errs() and outs() matters especially for archive
   // files where the output is per member object.
   outs().flush();
@@ -464,7 +471,7 @@ void objdump::reportWarning(Twine Message, StringRef File) {
 }
 
 LLVM_ATTRIBUTE_NORETURN void objdump::reportError(StringRef File,
-                                                  Twine Message) {
+                                                  const Twine &Message) {
   outs().flush();
   WithColor::error(errs(), ToolName) << "'" << File << "': " << Message << "\n";
   exit(1);
@@ -487,11 +494,11 @@ LLVM_ATTRIBUTE_NORETURN void objdump::reportError(Error E, StringRef FileName,
   exit(1);
 }
 
-static void reportCmdLineWarning(Twine Message) {
+static void reportCmdLineWarning(const Twine &Message) {
   WithColor::warning(errs(), ToolName) << Message << "\n";
 }
 
-LLVM_ATTRIBUTE_NORETURN static void reportCmdLineError(Twine Message) {
+LLVM_ATTRIBUTE_NORETURN static void reportCmdLineError(const Twine &Message) {
   WithColor::error(errs(), ToolName) << Message << "\n";
   exit(1);
 }
@@ -953,8 +960,8 @@ protected:
   std::unordered_map<std::string, std::vector<StringRef>> LineCache;
   // Keep track of missing sources.
   StringSet<> MissingSources;
-  // Only emit 'no debug info' warning once.
-  bool WarnedNoDebugInfo;
+  // Only emit 'invalid debug info' warning once.
+  bool WarnedInvalidDebugInfo = false;
 
 private:
   bool cacheSource(const DILineInfo& LineInfoFile);
@@ -968,8 +975,7 @@ private:
 
 public:
   SourcePrinter() = default;
-  SourcePrinter(const ObjectFile *Obj, StringRef DefaultArch)
-      : Obj(Obj), WarnedNoDebugInfo(false) {
+  SourcePrinter(const ObjectFile *Obj, StringRef DefaultArch) : Obj(Obj) {
     symbolize::LLVMSymbolizer::Options SymbolizerOpts;
     SymbolizerOpts.PrintFunctions =
         DILineInfoSpecifier::FunctionNameKind::LinkageName;
@@ -1024,25 +1030,41 @@ void SourcePrinter::printSourceLine(formatted_raw_ostream &OS,
     return;
 
   DILineInfo LineInfo = DILineInfo();
-  auto ExpectedLineInfo = Symbolizer->symbolizeCode(*Obj, Address);
+  Expected<DILineInfo> ExpectedLineInfo =
+      Symbolizer->symbolizeCode(*Obj, Address);
   std::string ErrorMessage;
-  if (!ExpectedLineInfo)
-    ErrorMessage = toString(ExpectedLineInfo.takeError());
-  else
+  if (ExpectedLineInfo) {
     LineInfo = *ExpectedLineInfo;
-
-  if (LineInfo.FileName == DILineInfo::BadString) {
-    if (!WarnedNoDebugInfo) {
-      std::string Warning =
-          "failed to parse debug information for " + ObjectFilename.str();
-      if (!ErrorMessage.empty())
-        Warning += ": " + ErrorMessage;
-      reportWarning(Warning, ObjectFilename);
-      WarnedNoDebugInfo = true;
-    }
+  } else if (!WarnedInvalidDebugInfo) {
+    WarnedInvalidDebugInfo = true;
+    // TODO Untested.
+    reportWarning("failed to parse debug information: " +
+                      toString(ExpectedLineInfo.takeError()),
+                  ObjectFilename);
   }
 
   if (!Prefix.empty() && sys::path::is_absolute_gnu(LineInfo.FileName)) {
+    // FileName has at least one character since is_absolute_gnu is false for
+    // an empty string.
+    assert(!LineInfo.FileName.empty());
+    if (PrefixStrip > 0) {
+      uint32_t Level = 0;
+      auto StrippedNameStart = LineInfo.FileName.begin();
+
+      // Path.h iterator skips extra separators. Therefore it cannot be used
+      // here to keep compatibility with GNU Objdump.
+      for (auto Pos = StrippedNameStart + 1, End = LineInfo.FileName.end();
+           Pos != End && Level < PrefixStrip; ++Pos) {
+        if (sys::path::is_separator(*Pos)) {
+          StrippedNameStart = Pos;
+          ++Level;
+        }
+      }
+
+      LineInfo.FileName =
+          std::string(StrippedNameStart, LineInfo.FileName.end());
+    }
+
     SmallString<128> FilePath;
     sys::path::append(FilePath, Prefix, LineInfo.FileName);
 
@@ -1485,8 +1507,7 @@ getRelocsMap(object::ObjectFile const &Obj) {
     if (Relocated == Obj.section_end() || !checkSectionFilter(*Relocated).Keep)
       continue;
     std::vector<RelocationRef> &V = Ret[*Relocated];
-    for (const RelocationRef &R : Sec.relocations())
-      V.push_back(R);
+    append_range(V, Sec.relocations());
     // Sort relocations by address.
     llvm::stable_sort(V, isRelocAddressLess);
   }
@@ -3061,9 +3082,9 @@ int main(int argc, char **argv) {
 #endif // INTEL_CUSTOMIZATION
       !(MachOOpt &&
         (Bind || DataInCode || DylibId || DylibsUsed || ExportsTrie ||
-         FirstPrivateHeader || IndirectSymbols || InfoPlist || LazyBind ||
-         LinkOptHints || ObjcMetaData || Rebase || UniversalHeaders ||
-         WeakBind || !FilterSections.empty()))) {
+         FirstPrivateHeader || FunctionStarts || IndirectSymbols || InfoPlist ||
+         LazyBind || LinkOptHints || ObjcMetaData || Rebase ||
+         UniversalHeaders || WeakBind || !FilterSections.empty()))) {
     cl::PrintHelpMessage();
     return 2;
   }

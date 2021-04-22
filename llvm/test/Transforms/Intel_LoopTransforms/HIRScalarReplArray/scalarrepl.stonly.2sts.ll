@@ -58,7 +58,7 @@
 ; RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-scalarrepl-array,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -disable-output -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT
 ;
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT:     Remark: Number of Array Refs Scalar Replaced In Loop: 2
+;OPTREPORT:     remark: Number of Array Refs Scalar Replaced In Loop: 2
 ;OPTREPORT: LOOP END
 
 ; === ---------------------------------------------------------------- ===

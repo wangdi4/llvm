@@ -287,13 +287,22 @@ static int readPrefixes(struct InternalInstruction *insn) {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
       if (isREX(insn, nextByte) || nextByte == 0x0f || nextByte == 0x66 ||
-          insn->isIceCode)
+          insn->isIceCode) {
+        if (insn->isIceCode && byte == 0xf2 &&
+            insn->segmentOverride > SEG_OVERRIDE_NONE &&
+            insn->segmentOverride < SEG_OVERRIDE_PHYSEG_SUPOVR) {
+          insn->segmentOverride += SEG_OVERRIDE_PHYSEG_SUPOVR;
+          break;
+        } else {
+          insn->mandatoryPrefix = byte;
+        }
+      }
 #else // INTEL_FEATURE_ICECODE
       if (isREX(insn, nextByte) || nextByte == 0x0f || nextByte == 0x66)
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
         // The last of 0xf2 /0xf3 is mandatory prefix
         insn->mandatoryPrefix = byte;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
       insn->repeatPrefix = byte;
       break;
     }
@@ -518,6 +527,7 @@ static int readPrefixes(struct InternalInstruction *insn) {
       insn->addressSize = (insn->hasAdSize ? 4 : 8);
       insn->displacementSize = 4;
       insn->immediateSize = 4;
+      insn->hasOpSize = false;
     } else {
       insn->registerSize = (insn->hasOpSize ? 2 : 4);
       insn->addressSize = (insn->hasAdSize ? 4 : 8);
@@ -762,35 +772,31 @@ static int readModRM(struct InternalInstruction *insn) {
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_LNC
 #define TMM_TYPE(prefix)                                                       \
     case TYPE_TMM:                                                             \
       return prefix##_TMM0 + index;
 #define TMM_TYPE_PAIR(prefix)                                                  \
     case TYPE_TMM_PAIR:                                                        \
-      return prefix##_TMM0_TMM1 + (index / 2 );
-#else // INTEL_FEATURE_ISA_AMX
+      return prefix##_TMM0_TMM1 + (index / 2);
+// We don't use tuple registers here. Just pick either ZMM0 or ZMM16.
+#define ZMM16_TYPE_TUPLES(prefix)                                              \
+    case TYPE_ZMM16_TUPLES:                                                    \
+      return prefix##_ZMM0 + (index / 16) * 16;
+#else // INTEL_FEATURE_ISA_AMX_LNC
 #define TMM_TYPE(prefix)                                                       \
     case TYPE_TMM:                                                             \
       if (index > 7)                                                           \
         *valid = 0;                                                            \
       return prefix##_TMM0 + index;
 #define TMM_TYPE_PAIR(prefix)
-#endif // INTEL_FEATURE_ISA_AMX
-
-#if INTEL_FEATURE_ISA_AMX_LNC
-// We don't use tuple registers here. Just pick either ZMM0 or ZMM16.
-#define ZMM16_TYPE_TUPLES(prefix)                                              \
-    case TYPE_ZMM16_TUPLES:                                                    \
-      return prefix##_ZMM0 + (index / 16) * 16;
-#else // INTEL_FEATURE_ISA_AMX_LNC
 #define ZMM16_TYPE_TUPLES(prefix)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #define TMM_TYPE_QUAD(prefix)                                                  \
     case TYPE_TMM_QUAD:                                                        \
-      return prefix##_TMM0_TMM1_TMM2_TMM3 + (index / 4 );
+      return prefix##_TMM0_TMM1_TMM2_TMM3 + (index / 4);
 #else // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #define TMM_TYPE_QUAD(prefix)
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
@@ -1981,7 +1987,18 @@ static const uint8_t segmentRegnums[SEG_OVERRIDE_max] = {
   X86::DS,
   X86::ES,
   X86::FS,
-  X86::GS
+#if INTEL_CUSTOMIZATION
+  X86::GS,
+#if INTEL_FEATURE_ICECODE
+  X86::PHYSEG_SUPOVR,
+  X86::LDTR,
+  X86::IDTR,
+  X86::TR,
+  X86::GDTR,
+  X86::LINSEG_NOSUPOVR,
+  X86::LINSEG_SUPOVR,
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// translateSrcIndex   - Appends a source index operand to an MCInst.
@@ -2358,10 +2375,8 @@ static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
   case TYPE_YMM:
   case TYPE_ZMM:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-  case TYPE_TMM_PAIR:
-#endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_LNC
+  case TYPE_TMM_PAIR:
   case TYPE_ZMM16_TUPLES:
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2

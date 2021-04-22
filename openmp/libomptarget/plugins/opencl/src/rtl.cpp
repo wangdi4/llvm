@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #ifdef _WIN32
 #include <fcntl.h>
@@ -40,6 +41,7 @@
 #include <unistd.h>
 #endif
 
+#include "elf_light.h"
 #include "omptargetplugin.h"
 #include "omptarget-tools.h"
 #include "rtl-trace.h"
@@ -101,6 +103,44 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
 };
 #endif // !defined(_WIN32)
 
+/// Interop support
+namespace OCLInterop {
+  // ID and names from openmp.org
+  const int32_t Vendor = 8;
+  const char *VendorName = GETNAME(intel);
+  const int32_t FrId = 3;
+  const char *FrName = GETNAME(opencl);
+
+  // targetsync = -9, device_context = -8, ...,  fr_id = -1
+  std::vector<const char *> IprNames {
+    "targetsync",
+    "device_context",
+    "device",
+    "platform",
+    "device_num",
+    "vendor_name",
+    "vendor",
+    "fr_name",
+    "fr_id"
+  };
+
+  std::vector<const char *> IprTypeDescs {
+    "cl_command_queue, opencl command queue handle",
+    "cl_context, opencl context handle",
+    "cl_device_id, opencl device handle",
+    "cl_platform_id, opencl platform handle",
+    "intptr_t, OpenMP device ID",
+    "const char *, vendor name",
+    "intptr_t, vendor ID",
+    "const char *, foreign runtime name",
+    "intptr_t, foreign runtime ID"
+  };
+
+  struct Property {
+    // TODO
+  };
+}
+
 int DebugLevel = 0;
 
 #ifdef __cplusplus
@@ -161,24 +201,68 @@ struct ProfileDataTy {
 
   std::map<std::string, TimingsTy> data;
 
+  std::string alignLeft(size_t Width, std::string Str) {
+    if (Str.size() < Width)
+      return Str + std::string(Width - Str.size(), ' ');
+    return Str;
+  }
+
   void printData(int32_t deviceId, int32_t threadId, const char *deviceName,
                  int64_t resolution) {
-    fprintf(stderr, "LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s, "
-            "Thread %" PRId32 "\n", deviceId, deviceName, threadId);
-    const char *units = resolution == 1000 ? "msec" : "usec";
-    fprintf(stderr, "-- Name:\tHost Time (%s)\tDevice Time (%s)\n",
-            units, units);
-    double host_total = 0.0;
-    double device_total = 0.0;
-    for (const auto &d : data) {
-      double host_time = 1e-9 * d.second.host * resolution;
-      double device_time = 1e-9 * d.second.device * resolution;
-      fprintf(stderr, "-- %s:\t%.3f\t%.3f\n", d.first.c_str(),
-              host_time, device_time);
-      host_total += host_time;
-      device_total += device_time;
+    std::string profileSep(80, '=');
+    std::string lineSep(80, '-');
+
+    fprintf(stderr, "%s\n", profileSep.c_str());
+
+    fprintf(stderr, "LIBOMPTARGET_PLUGIN_PROFILE(%s) for OMP DEVICE(%" PRId32
+            ") %s, Thread %" PRId32 "\n", GETNAME(TARGET_NAME), deviceId,
+            deviceName, threadId);
+
+    fprintf(stderr, "%s\n", lineSep.c_str());
+
+    const char *unit = resolution == 1000 ? "msec" : "usec";
+
+    std::string kernelPrefix("Kernel ");
+    size_t maxKeyLength = kernelPrefix.size() + 3;
+    for (const auto &d : data)
+      if (d.first.substr(0, kernelPrefix.size()) != kernelPrefix &&
+          maxKeyLength < d.first.size())
+        maxKeyLength = d.first.size();
+
+    // Print kernel key and name
+    int kernelId = 0;
+    for (const auto &d: data) {
+      if (d.first.substr(0, kernelPrefix.size()) == kernelPrefix)
+        fprintf(stderr, "-- %s: %s\n",
+                alignLeft(maxKeyLength, kernelPrefix +
+                          std::to_string(kernelId++)).c_str(),
+                d.first.substr(kernelPrefix.size()).c_str());
     }
-    fprintf(stderr, "-- Total:\t%.3f\t%.3f\n", host_total, device_total);
+
+    fprintf(stderr, "%s\n", lineSep.c_str());
+
+    fprintf(stderr, "-- %s:     Host Time (%s)   Device Time (%s)\n",
+            alignLeft(maxKeyLength, "Name").c_str(), unit, unit);
+
+    double hostTotal = 0.0;
+    double deviceTotal = 0.0;
+    kernelId = 0;
+    for (const auto &d : data) {
+      double hostTime = 1e-9 * d.second.host * resolution;
+      double deviceTime = 1e-9 * d.second.device * resolution;
+      std::string key(d.first);
+
+      if (d.first.substr(0, kernelPrefix.size()) == kernelPrefix)
+        key = kernelPrefix + std::to_string(kernelId++);
+
+      fprintf(stderr, "-- %s: %20.3f %20.3f\n",
+              alignLeft(maxKeyLength, key).c_str(), hostTime, deviceTime);
+      hostTotal += hostTime;
+      deviceTotal += deviceTime;
+    }
+    fprintf(stderr, "-- %s: %20.3f %20.3f\n",
+            alignLeft(maxKeyLength, "Total").c_str(), hostTotal, deviceTotal);
+    fprintf(stderr, "%s\n", profileSep.c_str());
   }
 
   // for non-event profile
@@ -219,7 +303,7 @@ struct PlatformInfoTy {
   cl_platform_id Platform = nullptr;
   cl_context Context = nullptr;
   std::vector<const char *> ExtensionFunctionNames {
-#define EXTENSION_FN_NAME(Fn) TO_STRING(Fn##INTEL),
+#define EXTENSION_FN_NAME(Fn) TO_STRING(Fn),
       FOR_EACH_EXTENSION_FN(EXTENSION_FN_NAME)
   };
   std::vector<void *> ExtensionFunctionPointers;
@@ -346,6 +430,8 @@ struct ProgramData {
   int DeviceNum = -1;
   uint32_t TotalEUs = 0;
   uint32_t HWThreadsPerEU = 0;
+  uintptr_t DynamicMemoryLB = 0;
+  uintptr_t DynamicMemoryUB = 0;
 };
 
 /// RTL flags
@@ -358,8 +444,11 @@ struct RTLFlagsTy {
   uint64_t UseDriverGroupSizes : 1;
   uint64_t EnableSimd : 1;
   uint64_t UseSVM : 1;
+  uint64_t UseBuffer : 1;
+  uint64_t UseSingleContext : 1;
+  uint64_t UseImageOptions : 1;
   // Add new flags here
-  uint64_t Reserved : 56;
+  uint64_t Reserved : 53;
   RTLFlagsTy() :
       CollectDataTransferLatency(0),
       EnableProfile(0),
@@ -368,7 +457,10 @@ struct RTLFlagsTy {
       UseHostMemForUSM(0),
       UseDriverGroupSizes(0),
       EnableSimd(0),
-      UseSVM(1), // TODO: Set it to 0 when MKL is ready.
+      UseSVM(0),
+      UseBuffer(0),
+      UseSingleContext(0),
+      UseImageOptions(1),
       Reserved(0) {}
 };
 
@@ -376,6 +468,41 @@ struct RTLFlagsTy {
 struct KernelPropertiesTy {
   size_t Width = 0;
   size_t MaxThreadGroupSize = 0;
+};
+
+/// Specialization constants used for an OpenCL program compilation.
+class SpecConstantsTy {
+  std::vector<uint32_t> ConstantIds;
+  std::vector<size_t> ConstantValueSizes;
+  std::vector<const void *> ConstantValues;
+
+public:
+  SpecConstantsTy() = default;
+  SpecConstantsTy(const SpecConstantsTy &) = delete;
+  SpecConstantsTy(const SpecConstantsTy &&Other)
+    : ConstantIds(std::move(Other.ConstantIds)),
+      ConstantValueSizes(std::move(Other.ConstantValueSizes)),
+      ConstantValues(std::move(Other.ConstantValues)) {}
+
+  ~SpecConstantsTy() {
+    for (auto I : ConstantValues) {
+      const char *ValuePtr = reinterpret_cast<const char *>(I);
+      delete[] ValuePtr;
+    }
+  }
+
+  template <typename T>
+  void addConstant(uint32_t Id, T Val) {
+    const size_t ValSize = sizeof(Val);
+    char *ValuePtr = new char[ValSize];
+    *reinterpret_cast<T *>(ValuePtr) = Val;
+
+    ConstantIds.push_back(Id);
+    ConstantValueSizes.push_back(ValSize);
+    ConstantValues.push_back(reinterpret_cast<void *>(ValuePtr));
+  }
+
+  void setProgramConstants(int32_t DeviceId, cl_program Program) const;
 };
 
 /// Class containing all the device information.
@@ -402,6 +529,7 @@ public:
 
   // per device information
   std::vector<cl_platform_id> Platforms;
+  std::vector<cl_context> Contexts;
   std::vector<cl_device_id> deviceIDs;
   // Internal device type ID
   std::vector<uint64_t> DeviceArchs;
@@ -425,6 +553,9 @@ public:
   std::mutex *Mutexes;
   std::mutex *ProfileLocks;
   std::vector<std::vector<DeviceOffloadEntryTy>> OffloadTables;
+  std::vector<std::set<void *>> ClMemBuffers;
+  // Memory owned by the plugin
+  std::vector<std::vector<void *>> OwnedMemory;
 
   // Requires flags
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
@@ -454,6 +585,9 @@ public:
   // Limit for the number of WGs.
   uint32_t NumTeams = 0;
 
+  /// Dynamic kernel memory size
+  size_t KernelDynamicMemorySize = 0; // Turned off by default
+
   // This is a factor applied to the number of WGs computed
   // for the execution, based on the HW characteristics.
   size_t SubscriptionRate = 1;
@@ -461,6 +595,9 @@ public:
   size_t ForcedLocalSizes[3] = {0, 0, 0};
   size_t ForcedGlobalSizes[3] = {0, 0, 0};
 #endif // INTEL_INTERNAL_BUILD
+
+  // Spec constants used for all OpenCL programs.
+  SpecConstantsTy CommonSpecConstants;
 
   RTLDeviceInfoTy() : numDevices(0), DataTransferLatency(0),
       DataTransferMethod(DATA_TRANSFER_METHOD_SVMMAP) {
@@ -622,11 +759,32 @@ public:
     // Read LIBOMPTARGET_OPENCL_USE_SVM
     if ((env = readEnvVar("LIBOMPTARGET_OPENCL_USE_SVM"))) {
       if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
-        // This is current default. TODO: remove this comment after we switch
-        // to Flags.UseSVM=0 by default.
         Flags.UseSVM = 1;
       else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
         Flags.UseSVM = 0;
+    }
+
+    // Read LIBOMPTARGET_OPENCL_USE_BUFFER
+    if ((env = readEnvVar("LIBOMPTARGET_OPENCL_USE_BUFFER"))) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.UseBuffer = 1;
+    }
+
+    // Read LIBOMPTARGET_USE_SINGLE_CONTEXT
+    if ((env = readEnvVar("LIBOMPTARGET_USE_SINGLE_CONTEXT"))) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.UseSingleContext = 1;
+    }
+
+    // Read LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<SizeInMB>
+    if ((env = readEnvVar("LIBOMPTARGET_DYNAMIC_MEMORY_SIZE"))) {
+      size_t value = std::stoi(env);
+      const size_t maxValue = 2048;
+      if (value > maxValue) {
+        IDP("Adjusted dynamic memory size to %zu MB\n", maxValue);
+        value = maxValue;
+      }
+      KernelDynamicMemorySize = value << 20;
     }
 
 #if INTEL_INTERNAL_BUILD
@@ -638,6 +796,21 @@ public:
       parseGroupSizes("LIBOMPTARGET_GLOBAL_WG_SIZE", env, ForcedGlobalSizes);
     }
 #endif // INTEL_INTERNAL_BUILD
+
+    if ((env = readEnvVar("INTEL_LIBITTNOTIFY64"))) {
+      // INTEL_LIBITTNOTIFY64 points to ittnotify_collector library.
+      // Ignore empty path, but, otherwise, do not analyze it.
+      if (env[0] != '\0') {
+        CommonSpecConstants.addConstant<char>(0xFF747469, 1);
+      }
+    }
+
+    if ((env = readEnvVar("LIBOMPTARGET_ONEAPI_USE_IMAGE_OPTIONS"))) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.UseImageOptions = 1;
+      else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
+        Flags.UseImageOptions = 0;
+    }
   }
 
   /// Read environment variable value with optional deprecated name
@@ -687,8 +860,10 @@ public:
 
   /// Return context for the given device ID
   cl_context getContext(int32_t DeviceId) {
-    auto platformId = Platforms[DeviceId];
-    return PlatformInfos[platformId].Context;
+    if (Flags.UseSingleContext)
+      return PlatformInfos[Platforms[DeviceId]].Context;
+    else
+      return Contexts[DeviceId];
   }
 
   /// Return the extension function pointer for the given ID
@@ -709,19 +884,19 @@ public:
       return false;
 
     switch (ExtensionId) {
-    case clGetMemAllocInfoId:
-    case clHostMemAllocId:
-    case clDeviceMemAllocId:
-    case clSharedMemAllocId:
-    case clMemFreeId:
-    case clSetKernelArgMemPointerId:
-    case clEnqueueMemcpyId:
+    case clGetMemAllocInfoINTELId:
+    case clHostMemAllocINTELId:
+    case clDeviceMemAllocINTELId:
+    case clSharedMemAllocINTELId:
+    case clMemFreeINTELId:
+    case clSetKernelArgMemPointerINTELId:
+    case clEnqueueMemcpyINTELId:
       return Extensions[DeviceId].UnifiedSharedMemory == ExtensionStatusEnabled;
 #if INTEL_CUSTOMIZATION
-    case clGetDeviceGlobalVariablePointerId:
+    case clGetDeviceGlobalVariablePointerINTELId:
       return Extensions[DeviceId].GetDeviceGlobalVariablePointer ==
           ExtensionStatusEnabled;
-    case clGetKernelSuggestedLocalWorkSizeId:
+    case clGetKernelSuggestedLocalWorkSizeINTELId:
       return Extensions[DeviceId].SuggestedGroupSize == ExtensionStatusEnabled;
 #endif // INTEL_CUSTOMIZATION
     default:
@@ -747,6 +922,9 @@ public:
 
   /// Initialize program data on device
   int32_t initProgramData(int32_t DeviceId);
+
+  /// Allocate cl_mem data
+  void *allocDataClMem(int32_t DeviceId, size_t Size);
 };
 
 #ifdef _WIN32
@@ -948,14 +1126,25 @@ static void closeRTL() {
     }
     // No entries may exist if offloading was done through MKL
     if (DeviceInfo->FuncGblEntries[i].Program)
-       CALL_CL_EXIT_FAIL(clReleaseProgram, DeviceInfo->FuncGblEntries[i].Program);
+      CALL_CL_EXIT_FAIL(clReleaseProgram, DeviceInfo->FuncGblEntries[i].Program);
+
     CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->Queues[i]);
+
     if (DeviceInfo->QueuesInOrder[i])
       CALL_CL_EXIT_FAIL(clReleaseCommandQueue, DeviceInfo->QueuesInOrder[i]);
+
     DeviceInfo->unloadOffloadTable(i);
+
+    for (auto mem : DeviceInfo->OwnedMemory[i])
+      CALL_CL_EXT_VOID(i, clMemFreeINTEL, DeviceInfo->getContext(i), mem);
+
+    if (!DeviceInfo->Flags.UseSingleContext)
+      CALL_CL_EXIT_FAIL(clReleaseContext, DeviceInfo->Contexts[i]);
   }
-  for (auto platformInfo : DeviceInfo->PlatformInfos)
-    CALL_CL_EXIT_FAIL(clReleaseContext, platformInfo.second.Context);
+
+  if (DeviceInfo->Flags.UseSingleContext)
+    for (auto platformInfo : DeviceInfo->PlatformInfos)
+      CALL_CL_EXIT_FAIL(clReleaseContext, platformInfo.second.Context);
 
   delete[] DeviceInfo->Mutexes;
   delete[] DeviceInfo->ProfileLocks;
@@ -1004,17 +1193,33 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t deviceId) {
     numThreadsPerEU = 1;
   }
 
+  // Allocate dynamic memory for in-kernel allocation
+  void *memLB = 0;
+  uintptr_t memUB = 0;
+  if (KernelDynamicMemorySize > 0) {
+    cl_int rc;
+    CALL_CL_EXT_RVRC(deviceId, memLB, clDeviceMemAllocINTEL, rc,
+                     getContext(deviceId), deviceIDs[deviceId], nullptr,
+                     KernelDynamicMemorySize, 0);
+  }
+  if (memLB) {
+    OwnedMemory[deviceId].push_back(memLB);
+    memUB = (uintptr_t)memLB + KernelDynamicMemorySize;
+  }
+
   ProgramData hostData = {
     1,                   // Initialized
     (int32_t)numDevices, // Number of devices
     deviceId,            // Device ID
     totalEUs,            // Total EUs
-    numThreadsPerEU      // HW threads per EU
+    numThreadsPerEU,     // HW threads per EU
+    (uintptr_t)memLB,    // Dynamic memory LB
+    memUB                // Dynamic memory UB
   };
 
 #if INTEL_CUSTOMIZATION
   if (!isExtensionFunctionEnabled(
-        deviceId, clGetDeviceGlobalVariablePointerId)) {
+        deviceId, clGetDeviceGlobalVariablePointerINTELId)) {
     IDP("Warning: cannot initialize program data on device.\n");
     return OFFLOAD_SUCCESS;
   }
@@ -1026,8 +1231,9 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t deviceId) {
     return OFFLOAD_SUCCESS;
   }
 
-  CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, Queues[deviceId], CL_TRUE, dataPtr,
-                   &hostData, sizeof(hostData), 0, nullptr, nullptr);
+  CALL_CL_EXT_RET_FAIL(deviceId, clEnqueueMemcpyINTEL, Queues[deviceId],
+                       CL_TRUE, dataPtr, &hostData, sizeof(hostData), 0,
+                       nullptr, nullptr);
 #endif // INTEL_CUSTOMIZATION
 
   return OFFLOAD_SUCCESS;
@@ -1072,14 +1278,15 @@ void *RTLDeviceInfoTy::getVarDeviceAddr(
      "Looking up device global variable '%s' of size %zu bytes on device %d.\n",
      Name, Size, DeviceId);
 #if INTEL_CUSTOMIZATION
-  if (!isExtensionFunctionEnabled(DeviceId, clGetDeviceGlobalVariablePointerId))
+  if (!isExtensionFunctionEnabled(DeviceId,
+                                  clGetDeviceGlobalVariablePointerINTELId))
     return nullptr;
 
   cl_int rc;
   auto clGetDeviceGlobalVariablePointerINTELFn =
       reinterpret_cast<clGetDeviceGlobalVariablePointerINTEL_fn>(
           getExtensionFunctionPtr(
-              DeviceId, clGetDeviceGlobalVariablePointerId));
+              DeviceId, clGetDeviceGlobalVariablePointerINTELId));
   rc = clGetDeviceGlobalVariablePointerINTELFn(deviceIDs[DeviceId],
       FuncGblEntries[DeviceId].Program, Name, &DeviceSize, &TgtAddr);
 
@@ -1119,8 +1326,9 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
   }
 
   int64_t TableSizeVal = 0;
-  __tgt_rtl_data_retrieve(DeviceId, &TableSizeVal,
-                          OffloadTableSizeVarAddr, sizeof(int64_t));
+  CALL_CL_EXT_RET(DeviceId, false, clEnqueueMemcpyINTEL, Queues[DeviceId],
+                  CL_TRUE, &TableSizeVal, OffloadTableSizeVarAddr,
+                  sizeof(int64_t), 0, nullptr, nullptr);
   size_t TableSize = (size_t)TableSizeVal;
 
   if ((TableSize % sizeof(DeviceOffloadEntryTy)) != 0) {
@@ -1147,8 +1355,9 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
   }
 
   OffloadTables[DeviceId].resize(DeviceNumEntries);
-  __tgt_rtl_data_retrieve(DeviceId, OffloadTables[DeviceId].data(),
-                          OffloadTableVarAddr, TableSize);
+  CALL_CL_EXT_RET(DeviceId, false, clEnqueueMemcpyINTEL, Queues[DeviceId],
+                  CL_TRUE, OffloadTables[DeviceId].data(), OffloadTableVarAddr,
+                  TableSize, 0, nullptr, nullptr);
   std::vector<DeviceOffloadEntryTy> &DeviceTable = OffloadTables[DeviceId];
 
   size_t I = 0;
@@ -1165,10 +1374,15 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
       IDP("Warning: offload entry (%zu) with 0 size.\n", I);
       break;
     }
+    if (NameTgtAddr == nullptr) {
+      IDP("Warning: offload entry (%zu) with invalid name.\n", I);
+      break;
+    }
 
     Entry.Base.name = new char[NameSize];
-    __tgt_rtl_data_retrieve(DeviceId, Entry.Base.name,
-                            NameTgtAddr, NameSize);
+    CALL_CL_EXT_RET(DeviceId, false, clEnqueueMemcpyINTEL, Queues[DeviceId],
+                    CL_TRUE, Entry.Base.name, NameTgtAddr, NameSize, 0, nullptr,
+                    nullptr);
     if (strnlen(Entry.Base.name, NameSize) != NameSize - 1) {
       IDP("Warning: offload entry's name has wrong size.\n");
       break;
@@ -1218,6 +1432,46 @@ void RTLDeviceInfoTy::unloadOffloadTable(int32_t DeviceId) {
     delete[] E.Base.name;
 
   OffloadTables[DeviceId].clear();
+}
+
+void *RTLDeviceInfoTy::allocDataClMem(int32_t DeviceId, size_t Size) {
+  cl_mem ret = nullptr;
+  cl_int rc;
+
+  CALL_CL_RVRC(ret, clCreateBuffer, rc, getContext(DeviceId),
+               CL_MEM_READ_WRITE, Size, nullptr);
+  if (rc != CL_SUCCESS)
+    return nullptr;
+
+  std::unique_lock<std::mutex> lock(Mutexes[DeviceId]);
+  ClMemBuffers[DeviceId].insert((void *)ret);
+
+  IDP("Allocated cl_mem data " DPxMOD "\n", DPxPTR(ret));
+  return (void *)ret;
+}
+
+
+void SpecConstantsTy::setProgramConstants(
+    int32_t DeviceId, cl_program Program) const {
+  cl_int Rc;
+
+  if (!DeviceInfo->isExtensionFunctionEnabled(
+          DeviceId, clSetProgramSpecializationConstantId)) {
+    IDP("Error: Extension %s is not supported.\n",
+        DeviceInfo->getExtensionFunctionName(
+            DeviceId, clSetProgramSpecializationConstantId));
+    return;
+  }
+
+  for (int I = ConstantValues.size(); I > 0; --I) {
+    cl_uint Id = static_cast<cl_uint>(ConstantIds[I - 1]);
+    size_t Size = ConstantValueSizes[I - 1];
+    const void *Val = ConstantValues[I - 1];
+    CALL_CL_EXT_SILENT(DeviceId, Rc, clSetProgramSpecializationConstant,
+                       Program, Id, Size, Val);
+    if (Rc == CL_SUCCESS)
+      IDP("Set specialization constant '0x%X'\n", static_cast<int32_t>(Id));
+  }
 }
 
 #ifdef __cplusplus
@@ -1287,13 +1541,71 @@ int32_t ExtensionsTy::getExtensionsInfoForDevice(int32_t DeviceNum) {
   return CL_SUCCESS;
 }
 
+// FIXME: move this to llvm/BinaryFormat/ELF.h and elf.h:
+#define NT_INTEL_ONEOMP_OFFLOAD_VERSION 1
+#define NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT 2
+#define NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX 3
+
+static bool isValidOneOmpImage(__tgt_device_image *Image,
+                               uint64_t &MajorVer,
+                               uint64_t &MinorVer) {
+  char *ImgBegin = reinterpret_cast<char *>(Image->ImageStart);
+  char *ImgEnd = reinterpret_cast<char *>(Image->ImageEnd);
+  size_t ImgSize = ImgEnd - ImgBegin;
+  ElfL E(ImgBegin, ImgSize);
+  if (!E.isValidElf()) {
+    DP("Warning: unable to get ELF handle: %s!\n", E.getErrmsg(-1));
+    return false;
+  }
+
+  for (auto I = E.section_notes_begin(), IE = E.section_notes_end(); I != IE;
+       ++I) {
+    ElfLNote Note = *I;
+    if (Note.getNameSize() == 0)
+      continue;
+    std::string NameStr(Note.getName(), Note.getNameSize());
+    if (NameStr != "INTELONEOMPOFFLOAD")
+      continue;
+    uint64_t Type = Note.getType();
+    if (Type != NT_INTEL_ONEOMP_OFFLOAD_VERSION)
+      continue;
+    std::string DescStr(reinterpret_cast<const char *>(Note.getDesc()),
+                        Note.getDescSize());
+    auto DelimPos = DescStr.find('.');
+    if (DelimPos == std::string::npos) {
+      // The version has to look like "Major#.Minor#".
+      DP("Invalid NT_INTEL_ONEOMP_OFFLOAD_VERSION: '%s'\n", DescStr.c_str());
+      return false;
+    }
+    std::string MajorVerStr = DescStr.substr(0, DelimPos);
+    DescStr.erase(0, DelimPos + 1);
+    MajorVer = std::stoull(MajorVerStr);
+    MinorVer = std::stoull(DescStr);
+    bool isSupported = (MajorVer == 1 && MinorVer == 0);
+    return isSupported;
+  }
+
+  return false;
+}
+
 EXTERN
-int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *image) {
-  uint32_t magicWord = *(uint32_t *)image->ImageStart;
+int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
+  uint64_t MajorVer, MinorVer;
+  if (isValidOneOmpImage(Image, MajorVer, MinorVer)) {
+    DP("Target binary is a valid oneAPI OpenMP image.\n");
+    return 1;
+  }
+
+  DP("Target binary is *not* a valid oneAPI OpenMP image.\n");
+
+  // Fallback to legacy behavior, when the image is a plain
+  // SPIR-V file.
+  uint32_t MagicWord = *(uint32_t *)Image->ImageStart;
   // compare magic word in little endian and big endian:
-  int32_t ret = (magicWord == 0x07230203 || magicWord == 0x03022307);
-  IDP("Target binary is %s\n", ret ? "VALID" : "INVALID");
-  return ret;
+  int32_t Ret = (MagicWord == 0x07230203 || MagicWord == 0x03022307);
+  IDP("Target binary is %s\n", Ret ? "VALID" : "INVALID");
+
+  return Ret;
 }
 
 /// Convert device name to device arch.
@@ -1368,16 +1680,17 @@ int32_t __tgt_rtl_number_of_devices() {
     std::vector<cl_device_id> devices(numDevices);
     CALL_CL_RET_ZERO(clGetDeviceIDs, id, DeviceInfo->DeviceType, numDevices,
                      devices.data(), nullptr);
-    cl_context_properties contextProperties[] = {
-        CL_CONTEXT_PLATFORM,
-        (cl_context_properties)id,
-        0
-    };
+
     cl_context context = nullptr;
-    CALL_CL_RVRC(context, clCreateContext, rc, contextProperties,
-                 devices.size(), devices.data(), nullptr, nullptr);
-    if (rc != CL_SUCCESS)
-      continue;
+    if (DeviceInfo->Flags.UseSingleContext) {
+      cl_context_properties contextProperties[] = {
+          CL_CONTEXT_PLATFORM, (cl_context_properties)id, 0
+      };
+      CALL_CL_RVRC(context, clCreateContext, rc, contextProperties,
+                   devices.size(), devices.data(), nullptr, nullptr);
+      if (rc != CL_SUCCESS)
+        continue;
+    }
 
     DeviceInfo->PlatformInfos.emplace(id, PlatformInfoTy(id, context));
     for (auto device : devices) {
@@ -1387,6 +1700,8 @@ int32_t __tgt_rtl_number_of_devices() {
     DeviceInfo->numDevices += numDevices;
   }
 
+  if (!DeviceInfo->Flags.UseSingleContext)
+    DeviceInfo->Contexts.resize(DeviceInfo->numDevices);
   DeviceInfo->maxExecutionUnits.resize(DeviceInfo->numDevices);
   DeviceInfo->maxWorkGroupSize.resize(DeviceInfo->numDevices);
   DeviceInfo->Extensions.resize(DeviceInfo->numDevices);
@@ -1395,6 +1710,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->FuncGblEntries.resize(DeviceInfo->numDevices);
   DeviceInfo->KernelProperties.resize(DeviceInfo->numDevices);
   DeviceInfo->Buffers.resize(DeviceInfo->numDevices);
+  DeviceInfo->ClMemBuffers.resize(DeviceInfo->numDevices);
   DeviceInfo->ImplicitArgs.resize(DeviceInfo->numDevices);
   DeviceInfo->Profiles.resize(DeviceInfo->numDevices);
   DeviceInfo->Names.resize(DeviceInfo->numDevices);
@@ -1406,6 +1722,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->Mutexes = new std::mutex[DeviceInfo->numDevices];
   DeviceInfo->ProfileLocks = new std::mutex[DeviceInfo->numDevices];
   DeviceInfo->OffloadTables.resize(DeviceInfo->numDevices);
+  DeviceInfo->OwnedMemory.resize(DeviceInfo->numDevices);
 
   // get device specific information
   for (unsigned i = 0; i < DeviceInfo->numDevices; i++) {
@@ -1470,6 +1787,19 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   if (DeviceInfo->Flags.EnableProfile)
     qProperties.back() |= CL_QUEUE_PROFILING_ENABLE;
   qProperties.push_back(0);
+
+  if (!DeviceInfo->Flags.UseSingleContext) {
+    auto platform = DeviceInfo->Platforms[device_id];
+    auto device = DeviceInfo->deviceIDs[device_id];
+    cl_context_properties contextProperties[] = {
+        CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0
+    };
+    cl_int rc;
+    CALL_CL_RVRC(DeviceInfo->Contexts[device_id], clCreateContext, rc,
+                 contextProperties, 1, &device, nullptr, nullptr);
+    if (rc != CL_SUCCESS)
+      return OFFLOAD_FAIL;
+  }
 
   auto deviceID = DeviceInfo->deviceIDs[device_id];
   auto context = DeviceInfo->getContext(device_id);
@@ -1597,6 +1927,8 @@ static cl_program createProgramFromFile(
       return nullptr;
     }
 
+    DeviceInfo->CommonSpecConstants.setProgramConstants(device_id, program);
+
     CALL_CL(status, clCompileProgram, program, 0, nullptr, options.c_str(), 0,
             nullptr, nullptr, nullptr, nullptr);
     if (status != CL_SUCCESS) {
@@ -1612,6 +1944,194 @@ static cl_program createProgramFromFile(
   return nullptr;
 }
 
+static cl_program getOpenCLProgramForImage(int32_t DeviceId,
+                                           __tgt_device_image *Image,
+                                           std::string &CompilationOptions,
+                                           std::string &LinkingOptions,
+                                           bool &IsBinary) {
+  cl_int Status;
+
+  uint64_t MajorVer, MinorVer;
+  if (!isValidOneOmpImage(Image, MajorVer, MinorVer)) {
+    // Handle legacy plain SPIR-V image.
+    char *ImgBegin = reinterpret_cast<char *>(Image->ImageStart);
+    char *ImgEnd = reinterpret_cast<char *>(Image->ImageEnd);
+    size_t ImgSize = ImgEnd - ImgBegin;
+    dumpImageToFile(ImgBegin, ImgSize, "OpenMP");
+    cl_program Program;
+    CALL_CL_RVRC(Program, clCreateProgramWithIL, Status,
+                 DeviceInfo->getContext(DeviceId),
+                 ImgBegin, ImgSize);
+    if (Status != CL_SUCCESS) {
+      debugPrintBuildLog(Program, DeviceInfo->deviceIDs[DeviceId]);
+      IDP("Error: Failed to create program: %d\n", Status);
+      return nullptr;
+    }
+
+    return Program;
+  }
+
+  // Iterate over the images and pick the first one that fits.
+  char *ImgBegin = reinterpret_cast<char *>(Image->ImageStart);
+  char *ImgEnd = reinterpret_cast<char *>(Image->ImageEnd);
+  size_t ImgSize = ImgEnd - ImgBegin;
+  ElfL E(ImgBegin, ImgSize);
+  assert(E.isValidElf() &&
+         "isValidOneOmpImage() returns true for invalid ELF image.");
+  assert(MajorVer == 1 && MinorVer == 0 &&
+         "FIXME: update image processing for new oneAPI OpenMP version.");
+  // Collect auxiliary information.
+  uint64_t ImageCount = 0;
+  uint64_t MaxImageIdx = 0;
+  struct V1ImageInfo {
+    // 0 - native, 1 - SPIR-V
+    uint64_t Format =  (std::numeric_limits<uint64_t>::max)();
+    std::string CompileOpts;
+    std::string LinkOpts;
+    const uint8_t *Begin;
+    uint64_t Size;
+
+    V1ImageInfo(uint64_t Format, std::string CompileOpts,
+                std::string LinkOpts, const uint8_t *Begin, uint64_t Size)
+      : Format(Format), CompileOpts(CompileOpts),
+        LinkOpts(LinkOpts), Begin(Begin), Size(Size) {}
+  };
+
+  std::unordered_map<uint64_t, V1ImageInfo> AuxInfo;
+
+  for (auto I = E.section_notes_begin(), IE = E.section_notes_end(); I != IE;
+       ++I) {
+    ElfLNote Note = *I;
+    if (Note.getNameSize() == 0)
+      continue;
+    std::string NameStr(Note.getName(), Note.getNameSize());
+    if (NameStr != "INTELONEOMPOFFLOAD")
+      continue;
+    uint64_t Type = Note.getType();
+    std::string DescStr(reinterpret_cast<const char *>(Note.getDesc()),
+                        Note.getDescSize());
+    switch (Type) {
+    default:
+      DP("Warning: unrecognized INTELONEOMPOFFLOAD note.\n");
+      break;
+    case NT_INTEL_ONEOMP_OFFLOAD_VERSION:
+      break;
+    case NT_INTEL_ONEOMP_OFFLOAD_IMAGE_COUNT:
+      ImageCount = std::stoull(DescStr);
+      break;
+    case NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX: {
+      std::vector<std::string> Parts;
+      do {
+        auto DelimPos = DescStr.find('\0');
+        if (DelimPos == std::string::npos) {
+          Parts.push_back(DescStr);
+          break;
+        }
+        Parts.push_back(DescStr.substr(0, DelimPos));
+        DescStr.erase(0, DelimPos + 1);
+      } while (Parts.size() < 4);
+
+      // Ignore records with less than 4 strings.
+      if (Parts.size() != 4) {
+        DP("Warning: short NT_INTEL_ONEOMP_OFFLOAD_IMAGE_AUX "
+           "record is ignored.\n");
+        continue;
+      }
+
+      uint64_t Idx = std::stoull(Parts[0]);
+      MaxImageIdx = (std::max)(MaxImageIdx, Idx);
+      if (AuxInfo.find(Idx) != AuxInfo.end()) {
+        DP("Warning: duplicate auxiliary information for image %" PRIu64
+           " is ignored.\n", Idx);
+        continue;
+      }
+      AuxInfo.emplace(std::piecewise_construct,
+                      std::forward_as_tuple(Idx),
+                      std::forward_as_tuple(std::stoull(Parts[1]),
+                                            Parts[2], Parts[3],
+                                            // Image pointer and size
+                                            // will be initialized later.
+                                            nullptr, 0));
+    }
+    }
+  }
+
+  if (MaxImageIdx >= ImageCount)
+    DP("Warning: invalid image index found in auxiliary information.\n");
+
+  for (auto I = E.sections_begin(), IE = E.sections_end(); I != IE; ++I) {
+    const char *Prefix = "__openmp_offload_spirv_";
+    std::string SectionName((*I).getName() ? (*I).getName() : "");
+    if (SectionName.find(Prefix) != 0)
+      continue;
+    SectionName.erase(0, std::strlen(Prefix));
+    uint64_t Idx = std::stoull(SectionName);
+    if (Idx >= ImageCount) {
+      DP("Warning: ignoring image section (index %" PRIu64
+         " is out of range).\n", Idx);
+      continue;
+    }
+
+    auto AuxInfoIt = AuxInfo.find(Idx);
+    if (AuxInfoIt == AuxInfo.end()) {
+      DP("Warning: ignoring image section (no aux info).\n");
+      continue;
+    }
+
+    AuxInfoIt->second.Begin = (*I).getContents();
+    AuxInfoIt->second.Size = (*I).getSize();
+  }
+
+  for (uint64_t Idx = 0; Idx < ImageCount; ++Idx) {
+    auto It = AuxInfo.find(Idx);
+    if (It == AuxInfo.end()) {
+      DP("Warning: image %" PRIu64
+         " without auxiliary information is ingored.\n", Idx);
+      continue;
+    }
+
+    const unsigned char *ImgBegin =
+        reinterpret_cast<const unsigned char *>(It->second.Begin);
+    size_t ImgSize = It->second.Size;
+    dumpImageToFile(ImgBegin, ImgSize, "OpenMP");
+    cl_program Program;
+
+    if (It->second.Format == 0) {
+      // Native format.
+      IsBinary = true;
+      CALL_CL_RVRC(Program, clCreateProgramWithBinary, Status,
+                   DeviceInfo->getContext(DeviceId),
+                   1, &DeviceInfo->deviceIDs[DeviceId],
+                   &ImgSize, &ImgBegin, nullptr);
+    } else if (It->second.Format == 1) {
+      // SPIR-V format.
+      IsBinary = false;
+      CALL_CL_RVRC(Program, clCreateProgramWithIL, Status,
+                   DeviceInfo->getContext(DeviceId),
+                   ImgBegin, ImgSize);
+    } else {
+      DP("Warning: image %" PRIu64 "is ignored due to unknown format.\n", Idx);
+      continue;
+    }
+
+    if (Status != CL_SUCCESS) {
+      debugPrintBuildLog(Program, DeviceInfo->deviceIDs[DeviceId]);
+      DP("Warning: failed to create program from %s (%" PRIu64 "): %d\n",
+         IsBinary ? "binary" : "SPIR-V", Idx, Status);
+      continue;
+    }
+
+    DP("Created offload program from image #%" PRIu64 ".\n", Idx);
+    if (DeviceInfo->Flags.UseImageOptions) {
+      CompilationOptions += " " + It->second.CompileOpts;
+      LinkingOptions += " " + It->second.LinkOpts;
+    }
+    return Program;
+  }
+
+  return nullptr;
+}
+
 EXTERN
 __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
                                           __tgt_device_image *image) {
@@ -1619,7 +2139,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   IDP("Device %d: load binary from " DPxMOD " image\n", device_id,
      DPxPTR(image->ImageStart));
 
-  size_t ImageSize = (size_t)image->ImageEnd - (size_t)image->ImageStart;
   size_t NumEntries = (size_t)(image->EntriesEnd - image->EntriesBegin);
   IDP("Expecting to have %zu entries defined.\n", NumEntries);
 
@@ -1630,37 +2149,64 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   cl_int status;
   std::vector<cl_program> programs;
   cl_program linked_program;
-  std::string compilation_options(
-      DeviceInfo->CompilationOptions + DeviceInfo->UserCompilationOptions);
-  std::string linking_options(DeviceInfo->UserLinkingOptions);
+  std::string CompilationOptions(
+      DeviceInfo->CompilationOptions + " " +
+      DeviceInfo->UserCompilationOptions);
+  std::string LinkingOptions(DeviceInfo->UserLinkingOptions);
+  IDP("Basic OpenCL compilation options: %s\n", CompilationOptions.c_str());
+  IDP("Basic OpenCL linking options: %s\n", LinkingOptions.c_str());
 
-  IDP("OpenCL compilation options: %s\n", compilation_options.c_str());
-  IDP("OpenCL linking options: %s\n", linking_options.c_str());
-#if INTEL_CUSTOMIZATION
-  compilation_options += " " + DeviceInfo->InternalCompilationOptions;
-  linking_options += " " + DeviceInfo->InternalLinkingOptions;
-  DPI("Final OpenCL compilation options: %s\n", compilation_options.c_str());
-  DPI("Final OpenCL linking options: %s\n", linking_options.c_str());
-#endif // INTEL_CUSTOMIZATION
-  // clLinkProgram drops the last symbol. Work this around temporarily.
-  linking_options += " ";
-
+  bool IsBinary = false;
   // Create program for the target regions.
   // User program must be first in the link order.
   CompilationTimer.start();
-  dumpImageToFile(image->ImageStart, ImageSize, "OpenMP");
-  cl_program program;
-  CALL_CL_RVRC(program, clCreateProgramWithIL, status,
-               DeviceInfo->getContext(device_id), image->ImageStart, ImageSize);
-  if (status != CL_SUCCESS) {
-    debugPrintBuildLog(program, DeviceInfo->deviceIDs[device_id]);
-    IDP("Error: Failed to create program: %d\n", status);
+  cl_program program = getOpenCLProgramForImage(device_id, image,
+                                                CompilationOptions,
+                                                LinkingOptions,
+                                                IsBinary);
+  if (!program) {
+    // This must never happen. The compiler must make sure that
+    // at least one generic SPIR-V image fits all devices.
+    DP("Error: failed to create a program from the offload image.\n");
     return NULL;
   }
 
-  if (DeviceInfo->Flags.EnableSimd) {
+  DeviceInfo->CommonSpecConstants.setProgramConstants(device_id, program);
+
+#if INTEL_CUSTOMIZATION
+  CompilationOptions += " " + DeviceInfo->InternalCompilationOptions;
+  LinkingOptions += " " + DeviceInfo->InternalLinkingOptions;
+  if (DeviceInfo->DeviceType == CL_DEVICE_TYPE_GPU) {
+    // For some reason GPU RT ignores -g and -cl-opt-disable passed
+    // to clCompileProgram. At the same time CPU RT only accepts
+    // these options for clCompileProgram - it will fail, if we pass
+    // them to clLinkProgram. So here we try to look for these
+    // options in the CompilationOptions and copy them to the LinkingOptions
+    // only for GPU RT.
+
+    // Add spaces around to simplify matching.
+    CompilationOptions = " " + CompilationOptions + " ";
+    if (CompilationOptions.find(" -g ") != std::string::npos)
+      LinkingOptions += " -g ";
+    if (CompilationOptions.find(" -cl-opt-disable ") != std::string::npos)
+      LinkingOptions += " -cl-opt-disable ";
+  }
+  DPI("Final OpenCL compilation options: %s\n", CompilationOptions.c_str());
+  DPI("Final OpenCL linking options: %s\n", LinkingOptions.c_str());
+#else // INTEL_CUSTOMIZATION
+  IDP("Final OpenCL compilation options: %s\n", CompilationOptions.c_str());
+  IDP("Final OpenCL linking options: %s\n", LinkingOptions.c_str());
+#endif // INTEL_CUSTOMIZATION
+  // clLinkProgram drops the last symbol. Work this around temporarily.
+  LinkingOptions += " ";
+
+  if (IsBinary || DeviceInfo->Flags.EnableSimd ||
+      // Work around GPU API issue: clCompileProgram/clLinkProgram
+      // does not work with -vc-codegen, so we have to use clBuildProgram.
+      CompilationOptions.find(" -vc-codegen ") != std::string::npos) {
+    // Programs created from binary must still be built.
     CALL_CL(status, clBuildProgram, program, 0, nullptr,
-      (compilation_options+linking_options).c_str(), nullptr, nullptr);
+      (CompilationOptions + " " + LinkingOptions).c_str(), nullptr, nullptr);
     if (status != CL_SUCCESS) {
       debugPrintBuildLog(program, DeviceInfo->deviceIDs[device_id]);
       IDP("Error: Failed to build program: %d\n", status);
@@ -1671,7 +2217,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     CompilationTimer.stop();
   } else {
     CALL_CL(status, clCompileProgram, program, 0, nullptr,
-      compilation_options.c_str(), 0, nullptr, nullptr, nullptr, nullptr);
+      CompilationOptions.c_str(), 0, nullptr, nullptr, nullptr, nullptr);
     if (status != CL_SUCCESS) {
       debugPrintBuildLog(program, DeviceInfo->deviceIDs[device_id]);
       IDP("Error: Failed to compile program: %d\n", status);
@@ -1694,7 +2240,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
         //       fallback implementations.
         cl_program program =
             createProgramFromFile(desc.FallbackLibName, device_id,
-                                compilation_options);
+                                  CompilationOptions);
         if (program)
           programs.push_back(program);
       } else {
@@ -1707,7 +2253,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
     CALL_CL_RVRC(linked_program, clLinkProgram, status,
         DeviceInfo->getContext(device_id), 1, &DeviceInfo->deviceIDs[device_id],
-        linking_options.c_str(), programs.size(), programs.data(), nullptr,
+        LinkingOptions.c_str(), programs.size(), programs.data(), nullptr,
         nullptr);
     if (status != CL_SUCCESS) {
       debugPrintBuildLog(linked_program, DeviceInfo->deviceIDs[device_id]);
@@ -1728,9 +2274,12 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   std::vector<cl_kernel> &kernels =
       DeviceInfo->FuncGblEntries[device_id].Kernels;
 
-  ProfileIntervalTy EntriesTimer("Offload entries init", device_id);
+  ProfileIntervalTy EntriesTimer("OffloadEntriesInit", device_id);
   EntriesTimer.start();
-  if (!DeviceInfo->loadOffloadTable(device_id, NumEntries))
+  // FIXME: table loading does not work at all on XeLP.
+  // Enable it after CMPLRLIBS-33285 is fixed.
+  if (DeviceInfo->DeviceArchs[device_id] != DeviceArch_XeLP &&
+      !DeviceInfo->loadOffloadTable(device_id, NumEntries))
     IDP("Warning: offload table loading failed.\n");
   EntriesTimer.stop();
 
@@ -1747,7 +2296,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       void *TgtAddr =
           DeviceInfo->getOffloadVarDeviceAddr(device_id, Name, Size);
       if (!TgtAddr) {
-        TgtAddr = __tgt_rtl_data_alloc(device_id, Size, HostAddr);
+        TgtAddr = __tgt_rtl_data_alloc(device_id, Size, HostAddr,
+                                       TARGET_ALLOC_DEFAULT);
         __tgt_rtl_data_submit(device_id, TgtAddr, HostAddr, Size);
         IDP("Warning: global variable '%s' allocated. "
           "Direct references will not work properly.\n", Name);
@@ -1892,19 +2442,19 @@ void event_callback_completed(cl_event event, cl_int status, void *data) {
       const char *event_name;
       switch (cmd) {
       case CL_COMMAND_NDRANGE_KERNEL:
-        event_name = "EXEC-ASYNC";
+        event_name = "KernelAsync";
         break;
       case CL_COMMAND_SVM_MEMCPY:
-        event_name = "DATA-ASYNC";
+        event_name = "DataAsync";
         break;
       case CL_COMMAND_READ_BUFFER:
-        event_name = "DATA-ASYNC-READ";
+        event_name = "DataReadAsync";
         break;
       case CL_COMMAND_WRITE_BUFFER:
-        event_name = "DATA-ASYNC-WRITE";
+        event_name = "DataWriteAsync";
         break;
       default:
-        event_name = "OTHERS-ASYNC";
+        event_name = "OthersAsync";
       }
       DeviceInfo->getProfiles(async_data->DeviceId).update(event_name, event);
     }
@@ -1942,11 +2492,18 @@ int32_t __tgt_rtl_manifest_data_for_region(
   return OFFLOAD_SUCCESS;
 }
 
-EXTERN void *__tgt_rtl_create_offload_queue(int32_t device_id, bool is_async) {
+EXTERN void __tgt_rtl_create_offload_queue(int32_t DeviceId, void *Interop) {
+  if (Interop == nullptr) {
+    IDP("Invalid interop object in %s\n", __func__);
+    return;
+  }
+
+  __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(Interop);
+  auto isAsync = obj->is_async;
   cl_int status;
   cl_command_queue queue = nullptr;
-  auto deviceId = DeviceInfo->deviceIDs[device_id];
-  auto context = DeviceInfo->getContext(device_id);
+  auto device = DeviceInfo->deviceIDs[DeviceId];
+  auto context = DeviceInfo->getContext(DeviceId);
 
   // Queue properties for profiling
   cl_queue_properties qProperties[] = {
@@ -1957,41 +2514,46 @@ EXTERN void *__tgt_rtl_create_offload_queue(int32_t device_id, bool is_async) {
   auto enableProfile = DeviceInfo->Flags.EnableProfile;
 
   // Return a shared in-order queue for synchronous case if requested
-  if (!is_async && DeviceInfo->Flags.UseInteropQueueInorderSharedSync) {
-    std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[device_id]);
-    queue = DeviceInfo->QueuesInOrder[device_id];
+  if (!isAsync && DeviceInfo->Flags.UseInteropQueueInorderSharedSync) {
+    std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[DeviceId]);
+    queue = DeviceInfo->QueuesInOrder[DeviceId];
     if (!queue) {
       CALL_CL_RVRC(queue, clCreateCommandQueueWithProperties, status, context,
-                   deviceId, enableProfile ? qProperties : nullptr);
+                   device, enableProfile ? qProperties : nullptr);
       if (status != CL_SUCCESS) {
         IDP("Error: Failed to create interop command queue: %d\n", status);
-        return nullptr;
+        obj->queue = nullptr;
+        return;
       }
-      DeviceInfo->QueuesInOrder[device_id] = queue;
+      DeviceInfo->QueuesInOrder[DeviceId] = queue;
     }
     IDP("%s returns a shared in-order queue " DPxMOD "\n", __func__,
         DPxPTR(queue));
-    return (void *)queue;
+    obj->queue = queue;
+    return;
   }
 
   // Return a shared out-of-order queue for asynchronous case by default
-  if (is_async && !DeviceInfo->Flags.UseInteropQueueInorderAsync) {
-    queue = DeviceInfo->Queues[device_id];
+  if (isAsync && !DeviceInfo->Flags.UseInteropQueueInorderAsync) {
+    queue = DeviceInfo->Queues[DeviceId];
     IDP("%s returns a shared out-of-order queue " DPxMOD "\n", __func__,
         DPxPTR(queue));
-    return (void *)queue;
+    obj->queue = queue;
+    return;
   }
 
   // Return a new in-order queue for other cases
   CALL_CL_RVRC(queue, clCreateCommandQueueWithProperties, status, context,
-               deviceId, enableProfile ? qProperties : nullptr);
+               device, enableProfile ? qProperties : nullptr);
   if (status != CL_SUCCESS) {
     IDP("Error: Failed to create interop command queue\n");
-    return nullptr;
+    obj->queue = nullptr;
+    return;
   }
   IDP("%s creates and returns a new in-order queue " DPxMOD "\n", __func__,
       DPxPTR(queue));
-  return (void *)queue;
+  obj->queue = queue;
+  return;
 }
 
 // Release the command queue if it is a new in-order command queue.
@@ -2009,6 +2571,15 @@ EXTERN int32_t __tgt_rtl_release_offload_queue(int32_t device_id, void *queue) {
 EXTERN void *__tgt_rtl_get_platform_handle(int32_t device_id) {
   auto context = DeviceInfo->getContext(device_id);
   return (void *) context;
+}
+
+EXTERN void __tgt_rtl_set_device_handle(int32_t DeviceId, void *Interop) {
+  if (Interop == nullptr) {
+    IDP("Invalid interop object in %s\n", __func__);
+    return;
+  }
+  __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(Interop);
+  obj->device_handle = DeviceInfo->deviceIDs[DeviceId];
 }
 
 EXTERN void *__tgt_rtl_get_context_handle(int32_t DeviceId) {
@@ -2043,7 +2614,7 @@ EXTERN int32_t __tgt_rtl_is_device_accessible_ptr(
     }
   } else {
     cl_unified_shared_memory_type_intel memType = 0;
-    CALL_CL_EXT_RET(DeviceId, false, clGetMemAllocInfo,
+    CALL_CL_EXT_RET(DeviceId, false, clGetMemAllocInfoINTEL,
                     DeviceInfo->getContext(DeviceId), Ptr,
                     CL_MEM_ALLOC_TYPE_INTEL, sizeof(memType), &memType,
                     nullptr);
@@ -2080,16 +2651,21 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *hstPtr,
   auto context = DeviceInfo->getContext(DeviceId);
   size_t allocSize = meaningfulSize + meaningfulOffset;
 
+  ProfileIntervalTy dataAllocTimer("DataAlloc", DeviceId);
+  dataAllocTimer.start();
+
   if (DeviceInfo->Flags.UseSVM) {
     CALL_CL_RV(base, clSVMAlloc, context, CL_MEM_READ_WRITE, allocSize, 0);
   } else {
-    if (!DeviceInfo->isExtensionFunctionEnabled(DeviceId, clDeviceMemAllocId)) {
+    if (!DeviceInfo->isExtensionFunctionEnabled(DeviceId,
+                                                clDeviceMemAllocINTELId)) {
       IDP("Error: Extension %s is not supported\n",
-          DeviceInfo->getExtensionFunctionName(DeviceId, clDeviceMemAllocId));
+          DeviceInfo->getExtensionFunctionName(DeviceId,
+                                               clDeviceMemAllocINTELId));
       return nullptr;
     }
     cl_int rc;
-    CALL_CL_EXT_RVRC(DeviceId, base, clDeviceMemAlloc, rc, context,
+    CALL_CL_EXT_RVRC(DeviceId, base, clDeviceMemAllocINTEL, rc, context,
                      DeviceInfo->deviceIDs[DeviceId], nullptr, allocSize, 0);
     if (rc != CL_SUCCESS)
       return nullptr;
@@ -2119,6 +2695,8 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *hstPtr,
     DeviceInfo->Mutexes[DeviceId].unlock();
   }
 
+  dataAllocTimer.stop();
+
   return ret;
 }
 
@@ -2129,18 +2707,21 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
   cl_int rc;
   void *mem = nullptr;
   auto &mutex = DeviceInfo->Mutexes[device_id];
+  ProfileIntervalTy dataAllocTimer("DataAlloc", device_id);
+  dataAllocTimer.start();
 
   switch (kind) {
   case TARGET_ALLOC_DEVICE:
     mem = dataAlloc(device_id, size, nullptr, nullptr, 0);
     break;
   case TARGET_ALLOC_HOST:
-    if (!DeviceInfo->isExtensionFunctionEnabled(device_id, clHostMemAllocId)) {
+    if (!DeviceInfo->isExtensionFunctionEnabled(device_id,
+                                                clHostMemAllocINTELId)) {
       IDP("Host memory allocator is not available\n");
       return nullptr;
     }
-    CALL_CL_EXT_RVRC(device_id, mem, clHostMemAlloc, rc, context, nullptr, size,
-                     0);
+    CALL_CL_EXT_RVRC(device_id, mem, clHostMemAllocINTEL,
+                     rc, context, nullptr, size, 0);
     if (mem) {
       if (DeviceInfo->Flags.UseSVM &&
           DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU) {
@@ -2153,12 +2734,12 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
     break;
   case TARGET_ALLOC_SHARED:
     if (!DeviceInfo->isExtensionFunctionEnabled(
-          device_id, clSharedMemAllocId)) {
+          device_id, clSharedMemAllocINTELId)) {
       IDP("Shared memory allocator is not available\n");
       return nullptr;
     }
-    CALL_CL_EXT_RVRC(device_id, mem, clSharedMemAlloc, rc, context, device,
-                     nullptr, size, 0);
+    CALL_CL_EXT_RVRC(device_id, mem, clSharedMemAllocINTEL,
+                     rc, context, device, nullptr, size, 0);
     if (mem) {
       if (DeviceInfo->Flags.UseSVM &&
           DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU) {
@@ -2178,11 +2759,14 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
   DeviceInfo->ImplicitArgs[device_id][0].insert(mem);
   mutex.unlock();
 
+  dataAllocTimer.stop();
+
   return mem;
 }
 
 EXTERN
-void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
+void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr,
+                           int32_t Kind) {
   return dataAlloc(device_id, size, hst_ptr, hst_ptr, 0);
 }
 
@@ -2194,9 +2778,11 @@ void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
 }
 
 // Allocation was initiated by user (omp_target_alloc)
-EXTERN
-void *__tgt_rtl_data_alloc_user(int32_t device_id, int64_t size,
-                                void *hst_ptr) {
+EXTERN void *__tgt_rtl_data_alloc_user(int32_t device_id, int64_t size,
+                                       void *hst_ptr) {
+  if (DeviceInfo->Flags.UseBuffer)
+    return DeviceInfo->allocDataClMem(device_id, size);
+
   return dataAlloc(device_id, size, hst_ptr, hst_ptr, 1);
 }
 
@@ -2219,43 +2805,65 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
     async_data = new AsyncDataTy((AsyncEventTy *)async_event, device_id);
   }
 
+  if (DeviceInfo->Flags.UseBuffer) {
+    std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[device_id]);
+    if (DeviceInfo->ClMemBuffers[device_id].count(tgt_ptr) > 0) {
+      cl_event event;
+      CALL_CL_RET_FAIL(clEnqueueWriteBuffer, queue, (cl_mem)tgt_ptr, CL_FALSE,
+                       0, size, hst_ptr, 0, nullptr, &event);
+      if (async_data) {
+        CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
+                         &event_callback_completed, async_data);
+      } else {
+        CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+        if (DeviceInfo->Flags.EnableProfile)
+          DeviceInfo->getProfiles(device_id).update("DataWrite", event);
+      }
+
+      return OFFLOAD_SUCCESS;
+    }
+  }
+
   if (!DeviceInfo->Flags.UseSVM) {
-    if (!DeviceInfo->isExtensionFunctionEnabled(device_id, clEnqueueMemcpyId)) {
+    if (!DeviceInfo->isExtensionFunctionEnabled(device_id,
+                                                clEnqueueMemcpyINTELId)) {
       IDP("Error: Extension %s is not supported\n",
-          DeviceInfo->getExtensionFunctionName(device_id, clEnqueueMemcpyId));
+          DeviceInfo->getExtensionFunctionName(device_id,
+                                               clEnqueueMemcpyINTELId));
       return OFFLOAD_FAIL;
     }
     cl_event event;
-    CALL_CL_EXT_RET_FAIL(device_id, clEnqueueMemcpy, queue, CL_FALSE, tgt_ptr,
-                         hst_ptr, size, 0, nullptr, &event);
+    CALL_CL_EXT_RET_FAIL(device_id, clEnqueueMemcpyINTEL, queue, CL_FALSE,
+                         tgt_ptr, hst_ptr, size, 0, nullptr, &event);
     if (async_data) {
       CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
                        &event_callback_completed, async_data);
     } else {
       CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
       if (DeviceInfo->Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update("DATA-WRITE", event);
+        DeviceInfo->getProfiles(device_id).update("DataWrite", event);
     }
     return OFFLOAD_SUCCESS;
   }
 
   switch (DeviceInfo->DataTransferMethod) {
   case DATA_TRANSFER_METHOD_SVMMAP: {
+    cl_event event;
     if (async_data) {
       // Use SVMMemcpy for asynchronous transfer
-      cl_event event;
       CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_FALSE, tgt_ptr, hst_ptr,
                        size, 0, nullptr, &event);
       CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
                        &event_callback_completed, async_data);
     } else {
-      ProfileIntervalTy SubmitTime("DATA-WRITE", device_id);
+      ProfileIntervalTy SubmitTime("DataWrite", device_id);
       SubmitTime.start();
 
       CALL_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_WRITE, tgt_ptr,
                        size, 0, nullptr, nullptr);
       memcpy(tgt_ptr, hst_ptr, size);
-      CALL_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, nullptr);
+      CALL_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, &event);
+      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
 
       SubmitTime.stop();
     }
@@ -2271,7 +2879,7 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
       CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, tgt_ptr, hst_ptr,
                        size, 0, nullptr, &event);
       if (DeviceInfo->Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update("DATA-WRITE", event);
+        DeviceInfo->getProfiles(device_id).update("DataWrite", event);
     }
   } break;
   case DATA_TRANSFER_METHOD_CLMEM:
@@ -2298,7 +2906,7 @@ int32_t __tgt_rtl_data_submit_nowait(int32_t device_id, void *tgt_ptr,
       CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
       CALL_CL_RET_FAIL(clReleaseMemObject, mem);
       if (DeviceInfo->Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update("DATA-WRITE", event);
+        DeviceInfo->getProfiles(device_id).update("DataWrite", event);
     }
   }
   }
@@ -2339,43 +2947,65 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
     async_data = new AsyncDataTy((AsyncEventTy *)async_event, device_id);
   }
 
+  if (DeviceInfo->Flags.UseBuffer) {
+    std::unique_lock<std::mutex> lock(DeviceInfo->Mutexes[device_id]);
+    if (DeviceInfo->ClMemBuffers[device_id].count(tgt_ptr) > 0) {
+      cl_event event;
+      CALL_CL_RET_FAIL(clEnqueueReadBuffer, queue, (cl_mem)tgt_ptr, CL_FALSE,
+                       0, size, hst_ptr, 0, nullptr, &event);
+      if (async_data) {
+        CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
+                         &event_callback_completed, async_data);
+      } else {
+        CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
+        if (DeviceInfo->Flags.EnableProfile)
+          DeviceInfo->getProfiles(device_id).update("DataRead", event);
+      }
+
+      return OFFLOAD_SUCCESS;
+    }
+  }
+
   if (!DeviceInfo->Flags.UseSVM) {
-    if (!DeviceInfo->isExtensionFunctionEnabled(device_id, clEnqueueMemcpyId)) {
+    if (!DeviceInfo->isExtensionFunctionEnabled(device_id,
+                                                clEnqueueMemcpyINTELId)) {
       IDP("Error: Extension %s is not supported\n",
-          DeviceInfo->getExtensionFunctionName(device_id, clEnqueueMemcpyId));
+          DeviceInfo->getExtensionFunctionName(device_id,
+                                               clEnqueueMemcpyINTELId));
       return OFFLOAD_FAIL;
     }
     cl_event event;
-    CALL_CL_EXT_RET_FAIL(device_id, clEnqueueMemcpy, queue, CL_FALSE, hst_ptr,
-                         tgt_ptr, size, 0, nullptr, &event);
+    CALL_CL_EXT_RET_FAIL(device_id, clEnqueueMemcpyINTEL, queue, CL_FALSE,
+                         hst_ptr, tgt_ptr, size, 0, nullptr, &event);
     if (async_data) {
       CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
                        &event_callback_completed, async_data);
     } else {
       CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
       if (DeviceInfo->Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update("DATA-READ", event);
+        DeviceInfo->getProfiles(device_id).update("DataRead", event);
     }
     return OFFLOAD_SUCCESS;
   }
 
   switch (DeviceInfo->DataTransferMethod) {
   case DATA_TRANSFER_METHOD_SVMMAP: {
+    cl_event event;
     if (async_data) {
       // Use SVMMemcpy for asynchronous transfer
-      cl_event event;
       CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_FALSE, hst_ptr, tgt_ptr,
                        size, 0, nullptr, &event);
       CALL_CL_RET_FAIL(clSetEventCallback, event, CL_COMPLETE,
                        &event_callback_completed, async_data);
     } else {
-      ProfileIntervalTy RetrieveTime("DATA-READ", device_id);
+      ProfileIntervalTy RetrieveTime("DataRead", device_id);
       RetrieveTime.start();
 
       CALL_CL_RET_FAIL(clEnqueueSVMMap, queue, CL_TRUE, CL_MAP_READ, tgt_ptr,
                        size, 0, nullptr, nullptr);
       memcpy(hst_ptr, tgt_ptr, size);
-      CALL_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, nullptr);
+      CALL_CL_RET_FAIL(clEnqueueSVMUnmap, queue, tgt_ptr, 0, nullptr, &event);
+      CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
 
       RetrieveTime.stop();
     }
@@ -2391,7 +3021,7 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
       CALL_CL_RET_FAIL(clEnqueueSVMMemcpy, queue, CL_TRUE, hst_ptr, tgt_ptr,
                        size, 0, nullptr, &event);
       if (DeviceInfo->Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update("DATA-READ", event);
+        DeviceInfo->getProfiles(device_id).update("DataRead", event);
     }
   } break;
   case DATA_TRANSFER_METHOD_CLMEM:
@@ -2418,7 +3048,7 @@ int32_t __tgt_rtl_data_retrieve_nowait(int32_t device_id, void *hst_ptr,
       CALL_CL_RET_FAIL(clWaitForEvents, 1, &event);
       CALL_CL_RET_FAIL(clReleaseMemObject, mem);
       if (DeviceInfo->Flags.EnableProfile)
-        DeviceInfo->getProfiles(device_id).update("DATA-READ", event);
+        DeviceInfo->getProfiles(device_id).update("DataRead", event);
     }
   }
   }
@@ -2441,6 +3071,24 @@ __tgt_rtl_data_retrieve_async(int32_t device_id, void *hst_ptr, void *tgt_ptr,
                                         nullptr);
 }
 
+EXTERN int32_t __tgt_rtl_is_data_exchangable(int32_t SrcId, int32_t DstId) {
+  // Only support this case. We don't have any documented OpenCL behavior for
+  // cross-device data transfer.
+  if (SrcId == DstId)
+    return 1;
+
+  return 0;
+}
+
+EXTERN int32_t __tgt_rtl_data_exchange(
+    int32_t SrcId, void *SrcPtr, int32_t DstId, void *DstPtr, int64_t Size) {
+  if (SrcId != DstId)
+    return OFFLOAD_FAIL;
+
+  // This is OK for same-device copy with SVM or USM extension.
+  return __tgt_rtl_data_submit(DstId, DstPtr, SrcPtr, Size);
+}
+
 EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   void *base = TgtPtr;
 
@@ -2448,6 +3096,16 @@ EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   auto &buffers = DeviceInfo->Buffers[DeviceId];
 
   DeviceInfo->Mutexes[DeviceId].lock();
+
+  // Deallocate cl_mem data
+  if (DeviceInfo->Flags.UseBuffer) {
+    auto &clMemBuffers = DeviceInfo->ClMemBuffers[DeviceId];
+    if (clMemBuffers.count(TgtPtr) > 0) {
+      clMemBuffers.erase(TgtPtr);
+      CALL_CL_RET_FAIL(clReleaseMemObject, (cl_mem)TgtPtr);
+      return OFFLOAD_SUCCESS;
+    }
+  }
 
   // Retrieve base pointer and erase buffer information
   bool hasBufferInfo = false;
@@ -2467,7 +3125,7 @@ EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   if (DeviceInfo->Flags.UseSVM && hasBufferInfo) {
     CALL_CL_VOID(clSVMFree, context, base);
   } else {
-    CALL_CL_EXT_VOID(DeviceId, clMemFree, context, base);
+    CALL_CL_EXT_VOID(DeviceId, clMemFreeINTEL, context, base);
   }
 
   return OFFLOAD_SUCCESS;
@@ -2563,8 +3221,8 @@ static void decideLoopKernelGroupArguments(
 #if INTEL_CUSTOMIZATION
     if (DeviceInfo->Flags.UseDriverGroupSizes &&
         DeviceInfo->isExtensionFunctionEnabled(
-            DeviceId, clGetKernelSuggestedLocalWorkSizeId)) {
-      CALL_CL_EXT(DeviceId, rc, clGetKernelSuggestedLocalWorkSize,
+            DeviceId, clGetKernelSuggestedLocalWorkSizeINTELId)) {
+      CALL_CL_EXT(DeviceId, rc, clGetKernelSuggestedLocalWorkSizeINTEL,
                   DeviceInfo->Queues[DeviceId], Kernel, 3, nullptr, globalSizes,
                   suggestedGroupSizes);
     }
@@ -2846,21 +3504,25 @@ static inline int32_t run_target_team_nd_region(
       CALL_CL_RET_FAIL(clSetKernelArg, *kernel, i, sizeof(arg), &arg);
       ArgType = "Scalar";
     } else {
+      ArgType = "Pointer";
       void *ptr = (void *)((intptr_t)tgt_args[i] + offset);
-      if (DeviceInfo->Flags.UseSVM) {
+      if (DeviceInfo->Flags.UseBuffer &&
+          DeviceInfo->ClMemBuffers[device_id].count(ptr) > 0) {
+        CALL_CL_RET_FAIL(clSetKernelArg, *kernel, i, sizeof(cl_mem), &ptr);
+        ArgType = "ClMem";
+      } else if (DeviceInfo->Flags.UseSVM) {
         CALL_CL_RET_FAIL(clSetKernelArgSVMPointer, *kernel, i, ptr);
       } else {
         if (!DeviceInfo->isExtensionFunctionEnabled(
-                device_id, clSetKernelArgMemPointerId)) {
+                device_id, clSetKernelArgMemPointerINTELId)) {
           IDP("Error: Extension %s is not supported\n",
               DeviceInfo->getExtensionFunctionName(
-                  device_id, clSetKernelArgMemPointerId));
+                  device_id, clSetKernelArgMemPointerINTELId));
           return OFFLOAD_FAIL;
         }
         CALL_CL_EXT_RET_FAIL(
-            device_id, clSetKernelArgMemPointer, *kernel, i, ptr);
+            device_id, clSetKernelArgMemPointerINTEL, *kernel, i, ptr);
       }
-      ArgType = "Pointer";
     }
     IDP("Kernel %s Arg %d set successfully\n", ArgType, i);
     (void)ArgType;
@@ -2869,7 +3531,8 @@ static inline int32_t run_target_team_nd_region(
   bool hasUSMArgDevice = false;
   bool hasUSMArgHost = false;
   bool hasUSMArgShared = false;
-  if (DeviceInfo->isExtensionFunctionEnabled(device_id, clGetMemAllocInfoId)) {
+  if (DeviceInfo->isExtensionFunctionEnabled(device_id,
+                                             clGetMemAllocInfoINTELId)) {
     // Reserve space for USM pointers.
     implicit_usm_args.reserve(num_implicit_args);
     // Move USM pointers into a separate list, since they need to be
@@ -2879,7 +3542,8 @@ static inline int32_t run_target_team_nd_region(
                        implicit_args.end(),
                        [&](void *ptr) {
                          cl_unified_shared_memory_type_intel type = 0;
-                         CALL_CL_EXT_RET(device_id, false, clGetMemAllocInfo,
+                         CALL_CL_EXT_RET(device_id, false,
+                             clGetMemAllocInfoINTEL,
                              DeviceInfo->getContext(device_id), ptr,
                              CL_MEM_ALLOC_TYPE_INTEL,
                              sizeof(cl_unified_shared_memory_type_intel),
@@ -2975,7 +3639,7 @@ static inline int32_t run_target_team_nd_region(
       size_t buf_size;
       CALL_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME, 0,
                        nullptr, &buf_size);
-      std::string kernel_name("EXEC-");
+      std::string kernel_name("Kernel ");
       if (buf_size > 0) {
         buf.resize(buf_size);
         CALL_CL_RET_FAIL(clGetKernelInfo, *kernel, CL_KERNEL_FUNCTION_NAME,
@@ -3147,6 +3811,131 @@ EXTERN void __tgt_rtl_deinit(void) {
     deinit();
   }
 #endif // _WIN32
+}
+
+EXTERN __tgt_interop *__tgt_rtl_create_interop(
+    int32_t DeviceId, int32_t InteropContext, int32_t NumPrefers,
+    intptr_t *PreferIDs) {
+  // Preference-list is ignored since we cannot have multiple runtimes.
+  auto ret = new __tgt_interop();
+  ret->FrId = OCLInterop::FrId;
+  ret->FrName = OCLInterop::FrName;
+  ret->Vendor = OCLInterop::Vendor;
+  ret->VendorName = OCLInterop::VendorName;
+  ret->DeviceNum = DeviceId;
+
+  auto platform = DeviceInfo->Platforms[DeviceId];
+  auto context = DeviceInfo->getContext(DeviceId);
+  auto device = DeviceInfo->deviceIDs[DeviceId];
+
+  if (InteropContext == OMP_INTEROP_CONTEXT_TARGET ||
+      InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
+    ret->Platform = platform;
+    ret->Device = device;
+    ret->DeviceContext = context;
+  }
+  if (InteropContext == OMP_INTEROP_CONTEXT_TARGETSYNC) {
+    // Create a new out-of-order queue with profiling enabled.
+    cl_queue_properties properties[] = {
+      CL_QUEUE_PROPERTIES,
+      CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE,
+      0
+    };
+    cl_command_queue cmdQueue = nullptr;
+    cl_int rc;
+    CALL_CL_RVRC(cmdQueue, clCreateCommandQueueWithProperties, rc, context,
+                 device, properties);
+    if (rc != CL_SUCCESS) {
+      IDP("Error: Failed to create targetsync for interop\n");
+      delete ret;
+      return nullptr;
+    }
+    ret->TargetSync = cmdQueue;
+  }
+
+  ret->RTLProperty = new OCLInterop::Property();
+
+  return ret;
+}
+
+EXTERN int32_t __tgt_rtl_release_interop(
+    int32_t DeviceId, __tgt_interop *Interop) {
+  if (!Interop || Interop->DeviceNum != (intptr_t)DeviceId ||
+      Interop->FrId != OCLInterop::FrId) {
+    IDP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+    return OFFLOAD_FAIL;
+  }
+
+  if (Interop->TargetSync) {
+    auto cmdQueue = static_cast<cl_command_queue>(Interop->TargetSync);
+    CALL_CL_RET_FAIL(clFinish, cmdQueue);
+    CALL_CL_RET_FAIL(clReleaseCommandQueue, cmdQueue);
+  }
+
+  auto OCL = static_cast<OCLInterop::Property *>(Interop->RTLProperty);
+  delete OCL;
+  delete Interop;
+
+  return OFFLOAD_SUCCESS;
+}
+
+EXTERN int32_t __tgt_rtl_use_interop(int32_t DeviceId, __tgt_interop *Interop) {
+  if (!Interop || Interop->DeviceNum != (intptr_t)DeviceId ||
+      Interop->FrId != OCLInterop::FrId) {
+    IDP("Invalid/inconsistent OpenMP interop " DPxMOD "\n", DPxPTR(Interop));
+    return OFFLOAD_FAIL;
+  }
+
+  if (Interop->TargetSync) {
+    auto cmdQueue = static_cast<cl_command_queue>(Interop->TargetSync);
+    CALL_CL_RET_FAIL(clFinish, cmdQueue);
+  }
+
+  return OFFLOAD_SUCCESS;
+}
+
+EXTERN int32_t __tgt_rtl_get_num_interop_properties(int32_t DeviceId) {
+  // TODO: decide implementation-defined properties
+  return 0;
+}
+
+/// Return the value of the requested property
+EXTERN int32_t __tgt_rtl_get_interop_property_value(
+    int32_t DeviceId, __tgt_interop *Interop, int32_t Ipr, int32_t ValueType,
+    size_t Size, void *Value) {
+
+  if (Interop->RTLProperty == nullptr)
+    return omp_irc_out_of_range;
+
+  int32_t retCode = omp_irc_success;
+
+  // TODO
+  //  switch (Ipr) {
+  //default:
+  //retCode = omp_irc_out_of_range;
+  //}
+
+  return retCode;
+}
+
+EXTERN const char *__tgt_rtl_get_interop_property_info(
+    int32_t DeviceId, int32_t Ipr, int32_t InfoType) {
+  int32_t offset = Ipr - omp_ipr_first;
+  if (offset < 0 || (size_t)offset >= OCLInterop::IprNames.size())
+    return nullptr;
+
+  if (InfoType == OMP_IPR_INFO_NAME)
+    return OCLInterop::IprNames[offset];
+  else if (InfoType == OMP_IPR_INFO_TYPE_DESC)
+    return OCLInterop::IprTypeDescs[offset];
+
+  return nullptr;
+}
+
+EXTERN const char *__tgt_rtl_get_interop_rc_desc(int32_t DeviceId,
+                                                 int32_t RetCode) {
+  // TODO: decide implementation-defined return code.
+  return nullptr;
 }
 
 #ifdef __cplusplus

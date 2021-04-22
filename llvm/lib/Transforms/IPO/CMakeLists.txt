@@ -26,6 +26,7 @@ add_llvm_component_library(LLVMipo
   Intel_AggInliner.cpp # INTEL
   Intel_ArgNoAliasProp.cpp # INTEL
   Intel_DeadArrayOpsElimination.cpp   # INTEL
+  Intel_DevirtMultiversioning.cpp # INTEL
   Intel_DopeVectorConstProp.cpp   # INTEL
   Intel_QsortRecognizer.cpp # INTEL
   InlineSimple.cpp

@@ -1,6 +1,6 @@
 //===--- HIROptPredicate.cpp - Implements OptPredicate class --------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1633,28 +1633,19 @@ void HIROptPredicate::addPredicateOptReport(HLLoop *TargetLoop,
     return;
   }
 
-  SmallString<32> IfNum;
-  unsigned LineNum;
-  raw_svector_ostream VOS(IfNum);
-
-  if (IfOrSwitch->getDebugLoc()) {
-    LineNum = IfOrSwitch->getDebugLoc().getLine();
-    VOS << " at line ";
-    VOS << LineNum;
-  }
+  auto IfLoc = IfOrSwitch->getDebugLoc();
 
   LORBuilder(*TargetLoop)
-      .addRemark(OptReportVerbosity::Low,
-                 "Invariant Condition%s hoisted out of this loop", IfNum);
+      .addRemark(OptReportVerbosity::Low, 25422u,
+                 AtLine(IfLoc ? IfLoc->getLine() : 0));
 
   IfVisitedSet.insert(IfOrSwitch);
 }
 
-PreservedAnalyses HIROptPredicatePass::run(llvm::Function &F,
-                                           llvm::FunctionAnalysisManager &AM) {
-  HIROptPredicate(AM.getResult<HIRFrameworkAnalysis>(F),
-                  AM.getResult<HIRDDAnalysisPass>(F), EnablePartialUnswitch,
-                  KeepLoopnestPerfect)
+PreservedAnalyses HIROptPredicatePass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIROptPredicate(HIRF, AM.getResult<HIRDDAnalysisPass>(F),
+                  EnablePartialUnswitch, KeepLoopnestPerfect)
       .run();
 
   return PreservedAnalyses::all();
@@ -1674,7 +1665,7 @@ public:
     initializeHIROptPredicateLegacyPassPass(*PassRegistry::getPassRegistry());
   }
 
-  void getAnalysisUsage(AnalysisUsage &AU) const {
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
@@ -1684,7 +1675,7 @@ public:
     AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   }
 
-  bool runOnFunction(Function &F) {
+  bool runOnFunction(Function &F) override {
     if (skipFunction(F)) {
       return false;
     }

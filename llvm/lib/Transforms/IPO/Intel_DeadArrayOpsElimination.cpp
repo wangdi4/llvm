@@ -417,7 +417,8 @@ void CandidateInfo::createNewQsortFunction() {
   for (auto I = SortFn->arg_begin(), E = SortFn->arg_end(); I != E; ++I, ++A)
     VMap[&*I] = &*A;
   SmallVector<ReturnInst *, 8> Rets;
-  CloneFunctionInto(NewSortFn, SortFn, VMap, true, Rets);
+  CloneFunctionInto(NewSortFn, SortFn, VMap,
+                    CloneFunctionChangeType::LocalChangesOnly, Rets);
   NewSortFn->copyAttributesFrom(SortFn);
   NewSortFn->setComdat(SortFn->getComdat());
 

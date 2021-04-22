@@ -30,7 +30,7 @@ struct RTLInfoTy {
   typedef int32_t(number_of_devices_ty)();
   typedef int32_t(init_device_ty)(int32_t);
   typedef __tgt_target_table *(load_binary_ty)(int32_t, void *);
-  typedef void *(data_alloc_ty)(int32_t, int64_t, void *);
+  typedef void *(data_alloc_ty)(int32_t, int64_t, void *, int32_t);
   typedef int32_t(data_submit_ty)(int32_t, void *, void *, int64_t);
   typedef int32_t(data_submit_async_ty)(int32_t, void *, void *, int64_t,
                                         __tgt_async_info *);
@@ -73,9 +73,9 @@ struct RTLInfoTy {
   typedef int32_t(run_team_region_nowait_ty)(int32_t, void *, void **,
                                              ptrdiff_t *, int32_t, int32_t,
                                              int32_t, uint64_t, void *);
-  typedef void *(create_offload_queue_ty)(int32_t, bool);
+  typedef void (create_offload_queue_ty)(int32_t, void *);
   typedef void *(get_platform_handle_ty)(int32_t);
-  typedef void *(get_device_handle_ty)(int32_t);
+  typedef void (set_device_handle_ty)(int32_t, void *);
   typedef void *(get_context_handle_ty)(int32_t);
   typedef int32_t(release_offload_queue_ty)(int32_t, void *);
   typedef void *(data_alloc_managed_ty)(int32_t, int64_t);
@@ -88,7 +88,20 @@ struct RTLInfoTy {
   typedef void (add_build_options_ty)(const char *, const char *);
   typedef int32_t(is_supported_device_ty)(int32_t, void *);
   typedef void (deinit_ty)(void);
+  typedef __tgt_interop *(create_interop_ty)(int32_t, int32_t, int32_t,
+                                             intptr_t *);
+  typedef int32_t(release_interop_ty)(int32_t, __tgt_interop *);
+  typedef int32_t(use_interop_ty)(int32_t, __tgt_interop *);
+  typedef int32_t(get_num_interop_properties_ty)(int32_t);
+  typedef int32_t(get_interop_property_value_ty)(int32_t, __tgt_interop *,
+                                                 int32_t, int32_t, size_t,
+                                                 void *);
+  typedef const char *(get_interop_property_info_ty)(int32_t, int32_t, int32_t);
+  typedef const char *(get_interop_rc_desc_ty)(int32_t, int32_t);
+  typedef int32_t(get_num_sub_devices_ty)(int32_t, int32_t);
 #endif // INTEL_COLLAB
+  typedef int32_t (*register_lib_ty)(__tgt_bin_desc *);
+  typedef int32_t(supports_empty_images_ty)();
 
   int32_t Idx = -1;             // RTL index, index is the number of devices
                                 // of other RTLs that were registered before,
@@ -139,7 +152,7 @@ struct RTLInfoTy {
   run_team_region_nowait_ty *run_team_region_nowait = nullptr;
   create_offload_queue_ty *create_offload_queue = nullptr;
   get_platform_handle_ty *get_platform_handle = nullptr;
-  get_device_handle_ty *get_device_handle = nullptr;
+  set_device_handle_ty *set_device_handle = nullptr;
   get_context_handle_ty *get_context_handle = nullptr;
   release_offload_queue_ty *release_offload_queue = nullptr;
   data_alloc_managed_ty *data_alloc_managed = nullptr;
@@ -152,7 +165,18 @@ struct RTLInfoTy {
   add_build_options_ty *add_build_options = nullptr;
   is_supported_device_ty *is_supported_device = nullptr;
   deinit_ty *deinit = nullptr;
+  create_interop_ty *create_interop = nullptr;
+  release_interop_ty *release_interop = nullptr;
+  use_interop_ty *use_interop = nullptr;
+  get_num_interop_properties_ty *get_num_interop_properties = nullptr;
+  get_interop_property_value_ty *get_interop_property_value = nullptr;
+  get_interop_property_info_ty *get_interop_property_info = nullptr;
+  get_interop_rc_desc_ty *get_interop_rc_desc = nullptr;
+  get_num_sub_devices_ty *get_num_sub_devices = nullptr;
 #endif // INTEL_COLLAB
+  register_lib_ty register_lib = nullptr;
+  register_lib_ty unregister_lib = nullptr;
+  supports_empty_images_ty *supports_empty_images = nullptr;
 
   // Are there images associated with this RTL.
   bool isUsed = false;
@@ -161,80 +185,10 @@ struct RTLInfoTy {
   // It is easier to enforce thread-safety at the libomptarget level,
   // so that developers of new RTLs do not have to worry about it.
   std::mutex Mtx;
-
-  // The existence of the mutex above makes RTLInfoTy non-copyable.
-  // We need to provide a copy constructor explicitly.
-  RTLInfoTy() = default;
-
-  RTLInfoTy(const RTLInfoTy &r) {
-    Idx = r.Idx;
-    NumberOfDevices = r.NumberOfDevices;
-    LibraryHandler = r.LibraryHandler;
-#ifdef OMPTARGET_DEBUG
-    RTLName = r.RTLName;
-#endif
-#if INTEL_COLLAB
-    RTLConstName = r.RTLConstName;
-#endif  // INTEL_COLLAB
-    is_valid_binary = r.is_valid_binary;
-    is_data_exchangable = r.is_data_exchangable;
-    number_of_devices = r.number_of_devices;
-    init_device = r.init_device;
-    load_binary = r.load_binary;
-    data_alloc = r.data_alloc;
-    data_submit = r.data_submit;
-    data_submit_async = r.data_submit_async;
-    data_retrieve = r.data_retrieve;
-    data_retrieve_async = r.data_retrieve_async;
-    data_exchange = r.data_exchange;
-    data_exchange_async = r.data_exchange_async;
-    data_delete = r.data_delete;
-    run_region = r.run_region;
-    run_region_async = r.run_region_async;
-    run_team_region = r.run_team_region;
-    run_team_region_async = r.run_team_region_async;
-    init_requires = r.init_requires;
-#if INTEL_COLLAB
-    data_submit_nowait = r.data_submit_nowait;
-    data_retrieve_nowait = r.data_retrieve_nowait;
-    manifest_data_for_region = r.manifest_data_for_region;
-    data_alloc_base = r.data_alloc_base;
-    data_alloc_user = r.data_alloc_user;
-    get_device_name = r.get_device_name;
-    run_team_nd_region = r.run_team_nd_region;
-    run_team_nd_region_nowait = r.run_team_nd_region_nowait;
-    run_region_nowait = r.run_region_nowait;
-    run_team_region_nowait = r.run_team_region_nowait;
-    create_offload_queue = r.create_offload_queue;
-    get_platform_handle = r.get_platform_handle;
-    get_device_handle = r.get_device_handle;
-    get_context_handle = r.get_context_handle;
-    release_offload_queue = r.release_offload_queue;
-    data_alloc_managed = r.data_alloc_managed;
-    is_device_accessible_ptr = r.is_device_accessible_ptr;
-    data_alloc_explicit = r.data_alloc_explicit;
-    init_ompt = r.init_ompt;
-    get_data_alloc_info = r.get_data_alloc_info;
-    push_subdevice = r.push_subdevice;
-    pop_subdevice = r.pop_subdevice;
-    add_build_options = r.add_build_options;
-    is_supported_device = r.is_supported_device;
-    deinit = r.deinit;
-#endif // INTEL_COLLAB
-    isUsed = r.isUsed;
-    synchronize = r.synchronize;
-  }
 };
 
 /// RTLs identified in the system.
-class RTLsTy {
-private:
-  // Mutex-like object to guarantee thread-safety and unique initialization
-  // (i.e. the library attempts to load the RTLs (plugins) only once).
-  std::once_flag initFlag;
-  void LoadRTLs(); // not thread-safe
-
-public:
+struct RTLsTy {
   // List of the detected runtime libraries.
   std::list<RTLInfoTy> AllRTLs;
 
@@ -258,8 +212,12 @@ public:
 
   // Unregister a shared library from all RTLs.
   void UnregisterLib(__tgt_bin_desc *desc);
-};
 
+  // Mutex-like object to guarantee thread-safety and unique initialization
+  // (i.e. the library attempts to load the RTLs (plugins) only once).
+  std::once_flag initFlag;
+  void LoadRTLs(); // not thread-safe
+};
 
 /// Map between the host entry begin and the translation table. Each
 /// registered library gets one TranslationTable. Use the map from

@@ -7,29 +7,29 @@
 
 // Memory2
 void test_tile_broadcastrowd(const void *A) {
-  _tile_broadcastrowd(16, A); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_broadcastrowd(8, A); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_storehd(void *A, size_t B) {
-  _tile_storehd(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_storehd(A, B, 8); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_storehdt1(void *A, size_t B) {
-  _tile_storehdt1(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_storehdt1(A, B, 8); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_storentd(void *A, size_t B) {
-  _tile_storentd(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_storentd(A, B, 8); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_storeqd(void *A, size_t B) {
-  _tile_storeqd(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_storeqd(A, B, 8); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_storeqdt1(void *A, size_t B) {
-  _tile_storeqdt1(A, B, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_storeqdt1(A, B, 8); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }
 
 void test_tile_storerowd(void *A) {
-  _tile_storerowd(A, 16); // expected-error {{argument value 16 is outside the valid range [0, 15]}}
+  _tile_storerowd(A, 8); // expected-error {{argument value 8 is outside the valid range [0, 7]}}
 }

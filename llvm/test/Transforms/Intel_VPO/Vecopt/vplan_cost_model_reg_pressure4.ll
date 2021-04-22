@@ -22,41 +22,41 @@ target triple = "i586-unknown-linux-gnu"
 @a = dso_local local_unnamed_addr global [1024 x i64] zeroinitializer, align 16
 
 define dso_local void @foo() {
-; VPLAN-CM-AVX2-LABEL:  HIR Cost Model for VPlan foo.25 with VF = 16:
-; VPLAN-CM-AVX2-NEXT:  Total VPlan Cost: 1292000
-; VPLAN-CM-AVX2-NEXT:  VPlan Base Cost before adjustments: 476000
-; VPLAN-CM-AVX2-NEXT:  VPlan Base Cost includes Total VPlan GS Cost: 320000
-; VPLAN-CM-AVX2-NEXT:  Total VPlan GS Cost is bumped: +640000
-; VPLAN-CM-AVX2-NEXT:  Total VPlan spill/fill cost: +176000
+; VPLAN-CM-AVX2-LABEL:  Cost Model for VPlan HIR foo.25 with VF = 16:
+; VPLAN-CM-AVX2-NEXT:  Total Cost: 1292876
+; VPLAN-CM-AVX2-NEXT:  Base Cost: 476876
+; VPLAN-CM-AVX2-NEXT:  Extra cost due to Gather/Scatter heuristic is 640000
+; VPLAN-CM-AVX2-NEXT:  Extra cost due to Spill/Fill heuristic is 176000
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
+; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1023, UF = 1
 ; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 476000
-; VPLAN-CM-AVX2-NEXT:  total cost includes GS Cost: 320000
+; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 476876
+; VPLAN-CM-AVX2-NEXT:  Block total cost includes GS Cost: 320000
 ; VPLAN-CM-AVX2-NEXT:  Block Vector spill/fill approximate cost (not included into total cost): 176000
 ; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i64]* @a i64 0 i64 [[VP0]]
-; VPLAN-CM-AVX2-NEXT:    Cost 4000 for i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
+; VPLAN-CM-AVX2-NEXT:    Cost 4876 for i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 4000 for i64 [[VP2:%.*]] = mul i64 [[VP_LOAD]] i64 2
 ; VPLAN-CM-AVX2-NEXT:    Cost 32000 for i64 [[VP3:%.*]] = mul i64 2 i64 [[VP0]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i64]* @b i64 0 i64 [[VP3]]
-; VPLAN-CM-AVX2-NEXT:    Cost 80000 for store i64 [[VP2]] i64* [[VP_SUBSCRIPT_1]] ( GS )
+; VPLAN-CM-AVX2-NEXT:    Cost 80000 for store i64 [[VP2]] i64* [[VP_SUBSCRIPT_1]] *GS*
 ; VPLAN-CM-AVX2-NEXT:    Cost 4000 for i64 [[VP4:%.*]] = mul i64 [[VP_LOAD]] i64 4
 ; VPLAN-CM-AVX2-NEXT:    Cost 32000 for i64 [[VP5:%.*]] = mul i64 3 i64 [[VP0]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i64]* @c i64 0 i64 [[VP5]]
-; VPLAN-CM-AVX2-NEXT:    Cost 80000 for store i64 [[VP4]] i64* [[VP_SUBSCRIPT_2]] ( GS )
+; VPLAN-CM-AVX2-NEXT:    Cost 80000 for store i64 [[VP4]] i64* [[VP_SUBSCRIPT_2]] *GS*
 ; VPLAN-CM-AVX2-NEXT:    Cost 8000 for i64 [[VP6:%.*]] = mul i64 [[VP_LOAD]] i64 5
 ; VPLAN-CM-AVX2-NEXT:    Cost 32000 for i64 [[VP7:%.*]] = mul i64 4 i64 [[VP0]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i64]* @d i64 0 i64 [[VP7]]
-; VPLAN-CM-AVX2-NEXT:    Cost 80000 for store i64 [[VP6]] i64* [[VP_SUBSCRIPT_3]] ( GS )
+; VPLAN-CM-AVX2-NEXT:    Cost 80000 for store i64 [[VP6]] i64* [[VP_SUBSCRIPT_3]] *GS*
 ; VPLAN-CM-AVX2-NEXT:    Cost 32000 for i64 [[VP8:%.*]] = mul i64 5 i64 [[VP0]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i64]* @e i64 0 i64 [[VP8]]
-; VPLAN-CM-AVX2-NEXT:    Cost 80000 for store i64 [[VP_LOAD]] i64* [[VP_SUBSCRIPT_4]] ( GS )
+; VPLAN-CM-AVX2-NEXT:    Cost 80000 for store i64 [[VP_LOAD]] i64* [[VP_SUBSCRIPT_4]] *GS*
 ; VPLAN-CM-AVX2-NEXT:    Cost 4000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; VPLAN-CM-AVX2-NEXT:    Cost 4000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP1]] i64 1023
+; VPLAN-CM-AVX2-NEXT:    Cost 4000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
@@ -64,39 +64,39 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br <External Block>
 ;
-; VPLAN-CM-AVX512-LABEL:  HIR Cost Model for VPlan foo.25 with VF = 16:
-; VPLAN-CM-AVX512-NEXT:  Total VPlan Cost: 510000
-; VPLAN-CM-AVX512-NEXT:  VPlan Base Cost before adjustments: 222000
-; VPLAN-CM-AVX512-NEXT:  VPlan Base Cost includes Total VPlan GS Cost: 144000
-; VPLAN-CM-AVX512-NEXT:  Total VPlan GS Cost is bumped: +288000
+; VPLAN-CM-AVX512-LABEL:  Cost Model for VPlan HIR foo.25 with VF = 16:
+; VPLAN-CM-AVX512-NEXT:  Total Cost: 510938
+; VPLAN-CM-AVX512-NEXT:  Base Cost: 222938
+; VPLAN-CM-AVX512-NEXT:  Extra cost due to Gather/Scatter heuristic is 288000
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
+; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1023, UF = 1
 ; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 222000
-; VPLAN-CM-AVX512-NEXT:  total cost includes GS Cost: 144000
+; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 222938
+; VPLAN-CM-AVX512-NEXT:  Block total cost includes GS Cost: 144000
 ; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i64]* @a i64 0 i64 [[VP0]]
-; VPLAN-CM-AVX512-NEXT:    Cost 2000 for i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
+; VPLAN-CM-AVX512-NEXT:    Cost 2938 for i64 [[VP_LOAD:%.*]] = load i64* [[VP_SUBSCRIPT]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 2000 for i64 [[VP2:%.*]] = mul i64 [[VP_LOAD]] i64 2
 ; VPLAN-CM-AVX512-NEXT:    Cost 16000 for i64 [[VP3:%.*]] = mul i64 2 i64 [[VP0]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i64]* @b i64 0 i64 [[VP3]]
-; VPLAN-CM-AVX512-NEXT:    Cost 36000 for store i64 [[VP2]] i64* [[VP_SUBSCRIPT_1]] ( GS )
+; VPLAN-CM-AVX512-NEXT:    Cost 36000 for store i64 [[VP2]] i64* [[VP_SUBSCRIPT_1]] *GS*
 ; VPLAN-CM-AVX512-NEXT:    Cost 2000 for i64 [[VP4:%.*]] = mul i64 [[VP_LOAD]] i64 4
 ; VPLAN-CM-AVX512-NEXT:    Cost 16000 for i64 [[VP5:%.*]] = mul i64 3 i64 [[VP0]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i64]* @c i64 0 i64 [[VP5]]
-; VPLAN-CM-AVX512-NEXT:    Cost 36000 for store i64 [[VP4]] i64* [[VP_SUBSCRIPT_2]] ( GS )
+; VPLAN-CM-AVX512-NEXT:    Cost 36000 for store i64 [[VP4]] i64* [[VP_SUBSCRIPT_2]] *GS*
 ; VPLAN-CM-AVX512-NEXT:    Cost 4000 for i64 [[VP6:%.*]] = mul i64 [[VP_LOAD]] i64 5
 ; VPLAN-CM-AVX512-NEXT:    Cost 16000 for i64 [[VP7:%.*]] = mul i64 4 i64 [[VP0]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i64]* @d i64 0 i64 [[VP7]]
-; VPLAN-CM-AVX512-NEXT:    Cost 36000 for store i64 [[VP6]] i64* [[VP_SUBSCRIPT_3]] ( GS )
+; VPLAN-CM-AVX512-NEXT:    Cost 36000 for store i64 [[VP6]] i64* [[VP_SUBSCRIPT_3]] *GS*
 ; VPLAN-CM-AVX512-NEXT:    Cost 16000 for i64 [[VP8:%.*]] = mul i64 5 i64 [[VP0]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i64]* @e i64 0 i64 [[VP8]]
-; VPLAN-CM-AVX512-NEXT:    Cost 36000 for store i64 [[VP_LOAD]] i64* [[VP_SUBSCRIPT_4]] ( GS )
+; VPLAN-CM-AVX512-NEXT:    Cost 36000 for store i64 [[VP_LOAD]] i64* [[VP_SUBSCRIPT_4]] *GS*
 ; VPLAN-CM-AVX512-NEXT:    Cost 2000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
-; VPLAN-CM-AVX512-NEXT:    Cost 2000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP1]] i64 1023
+; VPLAN-CM-AVX512-NEXT:    Cost 2000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1

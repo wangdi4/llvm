@@ -251,10 +251,9 @@ bool HIRArrayScalarizationTestLauncherLegacyPass::runOnFunction(Function &F) {
       getAnalysis<HIRDDAnalysisWrapperPass>().getDDA());
 }
 
-PreservedAnalyses
-HIRArrayScalarizationTestLauncherPass::run(llvm::Function &F,
-                                           llvm::FunctionAnalysisManager &AM) {
-  runHIRArrayScalarizationTestLauncher(AM.getResult<HIRFrameworkAnalysis>(F),
+PreservedAnalyses HIRArrayScalarizationTestLauncherPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  runHIRArrayScalarizationTestLauncher(HIRF,
                                        AM.getResult<HIRDDAnalysisPass>(F));
   return PreservedAnalyses::all();
 }

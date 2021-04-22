@@ -12,8 +12,8 @@
 
 ; Since the module has debug information, check that a map-name struct is
 ; created for the firstprivate operand, %y.ir.
-; CHECK: [[Y_NAME:@[^ ]+]] = private unnamed_addr constant [{{[0-9]+}} x i8] c";y.ir{{[^ ;]*}};unknown;0;0;;\00", align 1
-; CHECK: @.offload_mapnames = private constant [1 x i8*] [i8* getelementptr inbounds ([{{[0-9]+}} x i8], [{{[0-9]+}} x i8]* [[Y_NAME]], i32 0, i32 0)]
+; CHECK: @.mapname = private unnamed_addr constant [{{[0-9]+}} x i8] c";y.ir{{[^ ;]*}};unknown;0;0;;\00", align 1
+; CHECK: @.offload_mapnames = private constant [1 x i8*] [i8* getelementptr inbounds ([{{[0-9]+}} x i8], [{{[0-9]+}} x i8]* @.mapname, i32 0, i32 0)]
 
 ; Check that tgt_mapper is called using the map-names struct.
 ; CHECK:  %{{[^ ]+}} = call i32 @__tgt_target_mapper(%struct.ident_t* @{{[^ ,]+}}, i64 %{{[^ ,]+}}, i8* @{{[^ ,]+}}, i32 1, i8** %{{[^ ,]}}, i8** %{{[^ ,]}}, i64* getelementptr inbounds ([1 x i64], [1 x i64]* @.offload_sizes, i32 0, i32 0), i64* getelementptr inbounds ([1 x i64], [1 x i64]* @.offload_maptypes, i32 0, i32 0), i8** getelementptr inbounds ([1 x i8*], [1 x i8*]* @.offload_mapnames, i32 0, i32 0), i8** null)

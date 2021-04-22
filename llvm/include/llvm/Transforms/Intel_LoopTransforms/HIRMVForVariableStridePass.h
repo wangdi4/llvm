@@ -13,16 +13,18 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRMVFORVARIABLESTRIDE_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRMVFORVARIABLESTRIDE_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
 class HIRMVForVariableStridePass
-    : public PassInfoMixin<HIRMVForVariableStridePass> {
+    : public HIRPassInfoMixin<HIRMVForVariableStridePass> {
 public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static constexpr auto PassName = "hir-mv-variable-stride";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

@@ -20,8 +20,9 @@
 namespace llvm {
 namespace vpo {
 
-class VPlan;
+class VPlanVector;
 class VPInstruction;
+class VPlanCostModel;
 class VPlanValueTracking;
 class VPLoadStoreInst;
 
@@ -119,9 +120,9 @@ public:
   virtual int getCost(VPInstruction *Mrf, int VF, Align Alignment) = 0;
 };
 
-/// A simple dummy implementation of VPlanPeelingCostModel interface. It uses a
-/// reasonable but very simple heuristic. In future, it is expected to be
-/// replaced with a more precise TTI-based cost model.
+/// A simple (but reasonable) implementation of VPlanPeelingCostModel. It
+/// assumes that profit from aligning any single store is 50% higher than
+/// aligning any load. The profits don't depend on actual memory access types.
 class VPlanPeelingCostModelSimple final : public VPlanPeelingCostModel {
 public:
   VPlanPeelingCostModelSimple(const DataLayout &DL) : DL(&DL) {}
@@ -130,6 +131,18 @@ public:
 
 private:
   const DataLayout *DL;
+};
+
+/// An implementation of VPlanPeelingCostModel based on general vectorizer cost
+/// model. It is the most precise cost model for peeling analysis.
+class VPlanPeelingCostModelGeneral final : public VPlanPeelingCostModel {
+public:
+  VPlanPeelingCostModelGeneral(VPlanCostModel &CM) : CM(&CM) {}
+
+  int getCost(VPInstruction *Mrf, int VF, Align Alignment) override;
+
+private:
+  VPlanCostModel *CM;
 };
 
 /// Memref that is a candidate for peeling. VPlanPeelingCandidate object cannot
@@ -167,9 +180,9 @@ private:
 /// model.
 class VPlanPeelingAnalysis final {
 public:
-  VPlanPeelingAnalysis(VPlanPeelingCostModel &CM, VPlanScalarEvolution &VPSE,
-                       VPlanValueTracking &VPVT, const DataLayout &DL)
-      : CM(&CM), VPSE(&VPSE), VPVT(&VPVT), DL(&DL) {}
+  VPlanPeelingAnalysis(VPlanScalarEvolution &VPSE, VPlanValueTracking &VPVT,
+                       const DataLayout &DL)
+      : VPSE(&VPSE), VPVT(&VPVT), DL(&DL) {}
   VPlanPeelingAnalysis(const VPlanPeelingAnalysis &) = delete;
   VPlanPeelingAnalysis &operator=(const VPlanPeelingAnalysis &) = delete;
   VPlanPeelingAnalysis(VPlanPeelingAnalysis &&) = default;
@@ -177,28 +190,29 @@ public:
   /// Find and analyze all the memory references in \p VPlan.
   /// This method must be called before selecting a peeling variant, and it
   /// must be called only once.
-  void collectMemrefs(VPlan &Plan);
+  void collectMemrefs(VPlanVector &Plan);
 
   /// Find the most profitable peeling variant for a particular \p VF.
-  std::unique_ptr<VPlanPeelingVariant> selectBestPeelingVariant(int VF);
+  std::unique_ptr<VPlanPeelingVariant>
+  selectBestPeelingVariant(int VF, VPlanPeelingCostModel &CM);
 
   /// Returns best static peeling variant and its profit. The algorithm for
   /// selecting best peeling variant always succeeds. In the worst case
   /// {StaticPeeling(0), 0} is returned.
-  std::pair<VPlanStaticPeeling, int> selectBestStaticPeelingVariant(int VF);
+  std::pair<VPlanStaticPeeling, int>
+  selectBestStaticPeelingVariant(int VF, VPlanPeelingCostModel &CM);
 
   /// Returns best dynamic peeling variant and its profit. None is returned when
   /// there's no analyzable memrefs in the loop.
   Optional<std::pair<VPlanDynamicPeeling, int>>
-  selectBestDynamicPeelingVariant(int VF);
+  selectBestDynamicPeelingVariant(int VF, VPlanPeelingCostModel &CM);
 
 private:
-  void collectCandidateMemrefs(VPlan &Plan);
+  void collectCandidateMemrefs(VPlanVector &Plan);
   void computeCongruentMemrefs();
   LLVM_DUMP_METHOD void dump();
 
 private:
-  VPlanPeelingCostModel *CM;
   VPlanScalarEvolution *VPSE;
   VPlanValueTracking *VPVT;
   const DataLayout *DL;
@@ -248,8 +262,8 @@ public:
   /// the given \p Peeling. The returned alignment is computed using the memory
   /// address either in the first vector lane (if the stride is positive) or in
   /// the last lane (if the stride is negative).
-  Align getAlignmentUnitStride(VPLoadStoreInst &Memref,
-                               VPlanPeelingVariant &Peeling);
+  Align getAlignmentUnitStride(const VPLoadStoreInst &Memref,
+                               VPlanPeelingVariant &Peeling) const;
 
   /// Compute conservative alignment of \p Memref. The returned alignment is
   /// valid for any vector lane and any peeling variant. This method should be

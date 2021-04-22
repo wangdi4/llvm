@@ -27,11 +27,6 @@ class Function;
 /// only the redundant stores that are local to a single Basic Block.
 class DSEPass : public PassInfoMixin<DSEPass> {
 public:
-#if INTEL_CUSTOMIZATION
-  // llorg has only the default constructor, add an explicit one with the
-  // UseSSA parameter.
-  explicit DSEPass(bool UseSSA = true);
-#endif // INTEL_CUSTOMIZATION
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
 };
 

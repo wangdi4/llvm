@@ -675,10 +675,11 @@ public:
     auto *BFI = (PSI && PSI->hasProfileSummary()) ?
                 &getAnalysis<LazyBlockFrequencyInfoPass>().getBFI() :
                 nullptr;
+    auto *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
     // Process each loop nest in the function.
     return eliminateLoadsAcrossLoops(
-        F, LI, DT, BFI, PSI, /*SE*/ nullptr, /*AC*/ nullptr,
+        F, LI, DT, BFI, PSI, SE, /*AC*/ nullptr,
         [&LAA](Loop &L) -> const LoopAccessInfo & { return LAA.getInfo(&L); });
   }
 
@@ -745,5 +746,13 @@ PreservedAnalyses LoopLoadEliminationPass::run(Function &F,
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
+
+#if INTEL_CUSTOMIZATION
+  // Loop is needed to support IC pass after this
+  PA.preserve<LoopAnalysis>();
+  PA.preserve<DominatorTreeAnalysis>();
+  PA.preserve<GlobalsAA>();
+#endif // INTEL_CUSTOMIZATION
+
   return PA;
 }

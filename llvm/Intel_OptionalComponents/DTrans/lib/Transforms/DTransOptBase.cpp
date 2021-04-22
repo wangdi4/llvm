@@ -1,6 +1,6 @@
 //===-- DTransOptBase.cpp - Common base classes for DTrans Transforms---==//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -548,6 +548,16 @@ void DTransOptBase::populateDependentTypes(
   }
 }
 
+// Return true if the input function is an Intel Subscript intrinsic,
+// else return false
+bool DTransOptBase::isFunctionASubscriptIntrinsic(Function *F) {
+  if (!F)
+    return false;
+  return (F->isIntrinsic() &&
+          (F->getIntrinsicID() == Intrinsic::intel_subscript ||
+           F->getIntrinsicID() == Intrinsic::intel_subscript_nonexact));
+}
+
 void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
   // Set up the mapping of Functions to CallInfo objects that need to
   // be processed as each function is transformed.
@@ -577,7 +587,7 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
     MDVMap[SP].reset(SP);
 
   for (auto &F : M) {
-    if (F.isDeclaration())
+    if (!isFunctionASubscriptIntrinsic(&F) && F.isDeclaration())
       continue;
 
     // The clone function body will be populated when processing the original
@@ -599,8 +609,9 @@ void DTransOptBase::transformIR(Module &M, ValueMapper &Mapper) {
       assert(CloneFuncToOrigFuncMap[CloneFunc] == &F &&
              "CloneFuncToOrigFuncMap is invalid");
 
-      CloneFunctionInto(CloneFunc, &F, VMap, true, Returns, "", &CodeInfo,
-                        TypeRemapper, Materializer);
+      CloneFunctionInto(CloneFunc, &F, VMap,
+                        CloneFunctionChangeType::LocalChangesOnly, Returns,"",
+                        &CodeInfo, TypeRemapper, Materializer);
       updateCallInfoForFunction(&F, /* IsCloned=*/true);
 
       // CloneFunctionInto() copies all the parameter attributes of the original
@@ -733,7 +744,7 @@ void DTransOptBase::updateCallInfoForFunction(Function *F, bool isCloned) {
       size_t Num = ElementTypes.getNumTypes();
       for (size_t i = 0; i < Num; ++i)
         ElementTypes.setElemType(
-            i, TypeRemapper->remapType(ElementTypes.getElemType(i)));
+            i, TypeRemapper->remapType(ElementTypes.getElemLLVMType(i)));
     }
 }
 
@@ -747,17 +758,46 @@ void DTransOptBase::updateCallInfoForFunction(Function *F, bool isCloned) {
 // Update this to have the remapped type for the byval attribute.
 //   define void @test0.1(%_DT_struct.type01b* byval(%_DT_struct.type01b) %in)
 //
+// Other attributes that contain types are: byref, sret, and preallocated.
 void DTransOptBase::updateAttributeTypes(Function *CloneFunc) {
+  auto &TheRemapper = TypeRemapper;
+  auto TypeChangeNeeded = [&TheRemapper](llvm::Type *Ty) -> llvm::Type * {
+    llvm::Type *RemapTy = TheRemapper->remapType(Ty);
+    if (Ty != RemapTy)
+      return RemapTy;
+    return nullptr;
+  };
+
   unsigned ArgIdx = 0;
   LLVMContext &Context = CloneFunc->getContext();
   for (Argument &I : CloneFunc->args()) {
+    // The attributes are mutually exclusive. Just find if any are present,
+    // and update the type if needed.
     if (I.hasByValAttr()) {
-      llvm::Type *Ty = I.getParamByValType();
-      llvm::Type *RemapTy = TypeRemapper->remapType(Ty);
-      if (Ty != RemapTy) {
+      if (auto *RemapTy = TypeChangeNeeded(I.getParamByValType())) {
         CloneFunc->removeParamAttr(ArgIdx, Attribute::ByVal);
         CloneFunc->addParamAttr(ArgIdx,
                                 Attribute::getWithByValType(Context, RemapTy));
+      }
+    } else if (I.hasByRefAttr()) {
+      if (auto *RemapTy = TypeChangeNeeded(I.getParamByRefType())) {
+        CloneFunc->removeParamAttr(ArgIdx, Attribute::ByRef);
+        CloneFunc->addParamAttr(ArgIdx,
+                                Attribute::getWithByRefType(Context, RemapTy));
+      }
+    } else if (I.hasStructRetAttr()) {
+      if (auto *RemapTy = TypeChangeNeeded(I.getParamStructRetType())) {
+        CloneFunc->removeParamAttr(ArgIdx, Attribute::StructRet);
+        CloneFunc->addParamAttr(
+            ArgIdx, Attribute::getWithStructRetType(Context, RemapTy));
+      }
+    } else if (I.hasPreallocatedAttr()) {
+      AttributeSet ParamAttrs =
+          CloneFunc->getAttributes().getParamAttributes(ArgIdx);
+      if (auto *RemapTy = TypeChangeNeeded(ParamAttrs.getPreallocatedType())) {
+        CloneFunc->removeParamAttr(ArgIdx, Attribute::Preallocated);
+        CloneFunc->addParamAttr(
+            ArgIdx, Attribute::getWithPreallocatedType(Context, RemapTy));
       }
     }
     ++ArgIdx;
@@ -771,11 +811,74 @@ void DTransOptBase::resetFunctionCallInfoMapping() {
 
 // Identify and create new function prototypes for dependent functions
 void DTransOptBase::createCloneFunctionDeclarations(Module &M) {
+
+  // Given a FunctionType, collect the name of the return type if it is a
+  // structure, else return an empty string
+  auto CollectNameForSubscriptType = [&](Type *SigType) -> StringRef {
+    auto *FuncSig = dyn_cast<FunctionType>(SigType);
+    if (!FuncSig)
+      return StringRef("");
+
+    Type *RetTy = FuncSig->getReturnType();
+
+    if (RetTy->isPointerTy())
+      RetTy = RetTy->getPointerElementType();
+
+    if (RetTy->isStructTy())
+      return RetTy->getStructName();
+
+    return StringRef("");
+  };
+
+  // Return the name for the new cloned function. If the function is a
+  // subscript then replace the FuncValueTy's name in the string with
+  // FuncReplValueTy's name. The output name will be stored in FuncName.
+  auto GetNewFunctionName = [&, CollectNameForSubscriptType](Function *F,
+      Type *FuncValueTy, Type *FuncReplValueTy, std::string &FuncName) {
+
+    if (!isFunctionASubscriptIntrinsic(F)) {
+      FuncName = F->getName().str();
+      return;
+    }
+
+    StringRef OldTyName = CollectNameForSubscriptType(FuncValueTy);
+    StringRef NewTyName = CollectNameForSubscriptType(FuncReplValueTy);
+
+    if (OldTyName.empty() || NewTyName.empty()) {
+      FuncName = F->getName().str();
+      return;
+    }
+
+    // If the input function is an Intel Subscript then we need to adjust
+    // the name of the function. The naming of the subscript function needs to
+    // match the input types. This means that we need to replace the old type's
+    // name in the subscript for the new type.
+    std::pair <StringRef, StringRef> NameSplit;
+    StringRef NameToSplit = F->getName();
+
+    do {
+      // Split the name into "LHS" + "Old Type Name" + "RHS". The pair
+      // NameSplit will contain "LHS" (first) and "RHS" (second).
+      NameSplit = NameToSplit.split(OldTyName);
+
+      // Include "LHS" as part of the function name
+      FuncName += NameSplit.first.str();
+
+      // If the second entry in the pair is not empty, then it means
+      // that the string was split, therefore include the new type's
+      // name and iterate again.
+      if (!NameSplit.second.empty()) {
+        FuncName += NewTyName.str();
+        NameToSplit = NameSplit.second;
+      }
+    } while (!NameSplit.second.empty());
+  };
+
   // Create a work list of all the function definitions that need to be
   // considered for cloning.
   std::vector<Function *> WL;
   for (auto &F : M) {
-    if (!F.isDeclaration())
+    if (!F.isDeclaration() || isFunctionASubscriptIntrinsic(&F))
       WL.push_back(&F);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     else if (DTransOptBaseProcessFuncDecl)
@@ -789,8 +892,11 @@ void DTransOptBase::createCloneFunctionDeclarations(Module &M) {
     Type *FuncValueTy = F->getValueType();
     Type *FuncReplValueTy = TypeRemapper->remapType(FuncValueTy);
     if (FuncReplValueTy != FuncValueTy) {
+      std::string FuncNameStr = "";
+      GetNewFunctionName(F, FuncValueTy, FuncReplValueTy, FuncNameStr);
+      StringRef FuncName(FuncNameStr);
       Function *NewF = Function::Create(cast<FunctionType>(FuncReplValueTy),
-                                        F->getLinkage(), F->getName(), &M);
+                                        F->getLinkage(), FuncName, &M);
       NewF->copyAttributesFrom(F);
       VMap[F] = NewF;
 

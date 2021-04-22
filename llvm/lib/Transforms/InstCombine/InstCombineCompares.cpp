@@ -96,45 +96,6 @@ static bool isSignTest(ICmpInst::Predicate &Pred, const APInt &C) {
   return false;
 }
 
-/// Given a signed integer type and a set of known zero and one bits, compute
-/// the maximum and minimum values that could have the specified known zero and
-/// known one bits, returning them in Min/Max.
-/// TODO: Move to method on KnownBits struct?
-static void computeSignedMinMaxValuesFromKnownBits(const KnownBits &Known,
-                                                   APInt &Min, APInt &Max) {
-  assert(Known.getBitWidth() == Min.getBitWidth() &&
-         Known.getBitWidth() == Max.getBitWidth() &&
-         "KnownZero, KnownOne and Min, Max must have equal bitwidth.");
-  APInt UnknownBits = ~(Known.Zero|Known.One);
-
-  // The minimum value is when all unknown bits are zeros, EXCEPT for the sign
-  // bit if it is unknown.
-  Min = Known.One;
-  Max = Known.One|UnknownBits;
-
-  if (UnknownBits.isNegative()) { // Sign bit is unknown
-    Min.setSignBit();
-    Max.clearSignBit();
-  }
-}
-
-/// Given an unsigned integer type and a set of known zero and one bits, compute
-/// the maximum and minimum values that could have the specified known zero and
-/// known one bits, returning them in Min/Max.
-/// TODO: Move to method on KnownBits struct?
-static void computeUnsignedMinMaxValuesFromKnownBits(const KnownBits &Known,
-                                                     APInt &Min, APInt &Max) {
-  assert(Known.getBitWidth() == Min.getBitWidth() &&
-         Known.getBitWidth() == Max.getBitWidth() &&
-         "Ty, KnownZero, KnownOne and Min, Max must have equal bitwidth.");
-  APInt UnknownBits = ~(Known.Zero|Known.One);
-
-  // The minimum value is when the unknown bits are all zeros.
-  Min = Known.One;
-  // The maximum value is when the unknown bits are all ones.
-  Max = Known.One|UnknownBits;
-}
-
 /// This is called when we see this pattern:
 ///   cmp pred (load (gep GV, ...)), cmpcst
 /// where GV is a global variable with a constant initializer. Try to simplify
@@ -541,7 +502,7 @@ static bool canRewriteGEPAsOffset(Value *Start, Value *Base,
 
       Value *V = WorkList.back();
 
-      if (Explored.count(V) != 0) {
+      if (Explored.contains(V)) {
         WorkList.pop_back();
         continue;
       }
@@ -2303,6 +2264,21 @@ Instruction *InstCombinerImpl::foldICmpShrConstant(ICmpInst &Cmp,
           (ShiftedC + 1).ashr(ShAmtVal) == (C + 1))
         return new ICmpInst(Pred, X, ConstantInt::get(ShrTy, ShiftedC));
     }
+
+    // If the compare constant has significant bits above the lowest sign-bit,
+    // then convert an unsigned cmp to a test of the sign-bit:
+    // (ashr X, ShiftC) u> C --> X s< 0
+    // (ashr X, ShiftC) u< C --> X s> -1
+    if (C.getBitWidth() > 2 && C.getNumSignBits() <= ShAmtVal) {
+      if (Pred == CmpInst::ICMP_UGT) {
+        return new ICmpInst(CmpInst::ICMP_SLT, X,
+                            ConstantInt::getNullValue(ShrTy));
+      }
+      if (Pred == CmpInst::ICMP_ULT) {
+        return new ICmpInst(CmpInst::ICMP_SGT, X,
+                            ConstantInt::getAllOnesValue(ShrTy));
+      }
+    }
   } else {
     if (Pred == CmpInst::ICMP_ULT || (Pred == CmpInst::ICMP_UGT && IsExact)) {
       // icmp ult (lshr X, ShAmtC), C --> icmp ult X, (C << ShAmtC)
@@ -3501,7 +3477,7 @@ static Value *foldICmpWithLowBitMaskedVal(ICmpInst &I,
   Type *OpTy = M->getType();
   auto *VecC = dyn_cast<Constant>(M);
   auto *OpVTy = dyn_cast<FixedVectorType>(OpTy);
-  if (OpVTy && VecC && VecC->containsUndefElement()) {
+  if (OpVTy && VecC && VecC->containsUndefOrPoisonElement()) {
     Constant *SafeReplacementConstant = nullptr;
     for (unsigned i = 0, e = OpVTy->getNumElements(); i != e; ++i) {
       if (!isa<UndefValue>(VecC->getAggregateElement(i))) {
@@ -5053,8 +5029,7 @@ static Instruction *processUMulZExtIdiom(ICmpInst &I, Value *MulVal,
   // mul.with.overflow and adjust properly mask/size.
   if (MulVal->hasNUsesOrMore(2)) {
     Value *Mul = Builder.CreateExtractValue(Call, 0, "umul.value");
-    for (auto UI = MulVal->user_begin(), UE = MulVal->user_end(); UI != UE;) {
-      User *U = *UI++;
+    for (User *U : make_early_inc_range(MulVal->users())) {
       if (U == &I || U == OtherVal)
         continue;
       if (TruncInst *TI = dyn_cast<TruncInst>(U)) {
@@ -5313,11 +5288,15 @@ Instruction *InstCombinerImpl::foldICmpUsingKnownBits(ICmpInst &I) {
   APInt Op0Min(BitWidth, 0), Op0Max(BitWidth, 0);
   APInt Op1Min(BitWidth, 0), Op1Max(BitWidth, 0);
   if (I.isSigned()) {
-    computeSignedMinMaxValuesFromKnownBits(Op0Known, Op0Min, Op0Max);
-    computeSignedMinMaxValuesFromKnownBits(Op1Known, Op1Min, Op1Max);
+    Op0Min = Op0Known.getSignedMinValue();
+    Op0Max = Op0Known.getSignedMaxValue();
+    Op1Min = Op1Known.getSignedMinValue();
+    Op1Max = Op1Known.getSignedMaxValue();
   } else {
-    computeUnsignedMinMaxValuesFromKnownBits(Op0Known, Op0Min, Op0Max);
-    computeUnsignedMinMaxValuesFromKnownBits(Op1Known, Op1Min, Op1Max);
+    Op0Min = Op0Known.getMinValue();
+    Op0Max = Op0Known.getMaxValue();
+    Op1Min = Op1Known.getMinValue();
+    Op1Max = Op1Known.getMaxValue();
   }
 
   // If Min and Max are known to be the same, then SimplifyDemandedBits figured
@@ -5335,11 +5314,9 @@ Instruction *InstCombinerImpl::foldICmpUsingKnownBits(ICmpInst &I) {
     llvm_unreachable("Unknown icmp opcode!");
   case ICmpInst::ICMP_EQ:
   case ICmpInst::ICMP_NE: {
-    if (Op0Max.ult(Op1Min) || Op0Min.ugt(Op1Max)) {
-      return Pred == CmpInst::ICMP_EQ
-                 ? replaceInstUsesWith(I, ConstantInt::getFalse(I.getType()))
-                 : replaceInstUsesWith(I, ConstantInt::getTrue(I.getType()));
-    }
+    if (Op0Max.ult(Op1Min) || Op0Min.ugt(Op1Max))
+      return replaceInstUsesWith(
+          I, ConstantInt::getBool(I.getType(), Pred == CmpInst::ICMP_NE));
 
     // If all bits are known zero except for one, then we know at most one bit
     // is set. If the comparison is against zero, then this is a check to see if
@@ -5559,7 +5536,8 @@ InstCombiner::getFlippedStrictnessPredicateAndConstant(CmpInst::Predicate Pred,
   // It may not be safe to change a compare predicate in the presence of
   // undefined elements, so replace those elements with the first safe constant
   // that we found.
-  if (C->containsUndefElement()) {
+  // TODO: in case of poison, it is safe; let's replace undefs only.
+  if (C->containsUndefOrPoisonElement()) {
     assert(SafeReplacementConstant && "Replacement constant not set");
     C = Constant::replaceUndefsWith(C, SafeReplacementConstant);
   }
@@ -5596,8 +5574,6 @@ static ICmpInst *canonicalizeCmpWithConstant(ICmpInst &I) {
   return new ICmpInst(FlippedStrictness->first, Op0, FlippedStrictness->second);
 }
 
-#if !INTEL_CUSTOMIZATION
-// See  CMPLRLLVM-21338 for details.
 /// If we have a comparison with a non-canonical predicate, if we can update
 /// all the users, invert the predicate and adjust all the users.
 CmpInst *InstCombinerImpl::canonicalizeICmpPredicate(CmpInst &I) {
@@ -5615,30 +5591,11 @@ CmpInst *InstCombinerImpl::canonicalizeICmpPredicate(CmpInst &I) {
   I.setPredicate(CmpInst::getInversePredicate(Pred));
   I.setName(I.getName() + ".not");
 
-  // And now let's adjust every user.
-  for (User *U : I.users()) {
-    switch (cast<Instruction>(U)->getOpcode()) {
-    case Instruction::Select: {
-      auto *SI = cast<SelectInst>(U);
-      SI->swapValues();
-      SI->swapProfMetadata();
-      break;
-    }
-    case Instruction::Br:
-      cast<BranchInst>(U)->swapSuccessors(); // swaps prof metadata too
-      break;
-    case Instruction::Xor:
-      replaceInstUsesWith(cast<Instruction>(*U), &I);
-      break;
-    default:
-      llvm_unreachable("Got unexpected user - out of sync with "
-                       "canFreelyInvertAllUsersOf() ?");
-    }
-  }
+  // And, adapt users.
+  freelyInvertAllUsersOf(&I);
 
   return &I;
 }
-#endif //INTEL_CUSTOMIZATION
 
 /// Integer compare with boolean values can always be turned into bitwise ops.
 static Instruction *canonicalizeICmpBool(ICmpInst &I,
@@ -5878,16 +5835,11 @@ Instruction *InstCombinerImpl::visitICmpInst(ICmpInst &I) {
     if (Instruction *Res = canonicalizeICmpBool(I, Builder))
       return Res;
 
-#if INTEL_CUSTOMIZATION
-  if (ICmpInst *NewICmp = canonicalizeCmpWithConstant(I))
-    return NewICmp;
-#else
   if (Instruction *Res = canonicalizeCmpWithConstant(I))
     return Res;
 
   if (Instruction *Res = canonicalizeICmpPredicate(I))
     return Res;
-#endif // INTEL_CUSTOMIZATION
 
   if (Instruction *Res = foldICmpWithConstant(I))
     return Res;
@@ -6080,9 +6032,53 @@ Instruction *InstCombinerImpl::visitICmpInst(ICmpInst &I) {
   if (I.getType()->isVectorTy())
     if (Instruction *Res = foldVectorCmp(I, Builder))
       return Res;
+#if INTEL_CUSTOMIZATION
+  if (auto *Res = foldNotCmpOverTwoSelects(I, Q))
+    return Res;
+#endif // INTEL_CUSTOMIZATION
 
   return Changed ? &I : nullptr;
 }
+
+#if INTEL_CUSTOMIZATION
+// InstructionSimplify::threadCmpOverTwoSelects skips this case because it
+// requires a new instruction. Catch it here.
+//
+//  %0 = select i1 %cond, i32 %A, %B
+//  %1 = select i1 %cond, i32 %C, %D
+//  %I = icmp PRED i32 %0, %1
+//  [%A PRED %C is false]
+//  [%B PRED %D is true]
+//  =>
+//  %I = select i1 %cond, false, true
+//  =>
+//  %I = xor i1 %cond, true
+//  https://rise4fun.com/Alive/cWpc
+Instruction *
+InstCombinerImpl::foldNotCmpOverTwoSelects(ICmpInst &I,
+                                           const SimplifyQuery &Q) {
+  Value *Cond, *A, *B, *C, *D;
+  auto *LHS = I.getOperand(0);
+  auto *RHS = I.getOperand(1);
+  // 2 selects
+  if (!(match(LHS, m_Select(m_Value(Cond), m_Value(A), m_Value(B))) &&
+        match(RHS, m_Select(m_Specific(Cond), m_Value(C), m_Value(D)))))
+    return nullptr;
+
+  unsigned Pred = I.getPredicate();
+
+  // check A PRED C, B PRED D
+  Value *LeftCmp = SimplifyICmpInst(Pred, A, C, Q);
+  Value *RightCmp = SimplifyICmpInst(Pred, B, D, Q);
+  if (!LeftCmp || !RightCmp)
+    return nullptr;
+
+  if (match(LeftCmp, m_Zero()) && match(RightCmp, m_One())) {
+    return BinaryOperator::CreateNot(Cond);
+  }
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Fold fcmp ([us]itofp x, cst) if possible.
 Instruction *InstCombinerImpl::foldFCmpIntToFPConst(FCmpInst &I,
@@ -6580,6 +6576,26 @@ Instruction *InstCombinerImpl::visitFCmpInst(FCmpInst &I) {
         Constant *NewC = ConstantFP::get(X->getType(), TruncC);
         return new FCmpInst(Pred, X, NewC, "", &I);
       }
+    }
+  }
+
+  // Convert a sign-bit test of an FP value into a cast and integer compare.
+  // TODO: Simplify if the copysign constant is 0.0 or NaN.
+  // TODO: Handle non-zero compare constants.
+  // TODO: Handle other predicates.
+  const APFloat *C;
+  if (match(Op0, m_OneUse(m_Intrinsic<Intrinsic::copysign>(m_APFloat(C),
+                                                           m_Value(X)))) &&
+      match(Op1, m_AnyZeroFP()) && !C->isZero() && !C->isNaN()) {
+    Type *IntType = Builder.getIntNTy(X->getType()->getScalarSizeInBits());
+    if (auto *VecTy = dyn_cast<VectorType>(OpType))
+      IntType = VectorType::get(IntType, VecTy->getElementCount());
+
+    // copysign(non-zero constant, X) < 0.0 --> (bitcast X) < 0
+    if (Pred == FCmpInst::FCMP_OLT) {
+      Value *IntX = Builder.CreateBitCast(X, IntType);
+      return new ICmpInst(ICmpInst::ICMP_SLT, IntX,
+                          ConstantInt::getNullValue(IntType));
     }
   }
 

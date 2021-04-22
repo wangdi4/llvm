@@ -309,6 +309,33 @@ void Command::Print(raw_ostream &OS, const char *Terminator, bool Quote,
   OS << Terminator;
 }
 
+#if INTEL_CUSTOMIZATION
+void Command::PrintArgsFile(raw_ostream &OS, bool Quote) const {
+
+  ArrayRef<const char *> Args = Arguments;
+  SmallVector<const char *, 128> ArgsRespFile;
+  if (ResponseFile != nullptr) {
+    buildArgvForResponseFile(ArgsRespFile);
+    Args = ArrayRef<const char *>(ArgsRespFile).slice(1); // no executable name
+  }
+
+  for (size_t i = 0, e = Args.size(); i < e; ++i) {
+    const char *const Arg = Args[i];
+    llvm::sys::printArg(OS, Arg, Quote);
+    OS << '\n';
+  }
+
+  if (ResponseFile != nullptr) {
+    writeResponseFile(OS);
+    // Avoiding duplicated newline terminator, since FileLists are
+    // newline-separated.
+    if (ResponseSupport.ResponseKind != ResponseFileSupport::RF_FileList)
+      OS << "\n";
+    OS << " ";
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 void Command::setResponseFile(const char *FileName) {
   ResponseFile = FileName;
   ResponseFileFlag = ResponseSupport.ResponseFlag;
@@ -433,50 +460,6 @@ void CC1Command::setEnvironment(llvm::ArrayRef<const char *> NewEnvironment) {
   // We don't support set a new environment when calling into ExecuteCC1Tool()
   llvm_unreachable(
       "The CC1Command doesn't support changing the environment vars!");
-}
-
-FallbackCommand::FallbackCommand(const Action &Source_, const Tool &Creator_,
-                                 ResponseFileSupport ResponseSupport,
-                                 const char *Executable_,
-                                 const llvm::opt::ArgStringList &Arguments_,
-                                 ArrayRef<InputInfo> Inputs,
-                                 ArrayRef<InputInfo> Outputs,
-                                 std::unique_ptr<Command> Fallback_)
-    : Command(Source_, Creator_, ResponseSupport, Executable_, Arguments_,
-              Inputs, Outputs),
-      Fallback(std::move(Fallback_)) {}
-
-void FallbackCommand::Print(raw_ostream &OS, const char *Terminator,
-                            bool Quote, CrashReportInfo *CrashInfo) const {
-  Command::Print(OS, "", Quote, CrashInfo);
-  OS << " ||";
-  Fallback->Print(OS, Terminator, Quote, CrashInfo);
-}
-
-static bool ShouldFallback(int ExitCode) {
-  // FIXME: We really just want to fall back for internal errors, such
-  // as when some symbol cannot be mangled, when we should be able to
-  // parse something but can't, etc.
-  return ExitCode != 0;
-}
-
-int FallbackCommand::Execute(ArrayRef<llvm::Optional<StringRef>> Redirects,
-                             std::string *ErrMsg, bool *ExecutionFailed) const {
-  int PrimaryStatus = Command::Execute(Redirects, ErrMsg, ExecutionFailed);
-  if (!ShouldFallback(PrimaryStatus))
-    return PrimaryStatus;
-
-  // Clear ExecutionFailed and ErrMsg before falling back.
-  if (ErrMsg)
-    ErrMsg->clear();
-  if (ExecutionFailed)
-    *ExecutionFailed = false;
-
-  const Driver &D = getCreator().getToolChain().getDriver();
-  D.Diag(diag::warn_drv_invoking_fallback) << Fallback->getExecutable();
-
-  int SecondaryStatus = Fallback->Execute(Redirects, ErrMsg, ExecutionFailed);
-  return SecondaryStatus;
 }
 
 ForceSuccessCommand::ForceSuccessCommand(

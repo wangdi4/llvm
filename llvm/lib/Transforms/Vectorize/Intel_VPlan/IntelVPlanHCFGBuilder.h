@@ -29,10 +29,12 @@ class Loop;
 
 namespace vpo {
 
-  class VPOVectorizationLegality;
-  class VPlanVerifier;
-  class WRNVecLoopNode;
-  class VPlan;
+extern bool VPlanPrintLegality;
+
+class VPOVectorizationLegality;
+class VPlanVerifier;
+class WRNVecLoopNode;
+class VPlan;
 
 class VPlanHCFGBuilder {
 public:
@@ -49,7 +51,7 @@ protected:
   /// Hold WRegion information for TheLoop, if available.
   const WRNVecLoopNode *const WRLp;
 
-  VPlan *Plan = nullptr;
+  VPlanVector *Plan = nullptr;
 
   /// VPlan verifier utility.
   std::unique_ptr<VPlanVerifier> Verifier;
@@ -86,7 +88,7 @@ protected:
 
 public:
   VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
-                   const WRNVecLoopNode *WRL, VPlan *Plan,
+                   const WRNVecLoopNode *WRL, VPlanVector *Plan,
                    VPOVectorizationLegality *Legal,
                    ScalarEvolution *SE = nullptr);
 

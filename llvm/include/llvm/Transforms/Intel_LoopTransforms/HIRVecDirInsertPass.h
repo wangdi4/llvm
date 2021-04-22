@@ -12,19 +12,22 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRVECDIRINSERT_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRVECDIRINSERT_H
 
-#include "llvm/IR/PassManager.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 namespace llvm {
 
 namespace loopopt {
 
-class HIRVecDirInsertPass : public PassInfoMixin<HIRVecDirInsertPass> {
+class HIRVecDirInsertPass : public HIRPassInfoMixin<HIRVecDirInsertPass> {
 
   bool OuterVec;
 
 public:
   HIRVecDirInsertPass(bool OuterVec = true) : OuterVec(OuterVec) {}
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+
+  static constexpr auto PassName = "hir-vec-dir-insert";
+  PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
+                            HIRFramework &HIRF);
 };
 
 } // namespace loopopt

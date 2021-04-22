@@ -450,9 +450,11 @@ private:
   /// and populate Clusters.
   void clusterTrees();
 
-  /// Try to grow tree \p T up toward definitions.
-  /// Returns true if new nodes have been added to the tree.
-  bool growTree(Tree *T, SmallVectorImpl<CanonNode> &&WorkList);
+  /// Try to grow tree \p T up toward definitions. \p GrowthLimit value
+  /// determines how much the tree is allowed to grow.
+  /// Returns size of the tree.
+  unsigned growTree(Tree *T, unsigned GrowthLimit,
+                    SmallVectorImpl<CanonNode> &&WorkList);
 
   /// Enlarge trees in Clusters by growing them towards shared leaves.
   void extendTrees();

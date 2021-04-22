@@ -14,15 +14,19 @@
 #ifndef _OMPTARGET_H_
 #define _OMPTARGET_H_
 
-#include <stdint.h>
+#include <deque>
 #include <stddef.h>
+#include <stdint.h>
 
 #include <SourceInfo.h>
 
 #define OFFLOAD_SUCCESS (0)
 #define OFFLOAD_FAIL (~0)
 
-#define OFFLOAD_DEVICE_DEFAULT     -1
+#define OFFLOAD_DEVICE_DEFAULT -1
+
+// Don't format out enums and structs.
+// clang-format off
 
 /// Data attributes for each data reference used in an OpenMP target region.
 #if INTEL_COLLAB
@@ -89,7 +93,6 @@ enum OpenMPOffloadingRequiresDirFlags {
   OMP_REQ_DYNAMIC_ALLOCATORS      = 0x010
 };
 
-#if INTEL_COLLAB
 enum TargetAllocTy : int32_t {
   TARGET_ALLOC_DEVICE = 0,
   TARGET_ALLOC_HOST,
@@ -97,6 +100,74 @@ enum TargetAllocTy : int32_t {
   TARGET_ALLOC_DEFAULT
 };
 
+#if INTEL_COLLAB
+///
+/// OpenMP 5.1 interop support types
+///
+typedef intptr_t omp_intptr_t;
+typedef void * omp_interop_t;
+#define omp_interop_none 0
+
+// 0..omp_get_num_interop_properties()-1 are reserved for implementation-defined
+// properties
+typedef enum omp_interop_property {
+    omp_ipr_fr_id = -1,
+    omp_ipr_fr_name = -2,
+    omp_ipr_vendor = -3,
+    omp_ipr_vendor_name = -4,
+    omp_ipr_device_num = -5,
+    omp_ipr_platform = -6,
+    omp_ipr_device = -7,
+    omp_ipr_device_context = -8,
+    omp_ipr_targetsync = -9,
+    omp_ipr_first = -9
+} omp_interop_property_t;
+
+typedef enum omp_interop_rc {
+    omp_irc_no_value = 1,
+    omp_irc_success = 0,
+    omp_irc_empty = -1,
+    omp_irc_out_of_range = -2,
+    omp_irc_type_int = -3,
+    omp_irc_type_ptr = -4,
+    omp_irc_type_str = -5,
+    omp_irc_other = -6
+} omp_interop_rc_t;
+
+enum OmpIprValueTy : int32_t {
+  OMP_IPR_VALUE_INT = 0,
+  OMP_IPR_VALUE_PTR,
+  OMP_IPR_VALUE_STR
+};
+
+enum OmpIprInfoTy : int32_t {
+  OMP_IPR_INFO_NAME = 0,
+  OMP_IPR_INFO_TYPE_DESC
+};
+
+enum OmpInteropContextTy: int32_t {
+  OMP_INTEROP_CONTEXT_TARGET = 0,
+  OMP_INTEROP_CONTEXT_TARGETSYNC
+};
+
+/// Common interop properties defined in OpenMP 5.1
+struct __tgt_interop {
+  intptr_t FrId;
+  const char *FrName;
+  intptr_t Vendor;
+  const char *VendorName;
+  intptr_t DeviceNum;
+  void *Platform;
+  void *Device;
+  void *DeviceContext;
+  void *TargetSync;
+  void *RTLProperty; // implementation-defined interop property
+};
+
+
+///
+/// Custom interop support types
+///
 enum InteropPropertyTy : int32_t {
   INTEROP_DEVICE_ID = 1,
   INTEROP_IS_ASYNC,
@@ -119,6 +190,7 @@ enum InteropPluginInterfaceTy : int32_t {
 
 struct __tgt_interop_obj {
   int64_t device_id; // OpenMP device id
+  int64_t device_code; // Encoded device id
   bool is_async; // Whether it is for asynchronous operation
   void *async_obj; // Pointer to the asynchronous object
   void (*async_handler)(void *); // Callback function for asynchronous operation
@@ -196,6 +268,8 @@ struct __tgt_target_table {
 
 #endif  // !__cplusplus
 #endif  // INTEL_COLLAB
+// clang-format on
+
 /// This struct contains information exchanged between different asynchronous
 /// operations for device-dependent optimization and potential synchronization
 struct __tgt_async_info {
@@ -203,6 +277,37 @@ struct __tgt_async_info {
   // We assume to use this structure to do synchronization. In CUDA backend, it
   // is CUstream.
   void *Queue = nullptr;
+};
+
+struct DeviceTy;
+
+/// The libomptarget wrapper around a __tgt_async_info object directly
+/// associated with a libomptarget layer device. RAII semantics to avoid
+/// mistakes.
+class AsyncInfoTy {
+  /// Locations we used in (potentially) asynchronous calls which should live
+  /// as long as this AsyncInfoTy object.
+  std::deque<void *> BufferLocations;
+
+  __tgt_async_info AsyncInfo;
+  DeviceTy &Device;
+
+public:
+  AsyncInfoTy(DeviceTy &Device) : Device(Device) {}
+  ~AsyncInfoTy() { synchronize(); }
+
+  /// Implicit conversion to the __tgt_async_info which is used in the
+  /// plugin interface.
+  operator __tgt_async_info *() { return &AsyncInfo; }
+
+  /// Synchronize all pending actions.
+  ///
+  /// \returns OFFLOAD_FAIL or OFFLOAD_SUCCESS appropriately.
+  int synchronize();
+
+  /// Return a void* reference with a lifetime that is at least as long as this
+  /// AsyncInfoTy object. The location can be used as intermediate buffer.
+  void *&getVoidPtrLocation();
 };
 
 /// This struct is a record of non-contiguous information
@@ -240,19 +345,21 @@ int omp_target_is_present(void *ptr, int device_num);
 EXTERN
 #endif  // INTEL_COLLAB
 int omp_target_memcpy(void *dst, void *src, size_t length, size_t dst_offset,
-    size_t src_offset, int dst_device, int src_device);
+                      size_t src_offset, int dst_device, int src_device);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
 int omp_target_memcpy_rect(void *dst, void *src, size_t element_size,
-    int num_dims, const size_t *volume, const size_t *dst_offsets,
-    const size_t *src_offsets, const size_t *dst_dimensions,
-    const size_t *src_dimensions, int dst_device, int src_device);
+                           int num_dims, const size_t *volume,
+                           const size_t *dst_offsets, const size_t *src_offsets,
+                           const size_t *dst_dimensions,
+                           const size_t *src_dimensions, int dst_device,
+                           int src_device);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
 int omp_target_associate_ptr(void *host_ptr, void *device_ptr, size_t size,
-    size_t device_offset, int device_num);
+                             size_t device_offset, int device_num);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
@@ -260,6 +367,29 @@ int omp_target_disassociate_ptr(void *host_ptr, int device_num);
 #if INTEL_COLLAB
 EXTERN
 void * omp_get_mapped_ptr(void *host_ptr, int device_num);
+
+///
+/// 5.1 Interop Routines
+///
+EXTERN int omp_get_num_interop_properties(const omp_interop_t interop);
+
+EXTERN omp_intptr_t omp_get_interop_int(const omp_interop_t interop,
+    omp_interop_property_t property_id, int *ret_code);
+
+EXTERN void *omp_get_interop_ptr(const omp_interop_t interop,
+    omp_interop_property_t property_id, int *ret_code);
+
+EXTERN const char *omp_get_interop_str(const omp_interop_t interop,
+    omp_interop_property_t property_id, int *ret_code);
+
+EXTERN const char *omp_get_interop_name(const omp_interop_t interop,
+    omp_interop_property_t property_id);
+
+EXTERN const char *omp_get_interop_type_desc(const omp_interop_t interop,
+    omp_interop_property_t property_id);
+
+EXTERN const char *omp_get_interop_rc_desc(const omp_interop_t interop,
+    omp_interop_rc_t ret_code);
 
 /// Explicit target memory allocators
 /// Are we OK with omp_ prefix?
@@ -269,7 +399,32 @@ EXTERN void *omp_target_alloc_shared(size_t size, int device_num);
 
 /// Get target device context
 EXTERN void *omp_target_get_context(int device_num);
+
+/// Set sub-device mode to map OpenMP device ID to sub-device ID at the
+/// specified level. Returns number of sub-devices if the requested mode is
+/// supported and the operation is successful, 0 otherwise.
+/// Calling this routine not from "sequential part" of the OpenMP program
+/// results in undefined behavior.
+EXTERN int omp_set_sub_device(int device_num, int level);
+
+/// Unset sub-device mode.
+EXTERN void omp_unset_sub_device(int device_num);
 #endif  // INTEL_COLLAB
+
+/// Explicit target memory allocators
+/// Using the llvm_ prefix until they become part of the OpenMP standard.
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
+void *llvm_omp_target_alloc_device(size_t size, int device_num);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
+void *llvm_omp_target_alloc_host(size_t size, int device_num);
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
+void *llvm_omp_target_alloc_shared(size_t size, int device_num);
 
 /// add the clauses of the requires directives in a given file
 #if INTEL_COLLAB
@@ -465,8 +620,13 @@ int __tgt_target_teams_nowait_mapper(
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-void __kmpc_push_target_tripcount(ident_t *loc, int64_t device_id,
-                                  uint64_t loop_tripcount);
+void __kmpc_push_target_tripcount(int64_t device_id, uint64_t loop_tripcount);
+
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
+void __kmpc_push_target_tripcount_mapper(ident_t *loc, int64_t device_id,
+                                         uint64_t loop_tripcount);
 
 #if INTEL_COLLAB
 EXTERN
@@ -496,6 +656,17 @@ EXTERN void * __tgt_create_interop_obj(
 
 // Releases an interop object.
 EXTERN int __tgt_release_interop_obj(void *interop_obj);
+
+// Create an OpenMP 5.1 interop object.
+EXTERN omp_interop_t __tgt_create_interop(
+    int64_t device_id, int32_t interop_type, int32_t num_prefers,
+    intptr_t *prefer_ids);
+
+// Release an OpenMP 5.1 interop object.
+EXTERN int __tgt_release_interop(omp_interop_t interop);
+
+// Change OpenMP 5.1 interop object to usable state ("use" clause)
+EXTERN int __tgt_use_interop(omp_interop_t interop);
 
 // Returns an interop property from the given interop object.
 EXTERN int __tgt_get_interop_property(

@@ -21,6 +21,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCOSTMODEL_H
 
 #include "IntelVPlanCallVecDecisions.h"
+#include "IntelVPlanCostModelHeuristics.h"
 #include "IntelVPlanTTIWrapper.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
@@ -40,9 +41,9 @@ class VPInstruction;
 #if INTEL_CUSTOMIZATION
 class VPlanVLSCostModel : public OVLSCostModel {
 public:
-  explicit VPlanVLSCostModel(const VPlanCostModel &VPCM,
+  explicit VPlanVLSCostModel(unsigned VF,
                              const TargetTransformInfo &TTI, LLVMContext &Cntx)
-      : OVLSCostModel(TTI, Cntx), VPCM(VPCM) {}
+      : OVLSCostModel(TTI, Cntx), VF(VF) {}
   /// Generic function to get a cost of OVLSInstruction. Internally it has
   /// dispatch functionality to return cost for OVLSShuffle
   virtual uint64_t getInstructionCost(const OVLSInstruction *I) const final;
@@ -51,114 +52,32 @@ public:
   virtual uint64_t getGatherScatterOpCost(const OVLSMemref &Memref) const final;
 
 protected:
-  const VPlanCostModel &VPCM;
+  unsigned VF;
 };
 #endif // INTEL_CUSTOMIZATION
 
-class VPlanCostModel {
-#if INTEL_CUSTOMIZATION
-  // To access getMemInstValueType.
-  friend class VPlanVLSAnalysisHIR;
-  friend class VPlanVLSCostModel;
-#endif // INTEL_CUSTOMIZATION
+// VPlanTTICostModel defines interface and its implementation, that is to be
+// used by Cost Model heuristics.  Also all Heuristics independent code goes
+// into VPlanTTICostModel.
+//
+// We don't create objects of this type, a general Cost Model type object
+// rather passed to Heuristics.
+class VPlanTTICostModel {
 public:
-#if INTEL_CUSTOMIZATION
-  VPlanCostModel(const VPlan *Plan, const unsigned VF,
-                 const TargetTransformInfo *TTI,
-                 const TargetLibraryInfo *TLI,
-                 const DataLayout *DL,
-                 VPlanVLSAnalysis *VLSA)
-    : Plan(Plan), VF(VF), TLI(TLI), DL(DL), VLSA(VLSA) {
-    VPTTI = std::make_unique<VPlanTTIWrapper>(*TTI);
-    if (VLSA)
-      // FIXME: Really ugly to get LLVMContext from VLSA, which may not
-      // even exist, but so far there's no other simple way to pass it here.
-      // Unlike LLVM IR VPBB has no LLVMContext, because Type is not yet
-      // implemented
-      VLSCM = std::make_shared<VPlanVLSCostModel>(*this, *TTI, VLSA->getContext());
-
-    // CallVecDecisions analysis invocation.
-    VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlan *>(Plan));
-    // Pass native TTI into CallVecDecisions analysis.
-    CallVecDecisions.run(VF, TLI, &VPTTI->getTTI());
-
-    // Compute SVA results for current VPlan in order to compute cost accurately
-    // in CM.
-    const_cast<VPlan *>(Plan)->runSVA(VF, TLI);
-  }
-#else
-  VPlanCostModel(const VPlan *Plan, const unsigned VF,
-                 const TargetTransformInfo *TTI,
-                 const TargetLibraryInfo *TLI,
-                 const DataLayout *DL)
-    : Plan(Plan), VF(VF), TLI(TLI), DL(DL) {
-    VPTTI = std::make_unique<VPlanTTIWrapper>(*TTI);
-  }
-#endif // INTEL_CUSTOMIZATION
-  virtual unsigned getCost();
-  virtual unsigned getLoadStoreCost(
+  static constexpr unsigned UnknownCost = -1u;
+  unsigned getTTICost(const VPInstruction *VPInst);
+  // getLoadStoreCost(LoadOrStore, Alignment, VF) interface returns the Cost
+  // of Load/Store VPInstruction given VF and Alignment on input.
+  unsigned getLoadStoreCost(
     const VPInstruction *LoadOrStore, Align Alignment, unsigned VF);
-  virtual unsigned getBlockRangeCost(const VPBasicBlock *Begin,
-                                     const VPBasicBlock *End);
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &OS, const std::string &Header);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-  virtual ~VPlanCostModel() {}
+  // The Cost of Load/Store using underlying IR/HIR Inst Alignment.
+  unsigned getLoadStoreCost(const VPInstruction *VPInst, unsigned VF);
 
-  static constexpr unsigned UnknownCost = static_cast<unsigned>(-1);
-
-protected:
-  const VPlan *Plan;
-  unsigned VF;
-  std::unique_ptr<VPlanTTIWrapper> VPTTI;
-  const TargetLibraryInfo *TLI;
-  const DataLayout *DL;
-#if INTEL_CUSTOMIZATION
-  VPlanVLSAnalysis *VLSA;
-  std::shared_ptr<VPlanVLSCostModel> VLSCM;
-#endif // INTEL_CUSTOMIZATION
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  std::string getCostNumberString(unsigned Cost) const {
-    if (Cost == UnknownCost)
-      return std::string("Unknown");
-    return std::to_string(Cost);
-  };
-  void printForVPInstruction(
-    raw_ostream &OS, const VPInstruction *VPInst);
-  void printForVPBasicBlock(
-    raw_ostream &OS, const VPBasicBlock *VPBlock);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  // Consolidates the code that gets the cost of one operand or two operands
-  // arithmetics instructions.  For one operand case Op2 is expected to be
-  // null.  Op1 is never expected to be null.
-  virtual unsigned getArithmeticInstructionCost(const unsigned Opcode,
-                                                const VPValue *Op1,
-                                                const VPValue *Op2,
-                                                const Type *ScalarTy,
-                                                const unsigned VF);
-  virtual unsigned getCost(const VPInstruction *VPInst);
-  virtual unsigned getCostForVF(const VPInstruction *VPInst, unsigned VF);
-  virtual unsigned getCost(const VPBasicBlock *VPBB);
-  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst, unsigned VF);
-  // Calculates the sum of the cost of extracting VF elements of Ty type
-  // or the cost of inserting VF elements of Ty type into a vector.
-  unsigned getInsertExtractElementsCost(unsigned Opcode,
-                                        Type *Ty, unsigned VF);
-  virtual unsigned getIntrinsicInstrCost(
-    Intrinsic::ID ID, const CallBase &CB, unsigned VF,
-    VPCallInstruction::CallVecScenariosTy VS);
-
-  // These utilities are private for the class instead of being defined as
-  // static functions because they need access to underlying Inst/HIRData in
-  // VPInstruction via the friends relation between VPlanCostModel and
-  // VPInstruction.
-  //
-  // Also, they won't be necessary if we had VPType for each VPValue.
-  static Type *getMemInstValueType(const VPInstruction *VPInst);
-  static unsigned getMemInstAddressSpace(const VPInstruction *VPInst);
-  static Value *getGEP(const VPInstruction *VPInst);
+  const VPlanVector * const Plan;
+  const unsigned VF;
+  const TargetLibraryInfo * const TLI;
+  const DataLayout * const DL;
+  const VPlanTTIWrapper VPTTI;
 
   /// \Returns the alignment of the load/store \p VPInst.
   ///
@@ -173,77 +92,233 @@ protected:
   bool isUnitStrideLoadStore(const VPInstruction *VPInst,
                              bool &NegativeStride) const;
 
+  /// \Returns true if VPInst is part of an optimized VLS group.
+  bool isOptimizedVLSGroupMember(const VPInstruction *VPInst) const {
+    return getOptimizedVLSGroupData(VPInst, VLSA, Plan).hasValue();
+  }
+
+protected:
+#if INTEL_CUSTOMIZATION
+  VPlanVLSAnalysis *VLSA;
+#endif // INTEL_CUSTOMIZATION
+
+  VPlanTTICostModel(const VPlanVector *Plan, const unsigned VF,
+                    const TargetTransformInfo *TTI,
+                    const TargetLibraryInfo *TLI, const DataLayout *DL,
+                    VPlanVLSAnalysis *VLSA)
+      : Plan(Plan), VF(VF), TLI(TLI), DL(DL), VPTTI(*TTI, *DL), VLSA(VLSA) {
+
+    // CallVecDecisions analysis invocation.
+    VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlanVector *>(Plan));
+
+    // Pass native TTI into CallVecDecisions analysis.
+    CallVecDecisions.runForVF(VF, TLI, &VPTTI.getTTI());
+
+    // Compute SVA results for current VPlan in order to compute cost
+    // accurately in CM.
+    const_cast<VPlanVector *>(Plan)->runSVA();
+  }
+
+  // We prefer protected dtor over virtual one as there is no plan to
+  // manipulate with objects through VPlanTTICostModel type handler.
+  ~VPlanTTICostModel() {};
+
+  // Consolidates the code that gets the cost of one operand or two operands
+  // arithmetics instructions.  For one operand case Op2 is expected to be
+  // null.  Op1 is never expected to be null.
+  //
+  // TODO:
+  // This method should not be virtual once VPInst-level heuristics are
+  // introduced and special handling logic is moved from this routine
+  // to standalone heuristic.
+  virtual unsigned getArithmeticInstructionCost(const unsigned Opcode,
+                                                const VPValue *Op1,
+                                                const VPValue *Op2,
+                                                const Type *ScalarTy,
+                                                const unsigned VF);
+
+private:
+  // These utilities are private for the class instead of being defined as
+  // static functions because they need access to underlying Inst/HIRData in
+  // VPInstruction via the friends relation VPInstruction.
+  //
+  // Also, they won't be necessary if we had VPType for each VPValue.
+  static Type *getMemInstValueType(const VPInstruction *VPInst);
+  static unsigned getMemInstAddressSpace(const VPInstruction *VPInst);
+
   // The utility checks whether the Cost Model can assume that 32-bit indexes
   // will be used instead of 64-bit indexes for gather/scatter HW instructions.
   unsigned getLoadStoreIndexSize(const VPInstruction *VPInst) const;
 
-  // TODO: Remove SLP framework.
-  // *SLP* and related utilities below is temporal solution to workaround
-  // the problem of blocking SLP vectorizer by VPlan vectorization.
-  // Eventually SLP is expected to become a part of VPlan and/or share
-  // implementation with VPlan.
-  //
-  // Since the static utilities are used in CM and it is undesirable to reuse
-  // them elsewhere they are placed in CM class.
-  //
-  // Returns RegDDRef of type Memref in case VPInst has it associated.
-  // Returns nullptr otherwise.
-  static const RegDDRef* getHIRMemref(const VPInstruction *VPInst);
+  // Calculates the sum of the cost of extracting VF elements of Ty type
+  // or the cost of inserting VF elements of Ty type into a vector.
+  unsigned getInsertExtractElementsCost(unsigned Opcode,
+                                        Type *Ty, unsigned VF);
 
-  // The set of constant controlling search of SLP pattern in VPlan.
-  // Current implementation searches stores and loads to/from adjacent memory.
-  // In particular there should be VPlanSLPLoadPatternSize loads AND
-  // VPlanSLPStorePatternSize stores into consequent memory cells.
-  //
-  // SPL doesn't neccesary need VPlanSLPLoadPatternSize consecutive in memory
-  // loads but we do this check instead of building data flow/dependency graph
-  // that SLP builds.
-  //
-  // Also to limit compile time impact during search we assume that all memrefs
-  // that make SLP pattern are in some relatively small window of indexes in
-  // the vector of all memrefs.  The window size is controlled by
-  // VPlanSLPSearchWindowSize.
-  //
-  static const unsigned VPlanSLPSearchWindowSize = 16;
-  static const unsigned VPlanSLPLoadPatternSize = 4;
-  static const unsigned VPlanSLPStorePatternSize = 2;
-  // Searches for part of SLP pattern in input vector of HIR memrefs. In
-  // particular the utility checks if there is PatternSize memrefs in
-  // HIRMemrefs that access memory consequently.  The utility does not
-  // distiguish loads or stores in input list.  It is caller responsibility to
-  // form the list properly.  Returns true if found or false otherwise.
-  static bool findSLPHIRPattern(
-    SmallVectorImpl<const RegDDRef*> &HIRMemrefs, unsigned PatternSize);
-  // Forms vector of VPlanSLPSearchWindowSize elements out of HIRMemrefs input
-  // vector and apply search on smaller vector with help of findSLPHIRPattern.
-  static bool ProcessSLPHIRMemrefs(
-    SmallVectorImpl<const RegDDRef*> const &HIRMemrefs, unsigned PatternSize);
+  // Get intrinsic corresponding to provided call that is expected to be
+  // vectorized using SVML version. This is purely meant for internal cost
+  // computation purposes and not for general purpose functionality (unlike
+  // llvm::getIntrinsicForCallSite).
+  // TODO: This is a temporary solution to avoid CM from choosing inefficient
+  // VFs, complete solution would be to introduce a general scheme in TTI to
+  // provide costs for different SVML calls. Check JIRA : CMPLRLLVM-23527.
+  Intrinsic::ID getIntrinsicForSVMLCall(const VPCallInstruction *VPCall) const;
 
-  // Returns true if there is an extra price for VPlan vectorization as it
-  // potentially blocks SLP vectorization.
-  //
-  // Here is the logic of detection of basic SLP candidates.
-  //
-  // CheckForSLPExtraCost() gathers all store and load memrefs for each basic
-  // block into separate vectors that are passes them individually to
-  // ProcessSLPHIRMemrefs() for certain size pattern detection.
-  //
-  // ProcessSLPHIRMemrefs() extracts VPlanSLPSearchWindowSize instructions from
-  // input vector starting at offset = 0 and ending at offset =
-  // sizeof(input vector) - VPlanSLPSearchWindowSize.  ProcessSLPHIRMemrefs
-  // forms a new vector out of extracted elements and pass it to
-  // findSLPHIRPattern for analysis.
-  //
-  // findSLPHIRPattern pops the top element of input vector and analyzes
-  // whether or not the rest of elements in input vector make sequential
-  // memory access around the top element (i.e. access elements sequentially
-  // before and/or after the memory that the top element accesses).
-  // If pattern of sequential is not found the top element is discarded and
-  // findSLPHIRPattern continues recursive search on reduced input vector until
-  // the pattern is found or the size of input vector becomes less than
-  // requested pattern size.
-  //
-  bool CheckForSLPExtraCost() const;
+  // Get Cost for Intrinsic (ID) call.
+  unsigned getIntrinsicInstrCost(
+    Intrinsic::ID ID, const VPCallInstruction *VPCall, unsigned VF);
+
+  // Returns TTI Cost in VPInst arbitrary VF.
+  unsigned getTTICostForVF(const VPInstruction *VPInst, unsigned VF);
+};
+
+// Class HeuristicsList is designed to hold Heuristics objects. It is a
+// template class and should be specialized with Heuristics types.  An object
+// of HeuristicsList<Scope, HTy1, ... , HTyn> creates Heuristics objects of
+// specified types HTy1 ... HTyn on the specified Scope, which in turn can be
+// VPlan, VPBlock or VPInstruction.
+//
+// If a heuristics is created on scope 'Scope' it means that such heuristic is
+// applied on that scope (i.e. for VPlan/VPBlock/VPInstruction).
+// HeuristicsList implements facility to apply all heuristics it contains.
+template <typename Scope, typename... Ts> class HeuristicsList;
+
+// Recursive declaration for arbitrary number of Heuristics types on input.
+template <typename Scope, typename HTy, typename... HTys>
+class HeuristicsList<Scope, HTy, HTys...>
+    : public HeuristicsList<Scope, HTys...> {
+  using Base = HeuristicsList<Scope, HTys...>;
+  HTy H;
+public:
+  HeuristicsList() = delete;
+  HeuristicsList(VPlanTTICostModel *CM) : Base(CM), H(CM) {};
+  void apply(unsigned TTICost, unsigned &Cost,
+             Scope *S, raw_ostream *OS = nullptr) const {
+    H.apply(TTICost, Cost, S, OS);
+    // Once any heuristics in the pipeline returns Unknown cost
+    // return it immediately.
+    if (Cost == VPlanTTICostModel::UnknownCost)
+      return;
+    this->Base::apply(TTICost, Cost, S, OS);
+  }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Note that ScopeTy and Scope are different types.
+  template <typename ScopeTy>
+  void dump(raw_ostream &OS, ScopeTy *S) const {
+    H.dump(OS, S);
+    this->Base::dump(OS, S);
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
+// Specialization for empty Heuristics types list.
+template <typename Scope>
+class HeuristicsList<Scope> {
+public:
+  HeuristicsList() = delete;
+  HeuristicsList(VPlanTTICostModel *CM) {}
+  // There is no heuristics to apply, thus just be transparent.
+  void apply(unsigned TTICost, unsigned &Cost,
+             Scope *S, raw_ostream *OS = nullptr) const {}
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // No heuristics to emit dump.
+  template <typename ScopeTy>
+  void dump(raw_ostream &OS, ScopeTy *S) const {}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+};
+
+// TODO: VPlanCostModel class is temporal, for transition to template based
+// Cost Model types.
+class VPlanCostModel : public VPlanTTICostModel {
+public:
+  VPlanCostModel(const VPlanVector *Plan, const unsigned VF,
+                 const TargetTransformInfo *TTI, const TargetLibraryInfo *TLI,
+                 const DataLayout *DL, VPlanVLSAnalysis *VLSA = nullptr)
+    : VPlanTTICostModel(Plan, VF, TTI, TLI, DL, VLSA),
+      VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF),
+      HeuristicsPipeline(this) {}
+  // Get Cost for VPlan with specified peeling.
+  unsigned getCost(VPlanPeelingVariant *PeelingVariant = nullptr);
+  unsigned getMemInstAlignment(const VPInstruction *VPInst) const;
+  virtual unsigned getLoadStoreCost(
+    const VPInstruction *LoadOrStore, Align Alignment, unsigned VF) {
+    return VPlanTTICostModel::getLoadStoreCost(LoadOrStore, Alignment, VF);
+  }
+  virtual unsigned getBlockRangeCost(const VPBasicBlock *Begin,
+                                     const VPBasicBlock *End);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS, const std::string &Header);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  virtual ~VPlanCostModel() {}
+
+protected:
+  VPlanPeelingVariant* DefaultPeelingVariant = nullptr;
+  VPlanAlignmentAnalysis VPAA;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  std::string getCostNumberString(unsigned Cost) const {
+    if (Cost == UnknownCost)
+      return std::string("Unknown");
+    return std::to_string(Cost);
+  };
+  // Returns string of VPInst attributes for CM debug dump.
+  virtual std::string getAttrString(const VPInstruction *VPInst) const;
+  // Printed in debug dumps.  Helps to distiguish base Cost Model dumps vs
+  // inherited Cost Model dump.
+  virtual std::string getHeaderPrefix() const {
+    return "";
+  };
+  void printForVPInstruction(raw_ostream &OS, const VPInstruction *VPInst);
+  void printForVPBasicBlock(raw_ostream &OS, const VPBasicBlock *VPBlock);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  virtual unsigned getArithmeticInstructionCost(const unsigned Opcode,
+                                                const VPValue *Op1,
+                                                const VPValue *Op2,
+                                                const Type *ScalarTy,
+                                                const unsigned VF) override {
+    return VPlanTTICostModel::getArithmeticInstructionCost(
+      Opcode, Op1, Op2, ScalarTy, VF);
+  }
+  virtual unsigned getCost(const VPInstruction *VPInst);
+  unsigned getCost(const VPBasicBlock *VPBB);
+  // Return TTI contribution to the whole cost.
+  unsigned getTTICost();
+
+  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst, unsigned VF) {
+    return VPlanTTICostModel::getLoadStoreCost(VPInst, VF);
+  }
+
+  // Temporal virtual methods to invoke apply facilities on HeuristicsPipeline.
+  virtual void applyHeuristicsPipeline(
+    unsigned TTICost, unsigned &Cost,
+    const VPlanVector *Plan, raw_ostream *OS = nullptr) const {
+    HeuristicsPipeline.apply(TTICost, Cost, Plan, OS);
+  }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // Temporal virtual methods to invoke dump facilities on HeuristicsPipeline.
+  virtual void dumpHeuristicsPipeline(raw_ostream &OS,
+                                      const VPlanVector *Plan) const {
+    HeuristicsPipeline.dump(OS, Plan);
+  }
+  virtual void dumpHeuristicsPipeline(raw_ostream &OS,
+                                      const VPBasicBlock *VPBB) const {
+    HeuristicsPipeline.dump(OS, VPBB);
+  }
+  virtual void dumpHeuristicsPipeline(raw_ostream &OS,
+                                      const VPInstruction *VPInst) const {
+    HeuristicsPipeline.dump(OS, VPInst);
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+private:
+  // Apply all heuristics scheduled in the pipeline for the current VPlan
+  // and return modified input Cost.
+  unsigned applyHeuristics(unsigned Cost);
+
+  // Heuristics list type specific to base cost model.
+  HeuristicsList<const VPlanVector,
+    VPlanCostModelHeuristics::HeuristicSLP,
+    VPlanCostModelHeuristics::HeuristicSpillFill> HeuristicsPipeline;
 };
 
 } // namespace vpo

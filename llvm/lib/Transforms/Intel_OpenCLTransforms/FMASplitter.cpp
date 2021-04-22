@@ -58,9 +58,9 @@ public:
 
   FMASplitterLegacyPass() : FunctionPass(ID) {}
 
-  virtual llvm::StringRef getPassName() const { return "FMASplitter"; }
+  virtual llvm::StringRef getPassName() const override { return "FMASplitter"; }
 
-  virtual bool runOnFunction(Function &F) {
+  virtual bool runOnFunction(Function &F) override {
     if (skipFunction(F))
       return false;
 

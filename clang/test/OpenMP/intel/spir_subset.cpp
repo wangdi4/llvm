@@ -601,3 +601,28 @@ void hp_bar(int M, int N)
   //ALL: region.exit(token [[T2]]) [ "DIR.OMP.END.PARALLEL"
   //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
 }
+
+void ignore_caller(unsigned);
+void ignore_check()
+{
+  //expected-warning@+1 {{OpenMP directive 'taskgroup' ignored for target}}
+  #pragma omp taskgroup
+  {
+    // Fails if 'omp task' is replaced with a statement.
+    for (unsigned i=0; i --> 0; ) {
+      for (unsigned j = i + 1; j < 100; j++)
+        //expected-warning@+1 {{OpenMP directive 'task' ignored for target}}
+        #pragma omp task default(shared) firstprivate(i,j)
+         {
+           ignore_caller(j);
+         }
+    }
+  }
+
+  // Fails if 'omp flush' is not handled at the compound statement level.
+  #pragma omp target
+  {
+    //expected-warning@+1 {{OpenMP directive 'flush' ignored for target}}
+    #pragma omp flush
+  }
+}

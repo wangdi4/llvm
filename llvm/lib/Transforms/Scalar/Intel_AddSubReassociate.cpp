@@ -1520,14 +1520,14 @@ void AddSubReassociate::clusterTrees() {
   }
 }
 
-bool AddSubReassociate::growTree(Tree *T,
-                                 SmallVectorImpl<CanonNode> &&WorkList) {
-  unsigned OrigSize = T->size();
+unsigned AddSubReassociate::growTree(Tree *T, unsigned GrowthLimit,
+                                     SmallVectorImpl<CanonNode> &&WorkList) {
   unsigned NumAssociations = 0;
-
-  // Keep trying to grow tree until the WorkList is empty.
+  // Keep trying to grow tree until the WorkList is empty
+  // or growth allowance reached.
+  unsigned LeavesAdded = 0;
   while (!WorkList.empty()) {
-    auto LastOp = WorkList.pop_back_val();
+    CanonNode LastOp = WorkList.pop_back_val();
     auto *I = cast<Instruction>(LastOp.getLeaf());
 
     assert(isLegalTrunkInstr(I, T->getRoot(), DL) &&
@@ -1579,8 +1579,8 @@ bool AddSubReassociate::growTree(Tree *T,
 
       auto *OpI = dyn_cast<Instruction>(Op);
       if (OpI && Op->hasOneUse() &&
-          // Keep the size of a tree below a maximum value.
-          T->size() + 2 * WorkList.size() < MaxTreeSize &&
+          // Check against growth limit
+          (LeavesAdded + 2 * WorkList.size()) < GrowthLimit &&
           areInSameBB(OpI, I) && isLegalTrunkInstr(OpI, T->getRoot(), DL) &&
           (!isAllowedAssocInstr(OpI) ||
            // Check number of allowed assoc instruction.
@@ -1588,6 +1588,7 @@ bool AddSubReassociate::growTree(Tree *T,
         // Push the operand to the WorkList to continue the walk up the code.
         WorkList.push_back(CanonNode(Op, OpCanonOpcode));
       } else {
+        ++LeavesAdded;
         // Op is a leaf node, so stop growing and add it into T's leaves.
         T->appendLeaf(Op, OpCanonOpcode);
         // If Op has multiple uses and is legal for trunk then this tree is
@@ -1596,12 +1597,12 @@ bool AddSubReassociate::growTree(Tree *T,
         // having multiple uses within same tree are not. It is determined later
         // in findSharedleaves() routine and further tree growth is performed by
         // extendTrees().
-        if (Op->getNumUses() > 1 && isLegalTrunkInstr(OpI, T->getRoot(), DL))
+        if (Op->hasNUsesOrMore(2) && isLegalTrunkInstr(OpI, T->getRoot(), DL))
           T->setSharedLeafCandidate(true);
       }
     }
   }
-  return OrigSize != T->size();
+  return T->size();
 }
 
 /// Returns true if we were able to find a leaf with multiple uses from
@@ -1661,10 +1662,20 @@ void AddSubReassociate::extendTrees() {
   for (MutableArrayRef<TreePtr> &Cluster : Clusters) {
     SmallVector<std::pair<Tree *, CanonForm::NodeItTy>, 8> SharedUsers;
     int Attempts = MaxSharedNodesIterations;
+    unsigned TheBiggestTreeSize = 0;
+    for (const TreePtr &T : Cluster)
+      TheBiggestTreeSize =
+          std::max<unsigned>(TheBiggestTreeSize, T.get()->size());
+
     while (--Attempts >= 0) {
+      // Stop here if we have no more room to grow.
+      if (TheBiggestTreeSize >= MaxTreeSize)
+        break;
+
       if (!findSharedLeaves(Cluster, SharedUsers, DL))
         break;
-      size_t SharedLeavesNum = 0;
+      unsigned GrowthLimit = MaxTreeSize - TheBiggestTreeSize;
+      unsigned SharedLeavesNum = 0;
       // Important note! Call to removeLeaf invalidates all iterators pointing
       // after the removed one. For that reason we need to delete in reverse
       // order. That's not the most efficient thing to do but we expect, one
@@ -1673,13 +1684,16 @@ void AddSubReassociate::extendTrees() {
         Tree *T = SharedUser.first;
         CanonNode LUPair = *SharedUser.second;
         T->removeLeaf(SharedUser.second);
-        size_t OrigLeavesNum = T->size();
-        growTree(T, SmallVector<CanonNode, 8>({LUPair}));
+        unsigned OrigLeavesNum = T->size();
+        unsigned NewSize =
+            growTree(T, GrowthLimit, SmallVector<CanonNode, 8>({LUPair}));
+        // Keep tracking the biggest tree size.
+        TheBiggestTreeSize = std::max<unsigned>(TheBiggestTreeSize, NewSize);
         if (SharedLeavesNum == 0) {
-          assert((T->size() - OrigLeavesNum) > 0 && "No leaves unshared?");
-          SharedLeavesNum = T->size() - OrigLeavesNum;
+          assert(NewSize > OrigLeavesNum && "No leaves unshared?");
+          SharedLeavesNum = NewSize - OrigLeavesNum;
         } else {
-          assert((T->size() - OrigLeavesNum) == SharedLeavesNum &&
+          assert((NewSize - OrigLeavesNum) == SharedLeavesNum &&
                  "Inconsistent number of unshared leaves across trees.");
           T->adjustSharedLeavesCount(SharedLeavesNum);
         }
@@ -1704,14 +1718,16 @@ void AddSubReassociate::buildInitialTrees(BasicBlock *BB) {
     TreePtr UTree = std::make_unique<Tree>(DL);
     Tree *T = UTree.get();
     T->setRoot(&I);
-    growTree(T, SmallVector<CanonNode, 8>(
-                    {CanonNode(&I, getPositiveOpcode(I.getOpcode()))}));
+    unsigned Size =
+        growTree(T, MaxTreeSize,
+                 SmallVector<CanonNode, 8>(
+                     {CanonNode(&I, getPositiveOpcode(I.getOpcode()))}));
 
-    assert(1 <= T->size() && T->size() <= MaxTreeSize + 2 &&
+    assert(1 <= Size && Size <= MaxTreeSize + 2 &&
            "Tree size should be capped");
 
     // Skip trivial trees.
-    if (T->size() > 1)
+    if (Size > 1)
       Trees.push_back(std::move(UTree));
   }
 }

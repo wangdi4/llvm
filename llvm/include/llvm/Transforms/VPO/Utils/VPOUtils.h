@@ -319,6 +319,19 @@ public:
   removeOperandBundlesFromCall(CallInst *CI,
                                ArrayRef<StringRef> OpBundlesToRemove);
 
+  /// Creates a clone of \p CI without any operand bundles that represent
+  /// OpenMP clauses with clause id matching any of the ids in \p ClauseIds.
+  /// Replaces all uses of the original \p CI with the new Instruction created.
+  /// \returns the created CallInst, if it created one, \p CI otherwise (when
+  /// \p ClauseIds is empty, or has no matching clauses on \p CI).
+  ///
+  /// Note that this method is different from removeOperandBundlesFromCall(),
+  /// because it will remove a clause regardless of the modifiers attached
+  /// to it. removeOperandBundlesFromCall() looks for exact string match
+  /// of the bundle tag.
+  static CallInst *removeOpenMPClausesFromCall(CallInst *CI,
+                                               ArrayRef<int> ClauseIds);
+
   /// "Privatizes" an Instruction \p I by adding it to a supported entry
   /// directive clause.
   /// If the Instruction is already used in a directive, nothing is done.

@@ -36,6 +36,10 @@ elseif( CMAKE_HOST_UNIX )
   if( FUCHSIA )
     set(system_libs ${system_libs} zircon)
   endif()
+  if ( HAIKU )
+    add_definitions(-D_BSD_SOURCE)
+    set(system_libs ${system_libs} bsd)
+  endif()
 endif( MSVC OR MINGW )
 
 # Delay load shell32.dll if possible to speed up process startup.
@@ -166,6 +170,7 @@ set (SUPPORT_SOURCES
   ScaledNumber.cpp
   ScopedPrinter.cpp
   SHA1.cpp
+  SHA256.cpp
   Signposts.cpp
   SimpleTable.cpp
   SmallPtrSet.cpp
@@ -189,6 +194,7 @@ set (SUPPORT_SOURCES
   TrigramIndex.cpp
   Triple.cpp
   Twine.cpp
+  TypeSize.cpp
   Unicode.cpp
   UnicodeCaseFold.cpp
   VersionTuple.cpp

@@ -39,15 +39,15 @@
 ; CHECK: [[M5]] = distinct !{!"llvm.loop.optreport", [[M6:!.*]]}
 ; CHECK: [[M6]] = distinct !{!"intel.loop.optreport", [[M7:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
-; CHECK: [[M8]] = !{!"intel.optreport.remark", !"Loop completely unrolled"}
+; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 0, !"Loop completely unrolled"}
 ; CHECK: [[M9:!.*]] = !{!"intel.optreport.remarks", [[M10:!.*]], [[M11:!.*]]}
-; CHECK: [[M10]] = !{!"intel.optreport.remark", !"LOOP WAS VECTORIZED"}
-; CHECK: [[M11]] = !{!"intel.optreport.remark", !"vectorization support: vector length %s", !"4"}
+; CHECK: [[M10]] = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
+; CHECK: [[M11]] = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", !"4"}
 ; CHECK: [[M12:!.*]] = distinct !{[[M12]]{{.*}}[[M13:!.*]]{{.*}}}
 ; CHECK: [[M13]] = distinct !{!"llvm.loop.optreport", [[M14:!.*]]}
 ; CHECK: [[M14]] = distinct !{!"intel.loop.optreport", [[M15:!.*]]}
 ; CHECK: [[M15]] = !{!"intel.optreport.origin", [[M16:!.*]]}
-; CHECK: [[M16]] = !{!"intel.optreport.remark", !"Remainder loop for vectorization"}
+; CHECK: [[M16]] = !{!"intel.optreport.remark", i32 0, !"Remainder loop for vectorization"}
 
 ; CHECK: [[F1:!.*]] = distinct !{[[F1]]{{.*}}[[F2:!.*]]{{.*}}}
 ; CHECK: [[F2]] = distinct !{!"llvm.loop.optreport", [[F3:!.*]]}

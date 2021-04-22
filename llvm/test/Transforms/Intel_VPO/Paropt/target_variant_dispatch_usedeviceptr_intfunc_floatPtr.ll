@@ -23,9 +23,9 @@
 ;
 
 ; Check that the device pointers for @a_cpu and %b_cpu, are obtained using a
-; tgt_target_data_begin call. The map-type should be TGT_PARAM | TGT_RETURN_PARAM (96).
+; tgt_target_data_begin call. The map-type should be TGT_RETURN_PARAM (64).
 
-; CHECK: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 96, i64 96]
+; CHECK: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 64, i64 64]
 
 ; Check for the maps used to get device pointers for a and b
 ; CHECK: [[A:%[^ ]+]] = bitcast i8* bitcast (float* @a_cpu to i8*) to float*

@@ -312,10 +312,9 @@ bool HIRPropagateCastedIV::run() {
   return Result;
 }
 
-PreservedAnalyses
-HIRPropagateCastedIVPass::run(llvm::Function &F,
-                              llvm::FunctionAnalysisManager &AM) {
-  HIRPropagateCastedIV(AM.getResult<HIRFrameworkAnalysis>(F)).run();
+PreservedAnalyses HIRPropagateCastedIVPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRPropagateCastedIV(HIRF).run();
   return PreservedAnalyses::all();
 }
 

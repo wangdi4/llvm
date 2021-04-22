@@ -1,5 +1,5 @@
-// RUN: %clangxx -fsycl -fsycl-device-only -fsycl-id-queries-fit-in-int -O1 -c -S -emit-llvm -o - %s | FileCheck %s --check-prefix CHECK
-// RUN: %clangxx -fsycl -fsycl-explicit-simd -fsycl-device-only -fsycl-id-queries-fit-in-int -O1 -c -S -emit-llvm -o - %s | FileCheck %s --check-prefix CHECK-ESIMD
+// RUN: %clangxx -fsycl -fsycl-id-queries-fit-in-int -O0 -c -S -emit-llvm -o %t.ll %s
+// RUN: FileCheck %s --input-file %t.ll
 
 #include <CL/sycl.hpp>
 

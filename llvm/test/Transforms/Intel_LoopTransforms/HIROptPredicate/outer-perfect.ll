@@ -16,7 +16,7 @@
 ; END REGION
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK:       if (((smax((16777216 * %n * %k), (-16777216 * %n * %k)) /u 16777216) * smin(1, smax(-1, (16777216 * %n * %k)))) < %k)
+; CHECK:       if (%conv1 < %k)
 ; CHECK:       {
 ; CHECK:          + DO i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK:          |   + DO i2 = 0, 99, 1   <DO_LOOP>

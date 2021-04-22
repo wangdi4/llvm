@@ -46,10 +46,10 @@
 ;
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT: <Distributed chunk 1>
-;OPTREPORT:     Remark: Loop distributed (2 way)
+;OPTREPORT:     remark: Loop distributed (2 way)
 ;OPTREPORT:     LOOP BEGIN
 ;OPTREPORT:     <Distributed chunk 1>
-;OPTREPORT:         Remark: Loop distributed (2 way)
+;OPTREPORT:         remark: Loop distributed (2 way)
 ;OPTREPORT:     LOOP END
 ;OPTREPORT: LOOP END
 ;OPTREPORT: LOOP BEGIN

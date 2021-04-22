@@ -79,6 +79,9 @@ private:
   /// Unique number associated with this WRegionNode.
   unsigned Number;
 
+  /// Index of the current map Aggr (map-chain-link).
+  unsigned CurrentMapAggrIndex = 0;
+
   /// Nesting level of the WRN node in the WRN graph. Outermost level is 0.
   unsigned Level;
 
@@ -120,6 +123,30 @@ private:
 
   /// Sets the unique number associated with this WRegionNode.
   void setNextNumber() { Number = ++UniqueNum; }
+
+  /// Returns the index of the next map-chain Aggr for the region.
+  /// This is used in WRegion graph construction to track the
+  /// indices of original map-chains sent from the frontend. The need for this
+  /// is to track which Aggr in a map-chain a member-of field points to, so that
+  /// the value of member-of can be updated correctly, if needed. e.g.
+  /// \code
+  ///                Map Aggrs                      Index
+  ///             <a, b, 8, 0x22>                    1
+  ///   +         <c, d, 8, 0x20>                    2
+  ///   +- CHAIN: <e, f, 8, 0x00>                    3
+  ///   +- CHAIN: <g, h, 8, 0x0003000000000001>      4
+  ///
+  /// \endcode
+  /// Here, tracking the indices lets us know that Aggr 4 is a member-of Aggr 3.
+  /// This information is later used while updating member-of flags in Paropt
+  /// code-generation, if needed.
+  unsigned getNextMapAggrIndex() { return ++CurrentMapAggrIndex; }
+
+  /// True for implicit constructs emitted by the frontend.
+  /// Examples:
+  /// * implicit task around a dispatch construct
+  /// * implicit taskgroup around a taskloop construct
+  bool IsImplicit = false;
 
 #if INTEL_CUSTOMIZATION
   /// True if the WRN came from HIR; false otherwise
@@ -169,6 +196,9 @@ protected:
 
   /// Sets the graph parent of this WRegionNode.
   void setParent(WRegionNode *P) { Parent = P; }
+
+  /// Set whether this WRegionNode is for an implicit construct.
+  void setIsImplicit(bool B) { IsImplicit = B; }
 
   /// Finish creating the WRN once its ExitDir is found. This routine calls
   /// setExitDirective(ExitDir) and setExitBBlock(ExitDir->getParent()). In
@@ -228,6 +258,7 @@ public:
   bool canHaveIsDevicePtr() const;
   bool canHaveUseDevicePtr() const;
   bool canHaveSubdevice() const;
+  bool canHaveInteropAction() const;
   bool canHaveDepend() const;
   bool canHaveDepSrcSink() const;
   bool canHaveAligned() const;
@@ -238,6 +269,7 @@ public:
   bool canHaveNowait() const;
   bool canHaveAllocate() const;
   bool canHaveOrderedTripCounts() const;
+  bool canHaveIf() const;
   /// @}
 
   /// Returns `true` if the construct needs to be outlined into a separate
@@ -324,6 +356,7 @@ public:
   virtual UseDevicePtrClause &getUseDevicePtr()
                                            {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
   virtual SubdeviceClause &getSubdevice()       {WRNERROR(QUAL_OMP_SUBDEVICE);}
+  virtual InteropActionClause &getInteropAction() {WRNERROR("INTEROP_ACTION");}
 
   // list-type clauses (const getters)
 
@@ -377,11 +410,15 @@ public:
                                          {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
   virtual const SubdeviceClause &getSubdevice() const
                                               {WRNERROR(QUAL_OMP_SUBDEVICE);}
+  virtual const InteropActionClause &getInteropAction() const
+                                                {WRNERROR("INTEROP_ACTION");}
 
   // other clauses (both getters and setters)
 
   virtual void setAtomicKind(WRNAtomicKind A)   {WRNERROR("ATOMIC_KIND");     }
   virtual WRNAtomicKind getAtomicKind()   const {WRNERROR("ATOMIC_KIND");     }
+  virtual void setCall(CallInst *CI)            {WRNERROR("DISPATCH CALL");   }
+  virtual CallInst *getCall()             const {WRNERROR("DISPATCH CALL");   }
   virtual void setCancelKind(WRNCancelKind CK)  {WRNERROR("CANCEL TYPE");     }
   virtual WRNCancelKind getCancelKind()   const {WRNERROR("CANCEL TYPE");     }
   virtual void setCollapse(int N)               {WRNERROR(QUAL_OMP_COLLAPSE); }
@@ -406,14 +443,18 @@ public:
   virtual bool getIsDoacross()         const {WRNERROR("DEPEND(SOURCE|SINK)");}
   virtual void setIsSIMD(bool Flag)          {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
   virtual bool getIsSIMD()             const {WRNERROR(QUAL_OMP_ORDERED_SIMD);}
+  virtual void setIsTargetTask(bool Flag)     {WRNERROR(QUAL_OMP_TARGET_TASK);}
+  virtual bool getIsTargetTask()        const {WRNERROR(QUAL_OMP_TARGET_TASK);}
   virtual void setIsThreads(bool Flag)          {WRNERROR("THREADS/SIMD");    }
   virtual bool getIsThreads()             const {WRNERROR("THREADS/SIMD");    }
   virtual void setMergeable(bool Flag)          {WRNERROR(QUAL_OMP_MERGEABLE);}
   virtual bool getMergeable()             const {WRNERROR(QUAL_OMP_MERGEABLE);}
-  virtual void setIsTargetTask(bool Flag)     {WRNERROR(QUAL_OMP_TARGET_TASK);}
-  virtual bool getIsTargetTask()        const {WRNERROR(QUAL_OMP_TARGET_TASK);}
+  virtual void setNocontext(EXPR E)             {WRNERROR(QUAL_OMP_NOCONTEXT);}
+  virtual EXPR getNocontext()             const {WRNERROR(QUAL_OMP_NOCONTEXT);}
   virtual void setNogroup(bool Flag)            {WRNERROR(QUAL_OMP_NOGROUP);  }
   virtual bool getNogroup()               const {WRNERROR(QUAL_OMP_NOGROUP);  }
+  virtual void setNovariants(EXPR E)           {WRNERROR(QUAL_OMP_NOVARIANTS);}
+  virtual EXPR getNovariants()           const {WRNERROR(QUAL_OMP_NOVARIANTS);}
   virtual void setNowait(bool Flag)             {WRNERROR(QUAL_OMP_NOWAIT);   }
   virtual bool getNowait()                const {WRNERROR(QUAL_OMP_NOWAIT);   }
   virtual void setNumTasks(EXPR E)              {WRNERROR(QUAL_OMP_NUM_TASKS);}
@@ -662,6 +703,9 @@ public:
   /// Returns the name for this WRN based on its SubClassID
   StringRef getName() const;
 
+  /// Returns whether the WRegionNode is for an implicit construct.
+  bool getIsImplicit() const { return IsImplicit; }
+
   // Methods for BBlockSet
 
   /// Returns the entry(first) bblock of this region.
@@ -730,6 +774,7 @@ public:
   void setIsTarget()             { Attributes |= WRNIsTarget; }
   void setIsTask()               { Attributes |= WRNIsTask; }
   void setIsTeams()              { Attributes |= WRNIsTeams; }
+  void setIsInterop()            { Attributes |= WRNIsInterop; }
 
   /// Routines to get WRN primary attributes
   unsigned getAttributes() const { return Attributes; }
@@ -740,6 +785,7 @@ public:
   bool getIsTarget()       const { return Attributes & WRNIsTarget; }
   bool getIsTask()         const { return Attributes & WRNIsTask; }
   bool getIsTeams()        const { return Attributes & WRNIsTeams; }
+  bool getIsInterop()      const { return Attributes & WRNIsInterop; }
 
   /// Routines to get WRN derived attributes
   bool getIsParLoop()      const { return  getIsPar()  && getIsOmpLoop(); }
@@ -783,6 +829,7 @@ public:
     WRNTargetExitData,                // IsTarget
     WRNTargetUpdate,                  // IsTarget
     WRNTargetVariant,                 // IsTarget
+    WRNDispatch,
     WRNTask,                          // IsTask
     WRNTaskloop,                      // IsTask, IsOmpLoop
 
@@ -809,7 +856,8 @@ public:
     WRNSingle,
     WRNTaskgroup,
     WRNTaskwait,
-    WRNTaskyield
+    WRNTaskyield,
+    WRNInterop
   };
 
   /// WRN primary attributes
@@ -820,7 +868,8 @@ public:
     WRNIsSections   = 0x00000008,
     WRNIsTarget     = 0x00000010,
     WRNIsTask       = 0x00000020,
-    WRNIsTeams      = 0x00000040
+    WRNIsTeams      = 0x00000040,
+    WRNIsInterop    = 0x00000080
   };
 
 private:
@@ -860,9 +909,9 @@ private:
                                         Clause<ClauseItemTy> &C);
 
   /// Extract operands from a map clause
-  static void extractMapOpndList(const Use *Args, unsigned NumArgs,
-                                 const ClauseSpecifier &ClauseInfo,
-                                 MapClause &C, unsigned MapKind);
+  void extractMapOpndList(const Use *Args, unsigned NumArgs,
+                          const ClauseSpecifier &ClauseInfo, MapClause &C,
+                          unsigned MapKind);
 
   /// Extract operands from a depend clause
   static void extractDependOpndList(const Use *Args, unsigned NumArgs,
@@ -892,6 +941,11 @@ private:
   static void extractScheduleOpndList(ScheduleClause &Sched, const Use *Args,
                                       const ClauseSpecifier &ClauseInfo,
                                       WRNScheduleKind Kind);
+
+  /// Extract operands from an init clause
+  static void extractInitOpndList(InteropActionClause &InteropAction,
+                                  const Use *Args, unsigned NumArgs,
+                                  const ClauseSpecifier &ClauseInfo);
   /// @}
 
 }; // class WRegionNode

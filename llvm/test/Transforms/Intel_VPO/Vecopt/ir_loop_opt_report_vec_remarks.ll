@@ -10,8 +10,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define void @foo(i32* nocapture %arr) local_unnamed_addr {
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:    Remark: LOOP WAS VECTORIZED
-; OPTREPORT-NEXT:    Remark: vectorization support: vector length {{.*}}
+; OPTREPORT-NEXT:    remark #15300: LOOP WAS VECTORIZED
+; OPTREPORT-NEXT:    remark #15305: vectorization support: vector length {{.*}}
 ; OPTREPORT-NEXT: LOOP END
 
 ; CHECK-LABEL: define void @foo(
@@ -53,8 +53,8 @@ define void @test_outer([1024 x [1024 x i64]]* %a) local_unnamed_addr {
 ; OPTREPORT-LABEL:Global loop optimization report for : test_outer
 ; OPTREPORT-EMPTY:
 ; OPTREPORT-NEXT: LOOP BEGIN
-; OPTREPORT-NEXT:     Remark: LOOP WAS VECTORIZED
-; OPTREPORT-NEXT:     Remark: vectorization support: vector length 4
+; OPTREPORT-NEXT:     remark #15300: LOOP WAS VECTORIZED
+; OPTREPORT-NEXT:     remark #15305: vectorization support: vector length 4
 ; OPTREPORT-EMPTY:
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:     LOOP END
@@ -101,8 +101,8 @@ exit:
 ; CHECK: [[FOO_OPTRPT]] = distinct !{!"llvm.loop.optreport", [[FOO_OPTRPT_INTEL:!.*]]}
 ; CHECK-NEXT: [[FOO_OPTRPT_INTEL]] = distinct !{!"intel.loop.optreport", [[REMARKS:!.*]]}
 ; CHECK-NEXT: [[REMARKS]] = !{!"intel.optreport.remarks", [[R1:!.*]], [[R2:!.*]]}
-; CHECK-NEXT: [[R1]] = !{!"intel.optreport.remark", !"LOOP WAS VECTORIZED"}
-; CHECK-NEXT: [[R2]] = !{!"intel.optreport.remark", !"vectorization support: vector length %s", {{.*}}}
+; CHECK-NEXT: [[R1]] = !{!"intel.optreport.remark", i32 15300, !"LOOP WAS VECTORIZED"}
+; CHECK-NEXT: [[R2]] = !{!"intel.optreport.remark", i32 15305, !"vectorization support: vector length %s", {{.*}}}
 ; CHECK: [[TEST_OUTER_LOOP_MD]] = distinct !{[[TEST_OUTER_LOOP_MD]], [[TEST_OUTER_OPTRPT:![^,]+]]{{.*}}}
 ; CHECK-NEXT: [[TEST_OUTER_OPTRPT]] = distinct !{!"llvm.loop.optreport", [[TEST_OUTER_OPTRPT_INTEL:!.*]]}
 ; CHECK-NEXT: [[TEST_OUTER_OPTRPT_INTEL]] = distinct !{!"intel.loop.optreport", [[REMARKS]]}

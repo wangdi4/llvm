@@ -1,6 +1,6 @@
 //===---------------- WeakAlign.cpp - DTransWeakAlignPass -----------------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -440,6 +440,10 @@ bool WeakAlignImpl::isSupportedIntrinsicInst(IntrinsicInst *II) {
   case Intrinsic::fma:
   case Intrinsic::fabs:
   case Intrinsic::abs:
+  case Intrinsic::smax:
+  case Intrinsic::smin:
+  case Intrinsic::umax:
+  case Intrinsic::umin:
   case Intrinsic::minnum:
   case Intrinsic::maxnum:
   case Intrinsic::minimum:
@@ -464,6 +468,53 @@ bool WeakAlignImpl::isSupportedIntrinsicInst(IntrinsicInst *II) {
   case Intrinsic::usub_with_overflow:
   case Intrinsic::smul_with_overflow:
   case Intrinsic::umul_with_overflow:
+  case Intrinsic::experimental_constrained_ceil:
+  case Intrinsic::experimental_constrained_cos:
+  case Intrinsic::experimental_constrained_exp:
+  case Intrinsic::experimental_constrained_exp2:
+  case Intrinsic::experimental_constrained_fadd:
+  case Intrinsic::experimental_constrained_fcmp:
+  case Intrinsic::experimental_constrained_fcmps:
+  case Intrinsic::experimental_constrained_fdiv:
+  case Intrinsic::experimental_constrained_floor:
+  case Intrinsic::experimental_constrained_fma:
+  case Intrinsic::experimental_constrained_fmul:
+  case Intrinsic::experimental_constrained_fmuladd:
+  case Intrinsic::experimental_constrained_fpext:
+  case Intrinsic::experimental_constrained_fptosi:
+  case Intrinsic::experimental_constrained_fptoui:
+  case Intrinsic::experimental_constrained_fptrunc:
+  case Intrinsic::experimental_constrained_frem:
+  case Intrinsic::experimental_constrained_fsub:
+  case Intrinsic::experimental_constrained_llrint:
+  case Intrinsic::experimental_constrained_llround:
+  case Intrinsic::experimental_constrained_log:
+  case Intrinsic::experimental_constrained_log10:
+  case Intrinsic::experimental_constrained_log2:
+  case Intrinsic::experimental_constrained_lrint:
+  case Intrinsic::experimental_constrained_lround:
+  case Intrinsic::experimental_constrained_maximum:
+  case Intrinsic::experimental_constrained_maxnum:
+  case Intrinsic::experimental_constrained_minimum:
+  case Intrinsic::experimental_constrained_minnum:
+  case Intrinsic::experimental_constrained_nearbyint:
+  case Intrinsic::experimental_constrained_pow:
+  case Intrinsic::experimental_constrained_powi:
+  case Intrinsic::experimental_constrained_rint:
+  case Intrinsic::experimental_constrained_round:
+  case Intrinsic::experimental_constrained_roundeven:
+  case Intrinsic::experimental_constrained_sin:
+  case Intrinsic::experimental_constrained_sitofp:
+  case Intrinsic::experimental_constrained_sqrt:
+  case Intrinsic::experimental_constrained_trunc:
+  case Intrinsic::experimental_constrained_uitofp:
+  case Intrinsic::experimental_deoptimize:
+  case Intrinsic::experimental_gc_relocate:
+  case Intrinsic::experimental_gc_result:
+  case Intrinsic::experimental_gc_statepoint:
+  case Intrinsic::experimental_guard:
+  case Intrinsic::experimental_noalias_scope_decl:
+  case Intrinsic::experimental_widenable_condition:
     break;
 
   case Intrinsic::assume: {

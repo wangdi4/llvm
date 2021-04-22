@@ -49,6 +49,7 @@ protected:
   std::unique_ptr<PredicatedScalarEvolution> PSE;
   std::unique_ptr<VPOVectorizationLegality> Legal;
   std::unique_ptr<VPExternalValues> Externals;
+  std::unique_ptr<VPUnlinkedInstructions> UVPI;
   std::unique_ptr<LoopVectorizationPlanner> LVP;
 
   VPlanTestBase() : Ctx(new LLVMContext) {}
@@ -73,19 +74,20 @@ protected:
     PSE.reset(new PredicatedScalarEvolution(*SE, *Loop));
     Legal.reset(new VPOVectorizationLegality(Loop, *PSE, &F));
     Externals.reset(new VPExternalValues(Ctx.get(), DL.get()));
+    UVPI.reset(new VPUnlinkedInstructions());
     LVP.reset(new LoopVectorizationPlanner(
         nullptr /* no WRLp */, Loop, LI.get(), TLI.get(), TTI.get(), DL.get(),
         DT.get(), Legal.get(), nullptr /* no VLSA */));
   }
 
-  std::unique_ptr<VPlan> buildHCFG(BasicBlock *LoopHeader) {
+  std::unique_ptr<VPlanNonMasked> buildHCFG(BasicBlock *LoopHeader) {
     auto F = LoopHeader->getParent();
     doAnalysis(*F, LoopHeader);
 
     // Needed for induction importing
     Legal.get()->canVectorize(*DT, nullptr /* use auto induction detection */);
 
-    auto Plan = std::make_unique<VPlan>(*Externals);
+    auto Plan = std::make_unique<VPlanNonMasked>(*Externals, *UVPI);
     VPlanHCFGBuilder HCFGBuilder(LI->getLoopFor(LoopHeader), LI.get(), *DL,
                                  nullptr /*WRLp */, Plan.get(), Legal.get(),
                                  SE.get());

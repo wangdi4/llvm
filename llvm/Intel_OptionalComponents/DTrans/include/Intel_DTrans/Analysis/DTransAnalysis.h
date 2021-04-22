@@ -1,6 +1,6 @@
 //===----------------- DTransAnalysis.h - DTrans Analysis -----------------===//
 //
-// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -48,20 +48,6 @@ public:
 
     dtrans::TypeInfo *&operator*() const { return I->second; }
     dtrans::TypeInfo *&operator->() const { return operator*(); }
-  };
-
-  using CallInfoMapType = DenseMap<llvm::Instruction *, dtrans::CallInfo *>;
-
-  /// Adaptor for directly iterating over the dtrans::CallInfo pointers.
-  struct call_info_iterator
-      : public iterator_adaptor_base<
-            call_info_iterator, CallInfoMapType::iterator,
-            std::forward_iterator_tag, CallInfoMapType::value_type> {
-    explicit call_info_iterator(CallInfoMapType::iterator X)
-        : iterator_adaptor_base(X) {}
-
-    dtrans::CallInfo *&operator*() const { return I->second; }
-    dtrans::CallInfo *&operator->() const { return operator*(); }
   };
 
   using PtrSubInfoMapType = ValueMap<Value *, llvm::Type *>;
@@ -123,9 +109,9 @@ public:
                       type_info_iterator(TypeInfoMap.end()));
   }
 
-  iterator_range<call_info_iterator> call_info_entries() {
-    return make_range(call_info_iterator(CallInfoMap.begin()),
-                      call_info_iterator(CallInfoMap.end()));
+  iterator_range<dtrans::CallInfoManager::call_info_iterator>
+  call_info_entries() {
+    return CIM.call_info_entries();
   }
 
   // If the specified BinaryOperator was identified as a subtraction of
@@ -167,33 +153,47 @@ public:
 
   // Retrieve the CallInfo object for the instruction, if information exists.
   // Otherwise, return nullptr.
-  dtrans::CallInfo *getCallInfo(const Instruction *I) const;
+  dtrans::CallInfo *getCallInfo(const Instruction *I) const {
+    return CIM.getCallInfo(I);
+  }
 
   // Create an entry in the CallInfoMap about a memory allocation call.
   dtrans::AllocCallInfo *createAllocCallInfo(Instruction *I,
-                                             dtrans::AllocKind AK);
+                                             dtrans::AllocKind AK) {
+    return CIM.createAllocCallInfo(I, AK);
+  }
 
   // Create an entry in the CallInfoMap about a memory freeing call
-  dtrans::FreeCallInfo *createFreeCallInfo(Instruction *I, dtrans::FreeKind FK);
+  dtrans::FreeCallInfo *createFreeCallInfo(Instruction *I,
+                                           dtrans::FreeKind FK) {
+    return CIM.createFreeCallInfo(I, FK);
+  }
 
   // Create an entry in the CallInfoMap about a memory setting/copying/moving
   // call.
   dtrans::MemfuncCallInfo *
   createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
-                        dtrans::MemfuncRegion &MR);
+                        dtrans::MemfuncRegion &MR) {
+    return CIM.createMemfuncCallInfo(I, MK, MR);
+  }
 
   dtrans::MemfuncCallInfo *
   createMemfuncCallInfo(Instruction *I, dtrans::MemfuncCallInfo::MemfuncKind MK,
-                        dtrans::MemfuncRegion &MR1, dtrans::MemfuncRegion &MR2);
+                        dtrans::MemfuncRegion &MR1,
+                        dtrans::MemfuncRegion &MR2) {
+    return CIM.createMemfuncCallInfo(I, MK, MR1, MR2);
+  }
 
   // Destroy the CallInfo stored about the specific instruction.
-  void deleteCallInfo(Instruction *I);
+  void deleteCallInfo(Instruction *I) { CIM.deleteCallInfo(I); }
 
   // Update the instruction associated with the CallInfo object. This
   // is necessary because when a function is cloned during the DTrans
   // optimizations, the information needs to be transferred to the
   // newly created instruction of the cloned routine.
-  void replaceCallInfoInstruction(dtrans::CallInfo *Info, Instruction *NewI);
+  void replaceCallInfoInstruction(dtrans::CallInfo *Info, Instruction *NewI) {
+    CIM.replaceCallInfoInstruction(Info, NewI);
+  }
 
   // Interface routine to get possible targets of given function pointer 'FP'.
   // It computes all possible targets of 'FP' using field single value analysis
@@ -293,9 +293,6 @@ public:
                   ModuleAnalysisManager::Invalidator &Inv);
 
 private:
-  void addCallInfo(llvm::Instruction *I, dtrans::CallInfo *Info);
-  void destructCallInfo(dtrans::CallInfo *Info);
-
   void computeStructFrequency(dtrans::StructInfo *StInfo);
 
   // Set number of functions, basic blocks, and instructions. Used to
@@ -319,7 +316,7 @@ private:
 
   // A mapping from function calls that special information is collected for
   // (malloc, free, memset, etc) to the information stored about those calls.
-  CallInfoMapType CallInfoMap;
+  dtrans::CallInfoManager CIM;
 
   // A mapping from BinaryOperator instructions that have been identified as
   // subtracting two pointers to types of interest to the interesting type

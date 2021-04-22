@@ -45,17 +45,15 @@ int bar(int M, float *FP) {
   float (&ARR_ref)[10] = ARR;
   float VLA[M];
 
-  // CHECK: [[LFPL:%[0-9]+]] = load float*, float** [[FPLOC]], align 8
-  // CHECK: [[LFP:%[0-9]+]] = load float*, float** [[FPADDR]], align 8
   // CHECK: [[LFPR:%[0-9]+]] = load float**, float*** [[FPREF]], align 8
-  // CHECK: [[LFPRR:%[0-9]+]] = load float*, float** [[LFPR]], align 8
   // CHECK: [[LARR:%[0-9]+]] = load [10 x float]*, [10 x float]** [[AREF]],
   //
   // CHECK: DIR.OMP.SIMD
-  // CHECK-SAME: "QUAL.OMP.ALIGNED"(float* [[LFPL]], float* [[LFP]], i32 32)
+  // CHECK-SAME: "QUAL.OMP.ALIGNED:PTR_TO_PTR"(float** [[FPLOC]], i32 32)
+  // CHECK-SAME: "QUAL.OMP.ALIGNED:PTR_TO_PTR"(float** [[FPADDR]], i32 32)
   // CHECK-SAME: "QUAL.OMP.ALIGNED"([10 x float]* [[ARR]], i32 32)
   // CHECK-SAME: "QUAL.OMP.ALIGNED"(float* [[VLA]], i32 32)
-  // CHECK-SAME: "QUAL.OMP.ALIGNED"(float* [[LFPRR]], i32 32)
+  // CHECK-SAME: "QUAL.OMP.ALIGNED:PTR_TO_PTR"(float** [[LFPR]], i32 32)
   // CHECK-SAME: "QUAL.OMP.ALIGNED"([10 x float]* [[LARR]], i32 32)
   // CHECK: DIR.OMP.END.SIMD
   #pragma omp simd aligned(FP_local,FP:32) \

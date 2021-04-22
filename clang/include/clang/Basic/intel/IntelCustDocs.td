@@ -699,12 +699,13 @@ Syntax:
 
 .. code-block:: text
 
-  #pragma vector {always[assert]|aligned|unaligned|temporal|nontemporal|[no]vecremainder|[no]mask_readwrite}
+  #pragma vector {always[assert]|aligned|unaligned|temporal|nontemporal|[no]vecremainder|[no]mask_readwrite|[no]dynamic_align}
 
 ``pragma vector`` with no other keyword will do nothing.
 
-Currently we only support ``pragma vector``, ``pragma vector always`` and
-``pragma vector aligned``.
+Currently we only support ``pragma vector``, ``pragma vector always``,
+``pragma vector aligned`` ,``pragma vector dynamic_align`` and
+``prgama vector nodynamic_align``.
 When the 'aligned' keyword is used, it indicates to the compiler that the loop
 should be vectorized using aligned data movement instructions for all array
 references inside the loop.
@@ -719,6 +720,10 @@ Example:
     #pragma vector always
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
     #pragma vector aligned
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector dynamic_align
+    for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
+    #pragma vector nodynamic_align
     for(int j=lb; j<ub; j++) { a[j]=a[j]+b[j]; }
   }
 
@@ -748,6 +753,15 @@ AST:
   | `-<<<NULL>>>
 
 
+  AttributedStmt 0x2d888a37748 <line:6:11, line:7:46>
+  |-LoopHintAttr 0x2d888a37708 <line:6:11> Implicit vector VectorizeDynamicAlign Enable
+  | |-<<<NULL>>>
+  | `-<<<NULL>>>
+
+  AttributedStmt 0x2d888a37748 <line:6:11, line:7:46>
+  |-LoopHintAttr 0x2d888a37708 <line:6:11> Implicit vector VectorizeNoDynamicAlign Enable
+  | |-<<<NULL>>>
+  | `-<<<NULL>>>
 Note that ``#pragma vector always`` and ``#pragma vector aligned`` are
 represented as two LoopHint attributes.
 
@@ -761,13 +775,22 @@ IR:
 .. code-block:: llvm
 
   br label %for.cond6, !llvm.loop !2
-  br label %for.cond20, !llvm.loop !5
+  br label %for.cond6, !llvm.loop !4
+  br label %for.cond20, !llvm.loop !7
+  br label %for.cond34, !llvm.loop !9
+  br label %for.cond48, !llvm.loop !11
 
-  !2 = distinct !{!2, !3, !4}
-  !3 = !{!"llvm.loop.vectorize.ignore_profitability"}
-  !4 = !{!"llvm.loop.vectorize.enable", i1 true}
-  !5 = distinct !{!5, !6}
-  !6 = !{!"llvm.loop.intel.vector.aligned"}
+  !2 = distinct !{!2, !3}
+  !3 = !{!"llvm.loop.mustprogress"}
+  !4 = distinct !{!4, !3, !5, !6}
+  !5 = !{!"llvm.loop.vectorize.ignore_profitability"}
+  !6 = !{!"llvm.loop.vectorize.enable", i1 true}
+  !7 = distinct !{!7, !3, !8}
+  !8 = !{!"llvm.loop.intel.vector.aligned"}
+  !9 = distinct !{!9, !3, !10}
+  !10 = !{!"llvm.loop.intel.vector.dynamic_align", !"true"}
+  !11 = distinct !{!11, !3, !12}
+  !12 = !{!"llvm.loop.intel.vector.nodynamic_align", !"true"}
 
   }];
   let UserContent = [{
@@ -2866,12 +2889,12 @@ def ReadWriteModeDocs : Documentation {
   let RegressionTest = "";
   let Owner = "zahiraam";
   let Content = [{
-The 'readwrite_mode' attribute is applied to HLS slave memory pointer
+The 'readwrite_mode' attribute is applied to HLS agent memory pointer
 arguments. These are pointer arguments that already have the attribute
-"slave_memory_argument". The argument "type" is mandatory, and its values are
+"agent_memory_argument". The argument "type" is mandatory, and its values are
 "readonly", "writeonly", or "readwrite".
 It is illegal to apply the attribute readwrite_mode on pointer arguments that
-do not already have an attribute slave_memory_argument applied.
+do not already have an attribute agent_memory_argument applied.
 
 Syntax:
 
@@ -2884,7 +2907,7 @@ Example:
 
 .. code-block:: c++
 
-   void foo0_1(slave_arg __attribute__((readwrite_mode("readonly"))) int *i)
+   void foo0_1(agent_arg __attribute__((readwrite_mode("readonly"))) int *i)
    {}
 
 
@@ -2899,7 +2922,7 @@ AST:
    FunctionDecl 0x20cec836848 <t1.cpp:6:19, line:21:1> foo0_1 'void (int *)'
    |-ParmVarDecl 0x20cec836710 <line:2:19, line:18:82>
      |-OpenCLLocalMemSizeAttr 0x20cec836778 <line:2:34, col:51> 32
-     |-SlaveMemoryArgumentAttr 0x20cec8367b8 <col:54>
+     |-AgentMemoryArgumentAttr 0x20cec8367b8 <col:54>
      `-ReadWriteModeAttr 0x20cec8367c8 <line:18:48, col:73> "readonly"
 
 IR:
@@ -2918,7 +2941,7 @@ IR:
    }
    !2 = !{!"_Z6foo0_1Pi", !3}
    !3 = !{}
-   !4 = !{!"mm_slave"}
+   !4 = !{!"mm_agent"}
    !5 = !{!"wire"}
    !6 = !{i32 0}
    !7 = !{!"i"}
@@ -2926,12 +2949,12 @@ IR:
 
    }];
   let UserContent = [{
-The 'readwrite_mode' attribute is applied to HLS slave memory pointer
+The 'readwrite_mode' attribute is applied to HLS agent memory pointer
 arguments. These are pointer arguments that already have the attribute
-"slave_memory_argument". The argument "type" is mandatory, and its values are
+"agent_memory_argument". The argument "type" is mandatory, and its values are
 "readonly", "writeonly", or "readwrite".
 It is illegal to apply the attribute readwrite_mode on pointer arguments that
-do not already have an attribute slave_memory_argument applied.
+do not already have an attribute agent_memory_argument applied.
   }];
 }
 
@@ -3477,6 +3500,54 @@ This change causes cpu-dispatch/cpu-specific multiversioning to use libirc
 as its source of cpu-feature data. This library features finer grained feature
 checking, as well as permits the highjacking of the feature list via environment
 variable, which can be used to validate versions on newer hardware.
+  }];
+}
+
+def DisplayFullFilePathDocs : Documentation {
+  let Category = DocCatIntelCompat;
+  let Option = "IntelCompat";
+  let BugTracker = "CMPLRLLVM-26876";
+  let RegressionTest = "CodeGenCXX/intel/display-filename-or-path.cpp";
+  let Owner = "smanna";
+  let Content = [{
+Clang currently shows the full build-machine paths of our program files as
+specified on the command-line into the final assembly when using
+``__builtin_FILE`` since CMake always uses full-paths. This change adds a new
+command-line switch that is ON by default in -fintel-compatibility mode to
+control the behavior that ``__builtin_FILE`` should only include the filename
+(not the path) by default.
+
+.. code-block:: c++
+
+   void takes_const_char_ptr(const char * FN = __builtin_FILE());
+
+   int main() {
+     takes_const_char_ptr();
+   }
+
+.. code-block:: console
+
+   $ clang -cc1 -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -emit-llvm -o - `pwd`/t.cpp
+
+.. code-block:: llvm
+
+   @.str = private unnamed_addr constant [6 x i8] c"t.cpp\00", align 1
+
+.. code-block:: console
+
+   $ clang -cc1 -fintel-compatibility -fintel-compatibility-disable=DisplayFullFilePath -emit-llvm -o - `pwd`/t.cpp
+
+.. code-block:: llvm
+
+   @.str = private unnamed_addr constant [36 x i8] c"`pwd`/t.cpp\00", align 1
+
+  }];
+  let UserContent = [{
+Clang currently shows the full build-machine paths of our program files as
+specified on the command-line into the final assembly when using
+``__builtin_FILE`` since CMake always uses full-paths. New command-line
+switch controls the behavior to include filename or full file path when
+using ``__builtin_FILE``.
   }];
 }
 

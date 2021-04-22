@@ -125,11 +125,10 @@ bool HIRRecognizeParLoop::runOnFunction(Function &F) {
   return Impl.run(getAnalysis<HIRFrameworkWrapperPass>().getHIR());
 }
 
-PreservedAnalyses
-HIRRecognizeParLoopPass::run(llvm::Function &F,
-                             llvm::FunctionAnalysisManager &AM) {
+PreservedAnalyses HIRRecognizeParLoopPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
   HIRRecognizeParLoopImpl Impl;
-  Impl.run(AM.getResult<HIRFrameworkAnalysis>(F));
+  Impl.run(HIRF);
   return PreservedAnalyses::all();
 }
 

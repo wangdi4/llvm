@@ -270,6 +270,9 @@ void IdentifierTable::AddKeywords(const LangOptions &LangOpts) {
     AddKeyword("__float128", tok::kw___float128, KEYFLOAT128, LangOpts, *this);
 #endif // INTEL_CUSTOMIZATION
 
+  if (LangOpts.IEEE128)
+    AddKeyword("__ieee128", tok::kw___float128, KEYALL, LangOpts, *this);
+
   // Add the 'import' contextual keyword.
   get("import").setModulesImport(true);
 }

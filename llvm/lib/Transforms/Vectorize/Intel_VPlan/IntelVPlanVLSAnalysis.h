@@ -17,7 +17,7 @@
 #ifndef LLVM_TRANSFORM_VECTORIZE_INTEL_VPLAN_INTELVPLANVLSANALYSIS_H
 #define LLVM_TRANSFORM_VECTORIZE_INTEL_VPLAN_INTELVPLANVLSANALYSIS_H
 
-#include "Intel_VPlan/IntelVPlanVLSClient.h"
+#include "IntelVPlanVLSClient.h"
 #if INTEL_CUSTOMIZATION
 #include "VPlanHIR/IntelVPlanVLSClientHIR.h"
 #endif // INTEL_CUSTOMIZATION
@@ -68,7 +68,7 @@ protected:
     return nullptr;
   }
 
-  virtual OVLSMemref *createVLSMemref(const VPInstruction *Inst,
+  virtual OVLSMemref *createVLSMemref(const VPLoadStoreInst *Inst,
                                       const unsigned VF) const;
 
 private:
@@ -121,6 +121,11 @@ public:
     return getGroupForInstruction(Plan, Inst);
   }
 
+  auto groups(const VPlan *Plan) {
+    return make_range(Plan2VLSInfo[Plan].Groups.begin(),
+                      Plan2VLSInfo[Plan].Groups.end());
+  }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(const VPlan *Plan) const;
   void dump() const;
@@ -133,6 +138,24 @@ public:
 
 int computeInterleaveIndex(OVLSMemref *Memref, OVLSGroup *Group);
 int computeInterleaveFactor(OVLSMemref *Memref);
+
+/// Return optimized group info which includes the VLS group that VPInst belongs
+/// to, its interleave factor and interleave index if VPInst is part of a VLS
+/// group that is currently handled. Function returns None otherwise. and \p
+/// Plan are used to get VLS group information for \p VPInst.
+Optional<std::tuple<OVLSGroup *, int, int>>
+getOptimizedVLSGroupData(const VPInstruction *VPInst,
+                         const VPlanVLSAnalysis *VLSA, const VPlan *Plan);
+
+inline const VPLoadStoreInst *instruction(const OVLSMemref *Memref) {
+  return cast<VPLoadStoreInst>(
+      cast<VPVLSClientMemref>(Memref)->getInstruction());
+}
+
+inline auto instructions(OVLSGroup *Group) {
+  return map_range(*Group,
+                   [](OVLSMemref *Memref) { return instruction(Memref); });
+}
 
 } // namespace vpo
 } // namespace llvm

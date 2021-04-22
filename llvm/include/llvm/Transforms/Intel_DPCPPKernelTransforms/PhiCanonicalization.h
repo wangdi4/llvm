@@ -1,6 +1,6 @@
 //==--- PhiCanonicalization.h - Canonicalization of Phi nodes ---- C++ -*---==//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -13,33 +13,21 @@
 
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 
 namespace llvm {
-
+class DominatorTree;
+class PostDominatorTree;
 /// Phi canonicalizatiton. This pass converts each PHINode with three
 /// or more entries into a two-based PHINode. It does so by
 /// splitting two of the edges and creating an additional basic block.
 /// This trashes the CFG. However, future passes can easily go over the
 /// CFG and clean it.
-class PhiCanonicalization : public FunctionPass {
-public:
-  static char ID; // Pass identification, replacement for typeid
-
-  PhiCanonicalization();
-
-  /// Provides name of pass
-  StringRef getPassName() const override { return "PhiCanonicalization"; }
-
-  /// LLVM Function pass entry
-  /// F Function to transform
-  /// Return 'true' if changed
-  bool runOnFunction(Function &F) override;
-
+class PhiCanonicalization : public PassInfoMixin<PhiCanonicalization> {
   /// Perform the modifications to the BasicBlock
   /// Create a new BasicBlock with incoming edges
   /// ToFix BasicBlock to Fix
-  void fixBlock(BasicBlock *ToFix);
+  void fixBlock(BasicBlock *ToFix, DominatorTree *DT, PostDominatorTree *PDT);
 
   /// Make new intermediate Basic Block so that it will become PHI block
   /// for 'prev0' and 'prev1' instead of old one
@@ -57,6 +45,31 @@ public:
   /// New_target New target to point
   void fixBasicBlockSucessor(BasicBlock *To_fix, BasicBlock *Old_target,
                              BasicBlock *New_target);
+
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
+
+  static StringRef name() { return "PhiCanonicalization"; }
+
+  bool runImpl(Function &F, DominatorTree *DT, PostDominatorTree *PDT);
+};
+
+/// PhiCanonicalizationLegacy pass for legacy pass manager.
+class PhiCanonicalizationLegacy : public FunctionPass {
+  PhiCanonicalization Impl;
+
+public:
+  static char ID; // Pass identification, replacement for typeid
+
+  PhiCanonicalizationLegacy();
+
+  /// Provides name of pass
+  StringRef getPassName() const override { return "PhiCanonicalization"; }
+
+  /// LLVM Function pass entry
+  /// F Function to transform
+  /// Return 'true' if changed
+  bool runOnFunction(Function &F) override;
 
   // Need Dominator Tree and PostDominator tree prior to Phi Canonization
   void getAnalysisUsage(AnalysisUsage &AU) const override;

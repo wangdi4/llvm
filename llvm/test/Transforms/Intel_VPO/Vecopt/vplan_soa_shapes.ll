@@ -11,7 +11,7 @@ define dso_local void @test_soa_shapes(i32 %n) {
 ;
 ; Divergence info before SOA-shape analysis is run.
 ;
-; CHECK:       Printing Divergence info for
+; CHECK:       Printing Divergence info for test_soa_shapes:for.body
 ; CHECK-NEXT:  Basic Block: [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -19,13 +19,10 @@ define dso_local void @test_soa_shapes(i32 %n) {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] [1024 x i32]* [[VP_ARR_PRIV:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_RND_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 [[VP_IV1]] i64 0
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_UNI_G_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* @arr i64 0 i64 0
@@ -46,13 +43,19 @@ define dso_local void @test_soa_shapes(i32 %n) {
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_STR_INDIRECT_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 [[VP_IDXPROM2]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_STR_INDIRECT_GEP2:%.*]] = getelementptr inbounds i32* [[VP_UNI_INDIRECT_GEP1]] i64 [[VP_IDXPROM2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP:%.*]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_CMP]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB3]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB4:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB4]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 
 ; Divergence info after SOA-shape analysis is run.
 
-; CHECK:       Printing Divergence info for
+; CHECK:       Printing Divergence info for test_soa_shapes:for.body
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1]]
 ; CHECK-EMPTY:
@@ -60,13 +63,10 @@ define dso_local void @test_soa_shapes(i32 %n) {
 ; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] [1024 x i32]* [[VP_ARR_PRIV]] = allocate-priv [1024 x i32]*, OrigAlign = 4
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_IND_INIT]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_INIT_STEP]] = induction-init-step{add} i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VF]] = induction-init-step{add} i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_ORIG_TRIP_COUNT]] = orig-trip-count for original loop for.body
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024, UF = 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT]], [[BB2]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1]] = phi  [ i64 [[VP_IV1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV1_NEXT]], [[BB2]] ]
 ; CHECK-NEXT:  Divergent: [Shape: SOA Random] i32* [[VP_RND_GEP1]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 [[VP_IV1]] i64 0
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_UNI_G_GEP1]] = getelementptr inbounds [1024 x i32]* @arr i64 0 i64 0
@@ -87,9 +87,15 @@ define dso_local void @test_soa_shapes(i32 %n) {
 ; CHECK-NEXT:  Divergent: [Shape: SOA Random] i32* [[VP_STR_INDIRECT_GEP1]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 [[VP_IDXPROM2]]
 ; CHECK-NEXT:  Divergent: [Shape: SOA Random] i32* [[VP_STR_INDIRECT_GEP2]] = getelementptr inbounds i32* [[VP_UNI_INDIRECT_GEP1]] i64 [[VP_IDXPROM2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND]] = icmp ult i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_CMP]], [[BB2]], [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB3]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB4]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB4]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 ;
 
 entry:
@@ -151,7 +157,7 @@ for.end:                                          ; preds = %for.body
 
 define dso_local void @test_memref_transform(i32 %n) {
 ;
-; CHECK:       Printing Divergence info for
+; CHECK:       Printing Divergence info for test_memref_transform:for.body
 ; CHECK-NEXT:  Basic Block: [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
@@ -160,23 +166,26 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_UNI_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 0
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] store i32 10 i32* [[VP_UNI_GEP1]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP:%.*]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_CMP]], [[BB2]], [[BB3:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB3]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB4:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB4]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
 
 ; Divergence info after SOA-shape analysis is run.
 
-; CHECK:       Printing Divergence info for
+; CHECK:       Printing Divergence info for test_memref_transform:for.body
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1]]
 ; CHECK-EMPTY:
@@ -186,19 +195,23 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] i32* [[VP_UNI_GEP1]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 0
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_IND_INIT]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_INIT_STEP]] = induction-init-step{add} i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VF]] = induction-init-step{add} i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_ORIG_TRIP_COUNT]] = orig-trip-count for original loop for.body
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024, UF = 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT]], [[BB2]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1]] = phi  [ i64 [[VP_IV1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV1_NEXT]], [[BB2]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] store i32 10 i32* [[VP_UNI_GEP1]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND]] = icmp ult i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB3]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_CMP]], [[BB2]], [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB3]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB4]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB4]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
+;
 
 omp.inner.for.body.lr.ph:
   %arr.priv = alloca [1024 x i32], align 4

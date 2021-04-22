@@ -24,7 +24,7 @@
 
 ; Check for the type and size of maps created for the use_device_ptr operands
 ; CHECK: @.offload_sizes{{.*}} = private unnamed_addr constant [2 x i64] zeroinitializer
-; CHECK: @.offload_maptypes{{.*}} = private unnamed_addr constant [2 x i64] [i64 96, i64 96]
+; CHECK: @.offload_maptypes{{.*}} = private unnamed_addr constant [2 x i64] [i64 64, i64 64]
 
 ; CHECK: [[A_CAST:%[^ ]+]] = bitcast i8* bitcast (float** @a_cpu to i8*) to float**
 

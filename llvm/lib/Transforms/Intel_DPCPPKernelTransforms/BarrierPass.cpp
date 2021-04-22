@@ -17,9 +17,11 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
 
@@ -29,37 +31,35 @@
 
 #define DEBUG_TYPE "dpcpp-kernel-barrier"
 
-INITIALIZE_PASS_BEGIN(KernelBarrier, DEBUG_TYPE,
-                      "KernelBarrier Pass - Handle special values & replace "
-                      "barrier/fiber with internal loop over WIs",
-                      false, true)
-INITIALIZE_PASS_DEPENDENCY(DataPerBarrier)
-INITIALIZE_PASS_DEPENDENCY(DataPerValue)
-INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_END(KernelBarrier, DEBUG_TYPE,
-                    "KernelBarrier Pass - Handle special values & replace "
-                    "barrier/fiber with internal loop over WIs",
-                    false, true)
+using namespace llvm;
 
-namespace llvm {
-char KernelBarrier::ID = 0;
 KernelBarrier::KernelBarrier(bool IsNativeDebug, bool UseTLSGlobals)
-    : ModulePass(ID), DL(nullptr), Context(nullptr), SizeT(0), SizeTTy(nullptr),
-      I32Ty(nullptr), UseTLSGlobals(UseTLSGlobals), LocalIdAllocTy(nullptr),
-      LocalIds(nullptr), LocalIdArrayTy(nullptr), ConstZero(nullptr),
-      ConstOne(nullptr), DPV(nullptr), AllocaValues(nullptr),
-      SpecialValues(nullptr), CrossBarrierValues(nullptr), DPB(nullptr),
-      SyncInstructions(nullptr), CurrentFunction(nullptr),
-      CurrentBarrierKeyValues(nullptr), IsNativeDBG(IsNativeDebug) {
+    : DL(nullptr), Context(nullptr), SizeT(0), SizeTTy(nullptr), I32Ty(nullptr),
+      UseTLSGlobals(UseTLSGlobals), LocalIdAllocTy(nullptr), LocalIds(nullptr),
+      LocalIdArrayTy(nullptr), ConstZero(nullptr), ConstOne(nullptr),
+      AllocaValues(nullptr), SpecialValues(nullptr),
+      CrossBarrierValues(nullptr), SyncInstructions(nullptr), DPV(nullptr),
+      DPB(nullptr), CurrentFunction(nullptr), CurrentBarrierKeyValues(nullptr),
+      IsNativeDBG(IsNativeDebug) {
   std::fill(PtrLocalId, PtrLocalId + MaxNumDims, nullptr);
-  initializeKernelBarrierPass(*llvm::PassRegistry::getPassRegistry());
 }
 
-bool KernelBarrier::runOnModule(Module &M) {
+PreservedAnalyses KernelBarrier::run(Module &M, ModuleAnalysisManager &MAM) {
   // Get Analysis data.
-  DPB = &getAnalysis<DataPerBarrier>();
-  DPV = &getAnalysis<DataPerValue>();
+  auto *DPB = &MAM.getResult<DataPerBarrierAnalysis>(M);
+  auto *DPV = &MAM.getResult<DataPerValueAnalysis>(M);
+  if (!runImpl(M, DPB, DPV))
+    return PreservedAnalyses::all();
+  PreservedAnalyses PA;
+  PA.preserve<DataPerBarrierAnalysis>();
+  PA.preserve<DataPerValueAnalysis>();
+  PA.preserve<DominatorTreeAnalysis>();
+  return PA;
+}
 
+bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
+  this->DPB = DPB;
+  this->DPV = DPV;
   DL = &M.getDataLayout();
 
   // Initialize barrier utils class with current module.
@@ -205,7 +205,8 @@ void KernelBarrier::fixSynclessTIDUsers(Module &M,
   std::set<CallInst *> CIsToPatch;
   std::map<ConstantExpr *, Function *> ConstBitcastsToPatch;
   std::vector<std::string> TIDFuncNames;
-  TIDFuncNames.push_back("__builtin_get_local_id");
+  TIDFuncNames.push_back(DPCPPKernelCompilationUtils::mangledGetLID());
+  TIDFuncNames.push_back(DPCPPKernelCompilationUtils::mangledGetGID());
   // Initialize the set of functions that need patching by selecting the
   // functions which contain direct calls to get_*_id() and are w/o syncs.
   for (unsigned I = 0; I < TIDFuncNames.size(); ++I) {
@@ -216,7 +217,7 @@ void KernelBarrier::fixSynclessTIDUsers(Module &M,
       CallInst *CI = dyn_cast<CallInst>(U);
       if (!CI)
         continue;
-      Function *CallingF = CI->getParent()->getParent();
+      Function *CallingF = CI->getFunction();
       assert(CallingF);
       if (FuncsWithSync.count(CallingF))
         continue;
@@ -425,7 +426,8 @@ void KernelBarrier::bindUsersToBasicBlock(
     AllocaInst *AI, DbgDeclareInst *DI,
     BasicBlockToInstructionMapVectorTy &BBUsers) {
   Function &F = *AI->getFunction();
-  DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
+  DominatorTree DT;
+  DT.recalculate(F);
 
   SmallVector<Instruction *, 8> UIs;
   for (User *U : AI->users()) {
@@ -622,7 +624,7 @@ void KernelBarrier::fixAllocaValues(Function &F) {
           Offset, AI->getType(), InsertBefore, &InsertBefore->getDebugLoc());
       IRBuilder<> Builder(InsertBefore);
       Builder.CreateStore(AddrInSpecialBuffer, AddrAI);
-      LoadInst *LI = Builder.CreateLoad(AddrAI);
+      LoadInst *LI = Builder.CreateLoad(AddrAI->getAllocatedType(), AddrAI);
       if (IsNativeDBG && DI) {
         const DebugLoc *DB = &DI->getDebugLoc();
         DIB.insertDbgValueIntrinsic(LI, DI->getVariable(), Expr, DB->get(),
@@ -1192,13 +1194,10 @@ bool KernelBarrier::fixGetWIIdFunctions(Module &M) {
   // Clear container for new iteration on new function.
   InstructionsToRemove.clear();
 
-  std::string Name;
   // Find all get_local_id instructions.
   InstVector &GetLIDInstructions = BarrierUtils.getAllGetLocalId();
   for (auto *I : GetLIDInstructions) {
-    CallInst *OldCall = dyn_cast<CallInst>(I);
-    assert(OldCall &&
-           "Something other than CallInst is using get_local_id function!");
+    CallInst *OldCall = cast<CallInst>(I);
     Function *Func = OldCall->getFunction();
     if (!UseTLSGlobals)
       getBarrierKeyValues(Func);
@@ -1206,6 +1205,26 @@ bool KernelBarrier::fixGetWIIdFunctions(Module &M) {
       CurrentFunction = Func;
     Value *LID = resolveGetLocalIDCall(OldCall);
     OldCall->replaceAllUsesWith(LID);
+    InstructionsToRemove.push_back(OldCall);
+  }
+
+  // Find all get_global_id instructions.
+  InstVector &GetGIDInstructions = BarrierUtils.getAllGetGlobalId();
+  for (auto *I : GetGIDInstructions) {
+    CallInst *OldCall = cast<CallInst>(I);
+    Function *Func = OldCall->getFunction();
+    if (!UseTLSGlobals)
+      getBarrierKeyValues(Func);
+    else
+      CurrentFunction = Func;
+    Value *BaseGID = DPCPPKernelLoopUtils::getWICall(
+        &M, DPCPPKernelCompilationUtils::nameGetBaseGID(),
+        DPCPPKernelLoopUtils::getIntTy(&M), OldCall->getOperand(0), OldCall,
+        "base_gid");
+    Value *LID = resolveGetLocalIDCall(OldCall);
+    Value *GID =
+        BinaryOperator::CreateAdd(LID, BaseGID, OldCall->getName(), OldCall);
+    OldCall->replaceAllUsesWith(GID);
     InstructionsToRemove.push_back(OldCall);
   }
 
@@ -1525,29 +1544,53 @@ void KernelBarrier::updateStructureStride(Module &M,
       NoBarrierPath = Value == "true" ? true : false;
     }
     if (NoBarrierPath) {
-      Func->addFnAttr("dpcpp-kernel-barrier-buffer-size", utostr(0));
+      Func->addFnAttr("barrier_buffer_size", utostr(0));
       // if there are no barrier in the kernel, strideSize is the kernel
       // body's private memory usage. So need to add sub-function's memory size.
-      Func->addFnAttr(
-          "dpcpp-kernel-private-memory-size",
-          utostr(StrideSize + PrivateSize - DPV->getStrideSize(Func)));
+      Func->addFnAttr("private_memory_size", utostr(StrideSize + PrivateSize -
+                                                    DPV->getStrideSize(Func)));
     } else {
-      Func->addFnAttr("dpcpp-kernel-barrier-buffer-size", utostr(StrideSize));
+      Func->addFnAttr("barrier_buffer_size", utostr(StrideSize));
       // if there are some barriers in the kernel, stiderSize is barrier
       // buffer size. So need to add non barrier private memory.
-      Func->addFnAttr("dpcpp-kernel-private-memory-size",
-                       utostr(StrideSize + PrivateSize));
+      Func->addFnAttr("private_memory_size", utostr(StrideSize + PrivateSize));
     }
   }
 }
 
-ModulePass *createKernelBarrierPass(bool IsNativeDebug, bool UseTLSGlobals) {
-  return new llvm::KernelBarrier(IsNativeDebug, UseTLSGlobals);
+INITIALIZE_PASS_BEGIN(
+    KernelBarrierLegacy, DEBUG_TYPE,
+    "KernelBarrierLegacy Pass - Handle special values & replace "
+    "barrier/fiber with internal loop over WIs",
+    false, true)
+INITIALIZE_PASS_DEPENDENCY(DataPerBarrierWrapper)
+INITIALIZE_PASS_DEPENDENCY(DataPerValueWrapper)
+INITIALIZE_PASS_END(
+    KernelBarrierLegacy, DEBUG_TYPE,
+    "KernelBarrierLegacy Pass - Handle special values & replace "
+    "barrier/fiber with internal loop over WIs",
+    false, true)
+
+char KernelBarrierLegacy::ID = 0;
+
+KernelBarrierLegacy::KernelBarrierLegacy(bool IsNativeDebug, bool useTLSGlobals)
+    : ModulePass(ID), Impl(IsNativeDebug, useTLSGlobals) {
+  initializeKernelBarrierLegacyPass(*PassRegistry::getPassRegistry());
 }
 
-void getBarrierPassStrideSize(
-    Pass *PassPtr, std::map<std::string, unsigned int> &BufferStrideMap) {
-  ((llvm::KernelBarrier *)PassPtr)->getStrideMap(BufferStrideMap);
+bool KernelBarrierLegacy::runOnModule(Module &M) {
+  auto *DPB = &getAnalysis<DataPerBarrierWrapper>().getDPB();
+  auto *DPV = &getAnalysis<DataPerValueWrapper>().getDPV();
+  return Impl.runImpl(M, DPB, DPV);
 }
 
-} // namespace llvm
+void KernelBarrierLegacy::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.addRequired<DataPerBarrierWrapper>();
+  AU.addRequired<DataPerValueWrapper>();
+  AU.addRequired<DominatorTreeWrapperPass>();
+}
+
+ModulePass *llvm::createKernelBarrierLegacyPass(bool IsNativeDebug,
+                                                bool UseTLSGlobals) {
+  return new KernelBarrierLegacy(IsNativeDebug, UseTLSGlobals);
+}

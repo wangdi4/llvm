@@ -11,7 +11,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -hir-cg -intel-loop-optreport=low -simplifycfg -intel-ir-optreport-emitter 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:     Remark: Loop has been unrolled by {{.*}} factor
+; OPTREPORT-NEXT:     remark: Loop has been unrolled by {{.*}} factor
 ; OPTREPORT-NEXT: LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT: LOOP BEGIN
 ; OPTREPORT-NEXT:     <Remainder loop for partial unrolling>
@@ -23,12 +23,12 @@
 ; CHECK: [[M2]] = distinct !{!"llvm.loop.optreport", [[M3:!.*]]}
 ; CHECK: [[M3]] = distinct !{!"intel.loop.optreport", [[M4:!.*]]}
 ; CHECK: [[M4]] = !{!"intel.optreport.remarks", [[M5:!.*]]}
-; CHECK: [[M5]] = !{!"intel.optreport.remark", !"Loop has been unrolled by %d factor", {{.*}}}
+; CHECK: [[M5]] = !{!"intel.optreport.remark", i32 0, !"Loop has been unrolled by %d factor", {{.*}}}
 ; CHECK: [[M6:!.*]] = distinct !{[[M6]], {{!.*}}, [[M7:!.*]]}
 ; CHECK: [[M7]] = distinct !{!"llvm.loop.optreport", [[M8:!.*]]}
 ; CHECK: [[M8]] = distinct !{!"intel.loop.optreport", [[M9:!.*]]}
 ; CHECK: [[M9]] = !{!"intel.optreport.origin", [[M10:!.*]]}
-; CHECK: [[M10]] = !{!"intel.optreport.remark", !"Remainder loop for partial unrolling"}
+; CHECK: [[M10]] = !{!"intel.optreport.remark", i32 0, !"Remainder loop for partial unrolling"}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

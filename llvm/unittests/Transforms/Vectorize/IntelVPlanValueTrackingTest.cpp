@@ -26,22 +26,21 @@ protected:
     Module &M = parseModule(ModuleString);
     Function *F = M.getFunction("foo");
     BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
-    std::unique_ptr<VPlan> Plan = buildHCFG(LoopHeader);
+    std::unique_ptr<VPlanVector> Plan = buildHCFG(LoopHeader);
 
     VPlanScalarEvolutionLLVM VPSE(*SE, *LI->begin());
     VPlanValueTrackingLLVM VT(VPSE, *DL, &*AC, &*DT);
 
-    VPInstruction *Store = nullptr;
+    VPLoadStoreInst *Store = nullptr;
     for (auto &BB : *Plan)
       for (auto &VPInst : BB) {
         if (VPInst.getOpcode() == Instruction::Store) {
           EXPECT_EQ(Store, nullptr) << "Multiple stores in the module";
-          Store = &VPInst;
+          Store = &cast<VPLoadStoreInst>(VPInst);
         }
       }
 
-    VPValue *Pointer = Store->getOperand(1);
-    VPlanSCEV *Scev = VPSE.getVPlanSCEV(*Pointer);
+    VPlanSCEV *Scev = Store->getAddressSCEV();
     auto Induction = VPSE.asConstStepInduction(Scev);
     return VT.getKnownBits(Induction->InvariantBase, Store);
   }

@@ -1,0 +1,385 @@
+# RUN: llc -run-pass=greedy -o - %s | FileCheck %s
+--- |
+  ; ModuleID = 'intel-remat-fold-broadcast_avx2.ll'
+  source_filename = "intel-remat-fold-broadcast_avx2.ll"
+  target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+  target triple = "x86_64-unknown-unknown"
+
+  ; Function Attrs: nofree nounwind uwtable mustprogress
+  define dso_local void @compute_bcast(i32 %n, float* nocapture readonly %x, float* nocapture %y) local_unnamed_addr #0 {
+  entry:
+    %cmp312 = icmp sgt i32 %n, 0
+    br i1 %cmp312, label %for.body.preheader, label %for.cond.cleanup
+
+  for.body.preheader:                               ; preds = %entry
+    br label %for.body
+
+  for.cond.cleanup:                                 ; preds = %for.body, %entry
+    ret void
+
+  for.body:                                         ; preds = %for.body.preheader, %for.body
+    %lsr.iv6 = phi i32 [ %n, %for.body.preheader ], [ %lsr.iv.next7, %for.body ]
+    %lsr.iv = phi i64 [ 0, %for.body.preheader ], [ %lsr.iv.next, %for.body ]
+    %0 = bitcast float* %y to i8*
+    %1 = bitcast float* %x to i8*
+    %uglygep = getelementptr i8, i8* %1, i64 %lsr.iv
+    %uglygep2 = bitcast i8* %uglygep to <8 x float>*
+    %2 = load <8 x float>, <8 x float>* %uglygep2, align 1
+    %scevgep = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 1
+    %3 = load <8 x float>, <8 x float>* %scevgep, align 1
+    %scevgep8 = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 2
+    %4 = load <8 x float>, <8 x float>* %scevgep8, align 1
+    %scevgep9 = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 3
+    %5 = load <8 x float>, <8 x float>* %scevgep9, align 1
+    %scevgep10 = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 4
+    %6 = load <8 x float>, <8 x float>* %scevgep10, align 1
+    %scevgep11 = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 5
+    %7 = load <8 x float>, <8 x float>* %scevgep11, align 1
+    %scevgep12 = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 6
+    %8 = load <8 x float>, <8 x float>* %scevgep12, align 1
+    %scevgep13 = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 7
+    %9 = load <8 x float>, <8 x float>* %scevgep13, align 1
+    %scevgep14 = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 8
+    %10 = load <8 x float>, <8 x float>* %scevgep14, align 1
+    %scevgep15 = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 9
+    %11 = load <8 x float>, <8 x float>* %scevgep15, align 1
+    %scevgep16 = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 10
+    %12 = load <8 x float>, <8 x float>* %scevgep16, align 1
+    %scevgep17 = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 11
+    %13 = load <8 x float>, <8 x float>* %scevgep17, align 1
+    %scevgep18 = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 12
+    %14 = load <8 x float>, <8 x float>* %scevgep18, align 1
+    %scevgep19 = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 13
+    %15 = load <8 x float>, <8 x float>* %scevgep19, align 1
+    %scevgep20 = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 14
+    %16 = load <8 x float>, <8 x float>* %scevgep20, align 1
+    %scevgep21 = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 15
+    %17 = load <8 x float>, <8 x float>* %scevgep21, align 1
+    %scevgep22 = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 16
+    %18 = load <8 x float>, <8 x float>* %scevgep22, align 1
+    %scevgep23 = getelementptr <8 x float>, <8 x float>* %uglygep2, i64 17
+    %19 = load <8 x float>, <8 x float>* %scevgep23, align 1
+    %add.i294 = fadd fast <8 x float> %3, %2
+    %mul.i293 = fmul fast <8 x float> %add.i294, %3
+    %add.i292 = fadd fast <8 x float> %5, %4
+    %mul.i291 = fmul fast <8 x float> %add.i292, %5
+    %add.i290 = fadd fast <8 x float> %7, %6
+    %mul.i289 = fmul fast <8 x float> %add.i290, %7
+    %add.i288 = fadd fast <8 x float> %9, %8
+    %mul.i287 = fmul fast <8 x float> %add.i288, %9
+    %add.i286 = fadd fast <8 x float> %11, %10
+    %mul.i285 = fmul fast <8 x float> %add.i286, %11
+    %add.i284 = fadd fast <8 x float> %13, %12
+    %mul.i283 = fmul fast <8 x float> %add.i284, %13
+    %add.i282 = fadd fast <8 x float> %15, %14
+    %mul.i281 = fmul fast <8 x float> %add.i282, %15
+    %add.i280 = fadd fast <8 x float> %17, %16
+    %mul.i279 = fmul fast <8 x float> %add.i280, %17
+    %add.i = fadd fast <8 x float> %19, %18
+    %mul.i = fmul fast <8 x float> %add.i, %19
+    %20 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %add.i294, <8 x float> <float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01>, <8 x float> %mul.i293) #2
+    %fneg.i276 = fneg fast <8 x float> %mul.i293
+    %21 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %20, <8 x float> <float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01>, <8 x float> %fneg.i276) #2
+    %22 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %add.i292, <8 x float> <float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01>, <8 x float> %mul.i291) #2
+    %fneg.i275 = fneg fast <8 x float> %mul.i291
+    %23 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %22, <8 x float> <float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01, float 5.000000e-01>, <8 x float> %fneg.i275) #2
+    %24 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %add.i290, <8 x float> <float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00>, <8 x float> %mul.i289) #2
+    %fneg.i272 = fneg fast <8 x float> %mul.i289
+    %25 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %24, <8 x float> <float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00>, <8 x float> %fneg.i272) #2
+    %26 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %mul.i287, <8 x float> <float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00>, <8 x float> %add.i288) #2
+    %fneg.i271 = fneg fast <8 x float> %26
+    %27 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %mul.i287, <8 x float> <float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00>, <8 x float> %fneg.i271) #2
+    %28 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %add.i286, <8 x float> <float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00>, <8 x float> %mul.i285) #2
+    %fneg.i268 = fneg fast <8 x float> %mul.i285
+    %29 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %28, <8 x float> <float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00>, <8 x float> %fneg.i268) #2
+    %30 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %add.i284, <8 x float> <float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00>, <8 x float> %mul.i283) #2
+    %fneg.i267 = fneg fast <8 x float> %mul.i283
+    %31 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %30, <8 x float> <float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00, float 3.000000e+00>, <8 x float> %fneg.i267) #2
+    %32 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %add.i282, <8 x float> <float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00>, <8 x float> %mul.i281) #2
+    %fneg.i264 = fneg fast <8 x float> %mul.i281
+    %33 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %32, <8 x float> <float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00>, <8 x float> %fneg.i264) #2
+    %34 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %add.i280, <8 x float> <float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00>, <8 x float> %mul.i279) #2
+    %fneg.i263 = fneg fast <8 x float> %mul.i279
+    %35 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %34, <8 x float> <float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00>, <8 x float> %fneg.i263) #2
+    %36 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %add.i, <8 x float> <float 5.000000e+00, float 5.000000e+00, float 5.000000e+00, float 5.000000e+00, float 5.000000e+00, float 5.000000e+00, float 5.000000e+00, float 5.000000e+00>, <8 x float> %mul.i) #2
+    %fneg.i = fneg fast <8 x float> %mul.i
+    %37 = tail call fast <8 x float> @llvm.fma.v8f32(<8 x float> %36, <8 x float> <float 5.000000e+00, float 5.000000e+00, float 5.000000e+00, float 5.000000e+00, float 5.000000e+00, float 5.000000e+00, float 5.000000e+00, float 5.000000e+00>, <8 x float> %fneg.i) #2
+    %uglygep4 = getelementptr i8, i8* %0, i64 %lsr.iv
+    %uglygep45 = bitcast i8* %uglygep4 to <8 x float>*
+    store <8 x float> %20, <8 x float>* %uglygep45, align 1
+    %scevgep26 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 1
+    store <8 x float> %21, <8 x float>* %scevgep26, align 1
+    %scevgep27 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 2
+    store <8 x float> %22, <8 x float>* %scevgep27, align 1
+    %scevgep28 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 3
+    store <8 x float> %23, <8 x float>* %scevgep28, align 1
+    %scevgep29 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 4
+    store <8 x float> %24, <8 x float>* %scevgep29, align 1
+    %scevgep30 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 5
+    store <8 x float> %25, <8 x float>* %scevgep30, align 1
+    %scevgep31 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 6
+    store <8 x float> %26, <8 x float>* %scevgep31, align 1
+    %scevgep32 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 7
+    store <8 x float> %27, <8 x float>* %scevgep32, align 1
+    %scevgep33 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 8
+    store <8 x float> %28, <8 x float>* %scevgep33, align 1
+    %scevgep34 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 9
+    store <8 x float> %29, <8 x float>* %scevgep34, align 1
+    %scevgep35 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 10
+    store <8 x float> %30, <8 x float>* %scevgep35, align 1
+    %scevgep36 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 11
+    store <8 x float> %31, <8 x float>* %scevgep36, align 1
+    %scevgep37 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 12
+    store <8 x float> %32, <8 x float>* %scevgep37, align 1
+    %scevgep38 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 13
+    store <8 x float> %33, <8 x float>* %scevgep38, align 1
+    %scevgep39 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 14
+    store <8 x float> %34, <8 x float>* %scevgep39, align 1
+    %scevgep40 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 15
+    store <8 x float> %35, <8 x float>* %scevgep40, align 1
+    %scevgep41 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 16
+    store <8 x float> %36, <8 x float>* %scevgep41, align 1
+    %scevgep42 = getelementptr <8 x float>, <8 x float>* %uglygep45, i64 17
+    store <8 x float> %37, <8 x float>* %scevgep42, align 1
+    %lsr.iv.next = add nuw nsw i64 %lsr.iv, 576
+    %lsr.iv.next7 = add i32 %lsr.iv6, -1
+    %exitcond.not = icmp eq i32 %lsr.iv.next7, 0
+    br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
+  }
+
+  ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
+  declare <8 x float> @llvm.fma.v8f32(<8 x float>, <8 x float>, <8 x float>) #1
+
+  attributes #0 = { nofree nounwind uwtable mustprogress "target-cpu"="x86-64" "target-features"="+avx,+avx2,+cx8,+fma,+fxsr,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave" "tune-cpu"="generic" "unsafe-fp-math"="true" "use-soft-float"="false" }
+  attributes #1 = { nofree nosync nounwind readnone speculatable willreturn }
+  attributes #2 = { nounwind }
+
+...
+---
+name:            compute_bcast
+alignment:       16
+exposesReturnsTwice: false
+legalized:       false
+regBankSelected: false
+selected:        false
+failedISel:      false
+tracksRegLiveness: true
+hasWinCFI:       false
+registers:
+  - { id: 0, class: gr32, preferred-register: '' }
+  - { id: 1, class: gr64_nosp, preferred-register: '' }
+  - { id: 2, class: gr64_nosp, preferred-register: '' }
+  - { id: 3, class: gr32, preferred-register: '' }
+  - { id: 4, class: gr32, preferred-register: '' }
+  - { id: 5, class: gr64, preferred-register: '' }
+  - { id: 6, class: gr64, preferred-register: '' }
+  - { id: 7, class: gr64_with_sub_8bit, preferred-register: '' }
+  - { id: 8, class: gr32, preferred-register: '' }
+  - { id: 9, class: vr256, preferred-register: '' }
+  - { id: 10, class: vr256, preferred-register: '' }
+  - { id: 11, class: vr256, preferred-register: '' }
+  - { id: 12, class: vr256, preferred-register: '' }
+  - { id: 13, class: vr256, preferred-register: '' }
+  - { id: 14, class: vr256, preferred-register: '' }
+  - { id: 15, class: vr256, preferred-register: '' }
+  - { id: 16, class: vr256, preferred-register: '' }
+  - { id: 17, class: vr256, preferred-register: '' }
+  - { id: 18, class: vr256, preferred-register: '' }
+  - { id: 19, class: vr256, preferred-register: '' }
+  - { id: 20, class: vr256, preferred-register: '' }
+  - { id: 21, class: vr256, preferred-register: '' }
+  - { id: 22, class: vr256, preferred-register: '' }
+  - { id: 23, class: vr256, preferred-register: '' }
+  - { id: 24, class: vr256, preferred-register: '' }
+  - { id: 25, class: vr256, preferred-register: '' }
+  - { id: 26, class: vr256, preferred-register: '' }
+  - { id: 27, class: vr256, preferred-register: '' }
+  - { id: 28, class: vr256, preferred-register: '' }
+  - { id: 29, class: vr256, preferred-register: '' }
+  - { id: 30, class: vr256, preferred-register: '' }
+  - { id: 31, class: vr256, preferred-register: '' }
+  - { id: 32, class: vr256, preferred-register: '' }
+  - { id: 33, class: vr256, preferred-register: '' }
+  - { id: 34, class: vr256, preferred-register: '' }
+  - { id: 35, class: vr256, preferred-register: '' }
+  - { id: 36, class: vr256, preferred-register: '' }
+  - { id: 37, class: vr256, preferred-register: '' }
+  - { id: 38, class: vr256, preferred-register: '' }
+  - { id: 39, class: vr256, preferred-register: '' }
+  - { id: 40, class: vr256, preferred-register: '' }
+  - { id: 41, class: vr256, preferred-register: '' }
+  - { id: 42, class: vr256, preferred-register: '' }
+  - { id: 43, class: vr256, preferred-register: '' }
+  - { id: 44, class: vr256, preferred-register: '' }
+  - { id: 45, class: vr256, preferred-register: '' }
+  - { id: 46, class: vr256, preferred-register: '' }
+  - { id: 47, class: vr256, preferred-register: '' }
+  - { id: 48, class: vr256, preferred-register: '' }
+  - { id: 49, class: vr256, preferred-register: '' }
+  - { id: 50, class: vr256, preferred-register: '' }
+  - { id: 51, class: vr256, preferred-register: '' }
+  - { id: 52, class: vr256, preferred-register: '' }
+  - { id: 53, class: vr256, preferred-register: '' }
+  - { id: 54, class: vr256, preferred-register: '' }
+  - { id: 55, class: vr256, preferred-register: '' }
+  - { id: 56, class: vr256, preferred-register: '' }
+  - { id: 57, class: vr256, preferred-register: '' }
+  - { id: 58, class: vr256, preferred-register: '' }
+  - { id: 59, class: gr32, preferred-register: '' }
+  - { id: 60, class: gr64_nosp, preferred-register: '' }
+liveins:
+  - { reg: '$edi', virtual-reg: '%4' }
+  - { reg: '$rsi', virtual-reg: '%5' }
+  - { reg: '$rdx', virtual-reg: '%6' }
+frameInfo:
+  isFrameAddressTaken: false
+  isReturnAddressTaken: false
+  hasStackMap:     false
+  hasPatchPoint:   false
+  stackSize:       0
+  offsetAdjustment: 0
+  maxAlignment:    1
+  adjustsStack:    false
+  hasCalls:        false
+  stackProtector:  ''
+  maxCallFrameSize: 4294967295
+  cvBytesOfCalleeSavedRegisters: 0
+  hasOpaqueSPAdjustment: false
+  hasVAStart:      false
+  hasMustTailInVarArgFunc: false
+  localFrameSize:  0
+  savePoint:       ''
+  restorePoint:    ''
+fixedStack:      []
+stack:           []
+callSites:       []
+debugValueSubstitutions: []
+constants:
+  - id:              0
+    value:           float 5.000000e-01
+    alignment:       4
+    isTargetSpecific: false
+  - id:              1
+    value:           'float 2.000000e+00'
+    alignment:       4
+    isTargetSpecific: false
+  - id:              2
+    value:           'float 3.000000e+00'
+    alignment:       4
+    isTargetSpecific: false
+  - id:              3
+    value:           'float 4.000000e+00'
+    alignment:       4
+    isTargetSpecific: false
+  - id:              4
+    value:           'float 5.000000e+00'
+    alignment:       4
+    isTargetSpecific: false
+machineFunctionInfo: {}
+body:             |
+  ; CHECK-LABEL: name: compute_bcast
+  ; CHECK: bb.1.for.body.preheader:
+  ; CHECK-NOT:   VBROADCASTSSYrm
+  ; CHECK: bb.3.for.body:
+  ; CHECK:   [[VBROADCASTSSYrm:%[0-9]+]]:vr256 = VBROADCASTSSYrm $rip, 1, $noreg, %const.0, $noreg :: (load 4 from constant-pool)
+  ; CHECK:   [[VBROADCASTSSYrm1:%[0-9]+]]:vr256 = VBROADCASTSSYrm $rip, 1, $noreg, %const.1, $noreg :: (load 4 from constant-pool)
+  ; CHECK:   [[VBROADCASTSSYrm2:%[0-9]+]]:vr256 = VBROADCASTSSYrm $rip, 1, $noreg, %const.2, $noreg :: (load 4 from constant-pool)
+  ; CHECK:   [[VBROADCASTSSYrm3:%[0-9]+]]:vr256 = VBROADCASTSSYrm $rip, 1, $noreg, %const.3, $noreg :: (load 4 from constant-pool)
+  ; CHECK:   [[VBROADCASTSSYrm4:%[0-9]+]]:vr256 = VBROADCASTSSYrm $rip, 1, $noreg, %const.4, $noreg :: (load 4 from constant-pool)
+  bb.0.entry:
+    successors: %bb.1(0x50000000), %bb.2(0x30000000)
+    liveins: $edi, $rsi, $rdx
+
+    %6:gr64 = COPY $rdx
+    %5:gr64 = COPY $rsi
+    %59:gr32 = COPY $edi
+    TEST32rr %59, %59, implicit-def $eflags
+    JCC_1 %bb.2, 14, implicit killed $eflags
+    JMP_1 %bb.1
+
+  bb.1.for.body.preheader:
+    successors: %bb.3(0x80000000)
+
+    undef %60.sub_32bit:gr64_nosp = MOV32r0 implicit-def dead $eflags
+    %36:vr256 = VBROADCASTSSYrm $rip, 1, $noreg, %const.0, $noreg :: (load 4 from constant-pool)
+    %41:vr256 = VBROADCASTSSYrm $rip, 1, $noreg, %const.1, $noreg :: (load 4 from constant-pool)
+    %46:vr256 = VBROADCASTSSYrm $rip, 1, $noreg, %const.2, $noreg :: (load 4 from constant-pool)
+    %51:vr256 = VBROADCASTSSYrm $rip, 1, $noreg, %const.3, $noreg :: (load 4 from constant-pool)
+    %56:vr256 = VBROADCASTSSYrm $rip, 1, $noreg, %const.4, $noreg :: (load 4 from constant-pool)
+    JMP_1 %bb.3
+
+  bb.2.for.cond.cleanup:
+    RET 0
+
+  bb.3.for.body:
+    successors: %bb.2(0x04000000), %bb.3(0x7c000000)
+
+    %9:vr256 = VMOVUPSYrm %5, 1, %60, 32, $noreg :: (load 32 from %ir.scevgep, align 1)
+    %10:vr256 = VMOVUPSYrm %5, 1, %60, 96, $noreg :: (load 32 from %ir.scevgep9, align 1)
+    %11:vr256 = VMOVUPSYrm %5, 1, %60, 160, $noreg :: (load 32 from %ir.scevgep11, align 1)
+    %12:vr256 = VMOVUPSYrm %5, 1, %60, 224, $noreg :: (load 32 from %ir.scevgep13, align 1)
+    %13:vr256 = VMOVUPSYrm %5, 1, %60, 288, $noreg :: (load 32 from %ir.scevgep15, align 1)
+    %14:vr256 = VMOVUPSYrm %5, 1, %60, 352, $noreg :: (load 32 from %ir.scevgep17, align 1)
+    %15:vr256 = VMOVUPSYrm %5, 1, %60, 416, $noreg :: (load 32 from %ir.scevgep19, align 1)
+    %16:vr256 = VMOVUPSYrm %5, 1, %60, 480, $noreg :: (load 32 from %ir.scevgep21, align 1)
+    %37:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VADDPSYrm %9, %5, 1, %60, 0, $noreg, implicit $mxcsr :: (load 32 from %ir.uglygep2, align 1)
+    %17:vr256 = VMOVUPSYrm %5, 1, %60, 544, $noreg :: (load 32 from %ir.scevgep23, align 1)
+    %38:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VMULPSYrr %37, %9, implicit $mxcsr
+    %39:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VADDPSYrm %10, %5, 1, %60, 64, $noreg, implicit $mxcsr :: (load 32 from %ir.scevgep8, align 1)
+    %42:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VADDPSYrm %11, %5, 1, %60, 128, $noreg, implicit $mxcsr :: (load 32 from %ir.scevgep10, align 1)
+    %44:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VADDPSYrm %12, %5, 1, %60, 192, $noreg, implicit $mxcsr :: (load 32 from %ir.scevgep12, align 1)
+    %47:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VADDPSYrm %13, %5, 1, %60, 256, $noreg, implicit $mxcsr :: (load 32 from %ir.scevgep14, align 1)
+    %49:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VADDPSYrm %14, %5, 1, %60, 320, $noreg, implicit $mxcsr :: (load 32 from %ir.scevgep16, align 1)
+    %52:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VADDPSYrm %15, %5, 1, %60, 384, $noreg, implicit $mxcsr :: (load 32 from %ir.scevgep18, align 1)
+    %37:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMADD213PSYr %37, %36, %38, implicit $mxcsr
+    %38:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMSUB231PSYr %38, %37, %36, implicit $mxcsr
+    %54:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VADDPSYrm %16, %5, 1, %60, 448, $noreg, implicit $mxcsr :: (load 32 from %ir.scevgep20, align 1)
+    %57:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VADDPSYrm %17, %5, 1, %60, 512, $noreg, implicit $mxcsr :: (load 32 from %ir.scevgep22, align 1)
+    VMOVUPSYmr %6, 1, %60, 0, $noreg, %37 :: (store 32 into %ir.uglygep45, align 1)
+    VMOVUPSYmr %6, 1, %60, 32, $noreg, %38 :: (store 32 into %ir.scevgep26, align 1)
+    %40:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VMULPSYrr %39, %10, implicit $mxcsr
+    %39:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMADD213PSYr %39, %36, %40, implicit $mxcsr
+    %40:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMSUB231PSYr %40, %39, %36, implicit $mxcsr
+    VMOVUPSYmr %6, 1, %60, 64, $noreg, %39 :: (store 32 into %ir.scevgep27, align 1)
+    VMOVUPSYmr %6, 1, %60, 96, $noreg, %40 :: (store 32 into %ir.scevgep28, align 1)
+    %43:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VMULPSYrr %42, %11, implicit $mxcsr
+    %42:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMADD213PSYr %42, %41, %43, implicit $mxcsr
+    %43:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMSUB231PSYr %43, %42, %41, implicit $mxcsr
+    VMOVUPSYmr %6, 1, %60, 128, $noreg, %42 :: (store 32 into %ir.scevgep29, align 1)
+    VMOVUPSYmr %6, 1, %60, 160, $noreg, %43 :: (store 32 into %ir.scevgep30, align 1)
+    %45:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VMULPSYrr %44, %12, implicit $mxcsr
+    %44:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMADD231PSYr %44, %45, %41, implicit $mxcsr
+    %45:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMSUB213PSYr %45, %41, %44, implicit $mxcsr
+    VMOVUPSYmr %6, 1, %60, 192, $noreg, %44 :: (store 32 into %ir.scevgep31, align 1)
+    VMOVUPSYmr %6, 1, %60, 224, $noreg, %45 :: (store 32 into %ir.scevgep32, align 1)
+    %48:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VMULPSYrr %47, %13, implicit $mxcsr
+    %47:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMADD213PSYr %47, %46, %48, implicit $mxcsr
+    %48:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMSUB231PSYr %48, %47, %46, implicit $mxcsr
+    VMOVUPSYmr %6, 1, %60, 256, $noreg, %47 :: (store 32 into %ir.scevgep33, align 1)
+    VMOVUPSYmr %6, 1, %60, 288, $noreg, %48 :: (store 32 into %ir.scevgep34, align 1)
+    %50:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VMULPSYrr %49, %14, implicit $mxcsr
+    %49:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMADD213PSYr %49, %46, %50, implicit $mxcsr
+    %50:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMSUB231PSYr %50, %49, %46, implicit $mxcsr
+    VMOVUPSYmr %6, 1, %60, 320, $noreg, %49 :: (store 32 into %ir.scevgep35, align 1)
+    VMOVUPSYmr %6, 1, %60, 352, $noreg, %50 :: (store 32 into %ir.scevgep36, align 1)
+    %53:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VMULPSYrr %52, %15, implicit $mxcsr
+    %52:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMADD213PSYr %52, %51, %53, implicit $mxcsr
+    %53:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMSUB231PSYr %53, %52, %51, implicit $mxcsr
+    VMOVUPSYmr %6, 1, %60, 384, $noreg, %52 :: (store 32 into %ir.scevgep37, align 1)
+    VMOVUPSYmr %6, 1, %60, 416, $noreg, %53 :: (store 32 into %ir.scevgep38, align 1)
+    %55:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VMULPSYrr %54, %16, implicit $mxcsr
+    %54:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMADD213PSYr %54, %51, %55, implicit $mxcsr
+    %55:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMSUB231PSYr %55, %54, %51, implicit $mxcsr
+    VMOVUPSYmr %6, 1, %60, 448, $noreg, %54 :: (store 32 into %ir.scevgep39, align 1)
+    VMOVUPSYmr %6, 1, %60, 480, $noreg, %55 :: (store 32 into %ir.scevgep40, align 1)
+    %58:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VMULPSYrr %57, %17, implicit $mxcsr
+    %57:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMADD213PSYr %57, %56, %58, implicit $mxcsr
+    %58:vr256 = nnan ninf nsz arcp contract afn reassoc nofpexcept VFMSUB231PSYr %58, %57, %56, implicit $mxcsr
+    VMOVUPSYmr %6, 1, %60, 512, $noreg, %57 :: (store 32 into %ir.scevgep41, align 1)
+    VMOVUPSYmr %6, 1, %60, 544, $noreg, %58 :: (store 32 into %ir.scevgep42, align 1)
+    %60:gr64_nosp = nuw nsw ADD64ri32 %60, 576, implicit-def dead $eflags
+    %59:gr32 = ADD32ri8 %59, -1, implicit-def $eflags
+    JCC_1 %bb.2, 4, implicit killed $eflags
+    JMP_1 %bb.3
+
+...

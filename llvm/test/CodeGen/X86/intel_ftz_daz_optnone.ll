@@ -20,8 +20,8 @@ define dso_local i32 @main() #0 {
 ;
 ; NO-INIT-O0-LABEL: main:
 ; NO-INIT-O0:       # %bb.0: # %entry
-; NO-INIT-O0-NEXT:    xorl %eax, %eax
 ; NO-INIT-O0-NEXT:    movl $0, -{{[0-9]+}}(%rsp)
+; NO-INIT-O0-NEXT:    xorl %eax, %eax
 ; NO-INIT-O0-NEXT:    retq
 ;
 ; NO-INIT-O2-LABEL: main:
@@ -38,8 +38,8 @@ define dso_local i32 @main() #0 {
 ;
 ; X87-INIT-O0-LABEL: main:
 ; X87-INIT-O0:       # %bb.0: # %entry
-; X87-INIT-O0-NEXT:    xorl %eax, %eax
 ; X87-INIT-O0-NEXT:    movl $0, -{{[0-9]+}}(%rsp)
+; X87-INIT-O0-NEXT:    xorl %eax, %eax
 ; X87-INIT-O0-NEXT:    retq
 ;
 ; X87-INIT-O2-LABEL: main:
@@ -55,8 +55,8 @@ define dso_local i32 @main() #0 {
 ; X87-P80-INIT-O0-NEXT:    #APP
 ; X87-P80-INIT-O0-NEXT:    fldcw (%rax)
 ; X87-P80-INIT-O0-NEXT:    #NO_APP
-; X87-P80-INIT-O0-NEXT:    xorl %eax, %eax
 ; X87-P80-INIT-O0-NEXT:    movl $0, -{{[0-9]+}}(%rsp)
+; X87-P80-INIT-O0-NEXT:    xorl %eax, %eax
 ; X87-P80-INIT-O0-NEXT:    retq
 ;
 ; X87-P80-INIT-O2-LABEL: main:

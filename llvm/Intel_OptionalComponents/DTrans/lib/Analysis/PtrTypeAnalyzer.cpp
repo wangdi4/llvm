@@ -1,6 +1,6 @@
 //===-----------------------PtrTypeAnalyzer.cpp---------------------------===//
 //
-// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -39,7 +39,7 @@ using namespace llvm::PatternMatch;
 #define VERBOSE_DEP_TRACE "dtrans-pta-dep-verbose"
 
 namespace llvm {
-namespace dtrans {
+namespace dtransOP {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -147,7 +147,7 @@ static bool hasPointerType(dtrans::DTransType *Ty) {
   return false;
 }
 #endif
-  
+
 // Helper to get the base object type that makes up an array/vector/array nest
 // type.
 static DTransType *getSequentialObjectBaseType(DTransSequentialType *Ty) {
@@ -330,16 +330,12 @@ public:
     return LLVMPointerSizedIntType;
   }
 
-  dtrans::DTransType *getDTransI8Type() const { return DTransI8Type; }
-  dtrans::DTransPointerType *getDTransI8PtrType() const {
-    return DTransI8PtrType;
-  }
+  DTransType *getDTransI8Type() const { return DTransI8Type; }
+  DTransPointerType *getDTransI8PtrType() const { return DTransI8PtrType; }
 
-  dtrans::DTransType *getDTransPtrSizedIntType() const {
-    return DTransPtrSizedIntType;
-  }
+  DTransType *getDTransPtrSizedIntType() const { return DTransPtrSizedIntType; }
 
-  dtrans::DTransType *getDTransPtrSizedIntPtrType() const {
+  DTransType *getDTransPtrSizedIntPtrType() const {
     return DTransPtrSizedIntPtrType;
   }
 
@@ -431,18 +427,18 @@ private:
   llvm::Type *LLVMPointerSizedIntType;
 
   // Representation of the 'i8' type in DTransType system
-  dtrans::DTransType *DTransI8Type;
+  DTransType *DTransI8Type;
 
   // Representation of the 'i8*' type in DTransType system
-  dtrans::DTransPointerType *DTransI8PtrType;
+  DTransPointerType *DTransI8PtrType;
 
   // Representation of an integer type that is the same size as a pointer in the
   // DTransType system.
-  dtrans::DTransType *DTransPtrSizedIntType;
+  DTransType *DTransPtrSizedIntType;
 
   // Representation of a pointer to an integer type that is the same size as a
   // pointer in the DTransType system.
-  dtrans::DTransPointerType *DTransPtrSizedIntPtrType;
+  DTransPointerType *DTransPtrSizedIntPtrType;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -478,7 +474,7 @@ public:
     // %struct._IO_FILE, use it. Otherwise, default the type to be an i8* since
     // there must not be any accesses of structure elements for it within the
     // user program.
-    dtrans::DTransType *StTy = TM.getStructType("struct._IO_FILE");
+    DTransType *StTy = TM.getStructType("struct._IO_FILE");
     if (StTy)
       DTransIOPtrTy = TM.getOrCreatePointerType(StTy);
     else
@@ -535,7 +531,7 @@ public:
       // reconstructed into a DTransType.
       llvm::Type *ValTy = GV.getValueType();
       if (TM.isSimpleType(ValTy)) {
-        dtrans::DTransType *Ty = TM.getOrCreateSimpleType(ValTy);
+        DTransType *Ty = TM.getOrCreateSimpleType(ValTy);
         assert(Ty && "Expected simple type");
         PTA.setDeclaredType(&GV, TM.getOrCreatePointerType(Ty));
         continue;
@@ -605,7 +601,7 @@ public:
       IdentifyPartialPointerOperations(F);
 
       for (auto &A : F.args())
-        if (hasPointerType(A.getType()))
+        if (dtrans::hasPointerType(A.getType()))
           analyzeValue(&A);
     }
   }
@@ -1088,7 +1084,7 @@ public:
 
   // All instructions not handled by other visit functions.
   void visitInstruction(Instruction &I) {
-    if (hasPointerType(I.getType())) {
+    if (dtrans::hasPointerType(I.getType())) {
       ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(&I);
       Info->setUnhandled();
       LLVM_DEBUG(dbgs() << "Unhandled instruction: " << I << "\n");
@@ -1096,7 +1092,7 @@ public:
 
     for (unsigned OpNum = 0; OpNum < I.getNumOperands(); ++OpNum) {
       Value *Op = I.getOperand(OpNum);
-      if (hasPointerType(Op->getType())) {
+      if (dtrans::hasPointerType(Op->getType())) {
         ValueTypeInfo *Info = PTA.getOrCreateValueTypeInfo(&I, OpNum);
         Info->setUnhandled();
         LLVM_DEBUG(dbgs() << "Operand used in unhandled instruction: " << *Op
@@ -1787,7 +1783,7 @@ private:
   }
 
   void analyzeArgument(Argument *Arg, ValueTypeInfo *ResultInfo) {
-    if (!hasPointerType(Arg->getType()))
+    if (!dtrans::hasPointerType(Arg->getType()))
       return;
 
     Function *F = Arg->getParent();
@@ -1850,7 +1846,7 @@ private:
     // Try to produce the type for a non-metadata annotated type.
     llvm::Type *Ty = AI->getAllocatedType();
     if (TM.isSimpleType(Ty)) {
-      dtrans::DTransType *DTy = TM.getOrCreateSimpleType(Ty);
+      DTransType *DTy = TM.getOrCreateSimpleType(Ty);
       assert(DTy && "Expected simple type");
 
       // Alloca results are pointers to the type allocated
@@ -1952,7 +1948,7 @@ private:
     unsigned NumArg = Call->arg_size();
     for (unsigned AI = 0; AI < NumArg; ++AI) {
       Value *Arg = Call->getArgOperand(AI);
-      if (hasPointerType(Arg->getType())) {
+      if (dtrans::hasPointerType(Arg->getType())) {
         ValueTypeInfo *ParamInfo = PTA.getOrCreateValueTypeInfo(Call, AI);
         // Check whether the argument should have a pointer type, and the type,
         // if so.
@@ -1979,7 +1975,7 @@ private:
   //  <true, DTransType*> - Type is a pointer, of the type in the pair.
   //  <true, nullptr>     - Type is a pointer, but could not be resolved.
   std::pair<bool, DTransType *> getCallReturnType(CallBase *Call) {
-    if (!hasPointerType(Call->getType()))
+    if (!dtrans::hasPointerType(Call->getType()))
       return {false, nullptr};
 
     // Check if there is metadata for information available to use from a called
@@ -1988,7 +1984,7 @@ private:
       DTransType *DType = MDReader.getDTransTypeFromMD(Call);
       if (DType) {
         auto *FnType = cast<DTransFunctionType>(DType);
-        dtrans::DTransType *DRetTy = FnType->getReturnType();
+        DTransType *DRetTy = FnType->getReturnType();
         return {true, DRetTy};
       }
       return {true, nullptr};
@@ -2013,8 +2009,7 @@ private:
     // TODO: For now, just hard code some common cases that are of interest
     // since there are not many functions that return pointers. In the future,
     // we may need a metadata table.
-    auto GetLibCallReturnType =
-        [this](LibFunc TheLibFunc) -> dtrans::DTransType * {
+    auto GetLibCallReturnType = [this](LibFunc TheLibFunc) -> DTransType * {
       switch (TheLibFunc) {
       default:
         return nullptr;
@@ -2038,14 +2033,14 @@ private:
 
     // Check whether the return value will be of interest.
     llvm::Type *RetType = F->getReturnType();
-    if (!hasPointerType(RetType))
+    if (!dtrans::hasPointerType(RetType))
       return {false, nullptr};
 
     // Handle functions with metadata descriptions.
     DTransType *DType = MDReader.getDTransTypeFromMD(F);
     if (DType) {
       auto *FnType = cast<DTransFunctionType>(DType);
-      dtrans::DTransType *DRetTy = FnType->getReturnType();
+      DTransType *DRetTy = FnType->getReturnType();
       return {true, DRetTy};
     }
 
@@ -2181,7 +2176,7 @@ private:
       return {true, PTA.getDTransI8PtrType()};
     };
 
-    if (!hasPointerType(Call->getArgOperand(Idx)->getType()))
+    if (!dtrans::hasPointerType(Call->getArgOperand(Idx)->getType()))
       return {false, nullptr};
 
     DTransType *DType = nullptr;
@@ -2320,7 +2315,7 @@ private:
       // ResultInfo as 'unhandled' if this index lookup was not being done
       // speculatively.
       //
-      dtrans::DTransType *IndexedTy = GetGEPIndexedType(Ty, GepOps);
+      DTransType *IndexedTy = GetGEPIndexedType(Ty, GepOps);
       if (!IndexedTy)
         return false;
 
@@ -2371,7 +2366,7 @@ private:
 
                   // Determine the parent type of the field.
                   Ops.pop_back();
-                  dtrans::DTransType *IndexedTy = GetGEPIndexedType(AggTy, Ops);
+                  DTransType *IndexedTy = GetGEPIndexedType(AggTy, Ops);
                   ElementOf.push_back({IndexedTy, Idx});
                 }
               }
@@ -2775,7 +2770,7 @@ private:
       if (FieldType->isAggregateType()) {
         return analyzePossibleOffsetAggregateAccess(
             GEP, FieldType, Offset - ElementOffset, Info, PendingByteGEPs);
-      } else if (valueOnlyUsedForMemset(&GEP)) {
+      } else if (dtrans::valueOnlyUsedForMemset(&GEP)) {
         Info.addElementPointeeByOffset(ValueTypeInfo::VAT_Decl, DTStructTy,
                                        Offset);
         return true;
@@ -3002,7 +2997,7 @@ private:
       inferTypeFromUse(LI, ResultInfo);
 #endif
 
-    bool ExpectPtrType = hasPointerType(ValTy);
+    bool ExpectPtrType = dtrans::hasPointerType(ValTy);
     ValueTypeInfo *PointerInfo = PTA.getOrCreateValueTypeInfo(LI, 0);
     bool LoadingAggregateType = ValTy->isAggregateType();
     if (ExpectPtrType || ValTy == PTA.getLLVMPointerSizedIntType()) {
@@ -3017,7 +3012,8 @@ private:
     // Update the usage type of the pointer argument based on the type
     // of the load instruction if we are loading a known type.
     llvm::Type *LoadType = LI->getType();
-    if (!PointerInfo->getIsPartialPointerUse() && !hasPointerType(LoadType)) {
+    if (!PointerInfo->getIsPartialPointerUse() &&
+        !dtrans::hasPointerType(LoadType)) {
       PointerInfo->addTypeAlias(
           ValueTypeInfo::VAT_Use,
           TM.getOrCreatePointerType(TM.getOrCreateSimpleType(LoadType)));
@@ -3051,7 +3047,7 @@ private:
         return TM.getOrCreatePointerType(Ty);
 
       // Return the underlying type of the pointer.
-      auto *PTy = dyn_cast<dtrans::DTransPointerType>(Ty);
+      auto *PTy = dyn_cast<DTransPointerType>(Ty);
       if (!PTy)
         return nullptr;
       return PTy->getPointerElementType();
@@ -3206,7 +3202,7 @@ private:
     });
   }
 
-  dtrans::DTransPointerType *getDTransIOPtrTy() const { return DTransIOPtrTy; }
+  DTransPointerType *getDTransIOPtrTy() const { return DTransIOPtrTy; }
 
   ////////////////////////////////////////////////////////////////////////////////
   // Start of member data
@@ -3219,7 +3215,7 @@ private:
   std::function<const TargetLibraryInfo &(const Function &)> GetTLI;
 
   // Representation of %struct._IO_FILE*
-  dtrans::DTransPointerType *DTransIOPtrTy;
+  DTransPointerType *DTransIOPtrTy;
 
   // Keep a mapping of a set of types that are inferred for a Value that is
   // constructed when a type needs to be inferred by doing a look-ahead walk of
@@ -3234,8 +3230,7 @@ private:
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-bool ValueTypeInfo::addTypeAlias(ValueAnalysisType Kind,
-                                 dtrans::DTransType *Ty) {
+bool ValueTypeInfo::addTypeAlias(ValueAnalysisType Kind, DTransType *Ty) {
   // Integer and floating point types are not tracked, since those can be
   // readily identified from the IR.
   if (!Ty->isPointerTy() && !Ty->isAggregateType() && !Ty->isVectorTy())
@@ -3253,7 +3248,7 @@ bool ValueTypeInfo::addTypeAlias(ValueAnalysisType Kind,
     // Check to see if this is a pointer (at any level of indirection) to
     // an aggregate type. That will make it faster later to tell if a value
     // is interesting or not.
-    dtrans::DTransType *Base = Ty;
+    DTransType *Base = Ty;
     while (Base->isPointerTy())
       Base = Base->getPointerElementType();
     while (Base->isVectorTy())
@@ -3272,8 +3267,7 @@ bool ValueTypeInfo::addTypeAlias(ValueAnalysisType Kind,
 }
 
 bool ValueTypeInfo::addElementPointee(ValueAnalysisType Kind,
-                                      dtrans::DTransType *BaseTy,
-                                      size_t ElemIdx) {
+                                      DTransType *BaseTy, size_t ElemIdx) {
 
   PointeeLoc Loc(PointeeLoc::PLK_Field, ElemIdx);
   bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
@@ -3281,7 +3275,7 @@ bool ValueTypeInfo::addElementPointee(ValueAnalysisType Kind,
 }
 
 bool ValueTypeInfo::addElementPointee(
-    ValueAnalysisType Kind, dtrans::DTransType *BaseTy, size_t ElemIdx,
+    ValueAnalysisType Kind, DTransType *BaseTy, size_t ElemIdx,
     PointeeLoc::ElementOfTypeImpl &ElementOfTypes) {
   PointeeLoc Loc(PointeeLoc::PLK_Field, ElemIdx, ElementOfTypes);
   bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
@@ -3289,7 +3283,7 @@ bool ValueTypeInfo::addElementPointee(
 }
 
 bool ValueTypeInfo::addElementPointeeByOffset(ValueAnalysisType Kind,
-                                              dtrans::DTransType *BaseTy,
+                                              DTransType *BaseTy,
                                               size_t ByteOffset) {
   PointeeLoc Loc(PointeeLoc::PLK_ByteOffset, ByteOffset);
   bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
@@ -3297,7 +3291,7 @@ bool ValueTypeInfo::addElementPointeeByOffset(ValueAnalysisType Kind,
 }
 
 bool ValueTypeInfo::addElementPointeeByOffset(
-    ValueAnalysisType Kind, dtrans::DTransType *BaseTy, size_t ByteOffset,
+    ValueAnalysisType Kind, DTransType *BaseTy, size_t ByteOffset,
     PointeeLoc::ElementOfTypeImpl &ElementOfTypes) {
   PointeeLoc Loc(PointeeLoc::PLK_ByteOffset, ByteOffset, ElementOfTypes);
   bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
@@ -3305,14 +3299,14 @@ bool ValueTypeInfo::addElementPointeeByOffset(
 }
 
 bool ValueTypeInfo::addElementPointeeUnknownOffset(ValueAnalysisType Kind,
-                                                   dtrans::DTransType *BaseTy) {
+                                                   DTransType *BaseTy) {
   PointeeLoc Loc(PointeeLoc::PLK_UnknownOffset, 0);
   bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
   return Changed;
 }
 
 bool ValueTypeInfo::addElementPointeeUnknownOffset(
-    ValueAnalysisType Kind, dtrans::DTransType *BaseTy,
+    ValueAnalysisType Kind, DTransType *BaseTy,
     PointeeLoc::ElementOfTypeImpl &ElementOfTypes) {
   PointeeLoc Loc(PointeeLoc::PLK_UnknownOffset, 0, ElementOfTypes);
   bool Changed = addElementPointeeImpl(Kind, BaseTy, Loc);
@@ -3325,7 +3319,7 @@ bool ValueTypeInfo::addElementPointee(ValueAnalysisType Kind,
 }
 
 bool ValueTypeInfo::addElementPointeeImpl(ValueAnalysisType Kind,
-                                          dtrans::DTransType *BaseTy,
+                                          DTransType *BaseTy,
                                           const PointeeLoc &Loc) {
   bool Changed = ElementPointees[Kind].insert({BaseTy, Loc}).second;
   if (Changed) {
@@ -3333,7 +3327,9 @@ bool ValueTypeInfo::addElementPointeeImpl(ValueAnalysisType Kind,
       dbgs() << "    Added element:" << (Kind == VAT_Decl ? "[DECL]" : "[USE]")
              << ": ";
       printValue(dbgs(), V);
-      dbgs() << " -- " << *BaseTy << " @ ";
+      dbgs() << " -- ";
+      BaseTy->print(dbgs(), false);
+      dbgs() << " @ ";
       switch (Loc.getKind()) {
       case PointeeLoc::PLK_Field:
         dbgs() << Loc.getElementNum() << "\n";
@@ -3430,7 +3426,7 @@ void ValueTypeInfo::dump() const { print(dbgs()); }
 
 void ValueTypeInfo::print(raw_ostream &OS, bool Combined,
                           const char *Prefix) const {
-  auto TypeToString = [Prefix](const dtrans::DTransType *Ty) {
+  auto TypeToString = [Prefix](const DTransType *Ty) {
     std::string OutputVal;
     raw_string_ostream OutputStream(OutputVal);
 
@@ -3454,45 +3450,47 @@ void ValueTypeInfo::print(raw_ostream &OS, bool Combined,
     OS << "\n";
   };
 
-  auto ElementPointeeToString = [Prefix](
-                                    const TypeAndPointeeLocPair &PointeePair) {
-    std::string OutputVal;
-    raw_string_ostream OutputStream(OutputVal);
+  auto ElementPointeeToString =
+      [Prefix](const TypeAndPointeeLocPair &PointeePair) {
+        std::string OutputVal;
+        raw_string_ostream OutputStream(OutputVal);
 
-    OutputStream << Prefix << "    ";
-    if (auto *DTStTy = dyn_cast<dtrans::DTransStructType>(PointeePair.first))
-      if (DTStTy->hasName())
-        OutputStream << "%" << DTStTy->getName();
-      else
-        OutputStream << *PointeePair.first;
-    else
-      OutputStream << *PointeePair.first;
-    OutputStream << " @ ";
-    switch (PointeePair.second.getKind()) {
-    case PointeeLoc::PLK_Field:
-      OutputStream << PointeePair.second.getElementNum();
-      break;
-    case PointeeLoc::PLK_ByteOffset:
-      OutputStream << "not-field ByteOffset: "
-                   << PointeePair.second.getByteOffset();
-      break;
-    case PointeeLoc::PLK_UnknownOffset:
-      OutputStream << "UnknownOffset";
-      break;
-    }
+        OutputStream << Prefix << "    ";
+        if (auto *DTStTy = dyn_cast<DTransStructType>(PointeePair.first))
+          if (DTStTy->hasName())
+            OutputStream << "%" << DTStTy->getName();
+          else
+            OutputStream << *PointeePair.first;
+        else
+          OutputStream << *PointeePair.first;
+        OutputStream << " @ ";
+        switch (PointeePair.second.getKind()) {
+        case PointeeLoc::PLK_Field:
+          OutputStream << PointeePair.second.getElementNum();
+          break;
+        case PointeeLoc::PLK_ByteOffset:
+          OutputStream << "not-field ByteOffset: "
+                       << PointeePair.second.getByteOffset();
+          break;
+        case PointeeLoc::PLK_UnknownOffset:
+          OutputStream << "UnknownOffset";
+          break;
+        }
 
-    if (!PointeePair.second.ElementOf.empty()) {
-      OutputStream << " ElementOf: ";
-      const char *Sep = "";
-      for (auto &T : PointeePair.second.ElementOf) {
-        OutputStream << Sep << *T.first << "@" << T.second;
-        Sep = ", ";
-      }
-    }
+        if (!PointeePair.second.ElementOf.empty()) {
+          OutputStream << " ElementOf: ";
+          const char *Sep = "";
+          for (auto &T : PointeePair.second.ElementOf) {
+            OutputStream << Sep;
+            T.first->print(OutputStream, false);
+            OutputStream << "@" << T.second;
+            Sep = ", ";
+          }
+        }
 
-    OutputStream.flush();
-    return OutputVal;
-  };
+        OutputStream.flush();
+        return OutputVal;
+      };
 
   // Print the element pointee set.
   auto PrintElementPointeeSet = [&OS, Prefix, &ElementPointeeToString](
@@ -3625,7 +3623,7 @@ ValueTypeInfo *PtrTypeAnalyzerImpl::getValueTypeInfo(const User *U,
   return getValueTypeInfo(V);
 }
 
-void PtrTypeAnalyzerImpl::setDeclaredType(Value *V, dtrans::DTransType *Ty) {
+void PtrTypeAnalyzerImpl::setDeclaredType(Value *V, DTransType *Ty) {
   ValueTypeInfo *Info = getOrCreateValueTypeInfo(V);
   Info->addTypeAlias(ValueTypeInfo::VAT_Decl, Ty);
   Info->setCompletelyAnalyzed();
@@ -4005,5 +4003,5 @@ void PtrTypeAnalyzer::printDominantAggregateUsageType(raw_ostream &OS,
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-} // end namespace dtrans
+} // namespace dtransOP
 } // end namespace llvm

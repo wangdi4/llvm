@@ -36,26 +36,32 @@ class TargetTransformInfo;
 
 namespace vpo {
 
-class VPlan;
+extern bool EnableVectorizedPeel;
+extern bool EnableNonMaskedVectorizedRemainder;
+extern bool EnableMaskedVectorizedRemainder;
+
+class VPlanVector;
+class VPlanMasked;
 class VPlanCostModel;
 class VPlanPeelingVariant;
 class VPlanVLSAnalysis;
+class LoopVectorizationPlanner;
 
 class VPlanEvaluator {
 public:
-  VPlanEvaluator(VPlan *MaskedP, unsigned ScalarCst,
+  VPlanEvaluator(LoopVectorizationPlanner &P, unsigned ScalarCst,
                  const TargetLibraryInfo *TLI, const TargetTransformInfo *TTI,
                  const DataLayout *DL, VPlanVLSAnalysis *VLSA)
-      : MaskedModePlan(MaskedP), ScalarIterCost(ScalarCst), TLI(TLI), TTI(TTI),
-        DL(DL), VLSA(VLSA) {}
+      : Planner(P), ScalarIterCost(ScalarCst), TLI(TLI), TTI(TTI), DL(DL),
+        VLSA(VLSA) {}
 
 protected:
   // Calculates the cost of VPlan, without calculating peel/remainder cost. If
   // there is not a VPlan, returns UINT_MAX.
-  unsigned calculatePlanCost(unsigned MainLoopVF, VPlan *Plan);
+  unsigned calculatePlanCost(unsigned VF, VPlanVector *Plan);
 
-  VPlan *MaskedModePlan = nullptr;
-  unsigned ScalarIterCost = 0;
+  LoopVectorizationPlanner &Planner;
+  unsigned ScalarIterCost;
   const TargetLibraryInfo *TLI;
   const TargetTransformInfo *TTI;
   const DataLayout *DL;
@@ -69,13 +75,13 @@ protected:
 /// count calculation and run-time checks.
 class VPlanPeelEvaluator : public VPlanEvaluator {
 public:
-  VPlanPeelEvaluator(VPlan *MaskedP, unsigned ScalarCst,
+  VPlanPeelEvaluator(LoopVectorizationPlanner &P, unsigned ScalarCst,
                      const TargetLibraryInfo *TLI,
                      const TargetTransformInfo *TTI, const DataLayout *DL,
                      VPlanVLSAnalysis *VLSA, unsigned MainLoopVF,
                      VPlanPeelingVariant *PeelingVariant)
-      : VPlanEvaluator(MaskedP, ScalarCst, TLI, TTI, DL, VLSA), MainLoopVF(MainLoopVF),
-        PeelingVariant(PeelingVariant) {
+      : VPlanEvaluator(P, ScalarCst, TLI, TTI, DL, VLSA),
+        MainLoopVF(MainLoopVF), PeelingVariant(PeelingVariant) {
     calculateBestVariant();
   }
 
@@ -103,8 +109,6 @@ public:
     LoopCost = 0;
   }
 
-  VPlan *getMaskedModePlan() const { return MaskedModePlan; }
-
 private:
   PeelLoopKind PeelKind = PeelLoopKind::None;
   unsigned LoopCost = 0;
@@ -126,14 +130,15 @@ private:
 /// future, it will calculate the overhead of run-time checks.
 class VPlanRemainderEvaluator : public VPlanEvaluator {
 public:
-  VPlanRemainderEvaluator(VPlan *MaskedP, unsigned ScalarCst,
+  VPlanRemainderEvaluator(LoopVectorizationPlanner &P, unsigned ScalarCst,
                           const TargetLibraryInfo *TLI,
                           const TargetTransformInfo *TTI, const DataLayout *DL,
-                          VPlanVLSAnalysis *VLSA, VPlan *MainP, unsigned OrigTC,
-                          unsigned PeelTC, unsigned MainLoopVF, unsigned MainLoopUF)
-      : VPlanEvaluator(MaskedP, ScalarCst, TLI, TTI, DL, VLSA), MainPlan(MainP),
-        RemainderTC((OrigTC - PeelTC) % (MainLoopVF * MainLoopUF)), PeelTC(PeelTC), MainLoopVF(MainLoopVF),
-        MainLoopUF(MainLoopUF) {
+                          VPlanVLSAnalysis *VLSA, unsigned OrigTC,
+                          unsigned PeelTC, unsigned MainLoopVF,
+                          unsigned MainLoopUF)
+      : VPlanEvaluator(P, ScalarCst, TLI, TTI, DL, VLSA),
+        RemainderTC((OrigTC - PeelTC) % (MainLoopVF * MainLoopUF)),
+        PeelTC(PeelTC), MainLoopVF(MainLoopVF), MainLoopUF(MainLoopUF) {
     calculateBestVariant();
   }
 
@@ -165,11 +170,8 @@ public:
     LoopCost = 0;
   }
 
-  VPlan *getMaskedModePlan() const { return MaskedModePlan; }
-
 private:
   RemainderLoopKind RemainderKind = RemainderLoopKind::Scalar;
-  VPlan *MainPlan = nullptr;
   unsigned LoopCost = 0;
   unsigned RemainderVF = 1;
   unsigned RemainderTC = 0;

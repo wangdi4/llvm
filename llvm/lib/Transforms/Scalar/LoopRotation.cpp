@@ -15,6 +15,7 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
+#include "llvm/Analysis/LazyBlockFrequencyInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
@@ -35,8 +36,22 @@ static cl::opt<unsigned> DefaultRotationThreshold(
     "rotation-max-header-size", cl::init(16), cl::Hidden,
     cl::desc("The default maximum header size for automatic loop rotation"));
 
-LoopRotatePass::LoopRotatePass(bool EnableHeaderDuplication)
-    : EnableHeaderDuplication(EnableHeaderDuplication) {}
+static cl::opt<bool> PrepareForLTOOption(
+    "rotation-prepare-for-lto", cl::init(false), cl::Hidden,
+    cl::desc("Run loop-rotation in the prepare-for-lto stage. This option "
+             "should be used for testing only."));
+
+#if INTEL_CUSTOMIZATION
+// Loops * total blocks, limit only for extreme cases.
+static cl::opt<uint64_t>
+    ComplexityLimit("loop-rotate-max-complexity", cl::init(1000000000),
+                    cl::Hidden,
+                    cl::desc("Stop rotating if loops*blocks exceeds this"));
+#endif // INTEL_CUSTOMIZATION
+
+LoopRotatePass::LoopRotatePass(bool EnableHeaderDuplication, bool PrepareForLTO)
+    : EnableHeaderDuplication(EnableHeaderDuplication),
+      PrepareForLTO(PrepareForLTO) {}
 
 PreservedAnalyses LoopRotatePass::run(Loop &L, LoopAnalysisManager &AM,
                                       LoopStandardAnalysisResults &AR,
@@ -48,15 +63,25 @@ PreservedAnalyses LoopRotatePass::run(Loop &L, LoopAnalysisManager &AM,
                           hasVectorizeTransformation(&L) == TM_ForcedByUser
                       ? DefaultRotationThreshold
                       : 0;
+#if INTEL_CUSTOMIZATION
+  // 23961: Disable rotation when loops * blocks is extremely large.
+  if (L.getHeader())
+    if ((uint64_t)AR.LI.getTopLevelLoops().size() *
+            L.getHeader()->getParent()->size() >
+        ComplexityLimit)
+      return PreservedAnalyses::all();
+#endif // INTEL_CUSTOMIZATION
+
   const DataLayout &DL = L.getHeader()->getModule()->getDataLayout();
   const SimplifyQuery SQ = getBestSimplifyQuery(AR, DL);
 
   Optional<MemorySSAUpdater> MSSAU;
   if (AR.MSSA)
     MSSAU = MemorySSAUpdater(AR.MSSA);
-  bool Changed = LoopRotation(&L, &AR.LI, &AR.TTI, &AR.AC, &AR.DT, &AR.SE,
-                              MSSAU.hasValue() ? MSSAU.getPointer() : nullptr,
-                              SQ, false, Threshold, false);
+  bool Changed =
+      LoopRotation(&L, &AR.LI, &AR.TTI, &AR.AC, &AR.DT, &AR.SE,
+                   MSSAU.hasValue() ? MSSAU.getPointer() : nullptr, SQ, false,
+                   Threshold, false, PrepareForLTO || PrepareForLTOOption);
 
   if (!Changed)
     return PreservedAnalyses::all();
@@ -74,10 +99,13 @@ namespace {
 
 class LoopRotateLegacyPass : public LoopPass {
   unsigned MaxHeaderSize;
+  bool PrepareForLTO;
 
 public:
   static char ID; // Pass ID, replacement for typeid
-  LoopRotateLegacyPass(int SpecifiedMaxHeaderSize = -1) : LoopPass(ID) {
+  LoopRotateLegacyPass(int SpecifiedMaxHeaderSize = -1,
+                       bool PrepareForLTO = false)
+      : LoopPass(ID), PrepareForLTO(PrepareForLTO) {
     initializeLoopRotateLegacyPassPass(*PassRegistry::getPassRegistry());
     MaxHeaderSize = unsigned(SpecifiedMaxHeaderSize);  // INTEL
   }
@@ -90,6 +118,11 @@ public:
       AU.addPreserved<MemorySSAWrapperPass>();
     getLoopAnalysisUsage(AU);
     AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
+
+    // Lazy BFI and BPI are marked as preserved here so LoopRotate
+    // can remain part of the same loop pass manager as LICM.
+    AU.addPreserved<LazyBlockFrequencyInfoPass>();
+    AU.addPreserved<LazyBranchProbabilityInfoPass>();
   }
 
   bool runOnLoop(Loop *L, LPPassManager &LPM) override {
@@ -112,6 +145,14 @@ public:
         MSSAU = MemorySSAUpdater(&MSSAA->getMSSA());
     }
 #if INTEL_CUSTOMIZATION
+    // Disable rotation when loops * blocks is extremely large.
+    if (L->getHeader())
+      if ((uint64_t)LI->getTopLevelLoops().size() *
+              L->getHeader()->getParent()->size() >
+          ComplexityLimit)
+        return false;
+
+    // Max header size is set by target, if the option is not specified.
     if (MaxHeaderSize == (unsigned)-1)
       MaxHeaderSize = DefaultRotationThreshold.getNumOccurrences() > 0 ?
           DefaultRotationThreshold :
@@ -126,7 +167,8 @@ public:
 
     return LoopRotation(L, LI, TTI, AC, &DT, &SE,
                         MSSAU.hasValue() ? MSSAU.getPointer() : nullptr, SQ,
-                        false, Threshold, false);
+                        false, Threshold, false,
+                        PrepareForLTO || PrepareForLTOOption);
   }
 };
 } // end namespace
@@ -141,6 +183,6 @@ INITIALIZE_PASS_DEPENDENCY(MemorySSAWrapperPass)
 INITIALIZE_PASS_END(LoopRotateLegacyPass, "loop-rotate", "Rotate Loops", false,
                     false)
 
-Pass *llvm::createLoopRotatePass(int MaxHeaderSize) {
-  return new LoopRotateLegacyPass(MaxHeaderSize);
+Pass *llvm::createLoopRotatePass(int MaxHeaderSize, bool PrepareForLTO) {
+  return new LoopRotateLegacyPass(MaxHeaderSize, PrepareForLTO);
 }

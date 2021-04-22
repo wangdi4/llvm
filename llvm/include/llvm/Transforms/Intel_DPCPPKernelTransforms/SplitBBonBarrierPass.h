@@ -12,7 +12,7 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_SPLIT_BB_ON_BARRIER
 
 #include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 
 namespace llvm {
@@ -20,24 +20,33 @@ namespace llvm {
 /// SplitBBonBarrier pass is a module pass used to assure
 /// barrier/fiber instructions appears only at the begining of basic block
 /// and not more than once in each basic block.
-class SplitBBonBarrier : public ModulePass {
-
+class SplitBBonBarrier : public PassInfoMixin<SplitBBonBarrier> {
 public:
-  static char ID;
+  static StringRef name() { return "Intel Kernel SplitBBonBarrier"; }
 
-  SplitBBonBarrier();
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM);
 
-  ~SplitBBonBarrier() {}
-
-  llvm::StringRef getPassName() const override {
-    return "Intel DPCPP SplitBBonBarrier";
-  }
-
-  bool runOnModule(Module &M) override;
+  bool runImpl(Module &M);
 
 private:
   /// This is barrier utility class
   DPCPPKernelBarrierUtils BarrierUtils;
+};
+
+/// SplitBBonBarrierLegacy pass for legacy pass manager.
+class SplitBBonBarrierLegacy : public ModulePass {
+  SplitBBonBarrier Impl;
+
+public:
+  static char ID;
+
+  SplitBBonBarrierLegacy();
+
+  StringRef getPassName() const override {
+    return "Intel Kernel SplitBBonBarrier";
+  }
+
+  bool runOnModule(Module &M) override;
 };
 
 } // namespace llvm

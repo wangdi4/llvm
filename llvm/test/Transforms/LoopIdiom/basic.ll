@@ -39,6 +39,27 @@ for.end:                                          ; preds = %for.body, %entry
   ret void
 }
 
+; INTEL_CUSTOMIZATION - disabled memset/memcpy before loopopt.
+; Verify that memset is not generated when function has "pre_loopopt" attribute.
+; CHECK-LABEL: @test1_pre_loopopt
+; CHECK-NOT: llvm.memset
+define void @test1_pre_loopopt(i8* %Base) "pre_loopopt" {
+bb.nph:                                           ; preds = %entry
+  br label %for.body
+
+for.body:                                         ; preds = %bb.nph, %for.body
+  %indvar = phi i64 [ 0, %bb.nph ], [ %indvar.next, %for.body ]
+  %I.0.014 = getelementptr i8, i8* %Base, i64 %indvar
+  store i8 0, i8* %I.0.014, align 1
+  %indvar.next = add i64 %indvar, 1
+  %exitcond = icmp eq i64 %indvar.next, 32
+  br i1 %exitcond, label %for.end, label %for.body
+
+for.end:                                          ; preds = %for.body, %entry
+  ret void
+}
+; END INTEL_CUSTOMIZATION
+
 ; Make sure memset is formed for larger than 1 byte stores, and that the
 ; alignment of the store is preserved
 define void @test1_i16(i16* align 2 %Base, i64 %Size) nounwind ssp {

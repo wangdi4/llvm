@@ -298,6 +298,28 @@ VPOUtils::removeOperandBundlesFromCall(CallInst *CI,
       });
 }
 
+// Creates a clone of CI without the operand bundles representing OpenMP
+// clauses specified in ClauseIds.
+CallInst *VPOUtils::removeOpenMPClausesFromCall(CallInst *CI,
+                                                ArrayRef<int> ClauseIds) {
+  return IntrinsicUtils::removeOperandBundlesFromCall(
+      CI, [&ClauseIds](const OperandBundleDef &Bundle) {
+        return std::any_of(
+            ClauseIds.begin(), ClauseIds.end(),
+            [&Bundle](int Id) {
+              StringRef Name = Bundle.getTag();
+              // We cannot construct ClauseInfo with a Name
+              // not corresponding to an OpenMP clause, so
+              // we have to check the Name, first.
+              if (!VPOAnalysisUtils::isOpenMPClause(Name))
+                return false;
+
+              ClauseSpecifier ClauseInfo(Name);
+              return ClauseInfo.getId() == Id;
+            });
+      });
+}
+
 // "Privatizes" an Instruction by adding it to a supported entry
 // directive clause.
 // If the Instruction is already used in a directive, nothing is done.
@@ -418,23 +440,22 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
     BM.clear();
     BM.resize(N);
     for (int I = 0; I < N; I++) {
-      LoadInst *LIA = dyn_cast<LoadInst>(Insns[I]);
-      StoreInst *STA = dyn_cast<StoreInst>(Insns[I]);
-      assert((LIA || STA) && "Expect load/store instruction");
+      assert((isa<LoadInst>(Insns[I]) || isa<StoreInst>(Insns[I])) &&
+             "Expect load/store instruction");
       for (int J = I + 1; J < N; J++) {
-        LoadInst *LIB = dyn_cast<LoadInst>(Insns[J]);
-        StoreInst *STB = dyn_cast<StoreInst>(Insns[J]);
-        assert((LIB || STB) && "Expect load/store instruction");
-        if (LIA && LIB)
+        assert((isa<LoadInst>(Insns[J]) || isa<StoreInst>(Insns[J])) &&
+               "Expect load/store instruction");
+        if (isa<LoadInst>(Insns[I]) && isa<LoadInst>(Insns[J]))
           continue;
-        Value *V1, *V2;
-        V1 = LIA ? LIA->getPointerOperand() : STA->getPointerOperand();
-        V2 = LIB ? LIB->getPointerOperand() : STB->getPointerOperand();
-        // If the size is UnknownSize, the alias result is valid for
-        // loop carried case. We have to make conservative assumption
-        // since the information may be used by the loop optimizations.
-        if (!AA->isNoAlias(V1, MemoryLocation::UnknownSize, V2,
-                           MemoryLocation::UnknownSize))
+        auto LocA = MemoryLocation::get(Insns[I]).getWithNewSize(
+            LocationSize::beforeOrAfterPointer());
+        auto LocB = MemoryLocation::get(Insns[J]).getWithNewSize(
+            LocationSize::beforeOrAfterPointer());
+        // TODO: Even with unknown size, the alias result is not quite valid
+        // for loop carried case; it is possible for the pointers to vary in
+        // such a way that they never alias in any one iteration but still
+        // alias across different iterations.
+        if (!AA->isNoAlias(LocA, LocB))
           BM.bitSet(J, I);
       }
     }
@@ -523,19 +544,16 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
       if (CliquesI.empty()) {
         MDNode *M = MDB.createAnonymousAliasScope(NewDomain, Name);
         CliquesI.insert(M);
-        generateScopeMD(Ins, M);
-      } else if (CliquesI.size() == 1) {
-        // 1 clique, attach the MDNode directly to the inst instead of
-        // creating a 1-element list.
-        generateScopeMD(Ins, CliquesI[0]);
-      } else {
-        // Multiple cliques, create a list of clique MDNodes.
-        // !3 = distinct !{!3, !99, "OMPAliasScope"}
-        // !4 = distinct !{!4, !99, "OMPAliasScope"}
-        // !8 = {!3, !4}
-        MDNode *M = MDNode::get(C, CliquesI.getArrayRef());
-        generateScopeMD(Ins, M);
       }
+
+      // Create a list of clique MDNodes.
+      // There may be one or more of them:
+      // !3 = distinct !{!3, !99, "OMPAliasScope"}
+      // !4 = distinct !{!4, !99, "OMPAliasScope"}
+      // !8 = {!3, !4}
+      //
+      MDNode *M = MDNode::get(C, CliquesI.getArrayRef());
+      generateScopeMD(Ins, M);
     }
 
     // For each pair of Insns: (I,J), if I and J do not alias,
@@ -564,13 +582,9 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
     for (unsigned I = 0; I < Insns.size(); ++I) {
       ScopeSetType &NoAliasMDI = NoAliasMDs[I];
       if (!NoAliasMDI.empty()) {
-        if (NoAliasMDI.size() == 1) {
-          generateNoAliasMD(Insns[I], NoAliasMDI[0]);
-        } else {
-          // Multiple scopes, make a list.
-          MDNode *M = MDNode::get(C, NoAliasMDI.getArrayRef());
-          generateNoAliasMD(Insns[I], M);
-        }
+        // Make a list.
+        MDNode *M = MDNode::get(C, NoAliasMDI.getArrayRef());
+        generateNoAliasMD(Insns[I], M);
       }
     }
   };

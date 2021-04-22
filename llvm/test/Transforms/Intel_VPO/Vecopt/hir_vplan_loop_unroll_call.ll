@@ -2,6 +2,8 @@
 ; Test VPlan unrolling feature for HIR loops with Call instructions.
 
 ; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=2 -vplan-print-after-unroll -print-after=VPlanDriverHIR -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,vplan-driver-hir,print<hir>" -vector-library=SVML -vplan-force-vf=4 -vplan-force-uf=2 -vplan-print-after-unroll -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
+
 
 define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlan loop unrolling:
@@ -13,6 +15,7 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 79, UF = 2
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
@@ -25,7 +28,7 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[A0]] i64 [[VP1]]
 ; CHECK-NEXT:     [DA: Div] store float [[VP_INC]] float* [[VP_SUBSCRIPT_1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP3:%.*]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = icmp sle i64 [[VP3]] i64 79
+; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]: # preds: [[BB2]]
@@ -35,7 +38,7 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:     [DA: Div] float* [[VP8:%.*]] = subscript inbounds float* [[A0]] i64 [[VP3]]
 ; CHECK-NEXT:     [DA: Div] store float [[VP7]] float* [[VP8]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP2]] = add i64 [[VP3]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP9:%.*]] = icmp sle i64 [[VP2]] i64 79
+; CHECK-NEXT:     [DA: Uni] i1 [[VP9:%.*]] = icmp sle i64 [[VP2]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP9]], [[BB2]], [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: cloned.[[BB3]]

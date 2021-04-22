@@ -39,6 +39,12 @@ static cl::opt<bool> AssumeIVDEPInnermostLoop(
 llvm::Statistic LoopsNormalized = {"hir-loop-normalize", "LoopsNormalized",
                                    "Loops normalized On-Demand"};
 
+static cl::opt<bool>
+    ExplicitLowerBoundSwitch("hir-loop-normalize-allow-explicit-lower-bound",
+                             cl::init(true), cl::Hidden,
+                             cl::desc("Allow creation of explicit lower bound "
+                                      "instruction when normalizing the loop"));
+
 void HLLoop::initialize() {
   unsigned NumOp;
 
@@ -120,7 +126,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       IsBlocked(HLLoopObj.IsBlocked),
       ForcedVectorWidth(HLLoopObj.ForcedVectorWidth),
       ForcedVectorUnrollFactor(HLLoopObj.ForcedVectorUnrollFactor),
-      VecTag(HLLoopObj.VecTag) {
+      VecTag(HLLoopObj.VecTag),
+      PrefetchingInfoVec(HLLoopObj.PrefetchingInfoVec) {
 
   initialize();
 
@@ -1048,7 +1055,7 @@ void HLLoop::removePreheader() { HLNodeUtils::remove(pre_begin(), pre_end()); }
 
 void HLLoop::removePostexit() { HLNodeUtils::remove(post_begin(), post_end()); }
 
-static void promoteBlobs(RegDDRef *Ref, unsigned Level, int Increment) {
+static void promoteDemoteBlobs(RegDDRef *Ref, unsigned Level, int Increment) {
   if (Ref->isSelfBlob()) {
     unsigned DefLevel = Ref->getSingleCanonExpr()->getDefinedAtLevel();
 
@@ -1097,7 +1104,7 @@ static unsigned demoteRef(RegDDRef *Ref, const HLLoop *ReplaceLp,
     // When we replace outer loop by first iteration, the definition level
     // of blobs defined inside this loop reduces by 1.
     // The use of these blobs in inner loop refs need to be updated.
-    promoteBlobs(Ref, Level, -1);
+    promoteDemoteBlobs(Ref, Level, -1);
 
     // When IV is substituted in inner loop, temps in merged ref need to be
     // marked as livein to that loop.
@@ -1438,10 +1445,16 @@ void HLLoop::markDoNotBlock() {
         Type::getInt32Ty(getHLNodeUtils().getContext()), 0) /* Factor */));
 }
 
-bool HLLoop::canNormalize(const CanonExpr *LowerCE) const {
+bool HLLoop::canNormalize(const CanonExpr *LowerCE,
+                          bool AllowExplicitBoundInst) const {
 
   if (isUnknown()) {
     return false;
+  }
+
+  // We can always normalize using explicit bound inst.
+  if (ExplicitLowerBoundSwitch && AllowExplicitBoundInst) {
+    return true;
   }
 
   // If LB not supplied, get it from Loop
@@ -1453,6 +1466,11 @@ bool HLLoop::canNormalize(const CanonExpr *LowerCE) const {
 
   assert(CanonExprUtils::mergeable(LowerCE, getUpperCanonExpr(), false) &&
          "Lower and Upper are expected to be always mergeable");
+
+  if (LowerCE->isIntConstant() ||
+      LowerCE->canConvertToStandAloneBlobOrConstant()) {
+    return true;
+  }
 
   unsigned Level = getNestingLevel();
 
@@ -1479,87 +1497,155 @@ bool HLLoop::canNormalize(const CanonExpr *LowerCE) const {
   return Mergeable;
 }
 
-bool HLLoop::normalize() {
+static bool normalizeCE(const HLLoop *Lp, CanonExpr *CE,
+                        CanonExpr *NormalizedIV, const CanonExpr *LowerBlob) {
+
+  unsigned Level = Lp->getNestingLevel();
+
+  if (!CE->hasIV(Level)) {
+    return false;
+  }
+
+  bool LowerIsConst = Lp->getLowerCanonExpr()->isIntConstant();
+
+  if (LowerIsConst) {
+    // The CEs are either properly mergeable or LowerCE is a mergeable constant.
+    // Because we add an IV to the constant LowerCE is can make it
+    // non-mergeable.
+    // For ex.: LowerCE: i64 7       - can merge with a constant
+    //          NormalizedIV:   i64 i1 + 7  - type conflict i32/i64.
+    //          CE:      sext.i32.i64(i1 + %61 + 8)
+    // To avoid artificial assertion in the replaceIVByCanonExpr() we set the
+    // correct src type to the NormalizedIV.
+    NormalizedIV->setSrcType(CE->getSrcType());
+  }
+
+  bool IsSigned = Lp->hasSignedIV();
+
+  if (CanonExprUtils::replaceIVByCanonExpr(CE, Level, NormalizedIV, IsSigned,
+                                           true)) {
+    return true;
+  }
+
+  assert(!LowerIsConst &&
+         "[HIR-NORMALIZE] Replacement of IV failed for constant lower");
+  assert(LowerBlob && "[HIR-NORMALIZE] LowerBlob is nullptr");
+
+  // Create temporary normalized IV in CE's src type by using conversion to
+  // standalone blob.
+  std::unique_ptr<CanonExpr> TmpNormalizedIV(LowerBlob->clone());
+
+  // Extend or truncate to CE type.
+  TmpNormalizedIV->setDestType(CE->getSrcType()->getScalarType());
+  bool Res = TmpNormalizedIV->convertToStandAloneBlobOrConstant();
+  (void)Res;
+  assert(Res && "[HIR-NORMALIZE] Conversion to stand alone blob failed");
+
+  int64_t Stride;
+  Lp->getStrideCanonExpr()->isIntConstant(&Stride);
+
+  TmpNormalizedIV->addIV(Level, InvalidBlobIndex, Stride, false);
+
+  Res = CanonExprUtils::replaceIVByCanonExpr(CE, Level, TmpNormalizedIV.get(),
+                                             IsSigned, true);
+  (void)Res;
+  assert(Res && "[HIR-NORMALIZE] replacement of IV by lower failed");
+  return true;
+}
+
+bool HLLoop::normalize(bool AllowExplicitBoundInst) {
   if (isNormalized()) {
     return true;
   }
 
-  if (!canNormalize()) {
+  if (!canNormalize(nullptr, AllowExplicitBoundInst)) {
     DEBUG_NORMALIZE(dbgs() << "[HIR-NORMALIZE] Can not normalize loop "
                            << getNumber() << "\n");
     return false;
   }
 
-  CanonExpr *LowerCE = getLowerCanonExpr();
-  CanonExpr *StrideCE = getStrideCanonExpr();
-
   DEBUG_NORMALIZE(dbgs() << "[HIR-NORMALIZE] Before:\n");
   DEBUG_NORMALIZE(dump());
 
-  int64_t Stride;
-  StrideCE->isIntConstant(&Stride);
+  unsigned Level = getNestingLevel();
+  RegDDRef *LowerRef = getLowerDDRef();
+  CanonExpr *LowerCE = LowerRef->getSingleCanonExpr();
+
+  // Single blob which represents the lower.
+  CanonExpr *LowerBlob = nullptr;
+
+  if (!LowerCE->isIntConstant()) {
+
+    // If explicit instruction is allowed, it is better to create it upfront
+    // otherwise loop invariant operations in the lower get embedded inside the
+    // normalized CEs in the loop body and may not exist in a hoistable form.
+    if (ExplicitLowerBoundSwitch && AllowExplicitBoundInst) {
+      HLInst *LBCopyInst =
+          getHLNodeUtils().createCopyInst(removeLowerDDRef(), "lb");
+      HLNodeUtils::insertAsLastPreheaderNode(this, LBCopyInst);
+
+      LBCopyInst->getRvalDDRef()->makeConsistent();
+
+      LowerRef = LBCopyInst->getLvalDDRef()->clone();
+
+      LowerCE = LowerRef->getSingleCanonExpr();
+      LowerCE->setDefinedAtLevel(Level - 1);
+
+      setLowerDDRef(LowerRef);
+
+      LowerBlob = LowerCE;
+
+    } else {
+      LowerBlob = LowerCE->clone();
+      LowerBlob->convertToStandAloneBlobOrConstant();
+      // This produces the desired extension on lower for normalized IV
+      // creation. It is a small hack to not set this multiple times on new
+      // normalized IV creation inside normalizeCE().
+      LowerBlob->setExtType(HasSignedIV);
+    }
+  }
 
   RegDDRef *UpperRef = getUpperDDRef();
-  RegDDRef *LowerRef = getLowerDDRef();
 
   // Clone is required as we will be updating upper ref and will be using
   // original ref to make it consistent.
   std::unique_ptr<RegDDRef> UpperRefClone(UpperRef->clone());
-  SmallVector<const RegDDRef *, 2> Aux = {LowerRef, UpperRefClone.get()};
 
-  CanonExpr *UpperCE = getUpperCanonExpr();
+  CanonExpr *UpperCE = UpperRef->getSingleCanonExpr();
 
   // New Upper = (U - L) / S
   if (!CanonExprUtils::subtract(UpperCE, LowerCE, false)) {
     llvm_unreachable("[HIR-NORMALIZE] Can not subtract L from U");
   }
 
+  CanonExpr *StrideCE = getStrideCanonExpr();
+  int64_t Stride;
+  StrideCE->isIntConstant(&Stride);
+
   UpperCE->divide(Stride);
   UpperCE->simplify(true, true);
 
-  unsigned Level = getNestingLevel();
+  UpperRef->makeConsistent({UpperRefClone.get(), LowerRef}, Level);
+  SmallVector<const RegDDRef *, 2> Aux = {LowerRef, UpperRefClone.get()};
+
+  // NormalizedIV = S * IV + L
+  std::unique_ptr<CanonExpr> NormalizedIV(LowerCE->clone());
+  NormalizedIV->addIV(Level, InvalidBlobIndex, Stride, false);
 
   SmallVector<unsigned, 2> LowerRefSymbases;
   LowerRef->populateTempBlobSymbases(LowerRefSymbases);
 
-  // NewIV = S * IV + L
-  std::unique_ptr<CanonExpr> NewIV(LowerCE->clone());
-  NewIV->addIV(Level, InvalidBlobIndex, Stride, false);
-
-  bool HasSignedIV = hasSignedIV();
-  auto UpdateCE = [&NewIV, Level, HasSignedIV](CanonExpr *CE) {
-    if (!CE->hasIV(Level)) {
-      return false;
-    }
-
-    // The CEs are either properly mergeable or LowerCE is a mergeable constant.
-    // Because we add an IV to the constant LowerCE is can make it
-    // non-mergeable.
-    // For ex.: LowerCE: i64 7       - can merge with a constant
-    //          NewIV:   i64 i1 + 7  - type conflict i32/i64.
-    //          CE:      sext.i32.i64(i1 + %61 + 8)
-    // To avoid artificial assertion in the replaceIVByCanonExpr() we set the
-    // correct src type to the NewIV.
-    NewIV->setSrcType(CE->getSrcType());
-
-    if (!CanonExprUtils::replaceIVByCanonExpr(CE, Level, NewIV.get(),
-                                              HasSignedIV, true)) {
-      llvm_unreachable("[HIR-NORMALIZE] Can not replace IV by Lower");
-    }
-
-    return true;
-  };
-
   ForEach<HLDDNode>::visitRange(
       child_begin(), child_end(),
-      [this, &UpdateCE, &Aux, Level, &LowerRefSymbases](HLDDNode *Node) {
+      [this, &NormalizedIV, &Aux, &LowerBlob, Level,
+       &LowerRefSymbases](HLDDNode *Node) {
         bool NodeModified = false;
 
         for (RegDDRef *Ref :
              llvm::make_range(Node->ddref_begin(), Node->ddref_end())) {
           for (CanonExpr *CE :
                llvm::make_range(Ref->canon_begin(), Ref->canon_end())) {
-            NodeModified |= UpdateCE(CE);
+            NodeModified |= normalizeCE(this, CE, NormalizedIV.get(), LowerBlob);
           }
 
           Ref->makeConsistent(Aux, IsInnermost ? Level : NonLinearLevel);
@@ -1576,8 +1662,6 @@ bool HLLoop::normalize() {
 
   StrideCE->setConstant(1);
 
-  UpperRef->makeConsistent(Aux, Level);
-
   LowerCE->clear();
   LowerRef->makeConsistent({}, Level);
 
@@ -1589,7 +1673,8 @@ bool HLLoop::normalize() {
   return true;
 }
 
-bool HLLoop::canStripmine(unsigned StripmineSize) const {
+bool HLLoop::canStripmine(unsigned StripmineSize,
+                          bool AllowExplicitBoundInst) const {
   assert(isNormalized() &&
          "Loop needs stripmine are expected to be normalized");
 
@@ -1613,7 +1698,7 @@ bool HLLoop::canStripmine(unsigned StripmineSize) const {
 
   //  64*i1
   CE->setIVConstCoeff(Level, StripmineSize);
-  if (!canNormalize(CE)) {
+  if (!canNormalize(CE, AllowExplicitBoundInst)) {
     Result = false;
   }
 
@@ -2245,9 +2330,20 @@ void HLLoop::dividePragmaBasedTripCount(unsigned Factor) {
 }
 
 void HLLoop::promoteNestingLevel(unsigned StartLevel) {
+  SmallVector<const RegDDRef *, 32> LVals;
+
+  // Use pre-header lval to make body def levels consistent.
+  for (auto &Node : make_range(pre_begin(), pre_end())) {
+    auto &Inst = cast<HLInst>(Node);
+    if (Inst.hasLval()) {
+      LVals.push_back(Inst.getLvalDDRef());
+    }
+  }
+
   ForEach<RegDDRef>::visitRange(child_begin(), child_end(), [&](RegDDRef *Ref) {
     Ref->promoteIVs(StartLevel);
-    promoteBlobs(Ref, StartLevel, 1);
-    Ref->makeConsistent({}, StartLevel + 1);
+    promoteDemoteBlobs(Ref, StartLevel, 1);
+
+    Ref->makeConsistent(LVals, StartLevel + 1);
   });
 }

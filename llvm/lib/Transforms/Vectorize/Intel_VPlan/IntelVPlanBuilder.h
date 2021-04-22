@@ -18,7 +18,7 @@
 #include "IntelVPlan.h"
 
 namespace llvm {
-namespace vpo {    
+namespace vpo {
 
 class VPBuilder {
 protected:
@@ -148,7 +148,7 @@ public:
 
   // Create an N-ary operation with \p Opcode, \p Operands and set \p Inst as
   // its underlying Instruction.
-  VPValue *createNaryOp(unsigned Opcode, Type *BaseTy,
+  VPInstruction *createNaryOp(unsigned Opcode, Type *BaseTy,
                         ArrayRef<VPValue *> Operands,
                         Instruction *Inst = nullptr) {
     VPInstruction *NewVPInst = createInstruction(Opcode, BaseTy, Operands);
@@ -156,7 +156,7 @@ public:
       NewVPInst->setUnderlyingValue(*Inst);
     return NewVPInst;
   }
-  VPValue *createNaryOp(unsigned Opcode, Type *BaseTy,
+  VPInstruction *createNaryOp(unsigned Opcode, Type *BaseTy,
                         std::initializer_list<VPValue *> Operands,
                         Instruction *Inst = nullptr) {
     return createNaryOp(Opcode, BaseTy, ArrayRef<VPValue *>(Operands), Inst);
@@ -406,8 +406,23 @@ public:
       Builder.restoreIP(VPInsertPoint(Block, Point));
     }
   };
-};
 
+  /// RAII object that stores the current builder debug location and restores it
+  /// when the object is destroyed.
+  class DbgLocGuard {
+    VPBuilder &Builder;
+    DebugLoc DbgLoc;
+
+  public:
+    DbgLocGuard(const DbgLocGuard &) = delete;
+    DbgLocGuard &operator=(const DbgLocGuard &) = delete;
+
+    DbgLocGuard(VPBuilder &B) : Builder(B) {
+      DbgLoc = Builder.getCurrentDebugLocation();
+    }
+    ~DbgLocGuard() { Builder.setCurrentDebugLocation(DbgLoc); }
+  };
+};
 } // namespace vpo
 } // namespace llvm
 

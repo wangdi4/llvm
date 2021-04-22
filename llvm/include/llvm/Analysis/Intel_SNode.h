@@ -551,10 +551,10 @@ public:
   BasicBlock *getBblock() const { return B; }
 
   // Returns the true target SNode.
-  const SNode *getTrueTarget() const;
+  const SNode *getTrueTarget() const override;
 
   // Returns the false target basic block
-  const SNode *getFalseTarget() const;
+  const SNode *getFalseTarget() const override;
 };
 
 // The ListSNode is composed of a sequence of child SNodes X_1,
@@ -571,8 +571,8 @@ public:
   // The TrueTarget and FalseTarget flag can only be applied to the 
   // SNodes such as BlockSNode and OrSNode which has two outgoing
   // edges. There is only one outgoing edge for ListSNode.
-  const SNode *getTrueTarget() const { return nullptr; }
-  const SNode *getFalseTarget() const { return nullptr; }
+  const SNode *getTrueTarget() const override { return nullptr; }
+  const SNode *getFalseTarget() const override { return nullptr; }
 };
 
 
@@ -597,8 +597,8 @@ public:
   // The TrueTarget and FalseTarget flag can only be applied to the 
   // SNodes such as BlockSNode and OrSNode which has two outgoing
   // edges. There is only one outgoing edge for IfThenElseSNode.
-  const SNode *getTrueTarget() const { return nullptr; }
-  const SNode *getFalseTarget() const { return nullptr; }
+  const SNode *getTrueTarget() const override { return nullptr; }
+  const SNode *getFalseTarget() const override { return nullptr; }
 };
 
 // The class SNodeAnalysis is the main driver to generate

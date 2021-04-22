@@ -1,7 +1,11 @@
 ; The test verifies that HIR vec codegen can handle memrefs with opaque types.
 
 ; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -hir-details -vplan-force-vf=2 -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s --check-prefixes=MIXED,CHECK
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -S -hir-details -vplan-force-vf=2 -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s --check-prefixes=MIXED,CHECK
+
 ; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -hir-details -vplan-force-vf=2 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s --check-prefixes=VPVAL,CHECK
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -S -hir-details -vplan-force-vf=2 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s --check-prefixes=VPVAL,CHECK
+
 
 ; HIR:
 ; BEGIN REGION { }
@@ -15,8 +19,8 @@
 ; VPVAL: <RVAL-REG> LINEAR <2 x %struct.OType*> %b
 
 ; Check broadcast pattern is generated for the opaque type memref after HIR-CG.
-; CHECK:       [[SPLATINSERT:%.*]] = insertelement <2 x %struct.OType*> undef, %struct.OType* %b, i32 0
-; CHECK-NEXT:  [[SPLAT:%.*]] = shufflevector <2 x %struct.OType*> [[SPLATINSERT]], <2 x %struct.OType*> undef, <2 x i32> zeroinitializer
+; CHECK:       [[SPLATINSERT:%.*]] = insertelement <2 x %struct.OType*> poison, %struct.OType* %b, i32 0
+; CHECK-NEXT:  [[SPLAT:%.*]] = shufflevector <2 x %struct.OType*> [[SPLATINSERT]], <2 x %struct.OType*> poison, <2 x i32> zeroinitializer
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

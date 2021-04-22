@@ -49,6 +49,12 @@ static cl::opt<bool> VerifyIRAfterParopt(
     cl::desc("Enable IR verification after Paropt."));
 #endif  // NDEBUG
 
+static constexpr char LLVM_INTRIN_PREF0[] = "llvm.";
+
+static cl::opt<bool> PreserveDeviceIntrin(
+  "vpo-paropt-preserve-llvm-intrin", cl::Hidden, cl::init(false),
+  cl::desc("Preserve LLVM intrinsics for device SIMD code generation"));
+
 static cl::opt<bool> UseOffloadMetadata(
   "vpo-paropt-use-offload-metadata", cl::Hidden, cl::init(true),
   cl::desc("Use offload metadata created by clang in paropt lowering."));
@@ -233,7 +239,6 @@ std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
     {"abs",                   "_Z17__spirv_ocl_s_absi"},      // int abs(int)
     {"labs",                  "_Z17__spirv_ocl_s_absl"}};     // long labs(long)
 
-
 // To support the SPIRV target compilation stage of the OpenMP compilation
 // offloading to GPUs, we must translate the name of math functions (left
 // column in OCLBuiltin) to their OCL builtin counterparts.
@@ -241,14 +246,17 @@ static bool replaceMathFnWithOCLBuiltin(Function &F) {
   bool Changed = false;
   StringRef OldName = F.getName();
   auto Map = OCLBuiltin.find(std::string(OldName));
+
   if (Map != OCLBuiltin.end()) {
     StringRef NewName = Map->second;
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replacing " << OldName << " with "
-                      << NewName << '\n');
-    F.setName(NewName);
-    Changed = true;
+    if (!PreserveDeviceIntrin ||
+        !OldName.consume_front(LLVM_INTRIN_PREF0)) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replacing " << OldName << " with "
+                        << NewName << '\n');
+      F.setName(NewName);
+      Changed = true;
+    }
   }
-
   return Changed;
 }
 
@@ -690,9 +698,10 @@ void VPOParoptModuleTransform::processUsesOfGlobals(
 void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
   // Collect the set "used" values from the "llvm.used" and "llvm.compiler.used"
   // initializers. These objects need to be retained in the target IR.
-  SmallPtrSet<GlobalValue *, 16u> UsedSet;
-  auto *UsedVar = collectUsedGlobalVariables(M, UsedSet, false);
-  auto *CompilerUsedVar = collectUsedGlobalVariables(M, UsedSet, true);
+  SmallVector<GlobalValue *, 16u> UsedVec;
+  auto *UsedVar = collectUsedGlobalVariables(M, UsedVec, false);
+  auto *CompilerUsedVar = collectUsedGlobalVariables(M, UsedVec, true);
+  SmallPtrSet<GlobalValue *, 16u> UsedSet(UsedVec.begin(), UsedVec.end());
 
   SmallPtrSet<GlobalAlias *, 16u> DeadAlias; // Keep track of dead Alias
   for (GlobalAlias &A : M.aliases()) {
@@ -793,8 +802,10 @@ void VPOParoptModuleTransform::removeTargetUndeclaredGlobals() {
       for (BasicBlock &BB : F)
         for (BasicBlock::iterator I = BB.begin(), E = BB.end(); I != E;) {
           Instruction *Inst = &*I++;
-          if (isInstructionTriviallyDead(Inst))
+          if (isInstructionTriviallyDead(Inst)) {
+            salvageDebugInfo(*Inst);
             BB.getInstList().erase(Inst);
+          }
         }
     }
   }

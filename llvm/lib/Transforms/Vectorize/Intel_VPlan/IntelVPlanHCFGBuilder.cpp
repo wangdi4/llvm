@@ -40,16 +40,24 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 #if INTEL_CUSTOMIZATION
-extern cl::opt<bool> EnableVPValueCodegen;
 static LoopVPlanDumpControl PlainCFGDumpControl("plain-cfg",
                                                 "importing plain CFG");
+static cl::opt<bool, true> VPlanPrintLegalityOpt(
+    "vplan-print-legality", cl::Hidden, cl::location(VPlanPrintLegality),
+    cl::desc("Print SIMD clause data structure details in VPlan legality."));
 #endif // INTEL_CUSTOMIZATION
 
+namespace llvm {
+namespace vpo {
+bool VPlanPrintLegality = false;
+} // namespace vpo
+} // namespace llvm
+
 VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
-                                   const WRNVecLoopNode *WRL, VPlan *Plan,
+                                   const WRNVecLoopNode *WRL, VPlanVector *Plan,
                                    VPOVectorizationLegality *Legal,
                                    ScalarEvolution *SE)
-  : TheLoop(Lp), LI(LI), WRLp(WRL), Plan(Plan), Legal(Legal), SE(SE) {
+    : TheLoop(Lp), LI(LI), WRLp(WRL), Plan(Plan), Legal(Legal), SE(SE) {
   // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
   // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
   Verifier = std::make_unique<VPlanVerifier>(Lp, DL);
@@ -173,11 +181,12 @@ class PlainCFGBuilder : public VPlanLoopCFGBuilder {
 public:
   friend PrivatesListCvt;
 
-  PlainCFGBuilder(Loop *Lp, LoopInfo *LI, VPlan *Plan)
+  PlainCFGBuilder(Loop *Lp, LoopInfo *LI, VPlanVector *Plan)
       : VPlanLoopCFGBuilder(Plan, Lp, LI) {}
 
   void
   convertEntityDescriptors(LoopVectorizationLegality *Legal,
+                           ScalarEvolution *SE,
                            VPlanHCFGBuilder::VPLoopEntityConverterList &Cvts);
 
   using VPlanLoopCFGBuilder::getOrCreateVPOperand;
@@ -203,7 +212,8 @@ public:
   using ReductionList = VPOVectorizationLegality::ReductionList;
   using ExplicitReductionList = VPOVectorizationLegality::ExplicitReductionList;
   using InMemoryReductionList = VPOVectorizationLegality::InMemoryReductionList;
-  using PrivatesListTy = VPOVectorizationLegality::PrivatesListTy;
+  using PrivDescrTy = VPOVectorizationLegality::PrivDescrTy;
+  using PrivDescrNonPODTy = VPOVectorizationLegality::PrivDescrNonPODTy;
 
   VPEntityConverterBase(PlainCFGBuilder &Bld) : Builder(Bld) {}
 
@@ -227,7 +237,6 @@ public:
     Descriptor.setExit(dyn_cast<VPInstruction>(
         Builder.getOrCreateVPOperand(RD.getLoopExitInstr())));
     Descriptor.setKind(RD.getRecurrenceKind());
-    Descriptor.setMinMaxKind(RD.getMinMaxRecurrenceKind());
     Descriptor.setRecType(RD.getRecurrenceType());
     Descriptor.setSigned(RD.isSigned());
     Descriptor.setAllocaInst(nullptr);
@@ -252,7 +261,6 @@ public:
     // Exit is not set here, it is determined based on some analyses in Phase 2
     Descriptor.setExit(nullptr);
     Descriptor.setKind(RD.getRecurrenceKind());
-    Descriptor.setMinMaxKind(RD.getMinMaxRecurrenceKind());
     Descriptor.setRecType(RD.getRecurrenceType());
     Descriptor.setSigned(RD.isSigned());
     assertIsSingleElementAlloca(CurValue.second.second);
@@ -274,8 +282,7 @@ public:
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(AllocaInst);
     Descriptor.setExit(nullptr);
-    Descriptor.setKind(CurValue.second.first);
-    Descriptor.setMinMaxKind(CurValue.second.second);
+    Descriptor.setKind(CurValue.second);
     Descriptor.setRecType(nullptr);
     Descriptor.setSigned(false);
     Descriptor.setAllocaInst(AllocaInst);
@@ -286,7 +293,8 @@ public:
 // Conversion functor for auto-recognized inductions
 class InductionListCvt : public VPEntityConverterBase {
 public:
-  InductionListCvt(PlainCFGBuilder &Bld) : VPEntityConverterBase(Bld) {}
+  InductionListCvt(PlainCFGBuilder &Bld, VPlanVector *Plan, ScalarEvolution *SE)
+      : VPEntityConverterBase(Bld), Plan(Plan), SE(SE) {}
 
   void operator()(InductionDescr &Descriptor,
                   const InductionList::value_type &CurValue) {
@@ -321,8 +329,48 @@ public:
       Descriptor.setInductionOp(nullptr);
       Descriptor.setKindAndOpcodeFromTy(IndTy);
     }
+
+    // Compute lower/upper range for IV.
+    VPValue *StartVal = nullptr;
+    VPValue *EndVal = nullptr;
+    Value *PhiOp0 = CurValue.first->getOperand(0);
+    Value *PhiOp1 = CurValue.first->getOperand(1);
+    if (SE->isSCEVable(PhiOp0->getType()) &&
+        SE->isSCEVable(PhiOp1->getType())) {
+      const SCEV *Start = SE->getSCEV(PhiOp0);
+      const SCEV *UpdateExpr = SE->getSCEV(PhiOp1);
+      if (!isa<SCEVAddRecExpr>(UpdateExpr))
+        std::swap(Start, UpdateExpr);
+      // Update for induction should be SCEVAddRecExpr since importing is
+      // based from LLVM's InductionDescriptor, but check just in case. No
+      // harm in just not setting the lower/upper range of iv.
+      if (const SCEVAddRecExpr *AddRecExpr =
+          dyn_cast<SCEVAddRecExpr>(UpdateExpr)) {
+        const Loop *L = AddRecExpr->getLoop();
+        uint64_t TripCount = SE->getSmallConstantMaxTripCount(L);
+        Type *ConstantTy = CurValue.first->getType();
+        int64_t LowerVal;
+        if (const SCEVConstant *Lower = dyn_cast<SCEVConstant>(Start)) {
+          LowerVal = Lower->getValue()->getSExtValue();
+          StartVal =
+              Plan->getVPConstant(ConstantInt::get(ConstantTy, LowerVal));
+        }
+        if (StartVal && TripCount && isa<SCEVConstant>(Step)) {
+          int64_t StrideVal =
+              cast<SCEVConstant>(Step)->getValue()->getSExtValue();
+          int64_t UpperVal = LowerVal + StrideVal * TripCount;
+          EndVal = Plan->getVPConstant(ConstantInt::get(ConstantTy, UpperVal));
+        }
+      }
+    }
+    Descriptor.setStartVal(StartVal);
+    Descriptor.setEndVal(EndVal);
     Descriptor.setAllocaInst(nullptr);
   }
+
+private:
+  VPlanVector *Plan;
+  ScalarEvolution *SE;
 };
 
 // Conversion functor for explcit linears
@@ -389,7 +437,7 @@ class PrivatesListCvt : public VPEntityConverterBase {
   // This method collects aliases that lie outside the loop-region. We are not
   // concerned with aliases within the loop as they would be acquired
   // when required (e.g., escape analysis).
-  void collectAliases(PrivateDescr &Descriptor, Value *Alloca) {
+  void collectMemoryAliases(PrivateDescr &Descriptor, Value *Alloca) {
     SetVector<Value *> WorkList;
 
     // Start with the Alloca Inst.
@@ -432,39 +480,37 @@ class PrivatesListCvt : public VPEntityConverterBase {
   }
 
 public:
-  PrivatesListCvt(PlainCFGBuilder &Bld, bool IsCond = false,
-                  bool IsLast = false)
-      : VPEntityConverterBase(Bld), IsCondPriv(IsCond), IsLastPriv(IsLast) {}
+  PrivatesListCvt(PlainCFGBuilder &Bld) : VPEntityConverterBase(Bld) {}
 
-  void operator()(PrivateDescr &Descriptor,
-                  const PrivatesListTy::value_type &CurValue) {
-
+  void operator()(PrivateDescr &Descriptor, const PrivDescrTy *CurValue) {
     Descriptor.clear();
-    assertIsSingleElementAlloca(CurValue);
-    auto *VPAllocaVal = Builder.getOrCreateVPOperand(CurValue);
+    assertIsSingleElementAlloca(CurValue->getRef());
+    auto *VPAllocaVal = Builder.getOrCreateVPOperand(CurValue->getRef());
 
     // Collect the out-of-loop aliases corresponding to this AllocaVal.
     // TODO: This is a temporary solution. Aliases to the private descriptor
     // should be collected earlier with new descriptor representation in
     // VPOLegality.
-    collectAliases(Descriptor, CurValue);
+    collectMemoryAliases(Descriptor, CurValue->getRef());
 
     Descriptor.setAllocaInst(VPAllocaVal);
-    Descriptor.setIsConditional(IsCondPriv);
-    Descriptor.setIsLast(IsLastPriv);
+    Descriptor.setIsConditional(CurValue->isCond());
+    Descriptor.setIsLast(CurValue->isLast());
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(true);
+    if (CurValue->isNonPOD()) {
+      auto *NonPODCurValue = cast<PrivDescrNonPODTy>(CurValue);
+      Descriptor.setCtor(NonPODCurValue->getCtor());
+      Descriptor.setDtor(NonPODCurValue->getDtor());
+      Descriptor.setCopyAssign(NonPODCurValue->getCopyAssign());
+    }
   }
-
-private:
-  bool IsCondPriv;
-  bool IsLastPriv;
 };
 
 class Loop2VPLoopMapper {
 public:
   Loop2VPLoopMapper() = delete;
-  explicit Loop2VPLoopMapper(const Loop *TheLoop, const VPlan *Plan) {
+  explicit Loop2VPLoopMapper(const Loop *TheLoop, const VPlanVector *Plan) {
     DenseMap<const BasicBlock *, const Loop *> Head2Loop;
     // First fill in the header->loop map
     std::function<void(const Loop *)> getLoopHeaders = [&](const Loop *L) {
@@ -504,6 +550,7 @@ using PrivatesConverter  = VPLoopEntitiesConverter<PrivateDescr, Loop, Loop2VPLo
 /// Convert incoming loop entities to the VPlan format.
 void PlainCFGBuilder::convertEntityDescriptors(
     VPOVectorizationLegality *Legal,
+    ScalarEvolution *SE,
     VPlanHCFGBuilder::VPLoopEntityConverterList &Cvts) {
 
   using InductionList = VPOVectorizationLegality::InductionList;
@@ -511,7 +558,6 @@ void PlainCFGBuilder::convertEntityDescriptors(
   using ReductionList = VPOVectorizationLegality::ReductionList;
   using ExplicitReductionList = VPOVectorizationLegality::ExplicitReductionList;
   using InMemoryReductionList = VPOVectorizationLegality::InMemoryReductionList;
-  using PrivatesListTy = VPOVectorizationLegality::PrivatesListTy;
 
   ReductionConverter *RedCvt = new ReductionConverter(Plan);
   InductionConverter *IndCvt = new InductionConverter(Plan);
@@ -521,7 +567,7 @@ void PlainCFGBuilder::convertEntityDescriptors(
 
   const InductionList *IL = Legal->getInductionVars();
   iterator_range<InductionList::const_iterator> InducRange(IL->begin(), IL->end());
-  InductionListCvt InducListCvt(*this);
+  InductionListCvt InducListCvt(*this, Plan, SE);
 
   const LinearListTy *LL = Legal->getLinears();
   iterator_range<LinearListTy::const_iterator> LinearRange(LL->begin(), LL->end());
@@ -544,55 +590,26 @@ void PlainCFGBuilder::convertEntityDescriptors(
   auto ExplicitRedPair = std::make_pair(ExplicitReductionRange, ExpRLCvt);
   auto InMemoryRedPair = std::make_pair(InMemoryReductionRange, IMRLCvt);
 
-  // TODO: VPOLegality stores Privates, LastPrivates and CondPrivates in
-  // different lists. This is different from the way HIRLegality store this
-  // information. Till we have a unified way of storing the information and
-  // accessing it, we will have to do with the following hack where we we go
-  // through the Privates, which is a superset, and check membership of elements
-  // within ConPrivates and LastPrivates. This helps us separate out paivates
-  // based on types. This code will be simplified when we have the correct
-  // implementation for Privates in VPOLegality.
-  const PrivatesListTy &PrivatesList = Legal->getPrivates();
-  const PrivatesListTy &CondPrivatesList = Legal->getCondPrivates();
-  const PrivatesListTy &LastPrivatesList = Legal->getLastPrivates();
-
-  PrivatesListTy NewPrivatesList;
-  PrivatesListTy NewCondPrivatesList;
-  PrivatesListTy NewLastPrivatesList;
-
-  for (auto Val : PrivatesList) {
-    if (CondPrivatesList.count(Val))
-      NewCondPrivatesList.insert(Val);
-    else if (LastPrivatesList.count(Val))
-      NewLastPrivatesList.insert(Val);
-    else
-      NewPrivatesList.insert(Val);
-  }
-
-  iterator_range<PrivatesListTy::const_iterator> PrivatesRange(
-      NewPrivatesList.begin(), NewPrivatesList.end());
-  iterator_range<PrivatesListTy::const_iterator> CondPrivatesRange(
-      NewCondPrivatesList.begin(), NewCondPrivatesList.end());
-  iterator_range<PrivatesListTy::const_iterator> LastPrivatesRange(
-      NewLastPrivatesList.begin(), NewLastPrivatesList.end());
-
   PrivatesListCvt PrivListCvt(*this);
-  PrivatesListCvt CondPrivListCvt(*this, true /*IsCond*/, false /*IsLast*/);
-  PrivatesListCvt LastPrivListCvt(*this, false /*IsCond*/, true /*IsLast*/);
+
+  // Create the iterator-range to the list of privates loop-entities.
+  // FIXME: Uses workaround approach because of known bug with reuse of
+  // map_range, currently used in VPOVectorizationLegality::privates().
+  // Should be simplified once community fix will be provided.
+  SmallVector<const VPOVectorizationLegality::PrivDescrTy *, 8> PvtRawPtrs =
+      llvm::to_vector<8>(Legal->privates());
 
   RedCvt->createDescrList(TheLoop, ReducPair, ExplicitRedPair, InMemoryRedPair);
 
   auto InducPair = std::make_pair(InducRange, InducListCvt);
   auto LinearPair = std::make_pair(LinearRange, LinListCvt);
 
-  auto PrivatesPair = std::make_pair(PrivatesRange, PrivListCvt);
-  auto CondPrivatesPair = std::make_pair(CondPrivatesRange, CondPrivListCvt);
-  auto LastPrivatesPair = std::make_pair(LastPrivatesRange, LastPrivListCvt);
+  auto PrivatesPair = std::make_pair(
+      make_range(PvtRawPtrs.begin(), PvtRawPtrs.end()), PrivListCvt);
 
   IndCvt->createDescrList(TheLoop, InducPair, LinearPair);
 
-  PrivCvt->createDescrList(TheLoop, PrivatesPair, CondPrivatesPair,
-                           LastPrivatesPair);
+  PrivCvt->createDescrList(TheLoop, PrivatesPair);
 
   Cvts.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(RedCvt));
   Cvts.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(IndCvt));
@@ -603,11 +620,17 @@ void VPlanHCFGBuilder::buildPlainCFG(VPLoopEntityConverterList &Cvts) {
   PlainCFGBuilder PCFGBuilder(TheLoop, LI, Plan);
   PCFGBuilder.buildCFG();
   // Converting loop enities.
-  PCFGBuilder.convertEntityDescriptors(Legal, Cvts);
+  PCFGBuilder.convertEntityDescriptors(Legal, SE, Cvts);
 }
 
 void VPlanHCFGBuilder::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
   typedef VPLoopEntitiesConverterTempl<Loop2VPLoopMapper> BaseConverter;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (VPlanPrintLegality) {
+    Legal->dump(dbgs());
+  }
+#endif
 
   Loop2VPLoopMapper Mapper(TheLoop, Plan);
   for (auto &Cvt : Cvts) {

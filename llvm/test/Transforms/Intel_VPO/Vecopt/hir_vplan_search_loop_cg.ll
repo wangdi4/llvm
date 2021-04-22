@@ -1,6 +1,9 @@
 ; RUN: opt < %s -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-last-value-computation \
 ; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -allow-memory-speculation \
 ; RUN:     2>&1 | FileCheck %s
+
+; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" \
+; RUN:     -allow-memory-speculation 2>&1 | FileCheck %s
 ;
 ; Check that search loop idiom was vectorized.
 

@@ -142,10 +142,9 @@ std::string platformInfoToString(pi_platform_info info) {
     return "PI_PLATFORM_INFO_VENDOR";
   case PI_PLATFORM_INFO_EXTENSIONS:
     return "PI_PLATFORM_INFO_EXTENSIONS";
-  default:
-    pi::die("Unknown pi_platform_info value passed to "
-            "cl::sycl::detail::pi::platformInfoToString");
   }
+  die("Unknown pi_platform_info value passed to "
+      "cl::sycl::detail::pi::platformInfoToString");
 }
 
 std::string memFlagToString(pi_mem_flags Flag) {
@@ -464,7 +463,7 @@ std::ostream &operator<<(std::ostream &Out, const DeviceBinaryProperty &P) {
     Out << "[String] ";
     break;
   default:
-    assert("unsupported property");
+    assert(false && "unsupported property");
     return Out;
   }
   Out << P.Prop->Name << "=";
@@ -576,6 +575,22 @@ void DeviceBinaryImage::PropertyRange::init(pi_device_binary Bin,
   End = Begin ? PS->PropertiesEnd : nullptr;
 }
 
+pi_device_binary_property
+DeviceBinaryImage::getProperty(const char *PropName) const {
+  DeviceBinaryImage::PropertyRange BoolProp;
+  BoolProp.init(Bin, __SYCL_PI_PROPERTY_SET_SYCL_MISC_PROP);
+  if (!BoolProp.isAvailable())
+    return nullptr;
+  auto It = std::find_if(BoolProp.begin(), BoolProp.end(),
+                         [=](pi_device_binary_property Prop) {
+                           return !strcmp(PropName, Prop->Name);
+                         });
+  if (It == BoolProp.end())
+    return nullptr;
+
+  return *It;
+}
+
 RT::PiDeviceBinaryType getBinaryImageFormat(const unsigned char *ImgData,
                                             size_t ImgSize) {
   struct {
@@ -609,9 +624,7 @@ void DeviceBinaryImage::init(pi_device_binary Bin) {
     // try to determine the format; may remain "NONE"
     Format = getBinaryImageFormat(Bin->BinaryStart, getSize());
 
-  ScalarSpecConstIDMap.init(Bin, __SYCL_PI_PROPERTY_SET_SCALAR_SPEC_CONST_MAP);
-  CompositeSpecConstIDMap.init(Bin,
-                               __SYCL_PI_PROPERTY_SET_COMPOSITE_SPEC_CONST_MAP);
+  SpecConstIDMap.init(Bin, __SYCL_PI_PROPERTY_SET_SPEC_CONST_MAP);
   DeviceLibReqMask.init(Bin, __SYCL_PI_PROPERTY_SET_DEVICELIB_REQ_MASK);
   KernelParamOptInfo.init(Bin, __SYCL_PI_PROPERTY_SET_KERNEL_PARAM_OPT_INFO);
 }

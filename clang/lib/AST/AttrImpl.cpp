@@ -57,7 +57,16 @@ std::string LoopHintAttr::getValueString(const PrintingPolicy &Policy) const {
   OS << "(";
   if (state == Numeric)
     value->printPretty(OS, nullptr, Policy);
-  else if (state == Enable)
+  else if (state == FixedWidth || state == ScalableWidth) {
+    if (value) {
+      value->printPretty(OS, nullptr, Policy);
+      if (state == ScalableWidth)
+        OS << ", scalable";
+    } else if (state == ScalableWidth)
+      OS << "scalable";
+    else
+      OS << "fixed";
+  } else if (state == Enable)
     OS << "enable";
   else if (state == Full)
     OS << "full";
@@ -104,9 +113,13 @@ LoopHintAttr::getDiagnosticName(const PrintingPolicy &Policy) const {
     return "#pragma fusion";
   else if (SpellingIndex == Pragma_novector)
     return "#pragma novector";
-  else if (SpellingIndex == Pragma_vector)
+  else if (SpellingIndex == Pragma_vector) {
+    if (option != clang::LoopHintAttr::Vectorize) {
+      std::string Name = "#pragma vector ";
+      return Name + getOptionName(option);
+    }
     return "#pragma vector";
-  else if (SpellingIndex == Pragma_loop_count)
+  } else if (SpellingIndex == Pragma_loop_count)
     return getOptionName(option) + getValueString(Policy);
 #endif // INTEL_CUSTOMIZATION
 
@@ -240,6 +253,40 @@ void OMPDeclareVariantAttr::printPrettyPragma(
     OS << ")";
   }
   OS << " match(" << traitInfos << ")";
+#if INTEL_COLLAB
+  auto PrintExprs = [&OS, &Policy](Expr **Begin, Expr **End) {
+    for (Expr **I = Begin; I != End; ++I) {
+      assert(*I && "Expected non-null Stmt");
+      if (I != Begin)
+        OS << ",";
+      (*I)->printPretty(OS, nullptr, Policy);
+    }
+  };
+  auto PrintInteropTypes = [&OS](InteropType *Begin, InteropType *End) {
+    for (InteropType *I = Begin; I != End; ++I) {
+      if (I != Begin)
+        OS << ", ";
+      OS << "interop(";
+      OS << ConvertInteropTypeToStr(*I);
+      OS << ")";
+    }
+  };
+  if (adjustArgsNothing_size()) {
+    OS << " adjust_args(nothing:";
+    PrintExprs(adjustArgsNothing_begin(), adjustArgsNothing_end());
+    OS << ")";
+  }
+  if (adjustArgsNeedDevicePtr_size()) {
+    OS << " adjust_args(need_device_ptr:";
+    PrintExprs(adjustArgsNeedDevicePtr_begin(), adjustArgsNeedDevicePtr_end());
+    OS << ")";
+  }
+  if (appendArgs_size()) {
+    OS << " append_args(";
+    PrintInteropTypes(appendArgs_begin(), appendArgs_end());
+    OS << ")";
+  }
+#endif // INTEL_COLLAB
 }
 
 #include "clang/AST/AttrImpl.inc"

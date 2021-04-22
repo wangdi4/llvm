@@ -5,6 +5,7 @@
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   cmake_minimum_required(VERSION 3.13.4)
 
+  set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
   project(CompilerRTBuiltins C ASM)
   set(COMPILER_RT_STANDALONE_BUILD TRUE)
   set(COMPILER_RT_BUILTINS_STANDALONE_BUILD TRUE)
@@ -57,6 +58,9 @@ if(INTEL_CUSTOMIZATION)
     append_if(LLVM_ENABLE_WERROR -Wno-error CMAKE_C_FLAGS)
   endif()
 endif()
+
+option(COMPILER_RT_BUILTINS_HIDE_SYMBOLS
+  "Do not export any symbols from the static library." ON)
 
 # TODO: Need to add a mechanism for logging errors when builtin source files are
 # added to a sub-directory and not this CMakeLists file.
@@ -496,7 +500,7 @@ if(MINGW)
     arm/aeabi_uldivmod.S
     arm/chkstk.S
     mingw_fixfloat.c
-    ${GENERIC_SOURCES}
+    ${arm_SOURCES}
   )
 elseif(NOT WIN32)
   # TODO the EABI sources should only be added to EABI targets
@@ -523,6 +527,12 @@ set(aarch64_SOURCES
 set(OA_HELPERS_DIR "${CMAKE_CURRENT_BINARY_DIR}/outline_atomic_helpers.dir")
 file(MAKE_DIRECTORY "${OA_HELPERS_DIR}")
 
+if(CMAKE_HOST_UNIX)
+  set(COMPILER_RT_LINK_OR_COPY create_symlink)
+else()
+  set(COMPILER_RT_LINK_OR_COPY copy)
+endif()
+
 foreach(pat cas swp ldadd ldclr ldeor ldset)
   foreach(size 1 2 4 8 16)
     foreach(model 1 2 3 4)
@@ -530,7 +540,7 @@ foreach(pat cas swp ldadd ldclr ldeor ldset)
         set(helper_asm "${OA_HELPERS_DIR}/outline_atomic_${pat}${size}_${model}.S")
         add_custom_command(
           OUTPUT ${helper_asm}
-          COMMAND ${CMAKE_COMMAND} -E create_symlink "${CMAKE_CURRENT_SOURCE_DIR}/aarch64/lse.S" "${helper_asm}"
+          COMMAND ${CMAKE_COMMAND} -E ${COMPILER_RT_LINK_OR_COPY} "${CMAKE_CURRENT_SOURCE_DIR}/aarch64/lse.S" "${helper_asm}"
         )
         set_source_files_properties("${helper_asm}"
           PROPERTIES
@@ -556,6 +566,7 @@ set(armv7s_SOURCES ${arm_SOURCES})
 set(armv7k_SOURCES ${arm_SOURCES})
 set(arm64_SOURCES ${aarch64_SOURCES})
 set(arm64e_SOURCES ${aarch64_SOURCES})
+set(arm64_32_SOURCES ${aarch64_SOURCES})
 
 # macho_embedded archs
 set(armv6m_SOURCES ${thumb1_SOURCES})
@@ -628,7 +639,12 @@ if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "AIX")
 endif()
 set(powerpc64le_SOURCES ${powerpc64_SOURCES})
 
-set(riscv_SOURCES ${GENERIC_SOURCES} ${GENERIC_TF_SOURCES})
+set(riscv_SOURCES
+  riscv/save.S
+  riscv/restore.S
+  ${GENERIC_SOURCES}
+  ${GENERIC_TF_SOURCES}
+)
 set(riscv32_SOURCES
   riscv/mulsi3.S
   ${riscv_SOURCES}
@@ -677,7 +693,7 @@ else ()
       append_list_if(COMPILER_RT_HAS_FPIC_FLAG -fPIC BUILTIN_CFLAGS)
     endif()
     append_list_if(COMPILER_RT_HAS_FNO_BUILTIN_FLAG -fno-builtin BUILTIN_CFLAGS)
-    if(NOT ANDROID)
+    if(COMPILER_RT_BUILTINS_HIDE_SYMBOLS)
       append_list_if(COMPILER_RT_HAS_VISIBILITY_HIDDEN_FLAG -fvisibility=hidden BUILTIN_CFLAGS)
     endif()
     if(NOT COMPILER_RT_DEBUG)
@@ -687,7 +703,7 @@ else ()
 
   set(BUILTIN_DEFS "")
 
-  if(NOT ANDROID)
+  if(COMPILER_RT_BUILTINS_HIDE_SYMBOLS)
     append_list_if(COMPILER_RT_HAS_VISIBILITY_HIDDEN_FLAG VISIBILITY_HIDDEN BUILTIN_DEFS)
   endif()
 
@@ -703,10 +719,11 @@ else ()
           list(REMOVE_ITEM ${arch}_SOURCES ${arm_Thumb1_VFPv2_DP_SOURCES} ${arm_Thumb1_VFPv2_SP_SOURCES} ${arm_Thumb1_SjLj_EH_SOURCES})
         else()
           # Exclude any double-precision builtins if VFP is single-precision-only
-          check_c_source_compiles("#if !(__ARM_FP & 0x8)
+          try_compile_only(COMPILER_RT_HAS_${arch}_VFP_DP
+                           SOURCE "#if !(__ARM_FP & 0x8)
                                    #error No double-precision support!
                                    #endif
-                                   int main() { return 0; }" COMPILER_RT_HAS_${arch}_VFP_DP)
+                                   int main() { return 0; }")
           if(NOT COMPILER_RT_HAS_${arch}_VFP_DP)
             list(REMOVE_ITEM ${arch}_SOURCES ${arm_Thumb1_VFPv2_DP_SOURCES})
           endif()

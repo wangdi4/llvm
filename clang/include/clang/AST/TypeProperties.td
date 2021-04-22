@@ -775,6 +775,10 @@ let Class = BuiltinType in {
       case BuiltinType::ID: return ctx.ID##Ty;
 #include "clang/Basic/PPCTypes.def"
 
+#define RVV_TYPE(NAME, ID, SINGLETON_ID) \
+      case BuiltinType::ID: return ctx.SINGLETON_ID;
+#include "clang/Basic/RISCVVTypes.def"
+
 #define BUILTIN_TYPE(ID, SINGLETON_ID) \
       case BuiltinType::ID: return ctx.SINGLETON_ID;
 #include "clang/AST/BuiltinTypes.def"
@@ -893,39 +897,6 @@ let Class = ChannelType in {
   def : Creator<[{
 		return ctx.getChannelType(elementType);
 	}]>;
-}
-
-let Class = ArbPrecIntType in {
-  def : Property<"underlyingType", QualType> {
-    let Read = [{ node->getUnderlyingType() }];
-  }
-  def : Property<"numBits", UInt32> {
-    let Read = [{ node->getNumBits() }];
-  }
-  def : Property<"attributeLoc", SourceLocation> {
-    let Read = [{ node->getAttributeLoc() }];
-  }
-
-  def : Creator<[{
-    return ctx.getArbPrecIntType(underlyingType, numBits, attributeLoc);
-  }]>;
-}
-
-let Class = DependentSizedArbPrecIntType in {
-  def : Property<"underlyingType", QualType> {
-    let Read = [{ node->getUnderlyingType() }];
-  }
-  def : Property<"numBitsExpr", ExprRef> {
-    let Read = [{ node->getNumBitsExpr() }];
-  }
-  def : Property<"attributeLoc", SourceLocation> {
-    let Read = [{ node->getAttributeLoc() }];
-  }
-
-  def : Creator<[{
-    return ctx.getDependentSizedArbPrecIntType(underlyingType, numBitsExpr,
-                                               attributeLoc);
-  }]>;
 }
 // end INTEL_CUSTOMIZATION
 

@@ -61,10 +61,10 @@ VPValue *VPDecomposerHIR::combineDecompDefs(VPValue *LHS, VPValue *RHS,
 
 // Create a VPConstant for an integer coefficient.
 VPConstant *VPDecomposerHIR::decomposeCoeff(int64_t Coeff, Type *Ty) {
-  assert((Ty->isIntegerTy() || Ty->isPointerTy()) &&
-         "Expected integer or pointer type for coefficient.");
+  assert((Ty->isIntOrIntVectorTy() || Ty->isPtrOrPtrVectorTy()) &&
+         "Expected scalar/vector integer or pointer type for coefficient.");
   // Null value for pointer types needs special treatment
-  if (Coeff == 0 && Ty->isPointerTy())
+  if (Coeff == 0 && Ty->isPtrOrPtrVectorTy())
     return Plan->getVPConstant(Constant::getNullValue(Ty));
 
   return Plan->getVPConstant(ConstantInt::getSigned(Ty, Coeff));
@@ -231,7 +231,7 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
     // Mark that the IV convert needs to be folded into the containing canon
     // expression. This is important for preserving linear canon expressions in
     // generated vector code.
-    cast<VPInstruction>(VPIndVar)->setFoldIVConvert(true);
+    cast<VPInstruction>(VPIndVar)->HIR().setFoldIVConvert(true);
   }
 
   DecompIV = combineDecompDefs(DecompIV, VPIndVar, Ty, Instruction::Mul);
@@ -284,12 +284,12 @@ static void processIVRemoval(CanonExpr *CE, unsigned LoopLevel,
 // Decompose a CanonExpr. Return the last VPValue resulting from its
 // decomposition.
 VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
+  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
   LLVM_DEBUG(dbgs() << "  Decomposing CanonExpr: "; CE->dump(); dbgs() << "\n");
   VPValue *DecompDef = nullptr;
   // Set debug locations for all newly created VPIs from decomposition of this
   // CE.
-  ScopeDbgLoc DbgLoc(Builder, CE->getDebugLoc());
-
+  Builder.setCurrentDebugLocation(CE->getDebugLoc());
   // Return true if we want to force regular decomposition of given
   // canon expression.
   auto forceRegularDecomposition = [](CanonExpr *CE, unsigned VecLoopLevel) {
@@ -488,6 +488,7 @@ static Align getAlignForMemref(RegDDRef *Ref) {
 //    as operand.
 //
 VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
+  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
   LLVM_DEBUG(dbgs() << "VPDecomp: Decomposing memory operand: "; Ref->dump();
              dbgs() << "\n");
 
@@ -496,8 +497,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
 
   // Final VPInstruction obtained on decomposing the MemOp
   VPValue *MemOpVPI;
-  ScopeDbgLoc GepDbgLoc(Builder, Ref->getGepDebugLoc());
-
+  Builder.setCurrentDebugLocation(Ref->getGepDebugLoc());
   VPValue *DecompBaseCE = decomposeCanonExpr(Ref, Ref->getBaseCE());
 
   LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompBaseCE: "; DecompBaseCE->dump();
@@ -601,7 +601,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   if (Ref->isAddressOf())
     return MemOpVPI;
 
-  ScopeDbgLoc DbgLoc(Builder, Ref->getMemDebugLoc());
+  Builder.setCurrentDebugLocation(Ref->getMemDebugLoc());
 
   if (Ref->isRval()) {
     // If memory reference is an RVal, then it corresponds to a load. Create a
@@ -614,7 +614,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
 
     // Save away scalar memref symbase and original alignment for later use.
     auto *MemOpVPInst = cast<VPLoadStoreInst>(MemOpVPI);
-    MemOpVPInst->setSymbase(Ref->getSymbase());
+    MemOpVPInst->HIR().setSymbase(Ref->getSymbase());
     MemOpVPInst->setAlignment(getAlignForMemref(Ref));
 
     // FIXME: This special-casing for loads that are HLInst is becoming more
@@ -627,7 +627,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
     auto *HInst = dyn_cast<HLInst>(Ref->getHLDDNode());
     if (!HInst || !isa<LoadInst>(HInst->getLLVMInstruction()) ||
         HInst->getRvalDDRef() != Ref)
-      cast<VPInstruction>(MemOpVPI)->HIR.setOperandDDR(Ref);
+      cast<VPInstruction>(MemOpVPI)->HIR().setOperandDDR(Ref);
   }
 
   LLVM_DEBUG(dbgs() << "VPDecomp: MemOpVPI: "; MemOpVPI->dump();
@@ -763,7 +763,7 @@ void VPDecomposerHIR::setMasterForDecomposedVPIs(
     // DecompVPI is a new VPInstruction at this point. To be marked as
     // decomposed VPInstruction with the following 'setMaster'.
     assert(DecompVPI.isNew() && "Expected new VPInstruction!");
-    DecompVPI.HIR.setMaster(MasterVPI);
+    DecompVPI.HIR().setMaster(MasterVPI);
   }
 }
 
@@ -850,7 +850,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       // Set the underlying DDNode for the load instruction since it may be
       // master VPI for this node which will be the case if DDNode is non-null.
       if (DDNode)
-        NewVPInst->HIR.setUnderlyingNode(DDNode);
+        NewVPInst->HIR().setUnderlyingNode(DDNode);
     } else if (isa<StoreInst>(LLVMInst)) {
       // Decompose store instruction into VPLoadStoreInst.
       assert(VPOperands.size() == 2 &&
@@ -861,7 +861,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
         if (IntrinCall->getIntrinsicID() == Intrinsic::intel_subscript) {
           NewVPInst = cast<VPSubscriptInst>(VPOperands[0]);
           // Make subscript the master instruction since it was already created.
-          NewVPInst->HIR.setUnderlyingNode(DDNode);
+          NewVPInst->HIR().setUnderlyingNode(DDNode);
           return NewVPInst;
         }
       }
@@ -899,11 +899,11 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   };
 
   if (auto *HInst = dyn_cast<HLInst>(Node)) {
+    VPBuilder::DbgLocGuard DbgLocGuard(Builder);
     const Instruction *LLVMInst = HInst->getLLVMInstruction();
     assert(LLVMInst && "Missing LLVM Instruction for HLInst.");
-
     // Set debug location for VPInstruction generated for given HLInst.
-    ScopeDbgLoc DbgLoc(Builder, HInst->getDebugLoc());
+    Builder.setCurrentDebugLocation(HInst->getDebugLoc());
 
     // Any LLVM instruction which semantically has a terminal lval/rval can
     // alternatively contain a memref operand in HIR. For example, an add
@@ -932,13 +932,13 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
     if (LvalDDR) {
       // Set Lval DDRef as VPOperandHIR for this VPInstruction. This includes
       // standalone loads.
-      NewVPInst->HIR.setOperandDDR(LvalDDR);
+      NewVPInst->HIR().setOperandDDR(LvalDDR);
 
       // Save away scalar memref symbase and original alignment for later use.
       if (NewVPInst->getOpcode() == Instruction::Store) {
         assert(LvalDDR->isMemRef() &&
                "Expected Lval of a store HLInst to be a memref");
-        NewVPInst->setSymbase(LvalDDR->getSymbase());
+        NewVPInst->HIR().setSymbase(LvalDDR->getSymbase());
         cast<VPLoadStoreInst>(NewVPInst)->setAlignment(
             getAlignForMemref(LvalDDR));
       }
@@ -950,7 +950,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       }
     } else if (RegDDRef *RvalDDR = HInst->getRvalDDRef())
       // Set single Rval as VPOperandHIR for HLInst without Lval DDRef.
-      NewVPInst->HIR.setOperandDDR(RvalDDR);
+      NewVPInst->HIR().setOperandDDR(RvalDDR);
   } else if (auto *HIf = dyn_cast<HLIf>(DDNode))
     // Handle decomposition of HLIf node.
     NewVPInst = createVPInstsForHLIf(HIf, VPOperands);
@@ -971,11 +971,12 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
 VPInstruction *
 VPDecomposerHIR::createVPInstsForHLIf(HLIf *HIf,
                                       ArrayRef<VPValue *> VPOperands) {
+  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
   // Check if number of operands for a HLIf is twice the number of its
   // predicates
   assert((HIf->getNumPredicates() * 2 == VPOperands.size()) &&
          "Incorrect number of operands for a HLIf");
-  ScopeDbgLoc DbgLoc(Builder, HIf->getDebugLoc());
+  Builder.setCurrentDebugLocation(HIf->getDebugLoc());
 
   auto FirstPred = HIf->pred_begin();
   // Create a new VPCmpInst corresponding to the first predicate
@@ -1006,7 +1007,7 @@ VPDecomposerHIR::createVPInstsForHLIf(HLIf *HIf,
 
   // Set underlying HLDDNode for current VPInst since it's the last created
   // instruction for decomposition of this HLIf
-  CurVPInst->HIR.setUnderlyingNode(HIf);
+  CurVPInst->HIR().setUnderlyingNode(HIf);
   return CurVPInst;
 }
 
@@ -1173,7 +1174,7 @@ void VPDecomposerHIR::createLoopIVAndIVStart(HLLoop *HLp, VPBasicBlock *LpPH) {
   IndVPPhi->addIncoming(IVStart, LpPH);
   assert(!HLLp2IVPhi.count(HLp) && "HLLoop has multiple IVs?");
   HLLp2IVPhi[HLp] = IndVPPhi;
-  IndVPPhi->HIR.setValid();
+  IndVPPhi->HIR().setValid();
 }
 
 VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
@@ -1207,14 +1208,28 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   // created VPInstruction. Only normalized loops are expected so we use step 1.
   assert(HLp->getStrideCanonExpr()->isOne() &&
          "Expected positive unit-stride HLLoop.");
+  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
   Builder.setInsertPoint(LpLatch);
-  ScopeDbgLoc DbgLocBottomTest(Builder, HLp->getCmpDebugLoc());
+  Builder.setCurrentDebugLocation(HLp->getCmpDebugLoc());
   VPConstant *One =
       Plan->getVPConstant(ConstantInt::getSigned(HLp->getIVType(), 1));
   auto *IVNext = cast<VPInstruction>(Builder.createAdd(IndVPPhi, One, HLp));
 
   // Add IVNext to induction PHI.
   IndVPPhi->addIncoming(IVNext, LpLatch);
+
+  // Get the IV range.
+  CanonExpr *LowerCE = HLp->getLowerCanonExpr();
+  CanonExpr *UpperCE = HLp->getUpperCanonExpr();
+  int64_t Lower;
+  int64_t Upper;
+  VPValue *StartVal = nullptr;
+  VPValue *EndVal = nullptr;
+  if (LowerCE->isIntConstant(&Lower))
+    StartVal = Plan->getVPConstant(ConstantInt::get(HLp->getIVType(), Lower));
+
+  if (UpperCE->isIntConstant(&Upper))
+    EndVal = Plan->getVPConstant(ConstantInt::get(HLp->getIVType(), Upper));
 
   // Add to the induction descriptors. Push it at the beginning as main
   // induction.
@@ -1225,7 +1240,8 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
       IndList->begin(),
       std::make_unique<VPInductionHIR>(
           IVNext, One,
-          Plan->getVPConstant(Constant::getNullValue(HLp->getIVType()))));
+          Plan->getVPConstant(Constant::getNullValue(HLp->getIVType())),
+          StartVal, EndVal));
 
   // Create VPValue for bottom test condition. If decomposition is needed:
   //   1) decompose UB operand. Decomposed VPInstructions are inserted into the
@@ -1257,19 +1273,19 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   if (auto *DecompUBVPI = dyn_cast<VPInstruction>(DecompUB)) {
     // #3. Turn last decomposed VPInstruction of UB as master VPInstruction of
     // the decomposed group.
-    DecompUBVPI->HIR.setUnderlyingNode(HLp);
+    DecompUBVPI->HIR().setUnderlyingNode(HLp);
 
     // Set DecompUBVPI as master VPInstruction of any other decomposed
     // VPInstruction of UB.
     setMasterForDecomposedVPIs(DecompUBVPI, LastVPIBeforeDec, LpPH);
-    DecompUBVPI->HIR.setValid();
+    DecompUBVPI->HIR().setValid();
   }
 
   // Set the underlying HIR of the new VPInstructions (and its potential
   // decomposed VPInstructions) to valid.
-  IndVPPhi->HIR.setValid();
-  IVNext->HIR.setValid();
-  BottomTest->HIR.setValid();
+  IndVPPhi->HIR().setValid();
+  IVNext->HIR().setValid();
+  BottomTest->HIR().setValid();
   return BottomTest;
 }
 
@@ -1346,13 +1362,13 @@ void VPDecomposerHIR::computeLiveInBlocks(
     // find out which comes first
     for (auto &VPI : *VPBB) {
       // Underlying HIR is not attached to non-master VPInstructions
-      if (!VPI.HIR.isMaster())
+      if (!VPI.HIR().isMaster())
         continue;
       // We don't need to analyze non DDNode nodes like HLGoto
-      if (!isa<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode()))
+      if (!isa<loopopt::HLDDNode>(VPI.HIR().getUnderlyingNode()))
         continue;
 
-      HLDDNode *DDNode = cast<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode());
+      HLDDNode *DDNode = cast<loopopt::HLDDNode>(VPI.HIR().getUnderlyingNode());
       // We reverse iterate over the DDRefs of the node to handle reduction
       // scenarios. For example - %t1 = %5 + %t1 If current symbase is for
       // %t1, forward iterating over DDRefs would incorrectly recognize it
@@ -1461,13 +1477,13 @@ void VPDecomposerHIR::addIDFPhiNodes() {
   // underlying HIR nodes of each VPBB
   for (VPBasicBlock *VPBB : depth_first(PlanEntry)) {
     for (auto &VPI : *VPBB) {
-      if (!VPI.HIR.isMaster())
+      if (!VPI.HIR().isMaster())
         continue;
       // We don't need to analyze non DDNode nodes like HLGoto
-      if (!isa<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode()))
+      if (!isa<loopopt::HLDDNode>(VPI.HIR().getUnderlyingNode()))
         continue;
 
-      HLDDNode *DDNode = cast<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode());
+      HLDDNode *DDNode = cast<loopopt::HLDDNode>(VPI.HIR().getUnderlyingNode());
       if (DDNode->hasLval()) {
         unsigned Sym = DDNode->getLvalDDRef()->getSymbase();
         if (TrackedSymbases.count(Sym)) {
@@ -1578,10 +1594,11 @@ void VPDecomposerHIR::createExitPhisForExternalUses(VPBasicBlock *ExitBB) {
     auto *HIROpBlob = cast<VPBlob>(HIROp);
     DDRef *DDR = const_cast<DDRef *>(HIROpBlob->getBlob());
 
-    // If the live-out temp is also live-in, then proactively create a
-    // ExternalDef for it since it need not have any uses inside the loop.
-    if (OutermostHLp->isLiveIn(DDR->getSymbase()))
-      getVPExternalDefForDDRef(DDR);
+    // Always create ExternalDef for live-out symbases.
+    // TODO: This may lead to incorrect IR if ExternalDef of a liveout symbase
+    // is needed as r-val for any initialization/finalization. We may need to
+    // use undef instead in such cases.
+    Plan->getVPExternalDefForDDRef(DDR);
 
     auto *ExitPhi = getOrCreateEmptyPhiForDDRef(ExtUse->getType(), ExitBB, DDR);
     LLVM_DEBUG(dbgs() << "Empty PHI was created for live out temp: ";
@@ -1678,7 +1695,7 @@ void VPDecomposerHIR::fixPhiNodes() {
   } while (!PhiNodePassWorkList.empty());
 
   // TODO: validate correctness of the PHI nodes after fixing, also set their
-  // master VPI's HIR to valid (VPPhi->HIR.getMaster()->HIR.setValid())
+  // master VPI's HIR to valid (VPPhi->HIR().getMaster()->HIR().setValid())
   for (auto PhiMapIt : PhisToFix) {
     VPPHINode *FixedPhi = PhiMapIt.second.first;
 
@@ -1714,14 +1731,14 @@ void VPDecomposerHIR::fixPhiNodes() {
                  FixedPhi->dump(); dbgs() << "\n");
       HLDDNode *FirstDefNode = nullptr;
       for (auto &VPI : *(FixedPhi->getParent())) {
-        if (!VPI.HIR.isMaster())
+        if (!VPI.HIR().isMaster())
           continue;
 
-        if (!isa<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode()))
+        if (!isa<loopopt::HLDDNode>(VPI.HIR().getUnderlyingNode()))
           continue;
 
         HLDDNode *DDNode =
-            cast<loopopt::HLDDNode>(VPI.HIR.getUnderlyingNode());
+            cast<loopopt::HLDDNode>(VPI.HIR().getUnderlyingNode());
         if (DDNode->hasLval()) {
           unsigned Sym = DDNode->getLvalDDRef()->getSymbase();
           if (Sym == PhiToSymbaseMap[FixedPhi]) {
@@ -1900,9 +1917,9 @@ void VPDecomposerHIR::fixPhiNodePass(
   for (auto &VPI : *VPBB) {
     LLVM_DEBUG(dbgs() << "fixPhiNodePass: VPI: "; VPI.dump());
 
-    if (VPI.HIR.isMaster()) {
+    if (VPI.HIR().isMaster()) {
       if (auto *HInst =
-              dyn_cast<loopopt::HLInst>(VPI.HIR.getUnderlyingNode())) {
+              dyn_cast<loopopt::HLInst>(VPI.HIR().getUnderlyingNode())) {
         // If HLInst has no Lval then ignore the instruction and move to next
         // master VPI
         if (!HInst->hasLval())
@@ -2022,7 +2039,7 @@ VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
 
   // Set the underlying HIR of the new VPInstruction (and its potential
   // decomposed VPInstructions) to valid.
-  NewVPInst->HIR.setValid();
+  NewVPInst->HIR().setValid();
   return NewVPInst;
 }
 

@@ -37,8 +37,8 @@ entry:
 
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_ADDR:ARRSECT"(i32** %b, i64 1, i64 0, i64 1, i64 1) ]
 
-; Check that the map created for %b has the correct map-type (96)
-; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 96]
+; Check that the map created for %b has the correct map-type (64)
+; CHECK: @.offload_maptypes = private unnamed_addr constant [1 x i64] [i64 64]
 
 ; Check that there is a new copy of %b created.
 ; CHECK: %b.new = alloca i32*

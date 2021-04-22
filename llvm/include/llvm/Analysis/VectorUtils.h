@@ -187,12 +187,13 @@ Optional<VFInfo> tryDemangleForVFABI(StringRef MangledName, const Module &M);
 /// <isa> = "_LLVM_"
 /// <mask> = "N". Note: TLI does not support masked interfaces.
 /// <vlen> = Number of concurrent lanes, stored in the `VectorizationFactor`
-///          field of the `VecDesc` struct.
+///          field of the `VecDesc` struct. If the number of lanes is scalable
+///          then 'x' is printed instead.
 /// <vparams> = "v", as many as are the numArgs.
 /// <scalarname> = the name of the scalar function.
 /// <vectorname> = the name of the vector function.
 std::string mangleTLIVectorName(StringRef VectorName, StringRef ScalarName,
-                                unsigned numArgs, unsigned VF);
+                                unsigned numArgs, ElementCount VF);
 
 /// Retrieve the `VFParamKind` from a string token.
 VFParamKind getVFParamKindFromString(const StringRef Token);
@@ -307,7 +308,7 @@ typedef unsigned ID;
 /// the incoming type is void, we return void. If the EC represents a
 /// scalar, we return the scalar type.
 inline Type *ToVectorTy(Type *Scalar, ElementCount EC) {
-  if (Scalar->isVoidTy() || EC.isScalar())
+  if (Scalar->isVoidTy() || Scalar->isMetadataTy() || EC.isScalar())
     return Scalar;
   return VectorType::get(Scalar, EC);
 }
@@ -574,18 +575,18 @@ unsigned getPumpFactor(StringRef FnName, bool IsMasked, unsigned VF,
 /// 'addrspacecast' on pointers.
 template <typename CastInstTy> Value *getPtrThruCast(Value *Ptr);
 
-/// We need to preserve call-site attributes, except the ones "consumed" by the
-/// vectorizer itself (like vector-variants). Copy ones that should be preserved
-/// from \p OrigCall to \p VecCall. All attributes in the parameters of the
-/// \p OrigCall is copied one by one to \p VecCall.
-void copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall);
+/// We need to set call-site attributes, except the ones "consumed" by the
+/// vectorizer itself (like vector-variants). Set ones that should be preserved
+/// from \p Attrs to \p VecCall. All attributes in the list of \p Attrs is
+/// copied one by one to \p VecCall.
+void setRequiredAttributes(AttributeList Attrs, CallInst *VecCall);
 
-/// Copy attributes of function and return value from \p OrigCall to \p VecCall
+/// Set attributes of function and return value from \p Attrs to \p VecCall
 /// (except the ones "consumed" by the vectorizer itself (like
 /// vector-variants)). Set attributes of parameters in \p VecCall to
 /// \p AttrArgs.
-void copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall,
-                            ArrayRef<AttributeSet> AttrArgs);
+void setRequiredAttributes(AttributeList Attrs, CallInst *VecCall,
+                           ArrayRef<AttributeSet> AttrArgs);
 
 // Common utilities to manipulate vectors
 
@@ -844,6 +845,11 @@ public:
       return false;
     int32_t Key = *MaybeKey;
 
+    // Skip if the key is used for either the tombstone or empty special values.
+    if (DenseMapInfo<int32_t>::getTombstoneKey() == Key ||
+        DenseMapInfo<int32_t>::getEmptyKey() == Key)
+      return false;
+
     // Skip if there is already a member with the same index.
     if (Members.find(Key) != Members.end())
       return false;
@@ -879,11 +885,7 @@ public:
   /// \returns nullptr if contains no such member.
   InstTy *getMember(uint32_t Index) const {
     int32_t Key = SmallestKey + Index;
-    auto Member = Members.find(Key);
-    if (Member == Members.end())
-      return nullptr;
-
-    return Member->second;
+    return Members.lookup(Key);
   }
 
   /// Get the index for the given member. Unlike the key in the member
@@ -1001,9 +1003,7 @@ public:
   /// \returns nullptr if doesn't have such group.
   InterleaveGroup<Instruction> *
   getInterleaveGroup(const Instruction *Instr) const {
-    if (InterleaveGroupMap.count(Instr))
-      return InterleaveGroupMap.find(Instr)->second;
-    return nullptr;
+    return InterleaveGroupMap.lookup(Instr);
   }
 
   iterator_range<SmallPtrSetIterator<llvm::InterleaveGroup<Instruction> *>>

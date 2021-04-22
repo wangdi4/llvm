@@ -1,6 +1,6 @@
 //===---- Intel_ArgumentAlignment.cpp - Intel Compute Alignment      -*----===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -178,6 +178,7 @@ public:
   ~ArgumentAlignment() {
     for (auto *Candidate : Candidates)
       delete Candidate;
+    Candidates.clear();
   }
 
 private:
@@ -1011,8 +1012,12 @@ void ArgumentAlignment::analyzeCandidates(
     }
 
     if (!ValidCandidate) {
+      AlignedArgument* OldCandidate = *Candidate;
       Candidate = Candidates.erase(Candidate);
       CandEnd = Candidates.end();
+
+      if (OldCandidate)
+        delete OldCandidate;
     } else {
       ++Candidate;
     }

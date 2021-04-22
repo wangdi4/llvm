@@ -68,7 +68,7 @@ def lldltocache : P<"lldltocache",
 def lldltocachepolicy : P<"lldltocachepolicy",
     "Pruning policy for the ThinLTO cache">;
 def lldsavetemps : F<"lldsavetemps">,
-    HelpText<"Save temporary files instead of deleting them">;
+    HelpText<"Save intermediate LTO compilation results">;
 def machine : P<"machine", "Specify target platform">;
 def merge   : P<"merge", "Combine sections">;
 def mllvm   : P<"mllvm", "Options to pass to LLVM">;
@@ -239,8 +239,12 @@ def thinlto_prefix_replace: P<
 def lto_obj_path : P<
     "lto-obj-path",
     "output native object for merged LTO unit to this path">;
+def lto_cs_profile_generate: F<"lto-cs-profile-generate">,
+    HelpText<"Perform context sensitive PGO instrumentation">;
+def lto_cs_profile_file : P<"lto-cs-profile-file",
+    "Context sensitive profile file path">;
 def dash_dash_version : Flag<["--"], "version">,
-  HelpText<"Print version information">;
+  HelpText<"Display the version number and exit">;
 def threads
     : P<"threads", "Number of threads. '1' disables multi-threading. By "
                    "default all available hardware threads are used">;
@@ -297,3 +301,60 @@ def tlbid : QF<"tlbid">;
 def tlbout : QF<"tlbout">;
 def verbose_all : QF<"verbose">;
 def guardsym : QF<"guardsym">;
+
+#if INTEL_CUSTOMIZATION
+//=============================================================================
+// Using the flags below will cause a warning to be printed saying that they
+// will be ignored. This is for compatibility with MS LINK.
+//
+//   If the flag doesn't need an extra arguments
+//     def NAME_OF_OPTION : IntelLLDWarnMessage<"NAME_OF_OPTION">
+//
+//   If the flag does need an extra argument
+//     def NAME_OF_OPTION :  IntelLLDWarnMessageArgs<"NAME_OF_OPTION">
+//
+// If the flag has both options (with and without extra arguments) then both
+// forms need to be added.
+//
+// NOTE: These changes are proposed to the community in
+// https://reviews.llvm.org/D94610 . A new patch that removes the Intel marks
+// will be uploaded once the changes land in the community.
+//=============================================================================
+
+// Define the intelLLDWarnMessageGroup group. This group is used to identify
+// all the flags that we want to print the warning message.
+def intelLLDWarnMessageGroup : OptionGroup<"intelLLDWarnMessageGroup">;
+
+// Class for options that won't require extra arguments
+class IntelLLDWarnMessage<string name> : F<name> {
+  OptionGroup Group = intelLLDWarnMessageGroup;
+}
+
+// Class for options that require an extra argument
+class IntelLLDWarnMessageArgs<string name> : QF<name> {
+  OptionGroup Group = intelLLDWarnMessageGroup;
+}
+
+def assemblydebug : IntelLLDWarnMessage<"assemblydebug">;
+def assemblydebug_args : IntelLLDWarnMessageArgs<"assemblydebug">;
+def assemblymodule : IntelLLDWarnMessageArgs<"assemblymodule">;
+def assemblyresource : IntelLLDWarnMessageArgs<"assemblyresource">;
+def clrimagetype : IntelLLDWarnMessageArgs<"clrimagetype">;
+def clrsupportlasterror : IntelLLDWarnMessage<"clrsupportlasterror">;
+def clrsupportlasterror_args : IntelLLDWarnMessageArgs<"clrsupportlasterror">;
+def clrthreadattribute : IntelLLDWarnMessageArgs<"clrthreadattribute">;
+def clrunmanagedcodecheck : IntelLLDWarnMessage<"clrunmanagedcodecheck">;
+def delaysign : IntelLLDWarnMessage<"delaysign">;
+def delaysign_args : IntelLLDWarnMessageArgs<"delaysign">;
+def keycontainer : IntelLLDWarnMessageArgs<"keycontainer">;
+def keyfile : IntelLLDWarnMessageArgs<"keyfile">;
+def mapinfo : IntelLLDWarnMessageArgs<"mapinfo">;
+def midl : IntelLLDWarnMessageArgs<"midl">;
+def noassembly : IntelLLDWarnMessage<"noassembly">;
+def release : IntelLLDWarnMessage<"release">;
+def winmddelaysign: IntelLLDWarnMessage<"winmddelaysign">;
+def winmddelaysign_args : IntelLLDWarnMessageArgs<"winmddelaysign">;
+def winmdfile : IntelLLDWarnMessageArgs<"winmdfile">;
+def winmdkeycontainer : IntelLLDWarnMessageArgs<"winmdkeycontainer">;
+def winmdkeyfile : IntelLLDWarnMessageArgs<"winmdkeyfile">;
+#endif // INTEL_CUSTOMIZATION

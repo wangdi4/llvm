@@ -39,16 +39,14 @@
 // RUN:  FileCheck -check-prefix=CHECK-AX %s
 // CHECK-AX: argument unused
 
-// -fpermissive support
-// RUN: %clang -### -c -fpermissive %s 2>&1 | FileCheck -check-prefix CHECK-FPERMISSIVE %s
-// CHECK-FPERMISSIVE: "-gnu-permissive"
-
 // -Qfreestanding
 // RUN: %clang_cl -### -c -Qfreestanding %s 2>&1 | FileCheck -check-prefix CHECK-QFREESTANDING %s
 // CHECK-QFREESTANDING: "-ffreestanding"
 
 // -Qcommon
 // RUN: %clang_cl -### -c -Qcommon %s 2>&1 | FileCheck -check-prefix CHECK-QCOMMON %s
+// RUN: %clang_cl -### -c -Qcommon- %s 2>&1 | FileCheck -check-prefix CHECK-QCOMMON-OFF %s
+// CHECK-QCOMMON-OFF-NOT: "-fcommon"
 // CHECK-QCOMMON: "-fcommon"
 
 // Behavior with -ipo/Qipo option
@@ -132,7 +130,14 @@
 // RUN: %clang -### --intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
 // RUN: %clangxx -### --dpcpp -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
 // RUN: %clangxx -### --dpcpp -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
+// RUN: %clang -### --intel -shared-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
+// RUN: %clangxx -### --dpcpp -shared-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
 // CHECK-LIMF: "-limf" "-lm"
+
+// Behavior with -lm -static-intel
+// RUN: %clang -### --intel -static-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC %s
+// RUN: %clangxx -### --dpcpp -static-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC %s
+// CHECK-LIMF-STATIC: "-Bstatic" "-limf" "-Bdynamic" "-lm"
 
 // Verify that /Qm32 and /Qm64 are accepted - these are aliases to -m32 and -m64
 // and the true functionality is tested in cl-x86-arch.c
@@ -632,3 +637,44 @@
 // PARALLEL_SOURCE_INFO0: "-mllvm" "-parallel-source-info=0"
 // PARALLEL_SOURCE_INFO1: "-mllvm" "-parallel-source-info=1"
 // PARALLEL_SOURCE_INFO2: "-mllvm" "-parallel-source-info=2"
+
+// -i_save-temps /Q_save-temps
+// RUN: %clang -target x86_64-unknown-linux-gnu -i_save-temps %s -### 2>&1 \
+// RUN:   | FileCheck -check-prefixes=SAVE_TEMPS,SAVE_TEMPS_LIN %s
+// RUN: %clang_cl --target=x86_64-pc-windows-msvc -Q_save-temps %s -### 2>&1 \
+// RUN:   | FileCheck -check-prefixes=SAVE_TEMPS,SAVE_TEMPS_WIN %s
+// SAVE_TEMPS: "-o" "intel-options.i"
+// SAVE_TEMPS: "-emit-llvm-uselists"
+// SAVE_TEMPS: "-disable-llvm-passes"
+// SAVE_TEMPS: "-o" "intel-options.bc"
+// SAVE_TEMPS_LIN: "-o" "intel-options.s"
+// SAVE_TEMPS_LIN: "-o" "intel-options.o"
+// SAVE_TEMPS_LIN: "-o" "a.out"
+// SAVE_TEMPS_WIN: "-o" "intel-options.asm"
+// SAVE_TEMPS_WIN: "-o" "intel-options.obj"
+// SAVE_TEMPS_WIN: "-out:intel-options.exe"
+
+// -fuse-unaligned-vector-move fno-use-unaligned-vector-move
+// RUN: %clang -### -target x86_64-unknown-linux -fuse-unaligned-vector-move -c %s 2>&1 | FileCheck -check-prefix=UNALIGNED_VECTOR_MOVE %s
+// RUN: %clang_cl -### --target=x86_64-pc-windows-msvc -fuse-unaligned-vector-move -c %s 2>&1 | FileCheck -check-prefix=UNALIGNED_VECTOR_MOVE %s
+// RUN: %clang -### -target x86_64-unknown-linux --intel -c %s 2>&1 | FileCheck -check-prefix=UNALIGNED_VECTOR_MOVE %s
+// UNALIGNED_VECTOR_MOVE: "-mllvm" "-x86-enable-unaligned-vector-move=true"
+// RUN: %clang -### -target x86_64-unknown-linux -fuse-unaligned-vector-move -flto %s 2>&1 | FileCheck -check-prefix=LTO_MUNALIGNED_VECTOR_MOVE %s
+// RUN: %clang -### -target x86_64-unknown-linux --intel -flto %s 2>&1 | FileCheck -check-prefix=LTO_MUNALIGNED_VECTOR_MOVE %s
+// LTO_MUNALIGNED_VECTOR_MOVE: "-plugin-opt=-x86-enable-unaligned-vector-move=true"
+// RUN: %clang -### -target x86_64-unknown-linux -fno-use-unaligned-vector-move -c %s 2>&1 | FileCheck -check-prefix=NO_UNALIGNED_VECTOR_MOVE %s
+// RUN: %clang_cl -### --target=x86_64-pc-windows-msvc -fno-use-unaligned-vector-move -c %s 2>&1 | FileCheck -check-prefix=NO_UNALIGNED_VECTOR_MOVE %s
+// NO_UNALIGNED_VECTOR_MOVE: "-mllvm" "-x86-enable-unaligned-vector-move=false"
+// RUN: %clang -### -target x86_64-unknown-linux -fno-use-unaligned-vector-move -flto %s 2>&1 | FileCheck -check-prefix=LTO_NO_MUNALIGNED_VECTOR_MOVE %s
+// LTO_NO_MUNALIGNED_VECTOR_MOVE: "-plugin-opt=-x86-enable-unaligned-vector-move=false"
+
+// -vec-threshold
+// RUN: %clang -### -vec-threshold101 -c %s 2>&1 \
+// RUN:    | FileCheck -check-prefix=VEC_THRESHOLD %s
+// RUN: %clang -### -vec-threshold=101 -c %s 2>&1 \
+// RUN:    | FileCheck -check-prefix=VEC_THRESHOLD %s
+// RUN: %clang_cl -### -Qvec-threshold101 -c %s 2>&1 \
+// RUN:    | FileCheck -check-prefix=VEC_THRESHOLD %s
+// RUN: %clang_cl -### -Qvec-threshold:101 -c %s 2>&1 \
+// RUN:    | FileCheck -check-prefix=VEC_THRESHOLD %s
+// VEC_THRESHOLD: "-mllvm" "-vec-threshold=101"

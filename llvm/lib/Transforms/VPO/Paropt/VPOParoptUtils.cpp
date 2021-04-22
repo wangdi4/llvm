@@ -100,7 +100,10 @@ static cl::opt<bool> SwitchToOffload(
     "switch-to-offload", cl::Hidden, cl::init(false),
     cl::desc("switch to offload mode (default = false)"));
 
-static const unsigned StackAdjustedAlignment = 16;
+// Enables the emission of tgt_push_code_location calls.
+static cl::opt<bool> PushCodeLocation(
+    "vpo-paropt-enable-push-code-location", cl::Hidden, cl::init(true),
+    cl::desc("Emit calls to __tgt_push_code_location()"));
 
 // If module M has a StructType of name Name, and element types ElementTypes,
 // return it.
@@ -544,9 +547,9 @@ CallInst *VPOParoptUtils::genTgtTargetDataBegin(
     Value *ArgsMaptype, Value *ArgsNames, Value *ArgsMappers,
     Instruction *InsertPt) {
   assert((isa<WRNTargetDataNode>(W) || isa<WRNTargetEnterDataNode>(W) ||
-                                        isa<WRNTargetVariantNode>(W)) &&
+          isa<WRNTargetVariantNode>(W) || isa<WRNDispatchNode>(W)) &&
          "Expected a WRNTargetDataNode or WRNTargetEnterDataNode"
-                                        "or WRNTargetVariantNode");
+         "or WRNTargetVariantNode or WRNDispatchNode");
   Value *DeviceID = W->getDevice();
   CallInst *Call =
       genTgtCall("__tgt_target_data_begin", W, DeviceID, NumArgs, ArgsBase,
@@ -559,10 +562,9 @@ CallInst *VPOParoptUtils::genTgtTargetDataEnd(
     Value *ArgsMaptype, Value *ArgsNames, Value *ArgsMappers,
     Instruction *InsertPt) {
   assert((isa<WRNTargetDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
-          isa<WRNTargetVariantNode>(W)) &&
-         "Expected a WRNTargetDataNode or WRNTargetExitDataNode"
-                                       "or WRNTargetVariantNode");
-
+          isa<WRNTargetVariantNode>(W) || isa<WRNDispatchNode>(W)) &&
+         "Expected a WRNTargetDataNode or WRNTargetEnterDataNode"
+         "or WRNTargetVariantNode or WRNDispatchNode");
   Value *DeviceID = W->getDevice();
   CallInst *Call =
       genTgtCall("__tgt_target_data_end", W, DeviceID, NumArgs, ArgsBase, Args,
@@ -859,10 +861,11 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
   CallInst *Call = genCall(Name, ReturnTy, FnArgs, FnArgTypes, InsertPt);
   // TODO: Disable this extra call for code-location once ident_t sent
   // via the mapper APIs provides enough information, and is stable.
-  CallInst *CallPushCodeLocation = genTgtPushCodeLocation(InsertPt, Call);
-  LLVM_DEBUG(dbgs() << "\nGenerating: " << *CallPushCodeLocation << "\n");
-  (void)CallPushCodeLocation;
-
+  if(PushCodeLocation) {
+    CallInst *CallPushCodeLocation = genTgtPushCodeLocation(InsertPt, Call);
+    LLVM_DEBUG(dbgs() << "\nGenerating: " << *CallPushCodeLocation << "\n");
+    (void)CallPushCodeLocation;
+  }
   return Call;
 }
 
@@ -957,7 +960,6 @@ CallInst *VPOParoptUtils::genTgtRegGeneric(Value *Desc, Instruction *InsertPt,
 //   "_Z14get_local_sizej"
 //   "_Z14get_num_groupsj"
 //   "_Z12get_group_idj"
-//   "_Z18work_group_barrierj"
 //   "_Z9mem_fencej"
 //   "_Z14read_mem_fencej"
 //   "_Z15write_mem_fencej".
@@ -1079,6 +1081,61 @@ CallInst *VPOParoptUtils::genTgtReleaseBuffer(Value *DeviceNum,
 }
 
 // Generate a call to
+// omp_interop_t __tgt_create_interop(
+//    int64_t device_id, int32_t interop_type, int32_t num_prefers,
+//   intptr_t* prefer_ids);
+
+CallInst *
+VPOParoptUtils::genTgtCreateInterop(Value *DeviceNum, int OmpInteropContext,
+                                    const SmallVectorImpl<unsigned> &PreferList,
+                                    Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  LLVMContext &C = F->getContext();
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
+  PointerType *Int8PtrTy = Type::getInt8PtrTy(C);
+  IRBuilder<> Builder(InsertPt);
+
+  DeviceNum = Builder.CreateSExt(DeviceNum, Int64Ty);
+  Value *OmpInteropContextVal = ConstantInt::get(Int32Ty, OmpInteropContext);
+  Value *CountVal = ConstantInt::get(Int32Ty, PreferList.size());
+
+  SmallVector<Value *, 4> Args;
+  SmallVector<Type *, 4> ArgTypes;
+
+  Args.push_back(DeviceNum);
+  ArgTypes.push_back(Int64Ty);
+  Args.push_back(OmpInteropContextVal);
+  ArgTypes.push_back(Int32Ty);
+
+  Args.push_back(CountVal);
+  ArgTypes.push_back(Int32Ty);
+
+  if (PreferList.empty()) {
+    ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
+    Args.push_back(NullPtr);
+  } else {
+    Constant *PreferListInit =
+        ConstantDataArray::get(Builder.getContext(), PreferList);
+    auto *PreferListGblVar = new GlobalVariable(
+        *(F->getParent()), PreferListInit->getType(), true,
+        GlobalValue::PrivateLinkage, PreferListInit, ".prefer.list", nullptr);
+    PreferListGblVar->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+
+    Value *PreferListGblVarCast =
+        Builder.CreateBitCast(PreferListGblVar, Int8PtrTy);
+    Args.push_back(PreferListGblVarCast);
+  }
+  ArgTypes.push_back(Int8PtrTy);
+
+  CallInst *Call =
+      genCall("__tgt_create_interop", Int8PtrTy, Args, ArgTypes, InsertPt);
+
+  return Call;
+}
+
+// Generate a call to
 //   void *__tgt_create_interop_obj(int64_t device_id,
 //                                  bool    is_async,
 //                                  void   *async_obj)
@@ -1119,8 +1176,10 @@ CallInst *VPOParoptUtils::genTgtCreateInteropObj(Value *DeviceNum, bool IsAsync,
 
 // Generate a call to
 //   int __tgt_release_interop_obj(void *interop_obj)
-CallInst *VPOParoptUtils::genTgtReleaseInteropObj(Value *InteropObj,
-                                                  Instruction *InsertPt) {
+CallInst *VPOParoptUtils::genTgtReleaseInterop(Value* InteropObj,
+                                               Instruction* InsertPt,
+                                               bool EmitTgtReleaseInteropObj)
+{
   BasicBlock *B = InsertPt->getParent();
   Function *F = B->getParent();
   LLVMContext &C = F->getContext();
@@ -1130,9 +1189,32 @@ CallInst *VPOParoptUtils::genTgtReleaseInteropObj(Value *InteropObj,
   assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
          "InteropObj expected to be void*");
 
-  CallInst *Call = genCall("__tgt_release_interop_obj", Int32Ty, {InteropObj},
-                           {Int8PtrTy}, InsertPt);
+  CallInst* Call;
+  if(EmitTgtReleaseInteropObj)
+    Call = genCall("__tgt_release_interop_obj", Int32Ty, {InteropObj},
+                   {Int8PtrTy}, InsertPt);
+  else
+    Call = genCall("__tgt_release_interop", Int32Ty, {InteropObj},
+                   {Int8PtrTy}, InsertPt);
   return Call;
+}
+
+// Generate a call to
+//   int __tgt_use_interop(omp_interop_t interop)
+CallInst* VPOParoptUtils::genTgtUseInterop(Value* InteropObj,
+                                           Instruction* InsertPt) {
+    BasicBlock* B = InsertPt->getParent();
+    Function* F = B->getParent();
+    LLVMContext& C = F->getContext();
+    Type* Int32Ty = Type::getInt32Ty(C);
+    Type* Int8PtrTy = Type::getInt8PtrTy(C);
+
+    assert(InteropObj && InteropObj->getType() == Int8PtrTy &&
+        "InteropObj expected to be void*");
+
+    CallInst *Call = genCall("__tgt_use_interop", Int32Ty, {InteropObj},
+                             {Int8PtrTy}, InsertPt);
+    return Call;
 }
 
 // Generate a call to
@@ -1504,7 +1586,7 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
 }
 
 // This function generates a call as follows.
-//    i8* @__kmpc_task_reduction_init(i32, i32, i8*)
+//    i8* @__kmpc_taskred_init(i32, i32, i8*)
 CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
                                                    Value *TidPtr, int ParmNum,
                                                    Value *RedRecord,
@@ -1525,7 +1607,7 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
       FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
 
   StringRef FnName = UseTbb ? "__tbb_omp_task_reduction_init" :
-                              "__kmpc_task_reduction_init";
+                              "__kmpc_taskred_init";
 
   Function *FnTaskRedInit = M->getFunction(FnName);
 
@@ -1736,6 +1818,21 @@ CallInst *VPOParoptUtils::genKmpcTaskAllocForAsyncObj(WRegionNode *W,
   return TaskAllocCall;
 }
 
+CallInst *VPOParoptUtils::genKmpcTaskAllocWithoutCallback(WRegionNode *W,
+                                                          StructType *IdentTy,
+                                                          Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  Type *Int32Ty = Builder.getInt32Ty();
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+
+  Value *ValueZero = ConstantInt::get(Int32Ty, 0);
+  ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
+
+  CallInst *TaskAllocCall =
+      genKmpcTaskAllocImpl(W, IdentTy, ValueZero, ValueZero, ValueZero, 0,
+                           NullPtr, InsertPt, false);
+  return TaskAllocCall;
+}
 // This function generates a call to notify the runtime system that the static
 // distribute loop scheduling for teams is started
 //
@@ -2374,9 +2471,6 @@ GlobalVariable *VPOParoptUtils::genLocStrfromDebugLoc(Function *F,
       ELine = Loc2 ? Loc2->getLine() : Loc1->getColumn();
       break;
     case SRC_LOC_NONE:
-      break;
-    default:
-      llvm_unreachable("genLocStrfromDebugLoc: unhandled source location mode");
       break;
     }
   }
@@ -3324,7 +3418,8 @@ CallInst *VPOParoptUtils::genDoacrossWaitOrPostCall(
 
     // Get a pointer to where DepVecValue should go.
     Value *PtrForLoopI = Builder.CreateInBoundsGEP(
-        DepVec->getAllocatedType(), DepVec, {Builder.getInt64(I)}); // (3) (6)
+        DepVec->getAllocatedType(), DepVec,
+        Builder.getInt64(I));                                      // (3) (6)
     Builder.CreateStore(DepVecValueCast, PtrForLoopI);             // (4) (7)
   }
 
@@ -3662,6 +3757,19 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 
   CallInst *Call = genCall(M, FnName, ReturnTy, FnArgs, FnArgTypes, InsertPt,
                            IsTail, IsVarArg);
+  return Call;
+}
+
+// A genCall() interface where FunArgTypes and Module are omitted.
+// FunArgTypes is computed from FnArgs, and Module is computed from
+// InsertPt. The Call is emitted before InsertPt.
+CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
+                                  ArrayRef<Value *> FnArgs,
+                                  Instruction *InsertPt, bool IsTail) {
+  assert (InsertPt && "InsertPt is required to find the Module");
+  Module *M = InsertPt->getModule();
+  CallInst *Call = genCall(M, FnName, ReturnTy, FnArgs, InsertPt,
+                           IsTail, /*IsVarArg=*/false);
   return Call;
 }
 
@@ -5282,10 +5390,8 @@ Function *VPOParoptUtils::genOutlineFunction(
     for (auto *Item : W.getFpriv().items()) {
       TgtClauseArgs.insert(std::make_pair(Item->getOrig(), false));
     }
-    // Get is_device_ptr arguments
-    for (auto *Item : W.getIsDevicePtr().items()) {
-      TgtClauseArgs.insert(std::make_pair(Item->getOrig(), false));
-    }
+    assert(W.getIsDevicePtr().items().empty() &&
+           "is_device_ptr() clause must have been removed.");
   }
 
   // Fix "escaping" EH edges that go outside the region, and dead predecessors.

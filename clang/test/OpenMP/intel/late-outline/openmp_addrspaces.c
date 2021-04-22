@@ -8,9 +8,9 @@
 //   " - map LangAS::Default to target AS 4."
 
 // CHECK-DAG: %struct.user_struct = type { i32 addrspace(4)* }
-// CHECK-DAG: @user_constant_global = target_declare addrspace(1) global i32
-// CHECK-DAG: @user_nonconstant_global = target_declare addrspace(1) global i32
-// CHECK-DAG: define spir_func void @user_function(i32 addrspace(4)* [[USER_ARG:[^)]*]])
+// CHECK-DAG: @user_constant_global = {{.*}}target_declare addrspace(1) global i32
+// CHECK-DAG: @user_nonconstant_global = {{.*}}target_declare addrspace(1) global i32
+// CHECK-DAG: define{{.*}}spir_func void @user_function(i32 addrspace(4)* [[USER_ARG:[^)]*]])
 // CHECK-DAG: [[USER_ARG_ADDR:%.*]] = alloca i32 addrspace(4)*
 // CHECK-DAG: [[USER_ARG_ADDR_CAST:%.*]] = addrspacecast i32 addrspace(4)** [[USER_ARG_ADDR]] to i32 addrspace(4)* addrspace(4)*
 // CHECK-DAG: [[USER_STRUCT_INST:%.*]] = alloca %struct.user_struct

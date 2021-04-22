@@ -2,7 +2,7 @@
 // RUN: %clang_cc1 -triple -x86_64-windows-msvc -fintel-compatibility %s --extended_float_types -emit-llvm -o - | FileCheck %s -check-prefix=WINDOWS
 
 __float128 foo(__float128 x){
-// LINUX: define fp128 @foo(fp128 [[X:%.*]])
+// LINUX: define{{.*}}fp128 @foo(fp128 [[X:%.*]])
 // LINUX-NEXT: entry:
 // LINUX-NEXT:  [[X_ADDR:%.*]] = alloca fp128, align 16{{$}}
 // LINUX-NEXT:  store fp128 [[X]], fp128* [[X_ADDR]], align 16{{$}}

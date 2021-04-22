@@ -621,7 +621,7 @@ namespace llvm {
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
     VPCOMPRESS,
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
-    MPSADBW,// INTEL
+    MPSADBW,
 #endif // INTEL_CUSTOMIZATION
 
     // Compress and expand.
@@ -903,6 +903,15 @@ namespace llvm {
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
     VPCOMPRESS_STORE,
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#if INTEL_FEATURE_ISA_AVX512_RAO_INT
+    VPAADD,
+    VPAAND,
+    VPAOR,
+    VPAXOR,
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_INT
+#if INTEL_FEATURE_ISA_AVX512_RAO_FP
+    VAADDF,
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #endif // INTEL_CUSTOMIZATION
 
     // Key locker nodes that produce flags.
@@ -929,7 +938,7 @@ namespace llvm {
     /// Returns true of the given offset can be
     /// fit into displacement field of the instruction.
     bool isOffsetSuitableForCodeModel(int64_t Offset, CodeModel::Model M,
-                                      bool hasSymbolicDisplacement = true);
+                                      bool hasSymbolicDisplacement);
 
     /// Determines whether the callee is required to pop its
     /// own arguments. Callee pop is necessary to support tail calls.
@@ -993,7 +1002,7 @@ namespace llvm {
 
     /// Returns true if the target allows unaligned memory accesses of the
     /// specified type. Returns whether it is "fast" in the last argument.
-    bool allowsMisalignedMemoryAccesses(EVT VT, unsigned AS, unsigned Align,
+    bool allowsMisalignedMemoryAccesses(EVT VT, unsigned AS, Align Alignment,
                                         MachineMemOperand::Flags Flags,
                                         bool *Fast) const override;
 
@@ -1498,6 +1507,14 @@ namespace llvm {
                                    SDValue Addr, SelectionDAG &DAG)
                                    const override;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_RAO_INT
+    bool shouldInsertFencesForAtomic(const Instruction *I) const override;
+#endif // INTEL_FEATURE_ISA_RAO_INT
+#endif // INTEL_CUSTOMIZATION
+
+    Align getPrefLoopAlignment(MachineLoop *ML) const override;
+
   protected:
     std::pair<const TargetRegisterClass *, uint8_t>
     findRepresentativeClass(const TargetRegisterInfo *TRI,
@@ -1595,6 +1612,7 @@ namespace llvm {
     SDValue LowerUINT_TO_FP(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerTRUNCATE(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerFP_TO_INT(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerFP_TO_INT_SAT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerLRINT_LLRINT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerSETCCCARRY(SDValue Op, SelectionDAG &DAG) const;
@@ -1680,10 +1698,6 @@ namespace llvm {
     EmitVAARGWithCustomInserter(MachineInstr &MI, MachineBasicBlock *MBB) const;
 
     /// Utility function to emit the xmm reg save portion of va_start.
-    MachineBasicBlock *
-    EmitVAStartSaveXMMRegsWithCustomInserter(MachineInstr &BInstr,
-                                             MachineBasicBlock *BB) const;
-
     MachineBasicBlock *EmitLoweredCascadedSelect(MachineInstr &MI1,
                                                  MachineInstr &MI2,
                                                  MachineBasicBlock *BB) const;

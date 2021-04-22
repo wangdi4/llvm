@@ -126,6 +126,11 @@ static inline bool inheritsFrom(InstructionContext child,
 #endif // INTEL_CUSTOMIZATION
   case IC_OPSIZE:
     return inheritsFrom(child, IC_64BIT_OPSIZE) ||
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+           inheritsFrom(child, IC_64BIT_OPSIZE_CE) ||
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
            inheritsFrom(child, IC_OPSIZE_ADSIZE);
   case IC_ADSIZE:
     return (noPrefix && inheritsFrom(child, IC_OPSIZE_ADSIZE, noPrefix));
@@ -811,7 +816,7 @@ void DisassemblerTables::emitOpcodeDecision(raw_ostream &o1, raw_ostream &o2,
   }
   if (index == 256) {
     // If all 256 entries are MODRM_ONEENTRY, omit output.
-    assert(MODRM_ONEENTRY == 0);
+    static_assert(MODRM_ONEENTRY == 0, "");
     --i2;
     o2 << "},\n";
   } else {

@@ -11,31 +11,30 @@
 #define INTEL_DPCPP_KERNEL_TRANSFORMS_WGLOOPCREATOR_H
 
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 
 namespace llvm {
+
+using MapFunctionToReturnInst = DenseMap<Function *, ReturnInst *>;
+
+/// Create workgroup loop.
 class DPCPPKernelWGLoopCreatorPass
     : public PassInfoMixin<DPCPPKernelWGLoopCreatorPass> {
 public:
+  DPCPPKernelWGLoopCreatorPass();
+
+  static StringRef name() { return "DPCPPKernelWGLoopCreatorPass"; }
+
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-};
 
-class DPCPPKernelWGLoopCreatorLegacyPass : public ModulePass {
-public:
-  /// Pass identification, replacement for typeid
-  static char ID;
+  /// Glue for old PM.
+  bool runImpl(Module &M);
 
-  DPCPPKernelWGLoopCreatorLegacyPass();
-
-  ~DPCPPKernelWGLoopCreatorLegacyPass();
-
-  llvm::StringRef getPassName() const override { return "WGLoopCreator"; }
-
-  bool runOnModule(Module &M) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  /// Glue for old PM.
+  void setFuncReturn(MapFunctionToReturnInst &FuncReturn) {
+    this->FuncReturn = std::move(FuncReturn);
+  }
 
 private:
   /// Struct that contains dimesion 0 loop attributes.
@@ -96,11 +95,20 @@ private:
   /// global_id lower bounds per dimension.
   ValueVec InitGIDs;
 
+  /// base_global_id per dimension.
+  ValueVec BaseGIDs;
+
   /// LoopSize per dimension.
   ValueVec LoopSizes;
 
+  /// Index i contains vector with scalar kernel get_global_id(i) calls.
+  InstVecVec GidCallsSc;
+
   /// Index i contains vector with scalar kernel get_local_id(i) calls.
   InstVecVec LidCallsSc;
+
+  /// Index i contains vector with vector kernel get_global_id(i) calls.
+  InstVecVec GidCallsVec;
 
   /// Index i contains vector with vector kernel get_local_id(i) calls.
   InstVecVec LidCallsVec;
@@ -108,14 +116,15 @@ private:
   /// The dimension by which we vectorize (usually 0).
   unsigned int VectorizedDim;
 
+  /// Map from function to its return instruction.
+  MapFunctionToReturnInst FuncReturn;
+
   /// Collect the get_global_id(), get_local_id(), and return of F.
   /// F - kernel to collect information for.
+  /// Gids - array of get_global_id call to fill.
   /// Lids - array of get_local_id call to fill.
   /// Returns kernel single return instruction.
-  ReturnInst *getFunctionData(Function *F, InstVecVec &Lids);
-
-  /// Function to be called by runOnModule.
-  bool processModule(Module &M);
+  ReturnInst *getFunctionData(Function *F, InstVecVec &Gids, InstVecVec &Lids);
 
   /// Public interface that allows running on pair of scalar - vector
   /// kernels not through pass manager.
@@ -130,12 +139,13 @@ private:
   /// KernelEntry - entry block of the kernel.
   /// IsVector - true iff working on vector kernel
   /// Ret - singel return instruction of the kernel.
+  /// GIDs - array with get_global_id calls.
   /// LIDs - array with get_local_id calls.
   /// InitGIDs - initial global id per dimension.
   /// LoopSizes - number of loop iteration per dimension.
   /// Returns struct with preheader and exit block of the outmost loop.
   LoopRegion addWGLoops(BasicBlock *KernelEntry, bool IsVector, ReturnInst *Ret,
-                        InstVecVec &LIDs, ValueVec &InitGIDs,
+                        InstVecVec &GIDs, InstVecVec &LIDs, ValueVec &InitGIDs,
                         ValueVec &LoopSizes);
 
   /// Replace the get***tid calls with incremented phi in loop head.

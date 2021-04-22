@@ -15,7 +15,6 @@ add_llvm_component_library(LLVMIntel_LoopAnalysis
   IR/HLSwitch.cpp
   IR/IRRegion.cpp
   IR/RegDDRef.cpp
-  IR/Diag.cpp
   Framework/HIRRegionIdentification.cpp
   Framework/HIRSCCFormation.cpp
   Framework/HIRCreation.cpp
@@ -46,6 +45,10 @@ add_llvm_component_library(LLVMIntel_LoopAnalysis
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis/Intel_LoopAnalysis
 
+  DEPENDS
+  intrinsics_gen
+  directives_gen
+
   LINK_COMPONENTS
   Analysis
   Core
@@ -56,9 +59,9 @@ add_llvm_component_library(LLVMIntel_LoopAnalysis
   TransformUtils
   )
 
-add_dependencies(LLVMIntel_LoopAnalysis intrinsics_gen directives_gen)
 add_subdirectory(OptReport)
 
 if(INTEL_INCLUDE_DTRANS)
-  target_link_libraries(LLVMIntel_LoopAnalysis PRIVATE LLVMIntel_DTransOpt)
+  target_link_libraries(LLVMIntel_LoopAnalysis PRIVATE LLVMIntel_DTransOpt
+                                                       LLVMIntel_DTransAnalysis)
 endif(INTEL_INCLUDE_DTRANS)

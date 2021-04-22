@@ -258,11 +258,17 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   case Stmt::SEHTryStmtClass:
     EmitSEHTryStmt(cast<SEHTryStmt>(*S));
     break;
+  case Stmt::OMPCanonicalLoopClass:
+    EmitOMPCanonicalLoop(cast<OMPCanonicalLoop>(S));
+    break;
   case Stmt::OMPParallelDirectiveClass:
     EmitOMPParallelDirective(cast<OMPParallelDirective>(*S));
     break;
   case Stmt::OMPSimdDirectiveClass:
     EmitOMPSimdDirective(cast<OMPSimdDirective>(*S));
+    break;
+  case Stmt::OMPTileDirectiveClass:
+    EmitOMPTileDirective(cast<OMPTileDirective>(*S));
     break;
   case Stmt::OMPForDirectiveClass:
     EmitOMPForDirective(cast<OMPForDirective>(*S));
@@ -433,6 +439,12 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     EmitOMPTargetTeamsDistributeSimdDirective(
         cast<OMPTargetTeamsDistributeSimdDirective>(*S));
     break;
+  case Stmt::OMPInteropDirectiveClass:
+    llvm_unreachable("Interop directive not supported yet.");
+    break;
+  case Stmt::OMPDispatchDirectiveClass:
+    llvm_unreachable("Dispatch directive not supported yet.");
+    break;
 #if INTEL_COLLAB
   case Stmt::OMPTargetVariantDispatchDirectiveClass:
     llvm_unreachable("target variant dispatch not supported with FE outlining");
@@ -447,6 +459,9 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
   case Stmt::OMPTargetParallelGenericLoopDirectiveClass:
     llvm_unreachable("target parallel loop not supported with FE outlining");
 #endif // INTEL_COLLAB
+  case Stmt::OMPMaskedDirectiveClass:
+    llvm_unreachable("Masked directive not supported yet.");
+    break;
   }
 }
 
@@ -896,23 +911,20 @@ CodeGenFunction::IntelBlockLoopExprHandler::~IntelBlockLoopExprHandler() {
 CodeGenFunction::IntelPrefetchExprHandler::IntelPrefetchExprHandler(
     CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
     : CGF(CGF) {
-  decltype(Attrs)::iterator AttrItr =
-      std::find_if(std::begin(Attrs), std::end(Attrs), [](const Attr *A) {
-        return A->getKind() == attr::IntelPrefetch;
-      });
 
-  if (AttrItr == std::end(Attrs))
+  auto PrefetchAttrs = llvm::make_filter_range(Attrs,
+      [] (const Attr *A) { return A->getKind() == attr::IntelPrefetch; });
+  if (PrefetchAttrs.empty())
     return;
-
   SmallVector<llvm::OperandBundleDef, 8> OpBundles;
-  for (auto End = std::end(Attrs); AttrItr != End; ++AttrItr) {
-    if (OpBundles.empty())
-      OpBundles.push_back(llvm::OperandBundleDef("DIR.PRAGMA.PREFETCH_LOOP",
-                                                 ArrayRef<llvm::Value *>{}));
-    const IntelPrefetchAttr *IPA = dyn_cast<IntelPrefetchAttr>(*AttrItr);
+  for (const auto *PreAttr : PrefetchAttrs) {
+    const IntelPrefetchAttr *IPA = dyn_cast<IntelPrefetchAttr>(PreAttr);
     bool IsNoPrefetchLoop = (IPA->getSemanticSpelling() ==
                              IntelPrefetchAttr::Pragma_noprefetch);
     llvm::IntegerType *Int32Ty = CGF.CGM.Int32Ty;
+    if (OpBundles.empty())
+      OpBundles.push_back(llvm::OperandBundleDef("DIR.PRAGMA.PREFETCH_LOOP",
+                                                 ArrayRef<llvm::Value *>{}));
     OpBundles.push_back(llvm::OperandBundleDef(
         "QUAL.PRAGMA.ENABLE",
          llvm::ConstantInt::get(Int32Ty, IsNoPrefetchLoop ? 0 : 1)));
@@ -1148,8 +1160,11 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
     llvm::BasicBlock *ExitBlock = LoopExit.getBlock();
     if (ConditionScope.requiresCleanups())
       ExitBlock = createBasicBlock("while.exit");
-    llvm::MDNode *Weights = createProfileOrBranchWeightsForLoop(
-        S.getCond(), getProfileCount(S.getBody()), S.getBody());
+    llvm::MDNode *Weights =
+        createProfileWeightsForLoop(S.getCond(), getProfileCount(S.getBody()));
+    if (!Weights && CGM.getCodeGenOpts().OptimizationLevel)
+      BoolCondVal = emitCondLikelihoodViaExpectIntrinsic(
+          BoolCondVal, Stmt::getLikelihood(S.getBody()));
     Builder.CreateCondBr(BoolCondVal, LoopBody, ExitBlock, Weights);
 
     if (ExitBlock != LoopExit.getBlock()) {
@@ -1275,8 +1290,8 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
   // Start the loop with a block that tests the condition.
   // If there's an increment, the continue scope will be overwritten
   // later.
-  JumpDest Continue = getJumpDestInCurrentScope("for.cond");
-  llvm::BasicBlock *CondBlock = Continue.getBlock();
+  JumpDest CondDest = getJumpDestInCurrentScope("for.cond");
+  llvm::BasicBlock *CondBlock = CondDest.getBlock();
   EmitBlock(CondBlock);
 
   bool LoopMustProgress = false;
@@ -1294,24 +1309,33 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
                  SourceLocToDebugLoc(R.getBegin()),
                  SourceLocToDebugLoc(R.getEnd()), LoopMustProgress);
 
-  // If the for loop doesn't have an increment we can just use the
-  // condition as the continue block.  Otherwise we'll need to create
-  // a block for it (in the current scope, i.e. in the scope of the
-  // condition), and that we will become our continue block.
-  if (S.getInc())
-    Continue = getJumpDestInCurrentScope("for.inc");
-
-  // Store the blocks to use for break and continue.
-  BreakContinueStack.push_back(BreakContinue(LoopExit, Continue));
-
   // Create a cleanup scope for the condition variable cleanups.
   LexicalScope ConditionScope(*this, S.getSourceRange());
+
+  // If the for loop doesn't have an increment we can just use the condition as
+  // the continue block. Otherwise, if there is no condition variable, we can
+  // form the continue block now. If there is a condition variable, we can't
+  // form the continue block until after we've emitted the condition, because
+  // the condition is in scope in the increment, but Sema's jump diagnostics
+  // ensure that there are no continues from the condition variable that jump
+  // to the loop increment.
+  JumpDest Continue;
+  if (!S.getInc())
+    Continue = CondDest;
+  else if (!S.getConditionVariable())
+    Continue = getJumpDestInCurrentScope("for.inc");
+  BreakContinueStack.push_back(BreakContinue(LoopExit, Continue));
 
   if (S.getCond()) {
     // If the for statement has a condition scope, emit the local variable
     // declaration.
     if (S.getConditionVariable()) {
       EmitDecl(*S.getConditionVariable());
+
+      // We have entered the condition variable's scope, so we're now able to
+      // jump to the continue block.
+      Continue = S.getInc() ? getJumpDestInCurrentScope("for.inc") : CondDest;
+      BreakContinueStack.back().ContinueBlock = Continue;
     }
 
     llvm::BasicBlock *ExitBlock = LoopExit.getBlock();
@@ -1326,8 +1350,11 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
     // C99 6.8.5p2/p4: The first substatement is executed if the expression
     // compares unequal to 0.  The condition must be a scalar type.
     llvm::Value *BoolCondVal = EvaluateExprAsBool(S.getCond());
-    llvm::MDNode *Weights = createProfileOrBranchWeightsForLoop(
-        S.getCond(), getProfileCount(S.getBody()), S.getBody());
+    llvm::MDNode *Weights =
+        createProfileWeightsForLoop(S.getCond(), getProfileCount(S.getBody()));
+    if (!Weights && CGM.getCodeGenOpts().OptimizationLevel)
+      BoolCondVal = emitCondLikelihoodViaExpectIntrinsic(
+          BoolCondVal, Stmt::getLikelihood(S.getBody()));
 
     if (llvm::ConstantInt *C = dyn_cast<llvm::ConstantInt>(BoolCondVal))
       if (C->isOne())
@@ -1412,8 +1439,11 @@ CodeGenFunction::EmitCXXForRangeStmt(const CXXForRangeStmt &S,
   // The body is executed if the expression, contextually converted
   // to bool, is true.
   llvm::Value *BoolCondVal = EvaluateExprAsBool(S.getCond());
-  llvm::MDNode *Weights = createProfileOrBranchWeightsForLoop(
-      S.getCond(), getProfileCount(S.getBody()), S.getBody());
+  llvm::MDNode *Weights =
+      createProfileWeightsForLoop(S.getCond(), getProfileCount(S.getBody()));
+  if (!Weights && CGM.getCodeGenOpts().OptimizationLevel)
+    BoolCondVal = emitCondLikelihoodViaExpectIntrinsic(
+        BoolCondVal, Stmt::getLikelihood(S.getBody()));
   Builder.CreateCondBr(BoolCondVal, ForBody, ExitBlock, Weights);
 
   if (ExitBlock != LoopExit.getBlock()) {
@@ -1581,15 +1611,6 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
       Val = Result.getScalarVal();
     }
 #endif // INTEL_CUSTOMIZATION
-    if (auto *PtrTy = dyn_cast<llvm::PointerType>(Val->getType())) {
-      auto *ExpectedPtrType =
-          cast<llvm::PointerType>(ReturnValue.getType()->getElementType());
-      unsigned ValueAS = PtrTy->getAddressSpace();
-      unsigned ExpectedAS = ExpectedPtrType->getAddressSpace();
-      if (ValueAS != ExpectedAS) {
-        Val = Builder.CreatePointerBitCastOrAddrSpaceCast(Val, ExpectedPtrType);
-      }
-    }
     Builder.CreateStore(Val, ReturnValue);
   } else {
     switch (getEvaluationKind(RV->getType())) {
@@ -1605,16 +1626,6 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
       else
         Val = EmitScalarExpr(RV);
 #endif // INTEL_CUSTOMIZATION
-      if (auto *PtrTy = dyn_cast<llvm::PointerType>(Val->getType())) {
-        auto *ExpectedPtrType =
-            cast<llvm::PointerType>(ReturnValue.getType()->getElementType());
-        unsigned ValueAS = PtrTy->getAddressSpace();
-        unsigned ExpectedAS = ExpectedPtrType->getAddressSpace();
-        if (ValueAS != ExpectedAS) {
-          Val =
-              Builder.CreatePointerBitCastOrAddrSpaceCast(Val, ExpectedPtrType);
-        }
-      }
       Builder.CreateStore(Val, ReturnValue);
       break;
     }
@@ -1752,7 +1763,7 @@ void CodeGenFunction::EmitCaseStmtRange(const CaseStmt &S,
     // this case.
     (*SwitchWeights)[0] += ThisCount;
   } else if (SwitchLikelihood)
-    Weights = createBranchWeights(LH);
+    Cond = emitCondLikelihoodViaExpectIntrinsic(Cond, LH);
 
   Builder.CreateCondBr(Cond, CaseDest, FalseDest, Weights);
 
@@ -1842,7 +1853,7 @@ void CodeGenFunction::EmitCaseStmt(const CaseStmt &S,
       SwitchWeights->push_back(getProfileCount(NextCase));
     if (CGM.getCodeGenOpts().hasProfileClangInstr()) {
       CaseDest = createBasicBlock("sw.bb");
-      EmitBlockWithFallThrough(CaseDest, &S);
+      EmitBlockWithFallThrough(CaseDest, CurCase);
     }
     // Since this loop is only executed when the CaseStmt has no attributes
     // use a hard-coded value.

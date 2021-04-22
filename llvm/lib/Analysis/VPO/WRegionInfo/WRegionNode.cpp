@@ -41,6 +41,7 @@ DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNTargetExitData, "target exit data"},
     {WRegionNode::WRNTargetUpdate, "target update"},
     {WRegionNode::WRNTargetVariant, "target variant dispatch"},
+    {WRegionNode::WRNDispatch, "dispatch"},
     {WRegionNode::WRNTask, "task"},
     {WRegionNode::WRNTaskloop, "taskloop"},
     {WRegionNode::WRNVecLoop, "simd"},
@@ -59,6 +60,7 @@ DenseMap<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNCancel, "cancel"},
     {WRegionNode::WRNCritical, "critical"},
     {WRegionNode::WRNFlush, "flush"},
+    {WRegionNode::WRNInterop, "interop"},
     {WRegionNode::WRNOrdered, "ordered"},
     {WRegionNode::WRNMaster, "master"},
     {WRegionNode::WRNSingle, "single"},
@@ -433,6 +435,11 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
                                unsigned Depth, unsigned Verbosity) const {
   bool PrintedSomething = false;
 
+  if (getIsImplicit()) {
+    printBool("IMPLICIT", true, OS, 2 * Depth, Verbosity);
+    PrintedSomething = true;
+  }
+
   if (canHaveDistSchedule())
     PrintedSomething |= getDistSchedule().print(OS, Depth, Verbosity);
 
@@ -484,6 +491,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
 
   if (canHaveSubdevice())
     PrintedSomething |= getSubdevice().print(OS, Depth, Verbosity);
+
+  if (canHaveInteropAction())
+    PrintedSomething |= getInteropAction().print(OS, Depth, Verbosity);
 
   if (canHaveIsDevicePtr())
     PrintedSomething |= getIsDevicePtr().print(OS, Depth, Verbosity);
@@ -670,23 +680,30 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   case QUAL_OMP_TARGET_TASK:
     setIsTargetTask(true);
     break;
+  case QUAL_OMP_IMPLICIT:
+    setIsImplicit(true);
+    break;
   case QUAL_OMP_READ_SEQ_CST:
     setHasSeqCstClause(true);
+    LLVM_FALLTHROUGH;
   case QUAL_OMP_READ:
     setAtomicKind(WRNAtomicRead);
     break;
   case QUAL_OMP_WRITE_SEQ_CST:
     setHasSeqCstClause(true);
+    LLVM_FALLTHROUGH;
   case QUAL_OMP_WRITE:
     setAtomicKind(WRNAtomicWrite);
     break;
   case QUAL_OMP_UPDATE_SEQ_CST:
     setHasSeqCstClause(true);
+    LLVM_FALLTHROUGH;
   case QUAL_OMP_UPDATE:
     setAtomicKind(WRNAtomicUpdate);
     break;
   case QUAL_OMP_CAPTURE_SEQ_CST:
     setHasSeqCstClause(true);
+    LLVM_FALLTHROUGH;
   case QUAL_OMP_CAPTURE:
     setAtomicKind(WRNAtomicCapture);
     break;
@@ -790,6 +807,12 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
       llvm_unreachable("QUAL_OMP_NAME opnd is not a string.");
 
   } break;
+  case QUAL_OMP_NOCONTEXT:
+    setNocontext(V);
+    break;
+  case QUAL_OMP_NOVARIANTS:
+    setNovariants(V);
+    break;
   case QUAL_OMP_NUM_THREADS:
     setNumThreads(V);
     break;
@@ -815,6 +838,18 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_DEVICE:
     setDevice(V);
     break;
+  case QUAL_OMP_DESTROY: {
+    InteropActionClause &InteropAction = getInteropAction();
+    InteropAction.add(V);
+    InteropItem *InteropI = InteropAction.back();
+    InteropI->setIsDestroy();
+  } break;
+  case QUAL_OMP_USE: {
+    InteropActionClause &InteropAction = getInteropAction();
+    InteropAction.add(V);
+    InteropItem *InteropI = InteropAction.back();
+    InteropI->setIsUse();
+  } break;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   case QUAL_OMP_SA_NUM_WORKERS:
@@ -855,6 +890,8 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
       if (PointerType *PtrTy = cast<PointerType>(Args[0]->getType()))
         if (isa<PointerType>(PtrTy->getPointerElementType()))
           IsPointerToPointer = true;
+  } else if (ClauseID == QUAL_OMP_HAS_DEVICE_ADDR) {
+    ClauseID = QUAL_OMP_IS_DEVICE_PTR;
   }
   C.setClauseID(ClauseID);
   bool IsByRef = ClauseInfo.getIsByRef();
@@ -917,9 +954,11 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
     ClauseItemTy *Item = new ClauseItemTy(Args);
     Item->setIsByRef(IsByRef);
     Item->setIsNonPod(true);
-    if (IsConditional)
-      Item->setIsConditional(true);
+    assert(!IsConditional && "NonPod can't be conditional by OMP standard.");
 #if INTEL_CUSTOMIZATION
+    if (!CurrentBundleDDRefs.empty() &&
+        WRegionUtils::supportsRegDDRefs(ClauseID))
+      Item->setHOrig(CurrentBundleDDRefs[0]);
     if (ClauseInfo.getIsF90DopeVector())
       Item->setIsF90DopeVector(true);
     Item->setIsWILocal(ClauseInfo.getIsWILocal());
@@ -947,6 +986,23 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
     C.back()->setIsWILocal(ClauseInfo.getIsWILocal());
 #endif // INTEL_CUSTOMIZATION
     }
+}
+
+void WRegionNode::extractInitOpndList(InteropActionClause &InteropAction,
+                                      const Use *Args, unsigned NumArgs,
+                                      const ClauseSpecifier &ClauseInfo) {
+
+  Value *V = Args[0];
+  InteropAction.add(V);
+  InteropItem *InteropI = InteropAction.back();
+  InteropI->setIsInit();
+
+  if (ClauseInfo.getIsInitTarget())
+    InteropI->setIsTarget();
+  if (ClauseInfo.getIsInitTargetSync())
+    InteropI->setIsTargetSync();
+  if (ClauseInfo.getIsInitPrefer())
+    InteropI->populatePreferList(&Args[1], NumArgs - 1);
 }
 
 void WRegionNode::extractScheduleOpndList(ScheduleClause &Sched,
@@ -1039,13 +1095,16 @@ void WRegionNode::extractMapOpndList(const Use *Args, unsigned NumArgs,
     Value *BasePtr = (Value *)Args[0];
     Value *SectionPtr = (Value *)Args[1];
     Value *Size = (Value *)Args[2];
-    uint64_t MapType = 0;
     bool AggrHasMapType = (NumArgs == 4 || NumArgs == 6);
+    MapAggrTy *Aggr = nullptr;
     if (AggrHasMapType) {
       ConstantInt *CI = cast<ConstantInt>(Args[3]);
-      MapType = CI->getZExtValue();
+      uint64_t MapType = CI->getZExtValue();
+      Aggr = new MapAggrTy(BasePtr, SectionPtr, Size, MapType,
+                           getNextMapAggrIndex());
+    } else {
+      Aggr = new MapAggrTy(BasePtr, SectionPtr, Size);
     }
-    MapAggrTy *Aggr = new MapAggrTy(BasePtr, SectionPtr, Size, MapType);
     if (NumArgs == 6) {
       auto *Name = cast<Constant>(Args[4]);
       Aggr->setName(!Name->isNullValue() ? cast<GlobalVariable>(Name)
@@ -1413,6 +1472,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
 
     getDepSource().add(new DepSourceItem(std::move(SrcExprs)));
   } break;
+  case QUAL_OMP_HAS_DEVICE_ADDR:
   case QUAL_OMP_IS_DEVICE_PTR: {
     extractQualOpndList<IsDevicePtrClause>(Args, NumArgs, ClauseInfo,
                                            getIsDevicePtr());
@@ -1468,13 +1528,21 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       }
       C.add(V);
       C.back()->setAlign(Alignment);
+      if (ClauseInfo.getIsPointerToPointer())
+        C.back()->setIsPointerToPointer(true);
     }
     break;
   }
-  case QUAL_OMP_NONTEMPORAL:
-    extractQualOpndList<NontemporalClause>(Args, NumArgs, ClauseID,
-                                           getNontemporal());
+  case QUAL_OMP_NONTEMPORAL: {
+    NontemporalClause &C = getNontemporal();
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      Value *V = Args[I];
+      C.add(V);
+      if (ClauseInfo.getIsPointerToPointer())
+        C.back()->setIsPointerToPointer(true);
+    }
     break;
+  }
   case QUAL_OMP_FLUSH: {
     extractQualOpndList<FlushSet>(Args, NumArgs, ClauseID, getFlush());
     break;
@@ -1491,6 +1559,10 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     AllocateClause &C = getAllocate();
     C.add(Var);
     C.back()->setAllocator(AllocatorHandle);
+    break;
+  }
+  case QUAL_OMP_INIT: {
+    extractInitOpndList(getInteropAction(), Args, NumArgs, ClauseInfo);
     break;
   }
   case QUAL_OMP_SCHEDULE_AUTO: {
@@ -1552,7 +1624,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_INREDUCTION_MIN:
   case QUAL_OMP_INREDUCTION_UDR:
     IsInReduction = true;
-    // FALLTHROUGH
+    LLVM_FALLTHROUGH;
   case QUAL_OMP_REDUCTION_ADD:
   case QUAL_OMP_REDUCTION_SUB:
   case QUAL_OMP_REDUCTION_MUL:
@@ -1667,15 +1739,6 @@ void WRegionNode::getClausesFromOperandBundles(IntrinsicInst *Call) {
     // Extract clause properties
     ClauseSpecifier ClauseInfo(ClauseString);
 
-#if INTEL_CUSTOMIZATION
-    if (ClauseInfo.getId() == QUAL_OMP_IS_DEVICE_PTR &&
-        ClauseInfo.getIsF90DopeVector()) {
-      // IS.DEVICE.PTR:F90_DV("DV"* %x) is treated as FIRSTPRIVATE("DV"* %x).
-      ClauseInfo.setId(QUAL_OMP_FIRSTPRIVATE);
-      ClauseInfo.setIsF90DopeVector(false);
-    }
-
-#endif // INTEL_CUSTOMIZATION
     // Get the argument list from the current OperandBundle
     ArrayRef<llvm::Use> Args = BU.Inputs;
     unsigned NumArgs = Args.size(); // BU.Inputs.size()
@@ -1830,6 +1893,7 @@ bool WRegionNode::canHaveNowait() const {
   case WRNTargetExitData:
   case WRNTargetUpdate:
   case WRNTargetVariant:
+  case WRNDispatch:
   case WRNWksLoop:
   case WRNSections:
   case WRNWorkshare:
@@ -1900,6 +1964,16 @@ bool WRegionNode::canHaveSubdevice() const {
   case WRNTargetExitData:
   case WRNTargetUpdate:
   case WRNTargetVariant:
+  case WRNDispatch:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveInteropAction() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNInterop:
     return true;
   }
   return false;
@@ -1907,8 +1981,12 @@ bool WRegionNode::canHaveSubdevice() const {
 
 bool WRegionNode::canHaveIsDevicePtr() const {
   unsigned SubClassID = getWRegionKindID();
-  // only WRNTargetNode can have a IsDevicePtr clause
-  return SubClassID==WRNTarget;
+  switch (SubClassID) {
+  case WRNTarget:
+  case WRNDispatch:
+    return true;
+  }
+  return false;
 }
 
 bool WRegionNode::canHaveUseDevicePtr() const {
@@ -1929,6 +2007,8 @@ bool WRegionNode::canHaveDepend() const {
   case WRNTargetEnterData:
   case WRNTargetExitData:
   case WRNTargetUpdate:
+  case WRNInterop:
+    // exclude WRNDispatch; its depend clause is moved to the implicit task
     return true;
   }
   return false;
@@ -2009,6 +2089,28 @@ bool WRegionNode::canHaveOrderedTripCounts() const {
   switch (SubClassID) {
   case WRNWksLoop:
   case WRNParallelLoop:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveIf() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch(SubClassID) {
+  case WRNParallel:
+  case WRNParallelLoop:
+  case WRNParallelSections:
+  case WRNParallelWorkshare:
+  case WRNDistributeParLoop:
+  case WRNTarget:
+  case WRNTargetData:
+  case WRNTargetEnterData:
+  case WRNTargetExitData:
+  case WRNTargetUpdate:
+  case WRNTask:
+  case WRNTaskloop:
+  case WRNVecLoop:
+  case WRNCancel:
     return true;
   }
   return false;

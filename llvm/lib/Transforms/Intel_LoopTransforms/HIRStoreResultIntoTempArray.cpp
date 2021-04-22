@@ -1,4 +1,5 @@
-//===-HIRStoreResultIntoTempArray.cpp Implements Store Result Into Temp Array class --===//
+//===-HIRStoreResultIntoTempArray.cpp Implements Store Result Into Temp Array
+// class --===//
 //
 // Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
@@ -165,13 +166,14 @@ private:
                               SmallVectorImpl<int64_t> &Offsets);
 
   HLLoop *createExtractedLoopWithLargestLoopUpperBounds(
-      HLLoop *FirstLoop, RegDDRef *MemRef, HLInst *ExpensiveInst,
+      HLLoop *FirstLoop, HLLoop *LoopWithMinRef, RegDDRef *MemRef,
+      HLInst *ExpensiveInstForExtractedLoop,
       SmallVectorImpl<RegDDRef *> &LoopUpperBounds,
       SmallVectorImpl<CanonExpr *> &DistsBetweenMemRefs,
       SmallVectorImpl<HLInst *> &InstsInExprTree, HLInst *&AllocaInst,
       SmallVectorImpl<int64_t> &Offsets);
 
-  void getDistsBetweenMinRefAndMaxRef(
+  HLLoop *getDistsBetweenMinRefAndMaxRef(
       LpExpensiveInstsPairsTy &LpExpensiveInstsPairs,
       SmallVectorImpl<CanonExpr *> &DistsBetweenMemRefs);
 
@@ -404,9 +406,12 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
         return false;
       } else {
         int64_t Dist = 0;
-        if (!(CanonExprUtils::getConstIterationDistance(CE1, CE2, Level,
-                                                        &Dist) ||
-              CanonExprUtils::areEqual(CE1, CE2, true))) {
+
+        // For example, in the third loop of bwaves, at loop level 2, CE1 =
+        // LINEAR i64 i2 + 2 and CE2 = LINEAR zext.i32.i64(i2 + 3), so we need
+        // to use relaxed mode to get the iteration distance
+        if (!CanonExprUtils::getConstIterationDistance(CE1, CE2, Level, &Dist,
+                                                       true)) {
           return false;
         }
       }
@@ -603,7 +608,7 @@ static bool isLoopnestValid(const HLLoop *Lp) {
 
     const CanonExpr *UpperCE = Lp->getUpperCanonExpr();
 
-    if (!UpperCE->canConvertToStandAloneBlob() ||
+    if (!UpperCE->canConvertToStandAloneBlobOrConstant() ||
         UpperCE->getDenominator() != 1) {
       return false;
     }
@@ -703,8 +708,8 @@ static void recordOffsets(RegDDRef *MinRef, unsigned LoopLevel,
 // like %array_size = zext.i32.i64(%ny)  *  sext.i32.i64(%nz);
 //      %array_size5 = zext.i32.i64(%nx) + 1  *  %array_size;
 //      %TempArray = alloca %array_size5;
-static HLInst *createAllocaInst(DDGraph DDG, RegDDRef *MemRef,
-                                HLLoop *InnermostLp, Type *DestTy,
+static HLInst *createAllocaInst(RegDDRef *MemRef, HLLoop *InnermostLp,
+                                Type *DestTy,
                                 SmallVectorImpl<HLInst *> &ArraySizeInsts,
                                 SmallVectorImpl<RegDDRef *> &TripCountRefs,
                                 SmallVectorImpl<int64_t> &Offsets) {
@@ -758,7 +763,7 @@ static CanonExpr *getStrideCE(const HLLoop *Lp, uint64_t TypeSize,
 
   while (LoopLevel > Level) {
     CanonExpr *TripCountCE = Lp->getTripCountCanonExpr();
-    TripCountCE->convertToStandAloneBlob();
+    TripCountCE->convertToStandAloneBlobOrConstant();
 
     unsigned TripCountBlobIndex = TripCountCE->getSingleBlobIndex();
 
@@ -838,7 +843,7 @@ RegDDRef *HIRStoreResultIntoTempArray::addDimensionForAllocaMemRef(
 
       CanonExpr *CloneCE = CE->clone();
 
-      CloneCE->convertToStandAloneBlob();
+      CloneCE->convertToStandAloneBlobOrConstant();
 
       CloneCE->addConstant(-Offsets[OffsetId++], true);
 
@@ -1107,7 +1112,7 @@ HLLoop *HIRStoreResultIntoTempArray::createExtractedLoop(
   SmallVector<RegDDRef *, 8> TripCountRefs;
 
   // Create Alloca inst, like %TempArray = alloca %array_size5
-  AllocaInst = createAllocaInst(DDG, MinRef, NewLoop,
+  AllocaInst = createAllocaInst(MinRef, NewLoop,
                                 ExpensiveInst->getLvalDDRef()->getDestType(),
                                 ArraySizeInsts, TripCountRefs, Offsets);
 
@@ -1135,7 +1140,8 @@ HLLoop *HIRStoreResultIntoTempArray::createExtractedLoop(
 
   // Create a memref using AllocaRef and update the expensive inst's lval
   RegDDRef *AllocaDDRef = DRU.createMemRef(
-      AllocaInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex());
+      AllocaInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(),
+      AllocaInst->getNodeLevel());
 
   RegDDRef *MemRef = getMemRef(InstsInExprTree);
 
@@ -1227,7 +1233,8 @@ bool HIRStoreResultIntoTempArray::doLoopCarriedScalarReplacement(
 
   // Create a temporary alloca to store the result
   RegDDRef *AllocaDDRef = DRU.createMemRef(
-      AllocaInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex());
+      AllocaInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(),
+      AllocaInst->getNodeLevel());
 
   // Handle the transformation of the rest of expression trees in the loop
   for (auto It = ExpensiveInsts.begin(), End = ExpensiveInsts.end(); It != End;
@@ -1373,9 +1380,8 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2,
         return false;
       } else {
         int64_t Dist = 0;
-        if (!(CanonExprUtils::getConstIterationDistance(CE1, CE2, Level,
-                                                        &Dist) ||
-              CanonExprUtils::areEqual(CE1, CE2, true))) {
+        if (!CanonExprUtils::getConstIterationDistance(CE1, CE2, Level, &Dist,
+                                                       true)) {
           return false;
         }
       }
@@ -1571,21 +1577,21 @@ createExtractedLoopNest(HLLoop *Lp, HLLoop *NewLoop, RegDDRef *MemRef,
 
 HLLoop *
 HIRStoreResultIntoTempArray::createExtractedLoopWithLargestLoopUpperBounds(
-    HLLoop *FirstLoop, RegDDRef *MemRef, HLInst *ExpensiveInst,
+    HLLoop *FirstLoop, HLLoop *LoopWithMinRef, RegDDRef *MemRef,
+    HLInst *ExpensiveInstForExtractedLoop,
     SmallVectorImpl<RegDDRef *> &LoopUpperBounds,
     SmallVectorImpl<CanonExpr *> &DistsBetweenMemRefs,
     SmallVectorImpl<HLInst *> &InstsInExprTree, HLInst *&AllocaInst,
     SmallVectorImpl<int64_t> &Offsets) {
-  unsigned OuterLoopLevel = FirstLoop->getNestingLevel() - NumLoopnestLevel + 1;
+  unsigned OuterLoopLevel =
+      LoopWithMinRef->getNestingLevel() - NumLoopnestLevel + 1;
   HLLoop *OuterAnchorLp = FirstLoop->getParentLoopAtLevel(OuterLoopLevel);
 
   // Create the extracted loop
-  HLLoop *NewLoop = FirstLoop->cloneEmpty();
-
-  DDGraph DDG = DDA.getGraph(OuterAnchorLp);
+  HLLoop *NewLoop = LoopWithMinRef->cloneEmpty();
 
   HLLoop *NewOuterLoop = createExtractedLoopNest(
-      FirstLoop, NewLoop, MemRef, LoopUpperBounds, DistsBetweenMemRefs);
+      LoopWithMinRef, NewLoop, MemRef, LoopUpperBounds, DistsBetweenMemRefs);
 
   HLNodeUtils::insertBefore(OuterAnchorLp, NewOuterLoop);
 
@@ -1600,9 +1606,10 @@ HIRStoreResultIntoTempArray::createExtractedLoopWithLargestLoopUpperBounds(
   SmallVector<RegDDRef *, 8> TripCountRefs;
 
   // Create Alloca inst, like %TempArray = alloca %array_size5
-  AllocaInst = createAllocaInst(DDG, MemRef, NewLoop,
-                                ExpensiveInst->getLvalDDRef()->getDestType(),
-                                ArraySizeInsts, TripCountRefs, Offsets);
+  AllocaInst = createAllocaInst(
+      MemRef, NewLoop,
+      ExpensiveInstForExtractedLoop->getLvalDDRef()->getDestType(),
+      ArraySizeInsts, TripCountRefs, Offsets);
 
   HLInst *AnchorForArraySizeInsts = nullptr;
 
@@ -1639,16 +1646,19 @@ HIRStoreResultIntoTempArray::createExtractedLoopWithLargestLoopUpperBounds(
 
   // Create a memref using AllocaRef and update the expensive inst's lval
   RegDDRef *AllocaDDRef =
-      DRU.createMemRef(AllocaLval->getSingleCanonExpr()->getSingleBlobIndex());
+      DRU.createMemRef(AllocaLval->getSingleCanonExpr()->getSingleBlobIndex(),
+                       AllocaInst->getNodeLevel());
 
   RegDDRef *AllocaDDRefClone = AllocaDDRef->clone();
 
-  uint64_t TypeSize = ExpensiveInst->getLvalDDRef()->getDestTypeSizeInBytes();
+  uint64_t TypeSize =
+      ExpensiveInstForExtractedLoop->getLvalDDRef()->getDestTypeSizeInBytes();
 
   RegDDRef *AllocaRef = addDimensionForAllocaMemRef(
       NewLoop, NewLoop, AllocaDDRefClone, MemRef, TypeSize, Offsets);
 
-  HLNodeUtils::insertAsLastChild(NewLoop, ExpensiveInst->clone());
+  HLNodeUtils::insertAsLastChild(NewLoop,
+                                 ExpensiveInstForExtractedLoop->clone());
 
   auto LastInst = cast<HLInst>(NewLoop->getLastChild());
 
@@ -1661,11 +1671,12 @@ HIRStoreResultIntoTempArray::createExtractedLoopWithLargestLoopUpperBounds(
   return NewLoop;
 }
 
-void HIRStoreResultIntoTempArray::getDistsBetweenMinRefAndMaxRef(
+// Get the distances between MinRef and MaxRef and return the loop with MinRef
+HLLoop *HIRStoreResultIntoTempArray::getDistsBetweenMinRefAndMaxRef(
     LpExpensiveInstsPairsTy &LpExpensiveInstsPairs,
     SmallVectorImpl<CanonExpr *> &DistsBetweenMemRefs) {
   SmallVector<HLInst *, 16> InstsInExprTree;
-  SmallVector<RegDDRef *, 16> MemRefs;
+  SmallVector<std::pair<RegDDRef *, HLLoop *>, 16> MemRefLoopPairs;
 
   for (auto &LpInstPair : LpExpensiveInstsPairs) {
     HLLoop *Lp = LpInstPair.first;
@@ -1676,52 +1687,65 @@ void HIRStoreResultIntoTempArray::getDistsBetweenMinRefAndMaxRef(
       InstsInExprTree.clear();
       collectInstsInExprTree(DDG, ExpensiveInst, InstsInExprTree);
       RegDDRef *MemRef = getMemRef(InstsInExprTree);
-      MemRefs.push_back(MemRef);
+      MemRefLoopPairs.push_back(std::make_pair(MemRef, Lp));
     }
   }
 
-  RegDDRef *MinRef = *(MemRefs.begin());
+  RegDDRef *MinRef = nullptr;
+  HLLoop *LoopWithMinRef = nullptr;
+  std::tie(MinRef, LoopWithMinRef) = *(MemRefLoopPairs.begin());
+
   unsigned NumDimension = MinRef->getNumDimensions();
 
-  for (auto I = std::next(MemRefs.begin()), End = MemRefs.end(); I != End;
-       ++I) {
-    RegDDRef *MaxRef = *(I);
+  for (auto I = std::next(MemRefLoopPairs.begin()), End = MemRefLoopPairs.end();
+       I != End; ++I) {
+    RegDDRef *CurRef = nullptr;
+    HLLoop *LoopWithCurRef = nullptr;
+    std::tie(CurRef, LoopWithCurRef) = *(I);
+
     unsigned Dim = 1;
     CanonExpr *MinCanonExpr = nullptr;
-    CanonExpr *MaxCanonExpr = nullptr;
+    CanonExpr *CurCanonExpr = nullptr;
     CanonExpr *MinCE = nullptr;
-    CanonExpr *MaxCE = nullptr;
+    CanonExpr *CurCE = nullptr;
 
     for (int Index = NumLoopnestLevel - 1; Index >= 0; --Index) {
       do {
         MinCanonExpr = MinRef->getDimensionIndex(Dim);
-        MaxCanonExpr = MaxRef->getDimensionIndex(Dim);
+        CurCanonExpr = CurRef->getDimensionIndex(Dim);
         Dim++;
       } while (MinCanonExpr->isConstant() && Dim <= NumDimension);
 
       MinCE = MinCanonExpr->clone();
-      MaxCE = MaxCanonExpr->clone();
+      CurCE = CurCanonExpr->clone();
 
-      if (MaxCE->hasBlob()) {
+      if (CurCE->hasBlob()) {
         continue;
       }
 
-      bool Subtracted = CanonExprUtils::subtract(MaxCE, MinCE, true);
+      bool Subtracted = CanonExprUtils::subtract(CurCE, MinCE, true);
 
       if (!Subtracted) {
         continue;
       }
 
+      if (CurCE->getConstant() < 0) {
+        LoopWithMinRef = LoopWithCurRef;
+        MinRef = CurRef;
+        CurCE->negate();
+      }
+
       if (!DistsBetweenMemRefs[Index]) {
-        DistsBetweenMemRefs[Index] = MaxCE;
+        DistsBetweenMemRefs[Index] = CurCE;
       } else {
         DistsBetweenMemRefs[Index] =
-            MaxCE->getConstant() > DistsBetweenMemRefs[Index]->getConstant()
-                ? MaxCE
+            CurCE->getConstant() > DistsBetweenMemRefs[Index]->getConstant()
+                ? CurCE
                 : DistsBetweenMemRefs[Index];
       }
     }
   }
+  return LoopWithMinRef;
 }
 
 bool HIRStoreResultIntoTempArray::doBulkLoopCarriedScalarReplacement(
@@ -1731,20 +1755,29 @@ bool HIRStoreResultIntoTempArray::doBulkLoopCarriedScalarReplacement(
       nullptr, nullptr, nullptr};
 
   // Get the largest constant distances for each dimensions between minref and
-  // maxref
-  getDistsBetweenMinRefAndMaxRef(LpExpensiveInstsPairs, DistsBetweenMemRefs);
+  // maxref and return the loop with minref. The first expression tree in this
+  // loop will be used to create the extracted loop.
+  HLLoop *LoopWithMinRef = getDistsBetweenMinRefAndMaxRef(LpExpensiveInstsPairs,
+                                                          DistsBetweenMemRefs);
 
   auto It = LpExpensiveInstsPairs.begin();
   HLLoop *FirstLoop = (*It).first;
 
-  HLInst *FirstExpensiveInst = (*((*It).second).begin());
+  HLInst *ExpensiveInstForExtractedLoop = nullptr;
 
-  DDGraph DDG = DDA.getGraph(FirstLoop);
-  auto &HNU = FirstLoop->getHLNodeUtils();
+  for (auto &LpInstPair : LpExpensiveInstsPairs) {
+    if (LpInstPair.first == LoopWithMinRef) {
+      ExpensiveInstForExtractedLoop = *(LpInstPair.second.begin());
+    }
+  }
+  assert(ExpensiveInstForExtractedLoop && "HLInst is expected");
+
+  DDGraph DDG = DDA.getGraph(LoopWithMinRef);
+  auto &HNU = LoopWithMinRef->getHLNodeUtils();
   auto &DRU = HNU.getDDRefUtils();
   SmallVector<HLInst *, 16> InstsInExprTree;
 
-  collectInstsInExprTree(DDG, FirstExpensiveInst, InstsInExprTree);
+  collectInstsInExprTree(DDG, ExpensiveInstForExtractedLoop, InstsInExprTree);
 
   RegDDRef *MemRef = getMemRef(InstsInExprTree);
 
@@ -1761,12 +1794,14 @@ bool HIRStoreResultIntoTempArray::doBulkLoopCarriedScalarReplacement(
   SmallVector<int64_t, 4> Offsets;
 
   HLLoop *ExtractedLoop = createExtractedLoopWithLargestLoopUpperBounds(
-      FirstLoop, MemRef, FirstExpensiveInst, LoopUpperBounds,
-      DistsBetweenMemRefs, InstsInExprTree, AllocaInst, Offsets);
+      FirstLoop, LoopWithMinRef, MemRef, ExpensiveInstForExtractedLoop,
+      LoopUpperBounds, DistsBetweenMemRefs, InstsInExprTree, AllocaInst,
+      Offsets);
 
   // Create a temporary alloca to store the result
   RegDDRef *AllocaDDRef = DRU.createMemRef(
-      AllocaInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex());
+      AllocaInst->getLvalDDRef()->getSingleCanonExpr()->getSingleBlobIndex(),
+      AllocaInst->getNodeLevel());
 
   // Handle the transformation of the rest of expression trees in the loop
   for (auto &LpInstPair : LpExpensiveInstsPairs) {
@@ -1894,6 +1929,8 @@ bool HIRStoreResultIntoTempArray::run() {
 
   SmallVector<RegDDRef *, NumLoopnestLevel> LoopUpperBounds = {nullptr, nullptr,
                                                                nullptr};
+  SmallVector<HLLoop *> InvalidateLoops;
+
   bool Transformed = false;
 
   if (isLegalForBulkLoopCarriedScalarReplacement(LpExpensiveInstsPairs,
@@ -1906,7 +1943,7 @@ bool HIRStoreResultIntoTempArray::run() {
 
       for (auto &LpInstPair : LpExpensiveInstsPairs) {
         HLLoop *Lp = LpInstPair.first;
-        setInvalidate(Lp);
+        InvalidateLoops.push_back(Lp);
       }
     }
 
@@ -1919,22 +1956,23 @@ bool HIRStoreResultIntoTempArray::run() {
 
       if (Transformed) {
         Lp->getParentRegion()->setGenCode();
-        setInvalidate(Lp);
+        InvalidateLoops.push_back(Lp);
       }
 
       Result = Result || Transformed;
     }
   }
 
+  for (auto *Lp : InvalidateLoops) {
+    setInvalidate(Lp);
+  }
+
   return Result;
 }
 
-PreservedAnalyses
-HIRStoreResultIntoTempArrayPass::run(llvm::Function &F,
-                                     llvm::FunctionAnalysisManager &AM) {
-  HIRStoreResultIntoTempArray(AM.getResult<HIRFrameworkAnalysis>(F),
-                              AM.getResult<HIRDDAnalysisPass>(F))
-      .run();
+PreservedAnalyses HIRStoreResultIntoTempArrayPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRStoreResultIntoTempArray(HIRF, AM.getResult<HIRDDAnalysisPass>(F)).run();
   return PreservedAnalyses::all();
 }
 

@@ -156,10 +156,11 @@ EXTERN void __kmpc_end_critical(kmp_critical_name *name) {
 ///
 
 EXTERN int __kmpc_master() {
-  if (__omp_spirv_global_data.assume_simple_spmd_mode)
-    return (__kmp_get_local_id() == 0) ? KMP_TRUE : KMP_FALSE;
-
+#if KMP_ASSUME_SIMPLE_SPMD_MODE
+  return (__kmp_get_local_id() == 0) ? KMP_TRUE : KMP_FALSE;
+#else
   return (__kmp_get_omp_thread_id(__kmp_is_spmd_mode()) == 0);
+#endif
 }
 
 EXTERN void __kmpc_end_master() {
@@ -243,4 +244,36 @@ KMPC_REDUCTION(OP_ADD, add, float)
 #if HAVE_FP64_SUPPORT
 KMPC_REDUCTION(OP_ADD, add, double)
 #endif // HAVE_FP64_SUPPORT
+
+
+///
+/// Dynamic memory allocation support
+///
+
+EXTERN void *__kmpc_malloc(size_t align, size_t size) {
+  if (size == 0)
+    return NULL;
+
+  if (align == 0)
+    align = KMP_MAX_ALIGNMENT;
+
+  size_t alloc_size = (align - 1) + size;
+
+  uintptr_t mem = atomic_fetch_add(
+      (volatile atomic_uintptr_t *)(&__omp_spirv_program_data.dyna_mem_cur),
+      (ptrdiff_t)alloc_size);
+
+  if (mem + alloc_size <= __omp_spirv_program_data.dyna_mem_ub) {
+    uintptr_t aligned = (((uintptr_t)mem - 1) + align) & (~(align - 1));
+    return (void *)aligned;
+  }
+
+  printf("Warning: __kmpc_malloc returns NULL (out of memory)\n");
+  return NULL;
+}
+
+EXTERN void __kmpc_free(void *ptr) {
+  // Not supported
+}
+
 #endif // INTEL_COLLAB

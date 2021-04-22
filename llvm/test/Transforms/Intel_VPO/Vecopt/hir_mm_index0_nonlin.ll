@@ -2,22 +2,14 @@
 ;
 ; REQUIRES: asserts
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -enable-mmindex=1  -disable-nonlinear-mmindex=0 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -vplan-plain-dump -vplan-entities-dump -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
+
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -enable-mmindex=1  -disable-nonlinear-mmindex=1 -print-after=VPlanDriverHIR  -vplan-force-vf=4 -S < %s 2>&1 | FileCheck --check-prefixes=DISABLED %s
-; source code
-;int ordering[1000];
-;int  maxloc (int m) {
-;    int best = -111111111;
-;    int tmp = 0;
-;    int val = 0;
-;    for (int i=0; i< m; i++) {
-;        if (ordering[i] > best) {
-;            best = ordering[i];
-;            tmp = i;
-;            val = ordering[i]+2;
-;        }
-;    }
-;    return tmp + best+val;
-;}
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -vplan-plain-dump -vplan-entities-dump -enable-mmindex=1 -disable-nonlinear-mmindex=1 -print-after=vplan-driver-hir -vplan-force-vf=4 -S < %s 2>&1 | FileCheck --check-prefixes=DISABLED %s
+
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-force-vf=4  -S -print-after=VPlanDriverHIR  < %s 2>&1 | FileCheck --check-prefixes=CG_ENABLE %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -enable-mmindex=1 -disable-nonlinear-mmindex=0 -vplan-force-vf=4 -S -print-after=vplan-driver-hir < %s 2>&1 | FileCheck --check-prefixes=CG_ENABLE %s
+
 ;
 ; CHECK:       External Defs Start:
 ; CHECK:         [[VPMPLUS:%.*]] = {%m + -1}
@@ -28,13 +20,13 @@
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   signed (SIntMin) Start: i32 [[TMP_0240:%.*]] Exit: i32 [[VP2:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP3:%.*]], i32 [[VP2]], i32 [[VP__RED_INIT_1:%.*]], i32 [[VP__RED_FINAL_1:%.*]],
-; CHECK-NEXT:   Parent exit: i32 [[VP0]]
+; CHECK-NEXT:   IsLinearIndex: 1  Parent exit: i32 [[VP0]]
 ; CHECK-NEXT:   signed (SIntMin) Start: i32 [[VAL_0250:%.*]] Exit: i32 [[VP4:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP5:%.*]], i32 [[VP4]], i32 [[VP__RED_INIT_2:%.*]], i32 [[VP__RED_FINAL_2:%.*]],
-; CHECK-NEXT:   Parent exit: i32 [[VP0]]
+; CHECK-NEXT:   IsLinearIndex: 0  Parent exit: i32 [[VP2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Induction list
-; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 BinOp: i32 [[VP6:%.*]] = add i32 [[VP7:%.*]] i32 [[VP__IND_INIT_STEP:%.*]]
+; CHECK-NEXT:   IntInduction(+) Start: i32 0 Step: i32 1 StartVal: i32 0 EndVal: ? BinOp: i32 [[VP6:%.*]] = add i32 [[VP7:%.*]] i32 [[VP__IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:    Linked values: i32 [[VP7]], i32 [[VP6]], i32 [[VP__IND_INIT:%.*]], i32 [[VP__IND_FINAL:%.*]],
 ; CHECK:    [[BB1:BB[0-9]+]]:
 ; CHECK:    [[BB2:BB[0-9]+]]:
@@ -63,12 +55,58 @@
 ; CHECK:    [[BB3:BB[0-9]+]]:
 ; CHECK-NEXT:     i32 [[VP__RED_FINAL]] = reduction-final{u_smax} i32 [[VP0]]
 ; CHECK-NEXT:     i32 [[VP__RED_FINAL_1]] = reduction-final{s_smin} i32 [[VP2]] i32 [[VP0]] i32 [[VP__RED_FINAL]]
-; CHECK-NEXT:     i32 [[VP__RED_FINAL_2]] = reduction-final{s_smin} i32 [[VP4]] i32 [[VP0]] i32 [[VP__RED_FINAL]]
+; CHECK-NEXT:     i32 [[VP__RED_FINAL_2]] = reduction-final{s_smin} i32 [[VP4]] i32 [[VP2]] i32 [[VP__RED_FINAL_1]]
 ; CHECK-NEXT:     i32 [[VP__IND_FINAL]] = induction-final{add} i32 0 i32 1
 ; CHECK: <4 x
 ;
 ; DISABLED-NOT: <4 x
 ;
+;CG_ENABLE: Function: maxloc
+;CG_ENABLE-EMPTY:
+;CG_ENABLE-NEXT: BEGIN REGION { modified }
+;CG_ENABLE-NEXT:       %tgu = (%m)/u4;
+;CG_ENABLE-NEXT:       if (0 <u 4 * %tgu)
+;CG_ENABLE-NEXT:       {
+;CG_ENABLE-NEXT:          %red.var = %best.023;
+;CG_ENABLE-NEXT:          %red.var1 = %tmp.024;
+;CG_ENABLE-NEXT:          %red.var2 = %val.025;
+;CG_ENABLE:               + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 1073741823> <auto-vectorized> <nounroll> <novectorize>
+;CG_ENABLE-NEXT:          |   %.vec = (<4 x i32>*)(%ordering)[i1];
+;CG_ENABLE-NEXT:          |   %red.var1 = (%.vec > %red.var) ? i1 + <i32 0, i32 1, i32 2, i32 3> : %red.var1;
+;CG_ENABLE-NEXT:          |   %red.var2 = (%.vec > %red.var) ? %.vec + 2 : %red.var2;
+;CG_ENABLE-NEXT:          |   %red.var = (%.vec > %red.var) ? %.vec : %red.var;
+;CG_ENABLE-NEXT:          + END LOOP
+;CG_ENABLE:               %best.023 = @llvm.vector.reduce.smax.v4i32(%red.var);
+;CG_ENABLE-NEXT:          %idx.blend = (%best.023 == %red.var) ? %red.var1 : <i32 2147483647, i32 2147483647, i32 2147483647, i32 2147483647>;
+;CG_ENABLE-NEXT:          %tmp.024 = @llvm.vector.reduce.smin.v4i32(%idx.blend);
+;CG_ENABLE-NEXT:          %mmidx.cmp. = %tmp.024 == %red.var1;
+;CG_ENABLE-NEXT:          %bsfintmask = bitcast.<4 x i1>.i4(%mmidx.cmp.);
+;CG_ENABLE-NEXT:          %bsf = @llvm.cttz.i4(%bsfintmask,  1);
+;CG_ENABLE-NEXT:          %val.025 = extractelement %red.var2,  %bsf;
+;CG_ENABLE-NEXT:       }
+;CG_ENABLE:            + DO i1 = 4 * %tgu, %m + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+;CG_ENABLE-NEXT:       |   %0 = (%ordering)[i1];
+;CG_ENABLE-NEXT:       |   %tmp.024 = (%0 > %best.023) ? i1 : %tmp.024;
+;CG_ENABLE-NEXT:       |   %val.025 = (%0 > %best.023) ? %0 + 2 : %val.025;
+;CG_ENABLE-NEXT:       |   %best.023 = (%0 > %best.023) ? %0 : %best.023;
+;CG_ENABLE-NEXT:       + END LOOP
+;CG_ENABLE-NEXT: END REGION
+
+; source code
+;int ordering[1000];
+;int  maxloc (int m) {
+;    int best = -111111111;
+;    int tmp = 0;
+;    int val = 0;
+;    for (int i=0; i< m; i++) {
+;        if (ordering[i] > best) {
+;            best = ordering[i];
+;            tmp = i;
+;            val = ordering[i]+2;
+;        }
+;    }
+;    return tmp + best+val;
+;}
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_unnamed_addr #0 {
 entry:

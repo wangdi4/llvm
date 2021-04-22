@@ -1,10 +1,10 @@
-* @bader
+* @bader @xmain/llvm-generic-owner # INTEL
 
 # Front-end compiler
-clang/ @Fznamznon @premanandrao @elizabethandrews
+clang/ @premanandrao @elizabethandrews @AaronBallman @xmain/llvm-clang-front-end # INTEL
 
 # Driver
-clang/**/Driver @mdtoguchi @AGindinson
+clang/**/Driver @mdtoguchi @AGindinson @xmain/llvm-driver # INTEL
 
 # LLVM-SPIRV translator
 llvm-spirv/ @AlexeySotkin @AlexeySachkov
@@ -13,15 +13,15 @@ llvm-spirv/ @AlexeySotkin @AlexeySachkov
 opencl-aot/ @dm-vodopyanov @AlexeySachkov @romanovvlad
 
 # Device library
-libdevice/ @vzakhari
+libdevice/ @vzakhari @jinge90
+
+# DPC++ runtime library
+sycl/ @intel/llvm-reviewers-runtime @xmain/dpcpp-rt #INTEL
 
 # Documentation
 sycl/ReleaseNotes.md @pvchupin
 sycl/doc/ @pvchupin @kbobrovs
 sycl/doc/extensions/ @intel/dpcpp-specification-reviewers
-
-# DPC++ runtime library
-sycl/ @intel/llvm-reviewers-runtime
 
 # USM
 sycl/include/CL/sycl/detail/clusm.hpp @jbrodman
@@ -95,10 +95,14 @@ xpti/ @tovinkere @andykaylor
 xptifw/ @tovinkere  @andykaylor
 
 # DPC++ tools
-llvm/tools/file-table-tform/ @kbobrovs @AlexeySachkov
-llvm/tools/llvm-foreach/ @AlexeySachkov  @Fznamznon
-llvm/tools/llvm-no-spir-kernel/ @AGindinson @AlexeySachkov
-llvm/tools/sycl-post-link/ @kbobrovs @AlexeySachkov
+llvm/**/file-table-tform/ @kbobrovs @AlexeySachkov
+llvm/**/llvm-foreach/ @AlexeySachkov  @Fznamznon
+llvm/**/llvm-no-spir-kernel/ @AGindinson @AlexeySachkov
+llvm/**/sycl-post-link/ @kbobrovs @AlexeySachkov
+llvm/include/llvm/Support/PropertySetIO.h @kbobrovs @AlexeySachkov
+llvm/lib/Support/PropertySetIO.cpp @kbobrovs @AlexeySachkov
+llvm/unittests/Support/PropertySetIOTest.cpp @kbobrovs @AlexeySachkov
+llvm/lib/Support/Base64.cpp @kbobrovs @AlexeySachkov
 
 # Clang offload tools
 clang/tools/clang-offload-bundler/ @kbobrovs @sndmitriev
@@ -106,7 +110,515 @@ clang/tools/clang-offload-wrapper/ @sndmitriev @kbobrovs
 clang/tools/clang-offload-deps/ @sndmitriev
 
 # Explicit SIMD
-SYCLLowerIR/ @kbobrovs
-esimd/ @kbobrovs
-sycl/include/CL/sycl/INTEL/esimd.hpp @kbobrovs
+SYCLLowerIR/ @kbobrovs @DenisBakhvalov
+esimd/ @kbobrovs @DenisBakhvalov
+sycl/include/CL/sycl/INTEL/esimd.hpp @kbobrovs @DenisBakhvalov
 sycl/doc/extensions/ExplicitSIMD/ @kbobrovs
+
+# ITT annotations
+llvm/lib/Transforms/Instrumentation/SPIRITTAnnotations.cpp @MrSidims
+llvm/include/llvm/Transforms/Instrumentation/SPIRITTAnnotations.h @MrSidims
+
+# INTEL_CUSTOMIZATION
+
+# @xmain/llvm-loop-optimizer component
+./llvm/include/llvm/Transforms/Intel_LoopTransforms/ @xmain/llvm-loop-optimizer
+./llvm/include/llvm/Analysis/Intel_LoopAnalysis/ @xmain/llvm-loop-optimizer
+./llvm/lib/Transforms/Intel_LoopTransforms/ @xmain/llvm-loop-optimizer
+./llvm/lib/Analysis/Intel_LoopAnalysis/ @xmain/llvm-loop-optimizer
+./llvm/test/Transforms/Intel_LoopCarriedCSE/ @xmain/llvm-loop-optimizer
+./llvm/test/Transforms/Intel_LoopTransforms/ @xmain/llvm-loop-optimizer
+./llvm/test/Analysis/Intel_LoopAnalysis/ @xmain/llvm-loop-optimizer
+
+# @xmain/llvm-paropt component
+llvm/include/llvm/Analysis/VPO/ @xmain/llvm-paropt
+llvm/include/llvm/Transforms/VPO/ @xmain/llvm-paropt
+llvm/lib/Analysis/VPO/ @xmain/llvm-paropt
+llvm/lib/Transforms/VPO/ @xmain/llvm-paropt
+llvm/include/llvm/Analysis/Directives.h @xmain/llvm-paropt
+llvm/include/llvm/IR/Directives.td @xmain/llvm-paropt
+llvm/lib/Transforms/Utils/GeneralUtils.cpp @xmain/llvm-paropt
+llvm/include/llvm/Transforms/Utils/IntrinsicUtils.h @xmain/llvm-paropt
+llvm/lib/Transforms/Utils/IntrinsicUtils.cpp @xmain/llvm-paropt
+llvm/utils/TableGen/DirectivesEmitter.cpp @xmain/llvm-paropt
+llvm/test/Transforms/Intel_VPO/Paropt @xmain/llvm-paropt
+llvm/test/Analysis/Intel_VPOAnalysis/WRegionInfo @xmain/llvm-paropt
+
+# @xmain/llvm-offload-rt component
+openmp/libomptarget/ @xmain/llvm-offload-rt
+
+# @xmain/llvm-code-generator component
+clang/include/clang/Basic/X86Target.def @xmain/llvm-code-generator
+clang/lib/Headers/ @xmain/llvm-code-generator
+llvm/lib/CodeGen/ @xmain/llvm-code-generator
+llvm/lib/Target/X86/ @xmain/llvm-code-generator
+
+# @andykaylor - should this be @xmain/llvm-architecture???
+llvm/lib/BinaryFormat/
+llvm/lib/Bitcode/
+llvm/lib/IR/
+llvm/lib/IRReader/
+llvm/lib/Option/
+llvm/lib/Passes/
+llvm/lib/Support/
+llvm/lib/Transforms/IPO/PassManagerBuilder.cpp
+llvm/include/llvm/
+llvm/include/llvm/ADT/
+llvm/include/llvm/AsmParser/
+llvm/include/llvm/BinaryFormat/
+llvm/include/llvm/Bitcode/
+llvm/include/llvm/Config/
+llvm/include/llvm/IR/
+llvm/include/llvm/IRReader/
+llvm/include/llvm/Option/
+llvm/include/llvm/Passes/
+llvm/include/llvm/Support/
+
+# @xmain/llvm-debug-information component
+llvm/include/llvm/IR/Debug* @xmain/llvm-debug-information
+llvm/include/llvm/IR/DIBuilder* @xmain/llvm-debug-information
+llvm/lib/IR/Debug* @xmain/llvm-debug-information
+llvm/lib/CodeGen/AsmPrinter/CodeView* @xmain/llvm-debug-information
+llvm/lib/CodeGen/AsmPrinter/Dbg* @xmain/llvm-debug-information
+llvm/lib/CodeGen/AsmPrinter/DIE* @xmain/llvm-debug-information
+llvm/lib/CodeGen/AsmPrinter/Dwarf* @xmain/llvm-debug-information
+llvm/lib/CodeGen/AsmPrinter/intel/pdb* @xmain/llvm-debug-information
+llvm/lib/CodeGen/AsmPrinter/intel/STI* @xmain/llvm-debug-information
+llvm/lib/CodeGen/LiveDebugVariables* @xmain/llvm-debug-information
+llvm/lib/DebugInfo/CodeView/ @xmain/llvm-debug-information
+llvm/lib/DebugInfo/DWARF/ @xmain/llvm-debug-information
+
+# @xmain/llvm-interprocedural-optimization component
+llvm/docs/Intel/DTrans/ @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/CallGraph.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/CallGraphSCCPass.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/CFLAliasAnalysisUtils.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/CFLAndersAliasAnalysis.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/CFLSteensAliasAnalysis.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/CGSCCPassManager.h  @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/GlobalsModRef.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/IndirectCallPromotionAnalysis.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/InlineAdvisor.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/InlineCost,h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/InlineModelFeatureMaps.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/InlineSizeEstimatorAnalysis.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/Intel_Andersens.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/Intel_ArrayUseAnalysis.h  @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/Intel_DopeVectorAnalysis.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/Intel_InlineCost.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/Intel_IPCloningAnalysis.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/Intel_PartialInlineAnalysis.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/Intel_WP.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/LazyCallGraph.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/ModuleSummaryAnalysis.h  @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/TargetLibraryInfo.def  @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Analysis/TargetLibraryInfo.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Support/intel-plugin-api.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Support/Intel_WP.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/IPO/ @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/IPO.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Scalar/Intel_FunctionRecognizer.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Scalar/Intel_IndirectCallConv.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Scalar/Intel_MultiVersioning.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Utils/CallGraphUpdater.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Utils/CallPromotionUtils.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Utils/Cloning.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Utils/CodeExtractor.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Utils/CodeMoverUtils.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Utils/CtorUtils.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Utils/FunctionComparator.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Utils/FunctionImportUtils.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Utils/GlobalStatus.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Utils/ImportedFunctionsInliningStatistics.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Utils/Intel_CloneUtils.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Utils/LibCallsShrinkWrap.h  @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Utils/ModuleUtils.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Utils/SplitModule.h @xmain/llvm-interprocedural-optimization
+llvm/include/llvm/Transforms/Utils/ValueMapper.h @xmain/llvm-interprocedural-optimization
+llvm/Intel_OptionalComponents/DTrans/ @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/CallGraph.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/CallGraphSCCPass.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/CFLAndersAliasAnalysis.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/CFLGraph.h @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/CFLSteensAliasAnalysis.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/CGSCCPassManager.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/GlobalsModRef.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/IndirectCallPromotionAnalysis.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/InlineAdvisor.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/InlineCost.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/InlineSizeEstimatorAnalysis.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/Intel_Andersens.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/Intel_ArrayUseAnalysis.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/Intel_DopeVectorAnalysis.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/Intel_IndirectCallConv.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/Intel_InlineCost.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/Intel_InlineReport @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/Intel_IPCloningAnalysis.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/Intel_MultiVersioning.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/Intel_PartialInlineAnalysis.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/Intel_WP.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/LazyCallGraph.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/ModuleSummaryAnalysis.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/ReplayInlineAdvisor.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Analysis/TargetLibraryInfo.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Linker/ @xmain/llvm-interprocedural-optimization
+llvm/lib/LTO/ @xmain/llvm-interprocedural-optimization
+llvm/lib/Support/Intel_WP_utils.h @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/IPO/ @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Scalar/Intel_FunctionRecognizer.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Scalar/Intel_IndirectCallConv.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Scalar/Intel_Multiversioning.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/BuildLibCalls.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/CallGraphUpdater.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/CallPromotionUtils.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/CloneModule.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/CloneFunction.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/CodeExtractor.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/CodeMoverUtils.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/CtorUtils.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/FunctionComparator.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/FunctionImportUtils.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/GlobalStatus.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/ImportedFunctionsInliningStatistics.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/InlineFunction.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/Intel_CloneUtils.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/Intel_RegionSplitter.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/LibCallsShrinkWrap.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/ModuleUtils.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/SplitModule.cpp @xmain/llvm-interprocedural-optimization
+llvm/lib/Transforms/Utils/ValueMapper.cpp @xmain/llvm-interprocedural-optimization
+llvm/lld/COFF/ @xmain/llvm-interprocedural-optimization
+llvm/lld/ELF/ @xmain/llvm-interprocedural-optimization
+llvm/lld/test/COFF/ @xmain/llvm-interprocedural-optimization
+llvm/lld/test/ELF/ @xmain/llvm-interprocedural-optimization
+llvm/test/Analysis/CallGraph/ @xmain/llvm-interprocedural-optimization
+lvm/test/Analysis/GlobalsModRef/ @xmain/llvm-interprocedural-optimization
+llvm/test/Analysis/Intel_AndersenAA/ @xmain/llvm-interprocedural-optimization
+llvm/test/Analysis/Intel_WP/ @xmain/llvm-interprocedural-optimization
+llvm/test/Analysis/LazyCallGraph/ @xmain/llvm-interprocedural-optimization
+llvm/test/Linker/ @xmain/llvm-interprocedural-optimization
+llvm/test/LTO/ @xmain/llvm-interprocedural-optimization
+llvm/test/ThinLTO/ @xmain/llvm-interprocedural-optimization
+llvm/test/Transforms/ArgumentPromotion/ @xmain/llvm-interprocedural-optimization
+llvm/test/Transforms/Attributor/ @xmain/llvm-interprocedural-optimization
+llvm/test/Transforms/DeadArgElim/ @xmain/llvm-interprocedural-optimization
+llvm/test/Transforms/GlobalOpt/ @xmain/llvm-interprocedural-optimization
+test/Transforms/Inline/ @xmain/llvm-interprocedural-optimization
+llvm/test/Transforms/Intel_ArgumentAlignment/ @xmain/llvm-interprocedural-optimization
+llvm/test/Transforms/Intel_DopeVectorConstProp/ @xmain/llvm-interprocedural-optimization
+llvm/test/Transforms/Intel_FoldWPIntrinsic/ @xmain/llvm-interprocedural-optimization
+llvm/test/Transforms/Intel_IntelInlineReport/ @xmain/llvm-interprocedural-optimization
+llvm/test/Transforms/Intel_IPArrayTranspose/ @xmain/llvm-interprocedural-optimization
+llvm/test/Transforms/Intel_IPCloning/ @xmain/llvm-interprocedural-optimization
+llvm/test/Transforms/Intel_IPO/ @xmain/llvm-interprocedural-optimization
+llvm/test/Transforms/Intel_MultiVersioning/ @xmain/llvm-interprocedural-optimization
+llvm/test/Transforms/Intel_QsortRecognition/ @xmain/llvm-interprocedural-optimization
+llvm/test/Transforms/Internalize/ @xmain/llvm-interprocedural-optimization
+llvm/test/Transforms/PartialInlining/ @xmain/llvm-interprocedural-optimization
+llvm/test/Transforms/WholeProgramDevirt/ @xmain/llvm-interprocedural-optimization
+llvm/tools/gold/gold-plugin.cpp @xmain/llvm-interprocedural-optimization
+llvm/unitttests/Analysis/TargetLibraryInfoTest.cpp @xmain/llvm-interprocedural-optimization
+
+# @xmain/llvm-profile-guided-optimization component
+compiler-rt/lib/profile/ @xmain/llvm-profile-guided-optimization
+compiler-rt/test/profile/ @xmain/llvm-profile-guided-optimization
+llvm/include/llvm/Analysis/BlockFrequencyInfo.h @xmain/llvm-profile-guided-optimization
+llvm/include/llvm/Analysis/BlockFrequencyInfoImpl.h @xmain/llvm-profile-guided-optimization
+llvm/include/llvm/Analysis/BranchProbabilityInfo.h @xmain/llvm-profile-guided-optimization
+llvm/include/llvm/Analysis/ProfileSummaryInfo.h @xmain/llvm-profile-guided-optimization
+llvm/include/llvm/ProfileData/ @xmain/llvm-profile-guided-optimization
+llvm/include/llvm/Transforms/Instrumentation.h @xmain/llvm-profile-guided-optimization
+llvm/include/llvm/Transforms/Instrumentation/InstrOrderFile.h @xmain/llvm-profile-guided-optimization
+llvm/include/llvm/Transforms/Instrumentation/InstrProfiling.h @xmain/llvm-profile-guided-optimization
+llvm/include/llvm/Transforms/Instrumentation/Intel_FunctionSplitting.h @xmain/llvm-profile-guided-optimization
+llvm/include/llvm/Transforms/Instrumentation/PGOInstrumentation.h @xmain/llvm-profile-guided-optimization
+llvm/include/llvm/Transforms/IPO/HotColdSplitting.h @xmain/llvm-profile-guided-optimization
+llvm/include/llvm/Transforms/IPO/SampleProfile.h @xmain/llvm-profile-guided-optimization
+llvm/include/llvm/Transforms/IPO/SampleProfileProbe.h @xmain/llvm-profile-guided-optimization
+llvm/lib/Analysis/BlockFrequencyInfo.cpp @xmain/llvm-profile-guided-optimization
+llvm/lib/Analysis/BlockFrequencyInfoImpl.cpp @xmain/llvm-profile-guided-optimization
+llvm/lib/Analysis/BlockProbabilityInfo.cpp @xmain/llvm-profile-guided-optimization
+llvm/lib/Analysis/ProfileSummaryInfo.cpp @xmain/llvm-profile-guided-optimization
+llvm/lib/ProfileData/ @xmain/llvm-profile-guided-optimization
+llvm/lib/Transforms/Instrumentation/IndirectCallPromotion.cpp @xmain/llvm-profile-guided-optimization
+llvm/lib/Transforms/Instrumentation/InstrOrderFile.cpp @xmain/llvm-profile-guided-optimization
+llvm/lib/Transforms/Instrumentation/InstrProfiling.cpp @xmain/llvm-profile-guided-optimization
+llvm/lib/Transforms/Instrumentation/Instrumentation.cpp @xmain/llvm-profile-guided-optimization
+llvm/lib/Transforms/Instrumentation/Intel_FunctionSplitting.cpp @xmain/llvm-profile-guided-optimization
+llvm/lib/Transforms/Instrumentation/PGOInstrumentation.cpp @xmain/llvm-profile-guided-optimization
+llvm/lib/Transforms/Instrumentation/PGOMemOPSizeOpt.cpp @xmain/llvm-profile-guided-optimization
+llvm/lib/Transforms/Instrumentation/ValueProfileCollector.cpp @xmain/llvm-profile-guided-optimization
+llvm/lib/Transforms/Instrumentation/ValueProfileCollector.h @xmain/llvm-profile-guided-optimization
+llvm/lib/Transforms/Instrumentation/ValueProfilePlugins.inc @xmain/llvm-profile-guided-optimization
+llvm/test/Analysis/ProfileSummary/ @xmain/llvm-profile-guided-optimization
+llvm/test/Instrumentation/InstrOrderFile/ @xmain/llvm-profile-guided-optimization
+llvm/test/Instrumentation/InstrProfiling/ @xmain/llvm-profile-guided-optimization
+llvm/test/Instrumentation/Intel_FunctionSplitting/ @xmain/llvm-profile-guided-optimization
+llvm/test/Transforms/HotColdSplit/ @xmain/llvm-profile-guided-optimization
+llvm/test/Transforms/PGOProfile/ @xmain/llvm-profile-guided-optimization
+tools/llvm-cov/ @xmain/llvm-profile-guided-optimization
+tools/llvm-profdata/ @xmain/llvm-profile-guided-optimization
+
+# @xmain/ocl-cpu-rt component
+opencl/ @xmain/ocl-cpu-rt @cdai2
+
+# @xmain/llvm-scalaropt component
+llvm/lib/IR/ConstantFold.h @xmain/llvm-scalaropt
+llvm/lib/Analysis/AliasAnalysisSummary.h @xmain/llvm-scalaropt
+llvm/include/llvm/Transforms/AggressiveInstCombine/AggressiveInstCombine.h @xmain/llvm-scalaropt
+llvm/include/llvm/Transforms/InstCombine/InstCombine.h @xmain/llvm-scalaropt
+llvm/include/llvm/Transforms/InstCombine/InstCombineWorklist.h @xmain/llvm-scalaropt
+llvm/include/llvm/Transforms/InstCombine/InstCombiner.h @xmain/llvm-scalaropt
+llvm/include/llvm/Transforms/Scalar/* @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/IVDescriptors.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/IRSimilarityIdentifier.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/LoopIterator.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/TargetTransformInfo.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/LoopAnalysisManager.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/Directives.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/SparsePropagation.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/CFG.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ScalarEvolutionDivision.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/BlockFrequencyInfo.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/StackLifetime.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/VectorUtils.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/Intel_ArrayUseAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/CFGPrinter.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/IVUsers.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/RegionIterator.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/MemorySSA.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/AssumptionCache.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/DOTGraphTraitsPass.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/LoopCacheAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ConstantFolding.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/IntervalIterator.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/CallPrinter.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/DomTreeUpdater.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/TypeBasedAliasAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/CGSCCPassManager.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/DemandedBits.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/TargetTransformInfoImpl.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ScalarEvolutionAliasAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/Interval.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/EHPersonalities.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/GlobalsModRef.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/CallGraphSCCPass.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ProfileSummaryInfo.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/DominanceFrontier.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/MemorySSAUpdater.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/PhiValues.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/MLInlineAdvisor.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/DomPrinter.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/BasicAliasAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ModuleDebugInfoPrinter.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/LoopAccessAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/CFLAndersAliasAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/Passes.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/Trace.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/AliasAnalysisEvaluator.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/SyncDependenceAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/IteratedDominanceFrontier.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/InstructionSimplify.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/DominanceFrontierImpl.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ValueLatticeUtils.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ModuleSummaryAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/LoopPass.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/DDGPrinter.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/LoopUnrollAnalyzer.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/DependenceAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ScopedNoAliasAA.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/IndirectCallVisitor.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/LoopNestAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/LoopInfo.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ObjCARCInstKind.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/TypeMetadataUtils.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/Delinearization.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/InlineCost.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ObjCARCAnalysisUtils.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/RegionInfoImpl.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/IntervalPartition.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/Intel_StdContainerAA.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ObjCARCAliasAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/CallGraph.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/InstructionPrecedenceTracking.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ObjCARCUtil.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/FunctionPropertiesAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/LazyCallGraph.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/InstCount.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/Intel_DopeVectorAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ReplayInlineAdvisor.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/AliasAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/Intel_FPValueRangeAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/MemoryBuiltins.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/Intel_Andersens.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/Intel_MemRefAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/CmpInstAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/InlineSizeEstimatorAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/OptimizationRemarkEmitter.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/Lint.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/LazyValueInfo.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ScalarEvolution.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/PtrUseVisitor.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/DependenceGraphBuilder.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/MLModelRunner.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/MustExecute.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/RegionInfo.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/GuardUtils.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/AssumeBundleQueries.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ValueTracking.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/LazyBranchProbabilityInfo.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/IndirectCallPromotionAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/DDG.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/Utils/Local.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/Utils/TFUtils.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ScalarEvolutionNormalization.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/RegionPass.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/Loads.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/HeatUtils.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/AliasSetTracker.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/SyntheticCountsUtils.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/CodeMetrics.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/LoopInfoImpl.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/CaptureTracking.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/PHITransAddr.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/MemDerefPrinter.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ScalarEvolutionExpressions.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ConstraintSystem.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/ValueLattice.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/StackSafetyAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/PostDominators.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/TargetFolder.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/MemoryDependenceAnalysis.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/RegionPrinter.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/MemoryLocation.h @xmain/llvm-scalaropt
+llvm/include/llvm/Analysis/Intel_FPValueRange.h @xmain/llvm-scalaropt
+llvm/lib/Transforms/AggressiveInstCombine/TruncInstCombine.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/AggressiveInstCombine/AggressiveInstCombine.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/InstCombine/InstCombineSimplifyDemanded.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/InstCombine/InstCombineAtomicRMW.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/InstCombine/InstCombineSelect.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/InstCombine/InstCombineAndOrXor.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/InstCombine/InstCombineMulDivRem.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/InstCombine/InstCombineNegator.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/InstCombine/InstCombineAddSub.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/InstCombine/InstCombineCompares.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/InstCombine/InstructionCombining.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/InstCombine/InstCombineCalls.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/InstCombine/InstCombineVectorOps.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/InstCombine/InstCombineShifts.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/InstCombine/InstCombinePHI.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/InstCombine/InstCombineCasts.cpp @xmain/llvm-scalaropt
+llvm/lib/Transforms/Scalar/* @xmain/llvm-scalaropt
+llvm/lib/Analysis/Loads.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ScalarEvolution.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/MemoryLocation.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/Trace.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/AliasSetTracker.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/IntervalPartition.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/DDGPrinter.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/MustExecute.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/StackLifetime.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/PtrUseVisitor.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/LoopAnalysisManager.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/Intel_WP.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/CallPrinter.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/LoopAccessAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ObjCARCInstKind.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/IVUsers.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/InlineSizeEstimatorAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ValueLatticeUtils.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/GlobalsModRef.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ReplayInlineAdvisor.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/PHITransAddr.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/MemDerefPrinter.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/Intel_IPCloningAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ConstantFolding.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/InstCount.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/VFABIDemangling.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/LoopUnrollAnalyzer.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/DominanceFrontier.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/CallGraphSCCPass.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/Intel_StdContainerAA.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/HeatUtils.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/LoopPass.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/TargetLibraryInfo.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/TypeBasedAliasAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/MemoryDependenceAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/DomTreeUpdater.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/LoopNestAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/MLInlineAdvisor.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/AssumptionCache.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/BranchProbabilityInfo.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/TFUtils.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/RegionInfo.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/CallGraph.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/GuardUtils.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/Directives.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/CFLAndersAliasAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/StackSafetyAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/LazyBranchProbabilityInfo.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/TypeMetadataUtils.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/DDG.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/Lint.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ImportedFunctionsInliningStatistics.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/AliasAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/AliasAnalysisSummary.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ReleaseModeModelRunner.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/MemoryBuiltins.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/DemandedBits.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/AliasAnalysisEvaluator.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ObjCARCAnalysisUtils.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/IVDescriptors.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/Intel_DopeVectorAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/MemDepPrinter.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ScopedNoAliasAA.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/SyncDependenceAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/DomPrinter.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/Intel_MemRefAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/Intel_FPValueRange.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/CmpInstAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/IRSimilarityIdentifier.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/AssumeBundleQueries.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/Delinearization.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/SyntheticCountsUtils.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/TargetTransformInfo.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/CodeMetrics.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/LoopInfo.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/CFGPrinter.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/CostModel.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ValueTracking.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/PostDominators.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ValueLattice.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/MemorySSA.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/CGSCCPassManager.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/Analysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/DependenceGraphBuilder.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/DependenceAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ScalarEvolutionDivision.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/VectorUtils.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/MemorySSAUpdater.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/IndirectCallPromotionAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/Intel_ArrayUseAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/RegionPass.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/PhiValues.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ModuleSummaryAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ScalarEvolutionNormalization.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/LoopCacheAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ScalarEvolutionAliasAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ProfileSummaryInfo.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/CaptureTracking.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/Interval.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/FunctionPropertiesAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/Intel_FPValueRangeAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/EHPersonalities.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/InstructionSimplify.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ObjCARCAliasAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/LazyValueInfo.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/RegionPrinter.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/CFG.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/BasicAliasAnalysis.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/InstructionPrecedenceTracking.cpp @xmain/llvm-scalaropt
+llvm/lib/Analysis/ConstraintSystem.cpp @xmain/llvm-scalaropt
+
+# end INTEL_CUSTOMIZATION

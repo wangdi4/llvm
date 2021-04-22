@@ -412,10 +412,9 @@ bool HIRNonZeroSinkingForPerfectLoopnest::run() {
   return Result;
 }
 
-PreservedAnalyses HIRNonZeroSinkingForPerfectLoopnestPass::run(
-    llvm::Function &F, llvm::FunctionAnalysisManager &AM) {
-  HIRNonZeroSinkingForPerfectLoopnest(AM.getResult<HIRFrameworkAnalysis>(F))
-      .run();
+PreservedAnalyses HIRNonZeroSinkingForPerfectLoopnestPass::runImpl(
+    llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
+  HIRNonZeroSinkingForPerfectLoopnest(HIRF).run();
   return PreservedAnalyses::all();
 }
 

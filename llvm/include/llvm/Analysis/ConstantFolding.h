@@ -41,6 +41,15 @@ bool IsConstantOffsetFromGlobal(Constant *C, GlobalValue *&GV, APInt &Offset,
                                 const DataLayout &DL,
                                 DSOLocalEquivalent **DSOEquiv = nullptr);
 
+#if INTEL_CUSTOMIZATION
+class Value;
+// If a +CData is used in other non-fneg instructions, we don't fold the
+// -CData, because this usually generate unnecessary load -CData from Data
+// section. We tend to combine the fneg with its user at Codegen.
+// e.g fneg(+CData) + fmadd --> fnmadd
+bool ConstantHasNonFNegUse(Value *V);
+#endif // INTEL_CUSTOMIZATION
+
 /// ConstantFoldInstruction - Try to constant fold the specified instruction.
 /// If successful, the constant result is returned, if not, null is returned.
 /// Note that this fails if not all of the operands are constant.  Otherwise,

@@ -28,8 +28,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NEXT:    [[VEC_PHI3:%.*]] = phi <4 x i32> [ [[TMP6:%.*]], %[[VPLANNEDBB1]] ], [ [[BROADCAST_SPLAT]], %[[VPLANNEDBB]] ]
 ; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr i32, i32* [[B:%.*]], i64 [[UNI_PHI2]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = load i32, i32* [[TMP3]], align 4
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT4:%.*]] = insertelement <4 x i32> undef, i32 [[TMP4]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT5:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT4]], <4 x i32> undef, <4 x i32> zeroinitializer
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT4:%.*]] = insertelement <4 x i32> poison, i32 [[TMP4]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT5:%.*]] = shufflevector <4 x i32> [[BROADCAST_SPLATINSERT4]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP5:%.*]] = add <4 x i32> [[BROADCAST_SPLAT5]], [[TMP1]]
 ; CHECK-NEXT:    [[TMP6]] = add <4 x i32> [[TMP5]], [[VEC_PHI3]]
 ; CHECK:         br i1 [[TMP8:%.*]], label %[[VPLANNEDBB6:.*]], label %[[VPLANNEDBB1]]

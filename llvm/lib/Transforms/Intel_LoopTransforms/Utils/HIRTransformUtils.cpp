@@ -1,6 +1,6 @@
 //===--- HIRTransformUtils.cpp  -------------------------------------------===//
 //
-// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -14,15 +14,21 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRArrayContractionUtils.h"
 
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/IR/Instructions.h"
+#if INTEL_INCLUDE_DTRANS
+#include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
+#endif // INTEL_INCLUDE_DTRANS
 
 #include "HIRArrayScalarization.h"
 #include "HIRDeadStoreElimination.h"
@@ -43,6 +49,7 @@ using namespace llvm::loopopt::reversal;
 using namespace llvm::loopopt::lmm;
 using namespace llvm::loopopt::dse;
 using namespace llvm::loopopt::arrayscalarization;
+using namespace llvm::loopopt::arraycontractionutils;
 
 static cl::opt<bool> DisableConstantPropagation(
     "hir-transform-utils-disable-constprop", cl::init(false), cl::Hidden,
@@ -140,7 +147,9 @@ void HIRTransformUtils::doLoopReversal(HLLoop *InnermostLp, HIRDDAnalysis &HDDA,
 bool HIRTransformUtils::isLoopInvariant(const RegDDRef *MemRef,
                                         const HLLoop *Loop, HIRDDAnalysis &HDDA,
                                         HIRLoopStatistics &HLS,
+#if INTEL_INCLUDE_DTRANS
                                         FieldModRefResult *FieldModRef,
+#endif // INTEL_INCLUDE_DTRANS
                                         bool IgnoreIVs) {
   assert(MemRef && "Memref is null!");
   assert(MemRef->isMemRef() && "Ref is not a memref!");
@@ -148,8 +157,11 @@ bool HIRTransformUtils::isLoopInvariant(const RegDDRef *MemRef,
   assert(HLNodeUtils::contains(Loop, MemRef->getHLDDNode()) &&
          "MemRef expected to be inside Loop!");
 
-  HIRLMM LMMPass(Loop->getHLNodeUtils().getHIRFramework(), HDDA, HLS, nullptr,
-                 FieldModRef);
+  HIRLMM LMMPass(Loop->getHLNodeUtils().getHIRFramework(), HDDA, HLS,
+#if INTEL_INCLUDE_DTRANS
+                 FieldModRef,
+#endif // INTEL_INCLUDE_DTRANS
+                 nullptr);
   return LMMPass.isLoopInvariant(MemRef, Loop, IgnoreIVs);
 }
 
@@ -438,6 +450,9 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
     // unrolling pass doesn't unroll it.
     OrigLoop->markDoNotUnroll();
   }
+
+  // Original prefetching info does not apply to remainder loop.
+  OrigLoop->clearPrefetchingPragmaInfo();
 
   if (Prof) {
     // Set the remainder loop's profile data with Rem calcuated before.
@@ -765,12 +780,13 @@ void UpdateDDRefForLoopPermutation::updateCE(CanonExpr *CE,
 }
 
 void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
-                                  unsigned StripmineSize) {
+                                  unsigned StripmineSize,
+                                  bool AllowExplicitBoundInst) {
   uint64_t TripCount;
   bool IsConstTrip = FirstLoop->isConstTripLoop(&TripCount);
 
   // Caller should call canStripmine before
-  assert(FirstLoop->canStripmine(StripmineSize) &&
+  assert(FirstLoop->canStripmine(StripmineSize, AllowExplicitBoundInst) &&
          "Caller should call canStripmine() first");
 
   HLNodeUtils *HNU = &(FirstLoop->getHLNodeUtils());
@@ -897,7 +913,7 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
     }
 
     // Normalize
-    bool Result = Lp->normalize();
+    bool Result = Lp->normalize(AllowExplicitBoundInst);
     assert(Result && "Not expecting cannot be normalized");
     (void)Result;
   }
@@ -998,7 +1014,7 @@ static bool widenIVIfNeeded(HLLoop *Lp, unsigned Multiplier) {
   if (UpperCE->isIntConstant()) {
     UpperCE->setSrcAndDestType(NewIVType);
 
-  } else if (UpperCE->convertToStandAloneBlob()) {
+  } else if (UpperCE->convertToStandAloneBlobOrConstant()) {
 
     unsigned Index = UpperCE->getSingleBlobIndex();
     UpperCE->getBlobUtils().createCastBlob(
@@ -1227,6 +1243,9 @@ private:
   unsigned NumFolded;
   unsigned NumConstGlobalLoads;
   unsigned NumInstsRemoved;
+#if INTEL_INCLUDE_DTRANS
+  DTransImmutableInfo *DTII;
+#endif // INTEL_INCLUDE_DTRANS
 
   // Node passed in by caller
   const HLNode *OriginNode;
@@ -1304,9 +1323,17 @@ private:
   }
 
 public:
+#if INTEL_INCLUDE_DTRANS
+  ConstantPropagater(DTransImmutableInfo *DTII, HLNode *Node)
+#else // INTEL_INCLUDE_DTRANS
   ConstantPropagater(HLNode *Node)
+#endif // INTEL_INCLUDE_DTRANS
       : NumPropagated(0), NumFolded(0), NumConstGlobalLoads(0),
-        NumInstsRemoved(0), OriginNode(Node) {
+        NumInstsRemoved(0),
+#if INTEL_INCLUDE_DTRANS
+        DTII(DTII),
+#endif // INTEL_INCLUDE_DTRANS
+        OriginNode(Node) {
     if (isa<HLLoop>(Node) || isa<HLRegion>(Node)) {
       CurrLoopOrRegion = Node;
     } else if (HLLoop *ParentLoop = Node->getParentLoop()) {
@@ -1429,10 +1456,14 @@ public:
     for (RegDDRef *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
       propagateConstUse(Ref);
 
-      // Try to replace constant global array
-      if (auto ConstantRef = Ref->simplifyConstArray()) {
+      // Try to replace constant array
+#if INTEL_INCLUDE_DTRANS
+      if (auto ConstantRef = DDRefUtils::simplifyConstArray(Ref, DTII)) {
+#else // INTEL_INCLUDE_DTRANS
+      if (auto ConstantRef = DDRefUtils::simplifyConstArray(Ref)) {
+#endif // INTEL_INCLUDE_DTRANS
         NumConstGlobalLoads++;
-        LLVM_DEBUG(dbgs() << "Replaced const global array load: "; Ref->dump();
+        LLVM_DEBUG(dbgs() << "Replaced const array load: "; Ref->dump();
                    dbgs() << "\n";);
         ReplacedNode = HIRTransformUtils::replaceOperand(Ref, ConstantRef);
       }
@@ -1616,11 +1647,20 @@ void ConstantPropagater::propagateConstUse(RegDDRef *Ref) {
   }
 }
 
+#if INTEL_INCLUDE_DTRANS
+bool HIRTransformUtils::doConstantPropagation(HLNode *Node,
+                                              DTransImmutableInfo *DTII) {
+#else // INTEL_INCLUDE_DTRANS
 bool HIRTransformUtils::doConstantPropagation(HLNode *Node) {
+#endif // INTEL_INCLUDE_DTRANS
   if (DisableConstantPropagation) {
     return false;
   }
+#if INTEL_INCLUDE_DTRANS
+  ConstantPropagater CP(DTII, Node);
+#else // INTEL_INCLUDE_DTRANS
   ConstantPropagater CP(Node);
+#endif // INTEL_INCLUDE_DTRANS
   LLVM_DEBUG(dbgs() << "Before constprop\n"; Node->dump(););
   HLNodeUtils::visit(CP, Node);
   LLVM_DEBUG(dbgs() << "After constprop\n"; Node->dump(); CP.dumpStatistics(););
@@ -1666,7 +1706,7 @@ std::pair<bool, HLInst *> HIRTransformUtils::constantFoldInst(HLInst *Inst,
       case Instruction::FAdd:
         if (RHS->isZero()) {
           Result = LHS;
-        }else if (LHS->isZero()) {
+        } else if (LHS->isZero()) {
           Result = RHS;
         }
         break;
@@ -1865,4 +1905,14 @@ HLDDNode *HIRTransformUtils::replaceOperand(RegDDRef *OldRef,
   Node->replaceOperandDDRef(OldRef, NewRef);
 
   return Node;
+}
+
+bool HIRTransformUtils::contractMemRef(RegDDRef *ToContractRef,
+                                       SmallSet<unsigned, 4> &PreservedDims,
+                                       SmallSet<unsigned, 4> &ToContractDims,
+                                       HLRegion &Reg,
+                                       RegDDRef *&AfterContractRef) {
+
+  return HIRArrayContractionUtil::contractMemRef(
+      ToContractRef, PreservedDims, ToContractDims, Reg, AfterContractRef);
 }

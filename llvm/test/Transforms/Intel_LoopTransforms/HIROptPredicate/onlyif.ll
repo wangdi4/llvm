@@ -38,7 +38,7 @@
 ; OPTREPORT: LOOP END
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT: <Predicate Optimized v1>
-; OPTREPORT:     Remark: Invariant Condition hoisted out of this loop
+; OPTREPORT:     remark #25422: Invariant Condition hoisted out of this loop
 ; OPTREPORT:     LOOP BEGIN
 ; OPTREPORT:     LOOP END
 ; OPTREPORT: LOOP END

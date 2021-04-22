@@ -47,7 +47,7 @@ struct code_location {
   }
 #else
   static constexpr code_location
-  current(const char *fileName = nullptr,
+  current(const char *fileName = __builtin_FILE(),
           const char *funcName = __builtin_FUNCTION(),
           unsigned long lineNo = __builtin_LINE(),
           unsigned long columnNo = 0) noexcept {
@@ -99,16 +99,15 @@ static inline std::string codeToString(cl_int code) {
 #define __SYCL_ASSERT(x) assert(x)
 #endif // #ifdef __SYCL_DEVICE_ONLY__
 
-/* INTEL_CUSTOMIZATION */
 #define __SYCL_OCL_ERROR_REPORT                                                \
   "Native API failed. " /*__FILE__*/                                           \
   /* TODO: replace __FILE__ to report only relative path*/                     \
   /* ":" __SYCL_STRINGIFY_LINE(__LINE__) ": " */                               \
                                "Native API returns: "
-/* end INTEL_CUSTOMIZATION */
 
 #ifndef __SYCL_SUPPRESS_OCL_ERROR_REPORT
 #include <iostream>
+// TODO: rename all names with direct use of OCL/OPENCL to be backend agnostic.
 #define __SYCL_REPORT_OCL_ERR_TO_STREAM(expr)                                  \
   {                                                                            \
     auto code = expr;                                                          \
@@ -279,7 +278,8 @@ template <int NDIMS> struct NDLoop {
                                            const LoopBoundTy<NDIMS> &Stride,
                                            const LoopBoundTy<NDIMS> &UpperBound,
                                            FuncTy f) {
-    LoopIndexTy<NDIMS> Index; // initialized down the call stack
+    LoopIndexTy<NDIMS> Index =
+        InitializedVal<NDIMS, LoopIndexTy>::template get<0>();
     NDLoopIterateImpl<NDIMS, NDIMS - 1, LoopBoundTy, FuncTy, LoopIndexTy>{
         LowerBound, Stride, UpperBound, f, Index};
   }

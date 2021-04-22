@@ -21,7 +21,7 @@ namespace llvm {
 namespace vpo {
 
 class VPlanLoopCFU {
-  VPlan &Plan;
+  VPlanVector &Plan;
   void run(VPLoop *VPL);
 
   /// Rematerialize \p LiveOut instruction of a loop \p VPL in terms of other
@@ -54,7 +54,7 @@ class VPlanLoopCFU {
   void rematerializeLiveOuts(VPLoop *VPL);
 
 public:
-  VPlanLoopCFU(VPlan &Plan) : Plan(Plan) {}
+  VPlanLoopCFU(VPlanVector &Plan) : Plan(Plan) {}
   void run();
 };
 } // namespace vpo

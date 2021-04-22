@@ -4,6 +4,8 @@
 ; Input LLVM IR is generated for below code with command:  icx -O2 -mllvm -print-module-before-loopopt
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-plain-cfg -disable-output < %s 2>&1 | FileCheck %s
+
 
 ; Source code
 ; #define N 1600
@@ -41,6 +43,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo(i32 %factor) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after importing plain CFG
+; CHECK-NEXT:  VPlan IR for: foo:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:    [[VP3:%.*]] = {zext.i32.i64([[TMP0:%.*]]) + -1}
 ; CHECK-DAG:    [[VP0:%.*]] = {@c}

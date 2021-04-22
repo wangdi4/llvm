@@ -48,26 +48,26 @@
 ;Function: foo
 ;
 ;CHECK:      BEGIN REGION { modified }
-;CHECK:               %limm = (@B)[0][0];
-;CHECK:               %limm3 = (@B)[0][1];
-;CHECK:               %limm5 = (@B)[0][2];
-;CHECK:               %limm7 = (@B)[0][3];
-;CHECK:               %limm9 = (@B)[0][4];
+;CHECK:               %[[LIMM:limm[0-9]*]] = (@B)[0][0];
+;CHECK:               %[[LIMM2:limm[0-9]*]] = (@B)[0][1];
+;CHECK:               %[[LIMM3:limm[0-9]*]] = (@B)[0][2];
+;CHECK:               %[[LIMM4:limm[0-9]*]] = (@B)[0][3];
+;CHECK:               %[[LIMM5:limm[0-9]*]] = (@B)[0][4];
 ;CHECK:            + DO i1 = 0, 9, 1   <DO_LOOP>
 ;CHECK:            |   + DO i2 = 0, 19, 1   <DO_LOOP>
-;CHECK:            |   |   %1 = %limm;
+;CHECK:            |   |   %1 = %[[LIMM]];
 ;CHECK:            |   |   %3 = (@A)[0][i1 + i2];
 ;CHECK:            |   |   (@A)[0][i1 + i2] = %1 + %3;
-;CHECK:            |   |   %1 = %limm3;
+;CHECK:            |   |   %1 = %[[LIMM2]];
 ;CHECK:            |   |   %3 = (@A)[0][i1 + i2 + 1];
 ;CHECK:            |   |   (@A)[0][i1 + i2 + 1] = %1 + %3;
-;CHECK:            |   |   %1 = %limm5;
+;CHECK:            |   |   %1 = %[[LIMM3]];
 ;CHECK:            |   |   %3 = (@A)[0][i1 + i2 + 2];
 ;CHECK:            |   |   (@A)[0][i1 + i2 + 2] = %1 + %3;
-;CHECK:            |   |   %1 = %limm7;
+;CHECK:            |   |   %1 = %[[LIMM4]];
 ;CHECK:            |   |   %3 = (@A)[0][i1 + i2 + 3];
 ;CHECK:            |   |   (@A)[0][i1 + i2 + 3] = %1 + %3;
-;CHECK:            |   |   %1 = %limm9;
+;CHECK:            |   |   %1 = %[[LIMM5]];
 ;CHECK:            |   |   %3 = (@A)[0][i1 + i2 + 4];
 ;CHECK:            |   |   (@A)[0][i1 + i2 + 4] = %1 + %3;
 ;CHECK:            |   + END LOOP
