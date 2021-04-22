@@ -160,6 +160,15 @@ constexpr std::array<const char *, N> static getSymbolArray(
   };                                                                           \
   }
 
+#if INTEL_CUSTOMIZATION
+#define DLWRAP_IMPL(SYMBOL, ARITY)                                             \
+  DLWRAP_COMMON(SYMBOL, ARITY)                                                 \
+  DLWRAP_INSTANTIATE(SYMBOL, SYMBOL, ARITY)
+
+#define DLWRAP_INTERNAL_IMPL(SYMBOL, ARITY)                                    \
+  DLWRAP_COMMON(SYMBOL, ARITY)                                                 \
+  static DLWRAP_INSTANTIATE(SYMBOL, dlwrap_##SYMBOL, ARITY)
+#else // INTEL_CUSTOMIZATION
 #define DLWRAP_IMPL(SYMBOL, ARITY)                                             \
   DLWRAP_COMMON(SYMBOL, ARITY);                                                \
   DLWRAP_INSTANTIATE(SYMBOL, SYMBOL, ARITY)
@@ -167,6 +176,7 @@ constexpr std::array<const char *, N> static getSymbolArray(
 #define DLWRAP_INTERNAL_IMPL(SYMBOL, ARITY)                                    \
   DLWRAP_COMMON(SYMBOL, ARITY);                                                \
   static DLWRAP_INSTANTIATE(SYMBOL, dlwrap_##SYMBOL, ARITY)
+#endif // INTEL_CUSTOMIZATION
 
 #define DLWRAP_INSTANTIATE_0(SYM_USE, SYM_DEF, T)                              \
   T::ReturnType SYM_DEF() { return dlwrap::SYM_USE##_Trait::get()(); }
