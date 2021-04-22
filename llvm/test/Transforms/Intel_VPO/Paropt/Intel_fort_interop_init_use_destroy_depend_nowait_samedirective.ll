@@ -143,15 +143,16 @@ bb1:                                              ; preds = %alloca_0
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.INTEROP"() ]
 
 ;CHECK: call void @__kmpc_omp_task_begin_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %{{[^ ,]+}})
-;CHECK_NEXT:  %[[INTEROP_CAST:[^ ]+]] = bitcast i64* %{{[^ ,]+}} to i8**
-;CHECK_NEXT:  %[[INTEROP_OBJ:[^ ]+]] = call i8* @__tgt_create_interop(i64 %{{[^ ,]+}}, i32 1, i32 0, i8* null)
-;CHECK_NEXT:  store i8* %[[INTEROP_OBJ]], i8** %[[INTEROP_CAST]], align 8
-;CHECK_NEXT:  %[[INTEROP_CAST2:[^ ]+]] = bitcast i64* %{{[^ ,]+}} to i8**
-;CHECK_NEXT:  %[[INTEROP_OBJ_VAL1:[^ ]+]] = load i8*, i8** %[[INTEROP_CAST2]], align 8
-;CHECK_NEXT:  %{{[^ ,]+}} = call i32 @__tgt_use_interop(i8* %[[INTEROP_OBJ_VAL1]])
-;CHECK_NEXT:  %[[INTEROP_CAST3:[^ ]+]] = bitcast i64* %{{[^ ,]+}} to i8**
-;CHECK_NEXT:  %[[INTEROP_OBJ_VAL2:[^ ]+]] = load i8*, i8** %[[INTEROP_CAST3]], align 8
-;CHECK_NEXT:  %{{[^ ,]+}} = call i32 @__tgt_release_interop(i8* %[[INTEROP_OBJ_VAL2]])
+;CHECK-NEXT:  %[[INTEROP_CAST:[^ ]+]] = bitcast i64* %{{[^ ,]+}} to i8**
+;CHECK-NEXT:  %[[INTEROP_OBJ:[^ ]+]] = call i8* @__tgt_create_interop(i64 %{{[^ ,]+}}, i32 1, i32 0, i8* null)
+;CHECK-NEXT:  store i8* %[[INTEROP_OBJ]], i8** %[[INTEROP_CAST]], align 8
+;CHECK-NEXT:  %[[INTEROP_CAST2:[^ ]+]] = bitcast i64* %{{[^ ,]+}} to i8**
+;CHECK-NEXT:  %[[INTEROP_OBJ_VAL1:[^ ]+]] = load i8*, i8** %[[INTEROP_CAST2]], align 8
+;CHECK-NEXT:  %{{[^ ,]+}} = call i32 @__tgt_use_interop(i8* %[[INTEROP_OBJ_VAL1]])
+;CHECK-NEXT:  %[[INTEROP_CAST3:[^ ]+]] = bitcast i64* %{{[^ ,]+}} to i8**
+;CHECK-NEXT:  %[[INTEROP_OBJ_VAL2:[^ ]+]] = load i8*, i8** %[[INTEROP_CAST3]], align 8
+;CHECK-NEXT:  %{{[^ ,]+}} = call i32 @__tgt_release_interop(i8* %[[INTEROP_OBJ_VAL2]])
+;CHECK-NEXT:  store i8* null, i8** %[[INTEROP_CAST3]], align 8
 ;CHECK:  call void @__kmpc_omp_task_complete_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %{{[^ ,]+}})
 
   ret void

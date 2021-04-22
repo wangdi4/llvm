@@ -152,25 +152,26 @@ bb1:                                              ; preds = %alloca_0
 
 ;CHECK: call void @__kmpc_omp_task_begin_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %{{[^ ,]+}})
 ;CHECK:  %[[CREATE_INTEROP:[^ ]+]] = call i8* @__tgt_create_interop(i64 %{{[^ ,]+}}, i32 0, i32 2, i8* bitcast ([2 x i32]* @.prefer.list to i8*))
-;CHECK_NEXT:  store i8* %[[CREATE_INTEROP]], i8** %{{[^ ,]+}}, align 8
+;CHECK-NEXT:  store i8* %[[CREATE_INTEROP]], i8** %{{[^ ,]+}}, align 8
 ;CHECK:  call void @__kmpc_omp_task_complete_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %{{[^ ,]+}})
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.INTEROP"(), "QUAL.OMP.USE"(i64* %"foo_$OBJ"), "QUAL.OMP.NOWAIT"() ]
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.INTEROP"() ]
 
 ;CHECK: call void @__kmpc_omp_task_begin_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %{{[^ ,]+}})
-;CHECK_NEXT: %[[INTEROP_CAST:[^ ]+]] = bitcast i64* %{{[^ ,]+}} to i8**
-;CHECK_NEXT: %[[INTEROP_VAL:[^ ]+]] = load i8*, i8** %[[INTEROP_CAST]], align 8
-;CHECK_NEXT: %{{[^ ,]+}} = call i32 @__tgt_use_interop(i8* %[[INTEROP_VAL]])
+;CHECK-NEXT: %[[INTEROP_CAST:[^ ]+]] = bitcast i64* %{{[^ ,]+}} to i8**
+;CHECK-NEXT: %[[INTEROP_VAL:[^ ]+]] = load i8*, i8** %[[INTEROP_CAST]], align 8
+;CHECK-NEXT: %{{[^ ,]+}} = call i32 @__tgt_use_interop(i8* %[[INTEROP_VAL]])
 ;CHECK: call void @__kmpc_omp_task_complete_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %{{[^ ,]+}})
 
   %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.INTEROP"(), "QUAL.OMP.DESTROY"(i64* %"foo_$OBJ") ]
   call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.INTEROP"() ]
 
 ;CHECK:   call void @__kmpc_omp_task_begin_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %{{[^ ,]+}})
-;CHECK_NEXT:    %[[INTEROP_CAST2:[^ ]+]] = bitcast i64* %{{[^ ,]+}} to i8**
-;CHECK_NEXT:    %[[INTEROP_VAL2:[^ ]+]] = load i8*, i8** %[[INTEROP_CAST2]], align 8
-;CHECK_NEXT:    %{{[^ ,]+}} = call i32 @__tgt_release_interop(i8* %[[INTEROP_CAST2]])
+;CHECK-NEXT:    %[[INTEROP_CAST2:[^ ]+]] = bitcast i64* %"foo_$OBJ" to i8**
+;CHECK-NEXT:    %[[INTEROP_VAL2:[^ ]+]] = load i8*, i8** %[[INTEROP_CAST2]], align 8
+;CHECK-NEXT:    %{{[^ ,]+}} = call i32 @__tgt_release_interop(i8* %[[INTEROP_VAL2]])
+;CHECK-NEXT:    store i8* null, i8** %[[INTEROP_CAST2]], align 8
 ;CHECK:  call void @__kmpc_omp_task_complete_if0(%struct.ident_t* @{{[^ ,]+}}, i32 %{{[^ ,]+}}, i8* %{{[^ ,]+}})
 
 
