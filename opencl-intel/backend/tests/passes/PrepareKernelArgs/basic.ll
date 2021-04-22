@@ -1,4 +1,6 @@
+; RUN: %oclopt -add-implicit-args -prepare-kernel-args -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-implicit-args -prepare-kernel-args -S < %s | FileCheck %s --check-prefixes CHECK,CHECK-ARG
+; RUN: %oclopt -add-tls-globals -prepare-kernel-args -use-tls-globals -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-tls-globals -prepare-kernel-args -use-tls-globals -S < %s | FileCheck %s --check-prefixes CHECK,CHECK-TLS
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -93,3 +95,9 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %a,
 !17 = !{i32 12}
 !18 = !{i1 false}
 !19 = !{i1 true}
+
+; DEBUGIFY-NOT: WARNING
+; DEBUGIFY-COUNT-43: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY: CheckModuleDebugify: PASS
+; DEBUGIFY-NEXT-COUNT-49: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; DEBUGIFY-NOT: WARNING
