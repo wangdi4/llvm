@@ -33,6 +33,7 @@ define void @foo(i64 %n1, i32 %k1, float* nocapture %accumulated_grid, i32* noca
 ; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC0:%.*]] = alloca <4 x float>, align 16
 ; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BC0:%.*]] = bitcast <4 x float>* [[ACCUMULATED_OCCUPANCY_INPUT_VEC0]] to float*
 ; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR0:%.*]] = getelementptr float, float* [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BC0]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR_EXTRACT_0_0:%.*]] = extractelement <4 x float*> [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR0]], i32 0
 ; CHECK-NEXT:    br i1 [[CMP0]], label [[OMP_PRECOND_THEN0:%.*]], label [[OMP_PRECOND_END0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  omp.precond.then:
@@ -51,8 +52,7 @@ define void @foo(i64 %n1, i32 %k1, float* nocapture %accumulated_grid, i32* noca
 ; CHECK-NEXT:    br i1 [[TMP2]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.ph:
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <4 x float*> [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR0]] to <4 x i32*>
-; CHECK-NEXT:    [[DOTEXTRACT_0_50:%.*]] = extractelement <4 x i32*> [[TMP3]], i32 0
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast float* [[ACCUMULATED_OCCUPANCY_INPUT_VEC_BASE_ADDR_EXTRACT_0_0]] to i32*
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
@@ -68,20 +68,17 @@ define void @foo(i64 %n1, i32 %k1, float* nocapture %accumulated_grid, i32* noca
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_0_0:%.*]] = extractelement <4 x i32> [[WIDE_LOAD0]], i32 0
 ; CHECK-NEXT:    store <4 x i32> [[WIDE_LOAD0]], <4 x i32>* [[A2_VEC0]], align 4
 ; CHECK-NEXT:    [[SCALAR_GEP30:%.*]] = getelementptr inbounds float, float* [[ACCUMULATED_GRID0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <4 x float*> poison, float* [[SCALAR_GEP30]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <4 x float*> [[BROADCAST_SPLATINSERT0]], <4 x float*> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <4 x float*> [[BROADCAST_SPLAT0]] to <4 x i32*>
-; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <4 x i32*> [[TMP5]], i32 0
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[DOTEXTRACT_0_0]] to <4 x i32>*
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast float* [[SCALAR_GEP30]] to i32*
+; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[TMP5]] to <4 x i32>*
 ; CHECK-NEXT:    [[WIDE_LOAD40:%.*]] = load <4 x i32>, <4 x i32>* [[TMP6]], align 4
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[DOTEXTRACT_0_50]] to <4 x i32>*
+; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[TMP3]] to <4 x i32>*
 ; CHECK-NEXT:    store <4 x i32> [[WIDE_LOAD40]], <4 x i32>* [[TMP7]], align 4
 ; CHECK-NEXT:    [[TMP8:%.*]] = bitcast <4 x i32> [[WIDE_LOAD40]] to <4 x float>
 ; CHECK-NEXT:    [[DOTEXTRACT_3_0:%.*]] = extractelement <4 x float> [[TMP8]], i32 3
 ; CHECK-NEXT:    [[DOTEXTRACT_2_0:%.*]] = extractelement <4 x float> [[TMP8]], i32 2
 ; CHECK-NEXT:    [[DOTEXTRACT_1_0:%.*]] = extractelement <4 x float> [[TMP8]], i32 1
-; CHECK-NEXT:    [[DOTEXTRACT_0_60:%.*]] = extractelement <4 x float> [[TMP8]], i32 0
-; CHECK-NEXT:    [[TMP9:%.*]] = call float @baz(float [[DOTEXTRACT_0_60]], i32 [[WIDE_LOAD_EXTRACT_0_0]])
+; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <4 x float> [[TMP8]], i32 0
+; CHECK-NEXT:    [[TMP9:%.*]] = call float @baz(float [[DOTEXTRACT_0_0]], i32 [[WIDE_LOAD_EXTRACT_0_0]])
 ; CHECK-NEXT:    [[TMP10:%.*]] = call float @baz(float [[DOTEXTRACT_1_0]], i32 [[WIDE_LOAD_EXTRACT_1_0]])
 ; CHECK-NEXT:    [[TMP11:%.*]] = call float @baz(float [[DOTEXTRACT_2_0]], i32 [[WIDE_LOAD_EXTRACT_2_0]])
 ; CHECK-NEXT:    [[TMP12:%.*]] = call float @baz(float [[DOTEXTRACT_3_0]], i32 [[WIDE_LOAD_EXTRACT_3_0]])

@@ -284,11 +284,16 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
                                            "serial.insertvalue");
   } else if (VPInst->getOpcode() == Instruction::ShuffleVector) {
     SerialInst = Builder.CreateShuffleVector(Ops[0], Ops[1], Ops[2]);
+  } else if (VPInst->getOpcode() == Instruction::BitCast ||
+             VPInst->getOpcode() == Instruction::AddrSpaceCast) {
+    assert(Ops.size() == 1 &&
+           "BitCast/AddrspaceCast should have only one operand.");
+    SerialInst = Builder.CreateCast(
+        static_cast<Instruction::CastOps>(VPInst->getOpcode()), Ops[0],
+        VPInst->getType());
   } else {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
-    llvm_unreachable("Currently serialization of only binop instructions, "
-                     "load, store, call, gep, insert/extract-element, alloca, "
-                     "atomicrmw is supported.");
+    llvm_unreachable("Serialization support for opcode is not implemented.");
   }
 
   return SerialInst;
@@ -923,6 +928,8 @@ void VPOCodeGen::generateScalarCode(VPInstruction *VPInst) {
     return;
   }
   case Instruction::GetElementPtr:
+  case Instruction::BitCast:
+  case Instruction::AddrSpaceCast:
     break;
   }
 
@@ -2060,10 +2067,12 @@ void VPOCodeGen::vectorizeCast(
             std::is_same<CastInstTy, AddrSpaceCastInst>::value,
         VPInstruction>::type *VPInst) {
 
-  bool IsScalarized = false;
-  Value *WidenedOp = nullptr;
-  Type *WidenedTy = nullptr;
-  Value *WidenedCast = nullptr;
+  // Nothing more to do for fully scalarized casts.
+  // TODO: Drop this check when needVectorCode is updated to use SVA.
+  if (!Plan->getVPlanSVA()->instNeedsVectorCode(VPInst))
+    return;
+
+  auto Opcode = static_cast<Instruction::CastOps>(VPInst->getOpcode());
   bool IsBitCastInst = std::is_same<CastInstTy, BitCastInst>::value;
   bool IsNonSerializedAllocaPointer = LoopPrivateVPWidenMap.count(
       VPInst->getOperand(0)); // Is this AOS-widened ptr,
@@ -2079,33 +2088,21 @@ void VPOCodeGen::vectorizeCast(
 
   // If the pointer is a bitcast and is exclusively used in
   // lifetime_start/end intrinsics, use the correct operands.
+  // TODO: Move these checks to SVA, FirstScalar should be propagated from
+  // lifetime_start/end intrinsics.
   if (IsBitCastInst && IsNonSerializedAllocaPointer &&
       IsOnlyUsedInLifetimeIntrinsics) {
-    WidenedOp = LoopPrivateVPWidenMap[VPInst->getOperand(0)];
-    WidenedTy = VPInst->getType();
-    IsScalarized = true;
-  } else if (!IsBitCastInst && VPScalarMap.count(VPInst->getOperand(0)) &&
-             !VPWidenMap.count(VPInst->getOperand(0)) &&
-             !isSerialized(VPInst->getOperand(0))) {
-    // For addrspace cast check if operand is a scalar already
-    // TODO: Replace with proper SVA check
-    WidenedOp = getScalarValue(VPInst->getOperand(0), 0 /* Lane */);
-    WidenedTy = VPInst->getType();
-    IsScalarized = true;
-  } else {
-    WidenedOp = getVectorValue(VPInst->getOperand(0));
-    WidenedTy = getVPInstVectorType(VPInst->getType(), VF);
+    Value *ScalarOp = LoopPrivateVPWidenMap[VPInst->getOperand(0)];
+    Type *ScalarTy = VPInst->getType();
+    Value *ScalarCast = Builder.CreateCast(Opcode, ScalarOp, ScalarTy);
+    VPScalarMap[VPInst][0] = ScalarCast;
+    return;
   }
 
-  // Create the widened-cast instruction.
-  WidenedCast =
-      Builder.CreateCast(static_cast<Instruction::CastOps>(VPInst->getOpcode()),
-                         WidenedOp, WidenedTy);
-
-  if (IsScalarized)
-    VPScalarMap[VPInst][0] = WidenedCast;
-  else
-    VPWidenMap[VPInst] = WidenedCast;
+  Value *WidenedOp = getVectorValue(VPInst->getOperand(0));
+  Type *WidenedTy = getVPInstVectorType(VPInst->getType(), VF);
+  Value *WidenedCast = Builder.CreateCast(Opcode, WidenedOp, WidenedTy);
+  VPWidenMap[VPInst] = WidenedCast;
 }
 
 void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
@@ -3645,15 +3642,6 @@ void VPOCodeGen::serializeWithPredication(VPInstruction *VPInst) {
         std::make_pair(cast<Instruction>(SerialInst), Cmp));
     LLVM_DEBUG(dbgs() << "LVCG: SerialInst: "; SerialInst->dump());
   }
-}
-
-bool VPOCodeGen::isSerialized(VPValue *V) const {
-  auto It = VPScalarMap.find(V);
-  if (It != VPScalarMap.end()) {
-    const auto &LaneMap = It->second;
-    return LaneMap.count(1 /* Lane */);
-  }
-  return false;
 }
 
 void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {

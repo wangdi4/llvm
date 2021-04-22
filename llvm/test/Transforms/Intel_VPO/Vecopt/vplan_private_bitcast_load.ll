@@ -22,11 +22,8 @@
 ; CHECK-NEXT: [[BC1:%.*]] = bitcast <4 x [2520 x double]*> [[PRIV_BASE]] to <4 x i64*>
 ; CHECK-NEXT: [[GATHER2:%.*]] = call <4 x i64> @llvm.masked.gather.v4i64.v4p0i64(<4 x i64*> [[BC1]], i32 8, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> undef)
 ; CHECK-NEXT: [[GEP2:%.*]] = getelementptr inbounds double, double addrspace(1)* {{.*}}, i64 {{.*}}
-; CHECK-NEXT: [[GEP2_INS:%.*]] = insertelement <4 x double addrspace(1)*> poison, double addrspace(1)* [[GEP2]], i32 0
-; CHECK-NEXT: [[GEP2_BCAST:%.*]] = shufflevector <4 x double addrspace(1)*> [[GEP2_INS]], <4 x double addrspace(1)*> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT: [[BC2:%.*]] = bitcast <4 x double addrspace(1)*> [[GEP2_BCAST]] to <4 x i64 addrspace(1)*>
-; CHECK-NEXT: [[_0:%.*]] = extractelement <4 x i64 addrspace(1)*> [[BC2]], i32 0
-; CHECK-NEXT: [[GROUPPTR:%.*]] = bitcast i64 addrspace(1)* [[_0]] to <4 x i64> addrspace(1)*
+; CHECK-NEXT: [[BC2:%.*]] = bitcast double addrspace(1)* [[GEP2]] to i64 addrspace(1)*
+; CHECK-NEXT: [[GROUPPTR:%.*]] = bitcast i64 addrspace(1)* [[BC2]] to <4 x i64> addrspace(1)*
 ; CHECK-NEXT: store <4 x i64> [[GATHER2]], <4 x i64> addrspace(1)* [[GROUPPTR]], align 8
 ; CHECK-NEXT: call void @llvm.lifetime.end.p0i8(i64 {{.*}}, i8* nonnull [[BC]])
 

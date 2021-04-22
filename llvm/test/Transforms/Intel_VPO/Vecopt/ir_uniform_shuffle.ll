@@ -14,11 +14,8 @@ define void @foo(i64 *%a, i64 *%b) {
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <4 x i64> [[WIDE_LOAD]] to <8 x i32>
 ; CHECK-NEXT:    [[TMP2:%.*]] = shufflevector <8 x i32> [[TMP1]], <8 x i32> [[TMP1]], <8 x i32> <i32 9, i32 0, i32 11, i32 2, i32 13, i32 4, i32 15, i32 6>
 ; CHECK-NEXT:    [[TMP3:%.*]] = load i64, i64* [[B:%.*]], align 8
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i64> poison, i64 [[TMP3]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <4 x i64> [[BROADCAST_SPLAT]] to <8 x i32>
-; CHECK-NEXT:    [[EXTRACTSUBVEC_:%.*]] = shufflevector <8 x i32> [[TMP4]], <8 x i32> undef, <2 x i32> <i32 0, i32 1>
-; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <2 x i32> [[EXTRACTSUBVEC_]], <2 x i32> [[EXTRACTSUBVEC_]], <2 x i32> <i32 3, i32 0>
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i64 [[TMP3]] to <2 x i32>
+; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <2 x i32> [[TMP4]], <2 x i32> [[TMP4]], <2 x i32> <i32 3, i32 0>
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP7]] = add nuw nsw i64 [[UNI_PHI]], 4
 ; CHECK-NEXT:    [[TMP8:%.*]] = icmp uge i64 [[TMP7]], 128

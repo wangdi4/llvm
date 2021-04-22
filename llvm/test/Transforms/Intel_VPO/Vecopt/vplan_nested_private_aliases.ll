@@ -11,17 +11,11 @@ define dso_local void @foo() local_unnamed_addr {
 ; CHECK-LABEL: @foo()
 ; CHECK-LABEL: vector.ph:
 ; CHECK:  %[[SRC_GEP:.*]] = getelementptr inbounds i32, i32* %private.src.vec.base.addr.extract.0., i64 0
-; CHECK:  %[[SRC_GEP_INSERT:.*]] = insertelement <4 x i32*> poison, i32* %[[SRC_GEP]], i32 0
-; CHECK:  %[[SRC_GEP_BCAST:.*]] = shufflevector <4 x i32*> %[[SRC_GEP_INSERT]], <4 x i32*> poison, <4 x i32> zeroinitializer
-; CHECK:  %[[SRC_BC_0:.*]] = bitcast <4 x i32*> %[[SRC_GEP_BCAST]] to <4 x i8*>
-; CHECK:  %[[SRC_BC_1:.*]] = bitcast <4 x i8*> %[[SRC_BC_0]] to <4 x i32*>
-; CHECK:  %[[SRC_IDX:.*]] = extractelement <4 x i32*> %[[SRC_BC_1]], i32 0
+; CHECK:  %[[SRC_BC:.*]] = bitcast i32* %[[SRC_GEP]] to i8*
+; CHECK:  %[[SRC_IDX:.*]] = bitcast i8* %[[SRC_BC]] to i32*
 ; CHECK:  %[[DST_GEP:.*]] = getelementptr inbounds i32, i32* %private.dst.vec.base.addr.extract.0., i64 0
-; CHECK:  %[[DST_GEP_INSERT:.*]] = insertelement <4 x i32*> poison, i32* %[[DST_GEP]], i32 0
-; CHECK:  %[[DST_GEP_BCAST:.*]] = shufflevector <4 x i32*> %[[DST_GEP_INSERT]], <4 x i32*> poison, <4 x i32> zeroinitializer
-; CHECK:  %[[DST_BC_0:.*]] = bitcast <4 x i32*> %[[DST_GEP_BCAST]] to <4 x i8*>
-; CHECK:  %[[DST_BC_1:.*]] = bitcast <4 x i8*> %[[DST_BC_0]] to <4 x i32*>
-; CHECK:  %[[DST_IDX:.*]] = extractelement <4 x i32*> %[[DST_BC_1]], i32 0
+; CHECK:  %[[DST_BC:.*]] = bitcast i32* %[[DST_GEP]] to i8*
+; CHECK:  %[[DST_IDX:.*]] = bitcast i8* %[[DST_BC]] to i32*
 
 ; CHECK-LABEL: vector.body:
 ; CHECK:  %[[SRC:.*]] = bitcast i32* %[[SRC_IDX]] to <4 x i32>*
