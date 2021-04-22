@@ -42,9 +42,9 @@ attributes #1 = { "has-sub-groups" }
 
 ; CHECK: attributes #[[ATTR0]] = { "has-sub-groups" "vector-variants"="_ZGVbM16_bar,_ZGV{{[bcde]}}M8_bar,_ZGV{{[bcde]}}N8_bar,_ZGV{{[bcde]}}M32_bar,_ZGV{{[bcde]}}N32_bar" }
 ; CHECK: attributes #[[ATTR1]] = { "has-sub-groups" "vector-variants"="_ZGV{{[bcde]}}M8_foo,_ZGV{{[bcde]}}N8_foo,_ZGV{{[bcde]}}M16_foo,_ZGV{{[bcde]}}N16_foo,_ZGV{{[bcde]}}M32_foo,_ZGV{{[bcde]}}N32_foo" }
-; CHECKL attributes #[[ATTR2]] = { "has-sub-groups" "vector-variants"="_ZGV{{[bcde]}}M8_kernel,_ZGV{{[bcde]}}N8_kernel" }
-; CHECKL attributes #[[ATTR3]] = { "has-sub-groups" "vector-variants"="_ZGV{{[bcde]}}M16_kernel2,_ZGV{{[bcde]}}N16_kernel2" }
-; CHECKL attributes #[[ATTR4]] = { "has-sub-groups" "vector-variants"="_ZGV{{[bcde]}}M32_kernel3,_ZGV{{[bcde]}}N32_kernel3" }
+; CHECK: attributes #[[ATTR2]] = { "has-sub-groups" "vector-variants"="_ZGV{{[bcde]}}M8_kernel,_ZGV{{[bcde]}}N8_kernel" }
+; CHECK: attributes #[[ATTR3]] = { "has-sub-groups" "vector-variants"="_ZGV{{[bcde]}}M16_kernel2,_ZGV{{[bcde]}}N16_kernel2" }
+; CHECK: attributes #[[ATTR4]] = { "has-sub-groups" "vector-variants"="_ZGV{{[bcde]}}M32_kernel3,_ZGV{{[bcde]}}N32_kernel3" }
 
 !0 = !{i32 8}
 !1 = !{i32 16}
