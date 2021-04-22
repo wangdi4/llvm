@@ -85,7 +85,8 @@ uint64_t OVLSTTICostModel::getInstructionCost(const OVLSInstruction *I) const {
     uint64_t LoadCost;
     if (NeedMask)
       LoadCost =
-          TTI.getMaskedMemoryOpCost(Instruction::Load, VecTy, Align(Alignment), AS);
+          *TTI.getMaskedMemoryOpCost(Instruction::Load, VecTy,
+                                     Align(Alignment), AS).getValue();
     else
       LoadCost = TTI.getMemoryOpCost(
           Instruction::Load, VecTy, Alignment ? Align(Alignment) : Align(), AS);

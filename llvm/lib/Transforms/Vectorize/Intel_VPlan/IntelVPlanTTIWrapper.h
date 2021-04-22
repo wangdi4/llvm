@@ -113,8 +113,9 @@ public:
   int getMaskedMemoryOpCost(
       unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput) const {
-    return Multiplier * TTI.getMaskedMemoryOpCost(Opcode, Src, Alignment,
-                                                  AddressSpace, CostKind);
+    return Multiplier *
+           *TTI.getMaskedMemoryOpCost(Opcode, Src, Alignment,
+                                      AddressSpace, CostKind).getValue();
   }
   int getGatherScatterOpCost(
       unsigned Opcode, Type *DataTy, const Value *Ptr, bool VariableMask,

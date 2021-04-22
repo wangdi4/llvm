@@ -1162,7 +1162,7 @@ public:
                       const Instruction *I = nullptr) const;
 
   /// \return The cost of masked Load and Store instructions.
-  int getMaskedMemoryOpCost(
+  InstructionCost getMaskedMemoryOpCost(
       unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput) const;
 
@@ -1699,9 +1699,10 @@ public:
                               unsigned AddressSpace,
                               TTI::TargetCostKind CostKind,
                               const Instruction *I) = 0;
-  virtual int getMaskedMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
-                                    unsigned AddressSpace,
-                                    TTI::TargetCostKind CostKind) = 0;
+  virtual InstructionCost
+  getMaskedMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
+                        unsigned AddressSpace,
+                        TTI::TargetCostKind CostKind) = 0;
   virtual InstructionCost
   getGatherScatterOpCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
                          bool VariableMask, Align Alignment,
@@ -2233,9 +2234,9 @@ public:
     return Impl.getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
                                 CostKind, I);
   }
-  int getMaskedMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
-                            unsigned AddressSpace,
-                            TTI::TargetCostKind CostKind) override {
+  InstructionCost getMaskedMemoryOpCost(unsigned Opcode, Type *Src,
+                                        Align Alignment, unsigned AddressSpace,
+                                        TTI::TargetCostKind CostKind) override {
     return Impl.getMaskedMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
                                       CostKind);
   }

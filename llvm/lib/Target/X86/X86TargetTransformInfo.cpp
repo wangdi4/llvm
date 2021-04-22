@@ -3565,9 +3565,10 @@ int X86TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
   return Cost;
 }
 
-int X86TTIImpl::getMaskedMemoryOpCost(unsigned Opcode, Type *SrcTy,
-                                      Align Alignment, unsigned AddressSpace,
-                                      TTI::TargetCostKind CostKind) {
+InstructionCost
+X86TTIImpl::getMaskedMemoryOpCost(unsigned Opcode, Type *SrcTy, Align Alignment,
+                                  unsigned AddressSpace,
+                                  TTI::TargetCostKind CostKind) {
   bool IsLoad = (Instruction::Load == Opcode);
   bool IsStore = (Instruction::Store == Opcode);
 
@@ -3602,8 +3603,7 @@ int X86TTIImpl::getMaskedMemoryOpCost(unsigned Opcode, Type *SrcTy,
     int MemopCost =
         NumElem * BaseT::getMemoryOpCost(Opcode, SrcVTy->getScalarType(),
                                          Alignment, AddressSpace, CostKind);
-    return *(MemopCost + ValueSplitCost + MaskSplitCost + MaskCmpCost)
-                .getValue();
+    return MemopCost + ValueSplitCost + MaskSplitCost + MaskCmpCost;
   }
 
   // Legalize the type.
