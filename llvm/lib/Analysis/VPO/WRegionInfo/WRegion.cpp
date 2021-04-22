@@ -475,6 +475,7 @@ WRNDispatchNode::WRNDispatchNode(BasicBlock *BB)
   setNocontext(nullptr);
   setNovariants(nullptr);
   setNowait(false);
+  setCall(nullptr);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNDispatchNode<" << getNumber()
                     << ">\n");

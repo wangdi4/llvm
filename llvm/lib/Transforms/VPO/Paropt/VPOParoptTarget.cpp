@@ -1412,7 +1412,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
   bool ForceMapping =
       isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
       isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W) ||
-      isa<WRNTargetVariantNode>(W);
+      isa<WRNTargetVariantNode>(W) || isa<WRNDispatchNode>(W);
 
   GlobalVariable *MapNameUnknown = nullptr;
   auto getMapNameForVar = [&](Value *V) -> GlobalVariable * {
@@ -1908,8 +1908,8 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
                                          Instruction *InsertPt ) {
   assert(W && "Null WRegionNode.");
 
-  if (!W->canHaveUseDevicePtr() || !(isa<WRNTargetDataNode>(W) ||
-                                  isa<WRNTargetVariantNode>(W)))
+  if (!(isa<WRNTargetDataNode>(W) || isa<WRNTargetVariantNode>(W) ||
+        isa<WRNDispatchNode>(W)))
     return false;
 
   UseDevicePtrClause &UDPC = W->getUseDevicePtr();
@@ -2305,8 +2305,10 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
     WRegionNode *W, Instruction *TgtDataOutlinedFunctionCall) {
   assert(W && "Null WRegionNode.");
   assert(TgtDataOutlinedFunctionCall && "Null outlined function call.");
+  // When handling WRNDispatchNode, there is no outlining involved,
+  // and TgtDataOutlinedFunctionCall is just the dispatch call.
 
-  if (!W->canHaveUseDevicePtr())
+  if (!W->canHaveUseDevicePtr() && !isa<WRNDispatchNode>(W))
     return;
 
   UseDevicePtrClause &UDPC = W->getUseDevicePtr();
@@ -2476,7 +2478,7 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
   bool ForceMapping =
       isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
       isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W) ||
-      isa<WRNTargetVariantNode>(W);
+      isa<WRNTargetVariantNode>(W) || isa<WRNDispatchNode>(W);
 
   MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
@@ -2618,7 +2620,7 @@ void VPOParoptTransform::genOffloadArraysInit(
 
   if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
       isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W) ||
-      isa<WRNTargetVariantNode>(W)) {
+      isa<WRNTargetVariantNode>(W) || isa<WRNDispatchNode>(W)) {
     genOffloadArraysInitForClause(W, Info, Call, InsertPt, ConstSizes,
                                   hasRuntimeEvaluationCaptureSize, nullptr,
                                   Match, Builder, Cnt);
@@ -3310,8 +3312,22 @@ bool VPOParoptTransform::promoteClauseArgumentUses(WRegionNode *W) {
 // the output parameter 'DeviceArchs' a bit vector representing supported
 // device architectures that are listed in the string attribute.  If a match is
 // not found, it returns a null string and 'DeviceArchs' may be undefined.
-StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
-                         uint64_t &DeviceArchs) {
+//
+// To support OMP5.1 declare variant, it also returns strings for
+// need_device_ptr and interop.
+//
+// TODO: For the case of MatchConstruct=="dispatch", we will support
+//       multiple variants and multiple interop objs. For that purpose, the
+//       outputs DeviceArchs, NeedDevicePtrStr and InteropStr will become
+//       SmallVectors to represent the variants.
+#if INTEL_CUSTOMIZATION
+//       This support is currently not needed by MKL.
+#endif // INTEL_CUSTOMIZATION
+StringRef VPOParoptTransform::getVariantName(WRegionNode *W, CallInst *BaseCall,
+                                             StringRef &MatchConstruct,
+                                             uint64_t &DeviceArchs,
+                                             StringRef &NeedDevicePtrStr,
+                                             StringRef &InteropStr) {
   assert(BaseCall && "BaseCall is null");
   Function *BaseFunc = BaseCall->getCalledFunction();
   if (!BaseFunc) {
@@ -3322,6 +3338,21 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
 
   StringRef VariantAttributeString =
       BaseFunc->getFnAttribute("openmp-variant").getValueAsString();
+
+  auto emitRemark = [&](const StringRef &Message) {
+    OptimizationRemarkMissed R("openmp", "Region", W->getEntryDirective());
+    R << ore::NV("Construct", W->getName()) << Message;
+    ORE.emit(R);
+  };
+
+  auto CountConstruct =
+      VariantAttributeString.count("construct:" + MatchConstruct.str());
+  if (CountConstruct > 1) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": Found multiple variants for dispatch. Currently, "
+                         "only the first one will be used for codegen\n");
+    emitRemark(" Found multiple variants for dispatch. Only one will be used");
+  }
 
   if (VariantAttributeString.empty()) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Base function "
@@ -3346,6 +3377,10 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
   // An example of VariantAttributeString with two <variant>s:
   //   "name:foo_gpu;construct:target_variant_dispatch;arch:gen9,XeHP;;
   //    name:foo_xxx;construct:parallel;arch:xxx"
+  //
+  // For dispatch construct, multiple dispatch variants may occur. E.g.,
+  //   "name:foo_gpu1;construct:dispatch;arch:gen9;need_device_ptr:F,F;;
+  //    name:foo_gpu2;construct:dispatch;arch:XeLP;need_device_ptr:T,T"
   //
   // We want to find the <variant> whose "construt" field's <value> is
   // MatchConstruct and whose "arch" field's <value> contains at least one
@@ -3392,6 +3427,13 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
 
     // LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant: " << Variant << "\n");
 
+    // We only support one interop in append_args. Abort if >1 is found.
+    // TODO: support multiple interop objs
+    auto CountInterop = Variant.count("interop:");
+    if (CountInterop > 1)
+      report_fatal_error(
+          "Found multiple interop in append_args. This is still unsupported");
+
     // Split Variant so that each <field>:<value> substring is separately
     // stored in the Fields vector
     Fields.clear();
@@ -3403,6 +3445,14 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
     for (StringRef &Field : Fields) {
 
       // LLVM_DEBUG(dbgs() << __FUNCTION__ << ":   Field: " << Field << "\n");
+      if (Field=="") {
+        // Workaround for a CFE bug that emits an extra semicolon after
+        // interop:targetsync. E.g., it emits
+        //    "openmp-variant"="...arch:gen;interop:targetsync;"
+        // when the correct form is:
+        //    "openmp-variant"="...arch:gen;interop:targetsync"
+        continue;
+      }
 
       // Split Field so that FV[0] has <field> and FV[1] has <value>
       FV.clear();
@@ -3417,25 +3467,122 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
         VariantName = FV[1];
         FoundName = true;
       }
+      else if (FV[0] == "need_device_ptr") {
+        NeedDevicePtrStr = FV[1];
+      }
+      else if (FV[0] == "interop") {
+        InteropStr = FV[1];
+      }
     } // for (StringRef &Field : Fields)
 
-    if (FoundConstruct && FoundArch) {
+    if (FoundConstruct) {
       if (FoundName)
         break;
-      // found <variant> with matching construct and arch, but without a
+      // found <variant> with matching construct, but without a
       // "name" field. It must be corrupt.
       llvm_unreachable("No variant function name in openmp-variant attribute");
     }
   } // for (StringRef &Variant : Variants)
 
-  if (FoundConstruct && FoundArch && FoundName) {
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Found variant function: "
-                      << VariantName << " and device bits "
-                      << llvm::format_hex(DeviceArchs, 6, true) << "\n");
+  if (FoundConstruct && FoundName) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": Found variant function: " << VariantName);
+    if (FoundArch)
+      LLVM_DEBUG(dbgs() << " and device bits " << llvm::format_hex(DeviceArchs, 6, true) << "\n");
+    else
+      LLVM_DEBUG(dbgs() << " with no device arch specified\n");
   } else {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant function not found\n");
   }
   return VariantName;
+}
+
+// This interface is for target variant dispatch, which does not need
+// NeedDevicePtrStr and InteropStr
+StringRef VPOParoptTransform::getVariantName(WRegionNode *W, CallInst *BaseCall,
+                                             StringRef &MatchConstruct,
+                                             uint64_t &DeviceArchs) {
+  StringRef NeedDevicePtrStr; // unused
+  StringRef InteropStr; // unused
+  return getVariantName(W, BaseCall, MatchConstruct, DeviceArchs,
+                        NeedDevicePtrStr, InteropStr);
+}
+
+static Value *genDeviceNum(WRegionNode *W, Instruction *InsertPt) {
+  Value *DeviceNum = W->getDevice();
+  if (!DeviceNum) {
+    IRBuilder<> Builder(InsertPt);
+    IntegerType *Int64Ty = Builder.getInt64Ty();
+    DeviceNum = Builder.CreateZExt(
+        VPOParoptUtils::genOmpGetDefaultDevice(InsertPt), Int64Ty);
+  }
+  assert(!DeviceNum->getType()->isPointerTy() &&
+         "DeviceID should not be a pointer");
+  DeviceNum = VPOParoptUtils::encodeSubdevice(W, InsertPt, DeviceNum);
+
+  return DeviceNum;
+}
+
+// Emit code to check for device availability, and return %available:
+//
+//   %call = call i32 @__tgt_is_device_available(i64 %0, i8* DeviceType) (1)
+//   %available  = icmp ne i32 %call, 0                                  (2)
+//
+// For dispatch construct with a NOVARIANTs(i8 %novariants) clause, emit
+//
+//   %call = call i32 @__tgt_is_device_available(i64 %0, i8* DeviceType) (1)
+//   %1  = icmp ne i32 %call, 0                                          (2)
+//   %dovariants = icmp eq i1 %tobool1, false                            (3)
+//   %available = and i1 %1, %dovariants                                 (4)
+//
+// The second argument of __tgt_is_device_available() is a void* that
+// carries device type information. Currently it is a bit vector
+// representing devices listed in enum DeviceArch.
+// Having a null DeviceType will match any device type.
+static Value *genDeviceAvailable(WRegionNode *W, Instruction *InsertPt,
+                                 Value *DeviceNum, uint64_t DeviceArchs) {
+  IRBuilder<> Builder(InsertPt);
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+  IntegerType *Int32Ty = Builder.getInt32Ty();
+  ConstantInt *ValueZero = ConstantInt::get(Int32Ty, 0);
+
+  Value *DeviceType;
+  if (DeviceArchs) {
+    const DataLayout &DL = InsertPt->getModule()->getDataLayout();
+    const unsigned PtrSz = DL.getPointerSizeInBits();
+    Value *DeviceArchVal;
+    if (PtrSz >= 64) {
+      DeviceArchVal = Builder.getInt64(DeviceArchs);
+    } else { // PtrSz <= 63
+      assert(DeviceArchs < (1LLu << PtrSz) &&
+             "Bit vector size exceeds pointer size");
+      DeviceArchVal = Builder.getIntN(PtrSz, DeviceArchs);
+    }
+    DeviceType = Builder.CreateIntToPtr(DeviceArchVal, Int8PtrTy);
+  } else {
+    // when no device arch specified, using a null ptr for DeviceType
+    // tells __tgt_is_device_available to match any device type
+    DeviceType = ConstantPointerNull::get(Int8PtrTy);
+  }
+
+  CallInst *IsDeviceAvailable =            //                               (1)
+      VPOParoptUtils::genTgtIsDeviceAvailable(DeviceNum, DeviceType, InsertPt);
+  Value *Available =                       //                               (2)
+      Builder.CreateICmpNE(IsDeviceAvailable, ValueZero);
+
+  if (isa<WRNDispatchNode>(W)) {
+    Value *Novariants = W->getNovariants();
+    if (Novariants != nullptr) {
+      unsigned BitWidth = Novariants->getType()->getIntegerBitWidth();
+      // dovariants = (novariants==0)
+      Value *Dovariants = Builder.CreateICmpEQ(
+          Novariants, Builder.getIntN(BitWidth, 0), "dovariants"); //       (3)
+      Available = Builder.CreateAnd(Available, Dovariants); //              (4)
+    }
+  }
+
+  Available->setName("available");
+  return Available;
 }
 
 // To support asynchronous execution for a TARGET VARIANT DISPATCH NOWAIT
@@ -3567,7 +3714,7 @@ static Value *createInteropObj(WRegionNode *W, Value *DeviceNum,
   CallInst *InteropObj = VPOParoptUtils::genTgtCreateInteropObj(
       DeviceNum, IsAsync, AsyncObj, InsertPt);
 
-  assert(InteropObj && "InteropObj not created for Target Variant Dispatch");
+  assert(InteropObj && "InteropObj not created for [Target Variant] Dispatch");
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": InteropObj: " << *InteropObj << "\n");
 
@@ -3648,6 +3795,61 @@ bool VPOParoptTransform::genInteropCode(WRegionNode* W) {
     return true;
 }
 
+/// Reuse target data logic to get device pointers from runtime.
+///   (A) Emit call to __tgt_target_data_begin/end() to get device pointers
+///       corresponding to use_device_ptr operands.
+///   (B) Replace args in the foo_variant() call to use the above mentioned
+///       device pointers.
+/// For WRNTargetVariantNode, VariantCall is its VariantWrapperCall
+/// For WRNDispatchNode, VariantCall is the variant dispatch call
+/// Task (A) is done here in VPOParoptTransform::genTargetVariantDispatchCode()
+/// Task (B) is done in useUpdatedUseDevicePtrsInTgtDataRegion()
+//  See the header comment of useUpdatedUseDevicePtrsInTgtDataRegion() for
+//  examples of the replacement of use_device_ptr operands with a private version
+//  containing the device value.
+void VPOParoptTransform::getAndReplaceDevicePtrs(WRegionNode *W,
+                                                 CallInst *VariantCall) {
+
+  assert((isa<WRNTargetVariantNode>(W) || isa<WRNDispatchNode>(W)) &&
+         "getAndReplaceDevicePtrs called for non-dispatch region.");
+
+  UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
+  if (UDPtrClause.empty())
+    return;
+
+  TgDataInfo Info;
+  Info.NumberOfPtrs = UDPtrClause.size();
+  bool hasRuntimeEvaluationCaptureSize = false;
+  SmallVector<Constant *, 16> ConstSizes;
+  SmallVector<uint64_t, 16> MapTypes;
+  SmallVector<GlobalVariable *, 16> Names;
+  SmallVector<Value *, 16> Mappers;
+
+  (void)addMapForUseDevicePtr(W, VariantCall);
+
+  genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes, Names, Mappers,
+                           hasRuntimeEvaluationCaptureSize);
+
+  CallInst *DummyCall = nullptr;
+  genOffloadArraysInit(W, &Info, DummyCall, VariantCall, ConstSizes,
+                       MapTypes, Names, Mappers,
+                       hasRuntimeEvaluationCaptureSize);
+
+  genOffloadArraysArgument(&Info, VariantCall);
+
+  (void)VPOParoptUtils::genTgtTargetDataBegin(
+      W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+      Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
+      VariantCall); //                                                      (A)
+
+  (void)VPOParoptUtils::genTgtTargetDataEnd( //                             (A)
+      W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+      Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
+      VariantCall->getNextNonDebugInstruction());
+
+  useUpdatedUseDevicePtrsInTgtDataRegion(W, VariantCall); //                (B)
+}
+
 /// Gen code for the target variant dispatch construct
 ///
 /// Case 1. No use_device_ptr clause:
@@ -3688,8 +3890,8 @@ bool VPOParoptTransform::genInteropCode(WRegionNode* W) {
 ///    %0 = load i32, i32* @dnum, align 4
 ///    %1 = sext i32 %0 to i64
 ///    %call = call i32 @__tgt_is_device_available(i64 %0, i8* null)       (1)
-///    %dispatch = icmp ne i32 %call, 0                                    (2)
-///    br i1 %dispatch, label %variant.call, label %base.call              (3)
+///    %available = icmp ne i32 %call, 0                                   (2)
+///    br i1 %available, label %variant.call, label %base.call             (3)
 ///
 ///  variant.call:                                                         (4)
 ///    call @foo_gpu.wrapper(<args>)                                       (5)
@@ -3741,11 +3943,7 @@ bool VPOParoptTransform::genInteropCode(WRegionNode* W) {
 ///   call void @__tgt_target_data_end(...)
 /// \endcode
 ///
-/// Task (A) is done here in VPOParoptTransform::genTargetVariantDispatchCode()
-/// Task (B) is done in useUpdatedUseDevicePtrsInTgtDataRegion()
-// See the header comment of useUpdatedUseDevicePtrsInTgtDataRegion() for
-// examples of the replacement of use_device_ptr operands with a private version
-// containing the device value.
+/// Task (A) and (B) are done in getAndReplaceDevicePtrs()
 bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   LLVM_DEBUG(
       dbgs() << "\nEnter VPOParoptTransform::genTargetVariantDispatchCode\n");
@@ -3766,7 +3964,7 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
     for (Instruction &I : *BB) {
       if (auto *TempCallInst = dyn_cast<CallInst>(&I)) {
         BaseCall = TempCallInst;
-        VariantName = getVariantName(BaseCall, MatchConstruct, DeviceArchs);
+        VariantName = getVariantName(W, BaseCall, MatchConstruct, DeviceArchs);
         if (!VariantName.empty()) {
           break;
         }
@@ -3794,9 +3992,6 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
     return false;
   }
 
-  // getVariantName() cannot return a name without corresponding device bits
-  assert(DeviceArchs && "No device arch for variant function");
-
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Found variant function name: "
                     << VariantName << "\n");
 
@@ -3806,51 +4001,17 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
 
   Instruction *InsertPt = BranchBB->getTerminator();
   IRBuilder<> Builder(InsertPt);
-  IntegerType *Int32Ty = Builder.getInt32Ty();
-  IntegerType *Int64Ty = Builder.getInt64Ty();
-  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
-  ConstantInt *ValueZero = ConstantInt::get(Int32Ty, 0);
 
-  Value *DeviceNum = W->getDevice();
-  if (!DeviceNum)
-    DeviceNum =
-        Builder.CreateZExt(VPOParoptUtils::genOmpGetDefaultDevice(InsertPt),
-                           Int64Ty);
+  Value *DeviceNum = genDeviceNum(W, InsertPt);
 
-  assert(!DeviceNum->getType()->isPointerTy() &&
-        "DeviceID should not be a pointer");
-  DeviceNum = VPOParoptUtils::encodeSubdevice(W, InsertPt, DeviceNum);
-
-  // Emit call to check for device availability:
-  //
-  //   %call = call i32 @__tgt_is_device_available(i64 %0, i8* DeviceType) (1)
-  //   %available  = icmp ne i32 %call, 0                                  (2)
-  //
-  // The second argument of __tgt_is_device_available() is a void* that
-  // carries device type information. Currently it is a bit vector representing
-  // devices listed in enum DeviceArch.
-  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
-  const unsigned PtrSz = DL.getPointerSizeInBits();
-  Value *DeviceArchVal;
-  if (PtrSz >= 64) {
-    DeviceArchVal = Builder.getInt64(DeviceArchs);
-  } else { // PtrSz <= 63
-    assert(DeviceArchs < (1LLu << PtrSz) &&
-           "Bit vector size exceeds pointer size");
-    DeviceArchVal = Builder.getIntN(PtrSz, DeviceArchs);
-  }
-  Value *DeviceType = Builder.CreateIntToPtr(DeviceArchVal, Int8PtrTy);
-  CallInst *IsDeviceAvailable =
-      VPOParoptUtils::genTgtIsDeviceAvailable(DeviceNum, DeviceType, InsertPt);
-  IsDeviceAvailable->setName("available"); //                               (1)
-  Value *Available =                       // the dispatch condition
-      Builder.CreateICmpNE(IsDeviceAvailable, ValueZero, "dispatch"); //    (2)
-
-  UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
+  // Emit dispatch condition:
+  //   %call = call i32 @__tgt_is_device_available(i64 %0, i8* DeviceType)  (1)
+  //   %available  = icmp ne i32 %call, 0                                   (2)
+  Value *Available = genDeviceAvailable(W, InsertPt, DeviceNum, DeviceArchs);
 
   // Emit dispatch code:
   //
-  //   br i1 %dispatch, label %variant.call, label %base.call               (3)
+  //   br i1 %available, label %variant.call, label %base.call              (3)
   //
   // variant.call:                                                          (4)
   //   < call to target_data_begin, and maps to get device pointers >       (A)
@@ -3897,51 +4058,255 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
       *W, DT, AC, makeArrayRef(BBSet), (VariantName + ".wrapper").str()); // (5)
   CallInst *VariantWrapperCall = cast<CallInst>(WrapperFn->user_back());
 
-  auto finalizeAndReturn = [&W] {
-    LLVM_DEBUG(
-        dbgs() << "\nExit VPOParoptTransform::genTargetVariantDispatchCode\n");
-    W->resetBBSet(); // Invalidate BBSet after transformations
-    return true;
+  getAndReplaceDevicePtrs(W, VariantWrapperCall);
+
+  LLVM_DEBUG(
+      dbgs() << "\nExit VPOParoptTransform::genTargetVariantDispatchCode\n");
+  W->resetBBSet(); // Invalidate BBSet after transformations
+  return true;
+}
+
+// NeedDevicePtrStr is a comma-separated list of substrings
+// like this: "T,F,CPTR,F90_DV,PTR_TO_PTR"
+// Each substring describes a fn arg in the corresponding position.
+// "F" means no processing needed for the fn arg. Anything else means
+// the fn arg is a host pointer that we need to replace with its
+// device pointer.
+//
+// We artificially allow the DISPATCH construct to take use_device_ptr
+// and map clauses so we can reuse the code in getAndReplaceDevicePtrs().
+//
+// Before calling getAndReplaceDevicePtrs(), we populate the artificial
+// use_device_ptr clause with fn args based on NeedDevicePtrStr.
+void VPOParoptTransform::processNeedDevicePtr(WRegionNode *W,
+                                              CallInst *VariantCall,
+                                              StringRef &NeedDevicePtrStr) {
+  if (NeedDevicePtrStr.empty())
+    return;
+
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::processNeedDevicePtr\n");
+
+  SmallVector<Value *, 4> FnArgs(VariantCall->arg_operands());
+  SmallVector<StringRef, 4> Substr;
+  NeedDevicePtrStr.split(Substr, ",");
+
+  assert(Substr.size() <= FnArgs.size() &&
+         "number of need_device_ptr operands cannot exceed number of fn args");
+
+  UseDevicePtrClause &UDPC = W->getUseDevicePtr();
+
+  for (unsigned I = 0; I < Substr.size(); ++I) {
+    auto Arg = FnArgs[I];
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": need_device_ptr for ";
+               Arg->printAsOperand(dbgs());
+               dbgs() << " is " << Substr[I] << "\n");
+    if (Substr[I] == "F")
+      continue;
+    assert(isa<PointerType>(Arg->getType()) &&
+           "need_device_ptr expects a pointer-type fn argument");
+    UDPC.add(Arg);
+    if (Substr[I] == "T")
+      continue;
+    if (Substr[I] == "PTR_TO_PTR")
+      UDPC.back()->setIsPointerToPointer(true);
+#if INTEL_CUSTOMIZATION
+    else if (Substr[I] == "F90_DV")
+      UDPC.back()->setIsF90DopeVector(true);
+    else if (Substr[I] == "CPTR")
+      UDPC.back()->setIsCptr(true);
+#endif // INTEL_CUSTOMIZATION
+    else
+      llvm_unreachable("Unknown need_device_ptr marker");
+  }
+
+  getAndReplaceDevicePtrs(W, VariantCall);
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::processNeedDevicePtr\n");
+}
+
+// Handle the depend clause of the dispatch construct by emitting these calls
+// around the VariantCall:
+//   @__kmpc_omp_wait_deps(loc, tid, ...)                                  (1)
+//   @__kmpc_omp_task_begin_if0(loc, tid, dummytaskthunk)                  (2)
+//   VariantCall(...)
+//   @__kmpc_omp_task_complete_if0(loc, tid, dummytaskthunk)               (3)
+void VPOParoptTransform::genDependForDispatch(WRegionNode *W,
+                                              CallInst *VariantCall) {
+  // Currently the depend clause of the dispatch construct is attached
+  // to the implicit parent task
+  WRegionNode *ParentTask = W->getParent();
+  if (!(ParentTask && isa<WRNTaskNode>(ParentTask) &&
+        ParentTask->getIsImplicit()))
+    return;
+
+  DependClause const &DepClause = ParentTask->getDepend();
+  if (DepClause.empty())
+    return;
+
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genDependForDispatch\n");
+
+  // Insert code before VariantCall;
+  Instruction *InsertPt = VariantCall;
+  CallInst *TaskAllocCI =
+      VPOParoptUtils::genKmpcTaskAllocWithoutCallback(W, IdentTy, InsertPt);
+
+  AllocaInst *DummyTaskTDependRec = genDependInitForTask(ParentTask, InsertPt);
+  genTaskDeps(ParentTask, IdentTy, TidPtrHolder, /*TaskAlloc=*/nullptr,
+              DummyTaskTDependRec, InsertPt, true); //                     (1)
+
+  VPOParoptUtils::genKmpcTaskBeginIf0(W, IdentTy, TidPtrHolder, TaskAllocCI,
+                                      InsertPt); //                        (2)
+
+  // Insert code after VariantCall
+  VPOParoptUtils::genKmpcTaskCompleteIf0(
+      W, IdentTy, TidPtrHolder, TaskAllocCI,
+      InsertPt->getNextNonDebugInstruction()); //                          (3)
+
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDependForDispatch\n");
+}
+
+// Find the dispatch call in the dispatch construct,
+// remove its QUAL_OMP_DISPATCH_CALL marker, and save it with W->setCall()
+static bool findDispatchCall(WRegionNode *W) {
+  bool found = false;
+  for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1)) {
+    if (found)
+      break;
+    for (Instruction &I : *BB) {
+      if (auto *CI = dyn_cast<CallInst>(&I)) {
+        CallInst *NewCI =
+            VPOUtils::removeOpenMPClausesFromCall(CI, {QUAL_OMP_DISPATCH_CALL});
+        if (NewCI != CI) {
+          // CI was the dispatch call, now replaced by
+          // NewCI which has QUAL_OMP_DISPATCH_CALL removed
+          W->setCall(NewCI);
+          found = true;
+          break;
+        }
+      }
+    }
+  }
+  assert(found && "Dispatch call not found");
+  return found;
+}
+
+bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
+  LLVM_DEBUG(
+      dbgs() << "\nEnter VPOParoptTransform::genDispatchCode\n");
+  W->populateBBSet();
+
+  // find the dispatch call and remove its QUAL_OMP_DISPATCH_CALL OB from IR
+  findDispatchCall(W);
+  CallInst *BaseCall = W->getCall();
+
+  // TODO: make BaseCall's arguments unique temps. In most cases the args
+  //       are already unique temps out of the FE, so we can do this later.
+  // makeFuncArgsUnique(Basecall);
+
+  StringRef MatchConstruct("dispatch");
+  uint64_t DeviceArchs = 0u; // bit vector of device architectures
+  StringRef NeedDevicePtrStr;
+  StringRef InteropStr;
+  StringRef VariantName = getVariantName(
+      W, BaseCall, MatchConstruct, DeviceArchs, NeedDevicePtrStr, InteropStr);
+
+  auto emitRemark = [&](const StringRef &Message) {
+    OptimizationRemarkMissed R("openmp", "Region", W->getEntryDirective());
+    R << ore::NV("Construct", W->getName()) << Message;
+    ORE.emit(R);
   };
 
-  if (UDPtrClause.empty())
-    return finalizeAndReturn();
+  assert(BaseCall && "Base call not found in Dispatch");
+  if (!BaseCall) {
+    emitRemark(" Could not find a valid function call in the region");
+    return false;
+  }
 
-  Builder.SetInsertPoint(VariantWrapperCall);
-  TgDataInfo Info;
-  Info.NumberOfPtrs = UDPtrClause.size();
-  bool hasRuntimeEvaluationCaptureSize = false;
-  SmallVector<Constant *, 16> ConstSizes;
-  SmallVector<uint64_t, 16> MapTypes;
-  SmallVector<GlobalVariable *, 16> Names;
-  SmallVector<Value *, 16> Mappers;
+  if (VariantName.empty()) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Variant function not found\n");
+    emitRemark(" Could not find a matching variant function");
+    return false;
+  }
 
-  (void)addMapForUseDevicePtr(W, VariantWrapperCall);
+  LLVM_DEBUG(dbgs() << __FUNCTION__
+                    << ": Found variant function name: " << VariantName);
+  if (!NeedDevicePtrStr.empty())
+    LLVM_DEBUG(dbgs() << " ; need_device_ptr: " << NeedDevicePtrStr);
+  if (!InteropStr.empty())
+    LLVM_DEBUG(dbgs() << " ; interop: " << InteropStr);
+  LLVM_DEBUG(dbgs() << "\n");
 
-  genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes, Names, Mappers,
-                           hasRuntimeEvaluationCaptureSize);
+  Instruction *InsertPt = BaseCall;
 
-  CallInst *DummyCall = nullptr;
-  genOffloadArraysInit(W, &Info, DummyCall, VariantWrapperCall, ConstSizes,
-                       MapTypes, Names, Mappers,
-                       hasRuntimeEvaluationCaptureSize);
+  Value *DeviceNum = genDeviceNum(W, InsertPt);
 
-  genOffloadArraysArgument(&Info, VariantWrapperCall);
+  // Emit dispatch condition:
+  //   %call = call i32 @__tgt_is_device_available(i64 %0, i8* DeviceType)  (1)
+  //   %available  = icmp ne i32 %call, 0                                   (2)
+  Value *Available = genDeviceAvailable(W, InsertPt, DeviceNum, DeviceArchs);
 
-  (void)VPOParoptUtils::genTgtTargetDataBegin(
-      W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-      Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
-      VariantWrapperCall); //                                               (A)
+  // Emit CFG to hold dispatch code:
+  //   if (%available)
+  //     // code to setup variant call goes here:
+  //     //  1. create interop obj
+  //     //  2. process need_device_ptr
+  //     //  3. handle depend clause
+  //     call variant function
+  //   else
+  //     call base function
+  Instruction *ThenTerm, *ElseTerm;
+  VPOParoptUtils::buildCFGForIfClause(Available, ThenTerm, ElseTerm, InsertPt, DT);
 
-  CallInst *TgtDataEndCall = VPOParoptUtils::genTgtTargetDataEnd( //        (A)
-      W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
-      Info.ResDataSizes, Info.ResDataMapTypes, Info.ResNames, Info.ResMappers,
-      VariantWrapperCall);
-  TgtDataEndCall->moveAfter(VariantWrapperCall);
+  IRBuilder<> Builder(ThenTerm);
 
-  useUpdatedUseDevicePtrsInTgtDataRegion(W, VariantWrapperCall); //         (B)
+  // Current we only support one interop obj, either interop(target) or
+  // interop(targetsync). We use the old-stype interop obj from
+  // createInteropObj() and don't distinguish between target and targetsync.
+  // TODO: Use the new-stype interop obj created by #pragma omp interop
+  Value *InteropObj = nullptr;
+  if (InteropStr.empty())
+    assert(!W->getNowait() &&
+           "Expected an interop obj for dispatch nowait");
+  else if (InteropStr=="targetsync" || InteropStr=="target")
+    InteropObj = createInteropObj(W, DeviceNum, IdentTy, ThenTerm); //      (7)
+  else
+    llvm_unreachable("Unsupported interop type in append_args");
 
-  return finalizeAndReturn();
+  // Create and insert Variant call before ThenTerm
+  bool IsVoidType = (BaseCall->getType() == Builder.getVoidTy());
+  CallInst *VariantCall = VPOParoptUtils::genVariantCall(
+      BaseCall, VariantName, InteropObj, ThenTerm, W); //                   (8)
+  if (!IsVoidType)
+    VariantCall->setName("variant");
+
+  // Handle need_device_ptr
+  processNeedDevicePtr(W, VariantCall, NeedDevicePtrStr);
+
+  // Handle depend clause
+  genDependForDispatch(W, VariantCall);
+
+  // Move BaseCall to before ElseTerm
+  InsertPt = BaseCall->getNextNode(); // insert PHI before this point later
+  assert(InsertPt && "Corrupt IR: BaseCall cannot be last instruction in BB");
+  BaseCall->moveBefore(ElseTerm);
+
+  // If BaseCall has users, then insert a PHI before InsertPt
+  // and replace all uses of BaseCall with PHI
+  if (BaseCall->getNumUses() > 0) {
+    Builder.SetInsertPoint(InsertPt);
+    PHINode *Phi = Builder.CreatePHI(BaseCall->getType(), 2, "callphi");
+    Phi->addIncoming(VariantCall, ThenTerm->getParent());
+    Phi->addIncoming(BaseCall, ElseTerm->getParent());
+    for (User *U : BaseCall->users())
+      if (Instruction *UI = dyn_cast<Instruction>(U)) {
+        if (UI != Phi) { // don't replace in Phi
+          UI->replaceUsesOfWith(BaseCall, Phi);
+        }
+      }
+  }
+
+  dbgs() << "\nExit VPOParoptTransform::genDispatchCode\n";
+  W->resetBBSet(); // Invalidate BBSet after transformations
+  return true;
 }
 
 // Set SIMD widening width for the target region based

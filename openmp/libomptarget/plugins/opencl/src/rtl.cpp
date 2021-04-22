@@ -430,6 +430,8 @@ struct ProgramData {
   int DeviceNum = -1;
   uint32_t TotalEUs = 0;
   uint32_t HWThreadsPerEU = 0;
+  uintptr_t DynamicMemoryLB = 0;
+  uintptr_t DynamicMemoryUB = 0;
 };
 
 /// RTL flags
@@ -444,8 +446,9 @@ struct RTLFlagsTy {
   uint64_t UseSVM : 1;
   uint64_t UseBuffer : 1;
   uint64_t UseSingleContext : 1;
+  uint64_t UseImageOptions : 1;
   // Add new flags here
-  uint64_t Reserved : 54;
+  uint64_t Reserved : 53;
   RTLFlagsTy() :
       CollectDataTransferLatency(0),
       EnableProfile(0),
@@ -457,6 +460,7 @@ struct RTLFlagsTy {
       UseSVM(0),
       UseBuffer(0),
       UseSingleContext(0),
+      UseImageOptions(1),
       Reserved(0) {}
 };
 
@@ -550,6 +554,8 @@ public:
   std::mutex *ProfileLocks;
   std::vector<std::vector<DeviceOffloadEntryTy>> OffloadTables;
   std::vector<std::set<void *>> ClMemBuffers;
+  // Memory owned by the plugin
+  std::vector<std::vector<void *>> OwnedMemory;
 
   // Requires flags
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
@@ -578,6 +584,9 @@ public:
   uint32_t ThreadLimit = 0;
   // Limit for the number of WGs.
   uint32_t NumTeams = 0;
+
+  /// Dynamic kernel memory size
+  size_t KernelDynamicMemorySize = 0; // Turned off by default
 
   // This is a factor applied to the number of WGs computed
   // for the execution, based on the HW characteristics.
@@ -767,6 +776,17 @@ public:
         Flags.UseSingleContext = 1;
     }
 
+    // Read LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<SizeInMB>
+    if ((env = readEnvVar("LIBOMPTARGET_DYNAMIC_MEMORY_SIZE"))) {
+      size_t value = std::stoi(env);
+      const size_t maxValue = 2048;
+      if (value > maxValue) {
+        IDP("Adjusted dynamic memory size to %zu MB\n", maxValue);
+        value = maxValue;
+      }
+      KernelDynamicMemorySize = value << 20;
+    }
+
 #if INTEL_INTERNAL_BUILD
     // Force work group sizes -- for internal experiments
     if ((env = readEnvVar("LIBOMPTARGET_LOCAL_WG_SIZE"))) {
@@ -783,6 +803,13 @@ public:
       if (env[0] != '\0') {
         CommonSpecConstants.addConstant<char>(0xFF747469, 1);
       }
+    }
+
+    if ((env = readEnvVar("LIBOMPTARGET_ONEAPI_USE_IMAGE_OPTIONS"))) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.UseImageOptions = 1;
+      else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
+        Flags.UseImageOptions = 0;
     }
   }
 
@@ -1108,6 +1135,9 @@ static void closeRTL() {
 
     DeviceInfo->unloadOffloadTable(i);
 
+    for (auto mem : DeviceInfo->OwnedMemory[i])
+      CALL_CL_EXT_VOID(i, clMemFreeINTEL, DeviceInfo->getContext(i), mem);
+
     if (!DeviceInfo->Flags.UseSingleContext)
       CALL_CL_EXIT_FAIL(clReleaseContext, DeviceInfo->Contexts[i]);
   }
@@ -1163,12 +1193,28 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t deviceId) {
     numThreadsPerEU = 1;
   }
 
+  // Allocate dynamic memory for in-kernel allocation
+  void *memLB = 0;
+  uintptr_t memUB = 0;
+  if (KernelDynamicMemorySize > 0) {
+    cl_int rc;
+    CALL_CL_EXT_RVRC(deviceId, memLB, clDeviceMemAllocINTEL, rc,
+                     getContext(deviceId), deviceIDs[deviceId], nullptr,
+                     KernelDynamicMemorySize, 0);
+  }
+  if (memLB) {
+    OwnedMemory[deviceId].push_back(memLB);
+    memUB = (uintptr_t)memLB + KernelDynamicMemorySize;
+  }
+
   ProgramData hostData = {
     1,                   // Initialized
     (int32_t)numDevices, // Number of devices
     deviceId,            // Device ID
     totalEUs,            // Total EUs
-    numThreadsPerEU      // HW threads per EU
+    numThreadsPerEU,     // HW threads per EU
+    (uintptr_t)memLB,    // Dynamic memory LB
+    memUB                // Dynamic memory UB
   };
 
 #if INTEL_CUSTOMIZATION
@@ -1676,6 +1722,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->Mutexes = new std::mutex[DeviceInfo->numDevices];
   DeviceInfo->ProfileLocks = new std::mutex[DeviceInfo->numDevices];
   DeviceInfo->OffloadTables.resize(DeviceInfo->numDevices);
+  DeviceInfo->OwnedMemory.resize(DeviceInfo->numDevices);
 
   // get device specific information
   for (unsigned i = 0; i < DeviceInfo->numDevices; i++) {
@@ -2075,8 +2122,10 @@ static cl_program getOpenCLProgramForImage(int32_t DeviceId,
     }
 
     DP("Created offload program from image #%" PRIu64 ".\n", Idx);
-    CompilationOptions += " " + It->second.CompileOpts;
-    LinkingOptions += " " + It->second.LinkOpts;
+    if (DeviceInfo->Flags.UseImageOptions) {
+      CompilationOptions += " " + It->second.CompileOpts;
+      LinkingOptions += " " + It->second.LinkOpts;
+    }
     return Program;
   }
 
@@ -2127,6 +2176,21 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 #if INTEL_CUSTOMIZATION
   CompilationOptions += " " + DeviceInfo->InternalCompilationOptions;
   LinkingOptions += " " + DeviceInfo->InternalLinkingOptions;
+  if (DeviceInfo->DeviceType == CL_DEVICE_TYPE_GPU) {
+    // For some reason GPU RT ignores -g and -cl-opt-disable passed
+    // to clCompileProgram. At the same time CPU RT only accepts
+    // these options for clCompileProgram - it will fail, if we pass
+    // them to clLinkProgram. So here we try to look for these
+    // options in the CompilationOptions and copy them to the LinkingOptions
+    // only for GPU RT.
+
+    // Add spaces around to simplify matching.
+    CompilationOptions = " " + CompilationOptions + " ";
+    if (CompilationOptions.find(" -g ") != std::string::npos)
+      LinkingOptions += " -g ";
+    if (CompilationOptions.find(" -cl-opt-disable ") != std::string::npos)
+      LinkingOptions += " -cl-opt-disable ";
+  }
   DPI("Final OpenCL compilation options: %s\n", CompilationOptions.c_str());
   DPI("Final OpenCL linking options: %s\n", LinkingOptions.c_str());
 #else // INTEL_CUSTOMIZATION
@@ -2136,7 +2200,10 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   // clLinkProgram drops the last symbol. Work this around temporarily.
   LinkingOptions += " ";
 
-  if (IsBinary || DeviceInfo->Flags.EnableSimd) {
+  if (IsBinary || DeviceInfo->Flags.EnableSimd ||
+      // Work around GPU API issue: clCompileProgram/clLinkProgram
+      // does not work with -vc-codegen, so we have to use clBuildProgram.
+      CompilationOptions.find(" -vc-codegen ") != std::string::npos) {
     // Programs created from binary must still be built.
     CALL_CL(status, clBuildProgram, program, 0, nullptr,
       (CompilationOptions + " " + LinkingOptions).c_str(), nullptr, nullptr);

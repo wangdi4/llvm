@@ -431,6 +431,8 @@ struct ModuleDataTy {
   int DeviceNum = -1;
   uint32_t TotalEUs = 0;
   uint32_t HWThreadsPerEU = 0;
+  uintptr_t DynamicMemoryLB = 0;
+  uintptr_t DynamicMemoryUB = 0;
 };
 
 /// RTL profile -- only host timer for now
@@ -757,7 +759,8 @@ struct RTLFlagsTy {
   uint64_t UseMemoryPool : 1;
   uint64_t UseDriverGroupSizes : 1;
   uint64_t UseCopyEngine : 1;
-  uint64_t Reserved : 56;
+  uint64_t UseImageOptions : 1;
+  uint64_t Reserved : 55;
   RTLFlagsTy() :
       DumpTargetImage(0),
       EnableProfile(0),
@@ -767,6 +770,7 @@ struct RTLFlagsTy {
       UseMemoryPool(1),
       UseDriverGroupSizes(0),
       UseCopyEngine(1),
+      UseImageOptions(1),
       Reserved(0) {}
 };
 
@@ -1041,6 +1045,9 @@ public:
   int32_t DeviceType;
   uint32_t ThreadLimit = 0; // Global thread limit
   uint32_t NumTeams = 0; // Global max number of teams
+
+  /// Dynamic kernel memory size
+  size_t KernelDynamicMemorySize = 0; // Turned off by default
 
   /// Memory pool parameters
   /// MemPoolInfo[MemType] = {AllocMax(MB), Capacity, PoolSize(MB)}
@@ -1371,6 +1378,18 @@ public:
         ForcedKernelWidth = value;
     }
 
+    // Dynamic memory size
+    // LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<SizeInMB>
+    if (char *env = readEnvVar("LIBOMPTARGET_DYNAMIC_MEMORY_SIZE")) {
+      size_t value = std::stoi(env);
+      const size_t maxValue = 2048;
+      if (value > maxValue) {
+        IDP("Adjusted dynamic memory size to %zu MB\n", maxValue);
+        value = maxValue;
+      }
+      KernelDynamicMemorySize = value << 20;
+    }
+
 #if INTEL_INTERNAL_BUILD
     // Force work group sizes -- for internal experiments
     if (char *env = readEnvVar("LIBOMPTARGET_LOCAL_WG_SIZE")) {
@@ -1394,6 +1413,12 @@ public:
       if (env[0] != '\0') {
         CommonSpecConstants.addConstant<char>(0xFF747469, 1);
       }
+    }
+    if (char *env = readEnvVar("LIBOMPTARGET_ONEAPI_USE_IMAGE_OPTIONS")) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.UseImageOptions = 1;
+      else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
+        Flags.UseImageOptions = 0;
     }
   }
 
@@ -2025,12 +2050,26 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t DeviceId) {
   auto &P = DeviceProperties[DeviceId];
   uint32_t totalEUs =
       P.numSlices * P.numSubslicesPerSlice * P.numEUsPerSubslice;
+
+  // Allocate dynamic memory for in-kernel allocation
+  void *memLB = 0;
+  uintptr_t memUB = 0;
+  if (KernelDynamicMemorySize > 0)
+    memLB = allocDataExplicit(Devices[DeviceId], KernelDynamicMemorySize,
+                              TARGET_ALLOC_DEVICE);
+  if (memLB) {
+    OwnedMemory[DeviceId].push_back(memLB);
+    memUB = (uintptr_t)memLB + KernelDynamicMemorySize;
+  }
+
   ModuleDataTy hostData = {
     1,                   // Initialized
     (int32_t)NumDevices, // Number of devices
     DeviceId,            // Device ID
     totalEUs,            // Total EUs
-    P.numThreadsPerEU    // HW threads per EU
+    P.numThreadsPerEU,   // HW threads per EU
+    (uintptr_t)memLB,    // Dynamic memory LB
+    memUB                // Dynamic memory UB
   };
 
   // Look up program data location on device
@@ -2770,10 +2809,10 @@ static ze_module_handle_t getModuleForImage(ze_context_handle_t Context,
     size_t ImgSize = It->second.Size;
     dumpImageToFile(ImgBegin, ImgSize, "OpenMP");
     ze_module_handle_t Module = nullptr;
-    std::string Options =
-        CompilationOptions + " " + It->second.CompileOpts +
-        " " + It->second.LinkOpts;
     bool IsBinary = false;
+    std::string Options = CompilationOptions;
+    if (DeviceInfo->Flags.UseImageOptions)
+      Options += " " + It->second.CompileOpts + " " + It->second.LinkOpts;
 
     if (It->second.Format == 0) {
       // Native format.

@@ -1015,6 +1015,11 @@ private:
   EXPR Novariants;
   bool Nowait;
 
+  // To be populated during Paropt codegen
+  CallInst *Call;                  // The dispatch call.
+  MapClause Map;                   // Map and UseDevicePtr clauses let us reuse
+  UseDevicePtrClause UseDevicePtr; // the target data logic to use device ptrs.
+
 public:
   WRNDispatchNode(BasicBlock *BB);
 
@@ -1023,14 +1028,18 @@ protected:
   void setNocontext(EXPR E) override { Nocontext = E; }
   void setNovariants(EXPR E) override { Novariants = E; }
   void setNowait(bool Flag) override { Nowait = Flag; }
+  void setCall(CallInst *CI) override { Call = CI; }
 
 public:
   DEFINE_GETTER(IsDevicePtrClause,  getIsDevicePtr,  IsDevicePtr)
   DEFINE_GETTER(SubdeviceClause,    getSubdevice,    Subdevice)
+  DEFINE_GETTER(MapClause,          getMap,          Map)
+  DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
   EXPR getDevice() const override { return Device; }
   EXPR getNocontext() const override { return Nocontext; }
   EXPR getNovariants() const override { return Novariants; }
   bool getNowait() const override { return Nowait; }
+  CallInst *getCall() const override { return Call; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                   unsigned Verbosity = 1) const override;
