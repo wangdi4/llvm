@@ -3044,7 +3044,7 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
     LoadInst *IdotAxisVal;
   };
 
-  // Recognize the pattern of reduce.or with fcmp.
+  // Recognize the pattern of reduce.and/or with fcmp.
   // LHS save fcmp's LHS operand.
   // RHS save fcmp's RHS opernad.
   // If Pred is equal to Fcmp's swapped predicate, swap LHS and RHS.
@@ -3052,38 +3052,52 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
   // Eg:
   //  %cmp62.i.i = fcmp fast olt float %mul12.i.i, 0.000000e+00
   //  %cmp64.i.i = fcmp fast olt float %mul32.i.i, 0.000000e+00
-  //  %or.cond.i.i = or i1 %cmp62.i.i, %cmp64.i.i
+  //  %or.cond.i.i = select i1 %cmp62.i.i, i1 true, i1 %cmp64.i.i
   //  %cmp66.i.i = fcmp fast olt float %mul52.i.i, 0.000000e+00
-  //  %or.cond84.i.i = or i1 %or.cond.i.i, %cmp66.i.i
-  auto recognizeFCmpReduceOr = [](Instruction *&Root, CmpInst::Predicate Pred,
-                                  SmallVectorImpl<Value *> &LHS,
-                                  SmallVectorImpl<Value *> &RHS,
-                                  Instruction *&Iter) {
+  //  %or.cond84.i.i = select i1 %or.cond.i.i, i1 true, i1 %cmp66.i.i
+  enum ReduceType {
+      ReduceAnd,
+      ReduceOr
+  };
+  auto recognizeFCmpReduce = [](Instruction *&Root, CmpInst::Predicate Pred,
+                                SmallVectorImpl<Value *> &LHS,
+                                SmallVectorImpl<Value *> &RHS,
+                                Instruction *&Iter,
+                                ReduceType ReduceType = ReduceOr) {
     SmallVector<Value *, 8> InstList;
 
     LHS.clear();
     RHS.clear();
 
-    Value *NextOr = Root;
+    Value *NextSelect = Root;
     while (true) {
-      auto Or = dyn_cast_or_null<BinaryOperator>(NextOr);
-      if (!Or || Or->getOpcode() != Instruction::Or || !Or->hasOneUse() ||
-          Root->getParent() != Or->getParent())
+      auto Select = dyn_cast_or_null<SelectInst>(NextSelect);
+      if (!Select || !Select->hasOneUse() ||
+          Root->getParent() != Select->getParent())
+        return false;
+
+      if (ReduceType == ReduceOr && !match(Select->getTrueValue(), m_One()))
+        return false;
+
+      if (ReduceType == ReduceAnd && !match(Select->getFalseValue(), m_Zero()))
         return false;
 
       int FCmpNum = 0;
-      int OrIndex = -1;
+      int OperandIndex = -1;
 
-      // If there are 2 fcmp instructions: Have found the reduce.or pattern.
+      Value *Operands[2] = {Select->getCondition(), nullptr};
+      Operands[1] = ReduceType == ReduceOr ? Select->getFalseValue()
+                                           : Select->getTrueValue();
+      // If there are 2 fcmp instructions: Have found the 'reduce' pattern.
       // return true.
-      // If there is 1 fcmp instruciton: continue to find reduce.or
+      // If there is 1 fcmp instruciton: continue to find 'reduce'
       // pattern from the other operand, recursively.
-      // If there is no fcmp instruction: unsupport this pattern, just return
-      // false;
+      // If there is no fcmp instruction: doesn't support this pattern,
+      // just return false;
       for (int i = 1; i >= 0; --i) {
-        auto FCmp = dyn_cast<FCmpInst>(Or->getOperand(i));
+        auto FCmp = dyn_cast<FCmpInst>(Operands[i]);
         if (!FCmp) {
-          OrIndex = i;
+          OperandIndex = i;
           continue;
         }
 
@@ -3107,7 +3121,7 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
       if (FCmpNum == 0)
         return false;
 
-      NextOr = Or->getOperand(OrIndex);
+      NextSelect = Operands[OperandIndex];
     }
     return true;
   };
@@ -3398,7 +3412,7 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
 
   // Try to match "t1x > t2y || t2x < t1y || t1x > t2z ||
   // "t2x < t1z || t1y > t2z || t2y < t1z"
-  if (!recognizeFCmpReduceOr(RootT1CmpT2, CmpInst::FCMP_OLT, LHS, RHS, Iter))
+  if (!recognizeFCmpReduce(RootT1CmpT2, CmpInst::FCMP_OLT, LHS, RHS, Iter))
     return false;
 
   if (LHS.size() != 6)
@@ -3462,7 +3476,7 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
   if (RootCmpZero != CmpZeroTerm->getCondition())
     return false;
 
-  if (!recognizeFCmpReduceOr(RootCmpZero, CmpInst::FCMP_OLT, LHS, RHS, Iter))
+  if (!recognizeFCmpReduce(RootCmpZero, CmpInst::FCMP_OLT, LHS, RHS, Iter))
     return false;
 
   if (LHS.size() != 3)
@@ -3502,12 +3516,13 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
   if (!CmpDistBlock->getSinglePredecessor())
     return false;
 
-  // Try to match "t1x > isec->dist || t1y > isec->dist || t1z > isec->dist"
+  // Try to match "t1x <= isec->dist && t1y <= isec->dist && t1z <= isec->dist"
   Instruction *RootCmpDist = CmpDistBlock->getTerminator();
-  // Find the first 'Or' instruction backward.
-  while (RootCmpDist && RootCmpDist->getOpcode() != Instruction::Or)
+  // Find the first 'select' instruction backward.
+  while (RootCmpDist && RootCmpDist->getOpcode() != Instruction::Select)
     RootCmpDist = RootCmpDist->getPrevNonDebugInstruction();
-  if (!recognizeFCmpReduceOr(RootCmpDist, CmpInst::FCMP_OGT, LHS, RHS, Iter))
+  if (!recognizeFCmpReduce(RootCmpDist, CmpInst::FCMP_ULE, LHS, RHS, Iter,
+                           ReduceAnd))
     return false;
 
   if (LHS.size() != 3)
@@ -3616,12 +3631,13 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
   BI->setMetadata(LLVMContext::MD_unpredictable,
                   MDBuilder(BI->getContext()).createUnpredictable());
 
-  // %T2GTDist = fcmp.ogt <8 x float> T1, SplatDist
-  // %Res = reduce.or.v8i1(%T2GTDist)
+  // %T2ULEDist = fcmp.ule <8 x float> T1, SplatDist
+  // %Res = reduce.and.v8i1(%T2ULEDist)
   Builder.SetInsertPoint(RootCmpDist);
   auto *SplatDist = Builder.CreateVectorSplat(8, RHS[0], "SplatDist");
-  auto *T1GTDist = Builder.CreateFCmp(CmpInst::FCMP_OGT, T1, SplatDist, "T2GTDist");
-  auto *ResDist = Builder.CreateOrReduce(T1GTDist);
+  auto *T1ULEDist = Builder.CreateFCmp(CmpInst::FCMP_ULE, T1, SplatDist,
+                                       "T2ULEDist");
+  auto *ResDist = Builder.CreateAndReduce(T1ULEDist);
   RootCmpDist->replaceAllUsesWith(ResDist);
 
   return true;
@@ -4336,16 +4352,46 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
 
   Instruction *Cond = dyn_cast<Instruction>(BI->getCondition());
 
-  if (!Cond || (!isa<CmpInst>(Cond) && !isa<BinaryOperator>(Cond)) ||
+#if INTEL_CUSTOMIZATION
+  if (!Cond ||
+      (!isa<CmpInst>(Cond) && !isa<BinaryOperator>(Cond) &&
+       !isa<SelectInst>(Cond)) ||
       Cond->getParent() != BB || !Cond->hasOneUse())
     return Changed;
 
+  Value* Operands[2] = { nullptr, nullptr };
+  if (isa<SelectInst>(Cond)) {
+    SelectInst* SI = cast<SelectInst>(Cond);
+    Value* CondVal = SI->getCondition();
+    Value* TrueVal = SI->getTrueValue();
+    Value* FalseVal = SI->getFalseValue();
+    Type* SelType = SI->getType();
+
+    if (!(SelType->isIntOrIntVectorTy(1) &&
+       TrueVal->getType() == CondVal->getType()))
+      return false;
+
+    if (match(SI->getFalseValue(), m_Zero())) {
+      Operands[0] = CondVal;
+      Operands[1] = TrueVal;
+    } else if (match(SI->getTrueValue(), m_One())) {
+      Operands[0] = CondVal;
+      Operands[1] = FalseVal;
+    } else
+      return false;
+
+  } else {
+    Operands[0] = Cond->getOperand(0);
+    Operands[1] = Cond->getOperand(1);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Cond is known to be a compare or binary operator.  Check to make sure that
   // neither operand is a potentially-trapping constant expression.
-  if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Cond->getOperand(0)))
+  if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Operands[0]))  // INTEL
     if (CE->canTrap())
       return Changed;
-  if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Cond->getOperand(1)))
+  if (ConstantExpr *CE = dyn_cast<ConstantExpr>(Operands[1]))  // INTEL
     if (CE->canTrap())
       return Changed;
 
