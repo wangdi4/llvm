@@ -30,7 +30,7 @@ enum V {
 const size_t OCL_VERSIONS = 6;
 } // namespace width
 
-typedef std::vector<std::shared_ptr<ParamType>> TypeVector;
+typedef std::vector<RefParamType> TypeVector;
 
 struct FunctionDescriptor {
   // returns: a human readable string representation of the function's
