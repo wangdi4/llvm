@@ -709,7 +709,8 @@ public:
         unsigned NumPred = std::distance(pred_begin(&BB), pred_end(&BB));
         unsigned NumSucc = std::distance(succ_begin(&BB), succ_end(&BB));
         dbgs() << "BB#: " << Count++ << " : "
-               << "#Pred: " << NumPred << "\t#Succ: " << NumSucc << "\n"
+               << "#Pred: " << NumPred << "\t#Succ: " << NumSucc
+               << "\t#InstsInBB: " << BB.sizeWithoutDebug() << "\n"
                << BB << "\n";
       }
     });
@@ -1587,22 +1588,35 @@ bool IPOPrefetcher::identifyPrefetchPositions(Function *F) {
       dbgs() << F->getName() << "() \n";
   });
 
-  // 2 BasicBlockInfo Target Heuristics, each needs precise customization
+  // 2 BasicBlockInfo Target Heuristics.
+  //[Note]
+  // The code below provides target basic-block (BB) signatures in the DL-host
+  // function. Once the IPOPrefetch pass identifies such BBs, it will insert a
+  // call to the prefetch function at the beginning of the BB.
+  //
+  // A pulldown can trigger aggressive changes in the BB.  Such a pulldown
+  // can impact not only the BB's size (#Insts) and instruction mix, but
+  // also its #Pred, #Succ, and relative position of the BB within the function.
+  //
+  // When such a pulldown happens, the IPOPrefetch pass needs to update its
+  // desired insert-position signatures.
+  //
   static BasicBlockInfo Heuristics[] = {
       // entry0:
       BasicBlockInfo(nullptr,        /* BasicBlock * BB  */
-                     60,             /* unsigned BBIndex  */
+                     64,             /* unsigned BBIndex  */
                      23,             /* unsigned NumInst  */
                      1,              /* unsigned NumPred  */
                      2,              /* unsigned NumSucc  */
                      BBSC_Large,     /* BasicBlockSizeCategory  */
                      BBIR_4thQuarter /*BasicBlockIndexRange */
                      ),
+
       // entry1:
       BasicBlockInfo(nullptr,        /* BasicBlock * BB  */
-                     136,            /* unsigned Index   */
-                     25,             /* unsigned NumInst */
-                     3,              /* unsigned NumPred */
+                     138,            /* unsigned Index   */
+                     26,             /* unsigned NumInst */
+                     4,              /* unsigned NumPred */
                      2,              /* unsigned NumSucc */
                      BBSC_Large,     /* BasicBlockSizeCategory SizeCategory */
                      BBIR_4thQuarter /*BasicBlockIndexRange IndexRange)*/
@@ -2338,16 +2352,10 @@ bool IPOPrefetcher::insertCallToPrefetchFunction(void) {
     Function *Caller = F;
 
     for (auto BBI : BBIVec) {
-      Instruction *InsertPos = BBI.getInsertPos();
-      if (!InsertPos) {
-        LLVM_DEBUG(dbgs() << "Fail to identify prefetch insert position in "
-                          << F->getName() << "()\n";);
-        return false;
-      }
-      assert(InsertPos && "Expect a valid InsertPos");
-
-      // move to nextI, prepare to insert
-      BasicBlock::iterator It(InsertPos);
+      // Identify the insert position
+      BasicBlock::iterator It(BBI.getBasicBlock()->getFirstNonPHIOrDbg(true));
+      if (It == BBI.getBasicBlock()->end())
+        assert(0 && "No suitable InsertPos available");
 
       // create a call to PrefetchFunction
       Builder.SetInsertPoint(&*It);
