@@ -97,8 +97,6 @@ extern "C"{
 
 void *createInstToFuncCallPass(const CPUDetect *CpuId);
 FunctionPass *createWeightedInstCounter(bool, const CPUDetect *);
-FunctionPass *createScalarizerPass(const CPUDetect *CpuId,
-                                   bool InVPlanPipeline);
 llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createOCLReqdSubGroupSizePass();
@@ -597,7 +595,6 @@ static void populatePassesPostFailCheck(
         if (!IsSYCL)
           PM.add(createChooseVectorizationDimensionModulePass());
         PM.add(createOCLVecClonePass(pConfig->GetCpuId(), !IsSYCL && !IsOMP));
-        PM.add(createScalarizerPass(pConfig->GetCpuId(), true));
 
         PM.add(createVectorVariantFillInPass());
         PM.add(createUpdateCallAttrsPass());
