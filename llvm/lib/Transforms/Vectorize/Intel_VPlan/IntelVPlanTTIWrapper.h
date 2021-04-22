@@ -98,7 +98,8 @@ public:
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       const Instruction *I = nullptr) const {
     return Multiplier *
-           TTI.getCmpSelInstrCost(Opcode, ValTy, CondTy, VecPred, CostKind, I);
+           *TTI.getCmpSelInstrCost(Opcode, ValTy, CondTy, VecPred, CostKind, I)
+                .getValue();
   }
 
   int getVectorInstrCost(unsigned Opcode, Type *Val,
