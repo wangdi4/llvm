@@ -216,11 +216,6 @@ constexpr FeatureBitset FeaturesSapphireRapids =
     FeatureENQCMD | FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE |
     FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
     FeatureWAITPKG | FeatureAVXVNNI;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RKL
-static constexpr FeatureBitset FeaturesRocketlake = FeaturesICLClient;
-#endif // INTEL_FEATURE_CPU_RKL
-#endif // INTEL_CUSTOMIZATION
 
 // Intel Atom processors.
 // Bonnell has feature parity with Core2 and adds MOVBE.

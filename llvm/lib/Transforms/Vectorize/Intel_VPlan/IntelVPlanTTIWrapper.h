@@ -119,9 +119,10 @@ public:
       unsigned Opcode, Type *DataTy, const Value *Ptr, bool VariableMask,
       Align Alignment, TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       const Instruction *I = nullptr) const {
-    return Multiplier * TTI.getGatherScatterOpCost(Opcode, DataTy, Ptr,
-                                                   VariableMask, Alignment,
-                                                   CostKind, I);
+    return Multiplier * *TTI.getGatherScatterOpCost(Opcode, DataTy, Ptr,
+                                                    VariableMask, Alignment,
+                                                    CostKind, I)
+                             .getValue();
   }
 #if INTEL_CUSTOMIZATION
   int getGatherScatterOpCost(

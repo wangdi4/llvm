@@ -709,11 +709,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Rocketlake:
   case CK_IcelakeServer:
   case CK_Tigerlake:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RKL
-  case CK_Rocketlake:
-#endif // INTEL_FEATURE_CPU_RKL
-#endif // INTEL_CUSTOMIZATION
   case CK_SapphireRapids:
   case CK_Alderlake:
     // FIXME: Historically, we defined this legacy name, it would be nice to
@@ -2066,11 +2061,6 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Cooperlake:
     case CK_Cannonlake:
     case CK_Tigerlake:
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RKL
-    case CK_Rocketlake:
-#endif // INTEL_FEATURE_CPU_RKL
-#endif // INTEL_CUSTOMIZATION
     case CK_SapphireRapids:
     case CK_IcelakeClient:
     case CK_Rocketlake:
