@@ -121,7 +121,8 @@ public:
   bool run();
 
 private:
-  bool mergeLoops(HLLoop *DefLoop, HLLoop *UseLoop, unsigned Levels);
+  bool mergeLoops(HLLoop *DefLoop, HLLoop *UseLoop, unsigned Levels,
+                  const SmallSet<unsigned, 6> &MappedTempBlobSBs);
   bool runOnRegion(HLRegion &Reg);
 
   // Contract relevant memref(s) from a given loop, using the provided
@@ -285,20 +286,38 @@ static bool areIdenticalInsts(const HLInst *HInst1, const HLInst *HInst2) {
 }
 
 static unsigned computeDependencyMaxTopSortNumber(
-    DDGraph &DDG, const HLLoop *Loop,
-    const SmallPtrSetImpl<RegDDRef *> &CandidateRefs,
+    DDGraph &DDG, const HLLoop *DefLoop,
+    const SmallPtrSetImpl<RegDDRef *> &CandidateRefs, HIRLoopStatistics &HLS,
     SparseBitVector<> &OutUsesByNonCandidates) {
   assert(llvm::all_of(CandidateRefs,
                       [](const RegDDRef *Ref) { return Ref->isMemRef(); }) &&
          "Only MemRefs are expected in CandidateRefs");
 
+  unsigned LoopMaxTopSortNumber = DefLoop->getMaxTopSortNum();
+
+  // Bail out for def loops with liveouts. We may not be correctly preserving
+  // them with forward-substitution.
+  if (DefLoop->hasLiveOutTemps()) {
+    return LoopMaxTopSortNumber;
+  }
+
+  auto &LoopStats = HLS.getTotalLoopStatistics(DefLoop);
+
+  // Bail out for loops with control-flow. mergeLoops() cannot handle it.
+  if (LoopStats.hasIfs() || LoopStats.hasSwitches() ||
+      LoopStats.hasForwardGotos()) {
+    return LoopMaxTopSortNumber;
+  }
+
   using Gatherer = DDRefGatherer<RegDDRef, TerminalRefs | MemRefs | FakeRefs>;
   Gatherer::VectorTy Refs;
-  Gatherer::gather(Loop, Refs);
+  Gatherer::gather(DefLoop, Refs);
 
   unsigned MaxTopSortNumber = std::numeric_limits<unsigned>::max();
-  unsigned LoopMaxTopSortNumber = Loop->getMaxTopSortNum();
-  unsigned LoopLevel = Loop->getNestingLevel();
+  unsigned LoopLevel = DefLoop->getNestingLevel();
+
+  // TODO: Bail out on def loops with loop-carried dependences as IV mapping may
+  // not be legal.
 
   for (auto *Ref : Refs) {
     bool SrcIsCandidate = CandidateRefs.count(dyn_cast<RegDDRef>(Ref));
@@ -352,8 +371,39 @@ static unsigned computeDependencyMaxTopSortNumber(
   return MaxTopSortNumber;
 }
 
-bool HIRCrossLoopArrayContraction::mergeLoops(HLLoop *DefLoop, HLLoop *UseLoop,
-                                              unsigned Levels) {
+static void collectMappedDefs(HLContainerTy::iterator Begin,
+                              HLContainerTy::iterator End,
+                              const SmallSet<unsigned, 6> &MappedTempBlobSBs,
+                              SmallSet<HLInst *, 6> &MappedTempDefs) {
+
+  for (auto I = Begin; I != End; ++I) {
+    auto *Inst = dyn_cast<HLInst>(&*I);
+
+    if (!Inst) {
+      continue;
+    }
+
+    auto *LvalRef = Inst->getLvalDDRef();
+    if (LvalRef && MappedTempBlobSBs.count(LvalRef->getSymbase())) {
+      MappedTempDefs.insert(Inst);
+    }
+  }
+}
+
+static void moveMappedDefs(HLLoop *UseLoop,
+                           const SmallSet<HLInst *, 6> &MappedTempDefs) {
+  for (auto *MappedTempDef : MappedTempDefs) {
+    auto *FirstChild =
+        HLNodeUtils::getFirstLexicalChild(UseLoop, MappedTempDef);
+    if (FirstChild != MappedTempDef) {
+      HLNodeUtils::moveBefore(FirstChild, MappedTempDef);
+    }
+  }
+}
+
+bool HIRCrossLoopArrayContraction::mergeLoops(
+    HLLoop *DefLoop, HLLoop *UseLoop, unsigned Levels,
+    const SmallSet<unsigned, 6> &MappedTempBlobSBs) {
   assert(Levels > 0 && "Merging zero loops is undefined");
 
   auto FindFirstNonInstr = [](HLLoop::child_iterator Begin,
@@ -366,6 +416,14 @@ bool HIRCrossLoopArrayContraction::mergeLoops(HLLoop *DefLoop, HLLoop *UseLoop,
 
     return End;
   };
+
+  // Collect temp defs in the use which need to be moved to the beginning while
+  // merging.
+  SmallSet<HLInst *, 6> MappedTempDefs;
+  collectMappedDefs(UseLoop->pre_begin(), UseLoop->pre_end(), MappedTempBlobSBs,
+                    MappedTempDefs);
+  collectMappedDefs(UseLoop->child_begin(), UseLoop->child_end(),
+                    MappedTempBlobSBs, MappedTempDefs);
 
   for (auto LiveInSB :
        make_range(DefLoop->live_in_begin(), DefLoop->live_in_end())) {
@@ -396,6 +454,10 @@ bool HIRCrossLoopArrayContraction::mergeLoops(HLLoop *DefLoop, HLLoop *UseLoop,
     // Innermost loop case
     HLNodeUtils::moveAsFirstChildren(UseLoop, DefLoop->child_begin(),
                                      DefLoop->child_end());
+
+    // Move mapped definitions to the beginning so they can be used by def loop
+    // nodes.
+    moveMappedDefs(UseLoop, MappedTempDefs);
     return true;
   }
 
@@ -424,7 +486,11 @@ bool HIRCrossLoopArrayContraction::mergeLoops(HLLoop *DefLoop, HLLoop *UseLoop,
   HLNodeUtils::moveAfter(UseInnerLoop, std::next(DefInnerLoopI),
                          DefLoop->child_end());
 
-  return mergeLoops(DefInnerLoop, UseInnerLoop, Levels - 1);
+  // Move mapped definitions to the beginning so they can be used by def loop
+  // nodes.
+  moveMappedDefs(UseLoop, MappedTempDefs);
+
+  return mergeLoops(DefInnerLoop, UseInnerLoop, Levels - 1, MappedTempBlobSBs);
 }
 
 static void promoteSectionIVs(ArraySectionInfo &Info, unsigned StartLevel) {
@@ -492,7 +558,7 @@ computeNumDimsContracted(const ArraySectionInfo &DefInfo,
     auto *DefIndex = DefIndices.front();
 
     if (UseIndices.size() != 1) {
-      // Already mapped a dimension.
+      // We only handle one mapped dimension per def-use loop pair.
       if (!MappedDimInfo.empty()) {
         break;
       }
@@ -505,7 +571,12 @@ computeNumDimsContracted(const ArraySectionInfo &DefInfo,
       bool IsValidMapping = true;
       for (auto *UseIndex : UseIndices) {
         int64_t Dist;
-        if (!CanonExprUtils::getConstDistance(DefIndex, UseIndex, &Dist)) {
+        if (!CanonExprUtils::getConstDistance(DefIndex, UseIndex, &Dist) &&
+            // This means UseIndex does not contain any IVs but it can
+            // contains blobs and constant. This is the case that we want to
+            // handle. It also has the nice property that replaceIVByCanonExpr()
+            // will not fail for such CEs.
+            !UseIndex->canConvertToStandAloneBlobOrConstant()) {
           IsValidMapping = false;
           break;
         }
@@ -798,18 +869,132 @@ static void replaceIVByCE(HLLoop *Lp, unsigned IVLevel,
     }
 
   } else {
-    llvm_unreachable("Unexpected IV replacement!");
-    /*
-    * TODO: Enable later.
-       ForEach<RegDDRef>::visit(Lp, [&](RegDDRef *Ref) {
+    SmallVector<unsigned, 1> TempBlob;
+    ReplaceCE->collectTempBlobIndices(TempBlob, false);
+    assert(TempBlob.size() == 1 && "Single temp blob expected!");
 
-         for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
-           if (!replaceIVByCanonExpr(CE, IVLevel, ReplaceCE, false)) {
-             llvm_unreachable("CE merging failed");
-           }
-       });
-   */
+    auto &BU = Lp->getHLNodeUtils().getBlobUtils();
+    unsigned BlobIndex = TempBlob[0];
+    unsigned BlobLevel = ReplaceCE->getDefinedAtLevel();
+    unsigned BlobSymbase = BU.getTempBlobSymbase(BlobIndex);
+
+    ForEach<RegDDRef>::visit(Lp, [&](RegDDRef *Ref) {
+      bool BlobMerged = false;
+      for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
+        if (!CE->hasIV(IVLevel)) {
+          continue;
+        }
+
+        if (!CanonExprUtils::replaceIVByCanonExpr(CE, IVLevel, ReplaceCE,
+                                                  false)) {
+          llvm_unreachable("CE merging failed");
+        }
+
+        BlobMerged = true;
+      }
+
+      if (BlobMerged) {
+        Ref->addBlobDDRef(BlobIndex, BlobLevel);
+        Ref->makeConsistent();
+
+        auto *ParLoop = Ref->getParentLoop();
+
+        while (ParLoop && ParLoop->getNestingLevel() > BlobLevel) {
+          ParLoop->addLiveInTemp(BlobSymbase);
+          ParLoop = ParLoop->getParentLoop();
+        }
+      }
+    });
   }
+}
+
+class TempRenamer final : public HLNodeVisitorBase {
+  unsigned MaxMergeLevel;
+  unsigned CurNestingLevel;
+  DenseMap<unsigned, unsigned> OldToNewBlobIndices;
+
+public:
+  TempRenamer(unsigned MaxMergeLevel, unsigned CurNestingLevel)
+      : MaxMergeLevel(MaxMergeLevel), CurNestingLevel(CurNestingLevel) {}
+
+  void visit(HLNode *Node) {}
+  void postVisit(HLNode *Node) {}
+
+  void visit(HLInst *Inst);
+  void visit(HLDDNode *Node);
+
+  void visit(HLLoop *Lp) {
+    CurNestingLevel++;
+
+    auto &BU = Lp->getHLNodeUtils().getBlobUtils();
+
+    // Replace livein temps.
+    for (auto IndexPair : OldToNewBlobIndices) {
+      unsigned OldSymbase = BU.getTempBlobSymbase(IndexPair.first);
+
+      if (Lp->isLiveIn(OldSymbase)) {
+        Lp->replaceLiveInTemp(OldSymbase,
+                              BU.getTempBlobSymbase(IndexPair.second));
+      }
+    }
+
+    visit(cast<HLDDNode>(Lp));
+  }
+
+  void postVisit(HLLoop *Lp) { CurNestingLevel--; }
+};
+
+void TempRenamer::visit(HLDDNode *Node) {
+
+  // Nothing to rename.
+  if (OldToNewBlobIndices.empty()) {
+    return;
+  }
+
+  for (auto *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
+    for (auto IndexPair : OldToNewBlobIndices) {
+      Ref->replaceTempBlob(IndexPair.first, IndexPair.second);
+    }
+  }
+}
+
+void TempRenamer::visit(HLInst *Inst) {
+  // Process uses in inst.
+  visit(cast<HLDDNode>(Inst));
+
+  // Create mapping for temp def, if needed.
+  if (CurNestingLevel <= MaxMergeLevel) {
+    auto *LvalRef = Inst->getLvalDDRef();
+
+    if (LvalRef && LvalRef->isTerminalRef()) {
+      auto &BU = LvalRef->getDDRefUtils().getBlobUtils();
+
+      unsigned OldIndex = LvalRef->isSelfBlob()
+                              ? LvalRef->getSelfBlobIndex()
+                              : BU.findTempBlobIndex(LvalRef->getSymbase());
+
+      if (OldIndex != InvalidBlobIndex) {
+        auto &HNU = Inst->getHLNodeUtils();
+        unsigned NewIndex =
+            HNU.createTemp(LvalRef->getDestType())->getSelfBlobIndex();
+
+        // insert() will not overwrite existing temp mapping which is what we
+        // want for temps with multiple definitions.
+        auto Res =
+            OldToNewBlobIndices.insert(std::make_pair(OldIndex, NewIndex));
+
+        LvalRef->replaceTempBlob(OldIndex, Res.first->second);
+      }
+    }
+  }
+}
+
+static void renameTemps(HLLoop *DefLoop, unsigned MaxMergeLevel) {
+  // There could be instructions in the preheader of def loop so we start with
+  // level -1.
+  TempRenamer TR(MaxMergeLevel, DefLoop->getNestingLevel() - 1);
+
+  HLNodeUtils::visit(TR, DefLoop);
 }
 
 bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
@@ -896,7 +1081,7 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
     SparseBitVector<> NonCandidateUses;
     unsigned LoopDependencyLimits = computeDependencyMaxTopSortNumber(
-        DDG, DefLp, RefsSet, NonCandidateUses);
+        DDG, DefLp, RefsSet, HLS, NonCandidateUses);
 
     // Add uses by non-candidate refs.
     UsesTracking.add(NonCandidateUses);
@@ -930,6 +1115,14 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
       // Check if DEF loop dominates USE loop.
       if (!HLNodeUtils::dominates(DefLp, UseLp)) {
         LLVM_DEBUG(dbgs() << "\t[SKIP] Def-loop does not dominate Use-loop.\n");
+        continue;
+      }
+
+      auto &LoopStats = HLS.getTotalLoopStatistics(UseLp);
+
+      // Bail out for loops with control-flow. mergeLoops() cannot handle it.
+      if (LoopStats.hasIfs() || LoopStats.hasSwitches() ||
+          LoopStats.hasForwardGotos()) {
         continue;
       }
 
@@ -1058,6 +1251,49 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         continue;
       }
 
+      // Collect all the temp blobs from mapped CEs and perform sanity checks on
+      // whether the merging can happen correctly.
+      SmallSet<unsigned, 6> MappedTempBlobSBs;
+      if (!MappedDim.empty()) {
+        unsigned NumMappings = MappedDim.getMappedCEs().size();
+        SmallVector<unsigned, 8> TempBlobIndices;
+        bool ValidMapping = true;
+
+        for (unsigned I = 0; I < NumMappings; ++I) {
+          auto *MappedCE = MappedDim.getMappedCEs()[I];
+
+          if (MappedCE->getDefinedAtLevel() > FusionLevel) {
+            ValidMapping = false;
+            LLVM_DEBUG(dbgs() << "\t[SKIP] Cannot move mapped temp definition "
+                                 "before def loop\n");
+            break;
+          }
+
+          unsigned PrevSize = TempBlobIndices.size();
+          MappedCE->collectTempBlobIndices(TempBlobIndices, false);
+
+          // Skip for ease of making refs consistent during replacement.
+          if (TempBlobIndices.size() - PrevSize > 1) {
+            LLVM_DEBUG(dbgs()
+                       << "\t[SKIP] Cannot handle multiple mapped temps\n");
+            ValidMapping = false;
+            break;
+          }
+        }
+
+        if (!ValidMapping) {
+          continue;
+        }
+
+        auto &BU = DefLp->getHLNodeUtils().getBlobUtils();
+        // TODO: We should perform legality of moving these temp definitions to
+        // the beginning of the merged loop by performing a structural check on
+        // the definitions.
+        for (unsigned Index : TempBlobIndices) {
+          MappedTempBlobSBs.insert(BU.getTempBlobSymbase(Index));
+        }
+      }
+
       // Check move DD legality.
       if (UseLp->getMaxTopSortNum() >= LoopDependencyLimits) {
         LLVM_DEBUG(
@@ -1072,11 +1308,11 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
       bool HasMappedDim = !MappedDim.empty();
       unsigned UseRefMappedDim = HasMappedDim ? MappedDim.getDimensionNum() : 0;
-      unsigned NumClones = HasMappedDim ? MappedDim.getMappedCEs().size() : 1;
+      unsigned NumMappings = HasMappedDim ? MappedDim.getMappedCEs().size() : 1;
       bool BailOut = false;
       addPostProcCand(UseLp);
 
-      for (unsigned I = 0; I < NumClones; ++I) {
+      for (unsigned I = 0; I < NumMappings; ++I) {
         HLLoop *DefLoopClone = DefLp->clone();
 
         // Do array contraction on qualified memref(s) in a given loop:
@@ -1109,13 +1345,20 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
           }
         }
 
+        // The temp names in merged levels can collide when multiple def loops
+        // or multiple clones of def loop are merged into use loop. This will
+        // result in incorrect code generation. To avoid this issue we rename
+        // the temps.
+        renameTemps(DefLoopClone, FusionLevel);
+
         if (HasMappedDim) {
           replaceIVByCE(DefLoopClone, MappedDim.getIVLevel(), UseRefMappedCE);
         }
 
         // Merge loops
         if (!mergeLoops(DefLoopClone, UseLp,
-                        FusionLevel - UseLp->getNestingLevel() + 1)) {
+                        FusionLevel - UseLp->getNestingLevel() + 1,
+                        MappedTempBlobSBs)) {
           LLVM_DEBUG(dbgs() << "\t[SKIP] Can not merge loops.\n");
           BailOut = true;
           break;
