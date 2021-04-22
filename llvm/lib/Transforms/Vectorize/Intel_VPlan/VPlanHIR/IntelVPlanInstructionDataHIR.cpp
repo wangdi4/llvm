@@ -23,8 +23,6 @@ static bool hasSymbase(const VPInstruction &Inst) {
     return false;
   case Instruction::Store:
   case Instruction::Load:
-  case VPInstruction::VLSLoad:
-  case VPInstruction::VLSStore:
     return true;
   }
 }
@@ -69,12 +67,15 @@ MasterVPInstData *HIRSpecifics::getVPInstData() {
 
 void HIRSpecifics::setSymbase(unsigned SB) {
   assert(hasSymbase(Inst) && "This VPInstruction can't have a symbase!");
+  assert(SB != loopopt::InvalidSymbase &&
+         "Unexpected invalid symbase assignment!");
   HIRData().Symbase = SB;
 }
 
 unsigned HIRSpecifics::getSymbase() const {
   assert(hasSymbase(Inst) && "This VPInstruction can't have a symbase!");
   auto Symbase = HIRData().Symbase;
+  assert(Symbase != loopopt::InvalidSymbase && "Unexpected invalid symbase!");
   return Symbase;
 }
 

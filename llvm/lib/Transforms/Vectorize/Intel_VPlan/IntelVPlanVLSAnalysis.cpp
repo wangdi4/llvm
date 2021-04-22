@@ -16,7 +16,6 @@
 #include "IntelVPlanVLSAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanUtils.h"
-#include "IntelVPlanVLSTransform.h"
 #if INTEL_CUSTOMIZATION
 #include "VPlanHIR/IntelVPlanVLSAnalysisHIR.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -240,14 +239,40 @@ getOptimizedVLSGroupData(const VPInstruction *VPInst,
     return None;
 
   // We currently only handle group sizes > 1.
-
-  if (!isTransformableVLSGroup(Group))
+  if (Group->size() <= 1)
     return None;
 
-  VPVLSClientMemref *VPInstMemref = cast<VPVLSClientMemref>(
-      *find_if(*Group, [VPInst](const OVLSMemref *Memref) {
-        return instruction(Memref) == VPInst;
-      }));
+  Optional<int64_t> GroupStride = Group->getConstStride();
+  if (!GroupStride)
+    return None;
+
+  APInt AccessMask = Group->computeByteAccessMask();
+
+  // Access mask is currently 64 bits, skip groups with group stride >
+  // 64 and access gaps.
+  if (*GroupStride > 64 || !AccessMask.isAllOnesValue() ||
+      AccessMask.getBitWidth() != *GroupStride)
+    return None;
+
+  // Check that all members of the group have same type. Currently we
+  // do not handle groups such as a[i].i, a[i].d for
+  //   struct {int i; double d};
+  auto *VPInstType = getLoadStoreType(VPInst);
+  VPVLSClientMemref *VPInstMemref = nullptr;
+  for (int64_t Index = 0; Index < Group->size(); ++Index) {
+    auto *Memref = cast<VPVLSClientMemref>(Group->getMemref(Index));
+    auto *MemrefInst = Memref->getInstruction();
+
+    if (MemrefInst == VPInst) {
+      VPInstMemref = Memref;
+      continue;
+    }
+
+    if (VPInstType != getLoadStoreType(MemrefInst))
+      return None;
+  }
+
+  assert(VPInstMemref && "Expected to find memref for VPInst in the group");
   return std::make_tuple(Group, computeInterleaveFactor(VPInstMemref),
                          computeInterleaveIndex(VPInstMemref, Group));
 }
