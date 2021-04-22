@@ -65,7 +65,9 @@ protected:
 class VPlanTTICostModel {
 public:
   static constexpr unsigned UnknownCost = -1u;
+  /// Get TTI based cost of a single instruction \p VPInst.
   unsigned getTTICost(const VPInstruction *VPInst);
+
   // getLoadStoreCost(LoadOrStore, Alignment, VF) interface returns the Cost
   // of Load/Store VPInstruction given VF and Alignment on input.
   unsigned getLoadStoreCost(
@@ -73,11 +75,12 @@ public:
   // The Cost of Load/Store using underlying IR/HIR Inst Alignment.
   unsigned getLoadStoreCost(const VPInstruction *VPInst, unsigned VF);
 
-  const VPlanVector * const Plan;
+  const VPlanVector *const Plan;
   const unsigned VF;
-  const TargetLibraryInfo * const TLI;
-  const DataLayout * const DL;
+  const TargetLibraryInfo *const TLI;
+  const DataLayout *const DL;
   const VPlanTTIWrapper VPTTI;
+  const VPlanVLSAnalysis *const VLSA;
 
   /// \Returns the alignment of the load/store \p VPInst.
   ///
@@ -108,13 +111,12 @@ public:
 
 protected:
   VPlanPeelingVariant* DefaultPeelingVariant = nullptr;
-  VPlanVLSAnalysis *VLSA;
 
   VPlanTTICostModel(const VPlanVector *Plan, const unsigned VF,
                     const TargetTransformInfo *TTI,
                     const TargetLibraryInfo *TLI, const DataLayout *DL,
-                    VPlanVLSAnalysis *VLSA)
-    : Plan(Plan), VF(VF), TLI(TLI), DL(DL), VPTTI(*TTI, *DL), VLSA(VLSA),
+                    VPlanVLSAnalysis *VLSAin)
+    : Plan(Plan), VF(VF), TLI(TLI), DL(DL), VPTTI(*TTI, *DL), VLSA(VLSAin),
       VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF) {
 
     // CallVecDecisions analysis invocation.
@@ -126,6 +128,11 @@ protected:
     // Compute SVA results for current VPlan in order to compute cost
     // accurately in CM.
     const_cast<VPlanVector *>(Plan)->runSVA();
+
+    // Collect VLS Groups once VLSA is specified. Heuristics can query VLS
+    // Groups when VLSA is available.
+    if (VLSAin)
+      VLSAin->getOVLSMemrefs(Plan, VF);
   }
 
   // We prefer protected dtor over virtual one as there is no plan to
@@ -235,10 +242,6 @@ public:
       HeuristicsPipeline(this) {}
   // Get Cost for VPlan with specified peeling.
   unsigned getCost(VPlanPeelingVariant *PeelingVariant = nullptr);
-  virtual unsigned getLoadStoreCost(
-    const VPInstruction *LoadOrStore, Align Alignment, unsigned VF) {
-    return VPlanTTICostModel::getLoadStoreCost(LoadOrStore, Alignment, VF);
-  }
   virtual unsigned getBlockRangeCost(
     const VPBasicBlock *Begin, const VPBasicBlock *End,
     VPlanPeelingVariant *PeelingVariant = nullptr);
@@ -254,8 +257,6 @@ protected:
       return std::string("Unknown");
     return std::to_string(Cost);
   };
-  // Returns string of VPInst attributes for CM debug dump.
-  virtual std::string getAttrString(const VPInstruction *VPInst) const;
   // Printed in debug dumps.  Helps to distiguish base Cost Model dumps vs
   // inherited Cost Model dump.
   virtual std::string getHeaderPrefix() const {
@@ -269,10 +270,6 @@ protected:
   unsigned getCost(const VPBasicBlock *VPBB);
   // Return TTI contribution to the whole cost.
   unsigned getTTICost();
-
-  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst, unsigned VF) {
-    return VPlanTTICostModel::getLoadStoreCost(VPInst, VF);
-  }
 
   // Temporal virtual methods to invoke apply facilities on
   // HeuristicsPipelines on all levels.

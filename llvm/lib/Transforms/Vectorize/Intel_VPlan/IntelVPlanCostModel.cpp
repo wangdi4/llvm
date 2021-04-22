@@ -815,10 +815,6 @@ unsigned VPlanCostModel::applyHeuristics(unsigned TTICost) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-std::string VPlanCostModel::getAttrString(const VPInstruction *VPInst) const {
-  return "";
-}
-
 void VPlanCostModel::printForVPInstruction(
   raw_ostream &OS, const VPInstruction *VPInst) {
   unsigned TTICost = VPlanTTICostModel::getTTICost(VPInst);
@@ -834,7 +830,7 @@ void VPlanCostModel::printForVPInstruction(
   // Heuristics dump() methods will be invoked from CM::applyHeuristics method.
   applyHeuristicsPipeline(TTICost, Cost, VPInst, &OS);
   dumpHeuristicsPipeline(OS, VPInst);
-  OS << getAttrString(VPInst) << '\n';
+  OS << '\n';
 }
 
 void VPlanCostModel::printForVPBasicBlock(raw_ostream &OS,
