@@ -407,8 +407,8 @@ private:
   bool isPackedField(DynField &DField) const;
   bool isPackedBitFieldField(DynField &DField) const;
   Value *generateBitFieldLoad(DynField &Elem, Value *Val, IRBuilder<> &IRB);
-  Value *generateBitFieldStore(DynField &Elem, Value *Val, Value *SrcOp,
-                               IRBuilder<> &IRB);
+  Value *generateBitFieldStore(DynField &Elem, Value *Val, llvm::Type *SrcTy,
+                               Value *SrcOp, IRBuilder<> &IRB);
 };
 
 // Returns true if all possible values of field at "I" of struct "STy"
@@ -485,13 +485,14 @@ Value *DynCloneImpl::generateBitFieldLoad(DynField &Elem, Value *Val,
 //     store i16 %435, i16* %431
 //
 Value *DynCloneImpl::generateBitFieldStore(DynField &Elem, Value *NewVal,
-                                           Value *NewSrcOp, IRBuilder<> &IRB) {
+                                           llvm::Type *NewSrcTy, Value *NewSrcOp,
+                                           IRBuilder<> &IRB) {
   if (!isPackedField(Elem))
     return NewVal;
   int Offset = PackedFieldBitOffsetMap[Elem];
   int Size = PackedFieldBitSizeMap[Elem];
   assert(Size > 0 && "Expected non-zero size bit-field");
-  Value *Val = IRB.CreateLoad(NewSrcOp);
+  Value *Val = IRB.CreateLoad(NewSrcTy, NewSrcOp);
   LLVM_DEBUG(dbgs() << "Handle Bit-Field: " << *Val << "\n");
   if (Offset) {
     NewVal = IRB.CreateShl(NewVal, Offset);
@@ -2653,7 +2654,8 @@ void DynCloneImpl::transformInitRoutine(void) {
     // Generate Loads for all element of OrigTy at LoopIdx location.
     for (unsigned I = 0; I < OrigSt->getNumElements(); ++I) {
       Value *SrcGEP = CreateFieldAccessGEP(OrigTy, SrcPtr, LoopIdx, I, LB);
-      LoadInst *LI = LB.CreateLoad(SrcGEP);
+      llvm::Type *SrcTy = OrigSt->getElementType(I);
+      LoadInst *LI = LB.CreateLoad(SrcTy, SrcGEP);
       LoadVec.push_back(LI);
       LLVM_DEBUG(dbgs() << "  " << *LI << "\n");
     }
@@ -2674,7 +2676,7 @@ void DynCloneImpl::transformInitRoutine(void) {
         LLVM_DEBUG(dbgs() << "  " << *LI << "\n");
       }
       Value *NewVal = LI;
-      NewVal = generateBitFieldStore(DF, NewVal, DstGEP, LB);
+      NewVal = generateBitFieldStore(DF, NewVal, NewElemTy, DstGEP, LB);
 
       StoreInst *SI = LB.CreateStore(NewVal, DstGEP);
       LLVM_DEBUG(dbgs() << "  " << *SI << "\n");
@@ -2715,11 +2717,11 @@ void DynCloneImpl::transformInitRoutine(void) {
   //
   // \p Ptr represents address location where alloc pointer is saved.
   //
-  auto RematerializePtr = [&](Value *Ptr, LoadInst *RetPtr, Type *StTy,
-                              Instruction *InsertBefore) {
+  auto RematerializePtr = [&](Type *PtrTy, Value *Ptr, LoadInst *RetPtr,
+                              Type *StTy, Instruction *InsertBefore) {
     Type *IntPtrTy = Type::getIntNTy(M.getContext(), DL.getPointerSizeInBits());
     IRBuilder<> PIRB(InsertBefore);
-    Value *LdPtr = PIRB.CreateLoad(Ptr);
+    Value *LdPtr = PIRB.CreateLoad(PtrTy, Ptr);
     Value *Cond =
         PIRB.CreateICmpNE(LdPtr, Constant::getNullValue(LdPtr->getType()));
     BasicBlock *CondBB = InsertBefore->getParent();
@@ -2840,17 +2842,20 @@ void DynCloneImpl::transformInitRoutine(void) {
         Instruction *AddInst = cast<Instruction>(NewIdx);
         SmallVector<Value *, 2> Indices;
         for (auto &LPair : LoadVec) {
-          IRBuilder<> LBody(AddInst);
-          Indices.clear();
-          Indices.push_back(LoopIdx);
-          Value *GEP = LBody.CreateInBoundsGEP(nullptr, LPair.first, Indices);
-          LLVM_DEBUG(dbgs() << "  " << *GEP << "\n");
-
           auto *AInfo = LPair.second;
           CallInst *CI = cast<CallInst>(AInfo->getInstruction());
           Type *Ty = getCallInfoElemTy(AInfo);
           assert(Ty && "Expected struct type associated with call");
-          Value *NewPtr = RematerializePtr(GEP, AllocCallRets[CI], Ty, AddInst);
+
+          IRBuilder<> LBody(AddInst);
+          Indices.clear();
+          Indices.push_back(LoopIdx);
+          Type *PTy = Ty->getPointerTo();
+          Value *GEP = LBody.CreateInBoundsGEP(PTy, LPair.first, Indices);
+          LLVM_DEBUG(dbgs() << "  " << *GEP << "\n");
+
+          Value *NewPtr =
+              RematerializePtr(PTy, GEP, AllocCallRets[CI], Ty, AddInst);
 
           IRBuilder<> MergeB(
               cast<Instruction>(NewPtr)->getParent()->getTerminator());
@@ -3145,7 +3150,8 @@ void DynCloneImpl::transformInitRoutine(void) {
     LLVM_DEBUG(dbgs() << "      Rematerialize ptrs of :" << *CI << "\n");
     for (auto *St : SISet) {
       LLVM_DEBUG(dbgs() << "      Before Rematerialize:" << *St << "\n");
-      Value *NewPtr = RematerializePtr(St->getPointerOperand(),
+      Value *NewPtr = RematerializePtr(St->getValueOperand()->getType(),
+                                       St->getPointerOperand(),
                                        AllocCallRets[CI], AllocPair.second, SI);
       IRBuilder<> IRB(cast<Instruction>(NewPtr)->getParent()->getTerminator());
       Instruction *NewSt = IRB.Insert(St->clone());
@@ -3170,6 +3176,9 @@ void DynCloneImpl::transformInitRoutine(void) {
     SOAGlobVar = AOSSOACallGVMap[SOACI];
     assert(SOAGlobVar && "Expected AOSTOSOA global variable");
 
+    Type *SOAGlobVarTy = SOAGlobVar->getValueType();
+    assert(isa<StructType>(SOAGlobVarTy) && "Expected structure type");
+
     LLVM_DEBUG(dbgs() << "    Field Address loads of AOSTOSOA Glob variable:"
                       << *SOAGlobVar << "\n");
     Type *IdxTy = Type::getIntNTy(M.getContext(), DL.getPointerSizeInBits());
@@ -3189,9 +3198,9 @@ void DynCloneImpl::transformInitRoutine(void) {
       Value *Op2 =
           ConstantInt::get(Type::getInt32Ty(M.getContext()), FI.second);
       Indices.push_back(Op2);
-      Value *GEP = IRB.CreateInBoundsGEP(
-          SOAGlobVar->getType()->getElementType(), SOAGlobVar, Indices);
-      LoadInst *LI = IRB.CreateLoad(GEP);
+      Value *GEP = IRB.CreateInBoundsGEP(SOAGlobVarTy, SOAGlobVar, Indices);
+      Type *FieldTy = (cast<StructType>(SOAGlobVarTy))->getElementType(FI.second);
+      LoadInst *LI = IRB.CreateLoad(FieldTy, GEP);
       auto *AI = SOAFieldAllocCallMap[FI];
       assert(AI && "Expected AInfo for each array field ");
       // Maintain a map between array field address of AOSTOSOA global variable
@@ -3358,7 +3367,7 @@ bool DynCloneImpl::createCallGraphClone(void) {
     Type *SHVarTy = ShrinkHappenedVar->getValueType();
     Constant *ConstantZero = ConstantInt::get(SHVarTy, 0);
     IRBuilder<> Builder(OrigInst);
-    LoadInst *Load = Builder.CreateLoad(ShrinkHappenedVar, "d.gld");
+    LoadInst *Load = Builder.CreateLoad(SHVarTy, ShrinkHappenedVar, "d.gld");
     auto *Cond = Builder.CreateICmpEQ(Load, ConstantZero, "d.gc");
     LLVM_DEBUG(dbgs() << "      Load: " << *Load << "\n");
     LLVM_DEBUG(dbgs() << "      Cmp: " << *Cond << "\n");
@@ -3909,7 +3918,7 @@ void DynCloneImpl::transformIR(void) {
                       << *NewSrcOp << "\n");
 
     IRBuilder<> IRB(SI);
-    NewVal = generateBitFieldStore(StElem, NewVal, NewSrcOp, IRB);
+    NewVal = generateBitFieldStore(StElem, NewVal, NewTy, NewSrcOp, IRB);
 
     Instruction *NewSI = new StoreInst(
         NewVal, NewSrcOp, SI->isVolatile(), DL.getABITypeAlign(NewTy),
