@@ -219,7 +219,7 @@ struct Chunk {
 };
 
 struct Section : public Chunk {
-  ELF_SHT Type;
+  ELF_SHT Type = ELF::SHT_NULL; // INTEL
   Optional<ELF_SHF> Flags;
   Optional<llvm::yaml::Hex64> Address;
   Optional<StringRef> Link;
@@ -230,7 +230,7 @@ struct Section : public Chunk {
   Optional<llvm::yaml::Hex64> Size;
 
   // Holds the original section index.
-  unsigned OriginalSecNdx;
+  unsigned OriginalSecNdx = 0; // INTEL
 
   Section(ChunkKind Kind, bool IsImplicit = false) : Chunk(Kind, IsImplicit) {}
 
