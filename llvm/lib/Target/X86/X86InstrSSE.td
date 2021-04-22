@@ -6001,21 +6001,21 @@ def BlendScaleCommuteImm2to4 : SDNodeXForm<timm, [{
 }]>;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_MPSADBW
-let Predicates = [HasAVX, NoVLX_Or_NoMPSADBW] in {
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
+let Predicates = [HasAVX, NoVLX_Or_NoMEDIAX] in {
   let isCommutable = 0 in {
     defm VMPSADBW : SS41I_binop_rmi<0x42, "vmpsadbw", X86Vmpsadbw,
                                         v8i16, VR128, load, i128mem, 0,
                                         SchedWriteMPSAD.XMM>, VEX_4V, VEX_WIG;
   }
-#else // INTEL_FEATURE_ISA_AVX_MPSADBW
+#else // INTEL_FEATURE_ISA_AVX512_MEDIAX
 let Predicates = [HasAVX] in {
   let isCommutable = 0 in {
     defm VMPSADBW : SS41I_binop_rmi<0x42, "vmpsadbw", X86Vmpsadbw,
                                         v8i16, VR128, load, i128mem, 0,
                                         SchedWriteMPSAD.XMM>, VEX_4V, VEX_WIG;
   }
-#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 #endif // INTEL_CUSTOMIZATION
 
 let Uses = [MXCSR], mayRaiseFPException = 1 in {
@@ -6035,15 +6035,15 @@ let Uses = [MXCSR], mayRaiseFPException = 1 in {
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_MPSADBW
-let Predicates = [HasAVX2, NoVLX_Or_NoMPSADBW] in {
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
+let Predicates = [HasAVX2, NoVLX_Or_NoMEDIAX] in {
   let isCommutable = 0 in {
   defm VMPSADBWY : SS41I_binop_rmi<0x42, "vmpsadbw", X86Vmpsadbw,
                                   v16i16, VR256, load, i256mem, 0,
                                   SchedWriteMPSAD.YMM>, VEX_4V, VEX_L, VEX_WIG;
   }
 }
-#else // INTEL_FEATURE_ISA_AVX_MPSADBW
+#else // INTEL_FEATURE_ISA_AVX512_MEDIAX
 let Predicates = [HasAVX2] in {
   let isCommutable = 0 in {
   defm VMPSADBWY : SS41I_binop_rmi<0x42, "vmpsadbw", X86Vmpsadbw,
@@ -6051,7 +6051,7 @@ let Predicates = [HasAVX2] in {
                                   SchedWriteMPSAD.YMM>, VEX_4V, VEX_L, VEX_WIG;
   }
 }
-#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 #endif // INTEL_CUSTOMIZATION
 
 let Constraints = "$src1 = $dst" in {

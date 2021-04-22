@@ -266,11 +266,11 @@ def FeatureAVX512MEMADVISE  : SubtargetFeature<"avx512memadvise", "HasAVX512MEMA
                             "Enable AVX512-MEMADVISE",
                             [FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
-#if INTEL_FEATURE_ISA_AVX_MPSADBW
-def FeatureAVX512MPSADBW  : SubtargetFeature<"avx512mpsadbw", "HasAVX512MPSADBW", "true",
-                            "Enable AVX512-MPSADBW",
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
+def FeatureAVX512MEDIAX  : SubtargetFeature<"avx512mediax", "HasAVX512MEDIAX", "true",
+                            "Enable AVX512-MEDIAX",
                             [FeatureBWI]>;
-#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 #if INTEL_FEATURE_ISA_AVX_MOVGET
 def FeatureAVXMOVGET : SubtargetFeature<"avxmovget", "HasAVXMOVGET", "true",
                        "Support AVX-MOVGET instructions",

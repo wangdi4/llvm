@@ -1,4 +1,4 @@
-// REQUIRES: intel_feature_isa_avx_mpsadbw
+// REQUIRES: intel_feature_isa_avx512_mediax
 // RUN: llvm-mc -triple i386-unknown-unknown -x86-asm-syntax=intel -output-asm-variant=1 --show-encoding %s | FileCheck %s
 
 // CHECK:      vmpsadbw zmm2, zmm3, zmm4, 123

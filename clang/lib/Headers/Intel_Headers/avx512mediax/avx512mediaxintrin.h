@@ -1,4 +1,4 @@
-/*===------- avx512mpsadbwintrin.h - AVX512mpsadbw intrinsics --------------===
+/*===--------- avx512mediaxintrin.h - AVX512mediax intrinsics ---------------===
  *
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,11 +22,11 @@
  *===-----------------------------------------------------------------------===
  */
 #ifndef __IMMINTRIN_H
-#error "Never use <avx512mpsadbwintrin.h> directly; include <immintrin.h> instead."
+#error "Never use <avx512mediaxintrin.h> directly; include <immintrin.h> instead."
 #endif
 
-#ifndef __AVX512MPSADBWINTRIN_H
-#define __AVX512MPSADBWINTRIN_H
+#ifndef __AVX512MEDIAXINTRIN_H
+#define __AVX512MEDIAXINTRIN_H
 
 /* vmpsadbw128 */
 #define _mm_mask_mpsadbw_epu8(W, U, A, B, imm) \
@@ -65,4 +65,4 @@
                                       (__v32hi)_mm512_mpsadbw_epu8((A), (B), (imm)), \
                                       (__v32hi)_mm512_setzero_si512())
 
-#endif /* __AVX512MPSADBWINTRIN_H */
+#endif /* __AVX512MEDIAXINTRIN_H */

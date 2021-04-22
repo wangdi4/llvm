@@ -1,5 +1,5 @@
-// REQUIRES: intel_feature_isa_avx_mpsadbw
-// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +avx512mpsadbw -target-feature +avx512vl -emit-llvm -o - -Wall -Werror | FileCheck %s
+// REQUIRES: intel_feature_isa_avx512_mediax
+// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +avx512mediax -target-feature +avx512vl -emit-llvm -o - -Wall -Werror | FileCheck %s
 
 #include <immintrin.h>
 

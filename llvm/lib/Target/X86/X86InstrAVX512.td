@@ -11564,7 +11564,7 @@ multiclass avx512_common_3Op_rm_imm8<bits<8> opc, SDNode OpNode, string OpStr,
 }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
 multiclass avx512_mpsadbw_3Op_rm_imm8<bits<8> opc, SDNode OpNode, string OpStr,
                       X86SchedWriteWidths sched, AVX512VLVectorVTInfo DestInfo,
                       AVX512VLVectorVTInfo SrcInfo, Predicate Pred> {
@@ -11579,7 +11579,7 @@ multiclass avx512_mpsadbw_3Op_rm_imm8<bits<8> opc, SDNode OpNode, string OpStr,
                            SrcInfo.info256, "VMPSADBWY">, EVEX_V256, AVX512XSIi8Base, TA, EVEX_4V;
   }
 }
-#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 #endif // INTEL_CUSTOMIZATION
 
 multiclass avx512_common_3Op_imm8<string OpcodeStr, AVX512VLVectorVTInfo _,
@@ -14565,12 +14565,12 @@ multiclass avx512_vmemadvise_all {
 defm VMEMADVISE : avx512_vmemadvise_all;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
 
-#if INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
 defm VMPSADBW: avx512_mpsadbw_3Op_rm_imm8<0x42, X86Vmpsadbw, "vmpsadbw",
                                           SchedWritePSADBW, avx512vl_i16_info,
-                                          avx512vl_i8_info, HasAVX512MPSADBW>,
+                                          avx512vl_i8_info, HasAVX512MEDIAX>,
                                           EVEX_CD8<8, CD8VF>;
-#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 
 #if INTEL_FEATURE_ISA_AVX_MOVGET
 multiclass avx512_vmovget_all {

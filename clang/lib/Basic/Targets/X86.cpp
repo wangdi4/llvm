@@ -475,10 +475,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+avx512memadvise") {
       HasAVX512MEMADVISE = true;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
-#if INTEL_FEATURE_ISA_AVX_MPSADBW
-    } else if (Feature == "+avx512mpsadbw") {
-      HasAVX512MPSADBW = true;
-#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
+    } else if (Feature == "+avx512mediax") {
+      HasAVX512MEDIAX = true;
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 #if INTEL_FEATURE_ISA_AVX_MOVGET
     } else if (Feature == "+avxmovget") {
       HasAVXMOVGET = true;
@@ -1129,11 +1129,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVX512MEMADVISE__");
   Builder.defineMacro("__AVX512MEMADVISE_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
-#if INTEL_FEATURE_ISA_AVX_MPSADBW
-  if (HasAVX512MPSADBW)
-    Builder.defineMacro("__AVX512MPSADBW__");
-  Builder.defineMacro("__AVX512MPSADBW_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
+  if (HasAVX512MEDIAX)
+    Builder.defineMacro("__AVX512MEDIAX__");
+  Builder.defineMacro("__AVX512MEDIAX_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 #if INTEL_FEATURE_ISA_AVX_MOVGET
   if (HasAVXMOVGET)
     Builder.defineMacro("__AVXMOVGET__");
@@ -1501,9 +1501,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avxmemadvise", true)
       .Case("avx512memadvise", true)
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
-#if INTEL_FEATURE_ISA_AVX_MPSADBW
-      .Case("avx512mpsadbw", true)
-#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
+      .Case("avx512mediax", true)
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 #if INTEL_FEATURE_ISA_AVX_MOVGET
       .Case("avxmovget", true)
 #endif // INTEL_FEATURE_ISA_AVX_MOVGET
@@ -1667,9 +1667,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avxmemadvise", HasAVXMEMADVISE)
       .Case("avx512memadvise", HasAVX512MEMADVISE)
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
-#if INTEL_FEATURE_ISA_AVX_MPSADBW
-      .Case("avx512mpsadbw", HasAVX512MPSADBW)
-#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
+      .Case("avx512mediax", HasAVX512MEDIAX)
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 #if INTEL_FEATURE_ISA_AVX_MOVGET
       .Case("avxmovget", HasAVXMOVGET)
 #endif // INTEL_FEATURE_ISA_AVX_MOVGET
