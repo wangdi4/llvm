@@ -2134,7 +2134,6 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpVec) && (Mode & ParTrans)) {
           debugPrintHeader(W, Mode);
           Changed |= regularizeOMPLoop(W, false);
-          Changed |= genPrivatizationCode(W);
           Changed |= genAlignedCode(W);
           Changed |= genNontemporalCode(W);
           if (W->getWRNLoopInfo().getNormIVSize() != 0) {
@@ -2142,20 +2141,17 @@ bool VPOParoptTransform::paroptTransforms() {
             // outside of the loop. And this insertion must be coordinated
             // with code inserted for enclosing regions related to the same
             // loop. Here we only handle standalone SIMD regions.
-            // Lasprivatization, linearization, etc. will be done for variables
-            // during transformation of the enclosing region in case of
-            // combined OpenMP constructs.
+            // [Last]privatization, linearization, etc. will be done for
+            // variables during transformation of the enclosing region in case
+            // of combined OpenMP constructs.
             //
             // Standalone SIMD regions will have normalized IV and UB.
             // Normalized IV and UB are not present for SIMD regions
             // combined with other loop type regions.
-            //
-            // Note that handling of PRIVATE does not require new code
-            // (except new alloca) outside of the loop, so it can be done
-            // always.
             auto *LoopExitBB = getLoopExitBB(W);
             // Last value update must happen in the loop's exit block,
             // i.e. under a ZTT check, if one was created around the loop.
+            Changed |= genPrivatizationCode(W);
             Changed |= genLinearCodeForVecLoop(W, LoopExitBB);
             Changed |= genLastPrivatizationCode(W, LoopExitBB);
             Changed |= genReductionCode(W);
