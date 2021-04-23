@@ -191,8 +191,9 @@ int VPlanTTIWrapper::getMemoryOpCost(unsigned Opcode, Type *Src,
                                      Align Alignment, unsigned AddressSpace,
                                      TTI::TargetCostKind CostKind,
                                      const Instruction *I) const {
-  int VPTTICost = Multiplier * TTI.getMemoryOpCost(Opcode, Src, Alignment,
-                                                   AddressSpace, CostKind, I);
+  int VPTTICost = Multiplier * *TTI.getMemoryOpCost(Opcode, Src, Alignment,
+                                                    AddressSpace, CostKind, I)
+                                    .getValue();
 
   // Return not adjusted scaled up cost for non-vector types.
   if (!isa<VectorType>(Src))

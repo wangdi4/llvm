@@ -3471,10 +3471,11 @@ unsigned X86TTIImpl::getScalarizationOverhead(VectorType *Ty,
   return Cost;
 }
 
-int X86TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
-                                MaybeAlign Alignment, unsigned AddressSpace,
-                                TTI::TargetCostKind CostKind,
-                                const Instruction *I) {
+InstructionCost X86TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
+                                            MaybeAlign Alignment,
+                                            unsigned AddressSpace,
+                                            TTI::TargetCostKind CostKind,
+                                            const Instruction *I) {
 #if INTEL_CUSTOMIZATION
   // Defer to base implementation to split.
   if (Src->isAggregateType())
@@ -3535,8 +3536,8 @@ int X86TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
     // Assume that all other non-power-of-two numbers are scalarized.
     if (!isPowerOf2_32(NumElem)) {
       APInt DemandedElts = APInt::getAllOnesValue(NumElem);
-      int Cost = BaseT::getMemoryOpCost(Opcode, VTy->getScalarType(), Alignment,
-                                        AddressSpace, CostKind);
+      InstructionCost Cost = BaseT::getMemoryOpCost(
+          Opcode, VTy->getScalarType(), Alignment, AddressSpace, CostKind);
       int SplitCost = getScalarizationOverhead(VTy, DemandedElts,
                                                Opcode == Instruction::Load,
                                                Opcode == Instruction::Store);
@@ -3600,7 +3601,7 @@ X86TTIImpl::getMaskedMemoryOpCost(unsigned Opcode, Type *SrcTy, Align Alignment,
     InstructionCost MaskCmpCost = NumElem * (BranchCost + ScalarCompareCost);
     InstructionCost ValueSplitCost =
         getScalarizationOverhead(SrcVTy, DemandedElts, IsLoad, IsStore);
-    int MemopCost =
+    InstructionCost MemopCost =
         NumElem * BaseT::getMemoryOpCost(Opcode, SrcVTy->getScalarType(),
                                          Alignment, AddressSpace, CostKind);
     return MemopCost + ValueSplitCost + MaskSplitCost + MaskCmpCost;
@@ -4448,8 +4449,9 @@ int X86TTIImpl::getScatterOverhead() const {
 
 // Return an average cost of Gather / Scatter instruction, maybe improved later.
 // FIXME: Add TargetCostKind support.
-int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy, const Value *Ptr,
-                                Align Alignment, unsigned AddressSpace) {
+InstructionCost X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
+                                            const Value *Ptr, Align Alignment,
+                                            unsigned AddressSpace) {
 
   assert(isa<VectorType>(SrcVTy) && "Unexpected type in getGSVectorCost");
   unsigned VF = cast<FixedVectorType>(SrcVTy)->getNumElements();
@@ -4618,9 +4620,10 @@ int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
   const int GSOverhead = (Opcode == Instruction::Load)
                              ? getGatherOverhead()
                              : getScatterOverhead();
-  return GSOverhead + VF * getMemoryOpCost(Opcode, SrcVTy->getScalarType(),
-                                           MaybeAlign(Alignment), AddressSpace,
-                                           TTI::TCK_RecipThroughput);
+  return GSOverhead + VF * *getMemoryOpCost(Opcode, SrcVTy->getScalarType(),
+                                            MaybeAlign(Alignment), AddressSpace,
+                                            TTI::TCK_RecipThroughput)
+                                .getValue();
 }
 
 /// Return the cost of full scalarization of gather / scatter operation.
@@ -4655,9 +4658,9 @@ int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *SrcVTy,
   }
 
   // The cost of the scalar loads/stores.
-  int MemoryOpCost = VF * getMemoryOpCost(Opcode, SrcVTy->getScalarType(),
-                                          MaybeAlign(Alignment), AddressSpace,
-                                          CostKind);
+  InstructionCost MemoryOpCost =
+      VF * getMemoryOpCost(Opcode, SrcVTy->getScalarType(),
+                           MaybeAlign(Alignment), AddressSpace, CostKind);
 
   int InsertExtractCost = 0;
   // The cost to extract bases from the Ptr vector.
@@ -4676,7 +4679,8 @@ int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *SrcVTy,
       InsertExtractCost +=
         getVectorInstrCost(Instruction::ExtractElement, SrcVTy, i);
 
-  return MemoryOpCost + *MaskUnpackCost.getValue() + InsertExtractCost;
+  return *MemoryOpCost.getValue() + *MaskUnpackCost.getValue() +
+         InsertExtractCost;
 }
 
 static unsigned getLoadPermuteCost(Type *ArrayElemTy, uint64_t ArrayNum,
@@ -5336,7 +5340,7 @@ bool X86TTIImpl::enableInterleavedAccessVectorization() {
 // computing the cost using a generic formula as a function of generic
 // shuffles. We therefore use a lookup table instead, filled according to
 // the instruction sequences that codegen currently generates.
-int X86TTIImpl::getInterleavedMemoryOpCostAVX2(
+InstructionCost X86TTIImpl::getInterleavedMemoryOpCostAVX2(
     unsigned Opcode, FixedVectorType *VecTy, unsigned Factor,
     ArrayRef<unsigned> Indices, Align Alignment, unsigned AddressSpace,
     TTI::TargetCostKind CostKind, bool UseMaskForCond, bool UseMaskForGaps) {
@@ -5378,9 +5382,8 @@ int X86TTIImpl::getInterleavedMemoryOpCostAVX2(
   // Get the cost of one memory operation.
   auto *SingleMemOpTy = FixedVectorType::get(VecTy->getElementType(),
                                              LegalVT.getVectorNumElements());
-  unsigned MemOpCost = getMemoryOpCost(Opcode, SingleMemOpTy,
-                                       MaybeAlign(Alignment), AddressSpace,
-                                       CostKind);
+  InstructionCost MemOpCost = getMemoryOpCost(
+      Opcode, SingleMemOpTy, MaybeAlign(Alignment), AddressSpace, CostKind);
 
   auto *VT = FixedVectorType::get(ScalarTy, VF);
   EVT ETy = TLI->getValueType(DL, VT);
@@ -5453,7 +5456,7 @@ int X86TTIImpl::getInterleavedMemoryOpCostAVX2(
 // \p Indices contains indices for strided load.
 // \p Factor - the factor of interleaving.
 // AVX-512 provides 3-src shuffles that significantly reduces the cost.
-int X86TTIImpl::getInterleavedMemoryOpCostAVX512(
+InstructionCost X86TTIImpl::getInterleavedMemoryOpCostAVX512(
     unsigned Opcode, FixedVectorType *VecTy, unsigned Factor,
     ArrayRef<unsigned> Indices, Align Alignment, unsigned AddressSpace,
     TTI::TargetCostKind CostKind, bool UseMaskForCond, bool UseMaskForGaps) {
@@ -5477,9 +5480,8 @@ int X86TTIImpl::getInterleavedMemoryOpCostAVX512(
   // Get the cost of one memory operation.
   auto *SingleMemOpTy = FixedVectorType::get(VecTy->getElementType(),
                                              LegalVT.getVectorNumElements());
-  unsigned MemOpCost = getMemoryOpCost(Opcode, SingleMemOpTy,
-                                       MaybeAlign(Alignment), AddressSpace,
-                                       CostKind);
+  InstructionCost MemOpCost = getMemoryOpCost(
+      Opcode, SingleMemOpTy, MaybeAlign(Alignment), AddressSpace, CostKind);
 
   unsigned VF = VecTy->getNumElements() / Factor;
   MVT VT = MVT::getVectorVT(MVT::getVT(VecTy->getScalarType()), VF);
@@ -5535,8 +5537,8 @@ int X86TTIImpl::getInterleavedMemoryOpCostAVX512(
     if (NumOfResults > 1 && ShuffleKind == TTI::SK_PermuteTwoSrc)
       NumOfMoves = NumOfResults * NumOfShufflesPerResult / 2;
 
-    int Cost = NumOfResults * NumOfShufflesPerResult * ShuffleCost +
-               NumOfUnfoldedLoads * MemOpCost + NumOfMoves;
+    InstructionCost Cost = NumOfResults * NumOfShufflesPerResult * ShuffleCost +
+                           NumOfUnfoldedLoads * MemOpCost + NumOfMoves;
 
     return Cost;
   }
@@ -5571,12 +5573,13 @@ int X86TTIImpl::getInterleavedMemoryOpCostAVX512(
   // The SK_MergeTwoSrc shuffle clobbers one of src operands.
   // We need additional instructions to keep sources.
   unsigned NumOfMoves = NumOfMemOps * NumOfShufflesPerStore / 2;
-  int Cost = NumOfMemOps * (MemOpCost + NumOfShufflesPerStore * ShuffleCost) +
-             NumOfMoves;
+  InstructionCost Cost =
+      NumOfMemOps * (MemOpCost + NumOfShufflesPerStore * ShuffleCost) +
+      NumOfMoves;
   return Cost;
 }
 
-int X86TTIImpl::getInterleavedMemoryOpCost(
+InstructionCost X86TTIImpl::getInterleavedMemoryOpCost(
     unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,
     Align Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
     bool UseMaskForCond, bool UseMaskForGaps) {
