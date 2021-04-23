@@ -116,8 +116,10 @@ bool HandleVPlanMask::runOnModule(Module &M) {
       assert(Call && "Unexpected use of OpenCL Builtins");
       Value *MaskArg = Call->getArgOperand(LastArgIdx);
       // Cast the mask arg to int vector type;
-      if (IntMaskType)
+      if (IntMaskType) {
         MaskArg = new BitCastInst(MaskArg, IntMaskType, "mask.cast.i.", Call);
+        cast<Instruction>(MaskArg)->setDebugLoc(Call->getDebugLoc());
+      }
 
       // Generate new mask arg.
       // For i8, i16, i64: signed extend or trunc the mask arg to <VF x i32>
@@ -128,12 +130,14 @@ bool HandleVPlanMask::runOnModule(Module &M) {
       case 8:
       case 16:
         NewMask = new SExtInst(MaskArg, ExpectMaskType, "mask.i32.", Call);
+        cast<Instruction>(NewMask)->setDebugLoc(Call->getDebugLoc());
         break;
       case 32:
         NewMask = MaskArg;
         break;
       case 64:
         NewMask = new TruncInst(MaskArg, ExpectMaskType, "mask.i32.", Call);
+        cast<Instruction>(NewMask)->setDebugLoc(Call->getDebugLoc());
         break;
       default:
         llvm_unreachable("Unexpectd mask argument type");

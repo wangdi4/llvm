@@ -1,3 +1,4 @@
+; RUN: %oclopt  --convert-vplan-mask  < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt  --convert-vplan-mask  < %s -S -o - | FileCheck %s
 
 ; This test checks that HandleVPlanMask pass keeps the mask argument
@@ -21,3 +22,5 @@ declare <4 x double> @_Z4acosDv4_dS_(<4 x double>, <4 x double>) local_unnamed_a
 ; CHECK-NOT: declare <4 x double> @_Z4acosDv4_dS_(<4 x double>, <4 x i32>)
 
 attributes #0 = { convergent nounwind readnone "call-params-num"="1" }
+
+; DEBUGIFY-NOT: WARNING
