@@ -769,11 +769,11 @@ void PassBuilder::addInstCombinePass(FunctionPassManager &FPM,
 #if INTEL_INCLUDE_DTRANS
   // Configure the instruction combining pass to avoid some transformations
   // that lose type information for DTrans.
-  bool GEPInstOptimizations = !(PrepareForLTO && EnableDTrans);
+  bool PreserveForDTrans = (PrepareForLTO && EnableDTrans);
 #else
-  bool GEPInstOptimizations = true;
+  bool PreserveForDTrans = false;
 #endif // INTEL_INCLUDE_DTRANS
-  FPM.addPass(InstCombinePass(GEPInstOptimizations,
+  FPM.addPass(InstCombinePass(PreserveForDTrans,
                               PrepareForLTO && EnableIPArrayTranspose,
                               EnableFcmpMinMaxCombine, EnableUpCasting));
 }
