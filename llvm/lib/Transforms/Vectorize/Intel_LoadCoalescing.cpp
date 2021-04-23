@@ -123,15 +123,19 @@ bool MemInstGroup::isCoalescingLoadsProfitable(
       ShuffleCost += TTI->getVectorInstrCost(
           Instruction::ExtractElement, GroupTy, CoalescedLoadScalarOffset);
 
-    CostBeforeCoalescing += TTI->getMemoryOpCost(
-        MemberI->getOpcode(), GroupMemType, MemberI->getAlign(),
-        MemberI->getPointerAddressSpace());
+    CostBeforeCoalescing +=
+        *TTI->getMemoryOpCost(MemberI->getOpcode(), GroupMemType,
+                              MemberI->getAlign(),
+                              MemberI->getPointerAddressSpace())
+             .getValue();
 
     CoalescedLoadScalarOffset += getNumElementsSafe(GroupMemType);
   }
 
-  int GroupLoadCost = TTI->getMemoryOpCost(
-      LI->getOpcode(), GroupTy, LI->getAlign(), LI->getPointerAddressSpace());
+  int GroupLoadCost =
+      *TTI->getMemoryOpCost(LI->getOpcode(), GroupTy, LI->getAlign(),
+                            LI->getPointerAddressSpace())
+           .getValue();
   int CostAfterCoalescing = GroupLoadCost + ShuffleCost;
   int ProfitabilityThreshold = CostAfterCoalescing - CostBeforeCoalescing;
   bool IsProfitable =

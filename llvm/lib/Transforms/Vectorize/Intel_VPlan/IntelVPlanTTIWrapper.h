@@ -143,9 +143,10 @@ public:
                                  bool UseMaskForCond,
                                  bool UseMaskForGaps) const {
     return Multiplier *
-           TTI.getInterleavedMemoryOpCost(Opcode, VecTy, Factor, Indices,
-                                          Alignment, AddressSpace, CostKind,
-                                          UseMaskForCond, UseMaskForGaps);
+           *TTI.getInterleavedMemoryOpCost(Opcode, VecTy, Factor, Indices,
+                                           Alignment, AddressSpace, CostKind,
+                                           UseMaskForCond, UseMaskForGaps)
+                .getValue();
   }
 #endif // INTEL_CUSTOMIZATION
   int getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,

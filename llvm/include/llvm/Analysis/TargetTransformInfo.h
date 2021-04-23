@@ -1156,10 +1156,11 @@ public:
   int getVectorInstrCost(unsigned Opcode, Type *Val, unsigned Index = -1) const;
 
   /// \return The cost of Load and Store instructions.
-  int getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
-                      unsigned AddressSpace,
-                      TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
-                      const Instruction *I = nullptr) const;
+  InstructionCost
+  getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
+                  unsigned AddressSpace,
+                  TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
+                  const Instruction *I = nullptr) const;
 
   /// \return The cost of masked Load and Store instructions.
   InstructionCost getMaskedMemoryOpCost(
@@ -1208,7 +1209,7 @@ public:
   /// \p AddressSpace is address space of the pointer.
   /// \p UseMaskForCond indicates if the memory access is predicated.
   /// \p UseMaskForGaps indicates if gaps should be masked.
-  int getInterleavedMemoryOpCost(
+  InstructionCost getInterleavedMemoryOpCost(
       unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,
       Align Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
@@ -1695,10 +1696,11 @@ public:
                                              const Instruction *I) = 0;
   virtual int getVectorInstrCost(unsigned Opcode, Type *Val,
                                  unsigned Index) = 0;
-  virtual int getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
-                              unsigned AddressSpace,
-                              TTI::TargetCostKind CostKind,
-                              const Instruction *I) = 0;
+  virtual InstructionCost getMemoryOpCost(unsigned Opcode, Type *Src,
+                                          Align Alignment,
+                                          unsigned AddressSpace,
+                                          TTI::TargetCostKind CostKind,
+                                          const Instruction *I) = 0;
   virtual InstructionCost
   getMaskedMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                         unsigned AddressSpace,
@@ -1710,7 +1712,7 @@ public:
                          const Instruction *I = nullptr,  // INTEL
                          bool UndefPassThru = false) = 0; // INTEL
 
-  virtual int getInterleavedMemoryOpCost(
+  virtual InstructionCost getInterleavedMemoryOpCost(
       unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,
       Align Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
       bool UseMaskForCond = false, bool UseMaskForGaps = false) = 0;
@@ -2228,9 +2230,10 @@ public:
   int getVectorInstrCost(unsigned Opcode, Type *Val, unsigned Index) override {
     return Impl.getVectorInstrCost(Opcode, Val, Index);
   }
-  int getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
-                      unsigned AddressSpace, TTI::TargetCostKind CostKind,
-                      const Instruction *I) override {
+  InstructionCost getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
+                                  unsigned AddressSpace,
+                                  TTI::TargetCostKind CostKind,
+                                  const Instruction *I) override {
     return Impl.getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
                                 CostKind, I);
   }
@@ -2260,12 +2263,10 @@ public:
                                        Alignment, AddressSpace, CostKind, I);
   }
 #endif // INTEL_CUSTOMIZATION
-  int getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy, unsigned Factor,
-                                 ArrayRef<unsigned> Indices, Align Alignment,
-                                 unsigned AddressSpace,
-                                 TTI::TargetCostKind CostKind,
-                                 bool UseMaskForCond,
-                                 bool UseMaskForGaps) override {
+  InstructionCost getInterleavedMemoryOpCost(
+      unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,
+      Align Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
+      bool UseMaskForCond, bool UseMaskForGaps) override {
     return Impl.getInterleavedMemoryOpCost(Opcode, VecTy, Factor, Indices,
                                            Alignment, AddressSpace, CostKind,
                                            UseMaskForCond, UseMaskForGaps);
