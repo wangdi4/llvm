@@ -22,13 +22,13 @@
 ; CHECK-LABEL: Function: test_scalar
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:           %priv.mem.bc = &((i32*)(%priv.mem)[0]);
-; CHECK:           <RVAL-REG> &((i32*)(LINEAR <4 x i32>* %priv.mem)[i64 0]) inbounds  {sb:16}
+; CHECK:           <RVAL-REG> &((i32*)(LINEAR <4 x i32>* %priv.mem)[i64 0]) inbounds  {sb:[[PRIV_MEM_SYM:.*]]}
 ; CHECK:        + DO i64 i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK:        |   %.vec = (<4 x i32>*)(%iarr)[i1];
 ; CHECK:        |   (<4 x i32>*)(%priv.mem)[0] = %.vec;
-; CHECK:        |   <LVAL-REG> {al:4}(<4 x i32>*)(LINEAR <4 x i32>* %priv.mem)[i64 0] inbounds  {sb:16}
+; CHECK:        |   <LVAL-REG> {al:4}(<4 x i32>*)(LINEAR <4 x i32>* %priv.mem)[i64 0] inbounds  {sb:[[PRIV_MEM_SYM]]}
 ; CHECK:        |   %.vec3 = (<4 x i8>*)(%priv.mem.bc)[<i32 0, i32 1, i32 2, i32 3>];
-; CHECK:        |   <RVAL-REG> {al:4}(<4 x i8>*)(LINEAR i32* %priv.mem.bc)[<4 x i32> <i32 0, i32 1, i32 2, i32 3>] inbounds  {sb:16}
+; CHECK:        |   <RVAL-REG> {al:4}(<4 x i8>*)(LINEAR i32* %priv.mem.bc)[<4 x i32> <i32 0, i32 1, i32 2, i32 3>] inbounds  {sb:[[PRIV_MEM_SYM]]}
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 
@@ -47,13 +47,13 @@
 ; CHECK-LABEL: Function: test_array
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:           %priv.mem.bc = &(([100 x i32]*)(%priv.mem)[0]);
-; CHECK:           <RVAL-REG> &(([100 x i32]*)(LINEAR [4 x [100 x i32]]* %priv.mem)[i64 0]) inbounds  {sb:15}
+; CHECK:           <RVAL-REG> &(([100 x i32]*)(LINEAR [4 x [100 x i32]]* %priv.mem)[i64 0]) inbounds  {sb:[[PRIV_MEM_SYM:.*]]}
 ; CHECK:        + DO i64 i1 = 0, 99, 4   <DO_LOOP> <simd-vectorized> <novectorize>
 ; CHECK:        |   %.vec = (<4 x i32>*)(%ip)[i1];
 ; CHECK:        |   %nsbgepcopy = &((<4 x [100 x i32]*>)(%priv.mem.bc)[<i32 0, i32 1, i32 2, i32 3>]);
-; CHECK:        |   <RVAL-REG> &((<4 x [100 x i32]*>)(LINEAR [100 x i32]* %priv.mem.bc)[<4 x i32> <i32 0, i32 1, i32 2, i32 3>]) inbounds  {sb:15}
+; CHECK:        |   <RVAL-REG> &((<4 x [100 x i32]*>)(LINEAR [100 x i32]* %priv.mem.bc)[<4 x i32> <i32 0, i32 1, i32 2, i32 3>]) inbounds  {sb:[[PRIV_MEM_SYM]]}
 ; CHECK:        |   (<4 x i32>*)(%nsbgepcopy)[0][i1 + <i64 0, i64 1, i64 2, i64 3>] = %.vec;
-; CHECK:        |   <LVAL-REG> {al:4}(<4 x i32>*)(NON-LINEAR <4 x [100 x i32]*> %nsbgepcopy)[<4 x i64> 0][LINEAR <4 x i64> i1 + <i64 0, i64 1, i64 2, i64 3>] inbounds  {sb:15}
+; CHECK:        |   <LVAL-REG> {al:4}(<4 x i32>*)(NON-LINEAR <4 x [100 x i32]*> %nsbgepcopy)[<4 x i64> 0][LINEAR <4 x i64> i1 + <i64 0, i64 1, i64 2, i64 3>] inbounds  {sb:[[PRIV_MEM_SYM]]}
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 

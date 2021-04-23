@@ -26,6 +26,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
+#include "HIRArrayScalarization.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
@@ -46,6 +47,10 @@ STATISTIC(HIRArrayRefsContracted,
 static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(true),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
+
+static cl::opt<bool> DisablePostProcessing(
+    "disable-" OPT_SWITCH "-post-processing", cl::init(false), cl::Hidden,
+    cl::desc("Disable " OPT_DESC " post-processing step"));
 
 static cl::opt<unsigned> MinMemRefNumDimension(
     OPT_SWITCH "-min-memref-num-dimension", cl::init(5), cl::Hidden,
@@ -93,63 +98,17 @@ FunctionPass *llvm::createHIRCrossLoopArrayContractionLegacyPass() {
   return new HIRCrossLoopArrayContractionLegacyPass();
 }
 
-template <typename T> class HLVariant {
-  T *OriginalNode;
-  T *OptimizedNode;
-
-  // Contains operations executed at the end of the transformation.
-  // Note: this is used to completely unroll the inner loops and do the scalar
-  // replacement.
-  SmallVector<std::function<bool(T *)>> PostProcessors;
-
-public:
-  HLVariant(T *Node) : OriginalNode(Node->clone()), OptimizedNode(Node) {}
-
-  HLVariant(const HLVariant &) = delete;
-
-  HLVariant(HLVariant &&Var)
-      : OriginalNode(Var.OriginalNode), OptimizedNode(Var.OptimizedNode),
-        PostProcessors(std::move(Var.PostProcessors)) {
-    Var.commit();
-  }
-
-  bool runPostProcessors() {
-    for (auto &Func : PostProcessors) {
-      if (!Func(OptimizedNode)) {
-        return false;
-      }
-    }
-
-    PostProcessors.clear();
-    return true;
-  }
-
-  void commit() {
-    assert(PostProcessors.empty() && "There are post-processors not run.");
-    OriginalNode = nullptr;
-  }
-
-  ~HLVariant() {
-    if (OriginalNode) {
-      HLNodeUtils::replace(OptimizedNode, OriginalNode);
-    }
-  }
-
-  T *getOriginal() const { return OriginalNode; }
-  T *getOptimized() const { return OptimizedNode; }
-
-  void addPostProcessor(std::function<bool(T *)> Func) {
-    PostProcessors.push_back(std::move(Func));
-  }
-};
-
 class HIRCrossLoopArrayContraction {
   HIRFramework &HIRF;
   HIRDDAnalysis &DDA;
   HIRArraySectionAnalysis &ASA;
   HIRLoopStatistics &HLS;
 
-  SmallVector<HLVariant<HLLoop>, 4> Optimizations;
+  // Set of loops which we will run PostProcessors on.
+  SmallPtrSet<HLLoop *, 4> PostProcLoops;
+
+  // Contains operations executed at the end of the transformation.
+  SmallVector<std::function<void(HLLoop *)>> PostProcessors;
 
 public:
   HIRCrossLoopArrayContraction(HIRFramework &HIRF, HIRDDAnalysis &DDA,
@@ -173,18 +132,66 @@ private:
                        SmallSet<unsigned, 4> &AfterContractSBS,
                        unsigned &NumRefsContracted);
 
-  HLVariant<HLLoop> &addOptimized(HLLoop *Loop);
+  void addPostProcCand(HLLoop *Loop);
+
+  void addPostProcessor(std::function<void(HLLoop *)> Func) {
+    PostProcessors.push_back(std::move(Func));
+  }
+
+  void runPostProcessors(SmallSet<unsigned, 4> ContractedBases);
 };
 
-HLVariant<HLLoop> &HIRCrossLoopArrayContraction::addOptimized(HLLoop *Loop) {
-  for (auto &Var : Optimizations) {
-    if (Var.getOptimized() == Loop) {
-      return Var;
+void HIRCrossLoopArrayContraction::addPostProcCand(HLLoop *Loop) {
+  if (!PostProcLoops.count(Loop)) {
+    LLVM_DEBUG(dbgs() << "[OPT] Adding new loop: " << Loop->getNumber()
+                      << "\n");
+    PostProcLoops.insert(Loop);
+  }
+}
+
+void HIRCrossLoopArrayContraction::runPostProcessors(SmallSet<unsigned, 4> ContractedBases) {
+  addPostProcessor([](HLLoop *Loop) {
+    ForPostEach<HLLoop>::visit(Loop, [](HLLoop *Loop) {
+      uint64_t TC;
+      if (Loop->isConstTripLoop(&TC) && TC <= 5 &&
+          Loop->isInnermost()) {
+        LLVM_DEBUG(dbgs() << "[PostProc] Complete Unrolling called on Loop "
+                          << Loop->getNumber() << "\n";
+                   Loop->dump(); dbgs() << "\n";);
+        HIRTransformUtils::completeUnroll(Loop);
+      }
+    });
+  });
+
+  addPostProcessor([](HLLoop *Loop) {
+    LLVM_DEBUG(dbgs() << "[PostProc] Removing Redundant Nodes on Loop "
+                      << Loop->getNumber() << "\n";
+               Loop->dump(); dbgs() << "\n";);
+    HLNodeUtils::removeRedundantNodes(Loop);
+    return true;
+  });
+
+  // Register additional postprocessors here
+
+  unsigned Step = 1;
+
+  if (DisablePostProcessing) {
+    LLVM_DEBUG(dbgs() << "[PostProc] Skipping due to the compiler option!\n");
+    PostProcessors.clear();
+  }
+
+  for (auto &Func : PostProcessors) {
+    for (auto Lp : PostProcLoops) {
+      LLVM_DEBUG(dbgs() << "[PostProc] Running Step #" << Step << "!\n");
+      Func(Lp);
+      LLVM_DEBUG(dbgs() << "[PostProc] After Step #" << Step
+                        << "!\n\t--------------\n");
+      LLVM_DEBUG(Lp->dump(); dbgs() << "\n\t--------------\n");
+      ++Step;
     }
   }
 
-  Optimizations.push_back(Loop);
-  return Optimizations.back();
+  PostProcessors.clear();
 }
 
 bool HIRCrossLoopArrayContraction::run() {
@@ -286,16 +293,6 @@ static unsigned computeDependencyMaxTopSortNumber(
   using Gatherer = DDRefGatherer<RegDDRef, TerminalRefs | MemRefs | FakeRefs>;
   Gatherer::VectorTy Refs;
   Gatherer::gather(Loop, Refs);
-  LLVM_DEBUG({
-    dbgs() << "Refs:<" << Refs.size() << ">\n";
-    unsigned Count = 0;
-    for (auto Ref : Refs) {
-      dbgs() << Count++ << ": ";
-      Ref->dump();
-      dbgs() << "\t";
-    }
-    dbgs() << "\n";
-  });
 
   unsigned MaxTopSortNumber = std::numeric_limits<unsigned>::max();
   unsigned LoopMaxTopSortNumber = Loop->getMaxTopSortNum();
@@ -631,7 +628,6 @@ getDefUseBasesImpl(const ArraySectionAnalysisResult &ASAR,
       Output.set(BasePtr);
     }
   }
-  LLVM_DEBUG(dump(Output, dbgs()););
   return Output;
 }
 
@@ -830,18 +826,6 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
     return false;
   }
 
-  LLVM_DEBUG({
-    dbgs() << "Refs:<" << Refs.size() << ">\n";
-    unsigned Count = 0;
-    for (auto Ref : Refs) {
-      dbgs() << Count++ << ": ";
-      Ref->dump();
-      dbgs() << "\t";
-    }
-    dbgs() << "\n";
-  });
-
-  // Keep set of interesting references to ignore DD between them.
   SmallPtrSet<RegDDRef *, 32> RefsSet(Refs.begin(), Refs.end());
   SmallSet<unsigned, 4> AfterContractSBS;
 
@@ -885,6 +869,7 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
     (void)IdentitySB;
   }
 
+  SmallVector<HLLoop *, 4> ModifiedDefLps;
   DDGraph DDG = DDA.getGraph(&Reg);
 
   for (auto &DefPair : LoopToBasePtr) {
@@ -930,13 +915,13 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
       // Check if there are common array sections.
       auto CommonBases = DefBases & UsePair.second;
-      LLVM_DEBUG(dbgs() << " CommonBases: "; dump(CommonBases, dbgs());
-                 dbgs() << "\n";);
-
       if (CommonBases.empty()) {
         LLVM_DEBUG(dbgs() << "\t[SKIP] No common array uses.\n");
         continue;
       }
+
+      LLVM_DEBUG(dbgs() << " CommonBases: "; dump(CommonBases, dbgs());
+                 dbgs() << "\n";);
 
       UsesTracking.add(CommonBases);
 
@@ -1081,12 +1066,13 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         break;
       }
 
-      addOptimized(UseLp);
+      // The code below modifies HIR.
 
       bool HasMappedDim = !MappedDim.empty();
       unsigned UseRefMappedDim = HasMappedDim ? MappedDim.getDimensionNum() : 0;
       unsigned NumClones = HasMappedDim ? MappedDim.getMappedCEs().size() : 1;
       bool BailOut = false;
+      addPostProcCand(UseLp);
 
       for (unsigned I = 0; I < NumClones; ++I) {
         HLLoop *DefLoopClone = DefLp->clone();
@@ -1129,7 +1115,6 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         if (!mergeLoops(DefLoopClone, UseLp,
                         FusionLevel - UseLp->getNestingLevel() + 1)) {
           LLVM_DEBUG(dbgs() << "\t[SKIP] Can not merge loops.\n");
-          Optimizations.pop_back();
           BailOut = true;
           break;
         }
@@ -1158,43 +1143,36 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
     // Remove array definitions if there is no usages.
     auto UnusedBases = UsesTracking.getUnused(DefBases);
-    if (!UnusedBases.empty()) {
-      addOptimized(DefLp);
+    LLVM_DEBUG(dbgs() << "[DEAD] Unused bases: ";
+               dumpBasesBitVector(DefLp, UnusedBases));
 
+    if (!UnusedBases.empty()) {
       removeDeadStores(DefLp, UnusedBases);
+      HLNodeUtils::removeRedundantNodes(DefLp);
+      ModifiedDefLps.push_back(DefLp);
       LLVM_DEBUG(dbgs() << "[DEAD] Unused candiadate DEF stores removed\n");
       LLVM_DEBUG(Reg.dump());
     }
   }
 
-  if (Optimizations.empty()) {
-    return false;
-  }
+  // Run post-processors for UseLoop after contraction
+  runPostProcessors(AfterContractSBS);
 
-  // Run post-processors for each optimized loop. Revert everything if any
-  // post-optimization fails.
-  for (auto &Opt : Optimizations) {
-    if (!Opt.runPostProcessors()) {
-      return false;
+  // Invalidate Loop after Transformation.
+  // DefLoops may have been modified that are not in PostProcLoops.
+  // It is possible they could have been removed as dead.
+  for (auto Loop : ModifiedDefLps) {
+    if (Loop->isAttached()) {
+      HIRInvalidationUtils::invalidateLoopNestBody(Loop);
     }
   }
 
-  for (auto &Opt : Optimizations) {
-    Reg.setGenCode();
-
-    Opt.commit();
-
-    HLLoop *Loop = Opt.getOptimized();
-    HLLoop *ParentLoop = Loop->getParentLoop();
-    HLNodeUtils::removeRedundantNodes(Loop);
-
-    if (ParentLoop) {
-      HIRInvalidationUtils::invalidateBody(ParentLoop);
-    } else {
-      HIRInvalidationUtils::invalidateNonLoopRegion(&Reg);
-    }
+  for (auto Loop : PostProcLoops) {
+    HIRInvalidationUtils::invalidateLoopNestBody(Loop);
   }
 
+  HIRInvalidationUtils::invalidateNonLoopRegion(&Reg);
+  Reg.setGenCode();
   return true;
 }
 

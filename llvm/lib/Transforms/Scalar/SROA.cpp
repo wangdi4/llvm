@@ -1361,7 +1361,8 @@ static void injectGEPsLoads(IRBuilderTy &IRB, Instruction *Inst, Value *Ptr,
                             SmallPtrSet<LoadInst *, 4> &NewLoads) {
   switch(Inst->getOpcode()) {
   case Instruction::Load: {
-    LoadInst *NewLoad = IRB.CreateLoad(Ptr);
+    auto *PtrTy = Ptr->getType()->getPointerElementType();
+    LoadInst *NewLoad = IRB.CreateLoad(PtrTy, Ptr);
     NewLoads.insert(NewLoad);
     break;
   }
