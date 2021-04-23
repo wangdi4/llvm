@@ -1,4 +1,11 @@
 // INTEL_COLLAB
+// INTEL_CUSTOMIZATION
+// xmain runs intel_llvmompoffload_notes.c instead.
+// XFAIL: *
+// We have to mark it as unsupported on Windows, since the below command
+// is a no-op on Windows and produces 'pass', which conflicts with the 'xfail'.
+// UNSUPPORTED: system-windows
+// end INTEL_CUSTOMIZATION
 // RUN: %libomptarget-compile-x86_64-pc-linux-gnu && env LIBOMPTARGET_DEBUG=1 %libomptarget-run-x86_64-pc-linux-gnu 2>&1 | %fcheck-x86_64-pc-linux-gnu
 
 // CHECK: TARGET Common ELF --> LLVMOMPOFFLOAD ELF note NT_LLVM_OPENMP_OFFLOAD_VERSION with value: '1.0'
