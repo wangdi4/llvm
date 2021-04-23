@@ -377,12 +377,6 @@ constexpr ProcInfo Processors[] = {
   { {"icelake-server"}, CK_IcelakeServer, FEATURE_AVX512VBMI2, FeaturesICLServer },
   // Tigerlake microarchitecture based processors.
   { {"tigerlake"}, CK_Tigerlake, FEATURE_AVX512VP2INTERSECT, FeaturesTigerlake },
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RKL
-  // Rocketlake microarchitecture based processors.
-  { {"rocketlake"}, CK_Rocketlake, ~0U, FeaturesRocketlake },
-#endif // INTEL_FEATURE_CPU_RKL
-#endif // INTEL_CUSTOMIZATION
   // Sapphire Rapids microarchitecture based processors.
   { {"sapphirerapids"}, CK_SapphireRapids, FEATURE_AVX512VP2INTERSECT, FeaturesSapphireRapids },
   // Alderlake microarchitecture based processors.

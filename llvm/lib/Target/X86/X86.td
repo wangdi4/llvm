@@ -1607,13 +1607,6 @@ def : ProcModel<"cannonlake", SkylakeServerModel,
                 ProcessorFeatures.CNLFeatures, ProcessorFeatures.CNLTuning>;
 def : ProcModel<"icelake-client", SkylakeServerModel,
                 ProcessorFeatures.ICLFeatures, ProcessorFeatures.ICLTuning>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RKL
-def : ProcModel<"rocketlake", SkylakeServerModel,
-                ProcessorFeatures.ICLFeatures,
-                ProcessorFeatures.ICLTuning>;
-#endif // INTEL_FEATURE_CPU_RKL
-#endif // INTEL_CUSTOMIZATION
 def : ProcModel<"rocketlake", SkylakeServerModel,
                 ProcessorFeatures.ICLFeatures, ProcessorFeatures.ICLTuning>;
 def : ProcModel<"icelake-server", SkylakeServerModel,

@@ -1,9 +1,3 @@
-// INTEL_CUSTOMIZATION
-// INTEL_FEATURE_CPU_RKL
-// UNSUPPORTED: intel_feature_cpu_rkl
-// end INTEL_FEATURE_CPU_RKL
-// end INTEL_CUSTOMIZATION
-
 // RUN: not %clang_cc1 -triple armv5--- -target-cpu not-a-cpu -fsyntax-only %s 2>&1 | FileCheck %s --check-prefix ARM
 // ARM: error: unknown target CPU 'not-a-cpu'
 // ARM: note: valid target CPU values are:
