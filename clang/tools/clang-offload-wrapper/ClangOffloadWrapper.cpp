@@ -23,6 +23,7 @@
 #include "llvm/BinaryFormat/ELF.h"
 #endif // INTEL_COLLAB
 #include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/Config/dpcpp.version.info.h" // INTEL
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
@@ -1820,6 +1821,17 @@ private:
     // get some information from the offload image).
     Notes.emplace_back("LLVMOMPOFFLOAD", ELF::NT_LLVM_OPENMP_OFFLOAD_VERSION,
                        OPENMP_OFFLOAD_IMAGE_VERSION);
+#if INTEL_CUSTOMIZATION
+    Notes.emplace_back("LLVMOMPOFFLOAD", ELF::NT_LLVM_OPENMP_OFFLOAD_PRODUCER,
+                       clang::getDPCPPProductName());
+    // This is a producer version. Use the same format that is used
+    // by clang to report the LLVM version.
+    std::string ClangVersion = clang::getClangRevision();
+    Notes.emplace_back("LLVMOMPOFFLOAD",
+                       ELF::NT_LLVM_OPENMP_OFFLOAD_PRODUCER_VERSION,
+                       getDPCPPVersionString() +
+                       (ClangVersion.empty() ? "" : (" " + ClangVersion)));
+#else // INTEL_CUSTOMIZATION
     // This is a producer identification string. We are LLVM!
     Notes.emplace_back("LLVMOMPOFFLOAD", ELF::NT_LLVM_OPENMP_OFFLOAD_PRODUCER,
                        "LLVM");
@@ -1832,6 +1844,7 @@ private:
                        " " LLVM_REVISION
 #endif
     );
+#endif // INTEL_CUSTOMIZATION
 
     // Return the amount of padding required for a blob of N bytes
     // to be aligned to Alignment bytes.
