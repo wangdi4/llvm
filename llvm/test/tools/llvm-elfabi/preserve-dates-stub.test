@@ -1,5 +1,10 @@
 ## Test writing unchanged content to ELF Stub file with --write-if-changed flag.
 
+# INTEL_CUSTOMIZATION
+# Disabled temporarily till further investigation.
+# UNSUPPORTED: system-windows
+# end INTEL_CUSTOMIZATION
+
 # RUN: llvm-elfabi %s --output-target=elf64-little %t
 # RUN: env TZ=GMT touch -m -t 197001010000 %t
 # RUN: llvm-elfabi %s --output-target=elf64-little %t --write-if-changed
