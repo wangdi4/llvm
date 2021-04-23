@@ -90,6 +90,10 @@ static lto::Config createConfig() {
   c.Options.DataSections = true;
 #if INTEL_CUSTOMIZATION
   c.Options.IntelAdvancedOptim = config->intelAdvancedOptim;
+
+  // Linking for an executable
+  if (!config->relocatable)
+    c.WPUtils.setLinkingExecutable(true);
 #endif // INTEL_CUSTOMIZATION
 
   // Check if basic block sections must be used.
@@ -326,12 +330,6 @@ std::vector<InputFile *> BitcodeCompiler::compile() {
                         [&](size_t task, std::unique_ptr<MemoryBuffer> mb) {
                           files[task] = std::move(mb);
                         }));
-
-#if INTEL_CUSTOMIZATION
-  // Linking for an executable
-  if (!config->relocatable)
-    WPUtils.setLinkingExecutable(true);
-#endif // INTEL_CUSTOMIZATION
 
   if (!bitcodeFiles.empty())
     checkError(ltoObj->run(

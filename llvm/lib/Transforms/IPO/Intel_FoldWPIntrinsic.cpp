@@ -107,7 +107,8 @@ static bool foldIntrinsicWholeProgramSafe(Module &M, unsigned OptLevel,
   // may miss a possible vitual call that has external symbols. This is very
   // common with MS Visual Studio libraries.
   DenseSet<GlobalValue::GUID> DynamicExportSymbols;
-  for (auto Symbol : WPUtils.getSymbolsResolution())
+  auto WPLinkerUtils = WPInfo->getWholeProgramLinkerUtils();
+  for (auto Symbol : WPLinkerUtils->getSymbolsResolution())
     if (Symbol.isExportDynamic())
       DynamicExportSymbols.insert(GlobalValue::getGUID(Symbol.getName()));
 

@@ -545,6 +545,11 @@ public:
   /// will always be true.
   void addInstCombinePass(FunctionPassManager &FPM,
                           bool EnableUpCasting) const;
+
+  /// Add the information related to whole program utils
+  void addWholeProgramUtils(WholeProgramUtils WPUtils) {
+    this->WPUtils = std::move(WPUtils);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   /// Print pass names.
@@ -810,6 +815,10 @@ private:
   // True if the compiler is built to include DTrans and the option
   // EnableDTrans is turned on.
   bool DTransEnabled;
+
+  // Store the information collected from the linker that is needed for the
+  // whole program analysis
+  WholeProgramUtils WPUtils;
 #endif // INTEL_CUSTOMIZATION
 };
 

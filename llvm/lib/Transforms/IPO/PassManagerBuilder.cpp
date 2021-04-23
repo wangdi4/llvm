@@ -1549,6 +1549,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
       // then it means that the GlobalValue should not be internalized, else
       // if it returns false then internalize it.
       auto PreserveSymbol = [](const GlobalValue &GV) {
+        WholeProgramUtils WPUtils;
 
         // If GlobalValue is "main", has one definition rule (ODR) or
         // is a special symbol added by the linker then don't internalize
@@ -1605,7 +1606,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
       };
       PM.add(createInternalizePass(PreserveSymbol));
     }
-    PM.add(createWholeProgramWrapperPassPass());
+    PM.add(createWholeProgramWrapperPassPass(WPUtils));
     PM.add(createIntelFoldWPIntrinsicLegacyPass());
   }
 

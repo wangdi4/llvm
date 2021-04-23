@@ -126,6 +126,10 @@ private:
   // TargetTransformInfo analysis pass.
   function_ref<TargetTransformInfo &(Function &)> GTTI;
 
+  // Store the information collected from the linker like symbol
+  // resolution, linking an executable, etc.
+  WholeProgramUtils *WPUtils;
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // SetVectors used for tracing the libfuncs
   // that were found and not found.
@@ -154,7 +158,8 @@ public:
 
   WholeProgramInfo(Module *M,
       std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
-      function_ref<TargetTransformInfo &(Function &)> GTTI);
+      function_ref<TargetTransformInfo &(Function &)> GTTI,
+      WholeProgramUtils *WPUtils);
   ~WholeProgramInfo();
 
   void analyzeModule();
@@ -186,6 +191,9 @@ public:
 
   void wholeProgramAllExternsAreIntrins();
 
+  // Return the information collected from the linker
+  WholeProgramUtils *getWholeProgramLinkerUtils() { return WPUtils; }
+
   // Return the Function* that points to main
   Function *getMainFunction();
 
@@ -205,9 +213,14 @@ class WholeProgramAnalysis : public AnalysisInfoMixin<WholeProgramAnalysis> {
   friend AnalysisInfoMixin<WholeProgramAnalysis>;
   static char PassID;
 
+  // Store the information related to the linker like symbols resolution
+  WholeProgramUtils WPUtils;
+
 public:
   typedef WholeProgramInfo Result;
 
+  explicit WholeProgramAnalysis(WholeProgramUtils WPUtils) :
+      WPUtils(std::move(WPUtils)) { }
   WholeProgramInfo run(Module &M, AnalysisManager<Module> &AM);
 };
 
@@ -218,7 +231,11 @@ class WholeProgramWrapperPass : public ModulePass {
 public:
   static char ID;
 
+  // We must provide a default constructor for the pass due to the build
+  // but it should not be used. Please use the constructor that supports
+  // the WPUtils.
   WholeProgramWrapperPass();
+  explicit WholeProgramWrapperPass(WholeProgramUtils WPUtils);
 
   WholeProgramInfo &getResult() { return *Result; }
   const WholeProgramInfo &getResult() const { return *Result; }
@@ -226,9 +243,13 @@ public:
   bool runOnModule(Module &M) override;
   bool doFinalization(Module &M) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+private:
+  // Store the information related to the linker like symbols resolution
+  WholeProgramUtils WPUtils;
 };
 
-ModulePass *createWholeProgramWrapperPassPass();
+ModulePass *createWholeProgramWrapperPassPass(WholeProgramUtils WPUtils);
 
 } // namespace llvm
 

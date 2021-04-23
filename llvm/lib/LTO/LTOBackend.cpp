@@ -283,6 +283,10 @@ static void runNewPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
     break;
   }
 
+#if INTEL_CUSTOMIZATION
+  MPM.addWholeProgramUtils(Conf.WPUtils);
+#endif // INTEL_CUSTOMIZATION
+
   // Parse a custom pipeline if asked to.
   if (!Conf.OptPipeline.empty()) {
     if (auto Err = PB.parsePassPipeline(MPM, Conf.OptPipeline)) {
@@ -317,6 +321,9 @@ static void runOldPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
                                            false /*DisableInlineHotCallSite*/,
                                            false /*PrepareForLTO*/,
                                            true  /*LinkForLTO*/);
+
+  // Store the information related to whole program
+  PMB.addWholeProgramUtils(Conf.WPUtils);
 #endif // INTEL_CUSTOMIZATION
   PMB.ExportSummary = ExportSummary;
   PMB.ImportSummary = ImportSummary;
