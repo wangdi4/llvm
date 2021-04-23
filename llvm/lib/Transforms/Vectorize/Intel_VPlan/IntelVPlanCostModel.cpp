@@ -138,12 +138,25 @@ unsigned VPlanTTICostModel::getMemInstAddressSpace(
 
 unsigned
 VPlanTTICostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
-  unsigned Opcode = VPInst->getOpcode();
-  (void)Opcode;
-  assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
+  // For unit stride loads and stores account for selected peeling variant.
+  auto *LS = cast<VPLoadStoreInst>(VPInst);
+  // getMemInstAlignment is invoked from getLoadStoreCost() when no Alignment
+  // is passed to getLoadStoreCost(), which means getLoadStoreCost() is invoked
+  // during getCost() pass though every Instruction. In such scenario
+  // DefaultPeelingVariant is expected to be set.
+  assert(DefaultPeelingVariant && "PeelingVariant is not set.");
+  bool NegativeStride = false;
+  if (isUnitStrideLoadStore(VPInst, NegativeStride)) {
+    // VPAA method takes alignment from IR as a base.
+    // Alignment computed by VPAA in most cases is not guaranteed if we skip
+    // the peel loop at runtime.
+    return VPAA.getAlignmentUnitStride(*LS, *DefaultPeelingVariant).value();
+  }
 
-  // TODO: getType() working without underlying Inst - seems we can return
-  // alignment too.
+  // TODO:
+  // Whole code below this line is expected to be replaced with call
+  //   return VPAA.getAlignment(*LS).value();
+  // once VPAA.getAlignment is ready.
 
   if (const Instruction *Inst = VPInst->getInstruction())
     if (unsigned Align = ::getMemInstAlignment(Inst))
@@ -534,19 +547,6 @@ unsigned VPlanTTICostModel::getIntrinsicInstrCost(
     TTI::TCK_RecipThroughput);
 }
 
-unsigned VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
-  // For unit stride loads and stores account for selected peeling variant.
-  bool NegativeStride = false;
-  if (DefaultPeelingVariant && isUnitStrideLoadStore(VPInst, NegativeStride)) {
-    auto *LS = cast<VPLoadStoreInst>(VPInst);
-    // VPAA method takes alignment from IR as a base.
-    // Alignment computed by VPAA in most cases is not guaranteed if we skip
-    // the peel loop at runtime.
-    return VPAA.getAlignmentUnitStride(*LS, *DefaultPeelingVariant).value();
-  }
-  return VPlanTTICostModel::getMemInstAlignment(VPInst);
-}
-
 unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
   return VPlanTTICostModel::getTTICost(VPInst);
 }
@@ -786,12 +786,20 @@ unsigned VPlanCostModel::getCost(
   SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
       DefaultPeelingVariant,
       PeelingVariant ? PeelingVariant : &VPlanNoPeel);
+
   unsigned TTICost = getTTICost();
   return applyHeuristics(TTICost);
 }
 
-unsigned VPlanCostModel::getBlockRangeCost(const VPBasicBlock *Begin,
-                                           const VPBasicBlock *End) {
+unsigned VPlanCostModel::getBlockRangeCost(
+    const VPBasicBlock *Begin, const VPBasicBlock *End,
+    VPlanPeelingVariant *PeelingVariant) {
+  VPlanStaticPeeling VPlanNoPeel(0);
+  // Assume no peeling if it is not specified.
+  SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
+      DefaultPeelingVariant,
+      PeelingVariant ? PeelingVariant : &VPlanNoPeel);
+
   unsigned Cost = 0;
   for (auto *Block : sese_depth_first(Begin, End))
     Cost += getCost(Block);
@@ -851,6 +859,11 @@ void VPlanCostModel::print(raw_ostream &OS, const std::string &Header) {
 
   // TODO: we might want to merge 'print' routines with corresponding 'getCost'
   // routines eventually.
+  // Peeling Variants other than VPlanNoPeel are not supported by print().
+  VPlanStaticPeeling VPlanNoPeel(0);
+  // Assume no peeling if it is not specified.
+  SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
+      DefaultPeelingVariant, &VPlanNoPeel);
   unsigned TTICost = getTTICost();
   if (TTICost != Cost)
     OS << "Base Cost: " << TTICost << '\n';
