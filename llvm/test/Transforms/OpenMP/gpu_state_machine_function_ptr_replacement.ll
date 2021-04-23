@@ -1,3 +1,4 @@
+; RUN: opt -S -passes=openmpopt -openmp-ir-builder-optimistic-attributes -pass-remarks=openmp-opt -openmp-print-gpu-kernels < %s | FileCheck %s
 ; RUN: opt -S -passes=openmpopt -pass-remarks=openmp-opt -openmp-print-gpu-kernels < %s | FileCheck %s
 ; RUN: opt -S        -openmpopt -pass-remarks=openmp-opt -openmp-print-gpu-kernels < %s | FileCheck %s
 
