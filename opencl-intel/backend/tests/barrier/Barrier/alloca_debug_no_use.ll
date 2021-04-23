@@ -7,6 +7,7 @@
 ;   int i;
 ; }
 ;
+; RUN: %oclopt -B-ValueAnalysis -B-BarrierAnalysis -B-Barrier -is-native-debug=true %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-ValueAnalysis -B-BarrierAnalysis -B-Barrier -is-native-debug=true %s -S | FileCheck %s
 ;
 
@@ -119,3 +120,5 @@ attributes #3 = { nounwind readnone }
 !26 = !DILocalVariable(name: "i", scope: !14, file: !15, line: 2, type: !27)
 !27 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
 !28 = !DILocation(line: 3, column: 1, scope: !14)
+
+; DEBUGIFY-NOT: WARNING

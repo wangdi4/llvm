@@ -25,6 +25,7 @@
 ;
 ;--------------------------------------------------------------------------
 ;
+; RUN: %oclopt -B-Barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-Barrier -verify %s -S | FileCheck %s
 ; CHECK-NOT: !5 = !{void (double addrspace(1)*)* @__loopy_kernel_before.BarrierPass}
 ; CHECK:     !6 = !{void (double addrspace(1)*, [3 x i64]*)* @loopy_kernel}
@@ -304,3 +305,14 @@ attributes #2 = { nounwind readnone }
 !18 = !{!"Simple C/C++ TBAA"}
 !19 = distinct !{!19, !20}
 !20 = !{!"llvm.loop.unroll.disable"}
+
+;; phi nodes
+;DEBUGIFY: WARNING: Missing line 11
+;DEBUGIFY: WARNING: Missing line 12
+;DEBUGIFY: WARNING: Missing line 26
+;DEBUGIFY: WARNING: Missing line 30
+;DEBUGIFY: WARNING: Missing line 31
+;DEBUGIFY: WARNING: Missing line 52
+;DEBUGIFY: WARNING: Missing line 53
+
+; DEBUGIFY-NOT: WARNING

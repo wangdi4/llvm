@@ -6,6 +6,7 @@
 ;   int g = 1;
 ; }
 ;
+; RUN: %oclopt -B-ValueAnalysis -B-BarrierAnalysis -B-Barrier -is-native-debug=true %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-ValueAnalysis -B-BarrierAnalysis -B-Barrier -is-native-debug=true %s -S | FileCheck %s
 ;
 
@@ -111,3 +112,5 @@ attributes #3 = { nounwind readnone }
 !21 = !DILocalVariable(name: "g", scope: !9, file: !10, line: 3, type: !22)
 !22 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
 !23 = !DILocation(line: 4, column: 1, scope: !9)
+
+; DEBUGIFY-NOT: WARNING

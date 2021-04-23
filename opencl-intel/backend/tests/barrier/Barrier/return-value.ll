@@ -1,3 +1,4 @@
+; RUN: %oclopt -B-ValueAnalysis -B-BarrierAnalysis -B-Barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-ValueAnalysis -B-BarrierAnalysis -B-Barrier -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************
@@ -162,3 +163,22 @@ attributes #6 = { convergent }
 !11 = !{i32 0}
 !12 = !{!"dst"}
 !13 = !{i32 5}
+
+;; barrier key values
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calc -- %BaseGlobalId_0 = call i64 @get_base_global_id.(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calc -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calc -- %pCurrSBIndex = alloca i64, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calc -- %pLocalIds = alloca [3 x i64], align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calc -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calc -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calc -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function calc -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrSBIndex = alloca i64, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pLocalIds = alloca [3 x i64], align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
+
+; DEBUGIFY-NOT: WARNING

@@ -15,6 +15,7 @@
 ;   process(dst, x, &lid);
 ; }
 ;
+; RUN: %oclopt -is-native-debug=true  -B-ValueAnalysis -B-BarrierAnalysis -B-Barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-ValueAnalysis -B-BarrierAnalysis -B-Barrier %s -S | FileCheck %s
 ;
 
@@ -157,3 +158,35 @@ attributes #6 = { convergent }
 !11 = !{!"dst", !"x"}
 !12 = !{i32 12}
 !13 = !{i1 false}
+
+;; addr of alloca
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %dst.addr.addr = alloca i32 addrspace(1)**, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %x.addr.addr = alloca i32 addrspace(3)**, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %lid.addr.addr = alloca i32**, align 8
+;; barrier key values
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %pCurrSBIndex = alloca i64, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %pLocalIds = alloca [3 x i64], align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
+;; arguments
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %loadedValue = load i32 addrspace(1)*, i32 addrspace(1)** %pSB_LocalId, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %loadedValue4 = load i32 addrspace(3)*, i32 addrspace(3)** %pSB_LocalId3, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function process -- %loadedValue8 = load i32*, i32** %pSB_LocalId7, align 8
+;; addr of alloca
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %dst.addr.addr = alloca i32 addrspace(1)**, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %x.addr.addr = alloca i32 addrspace(3)**, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %lid.addr = alloca i32*, align 8
+;; barrier key values
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrSBIndex = alloca i64, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pLocalIds = alloca [3 x i64], align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
+;; debug instrument
+;DEBUGIFY-COUNT-4: WARNING: Instruction with empty DebugLoc in function test --  call void @DebugCopy.()
+; DEBUGIFY-NOT: WARNING

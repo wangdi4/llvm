@@ -1,3 +1,4 @@
+; RUN: %oclopt -B-Barrier -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-Barrier -S %s | FileCheck %s
 ; checks the result of work_group_reduce_add will be stored into special buffer.
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -167,3 +168,26 @@ attributes #17 = { convergent nounwind "call-params-num"="1" "kernel-call-once" 
 !16 = !{i1 true}
 !17 = !{i32 5}
 !18 = !{i32 9}
+
+;; alloca for uniform cross-barrier value
+;DEBUGIFY:  WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %CallWGForItem5 = alloca <4 x i32>, align 16
+;; barrier key values
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %pCurrSBIndex = alloca i64, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %pLocalIds = alloca [3 x i64], align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
+;; argument
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4v_foo -- %loadedValue = load <4 x i32>, <4 x i32>* %pSB_LocalId, align 16
+;; barrier key values
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_test -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_test -- %pCurrSBIndex = alloca i64, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_test -- %pLocalIds = alloca [3 x i64], align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_test -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_test -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_test -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function _ZGVbN4u_test -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
+
+; DEBUGIFY-NOT: WARNING
