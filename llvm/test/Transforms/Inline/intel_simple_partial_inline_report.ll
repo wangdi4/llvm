@@ -69,8 +69,8 @@
 ;
 ; The test case will check that the inline report was printed correctly.
 ;
-; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -inline -inline-report=7 2>&1 | FileCheck %s
-; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline),cgscc(inline)' -inline-report=7 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -inline -inline-report=7 -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline),cgscc(inline)' -inline-report=7 -disable-output 2>&1 | FileCheck %s
 
 ; CHECK: COMPILE FUNC: _Z3fooP4Node.1
 ; CHECK:   -> _Z3fooP4Node.1.for.body {{.*}}Outlined function from partial inlining

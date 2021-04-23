@@ -390,8 +390,8 @@ public:
 
     // Check that the field address is where we expect the array address to be
     // stored within the dope vector.
-    if (DopeVectorAnalyzer::identifyDopeVectorField(*FieldGEP) !=
-        DopeVectorAnalyzer::DV_ArrayPtr)
+    if (DopeVectorAnalyzer::identifyDopeVectorField(*(cast<GEPOperator>(FieldGEP))) !=
+        DopeVectorFieldType::DV_ArrayPtr)
       return nullptr;
 
     Value *DVObject = FieldGEP->getPointerOperand();

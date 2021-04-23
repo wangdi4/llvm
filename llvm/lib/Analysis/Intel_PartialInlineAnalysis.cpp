@@ -1,6 +1,6 @@
 //===------ Intel_PartialInlineAnalysis.cpp ------------------------------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -16,6 +16,7 @@
 
 #include "llvm/Analysis/Intel_PartialInlineAnalysis.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
@@ -157,29 +158,39 @@ static bool identifyLoopRegion(Function &F, Value *ArgVal,
   return false;
 }
 
-// Given an input function, return the argument that is used to
+// Given an input function, collect all the arguments that are used to
 // branch into an exit block. For example:
 //
-// define i1 @foo(%"struct.pov::Object_Struct"*) {
+// define i1 @foo(%"struct.pov::Object_Struct"*%0,
+//                %"struct.pov::Object_Struct"*%1) {
+//
+//  %2 = icmp eq %"struct.pov::Object_Struct"* %1, null
 //  %3 = icmp eq %"struct.pov::Object_Struct"* %0, null
 //  br i1 %3, label %12, label %4
 //
 // ; <label>:4:
-//  %5 = phi %"struct.pov::Object_Struct"* [ %9, %4 ], [ %0, %2 ]
+//  %5 = phi %"struct.pov::Object_Struct"* [ %9, %8 ], [ %0, %2 ]
 //  %6 = Some computation
 //  ...
-//  br i1 %11, label %4, label %12
+//  br i1 %11, label %10, label %12
+//
+// ; <label>:10:
+//   ...
+//   br i1 %2, label %4, label %12
 //
 // ; <label>:12:
 //  ...
 //  ret i1 %14
 // }
 //
-// For function @foo, the argument %0 is used in the branch
-// after %3. That branch will go into the basic block %12,
-// which is an exit block.
-static Value *identifyEntryRegion(Function &F,
-                                  bool PrepareForLTO) {
+// For function @foo, the argument %0 is compared with null to check if
+// the branch instruction after %3 should go to the exit block (label %12).
+// Argument %1 is compared with null to check if the branch instruction in
+// the basic block label %10 should go to the exit block too. Therefore,
+// collect %0 and %1.
+static void identifyEntryArguments(Function &F,
+                                   bool PrepareForLTO,
+                                   SmallPtrSetImpl<Value *> &EntryArgs) {
 
   BasicBlock *EntryBB = &(F.getEntryBlock());
   SetVector<Instruction *> VisitedInst;
@@ -199,13 +210,11 @@ static Value *identifyEntryRegion(Function &F,
         BasicBlock *BB = Inst->getParent();
         if (BB != EntryBB && (!PrepareForLTO || BB != SuccBB))
           continue;
-        if (isUsedForExit(Inst, VisitedInst)) {
-          return ArgVal;
-        }
+        if (isUsedForExit(Inst, VisitedInst))
+          EntryArgs.insert(ArgVal);
       }
     }
   }
-  return nullptr;
 }
 
 // Return true if the the input function has at least one argument
@@ -241,20 +250,19 @@ static bool canSplitFunctionIntoRegions(Function &F,
   if (F.arg_empty())
     return false;
 
-  // Identify the argument that is used to branch into the exit
-  // block
-  Value *ArgValue = identifyEntryRegion(F, PrepareForLTO);
-
-  // Identify if the argument is used to go into an exit block
-  if (!ArgValue)
+  // Identify the arguments that can branch to the exit block
+  SmallPtrSet<Value *, 3> EntryArgs;
+  identifyEntryArguments(F, PrepareForLTO, EntryArgs);
+  if (EntryArgs.empty())
     return false;
 
-  // Identify if the argument is used to go into a loop and
-  // the loop goes into the exit block
-  if (!identifyLoopRegion(F, ArgValue, GetLoopInfo))
-    return false;
+  // Identify if at least one argument is used to go to a loop and
+  // the loop goes to the exit block
+  for (auto *EntryArg : EntryArgs)
+    if (identifyLoopRegion(F, EntryArg, GetLoopInfo))
+      return true;
 
-  return true;
+  return false;
 }
 
 // Return false if there is an attribute in the function that prevents
