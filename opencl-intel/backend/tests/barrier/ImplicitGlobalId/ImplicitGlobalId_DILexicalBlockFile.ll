@@ -7,6 +7,7 @@
 ; }
 ; Then the IR is modified by appending fake DILexicalBlockFile metadata.
 ;
+; RUN: %oclopt -B-ImplicitGlobalIdPass -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-ImplicitGlobalIdPass -S %s
 ;
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -63,3 +64,5 @@ attributes #1 = { convergent }
 !14 = !{i1 false}
 !15 = !DILocation(line: 2, column: 2, scope: !16)
 !16 = !DILexicalBlockFile(scope: !9, file: !10, discriminator: 0)
+
+; DEBUGIFY-NOT: WARNING
