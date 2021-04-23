@@ -283,7 +283,9 @@ void IVSplit::spillIV(Loop * L, IRBuilder<> &Builder) {
         // A single load in the loop preheader will increase register pressure
         // for the inner loops and reload in the inner loops is better.
         Builder.SetInsertPoint(Inst);
-        auto reload = Builder.CreateLoad(Allocs[I], "iv-inner-reload-var");
+        auto *PtrTy = Allocs[I]->getType()->getPointerElementType();
+        auto reload =
+            Builder.CreateLoad(PtrTy, Allocs[I], "iv-inner-reload-var");
         IVUse.set(reload);
         LLVM_DEBUG(dbgs() << "Update inner Loop IV user in Inst: ");
         LLVM_DEBUG(dbgs() << *Inst << "\n" << *UserBB << "\n");
@@ -301,7 +303,8 @@ void IVSplit::reloadIV(Loop * L, IRBuilder<> &Builder) {
   Builder.SetInsertPoint(InsertPt);
   // Insert IVs reloading
   for (size_t I = 0, E = IVs.size(); I < E; I++) {
-    auto Inst = Builder.CreateLoad(Allocs[I], "iv-reload-var");
+    auto *PtrTy = Allocs[I]->getType()->getPointerElementType();
+    auto Inst = Builder.CreateLoad(PtrTy, Allocs[I], "iv-reload-var");
     Reloads.push_back(Inst);
     LLVM_DEBUG(dbgs() << "Reload IV " << IVs[I]->getName() << "\n");
   }

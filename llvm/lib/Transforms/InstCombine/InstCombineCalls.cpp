@@ -244,7 +244,8 @@ unsigned int InstCombinerImpl::GenFieldsForStruct(AnyMemTransferInst *MI,
       Index = GenFieldsForStruct(MI, SSTy, GEPSrc, GEPDest, Index);
       continue;
     }
-    LDSrc = Builder.CreateLoad(GEPSrc);
+    auto *GEPSrcTy = GEPSrc->getType()->getPointerElementType();
+    LDSrc = Builder.CreateLoad(GEPSrcTy, GEPSrc);
     // Take into account an alignment specified for the pointer in the mem
     // intrinsic which can decrease the default alignment. For example, in the
     // case when packed structure is processed.

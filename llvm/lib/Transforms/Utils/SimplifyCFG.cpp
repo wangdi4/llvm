@@ -3539,7 +3539,9 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
               Group0.BVIndexPtr[0]->getType()->getPointerElementType(), 6),
           Group0.BVIndexPtr[0]->getAddressSpace()),
       "BVIndexPtr");
-  auto *BVIndexV = Builder.CreateAlignedLoad(BVIndexPtr, Align(1), "BVIndexV");
+  auto *BVIndexPtrTy = BVIndexPtr->getType()->getPointerElementType();
+  auto *BVIndexV = Builder.CreateAlignedLoad(BVIndexPtrTy, BVIndexPtr,
+                                             Align(1), "BVIndexV");
 
   // %BBPtr = getelementptr inbounds , ... , <6 x i64> %BVIndexV
   // %BBV = call <6 x float> @llvm.masked.gather.v6f32.v6p0f32(%BBPtr)
@@ -3563,7 +3565,9 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
               Group0.StartPtr->getType()->getPointerElementType(), 3),
           Group0.StartPtr->getAddressSpace()),
       "StartPtr");
-  auto *StartV = Builder.CreateAlignedLoad(StartPtr, Align(1), "StartV");
+  auto *StartPtrTy = StartPtr->getType()->getPointerElementType();
+  auto *StartV =
+      Builder.CreateAlignedLoad(StartPtrTy, StartPtr, Align(1), "StartV");
   auto *StartWidenV =
       Builder.CreateShuffleVector(StartV, {0, 0, 1, 1, 2, 2}, "StartWidenV");
 
@@ -3578,8 +3582,10 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
               Group0.IdotAxisPtr->getType()->getPointerElementType(), 3),
           Group0.IdotAxisPtr->getAddressSpace()),
       "IdotAxisPtr");
+  auto *IdotAxisPtrTy = IdotAxisPtr->getType()->getPointerElementType();
   auto *IdotAxisV =
-      Builder.CreateAlignedLoad(IdotAxisPtr, Align(1), "IdotAxisV");
+      Builder.CreateAlignedLoad(IdotAxisPtrTy, IdotAxisPtr,
+                                Align(1), "IdotAxisV");
   auto *IdotAxisWidenV = Builder.CreateShuffleVector(
       IdotAxisV, {0, 0, 1, 1, 2, 2}, "IdotAxisWidenV");
 
