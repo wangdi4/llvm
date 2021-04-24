@@ -97,6 +97,15 @@ public:
     return getOptimizedVLSGroupData(VPInst, VLSA, Plan).hasValue();
   }
 
+  /// \Returns the cost of one operand or two operands arithmetics instructions.
+  /// For one operand case Op2 is expected to be null.  Op1 is never expected to
+  /// be null. VF specifies custom vector length.
+  unsigned getArithmeticInstructionCost(const unsigned Opcode,
+                                        const VPValue *Op1,
+                                        const VPValue *Op2,
+                                        const Type *ScalarTy,
+                                        const unsigned VF);
+
 protected:
 #if INTEL_CUSTOMIZATION
   VPlanVLSAnalysis *VLSA;
@@ -122,20 +131,6 @@ protected:
   // We prefer protected dtor over virtual one as there is no plan to
   // manipulate with objects through VPlanTTICostModel type handler.
   ~VPlanTTICostModel() {};
-
-  // Consolidates the code that gets the cost of one operand or two operands
-  // arithmetics instructions.  For one operand case Op2 is expected to be
-  // null.  Op1 is never expected to be null.
-  //
-  // TODO:
-  // This method should not be virtual once VPInst-level heuristics are
-  // introduced and special handling logic is moved from this routine
-  // to standalone heuristic.
-  virtual unsigned getArithmeticInstructionCost(const unsigned Opcode,
-                                                const VPValue *Op1,
-                                                const VPValue *Op2,
-                                                const Type *ScalarTy,
-                                                const unsigned VF);
 
 private:
   // These utilities are private for the class instead of being defined as
@@ -272,14 +267,6 @@ protected:
   void printForVPBasicBlock(raw_ostream &OS, const VPBasicBlock *VPBlock);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  virtual unsigned getArithmeticInstructionCost(const unsigned Opcode,
-                                                const VPValue *Op1,
-                                                const VPValue *Op2,
-                                                const Type *ScalarTy,
-                                                const unsigned VF) override {
-    return VPlanTTICostModel::getArithmeticInstructionCost(
-      Opcode, Op1, Op2, ScalarTy, VF);
-  }
   virtual unsigned getCost(const VPInstruction *VPInst);
   unsigned getCost(const VPBasicBlock *VPBB);
   // Return TTI contribution to the whole cost.
@@ -289,11 +276,17 @@ protected:
     return VPlanTTICostModel::getLoadStoreCost(VPInst, VF);
   }
 
-  // Temporal virtual methods to invoke apply facilities on HeuristicsPipeline.
+  // Temporal virtual methods to invoke apply facilities on
+  // HeuristicsPipelines on all levels.
   virtual void applyHeuristicsPipeline(
     unsigned TTICost, unsigned &Cost,
     const VPlanVector *Plan, raw_ostream *OS = nullptr) const {
     HeuristicsPipeline.apply(TTICost, Cost, Plan, OS);
+  }
+
+  virtual void applyHeuristicsPipeline(
+    unsigned TTICost, unsigned &Cost,
+    const VPInstruction *VPInst, raw_ostream *OS = nullptr) const {
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Temporal virtual methods to invoke dump facilities on HeuristicsPipeline.

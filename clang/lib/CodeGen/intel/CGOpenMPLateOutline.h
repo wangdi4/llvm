@@ -376,6 +376,7 @@ class OpenMPLateOutliner {
   std::set<const VarDecl *, VarCompareTy> VarRefs;
   llvm::DenseSet<const VarDecl *> FirstPrivateVars;
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
+  llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapFPrivates;
 
   std::vector<llvm::WeakTrackingVH> DefinedValues;
   std::vector<llvm::WeakTrackingVH> ReferencedValues;
@@ -403,6 +404,11 @@ public:
       PrivateScope.addPrivateNoTemps(MT.second, [A]() -> Address { return A; });
       if (MT.second->getType()->isReferenceType())
         CGF.addMappedRefTemp(MT.second);
+    }
+    for (auto FP : MapFPrivates) {
+      llvm::Value *V = FP.first;
+      Address A = Address(V, CGF.getContext().getDeclAlign(FP.second));
+      PrivateScope.addPrivateNoTemps(FP.second, [A]() -> Address { return A; });
     }
     PrivateScope.Privatize();
   }

@@ -1172,26 +1172,49 @@ DopeVectorAnalyzer::checkSubscriptStrideValues(const SubscriptInstSet
                                                     &SubscriptCalls) {
   SmallVector<SmallPtrSet<Value *, 4>, FortranMaxRank> StrideLoads;
 
-  // Function to check one subscript call, and recurse to checks subscript
-  // calls that use the result to verify the stride to the call is a member of
-  // \p StrideLoads.
+  // Function to check the stride value used in an instruction that is a
+  // subscript call or holds the result of a subscript call. This is to
+  // verify that the value used for the stride was identified as one of the
+  // expected values when information was collected for the dope vector.
+  //
+  // If the instruction is a subscript call, then verify that the value used for
+  // the stride operand is a member of the \p StrideLoads set. If the subscript
+  // call is not the final Dimension, then recurse to check the stride value
+  // for the next level subscript call.
+  // If the instruction is a PHINode or Select instruction that holds the result
+  // of a subscript call, then check all the users to find where the subscript
+  // result is used for next dimension.
   std::function<bool(const SmallVectorImpl<SmallPtrSet<Value *, 4>> &,
-                     const SubscriptInst &, uint32_t)>
-      CheckCall;
-  CheckCall = [&CheckCall](
-                  const SmallVectorImpl<SmallPtrSet<Value *, 4>> &StrideLoads,
-                  const SubscriptInst &Subs, uint32_t Rank) -> bool {
-    Value *StrideOp = Subs.getStride();
-    if (!StrideLoads[Rank].count(StrideOp))
-      return false;
-
-    if (Rank == 0)
+                     const Instruction &, uint32_t,
+                     SmallPtrSetImpl<const Instruction *> &)>
+      CheckCall =
+          [&CheckCall](
+              const SmallVectorImpl<SmallPtrSet<Value *, 4>> &StrideLoads,
+              const Instruction &I, uint32_t Dimension,
+              SmallPtrSetImpl<const Instruction *> &Visited) -> bool {
+    if (!Visited.insert(&I).second)
       return true;
 
-    for (auto *UU : Subs.users())
-      if (auto *Subs2 = dyn_cast<SubscriptInst>(UU))
-        if (!CheckCall(StrideLoads, *Subs2, Rank - 1))
+    if (auto *Subs = dyn_cast<SubscriptInst>(&I)) {
+      Value *StrideOp = Subs->getStride();
+      if (!StrideLoads[Dimension].count(StrideOp))
+        return false;
+
+      if (Dimension == 0)
+        return true;
+    }
+
+    for (auto *UU : I.users())
+      if (auto *Subs2 = dyn_cast<SubscriptInst>(UU)) {
+        if (!CheckCall(StrideLoads, *Subs2, Dimension - 1, Visited))
           return false;
+      } else if (isa<SelectInst>(UU) || isa<PHINode>(UU)) {
+        const Instruction *I2 = dyn_cast<Instruction>(UU);
+        if (!CheckCall(StrideLoads, *I2, Dimension, Visited))
+          return false;
+      } else {
+        return false;
+      }
 
     return true;
   };
@@ -1212,8 +1235,9 @@ DopeVectorAnalyzer::checkSubscriptStrideValues(const SubscriptInstSet
 
   // Check all the subscript calls to ensure the stride value comes from the
   // dope vector.
+  SmallPtrSet<const Instruction*, 16> Visited;
   for (auto *Subs : SubscriptCalls)
-    if (!CheckCall(StrideLoads, *Subs, getRank() - 1))
+    if (!CheckCall(StrideLoads, *Subs, getRank() - 1, Visited))
       return false;
 
   return true;

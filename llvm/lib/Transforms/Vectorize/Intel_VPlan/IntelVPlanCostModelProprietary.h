@@ -28,7 +28,7 @@ public:
                                      const DataLayout *DL,
                                      VPlanVLSAnalysis *VLSA = nullptr)
     : VPlanCostModel(Plan, VF, TTI, TLI, DL, VLSA),
-      HeuristicsPipeline(this) {
+      HeuristicsPipelinePlan(this), HeuristicsPipelineInst(this) {
     if (VLSA)
       VLSA->getOVLSMemrefs(Plan, VF);
   }
@@ -46,21 +46,30 @@ public:
   void applyHeuristicsPipeline(
     unsigned TTICost, unsigned &Cost,
     const VPlanVector *Plan, raw_ostream *OS = nullptr) const final {
-    HeuristicsPipeline.apply(TTICost, Cost, Plan, OS);
+    HeuristicsPipelinePlan.apply(TTICost, Cost, Plan, OS);
+  }
+
+  virtual void applyHeuristicsPipeline(
+    unsigned TTICost, unsigned &Cost,
+    const VPInstruction *VPInst, raw_ostream *OS = nullptr) const {
+    HeuristicsPipelineInst.apply(TTICost, Cost, VPInst, OS);
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Temporal virtual methods to invoke dump facilities on HeuristicsPipeline.
   void dumpHeuristicsPipeline(raw_ostream &OS,
                               const VPlanVector *Plan) const final {
-    HeuristicsPipeline.dump(OS, Plan);
+    HeuristicsPipelinePlan.dump(OS, Plan);
+    HeuristicsPipelineInst.dump(OS, Plan);
   }
   void dumpHeuristicsPipeline(raw_ostream &OS,
                               const VPBasicBlock *VPBB) const final {
-    HeuristicsPipeline.dump(OS, VPBB);
+    HeuristicsPipelinePlan.dump(OS, VPBB);
+    HeuristicsPipelineInst.dump(OS, VPBB);
   }
   void dumpHeuristicsPipeline(raw_ostream &OS,
                               const VPInstruction *VPInst) const final {
-    HeuristicsPipeline.dump(OS, VPInst);
+    HeuristicsPipelinePlan.dump(OS, VPInst);
+    HeuristicsPipelineInst.dump(OS, VPInst);
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 private:
@@ -84,14 +93,6 @@ private:
   };
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  // Consolidates proprietary code that gets the cost of one operand or two
-  // operands arithmetics instructions.
-  unsigned getArithmeticInstructionCost(const unsigned Opcode,
-                                        const VPValue *Op1,
-                                        const VPValue *Op2,
-                                        const Type *ScalarTy,
-                                        const unsigned VF) final;
-
   // ProcessedOVLSGroups holds the groups which Cost has already been taken into
   // account while traversing through VPlan during getCost().  This way we avoid
   // taking the same group price multiple times.
@@ -108,7 +109,11 @@ private:
     VPlanCostModelHeuristics::HeuristicSLP,
     VPlanCostModelHeuristics::HeuristicGatherScatter,
     VPlanCostModelHeuristics::HeuristicSpillFill,
-    VPlanCostModelHeuristics::HeuristicPsadbw> HeuristicsPipeline;
+    VPlanCostModelHeuristics::HeuristicPsadbw> HeuristicsPipelinePlan;
+
+  HeuristicsList<
+    const VPInstruction,
+    VPlanCostModelHeuristics::HeuristicSVMLIDivIRem> HeuristicsPipelineInst;
 };
 
 } // namespace vpo

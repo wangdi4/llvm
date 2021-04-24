@@ -1,6 +1,6 @@
 //===------- DtransPaddedMalloc.cpp - DTrans Padded Malloc -*------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -504,7 +504,8 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
 
     // Insert the conditional for the multiversioning
     Value *PMLimitVal = Builder.getInt32(getPaddedMallocLimit());
-    LoadInst *LoadGlobal = Builder.CreateLoad(GlobalCounter);
+    LoadInst *LoadGlobal =
+        Builder.CreateLoad(GlobalCounter->getValueType(), GlobalCounter);
     if (UseOpenMP) {
       LoadGlobal->setAtomic(AtomicOrdering::SequentiallyConsistent);
       LoadGlobal->setAlignment(Align(4));
@@ -822,7 +823,8 @@ void dtrans::PaddedMallocGlobals::buildInterfaceFunction(Module &M) {
 
   // Insert the conditional for testing
   Value *PMLimitVal = Builder.getInt32(getPaddedMallocLimit());
-  LoadInst *load = Builder.CreateLoad(GlobalCounter);
+  LoadInst *load =
+      Builder.CreateLoad(GlobalCounter->getValueType(), GlobalCounter);
   Value *Cmp = Builder.CreateICmpULT(load, PMLimitVal);
 
   Builder.CreateRet(Cmp);
@@ -896,7 +898,7 @@ bool dtrans::PaddedMallocGlobals::buildFuncBadCastValidation(
   Builder.SetInsertPoint(CheckBB);
   Value *GEP = Builder.CreateGEP(
       Arg, {ConstantInt::get(OffsetType, 0), Builder.getInt32(StructIndex)});
-  Value *Load = Builder.CreateLoad(GEP);
+  Value *Load = Builder.CreateLoad(ElemType, GEP);
   Value *IsNotNull = Builder.CreateIsNotNull(Load);
   Builder.CreateCondBr(IsNotNull, SetBB, EntryBB);
 

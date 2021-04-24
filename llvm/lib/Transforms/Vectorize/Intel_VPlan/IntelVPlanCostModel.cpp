@@ -810,9 +810,18 @@ std::string VPlanCostModel::getAttrString(const VPInstruction *VPInst) const {
 
 void VPlanCostModel::printForVPInstruction(
   raw_ostream &OS, const VPInstruction *VPInst) {
+  unsigned TTICost = VPlanTTICostModel::getTTICost(VPInst);
+  unsigned Cost = TTICost;
   OS << "  Cost " << getCostNumberString(getCost(VPInst)) << " for ";
   VPInst->printWithoutAnalyses(OS);
 
+  // Temporal solution is to reapply the heursitics pipeline with debug OS
+  // enabled.  Eventually we will call getCost() interface with OS specified
+  // and pass it to the heuristics pipeline.
+  //
+  // print() won't exist in that scheme.  Neither dumpHeuristicsPipeline will.
+  // Heuristics dump() methods will be invoked from CM::applyHeuristics method.
+  applyHeuristicsPipeline(TTICost, Cost, VPInst, &OS);
   dumpHeuristicsPipeline(OS, VPInst);
   OS << getAttrString(VPInst) << '\n';
 }

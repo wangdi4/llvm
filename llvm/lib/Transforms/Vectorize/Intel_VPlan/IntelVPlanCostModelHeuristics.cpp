@@ -65,15 +65,31 @@ HeuristicBase::HeuristicBase(VPlanTTICostModel *CM, std::string Name) :
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void HeuristicBase::printCostChange(raw_ostream *OS, unsigned RefCost,
                                     unsigned NewCost) const {
-  if (!OS || NewCost == UnknownCost)
+  if (!OS || NewCost == UnknownCost || NewCost == RefCost)
     return;
 
   if (NewCost > RefCost)
     *OS << "Extra cost due to " << getName() << " heuristic is "
         << NewCost - RefCost << '\n';
-  else if (RefCost > NewCost)
+  else
     *OS << "Cost decrease due to " << getName() << " heuristic is "
         << RefCost - NewCost << '\n';
+}
+
+void HeuristicBase::printCostChangeInline(raw_ostream *OS, unsigned RefCost,
+                                          unsigned NewCost) const {
+  if (!OS || NewCost == UnknownCost || NewCost == RefCost)
+    return;
+
+  // Expected output is:
+  //  *name*(+num)
+  // OR:
+  //  *name*(-num)
+  *OS << " *" << getName() << "*(";
+  if (NewCost > RefCost)
+    *OS << '+' << NewCost - RefCost << ')';
+  else
+    *OS << '-' << RefCost - NewCost << ')';
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -865,6 +881,93 @@ void HeuristicPsadbw::dump(raw_ostream &OS, const VPInstruction *VPInst) const {
     OS << " *PSADBW*";
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+void HeuristicSVMLIDivIRem::apply(
+  unsigned TTICost, unsigned &Cost,
+  const VPInstruction *VPInst, raw_ostream *OS) const {
+
+  if (VF == 1)
+    return;
+
+  unsigned Opcode = VPInst->getOpcode();
+
+  if (Opcode != Instruction::UDiv && Opcode != Instruction::SDiv &&
+      Opcode != Instruction::URem && Opcode != Instruction::SRem)
+    return;
+
+  // Special case for integer DIV/REM operation.
+  //
+  // Vector integer DIV/REM implemented through serialized scalar code
+  // for VF = 2, yelding slightly worse performance comparing to vanilla
+  // scalar code due to serialization overhead.
+  //
+  // For VF > 2 SVML functions are invoked: 8 elements function for int32 and
+  // 4 elements function for int64.
+  //
+  // For int32 SVML yelds ~2x better performance vs scalar version for its
+  // natural VF = 8 and for all VF greater than the natural VF.
+  //
+  // VF = 4 int32 implemented as masked VF = 8 case yelding 2x worse perfomance
+  // vs VF = 8.
+  //
+  // int64 VF = 1 implementation holds RT check for input data that can be
+  // divided using 32-bit DIV instruction giving 3.5x better performance.  For
+  // 64-bit input data scalar version is ~30% slower of vector version.  We
+  // make an assumption that in real applications half data fits 32-bit
+  // representation making scalar version of 64-bit DIV/REM (3.5 / 2) ~ 2x
+  // faster VS SVML version.
+  //
+  // Factor in those impirical data into multiplier of the scalar cost
+  // of DIV operation.  This is not modelled well by TTI.
+  //
+  // Don't mess with with 8-/16-bit input data type if it ever possible to get
+  // them here.
+  //
+  // TODO:
+  // OpenCL CPU RT uses an alternative version of SVML and the heuristic
+  // doesn't cover it.  OCL context can be checked with:
+  // M->getNamedMetadata("opencl.ocl.version") != nullptr, where M is Module.
+  // Currently CM doesn't have access to Module, neither we always have
+  // UnderyingValue valid for Op1.  Thereby as of now OCL context check is
+  // missed which is not an issue until VPlan becomes a part of OCL pipeline.
+  //
+  // TODO:
+  // The code below is a temporal code to WA this problem.  Eventually
+  // we want to have CG interface which would tells us what instructions
+  // [U|S]Div/Rem or any other VPIntruction is implemented with.
+
+  const Type *ScalarTy = VPInst->getType();
+  unsigned ElemSize = ScalarTy->getPrimitiveSizeInBits();
+  if (ElemSize != 32 && ElemSize != 64)
+    return;
+
+  unsigned ScalarCost = CM->getArithmeticInstructionCost(
+    Opcode, VPInst->getOperand(0), VPInst->getOperand(1), ScalarTy, /*VF*/ 1);
+
+  if (ScalarCost == UnknownCost)
+    return;
+
+  unsigned VectorCost;
+
+  if (ElemSize == 64)
+    VectorCost = ScalarCost * VF * 2;
+  else if (VF == 2)
+    VectorCost = ScalarCost * VF;
+  else if (VF == 4)
+    VectorCost = ScalarCost * 3;
+  else
+    VectorCost = ScalarCost * (VF / 2);
+
+  // For operations with constant in argument basic cost model gives better
+  // estimation, which we want to use instead of VectorCost.
+  unsigned NewCost = std::min(VectorCost, TTICost);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  printCostChangeInline(OS, Cost, NewCost);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  Cost = NewCost;
+}
 
 } // namespace VPlanCostModelHeuristics
 

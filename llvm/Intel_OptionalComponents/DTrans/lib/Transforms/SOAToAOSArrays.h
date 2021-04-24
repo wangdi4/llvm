@@ -1,6 +1,6 @@
 //===---------------- SOAToAOSArrays.h - Part of SOAToAOSPass -------------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -1540,7 +1540,15 @@ public:
       Builder.SetInsertPoint(NewLoad);
       auto *CopyLoad = Builder.CreateAlignedLoad(
           // Assumed all pointer types have same alignment.
-          NewPtr, NewLoad->getAlign(), false, "copy");
+          // TODO (opaque pointers): This code needs to be rewritten to create
+          // the load instructions earlier, similar to how
+          // earlyCloneElemStoreInst() handles store instructions to eliminate
+          // the call to getPointerElementType(). The type for the load cannot
+          // be easily determined here by looking at the existing LoadInst,
+          // 'NewLoad', because after processing the first element the type of
+          // 'NewLoad' is mutated to no longer match the pointer type.
+          NewPtr->getType()->getPointerElementType(), NewPtr,
+          NewLoad->getAlign(), false, "copy");
 
       if (auto *NewBC = dyn_cast<BitCastInst>(NewPtr)) {
         ProcessSafeBitCast(cast<LoadInst>(I)->getPointerOperand(), NewBC);
@@ -1562,9 +1570,18 @@ public:
       if (auto *NewLoad = dyn_cast<LoadInst>(NewI)) {
         auto *NewPtr = cast<Instruction>(NewLoad->getPointerOperand());
         Builder.SetInsertPoint(NewLoad);
+
+        // TODO (opaque pointers): This code needs to be rewritten to create
+        // the load instructions earlier, similar to how
+        // earlyCloneElemStoreInst() handles store instructions to eliminate
+        // the call to getPointerElementType(). The type for the load cannot
+        // be easily determined here by looking at the existing LoadInst,
+        // 'NewLoad', because after processing the first element the type of
+        // 'NewLoad' is mutated to no longer match the pointer type.
         auto *CopyLoad = Builder.CreateAlignedLoad(
             // Assumed all pointer types have same alignment.
-            NewPtr, NewLoad->getAlign(), false, "copy");
+            NewPtr->getType()->getPointerElementType(), NewPtr,
+            NewLoad->getAlign(), false, "copy");
         OrigToCopy[NewLoad] = CopyLoad;
         if (auto *NewBC = dyn_cast<BitCastInst>(NewPtr))
           ProcessSafeBitCast(cast<LoadInst>(I)->getPointerOperand(), NewBC);

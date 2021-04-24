@@ -1,5 +1,10 @@
 ## Check that we can reorder test runs.
 
+# INTEL_CUSTOMIZATION
+# Disabled temporarily till further investigation.
+# UNSUPPORTED: system-windows
+# end INTEL_CUSTOMIZATION
+
 # RUN: cp %{inputs}/reorder/.lit_test_times.txt %{inputs}/reorder/.lit_test_times.txt.orig
 # RUN: %{lit} -j1 %{inputs}/reorder > %t.out
 # RUN: cp %{inputs}/reorder/.lit_test_times.txt %{inputs}/reorder/.lit_test_times.txt.new
