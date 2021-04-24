@@ -223,19 +223,22 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
        (LT.second.getVectorElementType() == MVT::i32 && !ST->hasSSE41()) ||
        (LT.second.getVectorElementType() == MVT::i64 && !ST->hasDQI()))) {
     if (Opd2PropInfo == TargetTransformInfo::OP_PowerOf2) {
-      int Cost = getArithmeticInstrCost(Instruction::Shl, Ty, CostKind, Op1Info,
+      int Cost = *getArithmeticInstrCost(Instruction::Shl, Ty, CostKind, Op1Info,
                                         Op2Info, TargetTransformInfo::OP_None,
-                                        TargetTransformInfo::OP_None);
+                                        TargetTransformInfo::OP_None)
+                  .getValue();
       return Cost;
     }
     if (Opd2PropInfo == TargetTransformInfo::OP_PowerOf2_PlusMinus1) {
-      int Cost = getArithmeticInstrCost(Instruction::Shl, Ty, CostKind, Op1Info,
+      int Cost = *getArithmeticInstrCost(Instruction::Shl, Ty, CostKind, Op1Info,
                                         Op2Info, TargetTransformInfo::OP_None,
-                                        TargetTransformInfo::OP_None);
-      Cost += getArithmeticInstrCost(Instruction::Add, Ty, CostKind,
+                                        TargetTransformInfo::OP_None)
+                  .getValue();
+      Cost += *getArithmeticInstrCost(Instruction::Add, Ty, CostKind,
                                      TargetTransformInfo::OK_AnyValue,
                                      Op1Info, TargetTransformInfo::OP_None,
-                                     TargetTransformInfo::OP_None);
+                                     TargetTransformInfo::OP_None)
+               .getValue();
       return Cost;
     }
   }

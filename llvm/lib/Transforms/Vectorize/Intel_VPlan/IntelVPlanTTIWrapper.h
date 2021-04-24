@@ -78,8 +78,9 @@ public:
       ArrayRef<const Value *> Args = ArrayRef<const Value *>(),
       const Instruction *CxtI = nullptr) const {
     return Multiplier *
-           TTI.getArithmeticInstrCost(Opcode, Ty, CostKind, Opd1Info, Opd2Info,
-                                      Opd1PropInfo, Opd2PropInfo, Args, CxtI);
+           *TTI.getArithmeticInstrCost(Opcode, Ty, CostKind, Opd1Info, Opd2Info,
+                                      Opd1PropInfo, Opd2PropInfo, Args, CxtI)
+                .getValue();
   }
   int getShuffleCost(TargetTransformInfo::ShuffleKind Kind, VectorType *Tp,
                      int Index = 0, VectorType *SubTp = nullptr) const {
