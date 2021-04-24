@@ -136,13 +136,13 @@ public:
   void addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
                          llvm::opt::ArgStringList &CC1Args,
                          Action::OffloadKind DeviceOffloadKind) const override;
+  void AddImpliedTargetArgs(const llvm::Triple &Triple,
+                            const llvm::opt::ArgList &Args,
+                            llvm::opt::ArgStringList &CmdArgs) const;
 #if INTEL_CUSTOMIZATION
-  void AddImpliedTargetArgs( const llvm::Triple &Triple,
-      const clang::driver::Driver &Driver, const llvm::opt::ArgList &Args,
-      llvm::opt::ArgStringList &CmdArgs) const;
-  void TranslateBackendTargetArgs(const Action::OffloadKind DeviceOffloadKind,
+  void TranslateBackendTargetArgs(Action::OffloadKind DeviceOffloadKind,
       const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const;
-  void TranslateLinkerTargetArgs(const Action::OffloadKind DeviceOffloadKind,
+  void TranslateLinkerTargetArgs(Action::OffloadKind DeviceOffloadKind,
       const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const;
 #endif // INTEL_CUSTOMIZATION
 

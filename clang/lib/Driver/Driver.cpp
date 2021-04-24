@@ -1767,8 +1767,8 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
     const ToolChain *TC = SYCLTCRange.first->second;
     const toolchains::SYCLToolChain *SYCLTC =
         static_cast<const toolchains::SYCLToolChain *>(TC);
-    SYCLTC->TranslateBackendTargetArgs(Action::OFK_SYCL, // INTEL
-        *TranslatedArgs, TargetArgs); // INTEL
+    SYCLTC->TranslateBackendTargetArgs(Action::OFK_SYCL, *TranslatedArgs,
+                                       TargetArgs);
     for (StringRef ArgString : TargetArgs) {
       if (ArgString.equals("-hardware") || ArgString.equals("-simulation")) {
         setFPGAEmulationMode(false);

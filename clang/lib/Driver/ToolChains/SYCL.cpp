@@ -309,7 +309,6 @@ void SYCL::fpga::BackendCompiler::constructOpenCLAOTCommand(
   // will be compiled to an aocx file.
   InputInfoList ForeachInputs;
   InputInfoList FPGADepFiles;
-  StringRef CreatedReportName;
   ArgStringList CmdArgs{"-device=fpga_fast_emu"};
 
   for (const auto &II : Inputs) {
@@ -331,17 +330,15 @@ void SYCL::fpga::BackendCompiler::constructOpenCLAOTCommand(
       ForeachExt = "aocr";
 
   // Add any implied arguments before user defined arguments.
+  Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind()); // INTEL
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
   llvm::Triple CPUTriple("spir64_x86_64");
-#if INTEL_CUSTOMIZATION
-  TC.AddImpliedTargetArgs(CPUTriple, getToolChain().getDriver(),
-     Args, CmdArgs);
+  TC.AddImpliedTargetArgs(CPUTriple, Args, CmdArgs);
   // Add the target args passed in
-  Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind());
-  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs);
-  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs);
-#endif // INTEL_CUSTOMIZATION
+  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
+  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
+
   SmallString<128> ExecPath(
       getToolChain().GetProgramPath(makeExeName(C, "opencl-aot")));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
@@ -363,11 +360,11 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
          "Unsupported target");
 
   // Grab the -Xsycl-target* options.
+  Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind()); // INTEL
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
   ArgStringList TargetArgs;
-  Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind()); // INTEL
-  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, TargetArgs); // INTEL
+  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, TargetArgs);
 
   // When performing emulation compilations for FPGA AOT, we want to use
   // opencl-aot instead of aoc.
@@ -484,14 +481,12 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
         Twine("-output-report-folder=") + ReportOptArg));
 
   // Add any implied arguments before user defined arguments.
-#if INTEL_CUSTOMIZATION
-  TC.AddImpliedTargetArgs(getToolChain().getTriple(),
-                          getToolChain().getDriver(), Args, CmdArgs);
+  TC.AddImpliedTargetArgs(getToolChain().getTriple(), Args, CmdArgs);
 
   // Add -Xsycl-target* options.
-  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs);
-  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs);
-#endif // INTEL_CUSTOMIZATION
+  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
+  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
+
   // Look for -reuse-exe=XX option
   if (Arg *A = Args.getLastArg(options::OPT_reuse_exe_EQ)) {
     Args.ClaimAllArgs(options::OPT_reuse_exe_EQ);
@@ -535,12 +530,10 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind()); // INTEL
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
-#if INTEL_CUSTOMIZATION
-  TC.AddImpliedTargetArgs(getToolChain().getTriple(),
-                          getToolChain().getDriver(), Args, CmdArgs);
-  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs);
-  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs);
-#endif // INTEL_CUSTOMIZATION
+
+  TC.AddImpliedTargetArgs(getToolChain().getTriple(), Args, CmdArgs);
+  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
+  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
   SmallString<128> ExecPath(
       getToolChain().GetProgramPath(makeExeName(C, "ocloc")));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
@@ -572,12 +565,9 @@ void SYCL::x86_64::BackendCompiler::ConstructJob(
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
 
-#if INTEL_CUSTOMIZATION
-  TC.AddImpliedTargetArgs(getToolChain().getTriple(),
-                          getToolChain().getDriver(), Args, CmdArgs);
-  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs);
-  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs);
-#endif // INTEL_CUSTOMIZATION
+  TC.AddImpliedTargetArgs(getToolChain().getTriple(), Args, CmdArgs);
+  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
+  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
   SmallString<128> ExecPath(
       getToolChain().GetProgramPath(makeExeName(C, "opencl-aot")));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
@@ -698,8 +688,7 @@ void SYCLToolChain::TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
 }
 
 void SYCLToolChain::AddImpliedTargetArgs(
-    const llvm::Triple &Triple, const clang::driver::Driver &Driver, // INTEL
-    const llvm::opt::ArgList &Args,                                  // INTEL
+    const llvm::Triple &Triple, const llvm::opt::ArgList &Args,
     llvm::opt::ArgStringList &CmdArgs) const {
   // Current implied args are for debug information and disabling of
   // optimizations.  They are passed along to the respective areas as follows:

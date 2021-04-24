@@ -8787,8 +8787,8 @@ static void addRunTimeWrapperOpts(Compilation &C,
   if (SYCLTC.getTriple().getSubArch() == llvm::Triple::NoSubArch) {
     // Only store compile/link opts in the image descriptor for the SPIR-V
     // target; AOT compilation has already been performed otherwise.
-    SYCLTC.AddImpliedTargetArgs(SYCLTC.getTriple(), C.getDriver(), TCArgs,
-                                BuildArgs);
+    //Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind());
+    SYCLTC.AddImpliedTargetArgs(SYCLTC.getTriple(), TCArgs, BuildArgs);
     SYCLTC.TranslateBackendTargetArgs(DeviceOffloadKind, TCArgs, BuildArgs);
     createArgString("-compile-opts=");
     BuildArgs.clear();
@@ -8852,47 +8852,6 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     }
     addRunTimeWrapperOpts(C, OffloadingKind, TCArgs, WrapperArgs,
                           getToolChain()); // INTEL
-    // Grab any Target specific options that need to be added to the wrapper
-    // information.
-    ArgStringList BuildArgs;
-    auto createArgString = [&](const char *Opt) {
-      if (BuildArgs.empty())
-        return;
-      SmallString<128> AL;
-      for (const char *A : BuildArgs) {
-        if (AL.empty()) {
-          AL = A;
-          continue;
-        }
-        AL += " ";
-        AL += A;
-      }
-      WrapperArgs.push_back(C.getArgs().MakeArgString(Twine(Opt) + AL));
-    };
-    const toolchains::SYCLToolChain &TC =
-              static_cast<const toolchains::SYCLToolChain &>(getToolChain());
-    // TODO: Consider separating the mechanisms for:
-    // - passing standard-defined options to AOT/JIT compilation steps;
-    // - passing AOT-compiler specific options.
-    // This would allow retaining standard language options in the
-    // image descriptor, while excluding tool-specific options that
-    // have been known to confuse RT implementations.
-    if (TC.getTriple().getSubArch() == llvm::Triple::NoSubArch) {
-      // Only store compile/link opts in the image descriptor for the SPIR-V
-      // target; AOT compilation has already been performed otherwise.
-#if INTEL_CUSTOMIZATION
-      TC.AddImpliedTargetArgs(TT, getToolChain().getDriver(),
-         TCArgs, BuildArgs);
-      Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind());
-      TC.TranslateBackendTargetArgs(DeviceOffloadKind, TCArgs, BuildArgs);
-#endif // INTEL_CUSTOMIZATION
-      createArgString("-compile-opts=");
-      BuildArgs.clear();
-#if INTEL_CUSTOMIZATION
-      TC.TranslateLinkerTargetArgs(DeviceOffloadKind, TCArgs, BuildArgs);
-#endif // INTEL_CUSTOMIZATION
-      createArgString("-link-opts=");
-    }
 
     WrapperArgs.push_back(
         C.getArgs().MakeArgString(Twine("-target=") + TargetTripleOpt));
