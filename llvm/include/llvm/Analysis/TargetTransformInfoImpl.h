@@ -501,9 +501,9 @@ public:
     return 1;
   }
 
-  unsigned getShuffleCost(TTI::ShuffleKind Kind, VectorType *Ty,
-                          ArrayRef<int> Mask, int Index,
-                          VectorType *SubTp) const {
+  InstructionCost getShuffleCost(TTI::ShuffleKind Kind, VectorType *Ty,
+                                 ArrayRef<int> Mask, int Index,
+                                 VectorType *SubTp) const {
     return 1;
   }
 

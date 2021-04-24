@@ -83,7 +83,9 @@ public:
   }
   int getShuffleCost(TargetTransformInfo::ShuffleKind Kind, VectorType *Tp,
                      int Index = 0, VectorType *SubTp = nullptr) const {
-    return Multiplier * TTI.getShuffleCost(Kind, Tp, llvm::None, Index, SubTp);
+    return Multiplier *
+           *TTI.getShuffleCost(Kind, Tp, llvm::None, Index, SubTp)
+                .getValue();
   }
   int getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
                        TTI::CastContextHint CCH,

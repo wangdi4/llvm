@@ -116,9 +116,9 @@ bool MemInstGroup::isCoalescingLoadsProfitable(
 
     if (VectorType *GroupMemVecType = dyn_cast<VectorType>(GroupMemType))
       ShuffleCost +=
-          TTI->getShuffleCost(TargetTransformInfo::SK_ExtractSubvector, GroupTy,
+          *TTI->getShuffleCost(TargetTransformInfo::SK_ExtractSubvector, GroupTy,
                               llvm::None, CoalescedLoadScalarOffset,
-                              GroupMemVecType);
+                              GroupMemVecType).getValue();
     else
       ShuffleCost += TTI->getVectorInstrCost(
           Instruction::ExtractElement, GroupTy, CoalescedLoadScalarOffset);
