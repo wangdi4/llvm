@@ -120,8 +120,9 @@ bool MemInstGroup::isCoalescingLoadsProfitable(
                               llvm::None, CoalescedLoadScalarOffset,
                               GroupMemVecType).getValue();
     else
-      ShuffleCost += TTI->getVectorInstrCost(
-          Instruction::ExtractElement, GroupTy, CoalescedLoadScalarOffset);
+      ShuffleCost +=
+          *TTI->getVectorInstrCost(Instruction::ExtractElement, GroupTy,
+                                   CoalescedLoadScalarOffset).getValue();
 
     CostBeforeCoalescing +=
         *TTI->getMemoryOpCost(MemberI->getOpcode(), GroupMemType,

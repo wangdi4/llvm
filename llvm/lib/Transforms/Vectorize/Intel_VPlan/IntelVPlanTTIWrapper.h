@@ -106,7 +106,7 @@ public:
 
   int getVectorInstrCost(unsigned Opcode, Type *Val,
                          unsigned Index = -1) const {
-    return Multiplier * TTI.getVectorInstrCost(Opcode, Val, Index);
+    return Multiplier * *TTI.getVectorInstrCost(Opcode, Val, Index).getValue();
   }
   int getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                       unsigned AddressSpace,
