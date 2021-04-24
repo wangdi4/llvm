@@ -4664,6 +4664,13 @@ int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *SrcVTy,
                            MaybeAlign(Alignment), AddressSpace, CostKind);
 
   InstructionCost InsertExtractCost = 0;
+#if INTEL_CUSTOMIZATION
+  // The cost to extract bases from the Ptr vector.
+  for (unsigned i = 0; i < VF; ++i)
+    InsertExtractCost +=
+        getVectorInstrCost(Instruction::ExtractElement, PtrTy, i);
+#endif // INTEL_CUSTOMIZATION
+
   if (Opcode == Instruction::Load)
     for (unsigned i = 0; i < VF; ++i)
       // Add the cost of inserting each scalar load into the vector
