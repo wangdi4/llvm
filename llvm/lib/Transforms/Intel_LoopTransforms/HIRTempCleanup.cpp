@@ -401,6 +401,13 @@ bool TempInfo::movedUseBeforeRvalDef(HLDDNode *UseNode) {
     }
   }
 
+  // It is possible that UseInst was already moved before RvalDefInst
+  // while processing another use of temp in UseInst.
+  // If so, we can trivially return true here.
+  if (UseInst->getTopSortNum() < RvalDefInst->getTopSortNum()) {
+    return true;
+  }
+
   auto &BU = UseInst->getBlobUtils();
   auto *UseLvalRef = UseInst->getLvalDDRef();
 
