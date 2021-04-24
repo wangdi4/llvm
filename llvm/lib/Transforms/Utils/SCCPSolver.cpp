@@ -1297,7 +1297,7 @@ void SCCPInstVisitor::handleCallArguments(CallBase &CB) {
     // the formal arguments of the function.
     if (!TrackingIncomingArguments.empty() &&
         TrackingIncomingArguments.count(F)) {
-      MarkBlockExecutable(&F->front());
+      markBlockExecutable(&F->front());
 
       // Propagate information from this call site into the callee.
       for (Argument &A : F->args()) {

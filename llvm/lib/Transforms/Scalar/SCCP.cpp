@@ -464,7 +464,7 @@ bool llvm::runIPSCCP(
     // Determine if we can track the function's arguments. If so, add the
     // function to the solver's set of argument-tracked functions.
     if (canTrackArgumentsInterprocedurally(&F, EnableCallbacks)) { // INTEL
-      Solver.AddArgumentTrackedFunction(&F);
+      Solver.addArgumentTrackedFunction(&F);
       continue;
     }
 
