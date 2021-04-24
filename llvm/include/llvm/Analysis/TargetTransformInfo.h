@@ -1136,9 +1136,10 @@ public:
 
   /// \return The expected cost of control-flow related instructions such as
   /// Phi, Ret, Br, Switch.
-  int getCFInstrCost(unsigned Opcode,
-                     TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
-                     const Instruction *I = nullptr) const;
+  InstructionCost
+  getCFInstrCost(unsigned Opcode,
+                 TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
+                 const Instruction *I = nullptr) const;
 
   /// \returns The expected cost of compare and select instructions. If there
   /// is an existing instruction that holds Opcode, it may be passed in the
@@ -1253,8 +1254,9 @@ public:
                                         TTI::TargetCostKind CostKind) const;
 
   /// \returns The cost of Call instructions.
-  int getCallInstrCost(Function *F, Type *RetTy, ArrayRef<Type *> Tys,
-                 TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency) const;
+  InstructionCost getCallInstrCost(
+      Function *F, Type *RetTy, ArrayRef<Type *> Tys,
+      TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency) const;
 
   /// \returns The number of pieces into which the provided type must be
   /// split during legalization. Zero is returned when the answer is unknown.
@@ -1687,8 +1689,9 @@ public:
   virtual InstructionCost getExtractWithExtendCost(unsigned Opcode, Type *Dst,
                                                    VectorType *VecTy,
                                                    unsigned Index) = 0;
-  virtual int getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind,
-                             const Instruction *I = nullptr) = 0;
+  virtual InstructionCost getCFInstrCost(unsigned Opcode,
+                                         TTI::TargetCostKind CostKind,
+                                         const Instruction *I = nullptr) = 0;
   virtual InstructionCost getCmpSelInstrCost(unsigned Opcode, Type *ValTy,
                                              Type *CondTy,
                                              CmpInst::Predicate VecPred,
@@ -1737,9 +1740,9 @@ public:
   virtual InstructionCost
   getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
                         TTI::TargetCostKind CostKind) = 0;
-  virtual int getCallInstrCost(Function *F, Type *RetTy,
-                               ArrayRef<Type *> Tys,
-                               TTI::TargetCostKind CostKind) = 0;
+  virtual InstructionCost getCallInstrCost(Function *F, Type *RetTy,
+                                           ArrayRef<Type *> Tys,
+                                           TTI::TargetCostKind CostKind) = 0;
   virtual unsigned getNumberOfParts(Type *Tp) = 0;
   virtual int getAddressComputationCost(Type *Ty, ScalarEvolution *SE,
                                         const SCEV *Ptr) = 0;
@@ -2217,8 +2220,8 @@ public:
                                            unsigned Index) override {
     return Impl.getExtractWithExtendCost(Opcode, Dst, VecTy, Index);
   }
-  int getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind,
-                     const Instruction *I = nullptr) override {
+  InstructionCost getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind,
+                                 const Instruction *I = nullptr) override {
     return Impl.getCFInstrCost(Opcode, CostKind, I);
   }
   InstructionCost getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
@@ -2295,9 +2298,9 @@ public:
                                         TTI::TargetCostKind CostKind) override {
     return Impl.getIntrinsicInstrCost(ICA, CostKind);
   }
-  int getCallInstrCost(Function *F, Type *RetTy,
-                       ArrayRef<Type *> Tys,
-                       TTI::TargetCostKind CostKind) override {
+  InstructionCost getCallInstrCost(Function *F, Type *RetTy,
+                                   ArrayRef<Type *> Tys,
+                                   TTI::TargetCostKind CostKind) override {
     return Impl.getCallInstrCost(F, RetTy, Tys, CostKind);
   }
   unsigned getNumberOfParts(Type *Tp) override {
