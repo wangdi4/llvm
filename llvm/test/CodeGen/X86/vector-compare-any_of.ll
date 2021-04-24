@@ -1045,7 +1045,7 @@ define i1 @bool_reduction_v16i8(<16 x i8> %x, <16 x i8> %y) {
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    vpcmpgtb %xmm1, %xmm0, %xmm0 ;INTEL
 ; AVX512-NEXT:    vpmovmskb %xmm0, %eax ;INTEL
-; AVX512-NEXT:    testw %ax, %ax ;INTEL
+; AVX512-NEXT:    testl %eax, %eax ;INTEL
 ; AVX512-NEXT:    setne %al
 ; AVX512-NEXT:    retq
   %a = icmp sgt <16 x i8> %x, %y

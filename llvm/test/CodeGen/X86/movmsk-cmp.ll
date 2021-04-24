@@ -1179,14 +1179,6 @@ define i1 @allzeros_v16i8_and1(<16 x i8> %arg) {
 ; SSE-NEXT:    sete %al
 ; SSE-NEXT:    retq
 ;
-; AVX-LABEL: allzeros_v16i8_and1: ;INTEL
-; AVX:       # %bb.0: ;INTEL
-; AVX-NEXT:    vpsllw $7, %xmm0, %xmm0 ;INTEL
-; AVX-NEXT:    vpmovmskb %xmm0, %eax ;INTEL
-; AVX-NEXT:    testl %eax, %eax ;INTEL
-; AVX-NEXT:    sete %al ;INTEL
-; AVX-NEXT:    retq ;INTEL
-;
 ; AVX1OR2-LABEL: allzeros_v16i8_and1:
 ; AVX1OR2:       # %bb.0:
 ; AVX1OR2-NEXT:    vpsllw $7, %xmm0, %xmm0
@@ -1205,8 +1197,9 @@ define i1 @allzeros_v16i8_and1(<16 x i8> %arg) {
 ;
 ; SKX-LABEL: allzeros_v16i8_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmb {{.*}}(%rip), %xmm0, %k0
-; SKX-NEXT:    kortestw %k0, %k0
+; SKX-NEXT:    vpsllw $7, %xmm0, %xmm0 ;INTEL
+; SKX-NEXT:    vpmovmskb %xmm0, %eax ;INTEL
+; SKX-NEXT:    testl %eax, %eax ;INTEL
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    retq
   %tmp = and <16 x i8> %arg, <i8 1, i8 1, i8 1, i8 1, i8 1, i8 1, i8 1, i8 1, i8 1, i8 1, i8 1, i8 1, i8 1, i8 1, i8 1, i8 1>
@@ -2474,14 +2467,6 @@ define i1 @allzeros_v16i8_and4(<16 x i8> %arg) {
 ; SSE-NEXT:    sete %al
 ; SSE-NEXT:    retq
 ;
-; AVX-LABEL: allzeros_v16i8_and4: ;INTEL
-; AVX:       # %bb.0: ;INTEL
-; AVX-NEXT:    vpsllw $5, %xmm0, %xmm0 ;INTEL
-; AVX-NEXT:    vpmovmskb %xmm0, %eax ;INTEL
-; AVX-NEXT:    testl %eax, %eax ;INTEL
-; AVX-NEXT:    sete %al ;INTEL
-; AVX-NEXT:    retq ;INTEL
-;
 ; AVX1OR2-LABEL: allzeros_v16i8_and4:
 ; AVX1OR2:       # %bb.0:
 ; AVX1OR2-NEXT:    vpsllw $5, %xmm0, %xmm0
@@ -2500,8 +2485,9 @@ define i1 @allzeros_v16i8_and4(<16 x i8> %arg) {
 ;
 ; SKX-LABEL: allzeros_v16i8_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmb {{.*}}(%rip), %xmm0, %k0
-; SKX-NEXT:    kortestw %k0, %k0
+; SKX-NEXT:    vpsllw $5, %xmm0, %xmm0 ;INTEL
+; SKX-NEXT:    vpmovmskb %xmm0, %eax ;INTEL
+; SKX-NEXT:    testl %eax, %eax ;INTEL
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    retq
   %tmp = and <16 x i8> %arg, <i8 4, i8 4, i8 4, i8 4, i8 4, i8 4, i8 4, i8 4, i8 4, i8 4, i8 4, i8 4, i8 4, i8 4, i8 4, i8 4>
