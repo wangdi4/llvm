@@ -1,28 +1,35 @@
 # Lowering of SYCL ESIMD kernels depends on vc-intrinsics
 # NOTE: could have been added earlier from llvm/projects
 if (NOT TARGET LLVMGenXIntrinsics)
+  if( INTEL_CUSTOMIZATION )
+    set( IS_INTERNAL_ESIMD_BUILD FALSE )
+# INTEL_FEATURE_ESIMD_EMBARGO
+    is_intel_feature_enabled(IS_INTERNAL_ESIMD_BUILD ${LLVM_INTELFEATURE_PREFIX}_ESIMD_EMBARGO)
+
+    if( IS_INTERNAL_ESIMD_BUILD )
+      add_compile_definitions(__INTEL_EMBARGO__)
+      # LLVM_CMAKE_DIR is required by the internal vc-intrinsics repo, but is
+      # not set for non-standalone builds. Use LLVM_CMAKE_PATH instead.
+      if (NOT LLVM_CMAKE_DIR)
+        set(LLVM_CMAKE_DIR ${LLVM_CMAKE_PATH})
+      endif()
+    endif()
+# end INTEL_FEATURE_ESIMD_EMBARGO
+  endif()
+
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
 
     set(LLVMGenXIntrinsics_GIT_TAG b831d10e49e1fb8fcd92b5b50e2cdc8f9cb6277b)
 
     if( INTEL_CUSTOMIZATION )
-      set( IS_INTERNAL_ESIMD_BUILD FALSE )
-# INTEL_FEATURE_ESIMD_EMBARGO
-      # TODO the following line is commented out to w/a CMPLRLLVM-27163 -
-      # this reverts xisa build to use public vc-intrinsics repo. This will
-      # make ESIMD tests using PVC features fail for now.
-      #is_intel_feature_enabled(IS_INTERNAL_ESIMD_BUILD ${LLVM_INTELFEATURE_PREFIX}_ESIMD_EMBARGO)
-# end INTEL_FEATURE_ESIMD_EMBARGO
-
       set( LLVMGenXIntrinsics_GIT_REPO_PATH ssh://git-amr-2.devtools.intel.com:29418 )
       set( LLVMGenXIntrinsics_GIT_REPO_NAME dpd_icl-vc-intrinsics.git )
 
 # INTEL_FEATURE_ESIMD_EMBARGO
       if( IS_INTERNAL_ESIMD_BUILD )
         # use different git repo and tag for the internal ESIMD EMBARGO build
-        add_compile_definitions(__INTEL_EMBARGO__)
         set( LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git )
-        set( LLVMGenXIntrinsics_GIT_TAG 4dec1a45eaa935adbb0a60fae99344e27c2c7b24 )
+        set( LLVMGenXIntrinsics_GIT_TAG b0cf256acb08d8c59cd0d49f12173540c63084bc )
       endif()
 # end INTEL_FEATURE_ESIMD_EMBARGO
 
