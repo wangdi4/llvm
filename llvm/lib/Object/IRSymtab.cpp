@@ -31,6 +31,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h" // INTEL
 #include "llvm/Support/Error.h"
+#include "llvm/Support/Path.h" // INTEL
 #include "llvm/Support/StringSaver.h"
 #include "llvm/Support/VCSRevision.h"
 #include "llvm/Support/raw_ostream.h"

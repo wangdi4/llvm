@@ -22,6 +22,7 @@
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Type.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "VectorVariant"

@@ -48,6 +48,7 @@
 #include "llvm/Support/LineIterator.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Path.h" // INTEL
 #if INTEL_COLLAB
 #include "llvm/Support/Program.h"
 #endif // INTEL_COLLAB
