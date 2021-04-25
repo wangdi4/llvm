@@ -28,9 +28,10 @@ namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
-OptimizerLTOLegacyPM::OptimizerLTOLegacyPM(Module *M,
-                                           const intel::OptimizerConfig *Config)
-    : Optimizer(M), Config(Config), FPM(M) {
+OptimizerLTOLegacyPM::OptimizerLTOLegacyPM(
+    Module *M, llvm::SmallVector<llvm::Module *, 2> &RtlModuleList,
+    const intel::OptimizerConfig *Config)
+    : Optimizer(M, RtlModuleList, Config), FPM(M) {
   CreatePasses();
 }
 
@@ -116,7 +117,7 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
     PassManagerBuilder &PMBuilder) {
   PMBuilder.addExtension(
       PassManagerBuilder::EP_OptimizerLast,
-      [](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
+      [&](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
         MPM.add(createDPCPPKernelPostVecPass());
         MPM.add(createVPODirectiveCleanupPass());
         MPM.add(createInstructionCombiningPass());
@@ -137,6 +138,7 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
         MPM.add(createCFGSimplificationPass());
         MPM.add(createAddImplicitArgsLegacyPass());
         MPM.add(createResolveWICallLegacyPass(false, false));
+        MPM.add(createBuiltinImportLegacyPass(m_RtlModules, CPUPrefix));
         MPM.add(createPrepareKernelArgsLegacyPass(false));
       });
 }
@@ -156,6 +158,7 @@ void OptimizerLTOLegacyPM::registerLastPasses() {
     // Barrier passes end.
     MPM.add(createAddImplicitArgsLegacyPass());
     MPM.add(createResolveWICallLegacyPass(false, false));
+    MPM.add(createBuiltinImportLegacyPass(m_RtlModules, CPUPrefix));
     MPM.add(createPrepareKernelArgsLegacyPass(false));
   }
 

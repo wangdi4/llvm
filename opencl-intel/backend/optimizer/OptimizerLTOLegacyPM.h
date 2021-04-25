@@ -25,7 +25,9 @@ namespace DeviceBackend {
  */
 class OptimizerLTOLegacyPM : public Optimizer {
 public:
-  OptimizerLTOLegacyPM(llvm::Module *M, const intel::OptimizerConfig *Config);
+  OptimizerLTOLegacyPM(llvm::Module *M,
+                       llvm::SmallVector<llvm::Module *, 2> &RtlModules,
+                       const intel::OptimizerConfig *Config);
 
   ~OptimizerLTOLegacyPM();
 
@@ -47,8 +49,6 @@ private:
 
   /// Register passes that run at the end of pipeline.
   void registerLastPasses();
-
-  const intel::OptimizerConfig *Config;
 
   std::unique_ptr<llvm::TargetLibraryInfoImpl> TLII;
 

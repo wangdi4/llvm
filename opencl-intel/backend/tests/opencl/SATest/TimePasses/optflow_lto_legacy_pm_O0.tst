@@ -2,6 +2,7 @@
 ; RUN: FileCheck %s --input-file=%t2
 
 ; CHECK-DAG: AddImplicitArgsLegacy
+; CHECK-DAG: BuiltinImportLegacy
 ; CHECK-DAG: DPCPPEqualizerLegacy
 ; CHECK-DAG: DPCPPKernelAnalysisLegacy
 ; CHECK-DAG: ImplicitArgsAnalysisLegacy

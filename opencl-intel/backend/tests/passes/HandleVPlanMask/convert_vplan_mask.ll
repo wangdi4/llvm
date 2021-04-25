@@ -1,3 +1,4 @@
+; RUN: %oclopt  --convert-vplan-mask  < %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt  --convert-vplan-mask  < %s -S -o - | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -147,3 +148,5 @@ attributes #7 = { convergent nounwind "call-params-num"="1" "kernel-call-once" "
 !15 = !{i1 true}
 !16 = !{null}
 !17 = !{i32 4}
+
+; DEBUGIFY-NOT: WARNING

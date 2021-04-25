@@ -26,7 +26,9 @@ namespace DeviceBackend {
  */
 class OptimizerLTO : public Optimizer {
 public:
-  OptimizerLTO(llvm::Module *M, const intel::OptimizerConfig *Config);
+  OptimizerLTO(llvm::Module *M,
+               llvm::SmallVector<llvm::Module *, 2> &RtlModules,
+               const intel::OptimizerConfig *Config);
 
   ~OptimizerLTO();
 
@@ -42,8 +44,6 @@ private:
 
   /// Register a callback to the very end of the function optimization pipeline.
   void registerOptimizerLastCallback(PassBuilder &PB);
-
-  const intel::OptimizerConfig *Config;
 
   bool DebugPassManager;
 

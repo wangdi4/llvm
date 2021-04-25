@@ -1,3 +1,4 @@
+; RUN: %oclopt -sg-loop-construct -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -sg-loop-construct -S %s | FileCheck %s
 
 ; This test checks SGLoopConstruct::updateMetadata()
@@ -50,3 +51,5 @@ declare <16 x i32> @_Z13sub_group_allDv16_iDv16_j(<16 x i32>, <16 x i32>)
 !2 = !{i32 16}
 ; CHECK-DAG: ![[#VW]] = !{i32 16}
 ; CHECK-DAG: ![[#VD]] = !{i32 0}
+
+; DEBUGIFY-NOT: WARNING

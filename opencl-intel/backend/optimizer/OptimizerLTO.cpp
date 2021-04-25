@@ -22,6 +22,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddImplicitArgs.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierInFunctionPass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierPass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinImport.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/CleanupWrappedKernel.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPEqualizer.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelAnalysis.h"
@@ -39,8 +40,10 @@ namespace Intel {
 namespace OpenCL {
 namespace DeviceBackend {
 
-OptimizerLTO::OptimizerLTO(Module *M, const intel::OptimizerConfig *Config)
-    : Optimizer(M), Config(Config), DebugPassManager(false) {}
+OptimizerLTO::OptimizerLTO(Module *M,
+                           llvm::SmallVector<llvm::Module *, 2> &RtlModuleList,
+                           const intel::OptimizerConfig *Config)
+    : Optimizer(M, RtlModuleList, Config), DebugPassManager(false) {}
 
 OptimizerLTO::~OptimizerLTO() {}
 
@@ -114,8 +117,8 @@ void OptimizerLTO::registerVectorizerStartCallback(PassBuilder &PB) {
 }
 
 void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
-  PB.registerOptimizerLastEPCallback([](ModulePassManager &MPM,
-                                        PassBuilder::OptimizationLevel Level) {
+  PB.registerOptimizerLastEPCallback([&](ModulePassManager &MPM,
+                                         PassBuilder::OptimizationLevel Level) {
     MPM.addPass(DPCPPKernelWGLoopCreatorPass());
     // Barrier passes begin.
     MPM.addPass(createModuleToFunctionPassAdaptor(PhiCanonicalization()));
@@ -126,6 +129,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     // Barrier passes end.
     MPM.addPass(AddImplicitArgsPass());
     MPM.addPass(ResolveWICallPass());
+    MPM.addPass(BuiltinImportPass(m_RtlModules, CPUPrefix));
     MPM.addPass(PrepareKernelArgsPass());
   });
 }
