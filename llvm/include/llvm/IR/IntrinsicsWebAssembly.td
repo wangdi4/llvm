@@ -157,17 +157,6 @@ def int_wasm_narrow_unsigned :
             [llvm_anyvector_ty, LLVMMatchType<1>],
             [IntrNoMem, IntrSpeculatable]>;
 
-// TODO: Replace these intrinsics with normal ISel patterns once i32x4 to i64x2
-// extending is merged to the proposal.
-def int_wasm_extend_low_signed :
-  Intrinsic<[llvm_v2i64_ty], [llvm_v4i32_ty], [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_extend_high_signed :
-  Intrinsic<[llvm_v2i64_ty], [llvm_v4i32_ty], [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_extend_low_unsigned :
-  Intrinsic<[llvm_v2i64_ty], [llvm_v4i32_ty], [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_extend_high_unsigned :
-  Intrinsic<[llvm_v2i64_ty], [llvm_v4i32_ty], [IntrNoMem, IntrSpeculatable]>;
-
 def int_wasm_q15mulr_sat_signed :
   Intrinsic<[llvm_v8i16_ty],
             [llvm_v8i16_ty, llvm_v8i16_ty],
@@ -275,12 +264,6 @@ def int_wasm_extadd_pairwise_unsigned :
             [IntrNoMem, IntrSpeculatable]>;
 
 // TODO: Remove these if possible if they are merged to the spec.
-def int_wasm_convert_low_signed :
-  Intrinsic<[llvm_v2f64_ty], [llvm_v4i32_ty],
-            [IntrNoMem, IntrSpeculatable]>;
-def int_wasm_convert_low_unsigned :
-  Intrinsic<[llvm_v2f64_ty], [llvm_v4i32_ty],
-            [IntrNoMem, IntrSpeculatable]>;
 def int_wasm_trunc_sat_zero_signed :
   Intrinsic<[llvm_v4i32_ty], [llvm_v2f64_ty],
             [IntrNoMem, IntrSpeculatable]>;
