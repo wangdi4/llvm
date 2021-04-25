@@ -49,9 +49,9 @@ public:
     HeuristicsPipelinePlan.apply(TTICost, Cost, Plan, OS);
   }
 
-  virtual void applyHeuristicsPipeline(
+  void applyHeuristicsPipeline(
     unsigned TTICost, unsigned &Cost,
-    const VPInstruction *VPInst, raw_ostream *OS = nullptr) const {
+    const VPInstruction *VPInst, raw_ostream *OS = nullptr) const final {
     HeuristicsPipelineInst.apply(TTICost, Cost, VPInst, OS);
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
