@@ -149,7 +149,7 @@ public:
     IRB.CreateCall(FI, Ptr8);
 
     // %stmxcsr = load i32, i32* %tmp, align 4
-    LoadInst *LI = IRB.CreateAlignedLoad(AI, Align(4), "stmxcsr");
+    LoadInst *LI = IRB.CreateAlignedLoad(I32Ty, AI, Align(4), "stmxcsr");
 
     // To share code, we're using the ftz_daz argument that
     // __intel_new_feature_proc_init expects, but it must be
