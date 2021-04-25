@@ -84,7 +84,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       IA_RUNTIME_HANDLE,
       IA_NUMBER
     };
-    static const unsigned int NUMBER_IMPLICIT_ARGS = IA_NUMBER;
+    static const unsigned int NUM_IMPLICIT_ARGS = IA_NUMBER;
 
     /// @brief Returns the implicit argument properties of given argument index
     /// @param arg     The implicit argument index
@@ -120,11 +120,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static size_t getAdjustedAlignment(size_t offset, size_t ST);
 
   private:
-    /// static list of implicit argument properties 
-    static ImplicitArgProperties m_implicitArgProps[NUMBER_IMPLICIT_ARGS];
-  
+    /// static list of implicit argument properties
+    static ImplicitArgProperties m_implicitArgProps[NUM_IMPLICIT_ARGS];
+
     /// list of implicit arguments
-    ImplicitArgument m_implicitArgs[NUMBER_IMPLICIT_ARGS];
+    ImplicitArgument m_implicitArgs[NUM_IMPLICIT_ARGS];
   };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

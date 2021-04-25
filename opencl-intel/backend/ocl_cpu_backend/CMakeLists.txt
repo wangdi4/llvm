@@ -281,7 +281,6 @@ set(LINK_LIBS
     LoopUtils
     OclBackendUtils
     reflection_module
-    name_mangle
     dynamic_load
     cl_sys_utils
     metadataapi

@@ -27,7 +27,10 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-using namespace reflection;
+using namespace Reflection;
+using namespace llvm::reflection;
+using namespace llvm::NameMangleAPI;
+
 namespace intel {
 
 DriverVectorizerFunction::DriverVectorizerFunction(const std::string &s)
@@ -38,7 +41,7 @@ DriverVectorizerFunction::~DriverVectorizerFunction() {}
 
 unsigned DriverVectorizerFunction::getWidth() const {
   assert(!isNull() && "Null function");
-  const BuiltinKeeper *pKeeper = reflection::BuiltinKeeper::instance();
+  const BuiltinKeeper *pKeeper = BuiltinKeeper::instance();
   if (!pKeeper->isBuiltin(m_name))
     return width::NONE;
   width::V allWidth[] = {width::SCALAR, width::TWO,   width::THREE,
@@ -55,7 +58,7 @@ unsigned DriverVectorizerFunction::getWidth() const {
   // best option is to apply the automatic width detection.
   FunctionDescriptor ret = demangle(m_name.c_str());
   ret.assignAutomaticWidth();
-  return ret.width;
+  return ret.Width;
 }
 
 bool DriverVectorizerFunction::isPacketizable() const {
@@ -68,7 +71,7 @@ bool DriverVectorizerFunction::isPacketizable() const {
 }
 
 bool DriverVectorizerFunction::isScalarizable() const {
-  const BuiltinKeeper *pKeeper = reflection::BuiltinKeeper::instance();
+  const BuiltinKeeper *pKeeper = BuiltinKeeper::instance();
   if (!pKeeper->isBuiltin(m_name))
     return false;
   PairSW sw = pKeeper->getVersion(m_name, width::SCALAR);

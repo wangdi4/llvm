@@ -38,7 +38,6 @@ add_opencl_executable(${TARGET_NAME}
   ClangUtils.cpp
 
   LINK_LIBS
-  name_mangle
   ${LLVM_MODULE_LIBS}
 )
 

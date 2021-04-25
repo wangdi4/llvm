@@ -27,6 +27,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/CommandLine.h"
 
+using namespace llvm::NameMangleAPI;
+
 extern cl::opt<bool>
 EnableScatterGather;
 
@@ -1471,8 +1473,10 @@ bool ScalarizeFunction::getScalarizedFunctionType(std::string &strScalarFuncName
 
   if (Mangler::isRetByVectorBuiltin(strScalarFuncName)) {
     reflection::FunctionDescriptor fdesc = ::demangle(strScalarFuncName.c_str());
-    V_ASSERT(fdesc.parameters.size() == 1 && "supported built-ins must have one parameter");
-    Type *scalarType = reflectionToLLVM(m_currFunc->getContext(), fdesc.parameters[0]);
+    V_ASSERT(fdesc.Parameters.size() == 1 &&
+             "supported built-ins must have one parameter");
+    Type *scalarType =
+        reflectionToLLVM(m_currFunc->getContext(), fdesc.Parameters[0]);
     SmallVector<Type *, 1> types(1, scalarType);
     Type* retType = static_cast<Type*>(FixedVectorType::get(scalarType, 2));
     funcType = FunctionType::get(retType, types, false);

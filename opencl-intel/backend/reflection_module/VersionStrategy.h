@@ -22,12 +22,14 @@
 #ifndef __VERSION_STRATEGY_H__
 #define __VERSION_STRATEGY_H__
 
-namespace reflection{
+namespace Reflection {
 
-typedef std::map<FunctionDescriptor, RefParamType> ReturnTypeMap;
+typedef std::map<llvm::reflection::FunctionDescriptor,
+                 llvm::reflection::RefParamType>
+    ReturnTypeMap;
 
-struct PairSW : std::pair<std::string, width::V> {
-  PairSW(const std::pair<std::string, width::V>&);
+struct PairSW : std::pair<std::string, llvm::reflection::width::V> {
+  PairSW(const std::pair<std::string, llvm::reflection::width::V> &);
   bool operator < (const PairSW&)const;
   private:
   bool compareWild(const std::string& w , const std::string& s)const;
@@ -55,11 +57,13 @@ struct NullDescriptorStrategy: VersionStrategy{
 //
 //AOS to SOA function descriptor conversion
 //
-class SoaDescriptorStrategy: public VersionStrategy, public TypeVisitor{
+class SoaDescriptorStrategy : public VersionStrategy,
+                              public llvm::reflection::TypeVisitor {
 private:
   //type synonyms
-  typedef FunctionDescriptor
-  (SoaDescriptorStrategy::*TransposeStrategy)(const PairSW& sw)const;
+  typedef llvm::reflection::FunctionDescriptor (
+      SoaDescriptorStrategy::*TransposeStrategy)(const PairSW &sw) const;
+
 public:
   SoaDescriptorStrategy();
   void setTypeMap(const ReturnTypeMap*);
@@ -71,18 +75,19 @@ public:
   //Return: the transposed function descriptor
   //////////////////////////////////////////////////////////////////////////////
   PairSW operator()(const PairSW &) const override;
-  void visit(const PrimitiveType *) override;
-  void visit(const VectorType *) override;
-  void visit(const PointerType *) override;
-  void visit(const AtomicType *) override;
-  void visit(const BlockType *) override;
-  void visit(const UserDefinedType *) override;
+  void visit(const llvm::reflection::PrimitiveType *) override;
+  void visit(const llvm::reflection::VectorType *) override;
+  void visit(const llvm::reflection::PointerType *) override;
+  void visit(const llvm::reflection::AtomicType *) override;
+  void visit(const llvm::reflection::BlockType *) override;
+  void visit(const llvm::reflection::UserDefinedType *) override;
 
 private:
+  llvm::reflection::FunctionDescriptor
+  scalarReturnTranspose(const PairSW &sw) const;
+  llvm::reflection::FunctionDescriptor
+  vectorReturnTranspose(const PairSW &sw) const;
 
-  FunctionDescriptor scalarReturnTranspose(const PairSW& sw)const;
-  FunctionDescriptor vectorReturnTranspose(const PairSW& sw)const;
-  
   const ReturnTypeMap* m_pTypeMap;
   //the transpose strategy (either vector or scalar)
   TransposeStrategy m_transposeStrategy;
@@ -124,9 +129,11 @@ struct IdentityStrategy: VersionStrategy{
   PairSW operator()(const PairSW &) const override;
 };
 
-std::pair<std::string,width::V> fdToPair(const FunctionDescriptor&);
-std::pair<std::string,width::V> nullPair();
-bool isNullPair(const std::pair<std::string,width::V>&);
+std::pair<std::string, llvm::reflection::width::V>
+fdToPair(const llvm::reflection::FunctionDescriptor &);
 
-}
+std::pair<std::string, llvm::reflection::width::V> nullPair();
+bool isNullPair(const std::pair<std::string, llvm::reflection::width::V> &);
+
+} // namespace Reflection
 #endif//__VERSION_STRATEGY_H__

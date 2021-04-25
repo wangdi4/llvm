@@ -31,11 +31,13 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 
+using namespace llvm;
+using namespace llvm::NameMangleAPI;
 using namespace Intel::MetadataAPI;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-  //TODO-MERGE: update value of CompilationUtils::NUMBER_IMPLICIT_ARGS wherever it is now
+  //TODO-MERGE: update value of CompilationUtils::NUM_IMPLICIT_ARGS wherever it is now
   const unsigned int CompilationUtils::LOCL_VALUE_ADDRESS_SPACE = 3;
 
   const std::string CompilationUtils::WG_BOUND_PREFIX = "WG.boundaries.";
@@ -252,15 +254,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                                          Value **ppRunTimeHandle) {
 
       assert( pFunc && "Function cannot be null" );
-      assert( pFunc->arg_size() >= ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS && "implicit args was not added!" );
+      assert(pFunc->arg_size() >= ImplicitArgsUtils::NUM_IMPLICIT_ARGS &&
+             "implicit args was not added!");
 
       // Iterating over explicit arguments
       Function::arg_iterator DestI = pFunc->arg_begin();
 
       // Go over the explicit arguments
-      for ( unsigned int  i = 0;
-        i < pFunc->arg_size() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i ) {
-          ++DestI;
+      for (unsigned int i = 0;
+           i < pFunc->arg_size() - ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++i) {
+        ++DestI;
       }
 
       // Retrieve all the implicit arguments which are not NULL
@@ -470,7 +473,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     size_t argsCount = pFunc->arg_size();
     if (!useTLSGlobals)
-      argsCount -= ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
+      argsCount -= ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
 
     unsigned int localMemCount = 0;
     unsigned int current_offset = 0;
@@ -1051,23 +1054,23 @@ CompilationUtils::AddMoreArgsToIndirectCall(CallInst *OldC,
 template <reflection::TypePrimitiveEnum Ty>
 static std::string optionalMangleWithParam(const char*const N){
   reflection::FunctionDescriptor FD;
-  FD.name = N;
+  FD.Name = N;
   reflection::ParamType *pTy =
     new reflection::PrimitiveType(Ty);
   reflection::RefParamType UI(pTy);
-  FD.parameters.push_back(UI);
+  FD.Parameters.push_back(UI);
   return mangle(FD);
 }
 
 template <reflection::TypePrimitiveEnum Ty>
 static std::string mangleWithParam(const char*const N, unsigned int numOfParams){
   reflection::FunctionDescriptor FD;
-  FD.name = N;
+  FD.Name = N;
   for(unsigned int i=0; i<numOfParams ; ++i) {
     reflection::ParamType *pTy =
       new reflection::PrimitiveType(Ty);
     reflection::RefParamType UI(pTy);
-    FD.parameters.push_back(UI);
+    FD.Parameters.push_back(UI);
   }
   return mangle(FD);
 }
@@ -1075,12 +1078,12 @@ static std::string mangleWithParam(const char*const N, unsigned int numOfParams)
 static std::string mangleWithParam(const char*const N,
                                    ArrayRef<reflection::TypePrimitiveEnum> Types){
   reflection::FunctionDescriptor FD;
-  FD.name = N;
+  FD.Name = N;
   for (const auto &Ty:Types) {
     reflection::ParamType *pTy =
       new reflection::PrimitiveType(Ty);
     reflection::RefParamType UI(pTy);
-    FD.parameters.push_back(UI);
+    FD.Parameters.push_back(UI);
   }
   return mangle(FD);
 }
@@ -1493,7 +1496,7 @@ bool CompilationUtils::hasWorkGroupFinalizePrefix(const std::string& S) {
 std::string CompilationUtils::appendWorkGroupFinalizePrefix(const std::string& S) {
   assert(isMangledName(S.c_str()) && "expected mangled name of work group built-in");
   reflection::FunctionDescriptor fd = demangle(S.c_str());
-  fd.name = NAME_FINALIZE_WG_FUNCTION_PREFIX + fd.name;
+  fd.Name = NAME_FINALIZE_WG_FUNCTION_PREFIX + fd.Name;
   std::string finalizeFuncName = mangle(fd);
   return finalizeFuncName;
 }
@@ -1501,7 +1504,7 @@ std::string CompilationUtils::appendWorkGroupFinalizePrefix(const std::string& S
 std::string CompilationUtils::removeWorkGroupFinalizePrefix(const std::string& S) {
   assert(hasWorkGroupFinalizePrefix(S) && "expected finilize prefix");
   reflection::FunctionDescriptor fd = demangle(S.c_str());
-  fd.name = fd.name.substr(NAME_FINALIZE_WG_FUNCTION_PREFIX.size());
+  fd.Name = fd.Name.substr(NAME_FINALIZE_WG_FUNCTION_PREFIX.size());
   std::string funcName = mangle(fd);
   return funcName;
 }

@@ -26,7 +26,7 @@
 #include "ParameterType.h"
 #include "utils.h"
 
-namespace reflection{
+namespace Reflection {
 
 ///////////////////////////////////////////////////////////////////////////////
 //Purpose: A singleton class which supplies reflection services on OCL builtins
@@ -41,13 +41,16 @@ class BuiltinKeeper{
   //Type synonyms
   //
   typedef std::map<PairSW,VersionStrategy*>     VersionCBMap;
-  typedef llvm::ArrayRef<TypePrimitiveEnum> PrimitiveArray;
+  typedef llvm::ArrayRef<llvm::reflection::TypePrimitiveEnum> PrimitiveArray;
   typedef llvm::ArrayRef<llvm::StringRef>       StringArray;
-  typedef llvm::ArrayRef<width::V>              VWidthArray;
+  typedef llvm::ArrayRef<llvm::reflection::width::V> VWidthArray;
   //A function descriptor factory method, for builtins with two parameters
-  typedef FunctionDescriptor (*FDFactory)(
-  const std::pair<std::pair<llvm::StringRef,TypePrimitiveEnum>,width::V>&,
-  TypePrimitiveEnum PTy);
+  typedef llvm::reflection::FunctionDescriptor (*FDFactory)(
+      const std::pair<
+          std::pair<llvm::StringRef, llvm::reflection::TypePrimitiveEnum>,
+          llvm::reflection::width::V> &,
+      llvm::reflection::TypePrimitiveEnum PTy);
+
 public:
   static const BuiltinKeeper* instance();
 
@@ -58,7 +61,7 @@ public:
 
   //Purpose: indicated whether the given function represents the prototype of a
   //known built-in function.
-  bool isBuiltin(const FunctionDescriptor&)const;
+  bool isBuiltin(const llvm::reflection::FunctionDescriptor &) const;
 
   //Purpose: returns the function descriptor of the built-in with the given
   //name, and the given vector with. And returns the 'null descriptor', in case
@@ -71,7 +74,8 @@ public:
   //Returns: the function descriptor of the built-in in the requested width.
   //         And a 'null descriptor' when the given string isn't an OpenCL
   //         built-in function or if there is no match.
-  PairSW getVersion(const std::string& mangledString, width::V w) const;
+  PairSW getVersion(const std::string &mangledString,
+                    llvm::reflection::width::V w) const;
 
 private:
   BuiltinKeeper();
@@ -90,7 +94,8 @@ private:
   //  names: Builtins names.
   //  ty:    The type of the parameter of the builtins.
   /////////////////////////////////////////////////////////////////////////////
-  void addExceptionToWIFunctions (const StringArray& names, TypePrimitiveEnum ty);
+  void addExceptionToWIFunctions(const StringArray &names,
+                                 llvm::reflection::TypePrimitiveEnum ty);
 
   /////////////////////////////////////////////////////////////////////////////
   //Purpose: a specialization for addConversionGroup with three parameter. The
@@ -114,8 +119,9 @@ private:
   //  fdFactory: A function pointer that produces the FunctionDescriptor, given
   //  the quartet (name, vtype, width, stype).
   /////////////////////////////////////////////////////////////////////////////
-  void addConversionGroup (const StringArray& names, const PrimitiveArray& types
-  , TypePrimitiveEnum s, FDFactory fdFactory);
+  void addConversionGroup(const StringArray &names, const PrimitiveArray &types,
+                          llvm::reflection::TypePrimitiveEnum s,
+                          FDFactory fdFactory);
 
   /////////////////////////////////////////////////////////////////////////////
   //Purpose: add a 'line' of transposed functions to the exceptions map.
@@ -124,7 +130,7 @@ private:
   //  transposedTargets: the widths array for which the vectorzier would like
   //  vectorize to.
   /////////////////////////////////////////////////////////////////////////////
-  void addTransposGroup(const FunctionDescriptor& aos);
+  void addTransposGroup(const llvm::reflection::FunctionDescriptor &aos);
 
   /////////////////////////////////////////////////////////////////////////////
   //Purpose: populates the return-type map (which maps a function descriptor to
@@ -145,7 +151,7 @@ private:
   // m_descriptorsMap) was searched with the name of the given function desc,
   // and returned as empty.
   /////////////////////////////////////////////////////////////////////////////
-  bool searchAndCacheUpdate(const FunctionDescriptor&) const;
+  bool searchAndCacheUpdate(const llvm::reflection::FunctionDescriptor &) const;
 
   // Cache for builtins. (contains builtin function which where previously
   // queried.
@@ -167,7 +173,6 @@ private:
   VersionCBMap m_exceptionsMap;
 };//End BuiltinKeeper
 
-
-}//end reflection
+} // namespace Reflection
 
 #endif//__BUILTIN_KEEPER_H__

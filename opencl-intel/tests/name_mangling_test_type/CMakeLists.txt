@@ -4,6 +4,7 @@ set(TARGET_NAME name_mangling_test_type)
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
+  ${LLVM_MAIN_SRC_DIR}/lib/Transforms/Intel_DPCPPKernelTransforms/Utils
   ${OCL_SOURCE_DIR}/backend/name_mangling
   ${CMAKE_CURRENT_BINARY_DIR}
 )
@@ -24,9 +25,7 @@ add_ocl_unittest(
   SOURCE_FILES
     MangledNames.inc
     MangleTest.cpp
-    TestRefCount.cpp
   LINK_LIBRARIES
-    name_mangle
     ${LLVM_MODULE_LIBS}
 )
 

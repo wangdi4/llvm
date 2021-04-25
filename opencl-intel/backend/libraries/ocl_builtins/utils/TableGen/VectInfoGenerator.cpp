@@ -148,19 +148,20 @@ std::ostream &operator<<(std::ostream &output, const VectEntry &Ent) {
 VectInfoGenerator::VectInfoGenerator(RecordKeeper &keeper)
     : m_RecordKeeper(keeper), m_DB(keeper) {}
 
-void VectInfoGenerator::decodeParamKind(const std::string &scalarName,
-                                        const std::string &v4FuncName) {
-
-  reflection::FunctionDescriptor v1Func = demangle(scalarName.c_str(), false);
-  reflection::FunctionDescriptor v4Func = demangle(v4FuncName.c_str(), false);
-  const auto &v1Params = v1Func.parameters;
-  const auto &v4Params = v4Func.parameters;
+void VectInfoGenerator::decodeParamKind(StringRef scalarName,
+                                        StringRef v4FuncName) {
+  reflection::FunctionDescriptor v1Func =
+      NameMangleAPI::demangle(scalarName, false);
+  reflection::FunctionDescriptor v4Func =
+      NameMangleAPI::demangle(v4FuncName, false);
+  const auto &v1Params = v1Func.Parameters;
+  const auto &v4Params = v4Func.Parameters;
   size_t v1ParamsNum = v1Params.size();
   VectEntry::isMasked = v1ParamsNum == (v4Params.size() - 1);
   VectEntry::vectorKindEncode.clear();
   for (size_t i = 0; i < v1ParamsNum; ++i) {
-    const auto *v1ParamType = (const reflection::ParamType *)v1Params[i];
-    const auto *v4ParamType = (const reflection::ParamType *)v4Params[i];
+    const auto *v1ParamType = (const reflection::ParamType *)v1Params[i].get();
+    const auto *v4ParamType = (const reflection::ParamType *)v4Params[i].get();
     reflection::TypeEnum v1TypeId = v1ParamType->getTypeId();
     reflection::TypeEnum v4TypeId = v4ParamType->getTypeId();
     if (v1TypeId == v4TypeId) {
@@ -346,8 +347,7 @@ void VectInfoGenerator::run(raw_ostream &os) {
     assert(
         funcIt != funcs.cend() && funcIt != funcs.cend() - 1 &&
         "the number of tblgen functions and llvm functions should be the same");
-    decodeParamKind((*funcIt)->getName().str(),
-                    (*(funcIt + 1))->getName().str());
+    decodeParamKind((*funcIt)->getName(), (*(funcIt + 1))->getName());
     while (i++ < numEntry.first) {
       size_t j = 0;
       std::vector<std::string> funcNames;

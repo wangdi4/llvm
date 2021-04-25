@@ -58,7 +58,7 @@ static void renameUserFunctionConflictingWithBI(Function &F) {
     return;
 
   StringRef Name = F.getName();
-  if (reflection::BuiltinKeeper::instance()->isBuiltin(Name.str())) {
+  if (Reflection::BuiltinKeeper::instance()->isBuiltin(Name.str())) {
     F.setName("__userlib" + Name);
   }
 }

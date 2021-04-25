@@ -237,7 +237,7 @@ namespace intel{
     // LocalSize for each dimension. Used several times below.
     SmallVector<Value*, 4> LocalSize;
     ImplicitArgsUtils::initImplicitArgProps(m_PtrSizeInBytes);
-    for(unsigned int i=0; i< ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i) {
+    for (unsigned int i = 0; i < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++i) {
       Value* pArg = nullptr;
       if (!m_useTLSGlobals)
         assert(callIt->getType() == m_IAA->getArgType(i) &&
@@ -378,7 +378,7 @@ namespace intel{
         pArg = builder.CreatePointerCast(pGEP, m_IAA->getArgType(i));
         WGInfo = pArg;
         // Advance the pArgsBuffer offset based on the size
-        currOffset += implicitArgProp.m_size;
+        currOffset += implicitArgProp.Size;
       } break;
       default:
         assert(false && "Unknown implicit argument");

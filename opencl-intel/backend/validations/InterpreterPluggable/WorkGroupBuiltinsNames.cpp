@@ -16,19 +16,26 @@
 #include "NameMangleAPI.h"
 #include "ParameterType.h"
 
-#define ONE_ARG_FUNCTION(NAME, ARG) {\
-            reflection::FunctionDescriptor fd;\
-            fd.name = #NAME;\
-            fd.parameters.push_back((ARG));\
-            this->m_MangledNames.insert(WGBuiltinsNamesDesc(mangle(fd), fd));\
-        }
-#define TWO_ARG_FUNTION(NAME, ARG1, ARG2) {\
-            reflection::FunctionDescriptor fd;\
-            fd.name = #NAME;\
-            fd.parameters.push_back((ARG1));\
-            fd.parameters.push_back((ARG2));\
-            this->m_MangledNames.insert(WGBuiltinsNamesDesc(mangle(fd), fd));\
-        }
+using namespace llvm;
+using namespace llvm::NameMangleAPI;
+
+#define ONE_ARG_FUNCTION(NAME, ARG)                                            \
+  {                                                                            \
+    reflection::FunctionDescriptor fd;                                         \
+    fd.Name = #NAME;                                                           \
+    fd.Parameters.push_back((ARG));                                            \
+    this->m_MangledNames.insert(                                               \
+        WGBuiltinsNamesDesc(NameMangleAPI::mangle(fd), fd));                   \
+  }
+#define TWO_ARG_FUNTION(NAME, ARG1, ARG2)                                      \
+  {                                                                            \
+    reflection::FunctionDescriptor fd;                                         \
+    fd.Name = #NAME;                                                           \
+    fd.Parameters.push_back((ARG1));                                           \
+    fd.Parameters.push_back((ARG2));                                           \
+    this->m_MangledNames.insert(                                               \
+        WGBuiltinsNamesDesc(NameMangleAPI::mangle(fd), fd));                   \
+  }
 
 namespace Validation{
 
@@ -160,9 +167,9 @@ namespace Validation{
         assert(it!=this->m_MangledNames.end() && "Unknow mandgled name. Did you do any checks before?");
 
         fd = it->second;
-        fd.name+="_pre_exec";
+        fd.Name += "_pre_exec";
         if(it->first == "work_group_all" || it->first == "work_group_any")
-            return fd.name;
+          return fd.Name;
         return mangle(fd);
     }
 }

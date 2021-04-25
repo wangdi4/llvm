@@ -35,15 +35,15 @@ const ArgData impArgs[ImplicitArgsUtils::IA_NUMBER] = {
 
 const char* ImplicitArgsUtils::getArgName(unsigned Idx) {
     //TODO: maybe we don't need impargs?
-    assert(Idx < NUMBER_IMPLICIT_ARGS);
+    assert(Idx < NUM_IMPLICIT_ARGS);
     return impArgs[Idx].name;
 }
 // Initialize the implicit arguments properties
-ImplicitArgProperties ImplicitArgsUtils::m_implicitArgProps[NUMBER_IMPLICIT_ARGS];
+ImplicitArgProperties ImplicitArgsUtils::m_implicitArgProps[NUM_IMPLICIT_ARGS];
 bool ImplicitArgsUtils::m_initialized = false;
 
 const ImplicitArgProperties& ImplicitArgsUtils::getImplicitArgProps(unsigned int arg) {
-  assert(arg < NUMBER_IMPLICIT_ARGS && "arg is bigger than implicit args number");
+  assert(arg < NUM_IMPLICIT_ARGS && "arg is bigger than implicit args number");
   assert(!m_implicitArgProps[arg].m_bInitializedByWrapper &&
     "arg is initialized by wrapper no need for Props!");
   assert(m_initialized);
@@ -51,7 +51,7 @@ const ImplicitArgProperties& ImplicitArgsUtils::getImplicitArgProps(unsigned int
 }
 
 void ImplicitArgsUtils::initImplicitArgProps(unsigned int SizeT) {
-  for(unsigned int i=0; i<NUMBER_IMPLICIT_ARGS; ++i) {
+  for (unsigned int i = 0; i < NUM_IMPLICIT_ARGS; ++i) {
     switch (i) {
     case IA_WORK_GROUP_INFO:
       m_implicitArgProps[i].m_size = sizeof(UniformKernelArgs);
@@ -73,7 +73,7 @@ void ImplicitArgsUtils::createImplicitArgs(char* pDest) {
   char* pArgValueDest = pDest;
 
    // go over all implicit arguments' properties
-  for(unsigned int i=0; i<NUMBER_IMPLICIT_ARGS; ++i) {
+  for (unsigned int i = 0; i < NUM_IMPLICIT_ARGS; ++i) {
     // Only implicit arguments that are not initialized by the wrapper
     // Should be loaded from the parameter structutre.
     if(!m_implicitArgProps[i].m_bInitializedByWrapper) {

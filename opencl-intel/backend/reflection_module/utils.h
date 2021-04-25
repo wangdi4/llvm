@@ -15,7 +15,7 @@
 #ifndef __REFLECTION_MOD_UTILS_H__
 #define __REFLECTION_MOD_UTILS_H__
 
-namespace reflection{
+namespace Reflection {
 ///////////////////////////////////////////////////////////////////////////////
 //Purpose: preforms a cartesian product between two given collections
 //Template Parameters:
@@ -69,6 +69,5 @@ struct TableRow{
   bool isPacketizable; 
 };
 
-
-}//end namespace
+} // namespace Reflection
 #endif//__REFLECTION_MOD_UTILS_H__

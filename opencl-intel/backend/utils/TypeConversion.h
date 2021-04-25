@@ -20,7 +20,8 @@
 #include "llvm/IR/LLVMContext.h"
 
 namespace intel{
-  llvm::Type* reflectionToLLVM(llvm::LLVMContext&, const reflection::RefParamType&);
+llvm::Type *reflectionToLLVM(llvm::LLVMContext &,
+                             const llvm::reflection::RefParamType &);
 }
 
 #endif // __TYPE_CONVERSION_H__

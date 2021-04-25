@@ -29,6 +29,8 @@
 
 #include <map>
 
+using namespace llvm::NameMangleAPI;
+
 namespace intel {
 
   char SinCosFold::ID=0;
@@ -64,11 +66,11 @@ namespace intel {
     cos->setDebugLoc(iData->cosInst->getDebugLoc());
 
     reflection::FunctionDescriptor fd;
-    fd.name = "sincos";
+    fd.Name = "sincos";
     reflection::RefParamType PF(new reflection::PointerType(
         iData->argType, {reflection::ATTR_PRIVATE})); // cos return value
-    fd.parameters.push_back(iData->argType);
-    fd.parameters.push_back(PF);
+    fd.Parameters.push_back(iData->argType);
+    fd.Parameters.push_back(PF);
     std::string MangledFName = mangle(fd);
 
     Function * sinCosF = m_rtServices->findInRuntimeModule(MangledFName);
@@ -118,7 +120,7 @@ namespace intel {
           if (!f) continue;
 
           reflection::FunctionDescriptor fd = demangle(f->getName().data());
-          StringRef fName(fd.name);
+          StringRef fName(fd.Name);
 
           bool isSin = fName.compare(sin) == 0;
           bool isCos = fName.compare(cos) == 0;
@@ -133,7 +135,7 @@ namespace intel {
 
           //value is not in the map
           if (iter == paramToInstructions.end()) {
-            InstructionData * iData = new InstructionData(fd.parameters[0]);
+            InstructionData *iData = new InstructionData(fd.Parameters[0]);
             iData->addInstruction(inst,isSin);
             paramToInstructions[val] = iData;
           }

@@ -45,7 +45,6 @@ if (OPENCL_INTREE_BUILD)
 endif()
 
 target_link_libraries(${TARGET_NAME}
-  name_mangle
   ${LLVM_MODULE_LIBS}
 )
 

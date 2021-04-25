@@ -101,7 +101,6 @@ target_link_libraries(${TARGET_NAME}
     OCLBuiltinsRef
     NEAT
     REFALU
-    name_mangle
     ProgramConfiguration
     dynamic_load
     tinyxml_STL

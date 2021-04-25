@@ -13,7 +13,6 @@ add_executable(${TARGET_NAME}
 
 target_link_libraries(
   ${TARGET_NAME}
-  name_mangle
   OclBackendUtils
   gtest
   ${LLVM_MODULE_LIBS}

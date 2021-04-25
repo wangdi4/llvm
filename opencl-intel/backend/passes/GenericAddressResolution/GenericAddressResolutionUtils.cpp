@@ -35,6 +35,8 @@
 
 #define DEBUG_TYPE "GenericAddressResolutionUtils"
 
+using namespace llvm::NameMangleAPI;
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes { namespace GenericAddressSpace {
   using namespace llvm;
 
@@ -79,7 +81,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
 
   bool isAddressQualifierBI(const Function *pFunc) {
     StringRef FName = pFunc->getName();
-    FName = isMangledName(FName.data()) ? stripName(FName.data()) : FName;
+    FName = isMangledName(FName) ? stripName(FName) : FName;
     return std::find(std::begin(addrQualifierFunctions),
                      std::end(addrQualifierFunctions),
                      FName) != std::end(addrQualifierFunctions);
@@ -87,7 +89,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
 
   bool isGenericAddrBI(const Function *pFunc) {
     StringRef FName = pFunc->getName();
-    FName = isMangledName(FName.data()) ? stripName(FName.data()) : FName;
+    FName = isMangledName(FName) ? stripName(FName) : FName;
     return std::find(std::begin(genericAddrBiFunctions),
                      std::end(genericAddrBiFunctions),
                      FName) != std::end(genericAddrBiFunctions);
@@ -197,12 +199,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
       std::string origMangledName,
       const SmallVector<OCLAddressSpace::spaces, 8> &resolvedSpaces,
       const SmallVector<OCLAddressSpace::spaces, 8> *originalSpaces) {
-    if (!isMangledName(origMangledName.c_str()))
+    StringRef Name(origMangledName);
+    if (!isMangledName(Name))
       return origMangledName;
 
-    reflection::FunctionDescriptor fd = demangle(origMangledName.c_str());
-
-    reflection::ParamType *lastArg = fd.parameters.back();
+    reflection::FunctionDescriptor fd = demangle(Name);
+    reflection::ParamType *lastArg = fd.Parameters.back().get();
     reflection::PrimitiveType *lastArgTy =
         reflection::dyn_cast<reflection::PrimitiveType>(lastArg);
     if (lastArgTy &&
@@ -211,11 +213,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
       // argument in callinst variadic argument may not be generated, we should
       // exclude it from computations and align number of arguments to
       // resolvedSpaces.size()
-      assert(fd.parameters.size() - 1 <= resolvedSpaces.size() &&
+      assert(fd.Parameters.size() - 1 <= resolvedSpaces.size() &&
              "in case of variadic # arguments should be less or equal to # of "
              "arguments detected by mangler");
     } else {
-      assert(resolvedSpaces.size() == fd.parameters.size() &&
+      assert(resolvedSpaces.size() == fd.Parameters.size() &&
              "Mismatch between mangled name and amount of parameters");
     }
 
@@ -230,7 +232,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
       // This parameter is a pointer which can be replaced with named
       // addr-space
       reflection::PointerType *ptrParam =
-          reflection::dyn_cast<reflection::PointerType>(fd.parameters[idx]);
+          reflection::dyn_cast<reflection::PointerType>(
+              fd.Parameters[idx].get());
       assert(ptrParam &&
              "The parameter's mangling encoding should be of pointer type!");
       // Replace mangling encoding with its named-space version
@@ -250,7 +253,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
   std::string getSpecializedFunctionName(std::string functionName, const SmallVector<Type*,  8> &argTypes) {
 
     reflection::FunctionDescriptor fdSpecialized;
-    fdSpecialized.name = functionName;
+    fdSpecialized.Name = functionName;
 
     // Collect mangling names of the function's pointer arguments
     // (including address space attribute)
@@ -260,10 +263,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
         // Filter-out non-pointer arguments
         continue;
       }
+
       // For simplicity reason - we use int* as a pointer primitive type
-      reflection::PointerType *ptrParam = new reflection::PointerType(
-                                            new reflection::PrimitiveType(
-                                                  reflection::PRIMITIVE_INT));
+      reflection::RefParamType Ty(
+          new reflection::PrimitiveType(reflection::PRIMITIVE_INT));
+      reflection::PointerType *ptrParam = new reflection::PointerType(Ty);
       // Add address space attribute according to the argument's addres space
       reflection::TypeAttributeEnum attr =
                     translateAddrSpaceToAttr(
@@ -271,7 +275,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
       ptrParam->addAttribute(attr);
       // Add the mangling name of the argument to the function descriptor
       reflection::RefParamType refParam(ptrParam);
-      fdSpecialized.parameters.push_back(refParam);
+      fdSpecialized.Parameters.push_back(refParam);
     }
 
     return mangle(fdSpecialized);

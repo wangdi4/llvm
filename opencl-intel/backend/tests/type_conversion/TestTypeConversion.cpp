@@ -18,6 +18,8 @@
 #include "llvm/ADT/StringRef.h"
 #include "TypeConversion.h"
 
+using namespace llvm;
+
 TEST(ReflectionToLLVM, i64){
   llvm::LLVMContext CTX;
   llvm::Type *LLVM_I64_TY = llvm::IntegerType::get(CTX, 64);

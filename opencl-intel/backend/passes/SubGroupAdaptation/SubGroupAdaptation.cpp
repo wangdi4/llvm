@@ -30,6 +30,7 @@
 #include <utility>
 
 using namespace llvm;
+using namespace llvm::NameMangleAPI;
 using namespace Intel::OpenCL::DeviceBackend;
 
 extern "C" {
@@ -73,7 +74,7 @@ bool SubGroupAdaptation::runOnModule(Module &M) {
       BasicBlock *entry = BasicBlock::Create(*m_pLLVMContext, "entry", pFunc);
       std::string fName = func_name;
       reflection::FunctionDescriptor fd = demangle(fName.c_str());
-      fd.name = CompilationUtils::NAME_GET_LINEAR_LID;
+      fd.Name = CompilationUtils::NAME_GET_LINEAR_LID;
       fName = mangle(fd);
 
       FunctionType *pNewFuncType = FunctionType::get(m_pSizeT, false);
@@ -195,7 +196,7 @@ void SubGroupAdaptation::replaceFunction(Function *oldFunc,
   std::string newName(newFuncName);
   if (!CompilationUtils::isPipeBuiltin(m_name)) {
     reflection::FunctionDescriptor fd = demangle(m_name.c_str());
-    fd.name = newFuncName;
+    fd.Name = newFuncName;
     newName = mangle(fd);
   }
   Function *newF = cast<Function>(m_pModule->getOrInsertFunction(
@@ -267,17 +268,16 @@ void SubGroupAdaptation::defineSubGroupBroadcast(Function *pFunc) {
   reflection::FunctionDescriptor fd = demangle(strFuncName.c_str());
 
   // replace built-in name
-  fd.name = CompilationUtils::NAME_WORK_GROUP_BROADCAST.c_str();
-  fd.parameters.pop_back();
+  fd.Name = CompilationUtils::NAME_WORK_GROUP_BROADCAST.c_str();
+  fd.Parameters.pop_back();
 
-  reflection::RefParamType F;
-  if (m_pSizeT->getPrimitiveSizeInBits() == 64)
-    F = new reflection::PrimitiveType(reflection::PRIMITIVE_ULONG);
-  else
-    F = new reflection::PrimitiveType(reflection::PRIMITIVE_UINT);
+  auto Ty = (m_pSizeT->getPrimitiveSizeInBits() == 64)
+                ? reflection::PRIMITIVE_ULONG
+                : reflection::PRIMITIVE_UINT;
+  reflection::RefParamType F(new reflection::PrimitiveType(Ty));
 
   for (unsigned int i = 0; i < 3; ++i) {
-    fd.parameters.push_back(F);
+    fd.Parameters.push_back(F);
   }
   std::string newFuncName = mangle(fd);
 

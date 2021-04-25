@@ -25,7 +25,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Module.h"
 
-using namespace reflection;
+using namespace llvm::reflection;
+using namespace llvm::NameMangleAPI;
 
 namespace intel {
 //
@@ -262,7 +263,7 @@ bool RenderscriptRuntime::isReturnByPtrBuiltin(const std::string &func_name) con
   if (ret == FunctionDescriptor::null()) return false;
   llvm::ArrayRef<const char*> A(g_rs_BuiltinReturnByPtr);
   for (size_t i=0; i < A.size(); ++i)
-    if (llvm::StringRef(A[i]) == ret.name)
+    if (llvm::StringRef(A[i]) == ret.Name)
       return true;
   return false;
 }
@@ -323,10 +324,11 @@ bool RenderscriptRuntime::isScalarMinMaxBuiltin(StringRef funcName, bool &isMin,
 
   // Now that we know that this is min or max demnagle the builtin.
   FunctionDescriptor desc = demangle(funcName.data());
-  assert(desc.parameters.size() == 2 && "min, max should have two parameters");
+  assert(desc.Parameters.size() == 2 && "min, max should have two parameters");
   // The argument type should be (u)int/(u)long
-  RefParamType argTy = desc.parameters[0];
-  const PrimitiveType *pPrimitive = reflection::dyn_cast<PrimitiveType>(argTy);
+  RefParamType argTy = desc.Parameters[0];
+  const PrimitiveType *pPrimitive =
+      reflection::dyn_cast<PrimitiveType>(argTy.get());
   if (!pPrimitive) return false;
   TypePrimitiveEnum basicType = pPrimitive->getPrimitive();
   isSigned = (basicType == PRIMITIVE_INT ||

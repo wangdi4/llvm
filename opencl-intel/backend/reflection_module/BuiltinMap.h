@@ -22,9 +22,10 @@
 #include "llvm/ADT/SmallVector.h"
 #include "FunctionDescriptor.h"
 
-namespace reflection{
+namespace Reflection {
 
-typedef llvm::SmallVector<FunctionDescriptor, 6> FunctionsVector;
+typedef llvm::SmallVector<llvm::reflection::FunctionDescriptor, 6>
+    FunctionsVector;
 
 typedef llvm::StringMap<FunctionsVector> NameToFDMultiMap;
 
@@ -51,7 +52,7 @@ public:
   /////////////////////////////////////////////////////////////////////////////
   //Purpose: inserts the given function descriptor to the map
   /////////////////////////////////////////////////////////////////////////////
-  void insert (const FunctionDescriptor&);
+  void insert(const llvm::reflection::FunctionDescriptor &);
 
   /////////////////////////////////////////////////////////////////////////////
   //Purpose: indicates whether the two given (stripped) built-in function names
@@ -69,6 +70,6 @@ private:
   NameToFDMultiMap m_nameToFd;
 };
 
-}
+} // namespace Reflection
 
 #endif//_BUILTIN_MAP_H__

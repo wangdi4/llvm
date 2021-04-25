@@ -43,7 +43,7 @@ OCL_INITIALIZE_PASS(ExternalizeGlobalVariables, "externalize-global-variables",
 bool ExternalizeGlobalVariables::runOnModule(Module &M) {
   bool Changed = false;
   SmallSet<Value *, 8> TLSGlobals;
-  for (unsigned I = 0; I < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++I) {
+  for (unsigned I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I) {
     GlobalVariable *GV = CompilationUtils::getTLSGlobal(&M, I);
     TLSGlobals.insert(GV);
   }
