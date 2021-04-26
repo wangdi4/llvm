@@ -795,10 +795,8 @@ static bool doReroll(HLLoop *Lp, unsigned RerollFactor,
   // node in the sequence.
   HLNodeUtils::remove(NodeSequence.back()->getNextNode(), Lp->getLastChild());
 
-  auto *Region = Lp->getParentRegion();
   for (auto Symbase : LiveoutsToBeRemoved) {
     Lp->removeLiveOutTemp(Symbase);
-    Region->removeLiveOutTemp(Symbase);
   }
 
   Lp->setNumExits(CEUpdater.getNumGotos() + 1);
