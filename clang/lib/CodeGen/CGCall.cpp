@@ -1780,6 +1780,11 @@ void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
                                                llvm::AttrBuilder &FuncAttrs) {
 #if INTEL_CUSTOMIZATION
   if (getLangOpts().isIntelCompat(LangOptions::IMFAttributes)) {
+    // Explicitly specify medium precision for sincos calls because they can't
+    // carry fast math flags
+    if ((Name == "sincos" || Name == "sincosf") && getLangOpts().ApproxFunc)
+      FuncAttrs.addAttribute("imf-precision", "medium");
+
     llvm::StringSet<> FuncOwnAttrs;
     auto FuncMapIt = getLangOpts().ImfAttrFuncMap.find(Name.str());
     if (FuncMapIt != getLangOpts().ImfAttrFuncMap.end()) {
