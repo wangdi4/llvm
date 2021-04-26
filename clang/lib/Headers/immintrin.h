@@ -606,6 +606,13 @@
 #endif
 #endif
 /* end INTEL_FEATURE_ISA_AMX_AVX512_CVTROW */
+
+/* INTEL_FEATURE_ISA_AVX_NE_CONVERT */
+/* FIXME: Change these When _Float16 type is supported */
+#if defined(__AVXNECONVERT__) && defined(__AVX512FP16__)
+#include <avxneconvert/avxneconvertintrin.h>
+#endif
+/* end INTEL_FEATURE_ISA_AVX_NE_CONVERT */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
