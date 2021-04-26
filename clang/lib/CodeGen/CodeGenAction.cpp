@@ -311,26 +311,7 @@ namespace clang {
       Ctx.setDiagnosticHandler(std::make_unique<ClangDiagnosticHandler>(
         CodeGenOpts, this));
 
-      Expected<std::unique_ptr<llvm::ToolOutputFile>> OptRecordFileOrErr =
-          setupLLVMOptimizationRemarks(
-              Ctx, CodeGenOpts.OptRecordFile, CodeGenOpts.OptRecordPasses,
-              CodeGenOpts.OptRecordFormat, CodeGenOpts.DiagnosticsWithHotness,
-              CodeGenOpts.DiagnosticsHotnessThreshold);
-
-      if (Error E = OptRecordFileOrErr.takeError()) {
-        reportOptRecordError(std::move(E), Diags, CodeGenOpts);
-        return;
-      }
-
-      std::unique_ptr<llvm::ToolOutputFile> OptRecordFile =
-          std::move(*OptRecordFileOrErr);
-
-      if (OptRecordFile &&
-          CodeGenOpts.getProfileUse() != CodeGenOptions::ProfileNone)
-        Ctx.setDiagnosticsHotnessRequested(true);
-
-      // The code above was removed and this process occurs now in the
-      // constructor of OptRecordFileRAII.
+      // The diagnostic handler is now processed in OptRecordFileRAII.
 #endif // INTEL_CUSTOMIZATION
 
       // The parallel_for_work_group legalization pass can emit calls to
@@ -358,12 +339,6 @@ namespace clang {
 
 #if !INTEL_CUSTOMIZATION
       Ctx.setDiagnosticHandler(std::move(OldDiagnosticHandler));
-
-     if (OptRecordFile)
-       OptRecordFile->keep();
-
-     // The code above was removed and the process occurs now in the
-     // destructor of OptRecordFileRAII.
 #endif // INTEL_CUSTOMIZATION
     }
 
@@ -1071,11 +1046,10 @@ namespace {
 
     OptRecordFileRAII(CodeGenAction &CGA, llvm::LLVMContext &Ctx,
                       BackendConsumer &BC)
-        : Ctx(Ctx) {
-      CompilerInstance &CI = CGA.getCompilerInstance();
-      auto &CodeGenOpts = CI.getCodeGenOpts();
+      : OldDiagnosticHandler(Ctx.getDiagnosticHandler()),  Ctx(Ctx) {
 
-      OldDiagnosticHandler = Ctx.getDiagnosticHandler();
+      CompilerInstance &CI = CGA.getCompilerInstance();
+      CodeGenOptions &CodeGenOpts = CI.getCodeGenOpts();
 
       Ctx.setDiagnosticHandler(
           std::make_unique<ClangDiagnosticHandler>(CodeGenOpts, &BC));
@@ -1106,9 +1080,7 @@ namespace {
 
 void CodeGenAction::ExecuteAction() {
   if (getCurrentFileKind().getLanguage() != Language::LLVM_IR) {
-#if INTEL_CUSTOMIZATION
     OptRecordFileRAII ORF(*this, *VMContext, *BEConsumer);
-#endif //INTEL_CUSTOMIZATION
     this->ASTFrontendAction::ExecuteAction();
     return;
   }
