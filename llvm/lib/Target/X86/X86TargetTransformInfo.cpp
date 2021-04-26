@@ -222,23 +222,17 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
       (LT.second.getVectorElementType() == MVT::i8 ||
        (LT.second.getVectorElementType() == MVT::i32 && !ST->hasSSE41()) ||
        (LT.second.getVectorElementType() == MVT::i64 && !ST->hasDQI()))) {
-    if (Opd2PropInfo == TargetTransformInfo::OP_PowerOf2) {
-      int Cost = *getArithmeticInstrCost(Instruction::Shl, Ty, CostKind, Op1Info,
-                                        Op2Info, TargetTransformInfo::OP_None,
-                                        TargetTransformInfo::OP_None)
-                  .getValue();
-      return Cost;
-    }
+    if (Opd2PropInfo == TargetTransformInfo::OP_PowerOf2)
+      return getArithmeticInstrCost(Instruction::Shl, Ty, CostKind, Op1Info,
+                                    Op2Info, TargetTransformInfo::OP_None,
+                                    TargetTransformInfo::OP_None);
     if (Opd2PropInfo == TargetTransformInfo::OP_PowerOf2_PlusMinus1) {
-      int Cost = *getArithmeticInstrCost(Instruction::Shl, Ty, CostKind, Op1Info,
-                                        Op2Info, TargetTransformInfo::OP_None,
-                                        TargetTransformInfo::OP_None)
-                  .getValue();
-      Cost += *getArithmeticInstrCost(Instruction::Add, Ty, CostKind,
-                                     TargetTransformInfo::OK_AnyValue,
-                                     Op1Info, TargetTransformInfo::OP_None,
-                                     TargetTransformInfo::OP_None)
-               .getValue();
+      InstructionCost Cost = getArithmeticInstrCost(
+          Instruction::Shl, Ty, CostKind, Op1Info, Op2Info,
+          TargetTransformInfo::OP_None, TargetTransformInfo::OP_None);
+      Cost += getArithmeticInstrCost(
+          Instruction::Add, Ty, CostKind, TargetTransformInfo::OK_AnyValue,
+          Op1Info, TargetTransformInfo::OP_None, TargetTransformInfo::OP_None);
       return Cost;
     }
   }
@@ -4491,13 +4485,14 @@ InstructionCost X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
   unsigned IndexSize = (ST->hasAVX512() && VF >= 16)
                            ? getIndexSizeInBits(Ptr, DL)
                            : DL.getPointerSizeInBits();
+#if INTEL_CUSTOMIZATION
   return getGSVectorCost(Opcode, SrcVTy, IndexSize, Alignment, AddressSpace);
 }
 
 // Return an average cost of Gather / Scatter instruction, maybe improved later
-int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
-                                unsigned IndexSize, Align Alignment,
-                                unsigned AddressSpace) {
+InstructionCost X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
+                                            unsigned IndexSize, Align Alignment,
+                                            unsigned AddressSpace) {
   unsigned VF = cast<VectorType>(SrcVTy)->getNumElements();
   auto *IndexVTy = FixedVectorType::get(
       IntegerType::get(SrcVTy->getContext(), IndexSize), VF);
@@ -4511,7 +4506,7 @@ int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
     return SplitFactor * getGSVectorCost(
       Opcode, SplitSrcTy, IndexSize, Alignment, AddressSpace);
   }
-#if INTEL_CUSTOMIZATION
+
   static const CostTblEntry SKXScatterDTbl[] = {
     { ISD::MSCATTER, MVT::v4i32, 5 }, // vpscatterdd xmm version.
     { ISD::MSCATTER, MVT::v8i32, 8 }, // vpscatterdd ymm version.
@@ -4621,10 +4616,9 @@ int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
   const int GSOverhead = (Opcode == Instruction::Load)
                              ? getGatherOverhead()
                              : getScatterOverhead();
-  return GSOverhead + VF * *getMemoryOpCost(Opcode, SrcVTy->getScalarType(),
-                                            MaybeAlign(Alignment), AddressSpace,
-                                            TTI::TCK_RecipThroughput)
-                                .getValue();
+  return GSOverhead + VF * getMemoryOpCost(Opcode, SrcVTy->getScalarType(),
+                                           MaybeAlign(Alignment), AddressSpace,
+                                           TTI::TCK_RecipThroughput);
 }
 
 /// Return the cost of full scalarization of gather / scatter operation.
@@ -4638,9 +4632,10 @@ int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
 /// FIXME: Add TargetCostKind support.
 
 #if INTEL_CUSTOMIZATION
-int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *SrcVTy,
-                                bool VariableMask, Align Alignment,
-                                unsigned AddressSpace) {
+InstructionCost X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy,
+                                            Type *SrcVTy, bool VariableMask,
+                                            Align Alignment,
+                                            unsigned AddressSpace) {
   unsigned VF = cast<FixedVectorType>(SrcVTy)->getNumElements();
   APInt DemandedElts = APInt::getAllOnesValue(VF);
   TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput;
@@ -4682,8 +4677,7 @@ int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *SrcVTy,
       InsertExtractCost +=
         getVectorInstrCost(Instruction::ExtractElement, SrcVTy, i);
 
-  return *MemoryOpCost.getValue() + *MaskUnpackCost.getValue() +
-         *InsertExtractCost.getValue();
+  return MemoryOpCost + MaskUnpackCost + InsertExtractCost;
 }
 
 static unsigned getLoadPermuteCost(Type *ArrayElemTy, uint64_t ArrayNum,
@@ -4765,12 +4759,10 @@ InstructionCost X86TTIImpl::getGatherScatterOpCost(
 
 #if INTEL_CUSTOMIZATION
 /// Calculate the cost of Gather / Scatter operation
-int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
-                                       unsigned IndexSize, bool VariableMask,
-                                       unsigned Alignment,
-                                       unsigned AddressSpace,
-                                       TTI::TargetCostKind CostKind,
-                                       const Instruction *I = nullptr) {
+InstructionCost X86TTIImpl::getGatherScatterOpCost(
+    unsigned Opcode, Type *SrcVTy, unsigned IndexSize, bool VariableMask,
+    unsigned Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
+    const Instruction *I = nullptr) {
   assert(SrcVTy->isVectorTy() && "Unexpected data type for Gather/Scatter");
   unsigned VF = cast<VectorType>(SrcVTy)->getNumElements();
   PointerType *PtrTy = SrcVTy->getScalarType()->getPointerTo(AddressSpace);

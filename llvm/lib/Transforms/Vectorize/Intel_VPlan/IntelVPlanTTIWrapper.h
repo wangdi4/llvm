@@ -135,9 +135,10 @@ public:
       unsigned Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       const Instruction *I = nullptr) const {
-    return Multiplier * TTI.getGatherScatterOpCost(Opcode, DataTy, IndexSize,
-                                                   VariableMask, Alignment,
-                                                   AddressSpace, CostKind, I);
+    return Multiplier * *TTI.getGatherScatterOpCost(Opcode, DataTy, IndexSize,
+                                                    VariableMask, Alignment,
+                                                    AddressSpace, CostKind, I)
+                             .getValue();
   }
   int getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy, unsigned Factor,
                                  ArrayRef<unsigned> Indices, Align Alignment,

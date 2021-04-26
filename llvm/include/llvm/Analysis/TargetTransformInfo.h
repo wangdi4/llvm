@@ -1194,7 +1194,7 @@ public:
   /// \p AddressSpace - address space of data
   /// \p I - the optional original context instruction, if one exists, e.g. the
   ///        load/store to transform or the call to the gather/scatter intrinsic
-  int getGatherScatterOpCost(
+  InstructionCost getGatherScatterOpCost(
       unsigned Opcode, Type *DataTy, unsigned IndexSize, bool VariableMask,
       unsigned Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
@@ -1719,7 +1719,7 @@ public:
       Align Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
       bool UseMaskForCond = false, bool UseMaskForGaps = false) = 0;
 #if INTEL_CUSTOMIZATION
-  virtual int getGatherScatterOpCost(
+  virtual InstructionCost getGatherScatterOpCost(
       unsigned Opcode, Type *DataTy, unsigned IndexSize, bool VariableMask,
       unsigned Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
@@ -2258,11 +2258,11 @@ public:
                                        UndefPassThru); // INTEL
   }
 #if INTEL_CUSTOMIZATION
-  int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
-                             bool VariableMask, unsigned Alignment,
-                             unsigned AddressSpace,
-                             TTI::TargetCostKind CostKind,
-                             const Instruction *I = nullptr) override {
+  InstructionCost
+  getGatherScatterOpCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
+                         bool VariableMask, unsigned Alignment,
+                         unsigned AddressSpace, TTI::TargetCostKind CostKind,
+                         const Instruction *I = nullptr) override {
     return Impl.getGatherScatterOpCost(Opcode, DataTy, IndexSize, VariableMask,
                                        Alignment, AddressSpace, CostKind, I);
   }

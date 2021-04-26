@@ -890,11 +890,11 @@ InstructionCost TargetTransformInfo::getGatherScatterOpCost(
 }
 
 #if INTEL_CUSTOMIZATION
-int TargetTransformInfo::getGatherScatterOpCost(
+InstructionCost TargetTransformInfo::getGatherScatterOpCost(
     unsigned Opcode, Type *DataTy, unsigned IndexSize, bool VariableMask,
     unsigned Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
     const Instruction *I) const {
-  int Cost =
+  InstructionCost Cost =
       TTIImpl->getGatherScatterOpCost(Opcode, DataTy, IndexSize, VariableMask,
                                       Alignment, AddressSpace, CostKind, I);
   assert(Cost >= 0 && "TTI should not produce negative costs!");

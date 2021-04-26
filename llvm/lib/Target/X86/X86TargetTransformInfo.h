@@ -161,11 +161,12 @@ public:
                                          const Instruction *I,
                                          bool UndefPassThru); // INTEL
 #if INTEL_CUSTOMIZATION
-  int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
-                             bool VariableMask, unsigned Alignment,
-                             unsigned AddressSpace,
-                             TTI::TargetCostKind CostKind,
-                             const Instruction *I);
+  InstructionCost getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
+                                         unsigned IndexSize, bool VariableMask,
+                                         unsigned Alignment,
+                                         unsigned AddressSpace,
+                                         TTI::TargetCostKind CostKind,
+                                         const Instruction *I);
 #endif // INTEL_CUSTOMIZATION
   int getAddressComputationCost(Type *PtrTy, ScalarEvolution *SE,
                                 const SCEV *Ptr);
@@ -279,11 +280,12 @@ public:
 
 private:
 #if INTEL_CUSTOMIZATION
-  int getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *DataTy,
-                      bool VariableMask, Align Alignment,
-                      unsigned AddressSpace);
-  int getGSVectorCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
-                      Align Alignment, unsigned AddressSpace);
+  InstructionCost getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *DataTy,
+                                  bool VariableMask, Align Alignment,
+                                  unsigned AddressSpace);
+  InstructionCost getGSVectorCost(unsigned Opcode, Type *DataTy,
+                                  unsigned IndexSize, Align Alignment,
+                                  unsigned AddressSpace);
   bool targetMatchesVariantISA(VectorVariant::ISAClass VariantISA) const;
 #endif // INTEL_CUSTOMIZATION
   InstructionCost getGSVectorCost(unsigned Opcode, Type *DataTy,
