@@ -1089,13 +1089,11 @@ defm cuda_short_ptr : BoolFOption<"cuda-short-ptr",
 #endif // INTEL_CUSTOMIZATION
 def rocm_path_EQ : Joined<["--"], "rocm-path=">, Group<i_Group>, Flags<[DpcppUnsupported]>,
   HelpText<"ROCm installation path, used for finding and automatically linking required bitcode libraries.">;
-def rocm_device_lib_path_EQ : Joined<["--"], "rocm-device-lib-path=">, Group<Link_Group>, Flags<[DpcppUnsupported]>,
-  HelpText<"ROCm device library path. Alternative to rocm-path.">;
 def hip_path_EQ : Joined<["--"], "hip-path=">, Group<i_Group>,
   HelpText<"HIP runtime installation path, used for finding HIP version and adding HIP include path.">;
 def amdgpu_arch_tool_EQ : Joined<["--"], "amdgpu-arch-tool=">, Group<i_Group>,
   HelpText<"Tool used for detecting AMD GPU arch in the system.">;
-def rocm_device_lib_path_EQ : Joined<["--"], "rocm-device-lib-path=">, Group<Link_Group>,
+def rocm_device_lib_path_EQ : Joined<["--"], "rocm-device-lib-path=">, Group<Link_Group>, Flags<[DpcppUnsupported]>,
   HelpText<"ROCm device library path. Alternative to rocm-path.">;
 def : Joined<["--"], "hip-device-lib-path=">, Alias<rocm_device_lib_path_EQ>;
 def hip_device_lib_EQ : Joined<["--"], "hip-device-lib=">, Group<Link_Group>, Flags<[DpcppUnsupported]>,
