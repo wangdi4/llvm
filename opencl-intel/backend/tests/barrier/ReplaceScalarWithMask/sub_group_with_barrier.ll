@@ -1,11 +1,21 @@
+; RUN: %oclopt -B-ReplaceScalarWithMask -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-ReplaceScalarWithMask -S < %s | FileCheck %s
 
+; CHECK-LEBEL: define void @_test
+; CHECK: !vectorized_kernel ![[#VECTOR_KERNEL:]]
+; CHECK-SAME: !vectorized_masked_kernel ![[#MASK_KERNEL:]]
+; CHECK-SAME: !vectorized_width ![[#VF:]]
+; CHECK: entry:
+; CHECK-NEXT: %sg.size. = call i32 @_Z18get_sub_group_sizev()
+; CHECK-NEXT: %sg.size.zext = zext i32 %sg.size. to i64
+; CHECK-NEXT: %.splatinsert = insertelement <4 x i64> poison, i64 %sg.size.zext, i32 0
+; CHECK-NEXT: %.splat = shufflevector <4 x i64> %.splatinsert, <4 x i64> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT: %mask.i1 = icmp ult <4 x i64> <i64 0, i64 1, i64 2, i64 3>, %.splat
+; CHECK-NEXT: %mask.i32 = sext <4 x i1> %mask.i1 to <4 x i32>
 ; CHECK-NOT: define void @_ZGVcM4u_test
-; CHECK: @test
-; CHECK: !vectorized_width ![[VF_METADATA:[0-9]+]]
-; CHECK: @_Z18get_sub_group_sizev()
-; CHECK-LABEL: @_ZGVcN4u_test
-; CHECK: ![[VF_METADATA:[0-9]+]] = !{i32 4}
+; CHECK-DAG: ![[#VECTOR_KERNEL]] = !{void (i32 addrspace(1)*)* @_ZGVcN4u_test}
+; CHECK-DAG: ![[#MASK_KERNEL]] = !{void (i32 addrspace(1)*)* @test}
+; CHECK-DAG: ![[#VF]] = !{i32 4}
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
@@ -17,9 +27,6 @@ entry:
   tail call void @_Z7barrierj(i32 1) #5
   ret void
 }
-
-; Function Attrs: convergent
-declare i32 @_Z22get_max_sub_group_sizev() local_unnamed_addr #1
 
 ; Function Attrs: convergent
 declare void @_Z7barrierj(i32) local_unnamed_addr #2
@@ -109,3 +116,10 @@ attributes #5 = { convergent nounwind "kernel-call-once" "kernel-convergent-call
 !20 = !{!"Simple C/C++ TBAA"}
 !21 = !{i32 4}
 !22 = !{i32 27}
+
+;; original scalar kernel has been replaced
+; DEBUGIFY: WARNING: Missing line 1
+; DEBUGIFY: WARNING: Missing line 2
+; DEBUGIFY: WARNING: Missing line 3
+; DEBUGIFY: WARNING: Missing variable 1
+; DEBUGIFY-NOT: WARNING

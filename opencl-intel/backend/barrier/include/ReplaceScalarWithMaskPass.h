@@ -15,8 +15,6 @@
 #ifndef __REPLACE_SCALAR_WITH_MASK_H__
 #define __REPLACE_SCALAR_WITH_MASK_H__
 
-#include "BarrierUtils.h"
-
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 
@@ -40,9 +38,6 @@ namespace intel {
     }
 
     bool runOnModule(Module &M) override;
-
-  private:
-    BarrierUtils m_util;
   };
 } // namespace intel
 

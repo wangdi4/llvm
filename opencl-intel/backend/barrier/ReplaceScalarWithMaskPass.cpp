@@ -18,10 +18,11 @@
 #include "LoopUtils/LoopUtils.h"
 #include "MetadataAPI.h"
 #include "OCLPassSupport.h"
+#include "SGHelper.h"
 
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Instruction.h"
 
 using namespace Intel::MetadataAPI;
 
@@ -34,55 +35,75 @@ namespace intel {
     "Barrier Pass - Replace scalar kernel with masked kernel when the \
 kernel has barrier path and subgroup calls", false, false)
 
-  bool ReplaceScalarWithMask::runOnModule(Module& module) {
-    bool changed = false;
-    m_util.init(&module);
-    LLVMContext* pContext = &module.getContext();
-    auto kernels = KernelList(&module);
+  bool ReplaceScalarWithMask::runOnModule(Module &M) {
+    bool Changed = false;
 
-    for (auto pFunc : kernels) {
-      auto skimd = KernelInternalMetadataAPI(pFunc);
-      if ((skimd.NoBarrierPath.hasValue() && skimd.NoBarrierPath.get()) ||
-          !(skimd.VectorizedMaskedKernel.hasValue() &&
-          skimd.VectorizedMaskedKernel.get()))
+    SGHelper Helper;
+    Helper.initialize(M);
+
+    for (auto *ScalarKernel : KernelList(&M)) {
+      auto SKIMD = KernelInternalMetadataAPI(ScalarKernel);
+      if ((SKIMD.NoBarrierPath.hasValue() && SKIMD.NoBarrierPath.get()) ||
+          !(SKIMD.VectorizedMaskedKernel.hasValue() &&
+            SKIMD.VectorizedMaskedKernel.get()))
         continue;
-      changed = true;
-      auto maskedKernel = skimd.VectorizedMaskedKernel.get();
-      auto maskedKimd = KernelInternalMetadataAPI(maskedKernel);
-      // Set the vectorized width
-      unsigned vectWidth = maskedKimd.VectorizedWidth.get();
 
-      // Save the relevant information from the vectorized kernel in skimd
-      // Prior to erasing this information
-      unsigned int vectorizeOnDim = maskedKimd.VectorizationDimension.get();
-      unsigned int canUniteWG = maskedKimd.CanUniteWorkgroups.get();
+      Changed = true;
 
-      // Update metadata before inlining the masked kernel.
-      skimd.VectorizedMaskedKernel.set(nullptr);
-      skimd.VectorizedWidth.set(vectWidth);
-      skimd.VectorizationDimension.set(vectorizeOnDim);
-      skimd.CanUniteWorkgroups.set(canUniteWG);
+      Function *MaskKernel = SKIMD.VectorizedMaskedKernel.get();
+      assert(SKIMD.VectorizedKernel.hasValue() &&
+             "vectoized kernel doesn't exist!");
+      Function *VectorKernel = SKIMD.VectorizedKernel.get();
 
-      // Prepare mask argument.
-      auto *pEntry = &maskedKernel->getEntryBlock();
-      auto *pNewEntry = BasicBlock::Create(*pContext, "", maskedKernel, pEntry);
-      Value* sgSize = m_util.createGetSGSize(pNewEntry);
-      Type* IndTy = LoopUtils::getIndTy(&module);
-      if (sgSize->getType() != IndTy)
-        sgSize = new ZExtInst(sgSize, IndTy, "", pNewEntry);
-      Value* mask = LoopUtils::generateRemainderMask(vectWidth, sgSize, pNewEntry);
-      BranchInst::Create(pEntry, pNewEntry);
-      Value* maskArg = maskedKernel->arg_end()-1;
-      maskArg->replaceAllUsesWith(mask);
+      // Will insert all mask generation logic before first instruction.
+      auto *FistInst = &*MaskKernel->getEntryBlock().begin();
 
-      // Inline the masked kernel to scalar kernel.
-      LoopUtils::inlineMaskToScalar(pFunc, maskedKernel);
+      // Get current sub-group size.
+      Value *SGSize = Helper.createGetSubGroupSize(FistInst);
+      Type *IndTy = LoopUtils::getIndTy(&M);
+      if (SGSize->getType() != IndTy) {
+        SGSize = new ZExtInst(SGSize, IndTy, "sg.size.zext", FistInst);
+        cast<Instruction>(SGSize)->setDebugLoc(FistInst->getDebugLoc());
+      }
 
-      // Reset VectorizedMaskedKernel to pFunc since pFunc is replaced with
-      // vectorized masked kernel.
-      skimd.VectorizedMaskedKernel.set(pFunc);
+      // Generate mask and replace the mask argument with generated mask.
+      Value *Mask = LoopUtils::generateRemainderMask(
+          KernelInternalMetadataAPI(MaskKernel).VectorizedWidth.get(), SGSize,
+          FistInst);
+      (MaskKernel->arg_end() - 1)->replaceAllUsesWith(Mask);
+
+      // Replace the scalar kernel body with masked kernel body.
+      ScalarKernel->deleteBody();
+      ScalarKernel->getBasicBlockList().splice(ScalarKernel->begin(),
+                                               MaskKernel->getBasicBlockList());
+
+      // Move the name and users of arguments to the new version.
+      for (Function::arg_iterator I = ScalarKernel->arg_begin(),
+                                  E = ScalarKernel->arg_end(),
+                                  I2 = MaskKernel->arg_begin();
+           I != E; ++I, ++I2) {
+        I2->replaceAllUsesWith(&*I);
+        I->takeName(&*I2);
+      }
+
+      // Clone metadatas from the old function, including debug info descriptor.
+      SmallVector<std::pair<unsigned, MDNode *>, 1> MDs;
+      MaskKernel->getAllMetadata(MDs);
+      for (auto MD : MDs)
+        ScalarKernel->addMetadata(MD.first, *MD.second);
+
+      // Set the masked kernel to itself.
+      SKIMD.VectorizedMaskedKernel.set(ScalarKernel);
+      // Unset scalarized kernel.
+      SKIMD.ScalarizedKernel.set(nullptr);
+      // Restore vectorized kernel.
+      SKIMD.VectorizedKernel.set(VectorKernel);
+
+      // Remove mask kernel.
+      MaskKernel->eraseFromParent();
     }
-    return changed;
+
+    return Changed;
   }
 
 } // namespace intel

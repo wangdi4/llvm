@@ -148,7 +148,6 @@ namespace intel {
 
     Instruction *createGetLocalSize(unsigned dim, Instruction *pInsertBefore);
     Instruction *createGetBaseGlobalId(Value* dim, Instruction *pInsertBefore);
-    Instruction *createGetSGSize(BasicBlock *pBB);
     /// @brief Create new call instruction to barrier()
     /// @param pInsertBefore instruction to insert new call instruction before
     /// @returns new created call instruction
