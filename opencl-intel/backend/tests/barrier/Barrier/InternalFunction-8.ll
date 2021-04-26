@@ -1,3 +1,4 @@
+; RUN: %oclopt -B-Barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-Barrier -verify -S < %s | FileCheck %s
 ;;*****************************************************************************
 ; This test checks the Barrier pass
@@ -66,3 +67,15 @@ declare i32 @_Z13get_global_idj(i32)
 !opencl.kernels = !{!0}
 
 !0 = !{void ()* @main}
+
+;; barrier key values
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pCurrSBIndex = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pLocalIds = alloca [3 x i32], align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %LocalSize_0 = call i32 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %LocalSize_1 = call i32 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- %LocalSize_2 = call i32 @_Z14get_local_sizej(i32 2)
+;; get_global_id resolve
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %BaseGlobalId_0 = call i32 @get_base_global_id.(i32 0)
+; DEBUGIFY-NOT: WARNING

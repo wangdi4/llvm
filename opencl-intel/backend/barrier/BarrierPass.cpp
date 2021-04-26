@@ -44,8 +44,8 @@ using namespace Intel::MetadataAPI;
 
 extern bool OptUseTLSGlobals;
 
-static cl::opt<bool> OptIsNativeDebug("is-native-debug", cl::init(false),
-                                      cl::Hidden, cl::desc("Use native debug"));
+cl::opt<bool> OptIsNativeDebug("is-native-debug", cl::init(false), cl::Hidden,
+                               cl::desc("Use native debug"));
 
 namespace intel {
 
@@ -198,16 +198,6 @@ namespace intel {
     m_pSpecialValues = &m_pDataPerValue->getValuesToHandle(&F);
     m_pAllocaValues = &m_pDataPerValue->getAllocaValuesToHandle(&F);
     m_pCrossBarrierValues = &m_pDataPerValue->getUniformValuesToHandle(&F);
-
-    Instruction* pInsertBefore = &*F.getEntryBlock().begin();
-    if (m_isNativeDBG) {
-      // Move alloca instructions for locals/parameters for debugging purposes
-      for (TValueVector::iterator vi = m_pAllocaValues->begin(), ve = m_pAllocaValues->end();
-           vi != ve; ++vi ) {
-        AllocaInst *pAllocaInst = cast<AllocaInst>(*vi);
-        pAllocaInst->moveBefore(pInsertBefore);
-      }
-    }
 
     //Clear container for new iteration on new function
     m_toRemoveInstructions.clear();
@@ -649,9 +639,11 @@ namespace intel {
       assert(AI && "container of alloca values has non AllocaInst value!");
 
       // Don't fix implicit GID.
-      if (m_isNativeDBG && CompilationUtils::isImplicitGID(AI))
+      if (m_isNativeDBG && CompilationUtils::isImplicitGID(AI)) {
+        // Move implicit GID out of barrier loop.
+        AI->moveBefore(AddrInsertBefore);
         continue;
-
+      }
       // Insert new alloca which stores AI's address in special buffer.
       // AI's users will be replaced by result of load instruction from the new
       // alloca.
@@ -685,6 +677,8 @@ namespace intel {
       // Now each user is bound to a basic block, in which we insert instruction
       // to load AI's address in special buffer to AddrAI, and replace the user
       // with result of the load instruction.
+
+      bool AllocaDebugLocFixed = false;
       for (auto &BBUser : BBUsers) {
         BasicBlock *BB = BBUser.first;
         Instruction *InsertBefore;
@@ -693,8 +687,15 @@ namespace intel {
           assert(
               InsertBefore->getParent() == BB &&
               "sync instruction must not be the last instruction in the block");
-        } else
-          InsertBefore = BB->getFirstNonPHI();
+        } else {
+          if (AI->getParent() == BB) {
+            // The inserted instructions will get debug loc of current alloca.
+            InsertBefore = AI;
+            AllocaDebugLocFixed = true;
+          } else {
+            InsertBefore = BB->getFirstNonPHI();
+          }
+        }
         assert(InsertBefore && "InsertBefore is invalid");
         // Calculate the pointer of the current alloca in the special buffer
         Value *AddrInSpecialBuffer = getAddressInSpecialBuffer(
@@ -717,6 +718,14 @@ namespace intel {
         }
       }
 
+      if (m_isNativeDBG && !AllocaDebugLocFixed) {
+        // Store the new addr in special buffer into AddrAI to preserve debug
+        // info.
+        Value *AddrInSpecialBuffer = getAddressInSpecialBuffer(
+            Offset, AI->getType(), AI, &AI->getDebugLoc());
+        auto *SI = new StoreInst(AddrInSpecialBuffer, AddrAI, AI);
+        SI->setDebugLoc(AI->getDebugLoc());
+      }
       m_toRemoveInstructions.push_back(AI);
 
       // Remove old DbgDeclareInst
@@ -1176,6 +1185,8 @@ namespace intel {
       return pAddrInSpecialBuffer;
   }
 
+  // TODO: Since ResolveVariableTIDCall ran before this pass, we won't encounter
+  // variable TID call. This logic can be removed.
   Instruction* Barrier::createOOBCheckGetLocalId(CallInst *pCall) {
     // if we are going in this path, then no chance that we can run less than 3D
     //
@@ -1204,6 +1215,7 @@ namespace intel {
     // Entry:2. add the entry tail code (as described up)
     {
       IRBuilder<> B(pBlock);
+      B.SetCurrentDebugLocation(pCall->getDebugLoc());
       ConstantInt *max_work_dim_i32 = ConstantInt::get(
           *m_pContext, APInt(32U, uint64_t(MaxNumDims), false));
       Value *checkIndex = B.CreateICmpULT(
@@ -1214,8 +1226,7 @@ namespace intel {
     // B.Build the get.wi.properties block
     // Now retrieve address of the DIM count
 
-    BranchInst::Create(splitContinue, getWIProperties);
-    IRBuilder<> B(getWIProperties->getTerminator());
+    IRBuilder<> B(getWIProperties);
     B.SetCurrentDebugLocation(pCall->getDebugLoc());
     Value *LocalIds;
     if (m_useTLSGlobals) {
@@ -1225,13 +1236,14 @@ namespace intel {
     }
     Instruction *pResult =
         createGetLocalId(LocalIds, pCall->getArgOperand(0), B);
+    B.CreateBr(splitContinue);
 
     // C.Create Phi node at the first of the splitted BB
     PHINode *pAttrResult = PHINode::Create(IntegerType::get(*m_pContext, m_uiSizeT), 2, "", splitContinue->getFirstNonPHI());
     pAttrResult->addIncoming(pResult, getWIProperties);
     // The overflow value
     pAttrResult->addIncoming(m_Zero, pBlock);
-
+    pAttrResult->setDebugLoc(pCall->getDebugLoc());
     return pAttrResult;
   }
   Value *Barrier::resolveGetLocalIDCall(CallInst *Call) {
@@ -1306,8 +1318,9 @@ namespace intel {
           Value *LID = resolveGetLocalIDCall(pOldCall);
           // Replace get_global_id(arg) with global_base_id + local_id
           Name = CompilationUtils::AppendWithDimension("GlobalID_", Dim);
-          Value *GlobalID =
+          Instruction *GlobalID =
               BinaryOperator::CreateAdd(LID, BaseGID, Name, pOldCall);
+          GlobalID->setDebugLoc(pOldCall->getDebugLoc());
           pOldCall->replaceAllUsesWith(GlobalID);
         }
         m_toRemoveInstructions.push_back(pOldCall);
@@ -1413,7 +1426,6 @@ namespace intel {
   }
 
   void Barrier::fixArgumentUsage(Value *pOriginalArg, unsigned int offsetArg) {
-    //TODO: do we need to set DebugLoc for these instructions?
     assert( (!m_pDataPerValue->isOneBitElementType(pOriginalArg) ||
       !isa<VectorType>(pOriginalArg->getType())) && "pOriginalArg with base type i1!");
     TInstructionSet userInsts;
@@ -1447,7 +1459,6 @@ namespace intel {
   }
 
   void Barrier::fixReturnValue(Value *pRetVal, unsigned int offsetRet, Instruction* pInsertBefore) {
-    //TODO: do we need to set DebugLoc for these instructions?
     assert( (!m_pDataPerValue->isOneBitElementType(pRetVal) ||
       !isa<VectorType>(pRetVal->getType())) && "pRetVal with base type i1!");
     // pRetVal might be a result of calling other function itself
@@ -1459,7 +1470,8 @@ namespace intel {
     Value *pAddrInSpecialBuffer =
         getAddressInSpecialBuffer(offsetRet, pType, pInsertBefore, nullptr);
     //Add Store instruction after the value instruction
-    new StoreInst(pRetVal, pAddrInSpecialBuffer, pInsertBefore);
+    auto *SI = new StoreInst(pRetVal, pAddrInSpecialBuffer, pInsertBefore);
+    SI->setDebugLoc(pInsertBefore->getDebugLoc());
   }
 
   void Barrier::fixCallInstruction(CallInst *pCallToFix) {

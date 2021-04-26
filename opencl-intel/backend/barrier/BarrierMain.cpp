@@ -36,7 +36,7 @@ extern "C" {
   void* createRedundantPhiNodePass();
   void* createGroupBuiltinPass();
   void* createBarrierInFunctionPass();
-  void* createRemoveDuplicationBarrierPass();
+  void *createRemoveDuplicationBarrierPass(bool IsNativeDebug);
   void* createSplitBBonBarrierPass();
   Pass *createImplicitGIDPass(bool HandleBarrier);
   void* createReplaceScalarWithMaskPass();
@@ -90,7 +90,8 @@ namespace intel {
     if ( m_debugType != Native ) {
       // This optimization removes debug information from extraneous barrier
       // calls by deleting them.
-      barrierModulePM.add((ModulePass*)createRemoveDuplicationBarrierPass());
+      barrierModulePM.add((ModulePass *)createRemoveDuplicationBarrierPass(
+          m_debugType == Native));
     }
 
     // Begin sub-group emulation

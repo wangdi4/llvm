@@ -156,7 +156,6 @@ void CPUCompiler::SelectCpu(const std::string &cpuName,
   Utils::SplitString(cpuFeatures, ",", m_forcedCpuFeatures);
 
   bool DisableAVX = false;
-  // CPUId cpuId = Utils::CPUDetect::GetInstance()->GetCPUId();
   m_CpuId = CPUDetect::GetInstance();
   if (cpuName == CPU_ARCH_AUTO) {
     return;

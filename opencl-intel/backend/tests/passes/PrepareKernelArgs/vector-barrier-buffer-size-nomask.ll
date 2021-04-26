@@ -7,6 +7,7 @@
 ;   dst[g] = 0;
 ; }
 ;
+; RUN: %oclopt -prepare-kernel-args -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -prepare-kernel-args -S < %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -150,3 +151,16 @@ attributes #0 = { convergent norecurse nounwind "correctly-rounded-divide-sqrt-f
 !20 = distinct !{void (i32 addrspace(1)*, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, i64*, [4 x i64], i8*, {}*)* @test}
 !21 = !{i32 16}
 !22 = !{i32 6}
+
+; DEBUGIFY-NOT: WARNING
+; DEBUGIFY-COUNT-76: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; Known issue of debugify on PHI node, ignore the “Missing line xxxx” warning
+; DEBUGIFY: WARNING: Missing line 5
+; DEBUGIFY: WARNING: Missing line 6
+; DEBUGIFY: WARNING: Missing line 17
+; DEBUGIFY: WARNING: Missing line 18
+; DEBUGIFY: WARNING: Missing line 34
+; DEBUGIFY: WARNING: Missing line 35
+; DEBUGIFY: WARNING: Missing line 46
+; DEBUGIFY: WARNING: Missing line 47
+; DEBUGIFY-NOT: WARNING

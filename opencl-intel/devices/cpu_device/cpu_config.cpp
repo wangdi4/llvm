@@ -126,6 +126,16 @@ bool CPUDeviceConfig::IsDoubleSupported() const
     {
         return false;
     }
+    // Keep original logic
+    // disabled on Atom
+    if (BRAND_INTEL_ATOM == CPUDetect::GetInstance()->GetCPUBrandFamily()) {
+      return false;
+    }
+
+    // enabled on non-Atom brands
+    if (BRAND_UNKNOWN != CPUDetect::GetInstance()->GetCPUBrandFamily()) {
+      return true;
+    }
 
     // if we can't detect brand, fallback to AVX support check
     // enabled on CPUs with AVX support

@@ -10,6 +10,7 @@
 ; ----------------------------------------------------
 ; Check whether implicit GIDs work with subgroup emulation
 
+; RUN: %oclopt -B-ImplicitGlobalIdPass -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-ImplicitGlobalIdPass -S %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -252,3 +253,5 @@ attributes #7 = { convergent nounwind readnone }
 !31 = !DILocation(line: 8, column: 17, scope: !19)
 !32 = !DILocation(line: 8, column: 13, scope: !19)
 !33 = !DILocation(line: 9, column: 1, scope: !19)
+
+; DEBUGIFY-NOT: WARNING

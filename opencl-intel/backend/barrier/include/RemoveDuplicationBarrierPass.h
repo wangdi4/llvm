@@ -37,7 +37,7 @@ namespace intel {
     static char ID;
 
     /// @brief C'tor
-    RemoveDuplicationBarrier();
+    explicit RemoveDuplicationBarrier(bool IsNativeDebug = false);
 
     /// @brief D'tor
     ~RemoveDuplicationBarrier() {}
@@ -55,6 +55,9 @@ namespace intel {
   private:
     /// This is barrier utility class
     BarrierUtils m_util;
+
+    /// Indicates whether under native debug mode.
+    bool m_IsNativeDebug;
   };
 
 } // namespace intel

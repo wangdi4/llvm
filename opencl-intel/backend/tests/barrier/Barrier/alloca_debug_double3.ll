@@ -8,6 +8,7 @@
 ;    size_t i = get_global_id(0);
 ;    data = p[i];
 ; }
+; RUN: %oclopt -B-ValueAnalysis -B-BarrierAnalysis -B-Barrier -is-native-debug=true %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-ValueAnalysis -B-BarrierAnalysis -B-Barrier -is-native-debug=true %s -S | FileCheck %s
 ;
 
@@ -20,7 +21,7 @@ entry:
 ; CHECK-LABEL: entry:
 ; CHECK: %data.addr = alloca <3 x double>*
 ; CHECK-LABEL: SyncBB1:
-; CHECK: [[Offset_i:%SB_LocalId_Offset[0-9+]]] = add nuw i64 %SBIndex{{[0-9]+}}, 64
+; CHECK: [[Offset_i:%SB_LocalId_Offset[0-9]+]] = add nuw i64 %SBIndex{{[0-9]+}}, 64
 ; CHECK-NEXT: [[Ptr_i:%[0-9]+]] = getelementptr inbounds i8, i8* %pSB, i64 [[Offset_i]]
 ; CHECK-NEXT: [[LocalId_i:%pSB_LocalId[0-9]+]] = bitcast i8* [[Ptr_i]] to i64*
 ; CHECK-NEXT: store i64* [[LocalId_i]], i64** %i.addr
@@ -28,6 +29,7 @@ entry:
 ; CHECK-NEXT: [[Ptr_data:%[0-9]+]] = getelementptr inbounds i8, i8* %pSB, i64 [[Offset_data]]
 ; CHECK-NEXT: [[LocalId_data:%pSB_LocalId[0-9]+]] = bitcast i8* [[Ptr_data]] to <3 x double>*
 ; CHECK-NEXT: store <3 x double>* [[LocalId_data]], <3 x double>** %data.addr
+
   call void @dummybarrier.()
   %p.addr = alloca <3 x double> addrspace(1)*, align 8
   %data = alloca <3 x double>, align 32
@@ -78,3 +80,21 @@ attributes #4 = { convergent nounwind readnone }
 !8 = !{i32 0, i32 0}
 !9 = !{i1 false}
 !10 = !{i32 22}
+;; get_global_id resolve
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %BaseGlobalId_0 = call i64 @get_base_global_id.(i32 0)
+;; addr of alloca
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %p.addr.addr = alloca <3 x double> addrspace(1)**, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %data.addr = alloca <3 x double>*, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %i.addr = alloca i64*, align 8
+;; barrier key values
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrSBIndex = alloca i64, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pLocalIds = alloca [3 x i64], align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
+;; debug instrument
+;DEBUGIFY-COUNT-2: WARNING: Instruction with empty DebugLoc in function test -- call void @DebugCopy.()
+
+;DEBUGIFY-NOT: WARNING

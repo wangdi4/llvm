@@ -1,3 +1,4 @@
+; RUN: %oclopt -is-native-debug=true -B-ValueAnalysis -B-BarrierAnalysis -B-Barrier -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-ValueAnalysis -B-BarrierAnalysis -B-Barrier -S < %s | FileCheck %s
 
 ;;*****************************************************************************
@@ -151,3 +152,23 @@ attributes #7 = { convergent nounwind readnone }
 !11 = !{i1 false, i1 false}
 !12 = !{i32 0, i32 0}
 !13 = !{i32 20}
+
+;; barrier key values
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pCurrSBIndex = alloca i64, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pLocalIds = alloca [3 x i64], align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function addVectors -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function addVectors -- %pCurrSBIndex = alloca i64, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function addVectors -- %pLocalIds = alloca [3 x i64], align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function addVectors -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function addVectors -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function addVectors -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function addVectors -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
+;; debug instrument
+;DEBUGIFY-COUNT-4: WARNING: Instruction with empty DebugLoc in function addVectors --  call void @DebugCopy.()
+
+; DEBUGIFY-NOT: WARNING

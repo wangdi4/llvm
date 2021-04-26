@@ -1,3 +1,4 @@
+; RUN: %oclopt -B-ImplicitGlobalIdPass -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-ImplicitGlobalIdPass -verify -S %s | FileCheck %s
 ;
 ; This test checks that gids for debugging are inserted when there is only
@@ -54,3 +55,5 @@ attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="f
 !9 = !DIFile(filename: "/tmp/1.cl", directory: "/data/xmain/ics-ws/xmain/llvm/projects/opencl")
 !10 = !DISubroutineType(cc: DW_CC_LLVM_OpenCLKernel, types: !11)
 !11 = !{null}
+
+; DEBUGIFY-NOT: WARNING

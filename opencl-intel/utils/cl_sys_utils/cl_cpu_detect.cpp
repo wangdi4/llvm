@@ -14,6 +14,7 @@
 
 #include "cl_cpu_detect.h"
 #include "cl_env.h"
+#include "hw_utils.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/Host.h"
 
@@ -139,6 +140,7 @@ CPUDetect::CPUDetect(ECPU cpuId,
     m_cpuFeatures["bmi"] = true;
     m_cpuFeatures["bmi2"] = true;
   }
+
   // Add forced features
   if (std::find(forcedFeatures.begin(), forcedFeatures.end(), "+sse4.1") !=
       forcedFeatures.end()) {
@@ -285,26 +287,97 @@ CPUDetect::CPUDetect(void) : m_is64BitOS(sizeof(void *) == 8) {
   m_bBypassCPUDetect = ShouldBypassCPUCheck();
   m_CPUString = llvm::sys::getHostCPUName().str();
   llvm::sys::getHostCPUFeatures(m_cpuFeatures);
+  GetCPUBrandInfo();
+
+  // Map cpu codename to CPU enum according to cpu features first, since there
+  // are many-to-one mapping between cpu codename and CPU enum
+  if (IsFeatureSupported(CFS_SSE42))
+    m_cpuArch = CPU_COREI7;
+
+  if (IsFeatureSupported(CFS_AVX20))
+    m_cpuArch = CPU_HSW;
+
+  if (IsFeatureSupported(CFS_AVX512F) && IsFeatureSupported(CFS_AVX512CD) &&
+      IsFeatureSupported(CFS_AVX512BW) && IsFeatureSupported(CFS_AVX512DQ) &&
+      IsFeatureSupported(CFS_AVX512VL)) {
+    m_cpuArch = CPU_SKX;
+    if (IsFeatureSupported(CFS_AVX512IFMA) &&
+        IsFeatureSupported(CFS_AVX512VBMI) &&
+        IsFeatureSupported(CFS_AVX512VBMI2) &&
+        IsFeatureSupported(CFS_AVX512BITALG)) {
+      m_cpuArch = CPU_ICL;
+    }
+  }
+
+  // In case the above processing is not able to get CPU enum, map them with cpu
+  // codename directly
+  auto defaultCPUArch = m_cpuArch;
   m_cpuArch = llvm::StringSwitch<ECPU>(m_CPUString)
-                  .Case("westmere", CPU_WST)
                   .Case("sandybridge", CPU_SNB)
-                  .Case("pentium", CPU_PENTIUM)
-                  .Case("nocona", CPU_NOCONA)
-                  .Case("core2", CPU_CORE2)
-                  .Case("penryn", CPU_PENRYN)
                   .Case("knl", CPU_KNL)
-                  .Case("ivybridge", CPU_IVB)
                   .Case("haswell", CPU_HSW)
-                  .Case("broadwell", CPU_BDW)
-                  .Case("goldmont", CPU_GLK)
-                  .Case("rocketlake", CPU_RKL)
-                  .Case("skylake", CPU_SKL)
+                  .Case("westmere", CPU_COREI7)
                   .Cases("cooperlake", "cascadelake", "skylake-avx512", CPU_SKX)
-                  .Case("cannonlake", CPU_CNL)
                   .Case("icelake-client", CPU_ICL)
                   .Case("icelake-server", CPU_ICX)
-                  .Case("alderlake", CPU_ADL)
-                  .Case("tigerlake", CPU_TGL)
                   .Case("sapphirerapids", CPU_SPR)
-                  .Default(CPU_UNKNOWN);
+                  .Default(defaultCPUArch);
+  if (m_cpuArch == CPU_UNKNOWN) {
+    string errMessage = m_CPUString + ": Unknown CPU!";
+    llvm_unreachable(errMessage.data());
+  }
+}
+
+// Get CPU brand info
+void CPUDetect::GetCPUBrandInfo() {
+  char vcCPUBrandString[0x40] = {0};
+  unsigned int viCPUInfo[4] = {(unsigned int)-1};
+
+  CPUID(viCPUInfo, 0);
+  CPUID(viCPUInfo, 1);
+  CPUID(viCPUInfo, 0x80000000);
+  unsigned int iValidExIDs = viCPUInfo[0];
+
+  if (iValidExIDs >= 0x80000004) {
+    for (unsigned int i = 0x80000000; i <= iValidExIDs; ++i) {
+      CPUID(viCPUInfo, i);
+
+      // Interpret CPU brand string.
+      if (i == 0x80000002) {
+        MEMCPY_S(vcCPUBrandString, sizeof(vcCPUBrandString), viCPUInfo,
+                 sizeof(viCPUInfo));
+      } else if (i == 0x80000003) {
+        MEMCPY_S(vcCPUBrandString + 16, sizeof(vcCPUBrandString) - 16,
+                 viCPUInfo, sizeof(viCPUInfo));
+      } else if (i == 0x80000004) {
+        MEMCPY_S(vcCPUBrandString + 32, sizeof(vcCPUBrandString) - 32,
+                 viCPUInfo, sizeof(viCPUInfo));
+      }
+    }
+    m_CPUBrandString = STRDUP(vcCPUBrandString);
+  }
+
+  // detect CPU brand
+  if (nullptr != m_CPUBrandString) {
+    if (m_CPUBrandString == strstr(m_CPUBrandString, "Intel(R) Core(TM)")) {
+      m_CPUBrand = BRAND_INTEL_CORE;
+    } else if (m_CPUBrandString ==
+               strstr(m_CPUBrandString, "Intel(R) Atom(TM)")) {
+      m_CPUBrand = BRAND_INTEL_ATOM;
+    } else if (m_CPUBrandString ==
+               strstr(m_CPUBrandString, "Intel(R) Pentium(R)")) {
+      m_CPUBrand = BRAND_INTEL_PENTIUM;
+    } else if (m_CPUBrandString ==
+               strstr(m_CPUBrandString, "Intel(R) Celeron(R)")) {
+      m_CPUBrand = BRAND_INTEL_CELERON;
+    } else if (m_CPUBrandString ==
+               strstr(m_CPUBrandString, "Intel(R) Xeon(R)")) {
+      m_CPUBrand = BRAND_INTEL_XEON;
+    } else {
+      // uknown brand name
+      m_CPUBrand = BRAND_UNKNOWN;
+    }
+  } else {
+    m_CPUBrandString = STRDUP("");
+  }
 }

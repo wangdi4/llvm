@@ -1,3 +1,4 @@
+; RUN: %oclopt -add-implicit-args -prepare-kernel-args -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-implicit-args -prepare-kernel-args -S %s | FileCheck %s
 
 ; Checks that the attributes of the old kernel is copied to the wrapper. And
@@ -21,3 +22,7 @@ define void @test(i32 %a) #0 {
 !0 = !{void(i32)* @test}
 
 attributes #0 = { noinline nounwind "failed-to-vectorize" "min-legal-vector-width"="0" }
+
+; DEBUGIFY-NOT: WARNING
+; DEBUGIFY-COUNT-37: WARNING: Instruction with empty DebugLoc in function test {{.*}}
+; DEBUGIFY-NOT: WARNING

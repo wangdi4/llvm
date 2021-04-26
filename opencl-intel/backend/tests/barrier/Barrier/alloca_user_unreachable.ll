@@ -11,6 +11,7 @@
 ;     foo(g);
 ; }
 ;
+; RUN: %oclopt -B-ValueAnalysis -B-BarrierAnalysis -B-Barrier %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-ValueAnalysis -B-BarrierAnalysis -B-Barrier %s -S | FileCheck %s
 ;
 
@@ -89,3 +90,16 @@ attributes #2 = { convergent }
 !4 = !{void ()* @main_kernel}
 !5 = !{i32 8}
 !6 = !{i1 false}
+
+;; addr of alloca
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %g.addr = alloca i32*, align 8
+;; barrier key values
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %pCurrSBIndex = alloca i64, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %pLocalIds = alloca [3 x i64], align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main_kernel -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
+
+; DEBUGIFY-NOT: WARNING

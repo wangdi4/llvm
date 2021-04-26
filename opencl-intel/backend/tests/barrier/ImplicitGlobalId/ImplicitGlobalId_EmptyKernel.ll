@@ -30,6 +30,7 @@
 ; and the LLVM IR was dumped by breaking at intel::ImplicitGlobalIdPass::runOnModule()
 ; and calling M.dump();
 ; ----------------------------------------------------
+; RUN: %oclopt -B-ImplicitGlobalIdPass -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-ImplicitGlobalIdPass -verify -S %s
 ;
 ; This test checks that we are able to insert a gid_alloca at an
@@ -207,3 +208,5 @@ attributes #3 = { convergent "uniform-work-group-size"="true" }
 !60 = !DILocation(line: 17, column: 2, scope: !59)
 !61 = !DILocation(line: 18, column: 2, scope: !59)
 
+
+; DEBUGIFY-NOT: WARNING

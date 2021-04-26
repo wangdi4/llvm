@@ -68,16 +68,20 @@ enum ECPUFeatureSupport {
 
 };
 
+// Processor brand family
+enum ECPUBrandFamily {
+  BRAND_UNKNOWN,
+  BRAND_INTEL_CORE,
+  BRAND_INTEL_ATOM,
+  BRAND_INTEL_PENTIUM,
+  BRAND_INTEL_CELERON,
+  BRAND_INTEL_XEON
+};
+
 #define CPU_ARCHS(modificator)                                                 \
-  modificator(CPU_PENTIUM) modificator(CPU_NOCONA) modificator(CPU_CORE2)      \
-      modificator(CPU_WST) modificator(CPU_PENRYN) modificator(CPU_COREI7)     \
-          modificator(CPU_SNB) modificator(CPU_HSW) modificator(CPU_KNL)       \
-              modificator(CPU_IVB) modificator(CPU_BDW) modificator(CPU_SKL)   \
-                  modificator(CPU_SKX) modificator(CPU_GLK)                    \
-                      modificator(CPU_CNL) modificator(CPU_ICL)                \
-                          modificator(CPU_ICX) modificator(CPU_SPR)            \
-                              modificator(CPU_RKL) modificator(CPU_TGL)        \
-                                  modificator(CPU_ADL)
+  modificator(CPU_COREI7) modificator(CPU_SNB) modificator(CPU_HSW)            \
+      modificator(CPU_KNL) modificator(CPU_SKX) modificator(CPU_ICL)           \
+          modificator(CPU_ICX) modificator(CPU_SPR)
 
 enum ECPU {
   CPU_UNKNOWN = 0,
@@ -102,60 +106,26 @@ public:
   CPUDetect(ECPU CPU, const llvm::SmallVectorImpl<std::string> &forcedFeatures,
             bool is64BitOS);
 
-  bool isWestmere() const { return m_cpuArch == CPU_WST; }
-
-  bool isSandyBridge() const { return m_cpuArch == CPU_SNB; }
-
-  bool isIvyBridge() const { return m_cpuArch == CPU_IVB; }
-
-  bool isHaswell() const { return m_cpuArch == CPU_HSW; }
-
-  bool isBroadwell() const { return m_cpuArch == CPU_BDW; }
-
-  bool isSkylake() const {
-    return m_cpuArch == CPU_SKL || m_cpuArch == CPU_SKX;
-  }
-
-  bool isGeminilake() const { return m_cpuArch == CPU_GLK; }
-
-  bool isCannonlake() const { return m_cpuArch == CPU_CNL; }
-
-  bool isIcelake() const {
-    return m_cpuArch == CPU_ICL || m_cpuArch == CPU_ICX;
-  }
-
-  bool isRocketlake() const { return m_cpuArch == CPU_RKL; }
-  bool isTigerlake() const { return m_cpuArch == CPU_TGL; }
-  bool isAlderlake() const { return m_cpuArch == CPU_ADL; }
+  bool isWestmere() const { return m_CPUString == "westmere"; }
 
   bool IsFeatureSupported(ECPUFeatureSupport featureType) const;
   TransposeSizeSupport isTransposeSizeSupported(
       Intel::OpenCL::DeviceBackend::ETransposeSize transposeSize) const;
+
   const char *GetCPUPrefix() const {
     if (CPU_SNB == m_cpuArch && !HasAVX1()) {
       // Use SSE4 if AVX1 is not supported
-      return GetCPUPrefixSSE(m_is64BitOS);
+      return GetCPUPrefixSSE(m_is64BitOS != 0);
     } else {
-
       switch (m_cpuArch) {
       default:
-        break;
-      case CPU_PENTIUM:
-        return m_is64BitOS ? "unknown" : "w7";
-      case CPU_NOCONA:
-        return m_is64BitOS ? "e7" : "t7";
-      case CPU_CORE2:
-        return m_is64BitOS ? "u8" : "v8";
-      case CPU_PENRYN:
-        return m_is64BitOS ? "y8" : "p8";
+        llvm_unreachable("Unknown CPU!");
       case CPU_COREI7:
         return GetCPUPrefixSSE(m_is64BitOS);
       case CPU_SNB:
         return GetCPUPrefixAVX(m_is64BitOS);
       case CPU_HSW:
         return GetCPUPrefixAVX2(m_is64BitOS);
-      case CPU_KNL:
-        return m_is64BitOS ? "b3" : "d3";
       case CPU_SKX:
       case CPU_ICL:
       case CPU_ICX:
@@ -163,20 +133,6 @@ public:
       case CPU_SPR:
         return GetCPUPrefixAMX(m_is64BitOS);
       }
-      if (HasAVX512Core())
-        return GetCPUPrefixAVX512(m_is64BitOS);
-      if (HasAVX2())
-        return GetCPUPrefixAVX2(m_is64BitOS);
-      if (HasAVX1())
-        return GetCPUPrefixAVX(m_is64BitOS);
-      if (HasSSE41())
-        return m_is64BitOS ? "y8" : "p8";
-      if (HasSSE3())
-        return m_is64BitOS ? "e7" : "t7";
-      if (HasSSE2())
-        return m_is64BitOS ? "ex" : "a6";
-
-      llvm_unreachable("Unknown CPU!");
     }
   }
 
@@ -190,10 +146,6 @@ public:
         .Case("core-avx2", CPU_HSW)
         .Case("corei7-avx", CPU_SNB)
         .Case("corei7", CPU_COREI7)
-        .Case("penryn", CPU_PENRYN)
-        .Case("core2", CPU_CORE2)
-        .Case("nicona", CPU_NOCONA)
-        .Case("pentium", CPU_PENTIUM)
         .Default(CPU_UNKNOWN);
   }
 
@@ -201,14 +153,6 @@ public:
     switch (CPU) {
     default:
       return "invalid";
-    case CPU_PENTIUM:
-      return "pentium";
-    case CPU_NOCONA:
-      return "nicona";
-    case CPU_CORE2:
-      return "core2";
-    case CPU_PENRYN:
-      return "penryn";
     case CPU_COREI7:
       return "corei7";
     case CPU_SNB:
@@ -234,7 +178,9 @@ public:
   }
 
   const std::string &GetCPUName() const { return m_CPUString; }
+  const char *GetCPUBrandString() const { return m_CPUBrandString; }
   std::string GetCPUArchShortName() const { return CPUArchStr.at(m_cpuArch); }
+  ECPUBrandFamily GetCPUBrandFamily() { return m_CPUBrand; }
   ECPU GetCPU() const { return m_cpuArch; }
 
   static const char *GetCPUPrefixSSE(bool is64BitOS) {
@@ -292,11 +238,14 @@ private:
   CPUDetect(const CPUDetect &);
   CPUDetect();
   ~CPUDetect(){};
+  void GetCPUBrandInfo();
 
   bool m_is64BitOS;
   bool m_bBypassCPUDetect;
   ECPU m_cpuArch;
+  ECPUBrandFamily m_CPUBrand;
   std::string m_CPUString;
+  const char *m_CPUBrandString;
   llvm::StringMap<bool> m_cpuFeatures;
 
   bool ShouldBypassCPUCheck() const;

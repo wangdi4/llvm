@@ -19,6 +19,7 @@
 ;   out[bar()] = sum;
 ; }
 
+; RUN: %oclopt -B-Barrier -use-tls-globals %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-Barrier -use-tls-globals -verify %s -S | FileCheck %s
 
 ; ModuleID = 'main'
@@ -157,3 +158,20 @@ attributes #4 = { convergent nounwind readnone }
 !12 = !{i1 false}
 !13 = !{!"out"}
 !14 = !{i32 120}
+
+;; get_global_id resolve
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function bar -- %BaseGlobalId_0 = call i64 @get_base_global_id.(i32 0)
+;; addr of alloca
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %bar.addr.addr = alloca i8 addrspace(4)**, align 8
+;; barrier key values
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrBarrier = alloca i32, align 4
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pCurrSBIndex = alloca i64, align 8
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %pSB = call i8* @get_special_buffer.()
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
+;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
+;; phi nodes
+;DEBUGIFY: WARNING: Missing line 9
+;DEBUGIFY: WARNING: Missing line 10
+
+; DEBUGIFY-NOT: WARNING

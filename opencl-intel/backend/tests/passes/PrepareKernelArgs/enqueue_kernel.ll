@@ -6,6 +6,7 @@
 ; Conformance 2.0 Device Execution suite) in the beginning of the
 ; PrepareKernelArgs Pass.
 
+; RUN: %oclopt -prepare-kernel-args -S < %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -prepare-kernel-args -S < %s | FileCheck %s
 
 ; ModuleID = 'main'
@@ -262,3 +263,15 @@ attributes #6 = { convergent nounwind }
 !29 = !{!17, !17, i64 0}
 !30 = !{i32 28}
 !31 = !{i32 14}
+
+; DEBUGIFY-NOT: WARNING
+; DEBUGIFY-COUNT-74: WARNING: Instruction with empty DebugLoc in function {{.*}}
+; Known issue of debugify on PHI node, ignore the “Missing line xxxx” warning
+; DEBUGIFY: WARNING: Missing line 41
+; DEBUGIFY: WARNING: Missing line 42
+; DEBUGIFY: WARNING: Missing line 43
+; DEBUGIFY: WARNING: Missing line 44
+; DEBUGIFY: WARNING: Missing line 118
+; DEBUGIFY: WARNING: Missing line 119
+; DEBUGIFY: WARNING: Missing line 120
+; DEBUGIFY-NOT: WARNING
