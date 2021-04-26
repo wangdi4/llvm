@@ -11,11 +11,13 @@
 #include <CL/sycl/context.hpp>
 #include <CL/sycl/detail/common.hpp>
 #include <CL/sycl/detail/pi.h>
+#include <CL/sycl/detail/pi.hpp>
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/kernel_bundle.hpp>
 #include <detail/context_impl.hpp>
 #include <detail/device_impl.hpp>
 #include <detail/kernel_id_impl.hpp>
+#include <detail/plugin.hpp>
 #include <detail/program_manager/program_manager.hpp>
 
 #include <algorithm>
@@ -139,6 +141,18 @@ public:
 
   std::vector<SpecConstDescT> &get_spec_const_offsets_ref() noexcept {
     return MSpecConstDescs;
+  }
+
+  pi_native_handle getNative() const {
+    assert(MProgram);
+    const auto &ContextImplPtr = detail::getSyclObjImpl(MContext);
+    const plugin &Plugin = ContextImplPtr->getPlugin();
+
+    pi_native_handle NativeProgram = 0;
+    Plugin.call<PiApiKind::piextProgramGetNativeHandle>(MProgram,
+                                                        &NativeProgram);
+
+    return NativeProgram;
   }
 
   ~device_image_impl() {
