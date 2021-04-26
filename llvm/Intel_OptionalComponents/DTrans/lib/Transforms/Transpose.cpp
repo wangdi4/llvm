@@ -80,8 +80,8 @@ namespace {
 class TransposeCandidate {
 public:
   TransposeCandidate(GlobalVariable *GV, uint32_t ArrayRank,
-                     uint64_t ArrayLength, uint64_t ElementSize,
-                     llvm::Type *ElementType)
+                     SmallVector<uint64_t, 4> &ArrayLength,
+                     uint64_t ElementSize, llvm::Type *ElementType)
       : GV(GV), ArrayRank(ArrayRank), ArrayLength(ArrayLength),
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         ElementSize(ElementSize),
@@ -92,7 +92,7 @@ public:
     uint64_t Stride = ElementSize;
     for (uint32_t RankNum = 0; RankNum < ArrayRank; ++RankNum) {
       Strides.push_back(Stride);
-      Stride *= ArrayLength;
+      Stride *= ArrayLength[RankNum];
     }
   }
 
@@ -342,7 +342,8 @@ public:
         return false;
       }
 
-      if (!MatchesConstant(LB, 1) || !MatchesConstant(Extent, ArrayLength) ||
+      if (!MatchesConstant(LB, 1) ||
+          !MatchesConstant(Extent, ArrayLength[Dim]) ||
           !MatchesConstant(Stride, Strides[Dim])) {
         DEBUG_WITH_TYPE(DEBUG_ANALYSIS,
                         dbgs() << "Invalid: DV does not capture entire "
@@ -610,7 +611,7 @@ public:
           // If a potential trip count could not be identified, estimate
           // the loop will process half of the array elements.
           if (TC == 0)
-            TC = ArrayLength / 2;
+            TC = ArrayLength[VariantDim] / 2;
 
           // Only consider loops that appear to be good candidates for
           // unit-stride vectorization.
@@ -739,12 +740,15 @@ public:
     OS << "Transpose candidate: " << GV->getName() << "\n";
     OS << "Type         : " << *GV->getType() << "\n";
     OS << "Rank         : " << ArrayRank << "\n";
-    OS << "Length       : " << ArrayLength << "\n";
     OS << "Element size : " << ElementSize << "\n";
     OS << "Element type : " << *ElementType << "\n";
     OS << "Strides      :";
     for (uint32_t RankNum = 0; RankNum < ArrayRank; ++RankNum)
       OS << " " << Strides[RankNum];
+    OS << "\n";
+    OS << "Array Length :";
+    for (uint32_t RankNum = 0; RankNum < ArrayRank; ++RankNum)
+      OS << " " << ArrayLength[RankNum];
     OS << "\n";
 
     OS << "Transposition:";
@@ -765,9 +769,10 @@ private:
   // Number of dimensions (Fortran Rank) for the array
   uint32_t ArrayRank;
 
-  // Number of elements in each dimension of the array. (Candidates must have
-  // the same length in all dimensions)
-  uint64_t ArrayLength;
+  // Number of elements in each dimension of the array.
+  // ArrayLength[I] is the length of the I-th dimension of the array.
+  //
+  SmallVector<uint64_t, 4> ArrayLength;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Size of one element in the array, in bytes.
@@ -990,7 +995,6 @@ private:
   // The initial set of candidates meet the following criteria:
   // - Global Variable with internal linkage
   // - Multi-dimensional array of integer type
-  // - The array lengths in all dimensions are equal
   // - Variable uses zero initializer
   void IdentifyCandidates(Module &M) {
     const DataLayout &DL = M.getDataLayout();
@@ -1009,25 +1013,22 @@ private:
       if (!ArrType)
         continue;
 
-      uint32_t Dimensions = 1;
-      bool AllSame = true;
-      uint64_t Length = ArrType->getArrayNumElements();
+      uint32_t Dimensions = 0;
+      SmallVector<uint64_t, 4> ArrayLength;
+      ArrayLength.push_back(ArrType->getArrayNumElements());
       llvm::Type *ElemType = ArrType->getArrayElementType();
-      while (ElemType->isArrayTy()) {
+      for (Dimensions = 1; ElemType->isArrayTy(); Dimensions++) {
         auto *InnerArrType = cast<llvm::ArrayType>(ElemType);
-        if (InnerArrType->getArrayNumElements() != Length) {
-          AllSame = false;
-          break;
-        }
-        Dimensions++;
+        ArrayLength.insert(ArrayLength.begin(),
+            InnerArrType->getArrayNumElements());
         ElemType = InnerArrType->getArrayElementType();
       }
 
-      if (AllSame && Dimensions > 1 && Dimensions <= FortranMaxRank &&
-          ElemType->isIntegerTy()) {
+      if (Dimensions > 1 && Dimensions <= FortranMaxRank &&
+          (ElemType->isIntegerTy() || ElemType->isFloatingPointTy())) {
         LLVM_DEBUG(dbgs() << "Adding candidate: " << GV << "\n");
         uint64_t ElemSize = DL.getTypeStoreSize(ElemType);
-        TransposeCandidate Candidate(&GV, Dimensions, Length, ElemSize,
+        TransposeCandidate Candidate(&GV, Dimensions, ArrayLength, ElemSize,
                                      ElemType);
         Candidates.push_back(Candidate);
       }
