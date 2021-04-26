@@ -16,6 +16,9 @@
 #include "OCLPassSupport.h"
 
 #include "llvm/IR/Instructions.h"
+#include "llvm/Support/CommandLine.h"
+
+extern cl::opt<bool> OptIsNativeDebug;
 
 namespace intel {
 
@@ -25,8 +28,11 @@ namespace intel {
                       "Barrier Pass - Remove duplication Barrier instructions",
                       false, false)
 
-  RemoveDuplicationBarrier::RemoveDuplicationBarrier() : ModulePass(ID) {}
+  RemoveDuplicationBarrier::RemoveDuplicationBarrier(bool IsNativeDebug)
+      : ModulePass(ID), m_IsNativeDebug(IsNativeDebug || OptIsNativeDebug) {}
 
+  // FIXME:This pass is not well constructed, we should reuse SGBarrierSimplify
+  // to remove redundant barriers.
   bool RemoveDuplicationBarrier::runOnModule(Module &M) {
     //Initialize barrier utils class with current module
     m_util.init(&M);
@@ -86,24 +92,34 @@ namespace intel {
                 continue;
               }
             }
-            //Otherwise need to remove the next instruction
-            //Don't remove dummyBarrier-any, Barrier pass might fail
-            //toRemoveInstructions.push_back(pNextInst);
+            // Otherwise need to remove the next instruction
+            // FIXME: Don't remove dummyBarrier-any, Barrier pass might fail
+            // toRemoveInstructions.push_back(pNextInst);
             continue;
           }
           assert( SYNC_TYPE_BARRIER == typeInst && SYNC_TYPE_BARRIER == typeNextInst &&
             "pInst and pNextInst must be barriers at this point!" );
           ConstantInt *pBarrierValue = dyn_cast<ConstantInt>(pNextCallInst->getArgOperand(0));
           assert( pBarrierValue && "dynamic barrier mem fence value!!" );
+          // FIXME: we should also check memory scope.
+          // if scope <= memory_scope_work_group, we can remove the barrier
+          // anyway.
           if ( (CLK_GLOBAL_MEM_FENCE | CLK_CHANNEL_MEM_FENCE) & pBarrierValue->getZExtValue() ) {
-            //barrier()-barrier(global) : remove the first barrier instruction
-            toRemoveInstructions.push_back(pInst);
+            if (!(m_IsNativeDebug && pInst->getDebugLoc())) {
+              // barrier()-barrier(global) : remove the first barrier
+              // instruction
+              toRemoveInstructions.push_back(pInst);
+            }
+            // Update iterator.
             pInst = pNextInst;
           } else {
             assert( (CLK_LOCAL_MEM_FENCE & pBarrierValue->getZExtValue()) &&
               "barrier mem fence argument is something else than local/global" );
-            //barrier()-barrier(local) : remove the second barrier instruction
-            toRemoveInstructions.push_back(pNextInst);
+            if (!(m_IsNativeDebug && pNextInst->getDebugLoc())) {
+              // barrier()-barrier(local) : remove the second barrier
+              // instruction
+              toRemoveInstructions.push_back(pNextInst);
+            }
           }
         }
     }
@@ -123,7 +139,7 @@ namespace intel {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  void* createRemoveDuplicationBarrierPass() {
-    return new intel::RemoveDuplicationBarrier();
-  }
+void *createRemoveDuplicationBarrierPass(bool IsNativeDebug) {
+  return new intel::RemoveDuplicationBarrier(IsNativeDebug);
+}
 }

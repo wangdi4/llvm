@@ -44,8 +44,8 @@ using namespace Intel::MetadataAPI;
 
 extern bool OptUseTLSGlobals;
 
-static cl::opt<bool> OptIsNativeDebug("is-native-debug", cl::init(false),
-                                      cl::Hidden, cl::desc("Use native debug"));
+cl::opt<bool> OptIsNativeDebug("is-native-debug", cl::init(false), cl::Hidden,
+                               cl::desc("Use native debug"));
 
 namespace intel {
 
