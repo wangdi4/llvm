@@ -14,6 +14,7 @@
 ; Optimizer options:
 ;   %oclopt -llvm-equalizer -verify %s -S
 ; ----------------------------------------------------
+; RUN: %oclopt -B-DuplicateCalledKernels %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -B-DuplicateCalledKernels -verify %s -S | FileCheck %s
 
 ;
@@ -161,3 +162,5 @@ attributes #6 = { convergent "uniform-work-group-size"="false" }
 !42 = !DILocation(line: 6, scope: !38)
 !43 = !DILocation(line: 7, scope: !38)
 !44 = !DILocation(line: 8, scope: !38)
+
+; DEBUGIFY-NOT: WARNING
