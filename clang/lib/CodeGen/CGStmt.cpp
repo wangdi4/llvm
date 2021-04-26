@@ -460,7 +460,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     llvm_unreachable("target parallel loop not supported with FE outlining");
 #endif // INTEL_COLLAB
   case Stmt::OMPMaskedDirectiveClass:
-    llvm_unreachable("Masked directive not supported yet.");
+    EmitOMPMaskedDirective(cast<OMPMaskedDirective>(*S));
     break;
   }
 }
