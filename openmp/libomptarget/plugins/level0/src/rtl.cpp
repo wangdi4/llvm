@@ -776,6 +776,7 @@ struct RTLFlagsTy {
 
 /// Kernel properties.
 struct KernelPropertiesTy {
+  const char *Name = nullptr;
   uint32_t Width = 0;
   uint32_t MaxThreadGroupSize = 0;
   ze_kernel_indirect_access_flags_t IndirectAccessFlags = 0;
@@ -1732,14 +1733,28 @@ class ScopedTimerTy {
   RTLProfileTy *Profile = nullptr;
 public:
   ScopedTimerTy(int32_t DeviceId, const char *name) : Name(name) {
+    if (!DeviceInfo->Flags.EnableProfile)
+      return;
     Profile = DeviceInfo->getProfile(DeviceId);
     start();
   }
   ScopedTimerTy(int32_t DeviceId, std::string name) : Name(name) {
+    if (!DeviceInfo->Flags.EnableProfile)
+      return;
+    Profile = DeviceInfo->getProfile(DeviceId);
+    start();
+  }
+  ScopedTimerTy(int32_t DeviceId, const char *Prefix, const char *name) {
+    if (!DeviceInfo->Flags.EnableProfile)
+      return;
+    Name = Prefix;
+    Name += name;
     Profile = DeviceInfo->getProfile(DeviceId);
     start();
   }
   ~ScopedTimerTy() {
+    if (!DeviceInfo->Flags.EnableProfile)
+      return;
     if (Active)
       stop();
   }
@@ -3007,15 +3022,18 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
     if (!kernels[i])
       continue;
 
+    // Store kernel name in the property.
+    auto &RTLKernelProperties =
+        DeviceInfo->KernelProperties[DeviceId][kernels[i]];
+    RTLKernelProperties.Name = name;
+
     // Retrieve kernel group size info.
     ze_kernel_properties_t kernelProperties;
     CALL_ZE(rc, zeKernelGetProperties, kernels[i], &kernelProperties);
     if (DeviceInfo->ForcedKernelWidth > 0) {
-      DeviceInfo->KernelProperties[DeviceId][kernels[i]].Width =
-          DeviceInfo->ForcedKernelWidth;
+      RTLKernelProperties.Width = DeviceInfo->ForcedKernelWidth;
     } else {
-      DeviceInfo->KernelProperties[DeviceId][kernels[i]].Width =
-          kernelProperties.maxSubgroupSize;
+      RTLKernelProperties.Width = kernelProperties.maxSubgroupSize;
     }
     if (DebugLevel > 0) {
       void *entryAddr = Image->EntriesBegin[i].addr;
@@ -3850,12 +3868,8 @@ static int32_t runTargetTeamRegion(
     REPORT("Failed to invoke deleted kernel.\n");
     return OFFLOAD_FAIL;
   }
-  std::string tmName("Kernel ");
-  size_t kernelNameSize = 0;
-  CALL_ZE_RET_FAIL(zeKernelGetName, kernel, &kernelNameSize, nullptr);
-  std::vector<char> kernelName(kernelNameSize);
-  CALL_ZE_RET_FAIL(zeKernelGetName, kernel, &kernelNameSize, kernelName.data());
-  ScopedTimerTy tmKernel(DeviceId, tmName + kernelName.data());
+  ScopedTimerTy tmKernel(DeviceId, "Kernel ",
+                         DeviceInfo->KernelProperties[DeviceId][kernel].Name);
 
   // Set arguments
   std::vector<void *> args(NumArgs);

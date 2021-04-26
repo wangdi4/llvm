@@ -4160,7 +4160,63 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::PrivateFinalCond:
     widenLoopEntityInst(VPInst);
     return;
+  case Instruction::ShuffleVector: {
+    if (!Plan->getVPlanDA()->isDivergent(*VPInst)) {
+      auto *Op0 = getOrCreateScalarRef(VPInst->getOperand(0), 0);
+      auto *Op1 = getOrCreateScalarRef(VPInst->getOperand(1), 0);
+      auto *Mask = getOrCreateScalarRef(VPInst->getOperand(2), 0);
+      auto *Shuffle = HLNodeUtilities.createShuffleVectorInst(Op0, Op1, Mask);
+      addInstUnmasked(Shuffle);
+      addVPValueScalRefMapping(VPInst, Shuffle->getLvalDDRef(), 0);
+      return;
+    }
 
+    auto *Op0 = widenRef(VPInst->getOperand(0), VF);
+    auto *Op1 = widenRef(VPInst->getOperand(0), VF);
+    auto *Mask = cast<VPConstant>(VPInst->getOperand(2))->getConstant();
+
+    unsigned OrigSrcVL =
+        cast<VectorType>(VPInst->getOperand(0)->getType())->getNumElements();
+    int OrigDstVL = cast<VectorType>(VPInst->getType())->getNumElements();
+
+    SmallVector<Constant *, 16> MaskIndices;
+    for (unsigned LogicalLane = 0; LogicalLane < VF; ++LogicalLane) {
+      for (int Idx = 0; Idx < OrigDstVL; ++Idx) {
+        auto *MaskElt = Mask->getAggregateElement(Idx);
+        if (isa<UndefValue>(MaskElt) || isa<PoisonValue>(MaskElt)) {
+          // From the LangRef: If the shuffle mask selects an undefined element
+          // from one of the input vectors, the resulting element is undefined.
+          // An undefined element in the mask vector specifies that the
+          // resulting element is undefined. An undefined element in the mask
+          // vector prevents a poisoned vector element from propagating.
+          //
+          // For poison: Vector elements may be independently poisoned.
+          // Therefore, transforms on instructions such as shufflevector must be
+          // careful to propagate poison across values or elements only as
+          // allowed by the original code... An instruction that depends on a
+          // poison value, produces a poison value itself.
+          MaskIndices.push_back(MaskElt);
+          continue;
+        }
+        unsigned OrigIdx = cast<ConstantInt>(MaskElt)->getZExtValue();
+        unsigned NewIdx;
+        if (OrigIdx < OrigSrcVL) {
+          NewIdx = OrigSrcVL * LogicalLane + OrigIdx;
+        } else {
+          NewIdx =
+              OrigSrcVL * VF + OrigSrcVL * LogicalLane + (OrigIdx - OrigSrcVL);
+        }
+        MaskIndices.push_back(ConstantInt::get(MaskElt->getType(), NewIdx));
+      }
+    }
+    auto *Shuffle = HLNodeUtilities.createShuffleVectorInst(
+        Op0, Op1,
+        DDRefUtilities.createConstDDRef(ConstantVector::get(MaskIndices)));
+    addInstUnmasked(Shuffle);
+    addVPValueWideRefMapping(VPInst, Shuffle->getLvalDDRef());
+
+    return;
+  }
   case Instruction::Br:
     // Do nothing.
     return;
