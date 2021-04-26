@@ -1343,10 +1343,10 @@ bool ClassInfo::checkBBControlledUnderFlagVal(BasicBlock *BB,
   return false;
 }
 
-// Returns true if given pre-header PH is controlled under
+// Returns true if given loop L is controlled under
 // zero trip test.
 //
-//   Ex:
+//   Ex 1:
 //    PreCondBB: ...
 //              %cond = icmp eq i32 SizeField, 0
 //              br i1 %cond, label %some_bb, label %PH
@@ -1357,17 +1357,31 @@ bool ClassInfo::checkBBControlledUnderFlagVal(BasicBlock *BB,
 //      EntryBI:...
 //              Loop
 //
-bool ClassInfo::checkZTT(BasicBlock *PH, Value *ThisObj) {
-  if (!PH)
-    return false;
-  auto *EntryBI = dyn_cast<BranchInst>(PH->getTerminator());
-  if (!EntryBI || EntryBI->isConditional())
-    return false;
-  auto *PreCondBB = PH->getSinglePredecessor();
+//   Ex 2:
+//    PreCondBB: ...
+//              %cond = icmp eq i32 SizeField, 0
+//              br i1 %cond, label %some_bb, label %EntryBI
+//
+//      EntryBI:...
+//              Loop
+bool ClassInfo::checkZTT(Loop *L, Value *ThisObj) {
+  BasicBlock *PH = L->getLoopPreheader();
+  BasicBlock *PreCondBB = nullptr;
+  BasicBlock *SuccBB;
+  if (PH) {
+    auto *EntryBI = dyn_cast<BranchInst>(PH->getTerminator());
+    if (!EntryBI || EntryBI->isConditional())
+      return false;
+    PreCondBB = PH->getSinglePredecessor();
+    SuccBB = PH;
+  } else {
+    PreCondBB = L->getLoopPredecessor();
+    SuccBB = L->getHeader();
+  }
   if (!PreCondBB)
     return false;
 
-  Value *Ptr = checkCondition(PreCondBB, PH);
+  Value *Ptr = checkCondition(PreCondBB, SuccBB);
   if (!checkFieldOfArgClassLoad(Ptr, ThisObj, SizeField))
     return false;
   return true;
@@ -1395,7 +1409,10 @@ Loop *ClassInfo::checkLoop(Value *Ind, Value *ThisObj, LoopInfo &LI) {
       L->getParentLoop() || L->getHeader() != PN->getParent())
     return nullptr;
   BasicBlock *Latch = L->getLoopLatch();
-  Value *V1 = PN->getIncomingValueForBlock(L->getLoopPreheader());
+  BasicBlock *PredBB = L->getLoopPredecessor();
+  if (!PredBB)
+    return nullptr;
+  Value *V1 = PN->getIncomingValueForBlock(PredBB);
   Value *V2 = PN->getIncomingValueForBlock(Latch);
   ConstantInt *Init = dyn_cast<ConstantInt>(V1);
   if (!Init || !Init->isZero())
@@ -1443,8 +1460,7 @@ Loop *ClassInfo::checkLoopWithZTT(Value *Loc, Value *Obj, LoopInfo &LI) {
   Loop *L = checkLoop(Loc, Obj, LI);
   if (!L)
     return nullptr;
-  BasicBlock *PH = L->getLoopPreheader();
-  if (!checkZTT(PH, Obj))
+  if (!checkZTT(L, Obj))
     return nullptr;
   return L;
 }
@@ -2371,15 +2387,23 @@ FunctionKind ClassInfo::recognizeDestructor(Function *Fn) {
       if (!L)
         return UnKnown;
       // Check if the loop has ZTT.
-      BasicBlock *PH = L->getLoopPreheader();
-      if (!checkZTT(PH, ThisObj))
+      if (!checkZTT(L, ThisObj))
         return UnKnown;
+      BasicBlock *PH = L->getLoopPreheader();
+      BasicBlock *PreCondBB = nullptr;
+      // Get BB that has ZTT.
+      if (PH)
+        PreCondBB = PH->getSinglePredecessor();
+      else
+        PreCondBB = L->getLoopPredecessor();
       // Check if the entire loop controlled under the flag field.
-      auto *PreCondBB = PH->getSinglePredecessor();
       assert(PreCondBB && "Expected ZTT Basic Block");
       if (!checkBBControlledUnderFlagVal(PreCondBB, ThisObj))
         return UnKnown;
-      FlagCheckInst = PreCondBB->getSinglePredecessor()->getTerminator();
+      BasicBlock *FlagCheckBB = PreCondBB->getSinglePredecessor();
+      if (!FlagCheckBB)
+        return UnKnown;
+      FlagCheckInst = FlagCheckBB->getTerminator();
       AllElementsFreed++;
     }
   }
@@ -3057,9 +3081,15 @@ FunctionKind ClassInfo::recognizeResize(Function *Fn) {
       return false;
     BasicBlock *Pred0 = Phi->getIncomingBlock(0);
     BasicBlock *Pred1 = Phi->getIncomingBlock(1);
+    BasicBlock *PH = L->getLoopPreheader();
+    BasicBlock *LPreHead = nullptr;
+    if (PH)
+      LPreHead = PH->getSinglePredecessor();
+    else
+      LPreHead = L->getLoopPredecessor();
     // Make sure incoming blocks of Phi are ZTT's block of the Loop and
     // exit block of the loop.
-    if (Pred0 != L->getLoopPreheader()->getSinglePredecessor())
+    if (Pred0 != LPreHead)
       return false;
     if (L->contains(Pred1) && !L->isLoopExiting(Pred1))
       return false;
@@ -3382,7 +3412,13 @@ FunctionKind ClassInfo::recognizeResize(Function *Fn) {
   }
 
   // Array field assignment should be dominated by Free call.
-  BasicBlock *LHead = CopyLoop->getLoopPreheader()->getSinglePredecessor();
+  BasicBlock *PH = CopyLoop->getLoopPreheader();
+  BasicBlock *LHead = nullptr;
+  if (PH)
+    LHead = PH->getSinglePredecessor();
+  else
+    LHead = CopyLoop->getLoopPredecessor();
+  assert(LHead && "Expected predecessor");
   FreeCallInfo *FInfo = *FreeList.begin();
   Instruction *FreeRelatedInst = FInfo->getInstruction();
   if (FreeBB != FreeRelatedInst->getParent())

@@ -1,6 +1,6 @@
 //===--------------- SOAToAOSExternal.h - DTransSOAToAOSPass  -------------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -28,8 +28,7 @@ namespace soatoaos {
 // Utility to extract array type at offset Off from Struct,
 // given Struct is a candidate for SOA-to-AOS.
 inline StructType *getSOAArrayType(StructType *Struct, unsigned Off) {
-  return cast<StructType>(
-      Struct->getElementType(Off)->getPointerElementType());
+  return cast<StructType>(Struct->getElementType(Off)->getPointerElementType());
 }
 
 // Utility to extract array type's element,
@@ -555,7 +554,10 @@ bool SOAToAOSCFGInfo::populateCFGInformation(Module &M,
   // Initialize fields' methods to empty sets.
   ArrayFieldsMethods.assign(getNumArrays(), MethodSetTy());
 
-  for (auto &F : M)
+  for (auto &F : M) {
+    // Skip unused prototypes.
+    if (F.isDeclaration() && F.use_empty())
+      continue;
     if (auto *ThisTy = getStructTypeOfMethod(F)) {
       if (ThisTy == Struct) {
 
@@ -582,6 +584,7 @@ bool SOAToAOSCFGInfo::populateCFGInformation(Module &M,
           std::get<1>(Pair)->push_back(&F);
         }
     }
+  }
 
   for (auto Triple : zip_first(methodsets(), elements(), fields())) {
     if (std::get<0>(Triple)->size() > MaxNumMethods)
@@ -590,8 +593,7 @@ bool SOAToAOSCFGInfo::populateCFGInformation(Module &M,
     for (auto *F : *std::get<0>(Triple)) {
       // Given that only primitive methods are recognized,
       // restrict the size.
-      if (F->size() > MaxMethodBBCount &&
-          RespectSizeHeuristic)
+      if (F->size() > MaxMethodBBCount && RespectSizeHeuristic)
         return FALSE("array method is too big.");
 
       for (auto &Arg : F->args()) {
@@ -635,8 +637,8 @@ bool SOAToAOSCFGInfo::populateCFGInformation(Module &M,
         // captured.
         // Ctor/Dtor/CCtor have return types on windows and “this”
         // parameter is marked with “Returned”.
-        if (RespectAttrs && !(Arg.hasNoCaptureAttr() ||
-            Arg.hasReturnedAttr())) {
+        if (RespectAttrs &&
+            !(Arg.hasNoCaptureAttr() || Arg.hasReturnedAttr())) {
           return FALSE("array method captures unexpected parameter.");
         }
 
@@ -654,7 +656,8 @@ bool SOAToAOSCFGInfo::populateCFGInformation(Module &M,
     }
 
     for (auto Pair : zip_first(fields(), methodsets())) {
-      dbgs() << "  ; Fields's " << std::get<0>(Pair)->getName() << " methods:\n";
+      dbgs() << "  ; Fields's " << std::get<0>(Pair)->getName()
+             << " methods:\n";
       for (auto *F : *std::get<1>(Pair)) {
         dbgs() << "   ; " << F->getName() << ", #uses = " << F->getNumUses()
                << "\n";
@@ -669,4 +672,3 @@ bool SOAToAOSCFGInfo::populateCFGInformation(Module &M,
 } // namespace dtrans
 } // namespace llvm
 #endif // INTEL_DTRANS_TRANSFORMS_SOATOAOSEXTERNAL_H
-

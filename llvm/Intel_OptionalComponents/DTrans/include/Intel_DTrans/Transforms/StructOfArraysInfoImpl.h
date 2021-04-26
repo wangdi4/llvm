@@ -1,6 +1,6 @@
 //===- StructOfArraysInfoImpl.h - common for SOAToAOS and MemInitTrimDown -===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -98,8 +98,7 @@ public:
   inline Type *isSimpleVectorType(Type *STy, int32_t Offset,
                                   bool AllowOnlyDerived);
   inline bool collectMemberFunctions(Module &M, bool AtLTO = true);
-  inline void collectFuncs(Module &M,
-                           SmallSet<Function *, 32> *SOACallSites);
+  inline void collectFuncs(Module &M, SmallSet<Function *, 32> *SOACallSites);
   inline void printCandidateInfo(void);
 
   using FieldPositionTy = SmallVector<int32_t, MaxNumElemsInCandidate>;
@@ -421,7 +420,7 @@ bool SOACandidateInfo::collectTypesIfVectorClass(Type *VTy, int32_t Pos) {
 //  Base: %"BaseRefVectorOf.5" = type { i32 (...)**, i8, i32, i32,
 //                                      i16**, %"MemoryManager"* }
 Type *SOACandidateInfo::isSimpleVectorType(Type *Ty, int32_t Offset,
-                                               bool AllowOnlyDerived) {
+                                           bool AllowOnlyDerived) {
   auto STy = getValidStructTy(Ty);
   if (!STy)
     return nullptr;
@@ -493,10 +492,14 @@ bool SOACandidateInfo::collectMemberFunctions(Module &M, bool AtLTO) {
 
   // Walk through module and collect member functions of
   // candidate struct.
-  for (auto &F : M)
+  for (auto &F : M) {
+    // Skip unused prototypes.
+    if (F.isDeclaration() && F.use_empty())
+      continue;
     if (auto *CTy = getClassType(&F))
       if (CTy == SType)
         StructMethods.insert(&F);
+  }
 
   if (StructMethods.size() > MaxNumStructMethods) {
     DEBUG_WITH_TYPE(DTRANS_STRUCTOFARRAYSINFO, {
@@ -508,6 +511,9 @@ bool SOACandidateInfo::collectMemberFunctions(Module &M, bool AtLTO) {
   SmallPtrSet<Function *, 32> ProcessedFunctions;
   // Collect member functions of all candidate vector fields.
   for (auto *F : StructMethods) {
+    // Skip unused prototypes.
+    if (F->isDeclaration() && F->use_empty())
+      continue;
     if (AtLTO && F->isDeclaration()) {
       DEBUG_WITH_TYPE(DTRANS_STRUCTOFARRAYSINFO, {
         dbgs() << "  Failed: Missing definition for struct methods.\n";
@@ -556,8 +562,8 @@ bool SOACandidateInfo::collectMemberFunctions(Module &M, bool AtLTO) {
 //   called directly)
 //   3. In struct methods, calls that are passed as arguments to other
 //      direct calls.
-void SOACandidateInfo::collectFuncs(
-    Module &M, SmallSet<Function *, 32> *SOAFuncs) {
+void SOACandidateInfo::collectFuncs(Module &M,
+                                    SmallSet<Function *, 32> *SOAFuncs) {
   SmallPtrSet<Type *, 4> InterestedClasses;
 
   InterestedClasses.insert(SType);
