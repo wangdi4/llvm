@@ -2179,6 +2179,11 @@ void Sema::setFunctionHasIndirectGoto() {
     FunctionScopes.back()->setHasIndirectGoto();
 }
 
+void Sema::setFunctionHasMustTail() {
+  if (!FunctionScopes.empty())
+    FunctionScopes.back()->setHasMustTail();
+}
+
 BlockScopeInfo *Sema::getCurBlock() {
   if (FunctionScopes.empty())
     return nullptr;
