@@ -193,19 +193,24 @@ private:
   bool recognizeConstructor(Function *);
   bool recognizeAllocateBlock(Function *);
   bool recognizeCommitAllocation(Function *);
-  bool recognizeDestructor(Function *F);
-  bool recognizeReset(Function *F);
+  bool recognizeDestructor(Function *);
+  bool recognizeReset(Function *);
+  bool recognizeDestroyObject(Function *);
   bool checkConstantSize(Value *, int64_t);
   bool checkSizeValue(Value *, int64_t, Value *);
   bool processBBTerminator(BasicBlock *, Value **, Value **, BasicBlock **,
                            BasicBlock **, ICmpInst::Predicate *);
   BasicBlock *getSingleSucc(BasicBlock *);
   void collectStoreInst(BasicBlock *, SmallVectorImpl<StoreInst *> &);
+  void collectLoadInst(BasicBlock *, SmallVectorImpl<LoadInst *> &);
   Instruction *getFirstNonDbg(BasicBlock *);
   LoadInst *getFirstLoadInst(BasicBlock *);
   bool checkInstructionInBlock(Value *, BasicBlock *);
   bool isUnreachableOK(BasicBlock *);
   bool isIncrementByOne(Value *, Value **);
+  bool isFalseValue(Value *);
+  bool isTrueValue(Value *);
+  bool isNextBlockObjBlkAddress(Value *, BitCastInst **, int32_t *);
   bool isNextBlockFieldAccess(Value *, Value **, Value **, int32_t *);
   bool isNextBlockFieldLoad(Value *, Value **, Value **, int32_t *);
   bool getAllocDeallocCommonSucc(Instruction *, Instruction *, BasicBlock **,
@@ -217,13 +222,14 @@ private:
   bool identifyDeallocCall(BasicBlock *, Value *, Value *, BasicBlock **,
                            Value *);
   bool identifyCheckAndAllocNode(BasicBlock *, Value *, BasicBlock **,
-                                 BasicBlock **, Value **, bool);
+                                 BasicBlock **, Value **, Value **, bool);
 
   bool identifyNodeInit(BasicBlock *, Value *, Value *);
   bool identifyListHead(BasicBlock *, Value *, BasicBlock **, BasicBlock **,
-                        Value **);
+                        Value **, Value **);
   bool identifyGetListHead(BasicBlock *, Value *, BasicBlock **, Value **);
-  bool identifyListEmpty(BasicBlock *, Value *, BasicBlock **, BasicBlock **);
+  bool identifyListEmpty(BasicBlock *, Value *, BasicBlock **, BasicBlock **,
+                         LoadInst **);
   bool identifyBlockAvailable(BasicBlock *, Value *, BasicBlock **,
                               BasicBlock **, Value *);
   bool identifyCreate(BasicBlock *, Value *, BasicBlock **, Value **);
@@ -260,11 +266,23 @@ private:
   bool identifyRABDtorInnerLoop(BasicBlock *, BasicBlock *, Value *, Value *,
                                 Value *, BasicBlock **);
   bool identifyRABDtorOuterLoop(BasicBlock *, Value *, Value *, BasicBlock **);
+  bool identifyIteratorCheck(BasicBlock *, Value *, PHINode **, Value **,
+                             PHINode **, BasicBlock **);
+  bool identifyRABDestroyObject(BasicBlock *, Value *, Value *, Value *,
+                                BasicBlock **);
+  bool identifyUncommittedBlock(BasicBlock *, Value *, Value **, Value **,
+                                BasicBlock **, BasicBlock **);
+  bool identifyOwnsBlock(BasicBlock *, Value *, Value *, Value *, BasicBlock **,
+                         BasicBlock **, Value **);
+  bool identifyGetRBegin(BasicBlock *, Value *, BasicBlock **, Value **);
+  bool identifyMoveBlock(BasicBlock *, Value *, Value *, BasicBlock **);
   bool getGEPBaseAddrIndex(Value *V, Value **BaseOp, int32_t *Idx);
+  bool isLegalBitCast(BitCastInst *BC);
   bool isArenaAllocatorAddr(Value *V, Value *Obj);
   bool isAllocatorBlockSizeAddr(Value *V, Value *Obj);
   bool isAllocatorBlockSizeLoad(Value *V, Value *Obj);
   bool isDestroyBlockFlagAddr(Value *V, Value *Obj);
+  bool isDestroyBlockFlagLoad(Value *V, Value *Obj);
   bool isListAddr(Value *V, Value *Obj);
   bool isListMemManagerAddr(Value *V, Value *Obj);
   bool isListMemManagerLoad(Value *V, Value *Obj);
@@ -281,6 +299,7 @@ private:
   bool isFrontNodeObjectCountAddr(Value *V, Value *Obj, Value *NodePtr);
   bool isFrontNodeObjectCountLoad(Value *V, Value *Obj, Value *NodePtr);
   bool isFrontNodeBlockSizeLoad(Value *V, Value *Obj, Value *NodePtr);
+  bool isFrontNodeObjectBlockLoad(Value *V, Value *Obj, Value *NodePtr);
   bool isNodePosNextPrev(Value *V, Value *NodePos);
   bool isNodePosPrevNext(Value *V, Value *NodePos);
   bool isNodePosPrevLoad(Value *V, Value *NodePos);
@@ -977,6 +996,20 @@ bool MemManageTransImpl::isNodePosReusableArenaBlockLoad(Value *V,
   return true;
 }
 
+// Returns true if "V" represents load of destroyBlock field in
+// ReusableArenaAllocator.
+// Ex:
+//     Obj->destroyBlock
+bool MemManageTransImpl::isDestroyBlockFlagLoad(Value *V, Value *Obj) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  if (!isDestroyBlockFlagAddr(LI->getPointerOperand(), Obj))
+    return false;
+  Visited.insert(LI);
+  return true;
+}
+
 // Returns true if "V" represents address of destroyBlock in
 // ReusableArenaAllocator. Ex:
 //  foo(ReusableArenaAllocator *Obj) {
@@ -1216,9 +1249,58 @@ bool MemManageTransImpl::isFrontNodeBlockSizeLoad(Value *V, Value *Obj,
   return true;
 }
 
+// Returns true if "V" represents load of the pattern below.
+//  (((ArenaBlock*)Obj->ArenaAllocator.List.Head->Next))->ObjectBlock
+//
+// When NodePtr is non-null, it checks if "V" represents load of the pattern
+// below.
+//  (((ArenaBlock*)NodePtr))->ObjectBlock
+//
+bool MemManageTransImpl::isFrontNodeObjectBlockLoad(Value *V, Value *Obj,
+                                                    Value *NodePtr = nullptr) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI)
+    return false;
+  auto Cand = getCurrentCandidate();
+  Value *BasePtr = nullptr;
+  int32_t Idx = 0;
+  if (!getGEPBaseAddrIndex(LI->getPointerOperand(), &BasePtr, &Idx))
+    return false;
+  if (Idx != Cand->getStringObjectIndex())
+    return false;
+  if (!isListFrontNodeArenaBlockAddr(BasePtr, Obj, NodePtr))
+    return false;
+  Visited.insert(LI);
+  return true;
+}
+
+// Returns true if "BC" is legal for the transformation.
+// It is considered as legal only when ArenaBlock is the first field of
+// ReusableArenaBlock.
+// Ex:
+//  bitcast ArenaBlock* %10 to ReusableArenaBlock*
+bool MemManageTransImpl::isLegalBitCast(BitCastInst *BC) {
+  Value *Op1 = BC->getOperand(0);
+  auto *FPTy = dyn_cast<PointerType>(Op1->getType());
+  auto *TPTy = dyn_cast<PointerType>(BC->getType());
+  if (!FPTy || !TPTy)
+    return false;
+  Type *FElemTy = FPTy->getElementType();
+  Type *TElemTy = TPTy->getElementType();
+  auto Cand = getCurrentCandidate();
+  if (FElemTy != Cand->getBlockBaseType() ||
+      TElemTy != Cand->getReusableArenaBlockType())
+    return false;
+  if (Cand->getReusableArenaBlockIndex() != 0 ||
+      Cand->getBlockBaseObjIndex() != 0)
+    return false;
+  return true;
+}
+
 // Returns true if "V" represents ArenaBlock in ReusableArenaBlock.
 // Ex:
 //     RABObj->ArenaBlock
+//     (ReusableArenaBlock*)RABObj)->ArenaBlock
 bool MemManageTransImpl::isArenaBlockAddrFromRAB(Value *V, Value *RABObj) {
   auto Cand = getCurrentCandidate();
   Value *BasePtr = nullptr;
@@ -1227,6 +1309,11 @@ bool MemManageTransImpl::isArenaBlockAddrFromRAB(Value *V, Value *RABObj) {
     return false;
   if (Idx != Cand->getBlockBaseObjIndex())
     return false;
+  auto *BC = dyn_cast<BitCastInst>(BasePtr);
+  if (BC && isLegalBitCast(BC)) {
+    BasePtr = BC->getOperand(0);
+    Visited.insert(BC);
+  }
   if (BasePtr != RABObj)
     return false;
   return true;
@@ -1235,6 +1322,7 @@ bool MemManageTransImpl::isArenaBlockAddrFromRAB(Value *V, Value *RABObj) {
 // Returns true if "V" represents address of FirstFreeBlock in
 // ReusableArenaBlock. Ex:
 //     RABObj->FirstFreeBlock
+//     (ReusableArenaBlock*)RABObj)->FirstFreeBlock
 bool MemManageTransImpl::isFirstFreeBlockAddrFromRAB(Value *V, Value *RABObj) {
   auto Cand = getCurrentCandidate();
   Value *BasePtr = nullptr;
@@ -1243,6 +1331,11 @@ bool MemManageTransImpl::isFirstFreeBlockAddrFromRAB(Value *V, Value *RABObj) {
     return false;
   if (Idx != Cand->getFirstFreeBlockIndex())
     return false;
+  auto *BC = dyn_cast<BitCastInst>(BasePtr);
+  if (BC && isLegalBitCast(BC)) {
+    BasePtr = BC->getOperand(0);
+    Visited.insert(BC);
+  }
   if (BasePtr != RABObj)
     return false;
   return true;
@@ -1278,6 +1371,7 @@ bool MemManageTransImpl::isNextFreeBlockLoadFromRAB(Value *V, Value *RABObj) {
 // ReusableArenaBlock.
 // Ex:
 //     RABObj->NextFreeBlock
+//     (ReusableArenaBlock*)RABObj)->NextFreeBlock
 bool MemManageTransImpl::isNextFreeBlockAddrFromRAB(Value *V, Value *RABObj) {
   auto Cand = getCurrentCandidate();
   Value *BasePtr = nullptr;
@@ -1286,6 +1380,11 @@ bool MemManageTransImpl::isNextFreeBlockAddrFromRAB(Value *V, Value *RABObj) {
     return false;
   if (Idx != Cand->getNextFreeBlockIndex())
     return false;
+  auto *BC = dyn_cast<BitCastInst>(BasePtr);
+  if (BC && isLegalBitCast(BC)) {
+    BasePtr = BC->getOperand(0);
+    Visited.insert(BC);
+  }
   if (BasePtr != RABObj)
     return false;
   return true;
@@ -1545,6 +1644,17 @@ void MemManageTransImpl::collectStoreInst(
   }
 }
 
+// Load instructions in "BB" are collected in LoadVec.
+void MemManageTransImpl::collectLoadInst(BasicBlock *BB,
+                                         SmallVectorImpl<LoadInst *> &LoadVec) {
+  for (auto &I : *BB) {
+    auto *LI = dyn_cast<LoadInst>(&I);
+    if (!LI)
+      continue;
+    LoadVec.push_back(LI);
+  }
+}
+
 // Returns first NonDbg instruction (including PHI) in BB.
 Instruction *MemManageTransImpl::getFirstNonDbg(BasicBlock *BB) {
   for (Instruction &I : *BB) {
@@ -1580,18 +1690,36 @@ bool MemManageTransImpl::isIncrementByOne(Value *V, Value **AddOp) {
   return true;
 }
 
-// Returns true if "V" looks like below. Updates "BaseAddr", "IndexAddr" and
-// "Idx" when returns true.
-// Ex:
-// %GEP = getelementptr %"String", %"String"* %BaseAddr, i64 %IndexAddr
+// Returns true if "V" is "false".
+bool MemManageTransImpl::isFalseValue(Value *V) {
+  Type *Ty = V->getType();
+  if (!Ty->isIntegerTy(1))
+    return false;
+  if (V != ConstantInt::getFalse(Ty))
+    return false;
+  return true;
+}
+
+// Returns true if "V" is "true".
+bool MemManageTransImpl::isTrueValue(Value *V) {
+  Type *Ty = V->getType();
+  if (!Ty->isIntegerTy(1))
+    return false;
+  if (V != ConstantInt::getTrue(Ty))
+    return false;
+  return true;
+}
+
+// Returns true if "V" looks like below. Updates "BCPtr" and "Idx" when returns
+// true. Ex:
 // %BC = bitcast %"String"* %GEP to %"NextBlock"*
 // %Ptr = getelementptr %"NextBlock", %"NextBlock"* %BC, i64 0, i32 Idx
 //
 // When this routine is called first time, NextBlockTy is assigned to
 // "NextBlock" type. The type should match for all other calls.
-bool MemManageTransImpl::isNextBlockFieldAccess(Value *Ptr, Value **BaseAddr,
-                                                Value **IndexAddr,
-                                                int32_t *Idx) {
+bool MemManageTransImpl::isNextBlockObjBlkAddress(Value *Ptr,
+                                                  BitCastInst **BCPtr,
+                                                  int32_t *Idx) {
   Value *BasePtr = nullptr;
   if (!getGEPBaseAddrIndex(Ptr, &BasePtr, Idx))
     return false;
@@ -1604,18 +1732,36 @@ bool MemManageTransImpl::isNextBlockFieldAccess(Value *Ptr, Value **BaseAddr,
   if (!BC)
     return false;
 
-  auto *GEP = dyn_cast<GetElementPtrInst>(BC->getOperand(0));
-  if (!GEP || GEP->getNumIndices() != 1)
-    return false;
-
   // Get type of NextBlockTy when this routine is called first time.
   if (!NextBlockTy)
     NextBlockTy = StTy;
   else if (NextBlockTy != StTy)
     return false;
+
+  *BCPtr = BC;
+  Visited.insert(BC);
+  return true;
+}
+
+// Returns true if "V" looks like below. Updates "BaseAddr", "IndexAddr" and
+// "Idx" when returns true.
+// Ex:
+// %GEP = getelementptr %"String", %"String"* %BaseAddr, i64 %IndexAddr
+// %BC = bitcast %"String"* %GEP to %"NextBlock"*
+// %Ptr = getelementptr %"NextBlock", %"NextBlock"* %BC, i64 0, i32 Idx
+bool MemManageTransImpl::isNextBlockFieldAccess(Value *Ptr, Value **BaseAddr,
+                                                Value **IndexAddr,
+                                                int32_t *Idx) {
+  BitCastInst *BC = nullptr;
+  if (!isNextBlockObjBlkAddress(Ptr, &BC, Idx))
+    return false;
+
+  auto *GEP = dyn_cast<GetElementPtrInst>(BC->getOperand(0));
+  if (!GEP || GEP->getNumIndices() != 1)
+    return false;
+
   *BaseAddr = GEP->getPointerOperand();
   *IndexAddr = GEP->getOperand(1);
-  Visited.insert(BC);
   Visited.insert(GEP);
   return true;
 }
@@ -2125,6 +2271,7 @@ bool MemManageTransImpl::identifyAllocCall(BasicBlock *BB, Value *Obj,
 // It updates "TrueB", "FalseB" and "NodePtr" when returns true.
 // If "IsListHead" is true, this routine checks if ListHead is
 // null. Otherwise, checks if ListFreeHead is null.
+// "CheckedPtr" is updated with "LValue".
 //
 // if (Obj->List->listHead == nullptr) {
 //   Node *ptr = alloc(sizeof(Node))
@@ -2134,11 +2281,9 @@ bool MemManageTransImpl::identifyAllocCall(BasicBlock *BB, Value *Obj,
 //   // This Block is considered as "FalseB"
 // }
 //
-bool MemManageTransImpl::identifyCheckAndAllocNode(BasicBlock *BB, Value *Obj,
-                                                   BasicBlock **TrueB,
-                                                   BasicBlock **FalseB,
-                                                   Value **NodePtr,
-                                                   bool IsListHead) {
+bool MemManageTransImpl::identifyCheckAndAllocNode(
+    BasicBlock *BB, Value *Obj, BasicBlock **TrueB, BasicBlock **FalseB,
+    Value **NodePtr, Value **CheckedPtr, bool IsListHead) {
   Value *LValue;
   Value *RValue;
   BasicBlock *TBlock;
@@ -2157,6 +2302,7 @@ bool MemManageTransImpl::identifyCheckAndAllocNode(BasicBlock *BB, Value *Obj,
   }
   if (!isa<Constant>(RValue) || !cast<Constant>(RValue)->isNullValue())
     return false;
+  *CheckedPtr = LValue;
   Value *AllocPtr;
   Value *SizeVal;
   BasicBlock *UnBB = nullptr;
@@ -2228,7 +2374,7 @@ bool MemManageTransImpl::identifyNodeInit(BasicBlock *InitBB, Value *Obj,
 }
 
 // Returns true if it identifies the pattern below.
-// It updates "TrueB", "FalseB" and "NodePtr" when returns true.
+// It updates "TrueB", "FalseB", "AllocPtr" and CheckedPtr when returns true.
 //
 // if (Obj->List->listHead == nullptr) {
 //   Node *ptr = alloc(sizeof(Node))
@@ -2236,16 +2382,17 @@ bool MemManageTransImpl::identifyNodeInit(BasicBlock *InitBB, Value *Obj,
 //   Ptr->Next = Ptr;
 //   Ptr->Prev = Ptr;
 //   // Successor Block of this statement is considered as "FalseB"
-//   // "NodePtr" is updated with "Ptr".
+//   // "AllocPtr" is updated with "Ptr" and "CheckedPtr" is updated
+//   // with "Obj->List->listHead".
 // } else {
 //   // This Block is considered as "FalseB"
 // }
 //
 bool MemManageTransImpl::identifyListHead(BasicBlock *BB, Value *Obj,
                                           BasicBlock **TrueB,
-                                          BasicBlock **FalseB,
-                                          Value **AllocPtr) {
-  if (!identifyCheckAndAllocNode(BB, Obj, TrueB, FalseB, AllocPtr,
+                                          BasicBlock **FalseB, Value **AllocPtr,
+                                          Value **CheckedPtr) {
+  if (!identifyCheckAndAllocNode(BB, Obj, TrueB, FalseB, AllocPtr, CheckedPtr,
                                  /* IsListHead */ true))
     return false;
 
@@ -2258,7 +2405,7 @@ bool MemManageTransImpl::identifyListHead(BasicBlock *BB, Value *Obj,
 }
 
 // Returns true if it identifies the pattern below.
-// It updates "EmptyBB" and "NotEmptyBB".
+// It updates "EmptyBB", "NotEmptyBB" and "BeginPtr".
 //
 // if (Obj->List->listHead == nullptr) {
 //   // allocate new Node and initialize it.
@@ -2266,17 +2413,21 @@ bool MemManageTransImpl::identifyListHead(BasicBlock *BB, Value *Obj,
 //   // EmptyCheckBB
 //   if ((begin() == end()) != 0) { // Check List is empty.
 //     // EmptyBB
+//     // "BeginPtr" is updated with "begin()".
 //   } else {
 //     // NotEmptyBB
 //   }
 // }
 bool MemManageTransImpl::identifyListEmpty(BasicBlock *BB, Value *Obj,
                                            BasicBlock **EmptyBB,
-                                           BasicBlock **NotEmptyBB) {
+                                           BasicBlock **NotEmptyBB,
+                                           LoadInst **BeginPtr) {
   BasicBlock *CreatedHeadBB = nullptr;
   BasicBlock *EmptyCheckBB = nullptr;
   Value *NodePtr = nullptr;
-  if (!identifyListHead(BB, Obj, &CreatedHeadBB, &EmptyCheckBB, &NodePtr))
+  Value *CheckedPtr = nullptr;
+  if (!identifyListHead(BB, Obj, &CreatedHeadBB, &EmptyCheckBB, &NodePtr,
+                        &CheckedPtr))
     return false;
   Value *LValue = nullptr;
   Value *RValue = nullptr;
@@ -2286,12 +2437,17 @@ bool MemManageTransImpl::identifyListEmpty(BasicBlock *BB, Value *Obj,
     return false;
   if (Predi != ICmpInst::ICMP_EQ)
     return false;
-  if (!isListHeadLoad(RValue, Obj))
+  // Check RValue as ListHead
+  if (RValue != CheckedPtr)
     return false;
-  if (!isListBegin(LValue, Obj))
+  // Check LValue as RValue->Next
+  if (!isNodePosNextLoad(LValue, RValue) ||
+      !checkInstructionInBlock(LValue, EmptyCheckBB))
     return false;
+
   if (*EmptyBB != CreatedHeadBB)
     return false;
+  *BeginPtr = cast<LoadInst>(LValue);
   return true;
 }
 
@@ -2663,7 +2819,9 @@ bool MemManageTransImpl::identifyGetListHead(BasicBlock *BB, Value *Obj,
   Value *NodePtr = nullptr;
   BasicBlock *CreatedHeadBB = nullptr;
   BasicBlock *HasHeadBB = nullptr;
-  if (!identifyListHead(BB, Obj, &CreatedHeadBB, &HasHeadBB, &NodePtr))
+  Value *CheckedPtr = nullptr;
+  if (!identifyListHead(BB, Obj, &CreatedHeadBB, &HasHeadBB, &NodePtr,
+                        &CheckedPtr))
     return false;
   BasicBlock *SuccBB = getSingleSucc(HasHeadBB);
   if (!SuccBB)
@@ -2685,6 +2843,48 @@ bool MemManageTransImpl::identifyGetListHead(BasicBlock *BB, Value *Obj,
   BasicBlock *NodeBB = cast<Instruction>(NodePtr)->getParent();
   if (PHI->getBasicBlockIndex(NodeBB) < 0 ||
       NodePtr != PHI->getIncomingValueForBlock(NodeBB))
+    return false;
+  *TargetB = CreatedHeadBB;
+  *NPtr = PHI;
+  Visited.insert(PHI);
+  return true;
+}
+
+// Returns true if IR matches the pattern below starting "BB".
+// Updates TargetBB and NPtr when it returns true.
+//
+// BB:
+//   CheckedPtr = Obj->ArenaBlock.List.ListHead;
+//   if (CheckedPtr == nullptr) {
+//     // NodeBB:
+//     NodePtr = allocNode();
+//     Goto CreatedHeadBB;
+//   } else {
+//     Goto CreatedHeadBB;
+//   }
+//   // CreatedHeadBB: (HasHeadBB)
+//   PHI <- [NodePtr, CreatedHeadBB], [CheckedPtr, HasHeadBB]
+//   *Nptr = PHI
+bool MemManageTransImpl::identifyGetRBegin(BasicBlock *BB, Value *Obj,
+                                           BasicBlock **TargetB, Value **NPtr) {
+  Value *NodePtr = nullptr;
+  BasicBlock *CreatedHeadBB = nullptr;
+  BasicBlock *HasHeadBB = nullptr;
+  Value *CheckedPtr = nullptr;
+  if (!identifyListHead(BB, Obj, &CreatedHeadBB, &HasHeadBB, &NodePtr,
+                        &CheckedPtr))
+    return false;
+  if (HasHeadBB != CreatedHeadBB)
+    return false;
+  auto *PHI = dyn_cast_or_null<PHINode>(getFirstNonDbg(HasHeadBB));
+  if (!PHI)
+    return false;
+  BasicBlock *NodeBB = cast<Instruction>(NodePtr)->getParent();
+  if (PHI->getBasicBlockIndex(NodeBB) < 0 ||
+      NodePtr != PHI->getIncomingValueForBlock(NodeBB))
+    return false;
+  if (PHI->getBasicBlockIndex(BB) < 0 ||
+      CheckedPtr != PHI->getIncomingValueForBlock(BB))
     return false;
   *TargetB = CreatedHeadBB;
   *NPtr = PHI;
@@ -2729,8 +2929,10 @@ bool MemManageTransImpl::identifyPushFront(BasicBlock *BB, Value *Obj,
   BasicBlock *CreateFreeListHeadBB = nullptr;
   BasicBlock *HasFreeListHeadBB = nullptr;
   Value *FreeListHeadPtr = nullptr;
+  Value *CheckedPtr = nullptr;
   if (!identifyCheckAndAllocNode(ListHeadBlock, Obj, &CreateFreeListHeadBB,
-                                 &HasFreeListHeadBB, &FreeListHeadPtr, false))
+                                 &HasFreeListHeadBB, &FreeListHeadPtr,
+                                 &CheckedPtr, false))
     return false;
   BasicBlock *PushBlock = CreateFreeListHeadBB;
   if (!PushBlock || PushBlock != getSingleSucc(HasFreeListHeadBB))
@@ -2792,7 +2994,8 @@ bool MemManageTransImpl::identifyPushFront(BasicBlock *BB, Value *Obj,
   BasicBlock *CreateHeadBB = nullptr;
   BasicBlock *HasHeadBB = nullptr;
   Value *HeadPtr = nullptr;
-  if (!identifyListHead(PushBlock, Obj, &CreateHeadBB, &HasHeadBB, &HeadPtr))
+  if (!identifyListHead(PushBlock, Obj, &CreateHeadBB, &HasHeadBB, &HeadPtr,
+                        &CheckedPtr))
     return false;
 
   // Check the Preds of CreateHeadBB: One coming from blockAvailable()
@@ -2915,14 +3118,10 @@ bool MemManageTransImpl::identifyRABAllocateBlock(BasicBlock *BB,
   // Check for this->m_firstFreeBlock == this->m_nextFreeBlock
   BasicBlock *NoIncrementBB = nullptr;
   BasicBlock *IncrementBB = nullptr;
-  if (!processBBTerminator(AllocInitBB, &LValue, &RValue, &IncrementBB,
-                           &NoIncrementBB, &Predi))
-    return false;
-  if (Predi != ICmpInst::ICMP_EQ)
-    return false;
-  if (!isFirstFreeBlockLoadFromRAB(LValue, RABPtr))
-    return false;
-  if (!isNextFreeBlockLoadFromRAB(RValue, RABPtr))
+  Value *FirstFreeBlock = nullptr;
+  Value *NextFreeBlock = nullptr;
+  if (!identifyUncommittedBlock(AllocInitBB, RABPtr, &FirstFreeBlock,
+                                &NextFreeBlock, &IncrementBB, &NoIncrementBB))
     return false;
 
   // Check CFG here. Makes sure single successor of NoIncrementBB and
@@ -3152,8 +3351,9 @@ bool MemManageTransImpl::prepareForPopFront(BasicBlock *NoBlockAvailableBB,
 
   BasicBlock *NodeHeadLoadBB = nullptr;
   Value *NewNode = nullptr;
+  Value *CheckedPtr = nullptr;
   if (!identifyListHead(NoBlockAvailableBB, Obj, PopFrontBB, &NodeHeadLoadBB,
-                        &NewNode))
+                        &NewNode, &CheckedPtr))
     return false;
 
   BasicBlock *NewHeadNodeBB = cast<Instruction>(NewNode)->getParent();
@@ -3384,14 +3584,16 @@ bool MemManageTransImpl::identifyPushBack(BasicBlock *CreatedHeadBB, Value *Obj,
   BasicBlock *CreateListHeadBB = nullptr;
   BasicBlock *PushBackBB = nullptr;
   Value *ListHeadPtr = nullptr;
+  Value *CheckedPtr = nullptr;
   if (!identifyListHead(CreatedHeadBB, Obj, &CreateListHeadBB, &PushBackBB,
-                        &ListHeadPtr))
+                        &ListHeadPtr, &CheckedPtr))
     return false;
   BasicBlock *CreateFreeListHeadBB = nullptr;
   BasicBlock *HasFreeListHeadBB = nullptr;
   Value *FreeListHeadPtr = nullptr;
   if (!identifyCheckAndAllocNode(CreateListHeadBB, Obj, &CreateFreeListHeadBB,
                                  &HasFreeListHeadBB, &FreeListHeadPtr,
+                                 &CheckedPtr,
                                  /* IsListHead */ false))
     return false;
   BasicBlock *NewFreeListHeadBB =
@@ -4046,8 +4248,9 @@ bool MemManageTransImpl::recognizeAllocateBlock(Function *F) {
   Argument *ThisObj = &*F->arg_begin();
   BasicBlock *CreateNewHeadBB = nullptr;
   BasicBlock *NotEmptyBB = nullptr;
+  LoadInst *Begin = nullptr;
   if (!identifyListEmpty(&F->getEntryBlock(), ThisObj, &CreateNewHeadBB,
-                         &NotEmptyBB))
+                         &NotEmptyBB, &Begin))
     return false;
   BasicBlock *BlockAvailableBB = nullptr;
   BasicBlock *NoBlockAvailableBB = nullptr;
@@ -4416,11 +4619,13 @@ bool MemManageTransImpl::identifyFreeNodeInLoop(BasicBlock *FreeNodeLoopZTTBB,
 //  tail call void @llvm.assume(i1 %TCall)
 //  %II = load void (%"ObjStr"*)*, void (%"ObjStr"*)** %BC2, align 8
 //  tail call void @ObjDestCall(%"ObjStr"* %GEP)
+//
+//  If "LoopCountPHI" is nullptr, it doesn't check for first %GEP and stops
+//  pattern match at %BC2 in the example above.
 bool MemManageTransImpl::identifyStrObjDtorCall(Instruction *I,
                                                 Value *ObjBlkPtr,
-                                                Value *LoopCountPHI) {
-  auto *ObjDestCall =
-      dyn_cast_or_null<CallInst>(I->getPrevNonDebugInstruction());
+                                                Value *LoopCountPHI = nullptr) {
+  auto *ObjDestCall = dyn_cast_or_null<CallInst>(I);
   if (!ObjDestCall)
     return false;
   Instruction *II = ObjDestCall->getPrevNonDebugInstruction();
@@ -4449,19 +4654,26 @@ bool MemManageTransImpl::identifyStrObjDtorCall(Instruction *I,
   if (!BC2)
     return false;
   Visited.insert(BC2);
-  auto *GEP = dyn_cast<GetElementPtrInst>(BC2->getOperand(0));
-  if (!GEP || GEP->getNumIndices() != 1)
-    return false;
-  Visited.insert(GEP);
-  if (ObjBlkPtr != GEP->getPointerOperand())
-    return false;
-  if (LoopCountPHI != GEP->getOperand(1))
-    return false;
   if (ObjDestCall->arg_size() != 1)
     return false;
   Value *ArgOp = ObjDestCall->getArgOperand(0);
-  if (ArgOp != GEP)
-    return false;
+  if (LoopCountPHI) {
+    auto *GEP = dyn_cast<GetElementPtrInst>(BC2->getOperand(0));
+    if (!GEP || GEP->getNumIndices() != 1)
+      return false;
+    Visited.insert(GEP);
+    if (ObjBlkPtr != GEP->getPointerOperand())
+      return false;
+    if (LoopCountPHI != GEP->getOperand(1))
+      return false;
+    if (ArgOp != GEP)
+      return false;
+  } else {
+    if (BC2->getOperand(0) != ObjBlkPtr)
+      return false;
+    if (ArgOp != ObjBlkPtr)
+      return false;
+  }
   Type *ObjTy = nullptr;
   if (auto *PTy = dyn_cast<PointerType>(ArgOp->getType()))
     ObjTy = PTy->getElementType();
@@ -4504,7 +4716,8 @@ bool MemManageTransImpl::identifyRemoveStrObj(
     return false;
   if (AddOp != RemObjsPHI)
     return false;
-  if (!identifyStrObjDtorCall(RemovedObjs, ObjBlkPtr, LoopCountPHI))
+  if (!identifyStrObjDtorCall(RemovedObjs->getPrevNonDebugInstruction(),
+                              ObjBlkPtr, LoopCountPHI))
     return false;
   Visited.insert(WideBlkSize);
   Visited.insert(BlkSize);
@@ -4953,8 +5166,9 @@ bool MemManageTransImpl::recognizeReset(Function *F) {
   BasicBlock *CreatedHeadBB = nullptr;
   BasicBlock *RABDtorLoopZTTBB = nullptr;
   Value *NodePtr = nullptr;
+  Value *CheckedPtr = nullptr;
   if (!identifyListHead(&F->getEntryBlock(), ThisObj, &CreatedHeadBB,
-                        &RABDtorLoopZTTBB, &NodePtr))
+                        &RABDtorLoopZTTBB, &NodePtr, &CheckedPtr))
     return false;
 
   // Check ZTT for Outerloop
@@ -5046,6 +5260,571 @@ bool MemManageTransImpl::recognizeReset(Function *F) {
   return true;
 }
 
+// Check for the pattern below:
+//   if (RABPtr->FirstFreeBlock == RABPtr->NextFreeBlock) {
+//     // CommittedBB
+//   } else {
+//     // UncommittedBB
+//   }
+bool MemManageTransImpl::identifyUncommittedBlock(BasicBlock *BB, Value *RABPtr,
+                                                  Value **FirstFreeBlock,
+                                                  Value **NextFreeBlock,
+                                                  BasicBlock **CommittedBB,
+                                                  BasicBlock **UncommittedBB) {
+
+  ICmpInst::Predicate Predi = ICmpInst::ICMP_NE;
+  if (!processBBTerminator(BB, FirstFreeBlock, NextFreeBlock, CommittedBB,
+                           UncommittedBB, &Predi))
+    return false;
+  if (Predi != ICmpInst::ICMP_EQ)
+    return false;
+  if (!isFirstFreeBlockLoadFromRAB(*FirstFreeBlock, RABPtr))
+    return false;
+  if (!isNextFreeBlockLoadFromRAB(*NextFreeBlock, RABPtr))
+    return false;
+  return true;
+}
+
+// Returns true if it identifies the pattern below.
+//
+// BB:
+//   if (Obj->List->listHead == nullptr) {
+//     // PredBB
+//     CreateNode()
+//     // EndPtr will updated with Obj->List->listHead
+//     Goto EmptyBB
+//   }
+// EmptyCheckBB:
+//   if (begin() == end()) {
+//     Goto EmptyBB
+//   }
+// NotEmptyBB: (TBlock)
+//   %IterPtr = phi [ %LValue, EmptyCheckBB ]
+//
+// EmptyBB:
+//   %RetPHI = phi i1  [ false, PredBB], [ false, EmptyCheckBB ]
+//
+bool MemManageTransImpl::identifyIteratorCheck(BasicBlock *BB, Value *Obj,
+                                               PHINode **IterPtr,
+                                               Value **EndPtr,
+                                               PHINode **RetPHIPtr,
+                                               BasicBlock **TBlock) {
+  BasicBlock *CreatedHeadBB = nullptr;
+  BasicBlock *EmptyCheckBB = nullptr;
+  Value *NodePtr = nullptr;
+  if (!identifyListHead(BB, Obj, &CreatedHeadBB, &EmptyCheckBB, &NodePtr,
+                        EndPtr))
+    return false;
+  Value *LValue = nullptr;
+  Value *RValue = nullptr;
+  BasicBlock *EmptyBB = nullptr;
+  BasicBlock *NotEmptyBB = nullptr;
+  ICmpInst::Predicate Predi = ICmpInst::ICMP_NE;
+  if (!processBBTerminator(EmptyCheckBB, &LValue, &RValue, &EmptyBB,
+                           &NotEmptyBB, &Predi))
+    return false;
+  if (Predi != ICmpInst::ICMP_EQ)
+    return false;
+  // EndPtr represents "Obj->List->listHead" in the example above.
+  if (RValue != *EndPtr)
+    return false;
+  if (!isListBegin(LValue, Obj))
+    return false;
+  if (EmptyBB != CreatedHeadBB)
+    return false;
+
+  // Check CreateNewHeadBB as Return BasicBlock.
+  auto *RetI = dyn_cast<ReturnInst>(CreatedHeadBB->getTerminator());
+  if (!RetI)
+    return false;
+  BasicBlock *PredBB = cast<Instruction>(NodePtr)->getParent();
+  Value *RetVal = RetI->getReturnValue();
+  assert(RetVal && "Unexpected Return Value");
+  auto *RetPHI = dyn_cast<PHINode>(RetVal);
+  if (!RetPHI || RetPHI->getBasicBlockIndex(PredBB) < 0)
+    return false;
+  if (!isFalseValue(RetPHI->getIncomingValueForBlock(PredBB)))
+    return false;
+
+  if (!isFalseValue(RetPHI->getIncomingValueForBlock(EmptyCheckBB)))
+    return false;
+
+  auto *PHI = dyn_cast_or_null<PHINode>(getFirstNonDbg(NotEmptyBB));
+  if (!PHI)
+    return false;
+  PredBB = cast<Instruction>(LValue)->getParent();
+  if (PHI->getBasicBlockIndex(PredBB) < 0 ||
+      LValue != PHI->getIncomingValueForBlock(PredBB))
+    return false;
+  Visited.insert(PHI);
+  Visited.insert(RetPHI);
+  Visited.insert(RetI);
+
+  *IterPtr = PHI;
+  *TBlock = NotEmptyBB;
+  *RetPHIPtr = RetPHI;
+  return true;
+}
+
+// Check for the code below (OwnsBlock):
+//
+//   *ObjBlkPtr = Iter->ObjectBlock;
+//   if (*ObjBlkPtr > StrObj) {
+//     Goto DoesNotOwnBB;
+//   }
+//   *ObjBlkPtr = Iter->ObjectBlock + Iter->BlockSize;
+//   if (*ObjBlkPtr + Iter->BlockSize > StrObj) {
+//     Goto OwnsBB;
+//   } else {
+//     Goto DoesNotOwnBB;
+//   }
+//
+// It updates ObjBlkPtr, OwnsBB and DoesNotOwnBB.
+//
+bool MemManageTransImpl::identifyOwnsBlock(BasicBlock *BB, Value *Obj,
+                                           Value *StrObj, Value *Iter,
+                                           BasicBlock **OwnsBB,
+                                           BasicBlock **DoesNotOwnBB,
+                                           Value **ObjBlkPtr) {
+  Value *RValue = nullptr;
+  Value *LValue = nullptr;
+  BasicBlock *FBlock = nullptr;
+  ICmpInst::Predicate Predi = CmpInst::ICMP_NE;
+  if (!processBBTerminator(BB, &LValue, &RValue, DoesNotOwnBB, &FBlock, &Predi))
+    return false;
+  if (Predi != ICmpInst::ICMP_UGT)
+    return false;
+  if (RValue != StrObj)
+    return false;
+  if (!isFrontNodeObjectBlockLoad(LValue, Obj, Iter))
+    return false;
+
+  Value *LV = nullptr;
+  Value *RV = nullptr;
+  BasicBlock *TBB = nullptr;
+  BasicBlock *FBB = nullptr;
+  ICmpInst::Predicate P = CmpInst::ICMP_NE;
+  if (!processBBTerminator(FBlock, &LV, &RV, &TBB, &FBB, &P))
+    return false;
+  if (P != ICmpInst::ICMP_UGT)
+    return false;
+  if (RV != StrObj)
+    return false;
+  if (FBB != *DoesNotOwnBB)
+    return false;
+  auto *GEP = dyn_cast<GetElementPtrInst>(LV);
+  if (!GEP || GEP->getNumIndices() != 1)
+    return false;
+  if (GEP->getPointerOperand() != LValue)
+    return false;
+  auto *ZExt = dyn_cast<ZExtInst>(GEP->getOperand(1));
+  if (!ZExt || !isFrontNodeBlockSizeLoad(ZExt->getOperand(0), Obj, Iter))
+    return false;
+  Visited.insert(ZExt);
+  Visited.insert(GEP);
+
+  *OwnsBB = TBB;
+  *ObjBlkPtr = LValue;
+  return true;
+}
+
+// Check for the code below (Move the block to the beginning):
+//
+//  ReusableArenaBlockType* block = *Iter;
+//  Obj->blocks.erase(Iter);
+//  Obj->blocks.push_front(block);
+//
+// BB:
+//   NodeNext = Iter->Next;
+//   NodePrev = Iter->Prev;
+//   identifyFreeNode()
+//   CheckedPtr = Load ListHead;
+//   if (CheckedPtr == null) {
+//     // PredBB
+//     NodePtr = CreateNode();
+//     if (CheckedFreeListPtr == nullptr) {
+//       // FreeListBB
+//       FreeListHeadPtr = CreateNode();
+//       Goto CreateFreeListHeadBB
+//     } else {
+//       // HasFreeListHeadBB
+//       Goto SuccBB;
+//     }
+//   } else {
+//     // HasHeadBB
+//     NodeLI = Begin();
+//     Goto SuccBB;
+//   }
+// SuccBB:
+//  %ListHead = phi [ %NodePtr, %PredBB ], [ %NodeLI, %HasHeadBB ]
+//  %ListHeadNext = phi [ %CheckedFreeListPtr, %PredBB ], [ %Iter, %HasHeadBB ]
+//  Goto CreateFreeListHeadBB
+//
+// CreateFreeListHeadBB:
+//  %NodePosPHI = phi [ %ListHead, %HasFreeListHeadBB ],
+//                            [ % NodePtr, %FreeListBB ]
+//  %NewNodePHI = phi [ %ListHeadNext, %HasFreeListHeadBB ],
+//                      [ %FreeListHeadPtr, %FreeListBB ]
+//  %NextFreeNodePHI = phi [ %FreeNodeLI, %HasFreeListHeadBB ],
+//                          [ null, %FreeListBB ]
+//
+//  identifyPushAtPos()
+//
+bool MemManageTransImpl::identifyMoveBlock(BasicBlock *BB, Value *Obj,
+                                           Value *Iter, BasicBlock **TargetBB) {
+  SmallVector<LoadInst *, 6> LoadVec;
+  collectLoadInst(BB, LoadVec);
+  if (LoadVec.size() < 5)
+    return false;
+  LoadInst *RAB = LoadVec[0];
+  if (!RAB)
+    return false;
+  if (!isNodePosReusableArenaBlockLoad(RAB, Iter))
+    return false;
+
+  // Identify the first two LoadInst of BB as NodeNext and NodePrev.
+  Value *NodeNext = nullptr;
+  Value *NodePrev = nullptr;
+  if (isNodePosNextLoad(LoadVec[1], Iter) &&
+      isNodePosPrevLoad(LoadVec[2], Iter)) {
+    NodeNext = LoadVec[1];
+    NodePrev = LoadVec[2];
+  } else if (isNodePosNextLoad(LoadVec[2], Iter) &&
+             isNodePosPrevLoad(LoadVec[1], Iter)) {
+    NodeNext = LoadVec[2];
+    NodePrev = LoadVec[1];
+  } else {
+    return false;
+  }
+  // Erase Iter from the blocks.
+  Value *PFNextFreeNode = nullptr;
+  if (!identifyFreeNode(BB, Obj, Iter, NodeNext, NodePrev, &PFNextFreeNode))
+    return false;
+
+  Value *NodePtr = nullptr;
+  BasicBlock *CreatedHeadBB = nullptr;
+  BasicBlock *HasHeadBB = nullptr;
+  Value *CheckedPtr = nullptr;
+  if (!identifyListHead(BB, Obj, &CreatedHeadBB, &HasHeadBB, &NodePtr,
+                        &CheckedPtr))
+    return false;
+  BasicBlock *SuccBB = getSingleSucc(HasHeadBB);
+  if (!SuccBB)
+    return false;
+  auto *BI = dyn_cast<BranchInst>(HasHeadBB->getTerminator());
+  assert(BI && " Expected BranchInst");
+  auto *NodeLI = dyn_cast_or_null<LoadInst>(BI->getPrevNonDebugInstruction());
+  if (!NodeLI)
+    return false;
+  if (!isListBegin(NodeLI, Obj))
+    return false;
+  BasicBlock *PredBB = cast<Instruction>(NodePtr)->getParent();
+  BasicBlock *CreateFreeListHeadBB = nullptr;
+  BasicBlock *HasFreeListHeadBB = nullptr;
+  Value *FreeListHeadPtr = nullptr;
+  Value *CheckedFreeListPtr = nullptr;
+  if (!identifyCheckAndAllocNode(CreatedHeadBB, Obj, &CreateFreeListHeadBB,
+                                 &HasFreeListHeadBB, &FreeListHeadPtr,
+                                 &CheckedFreeListPtr, false))
+    return false;
+
+  // PredBB and HasHeadBB are predecessors of SuccBB.
+  PHINode *ListHead = nullptr;
+  PHINode *ListHeadNext = nullptr;
+  for (auto &I : *SuccBB) {
+    if (isa<DbgInfoIntrinsic>(&I))
+      continue;
+    auto *PN = dyn_cast<PHINode>(&I);
+    if (!PN)
+      break;
+    if (PN->getBasicBlockIndex(PredBB) < 0)
+      return false;
+    Value *Op1 = PN->getIncomingValueForBlock(HasHeadBB);
+    Value *Op2 = PN->getIncomingValueForBlock(PredBB);
+    if (Op1 == Iter) {
+      if (Op2 != CheckedFreeListPtr)
+        return false;
+      if (ListHeadNext)
+        return false;
+      ListHeadNext = PN;
+    } else if (Op1 == NodeLI) {
+      if (Op2 != NodePtr)
+        return false;
+      if (ListHead)
+        return false;
+      ListHead = PN;
+    } else {
+      return false;
+    }
+  }
+  if (!ListHeadNext || !ListHead)
+    return false;
+  Visited.insert(ListHeadNext);
+  Visited.insert(ListHead);
+
+  // FreeListBB and HasFreeListHeadBB are predecessors of CreateFreeListHeadBB.
+  BasicBlock *FreeListBB = cast<Instruction>(FreeListHeadPtr)->getParent();
+  BasicBlock *Pred = getSingleSucc(FreeListBB);
+  if (!Pred || Pred != CreateFreeListHeadBB)
+    return false;
+  if (getSingleSucc(HasFreeListHeadBB) != CreateFreeListHeadBB)
+    return false;
+
+  BI = dyn_cast<BranchInst>(HasFreeListHeadBB->getTerminator());
+  assert(BI && " Expected BranchInst");
+  auto *FreeNodeLI =
+      dyn_cast_or_null<LoadInst>(BI->getPrevNonDebugInstruction());
+  if (!FreeNodeLI)
+    return false;
+  if (!isNodePosNextLoad(FreeNodeLI, ListHeadNext))
+    return false;
+
+  PHINode *NodePosPHI = nullptr;
+  PHINode *NewNodePHI = nullptr;
+  PHINode *NextFreeNodePHI = nullptr;
+  for (auto &I : *CreateFreeListHeadBB) {
+    if (isa<DbgInfoIntrinsic>(&I))
+      continue;
+    auto *PN = dyn_cast<PHINode>(&I);
+    if (!PN)
+      break;
+    Value *Op1 = PN->getIncomingValueForBlock(HasFreeListHeadBB);
+    Value *Op2 = PN->getIncomingValueForBlock(FreeListBB);
+    if (Op1 == ListHead) {
+      if (Op2 != NodePtr)
+        return false;
+      if (NodePosPHI)
+        return false;
+      NodePosPHI = PN;
+    } else if (Op1 == ListHeadNext) {
+      if (Op2 != FreeListHeadPtr)
+        return false;
+      if (NewNodePHI)
+        return false;
+      NewNodePHI = PN;
+    } else if (Op1 == FreeNodeLI) {
+      if (!isa<Constant>(Op2) || !cast<Constant>(Op2)->isNullValue())
+        return false;
+      if (NextFreeNodePHI)
+        return false;
+      NextFreeNodePHI = PN;
+    } else {
+      return false;
+    }
+  }
+  if (!NodePosPHI || !NewNodePHI || !NextFreeNodePHI)
+    return false;
+  Visited.insert(NodePosPHI);
+  Visited.insert(NewNodePHI);
+  Visited.insert(NextFreeNodePHI);
+  if (!identifyPushAtPos(CreateFreeListHeadBB, Obj, NodePosPHI, NewNodePHI,
+                         NextFreeNodePHI, RAB))
+    return false;
+  *TargetBB = CreateFreeListHeadBB;
+  return true;
+}
+
+// Recognize the functionality of DestroyObject.
+//
+//  bool destroyObject(ObjectType* theObject) {
+//    bool bResult = false;
+//    if ( this->m_blocks.empty() ) return bResult;
+//      iterator iTerator = this->m_blocks.begin();
+//      iterator iEnd = this->m_blocks.end();
+//      while( iTerator != iEnd && (*iTerator)->blockAvailable() ) {
+//        if ((*iTerator)->ownsBlock(theObject) == true) {
+//          (*iTerator)->destroyObject(theObject);
+//          if (iTerator != this->m_blocks.begin()) {
+//            ReusableArenaBlockType* block = *iTerator;
+//            this->m_blocks.erase(iTerator);
+//            this->m_blocks.push_front(block);
+//          }
+//          if (m_destroyBlocks) { destroyBlock(); }
+//          bResult = true;
+//          break;
+//        }
+//        ++iTerator;
+//     }
+//     reverse_iterator rIterator = this->m_blocks.rbegin();
+//     reverse_iterator rEnd = this->m_blocks.rend();
+//     while ( !bResult && rIterator != rEnd ) {
+//       if ((*rIterator)->ownsBlock(theObject)) {
+//         (*rIterator)->destroyObject(theObject);
+//         if (rIterator != this->m_blocks.rbegin()) {
+//           ReusableArenaBlockType* block = *iTerator;
+//           this->m_blocks.erase(iTerator);
+//           this->m_blocks.push_front(block);
+//         }
+//         if (m_destroyBlocks) { destroyBlock(); }
+//         bResult = true;
+//         break;
+//       }
+//       if ( *rIterator == *iTerator) { break; }
+//       else { ++rIterator; }
+//     }
+//     return bResult;
+//   }
+bool MemManageTransImpl::recognizeDestroyObject(Function *F) {
+
+  // Returns true if it identifies the pattern below.
+  //
+  // LoopEndBB:
+  //  %IterPHI = phi [Iter , NotEmptyBB]
+  //  %InvResultPHI = phi i1 [true , NotEmptyBB]
+  //  %ResultPHI = phi i8 [0 , NotEmptyBB]
+  //  %RABPtr = Iter->RAB;
+  auto CollectLoopExitValues =
+      [this](BasicBlock *LoopEndBB, BasicBlock *NotEmptyBB, Value *Obj,
+             Value *Iter, PHINode **IterPHIPtr, PHINode **InvResultPHIPtr,
+             PHINode **ResultPHIPtr, LoadInst **RABPtr) {
+        PHINode *IterPHI = nullptr;
+        PHINode *InvResultPHI = nullptr;
+        PHINode *ResultPHI = nullptr;
+        for (auto &I : *LoopEndBB) {
+          if (isa<DbgInfoIntrinsic>(&I))
+            continue;
+          auto *PHI = dyn_cast<PHINode>(&I);
+          if (!PHI)
+            break;
+          Value *Ptr = PHI->getIncomingValueForBlock(NotEmptyBB);
+          if (Ptr == Iter) {
+            if (IterPHI)
+              return false;
+            IterPHI = PHI;
+          } else if (isa<ConstantInt>(Ptr) &&
+                     cast<ConstantInt>(Ptr)->isZeroValue()) {
+            if (ResultPHI)
+              return false;
+            ResultPHI = PHI;
+          } else if (isTrueValue(Ptr)) {
+            if (InvResultPHI)
+              return false;
+            InvResultPHI = PHI;
+          } else {
+            return false;
+          }
+        }
+        if (!IterPHI || !ResultPHI || !InvResultPHI)
+          return false;
+
+        LoadInst *RAB = getFirstLoadInst(NotEmptyBB);
+        if (!RAB || !isListFrontNodeArenaBlockAddr(RAB, Obj, Iter))
+          return false;
+        Visited.insert(IterPHI);
+        Visited.insert(InvResultPHI);
+        Visited.insert(ResultPHI);
+
+        *IterPHIPtr = IterPHI;
+        *InvResultPHIPtr = InvResultPHI;
+        *ResultPHIPtr = ResultPHI;
+        *RABPtr = RAB;
+        return true;
+      };
+
+  // Returns true if it identifies the pattern below.
+  //
+  // LoopH:
+  //   Iter = phi [ItB, DoesNotOwnBB]
+  //
+  // DoesNotOwnBB:
+  //   ItB = Iter->Next;
+  //   if (ItB == ListEnd) {
+  //     Goto LoopEndBB;
+  //   } else {
+  //     Goto LoopH;
+  //   }
+  //
+  // LoopEndBB:
+  //  %IterPHI = phi [ListEnd , DoesNotOwnBB]
+  //  %InvResultPHI = phi i1 [true , DoesNotOwnBB]
+  //  %ResultPHI = phi i8 [0 , DoesNotOwnBB]
+  //
+  auto CheckLoopLatch = [this](BasicBlock *DoesNotOwnBB, BasicBlock *LoopEndBB,
+                               Value *Obj, Value *ListEnd, PHINode *Iter,
+                               PHINode *IterPHI, PHINode *ResultPHI,
+                               PHINode *InvResultPHI) {
+    Value *ItB = nullptr;
+    Value *ItEnd = nullptr;
+    BasicBlock *LoopH = nullptr;
+    BasicBlock *LoopE = nullptr;
+    ICmpInst::Predicate LoopP = CmpInst::ICMP_NE;
+    if (!processBBTerminator(DoesNotOwnBB, &ItB, &ItEnd, &LoopE, &LoopH,
+                             &LoopP))
+      return false;
+    if (LoopP != ICmpInst::ICMP_EQ)
+      return false;
+    if (ItEnd != ListEnd)
+      return false;
+    if (!isNodePosNextLoad(ItB, Iter) ||
+        !checkInstructionInBlock(ItB, DoesNotOwnBB))
+      return false;
+    if (Iter->getParent() != LoopH ||
+        ItB != Iter->getIncomingValueForBlock(DoesNotOwnBB))
+      return false;
+    if (LoopE != LoopEndBB)
+      return false;
+    if (ListEnd != IterPHI->getIncomingValueForBlock(DoesNotOwnBB))
+      return false;
+    if (!isTrueValue(InvResultPHI->getIncomingValueForBlock(DoesNotOwnBB)))
+      return false;
+    Value *Val1 = ResultPHI->getIncomingValueForBlock(DoesNotOwnBB);
+    if (!isa<ConstantInt>(Val1) || !cast<ConstantInt>(Val1)->isZeroValue())
+      return false;
+    return true;
+  };
+
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS, {
+    dbgs() << "   Recognizing DestroyObject Functionality " << F->getName()
+           << "\n";
+  });
+  Visited.clear();
+  Argument *ThisObj = F->getArg(0);
+  Argument *StrObj = F->getArg(1);
+
+  BasicBlock *FirstBB = &F->getEntryBlock();
+  PHINode *Iter = nullptr;
+  Value *ListEnd = nullptr;
+  PHINode *RetPHI = nullptr;
+  BasicBlock *NotEmptyBB = nullptr;
+  // Check for the pattern to set iterators.
+  if (!identifyIteratorCheck(FirstBB, ThisObj, &Iter, &ListEnd, &RetPHI,
+                             &NotEmptyBB))
+    return false;
+
+  // Check for "blockAvailable()"
+  BasicBlock *BlockAvailableBB = nullptr;
+  BasicBlock *LoopEndBB = nullptr;
+  if (!identifyBlockAvailable(NotEmptyBB, ThisObj, &BlockAvailableBB,
+                              &LoopEndBB, Iter))
+    return false;
+
+  PHINode *IterPHI = nullptr;
+  PHINode *InvResultPHI = nullptr;
+  PHINode *ResultPHI = nullptr;
+  LoadInst *RABPtr = nullptr;
+  if (!CollectLoopExitValues(LoopEndBB, NotEmptyBB, ThisObj, Iter, &IterPHI,
+                             &InvResultPHI, &ResultPHI, &RABPtr))
+    return false;
+
+  Value *ObjBlkPtr = nullptr;
+  BasicBlock *DoesNotOwnBB = nullptr;
+  BasicBlock *OwnsBB = nullptr;
+  if (!identifyOwnsBlock(BlockAvailableBB, ThisObj, StrObj, Iter, &OwnsBB,
+                         &DoesNotOwnBB, &ObjBlkPtr))
+    return false;
+
+  // Check forward iterator loop latch.
+  if (!CheckLoopLatch(DoesNotOwnBB, LoopEndBB, ThisObj, ListEnd, Iter, IterPHI,
+                      ResultPHI, InvResultPHI))
+    return false;
+
+  // TODO: Add more code here to recognize DestroyObject completely.
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS, {
+    dbgs() << "   Recognized DestroyObject (Partially): " << F->getName() << "\n";
+  });
+  return true;
+}
+
 // Check functionality of each interface function to prove that
 // it is an allocator class.
 bool MemManageTransImpl::recognizeFunctions(void) {
@@ -5085,11 +5864,18 @@ bool MemManageTransImpl::recognizeFunctions(void) {
   if (!recognizeDestructor(Dtor))
     return false;
 
-  // Check functionality of Destructor.
+  // Check functionality of Reset.
   Function *ResetF = FunctionalityMap[Reset];
   if (!ResetF)
     return false;
   if (!recognizeReset(ResetF))
+    return false;
+
+  // Check functionality of DestroyObject.
+  Function *ObjDtorF = FunctionalityMap[DestroyObject];
+  if (!ObjDtorF)
+    return false;
+  if (!recognizeDestroyObject(ObjDtorF))
     return false;
 
   return false;
