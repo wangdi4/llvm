@@ -1781,6 +1781,26 @@ public:
   }
 };
 
+static uint64_t getDeviceArch(uint32_t L0DeviceId) {
+  for (auto &arch : DeviceArchMap)
+    for (auto id : arch.second)
+      if (L0DeviceId == id || (L0DeviceId & 0xFF00) == id)
+        return arch.first; // Exact match or prefix match
+
+  IDP("Warning: Cannot decide device arch for %" PRIx32 ".\n", L0DeviceId);
+  return DeviceArch_None;
+}
+
+static bool isDiscrete(uint32_t L0DeviceId) {
+  uint32_t prefix = L0DeviceId & 0xFF00;
+  return prefix == 0x4900 || prefix == 0x0200;
+}
+
+// Decide device's default memory kind for internal allocation (e.g., map)
+static int32_t getAllocKinds(uint32_t L0DeviceId) {
+  return isDiscrete(L0DeviceId) ? TARGET_ALLOC_DEVICE : TARGET_ALLOC_SHARED;
+}
+
 static void logMemUsage(ze_device_handle_t Device, size_t Requested,
                         void *Ptr, size_t MemSize) {
   size_t size = 0;
@@ -1892,10 +1912,12 @@ static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size,
   auto destType = DeviceInfo->getMemAllocType(Dest);
   auto srcType = DeviceInfo->getMemAllocType(Src);
 
-  if (destType != ZE_MEMORY_TYPE_DEVICE && srcType != ZE_MEMORY_TYPE_DEVICE) {
-    char *src = static_cast<char *>(Src);
-    std::copy(src, src + Size, static_cast<char *>(Dest));
-  } else {
+  // Global variable address is classified as unknown memory, and it should be
+  // handled as device memory (i.e., use memcpy command).
+  if (isDiscrete(DeviceInfo->DeviceProperties[DeviceId].deviceId) ||
+      destType == ZE_MEMORY_TYPE_DEVICE || srcType == ZE_MEMORY_TYPE_DEVICE ||
+      (destType == ZE_MEMORY_TYPE_UNKNOWN &&
+          srcType == ZE_MEMORY_TYPE_UNKNOWN)) {
     auto cmdList = DeviceInfo->getCopyCmdList(DeviceId);
     auto cmdQueue = DeviceInfo->getCopyCmdQueue(DeviceId);
     bool ownsLock = false;
@@ -1912,6 +1934,9 @@ static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size,
       copyLock.unlock();
     CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT64_MAX);
     CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
+  } else {
+    char *src = static_cast<char *>(Src);
+    std::copy(src, src + Size, static_cast<char *>(Dest));
   }
   return OFFLOAD_SUCCESS;
 }
@@ -1962,26 +1987,6 @@ static void *allocDataExplicit(ze_device_handle_t Device, int64_t Size,
 static void *allocDataExplicit(int32_t DeviceId, int64_t Size, int32_t Kind) {
   auto device = DeviceInfo->Devices[DeviceId];
   return allocDataExplicit(device, Size, Kind);
-}
-
-static uint64_t getDeviceArch(uint32_t L0DeviceId) {
-  for (auto &arch : DeviceArchMap)
-    for (auto id : arch.second)
-      if (L0DeviceId == id || (L0DeviceId & 0xFF00) == id)
-        return arch.first; // Exact match or prefix match
-
-  IDP("Warning: Cannot decide device arch for %" PRIx32 ".\n", L0DeviceId);
-  return DeviceArch_None;
-}
-
-static bool isDiscrete(uint32_t L0DeviceId) {
-  uint32_t prefix = L0DeviceId & 0xFF00;
-  return prefix == 0x4900 || prefix == 0x0200;
-}
-
-// Decide device's default memory kind for internal allocation (e.g., map)
-static int32_t getAllocKinds(uint32_t L0DeviceId) {
-  return isDiscrete(L0DeviceId) ? TARGET_ALLOC_DEVICE : TARGET_ALLOC_SHARED;
 }
 
 /// Initialize memory pool with the parameters
