@@ -1844,7 +1844,7 @@ Instruction *InstCombinerImpl::foldVectorBinop(BinaryOperator &Inst) {
         Constant *MaybeUndef =
             ConstOp1 ? ConstantExpr::get(Opcode, UndefScalar, CElt)
                      : ConstantExpr::get(Opcode, CElt, UndefScalar);
-        if (!isa<UndefValue>(MaybeUndef)) {
+        if (!match(MaybeUndef, m_Undef())) {
           MayChange = false;
           break;
         }
