@@ -934,7 +934,8 @@ bool OptNoneInstrumentation::shouldRun(StringRef PassID, Any IR) {
   return ShouldRun;
 }
 
-void OptBisectInstrumentation::registerCallbacks(
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+Void OptBisectInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
   if (!OptBisector->isEnabled())
     return;
@@ -943,7 +944,6 @@ void OptBisectInstrumentation::registerCallbacks(
   });
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 void PrintPassInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
   if (!DebugLogging)
@@ -1313,7 +1313,9 @@ void StandardInstrumentations::registerCallbacks(
   PrintPass.registerCallbacks(PIC);
   TimePasses.registerCallbacks(PIC);
   OptNone.registerCallbacks(PIC);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   OptBisect.registerCallbacks(PIC);
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (FAM)
     PreservedCFGChecker.registerCallbacks(PIC, *FAM);
   PrintChangedIR.registerCallbacks(PIC);
