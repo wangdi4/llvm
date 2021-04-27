@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
+; RUN: %oclopt -runtimelib %p/../Full/dxruntime.bc -scalarize %t.bc -S  -runtime=dx -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -runtimelib %p/../Full/dxruntime.bc -scalarize -verify %t.bc -S -o %t1.ll -runtime=dx
 ; RUN: FileCheck %s --input-file=%t1.ll
 
@@ -28,3 +29,7 @@ entry:
   declare <4 x float> @dx_soa_load_constant_uniform_imm_1_float4_vs(i8*, i32 , i32 ) nounwind;
  
   declare void @dx_soa_store_output_uniform_indirect_1_float4_vs(i8* , i32 , i32 , <4 x float> ) nounwind;
+
+; extractelement and insertelement are reconstructed, and are hard to fix.
+; DEBUGIFY-COUNT-6: WARNING: Missing line
+; DEBUGIFY-NOT: WARNING

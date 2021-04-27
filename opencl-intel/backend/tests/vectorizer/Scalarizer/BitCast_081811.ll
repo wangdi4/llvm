@@ -1,5 +1,6 @@
 ; CSSD100006905
 ; RUN: llvm-as %s -o %t.bc
+; RUN: %oclopt -scalarize -runtimelib %p/../Full/runtime.bc -packet-size=4 -S %t.bc -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -scalarize -runtimelib %p/../Full/runtime.bc -packet-size=4 -S %t.bc -o - \
 ; RUN: | FileCheck %s
 
@@ -299,3 +300,7 @@ bb.nph:                                           ; preds = %0
 ._crit_edge:                                      ; preds = %3, %0
   ret void
 }
+
+; false alarm on phi node
+; DEBUGIFY: WARNING: Missing line 18
+; DEBUGIFY-NOT: WARNING

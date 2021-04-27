@@ -5,6 +5,7 @@
 ;
 ;*******************************************
  
+; RUN: %oclopt -scalarize %s -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -scalarize %s -S | FileCheck %s
 
 
@@ -73,3 +74,7 @@ declare double @_Z8distanceU8__vector2dS_(<2 x double>, <2 x double>)
 ;CHECK: @_Z8distanceU8__vector4dS_
 ;CHECK: @_Z8distanceU8__vector2dS_ 
 ;CHECK: ret
+
+; extractelement and insertelement are reconstructed, and are hard to fix.
+; DEBUGIFY-COUNT-6: WARNING: Missing line
+; DEBUGIFY-NOT: WARNING

@@ -1,3 +1,4 @@
+; RUN: %oclopt  -runtimelib %p/../Full/runtime.bc -scalarize -S  %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt  -runtimelib %p/../Full/runtime.bc -scalarize -verify -S -o - %s \
 ; RUN: | FileCheck %s
 
@@ -58,3 +59,7 @@ entry:
   store i32 %1, i32 addrspace(1)* %arrayidx22, align 4
   ret void
 }
+
+; extractelement and insertelement are reconstructed, and are hard to fix.
+; DEBUGIFY-COUNT-4: WARNING: Missing line
+; DEBUGIFY-NOT: WARNING
