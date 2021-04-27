@@ -55,7 +55,8 @@
 // CHK-COMMANDS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs={{.*}}libomp-itt-compiler-wrappers.obj" "-outputs=[[ITT2HOST:.+\.o]],[[ITT2TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-COMMANDS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs={{.*}}libomp-itt-stubs.obj" "-outputs=[[ITT3HOST:.+\.o]],[[ITT3TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-COMMANDS: clang{{(.exe)?}}{{.*}} "-cc1" "-triple" "spir64" "-aux-triple" "x86_64-pc-windows-msvc" "-fms-extensions" "-fms-compatibility" "-fdelayed-template-parsing" "-fms-compatibility-version={{.*}}" "-disable-lifetime-markers" "-disable-intel-proprietary-opts" "-Wspir-compat" "-emit-llvm-bc" {{.*}} "-fopenmp" {{.*}} "-fsycl-instrument-device-code" {{.*}} "-fopenmp-is-device" "-fopenmp-host-ir-file-path" "[[HOSTBC]]" "-internal-isystem" "{{.*}}bin{{[/\\]+}}..{{[/\\]+}}include{{[/\\]+}}sycl"{{.*}} "-mllvm" "-paropt=63" "-fopenmp-targets=spir64" "-o" "[[TGTBC:.+\.bc]]"
-// CHK-COMMANDS: llvm-link{{(.exe)?}}{{.*}} "[[TGTBC]]" "[[RTLTGT]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[TGTLINKEDBC:.+\.bc]]"
+// CHK-COMMANDS: llvm-link{{.*}} "[[TGTBC]]" "[[RTLTGT]]" "-o" "[[UNBUNDLED:.+\.bc]]"
+// CHK-COMMANDS: llvm-link{{(.exe)?}}{{.*}} "[[UNBUNDLED]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[TGTLINKEDBC:.+\.bc]]"
 // CHK-COMMANDS: sycl-post-link{{(.exe)?}}{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2" "-spec-const=rt" "-o" "[[TGTPOSTLINK:.+\.bc]]" "[[TGTLINKEDBC]]"
 // CHK-COMMANDS: llvm-spirv{{(.exe)?}}{{.*}}" "-o" "[[TGTSPIRV:.+\.spv]]" "-spirv-ext=+all,-SPV_INTEL_fpga_buffer_location,-SPV_INTEL_memory_access_aliasing" "-spirv-allow-unknown-intrinsics" "[[TGTPOSTLINK]]"
 // CHK-COMMANDS: clang-offload-wrapper{{(.exe)?}}{{.*}} "-host" "x86_64-pc-windows-msvc{{.*}}" "-o" "[[WRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[TGTSPIRV]]"
@@ -124,7 +125,8 @@
 // CHK-UBJOBS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs={{.*}}libomp-itt-user-wrappers.obj" "-outputs=[[ITT1HOST:.+\.o]],[[ITT1TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-UBJOBS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs={{.*}}libomp-itt-compiler-wrappers.obj" "-outputs=[[ITT2HOST:.+\.o]],[[ITT2TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
 // CHK-UBJOBS: "{{.*}}clang-offload-bundler" "-type=o" "-targets=host-x86_64-pc-windows-msvc,openmp-spir64" "-inputs={{.*}}libomp-itt-stubs.obj" "-outputs=[[ITT3HOST:.+\.o]],[[ITT3TGT:.+\.o]]" "-unbundle" "-allow-missing-bundles"
-// CHK-UBJOBS: llvm-link{{(.exe)?}}{{.*}} "[[TGTBC]]" "[[RTLTGT]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[TGTLINKEDBC:.+\.bc]]"
+// CHK-UBJOBS: llvm-link{{.*}} "[[TGTBC]]" "[[RTLTGT]]" "-o" "[[UNBUNDLED:.+\.bc]]"
+// CHK-UBJOBS: llvm-link{{(.exe)?}}{{.*}} "[[UNBUNDLED]]" "[[ITT1TGT]]" "[[ITT2TGT]]" "[[ITT3TGT]]" "-o" "[[TGTLINKEDBC:.+\.bc]]"
 // CHK-UBJOBS: sycl-post-link{{(.exe)?}}{{.*}} "--ompoffload-link-entries" "--ompoffload-sort-entries" "--ompoffload-make-globals-static" "-ir-output-only" "-O2"  "-spec-const=rt" "-o" "[[TGTPOSTLINK:.+\.bc]]" "[[TGTLINKEDBC]]"
 // CHK-UBJOBS: llvm-spirv{{(.exe)?}}{{.*}} "-o" "[[TGTSPIRV:.+\.spv]]" "-spirv-ext=+all,-SPV_INTEL_fpga_buffer_location,-SPV_INTEL_memory_access_aliasing" "-spirv-allow-unknown-intrinsics" "[[TGTPOSTLINK]]"
 // CHK-UBJOBS: clang-offload-wrapper{{(.exe)?}}{{.*}} "-host" "x86_64-pc-windows-msvc{{.*}}" "-o" "[[WRAPPERBC:.+\.bc]]" "-kind=openmp" "-target=spir64" "[[TGTSPIRV]]"
@@ -135,3 +137,8 @@
 // RUN: %clang_cl -### /LD /Qiopenmp /Qopenmp-targets=spir64 -c %s 2>&1 \
 // RUN:  FileCheck -check-prefix=LD_ERROR %s
 // LD_ERROR: error: The use of '/LD' is not supported with '/Qiopenmp /Qopenmp-targets=spir64'.
+
+/// test llvm-link behavior for fopenmp offload
+// RUN: %clang -fiopenmp -target x86_64-pc-windows-msvc -fopenmp-targets=spir64 %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=OPENMP_LLVM_LINK_DEVICE_LIB
+// OPENMP_LLVM_LINK_DEVICE_LIB: llvm-link{{.*}} "--only-needed" "{{.*}}"
