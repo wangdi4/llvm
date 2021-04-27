@@ -1,4 +1,4 @@
-; RUN: opt -passes=jump-threading -S %s -o - | FileCheck %s
+; RUN: opt -passes=jump-threading -S %s -o - -jump-thread-loop-header=false | FileCheck %s ;INTEL
 define void @prepare_next_shadow() !dbg !7 {
 entry:
   br label %for.cond, !dbg !9
