@@ -137,6 +137,7 @@ set(TARGET_SOURCE_FILES
   SoaAllocaAnalysis/SoaAllocaAnalysis.cpp
   Utils/SimplifyGEP.cpp
   Utils/VectorizerCore.cpp
+  Utils/VectorizerCommon.cpp
   VectorKernelDiscard/VectorKernelDiscard.cpp
   VectorVariant/CreateSimdVariantPropagation.cpp
   VectorVariant/SGSizeCollector.cpp

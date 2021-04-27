@@ -10,8 +10,10 @@
 
 #include "SGSizeCollector.h"
 
+#include "CompilationUtils.h"
 #include "LoopHandler/CLWGBoundDecoder.h"
 #include "MetadataAPI.h"
+#include "VectorizerCommon.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/CallGraph.h"
@@ -24,6 +26,8 @@
 
 using namespace llvm;
 using namespace Intel::MetadataAPI;
+using namespace Intel::OpenCL::DeviceBackend;
+using namespace Intel::VectorizerCommon;
 
 bool EnableDirectFunctionCallVectorization = false;
 static cl::opt<bool, true> EnableDirectFunctionCallVectorizationOpt(
@@ -152,10 +156,10 @@ bool SGSizeCollectorImpl::runImpl(Module &M) {
 
       std::vector<VectorKind> Parameters(F->arg_size(), VectorKind::vector());
 
-      VectorVariant VariantMasked(getCPUIdISA(), true, VecLength, Parameters,
-                                  F->getName().str(), "");
-      VectorVariant VariantUnmasked(getCPUIdISA(), false, VecLength, Parameters,
-                                    F->getName().str(), "");
+      VectorVariant VariantMasked(getCPUIdISA(CPUId), true, VecLength,
+                                  Parameters, F->getName().str(), "");
+      VectorVariant VariantUnmasked(getCPUIdISA(CPUId), false, VecLength,
+                                    Parameters, F->getName().str(), "");
 
       Variants.push_back(VariantMasked.toString());
       Variants.push_back(VariantUnmasked.toString());
@@ -175,16 +179,6 @@ bool SGSizeCollectorImpl::hasVecLength(Function *F, int &VecLength) {
     return VecLength > 1;
   }
   return false;
-}
-
-VectorVariant::ISAClass SGSizeCollectorImpl::getCPUIdISA() {
-  if (CPUId->HasAVX512Core())
-    return VectorVariant::ZMM;
-  if (CPUId->HasAVX2())
-    return VectorVariant::YMM2;
-  if (CPUId->HasAVX1())
-    return VectorVariant::YMM1;
-  return VectorVariant::XMM;
 }
 
 extern "C" {

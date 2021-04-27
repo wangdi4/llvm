@@ -1,5 +1,5 @@
-; RUN: %oclopt %s -vector-variant-lowering -vector-variant-isa-override=AVX2 -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt %s -vector-variant-lowering -vector-variant-isa-override=AVX2 -S | FileCheck %s
+; RUN: %oclopt %s -vector-variant-lowering -ocl-vector-variant-isa-encoding-override=AVX2 -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt %s -vector-variant-lowering -ocl-vector-variant-isa-encoding-override=AVX2 -S | FileCheck %s
 
 define void @bar(i32, float) {
 entry:

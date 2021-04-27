@@ -1,5 +1,5 @@
-; RUN: %oclopt %s -sg-size-collector -enable-direct-subgroup-function-call-vectorization -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt %s -sg-size-collector -enable-direct-subgroup-function-call-vectorization -S | FileCheck %s
+; RUN: %oclopt %s -ocl-vector-variant-isa-encoding-override=AVX512Core -sg-size-collector -enable-direct-subgroup-function-call-vectorization -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt %s -ocl-vector-variant-isa-encoding-override=AVX512Core -sg-size-collector -enable-direct-subgroup-function-call-vectorization -S | FileCheck %s
 
 define void @bar() #0 {
 ; CHECK: define void @bar() #[[ATTR0:[0-9]+]] {
@@ -40,11 +40,11 @@ entry:
 attributes #0 = { "vector-variants"="_ZGVbM16_bar" "has-sub-groups" }
 attributes #1 = { "has-sub-groups" }
 
-; CHECK: attributes #[[ATTR0]] = { "has-sub-groups" "vector-variants"="_ZGVbM16_bar,_ZGV{{[bcde]}}M8_bar,_ZGV{{[bcde]}}N8_bar,_ZGV{{[bcde]}}M32_bar,_ZGV{{[bcde]}}N32_bar" }
-; CHECK: attributes #[[ATTR1]] = { "has-sub-groups" "vector-variants"="_ZGV{{[bcde]}}M8_foo,_ZGV{{[bcde]}}N8_foo,_ZGV{{[bcde]}}M16_foo,_ZGV{{[bcde]}}N16_foo,_ZGV{{[bcde]}}M32_foo,_ZGV{{[bcde]}}N32_foo" }
-; CHECK: attributes #[[ATTR2]] = { "has-sub-groups" "vector-variants"="_ZGV{{[bcde]}}M8_kernel,_ZGV{{[bcde]}}N8_kernel" }
-; CHECK: attributes #[[ATTR3]] = { "has-sub-groups" "vector-variants"="_ZGV{{[bcde]}}M16_kernel2,_ZGV{{[bcde]}}N16_kernel2" }
-; CHECK: attributes #[[ATTR4]] = { "has-sub-groups" "vector-variants"="_ZGV{{[bcde]}}M32_kernel3,_ZGV{{[bcde]}}N32_kernel3" }
+; CHECK: attributes #[[ATTR0]] = { "has-sub-groups" "vector-variants"="_ZGVbM16_bar,_ZGVeM8_bar,_ZGVeN8_bar,_ZGVeM32_bar,_ZGVeN32_bar" }
+; CHECK: attributes #[[ATTR1]] = { "has-sub-groups" "vector-variants"="_ZGVeM8_foo,_ZGVeN8_foo,_ZGVeM16_foo,_ZGVeN16_foo,_ZGVeM32_foo,_ZGVeN32_foo" }
+; CHECK: attributes #[[ATTR2]] = { "has-sub-groups" "vector-variants"="_ZGVeM8_kernel,_ZGVeN8_kernel" }
+; CHECK: attributes #[[ATTR3]] = { "has-sub-groups" "vector-variants"="_ZGVeM16_kernel2,_ZGVeN16_kernel2" }
+; CHECK: attributes #[[ATTR4]] = { "has-sub-groups" "vector-variants"="_ZGVeM32_kernel3,_ZGVeN32_kernel3" }
 
 !0 = !{i32 8}
 !1 = !{i32 16}

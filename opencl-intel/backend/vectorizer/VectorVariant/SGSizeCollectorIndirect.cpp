@@ -10,6 +10,7 @@
 
 #include "SGSizeCollectorIndirect.h"
 
+#include "VectorizerCommon.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
@@ -19,6 +20,7 @@
 #define DEBUG_TYPE "SGSizeCollectorIndirect"
 
 using namespace llvm;
+using namespace Intel::VectorizerCommon;
 
 bool EnableVectorVariantPasses = true;
 static cl::opt<bool, true> EnableVectorVariantPassesOpt(
@@ -82,7 +84,7 @@ bool SGSizeCollectorIndirectImpl::runImpl(Module &M) {
     VecLengths.insert(VecLength);
   }
 
-  VectorVariant::ISAClass ISAClass = getCPUIdISA();
+  VectorVariant::ISAClass ISAClass = getCPUIdISA(CPUId);
   auto GenerateVectorVariants =
       [&VecLengths, ISAClass](const std::string &FuncName, int NumParams) {
         std::vector<VectorKind> Parameters(NumParams, VectorKind::vector());

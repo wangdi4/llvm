@@ -1,3 +1,4 @@
+; RUN: %oclopt -S -barrier-copy-instruction-threshold=3 -B-ReduceCrossBarrierValues -adce %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -S -barrier-copy-instruction-threshold=3 -B-ReduceCrossBarrierValues -adce %s | FileCheck %s
 ; TODO: Remove -adce pass when this pass can eliminate dead instructions.
 
@@ -426,3 +427,10 @@ ed:
 }
 
 attributes #0 = { convergent nounwind readnone willreturn }
+
+;; phi nodes
+; DEBUGIFY: WARNING: Missing line 34
+; DEBUGIFY: WARNING: Missing line 75
+; DEBUGIFY: WARNING: Missing line 108
+
+; DEBUGIFY-NOT: WARNING

@@ -405,19 +405,6 @@ namespace intel {
         pInsertBefore);
   }
 
-  Instruction* BarrierUtils::createGetSGSize(BasicBlock* pBB) {
-    const std::string strSGSize = CompilationUtils::mangledGetSubGroupSize();
-    if (!m_getSGSizeFunc)
-      m_getSGSizeFunc = m_pModule->getFunction(strSGSize);
-    if (!m_getSGSizeFunc) {
-      Type *pResult = IntegerType::get(m_pModule->getContext(), 32);
-      std::vector<Type*> funcTyArgs;
-      m_getSGSizeFunc = createFunctionDeclaration(strSGSize, pResult, funcTyArgs);
-      SetFunctionAttributeReadNone(m_getSGSizeFunc);
-    }
-    return CallInst::Create(m_getSGSizeFunc, "sg.size", pBB);
-  }
-
   Instruction *BarrierUtils::createGetLocalId(unsigned dim, IRBuilderBase &B) {
     const std::string strLID = CompilationUtils::mangledGetLID();
     if (!m_getLIDFunc) {

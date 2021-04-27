@@ -13,18 +13,19 @@
 
 #include "OCLPassSupport.h"
 
-using namespace llvm;
-
 namespace intel {
 
-class IndirectCallLowering : public ModulePass {
+class IndirectCallLowering : public llvm::ModulePass {
 public:
   static char ID;
 
   IndirectCallLowering();
+  llvm::StringRef getPassName() const override {
+    return "IndirectCallLowering pass";
+  }
 
 protected:
-  bool runOnModule(Module &M) override;
+  bool runOnModule(llvm::Module &M) override;
 };
 
 } // namespace intel

@@ -12,8 +12,7 @@
 #define BACKEND_VECTORIZER_VECTORVARIANT_SGSIZECOLLECTOR_H
 
 #include "OCLPassSupport.h"
-#include "VecConfig.h"
-
+#include "cl_cpu_detect.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 
 using namespace llvm;
@@ -28,9 +27,6 @@ public:
 
 protected:
   bool hasVecLength(Function *F, int &VecLength);
-  VectorVariant::ISAClass getCPUIdISA();
-
-private:
   const Intel::OpenCL::Utils::CPUDetect *CPUId;
 };
 
@@ -38,8 +34,10 @@ class SGSizeCollector : public ModulePass {
 public:
   static char ID;
 
-  SGSizeCollector(const Intel::OpenCL::Utils::CPUDetect *CPUId =
-                      Intel::OpenCL::Utils::CPUDetect::GetInstance());
+  SGSizeCollector(const Intel::OpenCL::Utils::CPUDetect *CPUId = nullptr);
+  llvm::StringRef getPassName() const override {
+    return "SGSizeCollector pass";
+  }
 
 protected:
   bool runOnModule(Module &M) override;

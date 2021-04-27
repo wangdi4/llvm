@@ -1,4 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
+; RUN: %oclopt -simplifycfg %t.bc -S -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -simplifycfg -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
@@ -60,3 +61,9 @@ declare void @foo(i64) #1
 
 attributes #0 = { nounwind }
 attributes #1 = { noduplicate }
+
+;; phi nodes
+; DEBUGIFY: WARNING: Missing line 3
+; DEBUGIFY: WARNING: Missing line 8
+
+; DEBUGIFY-NOT: WARNING

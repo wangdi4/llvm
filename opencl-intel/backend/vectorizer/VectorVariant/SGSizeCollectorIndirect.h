@@ -14,26 +14,27 @@
 #include "OCLPassSupport.h"
 #include "SGSizeCollector.h"
 
-using namespace llvm;
-
 namespace intel {
 
 class SGSizeCollectorIndirectImpl : public SGSizeCollectorImpl {
 public:
   SGSizeCollectorIndirectImpl(const Intel::OpenCL::Utils::CPUDetect *CPUId);
 
-  bool runImpl(Module &M);
+  bool runImpl(llvm::Module &M);
 };
 
-class SGSizeCollectorIndirect : public ModulePass {
+class SGSizeCollectorIndirect : public llvm::ModulePass {
 public:
   static char ID;
 
-  SGSizeCollectorIndirect(const Intel::OpenCL::Utils::CPUDetect *CPUId =
-                              Intel::OpenCL::Utils::CPUDetect::GetInstance());
+  SGSizeCollectorIndirect(
+    const Intel::OpenCL::Utils::CPUDetect *CPUId = nullptr);
+  llvm::StringRef getPassName() const override {
+    return "SGSizeCollectorIndirect pass";
+  }
 
 protected:
-  bool runOnModule(Module &M) override;
+  bool runOnModule(llvm::Module &M) override;
 
 private:
   SGSizeCollectorIndirectImpl Impl;
