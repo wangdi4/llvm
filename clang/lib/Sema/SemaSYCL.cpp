@@ -3221,9 +3221,9 @@ class SyclKernelIntFooterCreator : public SyclKernelFieldHandler {
 
 public:
   SyclKernelIntFooterCreator(Sema &S, SYCLIntegrationFooter &F)
-      : SyclKernelFieldHandler(S), Footer(F) {            //INTEL
-    (void)Footer; // workaround for unused field warning  //INTEL
-  }                                                       //INTEL
+      : SyclKernelFieldHandler(S), Footer(F) {
+    (void)Footer; // workaround for unused field warning
+  }
 };
 
 } // namespace

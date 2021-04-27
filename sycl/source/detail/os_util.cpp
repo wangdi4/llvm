@@ -218,7 +218,7 @@ std::string OSUtil::getDirName(const char *Path) {
   // Remove trailing directory separators
   Tmp.erase(Tmp.find_last_not_of("/\\") + 1, std::string::npos);
 
-  size_t pos = Tmp.find_last_of("/\\"); //INTEL
+  size_t pos = Tmp.find_last_of("/\\");
   if (pos != std::string::npos)
     return Tmp.substr(0, pos);
 
