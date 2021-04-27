@@ -46,7 +46,7 @@ const std::map<int, std::string> FeatureMap = {
     {CFS_AVX512IFMA, "avx512ifma"},
     {CFS_AVX512BITALG, "avx512bitalg"},
     {CFS_AVX512VBMI2, "avx512vbmi2"},
-    {CFS_AVX512POPCNTDQ, "avx512vpopcntdq"},
+    {CFS_AVX512VPOPCNTDQ, "avx512vpopcntdq"},
     {CFS_CLWB, "clwb"},
     {CFS_WBNOINVD, "wbnoinvd"},
     {CFS_AMXTILE, "amx-tile"},
@@ -289,41 +289,28 @@ CPUDetect::CPUDetect(void) : m_is64BitOS(sizeof(void *) == 8) {
   llvm::sys::getHostCPUFeatures(m_cpuFeatures);
   GetCPUBrandInfo();
 
-  // Map cpu codename to CPU enum according to cpu features first, since there
-  // are many-to-one mapping between cpu codename and CPU enum
-  if (IsFeatureSupported(CFS_SSE42))
+  // Detect CPU enum according to cpu features
+  m_cpuArch = CPU_UNKNOWN;
+  if (HasSSE42())
     m_cpuArch = CPU_COREI7;
 
-  if (IsFeatureSupported(CFS_AVX20))
+  if (HasAVX1())
+    m_cpuArch = CPU_SNB;
+
+  if (HasAVX2())
     m_cpuArch = CPU_HSW;
 
-  if (IsFeatureSupported(CFS_AVX512F) && IsFeatureSupported(CFS_AVX512CD) &&
-      IsFeatureSupported(CFS_AVX512BW) && IsFeatureSupported(CFS_AVX512DQ) &&
-      IsFeatureSupported(CFS_AVX512VL)) {
+  if (HasAVX512SKX())
     m_cpuArch = CPU_SKX;
-    if (IsFeatureSupported(CFS_AVX512IFMA) &&
-        IsFeatureSupported(CFS_AVX512VBMI) &&
-        IsFeatureSupported(CFS_AVX512VBMI2) &&
-        IsFeatureSupported(CFS_AVX512BITALG)) {
-      m_cpuArch = CPU_ICL;
-    }
-  }
 
-  // In case the above processing is not able to get CPU enum, map them with cpu
-  // codename directly
-  auto defaultCPUArch = m_cpuArch;
-  m_cpuArch = llvm::StringSwitch<ECPU>(m_CPUString)
-                  .Case("sandybridge", CPU_SNB)
-                  .Case("knl", CPU_KNL)
-                  .Case("haswell", CPU_HSW)
-                  .Case("westmere", CPU_COREI7)
-                  .Cases("cooperlake", "cascadelake", "skylake-avx512", CPU_SKX)
-                  .Case("icelake-client", CPU_ICL)
-                  .Case("icelake-server", CPU_ICX)
-                  .Case("sapphirerapids", CPU_SPR)
-                  .Default(defaultCPUArch);
+  if (HasAVX512ICL())
+    m_cpuArch = CPU_ICL;
+
+  if (HasAMX())
+    m_cpuArch = CPU_SPR;
+
   if (m_cpuArch == CPU_UNKNOWN) {
-    string errMessage = m_CPUString + ": Unknown CPU!";
+    string errMessage = m_CPUString + ": Unsupported CPU!";
     llvm_unreachable(errMessage.data());
   }
 }

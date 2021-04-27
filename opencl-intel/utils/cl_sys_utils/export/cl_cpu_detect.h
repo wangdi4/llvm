@@ -58,7 +58,7 @@ enum ECPUFeatureSupport {
   CFS_AVX512IFMA = 1 << 18,     // CNL
   CFS_AVX512BITALG = 1 << 19,   // ICL
   CFS_AVX512VBMI2 = 1 << 20,    // ICL
-  CFS_AVX512POPCNTDQ = 1 << 21, // ICL
+  CFS_AVX512VPOPCNTDQ = 1 << 21, // ICL
   CFS_CLWB = 1 << 22,           // ICL
   CFS_WBNOINVD = 1 << 23,       // ICX
   CFS_AMXTILE = 1 << 26,        // AMX
@@ -228,8 +228,13 @@ public:
   bool HasAVX512ICL() const {
     return IsFeatureSupported(CFS_AVX512BITALG) &&
            IsFeatureSupported(CFS_AVX512VBMI2) &&
-           IsFeatureSupported(CFS_AVX512POPCNTDQ);
+           IsFeatureSupported(CFS_AVX512VPOPCNTDQ);
   }
+  bool HasAMX() const {
+    return IsFeatureSupported(CFS_AMXTILE) &&
+           IsFeatureSupported(CFS_AMXINT8) && IsFeatureSupported(CFS_AMXBF16);
+  }
+
   bool Is64BitOS() const { return m_is64BitOS; }
   llvm::StringMap<bool> GetCPUFeatures() const { return m_cpuFeatures; }
 
