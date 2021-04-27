@@ -84,6 +84,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeTileMVInlMarkerLegacyPassPass(Registry); // INTEL
   initializeIPArrayTransposeLegacyPassPass(Registry); // INTEL
   initializeArgNoAliasPropPass(Registry);            // INTEL
+  initializeIntelVTableFixupLegacyPassPass(Registry); // INTEL
 }
 
 void LLVMInitializeIPO(LLVMPassRegistryRef R) {

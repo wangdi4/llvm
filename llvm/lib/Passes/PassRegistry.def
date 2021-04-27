@@ -220,6 +220,7 @@ MODULE_PASS("inlinereportemitter", InlineReportEmitterPass()) // INTEL
 MODULE_PASS("intel-advancedfastcall", IntelAdvancedFastCallPass()) // INTEL
 MODULE_PASS("iparraytranspose", IPArrayTransposePass()) // INTEL
 MODULE_PASS("intel-ipoprefetch", IntelIPOPrefetchPass()) // INTEL
+MODULE_PASS("vtable-fixup", IntelVTableFixupPass()) // INTEL
 #if INTEL_COLLAB
 MODULE_PASS("vpo-paropt", VPOParoptPass())
 MODULE_PASS("vpo-paropt-tpv", VPOParoptTpvLegacyPass())

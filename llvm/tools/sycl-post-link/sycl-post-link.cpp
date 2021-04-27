@@ -58,6 +58,9 @@
 #include "llvm/Pass.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/MDBuilder.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/Intel_VTableFixup.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/VPO/Paropt/VPOParoptLowerSimd.h"
 #endif // INTEL_COLLAB
 
@@ -199,6 +202,11 @@ static cl::opt<bool> EnableOmpExplicitSimd(
     cl::desc("enable OpenMP offload explicit simd. "
              "Does nothing without -ompoffload-explicit-simd"),
     cl::cat(PostLinkCat));
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> FixupVTables(
+    "fixup-vtables", cl::Hidden, cl::init(true),
+    cl::desc("Remove unresolved references from vtable initializers"));
+#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 static cl::opt<bool> EmitKernelParamInfo{
     "emit-param-info", cl::desc("emit kernel parameter optimization info"),
@@ -770,6 +778,18 @@ static TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
   if (DoLinkOmpOffloadEntries || DoMakeOmpGlobalsStatic)
     processOmpOffloadEntries(*M, DoLinkOmpOffloadEntries,
                              DoSortOmpOffloadEntries, DoMakeOmpGlobalsStatic);
+#if INTEL_CUSTOMIZATION
+  // For the time being fixup vtables only for OpenMP offload.
+  if (DoLinkOmpOffloadEntries && FixupVTables) {
+    ModulePassManager RunVTableFixup;
+    ModuleAnalysisManager MAM;
+    // Register required analysis
+    MAM.registerPass([&] { return PassInstrumentationAnalysis(); });
+    IntelVTableFixupPass IVTFP;
+    RunVTableFixup.addPass(IVTFP);
+    (void) RunVTableFixup.run(*M, MAM);
+  }
+#endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 
   if (IROutputOnly) {

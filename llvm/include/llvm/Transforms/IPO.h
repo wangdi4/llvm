@@ -360,6 +360,8 @@ ModulePass *createTileMVInlMarkerLegacyPass(void);
 /// This pass adds noalias attribute to function arguments where it is safe
 /// to do so.
 ModulePass *createArgNoAliasPropPass(void);
+
+ModulePass *createIntelVTableFixupPass(void);
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
