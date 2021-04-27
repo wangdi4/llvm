@@ -3547,16 +3547,14 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
 
   // %BVIndexPtr = bitcast i32* "Group0.BVIndexPtr[0]" to <6 x i32>*
   // %BVIndexV = load <6 x i32>, <6 x i32>* %BVIndexPtr, align 1
+  auto *BVIndexPtrTy =
+      FixedVectorType::get(Group0.BVIndexPtr[0]->getResultElementType(), 6);
   auto *BVIndexPtr = Builder.CreateBitCast(
       Group0.BVIndexPtr[0],
-      PointerType::get(
-          FixedVectorType::get(
-              Group0.BVIndexPtr[0]->getType()->getPointerElementType(), 6),
-          Group0.BVIndexPtr[0]->getAddressSpace()),
+      PointerType::get(BVIndexPtrTy, Group0.BVIndexPtr[0]->getAddressSpace()),
       "BVIndexPtr");
-  auto *BVIndexPtrTy = BVIndexPtr->getType()->getPointerElementType();
-  auto *BVIndexV = Builder.CreateAlignedLoad(BVIndexPtrTy, BVIndexPtr,
-                                             Align(1), "BVIndexV");
+  auto *BVIndexV =
+      Builder.CreateAlignedLoad(BVIndexPtrTy, BVIndexPtr, Align(1), "BVIndexV");
 
   // %BBPtr = getelementptr inbounds , ... , <6 x i64> %BVIndexV
   // %BBV = call <6 x float> @llvm.masked.gather.v6f32.v6p0f32(%BBPtr)
@@ -3573,14 +3571,12 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
   // %StartV = load <3 x float>, <3 x float>* %StartPtr, align 1
   // %StartWidenV = shufflevector <3 x float> %StartV, <3 x float> undef,
   //                  <6 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2>
+  auto *StartPtrTy =
+      FixedVectorType::get(Group0.StartPtr->getResultElementType(), 3);
   auto *StartPtr = Builder.CreateBitCast(
       Group0.StartPtr,
-      PointerType::get(
-          FixedVectorType::get(
-              Group0.StartPtr->getType()->getPointerElementType(), 3),
-          Group0.StartPtr->getAddressSpace()),
+      PointerType::get(StartPtrTy, Group0.StartPtr->getAddressSpace()),
       "StartPtr");
-  auto *StartPtrTy = StartPtr->getType()->getPointerElementType();
   auto *StartV =
       Builder.CreateAlignedLoad(StartPtrTy, StartPtr, Align(1), "StartV");
   auto *StartWidenV =
@@ -3590,14 +3586,12 @@ static bool foldReductionBlockWithVectorization(BranchInst *BI) {
   // %IdotAxisV = load <3 x float>, <3 x float>* %IdotAxisPtr, align 1
   // %IdotAxisWidenV = shufflevector <3 x float> %IdotAxisV, <3 x float> undef,
   //                     <6 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2>
+  auto *IdotAxisPtrTy = FixedVectorType::get(
+      Group0.IdotAxisPtr->getResultElementType(), 3);
   auto *IdotAxisPtr = Builder.CreateBitCast(
       Group0.IdotAxisPtr,
-      PointerType::get(
-          FixedVectorType::get(
-              Group0.IdotAxisPtr->getType()->getPointerElementType(), 3),
-          Group0.IdotAxisPtr->getAddressSpace()),
+      PointerType::get(IdotAxisPtrTy, Group0.IdotAxisPtr->getAddressSpace()),
       "IdotAxisPtr");
-  auto *IdotAxisPtrTy = IdotAxisPtr->getType()->getPointerElementType();
   auto *IdotAxisV =
       Builder.CreateAlignedLoad(IdotAxisPtrTy, IdotAxisPtr,
                                 Align(1), "IdotAxisV");
