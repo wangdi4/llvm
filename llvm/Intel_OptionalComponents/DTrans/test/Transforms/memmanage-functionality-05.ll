@@ -1,19 +1,12 @@
-; This test verifies the following functionalities are recognized for
-; MemManageTrans:
+; This test is same as memmanage-functionality-01.ll except the incoming
+; PHI value is 1 (instead of %257) from %289 block for the following in _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13destroyObjectEPS1_
 ;
-; getMemManager: _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv
+;    %505 = phi i8 [ 1, %445 ], [ 1, %470 ], [ 1, %474 ], [ 1, %478 ], [ 1, %488 ], [ 1, %496 ], [ %257, %285 ], [ 1, %289 ], [ %257, %307 ]
 ;
-; Constructor: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb
 ;
-; AllocateBlock: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv
-;
-; CommitAllocation: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE16commitAllocationEPS1_
-;
-; Destructor: _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEED2Ev
-;
-; Recognized Reset: _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE5resetEv
-;
-; Recognized DestroyObject: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13destroyObjectEPS1_
+; This test verifies that the below function is not recognized as
+; DestroyObject.
+; _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13destroyObjectEPS1_
 
 ; RUN: opt < %s -dtrans-memmanagetrans -enable-dtrans-memmanagetrans -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetrans -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=dtrans-memmanagetrans -enable-dtrans-memmanagetrans -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetrans -disable-output 2>&1 | FileCheck %s
@@ -25,13 +18,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: MemManageTrans transformation:
 ; CHECK:   Considering candidate: %XStringCachedAllocator
-; CHECK: Recognized GetMemManager: _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv
-; CHECK: Recognized Constructor: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb
-; CHECK: Recognized AllocateBlock: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13allocateBlockEv
-; CHECK: Recognized CommitAllocation: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE16commitAllocationEPS1_
-; CHECK: Recognized Destructor: _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEED2Ev
-; CHECK: Recognized Reset: _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE5resetEv
-; CHECK: Recognized DestroyObject: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13destroyObjectEPS1_
+; CHECK-NOT: Recognized DestroyObject: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEE13destroyObjectEPS1_
 
 %"XStringCachedAllocator" = type { %"ReusableArenaAllocator" }
 %"ReusableArenaAllocator" = type <{ %"ArenaAllocator", i8, [7 x i8] }>
@@ -1305,7 +1292,7 @@ define internal zeroext i1 @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStrin
 504:                                              ; preds = %496, %488, %478, %474, %470, %445, %307, %289, %285
 ; RLoopEnd
 ; CheckReverseIteratorLoop will handle this.
-  %505 = phi i8 [ 1, %445 ], [ 1, %470 ], [ 1, %474 ], [ 1, %478 ], [ 1, %488 ], [ 1, %496 ], [ %257, %285 ], [ %257, %289 ], [ %257, %307 ]
+  %505 = phi i8 [ 1, %445 ], [ 1, %470 ], [ 1, %474 ], [ 1, %478 ], [ 1, %488 ], [ 1, %496 ], [ %257, %285 ], [ 1, %289 ], [ %257, %307 ]
   %506 = and i8 %505, 1
   %507 = icmp ne i8 %506, 0
   br label %508
