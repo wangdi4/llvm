@@ -1382,22 +1382,11 @@ llvm::Value *CodeGenFunction::EmitLifetimeStart(uint64_t Size,
   if (!ShouldEmitLifetimeMarkers)
     return nullptr;
 
-#if INTEL_COLLAB
-  assert(getASTAllocaAddressSpace() != LangAS::Default ||
-         Addr->getType()->getPointerAddressSpace() ==
-             CGM.getDataLayout().getAllocaAddrSpace() &&
-         "Pointer should be in alloca address space");
-#else // INTEL_COLLAB
   assert(Addr->getType()->getPointerAddressSpace() ==
              CGM.getDataLayout().getAllocaAddrSpace() &&
          "Pointer should be in alloca address space");
-#endif // INTEL_COLLAB
   llvm::Value *SizeV = llvm::ConstantInt::get(Int64Ty, Size);
-#if INTEL_COLLAB
-  Addr = Builder.CreatePointerBitCastOrAddrSpaceCast(Addr, AllocaInt8PtrTy);
-#else // INTEL_COLLAB
   Addr = Builder.CreateBitCast(Addr, AllocaInt8PtrTy);
-#endif // INTEL_COLLAB
   llvm::CallInst *C =
       Builder.CreateCall(CGM.getLLVMLifetimeStartFn(), {SizeV, Addr});
   C->setDoesNotThrow();
@@ -1405,18 +1394,10 @@ llvm::Value *CodeGenFunction::EmitLifetimeStart(uint64_t Size,
 }
 
 void CodeGenFunction::EmitLifetimeEnd(llvm::Value *Size, llvm::Value *Addr) {
-#if INTEL_COLLAB
-  assert(getASTAllocaAddressSpace() != LangAS::Default ||
-         Addr->getType()->getPointerAddressSpace() ==
-             CGM.getDataLayout().getAllocaAddrSpace() &&
-         "Pointer should be in alloca address space");
-  Addr = Builder.CreatePointerBitCastOrAddrSpaceCast(Addr, AllocaInt8PtrTy);
-#else // INTEL_COLLAB
   assert(Addr->getType()->getPointerAddressSpace() ==
              CGM.getDataLayout().getAllocaAddrSpace() &&
          "Pointer should be in alloca address space");
   Addr = Builder.CreateBitCast(Addr, AllocaInt8PtrTy);
-#endif // INTEL_COLLAB
   llvm::CallInst *C =
       Builder.CreateCall(CGM.getLLVMLifetimeEndFn(), {Size, Addr});
   C->setDoesNotThrow();
@@ -1515,9 +1496,6 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
         getLangOpts().OpenMP
             ? CGM.getOpenMPRuntime().getAddressOfLocalVariable(*this, &D)
             : Address::invalid();
-#if INTEL_COLLAB
-  Address LifetimeAllocaAddr = Address::invalid();
-#endif // INTEL_COLLAB
 
   bool NRVO = getLangOpts().ElideConstructors && D.isNRVOVariable();
 
@@ -1632,22 +1610,10 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
             !(!getLangOpts().CPlusPlus && hasLabelBeenSeenInCurrentScope())) {
           llvm::TypeSize size =
               CGM.getDataLayout().getTypeAllocSize(allocaTy);
-#if INTEL_COLLAB
-          LifetimeAllocaAddr =
-              (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice)
-                  ? address
-                  : AllocaAddr;
-          emission.SizeForLifetimeMarkers =
-              size.isScalable()
-                  ? EmitLifetimeStart(-1, LifetimeAllocaAddr.getPointer())
-                  : EmitLifetimeStart(size.getFixedSize(),
-                                      LifetimeAllocaAddr.getPointer());
-#else // INTEL_COLLAB
           emission.SizeForLifetimeMarkers =
               size.isScalable() ? EmitLifetimeStart(-1, AllocaAddr.getPointer())
                                 : EmitLifetimeStart(size.getFixedSize(),
                                                     AllocaAddr.getPointer());
-#endif // INTEL_COLLAB
         }
       } else {
         assert(!emission.useLifetimeMarkers());
@@ -1742,15 +1708,9 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
 
   // Make sure we call @llvm.lifetime.end.
   if (emission.useLifetimeMarkers())
-#if INTEL_COLLAB
-    EHStack.pushCleanup<CallLifetimeEnd>(NormalEHLifetimeMarker,
-                                         LifetimeAllocaAddr,
-                                         emission.getSizeForLifetimeMarkers());
-#else // INTEL_COLLAB
     EHStack.pushCleanup<CallLifetimeEnd>(NormalEHLifetimeMarker,
                                          emission.getOriginalAllocatedAddress(),
                                          emission.getSizeForLifetimeMarkers());
-#endif // INTEL_COLLAB
 
   return emission;
 }
