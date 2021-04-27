@@ -935,7 +935,7 @@ bool OptNoneInstrumentation::shouldRun(StringRef PassID, Any IR) {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-Void OptBisectInstrumentation::registerCallbacks(
+void OptBisectInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
   if (!OptBisector->isEnabled())
     return;
