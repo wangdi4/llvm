@@ -298,10 +298,13 @@ static bool CleanupConstantGlobalUsers(
 
     if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
       if (Init) {
-        // Replace the load with the initializer.
-        LI->replaceAllUsesWith(Init);
-        LI->eraseFromParent();
-        Changed = true;
+        if (auto *Casted =
+                ConstantFoldLoadThroughBitcast(Init, LI->getType(), DL)) {
+          // Replace the load with the initializer.
+          LI->replaceAllUsesWith(Casted);
+          LI->eraseFromParent();
+          Changed = true;
+        }
       }
     } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
       // Store must be unreachable or storing Init into the global.
@@ -311,7 +314,8 @@ static bool CleanupConstantGlobalUsers(
       if (CE->getOpcode() == Instruction::GetElementPtr) {
         Constant *SubInit = nullptr;
         if (Init)
-          SubInit = ConstantFoldLoadThroughGEPConstantExpr(Init, CE);
+          SubInit = ConstantFoldLoadThroughGEPConstantExpr(
+              Init, CE, V->getType()->getPointerElementType(), DL);
         Changed |= CleanupConstantGlobalUsers(CE, SubInit, DL, GetTLI);
       } else if ((CE->getOpcode() == Instruction::BitCast &&
                   CE->getType()->isPointerTy()) ||
@@ -333,7 +337,8 @@ static bool CleanupConstantGlobalUsers(
         ConstantExpr *CE = dyn_cast_or_null<ConstantExpr>(
             ConstantFoldInstruction(GEP, DL, &GetTLI(*GEP->getFunction())));
         if (Init && CE && CE->getOpcode() == Instruction::GetElementPtr)
-          SubInit = ConstantFoldLoadThroughGEPConstantExpr(Init, CE);
+          SubInit = ConstantFoldLoadThroughGEPConstantExpr(
+              Init, CE, V->getType()->getPointerElementType(), DL);
 
         // If the initializer is an all-null value and we have an inbounds GEP,
         // we already know what the result of any load from that GEP is.
