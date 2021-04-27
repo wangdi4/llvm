@@ -650,7 +650,7 @@ inline ESIMD_NODEBUG void esimd_sbarrier(EsimdSbarrierType flag) {
 /// @{
 
 /// Declare per-work-group slm size.
-SYCL_EXTERNAL void slm_init(uint32_t size);
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION void slm_init(uint32_t size);
 
 /// SLM gather.
 ///
