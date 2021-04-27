@@ -715,8 +715,12 @@ EXTERN void __kmpc_reduction_add_double(const uint id, const uint size,
 /// Dynamic memory allocation support
 ///
 
-EXTERN void *__kmpc_malloc(size_t align, size_t size);
-EXTERN void __kmpc_free(void *ptr);
+typedef void * omp_allocator_handle_t;
+
+EXTERN void *__kmpc_alloc(int gtid, size_t size, omp_allocator_handle_t al);
+EXTERN void *__kmpc_aligned_alloc(int gtid, size_t align, size_t size,
+                                  omp_allocator_handle_t al);
+EXTERN void __kmpc_free(int gtid, void *ptr, omp_allocator_handle_t al);
 
 
 ///
