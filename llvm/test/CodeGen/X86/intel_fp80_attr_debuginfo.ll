@@ -5,20 +5,27 @@
 define i32 @main() #0 !dbg !7 {
 ; CHECK-LABEL: @main(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[TMP0:%.*]] = alloca i16, align 2, !dbg ![[DBG10:[0-9]+]]
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i16* [[TMP0]] to i8*, !dbg ![[DBG10]]
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 2, i8* [[TMP1]]), !dbg ![[DBG10]]
-; CHECK-NEXT:    store i16 4735, i16* [[TMP0]], align 2, !dbg ![[DBG10]]
-; CHECK-NEXT:    call void asm sideeffect "fldcw ${0:w}", "*m,~{dirflag},~{fpsr},~{flags}"(i8* [[TMP1]]), !dbg ![[DBG10]]
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 2, i8* [[TMP1]]), !dbg ![[DBG10]]
-; CHECK-NEXT:    ret i32 0, [[DBG11:!dbg !.*]]
+; CHECK-NOT: !dbg
+; CHECK-NEXT:    [[TMP0:%.*]] = alloca i16, align 2
+; CHECK-NOT: !dbg
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i16* [[TMP0]] to i8*
+; CHECK-NOT: !dbg
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 2, i8* [[TMP1]])
+; CHECK-NOT: !dbg
+; CHECK-NEXT:    store i16 4735, i16* [[TMP0]], align 2
+; CHECK-NOT: !dbg
+; CHECK-NEXT:    call void asm sideeffect "fldcw ${0:w}", "*m,~{dirflag},~{fpsr},~{flags}"(i8* [[TMP1]])
+; CHECK-NOT: !dbg
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 2, i8* [[TMP1]])
+; CHECK-NEXT:    ret i32 0, !dbg [[DBG11:![0-9]+]]
 ;
 entry:
   ret i32 0, !dbg !11
 }
 
-; CHECK: ![[DBG7:[0-9]+]] = distinct !DISubprogram(name: "main",{{.*}}scopeLine: 2
-; CHECK: ![[DBG10]] = !DILocation(line: 2, scope: ![[DBG7]])
+; CHECK: [[DBG7:![0-9]+]] = distinct !DISubprogram(name: "main",
+; CHECK-SAME: scopeLine: 2,
+; CHECK: [[DBG11]] = !DILocation(line: 3, column: 5, scope: [[DBG7]])
 
 attributes #0 = { "x87-precision"="64" }
 
@@ -27,10 +34,12 @@ attributes #0 = { "x87-precision"="64" }
 
 !0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus_14, file: !1, producer: "clang", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug, enums: !2, splitDebugInlining: false, nameTableKind: None)
 !1 = !DIFile(filename: "test.cpp", directory: "/tmp")
-!2 = !{}                                                                                                                                                                                                                                     !3 = !{i32 7, !"Dwarf Version", i32 4}
+!2 = !{}
+!3 = !{i32 7, !"Dwarf Version", i32 4}
 !4 = !{i32 2, !"Debug Info Version", i32 3}
 !5 = !{i32 1, !"wchar_size", i32 4}
 !7 = distinct !DISubprogram(name: "main", scope: !1, file: !1, line: 1, type: !8, scopeLine: 2, flags: DIFlagPrototyped | DIFlagAllCallsDescribed, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !2)
 !8 = !DISubroutineType(types: !9)
-!9 = !{!10}                                                                                                                                                                                                                                  !10 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
+!9 = !{!10}
+!10 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
 !11 = !DILocation(line: 3, column: 5, scope: !7)
