@@ -11,19 +11,18 @@ target triple = "x86_64-unknown-linux-gnu"
 ; basic case of psadbw pattern.  should not be vectorized.
 define dso_local i32 @_Z3foov(i32 %t) {
 ;
-; CHECK-LABEL:  Cost Model for VPlan HIR _Z3foov.19 with VF = 1:
-; CHECK-NEXT:  Total Cost: 0
-; CHECK-NEXT:  Base Cost: 11000
-; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 11000
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
+; CHECK-LABEL:  Cost Model for VPlan _Z3foov:HIR with VF = 1:
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
+; CHECK-NEXT:  [[BB0]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1023, UF = 1
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP_RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0 *PSADBW*, CarryOut: [[VP0:%.*]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 11000
+; CHECK-NEXT:  [[BB1]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP1:%.*]] = phi  [ i32 [[VP_RED_INIT]], [[BB1]] ],  [ i32 [[VP0]], [[BB2]] ] *PSADBW*, CarryOut: [[VP0]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i8]* @a i64 0 i64 [[VP2]]
@@ -39,12 +38,18 @@ define dso_local i32 @_Z3foov(i32 %t) {
 ; CHECK-NEXT:    Cost 1000 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 1000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
+; CHECK-NEXT:  [[BB2]]: base cost: 11000
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP0]] *PSADBW*, CarryOut: [[VP0]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
+; CHECK-NEXT:  [[BB3]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CHECK-NEXT:    Cost 0 for br <External Block>
+; CHECK-NEXT:  [[BB4]]: base cost: 0
+; CHECK-NEXT:  Base Cost: 11000
+; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 11000
+; CHECK-NEXT:  Total Cost: 0
 ;
 entry:
   br label %for.body
@@ -76,19 +81,18 @@ for.body:                                         ; preds = %for.body, %entry
 ; should not be vectorized.
 define dso_local i32 @_Z3goov() {
 ;
-; CHECK-LABEL:  Cost Model for VPlan HIR _Z3goov.60 with VF = 1:
-; CHECK-NEXT:  Total Cost: 0
-; CHECK-NEXT:  Base Cost: 52000
-; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 52000
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
+; CHECK-LABEL:  Cost Model for VPlan _Z3goov:HIR with VF = 1:
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
+; CHECK-NEXT:  [[BB0]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 255, UF = 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_RED_INIT:%.*]] = reduction-init i64 0 i64 live-in0 *PSADBW*, CarryOut: [[VP0:%.*]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 52000
+; CHECK-NEXT:  [[BB1]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP1:%.*]] = phi  [ i64 [[VP_RED_INIT]], [[BB1]] ],  [ i64 [[VP0]], [[BB2]] ] *PSADBW*, CarryOut: [[VP0]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP4:%.*]] = hir-copy i64 [[VP1]] , OriginPhiId: -1
@@ -153,12 +157,18 @@ define dso_local i32 @_Z3goov() {
 ; CHECK-NEXT:    Cost 1000 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 1000 for i1 [[VP46:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP46]], [[BB2]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
+; CHECK-NEXT:  [[BB2]]: base cost: 52000
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i64 [[VP0]] *PSADBW*, CarryOut: [[VP0]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
+; CHECK-NEXT:  [[BB3]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CHECK-NEXT:    Cost 0 for br <External Block>
+; CHECK-NEXT:  [[BB4]]: base cost: 0
+; CHECK-NEXT:  Base Cost: 52000
+; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 52000
+; CHECK-NEXT:  Total Cost: 0
 ;
 entry:
   br label %for.body
@@ -230,17 +240,18 @@ for.end:                                          ; preds = %for.body
 ; full unroll case: trip count is known and it is 8 or 16. No SLP is possible.
 ; vectorization should not be blocked for such case.
 define dso_local i32 @_Z3toov(i32 %t) {
-; CHECK-LABEL:  Cost Model for VPlan HIR _Z3toov.19 with VF = 1:
-; CHECK-NEXT:  Total Cost: 11000
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
+; CHECK-LABEL:  Cost Model for VPlan _Z3toov:HIR with VF = 1:
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
+; CHECK-NEXT:  [[BB0]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 15, UF = 1
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP_RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 11000
+; CHECK-NEXT:  [[BB1]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP0:%.*]] = phi  [ i32 [[VP_RED_INIT]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i8]* @a i64 0 i64 [[VP2]]
@@ -256,12 +267,16 @@ define dso_local i32 @_Z3toov(i32 %t) {
 ; CHECK-NEXT:    Cost 1000 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 1000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
+; CHECK-NEXT:  [[BB2]]: base cost: 11000
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
+; CHECK-NEXT:  [[BB3]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CHECK-NEXT:    Cost 0 for br <External Block>
+; CHECK-NEXT:  [[BB4]]: base cost: 0
+; CHECK-NEXT:  Base Cost: 11000
 ;
 entry:
   br label %for.body
@@ -293,19 +308,18 @@ for.body:                                         ; preds = %for.body, %entry
 ; to trigger.  The loop is fully unrolled by after VPlan but before SLP.
 ; Should not be vectorized.
 define dso_local i32 @full_unroll_with_slp(i32 %t) {
-; CHECK-LABEL:  Cost Model for VPlan HIR full_unroll_with_slp.52 with VF = 1:
-; CHECK-NEXT:  Total Cost: 0
-; CHECK-NEXT:  Base Cost: 38000
-; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 38000
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
+; CHECK-LABEL:  Cost Model for VPlan full_unroll_with_slp:HIR with VF = 1:
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
+; CHECK-NEXT:  [[BB0]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 15, UF = 1
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP_RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0 *PSADBW*, CarryOut: [[VP0:%.*]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 38000
+; CHECK-NEXT:  [[BB1]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP1:%.*]] = phi  [ i32 [[VP_RED_INIT]], [[BB1]] ],  [ i32 [[VP0]], [[BB2]] ] *PSADBW*, CarryOut: [[VP0]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i8]* @a i64 0 i64 [[VP2]]
@@ -351,12 +365,18 @@ define dso_local i32 @full_unroll_with_slp(i32 %t) {
 ; CHECK-NEXT:    Cost 1000 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 1000 for i1 [[VP27:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP27]], [[BB2]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
+; CHECK-NEXT:  [[BB2]]: base cost: 38000
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP0]] *PSADBW*, CarryOut: [[VP0]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
+; CHECK-NEXT:  [[BB3]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CHECK-NEXT:    Cost 0 for br <External Block>
+; CHECK-NEXT:  [[BB4]]: base cost: 0
+; CHECK-NEXT:  Base Cost: 38000
+; CHECK-NEXT:  Cost decrease due to psadbw pattern heuristic is 38000
+; CHECK-NEXT:  Total Cost: 0
 ;
 entry:
   br label %for.body

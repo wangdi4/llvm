@@ -356,15 +356,12 @@ unsigned HeuristicSpillFill::operator()(
 
     // Zero-cost and unknown-cost instructions are ignored.  That might be
     // pseudo inst that don't induce real code on output.
-    //
-    // Use TTI Cost model as Proprietary cost can be 0 for loads/stores that
-    // are part of OVLS group.
     unsigned InstCost = CM->getTTICost(&VPInst);
     if (InstCost == UnknownCost || InstCost == 0)
       continue;
 
     // Once definition is met the value is marked dead as the result of
-   // instruction generally can occupy the same register as one of its
+    // instruction generally can occupy the same register as one of its
     // operand, unless all its operands are alive throughout the intruction.
     LiveValues[&VPInst] = 0;
 
@@ -587,14 +584,14 @@ void HeuristicSpillFill::dump(raw_ostream &OS, const VPBasicBlock *VPBB) const {
   unsigned ScalSpillFillCost = (*this)(VPBB, LiveValues, false);
   if (ScalSpillFillCost > 0)
     OS << "Block Scalar spill/fill approximate cost (not included "
-      "into total cost): " + std::to_string(ScalSpillFillCost) << '\n';
+      "into base cost): " + std::to_string(ScalSpillFillCost) << '\n';
 
   if (VF > 1) {
     LiveValues.clear();
     unsigned VecSpillFillCost = (*this)(VPBB, LiveValues, true);
     if (VecSpillFillCost > 0)
       OS << "Block Vector spill/fill approximate cost (not included into "
-        "total cost): " + std::to_string(VecSpillFillCost) << '\n';
+        "base cost): " + std::to_string(VecSpillFillCost) << '\n';
   }
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

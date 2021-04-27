@@ -22,7 +22,7 @@ namespace vpo {
 
 class VPlanVector;
 class VPInstruction;
-class VPlanCostModel;
+class VPlanCostModelInterface;
 class VPlanValueTracking;
 class VPLoadStoreInst;
 
@@ -141,12 +141,12 @@ private:
 /// model. It is the most precise cost model for peeling analysis.
 class VPlanPeelingCostModelGeneral final : public VPlanPeelingCostModel {
 public:
-  VPlanPeelingCostModelGeneral(VPlanCostModel &CM) : CM(&CM) {}
+  VPlanPeelingCostModelGeneral(VPlanCostModelInterface &CM) : CM(&CM) {}
 
   int getCost(VPInstruction *Mrf, int VF, Align Alignment) override;
 
 private:
-  VPlanCostModel *CM;
+  VPlanCostModelInterface *CM;
 };
 
 /// Memref that is a candidate for peeling. VPlanPeelingCandidate object cannot

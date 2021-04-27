@@ -24,7 +24,6 @@
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanClone.h"
 #include "IntelVPlanCostModel.h"
-#include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanEvaluator.h"
 #include "IntelVPlanHCFGBuilder.h"
@@ -1042,7 +1041,11 @@ void LoopVectorizationPlanner::printCostModelAnalysisIfRequested(
     // control it would have been opt's output stream (via "-o" switch). As it
     // is not so, just pass stdout so that we would not be required to redirect
     // stderr to Filecheck.
-    CM.print(outs(), Header);
+    //
+    // Issue getCost() method of CM with specified OS argument. Eventually we
+    // want to delete this method and allow normal call to CM.getCost() during
+    // VF selection to dump.
+    CM.getCost(nullptr /* PeelingVariant */, &outs());
   }
 }
 

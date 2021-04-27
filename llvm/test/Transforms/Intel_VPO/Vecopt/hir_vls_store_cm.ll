@@ -16,33 +16,38 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable writeonly
 define dso_local void @foo(i64* nocapture %arr) local_unnamed_addr #0 {
-; CMCHECK-LABEL:  Cost Model for VPlan HIR foo.14 with VF = 4:
-; CMCHECK-NEXT:  Total Cost: 86000
-; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
+; CMCHECK-LABEL:  Cost Model for VPlan foo:HIR with VF = 4:
+; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CMCHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
-; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
+; CMCHECK-NEXT:  [[BB0]]: base cost: 0
+; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 99, UF = 1
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 86000
+; CMCHECK-NEXT:  [[BB1]]: base cost: 0
+; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost 16000 for i64 [[VP2:%.*]] = mul i64 2 i64 [[VP0]]
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i64* [[ARR0:%.*]] i64 [[VP2]]
-; CMCHECK-NEXT:    Cost 0 for store i64 [[VP0]] i64* [[VP_SUBSCRIPT]] *OVLS*
+; CMCHECK-NEXT:    Cost 18000 for store i64 [[VP0]] i64* [[VP_SUBSCRIPT]] *OVLS*(-18000) AdjCost: 0
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP3:%.*]] = add i64 [[VP0]] i64 1
 ; CMCHECK-NEXT:    Cost 16000 for i64 [[VP4:%.*]] = mul i64 2 i64 [[VP0]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP5:%.*]] = add i64 [[VP4]] i64 1
 ; CMCHECK-NEXT:    Cost 0 for i64* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i64* [[ARR0]] i64 [[VP5]]
-; CMCHECK-NEXT:    Cost 32000 for store i64 [[VP3]] i64* [[VP_SUBSCRIPT_1]] *OVLS*
+; CMCHECK-NEXT:    Cost 18000 for store i64 [[VP3]] i64* [[VP_SUBSCRIPT_1]] *OVLS*(+14000) AdjCost: 32000
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; CMCHECK-NEXT:    Cost 16000 for i1 [[VP6:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
-; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
+; CMCHECK-NEXT:  [[BB2]]: base cost: 86000
+; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
-; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
+; CMCHECK-NEXT:  [[BB3]]: base cost: 0
+; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CMCHECK-NEXT:    Cost 0 for br <External Block>
+; CMCHECK-NEXT:  [[BB4]]: base cost: 0
+; CMCHECK-NEXT:  Base Cost: 86000
 ;
 ; HIRCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; HIRCHECK-NEXT:  Function: foo

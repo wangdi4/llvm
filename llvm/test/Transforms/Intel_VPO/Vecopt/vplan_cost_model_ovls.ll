@@ -6,8 +6,8 @@
 ; the dump) and verifies that the first Load of VLS group receive whole Cost
 ; of the group, while consequent group members receive Cost 0.
 
-; CHECK: Cost 18000 for i64 {{.*}} = load i64* {{.*}} *OVLS*
-; CHECK: Cost 0 for i64 {{.*}} = load i64* {{.*}} *OVLS*
+; CHECK: Cost {{[0-9]*}} for i64 {{.*}} = load i64* {{.*}} *OVLS*({{.*}}) AdjCost: 18000
+; CHECK: Cost {{[0-9]*}} for i64 {{.*}} = load i64* {{.*}} *OVLS*({{.*}}) AdjCost: 0
 
 target triple = "x86_64-unknown-linux-gnu"
 

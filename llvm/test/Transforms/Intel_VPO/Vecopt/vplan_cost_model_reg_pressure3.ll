@@ -16,18 +16,17 @@ target triple = "x86_64-unknown-linux-gnu"
 @a = dso_local local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
 
 define dso_local void @foo() {
-; CHECK-LABEL:  Cost Model for VPlan HIR foo.42 with VF = 8:
-; CHECK-NEXT:  Total Cost: 142444
-; CHECK-NEXT:  Base Cost: 86444
-; CHECK-NEXT:  Extra cost due to Spill/Fill heuristic is 56000
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
+; CHECK-LABEL:  Cost Model for VPlan foo:HIR with VF = 8:
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
+; CHECK-NEXT:  [[BB0]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1023, UF = 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 28068
+; CHECK-NEXT:  [[BB1]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP0]]
 ; CHECK-NEXT:    Cost 2188 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
@@ -55,8 +54,8 @@ define dso_local void @foo() {
 ; CHECK-NEXT:    Cost 2000 for i32 [[VP3:%.*]] = add i32 [[VP_LOAD]] i32 1
 ; CHECK-NEXT:    Cost 2000 for i1 [[VP4:%.*]] = icmp ne i32 [[VP3]] i32 0
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 20000
-; CHECK-NEXT:  Block Vector spill/fill approximate cost (not included into total cost): 24000
+; CHECK-NEXT:  [[BB2]]: base cost: 28068
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CHECK-NEXT:    Cost 0 for i1 [[VP5:%.*]] = block-predicate i1 [[VP4]]
 ; CHECK-NEXT:    Cost 2000 for i32 [[VP6:%.*]] = add i32 [[VP_LOAD]] i32 [[VP_LOAD_1]]
 ; CHECK-NEXT:    Cost 2000 for i32 [[VP7:%.*]] = add i32 [[VP6]] i32 [[VP_LOAD_2]]
@@ -70,18 +69,26 @@ define dso_local void @foo() {
 ; CHECK-NEXT:    Cost 2000 for i32 [[VP15:%.*]] = add i32 [[VP14]] i32 [[VP_LOAD_10]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP16:%.*]] = hir-copy i32 [[VP15]] , OriginPhiId: -1
 ; CHECK-NEXT:    Cost 0 for br [[BB3]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 38376
+; CHECK-NEXT:  [[BB4]]: base cost: 20000
+; CHECK-NEXT:  Block Vector spill/fill approximate cost (not included into base cost): 24000
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP__BLEND_BB4:%.*]] = blend [ i32 [[VP2]], i1 true ], [ i32 [[VP16]], i1 [[VP4]] ]
 ; CHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_11:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP0]]
 ; CHECK-NEXT:    Cost 2376 for store i32 [[VP__BLEND_BB4]] i32* [[VP_SUBSCRIPT_11]]
 ; CHECK-NEXT:    Cost 4000 for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 32000 for i1 [[VP17:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP17]], [[BB2]], [[BB5:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB5]], total cost: 0
+; CHECK-NEXT:  [[BB3]]: base cost: 38376
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB5]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB6:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB6]], total cost: 0
+; CHECK-NEXT:  [[BB5]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB6]]
 ; CHECK-NEXT:    Cost 0 for br <External Block>
+; CHECK-NEXT:  [[BB6]]: base cost: 0
+; CHECK-NEXT:  Base Cost: 86444
+; CHECK-NEXT:  Extra cost due to Spill/Fill heuristic is 56000
+; CHECK-NEXT:  Total Cost: 142444
 ;
 entry:
   br label %for.body

@@ -6,16 +6,17 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define void @foo(<2 x i32>* nocapture readonly %p) {
 ;
-; CHECK-LABEL:  Cost Model for VPlan foo.header with VF = 4:
-; CHECK-NEXT:  Total Cost: 14188
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
+; CHECK-LABEL:  Cost Model for VPlan foo:header with VF = 4:
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
+; CHECK-NEXT:  [[BB0]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
 ; CHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 14188
+; CHECK-NEXT:  [[BB1]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    Cost 0 for <2 x i32>* [[VP_GEP:%.*]] = getelementptr inbounds <2 x i32>* [[P0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:    Cost 1188 for <2 x i32> [[VP_LD:%.*]] = load <2 x i32>* [[VP_GEP]]
@@ -35,11 +36,15 @@ define void @foo(<2 x i32>* nocapture readonly %p) {
 ; CHECK-NEXT:    Cost 1000 for i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
+; CHECK-NEXT:  [[BB2]]: base cost: 14188
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
-; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
+; CHECK-NEXT:  [[BB3]]: base cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CHECK-NEXT:    Cost 0 for br <External Block>
+; CHECK-NEXT:  [[BB4]]: base cost: 0
+; CHECK-NEXT:  Base Cost: 14188
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

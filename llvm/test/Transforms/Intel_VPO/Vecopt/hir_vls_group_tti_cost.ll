@@ -20,41 +20,46 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @foo(i32* nocapture readonly %lp) local_unnamed_addr #0 {
-; CMCHECK-LABEL:  Cost Model for VPlan HIR foo.17 with VF = 4:
-; CMCHECK-NEXT:  Total Cost: 102000
-; CMCHECK-NEXT:  Base Cost: 94000
-; CMCHECK-NEXT:  Extra cost due to Spill/Fill heuristic is 8000
-; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
+; CMCHECK-LABEL:  Cost Model for VPlan foo:HIR with VF = 4:
+; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]]
 ; CMCHECK-NEXT:    Cost 0 for br [[BB1:BB[0-9]+]]
-; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB1]], total cost: 0
+; CMCHECK-NEXT:  [[BB0]]: base cost: 0
+; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB1]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 99, UF = 1
-; CMCHECK-NEXT:    Cost Unknown for i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0
+; CMCHECK-NEXT:    Cost Unknown for i32 [[VP_RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB2:BB[0-9]+]]
-; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB2]], total cost: 94000
-; CMCHECK-NEXT:  Block Vector spill/fill approximate cost (not included into total cost): 8000
-; CMCHECK-NEXT:    Cost Unknown for i32 [[VP0:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
+; CMCHECK-NEXT:  [[BB1]]: base cost: 0
+; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB2]]
+; CMCHECK-NEXT:    Cost Unknown for i32 [[VP0:%.*]] = phi  [ i32 [[VP_RED_INIT]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
 ; CMCHECK-NEXT:    Cost Unknown for i32 [[VP4:%.*]] = hir-copy i32 [[VP0]] , OriginPhiId: -1
 ; CMCHECK-NEXT:    Cost 16000 for i64 [[VP5:%.*]] = mul i64 2 i64 [[VP2]]
 ; CMCHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds i32* [[LP0:%.*]] i64 [[VP5]]
-; CMCHECK-NEXT:    Cost 40000 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] *OVLS*
+; CMCHECK-NEXT:    Cost 24000 for i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]] *OVLS*(+16000) AdjCost: 40000
 ; CMCHECK-NEXT:    Cost 16000 for i64 [[VP6:%.*]] = mul i64 2 i64 [[VP2]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP7:%.*]] = add i64 [[VP6]] i64 1
 ; CMCHECK-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds i32* [[LP0]] i64 [[VP7]]
-; CMCHECK-NEXT:    Cost 0 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]] *OVLS*
+; CMCHECK-NEXT:    Cost 24000 for i32 [[VP_LOAD_1:%.*]] = load i32* [[VP_SUBSCRIPT_1]] *OVLS*(-24000) AdjCost: 0
 ; CMCHECK-NEXT:    Cost 1000 for i32 [[VP8:%.*]] = add i32 [[VP_LOAD]] i32 [[VP4]]
 ; CMCHECK-NEXT:    Cost 1000 for i32 [[VP1]] = add i32 [[VP8]] i32 [[VP_LOAD_1]]
 ; CMCHECK-NEXT:    Cost 2000 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
 ; CMCHECK-NEXT:    Cost 16000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP3]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
-; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; CMCHECK-NEXT:    Cost Unknown for i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]]
+; CMCHECK-NEXT:  [[BB2]]: base cost: 94000
+; CMCHECK-NEXT:  Block Vector spill/fill approximate cost (not included into base cost): 8000
+; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]]
+; CMCHECK-NEXT:    Cost Unknown for i32 [[VP_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]]
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
-; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
+; CMCHECK-NEXT:  [[BB3]]: base cost: 0
+; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]]
 ; CMCHECK-NEXT:    Cost 0 for br <External Block>
+; CMCHECK-NEXT:  [[BB4]]: base cost: 0
+; CMCHECK-NEXT:  Base Cost: 94000
+; CMCHECK-NEXT:  Extra cost due to Spill/Fill heuristic is 8000
+; CMCHECK-NEXT:  Total Cost: 102000
 ;
 ; HIRCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***
 ; HIRCHECK-NEXT:  Function: foo
