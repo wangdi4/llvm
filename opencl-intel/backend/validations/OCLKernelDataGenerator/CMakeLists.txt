@@ -11,7 +11,7 @@ include_directories(${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser )
 # NEAT library to (de)serialize NEAT data.
 include_directories(${VALIDATIONS_ROOT}/NEAT)
 
-add_library(${TARGET_NAME}
+add_library(${TARGET_NAME} STATIC
 OCLKernelDataGenerator.h
 OCLKernelDataGenerator.cpp
 RandomUniformProvider.h

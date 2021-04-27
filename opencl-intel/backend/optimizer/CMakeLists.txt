@@ -32,7 +32,7 @@ link_libraries(
     BackendPassesWrappers
 )
 
-add_library(${TARGET_NAME}
+add_opencl_library(${TARGET_NAME} STATIC
     ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}
 )

@@ -14,7 +14,7 @@ include_directories(
     ${CMAKE_BINARY_DIR}/include
 )
 
-add_library(${TARGET_NAME}
+add_library(${TARGET_NAME} STATIC
     ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}
 )

@@ -116,8 +116,10 @@ set(LINK_LIBS
     # Doing so must be done with caution as cclang export all the symbols
     # on Linux (CORC-159). So one can never know which LLVM symbol (this or from cclang) would
     # be actually used for every particular call to LLVM.
+    LLVMBitReader
     LLVMBitWriter
     LLVMCore
+    LLVMIntel_DPCPPKernelTransforms
     LLVMLinker
     LLVMOption
     LLVMSupport

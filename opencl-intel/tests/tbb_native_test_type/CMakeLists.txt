@@ -34,6 +34,9 @@ else (WIN32)
     endif ( ${CMAKE_BUILD_TYPE} STREQUAL "Debug" )
 endif (WIN32)
 
+# gtest depends on LLVMSupport
+list(APPEND LINK_LIBS LLVMSupport)
+
 target_link_libraries( ${TARGET} ${LINK_LIBS} )
 
 add_dependencies(${TARGET} ${OCL_RT_TEST_DEPS})
