@@ -359,8 +359,9 @@ public:
   };
 
   ProgressLog()
-      : PassName(""), PassPreliminaryAnalysis(false), PassCollection(false),
-        PassAnalysis(false), PassTransformation(false), DetailMode(false) {}
+      : PassName("IPO Prefetch "), PassPreliminaryAnalysis(false),
+        PassCollection(false), PassAnalysis(false), PassTransformation(false),
+        DetailMode(false) {}
 
   ProgressLog(StringRef PassName)
       : PassName(PassName), PassPreliminaryAnalysis(false),
