@@ -2053,6 +2053,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
       // then it means that the GlobalValue should not be internalized, else
       // if it returns false then internalize it.
       auto PreserveSymbol = [](const GlobalValue &GV) {
+        WholeProgramUtils WPUtils;
 
         // If GlobalValue is "main", has one definition rule (ODR) or
         // is a special symbol added by the linker then don't internalize

@@ -104,8 +104,8 @@ public:
   ClassInfo(const DataLayout &DL, DTransAnalysisInfo &DTInfo,
             SOAGetTLITy GetTLI, SOADominatorTreeType GetDT,
             SOACandidateInfo *SOACInfo, int32_t FieldIdx, bool RecognizeAll)
-      : DL(DL), DTInfo(DTInfo), GetTLI(GetTLI), GetDT(GetDT), SOACInfo(SOACInfo),
-        FieldIdx(FieldIdx), RecognizeAll(RecognizeAll){};
+      : DL(DL), DTInfo(DTInfo), GetTLI(GetTLI), GetDT(GetDT),
+        SOACInfo(SOACInfo), FieldIdx(FieldIdx), RecognizeAll(RecognizeAll){};
 
   // Analyze each member function to detect functionality.
   bool analyzeClassFunctions();
@@ -153,9 +153,7 @@ public:
   }
 
   // Returns true if Ty represents address of element.
-  bool isElemDataAddrType(Type *Ty) {
-    return ElemDataAddrTypes.count(Ty);
-  }
+  bool isElemDataAddrType(Type *Ty) { return ElemDataAddrTypes.count(Ty); }
 
   // Returns iterator for member functions of field element class.
   using VectorMethodSetTy = SmallPtrSet<Function *, 10>;
@@ -280,7 +278,7 @@ private:
   const Value *checkFree(FreeCallInfo *, Argument *, BasicBlock **);
   const Value *getFreeArg(FreeCallInfo *);
   Value *checkCondition(BasicBlock *, BasicBlock *);
-  bool checkZTT(BasicBlock *, Value *);
+  bool checkZTT(Loop *, Value *);
   Loop *checkLoop(Value *, Value *, LoopInfo &);
   Loop *checkLoopWithZTT(Value *, Value *, LoopInfo &);
   bool checkCapacityIncrement(Value *);

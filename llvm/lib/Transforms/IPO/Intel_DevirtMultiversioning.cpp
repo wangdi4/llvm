@@ -705,7 +705,7 @@ bool IntelDevirtMultiversion::functionIsLibFuncOrExternal(Function *F) {
   if (!EnableDevirtMultiversion)
     return false;
 
-  if (WPUtils.isMainEntryPoint(F->getName()))
+  if (WPInfo.getWholeProgramLinkerUtils()->isMainEntryPoint(F->getName()))
     return false;
 
   LibFunc TheLibFunc;

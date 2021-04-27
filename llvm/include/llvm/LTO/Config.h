@@ -22,6 +22,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/CodeGen.h"
+#include "llvm/Support/Intel_WP_utils.h"   // INTEL
 #include "llvm/Target/TargetOptions.h"
 
 #include <functional>
@@ -259,6 +260,12 @@ struct Config {
   /// file handle.
   Error addSaveTemps(std::string OutputFileName,
                      bool UseInputModulePath = false);
+
+#if INTEL_CUSTOMIZATION
+  // Store the information collected from the linker that is needed for the
+  // whole program analysis
+  WholeProgramUtils WPUtils;
+#endif // INTEL_CUSTOMIZATION
 };
 
 struct LTOLLVMDiagnosticHandler : public DiagnosticHandler {

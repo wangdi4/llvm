@@ -15,6 +15,7 @@
 #define LLVM_TRANSFORMS_IPO_PASSMANAGERBUILDER_H
 
 #include "llvm-c/Transforms/PassManagerBuilder.h"
+#include "llvm/Support/Intel_WP_utils.h"   // INTEL
 #include <functional>
 #include <memory>
 #include <string>
@@ -194,6 +195,12 @@ public:
   /// Path of the sample Profile data file.
   std::string PGOSampleUse;
 
+#if INTEL_CUSTOMIZATION
+  /// Add the information related to whole program utils
+  void addWholeProgramUtils(WholeProgramUtils WPUtils) {
+    this->WPUtils = std::move(WPUtils);
+  }
+#endif // INTEL_CUSTOMIZATION
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.
   std::vector<std::pair<ExtensionPointTy, ExtensionFn>> Extensions;
@@ -202,6 +209,10 @@ private:
   /// True if the compiler is built to include DTrans and the option
   /// EnableDTrans is turned on.
   bool DTransEnabled;
+
+  /// Store the information collected from the linker that is needed for the
+  /// whole program analysis
+  WholeProgramUtils WPUtils;
 #endif //INTEL_INCLUDE_DTRANS
 
 public:

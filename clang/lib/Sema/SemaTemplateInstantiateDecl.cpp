@@ -485,7 +485,12 @@ static void instantiateOMPDeclareVariantAttr(
   // begin declare variant` (which use implicit attributes).
   Optional<std::pair<FunctionDecl *, Expr *>> DeclVarData =
       S.checkOpenMPDeclareVariantFunction(S.ConvertDeclToDeclGroup(New),
+#if INTEL_COLLAB
+                                          VariantFuncRef.get(),
+                                          Attr.appendArgs_size(), TI,
+#else //INTEL_COLLAB
                                           VariantFuncRef.get(), TI,
+#endif // INTEL_COLLAB
                                           Attr.getRange());
 
   if (!DeclVarData)

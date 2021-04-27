@@ -127,8 +127,6 @@ public:
 #endif // NDEBUG || LLVM_ENABLE_DUMP
 };  // WholeProgramUtils
 
-extern WholeProgramUtils WPUtils;
-
 } // llvm
 
 #endif // LLVM_SUPPORT_INTELWP_UTILS_H

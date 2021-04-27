@@ -11323,6 +11323,9 @@ public:
   /// the pragma, pair of original function/variant ref expression otherwise.
   Optional<std::pair<FunctionDecl *, Expr *>>
   checkOpenMPDeclareVariantFunction(DeclGroupPtrTy DG, Expr *VariantRef,
+#if INTEL_COLLAB
+                                    unsigned NumAppendArgs,
+#endif // INTEL_COLLAB
                                     OMPTraitInfo &TI, SourceRange SR);
 
   /// Called on well-formed '\#pragma omp declare variant' after parsing of

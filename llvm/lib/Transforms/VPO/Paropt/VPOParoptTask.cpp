@@ -349,15 +349,20 @@ void VPOParoptTransform::genKmpTaskDependInfo() {
 //            void *              shareds;
 //            kmp_routine_entry_t routine;
 //            kmp_int32           part_id;
-//            kmp_cmplrdata_t data1;
-//            kmp_cmplrdata_t data2;
+//            kmp_routine_entry_t destr;   // was kmp_cmplrdata_t data1;
+//            IntPtrTy            priority // was kmp_cmplrdata_t data2;
 //   For taskloops additional fields:
 //            kmp_uint64          lb;
 //            kmp_uint64          ub;
 //            kmp_int64           st;
 //            kmp_int32           liter;
 //          };
-//
+// In kmp.h, kmp_cmplrdata_t is defined as the union of kmp_routine_entry_t
+// (for destr thunk) and kmp_int32 (for priority). In Paropt we simplify the
+// implementation by not using a union. Instead, we change it like this:
+//            kmp_cmplrdata_t data1   becomes   kmp_routine_entry_t destr
+//            kmp_cmplrdata_t data2   becomes   IntPtrTy            priority
+// Both kmp_routine_entry_t and IntPtr have the same size (= pointer size).
 void VPOParoptTransform::genKmpTaskTRecordDecl() {
   if (KmpTaskTTy)
     return;
@@ -365,16 +370,13 @@ void VPOParoptTransform::genKmpTaskTRecordDecl() {
   LLVMContext &C = F->getContext();
   IntegerType *Int32Ty = Type::getInt32Ty(C);
   IntegerType *Int64Ty = Type::getInt64Ty(C);
-
-  Type *KmpCmplrdataTyArgs[] = {KmpRoutineEntryPtrTy};
-  StructType *KmpCmplrdataTy = VPOParoptUtils::getOrCreateStructType(
-      F, "__union.kmp_cmplrdata_t", KmpCmplrdataTyArgs);
+  Type *IntPtrTy = GeneralUtils::getSizeTTy(F); // i32/i64 matching ptr size
 
   Type *KmpTaskTyArgs[] = {Type::getInt8PtrTy(C),
                            KmpRoutineEntryPtrTy,
                            Int32Ty,
-                           KmpCmplrdataTy,
-                           KmpCmplrdataTy,
+                           KmpRoutineEntryPtrTy,
+                           IntPtrTy,
                            Int64Ty,
                            Int64Ty,
                            Int64Ty,
@@ -940,14 +942,20 @@ VPOParoptTransform::genAndPopulateTaskSharedStruct(WRegionNode *W,
   return TaskSharedBase;
 }
 
-// Initialize the data in the shared data area inside the thunk.
-// Also used for tasks.
+// Initialize the shared data area inside the thunk for task/taskloop.
+// Fields 0, 3, and 4 in kmp_task_t may be initialized in this routine:
+// struct kmp_task_t {
+//   (idx=0)  void *              Shareds;
+//   (idx=1)  kmp_routine_entry_t Routine;
+//   (idx=2)  kmp_int32           PartId;
+//   (idx=3)  kmp_routine_entry_t DestrThunk;
+//   (idx=4)  IntPtrTy            Priority;
 void VPOParoptTransform::copySharedStructToTaskThunk(
     WRegionNode *W, AllocaInst *Src, Value *Dst, StructType *KmpSharedTy,
     StructType *KmpTaskTTWithPrivatesTy, Function *DestrThunk,
     Instruction *InsertPt) {
 
-  if (KmpSharedTy->getNumElements() == 0 && !DestrThunk)
+  if (KmpSharedTy->getNumElements() == 0 && !DestrThunk && !W->getPriority())
     return;
 
   IRBuilder<> Builder(InsertPt);
@@ -988,14 +996,20 @@ void VPOParoptTransform::copySharedStructToTaskThunk(
     Builder.CreateMemCpy(LI, Align, SrcCast, Align, Size);
   }
 
-  if (!DestrThunk)
-    return;
+  if (DestrThunk) {
+    Value *DestrGep = Builder.CreateInBoundsGEP(
+        KmpTaskTTy, TaskTTyGep, {Zero, Builder.getInt32(3)}, ".destr.gep");
+    Builder.CreateStore(DestrThunk, DestrGep);
+  }
 
-  Value *DestrGep = Builder.CreateInBoundsGEP(
-      KmpTaskTTy, TaskTTyGep,
-      {Zero, Builder.getInt32(3) /* cmplrdate_t */, Zero /* destructor */},
-      ".destr.gep");
-  Builder.CreateStore(DestrThunk, DestrGep);
+  if (W->getPriority()) {
+    Value *PriorityGep = Builder.CreateInBoundsGEP(
+        KmpTaskTTy, TaskTTyGep, {Zero, Builder.getInt32(4)}, ".priority.gep");
+    Type *IntPtrTy = GeneralUtils::getSizeTTy(F);
+    Value *Cast = Builder.CreateZExtOrBitCast(W->getPriority(), IntPtrTy,
+                                              ".priority.cast");
+    Builder.CreateStore(Cast, PriorityGep);
+  }
 }
 
 Value *VPOParoptTransform::computeExtraBufferSpaceNeededAfterEndOfTaskThunk(
@@ -1767,10 +1781,13 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskGenericCode\n");
 
+  assert(W->getIsTask() && "genTaskGenericCode() expected a task or taskloop");
+
   W->populateBBSet();
 
   resetValueInOmpClauseGeneric(W, W->getIf());
   resetValueInOmpClauseGeneric(W, W->getFinal());
+  resetValueInOmpClauseGeneric(W, W->getPriority());
   resetValueInTaskDependClause(W);
   if (isa<WRNTaskloopNode>(W)) {
     resetValueInOmpClauseGeneric(W, W->getNumTasks());
@@ -1837,7 +1854,10 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
   Function *DestrThunk = genTaskDestructorThunk(W, KmpTaskTTWithPrivatesTy);
   if (DestrThunk)
-    W->setTaskFlag(W->getTaskFlag() | 0x8);
+    W->setTaskFlag(W->getTaskFlag() | WRNTaskFlag::DtorThunk);     // 0x08
+
+  if (W->getPriority())
+    W->setTaskFlag(W->getTaskFlag() | WRNTaskFlag::PriorityUsed);  // 0x20
 
   CallInst *TaskAllocCI = VPOParoptUtils::genKmpcTaskAlloc(
       W, IdentTy, TidPtrHolder, DT, TotalTaskTTWithPrivatesSize, KmpSharedTySz,

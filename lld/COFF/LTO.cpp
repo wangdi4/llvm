@@ -88,6 +88,15 @@ static lto::Config createConfig() {
   c.CSIRProfile = std::string(config->ltoCSProfileFile);
   c.RunCSIRInstr = config->ltoCSProfileGenerate;
 
+#if INTEL_CUSTOMIZATION
+  // Linking for an executable
+  // NOTE: Whole program can't be achieved when linking a DLL, it is only
+  // for executables. On the other hand, whole program read can be achieved
+  // when linking an executable and a DLL is present.
+  if (!config->dll)
+    c.WPUtils.setLinkingExecutable(true);
+#endif // INTEL_CUSTOMIZATION
+
   if (config->saveTemps)
     checkError(c.addSaveTemps(std::string(config->outputFile) + ".",
                               /*UseInputModulePath*/ true));
@@ -196,14 +205,6 @@ BitcodeCompiler::compile(std::vector<StringRef> *buffersOut) {
           files[task] = std::move(mb);
         }));
 
-#if INTEL_CUSTOMIZATION
-  // Linking for an executable
-  // NOTE: Whole program can't be achieved when linking a DLL, it is only
-  // for executables. On the other hand, whole program read can be achieved
-  // when linking an executable and a DLL is present.
-  if (!config->dll)
-    WPUtils.setLinkingExecutable(true);
-#endif // INTEL_CUSTOMIZATION
   checkError(ltoObj->run(
       [&](size_t task) {
         return std::make_unique<lto::NativeObjectStream>(

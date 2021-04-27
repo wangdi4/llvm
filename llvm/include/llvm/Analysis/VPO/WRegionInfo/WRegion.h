@@ -1086,13 +1086,14 @@ public:
 
 /// \brief Task flags used to invoke tasking RTL for both Task and Taskloop
 enum WRNTaskFlag : uint32_t {
-  Tied         = 0x00000001,  // bit 1
-  Final        = 0x00000002,  // bit 2
-  MergedIf0    = 0x00000004,  // bit 3
-  DtorThunk    = 0x00000008,  // bit 4
-  Proxy        = 0x00000010   // bit 5
-
-  // bits  6-16: reserved for compiler
+  Tied         = 0x00000001,
+  Final        = 0x00000002,
+  MergedIf0    = 0x00000004,
+  DtorThunk    = 0x00000008,
+  Proxy        = 0x00000010,
+  PriorityUsed = 0x00000020,
+  Detachable   = 0x00000040
+  // bits  8-16: reserved for compiler
   // bits 17-20: library flags
   // bits 21-25: task state flags
   // bits 26-32: reserved for library

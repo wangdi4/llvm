@@ -48,6 +48,7 @@
 #include "llvm/IR/PassManagerInternal.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/Intel_WP_utils.h"  // INTEL
 #include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/TypeName.h"
 #include <algorithm>
@@ -575,6 +576,13 @@ public:
 
   static bool isRequired() { return true; }
 
+#if INTEL_CUSTOMIZATION
+  /// Add the information related to whole program utils
+  void addWholeProgramUtils(WholeProgramUtils WPUtils) {
+    this->WPUtils = std::move(WPUtils);
+  }
+#endif // INTEL_CUSTOMIZATION
+
 protected:
   using PassConceptT =
       detail::PassConcept<IRUnitT, AnalysisManagerT, ExtraArgTs...>;
@@ -583,6 +591,12 @@ protected:
 
   /// Flag indicating whether we should do debug logging.
   bool DebugLogging;
+
+#if INTEL_CUSTOMIZATION
+  // Store the information collected from the linker that is needed for the
+  // whole program analysis
+  WholeProgramUtils WPUtils;
+#endif // INTEL_CUSTOMIZATION
 };
 
 extern template class PassManager<Module>;
