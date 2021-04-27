@@ -18,6 +18,7 @@
 #include "llvm/Analysis/Intel_Andersens.h"            // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/ValueTracking.h" // INTEL
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -97,9 +98,11 @@ static void addMappingsFromTLI(const TargetLibraryInfo &TLI, CallInst &CI) {
   // prototype for non-intrinsic calls.
   LibFunc VecLibF;
   bool IsIntrinsic =
-      getVectorIntrinsicIDForCall(&CI, &TLI) != Intrinsic::not_intrinsic;
-  if (!TLI.isFunctionVectorizable(ScalarName) ||
-      (!IsIntrinsic && !TLI.getLibFunc(*CI.getCalledFunction(), VecLibF)))
+      getIntrinsicForCallSite(CI, &TLI) != Intrinsic::not_intrinsic;
+  bool IsVectorizable =
+      TLI.isFunctionVectorizable(ScalarName) &&
+      (IsIntrinsic || TLI.getLibFunc(*CI.getCalledFunction(), VecLibF));
+  if (!IsVectorizable)
 #endif // INTEL_CUSTOMIZATION
     return;
   SmallVector<std::string, 8> Mappings;
