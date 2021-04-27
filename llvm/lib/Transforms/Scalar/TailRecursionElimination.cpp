@@ -812,7 +812,7 @@ bool TailRecursionEliminator::eliminate(Function &F,
                                         OptimizationRemarkEmitter *ORE,
                                         bool SkipRecProgression, // INTEL
                                         DomTreeUpdater &DTU) {
-  if (F.getFnAttribute("disable-tail-calls").getValueAsString() == "true")
+  if (F.getFnAttribute("disable-tail-calls").getValueAsBool())
     return false;
 #if INTEL_CUSTOMIZATION
   if ((SkipRecProgression || NoTailCallForRecProClone) &&
