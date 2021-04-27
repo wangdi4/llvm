@@ -120,7 +120,13 @@ typedef enum omp_interop_property {
     omp_ipr_device = -7,
     omp_ipr_device_context = -8,
     omp_ipr_targetsync = -9,
-    omp_ipr_first = -9
+    omp_ipr_first = -9,
+    omp_ipr_device_num_eus = 0,
+    omp_ipr_device_num_threads_per_eu = 1,
+    omp_ipr_device_eu_simd_width = 2,
+    omp_ipr_device_num_eus_per_subslice = 3,
+    omp_ipr_device_num_subslices_per_slice = 4,
+    omp_ipr_device_num_slices = 5
 } omp_interop_property_t;
 
 typedef enum omp_interop_rc {
