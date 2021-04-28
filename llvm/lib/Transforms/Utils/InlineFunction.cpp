@@ -1870,11 +1870,11 @@ static void HandleVaArgPackAndLen(CallBase& CB, Function::iterator FI,
       if (auto *II = dyn_cast<IntrinsicInst>(I)) {
         switch (II->getIntrinsicID()) {
         case Intrinsic::vaargpack:
-           VaPkVec.push_back(II);
-           break;
+          VaPkVec.push_back(cast<CallInst>(II));
+          break;
         case Intrinsic::vaargpacklen:
-           VaPkLnVec.push_back(II);
-           break;
+          VaPkLnVec.push_back(cast<CallInst>(II));
+          break;
         default:
           break;
         }

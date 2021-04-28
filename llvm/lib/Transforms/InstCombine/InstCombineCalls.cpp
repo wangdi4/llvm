@@ -1958,7 +1958,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
           return eraseInstFromFunction(CI);
         }
 #if INTEL_CUSTOMIZATION
-        if (isRedundantStacksaveStackrestore(SS, &CI))
+        if (isRedundantStacksaveStackrestore(cast<CallInst>(SS), &CI))
           return eraseInstFromFunction(CI);
 #endif // INTEL_CUSTOMIZATION
       }

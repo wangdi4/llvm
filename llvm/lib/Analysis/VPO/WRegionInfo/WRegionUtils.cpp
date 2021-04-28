@@ -59,7 +59,7 @@ void WRegionUtils::updateWRGraph(IntrinsicInst *Call, WRContainerImpl *WRGraph,
       W = WRegionUtils::createWRegionHIR(DirID, H, S.size(), Call);
     else
 #endif // INTEL_CUSTOMIZATION
-    W = WRegionUtils::createWRegion(DirID, BB, LI, S.size(), Call);
+    W = WRegionUtils::createWRegion(DirID, BB, LI, S.size(), cast<CallInst>(Call));
     if (W) {
       // The intrinsic represents a BEGIN directive.
       // W points to the WRN created for it.

@@ -2774,9 +2774,9 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
       libcall = RTLIB::INTEL_MEMCPY;
     }
     const char *libFn = TLI.getLibcallName(libcall);
-    return lowerCallTo(II, libFn, II->getNumArgOperands() - 1);
+    return lowerCallTo(cast<CallInst>(II), libFn, II->getNumArgOperands() - 1);
 #else
-    return lowerCallTo(II, "memcpy", II->getNumArgOperands() - 1);
+    return lowerCallTo(cast<CallInst>(II), "memcpy", II->getNumArgOperands() - 1);
 #endif // INTEL_CUSTOMIZATION
   }
   case Intrinsic::memset: {
@@ -2805,9 +2805,9 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
       libcall = RTLIB::INTEL_MEMSET;
     }
     const char *libFn = TLI.getLibcallName(libcall);
-    return lowerCallTo(II, libFn, II->getNumArgOperands() - 1);
+    return lowerCallTo(cast<CallInst>(II), libFn, II->getNumArgOperands() - 1);
 #else
-    return lowerCallTo(II, "memset", II->getNumArgOperands() - 1);
+    return lowerCallTo(cast<CallInst>(II), "memset", II->getNumArgOperands() - 1);
 #endif // INTEL_CUSTOMIZATION
   }
   case Intrinsic::stackprotector: {
