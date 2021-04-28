@@ -182,7 +182,14 @@ bool insertAtomicInstrumentationCall(Module &M, StringRef Name,
   // annotation instructions we need Pointer and Memory Semantic arguments
   // taken from the original Atomic instruction.
   Value *Ptr = dyn_cast<Value>(AtomicFun->getArgOperand(0));
+#if INTEL_COLLAB
+  assert(Ptr && "Failed to get a pointer argument of atomic instruction");
+  Function *Callee = AtomicFun->getCalledFunction();
+  assert(Callee && "Unable to get called function");
+  StringRef AtomicName = Callee->getName();
+#else // INTEL_COLLAB
   StringRef AtomicName = AtomicFun->getCalledFunction()->getName();
+#endif // INTEL_COLLAB
   Value *AtomicOp;
   // Second parameter of Atomic Start/Finish annotation is an Op code of
   // the instruction, encoded into a value of enum, defined like this on user's/
