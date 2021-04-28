@@ -107,6 +107,10 @@ def getAdditionalFlags():
 llvm_config.use_clang(additional_flags=getAdditionalFlags())
 # end INTEL_CUSTOMIZATION
 
+# INTEL_CUSTOMIZATION
+llvm_config.add_intel_features()
+# end INTEL_CUSTOMIZATION
+
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
 config.substitutions.append( ('%opencl_libs_dir',  config.opencl_libs_dir) )
 
