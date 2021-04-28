@@ -248,5 +248,7 @@
 // RUN: llvm-dis %t2.wrapper.bc -o - | FileCheck %s --check-prefix ELF-CONTAINER
 
 // ELF-CONTAINER-WARNING-NOT: notes cannot be added
-// ELF-CONTAINER: @{{.+}} = internal unnamed_addr constant [{{[0-9]+}} x i8] c"{{.*}}INTELONEOMPOFFLOAD{{.*}}INTELONEOMPOFFLOAD{{.*}}INTELONEOMPOFFLOAD{{.*}}", section "__CLANG_OFFLOAD_BUNDLE__openmp-spirv"
+// ELF-CONTAINER: @{{.+}} = internal unnamed_addr constant [{{[0-9]+}} x i8] c"{{.*}}INTELONEOMPOFFLOAD{{.*}}INTELONEOMPOFFLOAD{{.*}}INTELONEOMPOFFLOAD
+// ELF-CONTAINER-SAME: LLVMOMPOFFLOAD\00\001.0{{.*}}LLVMOMPOFFLOAD\00\00Intel(R) oneAPI DPC++/C++ Compiler{{.*}}LLVMOMPOFFLOAD\00\002021.2.0{{.*}}",
+// ELF-CONTAINER-SAME: section "__CLANG_OFFLOAD_BUNDLE__openmp-spirv"
 // end INTEL_CUSTOMIZATION
