@@ -446,7 +446,11 @@ bool HIROptVarPredicate::run() {
 
   for (HLNode *Node : NodesToInvalidate) {
     if (HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
-      HIRInvalidationUtils::invalidateBody(Loop);
+      // Loop splitting could result in removing a loop from HIR. If one of
+      // loop's children was placed in the invalidation list, the child becomes
+      // detached. Skip those loops as they are not a part of HIR any more.
+      if (Loop->isAttached())
+        HIRInvalidationUtils::invalidateBody(Loop);
     } else {
       HIRInvalidationUtils::invalidateNonLoopRegion(cast<HLRegion>(Node));
     }
@@ -738,6 +742,7 @@ void HIROptVarPredicate::splitLoop(
     SecondLoopNeeded = true;
   } else {
     HLNodeUtils::remove(SecondLoop);
+    NodesToInvalidate.erase(SecondLoop);
   }
 
   if (FirstLoopNeeded && (SecondLoopNeeded || ThirdLoopNeeded)) {
