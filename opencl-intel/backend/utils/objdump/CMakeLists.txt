@@ -13,23 +13,20 @@ foreach(ORIGINAL_OBJDUMP_FILE ${ORIGINAL_OBJDUMP_FILES})
   get_filename_component(BASENAME ${ORIGINAL_OBJDUMP_FILE} NAME)
   list(APPEND COPIED_OBJDUMP_FILES ${CMAKE_CURRENT_BINARY_DIR}/${BASENAME})
 endforeach()
-set(LLVM_TARGET_DEFINITIONS ${ORIGINAL_OBJDUMP_DIR}/ObjdumpOpts.td)
-tablegen(LLVM ObjdumpOpts.inc -gen-opt-parser-defs)
-add_public_tablegen_target(OpenCLObjdumpOptsTableGen)
-set(LLVM_TARGET_DEFINITIONS ${ORIGINAL_OBJDUMP_DIR}/OtoolOpts.td)
-tablegen(LLVM OtoolOpts.inc -gen-opt-parser-defs)
-add_public_tablegen_target(OpenCLOtoolOptsTableGen)
 add_custom_command(OUTPUT ${COPIED_OBJDUMP_FILES}
   COMMAND ${Python3_EXECUTABLE}
   ${CMAKE_CURRENT_SOURCE_DIR}/redirect_objdump_to_file.py
   ${ORIGINAL_OBJDUMP_FILES}
   ${COPIED_OBJDUMP_FILES}
   DEPENDS ${ORIGINAL_OBJDUMP_FILES}
-  DEPENDS OpenCLObjdumpOptsTableGen
-  DEPENDS OpenCLOtoolOptsTableGen
+  DEPENDS llvm-objdump
   COMMENT "Generating OpenCL ObjDump files into ${CMAKE_CURRENT_BINARY_DIR}")
 
-include_directories(${LLVM_INCLUDE_DIRS})
+include_directories(
+  ${LLVM_INCLUDE_DIRS}
+  # path of tablegen generated include files.
+  ${LLVM_OBJ_DIR}/tools/llvm-objdump
+)
 
 add_library(
   ${TARGET_NAME}
