@@ -23,7 +23,7 @@ add_custom_command(OUTPUT ${COPIED_OBJDUMP_FILES}
 
 include_directories(${LLVM_INCLUDE_DIRS})
 
-add_library(
+add_opencl_library(
   ${TARGET_NAME}
   STATIC
   ObjectDump.h

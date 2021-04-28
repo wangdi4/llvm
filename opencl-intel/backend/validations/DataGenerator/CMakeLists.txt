@@ -9,7 +9,7 @@ include_directories(${VALIDATIONS_ROOT}/DataManager )
 # NEAT library to (de)serialize NEAT data.
 include_directories(${VALIDATIONS_ROOT}/NEAT)
 
-add_library(DataGenerator STATIC
+add_opencl_library(DataGenerator STATIC
   ${DG_INCLUDE_FILES}
   DataGenerator.cpp
   DGHelper.cpp

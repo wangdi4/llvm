@@ -152,7 +152,7 @@ set(TARGET_SOURCE_FILES
   ${VECTORIZATION_INFO_GEN}
 )
 
-add_library(
+add_opencl_library(
   ${TARGET_NAME}
   STATIC
   ${TARGET_SOURCE_FILES}

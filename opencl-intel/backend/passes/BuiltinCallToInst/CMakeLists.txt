@@ -12,7 +12,7 @@ set(TARGET_SOURCE_FILES
     BuiltinCallToInst.cpp
 )
 
-add_library(${TARGET_NAME} STATIC
+add_opencl_library(${TARGET_NAME} STATIC
     ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}
 )

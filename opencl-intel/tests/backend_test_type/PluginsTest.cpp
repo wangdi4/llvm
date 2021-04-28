@@ -31,24 +31,13 @@ TEST_F(BackEndTests_Plugins, PluginLoadSuccess)
 {
     // define the environment variable that will contain the path
     // to the plugin dll
-    std::string envString("");
-    std::string pluginPath = "";
-#ifdef _WIN32
-    // envString = "currentpath\PLUGIN_DLL_NAME"
-    envString = get_exe_dir() + PLUGIN_DLL_NAME;
-    pluginPath = envString;
-    ASSERT_TRUE(SetEnvironmentVariableA(PLUGIN_ENVIRONMENT_VAR, &(envString[0])));
-#else
-    // envString = "environmentname=currentpath/PLUGIN_DLL_NAME"
-    pluginPath = PLUGIN_DLL_NAME;
-    envString = envString + PLUGIN_ENVIRONMENT_VAR + "=" + pluginPath;
-    ASSERT_EQ(putenv(&(envString[0])), 0);
-#endif
+    const char *pluginPath = PLUGIN_DLL_NAME;
+    ASSERT_TRUE(SETENV(PLUGIN_ENVIRONMENT_VAR, pluginPath));
 
     // load the plugin dll and get the exported function
     try
     {
-        m_dll.Load(pluginPath.c_str());
+        m_dll.Load(pluginPath);
     }catch(Exceptions::DynamicLibException& )
     {
         FAIL() << "Cannot load the plugin dll file.\n";

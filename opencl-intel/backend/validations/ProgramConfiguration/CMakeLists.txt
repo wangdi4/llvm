@@ -12,7 +12,7 @@ include_directories(
   ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
 )
 
-add_library(${TARGET_NAME} STATIC
+add_opencl_library(${TARGET_NAME} STATIC
     IProgramConfiguration.h
     OpenCLProgramConfiguration.h
     OpenCLProgramConfiguration.cpp

@@ -23,7 +23,7 @@ if(NOT WIN32)
                                   trunctfhf2.c trunctfsf2.c)
 endif(NOT WIN32)
 
-add_library(
+add_opencl_library(
   ${TARGET_NAME}
   STATIC
   ${TARGET_INCLUDE_FILES}

@@ -7,7 +7,7 @@ if (NOT WIN32)
   add_compile_options(-Wno-implicit-fallthrough -Wno-suggest-override)
 endif (NOT WIN32)
 
-add_library(tinyxml_STL
+add_opencl_library(tinyxml_STL
   ${TINYXML_HEADERS}
   tinystr.cpp 
   tinyxml.cpp 

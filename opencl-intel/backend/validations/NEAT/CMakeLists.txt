@@ -18,7 +18,7 @@ include_directories(
   ${VALIDATIONS_ROOT}/Common
 )
 
-add_library(${TARGET_NAME} STATIC
+add_opencl_library(${TARGET_NAME} STATIC
   IntervalError.cpp
   NEATALU.cpp
   NEATValue.cpp

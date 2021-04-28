@@ -6,7 +6,7 @@ include_directories(${LLVM_INCLUDE_DIRS}
 # NEAT library to (de)serialize NEAT data.
 include_directories(${VALIDATIONS_ROOT}/NEAT)
 
-add_library(OpenCLKernelArgumentsParser STATIC
+add_opencl_library(OpenCLKernelArgumentsParser STATIC
   IOpenCLKernelArgumentsParser.h
   OpenCLKernelArgumentsParser.h
   OpenCLKernelArgumentsParser.cpp

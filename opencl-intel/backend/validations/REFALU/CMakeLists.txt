@@ -32,7 +32,7 @@ set(REFALU_HEADERS
   ./Conformance/test_common/threadTesting.h
 )
 
-add_library(${TARGET_NAME} STATIC
+add_opencl_library(${TARGET_NAME} STATIC
   ${REFALU_HEADERS}
   RefALU.cpp
   ImagesALU.cpp

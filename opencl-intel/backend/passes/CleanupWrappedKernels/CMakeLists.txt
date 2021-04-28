@@ -8,7 +8,7 @@ set(TARGET_SOURCE_FILES
   CleanupWrappedKernels.cpp
 )
 
-add_library(${TARGET_NAME} STATIC
+add_opencl_library(${TARGET_NAME} STATIC
     ${TARGET_SOURCE_FILES}
 )
 
