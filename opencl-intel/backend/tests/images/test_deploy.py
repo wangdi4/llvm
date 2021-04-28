@@ -3,6 +3,7 @@ Created on Feb 20, 2011
 
 @author: vdovleka
 '''
+from __future__ import print_function
 import os
 import shutil
 import glob
@@ -21,10 +22,10 @@ if __name__ == "__main__":
         import sys
         import platform
         if platform.platform().startswith("CYGWIN"):
-            print "Cygwin Python is not supported. Please use ActiveState Python."
+            print("Cygwin Python is not supported. Please use ActiveState Python.")
             sys.exit(1);
         if sys.version_info < (2, 6):
-            print "Python version 2.6 or later required"
+            print("Python version 2.6 or later required")
             sys,exit(1)
         main_result = main()
         sys.exit(main_result)
