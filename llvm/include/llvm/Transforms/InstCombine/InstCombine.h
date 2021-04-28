@@ -31,8 +31,6 @@ class InstCombinePass : public PassInfoMixin<InstCombinePass> {
   const bool EnableUpCasting;   // INTEL
 
 public:
-  static StringRef name() { return "InstCombinePass"; }
-
 #if INTEL_CUSTOMIZATION
   explicit InstCombinePass(bool PreserveForDTrans = false,
                            bool PreserveAddrCompute = false,
