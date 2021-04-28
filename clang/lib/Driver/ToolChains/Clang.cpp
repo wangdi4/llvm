@@ -9270,15 +9270,17 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
       }
     }
 #if INTEL_CUSTOMIZATION
-    // Temporary disable SPV_KHR_linkonce_odr until some targets support it.
-    ExtArg += ",-SPV_KHR_linkonce_odr";
+    // Temporary disable SPV_KHR_linkonce_odr and
+    // SPV_INTEL_memory_access_aliasing until some targets support it.
+    ExtArg += ",-SPV_KHR_linkonce_odr,-SPV_INTEL_memory_access_aliasing";
 #else  // INTEL_CUSTOMIZATION
     // SPV_INTEL_optnone is enabled in xmain, but it is still should stay
     // disabled in intel/llvm since version of OCL CPU backend that suppports
     // this extension is not yet available there.
 
-    // Temporary disable SPV_INTEL_optnone until some targets support it.
-    ExtArg += ",-SPV_INTEL_optnone";
+    // Temporary disable SPV_INTEL_optnone and
+    // SPV_INTEL_memory_access_aliasing until some targets support it.
+    ExtArg += ",-SPV_INTEL_optnone,-SPV_INTEL_memory_access_aliasing";
 #endif // INTEL_CUSTOMIZATION
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
   }
