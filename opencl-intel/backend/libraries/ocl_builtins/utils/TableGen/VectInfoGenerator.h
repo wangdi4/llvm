@@ -81,8 +81,7 @@ public:
   void run(raw_ostream &);
 
 private:
-  void decodeParamKind(const std::string &scalarFuncName,
-                       const std::string &v4FuncName);
+  void decodeParamKind(StringRef scalarFuncName, StringRef v4FuncName);
   void generateFunctions(const std::vector<const OclBuiltin *> &builtins,
                          const std::vector<const OclType *> &types,
                          const SVecVec &funcNames);

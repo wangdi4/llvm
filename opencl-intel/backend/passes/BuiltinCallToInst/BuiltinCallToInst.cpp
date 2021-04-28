@@ -20,6 +20,8 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 
+using namespace llvm::NameMangleAPI;
+
 extern "C" {
   /// @brief Creates new BuiltinCallToInst pass
   void* createBuiltinCallToInstPass() {

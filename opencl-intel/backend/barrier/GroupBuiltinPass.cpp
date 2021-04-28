@@ -24,6 +24,8 @@
 #include "llvm/IR/Function.h"
 #include "llvm/Support/TypeSize.h"
 
+using namespace llvm;
+using namespace llvm::NameMangleAPI;
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
@@ -54,12 +56,13 @@ namespace intel {
     std::string funcName = pFunc->getName().str();
     assert(isMangledName(funcName.c_str()) && "WG BI function name is expected to be mangled!");
     reflection::FunctionDescriptor fd = demangle(funcName.c_str());
-    reflection::RefParamType pParam = fd.parameters[0];
+    reflection::RefParamType pParam = fd.Parameters[0];
     if (reflection::VectorType *pVecParam =
-              reflection::dyn_cast<reflection::VectorType>(pParam)) {
+            reflection::dyn_cast<reflection::VectorType>(pParam.get())) {
       pParam = pVecParam->getScalarType();
     }
-    reflection::PrimitiveType *pPrimitiveParam = reflection::dyn_cast<reflection::PrimitiveType>(pParam);
+    reflection::PrimitiveType *pPrimitiveParam =
+        reflection::dyn_cast<reflection::PrimitiveType>(pParam.get());
     assert(pPrimitiveParam && "WG function parameter should be either primitive or vector of primitives");
     reflection::TypePrimitiveEnum dataEnum = pPrimitiveParam->getPrimitive();
 
@@ -359,19 +362,20 @@ namespace intel {
         //    Adjust parameter list to changes in broadcast WG signature (recycling 'size_t' from parameter#1):
         if (numArgs == 2) {
           //     --- complete lacking (for 1D broadcast)
-          fd.parameters.push_back(fd.parameters[1]);
+          fd.Parameters.push_back(fd.Parameters[1]);
         } else if (numArgs == 4) {
           //     --- remove redundant (for 3D broadcast)
-          fd.parameters.pop_back();
+          fd.Parameters.pop_back();
         }
       }
       //      We're utilizing 'gentype' parameter attribute from the 1st argument, because for a WG
       //      function its return type is ALWAYS a pointer to the type of 1st parameter. The better way
       //      would be to use a constructor of type argument out of LLVM type, however there is no
       //      such in NameMangleAPI. We mangle a __private pointer to that 'gentype'.
-      reflection::PointerType *pGenT = new reflection::PointerType(fd.parameters[0]);
+      reflection::PointerType *pGenT =
+          new reflection::PointerType(fd.Parameters[0]);
       pGenT->addAttribute(reflection::ATTR_PRIVATE);
-      fd.parameters.push_back(reflection::RefParamType(pGenT));
+      fd.Parameters.push_back(reflection::RefParamType(pGenT));
       std::string newFuncName = mangle(fd);
 
       //   c. Create function declaration object (unless the module contains it already)

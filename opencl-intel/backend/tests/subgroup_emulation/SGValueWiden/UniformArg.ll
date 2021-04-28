@@ -1,3 +1,4 @@
+; RUN: %oclopt -sg-value-widen -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -sg-value-widen -S %s | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
@@ -70,3 +71,8 @@ attributes #0 = { "vector-variants"="_ZGVbM16v__Z13sub_group_alli(_Z13sub_group_
 !0 = !{void (i32)* @test}
 !1 = !{i1 true}
 !2 = !{i32 16}
+
+; DEBUGIFY-NOT: WARNING
+; FIXME: SGValueWiden does not respect llvm.dbg.value and llvm.dbg.addr
+; DEBUGIFY-COUNT-2: WARNING: Missing line
+; DEBUGIFY-NOT: WARNING

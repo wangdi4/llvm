@@ -53,14 +53,14 @@ use_rtti(FALSE)
 
 include_directories (BEFORE
                      ${BACKEND_ROOT_DIR}/utils
-                     ${OCL_SOURCE_DIR}/cl_api)
+                     ${OCL_SOURCE_DIR}/cl_api
+                     ${LLVM_MAIN_SRC_DIR}/lib/Transforms/Intel_DPCPPKernelTransforms/Utils)
 
 if (LLVM_BUILD_OCL_CPU_BACKEND)
     add_subdirectory(barrier                "${CMAKE_CURRENT_BINARY_DIR}/barrier")
     add_subdirectory(dynamic_lib            "${CMAKE_CURRENT_BINARY_DIR}/dynamic_lib")
     add_subdirectory(libraries              "${CMAKE_CURRENT_BINARY_DIR}/libraries")
     add_subdirectory(metadata_api           "${CMAKE_CURRENT_BINARY_DIR}/metadata_api")
-    add_subdirectory(name_mangling          "${CMAKE_CURRENT_BINARY_DIR}/name_mangling")
     add_subdirectory(ocl_cpu_backend        "${CMAKE_CURRENT_BINARY_DIR}/ocl_cpu_backend")
     add_subdirectory(ocl_cpu_debugging      "${CMAKE_CURRENT_BINARY_DIR}/ocl_cpu_debugging")
     add_subdirectory(ocl_opt                "${CMAKE_CURRENT_BINARY_DIR}/ocl_opt")

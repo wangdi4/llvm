@@ -18,9 +18,9 @@
 #include "FunctionDescriptor.h"
 #include "utils.h"
 
+#define INVALID_ENTRY "<invalid>"
 
-
-TableRow mappings[] = {
+Reflection::TableRow mappings[] = {
   // {{scalar_version, width2_version, ..., width16_version, width3_version}, isScalarizable, isPacketizable}
   { {"__ocl_allOne","__ocl_allOne_v2","__ocl_allOne_v4","__ocl_allOne_v8","__ocl_allOne_v16",INVALID_ENTRY}, false, true},
   { {"__ocl_allZero","__ocl_allZero_v2","__ocl_allZero_v4","__ocl_allZero_v8","__ocl_allZero_v16",INVALID_ENTRY}, false, true},

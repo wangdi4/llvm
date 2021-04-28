@@ -32,6 +32,7 @@
 #include <iostream>
 
 using namespace llvm;
+using namespace llvm::NameMangleAPI;
 using namespace Validation;
 
 /// helper singleton class for storing map of string to basic type
@@ -260,19 +261,19 @@ bool OCLBuiltinParser::ParseOCLBuiltin(const std::string& in_str,
   if (isMangledName(in_str.c_str())) {
     // extract built in name and arguments
     reflection::FunctionDescriptor fd = demangle(in_str.c_str());
-    std::string FuncNameStr = fd.name;
+    std::string FuncNameStr = fd.Name;
 
     // vector with arguments
     ArgVector al;
 
-    if (fd.parameters.empty()) {
+    if (fd.Parameters.empty()) {
       throw Validation::Exception::InvalidArgument(
           "Unknown format of OCL built in argument");
     }
 
-    for (int i = 0; i < (int)fd.parameters.size(); i++) {
+    for (int i = 0; i < (int)fd.Parameters.size(); i++) {
       GetTypeVisitor typeVisitor;
-      fd.parameters[i]->accept(&typeVisitor);
+      fd.Parameters[i]->accept(&typeVisitor);
       ARG newArg = typeVisitor.getArg();
 
       if (newArg.genType == NA) {
@@ -292,7 +293,7 @@ bool OCLBuiltinParser::ParseOCLBuiltin(const std::string& in_str,
 
         // find attributes : __global, __constant, etc
         reflection::PointerType *pPTy =
-            reflection::dyn_cast<reflection::PointerType>(&*fd.parameters[i]);
+            reflection::dyn_cast<reflection::PointerType>(&*fd.Parameters[i]);
         for (unsigned int j = 0; j < pPTy->getAttributes().size(); ++j) {
           switch (pPTy->getAttributes()[j]) {
           case reflection::ATTR_LOCAL:
@@ -350,7 +351,7 @@ bool OCLBuiltinParser::GetOCLMangledName( const std::string& in_funcName,
 {   
     reflection::FunctionDescriptor fd;
     BasicTypeToStr typeConvertor;
-    fd.name = in_funcName;
+    fd.Name = in_funcName;
     // the parameters pointed in function descriptor should exist at the time of mangle operation,
     // because reflection::FunctionDescriptor::parameters 
     // so we create parameters and put pointers on them to the vector in order to delete them later,
@@ -365,15 +366,14 @@ bool OCLBuiltinParser::GetOCLMangledName( const std::string& in_funcName,
             {
                 // create parameter
                 reflection::PrimitiveType *primitiveType = new reflection::PrimitiveType(typeConvertor[arg.basicType]);
-                // 
-                fd.parameters.push_back(primitiveType);
+                fd.Parameters.push_back(primitiveType);
                 break;
             }
             case OCLBuiltinParser::VECTOR:
             {
                 reflection::RefParamType primitiveType(new reflection::PrimitiveType(typeConvertor[arg.vecType.elType]));
                 reflection::VectorType *vectorType = new reflection::VectorType(primitiveType,(int)arg.vecType.elNum);
-                fd.parameters.push_back(vectorType);
+                fd.Parameters.push_back(vectorType);
                 break;
             }
             case OCLBuiltinParser::POINTER:
@@ -385,7 +385,7 @@ bool OCLBuiltinParser::GetOCLMangledName( const std::string& in_funcName,
                         reflection::RefParamType primitiveType( 
                             new reflection::PrimitiveType(typeConvertor[arg.ptrType.ptrType[0].basicType]));
                         pPointerType = new reflection::PointerType(primitiveType);
-                        fd.parameters.push_back(pPointerType);
+                        fd.Parameters.push_back(pPointerType);
                         break;
                     }
                     case OCLBuiltinParser::VECTOR:
@@ -395,7 +395,7 @@ bool OCLBuiltinParser::GetOCLMangledName( const std::string& in_funcName,
                         reflection::VectorType *vectorType = 
                             new reflection::VectorType(primitiveType,(int)arg.ptrType.ptrType[0].vecType.elNum);
                         pPointerType = new reflection::PointerType(vectorType);
-                        fd.parameters.push_back(pPointerType);
+                        fd.Parameters.push_back(pPointerType);
                         break;
                     }
                     default:

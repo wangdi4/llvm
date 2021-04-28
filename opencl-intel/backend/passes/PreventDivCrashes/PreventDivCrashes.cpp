@@ -27,6 +27,9 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 
+using namespace llvm;
+using namespace llvm::NameMangleAPI;
+
 extern "C" {
   /// @brief Creates new PreventDivCrashes module pass
   /// @returns new PreventDivCrashes module pass
@@ -252,8 +255,8 @@ namespace intel {
     }
     FixedVectorType* vecType = static_cast<FixedVectorType *>(divisorType);
     reflection::FunctionDescriptor funcDesc;
-    funcDesc.width = (reflection::width::V)vecType->getNumElements();
-    if ((funcDesc.width != 8) && (funcDesc.width != 16))
+    funcDesc.Width = (reflection::width::V)vecType->getNumElements();
+    if ((funcDesc.Width != 8) && (funcDesc.Width != 16))
       return false;
 
     reflection::TypePrimitiveEnum primitiveType;
@@ -261,19 +264,19 @@ namespace intel {
       default:
         return false;
       case Instruction::SRem:
-        funcDesc.name = "irem";
+        funcDesc.Name = "irem";
         primitiveType = reflection::PRIMITIVE_INT;
         break;
       case Instruction::URem:
-        funcDesc.name = "urem";
+        funcDesc.Name = "urem";
         primitiveType = reflection::PRIMITIVE_UINT;
         break;
       case Instruction::SDiv:
-        funcDesc.name = "idiv";
+        funcDesc.Name = "idiv";
         primitiveType = reflection::PRIMITIVE_INT;
         break;
       case Instruction::UDiv:
-        funcDesc.name = "udiv";
+        funcDesc.Name = "udiv";
         primitiveType = reflection::PRIMITIVE_UINT;
         break;
     }
@@ -281,8 +284,8 @@ namespace intel {
     reflection::RefParamType scalarTy(new reflection::PrimitiveType(primitiveType));
 
     reflection::RefParamType vectorTy(new reflection::VectorType(scalarTy, vecType->getNumElements()));
-    funcDesc.parameters.push_back(vectorTy);
-    funcDesc.parameters.push_back(vectorTy);
+    funcDesc.Parameters.push_back(vectorTy);
+    funcDesc.Parameters.push_back(vectorTy);
 
     // get name of the built-in function
     std::string funcName = mangle(funcDesc);

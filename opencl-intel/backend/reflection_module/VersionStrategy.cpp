@@ -13,10 +13,15 @@
 // License.
 
 #include "VersionStrategy.h"
+#include "CustomVersionMaping.h"
 #include "NameMangleAPI.h"
 #include <sstream>
 
-namespace reflection{
+using namespace llvm;
+using namespace llvm::reflection;
+using namespace llvm::NameMangleAPI;
+
+namespace Reflection {
 
 //
 //PairSW
@@ -120,7 +125,7 @@ PairSW SoaDescriptorStrategy::operator()(const PairSW& sw)const{
     if (soa_prefix == name.substr(0, soa_prefix.length()))
       return nullPair();
     FunctionDescriptor identity = demangle(name.c_str());
-    identity.width = width::SCALAR;
+    identity.Width = width::SCALAR;
     return fdToPair(identity);
   }
   TypeVisitor* pVisitor = const_cast<SoaDescriptorStrategy*>(this);
@@ -133,7 +138,7 @@ PairSW SoaDescriptorStrategy::operator()(const PairSW& sw)const{
   //activating the double dispatach, so the transpose stategy will be applied
   retTy->accept(pVisitor);
   FunctionDescriptor transposed = (this->*m_transposeStrategy)(sw);
-  transposed.width = sw.second;
+  transposed.Width = sw.second;
   return fdToPair(transposed);
 }
 
@@ -145,31 +150,36 @@ SoaDescriptorStrategy::scalarReturnTranspose(const PairSW& sw)const{
   const FunctionDescriptor& orig = demangle(sw.first.c_str());
   width::V transposeWidth = sw.second;
   FunctionDescriptor fd = FunctionDescriptor::null();
-  if(orig.parameters.size() > 0) {
+  std::string Name;
+  if (orig.Parameters.size() > 0) {
     std::stringstream nameBuilder;
-    const VectorType* pVec = reflection::dyn_cast<VectorType>(orig.parameters[0]);
+    const VectorType *pVec =
+        reflection::dyn_cast<VectorType>(orig.Parameters[0].get());
     int nameWidth = pVec ? pVec->getLength() : 1;
-    nameBuilder << "soa_" << orig.name << nameWidth;
-    fd.name = nameBuilder.str();
+    nameBuilder << "soa_" << std::string(orig.Name) << nameWidth;
+    Name = nameBuilder.str();
+    fd.Name = Name;
   }
-  for(size_t i=0 ; i<orig.parameters.size() ; ++i){
-    const VectorType* pVector = reflection::dyn_cast<VectorType>(orig.parameters[i]);
-    RefParamType pParam = orig.parameters[i];
+  for (size_t i = 0; i < orig.Parameters.size(); ++i) {
+    const VectorType *pVector =
+        reflection::dyn_cast<VectorType>(orig.Parameters[i].get());
+    RefParamType pParam = orig.Parameters[i];
     width::V paramWidth = width::SCALAR;
     if (pVector) {
       paramWidth = static_cast<width::V>(pVector->getLength());
       pParam = pVector->getScalarType();
     }
-    const PrimitiveType *pPrimitive = reflection::dyn_cast<PrimitiveType>(pParam);
+    const PrimitiveType *pPrimitive =
+        reflection::dyn_cast<PrimitiveType>(pParam.get());
     assert(pPrimitive && "Parameter has no primitive type");
     TypePrimitiveEnum p = pPrimitive->getPrimitive();
     for (unsigned j=0 ; j<static_cast<unsigned>(paramWidth) ; ++j){
       RefParamType scalar(new PrimitiveType(p));
       RefParamType transposedParam(new VectorType(scalar, (int)(transposeWidth)));
-      fd.parameters.push_back(transposedParam);
+      fd.Parameters.push_back(transposedParam);
     }
   }
-  fd.width = width::V::NONE;
+  fd.Width = width::V::NONE;
   return fd;
 }
 
@@ -193,7 +203,7 @@ SoaDescriptorStrategy::vectorReturnTranspose(const PairSW& sw)const{
   //All pointers for return data have private address space
   RefParamType ptr(new PointerType(vOut, {ATTR_PRIVATE}));
   for(int i=0 ; i<retVecTy->getLength() ; ++i)
-    fd.parameters.push_back(ptr);
+    fd.Parameters.push_back(ptr);
   return fd;
 }
 
@@ -274,7 +284,7 @@ PairSW IdentityStrategy::operator()(const PairSW& sw) const {
 //
 
 std::pair<std::string,width::V> fdToPair(const FunctionDescriptor& fd){
-  return std::make_pair(mangle(fd), fd.width);
+  return std::make_pair(mangle(fd), fd.Width);
 }
 
 std::pair<std::string,width::V> nullPair(){
@@ -284,4 +294,4 @@ std::pair<std::string,width::V> nullPair(){
 bool isNullPair(const std::pair<std::string,width::V>& sw){
   return sw.first == FunctionDescriptor::nullString();
 }
-}
+} // namespace Reflection

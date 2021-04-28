@@ -79,6 +79,7 @@
 #define INT2_TYPE VECTOR_TYPE(PRIM_TYPE(reflection::PRIMITIVE_INT), 2)
 
 using namespace llvm;
+using namespace llvm::NameMangleAPI;
 using namespace Intel::MetadataAPI;
 using namespace PatternMatch;
 
@@ -466,7 +467,8 @@ static reflection::TypeVector
 widenParameters(reflection::TypeVector scalar_params, unsigned int vf) {
   reflection::TypeVector vector_params;
   for (auto param : scalar_params) {
-    if (auto *vec_param = reflection::dyn_cast<reflection::VectorType>(param)) {
+    if (auto *vec_param =
+            reflection::dyn_cast<reflection::VectorType>(param.get())) {
       int widen_len = vec_param->getLength() * vf;
       vector_params.emplace_back(
           VECTOR_TYPE(vec_param->getScalarType(), widen_len));

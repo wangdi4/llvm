@@ -19,7 +19,9 @@
 #include <cctype>
 #include "ParameterType.h"
 
-namespace reflection{
+using namespace llvm::reflection;
+
+namespace Reflection {
 
 static bool startsWith(const llvm::StringRef s, const llvm::StringRef& prefix){
   return (s.substr(0, prefix.size()) == prefix);
@@ -88,11 +90,11 @@ BuiltinMap::MapRange BuiltinMap::equalRange (llvm::StringRef s)const{
 }
 
 void BuiltinMap::insert (const FunctionDescriptor& fd){
-  if (isConversionFunction(fd.name)){
-    std::string name = getConversionCoreName(std::string(fd.name));
+  if (isConversionFunction(fd.Name)) {
+    std::string name = getConversionCoreName(std::string(fd.Name));
     m_nameToFd[name].append(1U, fd);
   } else
-    m_nameToFd[fd.name].append(1U, fd);
+    m_nameToFd[fd.Name].append(1U, fd);
 }
 
 bool
@@ -112,4 +114,4 @@ bool BuiltinMap::isSOAVersion(const std::string& s)const{
   return startsWith(s, "soa_");
 }
 
-}
+} // namespace Reflection

@@ -100,7 +100,7 @@ namespace intel{
     for (auto *CI : IndirectCalls) {
       Value **Args = m_fixupCalls[CI];
       SmallVector<Type *, 16> ArgTys;
-      for (unsigned I = 0; I < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++I)
+      for (unsigned I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++I)
         ArgTys.push_back(Args[I]->getType());
 
       replaceIndirectCallInst(CI, ArgTys);
@@ -121,12 +121,14 @@ namespace intel{
       SmallVector<Value*, 16> params;
 
       // Go over explicit parameters, they are currently undef and need to be assigned their actual value.
-      for ( unsigned int i = 0; i < pCall->getNumArgOperands() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i ) {
+      for (unsigned int i = 0; i < pCall->getNumArgOperands() -
+                                       ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
+           ++i) {
         params.push_back(pCall->getArgOperand(i));
       }
 
       // Add implicit parameters
-      for ( unsigned int i = 0; i < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i ) {
+      for (unsigned int i = 0; i < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++i) {
         params.push_back(pCallArgs[i]);
       }
 
@@ -170,7 +172,7 @@ namespace intel{
     AttributeSet NoAlias = AttributeSet::get(*m_pLLVMContext, B);
     AttributeSet NoAttr;
     // For each implicit arg, setup its type, name and attributes
-    for (unsigned i=0; i < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i) {
+    for (unsigned i = 0; i < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++i) {
       Type* ArgType = m_IAA->getArgType(i);
       NewTypes.push_back(ArgType);
       NewNames.push_back(ImplicitArgsUtils::getArgName(i));
@@ -215,13 +217,13 @@ namespace intel{
         continue;
       StringRef Name = IsDirectCall ? pCallee->getName()
                                     : pCall->getCalledOperand()->getName();
-      Value **pCallArgs = new Value*[ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS];
+      Value **pCallArgs = new Value *[ImplicitArgsUtils::NUM_IMPLICIT_ARGS];
       Function::arg_iterator IA = pNewF->arg_begin();
       // Skip over explicit args
       for (unsigned I = 0; I < NumExplicitArgs; ++I, ++IA)
         ;
       // Copy over implicit args
-      for (unsigned I = 0; I < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
+      for (unsigned I = 0; I < ImplicitArgsUtils::NUM_IMPLICIT_ARGS;
            ++I, ++IA) {
         pCallArgs[I] = static_cast<Value*>(&*IA);
       }
@@ -348,8 +350,8 @@ namespace intel{
     }
     SmallVector<Value *, 16> NewArgs;
     // Push undefs for new arguments
-    assert(implicitArgsTypes.size() == ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS);
-    for (unsigned i = 0; i < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i) {
+    assert(implicitArgsTypes.size() == ImplicitArgsUtils::NUM_IMPLICIT_ARGS);
+    for (unsigned i = 0; i < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++i) {
       NewArgs.push_back(UndefValue::get(implicitArgsTypes[i]));
     }
     CallInst *pNewCall =
@@ -373,8 +375,8 @@ namespace intel{
     }
     SmallVector<Value *, 16> NewArgs;
     // Push undefs for new arguments
-    assert(implicitArgsTypes.size() == ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS);
-    for (unsigned i = 0; i < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i)
+    assert(implicitArgsTypes.size() == ImplicitArgsUtils::NUM_IMPLICIT_ARGS);
+    for (unsigned i = 0; i < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++i)
       NewArgs.push_back(UndefValue::get(implicitArgsTypes[i]));
 
     CallInst *pNewCall =

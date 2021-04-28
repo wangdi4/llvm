@@ -27,9 +27,12 @@
 #include "NameMangleAPI.h"
 #include "VolcanoOpenclRuntime.h"
 
-using namespace reflection;
+using namespace llvm::reflection;
+using namespace llvm::NameMangleAPI;
+using namespace Reflection;
 
-namespace reflection { namespace tests{
+namespace Reflection {
+namespace tests {
 static int toInt(const std::pair<int,int>& p){
   return 2*p.first + p.second;
 }
@@ -167,9 +170,8 @@ TEST(VectorizerReference, OldTable){
       PairSW versionedFd = pKeeper->getVersion(biName, expectedWidth);
       width::V actualWidth = versionedFd.second;
       FunctionDescriptor fd = demangle(biName);
-      bool isAmbiguous =
-        std::find(arrAmbiguous.begin(), arrAmbiguous.end(), fd.name) !=
-        arrAmbiguous.end();
+      bool isAmbiguous = std::find(arrAmbiguous.begin(), arrAmbiguous.end(),
+                                   fd.Name) != arrAmbiguous.end();
       if (width::SCALAR == expectedWidth && isAmbiguous){
         // Ambiguous scalar built-ins should always be scalarized.
         ASSERT_FALSE(isNull) << "in built-in: " << biName;
@@ -281,7 +283,7 @@ TEST(Functionality, duplicatedScalarEntry){
 TEST(FDTranspose, vectorReturnTyFunctionality){
   FunctionDescriptor cross4 = demangle("_Z5crossDv4_dS_");
   RefParamType doubleTy(new PrimitiveType(PRIMITIVE_DOUBLE));
-  RefParamType double4Ty(new VectorType(doubleTy, 4));
+  RefParamType double4Ty(new llvm::reflection::VectorType(doubleTy, 4));
   ReturnTypeMap retMap;
   retMap[cross4] = double4Ty;
 
@@ -448,7 +450,8 @@ TEST(GenTest, soaGenTest){
   delete pRuntime;
 }
 
-}} // End namespace.
+} // namespace tests
+} // namespace Reflection
 
 int main(int argc, char** argv)
 {

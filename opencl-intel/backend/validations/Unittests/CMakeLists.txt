@@ -99,7 +99,6 @@ target_link_libraries(${TARGET_NAME}
     OCLBuiltinsRef
     gtest
     ImathLibd
-    name_mangle
     dynamic_load
     cl_sys_utils
     tinyxml_STL

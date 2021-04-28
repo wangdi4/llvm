@@ -13,10 +13,11 @@
 // License.
 
 #include "TypeConversion.h"
-#include "Utils.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/ADT/StringRef.h"
 #include <string>
+
+using namespace llvm;
 
 namespace intel{
 

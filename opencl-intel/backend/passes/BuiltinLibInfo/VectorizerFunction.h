@@ -17,10 +17,6 @@
 
 #include <string>
 
-namespace reflection{
-  struct FunctionDescriptor;
-}
-
 namespace intel{
 
 struct hashEntry;

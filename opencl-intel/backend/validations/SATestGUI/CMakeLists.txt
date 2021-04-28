@@ -145,7 +145,6 @@ ${TARGET_NAME}
     OCLBuiltins
     NEAT
     REFALU
-    name_mangle
     dynamic_load
     tinyxml_STL
     ImathLibd

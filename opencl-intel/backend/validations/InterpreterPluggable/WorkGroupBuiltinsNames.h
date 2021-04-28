@@ -39,9 +39,11 @@ namespace Validation{
         //@return mangled name of pre-exec method
         std::string getMangledPreExecMethodName(std::string MangeldName);
     private:
-        typedef std::map<std::string, reflection::FunctionDescriptor> WGBuiltinsNamesMap;
-        typedef std::pair<std::string, reflection::FunctionDescriptor> WGBuiltinsNamesDesc;
-        WGBuiltinsNamesMap m_MangledNames;
+      typedef std::map<std::string, llvm::reflection::FunctionDescriptor>
+          WGBuiltinsNamesMap;
+      typedef std::pair<std::string, llvm::reflection::FunctionDescriptor>
+          WGBuiltinsNamesDesc;
+      WGBuiltinsNamesMap m_MangledNames;
     };
 }
 

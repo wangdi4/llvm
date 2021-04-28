@@ -23,6 +23,8 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 
+using namespace llvm::NameMangleAPI;
+
 namespace intel{
 using namespace llvm;
 
@@ -96,7 +98,8 @@ Value *VectorizerUtils::RootInputArgumentBySignature(Value *arg, unsigned int pa
   assert(CI->getCalledFunction() && "Unexpected indirect function invocation");
   StringRef mangledName = CI->getCalledFunction()->getName();
   reflection::FunctionDescriptor fdesc = ::demangle(mangledName.str().c_str());
-  return RootInputArgument(arg, reflectionToLLVM(CI->getContext(), fdesc.parameters[paramNum]), CI);
+  return RootInputArgument(
+      arg, reflectionToLLVM(CI->getContext(), fdesc.Parameters[paramNum]), CI);
 }
 
 

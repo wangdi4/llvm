@@ -60,7 +60,7 @@ bool AddTLSGlobals::runOnModule(Module &M) {
   m_IAA->initDuringRun(M.getDataLayout().getPointerSizeInBits(0));
 
   // Create TLS globals
-  for (unsigned i = 0; i < ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i) {
+  for (unsigned i = 0; i < ImplicitArgsUtils::NUM_IMPLICIT_ARGS; ++i) {
     // TODO handle name conflicts
     assert(!M.getGlobalVariable(ImplicitArgsUtils::getArgName(i)));
     Type *ArgType = m_IAA->getArgType(i);

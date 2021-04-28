@@ -72,7 +72,9 @@ namespace intel {
     Function *pCallee = pCallInstr->getCalledFunction();
     assert(pCallee && "Call instruction doesn't have a callee!");
     std::string funcName = pCallee->getName().str();
-    assert((category != CallBuiltIn || isMangledName(funcName.c_str())) && "Overloaded BI name should be mangled!");
+    assert(
+        (category != CallBuiltIn || NameMangleAPI::isMangledName(funcName)) &&
+        "Overloaded BI name should be mangled!");
 
     // At first - produce argument type & parameter lists towards target address space
     SmallVector<Type*,  8>                  argTypes;

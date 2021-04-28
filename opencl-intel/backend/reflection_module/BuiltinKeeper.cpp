@@ -21,7 +21,10 @@
 #include <mutex>
 #include <sstream>
 
-namespace reflection{
+using namespace llvm::reflection;
+using namespace llvm::NameMangleAPI;
+
+namespace Reflection{
 
   struct PrimitiveVisitor : TypeVisitor {
     void visit(const PrimitiveType *t) override {
@@ -62,10 +65,10 @@ namespace reflection{
 static bool
 compatible(const FunctionDescriptor& l, const FunctionDescriptor& r){
   typedef TypeVector::const_iterator TypeIter;
-  if (l.parameters.size() != r.parameters.size())
+  if (l.Parameters.size() != r.Parameters.size())
     return false;
-  TypeIter lit = l.parameters.begin(), lend = l.parameters.end(),
-  rit = r.parameters.begin();
+  TypeIter lit = l.Parameters.begin(), lend = l.Parameters.end(),
+  rit = r.Parameters.begin();
   while(lit != lend){
     PrimitiveVisitor lv, rv;
     (*lit)->accept(&lv);
@@ -74,7 +77,7 @@ compatible(const FunctionDescriptor& l, const FunctionDescriptor& r){
       return false;
     }
     if (lv.getPrimitiveType() == PRIMITIVE_NONE) {
-      if (!(*lit)->equals(*rit)) return false;
+      if (!(*lit)->equals(rit->get())) return false;
     }
     ++lit;
     ++rit;
@@ -96,12 +99,17 @@ static FunctionDescriptor createDescriptorVP_P (
   TypePrimitiveEnum PTy)
 {
   FunctionDescriptor fd;
-  fd.name = arg.first.first.str();
+  std::string Name = arg.first.first.str();
+  fd.Name = Name;
   RefParamType pPrimitiveTy(new PrimitiveType(arg.first.second));
-  RefParamType pVectorTy = (width::SCALAR == arg.second) ? pPrimitiveTy :
-    (new VectorType(pPrimitiveTy, (int)(arg.second)));
-  fd.parameters.push_back(pVectorTy);
-  fd.parameters.push_back(new PrimitiveType(PTy));
+  RefParamType pVectorTy =
+      (width::SCALAR == arg.second)
+          ? pPrimitiveTy
+          : (llvm::IntrusiveRefCntPtr<VectorType>(
+                new VectorType(pPrimitiveTy, (int)(arg.second))));
+  fd.Parameters.push_back(pVectorTy);
+  fd.Parameters.push_back(
+      llvm::IntrusiveRefCntPtr<PrimitiveType>(new PrimitiveType(PTy)));
   return fd;
 }
 
@@ -112,7 +120,7 @@ static FunctionDescriptor createDescriptorP_VP (
   TypePrimitiveEnum PTy)
 {
   FunctionDescriptor fd = createDescriptorVP_P(arg, PTy);
-  std::iter_swap(fd.parameters.begin(), fd.parameters.begin()+1);
+  std::iter_swap(fd.Parameters.begin(), fd.Parameters.begin()+1);
   return fd;
 }
 
@@ -124,7 +132,7 @@ const std::pair<std::pair<llvm::StringRef,TypePrimitiveEnum>,width::V>& arg,
 TypePrimitiveEnum PTy)
 {
   FunctionDescriptor fd = createDescriptorVP_P(arg, PTy);
-  fd.parameters.push_back(fd.parameters[1]);
+  fd.Parameters.push_back(fd.Parameters[1]);
   return fd;
 }
 
@@ -136,8 +144,8 @@ TypePrimitiveEnum PTy)
 {
   FunctionDescriptor fd = createDescriptorVP_P(arg, PTy);
   //duplicating the first (vector) parameter
-  RefParamType firstType = fd.parameters[0];
-  fd.parameters.insert(fd.parameters.begin(), firstType);
+  RefParamType firstType = fd.Parameters[0];
+  fd.Parameters.insert(fd.Parameters.begin(), firstType);
   return fd;
 }
 
@@ -149,7 +157,7 @@ const std::pair<std::pair<llvm::StringRef,TypePrimitiveEnum>,width::V>& arg,
 TypePrimitiveEnum PTy)
 {
   FunctionDescriptor fd = createDescriptorVP_P_P(arg, PTy);
-  std::iter_swap(fd.parameters.begin(), fd.parameters.begin()+2);
+  std::iter_swap(fd.Parameters.begin(), fd.Parameters.begin()+2);
   return fd;
 }
 
@@ -221,8 +229,8 @@ void BuiltinKeeper::initNullStrategyEntries(){
     addExceptionToWIFunctions(StringArray(names), PRIMITIVE_UINT);
   }
   {
-    reflection::FunctionDescriptor fdWorkDim;
-    fdWorkDim.name = "get_work_dim";
+    FunctionDescriptor fdWorkDim;
+    fdWorkDim.Name = "get_work_dim";
     PairSW key = std::make_pair(mangle(fdWorkDim), width::SCALAR);
     m_exceptionsMap.insert(std::make_pair(key, &m_nullStrategy));
   }
@@ -233,8 +241,8 @@ void BuiltinKeeper::initNullStrategyEntries(){
   {
     llvm::StringRef names[] = {"fmin", "fmax"};
     StringArray arrNames (names);
-    reflection::TypePrimitiveEnum singleFloat[] = {PRIMITIVE_FLOAT};
-    reflection::TypePrimitiveEnum singleDouble[] = {PRIMITIVE_DOUBLE};
+    TypePrimitiveEnum singleFloat[] = {PRIMITIVE_FLOAT};
+    TypePrimitiveEnum singleDouble[] = {PRIMITIVE_DOUBLE};
     PrimitiveArray arrFloat(singleFloat);
     addConversionGroup(arrNames, arrFloat, createDescriptorVP_P);
     PrimitiveArray arrDouble(singleDouble);
@@ -388,10 +396,10 @@ void BuiltinKeeper::addExceptionToWIFunctions (const StringArray& names,
 
   do {
     // Building a function descriptor, to acquire the mangled name.
-    reflection::FunctionDescriptor fd;
+    FunctionDescriptor fd;
     std::pair<llvm::StringRef,TypePrimitiveEnum> current = namesXTy.get();
-    fd.name = current.first.str();
-    fd.parameters.push_back(RefParamType(new PrimitiveType(current.second)));
+    fd.Name = current.first.str();
+    fd.Parameters.push_back(RefParamType(new PrimitiveType(current.second)));
     std::string mangledName = mangle(fd);
     llvm::StringRef refMangledName(mangledName);
 
@@ -461,11 +469,11 @@ template<int w>
 static std::pair<FunctionDescriptor, RefParamType>
 createBiV_V(TypePrimitiveEnum p, const std::string& n){
   FunctionDescriptor fd;
-  fd.name = n;
+  fd.Name = n;
   RefParamType primitiveTy(new PrimitiveType(p));
   RefParamType vTy(new VectorType(primitiveTy, w));
-  fd.parameters.push_back(vTy);
-  fd.parameters.push_back(vTy);
+  fd.Parameters.push_back(vTy);
+  fd.Parameters.push_back(vTy);
   return std::make_pair(fd, vTy);
 }
 
@@ -473,11 +481,11 @@ template<int w>
 static std::pair<FunctionDescriptor, RefParamType>
 createBiV_S(TypePrimitiveEnum p, const std::string& n){
   FunctionDescriptor fd;
-  fd.name = n;
+  fd.Name = n;
   RefParamType scalar(new PrimitiveType(p));
   RefParamType vTy(new VectorType(scalar, w));
-  fd.parameters.push_back(vTy);
-  fd.parameters.push_back(vTy);
+  fd.Parameters.push_back(vTy);
+  fd.Parameters.push_back(vTy);
   return std::make_pair(fd, scalar);
 }
 
@@ -485,10 +493,10 @@ template<> inline
 std::pair<FunctionDescriptor, RefParamType>
 createBiV_S<1>(TypePrimitiveEnum p, const std::string& n){
   FunctionDescriptor fd;
-  fd.name = n;
+  fd.Name = n;
   RefParamType scalar(new PrimitiveType(p));
-  fd.parameters.push_back(scalar);
-  fd.parameters.push_back(scalar);
+  fd.Parameters.push_back(scalar);
+  fd.Parameters.push_back(scalar);
   return std::make_pair(fd, scalar);
 }
 
@@ -496,10 +504,10 @@ template<int w>
 std::pair<FunctionDescriptor, RefParamType>
 createUniV_S(TypePrimitiveEnum p, const std::string& n){
   FunctionDescriptor fd;
-  fd.name = n;
+  fd.Name = n;
   RefParamType scalar(new PrimitiveType(p));
   RefParamType vTy(new VectorType(scalar, w));
-  fd.parameters.push_back(vTy);
+  fd.Parameters.push_back(vTy);
   return std::make_pair(fd, scalar);
 }
 
@@ -507,9 +515,9 @@ template<>
 std::pair<FunctionDescriptor, RefParamType>
 createUniV_S<1>(TypePrimitiveEnum p, const std::string& n){
   FunctionDescriptor fd;
-  fd.name = n;
+  fd.Name = n;
   RefParamType scalar(new PrimitiveType(p));
-  fd.parameters.push_back(scalar);
+  fd.Parameters.push_back(scalar);
   return std::make_pair(fd, scalar);
 }
 
@@ -517,10 +525,10 @@ template <int w>
 std::pair<FunctionDescriptor, RefParamType>
 createUniV_V(TypePrimitiveEnum p, const std::string& n){
   FunctionDescriptor fd;
-  fd.name = n;
+  fd.Name = n;
   RefParamType scalar(new PrimitiveType(p));
   RefParamType vTy(new VectorType(scalar, w));
-  fd.parameters.push_back(vTy);
+  fd.Parameters.push_back(vTy);
   return std::make_pair(fd, vTy);
 }
 
@@ -528,9 +536,9 @@ template <>
 std::pair<FunctionDescriptor, RefParamType>
 createUniV_V<1>(TypePrimitiveEnum p, const std::string& n){
   FunctionDescriptor fd;
-  fd.name = n;
+  fd.Name = n;
   RefParamType scalar(new PrimitiveType(p));
-  fd.parameters.push_back(scalar);
+  fd.Parameters.push_back(scalar);
   return std::make_pair(fd, scalar);
 }
 
@@ -695,10 +703,10 @@ private:
 };
 
 bool BuiltinKeeper::isInExceptionMap(const std::string& name)const{
-  reflection::width::V allWidth[] = {width::SCALAR, width::TWO, width::FOUR,
+  width::V allWidth[] = {width::SCALAR, width::TWO, width::FOUR,
     width::EIGHT, width::SIXTEEN, width::THREE};
   for (unsigned i=0 ; i<width::OCL_VERSIONS; ++i) {
-    reflection::width::V w = allWidth[i];
+    width::V w = allWidth[i];
     VersionCBMap::const_iterator it =
       m_exceptionsMap.find(std::make_pair(name, w));
 
@@ -717,7 +725,7 @@ bool BuiltinKeeper::searchAndCacheUpdate(const FunctionDescriptor& fd) const {
   // search the name. As we go along, we populate the cache.
   for (size_t i=0 ; i<(sizeof(mangledNames)/sizeof(char*)) ; ++i){
     llvm::StringRef strippedName = stripName(mangledNames[i]);
-    if (m_descriptorsMap.isInSameCacheLine(fd.name, strippedName)) {
+    if (m_descriptorsMap.isInSameCacheLine(fd.Name, strippedName)) {
       // Cache the builtin we demangle.
       FunctionDescriptor candidate = demangle(mangledNames[i]);
       candidate.assignAutomaticWidth();
@@ -751,7 +759,7 @@ bool BuiltinKeeper::isBuiltin(const FunctionDescriptor& fd)const{
   if (fd.isNull())
     return false;
 
-  BuiltinMap::MapRange mr = m_descriptorsMap.equalRange(fd.name);
+  BuiltinMap::MapRange mr = m_descriptorsMap.equalRange(fd.Name);
   RangeUtil range(mr);
   // Is cache line resides in cache?
   if (!range.isEmpty()){
@@ -786,7 +794,7 @@ PairSW BuiltinKeeper::getVersion(const std::string& name, width::V w) const {
   // 2. The given string is in the exception map, but associated to a different
   //    width.
   FunctionDescriptor original = demangle(name.c_str());
-  BuiltinMap::MapRange mr = m_descriptorsMap.equalRange(original.name);
+  BuiltinMap::MapRange mr = m_descriptorsMap.equalRange(original.Name);
   RangeUtil range(mr);
 
   // Option (2)... (the string is in the exception map, but associated to a
@@ -796,13 +804,13 @@ PairSW BuiltinKeeper::getVersion(const std::string& name, width::V w) const {
 
   // Reasgin the range, since the cache has been updated.
   // The function descriptor resides in the cache, get it from there.
-  mr = m_descriptorsMap.equalRange(original.name);
+  mr = m_descriptorsMap.equalRange(original.Name);
   range.reset(mr);
   do{
     const FunctionDescriptor candidate = range.getDescriptor();
     //we check that the candidate is in the right width, and that its parameters
     //are compatible (i.e., the same scalar type) as the one of the original
-    if (w == candidate.width && compatible(candidate, original))
+    if (w == candidate.Width && compatible(candidate, original))
       return fdToPair(candidate);
     range.increment();
   } while(!range.isEmpty());

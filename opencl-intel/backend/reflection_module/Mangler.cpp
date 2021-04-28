@@ -24,6 +24,9 @@
 #include <cassert>
 #include <sstream>
 
+using namespace llvm;
+using namespace llvm::NameMangleAPI;
+
 const std::string Mangler::mask_delim           = "_";
 const std::string Mangler::mask_prefix_func     = "maskedf_";
 const std::string Mangler::mask_prefix_load     = "masked_load_align";
@@ -87,14 +90,16 @@ std::string Mangler::mangle(const std::string& name) {
         reflection::FunctionDescriptor fdesc = ::demangle(name.c_str());
         V_ASSERT(!fdesc.isNull() && "demangle operation failed!");
         //Currently, we only support two dimension images masked built-ins.
-        reflection::PrimitiveType *pTy = reflection::dyn_cast<reflection::PrimitiveType>(fdesc.parameters[0]);
+        reflection::PrimitiveType *pTy =
+            reflection::dyn_cast<reflection::PrimitiveType>(
+                fdesc.Parameters[0].get());
         bool isImage2d = pTy && is2DImage(pTy->getPrimitive());
         if (!isImage2d) {
           //Do not have implementation for masked built-ins, break to use create fake mask function.
           break;
         }
-        fdesc.name = IMG_MASK_PREFIX + fdesc.name;
-        reflection::TypeVector& params = fdesc.parameters;
+        fdesc.Name = IMG_MASK_PREFIX + fdesc.Name;
+        reflection::TypeVector &params = fdesc.Parameters;
         reflection::RefParamType intType(new reflection::PrimitiveType(reflection::PRIMITIVE_INT));
         params.insert(params.begin(), intType);
         return ::mangle(fdesc);
@@ -215,18 +220,21 @@ std::string Mangler::getVectorizedPrefetchName(const std::string& name, int pack
 
   reflection::FunctionDescriptor prefetchDesc = ::demangle(mangledName.c_str());
   // First argument of prefetch built-in must be pointer.
-  V_ASSERT(reflection::dyn_cast<reflection::PointerType>(prefetchDesc.parameters[0])
-    && "First argument of prefetch built-in is expected to a pointer.");
-  reflection::PointerType* pPtrTy =
-    reflection::dyn_cast<reflection::PointerType>(prefetchDesc.parameters[0]);
+  V_ASSERT(reflection::dyn_cast<reflection::PointerType>(
+               prefetchDesc.Parameters[0].get()) &&
+           "First argument of prefetch built-in is expected to a pointer.");
+  reflection::PointerType *pPtrTy =
+      reflection::dyn_cast<reflection::PointerType>(
+          prefetchDesc.Parameters[0].get());
   assert (pPtrTy && "not a pointer");
   reflection::RefParamType scalarType = pPtrTy->getPointee();
   V_ASSERT(scalarType->getTypeId() == reflection::PrimitiveType::enumTy && "Primitive type is expected.");
   // create vectorized data type for packed prefetch
-  reflection::VectorType *vectorizedType = new reflection::VectorType(scalarType, packetWidth);
-  reflection::PointerType *vectorizedPtr =
-      new reflection::PointerType(vectorizedType, {reflection::ATTR_PRIVATE});
-  prefetchDesc.parameters[0] = vectorizedPtr;
+  IntrusiveRefCntPtr<reflection::VectorType> vectorizedType(
+      new reflection::VectorType(scalarType, packetWidth));
+  IntrusiveRefCntPtr<reflection::PointerType> vectorizedPtr(
+      new reflection::PointerType(vectorizedType, {reflection::ATTR_PRIVATE}));
+  prefetchDesc.Parameters[0] = vectorizedPtr;
   return ::mangle(prefetchDesc);
 }
 
@@ -298,7 +306,7 @@ bool Mangler::isMangledPrefetch(const std::string& name) {
     mangledName = demangle(mangledName);
 
   reflection::FunctionDescriptor fdesc = ::demangle(mangledName.c_str());
-  return fdesc.name == prefetch;
+  return fdesc.Name == prefetch;
 }
 
 bool Mangler::isFakeExtract(const std::string& name) {
@@ -320,20 +328,21 @@ std::string Mangler::getFakeBuiltinName(const std::string& name) {
 bool Mangler::isRetByVectorBuiltin(const std::string& name) {
   reflection::FunctionDescriptor desc = ::demangle(name.c_str());
   if(desc.isNull()) return false;
-  return desc.name.find(retbyvector_builtin_prefix) != std::string::npos;
+  return desc.Name.find(retbyvector_builtin_prefix) != std::string::npos;
 }
 
 std::string Mangler::getRetByArrayBuiltinName(const std::string& name) {
   reflection::FunctionDescriptor ret = ::demangle(name.c_str());
-  V_ASSERT(ret.parameters.size() == 2 && "Expected exactly two arguments");
+  V_ASSERT(ret.Parameters.size() == 2 && "Expected exactly two arguments");
   // Remove the pointer argument
-  ret.parameters.resize(1);
+  ret.Parameters.resize(1);
   // Create the name of the builtin function we will be replacing with.
   // If the orginal function was scalar, use the same function that will
   // planted by the Scalarizer
-  ret.name = reflection::dyn_cast<reflection::VectorType>(ret.parameters[0]) ?
-    retbyarray_builtin_prefix + ret.name :
-    retbyvector_builtin_prefix + ret.name;
+  ret.Name =
+      reflection::dyn_cast<reflection::VectorType>(ret.Parameters[0].get())
+          ? retbyarray_builtin_prefix + ret.Name
+          : retbyvector_builtin_prefix + ret.Name;
   return ::mangle(ret);
 }
 
@@ -369,15 +378,16 @@ std::string Mangler::get_original_scalar_name_from_retbyvector_builtin(const std
   reflection::FunctionDescriptor desc = ::demangle(name.c_str());
   //Add second operand that is pointer of first operand type
   //It is always pointer to address space 0 (should not really matter)!
-  desc.parameters.push_back(new reflection::PointerType(
-      desc.parameters[0], {reflection::ATTR_PRIVATE}));
+  desc.Parameters.push_back(
+      IntrusiveRefCntPtr<reflection::PointerType>(new reflection::PointerType(
+          desc.Parameters[0], {reflection::ATTR_PRIVATE})));
   //Fix the name
-  size_t start = desc.name.find(retbyvector_builtin_prefix);
+  size_t start = desc.Name.find(retbyvector_builtin_prefix);
   // when get_original_scalar_name_from_retbyvector_builtin
   // is called retbyvector_builtin_prefix should be at start
   V_ASSERT(start == 0);
   start += retbyvector_builtin_prefix.length();
-  desc.name = desc.name.substr(start);
+  desc.Name = desc.Name.substr(start);
   return ::mangle(desc);
 }
 

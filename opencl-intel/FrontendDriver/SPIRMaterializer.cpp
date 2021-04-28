@@ -30,6 +30,7 @@
 #include <algorithm>
 
 using namespace llvm;
+using namespace llvm::NameMangleAPI;
 
 namespace Intel {
 namespace OpenCL {
@@ -175,7 +176,7 @@ changeImageCall(llvm::CallInst *CI,
     return;
 
   auto FD = demangle(FName.data());
-  auto AccQ = StringSwitch<std::string>(FD.name)
+  auto AccQ = StringSwitch<std::string>(FD.Name)
                   .Case("write_imagef", "wo_")
                   .Case("write_imagei", "wo_")
                   .Case("write_imageui", "wo_")
@@ -199,7 +200,7 @@ changeImageCall(llvm::CallInst *CI,
   for (unsigned i = 1; i < CI->getNumArgOperands(); ++i) {
     // Cast old sampler type(i32) with new(opaque*) before passing to builtin
     if (auto primitiveType = dyn_cast<reflection::PrimitiveType>(
-            (reflection::ParamType *)FD.parameters[i])) {
+            (reflection::ParamType *)FD.Parameters[i].get())) {
       if (primitiveType->getPrimitive() == reflection::PRIMITIVE_SAMPLER_T &&
           CI->getArgOperand(i)->getType()->isIntegerTy()) {
         auto SamplerTy = getOrCreateOpaquePtrType(
@@ -216,7 +217,7 @@ changeImageCall(llvm::CallInst *CI,
   }
   auto *FT = FunctionType::get(F->getReturnType(), ArgTys, F->isVarArg());
   auto OldImgTy = dyn_cast<reflection::PrimitiveType>(
-      (reflection::ParamType *)FD.parameters[0]);
+      (reflection::ParamType *)FD.Parameters[0].get());
   assert(OldImgTy && "Illformed function descriptor");
   OldImgTy->setPrimitive(getPrimitiveType(ArgTys[0]));
   auto NewName = mangle(FD);
@@ -258,7 +259,7 @@ static void changeAddrSpaceCastCall(llvm::CallInst *CI) {
       FName.find("to_local") != std::string::npos ||
       FName.find("to_private") != std::string::npos) {
     reflection::FunctionDescriptor FD = demangle(FName.data());
-    F->setName("__" + FD.name);
+    F->setName("__" + FD.Name);
   }
 }
 
