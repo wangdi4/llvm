@@ -250,7 +250,7 @@ KMPC_REDUCTION(OP_ADD, add, double)
 /// Dynamic memory allocation support
 ///
 
-EXTERN void *__kmpc_malloc(size_t align, size_t size) {
+INLINE void *__kmp_alloc(size_t align, size_t size) {
   if (size == 0)
     return NULL;
 
@@ -268,11 +268,20 @@ EXTERN void *__kmpc_malloc(size_t align, size_t size) {
     return (void *)aligned;
   }
 
-  printf("Warning: __kmpc_malloc returns NULL (out of memory)\n");
+  printf("Warning: __kmp_alloc returns NULL (out of memory)\n");
   return NULL;
 }
 
-EXTERN void __kmpc_free(void *ptr) {
+EXTERN void *__kmpc_alloc(int gtid, size_t size, omp_allocator_handle_t al) {
+  return __kmp_alloc(0, size);
+}
+
+EXTERN void *__kmpc_aligned_alloc(int gtid, size_t align, size_t size,
+                                  omp_allocator_handle_t al) {
+  return __kmp_alloc(align, size);
+}
+
+EXTERN void __kmpc_free(int gtid, void *ptr, omp_allocator_handle_t al) {
   // Not supported
 }
 

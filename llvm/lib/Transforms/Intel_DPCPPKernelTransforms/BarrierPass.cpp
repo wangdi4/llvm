@@ -1036,8 +1036,7 @@ void KernelBarrier::createBarrierKeyValues(Function *Func,
   Instruction *InsertBefore = &*Func->getEntryBlock().begin();
   // Add currBarrier alloca.
   BarrierKeyValuesPtr->CurrBarrierId =
-      new AllocaInst(Type::getInt32Ty(*Context), AllocaAddrSpace,
-                     "pCurrBarrier", InsertBefore);
+      new AllocaInst(I32Ty, AllocaAddrSpace, "pCurrBarrier", InsertBefore);
 
   // Will hold the index in special buffer and will be increased by stride size.
   BarrierKeyValuesPtr->CurrSBIndex =
@@ -1165,8 +1164,8 @@ Instruction *KernelBarrier::createOOBCheckGetLocalId(CallInst *Call) {
   Instruction *Result = createGetLocalId(LocalIds, Call->getArgOperand(0), B);
 
   // C.Create Phi node at the first of the splitted BB.
-  PHINode *AttrResult = PHINode::Create(IntegerType::get(*Context, SizeT), 2,
-                                        "", SplitContinue->getFirstNonPHI());
+  PHINode *AttrResult =
+      PHINode::Create(SizeTTy, 2, "", SplitContinue->getFirstNonPHI());
   AttrResult->addIncoming(Result, GetWIProperties);
   // The overflow value.
   AttrResult->addIncoming(ConstZero, Block);

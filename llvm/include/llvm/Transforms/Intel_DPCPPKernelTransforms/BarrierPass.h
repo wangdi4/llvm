@@ -184,32 +184,33 @@ private:
   /// function's various values. Most rely on that CurrentBarrierKeyValues is
   /// set for the function being processed.
   Instruction *createGetCurrBarrierId(IRBuilder<> &B) {
-    return B.CreateLoad(CurrentBarrierKeyValues->CurrBarrierId,
+    return B.CreateLoad(I32Ty, CurrentBarrierKeyValues->CurrBarrierId,
                         "CurrBarrierId");
   }
   Instruction *createSetCurrBarrierId(Value *V, IRBuilder<> &B) {
     return B.CreateStore(V, CurrentBarrierKeyValues->CurrBarrierId);
   }
   Instruction *createGetCurrSBIndex(IRBuilder<> &B) {
-    return B.CreateLoad(CurrentBarrierKeyValues->CurrSBIndex, "SBIndex");
+    return B.CreateLoad(SizeTTy, CurrentBarrierKeyValues->CurrSBIndex,
+                        "SBIndex");
   }
   Instruction *createSetCurrSBIndex(Value *V, IRBuilder<> &B) {
     return B.CreateStore(V, CurrentBarrierKeyValues->CurrSBIndex);
   }
   Instruction *createGetLocalId(unsigned Dim, IRBuilder<> &B) {
     Value *Ptr = createGetPtrToLocalId(Dim);
-    return B.CreateLoad(Ptr, AppendWithDimension("LocalId_", Dim));
+    return B.CreateLoad(SizeTTy, Ptr, AppendWithDimension("LocalId_", Dim));
   }
   Instruction *createGetLocalId(Value *LocalIdValues, Value *Dim,
                                 IRBuilder<> &B) {
     Value *Ptr = createGetPtrToLocalId(LocalIdValues, Dim, B);
-    return B.CreateLoad(Ptr, AppendWithDimension("LocalId_", Dim));
+    return B.CreateLoad(SizeTTy, Ptr, AppendWithDimension("LocalId_", Dim));
   }
   Instruction *createGetLocalId(Value *LocalIdValues, unsigned Dim,
                                 IRBuilder<> &B) {
     Value *Ptr = createGetPtrToLocalId(
         LocalIdValues, ConstantInt::get(I32Ty, APInt(32, Dim)), B);
-    return B.CreateLoad(Ptr, AppendWithDimension("LocalId_", Dim));
+    return B.CreateLoad(SizeTTy, Ptr, AppendWithDimension("LocalId_", Dim));
   }
   Instruction *createSetLocalId(unsigned Dim, Value *V, IRBuilder<> &B) {
     Value *Ptr = createGetPtrToLocalId(Dim);
