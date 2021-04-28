@@ -80,6 +80,14 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifier = "NONPOD"
 ///      Id = QUAL_OMP_PRIVATE
 ///
+#if INTEL_CUSTOMIZATION
+/// * Fortran NonPOD operands. Example:
+///      FullName = "QUAL.OMP.PRIVATE:F90_NONPOD"
+///      BaseName = "QUAL.OMP.PRIVATE"
+///      Modifier = "F90_NONPOD"
+///      Id = QUAL_OMP_PRIVATE
+///
+#endif // INTEL_CUSTOMIZATION
 /// * MAP clause for aggregate objects. Example:
 ///      FullName = "QUAL.OMP.MAP.TOFROM:AGGRHEAD"
 ///      BaseName = "QUAL.OMP.MAP.TOFROM"
@@ -150,6 +158,7 @@ private:
   bool IsNonPod:1;
 #if INTEL_CUSTOMIZATION
   bool IsF90DopeVector:1;
+  bool IsF90NonPod:1;
   bool IsCptr:1;
   bool IsWILocal:1;
   bool IsAllocatable:1;
@@ -243,6 +252,8 @@ public:
 #if INTEL_CUSTOMIZATION
   void setIsF90DopeVector(bool Flag = true) {IsF90DopeVector = Flag; }
   bool getIsF90DopeVector() const { return IsF90DopeVector; }
+  void setIsF90NonPod(bool Flag = true) {IsF90NonPod = Flag; }
+  bool getIsF90NonPod() const { return IsF90NonPod; }
   void setIsCptr(bool Flag = true) { IsCptr = Flag; }
   bool getIsCptr() const { return IsCptr; }
   void setIsWILocal() { IsWILocal = true; }
