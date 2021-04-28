@@ -1655,24 +1655,15 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
     Functions.push_back(&N.getFunction());
   }
 
-<<<<<<< HEAD
-  if (deriveAttrsInPostOrder(Functions, AARGetter))
-#if INTEL_CUSTOMIZATION
-  {
-    PreservedAnalyses PA;
-    PA.preserve<WholeProgramAnalysis>();
-    PA.preserve<AndersensAA>();
-    return PA;
-  }
-#endif // INTEL_CUSTOMIZATION
-=======
   if (deriveAttrsInPostOrder(Functions, AARGetter)) {
-    // We have not changed the call graph or removed/added functions.
     PreservedAnalyses PA;
     PA.preserve<FunctionAnalysisManagerCGSCCProxy>();
+#if INTEL_CUSTOMIZATION
+    PA.preserve<WholeProgramAnalysis>();
+    PA.preserve<AndersensAA>();
+#endif // INTEL_CUSTOMIZATION
     return PA;
   }
->>>>>>> 326da4adcb8def2abdd530299d87ce951c0edec9
 
   return PreservedAnalyses::all();
 }
