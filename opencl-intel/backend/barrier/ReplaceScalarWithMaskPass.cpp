@@ -42,6 +42,8 @@ kernel has barrier path and subgroup calls", false, false)
     Helper.initialize(M);
 
     for (auto *ScalarKernel : KernelList(&M)) {
+      if (ScalarKernel->hasOptNone())
+        continue;
       auto SKIMD = KernelInternalMetadataAPI(ScalarKernel);
       if ((SKIMD.NoBarrierPath.hasValue() && SKIMD.NoBarrierPath.get()) ||
           !(SKIMD.VectorizedMaskedKernel.hasValue() &&

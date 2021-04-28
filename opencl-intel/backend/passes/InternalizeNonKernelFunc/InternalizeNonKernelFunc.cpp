@@ -38,6 +38,9 @@ namespace intel {
     auto Kernels = KernelList(&M).getList();
 
     for (auto &Func : M) {
+      if (Func.hasOptNone())
+        continue;
+
       // Skip if a Function is a priori external (just a declaration)
       if (Func.isDeclaration())
         continue;

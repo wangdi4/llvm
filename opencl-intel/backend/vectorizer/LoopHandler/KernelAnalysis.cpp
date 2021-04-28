@@ -127,7 +127,7 @@ bool KernelAnalysis::runOnModule(Module& M) {
   for (auto *pFunc : m_kernels) {
     assert(pFunc && "nullptr is not expected in KernelList!");
     auto kimd = KernelInternalMetadataAPI(pFunc);
-    if(m_unsupportedFunc.count(pFunc)) {
+    if(m_unsupportedFunc.count(pFunc) || pFunc->hasOptNone()) {
       kimd.NoBarrierPath.set(false);
     } else {
       kimd.NoBarrierPath.set(true);

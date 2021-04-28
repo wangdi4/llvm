@@ -110,6 +110,8 @@ namespace intel {
     m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
     assert(m_rtServices && "m_rtServices should exist!");
     for (Module::iterator fn = M.begin(), fne = M.end(); fn != fne; ++fn) {
+      if (fn->hasOptNone())
+        continue;
       for (Function::iterator bb = fn->begin(), bbe = fn->end(); bb != bbe; ++bb) {
         DataMap paramToInstructions;
         for (BasicBlock::iterator i = bb->begin(), ie = bb->end(); i != ie; ++i) {

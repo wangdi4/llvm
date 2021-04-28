@@ -444,6 +444,8 @@ bool ChooseVectorizationDimensionModulePass::runOnModule(Module &M) {
   auto Kernels = Intel::MetadataAPI::KernelList(*&M).getList();
   ChooseVectorizationDimensionImpl Impl;
   for (Function *Kernel : Kernels) {
+    if (Kernel->hasOptNone())
+      continue;
     Impl.run(*Kernel, BLI.getRuntimeServices(), BLI.getBuiltinModules());
     ChosenVecDims[Kernel] = Impl.getVectorizationDim();
     CanUniteWorkgroups[Kernel] = Impl.getCanUniteWorkgroups();

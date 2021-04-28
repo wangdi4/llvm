@@ -47,6 +47,8 @@ void AddNTAttr::getAnalysisUsage(AnalysisUsage &aU) const {
 }
 
 bool AddNTAttr::runOnFunction(Function &func) {
+  if (func.hasOptNone())
+    return false;
   auto &aaRet = getAnalysis<AAResultsWrapperPass>().getAAResults();
   bool changed = false;
   m_F = &func;

@@ -1333,6 +1333,8 @@ bool Prefetch::autoPrefetch(Function &F) {
 }
 
 bool Prefetch::runOnFunction(Function &F) {
+  if (F.hasOptNone())
+    return false;
   // don't bother if prefetching is disabled.
   LLVM_DEBUG (dbgs() << "prefetch go " << F.getName() << "\n";);
   if (m_level == APFLEVEL_0_DISAPF || m_disableAPF)
