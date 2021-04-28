@@ -2,7 +2,9 @@ add_subdirectory(sycl-ls)
 
 # TODO: move each tool in its own sub-directory
 add_executable(get_device_count_by_type get_device_count_by_type.cpp)
-add_dependencies(get_device_count_by_type ocl-headers ocl-icd level-zero-loader)
+add_dependencies(get_device_count_by_type
+  level-zero-loader
+)
 
 
 if(MSVC)
@@ -19,11 +21,11 @@ set(LEVEL_ZERO_HEADERS LevelZeroLoader::Headers)
 
 target_link_libraries(get_device_count_by_type
   PRIVATE
-    OpenCL::Headers
+    OpenCL-Headers
     # INTEL_CUSTOMIZATON
      ${LEVEL_ZERO_HEADERS}
     # end INTEL_CUSTOMIZATON
-    ${OpenCL_LIBRARIES}
+    OpenCL-ICD
     ${LEVEL_ZERO_LIBRARY}
     $<$<BOOL:${SYCL_BUILD_PI_CUDA}>:cudadrv>
 )

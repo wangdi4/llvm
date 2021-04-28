@@ -1,0 +1,93 @@
+cmake_minimum_required(VERSION 3.14)
+
+include(FetchContent)
+
+# Repo URLs
+
+if(INTEL_CUSTOMIZATION)
+ set(OCL_HEADERS_REPO
+   "ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-opencl-headers")
+ set(OCL_LOADER_REPO
+   "ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-opencl-icd-loader")
+endif(INTEL_CUSTOMIZATION)
+
+# Repo tags/hashes
+
+if(INTEL_CUSTOMIZATION)
+ set(OCL_HEADERS_TAG ocl-open) #23710f1b99186065c1768fc3098ba681adc0f253
+ set(OCL_LOADER_TAG ocl-open)  #5f8249691ec8c25775789498951f8e9eb62c201d
+endif(INTEL_CUSTOMIZATION)
+
+# OpenCL Headers
+if(NOT OpenCL_HEADERS)
+  message(STATUS "Will fetch OpenCL headers from github.com")
+
+  FetchContent_Declare(ocl-headers
+    GIT_REPOSITORY    ${OCL_HEADERS_REPO}
+    GIT_TAG           ${OCL_HEADERS_TAG}
+  )
+else()
+  message(STATUS "OpenCL headers are added manually ${OpenCL_HEADERS}")
+
+  FetchContent_Declare(ocl-headers
+    URL               ${OpenCL_HEADERS}
+  )
+endif()
+
+FetchContent_MakeAvailable(ocl-headers)
+FetchContent_GetProperties(ocl-headers)
+set(OpenCL_INCLUDE_DIR
+  ${ocl-headers_SOURCE_DIR} CACHE PATH "Path to OpenCL Headers")
+
+target_compile_definitions(Headers INTERFACE -DCL_TARGET_OPENCL_VERSION=220)
+add_library(OpenCL-Headers ALIAS Headers)
+
+# OpenCL Library (ICD Loader)
+
+# Set OPENCL_ICD_LOADER_HEADERS_DIR, as prerequisite for ICD build
+set(OPENCL_ICD_LOADER_HEADERS_DIR
+  ${OpenCL_INCLUDE_DIR} CACHE PATH "Path to OpenCL Headers")
+
+# LLVM build sets this OFF by default, but we need OpenCL to be built as shared
+# library.
+set(BUILD_SHARED_LIBS ON)
+
+if(NOT OpenCL_LIBRARY_SRC)
+  message(STATUS "Will fetch OpenCL ICD Loader from github.com")
+
+  FetchContent_Declare(ocl-icd
+    GIT_REPOSITORY    ${OCL_LOADER_REPO}
+    GIT_TAG           ${OCL_LOADER_TAG}
+  )
+else()
+  # TODO: add possibility to use prebuilt OpenCL library rather than building
+  #       together with llvm.
+  message(STATUS
+    "OpenCL ICD Loader sources added manually ${OpenCL_LIBRARY_SRC}")
+
+  FetchContent_Declare(ocl-icd
+    URL               ${OpenCL_LIBRARY_SRC}
+  )
+endif()
+
+FetchContent_MakeAvailable(ocl-icd)
+
+add_library(OpenCL-ICD ALIAS OpenCL)
+
+if(INTEL_CUSTOMIZATION)
+  # OpenCL RT build requires headers from ICD loader, propagating location
+  set(OpenCL_LOADER_DIR
+    ${ocl-icd_SOURCE_DIR} CACHE PATH "Path to OpenCL Loader")
+
+  # TODO: Remove suppressing Werror.
+  if(MSVC)
+    target_compile_options(OpenCL PRIVATE "-WX-")
+  else()
+    target_compile_options(OpenCL PRIVATE "-Wno-error")
+  endif()
+  # Deploy OpenCL loader into package, this is required for xmain tc tests
+  install(TARGETS OpenCL
+          ARCHIVE DESTINATION "lib${LLVM_LIBDIR_SUFFIX}" COMPONENT OpenCL-ICD
+          LIBRARY DESTINATION "lib${LLVM_LIBDIR_SUFFIX}" COMPONENT OpenCL-ICD
+          RUNTIME DESTINATION "bin" COMPONENT OpenCL-ICD)
+endif(INTEL_CUSTOMIZATION)
