@@ -330,18 +330,18 @@ PreservedAnalyses OptimizeDynamicCastsPass::runImpl(
 
         // Cast pointer to object to i8***, because it is a pointer to pointer
         // to vtable that contains pointer to type_info object.
+        auto Int8PtrTy = Type::getInt8PtrTy(Call->getContext());
         auto CastObjPointer =
             Builder.CreateCast(Instruction::BitCast, ObjPointer,
-                               Type::getInt8PtrTy(Call->getContext())
-                                   ->getPointerTo()
-                                   ->getPointerTo());
+                               Int8PtrTy->getPointerTo()->getPointerTo());
         // Load pointer to vtable.
-        auto Vptr = Builder.CreateLoad(CastObjPointer);
+        auto Vptr =
+            Builder.CreateLoad(Int8PtrTy->getPointerTo(), CastObjPointer);
         // Calculate address of pointer to type_info.
         auto AddressOfTypeInfoPtr =
             Builder.CreateGEP(Vptr, Builder.getInt32(-1));
         // Load pointer to type_info.
-        auto TypeInfoPtr = Builder.CreateLoad(AddressOfTypeInfoPtr);
+        auto TypeInfoPtr = Builder.CreateLoad(Int8PtrTy, AddressOfTypeInfoPtr);
 
         assert(
             Call->getOperand(3) &&
