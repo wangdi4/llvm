@@ -927,6 +927,44 @@ def X86vaaddf : SDNode<"X86ISD::VAADDF",
                                             SDTCisSameNumEltsAs<1, 2>]>,
                         [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+def SDTAVX512NECONVERT : SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisVec<1>,
+                                SDTCisPtrTy<2>, SDTCisSameNumEltsAs<0, 1>]>;
+def X86vcvtneebf162ps : SDNode<"X86ISD::VCVTNEEBF162PS",
+                                SDTAVX512NECONVERT,
+                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vcvtneebf162psz : SDNode<"X86ISD::VCVTNEEBF162PSZ",
+                                SDTAVX512NECONVERT,
+                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vcvtneeph2ps : SDNode<"X86ISD::VCVTNEEPH2PS",
+                              SDTAVX512NECONVERT,
+                              [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vcvtneeph2psz : SDNode<"X86ISD::VCVTNEEPH2PSZ",
+                               SDTAVX512NECONVERT,
+                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vcvtneobf162ps : SDNode<"X86ISD::VCVTNEOBF162PS",
+                               SDTAVX512NECONVERT,
+                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vcvtneobf162psz : SDNode<"X86ISD::VCVTNEOBF162PSZ",
+                                SDTAVX512NECONVERT,
+                                [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vcvtneoph2ps : SDNode<"X86ISD::VCVTNEOPH2PS", SDTAVX512NECONVERT,
+                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vcvtneoph2psz : SDNode<"X86ISD::VCVTNEOPH2PSZ", SDTAVX512NECONVERT,
+                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vbcstnebf162ps : SDNode<"X86ISD::VBCSTNEBF162PS", SDTAVX512NECONVERT,
+                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vbcstnebf162psz : SDNode<"X86ISD::VBCSTNEBF162PSZ", SDTAVX512NECONVERT,
+                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vbcstnesh2ps : SDNode<"X86ISD::VBCSTNESH2PS", SDTAVX512NECONVERT,
+                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vbcstnesh2psz : SDNode<"X86ISD::VBCSTNESH2PSZ", SDTAVX512NECONVERT,
+                               [SDNPHasChain, SDNPMayLoad, SDNPMemOperand]>;
+def X86vcvtne2ps2ph : SDNode<"X86ISD::VCVTNE2PS2PH",
+                      SDTypeProfile<1, 2, [SDTCVecEltisVT<0, f16>,
+                                           SDTCVecEltisVT<1, f32>,
+                                           SDTCisSameAs<1,2>]>>;
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // SSE pattern fragments

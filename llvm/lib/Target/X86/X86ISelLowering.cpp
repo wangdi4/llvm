@@ -5491,6 +5491,76 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
       return true;
     }
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+    case Intrinsic::x86_avx512_mask_vcvtneebf162ps128:
+    case Intrinsic::x86_avx512_mask_vcvtneebf162ps256:
+    case Intrinsic::x86_avx512_mask_vcvtneebf162ps512:
+    case Intrinsic::x86_avx512_maskz_vcvtneebf162ps128:
+    case Intrinsic::x86_avx512_maskz_vcvtneebf162ps256:
+    case Intrinsic::x86_avx512_maskz_vcvtneebf162ps512:
+    case Intrinsic::x86_avx512_mask_vcvtneobf162ps128:
+    case Intrinsic::x86_avx512_mask_vcvtneobf162ps256:
+    case Intrinsic::x86_avx512_mask_vcvtneobf162ps512:
+    case Intrinsic::x86_avx512_maskz_vcvtneobf162ps128:
+    case Intrinsic::x86_avx512_maskz_vcvtneobf162ps256:
+    case Intrinsic::x86_avx512_maskz_vcvtneobf162ps512: {
+      Info.opc = ISD::INTRINSIC_W_CHAIN;
+      Info.ptrVal = I.getArgOperand(1);
+      VectorType *ResultTy = cast<VectorType>(I.getType());
+      Info.memVT = EVT::getVectorVT(I.getType()->getContext(), MVT::i16,
+                                    ResultTy->getElementCount());
+      Info.align = Align(1);
+      Info.flags |= MachineMemOperand::MOLoad;
+      return true;
+    }
+    case Intrinsic::x86_avx512_mask_vcvtneeph2ps128:
+    case Intrinsic::x86_avx512_mask_vcvtneeph2ps256:
+    case Intrinsic::x86_avx512_mask_vcvtneeph2ps512:
+    case Intrinsic::x86_avx512_maskz_vcvtneeph2ps128:
+    case Intrinsic::x86_avx512_maskz_vcvtneeph2ps256:
+    case Intrinsic::x86_avx512_maskz_vcvtneeph2ps512:
+    case Intrinsic::x86_avx512_mask_vcvtneoph2ps128:
+    case Intrinsic::x86_avx512_mask_vcvtneoph2ps256:
+    case Intrinsic::x86_avx512_mask_vcvtneoph2ps512:
+    case Intrinsic::x86_avx512_maskz_vcvtneoph2ps128:
+    case Intrinsic::x86_avx512_maskz_vcvtneoph2ps256:
+    case Intrinsic::x86_avx512_maskz_vcvtneoph2ps512: {
+      Info.opc = ISD::INTRINSIC_W_CHAIN;
+      Info.ptrVal = I.getArgOperand(1);
+      VectorType *ResultTy = cast<VectorType>(I.getType());
+      Info.memVT = EVT::getVectorVT(I.getType()->getContext(), MVT::f16,
+                                    ResultTy->getElementCount());
+      Info.align = Align(1);
+      Info.flags |= MachineMemOperand::MOLoad;
+      return true;
+    }
+    case Intrinsic::x86_avx512_mask_vbcstnebf162ps128:
+    case Intrinsic::x86_avx512_mask_vbcstnebf162ps256:
+    case Intrinsic::x86_avx512_mask_vbcstnebf162ps512:
+    case Intrinsic::x86_avx512_maskz_vbcstnebf162ps128:
+    case Intrinsic::x86_avx512_maskz_vbcstnebf162ps256:
+    case Intrinsic::x86_avx512_maskz_vbcstnebf162ps512: {
+      Info.opc = ISD::INTRINSIC_W_CHAIN;
+      Info.ptrVal = I.getArgOperand(1);
+      Info.memVT = EVT::getIntegerVT(I.getType()->getContext(), 16);
+      Info.align = Align(1);
+      Info.flags |= MachineMemOperand::MOLoad;
+      return true;
+    }
+    case Intrinsic::x86_avx512_mask_vbcstnesh2ps128:
+    case Intrinsic::x86_avx512_mask_vbcstnesh2ps256:
+    case Intrinsic::x86_avx512_mask_vbcstnesh2ps512:
+    case Intrinsic::x86_avx512_maskz_vbcstnesh2ps128:
+    case Intrinsic::x86_avx512_maskz_vbcstnesh2ps256:
+    case Intrinsic::x86_avx512_maskz_vbcstnesh2ps512: {
+      Info.opc = ISD::INTRINSIC_W_CHAIN;
+      Info.ptrVal = I.getArgOperand(1);
+      Info.memVT = EVT::getFloatingPointVT(16);
+      Info.align = Align(1);
+      Info.flags |= MachineMemOperand::MOLoad;
+      return true;
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #endif // INTEL_CUSTOMIZATION
     case Intrinsic::x86_aesenc128kl:
     case Intrinsic::x86_aesdec128kl:
@@ -26201,12 +26271,25 @@ SDValue X86TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
       return getScalarMaskingNode(DAG.getNode(Opc, dl, VT, Src1, Src2),
                                   Mask, passThru, Subtarget, DAG);
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+    case INTR_TYPE_2OP_MASK:
+    case INTR_TYPE_2OP_MASKZ: {
+#else // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
     case INTR_TYPE_2OP_MASK: {
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+#endif // INTEL_CUSTOMIZATION
       SDValue Src1 = Op.getOperand(1);
       SDValue Src2 = Op.getOperand(2);
       SDValue PassThru = Op.getOperand(3);
       SDValue Mask = Op.getOperand(4);
       SDValue NewOp;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+      if (IntrData->Type == INTR_TYPE_2OP_MASKZ)
+        PassThru = getZeroVector(VT, Subtarget, DAG, dl);
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+#endif // INTEL_CUSTOMIZATION
       if (IntrData->Opc1 != 0) {
         SDValue Rnd = Op.getOperand(5);
         unsigned RC = 0;
@@ -27528,6 +27611,123 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
                                      MemVT, MMO);
     }
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_INT
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+    case Intrinsic::x86_avx512_mask_vcvtneebf162ps128:
+    case Intrinsic::x86_avx512_mask_vcvtneebf162ps256:
+    case Intrinsic::x86_avx512_mask_vcvtneebf162ps512:
+    case Intrinsic::x86_avx512_mask_vcvtneeph2ps128:
+    case Intrinsic::x86_avx512_mask_vcvtneeph2ps256:
+    case Intrinsic::x86_avx512_mask_vcvtneeph2ps512:
+    case Intrinsic::x86_avx512_mask_vcvtneobf162ps128:
+    case Intrinsic::x86_avx512_mask_vcvtneobf162ps256:
+    case Intrinsic::x86_avx512_mask_vcvtneobf162ps512:
+    case Intrinsic::x86_avx512_mask_vcvtneoph2ps128:
+    case Intrinsic::x86_avx512_mask_vcvtneoph2ps256:
+    case Intrinsic::x86_avx512_mask_vcvtneoph2ps512:
+    case Intrinsic::x86_avx512_maskz_vcvtneebf162ps128:
+    case Intrinsic::x86_avx512_maskz_vcvtneebf162ps256:
+    case Intrinsic::x86_avx512_maskz_vcvtneebf162ps512:
+    case Intrinsic::x86_avx512_maskz_vcvtneeph2ps128:
+    case Intrinsic::x86_avx512_maskz_vcvtneeph2ps256:
+    case Intrinsic::x86_avx512_maskz_vcvtneeph2ps512:
+    case Intrinsic::x86_avx512_maskz_vcvtneobf162ps128:
+    case Intrinsic::x86_avx512_maskz_vcvtneobf162ps256:
+    case Intrinsic::x86_avx512_maskz_vcvtneobf162ps512:
+    case Intrinsic::x86_avx512_maskz_vcvtneoph2ps128:
+    case Intrinsic::x86_avx512_maskz_vcvtneoph2ps256:
+    case Intrinsic::x86_avx512_maskz_vcvtneoph2ps512:
+    case Intrinsic::x86_avx512_mask_vbcstnebf162ps128:
+    case Intrinsic::x86_avx512_mask_vbcstnebf162ps256:
+    case Intrinsic::x86_avx512_mask_vbcstnebf162ps512:
+    case Intrinsic::x86_avx512_maskz_vbcstnebf162ps128:
+    case Intrinsic::x86_avx512_maskz_vbcstnebf162ps256:
+    case Intrinsic::x86_avx512_maskz_vbcstnebf162ps512:
+    case Intrinsic::x86_avx512_mask_vbcstnesh2ps128:
+    case Intrinsic::x86_avx512_mask_vbcstnesh2ps256:
+    case Intrinsic::x86_avx512_mask_vbcstnesh2ps512:
+    case Intrinsic::x86_avx512_maskz_vbcstnesh2ps128:
+    case Intrinsic::x86_avx512_maskz_vbcstnesh2ps256:
+    case Intrinsic::x86_avx512_maskz_vbcstnesh2ps512: {
+      SDLoc dl(Op);
+      MemIntrinsicSDNode *MemIntr = cast<MemIntrinsicSDNode>(Op);
+      unsigned Opc;
+      switch (IntNo) {
+      case Intrinsic::x86_avx512_mask_vcvtneebf162ps128:
+      case Intrinsic::x86_avx512_mask_vcvtneebf162ps256:
+      case Intrinsic::x86_avx512_mask_vcvtneebf162ps512:
+        Opc = X86ISD::VCVTNEEBF162PS;
+        break;
+      case Intrinsic::x86_avx512_mask_vcvtneeph2ps128:
+      case Intrinsic::x86_avx512_mask_vcvtneeph2ps256:
+      case Intrinsic::x86_avx512_mask_vcvtneeph2ps512:
+        Opc = X86ISD::VCVTNEEPH2PS;
+        break;
+      case Intrinsic::x86_avx512_mask_vcvtneobf162ps128:
+      case Intrinsic::x86_avx512_mask_vcvtneobf162ps256:
+      case Intrinsic::x86_avx512_mask_vcvtneobf162ps512:
+        Opc = X86ISD::VCVTNEOBF162PS;
+        break;
+      case Intrinsic::x86_avx512_mask_vcvtneoph2ps128:
+      case Intrinsic::x86_avx512_mask_vcvtneoph2ps256:
+      case Intrinsic::x86_avx512_mask_vcvtneoph2ps512:
+        Opc = X86ISD::VCVTNEOPH2PS;
+        break;
+      case Intrinsic::x86_avx512_maskz_vcvtneebf162ps128:
+      case Intrinsic::x86_avx512_maskz_vcvtneebf162ps256:
+      case Intrinsic::x86_avx512_maskz_vcvtneebf162ps512:
+        Opc = X86ISD::VCVTNEEBF162PSZ;
+        break;
+      case Intrinsic::x86_avx512_maskz_vcvtneeph2ps128:
+      case Intrinsic::x86_avx512_maskz_vcvtneeph2ps256:
+      case Intrinsic::x86_avx512_maskz_vcvtneeph2ps512:
+        Opc = X86ISD::VCVTNEEPH2PSZ;
+        break;
+      case Intrinsic::x86_avx512_maskz_vcvtneobf162ps128:
+      case Intrinsic::x86_avx512_maskz_vcvtneobf162ps256:
+      case Intrinsic::x86_avx512_maskz_vcvtneobf162ps512:
+        Opc = X86ISD::VCVTNEOBF162PSZ;
+        break;
+      case Intrinsic::x86_avx512_maskz_vcvtneoph2ps128:
+      case Intrinsic::x86_avx512_maskz_vcvtneoph2ps256:
+      case Intrinsic::x86_avx512_maskz_vcvtneoph2ps512:
+        Opc = X86ISD::VCVTNEOPH2PSZ;
+        break;
+      case Intrinsic::x86_avx512_mask_vbcstnebf162ps128:
+      case Intrinsic::x86_avx512_mask_vbcstnebf162ps256:
+      case Intrinsic::x86_avx512_mask_vbcstnebf162ps512:
+        Opc = X86ISD::VBCSTNEBF162PS;
+        break;
+      case Intrinsic::x86_avx512_maskz_vbcstnebf162ps128:
+      case Intrinsic::x86_avx512_maskz_vbcstnebf162ps256:
+      case Intrinsic::x86_avx512_maskz_vbcstnebf162ps512:
+        Opc = X86ISD::VBCSTNEBF162PSZ;
+        break;
+      case Intrinsic::x86_avx512_mask_vbcstnesh2ps128:
+      case Intrinsic::x86_avx512_mask_vbcstnesh2ps256:
+      case Intrinsic::x86_avx512_mask_vbcstnesh2ps512:
+        Opc = X86ISD::VBCSTNESH2PS;
+        break;
+      case Intrinsic::x86_avx512_maskz_vbcstnesh2ps128:
+      case Intrinsic::x86_avx512_maskz_vbcstnesh2ps256:
+      case Intrinsic::x86_avx512_maskz_vbcstnesh2ps512:
+        Opc = X86ISD::VBCSTNESH2PSZ;
+        break;
+      default:
+        llvm_unreachable("Unknown Intrinsic");
+      }
+      SDValue Chain = Op.getOperand(0);
+      MVT DstVecTy = Op.getSimpleValueType();
+      SDVTList VTs = DAG.getVTList(DstVecTy, MVT::Other);
+      SDValue Mask = Op.getOperand(2);
+      SDValue Src = Op.getOperand(3);
+      int NumElts = DstVecTy.getVectorNumElements();
+      MVT MaskVT = MVT::getVectorVT(MVT::i1, NumElts);
+      SDValue VMask = getMaskNode(Mask, MaskVT, Subtarget, DAG, dl);
+      return DAG.getMemIntrinsicNode(Opc, dl, VTs, {Chain, VMask, Src},
+                                     MemIntr->getMemoryVT(),
+                                     MemIntr->getMemOperand());
+    }
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #endif // INTEL_CUSTOMIZATION
     }
     return SDValue();
@@ -32837,6 +33037,21 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
 #if INTEL_FEATURE_ISA_AVX512_RAO_FP
   NODE_NAME_CASE(VAADDF)
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+  NODE_NAME_CASE(VCVTNEEBF162PS)
+  NODE_NAME_CASE(VCVTNEEBF162PSZ)
+  NODE_NAME_CASE(VCVTNEEPH2PS)
+  NODE_NAME_CASE(VCVTNEEPH2PSZ)
+  NODE_NAME_CASE(VCVTNEOBF162PS)
+  NODE_NAME_CASE(VCVTNEOBF162PSZ)
+  NODE_NAME_CASE(VCVTNEOPH2PS)
+  NODE_NAME_CASE(VCVTNEOPH2PSZ)
+  NODE_NAME_CASE(VBCSTNEBF162PS)
+  NODE_NAME_CASE(VBCSTNEBF162PSZ)
+  NODE_NAME_CASE(VBCSTNESH2PS)
+  NODE_NAME_CASE(VBCSTNESH2PSZ)
+  NODE_NAME_CASE(VCVTNE2PS2PH)
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #endif // INTEL_CUSTOMIZATION
   NODE_NAME_CASE(AESENC128KL)
   NODE_NAME_CASE(AESDEC128KL)

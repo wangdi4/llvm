@@ -14440,39 +14440,6 @@ multiclass avx512_cvt2ps2ph_rc<bits<8> opc, string OpcodeStr, X86FoldableSchedWr
                             EVEX_4V, EVEX_B, EVEX_RC, Sched<[sched]>;
 }
 
-multiclass avx512_binop_all3<bits<8> opc, string OpcodeStr,
-                             X86SchedWriteWidths sched,
-                             AVX512VLVectorVTInfo _SrcVTInfo,
-                             AVX512VLVectorVTInfo _DstVTInfo,
-                             SDNode OpNode, SDNode OpNodeRnd,
-                             Predicate prd> {
-  let Predicates = [prd], Uses = [MXCSR], mayRaiseFPException = 1 in {
-    defm Z : avx512_binop_rm2<opc, OpcodeStr, sched.ZMM, OpNode,
-                                   _SrcVTInfo.info512, _DstVTInfo.info512,
-                                   _SrcVTInfo.info512>,
-             avx512_cvt2ps2ph_rc<opc, OpcodeStr, sched.ZMM,
-                                 _SrcVTInfo.info512, _DstVTInfo.info512,
-                                 OpNodeRnd>,
-                                 EVEX_V512, EVEX_CD8<32, CD8VF>;
-  }
-  let Predicates = [HasVLX, prd], Uses = [MXCSR], mayRaiseFPException = 1 in {
-    defm Z256 : avx512_binop_rm2<opc, OpcodeStr, sched.YMM, OpNode,
-                                      _SrcVTInfo.info256, _DstVTInfo.info256,
-                                      _SrcVTInfo.info256>,
-                                      EVEX_V256, EVEX_CD8<32, CD8VF>;
-    defm Z128 : avx512_binop_rm2<opc, OpcodeStr, sched.XMM, OpNode,
-                                      _SrcVTInfo.info128, _DstVTInfo.info128,
-                                      _SrcVTInfo.info128>,
-                                      EVEX_V128, EVEX_CD8<32, CD8VF>;
-  }
-}
-
-defm VCVT2PS2PH : avx512_binop_all3<0x67, "vcvt2ps2ph",
-                                    SchedWriteCvtPD2PS, // FIXME: Using SchedWriteCvtPD2PS is a workaround.
-                                    avx512vl_f32_info, avx512vl_f16_info,
-                                    X86vcvt2ps2ph, X86vcvt2ps2phRnd,
-                                    HasCONVERT>, T8PD;
-
 multiclass avx512_cvtbf16ph<bits<8> opc, string OpcodeStr,
                             AVX512VLVectorVTInfo _SrcVTInfo,
                             AVX512VLVectorVTInfo _DstVTInfo,
@@ -14677,4 +14644,103 @@ defm VAADDSS    : avx512raofp_single<0x84, "vaaddss", avx512vl_f32_info>, T8XS;
 defm VAADDSH    : avx512raofp_single<0x94, "vaaddsh", avx512vl_f16_info>, T8XS;
 defm VAADDSBF16 : avx512raofp_single<0x94, "vaaddsbf16", avx512vl_i16_info>, T8XD;
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
+
+#if INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+// FIXME: Can we unify the MaskNode and MaskZNode?
+multiclass avx512_ne_convert_2op<bits<8> OpCode, string OpcodeStr,
+           X86VectorVTInfo vt_dst, X86MemOperand MemOp, SDNode MaskNode,
+           SDNode MaskZNode, string vl> {
+  def rm : I<OpCode, MRMSrcMem, (outs vt_dst.RC:$dst), (ins MemOp:$src),
+            OpcodeStr#"\t{$src, $dst|$dst, $src}",
+            [(set vt_dst.RC:$dst,
+             (!cast<Intrinsic>("int_x86_avx512_"#OpcodeStr#vl) addr:$src))]>,
+             EVEX, EVEX_CD8<vt_dst.EltSize, CD8VF>;
+  def rmk : I<OpCode, MRMSrcMem, (outs vt_dst.RC:$dst),
+              (ins vt_dst.KRCWM:$mask, MemOp:$src),
+              OpcodeStr#"\t{$src, $dst {${mask}}|$dst {${mask}}, $src}",
+              [(set vt_dst.RC:$dst,
+               (vt_dst.VT (MaskNode vt_dst.KRCWM:$mask, addr:$src)))]>,
+              EVEX, EVEX_CD8<vt_dst.EltSize, CD8VF>, EVEX_K;
+  def rmkz : I<OpCode, MRMSrcMem, (outs vt_dst.RC:$dst), (ins vt_dst.KRCWM:$mask, MemOp:$src),
+               OpcodeStr#"\t{$src, $dst {${mask}} {z}|$dst {${mask}} {z}, $src}",
+               [(set vt_dst.RC:$dst,
+                (vt_dst.VT (MaskZNode vt_dst.KRCWM:$mask, addr:$src)))]>,
+                EVEX, EVEX_CD8<vt_dst.EltSize, CD8VF>, EVEX_KZ;
+}
+
+multiclass avx512_ne_convert_2op_vector<bits<8> OpCode, string OpcodeStr,
+           AVX512VLVectorVTInfo vt_dst, AVX512VLVectorVTInfo vt_src,
+           SDNode MaskNode, SDNode MaskZNode> {
+  let Predicates = [HasAVX512NECONVERT] in
+    defm Z : avx512_ne_convert_2op<OpCode, OpcodeStr, vt_dst.info512,
+             vt_src.info512.MemOp, MaskNode, MaskZNode, "512">, EVEX_V512;
+  let Predicates = [HasVLX, HasAVX512NECONVERT] in {
+    defm Z256 : avx512_ne_convert_2op<OpCode, OpcodeStr, vt_dst.info256,
+                vt_src.info256.MemOp, MaskNode, MaskZNode, "256">, EVEX_V256;
+    defm Z128 : avx512_ne_convert_2op<OpCode, OpcodeStr, vt_dst.info128,
+                vt_src.info128.MemOp, MaskNode, MaskZNode, "128">, EVEX_V128;
+  }
+}
+
+multiclass avx512_ne_convert_2op_sclar<string OpcodeStr,
+           AVX512VLVectorVTInfo vt_dst, X86MemOperand MemOp,
+           SDNode MaskNode, SDNode MaskZNode> {
+  let Predicates = [HasAVX512NECONVERT] in
+    defm Z : avx512_ne_convert_2op<0xb1, OpcodeStr, vt_dst.info512,
+             MemOp, MaskNode, MaskZNode, "512">, EVEX_V512;
+  let Predicates = [HasVLX, HasAVX512NECONVERT] in {
+    defm Z256 : avx512_ne_convert_2op<0xb1, OpcodeStr, vt_dst.info256,
+                MemOp, MaskNode, MaskZNode, "256">, EVEX_V256;
+    defm Z128 : avx512_ne_convert_2op<0xb1, OpcodeStr, vt_dst.info128,
+                MemOp, MaskNode, MaskZNode, "128">, EVEX_V128;
+  }
+}
+
+// Source operand is vector type.
+defm VCVTNEEBF162PS : avx512_ne_convert_2op_vector<0xb0, "vcvtneebf162ps",
+                      avx512vl_f32_info, avx512vl_i16_info, X86vcvtneebf162ps,
+                      X86vcvtneebf162psz>, T8XS;
+defm VCVTNEEPH2PS : avx512_ne_convert_2op_vector<0xb0, "vcvtneeph2ps",
+                      avx512vl_f32_info, avx512vl_f16_info, X86vcvtneeph2ps,
+                      X86vcvtneeph2psz>, T8PD;
+defm VCVTNEOBF162PS : avx512_ne_convert_2op_vector<0xb0, "vcvtneobf162ps",
+                      avx512vl_f32_info, avx512vl_i16_info, X86vcvtneobf162ps,
+                      X86vcvtneobf162psz>, T8XD;
+defm VCVTNEOPH2PS : avx512_ne_convert_2op_vector<0xb0, "vcvtneoph2ps",
+                      avx512vl_f32_info, avx512vl_f16_info, X86vcvtneoph2ps,
+                      X86vcvtneoph2psz>, T8PS;
+// Sorrce operand is sclar type.
+defm VBCSTNEBF162PS : avx512_ne_convert_2op_sclar<"vbcstnebf162ps",
+                      avx512vl_f32_info, i16mem, X86vbcstnebf162ps,
+                      X86vbcstnebf162psz>, T8XS;
+defm VBCSTNESH2PS : avx512_ne_convert_2op_sclar<"vbcstnesh2ps",
+                      avx512vl_f32_info, f16mem, X86vbcstnesh2ps,
+                      X86vbcstnesh2psz>, T8PD;
+
+multiclass avx512_ne_convert_3op<bits<8> opc, string OpcodeStr,
+                             X86SchedWriteWidths sched,
+                             AVX512VLVectorVTInfo _SrcVTInfo,
+                             AVX512VLVectorVTInfo _DstVTInfo,
+                             SDNode OpNode> {
+  let Predicates = [HasAVX512NECONVERT], Uses = [MXCSR] in
+    defm Z : avx512_binop_rm2<opc, OpcodeStr, sched.ZMM, OpNode,
+                                   _SrcVTInfo.info512, _DstVTInfo.info512,
+                                   _SrcVTInfo.info512>, EVEX_V512, EVEX_CD8<32, CD8VF>;
+  let Predicates = [HasVLX, HasAVX512NECONVERT], Uses = [MXCSR] in {
+    defm Z256 : avx512_binop_rm2<opc, OpcodeStr, sched.YMM, OpNode,
+                                      _SrcVTInfo.info256, _DstVTInfo.info256,
+                                      _SrcVTInfo.info256>,
+                                      EVEX_V256, EVEX_CD8<32, CD8VF>;
+    defm Z128 : avx512_binop_rm2<opc, OpcodeStr, sched.XMM, OpNode,
+                                      _SrcVTInfo.info128, _DstVTInfo.info128,
+                                      _SrcVTInfo.info128>,
+                                      EVEX_V128, EVEX_CD8<32, CD8VF>;
+  }
+}
+
+defm VCVTNE2PS2PH : avx512_ne_convert_3op<0x67, "vcvtne2ps2ph",
+                                    SchedWriteCvtPD2PS, // FIXME: Using SchedWriteCvtPD2PS is a workaround.
+                                    avx512vl_f32_info, avx512vl_f16_info,
+                                    X86vcvtne2ps2ph>, T8PD;
+#endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 #endif // INTEL_CUSTOMIZATION

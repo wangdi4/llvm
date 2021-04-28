@@ -8665,33 +8665,34 @@ multiclass AVX_NE_CONVERT_BASE<bits<8> Opcode, string OpcodeStr,
   def rm : I<Opcode, MRMSrcMem, (outs VR128:$dst), (ins MemOp128:$src),
               !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
               [(set VR128:$dst,
-                (!cast<Intrinsic>("int_x86_"#OpcodeStr#"128") addr:$src))]>,
+                (!cast<Intrinsic>("int_x86_avx512_"#OpcodeStr#"128") addr:$src))]>,
               VEX;
   def Yrm : I<Opcode, MRMSrcMem, (outs VR256:$dst), (ins MemOp256:$src),
               !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
               [(set VR256:$dst,
-                (!cast<Intrinsic>("int_x86_"#OpcodeStr#"256") addr:$src))]>,
+                (!cast<Intrinsic>("int_x86_avx512_"#OpcodeStr#"256") addr:$src))]>,
               VEX, VEX_L;
 }
 
 multiclass VCVTNEPS2BF16_BASE {
   def rr : I<0x72, MRMSrcReg, (outs VR128:$dst), (ins VR128:$src),
              "vcvtneps2bf16\t{$src, $dst|$dst, $src}",
-             [(set VR128:$dst, (int_x86_vcvtneps2bf16128 VR128:$src))]>;
+             [(set VR128:$dst, (int_x86_avx2_vcvtneps2bf16128 VR128:$src))]>;
   def rm : I<0x72, MRMSrcMem, (outs VR128:$dst), (ins f128mem:$src),
              "vcvtneps2bf16{x}\t{$src, $dst|$dst, $src}",
-             [(set VR128:$dst, (int_x86_vcvtneps2bf16128 (loadv4f32 addr:$src)))]>;
+             [(set VR128:$dst, (int_x86_avx2_vcvtneps2bf16128 (loadv4f32 addr:$src)))]>;
   def Yrr : I<0x72, MRMSrcReg, (outs VR128:$dst), (ins VR256:$src),
              "vcvtneps2bf16\t{$src, $dst|$dst, $src}",
-             [(set VR128:$dst, (int_x86_vcvtneps2bf16256 VR256:$src))]>,
+             [(set VR128:$dst, (int_x86_avx2_vcvtneps2bf16256 VR256:$src))]>,
              VEX_L;
   def Yrm : I<0x72, MRMSrcMem, (outs VR128:$dst), (ins f256mem:$src),
              "vcvtneps2bf16{y}\t{$src, $dst|$dst, $src}",
-             [(set VR128:$dst, (int_x86_vcvtneps2bf16256 (loadv8f32 addr:$src)))]>,
+             [(set VR128:$dst, (int_x86_avx2_vcvtneps2bf16256 (loadv8f32 addr:$src)))]>,
              VEX_L;
 }
 
-let Predicates = [HasAVXNECONVERT] in {
+let Predicates = [HasAVXNECONVERT, NoVLX_Or_NoNECONVERT],
+    checkVEXPredicate = 1 in {
   defm VBCSTNEBF162PS : AVX_NE_CONVERT_BASE<0xb1, "vbcstnebf162ps", i16mem,
        i16mem>, T8XS;
   defm VBCSTNESH2PS : AVX_NE_CONVERT_BASE<0xb1, "vbcstnesh2ps", f16mem, f16mem>,
@@ -8704,8 +8705,10 @@ let Predicates = [HasAVXNECONVERT] in {
        i256mem>, T8XD;
   defm VCVTNEOPH2PS : AVX_NE_CONVERT_BASE<0xb0, "vcvtneoph2ps", f128mem,
        f256mem>, T8PS;
-  defm VCVTNEPS2BF16 : VCVTNEPS2BF16_BASE, VEX, T8XS, ExplicitVEXPrefix;
 }
+
+let Predicates = [HasAVXNECONVERT] in
+  defm VCVTNEPS2BF16 : VCVTNEPS2BF16_BASE, VEX, T8XS, ExplicitVEXPrefix;
 
 def : InstAlias<"vcvtneps2bf16x\t{$src, $dst|$dst, $src}",
                 (VCVTNEPS2BF16rr VR128:$dst, VR128:$src), 0, "att">;

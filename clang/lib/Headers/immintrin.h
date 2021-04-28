@@ -613,6 +613,22 @@
 #include <avxneconvert/avxneconvertintrin.h>
 #endif
 /* end INTEL_FEATURE_ISA_AVX_NE_CONVERT */
+
+/* INTEL_FEATURE_ISA_AVX512_NE_CONVERT */
+/* FIXME: Change these When _Float16 type is supported */
+#if defined(__AVX512NECONVERT_SUPPORTED__)
+#if (!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||     \
+    defined(__AVX512NECONVERT__) || defined(__M_INTRINSIC_PROMOTE__)) &&       \
+    defined(__AVX512FP16__)
+#include <avx512neconvert/avx512neconvertintrin.h>
+#endif
+#if (!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||     \
+    (defined(__AVX512NECONVERT__) && defined(__AVX512VL__)) ||                 \
+    defined(__M_INTRINSIC_PROMOTE__)) && defined(__AVX512FP16__)
+#include <avx512neconvert/avx512vlneconvertintrin.h>
+#endif
+#endif /* __AVX512NECONVERT_SUPPORTED__ */
+/* end INTEL_FEATURE_ISA_AVX512_NE_CONVERT */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
