@@ -108,7 +108,7 @@ void initializeAssumeSimplifyPassLegacyPassPass(PassRegistry &);
 void initializeAssumeBuilderPassLegacyPassPass(PassRegistry &);
 void initializeAnnotation2MetadataLegacyPass(PassRegistry &);
 void initializeAnnotationRemarksLegacyPass(PassRegistry &);
-void initializeOpenMPOptLegacyPassPass(PassRegistry &);
+void initializeOpenMPOptCGSCCLegacyPassPass(PassRegistry &);
 void initializeArgNoAliasPropPass(PassRegistry &); // INTEL
 void initializeArgPromotionPass(PassRegistry&);
 void initializeArrayUseWrapperPassPass(PassRegistry&); // INTEL
