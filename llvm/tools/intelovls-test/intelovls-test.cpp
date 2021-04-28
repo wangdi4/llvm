@@ -277,7 +277,7 @@ int main(int argc, char **argv) {
     OVLSCostModel CM(TTI, OVLSTest::getContext());
 
     // Do something with the grps.
-    for (OVLSGroup *Grp : Grps) {
+    for (auto &Grp : Grps) {
       OVLSInstructionVector InstVec;
       if (OptVLSInterface::getSequence(*Grp, CM, InstVec)) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -291,10 +291,6 @@ int main(int argc, char **argv) {
   // Release memory
   for (OVLSMemref *Memref : Mrfs) {
     delete Memref;
-  }
-
-  for (OVLSGroup *Grp : Grps) {
-    delete Grp;
   }
 
   return 0;
