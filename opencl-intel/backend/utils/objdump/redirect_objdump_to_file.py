@@ -67,7 +67,7 @@ if __name__ == "__main__":
             'void dumpObjectToFile(ObjectFile *O) {\n' +
             '  Disassemble = true;\n' +
             '  DisassembleAll = true;\n' +
-            '  NoShowRawInsn = true;\n' +
+            '  ShowRawInsn = false;\n' +
             '  Relocations = true;\n' +
             '  SectionHeaders = true;\n' +
             '  SymbolTable = true;\n\n' +
