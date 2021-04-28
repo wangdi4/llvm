@@ -1170,8 +1170,7 @@ const SCEV *ScalarEvolution::getLosslessPtrToIntExpr(const SCEV *Op,
     }
 
     const SCEV *visitUnknown(const SCEVUnknown *Expr) {
-      Type *ExprPtrTy = Expr->getType();
-      assert(ExprPtrTy->isPointerTy() &&
+      assert(Expr->getType()->isPointerTy() &&
              "Should only reach pointer-typed SCEVUnknown's.");
       return SE.getLosslessPtrToIntExpr(Expr, /*Depth=*/1);
     }
