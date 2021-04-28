@@ -11,7 +11,6 @@
 // This file implements HIR Array Scalarization class.
 //===-----------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
@@ -41,122 +40,23 @@ const StringRef ArrayScalarizeTempName = "array-scalarize";
 STATISTIC(HIRArrayScalarizationGroupsPromoted,
           "Number of HIR Array-Scalarization Group(s) Promoted");
 
-// -----------------------------------------------------------------------
-/*  Following will be ArrayScalarizationMemRefGroup's implementation     */
-// -----------------------------------------------------------------------
-
-bool ArrayScalarizationMemRefGroup::collect(ArrayRef<RegDDRef *> ArrRef) {
-
-  // single Ref provided: collect by following DDEdge(s)
-  if (ArrRef.size() == 1) {
-    RegDDRef *Ref = ArrRef[0];
-    RefVec.push_back(Ref);
-
-    // Iterate over each outgoing edge:
-    for (auto I = DDG.outgoing_edges_begin(Ref),
-              E = DDG.outgoing_edges_end(Ref);
-         I != E; ++I) {
-      DDEdge *Edge = (*I);
-      RegDDRef *SrcRef = cast<RegDDRef>(Edge->getSrc());
-      RegDDRef *SinkRef = cast<RegDDRef>(Edge->getSink());
-
-      // Ignore any self edge:
-      if (SinkRef != SrcRef) {
-        RefVec.push_back(SinkRef);
-      }
-    }
-  } else {
-    // multiple Refs provided: save those refs as input
-    for (auto *TheRef : ArrRef) {
-      RefVec.push_back(TheRef);
-      if (CollectSymbase) {
-        SBS.insert(TheRef->getSymbase());
-      }
-    }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static void printRefVec(SmallVectorImpl<const RegDDRef *> &Group,
+                        StringRef Msg) {
+  dbgs() << Msg << ": <" << Group.size() << ">\n";
+  for (auto *Ref : Group) {
+    dbgs() << "\t";
+    Ref->dump();
+    dbgs() << "\t";
+    Ref->isLval() ? dbgs() << "W" : dbgs() << "R";
+    dbgs() << "\n";
   }
-
-  // Sort the group:
-  llvm::sort(RefVec.begin(), RefVec.end(),
-             [](const RegDDRef *Ref0, const RegDDRef *Ref1) {
-               return Ref0->getHLDDNode()->getTopSortNum() <
-                      Ref1->getHLDDNode()->getTopSortNum();
-             });
-
-  LLVM_DEBUG(dump(true););
-
-  return !RefVec.empty();
 }
+#endif
 
-// Analyze the group.
-//
-// each ref:
-// - is a RegDDRef with constant int-only subscripts
-// - its symbase is among the symbases provided
-// - is non-volatile, non-address taken, and within a given lp
-//
-// the entire group:
-// - the leading ref is the only store, and all remaining ref(s)
-//   is/are load(s)
-// - ref(0) dominates all other refs
-// - all refs in the group are exactly the same
-//
-bool ArrayScalarizationMemRefGroup::analyze(void) {
-  // leading ref is a store
-  RegDDRef *Ref0 = RefVec[0];
-  if (!Ref0->isLval()) {
-    return false;
-  }
-
-  // all other refs are loads and is dominated by the leading ref
-  HLDDNode *Ref0DDNode = Ref0->getHLDDNode();
-  for (unsigned I = 1, E = RefVec.size(); I < E; ++I) {
-    RegDDRef *Ref = RefVec[I];
-    if (!Ref->isRval()) {
-      return false;
-    }
-    if (!HLNodeUtils::dominates(Ref0DDNode, Ref->getHLDDNode())) {
-      return false;
-    }
-  }
-
-  for (auto *Ref : RefVec) {
-    if (Ref->isAddressOf() || Ref->isVolatile() ||
-        (Ref->getParentLoop() != Lp)) {
-      return false;
-    }
-
-    if (!DDRefUtils::isMemRefAllDimsConstOnly(Ref)) {
-      return false;
-    }
-
-    if (std::find(SBS.begin(), SBS.end(), Ref->getSymbase()) == SBS.end()) {
-      return false;
-    }
-  }
-
-  // Check: ref(s) in the group are exactly the same
-  if (std::find_if(std::next(RefVec.begin()), RefVec.end(),
-                   [&](const RegDDRef *Ref) {
-                     return !DDRefUtils::areEqual(Ref, Ref0);
-                   }) != RefVec.end()) {
-
-    // Check again: still ok if equal under relaxed mode.
-    if (std::find_if(
-            std::next(RefVec.begin()), RefVec.end(), [&](const RegDDRef *Ref) {
-              return !DDRefUtils::areEqual(Ref, Ref0, true /* relaxed */);
-            }) == RefVec.end()) {
-      IsRelaxedGroup = true;
-    } else {
-      // Show the whole group: verify there are in deed different items!
-      LLVM_DEBUG({
-        dbgs() << "non-equal Ref found in relaxed mode, input rejected\n";
-        for (unsigned I = 0, E = RefVec.size(); I < E; ++I) {
-          dbgs() << I << "\t";
-          RefVec[I]->dump(1);
-          dbgs() << "\n";
-        }
-      });
-
+static bool isReadOnlyGroup(SmallVectorImpl<const RegDDRef *> &Group) {
+  for (auto &Ref : Group) {
+    if (Ref->isLval()) {
       return false;
     }
   }
@@ -164,18 +64,40 @@ bool ArrayScalarizationMemRefGroup::analyze(void) {
   return true;
 }
 
-void ArrayScalarizationMemRefGroup::createATemp(HLLoop *Lp, RegDDRef *Ref,
+// -----------------------------------------------------------------------
+/*  Following will be ArrayScalarizationMemRefGroup's implementation     */
+// -----------------------------------------------------------------------
+
+ArrayScalarizationMemRefGroup::ArrayScalarizationMemRefGroup(
+    SmallVectorImpl<const RegDDRef *> &Group, HLLoop *Lp)
+    : Lp(Lp), IsRelaxedGroup(false) {
+  for (auto *Ref : Group) {
+    RefVec.push_back(const_cast<RegDDRef *>(Ref));
+  }
+  assert((!RefVec.empty()) && "Expect RefVec be non-empty");
+
+  // Turn on the RelaxedGroup flag if the refs in the same group are different
+  // in relaxed mode.
+  const RegDDRef *Ref0 = Group[0];
+  if (std::find_if(std::next(Group.begin()), Group.end(),
+                   [&](const RegDDRef *Ref) {
+                     return !DDRefUtils::areEqual(Ref, Ref0);
+                   }) != Group.end()) {
+    IsRelaxedGroup = true;
+  }
+}
+
+void ArrayScalarizationMemRefGroup::createATemp(HLLoop *Loop, RegDDRef *Ref,
                                                 RegDDRef *&TmpRef) {
   assert(!TmpRef && "Expect TmpRef be a nullptr");
-  HLNodeUtils &HNU = Lp->getHLNodeUtils();
+  HLNodeUtils &HNU = Loop->getHLNodeUtils();
   TmpRef = HNU.createTemp(Ref->getSrcType(), ArrayScalarizeTempName);
 }
 
-void ArrayScalarizationMemRefGroup::replaceRefWithTmp(HLLoop *Lp, RegDDRef *Ref,
+void ArrayScalarizationMemRefGroup::replaceRefWithTmp(RegDDRef *Ref,
                                                       RegDDRef *TmpRef) {
   assert(TmpRef && "Expect tmp be a valid ptr");
   assert(Ref && "Expect ref be a valid ptr");
-
   HIRTransformUtils::replaceOperand(Ref, TmpRef->clone());
 }
 
@@ -259,7 +181,7 @@ bool ArrayScalarizationMemRefGroup::transform(void) {
 
   // replace each ref in the group with the tmp
   for (auto *Ref : RefVec) {
-    replaceRefWithTmp(Lp, Ref, TmpRef);
+    replaceRefWithTmp(Ref, TmpRef);
   }
 
   return true;
@@ -283,10 +205,6 @@ void ArrayScalarizationMemRefGroup::print(raw_ostream &OS,
 
   if (PrintDetails) {
     // SBS:
-    FOS << "  SBS: " << SBS.size() << " {";
-    for (auto I : SBS) {
-      FOS << I << " ";
-    }
     FOS << "\n IsRelaxedGroup: " << IsRelaxedGroup << "\n"
         << "}\n";
   }
@@ -314,89 +232,58 @@ void ArrayScalarizationMemRefGroup::print(raw_ostream &OS,
 //   -no need to create a store in any loop's postexit, since the array is
 //    dead after the loop.
 //
-bool HIRArrayScalarization::doScalarization(HLLoop *InnermostLp,
+bool HIRArrayScalarization::doScalarization(HLLoop *Lp,
                                             SmallSet<unsigned, 8> &SBS) {
-  DDG = HDDA.getGraph(InnermostLp);
   SmallVector<ArrayScalarizationMemRefGroup, 8> ASMemRefGrpVec;
 
-  for (const HLNode &Node :
-       make_range(InnermostLp->child_begin(), InnermostLp->child_end())) {
-    const HLInst *HInst = dyn_cast<HLInst>(&Node);
-    if (!HInst || !HInst->hasLval()) {
+  HIRLoopLocality::RefGroupVecTy EqualityGroups;
+  SmallSet<unsigned, 8> UniqueGroupSymbases;
+  HIRLoopLocality::populateEqualityGroups(Lp->child_begin(), Lp->child_end(),
+                                          EqualityGroups, &UniqueGroupSymbases);
+  for (auto &Group : EqualityGroups) {
+    assert(!Group.empty() && "Expect only non-empty group(s)");
+
+    if (!SBS.count(Group[0]->getSymbase())) {
       continue;
     }
 
-    // Obtain the lval ref, build its group, validate it, and proceed to
-    // transform if suitable.
-    const RegDDRef *LvalRef = HInst->getLvalDDRef();
-    if (!LvalRef->isMemRef() ||
-        !DDRefUtils::isMemRefAllDimsConstOnly(LvalRef)) {
-      continue;
-    }
-
-    LLVM_DEBUG(dbgs() << "a potential ref: "; LvalRef->dump(0);
-               dbgs() << "\n";);
-
-    ArrayScalarizationMemRefGroup MRG(const_cast<RegDDRef *>(LvalRef), DDG, SBS,
-                                      InnermostLp);
-    if (!MRG.analyze()) {
-      LLVM_DEBUG(dbgs() << "an invalid group after analysis:\n"; MRG.dump(0););
-      continue;
-    }
+    assert(!isReadOnlyGroup(Group) &&
+           "not expect a read-only group with qualified symbase");
 
     LLVM_DEBUG({
-      dbgs() << "a suitable group transformed for HIR Array Scalarization:\n";
-      MRG.dump(1);
+      printRefVec(Group, "A group suitable for array scalarization: -");
+      Group[0]->dump();
+      dbgs() << "\tsymbase: " << Group[0]->getSymbase() << "\n";
     });
 
-    ASMemRefGrpVec.push_back(MRG);
+    // Save the group
+    ASMemRefGrpVec.emplace_back(Group, Lp);
   }
 
-  // Bailout: if none suitable group is collected
   if (ASMemRefGrpVec.empty()) {
-    LLVM_DEBUG(dbgs() << "No suitable group after collection\n";);
+    LLVM_DEBUG(dbgs() << "No suitable group available after collection\n";);
     return false;
   }
 
-  // Do Transformation:
-  const unsigned NumGroupsTransformed = ASMemRefGrpVec.size();
+  // Check the current collection:
+  LLVM_DEBUG({
+    dbgs() << "Total qualified groups: <" << ASMemRefGrpVec.size() << ">\n";
+    unsigned Count = 0;
+    for (auto &G : ASMemRefGrpVec) {
+      dbgs() << Count++ << "\n";
+      G.dump();
+    }
+  });
+
+  // Do Transformation
+  // [Note]
+  // - no need to analyze each group before transformation, because all groups
+  //   are analyzed before collection.
   bool Result = true;
   for (auto &MRG : ASMemRefGrpVec) {
     Result = MRG.transform() && Result;
   }
 
-  HIRArrayScalarizationGroupsPromoted += NumGroupsTransformed;
+  HIRArrayScalarizationGroupsPromoted += ASMemRefGrpVec.size();
   return Result;
-}
-
-bool HIRArrayScalarization::doScalarization(
-    HLLoop *InnermostLp, SmallVectorImpl<RegDDRef *> &TheRefVec) {
-
-  DDG = HDDA.getGraph(InnermostLp);
-  SmallSet<unsigned, 8> SBS;
-  ArrayScalarizationMemRefGroup MRG(TheRefVec, DDG, SBS, InnermostLp,
-                                    true /* CollectSymbase */);
-
-  if (!MRG.analyze()) {
-    LLVM_DEBUG(dbgs() << "an invalid group for HIR Array Scalarization:\n";
-               MRG.dump(0););
-    return false;
-  }
-
-  LLVM_DEBUG({
-    dbgs() << "a suitable group transformed for HIR Array Scalarization:\n";
-    MRG.dump(0);
-  });
-
-  bool Result = MRG.transform();
-  if (!Result) {
-    LLVM_DEBUG({
-      dbgs() << "Fail to transform Group - \n";
-      MRG.dump(0);
-    });
-    return false;
-  }
-
-  ++HIRArrayScalarizationGroupsPromoted;
-  return true;
 }

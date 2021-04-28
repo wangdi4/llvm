@@ -1,3 +1,12 @@
+; XFAIL: *
+
+; [Notes]
+; This LIT testcase was added to serve as a test on array scalarization before the cross-array contraction driver is in available.
+; This LIT testcase was derived from specially constructed 503.bwave app with the expectation that it will be representative
+; for the real application.
+; Since the driver is now partially available, decide to retire this lit test by marking it XFAIL.
+; Once the driver is fully functional, this lit test will be removed.
+
 ; RUN: opt -debug-only=hir-loop-interchange -hir-create-function-level-region -hir-ssa-deconstruction -hir-loop-interchange -hir-cost-model-throttling=0 -run-hir-loop-interchange-array-scalarization-symbases=true -hir-loop-interchange-array-scalarization-symbases=40,41,42,45,57 -hir-loop-interchange-prepare-special-interchange=true -disable-output -S  < %s 2>&1 | FileCheck %s
 ; [the cmd in IDE GDB]
 ; -debug-only=hir-loop-interchange -hir-create-function-level-region -hir-ssa-deconstruction -hir-loop-interchange -hir-cost-model-throttling=0 -run-hir-loop-interchange-array-scalarization-symbases=true -hir-loop-interchange-array-scalarization-symbases=40,41,42,45,57 -hir-loop-interchange-prepare-special-interchange=true -print-before=hir-loop-interchange -print-after=hir-loop-interchange -S /export/iusers/cczhao/Workspaces/XMAIN/llvm/llvm/test/Transforms/Intel_LoopTransforms/HIRLoopInterchange/interchange10_bwave_w2f.2.ll

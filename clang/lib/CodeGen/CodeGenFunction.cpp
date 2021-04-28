@@ -1806,11 +1806,30 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   // Emit the standard function prologue.
   StartFunction(GD, ResTy, Fn, FnInfo, Args, Loc, BodyRange.getBegin());
 
- #if INTEL_CUSTOMIZATION
-  ClangOptReportHandler &OptReportHandler = CGM.getDiags().OptReportHandler;
-  if (OptReportHandler.HasOptReportInfo(FD)) {
+  OptReportHandler &SyclOptReportHandler =
+      CGM.getDiags().getSYCLOptReportHandler();
+  if (SyclOptReportHandler.HasSyclOptReportInfo(FD)) {
     llvm::OptimizationRemarkEmitter ORE(Fn);
-    for (auto &ORI : OptReportHandler.getInfo(FD)) {
+    for (auto ORI : llvm::enumerate(SyclOptReportHandler.GetSyclInfo(FD))) {
+      llvm::DiagnosticLocation DL =
+          SourceLocToDebugLoc(ORI.value().KernelArgLoc);
+      std::string KAN = ORI.value().KernelArgName;
+      llvm::OptimizationRemark Remark("sycl", "Region", DL,
+                                      &Fn->getEntryBlock());
+      Remark << "Argument " << llvm::ore::NV("Argument", ORI.index())
+             << " for function kernel: "
+             << llvm::ore::NV(KAN.empty() ? "&" : "") << " " << Fn->getName()
+             << "." << llvm::ore::NV(KAN.empty() ? " " : KAN) << "("
+             << ORI.value().KernelArgType << ")";
+      ORE.emit(Remark);
+    }
+  }
+#if INTEL_CUSTOMIZATION
+  OptReportHandler &OpenMPOptReportHandler =
+      CGM.getDiags().OpenMPOptReportHandler;
+  if (OpenMPOptReportHandler.HasOpenMPReportInfo(FD)) {
+    llvm::OptimizationRemarkEmitter ORE(Fn);
+    for (auto &ORI : OpenMPOptReportHandler.GetClangInfo(FD)) {
       llvm::DiagnosticLocation DL = SourceLocToDebugLoc(ORI.DirectiveLoc);
       llvm::OptimizationRemarkMissed R("openmp", "Region", DL,
                                        &Fn->getEntryBlock());

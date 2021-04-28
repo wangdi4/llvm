@@ -31,6 +31,8 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 
+#include "HIRArrayScalarization.h"
+
 #define OPT_SWITCH "hir-cross-loop-array-contraction"
 #define OPT_DESC "HIR Cross-Loop Array Contraction"
 #define DEBUG_TYPE OPT_SWITCH

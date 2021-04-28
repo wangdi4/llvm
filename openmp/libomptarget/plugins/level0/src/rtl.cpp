@@ -158,7 +158,14 @@ namespace L0Interop {
     "device_num",
     "vendor_name",
     "vendor",
-    "fr_name"
+    "fr_name",
+    "fr_id",
+    "device_num_eus",
+    "device_num_threads_per_eu",
+    "device_eu_simd_width",
+    "device_num_eus_per_subslice",
+    "device_num_subslices_per_slice",
+    "device_num_slices"
   };
 
   std::vector<const char *> IprTypeDescs {
@@ -170,7 +177,13 @@ namespace L0Interop {
     "const char *, vendor name",
     "intptr_t, vendor ID",
     "const char *, foreign runtime name",
-    "intptr_t, foreign runtime ID"
+    "intptr_t, foreign runtime ID",
+    "intptr_t, total number of EUs",
+    "intptr_t, number of threads per EU",
+    "intptr_t, physical EU simd width",
+    "intptr_t, number of EUs per sub-slice",
+    "intptr_t, number of sub-slices per slice",
+    "intptr_t, number of slices"
   };
 
   /// Level Zero interop property
@@ -4248,8 +4261,8 @@ EXTERN int32_t __tgt_rtl_use_interop(int32_t DeviceId, __tgt_interop *Interop) {
 }
 
 EXTERN int32_t __tgt_rtl_get_num_interop_properties(int32_t DeviceId) {
-  // TODO: decide implementation-defined properties
-  return 0;
+  // omp_ipr_first == -9
+  return (int32_t)L0Interop::IprNames.size() + omp_ipr_first;
 }
 
 /// Return the value of the requested property
@@ -4257,16 +4270,52 @@ EXTERN int32_t __tgt_rtl_get_interop_property_value(
     int32_t DeviceId, __tgt_interop *Interop, int32_t Ipr, int32_t ValueType,
     size_t Size, void *Value) {
 
-  if (Interop->RTLProperty == nullptr)
-    return omp_irc_out_of_range;
-
   int32_t retCode = omp_irc_success;
+  auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
 
-  // TODO: implementation-defined property
-  //  switch (Ipr) {
-  //default:
-  //    retCode = omp_irc_out_of_range;
-  //}
+  switch (Ipr) {
+  case omp_ipr_device_num_eus:
+    if (ValueType == OMP_IPR_VALUE_INT)
+      *static_cast<intptr_t *>(Value) = deviceProperties.numEUsPerSubslice *
+          deviceProperties.numSubslicesPerSlice *
+          deviceProperties.numSlices;
+    else
+      retCode = omp_irc_type_int;
+    break;
+  case omp_ipr_device_num_threads_per_eu:
+    if (ValueType == OMP_IPR_VALUE_INT)
+      *static_cast<intptr_t *>(Value) = deviceProperties.numThreadsPerEU;
+    else
+      retCode = omp_irc_type_int;
+    break;
+  case omp_ipr_device_eu_simd_width:
+    if (ValueType == OMP_IPR_VALUE_INT)
+      *static_cast<intptr_t *>(Value) = deviceProperties.physicalEUSimdWidth;
+    else
+      retCode = omp_irc_type_int;
+    break;
+  case omp_ipr_device_num_eus_per_subslice:
+    if (ValueType == OMP_IPR_VALUE_INT)
+      *static_cast<intptr_t *>(Value) = deviceProperties.numEUsPerSubslice;
+    else
+      retCode = omp_irc_type_int;
+    break;
+  case omp_ipr_device_num_subslices_per_slice:
+    if (ValueType == OMP_IPR_VALUE_INT)
+      *static_cast<intptr_t *>(Value) = deviceProperties.numSubslicesPerSlice;
+    else
+      retCode = omp_irc_type_int;
+    break;
+  case omp_ipr_device_num_slices:
+    if (ValueType == OMP_IPR_VALUE_INT)
+      *static_cast<intptr_t *>(Value) = deviceProperties.numSlices;
+    else
+      retCode = omp_irc_type_int;
+    break;
+  default:
+    retCode = omp_irc_out_of_range;
+    break;
+  }
 
   return retCode;
 }

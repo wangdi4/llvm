@@ -356,7 +356,7 @@ public:
   /// Also substitutes constant global refs with equivalent constants.
 #if INTEL_INCLUDE_DTRANS
   static bool doConstantPropagation(HLNode *Node, DTransImmutableInfo *DTII);
-#else // INTEL_INCLUDE_DTRANS
+#else  // INTEL_INCLUDE_DTRANS
   static bool doConstantPropagation(HLNode *Node);
 #endif // INTEL_INCLUDE_DTRANS
 
@@ -392,8 +392,8 @@ public:
   ///
   ///  end do
   ///
-  static bool doScalarization(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
-                              HLLoop *InnermostLp, SmallSet<unsigned, 8> &SBS);
+  static bool doArrayScalarization(HLLoop *InnermostLp,
+                                   SmallSet<unsigned, 8> &SBS);
 
   static bool doOptVarPredicate(HLLoop *Loop,
                                 SmallVectorImpl<HLLoop *> &OutLoops,

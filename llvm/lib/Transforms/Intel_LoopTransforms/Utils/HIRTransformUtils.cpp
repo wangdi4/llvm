@@ -16,6 +16,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRArrayContractionUtils.h"
 
+#include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNodeMapper.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
@@ -1325,7 +1326,7 @@ private:
 public:
 #if INTEL_INCLUDE_DTRANS
   ConstantPropagater(DTransImmutableInfo *DTII, HLNode *Node)
-#else // INTEL_INCLUDE_DTRANS
+#else  // INTEL_INCLUDE_DTRANS
   ConstantPropagater(HLNode *Node)
 #endif // INTEL_INCLUDE_DTRANS
       : NumPropagated(0), NumFolded(0), NumConstGlobalLoads(0),
@@ -1459,7 +1460,7 @@ public:
       // Try to replace constant array
 #if INTEL_INCLUDE_DTRANS
       if (auto ConstantRef = DDRefUtils::simplifyConstArray(Ref, DTII)) {
-#else // INTEL_INCLUDE_DTRANS
+#else  // INTEL_INCLUDE_DTRANS
       if (auto ConstantRef = DDRefUtils::simplifyConstArray(Ref)) {
 #endif // INTEL_INCLUDE_DTRANS
         NumConstGlobalLoads++;
@@ -1650,7 +1651,7 @@ void ConstantPropagater::propagateConstUse(RegDDRef *Ref) {
 #if INTEL_INCLUDE_DTRANS
 bool HIRTransformUtils::doConstantPropagation(HLNode *Node,
                                               DTransImmutableInfo *DTII) {
-#else // INTEL_INCLUDE_DTRANS
+#else  // INTEL_INCLUDE_DTRANS
 bool HIRTransformUtils::doConstantPropagation(HLNode *Node) {
 #endif // INTEL_INCLUDE_DTRANS
   if (DisableConstantPropagation) {
@@ -1658,7 +1659,7 @@ bool HIRTransformUtils::doConstantPropagation(HLNode *Node) {
   }
 #if INTEL_INCLUDE_DTRANS
   ConstantPropagater CP(DTII, Node);
-#else // INTEL_INCLUDE_DTRANS
+#else  // INTEL_INCLUDE_DTRANS
   ConstantPropagater CP(Node);
 #endif // INTEL_INCLUDE_DTRANS
   LLVM_DEBUG(dbgs() << "Before constprop\n"; Node->dump(););
@@ -1788,10 +1789,9 @@ std::pair<bool, HLInst *> HIRTransformUtils::constantFoldInst(HLInst *Inst,
   return std::make_pair(false, nullptr);
 }
 
-bool HIRTransformUtils::doScalarization(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
-                                        HLLoop *InnermostLp,
-                                        SmallSet<unsigned, 8> &SBS) {
-  return HIRArrayScalarization(HIRF, HDDA).doScalarization(InnermostLp, SBS);
+bool HIRTransformUtils::doArrayScalarization(HLLoop *InnermostLp,
+                                             SmallSet<unsigned, 8> &SBS) {
+  return HIRArrayScalarization::doScalarization(InnermostLp, SBS);
 }
 
 bool HIRTransformUtils::doOptVarPredicate(
