@@ -672,6 +672,7 @@ void initializeDataPerValueWrapperPass(PassRegistry &);
 void initializeKernelBarrierLegacyPass(PassRegistry &);
 void initializeBarrierInFunctionLegacyPass(PassRegistry &);
 void initializeImplicitArgsAnalysisLegacyPass(PassRegistry &);
+void initializeLinearIdResolverLegacyPass(PassRegistry &);
 void initializeLocalBufferAnalysisLegacyPass(PassRegistry &);
 void initializeAddImplicitArgsLegacyPass(PassRegistry &);
 void initializeResolveWICallLegacyPass(PassRegistry &);

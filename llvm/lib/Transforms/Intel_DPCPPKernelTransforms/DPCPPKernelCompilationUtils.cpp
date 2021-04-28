@@ -34,6 +34,8 @@ static const unsigned OpenCL_CPP = 4;
 
 const StringRef NAME_GET_GID = "get_global_id";
 const StringRef NAME_GET_LID = "get_local_id";
+const StringRef NAME_GET_LINEAR_GID = "get_global_linear_id";
+const StringRef NAME_GET_LINEAR_LID = "get_local_linear_id";
 const StringRef NAME_GET_GLOBAL_SIZE = "get_global_size";
 const StringRef NAME_GET_LOCAL_SIZE = "get_local_size";
 const StringRef NAME_GET_GROUP_ID = "get_group_id";
@@ -108,6 +110,14 @@ bool isGetEnqueuedLocalSize(StringRef S) {
   return isMangleOf(S, NAME_GET_ENQUEUED_LOCAL_SIZE);
 }
 
+bool isGetGlobalLinearId(StringRef S) {
+  return isOptionalMangleOf(S, NAME_GET_LINEAR_GID);
+}
+
+bool isGetLocalLinearId(StringRef S) {
+  return isOptionalMangleOf(S, NAME_GET_LINEAR_LID);
+}
+
 bool isGetGlobalSize(StringRef S) {
   return isOptionalMangleOf(S, NAME_GET_GLOBAL_SIZE);
 }
@@ -164,6 +174,16 @@ static std::string optionalMangleWithParam(StringRef N) {
 
 std::string mangledGetGID() {
   return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(NAME_GET_GID);
+}
+
+std::string mangledGetGlobalSize() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(
+      NAME_GET_GLOBAL_SIZE);
+}
+
+std::string mangledGetGlobalOffset() {
+  return optionalMangleWithParam<reflection::PRIMITIVE_UINT>(
+      NAME_GET_GLOBAL_OFFSET);
 }
 
 std::string mangledGetLID() {
