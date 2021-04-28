@@ -9,9 +9,9 @@ __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
 
 typedef int(*func)(int, int);
 typedef int(*fptr)(int);
-extern SYCL_EXTERNAL int bar(int, int);
-extern SYCL_EXTERNAL int zoo(int);
-extern SYCL_EXTERNAL int moo(int);
+extern SYCL_EXTERNAL __attribute__((sycl_explicit_simd)) int bar(int, int);
+extern SYCL_EXTERNAL __attribute__((sycl_explicit_simd)) int zoo(int);
+extern SYCL_EXTERNAL __attribute__((sycl_explicit_simd)) int moo(int);
 const func two = &bar;
 __attribute__((opencl_private)) __attribute__((sycl_explicit_simd)) fptr one_one;
 //CHECK: @"_Z3zooi$SIMDTable" = weak global [1 x i32 (i32)*] [i32 (i32)* @_Z3zooi]
