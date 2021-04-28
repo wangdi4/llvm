@@ -20,6 +20,7 @@
 #include "Intel_DTrans/Transforms/DTransOptBase.h"
 #include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/ADT/SetOperations.h"
+#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -485,8 +486,8 @@ Value *DynCloneImpl::generateBitFieldLoad(DynField &Elem, Value *Val,
 //     store i16 %435, i16* %431
 //
 Value *DynCloneImpl::generateBitFieldStore(DynField &Elem, Value *NewVal,
-                                           llvm::Type *NewSrcTy, Value *NewSrcOp,
-                                           IRBuilder<> &IRB) {
+                                           llvm::Type *NewSrcTy,
+                                           Value *NewSrcOp, IRBuilder<> &IRB) {
   if (!isPackedField(Elem))
     return NewVal;
   int Offset = PackedFieldBitOffsetMap[Elem];
@@ -732,22 +733,77 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   // Analyze constant assignments:  str->field = 200;
   // (Reencoding)
   // Collect large constants which doesn't fit into shrunken type with delta.
-  auto CheckConstInt = [&](Value *V, DynField &StElem) {
-    assert(isa<ConstantInt>(V) && "Expected ConstantInt");
-    auto *CInt = cast<ConstantInt>(V);
-    int64_t CValue = CInt->getValue().getLimitedValue();
+  auto CheckConstInt = [&](Value *V, int64_t CValue, DynField &StElem) {
     // If constant does not fit into shrunken type with delta, then add the
     // constant to the encoding constants set.
     if (!ConstantInt::isValueValidForType(ShrunkenIntTyWithDelta, CValue)) {
       DynFieldTracedToConstantValues[StElem].insert(V);
       DynFieldConstValueMap[StElem].insert(CValue);
-      LLVM_DEBUG(dbgs() << "    Large constant added to const field value map: "
-                        << CValue << " : ";
-                 printDynField(dbgs(), StElem));
-      DEBUG_WITH_TYPE(
-          REENCODING,
-          dbgs() << "        (Reencoding) Constant collected for encoding.\n");
+      DEBUG_WITH_TYPE(REENCODING, dbgs() << "        (Reencoding) "
+                                            "Constant collected for encoding: "
+                                         << CValue << " : ";
+                      printDynField(dbgs(), StElem));
     }
+  };
+
+  // Returns true if "V" can be simplified as a constant using FieldSingleValue
+  // analysis. When it returns true and the constant doesn't fit in shrunken
+  // type, the constant is added to the encoding constants set.
+  //
+  // For the given SelectInst, it tries to simplify the condition as constant
+  // using FSV and then simplify the SelectInst as constant. In the example
+  // below, the result of "select" instruction is -20000000 if we prove that %IC
+  // is always false for all values of %L. %M is not simplified since we don't
+  // need it right now.
+  // %L = load i64, i64* getelementptr (%struct1, %struct1* @nw, i64 0, i32 1)
+  // %IC = icmp sgt i64 %L, 10000000
+  // %M = mul i64 -2, %L
+  // %V = select i1 %IC, i64 %M, i64 -20000000
+  //
+  auto FoldSelectInstCheck = [&](Value *V, DynField &StElem) {
+    auto *SI = dyn_cast<SelectInst>(V);
+    if (!SI)
+      return false;
+    auto *IC = dyn_cast<ICmpInst>(SI->getCondition());
+    if (!IC)
+      return false;
+    Constant *CmpRHS = dyn_cast<Constant>(IC->getOperand(1));
+    if (!CmpRHS)
+      return false;
+    LoadInst *Load = dyn_cast<LoadInst>(IC->getOperand(0));
+    if (!Load)
+      return false;
+    auto Res = DTInfo.getInfoFromLoad(Load);
+    if (!Res.first)
+      return false;
+    dtrans::FieldInfo &FI = Res.first->getField(Res.second);
+    if (!FI.isValueSetComplete())
+      return false;
+    auto &TLI = GetTLI(*SI->getFunction());
+    Value *SelectRes = nullptr;
+    for (auto *C : FI.values()) {
+      Constant *CRes = ConstantFoldCompareInstOperands(IC->getPredicate(), C,
+                                                       CmpRHS, DL, &TLI);
+      Value *TempResult;
+      if (CRes->isNullValue())
+        TempResult = SI->getFalseValue();
+      else
+        TempResult = SI->getTrueValue();
+
+      if (!SelectRes)
+        SelectRes = TempResult;
+      else if (SelectRes != TempResult)
+        return false;
+    }
+
+    // For now, don't simplify further if result of SelectInst is not
+    // constant.
+    auto *CValue = dyn_cast_or_null<ConstantInt>(SelectRes);
+    if (!CValue)
+      return false;
+
+    CheckConstInt(V, CValue->getValue().getLimitedValue(), StElem);
+    return true;
   };
 
   // (Reencoding) Returns 'true' if the value could be traced back to the set of
@@ -760,10 +816,17 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   //     Y = max (Z, const3)
   //     Z = S.a   where S.a has a complete set of constant values calculated by
   //     FSV analysis.
+  //     U = (S.a > 1000000) ? some_val : const4 when value of "(S.a > 1000000)"
+  //     is proved as always false using FSV analysis.
   auto TraceConstantValue = [&](Value *V, DynField &StElem) {
     Value *AddOp = nullptr, *MulOp = nullptr;
     Value *MaxLHS = nullptr, *MaxRHS = nullptr;
     ConstantInt *AddC = nullptr, *MulC = nullptr, *ShlC = nullptr;
+
+    // Check if V can be simplified first.
+    if (FoldSelectInstCheck(V, StElem))
+      return true;
+
     if (!match(V, m_Add(m_Value(AddOp), m_ConstantInt(AddC))) &&
         !match(V, m_Add(m_ConstantInt(AddC), m_Value(AddOp)))) {
       if (llvm::IntegerType *VIntType = dyn_cast<IntegerType>(V->getType())) {
@@ -812,15 +875,7 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
         Const <<= ShlC->getSExtValue();
       if (AddC)
         Const += AddC->getSExtValue();
-      if (!ConstantInt::isValueValidForType(ShrunkenIntTyWithDelta, Const)) {
-        DynFieldConstValueMap[StElem].insert(Const);
-        DynFieldTracedToConstantValues[StElem].insert(V);
-        DEBUG_WITH_TYPE(REENCODING, dbgs() << "        (Reencoding) "
-                                              "Constant collected for "
-                                              "encoding: "
-                                           << Const << " : ";
-                        printDynField(dbgs(), StElem));
-      }
+      CheckConstInt(V, Const, StElem);
     }
     return true;
   };
@@ -859,8 +914,8 @@ bool DynCloneImpl::prunePossibleCandidateFields(void) {
   auto CheckStoredValue = [&, CheckConstInt, CheckLoadValue,
                            TraceConstantValue](Value *V, DynField &StElem,
                                                Function *F) {
-    if (isa<ConstantInt>(V)) {
-      CheckConstInt(V, StElem);
+    if (auto *CInt = dyn_cast<ConstantInt>(V)) {
+      CheckConstInt(V, CInt->getValue().getLimitedValue(), StElem);
     } else if (isa<LoadInst>(V)) {
       CheckLoadValue(V, StElem, F);
     } else if (TraceConstantValue(V, StElem)) {
@@ -3199,7 +3254,8 @@ void DynCloneImpl::transformInitRoutine(void) {
           ConstantInt::get(Type::getInt32Ty(M.getContext()), FI.second);
       Indices.push_back(Op2);
       Value *GEP = IRB.CreateInBoundsGEP(SOAGlobVarTy, SOAGlobVar, Indices);
-      Type *FieldTy = (cast<StructType>(SOAGlobVarTy))->getElementType(FI.second);
+      Type *FieldTy =
+          (cast<StructType>(SOAGlobVarTy))->getElementType(FI.second);
       LoadInst *LI = IRB.CreateLoad(FieldTy, GEP);
       auto *AI = SOAFieldAllocCallMap[FI];
       assert(AI && "Expected AInfo for each array field ");
