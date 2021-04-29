@@ -33,11 +33,11 @@ define dso_local void @foo(i64* nocapture %larr) local_unnamed_addr #0 {
 ;
 ; CHECK:  define dso_local void @foo(i64* nocapture [[LARR0]]) local_unnamed_addr {
 ; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[TMP0:%.*]] = ptrtoint i64* [[LARR0]] to i64
 ; CHECK-NEXT:    br label [[LOOP_160:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  loop.16:
 ; CHECK-NEXT:    [[I1_I64_00:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[NEXTIVLOOP_160:%.*]], [[LOOP_160]] ]
-; CHECK-NEXT:    [[TMP0:%.*]] = ptrtoint i64* [[LARR0]] to i64
 ; CHECK-NEXT:    [[DOTSPLATINSERT0:%.*]] = insertelement <4 x i64> poison, i64 [[TMP0]], i32 0
 ; CHECK-NEXT:    [[DOTSPLAT0:%.*]] = shufflevector <4 x i64> [[DOTSPLATINSERT0]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP1:%.*]] = add <4 x i64> [[DOTSPLAT0]], <i64 0, i64 8, i64 16, i64 24>
