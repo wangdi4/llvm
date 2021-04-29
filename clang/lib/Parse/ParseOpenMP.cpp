@@ -2478,7 +2478,7 @@ void Parser::skipUnsupportedTargetDirectives() {
       Diag(getCurToken().getLocation(),
          diag::warn_pragma_omp_ignored_for_target)
           << getOpenMPDirectiveName(NewDKind) << T.getArchName();
-      Diags.OptReportHandler.AddIgnoredPragma(
+      Diags.OpenMPOptReportHandler.AddIgnoredPragma(
           Actions.getCurFunctionDecl(), getOpenMPDirectiveName(NewDKind),
           getCurToken().getLocation());
       SkipUntil(tok::annot_pragma_openmp_end, StopBeforeMatch);
@@ -2539,9 +2539,9 @@ bool Parser::isIgnoredOpenMPDirective() {
       if (!isAllowedInSPIRSubset(DKind)) {
         Diag(Tok, diag::warn_pragma_omp_ignored_for_target)
             << getOpenMPDirectiveName(DKind) << T.getArchName();
-        Diags.OptReportHandler.AddIgnoredPragma(Actions.getCurFunctionDecl(),
-                                                getOpenMPDirectiveName(DKind),
-                                                getCurToken().getLocation());
+        Diags.OpenMPOptReportHandler.AddIgnoredPragma(
+            Actions.getCurFunctionDecl(), getOpenMPDirectiveName(DKind),
+            getCurToken().getLocation());
         Skipped = true;
       }
     }
