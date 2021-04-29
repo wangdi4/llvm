@@ -61,8 +61,8 @@ bb2:                                              ; preds = %bb1, %entry
 ; CHECK:         [[ARRAYIDX75:%.*]] = getelementptr inbounds [80 x i64], [80 x i64]* [[W]], i32 0, i32 [[I31:%.*]]
 ; CHECK-NEXT:    [[I368:%.*]] = load i64, i64* [[ARRAYIDX75]], align 8
 ;
-; CHECK-NOT:     [[ADD73:%.*]] = add i64 undef, [[I368]]
-; CHECK-NOT:     [[ADD76:%.*]] = add i64 [[ADD73]], [[ADD190568]]
+; CHECK-NOT:     %add73 = add i64 undef, [[I368]]
+; CHECK-NOT:     %add76 = add i64 %add73, [[ADD190568]]
 ;
 ; Check that vectorization happens as the way to expose the bug.
 ; CHECK:  store <2 x i64>
