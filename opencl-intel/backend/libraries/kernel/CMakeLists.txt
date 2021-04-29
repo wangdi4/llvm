@@ -41,6 +41,8 @@ function(create_ocl_kernel_target CLANG_FLAGS INPUT_CL TMP_DIR OUTPUT_DIR OUTPUT
     SOURCES ${INPUT_CL}
   )
 
+  add_dependencies(${RTL_TARGET_NAME} ${CLANG} common_clang${BUILD_PLATFORM} ${OPT})
+
   set_target_properties(${RTL_TARGET_NAME} PROPERTIES
                         FOLDER ${BACKEND_FOLDER_NAME}/cl_library_kernel)
 

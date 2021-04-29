@@ -82,7 +82,7 @@ set(UNUSED_LLVM_LIBS
 )
 list(REMOVE_ITEM LLVM_MODULE_LIBS ${UNUSED_LLVM_LIBS})
 
-add_opencl_executable(oclopt
+add_opencl_executable(${OCL_OPT}
   AnalysisWrappers.cpp
   BreakpointPrinter.cpp
   GraphPrinters.cpp

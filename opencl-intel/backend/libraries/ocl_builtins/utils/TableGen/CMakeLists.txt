@@ -7,7 +7,7 @@ endif()
 set(LLVM_PATH ${LLVM_PATH_FE})
 find_package(LLVM REQUIRED)
 
-set(TARGET_NAME ocl-tblgen)
+set(TARGET_NAME ${OCL_TBLGEN})
 set(CLANG_BIN_PATH "${LLVM_BINARY_DIR}/clang")
 
 add_definitions(
@@ -47,7 +47,7 @@ if (OPENCL_INTREE_BUILD)
   # before we can launch ocl-tblgen. Instead of adding
   # the clang dependece to all target invoking ocl-tblgen,
   # add clang dependency here.
-  add_dependencies(${TARGET_NAME} clang)
+  add_dependencies(${TARGET_NAME} ${CLANG})
 endif()
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
