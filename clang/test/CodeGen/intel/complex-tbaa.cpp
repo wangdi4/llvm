@@ -50,5 +50,5 @@ void foo(complex<float> *dest, complex<float> *src1, complex<float> *src2) {
 // CHECK: [[TYPE_char:!.*]] = !{!"omnipotent char", [[TAG_cxx_tbaa:!.*]], {{.*}}
 // CHECK: [[TBAA_struct]] = !{i64 0, i64 8, [[TAG_9:!.*]]}
 // CHECK: [[TAG_9]] = !{[[TYPE_char]], [[TYPE_char]], i64 0}
-// CHECK-NOT: [[TAG_c]] = !{!"_Complex@_ZTSf", {{.*}}
+// CHECK-NOT: !{!"_Complex@_ZTSf", {{.*}}
 // CHECK: [[TAG_float:!.*]] = !{!"float", !{{.*}}, i64 0}
