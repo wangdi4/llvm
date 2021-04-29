@@ -21,9 +21,9 @@ void foo(A *& f)
 // CHECK-SAME: "QUAL.OMP.PRIVATE"(%class.A*** [[MAP_ADDR]])
 // CHECK: store {{.*}}, %class.A*** [[MAP_ADDR]],
 // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TEAMS
-// CHECK-SAME: "QUAL.OMP.SHARED"(%class.A*** [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:BYREF"(%class.A*** [[MAP_ADDR]])
 // CHECK: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.DISTRIBUTE.PARLOOP
-// CHECK-SAME: "QUAL.OMP.SHARED"(%class.A*** [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:BYREF"(%class.A*** [[MAP_ADDR]])
 // CHECK: load %class.A**, %class.A*** [[MAP_ADDR]]
 // CHECK: region.exit(token [[TV3]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
 // CHECK: region.exit(token [[TV2]]) [ "DIR.OMP.END.TEAMS"() ]
@@ -41,7 +41,7 @@ void foo(A *& f)
     f->a = 10;
 // CHECK: [[L:%[0-9]+]] = load %class.A**, %class.A*** [[F_ADDR]]
 // CHECK: [[TV4:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.PARALLEL
-// CHECK-SAME:"QUAL.OMP.SHARED"(%class.A** [[L]])
+// CHECK-SAME:"QUAL.OMP.SHARED:BYREF"(%class.A*** [[F_ADDR]])
 #pragma omp parallel
   for (int i = 0 ; i < 10 ; i ++)
     f->a = 10;
@@ -56,9 +56,9 @@ void foo_one(A & f)
 // CHECK-SAME: "QUAL.OMP.PRIVATE"(%class.A** [[MAP_ADDR]])
 // CHECK: store {{.*}}, %class.A** [[MAP_ADDR]],
 // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TEAMS
-// CHECK-SAME: "QUAL.OMP.SHARED"(%class.A** [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:BYREF"(%class.A** [[MAP_ADDR]])
 // CHECK: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.DISTRIBUTE.PARLOOP
-// CHECK-SAME: "QUAL.OMP.SHARED"(%class.A** [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:BYREF"(%class.A** [[MAP_ADDR]])
 // CHECK: load %class.A*, %class.A** [[MAP_ADDR]]
 // CHECK: region.exit(token [[TV3]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
 // CHECK: region.exit(token [[TV2]]) [ "DIR.OMP.END.TEAMS"() ]
@@ -76,9 +76,9 @@ void foo_two(A && f)
 // CHECK-SAME: "QUAL.OMP.PRIVATE"(%class.A** [[MAP_ADDR]])
 // CHECK: store {{.*}}, %class.A** [[MAP_ADDR]],
 // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TEAMS
-// CHECK-SAME: "QUAL.OMP.SHARED"(%class.A** [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:BYREF"(%class.A** [[MAP_ADDR]])
 // CHECK: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.DISTRIBUTE.PARLOOP
-// CHECK-SAME: "QUAL.OMP.SHARED"(%class.A** [[MAP_ADDR]])
+// CHECK-SAME: "QUAL.OMP.SHARED:BYREF"(%class.A** [[MAP_ADDR]])
 // CHECK: load %class.A*, %class.A** [[MAP_ADDR]]
 // CHECK: region.exit(token [[TV3]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"() ]
 // CHECK: region.exit(token [[TV2]]) [ "DIR.OMP.END.TEAMS"() ]
