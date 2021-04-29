@@ -35,9 +35,46 @@ config.test_source_root = os.path.dirname(__file__)
 # test_exec_root: The root path where tests should be run.
 config.test_exec_root = os.path.join(config.sycl_obj_root, 'test')
 
+# INTEL_CUSTOMIZATION
+def getAdditionalFlags():
+    flags = []
+    # Propagate --gcc-toolchain if we are overriding system installed gcc.
+    if 'ICS_GCCBIN' in os.environ:
+        flags += ['--gcc-toolchain='
+            + os.path.normpath(os.path.join(os.environ['ICS_GCCBIN'], ".." ) ) ]
+    # Add flags according to used host device backend
+    backend = os.getenv('DPCPP_HOST_BACKEND', 'serial').lower()
+    if backend is not None:
+        if backend == 'openmp':
+            flags += ['-DDPCPP_HOST_DEVICE_OPENMP=1', '-fopenmp']
+        elif backend == 'openmp-perf':
+            flags += ['-DDPCPP_HOST_DEVICE_PERF_NATIVE=1', '-fiopenmp', \
+                      '-mllvm', '-enable-dpcpp-kernel-transforms', '-O3']
+        elif backend == 'serial':
+            pass
+        else:
+            print("Unknown host backend: " + backend)
+
+    return flags
+
+llvm_config.use_clang(additional_flags=getAdditionalFlags())
+# end INTEL_CUSTOMIZATION
+
 # Propagate some variables from the host environment.
 llvm_config.with_system_environment(['PATH', 'OCL_ICD_FILENAMES', 'SYCL_DEVICE_ALLOWLIST', 'SYCL_CONFIG_FILE_NAME'])
 llvm_config.with_system_environment(['TC_WRAPPER_PATH']) # INTEL_CUSTOMIZATION
+
+# Propagate extra environment variables
+if config.extra_environment:
+    lit_config.note("Extra environment variables")
+    for env_pair in config.extra_environment.split(','):
+        [var,val]=env_pair.split("=")
+        if val:
+           llvm_config.with_environment(var,val)
+           lit_config.note("\t"+var+"="+val)
+        else:
+           lit_config.note("\tUnset "+var)
+           llvm_config.with_environment(var,"")
 
 # Configure LD_LIBRARY_PATH or corresponding os-specific alternatives
 # Add 'libcxx' feature to filter out all SYCL abi tests when SYCL runtime
@@ -81,31 +118,6 @@ config.substitutions.append( ('%cuda_toolkit_include',  config.cuda_toolkit_incl
 config.substitutions.append( ('%sycl_tools_src_dir',  config.sycl_tools_src_dir ) )
 config.substitutions.append( ('%llvm_build_lib_dir',  config.llvm_build_lib_dir ) )
 config.substitutions.append( ('%llvm_build_bin_dir',  config.llvm_build_bin_dir ) )
-
-# INTEL_CUSTOMIZATION
-def getAdditionalFlags():
-    flags = []
-    # Propagate --gcc-toolchain if we are overriding system installed gcc.
-    if 'ICS_GCCBIN' in os.environ:
-        flags += ['--gcc-toolchain='
-            + os.path.normpath(os.path.join(os.environ['ICS_GCCBIN'], ".." ) ) ]
-    # Add flags according to used host device backend
-    backend = os.getenv('DPCPP_HOST_BACKEND', 'serial').lower()
-    if backend is not None:
-        if backend == 'openmp':
-            flags += ['-DDPCPP_HOST_DEVICE_OPENMP=1', '-fopenmp']
-        elif backend == 'openmp-perf':
-            flags += ['-DDPCPP_HOST_DEVICE_PERF_NATIVE=1', '-fiopenmp', \
-                      '-mllvm', '-enable-dpcpp-kernel-transforms', '-O3']
-        elif backend == 'serial':
-            pass
-        else:
-            print("Unknown host backend: " + backend)
-
-    return flags
-
-llvm_config.use_clang(additional_flags=getAdditionalFlags())
-# end INTEL_CUSTOMIZATION
 
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
 config.substitutions.append( ('%opencl_libs_dir',  config.opencl_libs_dir) )
