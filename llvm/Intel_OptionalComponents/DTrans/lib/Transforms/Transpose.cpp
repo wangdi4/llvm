@@ -28,6 +28,8 @@ using namespace llvm;
 
 using namespace dvanalysis;
 
+using namespace llvm::PatternMatch;
+
 #define DEBUG_TYPE "dtrans-transpose"
 
 // Trace messages about the analysis of the IR for transposing
@@ -461,8 +463,6 @@ public:
     // backedge. If a trip count can be determined, return it, otherwise
     // return 0.
     auto EstimateLoopTripCount = [](Loop *L) -> uint64_t {
-      using namespace llvm::PatternMatch;
-
       if (!L)
         return 0;
 
@@ -529,20 +529,35 @@ public:
     };
 
     // Return 'true' if 'Inst' represents a PHINode which is the index of
-    // SubscriptInst which is then optionally sign or zero extended. Such a
-    // pattern is indicative of indexing into an array.
+    // SubscriptInst potentially offset by a constant and then optionally sign or
+    // zero extended. Such a pattern is indicative of indexing into an array.
     auto IsIndirectIndex = [](Instruction *Inst) -> bool {
       if (!Inst)
         return false;
       auto CI = dyn_cast<CastInst>(Inst);
-      if (CI && (isa<SExtInst>(CI) || isa<ZExtInst>(CI)))
+      if (CI && (isa<SExtInst>(CI) || isa<ZExtInst>(CI))) {
         Inst = dyn_cast<Instruction>(CI->getOperand(0));
-      auto LI = dyn_cast_or_null<LoadInst>(Inst);
+        if (!Inst)
+          return false;
+      }
+      Value *V = nullptr;
+      ConstantInt *C = nullptr;
+      if (match(Inst, m_Add(m_Value(V), m_ConstantInt(C))) ||
+          match(Inst, m_Add(m_ConstantInt(C), m_Value(V))) ||
+          match(Inst, m_Sub(m_Value(V), m_ConstantInt(C))) ||
+          match(Inst, m_Sub(m_ConstantInt(C), m_Value(V)))) {
+        Inst = dyn_cast<Instruction>(V);
+        if (!Inst)
+          return false;
+      }
+      auto LI = dyn_cast<LoadInst>(Inst);
       if (!LI)
         return false;
       auto SI = dyn_cast<SubscriptInst>(LI->getPointerOperand());
       if (!SI)
         return false;
+      while (auto W = dyn_cast<SubscriptInst>(SI->getPointerOperand()))
+        SI = W;
       return isa<PHINode>(SI->getIndex());
     };
 
