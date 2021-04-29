@@ -163,6 +163,11 @@ static cl::opt<bool> EmitWksLoopsImplicitBarrierForTarget(
         "Emit implicit barrier after worksharing loops/sections during target "
         "compilation."));
 
+static cl::opt<bool> CollapseAlways(
+    "vpo-paropt-collapse-always", cl::Hidden, cl::init(false),
+    cl::desc("Always collapse loop nests with collapse clause. "
+             "This overrides default collapse behavior for some targets."));
+
 //
 // Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
 // (DFS) to gather all WRegion Nodes;
@@ -11019,7 +11024,8 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   if (IsTopLevelTargetLoop) {
     // Use NDRANGE clause only for top-level loops enclosed into
     // a target region.
-    if (NumLoops > 3 ||
+    if (CollapseAlways ||
+        NumLoops > 3 ||
         // Always collapse "omp distribute" loop nests.
         // Ideally, on SPIR targets each iteration of the collapsed loop nest
         // must be run by one WG, but there is currently no way to communicate

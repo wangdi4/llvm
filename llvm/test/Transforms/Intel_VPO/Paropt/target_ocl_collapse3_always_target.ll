@@ -1,5 +1,5 @@
-; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-collapse-always=false -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -switch-to-offload -vpo-paropt-collapse-always=false -S | FileCheck %s
+; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-collapse-always=true -S | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -switch-to-offload -vpo-paropt-collapse-always=true -S | FileCheck %s
 
 ; Original code:
 ; void foo(int n) {
@@ -9,10 +9,11 @@
 ;       for (int k = 0; k < n; ++k);
 ; }
 
-; Check that the loop nest was parallelized as a whole (i.e. using ND-range):
+; Check that the loop nest was collapsed due to -vpo-paropt-collapse-always,
+; and that ND-range parallelization is used:
 ; CHECK: call spir_func i64 @_Z13get_global_idj(i32 0)
-; CHECK: call spir_func i64 @_Z13get_global_idj(i32 1)
-; CHECK: call spir_func i64 @_Z13get_global_idj(i32 2)
+; CHECK-NOT: call spir_func i64 @_Z13get_global_idj(i32 1)
+; CHECK-NOT: call spir_func i64 @_Z13get_global_idj(i32 2)
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"
