@@ -9279,7 +9279,8 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
     // TODO: -SPV_INTEL_fpga_buffer_location option is added as workaround
     // to CMPLRLLVM-21950. This option should removed when the Jira is
     // resolved, and replaced with just "-spirv-ext=+all"
-    TranslatorArgs.push_back("-spirv-ext=+all,-SPV_INTEL_fpga_buffer_location");
+    TranslatorArgs.push_back("-spirv-ext=+all,-SPV_INTEL_fpga_buffer_location,"
+                             "-SPV_INTEL_memory_access_aliasing");
     TranslatorArgs.push_back("-spirv-allow-unknown-intrinsics");
   }
 #endif // INTEL_CUSTOMIZATION
