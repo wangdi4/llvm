@@ -1529,9 +1529,34 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
   case VPInstruction::ActiveLaneExtract: {
-    VPScalarMap[VPInst][0] =
-        Builder.CreateExtractElement(getVectorValue(VPInst->getOperand(0)),
-                                     getScalarValue(VPInst->getOperand(1), 0));
+    auto *VecTy = dyn_cast<VectorType>(VPInst->getType());
+    if (!VecTy) {
+      VPScalarMap[VPInst][0] = Builder.CreateExtractElement(
+          getVectorValue(VPInst->getOperand(0)),
+          getScalarValue(VPInst->getOperand(1), 0));
+      return;
+    }
+    // Original type was vector. Suppose it was <2 x type>, VF == 2 and active
+    // lane is equals to "1" (in runtime). We'd need to extract elements (2, 3)
+    // from the wide vector in this case:
+    //
+    // VecValue: |0.1, 0.2 | 1.1, 1.2 |
+    //
+    // ActiveScalar: <1.1, 1.2>
+    auto *Val = getVectorValue(VPInst->getOperand(0));
+    auto *ActiveLane = getScalarValue(VPInst->getOperand(1), 0);
+    auto *I32Ty = IntegerType::getInt32Ty(ActiveLane->getType()->getContext());
+    auto NumElt = VecTy->getNumElements();
+    Value *Result = UndefValue::get(VPInst->getType());
+    auto *IndexBase = Builder.CreateMul(Builder.CreateZExt(ActiveLane, I32Ty),
+                                        ConstantInt::get(I32Ty, NumElt));
+    for (unsigned EltIdx = 0; EltIdx < NumElt; ++EltIdx) {
+      auto *Index =
+          Builder.CreateAdd(IndexBase, ConstantInt::get(I32Ty, EltIdx));
+      auto *Extract = Builder.CreateExtractElement(Val, Index);
+      Result = Builder.CreateInsertElement(Result, Extract, EltIdx);
+    }
+    VPScalarMap[VPInst][0] = Result;
     return;
   }
   case VPInstruction::PushVF: {
