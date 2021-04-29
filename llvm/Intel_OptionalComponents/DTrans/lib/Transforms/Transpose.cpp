@@ -528,19 +528,40 @@ public:
       return 0;
     };
 
+    // Return 'true' if 'Inst' represents a PHINode which is the index of
+    // SubscriptInst which is then optionally sign or zero extended. Such a
+    // pattern is indicative of indexing into an array.
+    auto IsIndirectIndex = [](Instruction *Inst) -> bool {
+      if (!Inst)
+        return false;
+      auto CI = dyn_cast<CastInst>(Inst);
+      if (CI && (isa<SExtInst>(CI) || isa<ZExtInst>(CI)))
+        Inst = dyn_cast<Instruction>(CI->getOperand(0));
+      auto LI = dyn_cast_or_null<LoadInst>(Inst);
+      if (!LI)
+        return false;
+      auto SI = dyn_cast<SubscriptInst>(LI->getPointerOperand());
+      if (!SI)
+        return false;
+      return isa<PHINode>(SI->getIndex());
+    };
+
     // This lambda function will recurse down the subscript intrinsic call
     // chain, accumulating a gain value for each dimension which will be used to
     // determine which dimension should be given the smallest stride.
     std::function<void(Instruction *, LoopInfo &,
                        std::array<Instruction *, FortranMaxRank> &,
                        std::array<unsigned, FortranMaxRank> &,
+                       std::array<bool, FortranMaxRank> &,
                        std::array<double, FortranMaxRank> &,
                        SmallPtrSetImpl<Instruction *> &)>
         ComputeGain;
-    ComputeGain = [this, &ComputeGain, &EstimateLoopTripCount](
+    ComputeGain = [this, &ComputeGain, &EstimateLoopTripCount,
+                      &IsIndirectIndex](
                       Instruction *I, LoopInfo &LI,
                       std::array<Instruction *, FortranMaxRank> &IndexChain,
                       std::array<unsigned, FortranMaxRank> &IndexVarianceDepth,
+                      std::array<bool, FortranMaxRank> &IsIndirectlyIndexed,
                       std::array<double, FortranMaxRank> &Gains,
                       SmallPtrSetImpl<Instruction *> &Visited) {
       if (!Visited.insert(I).second)
@@ -555,7 +576,8 @@ public:
       if (isa<SelectInst>(I) || isa<PHINode>(I)) {
         for (auto *UU : I->users())
           if (auto *I2 = dyn_cast<Instruction>(UU))
-            ComputeGain(I2, LI, IndexChain, IndexVarianceDepth, Gains, Visited);
+            ComputeGain(I2, LI, IndexChain, IndexVarianceDepth,
+                        IsIndirectlyIndexed, Gains, Visited);
         return;
       }
 
@@ -572,6 +594,7 @@ public:
 
       Value *Index = Subs->getIndex();
       Instruction *IndexInst = dyn_cast<Instruction>(Index);
+      IsIndirectlyIndexed[Dim] = IsIndirectIndex(IndexInst) ? true : false;
       unsigned IndexLoopDepth =
           IndexInst ? LI.getLoopDepth(IndexInst->getParent()) : 0;
 
@@ -583,7 +606,8 @@ public:
       if (Dim != 0) {
         for (auto *UU : Subs->users())
           if (auto *I3 = dyn_cast<Instruction>(UU))
-            ComputeGain(I3, LI, IndexChain, IndexVarianceDepth, Gains, Visited);
+            ComputeGain(I3, LI, IndexChain, IndexVarianceDepth,
+                        IsIndirectlyIndexed, Gains, Visited);
       } else {
         // We are relying on the subscript calls being chained together
         // from highest dimension to lowest dimension, when we reach the
@@ -620,20 +644,25 @@ public:
             // walking one of the other dimensions, so we need to apply an
             // appropriate gain level to the loops that led to this loop.
             for (unsigned Idx = 0; Idx < ArrayRank; ++Idx) {
-              // Estimate a factor of 10 for each loop level based on the
-              // variance depth of the dimension's index.
-              double Gain =
-                  pow(10.0, IndexVarianceDepth[Idx]) * Subs->getNumUses();
+              // If the array is indirectly indexed in some dimension, we
+              // do not want to count that toward the gain, as the indexing
+              // can bounce around in an unpredictable way.
+              if (!IsIndirectlyIndexed[Idx]) {
+                // Estimate a factor of 10 for each loop level based on the
+                // variance depth of the dimension's index.
+                double Gain = pow(10.0, IndexVarianceDepth[Idx]) *
+                    Subs->getNumUses();
 
-              DEBUG_WITH_TYPE(DEBUG_PROFITABILITY,
-                              dbgs() << "  Gain for dimension " << Idx << ": "
-                                     << Gain << "\n");
+                DEBUG_WITH_TYPE(DEBUG_PROFITABILITY,
+                                dbgs() << "  Gain for dimension "
+                                       << Idx << ": " << Gain << "\n");
 
-              // Saturate to avoid numeric overflow.
-              double NewGain = Gains[Idx] + Gain;
-              Gains[Idx] = NewGain > Gains[Idx]
-                               ? NewGain
-                               : std::numeric_limits<double>::max();
+                // Saturate to avoid numeric overflow.
+                double NewGain = Gains[Idx] + Gain;
+                Gains[Idx] = NewGain > Gains[Idx]
+                             ? NewGain
+                             : std::numeric_limits<double>::max();
+              }
             }
           }
         }
@@ -671,6 +700,10 @@ public:
     // nested loop.
     std::array<unsigned, FortranMaxRank> IndexVarianceDepth = {};
 
+    // This is 'true' if the index value at a particular dimension is determined
+    // by indexing through an array (via a SubscriptInst).
+    std::array<bool, FortranMaxRank> IsIndirectlyIndexed = {};
+
     SmallPtrSet<Instruction *, 32> Visited;
     for (auto &KV : FuncToSubsVec) {
       auto &LI = (GetLI)(*KV.first);
@@ -678,7 +711,8 @@ public:
         continue;
 
       for (auto *Subs : KV.second)
-        ComputeGain(Subs, LI, IndexChain, IndexVarianceDepth, Gains, Visited);
+        ComputeGain(Subs, LI, IndexChain, IndexVarianceDepth,
+                    IsIndirectlyIndexed, Gains, Visited);
     }
     double CurrentUnitStridedGain = Gains[0];
 

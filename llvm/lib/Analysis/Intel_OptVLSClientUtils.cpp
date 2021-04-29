@@ -152,7 +152,7 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
 
       // Generate the load
       Instruction *NewLoad =
-          Builder.CreateAlignedLoad(NewBasePtr, MaybeAlign(Alignment));
+          Builder.CreateAlignedLoad(VecTy, NewBasePtr, MaybeAlign(Alignment));
       InstMap[OInst->getId()] = NewLoad;
     } else if (const OVLSShuffle *const OSI =
                    dyn_cast<const OVLSShuffle>(OInst)) {
