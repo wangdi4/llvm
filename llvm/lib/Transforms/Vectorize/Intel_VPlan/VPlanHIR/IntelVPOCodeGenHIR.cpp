@@ -1594,11 +1594,24 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
 
       auto OldSymbase = BlobUtilities.getTempBlobSymbase(BI);
 
-      // A temp blob not widened before is a loop invariant - it will be
-      // broadcast in HIRCG when needed.
+      // A temp blob not widened before is scalarized value - we ignore scalar
+      // types since it will be implicitly broadcasted in HIRCG when needed. For
+      // vector type blobs we do an explicit replication.
       if (auto *WRef = getWideRef(OldSymbase)) {
         AuxRefs.push_back(WRef);
         CE->replaceBlob(BI, WRef->getSingleCanonExpr()->getSingleBlobIndex());
+      } else if (TopBlob->getType()->isVectorTy()) {
+        assert(WideRef->getSingleCanonExpr()->getSingleBlobIndex() == BI &&
+               "Unexpected RegDDRef/Blob for scalarized vector blob");
+        assert(WideRef->getDestType() != VecRefDestTy &&
+               "Vector Blob was not scalarized.");
+        // Replicate vector blob VF times.
+        HLInst *ReplBlobInst = replicateVector(WideRef, VF);
+        // Insert the replicating instruction into vector loop.
+        addInstUnmasked(ReplBlobInst);
+        auto NewRef = ReplBlobInst->getLvalDDRef();
+        AuxRefs.push_back(NewRef);
+        CE->replaceBlob(BI, NewRef->getSingleCanonExpr()->getSingleBlobIndex());
       }
     }
 
@@ -3073,13 +3086,15 @@ void VPOCodeGenHIR::addPaddingRuntimeCheck(
 }
 
 RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
-  assert((isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal) ||
-          isa<VPExternalUse>(VPVal)) &&
-         "Expected a VPExternalDef/VPConstant/VPExternalUse");
-
+  // Check if VPValue already has scalar Ref for lane 0. Uniform instructions
+  // that are scalarized are expected to be handled here.
   RegDDRef *ScalarRef = nullptr;
   if ((ScalarRef = getScalRefForVPVal(VPVal, 0)))
     return ScalarRef->clone();
+
+  assert((isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal) ||
+          isa<VPExternalUse>(VPVal)) &&
+         "Expected a VPExternalDef/VPConstant/VPExternalUse");
 
   auto GetScalarRefForExternal = [this](const VPOperandHIR *HIROperand,
                                         Type *VPValTy) -> RegDDRef * {
