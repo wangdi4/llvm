@@ -663,6 +663,7 @@ static Loop *cloneLoopBody(BasicBlock *Before, Loop *OrigLoop,
   for (BasicBlock *BB : OrigLoop->getBlocks()) {
     // Update loop headers.
     Loop *CurLoop = LI->getLoopFor(BB);
+    assert(CurLoop && "Value should not be nullptr!");
     if (BB == CurLoop->getHeader())
       LMap[CurLoop]->moveToHeader(cast<BasicBlock>(VMap[BB]));
   }

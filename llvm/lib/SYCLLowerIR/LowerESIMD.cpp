@@ -32,6 +32,12 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+#include "llvm/GenXIntrinsics/GenXMetadata.h"
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
+
 #include <cctype>
 #include <cstring>
 #include <unordered_map>
@@ -335,6 +341,8 @@ public:
         {"dpas2", {"dpas.nosrc0", {a(0), a(1), a(2)}}},
         {"dpasw", {"dpasw", {a(0), a(1), a(2), a(3)}}},
         {"dpasw2", {"dpasw.nosrc0", {a(0), a(1), a(2)}}},
+        {"nbarrier", {"nbarrier", {a(0), a(1), a(2)}}},
+        {"raw_send_nbarrier_signal", {"raw.send.noresult", {a(0), ai1(4), a(1), a(2), a(3)}}},
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
         {"satf", {"sat", {a(0)}}},
@@ -744,6 +752,39 @@ static void translateUnPackMask(CallInst &CI) {
     TransCInst->setDebugLoc(CI.getDebugLoc());
   CI.replaceAllUsesWith(TransCI);
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+
+// This function sets VCNamedBarrierCount attribute to set
+// the number of named barriers required by a kernel
+static void translateNbarrierInit(CallInst &CI) {
+  auto F = CI.getParent()->getParent();
+
+  auto *ArgV = CI.getArgOperand(0);
+  assert(isa<ConstantInt>(ArgV) && "integral constant expected for nbarrier count");
+
+  auto NewVal = cast<llvm::ConstantInt>(ArgV)->getZExtValue();
+  assert(NewVal != 0 && "zero nbarrier count being requested");
+
+  if (llvm::MDNode *Node = getSLMSizeMDNode(F)) {
+    if (llvm::Value *OldCount =
+            getVal(Node->getOperand(genx::KernelMDOp::NBarrierCnt))) {
+      assert(isa<llvm::ConstantInt>(OldCount) && "integer constant expected");
+      llvm::Value *NewCount =
+          llvm::ConstantInt::get(OldCount->getType(), NewVal);
+      uint64_t OldVal = cast<llvm::ConstantInt>(OldCount)->getZExtValue();
+      if (OldVal < NewVal)
+        Node->replaceOperandWith(genx::KernelMDOp::NBarrierCnt,
+                                 getMD(NewCount));
+    }
+  } else {
+    llvm_unreachable("esimd_nbarrier_init can only be called by a kernel");
+  }
+}
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
+
 
 static bool translateVLoad(CallInst &CI, SmallPtrSet<Type *, 4> &GVTS) {
   if (GVTS.find(CI.getType()) != GVTS.end())
@@ -1358,6 +1399,15 @@ size_t SYCLLowerESIMDPass::runOnFunction(Function &F,
         ESIMDToErases.push_back(CI);
         continue;
       }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+      if (Name.startswith("__esimd_nbarrier_init")) {
+        translateNbarrierInit(*CI);
+        ESIMDToErases.push_back(CI);
+        continue;
+      }
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
       if (Name.startswith("__esimd_pack_mask")) {
         translatePackMask(*CI);
         ESIMDToErases.push_back(CI);

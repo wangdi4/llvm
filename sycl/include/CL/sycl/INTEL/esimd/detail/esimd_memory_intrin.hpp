@@ -516,6 +516,39 @@ __esimd_raw_send_store(uint8_t modifier, uint8_t execSize,
 // Wait for val to be ready
 SYCL_EXTERNAL void __esimd_wait(uint16_t val);
 
+// Represents named barrier synchronization for a subgroup of threads.
+// Available only on PVC+.
+//
+// @param mode  - is wait(0) or signal(1)
+//
+// @param id  - barrier id
+//
+// @param thread_count  - number of threads, ignored in 'wait' mode
+SYCL_EXTERNAL void __esimd_nbarrier(uint8_t mode, uint8_t id, uint8_t thread_count);
+
+// Refer to esimd_nbarrier_init
+SYCL_EXTERNAL void __esimd_nbarrier_init(uint8_t count);
+
+// Raw send signal to perform signal operation on named barriers
+// Available only on PVC+.
+// @tparam Ty  - message element type
+//
+// @tparam N  - message length
+//
+// @param is_sendc  - is sendc
+//
+// @param extended_descriptor  - extended message descriptor
+//
+// @param descriptor  - message descriptor
+//
+// @param msg_var  - source operand of send message
+//
+// @param pred  - predicate for enabled channels
+template <typename Ty, int N>
+SYCL_EXTERNAL void __esimd_raw_send_nbarrier_signal(
+    uint32_t is_sendc, uint32_t extended_descriptor, uint32_t descriptor,
+    __SIGD::vector_type_t<Ty, N> msg_var, uint16_t pred = 1);
+
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
@@ -1101,6 +1134,22 @@ inline void __esimd_raw_send_store(uint8_t modifier, uint8_t execSize,
 
 // Wait for val to be ready
 inline void __esimd_wait(uint16_t val) {}
+
+inline void __esimd_nbarrier(uint8_t mode, uint8_t id, uint8_t thread_count) {
+   throw cl::sycl::feature_not_supported();
+}
+
+inline void __esimd_nbarrier_init(uint8_t count) {
+   throw cl::sycl::feature_not_supported();
+}
+
+
+template <typename Ty, int N>
+inline void __esimd_raw_send_nbarrier_signal(
+    uint32_t is_sendc, uint32_t extended_descriptor, uint32_t descriptor,
+    __SIGD::vector_type_t<Ty, N> msg_var, uint16_t pred) {
+  throw cl::sycl::feature_not_supported();
+}
 
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
