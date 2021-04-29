@@ -16,6 +16,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Pass.h"
 
@@ -133,6 +134,9 @@ extern bool isValidUseOfSubscriptCall(const SubscriptInst &Subs,
 // This class is used to collect information about a single field address that
 // points to one of the dope vector fields. This is used during dope vector
 // analysis to track loads and stores of the field for safety.
+//
+// If AllowMultipleFieldAddresses is true then it means that multiple pointers
+// can access the field.
 class DopeVectorFieldUse {
 public:
   using LoadInstSet = SmallPtrSet<LoadInst *, 8>;
@@ -142,9 +146,10 @@ public:
   using StoreInstSet = SmallPtrSet<StoreInst *, 1>;
   using StoreInstSetIter = StoreInstSet::const_iterator;
 
-  DopeVectorFieldUse()
-      : IsBottom(false), IsRead(false), IsWritten(false), FieldAddr(nullptr),
-        ConstantValue(nullptr) {}
+  DopeVectorFieldUse(bool AllowMultipleFieldAddresses = false)
+      : IsBottom(false), IsRead(false), IsWritten(false),
+        ConstantValue(nullptr),
+        AllowMultipleFieldAddresses(AllowMultipleFieldAddresses) {}
 
   DopeVectorFieldUse(const DopeVectorFieldUse &) = delete;
   DopeVectorFieldUse(DopeVectorFieldUse &&) = default;
@@ -161,17 +166,17 @@ public:
     return (*Stores.begin())->getValueOperand();
   }
 
-  void setFieldAddr(Value *V) {
-    // If we already saw an object that holds a pointer to the field address,
-    // then we go to bottom since we only expect a single Value object to hold
-    // the address for the entire function being analyzed.
-    if (FieldAddr && V != FieldAddr)
-      IsBottom = true;
-    FieldAddr = V;
+  void addFieldAddr(Value *V) {
+    // If AllowMultipleFieldAddresses is disabled then only one
+    // value should access the current field.
+    if (!AllowMultipleFieldAddresses &&
+        !FieldAddr.empty() && FieldAddr[0] != V)
+        IsBottom = true;
+    FieldAddr.insert(V);
   }
 
   // Check if the field address has been set.
-  bool hasFieldAddr() const { return FieldAddr != nullptr; }
+  bool hasFieldAddr() const { return !FieldAddr.empty(); }
 
   // Get the set of load instructions.
   iterator_range<LoadInstSetIter> loads() const {
@@ -204,6 +209,8 @@ public:
   // value for the current field
   void identifyConstantValue();
 
+  // Indicate that multiple field addresses are allowed.
+  void setAllowMultipleFieldAddresses();
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
   void print(raw_ostream &OS, const Twine &Header) const;
@@ -215,8 +222,8 @@ private:
   bool IsRead;
   bool IsWritten;
 
-  // Value object that contains the address for the field.
-  Value *FieldAddr;
+  // SetVector that contains the addresses for the field.
+  SetVector<Value *> FieldAddr;
 
   // Set of locations the field is written to. Used to check what
   // value(s) is stored.
@@ -231,6 +238,13 @@ private:
 
   // Constant value collected for the current field
   ConstantInt *ConstantValue;
+
+  // False if the DopeVectorFieldUse is limited to only one field address.
+  // In the case of local dope vectors, we may have only one instruction
+  // accessing the field address. On the other hand, for nested dope vectors
+  // there is a chance for multiple pointers could access the current field.
+  // The default value is false.
+  bool AllowMultipleFieldAddresses;
 
   // Return true if the input value V is a load instruction, or a store
   // instruction where the pointer operand is Pointer.
@@ -411,8 +425,27 @@ public:
 
   // Identify the field a getelementptr instruction corresponds to in the dope
   // vector object. Return DV_Invalid if it is not a valid dope vector field.
+  // If DopeVectorIndex is larger than 0 then it means that the dope vector
+  // information starts at that index in the GEP. For example:
+  //
+  //    %92 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE",
+  //          %"ARR_MOD$.btT_TESTTYPE"* %78, i64 0, i32 1, i32 6, i64 0, i32 1
+  //
+  // In the example above, %"ARR_MOD$.btT_TESTTYPE" is a structure where
+  // field 1 is a dope vector. The index 2 in the GEP %92 represents the access
+  // to the dope vector, while the rest of the fields represents the access to
+  // the fields of the dope vector.
+  //
+  //   * DopeVectorIndex == 0  -  Source type of the GEP is a dope vector
+  //   * DopeVectorIndex == 1  -  Not allowed, operand 1 in the GEP is reserved
+  //                              for the array index and should be 0
+  //                              (return DopeVectorFieldType::DV_Invalid)
+  //   * DopeVectorIndex >= 2  -  Source type of the GEP is a structure where
+  //                              field DopeVectorIndex is a dope vector
+  //
+  // The default value is 0.
   static DopeVectorFieldType
-  identifyDopeVectorField(const GEPOperator &GEP);
+  identifyDopeVectorField(const GEPOperator &GEP, uint64_t DopeVectorIndex = 0);
 
   // For the per-dimension array, we expect to find a sequence of the following
   // form that gets the address of the per-dimensional fields: (This is the GEP
@@ -532,12 +565,15 @@ private:
 //  5. Reserved
 //  6. Per-Dimension array: {Extent, Stride, LowerBound}
 //
+// If AllowMultipleFieldAddresses is true the it will be allowed to store
+// multiple pointers for each dope vector field.
 class DopeVectorInfo {
 
 public:
   // Constructor for DopeVectorInfo. Technically is the same constructor
   // as DopeVectorAnalyzer, but the classes have different purposes.
-  DopeVectorInfo (Value *DVObject, Type *DVType);
+  DopeVectorInfo (Value *DVObject, Type *DVType,
+                  bool AllowMultipleFieldAddresses = false);
 
   ~DopeVectorInfo() {
     ExtentAddr.clear();
@@ -565,14 +601,28 @@ public:
   unsigned long getRank() { return Rank; }
 
   // Set the allocation site
-  void setAllocSite(CallBase *Call) { AllocSite = Call; }
+  void setAllocSite(CallBase *Call) {
+    // There should be only one alloc site
+    if (AllocSiteSet)
+      AllocSite = nullptr;
+    else
+      AllocSite = Call;
+
+    AllocSiteSet = true;
+  }
+
+  // Return the allocation site
+  CallBase* getAllocSite() { return AllocSite; }
+
+  // Return true if the allocation site was set
+  bool isAllocSiteSet() { return AllocSiteSet; }
 
   // Get the type that represents the current dope vector
   StructType *getLLVMStructType() { return LLVMDVType; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Print the information for debug purposes
-  void print();
+  void print(uint64_t Indent);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 protected:
@@ -601,6 +651,9 @@ protected:
 
   // LLVM structure type of the current dope vector
   StructType *LLVMDVType;
+
+  // True if the allocation site was found
+  bool AllocSiteSet;
 };
 
 // Helper class to handle the nested dope vectors. Nested dope vectors are dope
@@ -621,9 +674,13 @@ protected:
 // nested dope vector where the field number (FieldNum) is 0.
 class NestedDopeVectorInfo : public DopeVectorInfo {
 public:
-  NestedDopeVectorInfo(Value *DVObject, Type *DVType, uint64_t FieldNum) :
-      DopeVectorInfo(DVObject, DVType), FieldNum(FieldNum) { }
+  NestedDopeVectorInfo(Value *DVObject, Type *DVType, uint64_t FieldNum,
+      bool AllowMultipleFieldAddresses = false) : DopeVectorInfo(DVObject,
+      DVType, AllowMultipleFieldAddresses), FieldNum(FieldNum) { }
   uint64_t getFieldNum() { return FieldNum; }
+
+  // Analyze the fields of the nested dope vector
+  void analyzeNestedDopeVector();
 
 private:
   uint64_t FieldNum;
@@ -638,8 +695,28 @@ private:
 class GlobalDopeVector {
 
 public:
-  GlobalDopeVector(GlobalVariable *Glob, Type *DVType) :
-      GlobalDVInfo(new DopeVectorInfo(Glob, DVType)), Glob(Glob) {}
+
+  // Enum for tracking the result of the analysis process:
+  //
+  //   * AR_TOP:                     Initial value
+  //   * AR_GLOBALDVANALYSISFAILED:  Analysis of the global dope vector failed
+  //   * AR_INCOMPLETENESTEDDVDATA:  Collecting the nested dope vectors failed
+  //   * AR_BADNESTEDDV:             At least one nested dope vector didn't
+  //                                   pass analysis
+  //   * AR_PASS:                    Global dope vector and nested dope vectors
+  //                                   passed the analysis
+  enum AnalysisResult {
+    AR_TOP,
+    AR_GLOBALDVANALYSISFAILED,
+    AR_INCOMPLETENESTEDDVDATA,
+    AR_BADNESTEDDV,
+    AR_PASS
+  };
+
+  GlobalDopeVector(GlobalVariable *Glob, Type *DVType,
+    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) :
+      GlobalDVInfo(new DopeVectorInfo(Glob, DVType)), Glob(Glob),
+      GetTLI(GetTLI), NestedDVDataCollected(false), AnalysisRes(AR_TOP) {}
 
   ~GlobalDopeVector() {
     delete GlobalDVInfo;
@@ -677,8 +754,16 @@ public:
   // collect the data and analyze it.
   bool collectAndAnalyzeGlobalDopeVectorField(GEPOperator *GEP);
 
+  // Return true if the input BitCast operator is used for allocation
+  bool collectAndAnalyzeAllocSite(BitCastOperator *BC);
+
   // Collect the nested dope vectors for the global variable
-  void collectNestedDopeVectors(const DataLayout &DL);
+  void collectAndAnalyzeNestedDopeVectors(const DataLayout &DL);
+
+  // Validate that all the data was collected correctly
+  void validateGlobalDopeVector();
+
+  AnalysisResult getAnalysisResult() { return AnalysisRes; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Print the information for debug purposes
@@ -693,6 +778,22 @@ private:
 
   // Store the global
   GlobalVariable *Glob;
+
+  // Target library analysis
+  std::function<const TargetLibraryInfo &(Function &F)> &GetTLI;
+
+  // True if the nested dope vectors were collected correctly. Default
+  // value is false.
+  bool NestedDVDataCollected;
+
+  // Result from validating the data in the global dope vector. Default
+  // value is AR_TOP
+  AnalysisResult AnalysisRes;
+
+  // Traverse through the users of the subscript instruction to identify
+  // the nested dope vectors and analyze the use
+  bool collectNestedDopeVectorFromSubscript(SubscriptInst *SI,
+      const DataLayout &DL);
 };
 
 } // end namespace dvanalysis
