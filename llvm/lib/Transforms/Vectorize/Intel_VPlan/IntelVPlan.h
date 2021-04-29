@@ -1599,6 +1599,7 @@ public:
       IRLoadStore->getAllMetadataOtherThanDebugLoc(MDs);
     else if (HIR().getUnderlyingNode()) {
       const loopopt::RegDDRef *RDDR = getHIRMemoryRef();
+      assert(RDDR && "Value should not be nullptr!");
       RDDR->getAllMetadataOtherThanDebugLoc(MDs);
     }
   }
