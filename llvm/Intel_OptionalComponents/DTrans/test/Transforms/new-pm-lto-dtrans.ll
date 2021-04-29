@@ -19,13 +19,13 @@
 ; CHECK-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis
-; CHECK-NEXT: Running pass: GlobalDCEPass
 ; CHECK-NEXT: Running pass: InternalizePass
 ; CHECK: Running analysis: WholeProgramAnalysis
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module{{.*}}>
 ; CHECK-NEXT: Running analysis: TargetLibraryAnalysis on bar
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on foo
 ; CHECK-NEXT: Running analysis: TargetIRAnalysis on main
+; CHECK-NEXT: Running pass: GlobalDCEPass
 ; CHECK: Running pass: IPSCCPPass
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ; CHECK-NEXT: Running analysis: AssumptionAnalysis on foo
