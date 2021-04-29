@@ -24,6 +24,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_XmainOptLevelPass.h"
+#include "llvm/Analysis/PhiValues.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/Dominators.h"
@@ -260,9 +261,32 @@ struct ArgNoAliasProp : public ModulePass {
       return getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
     };
 
+    using AAData = struct {
+      std::unique_ptr<PhiValues> PV;
+      std::unique_ptr<BasicAAResult> BAR;
+      std::unique_ptr<AAResults> AAR;
+    };
+    DenseMap<Function *, AAData> F2AAData;
+
+    auto AARGetter = [this, &DTGetter, &F2AAData](Function &F) -> AAResults & {
+      auto P = F2AAData.insert({&F, AAData()});
+      if (P.second) {
+        P.first->second.PV = std::make_unique<PhiValues>(F);
+        P.first->second.BAR = std::make_unique<BasicAAResult>(
+            F.getParent()->getDataLayout(), F,
+            getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
+            getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F),
+            &DTGetter(F), P.first->second.PV.get(),
+            getAnalysis<XmainOptLevelWrapperPass>().getOptLevel());
+        P.first->second.AAR = std::make_unique<AAResults>(
+            createLegacyPMAAResults(*this, F, *P.first->second.BAR));
+      }
+      return *P.first->second.AAR;
+    };
+
     unsigned OptLevel = getAnalysis<XmainOptLevelWrapperPass>().getOptLevel();
 
-    return NoAliasProp(LegacyAARGetter(*this), DTGetter, OptLevel).run(CG);
+    return NoAliasProp(AARGetter, DTGetter, OptLevel).run(CG);
   }
 };
 
