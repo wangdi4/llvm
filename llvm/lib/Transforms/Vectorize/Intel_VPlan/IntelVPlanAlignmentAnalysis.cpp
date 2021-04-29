@@ -63,7 +63,7 @@ static int computeMultiplierForPeeling(int Step, Align RequiredAlignment,
 
 VPlanPeelingVariant::~VPlanPeelingVariant() {}
 
-VPlanDynamicPeeling::VPlanDynamicPeeling(VPInstruction *Memref,
+VPlanDynamicPeeling::VPlanDynamicPeeling(VPLoadStoreInst *Memref,
                                          VPConstStepInduction AccessAddress,
                                          Align TargetAlignment)
     : VPlanPeelingVariant(VPPK_DynamicPeeling), Memref(Memref),
@@ -96,7 +96,7 @@ int VPlanPeelingCostModelGeneral::getCost(VPInstruction *Mrf, int VF,
   return CM->getLoadStoreCost(Mrf, Alignment, VF);
 }
 
-VPlanPeelingCandidate::VPlanPeelingCandidate(VPInstruction *Memref,
+VPlanPeelingCandidate::VPlanPeelingCandidate(VPLoadStoreInst *Memref,
                                              VPConstStepInduction AccessAddress,
                                              KnownBits InvariantBaseKnownBits)
     : Memref(Memref), AccessAddress(AccessAddress),
@@ -290,14 +290,14 @@ void VPlanPeelingAnalysis::collectCandidateMemrefs(VPlanVector &Plan) {
       if (DL->getTypeAllocSize(EltTy) != TypeSize::Fixed(Ind->Step))
         continue;
 
-      KnownBits KB = VPVT->getKnownBits(Ind->InvariantBase, &VPInst);
+      KnownBits KB = VPVT->getKnownBits(Ind->InvariantBase, LS);
 
       // Skip the memref if the address is statically known to be misaligned.
       auto RequiredAlignment = MinAlign(0, Ind->Step);
       if ((KB.One & (RequiredAlignment - 1)) != 0)
         continue;
 
-      CandidateMemrefs.push_back({&VPInst, *Ind, std::move(KB)});
+      CandidateMemrefs.push_back({LS, *Ind, std::move(KB)});
     }
 
   sort(CandidateMemrefs, VPlanPeelingCandidate::ordByStep);
