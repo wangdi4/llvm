@@ -3,7 +3,13 @@
 ; INTEL - Disable Load Coalescing.
 ; INTEL - Disabling loopopt as it affects pass pipeline.
 ; INTEL - Enable loop vectorizer as it is needed.
-; RUN: opt < %s  -O3 -enable-lv -loopopt=0 -enable-load-coalescing=false -mcpu=knl -S | FileCheck %s -check-prefix=AVX512
+; INTEL - force vector-interleave to 1 in the first RUN line. This is needed to
+;         revert the customization made for foo1 that forced vector-interleave
+;         to 4 via metadata that is needed to mitigate difference in TTI between
+;         xmain/upstream for the second RUN line. See CMPLRLLVM-28062 for
+;         details. This one might be very fragile and might be reconsidered in
+;         future.
+; RUN: opt < %s  -O3 -enable-lv -loopopt=0 -enable-load-coalescing=false -mcpu=knl -S -force-vector-interleave=1 | FileCheck %s -check-prefix=AVX512
 ; RUN: opt < %s -O3 -enable-lv -loopopt=0 -enable-load-coalescing=false -mcpu=knl -force-vector-width=2 -S | FileCheck %s -check-prefix=FVW2
 ; END INTEL_CUSTOMIZATION
 
@@ -215,7 +221,11 @@ for.inc:                                          ; preds = %if.end
   %11 = load i32, i32* %i, align 4
   %inc = add nsw i32 %11, 1
   store i32 %inc, i32* %i, align 4
-  br label %for.cond
+; INTEL_CUSTOMIZATION
+  ; Force vector-interleave to 4. Needed because of our TTI customization. See
+  ; CMPLRLLVM-28062 for details.
+  br label %for.cond, !llvm.loop !1
+; END INTEL_CUSTOMIZATION
 
 for.end:                                          ; preds = %for.cond
   ret void
@@ -1974,3 +1984,5 @@ for.end:                                          ; preds = %for.end.loopexit, %
 }
 
 
+!0 = !{!"llvm.loop.interleave.count", i32 4} ; INTEL
+!1 = !{!1, !0}                               ; INTEL
