@@ -716,7 +716,11 @@ void OpenMPLateOutliner::emitImplicit(const VarDecl *VD, ImplicitClauseKind K) {
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (!OMPLateOutlineLexicalScope::isCapturedVar(CGF, VD)) {
+  bool VarDefinedWithAllocator =
+      VD->getCanonicalDecl()->hasAttr<OMPAllocateDeclAttr>() &&
+      VarDefs.find(VD) != VarDefs.end();
+  if (!OMPLateOutlineLexicalScope::isCapturedVar(CGF, VD) &&
+      !VarDefinedWithAllocator) {
     // We don't want this DeclRefExpr to generate entries in the Def/Ref
     // lists, so temporarily save and null the CapturedStmtInfo.
     CodeGenFunction::CGCapturedStmtRAII SaveCSI(CGF, nullptr);

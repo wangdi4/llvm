@@ -3214,15 +3214,20 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPAllocateDirective(
     auto *VD = cast<VarDecl>(DE->getDecl());
 
 #if INTEL_COLLAB
-    if (getLangOpts().OpenMPLateOutline)
-      if (AllocatorKind != OMPAllocateDeclAttr::OMPDefaultMemAlloc &&
-          VD->getStorageDuration() == SD_Static) {
+    if (getLangOpts().OpenMPLateOutline &&
+        AllocatorKind != OMPAllocateDeclAttr::OMPDefaultMemAlloc) {
+      if (VD->getStorageDuration() == SD_Static) {
         StringRef Allocator =
             OMPAllocateDeclAttr::ConvertAllocatorTypeTyToStr(AllocatorKind);
         Diag(DE->getLocation(),
              diag:: warn_omp_static_duration_allocate_directive) <<
              Allocator;
-      }
+      } else if (getLangOpts().OpenMPIsDevice &&
+                 Context.getTargetInfo().getTriple().isSPIR() &&
+                 DSAStack->getCurrentDirective() != OMPD_unknown &&
+                 !getLangOpts().OpenMPTargetMalloc)
+        Diag(Loc, diag::err_omp_allocate_offload_target);
+    }
 #endif // INTEL_COLLAB
     // Check if this is a TLS variable or global register.
     if (VD->getTLSKind() != VarDecl::TLS_None ||
