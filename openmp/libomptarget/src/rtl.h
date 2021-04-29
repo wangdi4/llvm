@@ -102,6 +102,7 @@ struct RTLInfoTy {
 #endif // INTEL_COLLAB
   typedef int32_t (*register_lib_ty)(__tgt_bin_desc *);
   typedef int32_t(supports_empty_images_ty)();
+  typedef void(set_info_flag_ty)(uint32_t);
 
   int32_t Idx = -1;             // RTL index, index is the number of devices
                                 // of other RTLs that were registered before,
@@ -177,6 +178,7 @@ struct RTLInfoTy {
   register_lib_ty register_lib = nullptr;
   register_lib_ty unregister_lib = nullptr;
   supports_empty_images_ty *supports_empty_images = nullptr;
+  set_info_flag_ty *set_info_flag = nullptr;
 
   // Are there images associated with this RTL.
   bool isUsed = false;
