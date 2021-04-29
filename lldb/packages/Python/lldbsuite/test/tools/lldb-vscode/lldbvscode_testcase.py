@@ -9,18 +9,18 @@ class VSCodeTestCaseBase(TestBase):
 
     NO_DEBUG_INFO_TESTCASE = True
 
-    def create_debug_adaptor(self):
+    def create_debug_adaptor(self, lldbVSCodeEnv=None):
         '''Create the Visual Studio Code debug adaptor'''
         self.assertTrue(os.path.exists(self.lldbVSCodeExec),
                         'lldb-vscode must exist')
         log_file_path = self.getBuildArtifact('vscode.txt')
         self.vscode = vscode.DebugAdaptor(
             executable=self.lldbVSCodeExec, init_commands=self.setUpCommands(),
-            log_file=log_file_path)
+            log_file=log_file_path, env=lldbVSCodeEnv)
 
-    def build_and_create_debug_adaptor(self):
+    def build_and_create_debug_adaptor(self, lldbVSCodeEnv=None):
         self.build()
-        self.create_debug_adaptor()
+        self.create_debug_adaptor(lldbVSCodeEnv)
 
     def set_source_breakpoints(self, source_path, lines, condition=None,
                                hitCondition=None):
@@ -85,7 +85,6 @@ class VSCodeTestCaseBase(TestBase):
                 # the right breakpoint matches and not worry about the actual
                 # location.
                 description = body['description']
-                print("description: %s" % (description))
                 for breakpoint_id in breakpoint_ids:
                     match_desc = 'breakpoint %s.' % (breakpoint_id)
                     if match_desc in description:
@@ -343,11 +342,12 @@ class VSCodeTestCaseBase(TestBase):
                          stopCommands=None, exitCommands=None,
                          terminateCommands=None, sourcePath=None,
                          debuggerRoot=None, runInTerminal=False,
-                         disconnectAutomatically=True, postRunCommands=None):
+                         disconnectAutomatically=True, postRunCommands=None,
+                         lldbVSCodeEnv=None):
         '''Build the default Makefile target, create the VSCode debug adaptor,
            and launch the process.
         '''
-        self.build_and_create_debug_adaptor()
+        self.build_and_create_debug_adaptor(lldbVSCodeEnv)
         self.assertTrue(os.path.exists(program), 'executable must exist')
 
         return self.launch(program, args, cwd, env, stopOnEntry, disableASLR,
