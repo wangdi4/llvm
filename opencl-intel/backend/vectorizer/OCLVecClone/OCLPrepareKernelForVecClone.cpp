@@ -33,6 +33,8 @@
 #include "InitializePasses.h"
 #include "MetadataAPI.h"
 
+#include "llvm/ADT/StringExtras.h"
+
 #include <string>
 #include <vector>
 
