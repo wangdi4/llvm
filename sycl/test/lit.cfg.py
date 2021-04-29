@@ -119,6 +119,10 @@ config.substitutions.append( ('%sycl_tools_src_dir',  config.sycl_tools_src_dir 
 config.substitutions.append( ('%llvm_build_lib_dir',  config.llvm_build_lib_dir ) )
 config.substitutions.append( ('%llvm_build_bin_dir',  config.llvm_build_bin_dir ) )
 
+# INTEL_CUSTOMIZATION
+llvm_config.add_intel_features()
+# end INTEL_CUSTOMIZATION
+
 config.substitutions.append( ('%sycl_include',  config.sycl_include ) )
 config.substitutions.append( ('%opencl_libs_dir',  config.opencl_libs_dir) )
 
