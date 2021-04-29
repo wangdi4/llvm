@@ -90,11 +90,18 @@ INITIALIZE_PASS_END(WholeProgramWrapperPass, "wholeprogramanalysis",
 
 char WholeProgramWrapperPass::ID = 0;
 
-ModulePass *llvm::createWholeProgramWrapperPassPass() {
-  return new WholeProgramWrapperPass();
+ModulePass*
+llvm::createWholeProgramWrapperPassPass(WholeProgramUtils WPUtils) {
+  return new WholeProgramWrapperPass(std::move(WPUtils));
 }
 
-WholeProgramWrapperPass::WholeProgramWrapperPass() : ModulePass(ID) {
+WholeProgramWrapperPass::WholeProgramWrapperPass()
+    : ModulePass(ID) {
+  initializeWholeProgramWrapperPassPass(*PassRegistry::getPassRegistry());
+}
+
+WholeProgramWrapperPass::WholeProgramWrapperPass(WholeProgramUtils WPUtils)
+    : ModulePass(ID), WPUtils(std::move(WPUtils)) {
   initializeWholeProgramWrapperPassPass(*PassRegistry::getPassRegistry());
 }
 
@@ -112,7 +119,8 @@ bool WholeProgramWrapperPass::runOnModule(Module &M) {
     return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   };
 
-  WholeProgramInfo *WPAResult = new WholeProgramInfo(&M, GetTLI, GTTI);
+  WholeProgramInfo *WPAResult = new WholeProgramInfo(&M, GetTLI, GTTI,
+                                                     &WPUtils);
   WPAResult->analyzeModule();
 
   Result.reset(WPAResult);
@@ -122,7 +130,8 @@ bool WholeProgramWrapperPass::runOnModule(Module &M) {
 
 WholeProgramInfo::WholeProgramInfo(Module *M,
     std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
-    function_ref<TargetTransformInfo &(Function &)> GTTI) {
+    function_ref<TargetTransformInfo &(Function &)> GTTI,
+    WholeProgramUtils *WPUtils) : WPUtils(WPUtils) {
   // WholeProgramSafe: WholeProgramRead && WholeProgramSeen &&
   //                   LinkingForExecutable
   WholeProgramSafe = false;
@@ -278,7 +287,7 @@ void WholeProgramInfo::printWholeProgramTrace() {
     PrintVisibility();
 
   if (Full || WholeProgramReadTrace)
-    WPUtils.PrintSymbolsResolution();
+    WPUtils->PrintSymbolsResolution();
 
   PrintWPResult();
 }
@@ -484,10 +493,10 @@ bool WholeProgramInfo::isValidFunction(const Function *F) {
     return true;
 
   StringRef SymbolName = F->getName();
-  if (WPUtils.isLinkerAddedSymbol(SymbolName))
+  if (WPUtils->isLinkerAddedSymbol(SymbolName))
     return true;
 
-  if (WPUtils.isMainEntryPoint(SymbolName))
+  if (WPUtils->isMainEntryPoint(SymbolName))
     return true;
 
   bool FuncResolved = false;
@@ -930,13 +939,13 @@ bool WholeProgramInfo::isWholeProgramHidden(void) {
 // Return true if the linker finds that all symbols were resolved or
 // the assumption flag for whole program read was turned on.
 bool WholeProgramInfo::isWholeProgramRead() {
-  return WPUtils.getWholeProgramRead() || AssumeWholeProgramRead;
+  return WPUtils->getWholeProgramRead() || AssumeWholeProgramRead;
 }
 
 // Return true if the linker is generating an executable or the
 // assumption flag for executable was turned on.
 bool WholeProgramInfo::isLinkedAsExecutable() {
-  return WPUtils.getLinkingExecutable() || AssumeWholeProgramExecutable;
+  return WPUtils->getLinkingExecutable() || AssumeWholeProgramExecutable;
 }
 
 // Return the Function* that points to "main" or any of its forms,
@@ -945,7 +954,7 @@ Function *WholeProgramInfo::getMainFunction() {
 
   Function *Main = nullptr;
 
-  for (auto Name : WPUtils.getMainNames()) {
+  for (auto Name : WPUtils->getMainNames()) {
     Main = M->getFunction(Name);
 
     if (Main)
@@ -972,7 +981,7 @@ WholeProgramInfo WholeProgramAnalysis::run(Module &M,
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
 
-  WholeProgramInfo WPAResult(&M, GetTLI, GTTI);
+  WholeProgramInfo WPAResult(&M, GetTLI, GTTI, &WPUtils);
   WPAResult.analyzeModule();
 
   return WPAResult;

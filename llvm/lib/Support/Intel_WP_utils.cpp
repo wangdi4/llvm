@@ -19,10 +19,6 @@
 
 using namespace llvm;
 
-namespace llvm {
-  WholeProgramUtils WPUtils;
-} //llvm
-
 // Set if the linker is generating an executable
 void WholeProgramUtils::setLinkingExecutable(bool LinkingExe) {
   LinkingExecutable = LinkingExe;

@@ -232,6 +232,11 @@ namespace options {
   static std::string cs_profile_path;
   static bool cs_pgo_gen = false;
 
+#if INTEL_CUSTOMIZATION
+  // True if the current linking process is building an executable, else false
+  static bool BuildingExecutable = false;
+#endif // INTEL_CUSTOMIZATION
+
   static void process_plugin_option(const char *opt_)
   {
     if (opt_ == nullptr)
@@ -387,7 +392,7 @@ ld_plugin_status onload(ld_plugin_tv *tv) {
       case LDPO_EXEC: // .exe
         IsExecutable = true;
 #if INTEL_CUSTOMIZATION
-        WPUtils.setLinkingExecutable(true);
+        options::BuildingExecutable = true;
 #endif // INTEL_CUSTOMIZATION
         RelocationModel = Reloc::Static;
         break;
@@ -989,6 +994,7 @@ static std::unique_ptr<LTO> createLTO(IndexWriteCallback OnIndexWrite,
   Conf.HasWholeProgramVisibility = options::whole_program_visibility;
 
   Conf.StatsFile = options::stats_file;
+  Conf.WPUtils.setLinkingExecutable(options::BuildingExecutable);   // INTEL
   return std::make_unique<LTO>(std::move(Conf), Backend,
                                 options::ParallelCodeGenParallelismLevel);
 }

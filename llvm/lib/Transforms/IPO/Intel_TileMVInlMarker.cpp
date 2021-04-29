@@ -645,7 +645,7 @@ bool TileMVInlMarker::identifyTileRoots(void) {
   Function *Main = uniqueCaller(*CallerMax);
   if (!Main)
     return false;
-  if (!WPUtils.isMainEntryPoint(Main->getName()))
+  if (!WPInfo->getWholeProgramLinkerUtils()->isMainEntryPoint(Main->getName()))
     return false;
   Function *CallerMaxSub = nullptr;
   for (auto *F : TileCandidates) {

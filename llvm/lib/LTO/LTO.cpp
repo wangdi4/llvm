@@ -1023,12 +1023,12 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
     StringRef SymbolName =
         GlobalValue::dropLLVMManglingEscape(Res.second.IRName);
 
-    bool IsMain = WPUtils.isMainEntryPoint(SymbolName);
+    bool IsMain = Conf.WPUtils.isMainEntryPoint(SymbolName);
     MainFound |= IsMain;
     AllResolved &= Res.second.ResolvedByLinker;
 
     unsigned SymbolAttributes = 0;
-    bool IsLinkerAddedSymbol = WPUtils.isLinkerAddedSymbol(SymbolName);
+    bool IsLinkerAddedSymbol = Conf.WPUtils.isLinkerAddedSymbol(SymbolName);
 
     if (IsMain)
       SymbolAttributes |= WholeProgramReadSymbol::AttrMain;
@@ -1042,13 +1042,13 @@ Error LTO::run(AddStreamFn AddStream, NativeObjectCache Cache) {
     if (Res.second.ExportDynamic)
       SymbolAttributes |= WholeProgramReadSymbol::AttrExportDynamic;
 
-    WPUtils.AddSymbolResolution(SymbolName, SymbolAttributes);
+    Conf.WPUtils.AddSymbolResolution(SymbolName, SymbolAttributes);
 #endif // INTEL_CUSTOMIZATION
   }
 #if INTEL_CUSTOMIZATION
   // Whole program read: all symbols were resolved by the linker and main
   //                     was found
-  WPUtils.setWholeProgramRead(AllResolved && MainFound);
+  Conf.WPUtils.setWholeProgramRead(AllResolved && MainFound);
 
 #endif // INTEL_CUSTOMIZATION
   auto isPrevailing = [&](GlobalValue::GUID G) {
