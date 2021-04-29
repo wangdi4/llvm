@@ -400,6 +400,7 @@ VPlanTTICostModel::getIntrinsicForSVMLCall(
   assert(isSVMLFunction(TLI, CalledFunc->getName(),
                         VPCall->getVectorLibraryFunc()) &&
          "Expected SVML function call.");
+  (void)CalledFunc;
 
   LibFunc Func;
   if (!TLI->getLibFunc(*VPCall->getUnderlyingCallInst(), Func))
