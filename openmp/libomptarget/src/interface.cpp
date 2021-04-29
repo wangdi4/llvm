@@ -878,12 +878,10 @@ EXTERN void __tgt_add_build_options(
 }
 #endif // INTEL_COLLAB
 EXTERN void __tgt_set_info_flag(uint32_t NewInfoLevel) {
+  std::atomic<uint32_t> &InfoLevel = getInfoLevelInternal();
   InfoLevel.store(NewInfoLevel);
   for (auto &R : PM->RTLs.AllRTLs) {
     if (R.set_info_flag)
       R.set_info_flag(NewInfoLevel);
   }
 }
-
-// Libomptarget's InfoLevel storage.
-std::atomic<uint32_t> InfoLevel;
