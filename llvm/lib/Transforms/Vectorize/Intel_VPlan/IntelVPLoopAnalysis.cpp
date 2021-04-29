@@ -994,6 +994,7 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
   const VPInduction *LoopIndex;
   std::tie(LoopIndex, std::ignore) = getLoopInduction();
   VPPHINode *InductionHeaderPhi = getRecurrentVPHINode(*LoopIndex);
+  assert(InductionHeaderPhi && "Value should not be nullptr!");
   VPConstant *IncomingVal =
       Plan.getVPConstant(ConstantInt::get(InductionHeaderPhi->getType(), -1));
 

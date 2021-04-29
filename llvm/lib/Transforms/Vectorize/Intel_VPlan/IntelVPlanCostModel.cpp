@@ -395,7 +395,9 @@ VPlanTTICostModel::getIntrinsicForSVMLCall(
   assert(VPCall->getVectorizationScenario() ==
              VPCallInstruction::CallVecScenariosTy::LibraryFunc &&
          "Expected library function call here.");
-  assert(isSVMLFunction(TLI, VPCall->getCalledFunction()->getName(),
+  auto *CalledFunc = VPCall->getCalledFunction();
+  assert(CalledFunc && "Value should not be nullptr!");
+  assert(isSVMLFunction(TLI, CalledFunc->getName(),
                         VPCall->getVectorLibraryFunc()) &&
          "Expected SVML function call.");
 
@@ -738,7 +740,9 @@ unsigned VPlanTTICostModel::getTTICostForVF(
             VPCallInstruction::CallVecScenariosTy::LibraryFunc) {
       // Filter out SVML function calls, we currently allow some OCL builtins to
       // be vectorized via LibraryFunc scenario too.
-      if (isSVMLFunction(TLI, VPCall->getCalledFunction()->getName(),
+      auto *CalledFunc = VPCall->getCalledFunction();
+      assert(CalledFunc && "Value should not be nullptr!");
+      if (isSVMLFunction(TLI, CalledFunc->getName(),
                          VPCall->getVectorLibraryFunc()))
         ID = getIntrinsicForSVMLCall(VPCall);
     }
