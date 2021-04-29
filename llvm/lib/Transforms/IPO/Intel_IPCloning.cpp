@@ -5255,6 +5255,7 @@ static void createManyLoopSpecializationClones(Function *F,
     RPHI->addIncoming(NewCI, FalseBB);
     RPHI->setDebugLoc(CI->getDebugLoc());
     CI->replaceAllUsesWith(RPHI);
+    RPHI->addIncoming(CI, CI->getParent());
   }
   // The original Function will be used for the specialized version. Replace
   // the tested expression by the predicted constant value and get rid of
