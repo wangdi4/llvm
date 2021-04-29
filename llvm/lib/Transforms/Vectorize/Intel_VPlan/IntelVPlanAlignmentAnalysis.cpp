@@ -388,8 +388,6 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
     const VPLoadStoreInst &Memref, VPlanStaticPeeling &SP) const {
-  assert(SP.peelCount() == 0 && "Non-zero peel counts are not supported yet");
-
   Align AlignFromIR = Memref.getAlignment();
 
   auto Ind = VPSE->asConstStepInduction(Memref.getAddressSCEV());
@@ -401,8 +399,13 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
   if (Ind->Step <= 0)
     return AlignFromIR;
 
-  auto KB = VPVT->getKnownBits(Ind->InvariantBase, &Memref);
-  Align AlignFromVPVT{1ULL << KB.countMinTrailingZeros()};
+  auto BaseKB = VPVT->getKnownBits(Ind->InvariantBase, &Memref);
+  auto NumKnownLowBits = (BaseKB.One | BaseKB.Zero).countTrailingOnes();
+  uint64_t Mask = ~0ULL << NumKnownLowBits;
+
+  auto Offset = SP.peelCount() * Ind->Step;
+  auto AdjustedBase = (BaseKB.One + Offset) | Mask;
+  Align AlignFromVPVT{1ULL << AdjustedBase.countTrailingZeros()};
 
   // Alignment of access cannot be larger than alignment of the step, which
   // equals to (VF * Step) for widened memrefs.

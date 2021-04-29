@@ -851,4 +851,96 @@ TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_Cost2) {
   EXPECT_EQ(P64.second, 12);
 }
 
+class VPlanAlignmentAnalysisTest : public VPlanPeelingAnalysisTest {
+protected:
+  VPLoadStoreInst *findLoadInst() const {
+    VPLoadStoreInst *Load = nullptr;
+    for (auto &BB : *Plan)
+      for (auto &VPInst : BB) {
+        if (VPInst.getOpcode() == Instruction::Load) {
+          EXPECT_EQ(Load, nullptr) << "Multiple stores in the module";
+          Load = &cast<VPLoadStoreInst>(VPInst);
+        }
+      }
+    return Load;
+  }
+
+  VPLoadStoreInst *findStoreInst() const {
+    VPLoadStoreInst *Store = nullptr;
+    for (auto &BB : *Plan)
+      for (auto &VPInst : BB) {
+        if (VPInst.getOpcode() == Instruction::Store) {
+          EXPECT_EQ(Store, nullptr) << "Multiple stores in the module";
+          Store = &cast<VPLoadStoreInst>(VPInst);
+        }
+      }
+    return Store;
+  }
+};
+
+TEST_F(VPlanAlignmentAnalysisTest, StaticPeeling) {
+  buildVPlanFromString(
+    "define void @foo(i32* %dst, i16* %src) {\n"
+    "entry:\n"
+    "  %dst.asInt = ptrtoint i32* %dst to i64\n"
+    "  %tmp = and i64 %dst.asInt, -64\n"
+    "  %ptr.asInt = or i64 %tmp, 20\n"
+    "  %ptr = inttoptr i64 %ptr.asInt to i32*\n" /* %ptr ≡ 20 (mod 64) */
+    "  br label %for.body\n"
+    "for.body:\n"
+    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+    "  %count32 = trunc i64 %counter to i32\n"
+    "  %gep.src = getelementptr inbounds i16, i16* %src, i64 %counter\n"
+    "  %val.i16 = load i16, i16* %gep.src, align 2"
+    "  %val.i32 = zext i16 %val.i16 to i32"
+    "  %res = add i32 %val.i32, %count32"
+    "  %gep.dst = getelementptr inbounds i32, i32* %ptr, i64 %counter\n"
+    "  store i32 %res, i32* %gep.dst\n"
+    "  %counter.next = add nsw i64 %counter, 1\n"
+    "  %exitcond = icmp sge i64 %counter.next, 10240\n"
+    "  br i1 %exitcond, label %exit, label %for.body\n"
+    "exit:\n"
+    "  ret void\n"
+    "}\n");
+
+  setupPeelingAnalysis();
+  VPLoadStoreInst *S = findStoreInst();
+
+  VPlanAlignmentAnalysis AA1(*VPSE, *VPVT, 1);
+  VPlanAlignmentAnalysis AA2(*VPSE, *VPVT, 2);
+  VPlanAlignmentAnalysis AA4(*VPSE, *VPVT, 4);
+  VPlanAlignmentAnalysis AA8(*VPSE, *VPVT, 8);
+
+  VPlanStaticPeeling SP0(0);
+  VPlanStaticPeeling SP1(1);
+  VPlanStaticPeeling SP2(2);
+  VPlanStaticPeeling SP3(3);
+  VPlanStaticPeeling SP7(7);
+
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, SP0));
+  EXPECT_EQ(Align(4), AA2.getAlignmentUnitStride(*S, SP0));
+  EXPECT_EQ(Align(4), AA4.getAlignmentUnitStride(*S, SP0));
+  EXPECT_EQ(Align(4), AA8.getAlignmentUnitStride(*S, SP0));
+
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, SP1));
+  EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, SP1));
+  EXPECT_EQ(Align(8), AA4.getAlignmentUnitStride(*S, SP1));
+  EXPECT_EQ(Align(8), AA8.getAlignmentUnitStride(*S, SP1));
+
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, SP2));
+  EXPECT_EQ(Align(4), AA2.getAlignmentUnitStride(*S, SP2));
+  EXPECT_EQ(Align(4), AA4.getAlignmentUnitStride(*S, SP2));
+  EXPECT_EQ(Align(4), AA8.getAlignmentUnitStride(*S, SP2));
+
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, SP3));
+  EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, SP3));
+  EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*S, SP3));
+  EXPECT_EQ(Align(32), AA8.getAlignmentUnitStride(*S, SP3));
+
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, SP7));
+  EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, SP7));
+  EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*S, SP7));
+  EXPECT_EQ(Align(16), AA8.getAlignmentUnitStride(*S, SP7));
+}
+
 } // namespace
