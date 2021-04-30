@@ -189,6 +189,55 @@ private:
     llvm_unreachable("Unexpected MemIndexedMode");
   }
 
+  InstructionCost getCommonMaskedMemoryOpCost(unsigned Opcode, Type *DataTy,
+                                              Align Alignment,
+                                              bool VariableMask,
+                                              bool IsGatherScatter,
+                                              TTI::TargetCostKind CostKind) {
+    auto *VT = cast<FixedVectorType>(DataTy);
+    // Assume the target does not have support for gather/scatter operations
+    // and provide a rough estimate.
+    //
+    // First, compute the cost of the individual memory operations.
+    InstructionCost AddrExtractCost =
+        IsGatherScatter
+            ? getVectorInstrCost(Instruction::ExtractElement,
+                                 FixedVectorType::get(
+                                     PointerType::get(VT->getElementType(), 0),
+                                     VT->getNumElements()),
+                                 -1)
+            : 0;
+    InstructionCost LoadCost =
+        VT->getNumElements() *
+        (AddrExtractCost +
+         getMemoryOpCost(Opcode, VT->getElementType(), Alignment, 0, CostKind));
+
+    // Next, compute the cost of packing the result in a vector.
+    int PackingCost = getScalarizationOverhead(VT, Opcode != Instruction::Store,
+                                               Opcode == Instruction::Store);
+
+    InstructionCost ConditionalCost = 0;
+    if (VariableMask) {
+      // Compute the cost of conditionally executing the memory operations with
+      // variable masks. This includes extracting the individual conditions, a
+      // branches and PHIs to combine the results.
+      // NOTE: Estimating the cost of conditionally executing the memory
+      // operations accurately is quite difficult and the current solution
+      // provides a very rough estimate only.
+      ConditionalCost =
+          VT->getNumElements() *
+          (getVectorInstrCost(
+               Instruction::ExtractElement,
+               FixedVectorType::get(Type::getInt1Ty(DataTy->getContext()),
+                                    VT->getNumElements()),
+               -1) +
+           getCFInstrCost(Instruction::Br, CostKind) +
+           getCFInstrCost(Instruction::PHI, CostKind));
+    }
+
+    return LoadCost + PackingCost + ConditionalCost;
+  }
+
 protected:
   explicit BasicTTIImplBase(const TargetMachine *TM, const DataLayout &DL)
       : BaseT(DL) {}
@@ -1065,6 +1114,13 @@ public:
     return Cost;
   }
 
+  InstructionCost getMaskedMemoryOpCost(unsigned Opcode, Type *DataTy,
+                                        Align Alignment, unsigned AddressSpace,
+                                        TTI::TargetCostKind CostKind) {
+    return getCommonMaskedMemoryOpCost(Opcode, DataTy, Alignment, true, false,
+                                       CostKind);
+  }
+
 #if INTEL_CUSTOMIZATION
   using BaseT::getGatherScatterOpCost;
 #endif // INTEL_CUSTOMIZATION
@@ -1074,45 +1130,8 @@ public:
                          TTI::TargetCostKind CostKind,
                          const Instruction *I = nullptr, // INTEL
                          bool UndefPassThru = false) {   // INTEL
-    auto *VT = cast<FixedVectorType>(DataTy);
-    // Assume the target does not have support for gather/scatter operations
-    // and provide a rough estimate.
-    //
-    // First, compute the cost of extracting the individual addresses and the
-    // individual memory operations.
-    InstructionCost LoadCost =
-        VT->getNumElements() *
-        (getVectorInstrCost(
-             Instruction::ExtractElement,
-             FixedVectorType::get(PointerType::get(VT->getElementType(), 0),
-                                  VT->getNumElements()),
-             -1) +
-         getMemoryOpCost(Opcode, VT->getElementType(), Alignment, 0, CostKind));
-
-    // Next, compute the cost of packing the result in a vector.
-    int PackingCost = getScalarizationOverhead(VT, Opcode != Instruction::Store,
-                                               Opcode == Instruction::Store);
-
-    InstructionCost ConditionalCost = 0;
-    if (VariableMask) {
-      // Compute the cost of conditionally executing the memory operations with
-      // variable masks. This includes extracting the individual conditions, a
-      // branches and PHIs to combine the results.
-      // NOTE: Estimating the cost of conditionally executing the memory
-      // operations accurately is quite difficult and the current solution
-      // provides a very rough estimate only.
-      ConditionalCost =
-          VT->getNumElements() *
-          (getVectorInstrCost(
-               Instruction::ExtractElement,
-               FixedVectorType::get(Type::getInt1Ty(DataTy->getContext()),
-                                    VT->getNumElements()),
-               -1) +
-           getCFInstrCost(Instruction::Br, CostKind) +
-           getCFInstrCost(Instruction::PHI, CostKind));
-    }
-
-    return LoadCost + PackingCost + ConditionalCost;
+    return getCommonMaskedMemoryOpCost(Opcode, DataTy, Alignment, VariableMask,
+                                       true, CostKind);
   }
 
   InstructionCost getInterleavedMemoryOpCost(
