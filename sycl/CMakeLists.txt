@@ -192,6 +192,7 @@ add_custom_target( sycl-toolchain
           llvm-objcopy
           sycl-post-link
           sycl-ls
+          opencl-aot
           ${XPTIFW_LIBS}
 # INTEL_CUSTOMIZATION
           sycl-config-file
@@ -250,6 +251,7 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      sycl-ls
      clang-resource-headers
      OpenCL-Headers
+     opencl-aot
      sycl-headers
      sycl-headers-extras
      sycl
