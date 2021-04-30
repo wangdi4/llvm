@@ -40,10 +40,12 @@ using namespace PatternMatch;
 #define DEBUG_TYPE "instcombine"
 
 #if INTEL_CUSTOMIZATION
-static cl::opt<bool> DisableInstCombineAddSubReassoc(
-    "disable-instcombine-add-sub-reassoc", cl::init(true), cl::Hidden,
-    cl::desc("Temporary workaround for InstCombine AddSub reassociation "
-             "interfering with SLP."));
+// The option unconditionally enables reassociating optimizations that
+// may affect SLP vectorizer and/or DTrans. Its intended use is in LIT
+// tests only when need to override default pipeline builder behavior.
+static cl::opt<bool> EnableInstCombineAddSubReassoc(
+    "enable-instcombine-add-sub-reassoc", cl::init(false), cl::Hidden,
+    cl::desc("Enable InstCombine Add/Sub reassociating transformations."));
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
@@ -1824,7 +1826,16 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
     return BinaryOperator::CreateAdd(Builder.CreateNot(Op1), X);
 
 #if INTEL_CUSTOMIZATION
-  if (!DisableInstCombineAddSubReassoc) {
+  // There are couple of transforms that do affect SLP vectorizer behavior which
+  // specifically turn out harmful for x264 test performance.
+  // This is considered a work around of the problem to temporarily (hopefully)
+  // disable these optimizations when there is interference with SLP vectorizer.
+  // (See CMPLRLLVM-27771, CMPLRLLVM-20204 for details)
+  // Here we use enableFcmpMinMaxCombine since it tied to SLP and also check for
+  // ifFortran() to limit gamut of the restriction.
+  bool NoSLPVectorizerInterference =
+      enableFcmpMinMaxCombine() || I.getFunction()->isFortran();
+  if (EnableInstCombineAddSubReassoc || NoSLPVectorizerInterference) {
     // Reassociate sub/add sequences to create more add instructions and
     // reduce dependency chains:
     // ((X - Y) + Z) - Op1 --> (X + Z) - (Y + Op1)
@@ -1837,7 +1848,8 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
     }
   }
 
-  if (!preserveForDTrans()) {
+  if (EnableInstCombineAddSubReassoc ||
+      (!preserveForDTrans() && NoSLPVectorizerInterference)) {
     // ((X - Y) - Op1)  -->  X - (Y + Op1)
     // DTrans currently can't handle Add operator. Disable this transformation
     // when PreserveForDTrans is true.
