@@ -131,6 +131,10 @@ public:
                          llvm::opt::ArgStringList &CC1Args,
                          Action::OffloadKind DeviceOffloadKind) const override;
 #if INTEL_CUSTOMIZATION
+  void AddImpliedTargetArgs(Action::OffloadKind DeviceOffloadKind,
+                            const llvm::Triple &Triple,
+                            const llvm::opt::ArgList &Args,
+                            llvm::opt::ArgStringList &CmdArgs) const;
   void TranslateBackendTargetArgs(const JobAction &JA,
       const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const;
   void TranslateLinkerTargetArgs(const JobAction &JA,

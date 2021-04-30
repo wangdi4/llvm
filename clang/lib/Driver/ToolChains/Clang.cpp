@@ -8947,6 +8947,9 @@ static void addRunTimeWrapperOpts(Compilation &C, const JobAction &JA,
   if (SYCLTC.getTriple().getSubArch() == llvm::Triple::NoSubArch) {
     // Only store compile/link opts in the image descriptor for the SPIR-V
     // target; AOT compilation has already been performed otherwise.
+    Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind());
+    SYCLTC.AddImpliedTargetArgs(
+        DeviceOffloadKind, SYCLTC.getTriple(), TCArgs, BuildArgs);
     SYCLTC.TranslateBackendTargetArgs(JA, TCArgs, BuildArgs);
     createArgString("-compile-opts=");
     BuildArgs.clear();

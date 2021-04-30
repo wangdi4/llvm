@@ -415,9 +415,15 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
   if (!ReportOptArg.empty())
     CmdArgs.push_back(C.getArgs().MakeArgString(
         Twine("-output-report-folder=") + ReportOptArg));
+
   // Add -Xsycl-target* options.
+  Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind()); // INTEL
   const toolchains::SYCLToolChain &TC =
-      static_cast<const toolchains::SYCLToolChain &>(getToolChain());
+      static_cast<const toolchains::SYCLToolChain &>(getToolChain()); // INTEL
+  // Add any implied arguments before user defined arguments.
+  TC.AddImpliedTargetArgs(
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs); // INTEL
+
   TC.TranslateBackendTargetArgs(JA, Args, CmdArgs); // INTEL
   TC.TranslateLinkerTargetArgs(JA, Args, CmdArgs); // INTEL
   // Look for -reuse-exe=XX option
@@ -460,8 +466,11 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
   CmdArgs.push_back("-output_no_suffix");
   CmdArgs.push_back("-spirv_input");
   // Add -Xsycl-target* options.
+  Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind()); // INTEL
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
+  TC.AddImpliedTargetArgs(
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs); // INTEL
   TC.TranslateBackendTargetArgs(JA, Args, CmdArgs); // INTEL
   TC.TranslateLinkerTargetArgs(JA, Args, CmdArgs); // INTEL
   SmallString<128> ExecPath(
@@ -491,9 +500,12 @@ void SYCL::x86_64::BackendCompiler::ConstructJob(
     CmdArgs.push_back(Args.MakeArgString(Filename));
   }
   // Add -Xsycl-target* options.
+  Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind()); // INTEL
   const toolchains::SYCLToolChain &TC =
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
 
+  TC.AddImpliedTargetArgs(
+      DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs); // INTEL
   TC.TranslateBackendTargetArgs(JA, Args, CmdArgs); // INTEL
   TC.TranslateLinkerTargetArgs(JA, Args, CmdArgs); // INTEL
   SmallString<128> ExecPath(
@@ -615,10 +627,11 @@ void SYCLToolChain::TranslateTargetOpt(const JobAction &JA,
   }
 }
 
-static void addImpliedArgs(const llvm::Triple &Triple,
-                           const clang::driver::Driver &Driver, // INTEL
-                           const llvm::opt::ArgList &Args,
-                           llvm::opt::ArgStringList &CmdArgs) {
+#if INTEL_CUSTOMIZATION
+void SYCLToolChain::AddImpliedTargetArgs(
+    Action::OffloadKind DeviceOffloadKind, const llvm::Triple &Triple,
+    const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const {
+#endif // INTEL_CUSTOMIZATION
   // Current implied args are for debug information and disabling of
   // optimizations.  They are passed along to the respective areas as follows:
   //  FPGA and default device:  -g -cl-opt-disable
@@ -637,6 +650,9 @@ static void addImpliedArgs(const llvm::Triple &Triple,
     if (OptStr == "d")
       IsMSVCOd = true;
   }
+  if (IsGen && DeviceOffloadKind == Action::OFK_OpenMP)
+    // Add -cl-take-global-addresses by default for GEN/ocloc
+    BeArgs.push_back("-cl-take-global-address");
   if (Args.getLastArg(options::OPT_O0) || IsMSVCOd)
 #endif // INTEL_CUSTOMIZATION
     BeArgs.push_back("-cl-opt-disable");
@@ -665,9 +681,6 @@ static void addImpliedArgs(const llvm::Triple &Triple,
 void SYCLToolChain::TranslateBackendTargetArgs(const JobAction &JA,
     const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const {
 #endif // INTEL_CUSTOMIZATION
-  // Add any implied arguments before user defined arguments.
-  addImpliedArgs(getTriple(), getDriver(), Args, CmdArgs); // INTEL
-
   // Handle -Xs flags.
   for (auto *A : Args) {
     // When parsing the target args, the -Xs<opt> type option applies to all
