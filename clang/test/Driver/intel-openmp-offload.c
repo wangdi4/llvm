@@ -271,6 +271,7 @@
 // FOPENMP_TARGET_SIMD: "-mllvm" "-enable-device-simd"
 // FOPENMP_TARGET_SIMD: "-O2"
 // FOPENMP_TARGET_SIMD: sycl-post-link{{.*}} "--ompoffload-explicit-simd"
+// FOPENMP_TARGET_SIMD: llvm-spirv{{.*}}" {{.*}}"-o" {{.*}} "-spirv-ext=+all,-SPV_INTEL_fpga_buffer_location,-SPV_INTEL_memory_access_aliasing,-SPV_INTEL_optnone" "-spirv-allow-unknown-intrinsics" {{.*}}
 
 /// Test for compile and link opts that are passed to the wrapper
 // RUN: %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -Xopenmp-target-backend "-DFOO1 -DFOO2" %s 2>&1 \

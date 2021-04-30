@@ -9317,8 +9317,14 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
     // TODO: -SPV_INTEL_fpga_buffer_location option is added as workaround
     // to CMPLRLLVM-21950. This option should removed when the Jira is
     // resolved, and replaced with just "-spirv-ext=+all"
-    TranslatorArgs.push_back("-spirv-ext=+all,-SPV_INTEL_fpga_buffer_location,"
+    std::string ExtArg("-spirv-ext=+all,-SPV_INTEL_fpga_buffer_location,"
                              "-SPV_INTEL_memory_access_aliasing");
+
+    // Currently ESIMD OpenMP target doesn't support SPV_INTEL_optnone
+    if (TCArgs.hasArg(options::OPT_fopenmp_target_simd))
+      ExtArg += ",-SPV_INTEL_optnone";
+
+    TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
     TranslatorArgs.push_back("-spirv-allow-unknown-intrinsics");
   }
 #endif // INTEL_CUSTOMIZATION
