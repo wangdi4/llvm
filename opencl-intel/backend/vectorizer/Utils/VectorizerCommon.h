@@ -13,6 +13,7 @@
 
 #include "cl_cpu_detect.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
+#include "llvm/IR/Function.h"
 
 // Maximum width (in elements) supported as input
 // An AMX tile has a maximum size of 16 rows x 64 bytes. It could be flatten to
@@ -32,6 +33,9 @@ namespace VectorizerCommon {
 // it is not available.
 VectorVariant::ISAClass getCPUIdISA(
   const Intel::OpenCL::Utils::CPUDetect *CPUId = nullptr);
+
+// Skip function when traversing CallGraph in VectorVariant passes.
+bool skipFunction(Function *F);
 
 } // namespace VectorizerCommon
 } // namespace Intel

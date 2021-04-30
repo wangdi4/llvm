@@ -140,6 +140,7 @@ void initializeIndirectCallLoweringPass(llvm::PassRegistry &);
 void initializeAddFastMathPass(llvm::PassRegistry &);
 void initializeVectorKernelDiscardPass(llvm::PassRegistry &);
 void initializeReduceCrossBarrierValuesPass(llvm::PassRegistry &);
+void initializeOCLVPOCheckVFPass(llvm::PassRegistry &);
 }
 
 #endif

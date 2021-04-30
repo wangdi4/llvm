@@ -10,6 +10,9 @@
 
 #include "VectorizerCommon.h"
 
+#include "LoopHandler/CLWGBoundDecoder.h"
+#include "llvm/IR/Function.h"
+
 extern cl::opt<VectorVariant::ISAClass> CPUIsaEncodingOverride;
 
 namespace Intel {
@@ -28,6 +31,12 @@ VectorVariant::ISAClass getCPUIdISA(
   if (CPUId->HasAVX1())
     return VectorVariant::YMM1;
   return VectorVariant::XMM;
+}
+
+bool skipFunction(Function *F) {
+  return !F || F->isIntrinsic() || F->isDeclaration() ||
+    intel::CLWGBoundDecoder::isWGBoundFunction(
+      F->getName().str());
 }
 
 } // namespace VectorizerCommon

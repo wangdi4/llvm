@@ -163,12 +163,12 @@ declare void @oneElementFLoatArray(%struct.OneElementFloatArray* byval(%struct.O
 
 ; Function Attrs: convergent
 declare void @outOfIntRegisters(%struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.SingleInt* byval(%struct.SingleInt) align 4, %struct.TwoLongs* byval(%struct.TwoLongs) align 8, %struct.SingleInt* byval(%struct.SingleInt) align 4, %struct.SingleInt* byval(%struct.SingleInt) align 4) #2
-; X64-LINUX: declare void @outOfIntRegisters(i64, i64, i64, i64, i32, %struct.TwoLongs* byval(%struct.TwoLongs) align 8, i32, %struct.SingleInt* byval(%struct.SingleInt) align 4) #2
+; X64-LINUX: declare void @outOfIntRegisters(i64, i64, i64, i64, i32, %struct.TwoLongs*, i32, %struct.SingleInt*) #2
 ; X64-WIN:   declare void @outOfIntRegisters(%struct.TwoLongs*, %struct.TwoLongs*, i32, %struct.TwoLongs*, i32, i32) #2
 
 ; Function Attrs: convergent
 declare void @outOfSSERegisters(%struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.SingleFloat* byval(%struct.SingleFloat) align 4, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, %struct.SingleFloat* byval(%struct.SingleFloat) align 4, %struct.SingleFloat* byval(%struct.SingleFloat) align 4) #2
-; X64-LINUX: declare void @outOfSSERegisters(double, double, double, double, double, double, float, %struct.TwoDoubles* byval(%struct.TwoDoubles) align 8, float, %struct.SingleFloat* byval(%struct.SingleFloat) align 4) #2
+; X64-LINUX: declare void @outOfSSERegisters(double, double, double, double, double, double, float, %struct.TwoDoubles*, float, %struct.SingleFloat*) #2
 ; X64-WIN:   declare void @outOfSSERegisters(%struct.TwoDoubles*, %struct.TwoDoubles*, %struct.TwoDoubles*, i32, %struct.TwoDoubles*, i32, i32) #2
 
 ; Function Attrs: argmemonly nounwind
