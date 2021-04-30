@@ -145,8 +145,10 @@ loop:
 
 ; CHECK-LABEL: loop:
 ; CHECK-NEXT:    %iv = phi i32 [ 0, %entry ], [ %iv.next, %loop ]
-; CHECK-NEXT:    {{%.*}} = add i32 %iv, {{20|24}}
-; CHECK-NEXT:    {{%.*}} = add i32 %iv, {{20|24}}
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    {{%.*}} = add nuw nsw i32 %iv, {{20|24}}
+; CHECK-NEXT:    {{%.*}} = add nuw nsw i32 %iv, {{20|24}}
+; end INTEL_CUSTOMIZATION
 
   ; induction variable
   %iv = phi i32 [ 0, %entry ], [ %iv.next, %loop ]
