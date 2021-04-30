@@ -287,12 +287,9 @@ message(STATUS "Looking for OpenCL includes.")
 if (INTEL_CUSTOMIZATION)
   # If this command does not find the header files, then next
   # find_path (see below) will look again.
-  find_path(LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS
-    NAMES
-      CL/cl.h OpenCL/cl.h
-    PATHS
-      ${OpenCL_INCLUDE_DIR}
-    NO_DEFAULT_PATH)
+  add_llvm_external_project(opencl)
+  set(LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS ${OpenCL_INCLUDE_DIR})
+  set(LIBOMPTARGET_DEP_OPENCL_LIBRARIES OpenCL-ICD)
 endif(INTEL_CUSTOMIZATION)
 
 find_path(LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS
@@ -311,18 +308,6 @@ if (NOT LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS)
 else()
 
   message(STATUS "Looking for OpenCL library.")
-  if (INTEL_CUSTOMIZATION)
-    if (OpenCL_LIBRARY)
-      if (NOT EXISTS ${OpenCL_LIBRARY})
-        message(FATAL_ERROR
-          "OpenCL library specified with OpenCL_LIBRARY variable \
-           (${OpenCL_LIBRARY}) does not exist.")
-      endif()
-      set(LIBOMPTARGET_DEP_OPENCL_LIBRARIES "${OpenCL_LIBRARY}")
-      # find_library() below will not run, if the output variable
-      # is already set.
-    endif()
-  endif(INTEL_CUSTOMIZATION)
 
   find_library(LIBOMPTARGET_DEP_OPENCL_LIBRARIES
     NAMES OpenCL
