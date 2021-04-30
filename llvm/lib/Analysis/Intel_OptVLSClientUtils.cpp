@@ -81,18 +81,15 @@ uint64_t OVLSTTICostModel::getInstructionCost(const OVLSInstruction *I) const {
     assert(NumElemsInALoad == VLSType.getNumElements() &&
            "unexpected OVLS type/mask");
 
-    uint64_t AddrCost = TTI.getAddressComputationCost(VecTy);
-    uint64_t LoadCost;
+    InstructionCost AddrCost = TTI.getAddressComputationCost(VecTy);
+    InstructionCost LoadCost;
     if (NeedMask)
-      LoadCost =
-          *TTI.getMaskedMemoryOpCost(Instruction::Load, VecTy,
-                                     Align(Alignment), AS).getValue();
+      LoadCost = TTI.getMaskedMemoryOpCost(Instruction::Load, VecTy,
+                                           Align(Alignment), AS);
     else
-      LoadCost =
-          *TTI.getMemoryOpCost(Instruction::Load, VecTy,
-                               Alignment ? Align(Alignment) : Align(), AS)
-               .getValue();
-    return AddrCost + LoadCost;
+      LoadCost = TTI.getMemoryOpCost(
+          Instruction::Load, VecTy, Alignment ? Align(Alignment) : Align(), AS);
+    return *(AddrCost + LoadCost).getValue();
   }
 
   if (isa<OVLSShuffle>(I)) {
