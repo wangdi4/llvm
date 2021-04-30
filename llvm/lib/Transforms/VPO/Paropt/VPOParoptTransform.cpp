@@ -6283,10 +6283,21 @@ bool VPOParoptTransform::genLastPrivatizationCode(
       // Emit constructor call for lastprivate var if it is not also a
       // firstprivate (in which case the firstprivate init emits a cctor).
       if ((LprivI->getInFirstprivate() == nullptr) &&
-          (LprivI->getConstructor() != nullptr))
+          (LprivI->getConstructor() != nullptr)) {
+        Instruction *CtorInsertPt = cast<Instruction>(NewPrivInst);
+#if INTEL_CUSTOMIZATION
+        if (LprivI->getIsF90NonPod()) {
+          CtorInsertPt = CtorInsertPt->getNextNonDebugInstruction();
+          // genPrivatizationInitOrFini inserts copy-constructors before the
+          // insert point, whereas constructors after it.
+          genPrivatizationInitOrFini(LprivI, LprivI->getConstructor(),
+                                     FK_CopyCtor, NewPrivInst, Orig,
+                                     CtorInsertPt, DT);
+        } else
+#endif // INTEL_CUSTOMIZATION
         genPrivatizationInitOrFini(LprivI, LprivI->getConstructor(), FK_Ctor,
-                                   NewPrivInst, nullptr,
-                                   cast<Instruction>(NewPrivInst), DT);
+                                   NewPrivInst, nullptr, CtorInsertPt, DT);
+      }
 
       // Generate the if-last-then-copy-out code.
       if (IsConditionalLP && !IsVecLoop)
@@ -7701,6 +7712,16 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
           // NewPrivInst might be at module level. e.g. 'target private (x)'.
           if (!CtorInsertPt)
             CtorInsertPt = InsertPt;
+#if INTEL_CUSTOMIZATION
+          if (PrivI->getIsF90NonPod()) {
+            // genPrivatizationInitOrFini inserts copy-constructors before the
+            // insert point, whereas constructors after it.
+            if (CtorInsertPt == NewPrivInst)
+              CtorInsertPt = CtorInsertPt->getNextNonDebugInstruction();
+            genPrivatizationInitOrFini(PrivI, Ctor, FK_CopyCtor, NewPrivInst,
+                                       Orig, CtorInsertPt, DT);
+          } else
+#endif // INTEL_CUSTOMIZATION
           genPrivatizationInitOrFini(PrivI, Ctor, FK_Ctor, NewPrivInst, nullptr,
                                      CtorInsertPt, DT);
         }

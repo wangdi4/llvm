@@ -934,8 +934,12 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
   if (IsConditional)
     assert(ClauseID == QUAL_OMP_LASTPRIVATE &&
            "The CONDITIONAL keyword is for LASTPRIVATE clauses only");
-
+#if INTEL_CUSTOMIZATION
+  if (ClauseInfo.getIsNonPod() || ClauseInfo.getIsF90NonPod()) {
+    // F90_NONPODs are NONPODs for which Ctor args are replaced by CCtors.
+#else // INTEL_CUSTOMIZATION
   if (ClauseInfo.getIsNonPod()) {
+#endif // INTEL_CUSTOMIZATION
     // NONPOD representation requires multiple args per var:
     //  - PRIVATE:      3 args : Var, Ctor, Dtor
     //  - FIRSTPRIVATE: 3 args : Var, CCtor, Dtor
@@ -962,6 +966,8 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
     if (ClauseInfo.getIsF90DopeVector())
       Item->setIsF90DopeVector(true);
     Item->setIsWILocal(ClauseInfo.getIsWILocal());
+    if (ClauseInfo.getIsF90NonPod())
+      Item->setIsF90NonPod(true);
 #endif // INTEL_CUSTOMIZATION
     C.add(Item);
   } else
