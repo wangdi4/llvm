@@ -4,6 +4,7 @@
 ; RUN: opt -S -inline %s  -inlineoptsize-threshold=75 -debug-only=inline-cost 2>&1 \
 ; RUN: | FileCheck %s
 ; end INTEL
+; REQUIRES: asserts
 ; Only the load and ret should be included in the instruction count, not
 ; the instructions feeding the assume.
 ; CHECK: NumInstructions: 2
