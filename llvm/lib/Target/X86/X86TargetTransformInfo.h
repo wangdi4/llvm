@@ -168,8 +168,8 @@ public:
                                          TTI::TargetCostKind CostKind,
                                          const Instruction *I);
 #endif // INTEL_CUSTOMIZATION
-  int getAddressComputationCost(Type *PtrTy, ScalarEvolution *SE,
-                                const SCEV *Ptr);
+  InstructionCost getAddressComputationCost(Type *PtrTy, ScalarEvolution *SE,
+                                            const SCEV *Ptr);
 
   Optional<Instruction *> instCombineIntrinsic(InstCombiner &IC,
                                                IntrinsicInst &II) const;
