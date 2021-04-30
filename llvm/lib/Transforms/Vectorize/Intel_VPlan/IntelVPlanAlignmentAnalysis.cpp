@@ -381,10 +381,14 @@ void VPlanPeelingAnalysis::dump() {
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
     const VPLoadStoreInst &Memref, VPlanPeelingVariant &Peeling) const {
-  assert(isa<VPlanStaticPeeling>(Peeling) &&
-         "Dynamic peeling is not supported yet");
-  assert(cast<VPlanStaticPeeling>(Peeling).peelCount() == 0 &&
-         "Non-zero peel counts are not supported yet");
+  if (auto *SP = dyn_cast<VPlanStaticPeeling>(&Peeling))
+    return getAlignmentUnitStrideImpl(Memref, *SP);
+  llvm_unreachable("Unsupported peeling variant");
+}
+
+Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
+    const VPLoadStoreInst &Memref, VPlanStaticPeeling &SP) const {
+  assert(SP.peelCount() == 0 && "Non-zero peel counts are not supported yet");
 
   Align AlignFromIR = Memref.getAlignment();
 

@@ -273,6 +273,13 @@ public:
   Align getAlignment(VPLoadStoreInst &Memref);
 
 private:
+  Align getAlignmentUnitStrideImpl(const VPLoadStoreInst &Memref,
+                                   VPlanStaticPeeling &SP) const;
+
+  Align getAlignmentUnitStrideImpl(const VPLoadStoreInst &Memref,
+                                   VPlanDynamicPeeling &DP) const;
+
+private:
   VPlanScalarEvolution *VPSE;
   VPlanValueTracking *VPVT;
   int VF;
