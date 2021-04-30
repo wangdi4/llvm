@@ -30,12 +30,14 @@
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass ;INTEL
 ; CHECK-O-NEXT: Running pass: XmainOptLevelAnalysisInit ;INTEL
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
-; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}WholeProgramAnalysis
 ; CHECK-O-NEXT: Running analysis: WholeProgramAnalysis
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Function
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
+; end INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running pass: GlobalDCEPass
+; INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running pass: IntelFoldWPIntrinsicPass
 ; CHECK-O-NEXT: Running pass: IPCloningPass
 ; end INTEL_CUSTOMIZATION

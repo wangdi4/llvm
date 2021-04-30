@@ -16,13 +16,12 @@
 ; CHECK-NEXT:   ModulePass Manager
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       Module Verifier
-; CHECK-NEXT:     Dead Global Elimination
 ; CHECK-NEXT:     Whole program analysis
+; CHECK-NEXT:     Dead Global Elimination
 ; CHECK-NEXT:     Intel IPO Prefetch
 ; CHECK-NEXT:       FunctionPass Manager
 ; CHECK-NEXT:         Dominator Tree Construction
 ; CHECK-NEXT:         Post-Dominator Tree Construction
-; CHECK-NEXT:     Whole program analysis
 ; CHECK-NEXT:     Intel fold WP intrinsic
 ; CHECK-NEXT:     IP Cloning
 ; CHECK-NEXT:     Dynamic Casts Optimization Pass
