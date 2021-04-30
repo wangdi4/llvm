@@ -3339,20 +3339,19 @@ StringRef VPOParoptTransform::getVariantName(WRegionNode *W, CallInst *BaseCall,
   StringRef VariantAttributeString =
       BaseFunc->getFnAttribute("openmp-variant").getValueAsString();
 
-  auto emitRemark = [&](const StringRef &Message) {
-    OptimizationRemarkMissed R("openmp", "Region", W->getEntryDirective());
-    R << ore::NV("Construct", W->getName()) << Message;
-    ORE.emit(R);
+  auto emitWarning = [](WRegionNode *W, const Twine &Message) {
+    Function *F = W->getEntryDirective()->getFunction();
+    DiagnosticInfoOptimizationFailure DI("openmp", "implementation-warning",
+                                         W->getEntryDirective()->getDebugLoc(),
+                                         W->getEntryBBlock());
+    DI << Message.str();
+    F->getContext().diagnose(DI);
   };
 
-  auto CountConstruct =
+  // Counts the number of declare variants that match the 'dispatch'
+  // or 'target variant dispatch' construct specified in MatchConstruct
+  auto CountDeclareVariantsForDispatch =
       VariantAttributeString.count("construct:" + MatchConstruct.str());
-  if (CountConstruct > 1) {
-    LLVM_DEBUG(dbgs() << __FUNCTION__
-                      << ": Found multiple variants for dispatch. Currently, "
-                         "only the first one will be used for codegen\n");
-    emitRemark(" Found multiple variants for dispatch. Only one will be used");
-  }
 
   if (VariantAttributeString.empty()) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Base function "
@@ -3430,9 +3429,12 @@ StringRef VPOParoptTransform::getVariantName(WRegionNode *W, CallInst *BaseCall,
     // We only support one interop in append_args. Abort if >1 is found.
     // TODO: support multiple interop objs
     auto CountInterop = Variant.count("interop:");
-    if (CountInterop > 1)
-      report_fatal_error(
-          "Found multiple interop in append_args. This is still unsupported");
+    if (CountInterop > 1) {
+      F->getContext().diagnose(DiagnosticInfoUnsupported(*F,
+          "Found multiple interop in append_args. This is still unsupported.",
+          W->getEntryDirective()->getDebugLoc()));
+      return "";
+    }
 
     // Split Variant so that each <field>:<value> substring is separately
     // stored in the Fields vector
@@ -3443,16 +3445,7 @@ StringRef VPOParoptTransform::getVariantName(WRegionNode *W, CallInst *BaseCall,
     FoundArch = false;
     FoundName = false;
     for (StringRef &Field : Fields) {
-
       // LLVM_DEBUG(dbgs() << __FUNCTION__ << ":   Field: " << Field << "\n");
-      if (Field=="") {
-        // Workaround for a CFE bug that emits an extra semicolon after
-        // interop:targetsync. E.g., it emits
-        //    "openmp-variant"="...arch:gen;interop:targetsync;"
-        // when the correct form is:
-        //    "openmp-variant"="...arch:gen;interop:targetsync"
-        continue;
-      }
 
       // Split Field so that FV[0] has <field> and FV[1] has <value>
       FV.clear();
@@ -3476,8 +3469,15 @@ StringRef VPOParoptTransform::getVariantName(WRegionNode *W, CallInst *BaseCall,
     } // for (StringRef &Field : Fields)
 
     if (FoundConstruct) {
-      if (FoundName)
+      if (FoundName) {
+        if (CountDeclareVariantsForDispatch > 1) {
+          emitWarning(W, "Found multiple variants for " + MatchConstruct +
+                             ". Only one will be used in the current "
+                             "implementation. The variant to be used is '" +
+                             VariantName + "'");
+        }
         break;
+      }
       // found <variant> with matching construct, but without a
       // "name" field. It must be corrupt.
       llvm_unreachable("No variant function name in openmp-variant attribute");
@@ -4264,15 +4264,17 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
   // Current we only support one interop obj, either interop(target) or
   // interop(targetsync). We use the old-stype interop obj from
   // createInteropObj() and don't distinguish between target and targetsync.
-  // TODO: Use the new-stype interop obj created by #pragma omp interop
+  // TODO: Use the new-style interop obj created by #pragma omp interop
   Value *InteropObj = nullptr;
   if (InteropStr.empty())
     assert(!W->getNowait() &&
            "Expected an interop obj for dispatch nowait");
-  else if (InteropStr=="targetsync" || InteropStr=="target")
+  else if (InteropStr == "target" || InteropStr == "targetsync" ||
+           InteropStr == "target,targetsync")
     InteropObj = createInteropObj(W, DeviceNum, IdentTy, ThenTerm); //      (7)
   else
     llvm_unreachable("Unsupported interop type in append_args");
+    // We should never get here because FE should have caught it
 
   // Create and insert Variant call before ThenTerm
   bool IsVoidType = (BaseCall->getType() == Builder.getVoidTy());
@@ -4307,7 +4309,7 @@ bool VPOParoptTransform::genDispatchCode(WRegionNode *W) {
       }
   }
 
-  dbgs() << "\nExit VPOParoptTransform::genDispatchCode\n";
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genDispatchCode\n");
   W->resetBBSet(); // Invalidate BBSet after transformations
   return true;
 }
