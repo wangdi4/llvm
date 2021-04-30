@@ -205,13 +205,6 @@ if(NOT OPENCL_AOT_FOUND EQUAL -1)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS opencl-aot)
 endif()
 
-# Check if aocl-ioc64 tool is enabled.
-list(FIND LLVM_ENABLE_PROJECTS aocl-ioc64 AOCL_IOC64_FOUND)
-if(NOT AOCL_IOC64_FOUND EQUAL -1)
-  add_dependencies(sycl-toolchain aocl-ioc64)
-  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS aocl-ioc64)
-endif()
-
 if (SYCL_ENABLE_XPTI_TRACING)
   add_dependencies( sycl-toolchain xpti)
   if (MSVC)
@@ -280,6 +273,13 @@ if(INTEL_CUSTOMIZATION)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-config-file)
   if (CMAKE_SYCL_USE_LEVEL0)
     list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_level_zero)
+  endif()
+
+  # Check if aocl-ioc64 tool is enabled.
+  add_llvm_external_project(aocl-ioc64)
+  list(FIND LLVM_ENABLE_PROJECTS aocl-ioc64 AOCL_IOC64_FOUND)
+  if(NOT AOCL_IOC64_FOUND EQUAL -1)
+    list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS ioc64)
   endif()
 endif(INTEL_CUSTOMIZATION)
 

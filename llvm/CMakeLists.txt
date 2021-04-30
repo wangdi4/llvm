@@ -1643,7 +1643,7 @@ if (INTEL_CUSTOMIZATION)
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
       # SYCL components: see sycl/CMakeLists.txt
-      opencl-aot ioc64
+      opencl-aot
       )
 
     if (WIN32)
