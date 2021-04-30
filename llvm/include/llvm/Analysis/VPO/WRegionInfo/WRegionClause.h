@@ -689,6 +689,7 @@ public:
     bool  IsUnsigned;    // for min/max reduction; default is signed min/max
     bool  IsComplex;     // complex type
     bool  IsInReduction; // is from an IN_REDUCTION clause (task/taskloop)
+    bool  IsTask;        // is for a REDUCTION clause with a task modifier
 
     // TODO: Combiner and Initializer are Function*'s from UDR.
     //       We should change Value* to Function* below.
@@ -704,8 +705,9 @@ public:
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
         : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false), IsComplex(false),
-          IsInReduction(false), Combiner(nullptr), Initializer(nullptr),
-          Constructor(nullptr), Destructor(nullptr), InAllocate(nullptr) {}
+          IsInReduction(false), IsTask(false), Combiner(nullptr),
+          Initializer(nullptr), Constructor(nullptr), Destructor(nullptr),
+          InAllocate(nullptr) {}
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
         case QUAL_OMP_REDUCTION_ADD:
@@ -797,6 +799,7 @@ public:
     void setIsUnsigned(bool B)        { IsUnsigned = B;      }
     void setIsComplex(bool B)         { IsComplex = B;       }
     void setIsInReduction(bool B)     { IsInReduction = B;   }
+    void setIsTask(bool B)            { IsTask = B;          }
     void setCombiner(RDECL Comb)      { Combiner = Comb;     }
     void setInitializer(RDECL Init)   { Initializer = Init;  }
     void setConstructor(RDECL Ctor)   { Constructor = Ctor;  }
@@ -808,6 +811,7 @@ public:
     bool getIsUnsigned()       const { return IsUnsigned;    }
     bool getIsComplex()        const { return IsComplex;     }
     bool getIsInReduction()    const { return IsInReduction; }
+    bool getIsTask()           const { return IsTask;        }
     RDECL getCombiner()        const { return Combiner;      }
     RDECL getInitializer()     const { return Initializer;   }
     RDECL getConstructor()     const { return Constructor;   }

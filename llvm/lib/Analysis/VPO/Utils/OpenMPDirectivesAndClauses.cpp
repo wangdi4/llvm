@@ -48,7 +48,7 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
       IsScheduleMonotonic(false), IsScheduleNonmonotonic(false),
       IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false),
       IsMapChainLink(false), IsIV(false), IsInitTarget(false),
-      IsInitTargetSync(false), IsInitPrefer(false) {
+      IsInitTargetSync(false), IsInitPrefer(false), IsTask(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
 
@@ -165,6 +165,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
           setIsUnsigned();
         else if (ModSubString[i] == "CMPLX")       // for reduction clause
           setIsComplex();
+        else if (ModSubString[i] == "TASK")        // for reduction clause
+          setIsTask();
         else if (ModSubString[i] == "CONDITIONAL") // for lastprivate clause
           setIsConditional();
         else if (ModSubString[i] == "AGGRHEAD")    // map chain head
