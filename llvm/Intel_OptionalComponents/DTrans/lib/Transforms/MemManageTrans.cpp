@@ -139,6 +139,10 @@ class MemManageTransImpl {
   // occupied or not
   constexpr static uint32_t ValidObjStamp = 0xffddffdd;
 
+  // This is used as heuristic for original BlockSize that is used by
+  // the memory management.
+  constexpr static uint32_t MaxBlockSizeHeuristic = 10;
+
 public:
   MemManageTransImpl(Module &M, DTransAnalysisInfo &DTInfo, MemTLITy GetTLI,
                      const DataLayout &DL)
@@ -187,6 +191,9 @@ private:
 
   bool gatherCandidates(void);
   bool analyzeCandidates(void);
+  bool checkInterfaceFunctions(void);
+  bool checkCallSiteRestrictions(void);
+  bool checkBlockSizeHeuristic(void);
   bool categorizeFunctions(void);
   bool recognizeFunctions(void);
   bool recognizeGetMemManager(Function *);
@@ -200,6 +207,7 @@ private:
   bool checkSizeValue(Value *, int64_t, Value *);
   bool processBBTerminator(BasicBlock *, Value **, Value **, BasicBlock **,
                            BasicBlock **, ICmpInst::Predicate *);
+  bool isStrObjPtrTypeArg(Value *);
   BasicBlock *getSingleSucc(BasicBlock *);
   void collectStoreInst(BasicBlock *, SmallVectorImpl<StoreInst *> &);
   void collectLoadInst(BasicBlock *, SmallVectorImpl<LoadInst *> &);
@@ -387,6 +395,162 @@ bool MemManageTransImpl::gatherCandidates(void) {
   return true;
 }
 
+// Returns false if any interface function is not called from
+// member functions of StringAllocator. It does check for the following
+// two things.
+// 1. All interface functions need to be called from either StringAllocator
+//    or Interface functions.
+// 2. If interface function is in VTable (i.e GlobalVariable), this makes
+//    sure the all uses of VTable are in interface functions, which will be
+//    analyzed later. In the analysis, it will be indirectly proved that
+//    there is no real use of VTable.
+bool MemManageTransImpl::checkInterfaceFunctions(void) {
+  std::function<bool(Value *, SmallPtrSetImpl<GlobalVariable *> &)>
+      FindAllGlobalVariableUsers;
+  std::function<bool(Value *)> CheckAllUsesInInterfaceFuncs;
+
+  // Recursively finds all GlobalVariable users of "V". Returns false if it
+  // finds any non-GlobalVariable user.
+  FindAllGlobalVariableUsers =
+      [&FindAllGlobalVariableUsers](Value *V,
+                                    SmallPtrSetImpl<GlobalVariable *> &GVSet) {
+        if (auto *GV = dyn_cast<GlobalVariable>(V)) {
+          GVSet.insert(GV);
+          return true;
+        }
+        auto *CE = dyn_cast<Constant>(V);
+        if (!CE)
+          return false;
+        for (User *CEUser : CE->users())
+          if (!FindAllGlobalVariableUsers(CEUser, GVSet))
+            return false;
+        return true;
+      };
+
+  // Recursively finds all users of "V" and makes sure "V" is used only
+  // in interface functions. Returns false if it finds any non-function
+  // user.
+  CheckAllUsesInInterfaceFuncs = [this,
+                                  &CheckAllUsesInInterfaceFuncs](Value *V) {
+    auto Cand = getCurrentCandidate();
+    if (auto *I = dyn_cast<Instruction>(V)) {
+      // Check if "I" is in interface functions.
+      if (!Cand->isInterfaceFunction(I->getFunction()))
+        return false;
+    } else if (auto *CE = dyn_cast<Constant>(V)) {
+      for (User *CEUser : CE->users())
+        if (!CheckAllUsesInInterfaceFuncs(CEUser))
+          return false;
+    } else {
+      // Don't allow any non-constant users.
+      return false;
+    }
+    return true;
+  };
+
+  // Returns true if all uses of "GV" are in interface functions.
+  auto IsGVUsedOnlyInInterfaceFunctions =
+      [&CheckAllUsesInInterfaceFuncs](GlobalVariable *GV) {
+        for (auto *UU : GV->users())
+          if (!CheckAllUsesInInterfaceFuncs(UU))
+            return false;
+        return true;
+      };
+
+  // Returns true if we can prove that "U" is used only in GlobalVariables that
+  // are accessed only from interface functions.
+  auto IsUsedOnlyInUnusedVTable =
+      [&FindAllGlobalVariableUsers,
+       &IsGVUsedOnlyInInterfaceFunctions](Value *U) {
+        SmallPtrSet<GlobalVariable *, 2> GVSet;
+        if (!FindAllGlobalVariableUsers(U, GVSet))
+          return false;
+        if (GVSet.empty())
+          return false;
+        for (auto *GV : GVSet)
+          if (!IsGVUsedOnlyInInterfaceFunctions(GV))
+            return false;
+        return true;
+      };
+
+  auto Cand = getCurrentCandidate();
+  for (auto InterF : Cand->interface_functions()) {
+    for (User *U : InterF->users()) {
+      if (auto *CB = dyn_cast<CallBase>(U)) {
+        auto *CalledF = CB->getFunction();
+        if (!CalledF)
+          return false;
+        if (!Cand->isStrAllocatorOrInterfaceFunction(CalledF) &&
+            !IsUsedOnlyInUnusedVTable(CalledF))
+          return false;
+      } else {
+        // If "U" is not a call, check "U" is in unused VTables.
+        if (!IsUsedOnlyInUnusedVTable(U))
+          return false;
+      }
+    }
+  }
+  return true;
+}
+
+// Finds all possible values of BlockSize and check for heuristic.
+bool MemManageTransImpl::checkBlockSizeHeuristic(void) {
+  std::function<bool(Value *, SmallPtrSetImpl<ConstantInt *> &)>
+      FindAllPossibleArgumentValues;
+
+  // Finds all possible values of "V" by walking through the callchain.
+  FindAllPossibleArgumentValues =
+      [&FindAllPossibleArgumentValues](
+          Value *V, SmallPtrSetImpl<ConstantInt *> &ConstSet) {
+        if (auto *C = dyn_cast<ConstantInt>(V)) {
+          ConstSet.insert(C);
+          return true;
+        }
+        // Analyze further only if "V" is an argument.
+        auto *Arg = dyn_cast<Argument>(V);
+        if (!Arg)
+          return false;
+        int32_t ArgNo = Arg->getArgNo();
+        Function *Caller = Arg->getParent();
+        for (auto *U : Caller->users()) {
+          if (auto *CB = dyn_cast<CallBase>(U->stripPointerCasts())) {
+            if (!FindAllPossibleArgumentValues(CB->getArgOperand(ArgNo),
+                                               ConstSet))
+              return false;
+          } else if (auto *GA = dyn_cast<GlobalAlias>(U)) {
+            // If "U" is GlobalAlias, find target of alias and then analyze
+            // callsites of the target.
+            auto *Target = dyn_cast<GlobalValue>(GA->stripPointerCasts());
+            if (!Target)
+              return false;
+            for (auto *UU : Target->users()) {
+              auto *CB = dyn_cast<CallBase>(UU->stripPointerCasts());
+              if (!CB)
+                return false;
+              if (!FindAllPossibleArgumentValues(CB->getArgOperand(ArgNo),
+                                                 ConstSet))
+                return false;
+            }
+          } else {
+            return false;
+          }
+        }
+        return true;
+      };
+
+  Value *Val = BlockSizeStoreInst->getValueOperand();
+  SmallPtrSet<ConstantInt *, 2> ConstSet;
+  if (!FindAllPossibleArgumentValues(Val, ConstSet))
+    return false;
+  if (ConstSet.size() != 1)
+    return false;
+  auto *ConstI = *ConstSet.begin();
+  if (ConstI->getLimitedValue() > MaxBlockSizeHeuristic)
+    return false;
+
+  return true;
+}
+
 // Check legality issues for candidates.
 bool MemManageTransImpl::analyzeCandidates(void) {
 
@@ -425,11 +589,15 @@ bool MemManageTransImpl::analyzeCandidates(void) {
     });
     return false;
   }
+  if (!checkInterfaceFunctions()) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS, {
+      dbgs() << "   Failed: Unknown Interface function uses\n";
+    });
+    return false;
+  }
 
   // TODO: Add more checks here.
-  // 1. Makes sure interface functions are called only from
-  //    AllocatorStringFunctions
-  // 2. Makes sure ReusableArenaAllocatorType and all other related
+  // Makes sure ReusableArenaAllocatorType and all other related
   //    types are not escaped.
 
   return true;
@@ -496,9 +664,8 @@ bool MemManageTransImpl::categorizeFunctions() {
       if (!CB)
         continue;
       Function *CalledF = CB->getFunction();
-      for (auto InterF : Cand->interface_functions())
-        if (InterF == CalledF)
-          return true;
+      if (Cand->isInterfaceFunction(CalledF))
+        return true;
     }
     return false;
   };
@@ -1621,6 +1788,18 @@ bool MemManageTransImpl::processBBTerminator(BasicBlock *BB, Value **LValue,
 bool MemManageTransImpl::checkInstructionInBlock(Value *V, BasicBlock *BB) {
   auto *I = dyn_cast<Instruction>(V);
   if (!I || I->getParent() != BB)
+    return false;
+  return true;
+}
+
+// Returns true if type of "ArgOp" is StringObjectType.
+bool MemManageTransImpl::isStrObjPtrTypeArg(Value *ArgOp) {
+  Type *ObjTy = nullptr;
+  if (auto *PTy = dyn_cast<PointerType>(ArgOp->getType()))
+    ObjTy = PTy->getElementType();
+  auto Cand = getCurrentCandidate();
+  StructType *StrObjType = Cand->getStringObjectType();
+  if (!ObjTy || ObjTy != StrObjType)
     return false;
   return true;
 }
@@ -4678,12 +4857,7 @@ bool MemManageTransImpl::identifyStrObjDtorCall(Instruction *I,
     if (ArgOp != ObjBlkPtr)
       return false;
   }
-  Type *ObjTy = nullptr;
-  if (auto *PTy = dyn_cast<PointerType>(ArgOp->getType()))
-    ObjTy = PTy->getElementType();
-  auto Cand = getCurrentCandidate();
-  StructType *StrObjType = Cand->getStringObjectType();
-  if (!ObjTy || ObjTy != StrObjType)
+  if (!isStrObjPtrTypeArg(ArgOp))
     return false;
 
   // TODO: Makes sure ObjDestCall is a destructor.
@@ -6747,7 +6921,7 @@ bool MemManageTransImpl::recognizeFunctions(void) {
   if (!recognizeDestroyObject(ObjDtorF))
     return false;
 
-  return false;
+  return true;
 }
 
 // Return false if any unvisited instruction is noticed in "F".
@@ -6771,6 +6945,81 @@ bool MemManageTransImpl::verifyAllInstsProcessed(Function *F) {
   return true;
 }
 
+// This routine checks that the calls are in the order given below.
+//  AllocateBlock();
+//  StrObjCtor();
+//  CommitBlock();
+//
+// Check for the following callsite restrictions:
+// 1. Only one callsite is allowed for AllocateBlock and CommitBlock.
+// 2. StrObjCtor should be called after AllocateBlock.
+// 3. CommitBlock is called after StrObjCtor. Only instructions without
+//    side effects are allowed in between calls.
+bool MemManageTransImpl::checkCallSiteRestrictions(void) {
+
+  // Skip instructions without side effects. Returns next instruction.
+  auto GetNextCallWithSideEffects = [this](Instruction *I) -> Instruction * {
+    BasicBlock::iterator EndIt = I->getParent()->end();
+    BasicBlock::iterator It = I->getIterator();
+    // Get next instruction.
+    It++;
+    for (; It != EndIt; It++) {
+      Instruction *II = &*It;
+      if (!II->mayWriteToMemory())
+        continue;
+      if (auto *CB = dyn_cast<CallBase>(II)) {
+        auto *CalledF = dtrans::getCalledFunction(*CB);
+        assert(CalledF && "Unexpected indirect call");
+        // Allow GetMemManager call as it doesn't have any side effects.
+        if (FunctionalityMap[GetMemManager] == CalledF)
+          continue;
+      }
+      return II;
+    }
+    return nullptr;
+  };
+
+  // Returns callsite "F" if it has single callsite. Otherwise, returns
+  // nullptr.
+  auto GetSingleCallSite = [](Function *F) -> CallBase * {
+    CallBase *CallS = nullptr;
+    for (auto *U : F->users()) {
+      auto *CB = dyn_cast<CallBase>(U);
+      // Ignore non-callbase uses as we already proved that all other
+      // uses are related to VTable.
+      if (!CB)
+        continue;
+      if (CallS)
+        return nullptr;
+      CallS = CB;
+    }
+    return CallS;
+  };
+
+  CallBase *AllocCall = GetSingleCallSite(FunctionalityMap[AllocateBlock]);
+  CallBase *CommitCall = GetSingleCallSite(FunctionalityMap[CommitAllocation]);
+  if (!CommitCall || !AllocCall)
+    return false;
+  // Check that both calls are in same BasicBlock.
+  if (CommitCall->getParent() != AllocCall->getParent())
+    return false;
+  auto *StrObjCtor =
+      dyn_cast_or_null<CallBase>(GetNextCallWithSideEffects(AllocCall));
+  if (!StrObjCtor)
+    return false;
+  if (StrObjCtor->arg_size() < 1)
+    return false;
+  if (!isStrObjPtrTypeArg(StrObjCtor->getArgOperand(0)))
+    return false;
+
+  // TODO: Makes sure StrObjCtor is a constructor.
+  //
+  Instruction *NextCall = GetNextCallWithSideEffects(StrObjCtor);
+  if (!NextCall || NextCall != CommitCall)
+    return false;
+  return true;
+}
+
 bool MemManageTransImpl::run(void) {
   // Collect candidates.
   if (!gatherCandidates())
@@ -6784,12 +7033,23 @@ bool MemManageTransImpl::run(void) {
   if (!categorizeFunctions())
     return false;
 
+  // Check callsite restrictions for AllocateBlock and CommitBlock.
+  if (!checkCallSiteRestrictions()) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS,
+                    { dbgs() << "   Failed: Callsite restrictions\n"; });
+    return false;
+  }
+
   // Recognize functionality of each interface function.
   if (!recognizeFunctions()) {
-    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS, {
-      dbgs() << "   Failed: Recognizing functionality\n";
-      ;
-    });
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS,
+                    { dbgs() << "   Failed: Recognizing functionality\n"; });
+    return false;
+  }
+
+  if (!checkBlockSizeHeuristic()) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS,
+                    { dbgs() << "   Failed: BlockSize heuristic\n"; });
     return false;
   }
 
