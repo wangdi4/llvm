@@ -1129,6 +1129,10 @@ bool TargetTransformInfo::supportsScalableVectors() const {
   return TTIImpl->supportsScalableVectors();
 }
 
+bool TargetTransformInfo::hasActiveVectorLength() const {
+  return TTIImpl->hasActiveVectorLength();
+}
+
 InstructionCost
 TargetTransformInfo::getInstructionLatency(const Instruction *I) const {
   return TTIImpl->getInstructionLatency(I);

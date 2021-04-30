@@ -143,6 +143,7 @@ if( NOT CLANG_BUILT_STANDALONE )
     llvm-readobj
     llvm-strip
     llvm-symbolizer
+    llvm-windres
     opt
     split-file
     yaml2obj
