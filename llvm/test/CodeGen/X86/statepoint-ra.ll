@@ -96,7 +96,9 @@ declare token @llvm.experimental.gc.statepoint.p0f_isVoidp1i8f64f64f64f64f64f64f
 ;CHECK:     MOVSDmr %stack.5, 1, $noreg, 0, $noreg, %58 :: (store 8 into %stack.5)
 ;CHECK:     MOVSDmr %stack.6, 1, $noreg, 0, $noreg, %62 :: (store 8 into %stack.6)
 ;CHECK:     JCC_1 %bb.2, 4, implicit killed $eflags
-;CHECK:   bb.1:
+; INTEL_CUSTOMIZATION
+;CHECK:   bb.1.bb:
+; end INTEL_CUSTOMIZATION
 ;CHECK:     successors: %bb.3(0x80000000)
 ;CHECK:     %54:fr64 = MOVSDrm_alt $rip, 1, $noreg, %const.0, $noreg :: (load 8 from constant-pool)
 ;CHECK:     MOVSDmr %stack.3, 1, $noreg, 0, $noreg, %54 :: (store 8 into %stack.3)
