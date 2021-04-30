@@ -17,7 +17,7 @@ set(TARGET_SOURCE_FILES
   LoopUtils.h
 )
 
-add_library(
+add_opencl_library(
   ${TARGET_NAME}
   STATIC
   ${TARGET_SOURCE_FILES}

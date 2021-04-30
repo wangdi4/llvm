@@ -70,7 +70,7 @@ src/google/protobuf/wire_format_lite.cc
 SET_UNICODE_ON()
 
 # add a target named ${TARGET_NAME}
-add_library (${TARGET_NAME} STATIC ${TARGET_SOURCE_FILES})
+add_opencl_library (${TARGET_NAME} STATIC ${TARGET_SOURCE_FILES})
 
 # needed or not???
 #SET_TARGET_PROPERTIES(${TARGET_NAME} PROPERTIES LINKER_LANGUAGE CXX)

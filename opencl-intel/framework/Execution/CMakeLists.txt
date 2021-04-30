@@ -30,5 +30,5 @@ CALCULATE_TARGET_SOURCES()
 include(itt)
 
 # add a target named ${TARGET_NAME}
-add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
+add_opencl_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME} )

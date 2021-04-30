@@ -27,7 +27,7 @@ endif(NOT WIN32)
 
 include_directories(${CCLANG_DEV_INCLUDE_DIRS})
 
-add_library (${TARGET_NAME} STATIC 
+add_opencl_library (${TARGET_NAME} STATIC
              ${TARGET_SOURCE_FILES}
              ${TARGET_INCLUDE_FILES})
 

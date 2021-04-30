@@ -15,7 +15,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}
   ${BACKEND_ROOT_DIR}/export
 )
-add_library(Comparator STATIC
+add_opencl_library(Comparator STATIC
   ${CMP_INCLUDE_FILES}
   Comparator.cpp
   ComparisonResults.cpp

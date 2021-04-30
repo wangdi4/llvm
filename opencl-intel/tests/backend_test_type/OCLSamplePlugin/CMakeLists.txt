@@ -20,7 +20,7 @@ set (SAMPLEPLUGIN_SOURCE_FILES
 set_opencl_version()
 
 # Create DLL
-add_library (${TARGET_NAME} SHARED
+add_opencl_library (${TARGET_NAME} SHARED
     ${SAMPLEPLUGIN_INCLUDE_FILES}
     ${SAMPLEPLUGIN_SOURCE_FILES}
     )

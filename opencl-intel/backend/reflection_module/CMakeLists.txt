@@ -58,7 +58,7 @@ set(TARGET_INCLUDE_FILES
   utils.h
 )
 
-add_library(
+add_opencl_library(
   ${TARGET_NAME}
   STATIC
   ${TARGET_SOURCE_FILES}

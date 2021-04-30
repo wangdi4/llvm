@@ -28,7 +28,7 @@ include_directories(
   ${LLVM_OBJ_DIR}/tools/llvm-objdump
 )
 
-add_library(
+add_opencl_library(
   ${TARGET_NAME}
   STATIC
   ObjectDump.h

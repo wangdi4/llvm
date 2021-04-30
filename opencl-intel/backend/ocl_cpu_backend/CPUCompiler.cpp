@@ -206,7 +206,7 @@ void CPUCompiler::SelectCpu(const std::string &cpuName,
   }
   if (selectedCpuId == Intel::OpenCL::Utils::CPU_SPR) {
     // SPR features
-    m_forcedCpuFeatures.push_back("+amx512f");
+    m_forcedCpuFeatures.push_back("+avx512f");
     m_forcedCpuFeatures.push_back("+amx-tile");
     m_forcedCpuFeatures.push_back("+amx-int8");
     m_forcedCpuFeatures.push_back("+amx-bf16");

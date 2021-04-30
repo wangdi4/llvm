@@ -12,7 +12,7 @@ include_directories(
       ${BACKEND_ROOT_DIR}/metadata_api
 )
 
-add_library(${TARGET_NAME} STATIC
+add_opencl_library(${TARGET_NAME} STATIC
     ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}
 )

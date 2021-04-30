@@ -14,7 +14,7 @@ set (DV_INCLUDE_FILES
 )
 
 # Data Version Library
-add_library(DataVersion STATIC
+add_opencl_library(DataVersion STATIC
   ${DV_INCLUDE_FILES}
   DataVersion.cpp
 )

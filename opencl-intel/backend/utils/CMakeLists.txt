@@ -67,7 +67,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/arch_headers
 )
 
-add_library(${TARGET_NAME} STATIC
+add_opencl_library(${TARGET_NAME} STATIC
     ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}
     ${UTILS_ASM_ADD_TO_SOURCES_LIST}

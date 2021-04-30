@@ -22,7 +22,7 @@ CALCULATE_TARGET_SOURCES()
 include(itt)
 
 # add a target named ${TARGET_NAME}
-add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
+add_opencl_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
 
 target_link_libraries(${TARGET_NAME} clbltpipe)
 

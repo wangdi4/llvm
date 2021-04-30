@@ -34,7 +34,7 @@ set(TARGET_SOURCE_FILES
   WIRelatedValuePass.cpp
 )
 
-add_library(
+add_opencl_library(
   ${TARGET_NAME}
   STATIC
   ${TARGET_SOURCE_FILES}
