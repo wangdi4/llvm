@@ -107,6 +107,8 @@ static const uint32_t LBH_NONTAKEN_WEIGHT = 4;
 #if INTEL_CUSTOMIZATION
 // Likely edges within a loop are a little bigger than other edges
 static const uint32_t LBH_LIKELY_WEIGHT = 135;
+static const uint32_t A2C3H_TAKEN_WEIGHT = 13;
+static const uint32_t A2C3H_NONTAKEN_WEIGHT = 87;
 #endif // INTEL_CUSTOMIZATION
 
 /// Unreachable-terminating branch taken probability.
@@ -1010,6 +1012,104 @@ bool BranchProbabilityInfo::calcADILBranchHeuristics(const LoopBlock LoopBB) {
   setEdgeProbability(BB, EdgeProbabilities);
   return true;
 }
+
+// If there are three cmp condition merging together as one
+// condition in the bottom of BB. The two branches probability should
+// not be 50:50, and should be 87:13. For example:
+// %1 = icmp sge %2, %3
+// %4 = icmp sgt %5, %6
+// %7 = and %1, %4 (or %7 = select %1, %4, false)
+// %8 = icmp eq %9, %10
+// %11 = and %7, %8 (or %11 = select %7, %8, false)
+// branch %11, lable %12, lable %13
+// In this case, the probabilty of succesor %12 should be about 13%
+// (= 50/2/2) and succesor %13 should be 87% (= 50 + 50/2 + 50/4).
+bool BranchProbabilityInfo::calcAnd2ICmp3Heuristics(const BasicBlock *BB)
+{
+  Loop *L = getLoopBlock(BB).getLoop();
+  const BranchInst *BI = dyn_cast<BranchInst>(BB->getTerminator());
+  if (!BI || !BI->isConditional() || BB->getParent()->isFortran() ||!L)
+    return false;
+
+  Value *Cond = BI->getCondition();
+  Instruction *IAndSel = dyn_cast<Instruction>(Cond);
+  //%11 = and %7, %8
+  if (!IAndSel || !(IAndSel->getOpcode() == Instruction::And
+                    || IAndSel->getOpcode() == Instruction::Select))
+    return false;
+
+  if (IAndSel->getOpcode() == Instruction::Select) {
+    //%11 = select %7, %8, false
+    ConstantInt *CV = dyn_cast_or_null<ConstantInt>(IAndSel->getOperand(2));
+    if (!CV || !CV->isZero())
+      return false;
+  }
+  Value *LHSAndSel = IAndSel->getOperand(0);
+  Value *RHSAndSel = IAndSel->getOperand(1);
+  Instruction *LHSIAndSel = dyn_cast<Instruction>(LHSAndSel);
+  Instruction *RHSIAndSel = dyn_cast<Instruction>(RHSAndSel);
+  Instruction *IAndSel2 = NULL;
+  ICmpInst *CI0 = NULL, *CI1 = NULL, *CI2 = NULL;
+  //%7 = and %1, %4
+  //%8 = icmp eq %9, %10
+  if (dyn_cast<ICmpInst>(RHSAndSel) && LHSIAndSel
+      && (LHSIAndSel->getOpcode() == Instruction::And
+          || LHSIAndSel->getOpcode() == Instruction::Select)) {
+    //%7 = select %1, %4, false
+    if (LHSIAndSel->getOpcode() == Instruction::Select) {
+      ConstantInt *CV = dyn_cast_or_null<ConstantInt>(LHSIAndSel->getOperand(2));
+      if (!CV || !CV->isZero())
+        return false;
+    }
+    IAndSel2 = LHSIAndSel;
+    CI0 = dyn_cast<ICmpInst>(RHSAndSel);
+  } else if (dyn_cast<ICmpInst>(LHSAndSel) && RHSIAndSel
+             && (RHSIAndSel->getOpcode() == Instruction::And
+                 || RHSIAndSel->getOpcode() == Instruction::Select)) {
+    //%7 = select %1, %4, false
+    if (RHSIAndSel->getOpcode() == Instruction::Select) {
+      ConstantInt *CV = dyn_cast_or_null<ConstantInt>(RHSIAndSel->getOperand(2));
+      if (!CV || !CV->isZero())
+        return false;
+    }
+    IAndSel2 = RHSIAndSel;
+    CI0 = dyn_cast<ICmpInst>(LHSAndSel);
+  }
+  if (CI0 && IAndSel2) {
+    Value *LHSAndSel2 = IAndSel2->getOperand(0);
+    Value *RHSAndSel2 = IAndSel2->getOperand(1);
+    CI1 = dyn_cast<ICmpInst>(LHSAndSel2);
+    CI2 = dyn_cast<ICmpInst>(RHSAndSel2);
+    // %1 = icmp sge %2, %3
+    // %4 = icmp sgt %5, %6
+    if (!CI1 || !CI2
+        //CI0, CI1 and CI2 should be in the same BB
+        || !(CI0->getParent() == CI1->getParent())
+        || !(CI1->getParent() == CI2->getParent())
+        //if CI, CI1 and CI2 all compare with a constant, stop this transform.
+        || (dyn_cast_or_null<ConstantInt>(CI0->getOperand(1))
+            && dyn_cast_or_null<ConstantInt>(CI1->getOperand(1))
+            && dyn_cast_or_null<ConstantInt>(CI2->getOperand(1)))
+        //If all cmp predications are all eq/ne, stop this transform.
+        || ((CI0->getPredicate() == CmpInst::ICMP_EQ
+             || CI0->getPredicate() == CmpInst::ICMP_NE)
+            && (CI1->getPredicate() == CmpInst::ICMP_EQ
+                || CI1->getPredicate() == CmpInst::ICMP_NE)
+            && (CI2->getPredicate() == CmpInst::ICMP_EQ
+                || CI2->getPredicate() == CmpInst::ICMP_NE)))
+      return false;
+    LLVM_DEBUG(dbgs() << "And2ICmp3Heuristics hints func:"
+               << BB->getParent()->getName() << "\n");
+    BranchProbability TakenProb(A2C3H_TAKEN_WEIGHT, A2C3H_TAKEN_WEIGHT
+                                + A2C3H_NONTAKEN_WEIGHT);
+    BranchProbability UntakenProb(A2C3H_NONTAKEN_WEIGHT, A2C3H_TAKEN_WEIGHT
+                                  + A2C3H_NONTAKEN_WEIGHT);
+    setEdgeProbability(
+      BB, SmallVector<BranchProbability, 2>({TakenProb, UntakenProb}));
+    return true;
+  }
+  return false;
+}
 #endif // INTEL_CUSTOMIZATION
 
 // Calculate edge probabilities based on block's estimated weight.
@@ -1530,6 +1630,13 @@ void BranchProbabilityInfo::calculate(const Function &F, const LoopInfo &LoopI,
       continue;
     if (calcFloatingPointHeuristics(BB))
       continue;
+#if INTEL_CUSTOMIZATION
+    // Since (CMP && CMP && CMP) is very general, put this heuristics
+    // identify at the lowest priority. Only if other heuristics don't
+    // hint, then run this heuristics.
+    if (calcAnd2ICmp3Heuristics(BB))
+      continue;
+#endif // INTEL_CUSTOMIZATION
   }
 
   EstimatedLoopWeight.clear();
