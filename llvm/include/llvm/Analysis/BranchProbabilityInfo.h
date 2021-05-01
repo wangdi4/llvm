@@ -421,6 +421,7 @@ private:
   // Calculate probabilities for branches inside an ADIL that may skip inner
   // loops. Such skips are predicted to be more likely to happen than not.
   bool calcADILBranchHeuristics(const LoopBlock LoopBB);
+  bool calcAnd2ICmp3Heuristics(const BasicBlock *BB);
 #endif // INTEL_CUSTOMIZATION
   DominatorTree *CurrentDT = nullptr; // INTEL
   bool enableAbnormalDeepLoopHeuristics = false; // INTEL
