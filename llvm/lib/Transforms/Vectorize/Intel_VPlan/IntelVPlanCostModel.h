@@ -107,15 +107,15 @@ public:
                                         const unsigned VF);
 
 protected:
-#if INTEL_CUSTOMIZATION
+  VPlanPeelingVariant* DefaultPeelingVariant = nullptr;
   VPlanVLSAnalysis *VLSA;
-#endif // INTEL_CUSTOMIZATION
 
   VPlanTTICostModel(const VPlanVector *Plan, const unsigned VF,
                     const TargetTransformInfo *TTI,
                     const TargetLibraryInfo *TLI, const DataLayout *DL,
                     VPlanVLSAnalysis *VLSA)
-      : Plan(Plan), VF(VF), TLI(TLI), DL(DL), VPTTI(*TTI, *DL), VLSA(VLSA) {
+    : Plan(Plan), VF(VF), TLI(TLI), DL(DL), VPTTI(*TTI, *DL), VLSA(VLSA),
+      VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF) {
 
     // CallVecDecisions analysis invocation.
     VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlanVector *>(Plan));
@@ -133,6 +133,8 @@ protected:
   ~VPlanTTICostModel() {};
 
 private:
+  VPlanAlignmentAnalysis VPAA;
+
   // These utilities are private for the class instead of being defined as
   // static functions because they need access to underlying Inst/HIRData in
   // VPInstruction via the friends relation VPInstruction.
@@ -230,26 +232,22 @@ public:
                  const TargetTransformInfo *TTI, const TargetLibraryInfo *TLI,
                  const DataLayout *DL, VPlanVLSAnalysis *VLSA = nullptr)
     : VPlanTTICostModel(Plan, VF, TTI, TLI, DL, VLSA),
-      VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VF),
       HeuristicsPipeline(this) {}
   // Get Cost for VPlan with specified peeling.
   unsigned getCost(VPlanPeelingVariant *PeelingVariant = nullptr);
-  unsigned getMemInstAlignment(const VPInstruction *VPInst) const;
   virtual unsigned getLoadStoreCost(
     const VPInstruction *LoadOrStore, Align Alignment, unsigned VF) {
     return VPlanTTICostModel::getLoadStoreCost(LoadOrStore, Alignment, VF);
   }
-  virtual unsigned getBlockRangeCost(const VPBasicBlock *Begin,
-                                     const VPBasicBlock *End);
+  virtual unsigned getBlockRangeCost(
+    const VPBasicBlock *Begin, const VPBasicBlock *End,
+    VPlanPeelingVariant *PeelingVariant = nullptr);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   virtual ~VPlanCostModel() {}
 
 protected:
-  VPlanPeelingVariant* DefaultPeelingVariant = nullptr;
-  VPlanAlignmentAnalysis VPAA;
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   std::string getCostNumberString(unsigned Cost) const {
     if (Cost == UnknownCost)
