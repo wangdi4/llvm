@@ -10,8 +10,8 @@ int foo()
 {
   constexpr int intel_llvm = __INTEL_LLVM_COMPILER;
   constexpr int intel_clang = __INTEL_CLANG_COMPILER;
-  static_assert(intel_llvm == 20210300, "INTEL LLVM COMPILER version is incorrect");
-  static_assert(intel_clang == 20210300, "INTEL CLANG COMPILER version is incorrect");
+  static_assert(intel_llvm == 20210400, "INTEL LLVM COMPILER version is incorrect");
+  static_assert(intel_clang == 20210400, "INTEL CLANG COMPILER version is incorrect");
   const char *c = __clang_version__;
   return c[0];
 }
