@@ -11,6 +11,13 @@
 ;   }
 ; }
 
+; Check that the artificial alloca created by Paropt for i is inserted in
+; the function's entry block.
+; CHECK: entry:
+; CHECK-NOT: br label %{{.*}}
+; CHECK: %promoted.clause.args = alloca i8, align 1
+; CHECK: br label %{{.*}}
+
 ; CHECK: define internal void @__omp_offloading_804_52009c5_foo_l3(i32*{{ *%[^,]*}})
 
 source_filename = "target.c"

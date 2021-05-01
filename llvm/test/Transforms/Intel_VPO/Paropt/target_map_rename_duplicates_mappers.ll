@@ -27,8 +27,8 @@
 ;
 ; CHECK-LABEL: define i32 @foo()
 ; CHECK: entry:
-; CHECK:   [[YY0:%.*]] = alloca i32, align 4
-; CHECK:   [[ZZ0:%.*]] = alloca i32, align 4
+; CHECK:   [[YY0:%yy.*]] = alloca i32, align 4
+; CHECK:   [[ZZ0:%zz.*]] = alloca i32, align 4
 ; CHECK:   [[YY1:%.*]] = getelementptr inbounds i32, i32* [[YY0]], i32 0
 ; CHECK:   call void [[OUTLINED:@__omp_offloading_.*]](i32* [[YY0]], i32* [[YY1]], i32* [[ZZ0]])
 ;
