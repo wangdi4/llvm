@@ -414,7 +414,7 @@ VALUE_CODEGENOPT(X87Precision, 8, 0)
 #endif // INTEL_CUSTOMIZATION
 
 /// The default stack protector guard offset to use.
-VALUE_CODEGENOPT(StackProtectorGuardOffset, 32, (unsigned)-1)
+VALUE_CODEGENOPT(StackProtectorGuardOffset, 32, INT_MAX)
 
 /// Number of path components to strip when emitting checks. (0 == full
 /// filename)
