@@ -700,6 +700,10 @@ EXTERN int __tgt_get_target_memory_info(
 EXTERN void __tgt_add_build_options(
     const char *compile_options, const char *link_options);
 #endif // INTEL_COLLAB
+
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 void __tgt_set_info_flag(uint32_t);
 
 #ifdef __cplusplus
