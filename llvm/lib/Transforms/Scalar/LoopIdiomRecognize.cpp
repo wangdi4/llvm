@@ -224,6 +224,13 @@ private:
                                const SCEVAddRecExpr *Ev, const SCEV *BECount,
                                bool NegStride, bool IsLoopMemset = false);
   bool processLoopStoreOfLoopLoad(StoreInst *SI, const SCEV *BECount);
+  bool processLoopStoreOfLoopLoad(Value *DestPtr, Value *SourcePtr,
+                                  unsigned StoreSize, MaybeAlign StoreAlign,
+                                  MaybeAlign LoadAlign, Instruction *TheStore,
+                                  Instruction *TheLoad,
+                                  const SCEVAddRecExpr *StoreEv,
+                                  const SCEVAddRecExpr *LoadEv,
+                                  const SCEV *BECount);
   bool avoidLIRForMultiBlockLoop(bool IsMemset = false,
                                  bool IsLoopMemset = false);
 
@@ -1143,9 +1150,7 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
 
   Value *StorePtr = SI->getPointerOperand();
   const SCEVAddRecExpr *StoreEv = cast<SCEVAddRecExpr>(SE->getSCEV(StorePtr));
-  APInt Stride = getStoreStride(StoreEv);
   unsigned StoreSize = DL->getTypeStoreSize(SI->getValueOperand()->getType());
-  bool NegStride = StoreSize == -Stride;
 
   // The store must be feeding a non-volatile load.
   LoadInst *LI = cast<LoadInst>(SI->getValueOperand());
@@ -1154,9 +1159,18 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   // See if the pointer expression is an AddRec like {base,+,1} on the current
   // loop, which indicates a strided load.  If we have something else, it's a
   // random load we can't handle.
-  const SCEVAddRecExpr *LoadEv =
-      cast<SCEVAddRecExpr>(SE->getSCEV(LI->getPointerOperand()));
+  Value *LoadPtr = LI->getPointerOperand();
+  const SCEVAddRecExpr *LoadEv = cast<SCEVAddRecExpr>(SE->getSCEV(LoadPtr));
+  return processLoopStoreOfLoopLoad(StorePtr, LoadPtr, StoreSize,
+                                    SI->getAlign(), LI->getAlign(), SI, LI,
+                                    StoreEv, LoadEv, BECount);
+}
 
+bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(
+    Value *DestPtr, Value *SourcePtr, unsigned StoreSize, MaybeAlign StoreAlign,
+    MaybeAlign LoadAlign, Instruction *TheStore, Instruction *TheLoad,
+    const SCEVAddRecExpr *StoreEv, const SCEVAddRecExpr *LoadEv,
+    const SCEV *BECount) {
   // The trip count of the loop and the base pointer of the addrec SCEV is
   // guaranteed to be loop invariant, which means that it should dominate the
   // header.  This allows us to insert code for it in the preheader.
@@ -1168,8 +1182,11 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
 
   bool Changed = false;
   const SCEV *StrStart = StoreEv->getStart();
-  unsigned StrAS = SI->getPointerAddressSpace();
+  unsigned StrAS = DestPtr->getType()->getPointerAddressSpace();
   Type *IntIdxTy = Builder.getIntNTy(DL->getIndexSizeInBits(StrAS));
+
+  APInt Stride = getStoreStride(StoreEv);
+  bool NegStride = StoreSize == -Stride;
 
   // Handle negative strided loops.
   if (NegStride)
@@ -1187,7 +1204,7 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
 #if INTEL_CUSTOMIZATION
   AAMDNodes AAInfo;
   // Pass the tbaa metadata for the store location to the alias queries.
-  SI->getAAMetadata(AAInfo);
+  TheStore->getAAMetadata(AAInfo);
 #endif // INTEL_CUSTOMIZATION
 
   // From here on out, conservatively report to the pass manager that we've
@@ -1200,13 +1217,13 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   Changed = true;
 
   SmallPtrSet<Instruction *, 1> Stores;
-  Stores.insert(SI);
+  Stores.insert(TheStore);
   if (mayLoopAccessLocation(StoreBasePtr, ModRefInfo::ModRef, CurLoop, BECount,
                             StoreSize, *AA, Stores, &AAInfo)) // INTEL
     return Changed;
 
   const SCEV *LdStart = LoadEv->getStart();
-  unsigned LdAS = LI->getPointerAddressSpace();
+  unsigned LdAS = SourcePtr->getType()->getPointerAddressSpace();
 
   // Handle negative strided loops.
   if (NegStride)
@@ -1236,15 +1253,15 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   // Check whether to generate an unordered atomic memcpy:
   //  If the load or store are atomic, then they must necessarily be unordered
   //  by previous checks.
-  if (!SI->isAtomic() && !LI->isAtomic())
-    NewCall = Builder.CreateMemCpy(StoreBasePtr, SI->getAlign(), LoadBasePtr,
-                                   LI->getAlign(), NumBytes);
+  if (!TheStore->isAtomic() && !TheLoad->isAtomic())
+    NewCall = Builder.CreateMemCpy(StoreBasePtr, StoreAlign, LoadBasePtr,
+                                   LoadAlign, NumBytes);
   else {
     // We cannot allow unaligned ops for unordered load/store, so reject
     // anything where the alignment isn't at least the element size.
-    const Align StoreAlign = SI->getAlign();
-    const Align LoadAlign = LI->getAlign();
-    if (StoreAlign < StoreSize || LoadAlign < StoreSize)
+    assert((StoreAlign.hasValue() && LoadAlign.hasValue()) &&
+           "Expect unordered load/store to have align.");
+    if (StoreAlign.getValue() < StoreSize || LoadAlign.getValue() < StoreSize)
       return Changed;
 
     // If the element.atomic memcpy is not lowered into explicit
@@ -1258,10 +1275,10 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
     // Note that unordered atomic loads/stores are *required* by the spec to
     // have an alignment but non-atomic loads/stores may not.
     NewCall = Builder.CreateElementUnorderedAtomicMemCpy(
-        StoreBasePtr, StoreAlign, LoadBasePtr, LoadAlign, NumBytes,
-        StoreSize);
+        StoreBasePtr, StoreAlign.getValue(), LoadBasePtr, LoadAlign.getValue(),
+        NumBytes, StoreSize);
   }
-  NewCall->setDebugLoc(SI->getDebugLoc());
+  NewCall->setDebugLoc(TheStore->getDebugLoc());
 
   if (MSSAU) {
     MemoryAccess *NewMemAcc = MSSAU->createMemoryAccessInBB(
@@ -1270,8 +1287,9 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   }
 
   LLVM_DEBUG(dbgs() << "  Formed memcpy: " << *NewCall << "\n"
-                    << "    from load ptr=" << *LoadEv << " at: " << *LI << "\n"
-                    << "    from store ptr=" << *StoreEv << " at: " << *SI
+                    << "    from load ptr=" << *LoadEv << " at: " << *TheLoad
+                    << "\n"
+                    << "    from store ptr=" << *StoreEv << " at: " << *TheStore
                     << "\n");
 
   ORE.emit([&]() {
@@ -1285,8 +1303,8 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   // Okay, the memcpy has been formed.  Zap the original store and anything that
   // feeds into it.
   if (MSSAU)
-    MSSAU->removeMemoryAccess(SI, true);
-  deleteDeadInstruction(SI);
+    MSSAU->removeMemoryAccess(TheStore, true);
+  deleteDeadInstruction(TheStore);
   if (MSSAU && VerifyMemorySSA)
     MSSAU->getMemorySSA()->verifyMemorySSA();
   ++NumMemCpy;
