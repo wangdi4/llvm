@@ -83,7 +83,7 @@
 // RUN:   | FileCheck -check-prefix=CHK-TOOLS-IMPLIED-OPTS-GEN %s
 // RUN: %clang_cl -### -Qiopenmp -Qopenmp-targets=spir64_gen -Zi -Od -Xopenmp-target-backend "-DFOO1 -DFOO2" %s 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-TOOLS-IMPLIED-OPTS-GEN %s
-// CHK-TOOLS-IMPLIED-OPTS-GEN: ocloc{{.*}} "-options" "-g -cl-opt-disable" "-DFOO1" "-DFOO2"
+// CHK-TOOLS-IMPLIED-OPTS-GEN: ocloc{{.*}} "-options" "-g -cl-take-global-address -cl-opt-disable" "-DFOO1" "-DFOO2"
 
 /// Check -Xopenmp-target-linker option passing
 // RUN:   %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_gen -Xopenmp-target-linker "-DFOO1 -DFOO2" %s 2>&1 \

@@ -8989,7 +8989,8 @@ static void addRunTimeWrapperOpts(Compilation &C,
     // Only store compile/link opts in the image descriptor for the SPIR-V
     // target; AOT compilation has already been performed otherwise.
     //Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind());
-    SYCLTC.AddImpliedTargetArgs(SYCLTC.getTriple(), TCArgs, BuildArgs);
+    SYCLTC.AddImpliedTargetArgs(
+        DeviceOffloadKind, SYCLTC.getTriple(), TCArgs, BuildArgs);
     SYCLTC.TranslateBackendTargetArgs(DeviceOffloadKind, TCArgs, BuildArgs);
     createArgString("-compile-opts=");
     BuildArgs.clear();
