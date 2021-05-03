@@ -111,9 +111,11 @@ class HIRArrayTranspose {
 
 public:
   HIRArrayTranspose(HIRFramework &HIRF)
-      : HIRF(HIRF), MallocArrayBaseTy(nullptr), MallocSizeInBytes(0),
-        ArrayOffsetInBytes(0), ArrayElementSizeInBytes(0),
-        NumRowsInNumElements(0), NumColumnsInNumElements(0) {}
+      : HIRF(HIRF), MallocArrayBaseTy(nullptr), MallocArrayBaseElemTy(nullptr),
+        MallocSizeInBytes(0), ArrayOffsetInBytes(0), ArrayElementSizeInBytes(0),
+        NumRowsInNumElements(0), NumColumnsInNumElements(0),
+        MallocPtrOffsetIsInBytes(false), MallocPtrOffsetIsInElementSize(false) {
+  }
 
   bool run();
 
@@ -183,6 +185,10 @@ private:
   // Type of temps stored in MallocArrayBaseSymbases.
   Type *MallocArrayBaseTy;
 
+  // Element type of malloc array. Sometimes this is encountered before
+  // MallocArrayBaseTy due to bitcast.
+  Type *MallocArrayBaseElemTy;
+
   int64_t MallocSizeInBytes;
 
   // Offset of array base temps from the initial malloc address.
@@ -195,6 +201,12 @@ private:
 
   // Number of columns in the 2-dim array.
   int64_t NumColumnsInNumElements;
+
+  // Set to true based on whether the regular malloc ptr refs or the bitcasted
+  // (to element type) malloc ptr refs are encountered when collecting
+  // MallocOffsetRefs. Only one type is allowed.
+  bool MallocPtrOffsetIsInBytes;
+  bool MallocPtrOffsetIsInElementSize;
 };
 } // namespace
 
@@ -300,13 +312,32 @@ bool HIRArrayTranspose::MallocAnalyzer::processMallocOffsetRef(RegDDRef *Ref) {
     return false;
   }
 
+  if (HAT.MallocPtrOffsetIsInElementSize) {
+    if (Ref->getSrcType()->getPointerElementType() !=
+        HAT.MallocArrayBaseElemTy) {
+      HasValidMallocs = false;
+      LLVM_DEBUG(dbgs() << "Malloc offset previously encountered in element "
+                           "size is now found in a different size in: ";
+                 Ref->getHLDDNode()->dump());
+      return false;
+    }
+  } else {
+    HAT.MallocPtrOffsetIsInBytes = true;
+  }
+
   auto CE = Ref->getDimensionIndex(1);
   int64_t Offset;
 
   if (!CE->isIntConstant(&Offset) || (Offset < 0)) {
     // Cannot analyze malloc offset.
     HasValidMallocs = false;
+    LLVM_DEBUG(dbgs() << "Cannot analyze malloc offset in ref: "; Ref->dump());
     return false;
+  }
+
+  if (HAT.MallocPtrOffsetIsInElementSize) {
+    assert(HAT.ArrayElementSizeInBytes != 0 && "Element size not encountered!");
+    Offset *= HAT.ArrayElementSizeInBytes;
   }
 
   if (HAT.MallocPtrToIntSymbases.empty()) {
@@ -314,6 +345,7 @@ bool HIRArrayTranspose::MallocAnalyzer::processMallocOffsetRef(RegDDRef *Ref) {
 
   } else if (HAT.ArrayOffsetInBytes != Offset) {
     HasValidMallocs = false;
+    LLVM_DEBUG(dbgs() << "Inconsistent malloc offset in ref: "; Ref->dump());
     return false;
   }
 
@@ -377,6 +409,10 @@ void HIRArrayTranspose::MallocAnalyzer::processArrayBaseOrFreeBase(
       if (!PElemTy->isSized() || (PElemTy->getPrimitiveSizeInBits() !=
                                   uint64_t(HAT.ArrayElementSizeInBytes * 8))) {
         // Give up if destination type size does not match element size.
+        LLVM_DEBUG(
+            dbgs()
+                << "Destination type size does not match element size in ref: ";
+            ArrayBaseDef->dump());
         HasValidMallocs = false;
         return;
       }
@@ -393,6 +429,8 @@ void HIRArrayTranspose::MallocAnalyzer::processArrayBaseOrFreeBase(
 
   if (!ArrTy) {
     // Unexpected type conversion.
+    LLVM_DEBUG(dbgs() << "Unexpected type conversion of malloc in: ";
+               ArrayBaseDef->getHLDDNode()->dump());
     HasValidMallocs = false;
     return;
   }
@@ -401,17 +439,31 @@ void HIRArrayTranspose::MallocAnalyzer::processArrayBaseOrFreeBase(
 
   if (!ArrElemTy->isIntegerTy() && !ArrElemTy->isFloatingPointTy()) {
     // Only allow int/fp types to keep it simple.
+    LLVM_DEBUG(dbgs() << "Non int/fp array element type not handled in: ";
+               ArrayBaseDef->getHLDDNode()->dump());
+    HasValidMallocs = false;
+    return;
+  }
+
+  if (HAT.MallocArrayBaseElemTy && (HAT.MallocArrayBaseElemTy != ArrElemTy)) {
+    LLVM_DEBUG(dbgs() << "Inconsistent element access for malloc in: ";
+               ArrayBaseDef->getHLDDNode()->dump());
     HasValidMallocs = false;
     return;
   }
 
   HAT.MallocArrayBaseTy = DestTy;
+  HAT.MallocArrayBaseElemTy = ArrElemTy;
   HAT.ArrayElementSizeInBytes =
       ArrayBaseDef->getCanonExprUtils().getTypeSizeInBytes(ArrElemTy);
 
   if ((HAT.MallocSizeInBytes % HAT.ArrayElementSizeInBytes) != 0) {
     // Cannot transpose if malloc size is not evenly divisible by array element
     // size.
+    LLVM_DEBUG(dbgs() << "Malloc size " << HAT.MallocSizeInBytes
+                      << " not evenly divisible by array element size "
+                      << HAT.ArrayElementSizeInBytes << "in: ";
+               ArrayBaseDef->getHLDDNode()->dump());
     HasValidMallocs = false;
     return;
   }
@@ -419,6 +471,10 @@ void HIRArrayTranspose::MallocAnalyzer::processArrayBaseOrFreeBase(
   if ((HAT.ArrayOffsetInBytes % HAT.ArrayElementSizeInBytes) != 0) {
     // Cannot transpose the array base if array offset is not evenly divisible
     // by element size.
+    LLVM_DEBUG(dbgs() << "Array offset " << HAT.ArrayOffsetInBytes
+                      << " not evenly divisible by array element size "
+                      << HAT.ArrayElementSizeInBytes << "in: ";
+               ArrayBaseDef->getHLDDNode()->dump());
     HasValidMallocs = false;
     return;
   }
@@ -437,6 +493,9 @@ void HIRArrayTranspose::MallocAnalyzer::processIntToPtrInst(HLInst *HInst) {
   auto RvalRef = HInst->getRvalDDRef();
 
   if (!RvalRef->isSelfBlob()) {
+    LLVM_DEBUG(
+        dbgs() << " Unexpected non self blob ref in inttoptr conversion: ";
+        RvalRef->dump());
     HasValidMallocs = false;
     return;
   }
@@ -453,6 +512,10 @@ void HIRArrayTranspose::MallocAnalyzer::processIntToPtrInst(HLInst *HInst) {
 
 void HIRArrayTranspose::MallocAnalyzer::processBitCastInst(HLInst *HInst) {
   // Looking for instruction of the form-
+  // %bitcastedbase = bitcast.i8*.elemTy*(&((%tMalloc)[0]))
+  //
+  // Or
+  //
   // %base = bitcast.i8*.[arrsize x elemTy]*(&((%tMalloc)[offset]))
   //
   // Or
@@ -466,11 +529,44 @@ void HIRArrayTranspose::MallocAnalyzer::processBitCastInst(HLInst *HInst) {
 
   auto *RvalRef = HInst->getRvalDDRef();
 
-  if ((RvalRef->isSelfAddressOf() &&
-       HAT.MallocArrayBaseSymbases.count(RvalRef->getBasePtrSymbase())) ||
-      processMallocOffsetRef(RvalRef)) {
+  if (RvalRef->isSelfAddressOf() &&
+      HAT.MallocPtrSymbases.count(RvalRef->getBasePtrSymbase())) {
+
+    // %bitcastedbase = bitcast.i8*.elemTy*(&((%tMalloc)[0]))
+    auto *LvalRef = HInst->getLvalDDRef();
+    auto *ArrElemTy = LvalRef->getDestType()->getPointerElementType();
+
+    if (HAT.MallocArrayBaseElemTy && (HAT.MallocArrayBaseElemTy != ArrElemTy)) {
+      LLVM_DEBUG(dbgs() << "Unexpected bitcast inst: "; HInst->dump());
+      HasValidMallocs = false;
+      return;
+    }
+
+    if (HAT.MallocPtrOffsetIsInBytes) {
+      LLVM_DEBUG(dbgs() << "Malloc offset previously encountered in bytes is "
+                           "now found in terms of element size in: ";
+                 HInst->dump());
+      HasValidMallocs = false;
+      return;
+    }
+
+    HAT.MallocArrayBaseElemTy = ArrElemTy;
+    HAT.ArrayElementSizeInBytes =
+        RvalRef->getCanonExprUtils().getTypeSizeInBytes(ArrElemTy);
+
+    // Add bitcasted base as a malloc ptr as it is accessed like one.
+    HAT.MallocPtrSymbases.insert(LvalRef->getSymbase());
+    HAT.MallocPtrOffsetIsInElementSize = true;
+
+  } else if ((RvalRef->isSelfAddressOf() &&
+              HAT.MallocArrayBaseSymbases.count(
+                  RvalRef->getBasePtrSymbase())) ||
+             processMallocOffsetRef(RvalRef)) {
+
     processArrayBaseOrFreeBase(HInst->getLvalDDRef());
+
   } else {
+    LLVM_DEBUG(dbgs() << "Unexpected bitcast inst: "; HInst->dump());
     HasValidMallocs = false;
   }
 }
@@ -512,7 +608,9 @@ void HIRArrayTranspose::MallocAnalyzer::processCopy(HLInst *HInst) {
       // We found a copy %t1 = %tmalloc where %tmalloc was obtained by
       // converting the malloc into an integer. We need to make sure that either
       // %t1 also belongs to the same set of temps or it has never been visited
-      // before. This is to avoid handling cases like this- if() {
+      // before. This is to avoid handling cases like this-
+      //
+      // if() {
       //   %t1 = %t2;
       // } else {
       //   %t1 = %tmalloc;
@@ -522,6 +620,9 @@ void HIRArrayTranspose::MallocAnalyzer::processCopy(HLInst *HInst) {
       // set so we have to give up.
       if (!HAT.MallocPtrToIntSymbases.count(LvalSymbase) &&
           HAT.AllLvalTempSymbases.count(LvalSymbase)) {
+        LLVM_DEBUG(
+            dbgs() << "Unexpected copy for malloc ptr converted to int: ";
+            HInst->dump());
         HasValidMallocs = false;
       }
 
@@ -530,9 +631,11 @@ void HIRArrayTranspose::MallocAnalyzer::processCopy(HLInst *HInst) {
     } else if (HAT.MallocArrayBaseSymbases.count(RvalSymbase)) {
       // Only allow copy of the form %t1 = &(%t2)[0]
       if (!RvalRef->getDimensionIndex(1)->isZero()) {
+        LLVM_DEBUG(dbgs() << "Unexpected copy for malloc ptr: "; HInst->dump());
         HasValidMallocs = false;
       } else if (!HAT.MallocArrayBaseSymbases.count(LvalSymbase) &&
                  HAT.AllLvalTempSymbases.count(LvalSymbase)) {
+        LLVM_DEBUG(dbgs() << "Unexpected copy for malloc ptr: "; HInst->dump());
         // Same logic as for MallocPtrToIntSymbases above.
         HasValidMallocs = false;
       }
@@ -549,12 +652,16 @@ void HIRArrayTranspose::MallocAnalyzer::processCopy(HLInst *HInst) {
 
     } else if (HAT.FreePtrSymbases.count(RvalSymbase)) {
       // Do not allow any other kind of malloc temp to be copied.
+      LLVM_DEBUG(dbgs() << "Unexpected copy for malloc related free ptr: ";
+                 HInst->dump());
       HasValidMallocs = false;
     } else if (HAT.MallocPtrSymbases.count(LvalSymbase) ||
                HAT.MallocPtrToIntSymbases.count(LvalSymbase) ||
                HAT.MallocArrayBaseSymbases.count(LvalSymbase) ||
                HAT.FreePtrSymbases.count(LvalSymbase)) {
       // Do not allow malloc temps to be overwritten.
+      LLVM_DEBUG(dbgs() << "Malloc ptr unexpectedly being overwritten: ";
+                 HInst->dump());
       HasValidMallocs = false;
     }
   }
@@ -568,6 +675,8 @@ void HIRArrayTranspose::MallocAnalyzer::processMalloc(HLInst *HInst) {
   int64_t IntVal;
 
   if (!ArgOpRef->isIntConstant(&IntVal)) {
+    LLVM_DEBUG(dbgs() << "Malloc inst with non-constant operand not handled: ";
+               HInst->dump());
     HasValidMallocs = false;
     return;
   }
@@ -576,6 +685,9 @@ void HIRArrayTranspose::MallocAnalyzer::processMalloc(HLInst *HInst) {
     HAT.MallocSizeInBytes = IntVal;
 
   } else if (HAT.MallocSizeInBytes != IntVal) {
+    LLVM_DEBUG(dbgs() << "Current malloc size: " << HAT.MallocSizeInBytes
+                      << ". Malloc with a different size found: ";
+               HInst->dump());
     HasValidMallocs = false;
   }
 
@@ -589,11 +701,14 @@ void HIRArrayTranspose::MallocAnalyzer::processFree(HLInst *HInst) {
   // Verify that free call looks like this-
   // @free(&((i8*)(%FreePtrSymbase)[-offset]));
   if (!HAT.FreePtrSymbases.count(Symbase)) {
+    LLVM_DEBUG(dbgs() << "Unexpcected free() found: "; HInst->dump());
     HasValidMallocs = false;
     return;
   }
 
   if (ArgOpRef->getNumDimensions() != 1) {
+    LLVM_DEBUG(dbgs() << "Unexpected AddressOf ref in free() found: ";
+               ArgOpRef->dump());
     HasValidMallocs = false;
     return;
   }
@@ -601,6 +716,10 @@ void HIRArrayTranspose::MallocAnalyzer::processFree(HLInst *HInst) {
   auto CE = ArgOpRef->getDimensionIndex(1);
 
   if (!CE->isIntConstant()) {
+    LLVM_DEBUG(
+        dbgs()
+            << "AddressOf ref in free() does not have constant integer index: ";
+        ArgOpRef->dump());
     HasValidMallocs = false;
     return;
   }
@@ -801,6 +920,8 @@ bool HIRArrayTranspose::MallocAnalyzer::isValidUseRef(RegDDRef *Ref) {
         HAT.MallocPtrToIntSymbases.count(LvalSymbase) ||
         HAT.MallocArrayBaseSymbases.count(LvalSymbase) ||
         HAT.FreePtrSymbases.count(LvalSymbase)) {
+      LLVM_DEBUG(dbgs() << "Unexpected use of malloc/free ptr found in ref: ";
+                 Ref->dump());
       return false;
     }
 
@@ -821,12 +942,16 @@ bool HIRArrayTranspose::MallocAnalyzer::isValidUseRef(RegDDRef *Ref) {
     if (HAT.MallocPtrSymbases.count(Symbase)) {
       if (!Ref->getDimensionIndex(1)->isZero() ||
           isa<HLInst>(Ref->getHLDDNode())) {
+        LLVM_DEBUG(dbgs() << "Unexpected malloc ptr AddressOf ref: ";
+                   Ref->dump());
         return false;
       }
     }
 
     if (HAT.MallocArrayBaseSymbases.count(Symbase) ||
         HAT.FreePtrSymbases.count(Symbase)) {
+      LLVM_DEBUG(dbgs() << "Unexpected malloc/free AddressOf ref: ";
+                 Ref->dump());
       return false;
     }
 
@@ -836,9 +961,12 @@ bool HIRArrayTranspose::MallocAnalyzer::isValidUseRef(RegDDRef *Ref) {
 
     if (HAT.MallocPtrSymbases.count(Symbase) ||
         HAT.FreePtrSymbases.count(Symbase)) {
+      LLVM_DEBUG(dbgs() << "Unexpected malloc/free memref: "; Ref->dump());
       return false;
     } else if (HAT.MallocArrayBaseSymbases.count(Symbase) &&
                !isValidStridedUseRef(Ref)) {
+      LLVM_DEBUG(dbgs() << "Unexpected strided use of malloc found in ref: ";
+                 Ref->dump());
       return false;
     }
   }
@@ -848,6 +976,8 @@ bool HIRArrayTranspose::MallocAnalyzer::isValidUseRef(RegDDRef *Ref) {
 
   for (auto SB : Symbases) {
     if (HAT.MallocPtrToIntSymbases.count(SB)) {
+      LLVM_DEBUG(dbgs() << "Unexpected use of malloc ptrtoint temp in ref: ";
+                 Ref->dump());
       return false;
     }
   }
@@ -972,9 +1102,12 @@ int64_t HIRArrayTranspose::transposeArrayOffset() {
   int64_t NewOffsetInElements =
       getTransposedConstant(ArrayOffsetInBytes / ArrayElementSizeInBytes);
 
+  int64_t NewOffset = MallocPtrOffsetIsInElementSize
+                          ? NewOffsetInElements
+                          : NewOffsetInElements * ArrayElementSizeInBytes;
+
   for (auto Ref : MallocOffsetRefs) {
-    Ref->getDimensionIndex(1)->setConstant(NewOffsetInElements *
-                                           ArrayElementSizeInBytes);
+    Ref->getDimensionIndex(1)->setConstant(NewOffset);
   }
 
   return NewOffsetInElements;
