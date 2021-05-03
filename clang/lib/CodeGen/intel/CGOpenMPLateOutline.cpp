@@ -1934,6 +1934,29 @@ void OpenMPLateOutliner::emitOMPNocontextClause(const OMPNocontextClause *Cl) {
   addArg(CGF.EvaluateExprAsBool(Cl->getCondition()));
 }
 
+void OpenMPLateOutliner::emitOMPDataClause(const OMPDataClause *C) {
+  // Arguments to prefetch are in groups of three values:
+  //   Address:Hint:Num-Elements
+  // which correspond to individual data clauses.
+  for (unsigned I = 0; I < C->getNumDataClauseVals(); I += 3) {
+    ClauseEmissionHelper CEH(*this, OMPC_data);
+    auto *Addr = C->getDataInfo(I);
+    auto *Hint = C->getDataInfo(I+1);
+    auto *NumElems = C->getDataInfo(I+2);
+    addArg("QUAL.OMP.DATA");
+    QualType AddrTy = Addr->getType();
+    assert(AddrTy->isPointerType());
+    // Assign (base) address to temp and pass it to prefetch.
+    Address Tmp = CGF.CreateMemTemp(AddrTy, /*Name*/ ".tmp.prefetch");
+    RValue RV = RValue::get(CGF.EmitScalarExpr(Addr, /*Ignore*/ false));
+    LValue LV = CGF.MakeAddrLValue(Tmp, AddrTy);
+    CGF.EmitStoreThroughLValue(RV, LV);
+    addArg(Tmp.getPointer());
+    addArg(CGF.EmitScalarExpr(Hint));
+    addArg(CGF.EmitScalarExpr(NumElems));
+  }
+}
+
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *) {assert(false);}
@@ -2455,6 +2478,11 @@ void OpenMPLateOutliner::emitOMPInteropDirective() {
                              OMPD_interop);
 }
 
+void OpenMPLateOutliner::emitOMPPrefetchDirective() {
+  startDirectiveIntrinsicSet("DIR.OMP.PREFETCH", "DIR.OMP.END.PREFETCH",
+                             OMPD_prefetch);
+}
+
 OpenMPLateOutliner &OpenMPLateOutliner::
 operator<<(ArrayRef<OMPClause *> Clauses) {
   for (auto *C : Clauses) {
@@ -2615,6 +2643,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_requires:
   case OMPD_depobj:
   case OMPD_scan:
+  case OMPD_prefetch:
     return false;
   case OMPD_unknown:
   default:
@@ -3027,6 +3056,10 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
 
   case OMPD_interop:
     Outliner.emitOMPInteropDirective();
+    break;
+
+  case OMPD_prefetch:
+    Outliner.emitOMPPrefetchDirective();
     break;
 
   // These directives are not yet implemented.

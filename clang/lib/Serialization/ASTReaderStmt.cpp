@@ -2364,6 +2364,11 @@ void ASTStmtReader::VisitOMPTargetVariantDispatchDirective(
   Record.skipInts(1);
   VisitOMPExecutableDirective(D);
 }
+
+void ASTStmtReader::VisitOMPPrefetchDirective(OMPPrefetchDirective *D) {
+  VisitStmt(D);
+  VisitOMPExecutableDirective(D);
+}
 #endif // INTEL_COLLAB
 
 void ASTStmtReader::VisitOMPSingleDirective(OMPSingleDirective *D) {
@@ -3288,6 +3293,11 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
 
     case STMT_OMP_TARGET_VARIANT_DISPATCH_DIRECTIVE:
       S = OMPTargetVariantDispatchDirective::CreateEmpty(
+          Context, Record[ASTStmtReader::NumStmtFields], Empty);
+      break;
+
+    case STMT_OMP_PREFETCH_DIRECTIVE:
+      S = OMPPrefetchDirective::CreateEmpty(
           Context, Record[ASTStmtReader::NumStmtFields], Empty);
       break;
 #endif // INTEL_COLLAB

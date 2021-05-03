@@ -122,6 +122,7 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_collapse:
 #if INTEL_COLLAB
   case OMPC_bind:
+  case OMPC_data:
 #endif // INTEL_COLLAB`
   case OMPC_tile:  // INTEL
   case OMPC_private:
@@ -1476,6 +1477,43 @@ const Expr *OMPTileClause::getTileData(unsigned NumLoop) const {
 }
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_COLLAB
+OMPDataClause *OMPDataClause::Create(const ASTContext &C,
+                                     SourceLocation StartLoc,
+                                     SourceLocation EndLoc,
+                                     ArrayRef<Expr *> LV) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(LV.size()));
+  auto *Clause = new (Mem) OMPDataClause(StartLoc, EndLoc, LV.size());
+  for (unsigned I = 0; I < LV.size(); ++I)
+    Clause->setDataInfo(I, LV[I]);
+  return Clause;
+}
+
+OMPDataClause *OMPDataClause::CreateEmpty(const ASTContext &C,
+                                          unsigned NumDataClauseVals) {
+  void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(NumDataClauseVals));
+  auto *Clause = new (Mem) OMPDataClause(NumDataClauseVals);
+  for (unsigned I = 0; I < NumDataClauseVals; ++I)
+    Clause->setDataInfo(I, nullptr);
+  return Clause;
+}
+
+void OMPDataClause::setDataInfo(unsigned NumDataClause, Expr *E) {
+  assert(NumDataClause < NumDataClauseVals && "data clause index too large.");
+  getTrailingObjects<Expr *>()[NumDataClause] = E;
+}
+
+Expr *OMPDataClause::getDataInfo(unsigned NumDataClause) {
+  assert(NumDataClause < NumDataClauseVals && "data clause index too large.");
+  return getTrailingObjects<Expr *>()[NumDataClause];
+}
+
+const Expr *OMPDataClause::getDataInfo(unsigned NumDataClause) const {
+  assert(NumDataClause < NumDataClauseVals && "data clause index too large.");
+  return getTrailingObjects<Expr *>()[NumDataClause];
+}
+#endif // INTEL_COLLAB
+
 OMPInclusiveClause *OMPInclusiveClause::Create(const ASTContext &C,
                                                SourceLocation StartLoc,
                                                SourceLocation LParenLoc,
@@ -1662,6 +1700,27 @@ void OMPClausePrinter::VisitOMPSubdeviceClause(OMPSubdeviceClause *Node) {
   if (auto *E = Node->getStride()) {
     OS << ":";
     E->printPretty(OS, nullptr, Policy);
+  }
+  OS << ")";
+}
+
+void OMPClausePrinter::VisitOMPDataClause(OMPDataClause *Node) {
+  // Some data clauses might have multiple data clause specifications
+  // separated by a comma. Every three values represent one specification.
+  // Emit them and separate each group of three with a comma.
+  //   <addr>:<uint>:<uint>
+  OS << "data(";
+  for (unsigned I = 0, E = Node->getNumDataClauseVals(); I < E; I += 3) {
+    if (I > 0)
+      OS << ", ";
+    Expr *Addr = Node->getDataInfo(I);
+    Expr *Hint = Node->getDataInfo(I + 1);
+    Expr *NumElements = Node->getDataInfo(I + 2);
+    Addr->printPretty(OS, nullptr, Policy);
+    OS << ":";
+    Hint->printPretty(OS, nullptr, Policy);
+    OS << ":";
+    NumElements->printPretty(OS, nullptr, Policy);
   }
   OS << ")";
 }

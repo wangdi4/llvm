@@ -3461,6 +3461,14 @@ private:
   /// nullptr.
   ///
   OMPClause *ParseOpenMPSubdeviceClause(bool ParseOnly);
+
+  /// Parses data clause with list of values describing what and how much
+  /// to prefetch.
+  ///
+  /// \param ParseOnly true to skip the clause's semantic actions and return
+  /// nullptr.
+  ///
+  OMPClause *ParseOpenMPDataClause(bool ParseOnly);
 #endif // INTEL_COLLAB
 
   /// Parses and creates OpenMP 5.0 iterators expression:

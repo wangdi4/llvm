@@ -11045,6 +11045,10 @@ public:
   StmtResult ActOnOpenMPTargetParallelGenericLoopDirective(
       ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
       SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA);
+  /// Called on well-formed '\#pragma omp prefetch'.
+  StmtResult ActOnOpenMPPrefetchDirective(
+      ArrayRef<OMPClause *> Clauses, SourceLocation StartLoc,
+      SourceLocation EndLoc);
 #endif // INTEL_COLLAB
 
   /// Called on well-formed '\#pragma omp single' after parsing of the
@@ -11390,6 +11394,12 @@ public:
                                         Expr *Stride,
                                         SourceLocation StartLoc,
                                         SourceLocation EndLoc);
+  /// Called on well-formed 'data' clause.
+  OMPClause *ActOnOpenMPDataClause(ArrayRef<Expr *> Vars,
+                                   ArrayRef<Expr *> Hints,
+                                   ArrayRef<Expr *> NumElements,
+                                   SourceLocation StartLoc,
+                                   SourceLocation EndLoc);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   /// Called on well-formed 'tile' clause.

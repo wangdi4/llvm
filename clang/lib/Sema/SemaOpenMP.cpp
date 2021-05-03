@@ -4443,6 +4443,9 @@ void Sema::ActOnOpenMPRegionStart(OpenMPDirectiveKind DKind, Scope *CurScope) {
   case OMPD_declare_variant:
   case OMPD_begin_declare_variant:
   case OMPD_end_declare_variant:
+#if INTEL_COLLAB
+  case OMPD_prefetch:
+#endif // INTEL_COLLAB
     llvm_unreachable("OpenMP Directive is not allowed");
   case OMPD_unknown:
   default:
@@ -6186,6 +6189,11 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
   case OMPD_target_parallel_loop:
     Res = ActOnOpenMPTargetParallelGenericLoopDirective(
         ClausesWithImplicit, AStmt, StartLoc, EndLoc, VarsWithInheritedDSA);
+    break;
+  case OMPD_prefetch:
+    assert(AStmt == nullptr &&
+           "No associated statement allowed for 'omp prefetch' directive");
+    Res = ActOnOpenMPPrefetchDirective(ClausesWithImplicit, StartLoc, EndLoc);
     break;
 #endif // INTEL_COLLAB
   case OMPD_parallel_master:
@@ -10840,6 +10848,13 @@ StmtResult Sema::ActOnOpenMPTargetVariantDispatchDirective(
   return OMPTargetVariantDispatchDirective::Create(Context, StartLoc, EndLoc,
                                                    Clauses, AStmt);
 }
+
+StmtResult Sema::ActOnOpenMPPrefetchDirective(ArrayRef<OMPClause *> Clauses,
+                                              SourceLocation StartLoc,
+                                              SourceLocation EndLoc) {
+  return OMPPrefetchDirective::Create(
+       Context, StartLoc, EndLoc, Clauses);
+}
 #endif // INTEL_COLLAB
 
 static Expr *getDirectCallExpr(Expr *E) {
@@ -14094,6 +14109,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
 #if INTEL_COLLAB
     case OMPD_target_teams_loop:
     case OMPD_parallel_loop:
+    case OMPD_prefetch:
 #endif // INTEL_COLLAB
     case OMPD_distribute_parallel_for:
     case OMPD_task:
@@ -22138,6 +22154,70 @@ OMPClause *Sema::ActOnOpenMPSubdeviceClause(Expr *Level,
   return new (Context)
       OMPSubdeviceClause(LevelExpr, StartExpr, LengthExpr, StrideExpr,
                          HelperValStmt, CaptureRegion, StartLoc, EndLoc);
+}
+
+/// Verify data clause address expression.
+static ExprResult verifyDataClauseAddrExpr(Sema &S, Expr *E) {
+  if (E->isValueDependent() || E->isTypeDependent() ||
+      E->isInstantiationDependent() || E->containsUnexpandedParameterPack())
+    return E;
+  if (!E->getType()->isPointerType()) {
+    S.Diag(E->getExprLoc(),
+        diag::err_prefetch_invalid_argument) << "omp prefetch data";
+    return ExprError();
+  }
+  return E;
+}
+
+/// Verify data clause hint expression.
+static ExprResult verifyDataClauseHintExpr(Sema &S, Expr *E) {
+  if (E->isValueDependent() || E->isTypeDependent() ||
+      E->isInstantiationDependent() || E->containsUnexpandedParameterPack())
+    return E;
+  llvm::APSInt Result;
+  ExprResult Val =
+      S.VerifyIntegerConstantExpression(E, &Result, /*Fold=*/false);
+  if (Val.isInvalid()) {
+    S.Diag(E->getExprLoc(), diag::err_prefetch_invalid_argument) <<
+        "omp prefetch data";
+    return ExprError();
+  }
+  if (Result.getExtValue() <= 0 || Result.getExtValue() > 4) {
+    S.Diag(E->getExprLoc(), diag::err_prefetch_hint_out_of_range) <<
+        (signed)Result.getExtValue() << 1 << 4;
+    return ExprError();
+  }
+  return Val;
+}
+
+OMPClause *Sema::ActOnOpenMPDataClause(ArrayRef<Expr *> Addrs,
+                                       ArrayRef<Expr *> Hints,
+                                       ArrayRef<Expr *> NumElements,
+                                       SourceLocation StartLoc,
+                                       SourceLocation EndLoc) {
+  SmallVector<Expr *> PrefetchArgs;
+  // Check data clause values, accumulate them into list of arguments to
+  // current data clause for prefetch directive.
+  for (unsigned I = 0, E = Addrs.size(); I < E; ++I) {
+    ExprResult Val;
+    Val = verifyDataClauseAddrExpr(*this, Addrs[I]);
+    if (Val.isInvalid())
+      return nullptr;
+    PrefetchArgs.push_back(Val.get());
+
+    Val = verifyDataClauseHintExpr(*this, Hints[I]);
+    if (Val.isInvalid())
+      return nullptr;
+    PrefetchArgs.push_back(Val.get());
+
+    // The number of elements must be greater than zero.
+    Val = VerifyPositiveIntegerConstantInClause(NumElements[I], OMPC_data);
+    if (Val.isInvalid())
+      return nullptr;
+    PrefetchArgs.push_back(Val.get());
+  }
+  return OMPDataClause::Create(Context, StartLoc, EndLoc,
+                               PrefetchArgs);
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

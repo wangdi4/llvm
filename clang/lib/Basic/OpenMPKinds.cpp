@@ -858,6 +858,9 @@ void clang::getOpenMPCaptureRegions(
   case OMPD_declare_variant:
   case OMPD_begin_declare_variant:
   case OMPD_end_declare_variant:
+#if INTEL_COLLAB
+  case OMPD_prefetch:
+#endif // INTEL_COLLAB
     llvm_unreachable("OpenMP Directive is not allowed");
   case OMPD_unknown:
   default:

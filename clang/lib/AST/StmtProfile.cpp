@@ -466,6 +466,11 @@ void OMPClauseProfiler::VisitOMPSubdeviceClause(const OMPSubdeviceClause *C) {
   if (C->getStride())
     Profiler->VisitStmt(C->getStride());
 }
+
+void OMPClauseProfiler::VisitOMPDataClause(const OMPDataClause *C) {
+  for (auto *E : C->val_exprs())
+    Profiler->VisitStmt(E);
+}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClauseProfiler::VisitOMPTileClause(const OMPTileClause *C) {
@@ -986,6 +991,10 @@ void StmtProfiler::VisitOMPParallelGenericLoopDirective(
 void StmtProfiler::VisitOMPTargetParallelGenericLoopDirective(
     const OMPTargetParallelGenericLoopDirective *S) {
   VisitOMPLoopDirective(S);
+}
+
+void StmtProfiler::VisitOMPPrefetchDirective(const OMPPrefetchDirective *S) {
+  VisitOMPExecutableDirective(S);
 }
 #endif // INTEL_COLLAB
 

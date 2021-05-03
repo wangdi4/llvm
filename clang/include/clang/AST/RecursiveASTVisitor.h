@@ -2859,6 +2859,8 @@ DEF_TRAVERSE_STMT(OMPParallelGenericLoopDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 DEF_TRAVERSE_STMT(OMPTargetParallelGenericLoopDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
+DEF_TRAVERSE_STMT(OMPPrefetchDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
 #endif // INTEL_COLLAB
 
 DEF_TRAVERSE_STMT(OMPSingleDirective,
@@ -3100,6 +3102,15 @@ RecursiveASTVisitor<Derived>::VisitOMPSubdeviceClause(OMPSubdeviceClause *C) {
   TRY_TO(TraverseStmt(C->getStart()));
   TRY_TO(TraverseStmt(C->getLength()));
   TRY_TO(TraverseStmt(C->getStride()));
+  return true;
+}
+
+template <typename Derived>
+bool
+RecursiveASTVisitor<Derived>::VisitOMPDataClause(OMPDataClause *C) {
+  for (auto *E : C->val_exprs()) {
+    TRY_TO(TraverseStmt(E));
+  }
   return true;
 }
 #endif // INTEL_COLLAB
