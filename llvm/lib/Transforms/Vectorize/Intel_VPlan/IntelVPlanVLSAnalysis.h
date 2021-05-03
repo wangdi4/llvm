@@ -114,8 +114,9 @@ public:
   }
 
   auto groups(const VPlan *Plan) {
-    return make_range(Plan2VLSInfo[Plan].Groups.begin(),
-                      Plan2VLSInfo[Plan].Groups.end());
+    return map_range(
+        Plan2VLSInfo[Plan].Groups,
+        [](std::unique_ptr<OVLSGroup> &Group) { return Group.get(); });
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
