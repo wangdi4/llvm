@@ -317,9 +317,9 @@ macro(intel_add_sdl_flag flag name)
 endmacro()
 
 macro(intel_add_sdl_linker_flag flag name)
-  include(CheckLinkerFlag)
+  include(LLVMCheckLinkerFlag)
   cmake_parse_arguments(ARG "FUTURE" "" "" ${ARGN})
-  check_linker_flag("${flag}" "LINKER_SUPPORTS_${name}")
+  llvm_check_linker_flag(CXX "${flag}" "LINKER_SUPPORTS_${name}")
   if(ARG_FUTURE)
     if(LINKER_SUPPORTS_${name})
       # Remove FUTURE option from intel_add_sdl_linker_flag() call
