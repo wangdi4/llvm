@@ -1179,9 +1179,11 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     // Everything below only makes sense on the host.
     return true;
 
-  // allocas should stay close to the call, in case the target region is
-  // enclosed in another region which is outlined later.
-  IRBuilder<> Builder(NewCall->getParent()->getFirstNonPHI());
+  // Insert the .run_host_version alloca in the entry block of the first parent
+  // region what would be outlined, if any, otherwise of the parent function.
+  Instruction *AllocaInsertPt =
+      VPOParoptUtils::getInsertionPtForAllocas(W, F, /*OutsideRegion=*/true);
+  IRBuilder<> Builder(AllocaInsertPt);
   AllocaInst *OffloadError = Builder.CreateAlloca(
       Type::getInt32Ty(F->getContext()), nullptr, ".run_host_version");
 
@@ -1198,11 +1200,11 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     //
     // *** IR Dump After VPO Paropt Pass ***
     // entry:
+    //   %.run_host_version = alloca i32
     //   ...
     //   %arg.addr = alloca i32, align 4
     //   store i32 %arg, i32* %arg.addr, align 4, !tbaa !2
     //   %tobool = icmp ne i32 %arg, 0
-    //   %.run_host_version = alloca i32
     //   %0 = icmp ne i1 %tobool, false
     //   br label %codeRepl
     //
@@ -1665,6 +1667,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
                       makeArrayRef(CLLoopParameterRecTypeArgs.begin(),
                                    CLLoopParameterRecTypeArgs.end()),
                       false);
+  // FIXME: Use getInsertionPtForAllocas() for this alloca.
   AllocaInst *DummyCLLoopParameterRec = Builder.CreateAlloca(
       CLLoopParameterRecType, nullptr, "loop.parameter.rec");
   Value *NumLoopsGep =
@@ -2534,6 +2537,12 @@ void VPOParoptTransform::genOffloadArraysInit(
                     << hasRuntimeEvaluationCaptureSize << "\n");
 
   Value *BPVal;
+  // Insert allocas for offload arrays in a parent region or the parent
+  // function's entry block based on whether there are any parent regions that
+  // may be outlined. See target-task.ll, target_map_in_loop.ll for examples.
+  Instruction *InsertPtForAllocas =
+      VPOParoptUtils::getInsertionPtForAllocas(W, F, /*OutsideRegion=*/true);
+  IRBuilder<> AllocaBuilder(InsertPtForAllocas);
   IRBuilder<> Builder(InsertPt);
   unsigned Cnt = 0;
   bool Match = false;
@@ -2542,12 +2551,10 @@ void VPOParoptTransform::genOffloadArraysInit(
   Type *I8PTy = Builder.getInt8PtrTy();
 
   // Build the alloca defs of the target parms.
-  // The allocas must be kept in the same region as their uses,
-  // in case more outlining transformations are made.
   if (hasRuntimeEvaluationCaptureSize)
-    SizesArray = Builder.CreateAlloca(
-          ArrayType::get(Type::getInt64Ty(C), Info->NumberOfPtrs),
-          nullptr, ".offload_sizes");
+    SizesArray = AllocaBuilder.CreateAlloca(
+        ArrayType::get(Type::getInt64Ty(C), Info->NumberOfPtrs), nullptr,
+        ".offload_sizes");
   else {
     auto *SizesArrayInit = ConstantArray::get(
         ArrayType::get(Type::getInt64Ty(C), ConstSizes.size()),
@@ -2561,14 +2568,14 @@ void VPOParoptTransform::genOffloadArraysInit(
     SizesArray = SizesArrayGbl;
   }
 
-  AllocaInst *TgBasePointersArray = Builder.CreateAlloca(
+  AllocaInst *TgBasePointersArray = AllocaBuilder.CreateAlloca(
       ArrayType::get(I8PTy, Info->NumberOfPtrs), nullptr, ".offload_baseptrs");
 
-  AllocaInst *TgPointersArray = Builder.CreateAlloca(
+  AllocaInst *TgPointersArray = AllocaBuilder.CreateAlloca(
       ArrayType::get(I8PTy, Info->NumberOfPtrs), nullptr, ".offload_ptrs");
 
   Constant *MapTypesArrayInit =
-        ConstantDataArray::get(Builder.getContext(), MapTypes);
+      ConstantDataArray::get(AllocaBuilder.getContext(), MapTypes);
   auto *MapTypesArrayGbl =
       new GlobalVariable(*(F->getParent()), MapTypesArrayInit->getType(),
                          true, GlobalValue::PrivateLinkage, MapTypesArrayInit,
@@ -2608,7 +2615,7 @@ void VPOParoptTransform::genOffloadArraysInit(
 
   AllocaInst *TgMappersArray = nullptr;
   if (UseMapperAPI)
-    TgMappersArray = Builder.CreateAlloca(
+    TgMappersArray = AllocaBuilder.CreateAlloca(
         ArrayType::get(I8PTy, Info->NumberOfPtrs), nullptr, ".offload_mappers");
 
   Info->BaseDataPtrs = TgBasePointersArray;
@@ -3259,6 +3266,9 @@ bool VPOParoptTransform::promoteClauseArgumentUses(WRegionNode *W) {
 
   bool Changed = false;
   AllocaInst *ArtificialAlloca = nullptr;
+  Instruction *AllocaInsertPt =
+      VPOParoptUtils::getInsertionPtForAllocas(W, F, /*OutsideRegion=*/true);
+  IRBuilder<> AllocaBuilder(AllocaInsertPt);
   IRBuilder<> Builder(F->getContext());
 
   auto InsertArtificialUseForValue = [&](Value *V) {
@@ -3267,15 +3277,11 @@ bool VPOParoptTransform::promoteClauseArgumentUses(WRegionNode *W) {
     //     %promote.uses = alloca i8
     //     store i8 ptrtoint (type* @G to i8), i8* %promote.uses
     //
-    // FIXME: to aid further optimization, we have to insert
-    //        the alloca either to the entry block of the parent region
-    //        that will be later outlined, or to the entry block
-    //        of the current Function.  Not all optimizations are able
-    //        to handle allocas appearing in the middle of the Function.
+    // Insert the artificial alloca in the entry block of the first parent
+    // region what would be outlined, if any, otherwise of the parent function.
     if (!ArtificialAlloca)
-      ArtificialAlloca =
-        Builder.CreateAlloca(Builder.getInt8Ty(), nullptr,
-                             "promoted.clause.args");
+      ArtificialAlloca = AllocaBuilder.CreateAlloca(
+          Builder.getInt8Ty(), nullptr, "promoted.clause.args");
 
     auto *Cast = Builder.CreateBitOrPointerCast(V, Builder.getInt8Ty());
     Builder.CreateStore(Cast, ArtificialAlloca);
