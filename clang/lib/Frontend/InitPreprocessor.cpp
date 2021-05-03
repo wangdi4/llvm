@@ -1021,8 +1021,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   DefineFastIntType(64, true, TI, Builder);
   DefineFastIntType(64, false, TI, Builder);
 
-  char UserLabelPrefix[2] = {TI.getDataLayout().getGlobalPrefix(), 0};
-  Builder.defineMacro("__USER_LABEL_PREFIX__", UserLabelPrefix);
+  Builder.defineMacro("__USER_LABEL_PREFIX__", TI.getUserLabelPrefix());
 
 #if INTEL_CUSTOMIZATION
   // CQ419573 - Always set __FINITE_MATH_ONLY__ to 0 for compatibility

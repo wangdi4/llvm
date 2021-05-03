@@ -152,7 +152,7 @@ namespace {
         M->setTargetDevices(Res);
 #endif // INTEL_COLLAB
 
-      M->setDataLayout(Ctx->getTargetInfo().getDataLayout());
+      M->setDataLayout(Ctx->getTargetInfo().getDataLayoutString());
       const auto &SDKVersion = Ctx->getTargetInfo().getSDKVersion();
       if (!SDKVersion.empty())
         M->setSDKVersion(SDKVersion);
