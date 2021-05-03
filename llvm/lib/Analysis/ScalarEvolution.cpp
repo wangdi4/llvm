@@ -10304,7 +10304,10 @@ ScalarEvolution::howFarToZero(const SCEV *V, const Loop *L, bool ControlsExit,
     const SCEV *Zero = getZero(Distance->getType());
     const SCEV *One = getOne(Distance->getType());
     const SCEV *DistancePlusOne = getAddExpr(Distance, One);
-    if (isLoopEntryGuardedByCond(L, ICmpInst::ICMP_NE, DistancePlusOne, Zero)) {
+#if INTEL_CUSTOMIZATION
+    if (isLoopEntryGuardedByCond(L, ICmpInst::ICMP_NE, DistancePlusOne, Zero,
+                                 nullptr, &Distance)) {
+#endif // INTEL_CUSTOMIZATION
       // If Distance + 1 doesn't overflow, we can compute the maximum distance
       // as "unsigned_max(Distance + 1) - 1".
       ConstantRange CR = getUnsignedRange(DistancePlusOne);
@@ -11407,7 +11410,8 @@ bool ScalarEvolution::isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
                                                      const SCEV *LHS,
 #if INTEL_CUSTOMIZATION
                                                      const SCEV *RHS,
-                                                     ICmpInst *PredContext) {
+                                                     ICmpInst *PredContext,
+                                                     const SCEV **ExprToSimplify) {
 #endif // INTEL_CUSTOMIZATION
   if (VerifyIR)
     assert(!verifyFunction(*BB->getParent(), &dbgs()) &&
@@ -11460,7 +11464,7 @@ bool ScalarEvolution::isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
   auto ProveViaCond = [&](const Value *Condition, bool Inverse) {
     const Instruction *Context = &BB->front();
     if (isImpliedCond(Pred, LHS, RHS, Condition, Inverse, Context, // INTEL
-                      PredContext))                                // INTEL
+                      PredContext, ExprToSimplify))                // INTEL
       return true;
     if (ProvingStrictComparison) {
       auto ProofFn = [&](ICmpInst::Predicate P) {
@@ -11518,7 +11522,8 @@ bool ScalarEvolution::isLoopEntryGuardedByCond(const Loop *L,
                                                const SCEV *LHS,
 #if INTEL_CUSTOMIZATION
                                                const SCEV *RHS,
-                                               ICmpInst *PredContext) {
+                                               ICmpInst *PredContext,
+                                               const SCEV **ExprToSimplify) {
 #endif // INTEL_CUSTOMIZATION
   // Interpret a null as meaning no loop, where there is obviously no guard
   // (interprocedural conditions notwithstanding).
@@ -11535,14 +11540,15 @@ bool ScalarEvolution::isLoopEntryGuardedByCond(const Loop *L,
     return true;
 
   return isBasicBlockEntryGuardedByCond(L->getHeader(), Pred, LHS, RHS, // INTEL
-                                        PredContext);                   // INTEL
+                                        PredContext, ExprToSimplify);   // INTEL
 }
 
 bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
                                     const SCEV *RHS,
                                     const Value *FoundCondValue, bool Inverse,
                                     const Instruction *Context,    // INTEL
-                                    const ICmpInst *PredContext) { // INTEL
+                                    const ICmpInst *PredContext,   // INTEL
+                                    const SCEV **ExprToSimplify) { // INTEL
   // False conditions implies anything. Do not bother analyzing it further.
   if (FoundCondValue ==
       ConstantInt::getBool(FoundCondValue->getContext(), Inverse))
@@ -11581,16 +11587,100 @@ bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
   const SCEV *FoundRHS = getSCEV(ICI->getOperand(1));
 
   return isImpliedCond(Pred, LHS, RHS, FoundPred, FoundLHS, FoundRHS, // INTEL
-                       Context, PredContext, ICI);                    // INTEL
+                       Context, PredContext, ICI, ExprToSimplify);    // INTEL
 }
 
+#if INTEL_CUSTOMIZATION
+// Given a known non-negative expr like (c1 + %n)<nsw>, tries to simplify exprs
+// of the form zext((c2 + %n)<nsw>) into (sext(c2) + sext(%n))<nsw>) when
+// (c2 - c1) is known to be non-negative.
+//
+// The assumption is that propagating sext() to the add operands yields more
+// simplified expr.
+//
+class NonNegativeSimplifier : public SCEVRewriteVisitor<NonNegativeSimplifier> {
+  ScalarEvolution &SE;
+  const SCEV *NonNegativeExpr;
+
+public:
+  NonNegativeSimplifier(ScalarEvolution &SEv, const SCEV *NonNegativeSCEV)
+      : SCEVRewriteVisitor(SEv), SE(SEv), NonNegativeExpr(NonNegativeSCEV) {
+  }
+
+  const SCEV *visitAddRecExpr(const SCEVAddRecExpr *Expr) { return Expr; }
+
+  const SCEV *visitZeroExtendExpr(const SCEVZeroExtendExpr *ZExt) {
+    // If the add operand of zext has <nsw> and has non-negative difference
+    // from the known non-negative expr, we can do the following simplification-
+    //
+    // zext((A + B + ...)<nsw>) --> sext((A + B + ...)<nsw>)
+    //
+    // The sext expr should get simplified to this due to <nsw> flag-
+    // (sext(A) + sext(B) + ...)<nsw>
+    auto *AddOp = dyn_cast<SCEVAddExpr>(ZExt->getOperand());
+
+    if (!AddOp || !AddOp->hasNoSignedWrap())
+      return ZExt;
+
+    bool SignedOverflow = false;
+    Optional<APInt> Diff = SE.computeConstantDifference(AddOp, NonNegativeExpr,
+                                                        &SignedOverflow);
+
+    if (!Diff || !Diff->isNonNegative() || SignedOverflow)
+      return ZExt;
+
+    return SE.getSignExtendExpr(AddOp, ZExt->getType());
+  }
+};
+
+// Tries to simplify \p ExprToSimplify by using information from guarding
+// predicate.
+static void simplifyUsingFoundPred(ScalarEvolution &SE,
+                                   const SCEV **ExprToSimplify,
+                                   ICmpInst::Predicate FoundPred,
+                                   const SCEV *FoundLHS,
+                                   const SCEV *FoundRHS) {
+
+  // Restrict it to HIR mode. It helps loopopt identify ZTTs. It is not clear
+  // whether the current simplification (zext -> sext) is beneficial in general.
+  // I encountered some performance degradations in the general case.
+  if (!isa<ScopedScalarEvolution>(SE))
+    return;
+
+  if (!ExprToSimplify)
+    return;
+
+  // Check whether we can obtain a non-negative range using predicate.
+  // If so, try to simplify expression using this information.
+  const SCEVConstant *RC = dyn_cast<SCEVConstant>(FoundRHS);
+
+  if (!RC)
+    return;
+
+  const APInt &ConstRHS = RC->getAPInt();
+
+  auto Range = ConstantRange::makeExactICmpRegion(FoundPred, ConstRHS);
+
+  if (!Range.isAllNonNegative())
+    return;
+
+  NonNegativeSimplifier Simplifier(SE, FoundLHS);
+  *ExprToSimplify = Simplifier.visit(*ExprToSimplify);
+}
+#endif // INTEL_CUSTOMIZATION
 bool ScalarEvolution::isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS,
                                     const SCEV *RHS,
                                     ICmpInst::Predicate FoundPred,
                                     const SCEV *FoundLHS, const SCEV *FoundRHS,
                                     const Instruction *Context,         // INTEL
                                     const ICmpInst *PredContext,        // INTEL
-                                    const ICmpInst *FoundPredContext) { // INTEL
+                                    const ICmpInst *FoundPredContext,   // INTEL
+                                    const SCEV **ExprToSimplify) {      // INTEL
+#if INTEL_CUSTOMIZATION
+  simplifyUsingFoundPred(*this, &LHS, FoundPred, FoundLHS, FoundRHS);
+  simplifyUsingFoundPred(*this, &RHS, FoundPred, FoundLHS, FoundRHS);
+  simplifyUsingFoundPred(*this, ExprToSimplify, FoundPred, FoundLHS, FoundRHS);
+#endif // INTEL_CUSTOMIZATION
   // Balance the types.
   if (getTypeSizeInBits(LHS->getType()) <
       getTypeSizeInBits(FoundLHS->getType())) {
@@ -12901,7 +12991,7 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
   const SCEV *BECount;
 #if INTEL_CUSTOMIZATION
   if (isLoopEntryGuardedByCond(L, Cond, getMinusSCEV(Start, Stride), RHS,
-                               ExitCond))
+                               ExitCond, &BECountIfBackedgeTaken))
 #endif // INTEL_CUSTOMIZATION
     BECount = BECountIfBackedgeTaken;
   else {
@@ -12910,7 +13000,7 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
     if (isLoopEntryGuardedByCond(
 #if INTEL_CUSTOMIZATION
             L, IsSigned ? ICmpInst::ICMP_SGE : ICmpInst::ICMP_UGE, RHS, Start,
-            ExitCond))
+            ExitCond, &RHS))
 #endif // INTEL_CUSTOMIZATION
       End = RHS;
     else
@@ -12991,13 +13081,13 @@ ScalarEvolution::howManyGreaterThans(const SCEV *LHS, const SCEV *RHS,
   const SCEV *Start = IV->getStart();
   const SCEV *End = RHS;
   if (!isLoopEntryGuardedByCond(L, Cond, getAddExpr(Start, Stride), RHS, // INTEL
-                                ExitCond)) {                             // INTEL
+                                ExitCond, &RHS)) {                       // INTEL
     // If we know that Start >= RHS in the context of loop, then we know that
     // min(RHS, Start) = RHS at this point.
     if (isLoopEntryGuardedByCond(
 #if INTEL_CUSTOMIZATION
             L, IsSigned ? ICmpInst::ICMP_SGE : ICmpInst::ICMP_UGE, Start, RHS,
-            ExitCond))
+            ExitCond, &RHS))
 #endif // INTEL_CUSTOMIZATION
       End = RHS;
     else
