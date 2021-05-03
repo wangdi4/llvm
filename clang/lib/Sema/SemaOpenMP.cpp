@@ -2591,6 +2591,7 @@ void Sema::StartOpenMPClause(OpenMPClauseKind K) {
 
 void Sema::EndOpenMPClause() {
   DSAStack->setClauseParsingMode(/*K=*/OMPC_unknown);
+  CleanupVarDeclMarking();
 }
 
 static std::pair<ValueDecl *, bool>
