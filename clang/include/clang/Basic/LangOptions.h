@@ -32,7 +32,6 @@
 #include "llvm/ADT/StringSwitch.h"
 #include <array>
 #endif // INTEL_CUSTOMIZATION
-#include "llvm/MC/MCTargetOptions.h"
 #include <string>
 #include <vector>
 
@@ -248,7 +247,7 @@ public:
   };
 
   /// Possible exception handling behavior.
-  using ExceptionHandlingKind = llvm::ExceptionHandling;
+  enum class ExceptionHandlingKind { None, SjLj, WinEH, DwarfCFI, Wasm };
 
   enum class LaxVectorConversionKind {
     /// Permit no implicit vector bitcasts.
@@ -467,19 +466,19 @@ public:
   }
 
   bool hasSjLjExceptions() const {
-    return getExceptionHandling() == llvm::ExceptionHandling::SjLj;
+    return getExceptionHandling() == ExceptionHandlingKind::SjLj;
   }
 
   bool hasSEHExceptions() const {
-    return getExceptionHandling() == llvm::ExceptionHandling::WinEH;
+    return getExceptionHandling() == ExceptionHandlingKind::WinEH;
   }
 
   bool hasDWARFExceptions() const {
-    return getExceptionHandling() == llvm::ExceptionHandling::DwarfCFI;
+    return getExceptionHandling() == ExceptionHandlingKind::DwarfCFI;
   }
 
   bool hasWasmExceptions() const {
-    return getExceptionHandling() == llvm::ExceptionHandling::Wasm;
+    return getExceptionHandling() == ExceptionHandlingKind::Wasm;
   }
 };
 
