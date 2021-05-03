@@ -647,33 +647,41 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
     if (CurrentDirectiveKind == OMPD_simd)
       return;
   }
+  ClauseEmissionHelper CEH(*this, OMPC_unknown);
+  ClauseStringBuilder &CSB = CEH.getBuilder();
+  bool IsRef = false;
   switch (K) {
   case ICK_private:
   case ICK_linear_private:
-    addArg("QUAL.OMP.PRIVATE");
+    CSB.add("QUAL.OMP.PRIVATE");
     break;
   case ICK_specified_firstprivate:
   case ICK_firstprivate:
-    addArg("QUAL.OMP.FIRSTPRIVATE");
+    CSB.add("QUAL.OMP.FIRSTPRIVATE");
     break;
   case ICK_lastprivate:
   case ICK_linear_lastprivate:
-    addArg("QUAL.OMP.LASTPRIVATE");
+    CSB.add("QUAL.OMP.LASTPRIVATE");
     break;
-  case ICK_shared:
-    addArg("QUAL.OMP.SHARED");
+  case ICK_shared: {
+    const VarDecl *VD = getExplicitVarDecl(E);
+    IsRef = VD && VD->getType()->isReferenceType();
+    CSB.add("QUAL.OMP.SHARED");
+    if (IsRef)
+      CSB.setByRef();
     break;
+  }
   case ICK_normalized_iv:
-    addArg("QUAL.OMP.NORMALIZED.IV");
+    CSB.add("QUAL.OMP.NORMALIZED.IV");
     break;
   case ICK_normalized_ub:
-    addArg("QUAL.OMP.NORMALIZED.UB");
+    CSB.add("QUAL.OMP.NORMALIZED.UB");
     break;
   default:
     llvm_unreachable("Clause not allowed");
   }
-  ClauseEmissionHelper CEH(*this, OMPC_unknown);
-  addArg(E);
+  addArg(CSB.getString());
+  addArg(E, IsRef);
 }
 
 void OpenMPLateOutliner::emitImplicit(const VarDecl *VD, ImplicitClauseKind K) {
@@ -926,9 +934,15 @@ void OpenMPLateOutliner::emitOMPSharedClause(const OMPSharedClause *Cl) {
     const VarDecl *PVD = getExplicitVarDecl(E);
     assert(PVD && "expected VarDecl in shared clause");
     addExplicit(PVD, OMPC_shared);
-    ClauseEmissionHelper CEH(*this, OMPC_shared);
-    addArg("QUAL.OMP.SHARED");
-    addArg(E);
+
+    ClauseEmissionHelper CEH(*this, OMPC_shared, "QUAL.OMP.SHARED");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+
+    bool IsRef = PVD->getType()->isReferenceType();
+    if (IsRef)
+      CSB.setByRef();
+    addArg(CSB.getString());
+    addArg(E, IsRef);
   }
 }
 
