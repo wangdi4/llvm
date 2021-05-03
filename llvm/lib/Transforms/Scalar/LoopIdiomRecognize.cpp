@@ -1300,7 +1300,7 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(
   const StringRef InstRemark = IsMemCpy ? "memcpy" : "load and store";
 
   if (mayLoopAccessLocation(StoreBasePtr, ModRefInfo::ModRef, CurLoop, BECount,
-                            StoreSize, *AA, Stores, &AAInfo)) // INTEL
+                            StoreSize, *AA, Stores, &AAInfo)) { // INTEL
     ORE.emit([&]() {
       return OptimizationRemarkMissed(DEBUG_TYPE, "LoopMayAccessStore",
                                       TheStore)
@@ -1329,7 +1329,7 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(
   if (IsMemCpy)
     Stores.erase(TheStore);
   if (mayLoopAccessLocation(LoadBasePtr, ModRefInfo::Mod, CurLoop, BECount,
-                            StoreSize, *AA, Stores, nullptr)) // INTEL
+                            StoreSize, *AA, Stores, nullptr)) { // INTEL
     ORE.emit([&]() {
       return OptimizationRemarkMissed(DEBUG_TYPE, "LoopMayAccessLoad", TheLoad)
              << ore::NV("Inst", InstRemark) << " in "
