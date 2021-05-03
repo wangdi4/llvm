@@ -59,6 +59,12 @@ bool isGeneratedFromOCLCPP(const Module &M);
 /// Return true if string is plain or mangled get_enqueued_local_size.
 bool isGetEnqueuedLocalSize(StringRef S);
 
+/// Return true if string is plain or mangled get_global_linear_id.
+bool isGetGlobalLinearId(StringRef S);
+
+/// Return true if string is plain or mangled get_local_linear_id.
+bool isGetLocalLinearId(StringRef S);
+
 /// Return true if string is plain or mangled get_global_size.
 bool isGetGlobalSize(StringRef S);
 
@@ -101,6 +107,12 @@ bool isPrintf(StringRef S);
 
 /// Returns the mangled name of the function get_global_id.
 std::string mangledGetGID();
+
+/// Return the mangled name of the function get_global_size.
+std::string mangledGetGlobalSize();
+
+/// Return the mangled name of the function get_global_offset.
+std::string mangledGetGlobalOffset();
 
 /// Return the mangled name of the function get_local_id.
 std::string mangledGetLID();

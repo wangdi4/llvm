@@ -110,6 +110,17 @@ public:
     return make_range(AllocatorInnerCalls.begin(), AllocatorInnerCalls.end());
   }
 
+  // Returns true if "F" is either StrAllocator or interface function.
+  bool isStrAllocatorOrInterfaceFunction(Function *F) {
+    return (AllocatorInterfaceFunctions.count(F) ||
+            StringAllocatorFunctions.count(F));
+  }
+
+  // Returns true if "F" is an interface function.
+  bool isInterfaceFunction(Function *F) {
+    return (AllocatorInterfaceFunctions.count(F));
+  }
+
   // Returns StringObjectType.
   StructType *getStringObjectType() { return StringObjectType; }
 

@@ -183,7 +183,7 @@ int test2() {
   // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i64* [[LB]])
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i64* [[UB]])
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32** [[BEGIN]])
-  // CHECK-SAME: "QUAL.OMP.SHARED"([10 x i32]* [[LD8]])
+  // CHECK-SAME: "QUAL.OMP.SHARED:BYREF"([10 x i32]** [[RANGE]])
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32** %a)
 
 // CHECK-LABEL: omp.inner.for.body{{[0-9]*}}:

@@ -37,6 +37,7 @@ ModulePass *createKernelBarrierLegacyPass(bool isNativeDebug,
                                           bool useTLSGlobals);
 ModulePass *createBarrierInFunctionLegacyPass();
 ModulePass *createImplicitArgsAnalysisLegacyPass();
+ModulePass *createLinearIdResolverPass();
 ModulePass *createLocalBufferAnalysisLegacyPass();
 ModulePass *createAddImplicitArgsLegacyPass();
 ModulePass *createResolveWICallLegacyPass(bool IsUniformWGSize,
