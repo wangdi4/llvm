@@ -294,7 +294,12 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
 #endif // INTEL_COLLAB
     INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
          "Creating new map entry with "
+#if INTEL_COLLAB
+         "HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%" PRId64
+         ", Name=%s\n",
+#else // INTEL_COLLAB
          "HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%ld, Name=%s\n",
+#endif // INTEL_COLLAB
          DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
          (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "unknown");
     HostDataToTargetMap.emplace(
