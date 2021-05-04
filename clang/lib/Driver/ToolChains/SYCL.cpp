@@ -424,8 +424,8 @@ void SYCL::fpga::BackendCompiler::ConstructJob(
   TC.AddImpliedTargetArgs(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs); // INTEL
 
-  TC.TranslateBackendTargetArgs(JA, Args, CmdArgs); // INTEL
-  TC.TranslateLinkerTargetArgs(JA, Args, CmdArgs); // INTEL
+  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
+  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
   // Look for -reuse-exe=XX option
   if (Arg *A = Args.getLastArg(options::OPT_reuse_exe_EQ)) {
     Args.ClaimAllArgs(options::OPT_reuse_exe_EQ);
@@ -471,8 +471,8 @@ void SYCL::gen::BackendCompiler::ConstructJob(Compilation &C,
       static_cast<const toolchains::SYCLToolChain &>(getToolChain());
   TC.AddImpliedTargetArgs(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs); // INTEL
-  TC.TranslateBackendTargetArgs(JA, Args, CmdArgs); // INTEL
-  TC.TranslateLinkerTargetArgs(JA, Args, CmdArgs); // INTEL
+  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
+  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
   SmallString<128> ExecPath(
       getToolChain().GetProgramPath(makeExeName(C, "ocloc")));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
@@ -506,8 +506,8 @@ void SYCL::x86_64::BackendCompiler::ConstructJob(
 
   TC.AddImpliedTargetArgs(
       DeviceOffloadKind, getToolChain().getTriple(), Args, CmdArgs); // INTEL
-  TC.TranslateBackendTargetArgs(JA, Args, CmdArgs); // INTEL
-  TC.TranslateLinkerTargetArgs(JA, Args, CmdArgs); // INTEL
+  TC.TranslateBackendTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
+  TC.TranslateLinkerTargetArgs(DeviceOffloadKind, Args, CmdArgs); // INTEL
   SmallString<128> ExecPath(
       getToolChain().GetProgramPath(makeExeName(C, "opencl-aot")));
   const char *Exec = C.getArgs().MakeArgString(ExecPath);
@@ -579,7 +579,7 @@ static void parseTargetOpts(StringRef ArgString, const llvm::opt::ArgList &Args,
 // Expects a specific type of option (e.g. -Xsycl-target-backend) and will
 // extract the arguments.
 #if INTEL_CUSTOMIZATION
-void SYCLToolChain::TranslateTargetOpt(const JobAction &JA,
+void SYCLToolChain::TranslateTargetOpt(Action::OffloadKind DeviceOffloadKind,
     const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs,
     OptSpecifier Opt, OptSpecifier Opt_EQ) const {
 #endif // INTEL_CUSTOMIZATION
@@ -602,7 +602,7 @@ void SYCLToolChain::TranslateTargetOpt(const JobAction &JA,
       // With multiple -fsycl-targets, a triple is required so we know where
       // the options should go.
 #if INTEL_CUSTOMIZATION
-      if (JA.isOffloading(Action::OFK_SYCL)) {
+      if (DeviceOffloadKind == Action::OFK_SYCL) {
         if (Args.getAllArgValues(options::OPT_fsycl_targets_EQ).size() != 1) {
           getDriver().Diag(diag::err_drv_Xsycl_target_missing_triple)
               << A->getSpelling();
@@ -650,9 +650,19 @@ void SYCLToolChain::AddImpliedTargetArgs(
     if (OptStr == "d")
       IsMSVCOd = true;
   }
-  if (IsGen && DeviceOffloadKind == Action::OFK_OpenMP)
-    // Add -cl-take-global-addresses by default for GEN/ocloc
-    BeArgs.push_back("-cl-take-global-address");
+  llvm::errs() << "Add Imlied\n";
+  if (DeviceOffloadKind == Action::OFK_OpenMP) {
+    llvm::errs() << "OPENMP OFFLOAD\n";
+    llvm::errs() << "  IS GEN:  " << IsGen << '\n';
+    llvm::errs() << "  NO SUBARCH:  " << (Triple.getSubArch() == llvm::Triple::NoSubArch) << '\n';
+    if (IsGen)
+      // Add -cl-take-global-addresses by default for GEN/ocloc
+      BeArgs.push_back("-cl-take-global-address");
+    // -vc-codegen is the default with -fopenmp-target-simd
+    if (Args.hasArg(options::OPT_fopenmp_target_simd) &&
+        (Triple.getSubArch() == llvm::Triple::NoSubArch || IsGen))
+      BeArgs.push_back("-vc-codegen");
+  }
   if (Args.getLastArg(options::OPT_O0) || IsMSVCOd)
 #endif // INTEL_CUSTOMIZATION
     BeArgs.push_back("-cl-opt-disable");
@@ -678,8 +688,9 @@ void SYCLToolChain::AddImpliedTargetArgs(
 }
 
 #if INTEL_CUSTOMIZATION
-void SYCLToolChain::TranslateBackendTargetArgs(const JobAction &JA,
-    const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const {
+void SYCLToolChain::TranslateBackendTargetArgs(
+    Action::OffloadKind DeviceOffloadKind, const llvm::opt::ArgList &Args,
+    llvm::opt::ArgStringList &CmdArgs) const {
 #endif // INTEL_CUSTOMIZATION
   // Handle -Xs flags.
   for (auto *A : Args) {
@@ -704,28 +715,29 @@ void SYCLToolChain::TranslateBackendTargetArgs(const JobAction &JA,
     }
   }
 #if INTEL_CUSTOMIZATION
-  if (JA.isOffloading(Action::OFK_OpenMP))
+  if (DeviceOffloadKind == Action::OFK_OpenMP)
     // Handle -Xopenmp-target-backend.
-    TranslateTargetOpt(JA, Args, CmdArgs, options::OPT_Xopenmp_backend,
-        options::OPT_Xopenmp_backend_EQ);
+    TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
+        options::OPT_Xopenmp_backend, options::OPT_Xopenmp_backend_EQ);
   else
     // Handle -Xsycl-target-backend.
-    TranslateTargetOpt(JA, Args, CmdArgs, options::OPT_Xsycl_backend,
-        options::OPT_Xsycl_backend_EQ);
+    TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
+        options::OPT_Xsycl_backend, options::OPT_Xsycl_backend_EQ);
 #endif // INTEL_CUSTOMIZATION
 }
 
 #if INTEL_CUSTOMIZATION
-void SYCLToolChain::TranslateLinkerTargetArgs(const JobAction &JA,
-    const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const {
-  if (JA.isOffloading(Action::OFK_OpenMP))
+void SYCLToolChain::TranslateLinkerTargetArgs(
+    Action::OffloadKind DeviceOffloadKind, const llvm::opt::ArgList &Args,
+    llvm::opt::ArgStringList &CmdArgs) const {
+  if (DeviceOffloadKind == Action::OFK_OpenMP)
     // Handle -Xopenmp-target-linker.
-    TranslateTargetOpt(JA, Args, CmdArgs, options::OPT_Xopenmp_linker,
-        options::OPT_Xopenmp_linker_EQ);
+    TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
+        options::OPT_Xopenmp_linker, options::OPT_Xopenmp_linker_EQ);
   else
     // Handle -Xsycl-target-linker.
-    TranslateTargetOpt(JA, Args, CmdArgs, options::OPT_Xsycl_linker,
-        options::OPT_Xsycl_linker_EQ);
+    TranslateTargetOpt(DeviceOffloadKind, Args, CmdArgs,
+        options::OPT_Xsycl_linker, options::OPT_Xsycl_linker_EQ);
 }
 #endif // INTEL_CUSTOMIZATION
 

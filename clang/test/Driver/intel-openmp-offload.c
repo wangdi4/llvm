@@ -271,6 +271,7 @@
 // FOPENMP_TARGET_SIMD: "-mllvm" "-enable-device-simd"
 // FOPENMP_TARGET_SIMD: "-O2"
 // FOPENMP_TARGET_SIMD: sycl-post-link{{.*}} "--ompoffload-explicit-simd"
+// FOPENMP_TARGET_SIMD: clang-offload-wrapper{{.*}} "-compile-opts=-vc-codegen"
 
 /// Test for compile and link opts that are passed to the wrapper
 // RUN: %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -Xopenmp-target-backend "-DFOO1 -DFOO2" %s 2>&1 \

@@ -8941,7 +8941,8 @@ void OffloadBundler::ConstructJobMultipleOutputs(
 // Begin OffloadWrapper
 
 #if INTEL_CUSTOMIZATION
-static void addRunTimeWrapperOpts(Compilation &C, const JobAction &JA,
+static void addRunTimeWrapperOpts(Compilation &C,
+                                  Action::OffloadKind DeviceOffloadKind,
                                   const llvm::opt::ArgList &TCArgs,
                                   ArgStringList &CmdArgs,
                                   const ToolChain &TC) {
@@ -8973,13 +8974,13 @@ static void addRunTimeWrapperOpts(Compilation &C, const JobAction &JA,
   if (SYCLTC.getTriple().getSubArch() == llvm::Triple::NoSubArch) {
     // Only store compile/link opts in the image descriptor for the SPIR-V
     // target; AOT compilation has already been performed otherwise.
-    Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind());
+    // Action::OffloadKind DeviceOffloadKind(JA.getOffloadingDeviceKind());
     SYCLTC.AddImpliedTargetArgs(
         DeviceOffloadKind, SYCLTC.getTriple(), TCArgs, BuildArgs);
-    SYCLTC.TranslateBackendTargetArgs(JA, TCArgs, BuildArgs);
+    SYCLTC.TranslateBackendTargetArgs(DeviceOffloadKind, TCArgs, BuildArgs);
     createArgString("-compile-opts=");
     BuildArgs.clear();
-    SYCLTC.TranslateLinkerTargetArgs(JA, TCArgs, BuildArgs);
+    SYCLTC.TranslateLinkerTargetArgs(DeviceOffloadKind, TCArgs, BuildArgs);
     createArgString("-link-opts=");
   }
 }
@@ -9034,7 +9035,8 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
       if (A->getValue() == StringRef("image"))
         WrapperArgs.push_back(C.getArgs().MakeArgString("--emit-reg-funcs=0"));
     }
-    addRunTimeWrapperOpts(C, JA, TCArgs, WrapperArgs, getToolChain()); // INTEL
+    addRunTimeWrapperOpts(C, OffloadingKind, TCArgs, WrapperArgs,
+                          getToolChain()); // INTEL
     WrapperArgs.push_back(
         C.getArgs().MakeArgString(Twine("-target=") + TargetTripleOpt));
 
@@ -9150,7 +9152,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
       DeviceKind = A->getOffloadingDeviceKind();
       DeviceTC = TC;
     });
-    addRunTimeWrapperOpts(C, JA, TCArgs, CmdArgs, *DeviceTC); // INTEL
+    addRunTimeWrapperOpts(C, DeviceKind, TCArgs, CmdArgs, *DeviceTC); // INTEL
 
     // And add it to the offload targets.
     CmdArgs.push_back(C.getArgs().MakeArgString(
