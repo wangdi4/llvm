@@ -2538,6 +2538,17 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
     if (MD->isVirtual())
       F->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().isIntelCompat(LangOptions::IntelMempoolCtorDtor) &&
+      getCodeGenOpts().WholeProgramVTables &&
+      getCodeGenOpts().PrepareForLTO && getCodeGenOpts().LTOUnit) {
+    if (isa<CXXConstructorDecl>(FD))
+      F->addFnAttr("intel-mempool-constructor");
+    else if (isa<CXXDestructorDecl>(FD))
+      F->addFnAttr("intel-mempool-destructor");
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Don't emit entries for function declarations in the cross-DSO mode. This
   // is handled with better precision by the receiving DSO. But if jump tables
   // are non-canonical then we need type metadata in order to produce the local
