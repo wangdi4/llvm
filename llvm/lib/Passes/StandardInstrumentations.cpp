@@ -20,6 +20,7 @@
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassInstrumentation.h"
 #include "llvm/IR/PassManager.h"
@@ -50,6 +51,10 @@ static cl::opt<bool>
     DebugPMVerbose("debug-pass-manager-verbose", cl::Hidden, cl::init(false),
                    cl::desc("Print all pass management debugging information. "
                             "`-debug-pass-manager` must also be specified"));
+
+static cl::opt<bool>
+    DebugPassStructure("debug-pass-structure", cl::Hidden, cl::init(false),
+                       cl::desc("Print pass structure information."));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 // An option that prints out the IR after passes, similar to
@@ -980,6 +985,42 @@ void PrintPassInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &) {}
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
+void PassStructurePrinter::printWithIdent(bool Expand, const Twine &Msg) {
+  if (!Msg.isTriviallyEmpty())
+    dbgs().indent(Ident) << Msg << "\n";
+  Ident = Expand ? Ident + 2 : Ident - 2;
+  assert(Ident >= 0);
+}
+
+void PassStructurePrinter::registerCallbacks(
+    PassInstrumentationCallbacks &PIC) {
+  if (!DebugPassStructure)
+    return;
+
+  PIC.registerBeforeNonSkippedPassCallback([this](StringRef PassID, Any IR) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+    printWithIdent(true, PassID + " on " + getIRName(IR));
+#endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  });
+  PIC.registerAfterPassCallback(
+      [this](StringRef PassID, Any IR, const PreservedAnalyses &) {
+        printWithIdent(false, Twine());
+      });
+
+  PIC.registerAfterPassInvalidatedCallback(
+      [this](StringRef PassID, const PreservedAnalyses &) {
+        printWithIdent(false, Twine());
+      });
+
+  PIC.registerBeforeAnalysisCallback([this](StringRef PassID, Any IR) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+    printWithIdent(true, PassID + " analysis on " + getIRName(IR));
+#endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  });
+  PIC.registerAfterAnalysisCallback(
+      [this](StringRef PassID, Any IR) { printWithIdent(false, Twine()); });
+}
+
 PreservedCFGCheckerInstrumentation::CFG::CFG(const Function *F,
                                              bool TrackBBLifetime) {
   if (TrackBBLifetime)
@@ -1312,6 +1353,7 @@ void StandardInstrumentations::registerCallbacks(
     PassInstrumentationCallbacks &PIC, FunctionAnalysisManager *FAM) {
   PrintIR.registerCallbacks(PIC);
   PrintPass.registerCallbacks(PIC);
+  StructurePrinter.registerCallbacks(PIC);
   TimePasses.registerCallbacks(PIC);
   OptNone.registerCallbacks(PIC);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
