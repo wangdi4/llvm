@@ -149,6 +149,7 @@ bool VPlanPragmaOmpOrderedSimdExtractImpl::runImpl(Module &M, DomT DT,
           "ordered.simd.region" /*suffix which is appended to the name
                                   of the new function */,
           true /* allow safety check for llvm.eh.typeid.for intrinsic */,
+          false /* don't allow unreachable blocks in the extracted function */,
           nullptr);
 
       CodeExtractorAnalysisCache CEAC(*F);
