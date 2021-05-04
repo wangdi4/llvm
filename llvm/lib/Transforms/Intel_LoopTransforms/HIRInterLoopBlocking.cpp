@@ -1678,7 +1678,7 @@ public:
     //    A[i] = B[i - t] + 1
     //  Notice M has chaned to M + t.
     //  For the alignment itself, see comments on alignSpatialLoopBody.
-    SmallPtrSet<const HLInst *, 32> LoadInstsToClone;
+    SetVector<const HLInst *> LoadInstsToClone;
     SmallVector<std::pair<unsigned, unsigned>, 16> CopyToLoadIndexMap;
 
     if (CloneDVLoads) {
@@ -2311,7 +2311,7 @@ private:
   template <typename IteratorTy>
   void findLoadsOfTemp(
       DDGraph DDG, IteratorTy begin, IteratorTy end,
-      unsigned AnchorNodeTopSortNum, SmallPtrSetImpl<const HLInst *> &LoadInsts,
+      unsigned AnchorNodeTopSortNum, SetVector<const HLInst *> &LoadInsts,
       std::map<const HLInst *, const HLInst *> &CopyToLoadMap) const {
 
     for (IteratorTy It = begin; It != end; ++It) {
@@ -2338,8 +2338,7 @@ private:
   }
 
   void collectLoadsToClone(
-      const HLNode *AnchorNode,
-      SmallPtrSetImpl<const HLInst *> &LoadInstsToClone,
+      const HLNode *AnchorNode, SetVector<const HLInst *> &LoadInstsToClone,
       SmallVectorImpl<std::pair<unsigned, unsigned>> &CopyToLoadIndexMap) {
 
     DDGraph DDG;
@@ -2553,7 +2552,7 @@ private:
 
   // Replace all use with new Lval
   void cloneAndAddLoadInsts(
-      SmallPtrSetImpl<const HLInst *> &LoadInstsToClone, HLNode *AnchorNode,
+      SetVector<const HLInst *> &LoadInstsToClone, HLNode *AnchorNode,
       DenseMap<unsigned, unsigned> &OrigToCloneIndexMap,
       SmallVectorImpl<const RegDDRef *> &AuxRefsForByStripBounds
 
@@ -2591,11 +2590,10 @@ private:
   //          tile_end = min(IV + by_strip_step - 1, by_strip_ub)
   //   IV is the tile's begin.
   //   tile_end is the last element of tile, not the past the last.
-  HLLoop *
-  addByStripLoops(HLNode *AnchorNode,
-                  const SmallPtrSetImpl<const HLInst *> &LoadInstsToClone,
-                  const SmallVectorImpl<unsigned> &LiveOutsOfByStrip,
-                  ArrayRef<const RegDDRef *> AuxRefsFromSpatialLoops) {
+  HLLoop *addByStripLoops(HLNode *AnchorNode,
+                          const SetVector<const HLInst *> &LoadInstsToClone,
+                          const SmallVectorImpl<unsigned> &LiveOutsOfByStrip,
+                          ArrayRef<const RegDDRef *> AuxRefsFromSpatialLoops) {
 
     HLRegion *Region = AnchorNode->getParentRegion();
 

@@ -58,7 +58,9 @@
 
 ; CHECK: Global variable: arr_mod_mp_a_
 ; CHECK-NEXT:   LLVM Type: QNCA_a0$float*$rank2$
+; CHECK-NEXT:   Global dope vector result: Pass
 ; CHECK-NEXT:   Dope vector information: Valid
+; CHECK-NEXT:     Alloc site found: Yes
 ; CHECK-NEXT:     [0] Array Pointer: Read
 ; CHECK-NEXT:     [1] Element size: Written | Constant = i64 4
 ; CHECK-NEXT:     [2] Co-Dimension: Written | Constant = i64 0

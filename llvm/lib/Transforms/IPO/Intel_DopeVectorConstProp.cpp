@@ -279,67 +279,29 @@ static bool replaceDopeVectorConstants(Argument &Arg,
   return Change;
 }
 
-// Return true if the input CallBase is a call to a function that allocates
-// a space in memory (e.g. for_alloc_allocate_handle)
-static bool isCallToAllocFunction(CallBase *Call,
-    std::function<const TargetLibraryInfo &(Function &F)> GetTLI) {
-
-  if (!Call || !Call->getCalledFunction())
-    return false;
-
-  Function *F = Call->getCalledFunction();
-
-  LibFunc TheLibFunc;
-  const TargetLibraryInfo &TLI = GetTLI(*const_cast<Function *>(F));
-  if (TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc)) {
-    // TODO: We may want to expand this in the future for other forms of
-    // alloc
-    switch (TheLibFunc) {
-      case LibFunc_for_allocate_handle:
-      case LibFunc_for_alloc_allocatable_handle:
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  return false;
-}
-
 // Traverse through the global variables, and collect the information for
 // those globals that are dope vectors.
 static void collectDopeVectorGlobals(Module &M, const DataLayout &DL,
-    std::function<const TargetLibraryInfo &(Function &F)> GetTLI) {
+    std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
 
   if (!DVGlobalConstProp)
     return;
 
   for (auto &Glob : M.globals()) {
-
-    bool AllocSiteFound = false;
     Type *GlobType = Glob.getValueType();
 
     if (!isDopeVectorType(GlobType, DL))
       continue;
 
-    GlobalDopeVector GlobDV(&Glob, GlobType);
+    GlobalDopeVector GlobDV(&Glob, GlobType, GetTLI);
     for (auto *U : Glob.users()) {
       if (auto *BC = dyn_cast<BitCastOperator>(U)) {
         // The BitCast should only be used for data allocation and
         // should happen only once
-        if (!BC->hasOneUser() || AllocSiteFound) {
+        if (!GlobDV.collectAndAnalyzeAllocSite(BC)) {
           GlobDV.getGlobalDopeVectorInfo()->setAllocSite(nullptr);
           break;
         }
-
-        CallBase *Call = dyn_cast<CallBase>(BC->user_back());
-        if (!Call || !isCallToAllocFunction(Call, GetTLI)) {
-          GlobDV.getGlobalDopeVectorInfo()->setAllocSite(nullptr);
-          break;
-        }
-
-        AllocSiteFound = true;
-        GlobDV.getGlobalDopeVectorInfo()->setAllocSite(Call);
       } else if (auto *GEP = dyn_cast<GEPOperator>(U)) {
 
         // The fields of the global dope vector are accessed through
@@ -360,7 +322,17 @@ static void collectDopeVectorGlobals(Module &M, const DataLayout &DL,
     GlobDV.getGlobalDopeVectorInfo()->validateDopeVector();
 
     // Collect any information related to the nested dope vectors
-    GlobDV.collectNestedDopeVectors(DL);
+    GlobDV.collectAndAnalyzeNestedDopeVectors(DL);
+
+    // Validate that the data was collected correctly
+    GlobDV.validateGlobalDopeVector();
+
+    // TODO:
+    //   1) Add access analysis (store happens before loads)
+    //   2) Map the GlobalVariable with the GlobalDopeVector collected
+    //   3) Relax the conditions in the transformation process to propagate
+    //        any data collected
+    //   4) Propagate constant information
 
     DEBUG_WITH_TYPE(DEBUG_GLOBAL_CONSTPROP, {
       GlobDV.print();

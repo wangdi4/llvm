@@ -99,6 +99,7 @@
 
 ; CHECK: Global variable: arr_mod_mp_a_
 ; CHECK-NEXT:   LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
+; CHECK-NEXT:     Global dope vector result: Failed to collect global dope vector info
 ; CHECK-NEXT:   Dope vector information: Invalid
 
 ; ModuleID = 'ld-temp.o'
