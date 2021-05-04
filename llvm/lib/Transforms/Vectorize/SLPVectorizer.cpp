@@ -6603,6 +6603,10 @@ BoUpSLP::isGatherShuffledEntry(const TreeEntry *TE, SmallVectorImpl<int> &Mask,
     }
     int FoundLane = findLaneForValue(VTE->Scalars, VTE->ReuseShuffleIndices, V);
     Mask[I] = (Entries.front() == VTE ? 0 : VF) + FoundLane;
+    // Extra check required by isSingleSourceMaskImpl function (called by
+    // ShuffleVectorInst::isSingleSourceMask).
+    if (Mask[I] >= 2 * E)
+      return None;
   }
   switch (Entries.size()) {
   case 1:
