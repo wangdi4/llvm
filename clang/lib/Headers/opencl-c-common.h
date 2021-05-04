@@ -20,10 +20,10 @@
 #endif //cl_khr_3d_image_writes
 #endif //__OPENCL_C_VERSION__ < CL_VERSION_2_0
 
-#if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_1_2)
+#if (defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_1_2)) && defined(__SPIR__)
 #pragma OPENCL EXTENSION cl_intel_planar_yuv : begin
 #pragma OPENCL EXTENSION cl_intel_planar_yuv : end
-#endif // defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_1_2)
+#endif // (defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_1_2)) && defined(__SPIR__)
 
 // Define extension macros
 
