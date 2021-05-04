@@ -8919,6 +8919,13 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     NumTeams = W->getNumTeams();
     assert((!VPOParoptUtils::useSPMDMode(W) || !NumTeams) &&
            "SPMD mode cannot be used with num_teams.");
+#if INTEL_CUSTOMIZATION
+    // TODO: we may use VPOParoptConfig here by matching
+    //       the name of the teams outlined function.
+    //       There is no current request for configuring
+    //       thread_limit() via VPOParoptConfig for the host
+    //       parallelization.
+#endif // INTEL_CUSTOMIZATION
     NumThreads = W->getThreadLimit();
   } else
     NumThreads = W->getNumThreads();

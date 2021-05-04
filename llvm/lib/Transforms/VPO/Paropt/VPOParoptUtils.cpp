@@ -811,6 +811,11 @@ CallInst *VPOParoptUtils::genTgtCall(StringRef FnName, WRegionNode *W,
       else
         ThreadLimit =
             getOrLoadClauseArgValueWithSext(ThreadLimitPtr, Int32Ty, Builder);
+#if INTEL_CUSTOMIZATION
+      uint64_t KernelThreadLimit = W->getConfiguredThreadLimit();
+      if (KernelThreadLimit > 0)
+        ThreadLimit = Builder.getInt32(KernelThreadLimit);
+#endif // INTEL_CUSTOMIZATION
     }
   } else {
     // HostAddr==null means FnName is not __tgt_target or __tgt_target_teams

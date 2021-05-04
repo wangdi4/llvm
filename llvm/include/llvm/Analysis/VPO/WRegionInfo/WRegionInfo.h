@@ -15,6 +15,9 @@
 #ifndef LLVM_ANALYSIS_VPO_WREGIONINFO_H
 #define LLVM_ANALYSIS_VPO_WREGIONINFO_H
 
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/VPO/Intel_VPOParoptConfig.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
@@ -60,6 +63,9 @@ private:
   AAResults *AA = nullptr;
   WRegionCollection *WRC = nullptr;
   OptimizationRemarkEmitter &ORE;
+#if INTEL_CUSTOMIZATION
+  const VPOParoptConfig *VPC = nullptr;
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Populates W-Region with WRegionNodes.
   void populateWRegion(WRegion *W, BasicBlock *EntryBB, BasicBlock **ExitBB);
@@ -91,7 +97,9 @@ public:
   /// Propagate \p OptLevel to AA.
   void setupAAWithOptLevel(unsigned OptLevel);
   /// Replace any AA pipeline with \p AA.
-  void setAliasAnlaysis(AAResults *AA) { this->AA = AA; };
+  void setAliasAnlaysis(AAResults *AA) { this->AA = AA; }
+  void setVPOParoptConfig(const VPOParoptConfig *VPC) { this->VPC = VPC; }
+  const VPOParoptConfig *getVPOParoptConfig() const { return VPC; }
 #endif // INTEL_CUSTOMIZATION
   void setTargetTransformInfo(TargetTransformInfo *TTI) { this->TTI = TTI; }
   const TargetTransformInfo *getTargetTransformInfo() { return TTI; }

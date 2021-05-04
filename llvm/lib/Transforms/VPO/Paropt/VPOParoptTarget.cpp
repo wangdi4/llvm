@@ -369,15 +369,23 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     ++NewArgI;
   }
 
-  int simdWidth = W->getSPIRVSIMDWidth();
+  int SimdWidth = W->getSPIRVSIMDWidth();
+#if INTEL_CUSTOMIZATION
+  const VPOParoptConfig *VPC = WI->getVPOParoptConfig();
+  if (VPC) {
+    uint8_t KernelSimdWidth = VPC->getKernelSPMDSIMDWidth(NFn->getName());
+    if (KernelSimdWidth > 0)
+      SimdWidth = KernelSimdWidth;
+  }
+#endif // INTEL_CUSTOMIZATION
   if (EnableDeviceSimdCodeGen) {
-    simdWidth = 1;
+    SimdWidth = 1;
     NFn->setMetadata("omp_simd_kernel", MDNode::get(NFn->getContext(), {}));
   }
 
-  if (simdWidth > 0) {
+  if (SimdWidth > 0) {
     Metadata *AttrMDArgs[] = {
-        ConstantAsMetadata::get(Builder.getInt32(simdWidth)) };
+        ConstantAsMetadata::get(Builder.getInt32(SimdWidth)) };
     NFn->setMetadata("intel_reqd_sub_group_size",
                      MDNode::get(NFn->getContext(), AttrMDArgs));
   }
@@ -1858,6 +1866,19 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
     auto *IT = W->wrn_child_begin();
     if (IT != W->wrn_child_end() && isa<WRNTeamsNode>(*IT)) {
       WRNTeamsNode *TW = cast<WRNTeamsNode>(*IT);
+#if INTEL_CUSTOMIZATION
+      // RegionId is a GlobalVariable for the region ID.
+      // Its name is based on the name of the target outlined function.
+      // Use its name to look for the ThreadLimit override in VPOParoptConfig.
+      // To be on the safe side, make sure that RegionId is actually
+      // a GlobalVariable.
+      if (WI && isa<GlobalVariable>(RegionId))
+        if (const VPOParoptConfig *VPC = WI->getVPOParoptConfig()) {
+          uint64_t KernelThreadLimit =
+              VPC->getKernelThreadLimit(RegionId->getName());
+          TW->setConfiguredThreadLimit(KernelThreadLimit);
+        }
+#endif // INTEL_CUSTOMIZATION
       TgtCall = VPOParoptUtils::genTgtTargetTeams(
           TW, RegionId, Info.NumberOfPtrs, Info.ResBaseDataPtrs,
           Info.ResDataPtrs, Info.ResDataSizes, Info.ResDataMapTypes,
