@@ -186,10 +186,28 @@ namespace L0Interop {
     "intptr_t, number of slices"
   };
 
+  // Level Zero property ID
+  enum IprIDTy : int32_t {
+    device_num_eus = 0,
+    device_num_threads_per_eu,
+    device_eu_simd_width,
+    device_num_eus_per_subslice,
+    device_num_subslices_per_slice,
+    device_num_slices
+  };
+
   /// Level Zero interop property
   struct Property {
     // TODO: define implementation-defined properties
   };
+
+  /// Dump implementation-defined properties
+  static void printInteropProperties(void) {
+    IDP("Interop property IDs, Names, Descriptions\n");
+    for (int I = -omp_ipr_first; I < (int)IprNames.size(); I++)
+      IDP("-- %" PRId32 ", %s, %s\n", I + omp_ipr_first, IprNames[I],
+          IprTypeDescs[I]);
+  }
 }
 
 int DebugLevel = 0;
@@ -2604,6 +2622,7 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
   CALL_ZE_RET_ZERO(zeDriverGetApiVersion, DeviceInfo->Driver,
                    &DeviceInfo->DriverAPIVersion);
   IDP("Driver API version is %" PRIx32 "\n", DeviceInfo->DriverAPIVersion);
+  L0Interop::printInteropProperties();
 
   DeviceInfo->CmdLists.resize(DeviceInfo->NumDevices);
   DeviceInfo->CmdQueues.resize(DeviceInfo->NumDevices);
@@ -4287,7 +4306,7 @@ EXTERN int32_t __tgt_rtl_get_interop_property_value(
   auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
 
   switch (Ipr) {
-  case omp_ipr_device_num_eus:
+  case L0Interop::device_num_eus:
     if (ValueType == OMP_IPR_VALUE_INT)
       *static_cast<intptr_t *>(Value) = deviceProperties.numEUsPerSubslice *
           deviceProperties.numSubslicesPerSlice *
@@ -4295,31 +4314,31 @@ EXTERN int32_t __tgt_rtl_get_interop_property_value(
     else
       retCode = omp_irc_type_int;
     break;
-  case omp_ipr_device_num_threads_per_eu:
+  case L0Interop::device_num_threads_per_eu:
     if (ValueType == OMP_IPR_VALUE_INT)
       *static_cast<intptr_t *>(Value) = deviceProperties.numThreadsPerEU;
     else
       retCode = omp_irc_type_int;
     break;
-  case omp_ipr_device_eu_simd_width:
+  case L0Interop::device_eu_simd_width:
     if (ValueType == OMP_IPR_VALUE_INT)
       *static_cast<intptr_t *>(Value) = deviceProperties.physicalEUSimdWidth;
     else
       retCode = omp_irc_type_int;
     break;
-  case omp_ipr_device_num_eus_per_subslice:
+  case L0Interop::device_num_eus_per_subslice:
     if (ValueType == OMP_IPR_VALUE_INT)
       *static_cast<intptr_t *>(Value) = deviceProperties.numEUsPerSubslice;
     else
       retCode = omp_irc_type_int;
     break;
-  case omp_ipr_device_num_subslices_per_slice:
+  case L0Interop::device_num_subslices_per_slice:
     if (ValueType == OMP_IPR_VALUE_INT)
       *static_cast<intptr_t *>(Value) = deviceProperties.numSubslicesPerSlice;
     else
       retCode = omp_irc_type_int;
     break;
-  case omp_ipr_device_num_slices:
+  case L0Interop::device_num_slices:
     if (ValueType == OMP_IPR_VALUE_INT)
       *static_cast<intptr_t *>(Value) = deviceProperties.numSlices;
     else
