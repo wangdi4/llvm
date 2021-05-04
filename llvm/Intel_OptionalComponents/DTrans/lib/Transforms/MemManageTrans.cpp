@@ -189,9 +189,14 @@ private:
   // is used in all interface functions.
   StructType *NextBlockTy = nullptr;
 
+  // Set of Interface functions and their users.
+  SmallPtrSet<Function *, 32> RelatedFunctions;
+
   bool gatherCandidates(void);
   bool analyzeCandidates(void);
+  bool isUsedOnlyInUnusedVTable(Value *);
   bool checkInterfaceFunctions(void);
+  bool checkTypesEscaped(void);
   bool checkCallSiteRestrictions(void);
   bool checkBlockSizeHeuristic(void);
   bool categorizeFunctions(void);
@@ -395,16 +400,9 @@ bool MemManageTransImpl::gatherCandidates(void) {
   return true;
 }
 
-// Returns false if any interface function is not called from
-// member functions of StringAllocator. It does check for the following
-// two things.
-// 1. All interface functions need to be called from either StringAllocator
-//    or Interface functions.
-// 2. If interface function is in VTable (i.e GlobalVariable), this makes
-//    sure the all uses of VTable are in interface functions, which will be
-//    analyzed later. In the analysis, it will be indirectly proved that
-//    there is no real use of VTable.
-bool MemManageTransImpl::checkInterfaceFunctions(void) {
+// Returns true if we can prove that "U" is used only in GlobalVariables that
+// are accessed only from interface functions.
+bool MemManageTransImpl::isUsedOnlyInUnusedVTable(Value *U) {
   std::function<bool(Value *, SmallPtrSetImpl<GlobalVariable *> &)>
       FindAllGlobalVariableUsers;
   std::function<bool(Value *)> CheckAllUsesInInterfaceFuncs;
@@ -457,35 +455,42 @@ bool MemManageTransImpl::checkInterfaceFunctions(void) {
         return true;
       };
 
-  // Returns true if we can prove that "U" is used only in GlobalVariables that
-  // are accessed only from interface functions.
-  auto IsUsedOnlyInUnusedVTable =
-      [&FindAllGlobalVariableUsers,
-       &IsGVUsedOnlyInInterfaceFunctions](Value *U) {
-        SmallPtrSet<GlobalVariable *, 2> GVSet;
-        if (!FindAllGlobalVariableUsers(U, GVSet))
-          return false;
-        if (GVSet.empty())
-          return false;
-        for (auto *GV : GVSet)
-          if (!IsGVUsedOnlyInInterfaceFunctions(GV))
-            return false;
-        return true;
-      };
+  SmallPtrSet<GlobalVariable *, 2> GVSet;
+  if (!FindAllGlobalVariableUsers(U, GVSet))
+    return false;
+  if (GVSet.empty())
+    return false;
+  for (auto *GV : GVSet)
+    if (!IsGVUsedOnlyInInterfaceFunctions(GV))
+      return false;
+  return true;
+}
 
+// Returns false if any interface function is not called from
+// member functions of StringAllocator. It does check for the following
+// two things.
+// 1. All interface functions need to be called from either StringAllocator
+//    or Interface functions.
+// 2. If interface function is in VTable (i.e GlobalVariable), this makes
+//    sure the all uses of VTable are in interface functions, which will be
+//    analyzed later. In the analysis, it will be indirectly proved that
+//    there is no real use of VTable.
+bool MemManageTransImpl::checkInterfaceFunctions(void) {
   auto Cand = getCurrentCandidate();
   for (auto InterF : Cand->interface_functions()) {
+    RelatedFunctions.insert(InterF);
     for (User *U : InterF->users()) {
       if (auto *CB = dyn_cast<CallBase>(U)) {
         auto *CalledF = CB->getFunction();
         if (!CalledF)
           return false;
+        RelatedFunctions.insert(CalledF);
         if (!Cand->isStrAllocatorOrInterfaceFunction(CalledF) &&
-            !IsUsedOnlyInUnusedVTable(CalledF))
+            !isUsedOnlyInUnusedVTable(CalledF))
           return false;
       } else {
         // If "U" is not a call, check "U" is in unused VTables.
-        if (!IsUsedOnlyInUnusedVTable(U))
+        if (!isUsedOnlyInUnusedVTable(U))
           return false;
       }
     }
@@ -551,6 +556,105 @@ bool MemManageTransImpl::checkBlockSizeHeuristic(void) {
   return true;
 }
 
+// Returns true if ReusableArenaAllocator or any related type is used in
+// any functions other than the interface/stringObj functions.
+// This routine checks IR of all routines and determines if related types
+// are used in any routines besides the interface/stringObj routines.
+bool MemManageTransImpl::checkTypesEscaped(void) {
+
+  // Returns true if "Ty" is directly or indirectly related to
+  // ReusableArenaAllocator.
+  auto CheckRelatedTypeUsage = [this](Type *Ty) {
+    auto Cand = getCurrentCandidate();
+    StructType *STy = dtrans::getContainedStructTy(Ty);
+    if (!STy || !Cand->isRelatedType(STy))
+      return true;
+    return false;
+  };
+
+  // Walk through each instruction of "F" to find if any related type of
+  // ReusableArenaBlock is used. Return false if it finds one.
+  auto CheckFunction = [&CheckRelatedTypeUsage](Function &F) {
+    for (auto &I : instructions(F)) {
+      switch (I.getOpcode()) {
+      case Instruction::Load: {
+        auto *LI = cast<LoadInst>(&I);
+        if (!CheckRelatedTypeUsage(LI->getPointerOperand()->getType()))
+          return false;
+        break;
+      }
+
+      case Instruction::Store: {
+        auto *SI = cast<StoreInst>(&I);
+        if (!CheckRelatedTypeUsage(SI->getPointerOperand()->getType()))
+          return false;
+        break;
+      }
+
+      case Instruction::GetElementPtr: {
+        auto *GEP = cast<GetElementPtrInst>(&I);
+        if (!CheckRelatedTypeUsage(GEP->getSourceElementType()))
+          return false;
+        break;
+      }
+
+      case Instruction::BitCast: {
+        auto *BC = cast<BitCastInst>(&I);
+        if (!CheckRelatedTypeUsage(BC->getOperand(0)->getType()))
+          return false;
+        if (!CheckRelatedTypeUsage(BC->getType()))
+          return false;
+        break;
+      }
+
+      case Instruction::PtrToInt: {
+        auto *PTI = cast<PtrToIntInst>(&I);
+        if (!CheckRelatedTypeUsage(PTI->getOperand(0)->getType()))
+          return false;
+        break;
+      }
+
+      case Instruction::IntToPtr: {
+        auto *ITP = cast<IntToPtrInst>(&I);
+        if (!CheckRelatedTypeUsage(ITP->getType()))
+          return false;
+        break;
+      }
+
+      case Instruction::Invoke:
+      case Instruction::Call: {
+        auto *CB = cast<CallBase>(&I);
+        if (!CheckRelatedTypeUsage(CB->getType()))
+          return false;
+        unsigned NumArg = CB->arg_size();
+        for (unsigned AI = 0; AI < NumArg; ++AI)
+          if (!CheckRelatedTypeUsage(CB->getArgOperand(AI)->getType()))
+            return false;
+        break;
+      }
+
+      default:
+        break;
+      }
+    }
+    return true;
+  };
+
+  for (auto &F : M) {
+    if (RelatedFunctions.count(&F))
+      continue;
+    if (!CheckFunction(F))
+      for (User *U : F.users())
+        if (!isUsedOnlyInUnusedVTable(U)) {
+          DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS, {
+            dbgs() << "    Type unknown use: " << F.getName() << "\n";
+          });
+          return false;
+        }
+  }
+  return true;
+}
+
 // Check legality issues for candidates.
 bool MemManageTransImpl::analyzeCandidates(void) {
 
@@ -596,9 +700,13 @@ bool MemManageTransImpl::analyzeCandidates(void) {
     return false;
   }
 
-  // TODO: Add more checks here.
   // Makes sure ReusableArenaAllocatorType and all other related
   //    types are not escaped.
+  if (!checkTypesEscaped()) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS,
+                    { dbgs() << "   Failed: Types escaped\n"; });
+    return false;
+  }
 
   return true;
 }

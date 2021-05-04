@@ -121,6 +121,16 @@ public:
     return (AllocatorInterfaceFunctions.count(F));
   }
 
+  // Returns true if "Ty" is ReusableArenaBlockType or any class related to
+  // it.
+  bool isRelatedType(StructType *Ty) {
+    if (BlockBaseType == Ty || ReusableArenaBlockType == Ty ||
+        ListNodeType == Ty || ListType == Ty || ArenaAllocatorType == Ty ||
+        ReusableArenaAllocatorType == Ty)
+      return true;
+    return false;
+  }
+
   // Returns StringObjectType.
   StructType *getStringObjectType() { return StringObjectType; }
 
@@ -211,6 +221,9 @@ private:
 
   // Type of BlockBaseType class.
   StructType *BlockBaseType = nullptr;
+
+  // Type of List class.
+  StructType *ListType = nullptr;
 
   // Member functions of StringAllocatorType.
   SmallPtrSet<Function *, 8> StringAllocatorFunctions;
@@ -592,6 +605,7 @@ bool MemManageCandidateInfo::isListType(Type *Ty) {
   }
   if (NumListNodePtrs != 2 || NumMemInt != 1)
     return false;
+  ListType = STy;
   return true;
 }
 
