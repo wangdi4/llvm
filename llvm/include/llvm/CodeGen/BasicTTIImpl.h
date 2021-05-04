@@ -817,6 +817,7 @@ public:
     case TTI::SK_Transpose:
     case TTI::SK_InsertSubvector:
     case TTI::SK_ExtractSubvector:
+    case TTI::SK_TargetSpecific:
       break;
     }
     return Kind;
