@@ -1865,9 +1865,16 @@ void DevirtModule::rebuildGlobal(VTableBits &B) {
       {ConstantDataArray::get(M.getContext(), B.Before.Bytes),
        B.GV->getInitializer(),
        ConstantDataArray::get(M.getContext(), B.After.Bytes)});
-  auto NewGV =
-      new GlobalVariable(M, NewInit->getType(), B.GV->isConstant(),
-                         GlobalVariable::PrivateLinkage, NewInit, "", B.GV);
+#if INTEL_CUSTOMIZATION
+  // Changed under INTEL_CUSTOMIZATION to not create an unnamed global variable
+  // because doing so prevents IR dumps created after this pass from being able
+  // run with through opt using the -whole-program-assume flag, because
+  // -whole-program-assume uses calls to getGUID which require a name on a
+  // GlobalVar.
+  auto NewGV = new GlobalVariable(M, NewInit->getType(), B.GV->isConstant(),
+                                  GlobalVariable::PrivateLinkage, NewInit,
+                                  "__Devirt", B.GV);
+#endif // INTEL_CUSTOMIZATION
   NewGV->setSection(B.GV->getSection());
   NewGV->setComdat(B.GV->getComdat());
   NewGV->setAlignment(MaybeAlign(B.GV->getAlignment()));
