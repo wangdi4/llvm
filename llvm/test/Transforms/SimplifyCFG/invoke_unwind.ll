@@ -87,7 +87,3 @@ lpad2:
 }
 
 declare i32 @__gxx_personality_v0(...)
-
-; INTEL_CUSTOMIZATION
-; CHECK: ![[PROF]] = !{!"branch_weights", i32 369}
-;end INTEL_CUSTOMIZATION
