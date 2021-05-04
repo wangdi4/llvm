@@ -295,6 +295,8 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     SerialInst = Builder.CreateInsertValue(Ops[0], Ops[1],
                                            OrigInsertValueInst->getIndices(),
                                            "serial.insertvalue");
+  } else if (VPInst->getOpcode() == Instruction::ShuffleVector) {
+    SerialInst = Builder.CreateShuffleVector(Ops[0], Ops[1], Ops[2]);
   } else {
     LLVM_DEBUG(dbgs() << "VPInst: "; VPInst->dump());
     llvm_unreachable("Currently serialization of only binop instructions, "
@@ -1220,6 +1222,10 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
   case Instruction::ShuffleVector: {
+    if (isVPValueUniform(VPInst, Plan)) {
+      serializeInstruction(VPInst);
+      return;
+    }
     vectorizeShuffle(VPInst);
     return;
   }
