@@ -1,4 +1,9 @@
 // UNSUPPORTED: system-windows
+// INTEL_CUSTOMIZATION
+// FIXME - The internal rdrive gcc configurations need to be updated before
+//         we can turn this test back on.
+// XFAIL:*
+// end INTEL_CUSTOMIZATION
 
 // RUN: %clang -### %s --target=i686-pc-hurd-gnu --sysroot=%S/Inputs/basic_hurd_tree \
 // RUN:   --stdlib=platform 2>&1 | FileCheck --check-prefix=CHECK %s
