@@ -712,9 +712,15 @@ void SYCLToolChain::AddImpliedTargetArgs(
     if (OptStr == "d")
       IsMSVCOd = true;
   }
-  if (IsGen && DeviceOffloadKind == Action::OFK_OpenMP)
-    // Add -cl-take-global-addresses by default for GEN/ocloc
-    BeArgs.push_back("-cl-take-global-address");
+  if (DeviceOffloadKind == Action::OFK_OpenMP) {
+    if (IsGen)
+      // Add -cl-take-global-addresses by default for GEN/ocloc
+      BeArgs.push_back("-cl-take-global-address");
+    // -vc-codegen is the default with -fopenmp-target-simd
+    if (Args.hasArg(options::OPT_fopenmp_target_simd) &&
+        (Triple.getSubArch() == llvm::Triple::NoSubArch || IsGen))
+      BeArgs.push_back("-vc-codegen");
+  }
   if (Args.getLastArg(options::OPT_O0) || IsMSVCOd)
 #endif // INTEL_CUSTOMIZATION
     BeArgs.push_back("-cl-opt-disable");

@@ -25,10 +25,6 @@
 // RUN:  | FileCheck %s -check-prefixes=CHK-TOOLS-AOT,CHK-TOOLS-GEN
 // RUN: %clang -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_x86_64 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefixes=CHK-TOOLS-AOT,CHK-TOOLS-CPU
-// RUN: %clang -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_gen %s -### 2>&1 \
-// RUN:  | FileCheck %s -check-prefixes=CHK-TOOLS-AOT,CHK-TOOLS-GEN
-// RUN: %clang -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_x86_64 %s -### 2>&1 \
-// RUN:  | FileCheck %s -check-prefixes=CHK-TOOLS-AOT,CHK-TOOLS-CPU
 // CHK-TOOLS-AOT: clang{{.*}} "-triple" "x86_64-unknown-linux-gnu" {{.*}} "-o" "[[OUTPUT7:.+\.o]]"
 // CHK-TOOLS-GEN: clang{{.*}} "-triple" "spir64_gen"
 // CHK-TOOLS-CPU: clang{{.*}} "-triple" "spir64_x86_64"
@@ -42,6 +38,11 @@
 // CHK-TOOLS-CPU: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[OUTPUT5:.+\.bc]]" "-kind=openmp" "-target=spir64_x86_64" "[[OUTPUT4]]"
 // CHK-TOOLS-AOT: clang{{.*}} "-emit-obj" {{.*}} "-o" "[[OUTPUT6:.+\.o]]" {{.*}} "[[OUTPUT5]]"
 // CHK-TOOLS-AOT: ld{{.*}} "[[OUTPUT7]]"{{.*}} "[[OUTPUT6]]"
+
+/// -fopenmp-target-simd settings.
+// RUN: %clang -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_gen -fopenmp-target-simd %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefixes=CHK-TOOLS-GEN-SIMD
+// CHK-TOOLS-GEN-SIMD: ocloc{{.*}} "-output" "{{.*}}.out"{{.*}} "-options" "{{.*}}-vc-codegen"
 
 /// ###########################################################################
 
