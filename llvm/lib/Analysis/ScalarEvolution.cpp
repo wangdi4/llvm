@@ -5838,6 +5838,9 @@ const SCEV *ScalarEvolution::createNodeForIdenticalOperandsPHI(PHINode *PN) {
     }
   }
 
+  if (PhiSimplificationCandidates.size() > MaxSCEVCompareDepth)
+    return getUnknown(PN);
+
   // Bail out if any of the predecessors are unreachable from entry block.
   for (auto *Pred : predecessors(PN->getParent()))
     if (!DT.isReachableFromEntry(Pred))
