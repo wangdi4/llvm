@@ -1,6 +1,30 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+
+; Check for global dope vector A
+; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-GLOBDV-A
+; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-GLOBDV-A
+
+; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD0-A
+; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD0-A
+
+; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD1-A
+; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD1-A
+
+; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD2-A
+; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD2-A
+
+; Check for global dope vector B
+; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-GLOBDV-B
+; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-GLOBDV-B
+
+; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD0-B
+; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD0-B
+
+; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD1-B
+; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD1-B
+
+; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD2-B
+; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD2-B
 
 ; This test case checks that the fields for multiple global dope vectors
 ; were collected correctly. Also, it identifies and collects the nested dope
@@ -121,37 +145,126 @@
 ; The test case basically allocates, initializes and uses the global arrays
 ; A and B.
 
-; CHECK: Global variable: arr_mod_mp_a_
-; CHECK-NEXT:   LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
-; CHECK-NEXT:   Dope vector information: Valid
-; CHECK-NEXT:     [0] Array Pointer: Read
-; CHECK-NEXT:     [1] Element size: Written | Constant = i64 288
-; CHECK-NEXT:     [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-NEXT:     [3] Flags: Read | Written
-; CHECK-NEXT:     [4] Dimensions: Written | Constant = i64 1
-; CHECK-NEXT:     [6][0] Extent: Written | Constant = i64 1
-; CHECK-NEXT:     [6][0] Stride: Written | Constant = i64 288
-; CHECK-NEXT:     [6][0] Lower Bound: Read | Written | Constant = i64 1
-; CHECK-NEXT:   Nested dope vectors:
-; CHECK-NEXT:     Field[0]: QNCA_a0$float*$rank2$
-; CHECK-NEXT:     Field[1]: QNCA_a0$float*$rank3$
-; CHECK-NEXT:     Field[2]: QNCA_a0$float*$rank1$
+; CHECK-GLOBDV-A: Global variable: arr_mod_mp_a_
+; CHECK-GLOBDV-A-NEXT:  LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
+; CHECK-GLOBDV-A-NEXT:  Global dope vector result: Pass
+; CHECK-GLOBDV-A-NEXT:  Dope vector information: Valid
+; CHECK-GLOBDV-A-NEXT:  Alloc site found: Yes
+; CHECK-GLOBDV-A-NEXT:    [0] Array Pointer: Read
+; CHECK-GLOBDV-A-NEXT:    [1] Element size: Written | Constant = i64 288
+; CHECK-GLOBDV-A-NEXT:    [2] Co-Dimension: Written | Constant = i64 0
+; CHECK-GLOBDV-A-NEXT:    [3] Flags: Read | Written
+; CHECK-GLOBDV-A-NEXT:    [4] Dimensions: Written | Constant = i64 1
+; CHECK-GLOBDV-A-NEXT:    [6][0] Extent: Written | Constant = i64 1
+; CHECK-GLOBDV-A-NEXT:    [6][0] Stride: Written | Constant = i64 288
+; CHECK-GLOBDV-A-NEXT:    [6][0] Lower Bound: Read | Written | Constant = i64 1
+; CHECK-GLOBDV-A-NEXT:  Nested dope vectors: 3
 
-; CHECK: Global variable: arr_mod_mp_b_
-; CHECK-NEXT:   LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
-; CHECK-NEXT:   Dope vector information: Valid
-; CHECK-NEXT:     [0] Array Pointer: Read
-; CHECK-NEXT:     [1] Element size: Written | Constant = i64 288
-; CHECK-NEXT:     [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-NEXT:     [3] Flags: Read | Written
-; CHECK-NEXT:     [4] Dimensions: Written | Constant = i64 1
-; CHECK-NEXT:     [6][0] Extent: Written
-; CHECK-NEXT:     [6][0] Stride: Written | Constant = i64 288
-; CHECK-NEXT:     [6][0] Lower Bound: Read | Written | Constant = i64 1
-; CHECK-NEXT:   Nested dope vectors:
-; CHECK-NEXT:     Field[0]: QNCA_a0$float*$rank2$
-; CHECK-NEXT:     Field[1]: QNCA_a0$float*$rank3$
-; CHECK-NEXT:     Field[2]: QNCA_a0$float*$rank1$
+; CHECK-FIELD2-A:    Field[2]: QNCA_a0$float*$rank1$
+; CHECK-FIELD2-A-NEXT:      Dope vector information: Valid
+; CHECK-FIELD2-A-NEXT:      Alloc site found: Yes
+; CHECK-FIELD2-A-NEXT:        [0] Array Pointer: Read
+; CHECK-FIELD2-A-NEXT:        [1] Element size: Written | Constant = i64 4
+; CHECK-FIELD2-A-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
+; CHECK-FIELD2-A-NEXT:        [3] Flags: Written | Constant = i64 1073741829
+; CHECK-FIELD2-A-NEXT:        [4] Dimensions: Written | Constant = i64 1
+; CHECK-FIELD2-A-NEXT:        [6][0] Extent: Written | Constant = i64 10
+; CHECK-FIELD2-A-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
+; CHECK-FIELD2-A-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
+
+; CHECK-FIELD0-A:    Field[0]: QNCA_a0$float*$rank2$
+; CHECK-FIELD0-A-NEXT:      Dope vector information: Valid
+; CHECK-FIELD0-A-NEXT:      Alloc site found: Yes
+; CHECK-FIELD0-A-NEXT:        [0] Array Pointer: Read
+; CHECK-FIELD0-A-NEXT:        [1] Element size: Written | Constant = i64 4
+; CHECK-FIELD0-A-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
+; CHECK-FIELD0-A-NEXT:        [3] Flags: Written | Constant = i64 1073741829
+; CHECK-FIELD0-A-NEXT:        [4] Dimensions: Written | Constant = i64 2
+; CHECK-FIELD0-A-NEXT:        [6][0] Extent: Written | Constant = i64 10
+; CHECK-FIELD0-A-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
+; CHECK-FIELD0-A-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
+; CHECK-FIELD0-A-NEXT:        [6][1] Extent: Written | Constant = i64 10
+; CHECK-FIELD0-A-NEXT:        [6][1] Stride: Read | Written | Constant = i64 40
+; CHECK-FIELD0-A-NEXT:        [6][1] Lower Bound: Read | Written | Constant = i64 1
+
+; CHECK-FIELD1-A:    Field[1]: QNCA_a0$float*$rank3$
+; CHECK-FIELD1-A-NEXT:      Dope vector information: Valid
+; CHECK-FIELD1-A-NEXT:      Alloc site found: Yes
+; CHECK-FIELD1-A-NEXT:        [0] Array Pointer: Read
+; CHECK-FIELD1-A-NEXT:        [1] Element size: Written | Constant = i64 4
+; CHECK-FIELD1-A-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
+; CHECK-FIELD1-A-NEXT:        [3] Flags: Written | Constant = i64 1073741829
+; CHECK-FIELD1-A-NEXT:        [4] Dimensions: Written | Constant = i64 3
+; CHECK-FIELD1-A-NEXT:        [6][0] Extent: Written | Constant = i64 10
+; CHECK-FIELD1-A-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
+; CHECK-FIELD1-A-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
+; CHECK-FIELD1-A-NEXT:        [6][1] Extent: Written | Constant = i64 10
+; CHECK-FIELD1-A-NEXT:        [6][1] Stride: Read | Written | Constant = i64 40
+; CHECK-FIELD1-A-NEXT:        [6][1] Lower Bound: Read | Written | Constant = i64 1
+; CHECK-FIELD1-A-NEXT:        [6][2] Extent: Written | Constant = i64 10
+; CHECK-FIELD1-A-NEXT:        [6][2] Stride: Read | Written | Constant = i64 400
+; CHECK-FIELD1-A-NEXT:        [6][2] Lower Bound: Read | Written | Constant = i64 1
+
+; CHECK-GLOBDV-B: Global variable: arr_mod_mp_b_
+; CHECK-GLOBDV-B-NEXT:  LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
+; CHECK-GLOBDV-B-NEXT:  Global dope vector result: Pass
+; CHECK-GLOBDV-B-NEXT:  Dope vector information: Valid
+; CHECK-GLOBDV-B-NEXT:  Alloc site found: Yes
+; CHECK-GLOBDV-B-NEXT:    [0] Array Pointer: Read
+; CHECK-GLOBDV-B-NEXT:    [1] Element size: Written | Constant = i64 288
+; CHECK-GLOBDV-B-NEXT:    [2] Co-Dimension: Written | Constant = i64 0
+; CHECK-GLOBDV-B-NEXT:    [3] Flags: Read | Written
+; CHECK-GLOBDV-B-NEXT:    [4] Dimensions: Written | Constant = i64 1
+; CHECK-GLOBDV-B-NEXT:    [6][0] Extent: Written
+; CHECK-GLOBDV-B-NEXT:    [6][0] Stride: Written | Constant = i64 288
+; CHECK-GLOBDV-B-NEXT:    [6][0] Lower Bound: Read | Written | Constant = i64 1
+; CHECK-GLOBDV-B-NEXT:  Nested dope vectors: 3
+
+; CHECK-FIELD2-B:    Field[2]: QNCA_a0$float*$rank1$
+; CHECK-FIELD2-B-NEXT:      Dope vector information: Valid
+; CHECK-FIELD2-B-NEXT:      Alloc site found: Yes
+; CHECK-FIELD2-B-NEXT:        [0] Array Pointer: Read
+; CHECK-FIELD2-B-NEXT:        [1] Element size: Written | Constant = i64 4
+; CHECK-FIELD2-B-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
+; CHECK-FIELD2-B-NEXT:        [3] Flags: Written | Constant = i64 1073741829
+; CHECK-FIELD2-B-NEXT:        [4] Dimensions: Written | Constant = i64 1
+; CHECK-FIELD2-B-NEXT:        [6][0] Extent: Written | Constant = i64 10
+; CHECK-FIELD2-B-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
+; CHECK-FIELD2-B-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
+
+; CHECK-FIELD1-B:    Field[1]: QNCA_a0$float*$rank3$
+; CHECK-FIELD1-B-NEXT:      Dope vector information: Valid
+; CHECK-FIELD1-B-NEXT:      Alloc site found: Yes
+; CHECK-FIELD1-B-NEXT:        [0] Array Pointer: Read
+; CHECK-FIELD1-B-NEXT:        [1] Element size: Written | Constant = i64 4
+; CHECK-FIELD1-B-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
+; CHECK-FIELD1-B-NEXT:        [3] Flags: Written | Constant = i64 1073741829
+; CHECK-FIELD1-B-NEXT:        [4] Dimensions: Written | Constant = i64 3
+; CHECK-FIELD1-B-NEXT:        [6][0] Extent: Written | Constant = i64 10
+; CHECK-FIELD1-B-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
+; CHECK-FIELD1-B-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
+; CHECK-FIELD1-B-NEXT:        [6][1] Extent: Written | Constant = i64 10
+; CHECK-FIELD1-B-NEXT:        [6][1] Stride: Read | Written | Constant = i64 40
+; CHECK-FIELD1-B-NEXT:        [6][1] Lower Bound: Read | Written | Constant = i64 1
+; CHECK-FIELD1-B-NEXT:        [6][2] Extent: Written | Constant = i64 10
+; CHECK-FIELD1-B-NEXT:        [6][2] Stride: Read | Written | Constant = i64 400
+; CHECK-FIELD1-B-NEXT:        [6][2] Lower Bound: Read | Written | Constant = i64 1
+
+; CHECK-FIELD0-B:    Field[0]: QNCA_a0$float*$rank2$
+; CHECK-FIELD0-B-NEXT:      Dope vector information: Valid
+; CHECK-FIELD0-B-NEXT:      Alloc site found: Yes
+; CHECK-FIELD0-B-NEXT:        [0] Array Pointer: Read
+; CHECK-FIELD0-B-NEXT:        [1] Element size: Written | Constant = i64 4
+; CHECK-FIELD0-B-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
+; CHECK-FIELD0-B-NEXT:        [3] Flags: Written | Constant = i64 1073741829
+; CHECK-FIELD0-B-NEXT:        [4] Dimensions: Written | Constant = i64 2
+; CHECK-FIELD0-B-NEXT:        [6][0] Extent: Written | Constant = i64 10
+; CHECK-FIELD0-B-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
+; CHECK-FIELD0-B-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
+; CHECK-FIELD0-B-NEXT:        [6][1] Extent: Written | Constant = i64 10
+; CHECK-FIELD0-B-NEXT:        [6][1] Stride: Read | Written | Constant = i64 40
+; CHECK-FIELD0-B-NEXT:        [6][1] Lower Bound: Read | Written | Constant = i64 1
+
 
 ; ModuleID = 'ld-temp.o'
 source_filename = "ld-temp.o"
