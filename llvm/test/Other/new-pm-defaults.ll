@@ -273,8 +273,10 @@
 ; CHECK-O-NEXT: Running pass: CGProfilePass
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
 ; CHECK-O-NEXT: Running pass: ConstantMergePass
-; CHECK-O-NEXT: Running pass: RelLookupTableConverterPass
-; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
+; CHECK-DEFAULT-NEXT: Running pass: RelLookupTableConverterPass
+; CHECK-LTO-NOT: Running pass: RelLookupTableConverterPass
+; CHECK-DEFAULT-NEXT: Running analysis: TargetIRAnalysis
+; CHECK-LTO-NOT: Running analysis: TargetIRAnalysis
 ; CHECK-O-NEXT: Running pass: InlineReportEmitterPass ;INTEL
 ; CHECK-O-NEXT: Running pass: AnnotationRemarksPass on foo
 ; CHECK-LTO-NEXT: Running pass: CanonicalizeAliasesPass
