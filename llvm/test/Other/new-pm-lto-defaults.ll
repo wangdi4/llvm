@@ -63,12 +63,21 @@
 ; CHECK-O23SZ-NEXT-: Running analysis: TargetIRAnalysis on foo
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis: DominatorTreeAnalysis on foo
+; INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running pass: IntelLoopAttrsPass on foo
+; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo
+; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
+; CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo
+; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Finished llvm::Function pass manager run.
 ; CHECK-O23SZ-NEXT: PGOIndirectCallPromotion
 ; CHECK-O23SZ-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
 ; CHECK-O23SZ-NEXT: Running pass: IPSCCPPass
-; CHECK-O23SZ-NEXT: Running analysis: AssumptionAnalysis on foo
+; INTEL_CUSTOMIZATION
+; The AssumptionAnalysis pass runs with the IntelLoopAttrs pass.
+; CHECK-O23SZ-NEXT-: Running analysis: AssumptionAnalysis on foo
+; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: CalledValuePropagationPass
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}SCC
 ; CHECK-O-NEXT: Running analysis: LazyCallGraphAnalysis
@@ -137,12 +146,21 @@
 ; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: SROA on foo
 ; CHECK-O23SZ-NEXT: Running pass: TailCallElimPass on foo
+; INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running pass: IntelLoopAttrsPass on foo
+; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Finished llvm::Function pass manager run.
 ; CHECK-O23SZ-NEXT: Running pass: PostOrderFunctionAttrsPass on (foo)
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
-; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo
+; INTEL_CUSTOMIZATION
+; LoopAnalysis will earlier with the IntelLoopAttrsPass
+; CHECK-O23SZ-NEXT-: Running analysis: LoopAnalysis on foo
+; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
-; CHECK-O23SZ-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
+; INTEL_CUSTOMIZATION
+; ScalarEvolution will run with the IntelLoopAttrs pass
+; CHECK-O23SZ-NEXT-: Running analysis: ScalarEvolutionAnalysis on foo
+; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; Running analysis: PostDominatorTreeAnalysis on foo ;INTEL PostDom has moved, cannot make check work
 ; CHECK-O23SZ-NEXT: Running pass: LICMPass on Loop

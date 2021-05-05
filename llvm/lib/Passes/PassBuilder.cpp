@@ -186,6 +186,7 @@
 #include "llvm/Transforms/Scalar/Intel_FunctionRecognizer.h" // INTEL
 #include "llvm/Transforms/Scalar/Intel_GlobalOpt.h"         // INTEL
 #include "llvm/Transforms/Scalar/Intel_IndirectCallConv.h"  // INTEL
+#include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"         // INTEL
 #include "llvm/Transforms/Scalar/Intel_LowerSubscriptIntrinsic.h" // INTEL
 #include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h" // INTEL
 #include "llvm/Transforms/Scalar/InductiveRangeCheckElimination.h"
@@ -2356,6 +2357,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (Level.getSpeedupLevel() > 1) {
     FunctionPassManager EarlyFPM(DebugLogging);
     EarlyFPM.addPass(CallSiteSplittingPass());
+#if INTEL_CUSTOMIZATION
+    // Collect the information from the loops and insert the attributes
+    EarlyFPM.addPass(IntelLoopAttrsPass());
+#endif // INTEL_CUSTOMIZATION
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM)));
 
     // Indirect call promotion. This should promote all the targets that are
@@ -2578,6 +2583,12 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // LTO provides additional opportunities for tailcall elimination due to
   // link-time inlining, and visibility of nocapture attribute.
   FPM.addPass(TailCallElimPass());
+
+#if INTEL_CUSTOMIZATION
+  // Collect the information from the loops and insert the attributes
+  if (Level.getSpeedupLevel() > 1)
+    FPM.addPass(IntelLoopAttrsPass());
+#endif // INTEL_CUSTOMIZATION
 
   // Run a few AA driver optimizations here and now to cleanup the code.
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));

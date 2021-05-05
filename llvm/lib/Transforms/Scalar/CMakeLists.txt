@@ -28,6 +28,7 @@ add_llvm_component_library(LLVMScalarOpts
   Intel_GlobalOpt.cpp
   Intel_HandlePragmaVectorAligned.cpp
   Intel_IndirectCallConv.cpp
+  Intel_LoopAttrs.cpp
   Intel_LoopOptMarker.cpp
   Intel_LoopOptReportEmitter.cpp
   Intel_LowerSubscriptIntrinsic.cpp

@@ -10,8 +10,8 @@
 ; CHECK:      Type-Based Alias Analysis
 ; CHECK-NEXT: Scoped NoAlias Alias Analysis
 ; CHECK-NEXT: Std Container Alias Analysis
-; CHECK-NEXT: Profile summary info
 ; CHECK-NEXT: Assumption Cache Tracker
+; CHECK-NEXT: Profile summary info
 ; CHECK-NEXT: Optimization report options pass
 ; CHECK-NEXT:   ModulePass Manager
 ; CHECK-NEXT:     FunctionPass Manager
@@ -30,6 +30,9 @@
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       Dominator Tree Construction
 ; CHECK-NEXT:       Call-site splitting
+; CHECK-NEXT:       Natural Loop Information
+; CHECK-NEXT:       Scalar Evolution Analysis
+; CHECK-NEXT:       Intel Loop Attrs
 ; CHECK-NEXT:     PGOIndirectCallPromotion
 ; CHECK-NEXT:     Interprocedural Sparse Conditional Constant Propagation
 ; CHECK-NEXT:       FunctionPass Manager
@@ -140,6 +143,9 @@
 ; CHECK-NEXT:       Lazy Block Frequency Analysis
 ; CHECK-NEXT:       Optimization Remark Emitter
 ; CHECK-NEXT:       Tail Call Elimination
+; CHECK-NEXT:      Natural Loop Information
+; CHECK-NEXT:      Scalar Evolution Analysis
+; CHECK-NEXT:      Intel Loop Attrs
 ; CHECK-NEXT:     CallGraph Construction
 ; CHECK-NEXT:     Call Graph SCC Pass Manager
 ; CHECK-NEXT:       Deduce function attributes

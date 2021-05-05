@@ -688,6 +688,8 @@ void initializeNontemporalStoreWrapperPassPass(PassRegistry&);
 void initializeVPOParoptSharedPrivatizationPass(PassRegistry&);
 // Transform sin and cos to sinpi, cospi, or sincospi pass
 void initializeTransformSinAndCosCallsLegacyPassPass(PassRegistry&);
+// Add attributes to loops
+void initializeIntelLoopAttrsWrapperPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
