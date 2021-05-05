@@ -73,10 +73,11 @@ private:
 /// least RequiredAlignment bytes.
 struct VPlanDynamicPeeling final : public VPlanPeelingVariant {
 public:
-  VPlanDynamicPeeling(VPInstruction *Memref, VPConstStepInduction AccessAddress,
+  VPlanDynamicPeeling(VPLoadStoreInst *Memref,
+                      VPConstStepInduction AccessAddress,
                       Align TargetAlignment);
 
-  VPInstruction *memref() { return Memref; }
+  VPLoadStoreInst *memref() { return Memref; }
   VPlanSCEV *invariantBase() { return InvariantBase; }
   Align requiredAlignment() { return RequiredAlignment; }
   Align targetAlignment() { return TargetAlignment; }
@@ -89,7 +90,7 @@ public:
 private:
   /// Memory reference (Load or Store instruction) that is the primary target
   /// for peeling.
-  VPInstruction *Memref;
+  VPLoadStoreInst *Memref;
 
   /// Symbolic invariant expression that can be computed before vector code. The
   /// run-time value of this expression is used in the formula above.
@@ -150,11 +151,11 @@ private:
 /// misaligned (asserts in the constructor).
 class VPlanPeelingCandidate final {
 public:
-  VPlanPeelingCandidate(VPInstruction *Memref,
+  VPlanPeelingCandidate(VPLoadStoreInst *Memref,
                         VPConstStepInduction AccessAddress,
                         KnownBits InvariantBaseKnownBits);
 
-  VPInstruction *memref() const { return Memref; }
+  VPLoadStoreInst *memref() const { return Memref; }
   const VPConstStepInduction &accessAddress() const { return AccessAddress; }
   const KnownBits &invariantBaseKnownBits() const {
     return InvariantBaseKnownBits;
@@ -167,7 +168,7 @@ public:
 
 private:
   /// Load or Store instruction.
-  VPInstruction *Memref;
+  VPLoadStoreInst *Memref;
 
   /// Access address.
   VPConstStepInduction AccessAddress;
@@ -270,6 +271,13 @@ public:
   /// used when either \p Memref is not unit-strided or when exact run-time
   /// peeling is unknown.
   Align getAlignment(VPLoadStoreInst &Memref);
+
+private:
+  Align getAlignmentUnitStrideImpl(const VPLoadStoreInst &Memref,
+                                   VPlanStaticPeeling &SP) const;
+
+  Align getAlignmentUnitStrideImpl(const VPLoadStoreInst &Memref,
+                                   VPlanDynamicPeeling &DP) const;
 
 private:
   VPlanScalarEvolution *VPSE;
