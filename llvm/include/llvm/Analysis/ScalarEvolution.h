@@ -1530,9 +1530,6 @@ protected: // INTEL
     /// Return true if any backedge taken count expressions refer to the given
     /// subexpression.
     bool hasOperand(const SCEV *S, ScalarEvolution *SE) const;
-
-    /// Invalidate this result and free associated memory.
-    void clear();
   };
 
   /// Cache the backedge-taken count of the loops for this function as they
