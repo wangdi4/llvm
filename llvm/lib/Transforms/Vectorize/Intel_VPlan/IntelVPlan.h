@@ -2281,6 +2281,9 @@ public:
     setOperand(0, NewVal);
   }
 
+  bool isUpdatedForMaskedModeLoop() const { return UpdateForMaskedModeLoop; }
+  void setUpdateForMaskedModeLoop() { UpdateForMaskedModeLoop = true; }
+
 protected:
   // Clones VPInductionFinal.
   virtual VPInductionFinal *cloneImpl() const final {
@@ -2297,6 +2300,9 @@ private:
   // Tracks if induction's last value is computed before increment.
   bool LastValPreIncrement = false;
   Instruction::BinaryOps BinOpcode = Instruction::BinaryOpsEnd;
+  // It becomes true when the masked mode loop is generated. It is used by CG
+  // when we vectorize final induction.
+  bool UpdateForMaskedModeLoop = false;
 };
 
 // VPInstruction for reduction initialization.

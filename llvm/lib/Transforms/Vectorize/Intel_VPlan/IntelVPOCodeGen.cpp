@@ -4329,7 +4329,20 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
 
     unsigned StepOpc = IsFloat ? Instruction::FMul : Instruction::Mul;
     Type *StepType = Step->getType();
+    // In case of masked mode loop, the trip count is equal to original trip
+    // count. In any other case, the trip count is equal to vector trip count.
     Value *TripCnt = VectorTripCount;
+    if (VPInst->isUpdatedForMaskedModeLoop()) {
+      VPBasicBlock *VPIndFinalBB = VPInst->getParent()->getSinglePredecessor();
+      VPLoop *L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
+      VPCmpInst *Cond = L->getLatchComparison();
+      assert(Cond && "Condition cannot be nullptr!");
+      VPValue *VPTripCount = L->isDefOutside(Cond->getOperand(0))
+                                 ? Cond->getOperand(0)
+                                 : Cond->getOperand(1);
+      TripCnt = getScalarValue(VPTripCount, 0);
+    }
+
     if (VPInst->isLastValPreIncrement())
       TripCnt =
           Builder.CreateSub(TripCnt, ConstantInt::get(TripCnt->getType(), 1));
