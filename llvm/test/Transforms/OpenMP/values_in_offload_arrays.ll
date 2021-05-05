@@ -1,7 +1,6 @@
-; INTEL_CUSTOMIZATION
 ; Pass is not designed for the old pass manager -- CallGraph is not updated.
+; Disable first run till the moment when NewPM is enabled by default.
 ; RUN-OLD-PM: opt -S -openmp-opt-cgscc -aa-pipeline=basic-aa -openmp-hide-memory-transfer-latency -debug-only=openmp-opt < %s 2>&1 | FileCheck %s
-; end INTEL_CUSTOMIZATION
 ; RUN: opt -S -passes=openmp-opt-cgscc -aa-pipeline=basic-aa -openmp-hide-memory-transfer-latency -debug-only=openmp-opt < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
