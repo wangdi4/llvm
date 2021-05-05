@@ -6179,8 +6179,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     else if (IsWindowsMSVC)
       ImplyVCPPCXXVer = true;
 
-    if (IsSYCL && types::isCXX(InputType) &&
+#if INTEL_CUSTOMIZATION
+    // When performing interop (OpenMP+SYCL) we need to be sure to maintain
+    // C++17 settings even if we aren't doing the SYCL offloading.  We do this
+    // by checking for the -fsycl option.
+    if ((IsSYCL || Args.hasArg(options::OPT_fsycl)) && types::isCXX(InputType) &&
         !Args.hasArg(options::OPT__SLASH_std))
+#endif // INTEL_CUSTOMIZATION
       // For DPC++, we default to -std=c++17 for all compilations.  Use of -std
       // on the command line will override.
       CmdArgs.push_back("-std=c++17");
