@@ -4726,7 +4726,9 @@ bool SYCLIntegrationFooter::emit(raw_ostream &OS) {
       OS << "template<>\n";
       OS << "inline const char *get_spec_constant_symbolic_ID<" << TopShim
          << ">() {\n";
-      OS << "  return " << TopShim << ";\n";
+      OS << "  return \"";
+      emitSpecIDName(OS, VD);
+      OS << "\";\n";
     } else {
       OS << "namespace sycl {\n";
       OS << "namespace detail {\n";
