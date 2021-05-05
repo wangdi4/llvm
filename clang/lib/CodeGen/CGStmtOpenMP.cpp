@@ -4403,7 +4403,8 @@ void CodeGenFunction::EmitOMPTaskBasedDirective(
   auto &&CodeGen = [&Data, &S, CS, &BodyGen, &LastprivateDstsOrigs,
                     CapturedRegion](CodeGenFunction &CGF,
                                     PrePostActionTy &Action) {
-    llvm::DenseMap<CanonicalDeclPtr<const VarDecl>, std::pair<Address, Address>>
+    llvm::MapVector<CanonicalDeclPtr<const VarDecl>,
+                    std::pair<Address, Address>>
         UntiedLocalVars;
     // Set proper addresses for generated private copies.
     OMPPrivateScope Scope(CGF);
@@ -4456,7 +4457,12 @@ void CodeGenFunction::EmitOMPTaskBasedDirective(
           Ty = CGF.getContext().getPointerType(Ty);
         Address PrivatePtr = CGF.CreateMemTemp(
             CGF.getContext().getPointerType(Ty), ".local.ptr.addr");
-        UntiedLocalVars.try_emplace(VD, PrivatePtr, Address::invalid());
+        auto Result = UntiedLocalVars.insert(
+            std::make_pair(VD, std::make_pair(PrivatePtr, Address::invalid())));
+        // If key exists update in place.
+        if (Result.second == false)
+          *Result.first = std::make_pair(
+              VD, std::make_pair(PrivatePtr, Address::invalid()));
         CallArgs.push_back(PrivatePtr.getPointer());
         ParamTypes.push_back(PrivatePtr.getType());
       }
@@ -4488,14 +4494,14 @@ void CodeGenFunction::EmitOMPTaskBasedDirective(
         if (isAllocatableDecl(Pair.first)) {
           llvm::Value *Ptr = CGF.Builder.CreateLoad(Pair.second.first);
           Address Replacement(Ptr, CGF.getPointerAlign());
-          Pair.getSecond().first = Replacement;
+          Pair.second.first = Replacement;
           Ptr = CGF.Builder.CreateLoad(Replacement);
           Replacement = Address(Ptr, CGF.getContext().getDeclAlign(Pair.first));
-          Pair.getSecond().second = Replacement;
+          Pair.second.second = Replacement;
         } else {
           llvm::Value *Ptr = CGF.Builder.CreateLoad(Pair.second.first);
           Address Replacement(Ptr, CGF.getContext().getDeclAlign(Pair.first));
-          Pair.getSecond().first = Replacement;
+          Pair.second.first = Replacement;
         }
       }
     }
