@@ -2324,9 +2324,9 @@ define internal void @_ZN11xalanc_1_1023XalanDummyMemoryManager10deallocateEPv(%
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
 
-declare void @_ZN11xalanc_1_1013XStringCachedC1ERNS_21XPathExecutionContext25GetAndReleaseCachedStringERN11xercesc_2_713MemoryManagerE(%"XStringCached"* nonnull, %"XPathExecutionContext::GetAndReleaseCachedString"* nonnull, %"MemoryManager"* nonnull )
+declare void @_ZN11xalanc_1_1013XStringCachedC1ERNS_21XPathExecutionContext25GetAndReleaseCachedStringERN11xercesc_2_713MemoryManagerE(%"XStringCached"* nonnull, %"XPathExecutionContext::GetAndReleaseCachedString"* nonnull, %"MemoryManager"* nonnull ) #0
 
-declare void @_ZN11xalanc_1_1013XStringCachedD2Ev(%"XStringCached"* nonnull)
+declare void @_ZN11xalanc_1_1013XStringCachedD2Ev(%"XStringCached"* nonnull) #1
 
 declare void @__clang_call_terminate(i8*)
 
@@ -2347,3 +2347,7 @@ declare i8* @__cxa_begin_catch(i8*)
 declare void @__cxa_end_catch()
 
 declare void @__cxa_throw(i8* nonnull, i8*, i8*)
+
+attributes #0 = { "intel-mempool-constructor" }
+attributes #1 = { "intel-mempool-destructor" }
+

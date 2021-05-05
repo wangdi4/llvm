@@ -143,10 +143,14 @@ define internal void @_ZN11xalanc_1_1022XStringCachedAllocator5resetEv.8911(%"XS
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
 
-declare void @_ZN11xalanc_1_1013XStringCachedC1ERNS_21XPathExecutionContext25GetAndReleaseCachedStringERN11xercesc_2_713MemoryManagerE(%"XStringCached"* nonnull, %"XPathExecutionContext::GetAndReleaseCachedString"* nonnull, %"MemoryManager"* nonnull )
+declare void @_ZN11xalanc_1_1013XStringCachedC1ERNS_21XPathExecutionContext25GetAndReleaseCachedStringERN11xercesc_2_713MemoryManagerE(%"XStringCached"* nonnull, %"XPathExecutionContext::GetAndReleaseCachedString"* nonnull, %"MemoryManager"* nonnull ) #0
 
-declare void @_ZN11xalanc_1_1013XStringCachedD2Ev(%"XStringCached"* nonnull)
+declare void @_ZN11xalanc_1_1013XStringCachedD2Ev(%"XStringCached"* nonnull) #1
 
 declare void @__clang_call_terminate(i8*)
 
 declare dso_local i32 @__gxx_personality_v0(...)
+
+attributes #0 = { "intel-mempool-constructor" }
+attributes #1 = { "intel-mempool-destructor" }
+

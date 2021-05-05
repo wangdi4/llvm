@@ -4968,7 +4968,11 @@ bool MemManageTransImpl::identifyStrObjDtorCall(Instruction *I,
   if (!isStrObjPtrTypeArg(ArgOp))
     return false;
 
-  // TODO: Makes sure ObjDestCall is a destructor.
+  // Makes sure ObjDestCall is a destructor.
+  Function *Dtor = dtrans::getCalledFunction(*ObjDestCall);
+  assert(Dtor && "Expected direct call");
+  if (!Dtor->hasFnAttribute("intel-mempool-destructor"))
+    return false;
 
   Visited.insert(ObjDestCall);
   return true;
@@ -7120,8 +7124,11 @@ bool MemManageTransImpl::checkCallSiteRestrictions(void) {
   if (!isStrObjPtrTypeArg(StrObjCtor->getArgOperand(0)))
     return false;
 
-  // TODO: Makes sure StrObjCtor is a constructor.
-  //
+  // Makes sure StrObjCtor is a constructor.
+  Function *Ctor = dtrans::getCalledFunction(*StrObjCtor);
+  assert(Ctor && "Expected direct call");
+  if (!Ctor->hasFnAttribute("intel-mempool-constructor"))
+    return false;
   Instruction *NextCall = GetNextCallWithSideEffects(StrObjCtor);
   if (!NextCall || NextCall != CommitCall)
     return false;
