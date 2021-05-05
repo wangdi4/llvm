@@ -1261,7 +1261,7 @@ bool CallAnalyzer::visitAlloca(AllocaInst &I) {
 
 #if INTEL_CUSTOMIZATION
   if (onDynamicAllocaInstException(I))
-    return Base::visitAlloca(I);
+    return false;
 #endif // INTEL_CUSTOMIZATION
   // FIXME: This is overly conservative. Dynamic allocas are inefficient for
   // a variety of reasons, and so we would like to not inline them into
@@ -1270,7 +1270,7 @@ bool CallAnalyzer::visitAlloca(AllocaInst &I) {
   if (!I.isStaticAlloca())
     HasDynamicAlloca = true;
 
-  return !HasDynamicAlloca; // INTEL
+  return false;
 }
 
 bool CallAnalyzer::visitPHI(PHINode &I) {
