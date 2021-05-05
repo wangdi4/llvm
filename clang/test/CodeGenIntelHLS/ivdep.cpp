@@ -192,7 +192,7 @@ int dut() {
 //CHECK: [[MD32]] = distinct !{[[MD32]], ![[LOOP_MUSTPROGRESS]], [[MD5]], [[MD33:![0-9]+]]}
 //CHECK: [[MD33]] = !{!"llvm.loop.parallel_access_indices", [[MD34:![0-9]+]], i32 8}
 //CHECK: [[MD34]] = distinct !{}
-//CHECK: [[MD35]] = distinct !{[[MD35]], [[MD36:![0-9]+]]}
+//CHECK: [[MD35]] = distinct !{[[MD35]], ![[LOOP_MUSTPROGRESS]], [[MD36:![0-9]+]]}
 //CHECK: [[MD36]] = !{!"llvm.loop.parallel_access_indices", [[MD37:![0-9]+]]}
 //CHECK: [[MD37]]  = distinct !{}
 //CHECK: [[MD38]] = distinct !{[[MD38]], ![[LOOP_MUSTPROGRESS]], [[MD39:![0-9]+]]}

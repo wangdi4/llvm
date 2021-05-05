@@ -222,7 +222,7 @@ int main() {
 //CHECK: [[MD33]] = distinct !{[[MD33]], ![[LOOP_MUSTPROGRESS]], [[MD6]], [[MD34:![0-9]+]]}
 //CHECK: [[MD34]] = !{!"llvm.loop.parallel_access_indices", [[MD35:![0-9]+]], i32 8}
 //CHECK: [[MD35]] = distinct !{}
-//CHECK: [[MD36]] = distinct !{[[MD36]], [[MD37:![0-9]+]]}
+//CHECK: [[MD36]] = distinct !{[[MD36]], ![[LOOP_MUSTPROGRESS]], [[MD37:![0-9]+]]}
 //CHECK: [[MD37]] = !{!"llvm.loop.parallel_access_indices", [[MD38:![0-9]+]]}
 //CHECK: [[MD38]]  = distinct !{}
 //CHECK: [[MD39]] = distinct !{[[MD39]], ![[LOOP_MUSTPROGRESS]], [[MD40:![0-9]+]]}
