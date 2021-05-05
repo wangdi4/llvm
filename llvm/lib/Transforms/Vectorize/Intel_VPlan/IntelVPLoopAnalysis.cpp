@@ -1269,14 +1269,19 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
   insertPrivateVPInstructions(Builder, Preheader, PostExit);
 }
 
-// Create so called "close-form calculation" for induction. The close-form
-// calculation is calculation by the formula v = i MUL step OP v0. In case of
-// the loop inductions, the need of the close-form means that we need up-to-date
-// induction value at the beginning of each loop iteration. That can be achieved
-// in two ways: insert calculation exactly by the formula at the beginning of
-// the loop, or insert increment of the induction in the end of the loop (see
-// examples below for the "+" induction). In both cases the Init and InitStep
-// are generated. The initial loop is
+// Create close-form calculation for induction.
+// The close-form calculation is the one by the formula:
+//      v = (i MUL step) OP v0
+// where 'v0' is its initial value, 'i' is primary induction variable (IV),
+// 'step' is per iteration increment value of induction variable 'v'.
+// The need of close-form (see also InductionDescr::inductionNeedsCloseForm)
+// means that we need up-to-date induction value at the beginning of each loop
+// iteration. That can be achieved in two ways (assuming "+" induction):
+// either (1) insert calculation exactly by the formula at the beginning of
+// the loop, or (2) insert increment of the induction in the end of the loop
+// (see examples below). In both cases the Init and InitStep are generated.
+//
+// The initial loop (primary IV not shown):
 // DO
 //   %ind = phi(init, %inc_ind)
 //   ... uses of %ind
@@ -1285,48 +1290,49 @@ void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
 // ENDDO
 //
 // Possible transformations.
-// Init = Initialize(identity, VF, Oper); --- generated always
-// InitStep = InitializeStep(Step, VF, OPer); --- generated always
+// Init = Initialize(identity, VF, OP)      ! generated always
+// InitStep = InitializeStep(Step, VF, OP)  ! generated always
 // ...
-// case 1 (exact close form)
+// variant 1 (exact close form)
 // DO
-//   %temp = InitStep MUL %primary_IV         --- new instruction
-//   %Induction = Init OP %temp               --- new instruction
+//   %temp = InitStep MUL %primary_IV       ! new instruction
+//   %Induction = %temp OP Init             ! new instruction
 //   ... uses of %Induction (replacing %ind)
-//   %inc_ind = %Induction OP step --- step is not replaced in such cases
+//   %inc_ind = %Induction OP step          ! step is not replaced
 //   ... uses of %inc_ind
 // ENDDO
 //
-// case 2 (second variant, simplest case)
+// variant 2 (simplest case)
 // DO
-//   %ind = phi(Init, %Induction) ; %ind replaced by %Induction
+//   %ind = phi(Init, %Induction)       ! %ind replaced by %Induction
 //   ... uses of %ind
-//   %inc_ind = %ind OP step       --- step is not replaced in such cases
+//   %inc_ind = %ind OP step            ! step is not replaced
 //   ... uses of %inc_ind
-//   %Induction = %ind OP %InitStep           --- new instruction
+//   %Induction = %ind OP %InitStep     ! new instruction
 // ENDDO
 //
-// Another loop, in memory induction
+// For loop with in-memory induction (no start-phi), before transformation:
 // DO
-//   %ind = load %induction_mem ;
+//   %ind = load %induction_mem
 //   ... uses of %ind
-//   %inc_ind = %ind OP step ; step is not replaced in such cases
+//   %inc_ind = %ind OP step
 //   ... uses of %inc_ind
 //   store %inc_ind, %induction_mem
 // ENDDO
-// case 2 (second variant, in memory induction, no start-phi)
+// (skipping variant 1, it will not be generated anyway)
+// variant 2:
 // DO
-//   %Induction_phi= phi(Init,%Induction)        --- new instruction
-//   store %Induction_phi, %Induction_priv_mem   --- new instruction
-//   %ind = load %Induction_priv_mem ;
+//   %Induction_phi= phi(Init,%Induction)       ! new instruction
+//   store %Induction_phi, %Induction_priv_mem  ! new instruction
+//   %ind = load %Induction_priv_mem
 //   ... uses of %ind
-//   %inc_ind = %ind OP step ; step is not replaced in such cases
+//   %inc_ind = %ind OP step                    ! step is not replaced
 //   ... uses of %inc_ind
-//   store %inc_ind, %Induction_priv_mem --------- this is redundant
-//   %Induction = %Induction_phi OP %InitStep    --- new instruction
+//   store %inc_ind, %Induction_priv_mem        ! this is redundant
+//   %Induction = %Induction_phi OP %InitStep   ! new instruction
 // ENDDO
-
-// The second variant looks preferrable.:
+//
+// The routine generates variant 2 as preferable.
 //
 void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
                                                 VPBuilder &Builder,
@@ -1334,29 +1340,35 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
                                                 VPValue &InitStep,
                                                 VPValue &PrivateMem) {
   VPBuilder::InsertPointGuard Guard(Builder);
-  auto Opc = Induction->getInductionOpcode();
-  Type *Ty = Induction->getStartValue()->getType();
-  if (auto BinOp = Induction->getInductionBinOp()) {
-    VPBasicBlock *Latch = Loop.getLoopLatch();
-    assert(Latch && "expected non-null latch");
-    VPBranchInst *Br = Latch->getTerminator();
-    auto *LatchCond = cast<VPInstruction>(Br->getCondition());
-    // Non-memory induction.
-    VPPHINode *StartPhi = findInductionStartPhi(Induction);
-    assert(StartPhi && "null induction StartPhi");
-    if (isa<VPPHINode>(BinOp)) {
-      VPBasicBlock *Block = BinOp->getParent();
-      Builder.setInsertPointFirstNonPhi(Block);
-    } else {
-      Builder.setInsertPoint(BinOp);
-    }
-    VPInstruction *NewInd = nullptr;
-    // Can't clone as BinOp can be of any opcode (even VPPHINode, see above).
+
+  auto CreateNewInductionOp =
+      [&Builder](VPPHINode *Phi, VPValue *Step,
+                 const VPInduction *Ind) -> VPInstruction * {
+    unsigned int Opc = Ind->getInductionOpcode();
+    Type *Ty = Ind->getStartValue()->getType();
+
     if ((Opc == Instruction::Add && Ty->isPointerTy()) ||
         Opc == Instruction::GetElementPtr)
-      NewInd = Builder.createInBoundsGEP(StartPhi, &InitStep, nullptr);
+      return Builder.createInBoundsGEP(Phi, Step, nullptr);
+    return Builder.createNaryOp(Opc, Ty, {Phi, Step});
+  };
+
+  VPBasicBlock *LatchBlock = Loop.getLoopLatch();
+  assert(LatchBlock && "expected non-null latch");
+
+  if (auto BinOp = Induction->getInductionBinOp()) {
+    // Non-memory induction.
+    VPBranchInst *Br = LatchBlock->getTerminator();
+    auto *LatchCond = cast<VPInstruction>(Br->getCondition());
+    VPPHINode *StartPhi = findInductionStartPhi(Induction);
+    assert(StartPhi && "null induction StartPhi");
+
+    if (isa<VPPHINode>(BinOp))
+      Builder.setInsertPointFirstNonPhi(BinOp->getParent());
     else
-      NewInd = Builder.createNaryOp(Opc, Ty, {StartPhi, &InitStep});
+      Builder.setInsertPoint(BinOp);
+    VPInstruction *NewInd =
+        CreateNewInductionOp(StartPhi, &InitStep, Induction);
     // TODO: add copying of other attributes.
     NewInd->setDebugLocation(BinOp->getDebugLocation());
 
@@ -1369,7 +1381,7 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
       VPInstruction *LatchCond2 = LatchCond->clone();
       Builder.setInsertPoint(LatchCond);
       Builder.insert(LatchCond2);
-      Latch->setCondBit(LatchCond2);
+      LatchBlock->setCondBit(LatchCond2);
       LatchCond = LatchCond2;
     }
     LatchCond->replaceUsesOfWith(BinOp, NewInd);
@@ -1378,28 +1390,22 @@ void VPLoopEntityList::createInductionCloseForm(VPInduction *Induction,
     if (ExitIns == BinOp)
       relinkLiveOuts(ExitIns, BinOp, Loop);
     linkValue(Induction, NewInd);
-  } else {
-    // In-memory induction.
-    // First insert phi and store after existing PHIs in loop header block.
-    // See comment before the routine.
-    VPBasicBlock *Block = Loop.getHeader();
-    Builder.setInsertPointFirstNonPhi(Block);
-    VPPHINode *IndPhi = Builder.createPhiInstruction(Ty);
-    Builder.createStore(IndPhi, &PrivateMem);
-    // Then insert increment of induction and update phi.
-    Block = Loop.getLoopLatch();
-    Builder.setInsertPoint(Block);
-    VPValue *NewInd;
-    if ((Opc == Instruction::Add && Ty->isPointerTy()) ||
-        Opc == Instruction::GetElementPtr)
-      NewInd = Builder.createInBoundsGEP(IndPhi, &InitStep, nullptr);
-    else
-      NewInd = Builder.createNaryOp(Opc, Ty, {IndPhi, &InitStep});
-    // Step will be initialized in loop preheader always.
-    VPBasicBlock *InitParent = Loop.getLoopPreheader();
-    IndPhi->addIncoming(&Init, InitParent);
-    IndPhi->addIncoming(NewInd, Block);
+    return;
   }
+
+  // In-memory induction.
+  // First insert phi and store after existing PHIs in loop header block.
+  // See comment before the routine.
+  Builder.setInsertPointFirstNonPhi(Loop.getHeader());
+  VPPHINode *IndPhi =
+      Builder.createPhiInstruction(Induction->getStartValue()->getType());
+  Builder.createStore(IndPhi, &PrivateMem);
+  // Then insert increment of induction and update phi.
+  Builder.setInsertPoint(LatchBlock);
+  VPInstruction *NewInd = CreateNewInductionOp(IndPhi, &InitStep, Induction);
+  // Step is always initialized in loop preheader.
+  IndPhi->addIncoming(&Init, Loop.getLoopPreheader());
+  IndPhi->addIncoming(NewInd, LatchBlock);
 }
 
 VPPHINode *VPLoopEntityList::getRecurrentVPHINode(const VPLoopEntity &E) const {
