@@ -32,7 +32,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI]], 4
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp ult i64 [[TMP4]], 1024
-; CHECK-NEXT:    br i1 [[TMP5]], label [[VECTOR_BODY]], label [[VPLANNEDBB4:%.*]], [[LOOP1:!llvm.loop !.*]]
+; CHECK-NEXT:    br i1 [[TMP5]], label [[VECTOR_BODY]], label [[VPLANNEDBB4:%.*]], !llvm.loop [[LOOP1:![0-9]+]]
 ; CHECK:       VPlannedBB4:
 ; CHECK-NEXT:    br label [[VPLANNEDBB5:%.*]]
 ; CHECK:       VPlannedBB5:
@@ -89,7 +89,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    store i64 [[ADD]], i64* [[PTR]], align 8
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp ult i64 [[INDVARS_IV_NEXT]], 1024
-; CHECK-NEXT:    br i1 [[CMP]], label [[FOR_BODY]], label [[FOR_END]], [[LOOP3:!llvm.loop !.*]]
+; CHECK-NEXT:    br label [[FOR_BODY]]
 ; CHECK:       for.end:
 ; CHECK-NEXT:    ret void
 ;

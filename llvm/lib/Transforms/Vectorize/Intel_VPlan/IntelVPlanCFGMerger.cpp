@@ -840,7 +840,11 @@ VPCmpInst *VPlanCFGMerger::createPeelCntVFCheck(VPValue *UB, VPBuilder &Builder,
   // Create the check for VF+PeelCount is greater then UB.
   VPValue *PeelCnt = PeelCount;
   if (UB->getType() != PeelCnt->getType()) {
-    PeelCnt = Builder.createNaryOp(Instruction::SExt, UB->getType(), {PeelCnt});
+    unsigned Opcode = UB->getType()->getPrimitiveSizeInBits() <
+                              PeelCnt->getType()->getPrimitiveSizeInBits()
+                          ? Instruction::Trunc
+                          : Instruction::SExt;
+    PeelCnt = Builder.createNaryOp(Opcode, UB->getType(), {PeelCnt});
     Plan.getVPlanDA()->markUniform(*PeelCnt);
   }
   VPValue *VFUF = Plan.getVPConstant(ConstantInt::get(UB->getType(), VF));
@@ -1046,12 +1050,14 @@ void VPlanCFGMerger::createPeelPtrCheck(VPlanDynamicPeeling &Peeling,
       Builder.createNaryOp(Instruction::PtrToInt, VTy, {PeelBasePtr});
   Plan.getVPlanDA()->markUniform(*PtrToInt);
   // Create low bits mask and "and"
-  auto *LowBitMask = getInt64Const(Peeling.requiredAlignment().value() - 1);
+  auto *LowBitMask = Plan.getVPConstant(
+      ConstantInt::get(VTy, Peeling.requiredAlignment().value() - 1));
   auto BitAnd = Builder.createAnd(PtrToInt, LowBitMask, "peel.lowbit.and");
   Plan.getVPlanDA()->markUniform(*BitAnd);
   // Compare with 0.
-  VPCmpInst *Cmp = Builder.createCmpInst(CmpInst::ICMP_EQ, getInt64Const(0),
-                                         BitAnd, "peel.lowbitzero.check");
+  VPConstant *Zero = Plan.getVPConstant(ConstantInt::get(VTy, 0));
+  VPCmpInst *Cmp = Builder.createCmpInst(CmpInst::ICMP_EQ, Zero, BitAnd,
+                                         "peel.lowbitzero.check");
   Plan.getVPlanDA()->markUniform(*Cmp);
   // set successors
   TestBB->setTerminator(InsertBefore, NonZeroMerge, Cmp);
@@ -1076,7 +1082,8 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
   if (StaticPeel) {
     // No check for static peel count
     assert(StaticPeel->peelCount() && "unexpected zero peel count");
-    PeelCount = getInt64Const(StaticPeel->peelCount());
+    PeelCount = Plan.getVPConstant(
+        ConstantInt::get(OrigUB->getType(), StaticPeel->peelCount()));
     TestBB->setTerminator(P.FirstBB);
   } else {
     assert(RemainderMerge && "expected remainder");
@@ -1459,8 +1466,8 @@ void VPlanCFGMerger::replaceAdapterUses(VPlanAdapter *Adapter, VPlan &P) {
       P, [](const VPBasicBlock &BB) { return BB.getNumSuccessors() == 0; });
 
   VPBasicBlock *AdapterParent = Adapter->getParent();
-
-  for (auto U : Adapter->users()) {
+  SmallVector<VPUser *, 4> AdapterUsers(Adapter->users());
+  for (auto U : AdapterUsers) {
     auto *Phi = cast<VPPHINode>(U);
     unsigned MergeId = Phi->getMergeId();
     if (MergeId == VPExternalUse::UndefMergeId)
