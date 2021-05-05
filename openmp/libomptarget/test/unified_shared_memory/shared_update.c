@@ -4,6 +4,9 @@
 // RUN: %libomptarget-compile-run-and-check-generic
 // XFAIL: nvptx64-nvidia-cuda
 
+// amdgcn does not have printf definition
+// XFAIL: amdgcn-amd-amdhsa
+
 #include <stdio.h>
 #include <omp.h>
 
