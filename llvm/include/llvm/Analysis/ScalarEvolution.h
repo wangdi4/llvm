@@ -710,16 +710,25 @@ public:
   /// Test whether entry to the loop is protected by a conditional between LHS
   /// and RHS.  This is used to help avoid max expressions in loop trip
   /// counts, and to eliminate casts.
+#if INTEL_CUSTOMIZATION
+  /// \p ExprToSimplify Optional SCEV which is simplified using found predicates
+  /// when looking for loop entry guard. This is handy for returning a
+  /// simplified backedge taken count expression to the caller.
+#endif // INTEL_CUSTOMIZATION
   bool isLoopEntryGuardedByCond(const Loop *L, ICmpInst::Predicate Pred,
                                 const SCEV *LHS, const SCEV *RHS, // INTEL
-                                ICmpInst *PredContext = nullptr); // INTEL
+                                ICmpInst *PredContext = nullptr,  // INTEL
+                                const SCEV **ExprToSimplify = nullptr); // INTEL
 
   /// Test whether entry to the basic block is protected by a conditional
   /// between LHS and RHS.
   bool isBasicBlockEntryGuardedByCond(const BasicBlock *BB,
                                       ICmpInst::Predicate Pred, const SCEV *LHS,
-                                      const SCEV *RHS,                  // INTEL
-                                      ICmpInst *PredContext = nullptr); // INTEL
+#if INTEL_CUSTOMIZATION
+                                      const SCEV *RHS,
+                                      ICmpInst *PredContext = nullptr,
+                                      const SCEV **ExprToSimplify = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
   /// Test whether the backedge of the loop is protected by a conditional
   /// between LHS and RHS.  This is used to eliminate casts.
@@ -1862,7 +1871,8 @@ protected: // INTEL
   bool isImpliedCond(ICmpInst::Predicate Pred, const SCEV *LHS, const SCEV *RHS,
                      const Value *FoundCondValue, bool Inverse,
                      const Instruction *Context = nullptr,   // INTEL
-                     const ICmpInst *PredContext = nullptr); // INTEL
+                     const ICmpInst *PredContext = nullptr,  // INTEL
+                     const SCEV **ExprToSimplify = nullptr); // INTEL
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the given FoundCondValue value evaluates to true in given
@@ -1874,7 +1884,7 @@ protected: // INTEL
                                   const SCEV *FoundLHS, const SCEV *FoundRHS,
                                   const Instruction *Context,        // INTEL
                                   const ICmpInst *PredContext,       // INTEL
-                                  const ICmpInst *FoundPredCOntext); // INTEL
+                                  const ICmpInst *FoundPredContext); // INTEL
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by FoundPred, FoundLHS, FoundRHS is
@@ -1885,7 +1895,8 @@ protected: // INTEL
                      const SCEV *FoundRHS,
                      const Instruction *Context = nullptr,        // INTEL
                      const ICmpInst *PredContext = nullptr,       // INTEL
-                     const ICmpInst *FoundPredContext = nullptr); // INTEL
+                     const ICmpInst *FoundPredContext = nullptr,  // INTEL
+                     const SCEV **ExprToSimplify = nullptr);      // INTEL
 
   /// Test whether the condition described by Pred, LHS, and RHS is true
   /// whenever the condition described by Pred, FoundLHS, and FoundRHS is
