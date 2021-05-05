@@ -182,7 +182,8 @@ void RTLsTy::LoadRTLs() {
       RTLChecked.push_back("libomptarget.rtl.opencl.so");
 #endif
 #if INTEL_CUSTOMIZATION
-    } else if (pluginName == "LEVEL0" || pluginName == "level0") {
+    } else if (pluginName == "LEVEL0" || pluginName == "level0" ||
+               pluginName == "LEVEL_ZERO" || pluginName == "level_zero") {
 #if _WIN32
       RTLChecked.push_back("omptarget.rtl.level0.dll");
 #else

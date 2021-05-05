@@ -3252,7 +3252,44 @@ static void decideLoopKernelGroupArguments(
 static void decideKernelGroupArguments(
     int32_t DeviceId, int32_t NumTeams, int32_t ThreadLimit,
     cl_kernel Kernel, size_t *GroupSizes, size_t *GroupCounts) {
+#if INTEL_CUSTOMIZATION
+  // Default to best GEN9 GT4 configuration initially.
+  size_t numSubslices = 9;
+  size_t numEUsPerSubslice= 8;
+  size_t numThreadsPerEU = 7;
+  size_t numEUs = DeviceInfo->maxExecutionUnits[DeviceId];
+  if (DeviceInfo->DeviceType == CL_DEVICE_TYPE_GPU) {
+    // TODO: we need to find a way to compute the number of sub slices
+    //       and number of EUs per sub slice for the particular device.
+    if (numEUs >= 256) {
+      // Newer GPUs.
+      numEUsPerSubslice = 16;
+      numSubslices = numEUs / numEUsPerSubslice;
+      numThreadsPerEU = 8;
+    } else if (numEUs >= 72) {
+      // Default GEN9 GT4 configuration.
+    } else if (numEUs >= 48) {
+      // GT3
+      numSubslices = 6;
+    } else if (numEUs >= 24) {
+      // GT2
+      numSubslices = 3;
+    } else if (numEUs >= 18) {
+      // GT1.5
+      numSubslices = 3;
+      numEUsPerSubslice = 6;
+    } else {
+      // GT1
+      numSubslices = 2;
+      numEUsPerSubslice = 6;
+    }
 
+    DPI("numEUsPerSubslice: %zu\n", numEUsPerSubslice);
+    DPI("numSubslices: %zu\n", numSubslices);
+    DPI("numThreadsPerEU: %zu\n", numThreadsPerEU);
+    DPI("totalEUs: %zu\n", numEUs);
+  }
+#endif // INTEL_CUSTOMIZATION
   size_t maxGroupSize = DeviceInfo->maxWorkGroupSize[DeviceId];
   bool maxGroupSizeForced = false;
   bool maxGroupCountForced = false;
@@ -3320,15 +3357,7 @@ static void decideKernelGroupArguments(
     maxGroupCount = DeviceInfo->maxExecutionUnits[DeviceId];
 #if INTEL_CUSTOMIZATION
     if (DeviceInfo->DeviceType == CL_DEVICE_TYPE_GPU) {
-      // We are currently handling only GEN9/GEN9.5 here.
-      // TODO: we need to find a way to compute the number of sub slices
-      //       and number of EUs per sub slice for the particular device.
-      size_t numSubslices = 9;
-      size_t numEUsPerSubslice= 8;
-      size_t numThreadsPerEU = 7;
-      size_t numEUs = DeviceInfo->maxExecutionUnits[DeviceId];
-
-      // Each EU has 7 threads. A work group is partitioned into EU threads,
+      // A work group is partitioned into EU threads,
       // and then scheduled onto a sub slice. A sub slice must have all the
       // resources available to start a work group, otherwise it will wait
       // for resources. This means that uneven partitioning may result
@@ -3337,24 +3366,6 @@ static void decideKernelGroupArguments(
       //   https://software.intel.com/sites/default/files/      \
       //   Faster-Better-Pixels-on-the-Go-and-in-the-Cloud-     \
       //   with-OpenCL-on-Intel-Architecture.pdf
-      if (numEUs >= 72) {
-        // Default best Halo (GT4) configuration.
-      } else if (numEUs >= 48) {
-        // GT3
-        numSubslices = 6;
-      } else if (numEUs >= 24) {
-        // GT2
-        numSubslices = 3;
-      } else if (numEUs >= 18) {
-        // GT1.5
-        numSubslices = 3;
-        numEUsPerSubslice = 6;
-      } else {
-        // GT1
-        numSubslices = 2;
-        numEUsPerSubslice = 6;
-      }
-
       size_t numThreadsPerSubslice = numEUsPerSubslice * numThreadsPerEU;
       maxGroupCount = numSubslices * numThreadsPerSubslice;
       if (maxGroupSizeForced) {
@@ -3450,10 +3461,12 @@ static inline int32_t run_target_team_nd_region(
   }
 #endif // INTEL_INTERNAL_BUILD
 
-  IDP("Global work size = (%zu, %zu, %zu)\n", global_work_size[0],
-     global_work_size[1], global_work_size[2]);
-  IDP("Local work size = (%zu, %zu, %zu)\n", local_work_size[0],
+  IDP("Group sizes = {%zu, %zu, %zu}\n", local_work_size[0],
      local_work_size[1], local_work_size[2]);
+  IDP("Group counts = {%zu, %zu, %zu}\n",
+      global_work_size[0] / local_work_size[0],
+      global_work_size[1] / local_work_size[1],
+      global_work_size[2] / local_work_size[2]);
 
   // Protect thread-unsafe OpenCL API calls
   DeviceInfo->Mutexes[device_id].lock();

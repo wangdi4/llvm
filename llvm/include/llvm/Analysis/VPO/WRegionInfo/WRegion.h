@@ -591,6 +591,9 @@ private:
   EXPR ThreadLimit;
   EXPR NumTeams;
   WRNDefaultKind Default;
+#if INTEL_CUSTOMIZATION
+  uint64_t ConfiguredThreadLimit = 0;
+#endif // INTEL_CUSTOMIZATION
 
 public:
   WRNTeamsNode(BasicBlock *BB);
@@ -610,6 +613,14 @@ public:
   EXPR getThreadLimit() const override { return ThreadLimit; }
   EXPR getNumTeams() const override  { return NumTeams; }
   WRNDefaultKind getDefault() const override { return Default; }
+#if INTEL_CUSTOMIZATION
+  void setConfiguredThreadLimit(uint64_t TL) override {
+    ConfiguredThreadLimit = TL;
+  }
+  uint64_t getConfiguredThreadLimit() const override {
+    return ConfiguredThreadLimit;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS,
                   unsigned Depth,
