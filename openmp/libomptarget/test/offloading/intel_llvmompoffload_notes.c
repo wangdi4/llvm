@@ -3,7 +3,7 @@
 
 // CHECK: TARGET Common ELF --> LLVMOMPOFFLOAD ELF note NT_LLVM_OPENMP_OFFLOAD_VERSION with value: '1.0'
 // CHECK: TARGET Common ELF --> LLVMOMPOFFLOAD ELF note NT_LLVM_OPENMP_OFFLOAD_PRODUCER with value: 'Intel(R) oneAPI DPC++/C++ Compiler'
-// CHECK: TARGET Common ELF --> LLVMOMPOFFLOAD ELF note NT_LLVM_OPENMP_OFFLOAD_PRODUCER_VERSION with value: '2021.2.0{{( [0-9a-fA-F]+)?}}'
+// CHECK: TARGET Common ELF --> LLVMOMPOFFLOAD ELF note NT_LLVM_OPENMP_OFFLOAD_PRODUCER_VERSION with value: '2021.{{[0-9]}}.0{{( [0-9a-fA-F]+)?}}'
 
 int main() {
 #pragma omp target
