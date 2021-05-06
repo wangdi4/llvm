@@ -335,6 +335,10 @@ public:
   static bool hasTargetDirective(WRContainerImpl &WRC);
   static bool hasTargetDirective(WRegionInfo *WI);
 
+  /// Returns \b true if one of \p W's ancestor is an OMP target region,
+  /// or the function where \p W lies in has target declare attribute.
+  static bool hasParentTarget(const WRegionNode *W);
+
   /// \returns \b true iff \p W contains a WRN for which \p Predicate is true.
   static bool containsWRNsWith(WRegionNode *W,
                                std::function<bool(WRegionNode *)> Predicate);

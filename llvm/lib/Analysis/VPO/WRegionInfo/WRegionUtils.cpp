@@ -890,6 +890,23 @@ bool WRegionUtils::hasTargetDirective(WRegionInfo *WI) {
   return false;
 }
 
+bool WRegionUtils::hasParentTarget(const WRegionNode *W) {
+  Function *F = W->getEntryDirective()->getFunction();
+  if (F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
+                                      "target.declare"))
+    return true;
+
+  WRegionNode *PW = W->getParent();
+  while (PW) {
+    if (PW->getIsTarget())
+      return true;
+
+    PW = PW->getParent();
+  }
+
+  return false;
+}
+
 // Returns true iff W contains a WRN for which Predicate is true.
 bool WRegionUtils::containsWRNsWith(
     WRegionNode *W, std::function<bool(WRegionNode *)> Predicate) {

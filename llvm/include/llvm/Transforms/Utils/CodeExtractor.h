@@ -151,6 +151,8 @@ public:
     /// If AllowEHTypeID is true, the safety check for the llvm.eh.typeid.for
     /// intrinsic will be skipped. Exceptions thrown out of the region may
     /// not be caught, which is OK for paropt.
+    /// If AllowUnreachableBlocks is true, then add even those blocks in \p BBs
+    /// which are unreachable from entry, to the extracted function.
 #endif // INTEL_COLLAB
     CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT = nullptr,
                   bool AggregateArgs = false, BlockFrequencyInfo *BFI = nullptr,
@@ -160,6 +162,7 @@ public:
 #if INTEL_COLLAB
                   std::string Suffix = "",
                   bool AllowEHTypeID = false,
+                  bool AllowUnreachableBlocks = false,
                   const OrderedArgs *TgtClauseArgs = nullptr);
 #else // INTEL_COLLAB
                   std::string Suffix = "");

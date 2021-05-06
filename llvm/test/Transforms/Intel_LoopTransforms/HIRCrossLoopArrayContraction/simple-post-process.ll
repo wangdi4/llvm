@@ -1,6 +1,9 @@
 ; RUN: opt -disable-hir-cross-loop-array-contraction=false -hir-create-function-level-region -hir-ssa-deconstruction -hir-cross-loop-array-contraction -print-after=hir-cross-loop-array-contraction -disable-output -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -disable-hir-cross-loop-array-contraction=false -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>" -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
+; Verifies that the Arrays are contracted and the final loop has been forward substituted,
+; unrolled, and replaced with scalar temps.
+
 ; + DO i1 = 0, 99, 1   <DO_LOOP>
 ; |   + DO i2 = 0, 99, 1   <DO_LOOP>
 ; |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
@@ -88,22 +91,21 @@
 ; CHECK:           |   + DO i2 = 0, 99, 1   <DO_LOOP>
 ; CHECK:           |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
 ; CHECK:           |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
-; CHECK:           |   |   |   |   (%ContractedArray)[0][0] = 0;
-; CHECK:           |   |   |   |   (%ContractedArray)[0][1] = 1;
-; CHECK:           |   |   |   |   (%ContractedArray)[1][0] = 1;
-; CHECK:           |   |   |   |   (%ContractedArray)[1][1] = 2;
-; CHECK:           |   |   |   |   %4 = (%ContractedArray)[0][0];
+; CHECK:           |   |   |   |   %array-scalarize = 0;
+; CHECK:           |   |   |   |   %array-scalarize12 = 1;
+; CHECK:           |   |   |   |   %array-scalarize15 = 1;
+; CHECK:           |   |   |   |   %array-scalarize18 = 2;
+; CHECK:           |   |   |   |   %4 = %array-scalarize;
 ; CHECK:           |   |   |   |   (@B)[0][i2][i3][i4][0][0] = %4 + 1;
-; CHECK:           |   |   |   |   %4 = (%ContractedArray)[1][0];
+; CHECK:           |   |   |   |   %4 = %array-scalarize15;
 ; CHECK:           |   |   |   |   (@B)[0][i2][i3][i4][0][1] = %4 + 1;
-; CHECK:           |   |   |   |   %4 = (%ContractedArray)[0][1];
+; CHECK:           |   |   |   |   %4 = %array-scalarize12;
 ; CHECK:           |   |   |   |   (@B)[0][i2][i3][i4][1][0] = %4 + 1;
-; CHECK:           |   |   |   |   %4 = (%ContractedArray)[1][1];
+; CHECK:           |   |   |   |   %4 = %array-scalarize18;
 ; CHECK:           |   |   |   |   (@B)[0][i2][i3][i4][1][1] = %4 + 1;
 ; CHECK:           |   |   |   + END LOOP
 ; CHECK:           |   |   + END LOOP
 ; CHECK:           |   + END LOOP
-;
 ; CHECK:           + END LOOP
 ;
 ;                  @llvm.lifetime.end.p0i8(400000000,  &((i8*)(%A)[0]));

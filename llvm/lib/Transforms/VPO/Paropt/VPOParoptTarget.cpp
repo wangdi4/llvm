@@ -3209,24 +3209,6 @@ bool VPOParoptTransform::isFunctionOpenMPTargetDeclare() {
                                           "openmp-target-declare"));
 }
 
-// Return true if one of the region W's ancestor is OMP target
-// construct or the function where W lies in has target declare attribute.
-bool VPOParoptTransform::hasParentTarget(WRegionNode *W) {
-  if (F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
-                                      "target.declare"))
-    return true;
-
-  WRegionNode *PW = W->getParent();
-  while (PW) {
-    if (PW->getIsTarget())
-      return true;
-
-    PW = PW->getParent();
-  }
-
-  return false;
-}
-
 // This function inserts artificial uses for arguments of some clauses
 // of the given region.
 //

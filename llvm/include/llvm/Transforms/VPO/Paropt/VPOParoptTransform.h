@@ -1799,10 +1799,6 @@ private:
   /// `openmp-declare-target=true` attribute, \b false otherwise.
   bool isFunctionOpenMPTargetDeclare();
 
-  /// Return true if one of the region W's ancestor is OMP target
-  /// construct or the function where W lies in has target declare attribute.
-  bool hasParentTarget(WRegionNode *W);
-
   /// Initialize the loop descriptor struct with the loop level
   /// as well as the lb, ub, stride for each level of the loop.
   /// The loop descriptor struct as follows.

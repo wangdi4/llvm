@@ -225,7 +225,7 @@ static SetVector<BasicBlock *>
 buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
 #if INTEL_COLLAB
                         bool AllowVarArgs, bool AllowAlloca,
-                        bool AllowEHTypeID) {
+                        bool AllowEHTypeID, bool AllowUnreachableBlocks) {
 #else // INTEL_COLLAB
                         bool AllowVarArgs, bool AllowAlloca) {
 #endif // INTEL_COLLAB
@@ -236,7 +236,11 @@ buildExtractionBlockSet(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
   // empty set if we encounter invalid blocks.
   for (BasicBlock *BB : BBs) {
     // If this block is dead, don't process it.
+#if INTEL_COLLAB
+    if (!AllowUnreachableBlocks && DT && !DT->isReachableFromEntry(BB))
+#else // INTEL_COLLAB
     if (DT && !DT->isReachableFromEntry(BB))
+#endif // INTEL_COLLAB
       continue;
 
     if (!Result.insert(BB))
@@ -286,7 +290,7 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
                              bool AllowVarArgs, bool AllowAlloca,
 #if INTEL_COLLAB
                              std::string Suffix,
-                             bool AllowEHTypeID,
+                             bool AllowEHTypeID, bool AllowUnreachableBlocks,
                              const OrderedArgs *TgtClauseArgs)
 #else // INTEL_COLLAB
                              std::string Suffix)
@@ -295,7 +299,7 @@ CodeExtractor::CodeExtractor(ArrayRef<BasicBlock *> BBs, DominatorTree *DT,
       BPI(BPI), AC(AC), AllowVarArgs(AllowVarArgs),
 #if INTEL_COLLAB
       Blocks(buildExtractionBlockSet(BBs, DT, AllowVarArgs, AllowAlloca,
-                                     AllowEHTypeID)),
+                                     AllowEHTypeID, AllowUnreachableBlocks)),
       TgtClauseArgs(TgtClauseArgs),
       RewrittenValues(), DeclLoc(),
 #else // INTEL_COLLAB
@@ -313,7 +317,8 @@ CodeExtractor::CodeExtractor(DominatorTree &DT, Loop &L, bool AggregateArgs,
                                      /* AllowVarArgs */ false,
 #if INTEL_COLLAB
                                      /* AllowAlloca */ false,
-                                     /* AllowEHTypeID */ false)),
+                                     /* AllowEHTypeID */ false,
+                                     /* AllowUnreachableBlocks */false)),
       RewrittenValues(), DeclLoc(),
 #else // INTEL_COLLAB
                                      /* AllowAlloca */ false)),
@@ -2179,6 +2184,8 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
     for (SetVector<BasicBlock*>::const_iterator i = Blocks.begin(),
          e = Blocks.end(); i != e; ++i) {
       DomTreeNode *BlockNode = DT->getNode(*i);
+      if (!BlockNode)
+        continue;
       for (auto C = BlockNode->begin(), CE = BlockNode->end(); C != CE; ++C)
           Successors.push_back(*C);
     }
@@ -2191,7 +2198,8 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC) {
     // on the edges of the region being immediately dominated by the new block.
     for (SetVector<BasicBlock*>::const_iterator i = Blocks.begin(),
          e = Blocks.end(); i != e; ++i)
-      DT->eraseNode(*i);
+      if (DT->getNode(*i))
+        DT->eraseNode(*i);
   }
 #endif //INTEL_COLLAB
   // Loop over all of the PHI nodes in the header and exit blocks, and change
