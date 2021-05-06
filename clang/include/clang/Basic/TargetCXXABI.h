@@ -111,6 +111,7 @@ public:
     case Microsoft:
       return T.isKnownWindowsMSVCEnvironment();
     }
+    return false;
   };
 
   /// Does this ABI generally fall into the Itanium family of ABIs?
