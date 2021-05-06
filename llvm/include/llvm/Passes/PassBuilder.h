@@ -537,7 +537,16 @@ public:
   /// Returns true if the pass name is the name of a (non-alias) analysis pass.
   bool isAnalysisPassName(StringRef PassName);
 
+#if INTEL_COLLAB
+  void addVPOPreparePasses(FunctionPassManager &FPM);
+  void addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
+                    bool RunVec, bool Simplify = false);
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
+  bool addVPOPassesPreOrPostLoopOpt(ModulePassManager &MPM,
+                                    FunctionPassManager &FPM,
+                                    bool IsPostLoopOptPass);
+
   /// Add Inst Combine Pass. If EnableUpCasting is true then it will enable
   /// simplifying load instructions into bitcast instructions that could
   /// produce an upcasting. If DTrans is disabled then the simplification

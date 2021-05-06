@@ -635,6 +635,16 @@ PreservedAnalyses LowerSwitchPass::run(Function &F,
                                        FunctionAnalysisManager &AM) {
   LazyValueInfo *LVI = &AM.getResult<LazyValueAnalysis>(F);
   AssumptionCache *AC = AM.getCachedResult<AssumptionAnalysis>(F);
+#if INTEL_CUSTOMIZATION
+  if (FnWithSIMDLoopOnly) {
+    LLVM_DEBUG(dbgs() << "LowerSwitch: Required to run pass only for functions "
+                         "with SIMD loops.\n");
+    if (!functionHasSIMDLoops(F))
+      return PreservedAnalyses::all();
+    LLVM_DEBUG(
+        dbgs() << "LowerSwitch: Function has SIMD loops, executing pass.\n");
+  }
+#endif // INTEL_CUSTOMIZATION
   return LowerSwitch(F, LVI, AC) ? PreservedAnalyses::none()
                                  : PreservedAnalyses::all();
 }

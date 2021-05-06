@@ -64,6 +64,7 @@ public:
   XmainOptLevelAnalysisInit(unsigned OptLevel = 2) : OptLevel(OptLevel) {}
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+  static bool isRequired() { return true; }
 };
 
 class XmainOptLevelWrapperPass : public ImmutablePass {

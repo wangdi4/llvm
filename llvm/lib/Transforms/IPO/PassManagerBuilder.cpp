@@ -179,8 +179,8 @@ cl::opt<bool> EnableLoopFlatten("enable-loop-flatten", cl::init(false),
                                        cl::desc("Enable the LoopFlatten Pass"));
 #if INTEL_COLLAB
 enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
-static cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
-                                   cl::Hidden, cl::desc("Runs all VPO passes"));
+cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
+                            cl::Hidden, cl::desc("Runs all VPO passes"));
 
 // The user can use -mllvm -paropt=<mode> to enable various paropt
 // transformations, where <mode> is a bit vector (see enum VPOParoptMode
@@ -188,41 +188,35 @@ static cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
 // "ParPrepare" (0x1), "ParTrans" (0x2), and "OmpPar" (0x4).
 // TODO: this does not seem to work with the new pass manager,
 //       so we need to fix it soon.
-static cl::opt<unsigned> RunVPOParopt("paropt",
-  cl::init(0x00000000), cl::Hidden,
-  cl::desc("Run VPO Paropt Pass"));
+cl::opt<unsigned> RunVPOParopt("paropt", cl::init(0x00000000), cl::Hidden,
+                               cl::desc("Run VPO Paropt Pass"));
 
 #endif // INTEL_COLLAB
 
 #if INTEL_CUSTOMIZATION
-static cl::opt<bool> RunVPOVecopt("vecopt",
-  cl::init(false), cl::Hidden,
-  cl::desc("Run VPO Vecopt Pass"));
+cl::opt<bool> RunVPOVecopt("vecopt", cl::init(false), cl::Hidden,
+                           cl::desc("Run VPO Vecopt Pass"));
 
 // Switch to enable or disable all VPO related pre-loopopt passes
-static cl::opt<bool>
-    RunPreLoopOptVPOPasses("pre-loopopt-vpo-passes", cl::init(false),
-                           cl::Hidden,
-                           cl::desc("Run VPO passes before loopot"));
+cl::opt<bool> RunPreLoopOptVPOPasses("pre-loopopt-vpo-passes", cl::init(false),
+                                     cl::Hidden,
+                                     cl::desc("Run VPO passes before loopot"));
 
 // Switch to enable or disable all VPO related post-loopopt passes
-static cl::opt<bool>
-    RunPostLoopOptVPOPasses("post-loopopt-vpo-passes", cl::init(true),
-                            cl::Hidden,
-                            cl::desc("Run VPO passes after loopot"));
+cl::opt<bool> RunPostLoopOptVPOPasses("post-loopopt-vpo-passes", cl::init(true),
+                                      cl::Hidden,
+                                      cl::desc("Run VPO passes after loopot"));
 
 // Set LLVM-IR VPlan driver pass to be enabled by default
-static cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(true),
-                                       cl::Hidden,
-                                       cl::desc("Enable VPlan Driver"));
+cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(true), cl::Hidden,
+                                cl::desc("Enable VPlan Driver"));
 
-static cl::opt<bool> RunVecClone("enable-vec-clone",
-  cl::init(true), cl::Hidden,
-  cl::desc("Run Vector Function Cloning"));
+cl::opt<bool> RunVecClone("enable-vec-clone", cl::init(true), cl::Hidden,
+                          cl::desc("Run Vector Function Cloning"));
 
-static cl::opt<bool> EnableDeviceSimd("enable-device-simd",
-  cl::init(false), cl::Hidden,
-  cl::desc("Enable VPlan vectorzer for SIMD on device"));
+cl::opt<bool>
+    EnableDeviceSimd("enable-device-simd", cl::init(false), cl::Hidden,
+                     cl::desc("Enable VPlan vectorzer for SIMD on device"));
 
 static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),
                                        cl::Hidden,
@@ -345,7 +339,7 @@ static cl::opt<bool> EnableArgNoAliasProp(
     "enable-arg-noalias-prop", cl::init(true), cl::Hidden, cl::ZeroOrMore,
     cl::desc("Enable noalias propagation for function arguments."));
 
-static cl::opt<bool> EnableVPOParoptSharedPrivatization(
+cl::opt<bool> EnableVPOParoptSharedPrivatization(
     "enable-vpo-paropt-shared-privatization", cl::init(true), cl::Hidden,
     cl::ZeroOrMore, cl::desc("Enable VPO Paropt Shared Privatization pass."));
 #endif // INTEL_CUSTOMIZATION

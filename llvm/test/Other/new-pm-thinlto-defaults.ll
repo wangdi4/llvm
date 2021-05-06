@@ -85,10 +85,12 @@
 ; CHECK-O-NEXT: Running analysis: AAManager
 ; CHECK-O-NEXT: Running analysis: BasicAA
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
+; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-O-NEXT: Running analysis: ScopedNoAliasAA
 ; CHECK-O-NEXT: Running analysis: TypeBasedAA
 ; CHECK-O-NEXT: Running analysis: StdContainerAA ;INTEL
-; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy
+; Moved up to after XmainOptLevelAnalysis ;INTEL
+; COM: CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running pass: InlineListsPass                ;INTEL
 ; CHECK-O-NEXT: Running pass: ModuleInlinerWrapperPass
