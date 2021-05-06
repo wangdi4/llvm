@@ -1818,7 +1818,7 @@ bool IndVarSimplify::predicateLoopExits(Loop *L, SCEVExpander &Rewriter) {
   for (BasicBlock *BB : L->blocks())
     for (auto &I : *BB)
       // TODO:isGuaranteedToTransfer
-      if (I.mayHaveSideEffects() || I.mayThrow())
+      if (I.mayHaveSideEffects())
         return false;
 
   bool Changed = false;
