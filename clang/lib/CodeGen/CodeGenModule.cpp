@@ -3901,7 +3901,7 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
 
 #if INTEL_CUSTOMIZATION
   if (getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc)) {
-    llvm::sort(
+    llvm::stable_sort(
         Options, [](const CodeGenFunction::MultiVersionResolverOption &LHS,
                     const CodeGenFunction::MultiVersionResolverOption &RHS) {
           std::array<uint64_t, 2> LHSBits =
@@ -3912,12 +3912,12 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
                  (LHSBits[1] == RHSBits[1] && LHSBits[0] > RHSBits[0]);
         });
   } else {
-  llvm::sort(
-      Options, [](const CodeGenFunction::MultiVersionResolverOption &LHS,
-                  const CodeGenFunction::MultiVersionResolverOption &RHS) {
-        return CodeGenFunction::GetX86CpuSupportsMask(LHS.Conditions.Features) >
-               CodeGenFunction::GetX86CpuSupportsMask(RHS.Conditions.Features);
-      });
+    llvm::stable_sort(
+        Options, [](const CodeGenFunction::MultiVersionResolverOption &LHS,
+                    const CodeGenFunction::MultiVersionResolverOption &RHS) {
+          return CodeGenFunction::GetX86CpuSupportsMask(LHS.Conditions.Features) >
+                 CodeGenFunction::GetX86CpuSupportsMask(RHS.Conditions.Features);
+        });
   }
 #endif // INTEL_CUSTOMIZATION
 
