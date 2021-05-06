@@ -235,6 +235,7 @@ class VecClonePass : public PassInfoMixin<VecClonePass> {
   public:
     VecClonePass() {}
     PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+    static bool isRequired() { return true; }
 };
 
 class VecClone : public ModulePass {

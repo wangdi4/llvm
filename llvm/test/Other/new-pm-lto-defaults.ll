@@ -94,12 +94,14 @@
 ; CHECK-O-NEXT: Running analysis: AAManager
 ; CHECK-O-NEXT: Running analysis: BasicAA
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
+; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-O1-NEXT: Running analysis: AssumptionAnalysis on foo
 ; CHECK-O1-NEXT: Running analysis: DominatorTreeAnalysis
 ; CHECK-O-NEXT: Running analysis: ScopedNoAliasAA ;INTEL
 ; CHECK-O-NEXT: Running analysis: TypeBasedAA
 ; CHECK-O-NEXT: Running analysis: StdContainerAA
-; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy
+; Moved up to after XmainOptLevelAnalysis ;INTEL
+; COM: CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
 ; CHECK-O-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-O-NEXT: Running pass: DopeVectorConstPropPass ;INTEL

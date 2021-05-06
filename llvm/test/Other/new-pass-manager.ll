@@ -372,6 +372,8 @@
 ; We don't have checks for CHECK-NOEXT here, but this simplifies the test, while
 ; avoiding FileCheck complaining about the unused prefix.
 ; CHECK-NOEXT: {{.*}}
+; CHECK-O0-NEXT: Running pass: VecClonePass ;INTEL
+; CHECK-O0-NEXT: Invalidating analysis: InnerAnalysisManagerProxy ;INTEL
 ; CHECK-O0-NEXT: Finished llvm::Module pass manager run
 
 ; RUN: opt -disable-output -disable-verify -verify-cfg-preserved=1 -debug-pass-manager \
@@ -454,10 +456,12 @@
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: BasicAA
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
+; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: ScopedNoAliasAA
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: TypeBasedAA ;INTEL
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: StdContainerAA
-; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: OuterAnalysisManagerProxy
+; Moved up to after XmainOptLevelAnalysis ;INTEL
+; COM: CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: OuterAnalysisManagerProxy ;INTEL
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: ScalarEvolutionAnalysis
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-REPEAT-LOOP-PASS-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}>

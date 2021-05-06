@@ -1,5 +1,5 @@
-; RUN: opt -O2 -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s --strict-whitespace
-; RUN: opt -O2 -loopopt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -disable-output -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=HIR --strict-whitespace
+; RUN: opt -enable-new-pm=0 -O2 -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s --strict-whitespace
+; RUN: opt -enable-new-pm=0 -O2 -loopopt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -disable-output -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=HIR --strict-whitespace
 
 ; #pragma omp ordered simd is processed by running the following passes for
 ; LLVM-IR and HIR path:

@@ -33,6 +33,8 @@
 ; CHECK-DEFAULT-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-MATRIX-NEXT: Running pass: LowerMatrixIntrinsicsPass
 ; CHECK-MATRIX-NEXT: Running analysis: TargetIRAnalysis
+; CHECK-DEFAULT-NEXT: Running pass: VecClonePass ;INTEL
+; CHECK-DEFAULT-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{.*}}> ;INTEL
 ; CHECK-PRE-LINK-NEXT: Running pass: CanonicalizeAliasesPass
 ; CHECK-PRE-LINK-NEXT: Running pass: NameAnonGlobalPass
 ; CHECK-THINLTO-NEXT: Running pass: Annotation2MetadataPass

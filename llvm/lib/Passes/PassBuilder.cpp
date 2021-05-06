@@ -287,6 +287,7 @@
 #include "llvm/Transforms/Scalar/Intel_NontemporalStore.h"
 #include "llvm/Transforms/Scalar/Intel_TransformSinAndCosCalls.h"
 #include "llvm/Transforms/Vectorize/Intel_LoadCoalescing.h"
+#include "llvm/Transforms/Vectorize/IntelMFReplacement.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 
 // DPC++ CPU Kernel Transformation passes
@@ -550,6 +551,21 @@ extern cl::opt<bool> EnableMatrix;
 
 extern cl::opt<bool> DisablePreInliner;
 extern cl::opt<int> PreInlineThreshold;
+#if INTEL_COLLAB
+// TODO: Change this to an enum class in PassManagerBuilder.cpp
+enum { InvokeParoptBeforeInliner = 1, InvokeParoptAfterInliner };
+extern cl::opt<unsigned> RunVPOOpt;
+extern cl::opt<unsigned> RunVPOParopt;
+#endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+extern cl::opt<bool> EnableVPlanDriver;
+extern cl::opt<bool> RunVecClone;
+extern cl::opt<bool> EnableDeviceSimd;
+extern cl::opt<bool> RunVPOVecopt;
+extern cl::opt<bool> RunPreLoopOptVPOPasses;
+extern cl::opt<bool> RunPostLoopOptVPOPasses;
+extern cl::opt<bool> EnableVPOParoptSharedPrivatization;
+#endif // INTEL_CUSTOMIZATION
 
 const PassBuilder::OptimizationLevel PassBuilder::OptimizationLevel::O0 = {
     /*SpeedLevel*/ 0,
@@ -1546,7 +1562,192 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   return MPM;
 }
 
+#if INTEL_COLLAB
+
+void PassBuilder::addVPOPreparePasses(FunctionPassManager &FPM) {
+  FPM.addPass(VPOCFGRestructuringPass());
+  FPM.addPass(VPOParoptLoopCollapsePass());
+  // TODO: maybe we have to make sure loop collapsing preserves
+  //       the restructured CFG.
+  FPM.addPass(VPOCFGRestructuringPass());
+  FPM.addPass(LoopSimplifyUnskippablePass());
+  unsigned Mode = RunVPOParopt & (vpo::ParPrepare | vpo::OmpOffload);
+  FPM.addPass(VPOParoptPreparePass(Mode));
+}
+
+void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
+                               bool RunVec, bool Simplify) {
+  if (!RunVPOParopt)
+    return;
+
+  unsigned OptLevel = Level.getSpeedupLevel();
+  FunctionPassManager FPM(DebugLogging);
+
+  if (Simplify) {
+    // Inlining may introduce BasicBlocks without predecessors into an OpenMP
+    // region. This breaks CodeExtractor when outlining the region because it
+    // expects a single-entry-single-exit region. Calling CFG simplification
+    // to remove unreachable BasicBlocks fixes this problem.
 #if INTEL_CUSTOMIZATION
+    // The inlining issue is documented in CMPLRLLVM-7516. It affects these
+    // tests: ompo_kernelsCpp/aobenchan*,ribbon*,terrain*
+#endif // INTEL_CUSTOMIZATION
+    FPM.addPass(SimplifyCFGPass());
+  }
+
+  FPM.addPass(VPORestoreOperandsPass());
+  FPM.addPass(VPOCFGRestructuringPass());
+#if INTEL_CUSTOMIZATION
+  FPM.addPass(VPOParoptOptimizeDataSharingPass());
+  // No need to rerun VPO CFG restructuring, since
+  // VPOParoptOptimizeDataSharing does not modify CFG,
+  // and keeps the basic blocks with directive calls
+  // consistent.
+  if (OptLevel > 2 && EnableVPOParoptSharedPrivatization) {
+    // Shared privatization pass should be combined with the argument
+    // promotion pass (to do a cleanup) which currently runs only at O3,
+    // therefore it is limited to O3 as well.
+    unsigned Mode = RunVPOParopt & vpo::OmpOffload;
+    FPM.addPass(VPOParoptSharedPrivatizationPass(Mode));
+  }
+
+#endif // INTEL_CUSTOMIZATION
+  FPM.addPass(LoopSimplifyUnskippablePass());
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+  unsigned Mode = RunVPOParopt & (vpo::ParTrans | vpo::OmpPar | vpo::OmpVec |
+                                  vpo::OmpTpv | vpo::OmpOffload | vpo::OmpTbb);
+  MPM.addPass(VPOParoptPass(Mode));
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  if (RunCSAGraphSplitter)
+    MPM.addPass(CSAGraphSplitterPass());
+#endif // INTEL_FEATURE_CSA
+
+  // If vectorizer was required to run then cleanup any remaining directives
+  // that were not removed by vectorizer. This applies to all optimization
+  // levels since this function is called with RunVec=true in both pass
+  // pipelines i.e. -O0 and optlevel >= 1
+  //
+  // TODO: Issue a warning for any unprocessed directives. Change to
+  // assetion failure as the feature matures.
+  if (RunVec || EnableDeviceSimd) {
+    if (EnableDeviceSimd) {
+      // LegacyPM calls an equivalent addFunctionSimplificationPasses,
+      // which internally asserts that OptLevel is >= 1. With New PM,
+      // the same assertion happens inside buildFunctionSimplificationPipeline.
+      assert(OptLevel >= 1 && "device SIMD codegen is unsupported at O0");
+      // FIXME: Check if FullLTOPreLink is the correct enum for the call.
+      FPM.addPass(buildFunctionSimplificationPipeline(
+          Level, ThinOrFullLTOPhase::FullLTOPreLink));
+      // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all explicit
+      // SIMD loops
+      bool FPMConsumed =
+          addVPOPassesPreOrPostLoopOpt(MPM, FPM, /*IsPostLoopOptPass=*/false);
+
+      if (FPMConsumed) {
+        // TODO: Check whether this re-creation is needed, or it's ok to
+        // reuse a consumed FPM.
+        FPM = FunctionPassManager(DebugLogging);
+      }
+
+      addLoopOptPasses(MPM, FPM, Level, /*IsLTO=*/false);
+
+      // Run LLVM-IR VPlan vectorizer after loopopt to vectorize all loops not
+      // vectorized after createVPlanDriverHIRPass
+      FPMConsumed =
+          addVPOPassesPreOrPostLoopOpt(MPM, FPM, /*IsPostLoopOptPass=*/true);
+
+      if (!FPMConsumed && !FPM.isEmpty())
+        MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+    }
+
+    MPM.addPass(createModuleToFunctionPassAdaptor(VPODirectiveCleanupPass()));
+  }
+
+  // Paropt transformation pass may produce new AlwaysInline functions.
+  // Force inlining for them, if paropt pass runs after the normal inliner.
+  if (RunVPOOpt == InvokeParoptAfterInliner) {
+    // Run it even at -O0, because the only AlwaysInline functions
+    // after paropt are the ones that it artificially created.
+    // There is some interference with coroutines passes, which
+    // insert some AlwaysInline functions early and expect them
+    // to exist up to some other coroutine pass - this is rather
+    // a problem of coroutine passes implementation that we may
+    // inline those functions here. If it becomes a problem,
+    // we will have to resolve that issue with coroutines.
+    MPM.addPass(AlwaysInlinerPass(
+        /*InsertLifetimeIntrinsics=*/PTO.Coroutines));
+    // Run GlobalDCE to delete dead functions.
+    if (OptLevel > 0)
+      MPM.addPass(GlobalDCEPass());
+  }
+#endif // INTEL_CUSTOMIZATION
+}
+#endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+
+bool PassBuilder::addVPOPassesPreOrPostLoopOpt(ModulePassManager &MPM,
+                                               FunctionPassManager &FPM,
+                                               bool IsPostLoopOptPass) {
+  if (!RunVPOOpt || !EnableVPlanDriver)
+    return false;
+  if (!IsPostLoopOptPass && !RunPreLoopOptVPOPasses)
+    return false;
+  if (IsPostLoopOptPass && !RunPostLoopOptVPOPasses)
+    return false;
+
+  if (IsPostLoopOptPass)
+    FPM.addPass(createFunctionToLoopPassAdaptor(LoopSimplifyCFGPass()));
+
+  FPM.addPass(LowerSwitchPass(true /*Only for SIMD loops*/));
+  // Add LCSSA pass before VPlan driver
+  FPM.addPass(LCSSAPass());
+  FPM.addPass(VPOCFGRestructuringPass());
+  // VPO CFG restructuring pass makes sure that the directives of #pragma omp
+  // simd ordered are in a separate block. For this reason,
+  // VPlanPragmaOmpOrderedSimdExtract pass should run after VPO CFG
+  // Restructuring.
+
+  // Before proceeding, consume the existing FPM pipeline before resetting
+  // the pass manager, since next pass is a module pass.
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+
+  // FIXME: We should try to avoid breaking the FPM pipeline by making
+  // VPlanPragmaOmpOrderedSimdExtractPass a Function pass.
+  MPM.addPass(VPlanPragmaOmpOrderedSimdExtractPass());
+
+  // Create a new function pass pipeline for the next few passes.
+  FunctionPassManager FPM1(DebugLogging);
+
+  // Code extractor might add new instructions in the entry block. If the entry
+  // block has a directive, than we have to split the entry block. VPlan assumes
+  // that the directives are in single-entry single-exit basic blocks.
+  FPM1.addPass(VPOCFGRestructuringPass());
+
+  // Create OCL sincos from sin/cos and sincos
+  FPM1.addPass(MathLibraryFunctionsReplacementPass(false /*isOCL*/));
+
+  FPM1.addPass(vpo::VPlanDriverPass());
+
+  // Split/translate scalar OCL and vector sincos
+  FPM1.addPass(MathLibraryFunctionsReplacementPass(false /*isOCL*/));
+
+  // Consume the function pass manager FPM1 before adding Module passes.
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM1)));
+
+  // The region that is outlined by #pragma omp simd ordered was extracted by
+  // VPlanPragmaOmpOrderedSimdExtarct pass. Now, we need to run the inliner in
+  // order to put this region back at the code.
+  MPM.addPass(AlwaysInlinerPass(
+      /*InsertLifetimeIntrinsics=*/PTO.Coroutines));
+
+  // Clean up any SIMD directives left behind by VPlan vectorizer
+  MPM.addPass(createModuleToFunctionPassAdaptor(VPODirectiveCleanupPass()));
+
+  return true;
+}
+
 static bool isLoopOptEnabled(PassBuilder::OptimizationLevel Level) {
   // Disabling it for now. Need to move '-loopopt' here from
   // PassManagerBuilder.cpp. If loopopt is enabled unconditionally, release
@@ -1751,6 +1952,7 @@ void PassBuilder::addLoopOptAndAssociatedVPOPasses(ModulePassManager &MPM,
                                                    bool IsLTO) {
   addLoopOptPasses(MPM, FPM, Level, IsLTO);
 }
+
 #endif // INTEL_CUSTOMIZATION
 ModulePassManager
 PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
@@ -2741,6 +2943,19 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
   for (auto &C : PipelineEarlySimplificationEPCallbacks)
     C(MPM, Level);
 
+#if INTEL_COLLAB
+  if (RunVPOOpt && RunVPOParopt) {
+#if INTEL_CUSTOMIZATION
+    // Paropt passes and BasicAA (one of Paropt's dependencies), use
+    // XmainOptLevelPass.
+    MPM.addPass(XmainOptLevelAnalysisInit(Level.getSpeedupLevel()));
+#endif // INTEL_CUSTOMIZATION
+    FunctionPassManager FPM(DebugLogging);
+    addVPOPreparePasses(FPM);
+    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+  }
+
+#endif // INTEL_COLLAB
   // Build a minimal pipeline based on the semantics required by LLVM,
   // which is just that always inlining occurs. Further, disable generating
   // lifetime intrinsics to avoid enabling further optimizations during
@@ -2758,6 +2973,17 @@ ModulePassManager PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
     MPM.addPass(
         createModuleToFunctionPassAdaptor(LowerMatrixIntrinsicsPass(true)));
 
+#if INTEL_COLLAB
+  if (RunVPOOpt) {
+#if INTEL_CUSTOMIZATION
+    if (RunVecClone)
+      MPM.addPass(VecClonePass());
+#endif // INTEL_CUSTOMIZATION
+    // Add VPO transform and vec passes.
+    addVPOPasses(MPM, Level, /*RunVec=*/true);
+  }
+
+#endif // INTEL_COLLAB
   if (!CGSCCOptimizerLateEPCallbacks.empty()) {
     CGSCCPassManager CGPM(DebugLogging);
     for (auto &C : CGSCCOptimizerLateEPCallbacks)

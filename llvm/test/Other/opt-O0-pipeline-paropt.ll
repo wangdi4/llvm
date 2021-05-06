@@ -73,6 +73,7 @@
 ;CHECK-NEXT:       Dominator Tree Construction
 ;CHECK-NEXT:       Natural Loop Information
 ;CHECK-NEXT:       VPO CFGRestructuring
+; INTEL_CUSTOMIZATION
 ;CHECK-NEXT:       Scalar Evolution Analysis
 ;CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
 ;CHECK-NEXT:       Function Alias Analysis Results
@@ -81,7 +82,6 @@
 ;CHECK-NEXT:       Lazy Block Frequency Analysis
 ;CHECK-NEXT:       Optimization Remark Emitter
 ;CHECK-NEXT:       VPO Work-Region Information
-; INTEL_CUSTOMIZATION
 ;CHECK-NEXT:       VPO Paropt Optimize Data Sharing
 ; end INTEL_CUSTOMIZATION
 ;CHECK-NEXT:     VPO Paropt Pass

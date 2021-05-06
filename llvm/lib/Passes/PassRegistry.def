@@ -391,6 +391,9 @@ FUNCTION_PASS("lower-subscript", LowerSubscriptIntrinsicPass()) // INTEL
 FUNCTION_PASS("guard-widening", GuardWideningPass())
 FUNCTION_PASS("load-store-vectorizer", LoadStoreVectorizerPass())
 FUNCTION_PASS("loop-simplify", LoopSimplifyPass())
+#if INTEL_COLLAB
+FUNCTION_PASS("loop-simplify-unskippable", LoopSimplifyUnskippablePass())
+#endif // INTEL_COLLAB
 FUNCTION_PASS("loop-sink", LoopSinkPass())
 FUNCTION_PASS("loop-unroll-and-jam", LoopUnrollAndJamPass())
 FUNCTION_PASS("loop-flatten", LoopFlattenPass())
@@ -479,6 +482,7 @@ FUNCTION_PASS("msan", MemorySanitizerPass({}))
 FUNCTION_PASS("forced-cmov-generation", ForcedCMOVGenerationPass())
 FUNCTION_PASS("transform-sin-cos-calls", TransformSinAndCosCallsPass())
 FUNCTION_PASS("load-coalescing", LoadCoalescingPass())
+FUNCTION_PASS("replace-with-math-library-functions", MathLibraryFunctionsReplacementPass())
 FUNCTION_PASS("hir-ssa-deconstruction", loopopt::HIRSSADeconstructionPass())
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 FUNCTION_PASS("print<array-use>", ArrayUsePrinterPass(dbgs()))
