@@ -15,6 +15,7 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/Intel_DopeVectorAnalysis.h" // INTEL
 #include "llvm/Analysis/Loads.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/DataLayout.h"
@@ -688,7 +689,12 @@ static Instruction *unpackLoadToAggregate(InstCombinerImpl &IC, LoadInst &LI) {
     auto *SL = DL.getStructLayout(ST);
     if (SL->hasPadding())
       return nullptr;
-
+#if INTEL_CUSTOMIZATION
+    // Delay lowering of dope vector loads and stores until DTrans has had
+    // the chance to process them.
+    if (IC.preserveForDTrans() && llvm::dvanalysis::isDopeVectorType(T, DL))
+      return nullptr;
+#endif // INTEL_CUSTOMIZATION
     const auto Align = LI.getAlign();
     auto *Addr = LI.getPointerOperand();
     auto *IdxType = Type::getInt32Ty(T->getContext());
@@ -1475,6 +1481,12 @@ static bool unpackStoreToAggregate(InstCombinerImpl &IC, StoreInst &SI) {
     auto *SL = DL.getStructLayout(ST);
     if (SL->hasPadding())
       return false;
+#if INTEL_CUSTOMIZATION
+    // Delay lowering of dope vector loads and stores until DTrans has had
+    // the chance to process them.
+    if (IC.preserveForDTrans() && llvm::dvanalysis::isDopeVectorType(T, DL))
+      return false;
+#endif // INTEL_CUSTOMIZATION
 
     const auto Align = SI.getAlign();
 
