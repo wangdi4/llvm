@@ -383,13 +383,13 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
     const VPLoadStoreInst &Memref, VPlanPeelingVariant &Peeling) const {
   if (auto *SP = dyn_cast<VPlanStaticPeeling>(&Peeling))
     return getAlignmentUnitStrideImpl(Memref, *SP);
+  if (auto *DP = dyn_cast<VPlanDynamicPeeling>(&Peeling))
+    return getAlignmentUnitStrideImpl(Memref, *DP);
   llvm_unreachable("Unsupported peeling variant");
 }
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
     const VPLoadStoreInst &Memref, VPlanStaticPeeling &SP) const {
-  assert(SP.peelCount() == 0 && "Non-zero peel counts are not supported yet");
-
   Align AlignFromIR = Memref.getAlignment();
 
   auto Ind = VPSE->asConstStepInduction(Memref.getAddressSCEV());
@@ -401,8 +401,13 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
   if (Ind->Step <= 0)
     return AlignFromIR;
 
-  auto KB = VPVT->getKnownBits(Ind->InvariantBase, &Memref);
-  Align AlignFromVPVT{1ULL << KB.countMinTrailingZeros()};
+  auto BaseKB = VPVT->getKnownBits(Ind->InvariantBase, &Memref);
+  auto NumKnownLowBits = (BaseKB.One | BaseKB.Zero).countTrailingOnes();
+  uint64_t Mask = ~0ULL << NumKnownLowBits;
+
+  auto Offset = SP.peelCount() * Ind->Step;
+  auto AdjustedBase = (BaseKB.One + Offset) | Mask;
+  Align AlignFromVPVT{1ULL << AdjustedBase.countTrailingZeros()};
 
   // Alignment of access cannot be larger than alignment of the step, which
   // equals to (VF * Step) for widened memrefs.
@@ -411,4 +416,37 @@ Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
   // Generally, the resulting alignment is equal to AlignFromVPVT. However, it
   // cannot be lower than AlignFromIR and higher than AlignFromStep.
   return std::min(AlignFromStep, std::max(AlignFromIR, AlignFromVPVT));
+}
+
+Align VPlanAlignmentAnalysis::getAlignmentUnitStrideImpl(
+    const VPLoadStoreInst &Memref, VPlanDynamicPeeling &DP) const {
+  Align AlignFromIR = Memref.getAlignment();
+
+  VPlanSCEV *DstScev = Memref.getAddressSCEV();
+  auto DstInd = VPSE->asConstStepInduction(DstScev);
+  if (!DstInd)
+    return AlignFromIR;
+
+  VPlanSCEV *SrcScev = DP.memref()->getAddressSCEV();
+  auto SrcInd = VPSE->asConstStepInduction(SrcScev);
+  assert(SrcInd && "Dynamic peeling on a non-inductive address?");
+
+  auto Step = DstInd->Step;
+  // Dynamic peeling won't help if memrefs have different steps.
+  if (SrcInd->Step != Step)
+    return AlignFromIR;
+
+  VPlanSCEV *Diff = VPSE->getMinusExpr(DstScev, SrcScev);
+  auto KB = VPVT->getKnownBits(Diff, &Memref);
+  Align AlignFromDiff{1ULL << KB.countMinTrailingZeros()};
+
+  // Alignment of access cannot be larger than alignment of the step, which
+  // equals to (VF * Step) for widened memrefs.
+  Align AlignFromStep{MinAlign(0, VF * Step)};
+
+  // Generally, the resulting alignment is equal to AlignFromDiff capped by
+  // peeling target alignment. However, it cannot be lower than AlignFromIR and
+  // higher than AlignFromStep.
+  Align AlignFromDiffCapped = std::min(AlignFromDiff, DP.targetAlignment());
+  return std::min(AlignFromStep, std::max(AlignFromIR, AlignFromDiffCapped));
 }
