@@ -4160,7 +4160,10 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
     }
 
     LoopPrivateVPWidenMap[V] = WidenedPrivArr;
-    if (V->isSOALayout())
+    // If this is a scalar-private, do not store this in the VPScalarMap. All
+    // operations on scalar-privates, even for SOA, should be done via the
+    // VPWidenMap or the LoopPrivateWidenMap.
+    if (V->isSOALayout() && !isScalarTy(OrigTy))
       VPScalarMap[V][0] = WidenedPrivArr;
     else
       VPWidenMap[V] = createVectorPrivatePtrs(V);

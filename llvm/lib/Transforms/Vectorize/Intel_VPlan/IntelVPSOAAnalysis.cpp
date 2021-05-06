@@ -129,21 +129,27 @@ bool VPSOAAnalysis::hasPotentiallyUnsafeOperands(const VPInstruction *UseInst) {
 // are encountered.
 bool VPSOAAnalysis::isSafeLoadStore(const VPInstruction *UseInst,
                                     const VPInstruction *CurrentI) {
-  unsigned OpCode = UseInst->getOpcode();
-  switch (OpCode) {
-  // We consider loads unsafe when the pointer operand is considered
-  // potentially unsafe (e.g., via unsafe bitcast).
-  case Instruction::Load:
-    return PotentiallyUnsafeInsts.count(UseInst->getOperand(0)) == 0;
-  // We consider store's unsafe when the pointer operand is considered
-  // potentially unsafe (e.g., via unsafe bitcast) or the private-pointer
-  // or its alias escapes via a write to external memory.
-  case Instruction::Store:
-    return PotentiallyUnsafeInsts.count(UseInst->getOperand(1)) == 0 &&
-           UseInst->getOperand(0) != CurrentI;
-  default:
-    return false;
+  if (auto *LSI = dyn_cast<VPLoadStoreInst>(UseInst)) {
+    // If this is a non-simple (e.g. volatile) load/store, treat this as
+    // unsafe.
+    if (!LSI->isSimple())
+      return false;
+
+    // We consider loads/stores unsafe when the pointer operand is considered
+    // potentially unsafe (e.g., via unsafe bitcast).
+    if (PotentiallyUnsafeInsts.count(LSI->getPointerOperand()))
+      return false;
+
+    // In addition, we consider stores unsafe when the private-pointer or its
+    // alias escapes via a write to external memory.
+    if (LSI->getOpcode() == Instruction::Store &&
+        LSI->getOperand(0) == CurrentI)
+      return false;
+
+    return true;
   }
+
+  return false;
 }
 
 // An umbrella function to determine the safety of an operation.
