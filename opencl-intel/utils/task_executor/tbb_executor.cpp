@@ -259,13 +259,14 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
     InitTBBNuma();
 
     gWorker_threads = uiNumOfThreads;
+    unsigned activeThreads = (unsigned)tbb::global_control::active_value(
+        tbb::global_control::max_allowed_parallelism);
     if (gWorker_threads == TE_AUTO_THREADS)
     {
         // Threads number should be inquired from the threads spawner (tbb).
         gWorker_threads = std::min(
               (unsigned int)Intel::OpenCL::Utils::GetNumberOfProcessors(),
-              (unsigned int)tbb::global_control::active_value(
-                                tbb::global_control::max_allowed_parallelism));
+              activeThreads);
     }
 
     unsigned hardwareThreads = std::min(gWorker_threads,
@@ -274,8 +275,11 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
     // means that TBB can create at least 256 workers, even on machines
     // with small number of hardware threads.
     unsigned maxThreads = std::max(4 * hardwareThreads, 256U);
-    // 1 main thread + 1 tbb worker
-    unsigned minThreads = 1 + TE_MIN_WORKER_THREADS;
+    // 1 main thread + 1 tbb worker. If application limits
+    // max_allowed_parallelism to 1, we can only set minThreads to 1.
+    unsigned minThreads = 1;
+    if (activeThreads > 1)
+      minThreads += TE_MIN_WORKER_THREADS;
 
     if (FPGA_EMU_DEVICE == deviceMode)
     {

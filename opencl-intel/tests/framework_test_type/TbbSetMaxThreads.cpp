@@ -60,24 +60,15 @@ bool TbbSetMaxThreads(int NumThreads)
     const std::string filter{ "Intel" };
     const cl::Device device{ find_matching(filter) };
 
-    if (NumThreads == 1)
-    {
-        std::cout << "Using default max threads\n";
-    }
-    else
-    {
-        size_t nthreads = NumThreads;
+    size_t nthreads = NumThreads;
 
-        // W/O for FPGA: Set OCL_TBB_NUM_WORKERS to default test's
-        // number of threads
-        const std::string dname{ device.getInfo<CL_DEVICE_NAME>() };
-        if (dname.find("FPGA") < std::string::npos)
-        {
-            SETENV("OCL_TBB_NUM_WORKERS", std::to_string(nthreads).c_str());
-        }
-        std::cout << "Setting max threads to " << nthreads << "\n";
-        static auto controller = tbb::global_control{ tbb::global_control::max_allowed_parallelism, nthreads };
-    }
+    // W/O for FPGA: Set OCL_TBB_NUM_WORKERS to default test's number of threads
+    const std::string dname{device.getInfo<CL_DEVICE_NAME>()};
+    if (dname.find("FPGA") != std::string::npos)
+      SETENV("OCL_TBB_NUM_WORKERS", std::to_string(nthreads).c_str());
+    std::cout << "Setting max threads to " << nthreads << "\n";
+    auto controller = tbb::global_control{
+        tbb::global_control::max_allowed_parallelism, nthreads};
 
     std::cout << "About to construct context\n";
     cl::Context context{ device };

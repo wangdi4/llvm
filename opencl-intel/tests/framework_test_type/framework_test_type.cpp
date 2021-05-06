@@ -606,7 +606,12 @@ TEST(FrameworkTestType, cl_device_local_mem_size_unlimited_stack_test)
     EXPECT_TRUE(cl_device_local_mem_size_unlimited_stack_test());
 }
 
-TEST(FrameworkTestType, Test_TbbSetMaxThreads)
+TEST(FrameworkTestType, Test_TbbSetMaxThreads1)
+{
+    EXPECT_TRUE(TbbSetMaxThreads(1));
+}
+
+TEST(FrameworkTestType, Test_TbbSetMaxThreads2)
 {
     EXPECT_TRUE(TbbSetMaxThreads(2));
 }
