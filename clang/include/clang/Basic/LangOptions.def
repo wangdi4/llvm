@@ -265,6 +265,8 @@ LANGOPT(OpenMPUseSingleElemArrayFuncs , 1, 1,
     "Use single element function for private arrays")
 LANGOPT(IntelPragmaPrefetch, 1, 1,
     "Enable Intel compatible #pragma prefetch")
+LANGOPT(OpenMPTargetMalloc, 1, 0,
+    "Enable dynamic memory allocation in parallel regions")
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 LANGOPT(OpenMPLateOutlineTarget, 1, 1, "Outline OpenMP target construct in the back end")

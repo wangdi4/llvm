@@ -1,11 +1,8 @@
-; This test verifies that the following function is not recognized for
-; MemManageTrans:
+; This test verifies that MemManageTrans is not triggered since the constructor
+; function below is not marked with "intel-mempool-constructor".
 ;
-; Constructor: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb
-; This is not recognized because initialization of FreeHead field in List is
-; missing.
-
-
+; @_ZN11xalanc_1_1013XStringCachedC1ERNS_21XPathExecutionContext25GetAndReleaseCachedStringERN11xercesc_2_713MemoryManagerE
+;
 ; RUN: opt < %s -dtrans-memmanagetrans -enable-dtrans-memmanagetrans -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetrans -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=dtrans-memmanagetrans -enable-dtrans-memmanagetrans -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -debug-only=dtrans-memmanagetrans -disable-output 2>&1 | FileCheck %s
 
@@ -16,8 +13,10 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: MemManageTrans transformation:
 ; CHECK:   Considering candidate: %XStringCachedAllocator
-; CHECK: Recognized GetMemManager: _ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv
-; CHECK-NOT: Recognized Constructor: _ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb
+; CHECK:   Possible candidate structs:
+; CHECK:       XStringCachedAllocator
+; CHECK:   Analyzing Candidate ...
+; CHECK: Failed: Callsite restrictions
 
 %"XStringCachedAllocator" = type { %"ReusableArenaAllocator" }
 %"ReusableArenaAllocator" = type <{ %"ArenaAllocator", i8, [7 x i8] }>
@@ -57,31 +56,8 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @_ZTSN11xercesc_2_713MemoryManagerE = internal constant [31 x i8] c"N11xercesc_2_713MemoryManagerE\00"
 
-; Function Attrs: norecurse nounwind readonly uwtable willreturn mustprogress
-define internal nonnull align 8 dereferenceable(8) %"MemoryManager"* @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv(%"ArenaAllocator"* nocapture nonnull readonly dereferenceable(40) %arg) align 2 {
-  %i = getelementptr inbounds %ArenaAllocator, %ArenaAllocator* %arg, i64 0, i32 2
-  %i1 = getelementptr inbounds %XalanList, %XalanList* %i, i64 0, i32 0
-  %i2 = load %MemoryManager*, %MemoryManager** %i1, align 8
-  ret %MemoryManager* %i2
-}
-
 ; Function Attrs: nofree norecurse nounwind uwtable willreturn writeonly
-define internal void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb(%"ReusableArenaAllocator"* nocapture nonnull dereferenceable(41) %arg, %"MemoryManager"* nonnull align 8 dereferenceable(8) %arg1, i16 zeroext %arg2, i1 zeroext %arg3) unnamed_addr  align 2 {
-  %i = getelementptr inbounds %ReusableArenaAllocator, %ReusableArenaAllocator* %arg, i64 0, i32 0
-  %i4 = getelementptr inbounds %ArenaAllocator, %ArenaAllocator* %i, i64 0, i32 1
-  store i16 %arg2, i16* %i4, align 8
-  %i5 = getelementptr inbounds %ArenaAllocator, %ArenaAllocator* %i, i64 0, i32 2
-  %i6 = getelementptr inbounds %XalanList, %XalanList* %i5, i64 0, i32 0
-  store %MemoryManager* %arg1, %MemoryManager** %i6, align 8
-  %i7 = getelementptr inbounds %XalanList, %XalanList* %i5, i64 0, i32 1
-  store %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* null, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %i7, align 8
-; Commenting the store to FreeHeadField in List
-;  %i8 = getelementptr inbounds %XalanList, %XalanList* %i5, i64 0, i32 2
-;  store %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"* null, %"XalanList<ReusableArenaBlock<XStringCached> *>::Node"** %i8, align 8
-  %i9 = getelementptr inbounds %ReusableArenaAllocator, %ReusableArenaAllocator* %arg, i64 0, i32 0, i32 0
-  store i32 (...)** bitcast (i8** getelementptr inbounds ([8 x i8*], [8 x i8*]* null, i32 0, i64 2) to i32 (...)**), i32 (...)*** %i9, align 8
-  %i10 = getelementptr inbounds %ReusableArenaAllocator, %ReusableArenaAllocator* %arg, i64 0, i32 1
-  store i8 0, i8* %i10, align 8
+define internal void @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStringCachedEEC2ERN11xercesc_2_713MemoryManagerEtb(%"ReusableArenaAllocator"* nocapture nonnull dereferenceable(41) %0, %"MemoryManager"* nonnull align 8 dereferenceable(8) %1, i16 zeroext %2, i1 zeroext %3) unnamed_addr  align 2 {
   ret void
 }
 
@@ -100,6 +76,11 @@ define internal zeroext i1 @_ZN11xalanc_1_1022ReusableArenaAllocatorINS_13XStrin
 ; Function Attrs: uwtable
 define internal void @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE5resetEv(%"ArenaAllocator"* nocapture nonnull dereferenceable(40) %0) unnamed_addr align 2 personality i32 (...)* @__gxx_personality_v0 {
   ret void
+}
+
+; Function Attrs: norecurse nounwind readonly uwtable willreturn mustprogress
+define internal nonnull align 8 dereferenceable(8) %"MemoryManager"* @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv(%"ArenaAllocator"* nocapture nonnull readonly dereferenceable(40) %0) align 2 {
+  ret %"MemoryManager"* null
 }
 
 ; Function Attrs: uwtable
@@ -156,14 +137,10 @@ define internal void @_ZN11xalanc_1_1022XStringCachedAllocator5resetEv.8911(%"XS
 ; Function Attrs: argmemonly nofree nosync nounwind willreturn writeonly
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)
 
-declare void @_ZN11xalanc_1_1013XStringCachedC1ERNS_21XPathExecutionContext25GetAndReleaseCachedStringERN11xercesc_2_713MemoryManagerE(%"XStringCached"* nonnull, %"XPathExecutionContext::GetAndReleaseCachedString"* nonnull, %"MemoryManager"* nonnull ) #0
+declare void @_ZN11xalanc_1_1013XStringCachedC1ERNS_21XPathExecutionContext25GetAndReleaseCachedStringERN11xercesc_2_713MemoryManagerE(%"XStringCached"* nonnull, %"XPathExecutionContext::GetAndReleaseCachedString"* nonnull, %"MemoryManager"* nonnull )
 
-declare void @_ZN11xalanc_1_1013XStringCachedD2Ev(%"XStringCached"* nonnull) #1
+declare void @_ZN11xalanc_1_1013XStringCachedD2Ev(%"XStringCached"* nonnull)
 
 declare void @__clang_call_terminate(i8*)
 
 declare dso_local i32 @__gxx_personality_v0(...)
-
-attributes #0 = { "intel-mempool-constructor" }
-attributes #1 = { "intel-mempool-destructor" }
-

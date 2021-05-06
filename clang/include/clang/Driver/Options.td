@@ -2593,6 +2593,10 @@ def fopenmp_use_single_elem_array_funcs : Flag<["-"],
 def fno_openmp_use_single_elem_array_funcs : Flag<["-"],
   "fno-openmp-use-single-elem-array-funcs">,
   MarshallingInfoNegativeFlag<LangOpts<"OpenMPUseSingleElemArrayFuncs">>;
+defm openmp_target_malloc : BoolFOption<"openmp-target-malloc",
+  LangOpts<"OpenMPTargetMalloc">, DefaultFalse,
+  PosFlag<SetTrue, [CC1Option]>, NegFlag<SetFalse, [CC1Option]>,
+  BothFlags<[NoArgumentUnused, HelpHidden]>>;
 // end INTEL_COLLAB
 def fopenmp_targets_EQ : CommaJoined<["-"], "fopenmp-targets=">, Flags<[NoXarchOption, CC1Option]>,
   HelpText<"Specify comma-separated list of triples OpenMP offloading targets to be supported">;

@@ -1480,6 +1480,11 @@ llvm::Value *CGOpenMPRuntime::getThreadID(CodeGenFunction &CGF,
     if (ThreadID != nullptr)
       return ThreadID;
   }
+#if INTEL_COLLAB
+  // When late-outlining, use reference to backend thread pointer and let it
+  // fix up final thread pointer usage inside parallel regions.
+  if (!CGM.getLangOpts().OpenMPLateOutline)
+#endif // INTEL_COLLAB
   // If exceptions are enabled, do not use parameter to avoid possible crash.
   if (auto *OMPRegionInfo =
           dyn_cast_or_null<CGOpenMPRegionInfo>(CGF.CapturedStmtInfo)) {
@@ -1512,6 +1517,20 @@ llvm::Value *CGOpenMPRuntime::getThreadID(CodeGenFunction &CGF,
   // Generate thread id value and cache this value for use across the
   // function.
   auto &Elem = OpenMPLocThreadIDMap.FindAndConstruct(CGF.CurFn);
+#if INTEL_COLLAB
+  // Backend will handle thread pointer for alloc/free calls on host. It will
+  // either keep this thread ID or replace it with a use of the global
+  // thread ID.
+  if (CGM.getLangOpts().OpenMPLateOutline && CGF.CapturedStmtInfo) {
+    llvm::Value *TidAddr =
+        CGF.CurFn->getParent()->getOrInsertGlobal("@tid.addr", CGF.CGM.Int32Ty);
+    ThreadID = CGF.Builder.CreateAlignedLoad(
+        TidAddr->getType()->getPointerElementType(), TidAddr,
+        CharUnits::fromQuantity(4), "my.tid");
+    Elem.second.ThreadID = ThreadID;
+    return ThreadID;
+  }
+#endif // INTEL_COLLAB
   if (!Elem.second.ServiceInsertPt)
     setLocThreadIdInsertPt(CGF);
   CGBuilderTy::InsertPointGuard IPG(CGF.Builder);
@@ -12640,6 +12659,16 @@ Address CGOpenMPRuntime::getAddressOfLocalVariable(CodeGenFunction &CGF,
         llvm::Value *Args[3];
         Args[0] = CGF.CGM.getOpenMPRuntime().getThreadID(
             CGF, SourceLocation::getFromRawEncoding(LocEncoding));
+#if INTEL_COLLAB
+        // Ensure pointer to alloc'd memory is expected type.
+        if (CGF.CGM.getLangOpts().OpenMPLateOutline &&
+            CGF.CGM.getLangOpts().OpenMPIsDevice &&
+            CGF.CGM.getTriple().getArch() == llvm::Triple::spir64) {
+          Args[1] = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
+              Addr.getPointer(),
+              CGF.ConvertTypeForMem(CGF.getContext().VoidPtrTy));
+        } else
+#endif // INTEL_COLLAB
         Args[1] = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
             Addr.getPointer(), CGF.VoidPtrTy);
         llvm::Value *AllocVal = CGF.EmitScalarExpr(Allocator);
