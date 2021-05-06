@@ -5,6 +5,36 @@
 //
 // RUN: %clang_cc1 -verify -Wno-openmp-allocate -DNOWARNING -fopenmp \
 // RUN: -fopenmp-late-outline %s
+//
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
+// RUN:  -emit-llvm-bc -disable-llvm-passes \
+// RUN:  -fopenmp -fopenmp-targets=spir64 \
+// RUN:  -fopenmp-late-outline \
+// RUN:  -o %t_spir.bc %s -DSPIR
+
+// Check current default for -fopenmp-target-malloc
+// RUN: %clang_cc1 -triple spir64 \
+// RUN:  -aux-triple x86_64-unknown-linux-gnu \
+// RUN:  -fopenmp -fopenmp-targets=spir64 \
+// RUN:  -fopenmp-late-outline \
+// RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_spir.bc \
+// RUN:  %s -DSPIR -DDEVICE_ERROR -verify
+
+// Check -fopenmp-target-malloc
+// RUN: %clang_cc1 -triple spir64 \
+// RUN:  -aux-triple x86_64-unknown-linux-gnu \
+// RUN:  -fopenmp -fopenmp-targets=spir64 -fopenmp-late-outline \
+// RUN:  -fopenmp-target-malloc \
+// RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_spir.bc \
+// RUN:  %s -DSPIR -verify
+
+// Check -fno-openmp-target-malloc
+// RUN: %clang_cc1 -triple spir64 \
+// RUN:  -aux-triple x86_64-unknown-linux-gnu \
+// RUN:  -fopenmp -fopenmp-targets=spir64 -fopenmp-late-outline \
+// RUN:  -fno-openmp-target-malloc \
+// RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_spir.bc \
+// RUN:  %s -DSPIR -DDEVICE_ERROR -verify
 
 enum omp_allocator_handle_t {
   omp_null_allocator = 0,
@@ -19,6 +49,23 @@ enum omp_allocator_handle_t {
   KMP_ALLOCATOR_MAX_HANDLE = __UINTPTR_MAX__
 };
 
+#ifdef SPIR
+// Expect an error for device compilation without dynamic allocation
+// enabled, either by default or when using -fno-openmp-target-malloc.
+#ifndef DEVICE_ERROR
+// expected-no-diagnostics
+#endif
+void foo() {
+  #pragma omp parallel
+  for(int t = 0; t < 32; ++t) {
+    int bar;
+#ifdef DEVICE_ERROR
+  // expected-error@+2 {{allocate directive not supported for selected target}}
+#endif
+    #pragma omp allocate(bar) allocator(omp_pteam_mem_alloc)
+  }
+}
+#else // SPIR
 #ifdef NOWARNING
 // expected-no-diagnostics
 #endif
@@ -75,4 +122,5 @@ int main() {
 #endif
   #pragma omp allocate(al9) allocator(omp_large_cap_mem_alloc)
 }
+#endif // SPIR
 // end INTEL_COLLAB

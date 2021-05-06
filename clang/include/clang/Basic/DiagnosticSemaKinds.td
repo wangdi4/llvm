@@ -10823,6 +10823,8 @@ def err_omp_adjust_arg_multiple_clauses : Error<
   "adjust_arg argument %0 used in multiple clauses">;
 def err_omp_clause_requires_dispatch_construct : Error<
   "'%0' clause requires 'dispatch' context selector">;
+def err_omp_allocate_offload_target : Error<
+  "allocate directive not supported for selected target">;
 #endif // INTEL_COLLAB
 } // end of OpenMP category
 
