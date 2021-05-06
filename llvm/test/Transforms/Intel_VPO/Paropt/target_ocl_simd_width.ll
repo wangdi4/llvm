@@ -2,6 +2,12 @@
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt'  -switch-to-offload -S | FileCheck --check-prefix=SIMDLEN %s
 ; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing  -vpo-paropt -vpo-paropt-fixed-simd-width=32 -S | FileCheck --check-prefix=OPT-OVERRIDE %s
 ; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt'  -switch-to-offload -vpo-paropt-fixed-simd-width=32 -S | FileCheck --check-prefix=OPT-OVERRIDE %s
+; INTEL_CUSTOMIZATION
+; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -vpo-paropt-config=%S/Inputs/Intel_simdlen_config.yaml -S | FileCheck --check-prefix=SIMDLEN-CFG %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -vpo-paropt-config=%S/Inputs/Intel_simdlen_config.yaml -S | FileCheck --check-prefix=SIMDLEN-CFG %s
+; RUN: opt < %s  -switch-to-offload -vpo-cfg-restructuring -vpo-paropt-loop-collapse -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing  -vpo-paropt -vpo-paropt-fixed-simd-width=32 -vpo-paropt-config=%S/Inputs/Intel_simdlen_config.yaml -S | FileCheck --check-prefix=OPT-OVERRIDE-CFG %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-loop-collapse,vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt'  -switch-to-offload -vpo-paropt-fixed-simd-width=32 -vpo-paropt-config=%S/Inputs/Intel_simdlen_config.yaml -S | FileCheck --check-prefix=OPT-OVERRIDE-CFG %s
+; end INTEL_CUSTOMIZATION
 
 ; Original code:
 ; void foo() {
@@ -19,6 +25,15 @@
 
 ; OPT-OVERRIDE: !intel_reqd_sub_group_size ![[MD:[0-9]+]]
 ; OPT-OVERRIDE: ![[MD]] = !{i32 32}
+; INTEL_CUSTOMIZATION
+; Check that XmainParoptConfig overrides simdlen() clause
+; and -vpo-paropt-fixed-simd-width option:
+; SIMDLEN-CFG: !intel_reqd_sub_group_size ![[MD:[0-9]+]]
+; SIMDLEN-CFG: ![[MD]] = !{i32 64}
+
+; OPT-OVERRIDE-CFG: !intel_reqd_sub_group_size ![[MD:[0-9]+]]
+; OPT-OVERRIDE-CFG: ![[MD]] = !{i32 64}
+; end INTEL_CUSTOMIZATION
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"

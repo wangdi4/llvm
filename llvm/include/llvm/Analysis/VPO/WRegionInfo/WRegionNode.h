@@ -570,6 +570,13 @@ public:
   virtual loopopt::HLNode *getExitHLNode() const  {WRNERROR("ExitHLNode");    }
   virtual void setHLLoop(loopopt::HLLoop *)       {WRNERROR("HLLoop");        }
   virtual loopopt::HLLoop *getHLLoop() const      {WRNERROR("HLLoop");        }
+  // Setter/getter for a thread limit attribute specified in VPOParoptConfig.
+  virtual void setConfiguredThreadLimit(uint64_t) {
+    WRNERROR(QUAL_OMP_THREAD_LIMIT);
+  }
+  virtual uint64_t getConfiguredThreadLimit() const {
+    WRNERROR(QUAL_OMP_THREAD_LIMIT);
+  }
 #endif //INTEL_CUSTOMIZATION
 
   virtual void setSPIRVSIMDWidth(unsigned) {WRNERROR("SPIRVSIMDWidth");}

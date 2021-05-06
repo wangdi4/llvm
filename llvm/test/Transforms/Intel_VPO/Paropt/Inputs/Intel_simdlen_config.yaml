@@ -1,0 +1,4 @@
+--- !ParoptConfig
+Kernels:
+  - Name: _foo_l2
+    SPMDSIMDWidth: 64
