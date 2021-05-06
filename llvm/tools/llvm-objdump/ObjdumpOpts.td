@@ -25,7 +25,7 @@ def arch_name_EQ : Joined<["--"], "arch-name=">,
 def archive_headers : Flag<["--"], "archive-headers">,
   HelpText<"Display archive header information">;
 
-def : Flag<["-"], "a">, Alias<all_headers>,
+def : Flag<["-"], "a">, Alias<archive_headers>,
   HelpText<"Alias for --archive-headers">;
 
 def demangle : Flag<["--"], "demangle">, HelpText<"Demangle symbol names">;
@@ -222,9 +222,6 @@ def mv66 : Flag<["--"], "mv66">, HelpText<"Build for Hexagon V66">;
 def mv67 : Flag<["--"], "mv67">, HelpText<"Build for Hexagon V67">;
 
 def mv67t : Flag<["--"], "mv67t">, HelpText<"Build for Hexagon V67T">;
-
-def riscv_no_aliases : Flag<["--"], "riscv-no-aliases">,
-  HelpText<"Disable the emission of assembler pseudo instructions">;
 
 
 def grp_mach_o : OptionGroup<"kind">, HelpText<"llvm-objdump MachO Specific Options">;
