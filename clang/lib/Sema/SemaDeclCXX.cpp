@@ -16824,6 +16824,8 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
     }
   }
 
+  warnOnReservedIdentifier(ND);
+
   return ND;
 }
 
