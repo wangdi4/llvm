@@ -246,7 +246,6 @@ private:
   void addInstructionCombiningPass(legacy::PassManagerBase &MPM,
                                    bool EnableUpCasting) const;
 #endif // INTEL_CUSTOMIZATION
-
 #if INTEL_COLLAB
   void addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
                     bool Simplify = false) const;
@@ -262,6 +261,7 @@ private:
   void addLoopOptAndAssociatedVPOPasses(legacy::PassManagerBase &PM,
                                         bool IsLTO) const;
 #endif // INTEL_CUSTOMIZATION
+  void addVectorPasses(legacy::PassManagerBase &PM, bool IsLTO);
 
 public:
   /// populateFunctionPassManager - This fills in the function pass manager,
