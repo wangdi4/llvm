@@ -14,7 +14,12 @@ target triple = "x86_64-pc-linux"
 @__const.test.f = private unnamed_addr addrspace(2) constant %struct.F { i32 1, i64 2 }, align 8
 
 ; Function Attrs: convergent noinline norecurse nounwind
-define dso_local void @foo(%struct.F* byval(%struct.F) align 8 %f, %struct.B* byval(%struct.B) align 8 %b) #0 {
+define dso_local void @foo1(%struct.B* byval(%struct.B) align 8 %b) #0 {
+  ret void
+}
+
+; Function Attrs: convergent noinline norecurse nounwind
+define dso_local void @foo2(%struct.F* byval(%struct.F) align 8 %f, %struct.B* byval(%struct.B) align 8 %b) #0 {
   ret void
 }
 
@@ -38,14 +43,15 @@ if.then:                                          ; preds = %entry
   call void @llvm.memcpy.p0i8.p2i8.i64(i8* align 8 %0, i8 addrspace(2)* align 8 bitcast (%struct.B addrspace(2)* @__const.test.b to i8 addrspace(2)*), i64 32, i1 false)
   %1 = bitcast %struct.F* %f to i8*
   call void @llvm.memcpy.p0i8.p2i8.i64(i8* align 8 %1, i8 addrspace(2)* align 8 bitcast (%struct.F addrspace(2)* @__const.test.f to i8 addrspace(2)*), i64 16, i1 false)
-  call void @foo(%struct.F* byval(%struct.F) align 8 %f, %struct.B* byval(%struct.B) align 8 %b) #7
+  call void @foo2(%struct.F* byval(%struct.F) align 8 %f, %struct.B* byval(%struct.B) align 8 %b) #7
   br label %if.end
 
 if.end:                                           ; preds = %if.then, %entry
   ret void
 }
 
-; CHECK: define void @foo(i64 %f.coerce.high, i64 %f.coerce.low, %struct.B* %b)
+; CHECK: define void @foo1(%struct.B* %b)
+; CHECK: define void @foo2(i64 %f.coerce.high, i64 %f.coerce.low, %struct.B* %b)
 
 ; Function Attrs: convergent nounwind readnone willreturn
 declare i64 @_Z13get_global_idj(i32) #2
