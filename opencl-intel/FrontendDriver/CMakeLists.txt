@@ -67,10 +67,10 @@ if (OPENCL_INTREE_BUILD)
 endif()
 
 if (WIN32)
-    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/common_clang${BUILD_PLATFORM}.lib)
+    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIRS}/${COMMON_CLANG}.lib)
 else (WIN32)
-    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so.${CCLANG_LIBRARY_VERSION})
-    set(COMMON_CLANG_SYMLINK ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so)
+    set(COMMON_CLANG_LIB ${LLVM_LIBRARY_DIR}/lib${COMMON_CLANG}.so.${CCLANG_LIBRARY_VERSION})
+    set(COMMON_CLANG_SYMLINK ${LLVM_LIBRARY_DIR}/lib${COMMON_CLANG}.so)
 endif (WIN32)
 
 add_subdirectory(header_linker)
@@ -165,19 +165,20 @@ add_opencl_library (${TARGET_NAME_EMU} SHARED
 )
 
 if (OPENCL_INTREE_BUILD)
-  add_dependencies(${TARGET_NAME} common_clang${BUILD_PLATFORM})
-  add_dependencies(${TARGET_NAME_EMU} common_clang${BUILD_PLATFORM})
+  add_dependencies(${TARGET_NAME} ${COMMON_CLANG})
+  add_dependencies(${TARGET_NAME_EMU} ${COMMON_CLANG})
 endif()
 
 if (WIN32)
-    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "/DELAYLOAD:common_clang${BUILD_PLATFORM}.dll")
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "/DELAYLOAD:${COMMON_CLANG}.dll")
 endif (WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${FRONTEND_FOLDER_NAME} )
 set_target_properties( ${TARGET_NAME_EMU} PROPERTIES FOLDER ${FRONTEND_FOLDER_NAME} )
 
 if (WIN32)
-    set (COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/common_clang${BUILD_PLATFORM}.dll)
+    add_definitions(-DCCLANG_LIB_NAME="${COMMON_CLANG}.dll")
+    set (COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/${COMMON_CLANG}.dll)
 else (WIN32)
     set (COMMON_CLANG_FILES ${COMMON_CLANG_LIB} ${COMMON_CLANG_SYMLINK})
 endif (WIN32)
@@ -185,7 +186,7 @@ if (WIN32)
     GET_ICS_BUILD_TYPE( ICS_BUILD_TYPE )
     # Disable PDB installation in release build
     if (NOT ICS_BUILD_TYPE STREQUAL "release")
-        list (APPEND COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/common_clang${BUILD_PLATFORM}.pdb)
+        list (APPEND COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/${COMMON_CLANG}.pdb)
     endif ()
 endif (WIN32)
 

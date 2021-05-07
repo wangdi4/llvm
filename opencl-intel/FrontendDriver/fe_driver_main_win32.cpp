@@ -23,12 +23,6 @@
 
 #pragma comment (lib, "cl_sys_utils.lib")
 
-#ifdef _M_X64
-#define CCLANG_LIB_NAME "common_clang64.dll"
-#else
-#define CCLANG_LIB_NAME "common_clang32.dll"
-#endif
-
 using namespace Intel::OpenCL::Utils;
 
 namespace {
@@ -64,6 +58,7 @@ std::string GetDriverStorePath()
 
 bool LoadCommonClang()
 {
+  // CCLANG_LIB_NAME is defined in CMakeLists.txt
   std::string clangPath = GetDriverStorePath() + CCLANG_LIB_NAME;
   if (m_dlClangLib->Load(clangPath.c_str()) != 0) {
     // Failed to load library from Driver Store

@@ -190,8 +190,9 @@ endif (WIN32)
 set_property(GLOBAL PROPERTY CXX_STANDARD 14)
 set_property(GLOBAL PROPERTY C_STANDARD 99)
 
+set(COMMON_CLANG common_clang${BUILD_PLATFORM})
 if (OPENCL_INTREE_BUILD)
-  get_target_property(COMMON_CLANG_H_LOC common_clang${BUILD_PLATFORM} SOURCE_DIR)
+  get_target_property(COMMON_CLANG_H_LOC ${COMMON_CLANG} SOURCE_DIR)
   if ((NOT COMMON_CLANG_H_LOC) OR
       (NOT EXISTS "${COMMON_CLANG_H_LOC}/common_clang.h"))
     message(FATAL_ERROR
