@@ -1642,8 +1642,7 @@ if (INTEL_CUSTOMIZATION)
       llvm-csa-ompplugin
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
-      # SYCL components
-      khronos-icd-loader opencl-aot ioc64
+      # SYCL components: see sycl/CMakeLists.txt
       )
 
     if (WIN32)
@@ -1685,8 +1684,8 @@ if (INTEL_CUSTOMIZATION)
     set(INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
       # OpenCL components
       ocl-common_clang ocl-common_clang_emu ocl-builtins ocl-builtins-shared
-      ocl-config ocl-cl_logger ocl-cl_logger_emu ocl-OpenCL
-      ocl-svml ocl-gdb-plugin ocl-eyeq-builtins ocl-library-kernel
+      ocl-config ocl-cl_logger ocl-cl_logger_emu OpenCL-ICD
+      ocl-svml ocl-gdb-plugin ocl-library-kernel
       ocl-clang_compiler ocl-clang_compiler_emu ocl-clang_compiler32_emu ocl-clang_compiler32 ocl-clang_compiler64_emu ocl-clang_compiler64
       ocl-intelocl ocl-intelocl_emu ocl-intelocl32_emu ocl-intelocl32 ocl-intelocl64_emu ocl-intelocl64
       ocl-cpu_device ocl-cpu_device_emu ocl-cpu_device32_emu ocl-cpu_device32 ocl-cpu_device64_emu ocl-cpu_device64

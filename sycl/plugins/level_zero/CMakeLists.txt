@@ -44,7 +44,6 @@ if (NOT DEFINED LEVEL_ZERO_LIBRARY OR NOT DEFINED LEVEL_ZERO_INCLUDE_DIR)
     INSTALL_DIR       "${CMAKE_CURRENT_BINARY_DIR}/level_zero_loader_install"
     CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
-               -DOpenCL_INCLUDE_DIR=${OpenCL_INCLUDE_DIRS}
                -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
                -DCMAKE_INSTALL_LIBDIR:PATH=lib${LLVM_LIBDIR_SUFFIX}
                ${AUX_CMAKE_FLAGS}
@@ -54,7 +53,7 @@ if (NOT DEFINED LEVEL_ZERO_LIBRARY OR NOT DEFINED LEVEL_ZERO_INCLUDE_DIR)
                LOG_BUILD 1
                LOG_INSTALL 1
     STEP_TARGETS      configure,build,install
-    DEPENDS           ocl-headers
+    DEPENDS           OpenCL-Headers
     BUILD_BYPRODUCTS ${LEVEL_ZERO_LOADER}
   )
   ExternalProject_Add_Step(level-zero-loader llvminstall
@@ -105,8 +104,8 @@ target_include_directories(LevelZeroLoader-Headers
   INTERFACE "${LEVEL_ZERO_INCLUDE_DIR}"
 )
 
+
 include_directories("${sycl_inc_dir}")
-include_directories(${OPENCL_INCLUDE})
 
 add_library(pi_level_zero SHARED
   "${sycl_inc_dir}/CL/sycl/detail/pi.h"
@@ -139,9 +138,14 @@ endif()
 if (TARGET level-zero-loader)
   add_dependencies(pi_level_zero level-zero-loader)
 endif()
-  add_dependencies(sycl-toolchain pi_level_zero)
 
-  target_link_libraries(pi_level_zero PRIVATE "${LEVEL_ZERO_LOADER}")
+add_dependencies(sycl-toolchain pi_level_zero)
+target_link_libraries(pi_level_zero
+  PRIVATE
+    "${LEVEL_ZERO_LOADER}"
+    OpenCL-Headers
+)
+
 if (UNIX)
   target_link_libraries(pi_level_zero PRIVATE pthread)
 else()

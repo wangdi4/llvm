@@ -29,7 +29,7 @@ target_link_libraries(sycl-ls
 # INTEL_CUSTOMIZATION
     ${LIB_NAME}
 # end INTEL_CUSTOMIZATION
-    OpenCL::Headers
+    OpenCL-Headers
 )
 install(TARGETS sycl-ls
   RUNTIME DESTINATION "bin" COMPONENT sycl-ls)

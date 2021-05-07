@@ -73,209 +73,22 @@ set(SYCL_INCLUDE_DIR "include")
 set(SYCL_INCLUDE_BUILD_DIR ${LLVM_BINARY_DIR}/${SYCL_INCLUDE_DIR})
 set(SYCL_INCLUDE_DEPLOY_DIR ${CMAKE_INSTALL_PREFIX}/${SYCL_INCLUDE_DIR})
 
-if( INTEL_CUSTOMIZATION )
-  set( ICD_LOADER_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../external/opencl-icd-loader)
+add_llvm_external_project(opencl)
+list(FIND LLVM_ENABLE_PROJECTS opencl OPENCL_FOUND)
+if(OPENCL_FOUND EQUAL -1)
+  message(FATAL_ERROR "opencl external project required but not found.")
 endif()
 
-if( OpenCL_INCLUDE_DIR AND OpenCL_LIBRARY )
-  # Use OpenCL ICD Loader and headers passed explicitely
-  find_package(OpenCL)
-elseif( DEFINED ICD_LOADER_SRC_DIR )
-  if( NOT EXISTS ${OpenCL_INCLUDE_DIR} )
-    message(ERROR "Missed OpenCL headers" )
-  endif()
+# Copy OpenCL Headers into sycl headers build directory
+# Compiler does automatic lookup bin/../include based on clang binary location,
+# e.g. when run LIT tests
+file(COPY ${OpenCL_INCLUDE_DIR}/CL
+     DESTINATION ${SYCL_INCLUDE_BUILD_DIR}/sycl)
 
-  set(OpenCL_INCLUDE_DIRS ${OpenCL_INCLUDE_DIR})
-else()
-  # Find OpenCL headers and libraries installed in the system and use them to
-  # build SYCL runtime.
-  # WARNING: use with caution, building SYCL runtime with OpenCL implementation
-  # instead of Khronos ICD loader might cause build and/or portability issues.
-  option(OpenCL_BUILD_WITH_SYSTEM_SDK "Build SYCL with OpenCL coming from the build system" OFF)
-
-  if( (OpenCL_INCLUDE_DIR AND OpenCL_LIBRARY) OR OpenCL_BUILD_WITH_SYSTEM_SDK)
-    find_package(OpenCL)
-  endif()
-endif()
-
-include(ExternalProject)
-
-# By default, whenever cmake is re-run, the external project's sources will be
-# updated, which might be annoying - let's have a possibility to disable that as
-# not every external project which is used here is being updated often
-# Single toggle to control all external projects
-option(SYCL_EXTERNAL_PROJECTS_SKIP_AUTO_UPDATE
-  "Perform automatic update step for external projects (OpenCL Headers, OpenCL ICD, etc.)" OFF)
-# More precise controls for each particular external project are documented
-# near each ExternalProject_Add
-
-if( NOT OpenCL_INCLUDE_DIRS )
-  message(STATUS "OpenCL_INCLUDE_DIRS is missing. Will try to download OpenCL headers from github.com")
-  set(OpenCL_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/OpenCL/inc")
-  if (NOT DEFINED SYCL_EP_OCL_HEADERS_SKIP_AUTO_UPDATE)
-    set(SYCL_EP_OCL_HEADERS_SKIP_AUTO_UPDATE ${SYCL_EXTERNAL_PROJECTS_SKIP_AUTO_UPDATE})
-  endif()
-  ExternalProject_Add(ocl-headers
-    GIT_REPOSITORY    https://github.com/KhronosGroup/OpenCL-Headers.git
-    GIT_TAG           23710f1b99186065c1768fc3098ba681adc0f253
-    UPDATE_DISCONNECTED ${SYCL_EP_OCL_HEADERS_SKIP_AUTO_UPDATE}
-    SOURCE_DIR        ${OpenCL_INCLUDE_DIRS}
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND     ${CMAKE_COMMAND} -E copy_directory ${OpenCL_INCLUDE_DIRS}/CL ${SYCL_INCLUDE_BUILD_DIR}/sycl/CL
-    INSTALL_COMMAND   ""
-    STEP_TARGETS      build
-    COMMENT           "Downloading OpenCL headers."
-    LOG_DOWNLOAD 1
-    LOG_UPDATE 1
-    LOG_BUILD 1
-  )
-  add_definitions(-DCL_TARGET_OPENCL_VERSION=220)
-else()
-  add_custom_target( ocl-headers ALL
-    DEPENDS ${OpenCL_INCLUDE_DIRS}
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${OpenCL_INCLUDE_DIRS}/CL ${SYCL_INCLUDE_BUILD_DIR}/sycl/CL
-    COMMENT "Copying OpenCL headers ..."
-  )
-endif()
-
-if( DEFINED ICD_LOADER_SRC_DIR )
-  message ("Build OpenCL from provided sources")
-  file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy)
-  if(MSVC)
-    set(OPENCL_ICD_LOADER_WDK "-DOPENCL_ICD_LOADER_REQUIRE_WDK=OFF")
-    set(OpenCL_LIBRARIES
-      "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}OpenCL${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  else()
-    set(OPENCL_ICD_LOADER_WDK "")
-    set(OpenCL_LIBRARIES
-        "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}OpenCL${CMAKE_SHARED_LIBRARY_SUFFIX}"
-    )
-  endif()
-
-  ExternalProject_Add(ocl-icd
-      SOURCE_DIR        "${ICD_LOADER_SRC_DIR}"
-      BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/icd_build"
-      CMAKE_ARGS        -DOPENCL_ICD_LOADER_HEADERS_DIR=${OpenCL_INCLUDE_DIRS}
-                        -DBUILD_TESTING=OFF
-                        -DCMAKE_INSTALL_LIBDIR:PATH=lib${LLVM_LIBDIR_SUFFIX}
-                        -DCMAKE_INSTALL_BINDIR:PATH=bin
-                        ${OPENCL_ICD_LOADER_WDK}
-# INTEL_CUSTOMIZATION
-                        # For multi-config generators we have to install
-                        # to config specific directory. Note that this install
-                        # point will be used only for the purpose of the final
-                        # deployment.
-                        -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy/$<CONFIG>
-# end INTEL_CUSTOMIZATION
-                        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-      INSTALL_COMMAND   ${CMAKE_COMMAND} --build <BINARY_DIR> --target install
-# INTEL_CUSTOMIZATION
-                        # Specify which config to build for multi-config
-                        # generators.
-                        --config $<CONFIG>
-                        # This installation is done so that the loader
-                        # is installed into the llvm's build structure.
-                        # This copy will be used for resolving any dependencies
-                        # on the loader (e.g. in libsycl).
-      COMMAND           ${CMAKE_COMMAND}
-                        -DCMAKE_INSTALL_PREFIX=${LLVM_BINARY_DIR}/${CMAKE_CFG_INTDIR}
-                        -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG>
-# end INTEL_CUSTOMIZATION
-                        -P <BINARY_DIR>/cmake_install.cmake
-      STEP_TARGETS      install
-# INTEL_CUSTOMIZATION
-      BUILD_BYPRODUCTS  ${OpenCL_LIBRARIES}
-# end INTEL_CUSTOMIZATION
-  )
-# INTEL_CUSTOMIZATION
-  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy/$<CONFIG>/lib
-# end INTEL_CUSTOMIZATION
-      DESTINATION .
-      COMPONENT khronos-icd-loader
-  )
-  if(MSVC)
-# INTEL_CUSTOMIZATION
-    install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy/$<CONFIG>/bin
-# end INTEL_CUSTOMIZATION
-        DESTINATION .
-        COMPONENT khronos-icd-loader
-    )
-  endif()
-elseif( NOT OpenCL_LIBRARIES )
-  message(STATUS "OpenCL_LIBRARIES is missing. Will try to download OpenCL ICD Loader from github.com")
-  if(MSVC)
-    set(OpenCL_LIBRARIES
-        "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}OpenCL${CMAKE_STATIC_LIBRARY_SUFFIX}")
-    list(APPEND AUX_CMAKE_FLAGS -DOPENCL_ICD_LOADER_REQUIRE_WDK=OFF)
-  else()
-    set(OpenCL_LIBRARIES
-        "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}OpenCL${CMAKE_SHARED_LIBRARY_SUFFIX}")
-  endif()
-  if (CMAKE_C_COMPILER)
-    list(APPEND AUX_CMAKE_FLAGS -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER})
-  endif()
-  if (CMAKE_CXX_COMPILER)
-    list(APPEND AUX_CMAKE_FLAGS -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
-  endif()
-  file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build)
-  set(OpenCL_ICD_LOADER_SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/OpenCL/icd")
-  if (NOT DEFINED SYCL_EP_OCL_ICD_SKIP_AUTO_UPDATE)
-    set(SYCL_EP_OCL_ICD_SKIP_AUTO_UPDATE ${SYCL_EXTERNAL_PROJECTS_SKIP_AUTO_UPDATE})
-  endif()
-  ExternalProject_Add(ocl-icd
-    GIT_REPOSITORY    https://github.com/KhronosGroup/OpenCL-ICD-Loader.git
-    GIT_TAG           5f8249691ec8c25775789498951f8e9eb62c201d
-    UPDATE_DISCONNECTED ${SYCL_EP_OCL_ICD_SKIP_AUTO_UPDATE}
-    SOURCE_DIR        ${OpenCL_ICD_LOADER_SOURCE_DIR}
-    BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/icd_build"
-    INSTALL_DIR       "${CMAKE_CURRENT_BINARY_DIR}/icd_install"
-    CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-               -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
-               -DOPENCL_ICD_LOADER_HEADERS_DIR=${OpenCL_INCLUDE_DIRS}
-               -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-               -DCMAKE_INSTALL_LIBDIR:PATH=lib${LLVM_LIBDIR_SUFFIX}
-               ${AUX_CMAKE_FLAGS}
-    STEP_TARGETS      configure,build,install
-    DEPENDS           ocl-headers
-    BUILD_BYPRODUCTS ${OpenCL_LIBRARIES}
-    LOG_DOWNLOAD 1
-    LOG_UPDATE 1
-    LOG_CONFIGURE 1
-    LOG_BUILD 1
-    LOG_INSTALL 1
-  )
-  ExternalProject_Add_Step(ocl-icd llvminstall
-    COMMAND ${CMAKE_COMMAND} -E copy_directory <INSTALL_DIR>/ ${LLVM_BINARY_DIR}
-    COMMENT "Installing ocl-icd into the LLVM binary directory"
-    DEPENDEES install
-  )
-  # Optionally install the ICD library along with LLVM.
-  option(OpenCL_INSTALL_KHRONOS_ICD_LOADER
-    "Install the Khronos ICD Loader built as part of LLVM" OFF)
-  if (OpenCL_INSTALL_KHRONOS_ICD_LOADER)
-    install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/icd_install/"
-      DESTINATION "."
-      COMPONENT opencl-icd
-    )
-  endif()
-else()
-  file(GLOB ICD_LOADER_SRC "${OpenCL_LIBRARIES}*")
-  file(COPY ${ICD_LOADER_SRC} DESTINATION ${LLVM_LIBRARY_OUTPUT_INTDIR})
-  add_custom_target(ocl-icd DEPENDS ${OpenCL_LIBRARIES} COMMENT "Copying OpenCL ICD Loader ...")
-endif()
-
-set(OPENCL_INCLUDE "${OpenCL_INCLUDE_DIRS}")
-
-add_library (OpenCL-Headers INTERFACE)
-add_library (OpenCL::Headers ALIAS OpenCL-Headers)
-target_include_directories(OpenCL-Headers
-  INTERFACE ${OPENCL_INCLUDE}
-)
-install(DIRECTORY ${OPENCL_INCLUDE}/CL
-  DESTINATION ${SYCL_INCLUDE_DEPLOY_DIR}/sycl
-  COMPONENT opencl-headers
-)
+# Include OpenCL Headers into final bundle.
+install(DIRECTORY ${OpenCL_INCLUDE_DIR}/CL
+        DESTINATION ${SYCL_INCLUDE_DEPLOY_DIR}/sycl
+        COMPONENT OpenCL-Headers)
 
 option(SYCL_BUILD_PI_CUDA
   "Enables the CUDA backend for the Plugin Interface" OFF)
@@ -288,13 +101,13 @@ string(TIMESTAMP __SYCL_COMPILER_VERSION "%Y%m%d")
 set(version_header "${sycl_inc_dir}/CL/sycl/version.hpp")
 configure_file("${version_header}.in" "${version_header}")
 
-# Copy SYCL headers
+# Copy SYCL headers from sources to build directory
 add_custom_target(sycl-headers ALL
 COMMAND ${CMAKE_COMMAND} -E copy_directory ${sycl_inc_dir}/sycl ${SYCL_INCLUDE_BUILD_DIR}/sycl
 COMMAND ${CMAKE_COMMAND} -E copy_directory ${sycl_inc_dir}/CL ${SYCL_INCLUDE_BUILD_DIR}/sycl/CL
 COMMENT "Copying SYCL headers ...")
 
-# Configure SYCL headers
+# Copy SYCL headers from sources to install directory
 install(DIRECTORY "${sycl_inc_dir}/sycl" DESTINATION ${SYCL_INCLUDE_DEPLOY_DIR} COMPONENT sycl-headers)
 install(DIRECTORY "${sycl_inc_dir}/CL" DESTINATION ${SYCL_INCLUDE_DEPLOY_DIR}/sycl COMPONENT sycl-headers)
 
@@ -379,6 +192,7 @@ add_custom_target( sycl-toolchain
           llvm-objcopy
           sycl-post-link
           sycl-ls
+          opencl-aot
           ${XPTIFW_LIBS}
 # INTEL_CUSTOMIZATION
           sycl-config-file
@@ -390,13 +204,6 @@ list(FIND LLVM_ENABLE_PROJECTS opencl-aot OPENCL_AOT_FOUND)
 if(NOT OPENCL_AOT_FOUND EQUAL -1)
   add_dependencies(sycl-toolchain opencl-aot)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS opencl-aot)
-endif()
-
-# Check if aocl-ioc64 tool is enabled.
-list(FIND LLVM_ENABLE_PROJECTS aocl-ioc64 AOCL_IOC64_FOUND)
-if(NOT AOCL_IOC64_FOUND EQUAL -1)
-  add_dependencies(sycl-toolchain aocl-ioc64)
-  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS aocl-ioc64)
 endif()
 
 if (SYCL_ENABLE_XPTI_TRACING)
@@ -443,7 +250,8 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      sycl-post-link
      sycl-ls
      clang-resource-headers
-     opencl-headers
+     OpenCL-Headers
+     opencl-aot
      sycl-headers
      sycl-headers-extras
      sycl
@@ -458,8 +266,8 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
 # end INTEL_CUSTOMIZATION
 )
 
-if(OpenCL_INSTALL_KHRONOS_ICD_LOADER AND TARGET ocl-icd)
-  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS opencl-icd)
+if(OpenCL_INSTALL_KHRONOS_ICD_LOADER AND TARGET OpenCL-ICD)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS OpenCL-ICD)
 endif()
 
 if(INTEL_CUSTOMIZATION)
@@ -467,6 +275,13 @@ if(INTEL_CUSTOMIZATION)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-config-file)
   if (CMAKE_SYCL_USE_LEVEL0)
     list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_level_zero)
+  endif()
+
+  # Check if aocl-ioc64 tool is enabled.
+  add_llvm_external_project(aocl-ioc64)
+  list(FIND LLVM_ENABLE_PROJECTS aocl-ioc64 AOCL_IOC64_FOUND)
+  if(NOT AOCL_IOC64_FOUND EQUAL -1)
+    list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS ioc64)
   endif()
 endif(INTEL_CUSTOMIZATION)
 
