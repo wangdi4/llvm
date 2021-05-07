@@ -22,6 +22,7 @@
 #include "cl_sys_info.h"
 #include "common_utils.h"
 #include "task_executor.h"
+#include <tbb/global_control.h>
 #include <tbb/info.h>
 
 extern cl_device_type gDeviceType;
@@ -142,4 +143,23 @@ TEST_F(NumaTest, DISABLED_halfCUs) {
   EXPECT_OCL_SUCCESS(err, "clReleaseKernel");
   err = clReleaseProgram(program);
   EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
+}
+
+TEST_F(NumaTest, numaAPIDisabledSingleThread) {
+  // Skip test if there is only a single NUMA node.
+  if (m_numNumaNodes < 2)
+    return;
+
+  auto controller =
+      tbb::global_control{tbb::global_control::max_allowed_parallelism, 1};
+
+  cl_int err;
+  m_context = clCreateContext(nullptr, 1, &m_device, nullptr, nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateContext");
+
+  using namespace Intel::OpenCL::TaskExecutor;
+  ITaskExecutor *taskExecutor = GetTaskExecutor();
+  EXPECT_NE(taskExecutor, nullptr);
+  EXPECT_FALSE(taskExecutor->IsTBBNumaEnabled())
+      << "NUMA API should be disabled if there is only single thread in TBB";
 }
