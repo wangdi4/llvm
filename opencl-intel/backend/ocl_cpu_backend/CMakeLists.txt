@@ -251,6 +251,7 @@ set( BACKEND_PASSES
     RelaxedPass
     ResolveWICall
     ResolveSubGroupWICall
+    SetPreferVectorWidth
     ShiftZeroUpperBits
     BuiltinCallToInst
     UndefExternalFuncs

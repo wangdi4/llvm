@@ -275,8 +275,8 @@ function(tblgenoclblt OUTPUT_VAR OUTPUT_DIR INPUT_DIR IFN OFN)
     add_custom_command(
         OUTPUT ${OUTPUT_DIR}/${OFN}
         #COMMAND ${OCL-TBLGEN} ${ARGN} -gen-ocl-Exclude=true -gen-ocl-Prefix="__cl_" -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
-        COMMAND ${OCL-TBLGEN} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
-        DEPENDS ${OCL-TBLGEN-DEP} ${depend_tds}
+        COMMAND ${OCL_TBLGEN} ${ARGN} -I=${CL_BUILTIN_SOURCE_DIR} -o ${OUTPUT_DIR}/${OFN} ${CL_BUILTIN_SOURCE_DIR}/${INPUT_DIR}/${IFN}
+        DEPENDS ${OCL_TBLGEN} ${depend_tds}
         COMMENT "Generating ${OFN}"
         )
     set_source_files_properties(${OUTPUT_DIR}/${OFN} PROPERTIES GENERATED 1)
@@ -349,6 +349,8 @@ function( create_target PROC ARCH TARGET_DIR PREBUILD_IMAGE_LIBRARY)
   )
 
   set_target_properties (${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/cl_builtins)
+
+  add_dependencies(${TARGET_NAME} ${OCL_TBLGEN} ${OCL_LIBRARY_TARGET_NAME})
 
   set_property(GLOBAL APPEND PROPERTY OCL_BUILTIN_LIBS ${TARGET_NAME})
 
