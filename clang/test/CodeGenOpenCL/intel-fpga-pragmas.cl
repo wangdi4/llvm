@@ -157,15 +157,15 @@ void foo_ivdep(int select)
   //SPIR: %34 = load i32 addrspace(4)*, i32 addrspace(4)** %ptr, align 8
   //SPIR: %35 = load i32, i32* %i69, align 4
   //SPIR: %idxprom74 = sext i32 %35 to i64
-  //SPIR: %ptridx = getelementptr inbounds i32, i32 addrspace(4)* %34, i64 %idxprom74, !llvm.index.group [[IVDEP13:![0-9]+]]
-  //SPIR: store i32 %call73, i32 addrspace(4)* %ptridx, align 4
+  //SPIR: %arrayidx75 = getelementptr inbounds i32, i32 addrspace(4)* %34, i64 %idxprom74, !llvm.index.group [[IVDEP13:![0-9]+]]
+  //SPIR: store i32 %call73, i32 addrspace(4)* %arrayidx75, align 4
   //SPIR: br{{.*}}!llvm.loop [[IVDEP14:![0-9]+]]
 
   //BOTH: load i32*, i32** %ptr, align 8
   //BOTH: %35 = load i32, i32* %i69, align 4
   //BOTH: %idxprom74 = sext i32 %35 to i64
-  //BOTH: %ptridx = getelementptr inbounds i32, i32* %34, i64 %idxprom74, !llvm.index.group [[IVDEP13:![0-9]+]]
-  //BOTH: store i32 %call73, i32* %ptridx, align 4
+  //BOTH: %arrayidx75 = getelementptr inbounds i32, i32* %34, i64 %idxprom74, !llvm.index.group [[IVDEP13:![0-9]+]]
+  //BOTH: store i32 %call73, i32* %arrayidx75, align 4
   //BOTH: br{{.*}}!llvm.loop [[IVDEP14:![0-9]+]]
   #pragma ivdep array(ptr)
   for (int i=0;i<32;++i) { ptr[i] = ibar(i); }
@@ -173,17 +173,17 @@ void foo_ivdep(int select)
   ptr = &myArray[16];
 
   //SPIR: %39 = load i32 addrspace(4)*, i32 addrspace(4)** %ptr, align 8
-  //SPIR: %40 = load i32, i32* %i79, align 4
-  //SPIR: %idxprom84 = sext i32 %40 to i64
-  //SPIR: %ptridx85 = getelementptr inbounds i32, i32 addrspace(4)* %39, i64 %idxprom84, !llvm.index.group [[IVDEP15:![0-9]+]]
-  //SPIR: store i32 %call83, i32 addrspace(4)* %ptridx85, align 4
+  //SPIR: %40 = load i32, i32* %i80, align 4
+  //SPIR: %idxprom85 = sext i32 %40 to i64
+  //SPIR: %arrayidx86 = getelementptr inbounds i32, i32 addrspace(4)* %39, i64 %idxprom85, !llvm.index.group [[IVDEP15:![0-9]+]]
+  //SPIR: store i32 %call84, i32 addrspace(4)* %arrayidx86, align 4
   //SPIR: br{{.*}}!llvm.loop [[IVDEP16:![0-9]+]]
 
   //BOTH: load i32*, i32** %ptr, align 8
-  //BOTH: %40 = load i32, i32* %i79, align 4
-  //BOTH: %idxprom84 = sext i32 %40 to i64
-  //BOTH: %ptridx85 = getelementptr inbounds i32, i32* %39, i64 %idxprom84, !llvm.index.group [[IVDEP15:![0-9]+]]
-  //BOTH: store i32 %call83, i32* %ptridx85, align 4
+  //BOTH: %40 = load i32, i32* %i80, align 4
+  //BOTH: %idxprom85 = sext i32 %40 to i64
+  //BOTH: %arrayidx86 = getelementptr inbounds i32, i32* %39, i64 %idxprom85, !llvm.index.group [[IVDEP15:![0-9]+]]
+  //BOTH: store i32 %call84, i32* %arrayidx86, align 4
   //BOTH: br{{.*}}!llvm.loop [[IVDEP16:![0-9]+]]
   #pragma ivdep array(ptr)
   for (int i=0;i<32;++i) { ptr[i] = ibar(i); }

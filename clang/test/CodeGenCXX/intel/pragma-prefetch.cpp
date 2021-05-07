@@ -273,7 +273,7 @@ void func(int foo1[], int foo2[], int foo3[], int foo4[]) {
 // CHECK-SAME: "QUAL.PRAGMA.VAR"(i32* %k)
 // CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 2)
 // CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 99)
-// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32* %ptridx)
+// CHECK-SAME: "QUAL.PRAGMA.VAR"(i32* %arrayidx)
 // CHECK-SAME: "QUAL.PRAGMA.HINT"(i32 -1)
 // CHECK-SAME: "QUAL.PRAGMA.DISTANCE"(i32 -1)
 // CHECK-SAME: "QUAL.PRAGMA.VAR"(%struct.foo* %bar3)
