@@ -110,6 +110,7 @@ namespace {
 
     void updateIVUser(Loop * L, IRBuilder<> &Builder);
 
+    void loopIVSumSink();
     void loopIVComputationSink();
     bool optimizeIVComputeSExt(Loop * L);
 
@@ -430,6 +431,182 @@ void IVSplit::updateIVUser(Loop * L, IRBuilder<> &Builder) {
     LLVM_DEBUG(dbgs() << *BB << "\n");
   }
 }
+/* Sink following IV Sum computation (IV1 + ... + IV8)
+ *   LOOP1
+ *    %T1 = trunc i64 %IV1 to i32
+ *
+ *   LOOP2
+ *    %T2 = trunc i64 %IV2 to i32
+ *    %S1 = add i32 %T1, %T2
+ *
+ *   LOOP3
+ *    %T3 = trunc i64 %IV3 to i32
+ *    %S2 = add i32 %S1, %T3
+ *
+ *   LOOP4
+ *    %T4 = trunc i64 %IV4 to i32
+ *    %S3 = add i32 %S2, %T4
+ *
+ *   LOOP5
+ *    %T5 = trunc i64 %IV5 to i32
+ *    %S4 = add i32 %S3, %T5
+ *
+ *   LOOP6
+ *    %T6 = trunc i64 %IV6 to i32
+ *    %S5 = add i32 %S4, %T6
+ *
+ *   LOOP7
+ *    %T7 = trunc i64 %IV7 to i32
+ *    %S6 = add i32 %S5, %T7
+ *
+ *   LOOP8
+ *    %T8 = trunc i64 %IV8 to i32
+ *    %S7 = add i32 %S6, %T8
+ *    %I9_32 = sub i32 45, %S7
+ *    %19 = sext i32 %I9_32 to i64
+ *
+ * to the inner most loop:
+ *
+ *   LOOP8
+ *    %T8 = trunc i64 %IV8 to i32
+ *    %T2 = trunc i64 %IV2 to i32
+ *    %S1 = add i32 %T8, %T2
+ *    %T3 = trunc i64 %IV3 to i32
+ *    %S2 = add i32 %S1, %T3
+ *    %T4 = trunc i64 %IV4 to i32
+ *    %S3 = add i32 %S2, %T4
+ *    %T5 = trunc i64 %IV5 to i32
+ *    %S4 = add i32 %S3, %T5
+ *    %T6 = trunc i64 %IV6 to i32
+ *    %S5 = add i32 %S4, %T6
+ *    %T7 = trunc i64 %IV7 to i32
+ *    %S6 = add i32 %S5, %T7
+ *    %T1 = trunc i64 %IV1 to i32
+ *    %S7 = add i32 %S6, %T1
+ *    %I9_32 = sub i32 45, %S7
+ *    %19 = sext i32 %I9_32 to i64
+ */
+void IVSplit::loopIVSumSink() {
+  BasicBlock * BB;
+  Loop *UserLoop;
+  PHINode *PN = cast<PHINode>(IVs[0]);
+
+  // Find T1
+  Instruction *IVUser = nullptr;
+  for (auto User : make_range(PN->user_begin(), PN->user_end())) {
+    IVUser = cast<Instruction>(User);
+    BB = IVUser->getParent();
+    UserLoop = LI->getLoopFor(BB);
+    if (UserLoop->getLoopDepth() != CurDepth) {
+      IVUser = nullptr;
+      continue;
+    }
+    if (IVUser->getOpcode() == Instruction::Trunc)
+      break;
+  }
+  if (!IVUser || IVUser->getOpcode() != Instruction::Trunc)
+    return;
+
+  // Find S1
+  Instruction *FirstTrunc = IVUser;
+  unsigned Depth = CurDepth + 1;
+  Instruction *Instr = nullptr;
+  for (auto User : make_range(IVUser->user_begin(), IVUser->user_end())) {
+    Instr = cast<Instruction>(User);
+    BB = Instr->getParent();
+    UserLoop = LI->getLoopFor(BB);
+    if (UserLoop->getLoopDepth() != Depth) {
+      Instr = nullptr;
+      continue;
+    }
+    if (Instr->getOpcode() == Instruction::Add)
+      break;
+  }
+  if (!Instr)
+    return;
+
+  // Make sure S1 - S6:
+  //   1) has only one user
+  //   2) the only user is in the inner loop
+  // So that we can sink the chain (S1 - S6)
+  SmallVector<Instruction *, 2> AddInstrs, TruncInstrs;
+  Instruction *Trunc;
+  while (Instr->getOpcode() == Instruction::Add &&
+         Instr->hasOneUse()) {
+    BB = Instr->getParent();
+    UserLoop = LI->getLoopFor(BB);
+    if (UserLoop->getLoopDepth() == Depth) {
+      AddInstrs.push_back(Instr);
+      Depth++;
+    } else {
+      return;
+    }
+    Trunc = nullptr;
+    for (unsigned Op = 0, NumOps = Instr->getNumOperands(); Op != NumOps; ++Op) {
+      Trunc = dyn_cast<Instruction>(Instr->getOperand(Op));
+      if (!Trunc)
+        continue;
+      if (Trunc->getOpcode() == Instruction::Trunc && Trunc != FirstTrunc) {
+        TruncInstrs.push_back(Trunc);
+        break;
+      }
+      Trunc = nullptr;
+    }
+    if (!Trunc)
+      return;
+    Instr = cast<Instruction>(*Instr->user_begin());
+  }
+
+  // Find S7 & T8
+  Instruction *LastAdd = Instr;
+  if (!LastAdd || LastAdd->getOpcode() != Instruction::Add ||
+      !LastAdd->hasNUsesOrMore(2))
+    return;
+  Instruction *LastTrunc = nullptr;
+  for (unsigned Op = 0, NumOps = LastAdd->getNumOperands(); Op != NumOps; ++Op) {
+    LastTrunc = dyn_cast<Instruction>(LastAdd->getOperand(Op));
+    if (!LastTrunc)
+      continue;
+    if (LastTrunc->getOpcode() == Instruction::Trunc)
+      break;
+    LastTrunc = nullptr;
+  }
+  if (!LastTrunc)
+    return;
+
+  // Hoist T8 to S1 to disable Machine LICM
+  Instruction *FirstAdd = AddInstrs[0];
+  for (unsigned Op = 0, NumOps = FirstAdd->getNumOperands(); Op != NumOps; ++Op) {
+    if (FirstAdd->getOperand(Op) == FirstTrunc) {
+      FirstAdd->setOperand(Op, LastTrunc);
+      break;
+    }
+  }
+  // Sink S1 - S6
+  Instruction *Add;
+  for (size_t I = 0, S = AddInstrs.size(); I < S; I++) {
+    Trunc = TruncInstrs[I]->clone();
+    Trunc->insertBefore(LastAdd);
+    Add = AddInstrs[I];
+    for (unsigned Op = 0, NumOps = Add->getNumOperands(); Op != NumOps; ++Op) {
+      if (Add->getOperand(Op) == TruncInstrs[I]) {
+        Add->setOperand(Op, Trunc);
+        break;
+      }
+    }
+    Add->moveBefore(LastAdd);
+  }
+  // Sink T1 to S7
+  FirstTrunc = FirstTrunc->clone();
+  FirstTrunc->insertBefore(LastAdd);
+  for (unsigned Op = 0, NumOps = LastAdd->getNumOperands(); Op != NumOps; ++Op) {
+    if (LastAdd->getOperand(Op) == LastTrunc) {
+      LastAdd->setOperand(Op, FirstTrunc);
+      break;
+    }
+  }
+  LLVM_DEBUG(dbgs() << "Sink IV sum for Loop" << CurDepth << "\n");
+}
 
 // Sink IV i9 computation (t1 - t7) to the inner most loop:
 // DO i1
@@ -528,7 +705,7 @@ Loop8
   Instruction *I9_7 = nullptr;
   BasicBlock * BB1;
   for (auto User : make_range(PN->user_begin(), PN->user_end())) {
-   I9_7 = dyn_cast<Instruction>(User);
+   I9_7 = cast<Instruction>(User);
    BB1 = I9_7->getParent();
    Loop *UserLoop = LI->getLoopFor(BB1);
    // Search for loop8 user of IV which is a part of i9 computation
@@ -557,8 +734,10 @@ Loop8
     Instruction *Inst = &*IRI;
     if (Inst != I9_n)
       return;
-    if (!match(Inst, m_Add(m_Instruction(I9_n), m_Value(IV))))
+    if (!match(Inst, m_Add(m_Instruction(I9_n), m_Value(IV)))) {
+      loopIVSumSink();
       return;
+    }
     if (++IRI == IRE)
       return;
   }
