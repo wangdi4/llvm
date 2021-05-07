@@ -2,7 +2,7 @@
 
 @b.ascast.priv.__local = internal unnamed_addr addrspace(3) global [16 x float] zeroinitializer, align 32
 
-@a.ascast.priv.__local = internal unnamed_addr addrspace(3) global [16 x i64] zeroinitializer, align 32
+@a.ascast.priv.__local = internal unnamed_addr addrspace(3) global [16 x i64] zeroinitializer ; INTEL
 
 define dso_local spir_kernel void @test_slm_store() {
   store <8 x float> <float 1.160000e+02, float 1.170000e+02, float 1.180000e+02, float 1.190000e+02, float 1.200000e+02, float 1.210000e+02, float 1.220000e+02, float 1.230000e+02>, <8 x float> addrspace(3)* bitcast (float addrspace(3)* getelementptr inbounds ([16 x float], [16 x float] addrspace(3)* @b.ascast.priv.__local, i64 0, i64 8) to <8 x float> addrspace(3)*), align 32
