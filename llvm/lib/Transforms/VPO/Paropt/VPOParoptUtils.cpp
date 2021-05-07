@@ -5399,6 +5399,31 @@ Function *VPOParoptUtils::genOutlineFunction(
            "is_device_ptr() clause must have been removed.");
   }
 
+  BasicBlock *SuccOfExitBB = W.getExitBBlock()->getSingleSuccessor();
+  Function *F = W.getEntryDirective()->getFunction();
+
+  // target constructs may have checks like:
+  //   if (!omp_is_initial_device()) abort();
+  // which may cause one of the host/target compilation to result in
+  // the exit block of the region becoming unreachable, making all
+  // subsequent constructs unreachable as well (see
+  // tgt_unreachable_exit_tgt.ll for example).
+  //
+  // So, for target constructs/constructs in target regions, which have
+  // unreachable successors, we make CodeExtractor skip reachability checks,
+  // and pull all blocks in the region's BBSet (which may include an unreachable
+  // ExitBB), into the outlined function, possibly making subsequent constructs,
+  // which were previously unreachable, reachable.
+  //
+  // For non-target constructs, (see par_unreachable_exit_par.ll),
+  // CodeExtractor makes the code after the outlined function call unreachable,
+  // and Paropt ignores any subsequent constructs, and leaves them in the IR
+  // to be removed by other optimization passes (done in
+  // VPOParoptTransform::paroptTransforms()).
+  bool MoveUnreachableRegionBlocksToExtractedFunction =
+      (IsTarget || WRegionUtils::hasParentTarget(&W)) &&
+      (SuccOfExitBB && !DT->isReachableFromEntry(SuccOfExitBB));
+
   // Fix "escaping" EH edges that go outside the region, and dead predecessors.
   // More details in FixEHEscapesAndDeadPredecessors() above.
   // If a fix was made, the new set of region blocks is copied to FixedBlocks.
@@ -5419,6 +5444,8 @@ Function *VPOParoptUtils::genOutlineFunction(
                    /* AllowAlloca */ true,
                    /* Suffix */ Suffix,
                    /* AllowEHTypeID */ true,
+                   /* AllowUnreachableBlocks */
+                   MoveUnreachableRegionBlocksToExtractedFunction,
                    IsTarget ? &TgtClauseArgs : nullptr);
   CE.setDeclLoc(W.getEntryDirective()->getDebugLoc());
   assert(CE.isEligible() && "Region is not eligible for extraction.");
@@ -5509,6 +5536,11 @@ Function *VPOParoptUtils::genOutlineFunction(
     }
   }
 
+  if (MoveUnreachableRegionBlocksToExtractedFunction) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__
+                      << ": Recalculating DT after region extraction\n");
+    DT->recalculate(*F);
+  }
   DT->verify(DominatorTree::VerificationLevel::Full);
 
   // Set up the calling convention used by OpenMP runtime library.

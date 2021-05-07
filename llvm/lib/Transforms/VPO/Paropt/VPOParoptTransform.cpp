@@ -1668,6 +1668,13 @@ bool VPOParoptTransform::paroptTransforms() {
                .str();
       F->getContext().diagnose(R);
       RemoveDirectives = true;
+    } else if (((Mode & OmpPar) && (Mode & ParTrans)) && DT &&
+               !DT->isReachableFromEntry(W->getEntryBBlock())) {
+      OptimizationRemarkMissed R("openmp", "Region", W->getEntryDirective());
+      R << ore::NV("Construct", W->getName())
+        << " construct is unreachable from function entry";
+      ORE.emit(R);
+      RemoveDirectives = true;
     } else if (W->getIsOmpLoop() && !W->getIsSections() &&
                W->getWRNLoopInfo().getLoop() == nullptr) {
       // The WRN is a loop-type construct, but the loop is missing, most likely
@@ -1691,7 +1698,8 @@ bool VPOParoptTransform::paroptTransforms() {
         debugPrintHeader(W, Mode);
         if (Mode & ParPrepare) {
           Changed |= canonicalizeGlobalVariableReferences(W);
-          if (isTargetSPIRV() && isa<WRNParallelNode>(W) && hasParentTarget(W))
+          if (isTargetSPIRV() && isa<WRNParallelNode>(W) &&
+              WRegionUtils::hasParentTarget(W))
             Changed |= callPopPushNumThreadsAtRegionBoundary(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
@@ -1765,7 +1773,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= regularizeOMPLoop(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
-          if (isTargetSPIRV() && hasParentTarget(W))
+          if (isTargetSPIRV() && WRegionUtils::hasParentTarget(W))
             Changed |= callPopPushNumThreadsAtRegionBoundary(W);
           Changed |= propagateCancellationPointsToIR(W);
           Changed |= fixupKnownNDRange(W);
@@ -1996,7 +2004,7 @@ bool VPOParoptTransform::paroptTransforms() {
             F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
           Changed |= addMapAndPrivateForIsDevicePtr(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
-          if (isTargetSPIRV() && !hasParentTarget(W) &&
+          if (isTargetSPIRV() && !WRegionUtils::hasParentTarget(W) &&
               !isFunctionOpenMPTargetDeclare())
             Changed |= callPushPopNumThreadsAtRegionBoundary(W, true);
           Changed |= renameOperandsUsingStoreThenLoad(W);
@@ -3934,7 +3942,7 @@ RDECL VPOParoptTransform::genFastRedCallback(WRegionNode *W,
   FnFastRed->setCallingConv(CallingConv::C);
   // If the reduction is in target region, add target.declare attribute for the
   // callback function
-  if (hasParentTarget(W))
+  if (WRegionUtils::hasParentTarget(W))
     FnFastRed->addFnAttr("target.declare", "true");
 
   auto Arg = FnFastRed->arg_begin();
@@ -8832,7 +8840,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
 
   // Set up Fn Attr for the new function
   Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
-  if (hasParentTarget(W))
+  if (WRegionUtils::hasParentTarget(W))
     NewF->addFnAttr("target.declare", "true");
 
   CallInst *NewCall = cast<CallInst>(NewF->user_back());

@@ -1,5 +1,5 @@
-; RUN: opt -disable-hir-cross-loop-array-contraction=false -hir-create-function-level-region -hir-ssa-deconstruction -hir-cross-loop-array-contraction -hir-cg -force-hir-cg -print-after=hir-cross-loop-array-contraction -disable-output -S < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-hir-cross-loop-array-contraction=false -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>,hir-cg" -force-hir-cg -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-hir-cross-loop-array-contraction=false -disable-hir-cross-loop-array-contraction-post-processing=true -hir-create-function-level-region -hir-ssa-deconstruction -hir-cross-loop-array-contraction -hir-cg -force-hir-cg -print-after=hir-cross-loop-array-contraction -disable-output -S < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-hir-cross-loop-array-contraction=false -disable-hir-cross-loop-array-contraction-post-processing=true -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>,hir-cg" -force-hir-cg -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Incoming HIR-
 ; + DO i1 = 0, 99, 1   <DO_LOOP>
@@ -172,7 +172,7 @@ for.cond48.preheader:                             ; preds = %for.cond43.preheade
 
 for.cond.cleanup45:                               ; preds = %for.cond.cleanup50
   %indvars.iv.next155 = add nuw nsw i64 %indvars.iv154, 1
-  %exitcond156 = icmp eq i64 %indvars.iv.next155,99 
+  %exitcond156 = icmp eq i64 %indvars.iv.next155,99
   br i1 %exitcond156, label %for.cond.cleanup40, label %for.cond43.preheader
 
 for.cond53.preheader:                             ; preds = %for.cond48.preheader, %for.cond.cleanup55
