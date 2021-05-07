@@ -197,6 +197,8 @@ static bool isMallocAddressSavedInArg(Function &F, CallBase &CB) {
         if (!GEPI || GEPI->getNumIndices() != 1)
           return false;
         auto CInt = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+        if (!CInt)
+          return false;
 
         WorkList.push_back(Ptr);
         // Increase offset for Ptr.
