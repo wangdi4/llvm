@@ -93,12 +93,14 @@ public:
     LLVMOrcJITTargetMachineBuilderRef JTMB = nullptr;
     LLVMErrorRef E1 = LLVMOrcJITTargetMachineBuilderDetectHost(&JTMB);
     assert(E1 == LLVMErrorSuccess && "Expected call to detect host to succeed");
+    (void)E1;
 
     LLVMOrcLLJITBuilderRef Builder = LLVMOrcCreateLLJITBuilder();
     LLVMOrcLLJITBuilderSetJITTargetMachineBuilder(Builder, JTMB);
     LLVMErrorRef E2 = LLVMOrcCreateLLJIT(&Jit, Builder);
     assert(E2 == LLVMErrorSuccess &&
            "Expected call to create LLJIT to succeed");
+    (void)E2;
     ExecutionSession = LLVMOrcLLJITGetExecutionSession(Jit);
     MainDylib = LLVMOrcLLJITGetMainJITDylib(Jit);
   }
@@ -113,6 +115,9 @@ protected:
     // Some architectures may be unsupportable or missing key components, but
     // some may just be failing due to bugs in this testcase.
     if (Triple.startswith("armv7") || Triple.startswith("armv8l"))
+      return false;
+    llvm::Triple T(Triple);
+    if (T.isOSAIX() && T.isPPC64())
       return false;
     return true;
   }
