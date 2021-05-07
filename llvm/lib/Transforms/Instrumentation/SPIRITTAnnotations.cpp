@@ -160,13 +160,21 @@ Instruction *emitCall(Module &M, Type *RetTy, StringRef FunctionName,
 
 // Insert instrumental annotation calls, that has no arguments (for example
 // work items start/finish/resume and barrier annotation.
+#if INTEL_COLLAB
+bool insertSimpleInstrumentationCall(Module &M, StringRef Name,
+                                     Instruction *Position,
+                                     const DebugLoc &DL) {
+#else // INTEL_COLLAB
 bool insertSimpleInstrumentationCall(Module &M, StringRef Name,
                                      Instruction *Position) {
+#endif // INTEL_COLLAB
   Type *VoidTy = Type::getVoidTy(M.getContext());
   ArrayRef<Value *> Args;
   Instruction *InstrumentationCall = emitCall(M, VoidTy, Name, Args, Position);
   assert(InstrumentationCall && "Instrumentation call creation failed");
-  (void)InstrumentationCall; // INTEL
+#if INTEL_COLLAB
+  InstrumentationCall->setDebugLoc(DL);
+#endif // INTEL_COLLAB
   return true;
 }
 
@@ -242,7 +250,9 @@ bool insertAtomicInstrumentationCall(Module &M, StringRef Name,
   Value *Args[] = {Ptr, AtomicOp, MemOrder};
   Instruction *InstrumentationCall = emitCall(M, VoidTy, Name, Args, Position);
   assert(InstrumentationCall && "Instrumentation call creation failed");
-  (void)InstrumentationCall; // INTEL
+#if INTEL_COLLAB
+  InstrumentationCall->setDebugLoc(AtomicFun->getDebugLoc());
+#endif // INTEL_COLLAB
   return true;
 }
 
@@ -266,16 +276,34 @@ PreservedAnalyses SPIRITTAnnotationsPass::run(Module &M,
 
     // At the beggining of a kernel insert work item start annotation
     // instruction.
+#if INTEL_COLLAB
+    if (IsSPIRKernel) {
+      Instruction *InsertPt = &*inst_begin(F);
+      if (InsertPt->isDebugOrPseudoInst())
+        InsertPt = InsertPt->getNextNonDebugInstruction();
+      assert(InsertPt && "Function does not have any real instructions.");
+      IRModified |=
+          insertSimpleInstrumentationCall(M, ITT_ANNOTATION_WI_START,
+                                          InsertPt, InsertPt->getDebugLoc());
+    }
+#else // INTEL_COLLAB
     if (IsSPIRKernel)
       IRModified |= insertSimpleInstrumentationCall(M, ITT_ANNOTATION_WI_START,
                                                     &*inst_begin(F));
+#endif // INTEL_COLLAB
 
     for (BasicBlock &BB : F) {
       // Insert Finish instruction before return instruction
       if (IsSPIRKernel)
         if (ReturnInst *RI = dyn_cast<ReturnInst>(BB.getTerminator()))
+#if INTEL_COLLAB
+          IRModified |=
+              insertSimpleInstrumentationCall(M, ITT_ANNOTATION_WI_FINISH,
+                                              RI, RI->getDebugLoc());
+#else // INTEL_COLLAB
           IRModified |=
               insertSimpleInstrumentationCall(M, ITT_ANNOTATION_WI_FINISH, RI);
+#endif // INTEL_COLLAB
       for (Instruction &I : BB) {
         CallInst *CI = dyn_cast<CallInst>(&I);
         if (!CI)
@@ -297,10 +325,19 @@ PreservedAnalyses SPIRITTAnnotationsPass::run(Module &M,
                           return CalleeName.startswith(Name);
                         })) {
           Instruction *InstAfterBarrier = CI->getNextNode();
+#if INTEL_COLLAB
+          const DebugLoc &DL = CI->getDebugLoc();
+          IRModified |=
+              insertSimpleInstrumentationCall(M, ITT_ANNOTATION_WG_BARRIER,
+                                              CI, DL);
+          IRModified |= insertSimpleInstrumentationCall(
+              M, ITT_ANNOTATION_WI_RESUME, InstAfterBarrier, DL);
+#else // INTEL_COLLAB
           IRModified |=
               insertSimpleInstrumentationCall(M, ITT_ANNOTATION_WG_BARRIER, CI);
           IRModified |= insertSimpleInstrumentationCall(
               M, ITT_ANNOTATION_WI_RESUME, InstAfterBarrier);
+#endif // INTEL_COLLAB
         } else if (CalleeName.startswith(SPIRV_ATOMIC_INST)) {
           Instruction *InstAfterAtomic = CI->getNextNode();
           IRModified |= insertAtomicInstrumentationCall(
