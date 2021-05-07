@@ -1235,6 +1235,16 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
            ReductionKind == ReductionItem::WRNReductionMult)) &&
          "The COMPLEX modifier is for ADD/SUB/MUL reduction only");
 
+  if (ClauseInfo.getIsTask()) {
+    Instruction *EntryDir = getEntryDirective();
+    Function *F = EntryDir->getFunction();
+    F->getContext().diagnose(
+        DiagnosticInfoUnsupported(*F,
+                                  "task reduction-modifier on a reduction "
+                                  "clause is currently not supported",
+                                  EntryDir->getDebugLoc()));
+    return;
+  }
   if (ClauseInfo.getIsArraySection()) {
     Value *V = Args[0];
     if (!V || isa<ConstantPointerNull>(V)) {
@@ -1248,6 +1258,10 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
     RI->setIsComplex(IsComplex);
     RI->setIsInReduction(IsInReduction);
     RI->setIsByRef(ClauseInfo.getIsByRef());
+    // TODO: This code will be added once we start supporting task
+    // reduction-modifier on a Reduction clause
+    //   if (IsTask)
+    //     RI->setIsTask(IsTask);
 
     ArraySectionInfo &ArrSecInfo = RI->getArraySectionInfo();
     // The number of non array section tuple arguments is 2 by default (base
@@ -1284,6 +1298,10 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       RI->setIsComplex(IsComplex);
       RI->setIsInReduction(IsInReduction);
       RI->setIsByRef(ClauseInfo.getIsByRef());
+     // TODO: This code will be added once we start supporting task
+     // reduction-modifier on a Reduction clause
+     //   if (IsTask)
+     //     RI->setIsTask(IsTask);
 #if INTEL_CUSTOMIZATION
       if (!CurrentBundleDDRefs.empty() &&
           WRegionUtils::supportsRegDDRefs(C.getClauseID()))
