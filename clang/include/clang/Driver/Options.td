@@ -4706,10 +4706,10 @@ def mno_avx512ifma : Flag<["-"], "mno-avx512ifma">, Group<m_x86_Features_Group>;
 def mavx512memadvise : Flag<["-"], "mavx512memadvise">, Group<m_x86_Features_Group>;
 def mno_avx512memadvise : Flag<["-"], "mno-avx512memadvise">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
-#if INTEL_FEATURE_ISA_AVX_MPSADBW
-def mavx512mpsadbw : Flag<["-"], "mavx512mpsadbw">, Group<m_x86_Features_Group>;
-def mno_avx512mpsadbw : Flag<["-"], "mno-avx512mpsadbw">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
+def mavx512mediax : Flag<["-"], "mavx512mediax">, Group<m_x86_Features_Group>;
+def mno_avx512mediax : Flag<["-"], "mno-avx512mediax">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 #if INTEL_FEATURE_ISA_AVX512_MOVGET
 def mavx512movget : Flag<["-"], "mavx512movget">, Group<m_x86_Features_Group>;
 def mno_avx512movget : Flag<["-"], "mno-avx512movget">, Group<m_x86_Features_Group>;

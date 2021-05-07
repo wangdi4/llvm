@@ -1,4 +1,4 @@
-// REQUIRES: intel_feature_isa_avx_mpsadbw
+// REQUIRES: intel_feature_isa_avx512_mediax
 // RUN: llvm-mc -triple i386-unknown-unknown --show-encoding %s | FileCheck %s
 
 // CHECK:      vmpsadbw $123, %xmm4, %xmm3, %xmm2

@@ -613,10 +613,10 @@ static constexpr FeatureBitset ImpliedFeaturesAVXCOMPRESS = FeatureAVX2;
 static constexpr FeatureBitset ImpliedFeaturesAVXMEMADVISE = FeatureAVX2;
 static constexpr FeatureBitset ImpliedFeaturesAVX512MEMADVISE = FeatureAVX512F;
 #endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
-#if INTEL_FEATURE_ISA_AVX_MPSADBW
-static constexpr FeatureBitset ImpliedFeaturesAVX512MPSADBW = FeatureAVX512F |
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
+static constexpr FeatureBitset ImpliedFeaturesAVX512MEDIAX = FeatureAVX512F |
     FeatureAVX512BW;
-#endif // INTEL_FEATURE_ISA_AVX_MPSADBW
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 #if INTEL_FEATURE_ISA_AVX_MOVGET
 static constexpr FeatureBitset ImpliedFeaturesAVXMOVGET = FeatureAVX2;
 #endif // INTEL_FEATURE_ISA_AVX_MOVGET
