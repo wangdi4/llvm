@@ -7,7 +7,7 @@ include_directories(
   ${OCL_SOURCE_DIR}/backend/name_mangling
 )
 
-add_executable(${TARGET_NAME}
+add_opencl_executable(${TARGET_NAME}
   TestTypeConversion.cpp
 )
 

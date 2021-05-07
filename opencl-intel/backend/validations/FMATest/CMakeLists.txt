@@ -16,7 +16,7 @@ include_directories(
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
   ${GTEST_INCLUDE_DIR}
   )
-add_executable(${TARGET_NAME}
+add_opencl_executable(${TARGET_NAME}
    FusedMAtest.cpp
 )
 

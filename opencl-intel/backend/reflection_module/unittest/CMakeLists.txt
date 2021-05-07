@@ -18,7 +18,7 @@ include_directories(
   ${GTEST_INCLUDE_DIR}
 )
 
-add_executable(
+add_opencl_executable(
   ${TARGET_NAME}
   TestBuiltinKeeper.cpp
 )
