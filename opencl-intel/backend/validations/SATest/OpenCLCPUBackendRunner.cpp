@@ -98,7 +98,7 @@ public:
         for (int i = 0; i < kernelParamCnt; i++) {
             const KernelArgument arg = pKernel->GetKernelParams()[i];
 
-            std::unique_ptr<IArgument> pArg;
+            std::unique_ptr<FunctionArgument> pArg;
 
             switch (arg.Ty) {
                 case KRNL_ARG_PTR_GLOBAL:

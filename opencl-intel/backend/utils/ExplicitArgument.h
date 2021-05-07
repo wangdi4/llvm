@@ -15,7 +15,7 @@
 #ifndef __EXPLICIT_ARGUMENT_H__
 #define __EXPLICIT_ARGUMENT_H__
 
-#include "FunctionArgument.h"
+#include "ImplicitArgsUtils.h"
 #include "TypeAlignment.h"
 #include "cl_device_api.h"
 

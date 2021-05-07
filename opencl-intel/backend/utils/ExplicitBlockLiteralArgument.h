@@ -15,7 +15,7 @@
 #ifndef __EXPLICITBLOCKLITERAL_ARGUMENT_H__
 #define __EXPLICITBLOCKLITERAL_ARGUMENT_H__
 
-#include "FunctionArgument.h"
+#include "ImplicitArgsUtils.h"
 #include "TypeAlignment.h"
 #include "cl_device_api.h"
 
