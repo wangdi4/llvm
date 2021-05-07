@@ -570,6 +570,21 @@ private:
 class DopeVectorInfo {
 
 public:
+
+  // Enum for tracking the results of the dope vector info analysis
+  enum AnalysisResult {
+    AR_Top = 0,                    // Initial value
+    AR_Invalid,                    // Invalid dope vector info
+    AR_ReadIllegality,             // A field was read when it shouldn't have
+                                   //   been
+    AR_WriteIllegality,            // A field was written when it shouldn't
+                                   //   been
+    AR_NoAllocSite,                // Alloc site wasn't collected
+    AR_AllocStoreIllegality,       // Couldn't prove that the store will always
+                                   //   happen with the allocation
+    AR_Pass                        // Analysis pass
+  };
+
   // Constructor for DopeVectorInfo. Technically is the same constructor
   // as DopeVectorAnalyzer, but the classes have different purposes.
   DopeVectorInfo (Value *DVObject, Type *DVType,
@@ -588,9 +603,6 @@ public:
   // if the allocation site was found.
   void validateDopeVector();
 
-  // Return true if the dope vector is valid for propagation
-  bool isValid() { return IsValid; }
-
   // Given a dope vector field type, return the dope vector field. If the field
   // type is DV_ExtentBase, DV_StrideBase or DV_LowerBoundBase then the array
   // entry is needed.
@@ -603,7 +615,7 @@ public:
   // Set the allocation site
   void setAllocSite(CallBase *Call) {
     // There should be only one alloc site
-    if (AllocSiteSet)
+    if (AllocSiteSet || !Call)
       AllocSite = nullptr;
     else
       AllocSite = Call;
@@ -620,6 +632,15 @@ public:
   // Get the type that represents the current dope vector
   StructType *getLLVMStructType() { return LLVMDVType; }
 
+  // Return the analysis result
+  AnalysisResult getAnalysisResult() { return AnalysisRes; }
+
+  // Invalidate dope vector info
+  void invalidateDopeVectorInfo() {
+    if (AnalysisRes == DopeVectorInfo::AnalysisResult::AR_Top ||
+        AnalysisRes == DopeVectorInfo::AnalysisResult::AR_Pass)
+      AnalysisRes = DopeVectorInfo::AnalysisResult::AR_Invalid;
+  }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Print the information for debug purposes
   void print(uint64_t Indent);
@@ -631,9 +652,6 @@ protected:
 
   // Rank for the source array.
   unsigned long Rank;
-
-  // Indicates whether all the uses were successfully analyzed.
-  bool IsValid;
 
   // Information about all field accesses for the dope vector.
   DopeVectorFieldUse PtrAddr;
@@ -654,6 +672,9 @@ protected:
 
   // True if the allocation site was found
   bool AllocSiteSet;
+
+  // Result from the analysis process
+  AnalysisResult AnalysisRes;
 };
 
 // Helper class to handle the nested dope vectors. Nested dope vectors are dope
@@ -698,25 +719,26 @@ public:
 
   // Enum for tracking the result of the analysis process:
   //
-  //   * AR_TOP:                     Initial value
-  //   * AR_GLOBALDVANALYSISFAILED:  Analysis of the global dope vector failed
-  //   * AR_INCOMPLETENESTEDDVDATA:  Collecting the nested dope vectors failed
-  //   * AR_BADNESTEDDV:             At least one nested dope vector didn't
+  //   * AR_Top:                     Initial value
+  //   * AR_GlobalDVAnalysisFailed:  Analysis of the global dope vector failed
+  //   * AR_IncompleteNestedDVData:  Collecting the nested dope vectors failed
+  //   * AR_BadNestedDV:             At least one nested dope vector didn't
   //                                   pass analysis
-  //   * AR_PASS:                    Global dope vector and nested dope vectors
+  //   * AR_Pass:                    Global dope vector and nested dope vectors
   //                                   passed the analysis
   enum AnalysisResult {
-    AR_TOP,
-    AR_GLOBALDVANALYSISFAILED,
-    AR_INCOMPLETENESTEDDVDATA,
-    AR_BADNESTEDDV,
-    AR_PASS
+    AR_Top = 0,
+    AR_GlobalDVAnalysisFailed,
+    AR_IncompleteNestedDVData,
+    AR_BadNestedDV,
+    AR_Pass
   };
 
   GlobalDopeVector(GlobalVariable *Glob, Type *DVType,
     std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) :
       GlobalDVInfo(new DopeVectorInfo(Glob, DVType)), Glob(Glob),
-      GetTLI(GetTLI), NestedDVDataCollected(false), AnalysisRes(AR_TOP) {}
+      GetTLI(GetTLI), NestedDVDataCollected(false),
+      AnalysisRes(GlobalDopeVector::AnalysisResult::AR_Top) {}
 
   ~GlobalDopeVector() {
     delete GlobalDVInfo;
@@ -787,7 +809,7 @@ private:
   bool NestedDVDataCollected;
 
   // Result from validating the data in the global dope vector. Default
-  // value is AR_TOP
+  // value is AR_Top
   AnalysisResult AnalysisRes;
 
   // Traverse through the users of the subscript instruction to identify

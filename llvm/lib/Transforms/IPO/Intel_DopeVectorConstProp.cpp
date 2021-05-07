@@ -299,7 +299,7 @@ static void collectDopeVectorGlobals(Module &M, const DataLayout &DL,
         // The BitCast should only be used for data allocation and
         // should happen only once
         if (!GlobDV.collectAndAnalyzeAllocSite(BC)) {
-          GlobDV.getGlobalDopeVectorInfo()->setAllocSite(nullptr);
+          GlobDV.getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
           break;
         }
       } else if (auto *GEP = dyn_cast<GEPOperator>(U)) {
@@ -307,12 +307,12 @@ static void collectDopeVectorGlobals(Module &M, const DataLayout &DL,
         // The fields of the global dope vector are accessed through
         // a GEPOperator
         if (!GlobDV.collectAndAnalyzeGlobalDopeVectorField(GEP)) {
-          GlobDV.getGlobalDopeVectorInfo()->setAllocSite(nullptr);
+          GlobDV.getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
           break;
         }
       } else {
         // Any other use is invalid
-        GlobDV.getGlobalDopeVectorInfo()->setAllocSite(nullptr);
+        GlobDV.getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
         break;
       }
     }
@@ -328,11 +328,10 @@ static void collectDopeVectorGlobals(Module &M, const DataLayout &DL,
     GlobDV.validateGlobalDopeVector();
 
     // TODO:
-    //   1) Add access analysis (store happens before loads)
-    //   2) Map the GlobalVariable with the GlobalDopeVector collected
-    //   3) Relax the conditions in the transformation process to propagate
+    //   1) Map the GlobalVariable with the GlobalDopeVector collected
+    //   2) Relax the conditions in the transformation process to propagate
     //        any data collected
-    //   4) Propagate constant information
+    //   3) Propagate constant information
 
     DEBUG_WITH_TYPE(DEBUG_GLOBAL_CONSTPROP, {
       GlobDV.print();

@@ -400,20 +400,13 @@ void DopeVectorFieldUse::analyzeSubscriptsUses() {
 // Traverse through the collected store instructions and identify the possible
 // constant value for the current dope vector field.
 void DopeVectorFieldUse::identifyConstantValue() {
-  if (IsBottom)
+  if (!getIsSingleValue())
     return;
 
-  ConstantInt *Const = nullptr;
-  for (auto *SI : Stores) {
-    ConstantInt *CurrConst = dyn_cast<ConstantInt>(SI->getValueOperand());
-    if (!CurrConst)
-      return;
-
-    if (!Const)
-      Const = CurrConst;
-    else if (CurrConst != Const)
-      return;
-  }
+  StoreInst *SI = *Stores.begin();
+  ConstantInt *Const = dyn_cast<ConstantInt>(SI->getValueOperand());
+  if (!Const)
+    return;
 
   ConstantValue = Const;
 }
@@ -1336,9 +1329,7 @@ DopeVectorInfo::DopeVectorInfo(Value *DVObject, Type *DVType,
   Rank = DVType->getContainedType(DopeVectorFieldType::DV_PerDimensionArray)
                ->getArrayNumElements();
 
-  // The DV type is invalid until it passes analysis.
-  IsValid = false;
-
+  AnalysisRes = DopeVectorInfo::AnalysisResult::AR_Top;
   LLVMDVType = cast<StructType>(DVType);
 
   ExtentAddr.resize(Rank);
@@ -1410,65 +1401,169 @@ DopeVectorFieldUse* DopeVectorInfo::getDopeVectorField(
 // vector was collected correctly.
 void DopeVectorInfo::validateDopeVector() {
 
-  // Invalidate the data collected if at least one field is Bottom,
-  // if writing or reading into the field is not allowed.
-  auto ValidateDopeVectorField = [](DopeVectorFieldUse &Field,
-                                    bool WriteAllowed,
-                                    bool ReadAllowed) -> bool {
-    if (Field.getIsBottom())
+  // We are going to follow the same principle as global constant propagation.
+  // If there is only one store instruction and the global variable is loaded
+  // anywhere, then the global variable should be initialized first (store
+  // must happen before the load). Else, if the store instruction wasn't
+  // executed it means that the user code didn't properly initialize the
+  // global variable. In this case the load instruction is loading garbage,
+  // which is an undefined behavior.
+  //
+  // In this case, the user is accessing an array, therefore it must be
+  // allocated before accessing any information, if not this is undefined
+  // behavior. The dope vector is used to access information in the array
+  // therefore the information for the dope vector must be initialized
+  // first and the array it must be allocated. If there is one store
+  // instruction for a dope vector field and that store instruction will
+  // always execute if the call to allocate the array executes, then it means
+  // that the dope vector field will be initialized when the array is
+  // allocated. Any load to the dope vector field will use initialized data
+  // because the array was allocated (store must happen before the load).
+  // If there is an use of the dope vector field without allocating the array
+  // first then there is an access to an unallocated array, which is
+  // undefined behavior.
+  auto StoreHappensWithAllocation =
+      [this](DopeVectorFieldUse &Field) -> bool {
+    if (!Field.getIsSingleValue())
       return false;
 
-    if (!WriteAllowed && Field.getIsWritten())
+    StoreInst *SI = *Field.stores().begin();
+
+    // If the store instruction is in the same basic block as the alloc-site,
+    // then it means that the store will execute since the allocation will
+    // execute.
+    //
+    // NOTE: This is conservative. We may need to extend this in the future
+    // to address the following cases:
+    //
+    //   1) Function "foo" can store to information to the dope vector fields,
+    //      then it calls "bar" which allocates the array. If there is no
+    //      branching between the store instructions and the call to "bar",
+    //      nor between the entry block in "bar" and the call to the alloc
+    //      function, then the store instruction and the alloc site will
+    //      always execute (foo -> bar -> alloc).
+    //
+    //   2) If there are unconditional branches between the store
+    //      instructions and the call to allocate function.
+    //
+    //   3) If there are conditional branches but we can prove that
+    //      it won't matter which path is taken, the store and the call
+    //      to alloc will execute.
+    //
+    //   4) If there are conditional branches but we can prove at compile
+    //      time which path will always be taken.
+    if (SI->getParent() != AllocSite->getParent())
       return false;
 
-    if (!ReadAllowed && Field.getIsRead())
-      return false;
-
-    Field.identifyConstantValue();
     return true;
   };
 
-  if (!AllocSite)
+  // Invalidate the data collected if at least one field is Bottom,
+  // if writing or reading into the field is not allowed, or if
+  // it didn't pass the store-alloc test.
+  auto ValidateDopeVectorField =
+      [&StoreHappensWithAllocation, this](DopeVectorFieldUse &Field,
+                                          bool ComputeConstant,
+                                          bool WriteAllowed,
+                                          bool ReadAllowed) -> bool {
+    if (Field.getIsBottom())
+      return false;
+
+    if (!WriteAllowed && Field.getIsWritten()) {
+      AnalysisRes = DopeVectorInfo::AnalysisResult::AR_WriteIllegality;
+      return false;
+    }
+
+    if (!ReadAllowed && Field.getIsRead()) {
+      AnalysisRes = DopeVectorInfo::AnalysisResult::AR_ReadIllegality;
+      return false;
+    }
+
+    if (ComputeConstant)
+      Field.identifyConstantValue();
+
+    // If we found the constant, then we need to make sure that the store
+    // executes every time the memory is allocated.
+    if (Field.getConstantValue() &&
+        !StoreHappensWithAllocation(Field)) {
+      AnalysisRes = DopeVectorInfo::AnalysisResult::AR_AllocStoreIllegality;
+      return false;
+    }
+
+    return true;
+  };
+
+  if (AnalysisRes == DopeVectorInfo::AnalysisResult::AR_Invalid)
     return;
+
+  if (!AllocSite) {
+    AnalysisRes = DopeVectorInfo::AnalysisResult::AR_NoAllocSite;
+    return;
+  }
 
   bool PassValidation = true;
 
-  // Pointer address should not be written, only allocated
-  PassValidation &= ValidateDopeVectorField(PtrAddr, false /* WriteAllowed */,
+  // Pointer address should not be written, only allocated and read
+  PassValidation &= ValidateDopeVectorField(PtrAddr,
+                                            false /* ComputeConstant */,
+                                            false /* WriteAllowed */,
                                             true /* ReadAllowed */);
 
-  // If the array pointer is not read, then none of the fields should
-  // be read.
+  // The element size, co-dimension, flags and dimensions should be
+  // written but not read. This is for storing information that the
+  // compiler can use for analysis.
+  PassValidation &= ValidateDopeVectorField(ElementSizeAddr,
+                                            true /* ComputeConstant */,
+                                            true /* WriteAllowed */,
+                                            false /* ReadAllowed */);
+  PassValidation &= ValidateDopeVectorField(CodimAddr,
+                                            true /* ComputeConstant */,
+                                            true /* WriteAllowed */,
+                                            false /* ReadAllowed */);
+
+  // NOTE: The FE can generate a load to the flags field, then do some
+  // operations and followed by a store to the same field. In summary,
+  // there will be a read before a write for this field. We are not
+  // going to compute any constant information related to the flags field
+  // until this issue is resolved. On the other hand, the field should be
+  // only used by load and/or store instructions. Any other use should
+  // invalidate the information for the current dope vector.
+  PassValidation &= ValidateDopeVectorField(FlagsAddr,
+                                            false /* ComputeConstant */,
+                                            true /* WriteAllowed */,
+                                            true /* ReadAllowed */);
+
+  PassValidation &= ValidateDopeVectorField(DimensionsAddr,
+                                            true /* ComputeConstant */,
+                                            true /* WriteAllowed */,
+                                            false /* ReadAllowed */);
+
+  // This is the actual information of the dope vector. The extent,
+  // stride and lower bounds fields can be read and written. If the
+  // array pointer is not read, then none of these fields should be
+  // read.
   // NOTE: There is a chance to extend this analysis for a possible
   // dead global dope vector elimination (CMPLRLLVM-28117).
   bool ReadAllowed = PtrAddr.getIsRead();
-
-  PassValidation &= ValidateDopeVectorField(ElementSizeAddr,
-                                            true /* WriteAllowed */,
-                                            ReadAllowed);
-  PassValidation &= ValidateDopeVectorField(CodimAddr,
-                                            true /* WriteAllowed */,
-                                            ReadAllowed);
-  PassValidation &= ValidateDopeVectorField(FlagsAddr,
-                                            true /* WriteAllowed */,
-                                            ReadAllowed);
-  PassValidation &= ValidateDopeVectorField(DimensionsAddr,
-                                            true /* WriteAllowed */,
-                                            ReadAllowed);
-
   for (uint64_t I = 0; I < Rank; I++) {
     PassValidation &= ValidateDopeVectorField(ExtentAddr[I],
+                                              true /* ComputeConstant */,
                                               true /* WriteAllowed */,
                                               ReadAllowed);
     PassValidation &= ValidateDopeVectorField(StrideAddr[I],
+                                              true /* ComputeConstant */,
                                               true /* WriteAllowed */,
                                               ReadAllowed);
     PassValidation &= ValidateDopeVectorField(LowerBoundAddr[I],
+                                              true /* ComputeConstant */,
                                               true /* WriteAllowed */,
                                               ReadAllowed);
   }
 
-  IsValid = PassValidation;
+  if (PassValidation)
+    AnalysisRes = DopeVectorInfo::AnalysisResult::AR_Pass;
+  else if (AnalysisRes == DopeVectorInfo::AnalysisResult::AR_Top)
+    AnalysisRes = DopeVectorInfo::AnalysisResult::AR_Invalid;
 }
 
 // Return true if all pointers that access the dope vector fields were
@@ -2131,9 +2226,10 @@ GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL) {
   assert(Glob == GlobalDVInfo->getDVObject() &&
          "Dope vector object mismatch with global");
 
-  // If the global dope vector infor is not valid then there is no point for
+  // If the global dope vector info is not valid then there is no point for
   // collecting the nested dope vectors
-  if (!GlobalDVInfo->isValid())
+  if (GlobalDVInfo->getAnalysisResult() ==
+      DopeVectorInfo::AnalysisResult::AR_Invalid)
     return;
 
   auto *PtrAddressField = GlobalDVInfo->getDopeVectorField(
@@ -2204,28 +2300,30 @@ void GlobalDopeVector::validateGlobalDopeVector() {
 
   // If the global dope vector info is not valid then the analysis for
   // the fields of the global dope vector failed
-  if (!GlobalDVInfo->isValid()) {
-    AnalysisRes = AR_GLOBALDVANALYSISFAILED;
+  if (GlobalDVInfo->getAnalysisResult() !=
+      DopeVectorInfo::AnalysisResult::AR_Pass) {
+    AnalysisRes = GlobalDopeVector::AnalysisResult::AR_GlobalDVAnalysisFailed;
     return;
   }
 
   // If NestedDVDataCollected is false then it means that something happened
   // while collecting the nested dope vectors
   if (!NestedDVDataCollected) {
-    AnalysisRes = AR_INCOMPLETENESTEDDVDATA;
+    AnalysisRes = GlobalDopeVector::AnalysisResult::AR_IncompleteNestedDVData;
     return;
   }
 
   // Check that all nested dope vectors were validated correctly
   for (auto *NestedDV : NestedDopeVectors) {
-    if (!NestedDV->isValid()) {
-      AnalysisRes = AR_BADNESTEDDV;
+    if (NestedDV->getAnalysisResult() !=
+        DopeVectorInfo::AnalysisResult::AR_Pass) {
+      AnalysisRes = GlobalDopeVector::AnalysisResult::AR_BadNestedDV;
       return;
     }
   }
 
   // Analysis pass
-  AnalysisRes = AR_PASS;
+  AnalysisRes = GlobalDopeVector::AnalysisResult::AR_Pass;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -2301,9 +2399,39 @@ void DopeVectorInfo::print(uint64_t Indent) {
 
   std::string IndentString(Indent, ' ');
   StringRef IndentRef(IndentString);
-  dbgs() << IndentRef << "Dope vector information: "
-         << (IsValid ? "Valid" : "Invalid") << "\n";
-  dbgs() << IndentRef << "Alloc site found: " << (AllocSite ? "Yes" : "No") << "\n";
+  dbgs() << IndentRef << "Dope vector analysis result: ";
+
+  // The following switch statement doesn't include a default case because
+  // clang throws an error if all the enum cases are covered explicitly and
+  // a default case is added.
+  assert(AnalysisRes <= DopeVectorInfo::AnalysisResult::AR_Pass &&
+         "Invalid dope vector analysis result");
+
+  switch(AnalysisRes) {
+    case DopeVectorInfo::AnalysisResult::AR_Top:
+      dbgs() << "Incomplete data collection";
+      break;
+    case DopeVectorInfo::AnalysisResult::AR_Invalid:
+      dbgs() << "Invalid data collection";
+      break;
+    case DopeVectorInfo::AnalysisResult::AR_ReadIllegality:
+      dbgs() << "Invalid dope vector field read";
+      break;
+    case DopeVectorInfo::AnalysisResult::AR_WriteIllegality:
+      dbgs() << "Invalid dope vector field write";
+      break;
+    case DopeVectorInfo::AnalysisResult::AR_NoAllocSite:
+      dbgs() << "Alloc site wasn't found";
+      break;
+    case DopeVectorInfo::AnalysisResult::AR_AllocStoreIllegality:
+      dbgs() << "Store won't execute with alloc site";
+      break;
+    case DopeVectorInfo::AnalysisResult::AR_Pass:
+      dbgs() << "Pass";
+      break;
+  }
+  dbgs() << "\n";
+
   SimpleFieldUsePrint(PtrAddr, 0, DopeVectorFieldType::DV_ArrayPtr);
   SimpleFieldUsePrint(ElementSizeAddr, 0, DopeVectorFieldType::DV_ElementSize);
   SimpleFieldUsePrint(CodimAddr, 0, DopeVectorFieldType::DV_Codim);
@@ -2323,26 +2451,26 @@ void GlobalDopeVector::print() {
          << GlobalDVInfo->getLLVMStructType()->getName() << "\n";
   dbgs() << "  Global dope vector result: ";
 
-  // This could be the default case in the following switch-and-case
-  // but clang will throw an error if all the values in the enum are
-  // covered.
-  assert(AnalysisRes <= AnalysisResult::AR_PASS && "Invalid global dope "
-                                                   "vector analysis result");
+  // The following switch statement doesn't include a default case because
+  // clang throws an error if all the enum cases are covered explicitly and
+  // a default case is added.
+  assert(AnalysisRes <= GlobalDopeVector::AnalysisResult::AR_Pass &&
+         "Invalid global dope vector analysis result");
 
   switch(AnalysisRes) {
-    case AnalysisResult::AR_TOP:
+    case GlobalDopeVector::AnalysisResult::AR_Top:
       dbgs() << "Analysis not performed";
       break;
-    case AnalysisResult::AR_GLOBALDVANALYSISFAILED:
+    case GlobalDopeVector::AnalysisResult::AR_GlobalDVAnalysisFailed:
       dbgs() << "Failed to collect global dope vector info";
       break;
-    case AnalysisResult::AR_INCOMPLETENESTEDDVDATA:
-      dbgs() << "Failed to collect nested dope vectors data";
+    case GlobalDopeVector::AnalysisResult::AR_IncompleteNestedDVData:
+      dbgs() << "Failed to collect nested dope vectors' data";
       break;
-    case AnalysisResult::AR_BADNESTEDDV:
+    case GlobalDopeVector::AnalysisResult::AR_BadNestedDV:
       dbgs() << "At least one nested dope vector didn't pass analysis";
       break;
-    case AnalysisResult::AR_PASS:
+    case GlobalDopeVector::AnalysisResult::AR_Pass:
       dbgs() << "Pass";
       break;
   }
