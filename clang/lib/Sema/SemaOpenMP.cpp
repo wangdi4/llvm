@@ -9654,6 +9654,9 @@ checkOpenMPLoop(OpenMPDirectiveKind DKind, Expr *CollapseLoopCountExpr,
   QualType VType = LastIteration.get()->getType();
   QualType RealVType = VType;
   QualType StrideVType = VType;
+#if INTEL_COLLAB
+  if (!SemaRef.getLangOpts().OpenMPLateOutline)
+#endif // INTEL_COLLAB
   if (isOpenMPTaskLoopDirective(DKind)) {
     VType =
         SemaRef.Context.getIntTypeForBitwidth(/*DestWidth=*/64, /*Signed=*/0);
