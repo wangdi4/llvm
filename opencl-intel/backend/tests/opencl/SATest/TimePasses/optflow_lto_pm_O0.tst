@@ -15,6 +15,7 @@
 ; CHECK-DAG: Intel Kernel SplitBBonBarrier
 ; CHECK-DAG: Intel Kernel Barrier
 ; CHECK-DAG: ImplicitArgsAnalysis
+; CHECK-DAG: LinearIdResolverPass
 ; CHECK-DAG: LocalBufferAnalysis
 ; CHECK-DAG: PrepareKernelArgsPass
 ; CHECK-DAG: ResolveWICallPass

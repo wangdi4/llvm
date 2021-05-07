@@ -6,6 +6,7 @@
 ; CHECK-DAG: DPCPPEqualizerLegacy
 ; CHECK-DAG: DPCPPKernelAnalysisLegacy
 ; CHECK-DAG: ImplicitArgsAnalysisLegacy
+; CHECK-DAG: LinearIdResolverLegacy
 ; CHECK-DAG: LocalBufferAnalysisLegacy
 ; CHECK-DAG: PrepareKernelArgsLegacy
 ; CHECK-DAG: ResolveWICallLegacy
