@@ -3523,9 +3523,16 @@ void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
         Size =
             Builder.getInt64(AI->getAllocationSizeInBits(DL).getValue() >> 3);
       }
+      // If the pointer argument is not i8* type for this function, insert a
+      // bitcast to convert it to i8*. This inserts duplicate bitcasts, but, we
+      // expect CSE following up to take care of this.
+      Value *PointerArg = getScalarValue(VPCall->getOperand(1), 0);
+      if (!PointerArg->getType()->getPointerElementType()->isIntegerTy(8))
+        PointerArg = Builder.CreateBitCast(
+            PointerArg, Type::getInt8PtrTy(*Plan->getLLVMContext()));
+
       SmallVector<Value *, 3> ScalarArgs = {
-          Size, getScalarValue(VPCall->getOperand(1), 0),
-          getScalarValue(VPCall->getOperand(2), 0)};
+          Size, PointerArg, getScalarValue(VPCall->getOperand(2), 0)};
       auto *ScalarInstrinsic = generateSerialInstruction(VPCall, ScalarArgs);
       VPScalarMap[VPCall][0] = ScalarInstrinsic;
       return;
