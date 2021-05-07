@@ -18,6 +18,7 @@
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
+#include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
@@ -6216,12 +6217,59 @@ public:
   // data will be pointer carried.
   void processDeferredPointerCarriedSafetyData() {
     LLVM_DEBUG(dbgs() << "\nStart of processing deferred safety cascades\n");
+
+    // When processing the deferred safety checks, we need to consider the
+    // entire set of source/destination types involved, rather than each pair
+    // individually. For example: %struct.foo could be used as %struct.foo.2 in
+    // one function and %struct.foo.3 in another function, so we need to take
+    // into account the information about which fields of %struct.foo.2 and
+    // %struct.foo.3 are used when determining whether to cascade the safety
+    // flag. To do this, first get the set of structures that are related, and
+    // then analyze each pair of the set.
+    EquivalenceClasses<Type *> CastTypes;
     for (auto &Elem : DeferredCastingSafetyCascades) {
+      // TODO: We will need to extend the algorithm to iterate over different
+      // safety types, if the we start using 'DeferredCastingSafetyCascades' for
+      // more than just MismatchedArgUse.
+      dtrans::SafetyData Data = std::get<2>(Elem);
+      assert(Data == dtrans::MismatchedArgUse &&
+             "Deferred pointer carried safety data currently only supports "
+             "MismatchedArgUse");
+      (void)Data;
+
       llvm::Type *Ty1 = std::get<0>(Elem);
       llvm::Type *Ty2 = std::get<1>(Elem);
-      dtrans::SafetyData Data = std::get<2>(Elem);
-      assert(Ty1 && Ty2 && "Deferred processing requires from/to types");
-      cascadeSafetyDataToMismatchedFields(Ty1, Ty2, Data);
+      CastTypes.unionSets(Ty1, Ty2);
+    }
+
+    SmallVector<Type *, 16> SetLeaders;
+    for (auto It = CastTypes.begin(), E = CastTypes.end(); It != E; ++It) {
+      // A "Leader" in an EquivalenceClasses set is just the first entry
+      // in a group of entries that have been marked as belonging together.
+      // It serves as the head of a linked list.
+      if (!It->isLeader())
+        continue; // Skip over non-leader sets.
+      SetLeaders.emplace_back(It->getData());
+    }
+
+    for (auto *LeaderTy : SetLeaders) {
+      auto I = CastTypes.findValue(LeaderTy);
+      auto MI = CastTypes.member_begin(I);
+      auto ME = CastTypes.member_end();
+      SmallVector<llvm::Type *, 4> TransitiveGroup;
+      for (; MI != ME; ++MI) {
+        TransitiveGroup.push_back(*MI);
+      }
+
+      size_t Len = TransitiveGroup.size();
+      for (size_t I = 0; I < Len; ++I) {
+        llvm::Type *Ty1 = TransitiveGroup[I];
+        for (size_t J = I + 1; J < Len; ++J) {
+          llvm::Type *Ty2 = TransitiveGroup[J];
+          cascadeSafetyDataToMismatchedFields(Ty1, Ty2,
+                                              dtrans::MismatchedArgUse);
+        }
+      }
     }
   }
 
@@ -6392,6 +6440,9 @@ public:
       }
     };
 
+    LLVM_DEBUG(
+        dbgs() << "cascadeSafetyDataToMismatchedFields checking the pair: "
+               << *SrcTy << "\nAgainst: " << *DstTy << "\n");
     SmallPtrSet<llvm::Type *, 8> Visited;
     CascadeToMismatchedFields(SrcTy, DstTy, Data, Visited, 0);
   }
