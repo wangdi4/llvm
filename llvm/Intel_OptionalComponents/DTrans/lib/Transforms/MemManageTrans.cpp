@@ -143,6 +143,10 @@ class MemManageTransImpl {
   // the memory management.
   constexpr static uint32_t MaxBlockSizeHeuristic = 10;
 
+  // BlockSize will be changed to NewBlockSize if transformation is
+  // applied.
+  constexpr static uint32_t NewBlockSize = 60;
+
 public:
   MemManageTransImpl(Module &M, DTransAnalysisInfo &DTInfo, MemTLITy GetTLI,
                      const DataLayout &DL)
@@ -194,6 +198,7 @@ private:
 
   bool gatherCandidates(void);
   bool analyzeCandidates(void);
+  void transformBlockSize(void);
   bool isUsedOnlyInUnusedVTable(Value *);
   bool checkInterfaceFunctions(void);
   bool checkTypesEscaped(void);
@@ -7549,6 +7554,21 @@ bool MemManageTransImpl::checkCallSiteRestrictions(void) {
   return true;
 }
 
+// Replace the original BlockSize value with "NewBlockSize" in
+// "BlockSizeStoreInst".
+void MemManageTransImpl::transformBlockSize(void) {
+  assert(BlockSizeStoreInst && "Expected store instruction");
+  Value *ValOp = BlockSizeStoreInst->getValueOperand();
+  Value *NewVal = ConstantInt::get(ValOp->getType(), NewBlockSize);
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS,
+     { dbgs() << "   Before transform: " << *BlockSizeStoreInst << "\n"; });
+
+  BlockSizeStoreInst->replaceUsesOfWith(ValOp, NewVal);
+
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS,
+     { dbgs() << "   After transform: " << *BlockSizeStoreInst << "\n"; });
+}
+
 bool MemManageTransImpl::run(void) {
   // Collect candidates.
   if (!gatherCandidates())
@@ -7581,6 +7601,8 @@ bool MemManageTransImpl::run(void) {
                     { dbgs() << "   Failed: BlockSize heuristic\n"; });
     return false;
   }
+
+  transformBlockSize();
 
   return true;
 }
