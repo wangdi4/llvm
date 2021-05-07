@@ -11,6 +11,7 @@
 #include "SGSizeCollectorIndirect.h"
 
 #include "VectorizerCommon.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"

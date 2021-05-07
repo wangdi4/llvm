@@ -32,13 +32,13 @@ target triple = "spir64-unknown-unknown-intelfpga"
 
 ; Function Attrs: nounwind
 define spir_kernel void @foo() #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !5 !kernel_arg_type !5 !kernel_arg_base_type !5 !kernel_arg_type_qual !5 {
-; CHECK-NOT: %[[ADDITIONAL_ALLOCA:.*]] = alloca %struct.ST*
+; CHECK-NOT: %{{.*}} = alloca %struct.ST*
 entry:
   %st = alloca %struct.ST, align 4
   %0 = bitcast %struct.ST* %st to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #3
   %1 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @chan, align 4, !tbaa !7
-; CHECK-NOT: store %struct.ST* %st, %struct.ST** %[[ADDITIONAL_ALLOCA]]
+; CHECK-NOT: store %struct.ST* %st, %struct.ST** %{{.*}}
   call void @_Z19write_channel_intel11ocl_channel2STS_(%opencl.channel_t addrspace(1)* %1, %struct.ST* byval(%struct.ST) align 4 %st)
   %2 = bitcast %struct.ST* %st to i8*
   call void @llvm.lifetime.end.p0i8(i64 4, i8* %2) #3

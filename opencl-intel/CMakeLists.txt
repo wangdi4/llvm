@@ -392,6 +392,9 @@ if(BUILD_LLVM_FROM_SOURCE)
     add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
 endif()
 
+# FindLLVM.cmake will overwrite LLVM_BINARY_DIR, so we save it as LLVM_OBJ_DIR.
+set(LLVM_OBJ_DIR ${LLVM_BINARY_DIR})
+
 # Let's help CMake to find llvm-lit
 if (NOT OPENCL_INTREE_BUILD)
   set(LLVM_EXTERNAL_LIT "${LLVM_PATH_BE}/bin/llvm-lit")

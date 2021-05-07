@@ -78,13 +78,13 @@ entry:
   %0 = load i32, i32* %a, align 4
 ; CHECK: %[[LOADA1:[0-9]+]] = load i32, i32* %a, align 4
   %1 = call i32 @llvm.fpga.reg.i32(i32 %0)
-; CHECK-NOT: %{{[0-9]+}} = call i32 @llvm.fpga.reg.i32(i32 %[[LOADA1]])
+; CHECK-NOT: %{{[0-9]+}} = call i32 @llvm.fpga.reg.i32
   store i32 %1, i32* %b, align 4
 ; CHECK: store i32 %[[LOADA1]], i32* %b, align 4
   %2 = load i32, i32* %myA, align 4
 ; CHECK: %[[LOADMYA:[0-9]+]] = load i32, i32* %myA, align 4
   %3 = call i32 @llvm.fpga.reg.i32(i32 %2)
-; CHECK-NOT: %{{[0-9]+}} = call i32 @llvm.fpga.reg.i32(i32 %[[LOADMYA]])
+; CHECK-NOT: %{{[0-9]+}} = call i32 @llvm.fpga.reg.i32
   store i32 %3, i32* %myB, align 4
 ; CHECK: store i32 %[[LOADMYA]], i32* %myB, align 4
   %4 = call float @llvm.fpga.reg.f32(float 2.000000e+00)
@@ -97,7 +97,7 @@ entry:
   %6 = call i32 @llvm.fpga.reg.i32(i32 %add)
 ; CHECK-NOT: %[[RET1:[0-9]+]] = call i32 @llvm.fpga.reg.i32(i32 %add)
   %7 = call i32 @llvm.fpga.reg.i32(i32 %6)
-; CHECK-NOT: %{{[0-9]+}} = call i32 @llvm.fpga.reg.i32(i32 %[[RET1]])
+; CHECK-NOT: %{{[0-9]+}} = call i32 @llvm.fpga.reg.i32
   store i32 %7, i32* %d, align 4
 ; CHECK: store i32 %add, i32* %d, align 4
   %8 = load i32, i32* %a, align 4
@@ -106,13 +106,13 @@ entry:
   %10 = call i32 @llvm.fpga.reg.i32(i32 %add1)
 ; CHECK-NOT: %[[RET2:[0-9]+]] = call i32 @llvm.fpga.reg.i32(i32 %add1)
   %11 = call i32 @llvm.fpga.reg.i32(i32 %10)
-; CHECK-NOT: %{{[0-9]+}} = call i32 @llvm.fpga.reg.i32(i32 %[[RET2]])
+; CHECK-NOT: %{{[0-9]+}} = call i32 @llvm.fpga.reg.i32
   store i32 %11, i32* %e, align 4
 ; CHECK: store i32 %add1, i32* %e, align 4
   %12 = load i32, i32* %a, align 4
 ; CHECK: %[[LOADA2:[0-9]+]] = load i32, i32* %a, align 4
   %13 = call i32 @llvm.fpga.reg.i32(i32 %12)
-; CHECK-NOT: %{{[0-9]+}} = call i32 @llvm.fpga.reg.i32(i32 %LOADA2)
+; CHECK-NOT: %{{[0-9]+}} = call i32 @llvm.fpga.reg.i32
   store i32 %13, i32* %f, align 4
 ; CHECK: store i32 %[[LOADA2]], i32* %f, align 4
   %14 = bitcast %struct.st* %i to i8*
@@ -135,9 +135,9 @@ entry:
 ; CHECK: %{{[0-9]+}} = bitcast %struct.st* %agg-temp2 to i8*
   call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %19, i8* align 4 %20, i32 8, i1 false)
   %21 = call %struct.st* @llvm.fpga.reg.p0s_struct.sts(%struct.st* %iii)
-; CHECK-NOT: %[[RET3:[0-9]+]] = call %struct.st* @llvm.fpga.reg.p0s_struct.sts(%struct.st* %iii)
+; CHECK-NOT: %{{[0-9]+}} = call %struct.st* @llvm.fpga.reg.p0s_struct.sts(%struct.st* %iii)
   store %struct.st* %21, %struct.st** %iiii, align 4
-; CHECK-NOT: store %struct.st* %[[RET3]], %struct.st** %iiii, align 4
+; CHECK-NOT: store %struct.st* %{{[0-9]+}}, %struct.st** %iiii, align 4
 ; CHECK: store %struct.st* %iii, %struct.st** %iiii, align 4
   %22 = bitcast %union.un* %u1 to i8*
   call void @llvm.memcpy.p0i8.p2i8.i32(i8* align 4 %22, i8 addrspace(2)* align 4 bitcast (%union.un addrspace(2)* @foo.u1 to i8 addrspace(2)*), i32 4, i1 false)
@@ -152,17 +152,17 @@ entry:
 ; CHECK: %{{[0-9]+}} = bitcast %union.un* %agg-temp4 to i8*
   call void @llvm.memcpy.p0i8.p0i8.i32(i8* align 4 %25, i8* align 4 %26, i32 4, i1 false)
   %27 = call %union.un* @llvm.fpga.reg.p0s_union.uns(%union.un* %u2)
-; CHECK-NOT: %[[RET4:[0-9]+]] = call %union.un* @llvm.fpga.reg.p0s_union.uns(%union.un* %u2)
+; CHECK-NOT: %{{[0-9]+}} = call %union.un* @llvm.fpga.reg.p0s_union.uns(%union.un* %u2)
   store %union.un* %27, %union.un** %u3, align 4
-; CHECK-NOT: store %union.un* %[[RET4]], %union.un** %u3, align 4
+; CHECK-NOT: store %union.un* %{{[0-9]+}}, %union.un** %u3, align 4
 ; CHECK: store %union.un* %u2, %union.un** %u3, align 4
   store i32* %a, i32** %ap, align 4
   %28 = load i32*, i32** %ap, align 4
 ; CHECK: %[[LOADAP:[0-9]+]] = load i32*, i32** %ap, align 4
   %29 = call i32* @llvm.fpga.reg.p0i32(i32* %28)
-; CHECK-NOT: %[[RET5:[0-9]+]] = call i32* @llvm.fpga.reg.p0i32(i32* %[[LOADAP]])
+; CHECK-NOT: %{{[0-9]+}} = call i32* @llvm.fpga.reg.p0i32
   store i32* %29, i32** %bp, align 4
-; CHECK-NOT: store i32* %[[RET5]], i32** %bp, align 4
+; CHECK-NOT: store i32* %{{[0-9]+}}, i32** %bp, align 4
 ; CHECK: store i32* %[[LOADAP]], i32** %bp, align 4
   ret void
 }

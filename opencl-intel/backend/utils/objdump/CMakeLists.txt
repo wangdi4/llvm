@@ -19,9 +19,14 @@ add_custom_command(OUTPUT ${COPIED_OBJDUMP_FILES}
   ${ORIGINAL_OBJDUMP_FILES}
   ${COPIED_OBJDUMP_FILES}
   DEPENDS ${ORIGINAL_OBJDUMP_FILES}
+  DEPENDS llvm-objdump
   COMMENT "Generating OpenCL ObjDump files into ${CMAKE_CURRENT_BINARY_DIR}")
 
-include_directories(${LLVM_INCLUDE_DIRS})
+include_directories(
+  ${LLVM_INCLUDE_DIRS}
+  # path of tablegen generated include files.
+  ${LLVM_OBJ_DIR}/tools/llvm-objdump
+)
 
 add_opencl_library(
   ${TARGET_NAME}
