@@ -14,6 +14,7 @@
 // The inliner inlines the marked functions. Loop Opt performs the tiling.
 //===----------------------------------------------------------------------===//
 
+#include <stack>
 #include "llvm/Transforms/IPO/Intel_TileMVInlMarker.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/Intel_WP.h"

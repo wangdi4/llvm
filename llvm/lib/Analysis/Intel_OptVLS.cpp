@@ -116,22 +116,22 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<uint32_t> &Mask,
   if (isExtractSubvectorMask(Mask)) {
     // TODO: Support other sized subvectors.
     index = Mask[0] == 0 ? 0 : 1;
-    return TTI.getShuffleCost(
+    return *TTI.getShuffleCost(
         TargetTransformInfo::SK_ExtractSubvector, VTp, llvm::None, index,
-        FixedVectorType::get(Tp->getScalarType(), NumVecElems / 2));
+        FixedVectorType::get(Tp->getScalarType(), NumVecElems / 2)).getValue();
   } else if (isInsertSubvectorMask(Mask, index, NumSubVecElems))
-    return TTI.getShuffleCost(
+    return *TTI.getShuffleCost(
         TargetTransformInfo::SK_InsertSubvector, VTp, llvm::None, index,
-        FixedVectorType::get(Tp->getScalarType(), NumSubVecElems));
+        FixedVectorType::get(Tp->getScalarType(), NumSubVecElems)).getValue();
   else if (TTI.isTargetSpecificShuffleMask(Mask))
-    return TTI.getShuffleCost(TargetTransformInfo::SK_TargetSpecific, VTp,
-                              llvm::None, 0, nullptr);
+    return *TTI.getShuffleCost(TargetTransformInfo::SK_TargetSpecific, VTp,
+                              llvm::None, 0, nullptr).getValue();
   else if (isReverseVectorMask(Mask))
-    return TTI.getShuffleCost(TargetTransformInfo::SK_Reverse, VTp, llvm::None,
-                              0, nullptr);
+    return *TTI.getShuffleCost(TargetTransformInfo::SK_Reverse, VTp, llvm::None,
+                              0, nullptr).getValue();
   else if (isAlternateVectorMask(Mask))
-    return TTI.getShuffleCost(TargetTransformInfo::SK_Select, VTp, llvm::None,
-                              0, nullptr);
+    return *TTI.getShuffleCost(TargetTransformInfo::SK_Select, VTp, llvm::None,
+                              0, nullptr).getValue();
 
   // TODO: Support SK_Insert
   uint32_t TotalElems = Mask.size();

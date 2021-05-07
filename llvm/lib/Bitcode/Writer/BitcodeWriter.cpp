@@ -67,6 +67,7 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
+#include "llvm/Support/Path.h" // INTEL
 #include "llvm/Support/SHA1.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
@@ -1908,7 +1909,7 @@ void ModuleBitcodeWriter::writeDIArgList(const DIArgList *N,
                                          unsigned Abbrev) {
   Record.reserve(N->getArgs().size());
   for (ValueAsMetadata *MD : N->getArgs())
-    Record.push_back(VE.getMetadataOrNullID(MD));
+    Record.push_back(VE.getMetadataID(MD));
 
   Stream.EmitRecord(bitc::METADATA_ARG_LIST, Record, Abbrev);
   Record.clear();

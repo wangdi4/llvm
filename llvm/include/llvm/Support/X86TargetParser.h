@@ -101,13 +101,9 @@ enum CPUKind {
   CK_Cooperlake,
   CK_Cannonlake,
   CK_IcelakeClient,
+  CK_Rocketlake,
   CK_IcelakeServer,
   CK_Tigerlake,
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RKL
-  CK_Rocketlake,
-#endif // INTEL_FEATURE_CPU_RKL
-#endif // INTEL_CUSTOMIZATION
   CK_SapphireRapids,
   CK_Alderlake,
   CK_KNL,

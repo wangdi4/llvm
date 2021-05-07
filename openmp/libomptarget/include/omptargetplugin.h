@@ -325,6 +325,9 @@ EXTERN const char *__tgt_rtl_get_interop_rc_desc(int32_t ID, int32_t Rc);
 // Return number of available sub-devices at the given level
 EXTERN int32_t __tgt_rtl_get_num_sub_devices(int32_t ID, int32_t Level);
 #endif // INTEL_COLLAB
+// Set plugin's internal information flag externally.
+void __tgt_rtl_set_info_flag(uint32_t);
+
 #ifdef __cplusplus
 }
 #endif

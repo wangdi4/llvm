@@ -45,6 +45,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MachineValueType.h"
 #include "llvm/Support/MathExtras.h"
+#include "llvm/Target/TargetMachine.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -82,8 +83,8 @@ private:
 
   /// Estimate a cost of Broadcast as an extract and sequence of insert
   /// operations.
-  unsigned getBroadcastShuffleOverhead(FixedVectorType *VTy) {
-    unsigned Cost = 0;
+  InstructionCost getBroadcastShuffleOverhead(FixedVectorType *VTy) {
+    InstructionCost Cost = 0;
     // Broadcast cost is equal to the cost of extracting the zero'th element
     // plus the cost of inserting it into every element of the result vector.
     Cost += thisT()->getVectorInstrCost(Instruction::ExtractElement, VTy, 0);
@@ -96,8 +97,8 @@ private:
 
   /// Estimate a cost of shuffle as a sequence of extract and insert
   /// operations.
-  unsigned getPermuteShuffleOverhead(FixedVectorType *VTy) {
-    unsigned Cost = 0;
+  InstructionCost getPermuteShuffleOverhead(FixedVectorType *VTy) {
+    InstructionCost Cost = 0;
     // Shuffle cost is equal to the cost of extracting element from its argument
     // plus the cost of inserting them onto the result vector.
 
@@ -114,7 +115,7 @@ private:
 
   /// Estimate a cost of subvector extraction as a sequence of extract and
   /// insert operations.
-  unsigned getExtractSubvectorOverhead(VectorType *VTy, int Index,
+  InstructionCost getExtractSubvectorOverhead(VectorType *VTy, int Index,
                                        FixedVectorType *SubVTy) {
     assert(VTy && SubVTy &&
            "Can only extract subvectors from vectors");
@@ -124,7 +125,7 @@ private:
                 (int)cast<FixedVectorType>(VTy)->getNumElements()) &&
            "SK_ExtractSubvector index out of range");
 
-    unsigned Cost = 0;
+    InstructionCost Cost = 0;
     // Subvector extraction cost is equal to the cost of extracting element from
     // the source type plus the cost of inserting them into the result vector
     // type.
@@ -139,7 +140,7 @@ private:
 
   /// Estimate a cost of subvector insertion as a sequence of extract and
   /// insert operations.
-  unsigned getInsertSubvectorOverhead(VectorType *VTy, int Index,
+  InstructionCost getInsertSubvectorOverhead(VectorType *VTy, int Index,
                                       FixedVectorType *SubVTy) {
     assert(VTy && SubVTy &&
            "Can only insert subvectors into vectors");
@@ -149,7 +150,7 @@ private:
                 (int)cast<FixedVectorType>(VTy)->getNumElements()) &&
            "SK_InsertSubvector index out of range");
 
-    unsigned Cost = 0;
+    InstructionCost Cost = 0;
     // Subvector insertion cost is equal to the cost of extracting element from
     // the source type plus the cost of inserting them into the result vector
     // type.
@@ -186,6 +187,55 @@ private:
         return ISD::POST_DEC;
     }
     llvm_unreachable("Unexpected MemIndexedMode");
+  }
+
+  InstructionCost getCommonMaskedMemoryOpCost(unsigned Opcode, Type *DataTy,
+                                              Align Alignment,
+                                              bool VariableMask,
+                                              bool IsGatherScatter,
+                                              TTI::TargetCostKind CostKind) {
+    auto *VT = cast<FixedVectorType>(DataTy);
+    // Assume the target does not have support for gather/scatter operations
+    // and provide a rough estimate.
+    //
+    // First, compute the cost of the individual memory operations.
+    InstructionCost AddrExtractCost =
+        IsGatherScatter
+            ? getVectorInstrCost(Instruction::ExtractElement,
+                                 FixedVectorType::get(
+                                     PointerType::get(VT->getElementType(), 0),
+                                     VT->getNumElements()),
+                                 -1)
+            : 0;
+    InstructionCost LoadCost =
+        VT->getNumElements() *
+        (AddrExtractCost +
+         getMemoryOpCost(Opcode, VT->getElementType(), Alignment, 0, CostKind));
+
+    // Next, compute the cost of packing the result in a vector.
+    InstructionCost PackingCost = getScalarizationOverhead(
+        VT, Opcode != Instruction::Store, Opcode == Instruction::Store);
+
+    InstructionCost ConditionalCost = 0;
+    if (VariableMask) {
+      // Compute the cost of conditionally executing the memory operations with
+      // variable masks. This includes extracting the individual conditions, a
+      // branches and PHIs to combine the results.
+      // NOTE: Estimating the cost of conditionally executing the memory
+      // operations accurately is quite difficult and the current solution
+      // provides a very rough estimate only.
+      ConditionalCost =
+          VT->getNumElements() *
+          (getVectorInstrCost(
+               Instruction::ExtractElement,
+               FixedVectorType::get(Type::getInt1Ty(DataTy->getContext()),
+                                    VT->getNumElements()),
+               -1) +
+           getCFInstrCost(Instruction::Br, CostKind) +
+           getCFInstrCost(Instruction::PHI, CostKind));
+    }
+
+    return LoadCost + PackingCost + ConditionalCost;
   }
 
 protected:
@@ -280,8 +330,9 @@ public:
     return TargetTransformInfoImplBase::isProfitableLSRChainElement(I);
   }
 
-  int getScalingFactorCost(Type *Ty, GlobalValue *BaseGV, int64_t BaseOffset,
-                           bool HasBaseReg, int64_t Scale, unsigned AddrSpace) {
+  InstructionCost getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
+                                       int64_t BaseOffset, bool HasBaseReg,
+                                       int64_t Scale, unsigned AddrSpace) {
     TargetLoweringBase::AddrMode AM;
     AM.BaseGV = BaseGV;
     AM.BaseOffs = BaseOffset;
@@ -309,8 +360,8 @@ public:
     return getTLI()->getTypeLegalizationCost(DL, Ty).first;
   }
 
-  int getGEPCost(Type *PointeeType, const Value *Ptr,
-                 ArrayRef<const Value *> Operands) {
+  InstructionCost getGEPCost(Type *PointeeType, const Value *Ptr,
+                             ArrayRef<const Value *> Operands) {
     return BaseT::getGEPCost(PointeeType, Ptr, Operands);
   }
 
@@ -379,6 +430,26 @@ public:
            TLI->isOperationLegalOrCustom(ISD::BRIND, MVT::Other);
   }
 
+  bool shouldBuildRelLookupTables() const {
+    const TargetMachine &TM = getTLI()->getTargetMachine();
+    // If non-PIC mode, do not generate a relative lookup table.
+    if (!TM.isPositionIndependent())
+      return false;
+
+    /// Relative lookup table entries consist of 32-bit offsets.
+    /// Do not generate relative lookup tables for large code models
+    /// in 64-bit achitectures where 32-bit offsets might not be enough.
+    if (TM.getCodeModel() == CodeModel::Medium ||
+        TM.getCodeModel() == CodeModel::Large)
+      return false;
+
+    Triple TargetTriple = TM.getTargetTriple();
+    if (!TargetTriple.isArch64Bit())
+      return false;
+
+    return true;
+  }
+
   bool haveFastSqrt(Type *Ty) {
     const TargetLoweringBase *TLI = getTLI();
     EVT VT = TLI->getValueType(DL, Ty);
@@ -390,7 +461,7 @@ public:
     return true;
   }
 
-  unsigned getFPOpCost(Type *Ty) {
+  InstructionCost getFPOpCost(Type *Ty) {
     // Check whether FADD is available, as a proxy for floating-point in
     // general.
     const TargetLoweringBase *TLI = getTLI();
@@ -582,8 +653,9 @@ public:
   /// Estimate the overhead of scalarizing an instruction. Insert and Extract
   /// are set if the demanded result elements need to be inserted and/or
   /// extracted from vectors.
-  unsigned getScalarizationOverhead(VectorType *InTy, const APInt &DemandedElts,
-                                    bool Insert, bool Extract) {
+  InstructionCost getScalarizationOverhead(VectorType *InTy,
+                                           const APInt &DemandedElts,
+                                           bool Insert, bool Extract) {
     /// FIXME: a bitfield is not a reasonable abstraction for talking about
     /// which elements are needed from a scalable vector
     auto *Ty = cast<FixedVectorType>(InTy);
@@ -591,7 +663,7 @@ public:
     assert(DemandedElts.getBitWidth() == Ty->getNumElements() &&
            "Vector size mismatch");
 
-    unsigned Cost = 0;
+    InstructionCost Cost = 0;
 
     for (int i = 0, e = Ty->getNumElements(); i < e; ++i) {
       if (!DemandedElts[i])
@@ -606,8 +678,8 @@ public:
   }
 
   /// Helper wrapper for the DemandedElts variant of getScalarizationOverhead.
-  unsigned getScalarizationOverhead(VectorType *InTy, bool Insert,
-                                    bool Extract) {
+  InstructionCost getScalarizationOverhead(VectorType *InTy, bool Insert,
+                                           bool Extract) {
     auto *Ty = cast<FixedVectorType>(InTy);
 
     APInt DemandedElts = APInt::getAllOnesValue(Ty->getNumElements());
@@ -617,11 +689,11 @@ public:
   /// Estimate the overhead of scalarizing an instructions unique
   /// non-constant operands. The (potentially vector) types to use for each of
   /// argument are passes via Tys.
-  unsigned getOperandsScalarizationOverhead(ArrayRef<const Value *> Args,
-                                            ArrayRef<Type *> Tys) {
+  InstructionCost getOperandsScalarizationOverhead(ArrayRef<const Value *> Args,
+                                                   ArrayRef<Type *> Tys) {
     assert(Args.size() == Tys.size() && "Expected matching Args and Tys");
 
-    unsigned Cost = 0;
+    InstructionCost Cost = 0;
     SmallPtrSet<const Value*, 4> UniqueOperands;
     for (int I = 0, E = Args.size(); I != E; I++) {
       // Disregard things like metadata arguments.
@@ -644,12 +716,10 @@ public:
   /// instruction, with return type RetTy and arguments Args of type Tys. If
   /// Args are unknown (empty), then the cost associated with one argument is
   /// added as a heuristic.
-  unsigned getScalarizationOverhead(VectorType *RetTy,
-                                    ArrayRef<const Value *> Args,
-                                    ArrayRef<Type *> Tys) {
-    unsigned Cost = 0;
-
-    Cost += getScalarizationOverhead(RetTy, true, false);
+  InstructionCost getScalarizationOverhead(VectorType *RetTy,
+                                           ArrayRef<const Value *> Args,
+                                           ArrayRef<Type *> Tys) {
+    InstructionCost Cost = getScalarizationOverhead(RetTy, true, false);
     if (!Args.empty())
       Cost += getOperandsScalarizationOverhead(Args, Tys);
     else
@@ -662,7 +732,7 @@ public:
 
   unsigned getMaxInterleaveFactor(unsigned VF) { return 1; }
 
-  unsigned getArithmeticInstrCost(
+  InstructionCost getArithmeticInstrCost(
       unsigned Opcode, Type *Ty,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       TTI::OperandValueKind Opd1Info = TTI::OK_AnyValue,
@@ -688,7 +758,7 @@ public:
     bool IsFloat = Ty->isFPOrFPVectorTy();
     // Assume that floating point arithmetic operations cost twice as much as
     // integer operations.
-    unsigned OpCost = (IsFloat ? 2 : 1);
+    InstructionCost OpCost = (IsFloat ? 2 : 1);
 
     if (TLI->isOperationLegalOrPromote(ISD, LT.second)) {
       // The operation is legal. Assume it costs 1.
@@ -707,7 +777,7 @@ public:
     // similarly to what getCastInstrCost() does.
     if (auto *VTy = dyn_cast<VectorType>(Ty)) {
       unsigned Num = cast<FixedVectorType>(VTy)->getNumElements();
-      unsigned Cost = thisT()->getArithmeticInstrCost(
+      InstructionCost Cost = thisT()->getArithmeticInstrCost(
           Opcode, VTy->getScalarType(), CostKind, Opd1Info, Opd2Info,
           Opd1PropInfo, Opd2PropInfo, Args, CxtI);
       // Return the cost of multiple scalar invocation plus the cost of
@@ -720,8 +790,9 @@ public:
     return OpCost;
   }
 
-  unsigned getShuffleCost(TTI::ShuffleKind Kind, VectorType *Tp,
-                          ArrayRef<int> Mask, int Index, VectorType *SubTp) {
+  InstructionCost getShuffleCost(TTI::ShuffleKind Kind, VectorType *Tp,
+                                 ArrayRef<int> Mask, int Index,
+                                 VectorType *SubTp) {
 
     switch (Kind) {
     case TTI::SK_Broadcast:
@@ -746,10 +817,10 @@ public:
     llvm_unreachable("Unknown TTI::ShuffleKind");
   }
 
-  unsigned getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
-                            TTI::CastContextHint CCH,
-                            TTI::TargetCostKind CostKind,
-                            const Instruction *I = nullptr) {
+  InstructionCost getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
+                                   TTI::CastContextHint CCH,
+                                   TTI::TargetCostKind CostKind,
+                                   const Instruction *I = nullptr) {
     if (BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I) == 0)
       return 0;
 
@@ -865,7 +936,7 @@ public:
         Type *SplitSrcTy = VectorType::getHalfElementsVectorType(SrcVTy);
         T *TTI = static_cast<T *>(this);
         // If both types need to be split then the split is free.
-        unsigned SplitCost =
+        InstructionCost SplitCost =
             (!SplitSrc || !SplitDst) ? TTI->getVectorSplitCost() : 0;
         return SplitCost +
                (2 * TTI->getCastInstrCost(Opcode, SplitDstTy, SplitSrcTy, CCH,
@@ -875,7 +946,7 @@ public:
       // In other cases where the source or destination are illegal, assume
       // the operation will get scalarized.
       unsigned Num = cast<FixedVectorType>(DstVTy)->getNumElements();
-      unsigned Cost = thisT()->getCastInstrCost(
+      InstructionCost Cost = thisT()->getCastInstrCost(
           Opcode, Dst->getScalarType(), Src->getScalarType(), CCH, CostKind, I);
 
       // Return the cost of multiple scalar invocation plus the cost of
@@ -896,23 +967,24 @@ public:
     llvm_unreachable("Unhandled cast");
   }
 
-  unsigned getExtractWithExtendCost(unsigned Opcode, Type *Dst,
-                                    VectorType *VecTy, unsigned Index) {
+  InstructionCost getExtractWithExtendCost(unsigned Opcode, Type *Dst,
+                                           VectorType *VecTy, unsigned Index) {
     return thisT()->getVectorInstrCost(Instruction::ExtractElement, VecTy,
                                        Index) +
            thisT()->getCastInstrCost(Opcode, Dst, VecTy->getElementType(),
-                                     TTI::CastContextHint::None, TTI::TCK_RecipThroughput);
+                                     TTI::CastContextHint::None,
+                                     TTI::TCK_RecipThroughput);
   }
 
-  unsigned getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind,
-                          const Instruction *I = nullptr) {
+  InstructionCost getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind,
+                                 const Instruction *I = nullptr) {
     return BaseT::getCFInstrCost(Opcode, CostKind, I);
   }
 
-  unsigned getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
-                              CmpInst::Predicate VecPred,
-                              TTI::TargetCostKind CostKind,
-                              const Instruction *I = nullptr) {
+  InstructionCost getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
+                                     CmpInst::Predicate VecPred,
+                                     TTI::TargetCostKind CostKind,
+                                     const Instruction *I = nullptr) {
     const TargetLoweringBase *TLI = getTLI();
     int ISD = TLI->InstructionOpcodeToISD(Opcode);
     assert(ISD && "Invalid opcode");
@@ -944,7 +1016,7 @@ public:
       unsigned Num = cast<FixedVectorType>(ValVTy)->getNumElements();
       if (CondTy)
         CondTy = CondTy->getScalarType();
-      unsigned Cost = thisT()->getCmpSelInstrCost(
+      InstructionCost Cost = thisT()->getCmpSelInstrCost(
           Opcode, ValVTy->getScalarType(), CondTy, VecPred, CostKind, I);
 
       // Return the cost of multiple scalar invocation plus the cost of
@@ -956,22 +1028,23 @@ public:
     return 1;
   }
 
-  unsigned getVectorInstrCost(unsigned Opcode, Type *Val, unsigned Index) {
+  InstructionCost getVectorInstrCost(unsigned Opcode, Type *Val,
+                                     unsigned Index) {
     std::pair<unsigned, MVT> LT =
         getTLI()->getTypeLegalizationCost(DL, Val->getScalarType());
 
     return LT.first;
   }
 
-  unsigned getMemoryOpCost(unsigned Opcode, Type *Src, MaybeAlign Alignment,
-                           unsigned AddressSpace,
-                           TTI::TargetCostKind CostKind,
-                           const Instruction *I = nullptr) {
+  InstructionCost getMemoryOpCost(unsigned Opcode, Type *Src,
+                                  MaybeAlign Alignment, unsigned AddressSpace,
+                                  TTI::TargetCostKind CostKind,
+                                  const Instruction *I = nullptr) {
     assert(!Src->isVoidTy() && "Invalid type");
 
 #if INTEL_CUSTOMIZATION
     if (StructType *STy = dyn_cast<StructType>(Src)) {
-      unsigned Cost = 0;
+      InstructionCost Cost = 0;
       const DataLayout &DL = this->getDataLayout();
       const StructLayout *SL = DL.getStructLayout(STy);
       for (StructType::element_iterator EB = STy->element_begin(), EI = EB,
@@ -988,7 +1061,7 @@ public:
     }
     // Given an array type, recursively traverse the elements.
     if (ArrayType *ATy = dyn_cast<ArrayType>(Src)) {
-      unsigned Cost = 0;
+      InstructionCost Cost = 0;
       Type *EltTy = ATy->getElementType();
       const DataLayout &DL = this->getDataLayout();
       uint64_t EltSize = DL.getTypeAllocSize(EltTy);
@@ -1008,7 +1081,7 @@ public:
     std::pair<unsigned, MVT> LT = getTLI()->getTypeLegalizationCost(DL, Src);
 
     // Assuming that all loads of legal types cost 1.
-    unsigned Cost = LT.first;
+    InstructionCost Cost = LT.first;
     if (CostKind != TTI::TCK_RecipThroughput)
       return Cost;
 
@@ -1040,56 +1113,27 @@ public:
     return Cost;
   }
 
+  InstructionCost getMaskedMemoryOpCost(unsigned Opcode, Type *DataTy,
+                                        Align Alignment, unsigned AddressSpace,
+                                        TTI::TargetCostKind CostKind) {
+    return getCommonMaskedMemoryOpCost(Opcode, DataTy, Alignment, true, false,
+                                       CostKind);
+  }
+
 #if INTEL_CUSTOMIZATION
   using BaseT::getGatherScatterOpCost;
 #endif // INTEL_CUSTOMIZATION
-  unsigned getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
-                                  const Value *Ptr, bool VariableMask,
-                                  Align Alignment, TTI::TargetCostKind CostKind,
-                                  const Instruction *I = nullptr, // INTEL
-                                  bool UndefPassThru = false) {   // INTEL
-    auto *VT = cast<FixedVectorType>(DataTy);
-    // Assume the target does not have support for gather/scatter operations
-    // and provide a rough estimate.
-    //
-    // First, compute the cost of extracting the individual addresses and the
-    // individual memory operations.
-    int LoadCost =
-        VT->getNumElements() *
-        (getVectorInstrCost(
-             Instruction::ExtractElement,
-             FixedVectorType::get(PointerType::get(VT->getElementType(), 0),
-                                  VT->getNumElements()),
-             -1) +
-         getMemoryOpCost(Opcode, VT->getElementType(), Alignment, 0, CostKind));
-
-    // Next, compute the cost of packing the result in a vector.
-    int PackingCost = getScalarizationOverhead(VT, Opcode != Instruction::Store,
-                                               Opcode == Instruction::Store);
-
-    int ConditionalCost = 0;
-    if (VariableMask) {
-      // Compute the cost of conditionally executing the memory operations with
-      // variable masks. This includes extracting the individual conditions, a
-      // branches and PHIs to combine the results.
-      // NOTE: Estimating the cost of conditionally executing the memory
-      // operations accurately is quite difficult and the current solution
-      // provides a very rough estimate only.
-      ConditionalCost =
-          VT->getNumElements() *
-          (getVectorInstrCost(
-               Instruction::ExtractElement,
-               FixedVectorType::get(Type::getInt1Ty(DataTy->getContext()),
-                                    VT->getNumElements()),
-               -1) +
-           getCFInstrCost(Instruction::Br, CostKind) +
-           getCFInstrCost(Instruction::PHI, CostKind));
-    }
-
-    return LoadCost + PackingCost + ConditionalCost;
+  InstructionCost
+  getGatherScatterOpCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
+                         bool VariableMask, Align Alignment,
+                         TTI::TargetCostKind CostKind,
+                         const Instruction *I = nullptr, // INTEL
+                         bool UndefPassThru = false) {   // INTEL
+    return getCommonMaskedMemoryOpCost(Opcode, DataTy, Alignment, VariableMask,
+                                       true, CostKind);
   }
 
-  unsigned getInterleavedMemoryOpCost(
+  InstructionCost getInterleavedMemoryOpCost(
       unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,
       Align Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
       bool UseMaskForCond = false, bool UseMaskForGaps = false) {
@@ -1102,7 +1146,7 @@ public:
     auto *SubVT = FixedVectorType::get(VT->getElementType(), NumSubElts);
 
     // Firstly, the cost of load/store operation.
-    unsigned Cost;
+    InstructionCost Cost;
     if (UseMaskForCond || UseMaskForGaps)
       Cost = thisT()->getMaskedMemoryOpCost(Opcode, VecTy, Alignment,
                                             AddressSpace, CostKind);
@@ -1176,7 +1220,7 @@ public:
                                               Index + i * Factor);
       }
 
-      unsigned InsSubCost = 0;
+      InstructionCost InsSubCost = 0;
       for (unsigned i = 0; i < NumSubElts; i++)
         InsSubCost +=
             thisT()->getVectorInstrCost(Instruction::InsertElement, SubVT, i);
@@ -1192,7 +1236,7 @@ public:
       // The cost is estimated as extract all elements from both <4 x i32>
       // vectors and insert into the <8 x i32> vector.
 
-      unsigned ExtSubCost = 0;
+      InstructionCost ExtSubCost = 0;
       for (unsigned i = 0; i < NumSubElts; i++)
         ExtSubCost +=
             thisT()->getVectorInstrCost(Instruction::ExtractElement, SubVT, i);
@@ -1364,7 +1408,7 @@ public:
                                                               : TTI::OP_None;
       // fshl: (X << (Z % BW)) | (Y >> (BW - (Z % BW)))
       // fshr: (X << (BW - (Z % BW))) | (Y >> (Z % BW))
-      unsigned Cost = 0;
+      InstructionCost Cost = 0;
       Cost +=
           thisT()->getArithmeticInstrCost(BinaryOperator::Or, RetTy, CostKind);
       Cost +=
@@ -1396,7 +1440,7 @@ public:
     // Assume that we need to scalarize this intrinsic.
     // Compute the scalarization overhead based on Args for a vector
     // intrinsic.
-    unsigned ScalarizationCost = std::numeric_limits<unsigned>::max();
+    InstructionCost ScalarizationCost = InstructionCost::getInvalid();
     if (RetVF.isVector() && !RetVF.isScalable()) {
       ScalarizationCost = 0;
       if (!RetTy->isVoidTy())
@@ -1422,7 +1466,7 @@ public:
     Type *RetTy = ICA.getReturnType();
     const SmallVectorImpl<Type *> &Tys = ICA.getArgTypes();
     FastMathFlags FMF = ICA.getFlags();
-    unsigned ScalarizationCostPassed = ICA.getScalarizationCost();
+    InstructionCost ScalarizationCostPassed = ICA.getScalarizationCost();
     bool SkipScalarizationCost = ICA.skipScalarizationCost();
 
     VectorType *VecOpTy = nullptr;
@@ -1461,7 +1505,8 @@ public:
         return InstructionCost::getInvalid();
 
       // Assume that we need to scalarize this intrinsic.
-      InstructionCost ScalarizationCost = ScalarizationCostPassed;
+      InstructionCost ScalarizationCost =
+          SkipScalarizationCost ? ScalarizationCostPassed : 0;
       unsigned ScalarCalls = 1;
       Type *ScalarRetTy = RetTy;
       if (auto *RetVTy = dyn_cast<VectorType>(RetTy)) {
@@ -1646,7 +1691,7 @@ public:
       // abs(X) = select(icmp(X,0),X,sub(0,X))
       // minmax(X,Y) = select(icmp(X,Y),X,Y)
       Type *CondTy = RetTy->getWithNewBitWidth(1);
-      unsigned Cost = 0;
+      InstructionCost Cost = 0;
       // TODO: Ideally getCmpSelInstrCost would accept an icmp condition code.
       Cost +=
           thisT()->getCmpSelInstrCost(BinaryOperator::ICmp, RetTy, CondTy,
@@ -1741,7 +1786,7 @@ public:
       //   Overflow -> (LHSSign == RHSSign) && (LHSSign != SumSign)
       //   Sub:
       //   Overflow -> (LHSSign != RHSSign) && (LHSSign != SumSign)
-      unsigned Cost = 0;
+      InstructionCost Cost = 0;
       Cost += thisT()->getArithmeticInstrCost(Opcode, SumTy, CostKind);
       Cost += 3 * thisT()->getCmpSelInstrCost(
                       Instruction::ICmp, SumTy, OverflowTy,
@@ -1761,7 +1806,7 @@ public:
                             ? BinaryOperator::Add
                             : BinaryOperator::Sub;
 
-      unsigned Cost = 0;
+      InstructionCost Cost = 0;
       Cost += thisT()->getArithmeticInstrCost(Opcode, SumTy, CostKind);
       Cost +=
           thisT()->getCmpSelInstrCost(BinaryOperator::ICmp, SumTy, OverflowTy,
@@ -1881,8 +1926,9 @@ public:
           }))
         return InstructionCost::getInvalid();
 
-      unsigned ScalarizationCost = SkipScalarizationCost ?
-        ScalarizationCostPassed : getScalarizationOverhead(RetVTy, true, false);
+      InstructionCost ScalarizationCost =
+          SkipScalarizationCost ? ScalarizationCostPassed
+                                : getScalarizationOverhead(RetVTy, true, false);
 
       unsigned ScalarCalls = cast<FixedVectorType>(RetVTy)->getNumElements();
       SmallVector<Type *, 4> ScalarTys;
@@ -1921,8 +1967,9 @@ public:
   /// \param RetTy Return value types.
   /// \param Tys Argument types.
   /// \returns The cost of Call instruction.
-  unsigned getCallInstrCost(Function *F, Type *RetTy, ArrayRef<Type *> Tys,
-                     TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency) {
+  InstructionCost
+  getCallInstrCost(Function *F, Type *RetTy, ArrayRef<Type *> Tys,
+                   TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency) {
     return 10;
   }
 
@@ -1931,8 +1978,8 @@ public:
     return LT.first;
   }
 
-  unsigned getAddressComputationCost(Type *Ty, ScalarEvolution *,
-                                     const SCEV *) {
+  InstructionCost getAddressComputationCost(Type *Ty, ScalarEvolution *,
+                                            const SCEV *) {
     return 0;
   }
 
@@ -1971,9 +2018,9 @@ public:
   ///
   /// The cost model should take into account that the actual length of the
   /// vector is reduced on each iteration.
-  unsigned getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
-                                      bool IsPairwise,
-                                      TTI::TargetCostKind CostKind) {
+  InstructionCost getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
+                                             bool IsPairwise,
+                                             TTI::TargetCostKind CostKind) {
     Type *ScalarTy = Ty->getElementType();
     unsigned NumVecElts = cast<FixedVectorType>(Ty)->getNumElements();
     if ((Opcode == Instruction::Or || Opcode == Instruction::And) &&
@@ -1993,8 +2040,8 @@ public:
                                          CmpInst::BAD_ICMP_PREDICATE, CostKind);
     }
     unsigned NumReduxLevels = Log2_32(NumVecElts);
-    unsigned ArithCost = 0;
-    unsigned ShuffleCost = 0;
+    InstructionCost ArithCost = 0;
+    InstructionCost ShuffleCost = 0;
     std::pair<unsigned, MVT> LT =
         thisT()->getTLI()->getTypeLegalizationCost(DL, Ty);
     unsigned LongVectorCount = 0;
@@ -2034,9 +2081,9 @@ public:
 
   /// Try to calculate op costs for min/max reduction operations.
   /// \param CondTy Conditional type for the Select instruction.
-  unsigned getMinMaxReductionCost(VectorType *Ty, VectorType *CondTy,
-                                  bool IsPairwise, bool IsUnsigned,
-                                  TTI::TargetCostKind CostKind) {
+  InstructionCost getMinMaxReductionCost(VectorType *Ty, VectorType *CondTy,
+                                         bool IsPairwise, bool IsUnsigned,
+                                         TTI::TargetCostKind CostKind) {
     Type *ScalarTy = Ty->getElementType();
     Type *ScalarCondTy = CondTy->getElementType();
     unsigned NumVecElts = cast<FixedVectorType>(Ty)->getNumElements();
@@ -2051,8 +2098,8 @@ public:
 #endif // INTEL_CUSTOMIZATION
       CmpOpcode = Instruction::ICmp;
     }
-    unsigned MinMaxCost = 0;
-    unsigned ShuffleCost = 0;
+    InstructionCost MinMaxCost = 0;
+    InstructionCost ShuffleCost = 0;
     std::pair<unsigned, MVT> LT =
         thisT()->getTLI()->getTypeLegalizationCost(DL, Ty);
     unsigned LongVectorCount = 0;
@@ -2109,10 +2156,10 @@ public:
     // Without any native support, this is equivalent to the cost of
     // vecreduce.add(ext) or if IsMLA vecreduce.add(mul(ext, ext))
     VectorType *ExtTy = VectorType::get(ResTy, Ty);
-    unsigned RedCost = thisT()->getArithmeticReductionCost(
+    InstructionCost RedCost = thisT()->getArithmeticReductionCost(
         Instruction::Add, ExtTy, false, CostKind);
-    unsigned MulCost = 0;
-    unsigned ExtCost = thisT()->getCastInstrCost(
+    InstructionCost MulCost = 0;
+    InstructionCost ExtCost = thisT()->getCastInstrCost(
         IsUnsigned ? Instruction::ZExt : Instruction::SExt, ExtTy, Ty,
         TTI::CastContextHint::None, CostKind);
     if (IsMLA) {
@@ -2124,7 +2171,7 @@ public:
     return RedCost + MulCost + ExtCost;
   }
 
-  unsigned getVectorSplitCost() { return 1; }
+  InstructionCost getVectorSplitCost() { return 1; }
 
   /// @}
 };

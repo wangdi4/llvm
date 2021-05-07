@@ -340,11 +340,6 @@ protected:
   Tool *buildLinker() const override;
   Tool *buildBackendCompiler() const override; // INTEL
 
-  virtual std::string getMultiarchTriple(const Driver &D,
-                                         const llvm::Triple &TargetTriple,
-                                         StringRef SysRoot) const
-  { return TargetTriple.str(); }
-
   /// \name ToolChain Implementation Helper Functions
   /// @{
 

@@ -550,7 +550,6 @@ LoopIdiomRecognize::isLegalStore(StoreInst *SI) {
   // are stored.  A store of i32 0x01020304 can never be turned into a memset,
   // but it can be turned into memset_pattern if the target supports it.
   Value *SplatValue = isBytewiseValue(StoredVal, *DL);
-  Constant *PatternValue = nullptr;
 
 #if INTEL_CUSTOMIZATION
   // If CurLoop is OMP SIMD loop no need to perform further checks.
@@ -572,10 +571,11 @@ LoopIdiomRecognize::isLegalStore(StoreInst *SI) {
       CurLoop->isLoopInvariant(SplatValue)) {
     // It looks like we can use SplatValue.
     return LegalStoreKind::Memset;
-  } else if (!UnorderedAtomic && HasMemsetPattern && !DisableLIRP::Memset &&
-             // Don't create memset_pattern16s with address spaces.
-             StorePtr->getType()->getPointerAddressSpace() == 0 &&
-             (PatternValue = getMemSetPatternValue(StoredVal, DL))) {
+  }
+  if (!UnorderedAtomic && HasMemsetPattern && !DisableLIRP::Memset &&
+      // Don't create memset_pattern16s with address spaces.
+      StorePtr->getType()->getPointerAddressSpace() == 0 &&
+      getMemSetPatternValue(StoredVal, DL)) {
     // It looks like we can use PatternValue!
     return LegalStoreKind::MemsetPattern;
   }

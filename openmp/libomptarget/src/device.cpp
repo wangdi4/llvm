@@ -292,10 +292,16 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
 #else // INTEL_COLLAB
     uintptr_t tp = (uintptr_t)allocData(Size, HstPtrBegin);
 #endif // INTEL_COLLAB
-    DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD ", "
-       "HstEnd=" DPxMOD ", TgtBegin=" DPxMOD "\n",
-       DPxPTR(HstPtrBase), DPxPTR(HstPtrBegin),
-       DPxPTR((uintptr_t)HstPtrBegin + Size), DPxPTR(tp));
+    INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
+         "Creating new map entry with "
+#if INTEL_COLLAB
+         "HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%" PRId64
+         ", Name=%s\n",
+#else // INTEL_COLLAB
+         "HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%ld, Name=%s\n",
+#endif // INTEL_COLLAB
+         DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
+         (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "unknown");
     HostDataToTargetMap.emplace(
         HostDataToTargetTy((uintptr_t)HstPtrBase, (uintptr_t)HstPtrBegin,
                            (uintptr_t)HstPtrBegin + Size, tp, HstPtrName));
@@ -401,10 +407,13 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
 #if INTEL_COLLAB
       OMPT_TRACE(targetDataDeleteEnd(RTLDeviceID, (void *)HT.TgtPtrBegin));
 #endif // INTEL_COLLAB
-      DP("Removing%s mapping with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD
-         ", Size=%" PRId64 "\n",
-         (ForceDelete ? " (forced)" : ""), DPxPTR(HT.HstPtrBegin),
-         DPxPTR(HT.TgtPtrBegin), Size);
+      INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
+           "Removing%s map entry with HstPtrBegin=" DPxMOD
+           ", TgtPtrBegin=" DPxMOD ", Size=%" PRId64 ", Name=%s\n",
+           (ForceDelete ? " (forced)" : ""), DPxPTR(HT.HstPtrBegin),
+           DPxPTR(HT.TgtPtrBegin), Size,
+           (HT.HstPtrName) ? getNameFromMapping(HT.HstPtrName).c_str()
+                           : "unknown");
       HostDataToTargetMap.erase(lr.Entry);
     }
     rc = OFFLOAD_SUCCESS;

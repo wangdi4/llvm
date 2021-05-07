@@ -122,7 +122,7 @@ public:
   TypeSize getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const;
   unsigned getLoadStoreVecRegBitWidth(unsigned AS) const;
   unsigned getMaxInterleaveFactor(unsigned VF);
-  int getArithmeticInstrCost(
+  InstructionCost getArithmeticInstrCost(
       unsigned Opcode, Type *Ty,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       TTI::OperandValueKind Opd1Info = TTI::OK_AnyValue,
@@ -131,38 +131,46 @@ public:
       TTI::OperandValueProperties Opd2PropInfo = TTI::OP_None,
       ArrayRef<const Value *> Args = ArrayRef<const Value *>(),
       const Instruction *CxtI = nullptr);
-  int getShuffleCost(TTI::ShuffleKind Kind, VectorType *Tp, ArrayRef<int> Mask,
-                     int Index, VectorType *SubTp);
-  int getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
-                       TTI::CastContextHint CCH, TTI::TargetCostKind CostKind,
-                       const Instruction *I = nullptr);
-  int getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
-                         CmpInst::Predicate VecPred,
-                         TTI::TargetCostKind CostKind,
-                         const Instruction *I = nullptr);
-  int getVectorInstrCost(unsigned Opcode, Type *Val, unsigned Index);
-  unsigned getScalarizationOverhead(VectorType *Ty, const APInt &DemandedElts,
-                                    bool Insert, bool Extract);
-  int getMemoryOpCost(unsigned Opcode, Type *Src, MaybeAlign Alignment,
-                      unsigned AddressSpace,
-                      TTI::TargetCostKind CostKind,
-                      const Instruction *I = nullptr);
-  int getMaskedMemoryOpCost(
-      unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
-      TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency);
-  int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
-                             bool VariableMask, Align Alignment,
-                             TTI::TargetCostKind CostKind,
-                             const Instruction *I, bool UndefPassThru); // INTEL
+  InstructionCost getShuffleCost(TTI::ShuffleKind Kind, VectorType *Tp,
+                                 ArrayRef<int> Mask, int Index,
+                                 VectorType *SubTp);
+  InstructionCost getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
+                                   TTI::CastContextHint CCH,
+                                   TTI::TargetCostKind CostKind,
+                                   const Instruction *I = nullptr);
+  InstructionCost getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
+                                     CmpInst::Predicate VecPred,
+                                     TTI::TargetCostKind CostKind,
+                                     const Instruction *I = nullptr);
+  InstructionCost getVectorInstrCost(unsigned Opcode, Type *Val,
+                                     unsigned Index);
+  InstructionCost getScalarizationOverhead(VectorType *Ty,
+                                           const APInt &DemandedElts,
+                                           bool Insert, bool Extract);
+  InstructionCost getMemoryOpCost(unsigned Opcode, Type *Src,
+                                  MaybeAlign Alignment, unsigned AddressSpace,
+                                  TTI::TargetCostKind CostKind,
+                                  const Instruction *I = nullptr);
+  InstructionCost
+  getMaskedMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
+                        unsigned AddressSpace,
+                        TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency);
+  InstructionCost getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
+                                         const Value *Ptr, bool VariableMask,
+                                         Align Alignment,
+                                         TTI::TargetCostKind CostKind,
+                                         const Instruction *I,
+                                         bool UndefPassThru); // INTEL
 #if INTEL_CUSTOMIZATION
-  int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
-                             bool VariableMask, unsigned Alignment,
-                             unsigned AddressSpace,
-                             TTI::TargetCostKind CostKind,
-                             const Instruction *I);
+  InstructionCost getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
+                                         unsigned IndexSize, bool VariableMask,
+                                         unsigned Alignment,
+                                         unsigned AddressSpace,
+                                         TTI::TargetCostKind CostKind,
+                                         const Instruction *I);
 #endif // INTEL_CUSTOMIZATION
-  int getAddressComputationCost(Type *PtrTy, ScalarEvolution *SE,
-                                const SCEV *Ptr);
+  InstructionCost getAddressComputationCost(Type *PtrTy, ScalarEvolution *SE,
+                                            const SCEV *Ptr);
 
   Optional<Instruction *> instCombineIntrinsic(InstCombiner &IC,
                                                IntrinsicInst &II) const;
@@ -184,44 +192,47 @@ public:
   InstructionCost getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
                                         TTI::TargetCostKind CostKind);
 
-  int getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
-                                 bool IsPairwiseForm,
-                                 TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency);
+  InstructionCost getArithmeticReductionCost(
+      unsigned Opcode, VectorType *Ty, bool IsPairwiseForm,
+      TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency);
 
-  int getMinMaxCost(Type *Ty, Type *CondTy, bool IsUnsigned);
+  InstructionCost getMinMaxCost(Type *Ty, Type *CondTy, bool IsUnsigned);
 
-  int getMinMaxReductionCost(VectorType *Ty, VectorType *CondTy,
-                             bool IsPairwiseForm, bool IsUnsigned,
-                             TTI::TargetCostKind CostKind);
+  InstructionCost getMinMaxReductionCost(VectorType *Ty, VectorType *CondTy,
+                                         bool IsPairwiseForm, bool IsUnsigned,
+                                         TTI::TargetCostKind CostKind);
 
-  int getInterleavedMemoryOpCost(
+  InstructionCost getInterleavedMemoryOpCost(
       unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,
       Align Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
       bool UseMaskForCond = false, bool UseMaskForGaps = false);
-  int getInterleavedMemoryOpCostAVX512(
+  InstructionCost getInterleavedMemoryOpCostAVX512(
       unsigned Opcode, FixedVectorType *VecTy, unsigned Factor,
       ArrayRef<unsigned> Indices, Align Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
       bool UseMaskForCond = false, bool UseMaskForGaps = false);
-  int getInterleavedMemoryOpCostAVX2(
+  InstructionCost getInterleavedMemoryOpCostAVX2(
       unsigned Opcode, FixedVectorType *VecTy, unsigned Factor,
       ArrayRef<unsigned> Indices, Align Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
       bool UseMaskForCond = false, bool UseMaskForGaps = false);
 
-  int getIntImmCost(int64_t);
+  InstructionCost getIntImmCost(int64_t);
 
-  int getIntImmCost(const APInt &Imm, Type *Ty, TTI::TargetCostKind CostKind);
+  InstructionCost getIntImmCost(const APInt &Imm, Type *Ty,
+                                TTI::TargetCostKind CostKind);
 
-  unsigned getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind,
-                          const Instruction *I = nullptr);
+  InstructionCost getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind,
+                                 const Instruction *I = nullptr);
 
-  int getIntImmCostInst(unsigned Opcode, unsigned Idx, const APInt &Imm,
-                        Type *Ty, TTI::TargetCostKind CostKind,
-                        Instruction *Inst = nullptr);
-  int getIntImmCostIntrin(Intrinsic::ID IID, unsigned Idx, const APInt &Imm,
-                          Type *Ty, TTI::TargetCostKind CostKind);
+  InstructionCost getIntImmCostInst(unsigned Opcode, unsigned Idx,
+                                    const APInt &Imm, Type *Ty,
+                                    TTI::TargetCostKind CostKind,
+                                    Instruction *Inst = nullptr);
+  InstructionCost getIntImmCostIntrin(Intrinsic::ID IID, unsigned Idx,
+                                      const APInt &Imm, Type *Ty,
+                                      TTI::TargetCostKind CostKind);
   bool isLSRCostLess(TargetTransformInfo::LSRCost &C1,
                      TargetTransformInfo::LSRCost &C2);
   bool canMacroFuseCmp();
@@ -273,15 +284,17 @@ public:
 
 private:
 #if INTEL_CUSTOMIZATION
-  int getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *DataTy,
-                      bool VariableMask, Align Alignment,
-                      unsigned AddressSpace);
-  int getGSVectorCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
-                      Align Alignment, unsigned AddressSpace);
+  InstructionCost getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *DataTy,
+                                  bool VariableMask, Align Alignment,
+                                  unsigned AddressSpace);
+  InstructionCost getGSVectorCost(unsigned Opcode, Type *DataTy,
+                                  unsigned IndexSize, Align Alignment,
+                                  unsigned AddressSpace);
   bool targetMatchesVariantISA(VectorVariant::ISAClass VariantISA) const;
 #endif // INTEL_CUSTOMIZATION
-  int getGSVectorCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
-                      Align Alignment, unsigned AddressSpace);
+  InstructionCost getGSVectorCost(unsigned Opcode, Type *DataTy,
+                                  const Value *Ptr, Align Alignment,
+                                  unsigned AddressSpace);
 
   int getGatherOverhead() const;
   int getScatterOverhead() const;

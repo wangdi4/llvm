@@ -351,8 +351,8 @@ bool VPOUtils::addPrivateToEnclosingRegion(Instruction *I, BasicBlock *BlockPos,
       auto *II = cast<IntrinsicInst>(&(IDomBlock->front()));
       if (II &&
           (!SimdOnly || VPOAnalysisUtils::getDirectiveID(II) == DIR_OMP_SIMD)) {
-        auto *Repl =
-            VPOUtils::addOperandBundlesInCall(II, {{"QUAL.OMP.PRIVATE", {I}}});
+        auto *Repl = VPOUtils::addOperandBundlesInCall(
+            cast<CallInst>(II), {{"QUAL.OMP.PRIVATE", {I}}});
         if (Repl) {
           LLVM_DEBUG(dbgs() << "Added private for " << I->getName()
                             << " to: " << *Repl << "\n");

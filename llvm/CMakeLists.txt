@@ -2,6 +2,12 @@
 
 cmake_minimum_required(VERSION 3.14)
 
+# CMP0116: Ninja generators transform `DEPFILE`s from `add_custom_command()`
+# New in CMake 3.20. https://cmake.org/cmake/help/latest/policy/CMP0116.html
+if(POLICY CMP0116)
+  cmake_policy(SET CMP0116 OLD)
+endif()
+
 set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
 
 if(NOT DEFINED LLVM_VERSION_MAJOR)
@@ -992,11 +998,6 @@ if(INTEL_CUSTOMIZATION)
 list(APPEND features_enabled_by_default
 ${LLVM_INTELFEATURE_PREFIX}_CPU_ADL)
 # end INTEL_FEATURE_CPU_ADL
-
-# INTEL_FEATURE_CPU_RKL
-list(APPEND features_enabled_by_default
-${LLVM_INTELFEATURE_PREFIX}_CPU_RKL)
-# end INTEL_FEATURE_CPU_RKL
 
 # INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 list(APPEND features_enabled_by_default

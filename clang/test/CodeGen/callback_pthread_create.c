@@ -2,7 +2,7 @@
 // RUN: false
 // XFAIL: *
 
-// RUN: %clang_cc1 %s -S -emit-llvm -mllvm -sccp-enable-callbacks=false -o - -disable-llvm-optzns | FileCheck %s  ;INTEL
+// RUN: %clang_cc1 %s -S -emit-llvm -mllvm -sccp-enable-callbacks=false -mllvm -sccp-solver-enable-callbacks=false -o - -disable-llvm-optzns | FileCheck %s  ;INTEL
 
 // CHECK: declare !callback ![[cid:[0-9]+]] {{.*}}i32 @pthread_create
 // CHECK: ![[cid]] = !{![[cidb:[0-9]+]]}

@@ -187,6 +187,7 @@ struct SGPRSpillBuilder {
     int64_t VGPRLanes = getPerVGPRData().VGPRLanes;
 
     if (SavedExecReg) {
+      RS->setRegUsed(SavedExecReg);
       // Set exec to needed lanes
       BuildMI(MBB, MI, DL, TII.get(MovOpc), SavedExecReg).addReg(ExecReg);
       auto I = BuildMI(MBB, MI, DL, TII.get(MovOpc), ExecReg).addImm(VGPRLanes);
@@ -567,8 +568,8 @@ BitVector SIRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
     assert(!isSubRegister(ScratchRSrcReg, BasePtrReg));
   }
 
-  for (MCRegister Reg : MFI->WWMReservedRegs) {
-    reserveRegisterTuples(Reserved, Reg);
+  for (auto Reg : MFI->WWMReservedRegs) {
+    reserveRegisterTuples(Reserved, Reg.first);
   }
 
   // FIXME: Stop using reserved registers for this.

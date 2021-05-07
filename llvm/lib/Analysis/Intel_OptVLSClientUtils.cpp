@@ -81,15 +81,15 @@ uint64_t OVLSTTICostModel::getInstructionCost(const OVLSInstruction *I) const {
     assert(NumElemsInALoad == VLSType.getNumElements() &&
            "unexpected OVLS type/mask");
 
-    uint64_t AddrCost = TTI.getAddressComputationCost(VecTy);
-    uint64_t LoadCost;
+    InstructionCost AddrCost = TTI.getAddressComputationCost(VecTy);
+    InstructionCost LoadCost;
     if (NeedMask)
-      LoadCost =
-          TTI.getMaskedMemoryOpCost(Instruction::Load, VecTy, Align(Alignment), AS);
+      LoadCost = TTI.getMaskedMemoryOpCost(Instruction::Load, VecTy,
+                                           Align(Alignment), AS);
     else
       LoadCost = TTI.getMemoryOpCost(
           Instruction::Load, VecTy, Alignment ? Align(Alignment) : Align(), AS);
-    return AddrCost + LoadCost;
+    return *(AddrCost + LoadCost).getValue();
   }
 
   if (isa<OVLSShuffle>(I)) {
@@ -113,8 +113,8 @@ uint64_t OVLSTTICostModel::getInstructionCost(const OVLSInstruction *I) const {
     // (such as loading indices).
     // FIXME 2: Extend the LLVM TTI interface for shuffles.
     // FORNOW: temporary dummy implementation.
-    Cost = TTI.getShuffleCost(TargetTransformInfo::SK_Select,
-                              cast<VectorType>(VecTy));
+    Cost = *TTI.getShuffleCost(TargetTransformInfo::SK_Select,
+                              cast<VectorType>(VecTy)).getValue();
     return Cost;
   }
 

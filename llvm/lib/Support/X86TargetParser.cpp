@@ -199,6 +199,7 @@ constexpr FeatureBitset FeaturesICLClient =
     FeaturesCannonlake | FeatureAVX512BITALG | FeatureAVX512VBMI2 |
     FeatureAVX512VNNI | FeatureAVX512VPOPCNTDQ | FeatureGFNI | FeatureRDPID |
     FeatureVAES | FeatureVPCLMULQDQ;
+constexpr FeatureBitset FeaturesRocketlake = FeaturesICLClient & ~FeatureSGX;
 constexpr FeatureBitset FeaturesICLServer =
     FeaturesICLClient | FeatureCLWB | FeaturePCONFIG | FeatureWBNOINVD;
 constexpr FeatureBitset FeaturesTigerlake =
@@ -215,11 +216,6 @@ constexpr FeatureBitset FeaturesSapphireRapids =
     FeatureENQCMD | FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE |
     FeatureSERIALIZE | FeatureSHSTK | FeatureTSXLDTRK | FeatureUINTR |
     FeatureWAITPKG | FeatureAVXVNNI;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RKL
-static constexpr FeatureBitset FeaturesRocketlake = FeaturesICLClient;
-#endif // INTEL_FEATURE_CPU_RKL
-#endif // INTEL_CUSTOMIZATION
 
 // Intel Atom processors.
 // Bonnell has feature parity with Core2 and adds MOVBE.
@@ -375,16 +371,12 @@ constexpr ProcInfo Processors[] = {
   { {"cannonlake"}, CK_Cannonlake, FEATURE_AVX512VBMI, FeaturesCannonlake },
   // Icelake client microarchitecture based processors.
   { {"icelake-client"}, CK_IcelakeClient, FEATURE_AVX512VBMI2, FeaturesICLClient },
+  // Rocketlake microarchitecture based processors.
+  { {"rocketlake"}, CK_Rocketlake, FEATURE_AVX512VBMI2, FeaturesRocketlake },
   // Icelake server microarchitecture based processors.
   { {"icelake-server"}, CK_IcelakeServer, FEATURE_AVX512VBMI2, FeaturesICLServer },
   // Tigerlake microarchitecture based processors.
   { {"tigerlake"}, CK_Tigerlake, FEATURE_AVX512VP2INTERSECT, FeaturesTigerlake },
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RKL
-  // Rocketlake microarchitecture based processors.
-  { {"rocketlake"}, CK_Rocketlake, ~0U, FeaturesRocketlake },
-#endif // INTEL_FEATURE_CPU_RKL
-#endif // INTEL_CUSTOMIZATION
   // Sapphire Rapids microarchitecture based processors.
   { {"sapphirerapids"}, CK_SapphireRapids, FEATURE_AVX512VP2INTERSECT, FeaturesSapphireRapids },
   // Alderlake microarchitecture based processors.

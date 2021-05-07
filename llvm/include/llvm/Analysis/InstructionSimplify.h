@@ -35,9 +35,10 @@
 #ifndef LLVM_ANALYSIS_INSTRUCTIONSIMPLIFY_H
 #define LLVM_ANALYSIS_INSTRUCTIONSIMPLIFY_H
 
+#include "llvm/Analysis/TargetTransformInfo.h" // INTEL
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/Analysis/TargetTransformInfo.h" // INTEL
+#include "llvm/IR/PatternMatch.h"
 
 namespace llvm {
 
@@ -139,7 +140,9 @@ struct SimplifyQuery {
   bool isUndefValue(Value *V) const {
     if (!CanUseUndef)
       return false;
-    return isa<UndefValue>(V);
+
+    using namespace PatternMatch;
+    return match(V, m_Undef());
   }
 };
 

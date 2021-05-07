@@ -24,6 +24,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/NonTrivialTypeVisitor.h"
+#include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/TargetBuiltins.h" // INTEL
@@ -44,6 +45,7 @@
 #include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaInternal.h"
 #include "clang/Sema/Template.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Triple.h"
 #include <algorithm>
@@ -2630,6 +2632,8 @@ static bool mergeDeclAttribute(Sema &S, NamedDecl *D,
     NewAttr = S.mergeEnforceTCBLeafAttr(D, *TCBLA);
   else if (const auto *A = dyn_cast<IntelReqdSubGroupSizeAttr>(Attr))
     NewAttr = S.MergeIntelReqdSubGroupSizeAttr(D, *A);
+  else if (const auto *A = dyn_cast<IntelNamedSubGroupSizeAttr>(Attr))
+    NewAttr = S.MergeIntelNamedSubGroupSizeAttr(D, *A);
   else if (const auto *A = dyn_cast<SYCLIntelNumSimdWorkItemsAttr>(Attr))
     NewAttr = S.MergeSYCLIntelNumSimdWorkItemsAttr(D, *A);
   else if (const auto *A = dyn_cast<SYCLIntelSchedulerTargetFmaxMhzAttr>(Attr))
@@ -6154,26 +6158,26 @@ TryToFixInvalidVariablyModifiedTypeSourceInfo(TypeSourceInfo *TInfo,
 
 /// Attempt to fold a variable-sized type to a constant-sized type, returning
 /// true if we were successful.
-static bool tryToFixVariablyModifiedVarType(Sema &S, TypeSourceInfo *&TInfo,
-                                            QualType &T, SourceLocation Loc,
-                                            unsigned FailedFoldDiagID) {
+bool Sema::tryToFixVariablyModifiedVarType(TypeSourceInfo *&TInfo,
+                                           QualType &T, SourceLocation Loc,
+                                           unsigned FailedFoldDiagID) {
   bool SizeIsNegative;
   llvm::APSInt Oversized;
   TypeSourceInfo *FixedTInfo = TryToFixInvalidVariablyModifiedTypeSourceInfo(
-      TInfo, S.Context, SizeIsNegative, Oversized);
+      TInfo, Context, SizeIsNegative, Oversized);
   if (FixedTInfo) {
-    S.Diag(Loc, diag::ext_vla_folded_to_constant);
+    Diag(Loc, diag::ext_vla_folded_to_constant);
     TInfo = FixedTInfo;
     T = FixedTInfo->getType();
     return true;
   }
 
   if (SizeIsNegative)
-    S.Diag(Loc, diag::err_typecheck_negative_array_size);
+    Diag(Loc, diag::err_typecheck_negative_array_size);
   else if (Oversized.getBoolValue())
-    S.Diag(Loc, diag::err_array_too_large) << Oversized.toString(10);
+    Diag(Loc, diag::err_array_too_large) << Oversized.toString(10);
   else if (FailedFoldDiagID)
-    S.Diag(Loc, FailedFoldDiagID);
+    Diag(Loc, FailedFoldDiagID);
   return false;
 }
 
@@ -7129,10 +7133,10 @@ NamedDecl *Sema::ActOnVariableDeclarator(
     }
   }
 
-  // If this variable has a variable-modified type and an initializer, try to
+  // If this variable has a VLA type and an initializer, try to
   // fold to a constant-sized type. This is otherwise invalid.
-  if (D.hasInitializer() && R->isVariablyModifiedType())
-    tryToFixVariablyModifiedVarType(*this, TInfo, R, D.getIdentifierLoc(),
+  if (D.hasInitializer() && R->isVariableArrayType())
+    tryToFixVariablyModifiedVarType(TInfo, R, D.getIdentifierLoc(),
                                     /*DiagID=*/0);
 
   bool IsMemberSpecialization = false;
@@ -8884,7 +8888,7 @@ static bool isOpenCLSizeDependentType(ASTContext &C, QualType Ty) {
 }
 
 static OpenCLParamType getOpenCLKernelParameterType(Sema &S, QualType PT) {
-  if (PT->isPointerType()) {
+  if (PT->isPointerType() || PT->isReferenceType()) {
     QualType PointeeType = PT->getPointeeType();
     if (PointeeType.getAddressSpace() == LangAS::opencl_generic ||
         PointeeType.getAddressSpace() == LangAS::opencl_private ||
@@ -8901,6 +8905,15 @@ static OpenCLParamType getOpenCLKernelParameterType(Sema &S, QualType PT) {
 
       return PtrPtrKernelParam;
     }
+
+    // C++ for OpenCL v1.0 s2.4:
+    // Moreover the types used in parameters of the kernel functions must be:
+    // Standard layout types for pointer parameters. The same applies to
+    // reference if an implementation supports them in kernel parameters.
+    if (S.getLangOpts().OpenCLCPlusPlus && !PointeeType->isAtomicType() &&
+        !PointeeType->isVoidType() && !PointeeType->isStandardLayoutType())
+      return InvalidKernelParam;
+
     return PtrKernelParam;
   }
 
@@ -8925,9 +8938,6 @@ static OpenCLParamType getOpenCLKernelParameterType(Sema &S, QualType PT) {
       PT->isHalfType())
     return InvalidKernelParam;
 
-  if (PT->isRecordType())
-    return RecordKernelParam;
-
   // Look into an array argument to check if it has a forbidden type.
   if (PT->isArrayType()) {
     const Type *UnderlyingTy = PT->getPointeeOrArrayElementType();
@@ -8936,6 +8946,17 @@ static OpenCLParamType getOpenCLKernelParameterType(Sema &S, QualType PT) {
     // array, this recursive call only happens once.
     return getOpenCLKernelParameterType(S, QualType(UnderlyingTy, 0));
   }
+
+  // C++ for OpenCL v1.0 s2.4:
+  // Moreover the types used in parameters of the kernel functions must be:
+  // Trivial and standard-layout types C++17 [basic.types] (plain old data
+  // types) for parameters passed by value;
+  if (S.getLangOpts().OpenCLCPlusPlus && !PT->isOpenCLSpecificType() &&
+      !PT.isPODType(S.Context))
+    return InvalidKernelParam;
+
+  if (PT->isRecordType())
+    return RecordKernelParam;
 
   return ValidKernelParam;
 }
@@ -9943,6 +9964,10 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
             (D.getCXXScopeSpec().getScopeRep()->isDependent() ||
              (!Previous.empty() && CurContext->isDependentContext()))) {
           // ignore these
+        } else if (NewFD->isCPUDispatchMultiVersion() ||
+                   NewFD->isCPUSpecificMultiVersion()) {
+          // ignore this, we allow the redeclaration behavior here to create new
+          // versions of the function.
         } else {
           // The user tried to provide an out-of-line definition for a
           // function that is a member of a class or namespace, but there
@@ -12905,6 +12930,8 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl) {
           return;
         }
       }
+      // The declaration is unitialized, no need for further checks.
+      return;
     }
 
     VarDecl::DefinitionKind DefKind = Var->isThisDeclarationADefinition();
@@ -12949,7 +12976,7 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl) {
         Diag(Var->getLocation(), diag::note_private_extern);
       }
 
-      if (Context.getTargetInfo().allowDebugInfoForExternalVar() &&
+      if (Context.getTargetInfo().allowDebugInfoForExternalRef() &&
           !Var->isInvalidDecl() && !getLangOpts().CPlusPlus)
         ExternalDeclarations.push_back(Var);
 
@@ -14027,6 +14054,138 @@ void Sema::DiagnoseUnusedParameters(ArrayRef<ParmVarDecl *> Parameters) {
   }
 }
 
+using AllUsesSetsPtrSet = llvm::SmallPtrSet<const NamedDecl *, 16>;
+
+namespace {
+
+struct AllUsesAreSetsVisitor : RecursiveASTVisitor<AllUsesAreSetsVisitor> {
+  AllUsesSetsPtrSet &S;
+
+  AllUsesAreSetsVisitor(AllUsesSetsPtrSet &Set) : S(Set) {}
+
+  bool TraverseBinaryOperator(const BinaryOperator *BO) {
+    auto *LHS = BO->getLHS();
+    auto *DRE = dyn_cast<DeclRefExpr>(LHS);
+    if (!BO->isAssignmentOp() || !DRE || !S.count(DRE->getFoundDecl())) {
+      // This is not an assignment to one of our NamedDecls.
+      if (!TraverseStmt(LHS))
+        return false;
+    }
+    return TraverseStmt(BO->getRHS());
+  }
+
+  bool VisitDeclRefExpr(const DeclRefExpr *DRE) {
+    // If we remove all Decls, no need to keep searching.
+    return !S.erase(DRE->getFoundDecl()) || S.size();
+  }
+
+  bool OverloadedTraverse(Stmt *S) { return TraverseStmt(S); }
+
+  bool OverloadedTraverse(Decl *D) { return TraverseDecl(D); }
+};
+
+} // end anonymous namespace
+
+/// For any NamedDecl in Decls that is not used in any way other than the LHS of
+/// an assignment, diagnose with the given DiagId.
+template <typename R, typename T>
+static void DiagnoseUnusedButSetDecls(Sema *Se, T *Parent, R Decls,
+                                      unsigned DiagID) {
+  // Put the Decls in a set so we only have to traverse the body once for all of
+  // them.
+  AllUsesSetsPtrSet AllUsesAreSets;
+
+  for (const NamedDecl *ND : Decls) {
+    AllUsesAreSets.insert(ND);
+  }
+
+  if (!AllUsesAreSets.size())
+    return;
+
+  AllUsesAreSetsVisitor Visitor(AllUsesAreSets);
+  Visitor.OverloadedTraverse(Parent);
+
+  for (const NamedDecl *ND : AllUsesAreSets) {
+    Se->Diag(ND->getLocation(), DiagID) << ND->getDeclName();
+  }
+}
+
+void Sema::DiagnoseUnusedButSetParameters(ArrayRef<ParmVarDecl *> Parameters) {
+  // Don't diagnose unused-but-set-parameter errors in template instantiations;
+  // we will already have done so in the template itself.
+  if (inTemplateInstantiation())
+    return;
+
+  bool CPlusPlus = getLangOpts().CPlusPlus;
+
+  auto IsCandidate = [&](const ParmVarDecl *P) {
+    // Check for Ignored here, because if we have no candidates we can avoid
+    // walking the AST.
+    if (Diags.getDiagnosticLevel(diag::warn_unused_but_set_parameter,
+                                 P->getLocation()) ==
+        DiagnosticsEngine::Ignored)
+      return false;
+    if (!P->isReferenced() || !P->getDeclName() || P->hasAttr<UnusedAttr>())
+      return false;
+    // Mimic gcc's behavior regarding nonscalar types.
+    if (CPlusPlus && !P->getType()->isScalarType())
+      return false;
+    return true;
+  };
+
+  auto Candidates = llvm::make_filter_range(Parameters, IsCandidate);
+
+  if (Parameters.empty())
+    return;
+
+  // Traverse the Decl, not just the body; otherwise we'd miss things like
+  // CXXCtorInitializer.
+  if (Decl *D =
+          Decl::castFromDeclContext((*Parameters.begin())->getDeclContext()))
+    DiagnoseUnusedButSetDecls(this, D, Candidates,
+                              diag::warn_unused_but_set_parameter);
+}
+
+void Sema::DiagnoseUnusedButSetVariables(CompoundStmt *CS) {
+  bool CPlusPlus = getLangOpts().CPlusPlus;
+
+  auto IsCandidate = [&](const Stmt *S) {
+    const DeclStmt *SD = dyn_cast<DeclStmt>(S);
+    if (!SD || !SD->isSingleDecl())
+      return false;
+    const VarDecl *VD = dyn_cast<VarDecl>(SD->getSingleDecl());
+    // Check for Ignored here, because if we have no candidates we can avoid
+    // walking the AST.
+    if (!VD || Diags.getDiagnosticLevel(diag::warn_unused_but_set_variable,
+                                        VD->getLocation()) ==
+                   DiagnosticsEngine::Ignored)
+      return false;
+    if (!VD->isReferenced() || !VD->getDeclName() || VD->hasAttr<UnusedAttr>())
+      return false;
+    // Declarations which are const or constexpr can't be assigned to after
+    // initialization anyway, and avoiding these cases will prevent false
+    // positives when uses of a constexpr don't appear in the AST.
+    if (VD->isConstexpr() || VD->getType().isConstQualified())
+      return false;
+    // Mimic gcc's behavior regarding nonscalar types.
+    if (CPlusPlus && !VD->getType()->isScalarType())
+      return false;
+    return true;
+  };
+
+  auto Candidates = llvm::make_filter_range(CS->body(), IsCandidate);
+
+  auto ToNamedDecl = [](const Stmt *S) {
+    const DeclStmt *SD = dyn_cast<const DeclStmt>(S);
+    return dyn_cast<const NamedDecl>(SD->getSingleDecl());
+  };
+
+  auto CandidateDecls = llvm::map_range(Candidates, ToNamedDecl);
+
+  DiagnoseUnusedButSetDecls(this, CS, CandidateDecls,
+                            diag::warn_unused_but_set_variable);
+}
+
 void Sema::DiagnoseSizeOfParametersAndReturnValue(
     ArrayRef<ParmVarDecl *> Parameters, QualType ReturnTy, NamedDecl *D) {
   if (LangOpts.NumLargeByValueCopy == 0) // No check.
@@ -14729,8 +14888,10 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
 
     if (!FD->isInvalidDecl()) {
       // Don't diagnose unused parameters of defaulted or deleted functions.
-      if (!FD->isDeleted() && !FD->isDefaulted() && !FD->hasSkippedBody())
+      if (!FD->isDeleted() && !FD->isDefaulted() && !FD->hasSkippedBody()) {
         DiagnoseUnusedParameters(FD->parameters());
+        DiagnoseUnusedButSetParameters(FD->parameters());
+      }
       DiagnoseSizeOfParametersAndReturnValue(FD->parameters(),
                                              FD->getReturnType(), FD);
 
@@ -17074,7 +17235,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
   // than a variably modified type.
   if (!InvalidDecl && T->isVariablyModifiedType()) {
     if (!tryToFixVariablyModifiedVarType(
-            *this, TInfo, T, Loc, diag::err_typecheck_field_variable_size))
+            TInfo, T, Loc, diag::err_typecheck_field_variable_size))
       InvalidDecl = true;
   }
 
@@ -17302,7 +17463,7 @@ Decl *Sema::ActOnIvar(Scope *S,
   // than a variably modified type.
   else if (T->isVariablyModifiedType()) {
     if (!tryToFixVariablyModifiedVarType(
-            *this, TInfo, T, Loc, diag::err_typecheck_ivar_variable_size))
+            TInfo, T, Loc, diag::err_typecheck_ivar_variable_size))
       D.setInvalidType();
   }
 

@@ -790,8 +790,7 @@ static bool translateVLoad(CallInst &CI, SmallPtrSet<Type *, 4> &GVTS) {
   if (GVTS.find(CI.getType()) != GVTS.end())
     return false;
   IRBuilder<> Builder(&CI);
-  auto *ElemT = CI.getArgOperand(0)->getType()->getPointerElementType();
-  auto LI = Builder.CreateLoad(ElemT, CI.getArgOperand(0), CI.getName());
+  auto LI = Builder.CreateLoad(CI.getType(), CI.getArgOperand(0), CI.getName());
   LI->setDebugLoc(CI.getDebugLoc());
   CI.replaceAllUsesWith(LI);
   return true;
@@ -866,7 +865,7 @@ static Instruction *generateVectorGenXForSpirv(ExtractElementInst *EEI,
   Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(
       EEI->getModule(), ID, {FixedVectorType::get(I32Ty, 3)});
   Instruction *IntrI =
-      IntrinsicInst::Create(NewFDecl, {}, EEI->getName() + ".esimd", EEI);
+      CallInst::Create(NewFDecl, {}, EEI->getName() + ".esimd", EEI);
   int ExtractIndex = getIndexForSuffix(Suff);
   assert(ExtractIndex != -1 && "Extract index is invalid.");
   Twine ExtractName = ValueName + Suff;
@@ -904,7 +903,7 @@ static Instruction *generateGenXForSpirv(ExtractElementInst *EEI,
       GenXIntrinsic::getGenXDeclaration(EEI->getModule(), ID, {});
 
   Instruction *IntrI =
-      IntrinsicInst::Create(NewFDecl, {}, IntrinName + Suff.str(), EEI);
+      CallInst::Create(NewFDecl, {}, IntrinName + Suff.str(), EEI);
   Instruction *CastI = addCastInstIfNeeded(EEI, IntrI);
   if (EEI->getDebugLoc()) {
     IntrI->setDebugLoc(EEI->getDebugLoc());
@@ -1161,7 +1160,7 @@ static void translateESIMDIntrinsicCall(CallInst &CI) {
   Function *NewFDecl = GenXIntrinsic::getGenXDeclaration(CI.getModule(), ID,
                                                          GenXOverloadedTypes);
 
-  Instruction *NewCI = IntrinsicInst::Create(
+  Instruction *NewCI = CallInst::Create(
       NewFDecl, GenXArgs,
       NewFDecl->getReturnType()->isVoidTy() ? "" : CI.getName() + ".esimd",
       &CI);

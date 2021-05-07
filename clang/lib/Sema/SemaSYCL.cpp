@@ -353,8 +353,9 @@ static void collectSYCLAttributes(Sema &S, FunctionDecl *FD,
 
   llvm::copy_if(FD->getAttrs(), std::back_inserter(Attrs), [](Attr *A) {
     // FIXME: Make this list self-adapt as new SYCL attributes are added.
-    return isa<IntelReqdSubGroupSizeAttr, ReqdWorkGroupSizeAttr,
-               SYCLIntelKernelArgsRestrictAttr, SYCLIntelNumSimdWorkItemsAttr,
+    return isa<IntelReqdSubGroupSizeAttr, IntelNamedSubGroupSizeAttr,
+               ReqdWorkGroupSizeAttr, SYCLIntelKernelArgsRestrictAttr,
+               SYCLIntelNumSimdWorkItemsAttr,
                SYCLIntelSchedulerTargetFmaxMhzAttr,
                SYCLIntelMaxWorkGroupSizeAttr, SYCLIntelMaxGlobalWorkDimAttr,
                SYCLIntelNoGlobalWorkOffsetAttr, SYCLSimdAttr>(A);
@@ -705,6 +706,10 @@ public:
 
   llvm::SmallVectorImpl<Attr *> &GetCollectedAttributes() {
     return CollectedAttributes;
+  }
+
+  llvm::SmallPtrSetImpl<FunctionDecl *> &GetDeviceFunctions() {
+    return DeviceFunctions;
   }
 
   ~SingleDeviceFunctionTracker() {
@@ -1966,6 +1971,13 @@ public:
     KernelDecl->setType(FuncType);
     KernelDecl->setParams(Params);
 
+    // Make sure that this is marked as a kernel so that the code-gen can make
+    // decisions based on that. We cannot add this earlier, otherwise the call
+    // to TransformStmt in replaceWithLocalClone can diagnose something that got
+    // diagnosed on the actual kernel.
+    KernelDecl->addAttr(
+        SYCLKernelAttr::CreateImplicit(SemaRef.getASTContext()));
+
     SemaRef.addSyclDeviceDecl(KernelDecl);
   }
 
@@ -2325,6 +2337,7 @@ class SyclKernelBodyCreator : public SyclKernelFieldHandler {
 
     BodyStmts.insert(BodyStmts.end(), FinalizeStmts.begin(),
                      FinalizeStmts.end());
+
     return CompoundStmt::Create(SemaRef.getASTContext(), BodyStmts, {}, {});
   }
 
@@ -3213,9 +3226,9 @@ class SyclKernelIntFooterCreator : public SyclKernelFieldHandler {
 
 public:
   SyclKernelIntFooterCreator(Sema &S, SYCLIntegrationFooter &F)
-      : SyclKernelFieldHandler(S), Footer(F) {            //INTEL
-    (void)Footer; // workaround for unused field warning  //INTEL
-  }                                                       //INTEL
+      : SyclKernelFieldHandler(S), Footer(F) {
+    (void)Footer; // workaround for unused field warning
+  }
 };
 
 } // namespace
@@ -3598,12 +3611,136 @@ void Sema::ConstructOpenCLKernel(FunctionDecl *KernelCallerFunc,
   }
 }
 
-static void PropagateAndDiagnoseDeviceAttr(Sema &S, Attr *A,
-                                           FunctionDecl *SYCLKernel,
-                                           FunctionDecl *KernelBody) {
+// Figure out the sub-group for the this function.  First we check the
+// attributes, then the global settings.
+static std::pair<LangOptions::SubGroupSizeType, int64_t>
+CalcEffectiveSubGroup(ASTContext &Ctx, const LangOptions &LO,
+                      const FunctionDecl *FD) {
+  if (const auto *A = FD->getAttr<IntelReqdSubGroupSizeAttr>()) {
+    int64_t Val = getIntExprValue(A->getValue(), Ctx);
+    return {LangOptions::SubGroupSizeType::Integer, Val};
+  }
+
+  if (const auto *A = FD->getAttr<IntelNamedSubGroupSizeAttr>()) {
+    if (A->getType() == IntelNamedSubGroupSizeAttr::Primary)
+      return {LangOptions::SubGroupSizeType::Primary, 0};
+    return {LangOptions::SubGroupSizeType::Auto, 0};
+  }
+
+  // Return the global settings.
+  return {LO.getDefaultSubGroupSizeType(),
+          static_cast<uint64_t>(LO.DefaultSubGroupSize)};
+}
+
+static SourceLocation GetSubGroupLoc(const FunctionDecl *FD) {
+  if (const auto *A = FD->getAttr<IntelReqdSubGroupSizeAttr>())
+    return A->getLocation();
+  if (const auto *A = FD->getAttr<IntelNamedSubGroupSizeAttr>())
+    return A->getLocation();
+  return SourceLocation{};
+}
+
+static void CheckSYCL2020SubGroupSizes(Sema &S, FunctionDecl *SYCLKernel,
+                                       const FunctionDecl *FD) {
+  // If they are the same, no error.
+  if (CalcEffectiveSubGroup(S.Context, S.getLangOpts(), SYCLKernel) ==
+      CalcEffectiveSubGroup(S.Context, S.getLangOpts(), FD))
+    return;
+
+  // Else we need to figure out why they don't match.
+  SourceLocation FDAttrLoc = GetSubGroupLoc(FD);
+  SourceLocation KernelAttrLoc = GetSubGroupLoc(SYCLKernel);
+
+  if (FDAttrLoc.isValid()) {
+    // This side was caused by an attribute.
+    S.Diag(FDAttrLoc, diag::err_sycl_mismatch_group_size)
+        << /*kernel called*/ 0;
+
+    if (KernelAttrLoc.isValid()) {
+      S.Diag(KernelAttrLoc, diag::note_conflicting_attribute);
+    } else {
+      // Kernel is 'default'.
+      S.Diag(SYCLKernel->getLocation(), diag::note_sycl_kernel_declared_here);
+    }
+    return;
+  }
+
+  // Else this doesn't have an attribute, which can only be caused by this being
+  // an undefined SYCL_EXTERNAL, and the kernel has an attribute that conflicts.
+  if (const auto *A = SYCLKernel->getAttr<IntelReqdSubGroupSizeAttr>()) {
+    // Don't diagnose this if the kernel got its size from the 'old' attribute
+    // spelling.
+    if (!A->isSYCL2020Spelling())
+      return;
+  }
+
+  assert(KernelAttrLoc.isValid() && "Kernel doesn't have attribute either?");
+  S.Diag(FD->getLocation(), diag::err_sycl_mismatch_group_size)
+      << /*undefined SYCL_EXTERNAL*/ 1;
+  S.Diag(KernelAttrLoc, diag::note_conflicting_attribute);
+}
+
+// Check SYCL2020 Attributes.  2020 attributes don't propogate, they are only
+// valid if they match the attribute on the kernel. Note that this is a slight
+// difference from what the spec says, which says these attributes are only
+// valid on SYCL Kernels and SYCL_EXTERNAL, but we felt that for
+// self-documentation purposes that it would be nice to be able to repeat these
+// on subsequent functions.
+static void CheckSYCL2020Attributes(
+    Sema &S, FunctionDecl *SYCLKernel, FunctionDecl *KernelBody,
+    const llvm::SmallPtrSetImpl<FunctionDecl *> &CalledFuncs) {
+
+  if (KernelBody) {
+    // Make sure the kernel itself has all the 2020 attributes, since we don't
+    // do propagation of these.
+    if (auto *A = KernelBody->getAttr<IntelReqdSubGroupSizeAttr>())
+      if (A->isSYCL2020Spelling())
+        SYCLKernel->addAttr(A);
+    if (auto *A = KernelBody->getAttr<IntelNamedSubGroupSizeAttr>())
+      SYCLKernel->addAttr(A);
+
+    // If the kernel has a body, we should get the attributes for the kernel
+    // from there instead, so that we get the functor object.
+    SYCLKernel = KernelBody;
+  }
+
+  for (auto *FD : CalledFuncs) {
+    if (FD == SYCLKernel || FD == KernelBody)
+      continue;
+    for (auto *Attr : FD->attrs()) {
+      switch (Attr->getKind()) {
+      case attr::Kind::IntelReqdSubGroupSize:
+        // Pre SYCL2020 spellings handled during collection.
+        if (!cast<IntelReqdSubGroupSizeAttr>(Attr)->isSYCL2020Spelling())
+          break;
+        LLVM_FALLTHROUGH;
+      case attr::Kind::IntelNamedSubGroupSize:
+        CheckSYCL2020SubGroupSizes(S, SYCLKernel, FD);
+        break;
+      case attr::Kind::SYCLDevice:
+        // If a SYCL_EXTERNAL function is not defined in this TU, its necessary
+        // that it has a compatible sub-group-size. Don't diagnose if it has a
+        // sub-group attribute, we can count on the other checks to catch this.
+        if (!FD->isDefined() && !FD->hasAttr<IntelReqdSubGroupSizeAttr>() &&
+            !FD->hasAttr<IntelNamedSubGroupSizeAttr>())
+          CheckSYCL2020SubGroupSizes(S, SYCLKernel, FD);
+        break;
+      default:
+        break;
+      }
+    }
+  }
+}
+
+static void PropagateAndDiagnoseDeviceAttr(
+    Sema &S, const SingleDeviceFunctionTracker &Tracker, Attr *A,
+    FunctionDecl *SYCLKernel, FunctionDecl *KernelBody) {
   switch (A->getKind()) {
   case attr::Kind::IntelReqdSubGroupSize: {
     auto *Attr = cast<IntelReqdSubGroupSizeAttr>(A);
+
+    if (Attr->isSYCL2020Spelling())
+      break;
     const auto *KBSimdAttr =
         KernelBody ? KernelBody->getAttr<SYCLSimdAttr>() : nullptr;
     if (auto *Existing = SYCLKernel->getAttr<IntelReqdSubGroupSizeAttr>()) {
@@ -3698,6 +3835,9 @@ static void PropagateAndDiagnoseDeviceAttr(Sema &S, Attr *A,
   case attr::Kind::SYCLIntelFPGAInitiationInterval:
     SYCLKernel->addAttr(A);
     break;
+  case attr::Kind::IntelNamedSubGroupSize:
+    // Nothing to do here, handled in the SYCL2020 spelling.
+    break;
   // TODO: vec_len_hint should be handled here
   default:
     // Seeing this means that CollectPossibleKernelAttributes was
@@ -3721,8 +3861,10 @@ void Sema::MarkDevices() {
     // kernel at a time.
     SingleDeviceFunctionTracker T{Tracker, SYCLKernel};
 
+    CheckSYCL2020Attributes(*this, T.GetSYCLKernel(), T.GetKernelBody(),
+                            T.GetDeviceFunctions());
     for (auto *A : T.GetCollectedAttributes())
-      PropagateAndDiagnoseDeviceAttr(*this, A, T.GetSYCLKernel(),
+      PropagateAndDiagnoseDeviceAttr(*this, T, A, T.GetSYCLKernel(),
                                      T.GetKernelBody());
   }
 }
@@ -4389,10 +4531,22 @@ SYCLIntegrationHeader::SYCLIntegrationHeader(bool _UnnamedLambdaSupport,
     : UnnamedLambdaSupport(_UnnamedLambdaSupport), S(_S) {}
 
 void SYCLIntegrationFooter::addVarDecl(const VarDecl *VD) {
+  // Skip the dependent version of these variables, we only care about them
+  // after instantiation.
+  if (VD->getDeclContext()->isDependentContext())
+    return;
   // Step 1: ensure that this is of the correct type-spec-constant template
   // specialization).
-  if (!Util::isSyclSpecIdType(VD->getType()))
-    return;
+  if (!Util::isSyclSpecIdType(VD->getType())) {
+    // Handle the case where this could be a deduced type, such as a deduction
+    // guide. We have to do this here since this function, unlike most of the
+    // rest of this file, is called during Sema instead of after it. We will
+    // also have to filter out after deduction later.
+    QualType Ty = VD->getType().getCanonicalType();
+
+    if (!Ty->isUndeducedType())
+      return;
+  }
   // Step 2: ensure that this is a static member, or a namespace-scope.
   // Note that isLocalVarDeclorParm excludes thread-local and static-local
   // intentionally, as there is no way to 'spell' one of those in the
@@ -4434,26 +4588,162 @@ void SYCLIntegrationFooter::emitSpecIDName(raw_ostream &O, const VarDecl *VD) {
   O << "";
 }
 
-bool SYCLIntegrationFooter::emit(raw_ostream &O) {
+template <typename BeforeFn, typename AfterFn>
+static void PrintNSHelper(BeforeFn Before, AfterFn After, raw_ostream &OS,
+                          const DeclContext *DC) {
+  if (DC->isTranslationUnit())
+    return;
+
+  const auto *CurDecl = cast<Decl>(DC);
+  // Ensure we are in the canonical version, so that we know we have the 'full'
+  // name of the thing.
+  CurDecl = CurDecl->getCanonicalDecl();
+
+  // We are intentionally skipping linkage decls and record decls.  Namespaces
+  // can appear in a linkage decl, but not a record decl, so we don't have to
+  // worry about the names getting messed up from that.  We handle record decls
+  // later when printing the name of the thing.
+  const auto *NS = dyn_cast<NamespaceDecl>(CurDecl);
+  if (NS)
+    Before(OS, NS);
+
+  if (const DeclContext *NewDC = CurDecl->getDeclContext())
+    PrintNSHelper(Before, After, OS, NewDC);
+
+  if (NS)
+    After(OS, NS);
+}
+
+static void PrintNamespaces(raw_ostream &OS, const DeclContext *DC) {
+  PrintNSHelper([](raw_ostream &OS, const NamespaceDecl *NS) {},
+                [](raw_ostream &OS, const NamespaceDecl *NS) {
+                  if (NS->isInline())
+                    OS << "inline ";
+                  OS << "namespace ";
+                  if (!NS->isAnonymousNamespace())
+                    OS << NS->getName() << " ";
+                  OS << "{\n";
+                },
+                OS, DC);
+}
+
+static void PrintNSClosingBraces(raw_ostream &OS, const DeclContext *DC) {
+  PrintNSHelper(
+      [](raw_ostream &OS, const NamespaceDecl *NS) {
+        OS << "} // ";
+        if (NS->isInline())
+          OS << "inline ";
+
+        OS << "namespace ";
+        if (!NS->isAnonymousNamespace())
+          OS << NS->getName();
+
+        OS << '\n';
+      },
+      [](raw_ostream &OS, const NamespaceDecl *NS) {}, OS, DC);
+}
+
+static std::string EmitSpecIdShim(raw_ostream &OS, unsigned &ShimCounter,
+                                  const std::string &LastShim,
+                                  const NamespaceDecl *AnonNS) {
+  std::string NewShimName =
+      "__sycl_detail::__spec_id_shim_" + std::to_string(ShimCounter) + "()";
+  // Print opening-namespace
+  PrintNamespaces(OS, Decl::castToDeclContext(AnonNS));
+  OS << "namespace __sycl_detail {\n";
+  OS << "static constexpr decltype(" << LastShim << ") &__spec_id_shim_"
+     << ShimCounter << "() {\n";
+  OS << "  return " << LastShim << ";\n";
+  OS << "}\n";
+  OS << "} // namespace __sycl_detail \n";
+  PrintNSClosingBraces(OS, Decl::castToDeclContext(AnonNS));
+
+  ++ShimCounter;
+  return NewShimName;
+}
+
+// Emit the list of shims required for a DeclContext, calls itself recursively.
+static void EmitSpecIdShims(raw_ostream &OS, unsigned &ShimCounter,
+                            const DeclContext *DC,
+                            std::string &NameForLastShim) {
+  if (DC->isTranslationUnit()) {
+    NameForLastShim = "::" + NameForLastShim;
+    return;
+  }
+
+  const auto *CurDecl = cast<Decl>(DC)->getCanonicalDecl();
+
+  // We skip linkage decls, since they don't modify the Qualified name.
+  if (const auto *RD = dyn_cast<RecordDecl>(CurDecl)) {
+    NameForLastShim = RD->getNameAsString() + "::" + NameForLastShim;
+  } else if (const auto *ND = dyn_cast<NamespaceDecl>(CurDecl)) {
+    if (ND->isAnonymousNamespace()) {
+      // Print current shim, reset 'name for last shim'.
+      NameForLastShim = EmitSpecIdShim(OS, ShimCounter, NameForLastShim, ND);
+    } else {
+      NameForLastShim = ND->getNameAsString() + "::" + NameForLastShim;
+    }
+  } else {
+    // FIXME: I don't believe there are other declarations that these variables
+    // could possibly find themselves in. LinkageDecls don't change the
+    // qualified name, so there is nothing to do here. At one point we should
+    // probably convince ourselves that this is entire list and remove this
+    // comment.
+    assert((isa<LinkageSpecDecl, ExternCContextDecl>(CurDecl)) &&
+           "Unhandled decl type");
+  }
+
+  EmitSpecIdShims(OS, ShimCounter, CurDecl->getDeclContext(), NameForLastShim);
+}
+
+// Emit the list of shims required for a variable declaration.
+// Returns a string containing the FQN of the 'top most' shim, including its
+// function call parameters.
+static std::string EmitSpecIdShims(raw_ostream &OS, unsigned &ShimCounter,
+                                   const VarDecl *VD) {
+  assert(VD->isInAnonymousNamespace() &&
+         "Function assumes this is in an anonymous namespace");
+  std::string RelativeName = VD->getNameAsString();
+  EmitSpecIdShims(OS, ShimCounter, VD->getDeclContext(), RelativeName);
+  return RelativeName;
+}
+
+bool SYCLIntegrationFooter::emit(raw_ostream &OS) {
   PrintingPolicy Policy{S.getLangOpts()};
   Policy.adjustForCPlusPlusFwdDecl();
   Policy.SuppressTypedefs = true;
   Policy.SuppressUnwrittenScope = true;
 
-  for (const VarDecl *D : SpecConstants) {
-    O << "template<>\n";
-    O << "inline const char *get_spec_constant_symbolic_ID<";
-    // Emit the FQN for this, but we probably need to do some funny-business for
-    // anonymous namespaces.
-    D->printQualifiedName(O, Policy);
-    O << ">() {\n";
-    O << "  return \"";
-    emitSpecIDName(O, D);
-    O << "\";\n";
-    O << "}\n";
+  // Used to uniquely name the 'shim's as we generate the names in each
+  // anonymous namespace.
+  unsigned ShimCounter = 0;
+  for (const VarDecl *VD : SpecConstants) {
+    VD = VD->getCanonicalDecl();
+    if (VD->isInAnonymousNamespace()) {
+      std::string TopShim = EmitSpecIdShims(OS, ShimCounter, VD);
+      OS << "namespace sycl {\n";
+      OS << "namespace detail {\n";
+      OS << "template<>\n";
+      OS << "inline const char *get_spec_constant_symbolic_ID<" << TopShim
+         << ">() {\n";
+      OS << "  return " << TopShim << ";\n";
+    } else {
+      OS << "namespace sycl {\n";
+      OS << "namespace detail {\n";
+      OS << "template<>\n";
+      OS << "inline const char *get_spec_constant_symbolic_ID<::";
+      VD->printQualifiedName(OS, Policy);
+      OS << ">() {\n";
+      OS << "  return \"";
+      emitSpecIDName(OS, VD);
+      OS << "\";\n";
+    }
+    OS << "}\n";
+    OS << "} // namespace detail\n";
+    OS << "} // namespace sycl\n";
   }
 
-  O << "#include <CL/sycl/detail/spec_const_integration.hpp>\n";
+  OS << "#include <CL/sycl/detail/spec_const_integration.hpp>\n";
   return true;
 }
 

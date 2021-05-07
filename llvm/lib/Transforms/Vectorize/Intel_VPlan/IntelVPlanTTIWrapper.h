@@ -78,19 +78,22 @@ public:
       ArrayRef<const Value *> Args = ArrayRef<const Value *>(),
       const Instruction *CxtI = nullptr) const {
     return Multiplier *
-           TTI.getArithmeticInstrCost(Opcode, Ty, CostKind, Opd1Info, Opd2Info,
-                                      Opd1PropInfo, Opd2PropInfo, Args, CxtI);
+           *TTI.getArithmeticInstrCost(Opcode, Ty, CostKind, Opd1Info, Opd2Info,
+                                      Opd1PropInfo, Opd2PropInfo, Args, CxtI)
+                .getValue();
   }
   int getShuffleCost(TargetTransformInfo::ShuffleKind Kind, VectorType *Tp,
                      int Index = 0, VectorType *SubTp = nullptr) const {
-    return Multiplier * TTI.getShuffleCost(Kind, Tp, llvm::None, Index, SubTp);
+    return Multiplier *
+           *TTI.getShuffleCost(Kind, Tp, llvm::None, Index, SubTp)
+                .getValue();
   }
   int getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
                        TTI::CastContextHint CCH,
                        TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
                        const Instruction *I = nullptr) const {
     return Multiplier *
-           TTI.getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
+           *TTI.getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I).getValue();
   }
   int getCmpSelInstrCost(
       unsigned Opcode, Type *ValTy, Type *CondTy = nullptr,
@@ -98,12 +101,13 @@ public:
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       const Instruction *I = nullptr) const {
     return Multiplier *
-           TTI.getCmpSelInstrCost(Opcode, ValTy, CondTy, VecPred, CostKind, I);
+           *TTI.getCmpSelInstrCost(Opcode, ValTy, CondTy, VecPred, CostKind, I)
+                .getValue();
   }
 
   int getVectorInstrCost(unsigned Opcode, Type *Val,
                          unsigned Index = -1) const {
-    return Multiplier * TTI.getVectorInstrCost(Opcode, Val, Index);
+    return Multiplier * *TTI.getVectorInstrCost(Opcode, Val, Index).getValue();
   }
   int getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                       unsigned AddressSpace,
@@ -112,16 +116,18 @@ public:
   int getMaskedMemoryOpCost(
       unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput) const {
-    return Multiplier * TTI.getMaskedMemoryOpCost(Opcode, Src, Alignment,
-                                                  AddressSpace, CostKind);
+    return Multiplier *
+           *TTI.getMaskedMemoryOpCost(Opcode, Src, Alignment,
+                                      AddressSpace, CostKind).getValue();
   }
   int getGatherScatterOpCost(
       unsigned Opcode, Type *DataTy, const Value *Ptr, bool VariableMask,
       Align Alignment, TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       const Instruction *I = nullptr) const {
-    return Multiplier * TTI.getGatherScatterOpCost(Opcode, DataTy, Ptr,
-                                                   VariableMask, Alignment,
-                                                   CostKind, I);
+    return Multiplier * *TTI.getGatherScatterOpCost(Opcode, DataTy, Ptr,
+                                                    VariableMask, Alignment,
+                                                    CostKind, I)
+                             .getValue();
   }
 #if INTEL_CUSTOMIZATION
   int getGatherScatterOpCost(
@@ -129,9 +135,10 @@ public:
       unsigned Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       const Instruction *I = nullptr) const {
-    return Multiplier * TTI.getGatherScatterOpCost(Opcode, DataTy, IndexSize,
-                                                   VariableMask, Alignment,
-                                                   AddressSpace, CostKind, I);
+    return Multiplier * *TTI.getGatherScatterOpCost(Opcode, DataTy, IndexSize,
+                                                    VariableMask, Alignment,
+                                                    AddressSpace, CostKind, I)
+                             .getValue();
   }
   int getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy, unsigned Factor,
                                  ArrayRef<unsigned> Indices, Align Alignment,
@@ -140,9 +147,10 @@ public:
                                  bool UseMaskForCond,
                                  bool UseMaskForGaps) const {
     return Multiplier *
-           TTI.getInterleavedMemoryOpCost(Opcode, VecTy, Factor, Indices,
-                                          Alignment, AddressSpace, CostKind,
-                                          UseMaskForCond, UseMaskForGaps);
+           *TTI.getInterleavedMemoryOpCost(Opcode, VecTy, Factor, Indices,
+                                           Alignment, AddressSpace, CostKind,
+                                           UseMaskForCond, UseMaskForGaps)
+                .getValue();
   }
 #endif // INTEL_CUSTOMIZATION
   int getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,

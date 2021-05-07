@@ -1176,6 +1176,11 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
         IsFuncCall = true;
         if (CalleeAAR) {
           FunctionModRefBehavior MRB = CalleeAAR->getModRefBehavior(Call);
+
+          // We'll retain this knowledge without additional metadata.
+          if (AAResults::onlyAccessesInaccessibleMem(MRB))
+            continue;
+
           if (AAResults::onlyAccessesArgPointees(MRB))
             IsArgMemOnlyCall = true;
         }
@@ -1865,11 +1870,11 @@ static void HandleVaArgPackAndLen(CallBase& CB, Function::iterator FI,
       if (auto *II = dyn_cast<IntrinsicInst>(I)) {
         switch (II->getIntrinsicID()) {
         case Intrinsic::vaargpack:
-           VaPkVec.push_back(II);
-           break;
+          VaPkVec.push_back(cast<CallInst>(II));
+          break;
         case Intrinsic::vaargpacklen:
-           VaPkLnVec.push_back(II);
-           break;
+          VaPkLnVec.push_back(cast<CallInst>(II));
+          break;
         default:
           break;
         }

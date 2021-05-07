@@ -547,9 +547,9 @@ class Attr {
   // content. Eg) It parses 3 args, but semantically takes 4 args.  Opts out of
   // common attribute error checking.
   bit HasCustomParsing = 0;
-  // Set to true if the attribute is a type attribute that has custom
-  // TreeTransform logic in order to handle template transformations.
-  bit HasCustomTypeTransform = 0;
+  // Set to true if the statement attribute is instantiation dependent and uses
+  // custom TreeTransform logic for template instantiation.
+  bit IsStmtDependent = 0;
   // Set to true if all of the attribute's arguments should be parsed in an
   // unevaluated context.
   bit ParseArgumentsAsUnevaluated = 0;
@@ -670,6 +670,15 @@ def Alias : Attr {
   let Args = [StringArgument<"Aliasee">];
   let Subjects = SubjectList<[Function, GlobalVar], WarnDiag>;//***INTEL
   let Documentation = [Undocumented];
+}
+
+def BuiltinAlias : Attr {
+  let Spellings = [CXX11<"clang", "builtin_alias">,
+                   C2x<"clang", "builtin_alias">,
+                   GNU<"clang_builtin_alias">];
+  let Args = [IdentifierArgument<"BuiltinName">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [BuiltinAliasDocs];
 }
 
 def ArmBuiltinAlias : InheritableAttr, TargetSpecificAttr<TargetAnyArm> {
@@ -1230,6 +1239,7 @@ def SYCLSimd : InheritableAttr {
   let Subjects = SubjectList<[Function, GlobalVar]>;
   let Documentation = [SYCLSimdDocs];
   let SupportsNonconformingLambdaSyntax = 1;
+  let SimpleHandler = 1;
 }
 
 // Available in SYCL explicit SIMD extension. Binds a file scope private
@@ -1446,7 +1456,7 @@ def LoopUnrollHint : StmtAttr {
                              ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [ExprArgument<"UnrollHintExpr", /*opt*/1>];
   let LangOpts = [SYCLIsDevice, SYCLIsHost];
-  let HasCustomTypeTransform = 1;
+  let IsStmtDependent = 1;
   let AdditionalMembers = [{
     std::string getDiagnosticName(const PrintingPolicy &Policy) const {
       std::string ValueName;
@@ -1463,14 +1473,31 @@ def LoopUnrollHint : StmtAttr {
 }
 
 def IntelReqdSubGroupSize: InheritableAttr {
-  let Spellings = [GNU<"intel_reqd_sub_group_size">,
-                   CXX11<"intel", "reqd_sub_group_size">];
+  let Spellings = [
+    GNU<"intel_reqd_sub_group_size">, CXX11<"intel", "reqd_sub_group_size">,
+    CXX11<"intel", "sub_group_size"> // SYCL2020 spelling.
+  ];
   let Args = [ExprArgument<"Value">];
   let Subjects = SubjectList<[Function], ErrorDiag>;
   let Documentation = [IntelReqdSubGroupSizeDocs];
   let LangOpts = [OpenCL, SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
   let SupportsNonconformingLambdaSyntax = 1;
+  let Accessors =
+    [Accessor<"isSYCL2020Spelling", [CXX11<"intel", "sub_group_size">]>];
 }
+
+def IntelNamedSubGroupSize : InheritableAttr {
+  let Spellings = [CXX11<"intel", "named_sub_group_size">];
+  let Args = [EnumArgument<"Type", "SubGroupSizeType", ["automatic", "primary"],
+                           ["Automatic", "Primary"]>];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [IntelNamedSubGroupSizeDocs];
+  let LangOpts = [OpenCL, SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
+  let SupportsNonconformingLambdaSyntax = 1;
+}
+
+def :
+  MutualExclusions<[IntelReqdSubGroupSize, IntelNamedSubGroupSize, SYCLSimd]>;
 
 // This attribute is both a type attribute, and a declaration attribute (for
 // parameter variables).
@@ -1629,6 +1656,12 @@ def NoMerge : DeclOrStmtAttr {
   let SimpleHandler = 1;
 }
 
+def MustTail : StmtAttr {
+  let Spellings = [Clang<"musttail">];
+  let Documentation = [MustTailDocs];
+  let Subjects = SubjectList<[ReturnStmt], ErrorDiag, "return statements">;
+}
+
 def FastCall : DeclOrTypeAttr {
   let Spellings = [GCC<"fastcall">, Keyword<"__fastcall">,
                    Keyword<"_fastcall">];
@@ -1748,7 +1781,7 @@ def IFunc : Attr, TargetSpecificAttr<TargetELF> {
 def Restrict : InheritableAttr {
   let Spellings = [Declspec<"restrict">, GCC<"malloc">];
   let Subjects = SubjectList<[Function]>;
-  let Documentation = [Undocumented];
+  let Documentation = [RestrictDocs];
 }
 
 def LayoutVersion : InheritableAttr, TargetSpecificAttr<TargetMicrosoftCXXABI> {
@@ -1898,7 +1931,7 @@ def SYCLIntelFPGAIVDep : StmtAttr {
     UnsignedArgument<"SafelenValue", /*opt*/1>
   ];
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
-  let HasCustomTypeTransform = 1;
+  let IsStmtDependent = 1;
   let AdditionalMembers = [{
     bool isDependent() const {
       return (getSafelenExpr() &&
@@ -1944,7 +1977,7 @@ def SYCLIntelFPGAInitiationInterval : DeclOrStmtAttr {
                               "'for', 'while', 'do' statements, and functions">;
   let Args = [ExprArgument<"IntervalExpr">];
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
-  let HasCustomTypeTransform = 0; //INTEL
+  let IsStmtDependent = 0; //INTEL
   let AdditionalMembers = [{
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
@@ -1968,7 +2001,7 @@ def SYCLIntelFPGAMaxConcurrency : DeclOrStmtAttr {
                    ErrorDiag, "'for', 'while', 'do' statements, and functions">;
   let Args = [ExprArgument<"NThreadsExpr">];
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
-  let HasCustomTypeTransform = 0; //INTEL
+  let IsStmtDependent = 0; //INTEL
   let AdditionalMembers = [{
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
@@ -1988,7 +2021,7 @@ def SYCLIntelFPGALoopCoalesce : StmtAttr {
                              ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [ExprArgument<"NExpr", /*opt*/1>];
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
-  let HasCustomTypeTransform = 0; //INTEL
+  let IsStmtDependent = 0; //INTEL
   let AdditionalMembers = [{
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
@@ -2007,7 +2040,7 @@ def SYCLIntelFPGADisableLoopPipelining : DeclOrStmtAttr {
                               ErrorDiag,
                               "'for', 'while', 'do' statements, and functions">;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
-  let HasCustomTypeTransform = 0; //INTEL
+  let IsStmtDependent = 0; //INTEL
   let AdditionalMembers = [{
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
@@ -2039,7 +2072,7 @@ def SYCLIntelFPGAMaxInterleaving : StmtAttr {
                              ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [ExprArgument<"NExpr">];
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, HLS, OpenCL]; //INTEL
-  let HasCustomTypeTransform = 0; //INTEL
+  let IsStmtDependent = 0; //INTEL
   let AdditionalMembers = [{
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
@@ -2060,7 +2093,7 @@ def SYCLIntelFPGASpeculatedIterations : StmtAttr {
                              ErrorDiag, "'for', 'while', and 'do' statements">;
   let Args = [ExprArgument<"NExpr">];
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost, OpenCL, HLS]; //INTEL
-  let HasCustomTypeTransform = 0; //INTEL
+  let IsStmtDependent = 0; //INTEL
   let AdditionalMembers = [{
     // INTEL_CUSTOMIZATION
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
@@ -2078,7 +2111,7 @@ def SYCLIntelFPGANofusion : StmtAttr {
   let Subjects = SubjectList<[ForStmt, CXXForRangeStmt, WhileStmt, DoStmt],
                              ErrorDiag, "'for', 'while', and 'do' statements">;
   let LangOpts = [SYCLIsDevice, SilentlyIgnoreSYCLIsHost];
-  let HasCustomTypeTransform = 1;
+  let IsStmtDependent = 1;
   let Documentation = [SYCLIntelFPGANofusionAttrDocs];
 }
 

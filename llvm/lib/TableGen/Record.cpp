@@ -655,6 +655,14 @@ Init *ListInit::resolveReferences(Resolver &R) const {
   return const_cast<ListInit *>(this);
 }
 
+bool ListInit::isComplete() const {
+  for (Init *Element : *this) {
+    if (!Element->isComplete())
+      return false;
+  }
+  return true;
+}
+
 bool ListInit::isConcrete() const {
   for (Init *Element : *this) {
     if (!Element->isConcrete())
@@ -1838,7 +1846,7 @@ DefInit *VarDefInit::instantiate() {
     Records.addDef(std::move(NewRecOwner));
 
     // Check the assertions.
-    NewRec->checkAssertions();
+    NewRec->checkRecordAssertions();
 
     Def = DefInit::get(NewRec);
   }
@@ -1924,7 +1932,7 @@ Init *FieldInit::Fold(Record *CurRec) const {
                       FieldName->getAsUnquotedString() + "' of '" +
                       Rec->getAsString() + "' is a forbidden self-reference");
     Init *FieldVal = Def->getValue(FieldName)->getValue();
-    if (FieldVal->isComplete())
+    if (FieldVal->isConcrete())
       return FieldVal;
   }
   return const_cast<FieldInit *>(this);
@@ -2371,10 +2379,10 @@ void Record::resolveReferences(Resolver &R, const RecordVal *SkipVal) {
 
   // Resolve the assertion expressions.
   for (auto &Assertion : Assertions) {
-    Init *Value = std::get<1>(Assertion)->resolveReferences(R);
-    std::get<1>(Assertion) = Value;
-    Value = std::get<2>(Assertion)->resolveReferences(R);
-    std::get<2>(Assertion) = Value;
+    Init *Value = Assertion.Condition->resolveReferences(R);
+    Assertion.Condition = Value;
+    Value = Assertion.Message->resolveReferences(R);
+    Assertion.Message = Value;
   }
 }
 
@@ -2621,14 +2629,14 @@ DagInit *Record::getValueAsDag(StringRef FieldName) const {
 // and message, then call CheckAssert().
 // Note: The condition and message are probably already resolved,
 //       but resolving again allows calls before records are resolved.
-void Record::checkAssertions() {
+void Record::checkRecordAssertions() {
   RecordResolver R(*this);
   R.setFinal(true);
 
   for (auto Assertion : getAssertions()) {
-    Init *Condition = std::get<1>(Assertion)->resolveReferences(R);
-    Init *Message = std::get<2>(Assertion)->resolveReferences(R);
-    CheckAssert(std::get<0>(Assertion), Condition, Message);
+    Init *Condition = Assertion.Condition->resolveReferences(R);
+    Init *Message = Assertion.Message->resolveReferences(R);
+    CheckAssert(Assertion.Loc, Condition, Message);
   }
 }
 

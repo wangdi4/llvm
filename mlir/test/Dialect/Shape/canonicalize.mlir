@@ -120,6 +120,36 @@ func @f() -> !shape.shape {
 
 // -----
 
+// All but one operands are known empty shapes.
+// CHECK-LABEL: @all_but_one_empty
+// CHECK-SAME:  (%[[ARG:.*]]: !shape.shape)
+func @all_but_one_empty(%arg0 : !shape.shape) -> !shape.shape {
+  // CHECK: return %[[ARG]]
+  %0 = shape.const_shape [] : !shape.shape
+  %1 = shape.const_shape [] : tensor<0xindex>
+  %2 = shape.broadcast %0, %arg0, %1, %0 : !shape.shape, !shape.shape,
+      tensor<0xindex>, !shape.shape -> !shape.shape
+  return %2 : !shape.shape
+}
+
+// -----
+
+// Partial folding.
+// CHECK-LABEL: @partial_folding
+// CHECK-SAME:  (%[[ARG:.*]]: !shape.shape)
+func @partial_folding(%arg0 : !shape.shape) -> !shape.shape {
+  // CHECK: %[[CST_SHAPE:.*]] = constant dense<[1, 2, 3]> : tensor<3xindex>
+  // CHECK: %[[RESULT:.*]] = shape.broadcast %[[ARG]], %[[CST_SHAPE]] : !shape.shape, tensor<3xindex> -> !shape.shape
+  // CHECK: return %[[RESULT]]
+  %0 = shape.const_shape [2, 1] : !shape.shape
+  %1 = shape.const_shape [1, 2, 3] : tensor<3xindex>
+  %2 = shape.broadcast %0, %arg0, %1, %0 : !shape.shape, !shape.shape,
+      tensor<3xindex>, !shape.shape -> !shape.shape
+  return %2 : !shape.shape
+}
+
+// -----
+
 // Incompatible shapes. No folding.
 // CHECK-LABEL: func @f
 func @f() -> !shape.shape {
@@ -605,6 +635,20 @@ func @f() {
   %cs1 = shape.const_shape [1, 5] : !shape.shape
   %0 = shape.cstr_broadcastable %cs0, %cs1 : !shape.shape, !shape.shape
   "consume.witness"(%0) : (!shape.witness) -> ()
+  return
+}
+
+// -----
+// Empty shape arguments can be removed from broadcastable ops.
+// CHECK-LABEL: func @f
+// CHECK-SAME:  (%[[ARG0:.*]]: tensor<?xindex>, %[[ARG1:.*]]: tensor<?xindex>)
+func @f(%arg0 : tensor<?xindex>, %arg1 : tensor<?xindex>) {
+  // CHECK-NOT: const_shape
+  // CHECK: cstr_broadcastable %[[ARG0]], %[[ARG1]] : tensor<?xindex>, tensor<?xindex>
+  %0 = shape.const_shape [] : !shape.shape
+  %1 = shape.cstr_broadcastable %arg0, %arg1, %0
+      : tensor<?xindex>, tensor<?xindex>, !shape.shape
+  "consume.witness"(%1) : (!shape.witness) -> ()
   return
 }
 
@@ -1187,10 +1231,21 @@ func @broadcast_on_duplicate_shapes(%a : !shape.shape, %b : !shape.shape)
 // -----
 
 // CHECK-LABEL: @broadcast_on_single_operand
-// CHECK-SAME: (%[[A:.*]]: tensor<3xindex>)
-func @broadcast_on_single_operand(%a : tensor<3xindex>) {
+// CHECK-SAME: (%[[A:.*]]: tensor<?xindex>)
+func @broadcast_on_single_operand(%a : tensor<?xindex>) {
   // CHECK-NOT: broadcast
   // CHECK: "use"(%[[A]])
+  %0 = shape.broadcast %a : tensor<?xindex> -> tensor<?xindex>
+  "use"(%0) : (tensor<?xindex>) -> ()
+  return
+}
+
+// -----
+
+// CHECK-LABEL: @broadcast_on_single_operand
+// CHECK-SAME: (%[[A:.*]]: tensor<3xindex>)
+func @broadcast_on_single_operand(%a : tensor<3xindex>) {
+  // CHECK: broadcast %[[A]]
   %0 = shape.broadcast %a : tensor<3xindex> -> tensor<?xindex>
   "use"(%0) : (tensor<?xindex>) -> ()
   return
@@ -1258,4 +1313,15 @@ func @min_same_arg(%a: !shape.shape) -> !shape.shape {
   %1 = shape.min %a, %a : !shape.shape, !shape.shape -> !shape.shape
   // CHECK: return %[[SHAPE]]
   return %1 : !shape.shape
+}
+
+// ----
+
+// CHECK-LABEL: @cstr_broadcastable_folding
+func @cstr_broadcastable_folding(%arg : tensor<?x4xf32>) {
+  // CHECK: const_witness true
+  %0 = shape.shape_of %arg : tensor<?x4xf32> -> tensor<2xindex>
+  %1 = constant dense<[4]> : tensor<1xindex>
+  %2 = shape.cstr_broadcastable %0, %1: tensor<2xindex>, tensor<1xindex>
+  "use"(%2) : (!shape.witness) -> ()
 }

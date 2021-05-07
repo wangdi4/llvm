@@ -708,15 +708,13 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = X86::INTEL_COREI7_SKYLAKE;
       break;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RKL
     // Rocketlake:
     case 0xa7:
     case 0xa8:
       CPU = "rocketlake";
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_ROCKETLAKE;
       break;
-#endif // INTEL_FEATURE_CPU_RKL
-#endif // INTEL_CUSTOMIZATION
 
     // Skylake Xeon:
     case 0x55:

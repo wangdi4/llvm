@@ -381,8 +381,8 @@ void LoopBase<BlockT, LoopT>::verifyLoopNest(
 }
 
 template <class BlockT, class LoopT>
-void LoopBase<BlockT, LoopT>::print(raw_ostream &OS, unsigned Depth,
-                                    bool Verbose) const {
+void LoopBase<BlockT, LoopT>::print(raw_ostream &OS, bool Verbose,
+                                    bool PrintNested, unsigned Depth) const {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   OS.indent(Depth * 2);
   if (static_cast<const LoopT *>(this)->isAnnotatedParallel())
@@ -408,11 +408,14 @@ void LoopBase<BlockT, LoopT>::print(raw_ostream &OS, unsigned Depth,
     if (Verbose)
       BB->print(OS);
   }
-  OS << "\n";
 
-  for (iterator I = begin(), E = end(); I != E; ++I)
-    (*I)->print(OS, Depth + 2);
-#endif  // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  if (PrintNested) {
+    OS << "\n";
+
+    for (iterator I = begin(), E = end(); I != E; ++I)
+      (*I)->print(OS, /*Verbose*/ false, PrintNested, Depth + 2);
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 //===----------------------------------------------------------------------===//

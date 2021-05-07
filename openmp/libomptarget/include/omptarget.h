@@ -340,16 +340,17 @@ void omp_target_free(void *device_ptr, int device_num);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int omp_target_is_present(void *ptr, int device_num);
+int omp_target_is_present(const void *ptr, int device_num);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int omp_target_memcpy(void *dst, void *src, size_t length, size_t dst_offset,
-                      size_t src_offset, int dst_device, int src_device);
+int omp_target_memcpy(void *dst, const void *src, size_t length,
+                      size_t dst_offset, size_t src_offset, int dst_device,
+                      int src_device);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int omp_target_memcpy_rect(void *dst, void *src, size_t element_size,
+int omp_target_memcpy_rect(void *dst, const void *src, size_t element_size,
                            int num_dims, const size_t *volume,
                            const size_t *dst_offsets, const size_t *src_offsets,
                            const size_t *dst_dimensions,
@@ -358,12 +359,13 @@ int omp_target_memcpy_rect(void *dst, void *src, size_t element_size,
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int omp_target_associate_ptr(void *host_ptr, void *device_ptr, size_t size,
-                             size_t device_offset, int device_num);
+int omp_target_associate_ptr(const void *host_ptr, const void *device_ptr,
+                             size_t size, size_t device_offset, int device_num);
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-int omp_target_disassociate_ptr(void *host_ptr, int device_num);
+int omp_target_disassociate_ptr(const void *host_ptr, int device_num);
+
 #if INTEL_COLLAB
 EXTERN
 void * omp_get_mapped_ptr(void *host_ptr, int device_num);
@@ -692,6 +694,12 @@ EXTERN int __tgt_get_target_memory_info(
 EXTERN void __tgt_add_build_options(
     const char *compile_options, const char *link_options);
 #endif // INTEL_COLLAB
+
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
+void __tgt_set_info_flag(uint32_t);
+
 #ifdef __cplusplus
 }
 #endif

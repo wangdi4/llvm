@@ -545,9 +545,11 @@ void Parser::initializePragmaHandlers() {
 #endif // INTEL_CUSTOMIZATION
   UnrollHintHandler = std::make_unique<PragmaUnrollHintHandler>("unroll");
   PP.AddPragmaHandler(UnrollHintHandler.get());
+  PP.AddPragmaHandler("GCC", UnrollHintHandler.get());
 
   NoUnrollHintHandler = std::make_unique<PragmaUnrollHintHandler>("nounroll");
   PP.AddPragmaHandler(NoUnrollHintHandler.get());
+  PP.AddPragmaHandler("GCC", NoUnrollHintHandler.get());
 
   UnrollAndJamHintHandler =
       std::make_unique<PragmaUnrollHintHandler>("unroll_and_jam");
@@ -720,9 +722,11 @@ void Parser::resetPragmaHandlers() {
   }
 #endif // INTEL_CUSTOMIZATION
   PP.RemovePragmaHandler(UnrollHintHandler.get());
+  PP.RemovePragmaHandler("GCC", UnrollHintHandler.get());
   UnrollHintHandler.reset();
 
   PP.RemovePragmaHandler(NoUnrollHintHandler.get());
+  PP.RemovePragmaHandler("GCC", NoUnrollHintHandler.get());
   NoUnrollHintHandler.reset();
 
   PP.RemovePragmaHandler(UnrollAndJamHintHandler.get());

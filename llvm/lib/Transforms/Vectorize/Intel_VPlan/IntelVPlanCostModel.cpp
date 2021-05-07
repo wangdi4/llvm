@@ -65,11 +65,13 @@ uint64_t VPlanVLSCostModel::getInstructionCost(const OVLSInstruction *I) const {
   Type *ElemType = Type::getIntNTy(getContext(), ElemSize);
   if (isa<OVLSLoad>(I) || isa<OVLSStore>(I)) {
     VectorType *VecTy = FixedVectorType::get(ElemType, VF);
-    return TTI.getMemoryOpCost(
-        isa<OVLSStore>(I) ? Instruction::Store : Instruction::Load, VecTy,
-        // FIXME: Next values are not used in getMemoryOpCost(), however
-        // that can change later.
-        Align() /* Alignment */, 0 /* AddressSpace */);
+    return *TTI.getMemoryOpCost(
+                   isa<OVLSStore>(I) ? Instruction::Store : Instruction::Load,
+                   VecTy,
+                   // FIXME: Next values are not used in getMemoryOpCost(),
+                   // however that can change later.
+                   Align() /* Alignment */, 0 /* AddressSpace */)
+                .getValue();
   }
   if (auto Shuffle = dyn_cast<OVLSShuffle>(I)) {
     SmallVector<int, 16> Mask;
@@ -94,7 +96,7 @@ VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
       VPMemref->getInstruction()->getOpcode() != Instruction::Store
           ? Instruction::Load
           : Instruction::Store;
-  return TTI.getMemoryOpCost(Opcode, VecTy, Align(), 0);
+  return *TTI.getMemoryOpCost(Opcode, VecTy, Align(), 0).getValue();
 }
 #endif // INTEL_CUSTOMIZATION
 

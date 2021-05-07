@@ -103,6 +103,7 @@ set(LLVM_TEST_DEPENDS
           llvm-objdump
           llvm-opt-fuzzer
           llvm-opt-report
+          llvm-otool
           llvm-pdbutil
           llvm-profdata
           llvm-profgen
@@ -119,6 +120,7 @@ set(LLVM_TEST_DEPENDS
           llvm-symbolizer
           llvm-tblgen
           llvm-undname
+          llvm-windres
           llvm-xray
           not
           obj2yaml
