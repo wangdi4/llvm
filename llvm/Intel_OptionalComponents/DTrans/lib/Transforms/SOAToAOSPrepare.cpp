@@ -1556,19 +1556,37 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
   //     br i1 %40, label %93, label %LoopPreHead
   //
   // LoopPreHead:
+  //     br %Loop
+  //
+  // Loop:
   //
   // Returns %18 for above example.
   //
+  // Or
+  //
+  //     store %"RefArray"* %35, %"RefArray"** %5
+  //     %40 = icmp eq i32 %18, 0
+  //     br i1 %40, label %93, label %Loop
+  //
+  // Loop:
+  //
+  //
   auto GetLoopCountFromZeroTripCheck = [](Loop *L) -> Value * {
     BasicBlock *PH = L->getLoopPreheader();
-    if (!PH)
-      return nullptr;
-    auto *EntryBI = dyn_cast<BranchInst>(PH->getTerminator());
-    if (!EntryBI || EntryBI->isConditional() ||
-        EntryBI != PH->getFirstNonPHIOrDbg())
-      return nullptr;
+    BasicBlock *PreCondBB = nullptr;
+    BasicBlock *SuccBB = nullptr;
+    if (PH) {
+      auto *EntryBI = dyn_cast<BranchInst>(PH->getTerminator());
+      if (!EntryBI || EntryBI->isConditional() ||
+          EntryBI != PH->getFirstNonPHIOrDbg())
+        return nullptr;
 
-    auto *PreCondBB = PH->getSinglePredecessor();
+      PreCondBB = PH->getSinglePredecessor();
+      SuccBB = PH;
+    } else {
+      PreCondBB = L->getLoopPredecessor();
+      SuccBB = L->getHeader();
+    }
     if (!PreCondBB)
       return nullptr;
     auto *BI = dyn_cast<BranchInst>(PreCondBB->getTerminator());
@@ -1584,8 +1602,7 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
       return nullptr;
 
     ICmpInst::Predicate Pred = Cond->getPredicate();
-    if (Pred != ICmpInst::ICMP_EQ ||
-        BI->getSuccessor(1) != L->getLoopPreheader())
+    if (Pred != ICmpInst::ICMP_EQ || BI->getSuccessor(1) != SuccBB)
       return nullptr;
     return Cond->getOperand(0);
   };
@@ -1612,7 +1629,8 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
     if (!PN || PN->getNumIncomingValues() != 2)
       return nullptr;
     BasicBlock *Latch = L->getLoopLatch();
-    BasicBlock *PreHead = L->getLoopPreheader();
+    // Just finding LoopPredecessor (or LoopHeader).
+    BasicBlock *PreHead = L->getLoopPredecessor();
     if (!PreHead || !Latch)
       return nullptr;
     Value *V1 = PN->getIncomingValueForBlock(PreHead);
@@ -1773,8 +1791,13 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
       return false;
 
     // Try to find instructions related Ctor just before the loop.
+    BasicBlock *PreCondBB;
+
     BasicBlock *PH = L->getLoopPreheader();
-    BasicBlock *PreCondBB = PH->getSinglePredecessor();
+    if (PH)
+      PreCondBB = PH->getSinglePredecessor();
+    else
+      PreCondBB = L->getLoopPredecessor();
     assert(PreCondBB && " Expected valid SinglePredecessor");
     Instruction *TInst = PreCondBB->getTerminator();
     assert(TInst && "Expected Terminator");
