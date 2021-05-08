@@ -123,6 +123,7 @@ add_llvm_component_library(LLVMCodeGen
   MachineStripDebug.cpp
   MachineTraceMetrics.cpp
   MachineVerifier.cpp
+  MIRYamlMapping.cpp
   ModuloSchedule.cpp
   MultiHazardRecognizer.cpp
   PatchableFunction.cpp
