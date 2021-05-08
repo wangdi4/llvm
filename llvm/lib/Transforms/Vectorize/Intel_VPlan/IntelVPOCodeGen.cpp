@@ -441,8 +441,17 @@ void VPOCodeGen::finalizeLoop() {
     // Fix phis.
     fixNonInductionVPPhis();
 
-    if (!OrigLoopUsed)
+    if (!OrigLoopUsed) {
+      // Remove uses of incoming values in original header.
       unlinkOrigHeaderPhis();
+      // Unlink the exit block from the original latch. So we don't have uses of
+      // the old loop body at all.
+      BasicBlock *Header = OrigLoop->getHeader();
+      BasicBlock *Latch = OrigLoop->getLoopLatch();
+      auto CurrTerm = Latch->getTerminator();
+      auto Br = BranchInst::Create(Header);
+      ReplaceInstWithInst(CurrTerm, Br);
+    }
 
     // Attach the new loop to the original preheader
     auto *Plan = const_cast<VPlanVector *>(this->Plan);
@@ -1589,7 +1598,6 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     // Do nothing.
     return;
   case VPInstruction::ScalarRemainder:
-    OrigLoopUsed = true;
     if (cast<VPPeelRemainder>(VPInst)->isCloningRequired()) {
       // Clone before processing if needed.
       auto LoopReuse = cast<VPPeelRemainder>(VPInst);
@@ -1622,6 +1630,7 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
       for (auto &Phi : LoopReuse->getLoop()->getHeader()->phis())
         Phi.replaceIncomingBlockWith(OrigPreHeader, NewPH);
     }
+    OrigLoopUsed = true;
     return;
   }
   case VPInstruction::OrigLiveOut: {
@@ -4006,11 +4015,9 @@ void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
   auto *StartVPVal =
       RedFinal->getNumOperands() > 1 ? RedFinal->getOperand(1) : nullptr;
   Value *Acc = nullptr;
-  if (StartVPVal) {
-    assert((isa<VPExternalDef>(StartVPVal) || isa<VPConstant>(StartVPVal)) &&
-           "Unsupported reduction StartValue");
+  if (StartVPVal)
     Acc = getScalarValue(StartVPVal, 0);
-  }
+
   Value *Ret = nullptr;
   // TODO: Need meaningful processing for Acc for FP reductions, and NoNan
   // parameter.

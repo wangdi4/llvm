@@ -109,6 +109,26 @@ static llvm::SmallVector<StringRef, 10> SYCLDeviceLibList{
     "fallback-complex",
     "fallback-complex-fp64"};
 
+#if INTEL_CUSTOMIZATION
+// The list should match pre-built OMP device library files located in
+// compiler package. Once we add or remove any OMP device library files,
+// the list should be updated accordingly.
+// The spirvdevicertl library is not included here as it is required to
+//  be linked in fully (without --only-needed).
+static llvm::SmallVector<StringRef, 10> OMPDeviceLibList{
+    "cmath",
+    "cmath-fp64",
+    "complex",
+    "complex-fp64",
+    "fallback-cmath",
+    "fallback-cmath-fp64",
+    "fallback-complex",
+    "fallback-complex-fp64",
+    "itt-compiler-wrappers",
+    "itt-stubs",
+    "itt-user-wrappers"};
+#endif // INTEL_CUSTOMIZATION
+
 const char *SYCL::Linker::constructLLVMLinkCommand(
     Compilation &C, const JobAction &JA, const InputInfo &Output,
     const ArgList &Args, StringRef SubArchName, StringRef OutputFilePrefix,
@@ -124,6 +144,8 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
   ArgStringList Opts;
   ArgStringList Objs;
   ArgStringList Libs;
+  ArgStringList OMPObjs;      //INTEL
+
   // Add the input bc's created by compile step.
   // When offloading, the input file(s) could be from unbundled partially
   // linked archives.  The unbundled information is a list of files and not
@@ -151,6 +173,28 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
       }
       return false;
     };
+#if INTEL_CUSTOMIZATION
+    auto isOMPDeviceLib = [&C](const InputInfo &II) {
+      const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
+      StringRef LibPostfix = ".o";
+      if (HostTC->getTriple().isWindowsMSVCEnvironment() &&
+          C.getDriver().IsCLMode())
+        LibPostfix = ".obj";
+      StringRef InputFilename =
+          llvm::sys::path::filename(StringRef(II.getFilename()));
+      if (!InputFilename.startswith("libomp-") ||
+          !InputFilename.endswith(LibPostfix) || (InputFilename.count('-') < 2))
+        return false;
+      size_t PureLibNameLen = InputFilename.find_last_of('-');
+      // Skip the prefix "libomp-"
+      StringRef PureLibName = InputFilename.substr(7, PureLibNameLen - 7);
+      for (const auto &L : OMPDeviceLibList) {
+        if (PureLibName.compare(L) == 0)
+          return true;
+      }
+      return false;
+    };
+#endif // INTEL_CUSTOMIZATION
     size_t InputFileNum = InputFiles.size();
     bool LinkSYCLDeviceLibs = (InputFileNum >= 2);
     LinkSYCLDeviceLibs = LinkSYCLDeviceLibs && !isSYCLDeviceLib(InputFiles[0]);
@@ -166,6 +210,10 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
         // Pass the unbundled list with '@' to be processed.
         std::string FileName(II.getFilename());
         Objs.push_back(C.getArgs().MakeArgString("@" + FileName));
+#if INTEL_CUSTOMIZATION
+      } else if (isOMPDeviceLib(II)) {
+        OMPObjs.push_back(II.getFilename());
+#endif // INTEL_CUSTOMIZATION
       } else if (II.getType() == types::TY_Archive && !LinkSYCLDeviceLibs) {
         Libs.push_back(II.getFilename());
       } else
@@ -195,11 +243,22 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
         JA, *this, ResponseFileSupport::AtFileUTF8(), Exec, CmdArgs, None));
   };
 
-  // Add an intermediate output file.
+ // Add an intermediate output file.
   const char *OutputFileName = Output.getFilename();
+#if INTEL_CUSTOMIZATION
+  const char *TOutputFileName = OutputFileName;
 
+  // Use a Temporary output file for OMP devices else use the Output file
+  // provided
+  if (!OMPObjs.empty()) {
+    std::string OMPTempFile;
+    OMPTempFile = C.getDriver().GetTemporaryPath(
+        OutputFilePrefix.str() + "-linkomp", "bc");
+    TOutputFileName = C.addTempFile(C.getArgs().MakeArgString(OMPTempFile));
+  }
+#endif // INTEL_CUSTOMIZATION
   if (Libs.empty())
-    AddLinkCommand(OutputFileName, Objs, Opts);
+    AddLinkCommand(TOutputFileName, Objs, Opts);  //INTEL
   else {
     assert(Opts.empty() && "unexpected options");
 
@@ -217,9 +276,17 @@ const char *SYCL::Linker::constructLLVMLinkCommand(
     // input libraries.
     ArgStringList LinkInputs{LinkOutput};
     llvm::copy(Libs, std::back_inserter(LinkInputs));
-    AddLinkCommand(OutputFileName, LinkInputs, {"--only-needed"});
+    AddLinkCommand(TOutputFileName, LinkInputs, {"--only-needed"});  //INTEL
   }
-  return OutputFileName;
+#if INTEL_CUSTOMIZATION
+  if (!OMPObjs.empty()) {
+    ArgStringList OMPLinkInputs{TOutputFileName};
+    llvm::copy(OMPObjs, std::back_inserter(OMPLinkInputs));
+    AddLinkCommand(OutputFileName, OMPLinkInputs, {"--only-needed"});
+    return OutputFileName;
+  }
+  return TOutputFileName;
+#endif // INTEL_CUSTOMIZATION
 }
 
 void SYCL::Linker::constructLlcCommand(Compilation &C, const JobAction &JA,

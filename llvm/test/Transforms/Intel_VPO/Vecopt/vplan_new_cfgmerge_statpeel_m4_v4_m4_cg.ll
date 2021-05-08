@@ -74,7 +74,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[TMP13]] = add nuw nsw <4 x i64> [[VEC_PHI14]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP14]] = add nuw nsw i64 [[UNI_PHI13]], 4
 ; CHECK-NEXT:    [[TMP15:%.*]] = icmp ult i64 [[TMP14]], 1024
-; CHECK-NEXT:    br i1 [[TMP15]], label [[VECTOR_BODY]], label [[VPLANNEDBB18:%.*]], [[LOOP0:!llvm.loop !.*]]
+; CHECK-NEXT:    br i1 [[TMP15]], label [[VECTOR_BODY]], label [[VPLANNEDBB18:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB18:
 ; CHECK-NEXT:    [[TMP16:%.*]] = add i64 [[UNI_PHI8]], 1024
 ; CHECK-NEXT:    br label [[VPLANNEDBB19:%.*]]
@@ -132,7 +132,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    store i64 [[ADD]], i64* [[PTR]], align 8
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
 ; CHECK-NEXT:    [[CMP:%.*]] = icmp ult i64 [[INDVARS_IV_NEXT]], 1024
-; CHECK-NEXT:    br i1 [[CMP]], label [[FOR_BODY]], label [[FOR_END]], [[LOOP2:!llvm.loop !.*]]
+; CHECK-NEXT:    br label [[FOR_BODY]]
 ; CHECK:       for.end:
 ; CHECK-NEXT:    ret void
 ;

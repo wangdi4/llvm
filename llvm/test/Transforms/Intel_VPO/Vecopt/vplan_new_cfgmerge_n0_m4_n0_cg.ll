@@ -71,7 +71,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    store i64 [[ADD0]], i64* [[PTR0]], align 8
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
 ; CHECK-NEXT:    [[CMP0:%.*]] = icmp ult i64 [[INDVARS_IV_NEXT0]], 1024
-; CHECK-NEXT:    br i1 [[CMP0]], label [[FOR_BODY0]], label [[FOR_END0]], !llvm.loop !2
+; CHECK-NEXT:    br label [[FOR_BODY0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  for.end:
 ; CHECK-NEXT:    ret void

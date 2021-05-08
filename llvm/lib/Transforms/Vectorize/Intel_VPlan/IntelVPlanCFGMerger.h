@@ -312,11 +312,6 @@ private:
   // corresponding field.
   void updateOrigUB();
 
-  VPConstant *getInt64Const(int64_t V) {
-    Type *Ty = Type::getInt64Ty(*Plan.getLLVMContext());
-    return Plan.getVPConstant(ConstantInt::get(Ty, V));
-  }
-
   // Set operands of VPlanAdapter from \p AdapterBB to the phis that are
   // in the \p MergeBB.
   void updateAdapterOperands(VPBasicBlock *AdapterBB, VPBasicBlock *MergeBB);

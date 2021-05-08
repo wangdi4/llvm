@@ -1084,6 +1084,9 @@ void ToolChain::AddIPPLibPath(const ArgList &Args, ArgStringList &CmdArgs,
   const Arg *IL = Args.getLastArg(options::OPT_qipp_link_EQ);
   if (IsNonPIC && (!IL || (IL->getValue() == StringRef("static"))))
     llvm::sys::path::append(P, "nonpic");
+  if (getTriple().isWindowsMSVCEnvironment()) {
+    llvm::sys::path::replace_path_prefix(P, "//", "\\\\");
+  }
   CmdArgs.push_back(Args.MakeArgString(P));
 }
 
@@ -1122,6 +1125,9 @@ std::string ToolChain::GetMKLLibPath(void) const {
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
+  if (getTriple().isWindowsMSVCEnvironment()) {
+    llvm::sys::path::replace_path_prefix(P, "//", "\\\\");
+  }
   return std::string(P);
 }
 
@@ -1165,6 +1171,9 @@ void ToolChain::AddTBBLibPath(const ArgList &Args, ArgStringList &CmdArgs,
     llvm::sys::path::append(P, "vc14");
   else
     llvm::sys::path::append(P, "gcc4.8");
+  if (getTriple().isWindowsMSVCEnvironment()) {
+    llvm::sys::path::replace_path_prefix(P, "//", "\\\\");
+  }
   CmdArgs.push_back(Args.MakeArgString(P));
 }
 
@@ -1194,6 +1203,9 @@ std::string ToolChain::GetDAALLibPath(void) const {
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
+  if (getTriple().isWindowsMSVCEnvironment()) {
+    llvm::sys::path::replace_path_prefix(P, "//", "\\\\");
+  }
   return std::string(P);
 }
 
