@@ -28,7 +28,7 @@ add_opencl_executable(${TARGET}
     ${OCL_SOURCE_DIR}/externals/itt/include
 
     LINK_LIBS
-      ${OpenCL_LIBRARY}
+      OpenCL-ICD
       cl_sys_utils
   )
 

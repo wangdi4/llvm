@@ -24,7 +24,7 @@ include_directories ( BEFORE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/export
         ${CL_API_HEADERS}
-        ${LLVM_MAIN_SRC_DIR}/../external/opencl-icd-loader/loader
+        ${CL_LOADER}/loader
         ${CMAKE_CURRENT_SOURCE_DIR}/Platform
         ${CMAKE_CURRENT_SOURCE_DIR}/Context
         ${CMAKE_CURRENT_SOURCE_DIR}/Execution
@@ -165,21 +165,11 @@ SET_LINUX_EXPORTS_FILE( ${TARGET_NAME_EMU} cl_framework_linux_exports.txt )
 
 set_target_properties( ${TARGET_NAME}  PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME} )
 set_target_properties( ${TARGET_NAME_EMU}  PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME} )
-# deploy icd library
-get_filename_component(ICD_LOADER_OUTPUT_DIR ${OpenCL_LIBRARY} DIRECTORY)
-file(GLOB ICD_LOADER
-    "${ICD_LOADER_OUTPUT_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}OpenCL*")
+
+# deploy icd loader
+
 if (INTEL_OPENCL_STANDALONE_PRODUCT)
-  # For standalone OpenCL product we must deploy ICD loader ourselves.
-  # FIXME: Cmake doesn't allow to install IMPORTED libraries before 3.13 version.
-  # So, we install ICD loader library files as ocl-OpenCL component.
-  install_to(${ICD_LOADER}
-      DESTINATION lib/${OUTPUT_ARCH_SUFF}
-      COMPONENT ocl-OpenCL
-  )
+  install(TARGETS OpenCL DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT OpenCL-ICD)
 endif()
-# install to build directory just for convenience.
-install_to(${ICD_LOADER}
-           DESTINATION ${OCL_OUTPUT_LIBRARY_DIR}
-           COMPONENT ocl-OpenCL
-)
+
+install(TARGETS OpenCL DESTINATION ${OCL_OUTPUT_LIBRARY_DIR} COMPONENT OpenCL-ICD)

@@ -6,7 +6,7 @@ include_directories(include)
 link_directories(${TBB_LIB_DIR})
 
 add_ocl_unittest(fpga_test_type SOURCE_FILES ${TARGET_SOURCES}
-    LINK_LIBRARIES ${OpenCL_LIBRARY} test_utils intelocl${BUILD_PLATFORM})
+    LINK_LIBRARIES OpenCL-ICD test_utils intelocl${BUILD_PLATFORM})
 
 add_ocl_unittest_artifacts(
   FILES

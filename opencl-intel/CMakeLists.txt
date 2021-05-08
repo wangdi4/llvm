@@ -366,9 +366,10 @@ endif()
 set( TBB_INCLUDE_DIRS ${TBB_INC_DIR} utils/task_executor/enhancements )
 
 # paths
-
+add_llvm_external_project(opencl)
 set( CL_API_HEADERS ${OpenCL_INCLUDE_DIR}
                     ${OCL_SOURCE_DIR}/framework/inc )
+set( CL_LOADER ${OpenCL_LOADER_DIR})
 
 include_directories( BEFORE
         utils/cl_logger/export
@@ -460,7 +461,7 @@ if (NOT OPENCL_INTREE_BUILD)
     ocl-OclCpuBackEnd${BUILD_PLATFORM}
     ocl-builtins
     ocl-svml
-    ocl-OpenCL
+    OpenCL-ICD
     ocl-intelocl${BUILD_PLATFORM}
     ocl-config
     ocl-cpu_device${BUILD_PLATFORM}

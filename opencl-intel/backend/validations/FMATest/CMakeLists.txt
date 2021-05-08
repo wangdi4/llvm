@@ -21,13 +21,14 @@ add_executable(${TARGET_NAME}
 )
 
 if (NOT WIN32)
-  set(LIBRARIES OclBackendUtils ${OpenCL_LIBRARY} gtest pthread)
+  set(LIBRARIES OclBackendUtils gtest pthread)
 else (NOT WIN32)
-  set(LIBRARIES OclBackendUtils ${OpenCL_LIBRARY} gtest)
+  set(LIBRARIES OclBackendUtils gtest)
 endif (NOT WIN32)
 
 target_link_libraries(${TARGET_NAME}
    ${LIBRARIES}
+   OpenCL-ICD
 )
 
 install( TARGETS ${TARGET_NAME}
