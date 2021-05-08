@@ -5,6 +5,7 @@
 
 // NEWPM: Annotation2MetadataPass on [module]
 // NEWPM-NEXT: ForceFunctionAttrsPass on [module]
+// NEWPM-NEXT: InlineReportSetupPass on [module] ;INTEL
 // NEWPM-NEXT: InferFunctionAttrsPass on [module]
 // NEWPM-NEXT:   InnerAnalysisManagerProxy<{{.*}}> analysis on [module]
 // NEWPM-NEXT: ModuleToFunctionPassAdaptor on [module]
@@ -15,6 +16,7 @@
 // NEWPM-NEXT: ModuleToFunctionPassAdaptor on [module]
 // NEWPM-NEXT: DeadArgumentEliminationPass on [module]
 // NEWPM-NEXT: ModuleToFunctionPassAdaptor on [module]
+// NEWPM-NEXT: InlineListsPass on [module] ;INTEL
 // NEWPM-NEXT: ModuleInlinerWrapperPass on [module]
 // NEWPM-NEXT:   InlineAdvisorAnalysis analysis on [module]
 // NEWPM-NEXT:   RequireAnalysisPass<{{.*}}> on [module]
@@ -28,15 +30,19 @@
 // NEWPM-NEXT:       LazyCallGraphAnalysis analysis on [module]
 // NEWPM-NEXT: GlobalOptPass on [module]
 // NEWPM-NEXT: GlobalDCEPass on [module]
+// NEWPM-NEXT: ModuleToFunctionPassAdaptor on [module] ;INTEL
 // NEWPM-NEXT: EliminateAvailableExternallyPass on [module]
 // NEWPM-NEXT: ReversePostOrderFunctionAttrsPass on [module]
 // NEWPM-NEXT: RequireAnalysisPass<{{.*}}> on [module]
+// NEWPM-NEXT:  AndersensAA analysis on [module] ;INTEL
+// NEWPM-NEXT: RequireAnalysisPass<{{.*}}> on [module] ;INTEL
 // NEWPM-NEXT: ModuleToFunctionPassAdaptor on [module]
 // CGProfilePass is disabled with non-integrated assemblers
 // NEWPM-NEXT: CGProfilePass on [module]
 // NEWPM-NEXT: GlobalDCEPass on [module]
 // NEWPM-NEXT: ConstantMergePass on [module]
 // NEWPM-NEXT: RelLookupTableConverterPass on [module]
+// NEWPM-NEXT: InlineReportEmitterPass on [module] ;INTEL
 // NEWPM-NEXT: ModuleToFunctionPassAdaptor on [module]
 // NEWPM-NEXT: PrintModulePass on [module]
 
