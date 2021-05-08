@@ -5,7 +5,7 @@
 #include <CL/sycl.hpp>
 #include <CL/sycl/INTEL/esimd.hpp>
 
-using namespace sycl::INTEL::gpu;
+using namespace sycl::ext::intel::experimental::esimd;
 
 template <typename name, typename Func>
 __attribute__((sycl_kernel)) void kernel(Func kernelFunc) {
