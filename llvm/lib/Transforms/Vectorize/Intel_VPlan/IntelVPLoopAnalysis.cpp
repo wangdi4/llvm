@@ -597,14 +597,12 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
                                                VPValue *&AI) {
   AI = nullptr;
   const VPLoopEntityMemoryDescriptor *MemDescr = getMemoryDescriptor(&E);
-  if (!MemDescr)
-    return nullptr;
-  if (MemDescr->canRegisterize())
+  if (!MemDescr || MemDescr->canRegisterize())
     return nullptr;
   AI = MemDescr->getMemoryPtr();
-  // Capture alignment of original alloca/global from incoming LLVM-IR.
   assert((isa<VPExternalDef>(AI) || isa<VPConstant>(AI)) &&
          "Original AI for private is not external.");
+  // Capture alignment of original alloca/global from incoming LLVM-IR.
   Align OrigAlignment(1);
   if (auto *OrigAI = dyn_cast_or_null<AllocaInst>(AI->getUnderlyingValue()))
     OrigAlignment = OrigAI->getAlign();
@@ -618,8 +616,10 @@ VPValue *VPLoopEntityList::createPrivateMemory(VPLoopEntity &E,
     OrigAlignment = Plan.getDataLayout()->getPrefTypeAlign(ElemTy);
   }
 
-  VPValue *Ret = Builder.create<VPAllocatePrivate>(AI->getName(), AI->getType(),
-                                                   OrigAlignment);
+  auto *Ret = Builder.create<VPAllocatePrivate>(AI->getName(), AI->getType(),
+                                                OrigAlignment);
+  // We do not set debug location on allocates.
+  Ret->setDebugLocation({});
   linkValue(&E, Ret);
   return Ret;
 }
@@ -675,15 +675,19 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     DenseMap<const VPReduction *,
              std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap,
     SmallPtrSetImpl<const VPReduction *> &ProcessedReductions) {
+
+  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
   VPValue *AI = nullptr;
   Builder.setInsertPoint(Preheader);
+  Builder.setCurrentDebugLocation(
+      Preheader->getTerminator()->getDebugLocation());
+
   VPValue *Identity = getReductionIdentity(Reduction);
   Type *Ty = Reduction->getRecurrenceType();
   VPValue *PrivateMem = createPrivateMemory(*Reduction, Builder, AI);
-  if (Reduction->getIsMemOnly())
-    if (!isa<VPConstant>(Identity))
-      // min/max in-memory reductions. Need to generate a load.
-      Identity = Builder.createLoad(Ty, AI);
+  if (Reduction->getIsMemOnly() && !isa<VPConstant>(Identity))
+    // min/max in-memory reductions. Need to generate a load.
+    Identity = Builder.createLoad(Ty, AI);
 
   // We can initialize reduction either with broadcasted identity only or
   // inserting additionally the initial value into 0th element. In the
@@ -714,10 +718,21 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
   // update), then last value computation should be done by loading from
   // private memory created for the reduction.
   Builder.setInsertPoint(PostExit);
-  VPInstruction *Exit = cast<VPInstruction>(
-      Reduction->getIsMemOnly() || !Reduction->getLoopExitInstr()
-          ? Builder.createLoad(Ty, PrivateMem)
-          : Reduction->getLoopExitInstr());
+
+  // For reduction the liveout instruction basically refers to the reduction op
+  // that is in the loop. Reduction-final represents horizontal
+  // (i.e. across lanes) reduction of the same op in such case. So we attach
+  // same debug location to it. If it is load from private memory then
+  // we use loop exit block debug location (i.e. its terminator instruction).
+  VPInstruction *Exit = Reduction->getLoopExitInstr();
+  if (Exit)
+    Builder.setCurrentDebugLocation(Exit->getDebugLocation());
+  else
+    Builder.setCurrentDebugLocation(
+        PostExit->getTerminator()->getDebugLocation());
+
+  if (Reduction->getIsMemOnly() || !Exit)
+    Exit = Builder.createLoad(Ty, PrivateMem);
 
   VPReductionFinal *Final = nullptr;
   if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
@@ -860,13 +875,16 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
   assert(Preheader && "Expect valid Preheader to be passed as input argument.");
   assert(PostExit && "Expect valid PostExit to be passed as input argument.");
 
-  // Set the insert-guard-point.
+  // Set the insert and debug location guard-points.
   VPBuilder::InsertPointGuard Guard(Builder);
+  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
 
   // Process the list of Inductions.
   for (VPInduction *Induction : vpinductions()) {
     VPValue *AI = nullptr;
     Builder.setInsertPoint(Preheader);
+    Builder.setCurrentDebugLocation(
+        Preheader->getTerminator()->getDebugLocation());
     VPValue *PrivateMem = createPrivateMemory(*Induction, Builder, AI);
     VPValue *Start = Induction->getStartValue();
     Type *Ty = Start->getType();
@@ -907,6 +925,11 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
     VPInstruction *ExitInstr = getInductionLoopExitInstr(Induction);
     // Create instruction for last value
     Builder.setInsertPoint(PostExit);
+    if (ExitInstr)
+      Builder.setCurrentDebugLocation(ExitInstr->getDebugLocation());
+    else
+      Builder.setCurrentDebugLocation(
+          PostExit->getTerminator()->getDebugLocation());
     unsigned OpT = static_cast<unsigned>(Opc);
     bool IsExtract = OpT != Instruction::Add && OpT != Instruction::FAdd &&
                      OpT != Instruction::GetElementPtr;
