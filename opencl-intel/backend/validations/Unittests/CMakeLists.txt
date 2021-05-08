@@ -47,8 +47,8 @@ include_directories(
     ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
     ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
     ${CMAKE_CURRENT_SOURCE_DIR}/Common
-    ${OCL_SOURCE_DIR}/externals/gtest/googletest/include
     ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
+    ${GTEST_INCLUDE_DIR}
 )
 
 if (OPENCL_INTREE_BUILD)

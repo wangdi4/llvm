@@ -15,7 +15,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/OpenCL
   ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo/Driver/Volcano
-  ${OCL_SOURCE_DIR}/externals/gtest/googletest/include
+  ${GTEST_INCLUDE_DIR}
 )
 
 add_executable(

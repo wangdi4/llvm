@@ -427,7 +427,6 @@ add_subdirectory( framework )
 add_subdirectory( devices )
 add_subdirectory( cl_api )
 add_subdirectory( utils )
-add_subdirectory( externals )
 
 if ( INCLUDE_CMRT )
   add_subdirectory ( common_runtime )

@@ -2,7 +2,7 @@ set(TARGET_NAME TestTypeConversion)
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
-  ${OCL_SOURCE_DIR}/externals/gtest/googletest/include
+  ${GTEST_INCLUDE_DIR}
   ${OCL_SOURCE_DIR}/backend/utils
   ${OCL_SOURCE_DIR}/backend/name_mangling
 )
