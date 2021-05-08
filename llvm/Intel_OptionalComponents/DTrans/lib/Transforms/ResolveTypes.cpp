@@ -1064,6 +1064,14 @@ void ResolveTypesImpl::collectExternalStructTypes(
   // Collect the types that are used by external functions and any types
   // that depend on those types.
   for (Function &F : M) {
+    // Disregard a type declared for an unused declaration, such as:
+    //   declare %class::PanicHandler* @llvm.ssa.copy.p0s_class.PanicHandler(
+    //     %class.PanicHandler* returned)
+    // Because there is no use of the function, it will still be safe to
+    // try to unify the different versions of the type together.
+    if (F.isDeclaration() && F.use_empty())
+      continue;
+
     if (!isFunctionASubscriptIntrinsic(&F) &&
         (F.isDeclaration() || F.hasDLLExportStorageClass())) {
       auto *FnTy = F.getFunctionType();
