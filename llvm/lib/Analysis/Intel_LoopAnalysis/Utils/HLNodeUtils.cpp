@@ -3284,7 +3284,8 @@ public:
   bool isLiveInBlob() const { return IsLiveIn; }
 };
 
-static bool isRegionLiveIn(HLRegion *Reg, BlobUtils &BU, unsigned BlobIdx) {
+bool HLNodeUtils::isRegionLiveIn(HLRegion *Reg, BlobUtils &BU,
+                                 unsigned BlobIdx) {
   LiveInBlobChecker LBC(Reg, BU);
   SCEVTraversal<LiveInBlobChecker> Checker(LBC);
   Checker.visitAll(BU.getBlob(BlobIdx));

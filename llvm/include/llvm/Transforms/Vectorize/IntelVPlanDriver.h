@@ -112,6 +112,13 @@ protected:
   void addOptReportRemarks(VPlanOptReportBuilder &VPORBuilder,
                            VPOCodeGenType *VCodeGen);
 
+protected:
+  AssumptionCache *getAC() const { return AC; }
+  void setAC(AssumptionCache *NewAC) { AC = NewAC; }
+
+  DominatorTree *getDT() const { return DT; }
+  void setDT(DominatorTree *NewDT) { DT = NewDT; }
+
 public:
   bool runImpl(Function &F, LoopInfo *LI, ScalarEvolution *SE,
                DominatorTree *DT, AssumptionCache *AC, AliasAnalysis *AA,
@@ -170,6 +177,7 @@ public:
                loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis,
                OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
                TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
+               AssumptionCache *AC, DominatorTree *DT,
                FatalErrorHandlerTy FatalErrorHandler);
 };
 

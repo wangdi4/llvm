@@ -1023,6 +1023,8 @@ INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_END(VPlanDriverHIR, "VPlanDriverHIR",
                     "VPlan Vectorization Driver HIR", false, false)
 
@@ -1052,6 +1054,8 @@ void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<HIRDDAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
   AU.addRequired<OptReportOptionsPass>();
+  AU.addRequired<AssumptionCacheTracker>();
+  AU.addRequired<DominatorTreeWrapperPass>();
 }
 
 bool VPlanDriverHIR::runOnFunction(Function &Fn) {
@@ -1067,9 +1071,11 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
   auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
   auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
   auto WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
+  auto AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(Fn);
+  auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
   return Impl.runImpl(Fn, HIRF, HIRLoopStats, DDA, SafeRedAnalysis, Verbosity,
-                      WR, TTI, TLI, nullptr);
+                      WR, TTI, TLI, AC, DT, nullptr);
 }
 
 PreservedAnalyses VPlanDriverHIRPass::runImpl(Function &F,
@@ -1082,9 +1088,11 @@ PreservedAnalyses VPlanDriverHIRPass::runImpl(Function &F,
   auto TTI = &AM.getResult<TargetIRAnalysis>(F);
   auto TLI = &AM.getResult<TargetLibraryAnalysis>(F);
   auto WR = &AM.getResult<WRegionInfoAnalysis>(F);
+  auto AC = &AM.getResult<AssumptionAnalysis>(F);
+  auto DT = &AM.getResult<DominatorTreeAnalysis>(F);
 
   Impl.runImpl(F, &HIRF, HIRLoopStats, DDA, SafeRedAnalysis, Verbosity, WR, TTI,
-               TLI, nullptr);
+               TLI, AC, DT, nullptr);
   return PreservedAnalyses::all();
 }
 
@@ -1093,8 +1101,8 @@ bool VPlanDriverHIRImpl::runImpl(
     loopopt::HIRLoopStatistics *HIRLoopStats, loopopt::HIRDDAnalysis *DDA,
     loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis,
     OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
-    TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
-    FatalErrorHandlerTy FatalErrorHandler) {
+    TargetTransformInfo *TTI, TargetLibraryInfo *TLI, AssumptionCache *AC,
+    DominatorTree *DT, FatalErrorHandlerTy FatalErrorHandler) {
   LLVM_DEBUG(dbgs() << "VPlan HIR Driver for Function: " << Fn.getName()
                     << "\n");
   this->HIRF = HIRF;
@@ -1104,6 +1112,8 @@ bool VPlanDriverHIRImpl::runImpl(
   this->TTI = TTI;
   this->TLI = TLI;
   this->WR = WR;
+  this->setAC(AC);
+  this->setDT(DT);
 
   LORBuilder.setup(Fn.getContext(), Verbosity);
   return VPlanDriverImpl::processFunction<loopopt::HLLoop>(Fn);
@@ -1179,7 +1189,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     if (!Plan.getVPSE())
       Plan.setVPSE(std::make_unique<VPlanScalarEvolutionHIR>(Lp));
     if (!Plan.getVPVT())
-      Plan.setVPVT(std::make_unique<VPlanValueTrackingHIR>(*DL));
+      Plan.setVPVT(
+          std::make_unique<VPlanValueTrackingHIR>(Lp, *DL, getAC(), getDT()));
   }
 
   // VPlan construction stress test ends here.
