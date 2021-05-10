@@ -2587,6 +2587,8 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
                   std::to_string(k * numQueues + j));
               DeviceInfo->CmdQueueGroupOrdinals.push_back(ordinal);
               DeviceInfo->CmdQueueIndices.push_back(j);
+              DeviceInfo->CopyCmdQueueGroupOrdinals.push_back(
+                  getCmdQueueGroupOrdinalCopy(subDevice));
             }
           }
         }
@@ -3820,6 +3822,9 @@ static int32_t runTargetTeamRegionSub(
     IDP("Group counts = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
         groupCounts.groupCountX, groupCounts.groupCountY,
         groupCounts.groupCountZ);
+
+    CALL_ZE_RET_FAIL(zeKernelSetGroupSize, kernel, groupSizes[0], groupSizes[1],
+                     groupSizes[2]);
 
     auto cmdList = DeviceInfo->getCmdList(subId);
     auto cmdQueue = DeviceInfo->getCmdQueue(subId);
