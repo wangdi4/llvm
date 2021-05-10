@@ -1298,11 +1298,18 @@ bool LoopVectorizationPlanner::canProcessLoopBody(const VPlanVector &Plan,
                             << Inst << "\n");
           return false;
         }
+      } else if (auto *Priv = LE->getPrivate(&Inst)) {
+        // TODO: This is a temporary bailout. Remove when conditional
+        // lastprivate finalization is supported in LLVM-IR vector CG.
+        if (Priv->isConditional()) {
+          LLVM_DEBUG(dbgs() << "LVP: Conditional lastprivate found, bailout "
+                               "since CG support is missing.\n"
+                            << Inst << "\n");
+          return false;
+        }
       } else if (Loop.isLiveOut(&Inst)) {
-        // Liveout that is not an induction or reduction is not supported
-        // currently.
-        LLVM_DEBUG(dbgs() << "LVP: Unsupported liveout found.\n"
-                          << Inst << "\n");
+        // All liveouts should be recognized via legality at this point.
+        assert(false && "Unrecognized liveout found.");
         return false;
       }
     }
