@@ -3809,8 +3809,14 @@ bool DDTest::tryDelinearize(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef,
   //   can be delinearized to multi-dim if nx > n3, ny > n3 * n2
   //   A[i1][i2][i3]
   //
+  // Enable for 1 level also
+  // e.g. do i1=0, n-1
+  //         do i2=0, n-1
+  //           A[n*i1 + i2]
+  //           do i3
+  //                A[n*i1 + i2]
 
-  if (CommonLevels < 2) {
+  if (CommonLevels < 1) {
     return false;
   }
 
