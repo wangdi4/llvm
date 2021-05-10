@@ -30,12 +30,21 @@ static LoopVPlanDumpControl VLSDumpControl("vls",
 /// E.g. for %struct = type <{ i32, i16, double }>, and the group consisting of
 /// i32 and double accesses only (i.e. with a gap), this routine should return
 /// {i16, 2+1+4=7}.
+///
+/// However, current VLSAnalysis implementation isn't able to support such
+/// generic cases and the transformation code exploits some of those limitation.
+/// As such, the transformation itself (caller of this routine) has it's own
+/// bailout. Note that some parts of the code are written in a way that would
+/// work when such limitation are lifted yet others still rely on it.
 static std::pair<Type *, int> getGroupGranularity(OVLSGroup *Group,
                                                   const DataLayout &DL) {
   Type *SomeLoadType = instruction(*Group->begin())->getValueType();
   Type *Result = SomeLoadType;
   for (const VPLoadStoreInst *MemrefInst : instructions(Group)) {
     auto *MemrefType = MemrefInst->getValueType();
+    assert(DL.getTypeSizeInBits(Result) == DL.getTypeSizeInBits(MemrefType) &&
+           "Generic support isn't fully implemented yet (GroupSize).");
+    // TODO: Support for gaps, including gap size less than any element
 
     if (DL.getTypeSizeInBits(Result) > DL.getTypeSizeInBits(MemrefType)) {
       Result = MemrefType;
