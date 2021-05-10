@@ -5,10 +5,15 @@ include(FetchContent)
 # Repo URLs
 
 if(INTEL_CUSTOMIZATION)
+  if(DEFINED ENV{ICS_GIT_MIRROR} AND NOT "$ENV{ICS_GIT_MIRROR}" STREQUAL "")
+    STRING(REGEX REPLACE "\\\\" "/" GITSERVER "$ENV{ICS_GIT_MIRROR}")
+  else()
+    set(GITSERVER "ssh://git-amr-2.devtools.intel.com:29418")
+  endif()
  set(OCL_HEADERS_REPO
-   "ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-opencl-headers")
+   "${GITSERVER}/dpd_icl-opencl-headers")
  set(OCL_LOADER_REPO
-   "ssh://git-amr-2.devtools.intel.com:29418/dpd_icl-opencl-icd-loader")
+   "${GITSERVER}/dpd_icl-opencl-icd-loader")
 endif(INTEL_CUSTOMIZATION)
 
 # Repo tags/hashes

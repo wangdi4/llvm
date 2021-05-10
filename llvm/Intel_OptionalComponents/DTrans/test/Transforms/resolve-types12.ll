@@ -24,13 +24,14 @@
 ; CHECK-DAG: %C.3 = type { [2 x %A.1] }
 
 ; The call interfaces are the important thing in the tests. We don't actually
-; need to do anything with the elements.
+; need to call the functions, but we need to have a user of the declarations.
 
 define void @useC(%C* %c) {
   ret void
 }
 ; CHECK: void @useC(%C* %c)
 
+@useC3_user = global void(%C.3*)* @useC3
 declare void @useC3(%C.3*)
 ; CHECK: void @useC3(%C.3*)
 

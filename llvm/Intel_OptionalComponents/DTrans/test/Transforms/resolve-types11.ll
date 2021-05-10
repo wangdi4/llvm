@@ -52,7 +52,7 @@
 ; CHECK-NOT: %E.6 = type { [4 x i16] }
 
 ; The call interfaces are the important thing in the tests. We don't actually
-; need to do anything with the elements.
+; need to call the functions, but we need a user of the declarations.
 
 define void @useH(%H* %h) {
   ret void
@@ -64,6 +64,7 @@ define void @useH9(%H.9* %h) {
 }
 ; CHECK: void @useH9(%H.9* %h)
 
+@useF_user = global void(%F*)* @useF
 declare void @useF(%F*)
 ; CHECK: void @useF(%F*)
 
@@ -82,6 +83,7 @@ define void @useE(%E* %e) {
 }
 ; CHECK-NOT: void @useE(%E* %e)
 
+@useE5_user = global void(%E.5*)* @useE5
 declare void @useE5(%E.5*)
 ; CHECK: void @useE5(%E.5*)
 
@@ -90,6 +92,7 @@ define void @useE6(%E.6* %e) {
 }
 ; CHECK-NOT: void @useE6(%E.6* %e)
 
+@retD4_user = global %D.4*()* @retD4
 declare %D.4* @retD4()
 ; CHECK: %D.4* @retD4()
 
@@ -98,6 +101,7 @@ define void @useD(%D* %d) {
 }
 ; CHECK: void @useD(%D* %d)
 
+@useC_user = global void(%C*)* @useC
 declare void @useC(%C*)
 ; CHECK: void @useC(%C*)
 
