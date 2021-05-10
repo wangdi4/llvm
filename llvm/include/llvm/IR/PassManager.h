@@ -468,21 +468,16 @@ class PassManager : public PassInfoMixin<
                         PassManager<IRUnitT, AnalysisManagerT, ExtraArgTs...>> {
 public:
   /// Construct a pass manager.
-  ///
-  /// If \p DebugLogging is true, we'll log our progress to llvm::dbgs().
-  explicit PassManager(bool DebugLogging = false) : DebugLogging(DebugLogging) {}
+  explicit PassManager() {}
 
   // FIXME: These are equivalent to the default move constructor/move
   // assignment. However, using = default triggers linker errors due to the
   // explicit instantiations below. Find away to use the default and remove the
   // duplicated code here.
-  PassManager(PassManager &&Arg)
-      : Passes(std::move(Arg.Passes)),
-        DebugLogging(std::move(Arg.DebugLogging)) {}
+  PassManager(PassManager &&Arg) : Passes(std::move(Arg.Passes)) {}
 
   PassManager &operator=(PassManager &&RHS) {
     Passes = std::move(RHS.Passes);
-    DebugLogging = std::move(RHS.DebugLogging);
     return *this;
   }
 
@@ -499,9 +494,6 @@ public:
     PassInstrumentation PI =
         detail::getAnalysisResult<PassInstrumentationAnalysis>(
             AM, IR, std::tuple<ExtraArgTs...>(ExtraArgs...));
-
-    if (DebugLogging)
-      dbgs() << "Starting " << getTypeName<IRUnitT>() << " pass manager run.\n";
 
     for (unsigned Idx = 0, Size = Passes.size(); Idx != Size; ++Idx) {
       auto *P = Passes[Idx].get();
@@ -542,9 +534,6 @@ public:
     // AnalysisManager are preserved. We mark this with a set so that we don't
     // need to inspect each one individually.
     PA.preserveSet<AllAnalysesOn<IRUnitT>>();
-
-    if (DebugLogging)
-      dbgs() << "Finished " << getTypeName<IRUnitT>() << " pass manager run.\n";
 
     return PA;
   }
@@ -588,9 +577,6 @@ protected:
       detail::PassConcept<IRUnitT, AnalysisManagerT, ExtraArgTs...>;
 
   std::vector<std::unique_ptr<PassConceptT>> Passes;
-
-  /// Flag indicating whether we should do debug logging.
-  bool DebugLogging;
 
 #if INTEL_CUSTOMIZATION
   // Store the information collected from the linker that is needed for the

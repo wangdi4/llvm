@@ -26,20 +26,19 @@
 ; RUN:     -passes='lto<O0>' -S %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefixes=CHECK,CHECK-LTO
 
-; CHECK: Starting llvm::Module pass manager run.
-; CHECK-DEFAULT-NEXT: Running pass: InlineListsPass ;INTEL
-; CHECK-DEFAULT-NEXT: Running pass: AlwaysInlinerPass
+; CHECK-DEFAULT: Running pass: InlineListsPass ;INTEL
+; CHECK-DEFAULT-NEXT: Running pass: AlwaysInlinerPass ;INTEL
 ; CHECK-DEFAULT-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-DEFAULT-NEXT: Running analysis: ProfileSummaryAnalysis
-; CHECK-MATRIX-NEXT: Running pass: LowerMatrixIntrinsicsPass
+; CHECK-MATRIX: Running pass: LowerMatrixIntrinsicsPass
 ; CHECK-MATRIX-NEXT: Running analysis: TargetIRAnalysis
-; CHECK-PRE-LINK-NEXT: Running pass: CanonicalizeAliasesPass
+; CHECK-PRE-LINK: Running pass: CanonicalizeAliasesPass
 ; CHECK-PRE-LINK-NEXT: Running pass: NameAnonGlobalPass
-; CHECK-THINLTO-NEXT: Running pass: Annotation2MetadataPass
+; CHECK-THINLTO: Running pass: Annotation2MetadataPass
 ; CHECK-THINLTO-NEXT: Running pass: LowerTypeTestsPass
 ; CHECK-THINLTO-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-THINLTO-NEXT: Running pass: GlobalDCEPass
-; CHECK-LTO-NEXT: Running pass: Annotation2MetadataPass
+; CHECK-LTO: Running pass: Annotation2MetadataPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-LTO-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-LTO-NEXT: Running analysis: XmainOptLevelAnalysis
@@ -70,7 +69,6 @@
 ; CHECK-NEXT:   ret void
 ; CHECK-NEXT: }
 ;
-; CHECK-NEXT: Finished llvm::Module pass manager run.
 
 declare void @bar() local_unnamed_addr
 

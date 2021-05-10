@@ -25,8 +25,7 @@
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O --check-prefix=CHECK-O23SZ \
 ; RUN:     --check-prefix=CHECK-O3 --check-prefix=CHECK-EP-Peephole
 
-; CHECK-O: Starting llvm::Module pass manager run.
-; CHECK-O-NEXT: Running pass: Annotation2Metadata
+; CHECK-O: Running pass: Annotation2Metadata
 ; CHECK-O-NEXT: Running pass: InlineReportSetupPass ;INTEL
 ; CHECK-O-NEXT: Running pass: XmainOptLevelAnalysisInit ;INTEL
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
@@ -54,7 +53,6 @@
 ; won't be executed. The following two CHECKs won't be executed.
 ; CHECK-O23SZ-NEXT-: Running analysis: PassInstrumentationAnalysis
 ; end INTEL_CUSTOMIZATION
-; CHECK-O23SZ-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-O23SZ-NEXT: Running pass: CallSiteSplittingPass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: TargetLibraryAnalysis on foo
 ; INTEL_CUSTOMIZATION
@@ -63,7 +61,6 @@
 ; CHECK-O23SZ-NEXT-: Running analysis: TargetIRAnalysis on foo
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running analysis: DominatorTreeAnalysis on foo
-; CHECK-O23SZ-NEXT: Finished llvm::Function pass manager run.
 ; CHECK-O23SZ-NEXT: PGOIndirectCallPromotion
 ; CHECK-O23SZ-NEXT: Running analysis: ProfileSummaryAnalysis
 ; CHECK-O23SZ-NEXT: Running analysis: OptimizationRemarkEmitterAnalysis
@@ -102,11 +99,9 @@
 ; CHECK-O23SZ-NEXT: Running pass: PromotePass
 ; CHECK-O23SZ-NEXT: Running pass: ConstantMergePass
 ; CHECK-O23SZ-NEXT: Running pass: DeadArgumentEliminationPass
-; CHECK-O23SZ-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-O3-NEXT: Running pass: AggressiveInstCombinePass
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
-; CHECK-O23SZ-NEXT: Finished llvm::Function pass manager run.
 ; CHECK-O23SZ-NEXT: Running pass: InlineListsPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA ;INTEL
 ; CHECK-O23SZ-NEXT: Running analysis: AndersensAA ;INTEL
@@ -114,12 +109,8 @@
 ; CHECK-O23SZ-NEXT: Running pass: AggInlinerPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: ModuleInlinerWrapperPass
 ; CHECK-O23SZ-NEXT: Running analysis: InlineAdvisorAnalysis
-; CHECK-O23SZ-NEXT: Starting llvm::Module pass manager run.
-; CHECK-O23SZ-NEXT: Starting CGSCC pass manager run.
 ; CHECK-O23SZ-NEXT: Running pass: InlinerPass
 ; CHECK-O23SZ-NEXT: Running pass: InlinerPass
-; CHECK-O23SZ-NEXT: Finished CGSCC pass manager run.
-; CHECK-O23SZ-NEXT: Finished llvm::Module pass manager run.
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: GlobalOptPass
 ; CHECK-O23SZ-NEXT: Running pass: IntelIPOPrefetchPass
@@ -129,7 +120,6 @@
 ; CHECK-O23SZ-NEXT: Running pass: GlobalDCEPass
 ; CHECK-O23SZ-NEXT: Running pass: IPArrayTransposePass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: DeadArrayOpsEliminationPass ;INTEL
-; CHECK-O23SZ-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-O23SZ-NEXT: Running pass: InstCombinePass
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
@@ -137,7 +127,6 @@
 ; CHECK-O23SZ-NEXT: Running analysis: PostDominatorTreeAnalysis on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: SROA on foo
 ; CHECK-O23SZ-NEXT: Running pass: TailCallElimPass on foo
-; CHECK-O23SZ-NEXT: Finished llvm::Function pass manager run.
 ; CHECK-O23SZ-NEXT: Running pass: PostOrderFunctionAttrsPass on (foo)
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: LoopAnalysis on foo
@@ -155,16 +144,12 @@
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass on foo
 ; Running analysis: PostDominatorTreeAnalysis on foo   ; INTEL not needed
 ; CHECK-O23SZ-NEXT: Running pass: MergedLoadStoreMotionPass on foo
-; CHECK-O23SZ-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
-; CHECK-O23SZ-NEXT: Finished llvm::Function pass manager run.
-; CHECK-O23SZ-NEXT: Starting Loop pass manager run.
 ; CHECK-O23SZ-NEXT: Running pass: IndVarSimplifyPass on Loop
 ; CHECK-O23SZ-NEXT: Running pass: LoopDeletionPass on Loop
 ; CHECK-O23SZ-NEXT: Running pass: LoopFullUnrollPass on Loop
 ; CHECK-O23SZ-NEXT: Running analysis:  OuterAnalysisManagerProxy{{.*}}on Loop at depth 1 containing: %loop<header><latch><exiting> ;INTEL
-; CHECK-O23SZ-NEXT: Finished Loop pass manager run.
 ; CHECK-O23SZ-NEXT: Running pass: LoopDistributePass on foo
 ; CHECK-O23SZ-NEXT: Running pass: LoopVectorizePass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: BlockFrequencyAnalysis on foo
@@ -210,7 +195,6 @@
 ; CHECK-O-NEXT:   ret void
 ; CHECK-O-NEXT: }
 ;
-; CHECK-O-NEXT: Finished llvm::Module pass manager run.
 
 declare void @bar() local_unnamed_addr
 
