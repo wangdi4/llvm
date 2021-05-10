@@ -336,7 +336,9 @@ def Zn3FPCLM01 : ProcResGroup<[Zn3FPCLM0, Zn3FPCLM1]>;
 // The floating point register file has 160 vector registers
 // of 128 bits each in Zen 1 and 256 bits each in Zen 2.
 // anandtech also confirms this.
-def Zn3FpPRF : RegisterFile<160, [VR64, VR128, VR256], [1, 1, 1]>;
+def Zn3FpPRF : RegisterFile<160, [VR64, VR128, VR256], [1, 1, 1], [0, 1, 1],
+                            6,  // Max moves that can be eliminated per cycle.
+                            0>; // Restrict move elimination to zero regs.
 
 // AMD SOG 19h, 2.11 Floating-Point Unit
 // The floating-point scheduler has a 2*32 entry macro op capacity.
@@ -1464,27 +1466,37 @@ defm : Zn3WriteResYMM<WriteVecMoveY, [], 0, [], 1>;
 def : IsOptimizableRegisterMove<[
   InstructionEquivalenceClass<[
     // GPR variants.
-    MOV32rr, MOV64rr,
-    // FIXME: MOVSXD32rr, but it is only supported in disassembler.
+    MOV32rr, MOV32rr_REV,
+    MOV64rr, MOV64rr_REV,
+    MOVSX32rr32,
     // FIXME: XCHG32rr/XCHG64rr after MCA is fixed
 
     // MMX variants.
     // MMX moves are *NOT* eliminated.
 
     // SSE variants.
-    MOVAPSrr, MOVUPSrr,
-    MOVAPDrr, MOVUPDrr,
-    MOVDQArr, MOVDQUrr,
+    MOVAPSrr, MOVAPSrr_REV,
+    MOVUPSrr, MOVUPSrr_REV,
+    MOVAPDrr, MOVAPDrr_REV,
+    MOVUPDrr, MOVUPDrr_REV,
+    MOVDQArr, MOVDQArr_REV,
+    MOVDQUrr, MOVDQUrr_REV,
 
     // AVX variants.
-    VMOVAPSrr, VMOVUPSrr,
-    VMOVAPDrr, VMOVUPDrr,
-    VMOVDQArr, VMOVDQUrr,
+    VMOVAPSrr, VMOVAPSrr_REV,
+    VMOVUPSrr, VMOVUPSrr_REV,
+    VMOVAPDrr, VMOVAPDrr_REV,
+    VMOVUPDrr, VMOVUPDrr_REV,
+    VMOVDQArr, VMOVDQArr_REV,
+    VMOVDQUrr, VMOVDQUrr_REV,
 
     // AVX YMM variants.
-    VMOVAPSYrr, VMOVUPSYrr,
-    VMOVAPDYrr, VMOVUPDYrr,
-    VMOVDQAYrr, VMOVDQUYrr
+    VMOVAPSYrr, VMOVAPSYrr_REV,
+    VMOVUPSYrr, VMOVUPSYrr_REV,
+    VMOVAPDYrr, VMOVAPDYrr_REV,
+    VMOVUPDYrr, VMOVUPDYrr_REV,
+    VMOVDQAYrr, VMOVDQAYrr_REV,
+    VMOVDQUYrr, VMOVDQUYrr_REV,
   ], TruePred >
 ]>;
 
