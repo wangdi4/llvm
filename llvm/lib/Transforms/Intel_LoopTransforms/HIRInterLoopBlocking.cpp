@@ -3768,6 +3768,34 @@ void testCalcShiftAmtFuncs(const LoopToDimInfoTy &InnermostLoopToDimInfo,
                       << IsNonZeroAmtFound << "\n";);
 }
 
+void calcShiftAmtFuncs(const LoopToDimInfoTy &InnermostLoopToDimInfo,
+                       const LoopToConstRefTy &InnermostLoopToRepRef,
+                       unsigned MinDimNums,
+                       InnermostLoopToShiftTy &InnermostLoopToShiftVec) {
+
+  InnermostLoopToShiftVec.resize(MinDimNums);
+
+  for (unsigned DimNum = 1; DimNum <= MinDimNums; DimNum++) {
+    SmallVector<int64_t, 32> ShiftAmt;
+    testCalcShiftAmtFuncs(InnermostLoopToDimInfo, InnermostLoopToRepRef, DimNum,
+                          ShiftAmt);
+
+    int64_t SumShifts = 0;
+    for (auto LI : enumerate(InnermostLoopToDimInfo)) {
+      int LoopID = LI.index();
+      SumShifts += ShiftAmt[LoopID];
+
+      InnermostLoopToShiftVec[DimNum - 1].push_back(SumShifts);
+    }
+
+    // All members are zero, then clean-up shifts.
+    if (!InnermostLoopToShiftVec[DimNum - 1].empty() &&
+        InnermostLoopToShiftVec[DimNum - 1].back() == 0) {
+      InnermostLoopToShiftVec[DimNum - 1].clear();
+    }
+  }
+}
+
 bool funcFilter(const Function &F) {
   if (DisablePass) {
     return false;
@@ -3780,6 +3808,20 @@ bool funcFilter(const Function &F) {
   }
 
   return true;
+}
+
+unsigned getCommonDimNum(const LoopToDimInfoTy &InnermostLoopToDimInfo,
+                         bool &AllCommonDimNum) {
+  unsigned Min = InnermostLoopToDimInfo.front().second.size();
+  AllCommonDimNum = true;
+  for (auto P : InnermostLoopToDimInfo) {
+    if (Min > P.second.size()) {
+      Min = P.second.size();
+      AllCommonDimNum = false;
+    }
+  }
+
+  return Min;
 }
 
 bool testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
@@ -3829,26 +3871,15 @@ bool testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
     InnermostLoopToRepRef.emplace(Lp, RepRef);
   }
 
-  // Calc Shift amount for a loop, given a DimNum
-  unsigned DimNum = 1;
-  SmallVector<int64_t, 32> ShiftAmt;
-  testCalcShiftAmtFuncs(InnermostLoopToDimInfo, InnermostLoopToRepRef, DimNum,
-                        ShiftAmt);
+  bool AllCommonDimNum = true;
+  unsigned MinDimNums =
+      getCommonDimNum(InnermostLoopToDimInfo, AllCommonDimNum);
+  LLVM_DEBUG(dbgs() << "MinDimNums: " << MinDimNums << "\n");
+  LLVM_DEBUG(dbgs() << "AllCommonDimNum: " << AllCommonDimNum << "\n");
 
-  InnermostLoopToShiftTy InnermostLoopToShiftVec(3);
-  int64_t SumShifts = 0;
-  for (auto LI : enumerate(InnermostLoopToDimInfo)) {
-    int LoopID = LI.index();
-    SumShifts += ShiftAmt[LoopID];
-
-    InnermostLoopToShiftVec[DimNum - 1].push_back(SumShifts);
-  }
-
-  // All members are zero, then clean-up shifts.
-  if (!InnermostLoopToShiftVec[DimNum - 1].empty() &&
-      InnermostLoopToShiftVec[DimNum - 1].back() == 0) {
-    InnermostLoopToShiftVec[DimNum - 1].clear();
-  }
+  InnermostLoopToShiftTy InnermostLoopToShiftVec;
+  calcShiftAmtFuncs(InnermostLoopToDimInfo, InnermostLoopToRepRef, MinDimNums,
+                    InnermostLoopToShiftVec);
 
   HLLoop *OutermostLoop = dyn_cast<HLLoop>(OuterNode);
   HLIf *OuterIf = dyn_cast<HLIf>(OuterNode);
