@@ -66,9 +66,12 @@ STATISTIC(NumNoAlias,   "Number of NoAlias results");
 STATISTIC(NumMayAlias,  "Number of MayAlias results");
 STATISTIC(NumMustAlias, "Number of MustAlias results");
 
+namespace llvm {
 /// Allow disabling BasicAA from the AA results. This is particularly useful
 /// when testing to isolate a single AA implementation.
 cl::opt<bool> DisableBasicAA("disable-basic-aa", cl::Hidden, cl::init(false));
+} // namespace llvm
+
 #if INTEL_CUSTOMIZATION
 static cl::opt<unsigned> PtrVectorMemLocCheckDepth(
     "ptrvec-memloc-search-depth", cl::Hidden, cl::init(10),

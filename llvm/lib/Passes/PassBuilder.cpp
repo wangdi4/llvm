@@ -406,8 +406,6 @@
 using namespace llvm;
 using namespace llvm::llvm_intel_wp_analysis;  // INTEL
 
-extern cl::opt<unsigned> MaxDevirtIterations;
-
 #if INTEL_CUSTOMIZATION
 // Enable the partial inlining during LTO
 static cl::opt<bool>
@@ -529,8 +527,9 @@ PipelineTuningOptions::PipelineTuningOptions() {
   CallGraphProfile = true;
   MergeFunctions = false;
 }
-extern cl::opt<bool> ExtraVectorizerPasses;
 
+namespace llvm {
+extern cl::opt<unsigned> MaxDevirtIterations;
 extern cl::opt<bool> EnableConstraintElimination;
 extern cl::opt<bool> EnableGVNHoist;
 extern cl::opt<bool> EnableGVNSink;
@@ -543,6 +542,7 @@ extern cl::opt<bool> EnableUnrollAndJam;
 extern cl::opt<bool> EnableLoopFlatten;
 extern cl::opt<bool> RunNewGVN;
 extern cl::opt<bool> RunPartialInlining;
+extern cl::opt<bool> ExtraVectorizerPasses;
 
 extern cl::opt<bool> FlattenedProfileUsed;
 
@@ -553,6 +553,7 @@ extern cl::opt<bool> EnableMatrix;
 
 extern cl::opt<bool> DisablePreInliner;
 extern cl::opt<int> PreInlineThreshold;
+} // namespace llvm
 
 const PassBuilder::OptimizationLevel PassBuilder::OptimizationLevel::O0 = {
     /*SpeedLevel*/ 0,

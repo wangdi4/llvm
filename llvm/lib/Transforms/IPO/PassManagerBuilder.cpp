@@ -117,6 +117,8 @@ static cl::opt<bool>
                        cl::desc("Run SROA pass after the SLP vectorizer"));
 
 #endif // INTEL_CUSTOMIZATION
+
+namespace llvm {
 cl::opt<bool> RunPartialInlining("enable-partial-inlining", cl::init(false),
                                  cl::Hidden, cl::ZeroOrMore,
                                  cl::desc("Run Partial inlinining pass"));
@@ -431,6 +433,9 @@ cl::opt<AttributorRunOption> AttributorRun(
                           "enable call graph SCC attributor runs"),
                clEnumValN(AttributorRunOption::NONE, "none",
                           "disable attributor runs")));
+
+extern cl::opt<bool> EnableKnowledgeRetention;
+} // namespace llvm
 
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
