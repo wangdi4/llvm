@@ -60,24 +60,24 @@
 ;*** IR Dump After HIR Undo Sinking For Perfect Loopnest ***
 ;Function: matmul
 ;
-; CHECK:     BEGIN REGION { modified }
-; CHECK:           + DO i1 = 0, 255, 1   <DO_LOOP>
-; CHECK:           |   + DO i2 = 0, 255, 1   <DO_LOOP>
-; CHECK:           |   |   + DO i3 = 0, 255, 1   <DO_LOOP>
-; CHECK:           |   |   |   + DO i4 = 0, 15, 1   <DO_LOOP>
-; CHECK:           |   |   |   |   + DO i5 = 0, 15, 1   <DO_LOOP>
-; CHECK:           |   |   |   |   |   + DO i6 = 0, 15, 1   <DO_LOOP>
-; CHECK:           |   |   |   |   |   |   %0 = (@b)[0][16 * i1 + i4][16 * i2 + i5];
-; CHECK:           |   |   |   |   |   |   %mul = (@a)[0][16 * i2 + i5][16 * i3 + i6]  *  %0;
-; CHECK:           |   |   |   |   |   |   %add = (@c)[0][16 * i1 + i4][16 * i3 + i6]  +  %mul;
-; CHECK:           |   |   |   |   |   |   (@c)[0][16 * i1 + i4][16 * i3 + i6] = %add;
-; CHECK:           |   |   |   |   |   + END LOOP
-; CHECK:           |   |   |   |   + END LOOP
-; CHECK:           |   |   |   + END LOOP
-; CHECK:           |   |   + END LOOP
-; CHECK:           |   + END LOOP
-; CHECK:           + END LOOP
-; CHECK:     END REGION
+; CHECK:         BEGIN REGION { modified }
+; CHECK:               + DO i1 = 0, 63, 1   <DO_LOOP>
+; CHECK:               |   + DO i2 = 0, 63, 1   <DO_LOOP>
+; CHECK:               |   |   + DO i3 = 0, 63, 1   <DO_LOOP>
+; CHECK:               |   |   |   + DO i4 = 0, 63, 1   <DO_LOOP>
+; CHECK:               |   |   |   |   + DO i5 = 0, 63, 1   <DO_LOOP>
+; CHECK:               |   |   |   |   |   + DO i6 = 0, 63, 1   <DO_LOOP>
+; CHECK:               |   |   |   |   |   |   %0 = (@b)[0][64 * i1 + i4][64 * i2 + i5];
+; CHECK:               |   |   |   |   |   |   %mul = (@a)[0][64 * i2 + i5][64 * i3 + i6]  *  %0;
+; CHECK:               |   |   |   |   |   |   %add = (@c)[0][64 * i1 + i4][64 * i3 + i6]  +  %mul;
+; CHECK:               |   |   |   |   |   |   (@c)[0][64 * i1 + i4][64 * i3 + i6] = %add;
+; CHECK:               |   |   |   |   |   + END LOOP
+; CHECK:               |   |   |   |   + END LOOP
+; CHECK:               |   |   |   + END LOOP
+; CHECK:               |   |   + END LOOP
+; CHECK:               |   + END LOOP
+; CHECK:               + END LOOP
+; CHECK:         END REGION
 ;
 ;Module Before HIR
 ; ModuleID = 'matmul-near-perfect.c'
