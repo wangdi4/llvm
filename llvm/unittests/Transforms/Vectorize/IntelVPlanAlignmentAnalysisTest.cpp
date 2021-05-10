@@ -917,30 +917,30 @@ TEST_F(VPlanAlignmentAnalysisTest, StaticPeeling) {
   VPlanStaticPeeling SP3(3);
   VPlanStaticPeeling SP7(7);
 
-  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, SP0));
-  EXPECT_EQ(Align(4), AA2.getAlignmentUnitStride(*S, SP0));
-  EXPECT_EQ(Align(4), AA4.getAlignmentUnitStride(*S, SP0));
-  EXPECT_EQ(Align(4), AA8.getAlignmentUnitStride(*S, SP0));
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP0));
+  EXPECT_EQ(Align(4), AA2.getAlignmentUnitStride(*S, &SP0));
+  EXPECT_EQ(Align(4), AA4.getAlignmentUnitStride(*S, &SP0));
+  EXPECT_EQ(Align(4), AA8.getAlignmentUnitStride(*S, &SP0));
 
-  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, SP1));
-  EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, SP1));
-  EXPECT_EQ(Align(8), AA4.getAlignmentUnitStride(*S, SP1));
-  EXPECT_EQ(Align(8), AA8.getAlignmentUnitStride(*S, SP1));
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP1));
+  EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, &SP1));
+  EXPECT_EQ(Align(8), AA4.getAlignmentUnitStride(*S, &SP1));
+  EXPECT_EQ(Align(8), AA8.getAlignmentUnitStride(*S, &SP1));
 
-  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, SP2));
-  EXPECT_EQ(Align(4), AA2.getAlignmentUnitStride(*S, SP2));
-  EXPECT_EQ(Align(4), AA4.getAlignmentUnitStride(*S, SP2));
-  EXPECT_EQ(Align(4), AA8.getAlignmentUnitStride(*S, SP2));
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP2));
+  EXPECT_EQ(Align(4), AA2.getAlignmentUnitStride(*S, &SP2));
+  EXPECT_EQ(Align(4), AA4.getAlignmentUnitStride(*S, &SP2));
+  EXPECT_EQ(Align(4), AA8.getAlignmentUnitStride(*S, &SP2));
 
-  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, SP3));
-  EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, SP3));
-  EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*S, SP3));
-  EXPECT_EQ(Align(32), AA8.getAlignmentUnitStride(*S, SP3));
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP3));
+  EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, &SP3));
+  EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*S, &SP3));
+  EXPECT_EQ(Align(32), AA8.getAlignmentUnitStride(*S, &SP3));
 
-  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, SP7));
-  EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, SP7));
-  EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*S, SP7));
-  EXPECT_EQ(Align(16), AA8.getAlignmentUnitStride(*S, SP7));
+  EXPECT_EQ(Align(4), AA1.getAlignmentUnitStride(*S, &SP7));
+  EXPECT_EQ(Align(8), AA2.getAlignmentUnitStride(*S, &SP7));
+  EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*S, &SP7));
+  EXPECT_EQ(Align(16), AA8.getAlignmentUnitStride(*S, &SP7));
 }
 
 TEST_F(VPlanAlignmentAnalysisTest, DynamicPeeling_Full) {
@@ -986,15 +986,15 @@ TEST_F(VPlanAlignmentAnalysisTest, DynamicPeeling_Full) {
   VPlanDynamicPeeling DP16(S, Address, Align(16));
   VPlanDynamicPeeling DP64(S, Address, Align(64));
 
-  EXPECT_EQ(Align(8), AA1.getAlignmentUnitStride(*L, DP16));
-  EXPECT_EQ(Align(16), AA2.getAlignmentUnitStride(*L, DP16));
-  EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*L, DP16));
-  EXPECT_EQ(Align(16), AA8.getAlignmentUnitStride(*L, DP16));
+  EXPECT_EQ(Align(8), AA1.getAlignmentUnitStride(*L, &DP16));
+  EXPECT_EQ(Align(16), AA2.getAlignmentUnitStride(*L, &DP16));
+  EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*L, &DP16));
+  EXPECT_EQ(Align(16), AA8.getAlignmentUnitStride(*L, &DP16));
 
-  EXPECT_EQ(Align(8), AA1.getAlignmentUnitStride(*L, DP64));
-  EXPECT_EQ(Align(16), AA2.getAlignmentUnitStride(*L, DP64));
-  EXPECT_EQ(Align(32), AA4.getAlignmentUnitStride(*L, DP64));
-  EXPECT_EQ(Align(64), AA8.getAlignmentUnitStride(*L, DP64));
+  EXPECT_EQ(Align(8), AA1.getAlignmentUnitStride(*L, &DP64));
+  EXPECT_EQ(Align(16), AA2.getAlignmentUnitStride(*L, &DP64));
+  EXPECT_EQ(Align(32), AA4.getAlignmentUnitStride(*L, &DP64));
+  EXPECT_EQ(Align(64), AA8.getAlignmentUnitStride(*L, &DP64));
 }
 
 TEST_F(VPlanAlignmentAnalysisTest, DynamicPeeling_Partial) {
@@ -1039,10 +1039,10 @@ TEST_F(VPlanAlignmentAnalysisTest, DynamicPeeling_Partial) {
 
   VPlanDynamicPeeling DP64(S, Address, Align(64));
 
-  EXPECT_EQ(Align(8), AA1.getAlignmentUnitStride(*L, DP64));
-  EXPECT_EQ(Align(16), AA2.getAlignmentUnitStride(*L, DP64));
-  EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*L, DP64));
-  EXPECT_EQ(Align(16), AA8.getAlignmentUnitStride(*L, DP64));
+  EXPECT_EQ(Align(8), AA1.getAlignmentUnitStride(*L, &DP64));
+  EXPECT_EQ(Align(16), AA2.getAlignmentUnitStride(*L, &DP64));
+  EXPECT_EQ(Align(16), AA4.getAlignmentUnitStride(*L, &DP64));
+  EXPECT_EQ(Align(16), AA8.getAlignmentUnitStride(*L, &DP64));
 }
 
 } // namespace

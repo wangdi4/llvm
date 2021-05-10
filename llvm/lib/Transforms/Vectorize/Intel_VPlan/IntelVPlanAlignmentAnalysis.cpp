@@ -63,6 +63,8 @@ static int computeMultiplierForPeeling(int Step, Align RequiredAlignment,
 
 VPlanPeelingVariant::~VPlanPeelingVariant() {}
 
+VPlanStaticPeeling VPlanStaticPeeling::NoPeelLoop{0};
+
 VPlanDynamicPeeling::VPlanDynamicPeeling(VPLoadStoreInst *Memref,
                                          VPConstStepInduction AccessAddress,
                                          Align TargetAlignment)
@@ -380,10 +382,12 @@ void VPlanPeelingAnalysis::dump() {
 }
 
 Align VPlanAlignmentAnalysis::getAlignmentUnitStride(
-    const VPLoadStoreInst &Memref, VPlanPeelingVariant &Peeling) const {
-  if (auto *SP = dyn_cast<VPlanStaticPeeling>(&Peeling))
+    const VPLoadStoreInst &Memref, VPlanPeelingVariant *Peeling) const {
+  if (!Peeling)
+    return Memref.getAlignment();
+  if (auto *SP = dyn_cast<VPlanStaticPeeling>(Peeling))
     return getAlignmentUnitStrideImpl(Memref, *SP);
-  if (auto *DP = dyn_cast<VPlanDynamicPeeling>(&Peeling))
+  if (auto *DP = dyn_cast<VPlanDynamicPeeling>(Peeling))
     return getAlignmentUnitStrideImpl(Memref, *DP);
   llvm_unreachable("Unsupported peeling variant");
 }
