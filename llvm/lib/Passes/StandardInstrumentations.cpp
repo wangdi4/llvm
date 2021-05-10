@@ -979,6 +979,14 @@ void PrintPassInstrumentation::registerCallbacks(
   PIC.registerBeforeAnalysisCallback([](StringRef PassID, Any IR) {
     dbgs() << "Running analysis: " << PassID << " on " << getIRName(IR) << "\n";
   });
+
+  PIC.registerAnalysisInvalidatedCallback([](StringRef PassID, Any IR) {
+    dbgs() << "Invalidating analysis: " << PassID << " on " << getIRName(IR)
+           << "\n";
+  });
+  PIC.registerAnalysesClearedCallback([](StringRef IRName) {
+    dbgs() << "Clearing all analysis results for: " << IRName << "\n";
+  });
 }
 #else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 void PrintPassInstrumentation::registerCallbacks(
