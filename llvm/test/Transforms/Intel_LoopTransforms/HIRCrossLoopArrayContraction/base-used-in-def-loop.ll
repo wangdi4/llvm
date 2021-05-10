@@ -1,5 +1,5 @@
-; RUN: opt -disable-hir-cross-loop-array-contraction-post-processing=true -disable-hir-cross-loop-array-contraction=false -hir-create-function-level-region -hir-ssa-deconstruction -hir-cross-loop-array-contraction -hir-cg -force-hir-cg -print-after=hir-cross-loop-array-contraction -disable-output -S < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-hir-cross-loop-array-contraction-post-processing=true -disable-hir-cross-loop-array-contraction=false -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>,hir-cg" -force-hir-cg -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-hir-cross-loop-array-contraction=false -hir-create-function-level-region -hir-ssa-deconstruction -hir-cross-loop-array-contraction -hir-cg -force-hir-cg -print-after=hir-cross-loop-array-contraction -disable-output -S < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-hir-cross-loop-array-contraction=false -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>,hir-cg" -force-hir-cg -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that we contract %A references but are not able to remove the original
 ; def loop because %A is also used in the def loop.
@@ -69,20 +69,10 @@
 ; CHECK: |   + DO i2 = 0, 99, 1   <DO_LOOP>
 ; CHECK: |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
 ; CHECK: |   |   |   + DO i4 = 0, 99, 1   <DO_LOOP>
-; CHECK: |   |   |   |   + DO i5 = 0, 0, 1   <DO_LOOP>
-; CHECK: |   |   |   |   |   + DO i6 = 0, 0, 1   <DO_LOOP>
-; CHECK: |   |   |   |   |   |   (%ContractedArray)[i5][0] = i6;
-; CHECK: |   |   |   |   |   |   %ld = (%ContractedArray)[i5][0];
-; CHECK: |   |   |   |   |   + END LOOP
-; CHECK: |   |   |   |   + END LOOP
-; CHECK: |   |   |   |
-; CHECK: |   |   |   |
-; CHECK: |   |   |   |   + DO i5 = 0, 0, 1   <DO_LOOP>
-; CHECK: |   |   |   |   |   + DO i6 = 0, 0, 1   <DO_LOOP>
-; CHECK: |   |   |   |   |   |   %ld1 = (%ContractedArray)[i6][i5];
-; CHECK: |   |   |   |   |   |   (@B)[0][i2][i3][i4][i5][i6] = %ld1 + 1;
-; CHECK: |   |   |   |   |   + END LOOP
-; CHECK: |   |   |   |   + END LOOP
+; CHECK: |   |   |   |   %array-scalarize = 0;
+; CHECK: |   |   |   |   %ld = %array-scalarize;
+; CHECK: |   |   |   |   %ld1 = %array-scalarize;
+; CHECK: |   |   |   |   (@B)[0][i2][i3][i4][0][0] = %ld1 + 1;
 ; CHECK: |   |   |   + END LOOP
 ; CHECK: |   |   + END LOOP
 ; CHECK: |   + END LOOP

@@ -247,6 +247,10 @@ bool HIRArrayScalarization::doScalarization(HLLoop *Lp,
       continue;
     }
 
+    if (!DDRefUtils::isMemRefAllDimsConstOnly(Group[0])) {
+      continue;
+    }
+
     assert(!isReadOnlyGroup(Group) &&
            "not expect a read-only group with qualified symbase");
 
