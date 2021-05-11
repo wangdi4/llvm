@@ -1,5 +1,5 @@
-; RUN: opt -disable-hir-cross-loop-array-contraction=false -hir-create-function-level-region -hir-ssa-deconstruction -hir-cross-loop-array-contraction -hir-cg -force-hir-cg -print-after=hir-cross-loop-array-contraction -disable-output -S < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-hir-cross-loop-array-contraction=false -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>,hir-cg" -force-hir-cg -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-create-function-level-region -hir-ssa-deconstruction -hir-cross-loop-array-contraction -hir-cg -force-hir-cg -print-after=hir-cross-loop-array-contraction -disable-output -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>,hir-cg" -force-hir-cg -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that we contract %A references but are not able to remove the original
 ; def loop because %A is also used in the def loop.

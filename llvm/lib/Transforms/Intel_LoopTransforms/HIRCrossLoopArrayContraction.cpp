@@ -46,7 +46,7 @@ STATISTIC(HIRLoopsWithArrayContraction,
 STATISTIC(HIRArrayRefsContracted,
           "Number of unique HIR array reference(s) contracted");
 
-static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(true),
+static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
@@ -121,13 +121,13 @@ public:
   bool run();
 
 private:
-  bool mergeLoops(HLLoop *DefLoop, HLLoop *UseLoop, unsigned Levels,
+  void mergeLoops(HLLoop *DefLoop, HLLoop *UseLoop, unsigned Levels,
                   const SmallSet<unsigned, 6> &MappedTempBlobSBs);
   bool runOnRegion(HLRegion &Reg);
 
   // Contract relevant memref(s) from a given loop, using the provided
   // symbase(s) and number of continuous dimensions contracted.
-  bool contractMemRefs(HLLoop *DefLp, HLLoop *UseLp,
+  void contractMemRefs(HLLoop *DefLp, HLLoop *UseLp,
                        const SparseBitVector<> &CommonBases,
                        const unsigned NumDimsContracted, HLRegion &Reg,
                        unsigned UseRefMappedDim,
@@ -217,19 +217,23 @@ void HIRCrossLoopArrayContraction::runPostProcessors(
   }
 
   for (auto &Func : PostProcessors) {
-    for (auto Lp : PostProcLoops) {
-      if (Step >= NumPostProcSteps) {
-        LLVM_DEBUG(
-            dbgs() << "[PostProc] Skipping due to the compiler option!\n");
-        break;
-      }
-
-      LLVM_DEBUG(dbgs() << "[PostProc] Running Step #" << Step << "!\n");
-      Func(Lp);
-      LLVM_DEBUG(dbgs() << "[PostProc] After Step #" << Step
-                        << "!\n\t--------------\n");
-      LLVM_DEBUG(Lp->dump(); dbgs() << "\n\t--------------\n");
+    if (Step > NumPostProcSteps) {
+      LLVM_DEBUG(dbgs() << "[PostProc] Skipping due to the compiler option!\n");
+      break;
     }
+
+    LLVM_DEBUG(dbgs() << "[PostProc] Running Step #" << Step << "!\n");
+
+    for (auto Lp : PostProcLoops) {
+      if (Lp->isAttached()) {
+        Func(Lp);
+        LLVM_DEBUG(Lp->dump(); dbgs() << "\n\t--------------\n");
+      }
+    }
+
+    LLVM_DEBUG(dbgs() << "[PostProc] After Step #" << Step
+                      << "!\n\t--------------\n");
+
     ++Step;
   }
 
@@ -324,29 +328,29 @@ static bool areIdenticalInsts(const HLInst *HInst1, const HLInst *HInst2) {
   return true;
 }
 
+// Returns false if \p Lp has any control-flow..
+static bool hasControlFlowOrSideEffects(const HLLoop *Lp,
+                                        HIRLoopStatistics &HLS) {
+  auto &LoopStats = HLS.getTotalLoopStatistics(Lp);
+
+  if (LoopStats.hasIfs() || LoopStats.hasSwitches() ||
+      LoopStats.hasForwardGotos() ||
+      LoopStats.hasCallsWithUnsafeSideEffects()) {
+    return true;
+  }
+
+  return false;
+}
+
 static unsigned computeDependencyMaxTopSortNumber(
     DDGraph &DDG, const HLLoop *DefLoop,
-    const SmallPtrSetImpl<RegDDRef *> &CandidateRefs, HIRLoopStatistics &HLS,
+    const SmallPtrSetImpl<RegDDRef *> &CandidateRefs,
     SparseBitVector<> &OutUsesByNonCandidates) {
   assert(llvm::all_of(CandidateRefs,
                       [](const RegDDRef *Ref) { return Ref->isMemRef(); }) &&
          "Only MemRefs are expected in CandidateRefs");
 
   unsigned LoopMaxTopSortNumber = DefLoop->getMaxTopSortNum();
-
-  // Bail out for def loops with liveouts. We may not be correctly preserving
-  // them with forward-substitution.
-  if (DefLoop->hasLiveOutTemps()) {
-    return LoopMaxTopSortNumber;
-  }
-
-  auto &LoopStats = HLS.getTotalLoopStatistics(DefLoop);
-
-  // Bail out for loops with control-flow. mergeLoops() cannot handle it.
-  if (LoopStats.hasIfs() || LoopStats.hasSwitches() ||
-      LoopStats.hasForwardGotos()) {
-    return LoopMaxTopSortNumber;
-  }
 
   using Gatherer = DDRefGatherer<RegDDRef, TerminalRefs | MemRefs | FakeRefs>;
   Gatherer::VectorTy Refs;
@@ -440,7 +444,7 @@ static void moveMappedDefs(HLLoop *UseLoop,
   }
 }
 
-bool HIRCrossLoopArrayContraction::mergeLoops(
+void HIRCrossLoopArrayContraction::mergeLoops(
     HLLoop *DefLoop, HLLoop *UseLoop, unsigned Levels,
     const SmallSet<unsigned, 6> &MappedTempBlobSBs) {
   assert(Levels > 0 && "Merging zero loops is undefined");
@@ -497,26 +501,24 @@ bool HIRCrossLoopArrayContraction::mergeLoops(
     // Move mapped definitions to the beginning so they can be used by def loop
     // nodes.
     moveMappedDefs(UseLoop, MappedTempDefs);
-    return true;
+    return;
   }
 
-  if (NoDefInnerLoop != NoUseInnerLoop) {
-    return false;
-  }
+  assert((NoDefInnerLoop == NoUseInnerLoop) &&
+         "Only one of def or use loop contains inner loop!");
 
   HLLoop *DefInnerLoop = dyn_cast<HLLoop>(&*DefInnerLoopI);
   HLLoop *UseInnerLoop = dyn_cast<HLLoop>(&*UseInnerLoopI);
 
-  if (!DefInnerLoop || !UseInnerLoop) {
-    return false;
-  }
+  assert(DefInnerLoop && UseInnerLoop &&
+         "Inner loop in both def and use loops expected!");
 
   // Check if there are non-instr nodes after the inner loop.
   if (FindFirstNonInstr(std::next(DefInnerLoopI), DefLoop->child_end()) !=
           DefLoop->child_end() ||
       FindFirstNonInstr(std::next(UseInnerLoopI), UseLoop->child_end()) !=
           UseLoop->child_end()) {
-    return false;
+    llvm_unreachable("Nodes after inner loop not handled!");
   }
 
   // Move nodes into the Use loop.
@@ -529,7 +531,7 @@ bool HIRCrossLoopArrayContraction::mergeLoops(
   // nodes.
   moveMappedDefs(UseLoop, MappedTempDefs);
 
-  return mergeLoops(DefInnerLoop, UseInnerLoop, Levels - 1, MappedTempBlobSBs);
+  mergeLoops(DefInnerLoop, UseInnerLoop, Levels - 1, MappedTempBlobSBs);
 }
 
 static void promoteSectionIVs(ArraySectionInfo &Info, unsigned StartLevel) {
@@ -786,7 +788,7 @@ static bool isArrayContractionCandidate(const RegDDRef *Ref) {
          Ref->getNumDimensions() >= MinMemRefNumDimension && Ref->hasIV();
 }
 
-bool HIRCrossLoopArrayContraction::contractMemRefs(
+void HIRCrossLoopArrayContraction::contractMemRefs(
     HLLoop *DefLp, HLLoop *UseLp, const SparseBitVector<> &CommonBases,
     const unsigned NumDimsContracted, HLRegion &Reg, unsigned UseRefMappedDim,
     const CanonExpr *UseRefMappedCE, SmallSet<unsigned, 8> &AfterContractSBS,
@@ -880,7 +882,8 @@ bool HIRCrossLoopArrayContraction::contractMemRefs(
               Ref, PreservedDims, ToContractDims, Reg, AfterContractRef)) {
         LLVM_DEBUG(dbgs() << "Fail to contract Ref:\t"; Ref->dump();
                    dbgs() << "\n";);
-        return false;
+
+        llvm_unreachable("Failed to contract ref!");
       }
 
       LLVM_DEBUG(dbgs() << "Array Contraction -- \tFrom: "; Ref->dump();
@@ -889,11 +892,10 @@ bool HIRCrossLoopArrayContraction::contractMemRefs(
                         << "\n";);
 
       AfterContractSBS.insert(AfterContractRef->getSymbase());
-      ++NumRefsContracted;
     }
-  }
 
-  return true;
+    NumRefsContracted += Refs.size();
+  }
 }
 
 static void replaceIVByCE(HLLoop *Lp, unsigned IVLevel,
@@ -1092,6 +1094,24 @@ static const RegDDRef *findIdentityMatrixDef(HLRegion &Region, DDGraph &DDG,
   return IdentDiagRef;
 }
 
+static bool canMergeCorrectly(const HLLoop *Lp, unsigned MergeLevels) {
+  SmallVector<const HLLoop *, 6> InnerLoops;
+
+  Lp->getHLNodeUtils().gatherAllLoops(Lp, InnerLoops);
+
+  for (auto *InnerLp : InnerLoops) {
+    if ((InnerLp != Lp) && (InnerLp->getNestingLevel() <= MergeLevels)) {
+      // mergeLoops() does not handle multiple inner loops at the merge level or
+      // def loop's postexit.
+      if (InnerLp->getNextNode() || InnerLp->hasPostexit()) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
   if (!Reg.isFunctionLevel()) {
     LLVM_DEBUG(dbgs() << "Skipping non-function region.\n");
@@ -1154,12 +1174,26 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
       LLVM_DEBUG(dbgs() << "+ Loop has no interesting defs\n");
       continue;
     }
+    // These bail out checks are conservative in the sense that we may miss
+    // tracking some dead stores.
+
+    // Bail out for def loops with liveouts. We may
+    // not be correctly preserving them with forward-substitution.
+    if (DefLp->hasLiveOutTemps()) {
+      continue;
+    }
+
+    if (hasControlFlowOrSideEffects(DefLp, HLS)) {
+      LLVM_DEBUG(dbgs() << "Skipping def loop with control flow/side effects: <"
+                        << DefLp->getNumber() << ">\n");
+      continue;
+    }
 
     BaseUses UsesTracking;
 
     SparseBitVector<> NonCandidateUses;
     unsigned LoopDependencyLimits = computeDependencyMaxTopSortNumber(
-        DDG, DefLp, RefsSet, HLS, NonCandidateUses);
+        DDG, DefLp, RefsSet, NonCandidateUses);
 
     // Add uses by non-candidate refs.
     UsesTracking.add(NonCandidateUses);
@@ -1196,11 +1230,11 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         continue;
       }
 
-      auto &LoopStats = HLS.getTotalLoopStatistics(UseLp);
-
       // Bail out for loops with control-flow. mergeLoops() cannot handle it.
-      if (LoopStats.hasIfs() || LoopStats.hasSwitches() ||
-          LoopStats.hasForwardGotos()) {
+      if (hasControlFlowOrSideEffects(UseLp, HLS)) {
+        LLVM_DEBUG(
+            dbgs() << "Skipping use loop with control flow/side effects: <"
+                   << UseLp->getNumber() << ">\n");
         continue;
       }
 
@@ -1329,6 +1363,13 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         continue;
       }
 
+      if (!canMergeCorrectly(DefLp, FusionLevel - DefUseLevelDiff) ||
+          !canMergeCorrectly(UseLp, FusionLevel)) {
+        LLVM_DEBUG(
+            dbgs() << "\t[SKIP] mergeLoops() cannot handle def or use loop.\n");
+        continue;
+      }
+
       // Collect all the temp blobs from mapped CEs and perform sanity checks on
       // whether the merging can happen correctly.
       SmallSet<unsigned, 6> MappedTempBlobSBs;
@@ -1387,7 +1428,6 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
       bool HasMappedDim = !MappedDim.empty();
       unsigned UseRefMappedDim = HasMappedDim ? MappedDim.getDimensionNum() : 0;
       unsigned NumMappings = HasMappedDim ? MappedDim.getMappedCEs().size() : 1;
-      bool BailOut = false;
       addPostProcCand(UseLp);
 
       for (unsigned I = 0; I < NumMappings; ++I) {
@@ -1398,16 +1438,12 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         const CanonExpr *UseRefMappedCE =
             HasMappedDim ? MappedDim.getMappedCEs()[I] : nullptr;
 
-        if (!contractMemRefs(DefLoopClone, UseLp, CommonBases,
-                             NumDimsContracted, Reg, UseRefMappedDim,
-                             UseRefMappedCE, AfterContractSBS,
-                             NumContractedRefs)) {
-          LLVM_DEBUG(dbgs() << "Fail to contract memref(s) in Def/Use loop "
-                            << DefLoopClone->getNumber() << "\n";);
-        } else {
-          HIRLoopsWithArrayContraction += 2;
-          HIRArrayRefsContracted += NumContractedRefs;
-        }
+        contractMemRefs(DefLoopClone, UseLp, CommonBases, NumDimsContracted,
+                        Reg, UseRefMappedDim, UseRefMappedCE, AfterContractSBS,
+                        NumContractedRefs);
+
+        HIRLoopsWithArrayContraction += 2;
+        HIRArrayRefsContracted += NumContractedRefs;
 
         HLNodeUtils::insertBefore(UseLp, DefLoopClone);
         if (DefUseLevelDiff == 1) {
@@ -1434,19 +1470,11 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         }
 
         // Merge loops
-        if (!mergeLoops(DefLoopClone, UseLp,
-                        FusionLevel - UseLp->getNestingLevel() + 1,
-                        MappedTempBlobSBs)) {
-          LLVM_DEBUG(dbgs() << "\t[SKIP] Can not merge loops.\n");
-          BailOut = true;
-          break;
-        }
+        mergeLoops(DefLoopClone, UseLp,
+                   FusionLevel - UseLp->getNestingLevel() + 1,
+                   MappedTempBlobSBs);
 
         HLNodeUtils::remove(DefLoopClone);
-      }
-
-      if (BailOut) {
-        continue;
       }
 
       // Merge array section analysis results.
@@ -1494,8 +1522,11 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
     }
   }
 
+  // Use loops can also becomes def loops and get eliminated as dead.
   for (auto Loop : PostProcLoops) {
-    HIRInvalidationUtils::invalidateLoopNestBody(Loop);
+    if (Loop->isAttached()) {
+      HIRInvalidationUtils::invalidateLoopNestBody(Loop);
+    }
   }
 
   HIRInvalidationUtils::invalidateNonLoopRegion(&Reg);
