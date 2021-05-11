@@ -1412,7 +1412,7 @@ static bool combineStoreToValueType(InstCombinerImpl &IC, StoreInst &SI) {
   // For DTRANS and other optimizations that require the type info to be
   // intact, we should delay this optimization until the type info is no
   // longer needed.
-  if (!IC.allowTypeLoweringOpts())
+  if (IC.preserveForDTrans())
     return false;
 #endif // INTEL_CUSTOMIZATION
 

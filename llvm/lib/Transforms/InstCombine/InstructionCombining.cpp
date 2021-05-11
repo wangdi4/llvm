@@ -161,8 +161,9 @@ static cl::opt<unsigned> LimitMaxIterations(
 #if INTEL_CUSTOMIZATION
 // Used for LIT tests to unconditionally suppress type lowering optimizations
 static cl::opt<bool>
-DisableTypeLoweringOpts("disable-type-lowering-opts",
-                        cl::desc("Disable type lowering optimizations"));
+    EnablePreserveForDTrans("instcombine-preserve-for-dtrans",
+                        cl::desc("Preserve type and other info for DTrans"),
+                        cl::ReallyHidden, cl::init(false));
 
 static cl::opt<bool>
     PreserveAddrComputations("instcombine-preserve-addr-compute",
@@ -2149,7 +2150,7 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   // this can cause a loss of type info for DTrans. We allow some initial
   // cleanup, as no GEPs will be removed by this, and the cleanup is needed
   // when folding selects over GEPs in InstCombineSelect.cpp.
-  if (!allowTypeLoweringOpts())
+  if (preserveForDTrans())
     return nullptr;
 
   if (getTargetTransformInfo().isAdvancedOptEnabled(
@@ -4245,14 +4246,14 @@ static bool combineInstructionsOverFunction(
     AssumptionCache &AC, TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
     DominatorTree &DT, OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
 #if INTEL_CUSTOMIZATION
-    ProfileSummaryInfo *PSI, unsigned MaxIterations, bool TypeLoweringOpts,
+    ProfileSummaryInfo *PSI, unsigned MaxIterations, bool PreserveForDTrans,
     bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
     bool EnableUpCasting, LoopInfo *LI) {
 #endif // INTEL_CUSTOMIZATION
   auto &DL = F.getParent()->getDataLayout();
   MaxIterations = std::min(MaxIterations, LimitMaxIterations.getValue());
-  if (DisableTypeLoweringOpts)      // INTEL
-    TypeLoweringOpts = false;       // INTEL
+  if (EnablePreserveForDTrans)      // INTEL
+    PreserveForDTrans = true;       // INTEL
   if (PreserveAddrComputations)     // INTEL
     PreserveAddrCompute = true;     // INTEL
   if (DisableFcmpMinMaxCombine)     // INTEL
@@ -4301,7 +4302,7 @@ static bool combineInstructionsOverFunction(
     MadeIRChange |= prepareICWorklistFromFunction(F, DL, &TLI, Worklist);
 
 #if INTEL_CUSTOMIZATION
-    InstCombinerImpl IC(Worklist, Builder, F.hasMinSize(), TypeLoweringOpts,
+    InstCombinerImpl IC(Worklist, Builder, F.hasMinSize(), PreserveForDTrans,
                         EnableFcmpMinMaxCombine, PreserveAddrCompute,
                         EnableUpCasting, AA, AC, TLI, TTI, DT,
                         ORE, BFI, PSI, DL, LI);
@@ -4318,22 +4319,22 @@ static bool combineInstructionsOverFunction(
 }
 
 #if INTEL_CUSTOMIZATION
-InstCombinePass::InstCombinePass(bool TypeLoweringOpts,
+InstCombinePass::InstCombinePass(bool PreserveForDTrans,
                                  bool PreserveAddrCompute,
                                  bool EnableFcmpMinMaxCombine,
                                  bool EnableUpCasting)
-    : TypeLoweringOpts(TypeLoweringOpts),
+    : PreserveForDTrans(PreserveForDTrans),
       PreserveAddrCompute(PreserveAddrCompute),
       MaxIterations(LimitMaxIterations),
       EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
       EnableUpCasting(EnableUpCasting) {}
 
-InstCombinePass::InstCombinePass(bool TypeLoweringOpts,
+InstCombinePass::InstCombinePass(bool PreserveForDTrans,
                                  bool PreserveAddrCompute,
                                  unsigned MaxIterations,
                                  bool EnableFcmpMinMaxCombine,
                                  bool EnableUpCasting)
-    : TypeLoweringOpts(TypeLoweringOpts),
+    : PreserveForDTrans(PreserveForDTrans),
       PreserveAddrCompute(PreserveAddrCompute), MaxIterations(MaxIterations),
       EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
       EnableUpCasting(EnableUpCasting) {}
@@ -4359,7 +4360,7 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                        DT, ORE, BFI, PSI,             // INTEL
                                        MaxIterations,                 // INTEL
-                                       TypeLoweringOpts,              // INTEL
+                                       PreserveForDTrans,              // INTEL
                                        EnableFcmpMinMaxCombine,       // INTEL
                                        PreserveAddrCompute,           // INTEL
                                        EnableUpCasting, LI))    // INTEL
@@ -4420,7 +4421,7 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                          DT, ORE, BFI, PSI,             // INTEL
                                          MaxIterations,                 // INTEL
-                                         TypeLoweringOpts,              // INTEL
+                                         PreserveForDTrans,              // INTEL
                                          EnableFcmpMinMaxCombine,       // INTEL
                                          PreserveAddrCompute,           // INTEL
                                          EnableUpCasting, LI);    // INTEL
@@ -4429,11 +4430,11 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
 char InstructionCombiningPass::ID = 0;
 
 #if INTEL_CUSTOMIZATION
-InstructionCombiningPass::InstructionCombiningPass(bool TypeLoweringOpts,
+InstructionCombiningPass::InstructionCombiningPass(bool PreserveForDTrans,
                                                    bool PreserveAddrCompute,
                                                    bool EnableFcmpMinMaxCombine,
                                                    bool EnableUpCasting)
-    : FunctionPass(ID), TypeLoweringOpts(TypeLoweringOpts),
+    : FunctionPass(ID), PreserveForDTrans(PreserveForDTrans),
       PreserveAddrCompute(PreserveAddrCompute),
       EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
       EnableUpCasting(EnableUpCasting),
@@ -4443,12 +4444,12 @@ InstructionCombiningPass::InstructionCombiningPass(bool TypeLoweringOpts,
 }
 
 #if INTEL_CUSTOMIZATION
-InstructionCombiningPass::InstructionCombiningPass(bool TypeLoweringOpts,
+InstructionCombiningPass::InstructionCombiningPass(bool PreserveForDTrans,
                                                    bool PreserveAddrCompute,
                                                    unsigned MaxIterations,
                                                    bool EnableFcmpMinMaxCombine,
                                                    bool EnableUpCasting)
-    : FunctionPass(ID), TypeLoweringOpts(TypeLoweringOpts),
+    : FunctionPass(ID), PreserveForDTrans(PreserveForDTrans),
       PreserveAddrCompute(PreserveAddrCompute),
       EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
       EnableUpCasting(EnableUpCasting),
@@ -4483,19 +4484,19 @@ void LLVMInitializeInstCombine(LLVMPassRegistryRef R) {
 
 #if INTEL_CUSTOMIZATION
 FunctionPass *
-llvm::createInstructionCombiningPass(bool TypeLoweringOpts,
+llvm::createInstructionCombiningPass(bool PreserveForDTrans,
                                      bool PreserveAddrCompute,
                                      bool EnableFcmpMinMaxCombine,
                                      bool EnableUpCasting) {
-  return new InstructionCombiningPass(TypeLoweringOpts, PreserveAddrCompute,
+  return new InstructionCombiningPass(PreserveForDTrans, PreserveAddrCompute,
                                       EnableFcmpMinMaxCombine,
                                       EnableUpCasting);
 }
 
 FunctionPass *llvm::createInstructionCombiningPass(
-    bool TypeLoweringOpts, bool PreserveAddrCompute, unsigned MaxIterations,
+    bool PreserveForDTrans, bool PreserveAddrCompute, unsigned MaxIterations,
     bool EnableFcmpMinMaxCombine, bool EnableUpCasting) {
-  return new InstructionCombiningPass(TypeLoweringOpts, PreserveAddrCompute,
+  return new InstructionCombiningPass(PreserveForDTrans, PreserveAddrCompute,
                                       MaxIterations, EnableFcmpMinMaxCombine,
                                       EnableUpCasting);
 }

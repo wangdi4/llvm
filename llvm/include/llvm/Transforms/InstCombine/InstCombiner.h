@@ -56,7 +56,7 @@ public:
   BuilderTy &Builder;
 
 #if INTEL_CUSTOMIZATION
-  bool allowTypeLoweringOpts() const { return TypeLoweringOpts; }
+  bool preserveForDTrans() const { return PreserveForDTrans; }
 
   bool preserveAddrCompute() const { return PreserveAddrCompute; }
 
@@ -73,9 +73,9 @@ protected:
   const bool MinimizeSize;
 
 #if INTEL_CUSTOMIZATION
-  /// Enable optimizations like GEP merging, zero element GEP removal and
-  /// pointer type bitcasts
-  const bool TypeLoweringOpts;
+  /// Disable optimizations like GEP merging, zero element GEP removal,
+  /// pointer type bitcasts and Sub-to-Add transform.
+  const bool PreserveForDTrans;
 
   /// Enable optimizations which recognize min/max semantics in (fcmp)&(fcmp)
   /// and (fcmp)|(fcmp).
@@ -114,7 +114,7 @@ protected:
 public:
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
 #if INTEL_CUSTOMIZATION
-               bool MinimizeSize, bool TypeLoweringOpts,
+               bool MinimizeSize, bool PreserveForDTrans,
                bool EnableFcmpMinMaxCombine, bool PreserveAddrCompute,
                bool EnableUpCasting, AAResults *AA, AssumptionCache &AC,
                TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
@@ -122,7 +122,7 @@ public:
                BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
                const DataLayout &DL, LoopInfo *LI)
       : TTI(TTI), Builder(Builder), Worklist(Worklist),
-        MinimizeSize(MinimizeSize), TypeLoweringOpts(TypeLoweringOpts),
+        MinimizeSize(MinimizeSize), PreserveForDTrans(PreserveForDTrans),
         EnableFcmpMinMaxCombine(EnableFcmpMinMaxCombine),
         PreserveAddrCompute(PreserveAddrCompute),
         EnableUpCasting(EnableUpCasting), AA(AA), AC(AC), TLI(TLI),

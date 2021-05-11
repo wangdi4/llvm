@@ -572,9 +572,9 @@ void PassManagerBuilder::addInstructionCombiningPass(
 #if INTEL_INCLUDE_DTRANS
   // Configure the instruction combining pass to avoid some transformations
   // that lose type information for DTrans.
-  bool GEPInstOptimizations = !(PrepareForLTO && EnableDTrans);
+  bool PreserveForDTrans = (PrepareForLTO && EnableDTrans);
 #else
-  bool GEPInstOptimizations = true;
+  bool PreserveForDTrans = false;
 #endif // INTEL_INCLUDE_DTRANS
   if (RunVPOParopt) {
     // CMPLRLLVM-25424: temporary workaround for cases, where
@@ -589,7 +589,7 @@ void PassManagerBuilder::addInstructionCombiningPass(
     PM.add(createVPOCFGRestructuringPass());
   }
 
-  PM.add(createInstructionCombiningPass(GEPInstOptimizations,
+  PM.add(createInstructionCombiningPass(PreserveForDTrans,
                                         PrepareForLTO && EnableIPArrayTranspose,
                                         EnableFcmpMinMaxCombine,
                                         EnableUpCasting));

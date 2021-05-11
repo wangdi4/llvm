@@ -1,8 +1,9 @@
-; RUN: opt -instcombine -disable-type-lowering-opts=false < %s -S 2>&1 | FileCheck %s --check-prefix=CHECK-FALSE
-; RUN: opt -instcombine -disable-type-lowering-opts=true < %s -S 2>&1 | FileCheck %s --check-prefix=CHECK-TRUE
+; RUN: opt -instcombine -instcombine-preserve-for-dtrans=false < %s -S 2>&1 | FileCheck %s --check-prefix=CHECK-FALSE
+; RUN: opt -instcombine -instcombine-preserve-for-dtrans=true < %s -S 2>&1 | FileCheck %s --check-prefix=CHECK-TRUE
 
-; Check that with -disable-type-lowering-opts=true, the store does not become
-; an i8* reference, but with -disable-type-lowering-opts=false, it does.
+; Check that with -instcombine-preserve-for-dtrans=true, the store does not
+; become an i8* reference, but with -instcombine-preserve-for-dtrans=false, it
+; does.
 
 %struct.x264_t = type { i64, [129 x %struct.x264_t*] }
 

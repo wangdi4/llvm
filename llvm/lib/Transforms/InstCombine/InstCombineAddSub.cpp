@@ -1828,13 +1828,17 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
       return BinaryOperator::CreateSub(XZ, YW);
     }
   }
-#endif // INTEL_CUSTOMIZATION
 
-  // ((X - Y) - Op1)  -->  X - (Y + Op1)
-  if (match(Op0, m_OneUse(m_Sub(m_Value(X), m_Value(Y))))) {
-    Value *Add = Builder.CreateAdd(Y, Op1);
-    return BinaryOperator::CreateSub(X, Add);
+  if (!preserveForDTrans()) {
+    // ((X - Y) - Op1)  -->  X - (Y + Op1)
+    // DTrans currently can't handle Add operator. Disable this transformation
+    // when PreserveForDTrans is true.
+    if (match(Op0, m_OneUse(m_Sub(m_Value(X), m_Value(Y))))) {
+      Value *Add = Builder.CreateAdd(Y, Op1);
+      return BinaryOperator::CreateSub(X, Add);
+    }
   }
+#endif // INTEL_CUSTOMIZATION
 
   auto m_AddRdx = [](Value *&Vec) {
     return m_OneUse(m_Intrinsic<Intrinsic::vector_reduce_add>(m_Value(Vec)));

@@ -1,8 +1,8 @@
-; RUN: opt -instcombine -disable-type-lowering-opts=true < %s -S 2>&1 | FileCheck %s
-; RUN: opt -passes=instcombine -disable-type-lowering-opts=true < %s -S 2>&1 | FileCheck %s
+; RUN: opt -instcombine -instcombine-preserve-for-dtrans=true < %s -S 2>&1 | FileCheck %s
+; RUN: opt -passes=instcombine -instcombine-preserve-for-dtrans=true < %s -S 2>&1 | FileCheck %s
 
 ; Check that all three original GEPs are retained when
-; -disable-gepinst-opts=true.
+; -instcombine-preserve-for-dtrans=true.
 
 %struct.lzma_next_coder = type { i8*, i32, i32 }
 %struct.lzma_coder = type { i32, i32, %struct.lzma_next_coder* }

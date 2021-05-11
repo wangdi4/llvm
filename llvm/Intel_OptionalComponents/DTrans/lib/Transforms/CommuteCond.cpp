@@ -10,12 +10,14 @@
 //
 // This file implements the DTrans CommuteCond optimization. This
 // optimization does very simple IR transformations. Currently, it does
-// swap operands of "And" instruction in some rare cases. This transformation
-// is not really related to DTrans even though it is implemented as a part
-// of DTrans. There are mainly two reasons why it is implemented in DTrans.
+// swap operands of "And" and "Select" instructions in some rare cases.
+// This transformation is not really related to DTrans even though it is
+// implemented as a part of DTrans. There are mainly two reasons why it is
+// implemented in DTrans.
 //  1. Heuristic for this transformation is using DTrans infrastructure
 //  2. Want to trigger this transformation only in special cases.
 //
+// Ex 1:
 //  Before:
 //    %cmp = icmp slt i64 %red_cost, 0
 //    br i1 %cmp, label %land.lhs.true, label %lor.rhs
@@ -42,6 +44,32 @@
 //
 // Short-circuiting code is generated for the "And" instruction (i.e %and1)
 // during ISel pass of CodeGen.
+//
+// Ex 2:
+//  Before:
+//    %cmp = icmp slt i64 %red_cost, 0
+//    br i1 %cmp, label %land.lhs.true, label %lor.rhs
+//  lor.rhs:
+//    %cmp1 = icmp ne i64 %red_cost, 0
+//    %cmp2 = icmp eq i16 %ident, 2
+//    %sel1 = select i1 %cmp1, %cmp2, false
+//    br i1 %sel1, label %l.end.true, label %l.end.false
+//  land.lhs.true:
+//    %cmp3 = icmp eq i16 %ident, 1
+//    br i1 %cmp3, label %l.end.true, label %l.end.false
+//
+//  After: (Operands of %and1 are swapped)
+//    %cmp = icmp slt i64 %red_cost, 0
+//    br i1 %cmp, label %land.lhs.true, label %lor.rhs
+//  lor.rhs:
+//    %cmp1 = icmp ne i64 %red_cost, 0
+//    %cmp2 = icmp eq i16 %ident, 2
+//    %sel1 = select i1 %cmp2, %cmp1, false      ; Only instruction changed
+//    br i1 %sel1, label %l.end.true, label %l.end.false
+//  land.lhs.true:
+//    %cmp3 = icmp eq i16 %ident, 1
+//    br i1 %cmp3, label %l.end.true, label %l.end.false
+//
 // This transformation is beneficial only when second compare (i.e %cmp2 in
 // the example) is false more times. In such cases, swapping of operands may
 // improve performance because fewer comparisons and branches will be
@@ -131,15 +159,19 @@ class CommuteCondImpl : public InstVisitor<CommuteCondImpl> {
 public:
   CommuteCondImpl(DTransAnalysisInfo &DTInfo) : DTInfo(DTInfo){};
   void visitAnd(Instruction &I) { processAndInst(I); }
-  bool transformAnds(void);
+  void visitSelect(SelectInst &I) { processSelectInst(I); }
+  bool transform(void);
 
 private:
   DTransAnalysisInfo &DTInfo;
 
-  // Transformations will be applied for all "And" instructions in this set.
-  SmallPtrSet<Instruction *, 4> AndsToCommute;
+  // Transformations will be applied for all instructions in this set. Only
+  // "And" and "Select" instructions are added to this set currently.
+  SmallPtrSet<Instruction *, 4> InstructionsToCommute;
 
+  bool commuteOperandsOkay(Instruction &, Value *, Value *);
   void processAndInst(Instruction &);
+  void processSelectInst(SelectInst &);
   bool checkHeuristics(Value *);
 };
 
@@ -182,9 +214,9 @@ bool CommuteCondImpl::checkHeuristics(Value *Val) {
   return true;
 }
 
-// "I", which is an "And" instruction, is added to "AndsToCommute" if
-// it is in the below pattern. Heuristics will be applied to reduce possible
-// candidates.
+// Returns true if "Op0" and "Op1", which are operands of "I", if they
+// can be swapped by checking the pattern below. Heuristics will be applied
+// to reduce possible candidates.
 //
 //      %cmp0 = icmp slt i64 %red_cost, 0
 //      br i1 %cmp0, label %land.lhs.true, label %lor.rhs
@@ -197,19 +229,20 @@ bool CommuteCondImpl::checkHeuristics(Value *Val) {
 //      %cmp3 = icmp eq i16 %ident, C2
 //      br i1 %cmp3, label %l.end.true, label %l.end.false
 //
-void CommuteCondImpl::processAndInst(Instruction &I) {
+bool CommuteCondImpl::commuteOperandsOkay(Instruction &I, Value *Op0,
+                                          Value *Op1) {
+  auto *AndOp0 = dyn_cast<ICmpInst>(Op0);
+  auto *AndOp1 = dyn_cast<ICmpInst>(Op1);
   // Check both operands of "I" are ICmpInst. Makes sure "I" and both operands
   // have single users.
-  ICmpInst *AndOp0 = dyn_cast<ICmpInst>(I.getOperand(0));
-  ICmpInst *AndOp1 = dyn_cast<ICmpInst>(I.getOperand(1));
   if (!AndOp0 || !AndOp1 || !I.hasOneUse() || !AndOp0->hasOneUse() ||
       !AndOp1->hasOneUse())
-    return;
+    return false;
 
   // Check if "I" is used by BranchInst.
   auto BI = dyn_cast<BranchInst>(*I.user_begin());
   if (!BI)
-    return;
+    return false;
 
   // Check for %cmp1 = icmp ne i64 %red_cost, 0
   Value *Cmp1Op;
@@ -217,71 +250,110 @@ void CommuteCondImpl::processAndInst(Instruction &I) {
   CmpInst::Predicate Cmp1Pred;
   if (!match(AndOp0, m_ICmp(Cmp1Pred, m_Value(Cmp1Op), m_ZeroInt())) ||
       Cmp1Pred != ICmpInst::ICMP_NE)
-    return;
+    return false;
   // Check for %cmp2 = icmp eq i16 %ident, C1
   Value *Cmp2Op;
   CmpInst::Predicate Cmp2Pred;
   if (!match(AndOp1, m_ICmp(Cmp2Pred, m_Value(Cmp2Op), m_APInt(C1))) ||
       Cmp2Pred != ICmpInst::ICMP_EQ)
-    return;
+    return false;
 
   BasicBlock *AndBB = BI->getParent();
   BasicBlock *AndPredBB = AndBB->getSinglePredecessor();
   if (!AndPredBB)
-    return;
+    return false;
   auto AndPredBranchI = dyn_cast<BranchInst>(AndPredBB->getTerminator());
   if (!AndPredBranchI || !AndPredBranchI->isConditional())
-    return;
+    return false;
   ICmpInst *Cmp0 = dyn_cast<ICmpInst>(AndPredBranchI->getCondition());
   if (!Cmp0)
-    return;
+    return false;
 
   // Check for %cmp0 = icmp slt i64 %red_cost, 0
   CmpInst::Predicate Cmp0Pred;
   if (!match(Cmp0, m_ICmp(Cmp0Pred, m_Specific(Cmp1Op), m_ZeroInt())) ||
       Cmp0Pred != ICmpInst::ICMP_SLT)
-    return;
+    return false;
 
   if (AndPredBranchI->getSuccessor(1) != AndBB)
-    return;
+    return false;
   BasicBlock *TBB = AndPredBranchI->getSuccessor(0);
   auto *Cmp3 = dyn_cast_or_null<ICmpInst>(TBB->getFirstNonPHIOrDbg());
   if (!Cmp3)
-    return;
+    return false;
 
   // Check for %cmp3 = icmp eq i16 %ident, C2
   CmpInst::Predicate Cmp3Pred;
   const APInt *C2;
   if (!match(Cmp3, m_ICmp(Cmp3Pred, m_Value(Cmp2Op), m_APInt(C2))) ||
       Cmp3Pred != ICmpInst::ICMP_EQ)
-    return;
+    return false;
   if (!Cmp3->hasOneUse() || !isa<BranchInst>(*Cmp3->user_begin()))
-    return;
+    return false;
 
   // Apply heuristics
   if (!checkHeuristics(Cmp2Op))
-    return;
-
-  AndsToCommute.insert(&I);
-}
-
-// Swap operands of all "And" instructions in "AndsToCommute".
-bool CommuteCondImpl::transformAnds() {
-  if (AndsToCommute.empty())
     return false;
 
-  for (auto AndI : AndsToCommute) {
-    LLVM_DEBUG(dbgs() << "  Transformed in " << AndI->getFunction()->getName()
+  return true;
+}
+
+// "I", which is an "And" instruction, is added to "InstructionsToCommute" if
+// operands can be swapped.
+// Ex:
+//    %and1 = and i1 %cmp1, %cmp2
+void CommuteCondImpl::processAndInst(Instruction &I) {
+  if (!commuteOperandsOkay(I, I.getOperand(0), I.getOperand(1)))
+    return;
+  InstructionsToCommute.insert(&I);
+}
+
+// "SI" is added to "InstructionsToCommute" if Condition and TrueValue operands
+// can be swapped.
+// Ex:
+//    %sel1 = select i1 %cmp1, %cmp2, false
+void CommuteCondImpl::processSelectInst(SelectInst &SI) {
+  // Check FalseValue of SI is false.
+  Value *FalseVal = SI.getFalseValue();
+  Type *Ty = FalseVal->getType();
+  if (!Ty->isIntegerTy(1) || FalseVal != ConstantInt::getFalse(Ty))
+    return;
+  // Check types of all operands are same.
+  Value *Cond = SI.getCondition();
+  Value *TrueValue = SI.getTrueValue();
+  if (Ty != Cond->getType() || Ty != TrueValue->getType())
+    return;
+  if (!commuteOperandsOkay(SI, Cond, TrueValue))
+    return;
+  InstructionsToCommute.insert(&SI);
+}
+
+// Swap operands of all "And" and "Select" instructions in
+// "InstructionsToCommute".
+bool CommuteCondImpl::transform() {
+  if (InstructionsToCommute.empty())
+    return false;
+
+  for (auto I : InstructionsToCommute) {
+    LLVM_DEBUG(dbgs() << "  Transformed in " << I->getFunction()->getName()
                       << "\n");
-    LLVM_DEBUG(dbgs() << "    Before: " << *AndI << "\n");
-    // Swap operands of AndI.
-    Instruction *NewA = BinaryOperator::CreateAnd(
-        AndI->getOperand(1), AndI->getOperand(0), "", AndI);
-    NewA->setDebugLoc(AndI->getDebugLoc());
-    AndI->replaceAllUsesWith(NewA);
-    NewA->takeName(AndI);
-    AndI->eraseFromParent();
-    LLVM_DEBUG(dbgs() << "    After: " << *AndI << "\n");
+    LLVM_DEBUG(dbgs() << "    Before: " << *I << "\n");
+    Instruction *NewI = nullptr;
+    if (I->getOpcode() == Instruction::And) {
+      // Swap operands of And.
+      NewI =
+          BinaryOperator::CreateAnd(I->getOperand(1), I->getOperand(0), "", I);
+    } else if (auto *SI = dyn_cast<SelectInst>(I)) {
+      // Swap Condition and TrueValue operands of SelectInst.
+      NewI = SelectInst::Create(SI->getTrueValue(), SI->getCondition(),
+                                SI->getFalseValue(), "", SI);
+    }
+    assert(NewI && "Expected non-null instruction");
+    NewI->setDebugLoc(I->getDebugLoc());
+    I->replaceAllUsesWith(NewI);
+    NewI->takeName(I);
+    I->eraseFromParent();
+    LLVM_DEBUG(dbgs() << "    After: " << *NewI << "\n");
   }
   LLVM_DEBUG(dbgs() << "DTRANS CommuteCond: Transformations done\n");
   return true;
@@ -314,7 +386,7 @@ bool CommuteCondPass::runImpl(Module &M, DTransAnalysisInfo &DTInfo,
       continue;
     RCImpl.visit(F);
   }
-  bool Changed = RCImpl.transformAnds();
+  bool Changed = RCImpl.transform();
   if (!Changed)
     LLVM_DEBUG(dbgs() << "DTRANS CommuteCond: No transformations\n");
 
