@@ -16,6 +16,7 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   AnnotatorCleaner.cpp
   CommuteCond.cpp
   DeleteField.cpp
+  DeleteFieldOP.cpp
   ReorderFields.cpp
   ResolveTypes.cpp
   EliminateROFieldAccess.cpp

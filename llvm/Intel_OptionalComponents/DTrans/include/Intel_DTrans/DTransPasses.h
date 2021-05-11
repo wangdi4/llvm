@@ -31,6 +31,7 @@
 #include "Intel_DTrans/Transforms/CommuteCond.h"
 #include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
 #include "Intel_DTrans/Transforms/DeleteField.h"
+#include "Intel_DTrans/Transforms/DeleteFieldOP.h"
 #include "Intel_DTrans/Transforms/DynClone.h"
 #include "Intel_DTrans/Transforms/EliminateROFieldAccess.h"
 #include "Intel_DTrans/Transforms/MemInitTrimDown.h"
