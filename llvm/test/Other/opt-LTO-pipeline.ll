@@ -266,10 +266,10 @@
 ; CHECK-NEXT:       Combine redundant instructions
 ; CHECK-NEXT:       Demanded bits analysis
 ; CHECK-NEXT:       Bit-Tracking Dead Code Elimination
+; CHECK-NEXT:       Function Alias Analysis Results
 ; CHECK-NEXT:       Optimize scalar/vector ops
 ; CHECK-NEXT:       Scalar Evolution Analysis
 ; CHECK-NEXT:       Alignment from assumptions
-; CHECK-NEXT:       Function Alias Analysis Results
 ; CHECK-NEXT:       Unaligned Nontemporal Store Conversion
 ; CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; CHECK-NEXT:       Function Alias Analysis Results
