@@ -134,4 +134,38 @@ void foo()
     }
   }
 }
+
+// Check that omp.[iv|lb|ub] remain i32 for normal loops and taskloop
+// CHECK-LABEL: @foo2
+void foo2(unsigned int N) {
+// CHECK:    [[DOTOMP_IV:%.omp.iv.*]] = alloca i32, align 4
+// CHECK:    [[DOTOMP_LB:%.omp.lb.*]] = alloca i32, align 4
+// CHECK:    [[DOTOMP_UB:%.omp.ub.*]] = alloca i32, align 4
+// CHECK:    [[I:%i.*]] = alloca i32, align 4
+// CHECK:    [[DOTOMP_IV15:%.omp.iv.*]] = alloca i32, align 4
+// CHECK:    [[DOTOMP_LB16:%.omp.lb.*]] = alloca i32, align 4
+// CHECK:    [[DOTOMP_UB17:%.omp.ub.*]] = alloca i32, align 4
+// CHECK:    [[I22:%i.*]] = alloca i32, align 4
+
+// CHECK: "DIR.OMP.PARALLEL.LOOP"(),
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[DOTOMP_IV]]),
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[DOTOMP_LB]]),
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[DOTOMP_UB]]),
+// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I]]) ]
+// CHECK: "DIR.OMP.END.PARALLEL.LOOP"()
+ #pragma omp parallel for
+ for (int i=0; i<N; i++)
+   foo();
+
+// CHECK: "DIR.OMP.TASKLOOP"(),
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[DOTOMP_IV15]]),
+// CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[DOTOMP_LB16]]),
+// CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[DOTOMP_UB17]]),
+// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I22]]) ]
+// CHECK: "DIR.OMP.END.TASKLOOP"()
+ #pragma omp taskloop
+ for (int i=0; i<N; i++)
+   foo();
+}
+
 // end INTEL_COLLAB
