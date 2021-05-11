@@ -97,8 +97,7 @@
 ; CHECK-GLOBDV: Global variable: arr_mod_mp_a_
 ; CHECK-GLOBDV-NEXT:   LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
 ; CHECK-GLOBDV-NEXT:   Global dope vector result: Pass
-; CHECK-GLOBDV-NEXT:   Dope vector information: Valid
-; CHECK-GLOBDV-NEXT:   Alloc site found: Yes
+; CHECK-GLOBDV-NEXT:   Dope vector analysis result: Pass
 ; CHECK-GLOBDV-NEXT:     [0] Array Pointer: Read
 ; CHECK-GLOBDV-NEXT:     [1] Element size: Written | Constant = i64 288
 ; CHECK-GLOBDV-NEXT:     [2] Co-Dimension: Written | Constant = i64 0
@@ -110,8 +109,7 @@
 ; CHECK-GLOBDV-NEXT:   Nested dope vectors: 3
 
 ; CHECK-FIELD1:    Field[1]: QNCA_a0$float*$rank3$
-; CHECK-FIELD1-NEXT:      Dope vector information: Valid
-; CHECK-FIELD1-NEXT:      Alloc site found: Yes
+; CHECK-FIELD1-NEXT:      Dope vector analysis result: Pass
 ; CHECK-FIELD1-NEXT:        [0] Array Pointer: Read
 ; CHECK-FIELD1-NEXT:        [1] Element size: Written | Constant = i64 4
 ; CHECK-FIELD1-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
@@ -128,8 +126,7 @@
 ; CHECK-FIELD1-NEXT:        [6][2] Lower Bound: Read | Written | Constant = i64 1
 
 ; CHECK-FIELD0:    Field[0]: QNCA_a0$float*$rank2$
-; CHECK-FIELD0-NEXT:      Dope vector information: Valid
-; CHECK-FIELD0-NEXT:      Alloc site found: Yes
+; CHECK-FIELD0-NEXT:      Dope vector analysis result: Pass
 ; CHECK-FIELD0-NEXT:        [0] Array Pointer: Read
 ; CHECK-FIELD0-NEXT:        [1] Element size: Written | Constant = i64 4
 ; CHECK-FIELD0-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
@@ -143,8 +140,7 @@
 ; CHECK-FIELD0-NEXT:        [6][1] Lower Bound: Read | Written | Constant = i64 1
 
 ; CHECK-FIELD2:    Field[2]: QNCA_a0$float*$rank1$
-; CHECK-FIELD2-NEXT:      Dope vector information: Valid
-; CHECK-FIELD2-NEXT:      Alloc site found: Yes
+; CHECK-FIELD2-NEXT:      Dope vector analysis result: Pass
 ; CHECK-FIELD2-NEXT:        [0] Array Pointer: Read
 ; CHECK-FIELD2-NEXT:        [1] Element size: Written | Constant = i64 4
 ; CHECK-FIELD2-NEXT:        [2] Co-Dimension: Written | Constant = i64 0

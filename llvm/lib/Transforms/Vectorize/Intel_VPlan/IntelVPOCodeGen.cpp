@@ -1694,10 +1694,8 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
         ShuffleMask.push_back(Lane * GroupSize + Offset + Part);
 
     auto *WideValue = getScalarValue(Extract->getOperand(0), 0);
-    auto *ExtractedData =
+    auto *Result =
         Builder.CreateShuffleVector(WideValue, WideValue, ShuffleMask);
-    auto *ResultType = getWidenedType(Extract->getType(), VF);
-    auto *Result = Builder.CreateBitCast(ExtractedData, ResultType);
     Result->setName(Extract->getName());
     VPWidenMap[Extract] = Result;
     return;
@@ -1712,12 +1710,8 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
 
     auto NumEltsPerValue = Insert->getNumGroupEltsPerValue();
     auto *GroupType = cast<VectorType>(Insert->getOperand(0)->getType());
-    Type *GroupEltType = GroupType->getElementType();
     auto NumEltsInGroup = GroupType->getNumElements();
-    auto *Casted = Builder.CreateBitCast(
-        ValueToInsert, getWidenedType(GroupEltType, VF * NumEltsPerValue));
-
-    auto *CastedExtended = extendVector(Casted, NumEltsInGroup, Builder);
+    auto *CastedExtended = extendVector(ValueToInsert, NumEltsInGroup, Builder);
 
     auto Offset = Insert->getOffset();
     auto GroupSize = Insert->getGroupSize();

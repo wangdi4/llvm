@@ -188,7 +188,7 @@ private:
   CallInst *insertKmpSetBlocktimeCall();
   int64_t computeTransposedOffset(int64_t Idx);
   bool checkConstantMulExpr(const SCEV *, int64_t &, const SCEV *&);
-  bool parseSCEVSignExtExpr(const SCEV *, int64_t &, const SCEV *&);
+  bool parseSCEVSignZeroExtExpr(const SCEV *, int64_t &, const SCEV *&);
   bool parseSCEVExprs(const SCEV *, SmallVectorImpl<int64_t> &,
                       SmallVectorImpl<const Loop *> &, SmallSet<int64_t, 4> &,
                       SmallSet<int64_t, 2> &, SmallSet<int64_t, 1> &,
@@ -207,6 +207,8 @@ private:
   const SCEV *fixSCEVAddRecExpr(const SCEV *, const SCEV *, ScalarEvolution &);
   const SCEV *fixSCEVAddExpr(const SCEV *, const SCEV *, ScalarEvolution &);
   const SCEV *fixSCEVMulExpr(const SCEV *S, ScalarEvolution &SE);
+  const SCEV *fixSCEVMulSignZeroExpr(const SCEV *, const SCEV *,
+                                     ScalarEvolution &SE);
   const SCEV *fixSCEVExpr(const SCEV *, const SCEV *, ScalarEvolution &);
   const SCEV *fixUnoptimizedSCEVExpr(const SCEV *, const SCEV *,
                                      ScalarEvolution &);
@@ -781,26 +783,33 @@ bool ArrayTransposeImpl::checkConstantMulExpr(const SCEV *SC, int64_t &CVal,
   return true;
 }
 
-// Returns true if "SC" is in "Constant * SExt(some_expr)" format when
-// "some_expr" is not terminal.
-// SignExtOp is updated with "some_expr" and CVal is updated with the constant
-// value.
+// Returns true if "SC" is in "Constant * SExt(some_expr)"  or "Constant *
+// ZExt(some_expr)" format when "some_expr" is not terminal. SignZeroExtOp is
+// updated with "some_expr" and CVal is updated with the constant value.
 //  Ex:    (8 * (sext i32 (20 * %10)))
-bool ArrayTransposeImpl::parseSCEVSignExtExpr(const SCEV *SC, int64_t &CVal,
-                                              const SCEV *&SignExtOp) {
+//         (8 * (zext i32 (20 * %10)))
+bool ArrayTransposeImpl::parseSCEVSignZeroExtExpr(const SCEV *SC, int64_t &CVal,
+                                                  const SCEV *&SignZeroExtOp) {
   int64_t MulVal;
   const SCEV *MulOp;
   if (!checkConstantMulExpr(SC, MulVal, MulOp))
     return false;
-  auto SignExt = dyn_cast<SCEVSignExtendExpr>(MulOp);
-  if (!SignExt)
+  if (auto SignExt = dyn_cast<SCEVSignExtendExpr>(MulOp)) {
+    // Don't need to treat it as special SignExtend expression if operand
+    // is terminal.
+    // Ex: (8 * (sext i32 %11))
+    if (isa<SCEVUnknown>(SignExt->getOperand()))
+      return false;
+    SignZeroExtOp = SignExt->getOperand();
+  } else if (auto ZeroExt = dyn_cast<SCEVZeroExtendExpr>(MulOp)) {
+    // Don't need to treat it as special ZeroExtend expression if operand
+    // is terminal.
+    if (isa<SCEVUnknown>(ZeroExt->getOperand()))
+      return false;
+    SignZeroExtOp = ZeroExt->getOperand();
+  } else {
     return false;
-  // Don't need to treat it as special SignExtend expression if operand
-  // is terminal.
-  // Ex: (8 * (sext i32 %11))
-  if (isa<SCEVUnknown>(SignExt->getOperand()))
-    return false;
-  SignExtOp = SignExt->getOperand();
+  }
   CVal = MulVal;
   return true;
 }
@@ -820,7 +829,7 @@ bool ArrayTransposeImpl::parseAddRecSCEVExprs(
     const SCEV *S, SmallVectorImpl<int64_t> &Strides,
     SmallVectorImpl<const Loop *> &Loops, SmallSet<int64_t, 4> &AllConstExprs,
     SmallSet<int64_t, 2> &AllUnscaledMultipliers,
-    SmallSet<int64_t, 1> &SignExtMultipliers, const SCEV *Base,
+    SmallSet<int64_t, 1> &SignZeroExtMultipliers, const SCEV *Base,
     ScalarEvolution &SE) {
 
   // Returns true if "S" is in one of the below formats.
@@ -845,10 +854,10 @@ bool ArrayTransposeImpl::parseAddRecSCEVExprs(
       int64_t MulVal;
       const SCEV *NewOp = Op;
       int64_t ScaleV = 1;
-      if (parseSCEVSignExtExpr(Op, MulVal, NewOp)) {
-        // The constant is added to "SignExtMultipliers". Later, we will verify
-        // that the constant is equal to "MaxElemSize".
-        SignExtMultipliers.insert(MulVal);
+      if (parseSCEVSignZeroExtExpr(Op, MulVal, NewOp)) {
+        // The constant is added to "SignZeroExtMultipliers". Later, we will
+        // verify that the constant is equal to "MaxElemSize".
+        SignZeroExtMultipliers.insert(MulVal);
         ScaleV = MulVal;
       }
       // Only MulExpr is allowed as operand of SignExt.
@@ -890,8 +899,8 @@ bool ArrayTransposeImpl::parseAddRecSCEVExprs(
     return true;
   }
   return parseAddRecSCEVExprs(StartS, Strides, Loops, AllConstExprs,
-                              AllUnscaledMultipliers, SignExtMultipliers, Base,
-                              SE);
+                              AllUnscaledMultipliers, SignZeroExtMultipliers,
+                              Base, SE);
 }
 
 // Due to SExt in IR, SCEV expressions may not be optimized. Until SExt
@@ -919,7 +928,7 @@ bool ArrayTransposeImpl::parseUnoptimizedSCEVExprs(
     const SCEV *S, SmallVectorImpl<int64_t> &Strides,
     SmallVectorImpl<const Loop *> &Loops, SmallSet<int64_t, 4> &AllConstExprs,
     SmallSet<int64_t, 2> &AllUnscaledMultipliers,
-    SmallSet<int64_t, 1> &SignExtMultipliers, const SCEV *Base,
+    SmallSet<int64_t, 1> &SignZeroExtMultipliers, const SCEV *Base,
     ScalarEvolution &SE) {
 
   std::function<bool(const SCEV *, int64_t)> ParseScaledAddRecExpr;
@@ -1006,16 +1015,16 @@ bool ArrayTransposeImpl::parseUnoptimizedSCEVExprs(
   if (!A)
     return false;
   int64_t CVal;
-  const SCEV *SignExtOp;
+  const SCEV *SignZeroExtOp;
   for (const SCEV *S1 : A->operands()) {
     // Allow only base pointer and constants here.
     if (S1 == Base || isa<SCEVConstant>(S1))
       continue;
     // Allow "MaxElemSize * SExt (some_expr)" only at the top level
     // of SCEV expression tree.
-    if (parseSCEVSignExtExpr(S1, CVal, SignExtOp)) {
-      SignExtMultipliers.insert(CVal);
-      return ParseScaledExpr(SignExtOp, CVal);
+    if (parseSCEVSignZeroExtExpr(S1, CVal, SignZeroExtOp)) {
+      SignZeroExtMultipliers.insert(CVal);
+      return ParseScaledExpr(SignZeroExtOp, CVal);
     }
 
     return ParseScaledExpr(S1, 1);
@@ -1027,16 +1036,16 @@ bool ArrayTransposeImpl::parseSCEVExprs(
     const SCEV *S, SmallVectorImpl<int64_t> &Strides,
     SmallVectorImpl<const Loop *> &Loops, SmallSet<int64_t, 4> &AllConstExprs,
     SmallSet<int64_t, 2> &AllUnscaledMultipliers,
-    SmallSet<int64_t, 1> &SignExtMultipliers, const SCEV *Base,
+    SmallSet<int64_t, 1> &SignZeroExtMultipliers, const SCEV *Base,
     ScalarEvolution &SE) {
   if (isa<SCEVAddRecExpr>(S))
     return parseAddRecSCEVExprs(S, Strides, Loops, AllConstExprs,
-                                AllUnscaledMultipliers, SignExtMultipliers,
+                                AllUnscaledMultipliers, SignZeroExtMultipliers,
                                 Base, SE);
 
   return parseUnoptimizedSCEVExprs(S, Strides, Loops, AllConstExprs,
-                                   AllUnscaledMultipliers, SignExtMultipliers,
-                                   Base, SE);
+                                   AllUnscaledMultipliers,
+                                   SignZeroExtMultipliers, Base, SE);
 }
 
 // Check all memory references for legality issues using SCEV.
@@ -1084,11 +1093,11 @@ bool ArrayTransposeImpl::validateAllMemRefs() {
   SmallSet<int64_t, 2> AllUnscaledMultipliers;
 
   // Collection of all constant multipliers of SExt expressions.
-  // Ex: 8 will be collected in "SignExtMultipliers" for below example.
+  // Ex: 8 will be collected in "SignZeroExtMultipliers" for below example.
   // We will make sure the value of the constant is equal to "MaxElemSize".
   //  (8 * (sext i32 (some_expr)))
   //
-  SmallSet<int64_t, 1> SignExtMultipliers;
+  SmallSet<int64_t, 1> SignZeroExtMultipliers;
 
   for (auto Pair : FunctionMemRefs) {
     Function *F = Pair.first;
@@ -1121,7 +1130,7 @@ bool ArrayTransposeImpl::validateAllMemRefs() {
       SmallVector<int64_t, 4> Strides;
       LLVM_DEBUG(dbgs() << "Processing SCEVExpr: " << *SC << "\n");
       if (!parseSCEVExprs(SC, Strides, Loops, AllConstExprs,
-                          AllUnscaledMultipliers, SignExtMultipliers, Base,
+                          AllUnscaledMultipliers, SignZeroExtMultipliers, Base,
                           SE) ||
           Strides.size() < 1) {
         LLVM_DEBUG(dbgs() << "    Index expr is complex to process: " << *SC
@@ -1187,8 +1196,8 @@ bool ArrayTransposeImpl::validateAllMemRefs() {
     dbgs() << "\n";
   });
   LLVM_DEBUG({
-    dbgs() << "    All SExt constant multipliers: \n";
-    for (auto CE : SignExtMultipliers)
+    dbgs() << "    All SExt/ZExt constant multipliers: \n";
+    for (auto CE : SignZeroExtMultipliers)
       dbgs() << "          " << CE << " ";
     dbgs() << "\n";
   });
@@ -1232,10 +1241,10 @@ bool ArrayTransposeImpl::validateAllMemRefs() {
     }
   }
   // Check that constant multiplier of SExt is equal to MaxElemSize.
-  for (auto CE : SignExtMultipliers) {
+  for (auto CE : SignZeroExtMultipliers) {
     if (CE != MaxElemSize) {
       LLVM_DEBUG(
-          dbgs() << "    SExt multiplier is not equal to MaxElemSize \n");
+          dbgs() << "    SExt/ZExt multiplier is not equal to MaxElemSize \n");
       return false;
     }
   }
@@ -1317,6 +1326,28 @@ const SCEV *ArrayTransposeImpl::fixSCEVMulExpr(const SCEV *S,
   return SE.getMulExpr(Ops);
 }
 
+// Converts the given expression "S" from "Mul Op0, (Sext some_expr)" to
+// "Mul Op0, (SExt NewSignExtOp)".
+const SCEV *ArrayTransposeImpl::fixSCEVMulSignZeroExpr(const SCEV *S,
+                                                       const SCEV *NewSignExtOp,
+                                                       ScalarEvolution &SE) {
+  SmallVector<const SCEV *, 4> MulOps;
+  assert(isa<SCEVMulExpr>(S) && "Unexpected SCEV Expr");
+  auto Mul = cast<SCEVMulExpr>(S);
+  MulOps.push_back(Mul->getOperand(0));
+  const SCEV *MulOp1 = Mul->getOperand(1);
+  assert((isa<SCEVSignExtendExpr>(MulOp1) || isa<SCEVZeroExtendExpr>(MulOp1)) &&
+         "Unexpected SCEV expression");
+  if (isa<SCEVSignExtendExpr>(MulOp1)) {
+    auto SignExt = cast<SCEVSignExtendExpr>(MulOp1);
+    MulOps.push_back(SE.getSignExtendExpr(NewSignExtOp, SignExt->getType()));
+  } else {
+    auto ZeroExt = cast<SCEVZeroExtendExpr>(MulOp1);
+    MulOps.push_back(SE.getZeroExtendExpr(NewSignExtOp, ZeroExt->getType()));
+  }
+  return SE.getMulExpr(MulOps);
+}
+
 // This routine returns new AddExpr by fixing the given Constant/AddExpr "S" to
 // represent transposed memory access. No change is needed to the "BasePtr",
 // which is in "MallocPtrIncrAliases". Only constant and constant expressions
@@ -1349,24 +1380,18 @@ const SCEV *ArrayTransposeImpl::fixSCEVAddExpr(const SCEV *S,
       } else {
         int64_t MulVal;
         const SCEV *SignExtOp;
-        if (!parseSCEVSignExtExpr(S, MulVal, SignExtOp)) {
+        if (!parseSCEVSignZeroExtExpr(S, MulVal, SignExtOp)) {
           Ops.push_back(fixSCEVMulExpr(S, SE));
           continue;
         }
-        // Convert special SignExt.
+        // Convert special SignExt or ZeroExt.
         //  Before:  (8 * sext (20 * %11))
         //  After:   (8 * sext (%11))
 
         // We already proved that it is in "MaxElemSize * sext (Const * expr)"
         // pattern. So, we just divide "Const" by "TransposedNumCols".
         const SCEV *NewSignExtOp = fixSCEVMulExpr(SignExtOp, SE);
-        SmallVector<const SCEV *, 4> MulOps;
-        auto Mul = cast<SCEVMulExpr>(S);
-        auto SignExt = cast<SCEVSignExtendExpr>(Mul->getOperand(1));
-        MulOps.push_back(Mul->getOperand(0));
-        MulOps.push_back(
-            SE.getSignExtendExpr(NewSignExtOp, SignExt->getType()));
-        Ops.push_back(SE.getMulExpr(MulOps));
+        Ops.push_back(fixSCEVMulSignZeroExpr(S, NewSignExtOp, SE));
       }
     }
   }
@@ -1457,18 +1482,6 @@ const SCEV *ArrayTransposeImpl::fixUnoptimizedSCEVExpr(const SCEV *S,
                           TransposedOffset * MaxElemSize / ScaledV);
   };
 
-  // Fix SExt expressions like "8 * SExt()".
-  auto FixSignExtExpr = [&](const SCEV *S, int64_t ScaledV,
-                            const SCEV *SignExtOp) {
-    const SCEV *NewSignExtOp = FixScaledExpr(SignExtOp, ScaledV);
-    SmallVector<const SCEV *, 4> MulOps;
-    auto Mul = cast<SCEVMulExpr>(S);
-    auto SignExt = cast<SCEVSignExtendExpr>(Mul->getOperand(1));
-    MulOps.push_back(Mul->getOperand(0));
-    MulOps.push_back(SE.getSignExtendExpr(NewSignExtOp, SignExt->getType()));
-    return SE.getMulExpr(MulOps);
-  };
-
   // Fix SCEVAdd expression.
   auto FixScaledAdd = [&](const SCEV *SC, int64_t ScaledV) {
     SmallVector<const SCEV *, 4> Ops;
@@ -1521,14 +1534,17 @@ const SCEV *ArrayTransposeImpl::fixUnoptimizedSCEVExpr(const SCEV *S,
   const SCEV *SignExtOp;
   // Fix top level expression tree.
   for (const SCEV *S1 : A->operands())
-    if (S1 == BasePtr)
+    if (S1 == BasePtr) {
       Ops.push_back(S1);
-    else if (auto StartC = dyn_cast<SCEVConstant>(S1))
+    } else if (auto StartC = dyn_cast<SCEVConstant>(S1)) {
       Offset += StartC->getAPInt().getSExtValue();
-    else if (parseSCEVSignExtExpr(S1, MulVal, SignExtOp))
-      Ops.push_back(FixSignExtExpr(S1, MulVal, SignExtOp));
-    else
+    } else if (parseSCEVSignZeroExtExpr(S1, MulVal, SignExtOp)) {
+      // Fix SExt/ZExt expressions like "8 * SExt()".
+      const SCEV *NewSignZeroExtOp = FixScaledExpr(SignExtOp, MulVal);
+      Ops.push_back(fixSCEVMulSignZeroExpr(S1, NewSignZeroExtOp, SE));
+    } else {
       Ops.push_back(FixScaledExpr(S1, 1));
+    }
 
   // Invoking fixSCEVConst here to add displacement of base pointer to the
   // original malloc allocation.

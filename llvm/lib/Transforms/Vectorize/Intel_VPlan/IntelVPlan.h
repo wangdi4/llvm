@@ -3328,8 +3328,8 @@ public:
   /// \p WideVal - the wide value containing data from multiple original loads.
   /// Normally produced by the VPVLSLoad instruction, but that isn't enforced.
   ///
-  /// \p Ty - type of the data being extracted to match the original load that
-  /// has been VLS-optimized.
+  /// \p Ty - type of the data being extracted. Must have the same element type
+  /// that \p WideVal has, but will be of smaller size.
   ///
   /// \p GroupSize - Size of the VLS Group in terms of \p WideVal's element type.
   ///
@@ -3337,7 +3337,10 @@ public:
   /// WideVal's element type.
   VPVLSExtract(VPValue *WideVal, Type *Ty, int GroupSize, int Offset)
       : VPInstruction(VPInstruction::VLSExtract, Ty, {WideVal}),
-        GroupSize(GroupSize), Offset(Offset) {}
+        GroupSize(GroupSize), Offset(Offset) {
+    assert(WideVal->getType()->getScalarType() == Ty->getScalarType() &&
+           "Type cast must be explicit in VLS transformation!");
+  }
 
   int getGroupSize() const { return GroupSize; }
   int getOffset() const { return Offset; }
@@ -3374,7 +3377,7 @@ public:
   /// another VPVLSInsert instruction.
   ///
   /// \p Element - data corresponding to an element of the group to be inserted
-  /// into \p WideVal.
+  /// into \p WideVal. It must have the same element type as \p WideVal.
   ///
   /// \p GroupSize - Size of the VLS Group in terms of \p WideVal's element type.
   ///
@@ -3383,7 +3386,11 @@ public:
   VPVLSInsert(VPValue *WideVal, VPValue *Element, int GroupSize, int Offset)
       : VPInstruction(VPInstruction::VLSInsert, WideVal->getType(),
                       {WideVal, Element}),
-        GroupSize(GroupSize), Offset(Offset) {}
+        GroupSize(GroupSize), Offset(Offset) {
+    assert(WideVal->getType()->getScalarType() ==
+               Element->getType()->getScalarType() &&
+           "Type cast must be explicit in VLS transformation!");
+  }
 
   int getGroupSize() const { return GroupSize; }
   int getOffset() const { return Offset; }

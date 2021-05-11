@@ -1455,6 +1455,10 @@ static unsigned int assignSLMOffset(Module &M) {
       auto DTy = GV.getValueType();
       auto BufferSize = static_cast<size_t>(DL->getTypeAllocSize(DTy));
       auto align = GV.getAlignment();
+      if (align == 0) {
+        int EltBytes = DTy->getScalarType()->getPrimitiveSizeInBits()/8;
+        align = (EltBytes > 0 && EltBytes < 8) ? EltBytes : 8;
+      }
       SLMSize = ((SLMSize + align - 1) / align) * align;
       if (!GV.hasAttribute(GENX_SLM_OFFSET))
         GV.addAttribute(GENX_SLM_OFFSET, std::to_string(SLMSize));

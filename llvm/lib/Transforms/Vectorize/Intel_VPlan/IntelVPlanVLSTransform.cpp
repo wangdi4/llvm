@@ -30,12 +30,21 @@ static LoopVPlanDumpControl VLSDumpControl("vls",
 /// E.g. for %struct = type <{ i32, i16, double }>, and the group consisting of
 /// i32 and double accesses only (i.e. with a gap), this routine should return
 /// {i16, 2+1+4=7}.
+///
+/// However, current VLSAnalysis implementation isn't able to support such
+/// generic cases and the transformation code exploits some of those limitation.
+/// As such, the transformation itself (caller of this routine) has it's own
+/// bailout. Note that some parts of the code are written in a way that would
+/// work when such limitation are lifted yet others still rely on it.
 static std::pair<Type *, int> getGroupGranularity(OVLSGroup *Group,
                                                   const DataLayout &DL) {
   Type *SomeLoadType = instruction(*Group->begin())->getValueType();
   Type *Result = SomeLoadType;
   for (const VPLoadStoreInst *MemrefInst : instructions(Group)) {
     auto *MemrefType = MemrefInst->getValueType();
+    assert(DL.getTypeSizeInBits(Result) == DL.getTypeSizeInBits(MemrefType) &&
+           "Generic support isn't fully implemented yet (GroupSize).");
+    // TODO: Support for gaps, including gap size less than any element
 
     if (DL.getTypeSizeInBits(Result) > DL.getTypeSizeInBits(MemrefType)) {
       Result = MemrefType;
@@ -62,10 +71,66 @@ static std::pair<Type *, int> getGroupGranularity(OVLSGroup *Group,
     Result = IntegerType::getIntNTy(Result->getContext(),
                                     DL.getTypeSizeInBits(Result));
 
+  // AddrSpaceCast can be a no-op cast or a complex value modification,
+  // depending on the target and the address space pair.
+  //
+  // We do require a no-op casting so have to go through non-pointer type. Might
+  // as well require it to be the group granularity type here.
+  if (auto *PtrTy = dyn_cast<PointerType>(Result))
+    if (any_of(instructions(Group), [AS = PtrTy->getAddressSpace()](
+                                        const VPLoadStoreInst *MemrefInst) {
+          auto *Ty = dyn_cast<PointerType>(MemrefInst->getValueType());
+          return Ty && Ty->getAddressSpace() != AS;
+        })) {
+      Result = IntegerType::getIntNTy(Result->getContext(),
+                                      DL.getTypeSizeInBits(Result));
+    }
+
   int GroupSize = DL.getTypeSizeInBits(SomeLoadType) * Group->size() /
                   DL.getTypeSizeInBits(Result);
 
   return {Result, GroupSize};
+}
+
+static VPValue *createVLSCast(VPBuilder &Builder, VPValue *From, Type *ToTy) {
+  auto *FromTy = From->getType();
+  if (FromTy == ToTy)
+    return From;
+
+  auto IsFromPtr = isa<PointerType>(FromTy);
+  auto IsToPtr = isa<PointerType>(ToTy);
+
+  if (!IsFromPtr && !IsToPtr)
+    return Builder.createNaryOp(Instruction::BitCast, ToTy, {From});
+
+  if (IsFromPtr && IsToPtr) {
+    assert(cast<PointerType>(FromTy)->getAddressSpace() ==
+               cast<PointerType>(ToTy)->getAddressSpace() &&
+           "Groups consisting of pointers to different addrspaces should be "
+           "loaded/stored as non-pointer data!");
+    return Builder.createNaryOp(Instruction::BitCast, ToTy, {From});
+  }
+
+  if (IsFromPtr) {
+    if (isa<IntegerType>(ToTy))
+      return Builder.createNaryOp(Instruction::PtrToInt, ToTy, {From});
+
+    Type *IntermediateType =
+        Type::getIntNTy(ToTy->getContext(), ToTy->getPrimitiveSizeInBits());
+    return Builder.createNaryOp(
+        Instruction::BitCast, ToTy,
+        {Builder.createNaryOp(Instruction::PtrToInt, IntermediateType,
+                              {From})});
+  }
+
+  if (isa<IntegerType>(FromTy))
+    return Builder.createNaryOp(Instruction::IntToPtr, ToTy, {From});
+
+  Type *IntermediateType =
+      Type::getIntNTy(FromTy->getContext(), FromTy->getPrimitiveSizeInBits());
+  return Builder.createNaryOp(
+      Instruction::IntToPtr, ToTy,
+      {Builder.createNaryOp(Instruction::BitCast, IntermediateType, {From})});
 }
 
 static std::pair<VPVLSLoad *, unsigned /*Size*/>
@@ -167,6 +232,18 @@ bool llvm::vpo::isTransformableVLSGroup(OVLSGroup *Group) {
   return true;
 }
 
+static Type *getExtractInsertEltType(VPValue *GroupValue, Type *EltType,
+                                     const DataLayout &DL) {
+  auto *GroupTy = cast<FixedVectorType>(GroupValue->getType());
+  auto *GroupEltTy = GroupTy->getElementType();
+  auto NumGroupEltsPerValue = getNumGroupEltsPerValue(DL, GroupTy,
+                                                      EltType);
+  if (NumGroupEltsPerValue == 1)
+    return GroupEltTy;
+
+  return FixedVectorType::get(GroupEltTy, NumGroupEltsPerValue);
+}
+
 // Small example:
 //   ; =================== Original VPlan ====================
 //   ; <{ i32, i16, i64 }> size 14 bytes, or 7 i16 elements, VF = 4
@@ -222,13 +299,18 @@ void llvm::vpo::applyVLSTransform(VPlan &Plan, VPlanVLSAnalysis &VLSA,
                "InterleaveIndex must be less than InterleaveFactor");
         assert(InterleaveFactor != 1 &&
                "No transformation for unit-strided loads is expected!");
+
+        auto ExtractTy =
+          getExtractInsertEltType(WideLoad, OrigLoad->getType(), DL);
         // We only support same-size elements.
         auto *Extract = Builder.create<VPVLSExtract>(
-            OrigLoad->getName(), WideLoad, OrigLoad->getType(), Size,
+            OrigLoad->getName(), WideLoad, ExtractTy, Size,
             InterleaveIndex * getNumGroupEltsPerValue(DL, WideLoad->getType(),
                                                       OrigLoad->getType()));
-        Extract->setDebugLocation(OrigLoad->getDebugLocation());
-        OrigLoad->replaceAllUsesWith(Extract);
+        auto *ExtractCast = cast<VPInstruction>(
+            createVLSCast(Builder, Extract, OrigLoad->getType()));
+        ExtractCast->setDebugLocation(OrigLoad->getDebugLocation());
+        OrigLoad->replaceAllUsesWith(ExtractCast);
         InstsToRemove.insert(OrigLoad);
       }
       continue;
@@ -256,8 +338,10 @@ void llvm::vpo::applyVLSTransform(VPlan &Plan, VPlanVLSAnalysis &VLSA,
       auto *Store = const_cast<VPLoadStoreInst *>(instruction(Memref));
       InstsToRemove.insert(Store);
       VPValue *V = Store->getOperand(0);
+      Type *InsertTy = getExtractInsertEltType(WideValue, V->getType(), DL);
+      auto *Casted = createVLSCast(Builder, V, InsertTy);
       WideValue = Builder.create<VPVLSInsert>(
-          "vls.insert", WideValue, V, Size,
+          "vls.insert", WideValue, Casted, Size,
           InterleaveIndex * getNumGroupEltsPerValue(DL, GroupTy, V->getType()));
       Plan.getVPlanDA()->markUniform(*WideValue);
     }

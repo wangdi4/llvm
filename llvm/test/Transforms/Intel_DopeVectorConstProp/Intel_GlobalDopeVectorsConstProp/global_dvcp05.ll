@@ -148,8 +148,7 @@
 ; CHECK-GLOBDV-A: Global variable: arr_mod_mp_a_
 ; CHECK-GLOBDV-A-NEXT:  LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
 ; CHECK-GLOBDV-A-NEXT:  Global dope vector result: Pass
-; CHECK-GLOBDV-A-NEXT:  Dope vector information: Valid
-; CHECK-GLOBDV-A-NEXT:  Alloc site found: Yes
+; CHECK-GLOBDV-A-NEXT:  Dope vector analysis result: Pass
 ; CHECK-GLOBDV-A-NEXT:    [0] Array Pointer: Read
 ; CHECK-GLOBDV-A-NEXT:    [1] Element size: Written | Constant = i64 288
 ; CHECK-GLOBDV-A-NEXT:    [2] Co-Dimension: Written | Constant = i64 0
@@ -161,24 +160,22 @@
 ; CHECK-GLOBDV-A-NEXT:  Nested dope vectors: 3
 
 ; CHECK-FIELD2-A:    Field[2]: QNCA_a0$float*$rank1$
-; CHECK-FIELD2-A-NEXT:      Dope vector information: Valid
-; CHECK-FIELD2-A-NEXT:      Alloc site found: Yes
+; CHECK-FIELD2-A-NEXT:      Dope vector analysis result: Pass
 ; CHECK-FIELD2-A-NEXT:        [0] Array Pointer: Read
 ; CHECK-FIELD2-A-NEXT:        [1] Element size: Written | Constant = i64 4
 ; CHECK-FIELD2-A-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-FIELD2-A-NEXT:        [3] Flags: Written | Constant = i64 1073741829
+; CHECK-FIELD2-A-NEXT:        [3] Flags: Written
 ; CHECK-FIELD2-A-NEXT:        [4] Dimensions: Written | Constant = i64 1
 ; CHECK-FIELD2-A-NEXT:        [6][0] Extent: Written | Constant = i64 10
 ; CHECK-FIELD2-A-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
 ; CHECK-FIELD2-A-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
 
 ; CHECK-FIELD0-A:    Field[0]: QNCA_a0$float*$rank2$
-; CHECK-FIELD0-A-NEXT:      Dope vector information: Valid
-; CHECK-FIELD0-A-NEXT:      Alloc site found: Yes
+; CHECK-FIELD0-A-NEXT:      Dope vector analysis result: Pass
 ; CHECK-FIELD0-A-NEXT:        [0] Array Pointer: Read
 ; CHECK-FIELD0-A-NEXT:        [1] Element size: Written | Constant = i64 4
 ; CHECK-FIELD0-A-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-FIELD0-A-NEXT:        [3] Flags: Written | Constant = i64 1073741829
+; CHECK-FIELD0-A-NEXT:        [3] Flags: Written
 ; CHECK-FIELD0-A-NEXT:        [4] Dimensions: Written | Constant = i64 2
 ; CHECK-FIELD0-A-NEXT:        [6][0] Extent: Written | Constant = i64 10
 ; CHECK-FIELD0-A-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
@@ -188,12 +185,11 @@
 ; CHECK-FIELD0-A-NEXT:        [6][1] Lower Bound: Read | Written | Constant = i64 1
 
 ; CHECK-FIELD1-A:    Field[1]: QNCA_a0$float*$rank3$
-; CHECK-FIELD1-A-NEXT:      Dope vector information: Valid
-; CHECK-FIELD1-A-NEXT:      Alloc site found: Yes
+; CHECK-FIELD1-A-NEXT:      Dope vector analysis result: Pass
 ; CHECK-FIELD1-A-NEXT:        [0] Array Pointer: Read
 ; CHECK-FIELD1-A-NEXT:        [1] Element size: Written | Constant = i64 4
 ; CHECK-FIELD1-A-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-FIELD1-A-NEXT:        [3] Flags: Written | Constant = i64 1073741829
+; CHECK-FIELD1-A-NEXT:        [3] Flags: Written
 ; CHECK-FIELD1-A-NEXT:        [4] Dimensions: Written | Constant = i64 3
 ; CHECK-FIELD1-A-NEXT:        [6][0] Extent: Written | Constant = i64 10
 ; CHECK-FIELD1-A-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
@@ -208,8 +204,7 @@
 ; CHECK-GLOBDV-B: Global variable: arr_mod_mp_b_
 ; CHECK-GLOBDV-B-NEXT:  LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
 ; CHECK-GLOBDV-B-NEXT:  Global dope vector result: Pass
-; CHECK-GLOBDV-B-NEXT:  Dope vector information: Valid
-; CHECK-GLOBDV-B-NEXT:  Alloc site found: Yes
+; CHECK-GLOBDV-B-NEXT:  Dope vector analysis result: Pass
 ; CHECK-GLOBDV-B-NEXT:    [0] Array Pointer: Read
 ; CHECK-GLOBDV-B-NEXT:    [1] Element size: Written | Constant = i64 288
 ; CHECK-GLOBDV-B-NEXT:    [2] Co-Dimension: Written | Constant = i64 0
@@ -221,24 +216,22 @@
 ; CHECK-GLOBDV-B-NEXT:  Nested dope vectors: 3
 
 ; CHECK-FIELD2-B:    Field[2]: QNCA_a0$float*$rank1$
-; CHECK-FIELD2-B-NEXT:      Dope vector information: Valid
-; CHECK-FIELD2-B-NEXT:      Alloc site found: Yes
+; CHECK-FIELD2-B-NEXT:      Dope vector analysis result: Pass
 ; CHECK-FIELD2-B-NEXT:        [0] Array Pointer: Read
 ; CHECK-FIELD2-B-NEXT:        [1] Element size: Written | Constant = i64 4
 ; CHECK-FIELD2-B-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-FIELD2-B-NEXT:        [3] Flags: Written | Constant = i64 1073741829
+; CHECK-FIELD2-B-NEXT:        [3] Flags: Written
 ; CHECK-FIELD2-B-NEXT:        [4] Dimensions: Written | Constant = i64 1
 ; CHECK-FIELD2-B-NEXT:        [6][0] Extent: Written | Constant = i64 10
 ; CHECK-FIELD2-B-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
 ; CHECK-FIELD2-B-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
 
 ; CHECK-FIELD1-B:    Field[1]: QNCA_a0$float*$rank3$
-; CHECK-FIELD1-B-NEXT:      Dope vector information: Valid
-; CHECK-FIELD1-B-NEXT:      Alloc site found: Yes
+; CHECK-FIELD1-B-NEXT:      Dope vector analysis result: Pass
 ; CHECK-FIELD1-B-NEXT:        [0] Array Pointer: Read
 ; CHECK-FIELD1-B-NEXT:        [1] Element size: Written | Constant = i64 4
 ; CHECK-FIELD1-B-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-FIELD1-B-NEXT:        [3] Flags: Written | Constant = i64 1073741829
+; CHECK-FIELD1-B-NEXT:        [3] Flags: Written
 ; CHECK-FIELD1-B-NEXT:        [4] Dimensions: Written | Constant = i64 3
 ; CHECK-FIELD1-B-NEXT:        [6][0] Extent: Written | Constant = i64 10
 ; CHECK-FIELD1-B-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
@@ -251,12 +244,11 @@
 ; CHECK-FIELD1-B-NEXT:        [6][2] Lower Bound: Read | Written | Constant = i64 1
 
 ; CHECK-FIELD0-B:    Field[0]: QNCA_a0$float*$rank2$
-; CHECK-FIELD0-B-NEXT:      Dope vector information: Valid
-; CHECK-FIELD0-B-NEXT:      Alloc site found: Yes
+; CHECK-FIELD0-B-NEXT:      Dope vector analysis result: Pass
 ; CHECK-FIELD0-B-NEXT:        [0] Array Pointer: Read
 ; CHECK-FIELD0-B-NEXT:        [1] Element size: Written | Constant = i64 4
 ; CHECK-FIELD0-B-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-FIELD0-B-NEXT:        [3] Flags: Written | Constant = i64 1073741829
+; CHECK-FIELD0-B-NEXT:        [3] Flags: Written
 ; CHECK-FIELD0-B-NEXT:        [4] Dimensions: Written | Constant = i64 2
 ; CHECK-FIELD0-B-NEXT:        [6][0] Extent: Written | Constant = i64 10
 ; CHECK-FIELD0-B-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
