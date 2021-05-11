@@ -17,25 +17,13 @@
 
 ; These passes should not be enabled at -O0
 
-; CHECK-NEWPM-O0: Starting llvm::Module pass manager run.
-; CHECK-NEWPM-O0-NOT: Starting llvm::Function pass manager run.
 ; CHECK-NEWPM-O0-NOT: Running pass: FunctionRecognizerPass on foo
-; CHECK-NEWPM-O0-NOT: Finished llvm::Function pass manager run.
-; CHECK-NEWPM-O0-NOT: Starting llvm::Function pass manager run.
 ; CHECK-NEWPM-O0-NOT: Running pass: FunctionRecognizerPass on main
-; CHECK-NEWPM-O0-NOT: Finished llvm::Function pass manager run.
-; CHECK-NEWPM-O0: Finished llvm::Module pass manager run.
 
 ; These passes should be enabled at optimization levels over -O0
 
-; CHECK-NEWPM-O123: Starting llvm::Module pass manager run.
-; CHECK-NEWPM-O123: Starting llvm::Function pass manager run.
 ; CHECK-NEWPM-O123: Running pass: FunctionRecognizerPass on foo
-; CHECK-NEWPM-O123: Finished llvm::Function pass manager run.
-; CHECK-NEWPM-O123: Starting llvm::Function pass manager run.
 ; CHECK-NEWPM-O123: Running pass: FunctionRecognizerPass on main
-; CHECK-NEWPM-O123: Finished llvm::Function pass manager run.
-; CHECK-NEWPM-O123: Finished llvm::Module pass manager run.
 
 declare void @bar() local_unnamed_addr
 
