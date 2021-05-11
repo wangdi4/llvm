@@ -2971,6 +2971,7 @@ X86TTIImpl::getTypeBasedIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
   static const CostTblEntry X64CostTbl[] = { // 64-bit targets
     { ISD::ABS,        MVT::i64,     2 }, // SUB+CMOV
     { ISD::BITREVERSE, MVT::i64,    14 },
+    { ISD::BSWAP,      MVT::i64,     1 },
     { ISD::CTLZ,       MVT::i64,     4 }, // BSR+XOR or BSR+XOR+CMOV
     { ISD::CTTZ,       MVT::i64,     3 }, // TEST+BSF+CMOV/BRANCH
     { ISD::CTPOP,      MVT::i64,    10 },
@@ -2984,6 +2985,8 @@ X86TTIImpl::getTypeBasedIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
     { ISD::BITREVERSE, MVT::i32,    14 },
     { ISD::BITREVERSE, MVT::i16,    14 },
     { ISD::BITREVERSE, MVT::i8,     11 },
+    { ISD::BSWAP,      MVT::i32,     1 },
+    { ISD::BSWAP,      MVT::i16,     1 }, // ROL
     { ISD::CTLZ,       MVT::i32,     4 }, // BSR+XOR or BSR+XOR+CMOV
     { ISD::CTLZ,       MVT::i16,     4 }, // BSR+XOR or BSR+XOR+CMOV
     { ISD::CTLZ,       MVT::i8,      4 }, // BSR+XOR or BSR+XOR+CMOV
@@ -3193,6 +3196,17 @@ X86TTIImpl::getTypeBasedIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
 
       if (const auto *Entry = CostTableLookup(POPCNT32CostTbl, ISD, MTy))
         return adjustTableCost(*Entry, LT.first, ICA.getFlags());
+    }
+
+    if (ISD == ISD::BSWAP && ST->hasMOVBE() && ST->hasFastMOVBE()) {
+      if (const Instruction *II = ICA.getInst()) {
+        if (II->hasOneUse() && isa<StoreInst>(II->user_back()))
+          return TTI::TCC_Free;
+        if (auto *LI = dyn_cast<LoadInst>(II->getOperand(0))) {
+          if (LI->hasOneUse())
+            return TTI::TCC_Free;
+        }
+      }
     }
 
     // TODO - add BMI (TZCNT) scalar handling
