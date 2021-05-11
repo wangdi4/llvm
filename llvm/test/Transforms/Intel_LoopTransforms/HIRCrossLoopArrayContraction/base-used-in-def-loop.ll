@@ -1,10 +1,9 @@
 ; RUN: opt -hir-create-function-level-region -hir-ssa-deconstruction -hir-cross-loop-array-contraction -hir-cg -force-hir-cg -print-after=hir-cross-loop-array-contraction -disable-output -S < %s 2>&1 | FileCheck %s
 ; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,require<hir-loop-statistics>,hir-cross-loop-array-contraction,print<hir>,hir-cg" -force-hir-cg -aa-pipeline="basic-aa" -disable-output < %s 2>&1 | FileCheck %s
 
-; Check that we contract %A references but are not able to remove the original
-; def loop because %A is also used in the def loop.
+; Check that we contract %A references and are able to remove the original
+; def loop by eliminating dead load/stores of %A.
 
-; TODO: eliminate original def loop after contraction.
 
 ; Incoming HIR-
 ; + DO i1 = 0, 99, 1   <DO_LOOP>
@@ -48,19 +47,7 @@
 
 ; *** Region after HIR-CrossLoop Transformation with Array Contraction ***
 
-; CHECK: + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK: |   + DO i2 = 0, 99, 1   <DO_LOOP>
-; CHECK: |   |   + DO i3 = 0, 99, 1   <DO_LOOP>
-; CHECK: |   |   |   + DO i4 = 0, 0, 1   <DO_LOOP>
-; CHECK: |   |   |   |   + DO i5 = 0, 0, 1   <DO_LOOP>
-; CHECK: |   |   |   |   |   (%A)[0][i1][i2][i3][i4][0] = i5;
-; CHECK: |   |   |   |   |   %ld = (%A)[0][i1][i2][i3][i4][0];
-; CHECK: |   |   |   |   + END LOOP
-; CHECK: |   |   |   + END LOOP
-; CHECK: |   |   + END LOOP
-; CHECK: |   + END LOOP
-; CHECK: + END LOOP
-;
+; CHECK-NOT: %A
 ;
 ; CHECK: + UNKNOWN LOOP i1
 ; CHECK: |   <i1 = 0>
