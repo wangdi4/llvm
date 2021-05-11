@@ -167,7 +167,7 @@ llvm::getKnowledgeForValue(const Value *V,
         continue;
       if (RetainedKnowledge RK = getKnowledgeFromBundle(
               *II, II->bundle_op_info_begin()[Elem.Index])) {
-        if (V != RK.WasOn)
+        if (V->stripPointerCasts() != RK.WasOn->stripPointerCasts()) // INTEL
           continue;
         if (is_contained(AttrKinds, RK.AttrKind) &&
             Filter(RK, II, &II->bundle_op_info_begin()[Elem.Index])) {
