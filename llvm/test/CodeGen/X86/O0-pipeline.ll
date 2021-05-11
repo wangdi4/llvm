@@ -17,7 +17,6 @@
 ; CHECK-NEXT:   ModulePass Manager
 ; CHECK-NEXT:     Pre-ISel Intrinsic Lowering
 ; CHECK-NEXT:     FunctionPass Manager
-; CHECK-NEXT:       MapIntrinToIml
 ; CHECK-NEXT:       Expand Atomic instructions
 ; CHECK-NEXT:       Expand fp128 instructions ;INTEL
 ; CHECK-NEXT:       Lower AMX intrinsics
@@ -28,6 +27,7 @@
 ; CHECK-NEXT:       Shadow Stack GC Lowering
 ; CHECK-NEXT:       Lower constant intrinsics
 ; CHECK-NEXT:       Remove unreachable blocks from the CFG
+; CHECK-NEXT:       MapIntrinToIml ;INTEL
 ; CHECK-NEXT:       Expand vector predication intrinsics
 ; CHECK-NEXT:       Scalarize Masked Memory Intrinsics
 ; CHECK-NEXT:       Expand reduction intrinsics

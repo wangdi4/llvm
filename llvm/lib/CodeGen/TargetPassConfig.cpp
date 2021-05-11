@@ -886,6 +886,12 @@ void TargetPassConfig::addIRPasses() {
   if (getOptLevel() != CodeGenOpt::None)
     addPass(createReplaceWithVeclibLegacyPass());
 
+#if INTEL_CUSTOMIZATION
+  // This pass translates vector math intrinsics to svml/libm calls.
+  if (!DisableMapIntrinToIml)
+    addPass(createMapIntrinToImlPass());
+#endif // INTEL_CUSTOMIZATION
+
   if (getOptLevel() != CodeGenOpt::None && !DisablePartialLibcallInlining)
     addPass(createPartiallyInlineLibCallsPass());
 
@@ -1073,11 +1079,6 @@ bool TargetPassConfig::addISelPasses() {
 
   addPass(createPreISelIntrinsicLoweringPass());
   PM->add(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
-#if INTEL_CUSTOMIZATION
-  // This pass translates vector math intrinsics to svml/libm calls.
-  if (!DisableMapIntrinToIml)
-    addPass(createMapIntrinToImlPass());
-#endif // INTEL_CUSTOMIZATION
 
   addIRPasses();
   addCodeGenPrepare();
