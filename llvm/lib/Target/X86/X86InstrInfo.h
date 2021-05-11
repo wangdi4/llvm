@@ -572,6 +572,7 @@ public:
                      MachineBasicBlock::iterator &It, MachineFunction &MF,
                      const outliner::Candidate &C) const override;
 
+  bool isVecSpillInst(const MachineInstr &MI) const; // INTEL
 #define GET_INSTRINFO_HELPER_DECLS
 #include "X86GenInstrInfo.inc"
 

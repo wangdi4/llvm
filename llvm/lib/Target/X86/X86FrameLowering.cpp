@@ -3614,6 +3614,43 @@ void X86FrameLowering::orderFrameObjects(
     ObjectsToAllocate[i++] = Obj.ObjectIndex;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (MFI.VecSpillSet.size()) {
+    // Reorder stack objects if there is vectorized spilling objects
+    SmallVector<int, 8> OTA;
+    SmallSet<int, 8> ValidObjs;
+    for (int FI : ObjectsToAllocate) {
+      OTA.push_back(FI);
+      ValidObjs.insert(FI);
+    }
+
+    int Cur = 0;
+    for (std::pair<MachineBasicBlock *, SmallVector<int, 8>> It :
+        MFI.VecSpillMap) {
+      SmallVector<int, 8> &Vec = It.second;
+      // Put Larger vec spilling objects first (e.g: 256bit 256bit 128bit)
+      // so that there won't be any holes caused by alignment.
+      auto Cmp = [&](int LHS, int RHS) {
+        return MFI.getObjectSize(LHS) > MFI.getObjectSize(RHS);
+      };
+      llvm::sort(Vec, Cmp);
+      for (int FI : Vec) {
+        if (!ValidObjs.count(FI))
+          continue;
+        if (MFI.VecSpillSet.count(FI))
+          ObjectsToAllocate[Cur++] = FI;
+      }
+    }
+    // Put remaining objects after vec spilling objects
+    int E = ObjectsToAllocate.size();
+    for (int I = 0; I < E; I++) {
+      if (!MFI.VecSpillSet.count(OTA[I])) {
+        ObjectsToAllocate[Cur++] = OTA[I];
+      }
+    }
+    assert(Cur == E);
+  }
+#endif // INTEL_CUSTOMIZATION
   // Flip it if we're accessing off of the FP.
   if (!TRI->hasStackRealignment(MF) && hasFP(MF))
     std::reverse(ObjectsToAllocate.begin(), ObjectsToAllocate.end());
@@ -3650,6 +3687,14 @@ void X86FrameLowering::processFunctionBeforeFrameFinalized(
           EHPersonality::MSVC_CXX) {
     adjustFrameForMsvcCxxEh(MF);
   }
+#if INTEL_CUSTOMIZATION
+  // Restore default Stack ID for offset calculation.
+  MachineFrameInfo &MFI = MF.getFrameInfo();
+  for (int FI : MFI.VecSpillSet) {
+    assert(MFI.getStackID(FI));
+    MFI.setStackID(FI, TargetStackID::Default);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void X86FrameLowering::adjustFrameForMsvcCxxEh(MachineFunction &MF) const {
@@ -3701,6 +3746,134 @@ void X86FrameLowering::processFunctionBeforeFrameIndicesReplaced(
     MachineFunction &MF, RegScavenger *RS) const {
   if (STI.is32Bit() && MF.hasEHFunclets())
     restoreWinEHStackPointersInParent(MF);
+#if INTEL_CUSTOMIZATION
+  MachineFrameInfo &MFI = MF.getFrameInfo();
+  if (!MFI.VecSpillMap.size())
+    return;
+
+  for (std::pair<MachineBasicBlock *, SmallVector<int, 8>> It :
+      MFI.VecSpillMap) {
+    MachineBasicBlock* MBB = It.first;
+    SmallVector<int, 8> &Vec = It.second;
+    SmallVector<MachineInstr *, 8> DeleteMI;
+    int Sz = Vec.size();
+    assert(Sz);
+    SmallSet<int, 8> VecSpillSet;
+    for (int i = 0 ; i < Sz ; i++)
+      VecSpillSet.insert(Vec[i]);
+
+    int MaxFI = -1, MinFI = -1;
+    int64_t Max = std::numeric_limits<int64_t>::min();
+    int64_t Min = std::numeric_limits<int64_t>::max();
+    int64_t TotalSz = 0;
+    // Collect Vec Spill objects for MBB
+    for (auto &MI : *MBB) {
+      if (MI.isDebugValue())
+        continue;
+      if (!TII.isVecSpillInst(MI))
+        continue;
+      int FI = -1;
+      for (unsigned i = 0, e = MI.getNumOperands(); i != e; ++i) {
+        MachineOperand &MO = MI.getOperand(i);
+        if (!MO.isFI())
+          continue;
+        FI = MO.getIndex();
+        if (FI < 0)
+          continue;
+        break;
+      }
+      if (VecSpillSet.count(FI)) {
+        auto Offset = MFI.getObjectOffset(FI);
+        if (Offset > Max) {
+          Max = Offset;
+          MaxFI = FI;
+        }
+        if (Offset < Min) {
+          Min = Offset;
+          MinFI = FI;
+        }
+        DeleteMI.push_back(&MI);
+        TotalSz += MFI.getObjectSize(FI);
+      }
+    }
+
+    assert((MinFI != -1) && (MaxFI != -1));
+    int64_t TotalObjectOffset = Max - Min + MFI.getObjectSize(MaxFI);
+
+    if (TotalObjectOffset != TotalSz)
+      llvm_unreachable("unexpected vec spill objects");
+
+    LLVM_DEBUG({
+      dbgs() << "VecSpill: " << MF.getName() << "\n";
+      dbgs() << "Before Opt:\n";
+      MBB->dump();
+    });
+
+    // Insert vectorized spill code and remove original scalar spill code
+    int LastFI = MinFI;
+    MachineInstr *FirstMI = &MBB->front();
+    assert(FirstMI);
+    int RegNum = MFI.VecSpillPhysRegMap[MBB] - X86::XMM0;
+    int Offset = 0;
+    if (STI.useAVX512Regs()) {
+      int ZMMNum = TotalSz / 64;
+      TotalSz -= ZMMNum * 64;
+      if (ZMMNum) {
+        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr),
+            X86::XMM0+RegNum).
+          addReg(X86::XMM0+RegNum).
+          addReg(X86::XMM0+RegNum);
+        for (int i = 0; i < ZMMNum; i++) {
+          addFrameReference(BuildMI(*MBB, FirstMI, DebugLoc(),
+              TII.get(X86::VMOVUPSZmr)),
+              LastFI, Offset).addReg(X86::ZMM0+RegNum);
+          Offset += 64;
+        }
+      }
+    }
+
+    int YMMNum = TotalSz / 32;
+    TotalSz -= YMMNum * 32;
+    if (YMMNum) {
+      if (!Offset)
+        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr),
+            X86::XMM0+RegNum).
+          addReg(X86::XMM0+RegNum).
+          addReg(X86::XMM0+RegNum);
+      for (int i = 0; i < YMMNum; i++) {
+        addFrameReference(BuildMI(*MBB, FirstMI, DebugLoc(),
+            TII.get(X86::VMOVUPSZ256mr)),
+            LastFI, Offset).addReg(X86::YMM0+RegNum);
+        Offset += 32;
+      }
+    }
+
+    int XMMNum = TotalSz / 16;
+    TotalSz -= XMMNum * 16;
+    if (XMMNum) {
+      if (!Offset)
+        BuildMI(*MBB, FirstMI, DebugLoc(), TII.get(X86::VPXORQZ128rr),
+            X86::XMM0+RegNum).
+          addReg(X86::XMM0+RegNum).
+          addReg(X86::XMM0+RegNum);
+      for (int i = 0; i < XMMNum; i++) {
+        addFrameReference(BuildMI(*MBB, FirstMI, DebugLoc(),
+            TII.get(X86::VMOVAPSZ128mr)),
+            LastFI, Offset).addReg(X86::XMM0+RegNum);
+        Offset += 16;
+      }
+    }
+
+    assert(!TotalSz);
+    for (MachineInstr * MI: DeleteMI)
+      MI->eraseFromParent();
+
+    LLVM_DEBUG({
+      dbgs() << "After Opt:\n";
+      MBB->dump();
+    });
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void X86FrameLowering::restoreWinEHStackPointersInParent(

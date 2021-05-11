@@ -5991,11 +5991,29 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
     isTwoAddrFold = true;
   } else {
     if (OpNum == 0) {
-      if (MI.getOpcode() == X86::MOV32r0) {
-        NewMI = MakeM0Inst(*this, X86::MOV32mi, MOs, InsertPt, MI);
-        if (NewMI)
-          return NewMI;
+#if INTEL_CUSTOMIZATION
+      if (!(MF.getTarget().Options.IntelAdvancedOptim &&
+          Subtarget.is64Bit())) {
+        if (MI.getOpcode() == X86::MOV32r0) {
+          NewMI = MakeM0Inst(*this, X86::MOV32mi, MOs, InsertPt, MI);
+          if (NewMI)
+            return NewMI;
+        }
+      } else {
+        if (MI.getOpcode() == X86::MOV32r0 ||
+            MI.getOpcode() == X86::FsFLD0SS ||
+            MI.getOpcode() == X86::AVX512_FsFLD0SS ||
+            MI.getOpcode() == X86::FsFLD0SD ||
+            MI.getOpcode() == X86::AVX512_FsFLD0SD) {
+          if (Size == 8)
+            NewMI = MakeM0Inst(*this, X86::MOV64mi32, MOs, InsertPt, MI);
+          else if (Size == 4)
+            NewMI = MakeM0Inst(*this, X86::MOV32mi, MOs, InsertPt, MI);
+          if (NewMI)
+            return NewMI;
+        }
       }
+#endif // INTEL_CUSTOMIZATION
     }
 
     I = lookupFoldTable(MI.getOpcode(), OpNum);
@@ -6134,11 +6152,16 @@ X86InstrInfo::foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,
        shouldPreventUndefRegUpdateMemFold(MF, MI)))
     return nullptr;
 
+  bool IntelOpt = MF.getTarget().Options.IntelAdvancedOptim &&         // INTEL
+      Subtarget.is64Bit();                                             // INTEL
   // Don't fold subreg spills, or reloads that use a high subreg.
   for (auto Op : Ops) {
     MachineOperand &MO = MI.getOperand(Op);
     auto SubReg = MO.getSubReg();
-    if (SubReg && (MO.isDef() || SubReg == X86::sub_8bit_hi))
+    if (SubReg && (MO.isDef() || SubReg == X86::sub_8bit_hi) &&        // INTEL
+        // RA may turn 32bit register to subreg of 64bit register      // INTEL
+        !(IntelOpt && MI.getOpcode() == X86::MOV32r0 &&                // INTEL
+          SubReg == X86::sub_32bit))                                   // INTEL
       return nullptr;
   }
 
@@ -9675,5 +9698,16 @@ X86InstrInfo::insertOutlinedCall(Module &M, MachineBasicBlock &MBB,
   return It;
 }
 
+#if INTEL_CUSTOMIZATION
+bool X86InstrInfo::isVecSpillInst(const MachineInstr &MI) const {
+  unsigned Opcode = MI.getOpcode();
+  if ((Opcode == X86::MOV64mi32 || Opcode == X86::MOV32mi) &&
+      MI.getOperand(5).isImm() &&
+      MI.getOperand(5).getImm() == 0) {
+    return true;
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 #define GET_INSTRINFO_HELPERS
 #include "X86GenInstrInfo.inc"
