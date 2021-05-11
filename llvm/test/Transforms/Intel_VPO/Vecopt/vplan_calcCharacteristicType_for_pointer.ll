@@ -102,7 +102,7 @@ define void @_ZGVbM4_direct(<4 x i32> %mask) #1 {
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP4:%.*]], [[VPLANNEDBB50]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr i32, i32* [[MASK_CAST0]], i32 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 4
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 16
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp ne <4 x i32> [[WIDE_LOAD0]], zeroinitializer
 ; CHECK-NEXT:    [[TMP2:%.*]] = xor <4 x i1> [[TMP1]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]

@@ -15,10 +15,10 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <16 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15>, [[VECTOR_PH]] ], [ [[TMP21:%.*]], %[[VPLANNEDBB7]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 [[UNI_PHI3]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32* [[SCALAR_GEP]] to <16 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <16 x i32>, <16 x i32>* [[TMP5]], align 4
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <16 x i32>, <16 x i32>* [[TMP5]], align 16
 ; CHECK-NEXT:    [[SCALAR_GEP4:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @b, i64 0, i64 [[UNI_PHI3]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[SCALAR_GEP4]] to <16 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD5:%.*]] = load <16 x i32>, <16 x i32>* [[TMP6]], align 4
+; CHECK-NEXT:    [[WIDE_LOAD5:%.*]] = load <16 x i32>, <16 x i32>* [[TMP6]], align 16
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp sgt <16 x i32> [[WIDE_LOAD]], [[WIDE_LOAD5]]
 ; CHECK-NEXT:    br label %[[VPLANNEDBB6:.*]]
 ; CHECK:       [[VPLANNEDBB6]]:

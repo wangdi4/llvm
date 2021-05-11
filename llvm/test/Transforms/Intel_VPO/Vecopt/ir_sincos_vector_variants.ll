@@ -14,7 +14,7 @@ define dso_local void @test() local_unnamed_addr {
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [128 x double], [128 x double]* [[PHASE:%.*]], i64 0, i64 [[UNI_PHI]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast double* [[SCALAR_GEP]] to <2 x double>*
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 8
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x double>, <2 x double>* [[TMP0]], align 16
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [128 x double], <2 x [128 x double]*> [[BROADCAST_SPLAT:%.*]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    [[MM_VECTORGEP5:%.*]] = getelementptr inbounds [128 x double], <2 x [128 x double]*> [[BROADCAST_SPLAT4:%.*]], <2 x i64> zeroinitializer, <2 x i64> [[VEC_PHI]]
 ; CHECK-NEXT:    call void @_ZGVbN2vvv_sincos(<2 x double> [[WIDE_LOAD]], <2 x double*> nonnull [[MM_VECTORGEP]], <2 x double*> nonnull [[MM_VECTORGEP5]])

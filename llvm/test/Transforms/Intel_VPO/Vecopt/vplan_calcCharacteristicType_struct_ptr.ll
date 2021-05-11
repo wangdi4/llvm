@@ -34,7 +34,7 @@ simd.loop:                                        ; preds = %simd.loop.exit, %si
 
 if.then:                                          ; preds = %simd.loop
 ; Check that call is generated with mask of <4 x i64> type, with needed conversion
-; CHECK:         [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0:%.*]], align 4
+; CHECK:         [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0:%.*]], align 16
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <4 x i32> [[WIDE_LOAD]], zeroinitializer
 ; CHECK-NEXT:    [[TMP2:%.*]] = xor <4 x i1> [[TMP1]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]

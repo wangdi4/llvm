@@ -342,7 +342,7 @@ define void @foo() local_unnamed_addr #0 {
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[MM_VECTORGEP0:%.*]] = getelementptr inbounds [1024 x i32], <4 x [1024 x i32]*> <[1024 x i32]* @arr.i32.1, [1024 x i32]* @arr.i32.1, [1024 x i32]* @arr.i32.1, [1024 x i32]* @arr.i32.1>, <4 x i64> zeroinitializer, <4 x i64> [[VEC_PHI0]]
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[BC0:%.*]] = bitcast <4 x i32*> [[MM_VECTORGEP0]] to <4 x <4 x i32>*>
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP0:%.*]] = extractelement <4 x <4 x i32>*> [[BC0]], i32 0
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 4
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 16
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP1:%.*]] = bitcast <4 x i32*> [[MM_VECTORGEP0]] to <4 x i64*>
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 18 for instruction:   [[WIDE_MASKED_GATHER0:%.*]] = call <4 x i64> @llvm.masked.gather.v4i64.v4p0i64(<4 x i64*> [[TMP1]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i64> undef)
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP2:%.*]] = sub nsw <4 x i64> zeroinitializer, [[VEC_PHI0]]
@@ -2325,7 +2325,7 @@ define void @test_revectorize() local_unnamed_addr #0 {
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[MM_VECTORGEP0:%.*]] = getelementptr inbounds [1024 x i32], <4 x [1024 x i32]*> <[1024 x i32]* @arr.i32.1, [1024 x i32]* poison, [1024 x i32]* poison, [1024 x i32]* poison>, <4 x i64> <i64 0, i64 poison, i64 poison, i64 poison>, <4 x i64> [[VEC_PHI0]]
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[BC0:%.*]] = bitcast <4 x i32*> [[MM_VECTORGEP0]] to <4 x <8 x i32>*>
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP0:%.*]] = extractelement <4 x <8 x i32>*> [[BC0]], i32 0
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[WIDE_LOAD0:%.*]] = load <8 x i32>, <8 x i32>* [[TMP0]], align 8
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[WIDE_LOAD0:%.*]] = load <8 x i32>, <8 x i32>* [[TMP0]], align 16
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[MM_VECTORGEP40:%.*]] = getelementptr inbounds [1024 x i32], <4 x [1024 x i32]*> <[1024 x i32]* @arr.i32.3, [1024 x i32]* poison, [1024 x i32]* poison, [1024 x i32]* poison>, <4 x i64> <i64 0, i64 poison, i64 poison, i64 poison>, <4 x i64> [[VEC_PHI0]]
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[BC120:%.*]] = bitcast <4 x i32*> [[MM_VECTORGEP40]] to <4 x <8 x i32>*>
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP1:%.*]] = extractelement <4 x <8 x i32>*> [[BC120]], i32 0

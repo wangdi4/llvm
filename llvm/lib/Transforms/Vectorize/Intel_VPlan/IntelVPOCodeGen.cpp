@@ -2584,7 +2584,8 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst,
   Type *LoadType = getLoadStoreType(VPInst);
   auto *LoadVecType = dyn_cast<VectorType>(LoadType);
   unsigned OriginalVL = LoadVecType ? LoadVecType->getNumElements() : 1;
-  Align Alignment = getOriginalLoadStoreAlignment(VPInst);
+  Align Alignment = VPAA.getAlignmentUnitStride(*cast<VPLoadStoreInst>(VPInst),
+                                                getGuaranteedPeeling());
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, IsNegOneStride);
 
   // Masking not needed for privates.
