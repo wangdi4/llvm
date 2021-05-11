@@ -150,7 +150,7 @@ static bool isMallocAllocatingHugeMemory(const CallInst *CI) {
 static bool isMallocAddressSavedInArg(Function &F, CallBase &CB) {
 
   // Returns true if A == V. This routine ignores BitCastInst.
-  auto IsArgument = [] (Value *V, Argument *A) {
+  auto IsArgument = [](Value *V, Argument *A) {
     Value *ArgV = V;
     if (auto *BC = dyn_cast<BitCastInst>(ArgV))
       ArgV = BC->getOperand(0);
@@ -422,13 +422,23 @@ bool InlineAggressiveInfo::analyzeHugeMallocGlobalPointersHeuristic(Module &M) {
     if (F.isDeclaration() || F.isIntrinsic())
       continue;
 
+    const StringRef FName = F.getName();
+    // Instead of using general isMainEntryPoint/getMainFunction to allow
+    // multiple variants of “main”, allowing only “main” variant for now.
+    // “norecurse” attribute is checked for all routines including “main”.
+    // Currently, “norecurse” attribute is set for only “main” variant. Skip
+    // unused functions besides "main" since we already checked for
+    // WholeProgramSafe.
+    if (FName != "main" && F.hasNUses(0))
+      continue;
+
     if (!F.doesNotRecurse()) {
       LLVM_DEBUG(dbgs() << " Skipped AggInl ..." << F.getName()
                         << " is recursive\n");
       return false;
     }
 
-    if (F.getName() == "main")
+    if (FName == "main")
       MainRtn = &F;
 
     for (auto &II : instructions(F)) {
@@ -599,42 +609,41 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
   // Returns true if 'F' doesn't have any user calls except tiny alloc/free
   // wrapper calls. Ignore calls that are not reachable from 'A'. Get almost
   // leaf info from AlmostLeafFunctionMap if already computed.
-  auto IsAlmostLeafFunction =
-      [&IsTinyAllocFreeCall,
-       &FindEscCBs](Function *F, Argument *A, ALFMap &IsALFMap,
-                    ALFMap &IsNotALFMap) -> bool {
-        bool IsLeaf = true;
-        if (!A)
-          return false;
-        // Test the maps to see if we already have computed the answer.
-        auto It = IsALFMap.find(F);
-        if (It != IsALFMap.end() && It->second.count(A))
-           return true;
-        It = IsNotALFMap.find(F);
-        if (It != IsNotALFMap.end() && It->second.count(A))
-           return false;
-        // If not, compute the answer.
-        SmallPtrSet<CallBase *, 4> EscCBs;
-        FindEscCBs(F, A, EscCBs);
-        for (auto Call : EscCBs) {
-          // Tiny alloc/free wrapper calls are allowed.
-          if (IsTinyAllocFreeCall(Call))
-            continue;
-          // Any call to user function (except tiny alloc/free wrapper
-          // calls) is considered as not leaf.
-          Function *Callee = Call->getCalledFunction();
-          if (!Callee || !Callee->isDeclaration()) {
-            IsLeaf = false;
-            break;
-          }
-        }
-        // Store the answer for future calls to IsAlmostLeafFunction.
-        if (IsLeaf)
-          IsALFMap[F].insert(A);
-        else
-          IsNotALFMap[F].insert(A);
-        return IsLeaf;
-      };
+  auto IsAlmostLeafFunction = [&IsTinyAllocFreeCall, &FindEscCBs](
+                                  Function *F, Argument *A, ALFMap &IsALFMap,
+                                  ALFMap &IsNotALFMap) -> bool {
+    bool IsLeaf = true;
+    if (!A)
+      return false;
+    // Test the maps to see if we already have computed the answer.
+    auto It = IsALFMap.find(F);
+    if (It != IsALFMap.end() && It->second.count(A))
+      return true;
+    It = IsNotALFMap.find(F);
+    if (It != IsNotALFMap.end() && It->second.count(A))
+      return false;
+    // If not, compute the answer.
+    SmallPtrSet<CallBase *, 4> EscCBs;
+    FindEscCBs(F, A, EscCBs);
+    for (auto Call : EscCBs) {
+      // Tiny alloc/free wrapper calls are allowed.
+      if (IsTinyAllocFreeCall(Call))
+        continue;
+      // Any call to user function (except tiny alloc/free wrapper
+      // calls) is considered as not leaf.
+      Function *Callee = Call->getCalledFunction();
+      if (!Callee || !Callee->isDeclaration()) {
+        IsLeaf = false;
+        break;
+      }
+    }
+    // Store the answer for future calls to IsAlmostLeafFunction.
+    if (IsLeaf)
+      IsALFMap[F].insert(A);
+    else
+      IsNotALFMap[F].insert(A);
+    return IsLeaf;
+  };
 
   using ICItem = std::pair<CallBase *, Argument *>;
   using ICItemSet = std::set<ICItem>;
@@ -643,33 +652,33 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
       TrackUses;
 
   // Returns false if any call in InlineCalls is indirect/not-leaf.
-  auto InlineCallsOkay =
-      [&IsAlmostLeafFunction](ICItemSet &InlineCalls,
-                              ALFMap &IsALFMap, ALFMap &IsNotALFMap) {
-        if (InlineCalls.size() > MaxNumInlineCalls)
-          return false;
+  auto InlineCallsOkay = [&IsAlmostLeafFunction](ICItemSet &InlineCalls,
+                                                 ALFMap &IsALFMap,
+                                                 ALFMap &IsNotALFMap) {
+    if (InlineCalls.size() > MaxNumInlineCalls)
+      return false;
 
-        for (auto &ICI : InlineCalls) {
-          CallBase *CB = ICI.first;
-          Argument *A = ICI.second;
-          Function *F = CB->getCalledFunction();
-          // Indirect call is not allowed.
-          if (!F)
-            return false;
+    for (auto &ICI : InlineCalls) {
+      CallBase *CB = ICI.first;
+      Argument *A = ICI.second;
+      Function *F = CB->getCalledFunction();
+      // Indirect call is not allowed.
+      if (!F)
+        return false;
 
-          if (F->isDeclaration())
-            continue;
+      if (F->isDeclaration())
+        continue;
 
-          // Don't allow big functions.
-          if (F->size() > MaxNumBBInlineLimit)
-            return false;
+      // Don't allow big functions.
+      if (F->size() > MaxNumBBInlineLimit)
+        return false;
 
-          // Make sure they are almost leaf.
-          if (!IsAlmostLeafFunction(F, A, IsALFMap, IsNotALFMap))
-            return false;
-        }
-        return true;
-      };
+      // Make sure they are almost leaf.
+      if (!IsAlmostLeafFunction(F, A, IsALFMap, IsNotALFMap))
+        return false;
+    }
+    return true;
+  };
 
   // Tracks uses of "V" recursively. This routine supports only limited
   // instruction types. Returns false if use of "V" is used by unexpected
