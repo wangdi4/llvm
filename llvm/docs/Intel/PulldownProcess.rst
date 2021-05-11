@@ -67,6 +67,10 @@ For effective switch on conflicts or build breakages which cannot be resolved by
 end of workday it is recommended to upload partial changes to gerrit for the
 partner to pick it up and continue.
 
+Pulldown coordinators are required to update the <xmain-web-ws>/pulldown.cfg and
+<xmain-cand-ws>/pulldown.cfg files with e-mail addresses of the current pair of pulldown
+coordinators.
+
 Names of the current and previous pulldown coordinators can be found `here
 <https://wiki.ith.intel.com/display/ITSCompilersDevOps/Pulldown+coordinators+and+gatekeepers>`_.
 
