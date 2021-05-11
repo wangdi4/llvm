@@ -1,12 +1,12 @@
 ; REQUIRES: 0
-;
-; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -hir-create-function-level-region -hir-ssa-deconstruction -hir-loop-interchange -hir-loop-blocking -hir-cost-model-throttling=0 -hir-loop-interchange-prepare-special-interchange=true -print-after=hir-loop-blocking -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-create-function-level-region -mattr=+avx2 -enable-intel-advanced-opts -hir-cost-model-throttling=0 -hir-loop-interchange-prepare-special-interchange=true -disable-output < %s 2>&1 | FileCheck %s
+
+; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -hir-create-function-level-region -hir-ssa-deconstruction -hir-loop-interchange -hir-loop-blocking -hir-cost-model-throttling=0 -print-after=hir-loop-blocking -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-create-function-level-region -mattr=+avx2 -enable-intel-advanced-opts -hir-cost-model-throttling=0 -disable-output < %s 2>&1 | FileCheck %s
 
 ; This lit is created from Bwaves shell function using:
 ; : -hir-create-function-level-region=1
 ; : force to inline every call to function bi_cgstab_block_(.)
-; : manually unrolling the 2 innermost loops inside shell_() right after the 3 calls to jacobian().
+; : manually unrolling the 2 innermost loops inside test_() right after the 3 calls to jacobian().
 ;
 ; The target loopnest is being made perfect through explicit and specialized sinking.
 ;
@@ -61,7 +61,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @anon.dd7a7b7a12f2fcffb00f487a714d6282.5 = internal unnamed_addr constant i32 2
 @anon.dd7a7b7a12f2fcffb00f487a714d6282.3 = internal unnamed_addr constant [10 x i8] c"marker0 =="
 @anon.dd7a7b7a12f2fcffb00f487a714d6282.2 = internal unnamed_addr constant [11 x i8] c"Time step: "
-@"shell_$format_pack" = internal unnamed_addr global [52 x i8] c"6\00\00\00\0E\00\00\00\01\00\00\00\01\00\00\00H\00\01\00$\00\00\00\01\00\00\00\06\00\00\00H\00\01\00\1F\00\00\0B\01\00\00\00\14\00\00\007\00\00\00", align 4
+@"test_$format_pack" = internal unnamed_addr global [52 x i8] c"6\00\00\00\0E\00\00\00\01\00\00\00\01\00\00\00H\00\01\00$\00\00\00\01\00\00\00\06\00\00\00H\00\01\00\1F\00\00\0B\01\00\00\00\14\00\00\007\00\00\00", align 4
 @anon.dd7a7b7a12f2fcffb00f487a714d6282.1 = internal unnamed_addr constant [6 x i8] c"  dt: "
 @anon.dd7a7b7a12f2fcffb00f487a714d6282.0 = internal unnamed_addr constant [9 x i8] c"dqnorm =="
 
@@ -81,7 +81,7 @@ declare dso_local i32 @for_write_seq_lis(i8* %0, i32 %1, i64 %2, i8* %3, i8* %4,
 declare dso_local i32 @for_write_seq_lis_xmit(i8* %0, i8* %1, i8* %2) local_unnamed_addr #1
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @test1() local_unnamed_addr #2 {
+define dso_local void @MAIN__() local_unnamed_addr #2 {
   %1 = alloca [8 x i64], align 32
   %2 = alloca [4 x i8], align 1
   %3 = alloca { i64, i8* }, align 8
@@ -974,7 +974,7 @@ define dso_local void @test1() local_unnamed_addr #2 {
   %566 = load i32, i32* %388, align 1
   %567 = load i32, i32* %428, align 1
   %568 = load i32, i32* %467, align 1
-  call fastcc void @shell_(double %557, double %558, i32 %563, i32 %564, i32 %565, i32 1, i32 %565, double %560, double %561, double %562, double %559, i32 %566, i32 %567, i32 %568) #3
+  call fastcc void @test_(double %557, double %558, i32 %563, i32 %564, i32 %565, i32 1, i32 %565, double %560, double %561, double %562, double %559, i32 %566, i32 %567, i32 %568) #3
   %569 = getelementptr inbounds [4 x i8], [4 x i8]* %100, i64 0, i64 0
   store i8 1, i8* %569, align 1
   %570 = getelementptr inbounds [4 x i8], [4 x i8]* %100, i64 0, i64 1
@@ -1024,7 +1024,7 @@ declare dso_local i32 @for_close(i8* %0, i32 %1, i64 %2, i8* %3, i8* %4, ...) lo
 declare double @llvm.pow.f64(double %0, double %1) #4
 
 ; Function Attrs: nofree nounwind uwtable
-define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4, i32 %5, i32 %6, double %7, double %8, double %9, double %10, i32 %11, i32 %12, i32 %13) unnamed_addr #5 {
+define internal fastcc void @test_(double %0, double %1, i32 %2, i32 %3, i32 %4, i32 %5, i32 %6, double %7, double %8, double %9, double %10, i32 %11, i32 %12, i32 %13) unnamed_addr #5 {
   %15 = alloca [8 x i64], align 32
   %16 = alloca [4 x i8], align 1
   %17 = alloca { double }, align 8
@@ -6521,7 +6521,7 @@ define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4,
   store i8 0, i8* %431, align 1
   store i64 11, i64* %432, align 8
   store i8* getelementptr inbounds ([11 x i8], [11 x i8]* @anon.dd7a7b7a12f2fcffb00f487a714d6282.2, i64 0, i64 0), i8** %433, align 8
-  %4645 = call i32 (i8*, i32, i64, i8*, i8*, i8*, ...) @for_write_seq_fmt(i8* nonnull %409, i32 6, i64 1239157112576, i8* nonnull %428, i8* nonnull %434, i8* getelementptr inbounds ([52 x i8], [52 x i8]* @"shell_$format_pack", i64 0, i64 0)) #3
+  %4645 = call i32 (i8*, i32, i64, i8*, i8*, i8*, ...) @for_write_seq_fmt(i8* nonnull %409, i32 6, i64 1239157112576, i8* nonnull %428, i8* nonnull %434, i8* getelementptr inbounds ([52 x i8], [52 x i8]* @"test_$format_pack", i64 0, i64 0)) #3
   store i8 9, i8* %435, align 1
   store i8 1, i8* %436, align 1
   store i8 2, i8* %437, align 1
