@@ -90,6 +90,9 @@ FunctionPass *createX86WinAllocaExpander();
 /// Return a pass that config the tile registers.
 FunctionPass *createX86TileConfigPass();
 
+/// Return a pass that config the tile registers after fast reg allocation.
+FunctionPass *createX86FastTileConfigPass();
+
 /// Return a pass that insert pseudo tile config instruction.
 FunctionPass *createX86PreTileConfigPass();
 
@@ -202,8 +205,10 @@ void initializeGenerateLEAPassPass(PassRegistry &);
 void initializeX86Gather2LoadPermutePassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
 void initializeX86PreTileConfigPass(PassRegistry &);
+void initializeX86FastTileConfigPass(PassRegistry &);
 void initializeX86TileConfigPass(PassRegistry &);
 void initializeX86LowerAMXTypeLegacyPassPass(PassRegistry &);
+void initializeX86PreAMXConfigPassPass(PassRegistry &);
 void initializeX86LowerTileCopyPass(PassRegistry &);
 void initializeX86LowerAMXIntrinsicsLegacyPassPass(PassRegistry &);
 

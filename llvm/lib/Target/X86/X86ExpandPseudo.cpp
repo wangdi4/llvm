@@ -504,6 +504,10 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
   }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
+  case X86::PLDTILECFGV: {
+    MI.setDesc(TII->get(X86::LDTILECFG));
+    return true;
+  }
   case X86::PTILELOADDV: {
     for (unsigned i = 2; i > 0; --i)
       MI.RemoveOperand(i);
