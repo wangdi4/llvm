@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 
@@ -1041,8 +1042,15 @@ static bool isStructFieldLoadCast(const Value *Val) {
   return true;
 }
 
-static bool isConvolutionReduction(const PHINode *HeaderPhi,
-                                   const Value **CommonFMulOperand) {
+/// A small map type from common fmul operands to reduction counts to keep track
+/// of the number of reductions found per common operand.
+using ReductionsPerCommonOpndMap = SmallDenseMap<const Value *, unsigned, 2>;
+
+/// Determines whether \p HeaderPhi is part of a convolution reduction. If so,
+/// it is counted in \p ReductionsPerCommonOpnd under its common fmul operand.
+static void
+checkConvolutionReduction(const PHINode *HeaderPhi,
+                          ReductionsPerCommonOpndMap &ReductionsPerCommonOpnd) {
   // We are looking for this pattern-
   // loopheader:
   //   %redn = phi double [ %init, %preheader ] [ %add, %latch ]
@@ -1053,13 +1061,13 @@ static bool isConvolutionReduction(const PHINode *HeaderPhi,
   //   %add = fadd %redn, %mul
 
   if (!HeaderPhi->getType()->isDoubleTy()) {
-    return false;
+    return;
   }
 
   unsigned NumUses = HeaderPhi->getNumUses();
 
   if (NumUses > 2 || NumUses == 0) {
-    return false;
+    return;
   }
 
   const Instruction *FAddInst = nullptr;
@@ -1073,23 +1081,23 @@ static bool isConvolutionReduction(const PHINode *HeaderPhi,
     if (isa<DbgInfoIntrinsic>(FirstUser)) {
       FAddInst = SecondUser;
     } else if (!isa<DbgInfoIntrinsic>(SecondUser)) {
-      return false;
+      return;
     } else {
       FAddInst = FirstUser;
     }
   }
 
   if (FAddInst->getOpcode() != Instruction::FAdd) {
-    return false;
+    return;
   }
 
   if (FAddInst->getParent() != HeaderPhi->getParent()) {
-    return false;
+    return;
   }
 
   if (HeaderPhi->getOperand(0) != FAddInst &&
       HeaderPhi->getOperand(1) != FAddInst) {
-    return false;
+    return;
   }
 
   auto *Op0 = FAddInst->getOperand(0);
@@ -1097,7 +1105,7 @@ static bool isConvolutionReduction(const PHINode *HeaderPhi,
       dyn_cast<Instruction>((Op0 == HeaderPhi) ? FAddInst->getOperand(1) : Op0);
 
   if (!FMulInst || FMulInst->getOpcode() != Instruction::FMul) {
-    return false;
+    return;
   }
 
   auto *MulOp0 = FMulInst->getOperand(0);
@@ -1109,16 +1117,10 @@ static bool isConvolutionReduction(const PHINode *HeaderPhi,
   } else if (isStructFieldLoadCast(MulOp1)) {
     CommonOperand = MulOp0;
   } else {
-    return false;
+    return;
   }
 
-  if (!*CommonFMulOperand) {
-    *CommonFMulOperand = CommonOperand;
-  } else if (CommonOperand != *CommonFMulOperand) {
-    return false;
-  }
-
-  return true;
+  ++ReductionsPerCommonOpnd[CommonOperand];
 }
 
 bool isInnermostConvolutionLoop(const Loop &Lp) {
@@ -1126,16 +1128,16 @@ bool isInnermostConvolutionLoop(const Loop &Lp) {
     return false;
   }
 
-  unsigned ReductionCount = 0;
-  const Value *CommonFMulOperand = nullptr;
+  ReductionsPerCommonOpndMap ReductionsPerCommonOpnd;
 
   for (auto &Phi : Lp.getHeader()->phis()) {
-    if (isConvolutionReduction(&Phi, &CommonFMulOperand)) {
-      ++ReductionCount;
-    }
+    checkConvolutionReduction(&Phi, ReductionsPerCommonOpnd);
   }
 
-  return ReductionCount >= 3;
+  for (const auto &ReductionCount : ReductionsPerCommonOpnd)
+    if (ReductionCount.second >= 3)
+      return true;
+  return false;
 }
 
 static bool isMiddleConvolutionLoop(const Loop &Lp) {
