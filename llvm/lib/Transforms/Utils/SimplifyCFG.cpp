@@ -2570,15 +2570,14 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
            all_of(V->users(),
                   [&](const User *U) { return EphValues.count(U); });
   };
-
+  // Walk the loop in reverse so that we can identify ephemeral values properly
+  // (values only feeding assumes).
+  for (Instruction &I : reverse(BB->instructionsWithoutDebug())) {
 #if INTEL_COLLAB
     if (IntrinsicUtils::isDirective(&I))
       return false;
 #endif // INTEL_COLLAB
 
-  // Walk the loop in reverse so that we can identify ephemeral values properly
-  // (values only feeding assumes).
-  for (Instruction &I : reverse(BB->instructionsWithoutDebug())) {
     // Can't fold blocks that contain noduplicate or convergent calls.
     if (CallInst *CI = dyn_cast<CallInst>(&I))
       if (CI->cannotDuplicate() || CI->isConvergent())
