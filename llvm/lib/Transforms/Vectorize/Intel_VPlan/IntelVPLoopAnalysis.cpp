@@ -1253,20 +1253,33 @@ getPrivateKind(const VPInstruction *Inst, const VPBasicBlock *HeaderBB) {
 void VPLoopEntityList::analyzeImplicitLastPrivates() {
   VPBasicBlock *HeaderBB = Loop.getHeader();
   for (auto *BB : Loop.blocks())
-    for (VPInstruction &Inst : *BB)
-      if (Loop.isLiveOut(&Inst) && !getReduction(&Inst) &&
-          !getInduction(&Inst) && !getPrivate(&Inst)) {
+    for (VPInstruction &Inst : *BB) {
 
-        VPPrivate::PrivateKind Kind;
-        VPValue *HeaderPhi;
-        std::tie(HeaderPhi, Kind) = getPrivateKind(&Inst, HeaderBB);
-        // Add new private with empty alias list
-        VPEntityAliasesTy EmptyAliases;
-        auto Priv = addPrivate(&Inst, EmptyAliases, Kind,
-                               /* Explicit */ false, /* AI */ nullptr,
-                               /* MemOnly */ false);
-        linkValue(Priv, HeaderPhi);
-      }
+      if (!Loop.isLiveOut(&Inst) || getReduction(&Inst) || getPrivate(&Inst))
+        continue;
+
+      // Induction can have more than one liveout linked with it. E.g. we can
+      // have the header phi and the increment instruction both liveout. In such
+      // cases, we create a private for instructions that will not be handled by
+      // VPInductionFinal.
+      // TODO: Find a more efficient way. Having a private will cause having
+      // vector value always and last value will be done by extracting value
+      // from last lane. We can try to improve that having a second VPInduction
+      // or just second VPInductionFinal.
+      if (const VPInduction *Ind = getInduction(&Inst))
+        if (&Inst == getInductionLoopExitInstr(Ind))
+          continue;
+
+      VPPrivate::PrivateKind Kind;
+      VPValue *HeaderPhi;
+      std::tie(HeaderPhi, Kind) = getPrivateKind(&Inst, HeaderBB);
+      // Add new private with empty alias list
+      VPEntityAliasesTy EmptyAliases;
+      auto Priv = addPrivate(&Inst, EmptyAliases, Kind,
+                             /* Explicit */ false, /* AI */ nullptr,
+                             /* MemOnly */ false);
+      linkValue(Priv, HeaderPhi);
+    }
 }
 
 // Insert VPInstructions corresponding to the VPLoopEntities like
