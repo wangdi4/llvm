@@ -595,6 +595,11 @@ public:
   const SCEV *getGEPExpr(GEPOperator *GEP,
                          const SmallVectorImpl<const SCEV *> &IndexExprs);
   const SCEV *getAbsExpr(const SCEV *Op, bool IsNSW);
+#if INTEL_CUSTOMIZATION
+  // Sign of x: smin(smax(x,-1),1) => [-1,0,1]. Used as part of
+  // "ashr exact" lowering.
+  const SCEV *getSignumExpr(const SCEV *Op);
+#endif // INTEL_CUSTOMIZATION
   const SCEV *getMinMaxExpr(SCEVTypes Kind,
                             SmallVectorImpl<const SCEV *> &Operands);
   const SCEV *getSMaxExpr(const SCEV *LHS, const SCEV *RHS);
