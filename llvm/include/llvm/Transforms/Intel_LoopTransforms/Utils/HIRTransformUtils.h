@@ -48,6 +48,9 @@ class HIRLoopStatistics;
 
 enum OptimizationType { Unroll, UnrollAndJam, Vectorizer };
 
+const StringRef EnableSpecialLoopInterchangeMetaName =
+    "intel.loop.special.interchange.enable";
+
 /// Defines HIRLoopTransformationUtils class.
 /// It contains static member functions to analyze and transform a loop.
 class HIRTransformUtils {
@@ -433,6 +436,35 @@ public:
                  SmallSet<unsigned, 4> &ToContractDims, /* Dims to contract */
                  HLRegion &Reg,
                  RegDDRef *&AfterContractRef /* Ref after contraction */);
+
+  /// Special Sink utility to create an otherwise perfect loopnest.
+  /// It can Handle cases similar to the loopnest below:
+  /// .. ..
+  ///   %1442 = %720  *  5.000000e-01; /* 5 prehdr instructions */
+  ///   %1443 =  - %1442;
+  ///   %1444 = %720  *  %7;
+  ///   %1445 = %1444  *  2.000000e+00;*** ******** ***
+  ///   %1446 = %1445  *  %501;
+  /// + DO i2 = 0, sext.i32.i64(%6) + -1, 1   <DO_LOOP>
+  /// |   + DO i3 = 0, sext.i32.i64(%3) + -1, 1   <DO_LOOP>
+  /// |   |      %1472 = i3 + 1  %  %3;         *** to sink:    ***
+  /// |   |      %1476 = i3 + %3 + -1  %  %3;   *** ops: mod(%) ***
+  /// |   |   + DO i4 = 0, sext.i32.i64(%2) + -1, 1   <DO_LOOP>
+  /// |   |   |   ...
+  /// |   |   |   use(s) of %1472, %1476, %1442, etc.
+  /// |   |   |   ...
+  /// |   |   + END LOOP
+  /// |   + END LOOP
+  /// + END LOOP
+  ///
+  /// [Notes]
+  /// - The loopnest is perfect except the preheader of the innermost loop.
+  /// - The statements include mod(%) and select operators.
+  ///   They are not covered by copy, load, and store, thus existing
+  ///   DDUtils::enablePerfectLoopNest(.) can't handle it.
+  ///
+  static bool doSpecialSinkForPerfectLoopnest(HLLoop *OuterLp, HLLoop *InnerLp,
+                                              HIRDDAnalysis &HDDA);
 };
 
 } // End namespace loopopt

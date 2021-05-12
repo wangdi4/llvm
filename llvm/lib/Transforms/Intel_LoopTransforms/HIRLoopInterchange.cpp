@@ -78,6 +78,29 @@ static cl::opt<bool> DisableHIRLoopInterchange("disable-hir-loop-interchange",
                                                cl::init(false), cl::Hidden,
                                                cl::desc("Disable " OPT_DESC));
 
+// Flag to allow special interchange logic to engage
+static cl::opt<bool>
+    EnableSpecialInterchange(OPT_SWITCH "-enable-special-interchange",
+                             cl::init(false), cl::Hidden,
+                             cl::desc(OPT_DESC "enable special interchange"));
+
+// Flag to allow special sinking preparation for special interchange
+static cl::opt<bool> EnableSpecialSinking(OPT_SWITCH "-enable-special-sinking",
+                                          cl::init(false), cl::Hidden,
+                                          cl::desc(OPT_DESC
+                                                   "enable special sinking"));
+
+// Flag to allow special interchange test and transformation to happen
+static cl::opt<bool> DoSpecialInterchange(OPT_SWITCH "-do-special-interchange",
+                                          cl::init(false), cl::Hidden,
+                                          cl::desc(OPT_DESC
+                                                   "do special interchange"));
+
+static cl::opt<bool> PrintSpecialInterchangeLoopnestDetails(
+    OPT_SWITCH "-print-special-interchange-loopnest-details", cl::init(false),
+    cl::Hidden,
+    cl::desc(OPT_DESC "print special interchange loopnest details"));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<unsigned>
     PrintDiagLevel(OPT_SWITCH "-print-diag", cl::init(0), cl::ReallyHidden,
@@ -106,14 +129,9 @@ static cl::opt<unsigned> SinkedPerfectLoopProfitablityTCThreshold(
     cl::desc("TripCount threshold to enable " OPT_DESC
              " for sinked perfect loopnests"));
 
-// Flag to enable offline preparation for special loop interchange.
-static cl::opt<bool> PrepareSpecialInterchange(
-    OPT_SWITCH "-prepare-special-interchange", cl::init(false), cl::Hidden,
-    cl::desc(OPT_DESC "prepare for the special interchange"));
-
 // Number of expected loopnest for the special interchange
 static cl::opt<unsigned> ExpectNumSpecialInterchangeLoopnests(
-    OPT_SWITCH "-expect-loopnests", cl::init(1), cl::Hidden,
+    OPT_SWITCH "-expect-loopnests", cl::init(3), cl::Hidden,
     cl::desc(OPT_DESC "expect number of loopnests for special interchange"));
 
 // Threshold on arithmetic operations to help enable special loop interchange.
@@ -132,7 +150,7 @@ static cl::opt<unsigned> SpecialInterchangeMemOpNumThreadshold(
 // loop interchange.
 static cl::opt<unsigned> SpecialInterchangeArithToMemOpRatioThreadshold(
     OPT_SWITCH "-special-interchange-arith-2-mem-op-ratio-threshold",
-    cl::init(6), cl::Hidden,
+    cl::init(4), cl::Hidden,
     cl::desc("Memory Operation Threshold to activate special interchange"));
 
 static cl::opt<unsigned> SpecialInterchangeExpectedNestingDepth(
@@ -145,18 +163,6 @@ static cl::opt<unsigned> SpecialInterchangeExpectedModIndependentLoops(
     cl::init(1), cl::Hidden,
     cl::desc("Expected loops that are independent of any mod instruction in "
              "special interchange"));
-
-static cl::opt<unsigned> SpecialInterchangeLpSizeThresholdLB(
-    OPT_SWITCH "-special-interchange-loop-size-threshold-lowerbound",
-    cl::init(1600), cl::Hidden,
-    cl::desc("Expected number of HLInsts (LowerBound) in the target "
-             "innermost loop for special interchange"));
-
-static cl::opt<unsigned> SpecialInterchangeLpSizeThresholdUB(
-    OPT_SWITCH "-special-interchange-loop-size-threshold-upperbound",
-    cl::init(2300), cl::Hidden,
-    cl::desc("Expected number of HLInsts (UpperBound) in the target "
-             "innermost loop for special interchange"));
 
 // Check: is the given value V within the range of [LB, UB]?
 template <typename T> static bool isInRange(T V, T LB, T UB) {
@@ -197,27 +203,6 @@ void printDiag(DiagMsg Msg, StringRef FuncName = "",
             DiagLevel);
 #endif
 }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-static void printRefVector(SmallVectorImpl<const RegDDRef *> &RefVec,
-                           std::string Msg = "", bool PrintPointer = false,
-                           bool PrintDetail = false) {
-  formatted_raw_ostream FOS(dbgs());
-  if (Msg.size())
-    FOS << Msg << ": " << RefVec.size() << "\n";
-  unsigned Count = 0;
-  for (const RegDDRef *Ref : RefVec) {
-    FOS << Count++ << "\t";
-    if (PrintPointer) {
-      FOS << Ref << "\t";
-    }
-    Ref->print(FOS, PrintDetail);
-    FOS << " : ";
-    (Ref->isLval()) ? FOS << "W" : FOS << "R";
-    FOS << "\n";
-  }
-}
-#endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 typedef std::pair<HLLoop *, HLLoop *> CandidateLoopPair;
 typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
@@ -539,9 +524,7 @@ class HIRSpecialLoopInterchange : public HIRLoopInterchange {
   SmallSet<unsigned, 4> IndependentLoopLevelSet;
   HIRLoopLocality::RefGroupVecTy EqualityGroups;
   SmallSet<unsigned, 8> UniqueGroupSymbases;
-  SmallSet<unsigned, 8> SBS;
-  // Identify the candidate loopnest(s) that are suitable for special
-  // interchange.
+  // Contain candidate loop pairs that are suitable for special interchange.
   SmallVector<CandidateLoopPair, 4> CandidateLoopPairs;
 
   // For each Loopnest in the region, collect each (OutermostLp, InnermostLp)
@@ -553,10 +536,6 @@ class HIRSpecialLoopInterchange : public HIRLoopInterchange {
   bool makePerfectLoopnest(HLLoop *OuterLp, HLLoop *InnerLp);
 
   bool sinkForPerfectLoopnest(HLLoop *OuterLp, HLLoop *InnerLp);
-
-  // Analyze the loopnest, save loopnest statistics + etc. info for later use in
-  // profit analysis.
-  bool analyzeLoop(HLLoop *InnerLp);
 
   // Use a heuristic-based profit model targeting the special interchange
   bool isProfitable(HLLoop *InnerLp);
@@ -582,7 +561,6 @@ class HIRSpecialLoopInterchange : public HIRLoopInterchange {
     IndependentLoopLevelSet.clear();
     EqualityGroups.clear();
     UniqueGroupSymbases.clear();
-    SBS.clear();
     CandidateLoopPairs.clear();
   }
 
@@ -597,6 +575,17 @@ public:
   bool run(void);
 };
 
+static HLLoop *checkLoopFromArrayContraction(HLLoop *Loop) {
+  for (HLLoop *Lp = Loop; Lp; Lp = Lp->getParentLoop()) {
+    if (Lp->getLoopStringMetadata(EnableSpecialLoopInterchangeMetaName)) {
+      Lp->removeLoopMetadata(EnableSpecialLoopInterchangeMetaName);
+      return Lp;
+    }
+  }
+
+  return nullptr;
+}
+
 bool HIRSpecialLoopInterchange::collect(void) {
   SmallVector<HLLoop *, 64> InnermostLoops;
   HNU.gatherInnermostLoops(InnermostLoops);
@@ -606,238 +595,40 @@ bool HIRSpecialLoopInterchange::collect(void) {
   }
 
   for (HLLoop *TheInnermostLp : InnermostLoops) {
-    unsigned Count = 0;
-    HLLoop *OuterLp = TheInnermostLp;
-    bool IsCandidate = true;
-    while (Count < SpecialInterchangeExpectedNestingDepth) {
-      OuterLp = OuterLp->getParentLoop();
-      if (!OuterLp) {
-        LLVM_DEBUG(dbgs() << "Expect a non-null OuterLp. This innermost lp is "
-                             "not a candidate\n";);
-        IsCandidate = false;
-        break;
-      }
-      ++Count;
-    }
-    // Skip the current InnermostLp if IsCandidate is false
-    if (!IsCandidate) {
+    HLLoop *OuterLp = checkLoopFromArrayContraction(TheInnermostLp);
+    if (!OuterLp) {
       continue;
     }
 
-    if (isInRange<unsigned>(TheInnermostLp->getNumChildren(),
-                            SpecialInterchangeLpSizeThresholdLB,
-                            SpecialInterchangeLpSizeThresholdUB)) {
-      CandidateLoopPairs.push_back(std::make_pair(OuterLp, TheInnermostLp));
-    }
+    CandidateLoopPairs.push_back(std::make_pair(OuterLp, TheInnermostLp));
   }
 
-  // ExpectNumSpecialInterchangeLoopnests: default to 1
+  // ExpectNumSpecialInterchangeLoopnests: 3
   if (CandidateLoopPairs.size() != ExpectNumSpecialInterchangeLoopnests) {
-    LLVM_DEBUG(dbgs() << "Expect only 1 suitable loopnest\n";);
+    LLVM_DEBUG(dbgs() << "Expect 3 suitable loopnest after contraction\n";);
     return false;
   }
 
   LLVM_DEBUG({
-    dbgs() << "Loopnest(s) collected: " << CandidateLoopPairs.size() << "\n";
-    HLLoop *OuterLp = CandidateLoopPairs[0].first;
-    OuterLp->dump();
+    dbgs() << "Loopnest(s) collected: <" << CandidateLoopPairs.size() << ">\n";
+    unsigned Count = 0;
+    for (auto &Pair : CandidateLoopPairs) {
+      HLLoop *OuterLp = Pair.first;
+      dbgs() << "Count: " << Count++ << "\t address: " << OuterLp << "\n";
+      // flag defaults to off: loopnest is too large
+      if (PrintSpecialInterchangeLoopnestDetails) {
+        OuterLp->dump();
+      }
+    }
   });
 
   return true;
 }
 
-// Handle cases similar to the loopnest below:
-// .. ..
-//   %1442 = %720  *  5.000000e-01; /* 5 prehdr instructions */
-//   %1443 =  - %1442;
-//   %1444 = %720  *  %7;
-//   %1445 = %1444  *  2.000000e+00;*** ******** ***
-//   %1446 = %1445  *  %501;
-// + DO i2 = 0, sext.i32.i64(%6) + -1, 1   <DO_LOOP>
-// |   + DO i3 = 0, sext.i32.i64(%3) + -1, 1   <DO_LOOP>
-// |   |      %1472 = i3 + 1  %  %3;         *** to sink:    ***
-// |   |      %1476 = i3 + %3 + -1  %  %3;   *** ops: mod(%) ***
-// |   |   + DO i4 = 0, sext.i32.i64(%2) + -1, 1   <DO_LOOP>
-// |   |   |   ...
-// |   |   |   use(s) of %1472, %1476, %1442, etc.
-// |   |   |   ...
-// |   |   + END LOOP
-// |   + END LOOP
-// + END LOOP
-//
-// [Notes]
-// - The loopnest is perfect except the preheader of the innermost loop.
-// - The statements include mod(%) operator. It s not covered by copy, load, and
-//   store, thus existing DDUtils::enablePerfectLoopNest(.) can't handle this.
-// - Better to write code to do special sinking for the relevant case.
-//
 bool HIRSpecialLoopInterchange::sinkForPerfectLoopnest(HLLoop *OuterLp,
                                                        HLLoop *InnerLp) {
-
-  // Check the [OuterLp, InnerLp] formed loonest is near perfect,
-  // except code in preheader of InnerLp.
-  auto CheckLoopNestSanity = [](HLLoop *InnerLp) -> bool {
-    // Check InnerLp:
-    if (!InnerLp->hasPreheader() || InnerLp->hasPostexit()) {
-      LLVM_DEBUG(dbgs() << "Expect InnerLp have only non-empty preheader\n";);
-      return false;
-    }
-
-    // Only allow certain instruction types in InnerLp's preheader:
-    for (auto I = InnerLp->pre_begin(), E = InnerLp->pre_end(); I != E; ++I) {
-      HLInst *HInst = cast<HLInst>(I);
-
-      // Only support the following instruction type: %(mod)
-      const unsigned Opcode = HInst->getLLVMInstruction()->getOpcode();
-      if (!(Opcode == Instruction::SRem || Opcode == Instruction::URem)) {
-        LLVM_DEBUG(dbgs() << "Encounter unsupported instruction type\n";
-                   HInst->dump(););
-        return false;
-      }
-    }
-
-    return true;
-  };
-
-  // Do legal that HInst* (a mod operator) can sink into SinkLp
-  //
-  // It is legal to sink the HInst* into SinkLp if&f the HInst* remains loop-inv
-  // after sinking.
-  //
-  // That is :
-  // (1) HInst's Lval Ref is not redefined in SinkLp
-  // and
-  // (2) non of HInst's Rval Blob is redefined in SinkLp
-  //
-  auto DoLegalTestForSinking = [&](SmallVectorImpl<HLInst *> &PreLoopInsts,
-                                   HLLoop *SinkLp, DDGraph &DDG) {
-    SmallVector<DDRef *, 8> RefVec;
-
-    for (auto *I : PreLoopInsts) {
-      RefVec.push_back(I->getLvalDDRef());
-
-      // Collect Rval blob:
-      for (const RegDDRef *UseRef :
-           make_range(I->rval_op_ddref_begin(), I->rval_op_ddref_end())) {
-
-        if (UseRef->isSelfBlob()) {
-          RefVec.push_back(const_cast<RegDDRef *>(UseRef));
-        } else {
-          for (auto *BRef :
-               make_range(UseRef->blob_begin(), UseRef->blob_end())) {
-            RefVec.push_back(const_cast<BlobDDRef *>(BRef));
-          }
-        }
-      }
-    }
-
-    // *** Search any Ref's redefinition(s) in SinkLp:
-    for (auto &Ref : RefVec) {
-      unsigned LvalCount = 0, RvalCount = 0;
-      if (DDUtils::countEdgeToLoop(DDG, Ref, SinkLp, LvalCount, RvalCount) &&
-          LvalCount) {
-        LLVM_DEBUG({
-          dbgs() << "LvalCount: " << LvalCount << "\tRvalCount: " << RvalCount
-                 << "\nFound Ref's redefinition in Lp. Offending Ref: ";
-          Ref->dump(1);
-          dbgs() << "\n";
-        });
-        return false;
-      }
-    }
-
-    return true;
-  };
-
-  // ****  BEGIN FUNCTION: after the lambdas ****
-
-  // Sanity check that the loopnest has the following properties:
-  // - none-perfectness is due to only statements in InnerLp's preheader.
-  if (!CheckLoopNestSanity(InnerLp)) {
-    LLVM_DEBUG(dbgs() << "Fail in CheckLoopNestSanity(InnerLp)\n";);
-    return false;
-  }
-
-  // Collect:
-  SmallVector<HLInst *, 8> PreLoopInsts;
-  for (auto I = InnerLp->pre_begin(), E = InnerLp->pre_end(); I != E; ++I) {
-    PreLoopInsts.push_back(cast<HLInst>(I));
-  }
-
-  if (PreLoopInsts.empty()) {
-    LLVM_DEBUG(dbgs() << "Nothing collected\n";);
-    return false;
-  }
-
-  // Legal test:
-  DDGraph DDG = HDDA.getGraph(InnerLp->getParentLoop());
-  if (!DoLegalTestForSinking(PreLoopInsts, InnerLp, DDG)) {
-    LLVM_DEBUG(dbgs() << "Fail DoLegalTestForSinking(.)\n";);
-    return false;
-  }
-
-  // Do transformation: sink the statements from InnerLp's preheader into the
-  // InnerLp.
-  //
-  // E.g.
-  // [Before]
-  //   ...
-  // + DO i2 = 0, sext.i32.i64(%6) + -1, 1   <DO_LOOP>
-  // |   + DO i3 = 0, sext.i32.i64(%3) + -1, 1   <DO_LOOP>
-  // |   |      %1472 = i3 + 1  %  %3;
-  // |   |      %1476 = i3 + %3 + -1  %  %3;
-  // |   |   + DO i4 = 0, sext.i32.i64(%2) + -1, 1   <DO_LOOP>
-  // |   |   |   ...
-  // |   |   + END LOOP
-  // |   + END LOOP
-  // + END LOOP
-  //
-  // [After]
-  //   ...
-  // + DO i2 = 0, sext.i32.i64(%6) + -1, 1   <DO_LOOP>
-  // |   + DO i3 = 0, sext.i32.i64(%3) + -1, 1   <DO_LOOP>
-  // |   |   + DO i4 = 0, sext.i32.i64(%2) + -1, 1   <DO_LOOP>
-  // |   |   |   %1472 = i3 + 1  %  %3;
-  // |   |   |   %1476 = i3 + %3 + -1  %  %3;
-  // |   |   |   ...
-  // |   |   + END LOOP
-  // |   + END LOOP
-  // + END LOOP
-
-  // - Update def@level for each use:
-  unsigned const TargetLevel = InnerLp->getNestingLevel();
-  for (auto *I : PreLoopInsts) {
-    DDRef *DDRefSrc = I->getLvalDDRef();
-    LLVM_DEBUG({
-      dbgs() << "Src: ";
-      I->dump();
-      dbgs() << "DDRefSink(s): <" << DDG.getNumOutgoingEdges(DDRefSrc)
-             << ">: \n";
-    });
-    for (auto II = DDG.outgoing_edges_begin(DDRefSrc),
-              IE = DDG.outgoing_edges_end(DDRefSrc);
-         II != IE; ++II) {
-      DDEdge *Edge = (*II);
-      if (RegDDRef *RRef = dyn_cast<RegDDRef>(Edge->getSink())) {
-        RRef->updateDefLevel(TargetLevel);
-      } else if (BlobDDRef *BRef = dyn_cast<BlobDDRef>(Edge->getSink())) {
-        BRef->setDefinedAtLevel(TargetLevel);
-      }
-    }
-  }
-
-  // -Move each instruction from InnerLp's preheader into its body:
-  for (auto I = PreLoopInsts.rbegin(), E = PreLoopInsts.rend(); I != E; ++I) {
-    HLNodeUtils::moveAsFirstChild(InnerLp, *I);
-    DDUtils::updateLiveinsLiveoutsForSinkedInst(InnerLp, *I, true);
-  }
-
-  // Update the temp DDRefs from linear-at-level to non-linear
-  DDUtils::updateDDRefsLinearity(PreLoopInsts, DDG);
-  HIRInvalidationUtils::invalidateBody(InnerLp);
-  HIRInvalidationUtils::invalidateBody(InnerLp->getParentLoop());
-
-  return true;
+  return HIRTransformUtils::doSpecialSinkForPerfectLoopnest(OuterLp, InnerLp,
+                                                            HDDA);
 }
 
 bool HIRSpecialLoopInterchange::makePerfectLoopnest(HLLoop *OuterLp,
@@ -867,50 +658,6 @@ bool HIRSpecialLoopInterchange::makePerfectLoopnest(HLLoop *OuterLp,
   }
 
   return false;
-}
-
-bool HIRSpecialLoopInterchange::analyzeLoop(HLLoop *InnerLp) {
-  // Collect equal MemRef group(s) from InnermostLp:
-  HIRLoopLocality::populateEqualityGroups(InnerLp->child_begin(),
-                                          InnerLp->child_end(), EqualityGroups,
-                                          &UniqueGroupSymbases);
-  if (EqualityGroups.empty()) {
-    LLVM_DEBUG(dbgs() << "No MemRef(s) in Lp: " << InnerLp << "\n";);
-    return false;
-  }
-
-  // Collect symbases
-  unsigned ConstOnlySubsMemRefGroupCount = 0;
-  for (auto &RefVec : EqualityGroups) {
-    if (RefVec.empty() || !DDRefUtils::isMemRefAllDimsConstOnly(RefVec[0])) {
-      continue;
-    }
-    const unsigned SB = RefVec[0]->getSymbase();
-    SBS.insert(SB);
-
-    LLVM_DEBUG({
-      printRefVector(RefVec, "RefVec: ");
-      dbgs() << "SB: " << SB << "\n";
-    });
-
-    ++ConstOnlySubsMemRefGroupCount;
-  }
-
-  if (SBS.empty() || (ConstOnlySubsMemRefGroupCount == 0)) {
-    LLVM_DEBUG(dbgs() << "No suitable symbase(s) in loop: " << InnerLp
-                      << "\n";);
-    return false;
-  }
-
-  LLVM_DEBUG({
-    dbgs() << "SBSet size: " << SBS.size() << "\n";
-    std::for_each(SBS.begin(), SBS.end(),
-                  [](unsigned SB) { dbgs() << SB << ","; });
-    dbgs() << "\n"
-           << "SuitableGroupCount: " << ConstOnlySubsMemRefGroupCount << "\n";
-  });
-
-  return true;
 }
 
 bool HIRSpecialLoopInterchange::isProfitable(HLLoop *InnerLp) {
@@ -1093,6 +840,8 @@ bool HIRSpecialLoopInterchange::identifyTargetInnermostLevel(HLLoop *OuterLp,
     });
 
     const Instruction *LLVMInst = UseInst->getLLVMInstruction();
+
+    // NOTE: INST COULD BE A BINARY OP BETWEEN MEMREF. Need to add checks.
     return (isa<LoadInst>(LLVMInst) || isa<StoreInst>(LLVMInst) ||
             isa<GetElementPtrInst>(LLVMInst) || isa<SubscriptInst>(LLVMInst));
   };
@@ -1107,24 +856,28 @@ bool HIRSpecialLoopInterchange::identifyTargetInnermostLevel(HLLoop *OuterLp,
   // end.
   //
   auto CheckModInstUsedInRef = [&](const HLInst *HInst, DDGraph &DDG) -> bool {
-    bool Result = true;
     const RegDDRef *LvalRef = HInst->getLvalDDRef();
 
     // Iterate over each outgoing edge:
+    // Note: We can change this for loop to std::any_of
     for (auto II = DDG.outgoing_edges_begin(LvalRef),
               EE = DDG.outgoing_edges_end(LvalRef);
          II != EE; ++II) {
-      Result = CheckEdgeInAddrComp(*II, true) && Result;
+      if (CheckEdgeInAddrComp(*II, true)) {
+        return true;
+      }
     }
 
     // Iterate over each incoming edge:
     for (auto II = DDG.incoming_edges_begin(LvalRef),
               EE = DDG.incoming_edges_end(LvalRef);
          II != EE; ++II) {
-      Result = CheckEdgeInAddrComp(*II, false) && Result;
+      if (CheckEdgeInAddrComp(*II, false)) {
+        return true;
+      }
     }
 
-    return Result;
+    return false;
   };
 
   // ** BEGIN OF FUNCTION BODY : identifyTargetInnermostLevel() **
@@ -1304,6 +1057,7 @@ bool HIRSpecialLoopInterchange::transform(HLLoop *OuterLp) {
 
 bool HIRSpecialLoopInterchange::run() {
   if (!collect()) {
+    LLVM_DEBUG(dbgs() << "No loops collected in special interchange\n";);
     return false;
   }
 
@@ -1317,13 +1071,14 @@ bool HIRSpecialLoopInterchange::run() {
     OutmostNestingLevel = OutermostLoop->getNestingLevel();
     InnermostNestingLevel = InnermostLoop->getNestingLevel();
 
-    if (!makePerfectLoopnest(OuterLp, InnerLp)) {
+    if (EnableSpecialSinking && !makePerfectLoopnest(OuterLp, InnerLp)) {
       LLVM_DEBUG(dbgs() << "Not a perfect loopnest\n";);
       continue;
     }
 
-    if (!analyzeLoop(InnerLp)) {
-      LLVM_DEBUG(dbgs() << "Failure in analyzeLoop()\n";);
+    // flag to allow skipping any legal test, profit test, and transformation for
+    // the special interchange.
+    if (!DoSpecialInterchange) {
       continue;
     }
 
@@ -1373,21 +1128,16 @@ bool HIRLoopInterchange::run(void) {
   LLVM_DEBUG(dbgs() << "HIR Loop Interchange try for Function: "
                     << HIRF.getFunction().getName() << "()\n");
 
-  // Special loop interchange:
-  //
-  // [Note]
-  // This work will eventually be organized by the driver.
-  // The code here models the driver's work and prepare the loopnest for
-  // the special interchange.
+  // HIR Special loop interchange:
   //
   // If the special loop interchange triggers, the flow will skip
-  // the normal HIRLoopInterchange (HLI) pass and returns immediately.
+  // the normal HIRLoopInterchange pass and returns immediately.
   // Otherwise, the regular loop interchange pass will happen as normal.
   //
-  if (PrepareSpecialInterchange) {
+  if (EnableSpecialInterchange) {
     HIRSpecialLoopInterchange HSLI(HIRF, HDDA, HLA, HSRA, HLS, HLR);
     if (HSLI.run()) {
-      LLVM_DEBUG(dbgs() << "Triggered Special-loop interchange. Skip normal "
+      LLVM_DEBUG(dbgs() << "Triggered Special interchange. Skip the normal "
                            "interchange\n";);
       return true;
     }
@@ -1462,7 +1212,7 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *OutermostLp) {
   // When returning legal == true, we can just interchange w/o
   // examining DV.
   if (isLegalForAnyPermutation(OutermostLp)) {
-    LLVM_DEBUG(dbgs() << "\n\tBest permutation available\n");
+    LLVM_DEBUG(dbgs() << "\n Legal for all Permutations\n");
     CanInterchange = true;
   } else {
     // Check if largest locality can be moved as innermost loop.
