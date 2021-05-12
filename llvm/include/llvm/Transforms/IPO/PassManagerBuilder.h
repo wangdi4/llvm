@@ -261,7 +261,6 @@ private:
   void addLoopOptAndAssociatedVPOPasses(legacy::PassManagerBase &PM,
                                         bool IsLTO) const;
 #endif // INTEL_CUSTOMIZATION
-  void addVectorPasses(legacy::PassManagerBase &PM, bool IsLTO);
 
 public:
   /// populateFunctionPassManager - This fills in the function pass manager,
