@@ -27,5 +27,5 @@ entry:
 declare dso_local i64 @__builtin_get_local_id(i64 %0)
 declare dso_local i32 @__builtin_get_sub_group_local_id()
 
-attributes #0 = { "prefer-vector-width"="512" "sycl_kernel" "target-cpu"="skylake-avx512" }
+attributes #0 = { "prefer-vector-width"="512" "sycl-kernel" "target-cpu"="skylake-avx512" }
 

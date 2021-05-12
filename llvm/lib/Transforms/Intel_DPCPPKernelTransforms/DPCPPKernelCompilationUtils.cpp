@@ -23,6 +23,27 @@
 using namespace llvm::NameMangleAPI;
 
 namespace llvm {
+
+const char *KernelAttribute::SyclKernel = "sycl-kernel";
+const char *KernelAttribute::NoBarrierPath = "no-barrier-path";
+// TODO: We need to replace "kernel_wrapper" with "kernel-wrapper", but
+// RT retrieves kernel wrapper with "kernel_wrapper" attribute.
+const char *KernelAttribute::KernelWrapper = "kernel_wrapper";
+
+const char *KernelAttribute::BarrierBufferSize = "barrier-buffer-size";
+const char *KernelAttribute::LocalBufferSize = "local-buffer-size";
+const char *KernelAttribute::PrivateMemorySize = "private-memory-size";
+
+const char *KernelAttribute::ScalarKernel = "scalar-kernel";
+const char *KernelAttribute::VectorizedKernel = "vectorized-kernel";
+const char *KernelAttribute::VectorizedMaskedKernel =
+    "vectorized-masked-kernel";
+const char *KernelAttribute::VectorizedWidth = "vectorized-width";
+const char *KernelAttribute::RecommendedVL = "recommended-vector-length";
+const char *KernelAttribute::VectorVariants = "vector-variants";
+
+const char *KernelAttribute::BlockLiteralSize = "block-literal-size";
+
 namespace DPCPPKernelCompilationUtils {
 
 namespace {
@@ -216,7 +237,7 @@ std::string mangledWGBarrier(BarrierType BT) {
 FuncSet getKernels(Module &M) {
   FuncSet FSet;
   for (auto &F : M) {
-    if (F.hasFnAttribute("sycl_kernel"))
+    if (F.hasFnAttribute(KernelAttribute::SyclKernel))
       FSet.insert(&F);
   }
   return FSet;
@@ -230,11 +251,12 @@ FuncSet getAllKernels(Module &M) {
   for (auto *F : FSet) {
     // Need to check if Vectorized Kernel Value exists, it is not guaranteed
     // that Vectorized is running in all scenarios.
-    Function *VectorizedF = getFnAttributeFunction(M, *F, "vectorized_kernel");
+    Function *VectorizedF =
+        getFnAttributeFunction(M, *F, KernelAttribute::VectorizedKernel);
     if (VectorizedF)
       VectorizedFSet.insert(VectorizedF);
     Function *VectorizedMaskedF =
-        getFnAttributeFunction(M, *F, "vectorized_masked_kernel");
+        getFnAttributeFunction(M, *F, KernelAttribute::VectorizedMaskedKernel);
     if (VectorizedMaskedF)
       VectorizedFSet.insert(VectorizedMaskedF);
   }
@@ -361,7 +383,7 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
   }
 
   // Make NewF a kernel instead of F.
-  F->removeFnAttr("sycl_kernel");
+  F->removeFnAttr(KernelAttribute::SyclKernel);
 
   return NewF;
 }
@@ -543,14 +565,14 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
       // in that case 0 argument is block_literal pointer
       // update with special type
       // should be before handling ptrs by addr space
-      if ((i == 0) && F->hasFnAttribute("block_literal_size")) {
+      if ((i == 0) && F->hasFnAttribute(KernelAttribute::BlockLiteralSize)) {
         auto *PTy = dyn_cast<PointerType>(pArg->getType());
         if (!PTy || !PTy->getElementType()->isIntegerTy(8))
           continue;
 
         CurArg.Ty = KRNL_ARG_PTR_BLOCK_LITERAL;
-        CurArg.SizeInBytes = 0;
-        getFnAttributeInt(F, "block_literal_size", CurArg.SizeInBytes);
+        CurArg.SizeInBytes = KernelAttribute::getAttributeAsInt(
+            *F, KernelAttribute::BlockLiteralSize);
         break;
       }
 

@@ -34,4 +34,4 @@ L3:
 declare i32 @_Z13get_global_idj(i32)
 declare void @_Z18work_group_barrierj(i32)
 
-attributes #0 = { "sycl_kernel" }
+attributes #0 = { "sycl-kernel" }

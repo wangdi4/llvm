@@ -58,4 +58,4 @@ declare void @_Z18work_group_barrierj(i32)
 declare i64 @_Z12get_local_idj(i64)
 declare void @barrier_dummy()
 
-attributes #0 = { "sycl_kernel" }
+attributes #0 = { "sycl-kernel" }

@@ -20,4 +20,4 @@ entry:
 declare dso_local i64 @__builtin_get_local_id(i64 %0)
 declare dso_local i32 @__builtin_get_max_sub_group_size()
 
-attributes #0 = { "vectorized_width"="16" "target-cpu"="skylake-avx512" }
+attributes #0 = { "vectorized-width"="16" "target-cpu"="skylake-avx512" }

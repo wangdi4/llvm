@@ -30,7 +30,7 @@ loop.region.exit:                                 ; preds = %DIR.OMP.PARALLEL.LO
 }
 
 attributes #0 = { convergent nounwind }
-attributes #1 = { "sycl_kernel" }
+attributes #1 = { "sycl-kernel" }
 
 ; CHECK-LABEL: Group-A Values
 ; CHECK-LABEL: Group-B.1 Values

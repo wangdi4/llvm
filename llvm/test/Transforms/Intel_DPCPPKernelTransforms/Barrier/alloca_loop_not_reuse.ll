@@ -102,6 +102,6 @@ declare void @_Z18work_group_barrierj(i32) #1
 
 declare void @barrier_dummy()
 
-attributes #0 = { convergent noinline "sycl_kernel" "kernel-convergent-call" }
+attributes #0 = { convergent noinline "sycl-kernel" "kernel-convergent-call" }
 attributes #1 = { convergent "kernel-call-once" "kernel-convergent-call" }
 

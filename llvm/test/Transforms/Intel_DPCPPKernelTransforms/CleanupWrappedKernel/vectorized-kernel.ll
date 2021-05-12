@@ -27,5 +27,6 @@ define void @__Vectorized_.test(i8* noalias %UniformArgs, i64* noalias %pWGId, {
   ret void
 }
 
-attributes #0 = { alwaysinline "kernel_wrapper"="test" "sycl_kernel" }
-attributes #1 = { alwaysinline "kernel_wrapper"="__Vectorized_.test" "sycl_kernel" }
+;; TODO: replace "kernel_wrapper" with "kernel-wrapper"
+attributes #0 = { alwaysinline "kernel_wrapper"="test" "sycl-kernel" }
+attributes #1 = { alwaysinline "kernel_wrapper"="__Vectorized_.test" "sycl-kernel" }

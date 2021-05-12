@@ -78,5 +78,5 @@ L2:
 declare void @_Z18work_group_barrierj(i32)
 declare void @barrier_dummy()
 
-attributes #0 = { nounwind "dpcpp-no-barrier-path"="false" "sycl_kernel" }
-attributes #1 = { nounwind "dpcpp-no-barrier-path"="false" }
+attributes #0 = { nounwind "no-barrier-path"="false" "sycl-kernel" }
+attributes #1 = { nounwind "no-barrier-path"="false" }

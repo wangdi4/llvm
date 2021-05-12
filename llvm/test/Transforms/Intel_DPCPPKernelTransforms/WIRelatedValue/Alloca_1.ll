@@ -37,4 +37,4 @@ define void @main(i32 %arg) #0 {
 
 declare void @_Z18work_group_barrierj(i32)
 
-attributes #0 = { "sycl_kernel" }
+attributes #0 = { "sycl-kernel" }

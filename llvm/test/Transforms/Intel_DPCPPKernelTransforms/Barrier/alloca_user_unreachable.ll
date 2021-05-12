@@ -58,6 +58,6 @@ declare void @barrier_dummy()
 declare void @_Z18work_group_barrierj(i32) #2
 
 attributes #0 = { convergent noinline norecurse nounwind }
-attributes #1 = { convergent noinline norecurse nounwind "dpcpp-no-barrier-path"="false" "sycl_kernel" }
+attributes #1 = { convergent noinline norecurse nounwind "no-barrier-path"="false" "sycl-kernel" }
 attributes #2 = { convergent }
 

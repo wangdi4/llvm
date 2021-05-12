@@ -12,6 +12,7 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 
 using namespace llvm;
@@ -79,7 +80,7 @@ bool BarrierInFunction::runImpl(Module &M) {
 
       // TBD: This neeeds whole CFG exploration.
       // Skip handling of a kernel funciton unless it is a kernel.
-      if (!(CI->getFunction()->hasFnAttribute("sycl_kernel")))
+      if (!CI->getFunction()->hasFnAttribute(KernelAttribute::SyclKernel))
         continue;
 
       // Add Barrier before function call instruction.

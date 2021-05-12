@@ -69,4 +69,4 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %a,
 ; CHECK-ARG: %pSpecialBuf = alloca i8, i64 %BarrierBufferSize, align 128
 ; CHECK:     ret void
 
-attributes #0 = { "sycl_kernel" }
+attributes #0 = { "sycl-kernel" }

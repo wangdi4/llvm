@@ -17,4 +17,4 @@ define void @test(i32 %a) #0 {
   ret void
 }
 
-attributes #0 = { noinline "sycl_kernel" }
+attributes #0 = { noinline "sycl-kernel" }

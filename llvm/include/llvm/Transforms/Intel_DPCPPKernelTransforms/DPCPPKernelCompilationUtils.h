@@ -18,8 +18,58 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
 
 namespace llvm {
+
+namespace KernelAttribute {
+// Attributes
+extern const char *SyclKernel;
+extern const char *NoBarrierPath;
+extern const char *KernelWrapper;
+
+extern const char *BarrierBufferSize;
+extern const char *LocalBufferSize;
+extern const char *PrivateMemorySize;
+
+extern const char *ScalarKernel;
+extern const char *VectorizedKernel;
+extern const char *VectorizedMaskedKernel;
+extern const char *VectorizedWidth;
+extern const char *RecommendedVL;
+extern const char *VectorVariants;
+
+extern const char *BlockLiteralSize;
+
+inline StringRef getAttributeAsString(const Function &F, StringRef Attr) {
+  assert(F.hasFnAttribute(Attr) && "Function doesn't have this attribute!");
+  return F.getFnAttribute(Attr).getValueAsString();
+}
+
+inline bool getAttributeAsBool(const Function &F, StringRef Attr) {
+  assert(F.hasFnAttribute(Attr) && "Function doesn't have this attribute!");
+  StringRef AttrStr = getAttributeAsString(F, Attr);
+  assert((AttrStr == "true" || AttrStr == "false") &&
+         "This attribute must be set as true or false!");
+  return AttrStr == "true";
+}
+inline bool getAttributeAsBool(const Function &F, StringRef Attr,
+                               bool Default) {
+  return F.hasFnAttribute(Attr) ? getAttributeAsBool(F, Attr) : Default;
+}
+
+inline int getAttributeAsInt(const Function &F, StringRef Attr) {
+  assert(F.hasFnAttribute(Attr) && "Function doesn't have this attribute!");
+  int Res = 0;
+  bool Status = to_integer(getAttributeAsString(F, Attr), Res);
+  (void)Status;
+  assert(Status && "This attribute must have a numeric value!");
+  return Res;
+}
+inline int getAttributeAsInt(const Function &F, StringRef Attr, int Default) {
+  return F.hasFnAttribute(Attr) ? getAttributeAsInt(F, Attr) : Default;
+}
+} // namespace KernelAttribute
 
 namespace DPCPPKernelCompilationUtils {
 
@@ -138,6 +188,7 @@ FuncSet getAllKernels(Module &M);
 /// Get function attribute which is a function.
 Function *getFnAttributeFunction(Module &M, Function &F, StringRef AttrKind);
 
+// TODO: Preserved for OCL backend, will be removed later.
 /// Get function attribute which is an integer.
 template <typename T>
 void getFnAttributeInt(Function *F, StringRef AttrKind, T &Value) {

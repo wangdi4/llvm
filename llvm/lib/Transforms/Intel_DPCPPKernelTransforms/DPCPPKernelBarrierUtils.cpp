@@ -174,12 +174,7 @@ DPCPPKernelBarrierUtils::findBasicBlockOfUsageInst(Value *V,
 }
 
 FuncVector &DPCPPKernelBarrierUtils::getAllKernelsWithBarrier() {
-  FuncVector Kernels;
-
-  for (auto &F : *M) {
-    if (F.hasFnAttribute("sycl_kernel"))
-      Kernels.push_back(&F);
-  }
+  auto Kernels = DPCPPKernelCompilationUtils::getKernels(*M);
 
   // Clear old collected data!
   KernelFunctions.clear();
@@ -188,21 +183,14 @@ FuncVector &DPCPPKernelBarrierUtils::getAllKernelsWithBarrier() {
   }
 
   // Get the kernels using the barrier for work group loops.
-  SmallVector<Function *, 4> KernelsWithBarrier;
+  FuncVector KernelsWithBarrier;
   for (auto Kernel : Kernels) {
     // OCL pipeline treats absense of the attribute as if there's a barrier.
     // In DPCPP path we require having this attrbiute on kernels.
     // Need to check if NoBarrierPath Value exists, it is not guaranteed that
     // KernelAnalysisPass is running in all scenarios.
-    assert(Kernel->hasFnAttribute(NO_BARRIER_PATH_ATTRNAME) &&
-           "DPCPPKernelBarrierUtils: " NO_BARRIER_PATH_ATTRNAME
-           " has to be set!");
-    StringRef Value =
-        Kernel->getFnAttribute(NO_BARRIER_PATH_ATTRNAME).getValueAsString();
-    assert((Value == "true" || Value == "false") &&
-           "DPCPPKernelBarrierUtils: unexpected " NO_BARRIER_PATH_ATTRNAME
-           " value!");
-    bool NoBarrierPath = (Value == "true");
+    bool NoBarrierPath = KernelAttribute::getAttributeAsBool(
+        *Kernel, KernelAttribute::NoBarrierPath, /*Default*/ false);
     if (NoBarrierPath) {
       // Kernel that should not be handled in Barrier path, skip it.
       continue;
@@ -215,20 +203,12 @@ FuncVector &DPCPPKernelBarrierUtils::getAllKernelsWithBarrier() {
       getAllKernelsAndVectorizedCounterparts(KernelsWithBarrier, M);
 
   // Collect functions to process.
-  auto TodoList = getAllKernelsAndVectorizedCounterparts(Kernels, M);
+  auto TodoList =
+      getAllKernelsAndVectorizedCounterparts(Kernels.getArrayRef(), M);
 
-  for (auto *F : TodoList) {
-    unsigned int VectWidth = 1;
-    if (F->hasFnAttribute("vectorized_width")) {
-      bool Res = to_integer(
-          F->getFnAttribute("vectorized_width").getValueAsString(), VectWidth);
-      // Silence warning to avoid an extra call.
-      (void)Res;
-      assert(Res && "DPCPPKernelBarrierUtils: vectorized_width has to have a "
-                    "numeric value");
-    }
-    KernelVectorizationWidths[F] = VectWidth;
-  }
+  for (auto *F : TodoList)
+    KernelVectorizationWidths[F] = KernelAttribute::getAttributeAsInt(
+        *F, KernelAttribute::VectorizedWidth, /*Default*/ 1);
 
   return KernelFunctions;
 }
@@ -280,16 +260,17 @@ DPCPPKernelBarrierUtils::createDummyBarrier(Instruction *InsertBefore) {
 }
 
 FuncVector DPCPPKernelBarrierUtils::getAllKernelsAndVectorizedCounterparts(
-    const SmallVectorImpl<Function *> &KernelList, Module *M) {
+    ArrayRef<Function *> KernelList, Module *M) {
   FuncVector Result;
 
   for (auto *F : KernelList) {
     Result.push_back(F);
 
     // Set the vectorized function if present.
-    if (F->hasFnAttribute("vectorized_kernel")) {
-      Function *VectKernel = M->getFunction(
-          F->getFnAttribute("vectorized_kernel").getValueAsString());
+    if (F->hasFnAttribute(KernelAttribute::VectorizedKernel)) {
+      Function *VectKernel =
+          DPCPPKernelCompilationUtils::getFnAttributeFunction(
+              *M, *F, KernelAttribute::VectorizedKernel);
       if (VectKernel)
         Result.push_back(VectKernel);
     }

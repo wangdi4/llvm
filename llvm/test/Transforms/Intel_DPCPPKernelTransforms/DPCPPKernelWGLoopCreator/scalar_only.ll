@@ -66,4 +66,4 @@ entry:
 
 declare dso_local i64 @_Z13get_global_idj(i64 %0)
 
-attributes #0 = { noinline optnone "dpcpp-no-barrier-path"="true" "sycl_kernel" }
+attributes #0 = { noinline optnone "no-barrier-path"="true" "sycl-kernel" }

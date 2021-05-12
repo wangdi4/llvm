@@ -214,7 +214,7 @@ bool HIRMemoryReductionSinking::collectMemoryReductions(HLLoop *Lp) {
       auto *FPOp = dyn_cast<FPMathOperator>(LLVMInst);
 
       if (FPOp) {
-        if (!FPOp->isFast()) {
+        if (!FPOp->hasAllowReassoc()) {
           continue;
         }
         FMF = FPOp->getFastMathFlags();
@@ -321,7 +321,6 @@ bool HIRMemoryReductionSinking::validateMemoryReductions(const HLLoop *Lp) {
   DDGraph DDG = HDDA.getGraph(Lp);
   LLVM_DEBUG(dbgs() << "[MRS] Loop DDG:\n");
   LLVM_DEBUG(DDG.dump());
-
 
   if (!validateReductionTemp(DDG)) {
     return false;

@@ -36,7 +36,7 @@ entry:
   ret void
 }
 
-attributes #0 = { "sycl_kernel" }
+attributes #0 = { "sycl-kernel" }
 
 ; DEBUGIFY: Instruction with empty DebugLoc in function {{.*}} getelementptr
 ; DEBUGIFY-NEXT: Instruction with empty DebugLoc in function {{.*}} bitcast

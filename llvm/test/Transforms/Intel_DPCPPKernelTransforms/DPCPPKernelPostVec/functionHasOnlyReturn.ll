@@ -12,4 +12,4 @@ entry:
 
 declare dso_local i64 @_Z12get_local_idj(i64 %0) local_unnamed_addr
 
-attributes #0 = { "sycl_kernel" }
+attributes #0 = { "sycl-kernel" }

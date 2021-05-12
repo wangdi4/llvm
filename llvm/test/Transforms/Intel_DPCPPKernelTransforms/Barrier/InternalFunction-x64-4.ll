@@ -110,4 +110,4 @@ declare void @_Z18work_group_barrierj(i32)
 declare i64 @_Z12get_local_idj(i32)
 declare void @barrier_dummy()
 
-attributes #0 = { "dpcpp-no-barrier-path"="false" "sycl_kernel" }
+attributes #0 = { "no-barrier-path"="false" "sycl-kernel" }

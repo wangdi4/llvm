@@ -23,4 +23,4 @@ entry:
 ; CHECK-NEXT: %explicit_2 = bitcast i8* [[ARG2_BUFF_IDX]] to %struct.struct2*
 ; CHECK: ret void
 
-attributes #0 = { "sycl_kernel" }
+attributes #0 = { "sycl-kernel" }

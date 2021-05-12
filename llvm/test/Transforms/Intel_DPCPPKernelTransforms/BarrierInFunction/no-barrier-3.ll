@@ -32,5 +32,5 @@ define void @__Vectorized_.main(i32 %x) #1 {
 ; CHECK: ret
 }
 
-attributes #0 = { "dpcpp-no-barrier-path"="false" "sycl_kernel" "vectorized_kernel"="__Vectorized_.main" }
-attributes #1 = { "dpcpp-no-barrier-path"="false" }
+attributes #0 = { "no-barrier-path"="false" "sycl-kernel" "vectorized-kernel"="__Vectorized_.main" }
+attributes #1 = { "no-barrier-path"="false" }

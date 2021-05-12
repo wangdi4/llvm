@@ -89,17 +89,8 @@ static bool ReplaceMaxSGSizeCall(Module &M) {
     // a constant VectorLength
     for (User *U : F->users()) {
       if (CallInst *CI = dyn_cast<CallInst>(U)) {
-        unsigned VectorLength = 1;
-        assert(CI->getFunction()->hasFnAttribute("vectorized_width") &&
-               "Calling __builtin_get_max_sub_group_size function doesn't have "
-               "a vectorized_width attribute. Try to inline it!");
-        bool err = to_integer(CI->getFunction()
-                                  ->getFnAttribute("vectorized_width")
-                                  .getValueAsString(),
-                              VectorLength);
-        // Silence the warning to avoid querying attribute twice.
-        (void)err;
-        assert(err && "Can't read vectorized_width data!");
+        unsigned VectorLength = KernelAttribute::getAttributeAsInt(
+            *CI->getFunction(), KernelAttribute::VectorizedWidth);
         Value *ConstVF = CastInst::CreateTruncOrBitCast(
             createVFConstant(M.getContext(), M.getDataLayout(), VectorLength),
             IntegerType::get(M.getContext(), 32), "max.sg.size", CI);
@@ -166,34 +157,28 @@ bool DPCPPKernelVecClone::runOnModule(Module &M) {
 DPCPPKernelVecCloneImpl::DPCPPKernelVecCloneImpl() : VecCloneImpl() {}
 
 // Update references of functions
-// Remove the "dpcpp_kernel_recommended_vector_length" attribute from the
-// original kernel. "dpcpp_kernel_recommended_vector_length" attribute is used
+// Remove the "recommended-vector-length" attribute from the
+// original kernel. "recommended-vector-length" attribute is used
 // only by Kernel VecClone.
 static void updateReferences(Function &F, Function *Clone) {
-  // Remove "sycl_kernel" property from the Clone kernel.
+  // Remove "sycl-kernel" property from the Clone kernel.
   // This preserves the property that only original kernel is indicated
   // with this attribute. It can't be kept as vectorized kernel would get
   // its own treatment by WGLoopCreator pass (which breaks design).
-  Clone->removeFnAttr("sycl_kernel");
+
+  Clone->removeFnAttr(KernelAttribute::SyclKernel);
 
   // Get VL from the attribute from the original kernel.
-  unsigned VectorLength;
-  bool err =
-      to_integer(F.getFnAttribute("dpcpp_kernel_recommended_vector_length")
-                     .getValueAsString(),
-                 VectorLength);
-  // Silence the warning to avoid querying attribute twice.
-  (void)err;
-  assert(err && "Can't read dpcpp_kernel_recommended_vector_length data!");
+  unsigned VectorLength = KernelAttribute::getAttributeAsInt(
+      F, KernelAttribute::RecommendedVL, /*Default*/ 1);
   // Set the "vector_width" attribute to the cloned kernel.
-  Clone->addFnAttr("vectorized_kernel");
-  Clone->addFnAttr("vectorized_width", utostr(VectorLength));
+  Clone->addFnAttr(KernelAttribute::VectorizedWidth, utostr(VectorLength));
   // Set the attribute that points to the orginal kernel of the clone.
-  Clone->addFnAttr("scalar_kernel", F.getName());
+  Clone->addFnAttr(KernelAttribute::ScalarKernel, F.getName());
 
   // Set "vector_width" for the original kernel.
-  F.addFnAttr("vectorized_width", utostr(1));
-  F.addFnAttr("vectorized_kernel", Clone->getName());
+  F.addFnAttr(KernelAttribute::VectorizedWidth, utostr(1));
+  F.addFnAttr(KernelAttribute::VectorizedKernel, Clone->getName());
 }
 
 // Updates all the uses of TID calls with TID + new induction variable.

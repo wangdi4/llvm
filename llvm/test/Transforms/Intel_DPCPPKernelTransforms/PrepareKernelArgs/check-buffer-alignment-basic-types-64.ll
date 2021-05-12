@@ -46,4 +46,4 @@ entry:
 ;;implicit args
 ; CHECK: ret void
 
-attributes #0 = { "sycl_kernel" }
+attributes #0 = { "sycl-kernel" }
