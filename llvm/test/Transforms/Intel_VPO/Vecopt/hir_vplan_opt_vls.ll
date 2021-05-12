@@ -26,7 +26,19 @@
 
 ; CHECK: VLSA: Added instruction
 ; CHECK-NEXT: VLSA: Added instruction
+; CHECK: Total Groups 1
 ; CHECK: Fixed all OVLSTypes for previously collected memrefs.
+; FIXME: Total group counter should remain 1 as we call VLSA multiple
+; times for the same input.
+; CHECK: Total Groups 2
+; CHECK: Fixed all OVLSTypes for previously collected memrefs.
+; CHECK: Total Groups 3
+; CHECK: Fixed all OVLSTypes for previously collected memrefs.
+; CHECK: Total Groups 4
+; CHECK: Fixed all OVLSTypes for previously collected memrefs.
+; CHECK: Total Groups 5
+; CHECK: Fixed all OVLSTypes for previously collected memrefs.
+; CHECK: Total Groups 6
 
 @a = dso_local local_unnamed_addr global [10000 x i32] zeroinitializer, align 16
 @b = dso_local local_unnamed_addr global [10000 x i32] zeroinitializer, align 16
