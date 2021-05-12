@@ -241,14 +241,14 @@ private:
   void addLTOOptimizationPasses(legacy::PassManagerBase &PM);
   void addLateLTOOptimizationPasses(legacy::PassManagerBase &PM);
   void addPGOInstrPasses(legacy::PassManagerBase &MPM, bool IsCS);
-  void addFunctionSimplificationPasses(legacy::PassManagerBase &MPM) const;
+  void addFunctionSimplificationPasses(legacy::PassManagerBase &MPM);
 #if INTEL_CUSTOMIZATION
   void addInstructionCombiningPass(legacy::PassManagerBase &MPM,
                                    bool EnableUpCasting) const;
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   void addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
-                    bool Simplify = false) const;
+                    bool Simplify = false);
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION // HIR passes
   // Temporary utility function to add all passes needed for vectorizing SIMD
@@ -259,8 +259,9 @@ private:
   void addLoopOptPasses(legacy::PassManagerBase &PM, bool IsLTO) const;
   void addLoopOptCleanupPasses(legacy::PassManagerBase &PM) const;
   void addLoopOptAndAssociatedVPOPasses(legacy::PassManagerBase &PM,
-                                        bool IsLTO) const;
+                                        bool IsLTO);
 #endif // INTEL_CUSTOMIZATION
+  void addVectorPasses(legacy::PassManagerBase &PM, bool IsLTO);
 
 public:
   /// populateFunctionPassManager - This fills in the function pass manager,
