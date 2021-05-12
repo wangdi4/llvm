@@ -36,7 +36,7 @@ static cl::opt<bool>
 
 namespace llvm {
 namespace vpo {
-bool EnableExplicitVLS = false;
+bool EnableExplicitVLS = true;
 }
 }
 static cl::opt<bool, true> EnableExplicitVLSOpt(
