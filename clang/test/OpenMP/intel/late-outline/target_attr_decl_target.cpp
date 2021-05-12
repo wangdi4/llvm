@@ -15,7 +15,6 @@
 //CHECK: @glob = hidden target_declare{{.*}}
 int glob;
 
-//CHECK: define {{.*}}barv() #[[HAS_BOTH:[0-9]+]]
 int bar() {
 #pragma omp target map(glob)
   {
@@ -25,14 +24,16 @@ int bar() {
 }
 #pragma omp end declare target
 
-//CHECK: define {{.*}}funcv() #[[CONTAINS_TARGET:[0-9]+]]
 void func() {
 #pragma omp target map(glob)
   {
     glob += bar();
   }
 }
-//CHECK: attributes #[[HAS_BOTH]] = {{.*}}"contains-openmp-target"="true"{{.*}}"openmp-target-declare"="true"
+//CHECK: define {{.*}}funcv() #[[CONTAINS_TARGET:[0-9]+]]
+//CHECK: define {{.*}}barv() #[[HAS_BOTH:[0-9]+]]
+//
 //CHECK: attributes #[[CONTAINS_TARGET]] = {{.*}}"contains-openmp-target"="true"
+//CHECK: attributes #[[HAS_BOTH]] = {{.*}}"contains-openmp-target"="true"{{.*}}"openmp-target-declare"="true"
 
 // end INTEL_COLLAB

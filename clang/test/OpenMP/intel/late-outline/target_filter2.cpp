@@ -15,9 +15,6 @@ void non_target_func() { }
 void other_non_target_func() { }
 void inside_outside_func() {}
 
-//CHECK-NOT: define {{.*}}non_target
-//CHECK: define {{.*}}func_with_target{{.*}} #[[CONTAINS_TARGET:[0-9]+]]
-//CHECK-NOT: define {{.*}}non_target
 void func_with_target() {
   #pragma omp target
   {
@@ -25,8 +22,6 @@ void func_with_target() {
   non_target_func();
 }
 
-//CHECK: define {{.*}}another_func_with_target{{.*}} #[[CONTAINS_TARGET]]
-//CHECK-NOT: define {{.*}}non_target
 void another_func_with_target()
 {
   inside_outside_func();
@@ -35,11 +30,8 @@ void another_func_with_target()
     inside_outside_func();
   }
 }
-//CHECK: define {{.*}}inside_outside_func{{.*}} #[[DECLARE_TARGET:[0-9]+]]
-//CHECK-NOT: define {{.*}}non_target
 
-//CHECK: define {{.*}}another_function_with_lambda_with_target{{.*}}
-//CHECK-NOT: define {{.*}}non_target
+
 //Isn't really declare-target or contains-target at the IR level
 void another_function_with_lambda_with_target()
 {
@@ -53,11 +45,6 @@ void another_function_with_lambda_with_target()
        { }
     }();
 }
-//CHECK: declare {{.*}}another_function_with_lambda_with_target{{.*}}
-//CHECK: define {{.*}}another_function_with_lambda_with_target{{.*}} #[[CONTAINS_TARGET:[0-9]+]]
-
-//CHECK: define {{.*}}member_with_target{{.*}} #[[CONTAINS_TARGET]]
-//CHECK-NOT: define {{.*}}non_target
 struct A {
   void member_with_target() {
     #pragma omp target
@@ -79,6 +66,26 @@ int main()
   another_function_with_lambda_with_target();
   return 0;
 }
+
+//CHECK-NOT: define {{.*}}non_target
+//CHECK: define {{.*}}func_with_target{{.*}} #[[CONTAINS_TARGET:[0-9]+]]
+//CHECK-NOT: define {{.*}}non_target
+
+//CHECK: define {{.*}}another_func_with_target{{.*}} #[[CONTAINS_TARGET]]
+//CHECK-NOT: define {{.*}}non_target
+
+//CHECK: define {{.*}}another_function_with_lambda_with_target{{.*}}
+//CHECK-NOT: define {{.*}}non_target
+
+//CHECK: define {{.*}}inside_outside_func{{.*}} #[[DECLARE_TARGET:[0-9]+]]
+//CHECK-NOT: define {{.*}}non_target
+
+//CHECK: declare {{.*}}another_function_with_lambda_with_target{{.*}}
+//CHECK: define {{.*}}another_function_with_lambda_with_target{{.*}} #[[CONTAINS_TARGET]]
+
+//CHECK-NOT: define {{.*}}non_target
+//CHECK: define {{.*}}member_with_target{{.*}} #[[CONTAINS_TARGET]]
+//CHECK-NOT: define {{.*}}non_target
 
 //CHECK: attributes #[[CONTAINS_TARGET]] = {{.*}}"contains-openmp-target"="true"
 //CHECK: attributes #[[DECLARE_TARGET]] = {{.*}}"openmp-target-declare"="true"

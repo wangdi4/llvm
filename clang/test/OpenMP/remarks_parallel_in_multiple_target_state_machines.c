@@ -1,3 +1,7 @@
+// INTEL_CUSTOMIZATION
+// XFAIL: *
+// Currently fails until fixed upstream (CMPLRLLVM-28275)
+// end INTEL_CUSTOMIZATION
 // RUN: %clang_cc1                                 -verify=host                                                              -Rpass=openmp -fopenmp -x c++ -triple powerpc64le-unknown-unknown -fopenmp-targets=nvptx64-nvidia-cuda -emit-llvm-bc -mllvm -mandatory-inlining-first=0 %s -o %t-ppc-host.bc
 // RUN: %clang_cc1                                 -verify=all,safe                                                          -Rpass=openmp -fopenmp -O2 -x c++ -triple nvptx64-unknown-unknown -fopenmp-targets=nvptx64-nvidia-cuda -emit-llvm -mllvm -mandatory-inlining-first=0 %s -fopenmp-is-device -fopenmp-host-ir-file-path %t-ppc-host.bc -o %t.out
 // RUN: %clang_cc1 -fexperimental-new-pass-manager -verify=all,safe                                                          -Rpass=openmp -fopenmp -O2 -x c++ -triple nvptx64-unknown-unknown -fopenmp-targets=nvptx64-nvidia-cuda -emit-llvm -mllvm -mandatory-inlining-first=0 %s -fopenmp-is-device -fopenmp-host-ir-file-path %t-ppc-host.bc -o %t.out
