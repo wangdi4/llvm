@@ -2065,7 +2065,7 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
       // Shared privatization pass should be combined with the argument
       // promotion pass (to do a cleanup) which currently runs only at O3,
       // therefore it is limited to O3 as well.
-      PM.add(createVPOParoptSharedPrivatizationPass());
+      PM.add(createVPOParoptSharedPrivatizationPass(RunVPOParopt));
 #endif  // INTEL_CUSTOMIZATION
     PM.add(createVPOParoptPass(RunVPOParopt));
 #if INTEL_CUSTOMIZATION
