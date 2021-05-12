@@ -907,6 +907,10 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       }
     }
   }
+
+  // -qoverride-limits
+  if (Args.hasArg(options::OPT_qoverride_limits))
+    addllvmOption("-hir-cost-model-throttling=0");
 }
 #endif // INTEL_CUSTOMIZATION
 
