@@ -846,11 +846,13 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
                     sOpenCL12Str[] = "OpenCL 1.2 ",
                     sOpenCL20Str[] = "OpenCL 2.0 ",
                     sOpenCL21Str[] = "OpenCL 2.1 ",
-                    sOpenCL22Str[] = "OpenCL 2.2 ";
+                    sOpenCL22Str[] = "OpenCL 2.2 ",
+                    sOpenCL30Str[] = "OpenCL 3.0 ";
 
   static const char sOpenCLC10Str[] = "OpenCL C 1.0 ",
                     sOpenCLC12Str[] = "OpenCL C 1.2 ",
-                    sOpenCLC20Str[] = "OpenCL C 2.0 ";
+                    sOpenCLC20Str[] = "OpenCL C 2.0 ",
+                    sOpenCLC30Str[] = "OpenCL C 3.0 ";
 
   static bool isCPUDeviceMode = CPU_DEVICE == m_CPUDeviceConfig.GetDeviceMode();
   static bool isFPGAEmuDeviceMode =
@@ -1620,6 +1622,9 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
                     case OPENCL_VERSION_1_2:
                         openclCVerStr = sOpenCLC12Str;
                         break;
+                    case OPENCL_VERSION_3_0:
+                        openclCVerStr = sOpenCLC30Str;
+                        break;
                     default:
                         openclCVerStr = sOpenCLC20Str;
                         break;
@@ -1655,6 +1660,9 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
                     break;
                 case OPENCL_VERSION_2_2:
                     openclVerStr = sOpenCL22Str;
+                    break;
+                case OPENCL_VERSION_3_0:
+                    openclVerStr = sOpenCL30Str;
                     break;
                 default:
                     assert("Unknown OpenCL version.");

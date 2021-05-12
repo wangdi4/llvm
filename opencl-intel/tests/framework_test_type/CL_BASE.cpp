@@ -35,7 +35,9 @@ void CL_base::SetUp() {
                           &platVer[0], NULL);
   ASSERT_EQ(CL_SUCCESS, err) << " clGetPlatformInfo failed on trying to obtain "
                                 "CL_PLATFORM_VERSION string.";
-  if (!platVer.compare(0, 10, "OpenCL 2.1"))
+  if (!platVer.compare(0, 10, "OpenCL 3.0"))
+    m_version = OPENCL_VERSION::OPENCL_VERSION_3_0;
+  else if (!platVer.compare(0, 10, "OpenCL 2.1"))
     m_version = OPENCL_VERSION::OPENCL_VERSION_2_1;
   else if (!platVer.compare(0, 10, "OpenCL 2.0"))
     m_version = OPENCL_VERSION::OPENCL_VERSION_2_0;

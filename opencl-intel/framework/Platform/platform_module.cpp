@@ -178,6 +178,9 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
         case OPENCL_VERSION_2_0:
             m_vPlatformVersionStr = "OpenCL 2.0";
         break;
+        case OPENCL_VERSION_3_0:
+            m_vPlatformVersionStr = "OpenCL 3.0";
+        break;
         default:
             m_vPlatformVersionStr = "OpenCL 1.0";
         break;

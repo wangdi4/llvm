@@ -339,6 +339,11 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
         s_ver = OPENCL_VERSION_2_2;
         return OPENCL_VERSION_2_2;
     }
+    else if ("3.0" == ver)
+    {
+        s_ver = OPENCL_VERSION_3_0;
+        return OPENCL_VERSION_3_0;
+    }
     // else look in registry/etc
 #ifdef _WIN32
     DWORD iVer = m_pConfigFile->GetRegistryOrEtcValue<DWORD>("ForceOCLCPUVersion", 0);
@@ -366,6 +371,11 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
         {
             s_ver = OPENCL_VERSION_2_2;
             return OPENCL_VERSION_2_2;
+        }
+    case 5:
+        {
+            s_ver = OPENCL_VERSION_3_0;
+            return OPENCL_VERSION_3_0;
         }
     default:
         break;

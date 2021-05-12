@@ -113,6 +113,8 @@ const char *GetOpenCLVersionStr(OPENCL_VERSION ver) {
     return "210";
   case OPENCL_VERSION_2_2:
     return "220";
+  case OPENCL_VERSION_3_0:
+    return "300";
   default:
     throw "Unknown OpenCL version";
   }
