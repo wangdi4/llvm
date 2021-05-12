@@ -286,6 +286,9 @@ static sycl::detail::SpinLock *PiPlatformsCacheMutex =
     new sycl::detail::SpinLock;
 static bool PiPlatformCachePopulated = false;
 
+// Keeps track if the global offset extension is found
+static bool PiDriverGlobalOffsetExtensionFound = false;
+
 #if INTEL_CUSTOMIZATION
 // This is temporary support for the global offset experimental feature.
 static void *zeLibHandle = nullptr;
@@ -1137,6 +1140,26 @@ pi_result _pi_platform::initialize() {
   ZE_CALL(zeDriverGetApiVersion, (ZeDriver, &ZeApiVersion));
   ZeDriverApiVersion = std::to_string(ZE_MAJOR_VERSION(ZeApiVersion)) + "." +
                        std::to_string(ZE_MINOR_VERSION(ZeApiVersion));
+
+  // Cache driver extension properties
+  uint32_t Count = 0;
+  ZE_CALL(zeDriverGetExtensionProperties, (ZeDriver, &Count, nullptr));
+
+  std::vector<ze_driver_extension_properties_t> zeExtensions(Count);
+
+  ZE_CALL(zeDriverGetExtensionProperties,
+          (ZeDriver, &Count, zeExtensions.data()));
+
+  for (auto extension : zeExtensions) {
+    // Check if global offset extension is available
+    if (strncmp(extension.name, ZE_GLOBAL_OFFSET_EXP_NAME,
+                strlen(ZE_GLOBAL_OFFSET_EXP_NAME) + 1) == 0) {
+      if (extension.version == ZE_GLOBAL_OFFSET_EXP_VERSION_1_0) {
+        PiDriverGlobalOffsetExtensionFound = true;
+      }
+    }
+    zeDriverExtensionMap[extension.name] = extension.version;
+  }
 
   return PI_SUCCESS;
 }
@@ -3837,44 +3860,15 @@ piEnqueueKernelLaunch(pi_queue Queue, pi_kernel Kernel, pi_uint32 WorkDim,
   PI_ASSERT((WorkDim > 0) && (WorkDim < 4), PI_INVALID_WORK_DIMENSION);
 
 #if INTEL_CUSTOMIZATION
-  // This is temporary support for the experimental global offset support
   if (GlobalWorkOffset != NULL) {
-   uint32_t Count = 0;
-    ZE_CALL(zeDriverGetExtensionProperties,
-            (Queue->Device->Platform->ZeDriver, &Count, nullptr));
-    if (Count == 0) {
-      zePrint("No extensions supported on this driver\n");
-      return PI_INVALID_VALUE;
-    }
-
-    std::vector<ze_driver_extension_properties_t> Extensions(Count);
-    ZE_CALL(zeDriverGetExtensionProperties,
-            (Queue->Device->Platform->ZeDriver, &Count, Extensions.data()));
-    bool ExtensionFound = false;
-    for (uint32_t i = 0; i < Extensions.size(); i++) {
-      if (strncmp(Extensions[i].name, ZE_GLOBAL_OFFSET_EXP_NAME,
-                  strlen(ZE_GLOBAL_OFFSET_EXP_NAME)) == 0) {
-        if (Extensions[i].version == ZE_GLOBAL_OFFSET_EXP_VERSION_1_0) {
-          ExtensionFound = true;
-          break;
-        }
-      }
-    }
-    if (ExtensionFound == false) {
+    if (!PiDriverGlobalOffsetExtensionFound) {
       zePrint("No global offset extension found on this driver\n");
       return PI_INVALID_VALUE;
     }
 
-    GlobalWorkOffsetFunctionType PfnSetGlobalWorkOffset =
-        piFindGlobalWorkOffsetSymbol();
-
-    if (PfnSetGlobalWorkOffset != nullptr) {
-      ZE_CALL(PfnSetGlobalWorkOffset,
-              (Kernel->ZeKernel, GlobalWorkOffset[0], GlobalWorkOffset[1],
-               GlobalWorkOffset[2]));
-    } else {
-      return PI_INVALID_VALUE;
-    }
+    ZE_CALL(zeKernelSetGlobalOffsetExp,
+            (Kernel->ZeKernel, GlobalWorkOffset[0], GlobalWorkOffset[1],
+             GlobalWorkOffset[2]));
   }
 #endif // INTEL CUSTOMIZATION
 
