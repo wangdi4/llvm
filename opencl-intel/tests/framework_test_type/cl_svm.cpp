@@ -508,9 +508,18 @@ static void TestMigrate(cl_context context, cl_device_id device,
   // Enqueue Migrate command to the first queue
   char *ptrs[] = {buf};
   const size_t szs[] = {13};
+  cl_event evt;
   err = clEnqueueSVMMigrateMem(queue, 1, (const void **)ptrs, szs, 0, 0,
-                               nullptr, nullptr);
+                               nullptr, &evt);
   CheckException("clEnqueueSVMMigrateMem", CL_SUCCESS, err);
+
+  // OpenCL 3.0: Test event command type CL_COMMAND_SVM_MIGRATE_MEM.
+  cl_command_type command_type;
+  err = clGetEventInfo(evt, CL_EVENT_COMMAND_TYPE, sizeof(cl_command_type),
+                       &command_type, nullptr);
+  CheckException("clGetEventInfo", CL_SUCCESS, err);
+  ASSERT_EQ(command_type, CL_COMMAND_SVM_MIGRATE_MEM);
+
   cl_event event;
   err = clEnqueueNDRangeKernel(queue, kernel, 1, nullptr, &global_size, nullptr,
                                0, nullptr, &event);
@@ -533,6 +542,8 @@ static void TestMigrate(cl_context context, cl_device_id device,
 
   // Release resources
   clSVMFree(context, buf);
+  clReleaseEvent(evt);
+  clReleaseEvent(event);
   clReleaseCommandQueue(queue2);
 }
 

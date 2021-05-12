@@ -2700,7 +2700,7 @@ MigrateSVMMemCommand::MigrateSVMMemCommand(
     assert( nullptr != pMemObjects );
     assert( nullptr != pContextModule );
 
-    m_commandType = CL_COMMAND_MIGRATE_SVM_MEM_OBJECTS;
+    m_commandType = CL_COMMAND_SVM_MIGRATE_MEM;
     memset( &m_migrateCmdParams, 0, sizeof(cl_dev_cmd_param_migrate));
     m_migrateCmdParams.flags    = clFlags;
     m_migrateCmdParams.mem_num  = uNumMemObjects;

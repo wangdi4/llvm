@@ -14,7 +14,6 @@
 
 #include "command_name.h"
 #include "llvm/Support/Compiler.h"
-#include <CL/cl_cmd_ext.h>
 #include <CL/cl_usm_ext.h>
 
 namespace Intel {
@@ -103,9 +102,8 @@ const std::map<cl_command_type, CommandNameDevType> CommandTypeToNames = {
     {CL_COMMAND_SVM_UNMAP,
      {"CL_COMMAND_SVM_UNMAP", "Unmap SVM Buffer", CL_DEV_CMD_UNMAP}},
 
-    {CL_COMMAND_MIGRATE_SVM_MEM_OBJECTS,
-     {"CL_COMMAND_MIGRATE_SVM_MEM_OBJECTS", "Migrate SVM",
-      CL_DEV_CMD_SVM_MIGRATE}},
+    {CL_COMMAND_SVM_MIGRATE_MEM,
+     {"CL_COMMAND_SVM_MIGRATE_MEM", "Migrate SVM", CL_DEV_CMD_SVM_MIGRATE}},
 
     {CL_COMMAND_MEMFILL_INTEL,
      {"CL_COMMAND_MEMFILL_INTEL", "Fill USM", CL_DEV_CMD_FILL_BUFFER}},
