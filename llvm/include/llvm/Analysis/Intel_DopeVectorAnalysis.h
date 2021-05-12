@@ -785,18 +785,8 @@ public:
   // Return the number of nested dope vectors
   uint64_t getNumNestedDopeVector() { return NestedDopeVectors.size(); }
 
-  // Given a GEP operator, check which dope vector field is being accessed,
-  // collect the data and analyze it.
-  bool collectAndAnalyzeGlobalDopeVectorField(GEPOperator *GEP);
-
-  // Return true if the input BitCast operator is used for allocation
-  bool collectAndAnalyzeAllocSite(BitCastOperator *BC);
-
-  // Collect the nested dope vectors for the global variable
-  void collectAndAnalyzeNestedDopeVectors(const DataLayout &DL);
-
-  // Validate that all the data was collected correctly
-  void validateGlobalDopeVector();
+  // Collect and validate the global variable and all nested dope vectors
+  void collectAndValidate(const DataLayout &DL);
 
   AnalysisResult getAnalysisResult() { return AnalysisRes; }
 
@@ -829,6 +819,19 @@ private:
   // the nested dope vectors and analyze the use
   bool collectNestedDopeVectorFromSubscript(SubscriptInst *SI,
       const DataLayout &DL);
+
+  // Given a GEP operator, check which dope vector field is being accessed,
+  // collect the data and analyze it.
+  bool collectAndAnalyzeGlobalDopeVectorField(GEPOperator *GEP);
+
+  // Return true if the input BitCast operator is used for allocation
+  bool collectAndAnalyzeAllocSite(BitCastOperator *BC);
+
+  // Collect the nested dope vectors for the global variable
+  void collectAndAnalyzeNestedDopeVectors(const DataLayout &DL);
+
+  // Validate that all the data was collected correctly
+  void validateGlobalDopeVector();
 };
 
 } // end namespace dvanalysis
