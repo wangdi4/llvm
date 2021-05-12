@@ -3190,10 +3190,10 @@ let Predicates = [HasBWI] in {
 let isCodeGenOnly = 1, isPseudo = 1 in {
   let Predicates = [HasDQI, IntelAdvOpt] in
     def KMOVBki : I<0, Pseudo, (outs VK8:$dst), (ins i8imm :$src), "",
-                    [(set VK8:$dst, (bitconvert (i8 imm:$src)))]>;
+                    [(set VK8:$dst, (bitconvert (i8 imm:$src)))]>, Sched<[WriteMove]>;
   let Predicates = [HasAVX512, IntelAdvOpt] in
     def KMOVWki : I<0, Pseudo, (outs VK16:$dst), (ins i16imm :$src), "",
-                    [(set VK16:$dst, (bitconvert (i16 imm:$src)))]>;
+                    [(set VK16:$dst, (bitconvert (i16 imm:$src)))]>, Sched<[WriteMove]>;
 }
 #endif // INTEL_CUSTOMIZATION
 
