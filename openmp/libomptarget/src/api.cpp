@@ -378,6 +378,38 @@ EXTERN void * omp_get_mapped_ptr(void *host_ptr, int device_num) {
   return rc;
 }
 
+EXTERN int omp_target_is_accessible(const void *ptr, size_t size,
+                                    int device_num) {
+  TIMESCOPE();
+  DP("Call to omp_target_is_accessible with ptr " DPxMOD ", size %zu, "
+     "device_num %" PRId32 "\n", DPxPTR(ptr), size, device_num);
+
+  if (!ptr) {
+    DP("Call to omp_target_is_accessible with invalid ptr returns 0\n");
+    return 0;
+  }
+
+  if (size == 0) {
+    DP("Call to omp_target_is_accessible with size 0 returns 0\n");
+    return 0;
+  }
+
+  if (device_num == omp_get_initial_device()) {
+    DP("Call to omp_target_is_accessible with initial device returns 1\n");
+    return 1;
+  }
+
+  if (!device_is_ready(device_num)) {
+    REPORT("omp_target_is_accessible returns 0 due to device failure\n");
+    return 0;
+  }
+
+  DeviceTy &Device = PM->Devices[device_num];
+  int Ret = Device.isAccessibleAddrRange(ptr, size);
+  DP("omp_target_is_accessible returns %" PRId32 "\n", Ret);
+  return Ret;
+}
+
 static int32_t checkInteropCall(const omp_interop_t interop,
                                 const char *FnName) {
   if (!interop) {

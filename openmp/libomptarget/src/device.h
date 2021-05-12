@@ -277,6 +277,7 @@ struct DeviceTy {
   int32_t setSubDevice(int32_t Level);
   void unsetSubDevice(void);
   void addLambdaPtr(void *TgtPtr);
+  int32_t isAccessibleAddrRange(const void *Ptr, size_t Size);
 #endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfo and return
