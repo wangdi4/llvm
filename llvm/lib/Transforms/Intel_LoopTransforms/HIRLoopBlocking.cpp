@@ -344,24 +344,13 @@ const HLLoop *getChildLoop(const HLLoop *Loop, const LoopMapTy &LoopMap) {
   return Loop;
 }
 
-// Based on experiments on skx performance machines with
+// Based on experiments.
 // -O3 -xCORE-AVX512 -Ofast -mfpmath=sse -march=core-avx512
 // In most cases, block size (i.e. stripmine size for stripmine() utility)
 // 64 or 128 gave the best performance.
-// When TC, also the width of square matrix, is large pow-2 numbers, e.g. 2048
-// and 4096, block size(BS) 16 gave the best performance.
-// This behavior grealtly relies on
-// complete unroll of the innermost loop after vectorization.
-// For that effect, it is assumed
-// complete unroll before vectorization does not happen.
-// Non pow-2 TC larger than 4096, still showed the best performance
-// with BS = 64.
 unsigned adjustBlockSize(uint64_t TC) {
   if (CommandLineBlockSize) {
     return CommandLineBlockSize;
-  }
-  if (TC == 2048 || TC == 4096) {
-    return 16;
   }
   return DefaultBlockSize;
 }

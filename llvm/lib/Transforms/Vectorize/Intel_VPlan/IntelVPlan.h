@@ -2281,6 +2281,9 @@ public:
     setOperand(0, NewVal);
   }
 
+  bool isUpdatedForMaskedModeLoop() const { return UpdateForMaskedModeLoop; }
+  void setUpdateForMaskedModeLoop() { UpdateForMaskedModeLoop = true; }
+
 protected:
   // Clones VPInductionFinal.
   virtual VPInductionFinal *cloneImpl() const final {
@@ -2297,6 +2300,9 @@ private:
   // Tracks if induction's last value is computed before increment.
   bool LastValPreIncrement = false;
   Instruction::BinaryOps BinOpcode = Instruction::BinaryOpsEnd;
+  // It becomes true when the masked mode loop is generated. It is used by CG
+  // when we vectorize final induction.
+  bool UpdateForMaskedModeLoop = false;
 };
 
 // VPInstruction for reduction initialization.
@@ -3206,6 +3212,10 @@ class VPVLSLoad : public VPInstruction {
   Align Alignment;
    // Number of original loads being optimized. For OptReport purposes.
   int NumOrigLoads;
+  // Combined metadata that needs to be assigned to the wide load (e.g. TBAA,
+  // alias scopes, etc.). We only preserve fixed metadata kinds, hence this
+  // simpler data structure.
+  SmallVector<std::pair<unsigned, MDNode *>, 3> Metadata;
 
 public:
   /// \p Ptr should contain the base address for the wide VLSload in its 0th
@@ -3236,6 +3246,18 @@ public:
   Align getAlignment() const { return Alignment; }
   int getNumOrigLoads() const { return NumOrigLoads; }
 
+  void setMetadata(unsigned Kind, MDNode *MD) {
+    assert(none_of(Metadata,
+                   [Kind](std::pair<unsigned, MDNode *> Entry) {
+                     return Entry.first == Kind;
+                   }) &&
+           "That kind of metadata has been set already!");
+    Metadata.emplace_back(Kind, MD);
+  }
+  auto getMetadata() const {
+    return make_range(Metadata.begin(), Metadata.end());
+  }
+
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static bool classof(const VPInstruction *VPI) {
     return VPI->getOpcode() == VPInstruction::VLSLoad;
@@ -3263,6 +3285,10 @@ class VPVLSStore : public VPInstruction {
   Align Alignment;
    // Number of original stores being optimized. For OptReport purposes.
   int NumOrigStores;
+  // Combined metadata that needs to be assigned to the wide load (e.g. TBAA,
+  // alias scopes, etc.). We only preserve fixed metadata kinds, hence this
+  // simpler data structure.
+  SmallVector<std::pair<unsigned, MDNode *>, 3> Metadata;
 
 public:
   /// \p Val is a specially created wide value that can be directly stored as
@@ -3301,6 +3327,18 @@ public:
   int getGroupSize() const { return GroupSize; }
   Align getAlignment() const { return Alignment; }
   int getNumOrigStores() const { return NumOrigStores; }
+
+  void setMetadata(unsigned Kind, MDNode *MD) {
+    assert(none_of(Metadata,
+                   [Kind](std::pair<unsigned, MDNode *> Entry) {
+                     return Entry.first == Kind;
+                   }) &&
+           "That kind of metadata has been set already!");
+    Metadata.emplace_back(Kind, MD);
+  }
+  auto getMetadata() const {
+    return make_range(Metadata.begin(), Metadata.end());
+  }
 
     /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static bool classof(const VPInstruction *VPI) {

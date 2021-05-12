@@ -14,6 +14,7 @@
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
+#include "llvm/ADT/STLExtras.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -22,6 +23,42 @@ static LoopVPlanDumpControl VLSDumpControl("vls",
                                            "VPlan-to-VPlan VLS transformation");
 
 #define DEBUG_TYPE "vplan-vls-transform"
+
+template <class VLSMemoryOpTy>
+static void combineMetadata(VLSMemoryOpTy *VLSMemoryOp, OVLSGroup *Group) {
+  unsigned PreservedMDKinds[] = {
+      LLVMContext::MD_tbaa,        LLVMContext::MD_alias_scope,
+      LLVMContext::MD_noalias,     LLVMContext::MD_fpmath,
+      LLVMContext::MD_nontemporal, LLVMContext::MD_invariant_load};
+  for (unsigned Kind : PreservedMDKinds) {
+    auto Range = instructions(Group);
+    auto It = Range.begin();
+    auto End = Range.end();
+    MDNode *ResultMD = (*(It++))->getMetadata(Kind);
+    for (const VPLoadStoreInst *Inst : make_range(It, End)) {
+      MDNode *MD = Inst->getMetadata(Kind);
+      switch (Kind) {
+      case LLVMContext::MD_tbaa:
+        ResultMD = MDNode::getMostGenericTBAA(ResultMD, MD);
+        break;
+      case LLVMContext::MD_alias_scope:
+        ResultMD = MDNode::getMostGenericAliasScope(ResultMD, MD);
+        break;
+      case LLVMContext::MD_fpmath:
+        ResultMD = MDNode::getMostGenericFPMath(ResultMD, MD);
+        break;
+      case LLVMContext::MD_noalias:
+      case LLVMContext::MD_nontemporal:
+      case LLVMContext::MD_invariant_load:
+        ResultMD = MDNode::intersect(ResultMD, MD);
+        break;
+      default:
+        llvm_unreachable("unhandled metadata");
+      }
+    }
+    VLSMemoryOp->setMetadata(Kind, ResultMD);
+  }
+}
 
 /// Return the group granularity type (i.e. the one short enough to have all the
 /// individual loads/offset expressed as a multiple of it) together with the
@@ -170,6 +207,8 @@ createGroupLoad(OVLSGroup *Group, unsigned VF) {
       Builder.create<VPVLSLoad>("vls.load", LeaderAddress, Ty, Size,
                                 FirstGroupInst->getAlignment(), Group->size());
   Plan.getVPlanDA()->markUniform(*WideLoad);
+
+  combineMetadata(WideLoad, Group);
 
   return {WideLoad, Size};
 }
@@ -349,8 +388,11 @@ void llvm::vpo::applyVLSTransform(VPlan &Plan, VPlanVLSAnalysis &VLSA,
     auto *FirstMemrefInst =
         const_cast<VPLoadStoreInst *>(instruction(Group->getFirstMemref()));
     auto *BaseAddr = FirstMemrefInst->getOperand(1);
-    Builder.create<VPVLSStore>("vls.store", WideValue, BaseAddr, Size,
-                               FirstMemrefInst->getAlignment(), Group->size());
+    auto *WideStore = Builder.create<VPVLSStore>(
+        "vls.store", WideValue, BaseAddr, Size, FirstMemrefInst->getAlignment(),
+        Group->size());
+
+    combineMetadata(WideStore, Group);
   }
 
   while (!InstsToRemove.empty()) {

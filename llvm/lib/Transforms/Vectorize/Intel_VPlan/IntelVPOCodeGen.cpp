@@ -1666,6 +1666,10 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     if (VecTy->getNumElements() == VF * GroupSize && !MaskValue) {
       auto *WideLoad = cast<LoadInst>(Builder.CreateAlignedLoad(
           CastedBase, VLSLoad->getAlignment(), "vls.load"));
+
+      for (std::pair<unsigned, MDNode *> It : VLSLoad->getMetadata())
+        WideLoad->setMetadata(It.first, It.second);
+
       VPScalarMap[VLSLoad][0] = WideLoad;
       OptRptStats.UnmaskedVLSLoads += VLSLoad->getNumOrigLoads();
       return;
@@ -1748,7 +1752,10 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     if (VecTy->getNumElements() == VF * GroupSize && !MaskValue) {
       auto *WideStore = cast<StoreInst>(Builder.CreateAlignedStore(
           StoredValue, CastedBase, VLSStore->getAlignment()));
-      (void)WideStore;
+
+      for (std::pair<unsigned, MDNode *> It : VLSStore->getMetadata())
+        WideStore->setMetadata(It.first, It.second);
+
       OptRptStats.UnmaskedVLSStores += VLSStore->getNumOrigStores();
       return;
     }
@@ -3516,9 +3523,16 @@ void VPOCodeGen::vectorizeLifetimeStartEndIntrinsic(VPCallInstruction *VPCall) {
         Size =
             Builder.getInt64(AI->getAllocationSizeInBits(DL).getValue() >> 3);
       }
+      // If the pointer argument is not i8* type for this function, insert a
+      // bitcast to convert it to i8*. This inserts duplicate bitcasts, but, we
+      // expect CSE following up to take care of this.
+      Value *PointerArg = getScalarValue(VPCall->getOperand(1), 0);
+      if (!PointerArg->getType()->getPointerElementType()->isIntegerTy(8))
+        PointerArg = Builder.CreateBitCast(
+            PointerArg, Type::getInt8PtrTy(*Plan->getLLVMContext()));
+
       SmallVector<Value *, 3> ScalarArgs = {
-          Size, getScalarValue(VPCall->getOperand(1), 0),
-          getScalarValue(VPCall->getOperand(2), 0)};
+          Size, PointerArg, getScalarValue(VPCall->getOperand(2), 0)};
       auto *ScalarInstrinsic = generateSerialInstruction(VPCall, ScalarArgs);
       VPScalarMap[VPCall][0] = ScalarInstrinsic;
       return;
@@ -4315,7 +4329,20 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
 
     unsigned StepOpc = IsFloat ? Instruction::FMul : Instruction::Mul;
     Type *StepType = Step->getType();
+    // In case of masked mode loop, the trip count is equal to original trip
+    // count. In any other case, the trip count is equal to vector trip count.
     Value *TripCnt = VectorTripCount;
+    if (VPInst->isUpdatedForMaskedModeLoop()) {
+      VPBasicBlock *VPIndFinalBB = VPInst->getParent()->getSinglePredecessor();
+      VPLoop *L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
+      VPCmpInst *Cond = L->getLatchComparison();
+      assert(Cond && "Condition cannot be nullptr!");
+      VPValue *VPTripCount = L->isDefOutside(Cond->getOperand(0))
+                                 ? Cond->getOperand(0)
+                                 : Cond->getOperand(1);
+      TripCnt = getScalarValue(VPTripCount, 0);
+    }
+
     if (VPInst->isLastValPreIncrement())
       TripCnt =
           Builder.CreateSub(TripCnt, ConstantInt::get(TripCnt->getType(), 1));

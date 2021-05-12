@@ -22,23 +22,23 @@
 ; DEFAULT: Function: matmul
 ;
 ; DEFAULT:       BEGIN REGION { modified }
-; DEFAULT:             + DO i1 = 0, 255, 1   <DO_LOOP>
-; DEFAULT:             |   + DO i2 = 0, 255, 1   <DO_LOOP>
-; DEFAULT:             |   |   + DO i3 = 0, 255, 1   <DO_LOOP>
-; DEFAULT:             |   |   |   + DO i4 = 0, 15, 1   <DO_LOOP>
-; DEFAULT:             |   |   |   |   + DO i5 = 0, 15, 1   <DO_LOOP>
-; DEFAULT:             |   |   |   |   |   + DO i6 = 0, 15, 1   <DO_LOOP>
-; DEFAULT:             |   |   |   |   |   |   %0 = (@b)[0][16 * i1 + i4][16 * i2 + i5];
-; DEFAULT:             |   |   |   |   |   |   %mul = (@a)[0][16 * i2 + i5][16 * i3 + i6]  *  %0;
-; DEFAULT:             |   |   |   |   |   |   %add = (@c)[0][16 * i1 + i4][16 * i3 + i6]  +  %mul;
-; DEFAULT:             |   |   |   |   |   |   (@c)[0][16 * i1 + i4][16 * i3 + i6] = %add;
-; DEFAULT:             |   |   |   |   |   + END LOOP
-; DEFAULT:             |   |   |   |   + END LOOP
-; DEFAULT:             |   |   |   + END LOOP
-; DEFAULT:             |   |   + END LOOP
-; DEFAULT:             |   + END LOOP
-; DEFAULT:             + END LOOP
-; DEFAULT:       END REGION
+; DEFAULT:               + DO i1 = 0, 63, 1   <DO_LOOP>
+; DEFAULT:               |   + DO i2 = 0, 63, 1   <DO_LOOP>
+; DEFAULT:               |   |   + DO i3 = 0, 63, 1   <DO_LOOP>
+; DEFAULT:               |   |   |   + DO i4 = 0, 63, 1   <DO_LOOP>
+; DEFAULT:               |   |   |   |   + DO i5 = 0, 63, 1   <DO_LOOP>
+; DEFAULT:               |   |   |   |   |   + DO i6 = 0, 63, 1   <DO_LOOP>
+; DEFAULT:               |   |   |   |   |   |   %0 = (@b)[0][64 * i1 + i4][64 * i2 + i5];
+; DEFAULT:               |   |   |   |   |   |   %mul = (@a)[0][64 * i2 + i5][64 * i3 + i6]  *  %0;
+; DEFAULT:               |   |   |   |   |   |   %add = (@c)[0][64 * i1 + i4][64 * i3 + i6]  +  %mul;
+; DEFAULT:               |   |   |   |   |   |   (@c)[0][64 * i1 + i4][64 * i3 + i6] = %add;
+; DEFAULT:               |   |   |   |   |   + END LOOP
+; DEFAULT:               |   |   |   |   + END LOOP
+; DEFAULT:               |   |   |   + END LOOP
+; DEFAULT:               |   |   + END LOOP
+; DEFAULT:               |   + END LOOP
+; DEFAULT:               + END LOOP
+; DEFAULT:        END REGION
 
 ;Module Before HIR
 ; ModuleID = 'matmul-near-perfect.c'

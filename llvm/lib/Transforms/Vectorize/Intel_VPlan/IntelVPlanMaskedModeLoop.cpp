@@ -15,6 +15,7 @@
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
+#include "IntelVPlanExternals.h"
 #include "IntelVPlanLoopInfo.h"
 #include "IntelVPlanValue.h"
 
@@ -179,6 +180,11 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   auto MaskedVPlanDA = std::make_unique<VPlanDivergenceAnalysis>();
   MaskedVPlan->setVPlanDA(std::move(MaskedVPlanDA));
   MaskedVPlan->computeDA();
+
+  VPBasicBlock &ExitBB = *TopVPLoop->getExitBlock();
+  for (VPInstruction &I : *&ExitBB)
+    if (auto *VPIndFinal = dyn_cast<VPInductionFinal>(&I))
+      VPIndFinal->setUpdateForMaskedModeLoop();
 
   VPLAN_DUMP(MaskedVariantDumpControl, MaskedVPlan.get());
 

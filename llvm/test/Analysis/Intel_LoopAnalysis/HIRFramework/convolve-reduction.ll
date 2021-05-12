@@ -110,6 +110,7 @@ for.cond31.preheader.us:                          ; preds = %for.cond31.preheade
 
 for.body34.us:                                    ; preds = %for.body34.us, %for.cond31.preheader.us
   %indvars.iv225 = phi i64 [ 0, %for.cond31.preheader.us ], [ %indvars.iv.next226, %for.body34.us ]
+  %extra = phi double [ 0.0, %for.cond31.preheader.us ], [ %extra.add, %for.body34.us ]
   %t3.5191.us = phi double [ %t3.4200.us, %for.cond31.preheader.us ], [ %add55.us, %for.body34.us ]
   %t2.5190.us = phi double [ %t2.4199.us, %for.cond31.preheader.us ], [ %add48.us, %for.body34.us ]
   %t1.5189.us = phi double [ %t1.4198.us, %for.cond31.preheader.us ], [ %add41.us, %for.body34.us ]
@@ -129,6 +130,8 @@ for.body34.us:                                    ; preds = %for.body34.us, %for
   %conv53.us = uitofp i16 %7 to double
   %mul54.us = fmul double %conv53.us, %mul
   %add55.us = fadd double %t3.5191.us, %mul54.us
+  %extra.mul = fmul double %conv39.us, %mul40.us
+  %extra.add = fadd double %extra, %extra.mul
   %indvars.iv.next226 = add nuw nsw i64 %indvars.iv225, 1
   %exitcond229 = icmp eq i64 %indvars.iv.next226, %wide.trip.count232
   br i1 %exitcond229, label %for.cond31.for.inc59_crit_edge.us, label %for.body34.us

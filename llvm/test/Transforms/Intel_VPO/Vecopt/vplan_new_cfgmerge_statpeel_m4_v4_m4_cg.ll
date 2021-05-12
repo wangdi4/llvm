@@ -50,7 +50,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK:       VPlannedBB7:
 ; CHECK-NEXT:    br label [[MERGE_BLK24:%.*]]
 ; CHECK:       merge.blk24:
-; CHECK-NEXT:    [[UNI_PHI8:%.*]] = phi i64 [ 1024, [[VPLANNEDBB7]] ]
+; CHECK-NEXT:    [[UNI_PHI8:%.*]] = phi i64 [ 1, [[VPLANNEDBB7]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB9:%.*]]
 ; CHECK:       VPlannedBB9:
 ; CHECK-NEXT:    br i1 false, label [[MERGE_BLK22]], label [[VPLANNEDBB10:%.*]]
