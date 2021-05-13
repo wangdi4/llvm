@@ -65,7 +65,7 @@
 // Upper bound of CL_CONFIG_CPU_FORCE_MAX_WORK_GROUP_SIZE
 #define CPU_MAX_WORK_GROUP_SIZE_UPPER_BOUND (64*1024*1024)
 
-#define CPU_DEFAULT_WG_SIZE             32
+#define CPU_DEFAULT_WG_SIZE             128
 #define CPU_MIN_ACTUAL_PARAM_SIZE       sizeof(size_t)
 #define CPU_MIN_ACTUAL_PARAM_PTR        size_t*
 // Minimum vector size, XMM == 16bytes

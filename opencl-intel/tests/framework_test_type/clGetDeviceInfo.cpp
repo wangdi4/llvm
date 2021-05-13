@@ -79,18 +79,18 @@ bool clGetDeviceInfoTest()
 
 	// device version string
 	size_t szDeviceVersionStringSize = 0;
+    std::string deviceVersionString;
 	iRes = clGetDeviceInfo(devices[0], CL_DEVICE_VERSION, 0, NULL, &szDeviceVersionStringSize);
 	bResult &= Check("CL_DEVICE_VERSION - query size", CL_SUCCESS, iRes);
 	if (bResult && 0 < szDeviceVersionStringSize)
 	{
-		char * pDeviceVersionString = new char[szDeviceVersionStringSize + 1];
-		iRes = clGetDeviceInfo(devices[0], CL_DEVICE_VERSION, szDeviceVersionStringSize + 1, pDeviceVersionString, NULL);
+        deviceVersionString.resize(szDeviceVersionStringSize);
+		iRes = clGetDeviceInfo(devices[0], CL_DEVICE_VERSION, szDeviceVersionStringSize, &deviceVersionString[0], NULL);
 		bResult &= Check("CL_DEVICE_VERSION - get string", CL_SUCCESS, iRes);
 		if (bResult)
 		{
-			printf("CL_DEVICE_VERSION: %s\n", pDeviceVersionString);
+			printf("CL_DEVICE_VERSION: %s\n", deviceVersionString.c_str());
 		}
-		delete[] pDeviceVersionString;
 	}
 
 
@@ -134,6 +134,44 @@ bool clGetDeviceInfoTest()
 		bResult &= CheckSize("CL_DEVICE_PROFILING_TIMER_RESOLUTION", szNativeCodeResolution, szResolution);
 	}
 
+    if (!deviceVersionString.compare(0, 10, "OpenCL 3.0"))
+    {
+        cl_bool nonUniformWGSupport = CL_FALSE;
+        iRes = clGetDeviceInfo(devices[0], CL_DEVICE_NON_UNIFORM_WORK_GROUP_SUPPORT, sizeof(cl_bool), &nonUniformWGSupport, &size_ret);
+        bResult &= Check("clGetDeviceInfo CL_DEVICE_NON_UNIFORM_WORK_GROUP_SUPPORT", CL_SUCCESS, iRes);
+        bResult &= CheckSize("clGetDeviceInfo CL_DEVICE_NON_UNIFORM_WORK_GROUP_SUPPORT - query size", sizeof(cl_bool), size_ret);
+        bResult &= Check("clGetDeviceInfo CL_DEVICE_NON_UNIFORM_WORK_GROUP_SUPPORT", CL_TRUE, nonUniformWGSupport);
+
+        cl_bool wgCollectiveFuncSupport = CL_FALSE;
+        iRes = clGetDeviceInfo(devices[0], CL_DEVICE_WORK_GROUP_COLLECTIVE_FUNCTIONS_SUPPORT, sizeof(cl_bool), &wgCollectiveFuncSupport, &size_ret);
+        bResult &= Check("clGetDeviceInfo CL_DEVICE_WORK_GROUP_COLLECTIVE_FUNCTIONS_SUPPORT", CL_SUCCESS, iRes);
+        bResult &= CheckSize("clGetDeviceInfo CL_DEVICE_WORK_GROUP_COLLECTIVE_FUNCTIONS_SUPPORT - query size", sizeof(cl_bool), size_ret);
+        bResult &= Check("clGetDeviceInfo CL_DEVICE_WORK_GROUP_COLLECTIVE_FUNCTIONS_SUPPORT", CL_TRUE, wgCollectiveFuncSupport);
+
+        cl_bool genericAddressSpaceSupport = CL_FALSE;
+        iRes = clGetDeviceInfo(devices[0], CL_DEVICE_GENERIC_ADDRESS_SPACE_SUPPORT, sizeof(cl_bool), &genericAddressSpaceSupport, &size_ret);
+        bResult &= Check("clGetDeviceInfo CL_DEVICE_GENERIC_ADDRESS_SPACE_SUPPORT", CL_SUCCESS, iRes);
+        bResult &= CheckSize("clGetDeviceInfo CL_DEVICE_GENERIC_ADDRESS_SPACE_SUPPORT - query size", sizeof(cl_bool), size_ret);
+        bResult &= Check("clGetDeviceInfo CL_DEVICE_GENERIC_ADDRESS_SPACE_SUPPORT", CL_TRUE, genericAddressSpaceSupport);
+
+        cl_device_device_enqueue_capabilities enqueueCapabilities;
+        iRes = clGetDeviceInfo(devices[0], CL_DEVICE_DEVICE_ENQUEUE_CAPABILITIES, sizeof(cl_device_device_enqueue_capabilities), &enqueueCapabilities, &size_ret);
+        bResult &= Check("clGetDeviceInfo CL_DEVICE_DEVICE_ENQUEUE_CAPABILITIES", CL_SUCCESS, iRes);
+        bResult &= CheckSize("clGetDeviceInfo CL_DEVICE_DEVICE_ENQUEUE_CAPABILITIES - query size", sizeof(cl_device_device_enqueue_capabilities), size_ret);
+        bResult &= Check("clGetDeviceInfo CL_DEVICE_DEVICE_ENQUEUE_CAPABILITIES", CL_DEVICE_QUEUE_SUPPORTED|CL_DEVICE_QUEUE_REPLACEABLE_DEFAULT, enqueueCapabilities);
+
+        cl_bool pipeSupport = CL_FALSE;
+        iRes = clGetDeviceInfo(devices[0], CL_DEVICE_PIPE_SUPPORT, sizeof(cl_bool), &pipeSupport, &size_ret);
+        bResult &= Check("clGetDeviceInfo CL_DEVICE_PIPE_SUPPORT", CL_SUCCESS, iRes);
+        bResult &= CheckSize("clGetDeviceInfo CL_DEVICE_PIPE_SUPPORT - query size", sizeof(cl_bool), size_ret);
+        bResult &= Check("clGetDeviceInfo CL_DEVICE_PIPE_SUPPORT", CL_TRUE, pipeSupport);
+
+        size_t preferredWGSize;
+        iRes = clGetDeviceInfo(devices[0], CL_DEVICE_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &preferredWGSize, &size_ret);
+        bResult &= Check("clGetDeviceInfo CL_DEVICE_PREFERRED_WORK_GROUP_SIZE_MULTIPLE", CL_SUCCESS, iRes);
+        bResult &= CheckSize("clGetDeviceInfo CL_DEVICE_PREFERRED_WORK_GROUP_SIZE_MULTIPLE - query size", sizeof(size_t), size_ret);
+        bResult &= CheckSize("clGetDeviceInfo CL_DEVICE_PREFERRED_WORK_GROUP_SIZE_MULTIPLE", 128, preferredWGSize);
+    }
 	// max work item dimentions
 	// all OK
 	//cl_uint uiMaxWorkItemDim;

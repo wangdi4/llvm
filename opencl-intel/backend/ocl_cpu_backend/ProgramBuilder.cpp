@@ -349,7 +349,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   unsigned int kernelForcedVecLength = 0;
 
   // WG size is set based on attributes passed via metadata.
-  unsigned int optWGSize = 128; // TODO: to be checked
+  unsigned int optWGSize = CPU_DEFAULT_WG_SIZE; // TODO: to be checked
   size_t hintWGSize[MAX_WORK_DIM] = {0, 0, 0};
   if (kmd.WorkGroupSizeHint.hasValue()) {
     // TODO: SExt <=> ZExt
