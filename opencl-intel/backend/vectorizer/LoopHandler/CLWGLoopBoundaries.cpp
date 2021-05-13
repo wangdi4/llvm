@@ -518,12 +518,19 @@ bool CLWGLoopBoundaries::findAndCollapseEarlyExit() {
 bool CLWGLoopBoundaries::collectCond(SmallVector<ICmpInst *, 4>& compares,
                                   IVec &uniformConds, Instruction *root) {
   unsigned rootOp = root->getOpcode();
-  assert((rootOp == Instruction::And || rootOp == Instruction::Or) &&
-      "supported ops are :and, or ");
-  SmallVector<Value *, 4> Cands;
+  assert((rootOp == Instruction::And || rootOp == Instruction::Or ||
+          rootOp == Instruction::Select) &&
+         "Only 'and', 'or' and 'select' are supported");
+
   // First candidates are the two operands.
-  Cands.push_back(root->getOperand(0));
-  Cands.push_back(root->getOperand(1));
+  Value *Cand1 = root->getOperand(0);
+  Value *Cand2 = root->getOperand(1);
+  if (rootOp == Instruction::Select && isa<ConstantInt>(Cand2)) {
+    // 'Select' case. Add the non-constant operand.
+    Cand2 = root->getOperand(2);
+  }
+  SmallVector<Value *, 4> Cands{Cand1, Cand2};
+
   do {
     Instruction *cur = dyn_cast<Instruction>(Cands.back());
     if (!cur) return false;
@@ -1071,6 +1078,8 @@ bool CLWGLoopBoundaries::isEarlyExitBranch(BranchInst *Br, bool EETrueSide) {
   // 2. Icmp of TID against uniform value
   // 3. Ands of (1,2) for branching into the code (avoiding early exit)
   // 4. Or of (1,2) for branch into the early exit
+  // 5. Select c0, c1, false (same as 3)
+  // 6. Select c0, true, c1 (same as 4)
   SmallVector<ICmpInst *, 4> compares;
   IVec uniformConds;
   if (isUniform(condInst)) {
@@ -1081,6 +1090,23 @@ bool CLWGLoopBoundaries::isEarlyExitBranch(BranchInst *Br, bool EETrueSide) {
     if (!collectCond(compares, uniformConds, condInst)) return false;
   } else if (!EETrueSide && condInst->getOpcode() == Instruction::And) {
     if (!collectCond(compares, uniformConds, condInst)) return false;
+  } else if (condInst->getOpcode() == Instruction::Select) {
+    // After D99674, folding 'select' to 'and/or' is forbidden, and we failed
+    // to track the boundary. This causes ~50% regression on specACCELref/126.
+    // So, we now manually detect the select pattern, and
+    //   1) treat 'select c0, c1, false' as 'and c0, c1';
+    //   2) treat 'select c0, true, c1' as 'or c0, c1'.
+    // This part of code can be removed if 'select' is folded again with
+    // 'freeze' instrumented.
+    unsigned ConstOpIdx = EETrueSide ? 1 : 2;
+    unsigned ExpectedConstVal = EETrueSide ? 1 : 0;
+    ConstantInt *C;
+    if (!(C = dyn_cast<ConstantInt>(condInst->getOperand(ConstOpIdx))))
+      return false;
+    if (C->getZExtValue() != ExpectedConstVal)
+      return false;
+    if (!collectCond(compares, uniformConds, condInst))
+      return false;
   } else return false;
 
   // Check that compares have supported pattern.
