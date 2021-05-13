@@ -391,7 +391,7 @@ private:
   bool hoistFcmpAndExchangeUses(Instruction *I1, Value *Op, Instruction *BinOp);
 #endif // INTEL_CUSTOMIZATION
   Value *foldAndOrOfICmpsOfAndWithPow2(ICmpInst *LHS, ICmpInst *RHS,
-                                       BinaryOperator &Logic);
+                                       Instruction *CxtI, bool IsAnd);
   Value *matchSelectFromAndOr(Value *A, Value *B, Value *C, Value *D);
   Value *getSelectCondition(Value *A, Value *B);
 
