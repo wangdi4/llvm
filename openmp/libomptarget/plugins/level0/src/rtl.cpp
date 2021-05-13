@@ -2544,6 +2544,10 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
         DeviceInfo->MemPoolShared.emplace(device, device);
         DeviceInfo->MemPoolDevice.emplace(device, device);
       }
+    }
+
+    for (uint32_t i = 0; i < numDevices; i++) {
+      ze_device_handle_t device = devices[i];
 
       // Find subdevices, add them to the device list, mark where they are.
       // Collect lists of subdevice handles first.
