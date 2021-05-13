@@ -90,6 +90,10 @@ private:
     void erase() {
       for (OVLSMemref *X : Memrefs)
         delete X;
+
+      Memrefs.clear();
+      Groups.clear();
+      Mem2Group.clear();
     }
   };
 

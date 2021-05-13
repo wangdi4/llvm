@@ -132,6 +132,9 @@ void VPlanVLSAnalysis::getOVLSMemrefs(const VPlan *Plan, const unsigned VF,
     LLVM_DEBUG(
         dbgs() << "Fixed all OVLSTypes for previously collected memrefs.\n";
         this->dump());
+    // Clean grouping info so it won't merge with new analysis results.
+    Plan2VLSInfo[Plan].Groups.clear();
+    Plan2VLSInfo[Plan].Mem2Group.clear();
   } else {
     if (VLSInfoIt != Plan2VLSInfo.end())
       VLSInfoIt->second.erase();
@@ -142,9 +145,6 @@ void VPlanVLSAnalysis::getOVLSMemrefs(const VPlan *Plan, const unsigned VF,
   }
 
   // Finally run grouping of collected/changed memrefs.
-  // TODO: From vectorizer perspective, formed groups should be same regardless
-  // of VF, so we may not run this interface second time if we just changed
-  // OVLSTypes.
   OptVLSInterface::getGroups(Plan2VLSInfo[Plan].Memrefs,
                              Plan2VLSInfo[Plan].Groups, MaxVectorWidthInBytes,
                              &Plan2VLSInfo[Plan].Mem2Group);
