@@ -20,6 +20,7 @@
 #include "Intel_DTrans/Transforms/MemManageTrans.h"
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAnalysis.h"
+#include "Intel_DTrans/Analysis/DTransAnnotator.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/Module.h"
@@ -29,6 +30,11 @@
 using namespace llvm;
 
 #define DTRANS_MEMMANAGETRANS "dtrans-memmanagetrans"
+
+// MemManageTrans is triggered only when SOAToAOS is triggered.
+// This option is used to ignore SOAToAOS heuristic.
+static cl::opt<bool> MemManageIgnoreSOAHeur("dtrans-memmanage-ignore-soa-heur",
+                                            cl::init(false), cl::ReallyHidden);
 
 namespace {
 
@@ -196,6 +202,11 @@ private:
   // Set of Interface functions and their users.
   SmallPtrSet<Function *, 32> RelatedFunctions;
 
+  // Flag is set if we find that SOAToAOS transformation has occurred.
+  // Check for SOAToAOSTypeAnnotation in checkTypesEscaped routine to
+  // detect SOAToAOS has occurred.
+  bool SOAToAOSDone = false;
+
   bool gatherCandidates(void);
   bool analyzeCandidates(void);
   void transformBlockSize(void);
@@ -328,7 +339,6 @@ private:
   bool isFrontNodeObjectCountLoad(Value *V, Value *Obj, Value *NodePtr);
   bool isFrontNodeBlockSizeLoad(Value *V, Value *Obj, Value *NodePtr);
   bool isFrontNodeObjectBlockLoad(Value *V, Value *Obj, Value *NodePtr);
-  bool isNodePosNextPrev(Value *V, Value *NodePos);
   bool isNodePosPrevNext(Value *V, Value *NodePos);
   bool isNodePosPrevLoad(Value *V, Value *NodePos);
   bool isNodePosNextLoad(Value *V, Value *NodePos);
@@ -653,6 +663,8 @@ bool MemManageTransImpl::checkTypesEscaped(void) {
   };
 
   for (auto &F : M) {
+    if (DTransAnnotator::lookupDTransSOAToAOSTypeAnnotation(F))
+      SOAToAOSDone = true;
     if (RelatedFunctions.count(&F))
       continue;
     if (!CheckFunction(F))
@@ -1221,22 +1233,6 @@ bool MemManageTransImpl::isNodePosPrevLoad(Value *V, Value *NodePos) {
   if (!isNodePosPrev(LI->getPointerOperand(), NodePos))
     return false;
   Visited.insert(LI);
-  return true;
-}
-
-// Returns true if "V" represents Prev of Next field of Node.
-// Ex:
-//   NodePos->Next->Prev
-bool MemManageTransImpl::isNodePosNextPrev(Value *V, Value *NodePos) {
-  auto Cand = getCurrentCandidate();
-  Value *BasePtr = nullptr;
-  int32_t Idx = 0;
-  if (!getGEPBaseAddrIndex(V, &BasePtr, &Idx))
-    return false;
-  if (Idx != Cand->getNodePrevIndex())
-    return false;
-  if (!isNodePosNextLoad(BasePtr, NodePos))
-    return false;
   return true;
 }
 
@@ -3754,10 +3750,14 @@ bool MemManageTransImpl::identifyFreeNode(BasicBlock *BB, Value *Obj,
     return false;
   Visited.insert(SI);
 
+  // Makes sure Node->Next is reloaded after SI.
+  Value *NewNodeNext = SI->getNextNonDebugInstruction();
+  if (!isNodePosNextLoad(NewNodeNext, Node))
+    return false;
   SI = StoreVec[1];
   if (SI->getValueOperand() != NodePrev)
     return false;
-  if (!isNodePosNextPrev(SI->getPointerOperand(), Node))
+  if (!isNodePosPrev(SI->getPointerOperand(), NewNodeNext))
     return false;
   Visited.insert(SI);
 
@@ -5145,10 +5145,14 @@ bool MemManageTransImpl::identifyFreeNodeInLoop(BasicBlock *FreeNodeLoopZTTBB,
   NodeNext = SI->getValueOperand();
   Visited.insert(SI);
 
+  // Makes sure Node->Next is reloaded after SI.
+  Value *NewNextNode = SI->getNextNonDebugInstruction();
+  if (!isNodePosNextLoad(NewNextNode, Node))
+    return false;
   SI = StoreVec[1];
   if (!isNodePosPrevLoad(SI->getValueOperand(), Node))
     return false;
-  if (!isNodePosNextPrev(SI->getPointerOperand(), Node))
+  if (!isNodePosPrev(SI->getPointerOperand(), NewNextNode))
     return false;
   Visited.insert(SI);
 
@@ -7560,13 +7564,15 @@ void MemManageTransImpl::transformBlockSize(void) {
   assert(BlockSizeStoreInst && "Expected store instruction");
   Value *ValOp = BlockSizeStoreInst->getValueOperand();
   Value *NewVal = ConstantInt::get(ValOp->getType(), NewBlockSize);
-  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS,
-     { dbgs() << "   Before transform: " << *BlockSizeStoreInst << "\n"; });
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS, {
+    dbgs() << "   Before transform: " << *BlockSizeStoreInst << "\n";
+  });
 
   BlockSizeStoreInst->replaceUsesOfWith(ValOp, NewVal);
 
-  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS,
-     { dbgs() << "   After transform: " << *BlockSizeStoreInst << "\n"; });
+  DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS, {
+    dbgs() << "   After transform: " << *BlockSizeStoreInst << "\n";
+  });
 }
 
 bool MemManageTransImpl::run(void) {
@@ -7593,6 +7599,13 @@ bool MemManageTransImpl::run(void) {
   if (!recognizeFunctions()) {
     DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS,
                     { dbgs() << "   Failed: Recognizing functionality\n"; });
+    return false;
+  }
+
+  // Check for SOAToAOS heuristic.
+  if (!SOAToAOSDone && !MemManageIgnoreSOAHeur) {
+    DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS,
+                    { dbgs() << "  Failed:  SOAToAOS heuristic\n"; });
     return false;
   }
 

@@ -64,10 +64,14 @@ target triple = "x86_64-unknown-linux-gnu"
 %"class.std::exception" = type { i32 (...)** }
 %"OutOfMemoryException" = type { i8 }
 
+%__SOADT_class.F = type { %__SOADT_AR_struct.Arr*, i64 }
+%__SOADT_AR_struct.Arr = type { i32, [4 x i8], %__SOADT_EL_class.F*, i32, [4 x i8] }
+%__SOADT_EL_class.F = type { i32*, float* }
+
 @_ZTSN11xercesc_2_713MemoryManagerE = internal constant [31 x i8] c"N11xercesc_2_713MemoryManagerE\00"
 
 ; Function Attrs: norecurse nounwind readonly uwtable willreturn mustprogress
-define internal nonnull align 8 dereferenceable(8) %"MemoryManager"* @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv(%"ArenaAllocator"* nocapture nonnull readonly dereferenceable(40) %arg) align 2 {
+define internal nonnull align 8 dereferenceable(8) %"MemoryManager"* @_ZN11xalanc_1_1014ArenaAllocatorINS_13XStringCachedENS_18ReusableArenaBlockIS1_tEEE16getMemoryManagerEv(%"ArenaAllocator"* nocapture nonnull readonly dereferenceable(40) %arg) align 2  !dtrans-soatoaos !3 {
   %i = getelementptr inbounds %ArenaAllocator, %ArenaAllocator* %arg, i64 0, i32 2
   %i1 = getelementptr inbounds %XalanList, %XalanList* %i, i64 0, i32 0
   %i2 = load %MemoryManager*, %MemoryManager** %i1, align 8
@@ -2336,4 +2340,5 @@ declare void @__cxa_throw(i8* nonnull, i8*, i8*)
 
 attributes #0 = { "intel-mempool-constructor" }
 attributes #1 = { "intel-mempool-destructor" }
+!3 = !{%__SOADT_EL_class.F* null}
 
