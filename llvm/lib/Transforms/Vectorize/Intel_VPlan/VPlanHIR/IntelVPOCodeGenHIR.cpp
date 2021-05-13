@@ -3885,6 +3885,10 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
         OrigPrivDescr);
     CondPrivFinalInsts.push_back(*PrivExtract);
 
+    // Make the original private descriptor non-linear since we have a
+    // definition to the temp in loop post-exit.
+    PrivExtract->getLvalDDRef()->getSingleCanonExpr()->setNonLinear();
+
     // TODO: This should be changed to addInst interface once it is aware of
     // Loop PH or Exit.
     HLNodeUtils::insertAfter(MainLoop, &CondPrivFinalInsts);
@@ -5055,11 +5059,32 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // TODO: Dirty hack to handle copy instructions outside the loop region.
     // These are generated for conditional last private recurrent PHIs.
     if (VPInst->getParent() == getVPLoop()->getLoopPreheader()) {
-      // TODO: Dirty hack to get around decomposition issue.
-      if (OrigLoop->isLiveOut(RefOp0->getSymbase()) &&
-          !OrigLoop->isLiveIn(RefOp0->getSymbase())) {
-        NewInst->setRvalDDRef(
-            DDRefUtilities.createUndefDDRef(RefOp0->getDestType()));
+      auto *RValTmp = NewInst->getRvalDDRef();
+      if (RValTmp->isSelfBlob()) {
+        unsigned RvalSym = RValTmp->getSymbase();
+        // Make the r-val temp of pre-loop copies non-linear if we know that
+        // temp will be liveout of current loop. Pre-loop copies are introduced
+        // by deconstruction of loop header reccurrent PHIs. Liveout r-val temps
+        // have to be made non-linear since they will have a definition in the
+        // loop post-exit (finalization) -
+        // DO i1
+        //     %vec = %t
+        //   DO i2
+        //     %vec =
+        //   END DO
+        //     %t = %vec // This definition makes %t non-linear
+        // END DO
+        if (MainLoop->isLiveOut(RvalSym)) {
+          auto *RvalTempCE = RValTmp->getSingleCanonExpr();
+          RvalTempCE->setNonLinear();
+        }
+        // Since we are adding a new r-val use of temp outside the loop, make
+        // the temp live-in at all parent loop levels.
+        auto *ParentLoop = MainLoop->getParentLoop();
+        while (ParentLoop != nullptr) {
+          ParentLoop->addLiveInTemp(RvalSym);
+          ParentLoop = ParentLoop->getParentLoop();
+        }
       }
       HLNodeUtils::insertBefore(MainLoop, NewInst);
       addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());

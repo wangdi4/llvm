@@ -5,7 +5,7 @@
 ; to the parent loop region.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=hir-vec-dir-insert -hir-details < %s 2>&1 -disable-output | FileCheck %s --check-prefix=INPUT
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -disable-hir-cond-last-priv-cg=false -vplan-force-vf=4 -vplan-print-after-plain-cfg -print-after=VPlanDriverHIR < %s 2>&1 -disable-output | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -disable-hir-cond-last-priv-cg=false -vplan-force-vf=4 -vplan-print-after-plain-cfg -print-after=VPlanDriverHIR -hir-details < %s 2>&1 -disable-output | FileCheck %s
 
 ; Checks for incoming HIR
 ; INPUT-LABEL: BEGIN REGION { }
@@ -100,36 +100,35 @@ define dso_local i32 @main() local_unnamed_addr {
 
 ; Checks for vector HIR
 ; CHECK-LABEL:   BEGIN REGION { modified }
-; CHECK-NEXT:         + DO i1 = 0, 62, 1   <DO_LOOP>
-; CHECK-NEXT:         |   %tgu = (-1 * i1 + 63)/u4;
-; CHECK-NEXT:         |   if (0 <u 4 * %tgu)
-; CHECK-NEXT:         |   {
-; FIXME: %nz.061 is live-in to outer loop, initializing %phi.temp created for this value
-; with undef will lead to incorrect results in vectorized loop. Check the live-in symbases
-; list of outer loop in incoming HIR (%nz.061 has sb:3).
-; CHECK-NEXT:         |      %phi.temp = undef;
-; CHECK-NEXT:         |      %phi.temp2 = -1;
-; CHECK-NEXT:         |
-; CHECK-NEXT:         |      + DO i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 15> <auto-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:         |      |   %.vec7 = undef;
-; CHECK-NEXT:         |      |   %.vec = (<4 x i32>*)(%zo)[0][i2 + <i64 0, i64 1, i64 2, i64 3> + 1][0];
-; CHECK-NEXT:         |      |   %.vec4 = %.vec == 0;
-; CHECK-NEXT:         |      |   %.vec5 = %.vec4  ^  -1;
-; CHECK-NEXT:         |      |   %.copy6 = 0;
-; CHECK-NEXT:         |      |   %.vec7 = (<4 x i32>*)(%s1)[0][i2 + 1]; Mask = @{%.vec4}
-; CHECK-NEXT:         |      |   (<4 x i32>*)(%s1)[0][i2 + 1] = %.vec7 + -1; Mask = @{%.vec4}
-; CHECK-NEXT:         |      |   %select = (%.vec4 == <i1 true, i1 true, i1 true, i1 true>) ? %phi.temp2 : i2 + <i64 0, i64 1, i64 2, i64 3>;
-; CHECK-NEXT:         |      |   %select8 = (%.vec4 == <i1 true, i1 true, i1 true, i1 true>) ? %phi.temp : %.copy6;
-; CHECK-NEXT:         |      |   %phi.temp = %select8;
-; CHECK-NEXT:         |      |   %phi.temp2 = %select;
-; CHECK-NEXT:         |      + END LOOP
-; CHECK-NEXT:         |
-; CHECK-NEXT:         |      %priv.idx.max = @llvm.vector.reduce.smax.v4i64(%select);
-; CHECK-NEXT:         |      %priv.idx.cmp = %select == %priv.idx.max;
-; CHECK-NEXT:         |      %bsfintmask = bitcast.<4 x i1>.i4(%priv.idx.cmp);
-; CHECK-NEXT:         |      %bsf = @llvm.cttz.i4(%bsfintmask,  1);
-; CHECK-NEXT:         |      %nz.061 = extractelement %select8,  %bsf;
-; CHECK-NEXT:         |   }
+; CHECK:              + DO i64 i1 = 0, 62, 1   <DO_LOOP>
+; CHECK:              |   %tgu = (-1 * i1 + 63)/u4;
+; CHECK:              |   if (0 <u 4 * %tgu)
+; CHECK:              |   {
+; CHECK:              |      %phi.temp = %nz.061;
+; CHECK:              |      <RVAL-REG> NON-LINEAR <4 x i32> %nz.061 {sb:3}
+; CHECK:              |      %phi.temp2 = -1;
+; CHECK:              |
+; CHECK:              |      + DO i64 i2 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 15> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:              |      |   %.vec7 = undef;
+; CHECK:              |      |   %.vec = (<4 x i32>*)(%zo)[0][i2 + <i64 0, i64 1, i64 2, i64 3> + 1][0];
+; CHECK:              |      |   %.vec4 = %.vec == 0;
+; CHECK:              |      |   %.vec5 = %.vec4  ^  -1;
+; CHECK:              |      |   %.copy6 = 0;
+; CHECK:              |      |   %.vec7 = (<4 x i32>*)(%s1)[0][i2 + 1]; Mask = @{%.vec4}
+; CHECK:              |      |   (<4 x i32>*)(%s1)[0][i2 + 1] = %.vec7 + -1; Mask = @{%.vec4}
+; CHECK:              |      |   %select = (%.vec4 == <i1 true, i1 true, i1 true, i1 true>) ? %phi.temp2 : i2 + <i64 0, i64 1, i64 2, i64 3>;
+; CHECK:              |      |   %select8 = (%.vec4 == <i1 true, i1 true, i1 true, i1 true>) ? %phi.temp : %.copy6;
+; CHECK:              |      |   %phi.temp = %select8;
+; CHECK:              |      |   %phi.temp2 = %select;
+; CHECK:              |      + END LOOP
+; CHECK:              |
+; CHECK:              |      %priv.idx.max = @llvm.vector.reduce.smax.v4i64(%select);
+; CHECK:              |      %priv.idx.cmp = %select == %priv.idx.max;
+; CHECK:              |      %bsfintmask = bitcast.<4 x i1>.i4(%priv.idx.cmp);
+; CHECK:              |      %bsf = @llvm.cttz.i4(%bsfintmask,  1);
+; CHECK:              |      %nz.061 = extractelement %select8,  %bsf;
+; CHECK:              |      <LVAL-REG> NON-LINEAR i32 %nz.061 {sb:3}
+; CHECK:              |   }
 ;
 entry:
   %zo = alloca [100 x [100 x i32]], align 16
