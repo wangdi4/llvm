@@ -1341,7 +1341,7 @@ static bool isDistributeMetadata(MDNode *Node) {
 static bool isVectorizeMetadata(MDNode *Node) {
   MDString *Str = getStringMetadata(Node);
 
-  return Str && Str->getString().startswith("llvm.loop.vectorize");
+  return Str && Str->getString().startswith("llvm.loop.vector");
 }
 
 static bool isDebugMetadata(MDNode *Node) {
@@ -1365,18 +1365,13 @@ static bool isMustProgressMetadata(MDNode *Node) {
   return Str && Str->getString().equals("llvm.loop.mustprogress");
 }
 
-static bool isVectorVectorlengthMetadata(MDNode *Node) {
-  MDString *Str = getStringMetadata(Node);
-  return Str && Str->getString().equals("llvm.loop.vector.vectorlength");
-}
-
 static bool isSupportedMetadata(MDNode *Node) {
 
   if (isDebugMetadata(Node) || isUnrollMetadata(Node) ||
       isDistributeMetadata(Node) || isVectorizeMetadata(Node) ||
       isLoopCountMetadata(Node) || LoopOptReport::isOptReportMetadata(Node) ||
       isFusionMetadata(Node) || isParallelAccessMetadata(Node) ||
-      isMustProgressMetadata(Node) || isVectorVectorlengthMetadata(Node)) {
+      isMustProgressMetadata(Node)) {
     return true;
   }
 

@@ -1713,6 +1713,9 @@ public:
   /// if it causes performance regressions.
   static void addCloningInducedLiveouts(HLLoop *LiveoutLoop,
                                         const HLLoop *OrigLoop = nullptr);
+
+  /// Check if a blob is defined outside the region.
+  static bool isRegionLiveIn(HLRegion *Reg, BlobUtils &BU, unsigned BlobIdx);
 };
 
 } // End namespace loopopt

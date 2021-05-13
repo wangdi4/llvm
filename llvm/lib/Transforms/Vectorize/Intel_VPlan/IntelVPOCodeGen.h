@@ -54,7 +54,6 @@ public:
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), Legal(LVL),
         VLSA(VLSA), VPAA(*Plan->getVPSE(), *Plan->getVPVT(), VecWidth),
         Plan(Plan), VF(VecWidth), UF(UnrollFactor), Builder(Context),
-        PreferredPeeling(Plan->getPreferredPeeling(VF)),
         OrigPreHeader(OrigLoop->getLoopPreheader()),
         FatalErrorHandler(FatalErrorHandler) {}
 
@@ -500,9 +499,6 @@ private:
   // Holds finalization VPInstructions generated for loop entities.
   MapVector<const VPLoopEntity *, VPInstruction *> EntitiesFinalVPInstMap;
 
-  // The selected peeling variant for the current VPlan and VF.
-  VPlanPeelingVariant *PreferredPeeling = nullptr;
-
   // --- Vectorization state ---
 
   /// The vector-loop preheader.
@@ -683,6 +679,10 @@ private:
   /// Create a mask to be used in @llvm.masked.[load|store] for the wide VLS
   /// memory operation.
   Value *getVLSLoadStoreMask(VectorType *WidevalueType, int GroupSize);
+
+  /// Return a guaranteed peeling variant. Null is returned if we are not sure
+  /// that the peel loop will be executed at run-time.
+  VPlanPeelingVariant *getGuaranteedPeeling() const;
 
   DenseMap<AllocaInst *, Value *> ReductionEofLoopVal;
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;

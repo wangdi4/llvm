@@ -277,9 +277,9 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   VPlanName = std::string(Fn.getName()) + ":" + std::string(Lp->getName());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-  MDNode *MD = findOptionMDForLoop(Lp, "llvm.loop.vector.vectorlength");
+  LVP.readLoopMetadata();
 #if INTEL_CUSTOMIZATION
-  if (!LVP.buildInitialVPlans(MD, &Fn.getContext(), DL, VPlanName, &SE)) {
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName, &SE)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }
@@ -334,7 +334,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 
   assert((WRLp || VPlanVectCand) && "WRLp can be null in stress testing only!");
 
-  if (VPlanEnablePeeling)
+  if (VPlanEnablePeeling && LVP.isDynAlignEnabled())
     LVP.selectBestPeelingVariants();
 
   unsigned VF;
@@ -1023,6 +1023,8 @@ INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_END(VPlanDriverHIR, "VPlanDriverHIR",
                     "VPlan Vectorization Driver HIR", false, false)
 
@@ -1052,6 +1054,8 @@ void VPlanDriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<HIRDDAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
   AU.addRequired<OptReportOptionsPass>();
+  AU.addRequired<AssumptionCacheTracker>();
+  AU.addRequired<DominatorTreeWrapperPass>();
 }
 
 bool VPlanDriverHIR::runOnFunction(Function &Fn) {
@@ -1067,9 +1071,11 @@ bool VPlanDriverHIR::runOnFunction(Function &Fn) {
   auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
   auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(Fn);
   auto WR = &getAnalysis<WRegionInfoWrapperPass>().getWRegionInfo();
+  auto AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(Fn);
+  auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
   return Impl.runImpl(Fn, HIRF, HIRLoopStats, DDA, SafeRedAnalysis, Verbosity,
-                      WR, TTI, TLI, nullptr);
+                      WR, TTI, TLI, AC, DT, nullptr);
 }
 
 PreservedAnalyses VPlanDriverHIRPass::runImpl(Function &F,
@@ -1082,9 +1088,11 @@ PreservedAnalyses VPlanDriverHIRPass::runImpl(Function &F,
   auto TTI = &AM.getResult<TargetIRAnalysis>(F);
   auto TLI = &AM.getResult<TargetLibraryAnalysis>(F);
   auto WR = &AM.getResult<WRegionInfoAnalysis>(F);
+  auto AC = &AM.getResult<AssumptionAnalysis>(F);
+  auto DT = &AM.getResult<DominatorTreeAnalysis>(F);
 
   Impl.runImpl(F, &HIRF, HIRLoopStats, DDA, SafeRedAnalysis, Verbosity, WR, TTI,
-               TLI, nullptr);
+               TLI, AC, DT, nullptr);
   return PreservedAnalyses::all();
 }
 
@@ -1093,8 +1101,8 @@ bool VPlanDriverHIRImpl::runImpl(
     loopopt::HIRLoopStatistics *HIRLoopStats, loopopt::HIRDDAnalysis *DDA,
     loopopt::HIRSafeReductionAnalysis *SafeRedAnalysis,
     OptReportVerbosity::Level Verbosity, WRegionInfo *WR,
-    TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
-    FatalErrorHandlerTy FatalErrorHandler) {
+    TargetTransformInfo *TTI, TargetLibraryInfo *TLI, AssumptionCache *AC,
+    DominatorTree *DT, FatalErrorHandlerTy FatalErrorHandler) {
   LLVM_DEBUG(dbgs() << "VPlan HIR Driver for Function: " << Fn.getName()
                     << "\n");
   this->HIRF = HIRF;
@@ -1104,6 +1112,8 @@ bool VPlanDriverHIRImpl::runImpl(
   this->TTI = TTI;
   this->TLI = TLI;
   this->WR = WR;
+  this->setAC(AC);
+  this->setDT(DT);
 
   LORBuilder.setup(Fn.getContext(), Verbosity);
   return VPlanDriverImpl::processFunction<loopopt::HLLoop>(Fn);
@@ -1164,8 +1174,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   // just HLLoop number, thus it may be unstable to be captured in lit tests.
   VPlanName = std::string(Fn.getName()) + ":HIR";
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-  MDNode *MD = Lp->getLoopStringMetadata("llvm.loop.vector.vectorlength");
-  if (!LVP.buildInitialVPlans(MD, &Fn.getContext(), DL, VPlanName)) {
+  LVP.readLoopMetadata();
+  if (!LVP.buildInitialVPlans(&Fn.getContext(), DL, VPlanName)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     // Erase intrinsics before and after the loop if this loop is an auto
     // vectorization candidate.
@@ -1179,7 +1189,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     if (!Plan.getVPSE())
       Plan.setVPSE(std::make_unique<VPlanScalarEvolutionHIR>(Lp));
     if (!Plan.getVPVT())
-      Plan.setVPVT(std::make_unique<VPlanValueTrackingHIR>(*DL));
+      Plan.setVPVT(
+          std::make_unique<VPlanValueTrackingHIR>(Lp, *DL, getAC(), getDT()));
   }
 
   // VPlan construction stress test ends here.
@@ -1196,7 +1207,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   LVP.printCostModelAnalysisIfRequested<VPlanCostModelProprietary>(HeaderStr);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  if (VPlanEnablePeeling)
+  if (VPlanEnablePeeling && LVP.isDynAlignEnabled())
     LVP.selectBestPeelingVariants();
 
   // TODO: don't force vectorization if getIsAutoVec() is set to true.

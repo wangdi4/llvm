@@ -853,6 +853,25 @@ Value *VPOCodeGen::getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize)
   return Builder.CreateShuffleVector(MaskToUse, False, ShuffleMask);
 }
 
+VPlanPeelingVariant *VPOCodeGen::getGuaranteedPeeling() const {
+  VPlanPeelingVariant *PreferredPeeling = Plan->getPreferredPeeling(VF);
+
+  // Absence of any peeling information means there will be no peel loop, which
+  // is the same as VPlanStaticPeeling{0}.
+  if (!PreferredPeeling)
+    return &VPlanStaticPeeling::NoPeelLoop;
+
+  // As of now, any peel loop can be skipped at run-time because of the low
+  // number of iterations or because of missed targetAlignment. The only
+  // "peeling" that is currenly guaranteed to be preserved is the absence of any
+  // peeling (VPlanStaticPeeling{0}).
+  if (isa<VPlanStaticPeeling>(PreferredPeeling) &&
+      cast<VPlanStaticPeeling>(PreferredPeeling)->peelCount() == 0)
+    return PreferredPeeling;
+
+  return nullptr;
+}
+
 Value *VPOCodeGen::codeGenVPInvSCEVWrapper(VPInvSCEVWrapper *SW) {
   VPlanSCEV *VPScev = SW->getSCEV();
   VPlanScalarEvolutionLLVM *VPSE =
@@ -2565,7 +2584,8 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst,
   Type *LoadType = getLoadStoreType(VPInst);
   auto *LoadVecType = dyn_cast<VectorType>(LoadType);
   unsigned OriginalVL = LoadVecType ? LoadVecType->getNumElements() : 1;
-  Align Alignment = getOriginalLoadStoreAlignment(VPInst);
+  Align Alignment = VPAA.getAlignmentUnitStride(*cast<VPLoadStoreInst>(VPInst),
+                                                getGuaranteedPeeling());
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, IsNegOneStride);
 
   // Masking not needed for privates.
@@ -2588,6 +2608,9 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst,
                                          Alignment, "wide.load");
   }
 
+  // We don't need GuaranteedPeeling here. PreferredAlignmentMetadata is just a
+  // preference, not a requirement.
+  VPlanPeelingVariant *PreferredPeeling = Plan->getPreferredPeeling(VF);
   if (auto *DynPeeling =
           dyn_cast_or_null<VPlanDynamicPeeling>(PreferredPeeling))
     if (VPInst == DynPeeling->memref())
@@ -2782,16 +2805,8 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
   auto *StoreVecType = dyn_cast<VectorType>(StoreType);
   unsigned OriginalVL = StoreVecType ? StoreVecType->getNumElements() : 1;
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, IsNegOneStride);
-
-  Align Alignment;
-  if (!PreferredPeeling) {
-    // No peeling means static peeling with peel count = 0.
-    VPlanStaticPeeling Peeling(0);
-    Alignment =
-        VPAA.getAlignmentUnitStride(*cast<VPLoadStoreInst>(VPInst), Peeling);
-  } else {
-    Alignment = getOriginalLoadStoreAlignment(VPInst);
-  }
+  Align Alignment = VPAA.getAlignmentUnitStride(*cast<VPLoadStoreInst>(VPInst),
+                                                getGuaranteedPeeling());
 
   if (IsNegOneStride) // Reverse
     // If we store to reverse consecutive memory locations, then we need
@@ -2821,6 +2836,9 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
             LLVMContext::MD_nontemporal))
       Store->setMetadata(LLVMContext::MD_nontemporal, NtmpMD);
 
+  // We don't need GuaranteedPeeling here. PreferredAlignmentMetadata is just a
+  // preference, not a requirement.
+  VPlanPeelingVariant *PreferredPeeling = Plan->getPreferredPeeling(VF);
   if (auto *DynPeeling =
           dyn_cast_or_null<VPlanDynamicPeeling>(PreferredPeeling))
     if (VPInst == DynPeeling->memref())

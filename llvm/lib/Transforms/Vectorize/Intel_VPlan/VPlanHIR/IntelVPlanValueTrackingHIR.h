@@ -15,16 +15,34 @@
 #include "../IntelVPlanValueTracking.h"
 
 namespace llvm {
+
+namespace loopopt {
+class HLLoop;
+class BlobUtils;
+}
+
 namespace vpo {
+
+struct VPlanAddRecHIR;
 
 class VPlanValueTrackingHIR final : public VPlanValueTracking {
 public:
-  VPlanValueTrackingHIR(const DataLayout &DL) : DL(&DL) {}
+  VPlanValueTrackingHIR(loopopt::HLLoop *MainLoop, const DataLayout &DL,
+                        AssumptionCache *AC, const DominatorTree *DT)
+      : MainLoop(MainLoop), DL(&DL), AC(AC), DT(DT) {}
 
   KnownBits getKnownBits(VPlanSCEV *Expr, const VPInstruction *CtxI) override;
 
 private:
+  KnownBits getKnownBitsImpl(VPlanAddRecHIR *Expr);
+
+  KnownBits computeKnownBitsForScev(const SCEV *Expr, Instruction *CtxI) const;
+
+private:
+  loopopt::HLLoop *MainLoop = nullptr;
   const DataLayout *DL = nullptr;
+  AssumptionCache *AC = nullptr;
+  const DominatorTree *DT = nullptr;
 };
 
 } // namespace vpo

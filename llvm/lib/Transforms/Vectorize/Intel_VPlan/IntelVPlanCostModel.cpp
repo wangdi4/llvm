@@ -152,7 +152,7 @@ VPlanTTICostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
     // VPAA method takes alignment from IR as a base.
     // Alignment computed by VPAA in most cases is not guaranteed if we skip
     // the peel loop at runtime.
-    return VPAA.getAlignmentUnitStride(*LS, *DefaultPeelingVariant).value();
+    return VPAA.getAlignmentUnitStride(*LS, DefaultPeelingVariant).value();
   }
 
   // TODO:
@@ -783,11 +783,10 @@ unsigned VPlanCostModel::getTTICost() {
 // Get VPlan cost with specified peeling.
 unsigned VPlanCostModel::getCost(
     VPlanPeelingVariant *PeelingVariant) {
-  VPlanStaticPeeling VPlanNoPeel(0);
   // Assume no peeling if it is not specified.
   SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
       DefaultPeelingVariant,
-      PeelingVariant ? PeelingVariant : &VPlanNoPeel);
+      PeelingVariant ? PeelingVariant : &VPlanStaticPeeling::NoPeelLoop);
 
   unsigned TTICost = getTTICost();
   return applyHeuristics(TTICost);
@@ -796,11 +795,10 @@ unsigned VPlanCostModel::getCost(
 unsigned VPlanCostModel::getBlockRangeCost(
     const VPBasicBlock *Begin, const VPBasicBlock *End,
     VPlanPeelingVariant *PeelingVariant) {
-  VPlanStaticPeeling VPlanNoPeel(0);
   // Assume no peeling if it is not specified.
   SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
       DefaultPeelingVariant,
-      PeelingVariant ? PeelingVariant : &VPlanNoPeel);
+      PeelingVariant ? PeelingVariant : &VPlanStaticPeeling::NoPeelLoop);
 
   unsigned Cost = 0;
   for (auto *Block : sese_depth_first(Begin, End))
@@ -861,11 +859,10 @@ void VPlanCostModel::print(raw_ostream &OS, const std::string &Header) {
 
   // TODO: we might want to merge 'print' routines with corresponding 'getCost'
   // routines eventually.
-  // Peeling Variants other than VPlanNoPeel are not supported by print().
-  VPlanStaticPeeling VPlanNoPeel(0);
-  // Assume no peeling if it is not specified.
+  // Peeling Variants other than VPlanStaticPeeling::NoPeelLoop are not
+  // supported by print().
   SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
-      DefaultPeelingVariant, &VPlanNoPeel);
+      DefaultPeelingVariant, &VPlanStaticPeeling::NoPeelLoop);
   unsigned TTICost = getTTICost();
   if (TTICost != Cost)
     OS << "Base Cost: " << TTICost << '\n';

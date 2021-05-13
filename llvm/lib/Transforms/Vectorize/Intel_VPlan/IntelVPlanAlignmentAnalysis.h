@@ -52,6 +52,9 @@ public:
 
   int peelCount() { return PeelCount; }
 
+  // VPlanStaticPeeling{0}
+  static VPlanStaticPeeling NoPeelLoop;
+
   static bool classof(const VPlanPeelingVariant *Peeling) {
     return Peeling->getKind() == VPPK_StaticPeeling;
   }
@@ -259,12 +262,13 @@ public:
                          int VF)
       : VPSE(&VPSE), VPVT(&VPVT), VF(VF) {}
 
-  /// Compute alignment of a unit-stride \p Memref in the vectorized loop with
-  /// the given \p Peeling. The returned alignment is computed using the memory
-  /// address either in the first vector lane (if the stride is positive) or in
-  /// the last lane (if the stride is negative).
-  Align getAlignmentUnitStride(const VPLoadStoreInst &Memref,
-                               VPlanPeelingVariant &Peeling) const;
+  /// Compute alignment of a \p UnitStrideMemref in the vectorized loop with the
+  /// given \p GuaranteedPeeling (nullptr should be passed if the peeling is not
+  /// guaranteed). The returned alignment is computed using the memory address
+  /// either in the first vector lane (if the stride is positive) or in the last
+  /// lane (if the stride is negative).
+  Align getAlignmentUnitStride(const VPLoadStoreInst &UnitStrideMemref,
+                               VPlanPeelingVariant *GuaranteedPeeling) const;
 
   /// Compute conservative alignment of \p Memref. The returned alignment is
   /// valid for any vector lane and any peeling variant. This method should be
