@@ -26,8 +26,7 @@
 ; check for such a loop pattern to suppress vectorization and test for the
 ; loop not being vectorized.
 ;
-; FIXME - the following checks need to be updated to check for scalar loop.
-; CHECK: DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+; CHECK-NOT: DO i1 = {{.*}} <auto-vectorized>
 ;
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
