@@ -9940,7 +9940,9 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
          MappableExprsHandler::getMapType(CombinedInfo.Types[I]),
          CombinedInfo.VarChain[I].first, CombinedInfo.VarChain[I].second,
          InfoMap[I] ? InfoMap[I]->stripPointerCasts() : nullptr,
-         CombinedInfo.Mappers[I]});
+         CombinedInfo.Mappers[I], CombinedInfo.Exprs[I].getMapDecl(),
+         static_cast<bool>(CombinedInfo.Types[I] &
+                           MappableExprsHandler::OMP_MAP_IMPLICIT)});
   }
 }
 #endif // INTEL_COLLAB

@@ -381,6 +381,9 @@ class OpenMPLateOutliner {
   llvm::DenseSet<const VarDecl *> FirstPrivateVars;
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapTemps;
   llvm::SmallVector<std::pair<llvm::Value *, const VarDecl *>, 8> MapFPrivates;
+#if INTEL_CUSTOMIZATION
+  llvm::MapVector<const VarDecl *, std::string> OptRepFPMapInfos;
+#endif  // INTEL_CUSTOMIZATION
 
   std::vector<llvm::WeakTrackingVH> DefinedValues;
   std::vector<llvm::WeakTrackingVH> ReferencedValues;
@@ -416,6 +419,9 @@ public:
     }
     PrivateScope.Privatize();
   }
+#if INTEL_CUSTOMIZATION
+  void emitRemark(std::string Str);
+#endif // INTEL_CUSTOMIZATION
   bool isImplicitTask(OpenMPDirectiveKind K);
   bool shouldSkipExplicitClause(OpenMPClauseKind K);
   void emitOMPParallelDirective();

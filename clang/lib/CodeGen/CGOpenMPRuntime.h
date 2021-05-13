@@ -921,6 +921,8 @@ public:
     bool IsChain;
     llvm::Value *OffloadName;
     const ValueDecl *Mapper;
+    const ValueDecl *MapDecl;
+    bool IsImplicit;
   };
 
   static void getLOMapInfo(const OMPExecutableDirective &Dir,
