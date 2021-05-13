@@ -524,7 +524,8 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
         OPENCL_VERSION_1_2 =        2,
         OPENCL_VERSION_2_0 =        3,
         OPENCL_VERSION_2_1 =        4,
-        OPENCL_VERSION_2_2 =        5
+        OPENCL_VERSION_2_2 =        5,
+        OPENCL_VERSION_3_0 =        6
     };
 
     OPENCL_VERSION GetOpenclVerByCpuModel();

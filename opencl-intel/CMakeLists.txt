@@ -78,8 +78,8 @@ if( BUILD_OPENCL_21 )
   add_definitions( -DBUILD_OPENCL_21 )
 endif( BUILD_OPENCL_21 )
 
-# Set default version to suppress warnings from cl_version.h
-add_definitions( -DCL_TARGET_OPENCL_VERSION=220 )
+# Add OpenCL 3.0 definitions
+add_definitions( -DCL_TARGET_OPENCL_VERSION=300 )
 
 add_definitions( -DTBB_BINARIES_POSTFIX="${TBB_BINARIES_POSTFIX}"
                  -D__TBB_NO_IMPLICIT_LINKAGE=1

@@ -146,7 +146,7 @@ bool IndirectCallLowering::runOnModule(Module &M) {
       Value *Table = Builder.CreateZExtOrBitCast(GV, VecFPtrPtrTy);
       Value *FPtrPtr = Builder.CreateGEP(
           VecFPtrTy, Table,
-          {ConstantInt::get(M.getContext(), APInt(32, Index, true))});
+          ConstantInt::get(M.getContext(), APInt(32, Index, true)));
       Value *FPtr = Builder.CreateLoad(VecFPtrTy, FPtrPtr);
       Value *VecRes = Builder.CreateCall(VecFTy, FPtr, VecArgs);
       Value *Res = Builder.CreateExtractElement(VecRes, Zero);

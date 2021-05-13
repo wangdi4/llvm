@@ -141,6 +141,10 @@ bool clGetPlatformInfoTest()
 #else
             switch (GetOpenclVerByCpuModel())
             {
+                case OPENCL_VERSION_3_0:
+                    expectedString += "3.0 ";
+                    break;
+
                 case OPENCL_VERSION_2_2:
                     expectedString += "2.2 ";
                     break;
