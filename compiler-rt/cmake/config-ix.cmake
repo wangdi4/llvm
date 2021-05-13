@@ -25,14 +25,7 @@ else()
   endif()
 endif()
 
-# INTEL_CUSTOMIZATION
-# Since profile lib will be linked in, we should remove 'nodefaultlibs' when
-# doing code coverage build.
-if (NOT CMAKE_CXX_FLAGS MATCHES "-fprofile-arcs")
-  check_c_compiler_flag(-nodefaultlibs COMPILER_RT_HAS_NODEFAULTLIBS_FLAG)
-endif()
-# end INTEL_CUSTOMIZATION
-
+check_c_compiler_flag(-nodefaultlibs COMPILER_RT_HAS_NODEFAULTLIBS_FLAG)
 if (COMPILER_RT_HAS_NODEFAULTLIBS_FLAG)
   set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -nodefaultlibs")
   if (COMPILER_RT_HAS_LIBC)
