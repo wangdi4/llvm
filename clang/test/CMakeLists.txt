@@ -86,7 +86,6 @@ list(APPEND CLANG_TEST_DEPS
   clang-import-test
   clang-rename
   clang-refactor
-  clang-repl
   clang-diff
   clang-scan-deps
   diagtool
