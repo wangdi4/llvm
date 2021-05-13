@@ -1643,6 +1643,8 @@ public:
   DeferredDiagnosticsEmitter(Sema &S)
       : Inherited(S), ShouldEmitRootNode(false), InOMPDeviceContext(0) {}
 
+  bool shouldVisitDiscardedStmt() const { return false; }
+
   void VisitOMPTargetDirective(OMPTargetDirective *Node) {
     ++InOMPDeviceContext;
     Inherited::VisitOMPTargetDirective(Node);
