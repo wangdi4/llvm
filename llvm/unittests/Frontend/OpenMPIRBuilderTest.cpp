@@ -1841,7 +1841,7 @@ INSTANTIATE_TEST_CASE_P(OpenMPWSLoopSchedulingTypes,
                         ::testing::Values(omp::OMPScheduleType::DynamicChunked,
                                           omp::OMPScheduleType::GuidedChunked,
                                           omp::OMPScheduleType::Auto,
-                                          omp::OMPScheduleType::Runtime));
+                                          omp::OMPScheduleType::Runtime), );
 
 TEST_F(OpenMPIRBuilderTest, MasterDirective) {
   using InsertPointTy = OpenMPIRBuilder::InsertPointTy;
