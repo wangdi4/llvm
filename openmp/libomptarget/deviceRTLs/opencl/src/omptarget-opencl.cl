@@ -34,6 +34,8 @@ kmp_program_data_t __omp_spirv_program_data = {
   .dyna_mem_ub = 0
 };
 
+ushort __omp_spirv_spmd_num_threads[KMP_MAX_SPMD_NUM_GROUPS];
+
 kmp_local_state_t __omp_spirv_local_data[KMP_MAX_NUM_GROUPS];
 
 kmp_thread_state_t __omp_spirv_thread_data[KMP_MAX_NUM_GROUPS];
