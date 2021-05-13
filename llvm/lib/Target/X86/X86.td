@@ -993,6 +993,34 @@ def ProcessorFeatures {
   list<SubtargetFeature> CommonAVX512Features =
     !listconcat(BDWFeatures, CommonAVX512AdditionalFeatures);
   list<SubtargetFeature> CommonAVX512Tuning = SKXTuning;
+  list<SubtargetFeature> CommonAVX256AdditionalFeatures = [
+#if INTEL_FEATURE_ISA_FP16
+    FeatureFP16,
+#endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+    FeatureCONVERT,
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_RAO_INT
+    FeatureAVX512RAOINT,
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_INT
+#if INTEL_FEATURE_ISA_AVX512_RAO_FP
+    FeatureAVX512RAOFP,
+#endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
+#if INTEL_FEATURE_ISA_AVX512_MEDIAX
+    FeatureAVX512MEDIAX,
+#endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+    FeatureAVX512DOTPRODINT8,
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+    FeatureAVX512DOTPRODPHPS,
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+    FeatureBF16, FeatureVNNI, FeatureVBMI, FeatureVBMI2, FeatureVPOPCNTDQ,
+    FeatureIFMA, FeatureBITALG, FeatureVP2INTERSECT
+  ];
+  list<SubtargetFeature> CommonAVX256Features =
+    !listconcat(X86_64V4Features, CommonAVX256AdditionalFeatures);
+  list<SubtargetFeature> CommonAVX256Tuning = SKXTuning;
 #endif
 
   // Cascadelake
@@ -1611,6 +1639,9 @@ foreach P = ["skylake-avx512", "skx"] in {
 def : ProcModel<"common-avx512", SkylakeServerModel,
                 ProcessorFeatures.CommonAVX512Features,
                 ProcessorFeatures.CommonAVX512Tuning>;
+def : ProcModel<"common-avx256", SkylakeServerModel,
+                ProcessorFeatures.CommonAVX256Features,
+                ProcessorFeatures.CommonAVX256Tuning>;
 #endif
 
 def : ProcModel<"cascadelake", SkylakeServerModel,

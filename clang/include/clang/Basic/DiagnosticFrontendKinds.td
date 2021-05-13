@@ -250,6 +250,7 @@ def warn_option_invalid_ocl_version : Warning<
 // if INTEL_CUSTOMIZATION
 def err_unable_to_load_vfs_overlay : Error<
   "unable to load virtual filesystem overlay '%0': %1">, DefaultFatal;
+def err_builtin_exceeds_vector_width : Error<"%0 exceeds the max legal vector width">;
 // endif INTEL_CUSTOMIZATION
 
 def err_builtin_needs_feature : Error<"%0 needs target feature %1">;

@@ -702,6 +702,11 @@ private:
   /// True if compiling for 16-bit, false for 32-bit or 64-bit.
   bool In16BitMode = false;
 
+#if INTEL_CUSTOMIZATION
+  /// True if "target-cpu" is "common-avx256".
+  bool IsAVX256 = false;
+#endif // INTEL_CUSTOMIZATION
+
   X86SelectionDAGInfo TSInfo;
   // Ordering here is important. X86InstrInfo initializes X86RegisterInfo which
   // X86TargetLowering needs.
@@ -1128,7 +1133,8 @@ public:
   // TODO: Currently we're always allowing widening on CPUs without VLX,
   // because for many cases we don't have a better option.
   bool canExtendTo512DQ() const {
-    return hasAVX512() && (!hasVLX() || getPreferVectorWidth() >= 512);
+    return hasAVX512() && !IsAVX256 && // INTEL
+           (!hasVLX() || getPreferVectorWidth() >= 512); // INTEL
   }
   bool canExtendTo512BW() const  {
     return hasBWI() && canExtendTo512DQ();
@@ -1137,7 +1143,8 @@ public:
   // If there are no 512-bit vectors and we prefer not to use 512-bit registers,
   // disable them in the legalizer.
   bool useAVX512Regs() const {
-    return hasAVX512() && (canExtendTo512DQ() || RequiredVectorWidth > 256);
+    return hasAVX512() && !IsAVX256 && // INTEL
+           (canExtendTo512DQ() || RequiredVectorWidth > 256); // INTEL
   }
 
   bool useBWIRegs() const {
