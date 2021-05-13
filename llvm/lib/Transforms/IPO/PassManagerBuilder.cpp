@@ -787,9 +787,9 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   if (!SYCLOptimizationMode) {
     // Begin the loop pass pipeline.
     if (EnableSimpleLoopUnswitch) {
-      // The simple loop unswitch pass relies on separate cleanup passes. Schedule
-      // them first so when we re-process a loop they run before other loop
-      // passes.
+      // The simple loop unswitch pass relies on separate cleanup passes.
+      // Schedule them first so when we re-process a loop they run before other
+      // loop passes.
       MPM.add(createLoopInstSimplifyPass());
       MPM.add(createLoopSimplifyCFGPass());
     }
@@ -804,10 +804,11 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     if (EnableSimpleLoopUnswitch)
       MPM.add(createSimpleLoopUnswitchLegacyPass());
     else
-      MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
+      MPM.add(
+          createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
     // FIXME: We break the loop pass pipeline here in order to do full
-    // simplify-cfg. Eventually loop-simplifycfg should be enhanced to replace the
-    // need for this.
+    // simplify-cfg. Eventually loop-simplifycfg should be enhanced to replace
+    // the need for this.
     MPM.add(createCFGSimplificationPass());
     addInstructionCombiningPass(MPM, !DTransEnabled);  // INTEL
     // We resume loop passes creating a second loop pipeline here.
@@ -815,14 +816,10 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
       MPM.add(createLoopFlattenPass()); // Flatten loops
       MPM.add(createLoopSimplifyCFGPass());
     }
-    // TODO: this pass hurts performance due to promotions of induction variables
-    // from 32-bit value to 64-bit values. I assume it's because SPIR is a virtual
-    // target with unlimited # of registers and pass doesn't take into account
-    // that on real HW this promotion is not beneficial.
-    MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
-    MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
+    MPM.add(createLoopIdiomPass());      // Recognize idioms like memset.
+    MPM.add(createIndVarSimplifyPass()); // Canonicalize indvars
     addExtensionsToPM(EP_LateLoopOptimizations, MPM);
-    MPM.add(createLoopDeletionPass());          // Delete dead loops
+    MPM.add(createLoopDeletionPass()); // Delete dead loops
 
     if (EnableLoopInterchange)
       MPM.add(createLoopInterchangePass()); // Interchange loops
@@ -830,7 +827,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     // Unroll small loops
     // INTEL - HIR complete unroll pass replaces LLVM's simple loop unroll pass.
     if (!isLoopOptEnabled()) // INTEL
-    MPM.add(createSimpleLoopUnrollPass(OptLevel, DisableUnrollLoops, ForgetAllSCEVInLoopUnroll));
+      MPM.add(createSimpleLoopUnrollPass(OptLevel, DisableUnrollLoops,
+                                         ForgetAllSCEVInLoopUnroll));
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     MPM.add(createLoopSPMDizationPass());
