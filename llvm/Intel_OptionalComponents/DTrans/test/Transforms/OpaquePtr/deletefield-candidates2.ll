@@ -5,7 +5,8 @@
 ; This test verifies the candidate structure selection of the
 ; DTrans delete fields pass.
 
-; This case checks for the identification of structures with an unused field.
+; This case checks for the identification of structures with a field that is
+; written but not read.
 
 %struct.test = type { i32, i64, i32 }
 @result = global i32 zeroinitializer
@@ -25,6 +26,9 @@ define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtr
   %valC = load i32, i32* %p_test_C
   %sum = add i32 %valA, %valC
   store i32 %sum, i32* @result
+
+  %val = sext i32 %argc to i64
+  store i64 %val, i64* %p_test_B
 
   call void @free(i8* %p)
   ret i32 0

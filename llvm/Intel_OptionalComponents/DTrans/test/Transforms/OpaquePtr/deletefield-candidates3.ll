@@ -5,7 +5,8 @@
 ; This test verifies the candidate structure selection of the
 ; DTrans delete fields pass.
 
-; This case checks for the identification of structures with an unused field.
+; The case checks that we don't select a structure where all the fields are read
+; and written.
 
 %struct.test = type { i32, i64, i32 }
 @result = global i32 zeroinitializer
@@ -26,12 +27,19 @@ define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtr
   %sum = add i32 %valA, %valC
   store i32 %sum, i32* @result
 
+  %val = sext i32 %argc to i64
+  store i64 %val, i64* %p_test_B
+  %valB = load i64, i64* %p_test_B
+  %trunc = trunc i64 %valB to i32
+  store i32 %trunc, i32* @result
+
   call void @free(i8* %p)
   ret i32 0
 }
 
 ; CHECK: Delete field for opaque pointers: looking for candidate structures
-; CHECK: Selected for deletion: %struct.test
+; CHECK-NOT: Selected for deletion: %struct.test
+; CHECK: No candidates found.
 
 declare !intel.dtrans.func.type !6 "intel_dtrans_func_index"="1" i8* @malloc(i64)
 declare !intel.dtrans.func.type !7 void @free(i8* "intel_dtrans_func_index"="1")
