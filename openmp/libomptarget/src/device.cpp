@@ -289,19 +289,20 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     IsNew = true;
 #if INTEL_COLLAB
     uintptr_t tp = (uintptr_t)data_alloc_base(Size, HstPtrBegin, HstPtrBase);
-#else // INTEL_COLLAB
-    uintptr_t tp = (uintptr_t)allocData(Size, HstPtrBegin);
-#endif // INTEL_COLLAB
     INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
          "Creating new map entry with "
-#if INTEL_COLLAB
          "HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%" PRId64
          ", Name=%s\n",
-#else // INTEL_COLLAB
-         "HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%ld, Name=%s\n",
-#endif // INTEL_COLLAB
          DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
          (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "unknown");
+#else // INTEL_COLLAB
+    uintptr_t tp = (uintptr_t)allocData(Size, HstPtrBegin);
+    INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
+         "Creating new map entry with "
+         "HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%ld, Name=%s\n",
+         DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
+         (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "unknown");
+#endif // INTEL_COLLAB
     HostDataToTargetMap.emplace(
         HostDataToTargetTy((uintptr_t)HstPtrBase, (uintptr_t)HstPtrBegin,
                            (uintptr_t)HstPtrBegin + Size, tp, HstPtrName));
