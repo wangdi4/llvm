@@ -1,21 +1,12 @@
-; REQUIRES: asserts
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-GLOBDV
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-GLOBDV
-
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD0
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD0
-
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD1
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD1
-
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD2
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD2
+; RUN: opt < %s -dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 
 ; This test case checks that the analysis for the global dope vector
 ; @arr_mod_mp_a_ didn't pass since it couldn't guarantee that the store
 ; instruction for a nested dope vector will be executed if the call to alloc
-; executes. It was created from the following source code by making a
-; modification to the function ALLOCATE_ARR in the IR:
+; executes. This test is the same as glob_dvcp13.ll but it checks the IR.
+; It was created from the following source code by making a modification to
+; the function ALLOCATE_ARR in the IR:
 
 ;      MODULE ARR_MOD
 ;
@@ -96,24 +87,14 @@
 ; the dope vector fields will execute if the call to @for_allocate_handle
 ; executes.
 
-; CHECK-GLOBDV: Global variable: arr_mod_mp_a_
-; CHECK-GLOBDV-NEXT:   LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
-; CHECK-GLOBDV-NEXT:   Global dope vector result: At least one nested dope vector didn't pass analysis
-; CHECK-GLOBDV:        Constant propagation status: NOT performed
-; CHECK-GLOBDV:   Nested dope vectors: 3
-
-; CHECK-FIELD0:    Field[0]: QNCA_a0$float*$rank2$
-; CHECK-FIELD0-NEXT:      Dope vector analysis result: Store won't execute with alloc site
-; CHECK-FIELD0-NEXT:   Constant propagation status: NOT performed
-
-; CHECK-FIELD1:    Field[1]: QNCA_a0$float*$rank3$
-; CHECK-FIELD1-NEXT:      Dope vector analysis result: Pass
-; CHECK-FIELD1-NEXT:   Constant propagation status: NOT performed
-
-; CHECK-FIELD2:    Field[2]: QNCA_a0$float*$rank1$
-; CHECK-FIELD2-NEXT:      Dope vector analysis result: Pass
-; CHECK-FIELD2-NEXT:   Constant propagation status: NOT performed
-
+; CHECK: define internal void @arr_mod_mp_initialize_arr_
+; CHECK:   %16 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %15, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %14, i64 %7)
+; CHECK:   %31 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %30, i64 %28, float* %19, i64 %9)
+; CHECK:   %32 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %26, i64 %23, float* %31, i64 %13)
+; CHECK:   %37 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %36, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %35, i64 %7)
+; CHECK:   %56 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 %55, i64 %53, float* %40, i64 %34)
+; CHECK:   %57 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %51, i64 %49, float* %56, i64 %9)
+; CHECK:   %58 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %47, i64 %44, float* %57, i64 %13)
 
 ; ModuleID = 'ld-temp.o'
 source_filename = "ld-temp.o"

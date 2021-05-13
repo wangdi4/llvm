@@ -1,34 +1,10 @@
-; REQUIRES: asserts
-
-; Check for global dope vector A
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-GLOBDV-A
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-GLOBDV-A
-
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD0-A
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD0-A
-
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD1-A
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD1-A
-
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD2-A
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD2-A
-
-; Check for global dope vector B
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-GLOBDV-B
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-GLOBDV-B
-
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD0-B
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD0-B
-
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD1-B
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD1-B
-
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD2-B
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD2-B
+; RUN: opt < %s -dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 
 ; This test case checks that the fields for multiple global dope vectors
 ; were collected and propagated correctly. Also, it identifies and collects
-; the nested dope vectors. It was created from the following source code:
+; the nested dope vectors. This is the same test case as glob_dvcp05.ll but
+; it checks the IR. It was created from the following source code:
 
 ;      MODULE ARR_MOD
 ;
@@ -145,126 +121,56 @@
 ; The test case basically allocates, initializes and uses the global arrays
 ; A and B.
 
-; CHECK-GLOBDV-A: Global variable: arr_mod_mp_a_
-; CHECK-GLOBDV-A-NEXT:  LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
-; CHECK-GLOBDV-A-NEXT:  Global dope vector result: Pass
-; CHECK-GLOBDV-A-NEXT:  Dope vector analysis result: Pass
-; CHECK-GLOBDV-A-NEXT:  Constant propagation status: performed
-; CHECK-GLOBDV-A-NEXT:    [0] Array Pointer: Read
-; CHECK-GLOBDV-A-NEXT:    [1] Element size: Written | Constant = i64 288
-; CHECK-GLOBDV-A-NEXT:    [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-GLOBDV-A-NEXT:    [3] Flags: Read | Written
-; CHECK-GLOBDV-A-NEXT:    [4] Dimensions: Written | Constant = i64 1
-; CHECK-GLOBDV-A-NEXT:    [6][0] Extent: Written | Constant = i64 1
-; CHECK-GLOBDV-A-NEXT:    [6][0] Stride: Written | Constant = i64 288
-; CHECK-GLOBDV-A-NEXT:    [6][0] Lower Bound: Read | Written | Constant = i64 1
-; CHECK-GLOBDV-A-NEXT:  Nested dope vectors: 3
+; Check that the constants were propagated for function @arr_mod_mp_allocate_arr_
+; CHECK: define internal void @arr_mod_mp_allocate_arr_
+; CHECK:   %41 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %38, i64 %40)
+; CHECK:   %60 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %58, i64 %40)
+; CHECK:   %83 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %81, i64 %40)
+; CHECK:   %132 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %130, i64 %40)
+; CHECK:   %151 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %149, i64 %40)
+; CHECK:   %174 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %172, i64 %40)
 
-; CHECK-FIELD2-A:    Field[2]: QNCA_a0$float*$rank1$
-; CHECK-FIELD2-A-NEXT:      Dope vector analysis result: Pass
-; CHECK-FIELD2-A-NEXT:      Constant propagation status: performed
-; CHECK-FIELD2-A-NEXT:        [0] Array Pointer: Read
-; CHECK-FIELD2-A-NEXT:        [1] Element size: Written | Constant = i64 4
-; CHECK-FIELD2-A-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-FIELD2-A-NEXT:        [3] Flags: Written
-; CHECK-FIELD2-A-NEXT:        [4] Dimensions: Written | Constant = i64 1
-; CHECK-FIELD2-A-NEXT:        [6][0] Extent: Written | Constant = i64 10
-; CHECK-FIELD2-A-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
-; CHECK-FIELD2-A-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
+; Check that the constants were propagated for function @arr_mod_mp_initialize_arr_
+; CHECK: define internal void @arr_mod_mp_initialize_arr_
+; CHECK:   %16 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %14, i64 %7)
+; CHECK:   %29 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* %18, i64 %9)
+; CHECK:   %30 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %29, i64 %13)
+; CHECK:   %35 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %33, i64 %7)
+; CHECK:   %52 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 400, float* %37, i64 %32)
+; CHECK:   %53 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* %52, i64 %9)
+; CHECK:   %54 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %53, i64 %13)
+; CHECK:   %63 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %61, i64 %7)
+; CHECK:   %72 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %65, i64 11)
+; CHECK:   %85 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %83, i64 %7)
+; CHECK:   %98 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* %87, i64 %78)
+; CHECK:   %99 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %98, i64 %82)
+; CHECK:   %104 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %102, i64 %7)
+; CHECK:   %121 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 400, float* %106, i64 %101)
+; CHECK:   %122 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* %121, i64 %78)
+; CHECK:   %123 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %122, i64 %82)
+; CHECK:   %132 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %130, i64 %7)
+; CHECK:   %141 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %134, i64 11)
 
-; CHECK-FIELD0-A:    Field[0]: QNCA_a0$float*$rank2$
-; CHECK-FIELD0-A-NEXT:      Dope vector analysis result: Pass
-; CHECK-FIELD0-A-NEXT:      Constant propagation status: performed
-; CHECK-FIELD0-A-NEXT:        [0] Array Pointer: Read
-; CHECK-FIELD0-A-NEXT:        [1] Element size: Written | Constant = i64 4
-; CHECK-FIELD0-A-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-FIELD0-A-NEXT:        [3] Flags: Written
-; CHECK-FIELD0-A-NEXT:        [4] Dimensions: Written | Constant = i64 2
-; CHECK-FIELD0-A-NEXT:        [6][0] Extent: Written | Constant = i64 10
-; CHECK-FIELD0-A-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
-; CHECK-FIELD0-A-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
-; CHECK-FIELD0-A-NEXT:        [6][1] Extent: Written | Constant = i64 10
-; CHECK-FIELD0-A-NEXT:        [6][1] Stride: Read | Written | Constant = i64 40
-; CHECK-FIELD0-A-NEXT:        [6][1] Lower Bound: Read | Written | Constant = i64 1
-
-; CHECK-FIELD1-A:    Field[1]: QNCA_a0$float*$rank3$
-; CHECK-FIELD1-A-NEXT:      Dope vector analysis result: Pass
-; CHECK-FIELD1-A-NEXT:      Constant propagation status: performed
-; CHECK-FIELD1-A-NEXT:        [0] Array Pointer: Read
-; CHECK-FIELD1-A-NEXT:        [1] Element size: Written | Constant = i64 4
-; CHECK-FIELD1-A-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-FIELD1-A-NEXT:        [3] Flags: Written
-; CHECK-FIELD1-A-NEXT:        [4] Dimensions: Written | Constant = i64 3
-; CHECK-FIELD1-A-NEXT:        [6][0] Extent: Written | Constant = i64 10
-; CHECK-FIELD1-A-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
-; CHECK-FIELD1-A-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
-; CHECK-FIELD1-A-NEXT:        [6][1] Extent: Written | Constant = i64 10
-; CHECK-FIELD1-A-NEXT:        [6][1] Stride: Read | Written | Constant = i64 40
-; CHECK-FIELD1-A-NEXT:        [6][1] Lower Bound: Read | Written | Constant = i64 1
-; CHECK-FIELD1-A-NEXT:        [6][2] Extent: Written | Constant = i64 10
-; CHECK-FIELD1-A-NEXT:        [6][2] Stride: Read | Written | Constant = i64 400
-; CHECK-FIELD1-A-NEXT:        [6][2] Lower Bound: Read | Written | Constant = i64 1
-
-; CHECK-GLOBDV-B: Global variable: arr_mod_mp_b_
-; CHECK-GLOBDV-B-NEXT:  LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
-; CHECK-GLOBDV-B-NEXT:  Global dope vector result: Pass
-; CHECK-GLOBDV-B-NEXT:  Dope vector analysis result: Pass
-; CHECK-GLOBDV-B-NEXT:  Constant propagation status: performed
-; CHECK-GLOBDV-B-NEXT:    [0] Array Pointer: Read
-; CHECK-GLOBDV-B-NEXT:    [1] Element size: Written | Constant = i64 288
-; CHECK-GLOBDV-B-NEXT:    [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-GLOBDV-B-NEXT:    [3] Flags: Read | Written
-; CHECK-GLOBDV-B-NEXT:    [4] Dimensions: Written | Constant = i64 1
-; CHECK-GLOBDV-B-NEXT:    [6][0] Extent: Written
-; CHECK-GLOBDV-B-NEXT:    [6][0] Stride: Written | Constant = i64 288
-; CHECK-GLOBDV-B-NEXT:    [6][0] Lower Bound: Read | Written | Constant = i64 1
-; CHECK-GLOBDV-B-NEXT:  Nested dope vectors: 3
-
-; CHECK-FIELD2-B:    Field[2]: QNCA_a0$float*$rank1$
-; CHECK-FIELD2-B-NEXT:      Dope vector analysis result: Pass
-; CHECK-FIELD2-B-NEXT:      Constant propagation status: performed
-; CHECK-FIELD2-B-NEXT:        [0] Array Pointer: Read
-; CHECK-FIELD2-B-NEXT:        [1] Element size: Written | Constant = i64 4
-; CHECK-FIELD2-B-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-FIELD2-B-NEXT:        [3] Flags: Written
-; CHECK-FIELD2-B-NEXT:        [4] Dimensions: Written | Constant = i64 1
-; CHECK-FIELD2-B-NEXT:        [6][0] Extent: Written | Constant = i64 10
-; CHECK-FIELD2-B-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
-; CHECK-FIELD2-B-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
-
-; CHECK-FIELD1-B:    Field[1]: QNCA_a0$float*$rank3$
-; CHECK-FIELD1-B-NEXT:      Dope vector analysis result: Pass
-; CHECK-FIELD1-B-NEXT:      Constant propagation status: performed
-; CHECK-FIELD1-B-NEXT:        [0] Array Pointer: Read
-; CHECK-FIELD1-B-NEXT:        [1] Element size: Written | Constant = i64 4
-; CHECK-FIELD1-B-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-FIELD1-B-NEXT:        [3] Flags: Written
-; CHECK-FIELD1-B-NEXT:        [4] Dimensions: Written | Constant = i64 3
-; CHECK-FIELD1-B-NEXT:        [6][0] Extent: Written | Constant = i64 10
-; CHECK-FIELD1-B-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
-; CHECK-FIELD1-B-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
-; CHECK-FIELD1-B-NEXT:        [6][1] Extent: Written | Constant = i64 10
-; CHECK-FIELD1-B-NEXT:        [6][1] Stride: Read | Written | Constant = i64 40
-; CHECK-FIELD1-B-NEXT:        [6][1] Lower Bound: Read | Written | Constant = i64 1
-; CHECK-FIELD1-B-NEXT:        [6][2] Extent: Written | Constant = i64 10
-; CHECK-FIELD1-B-NEXT:        [6][2] Stride: Read | Written | Constant = i64 400
-; CHECK-FIELD1-B-NEXT:        [6][2] Lower Bound: Read | Written | Constant = i64 1
-
-; CHECK-FIELD0-B:    Field[0]: QNCA_a0$float*$rank2$
-; CHECK-FIELD0-B-NEXT:      Dope vector analysis result: Pass
-; CHECK-FIELD0-B-NEXT:      Constant propagation status: performed
-; CHECK-FIELD0-B-NEXT:        [0] Array Pointer: Read
-; CHECK-FIELD0-B-NEXT:        [1] Element size: Written | Constant = i64 4
-; CHECK-FIELD0-B-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
-; CHECK-FIELD0-B-NEXT:        [3] Flags: Written
-; CHECK-FIELD0-B-NEXT:        [4] Dimensions: Written | Constant = i64 2
-; CHECK-FIELD0-B-NEXT:        [6][0] Extent: Written | Constant = i64 10
-; CHECK-FIELD0-B-NEXT:        [6][0] Stride: Read | Written | Constant = i64 4
-; CHECK-FIELD0-B-NEXT:        [6][0] Lower Bound: Read | Written | Constant = i64 1
-; CHECK-FIELD0-B-NEXT:        [6][1] Extent: Written | Constant = i64 10
-; CHECK-FIELD0-B-NEXT:        [6][1] Stride: Read | Written | Constant = i64 40
-; CHECK-FIELD0-B-NEXT:        [6][1] Lower Bound: Read | Written | Constant = i64 1
-
+; Check that the constants were propagated for function @arr_mod_mp_print_arr_
+; CHECK: define internal void @arr_mod_mp_print_arr_
+; CHECK:   %46 = call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %44, i64 %20)
+; CHECK:   %59 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* %48, i64 %41)
+; CHECK:   %60 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %59, i64 %43)
+; CHECK:   %67 = call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %65, i64 %20)
+; CHECK:   %84 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 400, float* %69, i64 %64)
+; CHECK:   %85 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* %84, i64 %41)
+; CHECK:   %86 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %85, i64 %43)
+; CHECK:   %99 = call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %97, i64 %20)
+; CHECK:   %110 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %101, i64 %109)
+; CHECK:   %142 = call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %140, i64 %20)
+; CHECK:   %155 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* %144, i64 %137)
+; CHECK:   %156 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %155, i64 %139)
+; CHECK:   %163 = call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %161, i64 %20)
+; CHECK:   %180 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 1, i64 400, float* %165, i64 %160)
+; CHECK:   %181 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* %180, i64 %137)
+; CHECK:   %182 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %181, i64 %139)
+; CHECK:   %195 = call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 1, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %193, i64 %20)
+; CHECK:   %206 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %197, i64 %205)
 
 ; ModuleID = 'ld-temp.o'
 source_filename = "ld-temp.o"

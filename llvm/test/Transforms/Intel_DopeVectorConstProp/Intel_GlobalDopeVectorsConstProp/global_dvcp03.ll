@@ -101,6 +101,7 @@
 ; CHECK-NEXT:   LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
 ; CHECK-NEXT:     Global dope vector result: Failed to collect global dope vector info
 ; CHECK-NEXT:   Dope vector analysis result: Invalid data collection
+; CHECK-NEXT:   Constant propagation status: NOT performed
 
 ; ModuleID = 'ld-temp.o'
 source_filename = "ld-temp.o"

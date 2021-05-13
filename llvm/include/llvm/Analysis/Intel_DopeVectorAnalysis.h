@@ -654,8 +654,21 @@ public:
         AnalysisRes == DopeVectorInfo::AnalysisResult::AR_Pass)
       AnalysisRes = DopeVectorInfo::AnalysisResult::AR_Invalid;
   }
+
+  // Set to true if the process of constant propagation was applied
+  // to the current dope vector
+  void setConstantsPropagated() {
+    if (!ConstantsPropagated &&
+        AnalysisRes == DopeVectorInfo::AnalysisResult::AR_Pass)
+      ConstantsPropagated = true;
+  }
+
+  // Return true if the constants were propagated for the current
+  // dope vector
+  bool getConstantsPropagated() { return ConstantsPropagated; }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  // Print the information for debug purposes
+  // Print the analysis results for debug purposes
   void print(uint64_t Indent);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -688,6 +701,10 @@ protected:
 
   // Result from the analysis process
   AnalysisResult AnalysisRes;
+
+  // True if the constant propagation was already applied to the current
+  // dope vector
+  bool ConstantsPropagated;
 };
 
 // Helper class to handle the nested dope vectors. Nested dope vectors are dope
@@ -751,7 +768,7 @@ public:
     std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) :
       GlobalDVInfo(new DopeVectorInfo(Glob, DVType)), Glob(Glob),
       GetTLI(GetTLI), NestedDVDataCollected(false),
-      AnalysisRes(GlobalDopeVector::AnalysisResult::AR_Top) {}
+      AnalysisRes(GlobalDopeVector::AnalysisResult::AR_Top) { }
 
   ~GlobalDopeVector() {
     delete GlobalDVInfo;
@@ -791,7 +808,7 @@ public:
   AnalysisResult getAnalysisResult() { return AnalysisRes; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  // Print the information for debug purposes
+  // Print the information for debug purposes.
   void print();
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 private:

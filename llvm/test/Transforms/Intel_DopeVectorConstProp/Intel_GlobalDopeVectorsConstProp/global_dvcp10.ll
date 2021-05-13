@@ -52,6 +52,7 @@
 ; CHECK-NEXT:  LLVM Type: QNCA_a0$float*$rank2$
 ; CHECK-NEXT:  Global dope vector result: Failed to collect global dope vector info
 ; CHECK-NEXT:  Dope vector analysis result: Alloc site wasn't found
+; CHECK-NEXT:  Constant propagation status: NOT performed
 
 
 ; ModuleID = 'ld-temp.o'

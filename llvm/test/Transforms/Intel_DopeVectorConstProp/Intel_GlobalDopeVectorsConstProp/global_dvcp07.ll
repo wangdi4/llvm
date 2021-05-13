@@ -12,9 +12,9 @@
 ; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD2
 
 ; This test case checks that the information for the global dope vector
-; and the nested dope vectors was collected correctly even if the
-; nested dope vectors are parameters to a function. It was created from
-; the following source code:
+; and the nested dope vectors was collected and propagated correctly even
+; if the nested dope vectors are parameters to a function. It was created
+; from the following source code:
 
 ;      MODULE ARR_MOD
 ;
@@ -109,6 +109,7 @@
 ; CHECK-GLOBDV-NEXT:   LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
 ; CHECK-GLOBDV-NEXT:   Global dope vector result: Pass
 ; CHECK-GLOBDV-NEXT:   Dope vector analysis result: Pass
+; CHECK-GLOBDV-NEXT:   Constant propagation status: performed
 ; CHECK-GLOBDV-NEXT:     [0] Array Pointer: Read
 ; CHECK-GLOBDV-NEXT:     [1] Element size: Written | Constant = i64 288
 ; CHECK-GLOBDV-NEXT:     [2] Co-Dimension: Written | Constant = i64 0
@@ -121,6 +122,7 @@
 
 ; CHECK-FIELD0:    Field[0]: QNCA_a0$float*$rank2$
 ; CHECK-FIELD0-NEXT:      Dope vector analysis result: Pass
+; CHECK-FIELD0-NEXT:      Constant propagation status: performed
 ; CHECK-FIELD0-NEXT:        [0] Array Pointer: Read
 ; CHECK-FIELD0-NEXT:        [1] Element size: Written | Constant = i64 4
 ; CHECK-FIELD0-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
@@ -135,6 +137,7 @@
 
 ; CHECK-FIELD2:    Field[2]: QNCA_a0$float*$rank1$
 ; CHECK-FIELD2-NEXT:      Dope vector analysis result: Pass
+; CHECK-FIELD2-NEXT:      Constant propagation status: performed
 ; CHECK-FIELD2-NEXT:        [0] Array Pointer: Read
 ; CHECK-FIELD2-NEXT:        [1] Element size: Written | Constant = i64 4
 ; CHECK-FIELD2-NEXT:        [2] Co-Dimension: Written | Constant = i64 0
@@ -146,6 +149,7 @@
 
 ; CHECK-FIELD1:    Field[1]: QNCA_a0$float*$rank3$
 ; CHECK-FIELD1-NEXT:      Dope vector analysis result: Pass
+; CHECK-FIELD1-NEXT:      Constant propagation status: performed
 ; CHECK-FIELD1-NEXT:        [0] Array Pointer: Read
 ; CHECK-FIELD1-NEXT:        [1] Element size: Written | Constant = i64 4
 ; CHECK-FIELD1-NEXT:        [2] Co-Dimension: Written | Constant = i64 0

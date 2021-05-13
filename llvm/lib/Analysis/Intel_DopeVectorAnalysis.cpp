@@ -1331,6 +1331,7 @@ DopeVectorInfo::DopeVectorInfo(Value *DVObject, Type *DVType,
 
   AnalysisRes = DopeVectorInfo::AnalysisResult::AR_Top;
   LLVMDVType = cast<StructType>(DVType);
+  ConstantsPropagated = false;
 
   ExtentAddr.resize(Rank);
   StrideAddr.resize(Rank);
@@ -2466,6 +2467,9 @@ void DopeVectorInfo::print(uint64_t Indent) {
       break;
   }
   dbgs() << "\n";
+
+  dbgs() << IndentRef << "Constant propagation status:"
+         << (ConstantsPropagated ? " " : " NOT ") << "performed\n";
 
   SimpleFieldUsePrint(PtrAddr, 0, DopeVectorFieldType::DV_ArrayPtr);
   SimpleFieldUsePrint(ElementSizeAddr, 0, DopeVectorFieldType::DV_ElementSize);

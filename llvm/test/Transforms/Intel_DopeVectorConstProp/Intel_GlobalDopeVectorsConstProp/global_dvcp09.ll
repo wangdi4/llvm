@@ -102,9 +102,11 @@
 ; CHECK: Global variable: arr_mod_mp_a_
 ; CHECK-NEXT:   LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
 ; CHECK-NEXT:   Global dope vector result: Failed to collect nested dope vectors' data
+; CHECK:   Constant propagation status: NOT performed
 ; CHECK:       Nested dope vectors: 1
 ; CHECK-NEXT:    Field[0]: QNCA_a0$float*$rank2$
 ; CHECK-NEXT:      Dope vector analysis result: Incomplete data collection
+; CHECK-NEXT:      Constant propagation status: NOT performed
 
 
 ; ModuleID = 'ld-temp.o'
