@@ -14,7 +14,7 @@ function(create_ocl_kernel_target CLANG_FLAGS INPUT_CL TMP_DIR OUTPUT_DIR OUTPUT
 
   # generate frontend IR and run optimizer on it.
   add_custom_command(OUTPUT ${OUTPUT_OPT_FILE}
-    DEPENDS ${CLANG} common_clang${BUILD_PLATFORM} ${OPT} ${INPUT_CL}
+    DEPENDS ${CLANG} ${OPT} ${INPUT_CL}
     COMMAND ${CLANG} ${CLANG_FLAGS} ${INPUT_CL}
             -o ${TMP_DIR}/${OUTPUT_BC_FILE}
     COMMAND ${OPT} ${TMP_DIR}/${OUTPUT_BC_FILE} -verify -llvm-equalizer
@@ -41,7 +41,7 @@ function(create_ocl_kernel_target CLANG_FLAGS INPUT_CL TMP_DIR OUTPUT_DIR OUTPUT
     SOURCES ${INPUT_CL}
   )
 
-  add_dependencies(${RTL_TARGET_NAME} ${CLANG} common_clang${BUILD_PLATFORM} ${OPT})
+  add_dependencies(${RTL_TARGET_NAME} ${CLANG} ${OPT})
 
   set_target_properties(${RTL_TARGET_NAME} PROPERTIES
                         FOLDER ${BACKEND_FOLDER_NAME}/cl_library_kernel)

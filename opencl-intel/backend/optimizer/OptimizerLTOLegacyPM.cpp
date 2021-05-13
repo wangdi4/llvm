@@ -16,7 +16,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -100,6 +100,7 @@ void OptimizerLTOLegacyPM::registerPipelineStartCallback(
       EP, [](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
         MPM.add(createParseAnnotateAttributesPass());
         MPM.add(createDPCPPEqualizerLegacyPass());
+        MPM.add(createLinearIdResolverPass());
         MPM.add(createDPCPPKernelAnalysisLegacyPass());
       });
 }

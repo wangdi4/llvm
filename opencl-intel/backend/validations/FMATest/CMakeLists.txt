@@ -13,10 +13,10 @@ include_directories(
   ${BACKEND_ROOT_DIR}/ocl_cpu_backend
   ${BACKEND_ROOT_DIR}/common_runtime/icd
   ${BACKEND_ROOT_DIR}/ocl_cpu_backend
-  ${OCL_SOURCE_DIR}/externals/gtest/googletest/include
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
+  ${GTEST_INCLUDE_DIR}
   )
-add_executable(${TARGET_NAME}
+add_opencl_executable(${TARGET_NAME}
    FusedMAtest.cpp
 )
 

@@ -11,7 +11,7 @@ link_directories (
   ${OCL_OUTPUT_LIBRARY_DIR}
 )
 
-add_executable(${TARGET_NAME}
+add_opencl_executable(${TARGET_NAME}
   main.cpp
 )
 

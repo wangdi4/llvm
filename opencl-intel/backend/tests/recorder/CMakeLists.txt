@@ -18,7 +18,8 @@ else(WIN32)
 endif(WIN32)
 
 #include dirs
-include_directories( ${OCL_SOURCE_DIR}/externals/gtest/googletest/include
+include_directories(
+  ${GTEST_INCLUDE_DIR}
   ${OCL_SOURCE_DIR}/cl_api
   ${CL_API_HEADERS}
   ${OCL_SOURCE_DIR}/tests/framework_test_type/
@@ -27,7 +28,7 @@ include_directories( ${OCL_SOURCE_DIR}/externals/gtest/googletest/include
 )
 
 #adding the executable
-add_executable(
+add_opencl_executable(
   ${TARGET_NAME}
   recorder_test.cpp
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/cl_utils.cpp

@@ -185,7 +185,8 @@ TEDevice::TEDevice(  const RootDeviceCreationParam& device_desc, void* user_data
     }
     else
     {
-        m_deviceDescriptor.uiNumOfExecPlacesForMasters = 0;
+        if (m_deviceDescriptor.uiThreadsPerLevel[0] != 1)
+          m_deviceDescriptor.uiNumOfExecPlacesForMasters = 0;
     }
 
     LOG_INFO(TEXT("Initializing main arena with %d threads, reserved master slots %d, level = %d"),

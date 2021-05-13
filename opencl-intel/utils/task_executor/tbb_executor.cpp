@@ -255,9 +255,6 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
         return 0;
     }
 
-    // Initialize TBB NUMA support
-    InitTBBNuma();
-
     gWorker_threads = uiNumOfThreads;
     unsigned activeThreads = (unsigned)tbb::global_control::active_value(
         tbb::global_control::max_allowed_parallelism);
@@ -320,12 +317,20 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
         gWorker_threads = std::max(hardwareThreads, minThreads);
     }
 
-    m_tbbMaxParallelism = std::make_unique<tbb::global_control>(
-        tbb::global_control::max_allowed_parallelism, gWorker_threads);
-    assert(tbb::global_control::active_value(
-               tbb::global_control::max_allowed_parallelism) ==
-               gWorker_threads &&
-           "Failed to set tbb global_control max_allowed_parallelism");
+    if (gWorker_threads != activeThreads) {
+      m_tbbMaxParallelism = std::make_unique<tbb::global_control>(
+          tbb::global_control::max_allowed_parallelism, gWorker_threads);
+      // Allow the setting of max_allowed_parallelism to fail since application
+      // could set max_allowed_parallelism to a small value.
+      activeThreads = (unsigned)tbb::global_control::active_value(
+          tbb::global_control::max_allowed_parallelism);
+      if (activeThreads != gWorker_threads) {
+        LOG_ERROR(TEXT("Failed to set tbb global_control "
+                       "max_allowed_parallelism: actual %u, expected %u"),
+                  activeThreads, gWorker_threads);
+        gWorker_threads = activeThreads;
+      }
+    }
     if (ulAdditionalRequiredStackSize != 0) {
         // We force stack size of TBB created threads to match required value
         const size_t TBBDefaultStackSize =
@@ -351,6 +356,10 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
     m_threadManager.Init(gWorker_threads + SPARE_STATIC_DATA);
     // + SPARE to allow temporary oversubscription in flat mode and
     // additional root devices
+
+    // Initialize TBB NUMA support
+    if (gWorker_threads > 1)
+      InitTBBNuma();
 
     LOG_INFO(TEXT("TBBTaskExecutor constructed to %d threads"),
         gWorker_threads);
@@ -392,7 +401,8 @@ TBBTaskExecutor::CreateRootDevice( const RootDeviceCreationParam& device_desc, v
     if ((TE_AUTO_THREADS == device.uiThreadsPerLevel[0]) && (1 == device.uiNumOfLevels))
     {
         // tbb::task_scheduler_init creates "num_threads - 1" workers to account
-        // the master thread and avoid possible oversubscription.
+        // the master thread and avoid possible oversubscription. If the number
+        // workers is 0, we need to set uiThreadsPerLevel to 1.
         //
         // tbb::task_arena expects that tbb::task_scheduler is initialized by
         // "num_threads - num_of_masters" threads.
@@ -402,8 +412,9 @@ TBBTaskExecutor::CreateRootDevice( const RootDeviceCreationParam& device_desc, v
         // So, we need to manually remove the master thread from an arena
         device.uiThreadsPerLevel[0] =
             (TE_DISABLE_MASTERS_JOIN == device.mastersJoining)
-            ? gWorker_threads - device.uiNumOfExecPlacesForMasters
-            : gWorker_threads;
+                ? std::max(1, (int)gWorker_threads -
+                                  (int)device.uiNumOfExecPlacesForMasters)
+                : gWorker_threads;
     }
 
     assert((device.uiNumOfLevels <= TE_MAX_LEVELS_COUNT) &&

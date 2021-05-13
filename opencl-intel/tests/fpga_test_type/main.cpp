@@ -9,11 +9,13 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "options.hpp"
-
+#include <CL/cl.h>
 #include <gtest/gtest.h>
 #include "common_utils.h"
 
 bool gCaptureMode = false;
+
+cl_device_type gDeviceType = CL_DEVICE_TYPE_ACCELERATOR;
 
 int main(int argc, char** argv) {
   CommandLineOption<bool> captureOption("--capture");

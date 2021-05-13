@@ -27,6 +27,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPEqualizer.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelAnalysis.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelWGLoopCreator.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LinearIdResolver.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PhiCanonicalization.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/PrepareKernelArgs.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/RedundantPhiNodePass.h"
@@ -105,6 +106,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
   PB.registerPipelineStartEPCallback(
       [](ModulePassManager &MPM, PassBuilder::OptimizationLevel Level) {
         MPM.addPass(DPCPPEqualizerPass());
+        MPM.addPass(LinearIdResolverPass());
         MPM.addPass(DPCPPKernelAnalysisPass());
       });
 }

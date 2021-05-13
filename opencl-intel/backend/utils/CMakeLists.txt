@@ -20,13 +20,7 @@ set (TARGET_INCLUDE_FILES
   BlockUtils.h
   CompilationUtils.h
   debuggingservicetype.h
-  FunctionArgument.h
-  IArgument.h
-  ImplicitArgProperties.h
-  ImplicitArgsUtils.h
-  ImplicitArgument.h
   OCLAddressSpace.h
-  TypeAlignment.h
   TypeConversion.h
   VectorizerUtils.h
   RefcountThreadSafe.h
@@ -40,9 +34,6 @@ set (TARGET_SOURCE_FILES
   BlockUtils.cpp
   CompilationUtils.cpp
   debuggingservicetype.cpp
-  FunctionArgument.cpp
-  ImplicitArgsUtils.cpp
-  TypeAlignment.cpp
   TypeConversion.cpp
   VectorizerUtils.cpp
   Atomics.cpp

@@ -26,7 +26,7 @@ if (OPENCL_INTREE_BUILD)
     set(BUILD_PLATFORM "")
   endif()
 
-  get_target_property(LLVM_LIBRARY_DIRS common_clang${BUILD_PLATFORM} ARCHIVE_OUTPUT_DIRECTORY)
+  get_target_property(LLVM_LIBRARY_DIRS ${COMMON_CLANG} ARCHIVE_OUTPUT_DIRECTORY)
 
   # FIXME: we'd better setup dependencies explicitly for the targets
   #        instead of requiring the whole LLVM build.

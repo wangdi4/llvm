@@ -25,7 +25,7 @@ include_directories(
   ${OCL_SOURCE_DIR}/cl_api
 )
 
-add_executable(
+add_opencl_executable(
   ${TARGET_NAME}
   OclBuiltinEmitter.cpp
   OclBuiltinsHeaderGen.cpp
