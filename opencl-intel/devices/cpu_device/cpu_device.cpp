@@ -1665,7 +1665,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
                     openclVerStr = sOpenCL30Str;
                     break;
                 default:
-                    assert("Unknown OpenCL version.");
+                    assert(false && "Unknown OpenCL version.");
             }
 
             const char* buildVersionStr = "";

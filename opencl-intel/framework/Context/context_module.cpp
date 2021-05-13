@@ -1229,7 +1229,7 @@ cl_kernel ContextModule::CloneKernel(cl_kernel source_kernel,
         if(src_arg->IsValid())
             if(CL_SUCCESS != pNewKernel->SetKernelArgInternal(i, src_arg))
             {
-                assert("Unhandled type?");
+                assert(false && "Unhandled type?");
                 if (NULL != pErr)
                     *pErr = CL_INVALID_VALUE;
                 return CL_INVALID_HANDLE;

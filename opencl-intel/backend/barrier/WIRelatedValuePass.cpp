@@ -175,7 +175,7 @@ namespace intel {
     //Check if the function is in the table of functions
     Function *origFunc = pInst->getCalledFunction();
     if ( !origFunc ) {
-      assert("Unexpected indirect call!");
+      llvm_unreachable("Unexpected indirect call!");
       return true;
     }
     std::string origFuncName = origFunc->getName().str();
