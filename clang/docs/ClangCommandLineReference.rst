@@ -3365,6 +3365,10 @@ X86
 .. option:: -mavx512ifma, -mno-avx512ifma
 
 .. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+.. option:: -mavx512neconvert, -mno-avx512neconvert
+
+.. end INTEL_FEATURE_ISA_AVX512_NE_CONVERT
 .. INTEL_FEATURE_ISA_AVX512_MOVGET
 .. option:: -mavx512movget, -mno-avx512movget
 
