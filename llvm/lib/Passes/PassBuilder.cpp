@@ -161,6 +161,7 @@
 #include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
 #include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
 #include "llvm/Transforms/Instrumentation/PoisonChecking.h"
+#include "llvm/Transforms/Instrumentation/SPIRITTAnnotations.h"
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #include "llvm/Transforms/Intel_OpenCLTransforms/FMASplitter.h" // INTEL
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
