@@ -245,7 +245,6 @@ void insertAtomicInstrumentationCall(Module &M, StringRef Name,
 #if INTEL_COLLAB
   InstrumentationCall->setDebugLoc(AtomicFun->getDebugLoc());
 #endif // INTEL_COLLAB
-  return true;
 }
 
 } // namespace
