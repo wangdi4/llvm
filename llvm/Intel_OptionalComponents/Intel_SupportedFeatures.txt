@@ -268,3 +268,4 @@
 # by adding them here.  INTEL_COLLAB cannot use this scheme,
 # because we do not provide this file to the community.
 @INTEL_INTERNAL_BUILD:SHARED@
+@INTEL_INTERNAL_BUILD_XISA:SHARED@
