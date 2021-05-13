@@ -52,6 +52,13 @@ using namespace llvm;
 
 #define DEBUG_TYPE "x86tti"
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> UseStrictTargetISAVariantMatch(
+    "tti-use-strict-target-isa-for-variant", cl::Hidden, cl::init(false),
+    cl::desc("Use strict matching between vector variants and target ISA i.e. "
+             "do not allow subsets for higher ISAs."));
+#endif // INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 //
 // X86 cost model.
@@ -1091,6 +1098,8 @@ bool X86TTIImpl::targetMatchesVariantISA(
   else if (ST->hasSSE1())
     // All SSE targets support XMM
     TargetISAClass = VectorVariant::ISAClass::XMM;
+  if (UseStrictTargetISAVariantMatch)
+    return VariantISAClass == TargetISAClass;
   if (VariantISAClass <= TargetISAClass)
     return true;
   return false;
