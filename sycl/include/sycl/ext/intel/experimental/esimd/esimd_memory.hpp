@@ -10,17 +10,18 @@
 
 #pragma once
 
-#include <CL/sycl/INTEL/esimd/detail/esimd_memory_intrin.hpp>
-#include <CL/sycl/INTEL/esimd/detail/esimd_types.hpp>
-#include <CL/sycl/INTEL/esimd/detail/esimd_util.hpp>
-#include <CL/sycl/INTEL/esimd/esimd.hpp>
-#include <CL/sycl/INTEL/esimd/esimd_enum.hpp>
+#include <CL/sycl/half_type.hpp>
+#include <sycl/ext/intel/experimental/esimd/detail/esimd_memory_intrin.hpp>
+#include <sycl/ext/intel/experimental/esimd/detail/esimd_types.hpp>
+#include <sycl/ext/intel/experimental/esimd/detail/esimd_util.hpp>
+#include <sycl/ext/intel/experimental/esimd/esimd.hpp>
+#include <sycl/ext/intel/experimental/esimd/esimd_enum.hpp>
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
-#include <CL/sycl/INTEL/esimd/esimd_view.hpp>
+#include <sycl/ext/intel/experimental/esimd/esimd_view.hpp>
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
-#include <CL/sycl/half_type.hpp>
+
 #include <cstdint>
 
 __SYCL_INLINE_NAMESPACE(cl) {
