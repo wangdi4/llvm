@@ -1716,7 +1716,7 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
 
   FPM.addPass(createFunctionToLoopPassAdaptor(
       LoopSimplifyCFGPass(), /*UseMemorySSA=*/false,
-      /*UseBlockFrequencyInfo=*/false, DebugLogging));
+      /*UseBlockFrequencyInfo=*/false));
 
   FPM.addPass(LCSSAPass());
   // Leaving comments for stuff which need to be added to match legacy pass
@@ -1727,7 +1727,7 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
     MPM.addPass(PrintModulePass(dbgs(), ";Module Before HIR"));
     // Reinitialize FPM for safety.
-    FPM = FunctionPassManager(DebugLogging);
+    FPM = FunctionPassManager();
   }
 #endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   //
