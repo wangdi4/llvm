@@ -321,6 +321,9 @@ public:
   // 'Idx' of the specified aggregate type 'Ty'
   void addByteFlattenedGEPMapping(GEPOperator *GEP, DTransType *Ty, size_t Idx);
 
+  std::pair<DTransType *, size_t>
+  getByteFlattenedGEPElement(GEPOperator *GEP) const;
+
   // Set Ty as the declaration type of value V, and mark the ValueTypeInfo as
   // completely analyzed.
   void setDeclaredType(Value *V, DTransType *Ty);
@@ -3569,6 +3572,11 @@ void PtrTypeAnalyzerImpl::addByteFlattenedGEPMapping(GEPOperator *GEP,
     });
 }
 
+std::pair<DTransType *, size_t>
+PtrTypeAnalyzerImpl::getByteFlattenedGEPElement(GEPOperator *GEP) const {
+  return ByteFlattenedGEPInfoMap.lookup(GEP);
+}
+
 void PtrTypeAnalyzerImpl::run(Module &M) {
   PtrTypeAnalyzerInstVisitor InstAnalyzer(*this, TM, MDReader, M.getContext(),
                                           DL, GetTLI);
@@ -3982,6 +3990,11 @@ PtrTypeAnalyzer::getDominantType(ValueTypeInfo &Info,
 
 bool PtrTypeAnalyzer::isPtrToPtr(ValueTypeInfo &Info) const {
   return Impl->isPtrToPtr(Info);
+}
+
+std::pair<DTransType *, size_t>
+PtrTypeAnalyzer::getByteFlattenedGEPElement(GEPOperator *GEP) const {
+  return Impl->getByteFlattenedGEPElement(GEP);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

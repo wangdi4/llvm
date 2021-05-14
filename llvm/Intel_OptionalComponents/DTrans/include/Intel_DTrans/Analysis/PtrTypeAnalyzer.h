@@ -29,6 +29,7 @@
 namespace llvm {
 class DataLayout;
 class Function;
+class GEPOperator;
 class LLVMContext;
 class Module;
 class TargetLibraryInfo;
@@ -479,6 +480,11 @@ public:
   // that it operates on the type the pointers point to.
   bool isPointeeElementZeroAccess(DTransType *SrcPointeeTy,
                                   DTransType *DestPointeeTy) const;
+
+  // If the GEP was identified as a byte-flattened GEP during the type analysis,
+  // return the type and field number that is indexed by the GEP.
+  std::pair<DTransType *, size_t>
+  getByteFlattenedGEPElement(GEPOperator *GEP) const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpPTA(Module &M);

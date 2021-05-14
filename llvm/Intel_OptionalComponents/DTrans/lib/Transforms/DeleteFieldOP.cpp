@@ -669,7 +669,59 @@ void DeleteFieldOPImpl::processFunction(Function &F) {
 // byte-flattened form, the GEP can be updated prior to cloning.
 bool DeleteFieldOPImpl::processPossibleByteFlattenedGEP(
     GetElementPtrInst *GEP) {
-  // TODO: Convert offsets for byte flattened GEPs that need changing.
+  auto InfoPair = DTInfo->getByteFlattenedGEPElement(GEP);
+  if (!InfoPair.first)
+    return false;
+
+  // We'll typically only have a few types from which we are deleting
+  // fields, so iterating over the map is a reasonable way to test
+  // whether or not this GEP needs updating.
+  llvm::Type *SrcTy = InfoPair.first->getLLVMType();
+  for (auto &ONPair : OrigToNewTypeMapping) {
+    llvm::StructType *OrigTy = ONPair.first;
+    if (OrigTy != SrcTy)
+      continue;
+
+    llvm::Type *ReplTy = ONPair.second;
+    uint64_t SrcIdx = InfoPair.second;
+    uint64_t NewIdx = SrcIdx;
+
+    // If it isn't an enclosing type then get a new index, otherwise update
+    // offset using original index (SrcIdx).
+    if (!OrigEnclosingTypes.count(OrigTy)) {
+      assert(OrigTy->getStructNumElements() &&
+             FieldIdxMap[OrigTy].size() > SrcIdx && "Unexpected GEP index");
+
+      NewIdx = FieldIdxMap[OrigTy][SrcIdx];
+      if (NewIdx == FIELD_DELETED)
+        return true;
+
+      // If the index isn't changing, we don't need to update or delete this
+      // GEP.
+      if (NewIdx == SrcIdx)
+        return false;
+    }
+
+    // Otherwise, we need to get the offset of the updated index in the
+    // replacement type.
+    const StructLayout *SL = DL.getStructLayout(cast<StructType>(ReplTy));
+    uint64_t NewOffset = SL->getElementOffset(NewIdx);
+    Value *NewOffsetValue =
+        ConstantInt::get(GEP->getOperand(1)->getType(), NewOffset);
+
+    // Update GEP offset to match new ReplTy type.
+    if (NewOffsetValue != GEP->getOperand(1)) {
+      LLVM_DEBUG(dbgs() << "Delete field: Replacing instruction\n"
+                        << *GEP << "\n");
+      GEP->setOperand(1, NewOffsetValue);
+      LLVM_DEBUG(dbgs() << "    with\n" << *GEP << "\n");
+    }
+
+    // We've updated this GEP and don't need to delete it.
+    return false;
+  }
+
+  // This doesn't match any type we're updating.
   return false;
 }
 
