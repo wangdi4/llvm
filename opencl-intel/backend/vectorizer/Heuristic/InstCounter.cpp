@@ -163,6 +163,8 @@ WeightedInstCounter::WeightedInstCounter(bool preVec,
 
 bool WeightedInstCounter::runOnFunction(Function &F) {
 
+  if (F.hasOptNone())
+    return false;
   // for statistics:
   OCLSTAT_GATHER_CHECK(
     m_blockCosts.clear();

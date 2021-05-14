@@ -62,7 +62,9 @@ bool VectorVariantLowering::runOnModule(Module &M) {
   bool Modified = false;
 
   // Process all call instructions.
-  for (auto &F : M)
+  for (auto &F : M) {
+    if (F.hasOptNone())
+      continue;
     for (auto &Inst : instructions(F)) {
       if (Inst.getOpcode() != Instruction::Call)
         continue;
@@ -108,7 +110,7 @@ bool VectorVariantLowering::runOnModule(Module &M) {
         Modified = true;
       }
     }
-
+  }
   return Modified;
 }
 

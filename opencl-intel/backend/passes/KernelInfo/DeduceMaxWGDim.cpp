@@ -84,7 +84,8 @@ namespace intel {
     for ( CompilationUtils::FunctionSet::iterator fi = kernelsFunctionSet.begin(),
       fe = kernelsFunctionSet.end(); fi != fe; ++fi ) {
         Function *pFunc = cast<Function>(*fi);
-        Changed = runOnFunction(*pFunc) || Changed;
+        if (!pFunc->hasOptNone())
+          Changed = runOnFunction(*pFunc) || Changed;
     }
 
     return Changed;

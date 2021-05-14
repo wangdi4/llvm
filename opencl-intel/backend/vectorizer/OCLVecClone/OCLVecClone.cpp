@@ -914,7 +914,7 @@ void OCLVecCloneImpl::languageSpecificInitializations(Module &M) {
   for (Function *F : Kernels) {
     auto FMD = KernelInternalMetadataAPI(F);
     unsigned VectorLength = FMD.OclRecommendedVectorLength.get();
-    if (VectorLength > 1)
+    if ((VectorLength > 1) && (!F->hasOptNone()))
       PK.run(F);
   }
 }

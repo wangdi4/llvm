@@ -34,6 +34,9 @@ CLBuiltinLICM::CLBuiltinLICM() : LoopPass(ID), m_rtServices(nullptr) {
 }
 
 bool CLBuiltinLICM::runOnLoop(Loop *L, LPPassManager & /*LPM*/) {
+  const Function *F = L->getHeader()->getParent();
+  if (F && F->hasOptNone())
+    return false;
   //errs() << "CLBuiltinLICM on " << L->getHeader()->getNameStr() << "\n";
   if (!L->isLoopSimplifyForm()) return false;
 

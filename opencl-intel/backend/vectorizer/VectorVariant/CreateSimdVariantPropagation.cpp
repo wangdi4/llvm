@@ -49,6 +49,9 @@ bool CreateSimdVariantPropagation::runOnModule(Module &M) {
   // Process all variant creation call instructions.
   for (auto &F : M) {
 
+    if (F.hasOptNone())
+      continue;
+
     if (!F.getName().startswith("__intel_create_simd_variant"))
       continue;
 

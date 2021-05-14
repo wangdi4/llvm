@@ -509,6 +509,8 @@ static void copyAndReplaceUses(
 }
 
 bool ReduceCrossBarrierValues::runOnFunction(Function &F) {
+  if (F.hasOptNone())
+    return false;
   auto *DPV = &getAnalysis<DataPerValue>();
   const auto *CrossBarrierUseMap = DPV->getCrossBarrierUses(&F);
   if (!CrossBarrierUseMap || CrossBarrierUseMap->empty())
