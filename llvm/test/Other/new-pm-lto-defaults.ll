@@ -140,6 +140,10 @@
 ; CHECK-O23SZ-NEXT: Running pass: IntelLoopAttrsPass on foo
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: PostOrderFunctionAttrsPass on (foo)
+; CHECK-O23SZ-NEXT: Running pass: RequireAnalysisPass<llvm::GlobalsAA, llvm::Module> on [module]
+; CHECK-O23SZ-NEXT: Running analysis: GlobalsAA on [module]
+; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<llvm::AAManager> on foo
+; CHECK-O23SZ-NEXT: Invalidating analysis: AAManager on foo
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
 ; INTEL_CUSTOMIZATION
 ; LoopAnalysis will earlier with the IntelLoopAttrsPass
@@ -147,6 +151,7 @@
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
 ; CHECK-O23SZ-NEXT: Running analysis: MemorySSAAnalysis on foo
+; CHECK-O23SZ-NEXT: Running analysis: AAManager on foo
 ; INTEL_CUSTOMIZATION
 ; ScalarEvolution will run with the IntelLoopAttrs pass
 ; CHECK-O23SZ-NEXT-: Running analysis: ScalarEvolutionAnalysis on foo
