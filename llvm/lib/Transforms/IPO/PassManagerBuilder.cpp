@@ -71,6 +71,7 @@
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
 #include "llvm/Transforms/Scalar/Intel_DopeVectorHoist.h"
+#include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
@@ -1697,6 +1698,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (OptLevel > 1) {
     // Split call-site with more constrained arguments.
     PM.add(createCallSiteSplittingPass());
+#if INTEL_CUSTOMIZATION
+    // Compute the loop attributes
+    PM.add(createIntelLoopAttrsWrapperPass());
+#endif // INTEL_CUSTOMIZATION
 
     // Indirect call promotion. This should promote all the targets that are
     // left by the earlier promotion pass that promotes intra-module targets.
@@ -1931,6 +1936,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // link-time inlining, and visibility of nocapture attribute.
   if (OptLevel > 1)
     PM.add(createTailCallEliminationPass());
+
+#if INTEL_CUSTOMIZATION
+  // Compute the loop attributes
+  if (OptLevel > 1)
+    PM.add(createIntelLoopAttrsWrapperPass());
+#endif // INTEL_CUSTOMIZATION
 
   // Infer attributes on declarations, call sites, arguments, etc.
   PM.add(createPostOrderFunctionAttrsLegacyPass()); // Add nocapture.
