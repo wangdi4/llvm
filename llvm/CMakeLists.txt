@@ -901,9 +901,11 @@ if(INTEL_CUSTOMIZATION)
       list(REMOVE_ITEM features_enabled_by_default
            "${LLVM_INTELFEATURE_PREFIX}_XISA")
 
-      # This is used to guard code that only been built under XISA config.
+# INTEL_FEATURE_XISA_COMMON
+      # This is used to guard code that shared by more then one XISA features.
       list(APPEND features_enabled_by_default
-           INTEL_INTERNAL_BUILD_XISA)
+           ${LLVM_INTELFEATURE_PREFIX}_XISA_COMMON)
+#end INTEL_FEATURE_XISA_COMMON
 
 # INTEL_FEATURE_ISA_FP16
       list(APPEND features_enabled_by_default
