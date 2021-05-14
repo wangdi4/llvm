@@ -1787,6 +1787,14 @@ void HIRRegionIdentification::createRegion(
   BasicBlock *EntryBB = Loops.front()->getHeader();
   BasicBlock *ExitBB = nullptr;
 
+  // If the first outermost loop is the outer loop for a convolution loop nest,
+  // include its preheader block in the region to ensure hoisted kernel base
+  // pointer loads are visible.
+  if (isOuterConvolutionLoop(*Loops.front(), nullptr)) {
+    EntryBB = Loops.front()->getLoopPreheader();
+    NonLoopBBlocks.push_back(EntryBB);
+  }
+
   for (auto *Lp : Loops) {
     bool IsFirstLoop = (Lp == Loops.front());
     bool IsLastLoop = (Lp == Loops.back());

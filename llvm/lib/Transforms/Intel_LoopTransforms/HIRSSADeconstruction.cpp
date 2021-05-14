@@ -1022,7 +1022,7 @@ static void invalidateSCEVableInsts(ScalarEvolution &SE, Instruction *Inst) {
 
 void HIRSSADeconstruction::processNonLoopRegionLiveouts() {
   auto *ExitingBB = CurRegIt->getExitBBlock();
-  auto *ExitBB = ExitingBB->getSingleSuccessor();
+  auto *ExitBB = CurRegIt->getSuccBBlock();
 
   for (auto BBIt = CurRegIt->non_loop_bb_begin(),
             EndIt = CurRegIt->non_loop_bb_end();
