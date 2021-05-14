@@ -378,6 +378,19 @@ public:
     return nullptr;
   }
 
+  // Get all the store instructions for the extent field for the specified
+  // dimension.
+  iterator_range<DopeVectorFieldUse::StoreInstSetIter>
+  getExtentStores(uint32_t Dim) const {
+    assert(ExtentAddr.size() > Dim && "Invalid dimension");
+    if (ExtentAddr[Dim].hasFieldAddr())
+      return ExtentAddr[Dim].stores();
+
+    // Return an empty set iterator range, if the field wasn't collected.
+    return iterator_range<DopeVectorFieldUse::StoreInstSetIter>(
+        DopeVectorFieldUse::StoreInstSet());
+  }
+
   // Accessor for uplevel variable.
   UplevelDVField getUplevelVar() const { return Uplevel; }
 

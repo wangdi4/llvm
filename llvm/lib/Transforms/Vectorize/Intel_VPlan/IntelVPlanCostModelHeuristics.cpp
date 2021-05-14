@@ -180,6 +180,48 @@ bool HeuristicSLP::ProcessSLPHIRMemrefs(
   return PatternFound;
 }
 
+bool HeuristicSLP::checkForSLPRedn(const VPReductionFinal *RednFinal,
+                                   const VPBasicBlock *Header) const {
+  const VPValue *RednVal = RednFinal->getOperand(0);
+  if (!RednVal->getType()->isDoubleTy())
+    return false;
+
+  const VPInstruction *AddNonFmulInst = nullptr;
+  const VPInstruction *MinusOneStrideLoadInst = nullptr, *VLSLoadInst = nullptr;
+  if (!match(RednVal, m_c_FAdd(m_Bind(AddNonFmulInst),
+                               m_c_FMul(m_Bind(MinusOneStrideLoadInst),
+                                        m_UIToFP(m_Bind(VLSLoadInst))))))
+    return false;
+
+  assert(AddNonFmulInst && MinusOneStrideLoadInst && VLSLoadInst &&
+         "Unexpected null VPInstruction");
+  if (AddNonFmulInst->getParent() != Header ||
+      MinusOneStrideLoadInst->getParent() != Header ||
+      VLSLoadInst->getParent() != Header)
+    return false;
+
+  if (!isa<VPPHINode>(AddNonFmulInst) ||
+      MinusOneStrideLoadInst->getOpcode() != Instruction::Load ||
+      VLSLoadInst->getOpcode() != Instruction::Load)
+    return false;
+
+  bool NegativeStride = false;
+  if ((!CM->isUnitStrideLoadStore(MinusOneStrideLoadInst, NegativeStride)) ||
+      !NegativeStride)
+    return false;
+
+  if (!CM->isOptimizedVLSGroupMember(VLSLoadInst))
+    return false;
+
+  LLVM_DEBUG(dbgs() << "SLP reduction candidate seen\n";
+             dbgs() << "  Reduction: "; RednFinal->dump();
+             dbgs() << "  Minus one stride load: ";
+             MinusOneStrideLoadInst->dump(); dbgs() << "  VLS optimized load: ";
+             VLSLoadInst->dump());
+
+  return true;
+}
+
 void HeuristicSLP::apply(unsigned TTICost, unsigned &Cost,
                          const VPlanVector *Plan, raw_ostream *OS) const {
   (void)TTICost;
@@ -189,10 +231,18 @@ void HeuristicSLP::apply(unsigned TTICost, unsigned &Cost,
   unsigned NewCost = Cost;
   SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRLoadMemrefs;
   SmallVector<const RegDDRef*, VPlanSLPSearchWindowSize> HIRStoreMemrefs;
+
+  // Used to track if all the reductions seen in the loop are better optimized
+  // using the SLP vectorizer. This is used to address performance regressions
+  // until CM can generalize code to determine which loops are better candidates
+  // for SLP vectorization.
+  bool NonSLPRednSeen = false;
+  unsigned NumSLPRednsSeen = 0;
+
   // Gather all Store and Load Memrefs since SLP starts pattern search on
   // stores and on our cases we have consequent loads as well.
   for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock()))
-    for (const VPInstruction &VPInst : *Block)
+    for (const VPInstruction &VPInst : *Block) {
       if (auto DDRef = getHIRMemref(&VPInst)) {
         if (VPInst.getOpcode() == Instruction::Store)
           HIRStoreMemrefs.push_back(DDRef);
@@ -200,8 +250,18 @@ void HeuristicSLP::apply(unsigned TTICost, unsigned &Cost,
           HIRLoadMemrefs.push_back(DDRef);
       }
 
-  if (ProcessSLPHIRMemrefs(HIRStoreMemrefs, VPlanSLPStorePatternSize) &&
-      ProcessSLPHIRMemrefs(HIRLoadMemrefs,  VPlanSLPLoadPatternSize))
+      if (auto *RednFinal = dyn_cast<VPReductionFinal>(&VPInst)) {
+        const VPLoop *TopLoop = *(Plan->getVPLoopInfo()->begin());
+        if (checkForSLPRedn(RednFinal, TopLoop->getHeader()))
+          NumSLPRednsSeen++;
+        else
+          NonSLPRednSeen = true;
+      }
+    }
+
+  if ((ProcessSLPHIRMemrefs(HIRStoreMemrefs, VPlanSLPStorePatternSize) &&
+       ProcessSLPHIRMemrefs(HIRLoadMemrefs, VPlanSLPLoadPatternSize)) ||
+      (NumSLPRednsSeen == 4 && !NonSLPRednSeen))
     NewCost *= VF;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

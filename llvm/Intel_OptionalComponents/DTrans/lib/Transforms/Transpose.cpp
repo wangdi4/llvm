@@ -74,6 +74,10 @@ static cl::opt<bool> PrintCandidates("dtrans-transpose-print-candidates",
 // 3rd strides for 'tetra'
 static cl::opt<std::string> TransposeOverride("dtrans-transpose-override",
                                               cl::ReallyHidden);
+// We will not perform the transpose unless each dimension of the array has
+// at least this number of elements.
+static cl::opt<uint64_t> TransposeMinDim("dtrans-transpose-min-dim", cl::init(8),
+                                         cl::ReallyHidden);
 
 namespace {
 
@@ -873,10 +877,11 @@ private:
   // transposed.
   bool IsProfitable;
 
-  // This function will swap the strides used for indexing into the array. These
-  // need to be changed for subscript operators that directly index into the
-  // global variable, and for the setup of the dope vectors used when passing
-  // the global variable to another function.
+  // This function will swap the strides used for indexing into the array.
+  // These need to be changed for subscript operators that directly index
+  // into the global variable, and for the setup of the dope vectors used
+  // when passing the global variable to another function. Extents in the
+  // dope vectors will also be swapped.
   void transposeStrides() {
     assert(!Transposition.empty() && "New indices should have been set.");
 
@@ -958,7 +963,8 @@ private:
     ProcessSubscriptCall(Subs, ArrayRank - 1, TransposeStrides, Visited);
   }
 
-  // Modify the value stored into the stride fields of the dope vector.
+  // Modify the value stored into the stride and extent fields of the
+  // dope vector.
   void transposeDopeVector(DopeVectorAnalyzer &DV) {
 
     for (unsigned Rank = 0; Rank < ArrayRank; ++Rank) {
@@ -967,6 +973,7 @@ private:
       if (TransposeIdx == Rank)
         continue;
       uint64_t NewStride = Strides[TransposeIdx];
+      uint64_t NewExtent = ArrayLength[TransposeIdx];
 
       auto StrideStores = DV.getStrideStores(Rank);
       for (auto *SI : StrideStores) {
@@ -975,6 +982,16 @@ private:
         auto *NewStrideConst =
             ConstantInt::get(SI->getOperand(0)->getType(), NewStride);
         SI->setOperand(0, NewStrideConst);
+        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "After : " << *SI << "\n");
+      }
+
+      auto ExtentStores = DV.getExtentStores(Rank);
+      for (auto *SI : ExtentStores) {
+        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "Before: " << *SI << "\n");
+
+        auto *NewExtentConst =
+            ConstantInt::get(SI->getOperand(0)->getType(), NewExtent);
+        SI->setOperand(0, NewExtentConst);
         DEBUG_WITH_TYPE(DEBUG_TRANSFORM, dbgs() << "After : " << *SI << "\n");
       }
     }
@@ -1064,14 +1081,24 @@ private:
 
       uint32_t Dimensions = 0;
       SmallVector<uint64_t, 4> ArrayLength;
-      ArrayLength.push_back(ArrType->getArrayNumElements());
+      uint64_t ThisArrayDim = ArrType->getArrayNumElements();
+      if (ThisArrayDim < TransposeMinDim)
+        continue;
+      ArrayLength.push_back(ThisArrayDim);
       llvm::Type *ElemType = ArrType->getArrayElementType();
+      bool SkipCandidate = false;
       for (Dimensions = 1; ElemType->isArrayTy(); Dimensions++) {
         auto *InnerArrType = cast<llvm::ArrayType>(ElemType);
-        ArrayLength.insert(ArrayLength.begin(),
-            InnerArrType->getArrayNumElements());
+        uint64_t ThisArrayDim = InnerArrType->getArrayNumElements();
+        if (ThisArrayDim < TransposeMinDim) {
+          SkipCandidate = true;
+          break;
+        }
+        ArrayLength.insert(ArrayLength.begin(), ThisArrayDim);
         ElemType = InnerArrType->getArrayElementType();
       }
+      if (SkipCandidate)
+        continue;
 
       if (Dimensions > 1 && Dimensions <= FortranMaxRank &&
           (ElemType->isIntegerTy() || ElemType->isFloatingPointTy())) {

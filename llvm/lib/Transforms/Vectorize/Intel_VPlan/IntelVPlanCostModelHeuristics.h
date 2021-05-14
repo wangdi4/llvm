@@ -113,6 +113,27 @@ class HeuristicSLP : public HeuristicBase {
   static bool ProcessSLPHIRMemrefs(
     SmallVectorImpl<const loopopt::RegDDRef*> const &HIRMemrefs,
     unsigned PatternSize);
+
+  // Check that the given RednFinal VPInstruction is a reduction of the form
+  //    double %vp51580 = reduction-final{fadd} double %vp48206 double ...
+  // where %vp48206 is computed using the sequence
+  //    double %vp23232 = phi
+  //    ...
+  //    double %vp1244 = load double* %vp44206
+  //    ..
+  //    i16 %vp48028 = load i16* %vp44246
+  //    double %vp48064 = uitofp i16 %vp48028 to double
+  //    double %vp48100 = fmul double %vp1244 double %vp48064
+  //    double %vp48206 = fadd double %vp48100 double %vp23232
+  //
+  // The checks also include a negative stride one check for the $vp1244 load
+  // and that %vp48028 load is a VLS optimization candidate. Loops that have
+  // only reductions in the above form are considered better candidates for
+  // SLP vectorization. We also restrict to exactly 4 such reductions and also
+  // check that all above instructions are in the top loop header.
+  bool checkForSLPRedn(const VPReductionFinal *RednFinal,
+                       const VPBasicBlock *Header) const;
+
 public:
   HeuristicSLP(VPlanTTICostModel *CM) : HeuristicBase(CM, "SLP breaking") {};
   void apply(unsigned TTICost, unsigned &Cost,
