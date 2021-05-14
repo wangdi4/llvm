@@ -2,7 +2,8 @@
 // REQUIRES: CMPLRLLVM-TBD
 // end INTEL_CUSTOMIZATION
 // RUN: %libomptarget-compile-run-and-check-generic
-// XFAIL: nvptx64-nvidia-cuda
+
+// REQUIRES: unified_shared_memory
 
 // amdgcn does not have printf definition
 // XFAIL: amdgcn-amd-amdhsa
