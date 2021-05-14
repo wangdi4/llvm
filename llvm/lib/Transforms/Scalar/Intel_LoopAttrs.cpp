@@ -59,7 +59,7 @@ using namespace llvm;
 
 // Control if the pass should apply the attributes
 static cl::opt<bool>
-    EnableIntelLoopAttrs("enable-loop-attrs", cl::init(false), cl::Hidden,
+    EnableIntelLoopAttrs("enable-loop-attrs", cl::init(true), cl::Hidden,
                          cl::desc("Enable Loop attributes"));
 
 // Control if the "mustprogress" attribute should always be applied

@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -intel-loop-attrs -enable-loop-attrs -debug-only=intel-loop-attrs -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(intel-loop-attrs)' -enable-loop-attrs -debug-only=intel-loop-attrs -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -intel-loop-attrs -debug-only=intel-loop-attrs -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(intel-loop-attrs)' -debug-only=intel-loop-attrs -disable-output 2>&1 | FileCheck %s
 
 ; This test case checks that function @foo is candidate for adding the loop
 ; attributes without using "-force-intel-must-progress" since there is a use
