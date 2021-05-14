@@ -678,3 +678,8 @@
 // RUN: %clang_cl -### -Qvec-threshold:101 -c %s 2>&1 \
 // RUN:    | FileCheck -check-prefix=VEC_THRESHOLD %s
 // VEC_THRESHOLD: "-mllvm" "-vec-threshold=101"
+//
+// -qoverride-limits
+// RUN: %clang -### -qoverride-limits -c %s 2>&1 | FileCheck -check-prefix=OVERRIDE-LIMITS %s
+// RUN: %clang_cl -### /Qoverride-limits -c %s 2>&1 | FileCheck -check-prefix=OVERRIDE-LIMITS %s
+// OVERRIDE-LIMITS: "-mllvm" "-hir-cost-model-throttling=0"

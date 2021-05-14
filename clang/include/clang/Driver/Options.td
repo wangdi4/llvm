@@ -4999,6 +4999,8 @@ def qopt_report : Flag<["-"], "qopt-report">, Alias<qopt_report_EQ>,
   AliasArgs<["2"]>;
 def qopt_zmm_usage_EQ : Joined<["-"], "qopt-zmm-usage=">, Values<"low,high">,
   HelpText<"Specifies the level of zmm registers usage, low or high">;
+def qoverride_limits : Flag<["-"], "qoverride-limits">,
+  HelpText<"enables the user to skip throttling of loops in framework and DD.">;
 #endif // INTEL_CUSTOMIZATION
 
 // Ignored options
@@ -7248,6 +7250,8 @@ def _SLASH_Qzero_initialized_in_bss_ : CLFlag<"Qzero-initialized-in-bss-">,
   Alias<fno_zero_initialized_in_bss>;
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;
+def _SLASH_Qoverride_limits : CLFlag<"Qoverride-limits">, Alias<qoverride_limits>,
+  HelpText<"Enables the user to skip throttling of loops in framework and DD.">;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_showIncludes : CLFlag<"showIncludes">,
   HelpText<"Print info about included files to stderr">;
