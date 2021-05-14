@@ -3079,7 +3079,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
       // becomes available with L0 1.2.
       // Here we try to match OpenCL kernel property
       // CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE.
-      if (HWId == 0x200 || HWId == 0xb00)
+      if (HWId == 0x200 || HWId == 0xb00 || HWId == 0x4900)
         RTLKernelProperties.Width *= 2;
     }
     if (DebugLevel > 0) {
