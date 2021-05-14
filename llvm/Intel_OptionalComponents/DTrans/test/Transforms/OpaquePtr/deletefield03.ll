@@ -40,12 +40,10 @@ define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtr
   ret i32 0
 }
 
-; TODO: When calls are processed, lines marked with TODO should be enabled.
-
 ; CHECK-LABEL: define i32 @main
-; TODO-CHECK-NONOPAQUE: %p1 = call i8* @malloc(i64 16)
+; CHECK-NONOPAQUE: %p1 = call i8* @malloc(i64 16)
 ; CHECK-NONOPAQUE: %p_test = bitcast i8* %p1 to %__DFT_struct.test*
-; TODO-CHECK-NONOPAQUE: %p2 = call i8* @malloc(i64 8)
+; CHECK-NONOPAQUE: %p2 = call i8* @malloc(i64 8)
 ; CHECK-NONOPAQUE: %p_other = bitcast i8* %p2 to %__DFT_struct.other*
 ; CHECK-NONOPAQUE: %pp_test = getelementptr %__DFT_struct.other, %__DFT_struct.other* %p_other, i64 0, i32 0
 ; CHECK-NONOPAQUE: store %__DFT_struct.test* %p_test, %__DFT_struct.test** %pp_test
@@ -55,9 +53,9 @@ define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtr
 ; CHECK-NONOPAQUE: %p_test2 = load %__DFT_struct.test*, %__DFT_struct.test** %pp_test2
 ; CHECK-NONOPAQUE: %ret = call i1 @doSomething.1(%__DFT_struct.test* %p_test2, %__DFT_struct.other* %p_other)
 
-; TODO-CHECK-OPAQUE: %p1 = call ptr @malloc(i64 16)
+; CHECK-OPAQUE: %p1 = call ptr @malloc(i64 16)
 ; CHECK-OPAQUE: %p_test = bitcast ptr %p1 to ptr
-; TOTO-CHECK-OPAQUE: %p2 = call ptr @malloc(i64 8)
+; CHECK-OPAQUE: %p2 = call ptr @malloc(i64 8)
 ; CHECK-OPAQUE: %p_other = bitcast ptr %p2 to ptr
 ; CHECK-OPAQUE: %pp_test = getelementptr %__DFT_struct.other, ptr %p_other, i64 0, i32 0
 ; CHECK-OPAQUE: store ptr %p_test, ptr %pp_test

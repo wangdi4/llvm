@@ -16,6 +16,7 @@
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
+#include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/ADT/PriorityWorklist.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -125,12 +126,8 @@ private:
 
   const DataLayout &DL;
 
-  // TODO: Remove 'public' specifier when function call size argument processing
-  // code is added. Temporarily, declared as public to prevent build warning
-  // about unused private variable.
-public:
   DeleteFieldOPPass::GetTLIFn GetTLI;
-private:
+
   // The pointers in this vector are owned by the DTransSafetyInfo class.
   // The list is populated during prepareTypes() and used in populateTypes().
   SmallVector<dtrans::StructInfo *, 4> StructsToConvert;
@@ -876,8 +873,36 @@ void DeleteFieldOPImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
 }
 
 void DeleteFieldOPImpl::postprocessCall(CallBase *Call) {
-  // TODO: Update the size argument for calls that need to be adjusted due to a
-  // structure type changing.
+  auto *CInfo = DTInfo->getCallInfo(Call);
+  if (!CInfo || isa<dtrans::FreeCallInfo>(CInfo))
+    return;
+
+  // The number of types in the call element info and the number of types
+  // in the OrigToNew type mapping should both be very small. We can use
+  // the element_llvm_types here that returns llvm::Type objects, instead of
+  // DTransTypes because the call info objects track the pointee type.
+  auto CallElemTypes = CInfo->getElementTypesRef();
+  for (auto *PointeeTy : CallElemTypes.element_llvm_types())
+    for (auto &ONPair : OrigToNewTypeMapping) {
+      llvm::Type *OrigTy = ONPair.first;
+      llvm::Type *ReplTy = ONPair.second;
+      assert(PointeeTy != OrigTy &&
+             "Original type found after type replacement!");
+      if (PointeeTy != ReplTy)
+        continue;
+
+      // Do not adjust size if it's an incomplete access memfunc.
+      // Fields within a partial memfunc range are not going to be removed.
+      if (auto *MInfo = dyn_cast<dtrans::MemfuncCallInfo>(CInfo))
+        if (!MInfo->getIsCompleteAggregate(0))
+          continue;
+
+      LLVM_DEBUG(dbgs() << "Found call involving type with deleted fields:\n"
+                        << *Call << "\n"
+                        << "  " << *OrigTy << "\n");
+      const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+      dtrans::updateCallSizeOperand(Call, CInfo, OrigTy, ReplTy, TLI);
+    }
 }
 
 char DTransDeleteFieldOPWrapper::ID = 0;
