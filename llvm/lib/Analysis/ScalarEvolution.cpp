@@ -3751,6 +3751,15 @@ const SCEV *ScalarEvolution::getAbsExpr(const SCEV *Op, bool IsNSW) {
   return getSMaxExpr(Op, getNegativeSCEV(Op, Flags));
 }
 
+#if INTEL_CUSTOMIZATION
+// Sign of x: smin(smax(x,-1),1) => [-1,0,1]. Used below as part of
+// "ashr exact" lowering.
+const SCEV *ScalarEvolution::getSignumExpr(const SCEV *Op) {
+  Type *Ty = Op->getType();
+  return getSMinExpr(getSMaxExpr(Op, getMinusOne(Ty)), getOne(Ty));
+}
+#endif // INTEL_CUSTOMIZATION
+
 const SCEV *ScalarEvolution::getMinMaxExpr(SCEVTypes Kind,
                                            SmallVectorImpl<const SCEV *> &Ops) {
   assert(!Ops.empty() && "Cannot get empty (u|s)(min|max)!");
@@ -4891,6 +4900,9 @@ struct BinaryOp {
   Value *RHS;
   bool IsNSW = false;
   bool IsNUW = false;
+#if INTEL_CUSTOMIZATION
+  bool IsExact = false;
+#endif // INTEL_CUSTOMIZATION
 
   /// Op is set if this BinaryOp corresponds to a concrete LLVM instruction or
   /// constant expression.
@@ -4903,11 +4915,20 @@ struct BinaryOp {
       IsNSW = OBO->hasNoSignedWrap();
       IsNUW = OBO->hasNoUnsignedWrap();
     }
+#if INTEL_CUSTOMIZATION
+    if (auto *PEO = dyn_cast<PossiblyExactOperator>(Op))
+      IsExact = PEO->isExact();
+#endif // INTEL_CUSTOMIZATION
   }
 
   explicit BinaryOp(unsigned Opcode, Value *LHS, Value *RHS, bool IsNSW = false,
-                    bool IsNUW = false)
-      : Opcode(Opcode), LHS(LHS), RHS(RHS), IsNSW(IsNSW), IsNUW(IsNUW) {}
+#if INTEL_CUSTOMIZATION
+                    bool IsNUW = false,
+                    bool IsExact = false)
+      : Opcode(Opcode), LHS(LHS), RHS(RHS), IsNSW(IsNSW), IsNUW(IsNUW),
+        IsExact(IsExact) {}
+// Added "IsExact" parm above, default false.
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end anonymous namespace
@@ -7697,6 +7718,23 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
           }
         }
       }
+#if INTEL_CUSTOMIZATION
+      // For Fortran subscript/address arithmetic, it is useful to parse
+      // ashr-exact into a precise SCEV. This allows some IVs to be completely
+      // removed by LSR: CMPLRLLVM-28291.
+      // We suppress HIR CG of these "ugly" expressions here, and also in LSR
+      // (IVUsers.cpp). Using these for loop exit conditions
+      // (in IndVarSimplify.cpp) seems to be OK.
+      if (BO->IsExact && !isa<ScopedScalarEvolution>(this)) {
+        // Given exact arithmetic in-bounds right-shift by a constant,
+        // we can lower it into:  (abs(x) EXACT/u (1<<C)) * signum(x)
+        const SCEV *X = getSCEV(BO->LHS);
+        const SCEV *AbsX = getAbsExpr(X, /*IsNSW=*/false);
+        APInt Mult = APInt::getOneBitSet(BitWidth, AShrAmt);
+        const SCEV *Div = getUDivExactExpr(AbsX, getConstant(Mult));
+        return getMulExpr(Div, getSignumExpr(X), SCEV::FlagNSW);
+      }
+#endif // INTEL_CUSTOMIZATION
       break;
     }
     }

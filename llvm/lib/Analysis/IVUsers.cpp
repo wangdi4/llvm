@@ -79,6 +79,24 @@ static unsigned numMinMaxTerms(const SCEV *S, unsigned MaxDepth) {
 /// given loop.
 static bool isInteresting(const SCEV *S, const Instruction *I, const Loop *L,
                           ScalarEvolution *SE, LoopInfo *LI) {
+#if INTEL_CUSTOMIZATION
+    // "Interesting" means that this IR is an induction variable and LSR may
+    // replace the IR with its SCEV form.
+    // If the SCEV form has multiple min/maxes in separate terms (like
+    // max(x) + min(y)), it may cause branches,
+    // phis, and other undesirable IR to be generated later.
+    // For example, SCEV currently uses this for "ashr exact";
+    // (((-1 * undef) smax undef) /u 8) * (1 smin (-1 smax undef))
+    // Even generated outside the loop, this may cause performance issues.
+    // Nests such as max(min(x)) are OK.
+    // We don't make this decision in LSR because it is difficult for LSR
+    // to get back the original IR given the SCEV form.
+    // Returning "false" will still allow LSR to see the IR as a potential
+    // "use" of another IV, but not an IV itself.
+    if (numMinMaxTerms(S, 3) >= 2) {
+      return false;
+    }
+#endif // INTEL_CUSTOMIZATION
   // An addrec is interesting if it's affine or if it has an interesting start.
   if (const SCEVAddRecExpr *AR = dyn_cast<SCEVAddRecExpr>(S)) {
     // Keep things simple. Don't touch loop-variant strides unless they're
@@ -103,22 +121,7 @@ static bool isInteresting(const SCEV *S, const Instruction *I, const Loop *L,
           return false;
         AnyInterestingYet = true;
       }
-#if INTEL_CUSTOMIZATION
-    // "Interesting" means that this IR is an induction variable and LSR may
-    // replace the IR with its SCEV form.
-    // If the SCEV form has multiple min/maxes in separate terms (like
-    // max(x) + min(y)), it may cause branches,
-    // phis, and other undesirable IR to be generated later.
-    // For example, SCEV currently uses this for "ashr exact";
-    // (((-1 * undef) smax undef) /u 8) * (1 smin (-1 smax undef))
-    // Even generated outside the loop, this may cause performance issues.
-    // Nests such as max(min(x)) are OK.
-    // We don't make this decision in LSR because it is difficult for LSR
-    // to get back the original IR given the SCEV form.
-    // Returning "false" will still allow LSR to see the IR as a potential
-    // "use" of another IV, but not an IV itself.
-    return AnyInterestingYet && (numMinMaxTerms(S, 3) < 2);
-#endif // INTEL_CUSTOMIZATION
+    return AnyInterestingYet;
   }
 
   // Nothing else is interesting here.
