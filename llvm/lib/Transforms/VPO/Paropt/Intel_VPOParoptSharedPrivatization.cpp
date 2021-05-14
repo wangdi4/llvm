@@ -1,6 +1,6 @@
 //===------------ Intel_VPOParoptSharedPrivatization.cpp ------------------===//
 //
-//   Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
+//   Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -17,6 +17,7 @@
 
 #include "llvm/Transforms/VPO/Paropt/Intel_VPOParoptSharedPrivatization.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
@@ -31,7 +32,8 @@ using namespace llvm::vpo;
 #define PASS_NAME "VPO Paropt Shared Privatization Pass"
 
 static bool privatizeSharedItems(Function &F, WRegionInfo &WI,
-                                 OptimizationRemarkEmitter &ORE) {
+                                 OptimizationRemarkEmitter &ORE,
+                                 unsigned Mode) {
   bool Changed = false;
 
   // Walk the W-Region Graph top-down, and create W-Region List
@@ -49,7 +51,7 @@ static bool privatizeSharedItems(Function &F, WRegionInfo &WI,
   VPOParoptTransform VP(nullptr, &F, &WI, WI.getDomTree(), WI.getLoopInfo(),
                         WI.getSE(), WI.getTargetTransformInfo(),
                         WI.getAssumptionCache(), WI.getTargetLibraryInfo(),
-                        WI.getAliasAnalysis(), OmpNoFECollapse,
+                        WI.getAliasAnalysis(), Mode & OmpOffload,
                         OptReportVerbosity::None, ORE, 2, false);
 
   Changed |= VP.privatizeSharedItems();
@@ -66,7 +68,7 @@ VPOParoptSharedPrivatizationPass::run(Function &F,
   PreservedAnalyses PA;
 
   LLVM_DEBUG(dbgs() << "\n\n====== Enter " << PASS_NAME << " ======\n\n");
-  if (!privatizeSharedItems(F, WI, ORE))
+  if (!privatizeSharedItems(F, WI, ORE, Mode))
     PA = PreservedAnalyses::all();
   else
     PA = PreservedAnalyses::none();
@@ -81,7 +83,8 @@ class VPOParoptSharedPrivatization : public FunctionPass {
 public:
   static char ID;
 
-  VPOParoptSharedPrivatization() : FunctionPass(ID) {
+  explicit VPOParoptSharedPrivatization(unsigned Mode = 0u)
+      : FunctionPass(ID), Mode(Mode) {
     initializeVPOParoptSharedPrivatizationPass(
         *PassRegistry::getPassRegistry());
   }
@@ -94,7 +97,7 @@ public:
     auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
 
     LLVM_DEBUG(dbgs() << "\n\n====== Enter " << PASS_NAME << " ======\n\n");
-    bool Changed = privatizeSharedItems(F, WI, ORE);
+    bool Changed = privatizeSharedItems(F, WI, ORE, Mode);
     LLVM_DEBUG(dbgs() << "\n\n====== Exit  " << PASS_NAME << " ======\n\n");
     return Changed;
   }
@@ -103,6 +106,9 @@ public:
     AU.addRequired<WRegionInfoWrapperPass>();
     AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
   }
+
+private:
+  unsigned Mode;
 };
 
 } // end anonymous namespace
@@ -115,12 +121,12 @@ INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
 INITIALIZE_PASS_END(VPOParoptSharedPrivatization, DEBUG_TYPE, PASS_NAME, false,
                     false)
 
-FunctionPass *llvm::createVPOParoptSharedPrivatizationPass() {
-  return new VPOParoptSharedPrivatization();
+FunctionPass *llvm::createVPOParoptSharedPrivatizationPass(unsigned Mode) {
+  return new VPOParoptSharedPrivatization(Mode);
 }
 
 bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
-  if (!W->canHaveShared() || !W->needsOutlining())
+  if ((!W->canHaveShared() && !isa<WRNTargetNode>(W)) || !W->needsOutlining())
     return false;
 
   W->populateBBSet();
@@ -271,6 +277,120 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
         User->replaceUsesOfWith(From, To);
   };
 
+  // Special handling for a target constructs on the host side. Check map
+  // clauses for scalars that are readonly inside the target region. Emit
+  // optimization report that such variables can be changed to firstprivate
+  // to reduce overhead.
+  // Such change cannot be done by the compiler now because we cannot guarantee
+  // that both host and target compilations will do this convertsion, but it has
+  // to be done on both sides because it changes signature of the outlined
+  // target region.
+  if (isa<WRNTargetNode>(W)) {
+    // Emit diagnostic only for the host compilation.
+    if (hasOffloadCompilation())
+      return false;
+
+    // Return true if given map item maps scalar value.
+    auto IsScalarMapItem = [this](const MapItem *MI) {
+      if (!MI->getIsMapChain())
+        return false;
+
+      const MapChainTy &MC = MI->getMapChain();
+      if (MC.size() > 1)
+        return false;
+
+      MapAggrTy *MA = MC[0];
+      if (MA->getMapper())
+        return false;
+
+      if (MA->getBasePtr() != MA->getSectionPtr())
+        return false;
+
+      auto Size = dyn_cast<ConstantInt>(MA->getSize());
+      if (!Size)
+        return false;
+
+      TypeSize ElemSize = F->getParent()->getDataLayout().getTypeAllocSize(
+          MI->getOrigElemType());
+      if (Size->getValue() != ElemSize)
+        return false;
+
+      return true;
+    };
+
+    // Returns true if given pointer may be mapped before the work region.
+    // TODO: this code just checks if there are any dominating work regions
+    // which may map given value, which may result in false positives. More
+    // precise analysis would require building live ranges for corresponding
+    // items in device data environment which are created by the dominating
+    // constructs with map clauses and checking if the corresponding device
+    // item is alive at the work region's entry.
+    auto MayBeMappedBefore = [this](AllocaInst *AI, WRegionNode *W) {
+      // If pointer is captured we cannot guarantee that it was not mapped
+      // somewhere else.
+      if (PointerMayBeCapturedBefore(AI, /*ReturnCaptures=*/true,
+                                     /*StoreCaptures=*/true,
+                                     W->getEntryDirective(), DT))
+        return true;
+
+      // Check if there are dominating work regions in this routine which can
+      // map this pointer.
+      for (WRegionNode *N : WRegionList) {
+        if (N == W)
+          continue;
+
+        if (!N->canHaveMap())
+          continue;
+
+        if (!DT->dominates(N->getEntryBBlock(), W->getEntryBBlock()))
+          continue;
+
+        for (const MapItem *MI : N->getMap().items())
+          if (!AA->isNoAlias(MI->getOrig(), AI))
+            return true;
+      }
+      return false;
+    };
+
+    for (const MapItem *MI : W->getMap().items()) {
+      auto *AI = dyn_cast<AllocaInst>(MI->getOrig());
+      if (!AI) {
+        LLVM_DEBUG(reportSkipped(MI->getOrig(), "not a local pointer"));
+        continue;
+      }
+
+      if (!MI->getIsMapTo() && !MI->getIsMapTofrom()) {
+        LLVM_DEBUG(reportSkipped(MI->getOrig(), "is not a map to/tofrom"));
+        continue;
+      }
+
+      if (!IsScalarMapItem(MI)) {
+        LLVM_DEBUG(reportSkipped(MI->getOrig(), "is not a scalar item"));
+        continue;
+      }
+
+      auto BBs = FindWRNBlocks(AI);
+
+      if (!IsPrivatizationCandidate(AI, BBs) || !allUsersAreLoads(AI, BBs))
+        continue;
+
+      if (MayBeMappedBefore(AI, W)) {
+        LLVM_DEBUG(reportSkipped(AI, "may be mapped before work region"));
+        continue;
+      }
+
+      LLVM_DEBUG(dbgs() << "Map clause for '" << AI->getName()
+                        << "' can be changed to firstprivate\n");
+
+      F->getContext().diagnose(
+          OptimizationRemarkAnalysis("openmp", "optimization note",
+                                     W->getEntryDirective())
+          << "map clause for scalar variable '" << AI->getName()
+          << "' can be changed to firstprivate to reduce mapping overhead");
+    }
+    return false;
+  }
+
   // Find "shared" candidates that can be privatized.
   SmallVector<AllocaInst*, 8> ToPrivatize;
   for (SharedItem *I : W->getShared().items()) {
@@ -334,7 +454,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
         continue;
       }
 
-    LLVM_DEBUG(reportSkipped(I->getOrig(), "not an local pointer"));
+    LLVM_DEBUG(reportSkipped(I->getOrig(), "not a local pointer"));
   }
 
   if (ToPrivatize.empty())
@@ -377,6 +497,9 @@ bool VPOParoptTransform::privatizeSharedItems() {
   bool Changed = false;
   for (auto *W : WRegionList) {
     switch (W->getWRegionKindID()) {
+    case WRegionNode::WRNTarget:
+      Changed |= privatizeSharedItems(W);
+      break;
     case WRegionNode::WRNTeams:
     case WRegionNode::WRNParallel:
       Changed |= privatizeSharedItems(W);
