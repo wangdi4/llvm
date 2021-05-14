@@ -4431,6 +4431,22 @@ static void RenderUnrollOptions(const Driver &D, const ArgList &Args,
   }
   CmdArgs.push_back(Args.MakeArgString(A->getAsString(Args)));
 }
+
+static std::string getMSVCOptimizationLevel(const Arg &A) {
+  // We need to handle SLASH_O variants for SPIR OpenMP offloading.
+  // FIXME: This should be automatically handled with a TranslateArg
+  // pass for SPIR offload on Windows, but that isn't happening.
+  StringRef OptLevel;
+  OptLevel = llvm::StringSwitch<StringRef>(A.getValue())
+                 .Cases("1", "s", "s")
+                 .Cases("2", "x", "t", "2")
+                 .Case("3", "3")
+                 .Case("d", "0")
+                 .Default("");
+  if (!OptLevel.empty())
+    return std::string("-O" + OptLevel.str());
+  return "";
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// Check whether the given input tree contains any wrapper actions
@@ -5132,7 +5148,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
     bool SkipO =
         Args.hasArg(options::OPT_fsycl_link_EQ) && ContainsWrapperAction(&JA);
-    const Arg *A = Args.getLastArg(options::OPT_O_Group);
+    const Arg *A = Args.getLastArg(options::OPT_O_Group, options::OPT__SLASH_O);
     // Manually translate -O4 to -O3; let clang reject others.
     // When compiling a wrapped binary, do not optimize.
     if (!SkipO && A) {
@@ -5141,8 +5157,18 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-O3");
         if (A->getOption().matches(options::OPT_O4))
           D.Diag(diag::warn_O4_is_O3);
-      } else
+      } else {
+        if (A->getOption().matches(options::OPT__SLASH_O)) {
+          if (IsOpenMPDevice && Triple.isSPIR()) {
+            std::string Opt(getMSVCOptimizationLevel(*A));
+            if (!Opt.empty())
+              CmdArgs.push_back(Args.MakeArgString(Opt));
+          }
+          // Do not render with SLASH_O
+          return;
+        }
         A->render(Args, CmdArgs);
+      }
     }
   };
   if (Args.hasArg(options::OPT_fopenmp_stable_file_id))
@@ -9444,6 +9470,13 @@ static std::string getSYCLPostLinkOptimizationLevel(const ArgList &Args) {
                     [=](char c) { return c == S[0]; }))
       return std::string("-O") + S[0];
   }
+#if INTEL_CUSTOMIZATION
+  if (Arg *A = Args.getLastArg(options::OPT__SLASH_O)) {
+    std::string Opt(getMSVCOptimizationLevel(*A));
+    if (!Opt.empty())
+      return Opt;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // The default for SYCL device code optimization
   return "-O2";
