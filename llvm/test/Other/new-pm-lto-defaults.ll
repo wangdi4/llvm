@@ -146,6 +146,7 @@
 ; CHECK-O23SZ-NEXT-: Running analysis: LoopAnalysis on foo
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: LCSSAPass on foo
+; CHECK-O23SZ-NEXT: Running analysis: MemorySSAAnalysis on foo
 ; INTEL_CUSTOMIZATION
 ; ScalarEvolution will run with the IntelLoopAttrs pass
 ; CHECK-O23SZ-NEXT-: Running analysis: ScalarEvolutionAnalysis on foo
@@ -158,7 +159,6 @@
 ; CHECK-O23SZ-NEXT: Running analysis: PhiValuesAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running pass: DopeVectorHoistPass on foo ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: MemCpyOptPass on foo
-; CHECK-O23SZ-NEXT: Running analysis: MemorySSAAnalysis on foo
 ; CHECK-O23SZ-NEXT: Running pass: DSEPass on foo
 ; Running analysis: PostDominatorTreeAnalysis on foo   ; INTEL not needed
 ; CHECK-O23SZ-NEXT: Running pass: MergedLoadStoreMotionPass on foo
