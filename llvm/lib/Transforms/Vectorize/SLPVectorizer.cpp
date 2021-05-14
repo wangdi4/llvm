@@ -980,7 +980,8 @@ public:
     EdgeInfo() = default;
 #if INTEL_CUSTOMIZATION
     EdgeInfo(TreeEntry *UserTE, unsigned EdgeIdx, SmallVectorImpl<int> &OpDir)
-        : UserTE(UserTE), EdgeIdx(EdgeIdx), OpDirection(OpDir.begin(), OpDir.end()) {}
+        : UserTE(UserTE), EdgeIdx(EdgeIdx),
+          OpDirection(OpDir.begin(), OpDir.end()) {}
 
     EdgeInfo(TreeEntry *UserTE, unsigned EdgeIdx)
         : UserTE(UserTE), EdgeIdx(EdgeIdx) {}
@@ -4987,7 +4988,10 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL_, unsigned Depth,
 
         TE->setOperand(1, VectorOperands);
 
-        buildTree_rec(Operands, Depth + 1, {TE, 0});
+#if INTEL_CUSTOMIZATION
+        SmallVector<int, 4> OpDirection(VL.size(), 0);
+        buildTree_rec(Operands, Depth + 1, {TE, 0, OpDirection});
+#endif // INTEL_CUSTOMIZATION
         return;
       }
 
@@ -9331,7 +9335,7 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
 
       R.computeMinimumValueSizes();
       InstructionCost Cost = R.getTreeCost();
-      CandidateFound = true;
+      CandidateFound = Cost < FORBIDEN_TINY_TREE; // INTEL
       MinCost = std::min(MinCost, Cost);
 
       if (Cost < -SLPCostThreshold) {
