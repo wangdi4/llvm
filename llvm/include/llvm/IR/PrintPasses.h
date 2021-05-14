@@ -34,6 +34,7 @@ bool shouldPrintAfterAll();
 // Returns true if we should print before/after all HIR passes.
 bool shouldHIRPrintBeforeAll();
 bool shouldHIRPrintAfterAll();
+bool shouldPrintModuleBeforeLoopopt();
 #endif //INTEL_CUSTOMIZATION
 // Returns true if we should always print the entire module.
 bool forcePrintModuleIR();

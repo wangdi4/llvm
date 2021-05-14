@@ -1651,7 +1651,8 @@ PreservedAnalyses HIRUnrollAndJamPass::runImpl(
   HIRUnrollAndJam(HIRF, AM.getResult<HIRLoopStatisticsAnalysis>(F),
                   AM.getResult<HIRLoopResourceAnalysis>(F),
                   AM.getResult<HIRDDAnalysisPass>(F),
-                  AM.getResult<HIRSafeReductionAnalysisPass>(F), false)
+                  AM.getResult<HIRSafeReductionAnalysisPass>(F),
+                  PragmaOnlyUnroll)
       .run();
 
   return PreservedAnalyses::all();

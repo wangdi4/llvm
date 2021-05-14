@@ -33,6 +33,7 @@
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/PrintPasses.h" // INTEL
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -240,11 +241,6 @@ static cl::opt<LoopOptMode> RunLoopOpts(
 static cl::opt<bool> RunLoopOptFrameworkOnly("loopopt-framework-only",
     cl::init(false), cl::Hidden,
     cl::desc("Enables loopopt framework without any transformation passes"));
-
-static cl::opt<bool> PrintModuleBeforeLoopopt(
-    "print-module-before-loopopt", cl::init(false), cl::Hidden,
-    cl::desc("Prints LLVM module to dbgs() before first HIR transform(HIR SSA "
-             "deconstruction)"));
 
 // register promotion for global vars at -O2 and above.
 static cl::opt<bool> EnableNonLTOGlobalVarOpt(
@@ -2228,8 +2224,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
   // considerably simplifies handling of liveout values for multi-exit regions.
   PM.add(createLCSSAPass());
 
-  if (PrintModuleBeforeLoopopt)
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (shouldPrintModuleBeforeLoopopt())
     PM.add(createPrintModulePass(dbgs(), ";Module Before HIR"));
+#endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   // Verify input LLVM IR before doing any HIR transformation.
   if (VerifyInput)
