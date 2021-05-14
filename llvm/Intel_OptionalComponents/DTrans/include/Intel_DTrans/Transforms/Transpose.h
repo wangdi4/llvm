@@ -20,6 +20,7 @@
 #ifndef INTEL_DTRANS_TRANSFORMS_TRANSPOSE_H
 #define INTEL_DTRANS_TRANSFORMS_TRANSPOSE_H
 
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 
@@ -31,13 +32,16 @@ namespace dtrans {
 
 // Lambda function to collect the LoopInfo for a given function
 using TransposeLoopInfoFuncType = function_ref<LoopInfo &(Function &)>;
+using TransposeTLIType =
+    std::function<const TargetLibraryInfo &(Function &)>;
 
 class TransposePass : public PassInfoMixin<dtrans::TransposePass> {
 public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // This is used to share the core implementation with the legacy pass.
-  bool runImpl(Module &M, TransposeLoopInfoFuncType GetLI);
+  bool runImpl(Module &M, TransposeLoopInfoFuncType GetLI,
+               dtrans::TransposeTLIType GetTLI);
 };
 
 } // end namespace dtrans

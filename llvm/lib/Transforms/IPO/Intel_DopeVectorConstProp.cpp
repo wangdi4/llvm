@@ -294,38 +294,7 @@ static void collectDopeVectorGlobals(Module &M, const DataLayout &DL,
       continue;
 
     GlobalDopeVector GlobDV(&Glob, GlobType, GetTLI);
-    for (auto *U : Glob.users()) {
-      if (auto *BC = dyn_cast<BitCastOperator>(U)) {
-        // The BitCast should only be used for data allocation and
-        // should happen only once
-        if (!GlobDV.collectAndAnalyzeAllocSite(BC)) {
-          GlobDV.getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
-          break;
-        }
-      } else if (auto *GEP = dyn_cast<GEPOperator>(U)) {
-
-        // The fields of the global dope vector are accessed through
-        // a GEPOperator
-        if (!GlobDV.collectAndAnalyzeGlobalDopeVectorField(GEP)) {
-          GlobDV.getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
-          break;
-        }
-      } else {
-        // Any other use is invalid
-        GlobDV.getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
-        break;
-      }
-    }
-
-    // Make sure that none of the fields the in the dope vector are
-    // set to bottom
-    GlobDV.getGlobalDopeVectorInfo()->validateDopeVector();
-
-    // Collect any information related to the nested dope vectors
-    GlobDV.collectAndAnalyzeNestedDopeVectors(DL);
-
-    // Validate that the data was collected correctly
-    GlobDV.validateGlobalDopeVector();
+    GlobDV.collectAndValidate(DL);
 
     // TODO:
     //   1) Map the GlobalVariable with the GlobalDopeVector collected

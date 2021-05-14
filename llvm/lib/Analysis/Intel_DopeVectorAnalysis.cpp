@@ -2326,6 +2326,41 @@ void GlobalDopeVector::validateGlobalDopeVector() {
   AnalysisRes = GlobalDopeVector::AnalysisResult::AR_Pass;
 }
 
+void GlobalDopeVector::collectAndValidate(const DataLayout &DL) {
+  for (auto *U : Glob->users()) {
+    if (auto *BC = dyn_cast<BitCastOperator>(U)) {
+      // The BitCast should only be used for data allocation and
+      // should happen only once
+      if (!collectAndAnalyzeAllocSite(BC)) {
+        getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
+        break;
+      }
+    } else if (auto *GEP = dyn_cast<GEPOperator>(U)) {
+
+      // The fields of the global dope vector are accessed through
+      // a GEPOperator
+      if (!collectAndAnalyzeGlobalDopeVectorField(GEP)) {
+        getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
+        break;
+      }
+    } else {
+      // Any other use is invalid
+      getGlobalDopeVectorInfo()->invalidateDopeVectorInfo();
+      break;
+    }
+  }
+
+  // Make sure that none of the fields the in the dope vector are
+  // set to bottom
+  getGlobalDopeVectorInfo()->validateDopeVector();
+
+  // Collect any information related to the nested dope vectors
+  collectAndAnalyzeNestedDopeVectors(DL);
+
+  // Validate that the data was collected correctly
+  validateGlobalDopeVector();
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void DopeVectorInfo::print(uint64_t Indent) {
 
