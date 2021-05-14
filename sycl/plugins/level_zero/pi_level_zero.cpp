@@ -24,14 +24,6 @@
 #include <thread>
 #include <utility>
 
-#if INTEL_CUSTOMIZATION
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <dlfcn.h>
-#endif
-#endif // INTEL_CUSTOMIZATION
-
 #include <level_zero/zes_api.h>
 #include <level_zero/zet_api.h>
 
@@ -292,10 +284,8 @@ static sycl::detail::SpinLock *PiPlatformsCacheMutex =
     new sycl::detail::SpinLock;
 static bool PiPlatformCachePopulated = false;
 
-#if INTEL_CUSTOMIZATION
-// This is temporary support for the global offset experimental feature.
-static void *zeLibHandle = nullptr;
-#endif
+// Keeps track if the global offset extension is found
+static bool PiDriverGlobalOffsetExtensionFound = false;
 
 // TODO:: In the following 4 methods we may want to distinguish read access vs.
 // write (as it is OK for multiple threads to read the map without locking it).
@@ -1179,6 +1169,26 @@ pi_result _pi_platform::initialize() {
   ZE_CALL(zeDriverGetApiVersion, (ZeDriver, &ZeApiVersion));
   ZeDriverApiVersion = std::to_string(ZE_MAJOR_VERSION(ZeApiVersion)) + "." +
                        std::to_string(ZE_MINOR_VERSION(ZeApiVersion));
+
+  // Cache driver extension properties
+  uint32_t Count = 0;
+  ZE_CALL(zeDriverGetExtensionProperties, (ZeDriver, &Count, nullptr));
+
+  std::vector<ze_driver_extension_properties_t> zeExtensions(Count);
+
+  ZE_CALL(zeDriverGetExtensionProperties,
+          (ZeDriver, &Count, zeExtensions.data()));
+
+  for (auto extension : zeExtensions) {
+    // Check if global offset extension is available
+    if (strncmp(extension.name, ZE_GLOBAL_OFFSET_EXP_NAME,
+                strlen(ZE_GLOBAL_OFFSET_EXP_NAME) + 1) == 0) {
+      if (extension.version == ZE_GLOBAL_OFFSET_EXP_VERSION_1_0) {
+        PiDriverGlobalOffsetExtensionFound = true;
+      }
+    }
+    zeDriverExtensionMap[extension.name] = extension.version;
+  }
 
   return PI_SUCCESS;
 }
@@ -3876,57 +3886,6 @@ pi_result piKernelRelease(pi_kernel Kernel) {
   return PI_SUCCESS;
 }
 
-#if INTEL_CUSTOMIZATION
-// This is temporary support for the experimental global offset support
-typedef ze_result_t (*GlobalWorkOffsetFunctionType)(ze_kernel_handle_t,
-                                                    uint32_t, uint32_t,
-                                                    uint32_t);
-#ifdef _WIN32
-GlobalWorkOffsetFunctionType piFindGlobalWorkOffsetSymbol() {
-  if (!zeLibHandle) {
-    zeLibHandle = (void *)LoadLibraryA("ze_intel_gpu64.dll");
-    if (!zeLibHandle) {
-      zePrint("ze_intel_gpu64.dll not found.\n");
-      return nullptr;
-    }
-  }
-  ze_result_t (*PfnSetGlobalWorkOffset)(ze_kernel_handle_t, uint32_t, uint32_t,
-                                        uint32_t);
-  *(void **)(&PfnSetGlobalWorkOffset) = reinterpret_cast<void *>(
-      GetProcAddress((HMODULE)zeLibHandle, "zeKernelSetGlobalOffsetExp"));
-
-  if (PfnSetGlobalWorkOffset == NULL) {
-    zePrint("Error while opening symbol\n");
-    return nullptr;
-  }
-  return PfnSetGlobalWorkOffset;
-}
-
-#else // Linux
-GlobalWorkOffsetFunctionType piFindGlobalWorkOffsetSymbol() {
-  if (!zeLibHandle) {
-    zeLibHandle = dlopen("libze_intel_gpu.so.1", RTLD_LAZY | RTLD_LOCAL);
-    if (!zeLibHandle) {
-      zePrint("libze_intel_gpu.so not found.\n");
-      return nullptr;
-    }
-  }
-
-  ze_result_t (*PfnSetGlobalWorkOffset)(ze_kernel_handle_t, uint32_t, uint32_t,
-                                        uint32_t);
-  *(void **)(&PfnSetGlobalWorkOffset) =
-    dlsym(zeLibHandle, "zeKernelSetGlobalOffsetExp");
-
-  char *Error;
-  if ((Error = dlerror()) != NULL) {
-    zePrint("Error while opening symbol: %s\n", Error);
-    return nullptr;
-  }
-  return PfnSetGlobalWorkOffset;
-}
-#endif
-#endif // INTEL_CUSTOMIZATION
-
 pi_result
 piEnqueueKernelLaunch(pi_queue Queue, pi_kernel Kernel, pi_uint32 WorkDim,
                       const size_t *GlobalWorkOffset,
@@ -3938,47 +3897,16 @@ piEnqueueKernelLaunch(pi_queue Queue, pi_kernel Kernel, pi_uint32 WorkDim,
   PI_ASSERT(Event, PI_INVALID_EVENT);
   PI_ASSERT((WorkDim > 0) && (WorkDim < 4), PI_INVALID_WORK_DIMENSION);
 
-#if INTEL_CUSTOMIZATION
-  // This is temporary support for the experimental global offset support
   if (GlobalWorkOffset != NULL) {
-   uint32_t Count = 0;
-    ZE_CALL(zeDriverGetExtensionProperties,
-            (Queue->Device->Platform->ZeDriver, &Count, nullptr));
-    if (Count == 0) {
-      zePrint("No extensions supported on this driver\n");
-      return PI_INVALID_VALUE;
-    }
-
-    std::vector<ze_driver_extension_properties_t> Extensions(Count);
-    ZE_CALL(zeDriverGetExtensionProperties,
-            (Queue->Device->Platform->ZeDriver, &Count, Extensions.data()));
-    bool ExtensionFound = false;
-    for (uint32_t i = 0; i < Extensions.size(); i++) {
-      if (strncmp(Extensions[i].name, ZE_GLOBAL_OFFSET_EXP_NAME,
-                  strlen(ZE_GLOBAL_OFFSET_EXP_NAME)) == 0) {
-        if (Extensions[i].version == ZE_GLOBAL_OFFSET_EXP_VERSION_1_0) {
-          ExtensionFound = true;
-          break;
-        }
-      }
-    }
-    if (ExtensionFound == false) {
+    if (!PiDriverGlobalOffsetExtensionFound) {
       zePrint("No global offset extension found on this driver\n");
       return PI_INVALID_VALUE;
     }
 
-    GlobalWorkOffsetFunctionType PfnSetGlobalWorkOffset =
-        piFindGlobalWorkOffsetSymbol();
-
-    if (PfnSetGlobalWorkOffset != nullptr) {
-      ZE_CALL(PfnSetGlobalWorkOffset,
-              (Kernel->ZeKernel, GlobalWorkOffset[0], GlobalWorkOffset[1],
-               GlobalWorkOffset[2]));
-    } else {
-      return PI_INVALID_VALUE;
-    }
+    ZE_CALL(zeKernelSetGlobalOffsetExp,
+            (Kernel->ZeKernel, GlobalWorkOffset[0], GlobalWorkOffset[1],
+             GlobalWorkOffset[2]));
   }
-#endif // INTEL CUSTOMIZATION
 
   ze_group_count_t ZeThreadGroupDimensions{1, 1, 1};
   uint32_t WG[3];
@@ -6410,17 +6338,6 @@ pi_result piTearDown(void *PluginParameter) {
   }
   delete PiPlatformsCache;
   delete PiPlatformsCacheMutex;
-
-#if INTEL_CUSTOMIZATION
-  // temporary support for the global offset experimental feature
-  if (zeLibHandle) {
-#ifdef _WIN32
-    FreeLibrary((HMODULE)zeLibHandle);
-#else
-    dlclose(zeLibHandle);
-#endif
-  }
-#endif // INTEL CUSTOMIZATION
 
   // Print the balance of various create/destroy native calls.
   // The idea is to verify if the number of create(+) and destroy(-) calls are
