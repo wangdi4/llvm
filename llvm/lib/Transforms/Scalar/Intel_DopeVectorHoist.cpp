@@ -92,7 +92,7 @@ private:
 
   // Map of dope vector argument to set of all base address loads of the
   // dope vector argument.
-  DenseMap<Argument *, SmallPtrSet<LoadInst *, 32>> ArgLoadMap;
+  MapVector<Argument *, SmallPtrSet<LoadInst *, 32>> ArgLoadMap;
 
   bool collectUnmodifiedDopeVectorArgs();
   bool isGEPBaseAddrComputation(GetElementPtrInst *);
