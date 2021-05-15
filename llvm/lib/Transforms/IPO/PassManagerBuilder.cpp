@@ -98,7 +98,7 @@ using namespace llvm::llvm_intel_wp_analysis;
 
 extern cl::opt<unsigned> IntelInlineReportLevel;
 
-static cl::opt<bool> ConvertToSubs(
+cl::opt<bool> ConvertToSubs(
     "convert-to-subs-before-loopopt", cl::init(false), cl::ReallyHidden,
     cl::desc("Enables conversion of GEPs to subscripts before loopopt"));
 
@@ -221,7 +221,7 @@ static cl::opt<bool> EnableVPlanDriverHIR("vplan-driver-hir", cl::init(true),
                                        cl::desc("Enable VPlan Driver"));
 // INTEL - HIR passes
 enum class LoopOptMode { None, LightWeight, Full };
-static cl::opt<LoopOptMode> RunLoopOpts(
+cl::opt<LoopOptMode> RunLoopOpts(
     "loopopt", cl::init(LoopOptMode::None), cl::Hidden, cl::ValueOptional,
     cl::desc("Runs loop optimization passes"),
     cl::values(clEnumValN(LoopOptMode::None, "0", "Disable loopopt passes"),
@@ -231,8 +231,8 @@ static cl::opt<LoopOptMode> RunLoopOpts(
                // Value assumed when just -loopopt is specified.
                clEnumValN(LoopOptMode::Full, "", "")));
 
-static cl::opt<bool> RunLoopOptFrameworkOnly("loopopt-framework-only",
-    cl::init(false), cl::Hidden,
+cl::opt<bool> RunLoopOptFrameworkOnly(
+    "loopopt-framework-only", cl::init(false), cl::Hidden,
     cl::desc("Enables loopopt framework without any transformation passes"));
 
 // register promotion for global vars at -O2 and above.
