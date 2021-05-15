@@ -14,8 +14,8 @@
 ;   return;
 ; }
 
-; CHECK: createRenamedValueForV : Created renamed value via launder intrinsic: 'i32* getelementptr inbounds ([10 x i32], [10 x i32]* @a, i64 0, i64 1)'.
-; CHECK: createRenamedValueForV : Created renamed value via launder intrinsic: '[10 x i32]* @a'.
+; CHECK: createRenamedValueForV : Renamed 'i32* getelementptr inbounds ([10 x i32], [10 x i32]* @a, i64 0, i64 1)' (via launder intrinsic) to: 'i32* %{{.*}}'.
+; CHECK: createRenamedValueForV : Renamed '[10 x i32]* @a' (via launder intrinsic) to: '[10 x i32]* %a'.
 
 ; Check that globals @a is not used in the outlined function.
 ; CHECK: define internal void @__omp_offloading_{{.*}}foov{{.*}}([10 x i32]* %a)

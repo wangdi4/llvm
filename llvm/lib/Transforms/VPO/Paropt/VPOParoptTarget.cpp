@@ -2963,9 +2963,10 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
     IRBuilder<> Builder(EntryBB->getTerminator());
     Value *NewV = Builder.CreateLaunderInvariantGroup(V);
     NewV->setName(V->getName());
-    LLVM_DEBUG(dbgs() << "createRenamedValueForV : Created renamed value via "
-                         "launder intrinsic: '";
-               V->printAsOperand(dbgs()); dbgs() << "'.\n");
+    LLVM_DEBUG(dbgs() << "createRenamedValueForV : Renamed '";
+               V->printAsOperand(dbgs());
+               dbgs() << "' (via launder intrinsic) to: '";
+               NewV->printAsOperand(dbgs()); dbgs() << "'.\n");
     return NewV;
   };
 
@@ -3120,7 +3121,8 @@ bool VPOParoptTransform::genGlobalPrivatizationLaunderIntrin(
           VNew = createRenamedValueForGlobalsAndConstExprs(
               Aggr->getSectionPtr(), /*MarkForReplacementInRegion=*/false);
           Aggr->setSectionPtr(VNew);
-          VNew = createRenamedValueForGlobalsAndConstExprs(Aggr->getBasePtr());
+          VNew = createRenamedValueForGlobalsAndConstExprs(
+              Aggr->getBasePtr(), /*MarkForReplacementInRegion=*/false);
           Aggr->setBasePtr(VNew);
         }
       }
