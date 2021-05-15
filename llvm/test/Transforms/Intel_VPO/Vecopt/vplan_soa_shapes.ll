@@ -237,5 +237,259 @@ for.end:                                          ; preds = %for.body
   ret void
 }
 
+; For this test, our aim is to check if the shapes are infered correctly for SOA-pointers into PHI-nodes.
+; We also check how we handle mixing of private/non-private memory as inputs to the Phi-nodes.
+
+define void @test_vplan_da_phis_soa(i32* %arr.non.priv) {
+; CHECK:       Printing Divergence info for test_vplan_da_phis_soa:simd.loop
+; CHECK-NEXT:  Basic Block: [[BB0:BB[0-9]+]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB1]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] [1024 x i32]* [[VP_ARR_PRIV32:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB2:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB2]]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_UNI_GEP32:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV32]] i64 0 i64 0
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD:%.*]] = load i32* [[VP_UNI_GEP32]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_LD_64:%.*]] = sext i32 [[VP_LD]] to i64
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 true, [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB5]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_UNI_ELSE1:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 2
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_STR_ELSE_NON_PRIV1:%.*]] = getelementptr inbounds i32* [[ARR_NON_PRIV0:%.*]] i64 [[VP_IV1]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_RND_SOA_ELSE:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV32]] i64 0 i64 [[VP_LD_64]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_RND_ELSE_NON_PRIV1:%.*]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 [[VP_LD_64]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_STR_SOA_ELSE:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV32]] i64 0 i64 [[VP_IV1]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB6:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB4]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_UNI_IF1:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_UNI_IF_NON_PRIV1:%.*]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 1
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_RND_SOA_IF:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV32]] i64 0 i64 [[VP_LD_64]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_STR_SOA_IF:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV32]] i64 0 i64 [[VP_IV1]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_STR_IF_NON_PRIV1:%.*]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 [[VP_IV1]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB6]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB6]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_PHI_RESULT11:%.*]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_UNI_ELSE1]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT12:%.*]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_STR_ELSE_NON_PRIV1]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT13:%.*]] = phi  [ i32* [[VP_RND_SOA_IF]], [[BB4]] ],  [ i32* [[VP_STR_SOA_ELSE]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT14:%.*]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_STR_SOA_ELSE]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT15:%.*]] = phi  [ i32* [[VP_STR_SOA_ELSE]], [[BB5]] ],  [ i32* [[VP_UNI_IF1]], [[BB4]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT16:%.*]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_RND_SOA_ELSE]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT17:%.*]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_RND_ELSE_NON_PRIV1]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT18:%.*]] = phi  [ i32* [[VP_RND_SOA_IF]], [[BB4]] ],  [ i32* [[VP_RND_ELSE_NON_PRIV1]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT19:%.*]] = phi  [ i32* [[VP_STR_IF_NON_PRIV1]], [[BB4]] ],  [ i32* [[VP_STR_SOA_ELSE]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT20:%.*]] = phi  [ i32* [[VP_STR_IF_NON_PRIV1]], [[BB4]] ],  [ i32* [[VP_RND_SOA_ELSE]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_REM:%.*]] = srem i64 [[VP_IV1]] i64 2
+; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_CMPS:%.*]] = icmp eq i64 [[VP_REM]] i64 0
+; CHECK-NEXT:  Divergent: [Shape: Random] br i1 [[VP_CMPS]], [[BB7:BB[0-9]+]], [[BB8:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB8]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_UNI_ELSE2:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 2
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_STR_ELSE_NON_PRIV2:%.*]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 [[VP_IV1]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_STR_SOA_DIV_ELSE:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV32]] i64 0 i64 [[VP_IV1]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_RND_SOA_DIV_ELSE:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV32]] i64 0 i64 [[VP_LD_64]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_RND_DIV_ELSE_NON_PRIV1:%.*]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 [[VP_LD_64]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB7]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_UNI_IF2:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_UNI_IF_NON_PRIV2:%.*]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 1
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_RND_SOA_DIV_IF:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV32]] i64 0 i64 [[VP_LD_64]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_RND_DIV_IF_NON_PRIV1:%.*]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 [[VP_LD_64]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_STR_IF_NON_PRIV2:%.*]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 [[VP_IV1]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB3]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT21:%.*]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_UNI_ELSE2]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT22:%.*]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_STR_ELSE_NON_PRIV2]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT23:%.*]] = phi  [ i32* [[VP_RND_SOA_DIV_IF]], [[BB7]] ],  [ i32* [[VP_STR_SOA_DIV_ELSE]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT24:%.*]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_STR_SOA_DIV_ELSE]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT25:%.*]] = phi  [ i32* [[VP_STR_SOA_DIV_ELSE]], [[BB8]] ],  [ i32* [[VP_UNI_IF2]], [[BB7]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT26:%.*]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_RND_SOA_DIV_ELSE]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT27:%.*]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_RND_DIV_ELSE_NON_PRIV1]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT28:%.*]] = phi  [ i32* [[VP_RND_SOA_DIV_IF]], [[BB7]] ],  [ i32* [[VP_RND_DIV_ELSE_NON_PRIV1]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT29:%.*]] = phi  [ i32* [[VP_STR_IF_NON_PRIV2]], [[BB7]] ],  [ i32* [[VP_STR_SOA_DIV_ELSE]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT30:%.*]] = phi  [ i32* [[VP_STR_IF_NON_PRIV2]], [[BB7]] ],  [ i32* [[VP_RND_SOA_DIV_ELSE]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP:%.*]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_CMP]], [[BB2]], [[BB9:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB9]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB10:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB10]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
+; CHECK:       Printing Divergence info for test_vplan_da_phis_soa:simd.loop
+; CHECK-NEXT:  Basic Block: [[BB0]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB1]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB1]]
+; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] [1024 x i32]* [[VP_ARR_PRIV32]] = allocate-priv [1024 x i32]*, OrigAlign = 4
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_IND_INIT]] = induction-init{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_INIT_STEP]] = induction-init-step{add} i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024, UF = 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB2]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB2]]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1]] = phi  [ i64 [[VP_IV1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV1_NEXT]], [[BB3]] ]
+; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] i32* [[VP_UNI_GEP32]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV32]] i64 0 i64 0
+; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD]] = load i32* [[VP_UNI_GEP32]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_LD_64]] = sext i32 [[VP_LD]] to i64
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 true, [[BB4]], [[BB5]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB5]]
+; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] i32* [[VP_UNI_ELSE1]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 2
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_STR_ELSE_NON_PRIV1]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 [[VP_IV1]]
+; CHECK-NEXT:  Divergent: [Shape: SOA Random] i32* [[VP_RND_SOA_ELSE]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV32]] i64 0 i64 [[VP_LD_64]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_RND_ELSE_NON_PRIV1]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 [[VP_LD_64]]
+; CHECK-NEXT:  Divergent: [Shape: SOA Strided, Stride: VF x i64 4] i32* [[VP_STR_SOA_ELSE]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV32]] i64 0 i64 [[VP_IV1]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB6]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB4]]
+; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] i32* [[VP_UNI_IF1]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_UNI_IF_NON_PRIV1]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 1
+; CHECK-NEXT:  Divergent: [Shape: SOA Random] i32* [[VP_RND_SOA_IF]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV32]] i64 0 i64 [[VP_LD_64]]
+; CHECK-NEXT:  Divergent: [Shape: SOA Strided, Stride: VF x i64 4] i32* [[VP_STR_SOA_IF]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV32]] i64 0 i64 [[VP_IV1]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_STR_IF_NON_PRIV1]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 [[VP_IV1]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB6]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB6]]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 4] i32* [[VP_PHI_RESULT11]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_UNI_ELSE1]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 4] i32* [[VP_PHI_RESULT12]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_STR_ELSE_NON_PRIV1]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT13]] = phi  [ i32* [[VP_RND_SOA_IF]], [[BB4]] ],  [ i32* [[VP_STR_SOA_ELSE]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 4] i32* [[VP_PHI_RESULT14]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_STR_SOA_ELSE]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_PHI_RESULT15]] = phi  [ i32* [[VP_STR_SOA_ELSE]], [[BB5]] ],  [ i32* [[VP_UNI_IF1]], [[BB4]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT16]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_RND_SOA_ELSE]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT17]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_RND_ELSE_NON_PRIV1]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT18]] = phi  [ i32* [[VP_RND_SOA_IF]], [[BB4]] ],  [ i32* [[VP_RND_ELSE_NON_PRIV1]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_PHI_RESULT19]] = phi  [ i32* [[VP_STR_IF_NON_PRIV1]], [[BB4]] ],  [ i32* [[VP_STR_SOA_ELSE]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT20]] = phi  [ i32* [[VP_STR_IF_NON_PRIV1]], [[BB4]] ],  [ i32* [[VP_RND_SOA_ELSE]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_REM]] = srem i64 [[VP_IV1]] i64 2
+; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_CMPS]] = icmp eq i64 [[VP_REM]] i64 0
+; CHECK-NEXT:  Divergent: [Shape: Random] br i1 [[VP_CMPS]], [[BB7]], [[BB8]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB8]]
+; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] i32* [[VP_UNI_ELSE2]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 2
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_STR_ELSE_NON_PRIV2]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 [[VP_IV1]]
+; CHECK-NEXT:  Divergent: [Shape: SOA Strided, Stride: VF x i64 4] i32* [[VP_STR_SOA_DIV_ELSE]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV32]] i64 0 i64 [[VP_IV1]]
+; CHECK-NEXT:  Divergent: [Shape: SOA Random] i32* [[VP_RND_SOA_DIV_ELSE]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV32]] i64 0 i64 [[VP_LD_64]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_RND_DIV_ELSE_NON_PRIV1]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 [[VP_LD_64]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB7]]
+; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] i32* [[VP_UNI_IF2]] = getelementptr inbounds i32* [[VP_UNI_GEP32]] i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_UNI_IF_NON_PRIV2]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 1
+; CHECK-NEXT:  Divergent: [Shape: SOA Random] i32* [[VP_RND_SOA_DIV_IF]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV32]] i64 0 i64 [[VP_LD_64]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_RND_DIV_IF_NON_PRIV1]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 [[VP_LD_64]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_STR_IF_NON_PRIV2]] = getelementptr inbounds i32* [[ARR_NON_PRIV0]] i64 [[VP_IV1]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB3]]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT21]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_UNI_ELSE2]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT22]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_STR_ELSE_NON_PRIV2]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT23]] = phi  [ i32* [[VP_RND_SOA_DIV_IF]], [[BB7]] ],  [ i32* [[VP_STR_SOA_DIV_ELSE]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT24]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_STR_SOA_DIV_ELSE]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT25]] = phi  [ i32* [[VP_STR_SOA_DIV_ELSE]], [[BB8]] ],  [ i32* [[VP_UNI_IF2]], [[BB7]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT26]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_RND_SOA_DIV_ELSE]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT27]] = phi  [ i32* [[VP_UNI_IF2]], [[BB7]] ],  [ i32* [[VP_RND_DIV_ELSE_NON_PRIV1]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT28]] = phi  [ i32* [[VP_RND_SOA_DIV_IF]], [[BB7]] ],  [ i32* [[VP_RND_DIV_ELSE_NON_PRIV1]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT29]] = phi  [ i32* [[VP_STR_IF_NON_PRIV2]], [[BB7]] ],  [ i32* [[VP_STR_SOA_DIV_ELSE]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT30]] = phi  [ i32* [[VP_STR_IF_NON_PRIV2]], [[BB7]] ],  [ i32* [[VP_RND_SOA_DIV_ELSE]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_CMP]], [[BB2]], [[BB9]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB9]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB10]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB10]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] br <External Block>
+;
+entry:
+  %arr.priv32 = alloca [1024 x i32], align 4
+  br label %simd.begin.region
+
+simd.begin.region:
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr.priv32)]
+  br label %simd.loop.preheader
+
+simd.loop.preheader:
+  br label %simd.loop
+
+simd.loop:
+  %iv1 = phi i64 [ 0, %simd.loop.preheader ], [ %iv1.next, %conv.point.div]
+  %uni.gep32 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv32, i64 0, i64 0
+  %ld = load i32, i32* %uni.gep32, align 4
+  %ld.64 = sext i32 %ld to i64
+  br i1 true, label %if, label %else
+if:
+  %uni.if1 = getelementptr inbounds i32, i32* %uni.gep32, i64 1
+  %uni.if.non_priv1 = getelementptr inbounds i32, i32* %arr.non.priv, i64 1
+  %rnd.soa.if = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv32, i64 0, i64 %ld.64
+  %str.soa.if = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv32, i64 0, i64 %iv1
+  %str.if.non.priv1 = getelementptr inbounds i32, i32* %arr.non.priv, i64 %iv1
+  br label %conv.point.uni
+else:
+  %uni.else1 = getelementptr inbounds i32, i32* %uni.gep32, i64 2
+  %str.else.non.priv1 = getelementptr inbounds i32, i32* %arr.non.priv, i64 %iv1
+  %rnd.soa.else = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv32, i64 0, i64 %ld.64
+  %rnd.else.non.priv1 = getelementptr inbounds i32, i32* %arr.non.priv, i64 %ld.64
+  %str.soa.else = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv32, i64 0, i64 %iv1
+  br label %conv.point.uni
+conv.point.uni:
+  %phi.result11 = phi i32* [%uni.if1, %if], [%uni.else1, %else]
+  %phi.result12 = phi i32* [%uni.if1, %if], [%str.else.non.priv1, %else]
+  %phi.result13 = phi i32* [%rnd.soa.if, %if], [%str.soa.else, %else]
+  %phi.result14 = phi i32* [%uni.if1, %if], [%str.soa.else, %else]
+  %phi.result15 = phi i32* [%str.soa.else, %else], [%uni.if1, %if]
+  %phi.result16 = phi i32* [%uni.if1, %if], [%rnd.soa.else, %else]
+  %phi.result17 = phi i32* [%uni.if1, %if], [%rnd.else.non.priv1, %else]
+  %phi.result18 = phi i32* [%rnd.soa.if, %if], [%rnd.else.non.priv1, %else]
+  %phi.result19 = phi i32* [%str.if.non.priv1, %if], [%str.soa.else, %else]
+  %phi.result20 = phi i32* [%str.if.non.priv1, %if], [%rnd.soa.else, %else]
+  %rem = srem i64 %iv1, 2
+  %cmps = icmp eq i64 %rem, 0
+  br i1 %cmps, label %div.if, label %div.else
+div.if:
+  %uni.if2 = getelementptr inbounds i32, i32* %uni.gep32, i64 1
+  %uni.if.non_priv2 = getelementptr inbounds i32, i32* %arr.non.priv, i64 1
+  %rnd.soa.div.if = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv32, i64 0, i64 %ld.64
+  %rnd.div.if.non.priv1 = getelementptr inbounds i32, i32* %arr.non.priv, i64 %ld.64
+  %str.if.non.priv2 = getelementptr inbounds i32, i32* %arr.non.priv, i64 %iv1
+  br label %conv.point.div
+div.else:
+  %uni.else2 = getelementptr inbounds i32, i32* %uni.gep32, i64 2
+  %str.else.non.priv2 = getelementptr inbounds i32, i32* %arr.non.priv, i64 %iv1
+  %str.soa.div.else = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv32, i64 0, i64 %iv1
+  %rnd.soa.div.else = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv32, i64 0, i64 %ld.64
+  %rnd.div.else.non.priv1 = getelementptr inbounds i32, i32* %arr.non.priv, i64 %ld.64
+  br label %conv.point.div
+conv.point.div:
+  %phi.result21 = phi i32* [%uni.if2, %div.if], [%uni.else2, %div.else]
+  %phi.result22 = phi i32* [%uni.if2, %div.if], [%str.else.non.priv2, %div.else]
+  %phi.result23 = phi i32* [%rnd.soa.div.if, %div.if], [%str.soa.div.else, %div.else]
+  %phi.result24 = phi i32* [%uni.if2, %div.if], [%str.soa.div.else, %div.else]
+  %phi.result25 = phi i32* [%str.soa.div.else, %div.else], [%uni.if2, %div.if]
+  %phi.result26 = phi i32* [%uni.if2, %div.if], [%rnd.soa.div.else, %div.else]
+  %phi.result27 = phi i32* [%uni.if2, %div.if], [%rnd.div.else.non.priv1, %div.else]
+  %phi.result28 = phi i32* [%rnd.soa.div.if, %div.if], [%rnd.div.else.non.priv1, %div.else]
+  %phi.result29 = phi i32* [%str.if.non.priv2, %div.if], [%str.soa.div.else, %div.else]
+  %phi.result30 = phi i32* [%str.if.non.priv2, %div.if], [%rnd.soa.div.else, %div.else]
+  %iv1.next = add nuw nsw i64 %iv1, 1
+  %cmp = icmp ult i64 %iv1.next, 1024
+  br i1 %cmp, label %simd.loop, label %simd.end
+simd.end:
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
+  ret void
+}
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token %0)
