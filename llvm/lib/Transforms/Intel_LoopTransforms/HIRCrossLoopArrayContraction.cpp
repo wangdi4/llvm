@@ -328,14 +328,13 @@ static bool areIdenticalInsts(const HLInst *HInst1, const HLInst *HInst2) {
   return true;
 }
 
-// Returns false if \p Lp has any control-flow..
+// Returns false if \p Lp has any control-flow or side effects.
 static bool hasControlFlowOrSideEffects(const HLLoop *Lp,
                                         HIRLoopStatistics &HLS) {
   auto &LoopStats = HLS.getTotalLoopStatistics(Lp);
 
   if (LoopStats.hasIfs() || LoopStats.hasSwitches() ||
-      LoopStats.hasForwardGotos() ||
-      LoopStats.hasCallsWithUnsafeSideEffects()) {
+      LoopStats.hasForwardGotos() || LoopStats.hasCalls()) {
     return true;
   }
 
@@ -1112,6 +1111,39 @@ static bool canMergeCorrectly(const HLLoop *Lp, unsigned MergeLevels) {
   return true;
 }
 
+// Returns true if any memref inside \p DefLoop with base \p DefBaseIndex has
+// incoming output edge where the src lies before the loop and the loop does not
+// define any other base.
+static bool loopDefinesSingleBaseInFunction(HLLoop *DefLoop, DDGraph DDG,
+                                            unsigned DefBaseIndex) {
+  SmallVector<RegDDRef *, 32> MemRefs;
+
+  DDRefGathererLambda<RegDDRef>::gather(
+      DefLoop, MemRefs, [&](const RegDDRef *Ref) { return Ref->isMemRef(); });
+
+  unsigned LoopTSNum = DefLoop->getTopSortNum();
+
+  for (auto *Ref : MemRefs) {
+    if (!Ref->isLval()) {
+      continue;
+    }
+
+    // Loop also defines a different base ptr.
+    if (Ref->getBasePtrBlobIndex() != DefBaseIndex) {
+      return false;
+    }
+
+    for (auto &Edge : DDG.incoming(Ref)) {
+      if (Edge->isOutput() &&
+          Edge->getSrc()->getHLDDNode()->getTopSortNum() < LoopTSNum) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
   if (!Reg.isFunctionLevel()) {
     LLVM_DEBUG(dbgs() << "Skipping non-function region.\n");
@@ -1198,8 +1230,30 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
     // Add uses by non-candidate refs.
     UsesTracking.add(NonCandidateUses);
 
+    auto UseBases = getUseBases(DefASAR, DefPair.second);
+
+    auto DefUseBases = DefBases & UseBases;
+
+    if (!DefUseBases.empty() && (DefBases.count() != 1)) {
+      LLVM_DEBUG(
+          dbgs() << "Skipping def loop with def and use of multiple bases: <"
+                 << DefLp->getNumber() << ">\n");
+      continue;
+    }
+
+    bool SingleDefBaseIsAlsoUse = !DefUseBases.empty();
+
+    if (SingleDefBaseIsAlsoUse &&
+        !loopDefinesSingleBaseInFunction(DefLp, DDG, DefBases.find_first())) {
+      LLVM_DEBUG(dbgs() << "Skipping def loop with livein use of bases: <"
+                        << DefLp->getNumber() << ">\n");
+      continue;
+    }
+
+    bool ContractedBase = false;
+
     // Add self uses.
-    UsesTracking.add(getUseBases(DefASAR, DefPair.second));
+    UsesTracking.add(UseBases);
 
     LLVM_DEBUG(dbgs() << "+ LoopDependencyLimit: " << LoopDependencyLimits
                       << "\n");
@@ -1425,6 +1479,7 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
       // The code below modifies HIR.
 
+      ContractedBase = true;
       bool HasMappedDim = !MappedDim.empty();
       unsigned UseRefMappedDim = HasMappedDim ? MappedDim.getDimensionNum() : 0;
       unsigned NumMappings = HasMappedDim ? MappedDim.getMappedCEs().size() : 1;
@@ -1490,6 +1545,20 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
       LLVM_DEBUG(dbgs() << "While " OPT_DESC "\n");
       LLVM_DEBUG(Reg.dump());
+    }
+
+    // Remove self-use of the single base in def loop which has been contracted
+    // and has no previous definition in the function level region. Since the
+    // base is an alloca, we can assume that there are no livein uses of the
+    // base in DefLp. Use of uninitialized memory is undefined behavior.
+    //
+    // For extra safety, we also check that loop contains no calls and does not
+    // define any other bases which means that loop can be eliminated by
+    // call to removeRedundantNodes().
+    // TODO: Also check the base in function entry block which is not part of
+    // the region.
+    if (SingleDefBaseIsAlsoUse && ContractedBase) {
+      UsesTracking.remove(DefBases);
     }
 
     // Remove array definitions if there is no usages.
