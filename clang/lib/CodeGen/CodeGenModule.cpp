@@ -3705,6 +3705,19 @@ void CodeGenModule::EmitGlobalDefinition(GlobalDecl GD, llvm::GlobalValue *GV) {
     });
 
     if (const auto *Method = dyn_cast<CXXMethodDecl>(D)) {
+#if INTEL_COLLAB
+      if (getLangOpts().OpenMPIsDevice &&
+          (isa<CXXConstructorDecl>(Method) || isa<CXXDestructorDecl>(Method))) {
+        // Check if already emitted and if so return. This happens in the
+        // EmitGlobalFunctionDefinition path but not for structors. This can
+        // happen when encountering them during OpenMP device compilation if
+        // declared only, then used, then defined.
+        StringRef MangledName = getMangledName(GD);
+        llvm::GlobalValue *Entry = GetGlobalValue(MangledName);
+        if (Entry && !Entry->isDeclaration())
+          return;
+      }
+#endif // INTEL_COLLAB
       // Make sure to emit the definition(s) before we emit the thunks.
       // This is necessary for the generation of certain thunks.
       if (isa<CXXConstructorDecl>(Method) || isa<CXXDestructorDecl>(Method))
