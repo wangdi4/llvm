@@ -143,6 +143,8 @@ Instruction* VPOParoptTpvLegacy::getThreadNum(Value *V, Function *F) {
           F, &*(EntryBB->getFirstInsertionPt()), IdentTy);
       TidTable[F] = RI;
       RI->insertBefore(EntryBB->getTerminator());
+      // TODO DT needs to be added as a dependence on the pass.
+      // VPOParoptUtils::addFuncletOperandBundle(RI, DT);
     }
   }
 
@@ -323,6 +325,8 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
       F, AI, IdentTy, TidV, V, SizeV, TpvGV);
 
   TC->insertBefore(AI);
+  // TODO DT needs to be added as a dependence on the pass.
+  // VPOParoptUtils::addFuncletOperandBundle(TC, DT);
   IRBuilder<> BuilderStore(AI);
   BuilderStore.CreateStore(TC, TpvPtrRef);
 }

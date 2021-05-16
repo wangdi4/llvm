@@ -1640,6 +1640,13 @@ public:
   /// specifies a Module that is used to identify the target.
   static void setFuncCallingConv(CallInst *CI, Module *M);
 
+  /// Add funclet operand bundle to \p CI if it lies within an EHPad
+  /// or is dominated by an EHPad. The utility searches DT to check if \p CI
+  /// lies within an EHPad or is dominated by one.
+  static CallInst *
+  addFuncletOperandBundle(CallInst *CI, DominatorTree *DT,
+                          Instruction *InstToCheckFuncletRequirement = nullptr);
+
   /// \name Helper methods for generating calls.
   /// @{
 

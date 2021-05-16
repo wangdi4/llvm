@@ -41,6 +41,7 @@
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Utils/CodeExtractor.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
+#include "llvm/Analysis/EHPersonalities.h"
 #include <string>
 
 #define DEBUG_TYPE "vpo-paropt-utils"
@@ -416,6 +417,7 @@ CallInst *VPOParoptUtils::genKmpcPushNumTeams(WRegionNode *W,
   // Generate __kmpc_push_num_teams(loc, tid, num_teams, num_threads) in IR
   CallInst *PushNumTeams = genCall(M, FnName, RetTy, FnArgs);
   PushNumTeams->insertBefore(InsertPt);
+  addFuncletOperandBundle(PushNumTeams, W->getDT());
 
   return PushNumTeams;
 }
@@ -505,6 +507,7 @@ CallInst *VPOParoptUtils::genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
       CallInst::Create(FnTy, FnRedGetNthData, RedGetNthDataArgs, "", InsertPt);
   setFuncCallingConv(RedGetNthDataCall, M);
   RedGetNthDataCall->setTailCall(false);
+  addFuncletOperandBundle(RedGetNthDataCall, W->getDT(), InsertPt);
 
   return RedGetNthDataCall;
 }
@@ -538,6 +541,7 @@ CallInst *VPOParoptUtils::genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
       CallInst::Create(FnTy, FnTaskWait, TaskArgs, "", InsertPt);
   setFuncCallingConv(TaskWaitCall, M);
   TaskWaitCall->setTailCall(false);
+  addFuncletOperandBundle(TaskWaitCall, W->getDT(), InsertPt);
 
   return TaskWaitCall;
 }
@@ -1412,6 +1416,7 @@ CallInst *VPOParoptUtils::genKmpcTaskDepsGeneric(
   CallInst *TaskCall = CallInst::Create(FnTy, FnTask, TaskArgs, "", InsertPt);
   setFuncCallingConv(TaskCall, M);
   TaskCall->setTailCall(false);
+  addFuncletOperandBundle(TaskCall, W->getDT(), InsertPt);
 
   return TaskCall;
 }
@@ -1446,6 +1451,7 @@ CallInst *VPOParoptUtils::genKmpcTaskGeneric(WRegionNode *W,
   CallInst *TaskCall = CallInst::Create(FnTy, FnTask, TaskArgs, "", InsertPt);
   setFuncCallingConv(TaskCall, M);
   TaskCall->setTailCall(false);
+  addFuncletOperandBundle(TaskCall, W->getDT(), InsertPt);
 
   return TaskCall;
 }
@@ -1473,6 +1479,7 @@ CallInst *VPOParoptUtils::genKmpcCopyPrivate(WRegionNode *W,
       genKmpcCallWithTid(W, IdentTy, TidPtr, InsertPt, "__kmpc_copyprivate",
                          Type::getVoidTy(C), CprivArgs);
   CprivCall->insertBefore(InsertPt);
+  addFuncletOperandBundle(CprivCall, W->getDT());
   return CprivCall;
 }
 
@@ -1586,6 +1593,7 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
       CallInst::Create(FnTy, FnTaskLoop, TaskLoopArgs, "", InsertPt);
   setFuncCallingConv(TaskLoopCall, M);
   TaskLoopCall->setTailCall(false);
+  addFuncletOperandBundle(TaskLoopCall, W->getDT(), InsertPt);
 
   return TaskLoopCall;
 }
@@ -1624,6 +1632,7 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
       FnTy, FnTaskRedInit, TaskRedInitArgs, "task.reduction.init", InsertPt);
   setFuncCallingConv(TaskRedInitCall, M);
   TaskRedInitCall->setTailCall(false);
+  addFuncletOperandBundle(TaskRedInitCall, W->getDT(), InsertPt);
 
   return TaskRedInitCall;
 }
@@ -1673,6 +1682,7 @@ CallInst *genKmpcTaskAllocImpl(WRegionNode *W, StructType *IdentTy, Value *Tid,
       CallInst::Create(FnTy, FnTaskAlloc, AllocArgs, "", InsertPt);
   VPOParoptUtils::setFuncCallingConv(TaskAllocCall, M);
   TaskAllocCall->setTailCall(false);
+  VPOParoptUtils::addFuncletOperandBundle(TaskAllocCall, W->getDT(), InsertPt);
 
   return TaskAllocCall;
 }
@@ -1948,6 +1958,7 @@ CallInst *VPOParoptUtils::genKmpcTeamStaticInit(WRegionNode *W,
       FnTy, FnTeamStaticInit, FnTeamStaticInitArgs, "", InsertPt);
   setFuncCallingConv(TeamStaticInitCall, M);
   TeamStaticInitCall->setTailCall(false);
+  addFuncletOperandBundle(TeamStaticInitCall, W->getDT(), InsertPt);
 
   return TeamStaticInitCall;
 }
@@ -2123,6 +2134,7 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
 
   CallInst *CI = genCall("__kmpc_for_static_fini", Type::getVoidTy(C), FnArgs,
                          FnArgTypes, InsertPt);
+  addFuncletOperandBundle(CI, W->getDT(), InsertPt);
   return CI;
 }
 
@@ -2230,6 +2242,7 @@ CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
       CallInst::Create(FnTy, FnDispatchInit, FnDispatchInitArgs, "", InsertPt);
   setFuncCallingConv(DispatchInitCall, M);
   DispatchInitCall->setTailCall(false);
+  addFuncletOperandBundle(DispatchInitCall, W->getDT(), InsertPt);
 
   return DispatchInitCall;
 }
@@ -2303,6 +2316,7 @@ CallInst *VPOParoptUtils::genKmpcDispatchNext(WRegionNode *W,
       CallInst::Create(FnTy, FnDispatchNext, FnDispatchNextArgs, "", InsertPt);
   setFuncCallingConv(DispatchNextCall, M);
   DispatchNextCall->setTailCall(false);
+  addFuncletOperandBundle(DispatchNextCall, W->getDT(), InsertPt);
   return DispatchNextCall;
 }
 
@@ -2346,6 +2360,7 @@ CallInst *VPOParoptUtils::genKmpcDispatchFini(WRegionNode *W,
   // Generate __kmpc_dispatch_fini4{u}/8{u} in IR
   CallInst *DispatchFini = genCall(M, FnName, RetTy, FnArgs);
   DispatchFini->insertBefore(InsertPt);
+  addFuncletOperandBundle(DispatchFini, W->getDT());
 
   return DispatchFini;
 }
@@ -2827,6 +2842,7 @@ CallInst *VPOParoptUtils::genKmpcBarrierImpl(
     CallInst *BarrierCall = genEmptyCall(M, FnName, RetTy, InsertPt);
     BarrierCall->getCalledFunction()->setConvergent();
     setFuncCallingConv(BarrierCall, M);
+    addFuncletOperandBundle(BarrierCall, W->getDT(), InsertPt);
     return BarrierCall;
   }
 
@@ -2847,6 +2863,7 @@ CallInst *VPOParoptUtils::genKmpcBarrierImpl(
 
   CallInst *BarrierCall = genCall(M, FnName, RetTy, FnArgs);
   BarrierCall->insertBefore(InsertPt);
+  addFuncletOperandBundle(BarrierCall, W->getDT());
 
   return BarrierCall;
 }
@@ -3062,10 +3079,12 @@ bool VPOParoptUtils::genKmpcReduceImpl(
     return false;
 
   Builder.Insert(BeginReduce);
+  addFuncletOperandBundle(BeginReduce, W->getDT());
   if (EndInst->isTerminator())
     EndReduce->insertBefore(EndInst);
   else
     EndReduce->insertAfter(EndInst);
+  addFuncletOperandBundle(EndReduce, W->getDT());
 
   ConstantInt *ValueOne = Builder.getInt32(1);
   auto IsTrue =
@@ -3106,6 +3125,8 @@ bool VPOParoptUtils::genKmpcReduceImpl(
         AtomicEndReduce->insertBefore(AtomicEndInst);
       else
         AtomicEndReduce->insertAfter(AtomicEndInst);
+      if (auto *AtomicEndReduceCall = dyn_cast<CallInst>(AtomicEndReduce))
+        addFuncletOperandBundle(AtomicEndReduceCall, W->getDT());
     }
 
     Builder.SetInsertPoint(AtomicBeginInst);
@@ -3439,6 +3460,7 @@ CallInst *VPOParoptUtils::genDoacrossWaitOrPostCall(
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Doacross wait/post call emitted.\n");
 
   Call->insertBefore(InsertPt);
+  addFuncletOperandBundle(Call, W->getDT());
   return Call;
 }
 
@@ -3548,6 +3570,7 @@ VPOParoptUtils::genKmpcDoacrossInit(WRegionNode *W, StructType *IdentTy,
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Doacross init call emitted.\n");
 
   Call->insertBefore(InsertPt);
+  addFuncletOperandBundle(Call, W->getDT());
   return Call;
 }
 
@@ -3565,6 +3588,7 @@ CallInst *VPOParoptUtils::genKmpcDoacrossFini(WRegionNode *W,
       W, IdentTy, InsertPt, "__kmpc_doacross_fini", nullptr, {Tid}, true);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Doacross fini call emitted.\n");
+  addFuncletOperandBundle(Fini, W->getDT(), InsertPt);
 
   return Fini;
 }
@@ -3585,9 +3609,48 @@ CallInst *VPOParoptUtils::genKmpcFlush(WRegionNode *W, StructType *IdentTy,
   CallInst *Flush = VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt,
                                                 "__kmpc_flush", RetTy, {},
                                                 true /*insert call*/ );
+  addFuncletOperandBundle(Flush, W->getDT(), InsertPt);
   return Flush;
 }
 
+CallInst *VPOParoptUtils::addFuncletOperandBundle(
+    CallInst *CI, DominatorTree *DT,
+    Instruction *InstToCheckFuncletRequirement) {
+  assert(CI && "CI is null");
+  if (!InstToCheckFuncletRequirement)
+    InstToCheckFuncletRequirement = CI;
+
+  assert(InstToCheckFuncletRequirement->getParent() &&
+         "Cannot use uninserted instruction to check funclet requirement.");
+
+  BasicBlock *B = InstToCheckFuncletRequirement->getParent();
+  Function *F = B->getParent();
+
+  if (!F->hasPersonalityFn())
+    return CI;
+
+  Constant *PersonalityFn = F->getPersonalityFn();
+  if (!PersonalityFn)
+    return CI;
+
+  if (!isScopedEHPersonality(classifyEHPersonality(PersonalityFn)))
+    return CI;
+
+  assert(DT != nullptr && "Dominator Tree is null.");
+
+  auto *DomNode = DT->getNode(B);
+  while (DomNode) {
+    auto *DomBB = DomNode->getBlock();
+    if(DomBB->isEHPad()) {
+      auto *FirstInst =  DomBB->getFirstNonPHI();
+      SmallVector<Value*, 1> OpBundles;
+      OpBundles.push_back(FirstInst);
+      return VPOUtils::addOperandBundlesInCall(CI, {{"funclet", OpBundles}});
+    }
+    DomNode = DomNode->getIDom();
+  }
+  return CI;
+}
 
 // Private helper methods for generation of a KMPC call.
 
@@ -4023,7 +4086,9 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
   }
 
   BeginCritical->insertBefore(BeginInst);
+  addFuncletOperandBundle(BeginCritical, DT);
   EndCritical->insertBefore(EndInst);
+  addFuncletOperandBundle(EndCritical, DT);
 
   if (IsTargetSPIRV) {
     if (!isa<WRNTeamsNode>(W))
@@ -4424,6 +4489,7 @@ CallInst *VPOParoptUtils::genKmpcCancelOrCancellationPointCall(
       {ConstantInt::get(Type::getInt32Ty(C), CancelKind)});
 
   CancelCall->insertBefore(InsertPoint);
+  addFuncletOperandBundle(CancelCall, W->getDT());
 
   WRegionNode *WParent = W->getParent();
   assert(WParent && "genKmpcCancelOrCancellationPointCall: Orphaned "

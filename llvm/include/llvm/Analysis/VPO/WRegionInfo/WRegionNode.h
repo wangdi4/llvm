@@ -118,6 +118,9 @@ private:
   /// Children container
   WRContainerTy Children;
 
+  /// Dominator Tree (initialized/used during transformation).
+  DominatorTree* DT = nullptr;
+
   /// Counter used for assigning unique numbers to WRegionNodes.
   static unsigned UniqueNum;
 
@@ -199,6 +202,9 @@ protected:
 
   /// Set whether this WRegionNode is for an implicit construct.
   void setIsImplicit(bool B) { IsImplicit = B; }
+
+  /// Set the DominatorTree of this region.
+  void setDT(DominatorTree *D) { DT = D; }
 
   /// Finish creating the WRN once its ExitDir is found. This routine calls
   /// setExitDirective(ExitDir) and setExitBBlock(ExitDir->getParent()). In
@@ -306,6 +312,8 @@ public:
   MapClause *getMapIfSupported() {
     return (canHaveMap() ? &getMap() : static_cast<MapClause *>(nullptr));
   }
+
+  DominatorTree *getDT() const { return DT; }
 
   /// @}
 
