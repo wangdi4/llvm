@@ -39,6 +39,7 @@ void initializeDTransSafetyAnalyzerWrapperPass(PassRegistry&);
 // Transform passes
 void initializeDTransAOSToSOAWrapperPass(PassRegistry&);
 void initializeDTransDeleteFieldWrapperPass(PassRegistry&);
+void initializeDTransDeleteFieldOPWrapperPass(PassRegistry&);
 void initializeDTransPaddedMallocWrapperPass(PassRegistry&);
 void initializeDTransReorderFieldsWrapperPass(PassRegistry&);
 void initializeDTransResolveTypesWrapperPass(PassRegistry&);

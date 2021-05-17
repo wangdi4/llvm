@@ -195,6 +195,7 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransSOAToAOSPrepareWrapperPass(PR);
   initializeDTransSOAToAOSWrapperPass(PR);
   initializeDTransDeleteFieldWrapperPass(PR);
+  initializeDTransDeleteFieldOPWrapperPass(PR);
   initializeDTransReorderFieldsWrapperPass(PR);
   initializeDTransAOSToSOAWrapperPass(PR);
   initializeDTransEliminateROFieldAccessWrapperPass(PR);
@@ -348,6 +349,7 @@ void llvm::addLateDTransLegacyPasses(legacy::PassManagerBase &PM) {
 // created this way.
 void llvm::createDTransPasses() {
   (void)llvm::createDTransDeleteFieldWrapperPass();
+  (void)llvm::createDTransDeleteFieldOPWrapperPass();
   (void)llvm::createDTransAOSToSOAWrapperPass();
   (void)llvm::createDTransAnnotatorCleanerWrapperPass();
   (void)llvm::createDTransReorderFieldsWrapperPass();

@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -intel-loop-attrs -enable-loop-attrs -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(intel-loop-attrs)' -enable-loop-attrs -S 2>&1 | FileCheck %s
+; RUN: opt < %s -intel-loop-attrs -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(intel-loop-attrs)' -S 2>&1 | FileCheck %s
 
 ; This test case checks that the loop in @foo wasn't marked "mustprogress"
 ; since there is a call inside one of the basic blocks. Also, function @foo

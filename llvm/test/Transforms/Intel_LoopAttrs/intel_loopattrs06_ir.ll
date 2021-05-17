@@ -1,5 +1,5 @@
-; RUN: opt < %s -intel-loop-attrs -enable-loop-attrs -force-intel-must-progress -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(intel-loop-attrs)' -enable-loop-attrs -force-intel-must-progress -S 2>&1 | FileCheck %s
+; RUN: opt < %s -intel-loop-attrs -force-intel-must-progress -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(intel-loop-attrs)' -force-intel-must-progress -S 2>&1 | FileCheck %s
 
 ; This test case checks that the loop in @main is marked as "mustprogress" since
 ; it has bounds, but @main shouldn't be marked "mustprogress" because it is "main".

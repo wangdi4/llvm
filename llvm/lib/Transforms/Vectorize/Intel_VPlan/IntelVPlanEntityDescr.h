@@ -52,13 +52,13 @@ struct InstructionTypeDeducer<T, typename std::enable_if<std::is_base_of<
 struct CustomCompareRef {
   bool operator()(const loopopt::DDRef *Ref1,
                   const loopopt::DDRef *Ref2) const {
-    return Ref1->getSymbase() < Ref2->getSymbase();
+    return Ref1->getSymbase() == Ref2->getSymbase();
   }
 };
 
 struct CustomCompareVal {
   bool operator()(const Value *Val1, const Value *Val2) const {
-    return Val1 < Val2;
+    return Val1 == Val2;
   }
 };
 
@@ -178,9 +178,12 @@ template <typename Value> class DescrWithAliases : public DescrValue<Value> {
   using DescrKind = typename DescrValue<Value>::DescrKind;
 
   INTEL_INTRODUCE_CUSTOMCOMPARE(Value)
-  /// Map of Aliases for particular private value.
-  std::map<const Value *, std::unique_ptr<DescrValue<Value>>, CustomCompare>
-      Aliases;
+  /// Vector of Aliases for particular private value.
+  SmallVector<std::unique_ptr<DescrValue<Value>>, 8> Aliases;
+
+  inline decltype(auto) aliases() const {
+    return map_range(Aliases, [](auto &UPtr) { return UPtr.get(); });
+  }
 
 protected:
   // Required by descendent in IntelVPlanHCFGBuilderHIR.h
@@ -220,25 +223,29 @@ public:
 
   /// Add new alias for private value.
   void addAlias(const Value *RefV, std::unique_ptr<DescrValue<Value>> Descr) {
-    assert(!Aliases.count(RefV) &&
-           "Alias already added to aliases container.");
-    Aliases[RefV] = std::move(Descr);
+    assert(!findAlias(RefV) && "Alias already added to aliases.");
+    Aliases.push_back(std::move(Descr));
   }
 
   /// Return alias for specific value. If no alias is found return nullptr.
   DescrValue<Value> *findAlias(const Value *RefV) const {
-    auto AliasIt = Aliases.find(RefV);
-    if (AliasIt == Aliases.end())
-      return nullptr;
-    return AliasIt->second.get();
+    // When llvm::find_if is used, on Widnows compilation fails with error
+    // that iterator cannot be assigned because its copy assignment
+    // operator is implicitly deleted.
+    // TODO: Fix issue with llvm::find_if on Windows.
+    for (auto *Alias : aliases()) {
+      if (CustomCompare()(RefV, Alias->getRef()))
+        return Alias;
+    }
+
+    return nullptr;
   }
 
   /// Filter out invalid aliases and return the valid one. If no valid alias is
   /// found return nullptr.
   DescrValue<Value> *getValidAlias() const {
     DescrValue<Value> *ValidAlias = nullptr;
-    for (auto &AliasItPair : Aliases) {
-      DescrValue<Value> *Alias = AliasItPair.second.get();
+    for (auto *Alias : aliases()) {
       if (Alias->isValidAlias())
         ValidAlias = Alias;
     }
@@ -249,10 +256,10 @@ public:
   virtual void print(raw_ostream &OS, unsigned Indent = 0) const override {
     DescrValue<Value>::print(OS);
     if (!Aliases.empty()) {
-      for (const auto &AliasIt : Aliases) {
+      for (const auto *AliasIt : aliases()) {
         OS << "\n";
         OS.indent(2) << "Alias";
-        AliasIt.second->print(OS, 2);
+        AliasIt->print(OS, 2);
       }
       OS << "\n";
     }

@@ -117,6 +117,7 @@ MODULE_PASS("dtrans-typemetadatareader",                         // INTEL
             dtransOP::DTransTypeMetadataReaderTestPass())          // INTEL
 MODULE_PASS("dtrans-ptrtypeanalyzertest",                        // INTEL
             dtransOP::DTransPtrTypeAnalyzerTestPass())             // INTEL
+MODULE_PASS("dtrans-deletefieldop", dtransOP::DeleteFieldOPPass()) // INTEL
 #endif // !INTEL_PRODUCT_RELEASE
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 MODULE_PASS("soatoaos-arrays-methods-transform",                 // INTEL

@@ -1,5 +1,5 @@
-; RUN: opt < %s -intel-loop-attrs -enable-loop-attrs -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(intel-loop-attrs)' -enable-loop-attrs -S 2>&1 | FileCheck %s
+; RUN: opt < %s -intel-loop-attrs -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(intel-loop-attrs)' -S 2>&1 | FileCheck %s
 
 ; This test case checks that function @foo is candidate for adding the loop
 ; attributes without using "-force-intel-must-progress" since there is a use
