@@ -869,9 +869,15 @@ define void @guard_pessimizes_analysis_step2(i1 %c, i32 %N) {
 ; CHECK-NEXT:   %init = phi i32 [ 2, %entry ], [ 3, %bb1 ]
 ; CHECK-NEXT:   -->  %init U: [2,4) S: [2,4)
 ; CHECK-NEXT:   %iv = phi i32 [ %iv.next, %loop ], [ %init, %loop.ph ]
-; CHECK-NEXT:   -->  {%init,+,2}<nuw><nsw><%loop> U: [2,10) S: [2,10)		Exits: ((2 * ((8 + (-1 * %init)<nsw>)<nsw> /u 2))<nuw><nsw> + %init) LoopDispositions: { %loop: Computable }
+; INTEL_CUSTOMIZATION
+; Allow flags after outermost expression.
+; CHECK-NEXT:   -->  {%init,+,2}<nuw><nsw><%loop> U: [2,10) S: [2,10)		Exits: ((2 * ((8 + (-1 * %init)<nsw>)<nsw> /u 2))<nuw><nsw> + %init){{.*}} LoopDispositions: { %loop: Computable }
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:   %iv.next = add nuw nsw i32 %iv, 2
- ; CHECK-NEXT:  -->  {(2 + %init)<nuw><nsw>,+,2}<nuw><nsw><%loop> U: [4,12) S: [4,12)		Exits: (2 + (2 * ((8 + (-1 * %init)<nsw>)<nsw> /u 2))<nuw><nsw> + %init)		LoopDispositions: { %loop: Computable }
+; INTEL_CUSTOMIZATION
+; Allow flags after outermost expression.
+; CHECK-NEXT:  -->  {(2 + %init)<nuw><nsw>,+,2}<nuw><nsw><%loop> U: [4,12) S: [4,12)		Exits: (2 + (2 * ((8 + (-1 * %init)<nsw>)<nsw> /u 2))<nuw><nsw> + %init){{.*}}		LoopDispositions: { %loop: Computable }
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT: Determining loop execution counts for: @guard_pessimizes_analysis_step2
 ; CHECK-NEXT: Loop %loop: backedge-taken count is ((8 + (-1 * %init)<nsw>)<nsw> /u 2)
 ; CHECK-NEXT: Loop %loop: max backedge-taken count is 3
