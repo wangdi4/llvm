@@ -47,7 +47,6 @@
 #include "llvm/Support/CRC.h"
 #include "llvm/Transforms/Scalar/LowerExpectIntrinsic.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
-#include "llvm/Analysis/OptimizationRemarkEmitter.h" // INTEL
 using namespace clang;
 using namespace CodeGen;
 
@@ -1807,11 +1806,12 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   // Emit the standard function prologue.
   StartFunction(GD, ResTy, Fn, FnInfo, Args, Loc, BodyRange.getBegin());
 
-  SyclOptReportHandler &OptReportHandler =
+#if INTEL_CUSTOMIZATION
+  OptReportHandler &SyclOptReportHandler =
       CGM.getDiags().getSYCLOptReportHandler();
-  if (OptReportHandler.HasOptReportInfo(FD)) {
+  if (SyclOptReportHandler.HasSyclOptReportInfo(FD)) {
     llvm::OptimizationRemarkEmitter ORE(Fn);
-    for (auto ORI : llvm::enumerate(OptReportHandler.GetInfo(FD))) {
+    for (auto ORI : llvm::enumerate(SyclOptReportHandler.GetSyclInfo(FD))) {
       llvm::DiagnosticLocation DL =
           SourceLocToDebugLoc(ORI.value().KernelArgLoc);
       std::string KAN = ORI.value().KernelArgName;
@@ -1825,8 +1825,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
       ORE.emit(Remark);
     }
   }
-#if INTEL_CUSTOMIZATION
-  clang::OptReportHandler &OpenMPOptReportHandler =
+  OptReportHandler &OpenMPOptReportHandler =
       CGM.getDiags().OpenMPOptReportHandler;
   if (OpenMPOptReportHandler.HasOpenMPReportInfo(FD)) {
     llvm::OptimizationRemarkEmitter ORE(Fn);

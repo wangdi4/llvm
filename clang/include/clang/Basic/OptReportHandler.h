@@ -18,23 +18,28 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 
+// FIXME: This file needs to be refactored to fit better with its upstream
+// version. The INTEL markers for the SYCL portions of this file are a result
+// of naming inconsistencies between the two versions.
+
 namespace clang {
 
 class FunctionDecl;
 
-class OptReportHandler {
+class OptReportHandler { // INTEL
 private:
-  struct SyclOptReportInfo {
+  struct SyclOptReportInfo { // INTEL
     std::string KernelArgName;
     std::string KernelArgType;
     SourceLocation KernelArgLoc;
 
-    SyclOptReportInfo(std::string ArgName, std::string ArgType,
+    SyclOptReportInfo(std::string ArgName, std::string ArgType, // INTEL
                       SourceLocation ArgLoc)
         : KernelArgName(std::move(ArgName)), KernelArgType(std::move(ArgType)),
           KernelArgLoc(ArgLoc) {}
   };
-  llvm::DenseMap<const FunctionDecl *, SmallVector<SyclOptReportInfo>> SyclMap;
+  llvm::DenseMap<const FunctionDecl *, SmallVector<SyclOptReportInfo>>
+      SyclMap; // INTEL
 
 #if INTEL_CUSTOMIZATION
   struct OpenMPOptReportInfo {
@@ -50,7 +55,6 @@ private:
 
   llvm::DenseMap<const FunctionDecl *, SmallVector<OpenMPOptReportInfo>>
       OpenMPMap;
-#endif // INTEL_CUSTOMIZATION
 
 public:
   void AddKernelArgs(const FunctionDecl *FD, std::string ArgName,
@@ -67,7 +71,6 @@ public:
     return SyclMap.find(FD) != SyclMap.end();
   }
 
-#if INTEL_CUSTOMIZATION
   void AddIgnoredPragma(const FunctionDecl *FD, StringRef DirName,
                         SourceLocation Loc,
                         StringRef ClauseName = StringRef()) {
