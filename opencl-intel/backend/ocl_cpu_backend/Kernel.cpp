@@ -166,8 +166,9 @@ void Kernel::CreateWorkDescription(UniformKernelArgs *UniformImplicitArgs,
     for (; i < forcedWorkDim; ++i) {
       UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i] =
           forcedWGSize[i];
+      size_t remainder = UniformImplicitArgs->GlobalSize[i] % forcedWGSize[i];
       UniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] =
-          UniformImplicitArgs->GlobalSize[i] % forcedWGSize[i];
+          remainder > 0 ? remainder : forcedWGSize[i];
     }
     // Set workgroup size of higher dim to 1.
     for (; i < UniformImplicitArgs->WorkDim; ++i) {
