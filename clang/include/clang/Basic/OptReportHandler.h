@@ -24,15 +24,23 @@ class FunctionDecl;
 
 class OptReportHandler {
 private:
-  struct SyclOptReportInfo {
-    std::string KernelArgName;
+  struct SyclOptReportInfo { // INTEL
+    std::string KernelArgDescName; // Kernel argument name itself, or the name
+                                   // of the parent class if the kernel argument
+                                   // is a decomposed member.
     std::string KernelArgType;
     SourceLocation KernelArgLoc;
+    unsigned KernelArgSize;
+    std::string KernelArgDesc;
+    std::string KernelArgDecomposedField;
 
-    SyclOptReportInfo(std::string ArgName, std::string ArgType,
-                      SourceLocation ArgLoc)
-        : KernelArgName(std::move(ArgName)), KernelArgType(std::move(ArgType)),
-          KernelArgLoc(ArgLoc) {}
+    SyclOptReportInfo(std::string ArgDescName, std::string ArgType, // INTEL
+                      SourceLocation ArgLoc, unsigned ArgSize,
+                      std::string ArgDesc, std::string ArgDecomposedField)
+        : KernelArgDescName(std::move(ArgDescName)),
+          KernelArgType(std::move(ArgType)), KernelArgLoc(ArgLoc),
+          KernelArgSize(ArgSize), KernelArgDesc(std::move(ArgDesc)),
+          KernelArgDecomposedField(std::move(ArgDecomposedField)) {}
   };
   llvm::DenseMap<const FunctionDecl *, SmallVector<SyclOptReportInfo>> SyclMap;
 
@@ -53,9 +61,12 @@ private:
 #endif // INTEL_CUSTOMIZATION
 
 public:
-  void AddKernelArgs(const FunctionDecl *FD, std::string ArgName,
-                     std::string ArgType, SourceLocation ArgLoc) {
-    SyclMap[FD].emplace_back(ArgName, ArgType, ArgLoc);
+  void AddKernelArgs(const FunctionDecl *FD, StringRef ArgDescName,
+                     StringRef ArgType, SourceLocation ArgLoc, unsigned ArgSize,
+                     StringRef ArgDesc, StringRef ArgDecomposedField) {
+    SyclMap[FD].emplace_back(ArgDescName.data(), ArgType.data(), ArgLoc,
+                             ArgSize, ArgDesc.data(),
+                             ArgDecomposedField.data());
   }
   SmallVector<SyclOptReportInfo> &GetSyclInfo(const FunctionDecl *FD) {
     auto It = SyclMap.find(FD);
