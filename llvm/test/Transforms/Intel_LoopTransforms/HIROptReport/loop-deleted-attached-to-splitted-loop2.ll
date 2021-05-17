@@ -25,7 +25,7 @@
 ; OPTREPORT-NEXT:         <Remainder loop for vectorization>
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         remark: Loop completely unrolled
+; OPTREPORT-NEXT:         remark #25532: Loop completely unrolled
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
@@ -44,7 +44,7 @@
 ; CHECK: [[M11]] = distinct !{!"llvm.loop.optreport", [[M12:!.*]]}
 ; CHECK: [[M12]] = distinct !{!"intel.loop.optreport", [[M13:!.*]]}
 ; CHECK: [[M13]] = !{!"intel.optreport.remarks", [[M14:!.*]]}
-; CHECK: [[M14]] = !{!"intel.optreport.remark", i32 0, !"Loop completely unrolled"}
+; CHECK: [[M14]] = !{!"intel.optreport.remark", i32 25532, !"Loop completely unrolled"}
 ; CHECK: [[M15]] = !{!"intel.optreport.origin", [[M16:!.*]]}
 ; CHECK: [[M16]] = !{!"intel.optreport.remark", i32 0, !"Remainder loop for vectorization"}
 

@@ -17,7 +17,7 @@
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:     LOOP END{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN
-; OPTREPORT-NEXT:         remark: Loop completely unrolled
+; OPTREPORT-NEXT:         remark #25532: Loop completely unrolled
 ; OPTREPORT-NEXT:     LOOP END
 ; OPTREPORT-NEXT: LOOP END
 
@@ -30,7 +30,7 @@
 ; CHECK: [[M5]] = distinct !{!"llvm.loop.optreport", [[M6:!.*]]}
 ; CHECK: [[M6]] = distinct !{!"intel.loop.optreport", [[M7:!.*]]}
 ; CHECK: [[M7]] = !{!"intel.optreport.remarks", [[M8:!.*]]}
-; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 0, !"Loop completely unrolled"}
+; CHECK: [[M8]] = !{!"intel.optreport.remark", i32 25532, !"Loop completely unrolled"}
 ; CHECK: [[M9:!.*]] = distinct !{[[M9]], [[M10:!.*]]}
 ; CHECK: [[M10]] = distinct !{!"llvm.loop.optreport", [[M11:!.*]]}
 ; CHECK: [[M11]] = distinct !{!"intel.loop.optreport", [[M12:!.*]]}
@@ -93,4 +93,4 @@ define void @foo(i32** noalias nocapture readonly %A, i32 %N) local_unnamed_addr
 !12 = distinct !{!"llvm.loop.optreport", !13}
 !13 = distinct !{!"intel.loop.optreport", !14}
 !14 = !{!"intel.optreport.remarks", !15}
-!15 = !{!"intel.optreport.remark", i32 0, !"Loop completely unrolled"}
+!15 = !{!"intel.optreport.remark", i32 25532, !"Loop completely unrolled"}
