@@ -148,7 +148,9 @@ define i32 @pr50308(i1 %c1, i32 %v1, i32 %v2, i32 %v3) {
 ; CHECK-NEXT:    br label [[COND_END]]
 ; CHECK:       cond.end:
 ; CHECK-NEXT:    [[COND_NEG:%.*]] = phi i32 [ [[ADD1_NEG]], [[COND_TRUE]] ], [ 0, [[ENTRY:%.*]] ]
-; CHECK-NEXT:    [[SUB:%.*]] = add i32 [[COND_NEG]], [[V3:%.*]]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[SUB:%.*]] = add nsw i32 [[COND_NEG]], [[V3:%.*]]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i32 [[SUB]]
 ;
 entry:
