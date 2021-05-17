@@ -1213,6 +1213,11 @@ list(APPEND features_enabled_by_default
       add_definitions(-D${f}=1)
     endforeach(f)
   endif()
+
+  # Add knob to enable/disable Protobuf-based binary opt-report feature during
+  # compiler's build.
+  option(INTEL_ENABLE_PROTO_BIN_OPTRPT
+         "Enable Protobuf-based binary opt-report feature" OFF)
 endif(INTEL_CUSTOMIZATION)
 
 # Configure all of the various header file fragments LLVM uses which depend on

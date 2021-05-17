@@ -18,6 +18,9 @@ llvm_canonicalize_cmake_booleans(
   LLVM_HAVE_TF_AOT
   LLVM_HAVE_TF_API
   LLVM_ENABLE_EXPENSIVE_CHECKS
+# INTEL_CUSTOMIZATION
+  INTEL_ENABLE_PROTO_BIN_OPTRPT
+# end INTEL_CUSTOMIZATION
   )
 
 configure_lit_site_cfg(

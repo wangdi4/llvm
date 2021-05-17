@@ -1,6 +1,6 @@
 //===- Intel_OptReportAsmHandler.cpp - Collect and dump OptReport ---------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -15,11 +15,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "Intel_AsmOptReport.h"
-#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/OptReport/LoopOptReportSupport.h"
-#include "llvm/MC/MCSectionELF.h"
+#include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/MC/MCSectionCOFF.h"
+#include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCSectionMachO.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include <algorithm>
@@ -28,6 +29,13 @@
 #define DEBUG_TYPE "intel-debug-optrpt-emit"
 
 using namespace llvm;
+
+static cl::opt<int> AnchorIDHashLength(
+    "bin-opt-report-anchor-id-length", cl::Hidden, cl::init(32),
+    cl::desc("Specify length (in range [1, 32]) of anchor ID used to uniquely "
+             "identify loop opt-report and associated BB in ASM for generated "
+             "binary opt-report. We use MD5 hashing to create anchor IDs, so "
+             "lower value lengths is expected to create more conflicts."));
 
 OptReportAsmPrinterHandler::OptReportAsmPrinterHandler(AsmPrinter *AP)
   : AP(*AP), OutContext(AP->OutContext) {
@@ -124,7 +132,7 @@ void OptReportAsmPrinterHandler::endFunction(const MachineFunction *MF) {
   //       COMDAT functions into the corresponding COMDAT opt-report sections.
   //       We will need to create new sections for different binary file formats.
   auto *Section = AP.getObjFileLowering().getOptReportSection();
-  registerFunction(Section);
+  registerFunction(Section, &MF->getFunction());
 
   // This function anchors the given child/sibling opt-report
   // (and all its child/sibling opt-reports recursively) to the given symbol.
@@ -296,11 +304,181 @@ void OptReportAsmPrinterHandler::combineFunctionDescs() {
   }
 }
 
+bool OptReportAsmPrinterHandler::emitOptReportUsingProtobuf() {
+  if (!llvm::LoopOptReportSupport::isProtobufBinOptReportEnabled())
+    return false;
+
+  unsigned PtrSize = getMAI().getCodePointerSize();
+  assert(PtrSize <= 8 && "Unsupported pointer size.");
+
+  for (auto &&FD : FunctionDescs) {
+    auto &OptReports = FD->OptReports;
+    auto *Section = FD->Section;
+
+    if (OptReports.empty())
+      continue;
+
+    StringRef FuncName = FD->F->getName();
+    StringRef ModuleName = FD->F->getParent()->getName();
+    LLVM_DEBUG(dbgs() << "Emitting protobuf-based BOR for " << FuncName
+                      << " in " << ModuleName << "\n");
+
+    //   Protobuf-based opt-report section structure:
+    //   --------------- Beginning of notify table ---------------------
+    //   Notify table header.
+    //      char      ident[];        // ".itt_notify_tab\0"
+    //      uint16_t  version;        // Major version 1 in the upper byte,
+    //                                // minor version 2 in the lower byte
+    //      uint16_t  header_size;    // byte size of this header structure
+    //      uint32_t  num_reports;    // number of opt-report entries
+    //      uint32_t  ancid_length;   // length of anchor ID (1->32)
+    //      uint32_t  anctab_offset;  // anchor table offset
+    //      uint32_t  anctab_size;    // byte size of anchor table
+    //      uint32_t  pbmsg_offset;   // protobuf message offset
+    //      uint32_t  pbmsg_size;     // byte size of protobuf message
+    //
+    //      Offsets are in bytes from the beginning of the section.
+    //   ------------------------------------
+    //   Array of anchor table entries.
+    //   Each entry has the following structure:
+    //
+    //      char        anchor_id[];     // unique ID for anchor
+    //      uint64_t    anchor_address;  // notify anchor PC address.
+    //   ------------------------------------
+    //   Protobuf message as a byte stream.
+    //     Message is pbmsg_size length of information bytes.
+    //
+    //   ------------------ End of notify table ---------------------
+    getOS().SwitchSection(Section);
+    MCSymbol *HeaderStartLabel =
+        OutContext.createTempSymbol("optrpt_header_start", true);
+    MCSymbol *HeaderEndLabel =
+        OutContext.createTempSymbol("optrpt_header_end", true);
+    MCSymbol *AnctabStartLabel =
+        OutContext.createTempSymbol("optrpt_anctab_start", true);
+    MCSymbol *AnctabEndLabel =
+        OutContext.createTempSymbol("optrpt_anctab_end", true);
+    MCSymbol *PBmsgStartLabel =
+        OutContext.createTempSymbol("optrpt_pbmsg_start", true);
+    MCSymbol *PBmsgEndLabel =
+        OutContext.createTempSymbol("optrpt_pbmsg_end", true);
+
+    // * Start of table header.
+    getOS().AddComment(
+        "Protobuf-based Optimization Report Table's Header Begin");
+    getOS().emitLabel(HeaderStartLabel);
+    // Emit null-terminated identity string.
+    // TODO: Can we use the same identity string (itt_notify_table\0) even for
+    // the new PB-based encoding scheme?
+    SmallString<32> NullTerminatedIdentString(IdentString);
+    NullTerminatedIdentString.push_back('\0');
+    getOS().emitBytes(NullTerminatedIdentString);
+
+    getOS().AddComment("Table Version 1.2");
+    getOS().emitIntValue(0x0102, 2);
+    getOS().AddComment("Header Size");
+    getOS().emitAbsoluteSymbolDiff(HeaderEndLabel, HeaderStartLabel, 2);
+    getOS().AddComment("Number Of Reports");
+    getOS().emitIntValue(OptReports.size(), 4);
+    getOS().AddComment("Anchor ID length");
+    getOS().emitIntValue(AnchorIDHashLength, 4);
+    getOS().AddComment("Anctab Offset");
+    getOS().emitAbsoluteSymbolDiff(AnctabStartLabel, HeaderStartLabel, 4);
+    getOS().AddComment("Anctab Size");
+    getOS().emitAbsoluteSymbolDiff(AnctabEndLabel, AnctabStartLabel, 4);
+    getOS().AddComment("Protobuf Message Offset");
+    getOS().emitAbsoluteSymbolDiff(PBmsgStartLabel, HeaderStartLabel, 4);
+    getOS().AddComment("Protobuf Message Size");
+    getOS().emitAbsoluteSymbolDiff(PBmsgEndLabel, PBmsgStartLabel, 4);
+    getOS().emitLabel(HeaderEndLabel);
+    // * End of table header.
+
+    // * Start of anchor table entries.
+    getOS().AddComment("Anchor Table Begin");
+    getOS().emitLabel(AnctabStartLabel);
+
+    // Helper lambda to get MD5 hash to represent unique anchor ID for a given
+    // loop number (N) based on parent function and module names. This is
+    // expected to produce a value that is run-to-run invariant.
+    auto GetMD5HashForAnchorID = [FuncName,
+                                  ModuleName](unsigned N) -> SmallString<32> {
+      SmallString<64> ConcatStr = {FuncName, ModuleName, std::to_string(N)};
+      llvm::MD5 Md5;
+      // Update the hash with input and finalize.
+      Md5.update(ConcatStr);
+      llvm::MD5::MD5Result R;
+      Md5.final(R);
+
+      // Get string version of the hash.
+      SmallString<32> AnchorIDHash;
+      llvm::MD5::stringifyResult(R, AnchorIDHash);
+      return AnchorIDHash.substr(0, AnchorIDHashLength);
+    };
+
+    // Emit anchor table with entries for each opt-report. Unique anchor_id is
+    // also determined here.
+    // TODO: Currently anchor_id is obtained as MD5(Funtion Name + Module Name +
+    // NOptRpt). This should reduce conflicts in anchor ID for loops included in
+    // multiple compilation units. However this can be improved in future if the
+    // rate of conflicts is observed to be high.
+    uint64_t NOptRpt = 0;
+    for (auto &&OR : OptReports) {
+      ++NOptRpt;
+      SmallString<32> AnchorID = GetMD5HashForAnchorID(NOptRpt);
+      getOS().AddComment("Anchor ID");
+      getOS().emitBytes(AnchorID);
+      OR->AnchorID = AnchorID;
+
+      // Emit the label that was created to identify the loop that this
+      // opt-report describes.
+      getOS().AddComment("Anchor");
+      getOS().emitSymbolValue(OR->MBBSym, PtrSize);
+      // Anchor value is always 8 bytes, so pad it with zeroes
+      // if needed.
+      if (PtrSize < 8)
+        getOS().emitZeros(8 - PtrSize);
+    }
+    getOS().emitLabel(AnctabEndLabel);
+    // * End of anchor table entries.
+
+    // * Start of protobuf message.
+    getOS().AddComment("Protobuf Message Begin");
+    getOS().emitLabel(PBmsgStartLabel);
+
+    llvm::LoopOptReportSupport::OptRptAnchorMapTy OptRptAnchorMap;
+    for (auto &&OR : OptReports) {
+      assert(OptRptAnchorMap.count(OR->AnchorID) == 0 &&
+             "Multiple opt-reports with same anchor ID.");
+      OptRptAnchorMap[OR->AnchorID] = OR->OptReport;
+    }
+    // TODO Replace the hard-coded opt-report version with a query of opt-report
+    // library. Right now, we use version 1.5.
+    // TODO: Version info can probably be omitted from this interface. It can be
+    // obtained inside LoopOptReportSupport interfaces directly.
+    std::string Msg = llvm::LoopOptReportSupport::generateProtobufBinOptReport(
+        OptRptAnchorMap, 1 /*MajorVersion*/, 5 /*MinorVersion*/);
+
+    // We emit the Protobuf msg as a simple byte stream.
+    getOS().AddComment("Data");
+    getOS().emitBytes(Msg);
+    LLVM_DEBUG(dbgs() << "[PBEncoder] Message length: " << Msg.size() << "\n");
+
+    getOS().emitLabel(PBmsgEndLabel);
+    // * End of protobuf message.
+  }
+
+  // Successfully embedded opt-report in object file using Protobuf-based binary
+  // opt-report feature.
+  return true;
+}
+
 void OptReportAsmPrinterHandler::endModule() {
   // TODO (vzakhari 10/2/2018): combine all descriptors for non-COMDAT
   //       functions into one to minimize the overhead of the header
   //       emission.
   combineFunctionDescs();
+  if (emitOptReportUsingProtobuf())
+    return;
 
   unsigned PtrSize = getMAI().getCodePointerSize();
   assert(PtrSize <= 8 && "Unsupported pointer size.");
