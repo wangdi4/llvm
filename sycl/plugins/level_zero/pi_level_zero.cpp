@@ -1456,7 +1456,7 @@ pi_result _pi_platform::populateDeviceCacheIfNeeded() {
       // cache.
       for (uint32_t I = 0; I < SubDevicesCount; ++I) {
         std::unique_ptr<_pi_device> PiSubDevice(
-            new _pi_device(ZeSubdevices[I], this, true));
+            new _pi_device(ZeSubdevices[I], this, Device.get()));
         pi_result Result = PiSubDevice->initialize();
         if (Result != PI_SUCCESS) {
           delete[] ZeSubdevices;
