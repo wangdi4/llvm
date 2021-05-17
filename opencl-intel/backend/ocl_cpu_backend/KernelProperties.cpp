@@ -39,34 +39,19 @@ void KernelJITProperties::Deserialize(IInputStream &ist,
   Serializer::DeserialPrimitive<unsigned int>(&m_vectorSize, ist);
 }
 
-KernelProperties::KernelProperties():
-    m_hasBarrier(false),
-    m_hasGlobalSync(false),
-    m_useNativeSubgroups(false),
-    m_DAZ(false),
-    m_optWGSize(0),
-    m_totalImplSize(0),
-    m_barrierBufferSize(0),
-    m_privateMemorySize(0),
-    m_maxPrivateMemorySize(0),
-    m_reqdNumSG(0),
-    m_kernelExecutionLength(0),
-    m_vectorizationWidth(1),
-    m_minGroupSizeFactorial(1),
-    m_isVectorizedWithTail(false),
-    m_uiSizeT(sizeof(void*)),
-    m_bIsBlock(false),
-    m_bIsAutorun(false),
-    m_bNeedSerializeWGs(false),
-    m_bIsTask(false),
-    m_bCanUseGlobalWorkOffset(true),
-    m_bIsNonUniformWGSizeSupported(false),
-    m_canUniteWG(false),
-    m_verctorizeOnDimention(0),
-    m_debugInfo(false)
-{
-    memset(m_reqdWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
-    memset(m_hintWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
+KernelProperties::KernelProperties()
+    : m_hasBarrier(false), m_hasGlobalSync(false), m_useNativeSubgroups(false),
+      m_DAZ(false), m_hasAVX1(false), m_hasAVX2(false), m_optWGSize(0),
+      m_totalImplSize(0), m_barrierBufferSize(0), m_privateMemorySize(0),
+      m_maxPrivateMemorySize(0), m_reqdNumSG(0), m_kernelExecutionLength(0),
+      m_vectorizationWidth(1), m_minGroupSizeFactorial(1),
+      m_isVectorizedWithTail(false), m_uiSizeT(sizeof(void *)),
+      m_bIsBlock(false), m_bIsAutorun(false), m_bNeedSerializeWGs(false),
+      m_bIsTask(false), m_bCanUseGlobalWorkOffset(true),
+      m_bIsNonUniformWGSizeSupported(false), m_canUniteWG(false),
+      m_verctorizeOnDimention(0), m_debugInfo(false) {
+  memset(m_reqdWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
+  memset(m_hintWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
 }
 
 void KernelProperties::Serialize(IOutputStream &ost,
