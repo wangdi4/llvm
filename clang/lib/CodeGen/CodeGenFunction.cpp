@@ -47,7 +47,6 @@
 #include "llvm/Support/CRC.h"
 #include "llvm/Transforms/Scalar/LowerExpectIntrinsic.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
-#include "llvm/Analysis/OptimizationRemarkEmitter.h" // INTEL
 using namespace clang;
 using namespace CodeGen;
 
@@ -1793,26 +1792,30 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   // Emit the standard function prologue.
   StartFunction(GD, ResTy, Fn, FnInfo, Args, Loc, BodyRange.getBegin());
 
-  SyclOptReportHandler &OptReportHandler =
+#if INTEL_CUSTOMIZATION
+  OptReportHandler &SyclOptReportHandler =
       CGM.getDiags().getSYCLOptReportHandler();
-  if (OptReportHandler.HasOptReportInfo(FD)) {
+  if (SyclOptReportHandler.HasSyclOptReportInfo(FD)) {
     llvm::OptimizationRemarkEmitter ORE(Fn);
-    for (auto ORI : llvm::enumerate(OptReportHandler.GetInfo(FD))) {
+    for (auto ORI : llvm::enumerate(SyclOptReportHandler.GetSyclInfo(FD))) {
       llvm::DiagnosticLocation DL =
           SourceLocToDebugLoc(ORI.value().KernelArgLoc);
-      std::string KAN = ORI.value().KernelArgName;
+      StringRef NameInDesc = ORI.value().KernelArgDescName;
+      StringRef ArgType = ORI.value().KernelArgType;
+      StringRef ArgDesc = ORI.value().KernelArgDesc;
+      unsigned ArgSize = ORI.value().KernelArgSize;
+      StringRef ArgDecomposedField = ORI.value().KernelArgDecomposedField;
+
       llvm::OptimizationRemark Remark("sycl", "Region", DL,
                                       &Fn->getEntryBlock());
-      Remark << "Argument " << llvm::ore::NV("Argument", ORI.index())
-             << " for function kernel: "
-             << llvm::ore::NV(KAN.empty() ? "&" : "") << " " << Fn->getName()
-             << "." << llvm::ore::NV(KAN.empty() ? " " : KAN) << "("
-             << ORI.value().KernelArgType << ")";
+      Remark << "Arg " << llvm::ore::NV("Argument", ORI.index()) << ":"
+             << ArgDesc << NameInDesc << "  (" << ArgDecomposedField
+             << "Type:" << ArgType << ", "
+             << "Size: " << llvm::ore::NV("Argument", ArgSize) << ")";
       ORE.emit(Remark);
     }
   }
-#if INTEL_CUSTOMIZATION
-  clang::OptReportHandler &OpenMPOptReportHandler =
+  OptReportHandler &OpenMPOptReportHandler =
       CGM.getDiags().OpenMPOptReportHandler;
   if (OpenMPOptReportHandler.HasOpenMPReportInfo(FD)) {
     llvm::OptimizationRemarkEmitter ORE(Fn);

@@ -16,10 +16,14 @@
 
 #include "clang/Basic/DiagnosticIDs.h"
 #include "clang/Basic/DiagnosticOptions.h"
+#if INTEL_CUSTOMIZATION
 #include "clang/Basic/OptReportHandler.h"
+// This file is called SYCLOptReportHandler.h in intel/llvm. It should be
+// renamed to OptReportHandler.h upstream. Once the file is renamed, the INTEL
+// customization markers should be removed.
+#endif // INTEL_CUSTOMIZATION
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/Specifiers.h"
-#include "clang/Basic/SyclOptReportHandler.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
@@ -296,7 +300,7 @@ private:
   DiagnosticConsumer *Client = nullptr;
   std::unique_ptr<DiagnosticConsumer> Owner;
   SourceManager *SourceMgr = nullptr;
-  SyclOptReportHandler OptReportHandler;
+  OptReportHandler SyclOptReportHandler; // INTEL
 
   /// Mapping information for diagnostics.
   ///
@@ -548,17 +552,19 @@ public:
   ~DiagnosticsEngine();
 
 #if INTEL_CUSTOMIZATION
-  clang::OptReportHandler OpenMPOptReportHandler;
+  OptReportHandler OpenMPOptReportHandler;
 #endif // INTEL_CUSTOMIZATION
 
   LLVM_DUMP_METHOD void dump() const;
   LLVM_DUMP_METHOD void dump(StringRef DiagName) const;
 
+#if INTEL_CUSTOMIZATION
   /// Retrieve the report SyclOptReport info.
-  SyclOptReportHandler &getSYCLOptReportHandler() { return OptReportHandler; }
-  const SyclOptReportHandler &getSYCLOptReportHandler() const {
-    return OptReportHandler;
+  OptReportHandler &getSYCLOptReportHandler() { return SyclOptReportHandler; }
+  const OptReportHandler &getSYCLOptReportHandler() const {
+    return SyclOptReportHandler;
   }
+#endif // INTEL_CUSTOMIZATION
 
   const IntrusiveRefCntPtr<DiagnosticIDs> &getDiagnosticIDs() const {
     return Diags;
