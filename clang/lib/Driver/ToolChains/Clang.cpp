@@ -9324,8 +9324,12 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         if (A->getOption().matches(options::OPT_Xs_separate) ||
             A->getOption().matches(options::OPT_Xs)) {
           StringRef ArgString(A->getValue());
-          if (ArgString == "hardware" || ArgString == "simulation")
-            ExtArg = "-spirv-ext=+all";
+#if INTEL_CUSTOMIZATION
+          if (ArgString == "hardware" || ArgString == "simulation") {
+            // SPV_INTEL_optnone should be disabled for FPGA hardware
+            ExtArg = "-spirv-ext=+all,-SPV_INTEL_optnone";
+          }
+#endif // INTEL_CUSTOMIZATION
         }
       }
     }
