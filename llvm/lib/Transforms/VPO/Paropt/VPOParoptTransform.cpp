@@ -697,24 +697,10 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
     }
 
     CallInst *LocalId;
-    if (EmitSPIRVBuiltins) {
-      std::string fname;
-      SmallVector<Value *, 1> Arg;
-      switch (Idx) {
-        case 0: fname = "_Z27__spirv_LocalInvocationId_xv";
-          break;
-        case 1: fname = "_Z27__spirv_LocalInvocationId_yv";
-          break;
-        case 2: fname = "_Z27__spirv_LocalInvocationId_zv";
-          break;
-        default:
-          llvm_unreachable("Invalid dimentional index ");
-      }
-      LocalId = VPOParoptUtils::genOCLGenericCall(fname,
-                   GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
-    }
+    if (EmitSPIRVBuiltins)
+      LocalId = VPOParoptUtils::genSPIRVLocalIdCall(Idx, CallsInsertPt);
     else
-     LocalId = VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
+      LocalId = VPOParoptUtils::genOCLGenericCall("_Z12get_local_idj",
                   GeneralUtils::getSizeTTy(F), Arg, CallsInsertPt);
 
     Value *LocalIdCasted = Builder.CreateSExtOrTrunc(LocalId, LBType);

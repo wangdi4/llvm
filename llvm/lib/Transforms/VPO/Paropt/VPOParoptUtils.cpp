@@ -991,6 +991,31 @@ CallInst *VPOParoptUtils::genOCLGenericCall(StringRef FnName,
   return Call;
 }
 
+// Generate SPIR-V call to get local id for each DIM
+//   call spir_func i64 @_Z27__spirv_LocalInvocationId_xv()
+//   call spir_func i64 @_Z27__spirv_LocalInvocationId_yv()
+//   call spir_func i64 @_Z27__spirv_LocalInvocationId_zv()
+CallInst *VPOParoptUtils::genSPIRVLocalIdCall(int Dim,
+                                              Instruction *InsertPt) {
+  BasicBlock *B  = InsertPt->getParent();
+  Function *F    = B->getParent();
+
+  std::string fname;
+  SmallVector<Value *, 1> Arg;
+  switch (Dim) {
+    case 0: fname = "_Z27__spirv_LocalInvocationId_xv";
+      break;
+    case 1: fname = "_Z27__spirv_LocalInvocationId_yv";
+      break;
+    case 2: fname = "_Z27__spirv_LocalInvocationId_zv";
+      break;
+    default:
+      llvm_unreachable("Invalid dimentional index ");
+  }
+  return VPOParoptUtils::genOCLGenericCall(fname,
+            GeneralUtils::getSizeTTy(F), Arg, InsertPt);
+}
+
 // Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,
 // set C calling convention.
 void VPOParoptUtils::setFuncCallingConv(CallInst *CI, Module *M) {
