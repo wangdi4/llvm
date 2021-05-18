@@ -1075,7 +1075,7 @@ bool BranchProbabilityInfo::calcAnd2ICmp3Heuristics(const BasicBlock *BB)
     IAndSel2 = RHSIAndSel;
     CI0 = dyn_cast<ICmpInst>(LHSAndSel);
   }
-  if (IAndSel2) {
+  if (CI0 && IAndSel2) {
     Value *LHSAndSel2 = IAndSel2->getOperand(0);
     Value *RHSAndSel2 = IAndSel2->getOperand(1);
     CI1 = dyn_cast<ICmpInst>(LHSAndSel2);
@@ -1083,6 +1083,13 @@ bool BranchProbabilityInfo::calcAnd2ICmp3Heuristics(const BasicBlock *BB)
     // %1 = icmp sge %2, %3
     // %4 = icmp sgt %5, %6
     if (!CI1 || !CI2
+        //CI0, CI1 and CI2 should be in the same BB
+        || !(CI0->getParent() == CI1->getParent())
+        || !(CI1->getParent() == CI2->getParent())
+        //if CI, CI1 and CI2 all compare with a constant, stop this transform.
+        || (dyn_cast_or_null<ConstantInt>(CI0->getOperand(1))
+            && dyn_cast_or_null<ConstantInt>(CI1->getOperand(1))
+            && dyn_cast_or_null<ConstantInt>(CI2->getOperand(1)))
         //If all cmp predications are all eq/ne, stop this transform.
         || ((CI0->getPredicate() == CmpInst::ICMP_EQ
              || CI0->getPredicate() == CmpInst::ICMP_NE)
