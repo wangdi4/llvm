@@ -5192,6 +5192,14 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
   if (!getUniformControlFlowSeen())
     return;
 
+  // Create a HLGoto that is expected to jump to the start of the specified
+  // Block and add it to the needed vectors. Return the created HLGoto.
+  auto createGoto = [this](const VPBasicBlock *Block) {
+    HLGoto *Goto = HLNodeUtilities.createHLGoto(nullptr);
+    GotoTargetVPBBPairVector.push_back(std::make_pair(Goto, Block));
+    return Goto;
+  };
+
   // The loop backedge/exit is implicit in the vector loop. Do not emit
   // gotos in the latch block.
   if (VLoop->contains(SourceBB) && !VLoop->isLoopLatch(SourceBB)) {
@@ -5227,28 +5235,36 @@ void VPOCodeGenHIR::emitBlockTerminator(const VPBasicBlock *SourceBB) {
           DDRefUtilities.createConstDDRef(CondRef->getDestType(), 1));
       addInst(If, nullptr /* Mask */);
 
-      HLGoto *ThenGoto = HLNodeUtilities.createHLGoto(nullptr);
+      HLGoto *ThenGoto = createGoto(Succ1);
       HLNodeUtils::insertAsFirstThenChild(If, ThenGoto);
-      GotoTargetVPBBPairVector.push_back(std::make_pair(ThenGoto, Succ1));
 
-      HLGoto *ElseGoto = HLNodeUtilities.createHLGoto(nullptr);
+      HLGoto *ElseGoto = createGoto(Succ2);
       HLNodeUtils::insertAsFirstElseChild(If, ElseGoto);
-      GotoTargetVPBBPairVector.push_back(std::make_pair(ElseGoto, Succ2));
       LLVM_DEBUG(dbgs() << "Uniform IF seen\n");
     } else {
-      HLGoto *Goto = HLNodeUtilities.createHLGoto(nullptr);
+      HLGoto *Goto = createGoto(Succ1);
       addInst(Goto, nullptr /* Mask */);
-      GotoTargetVPBBPairVector.push_back(std::make_pair(Goto, Succ1));
     }
   }
 }
 
 void VPOCodeGenHIR::finalizeGotos(void) {
+  // Vector used to contain HLGotos created during vector code generation.
+  // This vector is setup to be used in the call to eliminate redundant
+  // gotos.
+  SmallVector<HLGoto *, 8> Gotos;
+
   for (auto It : GotoTargetVPBBPairVector) {
     HLGoto *Goto = It.first;
     const VPBasicBlock *TargetBB = It.second;
 
     Goto->setTargetLabel(VPBBLabelMap[TargetBB]);
+    Gotos.push_back(Goto);
   }
+
+  // Eliminate redundant Gotos. TODO: Use RequiredLabels to eliminate
+  // unnecessary labels.
+  SmallVector<HLLabel *, 4> RequiredLabels;
+  HLNodeUtils::eliminateRedundantGotos(Gotos, RequiredLabels);
 }
 } // end namespace llvm
