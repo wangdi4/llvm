@@ -907,8 +907,8 @@ TEST_P(IsFPValueIntegralTest, IsFPValueIntegral) {
       EXPECT_FALSE(isFPValueIntegral(I));
 }
 
-INSTANTIATE_TEST_CASE_P(IsFPValueIntegralTest, IsFPValueIntegralTest,
-                        ::testing::ValuesIn(IsFPValueIntegralTests), );
+INSTANTIATE_TEST_SUITE_P(IsFPValueIntegralTest, IsFPValueIntegralTest,
+                        ::testing::ValuesIn(IsFPValueIntegralTests));
 #endif // INTEL_CUSTOMIZATION
 
 TEST_F(MatchSelectPatternTest, NotNotSMin) {
