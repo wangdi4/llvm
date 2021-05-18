@@ -808,7 +808,12 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     // Try to remove as much code from the loop header as possible,
     // to reduce amount of IR that will have to be duplicated.
     // TODO: Investigate promotion cap for O1.
-    MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
+#if INTEL_CUSTOMIZATION
+    // 27770/28531: This extra pass causes high spill rates in some
+    // benchmarks.
+    if (!DTransEnabled)
+      MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
+#endif // INTEL_CUSTOMIZATION
     // Rotate Loop - disable header duplication at -Oz
     MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1, PrepareForLTO));
     // TODO: Investigate promotion cap for O1.

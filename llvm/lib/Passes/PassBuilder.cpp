@@ -896,7 +896,13 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   // Try to remove as much code from the loop header as possible,
   // to reduce amount of IR that will have to be duplicated.
   // TODO: Investigate promotion cap for O1.
-  LPM1.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap));
+#if INTEL_CUSTOMIZATION
+  // 27770/28531: This extra pass causes high spill rates in several
+  // benchmarks.
+  if (!DTransEnabled)
+    LPM1.addPass(
+        LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap));
+#endif // INTEL_CUSTOMIZATION
 
   LPM1.addPass(LoopRotatePass(/* Disable header duplication */ true,
                               isLTOPreLink(Phase)));
@@ -1106,7 +1112,13 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // Try to remove as much code from the loop header as possible,
   // to reduce amount of IR that will have to be duplicated.
   // TODO: Investigate promotion cap for O1.
-  LPM1.addPass(LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap));
+#if INTEL_CUSTOMIZATION
+  // 27770/28531: This extra pass causes high spill rates in several
+  // benchmarks.
+  if (!DTransEnabled)
+    LPM1.addPass(
+        LICMPass(PTO.LicmMssaOptCap, PTO.LicmMssaNoAccForPromotionCap));
+#endif // INTEL_CUSTOMIZATION
 
   // Disable header duplication in loop rotation at -Oz.
   LPM1.addPass(
