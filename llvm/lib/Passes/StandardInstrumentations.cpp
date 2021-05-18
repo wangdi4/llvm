@@ -1007,11 +1007,14 @@ void PassStructurePrinter::registerCallbacks(
   if (!DebugPassStructure)
     return;
 
-  PIC.registerBeforeNonSkippedPassCallback([this](StringRef PassID, Any IR) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  PIC.registerBeforeNonSkippedPassCallback([this](StringRef PassID, Any IR) {
     printWithIdent(true, PassID + " on " + getIRName(IR));
-#endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   });
+#else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  PIC.registerBeforeNonSkippedPassCallback( // INTEL
+      [](StringRef PassID, Any IR) {}); // INTEL
+#endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   PIC.registerAfterPassCallback(
       [this](StringRef PassID, Any IR, const PreservedAnalyses &) {
         printWithIdent(false, Twine());
@@ -1022,11 +1025,14 @@ void PassStructurePrinter::registerCallbacks(
         printWithIdent(false, Twine());
       });
 
-  PIC.registerBeforeAnalysisCallback([this](StringRef PassID, Any IR) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  PIC.registerBeforeAnalysisCallback([this](StringRef PassID, Any IR) {
     printWithIdent(true, PassID + " analysis on " + getIRName(IR));
-#endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   });
+#else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  PIC.registerBeforeAnalysisCallback( // INTEL
+      [](StringRef PassID, Any IR) {}); // INTEL
+#endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   PIC.registerAfterAnalysisCallback(
       [this](StringRef PassID, Any IR) { printWithIdent(false, Twine()); });
 }
