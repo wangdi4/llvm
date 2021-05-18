@@ -1795,6 +1795,12 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
       bool FPMConsumed =
           addVPOPassesPreOrPostLoopOpt(MPM, FPM, /*IsPostLoopOptPass=*/false);
 
+      if (FPMConsumed) {
+        // TODO: Check whether this re-creation is needed, or it's ok to
+        // reuse a consumed FPM.
+        FPM = FunctionPassManager();
+      }
+
       addLoopOptPasses(MPM, FPM, Level, /*IsLTO=*/false);
 
       // Run LLVM-IR VPlan vectorizer after loopopt to vectorize all loops not

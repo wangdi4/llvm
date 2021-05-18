@@ -302,7 +302,6 @@
 ; CHECK-NOEXT: {{.*}}
 ; CHECK-O0-NEXT: Running pass: VecClonePass ;INTEL
 ; CHECK-O0-NEXT: Invalidating analysis: InnerAnalysisManagerProxy ;INTEL
-; CHECK-O0-NEXT: Finished llvm::Module pass manager run
 
 ; RUN: opt -disable-output -disable-verify -verify-cfg-preserved=1 -debug-pass-manager \
 ; RUN:     -passes='repeat<3>(no-op-module)' %s 2>&1 \
