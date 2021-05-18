@@ -49311,107 +49311,77 @@ static bool isHorizontalBinOp(unsigned HOpcode, SDValue &LHS, SDValue &RHS,
   return true;
 }
 
-// Try to synthesize horizontal (f)add/sub from (f)adds/subs of shuffles.
-static SDValue combineToHorizontalAddSub(SDNode *N, SelectionDAG &DAG,
-                                         const X86Subtarget &Subtarget) {
+/// Do target-specific dag combines on floating-point adds/subs.
+static SDValue combineFaddFsub(SDNode *N, SelectionDAG &DAG,
+                               const X86Subtarget &Subtarget) {
   EVT VT = N->getValueType(0);
-  unsigned Opcode = N->getOpcode();
-  bool IsAdd = (Opcode == ISD::FADD) || (Opcode == ISD::ADD);
-  SmallVector<int, 8> PostShuffleMask;
+  SDValue LHS = N->getOperand(0);
+  SDValue RHS = N->getOperand(1);
+  bool IsFadd = N->getOpcode() == ISD::FADD;
+  auto HorizOpcode = IsFadd ? X86ISD::FHADD : X86ISD::FHSUB;
+  assert((IsFadd || N->getOpcode() == ISD::FSUB) && "Wrong opcode");
 
-  switch (Opcode) {
-  case ISD::FADD:
-  case ISD::FSUB: { // INTEL
-    if ((Subtarget.hasSSE3() && (VT == MVT::v4f32 || VT == MVT::v2f64)) ||
-        (Subtarget.hasAVX() && (VT == MVT::v8f32 || VT == MVT::v4f64))) {
-      SDValue LHS = N->getOperand(0);
-      SDValue RHS = N->getOperand(1);
-      auto HorizOpcode = IsAdd ? X86ISD::FHADD : X86ISD::FHSUB;
-      if (isHorizontalBinOp(HorizOpcode, LHS, RHS, DAG, Subtarget, IsAdd,
-                            PostShuffleMask)) {
-        SDValue HorizBinOp = DAG.getNode(HorizOpcode, SDLoc(N), VT, LHS, RHS);
-        if (!PostShuffleMask.empty())
-          HorizBinOp = DAG.getVectorShuffle(VT, SDLoc(HorizBinOp), HorizBinOp,
-                                            DAG.getUNDEF(VT), PostShuffleMask);
-        return HorizBinOp;
-      }
-    }
+  // Try to synthesize horizontal add/sub from adds/subs of shuffles.
+  SmallVector<int, 8> PostShuffleMask;
+  if (((Subtarget.hasSSE3() && (VT == MVT::v4f32 || VT == MVT::v2f64)) ||
+       (Subtarget.hasAVX() && (VT == MVT::v8f32 || VT == MVT::v4f64))) &&
+      isHorizontalBinOp(HorizOpcode, LHS, RHS, DAG, Subtarget, IsFadd,
+                        PostShuffleMask)) {
+    SDValue HorizBinOp = DAG.getNode(HorizOpcode, SDLoc(N), VT, LHS, RHS);
+    if (!PostShuffleMask.empty())
+      HorizBinOp = DAG.getVectorShuffle(VT, SDLoc(HorizBinOp), HorizBinOp,
+                                        DAG.getUNDEF(VT), PostShuffleMask);
+    return HorizBinOp;
+  }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-    //  Try to combine the following nodes
-    //  t21: v16f32 = X86ISD::VFMULC/VFCMULC t7, t8
-    //  t15: v32f16 = bitcast t21
-    //  t16: v32f16 = fadd nnan ninf nsz arcp contract afn reassoc t15, t2
-    //  into X86ISD::VFMADDC/VFCMADDC if possible:
-    //  t22: v16f32 = bitcast t2
-    //  t23: v16f32 = nnan ninf nsz arcp contract afn reassoc
-    //                X86ISD::VFMADDC/VFCMADDC t7, t8, t22
-    //  t24: v32f16 = bitcast t23
-    SDValue LHS = N->getOperand(0);
-    SDValue RHS = N->getOperand(1);
-    auto getMulId = [&]() {
-      if (LHS->getOpcode() == ISD::BITCAST && LHS.hasOneUse() &&
-          (LHS->getOperand(0)->getOpcode() == X86ISD::VFMULC ||
-           LHS->getOperand(0)->getOpcode() == X86ISD::VFCMULC) &&
-           LHS->getOperand(0).hasOneUse())
-        return 0;
-      if (RHS->getOpcode() == ISD::BITCAST && RHS.hasOneUse() &&
-         (RHS->getOperand(0)->getOpcode() == X86ISD::VFMULC ||
-          RHS->getOperand(0)->getOpcode() == X86ISD::VFCMULC) &&
-          RHS->getOperand(0).hasOneUse())
-        return 1;
-      return 2;
-    };
-    int MulId = getMulId();
-    const TargetOptions &Options = DAG.getTarget().Options;
-    if ((Options.AllowFPOpFusion == FPOpFusion::Fast || Options.UnsafeFPMath) &&
-        MulId < 2 && Subtarget.hasFP16() && IsAdd &&
-        (VT == MVT::v32f16 || VT == MVT::v16f16 || VT == MVT::v8f16)) {
-      SDValue FAddOp1 = N->getOperand(1-MulId);
-      SDValue MULC = N->getOperand(MulId)->getOperand(0);
-      MVT ComplexType = MVT::getVectorVT(MVT::f32, VT.getVectorNumElements() / 2);
-      if ((MULC->getOpcode() == X86ISD::VFMULC ||
-           MULC->getOpcode() == X86ISD::VFCMULC) &&
-           MULC.hasOneUse() && MULC->getValueType(0) == ComplexType) {
-        SelectionDAG::FlagInserter FlagsInserter(DAG, N);
-        FAddOp1 = DAG.getBitcast(ComplexType, FAddOp1);
-        SDValue FMAddC =
-            DAG.getNode(MULC->getOpcode() == X86ISD::VFMULC ? X86ISD::VFMADDC
-                                                            : X86ISD::VFCMADDC,
-                        SDLoc(N), ComplexType, FAddOp1, MULC.getOperand(0),
-                        MULC.getOperand(1));
-        SDValue Res = DAG.getBitcast(VT, FMAddC);
-        return Res;
-      }
+  //  Try to combine the following nodes
+  //  t21: v16f32 = X86ISD::VFMULC/VFCMULC t7, t8
+  //  t15: v32f16 = bitcast t21
+  //  t16: v32f16 = fadd nnan ninf nsz arcp contract afn reassoc t15, t2
+  //  into X86ISD::VFMADDC/VFCMADDC if possible:
+  //  t22: v16f32 = bitcast t2
+  //  t23: v16f32 = nnan ninf nsz arcp contract afn reassoc
+  //                X86ISD::VFMADDC/VFCMADDC t7, t8, t22
+  //  t24: v32f16 = bitcast t23
+  auto getMulId = [&]() {
+    if (LHS->getOpcode() == ISD::BITCAST && LHS.hasOneUse() &&
+        (LHS->getOperand(0)->getOpcode() == X86ISD::VFMULC ||
+         LHS->getOperand(0)->getOpcode() == X86ISD::VFCMULC) &&
+        LHS->getOperand(0).hasOneUse())
+      return 0;
+    if (RHS->getOpcode() == ISD::BITCAST && RHS.hasOneUse() &&
+        (RHS->getOperand(0)->getOpcode() == X86ISD::VFMULC ||
+         RHS->getOperand(0)->getOpcode() == X86ISD::VFCMULC) &&
+        RHS->getOperand(0).hasOneUse())
+      return 1;
+    return 2;
+  };
+  int MulId = getMulId();
+  const TargetOptions &Options = DAG.getTarget().Options;
+  if ((Options.AllowFPOpFusion == FPOpFusion::Fast || Options.UnsafeFPMath) &&
+      MulId < 2 && Subtarget.hasFP16() && IsFadd &&
+      (VT == MVT::v32f16 || VT == MVT::v16f16 || VT == MVT::v8f16)) {
+    SDValue FAddOp1 = N->getOperand(1-MulId);
+    SDValue MULC = N->getOperand(MulId)->getOperand(0);
+    MVT ComplexType = MVT::getVectorVT(MVT::f32, VT.getVectorNumElements() / 2);
+    if ((MULC->getOpcode() == X86ISD::VFMULC ||
+         MULC->getOpcode() == X86ISD::VFCMULC) &&
+        MULC.hasOneUse() && MULC->getValueType(0) == ComplexType) {
+      SelectionDAG::FlagInserter FlagsInserter(DAG, N);
+      FAddOp1 = DAG.getBitcast(ComplexType, FAddOp1);
+      SDValue FMAddC =
+          DAG.getNode(MULC->getOpcode() == X86ISD::VFMULC ? X86ISD::VFMADDC
+                                                          : X86ISD::VFCMADDC,
+                      SDLoc(N), ComplexType, FAddOp1, MULC.getOperand(0),
+                      MULC.getOperand(1));
+      SDValue Res = DAG.getBitcast(VT, FMAddC);
+      return Res;
     }
+  }
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
-    break;
-  } // INTEL
-  case ISD::ADD:
-  case ISD::SUB:
-    if (Subtarget.hasSSE3() && (VT == MVT::v8i16 || VT == MVT::v4i32 ||
-                                VT == MVT::v16i16 || VT == MVT::v8i32)) {
-      SDValue LHS = N->getOperand(0);
-      SDValue RHS = N->getOperand(1);
-      auto HorizOpcode = IsAdd ? X86ISD::HADD : X86ISD::HSUB;
-      if (isHorizontalBinOp(HorizOpcode, LHS, RHS, DAG, Subtarget, IsAdd,
-                            PostShuffleMask)) {
-        auto HOpBuilder = [HorizOpcode](SelectionDAG &DAG, const SDLoc &DL,
-                                        ArrayRef<SDValue> Ops) {
-          return DAG.getNode(HorizOpcode, DL, Ops[0].getValueType(), Ops);
-        };
-        SDValue HorizBinOp = SplitOpsAndApply(DAG, Subtarget, SDLoc(N), VT,
-                                              {LHS, RHS}, HOpBuilder);
-        if (!PostShuffleMask.empty())
-          HorizBinOp = DAG.getVectorShuffle(VT, SDLoc(HorizBinOp), HorizBinOp,
-                                            DAG.getUNDEF(VT), PostShuffleMask);
-        return HorizBinOp;
-      }
-    }
-    break;
-  }
   return SDValue();
 }
 
@@ -49619,14 +49589,6 @@ static SDValue combineFMulcFCMulc(SDNode *N, SelectionDAG &DAG,
 }
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-
-/// Do target-specific dag combines on floating-point adds/subs.
-static SDValue combineFaddFsub(SDNode *N, SelectionDAG &DAG,
-                               const X86Subtarget &Subtarget) {
-  if (SDValue HOp = combineToHorizontalAddSub(N, DAG, Subtarget))
-    return HOp;
-  return SDValue();
-}
 
 /// Attempt to pre-truncate inputs to arithmetic ops if it will simplify
 /// the codegen.
@@ -53408,6 +53370,35 @@ static SDValue combinePseudoi16VecAdd(SDNode *N, SelectionDAG &DAG,
   return DAG.getNode(ISD::SUB, dl, MVT::v8i32, LHS, RHS);
 }
 #endif
+static SDValue combineAddOrSubToHADDorHSUB(SDNode *N, SelectionDAG &DAG,
+                                           const X86Subtarget &Subtarget) {
+  EVT VT = N->getValueType(0);
+  SDValue Op0 = N->getOperand(0);
+  SDValue Op1 = N->getOperand(1);
+  bool IsAdd = N->getOpcode() == ISD::ADD;
+  auto HorizOpcode = IsAdd ? X86ISD::HADD : X86ISD::HSUB;
+  assert((IsAdd || N->getOpcode() == ISD::SUB) && "Wrong opcode");
+
+  SmallVector<int, 8> PostShuffleMask;
+  if ((VT == MVT::v8i16 || VT == MVT::v4i32 || VT == MVT::v16i16 ||
+       VT == MVT::v8i32) &&
+      Subtarget.hasSSSE3() &&
+      isHorizontalBinOp(HorizOpcode, Op0, Op1, DAG, Subtarget, IsAdd,
+                        PostShuffleMask)) {
+    auto HOpBuilder = [HorizOpcode](SelectionDAG &DAG, const SDLoc &DL,
+                                    ArrayRef<SDValue> Ops) {
+      return DAG.getNode(HorizOpcode, DL, Ops[0].getValueType(), Ops);
+    };
+    SDValue HorizBinOp =
+        SplitOpsAndApply(DAG, Subtarget, SDLoc(N), VT, {Op0, Op1}, HOpBuilder);
+    if (!PostShuffleMask.empty())
+      HorizBinOp = DAG.getVectorShuffle(VT, SDLoc(HorizBinOp), HorizBinOp,
+                                        DAG.getUNDEF(VT), PostShuffleMask);
+    return HorizBinOp;
+  }
+
+  return SDValue();
+}
 
 static SDValue combineAdd(SDNode *N, SelectionDAG &DAG,
                           TargetLowering::DAGCombinerInfo &DCI,
@@ -53428,7 +53419,7 @@ static SDValue combineAdd(SDNode *N, SelectionDAG &DAG,
 #endif
 
   // Try to synthesize horizontal adds from adds of shuffles.
-  if (SDValue V = combineToHorizontalAddSub(N, DAG, Subtarget))
+  if (SDValue V = combineAddOrSubToHADDorHSUB(N, DAG, Subtarget))
     return V;
 
   // If vectors of i1 are legal, turn (add (zext (vXi1 X)), Y) into
@@ -53490,7 +53481,7 @@ static SDValue combineSub(SDNode *N, SelectionDAG &DAG,
   }
 
   // Try to synthesize horizontal subs from subs of shuffles.
-  if (SDValue V = combineToHorizontalAddSub(N, DAG, Subtarget))
+  if (SDValue V = combineAddOrSubToHADDorHSUB(N, DAG, Subtarget))
     return V;
 
   return combineAddOrSubToADCOrSBB(N, DAG);
