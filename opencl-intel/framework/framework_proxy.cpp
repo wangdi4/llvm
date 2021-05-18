@@ -102,7 +102,13 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clGetCommandQueueInfo = (cl_api_clGetCommandQueueInfo)GET_ALIAS(clGetCommandQueueInfo);
     ICDDispatchTable.clSetCommandQueueProperty = nullptr;
     ICDDispatchTable.clCreateBuffer = (cl_api_clCreateBuffer)GET_ALIAS(clCreateBuffer);
+    ICDDispatchTable.clCreateBufferWithProperties =
+        (cl_api_clCreateBufferWithProperties)GET_ALIAS(
+            clCreateBufferWithProperties);
     ICDDispatchTable.clCreateImage = (cl_api_clCreateImage)GET_ALIAS(clCreateImage);
+    ICDDispatchTable.clCreateImageWithProperties =
+        (cl_api_clCreateImageWithProperties)GET_ALIAS(
+            clCreateImageWithProperties);
     ICDDispatchTable.clCreateImage2D = (cl_api_clCreateImage2D)GET_ALIAS(clCreateImage2D);
     ICDDispatchTable.clCreateImage3D = (cl_api_clCreateImage3D)GET_ALIAS(clCreateImage3D);
     ICDDispatchTable.clRetainMemObject = (cl_api_clRetainMemObject)GET_ALIAS(clRetainMemObject);

@@ -171,7 +171,9 @@ typedef enum _cl_function_id {
     CL_FUNCTION_clUnloadCompiler = 115,
     CL_FUNCTION_clUnloadPlatformCompiler = 116,
     CL_FUNCTION_clWaitForEvents = 117,
-    CL_FUNCTION_COUNT = 118,
+    CL_FUNCTION_clCreateImageWithProperties = 118,
+    CL_FUNCTION_clCreateBufferWithProperties = 119,
+    CL_FUNCTION_COUNT = 120
 } cl_function_id;
 
 /*!
@@ -221,6 +223,15 @@ typedef struct _cl_params_clCreateBuffer {
     void **hostPtr;
     cl_int **errcodeRet;
 } cl_params_clCreateBuffer;
+
+typedef struct _cl_params_clCreateBufferWithProperties {
+  cl_context *context;
+  const cl_mem_properties **properties;
+  cl_mem_flags *flags;
+  size_t *size;
+  void **hostPtr;
+  cl_int **errcodeRet;
+} cl_params_clCreateBufferWithProperties;
 
 typedef struct _cl_params_clCreateCommandQueue {
     cl_context *context;
@@ -302,6 +313,16 @@ typedef struct _cl_params_clCreateImage {
     void **hostPtr;
     cl_int **errcodeRet;
 } cl_params_clCreateImage;
+
+typedef struct _cl_params_clCreateImageWithProperties {
+  cl_context *context;
+  const cl_mem_properties **properties;
+  cl_mem_flags *flags;
+  const cl_image_format **imageFormat;
+  const cl_image_desc **imageDesc;
+  void **hostPtr;
+  cl_int **errcodeRet;
+} cl_params_clCreateImageWithProperties;
 
 typedef struct _cl_params_clCreateImage2D {
     cl_context *context;

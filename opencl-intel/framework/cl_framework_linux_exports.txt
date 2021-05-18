@@ -2,6 +2,7 @@
     global:
         clBuildProgram;
         clCreateBuffer;
+        clCreateBufferWithProperties;
         clCreateCommandQueue;
         clCreateContext;
         clCreateContextFromType;
@@ -81,6 +82,7 @@
         clGetDeviceAndHostTimer;
         clCompileProgram;
         clCreateImage;
+        clCreateImageWithProperties;
         clCreateProgramWithBuiltInKernels;
         clCreateSubDevices;
         clEnqueueBarrierWithWaitList;
