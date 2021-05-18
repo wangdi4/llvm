@@ -49321,7 +49321,7 @@ static SDValue combineToHorizontalAddSub(SDNode *N, SelectionDAG &DAG,
 
   switch (Opcode) {
   case ISD::FADD:
-  case ISD::FSUB:
+  case ISD::FSUB: { // INTEL
     if ((Subtarget.hasSSE3() && (VT == MVT::v4f32 || VT == MVT::v2f64)) ||
         (Subtarget.hasAVX() && (VT == MVT::v8f32 || VT == MVT::v4f64))) {
       SDValue LHS = N->getOperand(0);
@@ -49347,6 +49347,8 @@ static SDValue combineToHorizontalAddSub(SDNode *N, SelectionDAG &DAG,
     //  t23: v16f32 = nnan ninf nsz arcp contract afn reassoc
     //                X86ISD::VFMADDC/VFCMADDC t7, t8, t22
     //  t24: v32f16 = bitcast t23
+    SDValue LHS = N->getOperand(0);
+    SDValue RHS = N->getOperand(1);
     auto getMulId = [&]() {
       if (LHS->getOpcode() == ISD::BITCAST && LHS.hasOneUse() &&
           (LHS->getOperand(0)->getOpcode() == X86ISD::VFMULC ||
@@ -49363,7 +49365,7 @@ static SDValue combineToHorizontalAddSub(SDNode *N, SelectionDAG &DAG,
     int MulId = getMulId();
     const TargetOptions &Options = DAG.getTarget().Options;
     if ((Options.AllowFPOpFusion == FPOpFusion::Fast || Options.UnsafeFPMath) &&
-        MulId < 2 && Subtarget.hasFP16() && IsFadd &&
+        MulId < 2 && Subtarget.hasFP16() && IsAdd &&
         (VT == MVT::v32f16 || VT == MVT::v16f16 || VT == MVT::v8f16)) {
       SDValue FAddOp1 = N->getOperand(1-MulId);
       SDValue MULC = N->getOperand(MulId)->getOperand(0);
@@ -49386,6 +49388,7 @@ static SDValue combineToHorizontalAddSub(SDNode *N, SelectionDAG &DAG,
 #endif // INTEL_CUSTOMIZATION
 
     break;
+  } // INTEL
   case ISD::ADD:
   case ISD::SUB:
     if (Subtarget.hasSSE3() && (VT == MVT::v8i16 || VT == MVT::v4i32 ||
