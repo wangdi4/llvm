@@ -137,8 +137,4 @@ declare i8* @__to_private(i8 addrspace(4)*)
  
 ;;}
 
-; Known issue of debugify on PHI node, ignore the “Missing line xxxx” warning
-; DEBUGIFY-NOT: WARNING
-; DEBUGIFY: WARNING: Missing line 13
-; DEBUGIFY: WARNING: Missing line 18
 ; DEBUGIFY-NOT: WARNING

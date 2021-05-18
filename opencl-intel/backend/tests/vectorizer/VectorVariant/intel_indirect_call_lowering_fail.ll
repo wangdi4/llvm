@@ -152,14 +152,4 @@ declare [7 x i64] @"WG.boundaries._ZTSN2cl4sycl6detail19__pf_kernel_wrapperIZZ4m
 
 attributes #1 = { nounwind "vector-variants"="_ZGVdN4vv__$U0,_ZGVdN8vv__$U0" }
 
-; false alarm on phi nodes
-; DEBUGIFY: WARNING: Missing line 15
-; DEBUGIFY-NEXT: WARNING: Missing line 16
-; DEBUGIFY-NEXT: WARNING: Missing line 43
-; DEBUGIFY-NEXT: WARNING: Missing line 44
-; DEBUGIFY-NEXT: WARNING: Missing line 45
-; DEBUGIFY-NEXT: WARNING: Missing line 60
-; DEBUGIFY-NEXT: WARNING: Missing line 61
-; DEBUGIFY-NEXT: WARNING: Missing line 75
-; DEBUGIFY-NEXT: WARNING: Missing line 76
 ; DEBUGIFY-NOT: WARNING

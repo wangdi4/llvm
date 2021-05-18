@@ -65,10 +65,4 @@ __Triad_separated_args.exit:                      ; preds = %scalarIf.i, %scalar
   ret void
 }
 
-; Known bug of debugify on PHI node: false alarm on missing line
-; Other warnings are not expected.
-
-; DEBUGIFY-NOT: WARNING
-; DEBUGIFY: WARNING: Missing line
-; DEBUGIFY: WARNING: Missing line
 ; DEBUGIFY-NOT: WARNING

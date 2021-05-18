@@ -59,6 +59,4 @@ attributes #7 = { nounwind "vector-variants"="_ZGVxN0lu_XXX,_ZGVxM0vv_XXX" }
 
 !0 = !{i32 8}
 
-; false alarm on phi nodes
-; DEBUGIFY: WARNING: Missing line 14
 ; DEBUGIFY-NOT: WARNING

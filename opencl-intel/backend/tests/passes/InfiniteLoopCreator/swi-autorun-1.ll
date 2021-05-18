@@ -162,11 +162,4 @@ attributes #4 = { convergent }
 !12 = !{!"Simple C/C++ TBAA"}
 !13 = !{!11, !11, i64 0}
 
-; Known bug of debugify on PHI node: false alarm on missing line
-; Other warnings are not expected.
-
-; DEBUGIFY-NOT: WARNING
-; DEBUGIFY: WARNING: Missing line
-; DEBUGIFY: WARNING: Missing line
-; DEBUGIFY: WARNING: Missing line
 ; DEBUGIFY-NOT: WARNING

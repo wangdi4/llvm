@@ -199,18 +199,4 @@ declare <16 x i32> @_ZGVdN16vv_3subii(<16 x i32> %A, <16 x i32> %B)
 
 attributes #7 = { nounwind "vector-variants"="_ZGVdM16vv___intel_indirect_call_XXX,_ZGVdN16vv___intel_indirect_call_XXX" }
 
-; false alarm on phi nodes
-; DEBUGIFY: WARNING: Missing line 19
-; DEBUGIFY-NEXT: WARNING: Missing line 21
-; DEBUGIFY-NEXT: WARNING: Missing line 23
-; DEBUGIFY-NEXT: WARNING: Missing line 24
-; DEBUGIFY-NEXT: WARNING: Missing line 46
-; DEBUGIFY-NEXT: WARNING: Missing line 47
-; DEBUGIFY-NEXT: WARNING: Missing line 48
-; DEBUGIFY-NEXT: WARNING: Missing line 63
-; DEBUGIFY-NEXT: WARNING: Missing line 64
-; DEBUGIFY-NEXT: WARNING: Missing line 84
-; DEBUGIFY-NEXT: WARNING: Missing line 86
-; DEBUGIFY-NEXT: WARNING: Missing line 88
-; DEBUGIFY-NEXT: WARNING: Missing line 89
 ; DEBUGIFY-NOT: WARNING

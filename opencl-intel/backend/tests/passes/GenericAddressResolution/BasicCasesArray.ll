@@ -216,9 +216,6 @@ declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function func -- {{.*}} addrspacecast
-; Known issue of debugify on PHI node, ignore the “Missing line xxxx” warning
-; DEBUGIFY: WARNING: Missing line 10
-; DEBUGIFY: WARNING: Missing line 14
 ; inttoptr is removed, ignore the “Missing line xxxx” warning
 ; DEBUGIFY: WARNING: Missing line 52
 ; DEBUGIFY-NOT: WARNING

@@ -53,5 +53,4 @@ attributes #5 = { nounwind "vector-variant"="_ZGVxN0lu__Z3fooif" }
 attributes #6 = { nounwind "vector-variant"="_ZGVxM0vv__Z3fooif" }
 attributes #7 = { nounwind "vector-variants"="_ZGVeN2vv___intel_indirect_call_i32,_ZGVeM2vv___intel_indirect_call_i32,_ZGVcN2vv___intel_indirect_call_i32,_ZGVcM2vv___intel_indirect_call_i32,_ZGVbN2vv___intel_indirect_call_i32,_ZGVbM2vv___intel_indirect_call_i32" }
 
-; DEBUGIFY: WARNING: Missing line 14
 ; DEBUGIFY-NOT: WARNING

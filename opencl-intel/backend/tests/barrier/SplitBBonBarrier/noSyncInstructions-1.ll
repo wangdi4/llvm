@@ -32,6 +32,4 @@ L3:
 ; CHECK: ret void
 }
 
-;; PHINode
-; DEBUGIFY: WARNING: Missing line 5
 ; DEBUGIFY-NOT: WARNING

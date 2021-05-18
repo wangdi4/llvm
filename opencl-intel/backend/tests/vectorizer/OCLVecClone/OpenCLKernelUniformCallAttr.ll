@@ -150,8 +150,4 @@ attributes #3 = { nounwind }
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuuuuuuuu_compute_sum {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuuuuuuuu_compute_sum {{.*}} call
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN4uuuuuuuuuu_compute_sum {{.*}} br
-; DEBUGIFY-NEXT: WARNING: Missing line 15
-; DEBUGIFY-NEXT: WARNING: Missing line 16
-; DEBUGIFY-NEXT: WARNING: Missing line 27
-; DEBUGIFY-NEXT: WARNING: Missing line 28
 ; DEBUGIFY-NOT: WARNING

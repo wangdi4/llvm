@@ -55,6 +55,4 @@ attributes #5 = { nounwind "vector-variants"="_ZGVbN8lu__Z3fooif" }
 attributes #6 = { nounwind "vector-variants"="_ZGVbM8vv__Z3fooif" }
 attributes #7 = { nounwind "vector-variants"="_ZGVbN8lu_XXX,_ZGVbM8vv_XXX" }
 
-; false alarm on phi nodes
-; DEBUGIFY: WARNING: Missing line 14
 ; DEBUGIFY-NOT: WARNING

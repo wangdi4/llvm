@@ -207,10 +207,4 @@ declare void @_Z7barrierj(i64)
 !2 = !{void (float addrspace(1)*, float addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32, float addrspace(1)*)* @spmv_csr_vector_kernel, !1, !1, !"float4",!"float const __attribute__((address_space(1))) *restrict, float const __attribute__((address_space(1))) *restrict, int const __attribute__((address_space(1))) *restrict, int const __attribute__((address_space(1))) *restrict, int const, float __attribute__((address_space(1))) *restrict", !"opencl_spmv_csr_vector_kernel_locals_anchor"}
 !4 = !{!"opencl_spmv_csr_vector_kernel_local_partialSums"}
 
-;; phi nodes
-; DEBUGIFY: WARNING: Missing line 32
-; DEBUGIFY: WARNING: Missing line 33
-; DEBUGIFY: WARNING: Missing line 50
-; DEBUGIFY: WARNING: Missing line 107
-
 ; DEBUGIFY-NOT: WARNING

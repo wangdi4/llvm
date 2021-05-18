@@ -266,12 +266,4 @@ attributes #6 = { convergent nounwind }
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-74: WARNING: Instruction with empty DebugLoc in function {{.*}}
-; Known issue of debugify on PHI node, ignore the “Missing line xxxx” warning
-; DEBUGIFY: WARNING: Missing line 41
-; DEBUGIFY: WARNING: Missing line 42
-; DEBUGIFY: WARNING: Missing line 43
-; DEBUGIFY: WARNING: Missing line 44
-; DEBUGIFY: WARNING: Missing line 118
-; DEBUGIFY: WARNING: Missing line 119
-; DEBUGIFY: WARNING: Missing line 120
 ; DEBUGIFY-NOT: WARNING
