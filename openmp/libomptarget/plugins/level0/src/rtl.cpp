@@ -16,6 +16,7 @@
 #include <cstring>
 #include <fstream>
 #include <limits>
+#include <list>
 #include <mutex>
 #include <set>
 #include <string>
@@ -61,11 +62,10 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
-// Parameters
-#define LEVEL0_ALIGNMENT 0 // Default alignmnet for allocation
-#define LEVEL0_ND_GROUP_SIZE 16 // Default group size for ND partitioning
-#define LEVEL0_MAX_GROUP_COUNT 64 // TODO: get it from HW
-#define LEVEL0_PAGE_SIZE (1 << 16) // L0 memory allocation unit
+/// Default alignmnet for allocation
+#define LEVEL0_ALIGNMENT 0
+/// Staging buffer size for host to device copy
+#define LEVEL0_STAGING_BUFFER_SIZE (1 << 12)
 
 // Subdevice utilities
 // Device encoding (MSB=63, LSB=0)
@@ -618,6 +618,9 @@ thread_local std::map<int32_t, PrivateHandlesTy> ThreadLocalHandles;
 /// Per-thread subdeivce encoding
 thread_local int64_t SubDeviceCode = 0;
 
+/// Per-thread staging buffer
+thread_local void *StagingBuffer = nullptr;
+
 /// Get default command queue group ordinal
 static uint32_t getCmdQueueGroupOrdinal(ze_device_handle_t Device) {
   uint32_t groupCount = 0;
@@ -1056,6 +1059,7 @@ public:
   std::vector<bool> Initialized;
   std::mutex *Mutexes;
   std::mutex *DataMutexes; // For internal data
+  std::mutex *RTLMutex;
   std::vector<std::vector<DeviceOffloadEntryTy>> OffloadTables;
   std::vector<std::vector<RTLProfileTy *>> Profiles;
 
@@ -1071,6 +1075,9 @@ public:
   std::map<ze_device_handle_t, MemStatTy> MemStatShared;
   std::map<ze_device_handle_t, MemStatTy> MemStatDevice;
 
+  /// Staging buffers
+  std::list<void *> StagingBuffers;
+
   /// Flags, parameters, options
   RTLFlagsTy Flags;
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
@@ -1081,6 +1088,9 @@ public:
 
   /// Dynamic kernel memory size
   size_t KernelDynamicMemorySize = 0; // Turned off by default
+
+  /// Staging buffer size
+  size_t StagingBufferSize = LEVEL0_STAGING_BUFFER_SIZE;
 
   /// Memory pool parameters
   /// MemPoolInfo[MemType] = {AllocMax(MB), Capacity, PoolSize(MB)}
@@ -1456,6 +1466,11 @@ public:
       else if (env[0] == 'F' || env[0] == 'f' || env[0] == '0')
         Flags.UseImageOptions = 0;
     }
+    // LIBOMPTARGET_LEVEL0_STAGING_BUFFER_SIZE=<SizeInKB>
+    if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_STAGING_BUFFER_SIZE")) {
+      size_t SizeInKB = std::stoi(env);
+      StagingBufferSize = SizeInKB << 10;
+    }
   }
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
@@ -1600,8 +1615,10 @@ public:
 
   /// Create command queue with the given device ID
   ze_command_queue_handle_t createCommandQueue(int32_t DeviceId);
-};
 
+  /// Get thread-local staging buffer for copying
+  void *getStagingBuffer();
+};
 
 /// Libomptarget-defined handler and argument.
 struct AsyncEventTy {
@@ -1843,7 +1860,7 @@ static uint64_t getDeviceArch(uint32_t L0DeviceId) {
 
 static bool isDiscrete(uint32_t L0DeviceId) {
   uint32_t prefix = L0DeviceId & 0xFF00;
-  return prefix == 0x4900 || prefix == 0x0200;
+  return prefix == 0x4900 || prefix == 0x0200 || prefix == 0x0b00;
 }
 
 // Decide device's default memory kind for internal allocation (e.g., map)
@@ -1930,6 +1947,9 @@ static void closeRTL() {
       DeviceInfo->unloadOffloadTable(i);
   }
 
+  for (auto &Buffer : DeviceInfo->StagingBuffers)
+    CALL_ZE_EXIT_FAIL(zeMemFree, DeviceInfo->Context, Buffer);
+
   if (DeviceInfo->Flags.UseMemoryPool) {
     DeviceInfo->MemPoolHost.deinit();
     for (auto &pool : DeviceInfo->MemPoolShared)
@@ -1954,6 +1974,7 @@ static void closeRTL() {
 
   delete[] DeviceInfo->Mutexes;
   delete[] DeviceInfo->DataMutexes;
+  delete DeviceInfo->RTLMutex;
   IDP("Closed RTL successfully\n");
 }
 
@@ -2286,6 +2307,22 @@ RTLDeviceInfoTy::createCommandQueue(int32_t DeviceId) {
                                  CmdQueueIndices[DeviceId],
                                  DeviceIdStr[DeviceId]);
   return cmdQueue;
+}
+
+/// Get thread-local staging buffer for copying
+void *RTLDeviceInfoTy::getStagingBuffer() {
+  if (StagingBufferSize == 0)
+    return nullptr;
+
+  if (StagingBuffer == nullptr) {
+    ze_host_mem_alloc_desc_t Desc = {
+        ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC, nullptr, 0};
+    CALL_ZE_RET_NULL(zeMemAllocHost, Context, &Desc,
+                     StagingBufferSize, LEVEL0_ALIGNMENT, &StagingBuffer);
+    std::lock_guard<std::mutex> Lock(*RTLMutex);
+    StagingBuffers.push_back(StagingBuffer);
+  }
+  return StagingBuffer;
 }
 
 static void dumpImageToFile(
@@ -2656,6 +2693,7 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
   if (DeviceInfo->Flags.EnableProfile)
     DeviceInfo->ProfileEvents.init(DeviceInfo->Context);
   DeviceInfo->SubDeviceEvents.resize(DeviceInfo->NumRootDevices);
+  DeviceInfo->RTLMutex = new std::mutex();
 
   if (DebugLevel > 0)
     DeviceInfo->initMemoryStat();
@@ -3347,7 +3385,15 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
     IDP("Asynchronous data submit started -- %" PRId64 " bytes (hst:"
        DPxMOD ") -> (tgt:" DPxMOD ")\n", Size, DPxPTR(HstPtr), DPxPTR(TgtPtr));
   } else {
-    if (copyData(DeviceId, TgtPtr, HstPtr, Size, copyLock) != OFFLOAD_SUCCESS)
+    void *SrcPtr = HstPtr;
+    if (static_cast<size_t>(Size) <= DeviceInfo->StagingBufferSize &&
+        DeviceInfo->getMemAllocType(HstPtr) == ZE_MEMORY_TYPE_UNKNOWN &&
+        isDiscrete(DeviceInfo->DeviceProperties[DeviceId].deviceId)) {
+      SrcPtr = DeviceInfo->getStagingBuffer();
+      std::copy_n(static_cast<char *>(HstPtr), Size,
+                  static_cast<char *>(SrcPtr));
+    }
+    if (copyData(DeviceId, TgtPtr, SrcPtr, Size, copyLock) != OFFLOAD_SUCCESS)
       return OFFLOAD_FAIL;
     IDP("Copied %" PRId64 " bytes (hst:" DPxMOD ") -> (tgt:" DPxMOD ")\n", Size,
        DPxPTR(HstPtr), DPxPTR(TgtPtr));
@@ -3419,8 +3465,16 @@ static int32_t retrieveData(
     IDP("Asynchronous data retrieve started -- %" PRId64 " bytes (tgt:"
        DPxMOD ") -> (hst:" DPxMOD ")\n", Size, DPxPTR(TgtPtr), DPxPTR(HstPtr));
   } else {
-    if (copyData(DeviceId, HstPtr, TgtPtr, Size, copyLock) != OFFLOAD_SUCCESS)
+    void *DstPtr = HstPtr;
+    if (static_cast<size_t>(Size) <= DeviceInfo->StagingBufferSize &&
+        DeviceInfo->getMemAllocType(HstPtr) == ZE_MEMORY_TYPE_UNKNOWN &&
+        isDiscrete(DeviceInfo->DeviceProperties[DeviceId].deviceId))
+      DstPtr = DeviceInfo->getStagingBuffer();
+    if (copyData(DeviceId, DstPtr, TgtPtr, Size, copyLock) != OFFLOAD_SUCCESS)
       return OFFLOAD_FAIL;
+    if (DstPtr != HstPtr)
+      std::copy_n(static_cast<char *>(DstPtr), Size,
+                  static_cast<char *>(HstPtr));
     IDP("Copied %" PRId64 " bytes (tgt:" DPxMOD ") -> (hst:" DPxMOD ")\n", Size,
        DPxPTR(TgtPtr), DPxPTR(HstPtr));
   }

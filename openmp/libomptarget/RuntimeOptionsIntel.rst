@@ -310,6 +310,15 @@ region.
 
 **Default**: Use existing kernel property
 
+``LIBOMPTARGET_LEVEL0_STAGING_BUFFER_SIZE=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Sets the staging buffer size to ``<Num>`` KB.
+Staging buffer is used in copy operations between host and device as a
+temporary storage for two-step copy operation. The buffer is only used for
+discrete devices.
+
+**Default**: 4
+
 
 Plugin OpenCL
 -------------
