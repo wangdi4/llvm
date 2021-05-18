@@ -1488,7 +1488,7 @@ void PassManagerBuilder::populateModulePassManager(
     }
   }
 #endif // INTEL_CUSTOMIZATION
-  if (!SYCLOptimizationMode && !PrepareForLTO || !isLoopOptEnabled()) { // INTEL
+  if (!SYCLOptimizationMode && (!PrepareForLTO || !isLoopOptEnabled())) { // INTEL
   // Distribute loops to allow partial vectorization.  I.e. isolate dependences
   // into separate loop that would otherwise inhibit vectorization.  This is
   // currently only performed for loops marked with the metadata
