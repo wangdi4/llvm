@@ -22,6 +22,12 @@ class HIRSSADeconstructionPass
     : public PassInfoMixin<HIRSSADeconstructionPass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  // Make the pass required so it always runs in opt-bisect mode.
+  // Without this pass, assertion is sometimes triggered in HIRCodeGen
+  // pass (another required pass) because we form incorrect HIR.
+  // In the old PM, we used to discard all the formed regions as a
+  // workaround but there isn't any way to do that in new PM.
+  static bool isRequired() { return true; }
 };
 
 } // namespace loopopt
