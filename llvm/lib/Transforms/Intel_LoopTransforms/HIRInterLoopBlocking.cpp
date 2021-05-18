@@ -864,7 +864,7 @@ private:
   // However, RHSs of the loads (marked with * and **, respectively) are the
   // same.
   //
-  // %2122 = (@globalvar_mod_mp_ezsize_)[0:0:24([6 x i32]*:0)][0:4:4([6 x
+  // %2122 = (@A_)[0:0:24([6 x i32]*:0)][0:4:4([6 x
   // i32]:6)]; (*)
   // + DO i2 = 0, sext.i32.i64((1 + %2)) + -2, 1   <DO_LOOP>
   // |   + DO i3 = 0, sext.i32.i64(%1) + -1, 1   <DO_LOOP>
@@ -873,7 +873,7 @@ private:
   // 1:8 * sext.i32.i64((1 + (-1 * %2118) +
   // %2119))(double*:0)][%2118:2:8(double*:0)] ...
 
-  // %4773 = (@globalvar_mod_mp_ezsize_)[0:0:24([6 x i32]*:0)][0:4:4([6 x
+  // %4773 = (@A_)[0:0:24([6 x i32]*:0)][0:4:4([6 x
   // i32]:6)]; (**)
   // + DO i2 = 0, sext.i32.i64(%1) + -1 * sext.i32.i64(%4925), 1   <DO_LOOP>
   // |   + DO i3 = 0, sext.i32.i64(%0) + -1 * zext.i32.i64(%4837), 1   <DO_LOOP>
@@ -1090,10 +1090,10 @@ bool InnermostLoopAnalyzer::areEqualLowerBoundsAndStrides(
     if (NumDims != Ref->getNumDimensions()) {
       // This function does not check anything for following cases.
       // Fortran dope-vectors.
-      // (@upml_mod_mp_byh_)[0].6[0].2;
-      // (@upml_mod_mp_byh_)[0].0;
-      // (@upml_mod_mp_ayh_)[0].6[0].2;
-      // (@upml_mod_mp_ayh_)[0].0;
+      // (@b_)[0].6[0].2;
+      // (@b_)[0].0;
+      // (@a_)[0].6[0].2;
+      // (@a_)[0].0;
 
       // TODO: work around - not correct
       if (FirstRef->hasTrailingStructOffsets() &&
@@ -3529,7 +3529,7 @@ bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
                       const LoopToConstRefTy &InnermostLoopToRepRef,
                       const InnermostLoopToShiftTy &InnermostLoopToShift,
                       HLLoop *OutermostLoop, HLIf *OuterIf, HIRDDAnalysis &DDA,
-                      StringRef Func, bool Advanced) {
+                      StringRef Func, bool KnownGoodSizes) {
 
   if (DisableTransform) {
     LLVM_DEBUG(dbgs() << "Transformation is disabled.\n");
@@ -3547,7 +3547,7 @@ bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
   // Magic numbers.
   unsigned Size = InnermostLoopToDimInfos.begin()->second.size();
   SmallVector<unsigned, 4> PreSetStripmineSizes(Size, DefaultStripmineSize);
-  if (Advanced) {
+  if (KnownGoodSizes) {
     for (unsigned I = 0; I < Size; I++) {
       switch (I) {
       case 0:
@@ -3854,7 +3854,7 @@ unsigned getCommonDimNum(const LoopToDimInfoTy &InnermostLoopToDimInfo,
 
 void testInnermostLoops(const SmallVectorImpl<HLLoop *> &InnermostLoops,
                         const HLRegion *Reg, HIRDDAnalysis &DDA,
-                        StringRef FuncName, bool Advanced) {
+                        StringRef FuncName, bool KnownGoodSizes) {
 
   if (InnermostLoops.size() < 2) {
     LLVM_DEBUG(dbgs() << "Empty LV -- skip\n");
@@ -3892,8 +3892,6 @@ void testInnermostLoops(const SmallVectorImpl<HLLoop *> &InnermostLoops,
     InnermostLoopToRepRef.emplace(Lp, RepRef);
   }
 
-  // This is a filter for roms' first portion (avoiding)
-  // fold it into the loop above.
   HLNode *Ancestor =
       findTheLowestAncestor(InnermostLoopToDimInfo.front().first, Reg);
   for (auto Pair : make_range(std::next(InnermostLoopToDimInfo.begin()),
@@ -3936,7 +3934,7 @@ void testInnermostLoops(const SmallVectorImpl<HLLoop *> &InnermostLoops,
   HLIf *OuterIf = dyn_cast<HLIf>(OuterNode);
   doTransformation(InnermostLoopToDimInfo, InnermostLoopToRepRef,
                    InnermostLoopToShiftVec, OutermostLoop, OuterIf, DDA,
-                   FuncName, Advanced);
+                   FuncName, KnownGoodSizes);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -3958,7 +3956,7 @@ bool testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
   if (HIRF.hir_begin() == HIRF.hir_end())
     return false;
 
-  bool Advanced = TTI.isAdvancedOptEnabled(
+  bool KnownGoodSizes = TTI.isAdvancedOptEnabled(
       TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512);
 
   SmallVector<HLLoop *, 4> InnermostLoops;
@@ -3978,7 +3976,7 @@ bool testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
       LLVM_DEBUG(dbgs() << "1. Innermost loops collected: ");
       LLVM_DEBUG(printLoopVec(InnermostLoops));
 
-      testInnermostLoops(InnermostLoops, Reg, DDA, F.getName(), Advanced);
+      testInnermostLoops(InnermostLoops, Reg, DDA, F.getName(), KnownGoodSizes);
       InnermostLoops.clear();
 
     } else if (HLInst *HInst = dyn_cast<HLInst>(*It)) {
@@ -3988,21 +3986,22 @@ bool testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
         LLVM_DEBUG(dbgs() << "2. Innermost loops collected: ");
         LLVM_DEBUG(printLoopVec(InnermostLoops));
 
-        testInnermostLoops(InnermostLoops, Reg, DDA, F.getName(), Advanced);
+        testInnermostLoops(InnermostLoops, Reg, DDA, F.getName(),
+                           KnownGoodSizes);
         InnermostLoops.clear();
       }
     }
   }
 
   if (!InnermostLoops.empty())
-    testInnermostLoops(InnermostLoops, Reg, DDA, F.getName(), Advanced);
+    testInnermostLoops(InnermostLoops, Reg, DDA, F.getName(), KnownGoodSizes);
 
   return true;
 }
 
 bool tryTransform(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
                   HIRDDAnalysis &DDA, StringRef FuncName, HLLoop *OutermostLoop,
-                  bool Advanced) {
+                  bool KnownGoodSizes) {
 
   ProfitablityAndLegalityChecker Checker(HIRF, HASA, DDA, OutermostLoop,
                                          FuncName);
@@ -4013,7 +4012,7 @@ bool tryTransform(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
     return doTransformation(Checker.getInnermostLoopToDimInfos(),
                             Checker.getInnermostLoopToRepRef(),
                             InnermostLoopToShiftVec, Checker.getOutermostLoop(),
-                            nullptr, DDA, FuncName, Advanced);
+                            nullptr, DDA, FuncName, KnownGoodSizes);
   }
 
   return false;
@@ -4050,7 +4049,7 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
 
   LLVM_DEBUG(dbgs() << PC.getOutermostLoop()->getNumber() << "\n";);
 
-  bool Advanced = TTI.isAdvancedOptEnabled(
+  bool KnownGoodSizes = TTI.isAdvancedOptEnabled(
       TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512);
 
   if (!isOptVarPredNeeded(PC)) {
@@ -4058,7 +4057,7 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
     LLVM_DEBUG(PC.getOutermostLoop()->dump());
 
     bool Success = tryTransform(HIRF, HASA, DDA, FuncName,
-                                PC.getOutermostLoop(), Advanced);
+                                PC.getOutermostLoop(), KnownGoodSizes);
     if (Success) {
       return true;
     }
@@ -4095,7 +4094,7 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
 
   // Heuristic: try to work only on OutLoops.back()
   bool Success = tryTransform(HIRF, HASA, DDA, FuncName,
-                              OutLoops[OutLoops.size() - 1], Advanced);
+                              OutLoops[OutLoops.size() - 1], KnownGoodSizes);
   return Success;
 }
 } // namespace
