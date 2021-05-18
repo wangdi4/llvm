@@ -29,6 +29,7 @@ namespace loopopt {
 
 class HIRCreation;
 class HLNodeUtils;
+class HLGoto;
 class HLNode;
 class HLLabel;
 
@@ -48,8 +49,12 @@ private:
   /// RequiredLabels - HLLabels which aren't redundant.
   RequiredLabelsTy RequiredLabels;
 
-  /// \brief Eliminates redundant HLGotos created by HIRCreation pass.
-  void eliminateRedundantGotos();
+  /// \brief Eliminates redundant HLGotos passed in Gotos and fills up
+  /// RequiredLabels with needed Labels. This utility does not invalidate any
+  //  analyses. Caller is responsible for doing the necessary invalidation.
+  static void
+  eliminateRedundantGotos(const SmallVectorImpl<HLGoto *> &Gotos,
+                          SmallVectorImpl<HLLabel *> &RequiredLabels);
 
   /// \brief Eliminates redundant HLLabels created by HIRCreation pass.
   void eliminateRedundantLabels();

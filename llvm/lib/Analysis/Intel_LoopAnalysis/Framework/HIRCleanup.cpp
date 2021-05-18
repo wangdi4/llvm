@@ -42,22 +42,23 @@ HLNode *HIRCleanup::findHIRHook(const BasicBlock *BB) const {
   return nullptr;
 }
 
-void HIRCleanup::eliminateRedundantGotos() {
-
-  for (auto I = HIRC.Gotos.begin(), E = HIRC.Gotos.end(); I != E; ++I) {
-    auto Goto = *I;
-    auto TargetBB = Goto->getTargetBBlock();
+void HIRCleanup::eliminateRedundantGotos(
+    const SmallVectorImpl<HLGoto *> &Gotos,
+    SmallVectorImpl<HLLabel *> &RequiredLabels) {
+  for (auto *Goto : Gotos) {
+    auto TargetLabel = Goto->getTargetLabel();
 
     HLNode *CurNode = Goto;
 
     // We either remove Goto as redundant by looking at its control flow
     // successors or link it to its target HLLabel.
     while (1) {
-      auto *Successor = HNU.getLexicalControlFlowSuccessor(CurNode);
+      auto *Successor = HLNodeUtils::getLexicalControlFlowSuccessor(CurNode);
 
       bool Erase = false, CheckNext = false;
 
       if (!Successor) {
+        auto TargetBB = Goto->getTargetBBlock();
         if (TargetBB == Goto->getParentRegion()->getSuccBBlock()) {
           // Goto is redundant if it has no lexical successor and jumps to
           // region exit.
@@ -65,7 +66,7 @@ void HIRCleanup::eliminateRedundantGotos() {
         }
       } else if (auto LabelSuccessor = dyn_cast<HLLabel>(Successor)) {
 
-        if (TargetBB == LabelSuccessor->getSrcBBlock()) {
+        if (TargetLabel == LabelSuccessor) {
           // Goto is redundant if its lexical successor is the same as its
           // target.
           Erase = true;
@@ -80,19 +81,13 @@ void HIRCleanup::eliminateRedundantGotos() {
           CheckNext = true;
         }
       } else if (auto GotoSuccessor = dyn_cast<HLGoto>(Successor)) {
-        // If the successor is a goto which also jumps to the same bblock,
+        // If the successor is a goto which also jumps to the same label,
         // this goto is redundant.
         // Example-
         // goto L1; << This goto is redundant.
-        // L2:
         // goto L1;
-        auto SuccTargetBB = GotoSuccessor->getTargetBBlock();
-
-        if (!SuccTargetBB) {
-          SuccTargetBB = GotoSuccessor->getTargetLabel()->getSrcBBlock();
-        }
-
-        if (SuccTargetBB == TargetBB) {
+        auto SuccTargetLabel = GotoSuccessor->getTargetLabel();
+        if (SuccTargetLabel == TargetLabel) {
           Erase = true;
         }
       }
@@ -102,14 +97,8 @@ void HIRCleanup::eliminateRedundantGotos() {
         break;
 
       } else if (!CheckNext) {
-        // Link Goto to its HLLabel target, if available.
-        auto It = HIRC.Labels.find(TargetBB);
-
-        if (It != HIRC.Labels.end()) {
-          Goto->setTargetLabel(It->second);
-          RequiredLabels.push_back(It->second);
-        }
-
+        if (TargetLabel)
+          RequiredLabels.push_back(TargetLabel);
         break;
       }
     }
@@ -164,7 +153,16 @@ void HIRCleanup::eliminateRedundantLabels() {
 }
 
 void HIRCleanup::run() {
-  eliminateRedundantGotos();
+  // Setup goto target labels so that we can eliminate any redundant gotos.
+  // The call to eliminateRedundantGotos uses the target labels.
+  for (auto *Goto : HIRC.Gotos) {
+    auto TargetBB = Goto->getTargetBBlock();
+    auto It = HIRC.Labels.find(TargetBB);
+    if (It != HIRC.Labels.end())
+      Goto->setTargetLabel(It->second);
+  }
+
+  eliminateRedundantGotos(HIRC.Gotos, RequiredLabels);
 
   // Sort RequiredLabels vector before the query phase.
   std::sort(RequiredLabels.begin(), RequiredLabels.end(),
