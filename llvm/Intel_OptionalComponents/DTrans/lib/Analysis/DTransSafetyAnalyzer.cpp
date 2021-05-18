@@ -1622,13 +1622,13 @@ public:
       ParentStInfo->getField(FieldNum).setAddressTaken();
     };
 
-    switch(FieldAddressTakenType) {
-      case dtrans::FieldAddressTakenMemory:
-      case dtrans::FieldAddressTakenCall:
-      case dtrans::FieldAddressTakenReturn:
-        break;
-      default:
-        llvm_unreachable("Expected a valid FieldAddressTaken safety mask");
+    switch (FieldAddressTakenType) {
+    case dtrans::FieldAddressTakenMemory:
+    case dtrans::FieldAddressTakenCall:
+    case dtrans::FieldAddressTakenReturn:
+      break;
+    default:
+      llvm_unreachable("Expected a valid FieldAddressTaken safety mask");
     }
 
     for (auto &PointeePair :
@@ -2162,7 +2162,8 @@ public:
 
       if (ParamInfo->pointsToSomeElement())
         markFieldAddressTaken(ParamInfo, "Address of member passed to function",
-                              &Call, dtrans::FieldAddressTakenCall, DumpCallback);
+                              &Call, dtrans::FieldAddressTakenCall,
+                              DumpCallback);
 
       // We need to know the signature of the called function in order the check
       // for functions that take i8* parameter types.
@@ -4135,6 +4136,19 @@ bool DTransSafetyInfo::useDTransSafetyAnalysis() const {
   return !UnhandledPtrType && DTransSafetyAnalysisRan;
 }
 
+bool DTransSafetyInfo::getDTransOutOfBoundsOK() const {
+  return dtrans::DTransOutOfBoundsOK;
+}
+
+bool DTransSafetyInfo::testSafetyData(dtrans::TypeInfo *TyInfo,
+                                      dtrans::Transform Transform) {
+  assert(!(Transform & ~dtrans::DT_Legal) && "Illegal transform");
+
+  dtrans::SafetyData Conditions =
+      dtrans::getConditionsForTransform(Transform, getDTransOutOfBoundsOK());
+  return TyInfo->testSafetyData(Conditions);
+}
+
 dtrans::TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
   // If we already have this type in our map, just return it.
   auto *TI = getTypeInfo(Ty);
@@ -4189,7 +4203,7 @@ dtrans::TypeInfo *DTransSafetyInfo::getTypeInfo(DTransType *Ty) const {
 }
 
 void DTransSafetyInfo::addPtrSubMapping(llvm::BinaryOperator *BinOp,
-  DTransType *Ty) {
+                                        DTransType *Ty) {
   DEBUG_WITH_TYPE(SAFETY_VERBOSE, {
     dbgs() << "addPtrSubMapping: ";
     if (auto *I = dyn_cast<Instruction>(BinOp))
@@ -4250,8 +4264,8 @@ void DTransSafetyInfo::printCallInfo() {
     raw_string_ostream Stream(InstStr);
     I->printAsOperand(Stream);
     Stream.flush();
-    Entries.emplace_back(std::make_tuple(
-        I->getFunction()->getName(), CI->getCallInfoKind(), InstStr, CI));
+    Entries.emplace_back(std::make_tuple(I->getFunction()->getName(),
+                                         CI->getCallInfoKind(), InstStr, CI));
   }
 
   std::sort(Entries.begin(), Entries.end());

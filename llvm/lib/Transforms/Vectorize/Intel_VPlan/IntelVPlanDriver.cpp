@@ -70,11 +70,6 @@ using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt; // INTEL
 
-static cl::opt<bool>
-    VPlanEnablePeeling("vplan-enable-peeling", cl::init(false),
-                       cl::desc("Enable generation of peel loops to improve "
-                                "alignment of memory accesses"));
-
 static cl::opt<bool> DisableCodeGen(
     "disable-vplan-codegen", cl::init(false), cl::Hidden,
     cl::desc(
@@ -333,9 +328,6 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     return false;
 
   assert((WRLp || VPlanVectCand) && "WRLp can be null in stress testing only!");
-
-  if (VPlanEnablePeeling && LVP.isDynAlignEnabled())
-    LVP.selectBestPeelingVariants();
 
   unsigned VF;
   VPlanVector *Plan;
@@ -1206,9 +1198,6 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     std::string(Fn.getName()) + "." + std::to_string(Lp->getNumber());
   LVP.printCostModelAnalysisIfRequested<VPlanCostModelProprietary>(HeaderStr);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  if (VPlanEnablePeeling && LVP.isDynAlignEnabled())
-    LVP.selectBestPeelingVariants();
 
   // TODO: don't force vectorization if getIsAutoVec() is set to true.
   unsigned VF;

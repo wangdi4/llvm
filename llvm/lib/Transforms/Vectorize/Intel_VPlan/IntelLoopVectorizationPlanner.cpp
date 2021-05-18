@@ -42,6 +42,15 @@
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
+static cl::opt<bool>
+    VPlanEnablePeeling("vplan-enable-peeling", cl::init(false),
+    cl::desc("Enable generation of peel loops to improve "
+             "alignment of memory accesses"));
+
+static cl::opt<bool>
+    VPlanEnableDynamicPeeling("vplan-enable-dynamic-peeling-cm", cl::init(true),
+    cl::desc("Use cost model to decide whether to do dynamic peeling or not"));
+
 #if INTEL_CUSTOMIZATION
 extern llvm::cl::opt<bool> VPlanConstrStressTest;
 
@@ -95,6 +104,14 @@ static cl::opt<bool> EnableGeneralPeelingCostModel(
 static cl::opt<bool> PrintVecScenario(
     "vplan-print-vec-scenario", cl::init(false), cl::Hidden,
     cl::desc("Print selected single loop vectorization scenario"));
+
+static cl::opt<unsigned> FavorAlignedToleranceNonDefaultTCEst(
+  "vplan-favor-aligned-tolerance-non-default-tc", cl::init(2), cl::Hidden,
+  cl::desc("Favor aligned tolerance percent value for non-default TC estimation"));
+
+static cl::opt<unsigned> FavorAlignedMultiplierDefaultTCEst(
+  "vplan-favor-aligned-multiplier-default-tc", cl::init(2), cl::Hidden,
+  cl::desc("Favour aligned tolerance multiplier for default TC estimation"));
 
 static LoopVPlanDumpControl LCSSADumpControl("lcssa", "LCSSA transformation");
 static LoopVPlanDumpControl LoopCFUDumpControl("loop-cfu",
@@ -531,12 +548,69 @@ bool LoopVectorizationPlanner::readDynAlignEnabled(MDNode *MD) {
   return true;
 }
 
+static bool makeGoUnalignedDecision(int64_t AlignedGain,
+                                    int64_t UnalignedGain,
+                                    uint64_t ScalarCost,
+                                    uint64_t TripCount,
+                                    bool IsLoopTripCountEstimated) {
+  if (!VPlanEnablePeeling)
+    return true;
+
+  if (!VPlanEnableDynamicPeeling)
+    return true;
+
+  LLVM_DEBUG(dbgs() << "Using cost model to enable peeling. ");
+  if (!IsLoopTripCountEstimated) {
+    // When trip count is known, rely on cost model completely.
+    bool GoUnaligned = UnalignedGain > AlignedGain;
+    LLVM_DEBUG(dbgs() << "Trip count is known. "
+                      << "GoUnaligned = UnalignedGain > AlignedGain: "
+                      << UnalignedGain << " > " << AlignedGain << " = "
+                      << GoUnaligned << "\n");
+    return GoUnaligned;
+  }
+
+  if (TripCount != DefaultTripCount) {
+    // Otherwise favor aligned with some tolerance of scalar iterations.
+    bool GoUnaligned = UnalignedGain >
+      (int64_t) (AlignedGain +
+                 (ScalarCost * FavorAlignedToleranceNonDefaultTCEst / 100));
+    LLVM_DEBUG(dbgs() << "Trip count != default trip count. GoUnaligned = "
+                      << "UnalignedGain > "
+                      << "(AlignedGain + (ScalarCost * "
+                      << "FavorAlignedToleranceNonDefaultTCEst / 100)): "
+                      << UnalignedGain << " > (" << AlignedGain << " + ("
+                      << ScalarCost << " * "
+                      << FavorAlignedToleranceNonDefaultTCEst << " / 100))"
+                      << " = " << GoUnaligned << "\n");
+    return GoUnaligned;
+  }
+
+  if (UnalignedGain > 0 && AlignedGain > 0) {
+    bool GoUnaligned =
+      UnalignedGain > FavorAlignedMultiplierDefaultTCEst * AlignedGain;
+    LLVM_DEBUG(dbgs() << "Aligned and unaligned gains are positive. "
+                      << "GoUnaligned = "
+                      << "UnalignedGain > FavorAlignedMultiplierDefaultTCEst "
+                      << "* AlignedGain: "
+                      << UnalignedGain << " > "
+                      << FavorAlignedMultiplierDefaultTCEst << " * "
+                      << AlignedGain << " = " << GoUnaligned << "\n");
+    return GoUnaligned;
+  }
+
+  // We're here when one (or both) is <= 0. Perhaps, going unaligned is correct.
+  return false;
+}
 
 /// Evaluate cost model for available VPlans and find the best one.
 /// \Returns pair: VF which corresponds to the best VPlan (could be VF = 1) and
 /// the corresponding VPlan.
 template <typename CostModelTy>
 std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
+  if (VPlanEnablePeeling && isDynAlignEnabled())
+   selectBestPeelingVariants();
+
   LLVM_DEBUG(dbgs() << "Selecting VF for VPlan #" << VPlanOrderNumber << '\n');
   VPlanVector *ScalarPlan = getVPlanForVF(1);
   assert(ScalarPlan && "There is no scalar VPlan!");
@@ -550,6 +624,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   uint64_t TripCount = std::min(OuterMostVPLoop->getTripCountInfo().TripCount,
                                 (uint64_t)std::numeric_limits<unsigned>::max());
   unsigned BestUF = getLoopUnrollFactor();
+  bool IsTripCountEstimated = OuterMostVPLoop->getTripCountInfo().IsEstimated;
   unsigned ForcedVF = getForcedVF(WRLp);
 
   // Reset the current selection to scalar loop only.
@@ -622,7 +697,9 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
 
     // Calculate cost for one iteration of the main loop.
     CostModelTy MainLoopCM(Plan, VF, TTI, TLI, DL, VLSA);
-    const unsigned MainLoopIterationCost = MainLoopCM.getCost();
+    VPlanPeelingVariant *PeelingVariant = Plan->getPreferredPeeling(VF);
+    const unsigned MainLoopIterationCost =
+      MainLoopCM.getCost(PeelingVariant);
     if (MainLoopIterationCost == CostModelTy::UnknownCost) {
       LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " is unknown. Skip it.\n");
       if (VF == ForcedVF) {
@@ -651,11 +728,38 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                           MainLoopIterationCost * MainLoopTripCount +
                           RemainderEvaluator.getLoopCost();
 
+    // Calculate cost of one iteration of the main loop without preferred alignment.
+    const unsigned MainLoopIterationCostWithoutPeel = MainLoopCM.getCost();
+    if (MainLoopIterationCostWithoutPeel == CostModelTy::UnknownCost) {
+      LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " without peel is unknown. Skip it.\n");
+      continue;
+    }
+
+    // Calculate the total cost of remainder loop having no peeling, if there is one.
+    VPlanRemainderEvaluator RemainderEvaluatorWithoutPeel(
+        *this, ScalarIterationCost, TLI, TTI, DL, VLSA, TripCount,
+        0 /*Peel trip count */, VF, BestUF);
+    const decltype(TripCount) MainLoopTripCountWithoutPeel =
+        TripCount / (VF * BestUF);
+    uint64_t VectorCostWithoutPeel =
+        MainLoopIterationCostWithoutPeel * MainLoopTripCountWithoutPeel +
+        RemainderEvaluatorWithoutPeel.getLoopCost();
+
     if (0 < VecThreshold && VecThreshold < 100) {
       LLVM_DEBUG(dbgs() << "Applying threshold " << VecThreshold << " for VF "
                         << VF << ". Original cost = " << VectorCost << '\n');
       VectorCost = (VectorCost * VecThreshold) / 100;
+      VectorCostWithoutPeel = (VectorCostWithoutPeel * VecThreshold) / 100;
     }
+
+    int64_t GainWithPeel    = ScalarCost - VectorCost;
+    int64_t GainWithoutPeel = ScalarCost - VectorCostWithoutPeel;
+    bool GoUnaligned = makeGoUnalignedDecision(GainWithPeel,
+                                               GainWithoutPeel,
+                                               ScalarCost,
+                                               TripCount,
+                                               IsTripCountEstimated);
+
     const char CmpChar =
         ScalarCost < VectorCost ? '<' : ScalarCost == VectorCost ? '=' : '>';
     (void)CmpChar;
@@ -673,6 +777,19 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
                << MainLoopTripCount * MainLoopIterationCost << "\n"
                << "Remainder loop cost = " << RemainderEvaluator.getLoopCost()
                << " (" << RemainderEvaluator.getRemainderLoopKindStr() << ")"
+               << "\n"
+               // Print out costs without peel.
+               << " VectorCostWithoutPeel = "
+               << MainLoopTripCountWithoutPeel << " x "
+               << MainLoopIterationCostWithoutPeel
+               << " = " << VectorCostWithoutPeel
+               << "\n"
+               << "Main loop vector cost without peel = "
+               << MainLoopIterationCostWithoutPeel * MainLoopTripCountWithoutPeel
+               << "\n"
+               << "Remainder loop cost without peel = "
+               << RemainderEvaluatorWithoutPeel.getLoopCost()
+               << " (" << RemainderEvaluatorWithoutPeel.getRemainderLoopKindStr() << ")"
                << "\n";);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -687,9 +804,21 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+    if (GoUnaligned) {
+      PeelEvaluator.disable();
+      // Total cost is cost without peeling.
+      VectorCost = VectorCostWithoutPeel;
+      LLVM_DEBUG(dbgs() << "Peeling will not be performed.\n");
+    } else {
+      LLVM_DEBUG(dbgs() << "Peeling will be performed.\n");
+    }
+
     if (VectorCost < BestCost || VF == ForcedVF) {
       BestCost = VectorCost;
-      updateVecScenario(PeelEvaluator, RemainderEvaluator, VF, BestUF);
+      updateVecScenario(
+        PeelEvaluator,
+        GoUnaligned ? RemainderEvaluatorWithoutPeel : RemainderEvaluator,
+        VF, BestUF);
     }
   }
 #if INTEL_CUSTOMIZATION

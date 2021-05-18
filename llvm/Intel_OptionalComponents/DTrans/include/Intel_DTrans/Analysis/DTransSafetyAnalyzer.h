@@ -93,9 +93,19 @@ public:
 
   bool getUnhandledPtrType() const { return UnhandledPtrType; }
 
+  // Returns true if type has a safety violation for the specified Transform
+  // type.
+  bool testSafetyData(dtrans::TypeInfo *TyInfo, dtrans::Transform Transform);
+
   // Return true if safety analysis has been run and can be used in
   // transformations.
   bool useDTransSafetyAnalysis() const;
+
+  // Return the value used during analysis for the command line option
+  // "dtrans-outofboundsok" which controls the assumptions regarding whether
+  // taking the address of a structure field is allowed to access other fields
+  // of the structure.
+  bool getDTransOutOfBoundsOK() const;
 
   // Retrieve the DTrans type information entry for the specified type.
   // If there is no entry for the specified type, create one.

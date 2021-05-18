@@ -30,10 +30,17 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vplan-loop-info"
 
-static cl::opt<unsigned>
-    DefaultTripCount("vplan-default-trip-count", cl::init(300), cl::Hidden,
-                     cl::desc("Default estimate for the loop trip count, if "
-                              "can't be determined through other ways"));
+static cl::opt<unsigned, true>
+    DefaultTripCountOpt("vplan-default-trip-count", cl::location(DefaultTripCount),
+                        cl::Hidden,
+                        cl::desc("Default estimate for the loop trip count, if "
+                                 "can't be determined through other ways"));
+
+namespace llvm {
+namespace vpo {
+unsigned DefaultTripCount = 300;
+} // namespace vpo
+} // namespace llvm
 
 void TripCountInfo::calculateEstimatedTripCount() {
   if (TripCount)
