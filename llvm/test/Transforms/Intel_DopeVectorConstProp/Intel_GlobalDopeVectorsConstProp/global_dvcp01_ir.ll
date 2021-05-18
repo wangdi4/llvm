@@ -1,12 +1,10 @@
-; REQUIRES: asserts
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
+; RUN: opt < %s -dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 
-; This test case checks that the analysis for the global dope vector
-; @arr_mod_mp_a_ didn't pass since it is not guaranteed that the dope
-; vector fields' store instructions will execute if the call instruction
-; executes. It was created from the following source code by making a
-; modification to the function ALLOCATE_ARR in the IR:
+; This test case checks that the fields for the global dope vector
+; @arr_mod_mp_a_ were collected and propagated correctly. It is the
+; same test case as global_dvcp01.ll but it checks the IR. It was
+; created from the following source code:
 
 ;      MODULE ARR_MOD
 ;         REAL, POINTER :: A (:,:)
@@ -55,16 +53,18 @@
 
 ; ifx -xCORE-AVX512 -Ofast -flto arr.f90 -mllvm -debug-only=dope-vector-global-const-prop
 
-; The test case is similar to glob_dvcp01.ll, but the call to
-; @for_allocate_handle (function @arr_mod_mp_allocate_arr_) is wrapped in a
-; conditional. Since we can't prove that the call to @for_allocate_handle will be
-; executed if the store instructions will execute then the analysis should fail.
+; The test case basically allocates the global array A in ALLOCATE_ARR, then
+; initializes it in INITIALIZE_ARR and the use will be in PRINT_ARR.
 
-; CHECK: Global variable: arr_mod_mp_a_
-; CHECK-NEXT:   LLVM Type: QNCA_a0$float*$rank2$
-; CHECK-NEXT:  Global dope vector result: Failed to collect global dope vector info
-; CHECK-NEXT:  Dope vector analysis result: Store won't execute with alloc site
-; CHECK-NEXT:   Constant propagation status: NOT performed
+; Check that constants were propagated in function @arr_mod_mp_initialize_arr_
+; CHECK: define internal void @arr_mod_mp_initialize_arr_
+; CHECK:   %18 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* %13, i64 %8)
+; CHECK:   %19 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %18, i64 %12)
+
+; Check that constants were propagated in function @@arr_mod_mp_print_arr_
+; CHECK: define internal void @arr_mod_mp_print_arr_
+; CHECK:  %26 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 1, i64 40, float* %21, i64 %18)
+; CHECK:  %27 = call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 1, i64 4, float* %26, i64 %20)
 
 ; ModuleID = 'ld-temp.o'
 source_filename = "ld-temp.o"
@@ -78,7 +78,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @anon.87529b4ebf98830a9107fed24e462e82.1 = internal unnamed_addr constant i32 10
 
 ; Function Attrs: nofree noinline nounwind uwtable
-define internal void @arr_mod_mp_allocate_arr_(i32 %temp) #0 {
+define internal void @arr_mod_mp_allocate_arr_() #0 {
   store i64 0, i64* getelementptr inbounds (%"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_, i64 0, i32 5), align 8
   store i64 4, i64* getelementptr inbounds (%"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_, i64 0, i32 1), align 8
   store i64 2, i64* getelementptr inbounds (%"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_, i64 0, i32 4), align 16
@@ -96,18 +96,7 @@ define internal void @arr_mod_mp_allocate_arr_(i32 %temp) #0 {
   %6 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 1), i32 1)
   store i64 40, i64* %6, align 1
   store i64 1073741829, i64* getelementptr inbounds (%"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_, i64 0, i32 3), align 8
-
-; This condition won't allow to prove that @for_allocate_handle will execute if
-; the store instructions were executed.
-
-  %7 = icmp eq i32 %temp, 1
-  br i1 %7, label %if.then, label %if.end
-
-if.then:
-  %8 = tail call i32 @for_allocate_handle(i64 400, i8** bitcast (%"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_ to i8**), i32 262144, i8* null) #3
-  br label %if.end
-
-if.end:
+  %7 = tail call i32 @for_allocate_handle(i64 400, i8** bitcast (%"QNCA_a0$float*$rank2$"* @arr_mod_mp_a_ to i8**), i32 262144, i8* null) #3
   ret void
 }
 
@@ -216,7 +205,7 @@ declare dso_local i32 @for_write_seq_lis(i8*, i32, i64, i8*, i8*, ...) local_unn
 ; Function Attrs: nofree noinline nounwind uwtable
 define dso_local void @MAIN__() #0 {
   %1 = tail call i32 @for_set_reentrancy(i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.0) #3
-  tail call void @arr_mod_mp_allocate_arr_(i32 %1)
+  tail call void @arr_mod_mp_allocate_arr_()
   tail call void @arr_mod_mp_initialize_arr_(i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.1, i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.1)
   tail call void @arr_mod_mp_print_arr_(i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.1, i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.1)
   ret void

@@ -3,8 +3,8 @@
 ; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s
 
 ; This test case checks that the fields for the global dope vector
-; @arr_mod_mp_a_ were collected correctly. It was created
-; from the following source code:
+; @arr_mod_mp_a_ were collected and propagated correctly. It was
+; created from the following source code:
 
 ;      MODULE ARR_MOD
 ;         REAL, POINTER :: A (:,:)
@@ -60,6 +60,7 @@
 ; CHECK-NEXT:   LLVM Type: QNCA_a0$float*$rank2$
 ; CHECK-NEXT:   Global dope vector result: Pass
 ; CHECK-NEXT:   Dope vector analysis result: Pass
+; CHECK-NEXT:   Constant propagation status: performed
 ; CHECK-NEXT:     [0] Array Pointer: Read
 ; CHECK-NEXT:     [1] Element size: Written | Constant = i64 4
 ; CHECK-NEXT:     [2] Co-Dimension: Written | Constant = i64 0

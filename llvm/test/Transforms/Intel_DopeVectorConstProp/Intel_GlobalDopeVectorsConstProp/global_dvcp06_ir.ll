@@ -1,19 +1,12 @@
-; REQUIRES: asserts
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-GLOBDV
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-GLOBDV
+; RUN: opt < %s -dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=dopevectorconstprop -dope-vector-global-const-prop=true -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
 
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD0
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD0
-
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD1
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD1
-
-; RUN: opt < %s -disable-output -dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD2
-; RUN: opt < %s -disable-output -passes=dopevectorconstprop -dope-vector-global-const-prop=true -debug-only=dope-vector-global-const-prop -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 2>&1 | FileCheck %s -check-prefix=CHECK-FIELD2
-
-; This test case checks that the analysis for the global dope vector
-; fails since there is one nested dope vector that wasn't initialized.
-; It was created from the following source code:
+; This test case checks that the fields for the global dope vector
+; are invalid for constant collection since the global array is being copied.
+; Also, due to the copy, the pointer to the global dope vector will be used
+; in other functions that aren't related to data allocation. The
+; transformation shouldn't happen. It was created from the following source
+; code:
 
 ;      MODULE ARR_MOD
 ;
@@ -26,6 +19,7 @@
 ;         END TYPE T_TESTTYPE
 ;
 ;         TYPE (T_TESTTYPE), ALLOCATABLE :: A (:)
+;         TYPE (T_TESTTYPE), ALLOCATABLE :: B (:)
 ;
 ;         CONTAINS
 ;
@@ -34,6 +28,7 @@
 ;
 ;           IF(I.eq.1) ALLOCATE(A(I))
 ;
+;           ALLOCATE(A(I) % inner_array_A(10, 10))
 ;           ALLOCATE(A(I) % inner_array_B(10, 10, 10))
 ;           ALLOCATE(A(I) % inner_array_C(10))
 ;
@@ -84,33 +79,22 @@
 ;          CALL INITIALIZE_ARR(I, 10, 10, 10)
 ;          CALL PRINT_ARR(I, 10, 10, 10)
 ;        END DO
+;
+;        B = A
+;
 ;      END
 
 ; ifx -xCORE-AVX512 -Ofast -flto arr.f90 -mllvm -debug-only=dope-vector-global-const-prop
 
-; The test case basically allocates the global array A in ALLOCATE_ARR, then
-; initializes it in INITIALIZE_ARR and the use will be in PRINT_ARR. The problem
-; is that ALLOCATE_ARR won't allocate the field inner_array_A in T_TESTTYPE.
+; The test case allocates, initializes and uses array global array A but then
+; the data is copied to array B. It should invalidate the constant propagation.
 
-; CHECK-GLOBDV: Global variable: arr_mod_mp_a_
-; CHECK-GLOBDV-NEXT:   LLVM Type: QNCA_a0$%"ARR_MOD$.btT_TESTTYPE"*$rank1$
-; CHECK-GLOBDV-NEXT:   Global dope vector result: At least one nested dope vector didn't pass analysis
-; CHECK-GLOBDV:   Constant propagation status: NOT performed
-; CHECK-GLOBDV:   Nested dope vectors: 3
-
-; CHECK-FIELD0:    Field[0]: QNCA_a0$float*$rank2$
-; CHECK-FIELD0-NEXT:      Dope vector analysis result: Alloc site wasn't found
-; CHECK-FIELD0-NEXT:   Constant propagation status: NOT performed
-
-
-; CHECK-FIELD1:    Field[1]: QNCA_a0$float*$rank3$
-; CHECK-FIELD1-NEXT:      Dope vector analysis result: Pass
-; CHECK-FIELD1-NEXT:   Constant propagation status: NOT performed
-
-
-; CHECK-FIELD2:    Field[2]: QNCA_a0$float*$rank1$
-; CHECK-FIELD2-NEXT:      Dope vector analysis result: Pass
-; CHECK-FIELD2-NEXT:   Constant propagation status: NOT performed
+; Check that constants weren't propagated
+; CHECK: define internal void @arr_mod_mp_initialize_arr_
+; CHECK: %35 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %34, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %33, i64 %7)
+; CHECK: %52 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 2, i64 %51, i64 %49, float* %37, i64 %32)
+; CHECK: %53 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 1, i64 %47, i64 %45, float* %52, i64 %9)
+; CHECK: %54 = tail call float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8 0, i64 %43, i64 %40, float* %53, i64 %13)
 
 ; ModuleID = 'ld-temp.o'
 source_filename = "ld-temp.o"
@@ -124,8 +108,9 @@ target triple = "x86_64-unknown-linux-gnu"
 %"QNCA_a0$float*$rank1$" = type { float*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
 
 @arr_mod_mp_a_ = internal global %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$" { %"ARR_MOD$.btT_TESTTYPE"* null, i64 0, i64 0, i64 1073741952, i64 1, i64 0, [1 x { i64, i64, i64 }] zeroinitializer }
-@anon.87529b4ebf98830a9107fed24e462e82.0 = internal unnamed_addr constant i32 2
-@anon.87529b4ebf98830a9107fed24e462e82.1 = internal unnamed_addr constant i32 10
+@anon.5adb142a4af92269a23dd8f105f60717.0 = internal unnamed_addr constant i32 2
+@anon.5adb142a4af92269a23dd8f105f60717.1 = internal unnamed_addr constant i32 10
+@arr_mod_mp_b_ = internal global %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$" { %"ARR_MOD$.btT_TESTTYPE"* null, i64 0, i64 0, i64 1073741952, i64 1, i64 0, [1 x { i64, i64, i64 }] zeroinitializer }
 
 ; Function Attrs: nofree nounwind uwtable
 define internal void @arr_mod_mp_allocate_arr_(i32* noalias nocapture readonly dereferenceable(4) %0) #0 {
@@ -183,69 +168,99 @@ define internal void @arr_mod_mp_allocate_arr_(i32* noalias nocapture readonly d
   %38 = load i64, i64* %36, align 1
   %39 = sext i32 %3 to i64
   %40 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %38, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %37, i64 %39)
-  %41 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 1, i32 3
-  %42 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 1, i32 5
+  %41 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 3
+  %42 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 5
   store i64 0, i64* %42, align 1
-  %43 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 1, i32 1
+  %43 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 1
   store i64 4, i64* %43, align 1
-  %44 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 1, i32 4
-  store i64 3, i64* %44, align 1
-  %45 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 1, i32 2
+  %44 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 4
+  store i64 2, i64* %44, align 1
+  %45 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 2
   store i64 0, i64* %45, align 1
-  %46 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 1, i32 6, i64 0, i32 2
+  %46 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 6, i64 0, i32 2
   %47 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %46, i32 0)
   store i64 1, i64* %47, align 1
-  %48 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 1, i32 6, i64 0, i32 0
+  %48 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 6, i64 0, i32 0
   %49 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %48, i32 0)
   store i64 10, i64* %49, align 1
   %50 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %46, i32 1)
   store i64 1, i64* %50, align 1
   %51 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %48, i32 1)
   store i64 10, i64* %51, align 1
-  %52 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %46, i32 2)
-  store i64 1, i64* %52, align 1
-  %53 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %48, i32 2)
-  store i64 10, i64* %53, align 1
-  %54 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 1, i32 6, i64 0, i32 1
-  %55 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %54, i32 0)
-  store i64 4, i64* %55, align 1
-  %56 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %54, i32 1)
-  store i64 40, i64* %56, align 1
-  %57 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %54, i32 2)
-  store i64 400, i64* %57, align 1
-  %58 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 1, i32 0
+  %52 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %40, i64 0, i32 0, i32 6, i64 0, i32 1
+  %53 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %52, i32 0)
+  store i64 4, i64* %53, align 1
+  %54 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %52, i32 1)
+  store i64 40, i64* %54, align 1
   store i64 1073741829, i64* %41, align 1
-  %59 = bitcast float** %58 to i8**
-  %60 = tail call i32 @for_allocate_handle(i64 4000, i8** nonnull %59, i32 262144, i8* null) #5
-  %61 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16
-  %62 = load i64, i64* %36, align 1
-  %63 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %62, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %61, i64 %39)
-  %64 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %63, i64 0, i32 2, i32 3
-  %65 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %63, i64 0, i32 2, i32 5
-  store i64 0, i64* %65, align 1
-  %66 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %63, i64 0, i32 2, i32 1
-  store i64 4, i64* %66, align 1
-  %67 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %63, i64 0, i32 2, i32 4
-  store i64 1, i64* %67, align 1
-  %68 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %63, i64 0, i32 2, i32 2
-  store i64 0, i64* %68, align 1
-  %69 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %63, i64 0, i32 2, i32 6, i64 0, i32 2
-  %70 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %69, i32 0)
-  store i64 1, i64* %70, align 1
-  %71 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %63, i64 0, i32 2, i32 6, i64 0, i32 0
-  %72 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %71, i32 0)
+  %55 = bitcast %"ARR_MOD$.btT_TESTTYPE"* %40 to i8**
+  %56 = tail call i32 @for_allocate_handle(i64 400, i8** %55, i32 262144, i8* null) #5
+  %57 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16
+  %58 = load i64, i64* %36, align 1
+  %59 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %58, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %57, i64 %39)
+  %60 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 3
+  %61 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 5
+  store i64 0, i64* %61, align 1
+  %62 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 1
+  store i64 4, i64* %62, align 1
+  %63 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 4
+  store i64 3, i64* %63, align 1
+  %64 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 2
+  store i64 0, i64* %64, align 1
+  %65 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 6, i64 0, i32 2
+  %66 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %65, i32 0)
+  store i64 1, i64* %66, align 1
+  %67 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 6, i64 0, i32 0
+  %68 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %67, i32 0)
+  store i64 10, i64* %68, align 1
+  %69 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %65, i32 1)
+  store i64 1, i64* %69, align 1
+  %70 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %67, i32 1)
+  store i64 10, i64* %70, align 1
+  %71 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %65, i32 2)
+  store i64 1, i64* %71, align 1
+  %72 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %67, i32 2)
   store i64 10, i64* %72, align 1
-  %73 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %63, i64 0, i32 2, i32 6, i64 0, i32 1
+  %73 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 6, i64 0, i32 1
   %74 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %73, i32 0)
   store i64 4, i64* %74, align 1
-  %75 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %63, i64 0, i32 2, i32 0
-  store i64 1073741829, i64* %64, align 1
-  %76 = bitcast float** %75 to i8**
-  %77 = tail call i32 @for_allocate_handle(i64 40, i8** nonnull %76, i32 262144, i8* null) #5
+  %75 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %73, i32 1)
+  store i64 40, i64* %75, align 1
+  %76 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %73, i32 2)
+  store i64 400, i64* %76, align 1
+  %77 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %59, i64 0, i32 1, i32 0
+  store i64 1073741829, i64* %60, align 1
+  %78 = bitcast float** %77 to i8**
+  %79 = tail call i32 @for_allocate_handle(i64 4000, i8** nonnull %78, i32 262144, i8* null) #5
+  %80 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16
+  %81 = load i64, i64* %36, align 1
+  %82 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %81, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %80, i64 %39)
+  %83 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %82, i64 0, i32 2, i32 3
+  %84 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %82, i64 0, i32 2, i32 5
+  store i64 0, i64* %84, align 1
+  %85 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %82, i64 0, i32 2, i32 1
+  store i64 4, i64* %85, align 1
+  %86 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %82, i64 0, i32 2, i32 4
+  store i64 1, i64* %86, align 1
+  %87 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %82, i64 0, i32 2, i32 2
+  store i64 0, i64* %87, align 1
+  %88 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %82, i64 0, i32 2, i32 6, i64 0, i32 2
+  %89 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %88, i32 0)
+  store i64 1, i64* %89, align 1
+  %90 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %82, i64 0, i32 2, i32 6, i64 0, i32 0
+  %91 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %90, i32 0)
+  store i64 10, i64* %91, align 1
+  %92 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %82, i64 0, i32 2, i32 6, i64 0, i32 1
+  %93 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* nonnull %92, i32 0)
+  store i64 4, i64* %93, align 1
+  %94 = getelementptr inbounds %"ARR_MOD$.btT_TESTTYPE", %"ARR_MOD$.btT_TESTTYPE"* %82, i64 0, i32 2, i32 0
+  store i64 1073741829, i64* %83, align 1
+  %95 = bitcast float** %94 to i8**
+  %96 = tail call i32 @for_allocate_handle(i64 40, i8** nonnull %95, i32 262144, i8* null) #5
   ret void
 }
 
-; Function Attrs: nosync nounwind readnone speculatable
+; Function Attrs: nounwind readnone speculatable
 declare i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8, i64, i32, i64*, i32) #1
 
 ; Function Attrs: nofree
@@ -254,14 +269,14 @@ declare dso_local i32 @for_check_mult_overflow64(i64* nocapture, i32, ...) local
 ; Function Attrs: nofree
 declare dso_local i32 @for_alloc_allocatable_handle(i64, i8** nocapture, i32, i8*) local_unnamed_addr #2
 
-; Function Attrs: nosync nounwind readnone speculatable
+; Function Attrs: nounwind readnone speculatable
 declare %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8, i64, i64, %"ARR_MOD$.btT_TESTTYPE"*, i64) #1
 
 ; Function Attrs: nofree
 declare dso_local i32 @for_allocate_handle(i64, i8** nocapture, i32, i8*) local_unnamed_addr #2
 
-; Function Attrs: nofree nosync nounwind uwtable
-define internal void @arr_mod_mp_initialize_arr_(i32* noalias nocapture readonly dereferenceable(4) %0, i32* noalias nocapture readonly dereferenceable(4) %1, i32* noalias nocapture readonly dereferenceable(4) %2, i32* noalias nocapture readonly dereferenceable(4) %3) #3 {
+; Function Attrs: nofree nounwind uwtable
+define internal void @arr_mod_mp_initialize_arr_(i32* noalias nocapture readonly dereferenceable(4) %0, i32* noalias nocapture readonly dereferenceable(4) %1, i32* noalias nocapture readonly dereferenceable(4) %2, i32* noalias nocapture readonly dereferenceable(4) %3) #0 {
   %5 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0)
   %6 = load i32, i32* %0, align 1
   %7 = sext i32 %6 to i64
@@ -351,7 +366,7 @@ define internal void @arr_mod_mp_initialize_arr_(i32* noalias nocapture readonly
   ret void
 }
 
-; Function Attrs: nosync nounwind readnone speculatable
+; Function Attrs: nounwind readnone speculatable
 declare float* @llvm.intel.subscript.p0f32.i64.i64.p0f32.i64(i8, i64, i64, float*, i64) #1
 
 ; Function Attrs: nofree nounwind uwtable
@@ -495,41 +510,114 @@ define internal void @arr_mod_mp_print_arr_(i32* noalias nocapture readonly dere
 ; Function Attrs: nofree
 declare dso_local i32 @for_write_seq_lis(i8*, i32, i64, i8*, i8*, ...) local_unnamed_addr #2
 
-; Function Attrs: nofree nounwind uwtable
-define dso_local void @MAIN__() #0 {
+; Function Attrs: nounwind uwtable
+define dso_local void @MAIN__() #3 {
   %1 = alloca i32, align 8
-  %2 = tail call i32 @for_set_reentrancy(i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.0) #5
+  %2 = tail call i32 @for_set_reentrancy(i32* nonnull @anon.5adb142a4af92269a23dd8f105f60717.0) #5
   store i32 1, i32* %1, align 8
   br label %3
 
 3:                                                ; preds = %3, %0
   %4 = phi i32 [ %5, %3 ], [ 1, %0 ]
   call void @arr_mod_mp_allocate_arr_(i32* nonnull %1)
-  call void @arr_mod_mp_initialize_arr_(i32* nonnull %1, i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.1, i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.1, i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.1)
-  call void @arr_mod_mp_print_arr_(i32* nonnull %1, i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.1, i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.1, i32* nonnull @anon.87529b4ebf98830a9107fed24e462e82.1)
+  call void @arr_mod_mp_initialize_arr_(i32* nonnull %1, i32* nonnull @anon.5adb142a4af92269a23dd8f105f60717.1, i32* nonnull @anon.5adb142a4af92269a23dd8f105f60717.1, i32* nonnull @anon.5adb142a4af92269a23dd8f105f60717.1)
+  call void @arr_mod_mp_print_arr_(i32* nonnull %1, i32* nonnull @anon.5adb142a4af92269a23dd8f105f60717.1, i32* nonnull @anon.5adb142a4af92269a23dd8f105f60717.1, i32* nonnull @anon.5adb142a4af92269a23dd8f105f60717.1)
   %5 = add nuw nsw i32 %4, 1
   store i32 %5, i32* %1, align 8
   %6 = icmp eq i32 %5, 11
   br i1 %6, label %7, label %3
 
 7:                                                ; preds = %3
+  %8 = load i8*, i8** bitcast (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_b_ to i8**), align 16
+  %9 = load i64, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 3), align 8
+  %10 = and i64 %9, 1
+  %11 = icmp eq i64 %10, 0
+  %12 = load i64, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_b_, i64 0, i32 3), align 8
+  br i1 %11, label %13, label %36
+
+13:                                               ; preds = %7
+  %14 = and i64 %12, 1
+  %15 = icmp eq i64 %14, 0
+  br i1 %15, label %63, label %16
+
+16:                                               ; preds = %13
+  %17 = trunc i64 %12 to i32
+  %18 = shl i32 %17, 1
+  %19 = and i32 %18, 4
+  %20 = lshr i64 %12, 3
+  %21 = trunc i64 %20 to i32
+  %22 = and i32 %21, 256
+  %23 = lshr i64 %12, 15
+  %24 = trunc i64 %23 to i32
+  %25 = and i32 %24, 31457280
+  %26 = and i32 %24, 33554432
+  %27 = or i32 %22, %19
+  %28 = or i32 %27, %25
+  %29 = or i32 %28, %26
+  %30 = or i32 %29, 262146
+  %31 = load i64, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_b_, i64 0, i32 5), align 8
+  %32 = inttoptr i64 %31 to i8*
+  %33 = tail call i32 @for_dealloc_allocatable_handle(i8* %8, i32 %30, i8* %32) #5
+  store %"ARR_MOD$.btT_TESTTYPE"* null, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_b_, i64 0, i32 0), align 16
+  %34 = load i64, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_b_, i64 0, i32 3), align 8
+  %35 = and i64 %34, -1030792153090
+  store i64 %35, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_b_, i64 0, i32 3), align 8
+  br label %63
+
+36:                                               ; preds = %7
+  %37 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_b_, i64 0, i32 6, i64 0, i32 2), i32 0)
+  %38 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 0), align 16
+  %39 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 2), i32 0)
+  %40 = load i64, i64* %39, align 1
+  %41 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_, i64 0, i32 6, i64 0, i32 0), i32 0)
+  %42 = load i64, i64* %41, align 1
+  %43 = lshr i64 %12, 15
+  %44 = trunc i64 %43 to i32
+  %45 = and i32 %44, 65011712
+  %46 = or i32 %45, 262144
+  %47 = tail call i8* @for_realloc_lhs(i8* bitcast (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_b_ to i8*), i8* bitcast (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_a_ to i8*), i32 %46) #5
+  %48 = load %"ARR_MOD$.btT_TESTTYPE"*, %"ARR_MOD$.btT_TESTTYPE"** getelementptr inbounds (%"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$", %"QNCA_a0$%\22ARR_MOD$.btT_TESTTYPE\22*$rank1$"* @arr_mod_mp_b_, i64 0, i32 0), align 16
+  %49 = load i64, i64* %37, align 1
+  %50 = icmp slt i64 %42, 1
+  br i1 %50, label %63, label %51
+
+51:                                               ; preds = %36
+  %52 = add nuw nsw i64 %42, 1
+  br label %53
+
+53:                                               ; preds = %53, %51
+  %54 = phi i64 [ %59, %53 ], [ %49, %51 ]
+  %55 = phi i64 [ %60, %53 ], [ %40, %51 ]
+  %56 = phi i64 [ %61, %53 ], [ 1, %51 ]
+  %57 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %40, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %38, i64 %55)
+  %58 = tail call %"ARR_MOD$.btT_TESTTYPE"* @"llvm.intel.subscript.p0s_ARR_MOD$.btT_TESTTYPEs.i64.i64.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(i8 0, i64 %49, i64 288, %"ARR_MOD$.btT_TESTTYPE"* %48, i64 %54)
+  tail call void @"llvm.memcpy.p0s_ARR_MOD$.btT_TESTTYPEs.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(%"ARR_MOD$.btT_TESTTYPE"* noundef nonnull align 1 dereferenceable(288) %58, %"ARR_MOD$.btT_TESTTYPE"* noundef nonnull align 1 dereferenceable(288) %57, i64 288, i1 false)
+  %59 = add nsw i64 %54, 1
+  %60 = add nsw i64 %55, 1
+  %61 = add nuw nsw i64 %56, 1
+  %62 = icmp eq i64 %61, %52
+  br i1 %62, label %63, label %53
+
+63:                                               ; preds = %53, %36, %16, %13
   ret void
 }
 
 ; Function Attrs: nofree
 declare dso_local i32 @for_set_reentrancy(i32* nocapture readonly) local_unnamed_addr #2
 
-; Function Attrs: nofree nosync nounwind readnone willreturn
-declare i32 @llvm.ssa.copy.i32(i32 returned) #4
+; Function Attrs: nofree
+declare dso_local i32 @for_dealloc_allocatable_handle(i8* nocapture readonly, i32, i8*) local_unnamed_addr #2
 
-; Function Attrs: nofree nosync nounwind readnone willreturn
-declare i64 @llvm.ssa.copy.i64(i64 returned) #4
+declare dso_local i8* @for_realloc_lhs(i8* nocapture, i8* nocapture readonly, i32) local_unnamed_addr
+
+; Function Attrs: argmemonly nofree nosync nounwind willreturn
+declare void @"llvm.memcpy.p0s_ARR_MOD$.btT_TESTTYPEs.p0s_ARR_MOD$.btT_TESTTYPEs.i64"(%"ARR_MOD$.btT_TESTTYPE"* noalias nocapture writeonly, %"ARR_MOD$.btT_TESTTYPE"* noalias nocapture readonly, i64, i1 immarg) #4
 
 attributes #0 = { nofree nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
-attributes #1 = { nosync nounwind readnone speculatable }
+attributes #1 = { nounwind readnone speculatable }
 attributes #2 = { nofree "intel-lang"="fortran" }
-attributes #3 = { nofree nosync nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
-attributes #4 = { nofree nosync nounwind readnone willreturn }
+attributes #3 = { nounwind uwtable "frame-pointer"="none" "intel-lang"="fortran" "min-legal-vector-width"="0" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "pre_loopopt" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="true" }
+attributes #4 = { argmemonly nofree nosync nounwind willreturn }
 attributes #5 = { nounwind }
 
 !omp_offload.info = !{}

@@ -59,6 +59,7 @@ extern bool PrintAfterCallVecDecisions;
 extern bool LoopMassagingEnabled;
 extern bool EnableSOAAnalysis;
 extern bool EnableNewCFGMerge;
+extern unsigned DefaultTripCount;
 
 /// Auxiliary class to keep vectorization scenario for a single loop
 /// vectorization. It describes which variants of the loops are selected for

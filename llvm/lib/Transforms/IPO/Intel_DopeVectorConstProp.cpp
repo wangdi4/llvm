@@ -32,10 +32,12 @@ using namespace dvanalysis;
 #define DEBUG_GLOBAL_CONSTPROP "dope-vector-global-const-prop"
 
 STATISTIC(NumFormalsDVConstProp, "Number of DV formals const propagated");
+STATISTIC(NumGlobalDVConstProp, "Number of Global DV const propagated");
+STATISTIC(NumNestedDVConstProp, "Number of Nested DV const propagated");
 
 // Enable the global dope vector constant propagation
 static cl::opt<bool> DVGlobalConstProp("dope-vector-global-const-prop",
-                                 cl::init(false), cl::ReallyHidden);
+                                 cl::init(true), cl::ReallyHidden);
 
 //
 // Return 'true' if the formal argument 'Arg' of Function 'F' is a pointer
@@ -279,14 +281,98 @@ static bool replaceDopeVectorConstants(Argument &Arg,
   return Change;
 }
 
+// Return true if the constants collected for the input GlobDV were propagated
+static bool propagateGlobalDopeVectorConstants(GlobalDopeVector &GlobDV) {
+
+  // Actual function that propagates the constants for the input dope vector field
+  auto PropagateFieldConstant = [](DopeVectorFieldUse *DVField) -> bool {
+    if (DVField->getIsBottom())
+      return false;
+
+    ConstantInt *CI = DVField->getConstantValue();
+    if (!CI)
+      return false;
+
+    bool Change = false;
+    for(auto *LI : DVField->loads()) {
+      LI->replaceAllUsesWith(CI);
+      Change = true;
+    }
+
+    return Change;
+  };
+
+  // Propagate the constants in the extent, stride and lower bound for the
+  // input dope vector info
+  auto PropagateDVConstant =
+      [&PropagateFieldConstant](DopeVectorInfo *DVInfo) -> bool {
+
+    // Analysis must pass
+    if (DVInfo->getAnalysisResult() != DopeVectorInfo::AnalysisResult::AR_Pass)
+      return false;
+
+    auto PtrAddr = DVInfo->getDopeVectorField(DV_ArrayPtr);
+    assert(PtrAddr && "Accessing pointer address without collecting it");
+
+    // If the array is not read, the extent, stride and lower bound won't be
+    // read, don't propagate any data
+    if (!PtrAddr->getIsRead())
+      return false;
+
+    unsigned long Rank = DVInfo->getRank();
+    bool Change = false;
+    for (unsigned long I = 0; I < Rank; I++) {
+      auto *ExtentField = DVInfo->getDopeVectorField(DV_ExtentBase, I);
+      auto *StrideField = DVInfo->getDopeVectorField(DV_StrideBase, I);
+      auto *LBField = DVInfo->getDopeVectorField(DV_LowerBoundBase, I);
+
+      assert((ExtentField && StrideField && LBField) &&
+             "Trying to propagate dope vector constant information without "
+             "collecting the proper information");
+
+      Change |= PropagateFieldConstant(ExtentField);
+      Change |= PropagateFieldConstant(StrideField);
+      Change |= PropagateFieldConstant(LBField);
+    }
+
+    if (Change)
+      DVInfo->setConstantsPropagated();
+
+    return Change;
+  };
+
+  // If the analysis didn't pass we can't propagate any constant
+  if (GlobDV.getAnalysisResult() != GlobalDopeVector::AnalysisResult::AR_Pass)
+    return false;
+
+  // Propagate the constants for the global dope vector
+  bool Change = false;
+  Change = PropagateDVConstant(GlobDV.getGlobalDopeVectorInfo());
+  if (Change)
+    NumGlobalDVConstProp++;
+
+  // Propagate the constants
+  for (auto *NestedDV : GlobDV.getAllNestedDopeVectors()) {
+    if(PropagateDVConstant(NestedDV)) {
+      Change = true;
+      NumNestedDVConstProp++;
+    }
+  }
+
+  return Change;
+}
+
 // Traverse through the global variables, and collect the information for
-// those globals that are dope vectors.
-static void collectDopeVectorGlobals(Module &M, const DataLayout &DL,
+// those globals that are dope vectors. If the constant information was
+// collected for the fields then propagate it.
+static bool collectAndTransformDopeVectorGlobals(Module &M,
+    const DataLayout &DL,
     std::function<const TargetLibraryInfo &(Function &F)> &GetTLI) {
 
   if (!DVGlobalConstProp)
-    return;
+    return false;
 
+  bool Change = false;
   for (auto &Glob : M.globals()) {
     Type *GlobType = Glob.getValueType();
 
@@ -296,11 +382,8 @@ static void collectDopeVectorGlobals(Module &M, const DataLayout &DL,
     GlobalDopeVector GlobDV(&Glob, GlobType, GetTLI);
     GlobDV.collectAndValidate(DL);
 
-    // TODO:
-    //   1) Map the GlobalVariable with the GlobalDopeVector collected
-    //   2) Relax the conditions in the transformation process to propagate
-    //        any data collected
-    //   3) Propagate constant information
+    // Propagate the constants
+    Change |= propagateGlobalDopeVectorConstants(GlobDV);
 
     DEBUG_WITH_TYPE(DEBUG_GLOBAL_CONSTPROP, {
       GlobDV.print();
@@ -308,6 +391,7 @@ static void collectDopeVectorGlobals(Module &M, const DataLayout &DL,
     });
   }
 
+  return Change;
 }
 
 static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
@@ -334,9 +418,6 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
 
   bool Change = false;
   const DataLayout &DL = M.getDataLayout();
-
-  // Collect the information related to the global dope vectors
-  collectDopeVectorGlobals(M, DL, GetTLI);
 
   for (auto &F : M.functions()) {
     // Cases we will give up on, at least for now.
@@ -407,6 +488,10 @@ static bool DopeVectorConstPropImpl(Module &M, WholeProgramInfo &WPInfo,
           LowerBound, Stride, Extent);
     }
   }
+
+  // Collect the information related to the global dope vectors
+  Change |= collectAndTransformDopeVectorGlobals(M, DL, GetTLI);
+
   LLVM_DEBUG(dbgs() << "DOPE VECTOR CONSTANT PROPAGATION: END\n");
   return Change;
 }
