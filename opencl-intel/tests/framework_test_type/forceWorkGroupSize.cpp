@@ -300,7 +300,7 @@ TEST_P(ForceWGSizeTest, dim3) {
 
 static std::vector<std::vector<int>> sizes = {
     {32, 16, 8, 4}, {32, 16}, {32}, {5}, {-1, 1}, {1024}};
-INSTANTIATE_TEST_CASE_P(WG, ForceWGSizeTest, ::testing::ValuesIn(sizes), );
+INSTANTIATE_TEST_SUITE_P(WG, ForceWGSizeTest, ::testing::ValuesIn(sizes));
 
 class ForceWGSizeSingleTest : public ::testing::Test {
 protected:

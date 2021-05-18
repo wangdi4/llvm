@@ -39,5 +39,5 @@ TEST_P(TBBNumWorkersBase, CreateContext) {
   ASSERT_NE(nullptr, context) << "createContext failed";
 }
 
-INSTANTIATE_TEST_CASE_P(TestTBBNumWorkers, TBBNumWorkersBase,
-                        ::testing::Values(256, 2, 4096, 1, -42), );
+INSTANTIATE_TEST_SUITE_P(TestTBBNumWorkers, TBBNumWorkersBase,
+                        ::testing::Values(256, 2, 4096, 1, -42));

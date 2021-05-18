@@ -36,7 +36,7 @@ void SGEmulationTest::TearDown() {
 }
 
 
-INSTANTIATE_TEST_CASE_P(SubGroupTestType,
+INSTANTIATE_TEST_SUITE_P(SubGroupTestType,
                         SGEmulationTest,
                         ::testing::Values(false, true));
 

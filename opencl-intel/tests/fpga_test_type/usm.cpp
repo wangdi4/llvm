@@ -507,4 +507,4 @@ TEST_P(UsmTest, hostAllocFree) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(UsmTests, UsmTest, ::testing::Values(1, 2, 3, 10), );
+INSTANTIATE_TEST_SUITE_P(UsmTests, UsmTest, ::testing::Values(1, 2, 3, 10));
