@@ -31,6 +31,11 @@ protected:
     unsigned numForceWGSize = m_forceWGSize.size();
     ASSERT_NE(0, numForceWGSize);
 
+    // Also test scalar kernel because it has a different logic to compare
+    // workgroup size than vectorized kernel.
+    if (numForceWGSize == 1)
+      ASSERT_TRUE(SETENV("CL_CONFIG_USE_VECTORIZER", "false"));
+
     std::string forceWGSizeStr = std::to_string(m_forceWGSize[0]);
     for (unsigned i = 1; i < numForceWGSize; ++i)
       forceWGSizeStr += "," + std::to_string(m_forceWGSize[i]);
@@ -75,32 +80,44 @@ protected:
     ASSERT_TRUE(workDim == 1 || workDim == 2 || workDim == 3);
     const char *source;
     if (workDim == 1)
-      source = "kernel void test(global int *dst) { \
-        if (get_global_id(0) == 0) \
+      source = "kernel void test(global int *dst, global int *dummy) { \
+        size_t gid = get_global_id(0); \
+        if (gid == 0) \
           *dst = (int)get_local_size(0); \
+        dummy[gid] = gid; \
       }";
     else if (workDim == 2)
-      source = "kernel void test(global int *dst) { \
-        if (get_global_id(0) == 0 && get_global_id(1) == 0) { \
+      source = "kernel void test(global int *dst, global int *dummy) { \
+        size_t gid0 = get_global_id(0); \
+        size_t gid1 = get_global_id(1); \
+        if (gid0 == 0 && gid1 == 0) { \
           dst[0] = (int)get_local_size(0); \
           dst[1] = (int)get_local_size(1); \
         } \
+        size_t idx = gid1 * get_global_size(0) + gid0; \
+        dummy[idx] = idx; \
       }";
     else
-      source = "kernel void test(global int *dst) { \
-        if (get_global_id(0) == 0 && get_global_id(1) == 0 && \
-            get_global_id(2) == 0) { \
+      source = "kernel void test(global int *dst, global int *dummy) { \
+        size_t gid0 = get_global_id(0); \
+        size_t gid1 = get_global_id(1); \
+        size_t gid2 = get_global_id(2); \
+        if (gid0 == 0 && gid1 == 0 && gid2 == 0) { \
           dst[0] = (int)get_local_size(0); \
           dst[1] = (int)get_local_size(1); \
           dst[2] = (int)get_local_size(2); \
         } \
+        size_t idx = gid2 * get_global_size(1) * get_global_size(0) + \
+            gid1 * get_global_size(0) + gid0; \
+        dummy[idx] = idx; \
       }";
 
     cl_int err;
     m_program = clCreateProgramWithSource(m_context, 1, &source, nullptr, &err);
     ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
 
-    err = clBuildProgram(m_program, 1, &m_device, "", nullptr, nullptr);
+    err = clBuildProgram(m_program, 1, &m_device, "-cl-std=CL2.0", nullptr,
+                         nullptr);
     if (CL_SUCCESS != err) {
       std::string log;
       ASSERT_NO_FATAL_FAILURE(GetBuildLog(m_device, m_program, log));
@@ -147,9 +164,13 @@ TEST_P(ForceWGSizeTest, dim1) {
   cl_int err = clSetKernelArgMemPointerINTEL(m_kernel, 0, &result);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
 
-  /// Test clMemBlockingFreeINTEL when enqueue failed.
   size_t gdim = 32;
   size_t ldim = 4;
+
+  std::vector<cl_int> dummy(gdim);
+  err = clSetKernelArgMemPointerINTEL(m_kernel, 1, &dummy[0]);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+
   err = clEnqueueNDRangeKernel(m_queue, m_kernel, workDim, nullptr, &gdim,
                                &ldim, 0, nullptr, nullptr);
   if (IsNegative(workDim) || IsGreater(workDim, &gdim)) {
@@ -162,6 +183,9 @@ TEST_P(ForceWGSizeTest, dim1) {
   ASSERT_OCL_SUCCESS(err, "clFinish");
 
   ASSERT_EQ(m_forceWGSize[0], result);
+
+  for (size_t i = 0; i < dummy.size(); ++i)
+    ASSERT_EQ(i, dummy[i]);
 }
 
 TEST_P(ForceWGSizeTest, dim1Null) {
@@ -172,8 +196,12 @@ TEST_P(ForceWGSizeTest, dim1Null) {
   cl_int err = clSetKernelArgMemPointerINTEL(m_kernel, 0, &result);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
 
-  /// Test clMemBlockingFreeINTEL when enqueue failed.
   size_t gdim = 32;
+
+  std::vector<cl_int> dummy(gdim);
+  err = clSetKernelArgMemPointerINTEL(m_kernel, 1, &dummy[0]);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+
   err = clEnqueueNDRangeKernel(m_queue, m_kernel, workDim, nullptr, &gdim,
                                nullptr, 0, nullptr, nullptr);
   if (IsNegative(workDim) || IsGreater(workDim, &gdim)) {
@@ -186,6 +214,9 @@ TEST_P(ForceWGSizeTest, dim1Null) {
   ASSERT_OCL_SUCCESS(err, "clFinish");
 
   ASSERT_EQ(m_forceWGSize[0], result);
+
+  for (size_t i = 0; i < dummy.size(); ++i)
+    ASSERT_EQ(i, dummy[i]);
 }
 
 TEST_P(ForceWGSizeTest, dim2) {
@@ -196,9 +227,13 @@ TEST_P(ForceWGSizeTest, dim2) {
   cl_int err = clSetKernelArgMemPointerINTEL(m_kernel, 0, result);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
 
-  /// Test clMemBlockingFreeINTEL when enqueue failed.
   size_t gdim[] = {32, 32};
   size_t ldim[] = {4, 4};
+
+  std::vector<cl_int> dummy(gdim[0] * gdim[1]);
+  err = clSetKernelArgMemPointerINTEL(m_kernel, 1, &dummy[0]);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+
   err = clEnqueueNDRangeKernel(m_queue, m_kernel, workDim, nullptr, gdim, ldim,
                                0, nullptr, nullptr);
   if (IsNegative(workDim) || IsGreater(workDim, gdim)) {
@@ -215,6 +250,9 @@ TEST_P(ForceWGSizeTest, dim2) {
     ASSERT_EQ(m_forceWGSize[1], result[1]);
   else
     ASSERT_EQ(1, result[1]);
+
+  for (size_t i = 0; i < dummy.size(); ++i)
+    ASSERT_EQ(i, dummy[i]);
 }
 
 TEST_P(ForceWGSizeTest, dim3) {
@@ -225,9 +263,13 @@ TEST_P(ForceWGSizeTest, dim3) {
   cl_int err = clSetKernelArgMemPointerINTEL(m_kernel, 0, result);
   ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
 
-  /// Test clMemBlockingFreeINTEL when enqueue failed.
   size_t gdim[] = {32, 32, 32};
   size_t ldim[] = {4, 4, 4};
+
+  std::vector<cl_int> dummy(gdim[0] * gdim[1] * gdim[2]);
+  err = clSetKernelArgMemPointerINTEL(m_kernel, 1, &dummy[0]);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+
   err = clEnqueueNDRangeKernel(m_queue, m_kernel, workDim, nullptr, gdim, ldim,
                                0, nullptr, nullptr);
   if (IsNegative(workDim) || IsGreater(workDim, gdim)) {
@@ -251,10 +293,13 @@ TEST_P(ForceWGSizeTest, dim3) {
     ASSERT_EQ(1, result[1]);
     ASSERT_EQ(1, result[2]);
   }
+
+  for (size_t i = 0; i < dummy.size(); ++i)
+    ASSERT_EQ(i, dummy[i]);
 }
 
 static std::vector<std::vector<int>> sizes = {
-    {32, 16, 8, 4}, {32, 16}, {32}, {-1, 1}, {1024}};
+    {32, 16, 8, 4}, {32, 16}, {32}, {5}, {-1, 1}, {1024}};
 INSTANTIATE_TEST_CASE_P(WG, ForceWGSizeTest, ::testing::ValuesIn(sizes), );
 
 class ForceWGSizeSingleTest : public ::testing::Test {
