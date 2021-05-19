@@ -79,6 +79,9 @@
 #error Unsupported device!!!
 #endif
 
+/// Upper limit for supporting spmd num threads
+#define KMP_MAX_SPMD_NUM_GROUPS (1 << 20)
+
 /// Static parameters used in RTL
 #define KMP_ACTIVE_PARALLEL_BUMP 128  // used for tracking active level
 #define KMP_MAX_PARALLEL_LEVEL 8      // used for task object allocation
@@ -325,6 +328,11 @@ EXTERN kmp_local_state_t __omp_spirv_local_data[KMP_MAX_NUM_GROUPS];
 
 /// Per-thread state for all work groups
 EXTERN kmp_thread_state_t __omp_spirv_thread_data[KMP_MAX_NUM_GROUPS];
+
+/// Per-team SPMD num threads
+/// We only support correct push/pop_spmd_num_threads behavior up to
+/// KMP_MAX_SPMD_NUM_GROUPS - 1.
+EXTERN ushort __omp_spirv_spmd_num_threads[KMP_MAX_SPMD_NUM_GROUPS];
 
 ///
 /// RTL init/fini routines

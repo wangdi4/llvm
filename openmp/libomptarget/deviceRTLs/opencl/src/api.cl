@@ -71,12 +71,12 @@ EXTERN int omp_get_thread_num(void) {
 
 EXTERN int omp_get_num_threads(void) {
 #if KMP_ASSUME_SIMPLE_SPMD_MODE
-  int spmd_num_threads = __omp_spirv_global_data.spmd_num_threads;
-  if (spmd_num_threads <= 0)
-    return __kmp_get_local_size();
+  size_t group_id = __kmp_get_group_id();
+  if (group_id < KMP_MAX_SPMD_NUM_GROUPS &&
+      __omp_spirv_spmd_num_threads[group_id] > 0)
+    return __omp_spirv_spmd_num_threads[group_id];
   else
-    // was set by __kmpc_spmd_push_num_threads
-    return OP_MIN(__kmp_get_local_size(), spmd_num_threads, 0);
+    return __kmp_get_local_size();
 #else
   return __kmp_get_num_omp_threads(__kmp_is_spmd_mode());
 #endif
