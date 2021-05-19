@@ -4,6 +4,9 @@
 
 ; Check "nested dope vector" candidates (i.e. candidates which are fields in
 ; a structure, which is in an array of structures).
+; This is similar to transpose-candidates05.ll, but handles the case of
+; strides in SubscriptInsts that are not literal constants and an array
+; of structures where some, but not all, of the fields are dope vectors.
 
 ; Check that the array through which the indirect subscripting is occurring is
 ; a candidate for transposing but not profitable.
@@ -26,7 +29,7 @@
 ; subscripted index is not the fastest varying subscript.
 
 ; CHECK: Transpose candidate: main_$PHYSPROP
-; CHECK: Nested Field Number : 1
+; CHECK: Nested Field Number : 2
 ; CHECK: IsValid{{ *}}: true
 ; CHECK: IsProfitable{{ *}}: false
 
@@ -34,7 +37,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 %"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$" = type { %"MAIN$.btPHYSPROP_TYPE"*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
-%"MAIN$.btPHYSPROP_TYPE" = type { %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$" }
+%"MAIN$.btPHYSPROP_TYPE" = type { %"QNCA_a0$float*$rank2$", i32, %"QNCA_a0$float*$rank2$" }
 %"QNCA_a0$float*$rank2$" = type { float*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
 
 @"main_$MYK" = internal unnamed_addr constant [1000 x [19 x i32]] zeroinitializer, align 16
@@ -46,7 +49,7 @@ define dso_local void @MAIN__() #0 {
 bb:
   %i = tail call i32 @for_set_reentrancy(i32* nonnull @anon.35d4f0c186b9bde99ef526d487a05dff.0) #4
   store i64 0, i64* getelementptr inbounds (%"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$"* @"main_$PHYSPROP", i64 0, i32 5), align 8
-  store i64 192, i64* getelementptr inbounds (%"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$"* @"main_$PHYSPROP", i64 0, i32 1), align 8
+  store i64 200, i64* getelementptr inbounds (%"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$"* @"main_$PHYSPROP", i64 0, i32 1), align 8
   store i64 1, i64* getelementptr inbounds (%"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$"* @"main_$PHYSPROP", i64 0, i32 4), align 16
   store i64 0, i64* getelementptr inbounds (%"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$"* @"main_$PHYSPROP", i64 0, i32 2), align 16
   %i1 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$"* @"main_$PHYSPROP", i64 0, i32 6, i64 0, i32 2), i32 0)
@@ -54,9 +57,9 @@ bb:
   %i2 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$"* @"main_$PHYSPROP", i64 0, i32 6, i64 0, i32 0), i32 0)
   store i64 100, i64* %i2, align 1
   %i3 = tail call i64* @llvm.intel.subscript.p0i64.i64.i32.p0i64.i32(i8 0, i64 0, i32 24, i64* getelementptr inbounds (%"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$"* @"main_$PHYSPROP", i64 0, i32 6, i64 0, i32 1), i32 0)
-  store i64 192, i64* %i3, align 1
+  store i64 200, i64* %i3, align 1
   store i64 1073741829, i64* getelementptr inbounds (%"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$"* @"main_$PHYSPROP", i64 0, i32 3), align 8
-  %i4 = tail call i32 @for_allocate_handle(i64 19200, i8** bitcast (%"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$"* @"main_$PHYSPROP" to i8**), i32 262144, i8* null) #4
+  %i4 = tail call i32 @for_allocate_handle(i64 20000, i8** bitcast (%"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$"* @"main_$PHYSPROP" to i8**), i32 262144, i8* null) #4
   br label %bb5
 
 bb5:                                              ; preds = %bb5, %bb
@@ -64,7 +67,7 @@ bb5:                                              ; preds = %bb5, %bb
   %i7 = load %"MAIN$.btPHYSPROP_TYPE"*, %"MAIN$.btPHYSPROP_TYPE"** getelementptr inbounds (%"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$"* @"main_$PHYSPROP", i64 0, i32 0), align 16
   %i8 = load i64, i64* %i3, align 1
   %i9 = load i64, i64* %i1, align 1
-  %i10 = tail call %"MAIN$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s_MAIN$.btPHYSPROP_TYPEs.i64.i64.p0s_MAIN$.btPHYSPROP_TYPEs.i64"(i8 0, i64 1, i64 192, %"MAIN$.btPHYSPROP_TYPE"* %i7, i64 %i6)
+  %i10 = tail call %"MAIN$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s_MAIN$.btPHYSPROP_TYPEs.i64.i64.p0s_MAIN$.btPHYSPROP_TYPEs.i64"(i8 0, i64 %i9, i64 %i8, %"MAIN$.btPHYSPROP_TYPE"* %i7, i64 %i6)
   %i12 = getelementptr inbounds %"MAIN$.btPHYSPROP_TYPE", %"MAIN$.btPHYSPROP_TYPE"* %i10, i64 0, i32 0
   %i13 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %i12, i64 0, i32 3
   store i64 5, i64* %i13, align 1, !alias.scope !3
@@ -100,7 +103,7 @@ bb5:                                              ; preds = %bb5, %bb
   %i32 = inttoptr i64 %i31 to i8*
   %i33 = bitcast %"MAIN$.btPHYSPROP_TYPE"* %i10 to i8**
   %i34 = tail call i32 @for_allocate_handle(i64 76000, i8** nonnull %i33, i32 262144, i8* %i32) #4
-  %i35 = getelementptr inbounds %"MAIN$.btPHYSPROP_TYPE", %"MAIN$.btPHYSPROP_TYPE"* %i10, i64 0, i32 1
+  %i35 = getelementptr inbounds %"MAIN$.btPHYSPROP_TYPE", %"MAIN$.btPHYSPROP_TYPE"* %i10, i64 0, i32 2
   %i36 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %i35, i64 0, i32 3
   store i64 5, i64* %i36, align 1, !alias.scope !3
   %i37 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %i35, i64 0, i32 5
@@ -153,8 +156,12 @@ bb65:                                             ; preds = %bb65, %bb62
   %i67 = load %"MAIN$.btPHYSPROP_TYPE"*, %"MAIN$.btPHYSPROP_TYPE"** getelementptr inbounds (%"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$", %"QNCA_a0$%\22MAIN$.btPHYSPROP_TYPE\22*$rank1$"* @"main_$PHYSPROP", i64 0, i32 0), align 16
   %i68 = load i64, i64* %i3, align 1
   %i69 = load i64, i64* %i1, align 1
-  %i70 = tail call %"MAIN$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s_MAIN$.btPHYSPROP_TYPEs.i64.i64.p0s_MAIN$.btPHYSPROP_TYPEs.i64"(i8 0, i64 1, i64 192, %"MAIN$.btPHYSPROP_TYPE"* %i67, i64 %i61)
-  %i71 = getelementptr inbounds %"MAIN$.btPHYSPROP_TYPE", %"MAIN$.btPHYSPROP_TYPE"* %i70, i64 0, i32 1
+  %i70 = tail call %"MAIN$.btPHYSPROP_TYPE"* @"llvm.intel.subscript.p0s_MAIN$.btPHYSPROP_TYPEs.i64.i64.p0s_MAIN$.btPHYSPROP_TYPEs.i64"(i8 0, i64 %i69, i64 %i68, %"MAIN$.btPHYSPROP_TYPE"* %i67, i64 %i61)
+  %t71 = getelementptr inbounds %"MAIN$.btPHYSPROP_TYPE", %"MAIN$.btPHYSPROP_TYPE"* %i70, i64 0, i32 1
+  %t72 = load i32, i32* %t71, align 4
+  %t73 = add nsw i32 %t72, 2
+  store i32 %t73, i32* %t71
+  %i71 = getelementptr inbounds %"MAIN$.btPHYSPROP_TYPE", %"MAIN$.btPHYSPROP_TYPE"* %i70, i64 0, i32 2
   %i72 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %i71, i64 0, i32 0
   %i73 = load float*, float** %i72, align 1
   %i74 = getelementptr inbounds %"QNCA_a0$float*$rank2$", %"QNCA_a0$float*$rank2$"* %i71, i64 0, i32 6, i64 0
