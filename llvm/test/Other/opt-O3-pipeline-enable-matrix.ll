@@ -382,7 +382,7 @@
 ; NEWPM-NEXT: Running analysis: BasicAA on f
 ; NEWPM-NEXT: Running analysis: ScopedNoAliasAA on f
 ; NEWPM-NEXT: Running analysis: TypeBasedAA on f
-; NEWPM-NEXT: Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function> on f
+; NEWPM-NEXT: Running analysis: OuterAnalysisManagerProxy<
 ; NEWPM-NEXT: Running pass: SimplifyCFGPass on f
 ; NEWPM-NEXT: Running pass: ModuleInlinerWrapperPass on
 ; NEWPM-NEXT: Running analysis: InlineAdvisorAnalysis on
@@ -396,7 +396,7 @@
 ; NEWPM-NEXT: Running analysis: InnerAnalysisManagerProxy<
 ; NEWPM-NEXT: Running analysis: LazyCallGraphAnalysis on
 ; NEWPM-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy on (f)
-; NEWPM-NEXT: Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, LazyCallGraph::SCC, llvm::LazyCallGraph &> on (f)
+; NEWPM-NEXT: Running analysis: OuterAnalysisManagerProxy<
 ; NEWPM-NEXT: Running pass: DevirtSCCRepeatedPass on (f)
 ; NEWPM-NEXT: Running pass: InlinerPass on (f)
 ; NEWPM-NEXT: Running pass: InlinerPass on (f)
