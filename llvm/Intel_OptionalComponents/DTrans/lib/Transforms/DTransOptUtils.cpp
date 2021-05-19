@@ -1,6 +1,6 @@
 //===- DTransOptUtils.cpp - Common utility functions for DTrans transforms-===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -289,6 +289,26 @@ bool llvm::dtrans::findValueMultipleOfSizeInst(
 
   // Otherwise, it's definitely not what we were looking for.
   return false;
+}
+
+void llvm::dtrans::resetLoadStoreAlignment(GEPOperator *GEP,
+                                           const DataLayout &DL,
+                                           bool IsPacked) {
+  Align DefaultAlign;
+  for (auto *U : GEP->users()) {
+    if (auto *LI = dyn_cast<LoadInst>(U)) {
+      Align PrefAlign =
+          IsPacked ? DefaultAlign : DL.getPrefTypeAlign(LI->getType());
+      LI->setAlignment(PrefAlign);
+    } else if (auto *SI = dyn_cast<StoreInst>(U)) {
+      Align PrefAlign =
+          IsPacked ? DefaultAlign
+                   : DL.getPrefTypeAlign(SI->getValueOperand()->getType());
+      SI->setAlignment(PrefAlign);
+    } else if (auto *GEP = dyn_cast<GEPOperator>(U)) {
+      resetLoadStoreAlignment(GEP, DL, IsPacked);
+    }
+  }
 }
 
 bool dtrans::isMainFunction(Function &F) { return F.getName() == "main"; }
