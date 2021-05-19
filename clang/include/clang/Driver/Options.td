@@ -6597,6 +6597,9 @@ def fenable_sycl_dae : Flag<["-"], "fenable-sycl-dae">,
   MarshallingInfoFlag<LangOpts<"EnableDAEInSpirKernels">>;
 def fsycl_enable_optimizations: Flag<["-"], "fsycl-enable-optimizations">,
   HelpText<"Experimental flag enabling standard optimization in the front-end.">;
+def fsycl_disable_range_rounding : Flag<["-"], "fsycl-disable-range-rounding">,
+  HelpText<"Disable parallel for range rounding.">,
+  MarshallingInfoFlag<LangOpts<"SYCLDisableRangeRounding">>;
 
 } // let Flags = [CC1Option, NoDriverOption]
 
