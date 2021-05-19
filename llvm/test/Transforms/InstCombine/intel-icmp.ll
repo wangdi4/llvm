@@ -427,10 +427,10 @@ define void @test_icmp_sub_sub(i32* %p1, i32* %p2, i32 %g, i32 %gh) {
 ; CHECK-NEXT:    store i32 [[SUB17]], i32* [[P1]], align 4
 ; CHECK-NEXT:    [[I3:%.*]] = load i32, i32* [[P2:%.*]], align 4
 ; CHECK-NEXT:    [[I20:%.*]] = add nsw i32 [[I3]], [[G:%.*]]
-; CHECK-NEXT:    [[CMP24:%.*]] = icmp slt i32 [[I2]], [[I20]]
+; CHECK-NEXT:    [[SUB21:%.*]] = sub nsw i32 [[I20]], [[GH]]
+; CHECK-NEXT:    [[CMP24:%.*]] = icmp slt i32 [[SUB17]], [[SUB21]]
 ; CHECK-NEXT:    br i1 [[CMP24]], label [[IF_THEN25:%.*]], label [[IF_END28:%.*]]
 ; CHECK:       if.then25:
-; CHECK-NEXT:    [[SUB21:%.*]] = sub nsw i32 [[I20]], [[GH]]
 ; CHECK-NEXT:    store i32 [[SUB21]], i32* [[P1]], align 4
 ; CHECK-NEXT:    br label [[IF_END28]]
 ; CHECK:       if.end28:
