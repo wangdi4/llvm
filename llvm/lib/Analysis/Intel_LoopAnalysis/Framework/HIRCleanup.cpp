@@ -42,22 +42,6 @@ HLNode *HIRCleanup::findHIRHook(const BasicBlock *BB) const {
   return nullptr;
 }
 
-namespace {
-// Used to keep RequiredLabels sorted by HLLabel number.
-struct LabelNumberCompareLess {
-  bool operator()(const HLLabel *L1, const HLLabel *L2) {
-    return L1->getNumber() < L2->getNumber();
-  }
-};
-
-// Used to keep RequiredLabels unique by HLLabel number.
-struct LabelNumberCompareEqual {
-  bool operator()(const HLLabel *L1, const HLLabel *L2) {
-    return L1->getNumber() == L2->getNumber();
-  }
-};
-} // namespace
-
 void HIRCleanup::eliminateRedundantLabels() {
   Loop *Lp = nullptr;
 
@@ -65,12 +49,8 @@ void HIRCleanup::eliminateRedundantLabels() {
     auto LabelBB = I->first;
     auto Label = I->second;
 
-    auto It = std::lower_bound(RequiredLabels.begin(), RequiredLabels.end(),
-                               Label, LabelNumberCompareLess());
-
     // This HLLabel is redundant as no HLGoto is pointing to it.
-    if ((It == RequiredLabels.end()) ||
-        !LabelNumberCompareEqual()(*It, Label)) {
+    if (!RequiredLabels.count(Label)) {
 
       // This label represents loop latch bblock. We need to store the successor
       // as it is used by LoopFomation pass to find loop's bottom test.
@@ -100,13 +80,5 @@ void HIRCleanup::run() {
   }
 
   HLNodeUtils::eliminateRedundantGotos(HIRC.Gotos, RequiredLabels);
-
-  // Sort RequiredLabels vector before the query phase.
-  std::sort(RequiredLabels.begin(), RequiredLabels.end(),
-            LabelNumberCompareLess());
-  RequiredLabels.erase(std::unique(RequiredLabels.begin(), RequiredLabels.end(),
-                                   LabelNumberCompareEqual()),
-                       RequiredLabels.end());
-
   eliminateRedundantLabels();
 }
