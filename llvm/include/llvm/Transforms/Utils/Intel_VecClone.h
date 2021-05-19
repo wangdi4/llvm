@@ -189,12 +189,6 @@ class VecCloneImpl {
                                             Instruction *ParmUser, int Stride,
                                             PHINode *Phi);
 
-    /// \brief Utility function that returns true if Inst is a store of a vector
-    /// or linear parameter.
-    bool isVectorOrLinearParamStore(Function *Clone,
-                                    std::vector<VectorKind> &ParmKinds,
-                                    Instruction *Inst);
-
     /// \brief Removes the original scalar alloca instructions that correspond
     /// to a vector parameter before widening.
     void removeScalarAllocasForVectorParams(
