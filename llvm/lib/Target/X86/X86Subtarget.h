@@ -1227,6 +1227,7 @@ public:
     case CallingConv::Fast:
     case CallingConv::Tail:
     case CallingConv::Swift:
+    case CallingConv::SwiftTail:
     case CallingConv::X86_FastCall:
     case CallingConv::X86_StdCall:
     case CallingConv::X86_ThisCall:
