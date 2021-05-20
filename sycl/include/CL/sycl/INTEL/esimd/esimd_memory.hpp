@@ -1047,7 +1047,7 @@ esimd_nbarrier_signal(uint8_t barrier_id, uint8_t producer_consumer_mode,
                                   0 << 12 | // Fence Data Ports: No fence
                                   barrier;  // Barrier subfunction
 
-  vector_type_t<uint32_t, 8> payload = 0;
+  detail::vector_type_t<uint32_t, 8> payload = 0;
   payload[2] = (num_consumers & 0xff) << 24 | (num_producers & 0xff) << 16 |
                producer_consumer_mode << 14 | (barrier_id & 0b11111) << 0;
 
