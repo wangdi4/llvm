@@ -701,8 +701,6 @@ PreservedAnalyses ADCEPass::run(Function &F, FunctionAnalysisManager &FAM) {
     PA.preserve<DominatorTreeAnalysis>();
     PA.preserve<PostDominatorTreeAnalysis>();
   }
-  PA.preserve<GlobalsAA>();
-  PA.preserve<AndersensAA>();               // INTEL
   return PA;
 }
 

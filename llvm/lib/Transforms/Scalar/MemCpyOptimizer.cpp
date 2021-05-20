@@ -1726,8 +1726,6 @@ PreservedAnalyses MemCpyOptPass::run(Function &F, FunctionAnalysisManager &AM) {
 
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
-  PA.preserve<GlobalsAA>();
-  PA.preserve<AndersensAA>();                // INTEL
   if (MD)
     PA.preserve<MemoryDependenceAnalysis>();
   if (MSSA)

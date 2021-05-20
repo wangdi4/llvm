@@ -1267,7 +1267,6 @@ PreservedAnalyses GVNHoistPass::run(Function &F, FunctionAnalysisManager &AM) {
   PreservedAnalyses PA;
   PA.preserve<DominatorTreeAnalysis>();
   PA.preserve<MemorySSAAnalysis>();
-  PA.preserve<GlobalsAA>();
   return PA;
 }
 

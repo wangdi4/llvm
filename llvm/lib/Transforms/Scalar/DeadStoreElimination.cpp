@@ -2030,8 +2030,6 @@ PreservedAnalyses DSEPass::run(Function &F, FunctionAnalysisManager &AM) {
 
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
-  PA.preserve<GlobalsAA>();
-  PA.preserve<AndersensAA>();                // INTEL
   PA.preserve<MemorySSAAnalysis>();
   return PA;
 }
