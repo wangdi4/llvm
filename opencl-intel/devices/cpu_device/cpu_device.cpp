@@ -1979,6 +1979,45 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
                 return CL_DEV_SUCCESS;
             }
             return CL_DEV_INVALID_VALUE;
+        case CL_DEVICE_NON_UNIFORM_WORK_GROUP_SUPPORT:
+        case CL_DEVICE_WORK_GROUP_COLLECTIVE_FUNCTIONS_SUPPORT:
+        case CL_DEVICE_GENERIC_ADDRESS_SPACE_SUPPORT:
+        case CL_DEVICE_PIPE_SUPPORT:
+          if (ver < OPENCL_VERSION_3_0)
+            return CL_DEV_INVALID_VALUE;
+          *pinternalRetunedValueSize = sizeof(cl_bool);
+          if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+            return CL_DEV_INVALID_VALUE;
+          }
+          if (nullptr != paramVal) {
+            *(cl_bool *)paramVal = CL_TRUE;
+          }
+          return CL_DEV_SUCCESS;
+        case CL_DEVICE_DEVICE_ENQUEUE_CAPABILITIES:
+          if (ver < OPENCL_VERSION_3_0)
+            return CL_DEV_INVALID_VALUE;
+          *pinternalRetunedValueSize =
+              sizeof(cl_device_device_enqueue_capabilities);
+          if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+            return CL_DEV_INVALID_VALUE;
+          }
+          if (nullptr != paramVal) {
+            *(cl_device_device_enqueue_capabilities *)paramVal =
+                CL_DEVICE_QUEUE_SUPPORTED | CL_DEVICE_QUEUE_REPLACEABLE_DEFAULT;
+          }
+          return CL_DEV_SUCCESS;
+        case CL_DEVICE_PREFERRED_WORK_GROUP_SIZE_MULTIPLE:
+          if (ver < OPENCL_VERSION_3_0)
+            return CL_DEV_INVALID_VALUE;
+          *pinternalRetunedValueSize = sizeof(size_t);
+          if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+            return CL_DEV_INVALID_VALUE;
+          }
+          if (nullptr != paramVal) {
+            // refer to CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE
+            *(size_t *)paramVal = CPU_DEFAULT_WG_SIZE;
+          }
+          return CL_DEV_SUCCESS;
         case(CL_DEVICE_HALF_FP_CONFIG):
         {
             if (isCPUDeviceMode)
