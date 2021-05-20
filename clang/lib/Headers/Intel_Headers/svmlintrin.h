@@ -2067,27 +2067,43 @@ __m512d _mm512_mask_pow_pd(__m512d __src, __mmask8 __k, __m512d __a,
  * Computes the reciprocal of packed single-precision (32-bit) floating-point
  * elements in "a", storing the results in "dst".
  */
-__m512 _mm512_recip_ps(__m512 __a);
+static __inline __m512 __DEFAULT_FN_ATTRS
+_mm512_recip_ps(__m512 __a)
+{
+  return _mm512_div_ps(_mm512_set1_ps(1.0f), __a);
+}
 
 /*
  * Computes the reciprocal of packed single-precision (32-bit) floating-point
  * elements in "a", storing the results in "dst" using writemask "k" (elements
  * are copied from "src" when the corresponding mask bit is not set).
  */
-__m512 _mm512_mask_recip_ps(__m512 __src, __mmask16 __k, __m512 __a);
+static __inline __m512 __DEFAULT_FN_ATTRS
+_mm512_mask_recip_ps(__m512 __src, __mmask16 __k, __m512 __a)
+{
+  return _mm512_mask_div_ps(__src, __k, _mm512_set1_ps(1.0f), __a);
+}
 
 /*
  * Computes the reciprocal of packed double-precision (64-bit) floating-point
  * elements in "a", storing the results in "dst".
  */
-__m512d _mm512_recip_pd(__m512d __a);
+static __inline __m512d __DEFAULT_FN_ATTRS
+_mm512_recip_pd(__m512d __a)
+{
+  return _mm512_div_pd(_mm512_set1_pd(1.0), __a);
+}
 
 /*
  * Computes the reciprocal of packed double-precision (64-bit) floating-point
  * elements in "a", storing the results in "dst" using writemask "k" (elements
  * are copied from "src" when the corresponding mask bit is not set).
  */
-__m512d _mm512_mask_recip_pd(__m512d __src, __mmask8 __k, __m512d __a);
+static __inline __m512d __DEFAULT_FN_ATTRS
+_mm512_mask_recip_pd(__m512d __src, __mmask8 __k, __m512d __a)
+{
+  return _mm512_mask_div_pd(__src, __k, _mm512_set1_pd(1.0), __a);
+}
 
 /*
  * Compute the inverse cosine of packed single-precision (32-bit) floating-point
