@@ -41,7 +41,6 @@
 ; CHECK-UNI: if ([[IfCond]] == 1)
 ; CHECK-UNI: else
 ; CHECK-UNI:     goto [[ElseBlock:BB.*]];
-; CHECK-UNI: [[ThenBlock:BB.*]]:
 ; CHECK-UNI:     (<4 x i32>*)(%arr)[{{.*}}] = {{.*}}
 ; CHECK-UNI: [[ElseBlock]]:
 ; CHECK: END LOOP

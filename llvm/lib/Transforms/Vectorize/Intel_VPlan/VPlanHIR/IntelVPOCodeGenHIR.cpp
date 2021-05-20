@@ -5262,9 +5262,15 @@ void VPOCodeGenHIR::finalizeGotos(void) {
     Gotos.push_back(Goto);
   }
 
-  // Eliminate redundant Gotos. TODO: Use RequiredLabels to eliminate
-  // unnecessary labels.
+  // Eliminate redundant Gotos.
   HLNodeUtils::RequiredLabelsTy RequiredLabels;
   HLNodeUtils::eliminateRedundantGotos(Gotos, RequiredLabels);
+
+  // Eliminate redundant labels.
+  for (auto It : VPBBLabelMap) {
+    auto *Label = It.second;
+    if (!RequiredLabels.count(Label))
+      HLNodeUtils::remove(Label);
+  }
 }
 } // end namespace llvm
