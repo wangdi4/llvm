@@ -657,6 +657,11 @@ public:
                                 llvm::opt::ArgStringList &CmdArgs) const;
 
 #if INTEL_CUSTOMIZATION
+  /// AddIntelLibimfLibArgs - Add the system specific linker arguments to use
+  /// the Intel Math Library
+  virtual void AddIntelLibimfLibArgs(const llvm::opt::ArgList &Args,
+                                     llvm::opt::ArgStringList &CmdArgs) const;
+
   /// GetIPPIncludePath - return the IPP header search path.
   std::string GetIPPIncludePath(const llvm::opt::ArgList &Args) const;
 

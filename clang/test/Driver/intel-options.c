@@ -139,6 +139,14 @@
 // RUN: %clangxx -### --dpcpp -static-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC %s
 // CHECK-LIMF-STATIC: "-Bstatic" "-limf" "-Bdynamic" "-lm"
 
+// RUN: %clang -### --intel -static-intel -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC-CMD %s
+// CHECK-LIMF-STATIC-CMD: "-Bstatic" "-limf" "-Bdynamic" "-lm"{{.*}} "-Bstatic" "-limf" "-Bdynamic" "-lm"
+
+// RUN: %clang -### --intel -static-intel -static -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-LM %s
+// RUN: %clang -### --intel -static -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-LM %s
+// RUN: %clang -### --intel -shared -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-LM %s
+// CHECK-LIMF-LM: "-limf" "-lm"{{.*}} "-limf" "-lm"
+
 // Verify that /Qm32 and /Qm64 are accepted - these are aliases to -m32 and -m64
 // and the true functionality is tested in cl-x86-arch.c
 // RUN: %clang_cl /Zs /WX /Qm32 /Qm64 --target=i386-pc-win32 -### -- 2>&1 %s \

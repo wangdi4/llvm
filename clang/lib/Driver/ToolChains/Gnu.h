@@ -369,6 +369,10 @@ protected:
   void AddClangCXXStdlibIncludeArgs(
       const llvm::opt::ArgList &DriverArgs,
       llvm::opt::ArgStringList &CC1Args) const override;
+#if INTEL_CUSTOMIZATION
+  void AddIntelLibimfLibArgs(const llvm::opt::ArgList &Args,
+                             llvm::opt::ArgStringList &CmdArgs) const override;
+#endif // INTEL_CUSTOMIZATION
 
   virtual void
   addLibCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
