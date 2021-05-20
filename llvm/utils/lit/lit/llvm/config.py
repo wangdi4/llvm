@@ -627,10 +627,13 @@ class LLVMConfig(object):
                                     use_installed=use_installed)
         lld_link = self.use_llvm_tool('lld-link', required=required,
                                       use_installed=use_installed)
-        ld64_lld = self.use_llvm_tool('ld64.lld', required=required,
+        # INTEL_CUSTOMIZATION
+        # Setting required=False temporarily as we do not build these tools
+        ld64_lld = self.use_llvm_tool('ld64.lld', required=False,
                                       use_installed=use_installed)
-        wasm_ld = self.use_llvm_tool('wasm-ld', required=required,
+        wasm_ld = self.use_llvm_tool('wasm-ld', required=False,
                                      use_installed=use_installed)
+        # end INTEL_CUSTOMIZATION
 
         was_found = ld_lld and lld_link and ld64_lld and wasm_ld
         tool_substitutions = []
