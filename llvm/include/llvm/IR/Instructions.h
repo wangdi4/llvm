@@ -5280,20 +5280,15 @@ inline unsigned getLoadStoreAddressSpace(Value *I) {
   return cast<StoreInst>(I)->getPointerAddressSpace();
 }
 
-
-#if INTEL_CUSTOMIZATION
-/// \returns the correct type of the operand based on whether it is a Load
-/// or Store Instruction.
-inline Type *getLoadStoreType(Instruction *I) {
-  if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
+/// A helper function that returns the type of a load or store instruction.
+inline Type *getLoadStoreType(Value *I) {
+  assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
+         "Expected Load or Store instruction");
+  if (auto *LI = dyn_cast<LoadInst>(I))
     return LI->getType();
-  } else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
-    return SI->getValueOperand()->getType();
-  }
-  llvm_unreachable("Expected a Load or a Store in getMemType()");
+  return cast<StoreInst>(I)->getValueOperand()->getType();
 }
 
-#endif //INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 //                              FreezeInst Class
 //===----------------------------------------------------------------------===//
