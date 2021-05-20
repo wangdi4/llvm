@@ -4976,6 +4976,11 @@ def Z_reserved_lib_stdcxx : Flag<["-"], "Z-reserved-lib-stdc++">,
     Flags<[LinkerInput, NoArgumentUnused, Unsupported]>, Group<reserved_lib_Group>;
 def Z_reserved_lib_cckext : Flag<["-"], "Z-reserved-lib-cckext">,
     Flags<[LinkerInput, NoArgumentUnused, Unsupported]>, Group<reserved_lib_Group>;
+#if INTEL_CUSTOMIZATION
+def Z_reserved_lib_imf : Flag<["-"], "Z-reserved-lib-imf">,
+    Flags<[LinkerInput, NoArgumentUnused, Unsupported]>,
+    Group<reserved_lib_Group>;
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 // -q Intel options

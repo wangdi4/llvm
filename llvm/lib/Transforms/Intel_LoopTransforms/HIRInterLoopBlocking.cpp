@@ -3529,7 +3529,7 @@ bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
                       const LoopToConstRefTy &InnermostLoopToRepRef,
                       const InnermostLoopToShiftTy &InnermostLoopToShift,
                       HLLoop *OutermostLoop, HLIf *OuterIf, HIRDDAnalysis &DDA,
-                      StringRef Func, bool KnownGoodSizes) {
+                      StringRef Func, bool UseKnownGoodSizes) {
 
   if (DisableTransform) {
     LLVM_DEBUG(dbgs() << "Transformation is disabled.\n");
@@ -3547,7 +3547,7 @@ bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
   // Magic numbers.
   unsigned Size = InnermostLoopToDimInfos.begin()->second.size();
   SmallVector<unsigned, 4> PreSetStripmineSizes(Size, DefaultStripmineSize);
-  if (KnownGoodSizes) {
+  if (UseKnownGoodSizes) {
     for (unsigned I = 0; I < Size; I++) {
       switch (I) {
       case 0:
@@ -3854,7 +3854,7 @@ unsigned getCommonDimNum(const LoopToDimInfoTy &InnermostLoopToDimInfo,
 
 void testInnermostLoops(const SmallVectorImpl<HLLoop *> &InnermostLoops,
                         const HLRegion *Reg, HIRDDAnalysis &DDA,
-                        StringRef FuncName, bool KnownGoodSizes) {
+                        StringRef FuncName, bool UseKnownGoodSizes) {
 
   if (InnermostLoops.size() < 2) {
     LLVM_DEBUG(dbgs() << "Empty LV -- skip\n");
@@ -3934,7 +3934,7 @@ void testInnermostLoops(const SmallVectorImpl<HLLoop *> &InnermostLoops,
   HLIf *OuterIf = dyn_cast<HLIf>(OuterNode);
   doTransformation(InnermostLoopToDimInfo, InnermostLoopToRepRef,
                    InnermostLoopToShiftVec, OutermostLoop, OuterIf, DDA,
-                   FuncName, KnownGoodSizes);
+                   FuncName, UseKnownGoodSizes);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -3956,8 +3956,8 @@ bool testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
   if (HIRF.hir_begin() == HIRF.hir_end())
     return false;
 
-  bool KnownGoodSizes = TTI.isAdvancedOptEnabled(
-      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512);
+  bool UseKnownGoodSizes = TTI.isAdvancedOptEnabled(
+      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2);
 
   SmallVector<HLLoop *, 4> InnermostLoops;
   HLRegion *Reg = cast<HLRegion>(&*HIRF.hir_begin());
@@ -3976,7 +3976,8 @@ bool testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
       LLVM_DEBUG(dbgs() << "1. Innermost loops collected: ");
       LLVM_DEBUG(printLoopVec(InnermostLoops));
 
-      testInnermostLoops(InnermostLoops, Reg, DDA, F.getName(), KnownGoodSizes);
+      testInnermostLoops(InnermostLoops, Reg, DDA, F.getName(),
+                         UseKnownGoodSizes);
       InnermostLoops.clear();
 
     } else if (HLInst *HInst = dyn_cast<HLInst>(*It)) {
@@ -3987,21 +3988,22 @@ bool testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
         LLVM_DEBUG(printLoopVec(InnermostLoops));
 
         testInnermostLoops(InnermostLoops, Reg, DDA, F.getName(),
-                           KnownGoodSizes);
+                           UseKnownGoodSizes);
         InnermostLoops.clear();
       }
     }
   }
 
   if (!InnermostLoops.empty())
-    testInnermostLoops(InnermostLoops, Reg, DDA, F.getName(), KnownGoodSizes);
+    testInnermostLoops(InnermostLoops, Reg, DDA, F.getName(),
+                       UseKnownGoodSizes);
 
   return true;
 }
 
 bool tryTransform(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
                   HIRDDAnalysis &DDA, StringRef FuncName, HLLoop *OutermostLoop,
-                  bool KnownGoodSizes) {
+                  bool UseKnownGoodSizes) {
 
   ProfitablityAndLegalityChecker Checker(HIRF, HASA, DDA, OutermostLoop,
                                          FuncName);
@@ -4012,7 +4014,7 @@ bool tryTransform(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
     return doTransformation(Checker.getInnermostLoopToDimInfos(),
                             Checker.getInnermostLoopToRepRef(),
                             InnermostLoopToShiftVec, Checker.getOutermostLoop(),
-                            nullptr, DDA, FuncName, KnownGoodSizes);
+                            nullptr, DDA, FuncName, UseKnownGoodSizes);
   }
 
   return false;
@@ -4049,15 +4051,15 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
 
   LLVM_DEBUG(dbgs() << PC.getOutermostLoop()->getNumber() << "\n";);
 
-  bool KnownGoodSizes = TTI.isAdvancedOptEnabled(
-      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX512);
+  bool UseKnownGoodSizes = TTI.isAdvancedOptEnabled(
+      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2);
 
   if (!isOptVarPredNeeded(PC)) {
     // Needed to lit-test cases
     LLVM_DEBUG(PC.getOutermostLoop()->dump());
 
     bool Success = tryTransform(HIRF, HASA, DDA, FuncName,
-                                PC.getOutermostLoop(), KnownGoodSizes);
+                                PC.getOutermostLoop(), UseKnownGoodSizes);
     if (Success) {
       return true;
     }
@@ -4094,7 +4096,7 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
 
   // Heuristic: try to work only on OutLoops.back()
   bool Success = tryTransform(HIRF, HASA, DDA, FuncName,
-                              OutLoops[OutLoops.size() - 1], KnownGoodSizes);
+                              OutLoops[OutLoops.size() - 1], UseKnownGoodSizes);
   return Success;
 }
 } // namespace

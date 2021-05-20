@@ -20,13 +20,11 @@ define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtr
   ret i32 %val
 }
 ; CHECK-LABEL: define i32 @main
-; TODO: When calls are processed the following check line should be enabled.
-; TODO-CHECK-NONOPAQUE: %p = call i8* @malloc(i64 8)
+; CHECK-NONOPAQUE: %p = call i8* @malloc(i64 8)
 ; CHECK-NONOPAQUE: %p_test = bitcast i8* %p to %__DFT_struct.test*
 ; CHECK-NONOPAQUE: %val = call i32 @doSomething.1(%__DFT_struct.test* %p_test)
 
-; TODO: When calls are processed the following check line should be enabled.
-; TODO-CHECK-OPAQUE: %p = call ptr @malloc(i64 8)
+; CHECK-OPAQUE: %p = call ptr @malloc(i64 8)
 ; CHECK-OPAQUE: %p_test = bitcast ptr %p to ptr
 ; CHECK-OPAQUE: %val = call i32 @doSomething(ptr %p_test)
 

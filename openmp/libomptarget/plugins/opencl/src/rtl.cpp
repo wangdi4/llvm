@@ -467,6 +467,7 @@ struct RTLFlagsTy {
 /// Kernel properties.
 struct KernelPropertiesTy {
   size_t Width = 0;
+  size_t SIMDWidth = 0;
   size_t MaxThreadGroupSize = 0;
 };
 
@@ -925,6 +926,12 @@ public:
 
   /// Allocate cl_mem data
   void *allocDataClMem(int32_t DeviceId, size_t Size);
+
+  /// Get PCI device ID
+  uint32_t getPCIDeviceId(int32_t DeviceId);
+
+  /// Get device arch
+  uint64_t getDeviceArch(int32_t DeviceId);
 };
 
 #ifdef _WIN32
@@ -1450,6 +1457,44 @@ void *RTLDeviceInfoTy::allocDataClMem(int32_t DeviceId, size_t Size) {
   return (void *)ret;
 }
 
+uint32_t RTLDeviceInfoTy::getPCIDeviceId(int32_t DeviceId) {
+  uint32_t Id = 0;
+#ifndef _WIN32
+  // Linux: Device name contains "[0xABCD]" device identifier.
+  if (DeviceType == CL_DEVICE_TYPE_GPU) {
+    std::string DeviceName(Names[DeviceId].data());
+    auto P = DeviceName.rfind("[");
+    if (P != std::string::npos && DeviceName.size() - P >= 8)
+      Id = std::strtol(DeviceName.substr(P + 1, 6).c_str(), nullptr, 16);
+  }
+#endif
+  return Id;
+}
+
+uint64_t RTLDeviceInfoTy::getDeviceArch(int32_t DeviceId) {
+  if (DeviceType == CL_DEVICE_TYPE_CPU)
+    return DeviceArch_x86_64;
+
+  std::string DeviceName(Names[DeviceId].data());
+#ifdef _WIN32
+  // Windows: Device name contains published product name.
+  for (auto &Arch : DeviceArchMap)
+    for (auto Str : Arch.second)
+      if (DeviceName.find(Str) != std::string::npos)
+        return Arch.first;
+#else
+  uint32_t PCIDeviceId = getPCIDeviceId(DeviceId);
+  if (PCIDeviceId != 0) {
+    for (auto &Arch : DeviceArchMap)
+      for (auto Id : Arch.second)
+        if (PCIDeviceId == Id || (PCIDeviceId & 0xFF00) == Id)
+          return Arch.first;  // Exact match or prefix match
+  }
+#endif
+
+  IDP("Warning: Cannot decide device arch for %s.\n", DeviceName.c_str());
+  return DeviceArch_None;
+}
 
 void SpecConstantsTy::setProgramConstants(
     int32_t DeviceId, cl_program Program) const {
@@ -1608,38 +1653,6 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
   return Ret;
 }
 
-/// Convert device name to device arch.
-static uint64_t getDeviceArch(const char *DeviceName) {
-  if (DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU)
-    return DeviceArch_x86_64;
-
-  std::string name(DeviceName);
-#ifdef _WIN32
-  // Windows: Device name contains published product name.
-  for (auto &arch : DeviceArchMap)
-    for (auto str : arch.second)
-      if (name.find(str) != std::string::npos)
-        return arch.first;
-#else
-  // Linux: Device name contains "[0xABCD]" device identifier.
-  auto pos = name.rfind("[");
-  uint32_t OCLDeviceId = 0;
-
-  if (pos != std::string::npos && name.size() - pos >= 8)
-    OCLDeviceId = std::strtol(name.substr(pos + 1, 6).c_str(), nullptr, 16);
-
-  if (OCLDeviceId != 0) {
-    for (auto &arch : DeviceArchMap)
-      for (auto id : arch.second)
-        if (OCLDeviceId == id || (OCLDeviceId & 0xFF00) == id)
-          return arch.first;  // Exact match or prefix match
-  }
-#endif
-
-  IDP("Warning: Cannot decide device arch for %s.\n", DeviceName);
-  return DeviceArch_None;
-}
-
 EXTERN
 int32_t __tgt_rtl_number_of_devices() {
   // Assume it is thread safe, since it is called once.
@@ -1738,7 +1751,7 @@ int32_t __tgt_rtl_number_of_devices() {
             DeviceInfo->Names[i].data(), nullptr);
     if (rc != CL_SUCCESS)
       continue;
-    DeviceInfo->DeviceArchs[i] = getDeviceArch(DeviceInfo->Names[i].data());
+    DeviceInfo->DeviceArchs[i] = DeviceInfo->getDeviceArch(i);
     IDP("Device %d: %s\n", i, DeviceInfo->Names[i].data());
     CALL_CL_RET_ZERO(clGetDeviceInfo, deviceId, CL_DEVICE_MAX_COMPUTE_UNITS, 4,
                      &DeviceInfo->maxExecutionUnits[i], nullptr);
@@ -2342,21 +2355,24 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       continue;
 
     // Retrieve kernel group size info.
+    auto &KernelProperty = DeviceInfo->KernelProperties[device_id][kernels[i]];
     size_t kernel_simd_width = 1;
     CALL_CL_RET_NULL(clGetKernelWorkGroupInfo, kernels[i],
                      DeviceInfo->deviceIDs[device_id],
                      CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
                      sizeof(size_t), &kernel_simd_width, nullptr);
-    DeviceInfo->KernelProperties[device_id][kernels[i]].Width =
-        kernel_simd_width;
+    KernelProperty.Width = kernel_simd_width;
+    KernelProperty.SIMDWidth = kernel_simd_width;
+    uint32_t HWId = DeviceInfo->getPCIDeviceId(device_id) & 0xFF00;
+    if (HWId == 0x0200 || HWId == 0x0b00 || HWId == 0x4900)
+      KernelProperty.SIMDWidth /= 2;
 
     size_t kernel_wg_size = 1;
     CALL_CL_RET_NULL(clGetKernelWorkGroupInfo, kernels[i],
                      DeviceInfo->deviceIDs[device_id],
                      CL_KERNEL_WORK_GROUP_SIZE,
                      sizeof(size_t), &kernel_wg_size, nullptr);
-    DeviceInfo->KernelProperties[device_id][kernels[i]].MaxThreadGroupSize =
-        kernel_wg_size;
+    KernelProperty.MaxThreadGroupSize = kernel_wg_size;
 
     if (DebugLevel > 0) {
       // Show kernel information
@@ -3136,11 +3152,12 @@ static void decideLoopKernelGroupArguments(
     cl_kernel Kernel, size_t *GroupSizes, size_t *GroupCounts) {
 
   size_t maxGroupSize = DeviceInfo->maxWorkGroupSize[DeviceId];
-  size_t kernelWidth = DeviceInfo->KernelProperties[DeviceId][Kernel].Width;
-  IDP("Assumed kernel SIMD width is %zu\n", kernelWidth);
+  auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
+  size_t kernelWidth = KernelProperty.Width;
+  IDP("Assumed kernel SIMD width is %zu\n", KernelProperty.SIMDWidth);
+  IDP("Preferred group size is multiple of %zu\n", kernelWidth);
 
-  size_t kernelMaxThreadGroupSize =
-      DeviceInfo->KernelProperties[DeviceId][Kernel].MaxThreadGroupSize;
+  size_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
   if (kernelMaxThreadGroupSize < maxGroupSize) {
     maxGroupSize = kernelMaxThreadGroupSize;
     IDP("Capping maximum thread group size to %zu due to kernel constraints.\n",
@@ -3294,11 +3311,12 @@ static void decideKernelGroupArguments(
   bool maxGroupSizeForced = false;
   bool maxGroupCountForced = false;
 
-  size_t kernelWidth = DeviceInfo->KernelProperties[DeviceId][Kernel].Width;
-  IDP("Assumed kernel SIMD width is %zu\n", kernelWidth);
+  auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
+  size_t kernelWidth = KernelProperty.Width;
+  IDP("Assumed kernel SIMD width is %zu\n", KernelProperty.SIMDWidth);
+  IDP("Preferred group size is multiple of %zu\n", kernelWidth);
 
-  size_t kernelMaxThreadGroupSize =
-      DeviceInfo->KernelProperties[DeviceId][Kernel].MaxThreadGroupSize;
+  size_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
   if (kernelMaxThreadGroupSize < maxGroupSize) {
     maxGroupSize = kernelMaxThreadGroupSize;
     IDP("Capping maximum thread group size to %zu due to kernel constraints.\n",
