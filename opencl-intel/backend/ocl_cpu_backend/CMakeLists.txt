@@ -258,7 +258,6 @@ set( BACKEND_PASSES
     KernelInfo
     Prefetch
     SubGroupAdaptation
-    LinearIdResolver
     ResolveBlockToStaticCall
     LLVMEqualizer
     PatchCallbackArgs

@@ -57,6 +57,7 @@
 // #include "llvm/Transforms/Intel_OpenCLTransforms/Passes.h"
 llvm::FunctionPass* createFMASplitterPass();
 
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
@@ -127,7 +128,6 @@ llvm::Pass *createOptimizeIDivPass();
 llvm::Pass *createShiftZeroUpperBitsPass();
 llvm::Pass *createBuiltinCallToInstPass();
 llvm::Pass *createRelaxedPass();
-llvm::Pass *createLinearIdResolverPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createHandleVPlanMaskPass();
@@ -369,7 +369,7 @@ static void populatePassesPreFailCheck(
 
   if (isOcl20) {
     // Flatten get_{local, global}_linear_id()
-    PM.add(createLinearIdResolverPass());
+    PM.add(llvm::createLinearIdResolverPass());
   }
 
   PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
