@@ -1,50 +1,15 @@
 // Test that we print pass structure with new and legacy PM.
-// RUN: %clang -fexperimental-new-pass-manager -fdebug-pass-structure -fintegrated-as -O3 -S -emit-llvm %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=NEWPM
+// RUN: %clang -fexperimental-new-pass-manager -fdebug-pass-structure -fintegrated-as -O3 -S -emit-llvm %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=NEWPM --strict-whitespace
 // RUN: %clang -flegacy-pass-manager -fdebug-pass-structure -O0 -S -emit-llvm %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=LEGACYPM
 // REQUIRES: asserts
 
-// NEWPM: Annotation2MetadataPass on [module]
-// NEWPM-NEXT: ForceFunctionAttrsPass on [module]
-// NEWPM-NEXT: InlineReportSetupPass on [module] ;INTEL
-// NEWPM-NEXT: InferFunctionAttrsPass on [module]
-// NEWPM-NEXT:   InnerAnalysisManagerProxy<{{.*}}> analysis on [module]
-// NEWPM-NEXT: ModuleToFunctionPassAdaptor on [module]
-// NEWPM-NEXT: OpenMPOptPass on [module]
-// NEWPM-NEXT: IPSCCPPass on [module]
-// NEWPM-NEXT: CalledValuePropagationPass on [module]
-// NEWPM-NEXT: GlobalOptPass on [module]
-// NEWPM-NEXT: ModuleToFunctionPassAdaptor on [module]
-// NEWPM-NEXT: DeadArgumentEliminationPass on [module]
-// NEWPM-NEXT: ModuleToFunctionPassAdaptor on [module]
-// NEWPM-NEXT: InlineListsPass on [module] ;INTEL
-// NEWPM-NEXT: ModuleInlinerWrapperPass on [module]
-// NEWPM-NEXT:   InlineAdvisorAnalysis analysis on [module]
-// NEWPM-NEXT:   RequireAnalysisPass<{{.*}}> on [module]
-// NEWPM-NEXT:     GlobalsAA analysis on [module]
-// NEWPM-NEXT:       CallGraphAnalysis analysis on [module]
-// NEWPM-NEXT:   ModuleToFunctionPassAdaptor on [module]
-// NEWPM-NEXT:   RequireAnalysisPass<{{.*}}> on [module]
-// NEWPM-NEXT:     ProfileSummaryAnalysis analysis on [module]
-// NEWPM-NEXT:   ModuleToPostOrderCGSCCPassAdaptor on [module]
-// NEWPM-NEXT:     InnerAnalysisManagerProxy<{{.*}}> analysis on [module]
-// NEWPM-NEXT:       LazyCallGraphAnalysis analysis on [module]
-// NEWPM-NEXT: GlobalOptPass on [module]
-// NEWPM-NEXT: GlobalDCEPass on [module]
-// NEWPM-NEXT: ModuleToFunctionPassAdaptor on [module] ;INTEL
-// NEWPM-NEXT: EliminateAvailableExternallyPass on [module]
-// NEWPM-NEXT: ReversePostOrderFunctionAttrsPass on [module]
-// NEWPM-NEXT: RequireAnalysisPass<{{.*}}> on [module]
-// NEWPM-NEXT:  AndersensAA analysis on [module] ;INTEL
-// NEWPM-NEXT: RequireAnalysisPass<{{.*}}> on [module] ;INTEL
-// NEWPM-NEXT: ModuleToFunctionPassAdaptor on [module]
-// CGProfilePass is disabled with non-integrated assemblers
-// NEWPM-NEXT: CGProfilePass on [module]
-// NEWPM-NEXT: GlobalDCEPass on [module]
-// NEWPM-NEXT: ConstantMergePass on [module]
-// NEWPM-NEXT: RelLookupTableConverterPass on [module]
-// NEWPM-NEXT: InlineReportEmitterPass on [module] ;INTEL
-// NEWPM-NEXT: ModuleToFunctionPassAdaptor on [module]
-// NEWPM-NEXT: PrintModulePass on [module]
+// should have proper indentation, should not print any analysis information
+// NEWPM-NOT: Running analysis
+// NEWPM: Running{{.*}}GlobalOptPass on [module] ;INTEL
+// NEWPM: Running pass: RequireAnalysisPass<{{.*}}> on [module] ;INTEL
+// NEWPM: GlobalOptPass on [module] ;INTEL
+// NEWPM-NOT: Invalidating analysis
 
-// LEGACYPM:      Pass Arguments:
+// LEGACYPM: Pass Arguments:
 
+void f() {}
