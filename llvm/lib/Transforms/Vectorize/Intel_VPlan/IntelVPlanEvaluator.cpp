@@ -195,15 +195,25 @@ VPlanRemainderEvaluator::calculateBestVariant() {
                     << " masked cost=" << MaskedVectorCost
                     << " unmasked cost=" << UnMaskedVectorCost << "\n");
 
-  if (!Planner.isVecRemainderEnabled()) {
+  if (Planner.isVecRemainderDisabled() ||
+      (!EnableMaskedVectorizedRemainder &&
+       !EnableNonMaskedVectorizedRemainder)) {
+    LLVM_DEBUG(dbgs() << "No vector remainder enabled");
+    LLVM_DEBUG(dbgs() << "Pragma: " << Planner.isVecRemainderDisabled()
+                      << "opts: " << EnableMaskedVectorizedRemainder << ", "
+                      << EnableNonMaskedVectorizedRemainder);
     return RemainderKind;
   }
 
-  if (LoopCost > MaskedVectorCost && EnableMaskedVectorizedRemainderOpt) {
+  // if vectorization of remainder is enforced disregard scalar cost
+  if (Planner.isVecRemainderEnforced())
+    LoopCost = std::numeric_limits<unsigned>::max();
+
+  if (LoopCost > MaskedVectorCost && EnableMaskedVectorizedRemainder) {
     RemainderKind = RemainderLoopKind::MaskedVector;
     LoopCost = MaskedVectorCost;
   }
-  if (LoopCost > UnMaskedVectorCost && EnableNonMaskedVectorizedRemainderOpt) {
+  if (LoopCost > UnMaskedVectorCost && EnableNonMaskedVectorizedRemainder) {
     RemainderKind = RemainderLoopKind::VectorScalar;
     LoopCost = UnMaskedVectorCost;
     RemainderTC = (MainLoopUF * MainLoopVF - 1) / RemainderVF;

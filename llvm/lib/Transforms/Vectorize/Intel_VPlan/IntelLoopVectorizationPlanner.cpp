@@ -512,7 +512,7 @@ void LoopVectorizationPlanner::selectSimplestVecScenario(unsigned VF,
   VecScenario.setVectorMain(VF, UF);
 }
 
-bool LoopVectorizationPlanner::readVecRemainderEnabled(MDNode *MD) {
+Optional<bool> LoopVectorizationPlanner::readVecRemainderEnabled(MDNode *MD) {
   if (MD) {
     if (mdconst::extract<ConstantInt>(MD->getOperand(1))
             ->isOne()) {
@@ -527,7 +527,7 @@ bool LoopVectorizationPlanner::readVecRemainderEnabled(MDNode *MD) {
       return false;
     }
   }
-  return true;
+  return None;
 }
 
 bool LoopVectorizationPlanner::readDynAlignEnabled(MDNode *MD) {
@@ -815,10 +815,16 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
 
     if (VectorCost < BestCost || VF == ForcedVF) {
       BestCost = VectorCost;
-      updateVecScenario(
-        PeelEvaluator,
-        GoUnaligned ? RemainderEvaluatorWithoutPeel : RemainderEvaluator,
-        VF, BestUF);
+      updateVecScenario(PeelEvaluator,
+                        GoUnaligned ? RemainderEvaluatorWithoutPeel
+                                    : RemainderEvaluator,
+                        VF, BestUF);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      if (PrintVecScenario) {
+        dbgs() << "Updated scenario for VF: " << VF << "\n";
+        VecScenario.dump();
+      }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
     }
   }
 #if INTEL_CUSTOMIZATION
