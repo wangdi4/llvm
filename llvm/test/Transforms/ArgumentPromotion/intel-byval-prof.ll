@@ -7,7 +7,7 @@
 
 %struct.ss = type { i32, i64 }
 
-define internal void @f(%struct.ss* byval(%struct.ss) %b) !prof !0 {
+define internal void @f(%struct.ss* byval(%struct.ss) align 8 %b) !prof !0 {
 entry:
   %tmp = getelementptr %struct.ss, %struct.ss* %b, i32 0, i32 0
   %tmp1 = load i32, i32* %tmp, align 4
