@@ -71,6 +71,8 @@
 ; CHECK-Oz: {{^}}
 
 ; CHECK-O: Starting llvm::Module pass manager run.
+; CHECK-O-NEXT: Running pass: XmainOptLevelAnalysisInit ;INTEL
+; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
 ; CHECK-O-NEXT: Running pass: Annotation2Metadata
 ; CHECK-O-NEXT: Running pass: ForceFunctionAttrsPass
 ; CHECK-EP-PIPELINE-START-NEXT: Running pass: NoOpModulePass
@@ -80,6 +82,7 @@
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; CHECK-O-NEXT: Running analysis: PreservedCFGCheckerAnalysis on foo
 ; CHECK-O-NEXT: Starting llvm::Function pass manager run.
+; CHECK-O-NEXT: Running pass: LowerSubscriptIntrinsicPass ;INTEL
 ; CHECK-O-NEXT: Running pass: LowerExpectIntrinsicPass
 ; CHECK-O-NEXT: Running pass: SimplifyCFGPass
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
@@ -256,7 +259,7 @@
 ; CHECK-O-NEXT: Running pass: EarlyCSEPass ;INTEL
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: LoopUnrollPass
-; CHECK-O-NEXT: Running pass: WarnMissedTransformationsPass
+; CHECK-DEFAULT: Running pass: WarnMissedTransformationsPass ;INTEL
 ; CHECK-O-NEXT: Running pass: InstCombinePass
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}OptimizationRemarkEmitterAnalysis
 ; CHECK-O-NEXT: Starting llvm::Function pass manager run.
