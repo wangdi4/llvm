@@ -1221,10 +1221,9 @@ private:
       if (GAR != GlobalDopeVector::AnalysisResult::AR_Pass)
         return true;
       if (GlobDV.hasNestedDopeVectors()) {
-        for (unsigned I = 0; I < GlobDV.getNumNestedDopeVector(); I++) {
-          NestedDopeVectorInfo *NestDVI = GlobDV.getNestedDopeVector(I);
+        for (NestedDopeVectorInfo *NestDVI : GlobDV.getAllNestedDopeVectors()) {
           if (NestDVI->getAnalysisResult() !=
-              DopeVectorInfo::AnalysisResult::AR_Pass)
+             DopeVectorInfo::AnalysisResult::AR_Pass)
            continue;
           // Use isDopeVectorType() to get 'NVArrayRank' and 'NVElemType'.
           uint32_t NVArrayRank = 0;
@@ -1237,10 +1236,11 @@ private:
           if (!IsGoodCandidate(NestDVI, DL, NVArrayRank, NVElemType,
                                NVArrayLength, NVElemSize))
             continue;
+          int64_t NFN = NestDVI->getFieldNum();
           TransposeCandidate Candidate(GV, NVArrayRank, NVArrayLength,
                                        NVElemSize, NVElemType,
                                        /*IsGlobalDV=*/true,
-                                       /*IsNestedField=*/true, I);
+                                       /*IsNestedField=*/true, NFN);
           Candidates.push_back(Candidate);
         }
         return true;

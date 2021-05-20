@@ -2129,6 +2129,41 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
     return NestedDV;
   };
 
+  // Return a ConstantInt value for the stride of 'SI', if one can be
+  // easily found.
+  //
+  auto GetConstantStride = [this](SubscriptInst *SI) -> ConstantInt * {
+    Value *VS = SI->getStride();
+    // If the stride is a literal constant, return it.
+    if (auto CI0 = dyn_cast<ConstantInt>(VS))
+      return CI0;
+    // Otherwise, look for a LoadInst, fed by a SubscriptInst, fed by a
+    // GEPOperator.
+    auto LI = dyn_cast<LoadInst>(VS);
+    if (!LI)
+      return nullptr;
+    auto SIS = dyn_cast<SubscriptInst>(LI->getPointerOperand());
+    if (!SIS)
+      return nullptr;
+    // Is this a GEPOPerator indexing the stride of a global dope vector?
+    auto GEPO = dyn_cast<GEPOperator>(SIS->getPointerOperand());
+    if (GEPO->getPointerOperand() != Glob)
+      return nullptr;
+    if (DopeVectorAnalyzer::identifyDopeVectorField(*GEPO) != DV_StrideBase)
+      return nullptr;
+    // Get the dimension for the stride in the dope vector.
+    auto CI = dyn_cast<ConstantInt>(SIS->getIndex());
+    if (!CI)
+      return nullptr;
+    // Look up the stride value in the DopeVectorInfo.
+    uint64_t Dim = CI->getZExtValue();
+    DopeVectorInfo *DVI = getGlobalDopeVectorInfo();
+    assert(DVI && "Expecting dope vector info");
+    DopeVectorFieldUse *SF = DVI->getDopeVectorField(
+        DopeVectorFieldType::DV_StrideBase, Dim);
+    return SF->getConstantValue();
+  };
+
   if (!SI)
     return false;
 
@@ -2142,7 +2177,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // dope vector is needed to make sure that the stride in the subscript
   // instruction is collecting the right number of bits when accessing
   // each entry in the global array.
-  if (!GlobalElementSize || SI->getStride() != GlobalElementSize)
+  if (!GlobalElementSize || GetConstantStride(SI) != GlobalElementSize)
     return false;
 
   // Traverse through the users of the array entry and find the information
@@ -2178,26 +2213,34 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
       AllocSiteFound = true;
     } else if (isa<GetElementPtrInst>(U) || isa<BitCastInst>(U)) {
       auto NestedDVTypePair = GetNestedDVTypeFromValue(U);
-      // NOTE: The following check is expecting that all fields in the
-      // the structure are dope vectors. This is conservative, there is a
-      // chance that we could have a structure where some fields that are
-      // dope vectors, and others aren't. In that case we need to relax
-      // the conditions for analyzing nested dope vectors and ignoring
-      // those fields that aren't dope vector.
-      if (!NestedDVTypePair.first ||
-          !isDopeVectorType(NestedDVTypePair.first, DL))
+      if (!NestedDVTypePair.first)
         return false;
 
-      auto *NestedDVInfo =
-          FindOrMakeNestedDopeVector(NestedDVTypePair.first,
-                                     NestedDVTypePair.second);
-      assert(NestedDVInfo && "Nested dope vector couldn't be found\n");
-      SetVector<Value *> ValueChecked;
+      if (isDopeVectorType(NestedDVTypePair.first, DL)) {
+        auto *NestedDVInfo =
+            FindOrMakeNestedDopeVector(NestedDVTypePair.first,
+                                       NestedDVTypePair.second);
+        assert(NestedDVInfo && "Nested dope vector couldn't be found\n");
+        SetVector<Value *> ValueChecked;
 
-      // Nested dope vector found, now collect the fields access
-      if (!collectNestedDopeVectorFieldAddress(NestedDVInfo, U, GetTLI,
-                                               ValueChecked, true))
-        return false;
+        // Nested dope vector found, now collect the fields access
+        if (!collectNestedDopeVectorFieldAddress(NestedDVInfo, U, GetTLI,
+                                                 ValueChecked, true))
+          return false;
+      } else {
+        // For now, if this is not a nested dope vector, give up if we
+        // see anything other than a user which is a LoadInst or StoreInst
+        // referencing U as a pointer operand. We can extend this analysis
+        // if it proves to be useful to do that.
+        for (User *V : U->users()) {
+          if (auto SI = dyn_cast<StoreInst>(V)) {
+            if (SI->getPointerOperand() != U)
+              return false;
+          } else if (!isa<LoadInst>(V)) {
+            return false;
+          }
+        }
+      }
     } else {
       // Subscript used for something else
       return false;
