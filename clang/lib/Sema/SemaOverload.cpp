@@ -6433,35 +6433,6 @@ void Sema::AddOverloadCandidate(
     return;
   }
 
-#if INTEL_CUSTOMIZATION
-  // OpenCL: A candidate function that uses extentions that are not enabled or
-  // supported is not viable.
-  if (getLangOpts().OpenCL) {
-    bool HasHalf =
-        getOpenCLOptions().isSupported("cl_khr_fp16", getLangOpts()) &&
-        getOpenCLOptions().isAvailableOption("cl_khr_fp16", getLangOpts());
-    bool HasDouble =
-        getOpenCLOptions().isSupported("cl_khr_fp64", getLangOpts()) &&
-        getOpenCLOptions().isAvailableOption("cl_khr_fp64", getLangOpts());
-
-    if ((!HasHalf && Function->getReturnType()->isHalfType()) ||
-        (!HasDouble && Function->getReturnType()->isDoubleType())) {
-      Candidate.Viable = false;
-      Candidate.FailureKind = ovl_fail_ext_disabled;
-      return;
-    }
-    for (const auto *PI : Function->parameters()) {
-      QualType PTy = PI->getType();
-      if ((!HasHalf && PTy->isHalfType()) ||
-          (!HasDouble && PTy->isDoubleType())) {
-        Candidate.Viable = false;
-        Candidate.FailureKind = ovl_fail_ext_disabled;
-        return;
-      }
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
-
   // (CUDA B.1): Check for invalid calls between targets.
   if (getLangOpts().CUDA)
     if (const FunctionDecl *Caller = dyn_cast<FunctionDecl>(CurContext))
@@ -6522,12 +6493,6 @@ void Sema::AddOverloadCandidate(
     Candidate.Viable = false;
     Candidate.FailureKind = ovl_fail_enable_if;
     Candidate.DeductionFailure.Data = FailedAttr;
-    return;
-  }
-
-  if (LangOpts.OpenCL && isOpenCLDisabledDecl(Function)) {
-    Candidate.Viable = false;
-    Candidate.FailureKind = ovl_fail_ext_disabled;
     return;
   }
 }
@@ -11134,14 +11099,6 @@ static void DiagnoseFailedExplicitSpec(Sema &S, OverloadCandidate *Cand) {
       << (ES.getExpr() ? ES.getExpr()->getSourceRange() : SourceRange());
 }
 
-static void DiagnoseOpenCLExtensionDisabled(Sema &S, OverloadCandidate *Cand) {
-  FunctionDecl *Callee = Cand->Function;
-
-  S.Diag(Callee->getLocation(),
-         diag::note_ovl_candidate_disabled_by_extension)
-    << S.getOpenCLExtensionsFromDeclExtMap(Callee);
-}
-
 /// Generates a 'note' diagnostic for an overload candidate.  We've
 /// already generated a primary error at the call site.
 ///
@@ -11236,9 +11193,6 @@ static void NoteFunctionCandidate(Sema &S, OverloadCandidate *Cand,
 
   case ovl_fail_explicit:
     return DiagnoseFailedExplicitSpec(S, Cand);
-
-  case ovl_fail_ext_disabled:
-    return DiagnoseOpenCLExtensionDisabled(S, Cand);
 
   case ovl_fail_inhctor_slice:
     // It's generally not interesting to note copy/move constructors here.
