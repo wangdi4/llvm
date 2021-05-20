@@ -1,6 +1,10 @@
 // RUN: cat %s | clang-repl | FileCheck %s
 // REQUIRES: host-supports-jit
 // UNSUPPORTED: system-aix
+// INTEL_CUSTOMIZATION
+// XFAIL: *
+// See CMPLRLLVM-28552.
+// end INTEL_CUSTOMIZATION
 
 extern "C" int printf(const char *, ...);
 int i = 42;
