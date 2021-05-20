@@ -1,0 +1,475 @@
+.. INTEL_CUSTOMIZATION
+
+Offload Runtime Environment Variables
+=====================================
+
+Glossary
+--------
+
+Offload
+^^^^^^^
+Variable is used in device-independent offload runtime (libomptarget), and
+plugin may also use the variable if applicable.
+
+Plugin Common
+^^^^^^^^^^^^^
+Variable is only used in device-dependent plugins, and both Level Zero and
+OpenCL plugins use it.
+
+Plugin LevelZero
+^^^^^^^^^^^^^^^^
+Variable is only used in the Level Zero plugin.
+
+Plugin OpenCL
+^^^^^^^^^^^^^
+Variable is only used in the OpenCL plugin.
+
+Experimental
+^^^^^^^^^^^^
+Variable is not exposed/used in the product build.
+
+
+Offload
+-------
+
+``LIBOMPTARGET_DEBUG=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Controls whether or not debugging information will be displayed.
+See details in openmp/docs/design/Runtimes.rst
+
+``LIBOMPTARGET_PROFILE=<FileName>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Allows libomptarget to generate time profile output similar to Clang's
+``-ftime-trace`` option.
+See details in openmp/docs/design/Runtimes.rst
+
+``LIBOMPTARGET_MEMORY_MANAGER_THRESHOLD=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Sets the threshold size for which the libomptarget memory manager will handle
+the allocation.
+See details in openmp/docs/design/Runtimes.rst
+
+**Note**: This is not used with LevelZero/OpenCL plugin.
+
+``LIBOMPTARGET_INFO=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Allows the user to request different types of runtime information from
+libomptarget.
+See details in openmp/docs/design/Runtimes.rst
+
+``OMP_TARGET_OFFLOAD=<Str>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Str> := mandatory | disabled | default
+
+Sets the initial value of the *target-offload-var* ICV.
+
+``<Str>=mandatory:`` Execution is terminated if a device construct or device
+memory routine is encountered and the device is not available or is not
+supported by the implementation.
+
+``<Str>=disabled:`` The behavior is as if the only device is the host device if
+implementation supports.
+
+``<Str>=default:`` Default behavior described in the `OpenMP specification`_'s
+execution model.
+
+See details in the `OpenMP specification`_.
+
+.. _`OpenMP specification`: https://www.openmp.org/spec-html/5.1/openmp.html
+
+
+Plugin Common
+-------------
+
+``LIBOMPTARGET_PLUGIN=<Name>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Name> := LEVEL0 | OPENCL | CUDA | X86_64 | NIOS2 |
+            level0 | opencl | cuda | x86_64 | nios2
+
+Designates offload plugin name to use.
+Offload runtime does not try to load other RTLs if this option is used.
+
+**Default**: Undefined
+
+``LIBOMPTARGET_DEBUG=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Displays debug information at the specified level.
+
+``<Num>=0:`` Disabled
+
+``<Num>=1:`` Displays basic debug information from the plugin actions such as
+device detection, kernel compilation, memory copy operations, kernel
+invocations, and other plugin-dependent actions.
+
+``<Num>=2:`` Additionally displays which GPU runtime API functions are invoked
+with which arguments/parameters.
+
+**Default**: Disabled
+
+``LIBOMPTARGET_DATA_TRANSFER_LATENCY=T,<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Adds artificial data transfer latency, <Num> microseconds, for each memory
+copy operations.
+
+**Default**: Disabled
+
+``LIBOMPTARGET_DEVICETYPE=<Type>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Type> := GPU | gpu | CPU | cpu
+
+Decides which device type is used.
+Only OpenCL plugin supports "CPU" device type.
+
+**Default**: GPU type
+
+``LIBOMPTARGET_PLUGIN_PROFILE=<Enable>[,<Unit>]``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Enable> := 1 | T
+  <Unit>   := usec | unit_usec
+
+Enables basic plugin profiling and displays the result when program finishes.
+Microsecond is the default unit if ``<Unit>`` is not specified.
+
+**Default**: Disabled
+
+``LIBOMPTARGET_USM_HOST_MEM=<Enable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Enable> := 1 | T | t
+
+Enables use of USM host memory if ``#pragma omp requires unified_shared_memory``
+is present in the program, and ``omp_target_alloc`` routine is invoked.
+
+**Default**: USM shared memory
+
+**Note**: It appears to be better not to claim this partial support of
+``unified_shared_memory`` and remove this feature to avoid confusion.
+
+``LIBOMPTARGET_DYNAMIC_MEMORY_SIZE=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Sets the size (in megabyte) of dynamic memory allocatable within a kernel.
+Current experimental implementation does not support "free" operation.
+
+**Default**: 0 (disabled)
+
+``INTEL_LIBITTNOTIFY64=<Path>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Enables ITT annotations in the target program if ``<Path>`` is not empty.
+
+**Default**: Disabled
+
+``LIBOMPTARGET_ONEAPI_USE_IMAGE_OPTIONS=<Bool>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Bool> := 1 | T | t | 0 | F | f
+
+Enables/disables use of target build options embedded in the target image.
+
+**Default**: Enabled
+
+
+Plugin LevelZero
+----------------
+
+``LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS=<Options>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Passes ``<Options>`` when building native target program binaries.
+``<Options>`` may include valid OpenCL/Level Zero build options.
+
+``LIBOMPTARGET_LEVEL0_TARGET_GLOBALS=<Disable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Disable> := 0 | F | f
+
+Disables passing ``-cl-take-global-address`` option when building target
+program binaries. Disabling this may result in incorrect program behavior.
+
+| **Default**: Enabled
+
+``LIBOMPTARGET_LEVEL0_MATCH_SINCOSPI=<Disable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Disable> := 0 | F | f
+
+Disables passing ``-cl-match-sincospi`` option when building target program
+binaries.
+
+**Default**: Enabled
+
+``LIBOMPTARGET_LEVEL0_USE_DRIVER_GROUP_SIZES=<Enable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Enable> := 1 | T | t
+
+Enables using local work size (i.e., team size) suggested by Level Zero
+runtime.
+
+**Default**: Disabled
+
+``LIBOMPTARGET_DEVICES=<DeviceKind>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <DeviceKind> := DEVICE | SUBDEVICE | SUBSUBDEVICE | ALL |
+                  device | subdevice | subsubdevice | all
+
+Controls how subdevices are exposed to users.
+
+``DEVICE/device``: Only top-level devices are reported as OpenMP devices, and
+``subdevice`` clause is supported.
+
+``SUBDEVICE/subdevice``: Only 1st-level subdevices are reported as OpenMP
+devices, and ``subdevice`` clause is ignored.
+
+``SUBSUBDEVICE/subsubdevice``: Only 2nd-level subdevices are reported as OpenMP
+devices, and ``subdevice`` clause is ignored.
+
+``ALL/all``: All top-level devices and their subdevices are reported as OpenMP
+devices, and ``subdevice`` clause is ignored.
+
+**Default**: Equivalent to ``<DeviceKind>=device``
+
+``LIBOMPTARGET_LEVEL0_MEMORY_POOL=<Option>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Option>       := 0 | <PoolInfoList>
+  <PoolInfoList> := <PoolInfo>[,<PoolInfoList>]
+  <PoolInfo>     := <MemType>[,<AllocMax>[,<Capacity>[,<PoolSize>]]]
+  <MemType>      := all | device | host | shared
+  <AllocMax>     := positive integer or empty, max allocation size in MB
+  <Capacity>     := positive integer or empty, number of allocations from a
+                    single block
+  <PoolSize>     := positive integer or empty, max pool size in MB
+
+Controls how reusable memory pool is configured.
+Pool is a list of memory blocks that can serve at least ``<Capacity>``
+allocations of up to ``<AllocMax>`` size from a single block, with total size
+not exceeding ``<PoolSize>``.
+
+**Default**: Equivalent to ``<Option>=all,1,4,256``
+
+``LIBOMPTARGET_LEVEL0_USE_COPY_ENGINE=<Disable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Disable> := 0 | F | f
+
+Disables use of copy engine for memory copy operations.
+
+**Default**: Enabled if device supports
+
+``LIBOMPTARGET_LEVEL0_DEFAULT_TARGET_MEM=<MemType>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <MemType> := DEVICE | HOST | SHARED | device | host | shared
+
+Decides memory type returned by ``omp_target_alloc`` routine.
+
+**Default**: device
+
+``LIBOMPTARGET_LEVEL0_USE_DEVICE_MEM=<Enable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Enable> := 1 | T | t
+
+Uses device memory type for ``omp_target_alloc`` routine.
+
+**Note**: Default is already *device*, so we should remove this
+
+``LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Sets over-subscription parameter that is used when computing the team
+size/counts for a target region.
+
+**Default**: 4
+
+``LIBOMPTARGET_LEVEL0_KERNEL_WIDTH=<Width>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Width> := 8 | 16 | 32
+
+Forces use of ``<Width>`` when computing the team size/counts for a target
+region.
+
+**Default**: Use existing kernel property
+
+
+Plugin OpenCL
+-------------
+
+``LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD=<Method>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Method> := 0 | 1 | 2
+
+Uses the specified method when performing memory copy operations.
+This is only effective when ``LIBOMPTARGET_OPENCL_USE_SVM=1``.
+
+``<Method>=0``: Uses ``clEnqueueRead/WriteBuffer`` API function on a temporary
+OpenCL buffer (``cl_mem``) created from a SVM pointer.
+
+``<Method>=1``: Uses ``clEnqueueSVMMap/Unmap`` API function.
+
+``<Method>=2``: Uses ``clEnqueueSVMMemcpy`` API function.
+
+**Default**: ``<Method>=1`` if ``LIBOMPTARGET_OPENCL_USE_SVM=1``
+
+``LIBOMPTARGET_OPENCL_SUBSCRIPTION_RATE=<Num>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Sets over-subscription parameter that is used when computing the team
+size/counts for a target region.
+
+**Default**: 4
+
+``LIBOMPTARGET_ENABLE_SIMD=<Enable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Enable> : 1 | T
+
+TODO
+
+``LIBOMPTARGET_OPENCL_INTEROP_QUEUE=<QueueType>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <QueueType> := inorder_async | inorder_shared_sync
+
+Decides queue properties used in a custom interop object.
+Custom interop is different from OpenMP 5.1 interop and is not user-facing
+interface.
+
+``<QueueType>=inorder_async``: Returns a new in-order OpenCL queue for interop
+objects created for asynchronous usage.
+
+``<QueueType>=inorder_shared_sync``: Returns an existing in-order OpenCL queue
+for interop obejcts created for synchronous usage.
+
+**Default**: New in-order queue for synchronous, existing out-of-order queue for
+asynchronous usage.
+
+``LIBOMPTARGET_OPENCL_COMPILATION_OPTIONS=<Options>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Passes ``<Options>`` when compiling target programs.
+``<Options>`` may include valid OpenCL build options.
+
+``LIBOMPTARGET_OPENCL_LINKING_OPTIONS=<Options>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Passes ``<Options>`` when linking target programs.
+``<Options>`` may include valid OpenCL build options.
+
+``LIBOMPTARGET_OPENCL_TARGET_GLOBALS=<Disable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Disable> := 0 | F | f
+
+Disables passing ``-cl-take-global-address`` option when building target program
+binaries. Disabling this may result in incorrect program behavior.
+
+**Default**: Enabled
+
+``LIBOMPTARGET_OPENCL_MATCH_SINCOSPI=<Disable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Disable> := 0 | F | f
+
+Disables passing ``-cl-match-sincospi`` option when building target program
+binaries.
+
+**Default**: Enabled
+
+``LIBOMPTARGET_OPENCL_USE_DRIVER_GROUP_SIZES=<Enable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Enable> := 1 | T | t
+
+Enables using local work size (i.e., team size) suggested by OpenCL runtime.
+
+**Default**: Disabled
+
+``LIBOMPTARGET_OPENCL_USE_SVM=<Bool>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Bool> := 1 | T | t | 0 | F | f
+
+Enables/disables using SVM memory for default memory type.
+
+**Default**: Disabled (USM device by default)
+
+``LIBOMPTARGET_OPENCL_USE_BUFFER=<Enable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Enable> := 1 | T | t
+
+Enables using OpenCL buffer (``cl_mem``) for memory allocated by
+``omp_target_alloc`` routine.
+
+**Default**: Disabled
+
+``LIBOMPTARGET_OPENCL_USE_SINGLE_CONTEXT=<Enable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Enable> := 1 | T | t
+
+Enables using a single OpenCL context for all devices under the same platform.
+
+**Default**: Disabled (single context per device)
+
+
+Experimental
+------------
+
+``LIBOMPTARGET_DUMP_TARGET_IMAGE=<Enable>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <Enable> := 1 | T | t
+
+Dumps target binaries embeded in the fat binary to the current directory.
+
+**Default**: Disabled
+
+``LIBOMPTARGET_LOCAL_WG_SIZE=<SizeDesc>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <SizeDesc> := {<NumX>,<NumY>,<NumZ>}
+
+Forces using the specified size description for local work size (team size).
+This is for internal experiments and may not work correctly in certain cases.
+
+``LIBOMPTARGET_GLOBAL_WG_SIZE=<SizeDesc>``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: rst
+
+  <SizeDesc> := {<NumX>,<NumY>,<NumZ>}
+
+Forces using the specified size description for global work size (team size *
+team count). This is for internal experiments and may not work correctly in
+certain cases.
+
+.. END INTEL_CUSTOMIZATION
