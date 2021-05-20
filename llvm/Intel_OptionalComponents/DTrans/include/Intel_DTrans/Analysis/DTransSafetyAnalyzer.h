@@ -27,6 +27,7 @@
 namespace llvm {
 class BlockFrequencyInfo;
 class Function;
+class GEPOperator;
 class Module;
 class TargetLibraryInfo;
 class WholeProgramInfo;
@@ -121,6 +122,15 @@ public:
   // If the BinaryOperator has a type entry in the 'PtrSubInfoMap', return the
   // type. Otherwise, return nullptr.
   DTransType *getResolvedPtrSubType(BinaryOperator *BinOp);
+
+  // If the GEP was identified as a byte-flattened GEP during the pointer type
+  // analysis, return the type and field number that is indexed by the GEP.
+  std::pair<DTransType *, size_t> getByteFlattenedGEPElement(GEPOperator *GEP);
+
+  // Adaptor for getByteFlattenedGEPElement that converts a GetElementPtrInst to
+  // a GEPOperator.
+  std::pair<DTransType *, size_t>
+  getByteFlattenedGEPElement(GetElementPtrInst *GEP);
 
   // Retrieve the CallInfo object for the instruction, if information exists.
   // Otherwise, return nullptr.
