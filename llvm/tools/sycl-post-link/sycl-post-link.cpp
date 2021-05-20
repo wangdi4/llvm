@@ -743,6 +743,19 @@ static TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
   bool SpecConstsMet = false;
   bool SetSpecConstAtRT = DoSpecConst && (SpecConstLower == SC_USE_RT_VAL);
 
+#if INTEL_COLLAB
+  if (DoEnableOmpExplicitSimd) {
+    legacy::PassManager Passes;
+    Passes.add(createVPOParoptLowerSimdPass());
+    Passes.add(createGenXSPIRVWriterAdaptorPass());
+    Passes.run(*M);
+  }
+
+  if (DoLinkOmpOffloadEntries || DoMakeOmpGlobalsStatic)
+    processOmpOffloadEntries(*M, DoLinkOmpOffloadEntries,
+                             DoSortOmpOffloadEntries, DoMakeOmpGlobalsStatic);
+#endif // INTEL_COLLAB
+
   if (DoSplit)
     splitModule(*M, GlobalsSet, ResultModules);
   // post-link always produces a code result, even if it is unmodified input
@@ -766,19 +779,6 @@ static TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
       SpecConstsMet |= !Res.areAllPreserved();
     }
   }
-
-#if INTEL_COLLAB
-  if (DoEnableOmpExplicitSimd) {
-    legacy::PassManager Passes;
-    Passes.add(createVPOParoptLowerSimdPass());
-    Passes.add(createGenXSPIRVWriterAdaptorPass());
-    Passes.run(*M);
-  }
-
-  if (DoLinkOmpOffloadEntries || DoMakeOmpGlobalsStatic)
-    processOmpOffloadEntries(*M, DoLinkOmpOffloadEntries,
-                             DoSortOmpOffloadEntries, DoMakeOmpGlobalsStatic);
-#endif // INTEL_COLLAB
 
   if (IROutputOnly) {
     // the result is the transformed input LLVMIR file rather than a file table
