@@ -325,8 +325,6 @@ PreservedAnalyses SimplifyCFGPass::run(Function &F,
   PreservedAnalyses PA;
   if (RequireAndPreserveDomTree)
     PA.preserve<DominatorTreeAnalysis>();
-  PA.preserve<GlobalsAA>();
-  PA.preserve<AndersensAA>();        // INTEL
   PA.preserve<WholeProgramAnalysis>(); // INTEL
   return PA;
 }

@@ -919,9 +919,5 @@ PreservedAnalyses VectorCombinePass::run(Function &F,
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
-  PA.preserve<GlobalsAA>();
-  PA.preserve<AndersensAA>();  // INTEL
-  PA.preserve<AAManager>();
-  PA.preserve<BasicAA>();
   return PA;
 }

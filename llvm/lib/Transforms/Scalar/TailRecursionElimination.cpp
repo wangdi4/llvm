@@ -922,8 +922,6 @@ PreservedAnalyses TailCallElimPass::run(Function &F,
   if (!Changed)
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
-  PA.preserve<GlobalsAA>();
-  PA.preserve<AndersensAA>();         // INTEL
   PA.preserve<WholeProgramAnalysis>();// INTEL
   PA.preserve<DominatorTreeAnalysis>();
   PA.preserve<PostDominatorTreeAnalysis>();
