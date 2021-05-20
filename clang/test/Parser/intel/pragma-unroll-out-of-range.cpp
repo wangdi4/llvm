@@ -1,7 +1,7 @@
 // CQ#366562/CQ#415958
-// RUN: %clang_cc1 -fintel-compatibility -verify %s -DZERO_OK
-// RUN: %clang_cc1 -fintel-compatibility -fintel-compatibility-enable=UnrollZero -verify %s -DZERO_OK
-// RUN: %clang_cc1 -fintel-compatibility -fintel-compatibility-disable=UnrollZero -verify %s
+// RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -verify %s -DZERO_OK
+// RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -fintel-compatibility-enable=UnrollZero -verify %s -DZERO_OK
+// RUN: %clang_cc1 -triple=x86_64-unknown-linux-gnu -fintel-compatibility -fintel-compatibility-disable=UnrollZero -verify %s
 
 #include <stdint.h>
 
@@ -69,11 +69,9 @@ void illegal_pragma() {
     s = s + i;
   }
 }
-
 int main() {
   illegal_pragma<int>();
   simple_test();
-
   size_test<0>();                   //expected-note {{in instantiation of function template specialization 'size_test<0L>' requested here}}
   size_test<-2>();                  //expected-note {{in instantiation of function template specialization 'size_test<-2L>' requested here}}
   size_test<1844674407370955161>(); //expected-note {{in instantiation of function template specialization 'size_test<1844674407370955161L>' requested here}}
