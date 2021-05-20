@@ -72,11 +72,13 @@ std::map<uint64_t, std::vector<const char *>> DeviceArchMap {
       "HD Graphics",
       "UHD Graphics",
       "Pro Graphics",
-      "Plus Graphics"
+      "Plus Graphics",
+      "Iris(TM) Graphics",
     }
   },
   {
     DeviceArch_XeLP, {
+      "Xe Graphics",
       "Xe MAX Graphics"
     }
   }
@@ -87,7 +89,7 @@ std::map<uint64_t, std::vector<const char *>> DeviceArchMap {
 std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
   {
     DeviceArch_Gen9, {
-      0x0901, 0x0902, 0x0903, 0x0904, 0x1900, // SKL
+      0x1900, // SKL
       0x5900, // KBL
       0x3E00, 0x9B00, // CFL
     }
@@ -102,7 +104,9 @@ std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
   },
   {
     DeviceArch_XeHP, {
+#if INTEL_CUSTOMIZATION
       0x0200, // ATS
+#endif // INTEL_CUSTOMIZATION
     }
   }
 };
@@ -2388,7 +2392,11 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     KernelProperty.Width = kernel_simd_width;
     KernelProperty.SIMDWidth = kernel_simd_width;
     uint32_t HWId = DeviceInfo->getPCIDeviceId(device_id) & 0xFF00;
+#if INTEL_CUSTOMIZATION
     if (HWId == 0x0200 || HWId == 0x0b00 || HWId == 0x4900)
+#else // INTEL_CUSTOMIZATION
+    if (HWId == 0x4900)
+#endif // INTEL_CUSTOMIZATION
       KernelProperty.SIMDWidth /= 2;
 
     size_t kernel_wg_size = 1;
