@@ -1541,8 +1541,8 @@ function(add_unittest test_suite test_name)
   endif()
   # end INTEL_CUSTOMIZATION
 
-  # The runtime benefits of ThinLTO don't outweight the compile time costs for tests.
-  if(uppercase_LLVM_ENABLE_LTO STREQUAL "THIN")
+  # The runtime benefits of LTO don't outweight the compile time costs for tests.
+  if(LLVM_ENABLE_LTO)
     if((UNIX OR MINGW) AND LLVM_USE_LINKER STREQUAL "lld")
       set_property(TARGET ${test_name} APPEND_STRING PROPERTY
                     LINK_FLAGS " -Wl,--lto-O0")
