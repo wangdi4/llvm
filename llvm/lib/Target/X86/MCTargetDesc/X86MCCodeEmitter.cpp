@@ -93,6 +93,7 @@ private:
                       const MCSubtargetInfo &STI, raw_ostream &OS) const;
 
   void emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
+                           const MCSubtargetInfo &STI, // INTEL
                            raw_ostream &OS) const;
 
   void emitSegmentOverridePrefix(unsigned SegOperand, const MCInst &MI,
@@ -714,7 +715,7 @@ bool X86MCCodeEmitter::emitPrefixImpl(unsigned &CurOp, const MCInst &MI,
   uint64_t Encoding = TSFlags & X86II::EncodingMask;
   bool HasREX = false;
   if (Encoding)
-    emitVEXOpcodePrefix(MemoryOperand, MI, OS);
+    emitVEXOpcodePrefix(MemoryOperand, MI, STI, OS); // INTEL
   else
     HasREX = emitOpcodePrefix(MemoryOperand, MI, STI, OS);
 
@@ -771,6 +772,7 @@ bool X86MCCodeEmitter::emitPrefixImpl(unsigned &CurOp, const MCInst &MI,
 
 /// AVX instructions are encoded using a opcode prefix called VEX.
 void X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
+                                           const MCSubtargetInfo &STI, // INTEL
                                            raw_ostream &OS) const {
   const MCInstrDesc &Desc = MCII.get(MI.getOpcode());
   uint64_t TSFlags = Desc.TSFlags;
@@ -1255,6 +1257,8 @@ void X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
 #if INTEL_CUSTOMIZATION
     assert((VEX_5M & 0x7) == VEX_5M &&
            "More than 3 significant bits in VEX.m-mmmm fields for EVEX!");
+    assert((STI.getCPU() != "common-avx256" || !EVEX_L2) &&
+           "ZMM registers are not supported under AVX-256");
 #endif // INTEL_CUSTOMIZATION
 
     emitByte(0x62, OS);

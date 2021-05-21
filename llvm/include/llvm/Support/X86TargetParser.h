@@ -94,6 +94,7 @@ enum CPUKind {
   CK_Broadwell,
 #if INTEL_CUSTOMIZATION
   CK_CommonAVX512,
+  CK_CommonAVX256,
 #endif // INTEL_CUSTOMIZATION
   CK_SkylakeClient,
   CK_SkylakeServer,
