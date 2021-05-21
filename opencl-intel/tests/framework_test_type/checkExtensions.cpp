@@ -40,6 +40,36 @@ protected:
   cl_device_id m_device;
 };
 
+// Reference CPU extensions. Update this list if supported extension names or
+// version changes.
+const std::map<std::string, cl_version> extRefCPU = {
+    {"cl_khr_icd", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_khr_global_int32_base_atomics", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_khr_global_int32_extended_atomics", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_khr_local_int32_base_atomics", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_khr_local_int32_extended_atomics", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_khr_int64_base_atomics", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_khr_int64_extended_atomics", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_khr_byte_addressable_store", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_khr_depth_images", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_khr_3d_image_writes", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_khr_il_program", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_intel_unified_shared_memory_preview", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_intel_exec_by_local_thread", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_intel_vec_len_hint", CL_MAKE_VERSION(1, 0, 0)},
+#ifndef _WIN32
+    {"cl_intel_device_partition_by_names", CL_MAKE_VERSION(1, 0, 0)},
+#endif
+    {"cl_khr_spir", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_khr_fp64", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_khr_image2d_from_buffer", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_intel_required_subgroup_size", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_intel_spirv_subgroups", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_intel_subgroups", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_intel_subgroups_char", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_intel_subgroups_long", CL_MAKE_VERSION(1, 0, 0)},
+    {"cl_intel_subgroups_short", CL_MAKE_VERSION(1, 0, 0)}};
+
 TEST_F(CheckExtensions, CpuDevice) {
   // Query list of extension names from clGetPlatformInfo/clGetDeviceInfo
   size_t retSize;
@@ -53,63 +83,100 @@ TEST_F(CheckExtensions, CpuDevice) {
                           nullptr);
   ASSERT_OCL_SUCCESS(err, "clGetPlatformInfo");
   err = clGetDeviceInfo(m_device, CL_DEVICE_EXTENSIONS, 0, nullptr, &retSize);
-  ASSERT_OCL_SUCCESS(err, "clGetPlatformInfo");
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
 
   std::string extensions(retSize, '\0');
   err = clGetDeviceInfo(m_device, CL_DEVICE_EXTENSIONS, extensions.size(),
                         &extensions[0], nullptr);
-  ASSERT_OCL_SUCCESS(err, "clGetPlatformInfo");
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
 
   ASSERT_TRUE(extensionsPlatform == extensions)
       << " Expected that platform and device extensions are equal!";
 
-  // Reference CPU extensions. Update this list if supported extension names
-  // changes.
-  std::set<std::string> extRefCPU = {"cl_khr_icd",
-                                     "cl_khr_global_int32_base_atomics",
-                                     "cl_khr_global_int32_extended_atomics",
-                                     "cl_khr_local_int32_base_atomics",
-                                     "cl_khr_local_int32_extended_atomics",
-                                     "cl_khr_int64_base_atomics",
-                                     "cl_khr_int64_extended_atomics",
-                                     "cl_khr_byte_addressable_store",
-                                     "cl_khr_depth_images",
-                                     "cl_khr_3d_image_writes",
-                                     "cl_khr_il_program",
-                                     "cl_intel_unified_shared_memory_preview",
-                                     "cl_intel_exec_by_local_thread",
-                                     "cl_intel_vec_len_hint",
-#ifndef _WIN32
-                                     "cl_intel_device_partition_by_names",
-#endif
-                                     "cl_khr_spir",
-                                     "cl_khr_fp64",
-                                     "cl_khr_image2d_from_buffer",
-                                     "cl_intel_required_subgroup_size",
-                                     "cl_intel_spirv_subgroups",
-                                     "cl_intel_subgroups",
-                                     "cl_intel_subgroups_char",
-                                     "cl_intel_subgroups_long",
-                                     "cl_intel_subgroups_short"};
   // Remove trailing '\0'
   extensions.erase(std::find(extensions.begin(), extensions.end(), '\0'),
                    extensions.end());
   // Check each queried extension is present in reference extensions
+  std::map<std::string, cl_version> extRef(extRefCPU);
   std::istringstream extss(extensions);
   for (auto i = std::istream_iterator<std::string>(extss),
             e = std::istream_iterator<std::string>();
        i != e; ++i) {
-    ASSERT_EQ(extRefCPU.count(*i), 1)
+    ASSERT_EQ(extRef.count(*i), 1)
         << ("Expect " + (*i) + " exists once in reference extensions");
-    extRefCPU.erase(*i);
+    extRef.erase(*i);
   }
 
-  // Check extRefCPU is empty.
-  if (!extRefCPU.empty()) {
+  // Check extRef is empty.
+  if (!extRef.empty()) {
     std::ostringstream ss;
-    std::copy(extRefCPU.begin(), extRefCPU.end(),
-              std::ostream_iterator<std::string>(ss, ","));
+    for (auto ext : extRef)
+      ss << ext.first << ",";
     FAIL() << ("Reference extensions " + ss.str() +
                " are not in extensions queried from clGetDeviceInfo");
+  }
+}
+
+static inline std::string makeVersonString(cl_version version) {
+  std::ostringstream ss;
+  ss << "v";
+  ss << CL_VERSION_MAJOR(version);
+  ss << ".";
+  ss << CL_VERSION_MINOR(version);
+  ss << ".";
+  ss << CL_VERSION_PATCH(version);
+  return ss.str();
+}
+
+static bool operator==(const cl_name_version &lhs, const cl_name_version &rhs) {
+  return strcmp(lhs.name, rhs.name) == 0 && lhs.version == rhs.version;
+}
+
+TEST_F(CheckExtensions, WithVersion) {
+  // Query list of extension names from clGetPlatformInfo/clGetDeviceInfo
+  size_t retSize;
+  size_t numOfExts;
+  cl_int err = clGetPlatformInfo(
+      m_platform, CL_PLATFORM_EXTENSIONS_WITH_VERSION, 0, nullptr, &retSize);
+  ASSERT_OCL_SUCCESS(err, "clGetPlatformInfo");
+
+  numOfExts = retSize / sizeof(cl_name_version);
+  std::vector<cl_name_version> extsWithVerPlatform(numOfExts);
+  err = clGetPlatformInfo(m_platform, CL_PLATFORM_EXTENSIONS_WITH_VERSION,
+                          retSize, extsWithVerPlatform.data(), nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetPlatformInfo");
+
+  err = clGetDeviceInfo(m_device, CL_DEVICE_EXTENSIONS_WITH_VERSION, 0, nullptr,
+                        &retSize);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
+
+  numOfExts = retSize / sizeof(cl_name_version);
+  std::vector<cl_name_version> extsWithVer(numOfExts);
+  err = clGetDeviceInfo(m_device, CL_DEVICE_EXTENSIONS_WITH_VERSION, retSize,
+                        extsWithVer.data(), nullptr);
+  ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
+
+  ASSERT_TRUE(extsWithVer == extsWithVerPlatform)
+      << " Expected that platform and device extensions are equal!";
+
+  // Check each queried extension is present in reference extensions
+  std::map<std::string, cl_version> extRef(extRefCPU);
+  for (auto extVer : extsWithVer) {
+    ASSERT_EQ(extVer.version, extRef[extVer.name])
+        << ("Expect " + std::string(extVer.name) + "(" +
+            makeVersonString(extVer.version) +
+            ") exists once in reference extensions");
+    if (extVer.version == extRef[extVer.name])
+        extRef.erase(extVer.name);
+  }
+
+  // Check extRef is empty.
+  if (!extRef.empty()) {
+    std::ostringstream ss;
+    for (auto ext : extRef)
+      ss << ext.first << "(" << makeVersonString(ext.second) << "), ";
+
+    FAIL() << ("Reference extensions " + ss.str() +
+               "are not in extensions queried from clGetDeviceInfo");
   }
 }

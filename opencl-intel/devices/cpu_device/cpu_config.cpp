@@ -34,7 +34,7 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::DeviceBackend;
 
-std::string CPUDeviceConfig::m_extensions;
+std::vector<cl_name_version> CPUDeviceConfig::m_extensions;
 
 CPUDeviceConfig::CPUDeviceConfig()
 {
@@ -158,95 +158,114 @@ bool CPUDeviceConfig::IsDoubleSupported() const
 
 const char* CPUDeviceConfig::GetExtensions() const
 {
-    if (m_extensions.empty())
+    static std::string extensions;
+    if (extensions.empty()) {
+        if (m_extensions.empty())
+            GetExtensionsWithVersion();
+
+        std::ostringstream oss;
+        for (auto extWithVer : m_extensions)
+            oss << extWithVer.name << " ";
+        extensions = oss.str();
+    }
+
+    return extensions.c_str();
+}
+
+const std::vector<cl_name_version>&
+CPUDeviceConfig::GetExtensionsWithVersion() const
+{
+    if (!m_extensions.empty())
+      return m_extensions;
+
+#define GET_EXT_VER(name, major, minor, patch)                                 \
+    m_extensions.emplace_back(                                                 \
+        cl_name_version{CL_MAKE_VERSION(major, minor, patch), name})
+
+    if (FPGA_EMU_DEVICE == GetDeviceMode())
     {
-        if (FPGA_EMU_DEVICE == GetDeviceMode())
-        {
-            m_extensions =  OCL_EXT_KHR_ICD " ";
-            m_extensions += OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE " ";
-            m_extensions += OCL_EXT_INTEL_FPGA_HOST_PIPE " ";
-            m_extensions += OCL_EXT_ES_KHR_INT64 " ";
-            m_extensions += OCL_EXT_KHR_IL_PROGRAM " ";
-            m_extensions += OCL_EXT_KHR_GLOBAL_BASE_ATOMICS " ";
-            m_extensions += OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS " ";
-            m_extensions += OCL_EXT_KHR_LOCAL_BASE_ATOMICS " ";
-            m_extensions += OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS " ";
+        GET_EXT_VER(OCL_EXT_KHR_ICD, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_INTEL_FPGA_HOST_PIPE, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_ES_KHR_INT64, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_KHR_IL_PROGRAM, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_KHR_GLOBAL_BASE_ATOMICS, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_KHR_LOCAL_BASE_ATOMICS, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS, 1, 0, 0);
 
-            return m_extensions.c_str();
-        }
+        return m_extensions;
+    }
 
-        if (EYEQ_EMU_DEVICE == GetDeviceMode())
-        {
-            m_extensions =  OCL_EXT_KHR_ICD " ";
-            m_extensions += OCL_EXT_KHR_GLOBAL_BASE_ATOMICS " ";
-            m_extensions += OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS " ";
-            m_extensions += OCL_EXT_KHR_LOCAL_BASE_ATOMICS " ";
-            m_extensions += OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS " ";
-            m_extensions += OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE " ";
-            m_extensions += OCL_EXT_INTEL_CREATE_BUFFER_WITH_PROPERTIES " ";
-            m_extensions += OCL_EXT_INTEL_MEM_CHANNEL_PROPERTY " ";
-            return m_extensions.c_str();
-        }
+    if (EYEQ_EMU_DEVICE == GetDeviceMode())
+    {
+        GET_EXT_VER(OCL_EXT_KHR_ICD, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_KHR_GLOBAL_BASE_ATOMICS, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_KHR_LOCAL_BASE_ATOMICS, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_INTEL_CREATE_BUFFER_WITH_PROPERTIES, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_INTEL_MEM_CHANNEL_PROPERTY, 1, 0, 0);
 
-        // build the extensions list dynamically
-        // common KHR extensions
-        m_extensions =  OCL_EXT_KHR_ICD " ";
-        m_extensions += OCL_EXT_KHR_GLOBAL_BASE_ATOMICS " ";
-        m_extensions += OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS " ";
-        m_extensions += OCL_EXT_KHR_LOCAL_BASE_ATOMICS " ";
-        m_extensions += OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS " ";
-        m_extensions += OCL_EXT_KHR_INT64_BASE_ATOMICS " ";
-        m_extensions += OCL_EXT_KHR_INT64_EXTENDED_ATOMICS " ";
-        m_extensions += OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE " ";
+        return m_extensions;
+    }
 
-        // KHR CPU execlusive extensions
-        m_extensions += OCL_EXT_KHR_DEPTH_IMAGES " ";
-        m_extensions += OCL_EXT_KHR_3D_IMAGE_WRITES " ";
-        m_extensions += OCL_EXT_KHR_IL_PROGRAM " ";
+    // build the extensions list dynamically
+    // common KHR extensions
+    GET_EXT_VER(OCL_EXT_KHR_ICD, 1, 0, 0);
+    GET_EXT_VER(OCL_EXT_KHR_GLOBAL_BASE_ATOMICS, 1, 0, 0);
+    GET_EXT_VER(OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS, 1, 0, 0);
+    GET_EXT_VER(OCL_EXT_KHR_LOCAL_BASE_ATOMICS, 1, 0, 0);
+    GET_EXT_VER(OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS, 1, 0, 0);
+    GET_EXT_VER(OCL_EXT_KHR_INT64_BASE_ATOMICS, 1, 0, 0);
+    GET_EXT_VER(OCL_EXT_KHR_INT64_EXTENDED_ATOMICS, 1, 0, 0);
+    GET_EXT_VER(OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE, 1, 0, 0);
 
-        // common Intel extensions
-        m_extensions += OCL_EXT_INTEL_UNIFIED_SHARED_MEMORY " ";
-        if (GetUseNativeSubgroups()) {
+    // KHR CPU execlusive extensions
+    GET_EXT_VER(OCL_EXT_KHR_DEPTH_IMAGES, 1, 0, 0);
+    GET_EXT_VER(OCL_EXT_KHR_3D_IMAGE_WRITES, 1, 0, 0);
+    GET_EXT_VER(OCL_EXT_KHR_IL_PROGRAM, 1, 0, 0);
+
+    // common Intel extensions
+    GET_EXT_VER(OCL_EXT_INTEL_UNIFIED_SHARED_MEMORY, 1, 0, 0);
+
+    if (GetUseNativeSubgroups()) {
 // Need to add generic implementation for the khr subgroups built-ins before
 // we claim that these extensions are supported.
 #if 0
-            m_extensions += OCL_EXT_KHR_SUBGROUP_SHUFFLE " ";
-            m_extensions += OCL_EXT_KHR_SUBGROUP_SHUFFLE_RELATIVE " ";
-            m_extensions += OCL_EXT_KHR_SUBGROUP_EXTENDED_TYPES " ";
-            m_extensions += OCL_EXT_KHR_SUBGROUP_NON_UNIFORM_ARITHMETIC " ";
+        GET_EXT_VER(OCL_EXT_KHR_SUBGROUP_SHUFFLE, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_KHR_SUBGROUP_SHUFFLE_RELATIVE, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_KHR_SUBGROUP_EXTENDED_TYPES, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_KHR_SUBGROUP_NON_UNIFORM_ARITHMETIC, 1, 0, 0);
 #endif
-            m_extensions += OCL_EXT_INTEL_SUBGROUPS " ";
-            m_extensions += OCL_EXT_INTEL_SUBGROUPS_CHAR " ";
-            m_extensions += OCL_EXT_INTEL_SUBGROUPS_SHORT " ";
-            m_extensions += OCL_EXT_INTEL_SUBGROUPS_LONG " ";
-            m_extensions += OCL_EXT_INTEL_SPIRV_SUBGROUPS " ";
-            m_extensions += OCL_EXT_INTEL_SUBGROUPS_REQD_SIZE " ";
-        }
-
-        // INTEL CPU execlusive extensions
-        m_extensions += OCL_EXT_INTEL_EXEC_BY_LOCAL_THREAD " ";
-        m_extensions += OCL_EXT_INTEL_VEC_LEN_HINT " ";
-        #ifndef _WIN32
-            m_extensions += OCL_EXT_INTEL_DEVICE_PARTITION_BY_NAMES " ";
-        #endif
-        // SPIR extension
-        if (IsSpirSupported())
-        {
-            m_extensions += OCL_EXT_KHR_SPIR " ";
-        }
-
-        // double floating point extension
-        if (IsDoubleSupported())
-        {
-            m_extensions += OCL_EXT_KHR_FP64 " ";
-        }
-
-        // OpenCL 2.0 extensions
-        if (OPENCL_VERSION_2_0 <= GetOpenCLVersion())
-        {
-            m_extensions += OCL_EXT_KHR_IMAGE2D_FROM_BUFFER " ";
-        }
+        GET_EXT_VER(OCL_EXT_INTEL_SUBGROUPS, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_INTEL_SUBGROUPS_CHAR, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_INTEL_SUBGROUPS_SHORT, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_INTEL_SUBGROUPS_LONG, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_INTEL_SPIRV_SUBGROUPS, 1, 0, 0);
+        GET_EXT_VER(OCL_EXT_INTEL_SUBGROUPS_REQD_SIZE, 1, 0, 0);
     }
 
-    return m_extensions.c_str();
+    // INTEL CPU execlusive extensions
+    GET_EXT_VER(OCL_EXT_INTEL_EXEC_BY_LOCAL_THREAD, 1, 0, 0);
+    GET_EXT_VER(OCL_EXT_INTEL_VEC_LEN_HINT, 1, 0, 0);
+#ifndef _WIN32
+    GET_EXT_VER(OCL_EXT_INTEL_DEVICE_PARTITION_BY_NAMES, 1, 0, 0);
+#endif
+    // SPIR extension
+    if (IsSpirSupported())
+        GET_EXT_VER(OCL_EXT_KHR_SPIR, 1, 0, 0);
+
+    // double floating point extension
+    if (IsDoubleSupported())
+        GET_EXT_VER(OCL_EXT_KHR_FP64, 1, 0, 0);
+
+    // OpenCL 2.0 extensions
+    if (OPENCL_VERSION_2_0 <= GetOpenCLVersion())
+        GET_EXT_VER(OCL_EXT_KHR_IMAGE2D_FROM_BUFFER, 1, 0, 0);
+
+#undef GET_EXT_VER
+
+    return m_extensions;
 }

@@ -219,6 +219,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // static chars array - holds the platform's version string
         static std::string m_vPlatformVersionStr;
+        static cl_version m_vPlatformVersionNum;
 
         static std::string m_vPlatformNameStr;
         static unsigned int m_uiPlatformNameStrSize;

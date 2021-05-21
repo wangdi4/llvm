@@ -1749,6 +1749,25 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
             return CL_DEV_SUCCESS;
 
         }
+        case( CL_DEVICE_EXTENSIONS_WITH_VERSION):
+        {
+            std::vector<cl_name_version> oclSupportedExtensionsWithVersion =
+                    m_CPUDeviceConfig.GetExtensionsWithVersion();
+            *pinternalRetunedValueSize =
+                    oclSupportedExtensionsWithVersion.size() *
+                    sizeof(cl_name_version);
+            if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(nullptr != paramVal)
+            {
+                MEMCPY_S((cl_name_version *)paramVal, valSize,
+                         oclSupportedExtensionsWithVersion.data(),
+                         *pinternalRetunedValueSize);
+            }
+            return CL_DEV_SUCCESS;
+        }
         case( CL_DEVICE_BUILT_IN_KERNELS):
         {
             *pinternalRetunedValueSize = BuiltInKernelRegistry::GetInstance()->GetBuiltInKernelListSize();

@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <string>
+#include <vector>
 
 #include "cl_config.h"
 #include "ICLDevBackendOptions.h"
@@ -67,6 +67,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
         bool            IsDoubleSupported() const;
         const char*     GetExtensions() const;
+        const std::vector<cl_name_version>& GetExtensionsWithVersion() const;
 
 #ifdef __HARD_TRAPPING__
         bool            UseTrapping()   const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_TRAPPING,    false); }
@@ -75,7 +76,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         CPUDeviceConfig(const CPUDeviceConfig&);
         CPUDeviceConfig& operator=(const CPUDeviceConfig&);
 
-        static std::string  m_extensions;
+        static std::vector<cl_name_version>  m_extensions;
     };
 
 }}}
