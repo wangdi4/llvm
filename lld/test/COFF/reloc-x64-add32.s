@@ -1,4 +1,4 @@
-# REQUIRES: x86, system-windows
+# REQUIRES: x86
 # RUN: llvm-mc %s -filetype=obj -o %t.obj -triple=x86_64-windows-msvc
 # RUN: lld-link /entry:main /out:%t.exe /LARGEADDRESSAWARE:NO %t.obj
 # RUN: llvm-readobj --coff-basereloc %t.exe | FileCheck %s --check-prefix=CHECKPASS
@@ -39,3 +39,4 @@ main: # @main
     .p2align        4
 arr:
     .zero 40
+
