@@ -23,7 +23,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) {
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INC:%.*]] = add i32 [[VP0]] i32 1
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP_INC]] i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1:%.*]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB4]]: # preds: [[BB2]]
@@ -33,18 +33,18 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) {
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INC_1:%.*]] = add i32 [[VP1]] i32 1
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP_INC_1]] i32* [[VP_ARRAYIDX_1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_2:%.*]] = add i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_1:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP2:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]: # preds: cloned.[[BB4]]
 ; CHECK-NEXT:     [DA: Uni] call metadata <{{.*}}> void (metadata)* @llvm.experimental.noalias.scope.decl
 ; CHECK-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX_2:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP_INDVARS_IV_NEXT_2]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP2:%.*]] = load i32* [[VP_ARRAYIDX_2]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_INC_2:%.*]] = add i32 [[VP2]] i32 1
+; CHECK-NEXT:     [DA: Div] i32 [[VP3:%.*]] = load i32* [[VP_ARRAYIDX_2]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_INC_2:%.*]] = add i32 [[VP3]] i32 1
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP_INC_2]] i32* [[VP_ARRAYIDX_2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_2:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND_2]], [[BB5:BB[0-9]+]], [[BB2]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP4]], [[BB5:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: cloned.[[BB3]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -58,8 +58,8 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) {
 ;
 ; CHECK:  define dso_local void @_Z3fooPii(i32* nocapture [[A0]], i32 [[N0:%.*]]) {
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP17:%.*]], [[VPLANNEDBB60:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH0]] ], [ [[TMP16:%.*]], [[VPLANNEDBB60]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VPLANNEDBB20:%.*]] ], [ [[TMP17:%.*]], [[VPLANNEDBB90:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VPLANNEDBB20]] ], [ [[TMP16:%.*]], [[VPLANNEDBB90]] ]
 ; CHECK-NEXT:    call void @llvm.experimental.noalias.scope.decl(metadata !0)
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
@@ -69,47 +69,45 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) {
 ; CHECK-NEXT:    store <4 x i32> [[TMP2]], <4 x i32>* [[TMP3]], align 4, !noalias !0
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nuw nsw i64 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP5]], [[N_VEC0:%.*]]
-; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP5]], [[N_VEC40:%.*]]
+; CHECK-NEXT:    br label [[VPLANNEDBB60:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB3:
+; CHECK-NEXT:  VPlannedBB6:
 ; CHECK-NEXT:    call void @llvm.experimental.noalias.scope.decl(metadata !3)
-; CHECK-NEXT:    [[SCALAR_GEP40:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP5]]
-; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[SCALAR_GEP40]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD50:%.*]] = load <4 x i32>, <4 x i32>* [[TMP7]], align 4, !alias.scope !3
-; CHECK-NEXT:    [[TMP8:%.*]] = add nsw <4 x i32> [[WIDE_LOAD50]], <i32 1, i32 1, i32 1, i32 1>
-; CHECK-NEXT:    [[TMP9:%.*]] = bitcast i32* [[SCALAR_GEP40]] to <4 x i32>*
+; CHECK-NEXT:    [[SCALAR_GEP70:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP5]]
+; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[SCALAR_GEP70]] to <4 x i32>*
+; CHECK-NEXT:    [[WIDE_LOAD80:%.*]] = load <4 x i32>, <4 x i32>* [[TMP7]], align 4, !alias.scope !3
+; CHECK-NEXT:    [[TMP8:%.*]] = add nsw <4 x i32> [[WIDE_LOAD80]], <i32 1, i32 1, i32 1, i32 1>
+; CHECK-NEXT:    [[TMP9:%.*]] = bitcast i32* [[SCALAR_GEP70]] to <4 x i32>*
 ; CHECK-NEXT:    store <4 x i32> [[TMP8]], <4 x i32>* [[TMP9]], align 4, !noalias !3
 ; CHECK-NEXT:    [[TMP10:%.*]] = add nuw nsw <4 x i64> [[TMP4]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP11:%.*]] = add nuw nsw i64 [[TMP5]], 4
-; CHECK-NEXT:    [[TMP12:%.*]] = icmp uge i64 [[TMP11]], [[N_VEC0]]
-; CHECK-NEXT:    br label [[VPLANNEDBB60]]
+; CHECK-NEXT:    [[TMP12:%.*]] = icmp uge i64 [[TMP11]], [[N_VEC40]]
+; CHECK-NEXT:    br label [[VPLANNEDBB90]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB6:
+; CHECK-NEXT:  VPlannedBB9:
 ; CHECK-NEXT:    call void @llvm.experimental.noalias.scope.decl(metadata !5)
-; CHECK-NEXT:    [[SCALAR_GEP70:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP11]]
-; CHECK-NEXT:    [[TMP13:%.*]] = bitcast i32* [[SCALAR_GEP70]] to <4 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD80:%.*]] = load <4 x i32>, <4 x i32>* [[TMP13]], align 4, !alias.scope !5
-; CHECK-NEXT:    [[TMP14:%.*]] = add nsw <4 x i32> [[WIDE_LOAD80]], <i32 1, i32 1, i32 1, i32 1>
-; CHECK-NEXT:    [[TMP15:%.*]] = bitcast i32* [[SCALAR_GEP70]] to <4 x i32>*
+; CHECK-NEXT:    [[SCALAR_GEP100:%.*]] = getelementptr inbounds i32, i32* [[A0]], i64 [[TMP11]]
+; CHECK-NEXT:    [[TMP13:%.*]] = bitcast i32* [[SCALAR_GEP100]] to <4 x i32>*
+; CHECK-NEXT:    [[WIDE_LOAD110:%.*]] = load <4 x i32>, <4 x i32>* [[TMP13]], align 4, !alias.scope !5
+; CHECK-NEXT:    [[TMP14:%.*]] = add nsw <4 x i32> [[WIDE_LOAD110]], <i32 1, i32 1, i32 1, i32 1>
+; CHECK-NEXT:    [[TMP15:%.*]] = bitcast i32* [[SCALAR_GEP100]] to <4 x i32>*
 ; CHECK-NEXT:    store <4 x i32> [[TMP14]], <4 x i32>* [[TMP15]], align 4, !noalias !5
 ; CHECK-NEXT:    [[TMP16]] = add nuw nsw <4 x i64> [[TMP10]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP17]] = add nuw nsw i64 [[TMP11]], 4
-; CHECK-NEXT:    [[TMP18:%.*]] = icmp uge i64 [[TMP17]], [[N_VEC0]]
-; CHECK-NEXT:    br i1 [[TMP18]], label [[VPLANNEDBB90:%.*]], label [[VECTOR_BODY0:%.*]]
+; CHECK-NEXT:    [[TMP18:%.*]] = icmp uge i64 [[TMP17]], [[N_VEC40]]
+; CHECK-NEXT:    br i1 [[TMP18]], label [[VPLANNEDBB120:%.*]], label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB9:
-; CHECK-NEXT:    [[TMP19:%.*]] = mul i64 1, [[N_VEC0]]
+; CHECK-NEXT:  VPlannedBB12:
+; CHECK-NEXT:    [[TMP19:%.*]] = mul i64 1, [[N_VEC40]]
 ; CHECK-NEXT:    [[TMP20:%.*]] = add i64 0, [[TMP19]]
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
-;
 ; CHECK: !0 = !{!1}
 ; CHECK-NEXT: !1 = distinct !{!1, !2, !"foo: var"}
 ; CHECK-NEXT: !2 = distinct !{!2, !"foo"}
 ; CHECK-NEXT: !3 = !{!4}
-; CHECK-NEXT: !4 = distinct !{!4, !2, !"foo: var:cloned.BB26"}
+; CHECK-NEXT: !4 = distinct !{!4, !2, !"foo: var:cloned.BB28"}
 ; CHECK-NEXT: !5 = !{!6}
-; CHECK-NEXT: !6 = distinct !{!6, !2, !"foo: var:cloned.BB27"}
+; CHECK-NEXT: !6 = distinct !{!6, !2, !"foo: var:cloned.BB29"}
 ;
 ; CHECK-HIR:      + DO i64 i1 = 0, 4 * [[TGU0:%.*]] + -1, 4 <DO_LOOP> <MAX_TC_EST = 536870911> <simd-vectorized> <nounroll> <novectorize>
 ; CHECK-HIR-NEXT: | <RVAL-REG> LINEAR i64 4 * [[TGU0]] + -1 {sb:2}

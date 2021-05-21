@@ -4,7 +4,6 @@
 ; CHECK: vector.body:
 ; CHECK:  %wide.masked.load = call {{.*}} @llvm.masked.load
 ; CHECK:  call {{.*}} @llvm.masked.store
-; CHECK: middle.block:
 
 ; ModuleID = 'ts.c'
 source_filename = "ts.c"
@@ -20,7 +19,7 @@ define void @foo() local_unnamed_addr #0 {
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body.preheader
-  
+
 for.body.preheader:
   br label %for.body
 

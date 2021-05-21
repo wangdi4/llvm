@@ -16,35 +16,35 @@ define i16 @foo(i16 %a, i32 %n) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[N:%.*]], 1
 ; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
 ; CHECK:       VPlannedBB:
-; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
-; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    [[TMP1:%.*]] = and i32 [[TMP0]], -4
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i32 0, [[TMP1]]
-; CHECK-NEXT:    br i1 [[TMP2]], label [[SCALAR_PH:%.*]], label [[VECTOR_PH:%.*]]
-; CHECK:       vector.ph:
+; CHECK-NEXT:    br i1 [[TMP2]], label [[MERGE_BLK11:%.*]], label [[VPLANNEDBB1:%.*]]
+; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <4 x i16> poison, i16 [[A:%.*]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i16> [[BROADCAST_SPLATINSERT]], <4 x i16> poison, <4 x i32> zeroinitializer
+; CHECK-NEXT:    br label [[VPLANNEDBB2:%.*]]
+; CHECK:       VPlannedBB2:
+; CHECK-NEXT:    [[TMP3:%.*]] = and i32 [[TMP0]], -4
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VECTOR_PH]] ], [ [[TMP5:%.*]], [[VPLANNEDBB4:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i32 [ [[TMP4:%.*]], [[VPLANNEDBB4]] ], [ 0, [[VECTOR_PH]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i32> [ [[TMP3:%.*]], [[VPLANNEDBB4]] ], [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VPLANNEDBB2]] ], [ [[TMP6:%.*]], [[VPLANNEDBB5:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI4:%.*]] = phi i32 [ [[TMP5:%.*]], [[VPLANNEDBB5]] ], [ 0, [[VPLANNEDBB2]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i32> [ [[TMP4:%.*]], [[VPLANNEDBB5]] ], [ <i32 0, i32 1, i32 2, i32 3>, [[VPLANNEDBB2]] ]
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [12 x i16], <4 x [12 x i16]*> [[B3_I_LPRIV_VEC_BASE_ADDR]], <4 x i32> [[VEC_PHI]], <4 x i32> <i32 3, i32 3, i32 3, i32 3>
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v4i16.v4p0i16(<4 x i16> [[BROADCAST_SPLAT]], <4 x i16*> [[MM_VECTORGEP]], i32 2, <4 x i1> <i1 true, i1 true, i1 true, i1 true>)
-; CHECK-NEXT:    br label [[VPLANNEDBB4]]
-; CHECK:       VPlannedBB4:
-; CHECK-NEXT:    [[TMP3]] = add nuw nsw <4 x i32> [[VEC_PHI]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP4]] = add nuw nsw i32 [[UNI_PHI3]], 4
-; CHECK-NEXT:    [[TMP5]] = add i32 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i32 [[TMP5]], [[TMP1]]
-; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB5:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
+; CHECK-NEXT:    br label [[VPLANNEDBB5]]
 ; CHECK:       VPlannedBB5:
-; CHECK-NEXT:    [[TMP7:%.*]] = mul i32 1, [[TMP1]]
-; CHECK-NEXT:    [[TMP8:%.*]] = add i32 0, [[TMP7]]
-; CHECK-NEXT:    [[TMP9:%.*]] = bitcast [12 x i16]* [[B3_I_LPRIV]] to i8*
-; CHECK-NEXT:    [[TMP10:%.*]] = bitcast [12 x i16]* [[B3_I_LPRIV_VEC_BASE_ADDR_EXTRACT_3_]] to i8*
-; CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[TMP9]], i8* align 2 [[TMP10]], i64 24, i1 false)
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK:%.*]]
+; CHECK-NEXT:    [[TMP4]] = add nuw nsw <4 x i32> [[VEC_PHI]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP5]] = add nuw nsw i32 [[UNI_PHI4]], 4
+; CHECK-NEXT:    [[TMP6]] = add i32 [[UNI_PHI]], 4
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp uge i32 [[TMP6]], [[TMP3]]
+; CHECK-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB6:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
+; CHECK:       VPlannedBB6:
+; CHECK-NEXT:    [[TMP8:%.*]] = mul i32 1, [[TMP3]]
+; CHECK-NEXT:    [[TMP9:%.*]] = add i32 0, [[TMP8]]
+; CHECK-NEXT:    [[TMP10:%.*]] = bitcast [12 x i16]* [[B3_I_LPRIV]] to i8*
+; CHECK-NEXT:    [[TMP11:%.*]] = bitcast [12 x i16]* [[B3_I_LPRIV_VEC_BASE_ADDR_EXTRACT_3_]] to i8*
+; CHECK-NEXT:    call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 8 [[TMP10]], i8* align 2 [[TMP11]], i64 24, i1 false)
 ;
 omp.inner.for.body.i.lr.ph:
   %b3.i.lpriv = alloca [12 x i16], align 1

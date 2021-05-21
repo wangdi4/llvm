@@ -8,77 +8,56 @@ define float @expl_reduction_add(float* nocapture %a) {
 ; CHECK-LABEL:  VPlan after CFG merge before CG:
 ; CHECK-NEXT:  VPlan IR for: expl_reduction_add:for.body
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
+; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     [DA: Div] float* [[VP_X:%.*]] = allocate-priv float*, OrigAlign = 4
+; CHECK-NEXT:     [DA: Div] float [[VP_XRED_INIT:%.*]] = reduction-init float -0.000000e+00
+; CHECK-NEXT:     [DA: Div] store float [[VP_XRED_INIT]] float* [[VP_X]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:     [DA: Div] float* [[VP_PTR_PHI_IND_INIT:%.*]] = induction-init{getelementptr} float* [[A0:%.*]] i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_PTR_PHI_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1000, UF = 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph
+; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      vector.ph: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div] float* [[VP_X:%.*]] = allocate-priv float*, OrigAlign = 4
-; CHECK-NEXT:       [DA: Div] float [[VP_X_RED_INIT:%.*]] = reduction-init float -0.000000e+00
-; CHECK-NEXT:       [DA: Div] store float [[VP_X_RED_INIT]] float* [[VP_X]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in2 i64 1
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:       [DA: Div] float* [[VP_PTR_PHI_IND_INIT:%.*]] = induction-init{getelementptr} float* live-in0 i64 1
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_PTR_PHI_IND_INIT_STEP:%.*]] = induction-init-step{getelementptr} i64 1
-; CHECK-NEXT:       [DA: Uni] br [[BB2:BB[0-9]+]]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] float [[VP_ADD7:%.*]] = phi  [ float [[VP_XRED_INIT]], [[BB1]] ],  [ float [[VP_ADD:%.*]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] float* [[VP_PTR_PHI:%.*]] = phi  [ float* [[VP_PTR_PHI_IND_INIT]], [[BB1]] ],  [ float* [[VP0:%.*]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] float* [[VP0]] = getelementptr inbounds float* [[VP_PTR_PHI]] i64 [[VP_PTR_PHI_IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Div] float* [[VP_PTR:%.*]] = getelementptr inbounds float* [[VP_PTR_PHI]] i64 1
+; CHECK-NEXT:     [DA: Div] float [[VP_TMP:%.*]] = load float* [[VP_PTR]]
+; CHECK-NEXT:     [DA: Div] store float [[VP_ADD7]] float* [[VP_PTR]]
+; CHECK-NEXT:     [DA: Div] float [[VP_ADD]] = fadd float [[VP_ADD7]] float [[VP_TMP]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB2]]: # preds: [[BB2]], vector.ph
-; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], vector.ph ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
-; CHECK-NEXT:       [DA: Div] float [[VP_ADD7:%.*]] = phi  [ float [[VP_X_RED_INIT]], vector.ph ],  [ float [[VP_ADD:%.*]], [[BB2]] ]
-; CHECK-NEXT:       [DA: Div] float* [[VP_PTR_PHI:%.*]] = phi  [ float* [[VP_PTR_PHI_IND_INIT]], vector.ph ],  [ float* [[VP0:%.*]], [[BB2]] ]
-; CHECK-NEXT:       [DA: Div] float* [[VP0]] = getelementptr inbounds float* [[VP_PTR_PHI]] i64 [[VP_PTR_PHI_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Div] float* [[VP_PTR:%.*]] = getelementptr inbounds float* [[VP_PTR_PHI]] i64 1
-; CHECK-NEXT:       [DA: Div] float [[VP_TMP:%.*]] = load float* [[VP_PTR]]
-; CHECK-NEXT:       [DA: Div] store float [[VP_ADD7]] float* [[VP_PTR]]
-; CHECK-NEXT:       [DA: Div] float [[VP_ADD]] = fadd float [[VP_ADD7]] float [[VP_TMP]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
+; CHECK-NEXT:     [DA: Uni] float [[VP_XRED_FINAL:%.*]] = reduction-final{fadd} float [[VP_ADD]] float [[X_PROMOTED0:%.*]]
+; CHECK-NEXT:     [DA: Uni] store float [[VP_XRED_FINAL]] float* [[X0:%.*]]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uni] float* [[VP_PTR_PHI_IND_FINAL:%.*]] = induction-final{getelementptr} float* [[A0]] i64 1
+; CHECK-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Uni] float [[VP_X_RED_FINAL:%.*]] = reduction-final{fadd} float [[VP_ADD]] float live-in1
-; CHECK-NEXT:       [DA: Uni] store float [[VP_X_RED_FINAL]] float* [[X0:%.*]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:       [DA: Uni] float* [[VP_PTR_PHI_IND_FINAL:%.*]] = induction-final{getelementptr} float* [[A0:%.*]] i64 1
-; CHECK-NEXT:       [DA: Uni] br middle.block
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     [DA: Uni] popvf
+; CHECK-NEXT:     [DA: Uni] br final.merge
 ; CHECK-EMPTY:
-; CHECK-NEXT:      middle.block: # preds: [[BB3]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i64 1000 i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB4:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
-; CHECK-NEXT:       [DA: Uni] float* [[VP1:%.*]] = phi-merge  [ float* live-out0, middle.block ],  [ float* [[A0]], [[BB1]] ]
-; CHECK-NEXT:       [DA: Uni] float [[VP2:%.*]] = phi-merge  [ float live-out1, middle.block ],  [ float [[X_PROMOTED0:%.*]], [[BB1]] ]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP3:%.*]] = phi-merge  [ i64 live-out2, middle.block ],  [ i64 0, [[BB1]] ]
-; CHECK-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB5]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder for.body, NeedsCloning: 0, LiveInMap:
-; CHECK-NEXT:         {float* [[A0]] in {  [[PTR_PHI0:%.*]] = phi float* [ [[A0]], [[DIR_QUAL_LIST_END_20:%.*]] ], [ [[PTR0:%.*]], [[FOR_BODY0:%.*]] ]} -> float* [[VP1]] }
-; CHECK-NEXT:         {float [[X_PROMOTED0]] in {  [[ADD70:%.*]] = phi float [ [[X_PROMOTED0]], [[DIR_QUAL_LIST_END_20]] ], [ [[ADD0:%.*]], [[FOR_BODY0]] ]} -> float [[VP2]] }
-; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[DIR_QUAL_LIST_END_20]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0]] ]} -> i64 [[VP3]] }
-; CHECK-NEXT:         {label [[FOR_END0:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[FOR_END0]], label [[FOR_BODY0]], !llvm.loop !0} -> label [[BB4]] }
-; CHECK-NEXT:       [DA: Uni] float* [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[PTR0]] = getelementptr inbounds float, float* [[PTR_PHI0]], i64 1
-; CHECK-NEXT:       [DA: Uni] float [[VP_ORIG_LIVEOUT_1:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[ADD0]] = fadd float [[ADD70]], [[TMP0:%.*]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT_2:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
-; CHECK-NEXT:       [DA: Uni] br [[BB4]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB4]]: # preds: [[BB5]], middle.block
-; CHECK-NEXT:     [DA: Uni] float* [[VP4:%.*]] = phi-merge  [ float* [[VP_ORIG_LIVEOUT]], [[BB5]] ],  [ float* live-out0, middle.block ]
-; CHECK-NEXT:     [DA: Uni] float [[VP5:%.*]] = phi-merge  [ float [[VP_ORIG_LIVEOUT_1]], [[BB5]] ],  [ float live-out1, middle.block ]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP6:%.*]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT_2]], [[BB5]] ],  [ i64 live-out2, middle.block ]
-; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]: # preds: [[BB4]]
+; CHECK-NEXT:    final.merge: # preds: [[BB4]]
+; CHECK-NEXT:     [DA: Uni] float* [[VP1:%.*]] = phi-merge  [ float* live-out0, [[BB4]] ]
+; CHECK-NEXT:     [DA: Uni] float [[VP2:%.*]] = phi-merge  [ float live-out1, [[BB4]] ]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP3:%.*]] = phi-merge  [ i64 live-out2, [[BB4]] ]
+; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  Id: 0     [[PTR_LCSSA0:%.*]] = phi float* [ [[PTR0]], [[FOR_BODY0]] ] float* [[VP4]] -> float* [[PTR0]]
+; CHECK-NEXT:  Id: 0     [[PTR_LCSSA0:%.*]] = phi float* [ [[PTR0:%.*]], [[FOR_BODY0:%.*]] ] float* [[VP1]] -> float* [[PTR0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Id: 1     [[ADD_LCSSA0:%.*]] = phi float [ [[ADD0]], [[FOR_BODY0]] ] float [[VP5]] -> float [[ADD0]]
+; CHECK-NEXT:  Id: 1     [[ADD_LCSSA0:%.*]] = phi float [ [[ADD0:%.*]], [[FOR_BODY0]] ] float [[VP2]] -> float [[ADD0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Id: 2   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;

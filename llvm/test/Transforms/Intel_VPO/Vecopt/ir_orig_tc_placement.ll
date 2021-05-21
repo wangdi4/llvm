@@ -13,11 +13,11 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i64 @foo(i64* nocapture %larr, i32 %n1) local_unnamed_addr #0 {
 ; CHECK:  define dso_local i64 @foo(i64* nocapture [[LARR0:%.*]], i32 [[N10:%.*]]) local_unnamed_addr {
 ; CHECK:         [[DIV0:%.*]] = sdiv i64 [[TC_0390:%.*]], 2
-; CHECK:       VPlannedBB1:
+; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    [[TMP0:%.*]] = and i64 [[DIV0]], 4294967292
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i64 0, [[TMP0]]
-; CHECK:       middle.block:
-; CHECK-NEXT:    [[TMP10:%.*]] = icmp ne i64 [[DIV0]], [[TMP0]]
+; CHECK:       VPlannedBB6:
+; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i64 [[DIV0]], [[TMP2:%.*]]
 
 entry:
   %l1.linear.iv = alloca i64, align 8

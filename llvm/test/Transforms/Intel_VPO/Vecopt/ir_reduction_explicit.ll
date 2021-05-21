@@ -3,12 +3,10 @@
 ; CHECK-LABEL: expl_reduction_add
 ; CHECK: vector.body
 ; CHECK:  [[VRES:%.*]] = fadd <8 x float>
-
 ; CHECK: VPlannedBB4
 ; CHECK:  [[RES:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float %x.promoted, <8 x float> [[VRES]])
-
-; CHECK:  scalar.ph:
-; CHECK:    [[UNI_PHI70:%.*]] = phi float [ [[RES]], [[MIDDLE_BLOCK0:%.*]] ], [ [[X_PROMOTED0:%.*]], [[VPLANNEDBB10:%.*]] ]
+; CHECK:       final.merge:
+; CHECK:         [[UNI_PHI60:%.*]] = phi float [ [[RES]], [[VPLANNEDBB50:%.*]] ]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -60,8 +58,8 @@ DIR.QUAL.LIST.END.3:                              ; preds = %for.end
 ; CHECK: VPlannedBB4
 ; CHECK: [[RES:%.*]] = call float @llvm.vector.reduce.fadd.v8f32(float %x.promoted, <8 x float> [[VRES]])
 
-; CHECK:  scalar.ph:
-; CHECK:    [[UNI_PHI70:%.*]] = phi float [ [[RES]], [[MIDDLE_BLOCK0:%.*]] ], [ [[X_PROMOTED0:%.*]], [[VPLANNEDBB10:%.*]] ]
+; CHECK:       final.merge:
+; CHECK:         [[UNI_PHI60:%.*]] = phi float [ [[RES]], [[VPLANNEDBB50:.*]] ]
 
 define float @expl_reduction_sub(float* nocapture %a) {
 entry:

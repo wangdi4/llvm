@@ -15,56 +15,41 @@ declare token @llvm.directive.region.entry() #4
 declare void @llvm.directive.region.exit(token) #4
 
 define void @_ZGVbN4_direct() #1 {
-; CHECK-LABEL:  VPlan after CallVecDecisions analysis for VF=4:
+; CHECK-LABEL:  VPlan after CallVecDecisions analysis for merged CFG:
 ; CHECK-NEXT:  VPlan IR for: _ZGVbN4_direct:simd.loop
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
+; CHECK-NEXT:     [DA: Uni] pushvf VF=4 UF=1
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_INDEX_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i32 4, UF = 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i32 0 i32 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph
+; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      vector.ph: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div] i32 [[VP_INDEX_IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:       [DA: Uni] i32 [[VP_INDEX_IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
-; CHECK-NEXT:       [DA: Uni] br [[BB2:BB[0-9]+]]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT]], [[BB1]] ],  [ i32 [[VP_INDVAR:%.*]], [[BB3]] ]
+; CHECK-NEXT:     [DA: Div] i32 (i32, float)** [[VP_CALL_I:%.*]] = call _ZGVbN4_ZNKSt5arrayIPFiifELm2EE4dataEv [x 1]
+; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = call i32 (i32, float)** [[VP_CALL_I]] i32 5 float 2.000000e+00 _ZGVbM4vv___intel_indirect_call_i32_p0p0f_i32i32f32f [x 1]
+; CHECK-NEXT:     [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB2]]: # preds: [[BB3:BB[0-9]+]], vector.ph
-; CHECK-NEXT:       [DA: Div] i32 [[VP_INDEX:%.*]] = phi  [ i32 [[VP_INDEX_IND_INIT]], vector.ph ],  [ i32 [[VP_INDVAR:%.*]], [[BB3]] ]
-; CHECK-NEXT:       [DA: Div] i32 (i32, float)** [[VP_CALL_I:%.*]] = call _ZGVbN4_ZNKSt5arrayIPFiifELm2EE4dataEv [x 1]
-; CHECK-NEXT:       [DA: Div] i32 [[VP0:%.*]] = call i32 (i32, float)** [[VP_CALL_I]] i32 5 float 2.000000e+00 _ZGVbM4vv___intel_indirect_call_i32_p0p0f_i32i32f32f [x 1]
-; CHECK-NEXT:       [DA: Uni] br [[BB3]]
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i32 [[VP_INDVAR]] i32 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] br i1 false, [[BB2]], [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Div] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_VL_COND:%.*]] = icmp ult i32 [[VP_INDVAR]] i32 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 false, [[BB2]], [[BB4:BB[0-9]+]]
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]: # preds: [[BB3]]
-; CHECK-NEXT:       [DA: Uni] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
-; CHECK-NEXT:       [DA: Uni] br middle.block
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
+; CHECK-NEXT:     [DA: Uni] popvf
+; CHECK-NEXT:     [DA: Uni] br final.merge
 ; CHECK-EMPTY:
-; CHECK-NEXT:      middle.block: # preds: [[BB4]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp ne i32 4 i32 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB5:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
-; CHECK-NEXT:       [DA: Uni] i32 [[VP1:%.*]] = phi-merge  [ i32 live-out0, middle.block ],  [ i32 0, [[BB1]] ]
-; CHECK-NEXT:       [DA: Uni] br [[BB6:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder simd.loop, NeedsCloning: 0, LiveInMap:
-; CHECK-NEXT:         {i32 0 in {  [[INDEX0:%.*]] = phi i32 [ 0, [[SIMD_BEGIN_REGION0:%.*]] ], [ [[INDVAR0:%.*]], [[SIMD_LOOP_EXIT0:%.*]] ]} -> i32 [[VP1]] }
-; CHECK-NEXT:         {label [[SIMD_END_REGION0:%.*]] in {  br i1 [[VL_COND0:%.*]], label [[SIMD_LOOP0:%.*]], label [[SIMD_END_REGION0]], !llvm.loop !0} -> label [[BB5]] }
-; CHECK-NEXT:       [DA: Uni] i32 [[VP_ORIG_LIVEOUT:%.*]] = orig-live-out token [[VP_ORIG_LOOP]], liveout:   [[INDVAR0]] = add nuw i32 [[INDEX0]], 1
-; CHECK-NEXT:       [DA: Uni] br [[BB5]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]: # preds: [[BB6]], middle.block
-; CHECK-NEXT:     [DA: Uni] i32 [[VP2:%.*]] = phi-merge  [ i32 [[VP_ORIG_LIVEOUT]], [[BB6]] ],  [ i32 live-out0, middle.block ]
-; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]]: # preds: [[BB5]]
+; CHECK-NEXT:    final.merge: # preds: [[BB5]]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP1:%.*]] = phi-merge  [ i32 live-out0, [[BB5]] ]
+; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
@@ -72,7 +57,7 @@ define void @_ZGVbN4_direct() #1 {
 ;
 ; CHECK:  define void @_ZGVbN4_direct() #3 {
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0]]
+; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  simd.begin.region:
 ; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
@@ -81,14 +66,11 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  vector.ph:
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP6:%.*]], [[VPLANNEDBB30:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VPLANNEDBB30]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VPLANNEDBB10]] ], [ [[TMP6:%.*]], [[VPLANNEDBB30:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VPLANNEDBB10]] ], [ [[TMP5:%.*]], [[VPLANNEDBB30]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = call <4 x i32 (i32, float)**> @_ZGVbN4_ZNKSt5arrayIPFiifELm2EE4dataEv()
 ; CHECK-NEXT:    br label [[INDIRECT_CALL_LOOP_ENTRY0:%.*]]
 ; CHECK-EMPTY:
@@ -131,7 +113,6 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB40:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ;
 entry:
   br label %simd.begin.region

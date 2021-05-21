@@ -9,39 +9,35 @@ define void @merge_uniform_soa_geps() {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     [DA: Div] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4
+; CHECK-NEXT:     [DA: Div] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph
+; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      vector.ph: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4
-; CHECK-NEXT:       [DA: Div] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:       [DA: Uni] br [[BB2:BB[0-9]+]]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB3]] ]
+; CHECK-NEXT:     [DA: Div] i64* [[VP_UNI_GEP:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 0
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LDSTD:%.*]] = load i64* [[VP_UNI_GEP]]
+; CHECK-NEXT:     [DA: Uni] br i1 true, [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB2]]: # preds: [[BB3:BB[0-9]+]], vector.ph
-; CHECK-NEXT:       [DA: Div] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT]], vector.ph ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB3]] ]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_UNI_GEP:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 0
-; CHECK-NEXT:       [DA: Div] i64 [[VP_LDSTD:%.*]] = load i64* [[VP_UNI_GEP]]
-; CHECK-NEXT:       [DA: Uni] br i1 true, [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:      [[BB5]]: # preds: [[BB2]]
+; CHECK-NEXT:       [DA: Div] i64* [[VP_UNI_ELSE:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 1
+; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB5]]: # preds: [[BB2]]
-; CHECK-NEXT:         [DA: Div] i64* [[VP_UNI_ELSE:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 1
-; CHECK-NEXT:         [DA: Uni] br [[BB3]]
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
+; CHECK-NEXT:       [DA: Div] i64* [[VP_UNI_IF:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 0
+; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:         [DA: Div] i64* [[VP_UNI_IF:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 0
-; CHECK-NEXT:         [DA: Uni] br [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB3]]: # preds: [[BB5]], [[BB4]]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_PHI_MIX_UNI:%.*]] = phi  [ i64* [[VP_UNI_ELSE]], [[BB5]] ],  [ i64* [[VP_UNI_IF]], [[BB4]] ]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_LD:%.*]] = load i64* [[VP_PHI_MIX_UNI]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_CONST_STEP:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
-; CHECK-NEXT:       [DA: Div] i64* [[VP_GEP_MIX_UNI:%.*]] = getelementptr inbounds i64* [[VP_PHI_MIX_UNI]] i64 [[VP_LD]] i64 [[VP_CONST_STEP]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_LD_PHI_DERIVED:%.*]] = load i64* [[VP_GEP_MIX_UNI]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_CMP:%.*]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_CMP]], [[BB2]], [[BB6:BB[0-9]+]]
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]], [[BB4]]
+; CHECK-NEXT:     [DA: Div] i64* [[VP_PHI_MIX_UNI:%.*]] = phi  [ i64* [[VP_UNI_ELSE]], [[BB5]] ],  [ i64* [[VP_UNI_IF]], [[BB4]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LD:%.*]] = load i64* [[VP_PHI_MIX_UNI]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_CONST_STEP:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
+; CHECK-NEXT:     [DA: Div] i64* [[VP_GEP_MIX_UNI:%.*]] = getelementptr inbounds i64* [[VP_PHI_MIX_UNI]] i64 [[VP_LD]] i64 [[VP_CONST_STEP]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LD_PHI_DERIVED:%.*]] = load i64* [[VP_GEP_MIX_UNI]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB6:BB[0-9]+]]
 ;
 entry:
   %arr.soa.priv64 = alloca [1024 x i64], align 4
@@ -85,43 +81,39 @@ define void @merge_uniform_strided_soa_geps() {
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     [DA: Div] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4
+; CHECK-NEXT:     [DA: Div] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph
+; CHECK-NEXT:     [DA: Uni] br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      vector.ph: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4
-; CHECK-NEXT:       [DA: Div] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:       [DA: Uni] br [[BB2:BB[0-9]+]]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB3]] ]
+; CHECK-NEXT:     [DA: Div] i64* [[VP_UNI_GEP:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 0
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LDSTD:%.*]] = load i64* [[VP_UNI_GEP]]
+; CHECK-NEXT:     [DA: Uni] br i1 true, [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB2]]: # preds: [[BB3:BB[0-9]+]], vector.ph
-; CHECK-NEXT:       [DA: Div] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT]], vector.ph ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB3]] ]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_UNI_GEP:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 0
-; CHECK-NEXT:       [DA: Div] i64 [[VP_LDSTD:%.*]] = load i64* [[VP_UNI_GEP]]
-; CHECK-NEXT:       [DA: Uni] br i1 true, [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:      [[BB5]]: # preds: [[BB2]]
+; CHECK-NEXT:       [DA: Div] i64* [[VP_UNI_ELSE:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 1
+; CHECK-NEXT:       [DA: Div] i64* [[VP_UNI_ELSE_1:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 1
+; CHECK-NEXT:       [DA: Div] i64 [[VP_CONST_STEP:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
+; CHECK-NEXT:       [DA: Div] i64* [[VP0:%.*]] = getelementptr i64* [[VP_UNI_ELSE_1]] i64 0 i64 [[VP_CONST_STEP]]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_LD_ELSE:%.*]] = load i64* [[VP_UNI_ELSE]]
+; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB5]]: # preds: [[BB2]]
-; CHECK-NEXT:         [DA: Div] i64* [[VP_UNI_ELSE:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 1
-; CHECK-NEXT:         [DA: Div] i64* [[VP_UNI_ELSE_1:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 1
-; CHECK-NEXT:         [DA: Div] i64 [[VP_CONST_STEP_1:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
-; CHECK-NEXT:         [DA: Div] i64* [[VP0:%.*]] = getelementptr i64* [[VP_UNI_ELSE_1]] i64 0 i64 [[VP_CONST_STEP_1]]
-; CHECK-NEXT:         [DA: Div] i64 [[VP_LD_ELSE:%.*]] = load i64* [[VP_UNI_ELSE]]
-; CHECK-NEXT:         [DA: Uni] br [[BB3]]
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_CONST_STEP_1:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
+; CHECK-NEXT:       [DA: Div] i64* [[VP_STR_IF:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 [[VP_IV1]] i64 [[VP_CONST_STEP_1]]
+; CHECK-NEXT:       [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:         [DA: Div] i64 [[VP_CONST_STEP_2:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2}
-; CHECK-NEXT:         [DA: Div] i64* [[VP_STR_IF:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 [[VP_IV1]] i64 [[VP_CONST_STEP_2]]
-; CHECK-NEXT:         [DA: Uni] br [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB3]]: # preds: [[BB5]], [[BB4]]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_PHI_MIX_UNI:%.*]] = phi  [ i64* [[VP0]], [[BB5]] ],  [ i64* [[VP_STR_IF]], [[BB4]] ]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_LD:%.*]] = load i64* [[VP_PHI_MIX_UNI]]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_GEP_MIX_UNI:%.*]] = getelementptr inbounds i64* [[VP_PHI_MIX_UNI]] i64 [[VP_LD]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_LD_PHI_DERIVED:%.*]] = load i64* [[VP_GEP_MIX_UNI]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_CMP:%.*]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_CMP]], [[BB2]], [[BB6:BB[0-9]+]]
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]], [[BB4]]
+; CHECK-NEXT:     [DA: Div] i64* [[VP_PHI_MIX_UNI:%.*]] = phi  [ i64* [[VP0]], [[BB5]] ],  [ i64* [[VP_STR_IF]], [[BB4]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LD:%.*]] = load i64* [[VP_PHI_MIX_UNI]]
+; CHECK-NEXT:     [DA: Div] i64* [[VP_GEP_MIX_UNI:%.*]] = getelementptr inbounds i64* [[VP_PHI_MIX_UNI]] i64 [[VP_LD]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_LD_PHI_DERIVED:%.*]] = load i64* [[VP_GEP_MIX_UNI]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB6:BB[0-9]+]]
 ;
 entry:
   %arr.soa.priv64 = alloca [1024 x i64], align 4
@@ -163,40 +155,36 @@ define void @merge_str_soa_geps() {
 ; CHECK-LABEL:  VPlan after Dump Transformed SOA GEPs:
 ; CHECK-NEXT:  VPlan IR for: merge_str_soa_geps:simd.loop
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:      vector.ph: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4
-; CHECK-NEXT:       [DA: Div] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:       [DA: Uni] br [[BB2:BB[0-9]+]]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64* [[VP_UNI_GEP:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 0 (SVAOpBits 0->V 1->V 2->V )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 true, [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB2]]: # preds: [[BB3:BB[0-9]+]], vector.ph
-; CHECK-NEXT:       [DA: Div] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT]], vector.ph ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB3]] ]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_UNI_GEP:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 0
-; CHECK-NEXT:       [DA: Uni] br i1 true, [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:      [[BB5]]: # preds: [[BB2]]
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64* [[VP_STR_ELSE:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 [[VP_IV1]] (SVAOpBits 0->V 1->V 2->V )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB5]]: # preds: [[BB2]]
-; CHECK-NEXT:         [DA: Div] i64* [[VP_STR_ELSE:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 [[VP_IV1]]
-; CHECK-NEXT:         [DA: Uni] br [[BB3]]
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64* [[VP_STR_IF:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 [[VP_IV1]] (SVAOpBits 0->V 1->V 2->V )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:         [DA: Div] i64* [[VP_STR_IF:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 [[VP_IV1]]
-; CHECK-NEXT:         [DA: Uni] br [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB3]]: # preds: [[BB5]], [[BB4]]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_PHI_MIX_UNI:%.*]] = phi  [ i64* [[VP_STR_ELSE]], [[BB5]] ],  [ i64* [[VP_STR_IF]], [[BB4]] ]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_LD:%.*]] = load i64* [[VP_PHI_MIX_UNI]]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_GEP_MIX_UNI:%.*]] = getelementptr inbounds i64* [[VP_PHI_MIX_UNI]] i64 [[VP_LD]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_LD_PHI_DERIVED:%.*]] = load i64* [[VP_GEP_MIX_UNI]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_CMP:%.*]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_CMP]], [[BB2]], [[BB6:BB[0-9]+]]
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]], [[BB4]]
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64* [[VP_PHI_MIX_UNI:%.*]] = phi  [ i64* [[VP_STR_ELSE]], [[BB5]] ],  [ i64* [[VP_STR_IF]], [[BB4]] ] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_LD:%.*]] = load i64* [[VP_PHI_MIX_UNI]] (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64* [[VP_GEP_MIX_UNI:%.*]] = getelementptr inbounds i64* [[VP_PHI_MIX_UNI]] i64 [[VP_LD]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_LD_PHI_DERIVED:%.*]] = load i64* [[VP_GEP_MIX_UNI]] (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB6:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ;
 entry:
   %arr.soa.priv64 = alloca [1024 x i64], align 4
@@ -236,44 +224,39 @@ define void @merge_aos_soa_geps() {
 ; CHECK-LABEL:  VPlan after Dump Transformed SOA GEPs:
 ; CHECK-NEXT:  VPlan IR for: merge_aos_soa_geps:simd.loop
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
-; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VEC_TC_CHECK:%.*]] = icmp eq i64 0 i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:     [DA: Uni] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] [1024 x i64]* [[VP_ARR_AOS_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 1024, UF = 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:      vector.ph: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4
-; CHECK-NEXT:       [DA: Div] [1024 x i64]* [[VP_ARR_AOS_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4
-; CHECK-NEXT:       [DA: Div] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:       [DA: Uni] br [[BB2:BB[0-9]+]]
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB3]] ] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64* [[VP_UNI_GEP:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 0 (SVAOpBits 0->V 1->V 2->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64* [[VP_DIV_GEP:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_AOS_PRIV64]] i64 0 i64 0 (SVAOpBits 0->V 1->V 2->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_CALL:%.*]] = call i64* [[VP_DIV_GEP]] i64 (i64*)* @helper [Serial] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 true, [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB2]]: # preds: [[BB3:BB[0-9]+]], vector.ph
-; CHECK-NEXT:       [DA: Div] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT]], vector.ph ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB3]] ]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_UNI_GEP:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 0
-; CHECK-NEXT:       [DA: Div] i64* [[VP_DIV_GEP:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_AOS_PRIV64]] i64 0 i64 0
-; CHECK-NEXT:       [DA: Div] i64 [[VP_CALL:%.*]] = call i64* [[VP_DIV_GEP]] i64 (i64*)* @helper
-; CHECK-NEXT:       [DA: Uni] br i1 true, [[BB4:BB[0-9]+]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:      [[BB5]]: # preds: [[BB2]]
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64* [[VP_UNI_ELSE:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 [[VP_IV1]] (SVAOpBits 0->V 1->V 2->V )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB5]]: # preds: [[BB2]]
-; CHECK-NEXT:         [DA: Div] i64* [[VP_UNI_ELSE:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 [[VP_IV1]]
-; CHECK-NEXT:         [DA: Uni] br [[BB3]]
+; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64* [[VP_AOS_IF:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_AOS_PRIV64]] i64 0 i64 [[VP_IV1]] (SVAOpBits 0->V 1->V 2->V )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:         [DA: Div] i64* [[VP_AOS_IF:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_AOS_PRIV64]] i64 0 i64 [[VP_IV1]]
-; CHECK-NEXT:         [DA: Uni] br [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB3]]: # preds: [[BB5]], [[BB4]]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_PHI_MIX_UNI:%.*]] = phi  [ i64* [[VP_DIV_GEP]], [[BB4]] ],  [ i64* [[VP_UNI_ELSE]], [[BB5]] ]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_LD:%.*]] = load i64* [[VP_PHI_MIX_UNI]]
-; CHECK-NEXT:       [DA: Div] i64* [[VP_GEP_MIX_UNI:%.*]] = getelementptr inbounds i64* [[VP_PHI_MIX_UNI]] i64 [[VP_LD]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_LD_PHI_DERIVED:%.*]] = load i64* [[VP_GEP_MIX_UNI]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_CMP:%.*]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_CMP]], [[BB2]], [[BB6:BB[0-9]+]]
-; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]], [[BB4]]
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64* [[VP_PHI_MIX_UNI:%.*]] = phi  [ i64* [[VP_DIV_GEP]], [[BB4]] ],  [ i64* [[VP_UNI_ELSE]], [[BB5]] ] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_LD:%.*]] = load i64* [[VP_PHI_MIX_UNI]] (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64* [[VP_GEP_MIX_UNI:%.*]] = getelementptr inbounds i64* [[VP_PHI_MIX_UNI]] i64 [[VP_LD]] (SVAOpBits 0->V 1->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i64 [[VP_LD_PHI_DERIVED:%.*]] = load i64* [[VP_GEP_MIX_UNI]] (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB2]], [[BB6:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ;
 entry:
   %arr.soa.priv64 = alloca [1024 x i64], align 4

@@ -13,14 +13,11 @@ define void @foo() #0 {
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  vector.ph:
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP2:%.*]], [[VPLANNEDBB30:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <16 x i32> [ <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>, [[VECTOR_PH0]] ], [ [[TMP1:%.*]], [[VPLANNEDBB30]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VPLANNEDBB10]] ], [ [[TMP2:%.*]], [[VPLANNEDBB30:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <16 x i32> [ <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>, [[VPLANNEDBB10]] ], [ [[TMP1:%.*]], [[VPLANNEDBB30]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = load void (<16 x i32>, <16 x i32*>)*, void (<16 x i32>, <16 x i32*>)** poison, align 8
 ; CHECK-NEXT:    call void [[TMP0]](<16 x i32> <i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>, <16 x i32*> undef)
 ; CHECK-NEXT:    br label [[VPLANNEDBB30]]
@@ -32,7 +29,6 @@ define void @foo() #0 {
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB40:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ;
 simd.begin.region:
   %entry.region1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

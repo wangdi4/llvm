@@ -6,11 +6,11 @@
 declare double @llvm.powi.f64.i32(double %Val, i32 %power) nounwind readnone
 
 define void @powi_f64(i32 %n, double* noalias nocapture readonly %y, double* noalias nocapture %x, i32 %P) local_unnamed_addr #2 {
-; VEC-PROP-LABEL:  VPlan after CallVecDecisions analysis for VF=2:
-; VEC-PROP:          [DA: Div] double [[VP1:%.*]] = load double* [[VP_ARRAYIDX:%vp.*]]
-; VEC-PROP-NEXT:     [DA: Div] double [[VP_CALL1:%.*]] = call double [[VP1]] i32 [[P0:%.*]] llvm.powi.v2f64 [x 1]
-; VEC-PROP:          [DA: Div] i32 [[VP_EXPONENT:%.*]] = trunc i64 [[VP_INDVARS_IV:%vp.*]] to i32
-; VEC-PROP-NEXT:     [DA: Div] double [[VP_CALL2:%.*]] = call double [[VP1]] i32 [[VP_EXPONENT]] double (double, i32)* @llvm.powi.f64.i32 [Serial]
+; VEC-PROP-LABEL:  VPlan after CallVecDecisions analysis for merged CFG:
+; VEC-PROP:            [DA: Div] double [[VP2:%.*]] = load double* [[VP_ARRAYIDX:%.*]]
+; VEC-PROP-NEXT:       [DA: Div] double [[VP_CALL1:%.*]] = call double [[VP2]] i32 [[P0:%.*]] llvm.powi.v2f64 [x 1]
+; VEC-PROP:            [DA: Div] i32 [[VP_EXPONENT:%.*]] = trunc i64 [[VP_INDVARS_IV:%.*]] to i32
+; VEC-PROP-NEXT:       [DA: Div] double [[VP_CALL2:%.*]] = call double [[VP2]] i32 [[VP_EXPONENT]] double (double, i32)* @llvm.powi.f64.i32 [Serial]
 
 ; CG-CHECK-LABEL: @powi_f64(
 ; CG-CHECK:       vector.body:
@@ -65,14 +65,14 @@ for.end:                                          ; preds = %for.end.loopexit, %
 declare double @llvm.fmuladd.f64(double %a, double %b, double %c) nounwind readnone
 
 define void @fmuladd_f64(i32 %n, double* %a_arr, double* %b_arr, double* %c_arr) local_unnamed_addr #2 {
-; VEC-PROP-LABEL:  VPlan after CallVecDecisions analysis for VF=2:
-; VEC-PROP:          [DA: Div] double [[VP_CALL1:%.*]] = call double [[VP_A:%vp.*]] double [[VP_B:%vp.*]] double [[VP_C:%vp.*]] llvm.fmuladd.v2f64 [x 1]
-; VEC-PROP-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = fcmp oeq double [[VP_CALL1]] double 4.200000e+01
-; VEC-PROP-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
+; VEC-PROP-LABEL:  VPlan after CallVecDecisions analysis for merged CFG:
+; VEC-PROP:            [DA: Div] double [[VP_CALL1:%.*]] = call double [[VP_A:%.*]] double [[VP_B:%.*]] double [[VP_C:%.*]] llvm.fmuladd.v2f64 [x 1]
+; VEC-PROP-NEXT:       [DA: Div] i1 [[VP_COND:%.*]] = fcmp oeq double [[VP_CALL1]] double 4.200000e+01
+; VEC-PROP-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
 ; VEC-PROP-EMPTY:
-; VEC-PROP-NEXT:    [[BB4]]: # preds: [[BB2:BB.*]]
-; VEC-PROP-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_COND]]
-; VEC-PROP-NEXT:     [DA: Div] double [[VP_CALL2:%.*]] = call double [[VP_A]] double [[VP_B]] double [[VP_C]] llvm.fmuladd.v2f64 [x 1]
+; VEC-PROP-NEXT:      [[BB5]]: # preds: [[BB3:BB.*]]
+; VEC-PROP-NEXT:       [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_COND]]
+; VEC-PROP-NEXT:       [DA: Div] double [[VP_CALL2:%.*]] = call double [[VP_A]] double [[VP_B]] double [[VP_C]] llvm.fmuladd.v2f64 [x 1]
 ; VEC-PROP-NEXT:     [DA: Uni] br [[BB4:BB[0-9]+]]
 ;
 ; CG-CHECK-LABEL: @fmuladd_f64(

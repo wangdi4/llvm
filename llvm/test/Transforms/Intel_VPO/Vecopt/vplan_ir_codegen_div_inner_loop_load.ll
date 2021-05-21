@@ -79,7 +79,7 @@ exit:                                             ; preds = %for.end, %entry
 
 ; Check for inner loop with live out uniform GEP.
 ; CHECK-LABEL: @test1_liveout
-; CHECK:       VPlannedBB4:
+; CHECK:       VPlannedBB5:
 ; CHECK-NEXT:    [[INNER_UNI_PHI:%.*]] = phi i64 [ [[INNER_IV_ADD:%.*]], [[VPLANNEDBB:%.*]] ], [ 0, [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, i64* [[ARR1:%.*]], i64 42
 ; CHECK-NEXT:    [[BC_MASK:%.*]] = bitcast <2 x i1> [[MASK:%.*]] to i2
@@ -90,7 +90,7 @@ exit:                                             ; preds = %for.end, %entry
 ; CHECK-NEXT:    [[BCAST_INSERT:%.*]] = insertelement <2 x i64> poison, i64 [[LOAD]], i32 0
 ; CHECK-NEXT:    br label %[[MERGE]]
 ; CHECK:       [[MERGE]]:
-; CHECK-NEXT:    [[MERGE_PHI:%.*]] = phi <2 x i64> [ poison, %VPlannedBB4 ], [ [[BCAST_INSERT]], %[[PRED_LOAD_IF]] ]
+; CHECK-NEXT:    [[MERGE_PHI:%.*]] = phi <2 x i64> [ poison, %VPlannedBB5 ], [ [[BCAST_INSERT]], %[[PRED_LOAD_IF]] ]
 ; CHECK-NEXT:    br label %[[PRED_LOAD_CONTINUE:.*]]
 ; CHECK:       [[PRED_LOAD_CONTINUE]]:
 ; CHECK-NEXT:    [[BCAST_SHUF:%.*]] = shufflevector <2 x i64> [[MERGE_PHI]], <2 x i64> poison, <2 x i32> zeroinitializer

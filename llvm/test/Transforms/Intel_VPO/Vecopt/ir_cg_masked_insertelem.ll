@@ -10,82 +10,81 @@ declare i32 @foo(i32)
 define void @test_predicated_index_operand(i32 *%p, i64 %n) {
 ; CHECK:  define void @test_predicated_index_operand(i32* [[P0:%.*]], i64 [[N0:%.*]]) {
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP22:%.*]], [[VPLANNEDBB70:%.*]] ], [ 0, [[VECTOR_PH0:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP21:%.*]], [[VPLANNEDBB70]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP23:%.*]], [[VPLANNEDBB80:%.*]] ], [ 0, [[VPLANNEDBB20:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP22:%.*]], [[VPLANNEDBB80]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[P0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP3]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_1_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD0]], i32 1
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_0_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD0]], i32 0
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], zeroinitializer
-; CHECK-NEXT:    [[TMP4:%.*]] = xor <2 x i1> [[TMP3]], <i1 true, i1 true>
-; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], zeroinitializer
+; CHECK-NEXT:    [[TMP5:%.*]] = xor <2 x i1> [[TMP4]], <i1 true, i1 true>
+; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB3:
-; CHECK-NEXT:    [[PREDICATE0:%.*]] = extractelement <2 x i1> [[TMP4]], i64 0
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i1 [[PREDICATE0]], true
-; CHECK-NEXT:    br i1 [[TMP5]], label [[PRED_CALL_IF0:%.*]], label [[TMP7:%.*]]
+; CHECK-NEXT:  VPlannedBB4:
+; CHECK-NEXT:    [[PREDICATE0:%.*]] = extractelement <2 x i1> [[TMP5]], i64 0
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i1 [[PREDICATE0]], true
+; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_CALL_IF0:%.*]], label [[TMP8:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.call.if:
-; CHECK-NEXT:    [[TMP6:%.*]] = call i32 @foo(i32 [[WIDE_LOAD_EXTRACT_0_0]])
-; CHECK-NEXT:    br label [[TMP7]]
+; CHECK-NEXT:    [[TMP7:%.*]] = call i32 @foo(i32 [[WIDE_LOAD_EXTRACT_0_0]])
+; CHECK-NEXT:    br label [[TMP8]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  7:
-; CHECK-NEXT:    [[TMP8:%.*]] = phi i32 [ undef, [[VPLANNEDBB30]] ], [ [[TMP6]], [[PRED_CALL_IF0]] ]
+; CHECK-NEXT:  8:
+; CHECK-NEXT:    [[TMP9:%.*]] = phi i32 [ undef, [[VPLANNEDBB40]] ], [ [[TMP7]], [[PRED_CALL_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.call.continue:
-; CHECK-NEXT:    [[PREDICATE40:%.*]] = extractelement <2 x i1> [[TMP4]], i64 1
-; CHECK-NEXT:    [[TMP9:%.*]] = icmp eq i1 [[PREDICATE40]], true
-; CHECK-NEXT:    br i1 [[TMP9]], label [[PRED_CALL_IF140:%.*]], label [[TMP11:%.*]]
+; CHECK-NEXT:    [[PREDICATE50:%.*]] = extractelement <2 x i1> [[TMP5]], i64 1
+; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i1 [[PREDICATE50]], true
+; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_CALL_IF150:%.*]], label [[TMP12:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if14:
-; CHECK-NEXT:    [[TMP10:%.*]] = call i32 @foo(i32 [[WIDE_LOAD_EXTRACT_1_0]])
-; CHECK-NEXT:    br label [[TMP11]]
+; CHECK-NEXT:  pred.call.if15:
+; CHECK-NEXT:    [[TMP11:%.*]] = call i32 @foo(i32 [[WIDE_LOAD_EXTRACT_1_0]])
+; CHECK-NEXT:    br label [[TMP12]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  11:
-; CHECK-NEXT:    [[TMP12:%.*]] = phi i32 [ undef, [[PRED_CALL_CONTINUE0]] ], [ [[TMP10]], [[PRED_CALL_IF140]] ]
-; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE150:%.*]]
+; CHECK-NEXT:  12:
+; CHECK-NEXT:    [[TMP13:%.*]] = phi i32 [ undef, [[PRED_CALL_CONTINUE0]] ], [ [[TMP11]], [[PRED_CALL_IF150]] ]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE160:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue15:
-; CHECK-NEXT:    [[PREDICATE50:%.*]] = extractelement <2 x i1> [[TMP4]], i64 0
-; CHECK-NEXT:    [[TMP13:%.*]] = icmp eq i1 [[PREDICATE50]], true
-; CHECK-NEXT:    br i1 [[TMP13]], label [[PRED_INSERTELEMENT_IF0:%.*]], label [[TMP15:%.*]]
+; CHECK-NEXT:  pred.call.continue16:
+; CHECK-NEXT:    [[PREDICATE60:%.*]] = extractelement <2 x i1> [[TMP5]], i64 0
+; CHECK-NEXT:    [[TMP14:%.*]] = icmp eq i1 [[PREDICATE60]], true
+; CHECK-NEXT:    br i1 [[TMP14]], label [[PRED_INSERTELEMENT_IF0:%.*]], label [[TMP16:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.insertelement.if:
-; CHECK-NEXT:    [[TMP14:%.*]] = insertelement <4 x i32> zeroinitializer, i32 [[WIDE_LOAD_EXTRACT_0_0]], i32 [[TMP8]]
-; CHECK-NEXT:    br label [[TMP15]]
+; CHECK-NEXT:    [[TMP15:%.*]] = insertelement <4 x i32> zeroinitializer, i32 [[WIDE_LOAD_EXTRACT_0_0]], i32 [[TMP9]]
+; CHECK-NEXT:    br label [[TMP16]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  15:
-; CHECK-NEXT:    [[TMP16:%.*]] = phi <4 x i32> [ undef, [[PRED_CALL_CONTINUE150]] ], [ [[TMP14]], [[PRED_INSERTELEMENT_IF0]] ]
+; CHECK-NEXT:  16:
+; CHECK-NEXT:    [[TMP17:%.*]] = phi <4 x i32> [ undef, [[PRED_CALL_CONTINUE160]] ], [ [[TMP15]], [[PRED_INSERTELEMENT_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_INSERTELEMENT_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.insertelement.continue:
-; CHECK-NEXT:    [[PREDICATE60:%.*]] = extractelement <2 x i1> [[TMP4]], i64 1
-; CHECK-NEXT:    [[TMP17:%.*]] = icmp eq i1 [[PREDICATE60]], true
-; CHECK-NEXT:    br i1 [[TMP17]], label [[PRED_INSERTELEMENT_IF160:%.*]], label [[TMP19:%.*]]
+; CHECK-NEXT:    [[PREDICATE70:%.*]] = extractelement <2 x i1> [[TMP5]], i64 1
+; CHECK-NEXT:    [[TMP18:%.*]] = icmp eq i1 [[PREDICATE70]], true
+; CHECK-NEXT:    br i1 [[TMP18]], label [[PRED_INSERTELEMENT_IF170:%.*]], label [[TMP20:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.insertelement.if16:
-; CHECK-NEXT:    [[TMP18:%.*]] = insertelement <4 x i32> zeroinitializer, i32 [[WIDE_LOAD_EXTRACT_1_0]], i32 [[TMP12]]
-; CHECK-NEXT:    br label [[TMP19]]
+; CHECK-NEXT:  pred.insertelement.if17:
+; CHECK-NEXT:    [[TMP19:%.*]] = insertelement <4 x i32> zeroinitializer, i32 [[WIDE_LOAD_EXTRACT_1_0]], i32 [[TMP13]]
+; CHECK-NEXT:    br label [[TMP20]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  19:
-; CHECK-NEXT:    [[TMP20:%.*]] = phi <4 x i32> [ undef, [[PRED_INSERTELEMENT_CONTINUE0]] ], [ [[TMP18]], [[PRED_INSERTELEMENT_IF160]] ]
-; CHECK-NEXT:    br label [[PRED_INSERTELEMENT_CONTINUE170:%.*]]
+; CHECK-NEXT:  20:
+; CHECK-NEXT:    [[TMP21:%.*]] = phi <4 x i32> [ undef, [[PRED_INSERTELEMENT_CONTINUE0]] ], [ [[TMP19]], [[PRED_INSERTELEMENT_IF170]] ]
+; CHECK-NEXT:    br label [[PRED_INSERTELEMENT_CONTINUE180:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.insertelement.continue17:
-; CHECK-NEXT:    br label [[VPLANNEDBB70]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB7:
-; CHECK-NEXT:    [[TMP21]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP22]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP23:%.*]] = icmp uge i64 [[TMP22]], [[TMP0:%.*]]
-; CHECK-NEXT:    br i1 [[TMP23]], label [[VPLANNEDBB80:%.*]], label [[VECTOR_BODY0:%.*]]
+; CHECK-NEXT:  pred.insertelement.continue18:
+; CHECK-NEXT:    br label [[VPLANNEDBB80]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB8:
-; CHECK-NEXT:    [[TMP24:%.*]] = mul i64 1, [[TMP0]]
-; CHECK-NEXT:    [[TMP25:%.*]] = add i64 0, [[TMP24]]
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
+; CHECK-NEXT:    [[TMP22]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP23]] = add nuw nsw i64 [[UNI_PHI0]], 2
+; CHECK-NEXT:    [[TMP24:%.*]] = icmp uge i64 [[TMP23]], [[TMP2:%.*]]
+; CHECK-NEXT:    br i1 [[TMP24]], label [[VPLANNEDBB90:%.*]], label [[VECTOR_BODY0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB9:
+; CHECK-NEXT:    [[TMP25:%.*]] = mul i64 1, [[TMP2]]
+; CHECK-NEXT:    [[TMP26:%.*]] = add i64 0, [[TMP25]]
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -116,84 +115,83 @@ loopexit:
 define void @test_predicated_value_operand(i32 *%p, i64 %n) {
 ; CHECK:  define void @test_predicated_value_operand(i32* [[P0:%.*]], i64 [[N0:%.*]]) {
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP24:%.*]], [[VPLANNEDBB70:%.*]] ], [ 0, [[VECTOR_PH0:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP23:%.*]], [[VPLANNEDBB70]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP25:%.*]], [[VPLANNEDBB80:%.*]] ], [ 0, [[VPLANNEDBB20:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP24:%.*]], [[VPLANNEDBB80]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[P0]], i64 [[UNI_PHI0]]
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
-; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP2]], align 4
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
+; CHECK-NEXT:    [[WIDE_LOAD0:%.*]] = load <2 x i32>, <2 x i32>* [[TMP3]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_1_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD0]], i32 1
 ; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_0_0:%.*]] = extractelement <2 x i32> [[WIDE_LOAD0]], i32 0
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], zeroinitializer
-; CHECK-NEXT:    [[TMP4:%.*]] = xor <2 x i1> [[TMP3]], <i1 true, i1 true>
-; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD0]], zeroinitializer
+; CHECK-NEXT:    [[TMP5:%.*]] = xor <2 x i1> [[TMP4]], <i1 true, i1 true>
+; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB3:
-; CHECK-NEXT:    [[PREDICATE0:%.*]] = extractelement <2 x i1> [[TMP4]], i64 0
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i1 [[PREDICATE0]], true
-; CHECK-NEXT:    br i1 [[TMP5]], label [[PRED_CALL_IF0:%.*]], label [[TMP7:%.*]]
+; CHECK-NEXT:  VPlannedBB4:
+; CHECK-NEXT:    [[PREDICATE0:%.*]] = extractelement <2 x i1> [[TMP5]], i64 0
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i1 [[PREDICATE0]], true
+; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_CALL_IF0:%.*]], label [[TMP8:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.call.if:
-; CHECK-NEXT:    [[TMP6:%.*]] = call i32 @foo(i32 [[WIDE_LOAD_EXTRACT_0_0]])
-; CHECK-NEXT:    br label [[TMP7]]
+; CHECK-NEXT:    [[TMP7:%.*]] = call i32 @foo(i32 [[WIDE_LOAD_EXTRACT_0_0]])
+; CHECK-NEXT:    br label [[TMP8]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  7:
-; CHECK-NEXT:    [[TMP8:%.*]] = phi i32 [ undef, [[VPLANNEDBB30]] ], [ [[TMP6]], [[PRED_CALL_IF0]] ]
+; CHECK-NEXT:  8:
+; CHECK-NEXT:    [[TMP9:%.*]] = phi i32 [ undef, [[VPLANNEDBB40]] ], [ [[TMP7]], [[PRED_CALL_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.call.continue:
-; CHECK-NEXT:    [[TMP9:%.*]] = insertelement <2 x i32> undef, i32 [[TMP8]], i32 0
-; CHECK-NEXT:    [[PREDICATE40:%.*]] = extractelement <2 x i1> [[TMP4]], i64 1
-; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i1 [[PREDICATE40]], true
-; CHECK-NEXT:    br i1 [[TMP10]], label [[PRED_CALL_IF140:%.*]], label [[TMP12:%.*]]
+; CHECK-NEXT:    [[TMP10:%.*]] = insertelement <2 x i32> undef, i32 [[TMP9]], i32 0
+; CHECK-NEXT:    [[PREDICATE50:%.*]] = extractelement <2 x i1> [[TMP5]], i64 1
+; CHECK-NEXT:    [[TMP11:%.*]] = icmp eq i1 [[PREDICATE50]], true
+; CHECK-NEXT:    br i1 [[TMP11]], label [[PRED_CALL_IF150:%.*]], label [[TMP13:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.if14:
-; CHECK-NEXT:    [[TMP11:%.*]] = call i32 @foo(i32 [[WIDE_LOAD_EXTRACT_1_0]])
-; CHECK-NEXT:    br label [[TMP12]]
+; CHECK-NEXT:  pred.call.if15:
+; CHECK-NEXT:    [[TMP12:%.*]] = call i32 @foo(i32 [[WIDE_LOAD_EXTRACT_1_0]])
+; CHECK-NEXT:    br label [[TMP13]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  12:
-; CHECK-NEXT:    [[TMP13:%.*]] = phi i32 [ undef, [[PRED_CALL_CONTINUE0]] ], [ [[TMP11]], [[PRED_CALL_IF140]] ]
-; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE150:%.*]]
+; CHECK-NEXT:  13:
+; CHECK-NEXT:    [[TMP14:%.*]] = phi i32 [ undef, [[PRED_CALL_CONTINUE0]] ], [ [[TMP12]], [[PRED_CALL_IF150]] ]
+; CHECK-NEXT:    br label [[PRED_CALL_CONTINUE160:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.call.continue15:
-; CHECK-NEXT:    [[TMP14:%.*]] = insertelement <2 x i32> [[TMP9]], i32 [[TMP13]], i32 1
-; CHECK-NEXT:    [[PREDICATE50:%.*]] = extractelement <2 x i1> [[TMP4]], i64 0
-; CHECK-NEXT:    [[TMP15:%.*]] = icmp eq i1 [[PREDICATE50]], true
-; CHECK-NEXT:    br i1 [[TMP15]], label [[PRED_INSERTELEMENT_IF0:%.*]], label [[TMP17:%.*]]
+; CHECK-NEXT:  pred.call.continue16:
+; CHECK-NEXT:    [[TMP15:%.*]] = insertelement <2 x i32> [[TMP10]], i32 [[TMP14]], i32 1
+; CHECK-NEXT:    [[PREDICATE60:%.*]] = extractelement <2 x i1> [[TMP5]], i64 0
+; CHECK-NEXT:    [[TMP16:%.*]] = icmp eq i1 [[PREDICATE60]], true
+; CHECK-NEXT:    br i1 [[TMP16]], label [[PRED_INSERTELEMENT_IF0:%.*]], label [[TMP18:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.insertelement.if:
-; CHECK-NEXT:    [[TMP16:%.*]] = insertelement <4 x i32> zeroinitializer, i32 [[TMP8]], i32 [[WIDE_LOAD_EXTRACT_0_0]]
-; CHECK-NEXT:    br label [[TMP17]]
+; CHECK-NEXT:    [[TMP17:%.*]] = insertelement <4 x i32> zeroinitializer, i32 [[TMP9]], i32 [[WIDE_LOAD_EXTRACT_0_0]]
+; CHECK-NEXT:    br label [[TMP18]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  17:
-; CHECK-NEXT:    [[TMP18:%.*]] = phi <4 x i32> [ undef, [[PRED_CALL_CONTINUE150]] ], [ [[TMP16]], [[PRED_INSERTELEMENT_IF0]] ]
+; CHECK-NEXT:  18:
+; CHECK-NEXT:    [[TMP19:%.*]] = phi <4 x i32> [ undef, [[PRED_CALL_CONTINUE160]] ], [ [[TMP17]], [[PRED_INSERTELEMENT_IF0]] ]
 ; CHECK-NEXT:    br label [[PRED_INSERTELEMENT_CONTINUE0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  pred.insertelement.continue:
-; CHECK-NEXT:    [[PREDICATE60:%.*]] = extractelement <2 x i1> [[TMP4]], i64 1
-; CHECK-NEXT:    [[TMP19:%.*]] = icmp eq i1 [[PREDICATE60]], true
-; CHECK-NEXT:    br i1 [[TMP19]], label [[PRED_INSERTELEMENT_IF160:%.*]], label [[TMP21:%.*]]
+; CHECK-NEXT:    [[PREDICATE70:%.*]] = extractelement <2 x i1> [[TMP5]], i64 1
+; CHECK-NEXT:    [[TMP20:%.*]] = icmp eq i1 [[PREDICATE70]], true
+; CHECK-NEXT:    br i1 [[TMP20]], label [[PRED_INSERTELEMENT_IF170:%.*]], label [[TMP22:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.insertelement.if16:
-; CHECK-NEXT:    [[TMP20:%.*]] = insertelement <4 x i32> zeroinitializer, i32 [[TMP13]], i32 [[WIDE_LOAD_EXTRACT_1_0]]
-; CHECK-NEXT:    br label [[TMP21]]
+; CHECK-NEXT:  pred.insertelement.if17:
+; CHECK-NEXT:    [[TMP21:%.*]] = insertelement <4 x i32> zeroinitializer, i32 [[TMP14]], i32 [[WIDE_LOAD_EXTRACT_1_0]]
+; CHECK-NEXT:    br label [[TMP22]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  21:
-; CHECK-NEXT:    [[TMP22:%.*]] = phi <4 x i32> [ undef, [[PRED_INSERTELEMENT_CONTINUE0]] ], [ [[TMP20]], [[PRED_INSERTELEMENT_IF160]] ]
-; CHECK-NEXT:    br label [[PRED_INSERTELEMENT_CONTINUE170:%.*]]
+; CHECK-NEXT:  22:
+; CHECK-NEXT:    [[TMP23:%.*]] = phi <4 x i32> [ undef, [[PRED_INSERTELEMENT_CONTINUE0]] ], [ [[TMP21]], [[PRED_INSERTELEMENT_IF170]] ]
+; CHECK-NEXT:    br label [[PRED_INSERTELEMENT_CONTINUE180:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  pred.insertelement.continue17:
-; CHECK-NEXT:    br label [[VPLANNEDBB70]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB7:
-; CHECK-NEXT:    [[TMP23]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP24]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP25:%.*]] = icmp uge i64 [[TMP24]], [[TMP0:%.*]]
-; CHECK-NEXT:    br i1 [[TMP25]], label [[VPLANNEDBB80:%.*]], label [[VECTOR_BODY0:%.*]]
+; CHECK-NEXT:  pred.insertelement.continue18:
+; CHECK-NEXT:    br label [[VPLANNEDBB80]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB8:
-; CHECK-NEXT:    [[TMP26:%.*]] = mul i64 1, [[TMP0]]
-; CHECK-NEXT:    [[TMP27:%.*]] = add i64 0, [[TMP26]]
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
+; CHECK-NEXT:    [[TMP24]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP25]] = add nuw nsw i64 [[UNI_PHI0]], 2
+; CHECK-NEXT:    [[TMP26:%.*]] = icmp uge i64 [[TMP25]], [[TMP2]]
+; CHECK-NEXT:    br i1 [[TMP26]], label [[VPLANNEDBB90:%.*]], label [[VECTOR_BODY0:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB9:
+; CHECK-NEXT:    [[TMP27:%.*]] = mul i64 1, [[TMP2]]
+; CHECK-NEXT:    [[TMP28:%.*]] = add i64 0, [[TMP27]]
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

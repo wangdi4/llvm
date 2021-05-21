@@ -19,14 +19,14 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 define i32 @foo(i32* noalias nocapture %A, i32 %N, i32 %init)  {
 ; CHECK-LABEL: @foo(
-; CHECK:       vector.ph:
-; CHECK:         [[TMP4:%.*]] = shl i32 [[TMP0:%.*]], 2
-; CHECK-NEXT:    [[IND_STEP_INIT_SPLATINSERT:%.*]] = insertelement <4 x i32> poison, i32 [[TMP4]], i32 0
+; CHECK:       VPlannedBB2:
+; CHECK:         [[TMP6:%.*]] = shl i32 [[TMP0:%.*]], 2
+; CHECK-NEXT:    [[IND_STEP_INIT_SPLATINSERT:%.*]] = insertelement <4 x i32> poison, i32 [[TMP6]], i32 0
 ; CHECK-NEXT:    [[IND_STEP_INIT_SPLAT:%.*]] = shufflevector <4 x i32> [[IND_STEP_INIT_SPLATINSERT]], <4 x i32> poison, <4 x i32> zeroinitializer
 ; CHECK:         br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK:         [[VEC_PHI2:%.*]] = phi <4 x i32> [ [[TMP3:%.*]], [[VECTOR_PH:%.*]] ], [ [[TMP6:%.*]], [[VECTOR_BODY]] ]
-; CHECK:         [[TMP6]] = add nsw <4 x i32> [[IND_STEP_INIT_SPLAT]], [[VEC_PHI2]]
+; CHECK:         [[VEC_PHI5:%.*]] = phi <4 x i32> [ [[TMP5:%.*]], [[VPLANNEDBB2:%.*]] ], [ [[TMP9:%.*]], [[VECTOR_BODY]] ]
+; CHECK:         [[TMP9]] = add nsw <4 x i32> [[IND_STEP_INIT_SPLAT]], [[VEC_PHI5]]
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

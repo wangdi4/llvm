@@ -1,7 +1,7 @@
 ; RUN: opt -S -vplan-vec -vplan-force-vf=4 < %s | FileCheck %s
 ; RUN: opt -S -passes="vplan-vec" -vplan-force-vf=4 < %s | FileCheck %s
 
-; CHECK: vector.body: ; preds = %[[VPlannedBB11:.*]], %vector.ph
+; CHECK: vector.body: ; preds = %[[VPlannedBB11:.*]], %[[VPlannedBB1:.*]]
 ; CHECK: [[VPlannedBB4:.*]]: ; preds = %[[VPlannedBB10:.*]], %vector.body
 ; CHECK: [[VPlannedBB6:.*]]: ; preds = %[[VPlannedBB6]], %[[VPlannedBB4]]
 ; CHECK:  store <4 x i32>
@@ -10,7 +10,6 @@
 ; CHECK:  icmp eq {{.*}} 200
 ; CHECK: [[VPlannedBB11]]: ; preds = %[[VPlannedBB10]]
 ; CHECK:  icmp uge {{.*}} 300
-; CHECK: middle.block:
 
 ; ModuleID = 'krtest2.c'
 source_filename = "krtest2.c"

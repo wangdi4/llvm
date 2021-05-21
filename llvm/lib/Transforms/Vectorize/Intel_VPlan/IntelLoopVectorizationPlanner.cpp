@@ -237,7 +237,7 @@ bool PrintAfterCallVecDecisions = false;
 bool LoopMassagingEnabled = true;
 bool EnableSOAAnalysis = true;
 bool EnableSOAAnalysisHIR = false;
-bool EnableNewCFGMerge = false;
+bool EnableNewCFGMerge = true;
 } // namespace vpo
 } // namespace llvm
 

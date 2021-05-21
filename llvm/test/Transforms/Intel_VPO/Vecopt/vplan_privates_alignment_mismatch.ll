@@ -22,24 +22,24 @@ define void @foo(i32* nocapture readonly %iarr) {
 ; CHECK-NEXT:    [[F1_PRIV_INSERT_0:%.*]] = insertelement <2 x [3 x double]*> undef, [3 x double]* [[F1_PRIV_LANE_0]], i64 0
 ; CHECK-NEXT:    [[F1_PRIV_LANE_1:%.*]] = alloca [3 x double], align 16
 ; CHECK-NEXT:    [[F1_PRIV_INSERT_1:%.*]] = insertelement <2 x [3 x double]*> [[F1_PRIV_INSERT_0]], [3 x double]* [[F1_PRIV_LANE_1]], i64 1
-; CHECK:       vector.ph:
+; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds [3 x double], <2 x [3 x double]*> [[F1_PRIV_INSERT_1]], <2 x i64> zeroinitializer, <2 x i64> <i64 2, i64 2>
-; CHECK-NEXT:    [[MM_VECTORGEP1:%.*]] = getelementptr inbounds [3 x double], <2 x [3 x double]*> [[F1_PRIV_INSERT_1]], <2 x i64> zeroinitializer, <2 x i64> <i64 1, i64 1>
-; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [3 x double], <2 x [3 x double]*> [[F1_PRIV_INSERT_1]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
+; CHECK-NEXT:    [[MM_VECTORGEP2:%.*]] = getelementptr inbounds [3 x double], <2 x [3 x double]*> [[F1_PRIV_INSERT_1]], <2 x i64> zeroinitializer, <2 x i64> <i64 1, i64 1>
+; CHECK-NEXT:    [[MM_VECTORGEP3:%.*]] = getelementptr inbounds [3 x double], <2 x [3 x double]*> [[F1_PRIV_INSERT_1]], <2 x i64> zeroinitializer, <2 x i64> zeroinitializer
 ; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI3:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH]] ], [ [[TMP3:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VPLANNEDBB1:%.*]] ], [ [[TMP4:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VPLANNEDBB1]] ], [ [[TMP3:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = sitofp <2 x i64> [[VEC_PHI]] to <2 x double>
-; CHECK-NEXT:    call void @llvm.masked.scatter.v2f64.v2p0f64(<2 x double> [[TMP0]], <2 x double*> [[MM_VECTORGEP2]], i32 16, <2 x i1> <i1 true, i1 true>)
+; CHECK-NEXT:    call void @llvm.masked.scatter.v2f64.v2p0f64(<2 x double> [[TMP0]], <2 x double*> [[MM_VECTORGEP3]], i32 16, <2 x i1> <i1 true, i1 true>)
 ; CHECK-NEXT:    [[TMP1:%.*]] = fmul <2 x double> [[TMP0]], <double 2.000000e+00, double 2.000000e+00>
-; CHECK-NEXT:    call void @llvm.masked.scatter.v2f64.v2p0f64(<2 x double> [[TMP1]], <2 x double*> [[MM_VECTORGEP1]], i32 16, <2 x i1> <i1 true, i1 true>)
+; CHECK-NEXT:    call void @llvm.masked.scatter.v2f64.v2p0f64(<2 x double> [[TMP1]], <2 x double*> [[MM_VECTORGEP2]], i32 16, <2 x i1> <i1 true, i1 true>)
 ; CHECK-NEXT:    [[TMP2:%.*]] = fmul <2 x double> [[TMP0]], <double 3.000000e+00, double 3.000000e+00>
 ; CHECK-NEXT:    call void @llvm.masked.scatter.v2f64.v2p0f64(<2 x double> [[TMP2]], <2 x double*> [[MM_VECTORGEP]], i32 16, <2 x i1> <i1 true, i1 true>)
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
-; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI3]], 2
+; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI]], 2
 ; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i64 [[TMP4]], 100
-; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], !llvm.loop !0
+; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB5:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
 ;
 entry:
   %f1.priv = alloca [3 x double], align 16

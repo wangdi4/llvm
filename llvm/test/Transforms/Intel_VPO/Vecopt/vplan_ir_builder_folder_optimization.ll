@@ -8,13 +8,16 @@
 ; TODO: enable cfg merge after private support enabled
 ; RUN: opt -S -vplan-vec -vplan-force-vf=2 -vplan-enable-cfg-merge=0 %s | FileCheck %s
 ; CHECK:      vector.body:
-; CHECK:        [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, %vector.ph ], [ [[VEC_PHI_NEXT:%.*]], %vector.body ]
+; CHECK:        [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[vectorph:%.*]] ], [ [[VEC_PHI_NEXT:%.*]], [[vector_body:%.*]] ]
 ; CHECK-NEXT:   [[ADD1:%.*]] = add <2 x i64> %vec.phi, <i64 1, i64 1>
 ; CHECK-NEXT:   [[OP1:%.*]] = shl nuw <2 x i64> [[ADD1]], <i64 32, i64 32>
 ; CHECK-NEXT:   [[OP2:%.*]] = or <2 x i64> [[OP1]], <i64 9187343239835811840, i64 9187343239835811840>
 ; CHECK-NEXT:   [[SEL1:%.*]] = select i1 true, <2 x i64> [[OP1]], <2 x i64> [[OP2]]
 ; CHECK-NEXT:   [[SEL2:%.*]] = select i1 true, <2 x i64> [[OP2]], <2 x i64> [[OP1]]
 ; CHECK-NEXT:   [[SEL3:%.*]] = select i1 true, <2 x i64> [[OP1]], <2 x i64> [[OP2]]
+; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  VPlannedBB3:
 ; CHECK-NEXT:   [[VEC_PHI_NEXT]] = add nuw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

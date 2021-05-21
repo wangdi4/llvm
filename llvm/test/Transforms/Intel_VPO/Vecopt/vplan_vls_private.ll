@@ -23,7 +23,7 @@ define void @foo() {
 ; CHECK:      call void @llvm.masked.scatter.v2i32.v2p0i32
 ; CHECK:      call void @llvm.masked.scatter.v2i32.v2p0i32
 ; CHECK-NOT:  call void @llvm.masked.scatter.v2i32.v2p0i32
-; CHECK-LABEL: VPlannedBB
+; CHECK-LABEL: VPlannedBB4:
 ;
 entry:
   %var = alloca i32, align 4

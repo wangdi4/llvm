@@ -22,62 +22,66 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; LLVMIR-NEXT:    br label [[VPLANNEDBB0:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  VPlannedBB:
-; LLVMIR-NEXT:    br label [[VPLANNEDBB10:%.*]]
-; LLVMIR-EMPTY:
-; LLVMIR-NEXT:  VPlannedBB1:
 ; LLVMIR-NEXT:    [[TMP0:%.*]] = and i64 [[WIDE_TRIP_COUNT0]], 4294967294
 ; LLVMIR-NEXT:    [[TMP1:%.*]] = icmp eq i64 0, [[TMP0]]
-; LLVMIR-NEXT:    br i1 [[TMP1]], label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
+; LLVMIR-NEXT:    br i1 [[TMP1]], label %[[MERGE_BLK0:.*]], label [[VPLANNEDBB10:%.*]]
 ; LLVMIR-EMPTY:
-; LLVMIR-NEXT:  vector.ph:
+; LLVMIR-NEXT:  VPlannedBB1:
 ; LLVMIR-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i32*> poison, i32* [[IP0]], i32 0
 ; LLVMIR-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i32*> [[BROADCAST_SPLATINSERT0]], <2 x i32*> poison, <2 x i32> zeroinitializer
+; LLVMIR-NEXT:    br label [[VPLANNEDBB20:%.*]]
+; LLVMIR-EMPTY:
+; LLVMIR-NEXT:  VPlannedBB2:
+; LLVMIR-NEXT:    [[TMP2:%.*]] = and i64 [[WIDE_TRIP_COUNT0]], 4294967294
 ; LLVMIR-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  vector.body:
-; LLVMIR-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP3:%.*]], [[VPLANNEDBB40:%.*]] ], [ 0, [[VECTOR_PH0]] ]
-; LLVMIR-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP2:%.*]], [[VPLANNEDBB40]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
+; LLVMIR-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP4:%.*]], [[VPLANNEDBB50:%.*]] ], [ 0, [[VPLANNEDBB20]] ]
+; LLVMIR-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP3:%.*]], [[VPLANNEDBB50]] ], [ <i64 0, i64 1>, [[VPLANNEDBB20]] ]
 ; LLVMIR-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds i32, <2 x i32*> [[BROADCAST_SPLAT0]], <2 x i64> [[VEC_PHI0]]
 ; LLVMIR-NEXT:    [[MM_VECTORGEP_EXTRACT_1_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP0]], i32 1
 ; LLVMIR-NEXT:    [[MM_VECTORGEP_EXTRACT_0_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP0]], i32 0
-; LLVMIR-NEXT:    br label [[VPLANNEDBB30:%.*]]
-; LLVMIR-EMPTY:
-; LLVMIR-NEXT:  VPlannedBB3:
-; LLVMIR-NEXT:    call void @var_tripcount.ordered.simd.region(i32* [[X0]], i32* [[MM_VECTORGEP_EXTRACT_0_0]])
-; LLVMIR-NEXT:    call void @var_tripcount.ordered.simd.region(i32* [[X0]], i32* [[MM_VECTORGEP_EXTRACT_1_0]])
-; LLVMIR-NEXT:    br label [[VPLANNEDBB40]]
+; LLVMIR-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  VPlannedBB4:
-; LLVMIR-NEXT:    [[TMP2]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
-; LLVMIR-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; LLVMIR-NEXT:    [[TMP4:%.*]] = icmp uge i64 [[TMP3]], [[TMP0]]
-; LLVMIR-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB50:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
+; LLVMIR-NEXT:    call void @var_tripcount.ordered.simd.region(i32* [[X0]], i32* [[MM_VECTORGEP_EXTRACT_0_0]])
+; LLVMIR-NEXT:    call void @var_tripcount.ordered.simd.region(i32* [[X0]], i32* [[MM_VECTORGEP_EXTRACT_1_0]])
+; LLVMIR-NEXT:    br label [[VPLANNEDBB50]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  VPlannedBB5:
-; LLVMIR-NEXT:    [[TMP5:%.*]] = mul i64 1, [[TMP0]]
-; LLVMIR-NEXT:    [[TMP6:%.*]] = add i64 0, [[TMP5]]
-; LLVMIR-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
+; LLVMIR-NEXT:    [[TMP3]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
+; LLVMIR-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI0]], 2
+; LLVMIR-NEXT:    [[TMP5:%.*]] = icmp uge i64 [[TMP4]], [[TMP2]]
+; LLVMIR-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; LLVMIR-EMPTY:
-; LLVMIR-NEXT:  middle.block:
-; LLVMIR-NEXT:    [[TMP7:%.*]] = icmp ne i64 [[WIDE_TRIP_COUNT0]], [[TMP0]]
-; LLVMIR-NEXT:    br i1 [[TMP7]], label [[SCALAR_PH0]], label [[VPLANNEDBB60:%.*]]
+; LLVMIR-NEXT:  VPlannedBB6:
+; LLVMIR-NEXT:    [[TMP6:%.*]] = mul i64 1, [[TMP2]]
+; LLVMIR-NEXT:    [[TMP7:%.*]] = add i64 0, [[TMP6]]
+; LLVMIR-NEXT:    br label [[VPLANNEDBB70:%.*]]
 ; LLVMIR-EMPTY:
-; LLVMIR-NEXT:  scalar.ph:
-; LLVMIR-NEXT:    [[UNI_PHI70:%.*]] = phi i64 [ [[TMP6]], [[MIDDLE_BLOCK0]] ], [ 0, [[VPLANNEDBB10]] ]
+; LLVMIR-NEXT:  VPlannedBB7:
 ; LLVMIR-NEXT:    br label [[VPLANNEDBB80:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  VPlannedBB8:
+; LLVMIR-NEXT:    [[TMP8:%.*]] = icmp eq i64 [[WIDE_TRIP_COUNT0]], [[TMP2]]
+; LLVMIR-NEXT:    br i1 [[TMP8]], label [[FINAL_MERGE0:%.*]], label %[[MERGE_BLK0]]
+; LLVMIR-EMPTY:
+; LLVMIR-NEXT:  [[MERGE_BLK0]]:
+; LLVMIR-NEXT:    [[UNI_PHI90:%.*]] = phi i64 [ [[TMP7]], [[VPLANNEDBB80]] ], [ 0, [[VPLANNEDBB0]] ]
+; LLVMIR-NEXT:    br label %[[REMBLK0:.*]]
+; LLVMIR-EMPTY:
+; LLVMIR-NEXT:  [[REMBLK0]]:
 ; LLVMIR-NEXT:    br label [[FOR_BODY0:%.*]]
 ; LLVMIR-EMPTY:
-; LLVMIR-NEXT:  VPlannedBB6:
-; LLVMIR-NEXT:    [[UNI_PHI90:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0:%.*]], [[LATCH0:%.*]] ], [ [[TMP6]], [[MIDDLE_BLOCK0]] ]
-; LLVMIR-NEXT:    br label [[VPLANNEDBB100:%.*]]
-; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  VPlannedBB10:
+; LLVMIR-NEXT:    br label [[FINAL_MERGE0]]
+; LLVMIR-EMPTY:
+; LLVMIR-NEXT:  final.merge:
+; LLVMIR-NEXT:    [[UNI_PHI110:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0:%.*]], [[VPLANNEDBB100:%.*]] ], [ [[TMP7]], [[VPLANNEDBB80]] ]
 ; LLVMIR-NEXT:    br label [[FOR_END0:%.*]]
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  for.body:
-; LLVMIR-NEXT:    [[INDVARS_IV0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0]], [[LATCH0]] ], [ [[UNI_PHI70]], [[VPLANNEDBB80]] ]
+; LLVMIR-NEXT:    [[INDVARS_IV0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0]], [[LATCH0:%.*]] ], [ [[UNI_PHI90]], %[[REMBLK0]] ]
 ; LLVMIR-NEXT:    [[ARRAYIDX0:%.*]] = getelementptr inbounds i32, i32* [[IP0]], i64 [[INDVARS_IV0]]
 ; LLVMIR-NEXT:    br label [[CODEREPL0:%.*]]
 ; LLVMIR-EMPTY:
@@ -88,7 +92,7 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; LLVMIR-NEXT:  latch:
 ; LLVMIR-NEXT:    [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
 ; LLVMIR-NEXT:    [[EXITCOND0:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT0]], [[WIDE_TRIP_COUNT0]]
-; LLVMIR-NEXT:    br i1 [[EXITCOND0]], label [[VPLANNEDBB60]], label [[FOR_BODY0]], !llvm.loop !2
+; LLVMIR-NEXT:    br i1 [[EXITCOND0]], label [[VPLANNEDBB100]], label [[FOR_BODY0]], !llvm.loop !2
 ; LLVMIR-EMPTY:
 ; LLVMIR-NEXT:  for.end:
 ; LLVMIR-NEXT:    br label [[FOR_COND_CLEANUP0]]

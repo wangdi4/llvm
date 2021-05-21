@@ -29,19 +29,16 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT:    br label [[VPLANNEDBB0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i64> poison, i64 [[CALL_I_I0]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT0]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB1:
-; CHECK-NEXT:    br i1 false, label [[SCALAR_PH0:%.*]], label [[VECTOR_PH0:%.*]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  vector.ph:
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT0:%.*]] = insertelement <2 x i64> poison, i64 [[CALL_I_I0]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT0:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT0]], <2 x i64> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP12:%.*]], [[VPLANNEDBB50:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VECTOR_PH0]] ], [ [[TMP11:%.*]], [[VPLANNEDBB50]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VPLANNEDBB10]] ], [ [[TMP12:%.*]], [[VPLANNEDBB50:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VPLANNEDBB10]] ], [ [[TMP11:%.*]], [[VPLANNEDBB50]] ]
 ; CHECK-NEXT:    [[TMP1:%.*]] = sext <2 x i32> [[VEC_PHI0]] to <2 x i64>
 ; CHECK-NEXT:    [[TMP2:%.*]] = add nuw <2 x i64> [[TMP1]], [[BROADCAST_SPLAT0]]
 ; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i8, i8 addrspace(4)* [[INP_ARG]], i64 16
