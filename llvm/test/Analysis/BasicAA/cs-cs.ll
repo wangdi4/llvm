@@ -399,7 +399,9 @@ entry:
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblememonly nounwind }
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblemem_or_argmemonly nounwind }
 ; CHECK-NEXT: attributes #{{.*}} = { argmemonly nounwind }
-; CHECK-NEXT: attributes #{{.*}} = { readonly }
+;; Note: next is a CHECK, not CHECK-NEXT, allowing us to skip the
+;; @llvm.intel.subscript attributes in the convert-to-subscript RUN.
+; CHECK:      attributes #{{.*}} = { readonly }
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblememonly }
 ; CHECK-NEXT: attributes #{{.*}} = { inaccessiblemem_or_argmemonly }
 ; CHECK-NEXT: attributes #{{.*}} = { argmemonly }
