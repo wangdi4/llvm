@@ -5140,29 +5140,7 @@ public:
     postVisitImpl(Loop);
   }
 
-  // Remove nodes after IF-stmt if it does not fall through.
-  void postVisit(HLIf *If) {
-    LastNodeToRemove = nullptr;
-
-    if (HLNodeUtils::hasGotoOnAllBranches(If)) {
-      // remove all nodes after IF-stmt up to label or end of linear code.
-      auto *NodeToRemove = If->getNextNode();
-      if (NodeToRemove && !isa<HLLabel>(NodeToRemove)) {
-        auto *NextNode = NodeToRemove->getNextNode();
-        while (NextNode && !isa<HLLabel>(NextNode)) {
-          NodeToRemove = NextNode;
-          NextNode = NextNode->getNextNode();
-        }
-        LastNodeToRemove = NodeToRemove;
-      }
-    }
-
-    postVisitImpl(If);
-  }
-
   template <typename NodeTy> void postVisit(NodeTy *Node) {
-    LastNodeToRemove = nullptr;
-
     postVisitImpl(Node);
   }
 
@@ -5171,6 +5149,8 @@ public:
            "Node is removed, should be no further actions.");
 
     IsJoinNode = true;
+
+    LastNodeToRemove = nullptr;
 
     EmptyNodeRemoverVisitorImpl::postVisit(Node);
   }
@@ -5528,59 +5508,4 @@ void HLNodeUtils::eliminateRedundantGotos(
       }
     }
   }
-
-// Retruns true if IF-stmt does not fall through on any path.
-// Ex.:
-// if (C1) {
-//    ...
-//    if (C3) {
-//      ...
-//      goto L1;
-//    } else {
-//      goto L2;
-//    }
-// } else if (C4) {
-//    ...
-//    if (C5) {
-//      ...
-//    }
-//    ...
-//    goto L3;
-//  } else {
-//    goto L4;
-//  }
-//  <some code>
-//  L1:
-//  L2:
-//  L3:
-//  L4:
-//  ...
-//
-// Here we never reach <some code> after if, so this code should be cleaned up.
-//
-bool HLNodeUtils::hasGotoOnAllBranches(HLIf *If) {
-  // TODO: add support for switch statement.
-  assert(If && "IF-statement expected");
-
-  auto *IfLastThenChild = If->getLastThenChild();
-  auto *IfLastElseChild = If->getLastElseChild();
-  HLGoto *LastThenGoto = dyn_cast_or_null<HLGoto>(IfLastThenChild);
-  HLGoto *LastElseGoto = dyn_cast_or_null<HLGoto>(IfLastElseChild);
-
-  if (LastThenGoto && LastElseGoto)
-    return true;
-
-  HLIf *LastThenIf = dyn_cast_or_null<HLIf>(IfLastThenChild);
-  HLIf *LastElseIf = dyn_cast_or_null<HLIf>(IfLastElseChild);
-
-  // We expect either goto or another if at the end of each branch.
-  if (!LastThenGoto &&
-      !(LastThenIf && HLNodeUtils::hasGotoOnAllBranches(LastThenIf)))
-    return false;
-
-  if (!LastElseGoto &&
-      !(LastElseIf && HLNodeUtils::hasGotoOnAllBranches(LastElseIf)))
-    return false;
-
-  return true;
 }
