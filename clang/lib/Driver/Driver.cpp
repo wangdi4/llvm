@@ -961,7 +961,10 @@ void Driver::setLTOMode(const llvm::opt::ArgList &Args) {
   LTOMode = LTOK_None;
 #if INTEL_CUSTOMIZATION
   if (!Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
-                    options::OPT_fno_lto, false)) {
+                    options::OPT_fno_lto, false) &&
+      !Args.hasFlag(options::OPT_flto_EQ_auto, options::OPT_fno_lto, false) &&
+      !Args.hasFlag(options::OPT_flto_EQ_jobserver, options::OPT_fno_lto,
+                    false)) {
     // When dealing with -fast, the behavior is the same as -Ofast, except
     // that -flto is implied
     if (Arg *A = Args.getLastArg(options::OPT_Ofast, options::OPT_fno_lto))
