@@ -34,7 +34,6 @@ set(OCL_BE_PASSES
     SGEmulation
     LLVMVectorizer
     SubGroupAdaptation
-    LinearIdResolver
     LocalBuffAnalysis
     LocalBuffers
     LLVMEqualizer
