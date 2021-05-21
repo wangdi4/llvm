@@ -2601,7 +2601,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     EarlyFPM.addPass(CallSiteSplittingPass());
 #if INTEL_CUSTOMIZATION
     // Collect the information from the loops and insert the attributes
-    EarlyFPM.addPass(IntelLoopAttrsPass());
+    EarlyFPM.addPass(IntelLoopAttrsPass(DTransEnabled));
 #endif // INTEL_CUSTOMIZATION
     MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM)));
 
@@ -2829,7 +2829,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 #if INTEL_CUSTOMIZATION
   // Collect the information from the loops and insert the attributes
   if (Level.getSpeedupLevel() > 1)
-    FPM.addPass(IntelLoopAttrsPass());
+    FPM.addPass(IntelLoopAttrsPass(DTransEnabled));
 #endif // INTEL_CUSTOMIZATION
 
   // Run a few AA driver optimizations here and now to cleanup the code.
