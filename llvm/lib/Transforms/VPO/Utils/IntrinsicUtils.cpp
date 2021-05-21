@@ -347,18 +347,25 @@ bool VPOUtils::addPrivateToEnclosingRegion(Instruction *I, BasicBlock *BlockPos,
   auto *IDom = DomNode->getIDom();
   while (IDom) {
     auto *IDomBlock = IDom->getBlock();
-    if (VPOAnalysisUtils::supportsPrivateClause(IDomBlock)) {
-      auto *II = cast<IntrinsicInst>(&(IDomBlock->front()));
-      if (II &&
-          (!SimdOnly || VPOAnalysisUtils::getDirectiveID(II) == DIR_OMP_SIMD)) {
-        auto *Repl = VPOUtils::addOperandBundlesInCall(
-            cast<CallInst>(II), {{"QUAL.OMP.PRIVATE", {I}}});
-        if (Repl) {
-          LLVM_DEBUG(dbgs() << "Added private for " << I->getName()
-                            << " to: " << *Repl << "\n");
-        }
-        return true;
+    // Find first OMP directive instruction in the block. TODO: Should we
+    // reverse iterate instructions in the BB? Can we have multiple directives
+    // in same BB?
+    IntrinsicInst *II = nullptr;
+    for (auto &I : *IDomBlock) {
+      if (VPOAnalysisUtils::isOpenMPDirective(&I)) {
+        II = cast<IntrinsicInst>(&I);
+        break;
       }
+    }
+    if (II && VPOAnalysisUtils::supportsPrivateClause(II) &&
+        (!SimdOnly || VPOAnalysisUtils::getDirectiveID(II) == DIR_OMP_SIMD)) {
+      auto *Repl = VPOUtils::addOperandBundlesInCall(
+          cast<CallInst>(II), {{"QUAL.OMP.PRIVATE", {I}}});
+      if (Repl) {
+        LLVM_DEBUG(dbgs() << "Added private for " << I->getName()
+                          << " to: " << *Repl << "\n");
+      }
+      return true;
     }
     IDom = DT[IDomBlock]->getIDom();
   }
