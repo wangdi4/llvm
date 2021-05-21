@@ -19,6 +19,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANCOSTMODELHEURISTICS_H
 
 #include "IntelVPlanUtils.h"
+#include "IntelVPlanVLSAnalysis.h"
 
 namespace llvm {
 
@@ -229,13 +230,33 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
-// VPInstruction level heuristics that triggers on Integer DIV/REM instructions
+// VPInstruction level heuristic that triggers on Integer DIV/REM instructions
 // to take into account that the compiler uses corresponding SVML Vector
 // entries to implement these operations.
 class HeuristicSVMLIDivIRem : public HeuristicBase {
 public:
   HeuristicSVMLIDivIRem(VPlanTTICostModel *CM) :
     HeuristicBase(CM, "IDiv/IRem") {};
+  void apply(unsigned TTICost, unsigned &Cost,
+             const VPInstruction *VPInst, raw_ostream *OS = nullptr) const;
+};
+
+// VPInstruction level heuristic that triggers on LOAD/STORE instructions
+// and checks whether given instruction is a member of OVLS Group. The cost of
+// such load/store can be lower if the group of loads/stores is emitted as
+// vanilla loads/stores and shuffles rather than using gathers/scatters.
+class HeuristicOVLSMember : public HeuristicBase {
+  // ProcessedOVLSGroups holds the groups which Cost has already been taken into
+  // account while traversing through VPlan during getCost().  This way we avoid
+  // taking the same group price multiple times.
+  // If Cost of OVLS group is better in terms of performance comparing to TTI
+  // costs of instruction OVLS group would replace, then ProcessedOVLSGroups map
+  // holds 'true' for this group.  Otherwise 'false' is stored in the map.
+  using OVLSGroupMap = DenseMap<const OVLSGroup *, bool>;
+  mutable OVLSGroupMap ProcessedOVLSGroups;
+
+public:
+  HeuristicOVLSMember(VPlanTTICostModel *CM) : HeuristicBase(CM, "OVLS") {};
   void apply(unsigned TTICost, unsigned &Cost,
              const VPInstruction *VPInst, raw_ostream *OS = nullptr) const;
 };

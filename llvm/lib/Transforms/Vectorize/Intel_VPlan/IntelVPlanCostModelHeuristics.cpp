@@ -44,6 +44,11 @@ static cl::opt<unsigned> CMGatherScatterPenaltyFactor(
   cl::desc("The factor which G/S cost multiplies by if G/S accumulated cost "
            "exceeds CMGatherScatterThreshold."));
 
+static cl::opt<bool> UseOVLSCM(
+  "vplan-cm-use-ovlscm", cl::init(true),
+  cl::desc("Consider cost returned by OVLSCostModel "
+           "for optimized gathers and scatters."));
+
 namespace llvm {
 
 namespace vpo {
@@ -1027,6 +1032,139 @@ void HeuristicSVMLIDivIRem::apply(
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   Cost = NewCost;
+}
+
+void HeuristicOVLSMember::apply(
+  unsigned TTICost, unsigned &Cost,
+  const VPInstruction *VPInst, raw_ostream *OS) const {
+
+  if (!UseOVLSCM || !CM->VLSA || VF == 1)
+    return;
+
+  OVLSGroup *Group = CM->VLSA->getGroupsFor(Plan, VPInst);
+  if (!Group || Group->size() <= 1)
+    return;
+
+  // FIXME: OVLSCostModel abstructions need to be revisitted as
+  // VPlanVLSCostModel::getInstructionCost() implementation requires external
+  // VF to form Vector Type of OVLSInstruction, whereas
+  // OVLSTTICostModel::getInstructionCost() implementation fetches number of
+  // elements using I->getType().
+  //
+  VPlanVLSCostModel VLSCM(VF, CM->VPTTI.getTTI(),
+                          VPInst->getType()->getContext());
+  /// OptVLSInterface costs are not scaled up yet.
+  unsigned VLSGroupCost =
+    VPlanTTIWrapper::Multiplier * OptVLSInterface::getGroupCost(*Group, VLSCM);
+
+  // If current load/store instruction is part of an optimized load/store group,
+  // compare VLSGroupCost to TTI based cost for doing the interleaved access
+  // and pick the smaller cost.
+  // TODO - Codegen currently does not rely on OVLS to generate wide accesses
+  // and shuffles. Consider using the TTI based cost always.
+  if (CM->isOptimizedVLSGroupMember(VPInst)) {
+    Type *ValTy = getLoadStoreType(VPInst);
+    unsigned AddrSpace = getLoadStoreAddressSpace(VPInst);
+    unsigned InterleaveFactor =
+        computeInterleaveFactor(Group->getInsertPoint());
+    auto *WideVecTy = FixedVectorType::get(ValTy, VF * InterleaveFactor);
+
+    // Holds the indices of existing members in an interleaved load group.
+    // Currently we only support accesses with no gaps and hence all indices
+    // are pushed onto the vector.
+    // An interleaved store group doesn't need this as it doesn't allow gaps.
+    // NOTE: The code here mimics what is done in community LV to get the cost
+    // of the interleaved access.
+    SmallVector<unsigned, 4> Indices;
+    if (VPInst->getOpcode() == Instruction::Load)
+      for (unsigned i = 0; i < InterleaveFactor; i++)
+        Indices.push_back(i);
+
+    // Calculate the cost of the whole interleaved group.
+    unsigned TTIInterleaveCost = CM->VPTTI.getInterleavedMemoryOpCost(
+        VPInst->getOpcode(), WideVecTy, InterleaveFactor, Indices,
+        cast<VPLoadStoreInst>(VPInst)->getAlignment(), AddrSpace,
+        TTI::TCK_RecipThroughput, false /* UseMaskForCond */,
+        false /* UseMaskForGaps */);
+    if (TTIInterleaveCost < VLSGroupCost)
+      VLSGroupCost = TTIInterleaveCost;
+  }
+
+  if (ProcessedOVLSGroups.count(Group) != 0) {
+    if (!ProcessedOVLSGroups[Group]) {
+      LLVM_DEBUG(dbgs() << "TTI cost of memrefs in the Group containing ";
+                 VPInst->printWithoutAnalyses(dbgs());
+                 dbgs() << " is less than its OVLS Group cost.\n");
+      return;
+    }
+
+    assert(is_contained(Group->getMemrefVec(), Group->getInsertPoint()) &&
+           "OVLS Group's insertion point is not a member of the Group.");
+
+    if (cast<VPVLSClientMemref>(Group->getInsertPoint())->getInstruction() ==
+        VPInst) {
+      LLVM_DEBUG(dbgs() << "Whole OVLS Group cost is assigned on ";
+               VPInst->printWithoutAnalyses(dbgs());
+               dbgs() << '\n');
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+      printCostChangeInline(OS, Cost, VLSGroupCost);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+      Cost = VLSGroupCost;
+      return;
+    }
+
+    LLVM_DEBUG(dbgs() << "Group cost for ";
+               VPInst->printWithoutAnalyses(dbgs());
+               dbgs() << " has already been taken into account.\n");
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    printCostChangeInline(OS, Cost, 0);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    Cost = 0;
+    return;
+  }
+
+  unsigned TTIGroupCost = 0;
+  for (OVLSMemref *OvlsMemref : Group->getMemrefVec())
+    TTIGroupCost += CM->getLoadStoreCost(
+      cast<VPVLSClientMemref>(OvlsMemref)->getInstruction(),
+      Align(CM->getMemInstAlignment(VPInst)), VF);
+
+  if (VLSGroupCost >= TTIGroupCost) {
+    LLVM_DEBUG(dbgs() << "Cost for "; VPInst->printWithoutAnalyses(dbgs());
+               dbgs() << " was not reduced from " << Cost << " (TTI group cost "
+                      << TTIGroupCost << ") to group cost " << VLSGroupCost
+                      << '\n');
+    ProcessedOVLSGroups[Group] = false;
+    return;
+  }
+
+  LLVM_DEBUG(dbgs() << "Reduced cost for ";
+             VPInst->printWithoutAnalyses(dbgs());
+             dbgs() << " from " << Cost << " (TTI group cost " << TTIGroupCost
+                    << " to group cost " << VLSGroupCost << ")\n");
+  ProcessedOVLSGroups[Group] = true;
+
+  // We are encountering an OVLS group for the first time. The group cost is
+  // returned if we are dealing with the instruction corresponding to insertion
+  // point of the group. We return 0 otherwise.
+  if (cast<VPVLSClientMemref>(Group->getInsertPoint())->getInstruction() ==
+      VPInst) {
+    LLVM_DEBUG(dbgs() << "Whole OVLS Group cost is assigned on ";
+               VPInst->printWithoutAnalyses(dbgs()); dbgs() << '\n');
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    printCostChangeInline(OS, Cost, VLSGroupCost);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    Cost = VLSGroupCost;
+  } else {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    printCostChangeInline(OS, Cost, 0);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    Cost = 0;
+  }
 }
 
 } // namespace VPlanCostModelHeuristics
