@@ -775,12 +775,17 @@ void VPOParoptTransform::guardSideEffectStatements(
     //       used for the target region.
     IRBuilder<> Builder(KernelEntryDir);
     auto *ZeroConst = Constant::getNullValue(GeneralUtils::getSizeTTy(F));
+    Value *LocalId = nullptr;
 
     for (unsigned Dim = 0; Dim < 3; ++Dim) {
-      auto *Arg = ConstantInt::get(Builder.getInt32Ty(), Dim);
-      Value *LocalId = VPOParoptUtils::genOCLGenericCall(
+      if (EnableDeviceSimdCodeGen)
+        LocalId = VPOParoptUtils::genSPIRVLocalIdCall(Dim, KernelEntryDir);
+      else {
+        auto *Arg = ConstantInt::get(Builder.getInt32Ty(), Dim);
+        LocalId = VPOParoptUtils::genOCLGenericCall(
           "_Z12get_local_idj", GeneralUtils::getSizeTTy(F),
           { Arg }, KernelEntryDir);
+      }
       Value *Predicate = Builder.CreateICmpEQ(LocalId, ZeroConst);
 
       if (!MasterCheckPredicate) {

@@ -2275,7 +2275,13 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
 
   // Keep moving up the parent chain till we find a successor.
   while (Parent) {
-    if (auto Reg = dyn_cast<HLRegion>(Parent)) {
+    if (auto Loop = dyn_cast<HLLoop>(Parent)) {
+      if (std::next(Iter) != Loop->Children.end()) {
+        Succ = &*(std::next(Iter));
+        break;
+      }
+
+    } else if (auto Reg = dyn_cast<HLRegion>(Parent)) {
       if (std::next(Iter) != Reg->Children.end()) {
         Succ = &*(std::next(Iter));
         break;
@@ -5439,5 +5445,68 @@ void HLNodeUtils::addCloningInducedLiveouts(HLLoop *LiveoutLoop,
 
   for (unsigned LiveoutSB : TDF.getFoundTempDefs()) {
     LiveoutLoop->addLiveOutTemp(LiveoutSB);
+  }
+}
+
+void HLNodeUtils::eliminateRedundantGotos(
+    const SmallVectorImpl<HLGoto *> &Gotos,
+    SmallVectorImpl<HLLabel *> &RequiredLabels) {
+  for (auto *Goto : Gotos) {
+    auto TargetLabel = Goto->getTargetLabel();
+
+    HLNode *CurNode = Goto;
+
+    // We either remove Goto as redundant by looking at its control flow
+    // successors or link it to its target HLLabel.
+    while (1) {
+      auto *Successor = HLNodeUtils::getLexicalControlFlowSuccessor(CurNode);
+
+      bool Erase = false, CheckNext = false;
+
+      if (!Successor) {
+        auto TargetBB = Goto->getTargetBBlock();
+        if (TargetBB == Goto->getParentRegion()->getSuccBBlock()) {
+          // Goto is redundant if it has no lexical successor and jumps to
+          // region exit.
+          Erase = true;
+        }
+      } else if (auto LabelSuccessor = dyn_cast<HLLabel>(Successor)) {
+
+        if (TargetLabel == LabelSuccessor) {
+          // Goto is redundant if its lexical successor is the same as its
+          // target.
+          Erase = true;
+        } else {
+          // If successor is a label, goto can still be redundant based on
+          // label's successor.
+          // Example-
+          // goto L1; << This goto is redundant.
+          // L2:
+          // L1:
+          CurNode = Successor;
+          CheckNext = true;
+        }
+      } else if (auto GotoSuccessor = dyn_cast<HLGoto>(Successor)) {
+        // If the successor is a goto which also jumps to the same label,
+        // this goto is redundant.
+        // Example-
+        // goto L1; << This goto is redundant.
+        // goto L1;
+        auto SuccTargetLabel = GotoSuccessor->getTargetLabel();
+        if (SuccTargetLabel == TargetLabel) {
+          Erase = true;
+        }
+      }
+
+      if (Erase) {
+        HLNodeUtils::erase(Goto);
+        break;
+
+      } else if (!CheckNext) {
+        if (TargetLabel)
+          RequiredLabels.push_back(TargetLabel);
+        break;
+      }
+    }
   }
 }

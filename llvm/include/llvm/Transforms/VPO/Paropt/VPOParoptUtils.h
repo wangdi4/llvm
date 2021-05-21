@@ -1626,12 +1626,18 @@ public:
 
   /// Generate a generic call to `get_global_id, get_local_id...`. Example:
   /// \code
-  //    %11 = call i64 @_Z14get_local_sizej(i32 0)
+  ///    %11 = call i64 @_Z14get_local_sizej(i32 0)
   ///      where the value 0 is the dimension number.
   //  \endcode
   static CallInst *genOCLGenericCall(StringRef FnName, Type *RetType,
                                      ArrayRef<Value *> FnArgs,
                                      Instruction *InsertPt);
+
+  /// Generate SPIR-V calls OpenMP SIMD path
+  ///   call spir_func i64 @_Z27__spirv_LocalInvocationId_xv()
+  ///   call spir_func i64 @_Z27__spirv_LocalInvocationId_yv()
+  ///   call spir_func i64 @_Z27__spirv_LocalInvocationId_zv()
+  static CallInst *genSPIRVLocalIdCall(int Dim, Instruction *InsertPt);
 
   /// Set the calling convention for \p CI.
   /// Set SPIR_FUNC calling convention for SPIR-V targets, otherwise,

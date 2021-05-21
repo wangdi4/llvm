@@ -1716,6 +1716,17 @@ public:
 
   /// Check if a blob is defined outside the region.
   static bool isRegionLiveIn(HLRegion *Reg, BlobUtils &BU, unsigned BlobIdx);
+
+  /// Eliminates redundant HLGotos passed in Gotos and fills up
+  /// RequiredLabels with needed Labels. This utility does not invalidate any
+  /// analyses. Caller is responsible for doing the necessary invalidation.
+  /// Note that this interface makes use of the private erase method to
+  /// delete unnecessary Gotos. In general, transforms methods are not
+  /// supposed to use erase. Gotos are not expected to be cached and it should
+  /// be OK to use erase method.
+  static void
+  eliminateRedundantGotos(const SmallVectorImpl<HLGoto *> &Gotos,
+                          SmallVectorImpl<HLLabel *> &RequiredLabels);
 };
 
 } // End namespace loopopt

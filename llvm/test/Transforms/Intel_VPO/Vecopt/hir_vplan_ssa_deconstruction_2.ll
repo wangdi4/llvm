@@ -145,7 +145,6 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:  <44>               |   [[UNIFCOND0:%.*]] = extractelement [[DOTVEC30]],  0
 ; CHECK-NEXT:  <45>               |   if ([[UNIFCOND0]] == 1)
 ; CHECK-NEXT:  <45>               |   {
-; CHECK-NEXT:  <46>               |      goto [[BB4]].48
 ; CHECK-NEXT:  <45>               |   }
 ; CHECK-NEXT:  <45>               |   else
 ; CHECK-NEXT:  <45>               |   {
@@ -156,22 +155,18 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:  <50>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC70]]
 ; CHECK-NEXT:  <51>               |   [[DOTVEC80:%.*]] = [[DOTVEC0]] == 0.000000e+00
 ; CHECK-NEXT:  <52>               |   [[DOTVEC90:%.*]] = [[DOTVEC80]]  ^  -1
-; CHECK-NEXT:  <53>               |   goto [[BB5]].54
 ; CHECK-NEXT:  <54>               |   [[BB5]].54:
 ; CHECK-NEXT:  <55>               |   [[DOTVEC100:%.*]] = [[DOTVEC70]]  +  2.000000e+00
 ; CHECK-NEXT:  <56>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC100]]
 ; CHECK-NEXT:  <57>               |   [[DOTCOPY110:%.*]] = [[DOTVEC100]]
-; CHECK-NEXT:  <58>               |   goto [[BB6]].59
 ; CHECK-NEXT:  <59>               |   [[BB6]].59:
 ; CHECK-NEXT:  <60>               |   [[DOTVEC120:%.*]] = [[DOTVEC70]]  +  1.000000e+00
 ; CHECK-NEXT:  <61>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC120]]
 ; CHECK-NEXT:  <62>               |   [[DOTCOPY130:%.*]] = [[DOTVEC120]]
-; CHECK-NEXT:  <63>               |   goto [[BLEND_BB0]].64
 ; CHECK-NEXT:  <64>               |   [[BLEND_BB0]].64:
 ; CHECK-NEXT:  <65>               |   [[SELECT0:%.*]] = ([[DOTVEC80]] == <i1 true, i1 true, i1 true, i1 true>) ? [[DOTCOPY130]] : [[DOTCOPY110]]
 ; CHECK-NEXT:  <66>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
 ; CHECK-NEXT:  <67>               |   [[PHI_TEMP50]] = [[SELECT0]]
-; CHECK-NEXT:  <68>               |   goto [[BB3]].69
 ; CHECK-NEXT:  <69>               |   [[BB3]].69:
 ; CHECK-NEXT:  <70>               |   [[RED_VAR0]] = [[PHI_TEMP50]]  +  [[PHI_TEMP0]]
 ; CHECK-NEXT:  <36>               + END LOOP
@@ -196,32 +191,27 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; MIXED-NEXT:  <44>               |   [[UNIFCOND0:%.*]] = extractelement [[WIDE_CMP_0]],  0
 ; MIXED-NEXT:  <45>               |   if ([[UNIFCOND0]] == 1)
 ; MIXED-NEXT:  <45>               |   {
-; MIXED-NEXT:  <46>               |      goto [[BB1:BB[0-9]+]].48
 ; MIXED-NEXT:  <45>               |   }
 ; MIXED-NEXT:  <45>               |   else
 ; MIXED-NEXT:  <45>               |   {
 ; MIXED-NEXT:  <47>               |      goto [[BB2:BB[0-9]+]].71
 ; MIXED-NEXT:  <45>               |   }
-; MIXED-NEXT:  <48>               |   [[BB1]].48:
+; MIXED-NEXT:  <48>               |   [[BB1:BB[0-9]+]].48:
 ; MIXED-NEXT:  <49>               |   [[DOTVEC0:%.*]] = [[LD_VEC0]]  +  0.000000e+00
 ; MIXED-NEXT:  <50>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC0]]
 ; MIXED-NEXT:  <51>               |   [[WIDE_CMP_50:%.*]] = [[LD_VEC0]] == 0.000000e+00
 ; MIXED-NEXT:  <52>               |   [[DOTVEC60:%.*]] = [[WIDE_CMP_50]]  ^  -1
-; MIXED-NEXT:  <53>               |   goto [[BB3:BB[0-9]+]].54
-; MIXED-NEXT:  <54>               |   [[BB3]].54:
+; MIXED-NEXT:  <54>               |   [[BB3:BB[0-9]+]].54:
 ; MIXED-NEXT:  <55>               |   [[DOTVEC70]] = [[DOTVEC0]]  +  2.000000e+00
 ; MIXED-NEXT:  <57>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC70]]
 ; MIXED-NEXT:  <58>               |   [[MERGE_PHI_IN_VEC0]] = [[DOTVEC70]]
-; MIXED-NEXT:  <60>               |   goto [[BB4:BB[0-9]+]].61
-; MIXED-NEXT:  <61>               |   [[BB4]].61:
+; MIXED-NEXT:  <61>               |   [[BB4:BB[0-9]+]].61:
 ; MIXED-NEXT:  <62>               |   [[DOTVEC90]] = [[DOTVEC0]]  +  1.000000e+00
 ; MIXED-NEXT:  <64>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC90]]
 ; MIXED-NEXT:  <65>               |   [[MERGE_PHI_IN_VEC0]] = [[DOTVEC90]]
-; MIXED-NEXT:  <66>               |   goto [[BLEND_BB0:blend.bb[0-9]+]].67
-; MIXED-NEXT:  <67>               |   [[BLEND_BB0]].67:
+; MIXED-NEXT:  <67>               |   [[BLEND_BB0:blend.bb[0-9]+]].67:
 ; MIXED-NEXT:  <68>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
 ; MIXED-NEXT:  <69>               |   [[PHI_TEMP30]] = [[MERGE_PHI_IN_VEC0]]
-; MIXED-NEXT:  <70>               |   goto [[BB2]].71
 ; MIXED-NEXT:  <71>               |   [[BB2]].71:
 ; MIXED-NEXT:  <72>               |   [[RED_VAR0]] = [[PHI_TEMP30]]  +  [[PHI_TEMP0]]
 ; MIXED-NEXT:  <36>               + END LOOP
