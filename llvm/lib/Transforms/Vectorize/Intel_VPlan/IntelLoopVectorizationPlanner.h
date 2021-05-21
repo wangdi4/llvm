@@ -368,7 +368,12 @@ public:
         findOptionMDForLoop(TheLoop, "llvm.loop.vectorize.dynamic_align"));
   }
 
-  bool isVecRemainderEnabled() const { return IsVecRemainder; }
+  bool isVecRemainderDisabled() const {
+    return IsVecRemainder.hasValue() ? !IsVecRemainder.getValue() : false;
+  }
+  bool isVecRemainderEnforced() const {
+    return IsVecRemainder.getValueOr(false);
+  }
 
   bool isDynAlignEnabled() const { return IsDynAlign; }
 
@@ -481,16 +486,17 @@ protected:
   /// Contains metadata slecified by "llvm.loop.vector.vectorlength"
   MDNode *VectorlengthMD;
 
-    /// Contains true or false value from "llvm.loop.vector.vecremainder" metadata
-  bool IsVecRemainder = true;
+  /// Contains true or false value from "llvm.loop.vector.vecremainder" metadata
+  /// if it was set on the loop otherwise is None.
+  Optional<bool> IsVecRemainder;
 
   /// Contains true or false value from "llvm.loop.vectorize.dynamic_align"
   /// metadata
   bool IsDynAlign = true;
 
   /// Extracts true or false value from "llvm.loop.vector.vecremainder" metadata
-  /// if any. If there is no such metadata, returns true value.
-  bool readVecRemainderEnabled(MDNode *MD);
+  /// if any. If there is no such metadata returns None.
+  Optional<bool> readVecRemainderEnabled(MDNode *MD);
 
   /// Extracts true or false value from "llvm.loop.vectorize.dynamic_align"
   /// metadata if any. If there is no such metadata, returns true value.

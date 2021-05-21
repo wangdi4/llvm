@@ -136,7 +136,6 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }
 ; CHECK-NEXT:  <37>                  [[RED_VAR0:%.*]] = 0.000000e+00
 ; CHECK-NEXT:  <36>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:  <38>               |   [[BB2]].38:
 ; CHECK-NEXT:  <39>               |   [[DOTVEC0:%.*]] = (<4 x float>*)([[ARR0]])[i1]
 ; CHECK-NEXT:  <40>               |   [[DOTCOPY0:%.*]] = [[DOTVEC0]]
 ; CHECK-NEXT:  <41>               |   [[DOTVEC30:%.*]] = [[N10]] != 0
@@ -150,20 +149,16 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:  <45>               |   {
 ; CHECK-NEXT:  <47>               |      goto [[BB3]].69
 ; CHECK-NEXT:  <45>               |   }
-; CHECK-NEXT:  <48>               |   [[BB4]].48:
 ; CHECK-NEXT:  <49>               |   [[DOTVEC70:%.*]] = [[DOTVEC0]]  +  0.000000e+00
 ; CHECK-NEXT:  <50>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC70]]
 ; CHECK-NEXT:  <51>               |   [[DOTVEC80:%.*]] = [[DOTVEC0]] == 0.000000e+00
 ; CHECK-NEXT:  <52>               |   [[DOTVEC90:%.*]] = [[DOTVEC80]]  ^  -1
-; CHECK-NEXT:  <54>               |   [[BB5]].54:
 ; CHECK-NEXT:  <55>               |   [[DOTVEC100:%.*]] = [[DOTVEC70]]  +  2.000000e+00
 ; CHECK-NEXT:  <56>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC100]]
 ; CHECK-NEXT:  <57>               |   [[DOTCOPY110:%.*]] = [[DOTVEC100]]
-; CHECK-NEXT:  <59>               |   [[BB6]].59:
 ; CHECK-NEXT:  <60>               |   [[DOTVEC120:%.*]] = [[DOTVEC70]]  +  1.000000e+00
 ; CHECK-NEXT:  <61>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC120]]
 ; CHECK-NEXT:  <62>               |   [[DOTCOPY130:%.*]] = [[DOTVEC120]]
-; CHECK-NEXT:  <64>               |   [[BLEND_BB0]].64:
 ; CHECK-NEXT:  <65>               |   [[SELECT0:%.*]] = ([[DOTVEC80]] == <i1 true, i1 true, i1 true, i1 true>) ? [[DOTCOPY130]] : [[DOTCOPY110]]
 ; CHECK-NEXT:  <66>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
 ; CHECK-NEXT:  <67>               |   [[PHI_TEMP50]] = [[SELECT0]]
@@ -182,7 +177,6 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; MIXED-NEXT:  <63>               |   [[DOTVEC90:%.*]] = undef
 ; MIXED-NEXT:  <59>               |   [[MERGE_PHI_IN_VEC0:%.*]] = undef
 ; MIXED-NEXT:  <56>               |   [[DOTVEC70:%.*]] = undef
-; MIXED-NEXT:  <38>               |   [[BB0:BB[0-9]+]].38:
 ; MIXED-NEXT:  <39>               |   [[LD_VEC0:%.*]] = (<4 x float>*)([[ARR0:%.*]])[i1]
 ; MIXED-NEXT:  <40>               |   [[MERGE_PHI_IN_VEC0]] = [[LD_VEC0]]
 ; MIXED-NEXT:  <41>               |   [[WIDE_CMP_0:%.*]] = [[N10:%.*]] != 0
@@ -196,20 +190,16 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; MIXED-NEXT:  <45>               |   {
 ; MIXED-NEXT:  <47>               |      goto [[BB2:BB[0-9]+]].71
 ; MIXED-NEXT:  <45>               |   }
-; MIXED-NEXT:  <48>               |   [[BB1:BB[0-9]+]].48:
 ; MIXED-NEXT:  <49>               |   [[DOTVEC0:%.*]] = [[LD_VEC0]]  +  0.000000e+00
 ; MIXED-NEXT:  <50>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC0]]
 ; MIXED-NEXT:  <51>               |   [[WIDE_CMP_50:%.*]] = [[LD_VEC0]] == 0.000000e+00
 ; MIXED-NEXT:  <52>               |   [[DOTVEC60:%.*]] = [[WIDE_CMP_50]]  ^  -1
-; MIXED-NEXT:  <54>               |   [[BB3:BB[0-9]+]].54:
 ; MIXED-NEXT:  <55>               |   [[DOTVEC70]] = [[DOTVEC0]]  +  2.000000e+00
 ; MIXED-NEXT:  <57>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC70]]
 ; MIXED-NEXT:  <58>               |   [[MERGE_PHI_IN_VEC0]] = [[DOTVEC70]]
-; MIXED-NEXT:  <61>               |   [[BB4:BB[0-9]+]].61:
 ; MIXED-NEXT:  <62>               |   [[DOTVEC90]] = [[DOTVEC0]]  +  1.000000e+00
 ; MIXED-NEXT:  <64>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC90]]
 ; MIXED-NEXT:  <65>               |   [[MERGE_PHI_IN_VEC0]] = [[DOTVEC90]]
-; MIXED-NEXT:  <67>               |   [[BLEND_BB0:blend.bb[0-9]+]].67:
 ; MIXED-NEXT:  <68>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
 ; MIXED-NEXT:  <69>               |   [[PHI_TEMP30]] = [[MERGE_PHI_IN_VEC0]]
 ; MIXED-NEXT:  <71>               |   [[BB2]].71:
