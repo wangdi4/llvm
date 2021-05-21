@@ -5528,7 +5528,6 @@ void HLNodeUtils::eliminateRedundantGotos(
       }
     }
   }
-}
 
 // Retruns true if IF-stmt does not fall through on any path.
 // Ex.:
