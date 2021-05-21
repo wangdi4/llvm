@@ -87,7 +87,6 @@ void initializeLoopWIAnalysisPass(llvm::PassRegistry&);
 void initializeSoaAllocaAnalysisPass(llvm::PassRegistry&);
 void initializePostDominanceFrontierPass(llvm::PassRegistry&);
 void initializeLocalBuffAnalysisPass(llvm::PassRegistry&);
-void initializeBIImportPass(llvm::PassRegistry&);
 void initializeHandleVPlanMaskPass(llvm::PassRegistry&);
 void initializeGenericAddressStaticResolutionPass(llvm::PassRegistry&);
 void initializeGenericAddressDynamicResolutionPass(llvm::PassRegistry&);
