@@ -1839,10 +1839,7 @@ Constant *ConstantFoldSSEConvertToInt(const APFloat &Val, bool roundTowardZero,
 double getValueAsDouble(ConstantFP *Op) {
   Type *Ty = Op->getType();
 
-  if (Ty->isFloatTy())
-    return Op->getValueAPF().convertToFloat();
-
-  if (Ty->isDoubleTy())
+  if (Ty->isBFloatTy() || Ty->isHalfTy() || Ty->isFloatTy() || Ty->isDoubleTy())
     return Op->getValueAPF().convertToDouble();
 
   bool unused;
