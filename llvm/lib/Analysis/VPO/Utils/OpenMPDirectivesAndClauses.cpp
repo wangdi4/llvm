@@ -820,6 +820,7 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_COLLAPSE:
     case QUAL_OMP_IF:
     case QUAL_OMP_NAME:
+    case QUAL_OMP_HINT:
     case QUAL_OMP_NOCONTEXT:
     case QUAL_OMP_NOVARIANTS:
     case QUAL_OMP_NUM_THREADS:

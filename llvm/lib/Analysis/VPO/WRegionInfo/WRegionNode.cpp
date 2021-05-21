@@ -807,6 +807,10 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
       llvm_unreachable("QUAL_OMP_NAME opnd is not a string.");
 
   } break;
+  case QUAL_OMP_HINT:
+    assert(CI && "HINT expected to be constant");
+    setHint(N);
+    break;
   case QUAL_OMP_NOCONTEXT:
     setNocontext(V);
     break;
