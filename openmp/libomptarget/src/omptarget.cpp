@@ -1189,11 +1189,27 @@ public:
   /// Add a private argument
   int addArg(void *HstPtr, int64_t ArgSize, int64_t ArgOffset,
              bool IsFirstPrivate, void *&TgtPtr, int TgtArgsIndex,
+#if INTEL_COLLAB
+             // Cherry-pick of https://reviews.llvm.org/D102890
+             // Commit ID: d0bc04d6b91d
+             // Remove INTEL_COLLAB branch after pulldown
+             const map_var_info_t HstPtrName = nullptr,
+             const bool AllocImmediately = false) {
+#else // INTEL_COLLAB
              const map_var_info_t HstPtrName = nullptr) {
+#endif // INTEL_COLLAB
     // If the argument is not first-private, or its size is greater than a
     // predefined threshold, we will allocate memory and issue the transfer
     // immediately.
+#if INTEL_COLLAB
+    // Cherry-pick of https://reviews.llvm.org/D102890
+    // Commit ID: d0bc04d6b91d
+    // Remove INTEL_COLLAB branch after pulldown
+    if (ArgSize > FirstPrivateArgSizeThreshold || !IsFirstPrivate ||
+        AllocImmediately) {
+#else // INTEL_COLLAB
     if (ArgSize > FirstPrivateArgSizeThreshold || !IsFirstPrivate) {
+#endif // INTEL_COLLAB
 #if INTEL_COLLAB
       TgtPtr = Device.data_alloc_base(ArgSize, HstPtr,
                                       (void *)((intptr_t)HstPtr + ArgOffset));
@@ -1215,6 +1231,12 @@ public:
 #endif
       // If first-private, copy data from host
       if (IsFirstPrivate) {
+#if INTEL_COLLAB
+        // Cherry-pick of https://reviews.llvm.org/D102890
+        // Commit ID: d0bc04d6b91d
+        // Remove INTEL_COLLAB branch after pulldown
+        DP("Submitting firstprivate data to the device.\n");
+#endif // INTEL_COLLAB
         int Ret = Device.submitData(TgtPtr, HstPtr, ArgSize, AsyncInfo);
         if (Ret != OFFLOAD_SUCCESS) {
           DP("Copying data to device failed, failed.\n");
@@ -1411,6 +1433,21 @@ static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
 #endif // INTEL_COLLAB
     } else if (ArgTypes[I] & OMP_TGT_MAPTYPE_PRIVATE) {
       TgtBaseOffset = (intptr_t)HstPtrBase - (intptr_t)HstPtrBegin;
+#if INTEL_COLLAB
+      // Cherry-pick of https://reviews.llvm.org/D102890
+      // Commit ID: d0bc04d6b91d
+      // Remove INTEL_COLLAB branch after pulldown
+      const bool IsFirstPrivate = (ArgTypes[I] & OMP_TGT_MAPTYPE_TO);
+      // If there is a next argument and it depends on the current one, we need
+      // to allocate the private memory immediately. If this is not the case,
+      // then the argument can be marked for optimization and packed with the
+      // other privates.
+      const bool AllocImmediately =
+          (I < ArgNum - 1 && (ArgTypes[I + 1] & OMP_TGT_MAPTYPE_MEMBER_OF));
+      Ret = PrivateArgumentManager.addArg(
+          HstPtrBegin, ArgSizes[I], TgtBaseOffset, IsFirstPrivate, TgtPtrBegin,
+          TgtArgs.size(), HstPtrName, AllocImmediately);
+#else // INTEL_COLLAB
       // Can be marked for optimization if the next argument(s) do(es) not
       // depend on this one.
       const bool IsFirstPrivate =
@@ -1418,6 +1455,7 @@ static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
       Ret = PrivateArgumentManager.addArg(
           HstPtrBegin, ArgSizes[I], TgtBaseOffset, IsFirstPrivate, TgtPtrBegin,
           TgtArgs.size(), HstPtrName);
+#endif // INTEL_COLLAB
       if (Ret != OFFLOAD_SUCCESS) {
         REPORT("Failed to process %sprivate argument " DPxMOD "\n",
                (IsFirstPrivate ? "first-" : ""), DPxPTR(HstPtrBegin));
