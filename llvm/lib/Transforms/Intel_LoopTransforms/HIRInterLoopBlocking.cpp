@@ -64,6 +64,7 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRInterLoopBlockingPass.h"
 
+#include "llvm/ADT/SparseBitVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/InitializePasses.h"
@@ -1577,12 +1578,12 @@ HLNode *findTheLowestAncestor(HLLoop *InnermostLoop, const HLNode *Limit) {
 }
 
 class Transformer {
-
   struct TopSortCompare {
     bool operator()(const HLInst *Inst1, const HLInst *Inst2) {
       return Inst1->getTopSortNum() < Inst2->getTopSortNum();
     }
   };
+
   typedef std::set<const HLInst *, TopSortCompare> InstsToCloneSetTy;
 
 public:
@@ -1594,12 +1595,14 @@ public:
               const LoopToDimInfoTy &InnermostLoopToDimInfos,
               const LoopToConstRefTy &InnermostLoopToRepRef,
               const InnermostLoopToShiftTy &InnermostLoopToShift,
-              HLLoop *OutermostLoop, HLIf *OuterIf, HIRDDAnalysis &DDA)
+              HLLoop *OutermostLoop, HLIf *OuterIf, HIRDDAnalysis &DDA,
+              StringRef Func)
       : DDA(DDA), StripmineSizes(StripmineSizes),
         InnermostLoopToDimInfos(InnermostLoopToDimInfos),
         InnermostLoopToRepRef(InnermostLoopToRepRef),
         InnermostLoopToShift(InnermostLoopToShift),
-        OutermostLoop(OutermostLoop), OuterIf(OuterIf), NumByStripLoops(0) {
+        OutermostLoop(OutermostLoop), OuterIf(OuterIf), NumByStripLoops(0),
+        Func(Func) {
     unsigned NumDims = StripmineSizes.size();
     ByStripLoopLowerBlobs.resize(NumDims);
     ByStripLoopUpperBlobs.resize(NumDims);
@@ -1666,8 +1669,9 @@ public:
                                           : static_cast<HLNode *>(OuterIf);
     HLRegion *Region = OutermostNode->getParentRegion();
 
-    printMarker("Initial: ", {OutermostNode}, true);
-
+    printMarker("Initial: ", {OutermostNode}, true, false);
+    LLVM_DEBUG(dbgs() << "Region to update: " << Region->getNumber() << "\n");
+    LLVM_DEBUG(Region->dump(1));
     LLVM_DEBUG(dbgs() << "== * == AAAA \n"; for (auto &LoopAndDimInfo
                                                  : InnermostLoopToDimInfos) {
       dbgs() << LoopAndDimInfo.first->getNumber() << "\n";
@@ -1810,7 +1814,7 @@ public:
     // Normalize all spatial Loops and byStripLoops.
     normalizeSpatialLoops();
 
-    LLVM_DEBUG_PROFIT_REPORT(dbgs() << "After updating: \n";
+    LLVM_DEBUG_PROFIT_REPORT(dbgs() << "After updating in " << Func << ": ";
                              OutermostNode->dump());
     printMarker("Detail: After updating inner Loops: ", {OutermostNode}, true,
                 true);
@@ -2216,7 +2220,6 @@ private:
       for (auto *Edge : DDG.incoming(Rval)) {
         if (!Edge->isFlow())
           continue;
-
         HLNode *SrcNode = Edge->getSrc()->getHLDDNode();
         const HLInst *LoadOrCopy = dyn_cast<HLInst>(SrcNode);
         if (!LoadOrCopy)
@@ -2325,7 +2328,6 @@ private:
       return checkInvariance(LoadOrCopy);
     } else if (LoadOrCopy->isCopyInst()) {
       const HLInst *CopyInst = LoadOrCopy;
-
       LLVM_DEBUG(dbgs() << "Found Copy: \n");
       LLVM_DEBUG(SrcNode->dump());
       LLVM_DEBUG(dbgs() << "\n");
@@ -2366,7 +2368,6 @@ private:
     }
     return true;
   }
-
   template <typename IteratorTy>
   bool findLoadsOfTemp(
       DDGraph DDG, IteratorTy begin, IteratorTy end,
@@ -3325,6 +3326,8 @@ private:
   // because StripmineSizes can contain zeros.
   unsigned NumByStripLoops;
 
+  StringRef Func;
+
   // A map from an innermost loop to its outer enclosing loops
   // matching to dimnum (includes the innermost loop).
   std::unordered_map<const HLLoop *, SmallVector<const HLLoop *, 4>>
@@ -3537,17 +3540,20 @@ private:
 
     // We don't work on a single spatial loopnest.
     if (!FirstSpatialLoop || FirstSpatialLoop == LastSpatialLoop) {
+      LLVM_DEBUG(dbgs() << "Fail 1: " << FirstSpatialLoop->getNumber() << "\n");
       return false;
     }
 
     // State in term of profitablity, should be SECONDHALF.
     // Otherwise, it is not profitable
     if (State != SECONDHALF) {
+      LLVM_DEBUG(dbgs() << "Fail 2 state: " << State << "\n");
       return false;
     }
 
     // I/O calls are supposedly removed by OptVarPred by now.
     if (hasIOCall()) {
+      LLVM_DEBUG(dbgs() << "Fail 3 : \n");
       return false;
     }
 
@@ -3564,6 +3570,7 @@ private:
     if (llvm::any_of(ReadOnlyBasePtr, [this](unsigned BasePtrIndex) {
           return this->DefinedBasePtr.count(BasePtrIndex);
         })) {
+      LLVM_DEBUG(dbgs() << "Fail 4 : \n");
       return false;
     }
 
@@ -3633,7 +3640,7 @@ bool doTransformation(const LoopToDimInfoTy &InnermostLoopToDimInfos,
 
   return Transformer(PreSetStripmineSizes, InnermostLoopToDimInfos,
                      InnermostLoopToRepRef, InnermostLoopToShift, OutermostLoop,
-                     OuterIf, DDA)
+                     OuterIf, DDA, Func)
       .rewrite();
 }
 
@@ -3643,7 +3650,11 @@ static int64_t getMaxUseDist(ArrayRef<const RegDDRef *> Rvals,
   const CanonExpr *RepCE = RepRef->getDimensionIndex(DimIndex);
   int64_t Kmax = 0;
   for (auto *Rval : Rvals) {
-    assert(DimIndex <= Rval->getNumDimensions());
+
+    // This can happen for some local rvals (e.g.
+    // (@upml_mod_mp_bx_ilow_)[0].0$2)
+    if (DimIndex > Rval->getNumDimensions())
+      continue;
 
     const CanonExpr *CE = Rval->getDimensionIndex(DimIndex);
     int64_t Dist = -1;
@@ -3903,8 +3914,60 @@ bool funcFilter(const Function &F) {
   return true;
 }
 
-unsigned getCommonDimNum(const LoopToDimInfoTy &InnermostLoopToDimInfo,
-                         bool &AllCommonDimNum) {
+class testDriver {
+public:
+  testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
+             HIRDDAnalysis &DDA, TargetTransformInfo &TTI,
+             HIRLoopStatistics &HLS, const Function &F)
+      : HIRF(HIRF), HASA(HASA), DDA(DDA), HLS(HLS), Func(F),
+        UseKnownGoodSizes(false), RelaxedCheck(true) {
+
+    UseKnownGoodSizes = TTI.isAdvancedOptEnabled(
+        TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2);
+  }
+
+  // TODO: return value does not have a lot of meaning.
+  bool run();
+
+private:
+  // Only two loops and they are in the mutually exclusive paths
+  static bool areTwoLoopsInExclusiveFlows(const HLLoop *Loop1,
+                                          const HLLoop *Loop2);
+
+  // In general, InnermostLoop is the innermost loops of a Perfect spatial
+  // loopnest, with a few exceptions.
+  static bool
+  isInAlmostPerfectLoopNest(const HLLoop *InnermostLoop, unsigned Index,
+                            const SmallVectorImpl<HLLoop *> &InnermostLoops,
+                            const HLNode *OuterNode);
+
+  static bool
+  hasCommonAncestorThanReg(const SmallVectorImpl<HLLoop *> &InnermostLoops,
+                           const HLRegion *Reg);
+
+  static unsigned getCommonDimNum(const LoopToDimInfoTy &InnermostLoopToDimInfo,
+                                  bool &AllCommonDimNum);
+
+  bool isProfitableUseDefPattern(
+      const SmallVectorImpl<HLLoop *> &InnermostLoops) const;
+  void testInnermostLoops(const SmallVectorImpl<HLLoop *> &InnermostLoops,
+                          const HLRegion *Reg) const;
+
+private:
+  HIRFramework &HIRF;
+  HIRArraySectionAnalysis &HASA;
+  HIRDDAnalysis &DDA;
+  HIRLoopStatistics &HLS;
+
+  const Function &Func;
+
+  bool UseKnownGoodSizes;
+  bool RelaxedCheck;
+};
+
+unsigned
+testDriver::getCommonDimNum(const LoopToDimInfoTy &InnermostLoopToDimInfo,
+                            bool &AllCommonDimNum) {
   unsigned Min = InnermostLoopToDimInfo.front().second.size();
   AllCommonDimNum = true;
   for (auto P : InnermostLoopToDimInfo) {
@@ -3917,16 +3980,197 @@ unsigned getCommonDimNum(const LoopToDimInfoTy &InnermostLoopToDimInfo,
   return Min;
 }
 
-void testInnermostLoops(const SmallVectorImpl<HLLoop *> &InnermostLoops,
-                        const HLRegion *Reg, HIRDDAnalysis &DDA,
-                        StringRef FuncName, bool UseKnownGoodSizes) {
+bool testDriver::isInAlmostPerfectLoopNest(
+    const HLLoop *InnermostLoop, unsigned Index,
+    const SmallVectorImpl<HLLoop *> &InnermostLoops, const HLNode *OuterNode) {
 
+  const HLLoop *Lp = InnermostLoop;
+  const HLNode *Parent = Lp->getParent();
+  bool NonLoopParent = false;
+
+  unsigned LowestSpatialLoopLevel = Lp->getNestingLevel();
+  SmallVector<const HLInst *> InBetweenNodes;
+  while (Parent && Parent != OuterNode) {
+    if (auto *PLoop = dyn_cast<HLLoop>(Parent)) {
+      if (NonLoopParent) {
+        LLVM_DEBUG(dbgs() << "0 Lp: " << Lp->getNumber()
+                          << " PLoop: " << PLoop->getNumber() << "\n");
+        return false;
+      }
+
+      // If PLoop's first child is Lp, no further exceptions need to be checked.
+      if (PLoop->getFirstChild() != Lp) {
+
+        if (!Lp->isInnermost())
+          return false;
+
+        if (Index < 1)
+          return false;
+
+        const HLNode *PrevNode = Lp->getPrevNode();
+        if (!PrevNode)
+          return false;
+
+        if (PrevNode != InnermostLoops[Index - 1]) {
+          if (!isa<HLInst>(PrevNode) ||
+              InnermostLoops[Index - 1]->getNextNode() != PrevNode) {
+            return false;
+          } else {
+            InBetweenNodes.push_back(cast<HLInst>(PrevNode));
+          }
+        }
+      }
+
+      LowestSpatialLoopLevel = PLoop->getNestingLevel();
+      Lp = PLoop;
+
+    } else {
+      LLVM_DEBUG(if (Lp) dbgs() << "2 Lp: " << Lp->getNumber();
+                 if (PLoop) dbgs() << " PLoop: " << PLoop->getNumber() << "\n");
+
+      NonLoopParent = true;
+    }
+
+    Parent = Parent->getParent();
+  }
+
+  // Scan InBetweenNodes
+  // Example:
+  // + DO i1 = 0, -1 * sext.i32.i64(%160) + sext.i32.i64(%190), 1   <DO_LOOP>
+  // |   + DO i2 = 0, zext.i32.i64(((-1 * %130) + %140)), 1   <DO_LOOP>
+  // |   |   %1705 = (%52)[i1 + sext.i32.i64(%160)][i2 + sext.i32.i64(%130)]...
+  // |   |   %1744 = %1743  +  %1737;
+  // |   |   ...
+  // |   |   (%78)[i1 + sext.i32.i64(%160)][i2 + sext.i32.i64(%130)] = %1745;
+  // |   + END LOOP
+  // |
+  // |   %1754 = (i1 + sext.i32.i64(%160) < %180) ? -1 : %1676; // In-between
+  // |
+  // |   + DO i2 = 0, zext.i32.i64(((-1 * %110) + %140)), 1   <DO_LOOP>
+  // |   |   %1776 = (%513)[i1 + sext.i32.i64(%160)][i2 + sext.i32.i64(%110)]...
+  // |   |   %1815 = %1776  *  %1814;
+  // |   |   ...
+  // |   |   (%77)[i1 + sext.i32.i64(%160)][i2 + sext.i32.i64(%110)] = %1815;
+  // |   + END LOOP
+  // + END LOOP
+  for (auto *Node : InBetweenNodes) {
+    for (auto *Ref :
+         make_range(Node->rval_op_ddref_begin(), Node->rval_op_ddref_end())) {
+
+      for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
+        if (CE->isNonLinear() ||
+            CE->getDefinedAtLevel() >= LowestSpatialLoopLevel) {
+
+          LLVM_DEBUG(dbgs() << "Ref is not invariant at Level: "
+                            << LowestSpatialLoopLevel << "\n";
+                     Ref->dump(); CE->dump(); dbgs() << "\n");
+
+          return false;
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+bool testDriver::hasCommonAncestorThanReg(
+    const SmallVectorImpl<HLLoop *> &InnermostLoops, const HLRegion *Reg) {
+
+  HLNode *CommonAncestor = findTheLowestAncestor(InnermostLoops.front(), Reg);
+  for (auto *Lp :
+       make_range(std::next(InnermostLoops.begin()), InnermostLoops.end())) {
+    HLNode *Ancestor = findTheLowestAncestor(Lp, Reg);
+    if (CommonAncestor != Ancestor) {
+      LLVM_DEBUG(dbgs() << "No common outer node other than region\n";
+                 dbgs() << Lp->getNumber() << " ";
+                 dbgs() << Ancestor->getNumber() << " "
+                        << CommonAncestor->getNumber() << "\n");
+
+      return false;
+    }
+  }
+  return true;
+}
+
+bool testDriver::isProfitableUseDefPattern(
+    const SmallVectorImpl<HLLoop *> &InnermostLoops) const {
+
+  SmallVector<SparseBitVector<>, 64> InnermostLoopToDefs, InnermostLoopToUses;
+  SparseBitVector<> BaseUniverse;
+
+  std::map<unsigned, int> BaseToLoopCounts;
+  for (auto *Lp : InnermostLoops) {
+
+    SmallVector<RegDDRef *, 32> Refs;
+    MemRefGatherer::gather(Lp, Refs);
+
+    // Count BasePtr only once for a loop
+    auto &ASAR = HASA.getOrCompute(Lp);
+    SparseBitVector<> BasePtrsInLoop;
+    std::for_each(Refs.begin(), Refs.end(), [&](const RegDDRef *Ref) {
+      unsigned BasePtr = Ref->getBasePtrBlobIndex();
+      auto *SectionInfo = ASAR.get(BasePtr);
+      if (!SectionInfo)
+        return;
+      BasePtrsInLoop.set(BasePtr);
+    });
+
+    for (auto Base : BasePtrsInLoop) {
+      int &Count = BaseToLoopCounts[Base];
+      Count++;
+
+      BaseUniverse.set(Base);
+    }
+  }
+
+  int TotalBases = BaseUniverse.count();
+
+  int NumHighReuse = 0;
+  int NumMidReuse = 0;
+  int Size = InnermostLoops.size();
+  for (auto P : BaseToLoopCounts) {
+    float percent = (((float)P.second) / ((float)(Size))) * 100.0;
+
+    if (percent > 25)
+      NumHighReuse++;
+    else if (percent > 9)
+      NumMidReuse++;
+  }
+
+  // #(percent >= 25%) > 18%     (in terms of num_bases / total_num_bases)
+  // #(percent > 9% && percent < 25%) > 25%
+  if ((NumHighReuse <= (TotalBases * 0.18)) &&
+      (NumMidReuse <= (TotalBases * 0.25))) {
+    LLVM_DEBUG_PROFIT_REPORT(dbgs() << "Not Profitable in testDriver\n");
+    LLVM_DEBUG(dbgs() << "NumHighReuse: " << NumHighReuse << ", NumMidResuse: "
+                      << NumMidReuse << ", TotalBases: " << TotalBases << "\n");
+    return false;
+  }
+
+  return true;
+}
+
+void testDriver::testInnermostLoops(
+    const SmallVectorImpl<HLLoop *> &InnermostLoops,
+    const HLRegion *Reg) const {
+
+  // Bails out for a few trivial cases.
   if (InnermostLoops.size() < 2) {
     LLVM_DEBUG(dbgs() << "Empty LV -- skip\n");
     return;
   }
 
   HLNode *OuterNode = findTheLowestAncestor(InnermostLoops.front(), Reg);
+  const HLIf *OutermostIf = dyn_cast<HLIf>(OuterNode);
+  if (!ForceTestDriver &&
+      (!OutermostIf || OutermostIf->getNumElseChildren() > 0))
+    return;
+
+  if (InnermostLoops.size() == 2 &&
+      areTwoLoopsInExclusiveFlows(InnermostLoops[0], InnermostLoops[1]))
+    return;
+
   unsigned Level = OuterNode->getNodeLevel();
 
   BasePtrIndexSetTy DefinedBasePtr;
@@ -3938,16 +4182,32 @@ void testInnermostLoops(const SmallVectorImpl<HLLoop *> &InnermostLoops,
 
   DDGraph DDG = DDA.getGraph(Reg);
 
+  for (auto V : enumerate(InnermostLoops)) {
+    if (!isInAlmostPerfectLoopNest(V.value(), V.index(), InnermostLoops,
+                                   OuterNode)) {
+      LLVM_DEBUG(dbgs() << "Fail isValidLoopNest: " << V.value()->getNumber()
+                        << "\n");
+      LLVM_DEBUG(Reg->dump(1));
+      return;
+    }
+  }
+
+  if (!hasCommonAncestorThanReg(InnermostLoops, Reg))
+    return;
+
+  if (!isProfitableUseDefPattern(InnermostLoops))
+    return;
+
+  // Legality check
   for (auto *Lp : InnermostLoops) {
 
     SmallVector<DimInfoTy, 4> DimInfos;
     InnermostLoopAnalyzer IA(Lp, Level, DimInfos, BaseIndexToLowersAndStrides,
-                             FuncName, ForceTestDriver);
+                             Func.getName(), RelaxedCheck);
 
     const RegDDRef *RepRef =
         IA.couldBeAMember(DefinedBasePtr, ReadOnlyBasePtr, DDG, nullptr);
 
-    // Pass should be guaranteed.
     if (!RepRef) {
       LLVM_DEBUG(dbgs() << "Fail Loop: " << Lp->getNumber() << "\n");
       return;
@@ -3957,31 +4217,13 @@ void testInnermostLoops(const SmallVectorImpl<HLLoop *> &InnermostLoops,
     InnermostLoopToRepRef.emplace(Lp, RepRef);
   }
 
-  HLNode *Ancestor =
-      findTheLowestAncestor(InnermostLoopToDimInfo.front().first, Reg);
-  for (auto Pair : make_range(std::next(InnermostLoopToDimInfo.begin()),
-                              InnermostLoopToDimInfo.end())) {
-    HLLoop *Lp = Pair.first;
-    HLNode *Anc = findTheLowestAncestor(Lp, Reg);
-    if (Ancestor != Anc) {
-      LLVM_DEBUG(dbgs() << "No common outer node other than region\n";
-                 dbgs() << Pair.first->getNumber() << " ";
-                 dbgs() << Anc->getNumber() << " " << Ancestor->getNumber()
-                        << "\n");
-
-      return;
-    }
-  }
-
   bool AllCommonDimNum = true;
   unsigned MinDimNums =
       getCommonDimNum(InnermostLoopToDimInfo, AllCommonDimNum);
+
   LLVM_DEBUG(dbgs() << "MinDimNums: " << MinDimNums << "\n");
   LLVM_DEBUG(dbgs() << "AllCommonDimNum: " << AllCommonDimNum << "\n");
   (void)AllCommonDimNum;
-
-  InnermostLoopToShiftTy InnermostLoopToShiftVec;
-
   LLVM_DEBUG(for (unsigned I = 0; I < InnermostLoopToDimInfo.size(); I++) {
     const HLLoop *Lp = InnermostLoopToDimInfo[I].first;
     dbgs() << "Loop: " << InnermostLoopToDimInfo[I].first->getNumber() << " ";
@@ -3992,6 +4234,7 @@ void testInnermostLoops(const SmallVectorImpl<HLLoop *> &InnermostLoops,
     dbgs() << "\n";
   });
 
+  InnermostLoopToShiftTy InnermostLoopToShiftVec;
   calcShiftAmtFuncs(InnermostLoopToDimInfo, InnermostLoopToRepRef, MinDimNums,
                     InnermostLoopToShiftVec);
 
@@ -3999,7 +4242,27 @@ void testInnermostLoops(const SmallVectorImpl<HLLoop *> &InnermostLoops,
   HLIf *OuterIf = dyn_cast<HLIf>(OuterNode);
   doTransformation(InnermostLoopToDimInfo, InnermostLoopToRepRef,
                    InnermostLoopToShiftVec, OutermostLoop, OuterIf, DDA,
-                   FuncName, UseKnownGoodSizes);
+                   Func.getName(), UseKnownGoodSizes);
+}
+
+bool testDriver::areTwoLoopsInExclusiveFlows(const HLLoop *Loop1,
+                                             const HLLoop *Loop2) {
+  auto *LCAParent =
+      HLNodeUtils::getLexicalLowestCommonAncestorParent(Loop1, Loop2);
+
+  // Check if nodes are in mutually exclusive paths of the parent if/switch.
+  if (auto *If = dyn_cast<HLIf>(LCAParent)) {
+    if (If->isThenChild(Loop1) != If->isThenChild(Loop2)) {
+      return true;
+    }
+
+  } else if (auto *Switch = dyn_cast<HLSwitch>(LCAParent)) {
+
+    if (Switch->getChildCaseNum(Loop1) != Switch->getChildCaseNum(Loop2)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -4011,18 +4274,13 @@ void printLoopVec(const SmallVectorImpl<HLLoop *> &LV) {
   dbgs() << "=======================\n";
 }
 #endif
-bool testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
-                HIRDDAnalysis &DDA, TargetTransformInfo &TTI,
-                const Function &F) {
+bool testDriver::run() {
 
-  if (!funcFilter(F))
+  if (!funcFilter(Func))
     return false;
 
   if (HIRF.hir_begin() == HIRF.hir_end())
     return false;
-
-  bool UseKnownGoodSizes = TTI.isAdvancedOptEnabled(
-      TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2);
 
   SmallVector<HLLoop *, 4> InnermostLoops;
   HLRegion *Reg = cast<HLRegion>(&*HIRF.hir_begin());
@@ -4032,17 +4290,24 @@ bool testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
        It != EIt; ++It) {
 
     if (HLLoop *Lp = dyn_cast<HLLoop>(*It)) {
-      if (Lp->isInnermost())
-        InnermostLoops.push_back(Lp);
+      if (!Lp->isInnermost())
+        continue;
 
+      const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
+
+      if (LS.hasCallsWithUnsafeSideEffects() || LS.hasForwardGotos()) {
+        InnermostLoops.clear();
+        continue;
+      }
+
+      InnermostLoops.push_back(Lp);
     } else if (HLGoto *HGoto = dyn_cast<HLGoto>(*It)) {
 
       printMarker("Met a goto ", {HGoto}, true);
       LLVM_DEBUG(dbgs() << "1. Innermost loops collected: ");
       LLVM_DEBUG(printLoopVec(InnermostLoops));
 
-      testInnermostLoops(InnermostLoops, Reg, DDA, F.getName(),
-                         UseKnownGoodSizes);
+      testInnermostLoops(InnermostLoops, Reg);
       InnermostLoops.clear();
 
     } else if (HLInst *HInst = dyn_cast<HLInst>(*It)) {
@@ -4052,16 +4317,14 @@ bool testDriver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
         LLVM_DEBUG(dbgs() << "2. Innermost loops collected: ");
         LLVM_DEBUG(printLoopVec(InnermostLoops));
 
-        testInnermostLoops(InnermostLoops, Reg, DDA, F.getName(),
-                           UseKnownGoodSizes);
+        testInnermostLoops(InnermostLoops, Reg);
         InnermostLoops.clear();
       }
     }
   }
 
   if (!InnermostLoops.empty())
-    testInnermostLoops(InnermostLoops, Reg, DDA, F.getName(),
-                       UseKnownGoodSizes);
+    testInnermostLoops(InnermostLoops, Reg);
 
   return true;
 }
@@ -4074,6 +4337,8 @@ bool tryTransform(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
                                          FuncName);
 
   bool FoundLegalAndProfitableCand = Checker.run();
+  LLVM_DEBUG(dbgs() << "Found Legal & Profitable Cand:"
+                    << FoundLegalAndProfitableCand << "\n");
   if (FoundLegalAndProfitableCand) {
     InnermostLoopToShiftTy InnermostLoopToShiftVec(3);
     return doTransformation(Checker.getInnermostLoopToDimInfos(),
@@ -4087,8 +4352,8 @@ bool tryTransform(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
 
 // Main driver for HIRInterLoopBlocking.
 bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
-            HIRDDAnalysis &DDA, TargetTransformInfo &TTI, const Function &F) {
-
+            HIRDDAnalysis &DDA, TargetTransformInfo &TTI,
+            HIRLoopStatistics &HLS, const Function &F) {
   if (!funcFilter(F)) {
     return false;
   }
@@ -4097,6 +4362,10 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
     return false;
   }
 
+  // Strictly for lit-tests
+  if (ForceTestDriver)
+    return testDriver(HIRF, HASA, DDA, TTI, HLS, F).run();
+
   StringRef FuncName = F.getName();
 
   ProfitabilityChecker PC(HIRF, HASA, DDA, FuncName);
@@ -4104,10 +4373,11 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
   // Looks profitable if true. Actual profitablity
   // can be decided after optVarPred.
   bool CouldBeProfitable = PC.isProfitable();
-
   if (!CouldBeProfitable) {
-    LLVM_DEBUG(dbgs() << "NOT Profitable\n");
-    return false;
+    LLVM_DEBUG(dbgs() << "NOT Profitable at first try.\n");
+
+    // Look for a second chance
+    return testDriver(HIRF, HASA, DDA, TTI, HLS, F).run();
   }
 
   LLVM_DEBUG_PROFIT_REPORT(dbgs() << "Profitable\n");
@@ -4169,15 +4439,9 @@ bool driver(HIRFramework &HIRF, HIRArraySectionAnalysis &HASA,
 PreservedAnalyses HIRInterLoopBlockingPass::runImpl(
     llvm::Function &F, llvm::FunctionAnalysisManager &AM, HIRFramework &HIRF) {
 
-  if (ForceTestDriver) {
-    testDriver(HIRF, AM.getResult<HIRArraySectionAnalysisPass>(F),
-               AM.getResult<HIRDDAnalysisPass>(F),
-               AM.getResult<TargetIRAnalysis>(F), F);
-  } else {
-    driver(HIRF, AM.getResult<HIRArraySectionAnalysisPass>(F),
-           AM.getResult<HIRDDAnalysisPass>(F),
-           AM.getResult<TargetIRAnalysis>(F), F);
-  }
+  driver(HIRF, AM.getResult<HIRArraySectionAnalysisPass>(F),
+         AM.getResult<HIRDDAnalysisPass>(F), AM.getResult<TargetIRAnalysis>(F),
+         AM.getResult<HIRLoopStatisticsAnalysis>(F), F);
 
   return PreservedAnalyses::all();
 }
@@ -4195,8 +4459,9 @@ public:
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
     AU.addRequiredTransitive<HIRArraySectionAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
     AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   }
 
   bool runOnFunction(Function &F) override {
@@ -4204,18 +4469,11 @@ public:
       return false;
     }
 
-    if (ForceTestDriver) {
-      return testDriver(
-          getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-          getAnalysis<HIRArraySectionAnalysisWrapperPass>().getASA(),
-          getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-          getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F), F);
-    } else {
-      return driver(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                    getAnalysis<HIRArraySectionAnalysisWrapperPass>().getASA(),
-                    getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-                    getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F), F);
-    }
+    return driver(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+                  getAnalysis<HIRArraySectionAnalysisWrapperPass>().getASA(),
+                  getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+                  getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F),
+                  getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS(), F);
   }
 };
 
