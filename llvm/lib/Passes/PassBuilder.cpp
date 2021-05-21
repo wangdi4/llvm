@@ -809,6 +809,25 @@ void PassBuilder::addInstCombinePass(FunctionPassManager &FPM,
 #else
   bool PreserveForDTrans = false;
 #endif // INTEL_INCLUDE_DTRANS
+#if 0
+  // FIXME: If this temporary workaround is still present in LPM pipeline at
+  // the time when we are switching NPM by default, this code-block can be
+  // enabled here. It's very disruptive to the pipeline, increasing the
+  // output of Intel_new-pm-O2-paropt.ll from 253 to 375 lines. So it would be
+  // cleaner if we never have to enable it here.
+  if (RunVPOParopt) {
+    // CMPLRLLVM-25424: temporary workaround for cases, where
+    // the instructions combining pass inserts value definitions
+    // inside OpenMP regions making them live out without proper
+    // handling in the OpenMP clauses.
+    // VPOCFGRestructuring breaks blocks at the OpenMP regions'
+    // boundaries minimizing the probability of illegal instruction
+    // insertion in the instructions combining pass.
+    // We have to move VPO Paropt transformations closer to FE
+    // to stop fiddling with the optimization pipeline.
+    FPM.addPass(VPOCFGRestructuringPass());
+  }
+#endif
   FPM.addPass(InstCombinePass(PreserveForDTrans,
                               PrepareForLTO && EnableIPArrayTranspose,
                               EnableFcmpMinMaxCombine, EnableUpCasting));
@@ -1350,7 +1369,12 @@ getInlineParamsFromOptLevel(PassBuilder::OptimizationLevel Level) {
 
 ModuleInlinerWrapperPass
 PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
+#if INTEL_COLLAB
+                                  ThinOrFullLTOPhase Phase,
+                                  ModulePassManager *MPM) {
+#else
                                   ThinOrFullLTOPhase Phase) {
+#endif // INTEL_COLLAB
   InlineParams IP = getInlineParamsFromOptLevel(Level);
   if (Phase == ThinOrFullLTOPhase::ThinLTOPreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
@@ -1361,7 +1385,9 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
 
   ModuleInlinerWrapperPass MIWP(IP, PerformMandatoryInliningsFirst,
                                 UseInlineAdvisor, MaxDevirtIterations);
-
+#if INTEL_COLLAB
+  auto AddPreCGSCCModulePasses = [&](ModuleInlinerWrapperPass& MIWP) {
+#endif // INTEL_COLLAB
   // Require the GlobalsAA analysis for the module so we can query it within
   // the CGSCC pipeline.
   MIWP.addModulePass(RequireAnalysisPass<GlobalsAA, Module>());
@@ -1374,6 +1400,11 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // the inliner pass.
   MIWP.addModulePass(RequireAnalysisPass<ProfileSummaryAnalysis, Module>());
 
+#if INTEL_COLLAB
+  }; // AddPreCGSCCModulePasses
+
+  AddPreCGSCCModulePasses(MIWP);
+#endif // INTEL_COLLAB
   // Now begin the main postorder CGSCC pipeline.
   // FIXME: The current CGSCC pipeline has its origins in the legacy pass
   // manager and trying to emulate its precise behavior. Much of this doesn't
@@ -1384,6 +1415,28 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // generally clean up exception handling overhead. It isn't clear this is
   // valuable as the inliner doesn't currently care whether it is inlining an
   // invoke or a call.
+#if INTEL_COLLAB
+
+  if (RunVPOParopt && RunVPOOpt == InvokeParoptAfterInliner) {
+    assert(MPM && "Need MPM to insert inliner + paropt before the full inliner "
+                  "+ cgscc pass pipeline");
+    // Run Inliner once before Paropt to align with the legacy pass manager, and
+    // leave the full inliner+CGSCC pipeline unbroken for a subsequent run after
+    // Paropt.
+    ModuleInlinerWrapperPass PMIWP(IP,
+                                   // This can be set to false if always inliner
+                                   // is not needed before Paropt.
+                                   PerformMandatoryInliningsFirst,
+                                   UseInlineAdvisor,
+                                   // Don't use DevirtSCCRepeatedPass to track
+                                   // indirect -> direct call conversions.
+                                   /*MaxDevirtIterations=*/0);
+    // Process OpenMP directives at -O1 and above.
+    AddPreCGSCCModulePasses(PMIWP);
+    MPM->addPass(std::move(PMIWP));
+    addVPOPasses(*MPM, Level, /*RunVec=*/false, /*Simplify=*/true);
+  }
+#endif // INTEL_COLLAB
 
   if (AttributorRun & AttributorRunOption::CGSCC)
     MainCGPipeline.addPass(AttributorCGSCCPass());
@@ -1476,6 +1529,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   else
     EarlyFPM.addPass(LowerSubscriptIntrinsicPass());
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  if (RunVPOOpt && RunVPOParopt)
+    addVPOPreparePasses(EarlyFPM);
+#endif //INTEL_COLLAB
   // Lower llvm.expect to metadata before attempting transforms.
   // Compare/branch metadata may alter the behavior of passes like SimplifyCFG.
   EarlyFPM.addPass(LowerExpectIntrinsicPass());
@@ -1484,6 +1541,18 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   EarlyFPM.addPass(EarlyCSEPass());
   if (PTO.Coroutines)
     EarlyFPM.addPass(CoroEarlyPass());
+#if INTEL_COLLAB
+
+  // Process OpenMP directives at -O1 and above
+  if (RunVPOParopt && RunVPOOpt == InvokeParoptBeforeInliner) {
+    // CallSiteSplitting and InstCombine are run after the pre-inliner Paropt
+    // in the legacy pass manager. For now we can stick to the same with NPM as
+    // well, even though that would break the FPM pipeline here.
+    MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM)));
+    addVPOPasses(MPM, Level, /*RunVec=*/false);
+    EarlyFPM = FunctionPassManager();
+  }
+#endif // INTEL_COLLAB
   if (Level == OptimizationLevel::O3)
     EarlyFPM.addPass(CallSiteSplittingPass());
 
@@ -1594,10 +1663,23 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   MPM.addPass(InlineListsPass());
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_COLLAB
+  MPM.addPass(buildInlinerPipeline(Level, Phase, &MPM));
+#else
   MPM.addPass(buildInlinerPipeline(Level, Phase));
+#endif // INTEL_COLLAB
   if (DoNotRerunFunctionPasses)
     MPM.addPass(createModuleToFunctionPassAdaptor(
         InvalidateAnalysisPass<FunctionStatusAnalysis>()));
+#if INTEL_CUSTOMIZATION
+
+  // If VPO paropt was required to run then do IP constant propagation after
+  // promoting pointer arguments to values (when OptLevel > 2) and running
+  // simplification passes. That will propagate constant values down to callback
+  // functions which represent outlined OpenMP parallel loops where possible.
+  if (RunVPOParopt && Level.getSpeedupLevel() > 2)
+    MPM.addPass(IPSCCPPass());
+#endif // INTEL_CUSTOMIZATION
 
   if (EnableMemProfiler && Phase != ThinOrFullLTOPhase::ThinLTOPreLink) {
     MPM.addPass(createModuleToFunctionPassAdaptor(MemProfilerPass()));
@@ -1875,6 +1957,8 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
     // a problem of coroutine passes implementation that we may
     // inline those functions here. If it becomes a problem,
     // we will have to resolve that issue with coroutines.
+    // TODO: This may be redundant since Inliner is also run after Paropt
+    // in the new PM. Remove it in the future if it's not needed.
     MPM.addPass(AlwaysInlinerPass(
         /*InsertLifetimeIntrinsics=*/PTO.Coroutines));
     // Run GlobalDCE to delete dead functions.
