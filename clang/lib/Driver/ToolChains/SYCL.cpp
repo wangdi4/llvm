@@ -654,11 +654,7 @@ void SYCLToolChain::AddImpliedTargetArgs(
     if (OptStr == "d")
       IsMSVCOd = true;
   }
-  llvm::errs() << "Add Imlied\n";
   if (DeviceOffloadKind == Action::OFK_OpenMP) {
-    llvm::errs() << "OPENMP OFFLOAD\n";
-    llvm::errs() << "  IS GEN:  " << IsGen << '\n';
-    llvm::errs() << "  NO SUBARCH:  " << (Triple.getSubArch() == llvm::Triple::NoSubArch) << '\n';
     if (IsGen)
       // Add -cl-take-global-addresses by default for GEN/ocloc
       BeArgs.push_back("-cl-take-global-address");
