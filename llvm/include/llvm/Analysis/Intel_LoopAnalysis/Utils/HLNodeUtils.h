@@ -1717,6 +1717,14 @@ public:
   /// Check if a blob is defined outside the region.
   static bool isRegionLiveIn(HLRegion *Reg, BlobUtils &BU, unsigned BlobIdx);
 
+  struct LabelNumberCompareLess {
+    bool operator()(const HLLabel *L1, const HLLabel *L2) const {
+      return L1->getNumber() < L2->getNumber();
+    }
+  };
+
+  typedef std::set<HLLabel *, LabelNumberCompareLess> RequiredLabelsTy;
+
   /// Eliminates redundant HLGotos passed in Gotos and fills up
   /// RequiredLabels with needed Labels. This utility does not invalidate any
   /// analyses. Caller is responsible for doing the necessary invalidation.
@@ -1724,9 +1732,8 @@ public:
   /// delete unnecessary Gotos. In general, transforms methods are not
   /// supposed to use erase. Gotos are not expected to be cached and it should
   /// be OK to use erase method.
-  static void
-  eliminateRedundantGotos(const SmallVectorImpl<HLGoto *> &Gotos,
-                          SmallVectorImpl<HLLabel *> &RequiredLabels);
+  static void eliminateRedundantGotos(const SmallVectorImpl<HLGoto *> &Gotos,
+                                      RequiredLabelsTy &RequiredLabels);
 };
 
 } // End namespace loopopt

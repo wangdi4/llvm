@@ -5449,8 +5449,7 @@ void HLNodeUtils::addCloningInducedLiveouts(HLLoop *LiveoutLoop,
 }
 
 void HLNodeUtils::eliminateRedundantGotos(
-    const SmallVectorImpl<HLGoto *> &Gotos,
-    SmallVectorImpl<HLLabel *> &RequiredLabels) {
+    const SmallVectorImpl<HLGoto *> &Gotos, RequiredLabelsTy &RequiredLabels) {
   for (auto *Goto : Gotos) {
     auto TargetLabel = Goto->getTargetLabel();
 
@@ -5504,7 +5503,7 @@ void HLNodeUtils::eliminateRedundantGotos(
 
       } else if (!CheckNext) {
         if (TargetLabel)
-          RequiredLabels.push_back(TargetLabel);
+          RequiredLabels.insert(TargetLabel);
         break;
       }
     }

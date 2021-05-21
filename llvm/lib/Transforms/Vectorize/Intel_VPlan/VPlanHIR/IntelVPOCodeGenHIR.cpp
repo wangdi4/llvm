@@ -5264,7 +5264,7 @@ void VPOCodeGenHIR::finalizeGotos(void) {
 
   // Eliminate redundant Gotos. TODO: Use RequiredLabels to eliminate
   // unnecessary labels.
-  SmallVector<HLLabel *, 4> RequiredLabels;
+  HLNodeUtils::RequiredLabelsTy RequiredLabels;
   HLNodeUtils::eliminateRedundantGotos(Gotos, RequiredLabels);
 }
 } // end namespace llvm

@@ -18,6 +18,7 @@
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRCLEANUP_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 namespace llvm {
 
@@ -28,14 +29,13 @@ class BasicBlock;
 namespace loopopt {
 
 class HIRCreation;
-class HLNodeUtils;
 class HLGoto;
 class HLNode;
 class HLLabel;
 
 class HIRCleanup {
 public:
-  typedef SmallVector<HLLabel *, 64> RequiredLabelsTy;
+  typedef HLNodeUtils::RequiredLabelsTy RequiredLabelsTy;
 
 private:
   /// Analysis results
