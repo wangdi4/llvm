@@ -6707,8 +6707,6 @@ def fno_enable_variant_virtual_calls
 def fenable_sycl_dae : Flag<["-"], "fenable-sycl-dae">,
   HelpText<"Enable Dead Argument Elimination in SPIR kernels">,
   MarshallingInfoFlag<LangOpts<"EnableDAEInSpirKernels">>;
-def fsycl_enable_optimizations: Flag<["-"], "fsycl-enable-optimizations">,
-  HelpText<"Experimental flag enabling standard optimization in the front-end.">;
 def fsycl_disable_range_rounding : Flag<["-"], "fsycl-disable-range-rounding">,
   HelpText<"Disable parallel for range rounding.">,
   MarshallingInfoFlag<LangOpts<"SYCLDisableRangeRounding">>;
