@@ -79,7 +79,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeGenericAddressDynamicResolutionPass(Registry);
     intel::initializeLLVMEqualizerPass(Registry);
     intel::initializeSubGroupAdaptationPass(Registry);
-    intel::initializeLinearIdResolverPass(Registry);
     intel::initializePrepareKernelArgsPass(Registry);
     intel::initializeRemovePrefetchPass(Registry);
     intel::initializeResolveWICallPass(Registry);
