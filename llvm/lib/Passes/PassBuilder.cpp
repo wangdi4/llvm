@@ -188,6 +188,7 @@
 #include "llvm/Transforms/Scalar/Intel_GlobalOpt.h"         // INTEL
 #include "llvm/Transforms/Scalar/Intel_IndirectCallConv.h"  // INTEL
 #include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"         // INTEL
+#include "llvm/Transforms/Scalar/Intel_LoopOptMarker.h" // INTEL
 #include "llvm/Transforms/Scalar/Intel_LowerSubscriptIntrinsic.h" // INTEL
 #include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h" // INTEL
 #include "llvm/Transforms/Scalar/InductiveRangeCheckElimination.h"
@@ -970,6 +971,16 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
 
   return FPM;
 }
+#if INTEL_CUSTOMIZATION
+static bool isLoopOptEnabled(PassBuilder::OptimizationLevel Level) {
+  // if (!DisableIntelProprietaryOpts &&
+  if (((RunLoopOpts != LoopOptMode::None) || RunLoopOptFrameworkOnly) &&
+      (Level.getSpeedupLevel() >= 2))
+    return true;
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 FunctionPassManager
 PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
@@ -1109,8 +1120,11 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // inaccurate. The normal unroller doesn't pay attention to forced full unroll
   // attributes so we need to make sure and allow the full unroll pass to pay
   // attention to it.
-  if (Phase != ThinOrFullLTOPhase::ThinLTOPreLink || !PGOOpt ||
-      PGOOpt->Action != PGOOptions::SampleUse)
+#if INTEL_CUSTOMIZATION
+  // HIR complete unroll pass replaces LLVM's full loop unroll pass.
+  if ((Phase != ThinOrFullLTOPhase::ThinLTOPreLink || !PGOOpt ||
+      PGOOpt->Action != PGOOptions::SampleUse) && !isLoopOptEnabled(Level))
+#endif // INTEL_CUSTOMIZATION
     LPM2.addPass(LoopFullUnrollPass(Level.getSpeedupLevel(),
                                     /* OnlyWhenForced= */ !PTO.LoopUnrolling,
                                     PTO.ForgetAllSCEVInLoopUnroll));
@@ -1455,6 +1469,12 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Create an early function pass manager to cleanup the output of the
   // frontend.
   FunctionPassManager EarlyFPM;
+#if INTEL_CUSTOMIZATION
+  if (isLoopOptEnabled(Level))
+    EarlyFPM.addPass(LoopOptMarkerPass());
+  else
+    EarlyFPM.addPass(LowerSubscriptIntrinsicPass());
+#endif // INTEL_CUSTOMIZATION
   // Lower llvm.expect to metadata before attempting transforms.
   // Compare/branch metadata may alter the behavior of passes like SimplifyCFG.
   EarlyFPM.addPass(LowerExpectIntrinsicPass());
@@ -1589,6 +1609,11 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 /// TODO: Should LTO cause any differences to this set of passes?
 void PassBuilder::addVectorPasses(OptimizationLevel Level,
                                   FunctionPassManager &FPM, bool IsLTO) {
+#if INTEL_CUSTOMIZATION
+  // In LTO mode, loopopt runs in link phase along with community vectorizer
+  // after it.
+  if (!PrepareForLTO || !isLoopOptEnabled(Level))
+#endif // INTEL_CUSTOMIZATION
   FPM.addPass(LoopVectorizePass(
       LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));
 
@@ -1617,6 +1642,11 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // Cleanup after the loop optimization passes.
   addInstCombinePass(FPM, !DTransEnabled); // INTEL
 
+#if INTEL_CUSTOMIZATION
+  // In LTO mode, loopopt runs in link phase along with community vectorizer
+  // after it.
+  if (!PrepareForLTO || !isLoopOptEnabled(Level)) {
+#endif // INTEL_CUSTOMIZATION
   if (Level.getSpeedupLevel() > 1 && ExtraVectorizerPasses) {
     // At higher optimization levels, try to clean up any runtime overlap and
     // alignment checks inserted by the vectorizer. We want to track correlated
@@ -1672,6 +1702,7 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
       FPM.addPass(EarlyCSEPass());
     }
   }
+  } // INTEL
 #if INTEL_CUSTOMIZATION
   if (!IsLTO)
     AfterSLPVectorizer = true;
@@ -1693,17 +1724,26 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     // combiner for cleanup here so that the unrolling and LICM can be pipelined
     // across the loop nests.
     // We do UnrollAndJam in a separate LPM to ensure it happens before unroll
+#if INTEL_CUSTOMIZATION
+  // In LTO mode, loopopt runs in link phase along with community unroller
+  // after it.
+  if (!PrepareForLTO || !isLoopOptEnabled(Level)) {
+#endif // INTEL_CUSTOMIZATION
     if (EnableUnrollAndJam && PTO.LoopUnrolling) {
       FPM.addPass(LoopUnrollAndJamPass(Level.getSpeedupLevel()));
     }
     FPM.addPass(LoopUnrollPass(LoopUnrollOptions(
         Level.getSpeedupLevel(), /*OnlyWhenForced=*/!PTO.LoopUnrolling,
         PTO.ForgetAllSCEVInLoopUnroll)));
-    FPM.addPass(WarnMissedTransformationsPass());
 #if INTEL_CUSTOMIZATION
+  }
+  // Postpone warnings to LTO link phase. Most transformations which process
+  // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
+  if (!PrepareForLTO)
+    FPM.addPass(WarnMissedTransformationsPass());
     // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
     // if IP ArrayTranspose is enabled.
-    addInstCombinePass(FPM, !DTransEnabled);
+  addInstCombinePass(FPM, !DTransEnabled);
 #endif // INTEL_CUSTOMIZATION
     FPM.addPass(
         RequireAnalysisPass<OptimizationRemarkEmitterAnalysis, Function>());
@@ -1904,15 +1944,6 @@ bool PassBuilder::addVPOPassesPreOrPostLoopOpt(ModulePassManager &MPM,
   MPM.addPass(createModuleToFunctionPassAdaptor(VPODirectiveCleanupPass()));
 
   return true;
-}
-
-static bool isLoopOptEnabled(PassBuilder::OptimizationLevel Level) {
-  // if (!DisableIntelProprietaryOpts &&
-  if (((RunLoopOpts != LoopOptMode::None) || RunLoopOptFrameworkOnly) &&
-      (Level.getSpeedupLevel() >= 2))
-    return true;
-
-  return false;
 }
 
 void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
@@ -2310,6 +2341,9 @@ PassBuilder::buildPerModuleDefaultPipeline(OptimizationLevel Level,
          "Must request optimizations for the default pipeline!");
 
   ModulePassManager MPM;
+#if INTEL_CUSTOMIZATION
+  MPM.addPass(XmainOptLevelAnalysisInit(Level.getSpeedupLevel()));
+#endif // INTEL_CUSTOMIZATION
 
   // Convert @llvm.global.annotations to !annotation metadata.
   MPM.addPass(Annotation2MetadataPass());
@@ -2905,6 +2939,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   LPM.addPass(LoopDeletionPass());
   // FIXME: Add loop interchange.
 
+#if INTEL_CUSTOMIZATION
+  // HIR complete unroll pass replaces LLVM's full loop unroll pass.
+  if (!isLoopOptEnabled(Level))
+#endif // INTEL_CUSTOMIZATION
   // Unroll small loops and perform peeling.
   LPM.addPass(LoopFullUnrollPass(Level.getSpeedupLevel(),
                                  /* OnlyWhenForced= */ !PTO.LoopUnrolling,
@@ -2948,6 +2986,12 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(createModuleToFunctionPassAdaptor(
       SimplifyCFGPass(SimplifyCFGOptions().hoistCommonInsts(true))));
 
+#if INTEL_CUSTOMIZATION
+  // HIR complete unroll can expose opportunities for optimizing globals and
+  // allocas.
+  if (isLoopOptEnabled(Level))
+    MPM.addPass(GlobalOptPass());
+#endif // INTEL_CUSTOMIZATION
   // Drop bodies of available eternally objects to improve GlobalDCE.
   MPM.addPass(EliminateAvailableExternallyPass());
 
