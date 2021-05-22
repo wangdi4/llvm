@@ -214,8 +214,7 @@ public:
       // IR may not in the right form (consummable by HIR framework) which can
       // lead to assertion. We get around this issue by discarding all the
       // created regions.
-      // TODO: Add something similar to new pass manager when it has opt-bisect
-      // support.
+      // Note: Pass is marked as required in new PM.
       RI.discardRegions();
       return false;
     }
