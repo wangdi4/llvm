@@ -698,9 +698,11 @@ void populateTCs(LoopNestTCTy &LoopNestTC) {
   }
 }
 
-HLLoop *getHighestAncestorWithTCThreshold(const LoopNestTCTy &LoopToTC) {
+HLLoop *getHighestAncestorWithTCThreshold(const LoopNestTCTy &LoopToTC,
+                                          bool &AllConstTC) {
   HLLoop *NewOutermost = const_cast<HLLoop *>(LoopToTC.Innermost);
   unsigned Level = LoopToTC.Innermost->getNestingLevel();
+  unsigned ConstTCCounts = 0;
   for (const HLLoop *Lp = LoopToTC.Innermost,
                     *ELp = LoopToTC.Outermost->getParentLoop();
        Lp != ELp; Lp = Lp->getParentLoop(), Level--) {
@@ -710,9 +712,17 @@ HLLoop *getHighestAncestorWithTCThreshold(const LoopNestTCTy &LoopToTC) {
       if (!EnableLoopBlockingNonConstTC || LoopNestTCTy::isConstTC(TCAtLevel)) {
         break;
       }
+    } else {
+      ConstTCCounts++;
     }
     NewOutermost = const_cast<HLLoop *>(Lp);
   }
+
+  unsigned OrigDepth = LoopToTC.Innermost->getNestingLevel() -
+                       LoopToTC.Outermost->getNestingLevel() + 1;
+  if (OrigDepth == ConstTCCounts)
+    AllConstTC = true;
+
   return NewOutermost;
 }
 
@@ -1732,12 +1742,18 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, StringRef Func,
   LoopNestTCTy LoopNestTC(HighestAncestor, InnermostLoop);
   LoopNestTC.populateLoops();
   populateTCs(LoopNestTC);
+  bool AllConstTC = false;
   HLLoop *AdjustedHighestAncestor =
-      getHighestAncestorWithTCThreshold(LoopNestTC);
+      getHighestAncestorWithTCThreshold(LoopNestTC, AllConstTC);
 
   if (isTrivialAntiPattern(Refs, InnermostLoop->getNestingLevel(),
                            AdjustedHighestAncestor->getNestingLevel())) {
     LLVM_DEBUG(dbgs() << "Trivial anti-pattern\n");
+    return nullptr;
+  }
+
+  if (IsLikelySmall && !AllConstTC) {
+    LLVM_DEBUG(dbgs() << "The input's TC is likely to be small\n");
     return nullptr;
   }
 

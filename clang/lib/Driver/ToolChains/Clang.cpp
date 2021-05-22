@@ -1473,9 +1473,7 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
   // Add Intel specific headers
   if (D.IsIntelMode()) {
     SmallString<128> IntelDir(D.Dir);
-    llvm::sys::path::append(IntelDir, "..");
-    llvm::sys::path::append(IntelDir, "compiler");
-    llvm::sys::path::append(IntelDir, "include");
+    llvm::sys::path::append(IntelDir, "..", "compiler", "include");
     CmdArgs.push_back("-internal-isystem");
     CmdArgs.push_back(Args.MakeArgString(IntelDir));
     // IA32ROOT
@@ -1513,6 +1511,15 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
     // For IAMCU add special include arguments.
     getToolChain().AddIAMCUIncludeArgs(Args, CmdArgs);
   }
+#if INTEL_CUSTOMIZATION
+  if (D.IsIntelMode() && getToolChain().getTriple().isWindowsMSVCEnvironment()) {
+    SmallString<128> IntelDir(llvm::sys::path::parent_path(D.Dir));
+    if (!IntelDir.empty()) {
+      CmdArgs.push_back("-header-base-path");
+      CmdArgs.push_back(Args.MakeArgString(IntelDir));
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   addMacroPrefixMapArg(D, Args, CmdArgs);
   addCoveragePrefixMapArg(D, Args, CmdArgs);

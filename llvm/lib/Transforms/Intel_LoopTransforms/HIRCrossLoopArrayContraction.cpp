@@ -248,7 +248,10 @@ bool HIRCrossLoopArrayContraction::run() {
   return Modified;
 }
 
-static unsigned getRefMinLevel(const RegDDRef *Ref) {
+// Returns outermost parent loop of ref which can be used as a candidate for
+// contraction. Returns null if an appropriate candidate loop cannot be found.
+static HLLoop *getCandidateParentLoop(const RegDDRef *Ref,
+                                      unsigned &MinLoopTopSortNum) {
   unsigned MinLevel = NonLinearLevel;
 
   for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
@@ -264,7 +267,16 @@ static unsigned getRefMinLevel(const RegDDRef *Ref) {
     MinLevel = std::min(DefLevel, MinLevel);
   }
 
-  return MinLevel;
+  HLLoop *ParentLoop = Ref->getHLDDNode()->getParentLoopAtLevel(MinLevel);
+
+  // Do not go lexically before the previous ref's loop candidate. This can
+  // cause stability issues as use loops may not be tracked correctly.
+  if (ParentLoop->getTopSortNum() < MinLoopTopSortNum) {
+    return nullptr;
+  }
+
+  MinLoopTopSortNum = ParentLoop->getTopSortNum();
+  return ParentLoop;
 }
 
 struct TopSortComparator {
@@ -1165,10 +1177,18 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
   // Get their loops and Base pointers.
   std::map<HLLoop *, SparseBitVector<>, TopSortComparator> LoopToBasePtr;
+  unsigned MinLoopTopSortNum = 0;
+
   for (auto *Ref : Refs) {
-    unsigned ParentLoopLevel = getRefMinLevel(Ref);
-    HLLoop *ParentLoop =
-        Ref->getHLDDNode()->getParentLoopAtLevel(ParentLoopLevel);
+    HLLoop *ParentLoop = getCandidateParentLoop(Ref, MinLoopTopSortNum);
+
+    if (!ParentLoop) {
+      LLVM_DEBUG(
+          dbgs() << "Skipping contraction for the entire region as we could "
+                    "not find legal contraction loop for candidate refs.\n");
+      return false;
+    }
+
     const unsigned BlobIdx = Ref->getBasePtrBlobIndex();
     LoopToBasePtr[ParentLoop].set(BlobIdx);
   }

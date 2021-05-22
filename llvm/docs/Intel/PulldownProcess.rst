@@ -458,7 +458,7 @@ updated to that revision using the following process.
 
      $ ics mk xmain-cand-ws xmain-cand head -git
      <copy the heads.txt attachment from the alloy results to $ICS_WSDIR>
-     $ ./update-xmain-cand.sh
+     $ ./update-xmain-cand.bash
 
 Alternatively, the following command will create the heads.txt file with the
 current state of the repository:
