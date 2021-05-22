@@ -70,7 +70,7 @@
 ; Suppress FileCheck --allow-unused-prefixes=false diagnostics.
 ; CHECK-Oz: {{^}}
 
-; CHECK-O-NEXT: Running pass: XmainOptLevelAnalysisInit ;INTEL
+; CHECK-O: Running pass: XmainOptLevelAnalysisInit ;INTEL
 ; CHECK-O-NEXT: Running analysis: XmainOptLevelAnalysis ;INTEL
 ; CHECK-O-NEXT: Running pass: Annotation2Metadata
 ; CHECK-O-NEXT: Running pass: ForceFunctionAttrsPass
