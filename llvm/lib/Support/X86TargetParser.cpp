@@ -171,8 +171,21 @@ constexpr FeatureBitset FeaturesKNL =
 constexpr FeatureBitset FeaturesKNM = FeaturesKNL | FeatureAVX512VPOPCNTDQ;
 
 #if INTEL_CUSTOMIZATION
-static constexpr FeatureBitset FeaturesCommonAVX512 =
-   FeaturesBroadwell | FeatureAES | FeatureAVX512F | FeatureAVX512CD;
+constexpr FeatureBitset FeaturesCommonAVX512 =
+    FeaturesBroadwell | FeatureAES | FeatureAVX512F | FeatureAVX512CD;
+constexpr FeatureBitset FeaturesCommonAVX256 =
+#if INTEL_FEATURE_ISA_FP16
+    FeatureAVX512FP16 |
+#endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+    FeatureAVXDOTPRODINT8 |
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+    FeatureAVXDOTPRODPHPS |
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+    FeaturesX86_64_V4 | FeatureAVX512BF16 | FeatureAVX512VNNI |
+    FeatureAVX512VBMI | FeatureAVX512VBMI2 | FeatureAVX512VPOPCNTDQ |
+    FeatureAVX512IFMA | FeatureAVX512BITALG | FeatureAVX512VP2INTERSECT;
 #endif // INTEL_CUSTOMIZATION
 
 // Intel Skylake processors.
@@ -357,6 +370,8 @@ constexpr ProcInfo Processors[] = {
 #if INTEL_CUSTOMIZATION
   // Intersection of SKX and KNL.
   { {"common-avx512"}, CK_CommonAVX512, ~0U, FeaturesCommonAVX512 },
+  // Intersection of AVX256
+  { {"common-avx256"}, CK_CommonAVX256, ~0U, FeaturesCommonAVX256 },
 #endif // INTEL_CUSTOMIZATION
   // Skylake client microarchitecture based processors.
   { {"skylake"}, CK_SkylakeClient, FEATURE_AVX2, FeaturesSkylakeClient },

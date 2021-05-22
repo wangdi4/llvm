@@ -3,7 +3,7 @@
 ; RUN: opt < %s -disable-output -passes=dtrans-transpose -dtrans-transpose-print-candidates 2>&1 | FileCheck %s
 
 ; Check "nested dope vector" candidates (i.e. candidates which are fields in
-; a structure, which is in an array of structures.
+; a structure, which is in an array of structures).
 
 ; Check that the array through which the indirect subscripting is occurring is
 ; a candidate for transposing but not profitable.

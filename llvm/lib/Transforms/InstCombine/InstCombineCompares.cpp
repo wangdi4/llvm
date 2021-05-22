@@ -4106,13 +4106,27 @@ Instruction *InstCombinerImpl::foldICmpBinOp(ICmpInst &I,
       isKnownNonZero(D, Q.DL, /*Depth=*/0, Q.AC, Q.CxtI, Q.DT))
     return new ICmpInst(CmpInst::getFlippedStrictnessPredicate(Pred), C, D);
 
-  // icmp (A-B), (C-B) -> icmp A, C for equalities or if there is no overflow.
-  if (B && D && B == D && NoOp0WrapProblem && NoOp1WrapProblem)
-    return new ICmpInst(Pred, A, C);
+#if INTEL_CUSTOMIZATION
+  // If icmp's has single user which is branch or a select then restrict
+  // the transformation below to only cases when the icmp is the only user
+  // of its operands. It does not seem to be beneficial otherwise as
+  // it can break other optimizations (such as simplifycfg ability
+  // to fold CFG into a select).
+  Instruction *SingleUser = nullptr;
+  if (Use *SingleUse = I.getSingleUndroppableUse())
+    SingleUser = cast<Instruction>(SingleUse->getUser());
+  if (!SingleUser ||
+      !(isa<BranchInst>(SingleUser) || isa<SelectInst>(SingleUser)) ||
+      (BO0 && BO0->hasOneUse() && BO1 && BO1->hasOneUse())) {
+    // icmp (A-B), (C-B) -> icmp A, C for equalities or if there is no overflow.
+    if (B && D && B == D && NoOp0WrapProblem && NoOp1WrapProblem)
+      return new ICmpInst(Pred, A, C);
 
-  // icmp (A-B), (A-D) -> icmp D, B for equalities or if there is no overflow.
-  if (A && C && A == C && NoOp0WrapProblem && NoOp1WrapProblem)
-    return new ICmpInst(Pred, D, B);
+    // icmp (A-B), (A-D) -> icmp D, B for equalities or if there is no overflow.
+    if (A && C && A == C && NoOp0WrapProblem && NoOp1WrapProblem)
+      return new ICmpInst(Pred, D, B);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // icmp (0-X) < cst --> x > -cst
   if (NoOp0WrapProblem && ICmpInst::isSigned(Pred)) {

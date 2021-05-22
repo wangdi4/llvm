@@ -39,12 +39,9 @@
 ; CHECK-LIN: (<4 x i32>*)(%arr)[{{.*}}] = {{.*}}; Mask = @{[[Mask]]}
 ; CHECK-UNI: [[IfCond:%.*]] = extractelement [[Mask]],  0
 ; CHECK-UNI: if ([[IfCond]] == 1)
-; CHECK-UNI:     goto [[ThenBlock:BB.*]];
 ; CHECK-UNI: else
 ; CHECK-UNI:     goto [[ElseBlock:BB.*]];
-; CHECK-UNI: [[ThenBlock]]:
 ; CHECK-UNI:     (<4 x i32>*)(%arr)[{{.*}}] = {{.*}}
-; CHECK-UNI:      goto [[ElseBlock]]
 ; CHECK-UNI: [[ElseBlock]]:
 ; CHECK: END LOOP
 

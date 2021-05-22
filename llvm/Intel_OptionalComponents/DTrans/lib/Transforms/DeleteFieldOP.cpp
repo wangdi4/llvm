@@ -16,6 +16,7 @@
 #include "Intel_DTrans/Analysis/DTransSafetyAnalyzer.h"
 #include "Intel_DTrans/DTransCommon.h"
 #include "Intel_DTrans/Transforms/DTransOPOptBase.h"
+#include "Intel_DTrans/Transforms/DTransOptUtils.h"
 #include "llvm/ADT/PriorityWorklist.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -125,12 +126,8 @@ private:
 
   const DataLayout &DL;
 
-  // TODO: Remove 'public' specifier when function call size argument processing
-  // code is added. Temporarily, declared as public to prevent build warning
-  // about unused private variable.
-public:
   DeleteFieldOPPass::GetTLIFn GetTLI;
-private:
+
   // The pointers in this vector are owned by the DTransSafetyInfo class.
   // The list is populated during prepareTypes() and used in populateTypes().
   SmallVector<dtrans::StructInfo *, 4> StructsToConvert;
@@ -669,7 +666,59 @@ void DeleteFieldOPImpl::processFunction(Function &F) {
 // byte-flattened form, the GEP can be updated prior to cloning.
 bool DeleteFieldOPImpl::processPossibleByteFlattenedGEP(
     GetElementPtrInst *GEP) {
-  // TODO: Convert offsets for byte flattened GEPs that need changing.
+  auto InfoPair = DTInfo->getByteFlattenedGEPElement(GEP);
+  if (!InfoPair.first)
+    return false;
+
+  // We'll typically only have a few types from which we are deleting
+  // fields, so iterating over the map is a reasonable way to test
+  // whether or not this GEP needs updating.
+  llvm::Type *SrcTy = InfoPair.first->getLLVMType();
+  for (auto &ONPair : OrigToNewTypeMapping) {
+    llvm::StructType *OrigTy = ONPair.first;
+    if (OrigTy != SrcTy)
+      continue;
+
+    llvm::Type *ReplTy = ONPair.second;
+    uint64_t SrcIdx = InfoPair.second;
+    uint64_t NewIdx = SrcIdx;
+
+    // If it isn't an enclosing type then get a new index, otherwise update
+    // offset using original index (SrcIdx).
+    if (!OrigEnclosingTypes.count(OrigTy)) {
+      assert(OrigTy->getStructNumElements() &&
+             FieldIdxMap[OrigTy].size() > SrcIdx && "Unexpected GEP index");
+
+      NewIdx = FieldIdxMap[OrigTy][SrcIdx];
+      if (NewIdx == FIELD_DELETED)
+        return true;
+
+      // If the index isn't changing, we don't need to update or delete this
+      // GEP.
+      if (NewIdx == SrcIdx)
+        return false;
+    }
+
+    // Otherwise, we need to get the offset of the updated index in the
+    // replacement type.
+    const StructLayout *SL = DL.getStructLayout(cast<StructType>(ReplTy));
+    uint64_t NewOffset = SL->getElementOffset(NewIdx);
+    Value *NewOffsetValue =
+        ConstantInt::get(GEP->getOperand(1)->getType(), NewOffset);
+
+    // Update GEP offset to match new ReplTy type.
+    if (NewOffsetValue != GEP->getOperand(1)) {
+      LLVM_DEBUG(dbgs() << "Delete field: Replacing instruction\n"
+                        << *GEP << "\n");
+      GEP->setOperand(1, NewOffsetValue);
+      LLVM_DEBUG(dbgs() << "    with\n" << *GEP << "\n");
+    }
+
+    // We've updated this GEP and don't need to delete it.
+    return false;
+  }
+
+  // This doesn't match any type we're updating.
   return false;
 }
 
@@ -824,8 +873,36 @@ void DeleteFieldOPImpl::postprocessFunction(Function &OrigFunc, bool isCloned) {
 }
 
 void DeleteFieldOPImpl::postprocessCall(CallBase *Call) {
-  // TODO: Update the size argument for calls that need to be adjusted due to a
-  // structure type changing.
+  auto *CInfo = DTInfo->getCallInfo(Call);
+  if (!CInfo || isa<dtrans::FreeCallInfo>(CInfo))
+    return;
+
+  // The number of types in the call element info and the number of types
+  // in the OrigToNew type mapping should both be very small. We can use
+  // the element_llvm_types here that returns llvm::Type objects, instead of
+  // DTransTypes because the call info objects track the pointee type.
+  auto CallElemTypes = CInfo->getElementTypesRef();
+  for (auto *PointeeTy : CallElemTypes.element_llvm_types())
+    for (auto &ONPair : OrigToNewTypeMapping) {
+      llvm::Type *OrigTy = ONPair.first;
+      llvm::Type *ReplTy = ONPair.second;
+      assert(PointeeTy != OrigTy &&
+             "Original type found after type replacement!");
+      if (PointeeTy != ReplTy)
+        continue;
+
+      // Do not adjust size if it's an incomplete access memfunc.
+      // Fields within a partial memfunc range are not going to be removed.
+      if (auto *MInfo = dyn_cast<dtrans::MemfuncCallInfo>(CInfo))
+        if (!MInfo->getIsCompleteAggregate(0))
+          continue;
+
+      LLVM_DEBUG(dbgs() << "Found call involving type with deleted fields:\n"
+                        << *Call << "\n"
+                        << "  " << *OrigTy << "\n");
+      const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+      dtrans::updateCallSizeOperand(Call, CInfo, OrigTy, ReplTy, TLI);
+    }
 }
 
 char DTransDeleteFieldOPWrapper::ID = 0;

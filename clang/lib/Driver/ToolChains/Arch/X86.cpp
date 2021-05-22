@@ -53,6 +53,7 @@ std::string getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
               .CasesLower("core-avx512", "core_avx512", "skylake-avx512",
                           "skylake_avx512", "skylake-avx512")
               .CasesLower("common-avx512", "common_avx512", "common-avx512")
+              .CasesLower("common-avx256", "common_avx256", "common-avx256")
               .CaseLower("broadwell", "broadwell")
               .CaseLower("cannonlake", "cannonlake")
               .CasesLower("icelake", "icelake-client", "icelake_client",

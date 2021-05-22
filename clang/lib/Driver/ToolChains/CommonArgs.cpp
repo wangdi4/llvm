@@ -270,6 +270,10 @@ void tools::AddLinkerInputs(const ToolChain &TC, const InputInfoList &Inputs,
       TC.AddCXXStdlibLibArgs(Args, CmdArgs);
     else if (A.getOption().matches(options::OPT_Z_reserved_lib_cckext))
       TC.AddCCKextLibArgs(Args, CmdArgs);
+#if INTEL_CUSTOMIZATION
+    else if (A.getOption().matches(options::OPT_Z_reserved_lib_imf))
+      TC.AddIntelLibimfLibArgs(Args, CmdArgs);
+#endif // INTEL_CUSTOMIZATION
     else if (A.getOption().matches(options::OPT_z)) {
       // Pass -z prefix for gcc linker compatibility.
       A.claim();

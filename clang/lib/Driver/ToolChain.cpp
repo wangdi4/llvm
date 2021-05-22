@@ -1023,6 +1023,11 @@ void ToolChain::AddCCKextLibArgs(const ArgList &Args,
 }
 
 #if INTEL_CUSTOMIZATION
+void ToolChain::AddIntelLibimfLibArgs(const ArgList &Args,
+                                      ArgStringList &CmdArgs) const {
+  CmdArgs.push_back("-limf");
+}
+
 static const std::string getIntelBasePath(const std::string DriverDir) {
   // Perf libs are located in different locations depending on the package
   // being used.  This is PSXE vs oneAPI installations.

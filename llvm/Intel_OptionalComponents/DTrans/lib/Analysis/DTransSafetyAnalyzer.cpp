@@ -4217,6 +4217,17 @@ DTransType *DTransSafetyInfo::getResolvedPtrSubType(BinaryOperator *BinOp) {
   return PtrSubInfoMap.lookup(BinOp);
 }
 
+std::pair<DTransType *, size_t>
+DTransSafetyInfo::getByteFlattenedGEPElement(GEPOperator *GEP) {
+  return PtrAnalyzer->getByteFlattenedGEPElement(GEP);
+}
+
+std::pair<DTransType *, size_t>
+DTransSafetyInfo::getByteFlattenedGEPElement(GetElementPtrInst *GEP)
+{
+  return getByteFlattenedGEPElement(cast<GEPOperator>(GEP));
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void DTransSafetyInfo::printAnalyzedTypes() {
   std::vector<dtrans::TypeInfo *> TypeInfoEntries;

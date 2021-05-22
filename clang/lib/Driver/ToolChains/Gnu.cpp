@@ -170,6 +170,10 @@ void tools::gcc::Common::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-lstdc++");
         continue;
       }
+#if INTEL_CUSTOMIZATION
+      if (A.getOption().matches(options::OPT_Z_reserved_lib_imf))
+        continue;
+#endif // INTEL_CUSTOMIZATION
 
       // Don't render as input, we need gcc to do the translations.
       A.render(Args, CmdArgs);
@@ -3434,6 +3438,28 @@ void Generic_GCC::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
     break;
   }
 }
+
+#if INTEL_CUSTOMIZATION
+void Generic_GCC::AddIntelLibimfLibArgs(
+    const llvm::opt::ArgList &Args, llvm::opt::ArgStringList &CmdArgs) const {
+  if (!getDriver().IsIntelMode())
+    return;
+
+  bool IsStatic = false;
+  for (const char *&AS : CmdArgs) {
+    IsStatic = llvm::StringSwitch<bool>(AS)
+                   .Cases("-Bdynamic", "-shared", false)
+                   .Cases("-Bstatic", "-static", true)
+                   .Default(IsStatic);
+  }
+  if (!IsStatic && Args.hasArg(options::OPT_static_intel)) {
+    CmdArgs.push_back("-Bstatic");
+    CmdArgs.push_back("-limf");
+    CmdArgs.push_back("-Bdynamic");
+  } else
+    CmdArgs.push_back("-limf");
+}
+#endif // INTEL_CUSTOMIZATION
 
 void
 Generic_GCC::addLibCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,

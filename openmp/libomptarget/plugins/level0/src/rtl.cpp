@@ -809,6 +809,7 @@ struct RTLFlagsTy {
 struct KernelPropertiesTy {
   const char *Name = nullptr;
   uint32_t Width = 0;
+  uint32_t SIMDWidth = 0;
   uint32_t MaxThreadGroupSize = 0;
   ze_kernel_indirect_access_flags_t IndirectAccessFlags = 0;
 };
@@ -3077,6 +3078,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
       RTLKernelProperties.Width = DeviceInfo->ForcedKernelWidth;
     } else {
       RTLKernelProperties.Width = kernelProperties.maxSubgroupSize;
+      RTLKernelProperties.SIMDWidth = kernelProperties.maxSubgroupSize;
       uint32_t HWId = DeviceInfo->DeviceProperties[DeviceId].deviceId;
       HWId &= 0xFF00;
       // Temporary workaround before ze_kernel_preferred_group_size_properties_t
@@ -3507,11 +3509,12 @@ static void decideLoopKernelGroupArguments(
 
   auto &computeProperties = DeviceInfo->ComputeProperties[DeviceId];
   uint32_t maxGroupSize = computeProperties.maxTotalGroupSize;
-  uint32_t kernelWidth = DeviceInfo->KernelProperties[DeviceId][Kernel].Width;
-  IDP("Assumed kernel SIMD width is %" PRIu32 "\n", kernelWidth);
+  auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
+  uint32_t kernelWidth = KernelProperty.Width;
+  IDP("Assumed kernel SIMD width is %" PRIu32 "\n", KernelProperty.SIMDWidth);
+  IDP("Preferred group size is multiple of %" PRIu32 "\n", kernelWidth);
 
-  uint32_t kernelMaxThreadGroupSize =
-      DeviceInfo->KernelProperties[DeviceId][Kernel].MaxThreadGroupSize;
+  uint32_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
   if (kernelMaxThreadGroupSize < maxGroupSize) {
     maxGroupSize = kernelMaxThreadGroupSize;
     IDP("Capping maximum thread group size to %" PRIu32
@@ -3643,11 +3646,12 @@ static void decideKernelGroupArguments(
   IDPI("numSubslices: %" PRIu32 "\n", numSubslices);
   IDPI("numThreadsPerEU: %" PRIu32 "\n", numThreadsPerEU);
   IDPI("totalEUs: %" PRIu32 "\n", numEUsPerSubslice * numSubslices);
-  uint32_t kernelWidth = DeviceInfo->KernelProperties[DeviceId][Kernel].Width;
-  IDP("Assumed kernel SIMD width is %" PRIu32 "\n", kernelWidth);
+  auto &KernelProperty = DeviceInfo->KernelProperties[DeviceId][Kernel];
+  uint32_t kernelWidth = KernelProperty.Width;
+  IDP("Assumed kernel SIMD width is %" PRIu32 "\n", KernelProperty.SIMDWidth);
+  IDP("Preferred group size is multiple of %" PRIu32 "\n", kernelWidth);
 
-  uint32_t kernelMaxThreadGroupSize =
-      DeviceInfo->KernelProperties[DeviceId][Kernel].MaxThreadGroupSize;
+  uint32_t kernelMaxThreadGroupSize = KernelProperty.MaxThreadGroupSize;
   if (kernelMaxThreadGroupSize < maxGroupSize) {
     maxGroupSize = kernelMaxThreadGroupSize;
     IDP("Capping maximum thread group size to %" PRIu32

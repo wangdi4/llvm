@@ -347,7 +347,23 @@ bool DeleteFieldImpl::prepareTypes(Module &M) {
       if (!isa<llvm::StructType>(ParentTy))
         continue;
 
-      auto *ParentTI = cast<dtrans::StructInfo>(DTInfo->getTypeInfo(ParentTy));
+      auto *ParentTI =
+          dyn_cast_or_null<dtrans::StructInfo>(DTInfo->getTypeInfo(ParentTy));
+
+      // If no type info was found for the ParentTy, it means that the type was
+      // referenced by a type that is no longer used within the IR. This is
+      // possible because the DTransAnalysis pass collects types by walking the
+      // IR, but the DTransOptBase class was made to operate without requiring
+      // the DTransAnalysis walk of the full IR. This results in the basename
+      // version of a structure being included in the list of enclosing types,
+      // even though the type will not be referenced. For example:
+      // The following two types may be in memory, but only %struct.simple.1 is
+      // used by the IR, and has safety data associated with it, so we want to
+      // skip the safety check on %struct.simple.
+      //   %struct.simple = type { %struct.test }
+      //   %struct.simple.1 = type { %struct.test }
+      if (!ParentTI)
+        continue;
 
       // Skip types that are already considered.
       if (std::find(StructsToConvert.begin(), StructsToConvert.end(),

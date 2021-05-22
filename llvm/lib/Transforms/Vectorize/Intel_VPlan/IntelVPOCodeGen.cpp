@@ -146,6 +146,17 @@ static Value *calculateVectorTC(Value *OrigTC, IRBuilder<> &Builder,
                            /*HasNSW=*/true);
 }
 
+// TODO: this method should be extended in future to preserve all required
+// metadata for memory operations.
+static void propagateLoadStoreInstAliasMetadata(Instruction *LoadStore,
+                                                const VPInstruction *VPInst) {
+  auto *VPStore = cast<VPLoadStoreInst>(VPInst);
+  if (auto *MD = VPStore->getMetadata(LLVMContext::MD_noalias))
+    LoadStore->setMetadata(LLVMContext::MD_noalias, MD);
+  if (auto *MD = VPStore->getMetadata(LLVMContext::MD_alias_scope))
+    LoadStore->setMetadata(LLVMContext::MD_alias_scope, MD);
+}
+
 Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
                                              ArrayRef<Value *> ScalarOperands) {
   SmallVector<Value *, 4> Ops(ScalarOperands.begin(), ScalarOperands.end());
@@ -172,6 +183,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     if (VPLoad->isAtomic())
       NewLoad->setSyncScopeID(VPLoad->getSyncScopeID());
     NewLoad->setAlignment(VPLoad->getAlignment());
+    propagateLoadStoreInstAliasMetadata(NewLoad, VPInst);
   } else if (VPInst->getOpcode() == Instruction::Store) {
     assert(ScalarOperands.size() == 2 &&
            "Store VPInstruction has incorrect number of operands.");
@@ -183,6 +195,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     if (VPStore->isAtomic())
       NewStore->setSyncScopeID(VPStore->getSyncScopeID());
     NewStore->setAlignment(VPStore->getAlignment());
+    propagateLoadStoreInstAliasMetadata(NewStore, VPInst);
   } else if (VPInst->getOpcode() == Instruction::Call) {
     assert(ScalarOperands.size() > 0 &&
            "Call VPInstruction should have atleast one operand.");
@@ -2616,6 +2629,8 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst,
     if (VPInst == DynPeeling->memref())
       attachPreferredAlignmentMetadata(WideLoad, DynPeeling->targetAlignment());
 
+  propagateLoadStoreInstAliasMetadata(WideLoad, VPInst);
+
   if (IsNegOneStride) // Reverse
     return reverseVector(WideLoad);
   return WideLoad;
@@ -2694,6 +2709,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
     ++(RepMaskValue ? OptRptStats.MaskedGathers : OptRptStats.UnmaskedGathers);
     NewLI = Builder.CreateMaskedGather(GatherAddress, Alignment, RepMaskValue,
                                        nullptr, "wide.masked.gather");
+    propagateLoadStoreInstAliasMetadata(cast<Instruction>(NewLI), VPInst);
   }
 
   VPWidenMap[VPInst] = NewLI;
@@ -2843,6 +2859,8 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
           dyn_cast_or_null<VPlanDynamicPeeling>(PreferredPeeling))
     if (VPInst == DynPeeling->memref())
       attachPreferredAlignmentMetadata(Store, DynPeeling->targetAlignment());
+
+  propagateLoadStoreInstAliasMetadata(Store, VPInst);
 }
 
 void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
@@ -2880,8 +2898,9 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
     Align Alignment = getOriginalLoadStoreAlignment(VPInst);
     // Extract last lane of data operand to generate scalar store. For uniform
     // data operand, the same value is present on all lanes.
-    Builder.CreateAlignedStore(getScalarValue(DataOp, VF - 1), ScalarPtr,
-                               Alignment);
+    auto *Inst = Builder.CreateAlignedStore(getScalarValue(DataOp, VF - 1),
+                                            ScalarPtr, Alignment);
+    propagateLoadStoreInstAliasMetadata(Inst, VPInst);
     return;
   }
 
@@ -2932,7 +2951,9 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
                                        "replicatedMaskElts.");
   Align Alignment = getAlignmentForGatherScatter(VPInst);
   ++(RepMaskValue ? OptRptStats.MaskedScatters : OptRptStats.UnmaskedScatters);
-  Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment, RepMaskValue);
+  auto *Inst = Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment,
+                                           RepMaskValue);
+  propagateLoadStoreInstAliasMetadata(Inst, VPInst);
 }
 
 // This function returns computed addresses of memory locations which should be

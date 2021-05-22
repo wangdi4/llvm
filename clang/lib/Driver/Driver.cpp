@@ -705,9 +705,10 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
         continue;
       }
 #if INTEL_CUSTOMIZATION
-      if (IsIntelMode() && (Value == "m"))
-        DAL->AddJoinedArg(0, Opts.getOption(options::OPT_l), "imf");
-#endif //INTEL_CUSTOMIZATION
+      // libimf addition before libm.
+      if (IsIntelMode() && Value == "m")
+        DAL->AddFlagArg(A, Opts.getOption(options::OPT_Z_reserved_lib_imf));
+#endif // INTEL_CUSTOMIZATION
     }
 #if INTEL_CUSTOMIZATION
     // Expected valid 'tools': assembly,compiler,preprocessor and linker for now

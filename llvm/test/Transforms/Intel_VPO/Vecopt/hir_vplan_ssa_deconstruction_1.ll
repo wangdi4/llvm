@@ -98,18 +98,12 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }
 ; CHECK-NEXT:  <27>                  [[RED_VAR0:%.*]] = 0.000000e+00
 ; CHECK-NEXT:  <26>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:  <28>               |   [[BB2]].28:
 ; CHECK-NEXT:  <29>               |   [[DOTVEC0:%.*]] = [[N10]] == 0
 ; CHECK-NEXT:  <30>               |   [[UNIFCOND0:%.*]] = extractelement [[DOTVEC0]],  0
 ; CHECK-NEXT:  <31>               |   if ([[UNIFCOND0]] == 1)
 ; CHECK-NEXT:  <31>               |   {
 ; CHECK-NEXT:  <32>               |      goto [[BB4]].40
 ; CHECK-NEXT:  <31>               |   }
-; CHECK-NEXT:  <31>               |   else
-; CHECK-NEXT:  <31>               |   {
-; CHECK-NEXT:  <33>               |      goto [[BB5]].34
-; CHECK-NEXT:  <31>               |   }
-; CHECK-NEXT:  <34>               |   [[BB5]].34:
 ; CHECK-NEXT:  <35>               |   [[DOTVEC20:%.*]] = (<4 x float>*)([[ARR20]])[i1]
 ; CHECK-NEXT:  <36>               |   [[DOTCOPY0:%.*]] = [[DOTVEC20]]
 ; CHECK-NEXT:  <37>               |   [[PHI_TEMP0:%.*]] = [[RED_VAR0]]
@@ -120,7 +114,6 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:  <42>               |   [[DOTCOPY70:%.*]] = [[DOTVEC60]]
 ; CHECK-NEXT:  <43>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
 ; CHECK-NEXT:  <44>               |   [[PHI_TEMP40]] = [[DOTCOPY70]]
-; CHECK-NEXT:  <45>               |   goto [[BB3]].46
 ; CHECK-NEXT:  <46>               |   [[BB3]].46:
 ; CHECK-NEXT:  <47>               |   [[RED_VAR0]] = [[PHI_TEMP40]]  +  [[PHI_TEMP0]]
 ; CHECK-NEXT:  <26>               + END LOOP
@@ -133,18 +126,12 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; MIXED-NEXT:  <0>          BEGIN REGION { modified }
 ; MIXED-NEXT:  <27>                  [[RED_VAR0:%.*]] = 0.000000e+00
 ; MIXED-NEXT:  <26>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; MIXED-NEXT:  <28>               |   [[BB0:BB[0-9]+]].28:
 ; MIXED-NEXT:  <29>               |   [[WIDE_CMP_0:%.*]] = [[N10:%.*]] == 0
 ; MIXED-NEXT:  <30>               |   [[UNIFCOND0:%.*]] = extractelement [[WIDE_CMP_0]],  0
 ; MIXED-NEXT:  <31>               |   if ([[UNIFCOND0]] == 1)
 ; MIXED-NEXT:  <31>               |   {
 ; MIXED-NEXT:  <32>               |      goto [[BB1:BB[0-9]+]].40
 ; MIXED-NEXT:  <31>               |   }
-; MIXED-NEXT:  <31>               |   else
-; MIXED-NEXT:  <31>               |   {
-; MIXED-NEXT:  <33>               |      goto [[BB2:BB[0-9]+]].34
-; MIXED-NEXT:  <31>               |   }
-; MIXED-NEXT:  <34>               |   [[BB2]].34:
 ; MIXED-NEXT:  <35>               |   [[LD_FALSE_VEC0:%.*]] = (<4 x float>*)([[ARR20:%.*]])[i1]
 ; MIXED-NEXT:  <36>               |   [[MERGE_PHI_IN1_VEC0:%.*]] = [[LD_FALSE_VEC0]]
 ; MIXED-NEXT:  <37>               |   [[PHI_TEMP0:%.*]] = [[RED_VAR0]]
@@ -155,7 +142,6 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; MIXED-NEXT:  <42>               |   [[MERGE_PHI_IN1_VEC0]] = [[LD_TRUE_VEC0]]
 ; MIXED-NEXT:  <43>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
 ; MIXED-NEXT:  <44>               |   [[PHI_TEMP20]] = [[MERGE_PHI_IN1_VEC0]]
-; MIXED-NEXT:  <45>               |   goto [[BB3]].46
 ; MIXED-NEXT:  <46>               |   [[BB3]].46:
 ; MIXED-NEXT:  <47>               |   [[RED_VAR0]] = [[PHI_TEMP20]]  +  [[PHI_TEMP0]]
 ; MIXED-NEXT:  <26>               + END LOOP

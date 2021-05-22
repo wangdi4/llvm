@@ -20,7 +20,6 @@ namespace llvm {
 namespace vpo {
 
 class VPlanCostModelProprietary : public VPlanCostModel {
-  using VPlanCostModel::getLoadStoreCost;
 public:
   explicit VPlanCostModelProprietary(const VPlanVector *Plan, unsigned VF,
                                      const TargetTransformInfo *TTI,
@@ -28,17 +27,9 @@ public:
                                      const DataLayout *DL,
                                      VPlanVLSAnalysis *VLSA = nullptr)
     : VPlanCostModel(Plan, VF, TTI, TLI, DL, VLSA),
-      HeuristicsPipelinePlan(this), HeuristicsPipelineInst(this) {
-    if (VLSA)
-      VLSA->getOVLSMemrefs(Plan, VF);
-  }
+      HeuristicsPipelinePlan(this), HeuristicsPipelineInst(this) {}
 
   using VPlanCostModel::getCost;
-  unsigned getLoadStoreCost(
-    const VPInstruction *VPInst, Align Alignment, unsigned VF) final {
-    return getLoadStoreCost(VPInst, Alignment, VF,
-                            false /* Don't use VLS cost by default */);
-  }
 
   ~VPlanCostModelProprietary() {}
 
@@ -74,17 +65,8 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 private:
   unsigned getCost(const VPInstruction *VPInst) final;
-  unsigned getLoadStoreCost(const VPInstruction *VPInst,
-                            Align Alignment, unsigned VF,
-                            const bool UseVLSCost);
-  unsigned getLoadStoreCost(const VPInstruction *VPInst, unsigned VF,
-                            const bool UseVLSCost) {
-    unsigned Alignment = VPlanCostModel::getMemInstAlignment(VPInst);
-    return getLoadStoreCost(VPInst, Align(Alignment), VF, UseVLSCost);
-  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  std::string getAttrString(const VPInstruction *VPInst) const final;
   std::string getHeaderPrefix() const final {
     // Proprietary Cost Model prepends the Header in dumps with "HIR " string
     // to ease distinguishing HIR CM dumps VS Base CM dumps.  Please see
@@ -92,15 +74,6 @@ private:
     return "HIR ";
   };
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-  // ProcessedOVLSGroups holds the groups which Cost has already been taken into
-  // account while traversing through VPlan during getCost().  This way we avoid
-  // taking the same group price multiple times.
-  // If Cost of OVLS group is better in terms of performance comparing to TTI
-  // costs of intruction OVLS group would replace, then ProcessedOVLSGroups map
-  // holds 'true' for this group.  Otherwise 'false' is stored in the map.
-  using OVLSGroupMap = DenseMap<const OVLSGroup *, bool>;
-  OVLSGroupMap ProcessedOVLSGroups;
 
   // Heuristics list type specific to proprietary cost model.
   HeuristicsList<
@@ -113,6 +86,7 @@ private:
 
   HeuristicsList<
     const VPInstruction,
+    VPlanCostModelHeuristics::HeuristicOVLSMember,
     VPlanCostModelHeuristics::HeuristicSVMLIDivIRem> HeuristicsPipelineInst;
 };
 
