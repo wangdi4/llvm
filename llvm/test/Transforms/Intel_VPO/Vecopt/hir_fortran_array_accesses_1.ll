@@ -4,9 +4,6 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-plain-cfg -vplan-dump-subscript-details -disable-output< %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-plain-cfg -vplan-dump-subscript-details -disable-output< %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -enable-vp-value-codegen-hir=false -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MIXED-CG
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-vf=2 -enable-vp-value-codegen-hir=false -print-after=vplan-driver-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MIXED-CG
-
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -enable-vp-value-codegen-hir=true -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPVALUE-CG
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-vf=2 -enable-vp-value-codegen-hir=true -print-after=vplan-driver-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPVALUE-CG
 
@@ -58,22 +55,6 @@ define void @interp1(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; VPLAN-IR-EMPTY:
 ; VPLAN-IR-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; VPLAN-IR-NEXT:     br <External Block>
-;
-; MIXED-CG-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
-; MIXED-CG-NEXT:  Function: interp1
-; MIXED-CG-EMPTY:
-; MIXED-CG-NEXT:  <0>          BEGIN REGION { modified }
-; MIXED-CG-NEXT:  <50>               + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; MIXED-CG-NEXT:  <51>               |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; MIXED-CG-NEXT:  <55>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
-; MIXED-CG-NEXT:  <56>               |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + <i64 0, i64 2> + 2]
-; MIXED-CG-NEXT:  <57>               |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
-; MIXED-CG-NEXT:  <58>               |   |   |   [[ADD86_VEC0:%.*]] = [[DOTVEC0]]  +  [[DOTVEC30]]
-; MIXED-CG-NEXT:  <59>               |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + <i64 0, i64 2> + 2] = [[ADD86_VEC0]]
-; MIXED-CG-NEXT:  <55>               |   |   + END LOOP
-; MIXED-CG-NEXT:  <51>               |   + END LOOP
-; MIXED-CG-NEXT:  <50>               + END LOOP
-; MIXED-CG-NEXT:  <0>          END REGION
 ;
 ; VPVALUE-CG-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; VPVALUE-CG-NEXT:  Function: interp1
@@ -211,25 +192,6 @@ define void @interp2(double* noalias nocapture readonly %"interp_$Z", i32* noali
 ; VPLAN-IR-EMPTY:
 ; VPLAN-IR-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; VPLAN-IR-NEXT:     br <External Block>
-;
-; MIXED-CG-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
-; MIXED-CG-NEXT:  Function: interp2
-; MIXED-CG-EMPTY:
-; MIXED-CG-NEXT:  <0>          BEGIN REGION { modified }
-; MIXED-CG-NEXT:  <63>               + DO i1 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; MIXED-CG-NEXT:  <64>               |   + DO i2 = 0, zext.i32.i64(%"interp_$M5") + -3, 1   <DO_LOOP>
-; MIXED-CG-NEXT:  <68>               |   |   + DO i3 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
-; MIXED-CG-NEXT:  <69>               |   |   |   [[DOTVEC0:%.*]] = (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + <i64 0, i64 2> + 1]
-; MIXED-CG-NEXT:  <70>               |   |   |   [[DOTVEC30:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3]
-; MIXED-CG-NEXT:  <71>               |   |   |   [[DOTVEC40:%.*]] = (<2 x double>*)(%"interp_$Z")[i1 + 1][i2 + 1][i3 + 1]
-; MIXED-CG-NEXT:  <72>               |   |   |   [[ADD162_VEC0:%.*]] = [[DOTVEC30]]  +  [[DOTVEC40]]
-; MIXED-CG-NEXT:  <73>               |   |   |   [[MUL163_VEC0:%.*]] = [[ADD162_VEC0]]  *  5.000000e-01
-; MIXED-CG-NEXT:  <74>               |   |   |   [[ADD164_VEC0:%.*]] = [[DOTVEC0]]  +  [[MUL163_VEC0]]
-; MIXED-CG-NEXT:  <75>               |   |   |   (<2 x double>*)(%"interp_$U")[2 * i1 + 3][2 * i2 + 3][2 * i3 + <i64 0, i64 2> + 1] = [[ADD164_VEC0]]
-; MIXED-CG-NEXT:  <68>               |   |   + END LOOP
-; MIXED-CG-NEXT:  <64>               |   + END LOOP
-; MIXED-CG-NEXT:  <63>               + END LOOP
-; MIXED-CG-NEXT:  <0>          END REGION
 ;
 ; VPVALUE-CG-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
 ; VPVALUE-CG-NEXT:  Function: interp2

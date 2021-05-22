@@ -1,4 +1,4 @@
-; Test to check correctness of mixed-CG approach when the master user of a blend PHI is invalidated.
+; Test to check correctness of generated code when the master user of a blend PHI is invalidated.
 
 ; HIR before vectorizer
 ; <0>     BEGIN REGION { }
@@ -25,49 +25,44 @@
 
 ; In the above loop node <34> will be invalidated when VPEntities are used to represent the reduction.
 ; Decomposer will generate a blend PHI for %coef.0 (nodes <29> and <21>), which would be used in the
-; invalidated reduction instruction. Mixed CG should generate explicit vector code for this PHI to
-; prevent compfails. NOTE: Selects are optimized away for the blend PHIs since the same widened ref
-; is being blended from all incoming edges.
+; invalidated reduction instruction. CG should generate explicit vector code for this PHI to
+; prevent compfails.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -enable-vp-value-codegen-hir=false -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
-
-
-; CHECK:            %red.var = 0;
-; CHECK-NEXT:       %red.var = insertelement %red.var,  %nz.039,  0;
-
-; CHECK:            + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; CHECK-NEXT:       |   %coef.0.in1.vec = undef
-; CHECK-NEXT:       |   %.vec = (<4 x i16>*)(%dct)[i1];
-; CHECK-NEXT:       |   %.vec2 = (<4 x i16>*)(%mf)[i1];
-; CHECK-NEXT:       |   %.vec3 = (<4 x i16>*)(%bias)[i1];
-; CHECK-NEXT:       |   %wide.cmp. = %.vec > 0;
-; CHECK-NEXT:       |   %.vec4 = %wide.cmp.  ^  -1;
-; CHECK-NEXT:       |   %NBConv = zext.<4 x i16>.<4 x i32>(%.vec2);
-; CHECK-NEXT:       |   %NBConv5 = zext.<4 x i16>.<4 x i32>(%.vec3);
-; CHECK-NEXT:       |   %NBConv6 = sext.<4 x i16>.<4 x i32>(%.vec);
-; CHECK-NEXT:       |   %NAry = <i32 -1, i32 -1, i32 -1, i32 -1>  *  %NBConv6;
-; CHECK-NEXT:       |   %NAry7 = %NBConv5  +  %NAry;
-; CHECK-NEXT:       |   %NAry8 = %NBConv  *  %NAry7;
-; CHECK-NEXT:       |   %UDiv = %NAry8  /u  <i32 65536, i32 65536, i32 65536, i32 65536>;
-; CHECK-NEXT:       |   %NBConv9 = trunc.<4 x i32>.<4 x i16>(%UDiv);
-; CHECK-NEXT:       |   %coef.0.in1.vec = -1 * %NBConv9; Mask = @{%.vec4}
-; CHECK-NEXT:       |   %NBConv10 = zext.<4 x i16>.<4 x i32>(%.vec2);
-; CHECK-NEXT:       |   %NBConv11 = zext.<4 x i16>.<4 x i32>(%.vec3);
-; CHECK-NEXT:       |   %NBConv12 = sext.<4 x i16>.<4 x i32>(%.vec);
-; CHECK-NEXT:       |   %NAry13 = %NBConv11  +  %NBConv12;
-; CHECK-NEXT:       |   %NAry14 = %NBConv10  *  %NAry13;
-; CHECK-NEXT:       |   %coef.0.in1.vec = (%NAry14)/u65536; Mask = @{%wide.cmp.}
-; CHECK-NEXT:       |   (<4 x i16>*)(%dct)[i1] = %coef.0.in1.vec;
-; CHECK-NEXT:       |   %red.var = %red.var  |  %coef.0.in1.vec;
-; CHECK-NEXT:       + END LOOP
-
-; CHECK:            %nz.039 = @llvm.vector.reduce.or.v4i32(%red.var);
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @quant_4x4(i16* noalias nocapture %dct, i16* nocapture readonly %mf, i16* nocapture readonly %bias) {
+; CHECK-LABEL:  Function: quant_4x4
+; CHECK-EMPTY:
+; CHECK-NEXT:           BEGIN REGION { modified }
+; CHECK-NEXT:                   %red.var = 0;
+; CHECK-NEXT:                   %red.var = insertelement %red.var,  %nz.039,  0;
+; CHECK-NEXT:                + DO i1 = 0, 1023, 4   <DO_LOOP> <auto-vectorized> <novectorize>
+; CHECK-NEXT:                |   %.vec = (<4 x i16>*)(%dct)[i1];
+; CHECK-NEXT:                |   %.vec2 = (<4 x i16>*)(%mf)[i1];
+; CHECK-NEXT:                |   %.vec3 = (<4 x i16>*)(%bias)[i1];
+; CHECK-NEXT:                |   %.vec4 = %.vec > 0;
+; CHECK-NEXT:                |   %.vec5 = %.vec4  ^  -1;
+; CHECK-NEXT:                |   %.vec6 = %.vec  *  -1;
+; CHECK-NEXT:                |   %.vec7 = %.vec6  +  %.vec3;
+; CHECK-NEXT:                |   %.vec8 = %.vec7  *  %.vec2;
+; CHECK-NEXT:                |   %.vec9 = %.vec8  /u  65536;
+; CHECK-NEXT:                |   %.vec10 = %.vec9  *  -1;
+; CHECK-NEXT:                |   %.copy = %.vec10;
+; CHECK-NEXT:                |   %.vec11 = %.vec  +  %.vec3;
+; CHECK-NEXT:                |   %.vec12 = %.vec11  *  %.vec2;
+; CHECK-NEXT:                |   %.vec13 = %.vec12  /u  65536;
+; CHECK-NEXT:                |   %.copy14 = %.vec13;
+; CHECK-NEXT:                |   %select = (%.vec4 == <i1 true, i1 true, i1 true, i1 true>) ? %.copy14 : %.copy;
+; CHECK-NEXT:                |   (<4 x i16>*)(%dct)[i1] = %select;
+; CHECK-NEXT:                |   %red.var = %red.var  |  %select;
+; CHECK-NEXT:                + END LOOP
+; CHECK-NEXT:                   %nz.039 = @llvm.vector.reduce.or.v4i32(%red.var);
+; CHECK-NEXT:           END REGION
+;
 entry:
   br label %for.body
 

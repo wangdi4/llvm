@@ -1,5 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg --S -enable-vp-value-codegen-hir=0 < %s | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,hir-cg" --S -enable-vp-value-codegen-hir=0 < %s | FileCheck %s
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg --S -enable-vp-value-codegen-hir < %s | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,hir-cg" --S -enable-vp-value-codegen-hir < %s | FileCheck %s
