@@ -88,13 +88,15 @@ public:
   TransposeCandidate(GlobalVariable *GV, uint32_t ArrayRank,
                      SmallVector<uint64_t, 4> &ArrayLength,
                      uint64_t ElementSize, llvm::Type *ElementType,
-                     bool IsGlobalDV)
+                     bool IsGlobalDV, bool IsNestedField = false,
+                     uint64_t NestedFieldNumber = 0)
       : GV(GV), ArrayRank(ArrayRank), ArrayLength(ArrayLength),
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
         ElementSize(ElementSize),
 #endif
-        ElementType(ElementType), IsGlobalDV(IsGlobalDV), IsValid(false),
-        IsProfitable(false) {
+        ElementType(ElementType), IsGlobalDV(IsGlobalDV),
+        IsNestedField(IsNestedField), NestedFieldNumber(NestedFieldNumber),
+        IsValid(false), IsProfitable(false) {
     assert(ArrayRank > 0 && ArrayRank <= FortranMaxRank && "Invalid Rank");
     uint64_t Stride = ElementSize;
     for (uint32_t RankNum = 0; RankNum < ArrayRank; ++RankNum) {
@@ -141,6 +143,46 @@ public:
   // they are needed by the profitability analysis.
   //
   bool analyzeGlobalDV(const DataLayout &DL) {
+
+    // Return 'true' if 'GEPO' indexes field 'NFN'.
+    //
+    auto IsMatchingGEPO = [](GEPOperator *GEPO, uint64_t NFN) -> bool {
+      if (GEPO->getNumIndices() != 2)
+        return false;
+      auto CI1 = dyn_cast<ConstantInt>(GEPO->getOperand(1));
+      if (!CI1 || !CI1->isZero())
+        return false;
+      auto CI2 = dyn_cast<ConstantInt>(GEPO->getOperand(2));
+      if (!CI2 || CI2->getZExtValue() != NFN)
+        return false;
+      return true;
+    };
+
+    // Load the subscripts of the TransposeCandidate for transposing.
+    // Note that if this is not a nested field, 'SI' is the candidate
+    // subscript itself. Otherwise, it is the subscript into the array
+    // of structures and must be further indexed to get to the candidate
+    // subscripts.
+    //
+    auto LoadSubscripts = [this, &IsMatchingGEPO](SubscriptInst *SI) {
+      if (!IsNestedField) {
+        SubscriptCalls.insert(SI);
+        return;
+      }
+      for (User *U : SI->users())
+        if (auto GEPO = dyn_cast<GEPOperator>(U))
+          if (IsMatchingGEPO(GEPO, NestedFieldNumber))
+            for (User *X : GEPO->users())
+              if (auto GEPO1 = dyn_cast<GEPOperator>(X))
+                if (GEPO1->hasAllZeroIndices())
+                  for (User *Y : GEPO1->users())
+                    if (auto LI = dyn_cast<LoadInst>(Y))
+                      for (User *Z : LI->users())
+                        if (auto SI1 = dyn_cast<SubscriptInst>(Z))
+                          SubscriptCalls.insert(SI1);
+    };
+
+    // Main code for analyzeGlobalDV()
     for (User *U : GV->users())
       if (auto GEPO = dyn_cast<GEPOperator>(U))
         if (GEPO->hasAllZeroIndices())
@@ -148,7 +190,7 @@ public:
             if (auto *LI = dyn_cast<LoadInst>(V))
               for (User *W : LI->users())
                 if (auto SI = dyn_cast<SubscriptInst>(W))
-                  SubscriptCalls.insert(SI);
+                  LoadSubscripts(SI);
     IsValid = true;
     return true;
   }
@@ -824,6 +866,8 @@ public:
     OS << "Element size : " << ElementSize << "\n";
     OS << "Element type : " << *ElementType << "\n";
     OS << "Dope vector  : " << IsGlobalDV << "\n";
+    if (IsNestedField)
+      OS << "Nested Field Number : " << NestedFieldNumber << "\n";
     OS << "Strides      :";
     for (uint32_t RankNum = 0; RankNum < ArrayRank; ++RankNum)
       OS << " " << Strides[RankNum];
@@ -866,6 +910,13 @@ private:
 
   // 'true' if the candidate is represented by a global dope vector
   bool IsGlobalDV;
+
+  // 'true' if the candidate is the field of a structure in an array
+  bool IsNestedField;
+
+  // If 'IsNestedField' is 'true', the field in the structure containing
+  // the candidate
+  uint64_t NestedFieldNumber;
 
   // This vector stores the stride values used when operating on the complete
   // array. For this optimization, we do not support cases where a sub-object is
@@ -1099,44 +1150,23 @@ private:
   // - Variable uses zero initializer or has no initializer
   void IdentifyCandidates(Module &M) {
 
-    // Return 'true' if 'GV' is a pointer to a global dope vector
-    // whose array should be a candidate for transpose. If we return 'true',
-    // set 'ArrayRank' to the number of array dimensions, 'ArrayLength'
-    // to contain the length of each dimension, 'ElemType' to the element
-    // type and 'ElemSize' to the element size.
+    // Return 'true' if 'DVI' with the given 'ArrayRank' and 'ElemType'
+    // is a good candidate for transpose because:
+    //   (1) Its lower bounds are all 1.
+    //   (2) The stride of the zeroth element is the element size.
+    //   (3) The extents are all constant.
+    // When we return 'true', set the dimensions of the array in
+    // 'ArrayLength', and set the 'ElemSize'.
     //
-    // Right now, we are handling only arrays with lower bounds of 1,
-    // constant upper bounds, and whose fastest stride is equal to the
-    // element size.
-    //
-    // Note that this function calls the GlobalDopeVector class member
-    // function collectAndValidate(), which also performs safety checks,
-    // so they do not need to be performed when analyze() is called.
-    //
-    auto IsGlobalDV = [this](GlobalVariable *GV, const DataLayout &DL,
-                             uint32_t &ArrayRank,
-                             SmallVector<uint64_t, 4> &ArrayLength,
-                             llvm::Type *&ElemType,
-                             uint64_t &ElemSize) -> bool {
-      if (!isDopeVectorType(GV->getValueType(), DL, &ArrayRank, &ElemType))
-        return false;
+    auto IsGoodCandidate = [](DopeVectorInfo *DVI, const DataLayout &DL,
+                              uint32_t ArrayRank, llvm::Type *ElemType,
+                              SmallVector<uint64_t, 4> &ArrayLength,
+                              uint64_t &ElemSize) -> bool {
       if (ArrayRank <= 1 || ArrayRank >= FortranMaxRank)
         return false;
       if (!ElemType->isIntegerTy() && !ElemType->isFloatingPointTy())
         return false;
-      GlobalDopeVector GlobDV(GV, GV->getValueType(), GetTLI);
-      GlobDV.collectAndValidate(DL);
-      auto GAR = GlobDV.getAnalysisResult();
-      if (GAR != GlobalDopeVector::AnalysisResult::AR_Pass)
-        return false;
-      // This next condition will be relaxed later.
-      if (GlobDV.hasNestedDopeVectors())
-        return false;
-      DopeVectorInfo *DVI = GlobDV.getGlobalDopeVectorInfo();
-      ConstantInt *GlobalElementSize = DVI->getDopeVectorField(
-          DopeVectorFieldType::DV_ElementSize)->getConstantValue();
-      assert(GlobalElementSize && "GlobalElementSize is nullptr");
-      ElemSize = GlobalElementSize->getZExtValue();
+      ElemSize = DL.getTypeStoreSize(ElemType);
       for (uint32_t I = 0; I < ArrayRank; ++I) {
         auto Extent = DVI->getDopeVectorField(DV_ExtentBase, I);
         if (!Extent)
@@ -1154,9 +1184,75 @@ private:
           return false;
         auto LowerBound = DVI->getDopeVectorField(DV_LowerBoundBase, I);
         if (!LowerBound || !LowerBound->getConstantValue() ||
-            LowerBound->getConstantValue()->getZExtValue() != 1)
+            !LowerBound->getConstantValue()->isOne())
           return false;
       }
+      return true;
+    };
+
+    // Return 'true' if 'GV' is a pointer to a global dope vector
+    // whose array could be a candidate for transpose.
+    //
+    // This function can generate a single non-nested TransposeCandidate and
+    // push it on the list of Candidates, or generate one or more nested
+    // TransposeCandidates, and push them on the list of Candidates.
+    //
+    // Note that this function will return 'true' if GV is a global dope
+    // vector, even if no TransposeCandidates are created. This keeps us
+    // from checking for the case where 'GV' is a global which is not a
+    // dope vector.
+    //
+    // Note also that this function calls the GlobalDopeVector class member
+    // function collectAndValidate(), which also performs safety checks,
+    // so they do not need to be performed when analyze() is called.
+    //
+    auto GenGlobalDVCandidates = [this, &IsGoodCandidate](GlobalVariable *GV,
+                                  const DataLayout &DL) -> bool {
+      uint32_t ArrayRank = 0;
+      llvm::Type *ElemType = nullptr;
+      if (!isDopeVectorType(GV->getValueType(), DL, &ArrayRank, &ElemType))
+        return false;
+      // In the future, it may be possible to transform some of the nested
+      // dope vectors, but not all. For now, the GlobalDopeVector analysis
+      // is all or nothing, so return immediately if it does not pass.
+      GlobalDopeVector GlobDV(GV, GV->getValueType(), GetTLI);
+      GlobDV.collectAndValidate(DL);
+      auto GAR = GlobDV.getAnalysisResult();
+      if (GAR != GlobalDopeVector::AnalysisResult::AR_Pass)
+        return true;
+      if (GlobDV.hasNestedDopeVectors()) {
+        for (unsigned I = 0; I < GlobDV.getNumNestedDopeVector(); I++) {
+          NestedDopeVectorInfo *NestDVI = GlobDV.getNestedDopeVector(I);
+          if (NestDVI->getAnalysisResult() !=
+              DopeVectorInfo::AnalysisResult::AR_Pass)
+           continue;
+          // Use isDopeVectorType() to get 'NVArrayRank' and 'NVElemType'.
+          uint32_t NVArrayRank = 0;
+          llvm::Type *NVElemType = nullptr;
+          if (!isDopeVectorType(NestDVI->getLLVMStructType(), DL,
+              &NVArrayRank, &NVElemType))
+            continue;
+          SmallVector<uint64_t, 4> NVArrayLength;
+          uint64_t NVElemSize = 0;
+          if (!IsGoodCandidate(NestDVI, DL, NVArrayRank, NVElemType,
+                               NVArrayLength, NVElemSize))
+            continue;
+          TransposeCandidate Candidate(GV, NVArrayRank, NVArrayLength,
+                                       NVElemSize, NVElemType,
+                                       /*IsGlobalDV=*/true,
+                                       /*IsNestedField=*/true, I);
+          Candidates.push_back(Candidate);
+        }
+        return true;
+      }
+      DopeVectorInfo *DVI = GlobDV.getGlobalDopeVectorInfo();
+      SmallVector<uint64_t, 4> ArrayLength;
+      uint64_t ElemSize = 0;
+      if (!IsGoodCandidate(DVI, DL, ArrayRank, ElemType, ArrayLength, ElemSize))
+        return true;
+      TransposeCandidate Candidate(GV, ArrayRank, ArrayLength, ElemSize,
+                                   ElemType, /*IsGlobalDV=*/true);
+      Candidates.push_back(Candidate);
       return true;
     };
 
@@ -1169,18 +1265,10 @@ private:
       if (!GV.hasInternalLinkage())
         continue;
 
-     uint32_t Dimensions = 0;
-     SmallVector<uint64_t, 4> ArrayLength;
-     uint64_t ElemSize = 0;
-     llvm::Type *ElemType = nullptr;
+     if (GenGlobalDVCandidates(&GV, DL))
+       continue;
 
-     if (IsGlobalDV(&GV, DL, Dimensions, ArrayLength, ElemType, ElemSize)) {
-
-          TransposeCandidate Candidate(&GV, Dimensions, ArrayLength, ElemSize,
-                                       ElemType, true /*IsGlobalDV*/);
-          Candidates.push_back(Candidate);
-
-     } else if (!GV.hasInitializer() || GV.getInitializer()->isZeroValue()) {
+     if (!GV.hasInitializer() || GV.getInitializer()->isZeroValue()) {
 
         llvm::Type *Ty = GV.getValueType();
         auto *ArrType = dyn_cast<llvm::ArrayType>(Ty);
@@ -1213,7 +1301,7 @@ private:
           LLVM_DEBUG(dbgs() << "Adding candidate: " << GV << "\n");
           uint64_t ElemSize = DL.getTypeStoreSize(ElemType);
           TransposeCandidate Candidate(&GV, Dimensions, ArrayLength, ElemSize,
-                                       ElemType, false /*IsGlobalDV*/);
+                                       ElemType, /*IsGlobalDV=*/false);
           Candidates.push_back(Candidate);
         }
       }
