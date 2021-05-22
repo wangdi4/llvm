@@ -1949,6 +1949,20 @@ bool HIRParser::parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
   }
 
   auto NewBlob = BlobProcessor(this, CE, Level).process(Blob);
+
+  // In some cases reverse engineering AddRecs into SCEVUnknown can result in
+  // simplification of blob to constant because of inaccurate nowrap flags/range
+  // info for AddRec as opposed to range info provided by ValueTracking.
+  if (isa<SCEVConstant>(NewBlob)) {
+    auto Coeff = getSCEVConstantValue(cast<SCEVConstant>(NewBlob));
+    if (IVLevel) {
+      CE->addIV(IVLevel, InvalidBlobIndex, Coeff);
+    } else {
+      CE->addConstant(Coeff, false);
+    }
+    return true;
+  }
+
   breakConstantMultiplierBlob(NewBlob, &Multiplier, &NewBlob);
 
   unsigned Index = findOrInsertBlobWrapper(NewBlob);
