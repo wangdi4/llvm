@@ -257,25 +257,12 @@ private:
 
   // Add instruction at end of main loop after adding mask if mask is not null.
   void addInst(HLInst *Inst) {
-    if (MaskDDRef)
-      Inst->setMaskDDRef(MaskDDRef->clone());
-    if (auto InsertRegion = dyn_cast<HLLoop>(ACG->getInsertRegion()))
-      HLNodeUtils::insertAsLastChild(InsertRegion, Inst);
-    else
-      addInst(Inst, true);
+    ACG->addInst(Inst, MaskDDRef);
   }
 
   // Insert instruction into HLIf region.
   void addInst(HLInst *Inst, const bool IsThenChild) {
-    // Simply put MaskDDRef on each instruction under if. For innermost uniform
-    // predicates it's responsibility of predicator to remove unnecessary
-    // predicates.
-    if (MaskDDRef)
-      Inst->setMaskDDRef(MaskDDRef->clone());
-    auto InsertRegion = dyn_cast<HLIf>(ACG->getInsertRegion());
-    assert(InsertRegion && "HLIf is expected as insert region.");
-    IsThenChild ? HLNodeUtils::insertAsLastThenChild(InsertRegion, Inst)
-                : HLNodeUtils::insertAsLastElseChild(InsertRegion, Inst);
+    ACG->addInst(Inst, MaskDDRef, IsThenChild);
   }
 
   RegDDRef *codegenStandAloneBlob(const SCEV *SC);
