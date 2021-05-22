@@ -3956,7 +3956,8 @@ void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
   unsigned Lanes =
       (!VPInst->mayHaveSideEffects() && isVPValueUniform(VPInst, Plan)) ||
               (isa<VPCallInstruction>(VPInst) &&
-               cast<VPCallInstruction>(VPInst)->isKernelUniformCall())
+               cast<VPCallInstruction>(VPInst)->getVectorizationScenario() ==
+                   VPCallInstruction::CallVecScenariosTy::DoNotWiden)
           ? 1
           : VF;
 

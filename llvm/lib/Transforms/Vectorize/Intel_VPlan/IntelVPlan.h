@@ -1553,9 +1553,17 @@ public:
 
   bool isSimple() const { return !isAtomic() && !isVolatile(); }
 
+  void setMetadata(unsigned KindID, MDNode *MD) {
+    auto Iter = find_if(MDs, [KindID](auto &P) -> bool {
+      return P.first == KindID;
+    });
+    if (Iter != MDs.end())
+      Iter->second = MD;
+    else
+      MDs.push_back(std::make_pair(KindID, MD));
+  }
+
   MDNode *getMetadata(unsigned KindID) const {
-    MDNodesTy MDs;
-    getUnderlyingNonDbgMetadata(MDs);
     auto Iter = find_if(MDs, [KindID](auto &P) -> bool {
       return P.first == KindID;
     });
@@ -1593,13 +1601,15 @@ public:
 
   // Use underlying IR knowledge to access metadata attached to the incoming
   // instruction.
-  void getUnderlyingNonDbgMetadata(MDNodesTy &MDs) const {
-    MDs.clear();
+  void readUnderlyingMetadata(const loopopt::RegDDRef *RDDR = nullptr) {
+    assert(MDs.empty() && "Underlying metadata was already read");
     if (auto *IRLoadStore = dyn_cast_or_null<Instruction>(getInstruction()))
       IRLoadStore->getAllMetadataOtherThanDebugLoc(MDs);
     else if (HIR().getUnderlyingNode()) {
-      const loopopt::RegDDRef *RDDR = getHIRMemoryRef();
-      assert(RDDR && "Value should not be nullptr!");
+      if (!RDDR) {
+        RDDR = getHIRMemoryRef();
+        assert(RDDR && "Value should not be nullptr!");
+      }
       RDDR->getAllMetadataOtherThanDebugLoc(MDs);
     }
   }
@@ -1634,8 +1644,6 @@ public:
     O << "    Ordering: " << static_cast<unsigned>(getOrdering())
       << ", Volatile: " << isVolatile()
       << ", SSID: " << static_cast<unsigned>(getSyncScopeID()) << "\n";
-    VPLoadStoreInst::MDNodesTy MDs;
-    getUnderlyingNonDbgMetadata(MDs);
     if (!MDs.empty()) {
       O << "    NonDbgMDs -\n";
       for (auto MDPair : MDs) {
@@ -1656,6 +1664,7 @@ public:
     Cloned->setOrdering(getOrdering());
     Cloned->setVolatile(isVolatile());
     Cloned->setSyncScopeID(getSyncScopeID());
+    Cloned->MDs = MDs;
     // AddressSCEV cannot be propagated to the Cloned VPlan. VPlanSCEV may refer
     // to VPInstructions, therefore it cannot be used in a different VPlan.
     // AddressSCEVs in the cloned VPlan are recomputed after a new VPSE instance
@@ -1670,6 +1679,7 @@ private:
   bool IsVolatile = false;
   SyncScope::ID SSID = SyncScope::SingleThread;
   VPlanSCEV *AddressSCEV = nullptr; //< VPlanSCEV for pointer operand
+  MDNodesTy MDs;
 };
 
 /// Concrete class to represent copy instruction semantics in VPlan constructed

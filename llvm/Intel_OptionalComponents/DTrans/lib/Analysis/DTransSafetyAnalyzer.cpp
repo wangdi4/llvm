@@ -2846,10 +2846,37 @@ public:
       // permitted.
       //
       if (!(DstPtrToMember && SrcPtrToMember)) {
-        // TODO: Add support for the case where one parameter is an element
-        // pointee that is a structure type, and the other is a pointer to a
-        // structure that is not an element pointee, as long as both pointers
-        // represent the same type. For now, mark it as BadMemFuncManipulation.
+        // TODO: Update the field value tracking for the structure fields.
+
+        // Do not set safety issue when the memfunc is for an element pointee
+        // that is to/from a single field which is an aggregate type, where
+        // the field type matches the expected structure type.
+        auto *DestParentTy = PTA.getDominantAggregateUsageType(*DstInfo);
+        auto *SrcParentTy = PTA.getDominantAggregateUsageType(*SrcInfo);
+        if (DestParentTy == SrcParentTy) {
+          DTransStructType *OuterStructType;
+          size_t FieldNum;
+          uint64_t PrePadBytes;
+          uint64_t AccessSize;
+          bool IsConstantSize = dtrans::isValueConstant(SetSize, &AccessSize);
+          bool IsSimple = isSimpleStructureMember(
+              DstPtrToMember ? DstInfo : SrcInfo, &OuterStructType, &FieldNum,
+              &PrePadBytes);
+
+          if (IsConstantSize && IsSimple && PrePadBytes == 0) {
+            DTransType *ElemTy = OuterStructType->getFieldType(FieldNum);
+            assert(ElemTy && "Expected non-null field type");
+            if (DL.getTypeStoreSize(ElemTy->getLLVMType()) == AccessSize) {
+              dtrans::MemfuncRegion RegionDesc;
+              RegionDesc.IsCompleteAggregate = true;
+              createMemcpyOrMemmoveCallInfo(I, ElemTy, Kind, RegionDesc,
+                                            RegionDesc);
+              auto *ElemInfo = DTInfo.getOrCreateTypeInfo(ElemTy);
+              markAllFieldsWritten(ElemInfo, I);
+              return;
+            }
+          }
+        }
         dtrans::SafetyData Data = dtrans::BadMemFuncManipulation;
         StringRef Reason =
             "memcpy/memmove - Element pointee and non-Element pointee";

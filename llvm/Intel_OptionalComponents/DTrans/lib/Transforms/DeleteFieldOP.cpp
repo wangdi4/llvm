@@ -122,7 +122,7 @@ private:
   bool processGEPInst(GetElementPtrInst *GEP, bool IsPreCloning);
   bool processPossibleByteFlattenedGEP(GetElementPtrInst *GEP);
   void postprocessCall(CallBase *Call);
-  void processSubInst(Instruction *I);
+  void processSubInst(BinaryOperator *BinOp);
 
   const DataLayout &DL;
 
@@ -648,7 +648,7 @@ void DeleteFieldOPImpl::processFunction(Function &F) {
       // Subtract instructions need to be processed prior to function
       // cloning because the pointer subtraction map to types is not kept
       // up-to-date for the cloned functions.
-      processSubInst(&*It);
+      processSubInst(cast<BinaryOperator>(&*It));
       break;
     }
   }
@@ -722,10 +722,23 @@ bool DeleteFieldOPImpl::processPossibleByteFlattenedGEP(
   return false;
 }
 
-void DeleteFieldOPImpl::processSubInst(Instruction *I) {
-  // TODO: Update the size used for a divide operation that follows uses the
-  // result of a subtract instruction, when it is related to the size of a
-  // structure that is changing.
+void DeleteFieldOPImpl::processSubInst(BinaryOperator *BinOp) {
+  assert(BinOp->getOpcode() == Instruction::Sub &&
+    "postProcessSubInst called for non-sub instruction!");
+  DTransType *PtrSubTy = DTInfo->getResolvedPtrSubType(BinOp);
+  if (!PtrSubTy)
+    return;
+
+  llvm::Type *PtrSubLLVMTy = PtrSubTy->getLLVMType();
+  for (auto &ONPair : OrigToNewTypeMapping) {
+    llvm::Type *OrigTy = ONPair.first;
+    if (PtrSubLLVMTy != OrigTy)
+      continue;
+
+    // Update all users that divide this result by the structure size.
+    llvm::Type *ReplTy = ONPair.second;
+    llvm::dtrans::updatePtrSubDivUserSizeOperand(BinOp, OrigTy, ReplTy, DL);
+  }
 }
 
 // In the pre-cloning case, the function will return true if the field being

@@ -721,6 +721,8 @@ void dtrans::ArrayInfo::print(raw_ostream &OS) const {
 void dtrans::FieldInfo::print(raw_ostream &OS,
                               dtrans::Transform IgnoredInTransform) const {
   OS << "Field LLVM Type: " << *getLLVMType() << "\n";
+  if (isDTransType())
+    OS << "    DTrans Type: " << *getDTransType() << "\n";
   OS << "    Field info:";
 
   if (isRead())
