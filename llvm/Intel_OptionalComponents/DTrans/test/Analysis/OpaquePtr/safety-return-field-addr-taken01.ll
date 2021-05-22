@@ -14,8 +14,10 @@ define i32* @test01(%struct.test01* %pStruct) !dtrans_type !2 {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01
 ; CHECK: 0)Field LLVM Type: i32
+; CHECK: DTrans Type: i32
 ; CHECK-NEXT: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
+; CHECK: DTrans Type: i32
 ; CHECK-NEXT: Field info: ComplexUse AddressTaken{{ *$}}
 ; CHECK: Safety data: Field address taken return{{ *$}}
 
@@ -34,8 +36,10 @@ define i32* @test02(%struct.test02a* %pStruct) !dtrans_type !7 {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test02b
 ; CHECK: 0)Field LLVM Type: i32
+; CHECK: DTrans Type: i32
 ; CHECK-NEXT: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
+; CHECK: DTrans Type: i32
 ; CHECK-NEXT: Field info: ComplexUse AddressTaken{{ *$}}
 ; CHECK: Safety data: Nested structure | Field address taken return{{ *$}}
 
@@ -50,8 +54,10 @@ define %struct.test03b* @test03(%struct.test03a* %pStruct) !dtrans_type !11 {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test03a
 ; CHECK: 0)Field LLVM Type: i32
+; CHECK: DTrans Type: i32
 ; CHECK-NEXT: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: %struct.test03b
+; CHECK: DTrans Type: %struct.test03b
 ; CHECK-NEXT: Field info: ComplexUse AddressTaken{{ *$}}
 ; CHECK: Safety data: Contains nested structure | Field address taken return{{ *$}}
 
@@ -72,8 +78,10 @@ define %struct.test04b* @test04() !dtrans_type !16 {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test04a
 ; CHECK: 0)Field LLVM Type: i32
+; CHECK: DTrans Type: i32
 ; CHECK-NEXT: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: %struct.test04b
+; CHECK: DTrans Type: %struct.test04b
 ; CHECK-NEXT: Field info: ComplexUse AddressTaken{{ *$}}
 ; CHECK: Safety data: Global instance | Contains nested structure | Field address taken return{{ *$}}
 

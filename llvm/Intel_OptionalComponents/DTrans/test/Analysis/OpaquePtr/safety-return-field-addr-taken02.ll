@@ -18,8 +18,10 @@ define %struct.test01b* @test2() !dtrans_type !3 {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01a
 ; CHECK: 0)Field LLVM Type: i32
+; CHECK: DTrans Type: i32
 ; CHECK-NEXT: Field info:{{ *$}}
 ; CHECK: 1)Field LLVM Type: i8
+; CHECK: DTrans Type: i8
 ; CHECK-NEXT: Field info: ComplexUse AddressTaken{{ *$}}
 ; CHECK: Safety data: Bad casting | Global instance | Field address taken return{{ *$}}
 

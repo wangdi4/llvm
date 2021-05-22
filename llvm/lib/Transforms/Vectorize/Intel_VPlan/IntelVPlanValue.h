@@ -740,7 +740,9 @@ private:
 class VPMetadataAsValue : public VPValue {
   // VPlan is currently the context where we hold the pool of
   // VPMetadataAsValues.
+  friend class VPCloneUtils;
   friend class VPExternalValues;
+  friend class VPValueMapper;
 
 protected:
   VPMetadataAsValue(MetadataAsValue *MDAsValue)
