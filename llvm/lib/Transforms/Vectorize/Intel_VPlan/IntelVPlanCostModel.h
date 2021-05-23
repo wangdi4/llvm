@@ -196,6 +196,12 @@ class HeuristicsList<Scope, HTy, HTys...>
 public:
   HeuristicsList() = delete;
   HeuristicsList(VPlanTTICostModel *CM) : Base(CM), H(CM) {};
+  /// initForVPlan() method invokes VPlan level initialization routines for
+  /// every heuristic in the container.
+  void initForVPlan() {
+    H.initForVPlan();
+    this->Base::initForVPlan();
+  }
   void apply(unsigned TTICost, unsigned &Cost,
              Scope *S, raw_ostream *OS = nullptr) const {
     H.apply(TTICost, Cost, S, OS);
@@ -224,6 +230,7 @@ public:
   // There is no heuristics to apply, thus just be transparent.
   void apply(unsigned TTICost, unsigned &Cost,
              Scope *S, raw_ostream *OS = nullptr) const {}
+  void initForVPlan() {}
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // No heuristics to emit dump.
   template <typename ScopeTy>
@@ -270,6 +277,11 @@ protected:
   unsigned getCost(const VPBasicBlock *VPBB);
   // Return TTI contribution to the whole cost.
   unsigned getTTICost();
+
+  // Temporal virtual method to invoke Heuristics initialization.
+  virtual void initHeuristicsForVPlan() {
+    HeuristicsPipeline.initForVPlan();
+  }
 
   // Temporal virtual methods to invoke apply facilities on
   // HeuristicsPipelines on all levels.

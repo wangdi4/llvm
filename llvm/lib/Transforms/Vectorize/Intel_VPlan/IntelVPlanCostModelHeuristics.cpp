@@ -718,18 +718,14 @@ bool HeuristicPsadbw::checkPsadwbPattern(
   return true;
 }
 
-// Does all neccesary target checks and return corrected VPlan Cost.
-void HeuristicPsadbw::apply(
-  unsigned TTICost, unsigned &Cost,
-  const VPlanVector *Plan, raw_ostream *OS) const {
-  (void)TTICost;
+void HeuristicPsadbw::initForVPlan() {
+  // Detect all psadbw patterns in the ctor and populate PsadbwPatternInsts
+  // so dumping machinery can reveal participating intructions early.
   if (VF != 1)
     return;
 
-  unsigned PatternCost = 0;
-
-  // Scaled PSADBW cost in terms of number of intructions.
-  const unsigned PsadbwCost = 1 * VPlanTTIWrapper::Multiplier;
+  // Reset the map for the case of multiple calls to init().
+  PsadbwPatternInsts.clear();
 
   const VPLoop *TopLoop = *(Plan->getVPLoopInfo()->begin());
   for (const VPLoop *VPL : post_order(TopLoop)) {
@@ -779,7 +775,7 @@ void HeuristicPsadbw::apply(
       // the pattern.
 
       // Keeps all instructions that are part of PSADBW pattern.
-      SmallPtrSet<const VPInstruction*, 32> CurrPsadbwPatternInsts;
+      SinglePatternInstsSet CurrPsadbwPatternInsts;
       std::stack<const VPInstruction *> AddsStack;
 
       AddsStack.push(SumCarryOut);
@@ -815,6 +811,9 @@ void HeuristicPsadbw::apply(
           CurrPsadbwPatternInsts.insert(ReductionFinalInst);
         }
       }
+
+      if (CurrPsadbwPatternInsts.empty())
+        continue;
 
       // There are some ADD instructions in VPlan which sum parts of PSADBW
       // pattern but they are left overboard (not in CurrPsadbwPatternInsts).
@@ -880,49 +879,63 @@ void HeuristicPsadbw::apply(
           (LoopTCI.TripCount == 8 || LoopTCI.TripCount == 16))
         continue;
 
-      // Sum up costs of all instructions in CurrPsadbwPatternInsts.
-      // If there an instruction in the pattern has more than one use the whole
-      // pattern cost is halved.  This way we model external to pattern uses
-      // that keeps part of pattern instruction alive even if the whole pattern
-      // is going to be replace with psadbw.  On average half of the whole
-      // pattern is kept by one external use.  The more external uses the pattern
-      // has the less the gain cost of idiom recognition.
-      //
-      // Note that SumCarryOut has two uses that are both within the pattern
-      // (i.e. not external).
-      if (!CurrPsadbwPatternInsts.empty()) {
-        unsigned CurrentPatternCost = 0;
-        unsigned NumberOfExternalUses = 0;
-
-        for (const VPInstruction *VPInst : CurrPsadbwPatternInsts) {
-          unsigned InstCost = CM->getTTICost(VPInst);
-          if (InstCost != UnknownCost)
-            CurrentPatternCost += InstCost;
-
-          if ((VPInst == SumCarryOut && VPInst->getNumUsers() > 2) ||
-              (VPInst != SumCarryOut && VPInst->getNumUsers() > 1))
-            NumberOfExternalUses++;
-        }
-
-        // The following additional cost models performance impact due to code
-        // size bloating if PSADBW opportunity is ignored.
-        CurrentPatternCost *= 2;
-
-        // Factor in NumberOfExternalUses:
-        // Cost = Cost / (2 ^ NumberOfExternalUses)
-        CurrentPatternCost /= (1 << NumberOfExternalUses);
-
-        if (CurrentPatternCost > PsadbwCost) {
-          PatternCost += CurrentPatternCost - PsadbwCost;
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-          // When the pattern accepted update PsadbwPatternInsts.
-          // Currently PsadbwPatternInsts is used for debug output only.
-          PsadbwPatternInsts.insert(CurrPsadbwPatternInsts.begin(),
-                                    CurrPsadbwPatternInsts.end());
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-        }
-      }
+      // Keep all current pattern instructions in PsadbwPatternInsts.
+      PsadbwPatternInsts[SumCarryOut].insert(CurrPsadbwPatternInsts.begin(),
+                                             CurrPsadbwPatternInsts.end());
     }
+  }
+}
+
+// Does all neccesary target checks and return corrected VPlan Cost.
+void HeuristicPsadbw::apply(
+  unsigned TTICost, unsigned &Cost,
+  const VPlanVector *Plan, raw_ostream *OS) const {
+  (void)TTICost;
+
+  unsigned PatternCost = 0;
+
+  // Scaled PSADBW cost in terms of number of intructions.
+  const unsigned PsadbwCost = 1 * VPlanTTIWrapper::Multiplier;
+
+  for (auto PatternInstructionsEl : PsadbwPatternInsts) {
+    const VPInstruction* SumCarryOut = PatternInstructionsEl.first;
+    SinglePatternInstsSet PatternInstructions = PatternInstructionsEl.second;
+    // Sum up costs of all instructions within PatternInstructions.
+    // If there an instruction in the pattern has more than one use the whole
+    // pattern cost is halved.  This way we model external to pattern uses
+    // that keeps part of pattern instruction alive even if the whole pattern
+    // is going to be replace with psadbw.  On average half of the whole
+    // pattern is kept by one external use.  The more external uses the pattern
+    // has the less the gain cost of idiom recognition.
+    //
+    // Note that SumCarryOut has two uses that are both within the pattern
+    // (i.e. not external).
+    assert(!PatternInstructions.empty() &&
+           "The set is not expected to be empty.");
+
+    unsigned CurrentPatternCost = 0;
+    unsigned NumberOfExternalUses = 0;
+
+    for (const VPInstruction *VPInst : PatternInstructions) {
+      unsigned InstCost = CM->getTTICost(VPInst);
+      if (InstCost != UnknownCost)
+        CurrentPatternCost += InstCost;
+
+      if ((VPInst == SumCarryOut && VPInst->getNumUsers() > 2) ||
+          (VPInst != SumCarryOut && VPInst->getNumUsers() > 1))
+        NumberOfExternalUses++;
+    }
+
+    // The following additional cost models performance impact due to code
+    // size bloating if PSADBW opportunity is ignored.
+    CurrentPatternCost *= 2;
+
+    // Factor in NumberOfExternalUses:
+    // Cost = Cost / (2 ^ NumberOfExternalUses)
+    CurrentPatternCost /= (1 << NumberOfExternalUses);
+
+    if (CurrentPatternCost > PsadbwCost)
+      PatternCost += CurrentPatternCost - PsadbwCost;
   }
 
   unsigned NewCost;
@@ -942,8 +955,17 @@ void HeuristicPsadbw::apply(
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void HeuristicPsadbw::dump(raw_ostream &OS, const VPInstruction *VPInst) const {
-  if (PsadbwPatternInsts.count(VPInst) > 0)
-    OS << " *PSADBW*";
+  for (auto PatternInstructionsEl : PsadbwPatternInsts) {
+    const VPInstruction* SumCarryOut = PatternInstructionsEl.first;
+    SinglePatternInstsSet PatternInstructions = PatternInstructionsEl.second;
+
+    if (VPInst == SumCarryOut)
+      OS << " *PSADBW* (CarryOut Def)";
+    else if (PatternInstructions.count(VPInst) > 0) {
+      OS << " *PSADBW*, CarryOut: ";
+      SumCarryOut->printAsOperandNoType(OS);
+    }
+  }
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 

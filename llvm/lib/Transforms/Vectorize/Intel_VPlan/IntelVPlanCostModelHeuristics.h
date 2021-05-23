@@ -65,6 +65,15 @@ public:
   void printCostChangeInline(raw_ostream *OS,
                              unsigned RefCost, unsigned NewCost) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+  // An heuristic can feature the VPlan level initialization routine which is
+  // to be called explicitly by demand when CM is about to use the heuristic
+  // to estimate the cost of whole VPlan. CM does not invoke initForVPlan when
+  // it uses the heuristic to calculate the cost of VPBlock or VPInstruction.
+  // This way we keep ctor light and don't spend time on possibly expensive
+  // initialization in ctor when CM object is created to be used for
+  // VPInstruction cost calculation only.
+  // The default implementation do nothing.
+  void initForVPlan() {}
 };
 
 // Heurstic that calculates the cost of VPlan vectorization when VPlan
@@ -204,11 +213,14 @@ public:
 // TODO:
 // The main method should return Cost of psadbw instruction instead of zero.
 class HeuristicPsadbw : public HeuristicBase {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // SinglePatternInstsSet is the type for set holding VPInstructions that
+  // belong to the same PSADBW pattern.
+  using SinglePatternInstsSet = SmallPtrSet<const VPInstruction*, 32>;
   // PsadbwPatternInsts holds all instructions that are part of any PSADBW
-  // pattern.  Used by dumping facilities only.
-  mutable SmallPtrSet<const VPInstruction*, 32> PsadbwPatternInsts;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  // pattern. It is a map of SinglePatternInstsSet's indexed by VPInstruction
+  // which is carry out ADD instruction for the pattern.
+  DenseMap<const VPInstruction*, SinglePatternInstsSet> PsadbwPatternInsts;
+
   // Checks for PSADWB pattern starting SelInst and updates
   // CurrPsadbwPatternInsts argument with instructions forming PSADWB pattern
   // based on SelInst.
@@ -224,6 +236,7 @@ public:
   // The method should return Cost of psadbw instruction instead of zero.
   void apply(unsigned TTICost, unsigned &Cost,
              const VPlanVector *Plan, raw_ostream *OS = nullptr) const;
+  void initForVPlan();
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   using HeuristicBase::dump;
   void dump(raw_ostream &OS, const VPInstruction *VPInst) const;

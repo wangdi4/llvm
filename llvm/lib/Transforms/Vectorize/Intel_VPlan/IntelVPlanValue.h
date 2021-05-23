@@ -200,6 +200,7 @@ public:
   virtual void print(raw_ostream &OS) const { printAsOperand(OS); }
   void dump() const { print(errs()); errs()<< '\n'; }
   virtual void printAsOperand(raw_ostream &OS) const;
+  void printAsOperandNoType(raw_ostream &OS) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   unsigned getNumUsers() const { return Users.size(); }
