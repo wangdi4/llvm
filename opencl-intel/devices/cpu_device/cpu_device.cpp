@@ -2238,6 +2238,55 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
             }
             return CL_DEV_SUCCESS;
         }
+        // Describes the various memory orders and scopes that the device
+        // supports for atomic memory operations.
+        case CL_DEVICE_ATOMIC_MEMORY_CAPABILITIES:
+          *pinternalRetunedValueSize = sizeof(cl_device_atomic_capabilities);
+          if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+            return CL_DEV_INVALID_VALUE;
+          }
+          if (nullptr != paramVal) {
+            // The mandated minimum capability is:
+            // CL_DEVICE_ATOMIC_ORDER_RELAXED |
+            // CL_DEVICE_ATOMIC_SCOPE_WORK_GROUP
+            *(cl_command_queue_properties *)paramVal =
+                CL_DEVICE_ATOMIC_ORDER_RELAXED |
+                CL_DEVICE_ATOMIC_SCOPE_WORK_GROUP;
+            // for device that provides the same level of capabilities as an
+            // OpenCL 2.x device
+            if (ver >= OPENCL_VERSION_2_0)
+              *(cl_command_queue_properties *)paramVal |=
+                  CL_DEVICE_ATOMIC_ORDER_ACQ_REL |
+                  CL_DEVICE_ATOMIC_ORDER_SEQ_CST |
+                  CL_DEVICE_ATOMIC_SCOPE_ALL_DEVICES |
+                  CL_DEVICE_ATOMIC_SCOPE_DEVICE;
+          }
+          return CL_DEV_SUCCESS;
+        // Describes the various memory orders and scopes that the device
+        // supports for atomic fence operations.
+        case CL_DEVICE_ATOMIC_FENCE_CAPABILITIES:
+          *pinternalRetunedValueSize = sizeof(cl_device_atomic_capabilities);
+          if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+            return CL_DEV_INVALID_VALUE;
+          }
+          if (nullptr != paramVal) {
+            // The mandated minimum capability is:
+            // CL_DEVICE_ATOMIC_ORDER_RELAXED | CL_DEVICE_ATOMIC_ORDER_ACQ_REL |
+            // CL_DEVICE_ATOMIC_SCOPE_WORK_GROUP
+            *(cl_command_queue_properties *)paramVal =
+                CL_DEVICE_ATOMIC_ORDER_RELAXED |
+                CL_DEVICE_ATOMIC_ORDER_ACQ_REL |
+                CL_DEVICE_ATOMIC_SCOPE_WORK_GROUP;
+            // for device that provides the same level of capabilities as an
+            // OpenCL 2.x device
+            if (ver >= OPENCL_VERSION_2_0)
+              *(cl_command_queue_properties *)paramVal |=
+                  CL_DEVICE_ATOMIC_ORDER_SEQ_CST |
+                  CL_DEVICE_ATOMIC_SCOPE_ALL_DEVICES |
+                  CL_DEVICE_ATOMIC_SCOPE_DEVICE |
+                  CL_DEVICE_ATOMIC_SCOPE_WORK_ITEM;
+          }
+          return CL_DEV_SUCCESS;
         default:
             return CL_DEV_INVALID_VALUE;
         };
