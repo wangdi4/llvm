@@ -17,9 +17,7 @@ __kernel void vi(int x, int y) {
 
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 float __attribute__((overloadable)) foo_err(half in1, half in2);
-// expected-note@-1 {{candidate unavailable as it requires OpenCL extension '' to be enabled}}
 float __attribute__((overloadable)) foo_err(half in1, int in2);
-// expected-note@-1 {{candidate unavailable as it requires OpenCL extension '' to be enabled}}
 #pragma OPENCL EXTENSION cl_khr_fp16 : disable
 
 __kernel void vi_err(int x, int y) {
