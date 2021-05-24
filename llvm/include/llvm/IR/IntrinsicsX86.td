@@ -6289,12 +6289,16 @@ let TargetPrefix = "x86" in {
 // IceCode intrinsics cannot be scheduled, so we don't need to specify memory
 // properties for them.
 let TargetPrefix = "x86" in {
+  def int_x86_icecode_loadpphys_8 : GCCBuiltin<"__builtin_ia32_icecode_loadpphys_8">,
+              Intrinsic<[ llvm_i8_ty ], [ llvm_i64_ty ], []>;
   def int_x86_icecode_loadpphys_16 : GCCBuiltin<"__builtin_ia32_icecode_loadpphys_16">,
               Intrinsic<[ llvm_i16_ty ], [ llvm_i64_ty ], []>;
   def int_x86_icecode_loadpphys_32 : GCCBuiltin<"__builtin_ia32_icecode_loadpphys_32">,
               Intrinsic<[ llvm_i32_ty ], [ llvm_i64_ty ], []>;
   def int_x86_icecode_loadpphys_64 : GCCBuiltin<"__builtin_ia32_icecode_loadpphys_64">,
               Intrinsic<[ llvm_i64_ty ], [ llvm_i64_ty ], []>;
+  def int_x86_icecode_storepphys_8 : GCCBuiltin<"__builtin_ia32_icecode_storepphys_8">,
+              Intrinsic<[], [ llvm_i8_ty, llvm_i64_ty ], []>;
   def int_x86_icecode_storepphys_16 : GCCBuiltin<"__builtin_ia32_icecode_storepphys_16">,
               Intrinsic<[], [ llvm_i16_ty, llvm_i64_ty ], []>;
   def int_x86_icecode_storepphys_32 : GCCBuiltin<"__builtin_ia32_icecode_storepphys_32">,

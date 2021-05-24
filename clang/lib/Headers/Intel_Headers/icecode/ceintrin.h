@@ -355,6 +355,20 @@ _ce_storelin64(unsigned long long reg, unsigned long long addr) {
   __builtin_ia32_icecode_storelin_64(reg, addr);
 }
 
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
+_ce_cccm(unsigned long long reg) {
+  unsigned long long res;
+  __asm__ __volatile__ ("cccm %0" : "=r"(res) : "0"(reg));
+  return res;
+}
+
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
+_ce_cccp(unsigned long long reg) {
+  unsigned long long res;
+  __asm__ __volatile__ ("cccp %0" : "=r"(res) : "0"(reg));
+  return res;
+}
+
 #undef __DEFAULT_FN_ATTRS
 
 #endif /* __x86_64__ */

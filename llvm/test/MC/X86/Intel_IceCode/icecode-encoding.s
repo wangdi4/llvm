@@ -1,29 +1,37 @@
 // REQUIRES: intel_feature_icecode
 // RUN: llvm-mc -triple x86_icecode-unknown-unknown --show-encoding < %s  | FileCheck %s
 
-// CHECK: gmovpphysw (%rdx), %ax
-// CHECK: encoding: [0x66,0xf3,0x0f,0xb4,0x02]
-          gmovpphys (%rdx), %ax
+// CHECK: gmovpphysb (%rbx), %al
+// CHECK: encoding: [0xf3,0x12,0x03]
+          gmovpphys (%rbx), %al
 
-// CHECK: gmovpphysl (%rdx), %eax
-// CHECK: encoding: [0xf3,0x0f,0xb4,0x02]
-          gmovpphys (%rdx), %eax
+// CHECK: gmovpphysw (%rbx), %ax
+// CHECK: encoding: [0x66,0xf3,0x13,0x03]
+          gmovpphys (%rbx), %ax
 
-// CHECK: gmovpphysq (%rdx), %rax
-// CHECK: encoding: [0xf3,0x48,0x0f,0xb4,0x02]
-          gmovpphys (%rdx), %rax
+// CHECK: gmovpphysl (%rbx), %eax
+// CHECK: encoding: [0xf3,0x13,0x03]
+          gmovpphys (%rbx), %eax
 
-// CHECK: gmovpphysw %ax, (%rdx)
-// CHECK: encoding: [0x66,0xf2,0x0f,0xb4,0x02]
-          gmovpphys %ax, (%rdx)
+// CHECK: gmovpphysq (%rbx), %rax
+// CHECK: encoding: [0xf3,0x48,0x13,0x03]
+          gmovpphys (%rbx), %rax
 
-// CHECK: gmovpphysl %eax, (%rdx)
-// CHECK: encoding: [0xf2,0x0f,0xb4,0x02]
-          gmovpphys %eax, (%rdx)
+// CHECK: gmovpphysb %al, (%rbx)
+// CHECK: encoding: [0xf3,0x10,0x03]
+          gmovpphys %al, (%rbx)
 
-// CHECK: gmovpphysq %rax, (%rdx)
-// CHECK: encoding: [0xf2,0x48,0x0f,0xb4,0x02]
-          gmovpphys %rax, (%rdx)
+// CHECK: gmovpphysw %ax, (%rbx)
+// CHECK: encoding: [0x66,0xf3,0x11,0x03]
+          gmovpphys %ax, (%rbx)
+
+// CHECK: gmovpphysl %eax, (%rbx)
+// CHECK: encoding: [0xf3,0x11,0x03]
+          gmovpphys %eax, (%rbx)
+
+// CHECK: gmovpphysq %rax, (%rbx)
+// CHECK: encoding: [0xf3,0x48,0x11,0x03]
+          gmovpphys %rax, (%rbx)
 
 // CHECK: loadseg %cs:(%rdx)
 // CHECK: encoding: [0x2e,0x0f,0xb2,0x02]
@@ -364,3 +372,11 @@
 // CHECK: gmovlinq %rax, (%rdx)
 // CHECK: encoding: [0xf2,0x48,0x0f,0x02,0x02]
           gmovlin %rax, (%rdx)
+
+// CHECK: cccm %rbx
+// CHECK: encoding: [0xf3,0x48,0x0f,0xcb]
+          cccm %rbx
+
+// CHECK: cccp %rbx
+// CHECK: encoding: [0xf2,0x48,0x0f,0xcb]
+          cccp %rbx
