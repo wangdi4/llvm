@@ -121,7 +121,7 @@ enum DeviceArch : uint64_t {
 std::map<uint64_t, std::vector<uint32_t>> DeviceArchMap {
   {
     DeviceArch_Gen9, {
-      0x0901, 0x0902, 0x0903, 0x0904, 0x1900, // SKL
+      0x1900, // SKL
       0x5900, // KBL
       0x3E00, 0x9B00, // CFL
     }
