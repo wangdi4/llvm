@@ -4840,6 +4840,11 @@ LangAS CodeGenModule::GetGlobalConstantAddressSpace() const {
     return LangAS::opencl_constant;
   if (LangOpts.SYCLIsDevice)
     return LangAS::sycl_global;
+#if INTEL_COLLAB
+  // Matches logic above in GetGlobalVarAddressSpace().
+  if (getLangOpts().UseAutoOpenCLAddrSpaceForOpenMP && getTarget().getTriple().isSPIR())
+    return LangAS::opencl_global;
+#endif // INTEL_COLLAB
   if (auto AS = getTarget().getConstantAddressSpace())
     return AS.getValue();
   return LangAS::Default;
