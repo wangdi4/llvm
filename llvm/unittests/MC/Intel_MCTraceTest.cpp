@@ -50,7 +50,7 @@ struct Context {
     MSI.reset(
         TheTarget->createMCSubtargetInfo(Triple, /*CPU=*/"", /*Features=*/""));
     Ctx = std::make_unique<MCContext>(llvm::Triple(Triple), MAI.get(),
-                                      MRI.get(), nullptr, MSI.get());
+                                      MRI.get(), MSI.get());
   }
 
   operator bool() { return Ctx.get(); }
