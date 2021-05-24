@@ -559,7 +559,7 @@ Attributor::getAssumedConstant(const Value &V, const AbstractAttribute &AA,
   }
   if (isa_and_nonnull<UndefValue>(SimplifiedV.getValue())) {
     recordDependence(ValueSimplifyAA, AA, DepClassTy::OPTIONAL);
-    return llvm::None;
+    return UndefValue::get(V.getType());
   }
   Constant *CI = dyn_cast_or_null<Constant>(SimplifiedV.getValue());
   if (CI && CI->getType() != V.getType()) {
@@ -1354,6 +1354,13 @@ ChangeStatus Attributor::cleanupIR() {
 
   LLVM_DEBUG(dbgs() << "[Attributor] DeadInsts size: " << DeadInsts.size()
                     << "\n");
+
+  LLVM_DEBUG({
+    dbgs() << "[Attributor] DeadInsts size: " << DeadInsts.size() << "\n";
+    for (auto &I : DeadInsts)
+      if (I)
+        dbgs() << "  - " << *I << "\n";
+  });
 
   RecursivelyDeleteTriviallyDeadInstructions(DeadInsts);
 
@@ -2331,8 +2338,12 @@ static bool runAttributorOnFunctions(InformationCache &InfoCache,
   if (Functions.empty())
     return false;
 
-  LLVM_DEBUG(dbgs() << "[Attributor] Run on module with " << Functions.size()
-                    << " functions.\n");
+  LLVM_DEBUG({
+    dbgs() << "[Attributor] Run on module with " << Functions.size()
+           << " functions:\n";
+    for (Function *Fn : Functions)
+      dbgs() << "  - " << Fn->getName() << "\n";
+  });
 
   // Create an Attributor and initially empty information cache that is filled
   // while we identify default attribute opportunities.

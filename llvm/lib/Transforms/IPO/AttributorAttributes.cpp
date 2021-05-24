@@ -2293,8 +2293,8 @@ struct AAWillReturnImpl : public AAWillReturn {
         (!getAssociatedFunction() || !getAssociatedFunction()->mustProgress()))
       return false;
 
-    const auto &MemAA = A.getAAFor<AAMemoryBehavior>(*this, getIRPosition(),
-                                                      DepClassTy::NONE);
+    const auto &MemAA =
+        A.getAAFor<AAMemoryBehavior>(*this, getIRPosition(), DepClassTy::NONE);
     if (!MemAA.isAssumedReadOnly())
       return false;
     if (KnownOnly && !MemAA.isKnownReadOnly())
@@ -3609,7 +3609,7 @@ struct AADereferenceableFloating : AADereferenceableImpl {
         // TODO: track globally.
         bool CanBeNull, CanBeFreed;
         DerefBytes =
-          Base->getPointerDereferenceableBytes(DL, CanBeNull, CanBeFreed);
+            Base->getPointerDereferenceableBytes(DL, CanBeNull, CanBeFreed);
         T.GlobalState.indicatePessimisticFixpoint();
       } else {
         const DerefState &DS = AA.getState();
@@ -4537,6 +4537,11 @@ struct AAValueSimplifyImpl : AAValueSimplify {
 
   /// See AbstractAttribute::getAsStr().
   const std::string getAsStr() const override {
+    LLVM_DEBUG({
+      errs() << "SAV: " << SimplifiedAssociatedValue << " ";
+      if (SimplifiedAssociatedValue)
+        errs() << "SAV: " << **SimplifiedAssociatedValue << " ";
+    });
     return getAssumed() ? (getKnown() ? "simplified" : "maybe-simple")
                         : "not-simple";
   }
@@ -4703,7 +4708,7 @@ struct AAValueSimplifyArgument final : AAValueSimplifyImpl {
         return indicatePessimisticFixpoint();
     }
 
-    bool HasValueBefore = SimplifiedAssociatedValue.hasValue();
+    auto Before = SimplifiedAssociatedValue;
 
     auto PredForCallSite = [&](AbstractCallSite ACS) {
       const IRPosition &ACSArgPos =
@@ -4741,9 +4746,8 @@ struct AAValueSimplifyArgument final : AAValueSimplifyImpl {
         return indicatePessimisticFixpoint();
 
     // If a candicate was found in this update, return CHANGED.
-    return HasValueBefore == SimplifiedAssociatedValue.hasValue()
-               ? ChangeStatus::UNCHANGED
-               : ChangeStatus ::CHANGED;
+    return Before == SimplifiedAssociatedValue ? ChangeStatus::UNCHANGED
+                                               : ChangeStatus ::CHANGED;
   }
 
   /// See AbstractAttribute::trackStatistics()
@@ -4758,7 +4762,7 @@ struct AAValueSimplifyReturned : AAValueSimplifyImpl {
 
   /// See AbstractAttribute::updateImpl(...).
   ChangeStatus updateImpl(Attributor &A) override {
-    bool HasValueBefore = SimplifiedAssociatedValue.hasValue();
+    auto Before = SimplifiedAssociatedValue;
 
     auto PredForReturned = [&](Value &V) {
       return checkAndUpdate(A, *this, V, SimplifiedAssociatedValue);
@@ -4769,9 +4773,8 @@ struct AAValueSimplifyReturned : AAValueSimplifyImpl {
         return indicatePessimisticFixpoint();
 
     // If a candicate was found in this update, return CHANGED.
-    return HasValueBefore == SimplifiedAssociatedValue.hasValue()
-               ? ChangeStatus::UNCHANGED
-               : ChangeStatus ::CHANGED;
+    return Before == SimplifiedAssociatedValue ? ChangeStatus::UNCHANGED
+                                               : ChangeStatus ::CHANGED;
   }
 
   ChangeStatus manifest(Attributor &A) override {
@@ -4886,19 +4889,20 @@ struct AAValueSimplifyFloating : AAValueSimplifyImpl {
             SimplifiedAssociatedValue == NewVal) &&
            "Did not expect to change value for zero-comparison");
 
-    bool HasValueBefore = SimplifiedAssociatedValue.hasValue();
+    auto Before = SimplifiedAssociatedValue;
     SimplifiedAssociatedValue = NewVal;
 
     if (PtrNonNullAA.isKnownNonNull())
       indicateOptimisticFixpoint();
 
-    Changed = HasValueBefore ? ChangeStatus::UNCHANGED : ChangeStatus ::CHANGED;
+    Changed = Before == SimplifiedAssociatedValue ? ChangeStatus::UNCHANGED
+                                                  : ChangeStatus ::CHANGED;
     return true;
   }
 
   /// See AbstractAttribute::updateImpl(...).
   ChangeStatus updateImpl(Attributor &A) override {
-    bool HasValueBefore = SimplifiedAssociatedValue.hasValue();
+    auto Before = SimplifiedAssociatedValue;
 
     ChangeStatus Changed;
     if (checkForNullPtrCompare(A, dyn_cast<ICmpInst>(&getAnchorValue()),
@@ -4928,10 +4932,8 @@ struct AAValueSimplifyFloating : AAValueSimplifyImpl {
         return indicatePessimisticFixpoint();
 
     // If a candicate was found in this update, return CHANGED.
-
-    return HasValueBefore == SimplifiedAssociatedValue.hasValue()
-               ? ChangeStatus::UNCHANGED
-               : ChangeStatus ::CHANGED;
+    return Before == SimplifiedAssociatedValue ? ChangeStatus::UNCHANGED
+                                               : ChangeStatus ::CHANGED;
   }
 
   /// See AbstractAttribute::trackStatistics()
@@ -7733,7 +7735,6 @@ struct AAPotentialValuesFloating : AAPotentialValuesImpl {
       // with undef.
       unionAssumedWithUndef();
     } else if (LHSAA.undefIsContained()) {
-      bool MaybeTrue = false, MaybeFalse = false;
       for (const APInt &R : RHSAAPVS) {
         bool CmpResult = calculateICmpInst(ICI, Zero, R);
         MaybeTrue |= CmpResult;
