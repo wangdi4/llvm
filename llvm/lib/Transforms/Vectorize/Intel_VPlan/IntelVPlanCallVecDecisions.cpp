@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanCallVecDecisions.h"
+#include "IntelVPlanUtils.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -343,6 +344,17 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
           {Intrinsic::experimental_noalias_scope_decl})) {
     VPCall->setShouldNotBeWidened();
     return;
+  }
+
+  // lifetime_start/end intrinsics operating on private memory optimized for
+  // SOA-layout are not widened.
+  if (VPCall->isLifetimeStartOrEndIntrinsic()) {
+    auto *PrivPtr = dyn_cast_or_null<VPAllocatePrivate>(
+        getVPValuePrivateMemoryPtr(VPCall->getOperand(1)));
+    if (PrivPtr && PrivPtr->isSOALayout()) {
+      VPCall->setShouldNotBeWidened();
+      return;
+    }
   }
 
   // All other cases implies default properties i.e. call serialization.

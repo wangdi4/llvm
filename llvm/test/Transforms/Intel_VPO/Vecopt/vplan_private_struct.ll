@@ -40,22 +40,22 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[UNI_PHI30:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP12:%.*]], [[VPLANNEDBB90:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VECTOR_PH0]] ], [ [[TMP11:%.*]], [[VPLANNEDBB90]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i32 [ 0, [[VECTOR_PH0]] ], [ [[TMP12:%.*]], [[VPLANNEDBB100:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[VECTOR_PH0]] ], [ [[TMP11:%.*]], [[VPLANNEDBB100]] ]
 ; CHECK-NEXT:    [[TMP1:%.*]] = sext <2 x i32> [[VEC_PHI0]] to <2 x i64>
 ; CHECK-NEXT:    [[TMP2:%.*]] = add nuw <2 x i64> [[TMP1]], [[BROADCAST_SPLAT0]]
-; CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds i8, i8 addrspace(4)* [[INP_ARG]], i64 16
-; CHECK-NEXT:    [[DOTSPLATINSERT0:%.*]] = insertelement <2 x i8 addrspace(4)*> poison, i8 addrspace(4)* [[MM_VECTORGEP0]], i32 0
-; CHECK-NEXT:    [[DOTSPLAT0:%.*]] = shufflevector <2 x i8 addrspace(4)*> [[DOTSPLATINSERT0]], <2 x i8 addrspace(4)*> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <2 x i8 addrspace(4)*> [[DOTSPLAT0]] to <2 x i32 addrspace(1)* addrspace(4)*>
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i8, i8 addrspace(4)* [[INP_ARG]], i64 16
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT30:%.*]] = insertelement <2 x i8 addrspace(4)*> poison, i8 addrspace(4)* [[SCALAR_GEP0]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT40:%.*]] = shufflevector <2 x i8 addrspace(4)*> [[BROADCAST_SPLATINSERT30]], <2 x i8 addrspace(4)*> poison, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <2 x i8 addrspace(4)*> [[BROADCAST_SPLAT40]] to <2 x i32 addrspace(1)* addrspace(4)*>
 ; CHECK-NEXT:    [[DOTEXTRACT_0_0:%.*]] = extractelement <2 x i32 addrspace(1)* addrspace(4)*> [[TMP3]], i32 0
 ; CHECK-NEXT:    [[TMP4:%.*]] = load i32 addrspace(1)*, i32 addrspace(1)* addrspace(4)* [[DOTEXTRACT_0_0]], align 8
-; CHECK-NEXT:    [[MM_VECTORGEP40:%.*]] = getelementptr inbounds i8, i8 addrspace(4)* [[INP_ARG]], i64 24
-; CHECK-NEXT:    [[DOTSPLATINSERT50:%.*]] = insertelement <2 x i8 addrspace(4)*> poison, i8 addrspace(4)* [[MM_VECTORGEP40]], i32 0
-; CHECK-NEXT:    [[DOTSPLAT60:%.*]] = shufflevector <2 x i8 addrspace(4)*> [[DOTSPLATINSERT50]], <2 x i8 addrspace(4)*> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i8 addrspace(4)*> [[DOTSPLAT60]] to <2 x i32 addrspace(4)*>
-; CHECK-NEXT:    [[DOTEXTRACT_0_70:%.*]] = extractelement <2 x i32 addrspace(4)*> [[TMP5]], i32 0
-; CHECK-NEXT:    [[TMP6:%.*]] = load i32, i32 addrspace(4)* [[DOTEXTRACT_0_70]], align 8
+; CHECK-NEXT:    [[SCALAR_GEP50:%.*]] = getelementptr inbounds i8, i8 addrspace(4)* [[INP_ARG]], i64 24
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT60:%.*]] = insertelement <2 x i8 addrspace(4)*> poison, i8 addrspace(4)* [[SCALAR_GEP50]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT70:%.*]] = shufflevector <2 x i8 addrspace(4)*> [[BROADCAST_SPLATINSERT60]], <2 x i8 addrspace(4)*> poison, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i8 addrspace(4)*> [[BROADCAST_SPLAT70]] to <2 x i32 addrspace(4)*>
+; CHECK-NEXT:    [[DOTEXTRACT_0_80:%.*]] = extractelement <2 x i32 addrspace(4)*> [[TMP5]], i32 0
+; CHECK-NEXT:    [[TMP6:%.*]] = load i32, i32 addrspace(4)* [[DOTEXTRACT_0_80]], align 8
 ; CHECK-NEXT:    [[TMP7:%.*]] = bitcast [2 x <{ i32, i32, i8 addrspace(4)*, i32 addrspace(1)*, i32 }>]* [[BLOCK_VEC0]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 56, i8* nonnull [[TMP7]])
 ; CHECK-NEXT:    [[TMP8:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[TMP_VEC0]] to i8*
@@ -63,13 +63,13 @@ target triple = "x86_64-pc-linux"
 ; CHECK-NEXT:    [[TMP9:%.*]] = bitcast [2 x %struct.ndrange_t.6]* [[NDRANGE_I_I_VEC0]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 160, i8* nonnull [[TMP9]])
 ; CHECK-NEXT:    [[TMP10:%.*]] = icmp slt i32 [[TMP6]], 1
-; CHECK-NEXT:    br i1 [[TMP10]], label [[VPLANNEDBB80:%.*]], label [[VPLANNEDBB90]]
+; CHECK-NEXT:    br i1 [[TMP10]], label [[VPLANNEDBB90:%.*]], label [[VPLANNEDBB100]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB7:
+; CHECK-NEXT:  VPlannedBB9:
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 160, i8* nonnull [[TMP9]])
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 56, i8* nonnull [[TMP7]])
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 160, i8* nonnull [[TMP8]])
-; CHECK-NEXT:    br label [[VPLANNEDBB90]]
+; CHECK-NEXT:    br label [[VPLANNEDBB100]]
 
 ; Function Attrs: nounwind
 define dso_local void @_ZGVdN8u___block_fn_block_invoke_kernel(i8 addrspace(4)*) {

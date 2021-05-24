@@ -45,8 +45,8 @@ define void @foo(<2 x i32>* nocapture %src, <2 x i32>* nocapture %dst) {
 ; CHECK-NEXT:   #7 <4 x 64> SStore
 ;
 ; CHECK-LABEL: @foo(
-; CHECK:         [[MM_VECTORGEP:%.*]] = getelementptr inbounds <2 x i32>, <4 x <2 x i32>*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_PHI:%.*]]
-; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_:%.*]] = extractelement <4 x <2 x i32>*> [[MM_VECTORGEP]], i32 0
+; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[DST:%.*]], i64 [[UNI_PHI:%.*]]
+; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds <2 x i32>, <4 x <2 x i32>*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_PHI:%.*]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <4 x <2 x i32>*> [[MM_VECTORGEP]] to <4 x i32*>
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[TMP0]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef)
 ; CHECK-NEXT:    [[TMP1:%.*]] = and <4 x i32> [[WIDE_MASKED_GATHER]], <i32 1, i32 1, i32 1, i32 1>
@@ -55,9 +55,8 @@ define void @foo(<2 x i32>* nocapture %src, <2 x i32>* nocapture %dst) {
 ; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    [[MM_VECTORGEP7:%.*]] = getelementptr inbounds <2 x i32>, <4 x <2 x i32>*> [[BROADCAST_SPLAT6:%.*]], <4 x i64> [[VEC_PHI]]
-; CHECK-NEXT:    [[MM_VECTORGEP7_EXTRACT_0_:%.*]] = extractelement <4 x <2 x i32>*> [[MM_VECTORGEP7]], i32 0
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <2 x i32>* [[MM_VECTORGEP7_EXTRACT_0_]] to <16 x i64>*
+; CHECK-NEXT:    [[SCALAR_GEP2:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[SRC:%.*]], i64 [[UNI_PHI]]
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <2 x i32>* [[SCALAR_GEP2]] to <16 x i64>*
 ; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <4 x i1> [[TMP3]], <4 x i1> zeroinitializer, <16 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 4, i32 4, i32 4, i32 4>
 ; CHECK-NEXT:    [[VLS_LOAD:%.*]] = call <16 x i64> @llvm.masked.load.v16i64.p0v16i64(<16 x i64>* [[TMP4]], i32 4, <16 x i1> [[TMP5]], <16 x i64> undef)
 ; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <16 x i64> [[VLS_LOAD]], <16 x i64> [[VLS_LOAD]], <4 x i32> <i32 0, i32 3, i32 6, i32 9>
@@ -78,7 +77,7 @@ define void @foo(<2 x i32>* nocapture %src, <2 x i32>* nocapture %dst) {
 ; CHECK-NEXT:    [[TMP18:%.*]] = bitcast <8 x i32> [[TMP11]] to <4 x i64>
 ; CHECK-NEXT:    [[TMP19:%.*]] = shufflevector <4 x i64> [[TMP18]], <4 x i64> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP20:%.*]] = shufflevector <16 x i64> [[TMP17]], <16 x i64> [[TMP19]], <16 x i32> <i32 0, i32 1, i32 16, i32 3, i32 4, i32 17, i32 6, i32 7, i32 18, i32 9, i32 10, i32 19, i32 12, i32 13, i32 14, i32 15>
-; CHECK-NEXT:    [[TMP21:%.*]] = bitcast <2 x i32>* [[MM_VECTORGEP_EXTRACT_0_]] to <16 x i64>*
+; CHECK-NEXT:    [[TMP21:%.*]] = bitcast <2 x i32>* [[SCALAR_GEP]] to <16 x i64>*
 ; CHECK-NEXT:    [[TMP22:%.*]] = shufflevector <4 x i1> [[TMP3]], <4 x i1> zeroinitializer, <16 x i32> <i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 4, i32 4, i32 4, i32 4>
 ; CHECK-NEXT:    call void @llvm.masked.store.v16i64.p0v16i64(<16 x i64> [[TMP20]], <16 x i64>* [[TMP21]], i32 4, <16 x i1> [[TMP22]])
 ;

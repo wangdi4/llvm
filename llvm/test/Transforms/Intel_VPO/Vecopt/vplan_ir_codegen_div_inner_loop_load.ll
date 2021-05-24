@@ -77,17 +77,16 @@ exit:                                             ; preds = %for.end, %entry
   ret void
 }
 
-; Check for inner loop with live out uniform GEP. CHECK for GEP instruction is explicitly omitted
-; because of bcast pattern differences between IR-based CG and VPValue-based CG.
+; Check for inner loop with live out uniform GEP.
 ; CHECK-LABEL: @test1_liveout
 ; CHECK:       VPlannedBB4:
 ; CHECK-NEXT:    [[INNER_UNI_PHI:%.*]] = phi i64 [ [[INNER_IV_ADD:%.*]], [[VPLANNEDBB:%.*]] ], [ 0, [[VECTOR_BODY:%.*]] ]
-; CHECK:         [[EXTRACT_GEP:%.*]] = extractelement <2 x i64*> [[GEP:%.*]], i32 0
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i64, i64* [[ARR1:%.*]], i64 42
 ; CHECK-NEXT:    [[BC_MASK:%.*]] = bitcast <2 x i1> [[MASK:%.*]] to i2
 ; CHECK-NEXT:    [[NOT_AZ:%.*]] = icmp ne i2 [[BC_MASK]], 0
 ; CHECK-NEXT:    br i1 [[NOT_AZ]], label %[[PRED_LOAD_IF:.*]], label %[[MERGE:.*]]
 ; CHECK:       [[PRED_LOAD_IF]]:
-; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64* [[EXTRACT_GEP]], align 4
+; CHECK-NEXT:    [[LOAD:%.*]] = load i64, i64* [[SCALAR_GEP]], align 4
 ; CHECK-NEXT:    [[BCAST_INSERT:%.*]] = insertelement <2 x i64> poison, i64 [[LOAD]], i32 0
 ; CHECK-NEXT:    br label %[[MERGE]]
 ; CHECK:       [[MERGE]]:

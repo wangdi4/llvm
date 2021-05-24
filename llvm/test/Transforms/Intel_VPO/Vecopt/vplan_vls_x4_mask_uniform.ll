@@ -40,9 +40,8 @@ define void @foo(i32* nocapture %ary, i32 %param) {
 ; CHECK:       vector.body:
 ; CHECK:         br i1 [[TMP1:%.*]], label [[VPLANNEDBB40:%.*]], label [[VPLANNEDBB50:%.*]]
 ; CHECK:       VPlannedBB5:
-; CHECK-NEXT:    [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_PHI:%.*]]
-; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP]], i32 0
-; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[MM_VECTORGEP_EXTRACT_0_]] to <16 x i32>*
+; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[ARY:%.*]], i64 [[UNI_PHI:%.*]]
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[SCALAR_GEP]] to <16 x i32>*
 ; CHECK-NEXT:    [[TMP3:%.*]] = load <16 x i32>, <16 x i32>* [[TMP2]], align 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <16 x i32> [[TMP3]], <16 x i32> [[TMP3]], <4 x i32> <i32 0, i32 4, i32 8, i32 12>
 ; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <16 x i32> [[TMP3]], <16 x i32> [[TMP3]], <4 x i32> <i32 1, i32 5, i32 9, i32 13>
@@ -60,7 +59,7 @@ define void @foo(i32* nocapture %ary, i32 %param) {
 ; CHECK-NEXT:    [[TMP17:%.*]] = shufflevector <16 x i32> [[TMP15]], <16 x i32> [[TMP16]], <16 x i32> <i32 0, i32 1, i32 16, i32 3, i32 4, i32 5, i32 17, i32 7, i32 8, i32 9, i32 18, i32 11, i32 12, i32 13, i32 19, i32 15>
 ; CHECK-NEXT:    [[TMP18:%.*]] = shufflevector <4 x i32> [[TMP11]], <4 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP19:%.*]] = shufflevector <16 x i32> [[TMP17]], <16 x i32> [[TMP18]], <16 x i32> <i32 0, i32 1, i32 2, i32 16, i32 4, i32 5, i32 6, i32 17, i32 8, i32 9, i32 10, i32 18, i32 12, i32 13, i32 14, i32 19>
-; CHECK-NEXT:    [[TMP20:%.*]] = bitcast i32* [[MM_VECTORGEP_EXTRACT_0_]] to <16 x i32>*
+; CHECK-NEXT:    [[TMP20:%.*]] = bitcast i32* [[SCALAR_GEP]] to <16 x i32>*
 ; CHECK-NEXT:    store <16 x i32> [[TMP19]], <16 x i32>* [[TMP20]], align 4
 ; CHECK-NEXT:    br label [[VPLANNEDBB4:%.*]]
 ; CHECK-EMPTY:
