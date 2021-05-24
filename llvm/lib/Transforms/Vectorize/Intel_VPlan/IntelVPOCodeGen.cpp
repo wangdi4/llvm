@@ -158,22 +158,21 @@ static void propagateLoadStoreInstAliasMetadata(Instruction *LoadStore,
 }
 
 Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
-                                             ArrayRef<Value *> ScalarOperands) {
-  SmallVector<Value *, 4> Ops(ScalarOperands.begin(), ScalarOperands.end());
+                                             ArrayRef<Value *> Ops) {
   Value *SerialInst = nullptr;
   if (Instruction::isBinaryOp(VPInst->getOpcode())) {
-    assert(ScalarOperands.size() == 2 &&
+    assert(Ops.size() == 2 &&
            "Binop VPInstruction has incorrect number of operands.");
     SerialInst = Builder.CreateBinOp(
         static_cast<Instruction::BinaryOps>(VPInst->getOpcode()), Ops[0],
         Ops[1]);
   } else if (Instruction::isUnaryOp(VPInst->getOpcode())) {
-    assert(ScalarOperands.size() == 1 &&
+    assert(Ops.size() == 1 &&
            "Unop VPInstruction has incorrect number of operands.");
     SerialInst = Builder.CreateUnOp(
         static_cast<Instruction::UnaryOps>(VPInst->getOpcode()), Ops[0]);
   } else if (VPInst->getOpcode() == Instruction::Load) {
-    assert(ScalarOperands.size() == 1 &&
+    assert(Ops.size() == 1 &&
            "Load VPInstruction has incorrect number of operands.");
     SerialInst = Builder.CreateLoad(VPInst->getType(), Ops[0]);
     auto *NewLoad = cast<LoadInst>(SerialInst);
@@ -185,7 +184,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     NewLoad->setAlignment(VPLoad->getAlignment());
     propagateLoadStoreInstAliasMetadata(NewLoad, VPInst);
   } else if (VPInst->getOpcode() == Instruction::Store) {
-    assert(ScalarOperands.size() == 2 &&
+    assert(Ops.size() == 2 &&
            "Store VPInstruction has incorrect number of operands.");
     SerialInst = Builder.CreateStore(Ops[0], Ops[1]);
     auto *NewStore = cast<StoreInst>(SerialInst);
@@ -197,15 +196,15 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     NewStore->setAlignment(VPStore->getAlignment());
     propagateLoadStoreInstAliasMetadata(NewStore, VPInst);
   } else if (VPInst->getOpcode() == Instruction::Call) {
-    assert(ScalarOperands.size() > 0 &&
+    assert(Ops.size() > 0 &&
            "Call VPInstruction should have atleast one operand.");
     if (auto *ScalarF = dyn_cast<Function>(Ops.back())) {
-      Ops.pop_back();
+      Ops = Ops.drop_back();
       SerialInst = Builder.CreateCall(ScalarF, Ops);
     } else {
       // Indirect call (via function pointer).
       Value *FuncPtr = Ops.back();
-      Ops.pop_back();
+      Ops = Ops.drop_back();
 
       Type *FuncPtrTy = FuncPtr->getType();
       assert(isa<PointerType>(FuncPtrTy) &&
@@ -221,23 +220,22 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     SerialCall->setAttributes(VPCall->getOrigCallAttrs());
     SerialCall->setTailCall(VPCall->isOrigTailCall());
   } else if (VPGEPInstruction *VPGEP = dyn_cast<VPGEPInstruction>(VPInst)) {
-    assert(ScalarOperands.size() > 1 &&
+    assert(Ops.size() > 1 &&
            "VPGEPInstruction should have atleast two operands.");
     Value *GepBasePtr = Ops[0];
-    Ops.erase(Ops.begin());
+    Ops = Ops.drop_front();
     SerialInst = Builder.CreateGEP(GepBasePtr, Ops);
     cast<GetElementPtrInst>(SerialInst)->setIsInBounds(VPGEP->isInBounds());
   } else if (VPInst->getOpcode() == Instruction::InsertElement) {
-    assert(ScalarOperands.size() == 3 &&
+    assert(Ops.size() == 3 &&
            "InsertElement instruction should have three operands.");
     SerialInst = Builder.CreateInsertElement(Ops[0], Ops[1], Ops[2]);
   } else if (VPInst->getOpcode() == Instruction::ExtractElement) {
-    assert(ScalarOperands.size() == 2 &&
+    assert(Ops.size() == 2 &&
            "ExtractElement instruction should have two operands.");
     SerialInst = Builder.CreateExtractElement(Ops[0], Ops[1]);
   } else if (VPInst->getOpcode() == Instruction::Alloca) {
-    assert(ScalarOperands.size() == 1 &&
-           "Alloca instruction should have one operand.");
+    assert(Ops.size() == 1 && "Alloca instruction should have one operand.");
     auto *Ty = cast<PointerType>(VPInst->getType());
     AllocaInst *SerialAlloca = Builder.CreateAlloca(
         Ty->getElementType(), Ty->getAddressSpace(), Ops[0]);
@@ -249,7 +247,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     SerialAlloca->setSwiftError(OrigAlloca->isSwiftError());
     SerialInst = SerialAlloca;
   } else if (VPInst->getOpcode() == Instruction::AtomicRMW) {
-    assert(ScalarOperands.size() == 2 &&
+    assert(Ops.size() == 2 &&
            "AtomicRMW instruction should have two operands.");
     // BinOp for atomicrmw instruction is needed, so underlying instruction must
     // exist. Should we have VPlan specialization of this opcode for capturing
@@ -264,7 +262,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
       SerialAtomicRMW->setFastMathFlags(OrigAtomicRMW->getFastMathFlags());
     SerialInst = SerialAtomicRMW;
   } else if (VPInst->getOpcode() == Instruction::AtomicCmpXchg) {
-    assert(ScalarOperands.size() == 3 &&
+    assert(Ops.size() == 3 &&
            "AtomicCmpXchg instruction should have just three operands.");
 
     // Get the underlying instruction. We assume that it always exists.
@@ -288,7 +286,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
   } else if (VPInst->getOpcode() == Instruction::ExtractValue) {
     // TODO: Currently, 'extractvalue' VPInstruction drops the last argument.
     // This is an issue similar to the dropped mask-value for shufflevector
-    // instruction. An assert on ScalarOperands size seems unnecessary till
+    // instruction. An assert on Ops size seems unnecessary till
     // then.
     auto *OrigExtractValueInst =
         cast<ExtractValueInst>(VPInst->getUnderlyingValue());
@@ -299,7 +297,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
   } else if (VPInst->getOpcode() == Instruction::InsertValue) {
     // TODO: Currently, 'insertvalue' VPInstruction drops the last argument.
     // This is an issue similar to the dropped mask-value for shufflevector
-    // instruction. An assert on ScalarOperands size seems unnecessary till
+    // instruction. An assert on Ops size seems unnecessary till
     // then.
     auto *OrigInsertValueInst =
         cast<InsertValueInst>(VPInst->getUnderlyingValue());
@@ -897,7 +895,48 @@ Value *VPOCodeGen::codeGenVPInvSCEVWrapper(VPInvSCEVWrapper *SW) {
   return InvBase;
 }
 
-void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
+void VPOCodeGen::processInstruction(VPInstruction *VPInst) {
+  setBuilderDebugLoc(VPInst->getDebugLocation());
+  generateScalarCode(VPInst);
+  generateVectorCode(VPInst);
+}
+
+void VPOCodeGen::generateScalarCode(VPInstruction *VPInst) {
+  // TODO: Temporary switch to track list of opcodes that have been uplifted to
+  // do SVA-driven scalarization. This will be used as staging area until all
+  // scalarization related code duplication is removed in every opcode's vector
+  // CG.
+  switch (VPInst->getOpcode()) {
+  default: {
+    LLVM_DEBUG(
+        dbgs()
+        << "[VPOCG] SVA-based scalarization is not supported for opcode.\n");
+    return;
+  }
+  }
+
+  // Helper lambda to scalarize the VPInstruction for a specific lane.
+  auto GenerateScalarInstForLane = [this, VPInst](unsigned Lane) {
+    Value *ScalarInst = generateSerialInstruction(
+        VPInst, map_range(VPInst->operands(), [this, Lane](VPValue *Op) {
+          return getScalarValue(Op, Lane);
+        }));
+    VPScalarMap[VPInst][Lane] = ScalarInst;
+  };
+
+  // Use SVA to drive scalarization decisions for first and last lane.
+  if (Plan->getVPlanSVA()->instNeedsFirstScalarCode(VPInst))
+    GenerateScalarInstForLane(0);
+
+  if (Plan->getVPlanSVA()->instNeedsLastScalarCode(VPInst))
+    GenerateScalarInstForLane(VF - 1);
+}
+
+void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
+  // Don't vectorize if VPInst is only used in scalar context.
+  if (!needVectorCode(VPInst))
+    return;
+
   switch (VPInst->getOpcode()) {
   case Instruction::PHI: {
     vectorizeVPPHINode(cast<VPPHINode>(VPInst));
@@ -3458,7 +3497,26 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
       Builder.SetInsertPoint(ScalarInst->getParent(), It);
     };
 
-    if (IsUniform) {
+    // TODO: Temporarily allow bcast of strictly first scalar non-uniform
+    // instruction as it can be used in other instructions whose opcodes haven't
+    // been uplifted to be scalarized via SVA. For example -
+    // [DA: Div, SVA: (F  )] %gep1 = getelementptr %src i64 0 i64 %iv
+    // [DA: Div, SVA: (F  )] %gep2 = getelementptr %src i64 1 i64 %iv
+    // [DA: Div, SVA: (F  )] %ptr = select %cond i32* %gep1 i32* %gep2
+    // [DA: Div, SVA: ( V )] %unit.stride.load = load i32* %ptr
+    //
+    // If "select" opcode has not been uplifted to be scalarized via SVA, then
+    // bcast of scalarized GEPs is still needed for stability of CG. This will
+    // be dropped when all opcodes have been uplifted to use SVA for
+    // scalarization/vectorization decisions along with simplification of
+    // get{Vector|Scalar}Value interfaces.
+    auto *VInst = dyn_cast<VPInstruction>(V);
+    auto *SVA = Plan->getVPlanSVA();
+    bool NeedsBcastForNonSVADrivenCG = VInst &&
+                                       SVA->instNeedsFirstScalarCode(VInst) &&
+                                       !SVA->instNeedsLastScalarCode(VInst) &&
+                                       !SVA->instNeedsVectorCode(VInst);
+    if (IsUniform || NeedsBcastForNonSVADrivenCG) {
       Value *ScalarValue = VPScalarMap[V][0];
       UpdateInsertPoint(ScalarValue);
       if (ScalarValue->getType()->isVectorTy()) {

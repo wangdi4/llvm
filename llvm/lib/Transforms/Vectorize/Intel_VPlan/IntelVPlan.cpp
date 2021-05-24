@@ -159,8 +159,7 @@ void VPInstruction::moveBefore(VPBasicBlock &BB, VPBasicBlock::iterator I) {
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
 #if INTEL_CUSTOMIZATION
-  State.ILV->setBuilderDebugLoc(this->getDebugLocation());
-  State.ILV->vectorizeInstruction(this);
+  State.ILV->processInstruction(this);
   return;
 #endif
   IRBuilder<> &Builder = State.Builder;
