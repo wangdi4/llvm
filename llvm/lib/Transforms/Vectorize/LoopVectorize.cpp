@@ -8074,6 +8074,14 @@ LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC,
                    CM.AllowedVFs[CM.AllowedVFs.size() - 1]);
   buildVPlansWithVPRecipes(First, Last);
   LLVM_DEBUG(printPlans(dbgs()));
+  // TODO: add information about specified vector lengths in opt-report
+  DEBUG_WITH_TYPE("loop-vectorize-vec-lengths",
+                  dbgs() << "Specified vectorlengths: ");
+  DEBUG_WITH_TYPE("loop-vectorize-vec-lengths",
+                  for (unsigned VF
+                       : CM.AllowedVFs) dbgs()
+                      << VF << " ";
+                  dbgs() << "\n";);
   if (!MaxFactors.hasVector())
     return VectorizationFactor::Disabled();
 
