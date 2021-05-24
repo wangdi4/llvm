@@ -48,6 +48,11 @@
 
 #define TARGET_NAME OPENCL
 #define DEBUG_PREFIX "Target " GETNAME(TARGET_NAME) " RTL"
+#if INTEL_CUSTOMIZATION
+// FIXME: when this is upstreamed for OpenCL.
+#define CL_MEM_FLAGS_INTEL                                               0x10001
+#define CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL                           (1 << 23)
+#endif // INTEL_CUSTOMIZATION
 
 /// Device type enumeration common to compiler and runtime
 enum DeviceArch : uint64_t {
@@ -169,6 +174,24 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 #define OFFLOADSECTIONNAME "omp_offloading_entries"
 
 //#pragma OPENCL EXTENSION cl_khr_spir : enable
+
+// Get memory attributes for the given allocation size.
+static std::unique_ptr<std::vector<cl_mem_properties_intel>>
+getAllocMemProperties(size_t Size) {
+  std::vector<cl_mem_properties_intel> Properties;
+#if INTEL_CUSTOMIZATION
+  // FIXME: take the max size from OpenCL API/property, like
+  //        ze_device_properties_t::maxMemAllocSize in level0.
+  if (Size > 0xFFFFE000) {
+    Properties.push_back(CL_MEM_FLAGS_INTEL);
+    Properties.push_back(CL_MEM_ALLOW_UNRESTRICTED_SIZE_INTEL);
+  }
+#endif // INTEL_CUSTOMIZATION
+  Properties.push_back(0);
+
+  return std::make_unique<std::vector<cl_mem_properties_intel>>(
+      std::move(Properties));
+}
 
 /// Keep entries table per device.
 struct FuncOrGblEntryTy {
@@ -1206,7 +1229,8 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t deviceId) {
   if (KernelDynamicMemorySize > 0) {
     cl_int rc;
     CALL_CL_EXT_RVRC(deviceId, memLB, clDeviceMemAllocINTEL, rc,
-                     getContext(deviceId), deviceIDs[deviceId], nullptr,
+                     getContext(deviceId), deviceIDs[deviceId],
+                     getAllocMemProperties(KernelDynamicMemorySize)->data(),
                      KernelDynamicMemorySize, 0);
   }
   if (memLB) {
@@ -2682,7 +2706,9 @@ static inline void *dataAlloc(int32_t DeviceId, int64_t Size, void *hstPtr,
     }
     cl_int rc;
     CALL_CL_EXT_RVRC(DeviceId, base, clDeviceMemAllocINTEL, rc, context,
-                     DeviceInfo->deviceIDs[DeviceId], nullptr, allocSize, 0);
+                     DeviceInfo->deviceIDs[DeviceId],
+                     getAllocMemProperties(allocSize)->data(),
+                     allocSize, 0);
     if (rc != CL_SUCCESS)
       return nullptr;
   }
@@ -2737,7 +2763,8 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
       return nullptr;
     }
     CALL_CL_EXT_RVRC(device_id, mem, clHostMemAllocINTEL,
-                     rc, context, nullptr, size, 0);
+                     rc, context, getAllocMemProperties(size)->data(),
+                     size, 0);
     if (mem) {
       if (DeviceInfo->Flags.UseSVM &&
           DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU) {
@@ -2755,7 +2782,8 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
       return nullptr;
     }
     CALL_CL_EXT_RVRC(device_id, mem, clSharedMemAllocINTEL,
-                     rc, context, device, nullptr, size, 0);
+                     rc, context, device, getAllocMemProperties(size)->data(),
+                     size, 0);
     if (mem) {
       if (DeviceInfo->Flags.UseSVM &&
           DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU) {
