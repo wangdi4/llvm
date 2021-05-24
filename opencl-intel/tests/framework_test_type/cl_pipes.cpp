@@ -93,8 +93,8 @@ bool clPipes()
 		iRet = clGetPipeInfo(pipe, CL_PIPE_PACKET_SIZE, sizeof(uiInfoPacketSize) - 1, &uiInfoPacketSize, NULL);
 		CheckException("clGetPipeInfo", CL_INVALID_VALUE, iRet);
 
-		iRet = clGetPipeInfo(pipe, CL_PIPE_MAX_PACKETS + 1, sizeof(uiInfoPacketSize), &uiInfoPacketSize, NULL);
-		CheckException("clGetPipeInfo", CL_INVALID_VALUE, iRet);
+		iRet = clGetPipeInfo(pipe, CL_PIPE_PROPERTIES, 0, nullptr, &szInfoSize);
+		CheckException("szInfoSize != 0", size_t(0), szInfoSize);
 
         // Intel extension
         vector<char> pipeBuf;

@@ -191,6 +191,7 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
     cl_context                  clContext,
     cl_device_id                clDevice,
     const cl_command_queue_properties* clQueueProperties,
+    cl_bool                     withProps,
     cl_int*                     pErrRet
     )
 {
@@ -198,7 +199,10 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
     SharedPtr<Context>    pContext   = NULL;
     cl_command_queue_properties queueProps = 0;
     cl_uint uiQueueSize;
-    cl_int      errVal     = CheckCreateCommandQueueParams(clContext, clDevice, clQueueProperties, &pContext, queueProps, uiQueueSize);
+    std::vector<cl_command_queue_properties> clQueuePropsArray;
+    cl_int errVal = CheckCreateCommandQueueParams(
+        clContext, clDevice, clQueueProperties, &pContext, clQueuePropsArray,
+        queueProps, uiQueueSize, withProps);
 
     // If we are here, all parameters are valid, create the queue
     if( CL_SUCCEEDED(errVal))
@@ -250,6 +254,12 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
             // this is the first place where we are sure that the commmand queue
             // was created
             errVal = pCommandQueue->GPA_InitializeQueue();
+            // According to the specs of OCL3.0, the implementation of
+            // CL_QUEUE_PROPERTIES_ARRAY must return the values specified in
+            // the properties argument in the same order, so we need to save a
+            // copy the original properties
+            if (withProps)
+              pCommandQueue->SetProperties(clQueuePropsArray);
           } else {
             pCommandQueue->Release();
           }
@@ -262,8 +272,11 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
     return iQueueID;
 }
 
-static cl_err_code ParseQueueProperties(const cl_command_queue_properties* clQueueProperties, cl_command_queue_properties& queueProps, cl_uint& uiQueueSize,
-    const ConstSharedPtr<FissionableDevice>& pDev)
+static cl_err_code ParseQueueProperties(
+    const cl_command_queue_properties* clQueueProperties,
+    std::vector<cl_command_queue_properties>& clQueuePropsArray,
+    cl_command_queue_properties& queueProps, cl_uint& uiQueueSize,
+    const ConstSharedPtr<FissionableDevice>& pDev, cl_bool withProps)
 {
     const cl_command_queue_properties* currProperties = clQueueProperties;
     bool bQueueSizeSpecified = false;
@@ -272,6 +285,11 @@ static cl_err_code ParseQueueProperties(const cl_command_queue_properties* clQue
     {
         const cl_command_queue_properties name = *(currProperties++);
         const cl_command_queue_properties val = *currProperties;
+        if (withProps)
+        {
+            clQueuePropsArray.push_back(name);
+            clQueuePropsArray.push_back(val);
+        }
         switch (name)
         {
         case CL_QUEUE_PROPERTIES:
@@ -315,30 +333,35 @@ static cl_err_code ParseQueueProperties(const cl_command_queue_properties* clQue
 /******************************************************************
  *
  ******************************************************************/
-cl_err_code ExecutionModule::CheckCreateCommandQueueParams( cl_context clContext, cl_device_id clDevice, const cl_command_queue_properties* clQueueProperties, SharedPtr<Context>* ppContext,
-                                                            cl_command_queue_properties& queueProps, cl_uint& uiQueueSize)
-{
-    *ppContext = m_pContextModule->GetContext(clContext);
-    if (NULL == ppContext->GetPtr()) {
-      return CL_INVALID_CONTEXT;
-    }
+cl_err_code ExecutionModule::CheckCreateCommandQueueParams(
+    cl_context clContext, cl_device_id clDevice,
+    const cl_command_queue_properties *clQueueProperties,
+    SharedPtr<Context> *ppContext,
+    std::vector<cl_command_queue_properties> &clQueuePropsArray,
+    cl_command_queue_properties &queueProps,
+    cl_uint &uiQueueSize, cl_bool withProps) {
+  *ppContext = m_pContextModule->GetContext(clContext);
+  if (NULL == ppContext->GetPtr()) {
+    return CL_INVALID_CONTEXT;
+  }
 
-    SharedPtr<FissionableDevice> pDev = (*ppContext)->GetDevice(clDevice);
-    if (NULL == pDev.GetPtr()) {
-      return CL_INVALID_DEVICE;
-    }
-    if (NULL == clQueueProperties)
-    {
-        queueProps = 0;    // default values
-        return CL_SUCCESS;
-    }
-    // if CL_QUEUE_SIZE isn't specified, CL_DEVICE_PREFERRED_QUEUE_SIZE is used
-    const cl_int errVal = pDev->GetInfo(CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE, sizeof(uiQueueSize), &uiQueueSize, NULL);
-    if (CL_FAILED(errVal))
-    {
-        uiQueueSize = (cl_uint)-1;    // MIC doesn't support OpenCL 2.0, so for it the query fails
-    }
-    return ParseQueueProperties(clQueueProperties, queueProps, uiQueueSize, pDev);
+  SharedPtr<FissionableDevice> pDev = (*ppContext)->GetDevice(clDevice);
+  if (NULL == pDev.GetPtr()) {
+    return CL_INVALID_DEVICE;
+  }
+  if (NULL == clQueueProperties) {
+    queueProps = 0; // default values
+    return CL_SUCCESS;
+  }
+  // if CL_QUEUE_SIZE isn't specified, CL_DEVICE_PREFERRED_QUEUE_SIZE is used
+  const cl_int errVal = pDev->GetInfo(CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE,
+                                      sizeof(uiQueueSize), &uiQueueSize, NULL);
+  if (CL_FAILED(errVal)) {
+    uiQueueSize = (cl_uint)-1; // MIC doesn't support OpenCL 2.0, so for it the
+                               // query fails
+  }
+  return ParseQueueProperties(clQueueProperties, clQueuePropsArray, queueProps,
+                              uiQueueSize, pDev, withProps);
 }
 
 /******************************************************************
@@ -1942,8 +1965,8 @@ cl_err_code ExecutionModule::RunAutorunKernels(
             CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,
             (cl_command_queue_properties)0
         };
-        queues[i] = CreateCommandQueue(
-            program->GetContext()->GetHandle(), devices[i], properties, &error);
+        queues[i] = CreateCommandQueue(program->GetContext()->GetHandle(),
+                                       devices[i], properties, false, &error);
         if (CL_FAILED(error))
         {
             return error;
