@@ -50,7 +50,7 @@ bool PhiCanon::runOnFunction(Function &F) {
     fixBlock(*it);
   }
 
-  // verify this module
+  // verify this function
   V_ASSERT(!verifyFunction(F) && "I broke this module");
 
   // Check that we actually were able to remove all multi-entry phi
@@ -200,9 +200,6 @@ void PhiCanon::fixBlock(BasicBlock* toFix) {
     // This BB will replace the pair as the toFix BB predecessor
     (void) makeNewPhiBB(toFix, current_bb, scan_bb);
   }
-
-  V_ASSERT(!verifyFunction(*toFix->getParent()) && "I broke this module");
-
 }
 
 BasicBlock* PhiCanon::makeNewPhiBB(BasicBlock* toFix,
@@ -260,8 +257,6 @@ BasicBlock* PhiCanon::makeNewPhiBB(BasicBlock* toFix,
     }
 
   }// for each PHI
-
-  V_ASSERT(!verifyFunction(*toFix->getParent()) && "I broke this module");
 
   return new_bb;
 }
