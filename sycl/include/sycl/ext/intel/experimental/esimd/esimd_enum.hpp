@@ -119,7 +119,9 @@ enum class EsimdPrecisionType {
   U8 = 6,   // unsigned 8 bits
   S8 = 7,   // signed 8 bits
   BF16 = 8, // bfloat 16
-  FP16 = 9  // half float
+  FP16 = 9, // half float
+  BF8 = 10, // bfloat 8
+  TF32 = 11 // tensorfloat 32
 };
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
