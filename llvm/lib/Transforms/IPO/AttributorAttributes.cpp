@@ -140,16 +140,6 @@ PIPE_OPERATOR(AANoUndef)
 
 namespace {
 
-static Optional<ConstantInt *>
-getAssumedConstantInt(Attributor &A, const Value &V,
-                      const AbstractAttribute &AA,
-                      bool &UsedAssumedInformation) {
-  Optional<Constant *> C = A.getAssumedConstant(V, AA, UsedAssumedInformation);
-  if (C.hasValue())
-    return dyn_cast_or_null<ConstantInt>(C.getValue());
-  return llvm::None;
-}
-
 /// Get pointer operand of memory accessing instruction. If \p I is
 /// not a memory accessing instruction, return nullptr. If \p AllowVolatile,
 /// is set to false and the instruction is volatile, return nullptr.
@@ -977,7 +967,7 @@ ChangeStatus AAReturnedValuesImpl::manifest(Attributor &A) {
             Constant *RVCCast =
                 CB->getType() == RVC->getType()
                     ? RVC
-                    : ConstantExpr::getTruncOrBitCast(RVC, CB->getType());
+                    : ConstantExpr::getPointerCast(RVC, CB->getType());
             Changed = ReplaceCallSiteUsersWith(*CB, *RVCCast) | Changed;
           }
     } else {
@@ -986,7 +976,7 @@ ChangeStatus AAReturnedValuesImpl::manifest(Attributor &A) {
       Constant *RVCCast =
           AnchorValue.getType() == RVC->getType()
               ? RVC
-              : ConstantExpr::getTruncOrBitCast(RVC, AnchorValue.getType());
+              : ConstantExpr::getPointerCast(RVC, AnchorValue.getType());
       Changed = ReplaceCallSiteUsersWith(cast<CallBase>(AnchorValue), *RVCCast);
     }
     if (Changed == ChangeStatus::CHANGED)
@@ -3301,13 +3291,13 @@ identifyAliveSuccessors(Attributor &A, const BranchInst &BI,
   if (BI.getNumSuccessors() == 1) {
     AliveSuccessors.push_back(&BI.getSuccessor(0)->front());
   } else {
-    Optional<ConstantInt *> CI = getAssumedConstantInt(
-        A, *BI.getCondition(), AA, UsedAssumedInformation);
-    if (!CI.hasValue()) {
+    Optional<Constant *> C =
+        A.getAssumedConstant(*BI.getCondition(), AA, UsedAssumedInformation);
+    if (!C.hasValue() || isa_and_nonnull<UndefValue>(C.getValue())) {
       // No value yet, assume both edges are dead.
-    } else if (CI.getValue()) {
+    } else if (isa_and_nonnull<ConstantInt>(*C)) {
       const BasicBlock *SuccBB =
-          BI.getSuccessor(1 - CI.getValue()->getZExtValue());
+          BI.getSuccessor(1 - cast<ConstantInt>(*C)->getValue().getZExtValue());
       AliveSuccessors.push_back(&SuccBB->front());
     } else {
       AliveSuccessors.push_back(&BI.getSuccessor(0)->front());
@@ -3323,13 +3313,13 @@ identifyAliveSuccessors(Attributor &A, const SwitchInst &SI,
                         AbstractAttribute &AA,
                         SmallVectorImpl<const Instruction *> &AliveSuccessors) {
   bool UsedAssumedInformation = false;
-  Optional<ConstantInt *> CI =
-      getAssumedConstantInt(A, *SI.getCondition(), AA, UsedAssumedInformation);
-  if (!CI.hasValue()) {
+  Optional<Constant *> C =
+      A.getAssumedConstant(*SI.getCondition(), AA, UsedAssumedInformation);
+  if (!C.hasValue() || isa_and_nonnull<UndefValue>(C.getValue())) {
     // No value yet, assume all edges are dead.
-  } else if (CI.getValue()) {
+  } else if (isa_and_nonnull<ConstantInt>(C.getValue())) {
     for (auto &CaseIt : SI.cases()) {
-      if (CaseIt.getCaseValue() == CI.getValue()) {
+      if (CaseIt.getCaseValue() == C.getValue()) {
         AliveSuccessors.push_back(&CaseIt.getCaseSuccessor()->front());
         return UsedAssumedInformation;
       }
@@ -4641,12 +4631,13 @@ struct AAValueSimplifyImpl : AAValueSimplify {
     auto *C = SimplifiedAssociatedValue.hasValue()
                   ? dyn_cast<Constant>(SimplifiedAssociatedValue.getValue())
                   : UndefValue::get(V.getType());
-    if (C) {
+    if (C && C != &V) {
+      Value *NewV = AA::getWithType(*C, *V.getType());
       // We can replace the AssociatedValue with the constant.
-      if (!V.user_empty() && &V != C && V.getType() == C->getType()) {
-        LLVM_DEBUG(dbgs() << "[ValueSimplify] " << V << " -> " << *C
+      if (!V.user_empty() && &V != C && NewV) {
+        LLVM_DEBUG(dbgs() << "[ValueSimplify] " << V << " -> " << *NewV
                           << " :: " << *this << "\n");
-        if (A.changeValueAfterManifest(V, *C))
+        if (A.changeValueAfterManifest(V, *NewV))
           Changed = ChangeStatus::CHANGED;
       }
     }
@@ -4788,23 +4779,23 @@ struct AAValueSimplifyReturned : AAValueSimplifyImpl {
     auto *C = SimplifiedAssociatedValue.hasValue()
                   ? dyn_cast<Constant>(SimplifiedAssociatedValue.getValue())
                   : UndefValue::get(V.getType());
-    if (C) {
+    if (C && C != &V) {
       auto PredForReturned =
           [&](Value &V, const SmallSetVector<ReturnInst *, 4> &RetInsts) {
             // We can replace the AssociatedValue with the constant.
-            if (&V == C || V.getType() != C->getType() || isa<UndefValue>(V))
+            if (&V == C || isa<UndefValue>(V))
               return true;
 
             for (ReturnInst *RI : RetInsts) {
               if (RI->getFunction() != getAnchorScope())
                 continue;
-              auto *RC = C;
-              if (RC->getType() != RI->getReturnValue()->getType())
-                RC = ConstantExpr::getBitCast(RC,
-                                              RI->getReturnValue()->getType());
-              LLVM_DEBUG(dbgs() << "[ValueSimplify] " << V << " -> " << *RC
+              Value *NewV =
+                  AA::getWithType(*C, *RI->getReturnValue()->getType());
+              if (!NewV)
+                continue;
+              LLVM_DEBUG(dbgs() << "[ValueSimplify] " << V << " -> " << *NewV
                                 << " in " << *RI << " :: " << *this << "\n");
-              if (A.changeUseAfterManifest(RI->getOperandUse(0), *RC))
+              if (A.changeUseAfterManifest(RI->getOperandUse(0), *NewV))
                 Changed = ChangeStatus::CHANGED;
             }
             return true;
@@ -5004,9 +4995,10 @@ struct AAValueSimplifyCallSiteArgument : AAValueSimplifyFloating {
       Use &U = cast<CallBase>(&getAnchorValue())
                    ->getArgOperandUse(getCallSiteArgNo());
       // We can replace the AssociatedValue with the constant.
-      if (&V != C && V.getType() == C->getType()) {
-        if (A.changeUseAfterManifest(U, *C))
-          Changed = ChangeStatus::CHANGED;
+      if (&V != C) {
+        if (Value *NewV = AA::getWithType(*C, *V.getType()))
+          if (A.changeUseAfterManifest(U, *NewV))
+            Changed = ChangeStatus::CHANGED;
       }
     }
 

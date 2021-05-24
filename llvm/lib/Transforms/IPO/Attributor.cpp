@@ -17,6 +17,7 @@
 
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/PointerIntPair.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/TinyPtrVector.h"
 #include "llvm/Analysis/InlineCost.h"
@@ -28,7 +29,9 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/IR/NoFolder.h"
+#include "llvm/IR/ValueHandle.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Casting.h"
@@ -156,6 +159,24 @@ ChangeStatus llvm::operator&(ChangeStatus L, ChangeStatus R) {
   return L == ChangeStatus::UNCHANGED ? L : R;
 }
 ///}
+
+Value *AA::getWithType(Value &V, Type &Ty) {
+  if (V.getType() == &Ty)
+    return &V;
+  if (isa<UndefValue>(V))
+    return UndefValue::get(&Ty);
+  if (auto *C = dyn_cast<Constant>(&V)) {
+    if (C->isNullValue())
+      return Constant::getNullValue(&Ty);
+    if (C->getType()->isPointerTy() && Ty.isPointerTy())
+      return ConstantExpr::getPointerCast(C, &Ty);
+    if (C->getType()->isIntegerTy() && Ty.isIntegerTy())
+      return ConstantExpr::getTrunc(C, &Ty, /* OnlyIfReduced */ true);
+    if (C->getType()->isFloatingPointTy() && Ty.isFloatingPointTy())
+      return ConstantExpr::getFPTrunc(C, &Ty, /* OnlyIfReduced */ true);
+  }
+  return nullptr;
+}
 
 /// Return true if \p New is equal or worse than \p Old.
 static bool isEqualOrWorse(const Attribute &New, const Attribute &Old) {
@@ -1268,16 +1289,19 @@ ChangeStatus Attributor::cleanupIR() {
     // not delete.
     if (isa<ReturnInst>(U->getUser()))
       if (auto *CI = dyn_cast<CallInst>(OldV->stripPointerCasts()))
-        if (CI->isMustTailCall() && !ToBeDeletedInsts.count(CI))
+        if (CI->isMustTailCall() &&
+            (!ToBeDeletedInsts.count(CI) || !isRunOn(*CI->getCaller())))
           continue;
+
+    // Do not perform call graph altering changes outside the SCC.
+    if (auto *CB = dyn_cast<CallBase>(U->getUser()))
+      if (CB->isCallee(U) && !isRunOn(*CB->getCaller()))
+        continue;
 
     LLVM_DEBUG(dbgs() << "Use " << *NewV << " in " << *U->getUser()
                       << " instead of " << *OldV << "\n");
     U->set(NewV);
-    // Do not modify call instructions outside the SCC.
-    if (auto *CB = dyn_cast<CallBase>(OldV))
-      if (!Functions.count(CB->getCaller()))
-        continue;
+
     if (Instruction *I = dyn_cast<Instruction>(OldV)) {
       CGModifiedFunctions.insert(I->getFunction());
       if (!isa<PHINode>(I) && !ToBeDeletedInsts.count(I) &&
@@ -1306,6 +1330,8 @@ ChangeStatus Attributor::cleanupIR() {
   }
   for (auto &V : InvokeWithDeadSuccessor)
     if (InvokeInst *II = dyn_cast_or_null<InvokeInst>(V)) {
+      assert(isRunOn(*II->getFunction()) &&
+             "Cannot replace an invoke outside the current SCC!");
       bool UnwindBBIsDead = II->hasFnAttr(Attribute::NoUnwind);
       bool NormalBBIsDead = II->hasFnAttr(Attribute::NoReturn);
       bool Invoke2CallAllowed =
@@ -1330,17 +1356,24 @@ ChangeStatus Attributor::cleanupIR() {
       }
     }
   for (Instruction *I : TerminatorsToFold) {
+    if (!isRunOn(*I->getFunction()))
+      continue;
     CGModifiedFunctions.insert(I->getFunction());
     ConstantFoldTerminator(I->getParent());
   }
   for (auto &V : ToBeChangedToUnreachableInsts)
     if (Instruction *I = dyn_cast_or_null<Instruction>(V)) {
+      if (!isRunOn(*I->getFunction()))
+        continue;
       CGModifiedFunctions.insert(I->getFunction());
       changeToUnreachable(I, /* UseLLVMTrap */ false);
     }
 
   for (auto &V : ToBeDeletedInsts) {
     if (Instruction *I = dyn_cast_or_null<Instruction>(V)) {
+      if (auto *CB = dyn_cast<CallBase>(I))
+        if (CB->isMustTailCall() && !isRunOn(*I->getFunction()))
+          continue;
       I->dropDroppableUses();
       CGModifiedFunctions.insert(I->getFunction());
       if (!I->getType()->isVoidTy())
@@ -1352,8 +1385,9 @@ ChangeStatus Attributor::cleanupIR() {
     }
   }
 
-  LLVM_DEBUG(dbgs() << "[Attributor] DeadInsts size: " << DeadInsts.size()
-                    << "\n");
+  llvm::erase_if(DeadInsts, [&](WeakTrackingVH I) {
+    return !I || !isRunOn(*cast<Instruction>(I)->getFunction());
+  });
 
   LLVM_DEBUG({
     dbgs() << "[Attributor] DeadInsts size: " << DeadInsts.size() << "\n";
@@ -1368,6 +1402,8 @@ ChangeStatus Attributor::cleanupIR() {
     SmallVector<BasicBlock *, 8> ToBeDeletedBBs;
     ToBeDeletedBBs.reserve(NumDeadBlocks);
     for (BasicBlock *BB : ToBeDeletedBlocks) {
+      assert(isRunOn(*BB->getParent()) &&
+             "Cannot delete a block outside the current SCC!");
       CGModifiedFunctions.insert(BB->getParent());
       ToBeDeletedBBs.push_back(BB);
     }
@@ -1383,7 +1419,7 @@ ChangeStatus Attributor::cleanupIR() {
   ChangeStatus ManifestChange = rewriteFunctionSignatures(CGModifiedFunctions);
 
   for (Function *Fn : CGModifiedFunctions)
-    if (!ToBeDeletedFunctions.count(Fn))
+    if (!ToBeDeletedFunctions.count(Fn) && Functions.count(Fn))
       CGUpdater.reanalyzeFunction(*Fn);
 
   for (Function *Fn : ToBeDeletedFunctions) {
@@ -1747,6 +1783,7 @@ ChangeStatus Attributor::rewriteFunctionSignatures(
     // Create the new function body and insert it into the module.
     Function *NewFn = Function::Create(NewFnTy, OldFn->getLinkage(),
                                        OldFn->getAddressSpace(), "");
+    Functions.insert(NewFn);
     OldFn->getParent()->getFunctionList().insert(OldFn->getIterator(), NewFn);
     NewFn->takeName(OldFn);
     NewFn->copyAttributesFrom(OldFn);
