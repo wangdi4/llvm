@@ -9355,6 +9355,10 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         ",+SPV_INTEL_variable_length_array,+SPV_INTEL_fp_fast_math_mode"
         ",+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse"
         ",+SPV_INTEL_long_constant_composite";
+#if INTEL_CUSTOMIZATION
+    // For all devices, enable INTEL_optnone
+    INTELExtArg += ",+SPV_INTEL_optnone";
+#endif // INTEL_CUSTOMIZATION
     ExtArg = ExtArg + DefaultExtArg + INTELExtArg;
     if (getToolChain().getTriple().getSubArch() ==
         llvm::Triple::SPIRSubArch_fpga) {
@@ -9362,10 +9366,17 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         if (A->getOption().matches(options::OPT_Xs_separate) ||
             A->getOption().matches(options::OPT_Xs)) {
           StringRef ArgString(A->getValue());
+          // Enable SPV_INTEL_usm_storage_classes only for FPGA hardware,
+          // since it adds new storage classes that represent global_device and
+          // global_host address spaces, which are not supported for all
+          // targets. With the extension disabled the storage classes will be
+          // lowered to CrossWorkgroup storage class that is mapped to just
+          // global address space.
 #if INTEL_CUSTOMIZATION
           if (ArgString == "hardware" || ArgString == "simulation") {
-            // SPV_INTEL_optnone should be disabled for FPGA hardware
-            ExtArg = "-spirv-ext=+all,-SPV_INTEL_optnone";
+            ExtArg += ",+SPV_INTEL_usm_storage_classes";
+            // Disable optnone for FPGA hardware
+            ExtArg += ",-SPV_INTEL_optnone";
           }
 #endif // INTEL_CUSTOMIZATION
         }
