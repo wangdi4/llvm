@@ -70,17 +70,13 @@ public:
   // flow such that the scalar loop is skipped.
   void createEmptyLoop();
 
+  // Central entry point into codegen for lowering a VPInstruction into outgoing
+  // LLVM-IR.
+  void processInstruction(VPInstruction *VPInst);
+
   // Set current debug location for vector loop's IRBuilder. This location is
   // set for all instructions that are subsequently created using the Builder.
   void setBuilderDebugLoc(DebugLoc L) { Builder.SetCurrentDebugLocation(L); }
-
-  // Widen the given instruction to VF wide vector instruction
-  void vectorizeInstruction(VPInstruction *VPInst);
-
-  // Vectorize the given instruction that cannot be widened using serialization.
-  // This is done using a sequence of extractelement, Scalar Op, InsertElement
-  // instructions.
-  void serializeInstruction(VPInstruction *VPInst);
 
   // Attach metadata to \p Memref instruction to indicate that for the best
   // performance it needs to be aligned by at least \p PreferredAlignment bytes.
@@ -201,13 +197,34 @@ private:
   /// Returns (and creates if needed) the trip count of the widened loop.
   Value *getOrCreateVectorTripCount(Loop *L, IRBuilder<> &Builder);
 
+  // Generate vector code for given instruction based on results from VPlan
+  // ScalVec analysis.
+  void generateVectorCode(VPInstruction *VPInst);
+
+  // Vectorize the given instruction that cannot be widened using serialization.
+  // This is done using a sequence of extractelement, Scalar Op, InsertElement
+  // instructions.
+  void serializeInstruction(VPInstruction *VPInst);
+
+  // Generate scalar code for given instruction for first/last lanes (0 / VF-1)
+  // based on results from VPlan ScalVec analysis.
+  void generateScalarCode(VPInstruction *VPInst);
+
   /// Helper function to generate and insert a scalar LLVM instruction from
   /// VPInstruction based on its opcode and scalar versions of its operands.
   // TODO: Currently we don't populate IR flags/metadata information for the
   // instructions generated below. Update after VPlan has internal
   // representation for them.
   Value *generateSerialInstruction(VPInstruction *VPInst,
-                                   ArrayRef<Value *> ScalarOperands);
+                                   ArrayRef<Value *> Ops);
+
+  /// Wrapper helper for generateSerialInstruction to accept range of Values
+  /// instead of ArrayRef.
+  template <class RangeTy>
+  Value *generateSerialInstruction(VPInstruction *VPInst, RangeTy Ops) {
+    SmallVector<Value *, 6> OpsVec(Ops.begin(), Ops.end());
+    return generateSerialInstruction(VPInst, ArrayRef<Value *>(OpsVec));
+  }
 
   /// Serialize instruction that requires predication.
   void serializeWithPredication(VPInstruction *VPInst);
