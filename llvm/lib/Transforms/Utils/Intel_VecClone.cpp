@@ -309,26 +309,21 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   return Clone;
 }
 
-bool VecCloneImpl::isVectorOrLinearParamStore(
-    Function *Clone,
-    std::vector<VectorKind> &ParmKinds,
-    Instruction *Inst)
-{
-  if (StoreInst *Store = dyn_cast<StoreInst>(Inst)) {
-    Value *Op0 = Store->getOperand(0);
-    Function::arg_iterator ArgListIt = Clone->arg_begin();
-    Function::arg_iterator ArgListEnd = Clone->arg_end();
+// Checks whether the store of the entry block should be kept in the entry block
+// or it should be moved inside the simd loop.
+bool shouldStoreStayInEntryBB(Function *Clone,
+                              std::vector<VectorKind> &ParmKinds,
+                              Instruction *Store) {
+  Value *StoreData = Store->getOperand(0);
+  Value *StoreAddr = Store->getOperand(1);
+  if (!isa<AllocaInst>(StoreAddr))
+    return false;
 
-    for (; ArgListIt != ArgListEnd; ++ArgListIt) {
-      unsigned ParmIdx = ArgListIt->getArgNo();
-      if (&*ArgListIt == Op0 &&
-          (ParmKinds[ParmIdx].isVector() || ParmKinds[ParmIdx].isLinear())) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+  return llvm::any_of(
+      Clone->args(), [StoreData, ParmKinds](const Argument &Arg) {
+        VectorKind ArgKind = ParmKinds[Arg.getArgNo()];
+        return &Arg == StoreData && (ArgKind.isVector() || ArgKind.isLinear());
+      });
 }
 
 BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
@@ -343,22 +338,22 @@ BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
   // uniform behavior. All instructions involving private variables are also
   // sunk into the loop.
 
-  SmallVector<Instruction*, 4> EntryInsts;
-  std::vector<VectorKind> ParmKinds = V.getParameters();
-  BasicBlock::iterator BBIt = EntryBlock->begin();
-  BasicBlock::iterator BBEnd = EntryBlock->end();
-
-  for (; BBIt != BBEnd; ++BBIt) {
+  SmallVector<Instruction *, 4> EntryInsts;
+  for (auto BBIt = EntryBlock->begin(), BBEnd = EntryBlock->end();
+       BBIt != BBEnd; ++BBIt) {
     if (isa<AllocaInst>(BBIt) ||
-        isVectorOrLinearParamStore(Clone, ParmKinds, &*BBIt)) {
+        (isa<StoreInst>(&*BBIt) &&
+         shouldStoreStayInEntryBB(Clone, V.getParameters(), &*BBIt))) {
       // If this is a store of a vector parameter, keep it in the entry block
-      // because it will be modified with the vector alloca reference. Since the
-      // parameter has already been expanded, this becomes a vector store (i.e.,
-      // packing instruction) that we do not want to appear in the scalar loop.
-      // It is correct to leave linear parameter stores in the entry or move
-      // them to the scalar loop, but leaving them in the entry block prevents
-      // an additional store inside the loop. Uniform parameter stores must be
-      // moved to the loop body to behave as uniform. Consider the following:
+      // because it will be modified with the vector alloca reference. Since
+      // the parameter has already been expanded, this becomes a vector store
+      // (i.e., packing instruction) that we do not want to appear in the
+      // scalar loop. It is correct to leave linear parameter stores in the
+      // entry or move them to the scalar loop, but leaving them in the entry
+      // block prevents an additional store inside the loop. If the store does
+      // not have a local alloca in the entry block, then is is moved inside the
+      // loop. Uniform parameter stores must be moved to the loop body to behave
+      // as uniform. Consider the following:
       //
       // __declspec(vector(uniform(x)))
       // int foo(int a, int x) {
@@ -372,19 +367,18 @@ BasicBlock *VecCloneImpl::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
       // incremented by one each time within the loop because the increment of
       // x will reside in the loop. Therefore, if the store of x is sunk into
       // the loop, the initial value of 1 will always be stored to a temp
-      // before the increment, resulting in the value of 2 always being computed
-      // in the scalar loop.
+      // before the increment, resulting in the value of 2 always being
+      // computed in the scalar loop.
       EntryInsts.push_back(&*BBIt);
 
       // Add alloca to SIMD loop private
-      if (auto AllocaVal = dyn_cast<AllocaInst>(BBIt)) {
+      if (auto AllocaVal = dyn_cast<AllocaInst>(BBIt))
         PrivateAllocas.insert(AllocaVal);
-      }
     }
   }
 
-  BasicBlock *LoopBlock = EntryBlock->splitBasicBlock(EntryBlock->begin(),
-                                                      "simd.loop");
+  BasicBlock *LoopBlock =
+      EntryBlock->splitBasicBlock(EntryBlock->begin(), "simd.loop");
 
   for (auto *Inst : EntryInsts) {
     Inst->removeFromParent();
@@ -660,18 +654,15 @@ Instruction *VecCloneImpl::expandVectorParameters(
       // vector bitcast so that we can later update any users of the
       // parameter.
       Value *ArgValue = cast<Value>(Arg);
-      if (!StoreUser) {
-        StoreInst *Store =
-            new StoreInst(ArgValue, VecAlloca, false /*volatile*/,
-                          DL.getABITypeAlign(ArgValue->getType()));
+      StoreInst *Store = new StoreInst(ArgValue, VecAlloca, false /*volatile*/,
+                                       DL.getABITypeAlign(ArgValue->getType()));
 
-        // Insert any necessary vector parameter stores here. This is needed for
-        // when there were no existing scalar stores that we can update to
-        // vector stores for the parameter. This is needed when Mem2Reg has
-        // registerized parameters. The stores are inserted after the allocas in
-        // the entry block.
-        Store->insertBefore(EntryBlock->getTerminator());
-      }
+      // Insert any necessary vector parameter stores here. This is needed for
+      // when there were no existing scalar stores that we can update to
+      // vector stores for the parameter. This is needed when Mem2Reg has
+      // registerized parameters. The stores are inserted after the allocas in
+      // the entry block.
+      Store->insertBefore(EntryBlock->getTerminator());
       PRef->VectorParm = ArgValue;
     }
 
