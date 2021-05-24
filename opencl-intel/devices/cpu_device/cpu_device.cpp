@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2020 Intel Corporation.
+// Copyright 2006-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -1641,6 +1641,44 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
                 }
                 return CL_DEV_SUCCESS;
             }
+        case CL_DEVICE_OPENCL_C_ALL_VERSIONS:
+        {
+            std::vector<cl_name_version> openclCVerAll;
+            switch(ver)
+            {
+                case OPENCL_VERSION_3_0: // FALL THROUGH
+                    openclCVerAll.push_back(
+                        cl_name_version{CL_MAKE_VERSION(3, 0, 0), "OpenCL C"});
+                case OPENCL_VERSION_2_2: // FALL THROUGH
+                case OPENCL_VERSION_2_1: // FALL THROUGH
+                case OPENCL_VERSION_2_0: // FALL THROUGH
+                    openclCVerAll.push_back(
+                        cl_name_version{CL_MAKE_VERSION(2, 0, 0), "OpenCL C"});
+                case OPENCL_VERSION_1_2: // FALL THROUGH
+                    openclCVerAll.push_back(
+                        cl_name_version{CL_MAKE_VERSION(1, 2, 0), "OpenCL C"});
+                case OPENCL_VERSION_1_0: // FALL THROUGH
+                    openclCVerAll.push_back(
+                        cl_name_version{CL_MAKE_VERSION(1, 0, 0), "OpenCL C"});
+                    break;
+                default:
+                    assert(false && "Unknown OpenCL version.");
+            }
+
+            *pinternalRetunedValueSize =
+                    openclCVerAll.size() * sizeof(cl_name_version);
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(nullptr != paramVal)
+            {
+                MEMCPY_S(paramVal, valSize, openclCVerAll.data(),
+                         *pinternalRetunedValueSize);
+            }
+            return CL_DEV_SUCCESS;
+        }
         case( CL_DEVICE_VERSION):
         {
             const char* openclVerStr = nullptr;
@@ -1690,6 +1728,47 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
 
             return CL_DEV_SUCCESS;
         }
+        case CL_DEVICE_NUMERIC_VERSION:
+        {
+            cl_version openclVerNum = 0;
+            switch (ver)
+            {
+                case OPENCL_VERSION_1_0:
+                    openclVerNum = CL_MAKE_VERSION(1, 0, 0);
+                    break;
+                case OPENCL_VERSION_1_2:
+                    openclVerNum = CL_MAKE_VERSION(1, 2, 0);
+                    break;
+                case OPENCL_VERSION_2_0:
+                    openclVerNum = CL_MAKE_VERSION(2, 0, 0);
+                    break;
+                case OPENCL_VERSION_2_1:
+                    openclVerNum = CL_MAKE_VERSION(2, 1, 0);
+                    break;
+                case OPENCL_VERSION_2_2:
+                    openclVerNum = CL_MAKE_VERSION(2, 2, 0);
+                    break;
+                case OPENCL_VERSION_3_0:
+                    openclVerNum = CL_MAKE_VERSION(3, 0, 0);
+                    break;
+                default:
+                    assert(false && "Unknown OpenCL version.");
+            }
+
+            *pinternalRetunedValueSize = sizeof(openclVerNum);
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(nullptr != paramVal)
+            {
+                MEMCPY_S(paramVal, valSize, &openclVerNum,
+                         *pinternalRetunedValueSize);
+            }
+
+            return CL_DEV_SUCCESS;
+        }
         case( CL_DEVICE_IL_VERSION ):
         {
             const char* il_version = "SPIR-V_1.0";
@@ -1702,6 +1781,22 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
             if(nullptr != paramVal)
             {
                 STRCPY_S((char*)paramVal, *pinternalRetunedValueSize, il_version);
+            }
+            return CL_DEV_SUCCESS;
+        }
+        case CL_DEVICE_ILS_WITH_VERSION:
+        {
+            cl_name_version il_version = {CL_MAKE_VERSION(1, 0, 0), "SPIR-V"};
+            *pinternalRetunedValueSize = sizeof(il_version);
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(nullptr != paramVal)
+            {
+                MEMCPY_S(paramVal, valSize, &il_version,
+                         *pinternalRetunedValueSize);
             }
             return CL_DEV_SUCCESS;
         }
@@ -2126,6 +2221,22 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
             }
 
             break;
+        }
+        case CL_DEVICE_LATEST_CONFORMANCE_VERSION_PASSED:
+        {
+            const char* cts_version = "2.1";
+            *pinternalRetunedValueSize = strlen(cts_version) + 1;
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(nullptr != paramVal)
+            {
+                STRCPY_S((char *)paramVal, *pinternalRetunedValueSize,
+                         cts_version);
+            }
+            return CL_DEV_SUCCESS;
         }
         default:
             return CL_DEV_INVALID_VALUE;

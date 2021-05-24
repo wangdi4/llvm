@@ -93,6 +93,139 @@ bool clGetDeviceInfoTest()
 		}
 	}
 
+    // OpenCL 3.0: device numeric version
+    size_t szDeviceNumericVersionSize = 0;
+    cl_version deviceNumericVersion;
+    iRes = clGetDeviceInfo(devices[0], CL_DEVICE_NUMERIC_VERSION, 0, NULL,
+                           &szDeviceNumericVersionSize);
+    bResult &=
+        Check("CL_DEVICE_NUMERIC_VERSION - query size", CL_SUCCESS, iRes);
+    if (bResult && 0 < szDeviceVersionStringSize)
+    {
+        iRes = clGetDeviceInfo(devices[0], CL_DEVICE_NUMERIC_VERSION,
+                               szDeviceNumericVersionSize,
+                               &deviceNumericVersion, NULL);
+        bResult &=
+            Check("CL_DEVICE_NUMERIC_VERSION - get number", CL_SUCCESS, iRes);
+        if (bResult) {
+            printf("CL_DEVICE_NUMERIC_VERSION: %u.%u.%u\n",
+                   CL_VERSION_MAJOR(deviceNumericVersion),
+                   CL_VERSION_MINOR(deviceNumericVersion),
+                   CL_VERSION_PATCH(deviceNumericVersion));
+        }
+    }
+
+    // IL version string
+    size_t szDeviceILVersionStringSize = 0;
+    std::string deviceILVersionString;
+    iRes = clGetDeviceInfo(devices[0], CL_DEVICE_IL_VERSION, 0, NULL,
+                           &szDeviceILVersionStringSize);
+    bResult &= Check("CL_DEVICE_IL_VERSION - query size", CL_SUCCESS, iRes);
+    if (bResult && 0 < szDeviceILVersionStringSize)
+    {
+        deviceILVersionString.resize(szDeviceILVersionStringSize);
+        iRes = clGetDeviceInfo(devices[0], CL_DEVICE_IL_VERSION,
+                               szDeviceILVersionStringSize,
+                               &deviceILVersionString[0], NULL);
+        bResult &= Check("CL_DEVICE_IL_VERSION - get string", CL_SUCCESS, iRes);
+        if (bResult) {
+            printf("CL_DEVICE_IL_VERSION: %s\n", deviceILVersionString.c_str());
+        }
+     }
+
+    // OpenCL 3.0: ILS with version
+    size_t szDeviceILSVersionSize = 0;
+    cl_name_version deviceILSVersion;
+    iRes = clGetDeviceInfo(devices[0], CL_DEVICE_ILS_WITH_VERSION, 0, NULL,
+                           &szDeviceILSVersionSize);
+    bResult &=
+        Check("CL_DEVICE_ILS_WITH_VERSION - query size", CL_SUCCESS, iRes);
+    if (bResult && 0 < szDeviceILSVersionSize)
+    {
+        iRes = clGetDeviceInfo(devices[0], CL_DEVICE_ILS_WITH_VERSION,
+                               szDeviceILSVersionSize,
+                               &deviceILSVersion, NULL);
+        bResult &= Check("CL_DEVICE_ILS_WITH_VERSION - get cl_name_version",
+                         CL_SUCCESS, iRes);
+        if (bResult) {
+            printf("CL_DEVICE_ILS_WITH_VERSION: %s v%u.%u.%u\n",
+                   deviceILSVersion.name,
+                   CL_VERSION_MAJOR(deviceILSVersion.version),
+                   CL_VERSION_MINOR(deviceILSVersion.version),
+                   CL_VERSION_PATCH(deviceILSVersion.version));
+        }
+    }
+
+    // OpenCL C version string
+    size_t szOpenCLCVersionStringSize = 0;
+    std::string OpenCLCVersionString;
+    iRes = clGetDeviceInfo(devices[0], CL_DEVICE_OPENCL_C_VERSION, 0, NULL,
+                           &szOpenCLCVersionStringSize);
+    bResult &=
+        Check("CL_DEVICE_OPENCL_C_VERSION - query size", CL_SUCCESS, iRes);
+    if (bResult && 0 < szOpenCLCVersionStringSize)
+    {
+        OpenCLCVersionString.resize(szOpenCLCVersionStringSize);
+        iRes = clGetDeviceInfo(devices[0], CL_DEVICE_OPENCL_C_VERSION,
+                               szOpenCLCVersionStringSize,
+                               &OpenCLCVersionString[0], NULL);
+        bResult &=
+            Check("CL_DEVICE_OPENCL_C_VERSION - get string", CL_SUCCESS, iRes);
+        if (bResult) {
+            printf("CL_DEVICE_OPENCL_C_VERSION: %s\n",
+                   OpenCLCVersionString.c_str());
+        }
+     }
+
+    // OpenCL 3.0: OpenCL C all versions
+    size_t szOpenCLCAllVersionsSize = 0;
+    iRes = clGetDeviceInfo(devices[0], CL_DEVICE_OPENCL_C_ALL_VERSIONS, 0, NULL,
+                           &szOpenCLCAllVersionsSize);
+    bResult &=
+        Check("CL_DEVICE_OPENCL_C_ALL_VERSIONS - query size", CL_SUCCESS, iRes);
+    if (bResult && 0 < szOpenCLCAllVersionsSize)
+    {
+        const size_t numOfCVer =
+                szOpenCLCAllVersionsSize / sizeof(cl_name_version);
+        std::vector<cl_name_version> OpenCLCAllVersions(numOfCVer);
+        iRes = clGetDeviceInfo(devices[0], CL_DEVICE_OPENCL_C_ALL_VERSIONS,
+                               szOpenCLCAllVersionsSize,
+                               OpenCLCAllVersions.data(), NULL);
+        bResult &= Check("CL_DEVICE_OPENCL_C_ALL_VERSIONS", CL_SUCCESS, iRes);
+        if (bResult) {
+            printf("CL_DEVICE_OPENCL_C_ALL_VERSIONS:\n");
+            for (auto CVer : OpenCLCAllVersions) {
+                printf("  %s %u.%u\n", CVer.name,
+                       CL_VERSION_MAJOR(CVer.version),
+                       CL_VERSION_MINOR(CVer.version));
+            }
+        }
+    }
+
+    // OpenCL 3.0: the latest version of the conformance test suite that device
+    // passed
+    size_t szPassedCTSVersionSize = 0;
+    std::string passedCTSVersion;
+    iRes =
+        clGetDeviceInfo(devices[0], CL_DEVICE_LATEST_CONFORMANCE_VERSION_PASSED,
+                        0, NULL, &szPassedCTSVersionSize);
+    bResult &= Check("CL_DEVICE_LATEST_CONFORMANCE_VERSION_PASSED - query size",
+                     CL_SUCCESS, iRes);
+    if (bResult && 0 < szPassedCTSVersionSize)
+    {
+        passedCTSVersion.resize(szPassedCTSVersionSize);
+        iRes = clGetDeviceInfo(
+            devices[0], CL_DEVICE_LATEST_CONFORMANCE_VERSION_PASSED,
+            szPassedCTSVersionSize, &passedCTSVersion[0], NULL);
+        bResult &=
+            Check("CL_DEVICE_LATEST_CONFORMANCE_VERSION_PASSED - get string",
+                  CL_SUCCESS, iRes);
+        if (bResult) {
+            printf("CL_DEVICE_LATEST_CONFORMANCE_VERSION_PASSED: %s\n",
+                   passedCTSVersion.c_str());
+        }
+     }
+
 
 	cl_uint uiNativeVecWidth = 0;
 	iRes = clGetDeviceInfo(devices[0],CL_DEVICE_NATIVE_VECTOR_WIDTH_FLOAT, sizeof(cl_uint), &uiNativeVecWidth, NULL);
