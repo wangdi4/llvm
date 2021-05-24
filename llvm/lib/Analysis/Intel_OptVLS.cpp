@@ -1114,7 +1114,7 @@ public:
 
       OVLSInstruction *I = N->getInstruction();
       assert(I != nullptr && "Inst cannot be null!!!");
-      InstVector.push_back(I);
+      InstVector.emplace_back(I);
 
       if (Map == nullptr)
         continue;
@@ -1995,8 +1995,9 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
     OVLSAddress Src(FirstMemref, Offset);
     LoadInst[i] = new OVLSLoad(LType, Src, ElementMask);
     Offset = Offset + 16; // 4 elements offset.
-    InstVector.push_back(LoadInst[i]);
+    InstVector.emplace_back(LoadInst[i]);
   }
+
   // %t3 = shufflevector <4 x i32> %t0, <4 x i32> %t2, <8 x i32> <i32 0, i32 1,
   //       i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
   // %t7 = shufflevector <4 x i32> %t4, <4 x i32> %t6, <8 x i32> <i32 0, i32 1,
@@ -2012,8 +2013,9 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
   for (int i = 0; i < 4; i++) {
     ShuffleOnLoad[i] =
         new OVLSShuffle(LoadInst[i], LoadInst[4 + i], ShuffleMask);
-    InstVector.push_back(ShuffleOnLoad[i]);
+    InstVector.emplace_back(ShuffleOnLoad[i]);
   }
+
   // %t16 = shufflevector <8 x i32> %t3, <8 x i32> %t7, <8 x i32> <i32 0,
   //        i32 1, i32 9, i32 8, i32 4, i32 5,  i32 13, i32 12>
   // %t17 = shufflevector <8 x i32> %t15, <8 x i32> %t11, <8 x i32> <i32 1,
@@ -2097,7 +2099,7 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
   Results[3] = ShuffleOnShuffles[7];
 
   for (int i = 0; i < 8; i++) {
-    InstVector.push_back(ShuffleOnShuffles[i]);
+    InstVector.emplace_back(ShuffleOnShuffles[i]);
   }
 
   if (MemrefToInstMap)
@@ -2105,6 +2107,7 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi32(
     for (int i = 0; i < 4; i++)
       MemrefToInstMap->insert(std::pair<OVLSMemref *, OVLSInstruction *>(
           Group.getMemref(i), Results[i]));
+
   return true;
 }
 
@@ -2245,7 +2248,7 @@ bool OptVLSInterface::genSeqStoreStride16Packed8xi32(
   // Pushback all Shuffle instructions into InstVec.
   //
   for (int i = 0; i < 16; i++)
-    InstVector.push_back(ShuffleOnShuffles[i]);
+    InstVector.emplace_back(ShuffleOnShuffles[i]);
 
   Offset = 0;
   OVLSInstruction *StoreInst[8];
@@ -2267,8 +2270,9 @@ bool OptVLSInterface::genSeqStoreStride16Packed8xi32(
     OVLSAddress Src(FirstMemref, Offset);
     StoreInst[i] = new OVLSStore(ShuffleOnShuffles[i + 8], Src, ElementMask);
     Offset = Offset + 16; // 4 elements offset.
-    InstVector.push_back(StoreInst[i]);
+    InstVector.emplace_back(StoreInst[i]);
   }
+
   return true;
 }
 
@@ -2317,7 +2321,7 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
     OVLSAddress Src(FirstMemref, Offset);
     LoadInst[i] = new OVLSLoad(LType, Src, ElementMask);
     Offset = Offset + 16; // 8 elements offset.
-    InstVector.push_back(LoadInst[i]);
+    InstVector.emplace_back(LoadInst[i]);
   }
 
   // %x1 = shufflevector <8 x i16> %t0, <8 x i16> %t8, <8 x i32>
@@ -2352,9 +2356,8 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
         new OVLSShuffle(LoadInst[2 * i], LoadInst[2 * i + 1], ShuffleMask);
   }
 
-  for (int i = 0; i < 8; i++) {
-    InstVector.push_back(ShuffleOnLoad[i]);
-  }
+  for (int i = 0; i < 8; i++)
+    InstVector.emplace_back(ShuffleOnLoad[i]);
 
   //  %t1 = shufflevector <8 x i16> %x1, <8 x i16> %y1, <8 x i32> <i32 0, i32 1,
   //        i32 8, i32 9,  i32 2, i32 3, i32 10, i32 11>
@@ -2403,9 +2406,8 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
         ShuffleOnLoad[i + 4], ShuffleOnLoad[i + 6], ShuffleMask);
   }
 
-  for (int i = 0; i < 8; i++) {
-    InstVector.push_back(ShuffleOnShuffles[i]);
-  }
+  for (int i = 0; i < 8; i++)
+    InstVector.emplace_back(ShuffleOnShuffles[i]);
 
   //  %r0 = shufflevector <8 x i16> %t1, <8 x i16> %t3, <8 x i32> <i32 0, i32 1,
   //        i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
@@ -2460,15 +2462,15 @@ bool OptVLSInterface::genSeqLoadStride16Packed8xi16(
                         ShuffleOnShuffles[4 * i + 3], ShuffleMask);
   }
 
-  for (int i = 0; i < 8; i++) {
-    InstVector.push_back(ResultShuffles[i]);
-  }
+  for (int i = 0; i < 8; i++)
+    InstVector.emplace_back(ResultShuffles[i]);
 
   if (MemrefToInstMap)
     // Populate the memrefmap.
     for (int i = 0; i < 8; i++)
       MemrefToInstMap->insert(std::pair<OVLSMemref *, OVLSInstruction *>(
           Group.getMemref(i), ResultShuffles[i]));
+
   return true;
 }
 
@@ -2602,8 +2604,8 @@ int64_t OptVLSInterface::getGroupCost(const OVLSGroup &Group,
   // + shuffle-sequence
   OVLSInstructionVector InstVector;
   if (getSequence(Group, CM, InstVector)) {
-    for (OVLSInstruction *I : InstVector) {
-      int64_t C = CM.getInstructionCost(I);
+    for (auto &I : InstVector) {
+      int64_t C = CM.getInstructionCost(I.get());
       if (C == OVLSCostModel::UnknownCost)
         return OVLSCostModel::UnknownCost;
       Cost += C;
