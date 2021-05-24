@@ -111,7 +111,7 @@ static cl::opt<bool>
 // even when it would not normally be enabled.
 static cl::opt<bool>
     ForceOnCallbackCloning("ip-gen-cloning-force-on-callback-cloning",
-                           cl::init(false), cl::ReallyHidden);
+                           cl::init(true), cl::ReallyHidden);
 
 // Used to force the enabling of the dtrans-related heuristics even when they
 // would not normally be enabled.
