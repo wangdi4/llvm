@@ -1,3 +1,5 @@
+// INTEL UNSUPPORTED: intel_opencl && i686-pc-windows
+
 // RUN: cat %s | clang-repl | FileCheck %s
 // REQUIRES: host-supports-jit
 // UNSUPPORTED: powerpc64
