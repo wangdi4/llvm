@@ -189,9 +189,6 @@ declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 ;;}
 
 ; DEBUGIFY-NOT: WARNING
-; Known issue of debugify on PHI node, ignore the “Missing line xxxx” warning
-; DEBUGIFY: WARNING: Missing line 14
-; DEBUGIFY: WARNING: Missing line 30
 ; _Z9get_fencePU3AS4Kv is resolved, ignore the “Missing line xxxx” warning
 ; DEBUGIFY: WARNING: Missing line 41
 ; DEBUGIFY-NOT: WARNING

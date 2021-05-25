@@ -268,6 +268,4 @@ if.end:                                           ; preds = %if.else, %if.then
 ;CHECK: call double @_Z3cosd(double %b)
 ;CHECK: ret void
 
-; DEBUGIFY: WARNING: Missing line 76
-; DEBUGIFY: WARNING: Missing line 89
 ; DEBUGIFY-NOT: WARNING

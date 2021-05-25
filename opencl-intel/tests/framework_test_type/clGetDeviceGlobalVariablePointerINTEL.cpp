@@ -554,4 +554,4 @@ TEST_P(GVPointerExtensionTest, singleProgramLocalArray) {
   EXPECT_OCL_SUCCESS(err, "clReleaseProgram");
 }
 
-INSTANTIATE_TEST_CASE_P(GV, GVPointerExtensionTest, ::testing::Bool(), );
+INSTANTIATE_TEST_SUITE_P(GV, GVPointerExtensionTest, ::testing::Bool());

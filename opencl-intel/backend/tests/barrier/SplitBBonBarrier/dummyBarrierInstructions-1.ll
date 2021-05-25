@@ -38,6 +38,4 @@ L3:
 
 declare void @dummybarrier.()
 
-;; PHINode
-; DEBUGIFY: WARNING: Missing line 6
 ; DEBUGIFY-NOT: WARNING

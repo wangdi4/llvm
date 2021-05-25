@@ -62,8 +62,6 @@ declare void @foo(i64) #1
 attributes #0 = { nounwind }
 attributes #1 = { noduplicate }
 
-;; phi nodes
 ; DEBUGIFY: WARNING: Missing line 3
-; DEBUGIFY: WARNING: Missing line 8
 
 ; DEBUGIFY-NOT: WARNING

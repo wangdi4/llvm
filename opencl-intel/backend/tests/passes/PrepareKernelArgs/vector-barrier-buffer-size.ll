@@ -371,6 +371,4 @@ attributes #2 = { nounwind }
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-78: WARNING: Instruction with empty DebugLoc in function {{.*}}
-; Known issue of debugify on PHI node, ignore the “Missing line xxxx” warning
-; DEBUGIFY-COUNT-48: WARNING: Missing line {{.*}}
 ; DEBUGIFY-NOT: WARNING

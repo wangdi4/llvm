@@ -56,5 +56,5 @@ TEST_P(TBBMaxThreadsTest, noAssert) {
   ASSERT_OCL_SUCCESS(err, "clReleaseContext");
 }
 
-INSTANTIATE_TEST_CASE_P(TaskExecutor, TBBMaxThreadsTest,
-                        ::testing::Values(1, 2, 128), );
+INSTANTIATE_TEST_SUITE_P(TaskExecutor, TBBMaxThreadsTest,
+                        ::testing::Values(1, 2, 128));

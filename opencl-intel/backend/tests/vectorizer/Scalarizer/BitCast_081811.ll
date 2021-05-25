@@ -301,6 +301,4 @@ bb.nph:                                           ; preds = %0
   ret void
 }
 
-; false alarm on phi node
-; DEBUGIFY: WARNING: Missing line 18
 ; DEBUGIFY-NOT: WARNING

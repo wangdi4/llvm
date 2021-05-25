@@ -361,5 +361,5 @@ TEST_P(MultipleDevicesBase, CheckThatChannelsAreNotShared) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(TestFPGAMultiDevice, MultipleDevicesBase,
-                        ::testing::Values(1, 2, 3, 10), );
+INSTANTIATE_TEST_SUITE_P(TestFPGAMultiDevice, MultipleDevicesBase,
+                        ::testing::Values(1, 2, 3, 10));

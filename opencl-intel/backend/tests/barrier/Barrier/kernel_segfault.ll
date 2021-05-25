@@ -306,13 +306,4 @@ attributes #2 = { nounwind readnone }
 !19 = distinct !{!19, !20}
 !20 = !{!"llvm.loop.unroll.disable"}
 
-;; phi nodes
-;DEBUGIFY: WARNING: Missing line 11
-;DEBUGIFY: WARNING: Missing line 12
-;DEBUGIFY: WARNING: Missing line 26
-;DEBUGIFY: WARNING: Missing line 30
-;DEBUGIFY: WARNING: Missing line 31
-;DEBUGIFY: WARNING: Missing line 52
-;DEBUGIFY: WARNING: Missing line 53
-
 ; DEBUGIFY-NOT: WARNING

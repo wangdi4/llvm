@@ -65,12 +65,12 @@ void OptimizerLTO::Optimize() {
   PassInstrumentationCallbacks PIC;
   StandardInstrumentations SI(DebugPassManager);
   SI.registerCallbacks(PIC);
-  PassBuilder PB(DebugPassManager, TM, PTO, PGOOpt, &PIC);
+  PassBuilder PB(TM, PTO, PGOOpt, &PIC);
 
-  LoopAnalysisManager LAM(DebugPassManager);
-  FunctionAnalysisManager FAM(DebugPassManager);
-  CGSCCAnalysisManager CGAM(DebugPassManager);
-  ModuleAnalysisManager MAM(DebugPassManager);
+  LoopAnalysisManager LAM;
+  FunctionAnalysisManager FAM;
+  CGSCCAnalysisManager CGAM;
+  ModuleAnalysisManager MAM;
 
   // Register the AA manager first so that our version is the one used.
   FAM.registerPass([&] { return PB.buildDefaultAAPipeline(); });
@@ -92,7 +92,7 @@ void OptimizerLTO::Optimize() {
   registerVectorizerStartCallback(PB);
   registerOptimizerLastCallback(PB);
 
-  ModulePassManager MPM(DebugPassManager);
+  ModulePassManager MPM;
 
   if (Config->GetDisableOpt())
     MPM = PB.buildO0DefaultPipeline(PassBuilder::OptimizationLevel::O0);

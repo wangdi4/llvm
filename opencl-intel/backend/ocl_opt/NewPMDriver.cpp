@@ -194,7 +194,7 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
       else
         P = None;
   }
-  PassBuilder PB(DebugPM, TM, PipelineTuningOptions(), P);
+  PassBuilder PB(TM, PipelineTuningOptions(), P);
   registerEPCallbacks(PB, DebugPM);
 
 #ifdef LINK_POLLY_INTO_TOOLS
@@ -209,10 +209,10 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
     return false;
   }
 
-  LoopAnalysisManager LAM(DebugPM);
-  FunctionAnalysisManager FAM(DebugPM);
-  CGSCCAnalysisManager CGAM(DebugPM);
-  ModuleAnalysisManager MAM(DebugPM);
+  LoopAnalysisManager LAM;
+  FunctionAnalysisManager FAM;
+  CGSCCAnalysisManager CGAM;
+  ModuleAnalysisManager MAM;
 
   // Register the AA manager first so that our version is the one used.
   FAM.registerPass([&] { return std::move(AA); });
@@ -224,7 +224,7 @@ bool llvm::runPassPipeline(StringRef Arg0, Module &M, TargetMachine *TM,
   PB.registerLoopAnalyses(LAM);
   PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
-  ModulePassManager MPM(DebugPM);
+  ModulePassManager MPM;
 
   // Register a callback that creates the debugify passes as needed.
   PB.registerPipelineParsingCallback(

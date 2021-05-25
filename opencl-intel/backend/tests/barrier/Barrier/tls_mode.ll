@@ -170,8 +170,5 @@ attributes #4 = { convergent nounwind readnone }
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
-;; phi nodes
-;DEBUGIFY: WARNING: Missing line 9
-;DEBUGIFY: WARNING: Missing line 10
 
 ; DEBUGIFY-NOT: WARNING

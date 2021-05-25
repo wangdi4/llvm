@@ -159,14 +159,4 @@ declare [7 x i64] @"WG.boundaries._ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE1K"(i
 
 attributes #16 = { nounwind "vector-variants"="_ZGVeM4vl__$U0,_ZGVeN4vv__$U0,_ZGVeM8vl__$U0,_ZGVeN8vv__$U0" }
 
-; false alarm on phi nodes
-; DEBUGIFY: WARNING: Missing line 15
-; DEBUGIFY-NEXT: WARNING: Missing line 16
-; DEBUGIFY-NEXT: WARNING: Missing line 43
-; DEBUGIFY-NEXT: WARNING: Missing line 44
-; DEBUGIFY-NEXT: WARNING: Missing line 45
-; DEBUGIFY-NEXT: WARNING: Missing line 61
-; DEBUGIFY-NEXT: WARNING: Missing line 62
-; DEBUGIFY-NEXT: WARNING: Missing line 76
-; DEBUGIFY-NEXT: WARNING: Missing line 77
 ; DEBUGIFY-NOT: WARNING

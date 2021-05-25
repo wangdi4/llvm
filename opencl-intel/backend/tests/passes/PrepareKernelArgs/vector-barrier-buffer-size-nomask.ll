@@ -154,13 +154,4 @@ attributes #0 = { convergent norecurse nounwind "correctly-rounded-divide-sqrt-f
 
 ; DEBUGIFY-NOT: WARNING
 ; DEBUGIFY-COUNT-76: WARNING: Instruction with empty DebugLoc in function {{.*}}
-; Known issue of debugify on PHI node, ignore the “Missing line xxxx” warning
-; DEBUGIFY: WARNING: Missing line 5
-; DEBUGIFY: WARNING: Missing line 6
-; DEBUGIFY: WARNING: Missing line 17
-; DEBUGIFY: WARNING: Missing line 18
-; DEBUGIFY: WARNING: Missing line 34
-; DEBUGIFY: WARNING: Missing line 35
-; DEBUGIFY: WARNING: Missing line 46
-; DEBUGIFY: WARNING: Missing line 47
 ; DEBUGIFY-NOT: WARNING

@@ -428,9 +428,4 @@ ed:
 
 attributes #0 = { convergent nounwind readnone willreturn }
 
-;; phi nodes
-; DEBUGIFY: WARNING: Missing line 34
-; DEBUGIFY: WARNING: Missing line 75
-; DEBUGIFY: WARNING: Missing line 108
-
 ; DEBUGIFY-NOT: WARNING

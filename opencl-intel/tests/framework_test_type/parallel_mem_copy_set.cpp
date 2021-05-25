@@ -603,5 +603,5 @@ TEST_P(ParallelCopySetTest, readBufferMultiThreads) {
     delete threads[i];
 }
 
-INSTANTIATE_TEST_CASE_P(KernelLibrary, ParallelCopySetTest,
-                        ::testing::Values(NoEnv, DisableParralel), );
+INSTANTIATE_TEST_SUITE_P(KernelLibrary, ParallelCopySetTest,
+                        ::testing::Values(NoEnv, DisableParralel));

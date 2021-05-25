@@ -53,6 +53,4 @@ L3:
 
 declare void @_Z7barrierj(i32)
 
-;; PHINode
-; DEBUGIFY: WARNING: Missing line 9
 ; DEBUGIFY-NOT: WARNING

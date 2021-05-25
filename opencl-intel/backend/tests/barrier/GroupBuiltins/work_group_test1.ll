@@ -214,7 +214,5 @@ attributes #4 = { nounwind }
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.build_hash_table -- %CallFinalizeWG = call <4 x i32> @_Z25__finalize_work_group_allDv4_i(<4 x i32> %LoadWGFinalResult)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.build_hash_table -- store <4 x i32> <i32 1, i32 1, i32 1, i32 1>, <4 x i32>* %AllocaWGResult, align 16
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function __Vectorized_.build_hash_table -- call void @dummybarrier.()
-;; PHINode
-;DEBUGIFY: WARNING: Missing line 13
 
 ; DEBUGIFY-NOT: WARNING

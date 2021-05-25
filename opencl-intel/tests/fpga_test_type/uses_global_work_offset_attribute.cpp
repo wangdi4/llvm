@@ -191,6 +191,6 @@ TEST_P(CanUseGlobalWorkOffsetParamBase, AttributeTrueParameterNonNull) {
       << "clEnqueueNDRangeKernel failed with error " << ErrToStr(error);
 }
 
-INSTANTIATE_TEST_CASE_P(TestCanUseGlobalWorkOffsetParam,
+INSTANTIATE_TEST_SUITE_P(TestCanUseGlobalWorkOffsetParam,
                         CanUseGlobalWorkOffsetParamBase,
-                        ::testing::Values(1, 31), );
+                        ::testing::Values(1, 31));

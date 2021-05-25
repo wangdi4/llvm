@@ -157,6 +157,4 @@ attributes #2 = { convergent nounwind readnone }
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} br
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} call
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function _ZGVeN8uuu_f {{.*}} br
-; DEBUGIFY-NEXT: WARNING: Missing line 32
-; DEBUGIFY-NEXT: WARNING: Missing line 33
 ; DEBUGIFY-NOT: WARNING

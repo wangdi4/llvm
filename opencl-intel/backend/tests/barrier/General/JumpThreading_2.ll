@@ -114,9 +114,5 @@ declare i64 @_Z14get_local_sizej(i32) nounwind readnone
 !5 = !{i32 0, i32 1, i32 0}
 !6 = !{!"isums", !"n", !"lmem"}
 !7 = !{!"-cl-kernel-arg-info"}
-;; phi nodes
-; DEBUGIFY: WARNING: Missing line 10
-; DEBUGIFY: WARNING: Missing line 12
-; DEBUGIFY: WARNING: Missing line 22
 
 ; DEBUGIFY-NOT: WARNING
