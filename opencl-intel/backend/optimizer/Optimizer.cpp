@@ -131,7 +131,6 @@ llvm::Pass *createRelaxedPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createHandleVPlanMaskPass();
-llvm::ModulePass *createBuiltInImportPass(const char *CPUName);
 llvm::ImmutablePass *createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createChannelPipeTransformationPass();
 llvm::ModulePass *createPipeIOTransformationPass();
@@ -747,7 +746,7 @@ static void populatePassesPostFailCheck(
   }
 
   // The following three passes (AddImplicitArgs/AddTLSGlobals, ResolveWICall,
-  // LocalBuffer) must run before createBuiltInImportPass!
+  // LocalBuffer) must run before createBuiltinImportLegacyPass!
   if (UseTLSGlobals)
     PM.add(createAddTLSGlobalsPass());
   else
@@ -785,7 +784,7 @@ static void populatePassesPostFailCheck(
     // Inline BI function
     const char *CPUPrefix = pConfig->GetCpuId()->GetCPUPrefix();
     assert(CPUPrefix && "CPU Prefix should not be null");
-    PM.add(createBuiltInImportPass(CPUPrefix));
+    PM.add(llvm::createBuiltinImportLegacyPass(pRtlModuleList, CPUPrefix));
     if (OptLevel > 0) {
       // After the globals used in built-ins are imported - we can internalize
       // them with further wiping them out with GlobalDCE pass

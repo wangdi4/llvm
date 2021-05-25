@@ -232,7 +232,6 @@ set( BACKEND_PASSES
     PipeSupport
     HandleVPlanMask
     OclFunctionAttrs
-    BuiltInFuncImport
     BuiltinLibInfo
     DebugInfoPass
     DetectRecursion
