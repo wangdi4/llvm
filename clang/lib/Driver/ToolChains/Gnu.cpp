@@ -616,17 +616,6 @@ static void addIntelLibirc(const ToolChain &TC, ArgStringList &CmdArgs,
   }
   addIntelLib("-lirc", TC, CmdArgs, Args);
 }
-
-// By default, libimf is linked in to match libm.  If a user specifies
-// -static-intel or -shared-intel, link according to those behaviors.
-static void addIntelLibimf(const ToolChain &TC, ArgStringList &CmdArgs,
-                           const ArgList &Args) {
-  if (Args.hasArg(options::OPT_static_intel, options::OPT_shared_intel)) {
-    addIntelLib("-limf", TC, CmdArgs, Args);
-    return;
-  }
-  CmdArgs.push_back("-limf");
-}
 #endif // INTEL_CUSTOMIZATION
 
 static bool getStaticPIE(const ArgList &Args, const ToolChain &TC) {
@@ -989,10 +978,9 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-Bdynamic");
     }
 #if INTEL_CUSTOMIZATION
-    // Add -limf before -lm, it will be linked in the same manner as -lm so
-    // don't add with addIntelLib
+    // Add -limf before -lm.
     if (D.IsIntelMode())
-      addIntelLibimf(ToolChain, CmdArgs, Args);
+      addIntelLib("-limf", ToolChain, CmdArgs, Args);
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lm");
   }
@@ -1001,7 +989,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
            (D.IsIntelMode() || Args.hasArg(options::OPT_qmkl_EQ))) {
     if (D.IsIntelMode())
-      addIntelLibimf(ToolChain, CmdArgs, Args);
+      addIntelLib("-limf", ToolChain, CmdArgs, Args);
     CmdArgs.push_back("-lm");
   }
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
@@ -3452,7 +3440,8 @@ void Generic_GCC::AddIntelLibimfLibArgs(
                    .Cases("-Bstatic", "-static", true)
                    .Default(IsStatic);
   }
-  if (!IsStatic && Args.hasArg(options::OPT_static_intel)) {
+  if (!IsStatic &&
+      !Args.hasArg(options::OPT_shared_intel, options::OPT_shared)) {
     CmdArgs.push_back("-Bstatic");
     CmdArgs.push_back("-limf");
     CmdArgs.push_back("-Bdynamic");

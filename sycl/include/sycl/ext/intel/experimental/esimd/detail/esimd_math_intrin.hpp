@@ -320,11 +320,14 @@ __esimd_dp4(__SEIEED::vector_type_t<Ty, N> v1,
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
-template <typename T, typename T1, typename T2, int N, int N1, int N2>
-SYCL_EXTERNAL __SEIEED::vector_type_t<T, N>
-__esimd_dpas(__SEIEED::vector_type_t<T, N> src0,
+template <typename T, typename T0, typename T1, typename T2,
+          int N, int N1, int N2>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<T, N>
+__esimd_dpas(__SEIEED::vector_type_t<T0, N> src0,
              __SEIEED::vector_type_t<T1, N1> src1,
-             __SEIEED::vector_type_t<T2, N2> src2, int dpas_info);
+             __SEIEED::vector_type_t<T2, N2> src2,
+             int src1_precision, int src2_precision,
+             int depth, int repeat, int sign_res, int sign_acc);
 
 template <typename T, typename T1, typename T2, int N, int N1, int N2>
 SYCL_EXTERNAL __SEIEED::vector_type_t<T, N>
@@ -1309,11 +1312,14 @@ __esimd_reduced_smin(__SEIEED::vector_type_t<Ty, N> src1,
 
 inline constexpr __SEIEE::uint
 __esimd_dpas_bits_precision(__SEIEE::EsimdPrecisionType precisionType) {
-  return precisionType == __SEIEE::EsimdPrecisionType::BF16 ||
+  return precisionType == __SEIEE::EsimdPrecisionType::TF32
+             ? 32
+         : precisionType == __SEIEE::EsimdPrecisionType::BF16 ||
                  precisionType == __SEIEE::EsimdPrecisionType::FP16
              ? 16
          : precisionType == __SEIEE::EsimdPrecisionType::S8 ||
-                 precisionType == __SEIEE::EsimdPrecisionType::U8
+                 precisionType == __SEIEE::EsimdPrecisionType::U8 ||
+                     precisionType == __SEIEE::EsimdPrecisionType::BF8
              ? 8
          : precisionType == __SEIEE::EsimdPrecisionType::S4 ||
                  precisionType == __SEIEE::EsimdPrecisionType::U4
@@ -1521,11 +1527,12 @@ __esimd_dpas_inner(const __SEIEED::vector_type_t<RT, SZ> *src0,
 }
 
 template <__SEIEE::EsimdPrecisionType src1_precision,
-          __SEIEE::EsimdPrecisionType src2_precision, int systolic_depth,
-          int repeat_count, typename T, typename T1, typename T2, int N, int N1,
-          int N2>
+          __SEIEE::EsimdPrecisionType src2_precision,
+          int systolic_depth, int repeat_count,
+          typename T, typename T0, typename T1, typename T2,
+          int N, int N1, int N2>
 inline __SEIEED::vector_type_t<T, N>
-__esimd_dpas(__SEIEED::vector_type_t<T, N> src0,
+__esimd_dpas(__SEIEED::vector_type_t<T0, N> src0,
              __SEIEED::vector_type_t<T1, N1> src1,
              __SEIEED::vector_type_t<T2, N2> src2) {
 #ifdef __SYCL_EXPLICIT_SIMD_PLUGIN__

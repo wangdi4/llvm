@@ -125,16 +125,16 @@
 // RUN: %clang -### -target x86_64-unknown-windows-msvc -- %s 2>&1 | FileCheck -check-prefix=LIBMMT %s
 // LIBMMT: "-defaultlib:libmmt"
 
-// Behavior with -lm
-// RUN: %clang -### --intel -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
-// RUN: %clang -### --intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
-// RUN: %clangxx -### --dpcpp -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
-// RUN: %clangxx -### --dpcpp -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
-// RUN: %clang -### --intel -shared-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
-// RUN: %clangxx -### --dpcpp -shared-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF %s
-// CHECK-LIMF: "-limf" "-lm"
+// Behavior with -lm -shared-intel
+// RUN: %clang -### --intel -shared-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-SHARED %s
+// RUN: %clangxx -### --dpcpp -shared-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-SHARED %s
+// CHECK-LIMF-SHARED: "-limf" "-lm"
 
 // Behavior with -lm -static-intel
+// RUN: %clang -### --intel -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC %s
+// RUN: %clang -### --intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC %s
+// RUN: %clangxx -### --dpcpp -lm -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC %s
+// RUN: %clangxx -### --dpcpp -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC %s
 // RUN: %clang -### --intel -static-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC %s
 // RUN: %clangxx -### --dpcpp -static-intel -target x86_64-unknown-linux %s 2>&1 | FileCheck -check-prefix CHECK-LIMF-STATIC %s
 // CHECK-LIMF-STATIC: "-Bstatic" "-limf" "-Bdynamic" "-lm"

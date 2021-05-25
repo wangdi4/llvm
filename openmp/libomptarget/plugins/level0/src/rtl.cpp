@@ -1173,12 +1173,15 @@ public:
     // Target device type
     if (char *env = readEnvVar("LIBOMPTARGET_DEVICETYPE")) {
       std::string value(env);
-      if (value == "GPU" || value == "gpu" || value == "")
+      if (value == "GPU" || value == "gpu" || value == "") {
         DeviceType = ZE_DEVICE_TYPE_GPU;
-      else
-        WARNING("Invalid LIBOMPTARGET_DEVICETYPE=%s\n", env);
+      } else if (value == "CPU" || value == "cpu") {
+        DeviceType = ZE_DEVICE_TYPE_CPU;
+        DP("Warning: CPU device is not supported\n");
+      } else {
+        DP("Warning: Invalid LIBOMPTARGET_DEVICETYPE=%s\n", env);
+      }
     }
-    IDP("Target device type is set to GPU\n");
 
     // Global thread limit
     int threadLimit = omp_get_thread_limit();
@@ -2495,6 +2498,9 @@ static int32_t appendDeviceProperties(ze_device_handle_t Device) {
 
 EXTERN int32_t __tgt_rtl_number_of_devices() {
   IDP("Looking for Level0 devices...\n");
+
+  if (DeviceInfo->DeviceType != ZE_DEVICE_TYPE_GPU)
+    return 0;
 
   CALL_ZE_RET_ZERO(zeInit, ZE_INIT_FLAG_GPU_ONLY);
   IDP("Initialized L0, API %" PRIx32 "\n", ZE_API_VERSION_CURRENT);
