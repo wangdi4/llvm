@@ -2153,6 +2153,60 @@ ESIMD_INLINE simd<uint32_t, N> esimd_impl_udivrem(simd<uint32_t, N> la,
 ESIMD_UDIV_SCALAR_IMPL(uint32_t, uint32_t, 1, ESIMD_RTZ)
 ESIMD_UREM_SCALAR_IMPL(uint32_t, uint32_t, 1, ESIMD_RTZ)
 
+/// convert_to_tf32 - converts vector of fp32 values to "tf32" data format.
+// Available on PVC platform
+// maps to FCVT vISA instruction
+/// \param src0 fp32 operand that requires convertion to "tf32"
+/// \return the vector of integers that contains the result of conversion
+template <typename SrcType, int N>
+ESIMD_INLINE ESIMD_NODEBUG simd<uint32_t, N>
+convert_to_tf32(simd<SrcType, N> src0) {
+  static_assert(detail::is_fp_type<SrcType>::value,
+                "only fp32(float)->tf32 conversions are supported");
+  return __esimd_tf32_cvt<N>(src0);
+}
+
+/// convert_from_tf32 - converts vector of "tf32" values to fp32 data format.
+// Available on any platform
+// maps to vISA mov instruction (worst case)
+/// \param src0 "tf32" operand that requires convertion to fp32
+/// \return the vector of fp32 that contains the result of conversion
+template <typename DstType, int N>
+ESIMD_INLINE ESIMD_NODEBUG simd<DstType, N>
+convert_from_tf32(simd<uint32_t, N> src0) {
+  static_assert(detail::is_fp_type<DstType>::value,
+                "only tf32->fp32(float) conversions are supported");
+  // convertion from tf32 to fp32 is just a bitcast
+  return src0.template bit_cast_view<float>();
+}
+
+/// convert_to_bf8 - converts vector of fp32 values to "bf8" data format.
+// Available on PVC platform
+// maps to FCVT vISA instruction
+/// \param src0 fp32 operand that requires convertion to "bf8"
+/// \return the vector of integers that contains the result of conversion
+template <typename SrcType, int N>
+ESIMD_INLINE ESIMD_NODEBUG simd<uint8_t, N>
+convert_to_bf8(simd<SrcType, N> src0) {
+  static_assert(detail::is_fp_type<SrcType>::value,
+                "only fp32(float)->bf8 conversions are supported");
+  return __esimd_qf_cvt<N, uint8_t, SrcType>(src0);
+}
+
+/// convert_from_bf8 - converts vector of bf8 values to fp32 data format.
+// Available on PVC platform
+// maps to FCVT vISA instruction
+/// \param src0 bf8 operand that requires convertion to fp32
+/// \return the vector of fp32 value that contains the result of conversion
+template <typename DstType, int N>
+ESIMD_INLINE ESIMD_NODEBUG simd<DstType, N>
+convert_from_bf8(simd<uint8_t, N> src0) {
+  static_assert(detail::is_fp_type<DstType>::value,
+                "only bf8->fp32(float) conversions are supported");
+  using SrcType = typename decltype(src0)::element_type;
+  return __esimd_qf_cvt<N, DstType, SrcType>(src0);
+}
+
 // dpas helpers
 namespace detail {
 
