@@ -107,6 +107,8 @@ Verbose;
 extern llvm::cl::opt<std::string>
 TimePasses;
 
+extern llvm::cl::opt<std::string> DebugPassManager;
+
 extern llvm::cl::opt<uint64_t>
 RandomDGSeed;
 
@@ -142,6 +144,7 @@ namespace Validation
         m_DumpIRDir(::DumpIRDir),
         m_DumpJIT(::DumpJIT),
         m_TimePasses(::TimePasses),
+        m_DebugPassManager(::DebugPassManager),
         m_dumpHeuristcIR(::DumpHeuristicIR),
         m_vectorizerType(::OptVectorizerType),
         m_nativeSubgroups(::NativeSubgroups),
@@ -243,6 +246,8 @@ namespace Validation
             return m_DumpJIT;
         case RC_BR_TIME_PASSES :
             return m_TimePasses;
+        case RC_BR_DEBUG_PASS_MANAGER:
+            return m_DebugPassManager;
         case RC_BR_PERF_LOG:
             return m_perfLogFile;
         case RC_BR_OBJECT_FILE:
@@ -345,6 +350,7 @@ namespace Validation
         m_DumpIRDir = ::DumpIRDir;
         m_DumpJIT = ::DumpJIT;
         m_TimePasses = ::TimePasses;
+        m_DebugPassManager = ::DebugPassManager;
         m_InjectedObject = ::ObjectFile;
         m_dumpHeuristcIR = ::DumpHeuristicIR;
         m_verbose = ::Verbose;

@@ -100,6 +100,14 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
         (int)CL_DEV_BACKEND_OPTION_TIME_PASSES, m_infoOutputFile.c_str());
     m_enableTiming = !m_infoOutputFile.empty();
 
+    std::string debugPassManager = pBackendOptions->GetStringValue(
+        (int)CL_DEV_BACKEND_OPTION_DEBUG_PASS_MANAGER, "");
+    PassManagerType passManagerType =
+        static_cast<PassManagerType>(pBackendOptions->GetIntValue(
+            CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE, PM_OCL));
+    if (PM_LTO_NEW != passManagerType && !debugPassManager.empty())
+      m_LLVMOptions += " -debug-pass=" + debugPassManager;
+
     m_targetDevice = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
         (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
 
@@ -243,6 +251,8 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
         (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
     m_passManagerType = static_cast<PassManagerType>(pBackendOptions->GetIntValue(
         CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE, PM_OCL));
+    m_debugPassManager = pBackendOptions->GetStringValue(
+        (int)CL_DEV_BACKEND_OPTION_DEBUG_PASS_MANAGER, "");
 }
 
 }}}

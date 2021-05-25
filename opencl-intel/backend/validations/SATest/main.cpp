@@ -256,6 +256,12 @@ TimePasses("dump-time-passes",
                           "The <filename> could be an absolute path or relative to the base directory."),
            llvm::cl::value_desc("filename"));
 
+// Debugging pass manager.
+llvm::cl::opt<std::string> DebugPassManager(
+    "debug-passes",
+    llvm::cl::desc("Enable -debug-pass for legacy pass manager and"
+                   "debugging for new pass manager."));
+
 // Seed for random input data generator
 llvm::cl::opt<uint64_t>
 RandomDGSeed("seed",

@@ -395,7 +395,8 @@ Compiler::Compiler(const ICompilerConfig& config):
     m_useNativeDebugger(false),
     m_streamingAlways(config.GetStreamingAlways()),
     m_expensiveMemOpts(config.GetExpensiveMemOpts()),
-    m_passManagerType(config.GetPassManagerType())
+    m_passManagerType(config.GetPassManagerType()),
+    m_debugPassManager(config.DebugPassManager())
 {
     // WORKAROUND!!! See the notes in TerminationBlocker description
    static Utils::TerminationBlocker blocker;
@@ -580,8 +581,8 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                                                          &optimizerConfig);
       break;
     case PM_LTO_NEW:
-      optimizer =
-          std::make_unique<OptimizerLTO>(pModule, BIModules, &optimizerConfig);
+      optimizer = std::make_unique<OptimizerLTO>(
+          pModule, BIModules, &optimizerConfig, !m_debugPassManager.empty());
       break;
     default:
       optimizer =

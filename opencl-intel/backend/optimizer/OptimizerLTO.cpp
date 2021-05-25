@@ -43,8 +43,9 @@ namespace DeviceBackend {
 
 OptimizerLTO::OptimizerLTO(Module *M,
                            llvm::SmallVector<llvm::Module *, 2> &RtlModuleList,
-                           const intel::OptimizerConfig *Config)
-    : Optimizer(M, RtlModuleList, Config), DebugPassManager(false) {}
+                           const intel::OptimizerConfig *Config,
+                           bool DebugPassManager)
+    : Optimizer(M, RtlModuleList, Config), DebugPassManager(DebugPassManager) {}
 
 OptimizerLTO::~OptimizerLTO() {}
 
