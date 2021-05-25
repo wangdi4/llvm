@@ -127,6 +127,12 @@ void KernelProperties::Serialize(IOutputStream &ost,
   Serializer::SerialPrimitive<DeviceMode>(&m_targetDevice, ost);
   tmp = (unsigned long long int)m_cpuMaxWGSize;
   Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+  tmp = (unsigned long long int)m_forcedWGSize.size();
+  Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+  for (size_t i = 0; i < m_forcedWGSize.size(); ++i) {
+    unsigned long long int tmp = (unsigned long long int)m_forcedWGSize[i];
+    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+  }
 }
 
 void KernelProperties::Deserialize(IInputStream &ist,
@@ -192,6 +198,12 @@ void KernelProperties::Deserialize(IInputStream &ist,
   Serializer::DeserialPrimitive<DeviceMode>(&m_targetDevice, ist);
   Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
   m_cpuMaxWGSize = (size_t)tmp;
+  Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+  m_forcedWGSize.resize(tmp);
+  for (size_t i = 0; i < m_forcedWGSize.size(); ++i) {
+    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+    m_forcedWGSize[i] = (size_t)tmp;
+  }
 }
 
 size_t KernelProperties::GetKernelExecutionLength() const

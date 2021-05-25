@@ -37,6 +37,13 @@ bool CheckBuildStatus(const char * name, cl_build_status expected, cl_build_stat
 bool SilentCheckBuildStatus(const char * name, cl_build_status expected, cl_build_status result);
 bool BuildProgramSynch(cl_context context, cl_uint count, const char ** strings, const size_t * lengths, const char * options, cl_program * program_ret);
 void GetBuildLog(cl_device_id device, cl_program program, std::string &log);
+/// Read binaries from \p srcProgram, create a new program from the binaries and
+/// build the new program. The new program is saved to \p dstProgram.
+void CreateAndBuildProgramFromProgramBinaries(cl_context context,
+                                              cl_device_id device,
+                                              const std::string &buildOptions,
+                                              cl_program srcProgram,
+                                              cl_program &dstProgram);
 
 // auxiliary functions for SilentCheckException
 
