@@ -1,5 +1,3 @@
-; REQUIRES: asserts
-
 ; RUN: opt < %s -intel-loop-attrs -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(intel-loop-attrs)' -S 2>&1 | FileCheck %s
 

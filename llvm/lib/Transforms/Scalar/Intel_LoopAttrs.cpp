@@ -41,10 +41,13 @@
 //
 // Current attributes supported:
 //   * "mustprogress" : loop will never produce an infinite loop
+//   * "prefer-function-level-region" : function can be treated as loop region
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MustExecute.h"
@@ -54,6 +57,7 @@
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
+using namespace dvanalysis;
 
 #define DEBUG_TYPE "intel-loop-attrs"
 
@@ -67,13 +71,33 @@ static cl::opt<bool>
     ForceMustProgress("force-intel-must-progress", cl::init(false),
                       cl::Hidden, cl::desc("Apply mustprogress always"));
 
+// Control the lowest number of dope vectors that a function must have
+// as parameters for "prefer-function-level-region"
+static cl::opt<uint64_t>
+    MinDopeVectors("min-param-dope-vectors", cl::init(27),
+                   cl::Hidden, cl::desc("Minimum number of dope vectors"));
+
+// Percentage of BasicBlocks that represent loops in a Function
+static cl::opt<double>
+    PercentLoopsThreshold("prefer-func-level-threshold", cl::init(60.0),
+    cl::Hidden, cl::desc("Percent of blocks that should be used in loops"));
+
+// Control if "prefer-function-level-region" should always be applied if
+// DTrans is enabled or not.
+static cl::opt<bool>
+    ForceFuncRegion("force-intel-prefer-func-level-region", cl::init(false),
+    cl::Hidden, cl::desc("Apply prefer-function-level-region always"));
+
 STATISTIC(NumMustProgressLoops, "Number of loops marked as mustprogress");
 STATISTIC(NumMustProgressFuncs, "Number of functions marked as mustprogress");
+STATISTIC(NumPreferFuncLevelRegion, "Number of functions marked as "
+                                    "prefer-function-level-region");
 
 // Helper class to handle the analyses used by this pass
 class AnalysesHandler {
 public:
-  AnalysesHandler(LoopInfo *LI, ScalarEvolution *SE) : LI(LI), SE(SE) { }
+  AnalysesHandler(LoopInfo *LI, ScalarEvolution *SE, bool EnableDTrans) :
+                  LI(LI), SE(SE), EnableDTrans(EnableDTrans) { }
 
   // Return the LoopInfo analysis result
   auto getLoopInfo() { return LI; }
@@ -86,10 +110,14 @@ public:
     return WPUtils.isMainEntryPoint(FuncName);
   }
 
+  // Return true if DTrans is enabled
+  bool isDTransEnabled() { return EnableDTrans; }
+
 private:
   LoopInfo *LI;
   ScalarEvolution *SE;
   WholeProgramUtils WPUtils;
+  bool EnableDTrans;
 };
 
 // Helper class to set the attributes for a function
@@ -104,6 +132,10 @@ private:
 
   // Return true if at least one loop was marked "mustprogress"
   bool loopsMustProgress();
+
+  // Return true if the function can be marked as
+  // "prefer-function-level-region"
+  bool preferFunctionLevelRegionDueToDV();
 };
 
 // Return true if at least one loop in function F can be marked
@@ -333,6 +365,216 @@ bool LoopAttrsImpl::loopsMustProgress() {
   return Changed;
 }
 
+// Add the function attribute "prefer-function-level-region" if the function
+// has a high number of dope vectors as parameters, and they are used in many
+// nested loops. If the array pointer of a dope vector is used in multiple
+// nested loops, then there is a chance that these loops may have a similar
+// trip count, or they are touching the same data. The loop optimizer may want
+// to apply some optimizations in this case (e.g. fuse, peeling, tiling). If
+// the function has many dope vectors with the same property then the loop
+// optimizer may want to treat the entire function as the loop region to
+// perform optimizations across all loops.
+bool LoopAttrsImpl::preferFunctionLevelRegionDueToDV() {
+
+  // Enum to identify if there are 0, 1 or more than 1 nested loop
+  enum NumberOfNestedLoopsResult {
+    ZeroLoops = 0,        // No nested loops were found
+    OneLoop,              // One nested loop was found
+    ManyLoops             // More than one nested loop was found
+  };
+
+  // If Lp is in a loop nest and is not the outermost loop, then traverse
+  // through the parent loops and collect the outermost. Else return Lp.
+  auto GetOutermostLoop = [](Loop *Lp) -> Loop * {
+    Loop *OutermostLoop = nullptr;
+    Loop *CurrLoop = Lp;
+    while (CurrLoop) {
+      OutermostLoop = CurrLoop;
+      CurrLoop = OutermostLoop->getParentLoop();
+    }
+
+    return OutermostLoop;
+  };
+
+  // Given an argument that is a dope vector, collect the number
+  // of nested loops where the array pointer is used and return
+  // the NumberOfNestedLoopsResult
+  auto CheckLoopsForDopeVectorArgs = [&GetOutermostLoop](Argument *Arg,
+      DenseMap<BasicBlock*, Loop*> &TotalLoops) -> NumberOfNestedLoopsResult {
+
+    // Should be marked as "ptrnoalias", "assume_shape" and
+    // "noalias"
+    if (!Arg->hasAttribute("ptrnoalias") ||
+        !Arg->hasAttribute("assumed_shape") ||
+        !Arg->hasNoAliasAttr())
+      return ZeroLoops;
+
+    uint64_t LoopUse = 0;
+    SetVector<Loop*> OutermostLoopsVisited;
+
+    for (auto *U : Arg->users()) {
+
+      GEPOperator *GEPO = dyn_cast<GEPOperator>(U);
+      if (!GEPO)
+        continue;
+
+      DopeVectorFieldType DVFieldType =
+        DopeVectorAnalyzer::identifyDopeVectorField(*GEPO);
+
+      // We are just interested in which loops the array is used
+      if (DVFieldType != DopeVectorFieldType::DV_ArrayPtr)
+        continue;
+
+      for (auto *GEPUse : GEPO->users()) {
+
+        // Load the array
+        LoadInst *LoadI = dyn_cast<LoadInst>(GEPUse);
+        if (!LoadI)
+          continue;
+
+        // The users (most likely subscript instructions) are in a loop
+        for (auto *LoadUse : LoadI->users()) {
+          auto *InstUser = dyn_cast<Instruction>(LoadUse);
+          if (!InstUser)
+            continue;
+
+          if (TotalLoops.count(InstUser->getParent()) == 0)
+            continue;
+
+          Loop *Lp = TotalLoops[InstUser->getParent()];
+          assert (Lp && "Null loop in the total loops map");
+
+          // We are interested in nested loops
+          if (!Lp->isInnermost() && !Lp->isOutermost())
+            continue;
+
+          // Collect the outermost loop
+          Loop *OutermostLoop = GetOutermostLoop(Lp);
+
+          // Don't count repeated entries
+          if (OutermostLoopsVisited.insert(OutermostLoop))
+            LoopUse++;
+
+          // More than 1 loop
+          if (LoopUse >= 2)
+            return ManyLoops;
+        }
+      }
+    }
+
+    // One loop
+    if (LoopUse == 1)
+      return OneLoop;
+
+    // Zero loop
+    return ZeroLoops;
+  };
+
+  // DTrans must be enabled
+  if (!Anls.isDTransEnabled() && !ForceFuncRegion)
+    return false;
+
+  // Dope vectors are only for Fortran
+  if (!F.isFortran())
+    return false;
+
+  // Do not apply to _MAIN
+  if (Anls.isMainEntryPoint(F.getName()))
+    return false;
+
+  auto *LI = Anls.getLoopInfo();
+  uint64_t NumOfDopeVectorsWithOneLoop = 0;
+  uint64_t NumOfDopeVectorsWithManyLoops = 0;
+  uint64_t NumOfDopeVectorsWithZeroLoops = 0;
+  const DataLayout &DL = F.getParent()->getDataLayout();
+  SetVector<Argument*> DopeVectorArgs;
+
+  // Collect all the arguments that are dope vectors
+  for (auto &Arg : F.args()) {
+
+    if(Arg.user_empty())
+      continue;
+
+    // TODO: This will need to be revised for opaque pointers once we have
+    // a solid form of collecting dope vectors from them.
+    Type *ArgType = Arg.getType();
+    if (ArgType->isPointerTy())
+      ArgType = ArgType->getPointerElementType();
+
+    if (!isDopeVectorType(ArgType, DL))
+      continue;
+
+    DopeVectorArgs.insert(&Arg);
+  }
+
+  if (DopeVectorArgs.empty())
+    return false;
+
+  // Collect all the basic blocks that are used for loops
+  DenseMap<BasicBlock*, Loop*> TotalLoops;
+  for (auto &BB : F.getBasicBlockList()) {
+    Loop *Lp = LI->getLoopFor(&BB);
+    if (Lp)
+      TotalLoops.insert({&BB, Lp});
+  }
+
+  // There are no loops, nothing to do
+  if (TotalLoops.empty())
+    return false;
+
+  // If the percent of block used for loops is lower than the threshold then
+  // don't do anything. We are expecting that the function has a large number
+  // of loops.
+  double PercentOfLoops = ((double)TotalLoops.size() / (double)F.size()) * 100;
+  if (PercentOfLoops < PercentLoopsThreshold)
+    return false;
+
+  // Traverse through the arguments, if it is a dope vector then
+  // collect the number of loops
+  for (auto *Arg : DopeVectorArgs) {
+
+    // Collect if the dope vector is used in many loops
+    NumberOfNestedLoopsResult NumberOfLoops =
+        CheckLoopsForDopeVectorArgs(Arg, TotalLoops);
+    switch(NumberOfLoops) {
+    case ZeroLoops:
+      NumOfDopeVectorsWithZeroLoops++;
+      break;
+    case OneLoop:
+      NumOfDopeVectorsWithOneLoop++;
+      break;
+    case ManyLoops:
+      NumOfDopeVectorsWithManyLoops++;
+      break;
+    }
+  }
+
+  uint64_t TotalDopeVectorsWithLoops =
+      NumOfDopeVectorsWithOneLoop + NumOfDopeVectorsWithManyLoops;
+
+  // The number of dope vectors used in loops must be higher than the
+  // threshold
+  if (TotalDopeVectorsWithLoops < MinDopeVectors)
+    return false;
+
+  // The number of dope vectors used in loops should be higher than the number
+  // of dope vectors not used in loops
+  if (TotalDopeVectorsWithLoops < NumOfDopeVectorsWithZeroLoops)
+    return false;
+
+  // The number of dope vectors used in multiple loops should be higher than
+  // the number of dope vectors used in one loop
+  if (NumOfDopeVectorsWithManyLoops < NumOfDopeVectorsWithOneLoop)
+    return false;
+
+  F.addFnAttr("prefer-function-level-region");
+
+  LLVM_DEBUG(dbgs() << "Attribute \"prefer-function-level-region\" added to "
+                    << "function " << F.getName() << "\n");
+
+  return true;
+}
+
 // Main function for handling the attributes
 bool LoopAttrsImpl::run() {
   if (!EnableIntelLoopAttrs)
@@ -341,6 +583,7 @@ bool LoopAttrsImpl::run() {
   bool Changed = false;
 
   Changed |= loopsMustProgress();
+  Changed |= preferFunctionLevelRegionDueToDV();
 
   return Changed;
 }
@@ -352,7 +595,7 @@ PreservedAnalyses IntelLoopAttrsPass::run(Function &F,
   auto *LI = &AM.getResult<LoopAnalysis>(F);
   auto *SE = &AM.getResult<ScalarEvolutionAnalysis>(F);
 
-  AnalysesHandler Anls(LI, SE);
+  AnalysesHandler Anls(LI, SE, EnableDTrans);
   LoopAttrsImpl LoopAttrs(F, Anls);
 
   if (!LoopAttrs.run())
@@ -368,10 +611,17 @@ PreservedAnalyses IntelLoopAttrsPass::run(Function &F,
 namespace {
 
 class IntelLoopAttrsWrapper : public FunctionPass {
+  bool EnableDTrans;
+
 public:
   static char ID;
 
-  IntelLoopAttrsWrapper() : FunctionPass(ID) {
+  IntelLoopAttrsWrapper() : FunctionPass(ID), EnableDTrans(false) {
+    initializeIntelLoopAttrsWrapperPass(*PassRegistry::getPassRegistry());
+  }
+
+  IntelLoopAttrsWrapper(bool EnableDTrans) : FunctionPass(ID),
+                                             EnableDTrans(EnableDTrans) {
     initializeIntelLoopAttrsWrapperPass(*PassRegistry::getPassRegistry());
   }
 
@@ -382,7 +632,7 @@ public:
     auto *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     auto *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
-    AnalysesHandler Anls(LI, SE);
+    AnalysesHandler Anls(LI, SE, EnableDTrans);
     LoopAttrsImpl LoopAttrs(F, Anls);
 
     return LoopAttrs.run();
@@ -407,6 +657,6 @@ INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_END(IntelLoopAttrsWrapper, DEBUG_TYPE, "Intel Loop Attrs",
                     false, false)
 
-FunctionPass *llvm::createIntelLoopAttrsWrapperPass() {
-  return new IntelLoopAttrsWrapper();
+FunctionPass *llvm::createIntelLoopAttrsWrapperPass(bool EnableDTrans) {
+  return new IntelLoopAttrsWrapper(EnableDTrans);
 }

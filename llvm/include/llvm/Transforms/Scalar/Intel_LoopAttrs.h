@@ -23,11 +23,15 @@
 namespace llvm {
 
 class IntelLoopAttrsPass : public PassInfoMixin<IntelLoopAttrsPass> {
+  const bool EnableDTrans;
+
 public:
+  IntelLoopAttrsPass() : EnableDTrans(false) { }
+  IntelLoopAttrsPass(bool EnableDTrans) : EnableDTrans(EnableDTrans) { }
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
 
-FunctionPass *createIntelLoopAttrsWrapperPass();
+FunctionPass *createIntelLoopAttrsWrapperPass(bool EnableDTrans = false);
 
 } // end namespace llvm
 
