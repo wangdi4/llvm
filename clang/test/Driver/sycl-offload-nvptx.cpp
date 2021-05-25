@@ -1,5 +1,9 @@
 /// Tests specific to `-fsycl-targets=nvptx64-nvidia-nvcl-sycldevice`
 // REQUIRES: clang-driver
+// INTEL_CUSTOMIZATION
+// CUDA is not supported
+// XFAIL:*
+// end INTEL_CUSTOMIZATION
 
 // UNSUPPORTED: system-windows
 
