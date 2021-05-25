@@ -829,7 +829,8 @@ void HIRTransformUtils::stripmine(HLLoop *FirstLoop, HLLoop *LastLoop,
   //  UB / StripmineSize: (N-1) / 64
 
   if (UBRef->isSelfBlob()) {
-    UBRef->addBlobDDRef(UBRef->getSelfBlobIndex(), Level - 1);
+    unsigned DefAtLevel = UBRef->getDefinedAtLevel();
+    UBRef->addBlobDDRef(UBRef->getSelfBlobIndex(), DefAtLevel);
   }
 
   UBCE->divide(StripmineSize);
