@@ -323,8 +323,28 @@ void Sema::DiagnoseDeprecatedAttribute(const ParsedAttr &A, StringRef NewScope,
 void Sema::CheckDeprecatedSYCLAttributeSpelling(const ParsedAttr &A,
                                                 StringRef NewName) {
 #if INTEL_CUSTOMIZATION
+  // List of attributes that call this function but don't want to
+  // deprecate their GNU spellings, even in SYCL 2020 mode or later.
+  static constexpr AttributeCommonInfo::Kind Exclusions[] = {
+    ParsedAttr::AT_SYCLIntelSchedulerTargetFmaxMhz,
+    ParsedAttr::AT_SYCLIntelMaxGlobalWorkDim,
+    ParsedAttr::AT_IntelFPGASinglePump,
+    ParsedAttr::AT_IntelFPGADoublePump,
+    ParsedAttr::AT_IntelFPGAMemory,
+    ParsedAttr::AT_IntelFPGARegister,
+    ParsedAttr::AT_IntelFPGASimpleDualPort,
+    ParsedAttr::AT_IntelFPGAMaxReplicates,
+    ParsedAttr::AT_IntelFPGAMerge,
+    ParsedAttr::AT_IntelFPGABankBits,
+    ParsedAttr::AT_IntelFPGAPrivateCopies,
+    ParsedAttr::AT_IntelFPGAForcePow2Depth,
+    ParsedAttr::AT_IntelFPGABankWidth,
+    ParsedAttr::AT_IntelFPGANumBanks,
+    ParsedAttr::AT_SYCLIntelNumSimdWorkItems,
+  };
   // Some FPGA attributes have GNU spelling and can appear without a scope
-  if (!A.hasScope())
+  if (!A.hasScope() && A.getSyntax() == ParsedAttr::AS_GNU &&
+      llvm::is_contained(Exclusions, A.getKind()))
     return;
 #endif // INTEL_CUSTOMIZATION
 
