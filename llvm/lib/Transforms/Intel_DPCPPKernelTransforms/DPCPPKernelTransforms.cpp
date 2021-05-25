@@ -13,6 +13,7 @@
 using namespace llvm;
 
 void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
+  initializeBuiltinCallToInstLegacyPass(Registry);
   initializeBuiltinImportLegacyPass(Registry);
   initializeDPCPPEqualizerLegacyPass(Registry);
   initializeDPCPPKernelVecClonePass(Registry);

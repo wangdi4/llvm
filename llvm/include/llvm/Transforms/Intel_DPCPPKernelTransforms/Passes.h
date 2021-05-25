@@ -1,4 +1,4 @@
-//==----- Passes.h - Constructors for DPCPP Kernel transforms -*- C++ -*----==//
+//==----- Passes.h - DPCPP Kernel transforms pass headers -------*- C++ -*-===//
 //
 // Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
@@ -10,35 +10,20 @@
 #ifndef LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PASSES_H
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PASSES_H
 
-namespace llvm {
-
-class ModulePass;
-
-Pass *createParseAnnotateAttributesPass();
-ModulePass *createBuiltinImportLegacyPass(
-    const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
-    StringRef CPUPrefix = "");
-ModulePass *createDPCPPEqualizerLegacyPass();
-ModulePass *createDPCPPKernelVecClonePass();
-ModulePass *createDPCPPKernelPostVecPass();
-ModulePass *createDPCPPKernelWGLoopCreatorLegacyPass();
-ModulePass *createDPCPPKernelAnalysisLegacyPass();
-FunctionPass *createPhiCanonicalizationLegacyPass();
-FunctionPass *createRedundantPhiNodeLegacyPass();
-ModulePass *createSplitBBonBarrierLegacyPass();
-ModulePass *createWIRelatedValueWrapperPass();
-ModulePass *createDataPerBarrierWrapperPass();
-ModulePass *createDataPerValueWrapperPass();
-ModulePass *createKernelBarrierLegacyPass(bool isNativeDebug,
-                                          bool useTLSGlobals);
-ModulePass *createBarrierInFunctionLegacyPass();
-ModulePass *createImplicitArgsAnalysisLegacyPass();
-ModulePass *createLocalBufferAnalysisLegacyPass();
-ModulePass *createAddImplicitArgsLegacyPass();
-ModulePass *createResolveWICallLegacyPass(bool IsUniformWGSize,
-                                          bool UseTLSGlobals);
-ModulePass *createPrepareKernelArgsLegacyPass(bool UseTLSGlobals);
-ModulePass *createCleanupWrappedKernelLegacyPass();
-} // namespace llvm
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddImplicitArgs.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierInFunctionPass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierPass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinCallToInst.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinImport.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/CleanupWrappedKernel.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPEqualizer.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelAnalysis.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelWGLoopCreator.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LinearIdResolver.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/PhiCanonicalization.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/PrepareKernelArgs.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/RedundantPhiNodePass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveWICall.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SplitBBonBarrierPass.h"
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PASSES_H
