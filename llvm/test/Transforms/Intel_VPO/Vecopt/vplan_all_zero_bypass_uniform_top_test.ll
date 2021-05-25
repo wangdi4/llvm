@@ -45,25 +45,25 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB4]], [[BB6:BB[0-9]+]]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_INNER_IV:%.*]] = phi  [ i64 [[VP0:%.*]], [[BB6]] ],  [ i64 0, [[BB4]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_UNIFORM_TOP_TEST_NOT]], [[BB4]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB6]] ]
-; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.begin13
+; CHECK-NEXT:       [DA: Uni] br all.zero.bypass.begin15
 ; CHECK-EMPTY:
-; CHECK-NEXT:      all.zero.bypass.begin13: # preds: [[BB5]]
+; CHECK-NEXT:      all.zero.bypass.begin15: # preds: [[BB5]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_ALL_ZERO_CHECK:%.*]] = all-zero-check i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_ALL_ZERO_CHECK]], all.zero.bypass.end15, [[BB7:BB[0-9]+]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_ALL_ZERO_CHECK]], all.zero.bypass.end17, [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB7]]: # preds: all.zero.bypass.begin13
+; CHECK-NEXT:        [[BB7]]: # preds: all.zero.bypass.begin15
 ; CHECK-NEXT:         [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:         [DA: Uni] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_INNER_IV]]
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_INNER_IV_NEXT:%.*]] = add i64 [[VP_INNER_IV]] i64 1
 ; CHECK-NEXT:         [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INNER_IV_NEXT]] i64 [[VP_OUTER_IV]]
-; CHECK-NEXT:         [DA: Uni] br all.zero.bypass.end15
+; CHECK-NEXT:         [DA: Uni] br all.zero.bypass.end17
 ; CHECK-EMPTY:
-; CHECK-NEXT:      all.zero.bypass.end15: # preds: [[BB7]], all.zero.bypass.begin13
-; CHECK-NEXT:       [DA: Uni] i64 [[VP0]] = phi  [ i64 [[VP_INNER_IV_NEXT]], [[BB7]] ],  [ i64 0, all.zero.bypass.begin13 ]
-; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB7]] ],  [ i1 false, all.zero.bypass.begin13 ]
+; CHECK-NEXT:      all.zero.bypass.end17: # preds: [[BB7]], all.zero.bypass.begin15
+; CHECK-NEXT:       [DA: Uni] i64 [[VP0]] = phi  [ i64 [[VP_INNER_IV_NEXT]], [[BB7]] ],  [ i64 0, all.zero.bypass.begin15 ]
+; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB7]] ],  [ i1 false, all.zero.bypass.begin15 ]
 ; CHECK-NEXT:       [DA: Uni] br [[BB6]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB6]]: # preds: all.zero.bypass.end15
+; CHECK-NEXT:      [[BB6]]: # preds: all.zero.bypass.end17
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP3:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]

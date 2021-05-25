@@ -38,7 +38,7 @@ static cl::opt<unsigned, true>
 
 namespace llvm {
 namespace vpo {
-unsigned DefaultTripCount = 300;
+unsigned DefaultTripCount = 303;
 } // namespace vpo
 } // namespace llvm
 
