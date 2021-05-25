@@ -422,13 +422,16 @@ PreservedAnalyses HIRCodeGenPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
   bool Transformed = HIRCodeGen(AM.getResult<HIRFrameworkAnalysis>(F)).run();
 
+  PreservedAnalyses PA;
   if (!Transformed) {
-    return PreservedAnalyses::all();
+    PA = PreservedAnalyses::all();
+    // Forcefully invalidate framework so all cleanup happens immediately.
+    PA.abandon<HIRFrameworkAnalysis>();
+  } else {
+    PA.preserve<GlobalsAA>();
+    PA.preserve<AndersensAA>();
   }
 
-  PreservedAnalyses PA;
-  PA.preserve<GlobalsAA>();
-  PA.preserve<AndersensAA>();
   return PA;
 }
 
