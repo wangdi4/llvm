@@ -17,7 +17,7 @@
 using namespace llvm;
 
 INITIALIZE_PASS(RedundantPhiNodeLegacy, "dpcpp-kernel-redundant-phi-node",
-                "DPCPP Barrier Pass - Handle redundant Phi node", false, true)
+                "DPCPP Barrier Pass - Handle redundant Phi node", false, false)
 
 char RedundantPhiNodeLegacy::ID = 0;
 
