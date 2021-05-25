@@ -1668,14 +1668,7 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
     return PA;
   }
 
-#if INTEL_CUSTOMIZATION
-  PreservedAnalyses PA;
-  PA.preserve<WholeProgramAnalysis>();
-  PA.preserve<AndersensAA>();
-  return PA;
-#else // INTEL_CUSTOMIZATION
   return PreservedAnalyses::all();
-#endif // INTEL_CUSTOMIZATION
 }
 
 namespace {

@@ -1725,7 +1725,6 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     FPM.addPass(LoopUnrollPass(LoopUnrollOptions(
         Level.getSpeedupLevel(), /*OnlyWhenForced=*/!PTO.LoopUnrolling,
         PTO.ForgetAllSCEVInLoopUnroll)));
-    FPM.addPass(WarnMissedTransformationsPass());
 #if INTEL_CUSTOMIZATION
   }
   // Postpone warnings to LTO link phase. Most transformations which process
