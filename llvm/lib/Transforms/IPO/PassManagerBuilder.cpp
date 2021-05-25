@@ -1694,7 +1694,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createCallSiteSplittingPass());
 #if INTEL_CUSTOMIZATION
     // Compute the loop attributes
-    PM.add(createIntelLoopAttrsWrapperPass());
+    PM.add(createIntelLoopAttrsWrapperPass(DTransEnabled));
 #endif // INTEL_CUSTOMIZATION
 
     // Indirect call promotion. This should promote all the targets that are
@@ -1934,7 +1934,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 #if INTEL_CUSTOMIZATION
   // Compute the loop attributes
   if (OptLevel > 1)
-    PM.add(createIntelLoopAttrsWrapperPass());
+    PM.add(createIntelLoopAttrsWrapperPass(DTransEnabled));
 #endif // INTEL_CUSTOMIZATION
 
   // Infer attributes on declarations, call sites, arguments, etc.

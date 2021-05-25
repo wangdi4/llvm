@@ -817,8 +817,12 @@ void DeleteFieldImpl::processSubInst(Instruction *I) {
 bool DeleteFieldImpl::typeContainsDeletedFields(llvm::Type *Ty) {
   if (!Ty->isAggregateType())
     return false;
-  if (Ty->isStructTy())
-    return FieldIdxMap.count(Ty);
+
+  // For structure types, we need to consider types that directly have fields
+  // being removed, and any types that contain the type as a nested type when
+  // determining whether an initializer needs to be updated.
+  if (auto *StTy = dyn_cast<llvm::StructType>(Ty))
+    return OrigToNewTypeMapping.count(StTy);
   if (Ty->isArrayTy())
     return typeContainsDeletedFields(Ty->getArrayElementType());
   llvm_unreachable("Unexpected aggregate type");
@@ -875,12 +879,22 @@ Constant *DeleteFieldImpl::getArrayReplacement(ConstantArray *ArInit,
 Constant *DeleteFieldImpl::getStructReplacement(ConstantStruct *StInit,
                                                 ValueMapper &Mapper) {
   llvm::Type *OrigTy = StInit->getType();
-  assert(FieldIdxMap.count(OrigTy) &&
-         "initializeGlobalVariableReplacement called for dependent type!");
+  bool OuterType = OrigEnclosingTypes.count(OrigTy);
+
+  // When traversing the fields of an outer type, a nested type that is not
+  // having fields deleted may be encountered. In that case, 'FieldIdxMap' will
+  // not contain a mapping for the field. Since the nested type is not changing
+  // the type remapper can handle it directly.
+  if (!OuterType && !OrigToNewTypeMapping.count(OrigTy))
+    return Mapper.mapConstant(*StInit);
+
+  assert(OuterType ||
+         FieldIdxMap.count(OrigTy) && "initializeGlobalVariableReplacement "
+                                      "called for pointer-dependent type!");
   unsigned OrigNumFields = OrigTy->getStructNumElements();
   SmallVector<Constant *, 16> NewInitVals;
   for (unsigned Idx = 0; Idx < OrigNumFields; ++Idx)
-    if (FieldIdxMap[OrigTy][Idx] != FIELD_DELETED)
+    if (OuterType || FieldIdxMap[OrigTy][Idx] != FIELD_DELETED)
       NewInitVals.push_back(
           getReplacement(StInit->getAggregateElement(Idx), Mapper));
   auto *NewTy = OrigToNewTypeMapping[OrigTy];

@@ -39,15 +39,6 @@ using namespace PatternMatch;
 
 #define DEBUG_TYPE "instcombine"
 
-#if INTEL_CUSTOMIZATION
-// The option unconditionally enables reassociating optimizations that
-// may affect SLP vectorizer and/or DTrans. Its intended use is in LIT
-// tests only when need to override default pipeline builder behavior.
-static cl::opt<bool> EnableInstCombineAddSubReassoc(
-    "enable-instcombine-add-sub-reassoc", cl::init(false), cl::Hidden,
-    cl::desc("Enable InstCombine Add/Sub reassociating transformations."));
-#endif // INTEL_CUSTOMIZATION
-
 namespace {
 
   /// Class representing coefficient of floating-point addend.
@@ -1828,14 +1819,39 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
 #if INTEL_CUSTOMIZATION
   // There are couple of transforms that do affect SLP vectorizer behavior which
   // specifically turn out harmful for x264 test performance.
-  // This is considered a work around of the problem to temporarily (hopefully)
-  // disable these optimizations when there is interference with SLP vectorizer.
   // (See CMPLRLLVM-27771, CMPLRLLVM-20204 for details)
-  // Here we use enableFcmpMinMaxCombine since it tied to SLP and also check for
-  // ifFortran() to limit gamut of the restriction.
-  bool NoSLPVectorizerInterference =
-      enableFcmpMinMaxCombine() || I.getFunction()->isFortran();
-  if (EnableInstCombineAddSubReassoc || NoSLPVectorizerInterference) {
+  // Unless we find a reliable way to handle this in SLP vectorizer here we try
+  // to pattern match for a specific situation where we want both of these
+  // transformations not being applied.
+  // We specifically look for a pattern when single user of a binary op
+  // instruction is a store and its right operand has multiple uses or, if the
+  // user is another add/sub, then we descend and look for the pattern again.
+  // Initial value of Depth determines how deep we are descending over add/sub
+  // def-use chain.
+
+  auto StoreUserPattern = [](BinaryOperator *I) -> Instruction * {
+    if (Use *SingleUse = I->getSingleUndroppableUse()) {
+      Instruction *SingleUser = cast<Instruction>(SingleUse->getUser());
+      unsigned Opcode = SingleUser->getOpcode();
+
+      if ((Opcode == Instruction::Store && !I->getOperand(1)->hasOneUse()) ||
+          Opcode == Instruction::Add || Opcode == Instruction::Sub)
+        return SingleUser;
+    }
+    return nullptr;
+  };
+
+  bool NoSLPVectorizerInterference = true;
+  unsigned Depth = 2;
+  for (Instruction *IUser = StoreUserPattern(&I); IUser && Depth > 0; --Depth) {
+    if (isa<StoreInst>(IUser)) {
+      NoSLPVectorizerInterference = false;
+      break;
+    }
+    IUser = StoreUserPattern(cast<BinaryOperator>(IUser));
+  }
+
+  if (NoSLPVectorizerInterference) {
     // Reassociate sub/add sequences to create more add instructions and
     // reduce dependency chains:
     // ((X - Y) + Z) - Op1 --> (X + Z) - (Y + Op1)
@@ -1848,8 +1864,7 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
     }
   }
 
-  if (EnableInstCombineAddSubReassoc ||
-      (!preserveForDTrans() && NoSLPVectorizerInterference)) {
+  if (!preserveForDTrans() && NoSLPVectorizerInterference) {
     // ((X - Y) - Op1)  -->  X - (Y + Op1)
     // DTrans currently can't handle Add operator. Disable this transformation
     // when PreserveForDTrans is true.
