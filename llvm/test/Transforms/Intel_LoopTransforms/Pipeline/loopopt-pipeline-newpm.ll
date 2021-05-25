@@ -8,8 +8,7 @@
 
 ; Verify that LoopOptMarker is run at the very beginning of function pass pipeline.
 
-; CHECK: Starting llvm::Function pass manager run
-; CHECK-NEXT: Running pass: LoopOptMarkerPass
+; CHECK: Running pass: LoopOptMarkerPass
 
 
 ; Verify that HIRFramework is invalidated immediately after HIRCodeGen even
