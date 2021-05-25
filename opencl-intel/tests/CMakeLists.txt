@@ -25,7 +25,7 @@ find_package(LLVM REQUIRED)
 
 set(CLANG "${LLVM_BINARY_DIR}/clang" )
 set(SPIRV_CONVERTER  "${LLVM_PATH_BE}/bin/llvm-spirv")
-set(GTEST_INCLUDE_DIR "${LLVM_MAIN_SRC_DIR}/llvm/utils/unittest/googletest/include")
+set(GTEST_INCLUDE_DIR "${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include")
 
 include(itt)
 

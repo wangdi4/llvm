@@ -17,7 +17,6 @@ add_ocl_unittest(
 
   SOURCE_FILES
     ${TARGET_SOURCES}
-    ../framework_test_type/test_utils.cpp
     ../framework_test_type/CL_BASE.cpp
     ../framework_test_type/TestsHelpClasses.cpp
   LINK_LIBRARIES

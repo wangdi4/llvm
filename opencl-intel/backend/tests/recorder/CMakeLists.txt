@@ -32,7 +32,7 @@ add_opencl_executable(
   ${TARGET_NAME}
   recorder_test.cpp
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/cl_utils.cpp
-  ${OCL_SOURCE_DIR}/tests/framework_test_type/test_utils.cpp
+  ${OCL_SOURCE_DIR}/tests/test_utils/test_utils.cpp
 )
 
 #linking
