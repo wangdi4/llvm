@@ -2497,7 +2497,7 @@ bool LoopIdiomRecognize::recognizeShiftUntilBitTest() {
 ///   loop:
 ///     %iv = phi i8 [ %start, %entry ], [ %iv.next, %for.cond ]
 ///     %nbits = add nsw i8 %iv, %extraoffset
-///     %val.shifted = lshr i8 %val, %nbits
+///     %val.shifted = {{l,a}shr,shl} i8 %val, %nbits
 ///     %val.shifted.iszero = icmp eq i8 %val.shifted, 0
 ///     %iv.next = add i8 %iv, 1
 ///     <...>
@@ -2513,8 +2513,9 @@ bool LoopIdiomRecognize::recognizeShiftUntilBitTest() {
 /// \endcode
 static bool detectShiftUntilZeroIdiom(Loop *CurLoop, ScalarEvolution *SE,
                                       Instruction *&ValShiftedIsZero,
-                                      Instruction *&IV, Value *&Start,
-                                      Value *&Val, const SCEV *&ExtraOffsetExpr,
+                                      Intrinsic::ID &IntrinID, Instruction *&IV,
+                                      Value *&Start, Value *&Val,
+                                      const SCEV *&ExtraOffsetExpr,
                                       bool &InvertedCond) {
   LLVM_DEBUG(dbgs() << DEBUG_TYPE
              " Performing shift-until-zero idiom detection.\n");
@@ -2550,11 +2551,13 @@ static bool detectShiftUntilZeroIdiom(Loop *CurLoop, ScalarEvolution *SE,
 
   // Step 2: Check if the comparison's operand is in desirable form.
   // FIXME: Val could be a one-input PHI node, which we should look past.
-  if (!match(ValShifted, m_LShr(m_LoopInvariant(m_Value(Val), CurLoop),
-                                m_Instruction(NBits)))) {
+  if (!match(ValShifted, m_Shift(m_LoopInvariant(m_Value(Val), CurLoop),
+                                 m_Instruction(NBits)))) {
     LLVM_DEBUG(dbgs() << DEBUG_TYPE " Bad comparisons value computation.\n");
     return false;
   }
+  IntrinID = ValShifted->getOpcode() == Instruction::Shl ? Intrinsic::cttz
+                                                         : Intrinsic::ctlz;
 
   // Step 3: Check if the shift amount is in desirable form.
 
@@ -2622,7 +2625,7 @@ static bool detectShiftUntilZeroIdiom(Loop *CurLoop, ScalarEvolution *SE,
 ///   loop:
 ///     %iv = phi i8 [ %start, %entry ], [ %iv.next, %for.cond ]
 ///     %nbits = add nsw i8 %iv, %extraoffset
-///     %val.shifted = lshr i8 %val, %nbits
+///     %val.shifted = {{l,a}shr,shl} i8 %val, %nbits
 ///     %val.shifted.iszero = icmp eq i8 %val.shifted, 0
 ///     %iv.next = add i8 %iv, 1
 ///     <...>
@@ -2644,7 +2647,7 @@ static bool detectShiftUntilZeroIdiom(Loop *CurLoop, ScalarEvolution *SE,
 ///     %start = <...>
 ///     %extraoffset = <...>
 ///     <...>
-///     %val.numleadingzeros = call i8 @llvm.ctlz.i8(i8 %val, i1 0)
+///     %val.numleadingzeros = call i8 @llvm.ct{l,t}z.i8(i8 %val, i1 0)
 ///     %val.numactivebits = sub i8 8, %val.numleadingzeros
 ///     %extraoffset.neg = sub i8 0, %extraoffset
 ///     %tmp = add i8 %val.numactivebits, %extraoffset.neg
@@ -2667,12 +2670,14 @@ static bool detectShiftUntilZeroIdiom(Loop *CurLoop, ScalarEvolution *SE,
 bool LoopIdiomRecognize::recognizeShiftUntilZero() {
   bool MadeChange = false;
 
-  Instruction *ValShiftedIsZero, *IV;
+  Instruction *ValShiftedIsZero;
+  Intrinsic::ID IntrID;
+  Instruction *IV;
   Value *Start, *Val;
   const SCEV *ExtraOffsetExpr;
   bool InvertedCond;
-  if (!detectShiftUntilZeroIdiom(CurLoop, SE, ValShiftedIsZero, IV, Start, Val,
-                                 ExtraOffsetExpr, InvertedCond)) {
+  if (!detectShiftUntilZeroIdiom(CurLoop, SE, ValShiftedIsZero, IntrID, IV,
+                                 Start, Val, ExtraOffsetExpr, InvertedCond)) {
     LLVM_DEBUG(dbgs() << DEBUG_TYPE
                " shift-until-zero idiom detection failed.\n");
     return MadeChange;
@@ -2692,7 +2697,6 @@ bool LoopIdiomRecognize::recognizeShiftUntilZero() {
   IRBuilder<> Builder(LoopPreheaderBB->getTerminator());
   Builder.SetCurrentDebugLocation(IV->getDebugLoc());
 
-  Intrinsic::ID IntrID = Intrinsic::ctlz;
   Type *Ty = Val->getType();
   unsigned Bitwidth = Ty->getScalarSizeInBits();
 
