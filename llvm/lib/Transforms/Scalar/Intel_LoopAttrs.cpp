@@ -568,6 +568,7 @@ bool LoopAttrsImpl::preferFunctionLevelRegionDueToDV() {
     return false;
 
   F.addFnAttr("prefer-function-level-region");
+  NumPreferFuncLevelRegion++;
 
   LLVM_DEBUG(dbgs() << "Attribute \"prefer-function-level-region\" added to "
                     << "function " << F.getName() << "\n");
