@@ -2261,29 +2261,25 @@ esimd_dpas(simd<T0, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
   // NOTE: this part is related valid for PVC, care should be taken during OS
   constexpr bool check_passed =
       (check_integer || check_hf || check_bf16 || check_bf8 || check_tf32);
-  if constexpr (!check_passed) {
-      static_assert(check_passed,
-          "unsupported dpas type! The supported types are:\n"
-          "    dst    |    src0    |      src1      |      src2      \n"
-          "   ud, d   |   ud, d    |     ub, b      |     ub, b      \n"
-          "   ud, d   |   ud, d    | u4, s4, u2, s2 | u4, s4, u2, s2 \n"
-          "   f, bf   |    f, bf   |       bf       |       bf       \n"
-          "   f, hf   |    f, hf   |       hf       |       hf       \n"
-          " f, hf, bf | f, hf, bf  |       bf8      |       bf8      \n"
-          "    f      |     f      |      tf32      |      tf32      \n");
-  }
+  static_assert(check_passed,
+      "unsupported dpas type! The supported types are:\n"
+      "    dst    |    src0    |      src1      |      src2      \n"
+      "   ud, d   |   ud, d    |     ub, b      |     ub, b      \n"
+      "   ud, d   |   ud, d    | u4, s4, u2, s2 | u4, s4, u2, s2 \n"
+      "   f, bf   |    f, bf   |       bf       |       bf       \n"
+      "   f, hf   |    f, hf   |       hf       |       hf       \n"
+      " f, hf, bf | f, hf, bf  |       bf8      |       bf8      \n"
+      "    f      |     f      |      tf32      |      tf32      \n");
 #else // else defined(ESIMD_GEN12_7) || defined(ESIMD_GEN12_9)
 // ATS-EMBARGO-SECTION (TGL):
   constexpr bool check_passed = (check_integer || check_hf || check_bf16);
-  if constexpr (!check_passed) {
-      static_assert(check_passed,
-          "unsupported dpas type! The supported types are:\n"
-          "    dst    |    src0    |      src1      |      src2      \n"
-          "   ud, d   |   ud, d    |     ub, b      |     ub, b      \n"
-          "   ud, d   |   ud, d    | u4, s4, u2, s2 | u4, s4, u2, s2 \n"
-          "   f, bf   |    f, bf   |       bf       |       bf       \n"
-          "   f, hf   |    f, hf   |       hf       |       hf       \n");
-  }
+  static_assert(check_passed,
+      "unsupported dpas type! The supported types are:\n"
+      "    dst    |    src0    |      src1      |      src2      \n"
+      "   ud, d   |   ud, d    |     ub, b      |     ub, b      \n"
+      "   ud, d   |   ud, d    | u4, s4, u2, s2 | u4, s4, u2, s2 \n"
+      "   f, bf   |    f, bf   |       bf       |       bf       \n"
+      "   f, hf   |    f, hf   |       hf       |       hf       \n");
 #endif // end else defined(ESIMD_GEN12_7) || defined(ESIMD_GEN12_9)
 
   static_assert(detail::is_dword_type<T1>::value, "Src1 must be DWORD type");
