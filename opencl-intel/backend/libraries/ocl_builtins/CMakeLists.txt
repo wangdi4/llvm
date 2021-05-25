@@ -97,7 +97,7 @@ endif (WIN32)
 set (LLVM_OPT_PARAMS -verify -sroa -function-attrs)
 
 # images optimization options
-set (LLVM_IMAGES_OPT_PARAMS -verify -builtin-import -builtin-call-to-inst -verify -O3 -disable-intel-proprietary-opts)
+set (LLVM_IMAGES_OPT_PARAMS -verify -dpcpp-kernel-builtin-import -builtin-call-to-inst -verify -O3 -disable-intel-proprietary-opts)
 
 #------------------- Utility functions ---------------------------
 
@@ -209,7 +209,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
     add_custom_command(OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
       COMMENT "Optimizing ${OUTPUT_FILE}_noopt"
       COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt -generic-addr-static-resolution -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas
-      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas ${LLVM_IMAGES_OPT_PARAMS} -runtimelib=${RTL_TO_LINK} -arch=${ARCH} -o ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
+      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas ${LLVM_IMAGES_OPT_PARAMS} -dpcpp-kernel-builtin-lib=${RTL_TO_LINK} -dpcpp-kernel-cpu-prefix=${ARCH} -o ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
       DEPENDS ${OPT_DEP} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt ${RTL_TO_LINK}
       VERBATIM
       )
@@ -482,8 +482,8 @@ add_custom_command(OUTPUT clbltpipe.obj
 
   COMMAND ${LLVM_LINK} pipes1.bc pipes2.bc -o pipes.bc
 
-  COMMAND ${OPT} -runtimelib=${RTL_MINIMAL},${RTL_SHARED}
-  -builtin-import pipes.bc
+  COMMAND ${OPT} -dpcpp-kernel-builtin-lib=${RTL_MINIMAL},${RTL_SHARED}
+  -dpcpp-kernel-builtin-import pipes.bc
   -o pipes-opt.bc
 
   COMMAND ${LLC} ${LLC_PARAMS} -mcpu=corei7 pipes-opt.bc

@@ -509,6 +509,7 @@ int main(int argc, char **argv) {
 #endif
 
   initializeOCLPasses(Registry);
+  initializeIntel_DPCPPKernelTransforms(Registry);
 
   cl::ParseCommandLineOptions(argc, argv,
     "llvm .bc -> .bc modular optimizer and analysis printer\n");
