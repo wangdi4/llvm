@@ -904,12 +904,10 @@ def Xassembler : Separate<["-"], "Xassembler">,
 def Xclang : Separate<["-"], "Xclang">,
   HelpText<"Pass <arg> to the clang compiler">, MetaVarName<"<arg>">,
   Flags<[NoXarchOption, CoreOption]>, Group<CompileOnly_Group>;
-#if INTEL_CUSTOMIZATION
-def Xcuda_fatbinary : Separate<["-"], "Xcuda-fatbinary">, Flags<[DpcppUnsupported]>,
+def Xcuda_fatbinary : Separate<["-"], "Xcuda-fatbinary">,
   HelpText<"Pass <arg> to fatbinary invocation">, MetaVarName<"<arg>">;
-def Xcuda_ptxas : Separate<["-"], "Xcuda-ptxas">, Flags<[DpcppUnsupported]>,
+def Xcuda_ptxas : Separate<["-"], "Xcuda-ptxas">,
   HelpText<"Pass <arg> to the ptxas assembler">, MetaVarName<"<arg>">;
-#endif // INTEL_CUSTOMIZATION
 def Xopenmp_target : Separate<["-"], "Xopenmp-target">,
   HelpText<"Pass <arg> to the target offloading toolchain.">, MetaVarName<"<arg>">;
 def Xopenmp_target_EQ : JoinedAndSeparate<["-"], "Xopenmp-target=">,
@@ -1046,116 +1044,112 @@ def fconvergent_functions : Flag<["-"], "fconvergent-functions">, Group<f_Group>
 def gpu_use_aux_triple_only : Flag<["--"], "gpu-use-aux-triple-only">,
   InternalDriverOpt, HelpText<"Prepare '-aux-triple' only without populating "
                               "'-aux-target-cpu' and '-aux-target-feature'.">;
-#if INTEL_CUSTOMIZATION
-def cuda_device_only : Flag<["--"], "cuda-device-only">, Flags<[DpcppUnsupported]>,
+def cuda_device_only : Flag<["--"], "cuda-device-only">,
   HelpText<"Compile CUDA code for device only">;
-def cuda_host_only : Flag<["--"], "cuda-host-only">, Flags<[DpcppUnsupported]>,
+def cuda_host_only : Flag<["--"], "cuda-host-only">,
   HelpText<"Compile CUDA code for host only.  Has no effect on non-CUDA "
            "compilations.">;
-def cuda_compile_host_device : Flag<["--"], "cuda-compile-host-device">, Flags<[DpcppUnsupported]>,
+def cuda_compile_host_device : Flag<["--"], "cuda-compile-host-device">,
   HelpText<"Compile CUDA code for both host and device (default).  Has no "
            "effect on non-CUDA compilations.">;
-def cuda_include_ptx_EQ : Joined<["--"], "cuda-include-ptx=">, Flags<[NoXarchOption, DpcppUnsupported]>,
+def cuda_include_ptx_EQ : Joined<["--"], "cuda-include-ptx=">, Flags<[NoXarchOption]>,
   HelpText<"Include PTX for the following GPU architecture (e.g. sm_35) or 'all'. May be specified more than once.">;
-def no_cuda_include_ptx_EQ : Joined<["--"], "no-cuda-include-ptx=">, Flags<[NoXarchOption, DpcppUnsupported]>,
+def no_cuda_include_ptx_EQ : Joined<["--"], "no-cuda-include-ptx=">, Flags<[NoXarchOption]>,
   HelpText<"Do not include PTX for the following GPU architecture (e.g. sm_35) or 'all'. May be specified more than once.">;
-def offload_arch_EQ : Joined<["--"], "offload-arch=">, Flags<[NoXarchOption, DpcppUnsupported]>,
+def offload_arch_EQ : Joined<["--"], "offload-arch=">, Flags<[NoXarchOption]>,
   HelpText<"CUDA offloading device architecture (e.g. sm_35), or HIP offloading target ID in the form of a "
            "device architecture followed by target ID features delimited by a colon. Each target ID feature "
            "is a pre-defined string followed by a plus or minus sign (e.g. gfx908:xnack+:sramecc-).  May be "
            "specified more than once.">;
-def cuda_gpu_arch_EQ : Joined<["--"], "cuda-gpu-arch=">, Flags<[NoXarchOption, DpcppUnsupported]>,
+def cuda_gpu_arch_EQ : Joined<["--"], "cuda-gpu-arch=">, Flags<[NoXarchOption]>,
   Alias<offload_arch_EQ>;
-def hip_link : Flag<["--"], "hip-link">, Flags<[DpcppUnsupported]>,
+def hip_link : Flag<["--"], "hip-link">,
   HelpText<"Link clang-offload-bundler bundles for HIP">;
-def no_offload_arch_EQ : Joined<["--"], "no-offload-arch=">, Flags<[NoXarchOption, DpcppUnsupported]>,
+def no_offload_arch_EQ : Joined<["--"], "no-offload-arch=">, Flags<[NoXarchOption]>,
   HelpText<"Remove CUDA/HIP offloading device architecture (e.g. sm_35, gfx906) from the list of devices to compile for. "
            "'all' resets the list to its default value.">;
 def emit_static_lib : Flag<["--"], "emit-static-lib">,
   HelpText<"Enable linker job to emit a static library.">;
-def no_cuda_gpu_arch_EQ : Joined<["--"], "no-cuda-gpu-arch=">, Flags<[NoXarchOption, DpcppUnsupported]>,
+def no_cuda_gpu_arch_EQ : Joined<["--"], "no-cuda-gpu-arch=">, Flags<[NoXarchOption]>,
   Alias<no_offload_arch_EQ>;
-def cuda_noopt_device_debug : Flag<["--"], "cuda-noopt-device-debug">, Flags<[DpcppUnsupported]>,
+def cuda_noopt_device_debug : Flag<["--"], "cuda-noopt-device-debug">,
   HelpText<"Enable device-side debug info generation. Disables ptxas optimizations.">;
-def no_cuda_version_check : Flag<["--"], "no-cuda-version-check">, Flags<[DpcppUnsupported]>,
+def no_cuda_version_check : Flag<["--"], "no-cuda-version-check">,
   HelpText<"Don't error out if the detected version of the CUDA install is "
            "too low for the requested CUDA gpu architecture.">;
-def no_cuda_noopt_device_debug : Flag<["--"], "no-cuda-noopt-device-debug">, Flags<[DpcppUnsupported]>;
-def cuda_path_EQ : Joined<["--"], "cuda-path=">, Group<i_Group>, Flags<[DpcppUnsupported]>,
+def no_cuda_noopt_device_debug : Flag<["--"], "no-cuda-noopt-device-debug">;
+def cuda_path_EQ : Joined<["--"], "cuda-path=">, Group<i_Group>,
   HelpText<"CUDA installation path">;
-def cuda_path_ignore_env : Flag<["--"], "cuda-path-ignore-env">, Group<i_Group>, Flags<[DpcppUnsupported]>,
+def cuda_path_ignore_env : Flag<["--"], "cuda-path-ignore-env">, Group<i_Group>,
   HelpText<"Ignore environment variables to detect CUDA installation">;
-def ptxas_path_EQ : Joined<["--"], "ptxas-path=">, Group<i_Group>, Flags<[DpcppUnsupported]>,
+def ptxas_path_EQ : Joined<["--"], "ptxas-path=">, Group<i_Group>,
   HelpText<"Path to ptxas (used for compiling CUDA code)">;
-def fgpu_flush_denormals_to_zero : Flag<["-"], "fgpu-flush-denormals-to-zero">, Flags<[DpcppUnsupported]>,
+def fgpu_flush_denormals_to_zero : Flag<["-"], "fgpu-flush-denormals-to-zero">,
   HelpText<"Flush denormal floating point values to zero in CUDA/HIP device mode.">;
 def fno_gpu_flush_denormals_to_zero : Flag<["-"], "fno-gpu-flush-denormals-to-zero">;
-def fcuda_flush_denormals_to_zero : Flag<["-"], "fcuda-flush-denormals-to-zero">, Flags<[DpcppUnsupported]>,
+def fcuda_flush_denormals_to_zero : Flag<["-"], "fcuda-flush-denormals-to-zero">,
   Alias<fgpu_flush_denormals_to_zero>;
 def fno_cuda_flush_denormals_to_zero : Flag<["-"], "fno-cuda-flush-denormals-to-zero">,
   Alias<fno_gpu_flush_denormals_to_zero>;
 defm gpu_rdc : BoolFOption<"gpu-rdc",
   LangOpts<"GPURelocatableDeviceCode">, DefaultFalse,
   PosFlag<SetTrue, [CC1Option], "Generate relocatable device code, also known as separate compilation mode">,
-  NegFlag<SetFalse>,
-  BothFlags<[DpcppUnsupported]>>;
+  NegFlag<SetFalse>>;
 def : Flag<["-"], "fcuda-rdc">, Alias<fgpu_rdc>;
 def : Flag<["-"], "fno-cuda-rdc">, Alias<fno_gpu_rdc>;
-#if INTEL_CUSTOMIZATION
 defm cuda_short_ptr : BoolFOption<"cuda-short-ptr",
   TargetOpts<"NVPTXUseShortPointers">, DefaultFalse,
-  PosFlag<SetTrue, [DpcppUnsupported], "Use 32-bit pointers for accessing const/local/shared address spaces">,
+  PosFlag<SetTrue, [], "Use 32-bit pointers for accessing const/local/shared address spaces">,
   NegFlag<SetFalse>>;
-#endif // INTEL_CUSTOMIZATION
-def rocm_path_EQ : Joined<["--"], "rocm-path=">, Group<i_Group>, Flags<[DpcppUnsupported]>,
+def rocm_path_EQ : Joined<["--"], "rocm-path=">, Group<i_Group>,
   HelpText<"ROCm installation path, used for finding and automatically linking required bitcode libraries.">;
 def hip_path_EQ : Joined<["--"], "hip-path=">, Group<i_Group>,
   HelpText<"HIP runtime installation path, used for finding HIP version and adding HIP include path.">;
-def amdgpu_arch_tool_EQ : Joined<["--"], "amdgpu-arch-tool=">, Group<i_Group>, Flags<[DpcppUnsupported]>,
+def amdgpu_arch_tool_EQ : Joined<["--"], "amdgpu-arch-tool=">, Group<i_Group>,
   HelpText<"Tool used for detecting AMD GPU arch in the system.">;
-def rocm_device_lib_path_EQ : Joined<["--"], "rocm-device-lib-path=">, Group<Link_Group>, Flags<[DpcppUnsupported]>,
+def rocm_device_lib_path_EQ : Joined<["--"], "rocm-device-lib-path=">, Group<Link_Group>,
   HelpText<"ROCm device library path. Alternative to rocm-path.">;
 def : Joined<["--"], "hip-device-lib-path=">, Alias<rocm_device_lib_path_EQ>;
-def hip_device_lib_EQ : Joined<["--"], "hip-device-lib=">, Group<Link_Group>, Flags<[DpcppUnsupported]>,
+def hip_device_lib_EQ : Joined<["--"], "hip-device-lib=">, Group<Link_Group>,
   HelpText<"HIP device library">;
-def hip_version_EQ : Joined<["--"], "hip-version=">, Flags<[DpcppUnsupported]>,
+def hip_version_EQ : Joined<["--"], "hip-version=">,
   HelpText<"HIP version in the format of major.minor.patch">;
 def fhip_dump_offload_linker_script : Flag<["-"], "fhip-dump-offload-linker-script">,
-  Group<f_Group>, Flags<[NoArgumentUnused, HelpHidden, DpcppUnsupported]>;
+  Group<f_Group>, Flags<[NoArgumentUnused, HelpHidden]>;
 defm hip_new_launch_api : BoolFOption<"hip-new-launch-api",
   LangOpts<"HIPUseNewLaunchAPI">, DefaultFalse,
   PosFlag<SetTrue, [CC1Option], "Use">, NegFlag<SetFalse, [], "Don't use">,
-  BothFlags<[DpcppUnsupported], " new kernel launching API for HIP">>;
+  BothFlags<[], " new kernel launching API for HIP">>;
 defm hip_fp32_correctly_rounded_divide_sqrt : BoolFOption<"hip-fp32-correctly-rounded-divide-sqrt",
   CodeGenOpts<"HIPCorrectlyRoundedDivSqrt">, DefaultTrue,
   PosFlag<SetTrue, [], "Specify">,
   NegFlag<SetFalse, [CC1Option], "Don't specify">,
-  BothFlags<[DpcppUnsupported], " that single precision floating-point divide and sqrt used in "
+  BothFlags<[], " that single precision floating-point divide and sqrt used in "
   "the program source are correctly rounded (HIP device compilation only)">>,
   ShouldParseIf<hip.KeyPath>;
 defm gpu_allow_device_init : BoolFOption<"gpu-allow-device-init",
   LangOpts<"GPUAllowDeviceInit">, DefaultFalse,
   PosFlag<SetTrue, [CC1Option], "Allow">, NegFlag<SetFalse, [], "Don't allow">,
-  BothFlags<[DpcppUnsupported], " device side init function in HIP (experimental)">>,
+  BothFlags<[], " device side init function in HIP">>,
   ShouldParseIf<hip.KeyPath>;
 defm gpu_defer_diag : BoolFOption<"gpu-defer-diag",
   LangOpts<"GPUDeferDiag">, DefaultFalse,
   PosFlag<SetTrue, [CC1Option], "Defer">, NegFlag<SetFalse, [], "Don't defer">,
-  BothFlags<[DpcppUnsupported], " host/device related diagnostic messages for CUDA/HIP">>;
+  BothFlags<[], " host/device related diagnostic messages for CUDA/HIP">>;
 defm gpu_exclude_wrong_side_overloads : BoolFOption<"gpu-exclude-wrong-side-overloads",
   LangOpts<"GPUExcludeWrongSideOverloads">, DefaultFalse,
   PosFlag<SetTrue, [CC1Option], "Always exclude wrong side overloads">,
   NegFlag<SetFalse, [], "Exclude wrong side overloads only if there are same side overloads">,
-  BothFlags<[HelpHidden, DpcppUnsupported], " in overloading resolution for CUDA/HIP">>;
+  BothFlags<[HelpHidden], " in overloading resolution for CUDA/HIP">>;
 def gpu_max_threads_per_block_EQ : Joined<["--"], "gpu-max-threads-per-block=">,
-  Flags<[CC1Option, DpcppUnsupported]>,
+  Flags<[CC1Option]>,
   HelpText<"Default max threads per block for kernel launch bounds for HIP">,
   MarshallingInfoInt<LangOpts<"GPUMaxThreadsPerBlock">, "1024">,
   ShouldParseIf<hip.KeyPath>;
 def fgpu_inline_threshold_EQ : Joined<["-"], "fgpu-inline-threshold=">,
   Flags<[HelpHidden]>,
   HelpText<"Inline threshold for device compilation for CUDA/HIP">;
-def gpu_instrument_lib_EQ : Joined<["--"], "gpu-instrument-lib=">, Flags<[DpcppUnsupported]>,
+def gpu_instrument_lib_EQ : Joined<["--"], "gpu-instrument-lib=">,
   HelpText<"Instrument device library for HIP, which is a LLVM bitcode containing "
   "__cyg_profile_func_enter and __cyg_profile_func_exit">;
 def fgpu_sanitize : Flag<["-"], "fgpu-sanitize">, Group<f_Group>,
@@ -1176,9 +1170,8 @@ def fuse_cuid_EQ : Joined<["-"], "fuse-cuid=">,
            "will be overriden by option '-cuid=[ID]' if it is specified." >;
 def libomptarget_amdgcn_bc_path_EQ : Joined<["--"], "libomptarget-amdgcn-bc-path=">, Group<i_Group>,
   HelpText<"Path to libomptarget-amdgcn bitcode library">;
-def libomptarget_nvptx_bc_path_EQ : Joined<["--"], "libomptarget-nvptx-bc-path=">, Group<i_Group>, Flags<[DpcppUnsupported]>,
+def libomptarget_nvptx_bc_path_EQ : Joined<["--"], "libomptarget-nvptx-bc-path=">, Group<i_Group>,
   HelpText<"Path to libomptarget-nvptx bitcode library">;
-#endif // INTEL_CUSTOMIZATION
 def dD : Flag<["-"], "dD">, Group<d_Group>, Flags<[CC1Option]>,
   HelpText<"Print macro definitions in -E mode in addition to normal output">;
 def dI : Flag<["-"], "dI">, Group<d_Group>, Flags<[CC1Option]>,
@@ -4112,10 +4105,8 @@ def nobuiltininc : Flag<["-"], "nobuiltininc">, Flags<[CC1Option, CoreOption]>,
 def nogpuinc : Flag<["-"], "nogpuinc">, HelpText<"Do not add include paths for CUDA/HIP and"
   " do not include the default CUDA/HIP wrapper headers">;
 def : Flag<["-"], "nocudainc">, Alias<nogpuinc>;
-#if INTEL_CUSTOMIZATION
-def nogpulib : Flag<["-"], "nogpulib">, Flags<[DpcppUnsupported]>,
+def nogpulib : Flag<["-"], "nogpulib">,
   HelpText<"Do not link device library for CUDA/HIP device compilation">;
-#endif // INTEL_CUSTOMIZATION
 def : Flag<["-"], "nocudalib">, Alias<nogpulib>;
 def nodefaultlibs : Flag<["-"], "nodefaultlibs">;
 def nofixprebinding : Flag<["-"], "nofixprebinding">;
@@ -6737,6 +6728,7 @@ def sycl_std_EQ : Joined<["-"], "sycl-std=">, Group<sycl_Group>,
   NormalizedValuesScope<"LangOptions">,
   MarshallingInfoEnum<LangOpts<"SYCLVersion">, "SYCL_None">,
   ShouldParseIf<!strconcat(fsycl_is_device.KeyPath, "||", fsycl_is_host.KeyPath)>;
+#endif // INTEL_CUSTOMIZATION
 
 def fsycl_default_sub_group_size
     : Separate<["-"], "fsycl-default-sub-group-size">,
@@ -6749,9 +6741,8 @@ def fsycl_default_sub_group_size_EQ
 defm cuda_approx_transcendentals : BoolFOption<"cuda-approx-transcendentals",
   LangOpts<"CUDADeviceApproxTranscendentals">, DefaultFalse,
   PosFlag<SetTrue, [CC1Option], "Use">, NegFlag<SetFalse, [], "Don't use">,
-  BothFlags<[DpcppUnsupported], " approximate transcendental functions">>,
+  BothFlags<[], " approximate transcendental functions">>,
   ShouldParseIf<fcuda_is_device.KeyPath>;
-#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // Frontend Options - cc1 + fc1
