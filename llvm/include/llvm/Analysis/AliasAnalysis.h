@@ -904,7 +904,11 @@ public:
   /// Early exits in callCapturesBefore may lead to ModRefInfo::Must not being
   /// set.
   ModRefInfo callCapturesBefore(const Instruction *I,
-                                const MemoryLocation &MemLoc, DominatorTree *DT);
+                                const MemoryLocation &MemLoc,
+                                DominatorTree *DT) {
+    AAQueryInfo AAQIP;
+    return callCapturesBefore(I, MemLoc, DT, AAQIP);
+  }
 
   /// A convenience wrapper to synthesize a memory location.
   ModRefInfo callCapturesBefore(const Instruction *I, const Value *P,
@@ -984,6 +988,9 @@ private:
                            const Optional<MemoryLocation> &OptLoc,
                            AAQueryInfo &AAQIP, // INTEL
                            const Optional<LocationSize> &Size = {}); // INTEL
+  ModRefInfo callCapturesBefore(const Instruction *I,
+                                const MemoryLocation &MemLoc, DominatorTree *DT,
+                                AAQueryInfo &AAQIP);
 
   class Concept;
 
@@ -1044,6 +1051,11 @@ public:
     return alias(MemoryLocation(V1, LocationSize::precise(1)),
                  MemoryLocation(V2, LocationSize::precise(1))) ==
            AliasResult::MustAlias;
+  }
+  ModRefInfo callCapturesBefore(const Instruction *I,
+                                const MemoryLocation &MemLoc,
+                                DominatorTree *DT) {
+    return AA.callCapturesBefore(I, MemLoc, DT, AAQI);
   }
 };
 

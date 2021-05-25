@@ -80,7 +80,7 @@ CGOPT(bool, IgnoreXCOFFVisibility)
 CGOPT(bool, XCOFFTracebackTable)
 CGOPT(std::string, BBSections)
 CGOPT(std::string, StackProtectorGuard)
-CGOPT(unsigned, StackProtectorGuardOffset)
+CGOPT(int, StackProtectorGuardOffset)
 CGOPT(std::string, StackProtectorGuardReg)
 CGOPT(unsigned, TLSSize)
 CGOPT(bool, EmulatedTLS)
@@ -102,6 +102,7 @@ CGOPT(bool, PseudoProbeForProfiling)
 CGOPT(bool, ValueTrackingVariableLocations)
 CGOPT(bool, ForceDwarfFrameSection)
 CGOPT(bool, XRayOmitFunctionIndex)
+CGOPT(bool, DebugStrictDwarf)
 
 codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
 #define CGBINDOPT(NAME)                                                        \
@@ -380,9 +381,9 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
       cl::init("none"));
   CGBINDOPT(StackProtectorGuardReg);
 
-  static cl::opt<unsigned> StackProtectorGuardOffset(
+  static cl::opt<int> StackProtectorGuardOffset(
       "stack-protector-guard-offset", cl::desc("Stack protector guard offset"),
-      cl::init((unsigned)-1));
+      cl::init(INT_MAX));
   CGBINDOPT(StackProtectorGuardOffset);
 
   static cl::opt<unsigned> TLSSize(
@@ -498,6 +499,10 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
       cl::init(false));
   CGBINDOPT(XRayOmitFunctionIndex);
 
+  static cl::opt<bool> DebugStrictDwarf(
+      "strict-dwarf", cl::desc("use strict dwarf"), cl::init(false));
+  CGBINDOPT(DebugStrictDwarf);
+
 #undef CGBINDOPT
 
   mc::RegisterMCTargetOptionsFlags();
@@ -599,6 +604,7 @@ codegen::InitTargetOptionsFromCodeGenFlags(const Triple &TheTriple) {
   Options.ValueTrackingVariableLocations = getValueTrackingVariableLocations();
   Options.ForceDwarfFrameSection = getForceDwarfFrameSection();
   Options.XRayOmitFunctionIndex = getXRayOmitFunctionIndex();
+  Options.DebugStrictDwarf = getDebugStrictDwarf();
 
   Options.MCOptions = mc::InitMCTargetOptionsFromFlags();
 

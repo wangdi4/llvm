@@ -805,9 +805,10 @@ void Sema::PrintInstantiationStack() {
       SmallString<128> TemplateArgsStr;
       llvm::raw_svector_ostream OS(TemplateArgsStr);
       cast<NamedDecl>(Active->Entity)->printName(OS);
-      if (!isa<FunctionDecl>(Active->Entity))
+      if (!isa<FunctionDecl>(Active->Entity)) {
         printTemplateArgumentList(OS, Active->template_arguments(),
                                   getPrintingPolicy());
+      }
       Diags.Report(Active->PointOfInstantiation, DiagID) << OS.str()
         << Active->InstantiationRange;
       break;
@@ -1093,6 +1094,8 @@ namespace {
     const SYCLIntelFPGASpeculatedIterationsAttr *
     TransformSYCLIntelFPGASpeculatedIterationsAttr(
         const SYCLIntelFPGASpeculatedIterationsAttr *SI);
+    const SYCLIntelFPGALoopCountAttr *
+    TransformSYCLIntelFPGALoopCountAttr(const SYCLIntelFPGALoopCountAttr *SI);
 
 #if INTEL_CUSTOMIZATION
     const IntelBlockLoopAttr *
@@ -1724,6 +1727,15 @@ TemplateInstantiator::TransformSYCLIntelFPGASpeculatedIterationsAttr(
   return getSema()
       .BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGASpeculatedIterationsAttr>(
           *SI, TransformedExpr);
+}
+
+const SYCLIntelFPGALoopCountAttr *
+TemplateInstantiator::TransformSYCLIntelFPGALoopCountAttr(
+    const SYCLIntelFPGALoopCountAttr *LCA) {
+  Expr *TransformedExpr =
+      getDerived().TransformExpr(LCA->getNTripCount()).get();
+  return getSema().BuildSYCLIntelFPGALoopAttr<SYCLIntelFPGALoopCountAttr>(
+      *LCA, TransformedExpr);
 }
 
 const LoopUnrollHintAttr *TemplateInstantiator::TransformLoopUnrollHintAttr(
@@ -2617,10 +2629,10 @@ ParmVarDecl *Sema::SubstParmVarDecl(ParmVarDecl *OldParm,
         }
         if (AttachTypeConstraint(
                 TC->getNestedNameSpecifierLoc(), TC->getConceptNameInfo(),
-                TC->getNamedConcept(), &InstArgs, Inst,
+                TC->getNamedConcept(), TemplArgInfo ? &InstArgs : nullptr, Inst,
                 TTP->isParameterPack()
                     ? cast<CXXFoldExpr>(TC->getImmediatelyDeclaredConstraint())
-                        ->getEllipsisLoc()
+                          ->getEllipsisLoc()
                     : SourceLocation()))
           return nullptr;
       }

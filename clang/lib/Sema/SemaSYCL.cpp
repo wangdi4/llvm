@@ -2072,8 +2072,8 @@ public:
     auto AS = Quals.getAddressSpace();
     // Leave global_device and global_host address spaces as is to help FPGA
     // device in memory allocations
-    if (AS != LangAS::opencl_global_device && AS != LangAS::opencl_global_host)
-      Quals.setAddressSpace(LangAS::opencl_global);
+    if (AS != LangAS::sycl_global_device && AS != LangAS::sycl_global_host)
+      Quals.setAddressSpace(LangAS::sycl_global);
     PointeeTy = SemaRef.getASTContext().getQualifiedType(
         PointeeTy.getUnqualifiedType(), Quals);
     QualType ModTy = SemaRef.getASTContext().getPointerType(PointeeTy);
@@ -2149,7 +2149,7 @@ public:
 
     StringRef Name = "_arg__specialization_constants_buffer";
     addParam(Name, Context.getPointerType(Context.getAddrSpaceQualType(
-                       Context.CharTy, LangAS::opencl_global)));
+                       Context.CharTy, LangAS::sycl_global)));
   }
 
   void setBody(CompoundStmt *KB) { KernelDecl->setBody(KB); }
@@ -3515,9 +3515,6 @@ public:
       * declared within namespace 'std' (at any level)
         e.g., namespace std { namespace literals { class Whatever; } }
         h.single_task<std::literals::Whatever>([]() {});
-      * declared within an anonymous namespace (at any level)
-        e.g., namespace foo { namespace { class Whatever; } }
-        h.single_task<foo::Whatever>([]() {});
       * declared within a function
         e.g., void foo() { struct S { int i; };
         h.single_task<S>([]() {}); }
@@ -3541,21 +3538,13 @@ public:
     if (DeclCtx && !UnnamedLambdaEnabled) {
 
       // Check if the kernel name declaration is declared within namespace
-      // "std" or "anonymous" namespace (at any level).
+      // "std" (at any level).
       while (!DeclCtx->isTranslationUnit() && isa<NamespaceDecl>(DeclCtx)) {
         const auto *NSDecl = cast<NamespaceDecl>(DeclCtx);
         if (NSDecl->isStdNamespace()) {
           S.Diag(KernelInvocationFuncLoc,
                  diag::err_invalid_std_type_in_sycl_kernel)
               << KernelNameType << DeclNamed;
-          IsInvalid = true;
-          return;
-        }
-        if (NSDecl->isAnonymousNamespace()) {
-          S.Diag(KernelInvocationFuncLoc,
-                 diag::err_sycl_kernel_incorrectly_named)
-              << /* kernel name should be globally visible */ 0
-              << KernelNameType;
           IsInvalid = true;
           return;
         }
@@ -4502,7 +4491,7 @@ public:
   }
 
   void VisitTemplateArgument(const TemplateArgument &TA) {
-    TA.print(Policy, OS);
+    TA.print(Policy, OS, false /* IncludeType */);
   }
 
   void VisitTypeTemplateArgument(const TemplateArgument &TA) {
@@ -4521,7 +4510,7 @@ public:
                                         /*WithGlobalNsPrefix*/ true);
       OS << ">(" << Val << ")";
     } else {
-      TA.print(Policy, OS);
+      TA.print(Policy, OS, false /* IncludeType */);
     }
   }
 
@@ -4949,7 +4938,9 @@ bool SYCLIntegrationFooter::emit(raw_ostream &OS) {
       OS << "template<>\n";
       OS << "inline const char *get_spec_constant_symbolic_ID<" << TopShim
          << ">() {\n";
-      OS << "  return " << TopShim << ";\n";
+      OS << "  return \"";
+      emitSpecIDName(OS, VD);
+      OS << "\";\n";
     } else {
       OS << "namespace sycl {\n";
       OS << "namespace detail {\n";

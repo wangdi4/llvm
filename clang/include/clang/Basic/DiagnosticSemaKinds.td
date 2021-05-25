@@ -347,12 +347,8 @@ def note_riscv_repeated_interrupt_attribute : Note<
   "repeated RISC-V 'interrupt' attribute is here">;
 def warn_unused_parameter : Warning<"unused parameter %0">,
   InGroup<UnusedParameter>, DefaultIgnore;
-def warn_unused_but_set_parameter : Warning<"parameter %0 set but not used">,
-  InGroup<UnusedButSetParameter>, DefaultIgnore;
 def warn_unused_variable : Warning<"unused variable %0">,
   InGroup<UnusedVariable>, DefaultIgnore;
-def warn_unused_but_set_variable : Warning<"variable %0 set but not used">,
-  InGroup<UnusedButSetVariable>, DefaultIgnore;
 def warn_unused_local_typedef : Warning<
   "unused %select{typedef|type alias}0 %1">,
   InGroup<UnusedLocalTypedef>, DefaultIgnore;
@@ -419,6 +415,15 @@ def warn_unused_private_field: Warning<"private field %0 is not used">,
 def warn_unused_lambda_capture: Warning<"lambda capture %0 is not "
   "%select{used|required to be captured for this use}1">,
   InGroup<UnusedLambdaCapture>, DefaultIgnore;
+
+def warn_reserved_extern_symbol: Warning<
+  "identifier %0 is reserved because %select{"
+  "<ERROR>|" // ReservedIdentifierStatus::NotReserved
+  "it starts with '_' at global scope|"
+  "it starts with '__'|"
+  "it starts with '_' followed by a capital letter|"
+  "it contains '__'}1">,
+  InGroup<ReservedIdentifier>, DefaultIgnore;
 
 def warn_parameter_size: Warning<
   "%0 is a large (%1 bytes) pass-by-value argument; "
@@ -3202,6 +3207,8 @@ def warn_objc_redundant_literal_use : Warning<
 
 def err_attr_tlsmodel_arg : Error<"tls_model must be \"global-dynamic\", "
   "\"local-dynamic\", \"initial-exec\" or \"local-exec\"">;
+
+def err_aix_attr_unsupported_tls_model : Error<"TLS model '%0' is not yet supported on AIX">;
 
 def err_tls_var_aligned_over_maximum : Error<
   "alignment (%0) of thread-local variable %1 is greater than the maximum supported "
@@ -8696,6 +8703,7 @@ let CategoryName = "Inline Assembly Issue" in {
     "asm constraint has an unexpected number of alternatives: %0 vs %1">;
   def err_asm_incomplete_type : Error<"asm operand has incomplete type %0">;
   def err_asm_unknown_register_name : Error<"unknown register name '%0' in asm">;
+  def err_asm_unwind_and_goto : Error<"unwind clobber can't be used with asm goto">;
   def err_asm_invalid_global_var_reg : Error<"register '%0' unsuitable for "
     "global register variables on this target">;
   def err_asm_register_size_mismatch : Error<"size of register '%0' does not "
@@ -10116,6 +10124,9 @@ def err_opencl_variadic_function : Error<
   "invalid prototype, variadic arguments are not allowed in OpenCL">;
 def err_opencl_requires_extension : Error<
   "use of %select{type|declaration}0 %1 requires %2 support">;
+def ext_opencl_double_without_pragma : Extension<
+  "Clang permits use of type 'double' regardless pragma if 'cl_khr_fp64' is"
+  " supported">;
 def warn_opencl_generic_address_space_arg : Warning<
   "passing non-generic address space pointer to %0"
   " may cause dynamic conversion affecting performance">,
@@ -10333,8 +10344,6 @@ def warn_omp_alignment_not_power_of_two : Warning<
   InGroup<OpenMPClauses>;
 def err_omp_invalid_target_decl : Error<
   "%0 used in declare target directive is not a variable or a function name">;
-def err_omp_declare_target_multiple : Error<
-  "%0 appears multiple times in clauses on the same declare target directive">;
 def err_omp_declare_target_to_and_link : Error<
   "%0 must not appear in both clauses 'to' and 'link'">;
 def warn_omp_not_in_target_context : Warning<
@@ -11391,6 +11400,8 @@ def err_esimd_global_in_sycl_context : Error<
   "ESIMD globals cannot be used in a SYCL context">;
 def err_sycl_device_function_is_called_from_esimd : Error<
   "SYCL device function cannot be called from an ESIMD context">;
+def err_sycl_esimd_vectorize_unsupported_value : Error<
+  "%0 attribute argument must be 8, 16, or 32">;
 
 def err_nullptr_t_type_in_sycl_kernel : Error<"%0 is an invalid kernel name, "
                                         "'std::nullptr_t' is declared in the 'std' namespace ">;
@@ -11426,7 +11437,7 @@ def warn_sycl_kernel_too_big_args : Warning<
   "size of kernel arguments (%0 bytes) may exceed the supported maximum "
   "of %1 bytes on some devices">, InGroup<SyclStrict>, ShowInSystemHeader;
 def err_sycl_virtual_types : Error<
-  "No class with a vtable can be used in a SYCL kernel or any code included in the kernel">;
+  "no class with a vtable can be used in a SYCL kernel or any code included in the kernel">;
 def note_sycl_recursive_function_declared_here: Note<"function implemented using recursion declared here">;
 def err_sycl_non_trivially_copy_ctor_dtor_type
     : Error<"kernel parameter has non-trivially %select{copy "
@@ -11447,7 +11458,7 @@ def err_sycl_attribute_internal_function
     : Error<"%0 attribute cannot be applied to a "
             "static function or function in an anonymous namespace">;
 def err_sycl_compiletime_property_duplication : Error<
-  "Can't apply %0 property twice to the same accessor">;
+  "can't apply %0 property twice to the same accessor">;
 def err_sycl_invalid_property_list_param_number : Error<
   "%0 must have exactly one template parameter">;
 def err_sycl_invalid_accessor_property_template_param : Error<
@@ -11461,10 +11472,10 @@ def err_sycl_num_kernel_wrong_reqd_wg_size : Error<
   "%0 attribute must evenly divide the work-group size for the %1 attribute">;
 
 def warn_sycl_pass_by_value_deprecated 
-    : Warning<"Passing kernel functions by value is deprecated in SYCL 2020">,
+    : Warning<"passing kernel functions by value is deprecated in SYCL 2020">,
       InGroup<Sycl2020Compat>, ShowInSystemHeader;
 def warn_sycl_pass_by_reference_future 
-    : Warning<"Passing of kernel functions by reference is a SYCL 2020 extension">,
+    : Warning<"passing of kernel functions by reference is a SYCL 2020 extension">,
       InGroup<Sycl2017Compat>, ShowInSystemHeader;
 def warn_sycl_implicit_decl
     : Warning<"SYCL 1.2.1 specification requires an explicit forward "
@@ -11526,4 +11537,6 @@ def warn_tcb_enforcement_violation : Warning<
 // RISC-V builtin required extension warning
 def err_riscv_builtin_requires_extension : Error<
   "builtin requires '%0' extension support to be enabled">;
+def err_riscv_builtin_invalid_lmul : Error<
+  "LMUL argument must be in the range [0,3] or [5,7]">;
 } // end of sema component.

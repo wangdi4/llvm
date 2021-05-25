@@ -638,7 +638,8 @@ def : DiagGroup<"sequence-point", [Unsequenced]>;
 // Preprocessor warnings.
 def AmbiguousMacro : DiagGroup<"ambiguous-macro">;
 def KeywordAsMacro : DiagGroup<"keyword-macro">;
-def ReservedIdAsMacro : DiagGroup<"reserved-id-macro">;
+def ReservedIdAsMacro : DiagGroup<"reserved-macro-identifier">;
+def ReservedIdAsMacroAlias : DiagGroup<"reserved-id-macro", [ReservedIdAsMacro]>;
 
 // Just silence warnings about -Wstrict-aliasing for now.
 def : DiagGroup<"strict-aliasing=0">;
@@ -731,8 +732,6 @@ def UnusedMemberFunction : DiagGroup<"unused-member-function",
 def UnusedLabel : DiagGroup<"unused-label">;
 def UnusedLambdaCapture : DiagGroup<"unused-lambda-capture">;
 def UnusedParameter : DiagGroup<"unused-parameter">;
-def UnusedButSetParameter : DiagGroup<"unused-but-set-parameter">;
-def UnusedButSetVariable : DiagGroup<"unused-but-set-variable">;
 def UnusedResult : DiagGroup<"unused-result">;
 def PotentiallyEvaluatedExpression : DiagGroup<"potentially-evaluated-expression">;
 def UnevaluatedExpression : DiagGroup<"unevaluated-expression",
@@ -810,6 +809,9 @@ def LargeByValueCopy : DiagGroup<"large-by-value-copy">;
 def DuplicateArgDecl : DiagGroup<"duplicate-method-arg">;
 def SignedEnumBitfield : DiagGroup<"signed-enum-bitfield">;
 
+def ReservedIdentifier : DiagGroup<"reserved-identifier",
+    [ReservedIdAsMacro]>;
+
 // Unreachable code warning groups.
 //
 //  The goal is make -Wunreachable-code on by default, in -Wall, or at
@@ -874,8 +876,7 @@ def Conversion : DiagGroup<"conversion",
                  DiagCategory<"Value Conversion Issue">;
 
 def Unused : DiagGroup<"unused",
-                       [UnusedArgument, UnusedButSetVariable,
-                        UnusedFunction, UnusedLabel,
+                       [UnusedArgument, UnusedFunction, UnusedLabel,
                         // UnusedParameter, (matches GCC's behavior)
                         // UnusedTemplate, (clean-up libc++ before enabling)
                         // UnusedMemberFunction, (clean-up llvm before enabling)
@@ -932,7 +933,6 @@ def Extra : DiagGroup<"extra", [
     SemiBeforeMethodBody,
     MissingMethodReturnType,
     SignCompare,
-    UnusedButSetParameter,
     UnusedParameter,
     NullPointerArithmetic,
     EmptyInitStatement,
@@ -1305,3 +1305,5 @@ in addition with the pragmas or -fmax-tokens flag to get any warnings.
 def WebAssemblyExceptionSpec : DiagGroup<"wasm-exception-spec">;
 
 def RTTI : DiagGroup<"rtti">;
+
+def OpenCLCoreFeaturesDiagGroup : DiagGroup<"pedantic-core-features">;

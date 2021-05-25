@@ -3315,8 +3315,7 @@ static void RenderSSPOptions(const Driver &D, const ToolChain &TC,
           << A->getAsString(Args) << TripleStr;
     if (Value != "tls" && Value != "global") {
       D.Diag(diag::err_drv_invalid_value_with_suggestion)
-      << A->getOption().getName() << Value
-      << "valid arguments to '-mstack-protector-guard=' are:tls global";
+          << A->getOption().getName() << Value << "tls global";
       return;
     }
     A->render(Args, CmdArgs);
@@ -3327,7 +3326,7 @@ static void RenderSSPOptions(const Driver &D, const ToolChain &TC,
     if (!EffectiveTriple.isX86())
       D.Diag(diag::err_drv_unsupported_opt_for_target)
           << A->getAsString(Args) << TripleStr;
-    unsigned Offset;
+    int Offset;
     if (Value.getAsInteger(10, Offset)) {
       D.Diag(diag::err_drv_invalid_value) << A->getOption().getName() << Value;
       return;
@@ -3342,8 +3341,7 @@ static void RenderSSPOptions(const Driver &D, const ToolChain &TC,
           << A->getAsString(Args) << TripleStr;
     if (EffectiveTriple.isX86() && (Value != "fs" && Value != "gs")) {
       D.Diag(diag::err_drv_invalid_value_with_suggestion)
-      << A->getOption().getName() << Value
-      << "for X86, valid arguments to '-mstack-protector-guard-reg=' are:fs gs";
+          << A->getOption().getName() << Value << "fs gs";
       return;
     }
     A->render(Args, CmdArgs);
@@ -4883,6 +4881,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 #endif // INTEL_CUSTOMIZATION
       CmdArgs.push_back("-fsycl-unnamed-lambda");
 
+    // Add the Unique ID prefix
+    StringRef UniqueID = D.getSYCLUniqueID(Input.getBaseInput());
+    if (!UniqueID.empty())
+      CmdArgs.push_back(
+          Args.MakeArgString(Twine("-fsycl-unique-prefix=") + UniqueID));
     // Disable parallel for range-rounding for anything involving FPGA
     auto SYCLTCRange = C.getOffloadToolChains<Action::OFK_SYCL>();
     bool HasFPGA = false;
@@ -5099,7 +5102,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-emit-llvm");
     } else if (JA.getType() == types::TY_LLVM_BC ||
                JA.getType() == types::TY_LTO_BC) {
-      CmdArgs.push_back("-emit-llvm-bc");
+      // Emit textual llvm IR for AMDGPU offloading for -emit-llvm -S
+      if (Triple.isAMDGCN() && IsOpenMPDevice && Args.hasArg(options::OPT_S) &&
+          Args.hasArg(options::OPT_emit_llvm)) {
+        CmdArgs.push_back("-emit-llvm");
+      } else {
+        CmdArgs.push_back("-emit-llvm-bc");
+      }
     } else if (JA.getType() == types::TY_IFS ||
                JA.getType() == types::TY_IFS_CPP) {
       StringRef ArgStr =
@@ -5465,7 +5474,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                              options::OPT_fno_semantic_interposition);
     if (RelocationModel != llvm::Reloc::Static && !IsPIE) {
       // The supported targets need to call AsmPrinter::getSymbolPreferLocal.
-      bool SupportsLocalAlias = Triple.isX86();
+      bool SupportsLocalAlias =
+          Triple.isAArch64() || Triple.isRISCV() || Triple.isX86();
       if (!A)
         CmdArgs.push_back("-fhalf-no-semantic-interposition");
       else if (A->getOption().matches(options::OPT_fsemantic_interposition))
@@ -6137,6 +6147,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasFlag(options::OPT_ffixed_point, options::OPT_fno_fixed_point,
                    /*Default=*/false))
     Args.AddLastArg(CmdArgs, options::OPT_ffixed_point);
+
+  if (Arg *A = Args.getLastArg(options::OPT_fcxx_abi_EQ))
+    A->render(Args, CmdArgs);
 
   // Handle -{std, ansi, trigraphs} -- take the last of -{std, ansi}
   // (-ansi is equivalent to -std=c89 or -std=c++98).
@@ -7266,24 +7279,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                     options::OPT_fno_gnu_inline_asm, true))
     CmdArgs.push_back("-fno-gnu-inline-asm");
 
-  bool EnableSYCLEarlyOptimizations =
-      Args.hasFlag(options::OPT_fsycl_early_optimizations,
-                   options::OPT_fno_sycl_early_optimizations,
-                   Triple.getSubArch() != llvm::Triple::SPIRSubArch_fpga);
-
   // Enable vectorization per default according to the optimization level
   // selected. For optimization levels that want vectorization we use the alias
   // option to simplify the hasFlag logic.
   bool EnableVec = shouldEnableVectorizerAtOLevel(Args, false);
 #if INTEL_CUSTOMIZATION
-  // Do not enable vectorization for SPIR-V
-  if ((JA.isDeviceOffloading(Action::OFK_OpenMP) ||
-       JA.isDeviceOffloading(Action::OFK_SYCL)) &&
+  // Do not enable vectorization for OpenMP
+  if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
       getToolChain().getTriple().isSPIR())
     EnableVec = false;
 #endif // INTEL_CUSTOMIZATION
-  if (RawTriple.isSPIR() && EnableSYCLEarlyOptimizations)
-    EnableVec = false; // But disable vectorization for SYCL device code
   OptSpecifier VectorizeAliasOption =
       EnableVec ? options::OPT_O_Group : options::OPT_fvectorize;
   if (Args.hasFlag(options::OPT_fvectorize, VectorizeAliasOption,
@@ -7293,14 +7298,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // -fslp-vectorize is enabled based on the optimization level selected.
   bool EnableSLPVec = shouldEnableVectorizerAtOLevel(Args, true);
 #if INTEL_CUSTOMIZATION
-  // Do not enable vectorization for SPIR-V
-  if ((JA.isDeviceOffloading(Action::OFK_OpenMP) ||
-       JA.isDeviceOffloading(Action::OFK_SYCL)) &&
+  // Do not enable vectorization for OpenMP
+  if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
       getToolChain().getTriple().isSPIR())
     EnableSLPVec = false;
 #endif // INTEL_CUSTOMIZATION
-  if (RawTriple.isSPIR() && EnableSYCLEarlyOptimizations)
-    EnableSLPVec = false; // But disable vectorization for SYCL device code
   OptSpecifier SLPVectAliasOption =
       EnableSLPVec ? options::OPT_O_Group : options::OPT_fslp_vectorize;
   if (Args.hasFlag(options::OPT_fslp_vectorize, SLPVectAliasOption,
@@ -9155,7 +9157,7 @@ void OffloadWrapper::ConstructJob(Compilation &C, const JobAction &JA,
     bool IsPIE;
     std::tie(RelocationModel, PICLevel, IsPIE) =
         ParsePICArgs(getToolChain(), TCArgs);
-    if (PICLevel > 0) {
+    if (PICLevel > 0 || TCArgs.hasArg(options::OPT_shared)) {
       LlcArgs.push_back("-relocation-model=pic");
     }
     if (IsPIE) {
@@ -9324,47 +9326,62 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
   TranslatorArgs.push_back(Output.getFilename());
   if (getToolChain().getTriple().isSYCLDeviceEnvironment()) {
     TranslatorArgs.push_back("-spirv-max-version=1.3");
-    TranslatorArgs.push_back("-spirv-debug-info-version=legacy");
+    TranslatorArgs.push_back("-spirv-debug-info-version=ocl-100");
     // Prevent crash in the translator if input IR contains DIExpression
     // operations which don't have mapping to OpenCL.DebugInfo.100 spec.
     TranslatorArgs.push_back("-spirv-allow-extra-diexpressions");
     TranslatorArgs.push_back("-spirv-allow-unknown-intrinsics=llvm.genx.");
 
-    // Disable SPV_INTEL_usm_storage_classes by default since it adds new
-    // storage classes that represent global_device and global_host address
-    // spaces, which are not supported for all targets. With the extension
-    // disable the storage classes will be lowered to CrossWorkgroup storage
-    // class that is mapped to just global address space. The extension is
-    // supposed to be enabled only for FPGA hardware.
-    std::string ExtArg("-spirv-ext=+all,-SPV_INTEL_usm_storage_classes");
+    // Disable all the extensions by default
+    std::string ExtArg("-spirv-ext=-all");
+    std::string DefaultExtArg =
+        ",+SPV_EXT_shader_atomic_float_add,+SPV_EXT_shader_atomic_float_min_max"
+        ",+SPV_KHR_no_integer_wrap_decoration,+SPV_KHR_float_controls";
+    std::string INTELExtArg =
+        ",+SPV_INTEL_subgroups,+SPV_INTEL_media_block_io"
+        ",+SPV_INTEL_device_side_avc_motion_estimation"
+        ",+SPV_INTEL_fpga_loop_controls,+SPV_INTEL_fpga_memory_attributes"
+        ",+SPV_INTEL_fpga_memory_accesses"
+        ",+SPV_INTEL_unstructured_loop_controls,+SPV_INTEL_fpga_reg"
+        ",+SPV_INTEL_blocking_pipes,+SPV_INTEL_function_pointers"
+        ",+SPV_INTEL_kernel_attributes,+SPV_INTEL_io_pipes"
+        ",+SPV_INTEL_inline_assembly,+SPV_INTEL_arbitrary_precision_integers"
+        ",+SPV_INTEL_optimization_hints,+SPV_INTEL_float_controls2"
+        ",+SPV_INTEL_vector_compute,+SPV_INTEL_fast_composite"
+        ",+SPV_INTEL_fpga_buffer_location"
+        ",+SPV_INTEL_arbitrary_precision_fixed_point"
+        ",+SPV_INTEL_arbitrary_precision_floating_point"
+        ",+SPV_INTEL_arbitrary_precision_floating_point"
+        ",+SPV_INTEL_variable_length_array,+SPV_INTEL_fp_fast_math_mode"
+        ",+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse"
+        ",+SPV_INTEL_long_constant_composite";
+#if INTEL_CUSTOMIZATION
+    // For all devices, enable INTEL_optnone
+    INTELExtArg += ",+SPV_INTEL_optnone";
+#endif // INTEL_CUSTOMIZATION
+    ExtArg = ExtArg + DefaultExtArg + INTELExtArg;
     if (getToolChain().getTriple().getSubArch() ==
         llvm::Triple::SPIRSubArch_fpga) {
       for (auto *A : TCArgs) {
         if (A->getOption().matches(options::OPT_Xs_separate) ||
             A->getOption().matches(options::OPT_Xs)) {
           StringRef ArgString(A->getValue());
+          // Enable SPV_INTEL_usm_storage_classes only for FPGA hardware,
+          // since it adds new storage classes that represent global_device and
+          // global_host address spaces, which are not supported for all
+          // targets. With the extension disabled the storage classes will be
+          // lowered to CrossWorkgroup storage class that is mapped to just
+          // global address space.
 #if INTEL_CUSTOMIZATION
           if (ArgString == "hardware" || ArgString == "simulation") {
-            // SPV_INTEL_optnone should be disabled for FPGA hardware
-            ExtArg = "-spirv-ext=+all,-SPV_INTEL_optnone";
+            ExtArg += ",+SPV_INTEL_usm_storage_classes";
+            // Disable optnone for FPGA hardware
+            ExtArg += ",-SPV_INTEL_optnone";
           }
 #endif // INTEL_CUSTOMIZATION
         }
       }
     }
-#if INTEL_CUSTOMIZATION
-    // Temporary disable SPV_KHR_linkonce_odr and
-    // SPV_INTEL_memory_access_aliasing until some targets support it.
-    ExtArg += ",-SPV_KHR_linkonce_odr,-SPV_INTEL_memory_access_aliasing";
-#else  // INTEL_CUSTOMIZATION
-    // SPV_INTEL_optnone is enabled in xmain, but it is still should stay
-    // disabled in intel/llvm since version of OCL CPU backend that suppports
-    // this extension is not yet available there.
-
-    // Temporary disable SPV_INTEL_optnone and
-    // SPV_INTEL_memory_access_aliasing until some targets support it.
-    ExtArg += ",-SPV_INTEL_optnone,-SPV_INTEL_memory_access_aliasing";
-#endif // INTEL_CUSTOMIZATION
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
   }
 #if INTEL_CUSTOMIZATION

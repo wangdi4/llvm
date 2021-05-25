@@ -23,18 +23,14 @@ public:
 };
 #pragma omp declare target
 
-// CHECK: define {{.*}}MyTC2Ev{{.*}}#[[DECLARE_TARGET:[0-9]+]]
 MyT::MyT() {
  val = zoo1(0.0);
 }
-// CHECK: define {{.*}}zoo1{{.*}}#[[DECLARE_TARGET_MUSTPROGRESS:[0-9]+]]
-// CHECK: define {{.*}}Comp{{.*}}#[[DECLARE_TARGET_MUSTPROGRESS]]
 MyT Comp(MyT a, MyT b) { return a.val < b.val ? a : b; }
 
 #pragma omp declare reduction(Min : MyT : omp_out = Comp(omp_out, omp_in))
 #pragma omp end declare target
 
-// CHECK: define {{.*}}foo{{.*}}#[[CONTAINS:[0-9]+]]
 void foo()
 {
   MyT my;
@@ -44,6 +40,17 @@ void foo()
 #pragma omp target teams distribute parallel for reduction(Min:my)
   for(int i=0;i<8;++i) {}
 }
+
+// CHECK: define {{.*}}foo{{.*}}#[[CONTAINS:[0-9]+]]
+
+// CHECK: define {{.*}}zoo{{.*}}#[[CONTAINS]]
+
+// CHECK: define {{.*}}MyTC2Ev{{.*}}#[[DECLARE_TARGET:[0-9]+]]
+//
+// CHECK: define {{.*}}zoo1{{.*}}#[[DECLARE_TARGET_MUSTPROGRESS:[0-9]+]]
+
+// CHECK: define {{.*}}Comp{{.*}}#[[DECLARE_TARGET_MUSTPROGRESS]]
+
 // CHECK: define internal void @.omp_combiner{{.*}}#[[DECLARE_TARGET1:[0-9]+]]
 // CHECK: define internal{{.*}}.omp.def_constr{{.*}}#[[DECLARE_TARGET1]]
 // CHECK: define internal{{.*}}_ZTS3MyT.omp.destr{{.*}} #[[DECLARE_TARGET1]]
@@ -51,13 +58,12 @@ void foo()
 // CHECK: define {{.*}}_Z4initRi{{.*}}#[[DECLARE_TARGET_MUSTPROGRESS]]
 // CHECK: define {{.*}}_Z3bar{{.*}} #[[DECLARE_TARGET_MUSTPROGRESS]]
 // CHECK: define {{.*}}_Z3bar{{.*}} #[[DECLARE_TARGET_MUSTPROGRESS]]
-// CHECK: define {{.*}}zoo{{.*}}#[[CONTAINS]]
 // CHECK: define internal void @.omp_combiner..1{{.*}}#[[DECLARE_TARGET1]]
 // CHECK: define internal void @.omp_initializer.{{.*}}#[[DECLARE_TARGET1]]
 
+// CHECK: attributes #[[CONTAINS]] = {{.*}}"contains-openmp-target"="true"
 // CHECK: attributes #[[DECLARE_TARGET]] = {{.*}}"openmp-target-declare"="true"
 // CHECK: attributes #[[DECLARE_TARGET_MUSTPROGRESS]] = {{.*}}"openmp-target-declare"="true"
-// CHECK: attributes #[[CONTAINS]] = {{.*}}"contains-openmp-target"="true"
 // CHECK: attributes #[[DECLARE_TARGET1]] = {{.*}}"openmp-target-declare"="true"
 #pragma omp declare target
 template<int i>

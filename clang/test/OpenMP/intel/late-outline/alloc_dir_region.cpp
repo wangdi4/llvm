@@ -4,7 +4,8 @@
 // RUN:  -fopenmp -fopenmp-late-outline \
 // RUN:  -Werror -Wsource-uses-openmp -o %t_host.bc %s -DHOST
 
-// RUN: %clang_cc1 -emit-llvm -disable-llvm-passes \
+// RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
+// RUN:  -emit-llvm -disable-llvm-passes \
 // RUN:  -fopenmp -fopenmp-late-outline \
 // RUN:  -fopenmp-host-ir-file-path %t_host.bc \
 // RUN:  -Wsource-uses-openmp -o - %s -DHOST \

@@ -19,4 +19,5 @@ endif()
 # end INTEL_CUSTOMIZATION
 add_subdirectory(queue)
 add_subdirectory(scheduler)
+add_subdirectory(spec_constants)
 add_subdirectory(thread_safety)

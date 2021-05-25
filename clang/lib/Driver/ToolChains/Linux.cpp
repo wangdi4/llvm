@@ -271,8 +271,6 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   if (IsAndroid || Distro.IsOpenSUSE())
     ExtraOpts.push_back("--enable-new-dtags");
 
-  addPathIfExists(D, getRuntimePath(), getLibraryPaths());
-
   // The selection of paths to try here is designed to match the patterns which
   // the GCC driver itself uses, as this is part of the GCC-compatible driver.
   // This was determined by running GCC in a fake filesystem, creating all
@@ -280,7 +278,6 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   // to the link paths.
   path_list &Paths = getFilePaths();
 
-  addPathIfExists(D, getStdlibPath(), Paths);
 #if INTEL_CUSTOMIZATION
   const std::string OSLibDir = std::string(getOSLibDir(Triple, Args, Distro));
 #endif // INTEL_CUSTOMIZATION
@@ -638,17 +635,24 @@ void Linux::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
 
 void Linux::addLibStdCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
                                      llvm::opt::ArgStringList &CC1Args) const {
-  // Try generic GCC detection first.
-  if (Generic_GCC::addGCCLibStdCxxIncludePaths(DriverArgs, CC1Args))
-    return;
-
   // We need a detected GCC installation on Linux to provide libstdc++'s
   // headers in odd Linuxish places.
   if (!GCCInstallation.isValid())
     return;
 
-  StringRef LibDir = GCCInstallation.getParentLibPath();
+  // Detect Debian g++-multiarch-incdir.diff.
   StringRef TripleStr = GCCInstallation.getTriple().str();
+  StringRef DebianMultiarch =
+      GCCInstallation.getTriple().getArch() == llvm::Triple::x86
+          ? "i386-linux-gnu"
+          : TripleStr;
+
+  // Try generic GCC detection first.
+  if (Generic_GCC::addGCCLibStdCxxIncludePaths(DriverArgs, CC1Args,
+                                               DebianMultiarch))
+    return;
+
+  StringRef LibDir = GCCInstallation.getParentLibPath();
   const Multilib &Multilib = GCCInstallation.getMultilib();
   const GCCVersion &Version = GCCInstallation.getVersion();
 

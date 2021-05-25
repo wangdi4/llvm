@@ -82,9 +82,11 @@ list(APPEND CLANG_TEST_DEPS
   clang-offload-wrapper
 # end INTEL_COLLAB
   clang-offload-deps
+  clang-offload-extract
   clang-import-test
   clang-rename
   clang-refactor
+  clang-repl
   clang-diff
   clang-scan-deps
   diagtool

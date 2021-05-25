@@ -10,12 +10,8 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @fun(i32 %l1, i32 %l2, i32 %l3, i32 %u1, i32 %u2, i32 %u3) local_unnamed_addr #0 {
-; DBG:WARNING: Missing line 12
-; DBG-NEXT:WARNING: Missing line 27
-; DBG-NEXT:WARNING: Missing line 45
-; DBG-NEXT:WARNING: Missing line 49
+; DBG:WARNING: Missing line 45
 ; DBG-NEXT:WARNING: Missing line 68
-; DBG-NEXT:WARNING: Missing line 90
 ; DBG-NEXT: CheckModuleDebugify: PASS
 ; CHECK-LABEL: fun:
 ; CHECK:       # %bb.0: # %entry

@@ -14,8 +14,7 @@
 ; RUN:     | FileCheck %s
 
 ; Basic orientation checks.
-; CHECK:      Starting llvm::Module pass manager run.
-; CHECK-NEXT: Running pass: Annotation2MetadataPass
+; CHECK: Running pass: Annotation2MetadataPass
 ; CHECK-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis
@@ -86,7 +85,6 @@
 ; CHECK-NEXT:  }
 ;
 ; CHECK-LABEL: attributes #0 = { noinline uwtable }
-; CHECK-NEXT: Finished llvm::Module pass manager run.
 
 declare void @bar() local_unnamed_addr
 

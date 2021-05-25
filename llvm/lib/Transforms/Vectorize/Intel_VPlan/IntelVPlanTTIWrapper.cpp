@@ -147,8 +147,8 @@ static float cacheLineCrossingProbability(Align Alignment, uint64_t RefBytes,
 }
 
 // Calculate cost adjustment for memref with particular Type and Alignment.
-int VPlanTTIWrapper::getNonMaskedMemOpCostAdj(unsigned Opcode, Type *SrcTy,
-                                              Align Alignment) const {
+unsigned VPlanTTIWrapper::getNonMaskedMemOpCostAdj(unsigned Opcode, Type *SrcTy,
+                                                   Align Alignment) const {
   // Non-vector types are handled using default costs.
   VectorType *VecTy = cast<VectorType>(SrcTy);
 
@@ -187,19 +187,17 @@ int VPlanTTIWrapper::getNonMaskedMemOpCostAdj(unsigned Opcode, Type *SrcTy,
 }
 
 // Public interface implementation.
-int VPlanTTIWrapper::getMemoryOpCost(unsigned Opcode, Type *Src,
-                                     Align Alignment, unsigned AddressSpace,
-                                     TTI::TargetCostKind CostKind,
-                                     const Instruction *I) const {
-  int VPTTICost = Multiplier * *TTI.getMemoryOpCost(Opcode, Src, Alignment,
-                                                    AddressSpace, CostKind, I)
-                                    .getValue();
+VPlanTTIWrapper::InstructionCost VPlanTTIWrapper::getMemoryOpCost(
+    unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
+    TTI::TargetCostKind CostKind, const Instruction *I) const {
+  auto VPTTICost = Multiplier * TTI.getMemoryOpCost(Opcode, Src, Alignment,
+                                                    AddressSpace, CostKind, I);
 
   // Return not adjusted scaled up cost for non-vector types.
   if (!isa<VectorType>(Src))
     return VPTTICost;
 
-  int AdjustedCost =
+  auto AdjustedCost =
       VPTTICost + getNonMaskedMemOpCostAdj(Opcode, Src, Alignment);
 
   return AdjustedCost;

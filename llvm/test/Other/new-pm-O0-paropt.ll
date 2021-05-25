@@ -3,13 +3,11 @@
 ; RUN:     -debug-pass-manager  -passes='default<O0>' \
 ; RUN:     -paropt=31 -S %s 2>&1 | FileCheck %s
 
-;            Starting llvm::Module pass manager run.
 ; INTEL_CUSTOMIZATION
 ;CHECK:      Running pass: XmainOptLevelAnalysisInit on [module]
 ;CHECK-NEXT: Running analysis: XmainOptLevelAnalysis on [module]
 ;CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}> on [module]
 ; end INTEL_CUSTOMIZATION
-;CHECK:      Starting llvm::Function pass manager run.
 ;CHECK:      Running pass: VPOCFGRestructuringPass on foo
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Running analysis: LoopAnalysis on foo
@@ -55,14 +53,12 @@
 ;CHECK-NEXT: Running analysis: TargetIRAnalysis on foo
 ; INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on foo
-;CHECK-NEXT: Finished llvm::Function pass manager run
 ;            Running pass: InlineListsPass on [module]
 ;            Running pass: AlwaysInlinerPass on [module]
 ;            Running analysis: ProfileSummaryAnalysis on [module]
 ;            Running pass: VecClonePass on [module]
 ;            Invalidating analysis: InnerAnalysisManagerProxy<{{.*}}>
 ;CHECK:      Running analysis: InnerAnalysisManagerProxy<{{.*}}> on [module]
-;CHECK-NEXT: Starting llvm::Function pass manager run
 ; end INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running pass: VPORestoreOperandsPass on foo
 ;CHECK-NEXT: Running pass: VPOCFGRestructuringPass on foo
@@ -97,7 +93,6 @@
 ;CHECK-NEXT: Running pass: LoopSimplifyPass on foo
 ;CHECK-NEXT: Running analysis: LoopAnalysis on foo
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
-;CHECK-NEXT: Finished llvm::Function pass manager run.
 ; end INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running pass: VPOParoptPass on [module]
 ;CHECK-NEXT: Running analysis: VPOParoptConfigAnalysis on [module]
@@ -112,7 +107,6 @@
 ;CHECK-NEXT: Running analysis: TargetIRAnalysis on foo
 ;CHECK-NEXT: Running pass: VPODirectiveCleanupPass on foo
 ;CHECK-NEXT: Running pass: AlwaysInlinerPass on [module]
-;            Running pass: PrintModulePass on [module]
 
 ; The IR below was taken from new-pm-O0-defaults.ll
 

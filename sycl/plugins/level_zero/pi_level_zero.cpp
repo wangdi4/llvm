@@ -617,6 +617,12 @@ pi_result _pi_context::finalize() {
     if (ZeCommandList)
       ZE_CALL(zeCommandListDestroy, (ZeCommandList));
   }
+
+  // Adjust the number of command lists created on this platform.
+  auto Platform = Devices[0]->Platform;
+  Platform->ZeGlobalCommandListCount -= ZeComputeCommandListCache.size();
+  Platform->ZeGlobalCommandListCount -= ZeCopyCommandListCache.size();
+
   return PI_SUCCESS;
 }
 
@@ -1879,6 +1885,9 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     if (ZE_DEVICE_FP_FLAG_FMA & ZeSingleFPCapabilities) {
       SingleFPValue |= PI_FP_FMA;
     }
+    if (ZE_DEVICE_FP_FLAG_ROUNDED_DIVIDE_SQRT & ZeSingleFPCapabilities) {
+      SingleFPValue |= PI_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT;
+    }
     return ReturnValue(pi_uint64{SingleFPValue});
   }
   case PI_DEVICE_INFO_HALF_FP_CONFIG: {
@@ -1903,6 +1912,9 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     if (ZE_DEVICE_FP_FLAG_FMA & ZeHalfFPCapabilities) {
       HalfFPValue |= PI_FP_FMA;
     }
+    if (ZE_DEVICE_FP_FLAG_ROUNDED_DIVIDE_SQRT & ZeHalfFPCapabilities) {
+      HalfFPValue |= PI_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT;
+    }
     return ReturnValue(pi_uint64{HalfFPValue});
   }
   case PI_DEVICE_INFO_DOUBLE_FP_CONFIG: {
@@ -1926,6 +1938,9 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     }
     if (ZE_DEVICE_FP_FLAG_FMA & ZeDoubleFPCapabilities) {
       DoubleFPValue |= PI_FP_FMA;
+    }
+    if (ZE_DEVICE_FP_FLAG_ROUNDED_DIVIDE_SQRT & ZeDoubleFPCapabilities) {
+      DoubleFPValue |= PI_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT;
     }
     return ReturnValue(pi_uint64{DoubleFPValue});
   }

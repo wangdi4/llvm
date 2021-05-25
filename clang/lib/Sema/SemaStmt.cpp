@@ -438,9 +438,7 @@ StmtResult Sema::ActOnCompoundStmt(SourceLocation L, SourceLocation R,
       DiagnoseEmptyLoopBody(Elts[i], Elts[i + 1]);
   }
 
-  CompoundStmt *CS = CompoundStmt::Create(Context, Elts, L, R);
-  DiagnoseUnusedButSetVariables(CS);
-  return CS;
+  return CompoundStmt::Create(Context, Elts, L, R);
 }
 
 ExprResult
@@ -547,6 +545,12 @@ Sema::ActOnLabelStmt(SourceLocation IdentLoc, LabelDecl *TheDecl,
     Diag(TheDecl->getLocation(), diag::note_previous_definition);
     return SubStmt;
   }
+
+  ReservedIdentifierStatus Status = TheDecl->isReserved(getLangOpts());
+  if (Status != ReservedIdentifierStatus::NotReserved &&
+      !Context.getSourceManager().isInSystemHeader(IdentLoc))
+    Diag(IdentLoc, diag::warn_reserved_extern_symbol)
+        << TheDecl << static_cast<int>(Status);
 
   // Otherwise, things are good.  Fill in the declaration and return it.
   LabelStmt *LS = new (Context) LabelStmt(IdentLoc, TheDecl, SubStmt);

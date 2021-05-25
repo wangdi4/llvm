@@ -317,9 +317,9 @@ macro(intel_add_sdl_flag flag name)
 endmacro()
 
 macro(intel_add_sdl_linker_flag flag name)
-  include(CheckLinkerFlag)
+  include(LLVMCheckLinkerFlag)
   cmake_parse_arguments(ARG "FUTURE" "" "" ${ARGN})
-  check_linker_flag("${flag}" "LINKER_SUPPORTS_${name}")
+  llvm_check_linker_flag(CXX "${flag}" "LINKER_SUPPORTS_${name}")
   if(ARG_FUTURE)
     if(LINKER_SUPPORTS_${name})
       # Remove FUTURE option from intel_add_sdl_linker_flag() call
@@ -859,6 +859,9 @@ if (LLVM_ENABLE_WARNINGS AND (LLVM_COMPILER_IS_GCC_COMPATIBLE OR CLANG_CL))
 
   # Enable -Wstring-conversion to catch misuse of string literals.
   add_flag_if_supported("-Wstring-conversion" STRING_CONVERSION_FLAG)
+
+  # Prevent bugs that can happen with llvm's brace style.
+  add_flag_if_supported("-Wmisleading-indentation" MISLEADING_INDENTATION_FLAG)
 endif (LLVM_ENABLE_WARNINGS AND (LLVM_COMPILER_IS_GCC_COMPATIBLE OR CLANG_CL))
 
 if (LLVM_COMPILER_IS_GCC_COMPATIBLE AND NOT LLVM_ENABLE_WARNINGS)
@@ -988,8 +991,8 @@ endif()
 
 # lld doesn't print colored diagnostics when invoked from Ninja
 if (UNIX AND CMAKE_GENERATOR STREQUAL "Ninja")
-  include(CheckLinkerFlag)
-  check_linker_flag("-Wl,--color-diagnostics" LINKER_SUPPORTS_COLOR_DIAGNOSTICS)
+  include(LLVMCheckLinkerFlag)
+  llvm_check_linker_flag(CXX "-Wl,--color-diagnostics" LINKER_SUPPORTS_COLOR_DIAGNOSTICS)
   append_if(LINKER_SUPPORTS_COLOR_DIAGNOSTICS "-Wl,--color-diagnostics"
     CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS CMAKE_SHARED_LINKER_FLAGS)
 endif()
@@ -998,7 +1001,7 @@ endif()
 # FIXME: With MSVS, consider compiling with /Gy and linking with /OPT:REF?
 # But MinSizeRel seems to add that automatically, so maybe disable these
 # flags instead if LLVM_NO_DEAD_STRIP is set.
-if(NOT CYGWIN AND NOT WIN32)
+if(NOT CYGWIN AND NOT MSVC)
   if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin" AND
      NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
     check_c_compiler_flag("-Werror -fno-function-sections" C_SUPPORTS_FNO_FUNCTION_SECTIONS)

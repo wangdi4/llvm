@@ -96,22 +96,22 @@ void foo_ivdep(int select, SIVDep &SV, SIVDep2 &SV2, SIVDep2 *Sv2p)
 
   //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* %myArray.ascast, i64 0, i64 16
   //CHECK: store i32 addrspace(4)* %[[ARRAYIDX]], i32 addrspace(4)* addrspace(4)* %ptr.ascast, align 8
-  //CHECK: store i32 0, i32 addrspace(4)* %i68.ascast, align 4
+  //CHECK: store i32 0, i32 addrspace(4)* %i69.ascast, align 4
   ptr = &myArray[16];
 
   //CHECK: %[[PTRLOAD:.+]] = load i32 addrspace(4)*, i32 addrspace(4)* addrspace(4)* %ptr.ascast, align 8
-  //CHECK: %[[IDXLOAD:.+]] = load i32, i32 addrspace(4)* %i68.ascast, align 4
+  //CHECK: %[[IDXLOAD:.+]] = load i32, i32 addrspace(4)* %i69.ascast, align 4
   //CHECK: %[[IDXPROM:.+]] = sext i32 %[[IDXLOAD]] to i64
   //CHECK: %[[PTRIDX:.+]] = getelementptr inbounds i32, i32 addrspace(4)* %[[PTRLOAD]], i64 %[[IDXPROM]], !llvm.index.group [[IVDEP15:![0-9]+]]
-  //CHECK: store i32 %call72, i32 addrspace(4)* %[[PTRIDX]], align 4
+  //CHECK: store i32 %call73, i32 addrspace(4)* %[[PTRIDX]], align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP16:![0-9]+]]
   [[intelfpga::ivdep(ptr)]]
   for (int i=0;i<32;++i) { ptr[i] = ibar(i); }
 
-  //CHECK: load i32, i32 addrspace(4)* %i78.ascast, align 4
+  //CHECK: load i32, i32 addrspace(4)* %i79.ascast, align 4
   //CHECK: %[[IDXPROM:.+]] = sext i32 %41 to i64
   //CHECK: %[[ARRAYIDX:.+]] = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* %myArray.ascast, i64 0, i64 %[[IDXPROM]], !llvm.index.group [[IVDEP17:![0-9]+]]
-  //CHECK: store i32 %call82, i32 addrspace(4)* %[[ARRAYIDX]], align 4
+  //CHECK: store i32 %call83, i32 addrspace(4)* %[[ARRAYIDX]], align 4
   //CHECK: br{{.*}}!llvm.loop [[IVDEP18:![0-9]+]]
   [[intelfpga::ivdep(myArray2)]]
   [[intelfpga::ivdep(myArray)]]

@@ -40,6 +40,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/Assumptions.h"
+#include "llvm/MC/MCSectionMachO.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/MathExtras.h"
 #include "intel/SemaIntelImpl.h" // INTEL
@@ -1988,6 +1989,12 @@ static void handleTLSModelAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (Model != "global-dynamic" && Model != "local-dynamic"
       && Model != "initial-exec" && Model != "local-exec") {
     S.Diag(LiteralLoc, diag::err_attr_tlsmodel_arg);
+    return;
+  }
+
+  if (S.Context.getTargetInfo().getTriple().isOSAIX() &&
+      Model != "global-dynamic") {
+    S.Diag(LiteralLoc, diag::err_aix_attr_unsupported_tls_model) << Model;
     return;
   }
 
@@ -4521,9 +4528,29 @@ SectionAttr *Sema::mergeSectionAttr(Decl *D, const AttributeCommonInfo &CI,
   return ::new (Context) SectionAttr(Context, CI, Name);
 }
 
+/// Used to implement to perform semantic checking on
+/// attribute((section("foo"))) specifiers.
+///
+/// In this case, "foo" is passed in to be checked.  If the section
+/// specifier is invalid, return an Error that indicates the problem.
+///
+/// This is a simple quality of implementation feature to catch errors
+/// and give good diagnostics in cases when the assembler or code generator
+/// would otherwise reject the section specifier.
+llvm::Error Sema::isValidSectionSpecifier(StringRef SecName) {
+  if (!Context.getTargetInfo().getTriple().isOSDarwin())
+    return llvm::Error::success();
+
+  // Let MCSectionMachO validate this.
+  StringRef Segment, Section;
+  unsigned TAA, StubSize;
+  bool HasTAA;
+  return llvm::MCSectionMachO::ParseSectionSpecifier(SecName, Segment, Section,
+                                                     TAA, HasTAA, StubSize);
+}
+
 bool Sema::checkSectionName(SourceLocation LiteralLoc, StringRef SecName) {
-  if (llvm::Error E =
-          Context.getTargetInfo().isValidSectionSpecifier(SecName)) {
+  if (llvm::Error E = isValidSectionSpecifier(SecName)) {
     Diag(LiteralLoc, diag::err_attribute_section_invalid_for_target)
         << toString(std::move(E)) << 1 /*'section'*/;
     return false;
@@ -4542,13 +4569,6 @@ static void handleSectionAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (!S.checkSectionName(LiteralLoc, Str))
     return;
 
-  // If the target wants to validate the section specifier, make it happen.
-  if (llvm::Error E = S.Context.getTargetInfo().isValidSectionSpecifier(Str)) {
-    S.Diag(LiteralLoc, diag::err_attribute_section_invalid_for_target)
-        << toString(std::move(E));
-    return;
-  }
-
   SectionAttr *NewAttr = S.mergeSectionAttr(D, AL, Str);
   if (NewAttr) {
     D->addAttr(NewAttr);
@@ -4564,8 +4584,7 @@ static void handleSectionAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 // `#pragma code_seg("segname")` uses checkSectionName() instead.
 static bool checkCodeSegName(Sema &S, SourceLocation LiteralLoc,
                              StringRef CodeSegName) {
-  if (llvm::Error E =
-          S.Context.getTargetInfo().isValidSectionSpecifier(CodeSegName)) {
+  if (llvm::Error E = S.isValidSectionSpecifier(CodeSegName)) {
     S.Diag(LiteralLoc, diag::err_attribute_section_invalid_for_target)
         << toString(std::move(E)) << 0 /*'code-seg'*/;
     return false;
@@ -5977,6 +5996,73 @@ static void handleSYCLRegisterNumAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   D->addAttr(::new (S.Context) SYCLRegisterNumAttr(S.Context, AL, RegNo));
 }
 
+void Sema::AddSYCLIntelESimdVectorizeAttr(Decl *D,
+                                          const AttributeCommonInfo &CI,
+                                          Expr *E) {
+  if (!E->isValueDependent()) {
+    // Validate that we have an integer constant expression and then store the
+    // converted constant expression into the semantic attribute so that we
+    // don't have to evaluate it again later.
+    llvm::APSInt ArgVal;
+    ExprResult Res = VerifyIntegerConstantExpression(E, &ArgVal);
+    if (Res.isInvalid())
+      return;
+    E = Res.get();
+
+    if (ArgVal != 8 && ArgVal != 16 && ArgVal != 32) {
+      Diag(E->getExprLoc(), diag::err_sycl_esimd_vectorize_unsupported_value)
+          << CI;
+      return;
+    }
+
+    // Check to see if there's a duplicate attribute with different values
+    // already applied to the declaration.
+    if (const auto *DeclAttr = D->getAttr<SYCLIntelESimdVectorizeAttr>()) {
+      // If the other attribute argument is instantiation dependent, we won't
+      // have converted it to a constant expression yet and thus we test
+      // whether this is a null pointer.
+      if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+        if (ArgVal != DeclExpr->getResultAsAPSInt()) {
+          Diag(CI.getLoc(), diag::warn_duplicate_attribute) << CI;
+          Diag(DeclAttr->getLoc(), diag::note_previous_attribute);
+        }
+        // Drop the duplicate attribute.
+        return;
+      }
+    }
+  }
+
+  D->addAttr(::new (Context) SYCLIntelESimdVectorizeAttr(Context, CI, E));
+}
+
+SYCLIntelESimdVectorizeAttr *
+Sema::MergeSYCLIntelESimdVectorizeAttr(Decl *D,
+                                       const SYCLIntelESimdVectorizeAttr &A) {
+  // Check to see if there's a duplicate attribute with different values
+  // already applied to the declaration.
+  if (const auto *DeclAttr = D->getAttr<SYCLIntelESimdVectorizeAttr>()) {
+    if (const auto *DeclExpr = dyn_cast<ConstantExpr>(DeclAttr->getValue())) {
+      if (const auto *MergeExpr = dyn_cast<ConstantExpr>(A.getValue())) {
+        if (DeclExpr->getResultAsAPSInt() != MergeExpr->getResultAsAPSInt()) {
+          Diag(DeclAttr->getLoc(), diag::warn_duplicate_attribute) << &A;
+          Diag(A.getLoc(), diag::note_previous_attribute);
+        }
+        // Do not add a duplicate attribute.
+        return nullptr;
+      }
+    }
+  }
+  return ::new (Context) SYCLIntelESimdVectorizeAttr(Context, A, A.getValue());
+}
+
+static void handleSYCLIntelESimdVectorizeAttr(Sema &S, Decl *D,
+                                              const ParsedAttr &A) {
+  S.CheckDeprecatedSYCLAttributeSpelling(A);
+
+  Expr *E = A.getArgAsExpr(0);
+  S.AddSYCLIntelESimdVectorizeAttr(D, A, E);
+}
+
 static void handleConstantAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   const auto *VD = cast<VarDecl>(D);
   if (VD->hasLocalStorage()) {
@@ -7373,15 +7459,8 @@ static bool ArmCdeAliasValid(unsigned BuiltinID, StringRef AliasName) {
 }
 
 static bool ArmSveAliasValid(unsigned BuiltinID, StringRef AliasName) {
-  switch (BuiltinID) {
-  default:
-    return false;
-#define GET_SVE_BUILTINS
-#define BUILTIN(name, types, attr) case SVE::BI##name:
-#include "clang/Basic/arm_sve_builtins.inc"
-#undef BUILTIN
-    return true;
-  }
+  return BuiltinID >= AArch64::FirstSVEBuiltin &&
+         BuiltinID <= AArch64::LastSVEBuiltin;
 }
 
 static void handleArmBuiltinAliasAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
@@ -7407,14 +7486,8 @@ static void handleArmBuiltinAliasAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 
 static bool RISCVAliasValid(unsigned BuiltinID, StringRef AliasName) {
-  switch (BuiltinID) {
-  default:
-    return false;
-#define BUILTIN(ID, TYPE, ATTRS) case RISCV::BI##ID:
-#include "clang/Basic/BuiltinsRISCV.def"
-#undef BUILTIN
-    return true;
-  }
+  return BuiltinID >= Builtin::FirstTSBuiltin &&
+         BuiltinID < RISCV::LastTSBuiltin;
 }
 
 static void handleBuiltinAliasAttr(Sema &S, Decl *D,
@@ -10122,6 +10195,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
 #endif // INTEL_CUSTOMIZATION
   case ParsedAttr::AT_SYCLRegisterNum:
     handleSYCLRegisterNumAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_SYCLIntelESimdVectorize:
+    handleSYCLIntelESimdVectorizeAttr(S, D, AL);
     break;
   case ParsedAttr::AT_Format:
     handleFormatAttr(S, D, AL);

@@ -3082,6 +3082,10 @@ Sema::DeduceTemplateArguments(ClassTemplatePartialSpecializationDecl *Partial,
       *this, Sema::ExpressionEvaluationContext::Unevaluated);
   SFINAETrap Trap(*this);
 
+  // This deduction has no relation to any outer instantiation we might be
+  // performing.
+  LocalInstantiationScope InstantiationScope(*this);
+
   SmallVector<DeducedTemplateArgument, 4> Deduced;
   Deduced.resize(Partial->getTemplateParameters()->size());
   if (TemplateDeductionResult Result
@@ -3129,6 +3133,10 @@ Sema::DeduceTemplateArguments(VarTemplatePartialSpecializationDecl *Partial,
   EnterExpressionEvaluationContext Unevaluated(
       *this, Sema::ExpressionEvaluationContext::Unevaluated);
   SFINAETrap Trap(*this);
+
+  // This deduction has no relation to any outer instantiation we might be
+  // performing.
+  LocalInstantiationScope InstantiationScope(*this);
 
   SmallVector<DeducedTemplateArgument, 4> Deduced;
   Deduced.resize(Partial->getTemplateParameters()->size());
@@ -4700,10 +4708,9 @@ CheckDeducedPlaceholderConstraints(Sema &S, const AutoType &Type,
     llvm::raw_string_ostream OS(Buf);
     OS << "'" << Concept->getName();
     if (TypeLoc.hasExplicitTemplateArgs()) {
-      OS << "<";
-      for (const auto &Arg : Type.getTypeConstraintArguments())
-        Arg.print(S.getPrintingPolicy(), OS);
-      OS << ">";
+      printTemplateArgumentList(
+          OS, Type.getTypeConstraintArguments(), S.getPrintingPolicy(),
+          Type.getTypeConstraintConcept()->getTemplateParameters());
     }
     OS << "'";
     OS.flush();

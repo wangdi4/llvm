@@ -676,8 +676,7 @@ sizeof...($TemplateParameter[[Elements]]);
         @end
         @interface $Class_decl[[Klass]] <$Interface[[Protocol]]>
         @end
-        // FIXME: protocol list in ObjCObjectType should be highlighted.
-        id<Protocol> $Variable_decl[[x]];
+        id<$Interface[[Protocol]]> $Variable_decl[[x]];
       )cpp",
       R"cpp(
         // ObjC: Categories
@@ -686,6 +685,21 @@ sizeof...($TemplateParameter[[Elements]]);
         @interface $Class[[Foo]]($Namespace_decl[[Bar]])
         @end
         @implementation $Class[[Foo]]($Namespace_decl[[Bar]])
+        @end
+      )cpp",
+      R"cpp(
+        // ObjC: Properties and Ivars.
+        @interface $Class_decl[[Foo]] {
+          int $Field_decl[[_someProperty]];
+        }
+        @property(nonatomic, assign) int $Field_decl[[someProperty]];
+        @end
+        @implementation $Class_decl[[Foo]]
+        @synthesize someProperty = _someProperty;
+        - (int)$Method_decl[[doSomething]] {
+          self.$Field[[someProperty]] = self.$Field[[someProperty]] + 1;
+          self->$Field[[_someProperty]] = $Field[[_someProperty]] + 1;
+        }
         @end
       )cpp",
       // Member imported from dependent base

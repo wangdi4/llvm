@@ -19,14 +19,21 @@ int Var1 = 5;
 // CHECK-ALL: @Var2 ={{.*}}target_declare global %struct.S zeroinitializer
 // CHECK-HST: @[[CTOR:__omp_offloading.*_ctor]] = private constant
 // CHECK-HST: @[[DTOR:__omp_offloading.*_dtor]] = private constant
-// CHECK-TGT: define internal void @[[CTOR:__omp_offloading.*_ctor]]()
-// CHECK-TGT: define internal void @[[DTOR:__omp_offloading.*_dtor]]()
 struct S {
   S() {}
   ~S() {}
 };
 S Var2;
 #pragma omp end declare target
+
+// CHECK-TGT: define{{ hidden | }}{{.*}}void @_Z3goov()
+// CHECK-TGT-NEXT: entry:
+// CHECK-TGT-NEXT: [[REGION:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 [[ENTRYIDX:[0-9]+]]) ]
+// CHECK-TGT-NEXT: call void @_Z3barv()
+// CHECK-TGT-NEXT: call void @llvm.directive.region.exit(token [[REGION]]) [ "DIR.OMP.END.TARGET"() ]
+
+// CHECK-TGT: define internal void @[[CTOR:__omp_offloading.*_ctor]]()
+// CHECK-TGT: define internal void @[[DTOR:__omp_offloading.*_dtor]]()
 
 // Target IR shoud not have variables that are not defined as "declare target".
 // CHECK-HST:     @Var3 = {{.*}}global i32 10
@@ -43,12 +50,12 @@ void foo() {}
 void bar() {}
 
 // Function with target region.
-// CHECK-ALL: define{{ hidden | }}{{.*}}void @_Z3goov()
+// CHECK-HST: define{{ hidden | }}{{.*}}void @_Z3goov()
 void goo() {
-  // CHECK-ALL-NEXT: entry:
-  // CHECK-ALL-NEXT: [[REGION:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 [[ENTRYIDX:[0-9]+]]) ]
-  // CHECK-ALL-NEXT: call void @_Z3barv()
-  // CHECK-ALL-NEXT: call void @llvm.directive.region.exit(token [[REGION]]) [ "DIR.OMP.END.TARGET"() ]
+  // CHECK-HST-NEXT: entry:
+  // CHECK-HST-NEXT: [[REGION:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 [[ENTRYIDX:[0-9]+]]) ]
+  // CHECK-HST-NEXT: call void @_Z3barv()
+  // CHECK-HST-NEXT: call void @llvm.directive.region.exit(token [[REGION]]) [ "DIR.OMP.END.TARGET"() ]
 #pragma omp target
   bar();
 }

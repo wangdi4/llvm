@@ -27,7 +27,6 @@ using namespace clang;
 using namespace llvm::opt;
 
 using tools::addMultilibFlag;
-using tools::addPathIfExists;
 
 void fuchsia::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                    const InputInfo &Output,
@@ -182,10 +181,6 @@ Fuchsia::Fuchsia(const Driver &D, const llvm::Triple &Triple,
   if (getDriver().getInstalledDir() != D.Dir)
     getProgramPaths().push_back(D.Dir);
 
-  addPathIfExists(D, getRuntimePath(), getLibraryPaths());
-
-  addPathIfExists(D, getStdlibPath(), getFilePaths());
-
   if (!D.SysRoot.empty()) {
     SmallString<128> P(D.SysRoot);
     llvm::sys::path::append(P, "lib");
@@ -247,6 +242,8 @@ Fuchsia::Fuchsia(const Driver &D, const llvm::Triple &Triple,
                           .flag("+fsanitize=hwaddress")
                           .flag("-fexceptions")
                           .flag("+fno-exceptions"));
+  // Use Itanium C++ ABI for the compat multilib.
+  Multilibs.push_back(Multilib("compat", {}, {}, 12).flag("+fc++-abi=itanium"));
 
   Multilibs.FilterOut([&](const Multilib &M) {
     std::vector<std::string> RD = FilePaths(M);
@@ -268,6 +265,8 @@ Fuchsia::Fuchsia(const Driver &D, const llvm::Triple &Triple,
                    options::OPT_fno_experimental_relative_cxx_abi_vtables,
                    /*default=*/false),
       "fexperimental-relative-c++-abi-vtables", Flags);
+  addMultilibFlag(Args.getLastArgValue(options::OPT_fcxx_abi_EQ) == "itanium",
+                  "fc++-abi=itanium", Flags);
 
   Multilibs.setFilePathsCallback(FilePaths);
 
@@ -277,15 +276,6 @@ Fuchsia::Fuchsia(const Driver &D, const llvm::Triple &Triple,
         for (const auto &Path : PathsCallback(SelectedMultilib))
           // Prepend the multilib path to ensure it takes the precedence.
           getFilePaths().insert(getFilePaths().begin(), Path);
-}
-
-/// Following the conventions in https://wiki.debian.org/Multiarch/Tuples,
-/// we remove the vendor field to form the multiarch triple.
-std::string Fuchsia::getMultiarchTriple(const Driver &D,
-                                        const llvm::Triple &TargetTriple,
-                                        StringRef SysRoot) const {
-    return (TargetTriple.getArchName() + "-" +
-            TargetTriple.getOSAndEnvironmentName()).str();
 }
 
 std::string Fuchsia::ComputeEffectiveClangTriple(const ArgList &Args,
@@ -372,13 +362,31 @@ void Fuchsia::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
       DriverArgs.hasArg(options::OPT_nostdincxx))
     return;
 
+  const Driver &D = getDriver();
+  std::string Target = getTripleString();
+
+  auto AddCXXIncludePath = [&](StringRef Path) {
+    std::string Version = detectLibcxxVersion(Path);
+    if (Version.empty())
+      return;
+
+    // First add the per-target include path.
+    SmallString<128> TargetDir(Path);
+    llvm::sys::path::append(TargetDir, Target, "c++", Version);
+    if (getVFS().exists(TargetDir))
+      addSystemInclude(DriverArgs, CC1Args, TargetDir);
+
+    // Second add the generic one.
+    SmallString<128> Dir(Path);
+    llvm::sys::path::append(Dir, "c++", Version);
+    addSystemInclude(DriverArgs, CC1Args, Dir);
+  };
+
   switch (GetCXXStdlibType(DriverArgs)) {
   case ToolChain::CST_Libcxx: {
-    SmallString<128> P(getDriver().Dir);
+    SmallString<128> P(D.Dir);
     llvm::sys::path::append(P, "..", "include");
-    std::string Version = detectLibcxxVersion(P);
-    llvm::sys::path::append(P, "c++", Version);
-    addSystemInclude(DriverArgs, CC1Args, P.str());
+    AddCXXIncludePath(P);
     break;
   }
 

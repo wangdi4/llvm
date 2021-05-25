@@ -4473,10 +4473,7 @@ void CGOpenMPRuntimeGPU::processRequiresDirective(
       case CudaArch::SM_37:
       case CudaArch::SM_50:
       case CudaArch::SM_52:
-      case CudaArch::SM_53:
-      case CudaArch::SM_60:
-      case CudaArch::SM_61:
-      case CudaArch::SM_62: {
+      case CudaArch::SM_53: {
         SmallString<256> Buffer;
         llvm::raw_svector_ostream Out(Buffer);
         Out << "Target architecture " << CudaArchToString(Arch)
@@ -4484,6 +4481,9 @@ void CGOpenMPRuntimeGPU::processRequiresDirective(
         CGM.Error(Clause->getBeginLoc(), Out.str());
         return;
       }
+      case CudaArch::SM_60:
+      case CudaArch::SM_61:
+      case CudaArch::SM_62:
       case CudaArch::SM_70:
       case CudaArch::SM_72:
       case CudaArch::SM_75:
@@ -4518,6 +4518,7 @@ void CGOpenMPRuntimeGPU::processRequiresDirective(
       case CudaArch::GFX1031:
       case CudaArch::GFX1032:
       case CudaArch::GFX1033:
+      case CudaArch::GFX1034:
       case CudaArch::UNUSED:
       case CudaArch::UNKNOWN:
         break;
@@ -4588,6 +4589,7 @@ static std::pair<unsigned, unsigned> getSMsBlocksPerSM(CodeGenModule &CGM) {
   case CudaArch::GFX1031:
   case CudaArch::GFX1032:
   case CudaArch::GFX1033:
+  case CudaArch::GFX1034:
   case CudaArch::UNUSED:
   case CudaArch::UNKNOWN:
     break;

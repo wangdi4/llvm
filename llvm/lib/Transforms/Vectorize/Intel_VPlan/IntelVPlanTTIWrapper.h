@@ -27,6 +27,28 @@ namespace vpo {
 /// usage of values that haven't been scaled.
 class VPlanTTIWrapper {
 public:
+  // It's not clear how exactly UnknownCost/InifiniteCost will be distinguished
+  // in the llvm::InstructionCost. Original RFC stated that it would be handled
+  // somehow, but it doesn't seem to be the case yet.
+  //
+  // While that is not unclear, stop propagating llvm::InstructionCost inside
+  // this wrapper. However, we introduce this helper class to prepare this
+  // wrapper for the future changes via shadowing llvm::InstructionCost with an
+  // even thinner wrapper below. Once we decide to fully propagate
+  // llvm::InstructionCost the only change here would be to remove this class.
+  class InstructionCost {
+    static constexpr unsigned UnknownCost = -1u;
+    unsigned Cost;
+  public:
+    InstructionCost(llvm::InstructionCost ICost) {
+      if (auto MaybeCost = ICost.getValue())
+        Cost = *MaybeCost;
+      else
+        Cost =  UnknownCost;
+    }
+    operator unsigned() const { return Cost; }
+  };
+
   /// Scale up factor for native TargetTransformInfo.
   static constexpr unsigned Multiplier = 1000;
 
@@ -68,7 +90,7 @@ public:
   bool isLegalMaskedGather(Type *DataType, Align Alignment) const {
     return TTI.isLegalMaskedGather(DataType, Alignment);
   }
-  unsigned getArithmeticInstrCost(
+  InstructionCost getArithmeticInstrCost(
       unsigned Opcode, Type *Ty,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       TTI::OperandValueKind Opd1Info = TTI::OK_AnyValue,
@@ -78,84 +100,77 @@ public:
       ArrayRef<const Value *> Args = ArrayRef<const Value *>(),
       const Instruction *CxtI = nullptr) const {
     return Multiplier *
-           *TTI.getArithmeticInstrCost(Opcode, Ty, CostKind, Opd1Info, Opd2Info,
-                                      Opd1PropInfo, Opd2PropInfo, Args, CxtI)
-                .getValue();
+           TTI.getArithmeticInstrCost(Opcode, Ty, CostKind, Opd1Info, Opd2Info,
+                                      Opd1PropInfo, Opd2PropInfo, Args, CxtI);
   }
-  int getShuffleCost(TargetTransformInfo::ShuffleKind Kind, VectorType *Tp,
-                     int Index = 0, VectorType *SubTp = nullptr) const {
-    return Multiplier *
-           *TTI.getShuffleCost(Kind, Tp, llvm::None, Index, SubTp)
-                .getValue();
+  InstructionCost getShuffleCost(TargetTransformInfo::ShuffleKind Kind,
+                                 VectorType *Tp, int Index = 0,
+                                 VectorType *SubTp = nullptr) const {
+    return Multiplier * TTI.getShuffleCost(Kind, Tp, llvm::None, Index, SubTp);
   }
-  int getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
-                       TTI::CastContextHint CCH,
-                       TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
-                       const Instruction *I = nullptr) const {
+  InstructionCost
+  getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
+                   TTI::CastContextHint CCH,
+                   TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency,
+                   const Instruction *I = nullptr) const {
     return Multiplier *
-           *TTI.getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I).getValue();
+           TTI.getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I);
   }
-  int getCmpSelInstrCost(
-      unsigned Opcode, Type *ValTy, Type *CondTy = nullptr,
-      CmpInst::Predicate VecPred = CmpInst::BAD_ICMP_PREDICATE,
-      TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
-      const Instruction *I = nullptr) const {
+  InstructionCost
+  getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy = nullptr,
+                     CmpInst::Predicate VecPred = CmpInst::BAD_ICMP_PREDICATE,
+                     TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
+                     const Instruction *I = nullptr) const {
     return Multiplier *
-           *TTI.getCmpSelInstrCost(Opcode, ValTy, CondTy, VecPred, CostKind, I)
-                .getValue();
+           TTI.getCmpSelInstrCost(Opcode, ValTy, CondTy, VecPred, CostKind, I);
   }
 
-  int getVectorInstrCost(unsigned Opcode, Type *Val,
-                         unsigned Index = -1) const {
-    return Multiplier * *TTI.getVectorInstrCost(Opcode, Val, Index).getValue();
+  InstructionCost getVectorInstrCost(unsigned Opcode, Type *Val,
+                                     unsigned Index = -1) const {
+    return Multiplier * TTI.getVectorInstrCost(Opcode, Val, Index);
   }
-  int getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
-                      unsigned AddressSpace,
-                      TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
-                      const Instruction *I = nullptr) const;
-  int getMaskedMemoryOpCost(
+  InstructionCost
+  getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
+                  unsigned AddressSpace,
+                  TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
+                  const Instruction *I = nullptr) const;
+  InstructionCost getMaskedMemoryOpCost(
       unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput) const {
-    return Multiplier *
-           *TTI.getMaskedMemoryOpCost(Opcode, Src, Alignment,
-                                      AddressSpace, CostKind).getValue();
+    return Multiplier * TTI.getMaskedMemoryOpCost(Opcode, Src, Alignment,
+                                                  AddressSpace, CostKind);
   }
-  int getGatherScatterOpCost(
+  InstructionCost getGatherScatterOpCost(
       unsigned Opcode, Type *DataTy, const Value *Ptr, bool VariableMask,
       Align Alignment, TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       const Instruction *I = nullptr) const {
-    return Multiplier * *TTI.getGatherScatterOpCost(Opcode, DataTy, Ptr,
-                                                    VariableMask, Alignment,
-                                                    CostKind, I)
-                             .getValue();
+    return Multiplier * TTI.getGatherScatterOpCost(Opcode, DataTy, Ptr,
+                                                   VariableMask, Alignment,
+                                                   CostKind, I);
   }
 #if INTEL_CUSTOMIZATION
-  int getGatherScatterOpCost(
+  InstructionCost getGatherScatterOpCost(
       unsigned Opcode, Type *DataTy, unsigned IndexSize, bool VariableMask,
       unsigned Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       const Instruction *I = nullptr) const {
-    return Multiplier * *TTI.getGatherScatterOpCost(Opcode, DataTy, IndexSize,
-                                                    VariableMask, Alignment,
-                                                    AddressSpace, CostKind, I)
-                             .getValue();
+    return Multiplier * TTI.getGatherScatterOpCost(Opcode, DataTy, IndexSize,
+                                                   VariableMask, Alignment,
+                                                   AddressSpace, CostKind, I);
   }
-  int getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy, unsigned Factor,
-                                 ArrayRef<unsigned> Indices, Align Alignment,
-                                 unsigned AddressSpace,
-                                 TTI::TargetCostKind CostKind,
-                                 bool UseMaskForCond,
-                                 bool UseMaskForGaps) const {
+  InstructionCost getInterleavedMemoryOpCost(
+      unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,
+      Align Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
+      bool UseMaskForCond, bool UseMaskForGaps) const {
     return Multiplier *
-           *TTI.getInterleavedMemoryOpCost(Opcode, VecTy, Factor, Indices,
-                                           Alignment, AddressSpace, CostKind,
-                                           UseMaskForCond, UseMaskForGaps)
-                .getValue();
+           TTI.getInterleavedMemoryOpCost(Opcode, VecTy, Factor, Indices,
+                                          Alignment, AddressSpace, CostKind,
+                                          UseMaskForCond, UseMaskForGaps);
   }
 #endif // INTEL_CUSTOMIZATION
-  int getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
-                            TTI::TargetCostKind CostKind) const {
-    return Multiplier * *TTI.getIntrinsicInstrCost(ICA, CostKind).getValue();
+  InstructionCost getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
+                                        TTI::TargetCostKind CostKind) const {
+    return Multiplier * TTI.getIntrinsicInstrCost(ICA, CostKind);
   }
   unsigned getNumberOfParts(Type *Tp) const { return TTI.getNumberOfParts(Tp); }
 #if INTEL_CUSTOMIZATION
@@ -176,8 +191,8 @@ protected:
 
 protected:
   // Determine cost adjustment for a memref with specific Alignment.
-  int getNonMaskedMemOpCostAdj(unsigned Opcode, Type *Src,
-                                Align Alignment) const;
+  unsigned getNonMaskedMemOpCostAdj(unsigned Opcode, Type *Src,
+                                    Align Alignment) const;
 };
 
 } // namespace vpo

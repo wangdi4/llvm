@@ -83,7 +83,7 @@ static llvm::cl::opt<bool> LimitedCoverage(
 static const char AnnotationSection[] = "llvm.metadata";
 
 static CGCXXABI *createCXXABI(CodeGenModule &CGM) {
-  switch (CGM.getTarget().getCXXABI().getKind()) {
+  switch (CGM.getContext().getCXXABIKind()) {
   case TargetCXXABI::AppleARM64:
   case TargetCXXABI::Fuchsia:
   case TargetCXXABI::GenericAArch64:
@@ -319,16 +319,7 @@ void CodeGenModule::createCUDARuntime() {
 }
 
 void CodeGenModule::createSYCLRuntime() {
-  switch (getTriple().getArch()) {
-  case llvm::Triple::spir:
-  case llvm::Triple::spir64:
-  case llvm::Triple::nvptx:
-  case llvm::Triple::nvptx64:
-    SYCLRuntime.reset(new CGSYCLRuntime(*this));
-    break;
-  default:
-    llvm_unreachable("unsupported target for SYCL");
-  }
+  SYCLRuntime.reset(new CGSYCLRuntime(*this));
 }
 
 void CodeGenModule::addReplacement(StringRef Name, llvm::Constant *C) {
@@ -1607,10 +1598,11 @@ llvm::ConstantInt *CodeGenModule::CreateCrossDsoCfiTypeId(llvm::Metadata *MD) {
 
 void CodeGenModule::SetLLVMFunctionAttributes(GlobalDecl GD,
                                               const CGFunctionInfo &Info,
-                                              llvm::Function *F) {
+                                              llvm::Function *F, bool IsThunk) {
   unsigned CallingConv;
   llvm::AttributeList PAL;
-  ConstructAttributeList(F->getName(), Info, GD, PAL, CallingConv, false);
+  ConstructAttributeList(F->getName(), Info, GD, PAL, CallingConv,
+                         /*AttrOnCallSite=*/false, IsThunk);
   F->setAttributes(PAL);
   F->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
 }
@@ -1644,16 +1636,20 @@ static void removeImageAccessQualifier(std::string& TyName) {
 static unsigned ArgInfoAddressSpace(LangAS AS) {
   switch (AS) {
   case LangAS::opencl_global:
+  case LangAS::sycl_global:
     return 1;
   case LangAS::opencl_constant:
     return 2;
   case LangAS::opencl_local:
+  case LangAS::sycl_local:
     return 3;
   case LangAS::opencl_generic:
     return 4; // Not in SPIR 2.0 specs.
   case LangAS::opencl_global_device:
+  case LangAS::sycl_global_device:
     return 5;
   case LangAS::opencl_global_host:
+  case LangAS::sycl_global_host:
     return 6;
   default:
     return 0; // Assume private.
@@ -2236,7 +2232,7 @@ void CodeGenModule::SetInternalFunctionAttributes(GlobalDecl GD,
                                                   llvm::Function *F,
                                                   const CGFunctionInfo &FI) {
   const Decl *D = GD.getDecl();
-  SetLLVMFunctionAttributes(GD, FI, F);
+  SetLLVMFunctionAttributes(GD, FI, F, /*IsThunk=*/false);
   SetLLVMFunctionAttributesForDefinition(D, F);
 
   F->setLinkage(llvm::Function::InternalLinkage);
@@ -2498,7 +2494,8 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
   const auto *FD = cast<FunctionDecl>(GD.getDecl());
 
   if (!IsIncompleteFunction)
-    SetLLVMFunctionAttributes(GD, getTypes().arrangeGlobalDeclaration(GD), F);
+    SetLLVMFunctionAttributes(GD, getTypes().arrangeGlobalDeclaration(GD), F,
+                              IsThunk);
 
   // Add the Returned attribute for "this", except for iOS 5 and earlier
   // where substantial code, including the libstdc++ dylib, was compiled with
@@ -2816,8 +2813,8 @@ void CodeGenModule::EmitDeferred() {
   }
 
   // Emit CUDA/HIP static device variables referenced by host code only.
-  if (getLangOpts().CUDA)
-    for (auto V : getContext().CUDAStaticDeviceVarReferencedByHost)
+  if (getLangOpts().CUDA && getLangOpts().CUDAIsDevice)
+    for (const auto *V : getContext().CUDADeviceVarODRUsedByHost)
       DeferredDeclsToEmit.push_back(V);
 
   // Stop if we're out of both deferred vtables and deferred declarations.
@@ -3162,18 +3159,23 @@ bool CodeGenModule::MustBeEmitted(const ValueDecl *Global) {
 }
 
 bool CodeGenModule::MayBeEmittedEagerly(const ValueDecl *Global) {
+  // In OpenMP 5.0 variables and function may be marked as
+  // device_type(host/nohost) and we should not emit them eagerly unless we sure
+  // that they must be emitted on the host/device. To be sure we need to have
+  // seen a declare target with an explicit mentioning of the function, we know
+  // we have if the level of the declare target attribute is -1. Note that we
+  // check somewhere else if we should emit this at all.
+  if (LangOpts.OpenMP >= 50 && !LangOpts.OpenMPSimd) {
+    llvm::Optional<OMPDeclareTargetDeclAttr *> ActiveAttr =
+        OMPDeclareTargetDeclAttr::getActiveAttr(Global);
+    if (!ActiveAttr || (*ActiveAttr)->getLevel() != (unsigned)-1)
+      return false;
+  }
+
   if (const auto *FD = dyn_cast<FunctionDecl>(Global)) {
     if (FD->getTemplateSpecializationKind() == TSK_ImplicitInstantiation)
       // Implicit template instantiations may change linkage if they are later
       // explicitly instantiated, so they should not be emitted eagerly.
-      return false;
-    // In OpenMP 5.0 function may be marked as device_type(nohost) and we should
-    // not emit them eagerly unless we sure that the function must be emitted on
-    // the host.
-    if (LangOpts.OpenMP >= 50 && !LangOpts.OpenMPSimd &&
-        !LangOpts.OpenMPIsDevice &&
-        !OMPDeclareTargetDeclAttr::getDeviceType(FD) &&
-        !FD->isUsed(/*CheckUsedAttr=*/false) && !FD->isReferenced())
       return false;
   }
   if (const auto *VD = dyn_cast<VarDecl>(Global))
@@ -3914,7 +3916,7 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
 
 #if INTEL_CUSTOMIZATION
   if (getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc)) {
-    llvm::sort(
+    llvm::stable_sort(
         Options, [](const CodeGenFunction::MultiVersionResolverOption &LHS,
                     const CodeGenFunction::MultiVersionResolverOption &RHS) {
           std::array<uint64_t, 2> LHSBits =
@@ -3925,12 +3927,12 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
                  (LHSBits[1] == RHSBits[1] && LHSBits[0] > RHSBits[0]);
         });
   } else {
-  llvm::sort(
-      Options, [](const CodeGenFunction::MultiVersionResolverOption &LHS,
-                  const CodeGenFunction::MultiVersionResolverOption &RHS) {
-        return CodeGenFunction::GetX86CpuSupportsMask(LHS.Conditions.Features) >
-               CodeGenFunction::GetX86CpuSupportsMask(RHS.Conditions.Features);
-      });
+    llvm::stable_sort(
+        Options, [](const CodeGenFunction::MultiVersionResolverOption &LHS,
+                    const CodeGenFunction::MultiVersionResolverOption &RHS) {
+          return CodeGenFunction::GetX86CpuSupportsMask(LHS.Conditions.Features) >
+                 CodeGenFunction::GetX86CpuSupportsMask(RHS.Conditions.Features);
+        });
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -4791,8 +4793,12 @@ LangAS CodeGenModule::GetGlobalVarAddressSpace(const VarDecl *D) {
   if (LangOpts.SYCLIsDevice && D) {
     auto *Scope = D->getAttr<SYCLScopeAttr>();
     if (Scope && Scope->isWorkGroup())
-      return LangAS::opencl_local;
+      return LangAS::sycl_local;
   }
+
+  if (LangOpts.SYCLIsDevice &&
+      (!D || D->getType().getAddressSpace() == LangAS::Default))
+    return LangAS::sycl_global;
 
   if (LangOpts.CUDA && LangOpts.CUDAIsDevice) {
     if (D && D->hasAttr<CUDAConstantAttr>())
@@ -4828,10 +4834,17 @@ LangAS CodeGenModule::GetGlobalVarAddressSpace(const VarDecl *D) {
   return getTargetCodeGenInfo().getGlobalVarAddressSpace(*this, D);
 }
 
-LangAS CodeGenModule::getStringLiteralAddressSpace() const {
+LangAS CodeGenModule::GetGlobalConstantAddressSpace() const {
   // OpenCL v1.2 s6.5.3: a string literal is in the constant address space.
   if (LangOpts.OpenCL)
     return LangAS::opencl_constant;
+  if (LangOpts.SYCLIsDevice)
+    return LangAS::sycl_global;
+#if INTEL_COLLAB
+  // Matches logic above in GetGlobalVarAddressSpace().
+  if (getLangOpts().UseAutoOpenCLAddrSpaceForOpenMP && getTarget().getTriple().isSPIR())
+    return LangAS::opencl_global;
+#endif // INTEL_COLLAB
   if (auto AS = getTarget().getConstantAddressSpace())
     return AS.getValue();
   return LangAS::Default;
@@ -4850,13 +4863,12 @@ castStringLiteralToDefaultAddressSpace(CodeGenModule &CGM,
                                        llvm::GlobalVariable *GV) {
   llvm::Constant *Cast = GV;
   if (!CGM.getLangOpts().OpenCL) {
-    if (auto AS = CGM.getTarget().getConstantAddressSpace()) {
-      if (AS != LangAS::Default)
-        Cast = CGM.getTargetCodeGenInfo().performAddrSpaceCast(
-            CGM, GV, AS.getValue(), LangAS::Default,
-            GV->getValueType()->getPointerTo(
-                CGM.getContext().getTargetAddressSpace(LangAS::Default)));
-    }
+    auto AS = CGM.GetGlobalConstantAddressSpace();
+    if (AS != LangAS::Default)
+      Cast = CGM.getTargetCodeGenInfo().performAddrSpaceCast(
+          CGM, GV, AS, LangAS::Default,
+          GV->getValueType()->getPointerTo(
+              CGM.getContext().getTargetAddressSpace(LangAS::Default)));
   }
   return Cast;
 }
@@ -5315,7 +5327,8 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
 
     // Replace all uses of the old global with the new global
     llvm::Constant *NewPtrForOldDecl =
-        llvm::ConstantExpr::getBitCast(GV, Entry->getType());
+        llvm::ConstantExpr::getPointerBitCastOrAddrSpaceCast(GV,
+                                                             Entry->getType());
     Entry->replaceAllUsesWith(NewPtrForOldDecl);
 
     // Erase the old global, since it is no longer used.
@@ -6294,7 +6307,7 @@ GenerateStringLiteral(llvm::Constant *C, llvm::GlobalValue::LinkageTypes LT,
                       CodeGenModule &CGM, StringRef GlobalName,
                       CharUnits Alignment) {
   unsigned AddrSpace = CGM.getContext().getTargetAddressSpace(
-      CGM.getStringLiteralAddressSpace());
+      CGM.GetGlobalConstantAddressSpace());
 
   llvm::Module &M = CGM.getModule();
   // Create a global variable for this string
@@ -6885,6 +6898,7 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
     break;
 
   case Decl::OMPAllocate:
+    EmitOMPAllocateDecl(cast<OMPAllocateDecl>(D));
     break;
 
   case Decl::OMPDeclareReduction:
