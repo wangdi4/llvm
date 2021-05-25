@@ -36,7 +36,7 @@ set(INTEL_CMAKE_DEPLOY ON CACHE BOOL "")
 
 set(LLVM_BUILD_RUNTIME OFF CACHE BOOL "")
 set(LLVM_BUILD_OPENMP ON CACHE BOOL "")
-set(LLVM_ENABLE_PROJECTS "clang;lld;libdevice;openmp" CACHE STRING "")
+set(LLVM_ENABLE_PROJECTS "clang;lld;opencl;aocl-ioc64;libdevice;openmp" CACHE STRING "")
 set(LLVM_INTEL_FEATURES "INTEL_INTERNAL_BUILD" CACHE STRING "")
 
 # Is it really needed?
@@ -50,29 +50,33 @@ endif()
 set(DIR $ENV{ICS_WSDIR} CACHE PATH "")
 
 set(LLVM_EXTERNAL_XDEV_SOURCE_DIR $ENV{ICS_WSDIR}/xdev CACHE PATH "")
+set(LLVM_EXTERNAL_OCL_CCLANG_SOURCE_DIR $ENV{ICS_WSDIR}/llvm/ocl-cclang CACHE PATH "")
+set(LLVM_EXTERNAL_OPENCL_INTEL_SOURCE_DIR $ENV{ICS_WSDIR}/llvm/opencl-intel CACHE PATH "")
 set(LLVM_EXTERNAL_SYCL_SOURCE_DIR $ENV{ICS_WSDIR}/llvm/sycl CACHE PATH "")
-set(LLVM_EXTERNAL_OPENCL_AOT_SOURCE_DIR $ENV{ICS_WSDIR}/llvm/opencl-aot CACHE PATH "")
-set(LLVM_EXTERNAL_AOCL_IOC64_SOURCE_DIR $ENV{ICS_WSDIR}/llvm/aocl-ioc64 CACHE PATH "")
 set(LLVM_EXTERNAL_LIBDEVICE_SOURCE_DIR $ENV{ICS_WSDIR}/llvm/libdevice CACHE PATH "")
 set(LLVM_EXTERNAL_XPTI_SOURCE_DIR $ENV{ICS_WSDIR}/llvm/xpti CACHE PATH "")
+set(LLVM_EXTERNAL_XPTIFW_SOURCE_DIR $ENV{ICS_WSDIR}/llvm/xptifw CACHE PATH "")
 set(LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR $ENV{ICS_WSDIR}/llvm/llvm-spirv CACHE PATH "")
+set(LLVM_EXTERNAL_PROJECTS "llvm-spirv;xdev;opencl;ocl-cclang;opencl-intel;sycl;aocl-ioc64;libdevice;xpti;xptifw" CACHE STRING "")
 
-# Variables to enable OpenCL.
-# TODO: Investigate how that grouping is done in the ICS and port directly. I'd
-# rather have a higher-level options for this cache to enable things. On the
-# othe hand, it might be fine to always setup these variables and only rule by
-# the ENABLE_*_PROJECTS.
-set(LLVM_EXTERNAL_OPENCL_SOURCE_DIR $ENV{ICS_WSDIR}/llvm/opencl CACHE PATH "")
-set(LLVM_EXTERNAL_OCL_CCLANG_SOURCE_DIR $ENV{ICS_WSDIR}/llvm/ocl-cclang CACHE PATH "")
+set(OCL_RELEASE_BRANCH xmain CACHE STRING "")
+set(OCL_REVISION head CACHE STRING "")
+set(OPENCL_INTREE_BUILD ON CACHE BOOL "")
+
 set(LLVM_PATH_FE ${CMAKE_BINARY_DIR} CACHE PATH "")
 set(LLVM_PATH_BE ${CMAKE_BINARY_DIR} CACHE PATH "")
-
-set(OpenCL_INCLUDE_DIR $ENV{ICS_WSDIR}/llvm/external/opencl-headers CACHE PATH "")
-
-# TODO: Remove projects from "-bldocl"?
-set(OPENCL_INTREE_BUILD ON CACHE BOOL "")
 set(BUILD_X64 ON CACHE BOOL "")
-set(LLVM_EXTERNAL_PROJECTS "llvm-spirv;xdev;ocl-cclang;opencl;sycl;opencl-aot;aocl-ioc64;libdevice;xpti" CACHE STRING "")
+
+set(BACKEND_BUILD_VERIFICATION_LIB ON CACHE BOOL "")
+set(USE_VALGRIND ON CACHE BOOL "")
+set(INCLUDE_MKL OFF CACHE BOOL "")
+set(CMAKE_SKIP_RPATH OFF CACHE BOOL "")
+set(ANDROID OFF CACHE BOOL "")
+set(BUILD_QTGUI OFF CACHE BOOL "")
+set(INCLUDE_CMRT OFF CACHE BOOL "")
+set(ENABLE_KNL OFF CACHE BOOL "")
+set(BUILD_LLVM_FROM_SOURCE OFF CACHE BOOL "")
+set(ENABLE_SDE OFF CACHE BOOL "")
 
 # Note, this might not be guaranteed to work, but seems like the best thing we
 # can do. See also https://cmake.org/pipermail/cmake/2010-December/041134.html.
