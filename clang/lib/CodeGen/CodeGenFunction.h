@@ -4413,8 +4413,10 @@ public:
   void checkTargetFeatures(SourceLocation Loc, const FunctionDecl *TargetDecl);
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256
   void checkTargetVectorWidth(const CallExpr *E, const FunctionDecl *TargetDecl,
                               unsigned VectorWidth);
+#endif // INTEL_FEATURE_ISA_AVX256
 #endif // INTEL_CUSTOMIZATION
 
   llvm::CallInst *EmitRuntimeCall(llvm::FunctionCallee callee,

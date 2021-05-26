@@ -285,8 +285,10 @@ void X86Subtarget::initSubtargetFeatures(StringRef CPU, StringRef TuneCPU,
     PreferVectorWidth = 256;
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256
   if (CPU == "common-avx256")
     IsAVX256 = true;
+#endif // INTEL_FEATURE_ISA_AVX256
 #endif // INTEL_CUSTOMIZATION
 }
 

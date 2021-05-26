@@ -1,3 +1,4 @@
+// REQUIRES: intel_feature_isa_avx256
 // RUN: %clang %s -ffreestanding -target x86_64-unknown-unknown -march=common-avx256 -emit-llvm -fsyntax-only
 
 #include <immintrin.h>
