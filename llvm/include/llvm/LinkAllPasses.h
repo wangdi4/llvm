@@ -439,6 +439,7 @@ namespace {
   #endif  // INTEL_FEATURE_CSA
       (void) llvm::createVPOParoptOptimizeDataSharingPass();
       (void) llvm::createVPOParoptSharedPrivatizationPass();
+      (void) llvm::createIntelVTableFixupPass();
   #endif // INTEL_CUSTOMIZATION
 
   #if INTEL_COLLAB
