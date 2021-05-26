@@ -1731,8 +1731,8 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
   if (!PrepareForLTO)
     FPM.addPass(WarnMissedTransformationsPass());
-  // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
-  // if IP ArrayTranspose is enabled.
+    // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
+    // if IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled);
 #endif // INTEL_CUSTOMIZATION
     FPM.addPass(

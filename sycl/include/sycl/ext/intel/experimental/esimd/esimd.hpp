@@ -627,69 +627,6 @@ ESIMD_INLINE
 #endif // __SYCL_DEVICE_ONLY__
 }
 
-template <typename T, int N>
-template <typename AccessorT>
-ESIMD_INLINE
-    detail::EnableIfAccessor<AccessorT, detail::accessor_mode_cap::can_read,
-                             sycl::access::target::global_buffer, void>
-    simd<T, N>::copy_from(AccessorT acc, uint32_t offset) {
-  constexpr unsigned Sz = sizeof(T) * N;
-  static_assert(Sz >= detail::OperandSize::OWORD,
-                "block size must be at least 1 oword");
-  static_assert(Sz % detail::OperandSize::OWORD == 0,
-                "block size must be whole number of owords");
-  static_assert(detail::isPowerOf2(Sz / detail::OperandSize::OWORD),
-                "block must be 1, 2, 4 or 8 owords long");
-  static_assert(Sz <= 8 * detail::OperandSize::OWORD,
-                "block size must be at most 8 owords");
-#if defined(__SYCL_DEVICE_ONLY__)
-  auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
-  *this = __esimd_block_read<T, N>(surf_ind, offset);
-#else
-  *this = __esimd_block_read<T, N>(acc, offset);
-#endif // __SYCL_DEVICE_ONLY__
-}
-
-template <typename T, int N> void simd<T, N>::copy_to(T *addr) {
-  constexpr unsigned Sz = sizeof(T) * N;
-  static_assert(Sz >= detail::OperandSize::OWORD,
-                "block size must be at least 1 oword");
-  static_assert(Sz % detail::OperandSize::OWORD == 0,
-                "block size must be whole number of owords");
-  static_assert(detail::isPowerOf2(Sz / detail::OperandSize::OWORD),
-                "block must be 1, 2, 4 or 8 owords long");
-  static_assert(Sz <= 8 * detail::OperandSize::OWORD,
-                "block size must be at most 8 owords");
-
-  uintptr_t AddrVal = reinterpret_cast<uintptr_t>(addr);
-  __esimd_flat_block_write<T, N, CacheHint::None, CacheHint::None>(AddrVal,
-                                                                   data());
-}
-
-template <typename T, int N>
-template <typename AccessorT>
-ESIMD_INLINE
-    detail::EnableIfAccessor<AccessorT, detail::accessor_mode_cap::can_write,
-                             sycl::access::target::global_buffer, void>
-    simd<T, N>::copy_to(AccessorT acc, uint32_t offset) {
-  constexpr unsigned Sz = sizeof(T) * N;
-  static_assert(Sz >= detail::OperandSize::OWORD,
-                "block size must be at least 1 oword");
-  static_assert(Sz % detail::OperandSize::OWORD == 0,
-                "block size must be whole number of owords");
-  static_assert(detail::isPowerOf2(Sz / detail::OperandSize::OWORD),
-                "block must be 1, 2, 4 or 8 owords long");
-  static_assert(Sz <= 8 * detail::OperandSize::OWORD,
-                "block size must be at most 8 owords");
-
-#if defined(__SYCL_DEVICE_ONLY__)
-  auto surf_ind = detail::AccessorPrivateProxy::getNativeImageObj(acc);
-  __esimd_block_write<T, N>(surf_ind, offset >> 4, data());
-#else
-  __esimd_block_write<T, N>(acc, offset >> 4, data());
-#endif // __SYCL_DEVICE_ONLY__
-}
-
 } // namespace esimd
 } // namespace experimental
 } // namespace intel
