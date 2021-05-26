@@ -17,10 +17,11 @@
 
 #include "LocalBuffAnalysis.h"
 
-#include <llvm/Pass.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/Instructions.h>
+#include "llvm/IR/DebugInfo.h"
 #include <llvm/IR/Constants.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Pass.h>
 
 #include <map>
 #include <set>
@@ -37,9 +38,8 @@ namespace intel{
     /// Pass identification, replacement for typeid
     static char ID;
 
-    /// @brief Constructor with debug parameter
-    /// @param isNatveiDBG true if native debug set
-    LocalBuffers(bool isNativeDBG, bool useTLSGlobals = false);
+    /// @brief Constructor
+    LocalBuffers(bool useTLSGlobals = false);
 
     /// @brief Provides name of pass
     virtual llvm::StringRef getPassName() const override {
@@ -65,18 +65,32 @@ namespace intel{
     /// @param pFunc The function which needs it handle its implicite local variables
     void parseLocalBuffers(Function *pFunc, Value *pLocalMem);
 
-    /// @brief TODO: add comments
-    bool ChangeConstant(Value *pTheValue, Value *pUser, Instruction *pBC, Instruction *Where);
+    /// @brief Replaces all uses of Constant `From` with `To`. We can't simply
+    ///        call `From->replaceAllUsesWith` because the users of `From` may
+    ///        be ConstantExpr, ConstantVector, ConstantStruct. We have to
+    ///        convert those Constant uses to instructions first.
+    /// @param From The constant value needs to be replaced
+    /// @param To The replacement target value
+    void ReplaceAllUsesOfConstantWith(Constant *From, Value *To);
 
-    /// ToDo: LLVM has a special method to create Instruction from ConstExpr, we should use it instead.
-    /// @brief TODO: add comments
-    Instruction* CreateInstrFromConstant(Constant *pCE, Value *From, Value *To, std::vector<Instruction*> *InstInsert);
+    /// @brief Create instructions (GEP, insertvalue, etc.) to generate a Value
+    ///        of same semantic with the original Constant `C`. Also replace
+    ///        `From` with `To` during the instruction creation.
+    /// @param C The constant to be converted as instructions
+    /// @param From Should be one of the operands of `C`
+    /// @return The generated Value which should be equivalent as `C`
+    Value *CreateInstructionFromConstantWithReplacement(Constant *C,
+                                                        Value *From, Value *To);
 
-    /// @brief Iterates over all basic blocks for a function looking for
-    ///        DebugStack.() call. The calls are deleted and basic blocks
-    ///        containing these calls are added to a set.
-    /// @param pFunc The function to iterate over for its basic blocks
-    void updateUsageBlocks(Function *pFunc);
+    /// @brief Copies DebugInfo of `GV` to Local Memory Buffer `pLocalMem`,
+    ///        with corresponding `offset`.
+    void AttachDebugInfoToLocalMem(GlobalVariable *GV, Value *pLocalMem,
+                                   unsigned offset);
+
+    /// @brief At the end of this pass, the GlobalVariables (__local) DebugInfo
+    ///        should be removed from DICompileUnit's "globals" field, so that
+    ///        the created Local Debug Variables are visible to the debugger.
+    void UpdateDICompileUnitGlobals();
 
   protected:
     /// @brief The llvm current processed module
@@ -86,17 +100,22 @@ namespace intel{
     /// @brief instance of LocalBuffAnalysis pass
     LocalBuffAnalysis       *m_localBuffersAnalysis;
 
-    /// @brief vector of llvm instructions
-    typedef std::vector<llvm::Instruction*> TInstVector;
-
-    /// @brief set of basic blocks which need copying of globals into the
-    ///        stack for debugging
-    std::set<llvm::BasicBlock*> m_basicBlockSet;
-
-    /// @brief true if and only if we are running in native (gdb) dbg mode
-    bool m_isNativeDBG;
     /// @brief use TLS globals instead of implicit arguments
     bool m_useTLSGlobals;
+
+    /// @brief save the first instruction as insert point for current function
+    Instruction *m_pInsertPoint;
+
+    /// @brief the DISubprogram of current function
+    ///        when this equals to `nullptr`, then no need to handle debug info
+    DISubprogram *m_pSubprogram;
+
+    /// @brief help to find all compile units in the module
+    DebugInfoFinder m_DIFinder;
+
+    /// @brief stores all the DIGlobalVariableExpression's need to be removed
+    ///        in DICompileUnit.globals
+    SmallPtrSet<DIGlobalVariableExpression *, 4> m_GVEToRemove;
   };
 
 } // namespace intel

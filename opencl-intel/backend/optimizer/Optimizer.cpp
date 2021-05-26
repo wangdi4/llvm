@@ -137,8 +137,7 @@ llvm::ModulePass *createPipeIOTransformationPass();
 llvm::ModulePass *createCleanupWrappedKernelsPass();
 llvm::ModulePass *createPipeOrderingPass();
 llvm::ModulePass *createPipeSupportPass();
-llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug,
-                                         bool useTLSGlobals);
+llvm::ModulePass *createLocalBuffersPass(bool useTLSGlobals);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
 llvm::ModulePass *createOclSyncFunctionAttrsPass();
@@ -755,7 +754,7 @@ static void populatePassesPostFailCheck(
     PM.add(createAddImplicitArgsPass());
 
   PM.add(createResolveWICallPass(pConfig->GetUniformWGSize(), UseTLSGlobals));
-  PM.add(createLocalBuffersPass(debugType == Native, UseTLSGlobals));
+  PM.add(createLocalBuffersPass(UseTLSGlobals));
   // clang converts OCL's local to global.
   // createLocalBuffersPass changes the local allocation from global to a
   // kernel argument.

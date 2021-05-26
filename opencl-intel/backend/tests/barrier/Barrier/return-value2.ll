@@ -168,7 +168,5 @@ attributes #7 = { convergent nounwind readnone }
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function addVectors -- %LocalSize_0 = call i64 @_Z14get_local_sizej(i32 0)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function addVectors -- %LocalSize_1 = call i64 @_Z14get_local_sizej(i32 1)
 ;DEBUGIFY: WARNING: Instruction with empty DebugLoc in function addVectors -- %LocalSize_2 = call i64 @_Z14get_local_sizej(i32 2)
-;; debug instrument
-;DEBUGIFY-COUNT-4: WARNING: Instruction with empty DebugLoc in function addVectors --  call void @DebugCopy.()
 
 ; DEBUGIFY-NOT: WARNING

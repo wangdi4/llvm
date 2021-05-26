@@ -1,5 +1,5 @@
-; RUN: %oclopt -S -add-implicit-args -debugify -local-buffers-debug -check-debugify %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -S -add-implicit-args -local-buffers-debug %s | FileCheck %s
+; RUN: %oclopt -S -add-implicit-args -debugify -local-buffers -check-debugify %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt -S -add-implicit-args -local-buffers %s | FileCheck %s
 
 @var = internal addrspace(3) global i8 42
 
@@ -20,6 +20,4 @@ define void @test() {
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- {{.*}} getelementptr
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- {{.*}} bitcast
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- {{.*}} addrspacecast
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- {{.*}} insertvalue
-; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function test -- {{.*}} insertvalue
 ; DEBUGIFY-NOT: WARNING
