@@ -9895,6 +9895,10 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         CurInfo.VarChain.push_back(std::make_pair(nullptr, true));
       CombinedInfo.append(CurInfo);
     }
+    // Adjust MEMBER_OF flags for the lambdas captures.
+    MEHandler.adjustMemberOfForLambdaCaptures(
+        LambdaPointers, CombinedInfo.BasePointers, CombinedInfo.Pointers,
+        CombinedInfo.Types);
     MEHandler.generateAllInfo(CombinedInfo, MappedVarSet);
   }
   // The informations of offload map name are only built if there is
