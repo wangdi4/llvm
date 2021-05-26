@@ -4,7 +4,9 @@
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
 
 #include <numeric>
-#include <sycl/sycl.hpp>
+/* INTEL_CUSTOMIZATION */
+#include <CL/sycl.hpp>
+/* end INTEL_CUSTOMIZATION */
 
 using namespace sycl;
 

@@ -17,7 +17,9 @@ constexpr auto Backend = sycl::backend::opencl;
 constexpr auto Backend = sycl::backend::level_zero;
 #endif
 
-#include <sycl/sycl.hpp>
+/* INTEL_CUSTOMIZATION */
+#include <CL/sycl.hpp>
+/* end INTEL_CUSTOMIZATION */
 
 int main() {
 #ifdef USE_OPENCL
