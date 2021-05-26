@@ -3430,6 +3430,12 @@ X86
 
 .. option:: -mcx16, -mno-cx16
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_DSPV1
+.. option:: -mdspv1, -mno-dspv1
+.. end INTEL_FEATURE_ISA_DSPV1
+.. end INTEL_CUSTOMIZATION
+
 .. option:: -menqcmd, -mno-enqcmd
 
 .. option:: -mf16c, -mno-f16c

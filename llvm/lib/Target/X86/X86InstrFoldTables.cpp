@@ -516,6 +516,11 @@ static const X86MemoryFoldTableEntry MemoryFoldTable1[] = {
   { X86::CVTTSS2SI64rr_Int,    X86::CVTTSS2SI64rm_Int,    TB_NO_REVERSE },
   { X86::CVTTSS2SIrr,          X86::CVTTSS2SIrm,          0 },
   { X86::CVTTSS2SIrr_Int,      X86::CVTTSS2SIrm_Int,      TB_NO_REVERSE },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_DSPV1
+  { X86::DVPLUTSINCOSWrr,      X86::DVPLUTSINCOSWrm,      0 },
+#endif // INTEL_FEATURE_ISA_DSPV1
+#endif // INTEL_CUSTOMIZATION
   { X86::IMUL16rri,            X86::IMUL16rmi,            0 },
   { X86::IMUL16rri8,           X86::IMUL16rmi8,           0 },
   { X86::IMUL32rri,            X86::IMUL32rmi,            0 },
@@ -3495,6 +3500,12 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
 };
 
 static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_DSPV1
+  // FIXME: Missing testcase.
+  { X86::DVPCR2BFRSWrr,            X86::DVPCR2BFRSWrm,                0 },
+#endif // INTEL_FEATURE_ISA_DSPV1
+#endif // INTEL_CUSTOMIZATION
   { X86::VADDPDZ128rrkz,             X86::VADDPDZ128rmkz,             0 },
   { X86::VADDPDZ256rrkz,             X86::VADDPDZ256rmkz,             0 },
   { X86::VADDPDZrrkz,                X86::VADDPDZrmkz,                0 },
