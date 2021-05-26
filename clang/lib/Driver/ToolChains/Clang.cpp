@@ -4935,6 +4935,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     if (!UniqueID.empty())
       CmdArgs.push_back(
           Args.MakeArgString(Twine("-fsycl-unique-prefix=") + UniqueID));
+
     // Disable parallel for range-rounding for anything involving FPGA
     auto SYCLTCRange = C.getOffloadToolChains<Action::OFK_SYCL>();
     bool HasFPGA = false;
