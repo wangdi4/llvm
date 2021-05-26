@@ -221,17 +221,12 @@ bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
     PluginNames.emplace_back(__SYCL_OPENCL_PLUGIN_NAME, backend::opencl);
     PluginNames.emplace_back(__SYCL_LEVEL_ZERO_PLUGIN_NAME,
                              backend::level_zero);
-#if INTEL_CUSTOMIZATION
-  // Deliberatly disable CUDA plugin per CMPLRLLVM-16249.
-  // PluginNames.emplace_back(__SYCL_CUDA_PLUGIN_NAME, backend::cuda);
-#endif // INTEL_CUSTOMIZATION
+    PluginNames.emplace_back(__SYCL_CUDA_PLUGIN_NAME, backend::cuda);
   } else {
     std::vector<device_filter> Filters = FilterList->get();
     bool OpenCLFound = false;
     bool LevelZeroFound = false;
-#if INTEL_CUSTOMIZATION
     bool CudaFound = false;
-#endif // INTEL_CUSTOMIZATION
     for (const device_filter &Filter : Filters) {
       backend Backend = Filter.Backend;
       if (!OpenCLFound &&
@@ -347,15 +342,11 @@ static void initializePlugins(vector_class<plugin> *Plugins) {
         PluginNames[I].first.find("opencl") != std::string::npos) {
       GlobalPlugin =
           std::make_shared<plugin>(PluginInformation, backend::opencl, Library);
-#if INTEL_CUSTOMIZATION
-#if 0
     } else if (InteropBE == backend::cuda &&
-               PluginNames[I].first.find("cuda") != std::string::npos)
+               PluginNames[I].first.find("cuda") != std::string::npos) {
       // Use the CUDA plugin as the GlobalPlugin
       GlobalPlugin =
           std::make_shared<plugin>(PluginInformation, backend::cuda, Library);
-#endif
-#endif // INTEL_CUSTOMIZATION
     } else if (InteropBE == backend::level_zero &&
                PluginNames[I].first.find("level_zero") != std::string::npos) {
       // Use the LEVEL_ZERO plugin as the GlobalPlugin
