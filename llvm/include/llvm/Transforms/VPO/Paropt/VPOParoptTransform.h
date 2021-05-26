@@ -1890,6 +1890,11 @@ private:
   /// inside the region and all references to the original instance are replaced
   /// with the private one.
   bool privatizeSharedItems(WRegionNode *W);
+
+  /// Analyse work region's clauses and check if they can be simplified. If
+  /// simplification cannot be performed by the compiler emit diagnostic message
+  /// for the user. Return true if work region has been modified.
+  bool simplifyRegionClauses(WRegionNode *W);
 #endif  // INTEL_CUSTOMIZATION
 
   /// Guard each instruction that has a side effect with master thread id
