@@ -1228,9 +1228,15 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   for (auto &C : ScalarOptimizerLateEPCallbacks)
     C(FPM, Level);
 
-  FPM.addPass(SimplifyCFGPass(
-      SimplifyCFGOptions().hoistCommonInsts(true).sinkCommonInsts(true)));
 #if INTEL_CUSTOMIZATION
+  // Hoisting of common instructions can result in unstructured CFG input to
+  // loopopt. Loopopt has its own pass which hoists conditional loads/stores.
+  if (isLoopOptEnabled(Level)) {
+    FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions()));
+  } else {
+    FPM.addPass(SimplifyCFGPass(
+        SimplifyCFGOptions().hoistCommonInsts(true).sinkCommonInsts(true)));
+  }
   // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1 if
   // IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled);
