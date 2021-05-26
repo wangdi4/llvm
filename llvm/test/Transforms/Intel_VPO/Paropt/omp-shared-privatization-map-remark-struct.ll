@@ -11,12 +11,16 @@
 ;
 ; Test src:
 ;
-; float test1() {
-;   float A = 10;
-;   float B = 11;
-;   float C;
+; typedef struct {
+;   int N;
+; } S;
+;
+; S test1() {
+;   S A = {10};
+;   S B = {11};
+;   S C;
 ; #pragma omp target map(to: A) map(tofrom: B) map(from: C)
-;   C = A + B;
+;   C.N = A.N + B.N;
 ;   return C;
 ; }
 ;
@@ -45,28 +49,39 @@
 ; CHECK-YAML-NEXT:   - String:          ''' can be changed to firstprivate to reduce mapping overhead'
 ; CHECK-YAML-NEXT: ...
 
-source_filename = "foo.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "x86_64-pc-linux-gnu"
 
-; Function Attrs: nounwind uwtable
-define dso_local float @test1() {
+%struct.S = type { i32 }
+
+@__const.test1.A = private unnamed_addr constant %struct.S { i32 10 }, align 4
+@__const.test1.B = private unnamed_addr constant %struct.S { i32 11 }, align 4
+
+define dso_local i32 @test1() {
 entry:
-  %A = alloca float, align 4
-  %B = alloca float, align 4
-  %C = alloca float, align 4
-  store float 1.000000e+01, float* %A, align 4
-  store float 1.100000e+01, float* %B, align 4
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.FROM"(float* %C, float* %C, i64 4, i64 34, i8* null, i8* null), "QUAL.OMP.MAP.TO"(float* %A, float* %A, i64 4, i64 33, i8* null, i8* null), "QUAL.OMP.MAP.TOFROM"(float* %B, float* %B, i64 4, i64 35, i8* null, i8* null) ]
-  %1 = load float, float* %A, align 4
-  %2 = load float, float* %B, align 4
-  %add = fadd fast float %1, %2
-  store float %add, float* %C, align 4
-  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET"() ]
-  %3 = load float, float* %C, align 4
-  ret float %3
+  %retval = alloca %struct.S, align 4
+  %A = alloca %struct.S, align 4
+  %B = alloca %struct.S, align 4
+  %0 = bitcast %struct.S* %A to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %0, i8* align 4 bitcast (%struct.S* @__const.test1.A to i8*), i64 4, i1 false)
+  %1 = bitcast %struct.S* %B to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 4 %1, i8* align 4 bitcast (%struct.S* @__const.test1.B to i8*), i64 4, i1 false)
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.FROM"(%struct.S* %retval, %struct.S* %retval, i64 4, i64 34, i8* null, i8* null), "QUAL.OMP.MAP.TO"(%struct.S* %A, %struct.S* %A, i64 4, i64 33, i8* null, i8* null), "QUAL.OMP.MAP.TOFROM"(%struct.S* %B, %struct.S* %B, i64 4, i64 35, i8* null, i8* null) ]
+  %N = getelementptr inbounds %struct.S, %struct.S* %A, i32 0, i32 0
+  %3 = load i32, i32* %N, align 4
+  %N1 = getelementptr inbounds %struct.S, %struct.S* %B, i32 0, i32 0
+  %4 = load i32, i32* %N1, align 4
+  %add = add nsw i32 %3, %4
+  %N2 = getelementptr inbounds %struct.S, %struct.S* %retval, i32 0, i32 0
+  store i32 %add, i32* %N2, align 4
+  call void @llvm.directive.region.exit(token %2) [ "DIR.OMP.END.TARGET"() ]
+  %coerce.dive = getelementptr inbounds %struct.S, %struct.S* %retval, i32 0, i32 0
+  %5 = load i32, i32* %coerce.dive, align 4
+  ret i32 %5
 }
+
+declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i64, i1 immarg)
 
 declare token @llvm.directive.region.entry()
 

@@ -31,6 +31,13 @@ using namespace llvm::vpo;
 #define DEBUG_TYPE "vpo-paropt-shared-privatization"
 #define PASS_NAME "VPO Paropt Shared Privatization Pass"
 
+// If true check if map clause for variables of structure type can be changed
+// to a firstprivate.
+static cl::opt<bool> CheckMapForStructs(
+    "vpo-paropt-sp-check-map-for-structs", cl::Hidden, cl::init(true),
+    cl::desc("Check if map clause for variables of structure type can be "
+             "changed to a firstprivate"));
+
 static bool privatizeSharedItems(Function &F, WRegionInfo &WI,
                                  OptimizationRemarkEmitter &ORE,
                                  unsigned Mode) {
@@ -168,11 +175,13 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
 #endif // NDEBUG
 
   auto IsPrivatizationCandidate =
-      [&](AllocaInst *AI, const SmallPtrSetImpl<BasicBlock *> &BBs) {
+      [&](AllocaInst *AI, const SmallPtrSetImpl<BasicBlock *> &BBs,
+          bool AllowStructs) {
         // Do not attempt to promote arrays or structures.
         if (AI->isArrayAllocation() ||
-            !AI->getAllocatedType()->isSingleValueType()) {
-          LLVM_DEBUG(reportSkipped(AI, "not a single value type"));
+            !(AI->getAllocatedType()->isSingleValueType() ||
+              (AI->getAllocatedType()->isStructTy() && AllowStructs))) {
+          LLVM_DEBUG(reportSkipped(AI, "unsupported value type"));
           return false;
         }
         Optional<TypeSize> Size =
@@ -371,7 +380,8 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
 
       auto BBs = FindWRNBlocks(AI);
 
-      if (!IsPrivatizationCandidate(AI, BBs) || !allUsersAreLoads(AI, BBs))
+      if (!IsPrivatizationCandidate(AI, BBs, CheckMapForStructs) ||
+          !allUsersAreLoads(AI, BBs))
         continue;
 
       if (MayBeMappedBefore(AI, W)) {
@@ -385,7 +395,7 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
       F->getContext().diagnose(
           OptimizationRemarkAnalysis("openmp", "optimization note",
                                      W->getEntryDirective())
-          << "map clause for scalar variable '" << AI->getName()
+          << "map clause for variable '" << AI->getName()
           << "' can be changed to firstprivate to reduce mapping overhead");
     }
     return false;
@@ -409,7 +419,8 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
 
       auto BBs = FindWRNBlocks(AI);
 
-      if (!IsPrivatizationCandidate(AI, BBs) || !allUsersAreLoads(AI, BBs))
+      if (!IsPrivatizationCandidate(AI, BBs, /*AllowStructs=*/false) ||
+          !allUsersAreLoads(AI, BBs))
         continue;
 
       ToPrivatize.push_back(AI);
@@ -433,7 +444,8 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
 
         auto BBs = FindWRNBlocks(AI);
 
-        if (!IsPrivatizationCandidate(AI, BBs) || !allUsersAreLoads(BCI, BBs))
+        if (!IsPrivatizationCandidate(AI, BBs, /*AllowStructs=*/false) ||
+            !allUsersAreLoads(BCI, BBs))
           continue;
 
         // Change shared value to alloca instruction.
