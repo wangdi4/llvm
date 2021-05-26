@@ -9,7 +9,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; CHECK: %d = sub i64 %p1, %p2
 ; CHECK: %r = sub i64 %d, %z
-; CHECK-NOT: add
+; CHECK-NOT: = add
 
 define i64 @t0(i8* %x, i8* %y, i64 %z) {
   %p1 = ptrtoint i8* %x to i64
