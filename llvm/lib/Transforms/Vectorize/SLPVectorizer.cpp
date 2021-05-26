@@ -2145,7 +2145,7 @@ private:
     int GlobalIdx = -1;
 
     /// The vectorization cost.
-    int Cost = 0;
+    InstructionCost Cost = 0;
 
     /// The index (in VectorizableTree[]) of the root of the Multi-Node.
     int MultiNodeRoot = -1;
@@ -6623,7 +6623,7 @@ InstructionCost BoUpSLP::getTreeCost() {
 
     InstructionCost C = getEntryCost(&TE);
 #if INTEL_CUSTOMIZATION
-    TE.Cost = C.getValue().getValue();
+    TE.Cost = C;
 #endif // INTEL_CUSTOMIZATION
     Cost += C;
     LLVM_DEBUG(dbgs() << "SLP: Adding cost " << C
