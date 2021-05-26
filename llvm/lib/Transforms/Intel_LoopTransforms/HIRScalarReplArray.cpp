@@ -147,8 +147,13 @@ static cl::opt<bool> HIRScalarReplArrayLoopNest(
     "hir-scalarrepl-array-loopnest", cl::init(false), cl::Hidden,
     cl::desc("Enable HIR scalar replacament of references for the loop nest"));
 
-STATISTIC(HIRScalarReplArrayPerformed,
-          "Number of HIR Scalar Replacement of Array (HSRA) Performed");
+STATISTIC(NumGroupsOnScalarTypes,
+          "Number of HIR Scalar Replacement of Array (HSRA) Performed On "
+          "Scalar Type(s)");
+
+STATISTIC(NumGroupsOnVectorTypes,
+          "Number of HIR Scalar Replacement of Array (HSRA) Performed On "
+          "Vector Type(s)");
 
 #ifndef NDEBUG
 LLVM_DUMP_METHOD void RefTuple::print(bool NewLine) const {
@@ -192,10 +197,10 @@ static unsigned getMaxDepDist(const RefGroupTy &Group, unsigned LoopLevel) {
   const RegDDRef *LastRef = Group[Group.size() - 1];
 
   int64_t MaxDist = 0;
-  bool Ret = DDRefUtils::getConstIterationDistance(LastRef, FirstRef, LoopLevel,
-                                                   &MaxDist);
-  assert(Ret && "Expect DepDist exist\n");
-  (void)Ret;
+  bool IsConstIterDist = DDRefUtils::getConstIterationDistance(
+      LastRef, FirstRef, LoopLevel, &MaxDist);
+  assert(IsConstIterDist && "Expect const-iteration distance\n");
+  (void)IsConstIterDist;
   uint64_t AbsMaxDist = std::abs(MaxDist);
   assert((AbsMaxDist <= HIRScalarReplArrayDepDistThreshold) &&
          "Expect MaxDepDist within bound\n");
@@ -331,21 +336,16 @@ static bool canHoistMinLoadIndex(const RefGroupTy &Group, const HLLoop *Lp,
 }
 
 bool MemRefGroup::createRefTuple(const RefGroupTy &Group) {
-
   bool IsUnknown = Lp->isUnknown();
   bool HasForwardGotos = (Lp->getNumExits() > 1) ||
                          HSRA.HLS.getSelfLoopStatistics(Lp).hasForwardGotos();
 
   // Perform basic checks on the group.
   for (auto *MemRef : Group) {
-    if (MemRef->isVolatile() || MemRef->isFake()) {
-      return false;
-    }
-
     if (MemRef->isLval()) {
-      // Do not handle stores in unknown loop. This can be extended by creating
-      // copy instruction for IV. Do not handle conditional stores. Conditional
-      // loads are okay.
+      // Do not handle stores in unknown loop. This can be extended by
+      // creating copy instruction for IV. Do not handle conditional stores.
+      // Conditional loads are okay.
       if (IsUnknown || HasForwardGotos ||
           !isa<HLLoop>(MemRef->getHLDDNode()->getParent())) {
         return false;
@@ -375,6 +375,23 @@ bool MemRefGroup::createRefTuple(const RefGroupTy &Group) {
     return false;
   }
 
+  // Relax conditions over a loop's stride test:
+  // -allow vector type memref(s) over a unit-stride loop:
+  IsVectorTy = Group[0]->getDestType()->isVectorTy();
+  int64_t StrideConst = 0;
+  bool IsLoopUnitStride = false;
+  if (Lp->getStrideDDRef()->isIntConstant(&StrideConst) && (StrideConst == 1)) {
+    IsLoopUnitStride = true;
+  }
+
+  // On non-unit stride loops, only support group(s) with vector-type memref(s)
+  // without inter-iteration dependency.
+  if (!IsLoopUnitStride && IsVectorTy) {
+    if (MaxDepDist != 0) {
+      return false;
+    }
+  }
+
   // Create a partially filled RefTuple and save it into RefTupleVec.
   // E.g. (A[i], -1, nullptr)
   for (auto *MemRef : Group) {
@@ -388,7 +405,7 @@ MemRefGroup::MemRefGroup(HIRScalarReplArray &HSRA, HLLoop *Lp,
                          const RefGroupTy &Group)
     : HSRA(HSRA), Lp(Lp), NumLoads(0), NumStores(0),
       LoopLevel(Lp->getNestingLevel()), IsValid(true), HasRWGap(false),
-      MaxLoadIndex(-1), MinStoreIndex(-1), MaxStoreDist(0) {
+      MaxLoadIndex(-1), MinStoreIndex(-1), MaxStoreDist(0), IsVectorTy(false) {
 
   if (!createRefTuple(Group)) {
     IsValid = false;
@@ -652,7 +669,8 @@ void MemRefGroup::handleTemps(void) {
 
   // Create all TmpRef(s), and push them into TmpV
   for (unsigned Idx = 0; Idx < getNumTemps(); ++Idx) {
-    RegDDRef *TmpRef = HNU.createTemp(DestType, "scalarepl");
+    StringRef TempName = IsVectorTy ? "scalarepl.vec" : "scalarepl";
+    RegDDRef *TmpRef = HNU.createTemp(DestType, TempName);
     TmpV.push_back(TmpRef);
   }
 
@@ -683,7 +701,8 @@ void MemRefGroup::generateTempRotation(HLLoop *Lp) {
              FOS << "\n");
   HLNodeUtils &HNU = HSRA.HNU;
 
-  // For unknown loops we will be inserting inside the bottom test's then case.
+  // For unknown loops we will be inserting inside the bottom test's then
+  // case.
   HLNode *InsertAfterNode = !Lp->isUnknown() ? Lp->getLastChild() : nullptr;
 
   for (unsigned Idx = 0, IdxE = TmpV.size() - 1; Idx < IdxE; ++Idx) {
@@ -907,6 +926,7 @@ bool MemRefGroup::verify(void) {
 void MemRefGroup::print(bool NewLine) {
   formatted_raw_ostream FOS(dbgs());
   unsigned NumLoad = 0, NumStore = 0;
+  SmallVector<bool> RWRecords;
 
   // Print the total # of items in this MRG:
   FOS << "<" << RefTupleVec.size() << "> { ";
@@ -919,8 +939,10 @@ void MemRefGroup::print(bool NewLine) {
     RegDDRef *Ref = RT.getMemRef();
     if (Ref->isLval()) {
       ++NumStore;
+      RWRecords.push_back(false); // Write
     } else {
       ++NumLoad;
+      RWRecords.push_back(true); // Read
     }
 
     FOS << ", ";
@@ -937,6 +959,10 @@ void MemRefGroup::print(bool NewLine) {
   // Symbase:
   FOS << ", Symbase: " << Symbase << ", ";
 
+  // IsVectorTy:
+  StringRef VectorTyMsg = IsVectorTy ? " VectorTy " : "Not VectorTy ";
+  FOS << ", " << VectorTyMsg;
+
   // Print MaxLoadIndex: if available
   FOS << "MaxLoadIndex: ";
   if (hasMaxLoadIndex()) {
@@ -945,6 +971,14 @@ void MemRefGroup::print(bool NewLine) {
     FOS << " null ";
   }
   FOS << ", ";
+
+  // Composition of Load(s)/Store(s):
+  FOS << "{";
+  for (auto &V : RWRecords) {
+    StringRef Msg = V ? "R" : "W";
+    FOS << Msg << ",";
+  }
+  FOS << "} ";
 
   // Print MinStoreIndex: if available
   FOS << "MinStoreIndex: ";
@@ -1078,15 +1112,6 @@ bool HIRScalarReplArray::doAnalysis(HLLoop *Lp) {
 }
 
 bool HIRScalarReplArray::doPreliminaryChecks(const HLLoop *Lp) {
-  // Skip if the loop is vectorized:
-  // (If a loop's stride is not 1, assume it is a vector loop.)
-  int64_t StrideConst = 0;
-  Lp->getStrideDDRef()->isIntConstant(&StrideConst);
-  // We can handle unknown loops whose stride is set to 0.
-  if (StrideConst > 1) {
-    return false;
-  }
-
   const LoopStatistics &LS = HLS.getSelfLoopStatistics(Lp);
   // LLVM_DEBUG(LS.dump(););
   if (LS.hasCallsWithUnknownAliasing()) {
@@ -1152,12 +1177,20 @@ static bool isValid(RefGroupTy &Group, unsigned LoopLevel) {
   }
 
   // Bail out if group has references like A[i1] and (i32*)A[i1] as we cannot
-  // generate temp rotation code for different types. NOTE: we should move
-  // FloatToInt pass after LoopOpt to minimize such cases.
+  // generate temp rotation code for different types.
+  //
+  // [Note]
+  // We should move FloatToInt pass after LoopOpt to minimize such cases.
+  //
+  // Also reject the group if any ref has the following properties:
+  // - volatile
+  // - fake ddref
+  // - masked ddref
+  //
   auto *BitCastTy = FirstRef->getBitCastDestType();
-
   for (auto *Ref : Group) {
-    if (BitCastTy != Ref->getBitCastDestType()) {
+    if (Ref->isVolatile() || Ref->isFake() || Ref->isMasked() ||
+        (BitCastTy != Ref->getBitCastDestType())) {
       return false;
     }
   }
@@ -1265,7 +1298,11 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp, MemRefGroup &MRG) {
   doPostLoopProc(Lp, MRG);
   doInLoopProc(Lp, MRG);
 
-  ++HIRScalarReplArrayPerformed;
+  if (MRG.isVectorType()) {
+    ++NumGroupsOnVectorTypes;
+  } else {
+    ++NumGroupsOnScalarTypes;
+  }
 
   LLVM_DEBUG(FOS << "AFTER doTransform(.):\n"; Lp->dump(););
 }

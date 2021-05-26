@@ -176,7 +176,10 @@ bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
   // Vector CEs are allowed to contain scalar terms for ease of analysis. These
   // are widened during CG so we can allow merging of a scalar CE into a vector
   // CE. This check is asymmetric because we don't want to merge vector CE into
-  // scalar CE. Does the asymmetry matter?
+  // scalar CE.
+  // This logic breaks non-relaxed areEqual() functionality. The problem is that
+  // this function is being used to both compare and merge (add/subtract) CEs.
+  // The workaround is in areEqual().
   if (Ty1->isVectorTy() && !Ty2->isVectorTy()) {
     Ty1 = Ty1->getScalarType();
   }
@@ -221,7 +224,18 @@ bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
   assert((CE1 && CE2) && " Canon Expr parameters are null");
 
   // Match the types.
-  if (!mergeable(CE1, CE2, RelaxedMode)) {
+  // isTypeEqual() can return true for vector CE1 and scalar CE2 in non-relaxed
+  // mode but we should not return true here.
+  if (!RelaxedMode) {
+    if (CE1->getSrcType() != CE2->getSrcType()) {
+      return false;
+    }
+
+    if (CE1->getDestType() != CE2->getDestType()) {
+      return false;
+    }
+
+  } else if (!isTypeEqual(CE1, CE2, true)) {
     return false;
   }
 
