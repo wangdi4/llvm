@@ -1217,7 +1217,6 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
 
     for (LazyCallGraph::Node &N : C) {
       Function &OldF = N.getFunction();
-
       FunctionAnalysisManager &FAM =
           AM.getResult<FunctionAnalysisManagerCGSCCProxy>(C, CG).getManager();
       // FIXME: This lambda must only be used with this function. We should
