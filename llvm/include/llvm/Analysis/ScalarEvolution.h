@@ -1473,6 +1473,9 @@ protected: // INTEL
     /// True iff the backedge is taken either exactly Max or zero times.
     bool MaxOrZero = false;
 
+    /// SCEV expressions used in any of the ExitNotTakenInfo counts.
+    SmallPtrSet<const SCEV *, 4> Operands;
+
     bool isComplete() const { return IsComplete; }
     const SCEV *getConstantMax() const { return ConstantMax; }
 
@@ -1541,7 +1544,7 @@ protected: // INTEL
 
     /// Return true if any backedge taken count expressions refer to the given
     /// subexpression.
-    bool hasOperand(const SCEV *S, ScalarEvolution *SE) const;
+    bool hasOperand(const SCEV *S) const;
   };
 
   /// Cache the backedge-taken count of the loops for this function as they

@@ -5286,8 +5286,10 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
       InstructionList.push_back(I);
       break;
     }
+    case bitc::FUNC_CODE_INST_ATOMICRMW_OLD:
     case bitc::FUNC_CODE_INST_ATOMICRMW: {
-      // ATOMICRMW:[ptrty, ptr, val, op, vol, ordering, ssid, align?]
+      // ATOMICRMW_OLD: [ptrty, ptr, val, op, vol, ordering, ssid, align?]
+      // ATOMICRMW: [ptrty, ptr, valty, val, op, vol, ordering, ssid, align?]
       const size_t NumRecords = Record.size();
       unsigned OpNum = 0;
 
@@ -5299,9 +5301,16 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
         return error("Invalid record");
 
       Value *Val = nullptr;
-      if (popValue(Record, OpNum, NextValueNo,
-                   getPointerElementFlatType(FullTy), Val))
-        return error("Invalid record");
+      if (BitCode == bitc::FUNC_CODE_INST_ATOMICRMW_OLD) {
+        if (popValue(Record, OpNum, NextValueNo,
+                     getPointerElementFlatType(FullTy), Val))
+          return error("Invalid record");
+        FullTy = getPointerElementFlatType(FullTy);
+      } else {
+        if (getValueTypePair(Record, OpNum, NextValueNo, Val))
+          return error("Invalid record");
+        FullTy = Val->getType();
+      }
 
       if (!(NumRecords == (OpNum + 4) || NumRecords == (OpNum + 5)))
         return error("Invalid record");
@@ -5333,7 +5342,6 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
             Align(TheModule->getDataLayout().getTypeStoreSize(Val->getType()));
 
       I = new AtomicRMWInst(Operation, Ptr, Val, *Alignment, Ordering, SSID);
-      FullTy = getPointerElementFlatType(FullTy);
       cast<AtomicRMWInst>(I)->setVolatile(IsVol);
 
       InstructionList.push_back(I);
