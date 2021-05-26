@@ -107,8 +107,8 @@ static const uint32_t LBH_NONTAKEN_WEIGHT = 4;
 #if INTEL_CUSTOMIZATION
 // Likely edges within a loop are a little bigger than other edges
 static const uint32_t LBH_LIKELY_WEIGHT = 135;
-static const uint32_t A2C3H_TAKEN_WEIGHT = 13;
-static const uint32_t A2C3H_NONTAKEN_WEIGHT = 87;
+static const uint32_t A2C3H_TAKEN_WEIGHT = 1;
+static const uint32_t A2C3H_NONTAKEN_WEIGHT = 99;
 #endif // INTEL_CUSTOMIZATION
 
 /// Unreachable-terminating branch taken probability.
@@ -1098,6 +1098,19 @@ bool BranchProbabilityInfo::calcAnd2ICmp3Heuristics(const BasicBlock *BB)
             && (CI2->getPredicate() == CmpInst::ICMP_EQ
                 || CI2->getPredicate() == CmpInst::ICMP_NE)))
       return false;
+    //CurrentBB must be the header of a loop
+    if (L->getHeader() != BB
+        //it must have more than 2 depth subloop
+        || (maxLoopDepth(L) - L->getLoopDepth() < 2)
+        // it false branch BB must be the back edge
+        || !L->isLoopLatch(BI->getSuccessor(1)))
+      return false;
+    //CurrentBB's false branch BB could not dominate any its sub loops.
+    for (auto SubLoop : *L) {
+      if (CurrentDT->dominates(BI->getSuccessor(1)->getFirstNonPHI(),
+                                SubLoop->getHeader()))
+        return false;
+    }
     LLVM_DEBUG(dbgs() << "And2ICmp3Heuristics hints func:"
                << BB->getParent()->getName() << "\n");
     BranchProbability TakenProb(A2C3H_TAKEN_WEIGHT, A2C3H_TAKEN_WEIGHT

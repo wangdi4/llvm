@@ -54,7 +54,7 @@ multiclass ce_read<bits<8> O, Format F, string asm> {
                   [(set GR64:$dst, (!cast<Intrinsic>("int_x86_icecode_" # asm # "_64") imm:$src))]>;
 }
 
-multiclass ce_load_store<bits<8> O, string asm> {
+multiclass ce_load_store_v<bits<8> O, string asm> {
   def 16rm : I<O, MRMSrcMem, (outs GR16:$dst), (ins opaquemem:$src),
                !strconcat("gmov", asm, "{w}\t{$src, $dst|$dst, $src}"),
                [(set GR16:$dst, (!cast<Intrinsic>("int_x86_icecode_load" # asm # "_16") addr:$src))]>, XS, OpSize16;
@@ -76,14 +76,42 @@ multiclass ce_load_store<bits<8> O, string asm> {
                 [(!cast<Intrinsic>("int_x86_icecode_store" # asm # "_64") GR64:$src, addr:$dst)]>, XD;
 }
 
+multiclass ce_load_store_p<bits<8> O1, bits<8> O2, bits<8> O3, bits<8> O4,
+                           string r, string rs, string w, string ws> {
+  def 8rm  : I<O1, MRMSrcMem, (outs GR8:$dst), (ins opaquemem:$src),
+               !strconcat(r, "{b}\t{$src, $dst|$dst, $src}"),
+               [(set GR8:$dst, (!cast<Intrinsic>("int_x86_icecode_" # rs # "_8") addr:$src))]>;
+  def 16rm : I<O2, MRMSrcMem, (outs GR16:$dst), (ins opaquemem:$src),
+               !strconcat(r, "{w}\t{$src, $dst|$dst, $src}"),
+               [(set GR16:$dst, (!cast<Intrinsic>("int_x86_icecode_" # rs # "_16") addr:$src))]>, OpSize16;
+  def 32rm : I<O2, MRMSrcMem, (outs GR32:$dst), (ins opaquemem:$src),
+               !strconcat(r, "{l}\t{$src, $dst|$dst, $src}"),
+               [(set GR32:$dst, (!cast<Intrinsic>("int_x86_icecode_" # rs # "_32") addr:$src))]>, OpSize32;
+  def 64rm : RI<O2, MRMSrcMem, (outs GR64:$dst), (ins opaquemem:$src),
+                !strconcat(r, "{q}\t{$src, $dst|$dst, $src}"),
+                [(set GR64:$dst, (!cast<Intrinsic>("int_x86_icecode_" # rs # "_64") addr:$src))]>;
+
+  def 8mr  : I<O3, MRMDestMem, (outs), (ins opaquemem:$dst, GR8:$src),
+               !strconcat(w, "{b}\t{$src, $dst|$dst, $src}"),
+               [(!cast<Intrinsic>("int_x86_icecode_" # ws # "_8") GR8:$src, addr:$dst)]>;
+  def 16mr : I<O4, MRMDestMem, (outs), (ins opaquemem:$dst, GR16:$src),
+               !strconcat(w, "{w}\t{$src, $dst|$dst, $src}"),
+               [(!cast<Intrinsic>("int_x86_icecode_" # ws # "_16") GR16:$src, addr:$dst)]>, OpSize16;
+  def 32mr : I<O4, MRMDestMem, (outs), (ins opaquemem:$dst, GR32:$src),
+               !strconcat(w, "{l}\t{$src, $dst|$dst, $src}"),
+               [(!cast<Intrinsic>("int_x86_icecode_" # ws # "_32") GR32:$src, addr:$dst)]>, OpSize32;
+  def 64mr : RI<O4, MRMDestMem, (outs), (ins opaquemem:$dst, GR64:$src),
+                !strconcat(w, "{q}\t{$src, $dst|$dst, $src}"),
+                [(!cast<Intrinsic>("int_x86_icecode_" # ws # "_64") GR64:$src, addr:$dst)]>;
+}
+
 let Predicates = [InIceCodeMode] in {
   def LOADSEGrm : I<0xb2, MRM0m, (outs), (ins i128mem:$mem),
                     "loadseg\t$mem", []>, PS;
   def STORESEGmr : I<0xb2, MRM0m, (outs), (ins i128mem:$mem),
                      "storeseg\t$mem", []>, PD;
 
-  defm GMOVPPHYS : ce_load_store<0xb4, "pphys">;
-  defm GMOVLIN   : ce_load_store<0x02, "lin">;
+  defm GMOVLIN   : ce_load_store_v<0x02, "lin">;
 
   let Defs = [RAX, RCX, RDX, RBX] in {
     def GTRANSLATERD_EPCm : I<0x00, MRM4m, (outs), (ins anymem:$mem),
@@ -99,31 +127,8 @@ let Predicates = [InIceCodeMode] in {
   def BCAST_SEG_STATE : I<0x01, MRM_EF, (outs), (ins), "bcast_seg_state", []>, XS;
 
   let OpPrefix = XS, OpMap = OB in {
-    def PORTIN8rm  : I<0x8a, MRMSrcMem, (outs GR8:$dst), (ins opaquemem:$src),
-                       "portin{b}\t{$src, $dst|$dst, $src}",
-                       [(set GR8:$dst, (int_x86_icecode_portin_8 addr:$src))]>, AdSize32;
-    def PORTIN16rm : I<0x8b, MRMSrcMem, (outs GR16:$dst), (ins opaquemem:$src),
-                       "portin{w}\t{$src, $dst|$dst, $src}",
-                       [(set GR16:$dst, (int_x86_icecode_portin_16 addr:$src))]>, OpSize16, AdSize32;
-    def PORTIN32rm : I<0x8b, MRMSrcMem, (outs GR32:$dst), (ins opaquemem:$src),
-                       "portin{l}\t{$src, $dst|$dst, $src}",
-                       [(set GR32:$dst, (int_x86_icecode_portin_32 addr:$src))]>, OpSize32, AdSize32;
-    def PORTIN64rm : RI<0x8b, MRMSrcMem, (outs GR64:$dst), (ins opaquemem:$src),
-                        "portin{q}\t{$src, $dst|$dst, $src}",
-                        [(set GR64:$dst, (int_x86_icecode_portin_64 addr:$src))]>, AdSize32;
-
-    def PORTOUT8mr  : I<0x88, MRMDestMem, (outs), (ins opaquemem:$dst, GR8:$src),
-                        "portout{b}\t{$src, $dst|$dst, $src}",
-                        [(int_x86_icecode_portout_8 GR8:$src, addr:$dst)]>, AdSize32;
-    def PORTOUT16mr : I<0x89, MRMDestMem, (outs), (ins opaquemem:$dst, GR16:$src),
-                        "portout{w}\t{$src, $dst|$dst, $src}",
-                        [(int_x86_icecode_portout_16 GR16:$src, addr:$dst)]>, OpSize16, AdSize32;
-    def PORTOUT32mr : I<0x89, MRMDestMem, (outs), (ins opaquemem:$dst, GR32:$src),
-                        "portout{l}\t{$src, $dst|$dst, $src}",
-                        [(int_x86_icecode_portout_32 GR32:$src, addr:$dst)]>, OpSize32, AdSize32;
-    def PORTOUT64mr : RI<0x89, MRMDestMem, (outs), (ins opaquemem:$dst, GR64:$src),
-                         "portout{q}\t{$src, $dst|$dst, $src}",
-                         [(int_x86_icecode_portout_64 GR64:$src, addr:$dst)]>, AdSize32;
+    defm PORT : ce_load_store_p<0x8a, 0x8b, 0x88, 0x89, "portin", "portin", "portout", "portout">, AdSize32;
+    defm GMOVPPHYS : ce_load_store_p<0x12, 0x13, 0x10, 0x11, "gmovpphys", "loadpphys", "gmovpphys", "storepphys">;
 
     def STA_SPECIALm : I<0x8f, MRM0m, (outs), (ins anymem:$mem), "sta_special\t$mem",
                          [(int_x86_icecode_sta_special addr:$mem)]>, NotMemoryFoldable, AdSize32;
@@ -198,5 +203,12 @@ let Predicates = [InIceCodeMode] in {
     def STORE_TICKLE_GPA : I<0x01, MRM_CB, (outs), (ins), "store_tickle_gpa", []>;
   }
   def FLUSH_IFU : I<0x01, MRM_D4, (outs), (ins), "flush_ifu", []>, XS;
+
+  let Constraints = "$src = $dst", Defs = [EFLAGS] in {
+    def CCCM : RI<0xc8, AddRegFrm, (outs GR64:$dst), (ins GR64:$src),
+                  "cccm\t$dst", []>, XS;
+    def CCCP : RI<0xc8, AddRegFrm, (outs GR64:$dst), (ins GR64:$src),
+                  "cccp\t$dst", []>, XD;
+  }
 }
 // end INTEL_FEATURE_ICECODE

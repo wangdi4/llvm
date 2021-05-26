@@ -110,6 +110,8 @@ void test_icecode() {
 // CHECK: call void @llvm.x86.icecode.storelin.16(i16 %{{.*}}, i64 %{{.*}})
 // CHECK: call void @llvm.x86.icecode.storelin.32(i32 %{{.*}}, i64 %{{.*}})
 // CHECK: call void @llvm.x86.icecode.storelin.64(i64 %{{.*}}, i64 %{{.*}})
+// CHECK: call i64 asm sideeffect "cccm $0", "=r,0,~{dirflag},~{fpsr},~{flags}"(i64 %{{.*}})
+// CHECK: call i64 asm sideeffect "cccp $0", "=r,0,~{dirflag},~{fpsr},~{flags}"(i64 %{{.*}})
   _ce_creg_xchg32(reg, data32);
   _ce_creg_xchg64(reg, data64);
   _ce_fscp_xchg32(reg, data32);
@@ -155,6 +157,8 @@ void test_icecode() {
   _ce_storelin16(data16, data64);
   _ce_storelin32(data32, data64);
   _ce_storelin64(data64, data64);
+  data64 = _ce_cccm(data64);
+  data64 = _ce_cccp(data64);
 }
 
 void test_ce_iceret(unsigned reg) {
