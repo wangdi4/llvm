@@ -358,7 +358,12 @@ public:
   /// Construct the module pipeline that performs inlining as well as
   /// the inlining-driven cleanups.
   ModuleInlinerWrapperPass buildInlinerPipeline(OptimizationLevel Level,
+#if INTEL_COLLAB
+                                              ThinOrFullLTOPhase Phase,
+                                              ModulePassManager *MPM = nullptr);
+#else
                                                 ThinOrFullLTOPhase Phase);
+#endif // INTEL_COLLAB
 
   /// Construct the core LLVM module optimization pipeline.
   ///
