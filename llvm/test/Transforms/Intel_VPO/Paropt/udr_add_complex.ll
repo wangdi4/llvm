@@ -59,7 +59,7 @@ entry:
 
 ; CRITICAL-NOT: "QUAL.OMP.REDUCTION.UDR"
 ; CRITICAL: call void @.omp_initializer.(%"struct.std::complex"* %sum.red, %"struct.std::complex"* %sum)
-; CRITICAL: call void @__kmpc_critical({{.*}})
+; CRITICAL: call void @__kmpc_critical_with_hint({{.*}})
 ; CRITICAL: call void @.omp_combiner.(%"struct.std::complex"* %sum, %"struct.std::complex"* %sum.red)
 ; CRITICAL: call void @__kmpc_end_critical({{.*}})
 ; CRITICAL: call void @_ZTSSt7complexIfE.omp.destr(%"struct.std::complex"* %sum.red)

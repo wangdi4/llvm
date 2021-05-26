@@ -86,7 +86,7 @@ entry:
 ; ALL: store {{.*}} 0, {{.*}}
 ; ALL: br i1 %red.cpy.done{{.*}}, label %red.init.done{{.*}}, label %red.init.body{{.*}}
 
-; CRITICAL: call void @__kmpc_critical({{.*}})
+; CRITICAL: call void @__kmpc_critical_with_hint({{.*}})
 ; CRITICAL: red.update.body{{.*}}:
 ; CRITICAL-NEXT: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.update.body{{.*}} ]
 ; CRITICAL: call void @.omp_combiner.(i16* %{{.*}}, i16* %{{.*}})

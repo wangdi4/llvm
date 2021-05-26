@@ -77,7 +77,7 @@ for.end:                                          ; preds = %for.cond
 
 ; CRITICAL-NOT: "QUAL.OMP.REDUCTION.UDR"
 ; CRITICAL: call void @.omp_initializer.(i32* %sum_udr.red{{.*}}, i32* %sum_udr)
-; CRITICAL: call void @__kmpc_critical({{.*}})
+; CRITICAL: call void @__kmpc_critical_with_hint({{.*}})
 ; CRITICAL: call void @.omp_combiner.(i32* %sum_udr, i32* %sum_udr.red{{.*}})
 ; CRITICAL: call void @__kmpc_end_critical({{.*}})
 ; CRITICAL: call void @_ZTSi.omp.destr(i32* %sum_udr.red{{.*}})
