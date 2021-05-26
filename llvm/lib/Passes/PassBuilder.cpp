@@ -529,6 +529,8 @@ PipelineTuningOptions::PipelineTuningOptions() {
 }
 #if INTEL_CUSTOMIZATION
 extern cl::opt<bool> ConvertToSubs;
+enum class ThroughputMode { None, SingleJob, MultipleJob };
+extern cl::opt<ThroughputMode> ThroughputModeOpt;
 #endif // INTEL_CUSTOMIZATION
 namespace llvm {
 #if INTEL_CUSTOMIZATION
@@ -2101,7 +2103,8 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
       FPM.addPass(HIRPragmaLoopBlockingPass());
       FPM.addPass(HIRLoopDistributionForLoopNestPass());
 
-      if (Level.getSpeedupLevel() > 2 && IsLTO)
+      if (Level.getSpeedupLevel() > 2 && IsLTO &&
+          (ThroughputModeOpt != ThroughputMode::SingleJob))
         FPM.addPass(HIRCrossLoopArrayContractionPass());
 
       FPM.addPass(HIRLoopInterchangePass());
@@ -2123,7 +2126,8 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
                                               !PTO.LoopUnrolling));
 
     if (RunLoopOpts == LoopOptMode::Full) {
-      FPM.addPass(HIRConditionalLoadStoreMotionPass());
+      if (ThroughputModeOpt != ThroughputMode::SingleJob)
+        FPM.addPass(HIRConditionalLoadStoreMotionPass());
 
       if (Level.getSizeLevel() == 0)
         FPM.addPass(HIRMemoryReductionSinkingPass());
@@ -2168,7 +2172,9 @@ void PassBuilder::addLoopOptPasses(ModulePassManager &MPM,
     if (RunLoopOpts == LoopOptMode::Full) {
       FPM.addPass(HIRScalarReplArrayPass());
       if (Level.getSpeedupLevel() > 2) {
-        FPM.addPass(HIRNontemporalMarkingPass());
+        if (ThroughputModeOpt != ThroughputMode::SingleJob)
+          FPM.addPass(HIRNontemporalMarkingPass());
+
         FPM.addPass(HIRPrefetchingPass());
       }
     }

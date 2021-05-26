@@ -119,6 +119,18 @@ static cl::opt<bool>
     EnableSROAAfterSLP("enable-sroa-after-slp", cl::init(true), cl::Hidden,
                        cl::desc("Run SROA pass after the SLP vectorizer"));
 
+enum class ThroughputMode { None, SingleJob, MultipleJob };
+cl::opt<ThroughputMode> ThroughputModeOpt(
+    "throughput-opt", cl::init(ThroughputMode::None), cl::Hidden,
+    cl::ValueOptional,
+    cl::desc(
+        "Specifies if compiler should optimize for throughput performance"),
+    cl::values(clEnumValN(ThroughputMode::None, "0", "No mode speficied"),
+               clEnumValN(ThroughputMode::SingleJob, "1",
+                          "Assume application will run a single copy"),
+               clEnumValN(ThroughputMode::MultipleJob, "2",
+                          "Assume application will run multiple copies")));
+
 #endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
@@ -2293,9 +2305,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
       PM.add(createHIRNonZeroSinkingForPerfectLoopnestPass());
       PM.add(createHIRPragmaLoopBlockingPass());
       PM.add(createHIRLoopDistributionForLoopNestPass());
-      if (OptLevel > 2 && IsLTO) {
+      if (OptLevel > 2 && IsLTO &&
+          (ThroughputModeOpt != ThroughputMode::SingleJob))
         PM.add(createHIRCrossLoopArrayContractionLegacyPass());
-      }
+
       PM.add(createHIRLoopInterchangePass());
       PM.add(createHIRGenerateMKLCallPass());
       if (OptLevel > 2 && IsLTO) {
@@ -2313,7 +2326,9 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
     }
 
     if (RunLoopOpts == LoopOptMode::Full) {
-      PM.add(createHIRConditionalLoadStoreMotionPass());
+      if (ThroughputModeOpt != ThroughputMode::SingleJob)
+        PM.add(createHIRConditionalLoadStoreMotionPass());
+
       if (SizeLevel == 0)
         PM.add(createHIRMemoryReductionSinkingPass());
       PM.add(createHIRLMMPass());
@@ -2357,7 +2372,9 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
     if (RunLoopOpts == LoopOptMode::Full) {
       PM.add(createHIRScalarReplArrayPass());
       if (OptLevel > 2) {
-        PM.add(createHIRNontemporalMarkingPass());
+        if (ThroughputModeOpt != ThroughputMode::SingleJob)
+          PM.add(createHIRNontemporalMarkingPass());
+
         PM.add(createHIRPrefetchingPass());
       }
     }
