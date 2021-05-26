@@ -124,6 +124,11 @@ private:
   void postprocessCall(CallBase *Call);
   void processSubInst(BinaryOperator *BinOp);
 
+  bool typeContainsDeletedFields(llvm::Type *Ty);
+  Constant *getReplacement(Constant *Init, ValueMapper &Mapper);
+  Constant *getStructReplacement(ConstantStruct *StInit, ValueMapper &Mapper);
+  Constant *getArrayReplacement(ConstantArray *ArInit, ValueMapper &Mapper);
+
   const DataLayout &DL;
 
   DeleteFieldOPPass::GetTLIFn GetTLI;
@@ -600,18 +605,196 @@ void DeleteFieldOPImpl::populateTypes(Module &M) {
 
 GlobalVariable *
 DeleteFieldOPImpl::createGlobalVariableReplacement(GlobalVariable *GV) {
-  // TODO: Check if the global variable needs to be changed.
-  return nullptr;
+  Type *ValueType = GV->getValueType();
+
+  // Let the base class handle replacing globals that are pointers. If the
+  // original value type is a pointer, then the replacement type is also going
+  // to be a pointer type, which can be handled by the base class.
+  if (ValueType->isPointerTy())
+    return nullptr;
+
+  // If we aren't deleting fields from this type, let the base class handle it.
+  if (!typeContainsDeletedFields(ValueType))
+    return nullptr;
+
+  Type *ReplValueTy = TypeRemapper.remapType(ValueType);
+  assert(ValueType != ReplValueTy &&
+         "createGlobalVariableReplacement called for unchanged type!");
+
+  // Create and set the properties of the variable. The initialization of
+  // the variable will not occur until all variables have been created
+  // because there may be references to other variables being replaced in
+  // the initializer list which have not been processed yet.
+  GlobalVariable *NewGV = new GlobalVariable(
+      *(GV->getParent()), ReplValueTy, GV->isConstant(), GV->getLinkage(),
+      /*init=*/nullptr, GV->getName(),
+      /*insertbefore=*/nullptr, GV->getThreadLocalMode(),
+      GV->getType()->getAddressSpace(), GV->isExternallyInitialized());
+  NewGV->setAlignment(MaybeAlign(GV->getAlignment()));
+  NewGV->copyAttributesFrom(GV);
+  NewGV->copyMetadata(GV, /*Offset=*/0);
+
+  return NewGV;
 }
+
+// Check to see if we have deleted fields from this type at any level.
+bool DeleteFieldOPImpl::typeContainsDeletedFields(llvm::Type *Ty) {
+  if (!Ty->isAggregateType())
+    return false;
+
+  // For structure types, we need to consider types that directly have fields
+  // being removed, and any container types that nest the type, which will have
+  // to have their initializers rewritten.
+  if (auto *StTy = dyn_cast<llvm::StructType>(Ty))
+    return OrigToNewTypeMapping.count(StTy);
+  if (Ty->isArrayTy())
+    return typeContainsDeletedFields(Ty->getArrayElementType());
+  llvm_unreachable("Unexpected aggregate type");
+}
+
 void DeleteFieldOPImpl::initializeGlobalVariableReplacement(
     GlobalVariable *OrigGV, GlobalVariable *NewGV, ValueMapper &Mapper) {
-  // TODO: Set the initializer for a replaced global variable
+  Constant *OrigInit = OrigGV->getInitializer();
+  NewGV->setInitializer(getReplacement(OrigInit, Mapper));
+}
+
+Constant *DeleteFieldOPImpl::getReplacement(Constant *Init,
+                                            ValueMapper &Mapper) {
+  if (auto *StInit = dyn_cast<ConstantStruct>(Init))
+    return getStructReplacement(StInit, Mapper);
+  if (auto *ArInit = dyn_cast<ConstantArray>(Init))
+    return getArrayReplacement(ArInit, Mapper);
+  return Mapper.mapConstant(*Init);
+}
+
+Constant *DeleteFieldOPImpl::getStructReplacement(ConstantStruct *StInit,
+                                                  ValueMapper &Mapper) {
+  llvm::StructType *OrigTy = StInit->getType();
+  bool OuterType = OrigEnclosingTypes.count(OrigTy);
+
+  // When traversing the fields of an outer type, a nested type that is not
+  // changing may be encountered. In this case, don't walk the fields since
+  // there will not be a field mapping. Since the nested type is not changing
+  // the type remapper can handle it directly.
+  if (!OuterType && !OrigToNewTypeMapping.count(OrigTy))
+    return Mapper.mapConstant(*StInit);
+
+  assert(OuterType ||
+         FieldIdxMap.count(OrigTy) && "initializeGlobalVariableReplacement "
+                                      "called for pointer-dependent type!");
+  unsigned OrigNumFields = OrigTy->getStructNumElements();
+  SmallVector<Constant *, 16> NewInitVals;
+  for (unsigned Idx = 0; Idx < OrigNumFields; ++Idx)
+    if (OuterType || FieldIdxMap[OrigTy][Idx] != FIELD_DELETED)
+      NewInitVals.push_back(
+          getReplacement(StInit->getAggregateElement(Idx), Mapper));
+  auto *NewTy = OrigToNewTypeMapping[OrigTy];
+  assert(NewTy->getStructNumElements() == NewInitVals.size() &&
+         "Mismatched number of elements in struct initializer creation!");
+  return ConstantStruct::get(cast<StructType>(NewTy), NewInitVals);
+}
+
+Constant *DeleteFieldOPImpl::getArrayReplacement(ConstantArray *ArInit,
+                                                 ValueMapper &Mapper) {
+  llvm::Type *OrigTy = ArInit->getType();
+  unsigned OrigNumElements = OrigTy->getArrayNumElements();
+  SmallVector<Constant *, 16> NewInitVals;
+  for (unsigned Idx = 0; Idx < OrigNumElements; ++Idx)
+    NewInitVals.push_back(
+        getReplacement(ArInit->getAggregateElement(Idx), Mapper));
+  Type *NewTy = TypeRemapper.remapType(OrigTy);
+  assert(NewTy->getArrayNumElements() == NewInitVals.size() &&
+         "Mismatched number of elements in array initializer creation!");
+  return ConstantArray::get(cast<ArrayType>(NewTy), NewInitVals);
 }
 
 void DeleteFieldOPImpl::postprocessGlobalVariable(GlobalVariable *OrigGV,
                                                   GlobalVariable *NewGV) {
-  // TODO: Process all the GEPOperators that use a global variable that is
-  // being changed
+  // If we didn't delete fields from this type, don't do anything with the
+  // global variable. This happens with dependent types.
+  llvm::Type *OrigTy = OrigGV->getValueType();
+  if (!typeContainsDeletedFields(OrigTy))
+    return;
+
+  llvm::Type *ReplTy = NewGV->getValueType();
+  SmallVector<GEPOperator *, 4> GEPsToErase;
+
+  for (auto *U : OrigGV->users()) {
+    // Instructions will be processed elsewhere.
+    if (isa<Instruction>(U))
+      continue;
+
+    if (auto *GEP = dyn_cast<GEPOperator>(U)) {
+      assert(isa<ConstantExpr>(GEP) && "Expected constant GEP");
+      assert(GEP->getOperand(0) == OrigGV && "Unexpected GV GEP use!");
+
+      bool IsModified = false;
+
+      SmallVector<Constant *, 8> OrigIndices;
+      SmallVector<Constant *, 8> NewIndices;
+
+      for (auto I = GEP->idx_begin(), E = GEP->idx_end(); I != E; ++I) {
+        auto *Idx = cast<Constant>(*I);
+        auto *NewIdx = Idx;
+
+        if (!OrigIndices.empty()) {
+          Type *IndexedType =
+              GetElementPtrInst::getIndexedType(OrigTy, OrigIndices);
+          assert(IndexedType && "Invalid type indexed");
+
+          // Skip non-struct types
+          if (auto *IndexedStTy = dyn_cast<llvm::StructType>(IndexedType)) {
+            uint64_t FieldIdx = cast<ConstantInt>(Idx)->getLimitedValue();
+            uint64_t NewFieldIdx = 0;
+
+            // If the entry IndexedType in the FieldIdxMap map is empty,
+            // then it means that the current structure (IndexedType) wasn't
+            // modified, in this case we don't need to change the current
+            // index (FieldIdx) for the GEP.
+            if (FieldIdxMap[IndexedStTy].empty())
+              NewFieldIdx = FieldIdx;
+            else
+              NewFieldIdx = FieldIdxMap[IndexedStTy][FieldIdx];
+
+            // Although each operator GEP looks like it appears directly in an
+            // instruction and therefore should have a single use, there is
+            // actually only one instance of each unique set of indices for
+            // the GEP because it is a constant.
+            if (NewFieldIdx == FIELD_DELETED) {
+              assert(I == std::prev(GEP->idx_end()) &&
+                     "Unexpected removal of a GEP indexed into an aggregate");
+
+              IsModified = false;
+              GEPsToErase.push_back(GEP);
+              break;
+            }
+
+            if (NewFieldIdx != FieldIdx) {
+              IsModified = true;
+              NewIdx = ConstantInt::get(Type::getInt32Ty(GEP->getContext()),
+                                        NewFieldIdx);
+            }
+          }
+        }
+
+        NewIndices.push_back(NewIdx);
+        OrigIndices.push_back(Idx);
+      }
+
+      if (IsModified) {
+        auto *NewGEP = ConstantExpr::getGetElementPtr(ReplTy, NewGV, NewIndices,
+                                                      GEP->isInBounds());
+        LLVM_DEBUG(dbgs() << "Delete field: Replacing GEP const expr: " << *GEP
+                          << " with " << *NewGEP << "\n");
+        // The functions have not been re-mapped yet at this point, so we
+        // can just add an entry to the map that will replace the use of this
+        // constant when the instruction is remapped.
+        VMap[GEP] = NewGEP;
+      }
+    }
+  }
+
+  for_each(GEPsToErase, safeEraseValue);
 }
 
 // Before the functions are cloned, we need to find any GetElementPtr that
@@ -724,7 +907,7 @@ bool DeleteFieldOPImpl::processPossibleByteFlattenedGEP(
 
 void DeleteFieldOPImpl::processSubInst(BinaryOperator *BinOp) {
   assert(BinOp->getOpcode() == Instruction::Sub &&
-    "postProcessSubInst called for non-sub instruction!");
+         "postProcessSubInst called for non-sub instruction!");
   DTransType *PtrSubTy = DTInfo->getResolvedPtrSubType(BinOp);
   if (!PtrSubTy)
     return;

@@ -1,0 +1,59 @@
+; RUN: opt -whole-program-assume -dtrans-deletefieldop -S -o - %s | FileCheck %s --check-prefix=CHECK-NONOPAQUE
+; RUN: opt -whole-program-assume -passes='dtrans-deletefieldop' -S -o - %s | FileCheck %s --check-prefix=CHECK-NONOPAQUE
+
+; This test verifies that the DTrans delete pass is able to handle global
+; variables dependent types that have an initializer list.
+
+%struct.test = type { i32, i64, i32 }
+%struct.dep = type { i32, %struct.test* }
+@g_del = private global %struct.test { i32 100, i64 1000, i32 10000 }, align 4
+@g_dep = private global %struct.dep { i32 1, %struct.test* @g_del }, align 4
+
+; CHECK-NONOPAQUE: %__DFT_struct.test = type { i32, i32 }
+; CHECK-NONOPAQUE: %__DFDT_struct.dep = type { i32, %__DFT_struct.test* }
+; CHECK-NONOPAQUE: @g_del = private global %__DFT_struct.test { i32 100, i32 10000 }, align 4
+; CHECK-NONOPAQUE: @g_dep = private global %__DFDT_struct.dep { i32 1, %__DFT_struct.test* @g_del }, align 4
+
+; Check order with opaque pointers is different because only one variable is cloned.
+; CHECK-OPAQUE: %struct.dep = type { i32, ptr }
+; CHECK-OPAQUE: %__DFT_struct.test = type { i32, i32 }
+; CHECK-OPAQUE: @g_dep = private global %struct.dep { i32 1, ptr @g_del }, align 4
+; CHECK-OPAQUE: @g_del = private global %__DFT_struct.test { i32 100, i32 10000 }, align 4
+
+define i32 @main(i32 %argc, i8** "intel_dtrans_func_index"="1" %argv) !intel.dtrans.func.type !5 {
+  ; read dep.A
+  %val = load i32, i32* getelementptr inbounds (%struct.dep,
+                                                %struct.dep* @g_dep,
+                                                i64 0, i32 0)
+
+  ; Read a pointer to del from dep
+  %p = load %struct.test*, %struct.test** getelementptr inbounds (%struct.dep,
+                                                                %struct.dep*
+                                                                    @g_dep,
+                                                                i64 0, i32 1)
+
+  ; read A and C
+  %valA = load i32, i32* getelementptr inbounds (%struct.test,
+                                                 %struct.test* @g_del,
+                                                 i64 0, i32 0)
+  %valC = load i32, i32* getelementptr inbounds (%struct.test,
+                                                 %struct.test* @g_del,
+                                                 i64 0, i32 2)
+
+  ; write B
+  store i64 3, i64* getelementptr (%struct.test, %struct.test* @g_del,
+                                   i64 0, i32 1)
+
+  %sum = add i32 %valA, %valC
+  ret i32 %sum
+}
+
+!1 = !{i32 0, i32 0}  ; i32
+!2 = !{i64 0, i32 0}  ; i64
+!3 = !{%struct.test zeroinitializer, i32 1}  ; %struct.test*
+!4 = !{i8 0, i32 2}  ; i8**
+!5 = distinct !{!4}
+!6 = !{!"S", %struct.test zeroinitializer, i32 3, !1, !2, !1} ; { i32, i64, i32 }
+!7 = !{!"S", %struct.dep zeroinitializer, i32 2, !1, !3} ; { i32, %struct.test* }
+
+!intel.dtrans.types = !{!6, !7}
