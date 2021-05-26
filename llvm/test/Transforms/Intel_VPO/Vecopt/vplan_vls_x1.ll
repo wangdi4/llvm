@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -vplan-use-da-unit-stride-accesses=false -debug-only=ovls < %s 2>&1 | FileCheck %s
+; RUN: opt -S -VPlanDriver -debug-only=ovls < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -21,15 +21,13 @@ define void @foo(i32* nocapture %ary) {
 ; CHECK-NEXT:    AccessMask(per byte, R to L): 1111
 ; CHECK-NEXT:   #2 <4 x 32> SStore
 ;
-; CHECK-LABEL: @foo
-; CHECK:         [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_PHI:%.*]]
-; CHECK-NEXT:    [[MM_VECTORGEP_0:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP]], i64 0
-; CHECK-NEXT:    [[GROUPPTR:%.*]] = bitcast i32* [[MM_VECTORGEP_0]] to <4 x i32>*
-; CHECK-NEXT:    [[GROUPLOAD:%.*]] = load <4 x i32>, <4 x i32>* [[GROUPPTR]], align 4
-; CHECK-NEXT:    [[TMP0:%.*]] = add nsw <4 x i32> [[GROUPLOAD]], <i32 7, i32 7, i32 7, i32 7>
-; CHECK-NEXT:    [[MM_VECTORGEP_01:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP]], i64 0
-; CHECK-NEXT:    [[GROUPPTR2:%.*]] = bitcast i32* [[MM_VECTORGEP_01]] to <4 x i32>*
-; CHECK-NEXT:    store <4 x i32> [[TMP0]], <4 x i32>* [[GROUPPTR2]], align 4
+; CHECK-LABEL: @foo(
+; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[ARY:%.*]], i64 [[UNI_PHI:%.*]]
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = add nsw <4 x i32> [[WIDE_LOAD]], <i32 7, i32 7, i32 7, i32 7>
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32* [[SCALAR_GEP]] to <4 x i32>*
+; CHECK-NEXT:    store <4 x i32> [[TMP1]], <4 x i32>* [[TMP2]], align 4
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

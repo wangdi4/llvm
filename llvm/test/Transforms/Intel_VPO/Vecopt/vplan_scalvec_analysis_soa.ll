@@ -16,7 +16,7 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      vector.ph: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div, SVA: (FV )] [1024 x i32]* [[VP_ARR_PRIV:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:       [DA: Div, SVA: (F  )] [1024 x i32]* [[VP_ARR_PRIV:%.*]] = allocate-priv [1024 x i32]*, OrigAlign = 4 (SVAOpBits )
 ; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
@@ -29,16 +29,16 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-NEXT:       [DA: Div, SVA: (F  )] i32* [[VP_UNI_GEP4:%.*]] = getelementptr inbounds i32* [[VP_UNI_GEP3]] i64 3 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP_LD_1:%.*]] = load i32* [[VP_UNI_GEP4]] (SVAOpBits 0->F )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] store i32 10 i32* [[VP_UNI_GEP4]] (SVAOpBits 0->V 1->F )
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32* [[VP_UNIT_STRIDE_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 [[VP_IV1]] (SVAOpBits 0->V 1->V 2->V )
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32* [[VP_UNIT_STRIDE_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 [[VP_IV1]] (SVAOpBits 0->F 1->V 2->V )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_CONST_STEP:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2} (SVAOpBits )
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32* [[VP_UNIT_STRIDE_GEP1_1:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 [[VP_IV1]] i64 [[VP_CONST_STEP]] (SVAOpBits 0->V 1->V 2->V 3->V )
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32* [[VP_UNIT_STRIDE_GEP1_1:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 [[VP_IV1]] i64 [[VP_CONST_STEP]] (SVAOpBits 0->F 1->V 2->V 3->V )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_CONST_STEP_1:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2} (SVAOpBits )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32* [[VP_UNIT_STRIDE_GEP2:%.*]] = getelementptr inbounds i32* [[VP_UNIT_STRIDE_GEP1]] i64 [[VP_IV1]] i64 [[VP_CONST_STEP_1]] (SVAOpBits 0->V 1->V 2->V )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP_LD_2:%.*]] = load i32* [[VP_UNIT_STRIDE_GEP1_1]] (SVAOpBits 0->V )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] store i32 20 i32* [[VP_UNIT_STRIDE_GEP2]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_SEXT:%.*]] = sext i32 [[VP_LD_1]] to i64 (SVAOpBits 0->V )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_CONST_STEP_2:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2} (SVAOpBits )
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32* [[VP_RND_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 [[VP_SEXT]] i64 [[VP_CONST_STEP_2]] (SVAOpBits 0->V 1->V 2->V 3->V )
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32* [[VP_RND_GEP1:%.*]] = getelementptr inbounds [1024 x i32]* [[VP_ARR_PRIV]] i64 0 i64 [[VP_SEXT]] i64 [[VP_CONST_STEP_2]] (SVAOpBits 0->F 1->V 2->V 3->V )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP_LD_3:%.*]] = load i32* [[VP_RND_GEP1]] (SVAOpBits 0->V )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] store i32 30 i32* [[VP_RND_GEP1]] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
@@ -129,7 +129,7 @@ define dso_local void @strided_gep_unit_strided_pointer(i32 %n) {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_VEC_TC_CHECK]], scalar.ph, vector.ph (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      vector.ph: # preds: [[BB1]]
-; CHECK-NEXT:       [DA: Div, SVA: (FV )] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:       [DA: Div, SVA: (F  )] [1024 x i64]* [[VP_ARR_SOA_PRIV64:%.*]] = allocate-priv [1024 x i64]*, OrigAlign = 4 (SVAOpBits )
 ; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_IV1_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i64 [[VP_IV1_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
@@ -142,18 +142,18 @@ define dso_local void @strided_gep_unit_strided_pointer(i32 %n) {
 ; CHECK-NEXT:       Condition(external): i1 true
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB5]]: # preds: [[BB2]]
-; CHECK-NEXT:         [DA: Div, SVA: (FV )] i64* [[VP_UNI_GEP_ELSE:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 2 (SVAOpBits 0->FV 1->FV 2->FV )
+; CHECK-NEXT:         [DA: Div, SVA: (F  )] i64* [[VP_UNI_GEP_ELSE:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 2 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:         [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:         [DA: Div, SVA: (FV )] i64* [[VP_UNI_GEP_IF:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 1 (SVAOpBits 0->FV 1->FV 2->FV )
+; CHECK-NEXT:         [DA: Div, SVA: (F  )] i64* [[VP_UNI_GEP_IF:%.*]] = getelementptr inbounds [1024 x i64]* [[VP_ARR_SOA_PRIV64]] i64 0 i64 1 (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-NEXT:         [DA: Uni, SVA: (F  )] br [[BB3]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB5]], [[BB4]]
-; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64* [[VP_PHI_UNI:%.*]] = phi  [ i64* [[VP_UNI_GEP_ELSE]], [[BB5]] ],  [ i64* [[VP_UNI_GEP_IF]], [[BB4]] ] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:       [DA: Div, SVA: (F  )] i64* [[VP_PHI_UNI:%.*]] = phi  [ i64* [[VP_UNI_GEP_ELSE]], [[BB5]] ],  [ i64* [[VP_UNI_GEP_IF]], [[BB4]] ] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_LD:%.*]] = load i64* [[VP_PHI_UNI]] (SVAOpBits 0->F )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_CONST_STEP:%.*]] = const-step-vector: { Start:0, Step:1, NumSteps:2} (SVAOpBits )
-; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64* [[VP_STR_GEP:%.*]] = getelementptr inbounds i64* [[VP_PHI_UNI]] i64 [[VP_IV1]] i64 [[VP_CONST_STEP]] (SVAOpBits 0->V 1->V 2->V )
+; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64* [[VP_STR_GEP:%.*]] = getelementptr inbounds i64* [[VP_PHI_UNI]] i64 [[VP_IV1]] i64 [[VP_CONST_STEP]] (SVAOpBits 0->F 1->V 2->V )
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i64 [[VP_LD_PHI_DERIVED:%.*]] = load i64* [[VP_STR_GEP]] (SVAOpBits 0->V )
 ; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_IV1_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
