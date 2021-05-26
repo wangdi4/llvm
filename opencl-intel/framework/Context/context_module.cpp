@@ -1825,6 +1825,30 @@ cl_mem ContextModule::CreateBufferImpl(cl_context clContext,
 }
 
 //////////////////////////////////////////////////////////////////////////
+// ContextModule::CreateBufferWithProperties
+//////////////////////////////////////////////////////////////////////////
+cl_mem ContextModule::CreateBufferWithProperties(
+    cl_context clContext, const cl_mem_properties *properties,
+    cl_mem_flags clFlags, size_t szSize, void *pHostPtr, cl_int *pErrcodeRet) {
+  LOG_DEBUG(TEXT("Enter CreateBufferWithProperties(clContext=%d, "
+                 "properties=%d, clFlags=%llu,"
+                 " szSize=%u, pHostPtr=%d, pErrcodeRet=%d)"),
+            clContext, properties, (unsigned long long)clFlags, szSize,
+            pHostPtr, pErrcodeRet);
+
+  // properties is an optional list of properties for the buffer object and
+  // their corresponding values. OpenCL 3.0 does not define any optional
+  // properties for buffers.
+  cl_mem bufHandle =
+      CreateBufferImpl(clContext, clFlags, szSize, pHostPtr, pErrcodeRet);
+
+  if (bufHandle != CL_INVALID_HANDLE) {
+    LOG_DEBUG(TEXT("CreateBufferWithProperties return handle %d"), bufHandle);
+  }
+  return bufHandle;
+}
+
+//////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateSubBuffer
 //////////////////////////////////////////////////////////////////////////
 cl_mem ContextModule::CreateSubBuffer(cl_mem                clBuffer,
@@ -1952,103 +1976,142 @@ cl_mem ContextModule::CreateImage3D(cl_context clContext,
     return image;
 }
 
+// Move main logic of CreateImage function to this helper function.
+cl_mem ContextModule::CreateImageImpl(cl_context context, cl_mem_flags flags,
+                                      const cl_image_format *image_format,
+                                      const cl_image_desc *image_desc,
+                                      void *host_ptr, cl_int *errcode_ret) {
+  cl_mem clMemObj = CL_INVALID_HANDLE;
+
+  SharedPtr<Context> pContext =
+      m_mapContexts.GetOCLObject((_cl_context_int *)context)
+          .DynamicCast<Context>();
+  if (NULL == pContext.GetPtr()) {
+    if (errcode_ret) {
+      *errcode_ret = CL_INVALID_CONTEXT;
+    }
+    return CL_INVALID_HANDLE;
+  }
+
+  if (pContext->IsFPGAEmulator()) {
+    if (errcode_ret) {
+      *errcode_ret = CL_INVALID_OPERATION;
+    }
+    return CL_INVALID_HANDLE;
+  }
+
+  if (!image_desc || 0 != image_desc->num_mip_levels ||
+      0 != image_desc->num_samples ||
+      (CL_MEM_OBJECT_IMAGE1D_BUFFER != image_desc->image_type &&
+       CL_MEM_OBJECT_IMAGE2D != image_desc->image_type &&
+       nullptr != image_desc->mem_object)) {
+    if (errcode_ret) {
+      *errcode_ret = CL_INVALID_IMAGE_DESCRIPTOR;
+    }
+    return CL_INVALID_HANDLE;
+  }
+  switch (image_desc->image_type) {
+  case CL_MEM_OBJECT_IMAGE1D:
+    clMemObj = CreateScalarImage<1, CL_MEM_OBJECT_IMAGE1D>(
+        context, flags, image_format, image_desc->image_width, 0, 0, 0, 0,
+        host_ptr, errcode_ret);
+    break;
+  case CL_MEM_OBJECT_IMAGE1D_BUFFER:
+    clMemObj = CreateImageBuffer<1, CL_MEM_OBJECT_IMAGE1D_BUFFER>(
+        context, flags, image_format, *image_desc, image_desc->mem_object,
+        errcode_ret);
+    break;
+  case CL_MEM_OBJECT_IMAGE2D:
+    if (nullptr == image_desc->mem_object) {
+      clMemObj = CreateScalarImage<2, CL_MEM_OBJECT_IMAGE2D>(
+          context, flags, image_format, image_desc->image_width,
+          image_desc->image_height, 0, image_desc->image_row_pitch, 0, host_ptr,
+          errcode_ret);
+    } else {
+      cl_mem_object_type objType;
+      if (CL_FAILED(GetMemObjectInfo(image_desc->mem_object, CL_MEM_TYPE,
+                                     sizeof(objType), &objType, nullptr)) ||
+          (objType != CL_MEM_OBJECT_BUFFER &&
+           objType != CL_MEM_OBJECT_IMAGE2D)) {
+        if (errcode_ret != nullptr) {
+          *errcode_ret = CL_INVALID_IMAGE_DESCRIPTOR;
+        }
+        return CL_INVALID_HANDLE;
+      }
+      if (CL_MEM_OBJECT_BUFFER == objType) {
+        clMemObj = CreateImageBuffer<2, CL_MEM_OBJECT_IMAGE2D>(
+            context, flags, image_format, *image_desc, image_desc->mem_object,
+            errcode_ret);
+      } else {
+        clMemObj =
+            Create2DImageFromImage(context, flags, image_format, image_desc,
+                                   image_desc->mem_object, errcode_ret);
+      }
+    }
+    break;
+  case CL_MEM_OBJECT_IMAGE3D:
+    clMemObj = CreateScalarImage<3, CL_MEM_OBJECT_IMAGE3D>(
+        context, flags, image_format, image_desc->image_width,
+        image_desc->image_height, image_desc->image_depth,
+        image_desc->image_row_pitch, image_desc->image_slice_pitch, host_ptr,
+        errcode_ret);
+    break;
+  case CL_MEM_OBJECT_IMAGE1D_ARRAY:
+  case CL_MEM_OBJECT_IMAGE2D_ARRAY:
+    clMemObj = CreateImageArray(context, flags, image_format, image_desc,
+                                host_ptr, errcode_ret);
+    break;
+  default:
+    LOG_ERROR(TEXT("unsupported image type (%d)"), image_desc->image_type);
+    if (errcode_ret) {
+      *errcode_ret = CL_INVALID_IMAGE_DESCRIPTOR;
+    }
+  }
+  return clMemObj;
+}
+
 /************************************************************************/
 /* ContextModule::CreateImage                                              */
 /************************************************************************/
-cl_mem ContextModule::CreateImage(cl_context context,
-                                  cl_mem_flags flags,
+cl_mem ContextModule::CreateImage(cl_context context, cl_mem_flags flags,
                                   const cl_image_format *image_format,
                                   const cl_image_desc *image_desc,
-                                  void *host_ptr,
-                                  cl_int *errcode_ret)
-{
-    LOG_DEBUG(TEXT("Enter CreateImage(context=%p, flags=%llu, image_format=%p, image_desc=%p, host_ptr=%p, errcode_ret=%p"),
-        context, (unsigned long long) flags, image_format, image_desc, host_ptr, errcode_ret);
+                                  void *host_ptr, cl_int *errcode_ret) {
+  LOG_DEBUG(TEXT("Enter CreateImage(context=%p, flags=%llu, image_format=%p, "
+                 "image_desc=%p, host_ptr=%p, errcode_ret=%p"),
+            context, (unsigned long long)flags, image_format, image_desc,
+            host_ptr, errcode_ret);
 
-    cl_mem clMemObj = CL_INVALID_HANDLE;
+  cl_mem clMemObj = CreateImageImpl(context, flags, image_format, image_desc,
+                                    host_ptr, errcode_ret);
 
-    SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)context).DynamicCast<Context>();
-    if (NULL == pContext.GetPtr()) {
-      if (errcode_ret) {
-        *errcode_ret = CL_INVALID_CONTEXT;
-      }
-      return CL_INVALID_HANDLE;
-    }
+  LOG_DEBUG(TEXT("CreateImage returned handle = %d"), clMemObj);
 
-    if (pContext->IsFPGAEmulator())
-     {
-        if (errcode_ret)
-        {
-            *errcode_ret = CL_INVALID_OPERATION;
-        }
-        return CL_INVALID_HANDLE;
-    }
+  return clMemObj;
+}
 
-    if (!image_desc || 0 != image_desc->num_mip_levels || 0 != image_desc->num_samples ||
-        (CL_MEM_OBJECT_IMAGE1D_BUFFER != image_desc->image_type && CL_MEM_OBJECT_IMAGE2D != image_desc->image_type && nullptr != image_desc->mem_object))
-    {
-        if (errcode_ret)
-        {
-            *errcode_ret = CL_INVALID_IMAGE_DESCRIPTOR;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    switch (image_desc->image_type)
-    {
-    case CL_MEM_OBJECT_IMAGE1D:
-        clMemObj = CreateScalarImage<1, CL_MEM_OBJECT_IMAGE1D>(context, flags, image_format, image_desc->image_width, 0, 0, 0, 0, host_ptr, errcode_ret);
-        break;
-    case CL_MEM_OBJECT_IMAGE1D_BUFFER:
-        clMemObj = CreateImageBuffer<1, CL_MEM_OBJECT_IMAGE1D_BUFFER>(context, flags, image_format, *image_desc, image_desc->mem_object, errcode_ret);
-        break;
-    case CL_MEM_OBJECT_IMAGE2D:
-        if (nullptr == image_desc->mem_object)
-        {
-            clMemObj = CreateScalarImage<2, CL_MEM_OBJECT_IMAGE2D>(context, flags, image_format, image_desc->image_width, image_desc->image_height, 0, image_desc->image_row_pitch, 0, host_ptr,
-                errcode_ret);
-        }
-        else
-        {
-            cl_mem_object_type objType;
-            if (CL_FAILED(GetMemObjectInfo(image_desc->mem_object, CL_MEM_TYPE, sizeof(objType), &objType, nullptr)) ||
-                (objType != CL_MEM_OBJECT_BUFFER && objType != CL_MEM_OBJECT_IMAGE2D))
-            {
-                if (errcode_ret != nullptr)
-                {
-                    *errcode_ret = CL_INVALID_IMAGE_DESCRIPTOR;
-                }
-                return CL_INVALID_HANDLE;
-            }
-            if (CL_MEM_OBJECT_BUFFER == objType)
-            {
-                clMemObj = CreateImageBuffer<2, CL_MEM_OBJECT_IMAGE2D>(context, flags, image_format, *image_desc, image_desc->mem_object, errcode_ret);
-            }
-            else
-            {
-                clMemObj = Create2DImageFromImage(context, flags, image_format, image_desc, image_desc->mem_object, errcode_ret);
-            }
-        }
-        break;
-    case CL_MEM_OBJECT_IMAGE3D:
-        clMemObj = CreateScalarImage<3, CL_MEM_OBJECT_IMAGE3D>(context, flags, image_format, image_desc->image_width,
-            image_desc->image_height, image_desc->image_depth, image_desc->image_row_pitch,
-            image_desc->image_slice_pitch, host_ptr, errcode_ret);
-        break;
-    case CL_MEM_OBJECT_IMAGE1D_ARRAY:
-    case CL_MEM_OBJECT_IMAGE2D_ARRAY:
-        clMemObj = CreateImageArray(context, flags, image_format, image_desc, host_ptr, errcode_ret);
-        break;
-    default:
-        LOG_ERROR(TEXT("unsupported image type (%d)"), image_desc->image_type);
-        if (errcode_ret)
-        {
-            *errcode_ret = CL_INVALID_IMAGE_DESCRIPTOR;
-        }
-    }
+/************************************************************************/
+/* ContextModule::CreateImageWithProperties                                */
+/************************************************************************/
+cl_mem ContextModule::CreateImageWithProperties(
+    cl_context context, const cl_mem_properties *properties, cl_mem_flags flags,
+    const cl_image_format *image_format, const cl_image_desc *image_desc,
+    void *host_ptr, cl_int *errcode_ret) {
+  LOG_DEBUG(TEXT("Enter CreateImageWithProperties(context=%p, properties=%p, "
+                 "flags=%llu, image_format=%p, image_desc=%p, host_ptr=%p, "
+                 "errcode_ret=%p"),
+            context, properties, (unsigned long long)flags, image_format,
+            image_desc, host_ptr, errcode_ret);
 
-    LOG_DEBUG(TEXT("CreateImage returned handle = %d"), clMemObj);
+  // properties is an optional list of properties for the image object and their
+  // corresponding values. OpenCL 3.0 does not define any optional properties
+  // for images.
+  cl_mem clMemObj = CreateImageImpl(context, flags, image_format, image_desc,
+                                    host_ptr, errcode_ret);
+  if (clMemObj == CL_INVALID_HANDLE)
+    LOG_DEBUG(TEXT("CreateImageWithProperties returned handle = %d"), clMemObj);
 
-    return clMemObj;
+  return clMemObj;
 }
 
 bool ContextModule::Check2DImageFromBufferPitch(const ConstSharedPtr<GenericMemObject>& pBuffer, const cl_image_desc& desc, const cl_image_format& format) const

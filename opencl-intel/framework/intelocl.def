@@ -17,9 +17,11 @@ EXPORTS
 	clGetCommandQueueInfo
 	clSetCommandQueueProperty
 	clCreateBuffer
+	clCreateBufferWithProperties
 	clCreateSubBuffer
 	clSetMemObjectDestructorCallback
 	clCreateImage
+	clCreateImageWithProperties
 	clCreateImage2D
 	clCreateImage3D
 	clRetainMemObject

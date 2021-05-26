@@ -850,6 +850,34 @@ cl_mem CL_API_CALL clCreateBufferWithPropertiesINTEL(cl_context   context,
 SET_ALIAS(clCreateBufferWithPropertiesINTEL);
 REGISTER_EXTENSION_FUNCTION(clCreateBufferWithPropertiesINTEL, clCreateBufferWithPropertiesINTEL);
 
+cl_mem CL_API_CALL clCreateBufferWithProperties(
+    cl_context context, const cl_mem_properties *properties, cl_mem_flags flags,
+    size_t size, void *host_ptr, cl_int *errcode_ret) {
+  if (g_pUserLogger->IsApiLoggingEnabled()) {
+    START_LOG_API(clCreateBufferWithProperties);
+    apiLogger << "cl_context context" << context
+              << "cl_mem_properties* properties" << properties
+              << "cl_mem_flags flags" << flags << "size_t size" << size
+              << "void *host_ptr" << host_ptr << "cl_int *errcode_ret"
+              << errcode_ret;
+    OutputParamsValueProvider provider(apiLogger);
+    provider.AddParam("errcode_ret", errcode_ret, false, false);
+    CALL_TRACED_API_LOGGER(CONTEXT_MODULE, cl_mem,
+                           CreateBufferWithProperties(context, properties,
+                                                      flags, size, host_ptr,
+                                                      errcode_ret),
+                           clCreateBufferWithProperties, &context, &properties,
+                           &flags, &size, &host_ptr, &errcode_ret);
+  } else {
+    CALL_TRACED_API(CONTEXT_MODULE, cl_mem,
+                    CreateBufferWithProperties(context, properties, flags, size,
+                                               host_ptr, errcode_ret),
+                    clCreateBufferWithProperties, &context, &properties, &flags,
+                    &size, &host_ptr, &errcode_ret);
+  }
+}
+SET_ALIAS(clCreateBufferWithProperties);
+
 cl_mem CL_API_CALL clCreateSubBuffer(cl_mem buffer,
 				  cl_mem_flags				flags,
 				  cl_buffer_create_type     buffer_create_type,
@@ -916,6 +944,38 @@ cl_mem CL_API_CALL clCreateImage(
     }
 }
 SET_ALIAS(clCreateImage);
+
+cl_mem CL_API_CALL clCreateImageWithProperties(
+    cl_context context, const cl_mem_properties *properties, cl_mem_flags flags,
+    const cl_image_format *image_format, const cl_image_desc *image_desc,
+    void *host_ptr, cl_int *errcode_ret) {
+  if (g_pUserLogger->IsApiLoggingEnabled()) {
+    START_LOG_API(clCreateImageWithProperties);
+    apiLogger << "cl_context context" << context
+              << "cl_mem_properties* properties" << properties
+              << "cl_mem_flags flags" << flags
+              << "const cl_image_format *image_format" << image_format
+              << "const cl_image_desc *image_desc" << image_desc
+              << "void *host_ptr" << host_ptr << "cl_int *errcode_ret"
+              << errcode_ret;
+    OutputParamsValueProvider provider(apiLogger);
+    provider.AddParam("errcode_ret", errcode_ret, false, false);
+    CALL_TRACED_API_LOGGER(
+        CONTEXT_MODULE, cl_mem,
+        CreateImageWithProperties(context, properties, flags, image_format,
+                                  image_desc, host_ptr, errcode_ret),
+        clCreateImageWithProperties, &context, &properties, &flags,
+        &image_format, &image_desc, &host_ptr, &errcode_ret);
+  } else {
+    CALL_TRACED_API(CONTEXT_MODULE, cl_mem,
+                    CreateImageWithProperties(context, properties, flags,
+                                              image_format, image_desc,
+                                              host_ptr, errcode_ret),
+                    clCreateImageWithProperties, &context, &properties, &flags,
+                    &image_format, &image_desc, &host_ptr, &errcode_ret);
+  }
+}
+SET_ALIAS(clCreateImageWithProperties);
 
 cl_mem CL_API_CALL clCreateImage2D(cl_context              context,
 					   cl_mem_flags            flags,

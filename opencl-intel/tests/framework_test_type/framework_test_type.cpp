@@ -209,6 +209,11 @@ TEST(FrameworkTestType, Test_clCreateBufferWithPropertiesINTELTest)
     EXPECT_TRUE(clCreateBufferWithPropertiesINTELTest());
 }
 
+TEST(FrameworkTestType, Test_clCreateBufferWithPropertiesTest)
+{
+    EXPECT_TRUE(clCreateBufferWithPropertiesTest());
+}
+
 TEST(FrameworkTestType, Test_clCreateSubBufferTest)
 {
     EXPECT_TRUE(clCreateSubBufferTest());
@@ -272,6 +277,11 @@ TEST(FrameworkTestType, Test_clKernelBarrierTest)
 TEST(FrameworkTestType, Test_clCreateImageTest)
 {
     EXPECT_TRUE(clCreateImageTest());
+}
+
+TEST(FrameworkTestType, Test_clCreateImageWithPropertiesTest)
+{
+    EXPECT_TRUE(clCreateImageWithPropertiesTest());
 }
 
 TEST(FrameworkTestType, Test_clImageExecuteTest)

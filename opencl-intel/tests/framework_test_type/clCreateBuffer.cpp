@@ -147,6 +147,48 @@ bool clCreateBufferWithPropertiesINTELTest()
         PROV_RETURN_AND_ABANDON(true);
 }
 
+bool clCreateBufferWithPropertiesTest() {
+  PROV_INIT;
+
+  printf("=============================================================\n");
+  printf("clCreateBufferWithPropertiesTest\n");
+  printf("=============================================================\n");
+
+  cl_int iRet = 0;
+
+  cl_platform_id platform = 0;
+  bool bResult = true;
+
+  iRet = clGetPlatformIDs(1, &platform, NULL);
+  bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
+
+  if (!bResult) {
+    return bResult;
+  }
+
+  cl_context_properties prop[3] = {CL_CONTEXT_PLATFORM,
+                                   (cl_context_properties)platform, 0};
+
+  cl_context context =
+      PROV_OBJ(clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet));
+  if (CL_SUCCESS != iRet) {
+    printf("clCreateContextFromType = %s\n", ClErrTxt(iRet));
+    PROV_RETURN_AND_ABANDON(false);
+  }
+
+  // OpenCL 3.0 does not define any optional properties for buffers.
+  cl_mem_properties properties[] = {0};
+  cl_mem buffer1 = PROV_OBJ(clCreateBufferWithProperties(
+      context, properties, CL_MEM_READ_ONLY, 100, NULL, &iRet));
+  EXPECT_EQ(oclErr(CL_SUCCESS), oclErr(iRet))
+      << "clCreateBufferWithProperties with properties 0 should be OK.";
+
+  // Release all
+  clReleaseMemObject(buffer1);
+  clReleaseContext(context);
+
+  PROV_RETURN_AND_ABANDON(true);
+}
 
 bool clCreateSubBufferTest()
 {

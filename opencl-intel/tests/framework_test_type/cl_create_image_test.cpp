@@ -889,3 +889,196 @@ bool clCreateImageTest()
     }
     return bResult;
 }
+
+// clCreateImageWithProperties function has cl_mem_properties parameter compared
+// with clCreateImage function, but OpenCL 3.0 does not define any optional
+// properties for images. Here we borrow implementation of clCreateImageTest
+// function.
+bool clCreateImageWithPropertiesTest() {
+  cl_int iRet = CL_SUCCESS;
+  cl_platform_id platform = 0;
+  bool bResult = true;
+  cl_device_id device = NULL;
+  cl_context context = NULL;
+  cl_command_queue queue = NULL;
+  cl_image_format clFormat;
+  memset(&clFormat, 0, sizeof(clFormat));
+  cl_image_desc clImageDesc;
+  memset(&clImageDesc, 0, sizeof(clImageDesc));
+  clMemWrapper clImg1D, clBuffer, clImg1DBuffer, clImg2D, clImg3D, clImg1DArr,
+      clImg2DArr, clImg2DBuffer;
+  const cl_mem_object_type clImgTypes[] = {
+      CL_MEM_OBJECT_IMAGE1D, CL_MEM_OBJECT_IMAGE2D, CL_MEM_OBJECT_IMAGE3D,
+      CL_MEM_OBJECT_IMAGE1D_ARRAY, CL_MEM_OBJECT_IMAGE2D_ARRAY};
+  // OpenCL 3.0 does not define any optional properties for images.
+  cl_mem_properties properties[] = {0};
+
+  std::cout << "============================================================="
+            << std::endl;
+  std::cout << "clCreateImageWithPropertiesTest" << std::endl;
+  std::cout << "============================================================="
+            << std::endl;
+
+  try {
+    iRet = clGetPlatformIDs(1, &platform, NULL);
+    CheckException("clGetPlatformIDs", CL_SUCCESS, iRet);
+    iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
+    CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);
+    size_t szSize;
+
+    const cl_context_properties prop[3] = {CL_CONTEXT_PLATFORM,
+                                           (cl_context_properties)platform, 0};
+    context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
+    CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
+    queue = clCreateCommandQueue(context, device, 0, &iRet);
+    CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
+    clFormat.image_channel_order = CL_RGBA;
+    clFormat.image_channel_data_type = CL_UNSIGNED_INT8;
+    clImageDesc.image_width = IMAGE_WIDTH;
+    clImageDesc.image_height = IMAGE_HEIGHT;
+    clImageDesc.image_depth = IMAGE_DEPTH;
+
+    // FPGA emulator doesn't support images
+    if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR) {
+      // 1D image
+      clImageDesc.image_type = CL_MEM_OBJECT_IMAGE1D;
+      clImg1D = clCreateImageWithProperties(context, properties, 0, &clFormat,
+                                            &clImageDesc, NULL, &iRet);
+      CheckException("clCreateImageWithProperties", CL_INVALID_OPERATION, iRet);
+      return bResult;
+    }
+    // 1D image
+    clImageDesc.image_type = CL_MEM_OBJECT_IMAGE1D;
+    clImg1D = clCreateImageWithProperties(context, properties, 0, &clFormat,
+                                          &clImageDesc, NULL, &iRet);
+    CheckException("clCreateImageWithProperties", CL_SUCCESS, iRet);
+
+    // 1D image buffer
+
+    clBuffer = clCreateBuffer(
+        context, 0, clImageDesc.image_width * IMAGE_ELEM_SIZE, NULL, &iRet);
+    CheckException("clCreateBuffer", CL_SUCCESS, iRet);
+
+    clImageDesc.image_type = CL_MEM_OBJECT_IMAGE1D_BUFFER;
+    clImageDesc.mem_object = clBuffer;
+    clImg1DBuffer = clCreateImageWithProperties(
+        context, properties, 0, &clFormat, &clImageDesc, NULL, &iRet);
+    CheckException("clCreateImageWithProperties", CL_SUCCESS, iRet);
+    clImageDesc.mem_object = NULL;
+
+    TestImageFromMemObject(queue, clBuffer, clImg1DBuffer, clImageDesc, true);
+
+    // 2D image
+    clImageDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
+    clImg2D = clCreateImageWithProperties(context, properties, 0, &clFormat,
+                                          &clImageDesc, NULL, &iRet);
+    CheckException("clCreateImageWithProperties", CL_SUCCESS, iRet);
+
+    // 2D image buffer
+    clBuffer = clCreateBuffer(context, 0,
+                              clImageDesc.image_width *
+                                  clImageDesc.image_height * IMAGE_ELEM_SIZE,
+                              NULL, &iRet);
+    CheckException("clCreateBuffer", CL_SUCCESS, iRet);
+
+    clImageDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
+    clImageDesc.mem_object = clBuffer;
+    clImg2DBuffer = clCreateImageWithProperties(
+        context, properties, 0, &clFormat, &clImageDesc, NULL, &iRet);
+    CheckException("clCreateImageWithProperties", CL_SUCCESS, iRet);
+    clImageDesc.mem_object = NULL;
+
+    TestImageFromMemObject(queue, clBuffer, clImg2DBuffer, clImageDesc, true);
+
+    // 2D image from another 2D image
+    Test2DImageFromImage(context, queue);
+
+    // 3D image
+    clImageDesc.image_type = CL_MEM_OBJECT_IMAGE3D;
+    clImg3D =
+        clCreateImageWithProperties(context, properties, CL_MEM_READ_WRITE,
+                                    &clFormat, &clImageDesc, NULL, &iRet);
+    CheckException("clCreateImageWithProperties", CL_SUCCESS, iRet);
+
+    // unsupported image type
+    clImageDesc.image_type = 0xffff;
+    clCreateImageWithProperties(context, properties, 0, &clFormat, &clImageDesc,
+                                NULL, &iRet);
+    CheckException("clCreateImageWithProperties", CL_INVALID_IMAGE_DESCRIPTOR,
+                   iRet);
+
+    // 1D image array
+    clImageDesc.image_type = CL_MEM_OBJECT_IMAGE1D_ARRAY;
+    clImageDesc.image_array_size = IMAGE_ARRAY_SIZE;
+    clImg1DArr = clCreateImageWithProperties(context, properties, 0, &clFormat,
+                                             &clImageDesc, NULL, &iRet);
+    CheckException("clCreateImageWithProperties", CL_SUCCESS, iRet);
+
+    size_t szImgArrSize;
+    iRet = clGetImageInfo(clImg1DArr, CL_IMAGE_ARRAY_SIZE, sizeof(szImgArrSize),
+                          &szImgArrSize, &szSize);
+    CheckException("clGetMemObjectInfo", CL_SUCCESS, iRet);
+    CheckException("CL_IMAGE_ARRAY_SIZE", clImageDesc.image_array_size,
+                   szImgArrSize);
+    CheckException("szSize", sizeof(szImgArrSize), szSize);
+
+    // CL_IMAGE_ARRAY_SIZE for non image array objects should return 0 without
+    // an error
+    iRet = clGetImageInfo(clImg3D, CL_IMAGE_ARRAY_SIZE, sizeof(szImgArrSize),
+                          &szImgArrSize, &szSize);
+    CheckException("clGetMemObjectInfo", CL_SUCCESS, iRet);
+    CheckException("CL_IMAGE_ARRAY_SIZE", (size_t)0, szImgArrSize);
+    CheckException("szSize", sizeof(szImgArrSize), szSize);
+
+    TestWriteReadImgArray(queue, clImg1DArr, CL_MEM_OBJECT_IMAGE1D_ARRAY,
+                          clImageDesc);
+
+    // 2D image array
+    clImageDesc.image_type = CL_MEM_OBJECT_IMAGE2D_ARRAY;
+    clImg2DArr = clCreateImageWithProperties(context, properties, 0, &clFormat,
+                                             &clImageDesc, NULL, &iRet);
+    CheckException("clCreateImageWithProperties", CL_SUCCESS, iRet);
+
+    iRet = clGetImageInfo(clImg2DArr, CL_IMAGE_ARRAY_SIZE, sizeof(szImgArrSize),
+                          &szImgArrSize, &szSize);
+    CheckException("clGetMemObjectInfo", CL_SUCCESS, iRet);
+    CheckException("CL_IMAGE_ARRAY_SIZE", clImageDesc.image_array_size,
+                   szImgArrSize);
+    CheckException("szSize", sizeof(szImgArrSize), szSize);
+
+    // CL_IMAGE_NUM_MIP_LEVELS and CL_IMAGE_NUM_SAMPLES should be 0
+    cl_uint uiNumMipLevels, uiNumSamples;
+    iRet = clGetImageInfo(clImg2DArr, CL_IMAGE_NUM_MIP_LEVELS,
+                          sizeof(uiNumMipLevels), &uiNumMipLevels, &szSize);
+    CheckException("clGetImageInfo", CL_SUCCESS, iRet);
+    CheckException("CL_IMAGE_NUM_MIP_LEVELS", (cl_uint)0, uiNumMipLevels);
+    CheckException("szSize", sizeof(uiNumMipLevels), szSize);
+    iRet = clGetImageInfo(clImg2DArr, CL_IMAGE_NUM_SAMPLES,
+                          sizeof(uiNumSamples), &uiNumSamples, &szSize);
+    CheckException("clGetImageInfo", CL_SUCCESS, iRet);
+    CheckException("CL_IMAGE_NUM_SAMPLES", (cl_uint)0, uiNumSamples);
+    CheckException("szSize", sizeof(uiNumSamples), szSize);
+
+    TestWriteReadImgArray(queue, clImg2DArr, CL_MEM_OBJECT_IMAGE2D_ARRAY,
+                          clImageDesc);
+
+    // host pointer
+    for (size_t i = 0; i < sizeof(clImgTypes) / sizeof(clImgTypes[0]); i++) {
+      TestHostPtr(context, queue, clImgTypes[i], clImageDesc, clFormat);
+    }
+
+    TestNegative(clFormat, clImageDesc, context, device, queue);
+
+    TestInvalidFlags(context, clFormat, clImageDesc);
+
+  } catch (const std::exception &) {
+    bResult = false;
+  }
+  if (context) {
+    clReleaseContext(context);
+  }
+  if (queue) {
+    clReleaseCommandQueue(queue);
+  }
+  return bResult;
+}

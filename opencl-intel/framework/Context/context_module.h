@@ -242,7 +242,23 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_mem CreateBufferWithPropertiesINTEL(cl_context clContext,const cl_mem_properties_intel* properties, cl_mem_flags clFlags,
                                                        size_t szSize, void * pHostPtr, cl_int * pErrcodeRet);
 
-        cl_mem CreateBufferImpl(cl_context clContext, cl_mem_flags clFlags, size_t szSize, void * pHostPtr, cl_int * pErrcodeRet);
+        /////////////////////////////////////////////////////////////////////
+        //  OpenCL 3.0 function CreateBufferWithProperties
+        /////////////////////////////////////////////////////////////////////
+        virtual cl_mem
+        CreateBufferWithProperties(cl_context clContext,
+                                   const cl_mem_properties *properties,
+                                   cl_mem_flags clFlags, size_t szSize,
+                                   void *pHostPtr, cl_int *pErrcodeRet);
+
+        /////////////////////////////////////////////////////////////////////
+        //  OpenCL 3.0 function CreateImageWithProperties
+        /////////////////////////////////////////////////////////////////////
+        virtual cl_mem CreateImageWithProperties(
+            cl_context clContext, const cl_mem_properties *properties,
+            cl_mem_flags clFlags, const cl_image_format *image_format,
+            const cl_image_desc *image_desc, void *pHostPtr,
+            cl_int *pErrcodeRet);
 
         ///////////////////////////////////////////////////////////////////////
         // IntelFPGA functions
@@ -358,6 +374,14 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                         const void* pImgBufferHostPtr = NULL,
                                         cl_mem_flags bufFlags = 0);
 
+        cl_mem CreateBufferImpl(cl_context clContext, cl_mem_flags clFlags,
+                                size_t szSize, void *pHostPtr,
+                                cl_int *pErrcodeRet);
+
+        cl_mem CreateImageImpl(cl_context context, cl_mem_flags flags,
+                               const cl_image_format *image_format,
+                               const cl_image_desc *image_desc, void *host_ptr,
+                               cl_int *errcode_ret);
 
         // get pointers to device objects according to the device ids
         cl_err_code GetRootDevices(cl_uint uiNumDevices, const cl_device_id *pclDeviceIds, SharedPtr<Device>* ppDevices);

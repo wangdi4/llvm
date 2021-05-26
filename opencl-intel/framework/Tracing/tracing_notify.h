@@ -377,6 +377,73 @@ class clCreateBufferTracer {
     tracing_notify_state_t state = TRACING_NOTIFY_STATE_NOTHING_CALLED;
 };
 
+class clCreateBufferWithPropertiesTracer {
+public:
+  clCreateBufferWithPropertiesTracer() {}
+
+  void enter(cl_context *context, const cl_mem_properties **properties,
+             cl_mem_flags *flags, size_t *size, void **hostPtr,
+             cl_int **errcodeRet) {
+    assert(state == TRACING_NOTIFY_STATE_NOTHING_CALLED);
+
+    params.context = context;
+    params.properties = properties;
+    params.flags = flags;
+    params.size = size;
+    params.hostPtr = hostPtr;
+    params.errcodeRet = errcodeRet;
+
+    data.site = CL_CALLBACK_SITE_ENTER;
+    data.correlationId =
+        tracingCorrelationId.fetch_add(1, std::memory_order_acq_rel);
+    data.functionName = "clCreateBufferWithProperties";
+    data.functionParams = static_cast<const void *>(&params);
+    data.functionReturnValue = nullptr;
+
+    assert(tracingHandle.size() > 0);
+    assert(tracingHandle.size() < TRACING_MAX_HANDLE_COUNT);
+    for (size_t i = 0; i < tracingHandle.size(); ++i) {
+      TracingHandle *handle = tracingHandle[i];
+      assert(handle != nullptr);
+      if (handle->getTracingPoint(CL_FUNCTION_clCreateBufferWithProperties)) {
+        data.correlationData = correlationData + i;
+        handle->call(CL_FUNCTION_clCreateBufferWithProperties, &data);
+      }
+    }
+
+    state = TRACING_NOTIFY_STATE_ENTER_CALLED;
+  }
+
+  void exit(cl_mem *retVal) {
+    assert(state == TRACING_NOTIFY_STATE_ENTER_CALLED);
+    data.site = CL_CALLBACK_SITE_EXIT;
+    data.functionReturnValue = retVal;
+
+    assert(tracingHandle.size() > 0);
+    assert(tracingHandle.size() < TRACING_MAX_HANDLE_COUNT);
+    for (size_t i = 0; i < tracingHandle.size(); ++i) {
+      TracingHandle *handle = tracingHandle[i];
+      assert(handle != nullptr);
+      if (handle->getTracingPoint(CL_FUNCTION_clCreateBufferWithProperties)) {
+        data.correlationData = correlationData + i;
+        handle->call(CL_FUNCTION_clCreateBufferWithProperties, &data);
+      }
+    }
+
+    state = TRACING_NOTIFY_STATE_EXIT_CALLED;
+  }
+
+  ~clCreateBufferWithPropertiesTracer() {
+    assert(state != TRACING_NOTIFY_STATE_ENTER_CALLED);
+  }
+
+private:
+  cl_params_clCreateBufferWithProperties params;
+  cl_callback_data data;
+  uint64_t correlationData[TRACING_MAX_HANDLE_COUNT];
+  tracing_notify_state_t state = TRACING_NOTIFY_STATE_NOTHING_CALLED;
+};
+
 class clCreateCommandQueueTracer {
   public:
     clCreateCommandQueueTracer() {}
@@ -725,6 +792,76 @@ class clCreateImageTracer {
     cl_callback_data data;
     uint64_t correlationData[TRACING_MAX_HANDLE_COUNT];
     tracing_notify_state_t state = TRACING_NOTIFY_STATE_NOTHING_CALLED;
+};
+
+// Borrow implementation of clCreateImageTracer class
+class clCreateImageWithPropertiesTracer {
+public:
+  clCreateImageWithPropertiesTracer() {}
+
+  void enter(cl_context *context, const cl_mem_properties **properties,
+             cl_mem_flags *flags, const cl_image_format **imageFormat,
+             const cl_image_desc **imageDesc, void **hostPtr,
+             cl_int **errcodeRet) {
+    assert(state == TRACING_NOTIFY_STATE_NOTHING_CALLED);
+
+    params.context = context;
+    params.properties = properties;
+    params.flags = flags;
+    params.imageFormat = imageFormat;
+    params.imageDesc = imageDesc;
+    params.hostPtr = hostPtr;
+    params.errcodeRet = errcodeRet;
+
+    data.site = CL_CALLBACK_SITE_ENTER;
+    data.correlationId =
+        tracingCorrelationId.fetch_add(1, std::memory_order_acq_rel);
+    data.functionName = "clCreateImageWithProperties";
+    data.functionParams = static_cast<const void *>(&params);
+    data.functionReturnValue = nullptr;
+
+    assert(tracingHandle.size() > 0);
+    assert(tracingHandle.size() < TRACING_MAX_HANDLE_COUNT);
+    for (size_t i = 0; i < tracingHandle.size(); ++i) {
+      TracingHandle *handle = tracingHandle[i];
+      assert(handle != nullptr);
+      if (handle->getTracingPoint(CL_FUNCTION_clCreateImageWithProperties)) {
+        data.correlationData = correlationData + i;
+        handle->call(CL_FUNCTION_clCreateImageWithProperties, &data);
+      }
+    }
+
+    state = TRACING_NOTIFY_STATE_ENTER_CALLED;
+  }
+
+  void exit(cl_mem *retVal) {
+    assert(state == TRACING_NOTIFY_STATE_ENTER_CALLED);
+    data.site = CL_CALLBACK_SITE_EXIT;
+    data.functionReturnValue = retVal;
+
+    assert(tracingHandle.size() > 0);
+    assert(tracingHandle.size() < TRACING_MAX_HANDLE_COUNT);
+    for (size_t i = 0; i < tracingHandle.size(); ++i) {
+      TracingHandle *handle = tracingHandle[i];
+      assert(handle != nullptr);
+      if (handle->getTracingPoint(CL_FUNCTION_clCreateImageWithProperties)) {
+        data.correlationData = correlationData + i;
+        handle->call(CL_FUNCTION_clCreateImageWithProperties, &data);
+      }
+    }
+
+    state = TRACING_NOTIFY_STATE_EXIT_CALLED;
+  }
+
+  ~clCreateImageWithPropertiesTracer() {
+    assert(state != TRACING_NOTIFY_STATE_ENTER_CALLED);
+  }
+
+private:
+  cl_params_clCreateImageWithProperties params;
+  cl_callback_data data;
+  uint64_t correlationData[TRACING_MAX_HANDLE_COUNT];
+  tracing_notify_state_t state = TRACING_NOTIFY_STATE_NOTHING_CALLED;
 };
 
 class clCreateImage2DTracer {
