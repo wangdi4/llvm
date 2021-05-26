@@ -60,7 +60,16 @@
 
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK-NOT: %1154
+
+; CHECK:       + DO i1 = 0, 4, 1   <DO_LOOP>
+; CHECK:          %i1154 =
+; CHECK:                 = %i1154;
+; CHECK:       + END LOOP
+
+; CHECK:       + DO i1 = 0, 9, 1   <DO_LOOP>
+; CHECK-NOT:      %i1154
+; CHECK:       + END LOOP
+
 ; CHECK: END REGION
 
 
