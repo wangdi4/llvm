@@ -84,7 +84,7 @@ extern Optional<uint64_t> getConstGEPIndex(const GEPOperator &GEP,
 // Helper routine to get the argument index corresponding to \p Val within the
 // call \p CI. If the operand is not passed to the function, or is in more than
 // one position, returns an empty object.
-extern Optional<unsigned int> getArgumentPosition(const CallInst &CI,
+extern Optional<unsigned int> getArgumentPosition(const CallBase &CI,
                                                   const Value *Val);
 
 // Check if the type matches the signature for a dope vector.
