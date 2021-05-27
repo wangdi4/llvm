@@ -53,13 +53,6 @@ OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPLoadStoreInst *Inst,
   if (HLLoop *Lp = Node->getParentLoop())
     Level = Lp->getNestingLevel();
 
-  // TODO: Masked case is not supported right now by VPOCG. As soon as OVLS
-  // still groups such masked memrefs, CM will try to reduce costs for them,
-  // thus it's better to disable collection of masked memrefs here by now.
-  // FIXME: This check is not complete for outer loop vectorization.
-  if (isa<HLIf>(DDNode->getParent()))
-    return nullptr;
-
   const RegDDRef *Ref = Inst->getHIRMemoryRef();
   if (!Ref)
     return nullptr;

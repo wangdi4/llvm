@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -enable-explicit-vplan-vls-hir -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
 ;
 ; Test to check vector code generated for input HIR with memrefs in an HLIF.
 ; Incoming HIR into the vectorizer has two loops that look like the following:
@@ -26,9 +26,9 @@
 ; CHECK: Function: foo
 ; CHECK:          DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
 ; CHECK-NEXT:       %.vls.load = (<8 x i64>*)(@sarr)[0][i1].0;
-; CHECK-NEXT:       %vls.shuf = shufflevector %.vls.load,  undef,  <i32 0, i32 2, i32 4, i32 6>;
-; CHECK-NEXT:       %vls.shuf1 = shufflevector %.vls.load,  undef,  <i32 1, i32 3, i32 5, i32 7>;
-; CHECK-NEXT:       %.vec = %vls.shuf == %vls.shuf1;
+; CHECK-NEXT:       %vls.extract = shufflevector %.vls.load, %.vls.load,  <i32 0, i32 2, i32 4, i32 6>;
+; CHECK-NEXT:       %vls.extract1 = shufflevector %.vls.load, %.vls.load,  <i32 1, i32 3, i32 5, i32 7>;
+; CHECK-NEXT:       %.vec = %vls.extract == %vls.extract1;
 ; CHECK-NEXT:       (<4 x i64>*)(@arr)[0][i1] = i1 + <i64 0, i64 1, i64 2, i64 3>; Mask = @{%.vec}
 ; CHECK-NEXT:     END LOOP
 ;

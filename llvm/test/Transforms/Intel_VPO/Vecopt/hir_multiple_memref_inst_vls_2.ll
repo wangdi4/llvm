@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -disable-output -enable-explicit-vplan-vls-hir -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
 ;
 ; Test to check that correct vector code is generated for input HIR with
 ; multiple memrefs in the same HLInst. Incoming HIR into the vectorizer
@@ -14,24 +14,26 @@
 ; appropriate shuffles. TODO - look into why we still generate scatters
 ; for the two stores.
 ;
-; CHECK:       DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize> <ivdep>
-; CHECK-NEXT:    %.vls.load = (<8 x float>*)(%src2)[i1].0;
-; CHECK-NEXT:    %vls.shuf = shufflevector %.vls.load,  undef,  <i32 0, i32 2, i32 4, i32 6>;
-; CHECK-NEXT:    %.vls.load1 = (<8 x float>*)(%src1)[i1].0;
-; CHECK-NEXT:    %vls.shuf2 = shufflevector %.vls.load1,  undef,  <i32 0, i32 2, i32 4, i32 6>;
-; CHECK-NEXT:    %.vec = %vls.shuf  +  %vls.shuf2;
-; CHECK-NEXT:    %vls.shuf3 = shufflevector %.vls.load,  undef,  <i32 1, i32 3, i32 5, i32 7>;
-; CHECK-NEXT:    %vls.shuf4 = shufflevector %.vls.load1,  undef,  <i32 1, i32 3, i32 5, i32 7>;
-; CHECK-NEXT:    %.vec5 = %vls.shuf3  +  %vls.shuf4;
-; CHECK-NEXT:    (<4 x float>*)(%dest)[i1 + <i64 0, i64 1, i64 2, i64 3>].0 = %.vec;
-; CHECK-NEXT:    (<4 x float>*)(%dest)[i1 + <i64 0, i64 1, i64 2, i64 3>].1 = %.vec5;
-; CHECK-NEXT:  END LOOP
-;
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree norecurse nounwind uwtable
 define dso_local void @foo({ float, float }* nocapture %dest, { float, float }* nocapture readonly %src1, { float, float }* nocapture readonly %src2) local_unnamed_addr #0 {
+; CHECK:       BEGIN REGION { modified }
+; CHECK-NEXT:        + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize> <ivdep>
+; CHECK-NEXT:        |   [[DOTVLS_LOAD0:%.*]] = (<8 x float>*)([[SRC20:%.*]])[i1].0
+; CHECK-NEXT:        |   [[VLS_EXTRACT0:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 0, i32 2, i32 4, i32 6>
+; CHECK-NEXT:        |   [[VLS_EXTRACT10:%.*]] = shufflevector [[DOTVLS_LOAD0]],  [[DOTVLS_LOAD0]],  <i32 1, i32 3, i32 5, i32 7>
+; CHECK-NEXT:        |   [[DOTVLS_LOAD20:%.*]] = (<8 x float>*)([[SRC10:%.*]])[i1].0
+; CHECK-NEXT:        |   [[VLS_EXTRACT30:%.*]] = shufflevector [[DOTVLS_LOAD20]],  [[DOTVLS_LOAD20]],  <i32 0, i32 2, i32 4, i32 6>
+; CHECK-NEXT:        |   [[VLS_EXTRACT40:%.*]] = shufflevector [[DOTVLS_LOAD20]],  [[DOTVLS_LOAD20]],  <i32 1, i32 3, i32 5, i32 7>
+; CHECK-NEXT:        |   [[DOTVEC0:%.*]] = [[VLS_EXTRACT0]]  +  [[VLS_EXTRACT30]]
+; CHECK-NEXT:        |   [[DOTVEC50:%.*]] = [[VLS_EXTRACT10]]  +  [[VLS_EXTRACT40]]
+; CHECK-NEXT:        |   (<4 x float>*)([[DEST0:%.*]])[i1 + <i64 0, i64 1, i64 2, i64 3>].0 = [[DOTVEC0]]
+; CHECK-NEXT:        |   (<4 x float>*)([[DEST0]])[i1 + <i64 0, i64 1, i64 2, i64 3>].1 = [[DOTVEC50]]
+; CHECK-NEXT:        + END LOOP
+; CHECK-NEXT:  END REGION
+;
 entry:
   br label %for.body
 

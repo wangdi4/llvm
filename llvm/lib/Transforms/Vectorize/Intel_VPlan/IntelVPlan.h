@@ -582,10 +582,6 @@ private:
   // VPInstruction.
   HIRSpecificsData HIRData;
 
-protected:
-  HIRSpecifics HIR() { return HIRSpecifics(*this); }
-  const HIRSpecifics HIR() const { return HIRSpecifics(*this); }
-
 private:
   /// Utility method serving execute(): generates a single instance of the
   /// modeled instruction.
@@ -822,6 +818,8 @@ public:
     // invalidation should be propagated to users as well.
   }
 
+  HIRSpecifics HIR() { return HIRSpecifics(*this); }
+  const HIRSpecifics HIR() const { return HIRSpecifics(*this); }
 };
 
 /// Instruction to set vector factor and unroll factor explicitly.
@@ -3252,6 +3250,9 @@ public:
       : VPInstruction(VPInstruction::VLSLoad, Ty, {Ptr}), GroupSize(GroupSize),
         Alignment(Alignment), NumOrigLoads(NumOrigLoads) {}
 
+  VPValue *getPointerOperand() const { return getOperand(0); }
+  Type *getValueType() const { return getType(); }
+
   int getGroupSize() const { return GroupSize; }
   Align getAlignment() const { return Alignment; }
   int getNumOrigLoads() const { return NumOrigLoads; }
@@ -3333,6 +3334,7 @@ public:
 
   VPValue *getValueOperand() const { return getOperand(0); }
   VPValue *getPointerOperand() const { return getOperand(1); }
+  Type *getValueType() const { return getValueOperand()->getType(); }
 
   int getGroupSize() const { return GroupSize; }
   Align getAlignment() const { return Alignment; }

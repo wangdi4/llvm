@@ -164,7 +164,7 @@ Optional<uint64_t> getConstGEPIndex(const GEPOperator &GEP,
   return None;
 }
 
-Optional<unsigned int> getArgumentPosition(const CallInst &CI,
+Optional<unsigned int> getArgumentPosition(const CallBase &CI,
                                            const Value *Val) {
   Optional<unsigned int> Pos;
   unsigned int ArgCount = CI.getNumArgOperands();
@@ -2164,25 +2164,12 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
     return SF->getConstantValue();
   };
 
-  if (!SI)
-    return false;
-
-  ConstantInt *GlobalElementSize = GlobalDVInfo->getDopeVectorField(
-      DopeVectorFieldType::DV_ElementSize)->getConstantValue();
-
-  bool AllocSiteFound = false;
-
-  // Unknown element size for the global dope vector, we can't collect the
-  // information for nested dope vectors. The element size of the global
-  // dope vector is needed to make sure that the stride in the subscript
-  // instruction is collecting the right number of bits when accessing
-  // each entry in the global array.
-  if (!GlobalElementSize || GetConstantStride(SI) != GlobalElementSize)
-    return false;
-
-  // Traverse through the users of the array entry and find the information
-  // related to the nested dope vectors
-  for (auto *U : SI->users()) {
+  // Return 'true' if 'U' is the user of a SubscriptInst that can be
+  // properly collected. In that case, update 'AllocSiteFound'.
+  //
+  auto CanCollectNDVSubscriptUser = [&, this](User *U,
+                                              const DataLayout &DL,
+                                              bool &AllocSiteFound) -> bool {
     if (auto *Call = bitCastUsedForAllocation(U, GetTLI)) {
       // A BitCast can used for allocating the array for the
       // nested dope vector at field 0. It represents a field 0 access.
@@ -2245,8 +2232,74 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
       // Subscript used for something else
       return false;
     }
-  }
+    return true;
+  };
 
+  // If 'U' is a user of 'V' and is passed as an actual argument of a
+  // CallBase, which calls a Function 'F' that is not address-taken and has
+  // IR, return the formal argument of 'F' corresponding to that actual
+  // argument. Otherwise, return 'nullptr'.
+  //
+  auto IsIPOPropagatable = [&](const Value *V, const User *U) -> Argument * {
+    if (isa<IntrinsicInst>(U))
+      return nullptr;
+    if (auto CB = dyn_cast<CallBase>(U)) {
+      if (CB->isIndirectCall())
+        return nullptr;
+      Function *F = CB->getCalledFunction();
+      if (!F || F->hasAddressTaken() || F->isDeclaration())
+        return nullptr;
+      if (auto ArgPos = getArgumentPosition(*CB, V))
+        return F->getArg(*ArgPos);
+    }
+    return nullptr;
+  };
+
+  // Return 'true' if each use of 'A' can be propagated to a CallBase that
+  // calls a Function with IR that is not address taken, or can be collected
+  // inside its Function as usual. Update 'AllocSiteFound' if the alloc site
+  // for the dope vector is found.
+  //
+  std::function<bool(Argument *, const DataLayout &, bool &)>
+      PropagateArgument = [&](Argument *A, const DataLayout &DL,
+                              bool &AllocSiteFound) -> bool {
+    for (User *U : A->users()) {
+      if (Argument *NewA = IsIPOPropagatable(A, U)) {
+        if (!PropagateArgument(NewA, DL, AllocSiteFound))
+          return false;
+      } else if (!CanCollectNDVSubscriptUser(U, DL, AllocSiteFound)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  if (!SI)
+    return false;
+
+  ConstantInt *GlobalElementSize = GlobalDVInfo->getDopeVectorField(
+      DopeVectorFieldType::DV_ElementSize)->getConstantValue();
+
+  bool AllocSiteFound = false;
+
+  // Unknown element size for the global dope vector, we can't collect the
+  // information for nested dope vectors. The element size of the global
+  // dope vector is needed to make sure that the stride in the subscript
+  // instruction is collecting the right number of bits when accessing
+  // each entry in the global array.
+  if (!GlobalElementSize || GetConstantStride(SI) != GlobalElementSize)
+    return false;
+
+  // Traverse through the users of the array entry and find the information
+  // related to the nested dope vectors
+  for (User *U : SI->users()) {
+    if (Argument *A = IsIPOPropagatable(SI, U)) {
+      if (!PropagateArgument(A, DL, AllocSiteFound))
+        return false;
+    } else if (!CanCollectNDVSubscriptUser(U, DL, AllocSiteFound)) {
+      return false;
+    }
+  }
   return true;
 }
 

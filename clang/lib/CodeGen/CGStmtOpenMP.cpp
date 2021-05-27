@@ -7299,15 +7299,18 @@ CodeGenFunction::GetLoopForHoisting(const OMPExecutableDirective &S,
       DKind == OMPD_target_teams_distribute_parallel_for_simd) {
     return Kind == OMPD_target ? cast<OMPLoopDirective>(&S) : nullptr;
   }
-  // Try to hoist a loop directly under a target
-  if (DKind == OMPD_target) {
-    if (const Stmt *CS = S.getInnermostCapturedStmt()->getCapturedStmt())
+  // Try to hoist a loop directly under a target or target teams
+  if (DKind == OMPD_target || DKind == OMPD_target_teams) {
+    if (const Stmt *CS = S.getInnermostCapturedStmt()->getCapturedStmt()) {
+      if (auto *TeamsDir = dyn_cast<OMPTeamsDirective>(CS))
+        CS = TeamsDir->getInnermostCapturedStmt()->getCapturedStmt();
       if (auto *LD = dyn_cast<OMPLoopDirective>(CS)) {
         LoopBoundsExprChecker Checker(*this, LD);
         if (!Checker.okayToHoistNonCombinedLoop(S))
           return nullptr;
         return LD;
       }
+    }
   }
   return nullptr;
 }
