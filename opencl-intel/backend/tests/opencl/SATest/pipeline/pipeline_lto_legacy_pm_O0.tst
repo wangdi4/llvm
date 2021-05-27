@@ -5,6 +5,8 @@
 ; CHECK:          DPCPPEqualizerLegacy
 ; CHECK-NEXT:     CallGraph Construction
 ; CHECK-NEXT:     LinearIdResolverLegacy
+; CHECK-NEXT:     FunctionPass Manager
+; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK-NEXT:     DPCPPKernelAnalysisLegacy
 ; CHECK:          WGLoopCreatorLegacy
 ; CHECK-NEXT:       FunctionPass Manager
@@ -21,5 +23,7 @@
 ; CHECK-NEXT:     AddImplicitArgsLegacy
 ; CHECK-NEXT:     ResolveWICallLegacy
 ; CHECK-NEXT:     BuiltinImportLegacy
+; CHECK-NEXT:     FunctionPass Manager
+; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK-NEXT:     PrepareKernelArgsLegacy
 ; CHECK-NEXT:     CleanupWrappedKernelLegacy

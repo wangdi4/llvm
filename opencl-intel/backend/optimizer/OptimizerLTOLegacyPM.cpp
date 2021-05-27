@@ -101,6 +101,7 @@ void OptimizerLTOLegacyPM::registerPipelineStartCallback(
         MPM.add(createParseAnnotateAttributesPass());
         MPM.add(createDPCPPEqualizerLegacyPass());
         MPM.add(createLinearIdResolverPass());
+        MPM.add(createBuiltinCallToInstLegacyPass());
         MPM.add(createDPCPPKernelAnalysisLegacyPass());
       });
 }
@@ -140,6 +141,7 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
         MPM.add(createAddImplicitArgsLegacyPass());
         MPM.add(createResolveWICallLegacyPass(false, false));
         MPM.add(createBuiltinImportLegacyPass(m_RtlModules, CPUPrefix));
+        MPM.add(createBuiltinCallToInstLegacyPass());
         MPM.add(createPrepareKernelArgsLegacyPass(false));
       });
 }
@@ -160,6 +162,7 @@ void OptimizerLTOLegacyPM::registerLastPasses() {
     MPM.add(createAddImplicitArgsLegacyPass());
     MPM.add(createResolveWICallLegacyPass(false, false));
     MPM.add(createBuiltinImportLegacyPass(m_RtlModules, CPUPrefix));
+    MPM.add(createBuiltinCallToInstLegacyPass());
     MPM.add(createPrepareKernelArgsLegacyPass(false));
   }
 
