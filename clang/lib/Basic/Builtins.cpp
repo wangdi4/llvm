@@ -80,6 +80,8 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
   bool BuiltinsUnsupported =
       (LangOpts.NoBuiltin || LangOpts.isNoBuiltinFunc(BuiltinInfo.Name)) &&
       strchr(BuiltinInfo.Attributes, 'f');
+  bool CorBuiltinsUnsupported =
+      !LangOpts.Coroutines && (BuiltinInfo.Langs & COR_LANG);
   bool MathBuiltinsUnsupported =
     LangOpts.NoMathBuiltin && BuiltinInfo.HeaderName &&
     llvm::StringRef(BuiltinInfo.HeaderName).equals("math.h");
@@ -101,10 +103,11 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
 #if INTEL_CUSTOMIZATION
   // First parameter should be exactly the return statement from community.
   return CheckIntelBuiltinSupported(
-      (!BuiltinsUnsupported && !MathBuiltinsUnsupported && !OclCUnsupported &&
-       !OclC1Unsupported && !OclC2Unsupported && !OpenMPUnsupported &&
-       !GnuModeUnsupported && !MSModeUnsupported && !ObjCUnsupported &&
-       !CPlusPlusUnsupported && !CUDAUnsupported), BuiltinInfo, LangOpts);
+        (!BuiltinsUnsupported && !CorBuiltinsUnsupported &&
+         !MathBuiltinsUnsupported && !OclCUnsupported && !OclC1Unsupported &&
+         !OclC2Unsupported && !OpenMPUnsupported && !GnuModeUnsupported &&
+         !MSModeUnsupported && !ObjCUnsupported && !CPlusPlusUnsupported &&
+         !CUDAUnsupported), BuiltinInfo, LangOpts);
 #endif // INTEL_CUSTOMIZATION
 }
 
