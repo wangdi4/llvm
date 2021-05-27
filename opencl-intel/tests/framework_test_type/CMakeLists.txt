@@ -76,13 +76,13 @@ endif (WIN32)
 
 add_ocl_unittest_artifacts(
   FILES
-    data/cached_binary_current_version.bin
-    data/cached_binary_without_section.bin
-    data/cached_binary_with_wrong_version.bin
+    cached_binary_current_version.bin
+    cached_binary_without_section.bin
+    cached_binary_with_wrong_version.bin
     data/fp-as-kernel-arg.spv
-    data/spec_const.spv
-    data/reqd_num_sub_groups_32.bc
-    data/reqd_num_sub_groups_64.bc
+    spec_const.spv
+    reqd_num_sub_groups_32.bc
+    reqd_num_sub_groups_64.bc
 )
 
 add_dependencies(${TARGET}
