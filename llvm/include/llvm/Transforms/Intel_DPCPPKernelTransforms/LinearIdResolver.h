@@ -26,7 +26,7 @@ public:
 
   static StringRef name() { return "LinearIdResolverPass"; }
 
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &FAM);
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
 
   // Glue for old PM.
   bool runImpl(Module &M, CallGraph *CG);

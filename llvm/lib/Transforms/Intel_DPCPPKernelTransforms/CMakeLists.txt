@@ -1,5 +1,6 @@
 add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   AddImplicitArgs.cpp
+  BuiltinCallToInst.cpp
   BuiltinImport.cpp
   DPCPPEqualizer.cpp
   DPCPPKernelTransforms.cpp
@@ -34,6 +35,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   Utils/NameMangleAPI.cpp
   Utils/ParameterType.cpp
   Utils/TypeAlignment.cpp
+  Utils/VectorizerUtils.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_DPCPPKernelTransforms

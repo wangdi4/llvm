@@ -19,6 +19,7 @@ template <typename T, unsigned N> class SmallVector;
 class StringRef;
 
 Pass *createParseAnnotateAttributesPass();
+FunctionPass *createBuiltinCallToInstLegacyPass();
 ModulePass *createBuiltinImportLegacyPass(
     const SmallVector<Module *, 2> &BuiltinModules = SmallVector<Module *, 2>(),
     StringRef CPUPrefix = "");

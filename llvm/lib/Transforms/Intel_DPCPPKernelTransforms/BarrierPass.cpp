@@ -1538,14 +1538,14 @@ INITIALIZE_PASS_BEGIN(
     KernelBarrierLegacy, DEBUG_TYPE,
     "KernelBarrierLegacy Pass - Handle special values & replace "
     "barrier/fiber with internal loop over WIs",
-    false, true)
+    false, false)
 INITIALIZE_PASS_DEPENDENCY(DataPerBarrierWrapper)
 INITIALIZE_PASS_DEPENDENCY(DataPerValueWrapper)
 INITIALIZE_PASS_END(
     KernelBarrierLegacy, DEBUG_TYPE,
     "KernelBarrierLegacy Pass - Handle special values & replace "
     "barrier/fiber with internal loop over WIs",
-    false, true)
+    false, false)
 
 char KernelBarrierLegacy::ID = 0;
 
