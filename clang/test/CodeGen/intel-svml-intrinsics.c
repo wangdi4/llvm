@@ -1647,14 +1647,14 @@ __m512 test_mm512_mask_pow_ps(__m512 A, __mmask16 B, __m512 C, __m512 D) {
 
 __m512 test_mm512_recip_ps(__m512 A) {
   // CHECK-AVX512F-LABEL: test_mm512_recip_ps
-  // CHECK-AVX512F: call svml_cc <16 x float> @__svml_rcpf16(<16 x float> %{{.*}})
+  // CHECK-AVX512F: fdiv <16 x float> %{{.*}}, %{{.*}}
   return _mm512_recip_ps(A);
 }
 
 __m512 test_mm512_mask_recip_ps(__m512 A, __mmask16 B, __m512 C) {
   // CHECK-AVX512F-LABEL: test_mm512_mask_recip_ps
-  // CHECK-AVX512F: [[MASK:%.*]] = bitcast i16 %{{.*}} to <16 x i1>
-  // CHECK-AVX512F: call svml_cc <16 x float> @__svml_rcpf16_mask(<16 x float> %{{.*}}, <16 x i1> [[MASK]], <16 x float> %{{.*}})
+  // CHECK-AVX512F: fdiv <16 x float> %{{.*}}, %{{.*}}
+  // CHECK-AVX512F: %{{.*}} = bitcast i16 %{{.*}} to <16 x i1>
   return _mm512_mask_recip_ps(A, B, C);
 }
 
@@ -2201,14 +2201,14 @@ __m512d test_mm512_mask_pow_pd(__m512d A, __mmask8 B, __m512d C, __m512d D) {
 
 __m512d test_mm512_recip_pd(__m512d A) {
   // CHECK-AVX512F-LABEL: test_mm512_recip_pd
-  // CHECK-AVX512F: call svml_cc <8 x double> @__svml_rcp8(<8 x double> %{{.*}})
+  // CHECK-AVX512F: fdiv <8 x double> %{{.*}}, %{{.*}}
   return _mm512_recip_pd(A);
 }
 
 __m512d test_mm512_mask_recip_pd(__m512d A, __mmask8 B, __m512d C) {
   // CHECK-AVX512F-LABEL: test_mm512_mask_recip_pd
-  // CHECK-AVX512F: [[MASK:%.*]] = bitcast i8 %{{.*}} to <8 x i1>
-  // CHECK-AVX512F: call svml_cc <8 x double> @__svml_rcp8_mask(<8 x double> %{{.*}}, <8 x i1> [[MASK]], <8 x double> %{{.*}})
+  // CHECK-AVX512F: fdiv <8 x double> %{{.*}}, %{{.*}}
+  // CHECK-AVX512F: %{{.*}} = bitcast i8 %{{.*}} to <8 x i1>
   return _mm512_mask_recip_pd(A, B, C);
 }
 
