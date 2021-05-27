@@ -169,8 +169,13 @@
 // RUN:  | FileCheck -check-prefix=THROUGHPUT-SINGLE %s
 // RUN: %clang_cl -Qopt-for-throughput:single-job -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=THROUGHPUT-SINGLE %s
-// THROUGHPUT-SINGLE: "-mllvm" "-disable-hir-nontemporal-marking"
-// THROUGHPUT-SINGLE: "-mllvm" "-disable-hir-cond-ldst-motion"
+// THROUGHPUT-SINGLE: "-mllvm" "-throughput-opt=1"
+
+// RUN: %clang -qopt-for-throughput=multi-job -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=THROUGHPUT-MULTI %s
+// RUN: %clang_cl -Qopt-for-throughput:multi-job -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=THROUGHPUT-MULTI %s
+// THROUGHPUT-MULTI: "-mllvm" "-throughput-opt=2"
 
 // RUN: %clang -qopt-for-throughput=badarg -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=THROUGHPUT-BADARG %s

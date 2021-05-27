@@ -855,15 +855,16 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
 
   // -qopt-for-throughput=<arg>
   if (Arg *A = Args.getLastArg(options::OPT_qopt_for_throughput_EQ)) {
-    StringRef Val = A->getValue();
-    if (!Val.empty()) {
-      if (Val.equals("single-job")) {
-        addllvmOption("-disable-hir-nontemporal-marking");
-        addllvmOption("-disable-hir-cond-ldst-motion");
-      } else if (!Val.equals("multi-job"))
-        TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option) << Val
-            << A->getOption().getName();
-    }
+    StringRef Val;
+    Val = llvm::StringSwitch<StringRef>(A->getValue())
+              .Case("single-job", "1")
+              .Case("multi-job", "2")
+              .Default("");
+    if (Val.empty())
+      TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option)
+          << A->getValue() << A->getOption().getName();
+    else
+      addllvmOption(Args.MakeArgString(Twine("-throughput-opt=") + Val));
   }
 
   // Handle --intel defaults.  Do not add for SYCL device (DPC++)
