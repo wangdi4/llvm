@@ -2452,10 +2452,6 @@ private:
       const DenseMap<unsigned, unsigned> &OrigToCloneIndexMap,
       SmallVectorImpl<const RegDDRef *> &AuxRefs) {
 
-    SmallVector<std::pair<unsigned, unsigned>, 16> BlobIndexMap;
-    std::copy(OrigToCloneIndexMap.begin(), OrigToCloneIndexMap.end(),
-              std::back_inserter(BlobIndexMap));
-
     assert(InnermostLoopToAdjustingRef.size() > 0);
     LLVMContext &Context = (*InnermostLoopToAdjustingRef.begin())
                                .first->getHLNodeUtils()
@@ -2480,7 +2476,7 @@ private:
           continue;
 
         RegDDRef *NewLBRef = TargetLoop->getLowerDDRef()->clone();
-        bool Replaced = NewLBRef->replaceTempBlobs(BlobIndexMap);
+        bool Replaced = NewLBRef->replaceTempBlobs(OrigToCloneIndexMap);
         (void)Replaced;
         AlignedLowerBounds[DimNum - 1].push_back(
             NewLBRef->getSingleCanonExpr());
@@ -2490,7 +2486,7 @@ private:
                    NewLBRef->dump(1); dbgs() << "\n");
 
         RegDDRef *NewUBRef = TargetLoop->getUpperDDRef()->clone();
-        Replaced = NewUBRef->replaceTempBlobs(BlobIndexMap);
+        Replaced = NewUBRef->replaceTempBlobs(OrigToCloneIndexMap);
         AlignedUpperBounds[DimNum - 1].push_back(
             NewUBRef->getSingleCanonExpr());
         AuxRefs.push_back(TargetLoop->getUpperDDRef());
