@@ -1268,6 +1268,14 @@ def int_directive_region_entry : Intrinsic<[llvm_token_ty], [], []>;
 def int_directive_region_exit  : Intrinsic<[], [llvm_token_ty], []>;
 // end INTEL_COLLAB
 
+def int_experimental_gc_get_pointer_base : Intrinsic<[llvm_anyptr_ty],
+                 [llvm_anyptr_ty], [IntrNoMem, IntrWillReturn,
+                 ReadNone<ArgIndex<0>>, NoCapture<ArgIndex<0>>]>;
+
+def int_experimental_gc_get_pointer_offset : Intrinsic<[llvm_i64_ty],
+                 [llvm_anyptr_ty], [IntrNoMem, IntrWillReturn,
+                 ReadNone<ArgIndex<0>>, NoCapture<ArgIndex<0>>]>;
+
 //===------------------------ Coroutine Intrinsics ---------------===//
 // These are documented in docs/Coroutines.rst
 
