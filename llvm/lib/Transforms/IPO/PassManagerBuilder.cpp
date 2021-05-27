@@ -972,8 +972,13 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
   }
 
   if (IsLTO) {
-    PM.add(createCFGSimplificationPass(SimplifyCFGOptions() // if-convert
-                                           .hoistCommonInsts(true)));
+#if INTEL_CUSTOMIZATION
+    // 28038: Avoid excessive hoisting as it increases register pressure and
+    // select conversion without clear gains.
+    // PM.add(createCFGSimplificationPass(SimplifyCFGOptions() // if-convert
+    //                                       .hoistCommonInsts(true)));
+    PM.add(createCFGSimplificationPass());
+#endif // INTEL_CUSTOMIZATION
   } else {
     // Now that we've formed fast to execute loop structures, we do further
     // optimizations. These are run afterward as they might block doing complex
@@ -2023,8 +2028,13 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
     PM.add(createHotColdSplittingPass());
 
   // Delete basic blocks, which optimization passes may have killed.
-  PM.add(
-      createCFGSimplificationPass(SimplifyCFGOptions().hoistCommonInsts(true)));
+#if INTEL_CUSTOMIZATION
+  // 28038: Avoid excessive hoisting as it increases register pressure and
+  // select conversion without clear gains.
+  // PM.add(
+  //   createCFGSimplificationPass(SimplifyCFGOptions().hoistCommonInsts(true)));
+  PM.add(createCFGSimplificationPass());
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   // HIR complete unroll can expose opportunities for optimizing globals and
