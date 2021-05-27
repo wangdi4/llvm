@@ -60,8 +60,6 @@ protected:
     m_queue = clCreateCommandQueueWithProperties(m_context, m_device,
                                                  properties, &err);
     ASSERT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties");
-
-    m_buildOptions = "-cl-std=CL2.0";
   }
 
   virtual void TearDown() override {
@@ -78,7 +76,7 @@ protected:
     ASSERT_OCL_SUCCESS(err, "clReleaseContext");
   }
 
-  void BuildProgram(unsigned workDim, bool createKernel = true) {
+  void BuildProgram(unsigned workDim) {
     ASSERT_TRUE(workDim == 1 || workDim == 2 || workDim == 3);
     const char *source;
     if (workDim == 1)
@@ -118,18 +116,16 @@ protected:
     m_program = clCreateProgramWithSource(m_context, 1, &source, nullptr, &err);
     ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
 
-    err = clBuildProgram(m_program, 1, &m_device, m_buildOptions.c_str(),
-                         nullptr, nullptr);
+    err = clBuildProgram(m_program, 1, &m_device, "-cl-std=CL2.0", nullptr,
+                         nullptr);
     if (CL_SUCCESS != err) {
       std::string log;
       ASSERT_NO_FATAL_FAILURE(GetBuildLog(m_device, m_program, log));
       FAIL() << log;
     }
 
-    if (createKernel) {
-      m_kernel = clCreateKernel(m_program, "test", &err);
-      ASSERT_OCL_SUCCESS(err, "clCreateKernel test");
-    }
+    m_kernel = clCreateKernel(m_program, "test", &err);
+    ASSERT_OCL_SUCCESS(err, "clCreateKernel test");
   }
 
   bool IsNegative(unsigned workDim) {
@@ -154,7 +150,6 @@ protected:
   cl_context m_context;
   cl_command_queue m_queue;
   cl_program m_program;
-  std::string m_buildOptions;
   cl_kernel m_kernel;
 
   std::vector<int> m_forceWGSize;
@@ -222,49 +217,6 @@ TEST_P(ForceWGSizeTest, dim1Null) {
 
   for (size_t i = 0; i < dummy.size(); ++i)
     ASSERT_EQ(i, dummy[i]);
-}
-
-TEST_P(ForceWGSizeTest, dim1AOT) {
-  unsigned workDim = 1;
-  ASSERT_NO_FATAL_FAILURE(BuildProgram(workDim, /*createKernel*/ false));
-
-  cl_program program;
-  ASSERT_NO_FATAL_FAILURE(CreateAndBuildProgramFromProgramBinaries(
-      m_context, m_device, m_buildOptions, m_program, program));
-
-  cl_int err;
-  m_kernel = clCreateKernel(program, "test", &err);
-  ASSERT_OCL_SUCCESS(err, "clCreateKernel test");
-
-  cl_int result = 0;
-  err = clSetKernelArgMemPointerINTEL(m_kernel, 0, &result);
-  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
-
-  size_t gdim = 32;
-  size_t ldim = 4;
-
-  std::vector<cl_int> dummy(gdim);
-  err = clSetKernelArgMemPointerINTEL(m_kernel, 1, &dummy[0]);
-  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
-
-  err = clEnqueueNDRangeKernel(m_queue, m_kernel, workDim, nullptr, &gdim,
-                               &ldim, 0, nullptr, nullptr);
-  if (IsNegative(workDim) || IsGreater(workDim, &gdim)) {
-    ASSERT_EQ(err, CL_INVALID_WORK_GROUP_SIZE);
-    return;
-  }
-  ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
-
-  err = clFinish(m_queue);
-  ASSERT_OCL_SUCCESS(err, "clFinish");
-
-  ASSERT_EQ(m_forceWGSize[0], result);
-
-  for (size_t i = 0; i < dummy.size(); ++i)
-    ASSERT_EQ(i, dummy[i]);
-
-  err = clReleaseProgram(program);
-  ASSERT_OCL_SUCCESS(err, "clReleaseProgram");
 }
 
 TEST_P(ForceWGSizeTest, dim2) {
