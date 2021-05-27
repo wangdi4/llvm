@@ -3,7 +3,9 @@
 
 // UNSUPPORTED: cuda
 
-#include <sycl/sycl.hpp>
+/* INTEL_CUSTOMIZATION */
+#include <CL/sycl.hpp>
+/* end INTEL_CUSTOMIZATION */
 
 #include <cmath>
 
