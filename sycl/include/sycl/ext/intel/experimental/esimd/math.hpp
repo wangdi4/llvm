@@ -12,7 +12,7 @@
 
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
-#include <sycl/ext/intel/experimental/esimd/esimd_view.hpp>
+#include <sycl/ext/intel/experimental/esimd/simd_view.hpp>
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 #include <sycl/ext/intel/experimental/esimd/common.hpp>
