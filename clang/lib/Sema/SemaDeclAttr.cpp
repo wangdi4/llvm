@@ -350,6 +350,7 @@ void Sema::CheckDeprecatedSYCLAttributeSpelling(const ParsedAttr &A,
 
   // Additionally, diagnose the old [[intel::ii]] spelling.
   if (A.getKind() == ParsedAttr::AT_SYCLIntelFPGAInitiationInterval &&
+      A.hasScope() && A.getSyntax() != ParsedAttr::AS_Pragma && // INTEL
       A.getAttrName()->isStr("ii")) {
     DiagnoseDeprecatedAttribute(A, "intel", "initiation_interval");
     return;
