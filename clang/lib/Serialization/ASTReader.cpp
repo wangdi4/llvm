@@ -11754,6 +11754,9 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_data:
     C = OMPDataClause::CreateEmpty(Context, Record.readInt());
     break;
+  case llvm::omp::OMPC_align:
+    C = new (Context) OMPAlignClause();
+    break;
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case llvm::omp::OMPC_tile:
@@ -12091,6 +12094,11 @@ void OMPClauseReader::VisitOMPDataClause(OMPDataClause *C) {
   for (unsigned I = 0, E = C->getNumDataClauseVals(); I < E; ++I) {
     C->setDataInfo(I, Record.readSubExpr());
   }
+}
+
+void OMPClauseReader::VisitOMPAlignClause(OMPAlignClause *C) {
+  C->setAlignment(Record.readExpr());
+  C->setLParenLoc(Record.readSourceLocation());
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

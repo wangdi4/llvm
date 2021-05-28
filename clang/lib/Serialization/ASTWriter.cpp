@@ -4997,6 +4997,9 @@ void ASTWriter::WriteDeclUpdatesBlocks(RecordDataImpl &OffsetsRecord) {
         auto *A = D->getAttr<OMPAllocateDeclAttr>();
         Record.push_back(A->getAllocatorType());
         Record.AddStmt(A->getAllocator());
+#if INTEL_COLLAB
+        Record.AddStmt(A->getAlignment());
+#endif // INTEL_COLLAB
         Record.AddSourceRange(A->getRange());
         break;
       }
@@ -6069,6 +6072,11 @@ void OMPClauseWriter::VisitOMPDataClause(OMPDataClause *C) {
   Record.push_back(C->getNumDataClauseVals());
   for (auto *E : C->val_exprs())
     Record.AddStmt(E);
+}
+
+void OMPClauseWriter::VisitOMPAlignClause(OMPAlignClause *C) {
+  Record.AddStmt(C->getAlignment());
+  Record.AddSourceLocation(C->getLParenLoc());
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

@@ -1724,6 +1724,12 @@ void OMPClausePrinter::VisitOMPDataClause(OMPDataClause *Node) {
   }
   OS << ")";
 }
+
+void OMPClausePrinter::VisitOMPAlignClause(OMPAlignClause *Node) {
+  OS << "align(";
+  Node->getAlignment()->printPretty(OS, nullptr, Policy, 0);
+  OS << ")";
+}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClausePrinter::VisitOMPTileClause(OMPTileClause *Node) {

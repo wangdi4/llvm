@@ -314,6 +314,9 @@ def OMPC_Subdevice : Clause<"subdevice"> {
 def OMPC_Data : Clause<"data"> {
   let clangClass = "OMPDataClause";
 }
+def OMPC_Align : Clause<"align"> {
+  let clangClass = "OMPAlignClause";
+}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 def OMPC_tile : Clause<"tile"> {
@@ -1594,6 +1597,9 @@ def OMP_TargetTeamsDistributeSimd :
 }
 def OMP_Allocate : Directive<"allocate"> {
   let allowedOnceClauses = [
+#if INTEL_COLLAB
+    VersionedClause<OMPC_Align, 51>,
+#endif // INTEL_COLLAB
     VersionedClause<OMPC_Allocator>
   ];
 }

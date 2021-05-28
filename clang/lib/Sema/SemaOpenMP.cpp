@@ -3180,16 +3180,32 @@ static bool checkPreviousOMPAllocateAttribute(
 static void
 applyOMPAllocateAttribute(Sema &S, VarDecl *VD,
                           OMPAllocateDeclAttr::AllocatorTypeTy AllocatorKind,
+#if INTEL_COLLAB
+                          Expr *Allocator, Expr *Alignment, SourceRange SR) {
+#else // INTEL_COLLAB
                           Expr *Allocator, SourceRange SR) {
+#endif // INTEL_COLLAB
   if (VD->hasAttr<OMPAllocateDeclAttr>())
     return;
+#if INTEL_COLLAB
+  if (Alignment &&
+      (Alignment->isTypeDependent() || Alignment->isValueDependent() ||
+       Alignment->isInstantiationDependent() ||
+       Alignment->containsUnexpandedParameterPack()))
+    // Apply later when we have a usable value.
+    return;
+#endif // INTEL_COLLAB
   if (Allocator &&
       (Allocator->isTypeDependent() || Allocator->isValueDependent() ||
        Allocator->isInstantiationDependent() ||
        Allocator->containsUnexpandedParameterPack()))
     return;
   auto *A = OMPAllocateDeclAttr::CreateImplicit(S.Context, AllocatorKind,
+#if INTEL_COLLAB
+                                                Allocator, Alignment, SR);
+#else // INTEL_COLLAB
                                                 Allocator, SR);
+#endif // INTEL_COLLAB
   VD->addAttr(A);
   if (ASTMutationListener *ML = S.Context.getASTMutationListener())
     ML->DeclarationMarkedOpenMPAllocate(VD, A);
@@ -3198,7 +3214,12 @@ applyOMPAllocateAttribute(Sema &S, VarDecl *VD,
 Sema::DeclGroupPtrTy Sema::ActOnOpenMPAllocateDirective(
     SourceLocation Loc, ArrayRef<Expr *> VarList,
     ArrayRef<OMPClause *> Clauses, DeclContext *Owner) {
-  assert(Clauses.size() <= 1 && "Expected at most one clause.");
+#if INTEL_COLLAB
+  assert(Clauses.size() <= 2 && "Expected at most two clauses.");
+  Expr *Alignment = nullptr;
+#else // INTEL_COLLAB
+   assert(Clauses.size() <= 1 && "Expected at most one clause.");
+#endif // INTEL_COLLAB
   Expr *Allocator = nullptr;
   if (Clauses.empty()) {
     // OpenMP 5.0, 2.11.3 allocate Directive, Restrictions.
@@ -3209,7 +3230,17 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPAllocateDirective(
         !DSAStack->hasRequiresDeclWithClause<OMPDynamicAllocatorsClause>())
       targetDiag(Loc, diag::err_expected_allocator_clause);
   } else {
+#if INTEL_COLLAB
+    for (const OMPClause *C : Clauses)
+      if (const auto *AC = dyn_cast<OMPAllocatorClause>(C))
+        Allocator = AC->getAllocator();
+      else if (const auto *AC = dyn_cast<OMPAlignClause>(C))
+        Alignment = AC->getAlignment();
+      else
+        llvm_unreachable("Unexpected clause on allocate directive");
+#else // INTEL_COLLAB
     Allocator = cast<OMPAllocatorClause>(Clauses.back())->getAllocator();
+#endif // INTEL_COLLAB
   }
   OMPAllocateDeclAttr::AllocatorTypeTy AllocatorKind =
       getAllocatorKind(*this, DSAStack, Allocator);
@@ -3267,6 +3298,9 @@ Sema::DeclGroupPtrTy Sema::ActOnOpenMPAllocateDirective(
 
     Vars.push_back(RefExpr);
     applyOMPAllocateAttribute(*this, VD, AllocatorKind, Allocator,
+#if INTEL_COLLAB
+                              Alignment,
+#endif // INTEL_COLLAB
                               DE->getSourceRange());
   }
   if (Vars.empty())
@@ -5400,7 +5434,13 @@ static void checkAllocateClauses(Sema &S, DSAStackTy *Stack,
       if (checkPreviousOMPAllocateAttribute(S, Stack, E, PrivateVD,
                                             AllocatorKind, AC->getAllocator()))
         continue;
+#if INTEL_COLLAB
+      Expr *Alignment = nullptr;
+#endif // INTEL_COLLAB
       applyOMPAllocateAttribute(S, PrivateVD, AllocatorKind, AC->getAllocator(),
+#if INTEL_COLLAB
+                                Alignment,
+#endif // INTEL_COLLAB
                                 E->getSourceRange());
     }
   }
@@ -13882,6 +13922,11 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_allocator:
     Res = ActOnOpenMPAllocatorClause(Expr, StartLoc, LParenLoc, EndLoc);
     break;
+#if INTEL_COLLAB
+  case OMPC_align:
+    Res = ActOnOpenMPAlignClause(Expr, StartLoc, LParenLoc, EndLoc);
+    break;
+#endif // INTEL_COLLAB
   case OMPC_collapse:
     Res = ActOnOpenMPCollapseClause(Expr, StartLoc, LParenLoc, EndLoc);
     break;
@@ -15276,7 +15321,11 @@ ExprResult Sema::VerifyPositiveIntegerConstantInClause(Expr *E,
         << E->getSourceRange();
     return ExprError();
   }
+#if INTEL_COLLAB
+  if ((CKind == OMPC_aligned || CKind == OMPC_align) && !Result.isPowerOf2()) {
+#else // INTEL_COLLAB
   if (CKind == OMPC_aligned && !Result.isPowerOf2()) {
+#endif // INTEL_COLLAB
     Diag(E->getExprLoc(), diag::warn_omp_alignment_not_power_of_two)
         << E->getSourceRange();
     return ExprError();
@@ -15386,6 +15435,19 @@ OMPClause *Sema::ActOnOpenMPAllocatorClause(Expr *A, SourceLocation StartLoc,
   return new (Context)
       OMPAllocatorClause(Allocator.get(), StartLoc, LParenLoc, EndLoc);
 }
+
+#if INTEL_COLLAB
+OMPClause *Sema::ActOnOpenMPAlignClause(Expr *A, SourceLocation StartLoc,
+                                        SourceLocation LParenLoc,
+                                        SourceLocation EndLoc) {
+  ExprResult AlignVal;
+  AlignVal = VerifyPositiveIntegerConstantInClause(A, OMPC_align);
+  if (AlignVal.isInvalid())
+    return nullptr;
+  return new (Context)
+      OMPAlignClause(AlignVal.get(), StartLoc, LParenLoc, EndLoc);
+}
+#endif // INTEL_COLLAB
 
 OMPClause *Sema::ActOnOpenMPCollapseClause(Expr *NumForLoops,
                                            SourceLocation StartLoc,
