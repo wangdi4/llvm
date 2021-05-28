@@ -39,6 +39,7 @@
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #if INTEL_COLLAB
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #endif // INTEL_COLLAB
@@ -52,6 +53,9 @@
 #include <vector>
 
 using namespace llvm;
+#if INTEL_COLLAB
+using namespace vpo;
+#endif // INTEL_COLLAB
 
 #define DEBUG_TYPE "basicblock-utils"
 
@@ -1059,6 +1063,48 @@ static void UpdatePHINodes(BasicBlock *OrigBB, BasicBlock *NewBB,
   }
 }
 
+#if INTEL_COLLAB
+// If the exit block is a catchswitch, we can remove any incoming edges from
+// OpenMP regions.
+// Otherwise, we can't do anything.
+// Sets NewBB to ExitBB if success, nullptr if failed.
+static void RemoveCatchSwitchOMPPreds(BasicBlock *ExitBB,
+                                      ArrayRef<BasicBlock *> SplitPreds,
+                                      BasicBlock *&NewBB, DominatorTree *DT,
+                                      DomTreeUpdater *DTU) {
+#ifndef NDEBUG
+  Instruction *FirstNonPHI = ExitBB->getFirstNonPHI();
+  assert(isa<CatchSwitchInst>(FirstNonPHI) &&
+         "This block must be a catchswitch block.\n");
+  assert(DT && "This function must update the domtree.");
+  LLVM_DEBUG(dbgs() << "Exit is catchswitch: " << *FirstNonPHI << "\n");
+#endif // NDEBUG
+  // If all of the in-loop preds are inside OpenMP regions, we can break the
+  // edges by converting invoke to call.
+  for (auto *PredBB : SplitPreds) {
+    auto *Term = PredBB->getTerminator();
+    if (!isa<InvokeInst>(Term) ||
+        !VPOUtils::enclosingBeginDirective(PredBB->getTerminator(), DT)) {
+      LLVM_DEBUG(
+          dbgs()
+          << "Pred must be OpenMP region, cannot break incoming edge.\n");
+      NewBB = nullptr;
+      return;
+    }
+  }
+  for (auto *PredBB : SplitPreds) {
+    InvokeInst *II = cast<InvokeInst>(PredBB->getTerminator());
+    LLVM_DEBUG(dbgs() << "Changing to call:" << *II << "\n");
+    changeToCall(II, DTU);
+    if (!DTU)
+      DT->deleteEdge(PredBB, ExitBB);
+  }
+  if (DTU)
+    DTU->flush();
+  NewBB = ExitBB;
+}
+#endif // INTEL_COLLAB
+
 static void SplitLandingPadPredecessorsImpl(
     BasicBlock *OrigBB, ArrayRef<BasicBlock *> Preds, const char *Suffix1,
     const char *Suffix2, SmallVectorImpl<BasicBlock *> &NewBBs,
@@ -1084,15 +1130,21 @@ SplitBlockPredecessorsImpl(BasicBlock *BB, ArrayRef<BasicBlock *> Preds,
                                     DTU, DT, LI, MSSAU, PreserveLCSSA);
     return NewBBs[0];
   }
-#ifdef INTEL_CUSTOMIZATION
-  // For EHPads we can currently handle splittig of only CleanupPadInstr.
+#if INTEL_COLLAB
+  // We can also handle exits that are cleanuppads and catchswitches.
+  // The catchswitch exit splitting only works for OpenMP (because we can
+  // break escaping edges)
   if (BB->isEHPad()) {
-    BasicBlock *NewBB;
-    SplitEHPadPredecessors(BB, Preds, Suffix, NewBB, DTU, DT, LI, MSSAU,
-                           PreserveLCSSA);
+    BasicBlock *NewBB = nullptr;
+    if (isa<CleanupPadInst>(BB->getFirstNonPHI()))
+      SplitCleanupPadPredecessors(BB, Preds, Suffix, NewBB, DTU, DT, LI, MSSAU,
+                                  PreserveLCSSA);
+    else if (isa<CatchSwitchInst>(BB->getFirstNonPHI()))
+      RemoveCatchSwitchOMPPreds(BB, Preds, NewBB, DT, DTU);
+    // If we couldn't handle this kind of EHPad, nullptr is returned.
     return NewBB;
   }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
   // Create new basic block, insert right before the original block.
   BasicBlock *NewBB = BasicBlock::Create(
@@ -1282,34 +1334,67 @@ static void SplitLandingPadPredecessorsImpl(
   }
 }
 
-#ifdef INTEL_CUSTOMIZATION
-void llvm::SplitEHPadPredecessors(BasicBlock *OrigBB,
-                                  ArrayRef<BasicBlock *> Preds,
-                                  const char *Suffix, BasicBlock *&NewBB,
-                                  DomTreeUpdater *DTU, DominatorTree *DT,
-                                  LoopInfo *LI, MemorySSAUpdater *MSSAU,
-                                  bool PreserveLCSSA) {
-  assert(OrigBB->isEHPad() && "Trying to split a non-EH pad!");
-
+#ifdef INTEL_COLLAB
+// Given a cleanuppad "OrigBB", splits predecessors in SplitPreds to a new
+// block. Sets NewBB to this new block. The new block's successor is OrigBB.
+void llvm::SplitCleanupPadPredecessors(BasicBlock *OrigBB,
+                                       ArrayRef<BasicBlock *> SplitPreds,
+                                       const char *Suffix, BasicBlock *&NewBB,
+                                       DomTreeUpdater *DTU, DominatorTree *DT,
+                                       LoopInfo *LI, MemorySSAUpdater *MSSAU,
+                                       bool PreserveLCSSA) {
   Instruction *FirstNonPHI = OrigBB->getFirstNonPHI();
   assert(isa<CleanupPadInst>(FirstNonPHI) &&
          "Cannot split other EHPads besides a CleanupPadInst.");
+  assert(DT && "This function must update the DomTree.");
 
-  // Check all Pred of OrigBB, if any have catchswitch with this CleanupPadInst
-  // as an unwind label, we will refrain from breaking this edge.
-  // If we break this critical edge, we might change the unwind edges of some
-  // catchpads in the parent catchswitch, but not all. This will might break the
-  // rule that the unwind edges out of a catch must have the same unwind dest as
-  // the parent catchswitch.
-
-  for (pred_iterator i = pred_begin(OrigBB), e = pred_end(OrigBB); i != e;
-       i++) {
-    BasicBlock *Pred = *i;
-    Instruction *Term = Pred->getTerminator();
-    if (isa<CatchSwitchInst>(Term) &&
-        (dyn_cast<CatchSwitchInst>(Term))->getUnwindDest() == OrigBB) {
-      NewBB =  nullptr;
-      return;
+  // CMPLRLLVM-26987:
+  // Critical edge splitting means that we are moving a subset of OrigBB's
+  // predecessors to a new block, separating them from the other predecessors.
+  // This is used by loop rotation to guarantee that the loop exit block
+  // only has in-loop predecessors.
+  // If one of the in-loop preds is a catchswitch, we may have this
+  // situation:
+  //
+  // catchswitch_block: ; inside loop. Has 2 successors, both are exits
+  //   %selector = catchswitch %throw_target unwind %cleanup
+  //
+  // throw_target: ; ("catch handler", an exit block)
+  //   catchpad for %selector..
+  //   br throw_target_succ
+  //
+  // throw_target_succ: ; 2nd block of catch handler
+  //   invoke func() unwind %cleanup
+  //
+  // cleanup: ; (exit block) preds %catchswitch_block, %throw_target_succ
+  //   cleanuppad for ....
+  //   call terminate()
+  //
+  // The cleanup block has 1 pred inside the loop (the catchswitch)
+  // and 1 pred outside the loop (the function call in the catch handler).
+  // We need to separate the unwind edge from the catchswitch, so that
+  // the cleanup block only has in-loop preds.
+  // But this is explicitly forbidden by LLVM, as a catchswitch and its
+  // catch body insts must all have the same unwind destination.
+  // If this is an OpenMP loop, we can just break the out-of-loop edge
+  // (from the invoke) as any path from the catchswitch outside the loop,
+  // is undefined. Then we generate a new cleanup block that is only reachable
+  // from inside the loop.
+  bool NeedCSFixup = false;
+  for (auto *PredBB : predecessors(OrigBB)) {
+    if (auto *CSI = dyn_cast<CatchSwitchInst>(PredBB->getTerminator())) {
+      // If one of the preds is a catchswitch, this had better be an
+      // OpenMP loop. Otherwise we can't fix it without changing program
+      // semantics.
+      LLVM_DEBUG(dbgs() << "Catchswitch pred: " << *CSI << "\n");
+      if (!VPOUtils::enclosingBeginDirective(CSI, DT)) {
+        LLVM_DEBUG(dbgs() << "Cannot rotate.\n");
+        return;
+      } else {
+        LLVM_DEBUG(dbgs() << "In OMP loop, can break other edges.\n");
+        NeedCSFixup = true;
+        break;
+      }
     }
   }
 
@@ -1318,7 +1403,7 @@ void llvm::SplitEHPadPredecessors(BasicBlock *OrigBB,
   // cleanuppad and cleanupret with unwind to OrigBB.
   //
   // Eg:
-  // Before SplitEHPadPredecessors:
+  // Before SplitCleanupPadPredecessors:
   // ------------------
   // loopbasicblock:                           ; preds = %someloopBB
   // ....
@@ -1335,7 +1420,7 @@ void llvm::SplitEHPadPredecessors(BasicBlock *OrigBB,
   // cleanupret from %num unwind to caller
   // ------------------
   //
-  // After SplitEHPadPredecessors:
+  // After SplitCleanupPadPredecessors:
   // ------------------
   // loopbasicblock:                           ; preds = %loopBB
   // ....
@@ -1356,7 +1441,7 @@ void llvm::SplitEHPadPredecessors(BasicBlock *OrigBB,
   // cleanupret from %num unwind to caller
   // ------------------
 
-  // Create a new basic block for OrigBB's predecessors listed in Preds.
+  // Create a new basic block for OrigBB's predecessors listed in SplitPreds.
   // Insert it right before the original block.
   NewBB = BasicBlock::Create(OrigBB->getContext(), OrigBB->getName() + Suffix,
                              OrigBB->getParent(), OrigBB);
@@ -1374,26 +1459,43 @@ void llvm::SplitEHPadPredecessors(BasicBlock *OrigBB,
   Clone->setDebugLoc(FirstNonPHI->getDebugLoc());
   CPadRet->setDebugLoc(FirstNonPHI->getDebugLoc());
 
-  // Move the edges from Preds to point to NewBB instead of OrigBB by changing
-  // the invoke instruction.
-  for (unsigned i = 0, e = Preds.size(); i != e; ++i) {
+  // Move the edges from SplitPreds to point to NewBB instead of OrigBB by
+  // changing the invoke instruction.
+  for (auto *Pred : SplitPreds) {
+    auto *TermI = Pred->getTerminator();
     // This is slightly more strict than necessary; the minimum requirement
     // is that there be no more than one indirectbr branching to BB. And
     // all BlockAddress uses would need to be updated.
-    assert(!isa<IndirectBrInst>(Preds[i]->getTerminator()) &&
+    assert(!isa<IndirectBrInst>(TermI) &&
            "Cannot split an edge from an IndirectBrInst");
-
-    Preds[i]->getTerminator()->replaceUsesOfWith(OrigBB, NewBB);
+    TermI->replaceUsesOfWith(OrigBB, NewBB);
+  }
+  bool HasLoopExit = false;
+  UpdateAnalysisInformation(OrigBB, NewBB, SplitPreds, DTU, DT, LI, MSSAU,
+                            PreserveLCSSA, HasLoopExit);
+  // This needs to be done after the analysis update, as the DT must be
+  // correct before we update the DT again below.
+  if (NeedCSFixup) {
+    // Copy the block preds, as we may be modifying them.
+    SmallVector<BasicBlock *, 4> PredsCopy(predecessors(OrigBB));
+    for (auto *Pred : PredsCopy) {
+      // If we moved a catchswitch unwind edge to NewBB, the verifier will
+      // require that all other unwind edges also go to NewBB (which defeats
+      // the purpose of splitting.) For OpenMP loops, just break the other
+      // edges as all these exit paths are undefined anyway.
+      if (auto *II = dyn_cast<InvokeInst>(Pred->getTerminator())) {
+        LLVM_DEBUG(dbgs() << "Changed to call:" << II << "\n");
+        changeToCall(II, DTU);
+        if (!DTU)
+          DT->deleteEdge(Pred, OrigBB);
+      }
+    }
   }
 
-  bool HasLoopExit = false;
-  UpdateAnalysisInformation(OrigBB, NewBB, Preds, DTU, DT, LI, MSSAU,
-                            PreserveLCSSA, HasLoopExit);
-
   // Update the PHI nodes in OrigBB with the values coming from NewBB.
-  UpdatePHINodes(OrigBB, NewBB, Preds, Clone, HasLoopExit);
+  UpdatePHINodes(OrigBB, NewBB, SplitPreds, Clone, HasLoopExit);
 }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_COLLAB
 
 void llvm::SplitLandingPadPredecessors(BasicBlock *OrigBB,
                                        ArrayRef<BasicBlock *> Preds,

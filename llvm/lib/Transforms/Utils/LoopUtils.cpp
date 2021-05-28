@@ -114,7 +114,15 @@ bool llvm::formDedicatedExitBlocks(Loop *L, DominatorTree *DT, LoopInfo *LI,
   // them, but only visit each one once.
   SmallPtrSet<BasicBlock *, 4> Visited;
   for (auto *BB : L->blocks())
+#ifdef INTEL_COLLAB
+  {
+    // Copy the block succs, as the succ list may be modified by the exit
+    // rewrite.
+    SmallVector<BasicBlock *, 4> SuccsCopy(successors(BB));
+    for (auto *SuccBB : SuccsCopy) {
+#else // INTEL_COLLAB
     for (auto *SuccBB : successors(BB)) {
+#endif // INTEL_COLLAB
       // We're looking for exit blocks so skip in-loop successors.
       if (L->contains(SuccBB))
         continue;
@@ -125,6 +133,9 @@ bool llvm::formDedicatedExitBlocks(Loop *L, DominatorTree *DT, LoopInfo *LI,
 
       Changed |= RewriteExit(SuccBB);
     }
+#ifdef INTEL_COLLAB
+  }
+#endif
 
   return Changed;
 }

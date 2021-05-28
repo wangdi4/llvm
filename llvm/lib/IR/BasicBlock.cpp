@@ -351,10 +351,13 @@ bool BasicBlock::canSplitPredecessors() const {
   const Instruction *FirstNonPHI = getFirstNonPHI();
   if (isa<LandingPadInst>(FirstNonPHI))
     return true;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_COLLAB
+  // Handled in BasicBlock.cpp:SplitBlockPredecessorsImpl
   if (isa<CleanupPadInst>(FirstNonPHI))
     return true;
-#endif // INTEL_CUSTOMIZATION
+  if (isa<CatchSwitchInst>(FirstNonPHI))
+    return true;
+#endif // INTEL_COLLAB
   // This is perhaps a little conservative because constructs like
   // CleanupBlockInst are pretty easy to split.  However, SplitBlockPredecessors
   // cannot handle such things just yet.

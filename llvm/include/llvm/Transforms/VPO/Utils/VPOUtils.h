@@ -343,6 +343,10 @@ public:
   /// a region.
   static bool addPrivateToEnclosingRegion(Instruction *I, BasicBlock *BlockPos,
                                           DominatorTree &DT, bool SimdOnly);
+
+  /// Returns the next enclosing OpenMP begin directive, or nullptr if none.
+  static IntrinsicInst *enclosingBeginDirective(Instruction *I,
+                                                DominatorTree *DT);
   /// @}
 };
 
