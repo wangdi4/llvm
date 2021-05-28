@@ -165,4 +165,5 @@ DECLARE_ALIAS(clEnqueueMemcpyINTEL);
 DECLARE_ALIAS(clEnqueueMigrateMemINTEL);
 DECLARE_ALIAS(clEnqueueMemAdviseINTEL);
 DECLARE_ALIAS(clCreateBufferWithPropertiesINTEL);
+DECLARE_ALIAS(clSetContextDestructorCallback);
 }}}
