@@ -1679,6 +1679,27 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
             }
             return CL_DEV_SUCCESS;
         }
+         case CL_DEVICE_OPENCL_C_FEATURES:
+         {
+             if (ver < OPENCL_VERSION_3_0)
+                 return CL_DEV_INVALID_VALUE;
+
+             std::vector<cl_name_version> devSupportedCFeatures =
+                     m_CPUDeviceConfig.GetOpenCLCFeatures();
+             *pinternalRetunedValueSize =
+                     devSupportedCFeatures.size() * sizeof(cl_name_version);
+             if (nullptr != paramVal && valSize < *pinternalRetunedValueSize) {
+                 return CL_DEV_INVALID_VALUE;
+             }
+             //if OUT paramVal is NULL it should be ignored
+             if(nullptr != paramVal)
+             {
+                 MEMCPY_S((cl_name_version *)paramVal, valSize,
+                          devSupportedCFeatures.data(),
+                          *pinternalRetunedValueSize);
+             }
+             return CL_DEV_SUCCESS;
+         }
         case( CL_DEVICE_VERSION):
         {
             const char* openclVerStr = nullptr;
@@ -1877,8 +1898,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
             }
             return CL_DEV_SUCCESS;
         }
-
-
         case CL_DEVICE_PARTITION_PROPERTIES:
             {
                 const cl_device_partition_property* pSupportedProperties;

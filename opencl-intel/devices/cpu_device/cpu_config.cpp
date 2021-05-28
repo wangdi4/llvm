@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,6 +14,7 @@
 
 #include "cpu_config.h"
 #include "ocl_supported_extensions.h"
+#include "opencl_c_features.h"
 
 #include <cl_cpu_detect.h>
 
@@ -35,6 +36,7 @@ using namespace Intel::OpenCL::CPUDevice;
 using namespace Intel::OpenCL::DeviceBackend;
 
 std::vector<cl_name_version> CPUDeviceConfig::m_extensions;
+std::vector<cl_name_version> CPUDeviceConfig::m_c_features;
 
 CPUDeviceConfig::CPUDeviceConfig()
 {
@@ -268,4 +270,34 @@ CPUDeviceConfig::GetExtensionsWithVersion() const
 #undef GET_EXT_VER
 
     return m_extensions;
+}
+
+const std::vector<cl_name_version>&
+CPUDeviceConfig::GetOpenCLCFeatures() const {
+    if (!m_c_features.empty())
+        return m_c_features;
+
+#define GET_FEATURE(name, major, minor, patch)                                 \
+    m_c_features.emplace_back(                                                 \
+        cl_name_version{CL_MAKE_VERSION(major, minor, patch), name})
+
+    GET_FEATURE(OPENCL_C_3D_IMAGE_WRITES, 3, 0, 0);
+    GET_FEATURE(OPENCL_C_ATOMIC_ORDER_ACQ_REL, 3, 0, 0);
+    GET_FEATURE(OPENCL_C_ATOMIC_ORDER_SEQ_CST, 3, 0, 0);
+    GET_FEATURE(OPENCL_C_ATOMIC_SCOPE_DEVICE, 3, 0, 0);
+    GET_FEATURE(OPENCL_C_ATOMIC_SCOPE_ALL_DEVICES, 3, 0, 0);
+    GET_FEATURE(OPENCL_C_DEVICE_ENQUEUE, 3, 0, 0);
+    GET_FEATURE(OPENCL_C_GENERIC_ADDRESS_SPACE, 3, 0, 0);
+    GET_FEATURE(OPENCL_C_FP64, 3, 0, 0);
+    GET_FEATURE(OPENCL_C_IMAGES, 3, 0, 0);
+    GET_FEATURE(OPENCL_C_INT64, 3, 0, 0);
+    GET_FEATURE(OPENCL_C_PIPES, 3, 0, 0);
+    GET_FEATURE(OPENCL_C_PROGRAM_SCOPE_GLOBAL_VARIABLES, 3, 0, 0);
+    GET_FEATURE(OPENCL_C_READ_WRITE_IMAGES, 3, 0, 0);
+    GET_FEATURE(OPENCL_C_SUBGROUPS, 3, 0, 0);
+    GET_FEATURE(OPENCL_C_WORK_GROUP_COLLECTIVE_FUNCTIONS, 3, 0, 0);
+
+#undef GET_FEATURE
+
+    return m_c_features;
 }

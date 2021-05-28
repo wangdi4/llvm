@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2018-2019 Intel Corporation.
+// Copyright 2018-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,13 +12,14 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
+#include "Compile.h"
 #include "cl_autoptr_ex.h"
 #include "cl_config.h"
 #include "cl_cpu_detect.h"
 #include "cl_env.h"
 #include "clang_device_info.h"
 #include "common_clang.h"
-#include "Compile.h"
+#include "opencl_c_features.h"
 
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
@@ -175,6 +176,26 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   optionsEx << " -Dcl_khr_subgroup_shuffle_relative";
   optionsEx << " -Dcl_khr_subgroup_extended_types";
   optionsEx << " -Dcl_khr_subgroup_non_uniform_arithmetic";
+
+  // Define OpenCL C 3.0 feature macros.
+  // FPGA emulator only support OpenCL C 1.2, so no macro will be defined.
+  if (!m_pProgDesc->bEyeQEmulator && !m_pProgDesc->bFpgaEmulator) {
+    optionsEx << " -D" OPENCL_C_3D_IMAGE_WRITES;
+    optionsEx << " -D" OPENCL_C_ATOMIC_ORDER_ACQ_REL;
+    optionsEx << " -D" OPENCL_C_ATOMIC_ORDER_SEQ_CST;
+    optionsEx << " -D" OPENCL_C_ATOMIC_SCOPE_DEVICE;
+    optionsEx << " -D" OPENCL_C_ATOMIC_SCOPE_ALL_DEVICES;
+    optionsEx << " -D" OPENCL_C_DEVICE_ENQUEUE;
+    optionsEx << " -D" OPENCL_C_GENERIC_ADDRESS_SPACE;
+    optionsEx << " -D" OPENCL_C_FP64;
+    optionsEx << " -D" OPENCL_C_IMAGES;
+    optionsEx << " -D" OPENCL_C_INT64;
+    optionsEx << " -D" OPENCL_C_PIPES;
+    optionsEx << " -D" OPENCL_C_PROGRAM_SCOPE_GLOBAL_VARIABLES;
+    optionsEx << " -D" OPENCL_C_READ_WRITE_IMAGES;
+    optionsEx << " -D" OPENCL_C_SUBGROUPS;
+    optionsEx << " -D" OPENCL_C_WORK_GROUP_COLLECTIVE_FUNCTIONS;
+  }
 
   // If working as fpga emulator, pass special triple.
   if (m_pProgDesc->bFpgaEmulator) {
