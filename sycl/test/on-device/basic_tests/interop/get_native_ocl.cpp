@@ -5,7 +5,9 @@
 #include <CL/cl.h>
 
 #include <CL/sycl/backend/opencl.hpp>
-#include <sycl/sycl.hpp>
+/* INTEL_CUSTOMIZATION */
+#include <CL/sycl.hpp>
+/* end INTEL_CUSTOMIZATION */
 
 constexpr auto BE = sycl::backend::opencl;
 

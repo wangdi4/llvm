@@ -42,7 +42,9 @@
 #include <cassert>
 #include <chrono>
 #include <iostream>
-#include <sycl/sycl.hpp>
+/* INTEL_CUSTOMIZATION */
+#include <CL/sycl.hpp>
+/* end INTEL_CUSTOMIZATION */
 #include <thread>
 
 int main(void) {
