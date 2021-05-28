@@ -126,7 +126,6 @@ llvm::Pass *createCLStreamSamplerPass();
 llvm::Pass *createPreventDivisionCrashesPass();
 llvm::Pass *createOptimizeIDivPass();
 llvm::Pass *createShiftZeroUpperBitsPass();
-llvm::Pass *createBuiltinCallToInstPass();
 llvm::Pass *createRelaxedPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createKernelAnalysisPass();
@@ -423,7 +422,7 @@ static void populatePassesPreFailCheck(
   if (getenv("DISMPF") != nullptr || intel::Statistic::isEnabled())
     PM.add(createRemovePrefetchPass());
 
-  PM.add(createBuiltinCallToInstPass());
+  PM.add(llvm::createBuiltinCallToInstLegacyPass());
 
   // When running the standard optimization passes, do not change the
   // loop-unswitch
@@ -794,7 +793,7 @@ static void populatePassesPostFailCheck(
     }
     // Need to convert shuffle calls to shuffle IR before running inline pass
     // on built-ins
-    PM.add(createBuiltinCallToInstPass());
+    PM.add(llvm::createBuiltinCallToInstLegacyPass());
   }
 
 // funcPassMgr->add(new intel::SelectLower());

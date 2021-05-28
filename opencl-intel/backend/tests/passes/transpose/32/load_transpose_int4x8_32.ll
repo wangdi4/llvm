@@ -3,11 +3,11 @@
 ; XFAIL: *
 
 ; XFAIL: x86
-; RUN: %oclopt -dpcpp-kernel-builtin-lib=clbltfng9.rtl  -dpcpp-kernel-builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -dpcpp-kernel-builtin-lib=clbltfng9.rtl  -dpcpp-kernel-builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
+; RUN: %oclopt -dpcpp-kernel-builtin-lib=clbltfng9.rtl  -dpcpp-kernel-builtin-import -dpcpp-kernel-builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt -dpcpp-kernel-builtin-lib=clbltfng9.rtl  -dpcpp-kernel-builtin-import -dpcpp-kernel-builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t1.ll
 ; RUN: llc < %t1.ll -mattr=+avx -mtriple=i686-pc-Win32 | FileCheck %s -check-prefix=CHECK-AVX
-; RUN: %oclopt -dpcpp-kernel-builtin-lib=clbltfns9.rtl  -dpcpp-kernel-builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -dpcpp-kernel-builtin-lib=clbltfns9.rtl  -dpcpp-kernel-builtin-import -builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
+; RUN: %oclopt -dpcpp-kernel-builtin-lib=clbltfns9.rtl  -dpcpp-kernel-builtin-import -dpcpp-kernel-builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -enable-debugify -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt -dpcpp-kernel-builtin-lib=clbltfns9.rtl  -dpcpp-kernel-builtin-import -dpcpp-kernel-builtin-call-to-inst  -instcombine -inline -scalarrepl -S %s -o %t2.ll
 ; RUN: llc < %t2.ll -mattr=+avx2 -mtriple=i686-pc-Win32 | FileCheck %s -check-prefix=CHECK-AVX2
 
 

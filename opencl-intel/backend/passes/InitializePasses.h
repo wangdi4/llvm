@@ -68,7 +68,6 @@ void initializeSGLoopConstructPass(llvm::PassRegistry &);
 void initializeResolveVariableTIDCallPass(llvm::PassRegistry &);
 void initializeReplaceScalarWithMaskPass(llvm::PassRegistry&);
 void initializePreventDivCrashesPass(llvm::PassRegistry&);
-void initializeBuiltinCallToInstPass(llvm::PassRegistry&);
 void initializeInstToFuncCallPass(llvm::PassRegistry&);
 void initializeInternalizeNonKernelFuncPass(llvm::PassRegistry&);
 void initializeExternalizeGlobalVariablesPass(llvm::PassRegistry &);
