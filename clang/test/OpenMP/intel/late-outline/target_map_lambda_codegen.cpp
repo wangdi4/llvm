@@ -16,7 +16,7 @@ SS::SS() {
     // CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
     // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.SS* %this1, %struct.SS* %this1, i64 8, i64 547,
     // CHECK-SAME: "QUAL.OMP.MAP.TO"(%class.anon* %lambda1, %class.anon* %lambda1, i64 8, i64 673
-    // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(%struct.SS** [[L]], %struct.SS** [[L1]], i64 8, i64 -281474976709872,
+    // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(%struct.SS** [[L]], %struct.SS** [[L1]], i64 8, i64 562949953422096,
     #pragma omp target
     lambda1();
     // CHECK:  region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
@@ -32,7 +32,7 @@ void foo() {
   // CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.SS* %ss, %struct.SS* %ss, i64 8, i64 547,
   // CHECK-SAME: "QUAL.OMP.MAP.TO"(%class.anon.0* %lambda, %class.anon.0* %lambda, i64 8, i64 673
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(%struct.SS** [[L]], %struct.SS* [[L2]], i64 8, i64 -281474976709872,
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(%struct.SS** [[L]], %struct.SS* [[L2]], i64 8, i64 562949953422096,
   #pragma omp target
     lambda();
   // CHECK:  region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]

@@ -51,8 +51,9 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:  VPlan IR for: main:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%mul10}
-; CHECK-DAG:     [[VP1:%.*]] = {@a}
-; CHECK-DAG:     [[VP2:%.*]] = {(trunc i64 %1 to i16)}
+; CHECK-DAG:     [[VP1:%.*]] = {(trunc i64 %1 to i16)}
+; CHECK-DAG:     [[VP2:%.*]] = {@a}
+; CHECK-DAG:     [[VP3:%.*]] = {%cond}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
@@ -61,35 +62,38 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:     br [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB3:BB[0-9]+]]
-; CHECK-NEXT:     i32 [[VP3:%.*]] = phi  [ i32 [[MUL100:%.*]], [[BB1]] ],  [ i32 [[VP4:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i64 [[VP7:%.*]] = mul i64 -1 i64 [[VP5]]
-; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP7]] i64 8
-; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [9 x i32]* @a i64 0 i64 [[VP8]]
+; CHECK-NEXT:     i32 [[VP4:%.*]] = phi  [ i32 [[MUL100:%.*]], [[BB1]] ],  [ i32 [[VP5:%.*]], [[BB3]] ]
+; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB3]] ]
+; CHECK-NEXT:     i64 [[VP8:%.*]] = mul i64 -1 i64 [[VP6]]
+; CHECK-NEXT:     i64 [[VP9:%.*]] = add i64 [[VP8]] i64 8
+; CHECK-NEXT:     i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [9 x i32]* @a i64 0 i64 [[VP9]]
 ; CHECK-NEXT:     i32 [[VP_LOAD:%.*]] = load i32* [[VP_SUBSCRIPT]]
-; CHECK-NEXT:     i32 [[VP9:%.*]] = zext i16 [[VP2]] to i32
-; CHECK-NEXT:     i32 [[VP10:%.*]] = hir-copy i32 [[VP9]] , OriginPhiId: -1
-; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp ne i32 [[VP_LOAD]] i32 0
-; CHECK-NEXT:     br i1 [[VP11]], [[BB4:BB[0-9]+]], [[BB3]]
+; CHECK-NEXT:     i32 [[VP10:%.*]] = zext i16 [[VP1]] to i32
+; CHECK-NEXT:     i32 [[VP11:%.*]] = hir-copy i32 [[VP10]] , OriginPhiId: -1
+; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp ne i32 [[VP_LOAD]] i32 0
+; CHECK-NEXT:     br i1 [[VP12]], [[BB4:BB[0-9]+]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB2]]
-; CHECK-NEXT:       i32 [[VP12:%.*]] = udiv i32 2 i32 [[VP_LOAD]]
-; CHECK-NEXT:       i32 [[VP13:%.*]] = hir-copy i32 [[VP12]] , OriginPhiId: -1
+; CHECK-NEXT:       i32 [[VP13:%.*]] = udiv i32 2 i32 [[VP_LOAD]]
+; CHECK-NEXT:       i32 [[VP14:%.*]] = hir-copy i32 [[VP13]] , OriginPhiId: -1
 ; CHECK-NEXT:       br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB4]], [[BB2]]
-; CHECK-NEXT:     i32 [[VP14:%.*]] = phi  [ i32 [[VP13]], [[BB4]] ],  [ i32 [[VP10]], [[BB2]] ]
-; CHECK-NEXT:     i32 [[VP15:%.*]] = phi  [ i32 [[VP3]], [[BB4]] ],  [ i32 [[VP3]], [[BB2]] ]
-; CHECK-NEXT:     i32 [[VP4]] = mul i32 [[VP15]] i32 [[VP14]]
-; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
-; CHECK-NEXT:     i1 [[VP16:%.*]] = icmp sle i64 [[VP6]] i64 7
-; CHECK-NEXT:     br i1 [[VP16]], [[BB2]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:     i32 [[VP15:%.*]] = phi  [ i32 [[VP14]], [[BB4]] ],  [ i32 [[VP11]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP16:%.*]] = phi  [ i32 [[VP4]], [[BB4]] ],  [ i32 [[VP4]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP5]] = mul i32 [[VP16]] i32 [[VP15]]
+; CHECK-NEXT:     i64 [[VP7]] = add i64 [[VP6]] i64 1
+; CHECK-NEXT:     i1 [[VP17:%.*]] = icmp sle i64 [[VP7]] i64 7
+; CHECK-NEXT:     br i1 [[VP17]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB3]]
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
 ; CHECK-NEXT:     br <External Block>
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   i32 [[VP5]] -> [[VP18:%.*]] = {%mul10}
 ;
   %1 = load i64, i64* @time_ago, align 8
   %conv1 = trunc i64 %1 to i32

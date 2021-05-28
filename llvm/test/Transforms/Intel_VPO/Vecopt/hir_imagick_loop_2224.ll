@@ -64,7 +64,7 @@
 ; CHECK:            |   |   %tgu = (%min + 1)/u4;
 ; CHECK-NEXT:       |   |   if (0 <u 4 * %tgu)
 ; CHECK-NEXT:       |   |   {
-; CHECK-NEXT:       |   |      %phi.temp = undef;
+; CHECK-NEXT:       |   |      %phi.temp = %tmp37;
 ; CHECK-NEXT:       |   |      %phi.temp30 = -1;
 ; CHECK-NEXT:       |   |
 ; CHECK-NEXT:       |   |         %red.var = 0.000000e+00;

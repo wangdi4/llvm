@@ -43,6 +43,11 @@ typedef enum {
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("icecode-mode")))
 
 /* Functions for IceCode ISA */
+static __inline__ unsigned char __DEFAULT_FN_ATTRS
+_ce_loadpphys8(unsigned long long addr) {
+  return __builtin_ia32_icecode_loadpphys_8(addr);
+}
+
 static __inline__ unsigned short __DEFAULT_FN_ATTRS
 _ce_loadpphys16(unsigned long long addr) {
   return __builtin_ia32_icecode_loadpphys_16(addr);
@@ -56,6 +61,11 @@ _ce_loadpphys32(unsigned long long addr) {
 static __inline__ unsigned long long __DEFAULT_FN_ATTRS
 _ce_loadpphys64(unsigned long long addr) {
   return __builtin_ia32_icecode_loadpphys_64(addr);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_storepphys8(unsigned char reg, unsigned long long addr) {
+  __builtin_ia32_icecode_storepphys_8(reg, addr);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS

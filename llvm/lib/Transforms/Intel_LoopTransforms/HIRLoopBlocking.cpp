@@ -826,7 +826,8 @@ static RefAnalysisResult analyzeRefs(SmallVectorImpl<RegDDRef *> &Refs,
     if (Ref->isNonLinear()) {
       HasNonLinear = true;
       // Allow blocking for nonlinear rvals
-      // Later check if these refs match heuristics (i.e. bwavs %mod)
+      // Non-linear refs are usually unprofitable. We can do profitability checks
+      // later checked for IV computation (stencil B case)
       if (Loop->isLiveIn(SB) || Loop->isLiveOut(SB) || Ref->isLval()) {
         LLVM_DEBUG(dbgs() << "Found Nonlinear refs:\n";);
         return NON_LINEAR;
@@ -965,17 +966,17 @@ public:
   StencilType getStencilType() { return Type; }
 
   bool isProfitable(HIRDDAnalysis &DDA) {
-    // Perfect stencil access with center point (CactuBSSN)
+    // Perfect stencils should always be profitable to block
     if (isStencilForm()) {
-      printDiag(STENCIL_PROFIT, Func, InnermostLoop, "Cactus stencil");
-      Type = StencilType::CACT;
+      printDiag(STENCIL_PROFIT, Func, InnermostLoop, "Stencil C");
+      Type = StencilType::C;
       return true;
     }
 
-    // Has multiple ref groups, some exhibiting stencil features (Bwaves)
+    // Stencil is profitable when majority of stores have stencil pattern
     if (hasMajorityStencilRefs(DDA)) {
-      printDiag(STENCIL_PROFIT, Func, InnermostLoop, "Bwavs stencil");
-      Type = StencilType::BWAV;
+      printDiag(STENCIL_PROFIT, Func, InnermostLoop, "Stencil B");
+      Type = StencilType::B;
       return true;
     }
     return false;
@@ -1045,7 +1046,7 @@ public:
       return false;
     }
 
-    // Some refs will have %mod in place of IV such as :
+    // Some refs may have IV based blob instead of IV, e.g:
     // (%X)[i3 + 2][i1 + 1][%mod + 1]
     // Use DDG to trace to the HLinst where %mod is defined
     // We want to verify that %mod is based on IV like so:
@@ -1190,7 +1191,6 @@ private:
         // TODO: for a Store, find the def of RVal temp,
         //       and the temp is defined by Add/FAdd.
         //       Currently, we don't have DD-edges to track
-        //       for cactus.
         continue;
       }
 
@@ -1281,11 +1281,6 @@ public:
         InnermostLoop->getNestingLevel() - OutermostLoop->getNestingLevel() + 1;
     assert(StripmineCandidateMap.empty());
 
-    // Temporary comment-out for cactus
-    // TODO: Find a way to avoid calling calcMaxVariantDimension inside loop
-    // body.
-    //       Maybe logic can be changed to
-    //       guarantee that MaxDimension monotously decreased.
     unsigned MaxDimension =
         calcMaxVariantDimension(OutermostLoop->getNestingLevel());
     if (!DisableLoopDepthCheck) {

@@ -407,9 +407,8 @@ static bool compareMemRefs(RegDDRef *Ref1, RegDDRef *Ref2, DDGraph &DDG,
       } else {
         int64_t Dist = 0;
 
-        // For example, in the third loop of bwaves, at loop level 2, CE1 =
-        // LINEAR i64 i2 + 2 and CE2 = LINEAR zext.i32.i64(i2 + 3), so we need
-        // to use relaxed mode to get the iteration distance
+        // Use relaxed mode for distance computation for such cases like:
+        // CE1 =  i64 i2 + 2 and CE2 =  zext.i32.i64(i2 + 3)
         if (!CanonExprUtils::getConstIterationDistance(CE1, CE2, Level, &Dist,
                                                        true)) {
           return false;

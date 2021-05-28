@@ -1587,7 +1587,7 @@ void VPDecomposerHIR::addIDFPhiNodes() {
 
 void VPDecomposerHIR::createExitPhisForExternalUses(VPBasicBlock *ExitBB) {
   // TODO: Live-outs for multi-exit loops cannot be handled correctly because of
-  // missing undef incoming value on edges where Symbase is not defined.
+  // missing explicit representation for early-exit loops.
   if (OutermostHLp->isDoMultiExit())
     return;
 
@@ -1596,12 +1596,6 @@ void VPDecomposerHIR::createExitPhisForExternalUses(VPBasicBlock *ExitBB) {
     assert(HIROp && "Cannot find HIR operand for external use.");
     auto *HIROpBlob = cast<VPBlob>(HIROp);
     DDRef *DDR = const_cast<DDRef *>(HIROpBlob->getBlob());
-
-    // Always create ExternalDef for live-out symbases.
-    // TODO: This may lead to incorrect IR if ExternalDef of a liveout symbase
-    // is needed as r-val for any initialization/finalization. We may need to
-    // use undef instead in such cases.
-    Plan->getVPExternalDefForDDRef(DDR);
 
     auto *ExitPhi = getOrCreateEmptyPhiForDDRef(ExtUse->getType(), ExitBB, DDR);
     LLVM_DEBUG(dbgs() << "Empty PHI was created for live out temp: ";
@@ -1657,20 +1651,25 @@ void VPDecomposerHIR::fixPhiNodes() {
     movePhiToFront(PHIMapIt.first);
 
   // 2. Set the incoming values of all tracked Symbases to their ExternalDef
-  // values or nullptr before HCFG entry
+  // values before CFG entry. If Symbase has no ExternalDef because of lack of
+  // r-val use in the loop, then we create a new ExternalDef using the DDRef
+  // associated with the Symbase. NOTE: This guarantees that a Symbase is always
+  // defined at the entry block of VPlan CFG. Is this always valid to assume?
   PhiNodePassData::VPValMap VPValues;
   for (auto Sym : TrackedSymbases) {
     LLVM_DEBUG(dbgs() << "Sym: " << Sym << "\n");
 
     VPValue *ExtDef = Plan->getVPExternalDefForSymbase(Sym);
     if (ExtDef) {
-      LLVM_DEBUG(dbgs() << "ExtDef: "; ExtDef->dump(); dbgs() << "\n");
+      LLVM_DEBUG(dbgs() << "ExtDef was found for symbase.\n");
     } else {
-      assert(!OutermostHLp->isLiveIn(Sym) &&
-             "External def not found for a live-in symbase.");
-      LLVM_DEBUG(dbgs() << "ExtDef: nullptr\n");
+      LLVM_DEBUG(dbgs() << "Create new ExtDef for symbase using DDRef.\n ");
+      DDRef *DDR = getDDRefForTrackedSymbase(Sym);
+      assert(DDR && "DDRef not found for tracked symbase.");
+      ExtDef = Plan->getVPExternalDefForDDRef(DDR);
     }
 
+    LLVM_DEBUG(dbgs() << "ExtDef: "; ExtDef->dump(); dbgs() << "\n");
     VPValues[Sym] = ExtDef;
   }
 
@@ -1960,7 +1959,7 @@ void VPDecomposerHIR::fixPhiNodePass(
 // operands accordingly.
 void VPDecomposerHIR::fixExternalUses() {
   // TODO: Live-outs for multi-exit loops cannot be handled correctly because of
-  // missing undef incoming value on edges where Symbase is not defined.
+  // missing explicit representation for early-exit loops.
   if (OutermostHLp->isDoMultiExit())
     return;
 

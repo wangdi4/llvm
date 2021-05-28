@@ -93,13 +93,13 @@ enum RefAnalysisResult {
   NON_SIV,
 };
 
-enum StencilType { CACT = 0, BWAV, NUM_STENCIL_TYPES, NONE };
+enum StencilType { C = 0, B, NUM_STENCIL_TYPES, NONE };
 
 // Values correspond to blocksize starting from innermostloop of
 // blocked loopnest target
 const unsigned StencilBlockingFactors[NUM_STENCIL_TYPES][MaxLoopNestLevel] = {
-    {0, 8, 0}, // CACT
-    {0, 14, 0} // BWAV
+    {0, 8, 0}, // Desert type stencil
+    {0, 14, 0} // Ocean type stencil
 };
 
 // Mapping from a loop to its kind. Used for/during actual transformantion.
