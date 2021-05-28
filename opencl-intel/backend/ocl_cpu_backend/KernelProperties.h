@@ -243,7 +243,7 @@ public:
     void SetMaxPrivateMemorySize(size_t size) { m_maxPrivateMemorySize = size; }
     void SetVectorizationWidth(size_t VF) { m_vectorizationWidth = VF; }
     void SetHasAVX1(bool hasAVX1) { m_hasAVX1 = hasAVX1; }
-    void SetHasAVX2(bool hasAVX2) { m_hasAVX1 = hasAVX2; }
+    void SetHasAVX2(bool hasAVX2) { m_hasAVX2 = hasAVX2; }
     void SetMinGroupSizeFactorial(unsigned int size) { m_minGroupSizeFactorial = size; }
     void EnableVectorizedWithTail() { m_isVectorizedWithTail = true; }
     void SetPointerSize(unsigned int value) { m_uiSizeT = value; }
@@ -268,7 +268,7 @@ public:
     const size_t* GetHintWGSize()     const { return m_hintWGSize; }
     bool          GetDAZ()            const { return m_DAZ; }
     bool GetHasAVX1() { return m_hasAVX1; }
-    bool GetHasAVX2() { return m_hasAVX1; }
+    bool GetHasAVX2() { return m_hasAVX2; }
     bool          IsVectorizedWithTail() const { return m_isVectorizedWithTail; }
     // Get size of pointer in bytes
     unsigned int  GetPointerSize()     const { return m_uiSizeT;}

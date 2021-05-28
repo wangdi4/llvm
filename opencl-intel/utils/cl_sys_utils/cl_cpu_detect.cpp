@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright 2007-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -103,6 +103,15 @@ bool CPUDetect::ShouldBypassCPUCheck() const {
   }
 #endif
   return false;
+}
+
+// This is to push disabled features in list which will be passed to code
+// generator later.
+void CPUDetect::GetDisabledCPUFeatures(
+    llvm::SmallVector<std::string, 8> &forcedFeatures) {
+  for (auto &F : m_cpuFeatures)
+    if (!F.second)
+      forcedFeatures.push_back("-" + F.first().str());
 }
 
 CPUDetect::CPUDetect(ECPU cpuId,

@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2007-2018 Intel Corporation.
+// Copyright 2007-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -237,6 +237,11 @@ public:
 
   bool Is64BitOS() const { return m_is64BitOS; }
   llvm::StringMap<bool> GetCPUFeatures() const { return m_cpuFeatures; }
+
+  // This is to push disabled CPU features in list which is passed to code
+  // generator.
+  void
+  GetDisabledCPUFeatures(llvm::SmallVector<std::string, 8> &forcedFeatures);
 
 private:
   CPUDetect &operator=(const CPUDetect &);

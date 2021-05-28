@@ -158,6 +158,11 @@ void CPUCompiler::SelectCpu(const std::string &cpuName,
   bool DisableAVX = false;
   m_CpuId = CPUDetect::GetInstance();
   if (cpuName == CPU_ARCH_AUTO) {
+    // CPU name and features are detected by llvm sys utils, and will be passed
+    // to code generator. Setting disabled features, could avoid emitting the
+    // illegal instruction which are disabled on underlying OS, CPU or virtual
+    // machine.
+    m_CpuId->GetDisabledCPUFeatures(m_forcedCpuFeatures);
     return;
   }
 
