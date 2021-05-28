@@ -253,6 +253,7 @@ protected:
     bool                     m_streamingAlways;
     unsigned                 m_expensiveMemOpts;
     PassManagerType m_passManagerType;
+    std::string m_debugPassManager;
 
     static bool s_globalStateInitialized;
 

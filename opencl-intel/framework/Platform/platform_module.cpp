@@ -38,6 +38,7 @@ std::string PlatformModule::m_vPlatformNameStr = "";
 unsigned int PlatformModule::m_uiPlatformInfoStrSize = 0;
 unsigned int PlatformModule::m_uiPlatformNameStrSize = 0;
 std::string PlatformModule::m_vPlatformVersionStr;
+cl_version PlatformModule::m_vPlatformVersionNum;
 const char PlatformModule::m_vPlatformVendorStr[] = "Intel(R) Corporation";
 const unsigned int PlatformModule::m_uiPlatformVendorStrSize = sizeof(m_vPlatformVendorStr) / sizeof(char);
 
@@ -168,22 +169,28 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
     {
         case OPENCL_VERSION_1_2:
             m_vPlatformVersionStr = "OpenCL 1.2";
-        break;
+            m_vPlatformVersionNum = CL_MAKE_VERSION(1, 2, 0);
+            break;
         case OPENCL_VERSION_2_2:
             m_vPlatformVersionStr = "OpenCL 2.2";
-        break;
+            m_vPlatformVersionNum = CL_MAKE_VERSION(2, 2, 0);
+            break;
         case OPENCL_VERSION_2_1:
             m_vPlatformVersionStr = "OpenCL 2.1";
-        break;
+            m_vPlatformVersionNum = CL_MAKE_VERSION(2, 1, 0);
+            break;
         case OPENCL_VERSION_2_0:
             m_vPlatformVersionStr = "OpenCL 2.0";
-        break;
+            m_vPlatformVersionNum = CL_MAKE_VERSION(2, 0, 0);
+            break;
         case OPENCL_VERSION_3_0:
             m_vPlatformVersionStr = "OpenCL 3.0";
-        break;
+            m_vPlatformVersionNum = CL_MAKE_VERSION(3, 0, 0);
+            break;
         default:
             m_vPlatformVersionStr = "OpenCL 1.0";
-        break;
+            m_vPlatformVersionNum = CL_MAKE_VERSION(1, 0, 0);
+            break;
     }
 
     if (FPGA_EMU_DEVICE == m_deviceMode)
@@ -294,6 +301,7 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
     cl_char pcPlatformExtension[8192] = {0};
     cl_char pcDeviceExtension[8192] = {0};
     cl_char pcOtherDeviceExtension[8192] = {0};
+    std::vector<cl_name_version> extsWithVerPlatform;
     const char * pcPlatformICDSuffixKhr;
 
     if (FPGA_EMU_DEVICE == m_deviceMode)
@@ -325,6 +333,10 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
         // it must include the terminating null character
         szParamSize = m_vPlatformVersionStr.size() + 1;
         pValue = (void*)m_vPlatformVersionStr.c_str();
+        break;
+    case CL_PLATFORM_NUMERIC_VERSION:
+        szParamSize = sizeof(m_vPlatformVersionNum);
+        pValue = (void*)&m_vPlatformVersionNum;
         break;
     case CL_PLATFORM_NAME:
         // it must include the terminating null character
@@ -375,6 +387,50 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
         pValue = pcPlatformExtension;
         szParamSize = strlen((char*)pcPlatformExtension) + 1;
         break;
+    case CL_PLATFORM_EXTENSIONS_WITH_VERSION: {
+        assert ((m_uiRootDevicesCount > 0) &&
+            "No devices associated to the platform");
+
+        auto contains = [](const std::vector<cl_name_version> &data,
+                          const cl_name_version &ext) {
+            for (auto &item : data)
+                if (strcmp(item.name, ext.name) == 0)
+                    return true;
+
+            return false;
+        };
+
+        std::vector<cl_name_version> extsWithVer(64);
+        for (size_t ui = 0; ui < m_uiRootDevicesCount; ++ui) {
+            size_t szExts = 0;
+            clErr = m_ppRootDevices[ui]->GetInfo(
+                CL_DEVICE_EXTENSIONS_WITH_VERSION,
+                extsWithVer.size() * sizeof(cl_name_version),
+                extsWithVer.data(), &szExts);
+            if (CL_FAILED(clErr)) {
+                return CL_INVALID_VALUE;
+            }
+            extsWithVer.resize(szExts / sizeof(cl_name_version));
+
+            if (ui == 0) {
+              extsWithVerPlatform = extsWithVer;
+              continue;
+            }
+
+            // If there is more than 1 device, return the intersection set of
+            // extensions for the platform.
+            std::vector<cl_name_version> intersection;
+            for (auto ext : extsWithVer) {
+                if (contains(extsWithVerPlatform, ext))
+                    intersection.push_back(ext);
+            }
+            extsWithVerPlatform = intersection;
+        }
+
+        pValue = extsWithVerPlatform.data();
+        szParamSize = extsWithVerPlatform.size() * sizeof(cl_name_version);
+        break;
+    }
     case CL_PLATFORM_ICD_SUFFIX_KHR:
         pValue = (void*)pcPlatformICDSuffixKhr;
         szParamSize = strlen((const char *)pcPlatformICDSuffixKhr) + 1;

@@ -59,6 +59,7 @@ namespace Validation
         RC_BR_DUMP_IR_DIR,
         RC_BR_DUMP_JIT,
         RC_BR_TIME_PASSES,
+        RC_BR_DEBUG_PASS_MANAGER,
         RC_BR_DUMP_HEURISTIC_IR,
         RC_BR_PERF_LOG,
         RC_BR_OBJECT_FILE,
@@ -114,6 +115,7 @@ namespace Validation
         std::string m_DumpIRDir;
         std::string m_DumpJIT;
         std::string m_TimePasses;
+        std::string m_DebugPassManager;
         std::string m_InjectedObject;
         bool m_dumpHeuristcIR;
         VectorizerType m_vectorizerType;

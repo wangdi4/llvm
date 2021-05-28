@@ -19,20 +19,7 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/AddImplicitArgs.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierInFunctionPass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BarrierPass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/BuiltinImport.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/CleanupWrappedKernel.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPEqualizer.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelAnalysis.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelWGLoopCreator.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/LinearIdResolver.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/PhiCanonicalization.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/PrepareKernelArgs.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/RedundantPhiNodePass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveWICall.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/SplitBBonBarrierPass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 using namespace llvm;
@@ -43,8 +30,9 @@ namespace DeviceBackend {
 
 OptimizerLTO::OptimizerLTO(Module *M,
                            llvm::SmallVector<llvm::Module *, 2> &RtlModuleList,
-                           const intel::OptimizerConfig *Config)
-    : Optimizer(M, RtlModuleList, Config), DebugPassManager(false) {}
+                           const intel::OptimizerConfig *Config,
+                           bool DebugPassManager)
+    : Optimizer(M, RtlModuleList, Config), DebugPassManager(DebugPassManager) {}
 
 OptimizerLTO::~OptimizerLTO() {}
 
@@ -107,6 +95,7 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
       [](ModulePassManager &MPM, PassBuilder::OptimizationLevel Level) {
         MPM.addPass(DPCPPEqualizerPass());
         MPM.addPass(LinearIdResolverPass());
+        MPM.addPass(createModuleToFunctionPassAdaptor(BuiltinCallToInstPass()));
         MPM.addPass(DPCPPKernelAnalysisPass());
       });
 }
@@ -132,6 +121,7 @@ void OptimizerLTO::registerOptimizerLastCallback(PassBuilder &PB) {
     MPM.addPass(AddImplicitArgsPass());
     MPM.addPass(ResolveWICallPass());
     MPM.addPass(BuiltinImportPass(m_RtlModules, CPUPrefix));
+    MPM.addPass(createModuleToFunctionPassAdaptor(BuiltinCallToInstPass()));
     MPM.addPass(PrepareKernelArgsPass());
   });
 }

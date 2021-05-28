@@ -39,6 +39,8 @@ public:
         m_enableSubgroupEmulation = runConfig.GetValue<bool>(RC_BR_ENABLE_SUBGROUP_EMULATION, true);
         m_passManagerType =
             runConfig.GetValue<PassManagerType>(RC_BR_PASS_MANAGER_TYPE, PM_OCL);
+        m_debugPassManager =
+            runConfig.GetValue<std::string>(RC_BR_DEBUG_PASS_MANAGER, "");
     }
 
 
@@ -48,6 +50,8 @@ public:
         {
         case CL_DEV_BACKEND_OPTION_TIME_PASSES:
             return m_TimePasses.c_str();
+        case CL_DEV_BACKEND_OPTION_DEBUG_PASS_MANAGER:
+            return m_debugPassManager.c_str();
         default:
             return defaultValue;
         }
@@ -92,6 +96,7 @@ private:
     bool        m_DisableStackDump;
     VectorizerType m_vectorizerType;
     PassManagerType m_passManagerType;
+    std::string m_debugPassManager;
     bool        m_nativeSubgroups;
     bool        m_enableSubgroupEmulation;
 };
@@ -124,6 +129,8 @@ public:
         m_expensiveMemOpts = runConfig.GetValue<unsigned>(RC_BR_EXPENSIVE_MEM_OPT, false);
         m_passManagerType = runConfig.GetValue<PassManagerType>(
             RC_BR_PASS_MANAGER_TYPE, PM_OCL);
+        m_debugPassManager =
+            runConfig.GetValue<std::string>(RC_BR_DEBUG_PASS_MANAGER, "");
     }
 
     virtual void InitTargetDescriptionSession(ICLDevBackendExecutionService* pExecutionService)
@@ -174,6 +181,8 @@ public:
             return m_cpuFeatures.c_str();
         case CL_DEV_BACKEND_OPTION_DUMP_IR_DIR:
             return m_DumpIRDir.c_str();
+        case CL_DEV_BACKEND_OPTION_DEBUG_PASS_MANAGER:
+            return m_debugPassManager.c_str();
         default:
             return defaultValue;
         }
@@ -212,6 +221,7 @@ protected:
     bool m_dumpHeuristcIR;
     VectorizerType m_vectorizerType;
     PassManagerType m_passManagerType;
+    std::string m_debugPassManager;
     bool m_nativeSubgroups;
 };
 

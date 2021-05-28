@@ -42,6 +42,7 @@ bool clGetPlatformInfoTest()
     printf("---------------------------------------\n");
     bool bResult = true;
     char platformInfoStr[256];
+    cl_version platformVersion;
     size_t size_ret;
 
     cl_platform_id platform = 0;
@@ -96,6 +97,11 @@ bool clGetPlatformInfoTest()
     iRes = clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, NULL, NULL);
     bResult &= Check("CL_PLATFORM_VERSION, all NU", CL_SUCCESS, iRes);
 
+    // CL_PLATFORM_NUMERIC_VERSION
+    iRes =
+        clGetPlatformInfo(platform, CL_PLATFORM_NUMERIC_VERSION, 0, NULL, NULL);
+    bResult &= Check("CL_PLATFORM_NUMERIC_VERSION, all NU", CL_SUCCESS, iRes);
+
     // CL_PLATFORM_VERSION
     // get size only
     iRes = clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, NULL, &size_ret);
@@ -116,10 +122,26 @@ bool clGetPlatformInfoTest()
         }
     }
 
+    // CL_PLATFORM_NUMERIC_VERSION
+    // get size only
+    iRes = clGetPlatformInfo(platform, CL_PLATFORM_NUMERIC_VERSION, 0, NULL,
+                             &size_ret);
+    bResult &=
+        Check("CL_PLATFORM_NUMERIC_VERSION, get size only", CL_SUCCESS, iRes);
+    if (CL_SUCCEEDED(iRes))
+        bResult &= CheckSize("check value", sizeof(cl_version), size_ret);
+
     // CL_PLATFORM_VERSION
     // size < actual size
     iRes = clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 5, platformInfoStr, &size_ret);
     bResult &= Check("CL_PLATFORM_VERSION, size < actual size", CL_INVALID_VALUE, iRes);
+
+    // CL_PLATFORM_NUMERIC_VERSION
+    // size < actual size
+    iRes = clGetPlatformInfo(platform, CL_PLATFORM_NUMERIC_VERSION, 1,
+                             &platformVersion, &size_ret);
+    bResult &= Check("CL_PLATFORM_NUMERIC_VERSION, size < actual size",
+                     CL_INVALID_VALUE, iRes);
 
     // CL_PLATFORM_VERSION
     // size ok, no size return
@@ -184,6 +206,49 @@ bool clGetPlatformInfoTest()
 
         bResult &= CheckStr("check value",
                 &expectedString[0], platformInfoStr);
+    }
+
+    // CL_PLATFORM_NUMERIC_VERSION
+    // size ok, no size return
+    iRes = clGetPlatformInfo(platform, CL_PLATFORM_NUMERIC_VERSION,
+                             sizeof(platformVersion), &platformVersion, NULL);
+    bResult &= Check("CL_PLATFORM_NUMERIC_VERSION, size ok, no size return",
+                     CL_SUCCESS, iRes);
+    if (CL_SUCCEEDED(iRes))
+    {
+        cl_version expectedVersion;
+
+        if (isFPGAEmulator)
+        {
+            expectedVersion = CL_MAKE_VERSION(1, 2, 0);
+        }
+        else
+        {
+            switch (GetOpenclVerByCpuModel())
+            {
+                case OPENCL_VERSION_3_0:
+                    expectedVersion = CL_MAKE_VERSION(3, 0, 0);
+                    break;
+                case OPENCL_VERSION_2_2:
+                    expectedVersion = CL_MAKE_VERSION(2, 2, 0);
+                    break;
+                case OPENCL_VERSION_2_1:
+                    expectedVersion = CL_MAKE_VERSION(2, 1, 0);
+                    break;
+                case OPENCL_VERSION_2_0:
+                    expectedVersion = CL_MAKE_VERSION(2, 0, 0);
+                    break;
+                case OPENCL_VERSION_1_2:
+                    expectedVersion = CL_MAKE_VERSION(1, 2, 0);
+                    break;
+                case OPENCL_VERSION_1_0:
+                default:
+                    expectedVersion = CL_MAKE_VERSION(1, 0, 0);
+                    break;
+            }
+        }
+
+        bResult &= CheckInt("check value", expectedVersion, platformVersion);
     }
 
     return bResult;

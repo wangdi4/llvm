@@ -120,6 +120,8 @@ public:
 
     PassManagerType GetPassManagerType() const override { return m_passManagerType; }
 
+    std::string DebugPassManager() const override { return m_debugPassManager; }
+
 protected:
     std::string m_cpuArch;
     std::string m_cpuFeatures;
@@ -141,6 +143,9 @@ protected:
     unsigned    m_expensiveMemOpts;
     DeviceMode  m_targetDevice;
     PassManagerType m_passManagerType;
+    // Enable debug-pass for legacy pass manager and debugging for new pass
+    // manager.
+    std::string m_debugPassManager;
 };
 
 }}}

@@ -28,7 +28,7 @@ class OptimizerLTO : public Optimizer {
 public:
   OptimizerLTO(llvm::Module *M,
                llvm::SmallVector<llvm::Module *, 2> &RtlModules,
-               const intel::OptimizerConfig *Config);
+               const intel::OptimizerConfig *Config, bool DebugPassManager);
 
   ~OptimizerLTO();
 
