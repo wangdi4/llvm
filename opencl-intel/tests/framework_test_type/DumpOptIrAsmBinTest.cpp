@@ -21,7 +21,7 @@
 
 extern cl_device_type gDeviceType;
 
-class DumpOptimizedIrAsmTest : public ::testing::Test {
+class DumpOptimizedIrAsmBinTest : public ::testing::Test {
 protected:
   virtual void SetUp() override {
     cl_int err = clGetPlatformIDs(1, &m_platform, nullptr);
@@ -34,7 +34,7 @@ protected:
     ASSERT_OCL_SUCCESS(err, "clCreateContext");
 
     // Create program
-    m_kernelName = "test";
+    m_kernelName = "some_kernel_test";
     std::string source = "kernel void " + m_kernelName +
                          "(global int* dst) {\n"
                          "  dst[get_global_id(0)] = 0;\n"
@@ -74,7 +74,7 @@ protected:
   std::string m_kernelName;
 };
 
-TEST_F(DumpOptimizedIrAsmTest, buildOptions) {
+TEST_F(DumpOptimizedIrAsmBinTest, buildOptions) {
   std::string dir = get_exe_dir();
   std::string asmFile = dir + "dump_opt.asm";
   std::string irFile = dir + "dump_opt.ll";
@@ -98,7 +98,7 @@ TEST_F(DumpOptimizedIrAsmTest, buildOptions) {
   (void)std::remove(irFile.c_str());
 }
 
-TEST_F(DumpOptimizedIrAsmTest, buildOptionsDebug) {
+TEST_F(DumpOptimizedIrAsmBinTest, buildOptionsDebug) {
   std::string dir = get_exe_dir();
   std::string asmFile = dir + "dump_opt_debug.asm";
   std::string irFile = dir + "dump_opt_debug.ll";
@@ -122,7 +122,7 @@ TEST_F(DumpOptimizedIrAsmTest, buildOptionsDebug) {
   (void)std::remove(irFile.c_str());
 }
 
-TEST_F(DumpOptimizedIrAsmTest, env) {
+TEST_F(DumpOptimizedIrAsmBinTest, dumpAsmEnv) {
   // Set env
   std::string envName = "CL_CONFIG_DUMP_ASM";
   ASSERT_TRUE(SETENV(envName.c_str(), "True"))
@@ -144,4 +144,27 @@ TEST_F(DumpOptimizedIrAsmTest, env) {
 
   // Delete dumped file
   (void)std::remove(asmFile.c_str());
+}
+
+TEST_F(DumpOptimizedIrAsmBinTest, dumpBinEnv) {
+  // Set env
+  std::string envName = "CL_CONFIG_DUMP_BIN";
+  ASSERT_TRUE(SETENV(envName.c_str(), "True"))
+      << ("Failed to set env " + envName);
+
+  // Build program
+  cl_int err =
+      clBuildProgram(m_program, 1, &m_device, nullptr, nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+
+  // Unset env
+  ASSERT_TRUE(UNSETENV(envName.c_str())) << ("Failed to unset env " + envName);
+
+  // Check dumped binary file has an ELF header and the kernel symbol
+  std::string binFile = "framework_test_type1.bin";
+  std::vector<std::string> patterns = {{0x7f, 'E', 'L', 'F'}, m_kernelName};
+  ASSERT_TRUE(fileContains(binFile, patterns));
+
+  // Delete dumped file
+  (void)std::remove(binFile.c_str());
 }

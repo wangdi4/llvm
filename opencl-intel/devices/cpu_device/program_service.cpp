@@ -384,6 +384,12 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
             pEntry->pProgram->GetProgramCodeContainer(), nullptr);
     }
 
+    if (m_pCPUConfig->DumpBin()) {
+        assert(pEntry->pProgram && "Program must be created already");
+        m_pBackendCompiler->DumpJITCodeContainer(
+            pEntry->pProgram->GetProgramCodeContainer(), nullptr, true);
+    }
+
 #ifndef INTEL_PRODUCT_RELEASE
     // if the user requested -dump-opt-llvm, print the IR of this module
     if( CL_DEV_SUCCEEDED(ret) && (nullptr != options) && ('\0' != *options) &&
