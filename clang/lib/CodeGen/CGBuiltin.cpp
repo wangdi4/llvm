@@ -5646,7 +5646,9 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
 #if INTEL_CUSTOMIZATION
   if (unsigned VectorWidth =
           getContext().BuiltinInfo.getRequiredVectorWidth(BuiltinID)) {
+#if INTEL_FEATURE_ISA_AVX256
     checkTargetVectorWidth(E, FD, VectorWidth);
+#endif // INTEL_FEATURE_ISA_AVX256
     LargestVectorWidth = std::max(LargestVectorWidth, VectorWidth);
   }
 #endif // INTEL_CUSTOMIZATION

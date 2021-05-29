@@ -736,7 +736,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     break;
 #if INTEL_CUSTOMIZATION
   case CK_CommonAVX512:
+#if INTEL_FEATURE_ISA_AVX256
   case CK_CommonAVX256:
+#endif // INTEL_FEATURE_ISA_AVX256
     break;
 #endif // INTEL_CUSTOMIZATION
   case CK_KNL:
@@ -2137,7 +2139,9 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_IcelakeServer:
 #if INTEL_CUSTOMIZATION
     case CK_CommonAVX512:
+#if INTEL_FEATURE_ISA_AVX256
     case CK_CommonAVX256:
+#endif // INTEL_FEATURE_ISA_AVX256
 #endif // INTEL_CUSTOMIZATION
     case CK_Alderlake:
     case CK_KNL:

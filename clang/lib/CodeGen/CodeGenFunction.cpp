@@ -3053,6 +3053,7 @@ void CodeGenFunction::checkTargetFeatures(const CallExpr *E,
 }
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX256
 // Emits an error if the builtin's vector width large than 256 under
 // common-avx256.
 void CodeGenFunction::checkTargetVectorWidth(const CallExpr *E,
@@ -3064,6 +3065,7 @@ void CodeGenFunction::checkTargetVectorWidth(const CallExpr *E,
                             diag::err_builtin_exceeds_vector_width)
           << TargetDecl->getDeclName();
 }
+#endif // INTEL_FEATURE_ISA_AVX256
 #endif // INTEL_CUSTOMIZATION
 
 // Emits an error if we don't have a valid set of target features for the

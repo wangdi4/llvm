@@ -1005,35 +1005,54 @@ def ProcessorFeatures {
   list<SubtargetFeature> CommonAVX512Features =
     !listconcat(BDWFeatures, CommonAVX512AdditionalFeatures);
   list<SubtargetFeature> CommonAVX512Tuning = SKXTuning;
+#if INTEL_FEATURE_ISA_AVX256
+#define ENABLE_ISA_AVX256
   list<SubtargetFeature> CommonAVX256AdditionalFeatures = [
+#endif // INTEL_FEATURE_ISA_AVX256
 #if INTEL_FEATURE_ISA_FP16
+#if ENABLE_ISA_AVX256
     FeatureFP16,
+#endif
 #endif // INTEL_FEATURE_ISA_FP16
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
+#if ENABLE_ISA_AVX256
     FeatureCONVERT,
+#endif
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #if INTEL_FEATURE_ISA_AVX512_RAO_INT
+#if ENABLE_ISA_AVX256
     FeatureAVX512RAOINT,
+#endif
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_INT
 #if INTEL_FEATURE_ISA_AVX512_RAO_FP
+#if ENABLE_ISA_AVX256
     FeatureAVX512RAOFP,
+#endif
 #endif // INTEL_FEATURE_ISA_AVX512_RAO_FP
 #if INTEL_FEATURE_ISA_AVX512_MEDIAX
+#if ENABLE_ISA_AVX256
     FeatureAVX512MEDIAX,
+#endif
 #endif // INTEL_FEATURE_ISA_AVX512_MEDIAX
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if ENABLE_ISA_AVX256
     FeatureAVX512DOTPRODINT8,
+#endif
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if ENABLE_ISA_AVX256
     FeatureAVX512DOTPRODPHPS,
+#endif
 #endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX256
     FeatureBF16, FeatureVNNI, FeatureVBMI, FeatureVBMI2, FeatureVPOPCNTDQ,
     FeatureIFMA, FeatureBITALG, FeatureVP2INTERSECT
   ];
   list<SubtargetFeature> CommonAVX256Features =
     !listconcat(X86_64V4Features, CommonAVX256AdditionalFeatures);
   list<SubtargetFeature> CommonAVX256Tuning = SKXTuning;
-#endif
+#endif // INTEL_FEATURE_ISA_AVX256
+#endif // INTEL_CUSTOMIZATION
 
   // Cascadelake
   list<SubtargetFeature> CLXAdditionalFeatures = [FeatureVNNI];
@@ -1659,10 +1678,12 @@ foreach P = ["skylake-avx512", "skx"] in {
 def : ProcModel<"common-avx512", SkylakeServerModel,
                 ProcessorFeatures.CommonAVX512Features,
                 ProcessorFeatures.CommonAVX512Tuning>;
+#if INTEL_FEATURE_ISA_AVX256
 def : ProcModel<"common-avx256", SkylakeServerModel,
                 ProcessorFeatures.CommonAVX256Features,
                 ProcessorFeatures.CommonAVX256Tuning>;
-#endif
+#endif // INTEL_FEATURE_ISA_AVX256
+#endif // INTEL_CUSTOMIZATION
 
 def : ProcModel<"cascadelake", SkylakeServerModel,
                 ProcessorFeatures.CLXFeatures, ProcessorFeatures.CLXTuning>;
