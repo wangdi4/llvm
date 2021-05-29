@@ -16,11 +16,6 @@
 #include <sycl/ext/intel/experimental/esimd/detail/types.hpp>
 #include <sycl/ext/intel/experimental/esimd/detail/util.hpp>
 #include <sycl/ext/intel/experimental/esimd/simd.hpp>
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
-#include <sycl/ext/intel/experimental/esimd/simd_view.hpp>
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
 
 #include <cstdint>
 

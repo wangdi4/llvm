@@ -1385,7 +1385,7 @@ __esimd_dpas_inner(const __SEIEED::vector_type_t<RT, SZ> *src0,
 #endif
 
   constexpr bool
-      pvcHfDest = isPvc && std::is_same<RT, half>::value,
+      pvcHfDest = isPvc && std::is_same<RT, __SEIEEED::half>::value,
       pvcBfDest = isPvc && std::is_same<RT, short>::value,
       pvcBfOrHfDest = pvcBfDest || pvcHfDest,
 
@@ -1400,11 +1400,11 @@ __esimd_dpas_inner(const __SEIEED::vector_type_t<RT, SZ> *src0,
                          src2_precision == __SEIEE::EsimdPrecisionType::BF16)),
 
       destTypeChk =
-          (!pvcBfOrHfDest && __SEIEED::is_fp_or_dword_type<RT>::value) ||
+          (!pvcBfOrHfDest && __SEIEEED::is_fp_or_dword_type<RT>::value) ||
           (pvcBfOrHfDest && (pvcBfDestChecks || pvcHfDestChecks)),
 
-      srcTypeChk = __SEIEED::is_dword_type<T1>::value &&
-                   __SEIEED::is_dword_type<T2>::value,
+      srcTypeChk = __SEIEEED::is_dword_type<T1>::value &&
+                   __SEIEEED::is_dword_type<T2>::value,
 
       destSizeChk = SZ >= /*TODO: ==*/SIMDSize * repeat_count,
 
@@ -1485,8 +1485,8 @@ __esimd_dpas_inner(const __SEIEED::vector_type_t<RT, SZ> *src0,
             const auto s2 =
                 extract<short>(src2_el_bits, d * src2_el_bits,
                                src2[V * 8 + k / ops_per_chan], src2_signed);
-            simdAcc[n] += reinterpret_cast<const half &>(s1) *
-                          reinterpret_cast<const half &>(s2);
+            simdAcc[n] += reinterpret_cast<const __SEIEEED::half &>(s1) *
+                          reinterpret_cast<const __SEIEEED::half &>(s2);
           } else {
             int src = (sizeof(T2) * 8) / (ops_per_chan * src2_el_bits);
             int off = s % src * (ops_per_chan * src2_el_bits);
