@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2020 Intel Corporation.
+// Copyright 2020-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -241,7 +241,7 @@ OCLVPOCheckVF::checkHorizontalOps(Function *F) {
   auto KIMD = KernelInternalMetadataAPI(F);
   unsigned &VF = KernelToVF[F];
 
-  static std::set<unsigned> SupportedWorkGroupVFs = {1, 4, 8, 16};
+  static std::set<unsigned> SupportedWorkGroupVFs = {1, 4, 8, 16, 32, 64};
   static std::set<unsigned> SupportedSubGroupVFs = {4, 8, 16, 32, 64};
 
   if (EnableSubGroupEmulation)
@@ -264,10 +264,11 @@ OCLVPOCheckVF::checkHorizontalOps(Function *F) {
             (*CheckState)[std::string(F->getName())].isVFFalledBack = true;
           });
           LLVM_DEBUG(dbgs() << "VF fall back to " << VF
-                            << " due to unsupported sub_group width");
+                            << " due to unsupported sub_group width\n");
         } else {
           UnimplementBuiltins.push_back({std::string(FnName), VF});
-          LLVM_DEBUG(dbgs() << VF << "is unsupported for sub_group");
+          LLVM_DEBUG(dbgs() << "Vectorization factor " << VF
+                            << " is unsupported for sub_group\n");
         }
       }
       // Check workgroup calls.
@@ -276,13 +277,14 @@ OCLVPOCheckVF::checkHorizontalOps(Function *F) {
         if (CanFallBack && KIMD.OclRecommendedVectorLength.hasValue()) {
           VF = KIMD.OclRecommendedVectorLength.get();
           LLVM_DEBUG(dbgs() << "VF fall back to " << VF
-                            << " due to unsupported work_group width");
+                            << " due to unsupported work_group width\n");
           logState([&](){
             (*CheckState)[std::string(F->getName())].isVFFalledBack = true;
           });
         } else {
           UnimplementBuiltins.push_back({std::string(FnName), VF});
-          LLVM_DEBUG(dbgs() << VF << "is unsupported for work_group");
+          LLVM_DEBUG(dbgs() << "Vectorization factor " << VF
+                            << " is unsupported for work_group\n");
         }
       }
     }
