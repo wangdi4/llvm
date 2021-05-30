@@ -2669,6 +2669,8 @@ def fopenmp_simd : Flag<["-"], "fopenmp-simd">, Group<f_Group>, Flags<[CC1Option
 #if INTEL_CUSTOMIZATION
 def fiopenmp_simd : Flag<["-"], "fiopenmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>;
 def fno_iopenmp_simd : Flag<["-"], "fno-iopenmp-simd">, Group<f_Group>, Flags<[NoArgumentUnused]>;
+def fiopenmp_vec_at_O0 : Flag<["-"], "fiopenmp-vec-at-O0">, Group<f_Group>, Flags<[NoArgumentUnused]>;
+def fno_iopenmp_vec_at_O0 : Flag<["-"], "fno-iopenmp-vec-at-O0">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 def fopenmp_stable_file_id : Flag<["-"], "fopenmp-stable-file-id">,
   Group<f_Group>,
   Flags<[CC1Option, NoArgumentUnused, CoreOption, HelpHidden]>,
@@ -7232,6 +7234,8 @@ def _SLASH_Qopenmp_target_buffers_COL : CLJoined<"Qopenmp-target-buffers:">,
 def _SLASH_Qopenmp_target_simd : CLFlag<"Qopenmp-target-simd">, Alias<fopenmp_target_simd>;
 def _SLASH_Qiopenmp_offload : CLFlag<"Qiopenmp-offload">, Alias<fiopenmp_offload>;
 def _SLASH_Qiopenmp_offload_ : CLFlag<"Qiopenmp-offload-">, Alias<fno_iopenmp_offload>;
+def _SLASH_Qiopenmp_vec_at_O0 : CLFlag<"Qiopenmp-vec-at-O0">, Alias<fiopenmp_vec_at_O0>;
+def _SLASH_Qno_iopenmp_vec_at_O0 : CLFlag<"Qno-iopenmp-vec-at-O0">, Alias<fno_iopenmp_vec_at_O0>;
 def : CLJoined<"Qparallel-source-info=">,
   Values<"0,1,2">, Alias<parallel_source_info_EQ>, HelpText<"Emit source "
   "location information for parallel code generation with OpenMP and "

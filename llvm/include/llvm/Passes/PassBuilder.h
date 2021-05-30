@@ -543,7 +543,7 @@ public:
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   bool addVPlanVectorizer(ModulePassManager &MPM, FunctionPassManager &FPM,
-                          bool IsPostLoopOptPass);
+                          OptimizationLevel Level, bool IsPostLoopOptPass);
 
   /// Add Inst Combine Pass. If EnableUpCasting is true then it will enable
   /// simplifying load instructions into bitcast instructions that could
