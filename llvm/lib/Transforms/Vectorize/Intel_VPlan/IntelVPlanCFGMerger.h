@@ -271,6 +271,7 @@ private:
   //    - check for (PeelCount + MainVF*MainUF) is less than main loop upper
   //      bound, jumping to the remainder or to the peel loop.
   void insertPeelCntAndChecks(PlanDescr &PeelDescr,
+                              VPBasicBlock *FinalRemainderMerge,
                               VPBasicBlock *RemainderMerge);
 
   // Generate the following sequence to check whether lower bits of the pointer
@@ -358,7 +359,6 @@ private:
   // Copy LoopInfo from VPlan \p P to the main VPlan. The loops are added
   // at the same level as they exist in \p P.
   void mergeLoopInfo(VPlanVector &P);
-
 };
 
 } // namespace vpo

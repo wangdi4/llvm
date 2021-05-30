@@ -130,7 +130,7 @@ static Type *getSOAType(Type *InTy, unsigned VF) {
 }
 
 static Value *calculateVectorTC(Value *OrigTC, IRBuilder<> &Builder,
-                                unsigned CStep) {
+                                unsigned CStep, Value* PeelAdjust = nullptr) {
   // We need to generate the expression for the part of the loop that the
   // vectorized body will execute. Step is equal to the vectorization factor
   // (number of SIMD elements) times the unroll factor (number of SIMD
@@ -138,10 +138,20 @@ static Value *calculateVectorTC(Value *OrigTC, IRBuilder<> &Builder,
   // calculated using the following formula: &(OrigTC, ~(Step-1)). Otherwise, we
   // substract the remainder of OrigTC/Step from OrigTC.
   auto *Step = ConstantInt::get(OrigTC->getType(), CStep);
-  if (isPowerOf2_32(CStep))
+  if (isPowerOf2_32(CStep) && PeelAdjust == nullptr)
     return Builder.CreateAnd(OrigTC,
                              ConstantInt::get(OrigTC->getType(), ~(CStep - 1)));
-  auto *Rem = Builder.CreateURem(OrigTC, Step, "n.mod.vf");
+  // If we have an adjustment for peel, the formula is changed into
+  //   vector_ub = OrigTC - (OrigTC - Adjustment) % CStep.
+  Value *Rem;
+  if (PeelAdjust) {
+    auto AdjOrig =
+        Builder.CreateSub(OrigTC, PeelAdjust, "n.adjst", /*HasNUW=*/true,
+                          /*HasNSW=*/true);
+    Rem = Builder.CreateURem(AdjOrig, Step, "n.mod.vf");
+  } else {
+    Rem = Builder.CreateURem(OrigTC, Step, "n.mod.vf");
+  }
   return Builder.CreateSub(OrigTC, Rem, "n.vec", /*HasNUW=*/true,
                            /*HasNSW=*/true);
 }
@@ -1546,8 +1556,6 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     Value *Identity = getVectorValue(VPInst->getOperand(0));
     if (VPInst->getNumOperands() > 1) {
       auto *StartVPVal = VPInst->getOperand(1);
-      assert((isa<VPExternalDef>(StartVPVal) || isa<VPConstant>(StartVPVal)) &&
-             "Unsupported reduction StartValue");
       auto *StartVal = getScalarValue(StartVPVal, 0);
       Identity = Builder.CreateInsertElement(
           Identity, StartVal, Builder.getInt32(0), "red.init.insert");
@@ -1585,7 +1593,13 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   case VPInstruction::VectorTripCountCalculation: {
     auto *VTCCalc = cast<VPVectorTripCountCalculation>(VPInst);
     Value *OrigTC = getScalarValue(VTCCalc->getOperand(0), 0);
-    VectorTripCount = calculateVectorTC(OrigTC, Builder, UF * VF);
+    // Get adjustment, which can be added when we have a peel loop.
+    // In this case we calculate by the following formula:
+    //   vector_ub = orig_ub - (orig_ub - adjustment) % VF.
+    Value *Adjustment = VTCCalc->getNumOperands() > 1
+                            ? getScalarValue(VTCCalc->getOperand(1), 0)
+                            : nullptr;
+    VectorTripCount = calculateVectorTC(OrigTC, Builder, UF * VF, Adjustment);
     VPScalarMap[VPInst][0] = VectorTripCount;
     // Meanwhile, assert that the UF implicitly used by the CG is the same as
     // represented explicitly.

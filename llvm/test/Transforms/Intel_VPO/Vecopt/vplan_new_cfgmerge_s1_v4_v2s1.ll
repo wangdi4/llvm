@@ -139,18 +139,14 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB13:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB13]]: # preds: [[MERGE_BLK0]]
-; CHECK-NEXT:       [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:       [DA: Div] i64 [[VP6:%.*]] = vector-trip-count i64 1024, UF = 1
-; CHECK-NEXT:       [DA: Uni] popvf
-; CHECK-NEXT:       [DA: Uni] i64 [[VP7:%.*]] = add i64 [[VP_PEEL_COUNT]] i64 2
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_1:%.*]] = icmp ugt i64 [[VP7]] i64 [[VP6]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_1]], [[MERGE_BLK2:merge.blk[0-9]+]], [[BB14:BB[0-9]+]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP6:%.*]] = add i64 [[VP_PEEL_COUNT]] i64 2
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_1:%.*]] = icmp ugt i64 [[VP6]] i64 1024
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_1]], [[MERGE_BLK1]], [[BB14:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB14]]: # preds: [[BB13]]
-; CHECK-NEXT:         [DA: Div] i64 [[VP8:%.*]] = vector-trip-count i64 1024, UF = 1
-; CHECK-NEXT:         [DA: Uni] i64 [[VP9:%.*]] = add i64 [[VP_PEEL_COUNT]] i64 4
-; CHECK-NEXT:         [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_2:%.*]] = icmp ugt i64 [[VP9]] i64 [[VP8]]
-; CHECK-NEXT:         [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_2]], [[MERGE_BLK1]], [[BB1]]
+; CHECK-NEXT:      [[BB14]]: # preds: [[BB13]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP7:%.*]] = add i64 [[VP_PEEL_COUNT]] i64 4
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_2:%.*]] = icmp ugt i64 [[VP7]] i64 1024
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_2]], [[MERGE_BLK2:merge.blk[0-9]+]], [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB1]]: # preds: [[BB14]]
 ; CHECK-NEXT:         [DA: Uni] pushvf VF=4 UF=1
@@ -159,7 +155,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:        [[BB2]]: # preds: [[BB1]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
-; CHECK-NEXT:         [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024, UF = 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024 i64 [[VP_PEEL_COUNT]], UF = 1
 ; CHECK-NEXT:         [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB3]]: # preds: [[BB2]], [[BB3]]
@@ -182,36 +178,36 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB15]]: # preds: [[BB5]]
 ; CHECK-NEXT:         [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:         [DA: Div] i64 [[VP10:%.*]] = vector-trip-count i64 1024, UF = 1
+; CHECK-NEXT:         [DA: Div] i64 [[VP8:%.*]] = vector-trip-count i64 1024 i64 [[VP_PEEL_COUNT]], UF = 1
 ; CHECK-NEXT:         [DA: Uni] popvf
-; CHECK-NEXT:         [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp eq i64 [[VP10]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:         [DA: Uni] br i1 [[VP_REMTC_CHECK]], [[MERGE_BLK2]], [[MERGE_BLK1]]
+; CHECK-NEXT:         [DA: Uni] i1 [[VP_REMTC_CHECK:%.*]] = icmp eq i64 [[VP8]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:         [DA: Uni] br i1 [[VP_REMTC_CHECK]], [[MERGE_BLK1]], [[MERGE_BLK2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[MERGE_BLK1]]: # preds: [[BB15]], [[PEEL_CHECKV0]], [[BB14]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP11:%.*]] = phi-merge  [ i64 live-out0, [[BB15]] ],  [ i64 0, [[PEEL_CHECKV0]] ],  [ i64 [[VP5]], [[BB14]] ]
+; CHECK-NEXT:      [[MERGE_BLK2]]: # preds: [[BB15]], [[BB14]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP9:%.*]] = phi-merge  [ i64 live-out0, [[BB15]] ],  [ i64 [[VP5]], [[BB14]] ]
 ; CHECK-NEXT:       [DA: Uni] br [[BB16:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB16]]: # preds: [[MERGE_BLK1]]
-; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER:%.*]] = vplan-adapter for VPlan {test_store:for.body.cloned} i64 [[VP11]]
+; CHECK-NEXT:      [[BB16]]: # preds: [[MERGE_BLK2]]
+; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER:%.*]] = vplan-adapter for VPlan {test_store:for.body.cloned} i64 [[VP9]]
 ; CHECK-NEXT:       [DA: Uni] br [[BB17:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB17]]: # preds: [[BB16]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:       [DA: Div] i64 [[VP12:%.*]] = vector-trip-count i64 1024, UF = 1
+; CHECK-NEXT:       [DA: Div] i64 [[VP10:%.*]] = vector-trip-count i64 1024 i64 [[VP_PEEL_COUNT]], UF = 1
 ; CHECK-NEXT:       [DA: Uni] popvf
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK_1:%.*]] = icmp eq i64 1024 i64 [[VP12]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK_1]], final.merge, [[MERGE_BLK2]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK_1:%.*]] = icmp eq i64 1024 i64 [[VP10]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK_1]], final.merge, [[MERGE_BLK1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[MERGE_BLK2]]: # preds: [[BB17]], [[BB15]], [[BB13]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP13:%.*]] = phi-merge  [ token [[VP_VPLAN_ADAPTER]], [[BB17]] ],  [ i64 live-out0, [[BB15]] ],  [ i64 [[VP5]], [[BB13]] ]
+; CHECK-NEXT:      [[MERGE_BLK1]]: # preds: [[BB17]], [[BB15]], [[PEEL_CHECKV0]], [[BB13]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP11:%.*]] = phi-merge  [ token [[VP_VPLAN_ADAPTER]], [[BB17]] ],  [ i64 live-out0, [[BB15]] ],  [ i64 0, [[PEEL_CHECKV0]] ],  [ i64 [[VP5]], [[BB13]] ]
 ; CHECK-NEXT:       [DA: Uni] br [[BB18:BB[0-9]+]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB18]]: # preds: [[MERGE_BLK2]]
-; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER_1:%.*]] = vplan-adapter for VPlan {test_store:for.body.ScalarRemainder} i64 [[VP13]]
+; CHECK-NEXT:      [[BB18]]: # preds: [[MERGE_BLK1]]
+; CHECK-NEXT:       [DA: Uni] token [[VP_VPLAN_ADAPTER_1:%.*]] = vplan-adapter for VPlan {test_store:for.body.ScalarRemainder} i64 [[VP11]]
 ; CHECK-NEXT:       [DA: Uni] br final.merge
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: [[BB18]], [[BB17]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP14:%.*]] = phi-merge  [ token [[VP_VPLAN_ADAPTER_1]], [[BB18]] ],  [ token [[VP_VPLAN_ADAPTER]], [[BB17]] ]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP12:%.*]] = phi-merge  [ token [[VP_VPLAN_ADAPTER_1]], [[BB18]] ],  [ token [[VP_VPLAN_ADAPTER]], [[BB17]] ]
 ; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:
@@ -252,18 +248,14 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB13]]: # preds: [[MERGE_BLK0]]
-; CHECK-NEXT:       [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:       [DA: Div] i64 [[VP6]] = vector-trip-count i64 1024, UF = 1
-; CHECK-NEXT:       [DA: Uni] popvf
-; CHECK-NEXT:       [DA: Uni] i64 [[VP7]] = add i64 [[VP_PEEL_COUNT]] i64 2
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_1]] = icmp ugt i64 [[VP7]] i64 [[VP6]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_1]], [[MERGE_BLK2]], [[BB14]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP6]] = add i64 [[VP_PEEL_COUNT]] i64 2
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_1]] = icmp ugt i64 [[VP6]] i64 1024
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_1]], [[MERGE_BLK1]], [[BB14]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB14]]: # preds: [[BB13]]
-; CHECK-NEXT:         [DA: Div] i64 [[VP8]] = vector-trip-count i64 1024, UF = 1
-; CHECK-NEXT:         [DA: Uni] i64 [[VP9]] = add i64 [[VP_PEEL_COUNT]] i64 4
-; CHECK-NEXT:         [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_2]] = icmp ugt i64 [[VP9]] i64 [[VP8]]
-; CHECK-NEXT:         [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_2]], [[MERGE_BLK1]], [[BB1]]
+; CHECK-NEXT:      [[BB14]]: # preds: [[BB13]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP7]] = add i64 [[VP_PEEL_COUNT]] i64 4
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_PEEL_VEC_TC_CHECK_2]] = icmp ugt i64 [[VP7]] i64 1024
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_PEEL_VEC_TC_CHECK_2]], [[MERGE_BLK2]], [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB1]]: # preds: [[BB14]]
 ; CHECK-NEXT:         [DA: Uni] pushvf VF=4 UF=1
@@ -272,7 +264,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:        [[BB2]]: # preds: [[BB1]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 [[VP5]] i64 1
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
-; CHECK-NEXT:         [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024, UF = 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT]] = vector-trip-count i64 1024 i64 [[VP_PEEL_COUNT]], UF = 1
 ; CHECK-NEXT:         [DA: Uni] br [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB3]]: # preds: [[BB2]], [[BB3]]
@@ -295,23 +287,23 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB15]]: # preds: [[BB5]]
 ; CHECK-NEXT:         [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:         [DA: Div] i64 [[VP10]] = vector-trip-count i64 1024, UF = 1
+; CHECK-NEXT:         [DA: Div] i64 [[VP8]] = vector-trip-count i64 1024 i64 [[VP_PEEL_COUNT]], UF = 1
 ; CHECK-NEXT:         [DA: Uni] popvf
-; CHECK-NEXT:         [DA: Uni] i1 [[VP_REMTC_CHECK]] = icmp eq i64 [[VP10]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:         [DA: Uni] br i1 [[VP_REMTC_CHECK]], [[MERGE_BLK2]], [[MERGE_BLK1]]
+; CHECK-NEXT:         [DA: Uni] i1 [[VP_REMTC_CHECK]] = icmp eq i64 [[VP8]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:         [DA: Uni] br i1 [[VP_REMTC_CHECK]], [[MERGE_BLK1]], [[MERGE_BLK2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[MERGE_BLK1]]: # preds: [[BB15]], [[PEEL_CHECKV0]], [[BB14]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP11]] = phi-merge  [ i64 live-out0, [[BB15]] ],  [ i64 0, [[PEEL_CHECKV0]] ],  [ i64 [[VP5]], [[BB14]] ]
+; CHECK-NEXT:      [[MERGE_BLK2]]: # preds: [[BB15]], [[BB14]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP9]] = phi-merge  [ i64 live-out0, [[BB15]] ],  [ i64 [[VP5]], [[BB14]] ]
 ; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      Cloned.[[BB7]]: # preds: [[MERGE_BLK1]]
+; CHECK-NEXT:      Cloned.[[BB7]]: # preds: [[MERGE_BLK2]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=2 UF=1
 ; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      Cloned.[[BB8]]: # preds: Cloned.[[BB7]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP0]] = induction-init{add} i64 [[VP11]] i64 1
+; CHECK-NEXT:       [DA: Div] i64 [[VP0]] = induction-init{add} i64 [[VP9]] i64 1
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP1]] = induction-init-step{add} i64 1
-; CHECK-NEXT:       [DA: Uni] i64 [[VP2]] = vector-trip-count i64 1024, UF = 1
+; CHECK-NEXT:       [DA: Uni] i64 [[VP2]] = vector-trip-count i64 1024 i64 [[VP_PEEL_COUNT]], UF = 1
 ; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      Cloned.[[BB9]]: # preds: Cloned.[[BB8]], Cloned.[[BB9]]
@@ -334,19 +326,19 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB17]]: # preds: Cloned.[[BB11]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=2 UF=1
-; CHECK-NEXT:       [DA: Div] i64 [[VP12]] = vector-trip-count i64 1024, UF = 1
+; CHECK-NEXT:       [DA: Div] i64 [[VP10]] = vector-trip-count i64 1024 i64 [[VP_PEEL_COUNT]], UF = 1
 ; CHECK-NEXT:       [DA: Uni] popvf
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK_1]] = icmp eq i64 1024 i64 [[VP12]]
-; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK_1]], final.merge, [[MERGE_BLK2]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_REMTC_CHECK_1]] = icmp eq i64 1024 i64 [[VP10]]
+; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK_1]], final.merge, [[MERGE_BLK1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[MERGE_BLK2]]: # preds: [[BB17]], [[BB15]], [[BB13]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP13]] = phi-merge  [ i64 [[VP3]], [[BB17]] ],  [ i64 live-out0, [[BB15]] ],  [ i64 [[VP5]], [[BB13]] ]
+; CHECK-NEXT:      [[MERGE_BLK1]]: # preds: [[BB17]], [[BB15]], [[PEEL_CHECKV0]], [[BB13]]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP11]] = phi-merge  [ i64 [[VP3]], [[BB17]] ],  [ i64 live-out0, [[BB15]] ],  [ i64 0, [[PEEL_CHECKV0]] ],  [ i64 [[VP5]], [[BB13]] ]
 ; CHECK-NEXT:       [DA: Uni] br [[REMBLK0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[REMBLK0]]: # preds: [[MERGE_BLK2]]
+; CHECK-NEXT:      [[REMBLK0]]: # preds: [[MERGE_BLK1]]
 ; CHECK-NEXT:       [DA: Uni] pushvf VF=1 UF=1
 ; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP_1]] = scalar-remainder for.body, NeedsCloning: 1, LiveInMap:
-; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0]] = phi i64 [ 0, [[ENTRY0]] ], [ [[INDVARS_IV_NEXT0]], [[FOR_BODY0]] ]} -> i64 [[VP13]] }
+; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0]] = phi i64 [ 0, [[ENTRY0]] ], [ [[INDVARS_IV_NEXT0]], [[FOR_BODY0]] ]} -> i64 [[VP11]] }
 ; CHECK-NEXT:         {label [[FOR_END0]] in {  br i1 [[CMP0]], label [[FOR_BODY0]], label [[FOR_END0]], !llvm.loop !0} -> label [[BB6]] }
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_ORIG_LIVEOUT_1]] = orig-live-out token [[VP_ORIG_LOOP_1]], liveout:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 1
 ; CHECK-NEXT:       [DA: Uni] br [[BB6]]
@@ -356,7 +348,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br final.merge
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    final.merge: # preds: [[BB17]], [[BB6]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP14]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT_1]], [[BB6]] ],  [ i64 [[VP3]], [[BB17]] ]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP12]] = phi-merge  [ i64 [[VP_ORIG_LIVEOUT_1]], [[BB6]] ],  [ i64 [[VP3]], [[BB17]] ]
 ; CHECK-NEXT:     [DA: Uni] popvf
 ; CHECK-NEXT:     [DA: Uni] br <External Block>
 ; CHECK-EMPTY:

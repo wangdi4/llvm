@@ -387,6 +387,20 @@ public:
     return New;
   }
 
+  /// Create a cast of \p Val to \p Ty if needed.
+  VPValue *createIntCast(VPValue *Val, Type *Ty) {
+    if (Ty != Val->getType()) {
+      assert((Ty->isIntegerTy() && Val->getType()->isIntegerTy()) &&
+             "Expected integer type");
+      unsigned Opcode = Ty->getPrimitiveSizeInBits() <
+                                Val->getType()->getPrimitiveSizeInBits()
+                            ? Instruction::Trunc
+                            : Instruction::SExt;
+      Val = createNaryOp(Opcode, Ty, {Val});
+    }
+    return Val;
+  }
+
   //===--------------------------------------------------------------------===//
   // RAII helpers.
   //===--------------------------------------------------------------------===//
