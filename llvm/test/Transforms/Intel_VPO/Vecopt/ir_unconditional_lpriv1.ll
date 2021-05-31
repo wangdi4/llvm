@@ -30,7 +30,7 @@ define void @simd_loop(<2 x i32>* %A, <2 x i32>* %B) #0 {
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in1 i64 1
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     <2 x i32> [[VP_PRIV_OUTGOING_PRIV_FINAL:%.*]] = private-final-uc <2 x i32> [[VP_PRIV_OUTGOING]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:

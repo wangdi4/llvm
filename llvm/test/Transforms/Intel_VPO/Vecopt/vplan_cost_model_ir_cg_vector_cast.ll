@@ -36,7 +36,7 @@ define void @foo(<2 x i32>* nocapture readonly %p) {
 ; CHECK-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; CHECK-NEXT:    Cost Unknown for i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:    Cost Unknown for i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br <External Block>

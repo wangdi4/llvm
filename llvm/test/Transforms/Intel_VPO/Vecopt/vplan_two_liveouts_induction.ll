@@ -58,7 +58,7 @@ define void @foo() {
 ; CHECK-NEXT:     br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB0]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB1]]
-; CHECK-NEXT:     i32 [[VP_STOREMERGE10_IND_FINAL]] = induction-final{add} i32 live-in1 i32 1
+; CHECK-NEXT:     i32 [[VP_STOREMERGE10_IND_FINAL]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     i32 [[VP_STOREMERGE10_PRIV_FINAL]] = private-final-uc i32 [[VP_STOREMERGE10]]
 ; CHECK-NEXT:     br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:

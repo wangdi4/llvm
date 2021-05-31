@@ -61,7 +61,7 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 1000 for i1 [[VP18:%.*]] = icmp sle i32 [[VP1]] i32 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br i1 [[VP18]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1
+; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 0 for br <External Block>

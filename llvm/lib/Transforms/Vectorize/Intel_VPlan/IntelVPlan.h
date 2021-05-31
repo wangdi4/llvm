@@ -2252,8 +2252,8 @@ public:
   }
 
   /// Return operand that corresponds to the start value.
-  VPValue *getStartValueOperand() const {
-    assert(usesStartValue() && "Incorrect operand request");
+  VPValue *getInitOperand() const {
+    assert(getNumOperands() == 2 && "Incorrect operand request");
     return getOperand(0);
   }
 
@@ -2279,18 +2279,12 @@ public:
   Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
 
   /// Return true if start value is used in induction last value calculation.
-  bool usesStartValue() const { return getNumOperands() == 2;}
+  bool usesStartValue() const { return false; }
 
   // Replaces start value with the \p newVal
   void replaceStartValue(VPValue *NewVal) {
-    assert(NewVal && "Unexpected null start value");
-    assert(NewVal->getType() == getStartValueOperand()->getType() &&
-           "Inconsistent operand type");
-    setOperand(0, NewVal);
+    llvm_unreachable("unsupported replacement");
   }
-
-  bool isUpdatedForMaskedModeLoop() const { return UpdateForMaskedModeLoop; }
-  void setUpdateForMaskedModeLoop() { UpdateForMaskedModeLoop = true; }
 
 protected:
   // Clones VPInductionFinal.
@@ -2298,7 +2292,7 @@ protected:
     if (getNumOperands() == 1)
       return new VPInductionFinal(getInductionOperand());
     else if (getNumOperands() == 2)
-      return new VPInductionFinal(getStartValueOperand(), getStepOperand(),
+      return new VPInductionFinal(getInitOperand(), getStepOperand(),
                                   getBinOpcode());
     else
       llvm_unreachable("Too many operands.");
@@ -2308,9 +2302,6 @@ private:
   // Tracks if induction's last value is computed before increment.
   bool LastValPreIncrement = false;
   Instruction::BinaryOps BinOpcode = Instruction::BinaryOpsEnd;
-  // It becomes true when the masked mode loop is generated. It is used by CG
-  // when we vectorize final induction.
-  bool UpdateForMaskedModeLoop = false;
 };
 
 // VPInstruction for reduction initialization.

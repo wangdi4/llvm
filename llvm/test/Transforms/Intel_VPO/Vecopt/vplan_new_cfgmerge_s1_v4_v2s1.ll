@@ -49,7 +49,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_CMP]], [[BB3]], [[BB4:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB5:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
@@ -95,7 +95,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_CMP_1]], Cloned.[[BB9]], Cloned.[[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB10]]: # preds: Cloned.[[BB9]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP3:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP3:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB11:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB11]]: # preds: Cloned.[[BB10]]
@@ -173,7 +173,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:         [DA: Uni] br i1 [[VP_CMP]], [[BB3]], [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB4]]: # preds: [[BB3]]
-; CHECK-NEXT:         [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:         [DA: Uni] br [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB5]]: # preds: [[BB4]]
@@ -286,7 +286,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:         [DA: Uni] br i1 [[VP_CMP]], [[BB3]], [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB4]]: # preds: [[BB3]]
-; CHECK-NEXT:         [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 [[VP5]] i64 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:         [DA: Uni] br [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB5]]: # preds: [[BB4]]
@@ -325,7 +325,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_CMP_1]], Cloned.[[BB9]], Cloned.[[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      Cloned.[[BB10]]: # preds: Cloned.[[BB9]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP3]] = induction-final{add} i64 [[VP11]] i64 1
+; CHECK-NEXT:       [DA: Uni] i64 [[VP3]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      Cloned.[[BB11]]: # preds: Cloned.[[BB10]]

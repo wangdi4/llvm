@@ -35,7 +35,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 [[VP_CMP]], [[BB2]], [[BB3:BB[0-9]+]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
@@ -81,7 +81,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_CMP_1]], Cloned.[[BB8]], Cloned.[[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB9]]: # preds: Cloned.[[BB8]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP3:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP3:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB10]]: # preds: Cloned.[[BB9]]
@@ -133,7 +133,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:         [DA: Uni] br i1 [[VP_CMP]], [[BB2]], [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:         [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:         [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:         [DA: Uni] br [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB4]]: # preds: [[BB3]]
@@ -253,7 +253,7 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_CMP_1]], Cloned.[[BB8]], Cloned.[[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      Cloned.[[BB9]]: # preds: Cloned.[[BB8]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP3]] = induction-final{add} i64 [[VP7]] i64 1
+; CHECK-NEXT:       [DA: Uni] i64 [[VP3]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:       [DA: Uni] br Cloned.[[BB10]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      Cloned.[[BB10]]: # preds: Cloned.[[BB9]]

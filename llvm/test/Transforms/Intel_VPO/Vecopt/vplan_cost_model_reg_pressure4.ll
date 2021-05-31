@@ -59,7 +59,7 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX2-NEXT:    Cost 4000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br <External Block>
@@ -99,7 +99,7 @@ define dso_local void @foo() {
 ; VPLAN-CM-AVX512-NEXT:    Cost 2000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-CM-AVX512-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-AVX512-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-AVX512-NEXT:    Cost 0 for br <External Block>

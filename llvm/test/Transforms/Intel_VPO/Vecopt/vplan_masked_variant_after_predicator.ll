@@ -34,8 +34,8 @@ define void @main() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_ADD_PHI_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP_ADD]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 live-in1 i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_ADD_PHI_2_IND_FINAL:%.*]] = induction-final{add} i32 live-in2 i32 2
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_ADD_PHI_2_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 2
 ; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
@@ -59,29 +59,28 @@ define void @main() {
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP2:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:     [DA: Div] i32 [[VP3:%.*]] = induction-init{add} i32 live-in2 i32 2
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP4:%.*]] = induction-init-step{add} i32 2
-; CHECK-NEXT:     [DA: Uni] i32 [[VP5:%.*]] = vector-trip-count i32 128, UF = 1
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB8]]: # preds: Cloned.[[BB7]], new_latch
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_1:%.*]] = phi  [ i32 [[VP1]], Cloned.[[BB7]] ],  [ i32 [[VP_IV_NEXT_1:%.*]], new_latch ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD_PHI_1:%.*]] = phi  [ i32 [[VP0]], Cloned.[[BB7]] ],  [ i32 [[VP__BLEND_CLONED_BB310:%.*]], new_latch ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD_PHI_2_1:%.*]] = phi  [ i32 [[VP3]], Cloned.[[BB7]] ],  [ i32 [[VP__BLEND_CLONED_BB310_1:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = icmp ult i32 [[VP_IV_1]] i32 128
+; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = icmp ult i32 [[VP_IV_1]] i32 128
 ; CHECK-NEXT:     [DA: Uni] br [[BB9:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]: # preds: Cloned.[[BB8]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP6]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP5]]
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB10:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB10]]: # preds: [[BB9]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP8:%.*]] = block-predicate i1 [[VP6]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP5]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD_1:%.*]] = add i32 [[VP_ADD_PHI_1]] i32 1
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD_2_1:%.*]] = add i32 [[VP_ADD_PHI_2_1]] i32 [[VP4]]
 ; CHECK-NEXT:     [DA: Uni] br new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    new_latch: # preds: Cloned.[[BB10]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP__BLEND_CLONED_BB310]] = blend [ i32 [[VP_ADD_PHI_1]], i1 true ], [ i32 [[VP_ADD_1]], i1 [[VP6]] ]
-; CHECK-NEXT:     [DA: Div] i32 [[VP__BLEND_CLONED_BB310_1]] = blend [ i32 [[VP_ADD_PHI_2_1]], i1 true ], [ i32 [[VP_ADD_2_1]], i1 [[VP6]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP__BLEND_CLONED_BB310]] = blend [ i32 [[VP_ADD_PHI_1]], i1 true ], [ i32 [[VP_ADD_1]], i1 [[VP5]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP__BLEND_CLONED_BB310_1]] = blend [ i32 [[VP_ADD_PHI_2_1]], i1 true ], [ i32 [[VP_ADD_2_1]], i1 [[VP5]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_NEXT_1]] = add i32 [[VP_IV_1]] i32 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_BOTTOM_TEST_1:%.*]] = icmp ult i32 [[VP_IV_NEXT_1]] i32 128
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP9:%.*]] = all-zero-check i1 [[VP_BOTTOM_TEST_1]]
@@ -89,8 +88,8 @@ define void @main() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB11]]: # preds: new_latch
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP10:%.*]] = reduction-final{u_add} i32 [[VP__BLEND_CLONED_BB310]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP11:%.*]] = induction-final{add} i32 live-in1 i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP12:%.*]] = induction-final{add} i32 live-in2 i32 2
+; CHECK-NEXT:     [DA: Uni] i32 [[VP11:%.*]] = induction-final{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP12:%.*]] = induction-final{add} i32 0 i32 2
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB12:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB12]]: # preds: Cloned.[[BB11]]

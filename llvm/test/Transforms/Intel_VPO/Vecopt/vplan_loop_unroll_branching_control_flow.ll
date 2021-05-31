@@ -106,7 +106,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND_2]], [[BB14:BB[0-9]+]], [[BB2]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB14]]: # preds: cloned.[[BB3]]
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-NEXT:     [DA: Uni] br [[BB15:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB15]]: # preds: [[BB14]]
@@ -413,7 +413,7 @@ define dso_local void @uniform_control_flow(i32* nocapture %a, i32* nocapture %b
 ; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND_2]], [[BB14:BB[0-9]+]], [[BB2]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB14]]: # preds: cloned.[[BB3]]
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-NEXT:     [DA: Uni] br [[BB15:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB15]]: # preds: [[BB14]]

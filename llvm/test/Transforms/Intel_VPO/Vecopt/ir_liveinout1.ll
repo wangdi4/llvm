@@ -49,7 +49,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:     float [[VP_LOAD:%.*]] = load float* [[VP_X]]
 ; CHECK-NEXT:     float [[VP_X_RED_FINAL]] = reduction-final{fadd} float [[VP_LOAD]] float live-in1
 ; CHECK-NEXT:     store float [[VP_X_RED_FINAL]] float* [[X0]]
-; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]

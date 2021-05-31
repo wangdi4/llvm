@@ -79,13 +79,12 @@ define dso_local float @getElement(i32 %idx) {
 ; CHECK-NEXT:    br i1 [[BROADCAST_SPLAT20_EXTRACT_0_]], label [[VPLANNEDBB21:%.*]], label [[VPLANNEDBB12]]
 ; CHECK:       VPlannedBB21:
 ; CHECK-NEXT:    [[TMP13:%.*]] = call float @llvm.vector.reduce.fadd.v2f32(float [[UNI_PHI8]], <2 x float> [[PREDBLEND]])
-; CHECK-NEXT:    [[TMP14:%.*]] = add i32 [[UNI_PHI9]], 4096
 ; CHECK-NEXT:    br label [[VPLANNEDBB22:%.*]]
 ; CHECK:       VPlannedBB22:
 ; CHECK-NEXT:    br label [[FINAL_MERGE]]
 ; CHECK:       final.merge:
 ; CHECK-NEXT:    [[UNI_PHI23:%.*]] = phi float [ [[TMP13]], [[VPLANNEDBB22]] ], [ [[TMP4]], [[VPLANNEDBB7]] ]
-; CHECK-NEXT:    [[UNI_PHI24:%.*]] = phi i32 [ [[TMP14]], [[VPLANNEDBB22]] ], [ 4096, [[VPLANNEDBB7]] ]
+; CHECK-NEXT:    [[UNI_PHI24:%.*]] = phi i32 [ 4096, [[VPLANNEDBB22]] ], [ 4096, [[VPLANNEDBB7]] ]
 ; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_4:%.*]]
 ; CHECK:       omp.inner.for.body:
 ; CHECK-NEXT:    [[DOTOMP_IV_LOCAL_0:%.*]] = phi i32 [ [[ADD3:%.*]], [[OMP_INNER_FOR_BODY:%.*]] ]
