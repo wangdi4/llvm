@@ -648,15 +648,18 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
   VPlan *CurPlan = NewMainPlan;
   UsedPlans.insert(CurPlan);
 
-  bool ScalarUsed = false;
-
   switch (Scen.getPeelKind()) {
   case LK::LKNone:
     break;
   case LK::LKScalar: {
-    ScalarUsed = true;
+    bool ScalarUsed = llvm::any_of(Scen.remainders(), [](auto &PlanDescr) {
+      return PlanDescr.Kind == LK::LKScalar;
+    });
     ScalarPeelVPlanFab Fab;
     auto ScalarPlan = Fab.create(MainPlan, OrigLoop);
+    // Update the NeedClone flag in scalar peel. We use the original
+    // loop for remainder and create a clone for peel if that's needed.
+    ScalarPlan->setNeedCloneOrigLoop(ScalarUsed);
     CurPlan = Planner.addAuxiliaryVPlan(*ScalarPlan);
     PlanDescrs.push_front({LT::LTPeel, 1, CurPlan});
     dumpNewVPlan(CurPlan);
@@ -689,16 +692,13 @@ void VPlanCFGMerger::createPlans(LoopVectorizationPlanner &Planner,
   // scalar remainder at front while others before the anchor. So the scalar
   // remainder is inserted in CFG first.
   auto AnchorIter = PlanDescrs.begin();
-  for (auto Rem : make_range(Scen.rem_begin(), Scen.rem_end()))
+  for (auto Rem : Scen.remainders())
     switch (Rem.Kind) {
     case LK::LKNone:
       break;
     case LK::LKScalar: {
       ScalarRemainderVPlanFab Fab;
       auto ScalarPlan = Fab.create(MainPlan, OrigLoop);
-      // Update the NeedClone flag in scalar remainder. We use the original
-      // loop first for peel and create a clone for remainder if that happen.
-      ScalarPlan->setNeedCloneOrigLoop(ScalarUsed);
       CurPlan = Planner.addAuxiliaryVPlan(*ScalarPlan);
       PlanDescrs.push_front({LT::LTRemainder, 1, CurPlan});
       dumpNewVPlan(CurPlan);

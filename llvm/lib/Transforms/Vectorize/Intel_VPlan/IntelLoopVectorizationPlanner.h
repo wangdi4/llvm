@@ -108,6 +108,7 @@ public:
   const AuxLoopDescr &getPeel() const { return Peel; }
   auto rem_begin() const { return Remainders.begin(); }
   auto rem_end() const { return Remainders.end(); }
+  auto remainders() const { return make_range(rem_begin(), rem_end()); }
   unsigned getMainUF() const { return MainUF; }
 
   AuxLoopKind getMainKind() const { return Main.Kind; }

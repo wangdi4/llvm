@@ -28,11 +28,11 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp ugt i64 [[TMP5]], 1024
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[MERGE_BLK24:%.*]], label [[PEELBLK13:%.*]]
 ; CHECK:       PeelBlk13:
-; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
+; CHECK-NEXT:    br label [[FOR_BODY_SL_CLONE:%.*]]
 ; CHECK:       VPlannedBB:
 ; CHECK-NEXT:    br label [[MERGE_BLK29]]
 ; CHECK:       merge.blk29:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[PEEL_CHECKZ31]] ], [ [[INDVARS_IV_NEXT:%.*]], [[VPLANNEDBB:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[PEEL_CHECKZ31]] ], [ [[INDVARS_IV_NEXT_SL_CLONE:%.*]], [[VPLANNEDBB:%.*]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
 ; CHECK:       VPlannedBB1:
 ; CHECK-NEXT:    [[TMP7:%.*]] = add i64 [[TMP3]], 2
@@ -121,30 +121,30 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[UNI_PHI33:%.*]] = phi i64 [ [[TMP29]], [[VPLANNEDBB29]] ], [ [[TMP19]], [[VPLANNEDBB11]] ], [ 0, [[PEEL_CHECKV32]] ], [ [[UNI_PHI]], [[VPLANNEDBB1]] ]
 ; CHECK-NEXT:    br label [[REMBLK15:%.*]]
 ; CHECK:       RemBlk15:
-; CHECK-NEXT:    br label [[FOR_BODY_SR_CLONE:%.*]]
+; CHECK-NEXT:    br label [[FOR_BODY:%.*]]
 ; CHECK:       VPlannedBB34:
 ; CHECK-NEXT:    br label [[FINAL_MERGE]]
 ; CHECK:       final.merge:
-; CHECK-NEXT:    [[UNI_PHI35:%.*]] = phi i64 [ [[INDVARS_IV_NEXT_SR_CLONE:%.*]], [[VPLANNEDBB34:%.*]] ], [ [[TMP29]], [[VPLANNEDBB29]] ]
+; CHECK-NEXT:    [[UNI_PHI35:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[VPLANNEDBB34:%.*]] ], [ [[TMP29]], [[VPLANNEDBB29]] ]
 ; CHECK-NEXT:    br label [[FOR_END:%.*]]
 ; CHECK:       for.body:
-; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ 0, [[PEELBLK13]] ], [ [[INDVARS_IV_NEXT]], [[FOR_BODY]] ]
+; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[UNI_PHI33]], [[REMBLK15]] ], [ [[INDVARS_IV_NEXT]], [[FOR_BODY]] ]
 ; CHECK-NEXT:    [[PTR:%.*]] = getelementptr inbounds i64, i64* [[ARY]], i64 [[INDVARS_IV]]
 ; CHECK-NEXT:    [[CC:%.*]] = sext i32 [[C]] to i64
 ; CHECK-NEXT:    [[ADD:%.*]] = add i64 [[CC]], [[INDVARS_IV]]
 ; CHECK-NEXT:    store i64 [[ADD]], i64* [[PTR]], align 8
 ; CHECK-NEXT:    [[INDVARS_IV_NEXT]] = add nuw nsw i64 [[INDVARS_IV]], 1
-; CHECK-NEXT:    [[CMP:%.*]] = icmp ult i64 [[INDVARS_IV_NEXT]], [[TMP3]]
-; CHECK-NEXT:    br i1 [[CMP]], label [[FOR_BODY]], label [[VPLANNEDBB]], !llvm.loop [[LOOP3:![0-9]+]]
-; CHECK:       for.body.sr.clone:
-; CHECK-NEXT:    [[INDVARS_IV_SR_CLONE:%.*]] = phi i64 [ [[UNI_PHI33]], [[REMBLK15]] ], [ [[INDVARS_IV_NEXT_SR_CLONE]], [[FOR_BODY_SR_CLONE]] ]
-; CHECK-NEXT:    [[PTR_SR_CLONE:%.*]] = getelementptr inbounds i64, i64* [[ARY]], i64 [[INDVARS_IV_SR_CLONE]]
-; CHECK-NEXT:    [[CC_SR_CLONE:%.*]] = sext i32 [[C]] to i64
-; CHECK-NEXT:    [[ADD_SR_CLONE:%.*]] = add i64 [[CC_SR_CLONE]], [[INDVARS_IV_SR_CLONE]]
-; CHECK-NEXT:    store i64 [[ADD_SR_CLONE]], i64* [[PTR_SR_CLONE]], align 8
-; CHECK-NEXT:    [[INDVARS_IV_NEXT_SR_CLONE]] = add nuw nsw i64 [[INDVARS_IV_SR_CLONE]], 1
-; CHECK-NEXT:    [[CMP_SR_CLONE:%.*]] = icmp ult i64 [[INDVARS_IV_NEXT_SR_CLONE]], [[TMP3]]
-; CHECK-NEXT:    br i1 [[CMP_SR_CLONE]], label [[FOR_BODY_SR_CLONE]], label [[VPLANNEDBB34]], !llvm.loop [[LOOP5:![0-9]+]]
+; CHECK-NEXT:    [[CMP:%.*]] = icmp ult i64 [[INDVARS_IV_NEXT]], 1024
+; CHECK-NEXT:    br i1 [[CMP]], label [[FOR_BODY]], label [[VPLANNEDBB34]], !llvm.loop [[LOOP3:![0-9]+]]
+; CHECK:       for.body.sl.clone:
+; CHECK-NEXT:    [[INDVARS_IV_SL_CLONE:%.*]] = phi i64 [ 0, [[PEELBLK13]] ], [ [[INDVARS_IV_NEXT_SL_CLONE]], [[FOR_BODY_SL_CLONE]] ]
+; CHECK-NEXT:    [[PTR_SL_CLONE:%.*]] = getelementptr inbounds i64, i64* [[ARY]], i64 [[INDVARS_IV_SL_CLONE]]
+; CHECK-NEXT:    [[CC_SL_CLONE:%.*]] = sext i32 [[C]] to i64
+; CHECK-NEXT:    [[ADD_SL_CLONE:%.*]] = add i64 [[CC_SL_CLONE]], [[INDVARS_IV_SL_CLONE]]
+; CHECK-NEXT:    store i64 [[ADD_SL_CLONE]], i64* [[PTR_SL_CLONE]], align 8
+; CHECK-NEXT:    [[INDVARS_IV_NEXT_SL_CLONE]] = add nuw nsw i64 [[INDVARS_IV_SL_CLONE]], 1
+; CHECK-NEXT:    [[CMP_SL_CLONE:%.*]] = icmp ult i64 [[INDVARS_IV_NEXT_SL_CLONE]], [[TMP3]]
+; CHECK-NEXT:    br i1 [[CMP_SL_CLONE]], label [[FOR_BODY_SL_CLONE]], label [[VPLANNEDBB]], !llvm.loop [[LOOP5:![0-9]+]]
 ; CHECK:       for.end:
 ; CHECK-NEXT:    ret void
 ;

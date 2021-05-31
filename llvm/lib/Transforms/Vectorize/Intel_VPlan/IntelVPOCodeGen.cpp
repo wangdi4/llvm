@@ -905,6 +905,30 @@ Value *VPOCodeGen::codeGenVPInvSCEVWrapper(VPInvSCEVWrapper *SW) {
   return InvBase;
 }
 
+void VPOCodeGen::vectorizeScalarPeelRem(VPPeelRemainder *LoopReuse) {
+  if (LoopReuse->isCloningRequired()) {
+    // Clone before processing if needed.
+    VPBasicBlock *ParentSucc = LoopReuse->getParent()->getSingleSuccessor();
+    BasicBlock *SuccBB = cast<BasicBlock>(getScalarValue(ParentSucc, 0));
+    ReplaceInstWithInst(Builder.GetInsertBlock()->getTerminator(),
+                        BranchInst::Create(SuccBB));
+    cloneScalarLoop(LoopReuse->getLoop(), Builder.GetInsertBlock(), SuccBB,
+                    LoopReuse, ".sl.clone");
+  }
+  // Make the current block predecessor of the original loop header.
+  ReplaceInstWithInst(Builder.GetInsertBlock()->getTerminator(),
+                      BranchInst::Create(LoopReuse->getLoop()->getHeader()));
+  // Replace operands (original incoming values) with the new ones from VPlan.
+  // This includes the exit block.
+  for (unsigned Idx = 0; Idx < LoopReuse->getNumOperands(); ++Idx) {
+    Use *OrigUse = LoopReuse->getLiveIn(Idx);
+    OrigUse->set(getScalarValue(LoopReuse->getOperand(Idx), 0));
+    if (auto *Phi = dyn_cast<PHINode>(OrigUse->getUser()))
+      Phi->setIncomingBlock(OrigUse->getOperandNo(), Builder.GetInsertBlock());
+  }
+  OrigLoopUsed = true;
+}
+
 void VPOCodeGen::processInstruction(VPInstruction *VPInst) {
   setBuilderDebugLoc(VPInst->getDebugLocation());
   generateScalarCode(VPInst);
@@ -1683,39 +1707,16 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     // Do nothing.
     return;
   case VPInstruction::ScalarRemainder:
-    if (cast<VPPeelRemainder>(VPInst)->isCloningRequired()) {
-      // Clone before processing if needed.
-      auto LoopReuse = cast<VPPeelRemainder>(VPInst);
-      VPBasicBlock *ParentSucc = VPInst->getParent()->getSingleSuccessor();
-      BasicBlock *SuccBB = cast<BasicBlock>(getScalarValue(ParentSucc, 0));
-      ReplaceInstWithInst(Builder.GetInsertBlock()->getTerminator(),
-                          BranchInst::Create(SuccBB));
-      cloneScalarLoop(LoopReuse->getLoop(), Builder.GetInsertBlock(), SuccBB,
-                      LoopReuse, ".sr.clone");
-    }
-    LLVM_FALLTHROUGH;
+    vectorizeScalarPeelRem(cast<VPPeelRemainder>(VPInst));
+    return;
   case VPInstruction::ScalarPeel: {
-    auto *LoopReuse = cast<VPPeelRemainder>(VPInst);
-    // Make the current block predecessor of the original loop header.
-    ReplaceInstWithInst(Builder.GetInsertBlock()->getTerminator(),
-                        BranchInst::Create(LoopReuse->getLoop()->getHeader()));
-    // Replace operands (original incoming values) with the new ones from VPlan.
-    // This includes the exit block.
-    for (unsigned Idx = 0; Idx < LoopReuse->getNumOperands(); ++Idx) {
-      Use *OrigUse = LoopReuse->getLiveIn(Idx);
-      OrigUse->set(getScalarValue(LoopReuse->getOperand(Idx), 0));
-      if (auto *Phi = dyn_cast<PHINode>(OrigUse->getUser()))
-        Phi->setIncomingBlock(OrigUse->getOperandNo(),
-                              Builder.GetInsertBlock());
-    }
-    // For scalar peel replace original preheader with the new one in the header
+    auto LoopReuse = cast<VPPeelRemainder>(VPInst);
+    vectorizeScalarPeelRem(LoopReuse);
+    // In scalar peel replace original preheader with the new one in the header
     // phis.
-    if (VPInst->getOpcode() == VPInstruction::ScalarPeel) {
-      auto NewPH = Builder.GetInsertBlock();
-      for (auto &Phi : LoopReuse->getLoop()->getHeader()->phis())
-        Phi.replaceIncomingBlockWith(OrigPreHeader, NewPH);
-    }
-    OrigLoopUsed = true;
+    auto NewPH = Builder.GetInsertBlock();
+    for (auto &Phi : LoopReuse->getLoop()->getHeader()->phis())
+      Phi.replaceIncomingBlockWith(OrigPreHeader, NewPH);
     return;
   }
   case VPInstruction::OrigLiveOut: {
