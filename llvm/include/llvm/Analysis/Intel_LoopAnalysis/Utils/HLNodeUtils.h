@@ -408,6 +408,12 @@ private:
   static const HLNode *getLexicalChildImpl(const HLNode *Parent,
                                            const HLNode *Node, bool First);
 
+  // Returns true if \p Node is last child of its parent. It could be the last
+  // child of any case for HLIf/HLSwitch.
+  // This is used by framework so the implementation avoids using top sort
+  // numbers.
+  static bool isLexicalLastChildOfParent(const HLNode *Node);
+
   /// Returns true if the lexical link have structured flow between Parent's
   /// first/last child and Node. The direction is dictated by UpwardTraversal
   /// flag. TargetNode is used for early termination of the traversal.

@@ -297,47 +297,6 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
   HLoop->setHasSignedIV(IsSigned);
 }
 
-// This function is trying to remove a child if has the same condition as the
-// parent if. Ideally speaking, this should be cleaned up by ScalarOpt before
-// LoopOpt. Passes like InstCombine and SimplifyCFG do have some logic to do
-// this but it is not full-proof. In addition to limited capabilities of these
-// passes, the other problem is that sometimes the CFG is not simplified enough
-// when these passes are run in the pipeline to be able to trigger the
-// optimization. Adding InstCombine pass right before loopopt causes performance
-// degradations. Performing this optimizaiton in the framework is a workaround
-// of last resort.
-bool HIRLoopFormation::removedIdenticalChildIf(HLIf *ParentIf, HLIf *ChildIf,
-                                               bool PredicateInversion) const {
-  // Refs are null if we haven't performed parsing yet. We don't want to do this
-  // in the later HIRFramework phase as parsing could have changed the if
-  // structure by then.
-  if ((*ParentIf->ddref_begin()) != nullptr) {
-    return false;
-  }
-
-  auto *ParentSrcBB = HIRCr.getSrcBBlock(ParentIf);
-  auto *ParentCond =
-      cast<BranchInst>(ParentSrcBB->getTerminator())->getCondition();
-
-  // Bail out if the condition is true, false or undef.
-  if (isa<ConstantData>(ParentCond)) {
-    return false;
-  }
-
-  auto *ChildSrcBB = HIRCr.getSrcBBlock(ChildIf);
-  auto *ChildCond =
-      cast<BranchInst>(ChildSrcBB->getTerminator())->getCondition();
-
-  // We are only handling the case of identical values which is the cheapest
-  // implementation.
-  if (ParentCond != ChildCond) {
-    return false;
-  }
-
-  HLNodeUtils::replaceNodeWithBody(ChildIf, !PredicateInversion);
-  return true;
-}
-
 bool HIRLoopFormation::populatedPostexitNodes(HLLoop *HLoop, HLIf *ParentIf,
                                               bool PredicateInversion,
                                               bool &HasPostSiblingLoop) const {
@@ -370,15 +329,6 @@ bool HIRLoopFormation::populatedPostexitNodes(HLLoop *HLoop, HLIf *ParentIf,
         break;
       }
 
-      if (auto *ChildIf = dyn_cast<HLIf>(Node)) {
-        // If this is an identical nested if, replace it with its body and rerun
-        // analysis. We don't allow non loop header labels between the two ifs
-        // so it should be safe to do this based on control-flow.
-        if (removedIdenticalChildIf(ParentIf, ChildIf, PredicateInversion)) {
-          return populatedPostexitNodes(HLoop, ParentIf, PredicateInversion,
-                                     HasPostSiblingLoop);
-        }
-      }
       return false;
     }
   }
@@ -596,14 +546,27 @@ void HIRLoopFormation::processLoopExitGoto(HLIf *BottomTest, HLLabel *LoopLabel,
           isa<HLGoto>(BottomTest->getFirstElseChild())) &&
          "Unexpected bottom test!");
 
-  auto ThenGoto = cast<HLGoto>(BottomTest->getFirstThenChild());
+  auto *ThenGoto = cast<HLGoto>(BottomTest->getFirstThenChild());
+  HLNode *MovedGoto = ThenGoto;
 
   // Check which goto represents backedge and move the other one after the loop.
   if (ThenGoto->getTargetLabel() == LoopLabel) {
-    ThenGoto->getHLNodeUtils().moveAfter(HLoop,
-                                         BottomTest->getFirstElseChild());
+    MovedGoto = BottomTest->getFirstElseChild();
+    HLNodeUtils::moveAfter(HLoop, MovedGoto);
+
   } else {
-    ThenGoto->getHLNodeUtils().moveAfter(HLoop, ThenGoto);
+    HLNodeUtils::moveAfter(HLoop, ThenGoto);
+  }
+
+  // If goto has a non-label successor, we create a dummy label so that the
+  // verifier doesn't complain about dead nodes.
+  if (!HLNodeUtils::isLexicalLastChildOfParent(MovedGoto)) {
+    auto *LabelSucc = dyn_cast<HLLabel>(&*std::next(MovedGoto->getIterator()));
+
+    if (!LabelSucc) {
+      auto *Label = MovedGoto->getHLNodeUtils().createHLLabel("Unused");
+      HLNodeUtils::insertAfter(MovedGoto, Label);
+    }
   }
 }
 
@@ -664,13 +627,13 @@ void HIRLoopFormation::formLoops() {
     HLoop->setCmpTestDebugLoc(BottomTest->pred_begin()->DbgLoc);
 
     setProfileData(BottomTest, Label, HLoop);
-    processLoopExitGoto(BottomTest, Label, HLoop);
 
     // Include Label and bottom test as explicit nodes inside the unknown loop.
     auto FirstChildIter = IsUnknownLoop ? LabelIter : std::next(LabelIter);
     auto EndIter = IsUnknownLoop ? std::next(BottomTestIter) : BottomTestIter;
 
     HLNodeUtils::moveAsFirstChildren(HLoop, FirstChildIter, EndIter);
+    processLoopExitGoto(BottomTest, Label, HLoop);
 
     setIVType(HLoop, BECount);
 

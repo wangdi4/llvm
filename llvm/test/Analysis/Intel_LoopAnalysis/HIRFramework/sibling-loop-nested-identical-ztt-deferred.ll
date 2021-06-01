@@ -1,12 +1,15 @@
-; RUN: opt -hir-create-function-level-region -hir-details -hir-ssa-deconstruction -analyze -hir-framework -hir-framework-debug=parser < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-create-function-level-region -hir-details -passes="hir-ssa-deconstruction,print<hir-framework>" -hir-framework-debug=parser 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-create-function-level-region -hir-details -hir-ssa-deconstruction -analyze -hir-framework < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-create-function-level-region -hir-details -passes="hir-ssa-deconstruction,print<hir-framework>" 2>&1 < %s | FileCheck %s
 
-; Verify that cleanup phase is able to remove identical nested ifs and loop
-; formation phase is able to set them as ZTTs for both sibling loops.
+; Verify that cleanup phase is able to remove identical nested ifs so that
+; we are able to set ZTTs for both sibling loops with deferred ZTT processing.
 
-; Dump before loop formation showing nested ZTTs-
+; The ZTT is deferred to be processed after parsing because it contains instruction
+; %add in the else case. This instruction is unused and eliminated by parser.
 
-; if (0x0 true 0x0)    << ZTT1
+; Dump before  showing nested ZTTs-
+
+; if (0x0 true 0x0)    << Deferred outer ZTT
 ; {
 ;    for.body:         << LOOP1
 ;    if (0x0 true 0x0)
@@ -16,7 +19,7 @@
 ;    {
 ;       goto for.body;
 ;    }
-;    if (0x0 true 0x0) << ZTT2
+;    if (0x0 true 0x0) << Inner identical ZTT
 ;    {
 ;       for.body3:     << LOOP2
 ;       if (0x0 true 0x0)
@@ -27,6 +30,8 @@
 ;          goto for.body3;
 ;       }
 ;    }
+; } else {
+;    0x0 = 0x0  +  0x0;
 ; }
 
 
@@ -41,7 +46,6 @@
 ; CHECK: + END LOOP
 
 
-
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -52,7 +56,7 @@ define dso_local void @foo(i32 %n, i32 %m) local_unnamed_addr #0 {
 entry:
   %cmp19 = icmp sgt i32 %n, 0
   %wide.trip.count2325 = zext i32 %n to i64
-  br i1 %cmp19, label %for.body.preheader, label %for.end8
+  br i1 %cmp19, label %for.body.preheader, label %unused
 
 for.body.preheader:                               ; preds = %entry
   br label %for.body
@@ -84,6 +88,10 @@ for.body3:                                        ; preds = %for.body3.preheader
   br i1 %exitcond, label %for.end8.loopexit, label %for.body3
 
 for.end8.loopexit:                                ; preds = %for.body3
+  br label %for.end8
+
+unused:
+  %add = add nsw i32 %n, %m
   br label %for.end8
 
 for.end8:                                         ; preds = %for.end8.loopexit, %for.cond1.preheader, %entry
