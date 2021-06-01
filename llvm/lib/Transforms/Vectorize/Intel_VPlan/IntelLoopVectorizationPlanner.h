@@ -362,11 +362,9 @@ public:
   /// Reads all metadata specified by pragmas
   void readLoopMetadata() {
     VectorlengthMD =
-        findOptionMDForLoop(TheLoop, "llvm.loop.vector.vectorlength");
-    IsVecRemainder = readVecRemainderEnabled(
-        findOptionMDForLoop(TheLoop, "llvm.loop.vector.vecremainder"));
-    IsDynAlign = readDynAlignEnabled(
-        findOptionMDForLoop(TheLoop, "llvm.loop.vectorize.dynamic_align"));
+        findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.vectorlength");
+    IsVecRemainder = readVecRemainderEnabled();
+    IsDynAlign = readDynAlignEnabled();
   }
 
   bool isVecRemainderDisabled() const {
@@ -495,13 +493,15 @@ protected:
   /// metadata
   bool IsDynAlign = true;
 
-  /// Extracts true or false value from "llvm.loop.vector.vecremainder" metadata
-  /// if any. If there is no such metadata returns None.
-  Optional<bool> readVecRemainderEnabled(MDNode *MD);
+  /// Returns true/false value if "llvm.loop.intel.vector.vecremainder"/
+  /// "llvm.loop.intel.vector.novecremainder" metadata is specified. If there is
+  ///  no such metadata, returns None.
+  Optional<bool> readVecRemainderEnabled();
 
-  /// Extracts true or false value from "llvm.loop.vectorize.dynamic_align"
-  /// metadata if any. If there is no such metadata, returns true value.
-  bool readDynAlignEnabled(MDNode *MD);
+  /// Returns true/false value if "llvm.loop.intel.vector.dynamic_align"/
+  /// "llvm.loop.intel.vector.nodynamic_align" metadata is specified. If there
+  /// is no such metadata, returns true.
+  bool readDynAlignEnabled();
 
   /// Transform to emit explict uniform Vector loop iv.
   virtual void emitVecSpecifics(VPlanVector *Plan);

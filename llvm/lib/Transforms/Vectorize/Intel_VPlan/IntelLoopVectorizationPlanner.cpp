@@ -512,38 +512,34 @@ void LoopVectorizationPlanner::selectSimplestVecScenario(unsigned VF,
   VecScenario.setVectorMain(VF, UF);
 }
 
-Optional<bool> LoopVectorizationPlanner::readVecRemainderEnabled(MDNode *MD) {
-  if (MD) {
-    if (mdconst::extract<ConstantInt>(MD->getOperand(1))
-            ->isOne()) {
-      DEBUG_WITH_TYPE("VPlan_pragma_metadata",
-                      dbgs() << "Vector Remainder was set by the user's "
-                                "#pragma vecremainder\n");
-      return true;
-    } else {
-      DEBUG_WITH_TYPE("VPlan_pragma_metadata",
-                      dbgs() << "Scalar Remainder was set by the user's #pragma "
-                                 "novecremainder\n");
-      return false;
-    }
+Optional<bool> LoopVectorizationPlanner::readVecRemainderEnabled() {
+  if (findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.vecremainder")) {
+    DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                     dbgs() << "Vector Remainder was set by the user's "
+                               "#pragma vecremainder\n");
+    return true;
+  }
+  if (findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.novecremainder")) {
+    DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                     dbgs() << "Scalar Remainder was set by the user's #pragma "
+                                "novecremainder\n");
+    return false;
   }
   return None;
 }
 
-bool LoopVectorizationPlanner::readDynAlignEnabled(MDNode *MD) {
-  if (MD) {
-    if (mdconst::extract<ConstantInt>(MD->getOperand(1))
-            ->isOne()) {
-      DEBUG_WITH_TYPE("VPlan_pragma_metadata",
-                      dbgs() << "Dynamic Align was set by the user's "
-                                "#pragma vector dynamic_align\n");
-      return true;
-    } else {
-      DEBUG_WITH_TYPE("VPlan_pragma_metadata",
-                      dbgs() << "No dynamic Align was set by the user's "
-                                "#pragma vector nodynamic_align\n");
-      return false;
-    }
+bool LoopVectorizationPlanner::readDynAlignEnabled() {
+  if (findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.dynamic_align")) {
+    DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                     dbgs() << "Dynamic Align was set by the user's "
+                               "#pragma vector dynamic_align\n");
+    return true;
+  }
+  if (findOptionMDForLoop(TheLoop, "llvm.loop.intel.vector.nodynamic_align")) {
+    DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                     dbgs() << "No dynamic Align was set by the user's "
+                               "#pragma vector nodynamic_align\n");
+    return false;
   }
   return true;
 }
