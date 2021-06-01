@@ -10324,6 +10324,20 @@ defm VRNDSCALESDZ : avx512_rndscale_scalar<0x0B, "vrndscalesd",
                                            VEX_W, AVX512AIi8Base, EVEX_4V, VEX_LIG,
                                            EVEX_CD8<64, CD8VT1>;
 
+#if INTEL_CUSTOMIZATION
+// Using VRNDSCALESD instead of VCVTTSD2SI+VCVTSI2SD
+// and VRNDSCALESS instead of VCVTTPS2DQ+VCVTDQ2PS.
+let Predicates = [HasAVX512] in {
+  def : Pat<(f64 (sint_to_fp (i64 (fp_to_sint FR64X:$src)))),
+            (VRNDSCALESDZr (f64 (IMPLICIT_DEF)), FR64X:$src, (i32 3))>;
+  def : Pat<(f64 (extractelt (v2f64 (X86VSintToFP (v4i32 (X86cvttp2si
+            (v2f64 (scalar_to_vector FR64X:$src)))))), (iPTR 0))),
+            (VRNDSCALESDZr (f64 (IMPLICIT_DEF)), FR64X:$src, (i32 3))>;
+  def : Pat<(f32 (extractelt (v4f32 (sint_to_fp (v4i32 (X86cvttp2si
+            (v4f32 (scalar_to_vector FR32X:$src)))))), (iPTR 0))),
+            (VRNDSCALESSZr (f32 (IMPLICIT_DEF)), FR32X:$src, (i32 3))>;
+}
+#endif // INTEL_CUSTOMIZATION
 multiclass avx512_masked_scalar<SDNode OpNode, string OpcPrefix, SDNode Move,
                                 dag Mask, X86VectorVTInfo _, PatLeaf ZeroFP,
                                 dag OutMask, Predicate BasePredicate> {
