@@ -2694,6 +2694,11 @@ def force__cpusubtype__ALL : Flag<["-"], "force_cpusubtype_ALL">;
 def force__flat__namespace : Flag<["-"], "force_flat_namespace">;
 def force__load : Separate<["-"], "force_load">;
 def force_addr : Joined<["-"], "fforce-addr">, Group<clang_ignored_f_Group>;
+#if INTEL_CUSTOMIZATION
+def fortlib : Flag<["-"], "fortlib">, Group<Link_Group>,
+  HelpText<"Allow for Fortran generated objects to be mixed and matched and linked in with the C/C++ compiler "
+  "to pull in the needed libraries.">;
+#endif // INTEL_CUSTOMIZATION
 def foutput_class_dir_EQ : Joined<["-"], "foutput-class-dir=">, Group<f_Group>;
 def fpack_struct : Flag<["-"], "fpack-struct">, Group<f_Group>;
 def fno_pack_struct : Flag<["-"], "fno-pack-struct">, Group<f_Group>;
