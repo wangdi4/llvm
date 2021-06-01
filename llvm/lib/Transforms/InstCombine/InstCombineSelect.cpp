@@ -2693,6 +2693,58 @@ Instruction *InstCombinerImpl::foldAndOrOfSelectUsingImpliedCond(Value *Op,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// Returns the top of the current "compute chain":
+//   %1 = add %0, %0
+//   %2 = mul %1, 3
+//   %3 = sub 9, %2
+// If given %3, returns %1.
+// Follows a backwards chain of instructions with only 1 use, and 1 User,
+// until the top is reached. The top must also have 1 use.
+// We use this function to find a good place to insert a "freeze"
+// instruction (top of chain, not middle/end of chain).
+static Instruction *TopOfComputeChain(Instruction *I) {
+  assert(I->hasOneUse() && "First inst must have only 1 use.");
+  Instruction *TopOfChain = I;
+  while (1) {
+    Instruction *SingleUser = nullptr;
+    // Try to find a higher instruction than TopOfChain.
+    // If TopOfChain has a single Instruction operand we may be
+    // able to iterate into that Instruction.
+    // But if TopOfChain has 0 or >1 Instruction operands, we must stop.
+
+    // Also stop if it is a phi instruction.
+    if (isa<PHINode>(TopOfChain))
+      return TopOfChain;
+
+    for (Use &U : TopOfChain->operands()) {
+      Value *UV = U.get();
+      if (!isa<Constant>(UV)) {
+        // Unknown operand kind.
+        if (!isa<Instruction>(UV))
+          return TopOfChain;
+        // Already found an Instruction, so we have multiple I's. Must stop.
+        if (SingleUser)
+          return TopOfChain;
+        else
+          SingleUser = cast<Instruction>(UV);
+      }
+    }
+    // SingleUser is candidate for next higher instruction in chain.
+    // Check single-use.
+    if (!SingleUser || !SingleUser->hasOneUse())
+      return TopOfChain;
+    // Cannot be self-recursive. (found in unreachable code)
+    if (TopOfChain == SingleUser)
+      return TopOfChain;
+    // OK. Iterate to SingleUser.
+    TopOfChain = SingleUser;
+  }
+  llvm_unreachable("Loop is guaranteed to make progress.");
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
+
 Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
   Value *CondVal = SI.getCondition();
   Value *TrueVal = SI.getTrueValue();
@@ -2735,14 +2787,88 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
     // Folding select to and/or i1 isn't poison safe in general. impliesPoison
     // checks whether folding it does not convert a well-defined value into
     // poison.
-    if (match(TrueVal, m_One()) && impliesPoison(FalseVal, CondVal)) {
-      // Change: A = select B, true, C --> A = or B, C
-      return BinaryOperator::CreateOr(CondVal, FalseVal);
+#if INTEL_CUSTOMIZATION
+    // Change: A = select B, true, C --> A = or B, C
+    // Change: A = select B, C, false --> A = and B, C
+    // For example, if we have:
+    //   A = select B, true, C
+    //      =>
+    //   A = or B, C
+    // If "C" is poison, the select becomes poison only if "C" is selected.
+    // But if we flatten the select to "or", the "or" is always poison if "C"
+    // is poison.
+    // The transformation is only correct if:
+    //   "B" is dependent on "C" (so that the select is always poison
+    //   if "C" is poison)
+    // or
+    //   "C" is never poison.
+    //
+    // We can freeze "C" so that it has a defined value instead of poison.
+    // This transformation can already be done by X86 codegen, so we only
+    // want to do it when there is a possibility to combine and+or with
+    // other logical operations, and "select" is expensive vector type.
+    // "freeze" may block loop strength reduction or other instruction
+    // combining.
+
+    // This lambda freezes the top of the compute chain starting at "StartVal".
+    // Return value:
+    //   New replacement for "StartVal".
+    //   or nullptr if freeze could not be inserted.
+    auto FreezeIt = [&](Value *StartVal) -> Value * {
+      // Don't freeze non-instructions.
+      if (!isa<Instruction>(StartVal))
+        return nullptr;
+      // Don't freeze instructions with multiple users.
+      if (!StartVal->hasOneUse())
+        return nullptr;
+      // Don't put the freeze in the middle of a sequence of simple
+      // IC-able computations.
+      // Get the top of the compute chain ending with StartVal.
+      auto *FreezeTop = TopOfComputeChain(cast<Instruction>(StartVal));
+      // Get the single use of the top instruction
+      // (guaranteed by TopOfComputeChain)
+      auto *Use = FreezeTop->getSingleUndroppableUse();
+      assert(Use && "Freeze point needs single use.");
+      auto *UseI = cast<Instruction>(Use->getUser());
+      auto *FI = new FreezeInst(FreezeTop, FreezeTop->getName() + ".fr");
+      // Insert the new freeze instruction just above the single use of
+      // FreezeTop.
+      InsertNewInstBefore(FI, *UseI);
+      // Replace FreezeTop's use with the frozen instruction.
+      replaceUse(*Use, FI);
+      // If we changed StartVal, return it.
+      if (FreezeTop == StartVal)
+        return FI;
+      // We put the freeze somewhere else, just return StartVal.
+      return StartVal;
+    };
+
+    Value *MaskedOp = nullptr;
+    if (match(TrueVal, m_One()))
+      MaskedOp = FalseVal;
+    else if (match(FalseVal, m_Zero()))
+      MaskedOp = TrueVal;
+
+    if (MaskedOp) {
+      bool TransformToBool = false;
+      if (impliesPoison(MaskedOp, CondVal))
+        TransformToBool = true;
+      else if (SelType->isVectorTy() &&
+               MaskedOp->getType()->isIntOrIntVectorTy() &&
+               !isa<CmpInst>(MaskedOp) &&
+               MaskedOp->hasOneUse() &&
+               match(CondVal, m_BitwiseLogic(m_Value(), m_Value()))) {
+        // Choose vector select that is likely to combine with another logical
+        // op. Avoid freezing cmp+select pattern, or floating-point pattern.
+        MaskedOp = FreezeIt(MaskedOp);
+        TransformToBool = true;
+      }
+      if (TransformToBool && MaskedOp)
+        return match(TrueVal, m_One())
+                   ? BinaryOperator::CreateOr(CondVal, MaskedOp)
+                   : BinaryOperator::CreateAnd(CondVal, MaskedOp);
     }
-    if (match(FalseVal, m_Zero()) && impliesPoison(TrueVal, CondVal)) {
-      // Change: A = select B, C, false --> A = and B, C
-      return BinaryOperator::CreateAnd(CondVal, TrueVal);
-    }
+#endif // INTEL_CUSTOMIZATION
 
     auto *One = ConstantInt::getTrue(SelType);
     auto *Zero = ConstantInt::getFalse(SelType);
