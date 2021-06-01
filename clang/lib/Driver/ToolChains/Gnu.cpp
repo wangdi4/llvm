@@ -557,7 +557,7 @@ static void addIntelLib(const char* IntelLibName, const ToolChain &TC,
   // -debug parallel implies -shared-intel, but allow it to be overridden by
   // -static-intel below.
   if (const Arg *A = Args.getLastArg(options::OPT_intel_debug_Group))
-    isSharedIntel = StringRef(A->getValue()) == "parallel";
+    isSharedIntel |= StringRef(A->getValue()) == "parallel";
   if (const Arg *A = Args.getLastArg(options::OPT_shared_intel,
                                      options::OPT_static_intel))
     isSharedIntel = A->getOption().matches(options::OPT_shared_intel);
