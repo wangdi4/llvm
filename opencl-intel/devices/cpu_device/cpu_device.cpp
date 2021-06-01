@@ -1898,6 +1898,17 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
             }
             return CL_DEV_SUCCESS;
         }
+        case( CL_DEVICE_BUILT_IN_KERNELS_WITH_VERSION):
+        {
+            *pinternalRetunedValueSize = 0;
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            // Built-in kernels are not enabled now. Nothing will be written to
+            // paramVal.
+            return CL_DEV_SUCCESS;
+        }
         case CL_DEVICE_PARTITION_PROPERTIES:
             {
                 const cl_device_partition_property* pSupportedProperties;
