@@ -1088,6 +1088,10 @@ public:
       const SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap,
       bool AssumeLvalIfDetached = false);
 
+  bool replaceTempBlobs(
+      const DenseMap<unsigned, unsigned> &BlobMap,
+      bool AssumeLvalIfDetached = false);
+
   /// Replaces temp blob with int constant
   bool replaceTempBlobByConstant(unsigned OldIndex, int64_t Constant);
 

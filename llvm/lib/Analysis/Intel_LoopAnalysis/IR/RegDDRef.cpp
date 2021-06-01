@@ -1310,6 +1310,18 @@ bool RegDDRef::replaceTempBlobs(
   return Res;
 }
 
+bool RegDDRef::replaceTempBlobs(
+    const DenseMap<unsigned, unsigned> &BlobMap,
+    bool AssumeLvalIfDetached) {
+  bool Res = false;
+
+  for (auto &Pair : BlobMap) {
+    Res = replaceTempBlob(Pair.first, Pair.second, AssumeLvalIfDetached) || Res;
+  }
+
+  return Res;
+}
+
 void RegDDRef::removeAllBlobDDRefs() {
 
   while (!BlobDDRefs.empty()) {
