@@ -110,8 +110,9 @@ void OptimizerLTOLegacyPM::registerVectorizerStartCallback(
     PassManagerBuilder &PMBuilder) {
   PMBuilder.addExtension(
       PassManagerBuilder::EP_VectorizerStart,
-      [](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
-        MPM.add(createDPCPPKernelVecClonePass());
+      [&](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
+        if (Config->GetTransposeSize() != 1)
+          MPM.add(createDPCPPKernelVecClonePass());
       });
 }
 
@@ -120,8 +121,10 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
   PMBuilder.addExtension(
       PassManagerBuilder::EP_OptimizerLast,
       [&](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
-        MPM.add(createDPCPPKernelPostVecPass());
-        MPM.add(createVPODirectiveCleanupPass());
+        if (Config->GetTransposeSize() != 1) {
+          MPM.add(createDPCPPKernelPostVecPass());
+          MPM.add(createVPODirectiveCleanupPass());
+        }
         MPM.add(createInstructionCombiningPass());
         MPM.add(createCFGSimplificationPass());
         MPM.add(createPromoteMemoryToRegisterPass());
