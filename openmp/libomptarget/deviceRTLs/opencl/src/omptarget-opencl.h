@@ -339,6 +339,7 @@ EXTERN ushort __omp_spirv_spmd_num_threads[KMP_MAX_SPMD_NUM_GROUPS];
 /// RTL init/fini routines
 ///
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Initialize information maintained by RTL
 EXTERN void __kmpc_kernel_init_params(void *params);
 
@@ -357,12 +358,14 @@ EXTERN void __kmpc_spmd_kernel_fini(short needs_rtl);
 
 /// Return if we are in SPMD execution mode
 EXTERN char __kmpc_is_spmd_exec_mode(void);
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 
 ///
 /// Parallel regions
 ///
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Prepare a parallel region -- called by master
 EXTERN void __kmpc_kernel_prepare_parallel(void *work_fn,
                                            short is_rtl_initialized);
@@ -384,6 +387,7 @@ EXTERN short __kmpc_parallel_level(ident_t *loc, uint gtid);
 
 /// Push num_threads for the next parallel region
 EXTERN void __kmpc_push_num_threads(ident_t *loc, int tid, int num_threads);
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 /// Push num_threads for the next parallel region in SPMD kernel
 EXTERN void __kmpc_spmd_push_num_threads(int num_threads);
@@ -391,6 +395,7 @@ EXTERN void __kmpc_spmd_push_num_threads(int num_threads);
 /// Pop num_threads in SPMD kernel
 EXTERN void __kmpc_spmd_pop_num_threads(void);
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Push simd_limit for the next region
 EXTERN void __kmpc_push_simd_limit(ident_t *loc, int tid, int simd_limit);
 
@@ -405,11 +410,13 @@ EXTERN void __kmpc_end_sharing_variables(void);
 
 /// Return the list of shared variables
 EXTERN void __kmpc_get_shared_variables(void ***shareds);
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 ///
 /// Loop scheduling
 ///
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Static init with 4-byte signed loop bounds
 EXTERN void __kmpc_for_static_init_4(ident_t *loc, int tid, int schedtype,
     int *plastiter, int *plower, int *puppper, int *pstride, int incr,
@@ -472,20 +479,25 @@ EXTERN void __kmpc_for_static_init_8u_generic(ident_t *loc, int tid,
 
 /// Finalize static scheduling
 EXTERN void __kmpc_for_static_fini(ident_t *loc, int tid);
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 
 ///
 /// Barriers
 ///
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Barrier for active workers
 EXTERN void __kmpc_work_barrier();
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 /// Barrier for entire work group
 EXTERN void __kmpc_barrier();
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Runtime initializer
 EXTERN void __kmpc_init_runtime();
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 /// Initialize named barrier
 EXTERN void __kmpc_nbarrier_init(uint nbarrier_count);
@@ -692,7 +704,11 @@ EXTERN bool __kmpc_atomic_compare_exchange(size_t, void *, void *, void *, int,
 ///
 
 EXTERN void __kmpc_critical(kmp_critical_name *);
+EXTERN void __kmpc_critical_with_hint(kmp_critical_name *, uint);
 EXTERN void __kmpc_end_critical(kmp_critical_name *);
+EXTERN void __kmpc_critical_simd(kmp_critical_name *);
+EXTERN void __kmpc_critical_with_hint_simd(kmp_critical_name *, uint);
+EXTERN void __kmpc_end_critical_simd(kmp_critical_name *);
 
 
 ///

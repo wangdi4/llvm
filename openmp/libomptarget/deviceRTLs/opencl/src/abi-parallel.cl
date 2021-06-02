@@ -18,6 +18,7 @@
 /// Parallel regions
 ///
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Determine and return num threads with the given input
 INLINE ushort __kmp_determine_num_threads(ushort num_threads_clause,
                                           ushort num_threads_icv,
@@ -188,6 +189,7 @@ EXTERN void __kmpc_push_num_threads(ident_t *loc, int tid, int num_threads) {
   kmp_thread_state_t *thread_state = __kmp_get_thread_state();
   thread_state->next_region.num_threads[tid] = num_threads;
 }
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 /// Push num threads in SPMD kernel
 EXTERN void __kmpc_spmd_push_num_threads(int num_threads) {
@@ -203,6 +205,7 @@ EXTERN void __kmpc_spmd_pop_num_threads(void) {
     __omp_spirv_spmd_num_threads[group_id] = 0;
 }
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Push simd limit -- not sure if we need this
 EXTERN void __kmpc_push_simd_limit(ident_t *loc, int tid, int simd_limit) {
   KMP_ASSERT(__kmp_check_rtl_initialized(loc),
@@ -239,5 +242,6 @@ EXTERN void __kmpc_get_shared_variables(void ***shareds) {
   kmp_shared_data_t *shared_data = __kmp_get_shared_data();
   *shareds = shared_data->shareds;
 }
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 #endif // INTEL_COLLAB

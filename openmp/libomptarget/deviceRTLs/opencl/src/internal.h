@@ -27,6 +27,9 @@ __SPIRV_VAR_QUALIFIERS size_t_vec __spirv_BuiltInNumWorkgroups;
 __SPIRV_VAR_QUALIFIERS size_t_vec __spirv_BuiltInWorkgroupId;
 __SPIRV_VAR_QUALIFIERS size_t_vec __spirv_BuiltInWorkgroupSize;
 
+__SPIRV_VAR_QUALIFIERS size_t __spirv_BuiltInGlobalLinearId;
+__SPIRV_VAR_QUALIFIERS size_t __spirv_BuiltInLocalInvocationIndex;
+
 __SPIRV_VAR_QUALIFIERS uint __spirv_BuiltInNumSubgroups;
 __SPIRV_VAR_QUALIFIERS uint __spirv_BuiltInSubgroupId;
 __SPIRV_VAR_QUALIFIERS uint __spirv_BuiltInSubgroupLocalInvocationId;
@@ -55,21 +58,12 @@ __SPIRV_VAR_QUALIFIERS uint __spirv_BuiltInSubgroupMaxSize;
 
 /// Return linear global id
 INLINE size_t __kmp_get_global_id() {
-  return
-      (__spirv_BuiltInGlobalInvocationId.z - __spirv_BuiltInGlobalOffset.z)
-          * __spirv_BuiltInGlobalSize.y * __spirv_BuiltInGlobalSize.x
-      + (__spirv_BuiltInGlobalInvocationId.y - __spirv_BuiltInGlobalOffset.y)
-          * __spirv_BuiltInGlobalSize.x
-      + (__spirv_BuiltInGlobalInvocationId.x - __spirv_BuiltInGlobalOffset.x);
+  return __spirv_BuiltInGlobalLinearId;
 }
 
 /// Return linear local id
 INLINE size_t __kmp_get_local_id() {
-  return
-      __spirv_BuiltInLocalInvocationId.z * __spirv_BuiltInWorkgroupSize.y
-          * __spirv_BuiltInWorkgroupSize.x
-      + __spirv_BuiltInLocalInvocationId.y * __spirv_BuiltInWorkgroupSize.x
-      + __spirv_BuiltInLocalInvocationId.x;
+  return __spirv_BuiltInLocalInvocationIndex;
 }
 
 /// Return linear group id
@@ -102,6 +96,7 @@ INLINE size_t __kmp_get_num_groups() {
           * __spirv_BuiltInNumWorkgroups.z;
 }
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Return the work id for the master thread
 INLINE int __kmp_get_master_id() {
   return __spirv_BuiltInSubgroupMaxSize * (__spirv_BuiltInNumSubgroups - 1);
@@ -111,6 +106,7 @@ INLINE int __kmp_get_master_id() {
 INLINE int __kmp_get_num_workers() {
   return __kmp_get_master_id();
 }
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 /// Return the active sub group leader id
 INLINE int __kmp_get_active_sub_group_leader_id() {
@@ -159,12 +155,32 @@ INLINE void __kmp_release_lock(int *lock) {
   }
 }
 
+/// Acquire lock with explicit SIMD
+INLINE void __kmp_acquire_lock_simd(int *lock) {
+  volatile atomic_int *lock_ptr = (volatile atomic_int *)lock;
+  bool acquired = false;
+  int expected;
+  while (!acquired) {
+    expected = 0;
+    if (expected == atomic_load_explicit(lock_ptr, memory_order_relaxed))
+      acquired = atomic_compare_exchange_weak_explicit(
+          lock_ptr, &expected, 1, memory_order_acq_rel, memory_order_relaxed);
+  }
+}
+
+/// Release lock with explicit SIMD
+INLINE void __kmp_release_lock_simd(int *lock) {
+  atomic_store_explicit((volatile atomic_int *)lock, 0, memory_order_release);
+}
+
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Initialize a single team data
 INLINE void __kmp_init_local(kmp_local_state_t *local_state) {
   atomic_init(&local_state->work_barrier.count, 0);
   atomic_init(&local_state->work_barrier.go, 0);
   local_state->spmd_num_threads = 0;
 }
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 /// Access local data
 INLINE kmp_local_state_t *__kmp_get_local_state() {
@@ -176,6 +192,7 @@ INLINE kmp_thread_state_t *__kmp_get_thread_state() {
   return &__omp_spirv_thread_data[__kmp_get_group_id()];
 }
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 /// Initialize all team data
 INLINE void __kmp_init_locals() {
   for (int i = 0; i < KMP_MAX_NUM_GROUPS; ++i)
@@ -353,12 +370,14 @@ INLINE void __kmp_work_barrier(kmp_barrier_counting_t *bar, int count) {
 
   sub_group_barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
 }
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 /// Barrier for a work group
 INLINE void __kmp_team_barrier() {
   work_group_barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
 }
 
+#if !KMP_ASSUME_SIMPLE_SPMD_MODE
 INLINE int __kmp_get_logical_thread_id(bool is_spmd_mode) {
   int tid = __kmp_get_local_id();
   if (!is_spmd_mode && tid >= __kmp_get_master_id())
@@ -541,6 +560,7 @@ INLINE int __kmp_get_level(int tid) {
   int level = local_state->parallel_level[tid] & (KMP_ACTIVE_PARALLEL_BUMP - 1);
   return level;
 }
+#endif // !KMP_ASSUME_SIMPLE_SPMD_MODE
 
 #endif // INTERNAL_H
 #endif // INTEL_COLLAB
