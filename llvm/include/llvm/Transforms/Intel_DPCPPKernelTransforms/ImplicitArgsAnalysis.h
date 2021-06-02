@@ -115,6 +115,10 @@ public:
 
   bool runOnModule(Module &M) override;
 
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesAll();
+  }
+
   ImplicitArgsInfo &getResult() { return *Result; }
   const ImplicitArgsInfo &getResult() const { return *Result; }
 };
