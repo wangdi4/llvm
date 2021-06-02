@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 %s -verify -pedantic -fsyntax-only -cl-std=CL1.2
+// UNSUPPORTED: true
 
 float __attribute__((overloadable)) foo(float in1, float in2);
 int __attribute__((overloadable)) goo(float in1, float in2);
