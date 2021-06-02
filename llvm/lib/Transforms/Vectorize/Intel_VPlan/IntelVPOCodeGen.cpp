@@ -4090,16 +4090,22 @@ void VPOCodeGen::vectorizeBlend(VPBlendInst *Blend) {
 void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
   auto PhiTy = VPPhi->getType();
   PHINode *NewPhi;
+  // PHI-arguments with SOA accesses need to be set up with correct-types.
+  if (isSOAAccess(VPPhi, Plan)) {
+    Type *ElemTy = PhiTy->getPointerElementType();
+    PhiTy = PointerType::get(getSOAType(ElemTy, VF),
+                             cast<PointerType>(PhiTy)->getAddressSpace());
+  }
   // FIXME: Replace with proper SVA.
   bool EmitScalarOnly = !Plan->getVPlanDA()->isDivergent(*VPPhi) && !MaskValue;
-  if (needScalarCode(VPPhi) || EmitScalarOnly) {
+  if (needScalarCode(VPPhi) || EmitScalarOnly || isSOAUnitStride(VPPhi, Plan)) {
     NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
     VPScalarMap[VPPhi][0] = NewPhi;
     ScalarPhisToFix[VPPhi] = NewPhi;
   }
   if (EmitScalarOnly)
     return;
-  if (needVectorCode(VPPhi)) {
+  if (needVectorCode(VPPhi) && !isSOAUnitStride(VPPhi, Plan)) {
     PhiTy = getWidenedType(PhiTy, VF);
     NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
     VPWidenMap[VPPhi] = NewPhi;
@@ -4637,6 +4643,22 @@ void VPOCodeGen::fixNonInductionVPPhis() {
         auto *VPBB = VPPhi->getIncomingBlock(I);
         Value *IncValue =
             IsScalar ? getScalarValue(VPVal, 0) : getVectorValue(VPVal);
+        // We can have a scenario when dealing with SOA pointers
+        // where it is not the same as the targeted type. We have to insert a
+        // bitcast it to an appropriate type.
+        // This is typically on account of phi's inserted by AZB where one of
+        // the argument is of SOA-type and the other is a null. Since DA is
+        // unaware of this, we should typecast the pointer argument to the
+        // PHi-type.
+        // i32* %vp1 = phi  [ i32* %vp2, BB16 ],  [ i32* null, BB17 ]
+        if (isSOAAccess(VPPhi, Plan) && IncValue->getType() != Phi->getType()) {
+          assert(isa<Constant>(IncValue) &&
+                 cast<Constant>(IncValue)->isNullValue() &&
+                 "Expect this argument to be a constant null-value.");
+          // We expect this to be a constant nullptr value, so, no need of
+          // setting up builder's insertion point.
+          IncValue = Builder.CreateBitCast(IncValue, Phi->getType());
+        }
         BasicBlock *BB = State->CFG.VPBB2IREndBB[VPBB];
         if (Plan->hasExplicitRemainder()) {
           auto *LiveOut = dyn_cast<VPOrigLiveOut>(VPVal);
