@@ -17,7 +17,9 @@
 
 // RUN: %clang -### -E -target sparc-myriad --sysroot=/yow %s 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=SLASH_INCLUDE
-// SLASH_INCLUDE: "-isysroot" "/yow" "-internal-isystem" "/yow/include"
+// INTEL_CUSTOMIZATION
+// SLASH_INCLUDE: "-isysroot" "/yow"{{.*}} "-internal-isystem" "/yow/include"
+// end INTEL_CUSTOMIZATION
 
 // RUN: %clang -### -E -target sparc-myriad --sysroot=/yow %s -nostdinc 2>&1 \
 // RUN:   | FileCheck %s -check-prefix=NO_SLASH_INCLUDE
