@@ -7,6 +7,8 @@
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
 
+; CHECK-NOT:  Running pass: VecClonePass
+
 ; CHECK:      Running pass: DPCPPKernelWGLoopCreatorPass
 
 ; CHECK:      Running pass: PhiCanonicalization

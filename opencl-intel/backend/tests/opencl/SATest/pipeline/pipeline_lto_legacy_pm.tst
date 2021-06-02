@@ -9,6 +9,7 @@
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK-NEXT:     DPCPPKernelAnalysisLegacy
 ; CHECK:          DPCPPKernelVecClone pass
+; CHECK-NOT:      VecClone
 ; CHECK:          FunctionPass Manager
 ; CHECK:            VPlan Vectorization Driver
 ; CHECK:          VPlan post vectorization pass for DPCPP kernels

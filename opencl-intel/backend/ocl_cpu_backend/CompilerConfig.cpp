@@ -108,6 +108,7 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     if (PM_LTO_NEW != passManagerType && !debugPassManager.empty())
       m_LLVMOptions += " -debug-pass=" + debugPassManager;
     if (PM_OCL != passManagerType) {
+      m_LLVMOptions += " -enable-vec-clone=false";
       ETransposeSize TransposeSize =
           (ETransposeSize)pBackendOptions->GetIntValue(
               (int)CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE,
