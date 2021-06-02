@@ -429,6 +429,101 @@ TEST_F(ClangCompilerTestType, Test_SPIRV_BIsRepresentation) {
       << "            message: " << pModuleOrError.getError().message() << "\n";
 }
 
+// test that a module with FPGA device agnostic capabilities is accepted by FE
+TEST_F(ClangCompilerTestType, Test_AcceptCommonSpirvCapabilitiesOnFPGA) {
+  // Hand made SPIR-V module
+  std::uint32_t const spvBC[] = {
+      // First 5 mandatory words
+      spv::MagicNumber, SPIRV12Version, 0, 0, 0,
+      // Common capabilities
+      SPIRVOpCapability, spv::CapabilityFPGAMemoryAttributesINTEL,
+      SPIRVOpCapability, spv::CapabilityFPGALoopControlsINTEL,
+      SPIRVOpCapability, spv::CapabilityFPGARegINTEL, SPIRVOpCapability,
+      spv::CapabilityBlockingPipesINTEL, SPIRVOpCapability,
+      spv::CapabilityKernelAttributesINTEL, SPIRVOpCapability,
+      spv::CapabilityFPGAKernelAttributesINTEL, SPIRVOpCapability,
+      spv::CapabilityArbitraryPrecisionFixedPointINTEL, SPIRVOpCapability,
+      spv::CapabilityArbitraryPrecisionFloatingPointINTEL, SPIRVOpCapability,
+      spv::CapabilityFPGAMemoryAccessesINTEL, SPIRVOpCapability,
+      spv::CapabilityIOPipesINTEL, SPIRVOpCapability,
+      spv::CapabilityUSMStorageClassesINTEL, SPIRVOpCapability,
+      spv::CapabilityFPGABufferLocationINTEL, SPIRVOpCapability,
+      spv::CapabilityFPGAClusterAttributesINTEL, SPIRVOpCapability,
+      spv::CapabilityLoopFuseINTEL, SPIRVOpCapability,
+      spv::internal::CapabilityFPGADSPControlINTEL,
+      // Memory model
+      SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
+
+  };
+  auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
+
+  CLANG_DEV_INFO devInfo = {
+      "",    // extensions
+      false, // images support
+      true,  // fp64 support
+      false, // source level profiling
+      true   // fpga emu
+  };
+  std::unique_ptr<IOCLFECompiler> spFeCompiler;
+  IOCLFECompiler *pFeCompiler = spFeCompiler.get();
+
+  int err =
+      CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler, nullptr);
+  ASSERT_EQ(0, err) << "Failed to create FE instance.\n";
+
+  err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
+  ASSERT_EQ(CL_SUCCESS, err)
+      << "Unexpected retcode for a valid SPIR-V module.\n";
+}
+
+// test that a module with FPGA device agnostic capabilities is rejected by FE
+// for CPU device
+TEST_F(ClangCompilerTestType, Test_RejectCommonSpirvCapabilitiesOnCPU) {
+  // Hand made SPIR-V module
+  std::uint32_t const spvBC[] = {
+      // First 5 mandatory words
+      spv::MagicNumber, SPIRV12Version, 0, 0, 0,
+      // Common capabilities
+      SPIRVOpCapability, spv::CapabilityFPGAMemoryAttributesINTEL,
+      SPIRVOpCapability, spv::CapabilityFPGALoopControlsINTEL,
+      SPIRVOpCapability, spv::CapabilityFPGARegINTEL, SPIRVOpCapability,
+      spv::CapabilityBlockingPipesINTEL, SPIRVOpCapability,
+      spv::CapabilityKernelAttributesINTEL, SPIRVOpCapability,
+      spv::CapabilityFPGAKernelAttributesINTEL, SPIRVOpCapability,
+      spv::CapabilityArbitraryPrecisionFixedPointINTEL, SPIRVOpCapability,
+      spv::CapabilityArbitraryPrecisionFloatingPointINTEL, SPIRVOpCapability,
+      spv::CapabilityFPGAMemoryAccessesINTEL, SPIRVOpCapability,
+      spv::CapabilityIOPipesINTEL, SPIRVOpCapability,
+      spv::CapabilityUSMStorageClassesINTEL, SPIRVOpCapability,
+      spv::CapabilityFPGABufferLocationINTEL, SPIRVOpCapability,
+      spv::CapabilityFPGAClusterAttributesINTEL, SPIRVOpCapability,
+      spv::CapabilityLoopFuseINTEL, SPIRVOpCapability,
+      spv::internal::CapabilityFPGADSPControlINTEL,
+      // Memory model
+      SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
+
+  };
+  auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
+
+  CLANG_DEV_INFO devInfo = {
+      "",    // extensions
+      false, // images support
+      true,  // fp64 support
+      false, // source level profiling
+      false  // fpga emu
+  };
+  std::unique_ptr<IOCLFECompiler> spFeCompiler;
+  IOCLFECompiler *pFeCompiler = spFeCompiler.get();
+
+  int err =
+      CreateFrontEndInstance(&devInfo, sizeof(devInfo), &pFeCompiler, nullptr);
+  ASSERT_EQ(0, err) << "Failed to create FE instance.\n";
+
+  err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
+  ASSERT_NE(CL_SUCCESS, err)
+      << "Unexpected retcode for a invalid SPIR-V module.\n";
+}
+
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
