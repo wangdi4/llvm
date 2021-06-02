@@ -304,11 +304,114 @@ public:
   // Analyze global variables to mark "Global array", Global instance", and
   // "Global pointer" safety flags on types of interest. Also, analyze the
   // initializer value to collect constants, and check for incompatible types
-  // being stored into the the global.
+  // being stored into the global.
   void analyzeGlobalVariable(GlobalVariable &GV) {
+    // Check whether the initialization value is a global object that
+    // is being used as a type that is not compatible with the expected type
+    // based on the DTrans type information for a structure field or array
+    // element. If so, set a safety flag.
+    //
+    // Note: This uses an exact match of the type, however it may need to be
+    // more flexible for function pointer types used in virtual function tables
+    // in the future.
+    auto CheckInitializerCompatibility =
+        [this](GlobalVariable &GV, DTransType *DType, Constant *ConstVal) {
+          assert(DType && "Expected valid DTransType object");
+          assert(ConstVal && "Expected valid Constant object");
+
+          // Removing pointer casts should only be relevant when using typed
+          // pointers. When opaque pointers are in use, the Constant can be
+          // used without the intervening bitcasts.
+          if (ConstVal->getType()->isPointerTy())
+            ConstVal = ConstVal->stripPointerCasts();
+
+          if (auto *InitializerGlobObj = dyn_cast<GlobalObject>(ConstVal)) {
+            ValueTypeInfo *Info = PTA.getValueTypeInfo(InitializerGlobObj);
+            assert(Info && "Expected pointer type analyzer to collect type "
+                           "for GlobalObject");
+            DTransType *InitializerType =
+                PTA.getDominantAggregateType(*Info, ValueTypeInfo::VAT_Decl);
+            if (InitializerType != DType) {
+              // Mark the value being stored and the global variable that was
+              // being initialized with an appropriate safety flag.
+              setAllAliasedTypeSafetyData(Info, dtrans::BadCasting,
+                                          "Object used to initialize an "
+                                          "incompatible structure field",
+                                          &GV);
+
+              ValueTypeInfo *InitializeeInfo = PTA.getValueTypeInfo(&GV);
+              assert(InitializeeInfo && "Expected pointer type analyzer to "
+                                        "collect type for GlobalVariable");
+              setAllAliasedTypeSafetyData(InitializeeInfo,
+                                          dtrans::UnsafePointerStore,
+                                          "Object used to initialize an "
+                                          "incompatible structure field",
+                                          &GV);
+            }
+          }
+        };
+
+    // Analyze the initializer of a global variable, updating the field value
+    // analysis and safety data. Return 'false' if the initializer cannot be
+    // processed.
+    std::function<bool(GlobalVariable &, DTransType *, llvm::Constant *)>
+        AnalyzeInitializer =
+            [this, &AnalyzeInitializer, &CheckInitializerCompatibility](
+                GlobalVariable &GV, DTransType *DTy,
+                llvm::Constant *Init) -> bool {
+      assert(Init && "Initializer constant must not be nullptr");
+
+      // No value collection or checks are needed for 'undef'
+      if (isa<UndefValue>(Init))
+        return true;
+
+      if (auto *DTransStTy = dyn_cast<DTransStructType>(DTy)) {
+        auto *StInfo =
+            cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(DTransStTy));
+        unsigned NumFields = StInfo->getNumFields();
+
+        if (!isa<ConstantAggregateZero>(Init) &&
+            NumFields != Init->getNumOperands())
+          return false;
+
+        for (unsigned I = 0; I < NumFields; ++I) {
+          llvm::Constant *ConstVal = Init->getAggregateElement(I);
+          dtrans::FieldInfo &FI = StInfo->getField(I);
+          if (FI.getLLVMType()->isAggregateType()) {
+            AnalyzeInitializer(GV, FI.getDTransType(), ConstVal);
+          } else {
+            // TODO: Add value tracking of the field
+            CheckInitializerCompatibility(GV, FI.getDTransType(), ConstVal);
+          }
+        }
+      } else if (auto *DTransArTy = dyn_cast<DTransArrayType>(DTy)) {
+        if (!isa<ConstantAggregateZero>(Init) && !isa<ConstantArray>(Init))
+          return false;
+
+        // An array of scalar elements does not need further evaluation because
+        // DTrans does not make use of the values that are stored in the
+        // array. However, if there is an array of structures or structure
+        // pointers, then analysis of those needs to be done to find any
+        // initializers of the structure fields, or incompatible initializers.
+        auto *ElemTy = DTransArTy->getArrayElementType();
+        for (unsigned I = 0, E = DTransArTy->getNumElements(); I < E; ++I) {
+          llvm::Constant *ConstVal = Init->getAggregateElement(I);
+          if (ElemTy->isAggregateType())
+            AnalyzeInitializer(GV, ElemTy, ConstVal);
+          else
+            CheckInitializerCompatibility(GV, ElemTy, ConstVal);
+        }
+      }
+
+      return true;
+    };
+
     // Declarations do not need to be analyzed
     if (GV.isDeclaration())
       return;
+
+    DEBUG_WITH_TYPE(SAFETY_VERBOSE,
+                    dbgs() << "Analyzing global var: " << GV << "\n");
 
     ValueTypeInfo *Info = PTA.getValueTypeInfo(&GV);
     assert(Info &&
@@ -347,9 +450,13 @@ public:
     // initializer.
     assert((GV.hasUniqueInitializer() && GV.hasDefinitiveInitializer()) &&
            "Expected initializer");
+
+    // The global variables that are going to be processed will either have a
+    // 'zeroinitializer', 'undef', or an initializer list that specifies the
+    // value for the variable.
     Constant *Initializer = GV.getInitializer();
-    bool HasInitializer = !isa<ConstantAggregateZero>(Initializer) &&
-                          !isa<UndefValue>(Initializer);
+    bool HasNonZeroInitializer = !isa<ConstantAggregateZero>(Initializer) &&
+                                 !isa<UndefValue>(Initializer);
 
     // Look at the information set by the PtrTypeAnalyzer for the variable.
     // There generally should only be a single declared type. We need to rely on
@@ -382,13 +489,26 @@ public:
           setBaseTypeInfoSafetyData(UnitTy, dtrans::GlobalPtr,
                                     "Global array of pointers to type defined",
                                     &GV);
+          if (HasNonZeroInitializer) {
+            DTransType *ElemTy = ArTy->getArrayElementType();
+            for (unsigned I = 0, E = ArTy->getNumElements(); I < E; ++I) {
+              llvm::Constant *ConstVal = Initializer->getAggregateElement(I);
+              CheckInitializerCompatibility(GV, ElemTy, ConstVal);
+            }
+          }
         } else if (UnitTy->isVectorTy()) {
           setBaseTypeInfoSafetyData(AliasTy, dtrans::UnhandledUse,
                                     "Global array of vector type defined", &GV);
         } else {
           setBaseTypeInfoSafetyData(AliasTy, dtrans::GlobalInstance,
                                     "Global array of type defined", &GV);
-          if (HasInitializer)
+          if (!AnalyzeInitializer(GV, ElemTy, Initializer))
+            setBaseTypeInfoSafetyData(
+                AliasTy, dtrans::UnhandledUse,
+                "dtrans-safety: Initializer list does not match expected type",
+                &GV);
+
+          if (HasNonZeroInitializer)
             setBaseTypeInfoSafetyData(AliasTy, dtrans::HasInitializerList,
                                       "dtrans-safety: Has initializer list",
                                       &GV);
@@ -405,14 +525,17 @@ public:
       } else {
         setBaseTypeInfoSafetyData(AliasTy, dtrans::GlobalInstance,
                                   "Instance allocated", &GV);
-        if (HasInitializer)
+        if (!AnalyzeInitializer(GV, ElemTy, Initializer))
+          setBaseTypeInfoSafetyData(
+              AliasTy, dtrans::UnhandledUse,
+              "dtrans-safety: Initializer list does not match expected type",
+              &GV);
+
+        if (HasNonZeroInitializer)
           setBaseTypeInfoSafetyData(AliasTy, dtrans::HasInitializerList,
                                     "dtrans-safety: Has initializer list", &GV);
       }
     }
-
-    // TODO: Analyze the initializer values for constant values or incompatible
-    // types.
   }
 
   void visitFunction(Function &F) {
