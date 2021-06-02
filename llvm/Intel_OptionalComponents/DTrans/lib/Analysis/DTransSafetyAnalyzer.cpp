@@ -2706,6 +2706,16 @@ public:
     if (isValueTypeInfoUnhandled(*Info))
       DTInfo.setUnhandledPtrType(Call);
 
+    if (Kind == dtrans::AK_Calloc && Info->canAliasToAggregatePointer())
+      for (auto *Ty : Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+        if (!Ty->isPointerTy())
+          continue;
+
+        DTransType *ElemTy = Ty->getPointerElementType();
+        dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(ElemTy);
+        markAllFieldsWritten(ParentTI, *Call, FWT_ZeroValue);
+      }
+
     dtrans::AllocCallInfo *ACI = DTInfo.createAllocCallInfo(Call, Kind);
     populateCallInfo(*Info, ACI);
 
