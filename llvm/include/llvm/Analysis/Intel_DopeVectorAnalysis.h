@@ -203,7 +203,7 @@ public:
                                    unsigned long DVRank);
 
   // Return the constant value collected
-  ConstantInt *getConstantValue() { return ConstantValue; }
+  ConstantInt *getConstantValue() const { return ConstantValue; }
 
   // Analyze the store instructions collected to identify the possible constant
   // value for the current field
@@ -211,6 +211,13 @@ public:
 
   // Indicate that multiple field addresses are allowed.
   void setAllowMultipleFieldAddresses();
+
+  // Return 'true' if '*this' and 'Other' match for purposes of merging
+  bool matches(const DopeVectorFieldUse &Other) const;
+
+  // Merge relevant info from 'Other' into '*this'.
+  void merge(const DopeVectorFieldUse &Other);
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const;
   void print(raw_ostream &OS, const Twine &Header) const;
@@ -595,6 +602,8 @@ public:
     AR_NoAllocSite,                // Alloc site wasn't collected
     AR_AllocStoreIllegality,       // Couldn't prove that the store will always
                                    //   happen with the allocation
+    AR_CouldNotMerge,              // Could not merge dope vectors with
+                                   //   multiple allocation sites
     AR_Pass                        // Analysis pass
   };
 
@@ -612,9 +621,11 @@ public:
   // Return the object that represents the dope vector
   Value *getDVObject() { return DVObject; }
 
-  // Check if all fields in the dope vector are valid (not set to bottom) and
-  // if the allocation site was found.
+  // Check if all fields in the dope vector are valid (not set to bottom).
   void validateDopeVector();
+
+  // Check if one of more allocation sites were found.
+  void validateAllocSite();
 
   // Given a dope vector field type, return the dope vector field. If the field
   // type is DV_ExtentBase, DV_StrideBase or DV_LowerBoundBase then the array
@@ -626,27 +637,24 @@ public:
   unsigned long getRank() { return Rank; }
 
   // Set the allocation site
-  void setAllocSite(CallBase *Call) {
-    // There should be only one alloc site
-    if (AllocSiteSet || !Call)
-      AllocSite = nullptr;
-    else
-      AllocSite = Call;
-
-    AllocSiteSet = true;
+  void addAllocSite(CallBase *Call) {
+    for (CallBase *CB : AllocSites)
+      if (CB == Call)
+        return;
+    AllocSites.push_back(Call);
   }
 
-  // Return the allocation site
-  CallBase* getAllocSite() { return AllocSite; }
-
-  // Return true if the allocation site was set
-  bool isAllocSiteSet() { return AllocSiteSet; }
+  // Return true if one or more allocation sites were found
+  bool hasAllocSite() const { return AllocSites.size(); }
 
   // Get the type that represents the current dope vector
   StructType *getLLVMStructType() { return LLVMDVType; }
 
   // Return the analysis result
-  AnalysisResult getAnalysisResult() { return AnalysisRes; }
+  AnalysisResult getAnalysisResult() const { return AnalysisRes; }
+
+  // Set the analysis result
+  void setAnalysisResult(AnalysisResult AR) { AnalysisRes = AR; }
 
   // Invalidate dope vector info
   void invalidateDopeVectorInfo() {
@@ -666,6 +674,60 @@ public:
   // Return true if the constants were propagated for the current
   // dope vector
   bool getConstantsPropagated() { return ConstantsPropagated; }
+
+  // Return 'true' if '*this' and 'Other' match for purposes of merging
+  bool matches(const DopeVectorInfo &Other) const {
+   auto AR_Pass = DopeVectorInfo::AnalysisResult::AR_Pass;
+   if (getAnalysisResult() != AR_Pass || Other.getAnalysisResult() != AR_Pass)
+     return false;
+   if (!PtrAddr.matches(Other.PtrAddr))
+     return false;
+   if (!ElementSizeAddr.matches(Other.ElementSizeAddr))
+     return false;
+   if (!CodimAddr.matches(Other.CodimAddr))
+     return false;
+   if (!FlagsAddr.matches(Other.FlagsAddr))
+     return false;
+   if (!DimensionsAddr.matches(Other.DimensionsAddr))
+     return false;
+   if (ExtentAddr.size() != Other.ExtentAddr.size())
+     return false;
+   if (StrideAddr.size() != Other.StrideAddr.size())
+     return false;
+   if (LowerBoundAddr.size() != Other.LowerBoundAddr.size())
+     return false;
+   for (unsigned I = 0; I < ExtentAddr.size(); ++I)
+     if (!ExtentAddr[I].matches(Other.ExtentAddr[I]))
+       return false;
+   for (unsigned I = 0; I < StrideAddr.size(); ++I)
+     if (!StrideAddr[I].matches(Other.StrideAddr[I]))
+       return false;
+   for (unsigned I = 0; I < LowerBoundAddr.size(); ++I)
+     if (!LowerBoundAddr[I].matches(Other.LowerBoundAddr[I]))
+       return false;
+   return true;
+  }
+
+  // Merge the relevant info from 'Other' into '*this'
+  void merge(const DopeVectorInfo &Other) {
+    PtrAddr.merge(Other.PtrAddr);
+    ElementSizeAddr.merge(Other.ElementSizeAddr);
+    CodimAddr.merge(Other.CodimAddr);
+    FlagsAddr.merge(Other.FlagsAddr);
+    DimensionsAddr.merge(Other.DimensionsAddr);
+    assert(ExtentAddr.size() == Other.ExtentAddr.size());
+    for (unsigned I = 0; I < ExtentAddr.size(); ++I)
+      ExtentAddr[I].merge(Other.ExtentAddr[I]);
+    assert(StrideAddr.size() == Other.StrideAddr.size());
+    for (unsigned I = 0; I < StrideAddr.size(); ++I)
+      StrideAddr[I].merge(Other.StrideAddr[I]);
+    assert(LowerBoundAddr.size() == Other.LowerBoundAddr.size());
+    for (unsigned I = 0; I < LowerBoundAddr.size(); ++I)
+      LowerBoundAddr[I].merge(Other.LowerBoundAddr[I]);
+    if (Other.hasAllocSite())
+      for (CallBase *CB : Other.AllocSites)
+        addAllocSite(CB);
+  }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Print the analysis results for debug purposes
@@ -689,15 +751,12 @@ protected:
   SmallVector<DopeVectorFieldUse, 4> StrideAddr;
   SmallVector<DopeVectorFieldUse, 4> LowerBoundAddr;
 
-  // Store the instruction that will allocate the dope vector, this will be
+  // Store the instructions that will allocate the dope vector, this will be
   // used for the purpose of analysis
-  CallBase *AllocSite;
+  SmallVector<CallBase *, 4> AllocSites;
 
   // LLVM structure type of the current dope vector
   StructType *LLVMDVType;
-
-  // True if the allocation site was found
-  bool AllocSiteSet;
 
   // Result from the analysis process
   AnalysisResult AnalysisRes;
@@ -726,15 +785,30 @@ protected:
 class NestedDopeVectorInfo : public DopeVectorInfo {
 public:
   NestedDopeVectorInfo(Value *DVObject, Type *DVType, uint64_t FieldNum,
-      bool AllowMultipleFieldAddresses = false) : DopeVectorInfo(DVObject,
-      DVType, AllowMultipleFieldAddresses), FieldNum(FieldNum) { }
+      Value *VBase, bool AllowMultipleFieldAddresses = false) :
+      DopeVectorInfo(DVObject, DVType, AllowMultipleFieldAddresses),
+      FieldNum(FieldNum), VBase(VBase) { }
+  Value *getVBase() { return VBase; }
+  void nullifyVBase() { VBase = nullptr; }
   uint64_t getFieldNum() { return FieldNum; }
 
   // Analyze the fields of the nested dope vector
   void analyzeNestedDopeVector();
 
+  // Return 'true' 'Other' natches '*this' for purposes of merging
+  bool matches(const NestedDopeVectorInfo &Other) const {
+    return FieldNum == Other.FieldNum &&
+      DopeVectorInfo::matches(Other);
+  }
+
+  // Merge relevant info from 'Other' into '*this'
+  void merge(const NestedDopeVectorInfo &Other) {
+    DopeVectorInfo::merge(Other);
+  }
+
 private:
   uint64_t FieldNum;
+  Value *VBase;
 };
 
 // Helper class to handle a dope vector that is a global variable. A global
@@ -784,11 +858,12 @@ public:
     return GlobalDVInfo;
   }
 
-  // Given an entry, return the nested dope vector in the pointer address if
-  // it exists, else return nullptr.
-  NestedDopeVectorInfo *getNestedDopeVector(uint64_t Entry) {
+  // Given the subscript base 'VBase' and the field number 'FieldNum',
+  // return the nested dope vector in the pointer address if it exists,
+  // else return nullptr.
+  NestedDopeVectorInfo *getNestedDopeVector(Value *VBase, uint64_t FieldNum) {
     for (auto *NestedDV : NestedDopeVectors)
-      if (NestedDV->getFieldNum() == Entry)
+      if (NestedDV->getVBase() == VBase && NestedDV->getFieldNum() == FieldNum)
         return NestedDV;
     return nullptr;
   }
@@ -843,6 +918,9 @@ private:
 
   // Return true if the input BitCast operator is used for allocation
   bool collectAndAnalyzeAllocSite(BitCastOperator *BC);
+
+  // Merge together nested dope vectors collected from multiple subscript bases
+  void mergeNestedDopeVectors();
 
   // Collect the nested dope vectors for the global variable
   void collectAndAnalyzeNestedDopeVectors(const DataLayout &DL);
