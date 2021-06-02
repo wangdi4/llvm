@@ -97,7 +97,7 @@ endif (WIN32)
 set (LLVM_OPT_PARAMS -verify -sroa -function-attrs)
 
 # images optimization options
-set (LLVM_IMAGES_OPT_PARAMS -verify -dpcpp-kernel-builtin-import -builtin-call-to-inst -verify -O3 -disable-intel-proprietary-opts)
+set (LLVM_IMAGES_OPT_PARAMS -verify -dpcpp-kernel-builtin-import -dpcpp-kernel-builtin-call-to-inst -verify -O3 -disable-intel-proprietary-opts)
 
 #------------------- Utility functions ---------------------------
 

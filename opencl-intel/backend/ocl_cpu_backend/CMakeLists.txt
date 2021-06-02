@@ -252,7 +252,6 @@ set( BACKEND_PASSES
     ResolveSubGroupWICall
     SetPreferVectorWidth
     ShiftZeroUpperBits
-    BuiltinCallToInst
     UndefExternalFuncs
     KernelInfo
     Prefetch
