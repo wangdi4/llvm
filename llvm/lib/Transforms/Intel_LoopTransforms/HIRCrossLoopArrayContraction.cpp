@@ -156,13 +156,19 @@ void HIRCrossLoopArrayContraction::addPostProcCand(HLLoop *Loop) {
 void HIRCrossLoopArrayContraction::runPostProcessors(
     SmallSet<unsigned, 8> &ContractedBases, const RegDDRef *IdentityRef) {
 
+  LLVM_DEBUG(dbgs() << "[PostProc] PostProc num loops: " << PostProcLoops.size()
+                    << "\n";);
+
+  if (PostProcLoops.empty()) {
+    return;
+  }
+
   // Register postprocessors here
   // Func for Complete Unroll
   addPostProcessor([](HLLoop *Loop) {
     ForPostEach<HLLoop>::visit(Loop, [](HLLoop *Loop) {
       uint64_t TC;
-      if (Loop->isConstTripLoop(&TC) && TC <= 5 &&
-          Loop->isInnermost()) {
+      if (Loop->isConstTripLoop(&TC) && TC <= 5 && Loop->isInnermost()) {
         LLVM_DEBUG(dbgs() << "[PostProc] Complete Unrolling called on Loop "
                           << Loop->getNumber() << "\n";
                    Loop->dump(); dbgs() << "\n";);
@@ -353,9 +359,113 @@ static bool hasControlFlowOrSideEffects(const HLLoop *Lp,
   return false;
 }
 
+// Returns true if there exists alloca accessed by def loop that is killed
+// before the use loop, e.g.:
+//
+// Invalid for forward sub:
+//
+// stacksave %t1
+// DefLp
+// stackrestore %t1
+// UseLp
+//
+// However, if there are pairs of stack save/restores between Def and Use
+// we can ignore such pairs, e.g.:
+//
+// DefLp
+// stacksave %t1
+// DefLp2
+// ...
+// stackrestore %t1
+// UseLp
+static bool crossesAllocaRange(HLLoop *DefLp, HLLoop *UseLp,
+                               SmallVector<const HLInst *, 8> &StackCalls) {
+
+  unsigned DefLpTopSortNum = DefLp->getTopSortNum();
+  unsigned UseLpTopSortNum = UseLp->getTopSortNum();
+
+  SmallSet<unsigned, 4> StackTracker;
+
+  // Iterate in reverse
+  for (const auto &StackCall :
+       make_range(StackCalls.rbegin(), StackCalls.rend())) {
+    // No need to check for calls after UseLp or before DefLp
+    if (StackCall->getTopSortNum() > UseLpTopSortNum) {
+      continue;
+    }
+
+    if (StackCall->getTopSortNum() < DefLpTopSortNum) {
+      break;
+    }
+
+    unsigned Id;
+    if (StackCall->isIntrinCall(Id)) {
+      if (Id == Intrinsic::stacksave) {
+        StackTracker.erase(StackCall->getLvalDDRef()->getSymbase());
+      } else if (Id == Intrinsic::stackrestore) {
+        StackTracker.insert(StackCall->getOperandDDRef(0)->getBasePtrSymbase());
+      } else {
+        llvm_unreachable("Only expect stack save/restores!\n");
+      }
+    }
+  }
+
+  return !StackTracker.empty();
+}
+
+struct UnsafeCallsCollector : HLNodeVisitorBase {
+  HIRLoopStatistics &HLS;
+  SmallVector<const HLInst *, 8> &UnsafeCalls;
+  SmallVector<const HLInst *, 8> &StackCalls;
+
+  UnsafeCallsCollector(HIRLoopStatistics &HLS,
+                       SmallVector<const HLInst *, 8> &UnsafeCalls,
+                       SmallVector<const HLInst *, 8> &StackCalls)
+      : HLS(HLS), UnsafeCalls(UnsafeCalls), StackCalls(StackCalls) {}
+
+  void visit(const HLNode *) {}
+  void postVisit(const HLNode *) {}
+  void visit(const HLLoop *Loop) {}
+
+  void visit(const HLInst *Inst) {
+    unsigned Id;
+    // Track stack save/restore to resolve invalid forward substitutions
+    if (Inst->isIntrinCall(Id) &&
+        (Id == Intrinsic::stacksave || Id == Intrinsic::stackrestore)) {
+      StackCalls.push_back(Inst);
+    }
+
+    // Track calls that would invalidate forward substitution. For now, these
+    // only include calls that mayThrow().
+    if (auto *CallInst = Inst->getCallInst()) {
+      if (CallInst->mayThrow()) {
+        UnsafeCalls.push_back(Inst);
+      }
+    }
+  }
+};
+
+static void getAllUnsafeCalls(HIRLoopStatistics &HLS, HLNode *Node,
+                              SmallVector<const HLInst *, 8> &UnsafeCalls,
+                              SmallVector<const HLInst *, 8> &StackCalls) {
+  UnsafeCallsCollector USC(HLS, UnsafeCalls, StackCalls);
+  HLNodeUtils::visit(USC, Node);
+  LLVM_DEBUG(
+      dbgs() << "Unsafe calls found:\n"; for (auto N
+                                              : UnsafeCalls) {
+        N->dump();
+        dbgs() << "\n";
+      } dbgs() << "Stack calls found:\n";
+      for (auto N
+           : StackCalls) {
+        N->dump(1);
+        dbgs() << "\n";
+      });
+}
+
 static unsigned computeDependencyMaxTopSortNumber(
-    DDGraph &DDG, const HLLoop *DefLoop,
-    const SmallPtrSetImpl<RegDDRef *> &CandidateRefs,
+    SmallVector<const HLInst *, 8> &UnsafeCalls, DDGraph &DDG,
+    const HLLoop *DefLoop, const SmallPtrSetImpl<RegDDRef *> &CandidateRefs,
     SparseBitVector<> &OutUsesByNonCandidates) {
   assert(llvm::all_of(CandidateRefs,
                       [](const RegDDRef *Ref) { return Ref->isMemRef(); }) &&
@@ -418,8 +528,23 @@ static unsigned computeDependencyMaxTopSortNumber(
         continue;
       }
 
+      LLVM_DEBUG(dbgs() << "Limit reduced by: "; SinkNode->dump();
+                 dbgs() << "\n");
       MaxTopSortNumber = std::min(MaxTopSortNumber, TopSortNumber);
     }
+  }
+
+  // We cannot forward substitute any loops past an unsafe call
+  for (const auto UnsafeNode : UnsafeCalls) {
+    unsigned UnsafeTopSortNum = UnsafeNode->getTopSortNum();
+    if (UnsafeTopSortNum <= LoopMaxTopSortNumber ||
+        UnsafeTopSortNum >= MaxTopSortNumber) {
+      continue;
+    }
+
+    LLVM_DEBUG(dbgs() << "Limit reduced by: "; UnsafeNode->dump();
+               dbgs() << "\n");
+    MaxTopSortNumber = std::min(MaxTopSortNumber, UnsafeTopSortNum);
   }
 
   return MaxTopSortNumber;
@@ -1204,6 +1329,10 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
   DDGraph DDG = DDA.getGraph(&Reg);
 
+  SmallVector<const HLInst *, 8> UnsafeCalls;
+  SmallVector<const HLInst *, 8> StackCalls;
+  getAllUnsafeCalls(HLS, &Reg, UnsafeCalls, StackCalls);
+
   // Find identity matrix to substitute later
   const RegDDRef *IdentityRef = findIdentityMatrixDef(Reg, DDG, HLS);
 
@@ -1245,7 +1374,7 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
     SparseBitVector<> NonCandidateUses;
     unsigned LoopDependencyLimits = computeDependencyMaxTopSortNumber(
-        DDG, DefLp, RefsSet, NonCandidateUses);
+        UnsafeCalls, DDG, DefLp, RefsSet, NonCandidateUses);
 
     // Add uses by non-candidate refs.
     UsesTracking.add(NonCandidateUses);
@@ -1306,9 +1435,8 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
 
       // Bail out for loops with control-flow. mergeLoops() cannot handle it.
       if (hasControlFlowOrSideEffects(UseLp, HLS)) {
-        LLVM_DEBUG(
-            dbgs() << "Skipping use loop with control flow/side effects: <"
-                   << UseLp->getNumber() << ">\n");
+        LLVM_DEBUG(dbgs() << "\t[SKIP] Loop has control flow/side effects: <"
+                          << UseLp->getNumber() << ">\n");
         continue;
       }
 
@@ -1485,6 +1613,12 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
         for (unsigned Index : TempBlobIndices) {
           MappedTempBlobSBs.insert(BU.getTempBlobSymbase(Index));
         }
+      }
+
+      if (crossesAllocaRange(DefLp, UseLp, StackCalls)) {
+        LLVM_DEBUG(dbgs() << "\t[SKIP] Loop limited by alloca stackrestore: <"
+                          << UseLp->getNumber() << ">\n");
+        continue;
       }
 
       // Check move DD legality.
