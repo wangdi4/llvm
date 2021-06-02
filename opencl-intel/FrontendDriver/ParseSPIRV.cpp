@@ -227,6 +227,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityFPGAClusterAttributesINTEL:
     case spv::CapabilityLoopFuseINTEL:
     case spv::internal::CapabilityFPGADSPControlINTEL:
+    case spv::internal::CapabilityFPGAInvocationPipeliningAttributesINTEL:
       if (!m_sDeviceInfo.bIsFPGAEmu) {
         errStr << capability << " is only supported on FPGA emulator";
         error = errStr.str();
