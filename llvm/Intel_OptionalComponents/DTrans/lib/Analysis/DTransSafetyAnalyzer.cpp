@@ -33,6 +33,10 @@
 // Print detailed messages regarding the safety checks.
 #define SAFETY_VERBOSE "dtrans-safetyanalyzer-verbose"
 
+// Print messages regarding the collection of values stored to fields of
+// structures.
+#define SAFETY_VALUES "dtrans-safetyanalyzer-values"
+
 using namespace llvm;
 using namespace dtransOP;
 
@@ -62,6 +66,30 @@ static llvm::dtrans::debug::DebugFilter FNFilter;
 // Helper method to check whether 'Ty' is a pointer to a pointer.
 static bool isPtrToPtr(const DTransType *Ty) {
   return Ty->isPointerTy() && Ty->getPointerElementType()->isPointerTy();
+}
+
+// Helper to print a Value object (and optionally the name of the function it
+// belongs to, if there is one). If the Value represents a GlobalValue, such as
+// a Function or GlobalVariable, just print the object's name instead of the
+// complete definition, otherwise print the Value.
+static void printValue(raw_ostream &OS, Value *V, bool ReportFuncName = true) {
+  if (!V)
+    return;
+
+  if (ReportFuncName) {
+    Function *F = nullptr;
+    if (auto *I = dyn_cast<Instruction>(V))
+      F = I->getFunction();
+    else if (auto *Arg = dyn_cast<Argument>(V))
+      F = Arg->getParent();
+    if (F)
+      dbgs() << "[" << F->getName() << "] ";
+  }
+
+  if (auto *GV = dyn_cast<GlobalObject>(V))
+    OS << "@" << GV->getName();
+  else
+    OS << *V;
 }
 
 // Type used for callback function for reporting additional details in the debug
@@ -1059,7 +1087,7 @@ public:
         dtrans::StructInfo *SI =
             cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StructTy));
         if (SI->getNumFields() != 0) {
-          collectReadInfo(I, SI, /*FieldNum=*/0, !IsWholeStructureRead);
+          collectReadInfo(I, SI, /*FieldNum=*/0, IsWholeStructureRead);
 
           if (IsWholeStructureRead) {
             // Note: For whole structure reference, DTrans does not fill in all
@@ -1305,15 +1333,31 @@ public:
         dtrans::StructInfo *SI =
             cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StructTy));
         if (SI->getNumFields() != 0) {
-          collectWriteInfo(I, SI, /*FieldNum=*/0, Val, !IsWholeStructureWrite);
+          collectWriteInfo(I, SI, /*FieldNum=*/0, Val, IsWholeStructureWrite);
 
           if (IsWholeStructureWrite) {
             // Note: For whole structure reference, DTrans does not fill in all
             // the field info details for each field, such as frequency or
             // single value because we do not have any transforms that can
-            // handle them.
-            for (auto &FI : SI->getFields())
+            // handle them. It's possible that the write is just copying an
+            // existing version of the structure, but it's also possible to
+            // perform the write using new constant values, such as:
+            //   store %struct.test01 { i32 100, i32 0 }, %struct.test01* %tmp
+            // For this reason, we will set all the fields as multiple value.
+            for (auto &Field : enumerate(SI->getFields())) {
+              dtrans::FieldInfo &FI = Field.value();
               FI.setWritten(I);
+              if (!FI.isMultipleValue()) {
+                FI.setMultipleValue();
+                DEBUG_WITH_TYPE(SAFETY_VALUES, {
+                  dbgs() << "dtrans-values: ";
+                  SI->getDTransType()->print(dbgs(), /*Detailed=*/false);
+                  dbgs() << "@" << Field.index() << ": <MULTIPLE>\n  ";
+                  printValue(dbgs(), &I);
+                  dbgs() << "\n";
+                });
+              }
+            }
           }
         }
       }
@@ -1398,10 +1442,10 @@ public:
         // otherwise walk the nested types to find the actual field being
         // accessed..
         if (IsLoad)
-          collectReadInfo(I, ParentStInfo, ElementNum, !IsWholeStructure);
+          collectReadInfo(I, ParentStInfo, ElementNum, IsWholeStructure);
         else
           collectWriteInfo(I, ParentStInfo, ElementNum, ValOp,
-                           !IsWholeStructure);
+                           IsWholeStructure);
       }
 
       // Check if the types for the value loaded or value operand of the store
@@ -1786,9 +1830,17 @@ public:
   }
 
   void collectReadInfo(Instruction &I, dtrans::StructInfo *StInfo,
-                       size_t FieldNum, bool DescendIntoNested) {
-    if (DescendIntoNested) {
-      dtrans::FieldInfo &FI = getDeepestNestedField(StInfo, FieldNum);
+                       size_t FieldNum, bool IsWholeStructure) {
+    if (!IsWholeStructure) {
+      // When a whole structure is not being read, the read may be using a
+      // pointer to a structure to access the element at index 0 of a contained
+      // structure. Get the corresponding structure type and field being
+      // read.
+      dtrans::StructInfo *ReadStInfo;
+      size_t ReadFieldNum;
+      std::tie(ReadStInfo, ReadFieldNum) =
+          getDeepestNestedField(StInfo, FieldNum);
+      dtrans::FieldInfo &FI = ReadStInfo->getField(ReadFieldNum);
       FI.setRead(I);
       if (!dtrans::isLoadedValueUnused(&I,
                                        cast<LoadInst>(&I)->getPointerOperand()))
@@ -1803,26 +1855,117 @@ public:
 
   void collectWriteInfo(Instruction &I, dtrans::StructInfo *StInfo,
                         size_t FieldNum, Value *WriteVal,
-                        bool DescendIntoNested) {
-    if (DescendIntoNested) {
-      dtrans::FieldInfo &FI = getDeepestNestedField(StInfo, FieldNum);
+                        bool IsWholeStructure) {
+
+    // Returns true if "WriteVal" is a SelectInst and the true and false values
+    // are both constants.
+    auto IsConstantResultSelectInst = [](Value *WriteVal) {
+      if (auto *SI = dyn_cast<SelectInst>(WriteVal))
+        return isa<Constant>(SI->getTrueValue()) &&
+               isa<Constant>(SI->getFalseValue());
+      return false;
+    };
+
+    auto SetFieldInfo = [this, &IsConstantResultSelectInst](
+                            Instruction &I, dtrans::StructInfo &StInfo,
+                            dtrans::FieldInfo &FI, size_t FieldNum,
+                            Value *WriteVal) {
       FI.setWritten(I);
-    } else {
-      dtrans::FieldInfo &FI = StInfo->getField(FieldNum);
-      FI.setWritten(I);
+
+      // For simple cases where the stored value is the result of select
+      // instruction that always produces a constant result, save both
+      // constants, instead of letting the field value info be marked as
+      // 'incomplete'. For example:
+      //   %70 = select i1 %69, i16 1, i16 2
+      //   store i16 %70, i16* %67
+      if (IsConstantResultSelectInst(WriteVal)) {
+        auto *SelInst = cast<SelectInst>(WriteVal);
+        updateFieldValueTracking(StInfo, FI, FieldNum,
+                                 cast<Constant>(SelInst->getTrueValue()), &I);
+        updateFieldValueTracking(StInfo, FI, FieldNum,
+                                 cast<Constant>(SelInst->getFalseValue()), &I);
+        return;
+      }
+
+      auto *ConstVal = dyn_cast<llvm::Constant>(WriteVal);
+      updateFieldValueTracking(StInfo, FI, FieldNum, ConstVal, &I);
+    };
+
+    if (IsWholeStructure) {
+      // Note: For a whole structure reference, DTrans does not fill in all
+      // the field values for each field because we do not have any transforms
+      // that can handle them. Instead, set all the fields as multiple value.
+      for (auto &Field : enumerate(StInfo->getFields())) {
+        dtrans::FieldInfo &FI = Field.value();
+        FI.setWritten(I);
+        if (!FI.isMultipleValue()) {
+          FI.setMultipleValue();
+          DEBUG_WITH_TYPE(SAFETY_VALUES, {
+            dbgs() << "dtrans-values (whole-structure-write): ";
+            StInfo->getDTransType()->print(dbgs(), /*Detailed=*/false);
+            dbgs() << "@" << Field.index() << ": <MULTIPLE>\n";
+          });
+        }
+      }
+      return;
     }
 
-    // TODO: Update field usage frequency, field single value, field single
-    // allocation functions fields
+    // When a whole structure is not being written, the write may be using a
+    // pointer to a structure to access the element at index 0 of a contained
+    // structure, get the corresponding structure type and field being written.
+    dtrans::StructInfo *WrittenStInfo;
+    size_t WrittenFieldNum;
+    std::tie(WrittenStInfo, WrittenFieldNum) =
+        getDeepestNestedField(StInfo, FieldNum);
+    dtrans::FieldInfo &FI = WrittenStInfo->getField(WrittenFieldNum);
+    SetFieldInfo(I, *WrittenStInfo, FI, WrittenFieldNum, WriteVal);
+
+    // TODO: Update field usage frequency, field single allocation functions
+    // fields
+  }
+
+  // If C is a Constant, add it to the list of values tracked for a field.
+  // Otherwise, mark the field info as being an incomplete multiple value set.
+  // 'StInfo', 'FieldNum', and 'Consumer' are just used for providing
+  // information in the traces regarding which structure, field number and
+  // memory write were responsible for field update.
+  void updateFieldValueTracking(dtrans::StructInfo &StInfo,
+                                dtrans::FieldInfo &FI, size_t FieldNum,
+                                Constant *C, Value *Consumer) {
+    if (!C) {
+      if (!FI.isMultipleValue()) {
+        FI.setMultipleValue();
+        DEBUG_WITH_TYPE(SAFETY_VALUES, {
+          dbgs() << "dtrans-values: ";
+          StInfo.getDTransType()->print(dbgs(), /*Detailed=*/false);
+          dbgs() << "@" << FieldNum << ": <MULTIPLE>\n  ";
+          printValue(dbgs(), Consumer);
+          dbgs() << "\n";
+        });
+      }
+      return;
+    }
+
+    if (FI.processNewSingleValue(C))
+      DEBUG_WITH_TYPE(SAFETY_VALUES, {
+        dbgs() << "dtrans-values: ";
+        StInfo.getDTransType()->print(dbgs(), /*Detailed=*/false);
+        dbgs() << "@" << FieldNum << ": New value: ";
+        printValue(dbgs(), C);
+        dbgs() << "\n  ";
+        printValue(dbgs(), Consumer);
+        dbgs() << "\n";
+      });
   }
 
   // When the pointer type analyzer detects an inner element of a nested type
   // being loaded via a pointer to the container type, it records the container
   // type as the element pointee. In these cases the type nest needs to be
   // traversed to mark the actual field as being 'read' or 'written'. This
-  // function walks the structure to return the field accessed.
-  dtrans::FieldInfo &getDeepestNestedField(dtrans::StructInfo *StInfo,
-                                           size_t FieldNum) {
+  // function walks the structure to return the actual structure and field
+  // number accessed.
+  std::pair<dtrans::StructInfo *, size_t>
+  getDeepestNestedField(dtrans::StructInfo *StInfo, size_t FieldNum) {
     DTransType *ElemTy = StInfo->getField(FieldNum).getDTransType();
     while (ElemTy->isAggregateType()) {
       if (auto *StElemTy = dyn_cast<DTransStructType>(ElemTy)) {
@@ -1855,8 +1998,7 @@ public:
       }
     }
 
-    dtrans::FieldInfo &FI = StInfo->getField(FieldNum);
-    return FI;
+    return { StInfo, FieldNum };
   }
 
   void visitBitCastInst(BitCastInst &I) {
@@ -4209,6 +4351,7 @@ void DTransSafetyInfo::analyzeModule(
   DTransSafetyInstVisitor Visitor(Ctx, DL, GetTLI, *this, *PtrAnalyzer, *TM,
                                   *MDReader, DTAA, Log);
   Visitor.visit(M);
+  PostProcessFieldValueInfo();
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (PrintSafetyAnalyzerIR) {
@@ -4441,6 +4584,35 @@ void DTransSafetyInfo::printCallInfo() {
   dbgs().flush();
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+// Fields of structures that do not meet the necessary safety conditions need to
+// be invalidated to prevent them from being marked as containing a complete set
+// of values.
+void DTransSafetyInfo::PostProcessFieldValueInfo() {
+  bool UsingOutOfBoundsOK = getDTransOutOfBoundsOK();
+
+  for (auto *TI : type_info_entries()) {
+    auto *StInfo = dyn_cast<dtrans::StructInfo>(TI);
+    if (!StInfo)
+      continue;
+
+    // There following conditions are reasons to invalidate the constant values
+    // as holding a complete set of possible values.
+    // - The safety flags indicate the structure is used in a non-supported way.
+    //   Note: The safety flags allowed are dependent on the value that
+    //   DTransOutOfBoundsOK is set to.
+    // - The field is address taken, and the value of DTransOutOfBoundsOK
+    //   indicates the address could be used to access other field members.
+    // - The type is an aggregate type. We keep values for individual fields,
+    //   but not for an array or structure element as a whole.
+    bool FSV_Unsafe = testSafetyData(TI, dtrans::DT_FieldSingleValue);
+    for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I)
+      if (FSV_Unsafe ||
+          (!UsingOutOfBoundsOK && StInfo->getField(I).isAddressTaken()) ||
+          StInfo->getField(I).getLLVMType()->isAggregateType())
+        StInfo->getField(I).setMultipleValue();
+  }
+}
 
 // Provide a definition for the static class member used to identify passes.
 AnalysisKey DTransSafetyAnalyzer::Key;
