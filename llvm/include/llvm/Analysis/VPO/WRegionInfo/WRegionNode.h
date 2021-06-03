@@ -552,8 +552,8 @@ public:
   virtual bool getUntied()                const {WRNERROR(QUAL_OMP_UNTIED);   }
   virtual void setUserLockName(StringRef LN)    {WRNERROR(QUAL_OMP_NAME);     }
   virtual StringRef getUserLockName()     const {WRNERROR(QUAL_OMP_NAME);     }
-  virtual void setHint(int N)                   {WRNERROR(QUAL_OMP_HINT);     }
-  virtual int getHint()                   const {WRNERROR(QUAL_OMP_HINT);     }
+  virtual void setHint(uint32_t N)              {WRNERROR(QUAL_OMP_HINT);     }
+  virtual uint32_t getHint()              const {WRNERROR(QUAL_OMP_HINT);     }
 
   // WRNLoopInfo
 

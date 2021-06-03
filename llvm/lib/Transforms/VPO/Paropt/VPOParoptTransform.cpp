@@ -9631,12 +9631,13 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
   CriticalNode->populateBBSet();
 
   StringRef LockNameSuffix = CriticalNode->getUserLockName();
+  uint32_t Hint = CriticalNode->getHint();
 
   bool CriticalCallsInserted =
       VPOParoptUtils::genKmpcCriticalSection(CriticalNode, IdentTy,
                                              TidPtrHolder, DT, LI,
                                              isTargetSPIRV(),
-                                             LockNameSuffix);
+                                             LockNameSuffix, Hint);
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Handling of Critical Node: "
                     << (CriticalCallsInserted ? "Successful" : "Failed")

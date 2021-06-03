@@ -540,7 +540,7 @@ public:
   /// directives which have an Entry BasicBlock with "DIR.OMP..." intrinsic
   /// calls, and an exit BasicBlock with a corresponding "DIR.OMP.END..."
   /// calls. The middle BasicBlocks will then be surrounded by a critical
-  /// section. The function emits calls to `__kmpc_critical` and
+  /// section. The function emits calls to `__kmpc_critical_with_hint` and
   /// `__kmpc_end_critical` in positions marked in the following diagram:
   ///
   /// \code
@@ -571,8 +571,8 @@ public:
   ///
   /// Example KMPC calls:
   /// \code
-  ///   call void @__kmpc_critical(%ident_t* %loc.addr.11.12, i32 %my.tid,
-  ///   [8 x i32]* @_kmpc_atomic_lock)
+  ///   call void @__kmpc_critical_with_hint((%ident_t* %loc.addr.11.12,
+  ///   i32 %my.tid, [8 x i32]* @_kmpc_atomic_lock, i32  2)
   ///
   ///   call void @__kmpc_end_critical(%ident_t* %loc.addr.11.122, i32 %my.tid1,
   ///   [8 x i32]* @_kmpc_atomic_lock)
@@ -585,11 +585,12 @@ public:
                                      DominatorTree *DT,
                                      LoopInfo *LI,
                                      bool IsTargetSPIRV,
-                                     const Twine &LockNameSuffix = "");
+                                     const Twine &LockNameSuffix = "",
+                                     uint32_t Hint = 0);
 
   /// Generate a critical section around Instructions \p BeginInst and \p
-  /// EndInst. The function emits calls to `__kmpc_critical` \b before \p
-  /// BeginInst and `__kmpc_end_critical` \b after \p EndInst.
+  /// EndInst. The function emits calls to `__kmpc_critical_with_hint`
+  /// \b before \p BeginInst and `__kmpc_end_critical` \b after \p EndInst.
   ///
   /// \code
   /// +------< begin critical >
@@ -601,27 +602,26 @@ public:
   /// \endcode
   ///
   /// \param BeginInst is the Instruction \b before which the call to
-  /// `__kmpc_critical` is inserted.
+  /// `__kmpc_critical_with_hint` is inserted.
   /// \param EndInst is the Instruction \b after which the call to
   /// `__kmpc_end_critical` is inserted.
   /// \param IsTargetSPIRV is true, iff compilation is for SPIRV target.
   ///
-  /// Note: Other Instructions, aside from the `__kmpc_critical` and
+  /// Note: Other Instructions, aside from the `__kmpc_critical_with_hint` and
   /// `__kmpc_end_critical` calls, which are needed for the KMPC calls,
   /// are also inserted into the IR. \see genKmpcCallWithTid() for details.
   ///
   /// \see genKmpcCriticalSection(WRegionNode*, StructType*, AllocaInst*,
   /// const StringRef) for examples of the KMPC critical calls.
   ///
-  /// \returns `true` if the calls to `__kmpc_critical` and
+  /// \returns `true` if the calls to `__kmpc_critical_with_hint` and
   /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
   static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                      Constant *TidPtr, Instruction *BeginInst,
-                                     Instruction *EndInst,
-                                     DominatorTree *DT,
-                                     LoopInfo *LI,
-                                     bool IsTargetSPIRV,
-                                     const Twine &LockNameSuffix = "");
+                                     Instruction *EndInst, DominatorTree *DT,
+                                     LoopInfo *LI, bool IsTargetSPIRV,
+                                     const Twine &LockNameSuffix = "",
+                                     uint32_t Hint = 0);
 
   /// Generate tree reduce block and atomic reduce block. The tree reduce block
   /// is around Instructions \p BeginInst and \p EndInst. The function emits
@@ -1863,7 +1863,7 @@ private:
   /// \see genKmpcCriticalSection() functions for more details. They are the
   /// public functions which invokes this private helper.
   ///
-  /// \returns `true` if the calls to `__kmpc_critical` and
+  /// \returns `true` if the calls to `__kmpc_critical_with_hint` and
   /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
   static bool genKmpcCriticalSectionImpl(WRegionNode *W, StructType *IdentTy,
                                          Constant *TidPtr,
@@ -1872,7 +1872,8 @@ private:
                                          GlobalVariable *LockVar,
                                          DominatorTree *DT,
                                          LoopInfo *LI,
-                                         bool IsTargetSPIRV);
+                                         bool IsTargetSPIRV,
+                                         uint32_t Hint);
 
   /// Handles generation of tree reduce block around \p BeginInst and \p
   /// EndInst, atomic reduce block around \p AtomicBeginInst and \p

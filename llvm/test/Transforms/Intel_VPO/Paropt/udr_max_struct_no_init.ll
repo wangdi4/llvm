@@ -148,7 +148,7 @@ for.end:                                          ; preds = %for.cond
 ; CRITICAL-NOT: "QUAL.OMP.REDUCTION.UDR"
 ; CRITICAL: %{{.*}} = bitcast %struct.point* %maxp.red{{.*}} to i8*
 ; CRITICAL-NEXT: call void @llvm.memset.{{.*}}({{.*}})
-; CRITICAL: call void @__kmpc_critical({{.*}})
+; CRITICAL: call void @__kmpc_critical_with_hint({{.*}})
 ; CRITICAL: call void @.omp_combiner.(%struct.point* %maxp, %struct.point* %maxp.red{{.*}})
 ; CRITICAL: call void @__kmpc_end_critical({{.*}})
 ; CRITICAL: call void @_ZTS5point.omp.destr(%struct.point* %maxp.red{{.*}})

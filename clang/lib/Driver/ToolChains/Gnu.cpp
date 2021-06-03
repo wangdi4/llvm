@@ -1052,6 +1052,9 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       if (const Arg *A = Args.getLastArg(options::OPT_intel_debug_Group))
         if (StringRef(A->getValue()) == "parallel")
           WantPthread = true;
+      // -fortlib implies pthread
+      if (Args.hasArg(options::OPT_fortlib))
+        WantPthread = true;
 #endif // INTEL_CUSTOMIZATION
 
       AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
@@ -1074,8 +1077,15 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #endif // INTEL_CUSTOMIZATION
       }
 
-      if (WantPthread && !isAndroid)
+#if INTEL_CUSTOMIZATION
+      if (WantPthread && !isAndroid) {
+        if (Args.hasArg(options::OPT_fortlib))
+          CmdArgs.push_back("--as-needed");
         CmdArgs.push_back("-lpthread");
+        if (Args.hasArg(options::OPT_fortlib))
+          CmdArgs.push_back("--no-as-needed");
+      }
+#endif // INTEL_CUSTOMIZATION
 
       if (Args.hasArg(options::OPT_fsplit_stack))
         CmdArgs.push_back("--wrap=pthread_create");
@@ -1130,6 +1140,11 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtn.o")));
     }
   }
+
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT_fortlib))
+    addIntelLib("-lifcoremt", ToolChain, CmdArgs, Args);
+#endif // INTEL_CUSTOMIZATION
 
   Args.AddAllArgs(CmdArgs, options::OPT_T);
 
