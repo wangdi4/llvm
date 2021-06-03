@@ -105,13 +105,13 @@ static cl::opt<bool>
 // even when it would not normally be enabled.
 static cl::opt<bool>
     ForceOffCallbackCloning("ip-gen-cloning-force-off-callback-cloning",
-                            cl::init(true), cl::ReallyHidden);
+                            cl::init(false), cl::ReallyHidden);
 
 // Used to force on cloning of callback functions called from cloned functions
 // even when it would not normally be enabled.
 static cl::opt<bool>
     ForceOnCallbackCloning("ip-gen-cloning-force-on-callback-cloning",
-                           cl::init(true), cl::ReallyHidden);
+                           cl::init(false), cl::ReallyHidden);
 
 // Used to force the enabling of the dtrans-related heuristics even when they
 // would not normally be enabled.
@@ -2316,8 +2316,8 @@ static void eliminateRecursionIfPossible(Function *ClonedFn,
 //       for all of the constants on which we will be cloning. This is
 //       necessary, because in a key case, we would do no callback cloning
 //       unless we consider the full sets of constants over which we clone.
-//   (2) createCBVec(): The CVec is a vector with one element for each
-//       clone we are making of the primary function. Each CVec[I] maps
+//   (2) createCBVec(): The CBVec is a vector with one element for each
+//       clone we are making of the primary function. Each CBVec[I] maps
 //       a CallInst to a broker function to a second map. The second map
 //       has a key of the form std::pair<unsigned, Function *>, where the
 //       the unsigned value is the number of the AbstractCallSite of the
@@ -5452,9 +5452,18 @@ static bool analysisCallsCloneFunctions(Module &M, bool AfterInl,
       continue;
     }
 
-    bool AttemptCallbackCloning = ForceOnCallbackCloning ||
-        (!ForceOffCallbackCloning && IFSwitchHeuristic &&
-        vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(F));
+    assert((!ForceOffCallbackCloning || !ForceOnCallbackCloning) &&
+        "Not both ForceOffCallbackCloning and ForceOnCallbackCloning");
+    bool AttemptCallbackCloning = !F.isVarArg() &&
+        (ForceOnCallbackCloning || (!ForceOffCallbackCloning &&
+        IFSwitchHeuristic && vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(F)));
+    LLVM_DEBUG({
+      if (AttemptCallbackCloning)
+        dbgs() << " Attempting callback cloning for " << F.getName() << "\n";
+      else
+        dbgs() << " Not attempting callback cloning for "
+               << F.getName() << "\n";
+    });
     cloneFunction(AttemptCallbackCloning);
   }
 
