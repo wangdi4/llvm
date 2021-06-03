@@ -4302,6 +4302,11 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     auto *VLSLoad = cast<VPVLSLoad>(VPInst);
     RegDDRef *MemRef = getVLSMemoryRef(VLSLoad);
     HLInst *WideLoad = HLNodeUtilities.createLoad(MemRef, ".vls.load");
+    for (unsigned FakeSymbase : VLSLoad->HIR().fakeSymbases()) {
+      RegDDRef *FakeRef = MemRef->clone();
+      FakeRef->setSymbase(FakeSymbase);
+      WideLoad->addFakeRvalDDRef(FakeRef);
+    }
     RegDDRef *Mask = getVLSLoadStoreMask(cast<VectorType>(VPInst->getType()),
                                          VLSLoad->getGroupSize());
     addInst(WideLoad, Mask);
@@ -4400,6 +4405,11 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     RegDDRef *MemRef = getVLSMemoryRef(VLSStore);
     HLInst *WideStore = HLNodeUtilities.createStore(
         getOrCreateScalarRef(VPInst->getOperand(0), 0), ".vls.store", MemRef);
+    for (unsigned FakeSymbase : VLSStore->HIR().fakeSymbases()) {
+      RegDDRef *FakeRef = MemRef->clone();
+      FakeRef->setSymbase(FakeSymbase);
+      WideStore->addFakeLvalDDRef(FakeRef);
+    }
     RegDDRef *Mask = getVLSLoadStoreMask(
         cast<VectorType>(VLSStore->getOperand(0)->getType()),
         VLSStore->getGroupSize());

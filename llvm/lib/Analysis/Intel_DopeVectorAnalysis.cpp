@@ -425,6 +425,38 @@ void DopeVectorFieldUse::setAllowMultipleFieldAddresses() {
   AllowMultipleFieldAddresses = true;
 }
 
+bool DopeVectorFieldUse::matches(const DopeVectorFieldUse& Other) const {
+  if (getIsBottom() != Other.getIsBottom())
+    return false;
+  if (AllowMultipleFieldAddresses != Other.AllowMultipleFieldAddresses)
+    return false;
+  if ((!AllowMultipleFieldAddresses || !Other.AllowMultipleFieldAddresses) &&
+      (FieldAddr.size() + Other.FieldAddr.size() > 1))
+    return false;
+  if (!getIsWritten() || !Other.getIsWritten())
+    return true;
+  if (!getConstantValue() || !Other.getConstantValue())
+    return true;
+  auto CV0 = getConstantValue()->getZExtValue();
+  auto CV1 = Other.getConstantValue()->getZExtValue();
+  if (CV0 != CV1)
+    return false;
+  return true;
+}
+
+void DopeVectorFieldUse::merge(const DopeVectorFieldUse& Other) {
+  FieldAddr.insert(Other.FieldAddr.begin(), Other.FieldAddr.end());
+  Loads.insert(Other.Loads.begin(), Other.Loads.end());
+  Stores.insert(Other.Stores.begin(), Other.Stores.end());
+  Subscripts.insert(Other.Subscripts.begin(), Other.Subscripts.end());
+  if (Other.getIsRead())
+    IsRead = true;
+  if (Other.getIsWritten()) {
+    IsWritten = true;
+    identifyConstantValue();
+  }
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void DopeVectorFieldUse::dump() const { print(dbgs()); }
 void DopeVectorFieldUse::print(raw_ostream &OS, const Twine &Header) const {
@@ -1319,7 +1351,7 @@ DopeVectorAnalyzer::checkSubscriptStrideValues(const SubscriptInstSet
 // construct a DopeVectorInfo.
 DopeVectorInfo::DopeVectorInfo(Value *DVObject, Type *DVType,
                                bool AllowMultipleFieldAddresses) :
-    DVObject(DVObject), AllocSite(nullptr), AllocSiteSet(false) {
+    DVObject(DVObject) {
 
   assert(DVType->isStructTy() && DVType->getStructNumElements() == 7 &&
          DVType->getContainedType(DopeVectorFieldType::DV_PerDimensionArray)
@@ -1453,7 +1485,10 @@ void DopeVectorInfo::validateDopeVector() {
     //
     //   4) If there are conditional branches but we can prove at compile
     //      time which path will always be taken.
-    if (SI->getParent() != AllocSite->getParent())
+    // NOTE: At this point, we are expecting only one alloc site per
+    // nested dope vector.  After merging, there may be multiple alloc sites.
+    if ((AllocSites.size() != 1) ||
+       (SI->getParent() != AllocSites[0]->getParent()))
       return false;
 
     return true;
@@ -1496,11 +1531,6 @@ void DopeVectorInfo::validateDopeVector() {
 
   if (AnalysisRes == DopeVectorInfo::AnalysisResult::AR_Invalid)
     return;
-
-  if (!AllocSite) {
-    AnalysisRes = DopeVectorInfo::AnalysisResult::AR_NoAllocSite;
-    return;
-  }
 
   bool PassValidation = true;
 
@@ -1565,6 +1595,14 @@ void DopeVectorInfo::validateDopeVector() {
     AnalysisRes = DopeVectorInfo::AnalysisResult::AR_Pass;
   else if (AnalysisRes == DopeVectorInfo::AnalysisResult::AR_Top)
     AnalysisRes = DopeVectorInfo::AnalysisResult::AR_Invalid;
+}
+
+void DopeVectorInfo::validateAllocSite() {
+  if (getAnalysisResult() != DopeVectorInfo::AnalysisResult::AR_Pass)
+    return;
+  if (!AllocSites.empty())
+    return;
+  AnalysisRes = DopeVectorInfo::AnalysisResult::AR_NoAllocSite;
 }
 
 // Return true if all pointers that access the dope vector fields were
@@ -1785,17 +1823,9 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
     // the array
     if (DVFieldType == DopeVectorFieldType::DV_ArrayPtr) {
       if (auto *Call = GetCallForAllocation(GEP, GetTLI)) {
-        if (!AllowCheckForAllocSite) {
-          NestedDV->setAllocSite(nullptr);
+        if (!AllowCheckForAllocSite)
           return false;
-        }
-
-        if (NestedDV->isAllocSiteSet()) {
-          NestedDV->setAllocSite(nullptr);
-          return false;
-        }
-
-        NestedDV->setAllocSite(Call);
+        NestedDV->addAllocSite(Call);
         return true;
       }
     }
@@ -1881,18 +1911,12 @@ static bool collectNestedDopeVectorFieldAddress(NestedDopeVectorInfo *NestedDV,
         return false;
     } else if(auto *BC = dyn_cast<BitCastOperator>(U)) {
       // BitCast should be only used for allocating data
-      if (NestedDV->isAllocSiteSet() || !AllowCheckForAllocSite) {
-        NestedDV->setAllocSite(nullptr);
+      if (!AllowCheckForAllocSite)
         return false;
-      }
-
       CallBase *Call = bitCastUsedForAllocation(BC, GetTLI);
-      if (!Call) {
-        NestedDV->setAllocSite(nullptr);
+      if (!Call)
         return false;
-      }
-
-      NestedDV->setAllocSite(Call);
+      NestedDV->addAllocSite(Call);
     } else if (CallBase *Call = dyn_cast<CallBase>(U)) {
       // Calls should only load data
       if (!CollectAccessFromCall(Call, V, GetTLI, ValueChecked))
@@ -1926,14 +1950,14 @@ void NestedDopeVectorInfo::analyzeNestedDopeVector() {
 
 // Return true if the input BitCast operator is used for allocation
 bool GlobalDopeVector::collectAndAnalyzeAllocSite(BitCastOperator *BC) {
-  if (!BC || !GlobalDVInfo || GlobalDVInfo->isAllocSiteSet())
+  if (!BC || !GlobalDVInfo || GlobalDVInfo->hasAllocSite())
     return false;
 
   CallBase *Call = bitCastUsedForAllocation(BC, GetTLI);
   if (!Call)
     return false;
 
-  GlobalDVInfo->setAllocSite(Call);
+  GlobalDVInfo->addAllocSite(Call);
   return true;
 }
 
@@ -2110,14 +2134,14 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   };
 
   // Find the nested dope vector info, if not found then
-  // create a new entry.
-  auto FindOrMakeNestedDopeVector = [&, this](Type *DVType,
+  // create a new entry with (VBase, FieldNum).
+  auto FindOrMakeNestedDopeVector = [&, this](Value *VBase,
+                                              Type *DVType,
                                               uint64_t FieldNum) ->
                                               NestedDopeVectorInfo* {
-
-    auto *NestedDV = getNestedDopeVector(FieldNum);
+    auto *NestedDV = getNestedDopeVector(VBase, FieldNum);
     if (!NestedDV) {
-      NestedDV = new NestedDopeVectorInfo(Glob, DVType, FieldNum,
+      NestedDV = new NestedDopeVectorInfo(Glob, DVType, FieldNum, VBase,
           true /* AllowMultipleFieldAddresses*/);
       NestedDopeVectors.insert(NestedDV);
     } else {
@@ -2167,7 +2191,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // Return 'true' if 'U' is the user of a SubscriptInst that can be
   // properly collected. In that case, update 'AllocSiteFound'.
   //
-  auto CanCollectNDVSubscriptUser = [&, this](User *U,
+  auto CanCollectNDVSubscriptUser = [&, this](Value *V, User *U,
                                               const DataLayout &DL,
                                               bool &AllocSiteFound) -> bool {
     if (auto *Call = bitCastUsedForAllocation(U, GetTLI)) {
@@ -2193,11 +2217,10 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
       if (!isDopeVectorType(FieldZeroType, DL))
         return false;
 
-      auto *NestedDVInfo = FindOrMakeNestedDopeVector(FieldZeroType, 0);
+      auto *NestedDVInfo = FindOrMakeNestedDopeVector(V, FieldZeroType, 0);
       assert(NestedDVInfo && "Nested dope vector 0 couldn't be found\n");
 
-      NestedDVInfo->setAllocSite(Call);
-      AllocSiteFound = true;
+      NestedDVInfo->addAllocSite(Call);
     } else if (isa<GetElementPtrInst>(U) || isa<BitCastInst>(U)) {
       auto NestedDVTypePair = GetNestedDVTypeFromValue(U);
       if (!NestedDVTypePair.first)
@@ -2205,7 +2228,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
 
       if (isDopeVectorType(NestedDVTypePair.first, DL)) {
         auto *NestedDVInfo =
-            FindOrMakeNestedDopeVector(NestedDVTypePair.first,
+            FindOrMakeNestedDopeVector(V, NestedDVTypePair.first,
                                        NestedDVTypePair.second);
         assert(NestedDVInfo && "Nested dope vector couldn't be found\n");
         SetVector<Value *> ValueChecked;
@@ -2267,7 +2290,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
       if (Argument *NewA = IsIPOPropagatable(A, U)) {
         if (!PropagateArgument(NewA, DL, AllocSiteFound))
           return false;
-      } else if (!CanCollectNDVSubscriptUser(U, DL, AllocSiteFound)) {
+      } else if (!CanCollectNDVSubscriptUser(A, U, DL, AllocSiteFound)) {
         return false;
       }
     }
@@ -2276,7 +2299,6 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
 
   if (!SI)
     return false;
-
   ConstantInt *GlobalElementSize = GlobalDVInfo->getDopeVectorField(
       DopeVectorFieldType::DV_ElementSize)->getConstantValue();
 
@@ -2296,15 +2318,130 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
     if (Argument *A = IsIPOPropagatable(SI, U)) {
       if (!PropagateArgument(A, DL, AllocSiteFound))
         return false;
-    } else if (!CanCollectNDVSubscriptUser(U, DL, AllocSiteFound)) {
+    } else if (!CanCollectNDVSubscriptUser(SI, U, DL, AllocSiteFound)) {
       return false;
     }
   }
   return true;
 }
 
+using NDVInfoVector = SetVector<NestedDopeVectorInfo *>;
+
+void
+GlobalDopeVector::mergeNestedDopeVectors() {
+
+  // Load a subset 'NDVSubset' of the nested dope vectors for merging.
+  // The set will all have the same 'FieldNum' and a non-nullptr 'VBase'.
+  //
+  auto LoadNDVSubset = [this](NDVInfoVector &NDVSubset) {
+    Optional<uint64_t> FieldNum = None;
+    NDVSubset.clear();
+    for (auto *NestedDV : NestedDopeVectors) {
+      if (NestedDV->getVBase()) {
+        if (!FieldNum)
+          FieldNum = NestedDV->getFieldNum();
+        if (NestedDV->getFieldNum() == FieldNum)
+          NDVSubset.insert(NestedDV);
+      }
+    }
+  };
+
+  // Return 'true' if 'NDVSubset' has a mismatch and the nested dope vectors
+  // contained in it cannot be merged.
+  //
+  auto HasMismatch = [](NDVInfoVector &NDVSubset) -> bool {
+    for (unsigned I = 0; I < NDVSubset.size(); ++I)
+      for (unsigned J = I + 1; J < NDVSubset.size(); ++J)
+        if (!NDVSubset[I]->matches(*NDVSubset[J]))
+          return true;
+    return false;
+  };
+
+  // Merge a subset 'NDVSubset' of the nested dope vectors. If the merge
+  // is successful, a single nested dope vector will remain that summarizes
+  // the subset, with a 'VBase' which is nullptr.
+  //
+  auto MergeNDVSubset = [this, HasMismatch](NDVInfoVector &NDVSubset) {
+    if (!NDVSubset.size())
+      return;
+    if (NDVSubset.size() == 1) {
+      NDVSubset[0]->nullifyVBase();
+      return;
+    }
+    NestedDopeVectorInfo* MergeDV = NDVSubset[0];
+    MergeDV->nullifyVBase();
+    if (HasMismatch(NDVSubset)) {
+      auto AR_Pass = DopeVectorInfo::AnalysisResult::AR_Pass;
+      bool Passed = MergeDV->getAnalysisResult() == AR_Pass;
+      for (auto NestedDV : NDVSubset) {
+        if (NestedDV != MergeDV) {
+          if (Passed && (NestedDV->getAnalysisResult() != AR_Pass)) {
+            MergeDV->setAnalysisResult(NestedDV->getAnalysisResult());
+            Passed = false;
+          }
+          NestedDopeVectors.remove(NestedDV);
+          delete NestedDV;
+        }
+      }
+      if (Passed) {
+        auto CNM = DopeVectorInfo::AnalysisResult::AR_CouldNotMerge;
+        MergeDV->setAnalysisResult(CNM);
+      }
+    } else {
+      for (auto NestedDV : NDVSubset)
+        if (NestedDV != MergeDV) {
+          MergeDV->merge(*NestedDV);
+          NestedDopeVectors.remove(NestedDV);
+          delete NestedDV;
+        }
+    }
+  };
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  auto GetFunction = [](Value *V) -> Function * {
+    if (!V)
+      return nullptr;
+    if (auto I = dyn_cast<Instruction>(V))
+      return I->getFunction();
+    else if (auto A = dyn_cast<Argument>(V))
+      return A->getParent();
+    return nullptr;
+  };
+
+  // Dump the nested dope vectors. Use 'Banner' to indicate the point in
+  // time the dump occurs.
+  //
+  auto DumpNestedDopeVectors = [this, GetFunction](const char Banner[]) {
+    dbgs() << "[" << Banner << "] DUMPING NESTED DOPE VECTORS: BEGIN\n";
+    for (auto *NestedDV : NestedDopeVectors) {
+      dbgs() << "FIELD[" << NestedDV->getFieldNum() << "] "
+             << NestedDV->getVBase();
+      if (Function  *F = GetFunction(NestedDV->getVBase()))
+        dbgs() << " IN " << F->getName() << "\n";
+      else
+        dbgs() << "\n";
+      if (NestedDV->getVBase())
+        NestedDV->getVBase()->dump();
+      NestedDV->print(2);
+    }
+    dbgs() << "[" << Banner << "] DUMPING NESTED DOPE VECTORS: END\n";
+  };
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+  LLVM_DEBUG(DumpNestedDopeVectors("BEFORE"));
+  NDVInfoVector NestedDVSubset;
+  LoadNDVSubset(NestedDVSubset);
+  while (NestedDVSubset.size()) {
+    MergeNDVSubset(NestedDVSubset);
+    LoadNDVSubset(NestedDVSubset);
+  }
+  for (auto *NestedDV : NestedDopeVectors)
+    NestedDV->validateAllocSite();
+  LLVM_DEBUG(DumpNestedDopeVectors("AFTER"));
+}
+
 // This function will check if there are nested dope vectors for the global
-// dope vector, collects the information and analyze if there is any ilegal
+// dope vector, collect the information and analyze if there is any illegal
 // access that could invalidate the data.
 void
 GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL) {
@@ -2390,6 +2527,7 @@ GlobalDopeVector::collectAndAnalyzeNestedDopeVectors(const DataLayout &DL) {
 
   for (auto *NestedDV : NestedDopeVectors)
     NestedDV->analyzeNestedDopeVector();
+  mergeNestedDopeVectors();
 }
 
 // Validate that the data was collected correctly for the global dope vector
@@ -2448,8 +2586,9 @@ void GlobalDopeVector::collectAndValidate(const DataLayout &DL) {
   }
 
   // Make sure that none of the fields the in the dope vector are
-  // set to bottom
+  // set to bottom, and that an alloc site was seen.
   getGlobalDopeVectorInfo()->validateDopeVector();
+  getGlobalDopeVectorInfo()->validateAllocSite();
 
   // Collect any information related to the nested dope vectors
   collectAndAnalyzeNestedDopeVectors(DL);
@@ -2558,6 +2697,9 @@ void DopeVectorInfo::print(uint64_t Indent) {
     case DopeVectorInfo::AnalysisResult::AR_AllocStoreIllegality:
       dbgs() << "Store won't execute with alloc site";
       break;
+    case DopeVectorInfo::AnalysisResult::AR_CouldNotMerge:
+      dbgs() << "Could not merge dope vectors with multiple allocations";
+      break;
     case DopeVectorInfo::AnalysisResult::AR_Pass:
       dbgs() << "Pass";
       break;
@@ -2613,11 +2755,18 @@ void GlobalDopeVector::print() {
   dbgs() << "\n";
   GlobalDVInfo->print(2);
   if (NestedDopeVectors.size() > 0) {
-    dbgs() << "  Nested dope vectors: " << NestedDopeVectors.size() << "\n";
-    for (auto NestedDV : NestedDopeVectors) {
-      dbgs() << "    Field[" << NestedDV->getFieldNum() << "]: "
-             << NestedDV->getLLVMStructType()->getName() << "\n";
-      NestedDV->print(6);
+    // Sort the result for consistent printing
+    std::vector<std::tuple<uint64_t, StringRef, NestedDopeVectorInfo *>> NDV;
+    for (auto NestedDV : NestedDopeVectors)
+      NDV.push_back(std::make_tuple(NestedDV->getFieldNum(),
+                                    NestedDV->getLLVMStructType()->getName(),
+                                    NestedDV));
+    std::sort(NDV.begin(), NDV.end());
+    dbgs() << "  Nested dope vectors: " << NDV.size() << "\n";
+    for (auto &OneNDV : NDV) {
+      dbgs() << "    Field[" << std::get<0>(OneNDV) << "]: "
+             << std::get<1>(OneNDV) << "\n";
+      std::get<2>(OneNDV)->print(6);
     }
   }
 }

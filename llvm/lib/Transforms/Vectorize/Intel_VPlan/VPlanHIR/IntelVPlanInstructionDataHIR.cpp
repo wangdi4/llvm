@@ -29,6 +29,17 @@ static bool hasSymbase(const VPInstruction &Inst) {
   }
 }
 
+static bool hasFakeSymbases(const VPInstruction &Inst) {
+  auto Opcode = Inst.getOpcode();
+  switch (Opcode) {
+  default:
+    return false;
+  case VPInstruction::VLSLoad:
+  case VPInstruction::VLSStore:
+    return true;
+  }
+}
+
 static bool canHaveFoldIVConvert(const VPInstruction &Inst) {
   auto Opcode = Inst.getOpcode();
   switch (Opcode) {
@@ -87,6 +98,27 @@ void HIRSpecifics::setFoldIVConvert(bool Fold) {
 bool HIRSpecifics::getFoldIVConvert() const {
   assert(canHaveFoldIVConvert(Inst) && "Unexpected call to getFoldIVConvert!");
   return HIRData().FoldIVConvert;
+}
+
+void HIRSpecifics::addFakeSymbase(unsigned Symbase) {
+  if (Symbase == getSymbase())
+    /// Skip if it's the main symbase.
+    return;
+  assert(hasFakeSymbases(Inst) &&
+         "Can't add fake symbase to that kind of VPInstruction!");
+  if (HIRData().ExtraData.isNull()) {
+    HIRData().ExtraData = new HIRSpecificsData::FakeSymbases();
+  }
+  HIRData().ExtraData.get<HIRSpecificsData::FakeSymbases *>()->insert(Symbase);
+}
+
+ArrayRef<unsigned> HIRSpecifics::fakeSymbases() const {
+  if (HIRData().ExtraData.isNull())
+    return {};
+
+  return HIRData()
+      .ExtraData.get<HIRSpecificsData::FakeSymbases *>()
+      ->getArrayRef();
 }
 
 void HIRSpecifics::cloneFrom(const HIRSpecifics HIR) {

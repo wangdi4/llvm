@@ -210,6 +210,103 @@ namespace L0Interop {
   }
 }
 
+class RTLProfileTy;
+
+/// All thread-local data used by RTL
+class TLSTy {
+  /// For memory release
+  ze_context_handle_t Context = nullptr;
+
+  /// Command list for each device
+  std::map<int32_t, ze_command_list_handle_t> CmdLists;
+
+  /// Copy command list for each device
+  std::map<int32_t, ze_command_list_handle_t> CopyCmdLists;
+
+  /// Command queue for each device
+  std::map<int32_t, ze_command_queue_handle_t> CmdQueues;
+
+  /// Copy command queue for each device
+  std::map<int32_t, ze_command_queue_handle_t> CopyCmdQueues;
+
+  /// Run profile for each device
+  std::map<int32_t, RTLProfileTy *> Profiles;
+
+  /// Subdevice encoding
+  int64_t SubDeviceCode = 0;
+
+  /// Staging buffer
+  void *StagingBuffer = nullptr;
+
+public:
+  TLSTy(ze_context_handle_t Context) : Context(Context) {}
+
+  ~TLSTy();
+
+  ze_command_list_handle_t getCmdList(int32_t ID) {
+    return (CmdLists.count(ID) > 0) ? CmdLists.at(ID) : nullptr;
+  }
+
+  ze_command_list_handle_t getCopyCmdList(int32_t ID) {
+    return (CopyCmdLists.count(ID) > 0) ? CopyCmdLists.at(ID) : nullptr;
+  }
+
+  ze_command_queue_handle_t getCmdQueue(int32_t ID) {
+    return (CmdQueues.count(ID) > 0) ? CmdQueues.at(ID) : nullptr;
+  }
+
+  ze_command_queue_handle_t getCopyCmdQueue(int32_t ID) {
+    return (CopyCmdQueues.count(ID) > 0) ? CopyCmdQueues.at(ID) : nullptr;
+  }
+
+  RTLProfileTy *getProfile(int32_t ID) {
+    return (Profiles.count(ID) > 0) ? Profiles.at(ID) : nullptr;
+  }
+
+  int64_t getSubDeviceCode() { return SubDeviceCode; }
+
+  void *getStagingBuffer() { return StagingBuffer; }
+
+  void setCmdList(int32_t ID, ze_command_list_handle_t CmdList) {
+    CmdLists[ID] = CmdList;
+  }
+
+  void setCopyCmdList(int32_t ID, ze_command_list_handle_t CmdList) {
+    CopyCmdLists[ID] = CmdList;
+  }
+
+  void setCmdQueue(int32_t ID, ze_command_queue_handle_t CmdQueue) {
+    CmdQueues[ID] = CmdQueue;
+  }
+
+  void setCopyCmdQueue(int32_t ID, ze_command_queue_handle_t CmdQueue) {
+    CopyCmdQueues[ID] = CmdQueue;
+  }
+
+  void setProfile(int32_t ID, RTLProfileTy *Profile) {
+    Profiles[ID] = Profile;
+  }
+
+  void setSubDeviceCode(int64_t Code) { SubDeviceCode = Code; }
+
+  void setStagingBuffer(void *Buffer) { StagingBuffer = Buffer; }
+};
+
+/// Global list for clean-up
+std::list<TLSTy *> TLSList;
+
+/// Returns thread-local storage while adding a new instance to the global list.
+static TLSTy *getTLS(ze_context_handle_t Context) {
+  static thread_local TLSTy *TLS = nullptr;
+  static std::mutex Mtx;
+  if (TLS)
+    return TLS;
+  TLS = new TLSTy(Context);
+  std::lock_guard<std::mutex> Lock(Mtx);
+  TLSList.push_back(TLS);
+  return TLS;
+}
+
 int DebugLevel = 0;
 
 /// Forward declarations
@@ -473,6 +570,8 @@ class RTLProfileTy {
     double DeviceTime = 0.0; // Not used for now
   };
   int ThreadId;
+  std::string DeviceIdStr;
+  std::string DeviceName;
   std::map<std::string, TimeTy> Data;
   // L0 RT will keep UseCyclesPerSecondTimer=1 to enable new timer resolution
   // during transition period (until 20210504).
@@ -486,8 +585,10 @@ public:
   static int64_t Multiplier;
 
   RTLProfileTy(const ze_device_properties_t &DeviceProperties,
-               bool UseCyclePerSec) {
+               const std::string &DeviceId, bool UseCyclePerSec) {
     ThreadId = __kmpc_global_thread_num(nullptr);
+    DeviceIdStr = DeviceId;
+    DeviceName = DeviceProperties.name;
 
     // TODO: this is an extra check to be on safe side for all driver versions.
     // Remove this heuristic when it is not necessary any more.
@@ -507,21 +608,25 @@ public:
               validBits);
   }
 
+  ~RTLProfileTy() {
+    printData();
+  }
+
   std::string alignLeft(size_t Width, std::string Str) {
     if (Str.size() < Width)
       return Str + std::string(Width - Str.size(), ' ');
     return Str;
   }
 
-  void printData(const char *DeviceId, const char *DeviceName) {
+  void printData() {
     std::string profileSep(80, '=');
     std::string lineSep(80, '-');
 
     fprintf(stderr, "%s\n", profileSep.c_str());
 
     fprintf(stderr, "LIBOMPTARGET_PLUGIN_PROFILE(%s) for OMP DEVICE(%s) %s"
-            ", Thread %" PRId32 "\n", GETNAME(TARGET_NAME), DeviceId,
-            DeviceName, ThreadId);
+            ", Thread %" PRId32 "\n", GETNAME(TARGET_NAME), DeviceIdStr.c_str(),
+            DeviceName.c_str(), ThreadId);
     const char *unit = (Multiplier == MSEC_PER_SEC) ? "msec" : "usec";
 
     fprintf(stderr, "%s\n", lineSep.c_str());
@@ -602,24 +707,6 @@ public:
   }
 };
 int64_t RTLProfileTy::Multiplier;
-
-/// Handles/data to be created for each threads
-struct PrivateHandlesTy {
-  ze_command_list_handle_t CmdList = nullptr;
-  ze_command_queue_handle_t CmdQueue = nullptr;
-  ze_command_list_handle_t CopyCmdList = nullptr;
-  ze_command_queue_handle_t CopyCmdQueue = nullptr;
-  RTLProfileTy *Profile = nullptr;
-};
-
-/// Each thread should be able to handle multiple devices
-thread_local std::map<int32_t, PrivateHandlesTy> ThreadLocalHandles;
-
-/// Per-thread subdeivce encoding
-thread_local int64_t SubDeviceCode = 0;
-
-/// Per-thread staging buffer
-thread_local void *StagingBuffer = nullptr;
 
 /// Get default command queue group ordinal
 static uint32_t getCmdQueueGroupOrdinal(ze_device_handle_t Device) {
@@ -1075,9 +1162,6 @@ public:
   std::map<ze_device_handle_t, MemStatTy> MemStatShared;
   std::map<ze_device_handle_t, MemStatTy> MemStatDevice;
 
-  /// Staging buffers
-  std::list<void *> StagingBuffers;
-
   /// Flags, parameters, options
   RTLFlagsTy Flags;
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
@@ -1474,91 +1558,74 @@ public:
   }
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
-    if (ThreadLocalHandles.count(DeviceId) == 0) {
-      ThreadLocalHandles.emplace(DeviceId, PrivateHandlesTy());
-    }
-    if (!ThreadLocalHandles[DeviceId].CmdList) {
-      auto cmdList = createCmdList(Context, Devices[DeviceId],
+    auto TLS = getTLS(Context);
+    auto CmdList = TLS->getCmdList(DeviceId);
+    if (!CmdList) {
+      CmdList = createCmdList(Context, Devices[DeviceId],
           CmdQueueGroupOrdinals[DeviceId], DeviceIdStr[DeviceId]);
-      // Store it in the global list for clean up
-      DataMutexes[DeviceId].lock();
-      CmdLists[DeviceId].push_back(cmdList);
-      DataMutexes[DeviceId].unlock();
-      ThreadLocalHandles[DeviceId].CmdList = cmdList;
+      TLS->setCmdList(DeviceId, CmdList);
     }
-    return ThreadLocalHandles[DeviceId].CmdList;
+    return CmdList;
   }
 
   ze_command_queue_handle_t getCmdQueue(int32_t DeviceId) {
-    if (ThreadLocalHandles.count(DeviceId) == 0) {
-      ThreadLocalHandles.emplace(DeviceId, PrivateHandlesTy());
+    auto TLS = getTLS(Context);
+    auto CmdQueue = TLS->getCmdQueue(DeviceId);
+    if (!CmdQueue) {
+      CmdQueue = createCommandQueue(DeviceId);
+      TLS->setCmdQueue(DeviceId, CmdQueue);
     }
-    if (!ThreadLocalHandles[DeviceId].CmdQueue) {
-      auto cmdQueue = createCommandQueue(DeviceId);
-      // Store it in the global list for clean up
-      DataMutexes[DeviceId].lock();
-      CmdQueues[DeviceId].push_back(cmdQueue);
-      DataMutexes[DeviceId].unlock();
-      ThreadLocalHandles[DeviceId].CmdQueue = cmdQueue;
-    }
-    return ThreadLocalHandles[DeviceId].CmdQueue;
+    return CmdQueue;
   }
 
   ze_command_list_handle_t getCopyCmdList(int32_t DeviceId) {
     if (!Flags.UseCopyEngine ||
         CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX)
       return getCmdList(DeviceId);
-
-    // Copy engine is available
-    if (ThreadLocalHandles.count(DeviceId) == 0) {
-      ThreadLocalHandles.emplace(DeviceId, PrivateHandlesTy());
-    }
-    if (!ThreadLocalHandles[DeviceId].CopyCmdList) {
-      auto cmdList = createCmdList(Context, Devices[DeviceId],
+    // Use copy engine
+    auto TLS = getTLS(Context);
+    auto CmdList = TLS->getCopyCmdList(DeviceId);
+    if (!CmdList) {
+      CmdList = createCmdList(Context, Devices[DeviceId],
           CopyCmdQueueGroupOrdinals[DeviceId], DeviceIdStr[DeviceId]);
-      DataMutexes[DeviceId].lock();
-      CopyCmdLists[DeviceId].push_back(cmdList);
-      DataMutexes[DeviceId].unlock();
-      ThreadLocalHandles[DeviceId].CopyCmdList = cmdList;
+      TLS->setCopyCmdList(DeviceId, CmdList);
     }
-
-    return ThreadLocalHandles[DeviceId].CopyCmdList;
+    return CmdList;
   }
 
   ze_command_queue_handle_t getCopyCmdQueue(int32_t DeviceId) {
     if (!Flags.UseCopyEngine ||
         CopyCmdQueueGroupOrdinals[DeviceId] == UINT32_MAX)
       return getCmdQueue(DeviceId);
-
-    // Copy engine is available
-    if (ThreadLocalHandles.count(DeviceId) == 0) {
-      ThreadLocalHandles.emplace(DeviceId, PrivateHandlesTy());
-    }
-    if (!ThreadLocalHandles[DeviceId].CopyCmdQueue) {
-      auto cmdQueue = createCmdQueue(Context, Devices[DeviceId],
+    // Use copy engine
+    auto TLS = getTLS(Context);
+    auto CmdQueue = TLS->getCopyCmdQueue(DeviceId);
+    if (!CmdQueue) {
+      CmdQueue = createCmdQueue(Context, Devices[DeviceId],
           CopyCmdQueueGroupOrdinals[DeviceId], 0, DeviceIdStr[DeviceId]);
-      DataMutexes[DeviceId].lock();
-      CopyCmdQueues[DeviceId].push_back(cmdQueue);
-      DataMutexes[DeviceId].unlock();
-      ThreadLocalHandles[DeviceId].CopyCmdQueue = cmdQueue;
+      TLS->setCopyCmdQueue(DeviceId, CmdQueue);
     }
-    return ThreadLocalHandles[DeviceId].CopyCmdQueue;
+    return CmdQueue;
   }
 
   RTLProfileTy *getProfile(int32_t DeviceId) {
-    if (ThreadLocalHandles.count(DeviceId) == 0) {
-      ThreadLocalHandles.emplace(DeviceId, PrivateHandlesTy());
+    if (!Flags.EnableProfile)
+      return nullptr;
+    auto TLS = getTLS(Context);
+    auto Profile = TLS->getProfile(DeviceId);
+    if (!Profile) {
+      Profile = new RTLProfileTy(DeviceProperties[DeviceId],
+                                 DeviceIdStr[DeviceId],
+                                 DriverAPIVersion >= ZE_API_VERSION_1_1);
+      TLS->setProfile(DeviceId, Profile);
     }
-    if (!ThreadLocalHandles[DeviceId].Profile && Flags.EnableProfile) {
-      auto &deviceProperties = DeviceProperties[DeviceId];
-      bool useCyclePerSec = DriverAPIVersion >= ZE_API_VERSION_1_1;
-      ThreadLocalHandles[DeviceId].Profile =
-          new RTLProfileTy(deviceProperties, useCyclePerSec);
-      DataMutexes[DeviceId].lock();
-      Profiles[DeviceId].push_back(ThreadLocalHandles[DeviceId].Profile);
-      DataMutexes[DeviceId].unlock();
-    }
-    return ThreadLocalHandles[DeviceId].Profile;
+    return Profile;
+  }
+
+  int64_t getSubDeviceCode() { return getTLS(Context)->getSubDeviceCode(); }
+
+  void setSubDeviceCode(int64_t Code) {
+    getTLS(Context)->setSubDeviceCode(Code);
   }
 
   /// Loads the device version of the offload table for device \p DeviceId.
@@ -1903,13 +1970,6 @@ static void closeRTL() {
   for (uint32_t i = 0; i < DeviceInfo->NumDevices; i++) {
     if (!DeviceInfo->Initialized[i])
       continue;
-    if (DeviceInfo->Flags.EnableProfile) {
-      for (auto profile : DeviceInfo->Profiles[i]) {
-        profile->printData(DeviceInfo->DeviceIdStr[i].c_str(),
-                           DeviceInfo->DeviceProperties[i].name);
-        delete profile;
-      }
-    }
     if (OMPT_ENABLED) {
       OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
       OMPT_CALLBACK(ompt_callback_device_finalize, i);
@@ -1919,14 +1979,6 @@ static void closeRTL() {
       LOG_MEM_USAGE(DeviceInfo->Devices[i], 0, mem);
       CALL_ZE_EXIT_FAIL(zeMemFree, DeviceInfo->Context, mem);
     }
-    for (auto cmdQueue : DeviceInfo->CmdQueues[i])
-      CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, cmdQueue);
-    for (auto cmdList : DeviceInfo->CmdLists[i])
-      CALL_ZE_EXIT_FAIL(zeCommandListDestroy, cmdList);
-    for (auto cmdQueue : DeviceInfo->CopyCmdQueues[i])
-      CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, cmdQueue);
-    for (auto cmdList : DeviceInfo->CopyCmdLists[i])
-      CALL_ZE_EXIT_FAIL(zeCommandListDestroy, cmdList);
     for (auto kernel : DeviceInfo->FuncGblEntries[i].Kernels) {
       if (kernel)
         CALL_ZE_EXIT_FAIL(zeKernelDestroy, kernel);
@@ -1947,8 +1999,8 @@ static void closeRTL() {
       DeviceInfo->unloadOffloadTable(i);
   }
 
-  for (auto &Buffer : DeviceInfo->StagingBuffers)
-    CALL_ZE_EXIT_FAIL(zeMemFree, DeviceInfo->Context, Buffer);
+  for (auto TLSPtr : TLSList)
+    delete TLSPtr;
 
   if (DeviceInfo->Flags.UseMemoryPool) {
     DeviceInfo->MemPoolHost.deinit();
@@ -2058,6 +2110,21 @@ static void *allocDataExplicit(ze_device_handle_t Device, int64_t Size,
 static void *allocDataExplicit(int32_t DeviceId, int64_t Size, int32_t Kind) {
   auto device = DeviceInfo->Devices[DeviceId];
   return allocDataExplicit(device, Size, Kind);
+}
+
+TLSTy::~TLSTy() {
+  for (auto CmdList : CmdLists)
+    CALL_ZE_EXIT_FAIL(zeCommandListDestroy, CmdList.second);
+  for (auto CmdList : CopyCmdLists)
+    CALL_ZE_EXIT_FAIL(zeCommandListDestroy, CmdList.second);
+  for (auto CmdQueue : CmdQueues)
+    CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
+  for (auto CmdQueue : CopyCmdQueues)
+    CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, CmdQueue.second);
+  for (auto Profile : Profiles)
+    delete Profile.second;
+  if (StagingBuffer)
+    CALL_ZE_EXIT_FAIL(zeMemFree, Context, StagingBuffer);
 }
 
 /// Initialize memory pool with the parameters
@@ -2314,15 +2381,17 @@ void *RTLDeviceInfoTy::getStagingBuffer() {
   if (StagingBufferSize == 0)
     return nullptr;
 
-  if (StagingBuffer == nullptr) {
+  auto TLS = getTLS(Context);
+  auto Buffer = TLS->getStagingBuffer();
+  if (!Buffer) {
     ze_host_mem_alloc_desc_t Desc = {
         ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC, nullptr, 0};
     CALL_ZE_RET_NULL(zeMemAllocHost, Context, &Desc,
-                     StagingBufferSize, LEVEL0_ALIGNMENT, &StagingBuffer);
-    std::lock_guard<std::mutex> Lock(*RTLMutex);
-    StagingBuffers.push_back(StagingBuffer);
+                     StagingBufferSize, LEVEL0_ALIGNMENT, &Buffer);
+    TLS->setStagingBuffer(Buffer);
   }
-  return StagingBuffer;
+
+  return Buffer;
 }
 
 static void dumpImageToFile(
@@ -3186,6 +3255,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
 void *RTLDeviceInfoTy::allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
                                  void *HstBase, bool *PoolAllocated) {
 #if !SUBDEVICE_USE_ROOT_MEMORY
+  auto SubDeviceCode = getSubDeviceCode();
   if (SubDeviceCode < 0 && SUBDEVICE_GET_COUNT(SubDeviceCode) == 1) {
     auto subLevel = SUBDEVICE_GET_LEVEL(SubDeviceCode);
     auto subStart = SUBDEVICE_GET_START(SubDeviceCode);
@@ -3346,6 +3416,7 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
     return OFFLOAD_SUCCESS;
 
 #if !SUBDEVICE_USE_ROOT_MEMORY
+  auto SubDeviceCode = DeviceInfo->getSubDeviceCode();
   if (SubDeviceCode < 0 && SUBDEVICE_GET_COUNT(SubDeviceCode) == 1) {
     auto subLevel = SUBDEVICE_GET_LEVEL(SubDeviceCode);
     auto subStart = SUBDEVICE_GET_START(SubDeviceCode);
@@ -3426,6 +3497,7 @@ static int32_t retrieveData(
     return OFFLOAD_SUCCESS;
 
 #if !SUBDEVICE_USE_ROOT_MEMORY
+  auto SubDeviceCode = DeviceInfo->getSubDeviceCode();
   if (SubDeviceCode < 0 && SUBDEVICE_GET_COUNT(SubDeviceCode) == 1) {
     auto subLevel = SUBDEVICE_GET_LEVEL(SubDeviceCode);
     auto subStart = SUBDEVICE_GET_START(SubDeviceCode);
@@ -3529,6 +3601,7 @@ EXTERN int32_t __tgt_rtl_data_exchange(
 
 EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
 #if !SUBDEVICE_USE_ROOT_MEMORY
+  auto SubDeviceCode = DeviceInfo->getSubDeviceCode();
   if (SubDeviceCode < 0 && SUBDEVICE_GET_COUNT(SubDeviceCode) == 1) {
     auto subLevel = SUBDEVICE_GET_LEVEL(SubDeviceCode);
     auto subStart = SUBDEVICE_GET_START(SubDeviceCode);
@@ -3978,6 +4051,7 @@ static int32_t runTargetTeamRegion(
   assert((NumTeams >= 0 && ThreadLimit >= 0) && "Invalid kernel work size");
   IDP("Executing a kernel " DPxMOD "...\n", DPxPTR(TgtEntryPtr));
 
+  auto SubDeviceCode = DeviceInfo->getSubDeviceCode();
   if (SubDeviceCode < 0 && isValidSubDevice(SubDeviceCode))
     return runTargetTeamRegionSub(SubDeviceCode, TgtEntryPtr, TgtArgs,
                                   TgtOffsets, NumArgs, NumTeams, ThreadLimit,
@@ -4257,12 +4331,12 @@ EXTERN int32_t __tgt_rtl_push_subdevice(int64_t DeviceIds) {
     IDP("Warning: Invalid subdevice encoding " DPxMOD " is ignored\n",
         DPxPTR(DeviceIds));
   else
-    SubDeviceCode = DeviceIds;
+    DeviceInfo->setSubDeviceCode(DeviceIds);
   return OFFLOAD_SUCCESS;
 }
 
 EXTERN int32_t __tgt_rtl_pop_subdevice() {
-  SubDeviceCode = 0;
+  DeviceInfo->setSubDeviceCode(0);
   return OFFLOAD_SUCCESS;
 }
 
