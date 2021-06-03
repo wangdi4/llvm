@@ -3526,6 +3526,12 @@ X86
 
 .. option:: -msha, -mno-sha
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_SHA512
+.. option:: -msha512, -mno-sha512
+.. end INTEL_FEATURE_ISA_SHA512
+.. end INTEL_CUSTOMIZATION
+
 .. option:: -mshstk, -mno-shstk
 
 .. option:: -msse, -mno-sse
