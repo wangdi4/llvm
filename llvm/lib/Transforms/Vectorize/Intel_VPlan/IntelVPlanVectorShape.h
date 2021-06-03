@@ -63,6 +63,9 @@ public:
 
   /// Stride is a known constant.
   bool hasKnownStride() const {
+    // For SOA-strided shapes, the stride is unknown as it depends on VF.
+    if (isSOAStrided())
+      return false;
     VPConstant *C = dyn_cast_or_null<VPConstant>(Stride);
     return C && isa<ConstantInt>(C->getUnderlyingValue());
   }
@@ -95,6 +98,10 @@ public:
 
   bool isRandom() const {
     return (Desc == VPShapeDescriptor::Rnd);
+  }
+
+  bool isSOAShape() const {
+    return isSOAUnitStride() || isSOAStrided() || isSOARandom();
   }
 
   bool isSOAUnitStride() const {
@@ -159,8 +166,9 @@ public:
     if (isAnyStrided()) {
       OS << ", Stride: ";
       if (hasKnownStride()) {
-        if (isSOAStrided())
-          OS << "VF x ";
+        Stride->print(OS);
+      } else if (isSOAStrided() && Stride) {
+        OS << "VF x ";
         Stride->print(OS);
       } else
         OS << "?";

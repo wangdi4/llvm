@@ -362,15 +362,15 @@ define void @test_vplan_da_phis_soa(i32* %arr.non.priv) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB6]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 4] i32* [[VP_PHI_RESULT11]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_UNI_ELSE1]], [[BB5]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 4] i32* [[VP_PHI_RESULT12]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_STR_ELSE_NON_PRIV1]], [[BB5]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT13]] = phi  [ i32* [[VP_RND_SOA_IF]], [[BB4]] ],  [ i32* [[VP_STR_SOA_ELSE]], [[BB5]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 4] i32* [[VP_PHI_RESULT14]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_STR_SOA_ELSE]], [[BB5]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_PHI_RESULT15]] = phi  [ i32* [[VP_STR_SOA_ELSE]], [[BB5]] ],  [ i32* [[VP_UNI_IF1]], [[BB4]] ]
-; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT16]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_RND_SOA_ELSE]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: SOA Unit Stride, Stride: i64 4] i32* [[VP_PHI_RESULT11]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_UNI_ELSE1]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT12]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_STR_ELSE_NON_PRIV1]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: SOA Random] i32* [[VP_PHI_RESULT13]] = phi  [ i32* [[VP_RND_SOA_IF]], [[BB4]] ],  [ i32* [[VP_STR_SOA_ELSE]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: SOA Random] i32* [[VP_PHI_RESULT14]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_STR_SOA_ELSE]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: SOA Random] i32* [[VP_PHI_RESULT15]] = phi  [ i32* [[VP_STR_SOA_ELSE]], [[BB5]] ],  [ i32* [[VP_UNI_IF1]], [[BB4]] ]
+; CHECK-NEXT:  Divergent: [Shape: SOA Random] i32* [[VP_PHI_RESULT16]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_RND_SOA_ELSE]], [[BB5]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT17]] = phi  [ i32* [[VP_UNI_IF1]], [[BB4]] ],  [ i32* [[VP_RND_ELSE_NON_PRIV1]], [[BB5]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT18]] = phi  [ i32* [[VP_RND_SOA_IF]], [[BB4]] ],  [ i32* [[VP_RND_ELSE_NON_PRIV1]], [[BB5]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_PHI_RESULT19]] = phi  [ i32* [[VP_STR_IF_NON_PRIV1]], [[BB4]] ],  [ i32* [[VP_STR_SOA_ELSE]], [[BB5]] ]
+; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT19]] = phi  [ i32* [[VP_STR_IF_NON_PRIV1]], [[BB4]] ],  [ i32* [[VP_STR_SOA_ELSE]], [[BB5]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32* [[VP_PHI_RESULT20]] = phi  [ i32* [[VP_STR_IF_NON_PRIV1]], [[BB4]] ],  [ i32* [[VP_RND_SOA_ELSE]], [[BB5]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i64 [[VP_REM]] = srem i64 [[VP_IV1]] i64 2
 ; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_CMPS]] = icmp eq i64 [[VP_REM]] i64 0
@@ -491,5 +491,6 @@ simd.end:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   ret void
 }
+
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token %0)
