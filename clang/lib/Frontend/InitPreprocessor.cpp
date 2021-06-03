@@ -480,9 +480,6 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
   }
 
   if (LangOpts.SYCLIsDevice || LangOpts.SYCLIsHost) {
-#if INTEL_CUSTOMIZATION
-    Builder.defineMacro("__INTEL_DPCPP_COMPILER__");
-#endif // INTEL_CUSTOMIZATION
     // SYCL Version is set to a value when building SYCL applications
     if (LangOpts.getSYCLVersion() == LangOptions::SYCL_2017) {
       Builder.defineMacro("CL_SYCL_LANGUAGE_VERSION", "121");
