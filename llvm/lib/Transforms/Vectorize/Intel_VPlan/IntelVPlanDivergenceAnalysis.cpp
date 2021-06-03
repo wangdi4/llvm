@@ -721,9 +721,7 @@ VPVectorShape VPlanDivergenceAnalysis::getStridedVectorShape(int64_t Stride) {
 /// Return true if the given variable has SOA Shape.
 bool VPlanDivergenceAnalysis::isSOAShape(const VPValue *Val) const {
   assert(Val && "Expected a non-null value.");
-  auto Shape = getVectorShape(*Val).getShapeDescriptor();
-  return Shape == VPVectorShape::SOASeq || Shape == VPVectorShape::SOAStr ||
-         Shape == VPVectorShape::SOARnd;
+  return getVectorShape(*Val).isSOAShape();
 }
 
 // Returns a SOASequential vector shape with the given stride.
