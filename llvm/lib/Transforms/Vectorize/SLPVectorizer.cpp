@@ -2925,8 +2925,7 @@ private:
           auto *In = TE->getMainOp();
           assert(In &&
                  (isa<ExtractValueInst>(In) || isa<ExtractElementInst>(In) ||
-                  isa<InsertElementInst>(In) ||
-                  In->getNumOperands() == TE->getNumOperands()) &&
+                  In->getNumOperands() == TE->getNumOperands()) && // INTEL
                  "Missed TreeEntry operands?");
           (void)In; // fake use to avoid build failure when assertions disabled
 
@@ -8080,7 +8079,7 @@ void BoUpSLP::optimizeGatherSequence() {
 Optional<BoUpSLP::ScheduleData *>
 BoUpSLP::BlockScheduling::tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
                                             const InstructionsState &S) {
-  if (isa<PHINode>(S.OpValue))
+  if (isa<PHINode>(S.OpValue) || isa<InsertElementInst>(S.OpValue)) // INTEL
     return nullptr;
 
   // Initialize the instruction bundle.
@@ -8176,7 +8175,7 @@ BoUpSLP::BlockScheduling::tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
 
 void BoUpSLP::BlockScheduling::cancelScheduling(ArrayRef<Value *> VL,
                                                 Value *OpValue) {
-  if (isa<PHINode>(OpValue))
+  if (isa<PHINode>(OpValue) || isa<InsertElementInst>(OpValue)) // INTEL
     return;
 
   ScheduleData *Bundle = getScheduleData(OpValue);
@@ -8216,7 +8215,8 @@ bool BoUpSLP::BlockScheduling::extendSchedulingRegion(Value *V,
     return true;
   Instruction *I = dyn_cast<Instruction>(V);
   assert(I && "bundle member must be an instruction");
-  assert(!isa<PHINode>(I) && "phi nodes don't need to be scheduled");
+  assert(!isa<PHINode>(I) && !isa<InsertElementInst>(I) &&      // INTEL
+         "phi/insertelement nodes don't need to be scheduled"); // INTEL
   auto &&CheckSheduleForI = [this, &S](Instruction *I) -> bool {
     ScheduleData *ISD = getScheduleData(I);
     if (!ISD)
@@ -8359,10 +8359,7 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
           for (User *U : BundleMember->Inst->users()) {
             if (isa<Instruction>(U)) {
               ScheduleData *UseSD = getScheduleData(U);
-              if (UseSD && isInSchedulingRegion(UseSD->FirstInBundle) &&
-                  // Ignore inner deps for insertelement
-                  !(UseSD->FirstInBundle == SD &&
-                    isa<InsertElementInst>(BundleMember->Inst))) {
+              if (UseSD && isInSchedulingRegion(UseSD->FirstInBundle)) {// INTEL
                 BundleMember->Dependencies++;
                 ScheduleData *DestBundle = UseSD->FirstInBundle;
                 if (!DestBundle->IsScheduled)
@@ -8489,9 +8486,13 @@ void BoUpSLP::scheduleBlock(BlockScheduling *BS) {
   for (auto *I = BS->ScheduleStart; I != BS->ScheduleEnd;
        I = I->getNextNode()) {
     BS->doForAllOpcodes(I, [this, &Idx, &NumToSchedule, BS](ScheduleData *SD) {
-      assert(SD->isPartOfBundle() ==
-                 (getTreeEntry(SD->Inst) != nullptr) &&
+#if INTEL_CUSTOMIZATION
+      // We can skip analysis of InsertElements, checked their scheduling
+      // manually already.
+      assert((isa<InsertElementInst>(SD->Inst) ||
+              SD->isPartOfBundle() == (getTreeEntry(SD->Inst) != nullptr)) &&
              "scheduler and vectorizer bundle mismatch");
+#endif // INTEL_CUSTOMIZATION
       SD->FirstInBundle->SchedulingPriority = Idx++;
       if (SD->isSchedulingEntity()) {
         BS->calculateDependencies(SD, false, this);
