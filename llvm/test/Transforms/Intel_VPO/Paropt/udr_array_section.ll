@@ -131,7 +131,7 @@ entry:
 ; ALL-NEXT: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.init.body{{.*}} ]
 ; ALL: {{.*}} = call {{.*}} @_ZTSA4_9my_struct.omp.def_constr({{.*}})
 ; ALL: br i1 %red.cpy.done{{.*}}, label %red.init.done{{.*}}, label %red.init.body{{.*}}
-; CRITICAL: call void @__kmpc_critical({{.*}})
+; CRITICAL: call void @__kmpc_critical_with_hint({{.*}})
 ; CRITICAL: red.update.body{{.*}}:
 ; CRITICAL-NEXT: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.update.body{{.*}} ]
 ; CRITICAL: call void @.omp_combiner.(%struct.my_struct* %{{.*}}, %struct.my_struct* %{{.*}})

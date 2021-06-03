@@ -2902,7 +2902,8 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                             DominatorTree *DT,
                                             LoopInfo *LI,
                                             bool IsTargetSPIRV,
-                                            const Twine &LockNameSuffix) {
+                                            const Twine &LockNameSuffix,
+                                            uint32_t Hint) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
@@ -2941,7 +2942,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
   assert(EndInst != nullptr && "EndInst is null.");
 
   return genKmpcCriticalSection(W, IdentTy, TidPtr, BeginInst, EndInst,
-                                DT, LI, IsTargetSPIRV, LockNameSuffix);
+                                DT, LI, IsTargetSPIRV, LockNameSuffix, Hint);
 }
 
 // Generates tree reduce block around Instructions `BeginInst` and `EndInst` and
@@ -4033,7 +4034,7 @@ GlobalVariable *VPOParoptUtils::genKmpcCriticalLockVar(
 
 // Generates a critical section around the instructions specified
 // by BeginInst and EndInst like this:
-//   __kmpc_critical()
+//   __kmpc_critical_with_hint();
 //   BeginInst
 //   ...
 //   __kmpc_end_critical()
@@ -4046,7 +4047,8 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
                                                 GlobalVariable *LockVar,
                                                 DominatorTree *DT,
                                                 LoopInfo *LI,
-                                                bool IsTargetSPIRV) {
+                                                bool IsTargetSPIRV,
+                                                uint32_t Hint) {
 
   assert(W && "WRegionNode is null.");
   assert(IdentTy && "IdentTy is null.");
@@ -4055,9 +4057,11 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
   assert(EndInst && "EndInst is null.");
   assert(LockVar && "LockVar is null.");
 
-  auto *RetTy = Type::getVoidTy(BeginInst->getContext());
+  LLVMContext &C = BeginInst->getContext();
+  auto *RetTy = Type::getVoidTy(C);
+  Type *Int32Ty = Type::getInt32Ty(C);
 
-  StringRef BeginName = "__kmpc_critical";
+  StringRef BeginName = "__kmpc_critical_with_hint";
   CallInst *BeginCritical = nullptr;
   Value *Arg = LockVar;
   Module *M = BeginInst->getModule();
@@ -4069,13 +4073,15 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
                                            vpo::ADDRESS_SPACE_GENERIC);
 
   if (IsTargetSPIRV)
-    BeginCritical = genCall(M, BeginName, RetTy, { Arg });
+    // TODO: generate "__kmpc_critical_with_hint" with same host signature when
+    // runtime provides the support
+    BeginCritical = genCall(M, "__kmpc_critical", RetTy, {Arg});
   else
     BeginCritical =
-        genKmpcCallWithTid(W, IdentTy, TidPtr, BeginInst, BeginName,
-                           RetTy, { Arg });
+        genKmpcCallWithTid(W, IdentTy, TidPtr, BeginInst, BeginName, RetTy,
+                           {Arg, ConstantInt::get(Int32Ty, Hint)});
 
-  assert(BeginCritical && "Could not call __kmpc_critical");
+  assert(BeginCritical && "Could not call __kmpc_critical_with_hint");
 
   StringRef EndName = "__kmpc_end_critical";
   CallInst *EndCritical = nullptr;
@@ -4471,7 +4477,8 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                             DominatorTree *DT,
                                             LoopInfo *LI,
                                             bool IsTargetSPIRV,
-                                            const Twine &LockNameSuffix) {
+                                            const Twine &LockNameSuffix,
+                                            uint32_t Hint) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
@@ -4484,7 +4491,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
   assert(Lock != nullptr && "Could not create critical section lock variable.");
 
   return genKmpcCriticalSectionImpl(W, IdentTy, TidPtr, BeginInst, EndInst,
-                                    Lock, DT, LI, IsTargetSPIRV);
+                                    Lock, DT, LI, IsTargetSPIRV, Hint);
 }
 
 // Generates and inserts a 'kmpc_cancel[lationpoint]' CallInst.

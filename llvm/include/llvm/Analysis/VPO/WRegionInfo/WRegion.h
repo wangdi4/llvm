@@ -1794,17 +1794,17 @@ public:
 class WRNCriticalNode : public WRegionNode {
 private:
   SmallString<64> UserLockName; ///< Lock name provided by the user.
-  int  Hint;
+  uint32_t  Hint;
 
 protected:
   void setUserLockName(StringRef LN) override { UserLockName = LN; }
-  void setHint(int N) override { Hint = N; }
+  void setHint(uint32_t N) override { Hint = N; }
 
 public:
   WRNCriticalNode(BasicBlock *BB);
 
   StringRef getUserLockName() const override { return UserLockName.str(); }
-  int getHint() const override { return Hint; }
+  uint32_t getHint() const override { return Hint; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const override ;
