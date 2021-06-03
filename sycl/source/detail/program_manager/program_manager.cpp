@@ -353,6 +353,54 @@ RT::PiProgram ProgramManager::createPIProgram(const RTDeviceBinaryImage &Img,
 
   return Res;
 }
+static void applyOptionsFromImage(std::string &CompileOpts,
+                                  std::string &LinkOpts,
+                                  const RTDeviceBinaryImage &Img) {
+  // Build options are overridden if environment variables are present.
+  // Environment variables are not changed during program lifecycle so it
+  // is reasonable to use static here to read them only once.
+  static const char *CompileOptsEnv =
+      SYCLConfig<SYCL_PROGRAM_COMPILE_OPTIONS>::get();
+  static const char *LinkOptsEnv = SYCLConfig<SYCL_PROGRAM_LINK_OPTIONS>::get();
+  // Update only if compile options are not overwritten by environment
+  // variable
+  if (!CompileOptsEnv) {
+    if (!CompileOpts.empty())
+      CompileOpts += " ";
+    CompileOpts += Img.getCompileOptions();
+  }
+
+  // The -vc-codegen option is always preserved for ESIMD kernels, regardless
+  // of the contents SYCL_PROGRAM_COMPILE_OPTIONS environment variable.
+  pi_device_binary_property isEsimdImage = Img.getProperty("isEsimdImage");
+  if (isEsimdImage && pi::DeviceBinaryProperty(isEsimdImage).asUint32()) {
+    if (!CompileOpts.empty())
+      CompileOpts += " ";
+    CompileOpts += "-vc-codegen";
+  }
+
+  // Update only if link options are not overwritten by environment variable
+  if (!LinkOptsEnv)
+    if (!LinkOpts.empty())
+      LinkOpts += " ";
+  LinkOpts += Img.getLinkOptions();
+}
+
+static void applyOptionsFromEnvironment(std::string &CompileOpts,
+                                        std::string &LinkOpts) {
+  // Build options are overridden if environment variables are present.
+  // Environment variables are not changed during program lifecycle so it
+  // is reasonable to use static here to read them only once.
+  static const char *CompileOptsEnv =
+      SYCLConfig<SYCL_PROGRAM_COMPILE_OPTIONS>::get();
+  if (CompileOptsEnv) {
+    CompileOpts = CompileOptsEnv;
+  }
+  static const char *LinkOptsEnv = SYCLConfig<SYCL_PROGRAM_LINK_OPTIONS>::get();
+  if (LinkOptsEnv) {
+    LinkOpts = LinkOptsEnv;
+  }
+}
 
 RT::PiProgram ProgramManager::getBuiltPIProgram(OSModuleHandle M,
                                                 const context &Context,
@@ -380,26 +428,12 @@ RT::PiProgram ProgramManager::getBuiltPIProgram(OSModuleHandle M,
 
   std::string CompileOpts;
   std::string LinkOpts;
-  // Build options are overridden if environment variables are present.
-  // Environment variables are not changed during program lifecycle so it
-  // is reasonable to use static here to read them only once.
-  static const char *CompileOptsEnv =
-      SYCLConfig<SYCL_PROGRAM_COMPILE_OPTIONS>::get();
-  if (CompileOptsEnv) {
-    CompileOpts = CompileOptsEnv;
-  } else { // Use build options only when the environment variable is missed
-    if (Prg) {
-      std::string BuildOptions = Prg->get_build_options();
-      if (!BuildOptions.empty()) {
-        CompileOpts += " ";
-        CompileOpts += BuildOptions;
-      }
-    }
+  if (Prg) {
+    CompileOpts = Prg->get_build_options();
   }
-  static const char *LinkOptsEnv = SYCLConfig<SYCL_PROGRAM_LINK_OPTIONS>::get();
-  if (LinkOptsEnv) {
-    LinkOpts = LinkOptsEnv;
-  }
+
+  applyOptionsFromEnvironment(CompileOpts, LinkOpts);
+
   SerializedObj SpecConsts;
   if (Prg)
     Prg->stableSerializeSpecConstRegistry(SpecConsts);
@@ -408,24 +442,8 @@ RT::PiProgram ProgramManager::getBuiltPIProgram(OSModuleHandle M,
                  &LinkOpts, &JITCompilationIsRequired, SpecConsts] {
     const RTDeviceBinaryImage &Img =
         getDeviceImage(M, KSId, Context, Device, JITCompilationIsRequired);
-    // Update only if compile options are not overwritten by environment
-    // variable
-    if (!CompileOptsEnv) {
-      CompileOpts += Img.getCompileOptions();
-    }
 
-    // The -vc-codegen option is always preserved for ESIMD kernels, regardless
-    // of the contents SYCL_PROGRAM_COMPILE_OPTIONS environment variable.
-    pi_device_binary_property isEsimdImage = Img.getProperty("isEsimdImage");
-    if (isEsimdImage && pi::DeviceBinaryProperty(isEsimdImage).asUint32()) {
-      if (!CompileOpts.empty())
-        CompileOpts += " ";
-      CompileOpts += "-vc-codegen";
-    }
-
-    // Update only if link options are not overwritten by environment variable
-    if (!LinkOptsEnv)
-      LinkOpts += Img.getLinkOptions();
+    applyOptionsFromImage(CompileOpts, LinkOpts, Img);
     ContextImplPtr ContextImpl = getSyclObjImpl(Context);
     const detail::plugin &Plugin = ContextImpl->getPlugin();
     RT::PiProgram NativePrg;
@@ -1422,7 +1440,9 @@ ProgramManager::compile(const device_image_plain &DeviceImage,
 
   DeviceImageImplPtr ObjectImpl = std::make_shared<detail::device_image_impl>(
       InputImpl->get_bin_image_ref(), InputImpl->get_context(), Devs,
-      bundle_state::object, InputImpl->get_kernel_ids_ref(), Prog);
+      bundle_state::object, InputImpl->get_kernel_ids_ref(), Prog,
+      InputImpl->get_spec_const_data_ref(),
+      InputImpl->get_spec_const_blob_ref());
 
   std::vector<pi_device> PIDevices;
   PIDevices.reserve(Devs.size());
@@ -1533,18 +1553,7 @@ device_image_plain ProgramManager::build(const device_image_plain &DeviceImage,
 
   std::string CompileOpts;
   std::string LinkOpts;
-  // Build options are overridden if environment variables are present.
-  // Environment variables are not changed during program lifecycle so it
-  // is reasonable to use static here to read them only once.
-  static const char *CompileOptsEnv =
-      SYCLConfig<SYCL_PROGRAM_COMPILE_OPTIONS>::get();
-  if (CompileOptsEnv)
-    CompileOpts = CompileOptsEnv;
-
-  static const char *LinkOptsEnv = SYCLConfig<SYCL_PROGRAM_LINK_OPTIONS>::get();
-  if (LinkOptsEnv) {
-    LinkOpts = LinkOptsEnv;
-  }
+  applyOptionsFromEnvironment(CompileOpts, LinkOpts);
 
   const RTDeviceBinaryImage *ImgPtr = InputImpl->get_bin_image_ref();
   const RTDeviceBinaryImage &Img = *ImgPtr;
@@ -1552,22 +1561,7 @@ device_image_plain ProgramManager::build(const device_image_plain &DeviceImage,
   // TODO: Unify this code with getBuiltPIProgram
   auto BuildF = [this, &Context, Img, &Devs, &CompileOpts, &LinkOpts,
                  &InputImpl] {
-    // Update only if compile options are not overwritten by environment
-    // variable
-    if (!CompileOptsEnv) {
-      CompileOpts += Img.getCompileOptions();
-      pi_device_binary_property isEsimdImage = Img.getProperty("isEsimdImage");
-
-      if (isEsimdImage && pi::DeviceBinaryProperty(isEsimdImage).asUint32()) {
-        if (!CompileOpts.empty())
-          CompileOpts += " ";
-        CompileOpts += "-vc-codegen";
-      }
-    }
-
-    // Update only if link options are not overwritten by environment variable
-    if (!LinkOptsEnv)
-      LinkOpts += Img.getLinkOptions();
+    applyOptionsFromImage(CompileOpts, LinkOpts, Img);
     ContextImplPtr ContextImpl = getSyclObjImpl(Context);
     const detail::plugin &Plugin = ContextImpl->getPlugin();
 
@@ -1669,7 +1663,9 @@ device_image_plain ProgramManager::build(const device_image_plain &DeviceImage,
 
   DeviceImageImplPtr ExecImpl = std::make_shared<detail::device_image_impl>(
       InputImpl->get_bin_image_ref(), Context, Devs, bundle_state::executable,
-      InputImpl->get_kernel_ids_ref(), ResProgram);
+      InputImpl->get_kernel_ids_ref(), ResProgram,
+      InputImpl->get_spec_const_data_ref(),
+      InputImpl->get_spec_const_blob_ref());
 
   return createSyclObjFromImpl<device_image_plain>(ExecImpl);
 }
