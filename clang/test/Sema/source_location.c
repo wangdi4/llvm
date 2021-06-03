@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c90 -fconst-strings -DCONST_STRINGS -verify %s
+// RUN: %clang_cc1 -std=c90 -fconst-strings -DCONST_STRINGS -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
 // RUN: %clang_cc1 -std=c90 -verify %s
 
 // expected-no-diagnostics
