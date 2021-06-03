@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2020 Intel Corporation.
+// Copyright 2012-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -37,6 +37,19 @@ bool CheckBuildStatus(const char * name, cl_build_status expected, cl_build_stat
 bool SilentCheckBuildStatus(const char * name, cl_build_status expected, cl_build_status result);
 bool BuildProgramSynch(cl_context context, cl_uint count, const char ** strings, const size_t * lengths, const char * options, cl_program * program_ret);
 void GetBuildLog(cl_device_id device, cl_program program, std::string &log);
+
+bool CheckHandle(const char *name, cl_platform_id expected,
+                 cl_platform_id result);
+bool CheckHandle(const char *name, cl_device_id expected, cl_device_id result);
+bool CheckHandle(const char *name, cl_context expected, cl_context result);
+bool CheckHandle(const char *name, cl_command_queue expected,
+                 cl_command_queue result);
+bool CheckHandle(const char *name, cl_mem expected, cl_mem result);
+bool CheckHandle(const char *name, cl_program expected, cl_program result);
+bool CheckHandle(const char *name, cl_kernel expected, cl_kernel result);
+bool CheckHandle(const char *name, cl_event expected, cl_event result);
+bool CheckHandle(const char *name, cl_sampler expected, cl_sampler result);
+bool CheckHandleImpl(const char *name, void *expected, void *result, bool bRes);
 
 // auxiliary functions for SilentCheckException
 

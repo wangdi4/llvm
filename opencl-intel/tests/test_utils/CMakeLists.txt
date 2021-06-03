@@ -1,6 +1,6 @@
 set( TARGET_NAME test_utils )
 
-include_directories( export )
+include_directories( export ${GTEST_INCLUDE_DIR} ${CL_API_HEADERS} )
 
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
