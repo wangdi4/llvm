@@ -2029,8 +2029,8 @@ VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
 
   // Create new VPInstruction with previous operands.
   VPInstruction *NewVPInst = createVPInstruction(Node, VPOperands);
-  if (auto *LoadStore = dyn_cast<VPLoadStoreInst>(NewVPInst))
-    LoadStore->readUnderlyingMetadata();
+  if (NewVPInst->getOpcode() == Instruction::Store)
+    cast<VPLoadStoreInst>(NewVPInst)->readUnderlyingMetadata();
 
   // Set NewVPInst as master VPInstruction of any decomposed VPInstruction
   // resulting from decomposing its operands.
