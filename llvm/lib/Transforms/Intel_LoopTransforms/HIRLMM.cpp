@@ -1300,6 +1300,79 @@ static HLIf *getIVComparisonIf(HLLoop *Lp, HLGoto *Goto) {
   return IVCheckIf;
 }
 
+template <typename IterTy>
+static std::pair<RegDDRef *, bool>
+findMemRefLoadInRange(IterTy Begin, IterTy End, RegDDRef *MemRef,
+                      SmallSet<unsigned, 8> &DefinedTempSBs) {
+
+  for (auto It = Begin; It != End; ++It) {
+
+    // Give up on non-insts.
+    if (!isa<HLInst>(*It)) {
+      return {nullptr, true};
+    }
+
+    auto *Inst = cast<HLInst>(&*It);
+
+    // Give up on calls.
+    if (Inst->isCallInst()) {
+      return {nullptr, true};
+    }
+
+    auto *LvalRef = Inst->getLvalDDRef();
+    if (isa<LoadInst>(Inst->getLLVMInstruction()) &&
+        DDRefUtils::areEqual(MemRef, Inst->getRvalDDRef())) {
+      // Return nullptr if temp has been redefined.
+      if (DefinedTempSBs.count(LvalRef->getSymbase())) {
+        return {nullptr, true};
+      } else {
+        return {LvalRef->clone(), false};
+      }
+    }
+
+    if (auto *LvalRef = Inst->getLvalDDRef()) {
+      // Give up search on encountering aliasing store.
+      if (LvalRef->isMemRef()) {
+        if (LvalRef->getSymbase() == MemRef->getSymbase()) {
+          return {nullptr, true};
+        }
+      } else {
+        DefinedTempSBs.insert(LvalRef->getSymbase());
+      }
+    }
+  }
+
+  return {nullptr, false};
+}
+
+// Tries to find a load of \p MemRef in loop preheader or before it.
+// Returns the lval temp of the load if found, else returns nullptr.
+static RegDDRef *findMemRefLoadBeforeLoop(HLLoop *Lp, RegDDRef *MemRef) {
+  SmallSet<unsigned, 8> DefinedTempSBs;
+  RegDDRef *InitRef = nullptr;
+  bool BailOut = false;
+
+  std::tie(InitRef, BailOut) = findMemRefLoadInRange(
+      Lp->pre_rbegin(), Lp->pre_rend(), MemRef, DefinedTempSBs);
+
+  if (InitRef) {
+    return InitRef;
+  }
+
+  HLNode *PrevNode = Lp->getPrevNode();
+  if (!BailOut && PrevNode) {
+    auto BegIt = PrevNode->getReverseIterator();
+    auto *FirstLexChild =
+        HLNodeUtils::getFirstLexicalChild(Lp->getParent(), Lp);
+    auto EndIt = std::next(FirstLexChild->getReverseIterator());
+
+    std::tie(InitRef, BailOut) =
+        findMemRefLoadInRange(BegIt, EndIt, MemRef, DefinedTempSBs);
+  }
+
+  return InitRef;
+}
+
 // Create a StoreInst In Loop's postexit
 // (If the Store already exists, obtain the StoreInst.)
 //
@@ -1325,6 +1398,7 @@ void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
     SmallVector<HLGoto *, 16> Gotos;
     Lp->populateEarlyExits(Gotos);
     bool TmpIsInitialized = NeedLoadInPrehdr;
+    bool RequiresIVComparisonIf = true;
 
     for (auto &Goto : Gotos) {
       auto *StoreInst = StoreInPostexit->clone();
@@ -1332,20 +1406,35 @@ void HIRLMM::createStoreInPostexit(HLLoop *Lp, RegDDRef *Ref, RegDDRef *TmpRef,
       if (HLNodeUtils::dominates(Ref->getHLDDNode(), Goto)) {
         HLNodeUtils::insertBefore(Goto, StoreInst);
       } else {
-        // Create an inst like %t = 0 and insert it as first prehearder of the
-        // loop
+        // Create an inst like %t = 0 and insert it as last preheader inst of
+        // the loop. If an existing load of this memref like this is found
+        // before the loop- %ld = A[5];
+        //
+        // An copy of this form is generated in the preheader-
+        // %t = %ld;
+        //
         if (!TmpIsInitialized) {
           RegDDRef *LHS = TmpRefClone->clone();
-          RegDDRef *RHS =
-              HIRF.getDDRefUtils().createNullDDRef(LHS->getDestType());
+
+          RegDDRef *RHS = findMemRefLoadBeforeLoop(Lp, Ref);
+
+          if (!RHS) {
+            RHS = HIRF.getDDRefUtils().createNullDDRef(LHS->getDestType());
+          } else {
+            RequiresIVComparisonIf = false;
+          }
           auto *InitialTemp = HNU.createCopyInst(RHS, "copy", LHS);
           Lp->addLiveInTemp(LHS->getSymbase());
-          HLNodeUtils::insertAsFirstPreheaderNode(Lp, InitialTemp);
+          HLNodeUtils::insertAsLastPreheaderNode(Lp, InitialTemp);
           TmpIsInitialized = true;
         }
 
-        HLIf *IVCheckIf = getIVComparisonIf(Lp, Goto);
-        HLNodeUtils::insertAsFirstThenChild(IVCheckIf, StoreInst);
+        if (RequiresIVComparisonIf) {
+          HLIf *IVCheckIf = getIVComparisonIf(Lp, Goto);
+          HLNodeUtils::insertAsFirstThenChild(IVCheckIf, StoreInst);
+        } else {
+          HLNodeUtils::insertBefore(Goto, StoreInst);
+        }
       }
     }
   }
