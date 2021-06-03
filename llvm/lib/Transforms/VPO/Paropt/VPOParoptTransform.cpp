@@ -2855,7 +2855,7 @@ bool VPOParoptTransform::genReductionScalarFini(
     //
     // Insert new instruction(s) after the definition of the private
     // reduction value.
-    if (!isa<WRNTeamsNode>(W)) {
+    if (!isa<WRNTeamsNode>(W) && !VPOParoptUtils::enableDeviceSimdCodeGen()) {
       // Only the master thread must execute the reduction update
       // code in teams region. Executing the horizontal reduction
       // will result in redundant reduction operations producing
