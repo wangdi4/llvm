@@ -34,6 +34,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h" // INTEL
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/InstrTypes.h"
@@ -669,6 +670,81 @@ Constant *ConstantFoldLoadThroughBitcastExpr(ConstantExpr *CE, Type *DestTy,
 
 Constant *llvm::ConstantFoldLoadFromConstPtr(Constant *C, Type *Ty,
                                              const DataLayout &DL) {
+
+#if INTEL_CUSTOMIZATION
+  // Apply constant folding when two GEPs and GlobalAlias are involved
+  // like below. "%i5" will be replaced with @foo in the example
+  // below.
+  //
+  // @GV = private unnamed_addr constant { [6 x i8*] } { [6 x i8*]
+  //          [i8* bitcast (%C* null to i8*),
+  //           i8* bitcast (i8* (%A*, i32)* null to i8*),
+  //           i8* bitcast (%S* (%A*)* null to i8*),
+  //           i8* bitcast (void (%A*, %S*)* null to i8*),
+  //           i8* bitcast (i1 (%A*, %S*)* null to i8*),
+  //           i8* bitcast (void (%A*)* @foo to i8*)] }
+  //
+  // @GA = alias i8*, getelementptr inbounds ({ [6 x i8*] },
+  //                      { [6 x i8*] }* @GV, i32 0, i32 0, i32 1)
+  //
+  // %vfn = getelementptr inbounds void (%A*)*, void (%A*)** @GA, i64 4
+  // %i5 = load void (%A*)*, void (%A*)** %vfn
+  // invoke void %i5(%A*);
+  //
+  // Here are the limitations for the implementation:
+  // Check last index of inner GEP is sequential. Don't allow non-zero value
+  // as first index of inner GEP. Allow only one index for outer GEP to
+  // make sure it is sequential. Makes sure both GEPs are InBounds.
+  auto ApplyConstantFoldWithMultipleGEPS =
+      [](Constant *CE, Type *Ty, const DataLayout &DL) -> Constant * {
+    auto *GA = dyn_cast<GlobalAlias>(CE->getOperand(0));
+    if (!GA || !GA->getAliasee() || GA->isInterposable())
+      return nullptr;
+    auto *CEGEP2 = dyn_cast<ConstantExpr>(GA->getAliasee());
+    if (!CEGEP2 || CEGEP2->getOpcode() != Instruction::GetElementPtr)
+      return nullptr;
+    if (cast<GEPOperator>(CE)->getNumIndices() != 1 ||
+        !cast<GEPOperator>(CE)->isInBounds())
+      return nullptr;
+    auto *GV = dyn_cast<GlobalVariable>(CEGEP2->getOperand(0));
+    if (!GV || !GV->isConstant() || !GV->hasDefinitiveInitializer())
+      return nullptr;
+    if (!CEGEP2->getOperand(1)->isNullValue() ||
+        !cast<GEPOperator>(CEGEP2)->isInBounds())
+      return nullptr;
+
+    // We are treating "GEP (GEP @GV, idx0, idx1, idx3), idx" as
+    // "GEP @GV, idx0, idx1, idx3 + idx" while folding the indexed element.
+    // Makes sure last index is sequential because we want to combine
+    // last indices of inner and outer GEPs to compute effective offset
+    // of an element in initializer of GV.
+    bool LastISequential = false;
+    for (gep_type_iterator I = gep_type_begin(CEGEP2), E = gep_type_end(CEGEP2);
+         I != E; ++I)
+      LastISequential = I.isSequential();
+    if (!LastISequential)
+      return nullptr;
+
+    // Compute Init value for the last index of inner GEP.
+    Constant *C = GV->getInitializer();
+    for (unsigned I = 2, E = cast<GEPOperator>(CEGEP2)->getNumIndices(); I < E;
+         ++I) {
+      C = C->getAggregateElement(CEGEP2->getOperand(I));
+      if (!C)
+        return nullptr;
+    }
+    // Compute effective offset of init constant in "C" by adding last
+    // indexes of both GEPs.
+    auto *CInt2 = cast<ConstantInt>(
+        CEGEP2->getOperand(cast<GEPOperator>(CEGEP2)->getNumIndices()));
+    auto *CInt1 = cast<ConstantInt>(CE->getOperand(1));
+    C = C->getAggregateElement(CInt2->getZExtValue() + CInt1->getZExtValue());
+    if (!C)
+      return nullptr;
+    return ConstantFoldLoadThroughBitcast(C, Ty, DL);
+  };
+#endif // INTEL_CUSTOMIZATION
+
   // First, try the easy cases:
   if (auto *GV = dyn_cast<GlobalVariable>(C))
     if (GV->isConstant() && GV->hasDefinitiveInitializer())
@@ -691,6 +767,10 @@ Constant *llvm::ConstantFoldLoadFromConstPtr(Constant *C, Type *Ty,
           return V;
       }
     }
+#if INTEL_CUSTOMIZATION
+    if (Constant *V = ApplyConstantFoldWithMultipleGEPS(CE, Ty, DL))
+      return V;
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (CE->getOpcode() == Instruction::BitCast)
