@@ -1,12 +1,12 @@
-//==--- opencl_cth_pre_release.h - Pre-release extensions -*- C++ -*----------==//
+//==--- opencl_cth_pre_release.h - Pre-release extensions -*- C++ -*-------==//
 ////
-//// Copyright (C) 2019 Intel Corporation. All rights reserved.
+//// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 ////
 //// The information and source code contained herein is the exclusive property
 //// of Intel Corporation and may not be disclosed, examined or reproduced in
 //// whole or in part without explicit written authorization from the company.
 ////
-//// ===--------------------------------------------------------------------=== //
+//// ===-----------------------------------------------------------------===//
 
 #ifndef _OPENCL_CTH_
 #define _OPENCL_CTH_
@@ -16,13 +16,125 @@
 //
 #if defined (float_atomics_enable)
 
+// atom_add
+float __attribute__((overloadable))
+atomic_add(volatile __global float *p, float val);
+float __attribute__((overloadable))
+atomic_add(volatile __local float *p, float val);
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+float __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile __global atomic_float *p, float val,
+                          memory_order order);
+float __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile __local atomic_float *p, float val,
+                          memory_order order);
+float __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile __global atomic_float *p, float val,
+                          memory_order order, memory_scope scope);
+float __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile __local atomic_float *p, float val,
+                          memory_order order, memory_scope scope);
+#endif // #if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+
+#if defined(cl_khr_fp64)
+double __attribute__((overloadable))
+atomic_add(volatile __global double *p, double val);
+double __attribute__((overloadable))
+atomic_add(volatile __local double *p, double val);
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+double __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile __global atomic_double *p, double val,
+                          memory_order order);
+double __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile __local atomic_double *p, double val,
+                          memory_order order);
+double __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile __global atomic_double *p, double val,
+                          memory_order order, memory_scope scope);
+double __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile __local atomic_double *p, double val,
+                          memory_order order, memory_scope scope);
+#endif // #if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif // #if defined(cl_khr_fp64)
+
 // atom_min
 float __attribute__((overloadable)) atomic_min(volatile __global float *p, float val);
 float __attribute__((overloadable)) atomic_min(volatile __local float *p, float val);
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+float __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile __global atomic_float *p, float val,
+                          memory_order order);
+float __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile __local atomic_float *p, float val,
+                          memory_order order);
+float __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile __global atomic_float *p, float val,
+                          memory_order order, memory_scope scope);
+float __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile __local atomic_float *p, float val,
+                          memory_order order, memory_scope scope);
+#endif // #if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+
+#if defined(cl_khr_fp64)
+double __attribute__((overloadable))
+atomic_min(volatile __global double *p, double val);
+double __attribute__((overloadable))
+atomic_min(volatile __local double *p, double val);
+
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+double __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile __global atomic_double *p, double val,
+                          memory_order order);
+double __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile __local atomic_double *p, double val,
+                          memory_order order);
+double __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile __global atomic_double *p, double val,
+                          memory_order order, memory_scope scope);
+double __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile __local atomic_double *p, double val,
+                          memory_order order, memory_scope scope);
+#endif // #if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif // #if defined(cl_khr_fp64)
 
 // atom_max
 float __attribute__((overloadable)) atomic_max(volatile __global float *p, float val);
 float __attribute__((overloadable)) atomic_max(volatile __local float *p, float val);
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+float __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile __global atomic_float *p, float val,
+                          memory_order order);
+float __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile __local atomic_float *p, float val,
+                          memory_order order);
+float __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile __global atomic_float *p, float val,
+                          memory_order order, memory_scope scope);
+float __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile __local atomic_float *p, float val,
+                          memory_order order, memory_scope scope);
+#endif // #if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+
+#if defined(cl_khr_fp64)
+double __attribute__((overloadable))
+atomic_max(volatile __global double *p, double val);
+double __attribute__((overloadable))
+atomic_max(volatile __local double *p, double val);
+#if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+double __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile __global atomic_double *p, double val,
+                          memory_order order);
+double __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile __local atomic_double *p, double val,
+                          memory_order order);
+double __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile __global atomic_double *p, double val,
+                          memory_order order, memory_scope scope);
+double __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile __local atomic_double *p, double val,
+                          memory_order order, memory_scope scope);
+#endif // #if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
+#endif // #if defined(cl_khr_fp64)
 
 // atom_cmpxchg
 float __attribute__((overloadable)) atomic_cmpxchg(volatile __global float *p, float cmp, float val);

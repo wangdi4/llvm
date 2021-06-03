@@ -18,14 +18,14 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#include <iostream>
-#include <algorithm>
-#include <vector>
-#include "cpu_dev_test.h"
-#include "../framework_test_type/test_utils.h"
 #include "cl_synch_objects.h"
 #include "cl_sys_info.h"
+#include "cpu_dev_test.h"
 #include "task_executor.h"
+#include "test_utils.h"
+#include <algorithm>
+#include <iostream>
+#include <vector>
 
 using Intel::OpenCL::Utils::OclBinarySemaphore;
 using std::vector;

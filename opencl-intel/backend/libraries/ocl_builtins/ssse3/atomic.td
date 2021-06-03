@@ -916,8 +916,8 @@ OclBuiltinImpl atomic_fetch_add_explicit_scope_gen_fp32_impl = OclBuiltinImpl<at
 OclBuiltinImpl atomic_fetch_add_explicit_scope_gen_fp64_impl = OclBuiltinImpl<atomic_fetch_add_explicit_scope_gen, [v1f64], 0, add_g_fp64>;
 
 OclBuiltinImpl atomic_fetch_add_l_impl = OclBuiltinImpl<atomic_fetch_add_l, atomic_fetch_add_l.Types, 0, atomic_fetch_key_code, [["$KEY","add"]]>;
-OclBuiltinImpl atomic_fetch_add_explicit_l_impl = OclBuiltinImpl<atomic_fetch_add_explicit_l, [v1i32, v1u32, v1i64, v1u64], 0, atomic_fetch_key_explicit_code, [["$KEY","add"]]>;
-OclBuiltinImpl atomic_fetch_add_explicit_scope_l_impl = OclBuiltinImpl<atomic_fetch_add_explicit_scope_l, [v1i32, v1u32, v1i64, v1u64], 0, atomic_fetch_binop_explicit_scope_l_code, [["$KEY","add"]]>;
+OclBuiltinImpl atomic_fetch_add_explicit_l_impl = OclBuiltinImpl<atomic_fetch_add_explicit_l, atomic_fetch_add_explicit_l.Types, 0, atomic_fetch_key_explicit_code, [["$KEY","add"]]>;
+OclBuiltinImpl atomic_fetch_add_explicit_scope_l_impl = OclBuiltinImpl<atomic_fetch_add_explicit_scope_l, atomic_fetch_add_explicit_scope_l.Types, 0, atomic_fetch_binop_explicit_scope_l_code, [["$KEY","add"]]>;
 
 OclBuiltinImpl atomic_fetch_sub_g_impl = OclBuiltinImpl<atomic_fetch_sub_g, atomic_fetch_sub_g.Types, 0, atomic_fetch_key_code, [["$KEY","sub"]]>;
 OclBuiltinImpl atomic_fetch_sub_explicit_g_impl = OclBuiltinImpl<atomic_fetch_sub_explicit_g, atomic_fetch_sub_explicit_g.Types, 0, atomic_fetch_key_explicit_code, [["$KEY","sub"]]>;

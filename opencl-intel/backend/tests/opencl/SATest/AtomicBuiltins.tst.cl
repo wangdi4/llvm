@@ -1150,6 +1150,121 @@ __kernel void atomic_fetch_add_explicit_scope_ulong(__global ulong *object, __gl
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics: enable
   *desired = atomic_fetch_add_explicit((volatile atomic_ulong *)object, value, memory_order_seq_cst, memory_scope_device);
 }
+
+// atomic add with float and double type
+float __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile atomic_float *, float, memory_order);
+float __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile atomic_float *, float, memory_order,
+                          memory_scope);
+float __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile __global atomic_float *, float,
+                          memory_order);
+float __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile __global atomic_float *, float, memory_order,
+                          memory_scope);
+float __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile __local atomic_float *, float, memory_order);
+float __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile __local atomic_float *, float, memory_order,
+                          memory_scope);
+double __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile atomic_double *, double, memory_order);
+double __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile atomic_double *, double, memory_order,
+                          memory_scope);
+double __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile __global atomic_double *, double,
+                          memory_order);
+double __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile __global atomic_double *, double,
+                          memory_order, memory_scope);
+double __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile __local atomic_double *, double,
+                          memory_order);
+double __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile __local atomic_double *, double,
+                          memory_order, memory_scope);
+
+__kernel void test_atomic_fetch_add_explicit_float(__global float *object,
+                                                   __global float *desired,
+                                                   float value) {
+  *desired = atomic_fetch_add_explicit((volatile atomic_float *)object, value,
+                                       memory_order_relaxed);
+}
+__kernel void atomic_fetch_add_explicit_scope_float(__global float *object,
+                                                    __global float *desired,
+                                                    float value) {
+  *desired =
+      atomic_fetch_add_explicit((volatile atomic_float *)object, value,
+                                memory_order_seq_cst, memory_scope_device);
+}
+__kernel void test_atomic_fetch_add_explicit_double(__global double *object,
+                                                    __global double *desired,
+                                                    double value) {
+  *desired = atomic_fetch_add_explicit((volatile atomic_double *)object, value,
+                                       memory_order_relaxed);
+}
+__kernel void atomic_fetch_add_explicit_scope_double(__global double *object,
+                                                     __global double *desired,
+                                                     double value) {
+  *desired =
+      atomic_fetch_add_explicit((volatile atomic_double *)object, value,
+                                memory_order_seq_cst, memory_scope_device);
+}
+__kernel void test_atomic_fetch_add_explicit_float_g(__global float *object,
+                                                     __global float *desired,
+                                                     float value) {
+  *desired = atomic_fetch_add_explicit((volatile __global atomic_float *)object,
+                                       value, memory_order_relaxed);
+}
+__kernel void atomic_fetch_add_explicit_scope_float_g(__global float *object,
+                                                      __global float *desired,
+                                                      float value) {
+  *desired =
+      atomic_fetch_add_explicit((volatile __global atomic_float *)object, value,
+                                memory_order_seq_cst, memory_scope_device);
+}
+__kernel void test_atomic_fetch_add_explicit_double_g(__global double *object,
+                                                      __global double *desired,
+                                                      double value) {
+  *desired = atomic_fetch_add_explicit(
+      (volatile __global atomic_double *)object, value, memory_order_relaxed);
+}
+__kernel void atomic_fetch_add_explicit_scope_double_g(__global double *object,
+                                                       __global double *desired,
+                                                       double value) {
+  *desired = atomic_fetch_add_explicit(
+      (volatile __global atomic_double *)object, value, memory_order_seq_cst,
+      memory_scope_device);
+}
+__kernel void test_atomic_fetch_add_explicit_float_l(__local float *object,
+                                                     __global float *desired,
+                                                     float value) {
+  *desired = atomic_fetch_add_explicit((volatile __local atomic_float *)object,
+                                       value, memory_order_relaxed);
+}
+__kernel void atomic_fetch_add_explicit_scope_float_l(__local float *object,
+                                                      __global float *desired,
+                                                      float value) {
+  *desired =
+      atomic_fetch_add_explicit((volatile __local atomic_float *)object, value,
+                                memory_order_seq_cst, memory_scope_device);
+}
+__kernel void test_atomic_fetch_add_explicit_double_l(__local double *object,
+                                                      __global double *desired,
+                                                      double value) {
+  *desired = atomic_fetch_add_explicit((volatile __local atomic_double *)object,
+                                       value, memory_order_relaxed);
+}
+__kernel void atomic_fetch_add_explicit_scope_double_l(__local double *object,
+                                                       __global double *desired,
+                                                       double value) {
+  *desired =
+      atomic_fetch_add_explicit((volatile __local atomic_double *)object, value,
+                                memory_order_seq_cst, memory_scope_device);
+}
+
 __kernel void test_atomic_fetch_sub_int(__global int *object, __global int *desired, int value)
 {
   *desired = atomic_fetch_sub((volatile atomic_int *)object, value);
@@ -1450,6 +1565,121 @@ __kernel void atomic_fetch_min_explicit_scope_ulong(__global ulong *object, __gl
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics: enable
   *desired = atomic_fetch_min_explicit((volatile atomic_ulong *)object, value, memory_order_seq_cst, memory_scope_device);
 }
+
+// atomic min with float and double type
+float __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile atomic_float *, float, memory_order);
+float __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile atomic_float *, float, memory_order,
+                          memory_scope);
+float __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile __global atomic_float *, float,
+                          memory_order);
+float __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile __global atomic_float *, float, memory_order,
+                          memory_scope);
+float __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile __local atomic_float *, float, memory_order);
+float __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile __local atomic_float *, float, memory_order,
+                          memory_scope);
+double __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile atomic_double *, double, memory_order);
+double __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile atomic_double *, double, memory_order,
+                          memory_scope);
+double __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile __global atomic_double *, double,
+                          memory_order);
+double __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile __global atomic_double *, double,
+                          memory_order, memory_scope);
+double __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile __local atomic_double *, double,
+                          memory_order);
+double __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile __local atomic_double *, double,
+                          memory_order, memory_scope);
+
+__kernel void test_atomic_fetch_min_explicit_float(__global float *object,
+                                                   __global float *desired,
+                                                   float value) {
+  *desired = atomic_fetch_min_explicit((volatile atomic_float *)object, value,
+                                       memory_order_relaxed);
+}
+__kernel void atomic_fetch_min_explicit_scope_float(__global float *object,
+                                                    __global float *desired,
+                                                    float value) {
+  *desired =
+      atomic_fetch_min_explicit((volatile atomic_float *)object, value,
+                                memory_order_seq_cst, memory_scope_device);
+}
+__kernel void test_atomic_fetch_min_explicit_double(__global double *object,
+                                                    __global double *desired,
+                                                    double value) {
+  *desired = atomic_fetch_min_explicit((volatile atomic_double *)object, value,
+                                       memory_order_relaxed);
+}
+__kernel void atomic_fetch_min_explicit_scope_double(__global double *object,
+                                                     __global double *desired,
+                                                     double value) {
+  *desired =
+      atomic_fetch_min_explicit((volatile atomic_double *)object, value,
+                                memory_order_seq_cst, memory_scope_device);
+}
+__kernel void test_atomic_fetch_min_explicit_float_g(__global float *object,
+                                                     __global float *desired,
+                                                     float value) {
+  *desired = atomic_fetch_min_explicit((volatile __global atomic_float *)object,
+                                       value, memory_order_relaxed);
+}
+__kernel void atomic_fetch_min_explicit_scope_float_g(__global float *object,
+                                                      __global float *desired,
+                                                      float value) {
+  *desired =
+      atomic_fetch_min_explicit((volatile __global atomic_float *)object, value,
+                                memory_order_seq_cst, memory_scope_device);
+}
+__kernel void test_atomic_fetch_min_explicit_double_g(__global double *object,
+                                                      __global double *desired,
+                                                      double value) {
+  *desired = atomic_fetch_min_explicit(
+      (volatile __global atomic_double *)object, value, memory_order_relaxed);
+}
+__kernel void atomic_fetch_min_explicit_scope_double_g(__global double *object,
+                                                       __global double *desired,
+                                                       double value) {
+  *desired = atomic_fetch_min_explicit(
+      (volatile __global atomic_double *)object, value, memory_order_seq_cst,
+      memory_scope_device);
+}
+__kernel void test_atomic_fetch_min_explicit_float_l(__local float *object,
+                                                     __global float *desired,
+                                                     float value) {
+  *desired = atomic_fetch_min_explicit((volatile __local atomic_float *)object,
+                                       value, memory_order_relaxed);
+}
+__kernel void atomic_fetch_min_explicit_scope_float_l(__local float *object,
+                                                      __global float *desired,
+                                                      float value) {
+  *desired =
+      atomic_fetch_min_explicit((volatile __local atomic_float *)object, value,
+                                memory_order_seq_cst, memory_scope_device);
+}
+__kernel void test_atomic_fetch_min_explicit_double_l(__local double *object,
+                                                      __global double *desired,
+                                                      double value) {
+  *desired = atomic_fetch_min_explicit((volatile __local atomic_double *)object,
+                                       value, memory_order_relaxed);
+}
+__kernel void atomic_fetch_min_explicit_scope_double_l(__local double *object,
+                                                       __global double *desired,
+                                                       double value) {
+  *desired =
+      atomic_fetch_min_explicit((volatile __local atomic_double *)object, value,
+                                memory_order_seq_cst, memory_scope_device);
+}
+
 __kernel void test_atomic_fetch_max_int(__global int *object, __global int *desired, int value)
 {
   *desired = atomic_fetch_max((volatile atomic_int *)object, value);
@@ -1510,6 +1740,7 @@ __kernel void atomic_fetch_max_explicit_scope_ulong(__global ulong *object, __gl
 #pragma OPENCL EXTENSION cl_khr_int64_extended_atomics: enable
   *desired = atomic_fetch_max_explicit((volatile atomic_ulong *)object, value, memory_order_seq_cst, memory_scope_device);
 }
+
 __kernel void test_atomic_fetch_add_ptrdiff_t(__global ptrdiff_t *object, __global ptrdiff_t *desired)
 {
   ptrdiff_t value = 1;
@@ -1630,6 +1861,121 @@ __kernel void atomic_fetch_max_explicit_scope_intptr_t(__global intptr_t *object
   intptr_t value = 1;
  *desired = atomic_fetch_max_explicit((volatile atomic_uintptr_t *)object, value, memory_order_seq_cst, memory_scope_device);
 }
+
+// atomic max with float and double type
+float __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile atomic_float *, float, memory_order);
+float __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile atomic_float *, float, memory_order,
+                          memory_scope);
+float __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile __global atomic_float *, float,
+                          memory_order);
+float __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile __global atomic_float *, float, memory_order,
+                          memory_scope);
+float __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile __local atomic_float *, float, memory_order);
+float __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile __local atomic_float *, float, memory_order,
+                          memory_scope);
+double __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile atomic_double *, double, memory_order);
+double __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile atomic_double *, double, memory_order,
+                          memory_scope);
+double __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile __global atomic_double *, double,
+                          memory_order);
+double __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile __global atomic_double *, double,
+                          memory_order, memory_scope);
+double __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile __local atomic_double *, double,
+                          memory_order);
+double __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile __local atomic_double *, double,
+                          memory_order, memory_scope);
+
+__kernel void test_atomic_fetch_max_explicit_float(__global float *object,
+                                                   __global float *desired,
+                                                   float value) {
+  *desired = atomic_fetch_max_explicit((volatile atomic_float *)object, value,
+                                       memory_order_relaxed);
+}
+__kernel void atomic_fetch_max_explicit_scope_float(__global float *object,
+                                                    __global float *desired,
+                                                    float value) {
+  *desired =
+      atomic_fetch_max_explicit((volatile atomic_float *)object, value,
+                                memory_order_seq_cst, memory_scope_device);
+}
+__kernel void test_atomic_fetch_max_explicit_double(__global double *object,
+                                                    __global double *desired,
+                                                    double value) {
+  *desired = atomic_fetch_max_explicit((volatile atomic_double *)object, value,
+                                       memory_order_relaxed);
+}
+__kernel void atomic_fetch_max_explicit_scope_double(__global double *object,
+                                                     __global double *desired,
+                                                     double value) {
+  *desired =
+      atomic_fetch_max_explicit((volatile atomic_double *)object, value,
+                                memory_order_seq_cst, memory_scope_device);
+}
+__kernel void test_atomic_fetch_max_explicit_float_g(__global float *object,
+                                                     __global float *desired,
+                                                     float value) {
+  *desired = atomic_fetch_max_explicit((volatile __global atomic_float *)object,
+                                       value, memory_order_relaxed);
+}
+__kernel void atomic_fetch_max_explicit_scope_float_g(__global float *object,
+                                                      __global float *desired,
+                                                      float value) {
+  *desired =
+      atomic_fetch_max_explicit((volatile __global atomic_float *)object, value,
+                                memory_order_seq_cst, memory_scope_device);
+}
+__kernel void test_atomic_fetch_max_explicit_double_g(__global double *object,
+                                                      __global double *desired,
+                                                      double value) {
+  *desired = atomic_fetch_max_explicit(
+      (volatile __global atomic_double *)object, value, memory_order_relaxed);
+}
+__kernel void atomic_fetch_max_explicit_scope_double_g(__global double *object,
+                                                       __global double *desired,
+                                                       double value) {
+  *desired = atomic_fetch_max_explicit(
+      (volatile __global atomic_double *)object, value, memory_order_seq_cst,
+      memory_scope_device);
+}
+__kernel void test_atomic_fetch_max_explicit_float_l(__local float *object,
+                                                     __global float *desired,
+                                                     float value) {
+  *desired = atomic_fetch_max_explicit((volatile __local atomic_float *)object,
+                                       value, memory_order_relaxed);
+}
+__kernel void atomic_fetch_max_explicit_scope_float_l(__local float *object,
+                                                      __global float *desired,
+                                                      float value) {
+  *desired =
+      atomic_fetch_max_explicit((volatile __local atomic_float *)object, value,
+                                memory_order_seq_cst, memory_scope_device);
+}
+__kernel void test_atomic_fetch_max_explicit_double_l(__local double *object,
+                                                      __global double *desired,
+                                                      double value) {
+  *desired = atomic_fetch_max_explicit((volatile __local atomic_double *)object,
+                                       value, memory_order_relaxed);
+}
+__kernel void atomic_fetch_max_explicit_scope_double_l(__local double *object,
+                                                       __global double *desired,
+                                                       double value) {
+  *desired =
+      atomic_fetch_max_explicit((volatile __local atomic_double *)object, value,
+                                memory_order_seq_cst, memory_scope_device);
+}
+
 __kernel void test_atomic_fetch_min_uintptr_t(__global uintptr_t *object, __global uintptr_t *desired)
 {
   uintptr_t value = 1;
