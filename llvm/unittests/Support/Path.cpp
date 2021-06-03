@@ -432,14 +432,15 @@ public:
 };
 #endif
 
-// INTEL_CUSTOMIZATION
-// CMPLRLLVM-27652 - Disable test to unblock promotion
-#if 0
-// end INTEL_CUSTOMIZATION
 TEST(Support, HomeDirectory) {
   std::string expected;
 #ifdef _WIN32
-  expected = getEnvWin(L"USERPROFILE");
+#if INTEL_CUSTOMIZATION
+  // The environment may contain a posix-style path. Convert it here.
+  SmallString<64> expected_env(getEnvWin(L"USERPROFILE"));
+  path::native(expected_env);
+  expected = expected_env.c_str();
+#endif // INTEL_CUSTOMIZATION
 #else
   if (char const *path = ::getenv("HOME"))
     expected = path;
@@ -453,10 +454,6 @@ TEST(Support, HomeDirectory) {
     EXPECT_EQ(expected, HomeDir);
   }
 }
-// INTEL_CUSTOMIZATION
-// CMPLRLLVM-27652 - Disable test to unblock promotion
-#endif
-// end INTEL_CUSTOMIZATION
 
 // Apple has their own solution for this.
 #if defined(LLVM_ON_UNIX) && !defined(__APPLE__)
