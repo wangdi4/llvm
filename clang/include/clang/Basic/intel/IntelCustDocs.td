@@ -3550,9 +3550,10 @@ variable, which can be used to validate versions on newer hardware.
 def DisplayFullFilePathDocs : Documentation {
   let Category = DocCatIntelCompat;
   let Option = "IntelCompat";
-  let BugTracker = "CMPLRLLVM-26876";
+  let BugTracker = "CMPLRLLVM-26876,CMPLRLLVM-28856";
   let RegressionTest = "CodeGenCXX/intel/display-filename-or-path.cpp";
   let Owner = "smanna";
+  let Default = 0;
   let Content = [{
 Clang currently shows the full build-machine paths of our program files as
 specified on the command-line into the final assembly when using
@@ -3575,7 +3576,7 @@ control the behavior that ``__builtin_FILE`` should only include the filename
 
 .. code-block:: llvm
 
-   @.str = private unnamed_addr constant [6 x i8] c"t.cpp\00", align 1
+   @.str = private unnamed_addr constant [48 x i8] c"`pwd`/t.cpp\00", align 1
 
 .. code-block:: console
 
@@ -3583,7 +3584,7 @@ control the behavior that ``__builtin_FILE`` should only include the filename
 
 .. code-block:: llvm
 
-   @.str = private unnamed_addr constant [36 x i8] c"`pwd`/t.cpp\00", align 1
+   @.str = private unnamed_addr constant [6 x i8] c"t.cpp\00", align 1
 
   }];
   let UserContent = [{
