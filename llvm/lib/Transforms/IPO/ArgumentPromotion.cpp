@@ -1254,12 +1254,12 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
   if (!Changed)
     return PreservedAnalyses::all();
 
-  PreservedAnalyses PA;
 #if INTEL_CUSTOMIZATION
+  PreservedAnalyses PA;
   PA.preserve<AndersensAA>();
   PA.preserve<WholeProgramAnalysis>();
-#endif // INTEL_CUSTOMIZATION
   return PA;
+#endif // INTEL_CUSTOMIZATION
 }
 
 namespace {
