@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fexceptions -verify %s
+// RUN: %clang_cc1 -std=c++1z -fcxx-exceptions -fexceptions -fintel-compatibility -fintel-compatibility-enable=DisplayFullFilePath -verify %s
 // expected-no-diagnostics
 
 #define assert(...) ((__VA_ARGS__) ? ((void)0) : throw 42)

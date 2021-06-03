@@ -2167,11 +2167,9 @@ APValue SourceLocExpr::EvaluateInContext(const ASTContext &Ctx,
   switch (getIdentKind()) {
 #if INTEL_CUSTOMIZATION
   case SourceLocExpr::File: {
-     if (Ctx.getLangOpts().isIntelCompat(LangOptions::DisplayFullFilePath)) {
-       StringRef Filename = PLoc.getFilename();
-       return MakeStringLiteral(llvm::sys::path::filename(Filename));
-     }
-     return MakeStringLiteral(PLoc.getFilename());
+     if (Ctx.getLangOpts().isIntelCompat(LangOptions::DisplayFullFilePath))
+       return MakeStringLiteral(PLoc.getFilename());
+     return MakeStringLiteral(llvm::sys::path::filename(PLoc.getFilename()));
   }
 #endif  // INTEL_CUSTOMIZATION
   case SourceLocExpr::Function: {

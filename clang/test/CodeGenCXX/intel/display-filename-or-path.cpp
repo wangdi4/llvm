@@ -1,22 +1,22 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility \
 // RUN:            -fintel-compatibility-enable=DisplayFullFilePath \
 // RUN:            -disable-llvm-passes -emit-llvm %s -o - | \
-// RUN:            FileCheck %s --check-prefix=CHECK-LIN-FILENAME
+// RUN:            FileCheck %s --check-prefix=CHECK-LIN-PATH
 
 // RUN: %clang_cc1 -triple x86_64-windows-msvc -fintel-compatibility \
 // RUN:            -fintel-compatibility-enable=DisplayFullFilePath \
 // RUN:            -disable-llvm-passes -emit-llvm %s -o - | \
-// RUN:            FileCheck %s --check-prefix=CHECK-WIN-FILENAME
+// RUN:            FileCheck %s --check-prefix=CHECK-WIN-PATH
 
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility \
 // RUN:            -fintel-compatibility-disable=DisplayFullFilePath \
 // RUN:            -disable-llvm-passes -emit-llvm %s -o - | \
-// RUN:            FileCheck %s --check-prefix=CHECK-LIN-PATH
+// RUN:            FileCheck %s --check-prefix=CHECK-LIN-FILENAME
 
 // RUN: %clang_cc1 -triple x86_64-windows-msvc -fintel-compatibility \
 // RUN:            -fintel-compatibility-disable=DisplayFullFilePath \
 // RUN:            -disable-llvm-passes -emit-llvm %s -o - | \
-// RUN:            FileCheck %s --check-prefix=CHECK-WIN-PATH
+// RUN:            FileCheck %s --check-prefix=CHECK-WIN-FILENAME
 
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu -fintel-compatibility \
 // RUN:            -disable-llvm-passes -emit-llvm %s -o - | \
