@@ -223,18 +223,6 @@
 // RUN: %clang_cc1 %s -E -dM -o - -x cl -triple spir-unknown-unknown-intelfpga \
 // RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-INTEL-FPGA
 // CHECK-INTEL-FPGA-NOT: #define __IMAGE_SUPPORT__ 1
-// RUN: %clang_cc1 %s -E -dM -fsycl-is-device -o - -triple spir64\
-// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-FSYCL
-// CHECK-FSYCL: #define __INTEL_DPCPP_COMPILER__ 1
-// RUN: %clang_cc1 %s -E -dM -fsycl-is-device -o - -triple spir64\
-// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-FSYCLDEVICE
-// CHECK-FSYCLDEVICE: #define __INTEL_DPCPP_COMPILER__ 1
-// RUN: %clang_cc1 %s -E -dM -fsycl-is-host -o - -triple x86_64-pc-linux-gnu\
-// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-FSYCLHOST
-// CHECK-FSYCLHOST: #define __INTEL_DPCPP_COMPILER__ 1
-// RUN: %clang_cc1 %s -E -dM -o - -triple spir64\
-// RUN:   | FileCheck -match-full-lines %s --check-prefix=CHECK-NO-FSYCL
-// CHECK-NO-FSYCL-NOT: #define __INTEL_DPCPP_COMPILER__ 1
 // end INTEL_CUSTOMIZATION
 
 // RUN: %clang_cc1 %s -E -dM -o - -x hip -triple amdgcn-amd-amdhsa \
