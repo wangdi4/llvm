@@ -11964,10 +11964,28 @@ bool ScalarEvolution::isImpliedCondBalancedTypes(
       return isImpliedCondOperands(Pred, LHS, RHS, FoundRHS, FoundLHS, Context);
 
     // There's no clear preference between forms 3. and 4., try both.
-    return isImpliedCondOperands(FoundPred, getNotSCEV(LHS), getNotSCEV(RHS),
-                                 FoundLHS, FoundRHS, Context) ||
-           isImpliedCondOperands(Pred, LHS, RHS, getNotSCEV(FoundLHS),
-                                 getNotSCEV(FoundRHS), Context);
+#if INTEL_CUSTOMIZATION
+    // If we negate the SCEV and we are using unsigned comparisons, the
+    // range analysis may be incorrect.
+    // Given: a > 0
+    // Prove: b < 0
+    // by proving that -b > 0
+    // by proving that -b >= a (and 0 <= 0).
+    // If b has the range [ 1 .. 3 ], and a has the range [ 1 .. 100 ]
+    // -b has the range [ 0xff..fd .. 0xff..ff ]
+    // With unsigned icmp, -b > a, and -b > 0, and "b < 0" which is incorrect.
+    // This only seems to cause a problem in xmain, because xmain adds one
+    // to IVs, to move them into the always-positive range.
+    if (!ICmpInst::isUnsigned(FoundPred)) {
+      return isImpliedCondOperands(FoundPred, getNotSCEV(LHS), getNotSCEV(RHS),
+                                   FoundLHS, FoundRHS, Context) ||
+             isImpliedCondOperands(Pred, LHS, RHS, getNotSCEV(FoundLHS),
+                                   getNotSCEV(FoundRHS), Context);
+    }
+    // TODO: We may try the tests below if the tests above do not apply.
+    // llorg just returns the value of the above test at this point.
+    return false;
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Unsigned comparison is the same as signed comparison when both the operands
