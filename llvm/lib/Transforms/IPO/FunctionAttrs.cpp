@@ -1454,7 +1454,49 @@ static bool addNoReturnAttrs(const SCCNodeSet &SCCNodes) {
   return Changed;
 }
 
-static bool functionWillReturn(const Function &F) {
+static bool functionWillReturn(const Function &F,                  // INTEL
+                               WholeProgramInfo *WPInfo) {         // INTEL
+
+#if INTEL_CUSTOMIZATION
+  // Return true if the input function is a libfunc, it is marked as "readonly"
+  // and "mustprogress", whole program safe was found, and all the users of the
+  // function F are Call instructions.
+  auto LibFuncWillReturn = [WPInfo](const Function &F) -> bool {
+    if (!WPInfo)
+      return false;
+
+    if (!WPInfo->isWholeProgramSafe())
+      return false;
+
+    // NOTE: We can add an extra layer of security by checking if the function
+    // is an actual libfunc, but it isn't needed since whole program safe was
+    // found. This means that all function declarations are libfuncs.
+    if (!F.isDeclaration())
+      return false;
+
+    // The libfunc must be marked as "mustprogress" and "readonly"
+    if (!F.mustProgress() || !F.onlyReadsMemory() ||
+        !F.doesNotThrow() || F.hasAddressTaken())
+      return false;
+
+    // Check that all the users of the function are Call instructions (not
+    // Invokes). This makes sure that the control will always return to
+    // the same point.
+    for (auto *U : F.users()) {
+      auto *Call = dyn_cast<CallInst>(U);
+      if(!Call || Call->isIndirectCall())
+        return false;
+    }
+
+    return true;
+  };
+
+  // Check if the input function is a libfunc and we can mark it as
+  // "willreturn"
+  if (LibFuncWillReturn(F))
+    return true;
+#endif // INTEL_CUSTOMIZATION
+
   // We can infer and propagate function attributes only when we know that the
   // definition we'll get at link time is *exactly* the definition we see now.
   // For more details, see GlobalValue::mayBeDerefined.
@@ -1484,11 +1526,12 @@ static bool functionWillReturn(const Function &F) {
 }
 
 // Set the willreturn function attribute if possible.
-static bool addWillReturn(const SCCNodeSet &SCCNodes) {
+static bool addWillReturn(const SCCNodeSet &SCCNodes,               // INTEL
+                          WholeProgramInfo *WPInfo) {               // INTEL
   bool Changed = false;
 
   for (Function *F : SCCNodes) {
-    if (!F || F->willReturn() || !functionWillReturn(*F))
+    if (!F || F->willReturn() || !functionWillReturn(*F, WPInfo))   // INTEL
       continue;
 
     F->setWillReturn();
@@ -1606,7 +1649,8 @@ static SCCNodesResult createSCCNodeSet(ArrayRef<Function *> Functions) {
 
 template <typename AARGetterT>
 static bool deriveAttrsInPostOrder(ArrayRef<Function *> Functions,
-                                   AARGetterT &&AARGetter) {
+                                   AARGetterT &&AARGetter,     // INTEL
+                                   WholeProgramInfo *WPInfo) { // INTEL
   SCCNodesResult Nodes = createSCCNodeSet(Functions);
   bool Changed = false;
 
@@ -1619,7 +1663,7 @@ static bool deriveAttrsInPostOrder(ArrayRef<Function *> Functions,
   Changed |= addArgumentAttrs(Nodes.SCCNodes);
   Changed |= inferConvergent(Nodes.SCCNodes);
   Changed |= addNoReturnAttrs(Nodes.SCCNodes);
-  Changed |= addWillReturn(Nodes.SCCNodes);
+  Changed |= addWillReturn(Nodes.SCCNodes, WPInfo);    // INTEL
 
   // If we have no external nodes participating in the SCC, we can deduce some
   // more precise attributes as well.
@@ -1661,7 +1705,14 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
     Functions.push_back(&N.getFunction());
   }
 
-  if (deriveAttrsInPostOrder(Functions, AARGetter)) {
+#if INTEL_CUSTOMIZATION
+  // NOTE: We may want to pass the whole program analysis here when the new
+  // pass manager is turned on by default. Currently, the functions collected
+  // in the new pass manager are different than the legacy pass manager.
+  // The legacy pass manager includes declarations in the Functions vector,
+  // while the new pass manager isn't adding them.
+  if (deriveAttrsInPostOrder(Functions, AARGetter, nullptr)) {
+#endif // INTEL_CUSTOMIZATION
     // We have not changed the call graph or removed/added functions.
     PreservedAnalyses PA;
     PA.preserve<FunctionAnalysisManagerCGSCCProxy>();
@@ -1731,7 +1782,10 @@ static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter, // INTEL
 #endif // INTEL_CUSTOMIZATION
   }
 
-  return deriveAttrsInPostOrder(Functions, AARGetter) || Changed; // INTEL
+#if INTEL_CUSTOMIZATION
+  WholeProgramInfo *WPInfo = WPA ? &WPA->getResult() : nullptr;
+  return !deriveAttrsInPostOrder(Functions, AARGetter, WPInfo) || Changed;
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool PostOrderFunctionAttrsLegacyPass::runOnSCC(CallGraphSCC &SCC) {
