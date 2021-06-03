@@ -84,10 +84,6 @@ bool VPLoop::isLiveOut(const VPInstruction* VPInst) const {
   return false;
 }
 
-Optional<bool> VPLoop::hasNormalizedInduction() const {
-  return LoopVectorizationPlanner::hasLoopNormalizedInduction(this);
-}
-
 std::pair<VPValue *, VPInstruction *> VPLoop::getLoopUpperBound() const {
   if (!hasNormalizedInduction())
     return std::make_pair<VPValue *, VPInstruction *>(nullptr, nullptr);

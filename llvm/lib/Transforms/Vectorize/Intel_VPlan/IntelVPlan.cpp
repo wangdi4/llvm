@@ -1503,6 +1503,11 @@ void VPlanVector::copyData(VPAnalysesFactory &VPAF, UpdateDA UDA,
   ClonedVPLInfo->analyze(*TargetPlan->getDT());
   LLVM_DEBUG(ClonedVPLInfo->verify(*TargetPlan->getDT()));
 
+  // Update HasNormalizedInduction
+  VPLoop *ThisLoop = *getVPLoopInfo()->begin();
+  VPLoop *ClonedLoop = *ClonedVPLInfo->begin();
+  ClonedLoop->copyHasNormalizedInductionFlag(ThisLoop);
+
   // Update DA.
   if (UDA != UpdateDA::DoNotUpdateDA) {
     auto TargetPlanDA = std::make_unique<VPlanDivergenceAnalysis>();

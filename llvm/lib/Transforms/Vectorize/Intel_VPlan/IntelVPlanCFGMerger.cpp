@@ -1573,6 +1573,8 @@ void VPlanCFGMerger::mergeLoopInfo(VPlanVector &P) {
     else
       DestLI->addTopLevelLoop(NewLoop);
 
+    NewLoop->copyHasNormalizedInductionFlag(L);
+
     // Add all of the blocks in L to the new loop.
     for (auto BB : L->getBlocks())
       if (SrcLI->getLoopFor(BB) == L)
