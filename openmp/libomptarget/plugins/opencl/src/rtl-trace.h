@@ -647,6 +647,31 @@ cl_int TRACE_FN(clGetKernelInfo)(
   return rc;
 }
 
+cl_int TRACE_FN(clGetKernelSubGroupInfo)(
+    cl_kernel kernel,
+    cl_device_id device,
+    cl_kernel_sub_group_info param_name,
+    size_t input_value_size,
+    const void *input_value,
+    size_t param_value_size,
+    void *param_value,
+    size_t *param_value_size_ret) {
+  auto rc = clGetKernelSubGroupInfo(kernel, device, param_name,
+      input_value_size, input_value, param_value_size, param_value,
+      param_value_size_ret);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(kernel);
+  TRACE_FN_ARG_PTR(device);
+  TRACE_FN_ARG_UINT(param_name);
+  TRACE_FN_ARG_SIZE(input_value_size);
+  TRACE_FN_ARG_PTR(input_value);
+  TRACE_FN_ARG_SIZE(param_value_size);
+  TRACE_FN_ARG_PTR(param_value);
+  TRACE_FN_ARG_PTR(param_value_size_ret);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
 cl_int TRACE_FN(clGetKernelWorkGroupInfo)(
     cl_kernel kernel,
     cl_device_id device,
