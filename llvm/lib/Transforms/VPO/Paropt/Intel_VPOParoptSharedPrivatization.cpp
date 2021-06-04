@@ -578,6 +578,34 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
         if (HasWRNUses(W, V))
           continue;
 
+        // Special handling for the schedule chunk that is loaded from a shared
+        // pointer that has no uses inside the region
+        //
+        // void foo(int N, int C) {
+        // #pragma omp parallel for schedule(static, C)
+        //   for (int I = 0; I < N; ++I) {}
+        // }
+        //
+        // generated code looks as follows
+        //
+        // %.capture_expr.0 = alloca i32, align 4
+        // ...
+        // %5 = load i32, i32* %.capture_expr.0
+        // %6 = call token @llvm.directive.region.entry() [
+        //         "DIR.OMP.PARALLEL.LOOP"(),
+        //         "QUAL.OMP.SCHEDULE.STATIC"(i32 %5),
+        //         "QUAL.OMP.SHARED"(i32* %.capture_expr.0),
+        //         ...
+        //
+        // The load gets moved into the region later by paropt transform while
+        // lowering the loop, so turning shared %.capture_expr.0 into private
+        // leads to invalid results.
+        if (isa<SharedItem>(Item) && W->canHaveSchedule())
+          if (auto *Chunk =
+                  dyn_cast_or_null<LoadInst>(W->getSchedule().getChunkExpr()))
+            if (Chunk->getPointerOperand() == V)
+              continue;
+
         // Item's value is not used inside the region, so it should be safe to
         // turn it into a private. Print a diagnostic that clause is redundant.
         StringRef ClauseName =
@@ -617,8 +645,9 @@ bool VPOParoptTransform::simplifyRegionClauses(WRegionNode *W) {
       return Changed;
     };
 
-    // TODO: extend this optimization to other clauses (f.e. shared).
     if (auto *Clause = W->getFprivIfSupported())
+      Changed |= CleanupRedundantItems(Clause);
+    if (auto *Clause = W->getSharedIfSupported())
       Changed |= CleanupRedundantItems(Clause);
 
     if (!ToPrivatize.empty()) {

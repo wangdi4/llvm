@@ -58,10 +58,22 @@
 ; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'A.addr' is redundant
 ; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'B' is redundant
 ; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'D' is redundant
+; CHECK-HOST:       remark:{{.*}} SHARED clause for variable 'D' is redundant
 ; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'C' is redundant
+; CHECK-HOST:       remark:{{.*}} SHARED clause for variable 'C' is redundant
+; CHECK-HOST:       remark:{{.*}} SHARED clause for variable 'D' is redundant
+; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'C' is redundant
+; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'D' is redundant
 ; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'E' is redundant
+; CHECK-HOST:       remark:{{.*}} SHARED clause for variable 'F' is redundant
+; CHECK-HOST:       remark:{{.*}} SHARED clause for variable 'E' is redundant
+; CHECK-HOST:       remark:{{.*}} SHARED clause for variable 'F' is redundant
 ; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'G' is redundant
+; CHECK-HOST:       remark:{{.*}} SHARED clause for variable 'H' is redundant
+; CHECK-HOST:       remark:{{.*}} SHARED clause for variable 'G' is redundant
+; CHECK-HOST:       remark:{{.*}} SHARED clause for variable 'H' is redundant
 ; CHECK-HOST:       remark:{{.*}} FIRSTPRIVATE clause for variable 'J' is redundant
+; CHECK-HOST:       remark:{{.*}} SHARED clause for variable 'J' is redundant
 ;
 ; CHECK-DEVICE-NOT: remark:{{.*}} FIRSTPRIVATE clause for variable '{{.+}}' is redundant
 ;
@@ -110,9 +122,59 @@
 ; CHECK-YAML-NEXT: Name:            optimization note
 ; CHECK-YAML-NEXT: Function:        test2
 ; CHECK-YAML-NEXT: Args:
+; CHECK-YAML-NEXT:   - String:          SHARED
+; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
+; CHECK-YAML-NEXT:   - String:          D
+; CHECK-YAML-NEXT:   - String:          ''' is redundant'
+; CHECK-YAML-NEXT: ...
+; CHECK-YAML-NEXT: --- !Analysis
+; CHECK-YAML-NEXT: Pass:            openmp
+; CHECK-YAML-NEXT: Name:            optimization note
+; CHECK-YAML-NEXT: Function:        test2
+; CHECK-YAML-NEXT: Args:
 ; CHECK-YAML-NEXT:   - String:          FIRSTPRIVATE
 ; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
 ; CHECK-YAML-NEXT:   - String:          C
+; CHECK-YAML-NEXT:   - String:          ''' is redundant'
+; CHECK-YAML-NEXT: ...
+; CHECK-YAML-NEXT: --- !Analysis
+; CHECK-YAML-NEXT: Pass:            openmp
+; CHECK-YAML-NEXT: Name:            optimization note
+; CHECK-YAML-NEXT: Function:        test2
+; CHECK-YAML-NEXT: Args:
+; CHECK-YAML-NEXT:   - String:          SHARED
+; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
+; CHECK-YAML-NEXT:   - String:          C
+; CHECK-YAML-NEXT:   - String:          ''' is redundant'
+; CHECK-YAML-NEXT: ...
+; CHECK-YAML-NEXT: --- !Analysis
+; CHECK-YAML-NEXT: Pass:            openmp
+; CHECK-YAML-NEXT: Name:            optimization note
+; CHECK-YAML-NEXT: Function:        test2
+; CHECK-YAML-NEXT: Args:
+; CHECK-YAML-NEXT:   - String:          SHARED
+; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
+; CHECK-YAML-NEXT:   - String:          D
+; CHECK-YAML-NEXT:   - String:          ''' is redundant'
+; CHECK-YAML-NEXT: ...
+; CHECK-YAML-NEXT: --- !Analysis
+; CHECK-YAML-NEXT: Pass:            openmp
+; CHECK-YAML-NEXT: Name:            optimization note
+; CHECK-YAML-NEXT: Function:        test2
+; CHECK-YAML-NEXT: Args:
+; CHECK-YAML-NEXT:   - String:          FIRSTPRIVATE
+; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
+; CHECK-YAML-NEXT:   - String:          C
+; CHECK-YAML-NEXT:   - String:          ''' is redundant'
+; CHECK-YAML-NEXT: ...
+; CHECK-YAML-NEXT: --- !Analysis
+; CHECK-YAML-NEXT: Pass:            openmp
+; CHECK-YAML-NEXT: Name:            optimization note
+; CHECK-YAML-NEXT: Function:        test2
+; CHECK-YAML-NEXT: Args:
+; CHECK-YAML-NEXT:   - String:          FIRSTPRIVATE
+; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
+; CHECK-YAML-NEXT:   - String:          D
 ; CHECK-YAML-NEXT:   - String:          ''' is redundant'
 ; CHECK-YAML-NEXT: ...
 ; CHECK-YAML-NEXT: --- !Analysis
@@ -128,6 +190,36 @@
 ; CHECK-YAML-NEXT: --- !Analysis
 ; CHECK-YAML-NEXT: Pass:            openmp
 ; CHECK-YAML-NEXT: Name:            optimization note
+; CHECK-YAML-NEXT: Function:        test3
+; CHECK-YAML-NEXT: Args:
+; CHECK-YAML-NEXT:   - String:          SHARED
+; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
+; CHECK-YAML-NEXT:   - String:          F
+; CHECK-YAML-NEXT:   - String:          ''' is redundant'
+; CHECK-YAML-NEXT: ...
+; CHECK-YAML-NEXT: --- !Analysis
+; CHECK-YAML-NEXT: Pass:            openmp
+; CHECK-YAML-NEXT: Name:            optimization note
+; CHECK-YAML-NEXT: Function:        test3
+; CHECK-YAML-NEXT: Args:
+; CHECK-YAML-NEXT:   - String:          SHARED
+; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
+; CHECK-YAML-NEXT:   - String:          E
+; CHECK-YAML-NEXT:   - String:          ''' is redundant'
+; CHECK-YAML-NEXT: ...
+; CHECK-YAML-NEXT: --- !Analysis
+; CHECK-YAML-NEXT: Pass:            openmp
+; CHECK-YAML-NEXT: Name:            optimization note
+; CHECK-YAML-NEXT: Function:        test3
+; CHECK-YAML-NEXT: Args:
+; CHECK-YAML-NEXT:   - String:          SHARED
+; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
+; CHECK-YAML-NEXT:   - String:          F
+; CHECK-YAML-NEXT:   - String:          ''' is redundant'
+; CHECK-YAML-NEXT: ...
+; CHECK-YAML-NEXT: --- !Analysis
+; CHECK-YAML-NEXT: Pass:            openmp
+; CHECK-YAML-NEXT: Name:            optimization note
 ; CHECK-YAML-NEXT: Function:        test4
 ; CHECK-YAML-NEXT: Args:
 ; CHECK-YAML-NEXT:   - String:          FIRSTPRIVATE
@@ -138,9 +230,49 @@
 ; CHECK-YAML-NEXT: --- !Analysis
 ; CHECK-YAML-NEXT: Pass:            openmp
 ; CHECK-YAML-NEXT: Name:            optimization note
+; CHECK-YAML-NEXT: Function:        test4
+; CHECK-YAML-NEXT: Args:
+; CHECK-YAML-NEXT:   - String:          SHARED
+; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
+; CHECK-YAML-NEXT:   - String:          H
+; CHECK-YAML-NEXT:   - String:          ''' is redundant'
+; CHECK-YAML-NEXT: ...
+; CHECK-YAML-NEXT: --- !Analysis
+; CHECK-YAML-NEXT: Pass:            openmp
+; CHECK-YAML-NEXT: Name:            optimization note
+; CHECK-YAML-NEXT: Function:        test4
+; CHECK-YAML-NEXT: Args:
+; CHECK-YAML-NEXT:   - String:          SHARED
+; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
+; CHECK-YAML-NEXT:   - String:          G
+; CHECK-YAML-NEXT:   - String:          ''' is redundant'
+; CHECK-YAML-NEXT: ...
+; CHECK-YAML-NEXT: --- !Analysis
+; CHECK-YAML-NEXT: Pass:            openmp
+; CHECK-YAML-NEXT: Name:            optimization note
+; CHECK-YAML-NEXT: Function:        test4
+; CHECK-YAML-NEXT: Args:
+; CHECK-YAML-NEXT:   - String:          SHARED
+; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
+; CHECK-YAML-NEXT:   - String:          H
+; CHECK-YAML-NEXT:   - String:          ''' is redundant'
+; CHECK-YAML-NEXT: ...
+; CHECK-YAML-NEXT: --- !Analysis
+; CHECK-YAML-NEXT: Pass:            openmp
+; CHECK-YAML-NEXT: Name:            optimization note
 ; CHECK-YAML-NEXT: Function:        test5
 ; CHECK-YAML-NEXT: Args:
 ; CHECK-YAML-NEXT:   - String:          FIRSTPRIVATE
+; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
+; CHECK-YAML-NEXT:   - String:          J
+; CHECK-YAML-NEXT:   - String:          ''' is redundant'
+; CHECK-YAML-NEXT: ...
+; CHECK-YAML-NEXT: --- !Analysis
+; CHECK-YAML-NEXT: Pass:            openmp
+; CHECK-YAML-NEXT: Name:            optimization note
+; CHECK-YAML-NEXT: Function:        test5
+; CHECK-YAML-NEXT: Args:
+; CHECK-YAML-NEXT:   - String:          SHARED
 ; CHECK-YAML-NEXT:   - String:          ' clause for variable '''
 ; CHECK-YAML-NEXT:   - String:          J
 ; CHECK-YAML-NEXT:   - String:          ''' is redundant'
@@ -203,6 +335,9 @@ entry:
   store i32 %2, i32* %.omp.ub, align 4
   %3 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1), "QUAL.OMP.FIRSTPRIVATE"(i32* %M.addr), "QUAL.OMP.FIRSTPRIVATE"(i32* %C), "QUAL.OMP.FIRSTPRIVATE"(i32* %D), "QUAL.OMP.PRIVATE"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %I), "QUAL.OMP.FIRSTPRIVATE"(i32* %.capture_expr.2), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.1), "QUAL.OMP.PRIVATE"(i32* %.omp.iv13), "QUAL.OMP.PRIVATE"(i32* %.omp.lb14), "QUAL.OMP.PRIVATE"(i32* %.omp.ub15), "QUAL.OMP.PRIVATE"(i32* %J), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.0), "QUAL.OMP.PRIVATE"(i32* %tmp), "QUAL.OMP.PRIVATE"(i32* %tmp5) ]
   %4 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.SHARED"(i32* %M.addr), "QUAL.OMP.SHARED"(i32* %C), "QUAL.OMP.SHARED"(i32* %D), "QUAL.OMP.PRIVATE"(i32* %.omp.iv), "QUAL.OMP.SHARED"(i32* %.omp.lb), "QUAL.OMP.SHARED"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %I), "QUAL.OMP.SHARED"(i32* %.capture_expr.2), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.1), "QUAL.OMP.PRIVATE"(i32* %.omp.iv13), "QUAL.OMP.PRIVATE"(i32* %.omp.lb14), "QUAL.OMP.PRIVATE"(i32* %.omp.ub15), "QUAL.OMP.PRIVATE"(i32* %J), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.0), "QUAL.OMP.PRIVATE"(i32* %tmp), "QUAL.OMP.PRIVATE"(i32* %tmp5) ]
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"()
+; CHECK-SAME: "QUAL.OMP.SHARED"(i32* null), "QUAL.OMP.SHARED"(i32* null)
+; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %C), "QUAL.OMP.PRIVATE"(i32* %D)
   %5 = load i32, i32* %.capture_expr.2, align 4
   %cmp = icmp slt i32 0, %5
   br i1 %cmp, label %omp.precond.then, label %omp.precond.end27
@@ -211,7 +346,7 @@ omp.precond.then:                                 ; preds = %entry
   %6 = call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %C), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %I), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.1), "QUAL.OMP.PRIVATE"(i32* %.omp.iv13), "QUAL.OMP.PRIVATE"(i32* %.omp.lb14), "QUAL.OMP.PRIVATE"(i32* %.omp.ub15), "QUAL.OMP.PRIVATE"(i32* %J), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.0), "QUAL.OMP.PRIVATE"(i32* %tmp5) ]
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.DISTRIBUTE"()
 ; CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* null)
-; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %C.fp)
+; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %C)
   %7 = load i32, i32* %.omp.lb, align 4
   store i32 %7, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
@@ -228,6 +363,9 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %add4 = add nsw i32 0, %mul
   store i32 %add4, i32* %I, align 4
   %11 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(i32* %M.addr), "QUAL.OMP.SHARED"(i32* %D), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.1), "QUAL.OMP.PRIVATE"(i32* %.omp.iv13), "QUAL.OMP.PRIVATE"(i32* %.omp.lb14), "QUAL.OMP.PRIVATE"(i32* %.omp.ub15), "QUAL.OMP.PRIVATE"(i32* %J), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.0), "QUAL.OMP.PRIVATE"(i32* %tmp5) ]
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"()
+; CHECK-SAME: "QUAL.OMP.SHARED"(i32* null)
+; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %D)
   %12 = load i32, i32* %M.addr, align 4
   store i32 %12, i32* %.capture_expr.0, align 4
   %13 = load i32, i32* %.capture_expr.0, align 4
@@ -248,7 +386,7 @@ omp.precond.then12:                               ; preds = %omp.inner.for.body
   %16 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %D), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv13), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb14), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub15), "QUAL.OMP.PRIVATE"(i32* %J) ]
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"()
 ; CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* null)
-; CHECK-SAME:  "QUAL.OMP.PRIVATE"(i32* %D.fp)
+; CHECK-SAME:  "QUAL.OMP.PRIVATE"(i32* %D)
   %17 = load i32, i32* %.omp.lb14, align 4
   store i32 %17, i32* %.omp.iv13, align 4
   br label %omp.inner.for.cond16
@@ -314,10 +452,13 @@ entry:
   %E = alloca i32, align 4
   %F = alloca i32, align 4
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(i32* %E), "QUAL.OMP.SHARED"(i32* %F) ]
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"()
+; CHECK-SAME: "QUAL.OMP.SHARED"(i32* null), "QUAL.OMP.SHARED"(i32* null)
+; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %E), "QUAL.OMP.PRIVATE"(i32* %F)
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %E), "QUAL.OMP.SHARED"(i32* %F) ]
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.TASK"()
-; CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* null)
-; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %E.fp)
+; CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* null), "QUAL.OMP.SHARED"(i32* null)
+; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %E), "QUAL.OMP.PRIVATE"(i32* %F)
   %2 = load i32, i32* %E, align 4
   %3 = load i32, i32* %F, align 4
   call void @llvm.directive.region.exit(token %1) [ "DIR.OMP.END.TASK"() ]
@@ -340,6 +481,9 @@ entry:
   %i = alloca i32, align 4
   store i32 %N, i32* %N.addr, align 4
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(i32* %N.addr), "QUAL.OMP.SHARED"(i32* %G), "QUAL.OMP.SHARED"(i32* %H), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.5), "QUAL.OMP.PRIVATE"(i32* %.omp.iv), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.4), "QUAL.OMP.PRIVATE"(i32* %tmp) ]
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"()
+; CHECK-SAME: "QUAL.OMP.SHARED"(i32* null), "QUAL.OMP.SHARED"(i32* null)
+; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %G), "QUAL.OMP.PRIVATE"(i32* %H)
   %1 = load i32, i32* %N.addr, align 4
   store i32 %1, i32* %.capture_expr.4, align 4
   %2 = load i32, i32* %.capture_expr.4, align 4
@@ -359,8 +503,8 @@ omp.precond.then:                                 ; preds = %entry
   store i32 %4, i32* %.omp.ub, align 4
   %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.TASKLOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %G), "QUAL.OMP.SHARED"(i32* %H), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.TASKLOOP"()
-; CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* null)
-; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %G.fp)
+; CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* null), "QUAL.OMP.SHARED"(i32* null)
+; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %G), "QUAL.OMP.PRIVATE"(i32* %H)
   %6 = load i32, i32* %.omp.lb, align 4
   store i32 %6, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
@@ -415,6 +559,9 @@ entry:
   %i = alloca i32, align 4
   store i32 %N, i32* %N.addr, align 4
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(i32* %N.addr), "QUAL.OMP.SHARED"(i32* %J), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.7), "QUAL.OMP.PRIVATE"(i32* %.omp.iv), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.6), "QUAL.OMP.PRIVATE"(i32* %tmp) ]
+; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"()
+; CHECK-SAME: "QUAL.OMP.SHARED"(i32* null)
+; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %J)
   %1 = load i32, i32* %N.addr, align 4
   store i32 %1, i32* %.capture_expr.6, align 4
   %2 = load i32, i32* %.capture_expr.6, align 4
@@ -435,7 +582,7 @@ omp.precond.then:                                 ; preds = %entry
   %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %J), "QUAL.OMP.LASTPRIVATE"(i32* %J), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"()
 ; CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* null), "QUAL.OMP.LASTPRIVATE"(i32* null)
-; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %J.fp)
+; CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %J)
   %6 = load i32, i32* %.omp.lb, align 4
   store i32 %6, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
