@@ -9430,13 +9430,22 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
 
   TranslatorArgs.push_back("-o");
   TranslatorArgs.push_back(Output.getFilename());
-  if (getToolChain().getTriple().isSYCLDeviceEnvironment()) {
+#if INTEL_CUSTOMIZATION
+  if (getToolChain().getTriple().isSYCLDeviceEnvironment() ||
+      (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
+       getToolChain().getTriple().isSPIR())) {
+#endif // INTEL_CUSTOMIZATION
     TranslatorArgs.push_back("-spirv-max-version=1.3");
     TranslatorArgs.push_back("-spirv-debug-info-version=ocl-100");
     // Prevent crash in the translator if input IR contains DIExpression
     // operations which don't have mapping to OpenCL.DebugInfo.100 spec.
     TranslatorArgs.push_back("-spirv-allow-extra-diexpressions");
-    TranslatorArgs.push_back("-spirv-allow-unknown-intrinsics=llvm.genx.");
+#if INTEL_CUSTOMIZATION
+    if (JA.isDeviceOffloading(Action::OFK_OpenMP))
+      TranslatorArgs.push_back("-spirv-allow-unknown-intrinsics");
+    else
+      TranslatorArgs.push_back("-spirv-allow-unknown-intrinsics=llvm.genx.");
+#endif // INTEL_CUSTOMIZATION
 
     // Disable all the extensions by default
     std::string ExtArg("-spirv-ext=-all");
@@ -9472,8 +9481,9 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
         ",+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse"
         ",+SPV_INTEL_long_constant_composite";
 #if INTEL_CUSTOMIZATION
-    // For all devices, enable INTEL_optnone
-    INTELExtArg += ",+SPV_INTEL_optnone";
+    // Currently ESIMD OpenMP target doesn't support SPV_INTEL_optnone
+    if (!TCArgs.hasArg(options::OPT_fopenmp_target_simd))
+      INTELExtArg += ",+SPV_INTEL_optnone";
 #endif // INTEL_CUSTOMIZATION
     ExtArg = ExtArg + DefaultExtArg + INTELExtArg;
     if (getToolChain().getTriple().getSubArch() ==
@@ -9500,23 +9510,7 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
     }
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
   }
-#if INTEL_CUSTOMIZATION
-  if (JA.isDeviceOffloading(Action::OFK_OpenMP) &&
-      getToolChain().getTriple().isSPIR()) {
-    // TODO: -SPV_INTEL_fpga_buffer_location option is added as workaround
-    // to CMPLRLLVM-21950. This option should removed when the Jira is
-    // resolved, and replaced with just "-spirv-ext=+all"
-    std::string ExtArg("-spirv-ext=+all,-SPV_INTEL_fpga_buffer_location,"
-                             "-SPV_INTEL_memory_access_aliasing");
 
-    // Currently ESIMD OpenMP target doesn't support SPV_INTEL_optnone
-    if (TCArgs.hasArg(options::OPT_fopenmp_target_simd))
-      ExtArg += ",-SPV_INTEL_optnone";
-
-    TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
-    TranslatorArgs.push_back("-spirv-allow-unknown-intrinsics");
-  }
-#endif // INTEL_CUSTOMIZATION
   for (auto I : Inputs) {
     std::string Filename(I.getFilename());
     if (I.getType() == types::TY_Tempfilelist) {
