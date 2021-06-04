@@ -363,8 +363,11 @@ void MCObjectFileInfo::initELFMCObjectFileInfo(const Triple &T, bool Large) {
                                    ELF::SHF_WRITE | ELF::SHF_ALLOC);
 
 #if INTEL_CUSTOMIZATION
+  unsigned TraceSectionFlags = ELF::SHF_ALLOC;
+  if (PositionIndependent)
+    TraceSectionFlags |= ELF::SHF_WRITE;
   TraceSection =
-      Ctx->getELFSection(".trace", ELF::SHT_PROGBITS, ELF::SHF_ALLOC);
+      Ctx->getELFSection(".trace", ELF::SHT_PROGBITS, TraceSectionFlags);
 #endif // INTEL_CUSTOMIZATION
 
   ReadOnlySection =
