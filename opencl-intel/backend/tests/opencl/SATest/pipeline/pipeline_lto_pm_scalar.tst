@@ -1,4 +1,5 @@
-; RUN: SATest -BUILD -pass-manager-type=lto-new -debug-passes=Structure -config=%s.cfg 2>&1 | FileCheck %s
+; RUN: SATest -BUILD -tsize=1 -pass-manager-type=lto-new -debug-passes=Structure -config=%s.cfg 2>&1 | FileCheck %s
+; TODO: check VPlan driver pass is not run when VPlan is enabled in buildPerModuleDefaultPipeline.
 
 ; CHECK:      Running pass: DPCPPEqualizerPass
 ; CHECK-NEXT: Running pass: LinearIdResolverPass
@@ -6,8 +7,6 @@
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
-
-; CHECK-NOT:  Running pass: VecClonePass
 
 ; CHECK:      Running pass: DPCPPKernelWGLoopCreatorPass
 

@@ -107,6 +107,15 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
             CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE, PM_OCL));
     if (PM_LTO_NEW != passManagerType && !debugPassManager.empty())
       m_LLVMOptions += " -debug-pass=" + debugPassManager;
+    if (PM_OCL != passManagerType) {
+      m_LLVMOptions += " -enable-vec-clone=false";
+      ETransposeSize TransposeSize =
+          (ETransposeSize)pBackendOptions->GetIntValue(
+              (int)CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE,
+              TRANSPOSE_SIZE_NOT_SET);
+      if (TRANSPOSE_SIZE_1 == TransposeSize)
+        m_LLVMOptions += " -vplan-driver=false";
+    }
 
     m_targetDevice = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
         (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));

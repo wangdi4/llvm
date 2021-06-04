@@ -7,10 +7,9 @@
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK-NEXT: Running pass: DPCPPKernelAnalysisPass
 
-; CHECK:      Running pass: VecClonePass
+; CHECK-NOT:  Running pass: VecClonePass
 
-; CHECK:      Running analysis: InnerAnalysisManagerProxy
-; CHECK-NEXT: Running pass: UnifyFunctionExitNodesPass
+; CHECK:      Running pass: UnifyFunctionExitNodesPass
 ; CHECK-NEXT: Running pass: DPCPPKernelWGLoopCreatorPass
 
 ; CHECK:      Running analysis: InnerAnalysisManagerProxy

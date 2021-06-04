@@ -31,6 +31,9 @@ class GlobalBackendOptions: public ICLDevBackendOptions
 public:
     void InitFromRunConfiguration(const BERunOptions& runConfig)
     {
+        m_transposeSize =
+            runConfig.GetValue<Intel::OpenCL::DeviceBackend::ETransposeSize>(
+                RC_BR_TRANSPOSE_SIZE, TRANSPOSE_SIZE_NOT_SET);
         m_TimePasses = runConfig.GetValue<std::string>(RC_BR_TIME_PASSES, "");
         m_DisableStackDump = runConfig.GetValue<bool>(RC_BR_USE_PIN_TRACE_MARKS, false);
         m_vectorizerType =
@@ -77,6 +80,8 @@ public:
     {
         switch(optionId)
         {
+        case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
+            return m_transposeSize;
         case CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE:
             return m_vectorizerType;
         case CL_DEV_BACKEND_OPTION_PASS_MANAGER_TYPE:
@@ -92,6 +97,7 @@ public:
     }
 
 private:
+    Intel::OpenCL::DeviceBackend::ETransposeSize m_transposeSize;
     std::string m_TimePasses;
     bool        m_DisableStackDump;
     VectorizerType m_vectorizerType;
