@@ -33,6 +33,27 @@ CHECK: crate::{shim:reify#0}
 CHECK: crate::{Z:ident#10}
        _RNZC5crates8_5ident
 
+; Inherent impl
+
+CHECK: <_>
+       _RMC5cratep
+
+CHECK: <_>
+       _RMs_C5cratep
+
+; Trait impl
+
+CHECK: <_ as Clone>
+       _RXC5cratepC5Clone
+
+CHECK: <_ as Clone>
+       _RXs_C5cratepC5Clone
+
+; Trait definition
+
+CHECK: <_ as Ord>
+       _RYpC3Ord
+
 ; Generic type arguments
 
 CHECK: generic::<_>
@@ -114,6 +135,87 @@ CHECK: basic::<u64>
 CHECK: basic::<!>
        _RIC5basiczE
 
+; Named types. Test possible paths productions.
+
+CHECK: named::<name>
+       _RIC5namedC4nameE
+
+CHECK: named::<<_>>
+       _RIC5namedMC5cratepE
+
+CHECK: named::<<_ as Name>>
+       _RIC5namedXC5cratepC4NameE
+
+CHECK: named::<<_ as Name>>
+       _RIC5namedYpC4NameE
+
+CHECK: named::<name::Name>
+       _RIC5namedNvC4name4NameE
+
+CHECK: named::<Name<>>
+       _RIC5namedIC4NameEE
+
+; Types
+
+CHECK: types::<[u8; 0]>
+       _RIC5typesAhj0_E
+
+CHECK: types::<[_]>
+       _RIC5typesSpE
+
+CHECK: types::<()>
+       _RIC5typesTEE
+
+CHECK: types::<(_,)>
+       _RIC5typesTpEE
+
+CHECK: types::<(_, _)>
+       _RIC5typesTppEE
+
+CHECK: types::<(_, _, _)>
+       _RIC5typesTpppEE
+
+CHECK: types::<&_>
+       _RIC5typesRpE
+
+CHECK: types::<&mut _>
+       _RIC5typesQpE
+
+CHECK: types::<*const _>
+       _RIC5typesPpE
+
+CHECK: types::<*mut _>
+       _RIC5typesOpE
+
+; Function signatures
+
+CHECK: function::<fn()>
+       _RIC8functionFEuE
+
+CHECK: function::<fn() -> _>
+       _RIC8functionFEpE
+
+CHECK: function::<fn(_)>
+       _RIC8functionFpEuE
+
+CHECK: function::<fn(_, _)>
+       _RIC8functionFppEuE
+
+CHECK: function::<fn(_, _, _)>
+       _RIC8functionFpppEuE
+
+CHECK: function::<unsafe fn()>
+       _RIC8functionFUEuE
+
+CHECK: function::<extern "C" fn()>
+       _RIC8functionFKCEuE
+
+CHECK: function::<extern "cdecl" fn()>
+       _RIC8functionFK5cdeclEuE
+
+CHECK: function::<unsafe extern "C-cmse-nonsecure-call" fn()>
+       _RIC8functionFUK21C_cmse_nonsecure_callEuE
+
 ; Integer constants. Test value demangling.
 
 CHECK: integer::<0>
@@ -190,6 +292,56 @@ CHECK: i64::<0>
 
 CHECK: u64::<0>
        _RIC3u64Ky0_E
+
+; Bool constants
+
+CHECK: bool::<false>
+       _RIC4boolKb0_E
+
+CHECK: bool::<true>
+       _RIC4boolKb1_E
+
+; Invalid bool constants
+
+CHECK: _RIC4boolKb2_E
+       _RIC4boolKb2_E
+
+CHECK: _RIC4boolKbn0_E
+       _RIC4boolKbn0_E
+
+; Char constants
+
+CHECK: char::<'a'>
+       _RIC4charKc61_E
+
+CHECK: char::<'"'>
+       _RIC4charKc22_E
+
+CHECK: char::<'\t'>
+       _RIC4charKc9_E
+
+CHECK: char::<'\r'>
+       _RIC4charKcd_E
+
+CHECK: char::<'\n'>
+       _RIC4charKca_E
+
+CHECK: char::<'\\'>
+       _RIC4charKc5c_E
+
+CHECK: char::<'\''>
+       _RIC4charKc27_E
+
+CHECK: char::<'\u{1f40d}'>
+       _RIC4charKc1f40d_E
+
+CHECK: char::<'\u{10ffff}'>
+       _RIC4charKc10ffff_E
+
+; Invalid char constants
+
+CHECK: _RIC4charKc1234567_E
+       _RIC4charKc1234567_E
 
 ; Invalid mangled characters
 

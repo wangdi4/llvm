@@ -23,7 +23,7 @@ target_link_libraries(lld
 # end INTEL_CUSTOMIZATION
   )
 
-if(HAVE_LIBXAR)
+if(LLVM_HAVE_LIBXAR)
   target_link_libraries(lld PRIVATE ${XAR_LIB})
 endif()
 

@@ -278,7 +278,6 @@ FUNCTION_ANALYSIS("targetir",
 FUNCTION_ANALYSIS("verify", VerifierAnalysis())
 FUNCTION_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
 FUNCTION_ANALYSIS("divergence", DivergenceAnalysis())
-FUNCTION_ANALYSIS("func-status", FunctionStatusAnalysis())
 
 #if INTEL_INCLUDE_DTRANS
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

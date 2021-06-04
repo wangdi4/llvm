@@ -41,6 +41,33 @@ static unsigned getOverheadTypeEncoding(unsigned width) {
   }
 }
 
+/// Returns internal dimension level type encoding.
+static unsigned
+getDimLevelTypeEncoding(SparseTensorEncodingAttr::DimLevelType dlt) {
+  switch (dlt) {
+  case SparseTensorEncodingAttr::DimLevelType::Dense:
+    return 0;
+  case SparseTensorEncodingAttr::DimLevelType::Compressed:
+    return 1;
+  case SparseTensorEncodingAttr::DimLevelType::Singleton:
+    return 2;
+  }
+}
+
+/// Returns integers of given width and values as a constant tensor.
+/// We cast the static shape into a dynamic shape to ensure that the
+/// method signature remains uniform accross different tensor dimensions.
+static Value getTensor(ConversionPatternRewriter &rewriter, unsigned width,
+                       Location loc, ArrayRef<APInt> values) {
+  Type etp = rewriter.getIntegerType(width);
+  unsigned sz = values.size();
+  RankedTensorType tt1 = RankedTensorType::get({sz}, etp);
+  RankedTensorType tt2 = RankedTensorType::get({ShapedType::kDynamicSize}, etp);
+  auto elts =
+      rewriter.create<ConstantOp>(loc, DenseElementsAttr::get(tt1, values));
+  return rewriter.create<tensor::CastOp>(loc, tt2, elts);
+}
+
 /// Returns function reference (first hit also inserts into module).
 static FlatSymbolRefAttr getFunc(Operation *op, StringRef name, Type result,
                                  ValueRange operands) {
@@ -104,22 +131,29 @@ class SparseTensorNewConverter : public OpConversionPattern<NewOp> {
       return failure();
     // User pointer.
     params.push_back(operands[0]);
-    // Sparsity annotations in tensor constant form. Note that we cast
-    // the static shape into a dynamic shape to ensure that the method
-    // signature remains uniform accross different tensor dimensions.
-    SmallVector<bool, 4> attrs;
+    // Sparsity annotations in tensor constant form.
+    SmallVector<APInt, 4> attrs;
     unsigned sz = enc.getDimLevelType().size();
     for (unsigned i = 0; i < sz; i++)
-      attrs.push_back(enc.getDimLevelType()[i] ==
-                      SparseTensorEncodingAttr::DimLevelType::Compressed);
-    Type etp = rewriter.getIntegerType(1);
-    RankedTensorType tt1 = RankedTensorType::get({sz}, etp);
-    RankedTensorType tt2 =
-        RankedTensorType::get({ShapedType::kDynamicSize}, etp);
-    auto elts =
-        rewriter.create<ConstantOp>(loc, DenseElementsAttr::get(tt1, attrs));
-    params.push_back(rewriter.create<tensor::CastOp>(loc, tt2, elts));
-    // Seconary and primary types encoding.
+      attrs.push_back(
+          APInt(8, getDimLevelTypeEncoding(enc.getDimLevelType()[i])));
+    params.push_back(getTensor(rewriter, 8, loc, attrs));
+    // Dimension order permutation array. This is the "identity"
+    // permutation by default, or otherwise the "reverse" permutation
+    // of a given ordering, so that indices can be mapped quickly
+    // to the right position.
+    SmallVector<APInt, 4> perm(sz);
+    AffineMap p = enc.getDimOrdering();
+    if (p) {
+      assert(p.isPermutation() && p.getNumResults() == sz);
+      for (unsigned i = 0; i < sz; i++)
+        perm[p.getDimPosition(i)] = APInt(64, i);
+    } else {
+      for (unsigned i = 0; i < sz; i++)
+        perm[i] = APInt(64, i);
+    }
+    params.push_back(getTensor(rewriter, 64, loc, perm));
+    // Secondary and primary types encoding.
     unsigned secPtr = getOverheadTypeEncoding(enc.getPointerBitWidth());
     unsigned secInd = getOverheadTypeEncoding(enc.getIndexBitWidth());
     unsigned primary;

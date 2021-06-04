@@ -354,9 +354,6 @@ AlignmentFromAssumptionsPass::run(Function &F, FunctionAnalysisManager &AM) {
 
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
-  PA.preserve<AAManager>();
   PA.preserve<ScalarEvolutionAnalysis>();
-  PA.preserve<GlobalsAA>();
-  PA.preserve<AndersensAA>();            // INTEL
   return PA;
 }

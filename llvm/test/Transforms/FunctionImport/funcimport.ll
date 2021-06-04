@@ -1,3 +1,5 @@
+; REQUIRES: x86-registered-target
+
 ; Do setup work for all below tests: generate bitcode and combined index
 ; INTEL_CUSTOMIZATION
 ; Use extra option to allow full source filename path in module
@@ -18,6 +20,13 @@
 ; RUN: opt -function-import -enable-import-metadata  -summary-file %t3.thinlto.bc %t.bc -import-instr-limit=5 -S | FileCheck %s --check-prefix=CHECK --check-prefix=INSTLIM5
 ; INSTLIM5-NOT: @staticfunc.llvm.
 
+; Test force import all
+; RUN: llvm-lto -thinlto-action=run -force-import-all %t.bc %t2.bc 2>&1 \
+; RUN:  | FileCheck %s --check-prefix=IMPORTALL
+; IMPORTALL-DAG: Error importing module: Failed to import function weakalias due to InterposableLinkage
+
+target datalayout = "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-apple-macosx10.11.0"
 
 define i32 @main() #0 {
 entry:

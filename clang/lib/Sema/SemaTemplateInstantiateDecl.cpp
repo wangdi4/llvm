@@ -763,15 +763,14 @@ static void instantiateSYCLIntelNoGlobalWorkOffsetAttr(
     S.AddSYCLIntelNoGlobalWorkOffsetAttr(New, *A, Result.getAs<Expr>());
 }
 
-template <typename AttrName>
-static void instantiateIntelSYCLFunctionAttr(
+static void instantiateSYCLIntelMaxGlobalWorkDimAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const AttrName *Attr, Decl *New) {
+    const SYCLIntelMaxGlobalWorkDimAttr *A, Decl *New) {
   EnterExpressionEvaluationContext Unevaluated(
       S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
-  ExprResult Result = S.SubstExpr(Attr->getValue(), TemplateArgs);
+  ExprResult Result = S.SubstExpr(A->getValue(), TemplateArgs);
   if (!Result.isInvalid())
-    S.addIntelSingleArgAttr<AttrName>(New, *Attr, Result.getAs<Expr>());
+    S.AddSYCLIntelMaxGlobalWorkDimAttr(New, *A, Result.getAs<Expr>());
 }
 
 static void instantiateSYCLIntelFPGAMaxConcurrencyAttr(
@@ -822,6 +821,25 @@ static void instantiateSYCLIntelESimdVectorizeAttr(
   ExprResult Result = S.SubstExpr(A->getValue(), TemplateArgs);
   if (!Result.isInvalid())
     S.AddSYCLIntelESimdVectorizeAttr(New, *A, Result.getAs<Expr>());
+}
+
+static void instantiateWorkGroupSizeHintAttr(
+    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+    const WorkGroupSizeHintAttr *A, Decl *New) {
+  EnterExpressionEvaluationContext Unevaluated(
+      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
+  ExprResult XResult = S.SubstExpr(A->getXDim(), TemplateArgs);
+  if (XResult.isInvalid())
+    return;
+  ExprResult YResult = S.SubstExpr(A->getYDim(), TemplateArgs);
+  if (YResult.isInvalid())
+    return;
+  ExprResult ZResult = S.SubstExpr(A->getZDim(), TemplateArgs);
+  if (ZResult.isInvalid())
+    return;
+
+  S.AddWorkGroupSizeHintAttr(New, *A, XResult.get(), YResult.get(),
+                             ZResult.get());
 }
 
 /// Determine whether the attribute A might be relevent to the declaration D.
@@ -1081,8 +1099,8 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
     }
     if (const auto *SYCLIntelMaxGlobalWorkDim =
             dyn_cast<SYCLIntelMaxGlobalWorkDimAttr>(TmplAttr)) {
-      instantiateIntelSYCLFunctionAttr<SYCLIntelMaxGlobalWorkDimAttr>(
-          *this, TemplateArgs, SYCLIntelMaxGlobalWorkDim, New);
+      instantiateSYCLIntelMaxGlobalWorkDimAttr(*this, TemplateArgs,
+                                               SYCLIntelMaxGlobalWorkDim, New);
       continue;
     }
     if (const auto *SYCLIntelLoopFuse =
@@ -1124,6 +1142,10 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
             dyn_cast<SYCLIntelESimdVectorizeAttr>(TmplAttr)) {
       instantiateSYCLIntelESimdVectorizeAttr(*this, TemplateArgs,
                                              SYCLIntelESimdVectorize, New);
+      continue;
+    }
+    if (const auto *A = dyn_cast<WorkGroupSizeHintAttr>(TmplAttr)) {
+      instantiateWorkGroupSizeHintAttr(*this, TemplateArgs, A, New);
       continue;
     }
     // Existing DLL attribute on the instantiation takes precedence.

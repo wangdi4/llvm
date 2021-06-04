@@ -45,17 +45,6 @@ cl::opt<bool> PreservedCFGCheckerInstrumentation::VerifyPreservedCFG(
     cl::init(true));
 #endif
 
-// FIXME: Change `-debug-pass-manager` from boolean to enum type. Similar to
-// `-debug-pass` in legacy PM.
-static cl::opt<bool>
-    DebugPMVerbose("debug-pass-manager-verbose", cl::Hidden, cl::init(false),
-                   cl::desc("Print all pass management debugging information. "
-                            "`-debug-pass-manager` must also be specified"));
-
-static cl::opt<bool>
-    DebugPassStructure("debug-pass-structure", cl::Hidden, cl::init(false),
-                       cl::desc("Print pass structure information."));
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 // An option that prints out the IR after passes, similar to
 // -print-after-all except that it only prints the IR after passes that
@@ -950,92 +939,72 @@ void OptBisectInstrumentation::registerCallbacks(
   });
 }
 
+raw_ostream &PrintPassInstrumentation::print() {
+  if (Opts.Indent) {
+    assert(Indent >= 0);
+    dbgs().indent(Indent);
+  }
+  return dbgs();
+}
+
 void PrintPassInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
-  if (!DebugLogging)
+  if (!Enabled)
     return;
 
   std::vector<StringRef> SpecialPasses;
-  if (!DebugPMVerbose) {
+  if (!Opts.Verbose) {
     SpecialPasses.emplace_back("PassManager");
     SpecialPasses.emplace_back("PassAdaptor");
   }
 
   PIC.registerBeforeSkippedPassCallback(
-      [SpecialPasses](StringRef PassID, Any IR) {
+      [this, SpecialPasses](StringRef PassID, Any IR) {
         assert(!isSpecialPass(PassID, SpecialPasses) &&
                "Unexpectedly skipping special pass");
 
-        dbgs() << "Skipping pass: " << PassID << " on " << getIRName(IR)
-               << "\n";
+        print() << "Skipping pass: " << PassID << " on " << getIRName(IR)
+                << "\n";
       });
+  PIC.registerBeforeNonSkippedPassCallback([this, SpecialPasses](
+                                               StringRef PassID, Any IR) {
+    if (isSpecialPass(PassID, SpecialPasses))
+      return;
 
-  PIC.registerBeforeNonSkippedPassCallback(
-      [SpecialPasses](StringRef PassID, Any IR) {
+    print() << "Running pass: " << PassID << " on " << getIRName(IR) << "\n";
+    Indent += 2;
+  });
+  PIC.registerAfterPassInvalidatedCallback(
+      [this, SpecialPasses](StringRef PassID, Any IR) {
         if (isSpecialPass(PassID, SpecialPasses))
           return;
 
-        dbgs() << "Running pass: " << PassID << " on " << getIRName(IR) << "\n";
+        Indent -= 2;
       });
 
-  PIC.registerBeforeAnalysisCallback([](StringRef PassID, Any IR) {
-    dbgs() << "Running analysis: " << PassID << " on " << getIRName(IR) << "\n";
+  if (!Opts.SkipAnalyses) {
+    PIC.registerBeforeAnalysisCallback([this](StringRef PassID, Any IR) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+      print() << "Running analysis: " << PassID << " on " << getIRName(IR)
+              << "\n";
+#endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+      Indent += 2;
   });
-
-  PIC.registerAnalysisInvalidatedCallback([](StringRef PassID, Any IR) {
-    dbgs() << "Invalidating analysis: " << PassID << " on " << getIRName(IR)
-           << "\n";
-  });
-  PIC.registerAnalysesClearedCallback([](StringRef IRName) {
-    dbgs() << "Clearing all analysis results for: " << IRName << "\n";
-  });
+    PIC.registerAfterAnalysisCallback(
+        [this](StringRef PassID, Any IR) { Indent -= 2; });
+    PIC.registerAnalysisInvalidatedCallback([this](StringRef PassID, Any IR) {
+      print() << "Invalidating analysis: " << PassID << " on " << getIRName(IR)
+              << "\n";
+    });
+    PIC.registerAnalysesClearedCallback([this](StringRef IRName) {
+      print() << "Clearing all analysis results for: " << IRName << "\n";
+    });
+  }
 }
 #else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 void PrintPassInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &) {}
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-
-void PassStructurePrinter::printWithIdent(bool Expand, const Twine &Msg) {
-  if (!Msg.isTriviallyEmpty())
-    dbgs().indent(Ident) << Msg << "\n";
-  Ident = Expand ? Ident + 2 : Ident - 2;
-  assert(Ident >= 0);
-}
-
-void PassStructurePrinter::registerCallbacks(
-    PassInstrumentationCallbacks &PIC) {
-  if (!DebugPassStructure)
-    return;
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  PIC.registerBeforeNonSkippedPassCallback([this](StringRef PassID, Any IR) {
-    printWithIdent(true, PassID + " on " + getIRName(IR));
-  });
-#else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  PIC.registerBeforeNonSkippedPassCallback( // INTEL
-      [](StringRef PassID, Any IR) {}); // INTEL
-#endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  PIC.registerAfterPassCallback(
-      [this](StringRef PassID, Any IR, const PreservedAnalyses &) {
-        printWithIdent(false, Twine());
-      });
-
-  PIC.registerAfterPassInvalidatedCallback(
-      [this](StringRef PassID, const PreservedAnalyses &) {
-        printWithIdent(false, Twine());
-      });
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  PIC.registerBeforeAnalysisCallback([this](StringRef PassID, Any IR) {
-    printWithIdent(true, PassID + " analysis on " + getIRName(IR));
-  });
-#else //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  PIC.registerBeforeAnalysisCallback( // INTEL
-      [](StringRef PassID, Any IR) {}); // INTEL
-#endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  PIC.registerAfterAnalysisCallback(
-      [this](StringRef PassID, Any IR) { printWithIdent(false, Twine()); });
-}
 
 PreservedCFGCheckerInstrumentation::CFG::CFG(const Function *F,
                                              bool TrackBBLifetime) {
@@ -1063,7 +1032,7 @@ static void printBBName(raw_ostream &out, const BasicBlock *BB) {
     return;
   }
 
-  if (BB == &BB->getParent()->getEntryBlock()) {
+  if (BB->isEntryBlock()) {
     out << "entry"
         << "<" << BB << ">";
     return;
@@ -1344,9 +1313,9 @@ void InLineChangePrinter::registerCallbacks(PassInstrumentationCallbacks &PIC) {
 #endif // INTEL_CUSTOMIZATION
 }
 
-StandardInstrumentations::StandardInstrumentations(bool DebugLogging,
-                                                   bool VerifyEach)
-    : PrintPass(DebugLogging), OptNone(DebugLogging),
+StandardInstrumentations::StandardInstrumentations(
+    bool DebugLogging, bool VerifyEach, PrintPassOptions PrintPassOpts)
+    : PrintPass(DebugLogging, PrintPassOpts), OptNone(DebugLogging),
 #if INTEL_CUSTOMIZATION
     // The Intel customization here is only to exclude the IR printing
     // in release builds. The upstream code in the "!defined(NDEBUG)"
@@ -1369,7 +1338,6 @@ void StandardInstrumentations::registerCallbacks(
     PassInstrumentationCallbacks &PIC, FunctionAnalysisManager *FAM) {
   PrintIR.registerCallbacks(PIC);
   PrintPass.registerCallbacks(PIC);
-  StructurePrinter.registerCallbacks(PIC);
   TimePasses.registerCallbacks(PIC);
   OptNone.registerCallbacks(PIC);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

@@ -80,34 +80,33 @@ public:
   void registerCallbacks(PassInstrumentationCallbacks &PIC);
 };
 
-// Debug logging for transformation and analysis passes.
-class PrintPassInstrumentation {
-  void printWithIdent(bool Expand, const Twine &Msg);
-
-public:
-  PrintPassInstrumentation(bool DebugLogging)
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-      : DebugLogging(DebugLogging)
-#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  {
-  }
-  void registerCallbacks(PassInstrumentationCallbacks &PIC);
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-private:
-  bool DebugLogging;
-#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  int Ident = 0;
+struct PrintPassOptions {
+  /// Print adaptors and pass managers.
+  bool Verbose = false;
+  /// Don't print information for analyses.
+  bool SkipAnalyses = false;
+  /// Indent based on hierarchy.
+  bool Indent = false;
 };
 
-// Pass structure dumper
-class PassStructurePrinter {
-  int Ident = 0;
-  void printWithIdent(bool Expand, const Twine &Msg);
+// Debug logging for transformation and analysis passes.
+class PrintPassInstrumentation {
+  raw_ostream &print();
 
 public:
-  PassStructurePrinter() {}
+  PrintPassInstrumentation(bool Enabled, PrintPassOptions Opts)
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+      : Enabled(Enabled), Opts(Opts)
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+      {} // INTEL
   void registerCallbacks(PassInstrumentationCallbacks &PIC);
+
+private:
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+  bool Enabled;
+  PrintPassOptions Opts;
+  int Indent = 0;
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 };
 
 class PreservedCFGCheckerInstrumentation {
@@ -421,7 +420,6 @@ public:
 class StandardInstrumentations {
   PrintIRInstrumentation PrintIR;
   PrintPassInstrumentation PrintPass;
-  PassStructurePrinter StructurePrinter;
   TimePassesHandler TimePasses;
   OptNoneInstrumentation OptNone;
   OptBisectInstrumentation OptBisect;
@@ -434,7 +432,8 @@ class StandardInstrumentations {
   bool VerifyEach;
 
 public:
-  StandardInstrumentations(bool DebugLogging, bool VerifyEach = false);
+  StandardInstrumentations(bool DebugLogging, bool VerifyEach = false,
+                           PrintPassOptions PrintPassOpts = PrintPassOptions());
 
   // Register all the standard instrumentation callbacks. If \p FAM is nullptr
   // then PreservedCFGChecker is not enabled.

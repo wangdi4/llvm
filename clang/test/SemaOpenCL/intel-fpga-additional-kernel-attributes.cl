@@ -2,22 +2,22 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple x86_64-unknown-unknown-intelfpga -fsyntax-only -verify %s
 
 __attribute__((max_global_work_dim(0)))
-__attribute__((max_work_group_size(1024, 1, 1))) //expected-error{{'max_work_group_size' X-, Y- and Z- sizes must be 1 when 'max_global_work_dim' attribute is used with value 0}}
+__attribute__((max_work_group_size(1024, 1, 1))) //expected-error{{all 'max_work_group_size' attribute arguments must be '1' when the 'max_global_work_dim' attribute argument is '0'}}
 __kernel void kernel_1a() {
 }
 
-__attribute__((max_work_group_size(1024, 1, 1))) //OK
+__attribute__((max_work_group_size(1024, 1, 1))) //expected-error{{all 'max_work_group_size' attribute arguments must be '1' when the 'max_global_work_dim' attribute argument is '0'}}
 __attribute__((max_global_work_dim(0)))
 __kernel void kernel_1b() {
 }
 
-__attribute__((reqd_work_group_size(16,16,16))) //OK
+__attribute__((reqd_work_group_size(16,16,16))) //expected-error{{all 'reqd_work_group_size' attribute arguments must be '1' when the 'max_global_work_dim' attribute argument is '0'}}
 __attribute__((max_global_work_dim(0)))
 __kernel void kernel_2a() {
 }
 
 __attribute__((max_global_work_dim(0)))
-__attribute__((reqd_work_group_size(16,16,16))) //expected-error{{'reqd_work_group_size' X-, Y- and Z- sizes must be 1 when 'max_global_work_dim' attribute is used with value 0}}
+__attribute__((reqd_work_group_size(16,16,16))) //expected-error{{all 'reqd_work_group_size' attribute arguments must be '1' when the 'max_global_work_dim' attribute argument is '0'}}
 __kernel void kernel_2b() {
 }
 
@@ -115,12 +115,12 @@ __kernel void kernel_5a() {
 }
 
 __attribute__((max_global_work_dim(0)))
-__attribute__((max_work_group_size(10, 10, 10))) //expected-error{{'max_work_group_size' X-, Y- and Z- sizes must be 1 when 'max_global_work_dim' attribute is used}}
+__attribute__((max_work_group_size(10, 10, 10))) //expected-error{{all 'max_work_group_size' attribute arguments must be '1' when the 'max_global_work_dim' attribute argument is '0'}}
 __kernel void kernel_5b() {
 }
 
 __attribute__((max_global_work_dim(0)))
-__attribute__((reqd_work_group_size(10, 10, 10))) //expected-error{{'reqd_work_group_size' X-, Y- and Z- sizes must be 1 when 'max_global_work_dim' attribute is used}}
+__attribute__((reqd_work_group_size(10, 10, 10))) //expected-error{{all 'reqd_work_group_size' attribute arguments must be '1' when the 'max_global_work_dim' attribute argument is '0'}}
 __kernel void kernel_5c() {
 }
 

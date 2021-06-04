@@ -502,11 +502,6 @@ static cl::opt<bool> EnableO3NonTrivialUnswitching(
     "enable-npm-O3-nontrivial-unswitch", cl::init(true), cl::Hidden,
     cl::ZeroOrMore, cl::desc("Enable non-trivial loop unswitching for -O3"));
 
-static cl::opt<bool> DoNotRerunFunctionPasses(
-    "cgscc-npm-no-fp-rerun", cl::init(false),
-    cl::desc("Do not rerun function passes wrapped by the scc pass adapter, if "
-             "they were run already and the function hasn't changed."));
-
 PipelineTuningOptions::PipelineTuningOptions() {
   LoopInterleaving = true;
   LoopVectorization = true;
@@ -1457,10 +1452,8 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
 
   // Lastly, add the core function simplification pipeline nested inside the
   // CGSCC walk.
-  auto FSP = buildFunctionSimplificationPipeline(Level, Phase);
-  if (DoNotRerunFunctionPasses)
-    FSP.addPass(RequireAnalysisPass<FunctionStatusAnalysis, Function>());
-  MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(std::move(FSP)));
+  MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
+      buildFunctionSimplificationPipeline(Level, Phase)));
 
   return MIWP;
 }
@@ -1663,9 +1656,6 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
 #else
   MPM.addPass(buildInlinerPipeline(Level, Phase));
 #endif // INTEL_COLLAB
-  if (DoNotRerunFunctionPasses)
-    MPM.addPass(createModuleToFunctionPassAdaptor(
-        InvalidateAnalysisPass<FunctionStatusAnalysis>()));
 #if INTEL_CUSTOMIZATION
 
   // If VPO paropt was required to run then do IP constant propagation after
@@ -1824,8 +1814,8 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   // user pragmas (like unroller & vectorizer) are triggered in LTO link phase.
   if (!PrepareForLTO)
     FPM.addPass(WarnMissedTransformationsPass());
-    // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
-    // if IP ArrayTranspose is enabled.
+  // Combine silly sequences. Set PreserveAddrCompute to true in LTO phase 1
+  // if IP ArrayTranspose is enabled.
   addInstCombinePass(FPM, !DTransEnabled);
 #endif // INTEL_CUSTOMIZATION
     FPM.addPass(

@@ -43,9 +43,7 @@ private:
   }
 
 #ifdef __SYCL_DEVICE_ONLY__
-/* INTEL_CUSTOMIZATION */
 #if __cplusplus >= 201703L
-/* end INTEL_CUSTOMIZATION */
   template <
       auto &S,
       typename T = typename std::remove_reference_t<decltype(S)>::value_type,
@@ -66,9 +64,7 @@ private:
     return __sycl_getComposite2020SpecConstantValue<T>(
         SymbolicID, &S, MSpecializationConstantsBuffer);
   }
-/* INTEL_CUSTOMIZATION */
 #endif // __cplusplus >= 201703L
-/* end INTEL_CUSTOMIZATION */
 #endif // __SYCL_DEVICE_ONLY__
 
   char *MSpecializationConstantsBuffer = nullptr;

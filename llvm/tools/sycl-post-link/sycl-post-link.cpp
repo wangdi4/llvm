@@ -607,6 +607,17 @@ static string_vector saveDeviceImageProperty(
         PropSet.add(
             llvm::util::PropertySetRegistry::SYCL_SPECIALIZATION_CONSTANTS,
             TmpSpecIDMap);
+
+        // Add property with the default values of spec constants only in native
+        // (default) mode.
+        if (!ImgPSInfo.SetSpecConstAtRT) {
+          std::vector<char> DefaultValues;
+          SpecConstantsPass::collectSpecConstantDefaultValuesMetadata(
+              *ResultModules[I].get(), DefaultValues);
+          PropSet.add(llvm::util::PropertySetRegistry::
+                          SYCL_SPEC_CONSTANTS_DEFAULT_VALUES,
+                      "all", DefaultValues);
+        }
       }
     }
     if (ImgPSInfo.EmitKernelParamInfo) {
@@ -751,22 +762,6 @@ static TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
   bool SpecConstsMet = false;
   bool SetSpecConstAtRT = DoSpecConst && (SpecConstLower == SC_USE_RT_VAL);
 
-  if (DoSpecConst) {
-    // perform the spec constant intrinsics transformation and enumeration on
-    // the whole module
-    ModulePassManager RunSpecConst;
-    ModuleAnalysisManager MAM;
-    SpecConstantsPass SCP(SetSpecConstAtRT);
-    // Register required analysis
-    MAM.registerPass([&] { return PassInstrumentationAnalysis(); });
-    RunSpecConst.addPass(SCP);
-    if (!DoSplit)
-      // This pass deletes unreachable globals. Code splitter runs it later.
-      RunSpecConst.addPass(GlobalDCEPass());
-    PreservedAnalyses Res = RunSpecConst.run(*M, MAM);
-    SpecConstsMet = !Res.areAllPreserved();
-  }
-
 #if INTEL_COLLAB
   if (DoEnableOmpExplicitSimd) {
     legacy::PassManager Passes;
@@ -792,18 +787,35 @@ static TableFiles processOneModule(std::unique_ptr<Module> M, bool IsEsimd,
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB
 
+  if (DoSplit)
+    splitModule(*M, GlobalsSet, ResultModules);
+  // post-link always produces a code result, even if it is unmodified input
+  if (ResultModules.empty())
+    ResultModules.push_back(std::move(M));
+
+  if (DoSpecConst) {
+    ModulePassManager RunSpecConst;
+    ModuleAnalysisManager MAM;
+    SpecConstantsPass SCP(SetSpecConstAtRT);
+    // Register required analysis
+    MAM.registerPass([&] { return PassInstrumentationAnalysis(); });
+    RunSpecConst.addPass(SCP);
+    // This pass deletes unreachable globals.
+    RunSpecConst.addPass(GlobalDCEPass());
+
+    for (auto &MPtr : ResultModules) {
+      // perform the spec constant intrinsics transformation on each resulting
+      // module
+      PreservedAnalyses Res = RunSpecConst.run(*MPtr, MAM);
+      SpecConstsMet |= !Res.areAllPreserved();
+    }
+  }
+
   if (IROutputOnly) {
     // the result is the transformed input LLVMIR file rather than a file table
-    saveModule(*M, OutputFilename);
+    saveModule(*ResultModules.front(), OutputFilename);
     return TblFiles;
   }
-  if (DoSplit) {
-    splitModule(*M, GlobalsSet, ResultModules);
-    // post-link always produces a code result, even if it is unmodified input
-    if (ResultModules.size() == 0)
-      ResultModules.push_back(std::move(M));
-  } else
-    ResultModules.push_back(std::move(M));
 
   {
     // Reuse input module with only regular SYCL kernels if there were
