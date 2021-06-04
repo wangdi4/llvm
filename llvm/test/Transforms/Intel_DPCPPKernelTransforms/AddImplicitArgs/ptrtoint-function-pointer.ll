@@ -73,3 +73,6 @@ attributes #0 = { "sycl-kernel" }
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} getelementptr
 ; DEBUGIFY-NEXT: WARNING: Instruction with empty DebugLoc in function {{.*}} bitcast
 ; DEBUGIFY-NOT: WARNING
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32, i32 addrspace(1)*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, i32 addrspace(1)*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, i32 addrspace(1)*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*, %"class.cl::sycl::range"*)* @_ZTS1K}

@@ -55,3 +55,6 @@ declare void @_Z18work_group_barrierj(i32 %0) #1
 attributes #0 = { "sycl-kernel" }
 attributes #1 = { convergent }
 
+
+!sycl.kernels = !{!0}
+!0 = !{void ()* @kernel_contains_barrier, void ()* @kernel_not_contains_barrier, void ()* @kernel_call_func_call_barrier, void ()* @kernel_call_func_call_func_call_barrier, void ()* @kernel_call_func_no_call_barrier}

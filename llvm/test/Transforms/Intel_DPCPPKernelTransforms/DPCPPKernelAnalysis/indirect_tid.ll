@@ -67,3 +67,6 @@ declare dso_local i32 @_Z13get_global_idj(i32)
 declare dso_local i32 @_Z12get_local_idj(i32)
 
 attributes #0 = { "sycl-kernel" }
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32 addrspace(1)*)* @kernel_call_func_with_gid, void (i32 addrspace(1)*)* @kernel_call_func_with_lid, void (i32 addrspace(1)*)* @kernel_call_func_call_func_with_gid, void (i32 addrspace(1)*)* @kernel_call_func_call_func_with_lid, void (i32 addrspace(1)*)* @kernel_call_func_without_tid}

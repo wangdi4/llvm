@@ -4,7 +4,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_(i32* nocapture %out) #0 {
+define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_(i32* nocapture %out) #0 !vectorized_width !{i32 16} {
 ; CHECK-NOT:     [[VALL:%.*]] = tail call i32 @__builtin_get_max_sub_group_size()
 ; CHECK:         [[MAX_SG_SIZE:%.*]] = trunc i64 16 to i32
 ; CHECK:         store i32 [[MAX_SG_SIZE]], i32* %arrayidx, align 4

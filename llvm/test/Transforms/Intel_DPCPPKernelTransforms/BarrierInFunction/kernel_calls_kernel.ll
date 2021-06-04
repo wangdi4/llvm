@@ -26,3 +26,6 @@ declare void @_Z18work_group_barrierj(i32 %0) #1
 attributes #0 = { "no-barrier-path"="false" "sycl-kernel" }
 attributes #1 = { convergent }
 attributes #2 = { "no-barrier-path"="false" "sycl-kernel" }
+
+!sycl.kernels = !{!0}
+!0 = !{void ()* @kernel, void ()* @kernel2}

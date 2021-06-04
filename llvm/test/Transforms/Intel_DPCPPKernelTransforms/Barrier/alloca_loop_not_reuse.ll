@@ -105,3 +105,6 @@ declare void @barrier_dummy()
 attributes #0 = { convergent noinline "sycl-kernel" "kernel-convergent-call" }
 attributes #1 = { convergent "kernel-call-once" "kernel-convergent-call" }
 
+
+!sycl.kernels = !{!0}
+!0 = !{void ()* @test}

@@ -14,6 +14,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include "ImplicitArgsUtils.h"
 #include "NameMangleAPI.h"
@@ -234,32 +235,28 @@ std::string mangledWGBarrier(BarrierType BT) {
   return "";
 }
 
-FuncSet getKernels(Module &M) {
-  FuncSet FSet;
-  for (auto &F : M) {
-    if (F.hasFnAttribute(KernelAttribute::SyclKernel))
-      FSet.insert(&F);
-  }
-  return FSet;
-}
-
 FuncSet getAllKernels(Module &M) {
-  FuncSet FSet = getKernels(M);
+  auto Kernels = getKernels(M);
 
   // List all kernels in module
   FuncSet VectorizedFSet;
-  for (auto *F : FSet) {
+  for (auto *F : Kernels) {
     // Need to check if Vectorized Kernel Value exists, it is not guaranteed
     // that Vectorized is running in all scenarios.
-    Function *VectorizedF =
-        getFnAttributeFunction(M, *F, KernelAttribute::VectorizedKernel);
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+    Function *VectorizedF = KIMD.VectorizedKernel.hasValue()
+                                ? KIMD.VectorizedKernel.get()
+                                : nullptr;
     if (VectorizedF)
       VectorizedFSet.insert(VectorizedF);
-    Function *VectorizedMaskedF =
-        getFnAttributeFunction(M, *F, KernelAttribute::VectorizedMaskedKernel);
+    Function *VectorizedMaskedF = KIMD.VectorizedMaskedKernel.hasValue()
+                                      ? KIMD.VectorizedMaskedKernel.get()
+                                      : nullptr;
     if (VectorizedMaskedF)
       VectorizedFSet.insert(VectorizedMaskedF);
   }
+
+  FuncSet FSet(Kernels.begin(), Kernels.end());
   FSet.insert(VectorizedFSet.begin(), VectorizedFSet.end());
   return FSet;
 }
@@ -565,14 +562,14 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
       // in that case 0 argument is block_literal pointer
       // update with special type
       // should be before handling ptrs by addr space
-      if ((i == 0) && F->hasFnAttribute(KernelAttribute::BlockLiteralSize)) {
+      DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+      if ((i == 0) && KIMD.BlockLiteralSize.hasValue()) {
         auto *PTy = dyn_cast<PointerType>(pArg->getType());
         if (!PTy || !PTy->getElementType()->isIntegerTy(8))
           continue;
 
         CurArg.Ty = KRNL_ARG_PTR_BLOCK_LITERAL;
-        CurArg.SizeInBytes = KernelAttribute::getAttributeAsInt(
-            *F, KernelAttribute::BlockLiteralSize);
+        CurArg.SizeInBytes = KIMD.BlockLiteralSize.get();
         break;
       }
 
@@ -710,9 +707,9 @@ void parseKernelArguments(Module *M, Function *F, bool UseTLSGlobals,
     } break;
 
     case Type::IntegerTyID: {
-      // FIXME: kernel_arg_*** is not attribute, it's metadata.
-      if (getFnAttributeStringInList(*F, "kernel_arg_base_type", i) ==
-          SAMPLER) {
+      DPCPPKernelMetadataAPI::KernelMetadataAPI KMD(F);
+      if (KMD.ArgBaseTypeList.hasValue() &&
+          KMD.ArgBaseTypeList.getItem(i) == SAMPLER) {
         CurArg.Ty = KRNL_ARG_SAMPLER;
         CurArg.SizeInBytes = sizeof(_sampler_t);
       } else {

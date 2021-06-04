@@ -21,6 +21,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPPrepareKernelForVecClone.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #define SV_NAME "dpcpp-kernel-vec-clone"
 
@@ -89,8 +90,8 @@ static bool ReplaceMaxSGSizeCall(Module &M) {
     // a constant VectorLength
     for (User *U : F->users()) {
       if (CallInst *CI = dyn_cast<CallInst>(U)) {
-        unsigned VectorLength = KernelAttribute::getAttributeAsInt(
-            *CI->getFunction(), KernelAttribute::VectorizedWidth);
+        DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(CI->getFunction());
+        unsigned VectorLength = KIMD.VectorizedWidth.get();
         Value *ConstVF = CastInst::CreateTruncOrBitCast(
             createVFConstant(M.getContext(), M.getDataLayout(), VectorLength),
             IntegerType::get(M.getContext(), 32), "max.sg.size", CI);
@@ -166,19 +167,20 @@ static void updateReferences(Function &F, Function *Clone) {
   // with this attribute. It can't be kept as vectorized kernel would get
   // its own treatment by WGLoopCreator pass (which breaks design).
 
-  Clone->removeFnAttr(KernelAttribute::SyclKernel);
-
+  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(&F);
   // Get VL from the attribute from the original kernel.
-  unsigned VectorLength = KernelAttribute::getAttributeAsInt(
-      F, KernelAttribute::RecommendedVL, /*Default*/ 1);
+  unsigned VectorLength =
+      KIMD.RecommendedVL.hasValue() ? KIMD.RecommendedVL.get() : 1;
+
+  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI CKIMD(Clone);
   // Set the "vector_width" attribute to the cloned kernel.
-  Clone->addFnAttr(KernelAttribute::VectorizedWidth, utostr(VectorLength));
+  CKIMD.VectorizedWidth.set(VectorLength);
   // Set the attribute that points to the orginal kernel of the clone.
-  Clone->addFnAttr(KernelAttribute::ScalarKernel, F.getName());
+  CKIMD.ScalarKernel.set(&F);
 
   // Set "vector_width" for the original kernel.
-  F.addFnAttr(KernelAttribute::VectorizedWidth, utostr(1));
-  F.addFnAttr(KernelAttribute::VectorizedKernel, Clone->getName());
+  KIMD.VectorizedWidth.set(1);
+  KIMD.VectorizedKernel.set(Clone);
 }
 
 // Updates all the uses of TID calls with TID + new induction variable.

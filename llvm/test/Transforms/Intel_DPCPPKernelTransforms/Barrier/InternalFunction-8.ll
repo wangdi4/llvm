@@ -59,3 +59,6 @@ declare void @barrier_dummy()
 declare i32 @_Z12get_local_idj(i32)
 
 attributes #0 = { "no-barrier-path"="false" "sycl-kernel" }
+
+!sycl.kernels = !{!0}
+!0 = !{void ()* @main}

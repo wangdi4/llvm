@@ -42,3 +42,6 @@ declare i32 @_Z13get_global_idj(i32)
 declare void @barrier_dummy()
 
 attributes #0 = { "no-barrier-path"="false" "sycl-kernel" }
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32)* @main}

@@ -23,3 +23,6 @@ define void @main(i32 %x) #0 {
 }
 
 attributes #0 = { "no-barrier-path"="false" "sycl-kernel" }
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32)* @main}

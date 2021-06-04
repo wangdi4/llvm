@@ -31,3 +31,6 @@ attributes #0 = { "sycl-kernel" }
 ; CHECK: ![[AS]] = !{}
 
 ; DEBUGIFY-NOT: WARNING
+
+!sycl.kernels = !{!1}
+!1 = !{void ()* @test, void ()* @__Vectorized_.test}

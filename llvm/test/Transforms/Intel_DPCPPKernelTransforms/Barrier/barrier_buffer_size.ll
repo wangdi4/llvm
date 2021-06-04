@@ -13,8 +13,9 @@ target triple = "x86_64-pc-linux"
 ;;      2. Kernel "__Vectorized_.main" has barrier_buffer_size metadata set
 ;;*****************************************************************************
 
-define void @main(i64 %x) #0 {
-; CHECK: @main{{.*}}#[[SCAL:[0-9]+]]
+define void @main(i64 %x) #0 !no_barrier_path !{i1 0} !vectorized_kernel !{void (i64)* @__Vectorized_.main} {
+; CHECK: define void @main
+; CHECK-SAME: !barrier_buffer_size ![[SCAL:[0-9]+]]
 L1:
   call void @barrier_dummy()
   %lid = call i64 @_Z12get_local_idj(i32 0)
@@ -29,8 +30,9 @@ L3:
   ret void
 }
 
-define void @__Vectorized_.main(i64 %x) #1 {
-; CHECK: @__Vectorized_.main{{.*}}#[[VEC:[0-9]+]]
+define void @__Vectorized_.main(i64 %x) #1 !vectorized_width !{i32 16} {
+; CHECK: define void @__Vectorized_.main
+; CHECK-SAME: !barrier_buffer_size ![[VEC:[0-9]+]]
 L1:
   call void @barrier_dummy()
   %lid = call i64 @_Z12get_local_idj(i32 0)
@@ -59,9 +61,12 @@ declare void @_Z18work_group_barrierj(i32)
 declare i64 @_Z12get_local_idj(i32)
 declare void @barrier_dummy()
 
-; CHECK:      #[[SCAL]]{{.*}}"barrier-buffer-size"="24"
-; CHECK-NEXT: #[[VEC]]{{.*}}"barrier-buffer-size"="2"
+; CHECK-DAG: ![[SCAL]] = !{i32 24}
+; CHECK-DAG: ![[VEC]] = !{i32 2}
 
 attributes #0 = { "no-barrier-path"="false" "sycl-kernel" "vectorized-kernel"="__Vectorized_.main" }
 attributes #1 = { "vectorized-width"="16" }
 
+
+!sycl.kernels = !{!0}
+!0 = !{void (i64)* @main}

@@ -19,6 +19,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
@@ -131,7 +132,6 @@ Function *PrepareKernelArgsPass::createWrapper(Function *F) {
   auto FnAttrs = F->getAttributes().getAttributes(AttributeList::FunctionIndex);
   AttrBuilder B(std::move(FnAttrs));
   NewF->addAttributes(AttributeList::FunctionIndex, B);
-  NewF->removeFnAttr(KernelAttribute::SyclKernel);
   F->removeFnAttr(Attribute::NoInline);
   F->addFnAttr(Attribute::AlwaysInline);
 
@@ -153,6 +153,7 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
 
   std::vector<Value *> Params;
   Function::arg_iterator CallIt = WrappedKernel->arg_begin();
+  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(WrappedKernel);
 
   const DataLayout &DL = M->getDataLayout();
   // TODO :  get common code from the following 2 for loops into a function
@@ -193,9 +194,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       // If the kernel was vectorized, choose an alignment that is good for the
       // *vectorized* type. This can be good for unaligned loads on targets that
       // support instructions such as MOVUPS
-      unsigned VecSize = KernelAttribute::getAttributeAsInt(
-          *WrappedKernel, KernelAttribute::VectorizedWidth,
-          /*Default*/ 1);
+      unsigned VecSize =
+          KIMD.VectorizedWidth.hasValue() ? KIMD.VectorizedWidth.get() : 1;
       if (VecSize != 1 && VectorType::isValidElementType(EltTy))
         EltTy = FixedVectorType::get(EltTy, VecSize);
       Alignment = NextPowerOf2(DL.getTypeAllocSize(EltTy) - 1);
@@ -271,9 +271,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
              "Mismatch in arg found in function and expected arg type");
     switch (I) {
     case ImplicitArgsUtils::IA_SLM_BUFFER: {
-      uint64_t SLMSizeInBytes = KernelAttribute::getAttributeAsInt(
-          *WrappedKernel, KernelAttribute::LocalBufferSize,
-          /*Default*/ 0);
+      uint64_t SLMSizeInBytes =
+          KIMD.LocalBufferSize.hasValue() ? KIMD.LocalBufferSize.get() : 0;
       // TODO: when SLMSizeInBytes equal 0, we might want to set dummy
       // address for debugging!
       if (SLMSizeInBytes == 0) { // no need to create of pad this buffer.
@@ -530,7 +529,8 @@ bool PrepareKernelArgsPass::runOnFunction(Function *F) {
   // a call of a device execution built-in) by ones to the wrapper
   replaceFunctionPointers(Wrapper, F);
 
-  F->addFnAttr(KernelAttribute::KernelWrapper, Wrapper->getName());
+  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+  KIMD.KernelWrapper.set(Wrapper);
   // TODO move stats from original kernel to the wrapper
 
   // Inline wrapped kernel.

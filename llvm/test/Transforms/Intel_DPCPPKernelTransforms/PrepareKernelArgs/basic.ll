@@ -8,7 +8,7 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %a,
   ret void
 }
 
-; CHECK: define void @A(i8* noalias %UniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeHandle) {
+; CHECK: define void @A(i8* noalias %UniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeHandle)
 ; CHECK:     %0 = getelementptr i8, i8* %UniformArgs, i32 0
 ; CHECK:     %1 = bitcast i8* %0 to i32 addrspace(1)**
 ; CHECK:     %explicit_0 = load i32 addrspace(1)*, i32 addrspace(1)** %1, align 8
@@ -70,3 +70,6 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %a,
 ; CHECK:     ret void
 
 attributes #0 = { "sycl-kernel" }
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @A}
