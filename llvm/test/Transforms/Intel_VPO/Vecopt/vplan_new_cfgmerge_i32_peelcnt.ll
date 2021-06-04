@@ -50,7 +50,7 @@ define dso_local float @getElement(i32 %idx) {
 ; CHECK-NEXT:    [[TMP1]] = fadd <2 x float> [[VEC_PHI7]], [[BROADCAST_SPLAT]]
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <2 x i32> [[VEC_PHI]], <i32 2, i32 2>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i32 [[UNI_PHI6]], 2
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i32 [[TMP3]], 4095
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i32 [[TMP3]], 4095
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB8:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB8:
 ; CHECK-NEXT:    [[TMP5:%.*]] = call float @llvm.vector.reduce.fadd.v2f32(float [[UNI_PHI]], <2 x float> [[TMP1]])

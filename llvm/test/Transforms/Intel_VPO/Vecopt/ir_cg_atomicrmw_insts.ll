@@ -79,7 +79,7 @@ define void @test1(i64 %n, i64 addrspace(4)* %arr) {
 ; LLVM-CG-NEXT:  VPlannedBB6:
 ; LLVM-CG-NEXT:    [[TMP29]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; LLVM-CG-NEXT:    [[TMP30]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; LLVM-CG-NEXT:    [[TMP31:%.*]] = icmp eq i64 [[TMP30]], [[TMP0:%.*]]
+; LLVM-CG-NEXT:    [[TMP31:%.*]] = icmp uge i64 [[TMP30]], [[TMP0:%.*]]
 ; LLVM-CG-NEXT:    br i1 [[TMP31]], label [[VPLANNEDBB70:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  VPlannedBB7:

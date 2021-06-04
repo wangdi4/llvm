@@ -31,7 +31,7 @@ define void @foo() {
 ; CHECK-NEXT:    call void @baz1(i64 [[VEC_PHI_EXTRACT_1_]])
 ; CHECK-NEXT:    [[TMP0]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw i64 [[UNI_PHI3]], 2
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq i64 [[TMP1]], 1024
+; CHECK-NEXT:    [[TMP2:%.*]] = icmp uge i64 [[TMP1]], 1024
 ; CHECK-NEXT:    br i1 [[TMP2]], label %[[VPLANNEDBB4:.*]], label [[VECTOR_BODY]], [[LOOP1:!llvm.loop !.*]]
 ; CHECK:       [[VPLANNEDBB4]]:
 ;

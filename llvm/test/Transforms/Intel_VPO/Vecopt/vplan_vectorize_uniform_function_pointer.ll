@@ -48,7 +48,7 @@ define dso_local void @_ZGVbN4_direct(i32* nocapture %a, i32* nocapture readonly
 ; CHECK-NEXT:    [[TMP9:%.*]] = add nsw <4 x i32> [[BROADCAST_SPLAT40]], [[TMP7]]
 ; CHECK-NEXT:    [[TMP10]] = add nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
 ; CHECK-NEXT:    [[TMP11]] = add nsw i32 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP12:%.*]] = icmp eq i32 [[TMP11]], [[TMP0]]
+; CHECK-NEXT:    [[TMP12:%.*]] = icmp uge i32 [[TMP11]], [[TMP0]]
 ; CHECK-NEXT:    br i1 [[TMP12]], label [[VPLANNEDBB50:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:

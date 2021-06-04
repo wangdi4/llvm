@@ -17,7 +17,7 @@ define dso_local void @foo(i32* nocapture %p) {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP0]] = getelementptr inbounds i32* [[VP_P_ADDR_06]] i64 [[VP_P_ADDR_06_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_INCDEC_PTR:%.*]] = getelementptr inbounds i32* [[VP_P_ADDR_06]] i64 1
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i32 [[VP_ADD1]] = add i32 [[VP__OMP_IV_0]] i32 [[VP__OMP_IV_0_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_ADD1]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp uge i32 [[VP_ADD1]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB2:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]

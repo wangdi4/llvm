@@ -19,7 +19,7 @@ define void @foo(<2 x float>* nocapture readonly %p) {
 ; CHECK-NEXT:    [[TMP4:%.*]] = shufflevector <8 x float> [[WIDE_LOAD]], <8 x float> [[TMP1]], <12 x i32> <i32 0, i32 undef, i32 9, i32 2, i32 undef, i32 11, i32 4, i32 undef, i32 13, i32 6, i32 undef, i32 15>
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI1]], 4
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i64 [[TMP6]], 1024
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp uge i64 [[TMP6]], 1024
 ; CHECK-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], [[LOOP0:!llvm.loop !.*]]
 ;
 entry:

@@ -42,7 +42,7 @@ define void @foo(i64* nocapture %larr) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB5]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INC]] = add i64 [[VP_L1]] i64 [[VP_L1_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INC]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INC]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB3]]
@@ -79,7 +79,7 @@ define void @foo(i64* nocapture %larr) {
 ; CHECK-NEXT:  VPlannedBB5:
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i64 [[TMP6]], 100
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp uge i64 [[TMP6]], 100
 ; CHECK-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0:%.*]]
 ;
 entry:

@@ -58,7 +58,7 @@ define void @foo(i64 *%p, i1 %uniform) #0 {
 ; VPLAN-NEXT:     [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr i64* [[P0:%.*]] i64 [[VP_IV]]
 ; VPLAN-NEXT:     [DA: Div] store i64 [[VP_ST_BLEND_BB8]] i64* [[VP_GEP]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND]], [[BB10:BB[0-9]+]], [[BB2]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB10]]: # preds: [[BB3]]
@@ -116,7 +116,7 @@ define void @foo(i64 *%p, i1 %uniform) #0 {
 ; CG-NEXT:    store <2 x i64> [[PREDBLEND130]], <2 x i64>* [[TMP7]], align 4
 ; CG-NEXT:    [[TMP8]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CG-NEXT:    [[TMP9]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CG-NEXT:    [[TMP10:%.*]] = icmp eq i64 [[TMP9]], 4
+; CG-NEXT:    [[TMP10:%.*]] = icmp uge i64 [[TMP9]], 4
 ; CG-NEXT:    br i1 [[TMP10]], label [[VPLANNEDBB140:%.*]], label [[VECTOR_BODY0:%.*]], !llvm.loop !0
 ;
 ; HIR-CG-LABEL: BEGIN REGION { modified }
@@ -242,7 +242,7 @@ define void @uniform_with_undef(i64 *%p, i64 %n) #0 {
 ; VPLAN-NEXT:     [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr i64* [[P0:%.*]] i64 [[VP_IV]]
 ; VPLAN-NEXT:     [DA: Div] store i64 1 i64* [[VP_GEP]]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND]], [[BB7:BB[0-9]+]], [[BB2]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB7]]: # preds: [[BB3]]
@@ -280,7 +280,7 @@ define void @uniform_with_undef(i64 *%p, i64 %n) #0 {
 ; CG-NEXT:    store <2 x i64> <i64 1, i64 1>, <2 x i64>* [[TMP3]], align 4
 ; CG-NEXT:    [[TMP4]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CG-NEXT:    [[TMP5]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CG-NEXT:    [[TMP6:%.*]] = icmp eq i64 [[TMP5]], 4
+; CG-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP5]], 4
 ; CG-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB70:%.*]], label [[VECTOR_BODY0]], !llvm.loop !
 ;
 

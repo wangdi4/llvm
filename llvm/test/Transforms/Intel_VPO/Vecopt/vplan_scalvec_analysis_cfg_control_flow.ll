@@ -56,7 +56,7 @@ define dso_local void @divControlFlow(i32* nocapture %a, i32* nocapture %b, i32*
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB5]]
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP_BLEND_PHI_BLEND_BB3:%.*]] = blend [ i32 [[VP_ADD7]], i1 [[VP_CMP6_NOT]] ], [ i32 [[VP_MUL12]], i1 [[VP_CMP6]] ] (SVAOpBits 0->V 1->V 2->V 3->V )
 ; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB3]]
@@ -189,7 +189,7 @@ define dso_local void @uniControlFlow(i32* nocapture %a, i32* nocapture %b, i32*
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB5]], [[BB4]]
 ; CHECK-NEXT:       [DA: Div, SVA: ( V )] i32 [[VP_BLEND_PHI:%.*]] = phi  [ i32 [[VP_ADD7]], [[BB5]] ],  [ i32 [[VP_MUL12]], [[BB4]] ] (SVAOpBits 0->V 1->V )
 ; CHECK-NEXT:       [DA: Div, SVA: (F  )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->F 1->F )
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB3]]

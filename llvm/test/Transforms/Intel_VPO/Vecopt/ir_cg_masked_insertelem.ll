@@ -79,7 +79,7 @@ define void @test_predicated_index_operand(i32 *%p, i64 %n) {
 ; CHECK-NEXT:  VPlannedBB7:
 ; CHECK-NEXT:    [[TMP21]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP22]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP23:%.*]] = icmp eq i64 [[TMP22]], [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP23:%.*]] = icmp uge i64 [[TMP22]], [[TMP0:%.*]]
 ; CHECK-NEXT:    br i1 [[TMP23]], label [[VPLANNEDBB80:%.*]], label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB8:
@@ -187,7 +187,7 @@ define void @test_predicated_value_operand(i32 *%p, i64 %n) {
 ; CHECK-NEXT:  VPlannedBB7:
 ; CHECK-NEXT:    [[TMP23]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP24]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP25:%.*]] = icmp eq i64 [[TMP24]], [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP25:%.*]] = icmp uge i64 [[TMP24]], [[TMP0:%.*]]
 ; CHECK-NEXT:    br i1 [[TMP25]], label [[VPLANNEDBB80:%.*]], label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB8:

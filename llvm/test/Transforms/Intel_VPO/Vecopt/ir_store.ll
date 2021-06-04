@@ -19,7 +19,7 @@ define void @foo(i32* nocapture %ip, i32 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:    store <4 x i32> [[TMP2]], <4 x i32>* [[TMP3]], align 4
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw i64 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i64 [[TMP5]], [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP5]], [[TMP0:%.*]]
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB30:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK:       scalar.ph:
 ; CHECK-NEXT:    [[UNI_PHI50:%.*]] = phi i64 [ [[TMP8:%.*]], [[MIDDLE_BLOCK0:%.*]] ], [ 0, [[VPLANNEDBB10:%.*]] ]

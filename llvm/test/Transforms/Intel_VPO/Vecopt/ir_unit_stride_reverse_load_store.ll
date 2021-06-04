@@ -16,7 +16,7 @@ define void @reverse(i32* %src, i32* %dest) {
 ; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 -4] i32* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds i32* [[DEST0:%.*]] i64 [[VP0]]
 ; CHECK-NEXT:  Divergent: [Shape: Random] store i32 [[VP1]] i32* [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ne i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB0]], [[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
@@ -56,7 +56,7 @@ define void @reverse(i32* %src, i32* %dest) {
 ; CHECK-NEXT:    store <4 x i32> [[REVERSE50]], <4 x i32>* [[TMP4]], align 8
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw i64 [[UNI_PHI30]], 4
-; CHECK-NEXT:    [[TMP7:%.*]] = icmp ne i64 [[TMP6]], 1024
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i64 [[TMP6]], 1024
 ; CHECK-NEXT:    br i1 [[TMP7]], label [[VECTOR_BODY0]], label [[VPLANNEDBB60:%.*]], !llvm.loop !0
 ;
 entry:

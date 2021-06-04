@@ -78,7 +78,7 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-NEXT:    [[VEC_PHI120:%.*]] = phi <4 x i32> [ [[TMP8]], [[VPLANNEDBB90]] ], [ [[TMP9:%.*]], [[VECTOR_BODY0]] ]
 ; MASKED-PEEL-NEXT:    [[TMP9]] = add nsw <4 x i32> [[VEC_PHI120]], <i32 4, i32 4, i32 4, i32 4>
 ; MASKED-PEEL-NEXT:    [[TMP10]] = add nsw i32 [[UNI_PHI110]], 4
-; MASKED-PEEL-NEXT:    [[TMP11:%.*]] = icmp eq i32 [[TMP10]], [[N_VEC0]]
+; MASKED-PEEL-NEXT:    [[TMP11:%.*]] = icmp uge i32 [[TMP10]], [[N_VEC0]]
 ; MASKED-PEEL-NEXT:    br i1 [[TMP11]], label [[VPLANNEDBB130:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; MASKED-PEEL-EMPTY:
 ; MASKED-PEEL-NEXT:  VPlannedBB13:
@@ -149,7 +149,7 @@ define void @main(i32 %N) {
 ; MASKED-REMAINDER-NEXT:    [[VEC_PHI0:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VPLANNEDBB20]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
 ; MASKED-REMAINDER-NEXT:    [[TMP3]] = add nsw <4 x i32> [[VEC_PHI0]], <i32 4, i32 4, i32 4, i32 4>
 ; MASKED-REMAINDER-NEXT:    [[TMP4]] = add nsw i32 [[UNI_PHI0]], 4
-; MASKED-REMAINDER-NEXT:    [[TMP5:%.*]] = icmp eq i32 [[TMP4]], [[TMP2]]
+; MASKED-REMAINDER-NEXT:    [[TMP5:%.*]] = icmp uge i32 [[TMP4]], [[TMP2]]
 ; MASKED-REMAINDER-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB40:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; MASKED-REMAINDER-EMPTY:
 ; MASKED-REMAINDER-NEXT:  VPlannedBB4:
@@ -300,7 +300,7 @@ define void @main(i32 %N) {
 ; MASKED-PEEL-REMAINDER-NEXT:    [[VEC_PHI120:%.*]] = phi <4 x i32> [ [[TMP8]], [[VPLANNEDBB90]] ], [ [[TMP9:%.*]], [[VECTOR_BODY0]] ]
 ; MASKED-PEEL-REMAINDER-NEXT:    [[TMP9]] = add nsw <4 x i32> [[VEC_PHI120]], <i32 4, i32 4, i32 4, i32 4>
 ; MASKED-PEEL-REMAINDER-NEXT:    [[TMP10]] = add nsw i32 [[UNI_PHI110]], 4
-; MASKED-PEEL-REMAINDER-NEXT:    [[TMP11:%.*]] = icmp eq i32 [[TMP10]], [[N_VEC0]]
+; MASKED-PEEL-REMAINDER-NEXT:    [[TMP11:%.*]] = icmp uge i32 [[TMP10]], [[N_VEC0]]
 ; MASKED-PEEL-REMAINDER-NEXT:    br i1 [[TMP11]], label [[VPLANNEDBB130:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; MASKED-PEEL-REMAINDER-EMPTY:
 ; MASKED-PEEL-REMAINDER-NEXT:  VPlannedBB13:

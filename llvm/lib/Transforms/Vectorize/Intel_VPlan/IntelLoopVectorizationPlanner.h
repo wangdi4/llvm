@@ -480,7 +480,7 @@ protected:
   ///   One example of non-normalized case:
   ///     cond = cmp le iv_incr, ub
   ///     br cond loopheader, loopexit
-  static bool hasLoopNormalizedInduction(const VPLoop *Loop);
+  static bool hasLoopNormalizedInduction(const VPLoop *Loop, bool &ExactUB);
 
   /// Contains metadata slecified by "llvm.loop.vector.vectorlength"
   MDNode *VectorlengthMD;
@@ -602,7 +602,8 @@ private:
   // The order of latch's successors isn't changed which is ensured by selecting
   // proper icmp predicate (eq/ne). Original latch's CondBit is erased if there
   // are no remaining uses of it after the transformation above.
-  void emitVectorLoopIV(VPlanVector *Plan, VPValue *TripCount, VPValue *VF);
+  void emitVectorLoopIV(VPlanVector *Plan, VPValue *TripCount, VPValue *VF,
+                        VPValue *IVUpdate, bool ExactUB);
 
   /// Utility to dump and verify VPlan details after initial set of transforms.
   void printAndVerifyAfterInitialTransforms(VPlan *Plan);

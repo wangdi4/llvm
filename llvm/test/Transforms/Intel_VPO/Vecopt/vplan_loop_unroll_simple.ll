@@ -36,7 +36,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INC:%.*]] = add i32 [[VP0]] i32 1
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP_INC]] i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1:%.*]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB4]]: # preds: [[BB2]]
@@ -45,7 +45,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INC_1:%.*]] = add i32 [[VP1]] i32 1
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP_INC_1]] i32* [[VP_ARRAYIDX_1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_2:%.*]] = add i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_1:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_1:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br cloned.[[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]: # preds: cloned.[[BB4]]
@@ -54,7 +54,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_INC_2:%.*]] = add i32 [[VP2]] i32 1
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP_INC_2]] i32* [[VP_ARRAYIDX_2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_2:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_2:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND_2]], [[BB5:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: cloned.[[BB3]]
@@ -102,7 +102,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:    store <4 x i32> [[TMP2]], <4 x i32>* [[TMP3]], align 4
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP5:%.*]] = add nuw nsw i64 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i64 [[TMP5]], [[N_VEC0]]
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp uge i64 [[TMP5]], [[N_VEC0]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:
@@ -114,7 +114,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:    store <4 x i32> [[TMP8]], <4 x i32>* [[TMP9]], align 4
 ; CHECK-NEXT:    [[TMP10:%.*]] = add nuw nsw <4 x i64> [[TMP4]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP11:%.*]] = add nuw nsw i64 [[TMP5]], 4
-; CHECK-NEXT:    [[TMP12:%.*]] = icmp eq i64 [[TMP11]], [[N_VEC0]]
+; CHECK-NEXT:    [[TMP12:%.*]] = icmp uge i64 [[TMP11]], [[N_VEC0]]
 ; CHECK-NEXT:    br label [[VPLANNEDBB60]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB6:
@@ -126,7 +126,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:    store <4 x i32> [[TMP14]], <4 x i32>* [[TMP15]], align 4
 ; CHECK-NEXT:    [[TMP16]] = add nuw nsw <4 x i64> [[TMP10]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP17]] = add nuw nsw i64 [[TMP11]], 4
-; CHECK-NEXT:    [[TMP18:%.*]] = icmp eq i64 [[TMP17]], [[N_VEC0]]
+; CHECK-NEXT:    [[TMP18:%.*]] = icmp uge i64 [[TMP17]], [[N_VEC0]]
 ; CHECK-NEXT:    br i1 [[TMP18]], label [[VPLANNEDBB90:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB9:

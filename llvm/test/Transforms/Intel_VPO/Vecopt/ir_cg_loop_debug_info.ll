@@ -26,7 +26,7 @@ define float @foo(float* nocapture %a) #0 {
 ; CHECK-NEXT:    [[TMP5]] = fadd <4 x float> [[TMP3]], [[VEC_PHI3]], !dbg [[DBG31:![0-9]+]]
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>, !dbg [[DBG23:![0-9]+]]
 ; CHECK-NEXT:    [[TMP7]] = add nuw nsw i64 [[UNI_PHI1]], 4, !dbg [[DBG23]]
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i64 [[TMP7]], 1000, !dbg [[DBG23]]
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp uge i64 [[TMP7]], 1000, !dbg [[DBG23]]
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB4:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP32:![0-9]+]]
 ;
 entry:
