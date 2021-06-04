@@ -111,14 +111,15 @@ int AsmCompiler::compileAsmToObjectFile(std::unique_ptr<MemoryBuffer> BufferPtr,
 
   // FIXME: This is not pretty. MCContext has a ptr to MCObjectFileInfo and
   // MCObjectFileInfo needs a MCContext reference in order to initialize itself.
-  MCObjectFileInfo MOFI;
   std::string MCPU = "";
   std::string FeaturesStr = "";
   std::unique_ptr<MCSubtargetInfo> STI(
       TheTarget->createMCSubtargetInfo(TripleName, MCPU, FeaturesStr));
-  MCContext Ctx(TheTriple, MAI.get(), MRI.get(), &MOFI, STI.get(), &SrcMgr);
+  MCContext Ctx(TheTriple, MAI.get(), MRI.get(), STI.get(), &SrcMgr);
   bool PIC = true;
-  MOFI.initMCObjectFileInfo(Ctx, PIC);
+  std::unique_ptr<MCObjectFileInfo> MOFI(
+    TheTarget->createMCObjectFileInfo(Ctx, PIC));
+  Ctx.setObjectFileInfo(MOFI.get());
 
   Ctx.setGenDwarfForAssembly(false);
 
