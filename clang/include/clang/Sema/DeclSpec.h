@@ -2672,7 +2672,8 @@ public:
     VS_Final = 2,
     VS_Sealed = 4,
     // Represents the __final keyword, which is legal for gcc in pre-C++11 mode.
-    VS_GNU_Final = 8
+    VS_GNU_Final = 8,
+    VS_Abstract = 16
   };
 
   VirtSpecifiers() : Specifiers(0), LastSpecifier(VS_None) { }
@@ -2688,6 +2689,7 @@ public:
   bool isFinalSpecified() const { return Specifiers & (VS_Final | VS_Sealed | VS_GNU_Final); }
   bool isFinalSpelledSealed() const { return Specifiers & VS_Sealed; }
   SourceLocation getFinalLoc() const { return VS_finalLoc; }
+  SourceLocation getAbstractLoc() const { return VS_abstractLoc; }
 
   void clear() { Specifiers = 0; }
 
@@ -2701,7 +2703,7 @@ private:
   unsigned Specifiers;
   Specifier LastSpecifier;
 
-  SourceLocation VS_overrideLoc, VS_finalLoc;
+  SourceLocation VS_overrideLoc, VS_finalLoc, VS_abstractLoc;
   SourceLocation FirstLocation;
   SourceLocation LastLocation;
 };
