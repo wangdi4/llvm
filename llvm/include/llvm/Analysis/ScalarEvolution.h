@@ -1314,7 +1314,8 @@ protected: // INTEL
 
   /// The type for ExprValueMap.
   using ValueOffsetPair = std::pair<Value *, ConstantInt *>;
-  using ExprValueMapType = DenseMap<const SCEV *, SetVector<ValueOffsetPair>>;
+  using ValueOffsetPairSetVector = SmallSetVector<ValueOffsetPair, 4>;
+  using ExprValueMapType = DenseMap<const SCEV *, ValueOffsetPairSetVector>;
 
   /// ExprValueMap -- This map records the original values from which
   /// the SCEV expr is generated from.
@@ -1384,7 +1385,7 @@ protected: // INTEL
 
 public: // INTEL
   /// Return the Value set from which the SCEV expr is generated.
-  SetVector<ValueOffsetPair> *getSCEVValues(const SCEV *S);
+  ValueOffsetPairSetVector *getSCEVValues(const SCEV *S);
 
   /// External interface for checkValidity. Returns false iff the SCEV has
   /// been deleted: there are SCEVUnknowns in the ops, and the value is null.

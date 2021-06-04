@@ -6,6 +6,8 @@
 ; RUN:   | grep -v 'Verify generated machine code' | FileCheck %s
 ; RUN: llc -mtriple=x86_64-- -O3 -debug-pass=Structure < %s -o /dev/null 2>&1 \
 ; RUN:   | grep -v 'Verify generated machine code' | FileCheck %s
+; RUN: llc -mtriple=x86_64-- -O3 -debug-pass=Structure < %s -o /dev/null 2>&1 \
+; RUN:   | FileCheck %s --check-prefix=FPM
 
 ; INTEL CUSTOMIZATION: This test fails in xmain.  JR CMPLRS-49716
 ; XFAIL: *
@@ -66,8 +68,6 @@
 ; CHECK-NEXT:       Expand indirectbr instructions
 ; CHECK-NEXT:       Natural Loop Information
 ; CHECK-NEXT:       CodeGen Prepare
-; CHECK-NEXT:     Rewrite Symbols
-; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       Dominator Tree Construction
 ; CHECK-NEXT:       Exception handling preparation
 ; CHECK-NEXT:       Safe Stack instrumentation pass
@@ -207,6 +207,12 @@
 ; CHECK-NEXT:       Machine Optimization Remark Emitter
 ; CHECK-NEXT:       X86 Assembly Printer
 ; CHECK-NEXT:       Free MachineFunction
+
+; We should only have one function pass manager.
+; In the past, module passes have accidentally been added into the middle of
+; the codegen pipeline, implicitly creating new function pass managers.
+; FPM: FunctionPass Manager
+; FPM-NOT: FunctionPass Manager
 
 define void @f() {
   ret void
