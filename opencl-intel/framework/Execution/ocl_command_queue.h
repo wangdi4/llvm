@@ -90,6 +90,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ocl_gpa_queue * GPA_GetQueue() { return m_pOclGpaQueue; }
         cl_err_code GPA_ReleaseQueue();
         virtual ocl_gpa_data* GetGPAData() const;
+        void SetProperties(
+            std::vector<cl_command_queue_properties> &clQueuePropsArray);
 
     protected:
 
@@ -120,6 +122,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_bool             m_bProfilingEnabled;
         cl_bool             m_bOutOfOrderEnabled;
         cl_dev_cmd_list     m_clDevCmdListId;
+        std::vector<cl_queue_properties> m_clQueuePropsArray;
 
         ocl_gpa_queue*      m_pOclGpaQueue;
         ocl_gpa_data*        m_pGPAData;

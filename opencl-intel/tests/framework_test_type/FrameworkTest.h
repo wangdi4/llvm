@@ -164,6 +164,7 @@ bool clTracingArgumentsChangedCheckTest();
 bool clTracingFunctionsDisabledCheckTest();
 void globalVariableSizeQueryTest();
 void enqueueBlockProfilingTest();
+void clGetCommandQueueInfo();
 #ifndef _WIN32
 void passBuildOptionByEnvTest();
 #endif
