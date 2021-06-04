@@ -1469,10 +1469,8 @@ OpenMPIRBuilder::InsertPointTy OpenMPIRBuilder::createDynamicWorkshareLoop(
 
   Value *ThreadNum = getOrCreateThreadID(SrcLoc);
 
-  OMPScheduleType DynamicSchedType =
-      SchedType | OMPScheduleType::ModifierNonmonotonic;
   Constant *SchedulingType =
-      ConstantInt::get(I32Type, static_cast<int>(DynamicSchedType));
+      ConstantInt::get(I32Type, static_cast<int>(SchedType));
 
   // Call the "init" function.
   Builder.CreateCall(DynamicInit,

@@ -1350,7 +1350,7 @@ define <16 x float> @test_gather_16f32_const_mask(float* %base, <16 x i32> %ind)
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret <16 x float> %res
 ;
 ; AVX1-LABEL: 'test_gather_16f32_const_mask'
-; AVX1-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %sext_ind = sext <16 x i32> %ind to <16 x i64>
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %sext_ind = sext <16 x i32> %ind to <16 x i64>
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %gep.v = getelementptr float, float* %base, <16 x i64> %sext_ind
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 68 for instruction: %res = call <16 x float> @llvm.masked.gather.v16f32.v16p0f32(<16 x float*> %gep.v, i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x float> undef)
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret <16 x float> %res
@@ -1400,7 +1400,7 @@ define <16 x float> @test_gather_16f32_var_mask(float* %base, <16 x i32> %ind, <
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret <16 x float> %res
 ;
 ; AVX1-LABEL: 'test_gather_16f32_var_mask'
-; AVX1-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %sext_ind = sext <16 x i32> %ind to <16 x i64>
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %sext_ind = sext <16 x i32> %ind to <16 x i64>
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %gep.v = getelementptr float, float* %base, <16 x i64> %sext_ind
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 100 for instruction: %res = call <16 x float> @llvm.masked.gather.v16f32.v16p0f32(<16 x float*> %gep.v, i32 4, <16 x i1> %mask, <16 x float> undef)
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret <16 x float> %res
@@ -1450,7 +1450,7 @@ define <16 x float> @test_gather_16f32_ra_var_mask(<16 x float*> %ptrs, <16 x i3
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret <16 x float> %res
 ;
 ; AVX1-LABEL: 'test_gather_16f32_ra_var_mask'
-; AVX1-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %sext_ind = sext <16 x i32> %ind to <16 x i64>
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %sext_ind = sext <16 x i32> %ind to <16 x i64>
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %gep.v = getelementptr float, <16 x float*> %ptrs, <16 x i64> %sext_ind
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 100 for instruction: %res = call <16 x float> @llvm.masked.gather.v16f32.v16p0f32(<16 x float*> %gep.v, i32 4, <16 x i1> %mask, <16 x float> undef)
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret <16 x float> %res
@@ -1506,7 +1506,7 @@ define <16 x float> @test_gather_16f32_const_mask2(float* %base, <16 x i32> %ind
 ; AVX1-LABEL: 'test_gather_16f32_const_mask2'
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %broadcast.splatinsert = insertelement <16 x float*> poison, float* %base, i32 0
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 2 for instruction: %broadcast.splat = shufflevector <16 x float*> %broadcast.splatinsert, <16 x float*> poison, <16 x i32> zeroinitializer
-; AVX1-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: %sext_ind = sext <16 x i32> %ind to <16 x i64>
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 14 for instruction: %sext_ind = sext <16 x i32> %ind to <16 x i64>
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %gep.random = getelementptr float, <16 x float*> %broadcast.splat, <16 x i64> %sext_ind
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 68 for instruction: %res = call <16 x float> @llvm.masked.gather.v16f32.v16p0f32(<16 x float*> %gep.random, i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, <16 x float> undef)
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret <16 x float> %res
@@ -1683,7 +1683,7 @@ define <4 x float> @test_gather_4f32(float* %ptr, <4 x i32> %ind, <4 x i1>%mask)
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret <4 x float> %res
 ;
 ; AVX1-LABEL: 'test_gather_4f32'
-; AVX1-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %sext_ind = sext <4 x i32> %ind to <4 x i64>
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %sext_ind = sext <4 x i32> %ind to <4 x i64>
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %gep.v = getelementptr float, float* %ptr, <4 x i64> %sext_ind
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 21 for instruction: %res = call <4 x float> @llvm.masked.gather.v4f32.v4p0f32(<4 x float*> %gep.v, i32 4, <4 x i1> %mask, <4 x float> undef)
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret <4 x float> %res
@@ -1733,7 +1733,7 @@ define <4 x float> @test_gather_4f32_const_mask(float* %ptr, <4 x i32> %ind) {
 ; SSE42-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret <4 x float> %res
 ;
 ; AVX1-LABEL: 'test_gather_4f32_const_mask'
-; AVX1-NEXT:  Cost Model: Found an estimated cost of 4 for instruction: %sext_ind = sext <4 x i32> %ind to <4 x i64>
+; AVX1-NEXT:  Cost Model: Found an estimated cost of 3 for instruction: %sext_ind = sext <4 x i32> %ind to <4 x i64>
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %gep.v = getelementptr float, float* %ptr, <4 x i64> %sext_ind
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 13 for instruction: %res = call <4 x float> @llvm.masked.gather.v4f32.v4p0f32(<4 x float*> %gep.v, i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x float> undef)
 ; AVX1-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret <4 x float> %res
