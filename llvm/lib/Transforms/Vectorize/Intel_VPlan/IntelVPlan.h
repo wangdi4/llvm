@@ -2613,10 +2613,13 @@ private:
   const VPLoop *VPL;
 };
 
-/// Instruction representing the final value of the explicit IV for the vector
+/// Instruction representing the final value of the IV for the vector
 /// loop. We increment that IV by VF*UF, so actual value would be the iteration
 /// number of the serial loop execution corresponding the lane 0 of the last
 /// vector iteration.
+/// Initially is constructed with one operand that represents the original
+/// upper bound of the loop. Later we can have a second operand added, which
+/// represents an adjustment for the peel loop.
 class VPVectorTripCountCalculation : public VPInstruction {
 public:
   VPVectorTripCountCalculation(VPValue *OrigTripCount, unsigned UF = 1)

@@ -50,7 +50,7 @@ define dso_local float @getElement(i32 %idx) {
 ; CHECK-NEXT:    [[TMP1]] = fadd <2 x float> [[VEC_PHI7]], [[BROADCAST_SPLAT]]
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <2 x i32> [[VEC_PHI]], <i32 2, i32 2>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i32 [[UNI_PHI6]], 2
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i32 [[TMP3]], 4096
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i32 [[TMP3]], 4095
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB8:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB8:
 ; CHECK-NEXT:    [[TMP5:%.*]] = call float @llvm.vector.reduce.fadd.v2f32(float [[UNI_PHI]], <2 x float> [[TMP1]])
@@ -58,10 +58,10 @@ define dso_local float @getElement(i32 %idx) {
 ; CHECK:       VPlannedBB9:
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
 ; CHECK:       VPlannedBB10:
-; CHECK-NEXT:    br i1 true, label [[FINAL_MERGE:%.*]], label [[MERGE_BLK17]]
+; CHECK-NEXT:    br i1 false, label [[FINAL_MERGE:%.*]], label [[MERGE_BLK17]]
 ; CHECK:       merge.blk17:
 ; CHECK-NEXT:    [[UNI_PHI11:%.*]] = phi float [ [[TMP5]], [[VPLANNEDBB10]] ], [ 0.000000e+00, [[PEEL_CHECKV22]] ], [ [[UNI_PHI]], [[VPLANNEDBB2]] ]
-; CHECK-NEXT:    [[UNI_PHI12:%.*]] = phi i32 [ 4096, [[VPLANNEDBB10]] ], [ 0, [[PEEL_CHECKV22]] ], [ [[UNI_PHI1]], [[VPLANNEDBB2]] ]
+; CHECK-NEXT:    [[UNI_PHI12:%.*]] = phi i32 [ 4095, [[VPLANNEDBB10]] ], [ 0, [[PEEL_CHECKV22]] ], [ [[UNI_PHI1]], [[VPLANNEDBB2]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB13:%.*]]
 ; CHECK:       VPlannedBB13:
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT20:%.*]] = insertelement <2 x float> poison, float [[REM_F]], i32 0
@@ -99,7 +99,7 @@ define dso_local float @getElement(i32 %idx) {
 ; CHECK-NEXT:    br label [[FINAL_MERGE]]
 ; CHECK:       final.merge:
 ; CHECK-NEXT:    [[UNI_PHI26:%.*]] = phi float [ [[TMP14]], [[VPLANNEDBB25]] ], [ [[TMP5]], [[VPLANNEDBB10]] ]
-; CHECK-NEXT:    [[UNI_PHI27:%.*]] = phi i32 [ 4096, [[VPLANNEDBB25]] ], [ 4096, [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    [[UNI_PHI27:%.*]] = phi i32 [ 4096, [[VPLANNEDBB25]] ], [ 4095, [[VPLANNEDBB10]] ]
 ; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_4:%.*]]
 ; CHECK:       omp.inner.for.body:
 ; CHECK-NEXT:    [[DOTOMP_IV_LOCAL_0:%.*]] = phi i32 [ 0, [[PEELBLK13]] ], [ [[ADD3]], [[OMP_INNER_FOR_BODY]] ]
