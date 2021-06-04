@@ -4692,17 +4692,17 @@ bool VPOParoptTransform::genNontemporalCode(WRegionNode *W) {
     SmallPtrSet<Use *, 8> VisitedSet;
 
     auto growWorkList = [W, &WorkList, &VisitedSet](Value *V) {
-      for (Use *U = &V->user_begin().getUse(); U; U = U->getNext()) {
-        if (VisitedSet.contains(U))
+      for (Use &U : V->uses()) {
+        if (VisitedSet.contains(&U))
           continue;
 
         // Consider only those instructions that are inside the region.
-        Instruction *I = dyn_cast<Instruction>(U->getUser());
+        Instruction *I = dyn_cast<Instruction>(U.getUser());
         if (I && !W->contains(I->getParent()))
           continue;
 
-        WorkList.push_back(U);
-        VisitedSet.insert(U);
+        WorkList.push_back(&U);
+        VisitedSet.insert(&U);
       }
     };
 
