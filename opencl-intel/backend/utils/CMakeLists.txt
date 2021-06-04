@@ -21,6 +21,7 @@ set (TARGET_INCLUDE_FILES
   CompilationUtils.h
   debuggingservicetype.h
   OCLAddressSpace.h
+  SerializerCompatibility.h
   TypeConversion.h
   VectorizerUtils.h
   RefcountThreadSafe.h
@@ -34,6 +35,7 @@ set (TARGET_SOURCE_FILES
   BlockUtils.cpp
   CompilationUtils.cpp
   debuggingservicetype.cpp
+  SerializerCompatibility.cpp
   TypeConversion.cpp
   VectorizerUtils.cpp
   Atomics.cpp
