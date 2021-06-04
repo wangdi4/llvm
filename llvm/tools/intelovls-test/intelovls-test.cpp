@@ -281,8 +281,8 @@ int main(int argc, char **argv) {
       OVLSInstructionVector InstVec;
       if (OptVLSInterface::getSequence(*Grp, CM, InstVec)) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-        for (OVLSInstruction *I : InstVec)
-          OVLSdbgs() << *I << "\n";
+        for (auto &I : InstVec)
+          OVLSdbgs() << I.get() << "\n";
 #endif
       }
     }

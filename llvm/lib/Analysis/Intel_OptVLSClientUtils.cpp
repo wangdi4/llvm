@@ -132,7 +132,8 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
   // Only used when a shuffle instruction needs to be generated for an
   // OVLSMemref.
   DenseMap<const OVLSMemref *, Value *> MemrefShuffleMap;
-  for (auto &OInst : InstVec) {
+  for (auto &Inst : InstVec) {
+    OVLSInstruction *OInst = Inst.get();
     if (const OVLSLoad *const OLI = dyn_cast<const OVLSLoad>(OInst)) {
       // Bitcast Addr to OLI's type
       OVLSType Ty = OInst->getType();

@@ -67,4 +67,4 @@ attributes #2 = { nounwind }
 !7 = distinct !{!7, !8, !9, !10}
 !8 = !{!"llvm.loop.vectorize.ivdep_loop", i32 0}
 !9 = !{!"llvm.loop.parallel_accesses"}
-!10 = !{!"llvm.loop.vector.vectorlength", i64 0}
+!10 = !{!"llvm.loop.intel.vector.vectorlength", i64 0}

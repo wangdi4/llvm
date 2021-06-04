@@ -37,8 +37,8 @@
 ;*** IR Dump After HIR Loop Memory Motion ***
 ;
 ; CHECK:   BEGIN REGION { modified }
-; CHECK:           %limm = 0;
 ; CHECK:           %0 = (@B)[0][4];
+; CHECK:           %limm = 0;
 ; CHECK:        + DO i1 = 0, %N + -1, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 999>
 ; CHECK:        |   (@A)[0][i1 + 1] = %N + %0;
 ; CHECK:        |   %3 = (@A)[0][i1];
