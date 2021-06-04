@@ -979,31 +979,34 @@ void PassManagerBuilder::addVectorPasses(legacy::PassManagerBase &PM,
     addInstructionCombiningPass(PM, !DTransEnabled); // INTEL
   }
 
-  if (IsLTO) {
 #if INTEL_CUSTOMIZATION
+  if (IsLTO) {
     // 28038: Avoid excessive hoisting as it increases register pressure and
     // select conversion without clear gains.
     // PM.add(createCFGSimplificationPass(SimplifyCFGOptions() // if-convert
     //                                       .hoistCommonInsts(true)));
     PM.add(createCFGSimplificationPass());
-#endif // INTEL_CUSTOMIZATION
   } else {
-    // Now that we've formed fast to execute loop structures, we do further
-    // optimizations. These are run afterward as they might block doing complex
-    // analyses and transforms such as what are needed for loop vectorization.
+#endif // INTEL_CUSTOMIZATION
+  // Now that we've formed fast to execute loop structures, we do further
+  // optimizations. These are run afterward as they might block doing complex
+  // analyses and transforms such as what are needed for loop vectorization.
 
-    // Cleanup after loop vectorization, etc. Simplification passes like CVP and
-    // GVN, loop transforms, and others have already run, so it's now better to
-    // convert to more optimized IR using more aggressive simplify CFG options.
-    // The extra sinking transform can create larger basic blocks, so do this
-    // before SLP vectorization.
-    PM.add(createCFGSimplificationPass(SimplifyCFGOptions()
-                                           .forwardSwitchCondToPhi(true)
-                                           .convertSwitchToLookupTable(true)
-                                           .needCanonicalLoops(false)
-                                           .hoistCommonInsts(true)
-                                           .sinkCommonInsts(true)));
-  }
+  // Cleanup after loop vectorization, etc. Simplification passes like CVP and
+  // GVN, loop transforms, and others have already run, so it's now better to
+  // convert to more optimized IR using more aggressive simplify CFG options.
+  // The extra sinking transform can create larger basic blocks, so do this
+  // before SLP vectorization.
+  PM.add(createCFGSimplificationPass(SimplifyCFGOptions()
+                                         .forwardSwitchCondToPhi(true)
+                                         .convertSwitchToLookupTable(true)
+                                         .needCanonicalLoops(false)
+                                         .hoistCommonInsts(true)
+                                         .sinkCommonInsts(true)));
+#if INTEL_CUSTOMIZATION
+  } // IsLTO
+#endif // INTEL_CUSTOMIZATION
+
   if (IsLTO) {
     PM.add(createSCCPPass());                 // Propagate exposed constants
     addInstructionCombiningPass(PM, true /* EnableUpCasting */); // INTEL
