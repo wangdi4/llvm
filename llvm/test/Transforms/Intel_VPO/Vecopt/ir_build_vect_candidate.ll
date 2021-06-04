@@ -46,7 +46,7 @@ define void @foo(i64* nocapture %larr) {
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB3]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_L1_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_L1_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]

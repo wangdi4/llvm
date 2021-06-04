@@ -52,7 +52,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: cloned.[[BB3]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_ACC_019_RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP_ADD6]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in1 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB6:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]

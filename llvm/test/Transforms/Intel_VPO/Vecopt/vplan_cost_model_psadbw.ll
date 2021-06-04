@@ -41,7 +41,7 @@ define dso_local i32 @_Z3foov(i32 %t) {
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]] *PSADBW*
-; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in1 i64 1
+; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br <External Block>
@@ -155,7 +155,7 @@ define dso_local i32 @_Z3goov() {
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP46]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i64 [[VP1]] *PSADBW*
-; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in1 i64 1
+; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br <External Block>
@@ -258,7 +258,7 @@ define dso_local i32 @_Z3toov(i32 %t) {
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]]
-; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in1 i64 1
+; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br <External Block>
@@ -353,7 +353,7 @@ define dso_local i32 @full_unroll_with_slp(i32 %t) {
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP27]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]] *PSADBW*
-; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in1 i64 1
+; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br <External Block>

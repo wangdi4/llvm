@@ -13,13 +13,12 @@ define void @main(i32 %N) {
 ; CHECK-NEXT:    Cloned.[[BB1]]: # preds: Cloned.[[BB0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = induction-init{add} i32 live-in0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP1:%.*]] = induction-init-step{add} i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP2:%.*]] = vector-trip-count i32 [[N0:%.*]], UF = 1
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB2]]: # preds: Cloned.[[BB1]], new_latch
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP0]], Cloned.[[BB1]] ],  [ i32 [[VP_IV_NEXT:%.*]], new_latch ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = icmp ult i32 [[VP_IV]] i32 [[N0]]
-; CHECK-NEXT:     [DA: Div] br i1 [[VP3]], [[BB3:BB[0-9]+]], new_latch
+; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = icmp ult i32 [[VP_IV]] i32 [[N0:%.*]]
+; CHECK-NEXT:     [DA: Div] br i1 [[VP2]], [[BB3:BB[0-9]+]], new_latch
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: Cloned.[[BB2]]
 ; CHECK-NEXT:       [DA: Uni] br new_latch
@@ -31,7 +30,7 @@ define void @main(i32 %N) {
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP4]], Cloned.[[BB4:BB[0-9]+]], Cloned.[[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB4]]: # preds: new_latch
-; CHECK-NEXT:     [DA: Uni] i32 [[VP5:%.*]] = induction-final{add} i32 live-in0 i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP5:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB5]]: # preds: Cloned.[[BB4]]

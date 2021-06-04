@@ -32,8 +32,8 @@ define void @fp_iv_loop(float %init, float* noalias nocapture %A, i64 %N) {
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
-; CHECK-NEXT:       [DA: Uni] float [[VP_X_07_IND_FINAL:%.*]] = induction-final{fsub} float live-in1 float 5.000000e-01
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:       [DA: Uni] float [[VP_X_07_IND_FINAL:%.*]] = induction-final{fsub} float [[INIT0:%.*]] float 5.000000e-01
 ; CHECK-NEXT:       [DA: Uni] br middle.block
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      middle.block: # preds: [[BB3]]
@@ -42,7 +42,7 @@ define void @fp_iv_loop(float %init, float* noalias nocapture %A, i64 %N) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP0:%.*]] = phi-merge  [ i64 live-out0, middle.block ],  [ i64 0, [[BB1]] ]
-; CHECK-NEXT:       [DA: Uni] float [[VP1:%.*]] = phi-merge  [ float live-out1, middle.block ],  [ float [[INIT0:%.*]], [[BB1]] ]
+; CHECK-NEXT:       [DA: Uni] float [[VP1:%.*]] = phi-merge  [ float live-out1, middle.block ],  [ float [[INIT0]], [[BB1]] ]
 ; CHECK-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: scalar.ph

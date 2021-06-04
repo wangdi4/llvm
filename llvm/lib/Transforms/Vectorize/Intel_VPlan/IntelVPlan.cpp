@@ -973,7 +973,16 @@ void VPlanPeelAdapter::setUpperBound(VPValue *TC) {
   VPInstruction *Cond = nullptr;
   std::tie(OrigTC, Cond) = TopVPLoop->getLoopUpperBound();
   assert((OrigTC && Cond) && "A normalized loop expected");
-  Cond->replaceUsesOfWith(OrigTC, TC);
+  VPBasicBlock *Header = TopVPLoop->getHeader();
+  // Replace OrigTC in the latch condition and in the header
+  // top condition.
+  OrigTC->replaceUsesWithIf(TC, [Header, Cond](auto *VUse) {
+    if (VUse == Cond)
+      return true;
+    if (auto VCmp = dyn_cast<VPCmpInst>(VUse))
+      return VCmp->getParent() == Header;
+    return false;
+  });
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

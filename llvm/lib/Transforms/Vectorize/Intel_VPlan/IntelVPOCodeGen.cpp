@@ -4411,8 +4411,8 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
     LastValue = Builder.CreateExtractElement(VecVal, Builder.getInt32(VF - 1));
   } else {
     // Otherwise calculate by formulas
-    //  for post increment liveouts LV = start + step*rounded_tc,
-    //  for pre increment liveouts LV = start + step*(rounded_tc-1)
+    //  for post increment liveouts LV = start + step*upper_bound,
+    //  for pre increment liveouts LV = start + step*(upper_bound-1)
     //
     assert(VPInst->getNumOperands() == 2 && "Incorrect number of operands");
     unsigned Opc = VPInst->getBinOpcode();
@@ -4427,20 +4427,27 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
 
     unsigned StepOpc = IsFloat ? Instruction::FMul : Instruction::Mul;
     Type *StepType = Step->getType();
-    // In case of masked mode loop, the trip count is equal to original trip
-    // count. In any other case, the trip count is equal to vector trip count.
+
+    // Try to find the latch comparison of the loop. We know that
+    // VPInductionFinal is created in the loop exit so get its parent
+    // predecessor to find a loop. The upper bound of the loop is used in the
+    // latch comparison (this is ensured either by the check for normalized IV
+    // or by emission of the new IV).
+    // If the latch comparison is not found, use global VectorTripCount. This
+    // can happen in case when we optimize the branch that uses the comparison,
+    // when we know the upper bound is equal to VF. That means we don't create
+    // peel/remainder loops and have only one main loop.
+    // Then make the calculations by the formula above.
+    VPBasicBlock *VPIndFinalBB = VPInst->getParent()->getSinglePredecessor();
+    VPLoop *L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
+    VPCmpInst *Cond = L->getLatchComparison();
     Value *TripCnt = VectorTripCount;
-    if (VPInst->isUpdatedForMaskedModeLoop()) {
-      VPBasicBlock *VPIndFinalBB = VPInst->getParent()->getSinglePredecessor();
-      VPLoop *L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
-      VPCmpInst *Cond = L->getLatchComparison();
-      assert(Cond && "Condition cannot be nullptr!");
+    if (Cond) {
       VPValue *VPTripCount = L->isDefOutside(Cond->getOperand(0))
                                  ? Cond->getOperand(0)
                                  : Cond->getOperand(1);
       TripCnt = getScalarValue(VPTripCount, 0);
     }
-
     if (VPInst->isLastValPreIncrement())
       TripCnt =
           Builder.CreateSub(TripCnt, ConstantInt::get(TripCnt->getType(), 1));

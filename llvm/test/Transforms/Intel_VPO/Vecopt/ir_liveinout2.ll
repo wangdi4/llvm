@@ -53,7 +53,7 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
 ; CHECK-NEXT:     i32 [[VP_SUM_07_RED_FINAL]] = reduction-final{u_add} i32 [[VP_ADD]]
-; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 live-in1 i64 1
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]

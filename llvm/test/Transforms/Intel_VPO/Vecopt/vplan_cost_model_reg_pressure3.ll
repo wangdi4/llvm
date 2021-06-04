@@ -78,7 +78,7 @@ define dso_local void @foo() {
 ; CHECK-NEXT:    Cost 32000 for i1 [[VP17:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP17]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB5]], total cost: 0
-; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost 0 for br [[BB6:BB[0-9]+]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB6]], total cost: 0
 ; CHECK-NEXT:    Cost 0 for br <External Block>

@@ -127,6 +127,8 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   // Remove the original CondBit.
   VPBasicBlock *OrigCondBitBB = OrigCondBit->getParent();
   OrigCondBitBB->eraseInstruction(OrigCondBit);
+  assert(VectorTC->getNumUsers() == 0 && "Expected no users of VectorTC");
+  VectorTC->getParent()->eraseInstruction(VectorTC);
   // Split latch before induction increment.
   VPBasicBlock *NewLoopLatch = VPBlockUtils::splitBlock(
       Latch, VPIndIncrement->getIterator(), MaskedVPlan->getVPLoopInfo());
@@ -180,11 +182,6 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   auto MaskedVPlanDA = std::make_unique<VPlanDivergenceAnalysis>();
   MaskedVPlan->setVPlanDA(std::move(MaskedVPlanDA));
   MaskedVPlan->computeDA();
-
-  VPBasicBlock &ExitBB = *TopVPLoop->getExitBlock();
-  for (VPInstruction &I : *&ExitBB)
-    if (auto *VPIndFinal = dyn_cast<VPInductionFinal>(&I))
-      VPIndFinal->setUpdateForMaskedModeLoop();
 
   VPLAN_DUMP(MaskedVariantDumpControl, MaskedVPlan.get());
 

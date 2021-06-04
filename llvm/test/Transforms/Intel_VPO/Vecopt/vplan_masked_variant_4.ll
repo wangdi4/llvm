@@ -13,7 +13,6 @@ define void @main() {
 ; CHECK-NEXT:    Cloned.[[BB1]]: # preds: Cloned.[[BB0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = induction-init{add} i32 live-in0 i32 1
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP1:%.*]] = induction-init-step{add} i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP2:%.*]] = vector-trip-count i32 128, UF = 1
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB2:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB2]]: # preds: Cloned.[[BB1]], new_latch
@@ -31,7 +30,7 @@ define void @main() {
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP4]], Cloned.[[BB4:BB[0-9]+]], Cloned.[[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB4]]: # preds: new_latch
-; CHECK-NEXT:     [DA: Uni] i32 [[VP5:%.*]] = induction-final{add} i32 live-in0 i32 1
+; CHECK-NEXT:     [DA: Uni] i32 [[VP5:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:     [DA: Uni] br Cloned.[[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    Cloned.[[BB5]]: # preds: Cloned.[[BB4]]

@@ -41,8 +41,8 @@ define float @expl_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:       [DA: Uni] float [[VP_X_RED_FINAL:%.*]] = reduction-final{fadd} float [[VP_ADD]] float live-in1
 ; CHECK-NEXT:       [DA: Uni] store float [[VP_X_RED_FINAL]] float* [[X0:%.*]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in2 i64 1
-; CHECK-NEXT:       [DA: Uni] float* [[VP_PTR_PHI_IND_FINAL:%.*]] = induction-final{getelementptr} float* live-in0 i64 1
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:       [DA: Uni] float* [[VP_PTR_PHI_IND_FINAL:%.*]] = induction-final{getelementptr} float* [[A0:%.*]] i64 1
 ; CHECK-NEXT:       [DA: Uni] br middle.block
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      middle.block: # preds: [[BB3]]
@@ -50,7 +50,7 @@ define float @expl_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
-; CHECK-NEXT:       [DA: Uni] float* [[VP1:%.*]] = phi-merge  [ float* live-out0, middle.block ],  [ float* [[A0:%.*]], [[BB1]] ]
+; CHECK-NEXT:       [DA: Uni] float* [[VP1:%.*]] = phi-merge  [ float* live-out0, middle.block ],  [ float* [[A0]], [[BB1]] ]
 ; CHECK-NEXT:       [DA: Uni] float [[VP2:%.*]] = phi-merge  [ float live-out1, middle.block ],  [ float [[X_PROMOTED0:%.*]], [[BB1]] ]
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP3:%.*]] = phi-merge  [ i64 live-out2, middle.block ],  [ i64 0, [[BB1]] ]
 ; CHECK-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]

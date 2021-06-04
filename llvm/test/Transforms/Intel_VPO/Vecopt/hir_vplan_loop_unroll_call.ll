@@ -42,7 +42,7 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP9]], [[BB2]], [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: cloned.[[BB3]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]: # preds: [[BB4]]
@@ -62,6 +62,7 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:           + END LOOP
 ; CHECK-NEXT:     END REGION
 ;
+
 
 entry:
   %cmp = icmp sgt i32 %n, 0

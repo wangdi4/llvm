@@ -117,7 +117,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br <External Block>
@@ -185,7 +185,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
@@ -258,7 +258,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1000 for i1 [[VP34:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br i1 [[VP34]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br <External Block>
@@ -330,7 +330,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP34:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP34]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br <External Block>
@@ -594,7 +594,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br <External Block>
@@ -653,7 +653,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
@@ -712,7 +712,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1000 for i1 [[VP11:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br <External Block>
@@ -771,7 +771,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP11:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP11]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br <External Block>
@@ -989,7 +989,7 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br <External Block>
@@ -1023,7 +1023,7 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
@@ -1057,7 +1057,7 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1000 for i1 [[VP12:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br i1 [[VP12]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br <External Block>
@@ -1091,7 +1091,7 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP12:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP12]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br <External Block>
@@ -1242,7 +1242,7 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br <External Block>
@@ -1312,7 +1312,7 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
@@ -1382,7 +1382,7 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1000 for i1 [[VP26:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br i1 [[VP26]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br <External Block>
@@ -1452,7 +1452,7 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP26:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP26]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br <External Block>
@@ -1720,7 +1720,7 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br <External Block>
@@ -1764,7 +1764,7 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
@@ -1807,7 +1807,7 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br <External Block>
@@ -1850,7 +1850,7 @@ define void @test_select() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP9:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br <External Block>
@@ -2012,7 +2012,7 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-CM-VF4-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB6]], total cost: 0
-; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br [[BB7:BB[0-9]+]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB7]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br <External Block>
@@ -2045,7 +2045,7 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB6]], total cost: 0
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB7:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB7]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
@@ -2080,7 +2080,7 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1000 for i1 [[VP7:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br i1 [[VP7]], [[BB2]], [[BB6:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB6]], total cost: 0
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB7:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB7]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br <External Block>
@@ -2116,7 +2116,7 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP7:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP7]], [[BB2]], [[BB6:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB6]], total cost: 0
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB7:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB7]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br <External Block>
@@ -2227,7 +2227,7 @@ define void @test_revectorize() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 1000 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 2
+; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 2
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br <External Block>
@@ -2257,7 +2257,7 @@ define void @test_revectorize() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 2
+; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 2
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
@@ -2285,7 +2285,7 @@ define void @test_revectorize() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1000 for i1 [[VP6:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br <External Block>
@@ -2313,7 +2313,7 @@ define void @test_revectorize() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP6:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br <External Block>
@@ -2406,7 +2406,7 @@ define void @test_revectorize_with_gathers_scatters() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 1000 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 3
+; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 3
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for br <External Block>
@@ -2436,7 +2436,7 @@ define void @test_revectorize_with_gathers_scatters() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1000 for i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 3
+; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 3
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for br <External Block>
@@ -2469,7 +2469,7 @@ define void @test_revectorize_with_gathers_scatters() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1000 for i1 [[VP6:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for br <External Block>
@@ -2497,7 +2497,7 @@ define void @test_revectorize_with_gathers_scatters() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1000 for i1 [[VP6:%.*]] = icmp sle i64 [[VP1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br i1 [[VP6]], [[BB2]], [[BB3:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for br <External Block>

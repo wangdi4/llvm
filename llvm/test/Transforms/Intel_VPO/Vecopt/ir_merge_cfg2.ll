@@ -46,7 +46,7 @@ define void @foo2(i64 %N) {
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_VECTOR_LOOP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]: # preds: [[BB3]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_K_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_K_IV_IND_FINAL:%.*]] = induction-final{add} i64 [[K_IV_B0:%.*]] i64 1
 ; CHECK-NEXT:       [DA: Uni] br middle.block
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      middle.block: # preds: [[BB6]]
@@ -54,7 +54,7 @@ define void @foo2(i64 %N) {
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_REMTC_CHECK]], scalar.ph, [[BB7:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      scalar.ph: # preds: [[BB1]], middle.block
-; CHECK-NEXT:       [DA: Uni] i64 [[VP3:%.*]] = phi-merge  [ i64 live-out0, middle.block ],  [ i64 [[K_IV_B0:%.*]], [[BB1]] ]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP3:%.*]] = phi-merge  [ i64 live-out0, middle.block ],  [ i64 [[K_IV_B0]], [[BB1]] ]
 ; CHECK-NEXT:       [DA: Uni] br [[BB8:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]: # preds: scalar.ph

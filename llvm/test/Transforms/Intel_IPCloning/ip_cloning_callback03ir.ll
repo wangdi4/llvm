@@ -1,25 +1,21 @@
-; REQUIRES: asserts
-; RUN: opt < %s -ip-cloning -ip-cloning-after-inl -ip-cloning-force-heuristics-off -ip-gen-cloning-force-on-callback-cloning -S -debug-only=ipcloning 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(post-inline-ip-cloning)' -ip-cloning-force-heuristics-off -ip-gen-cloning-force-on-callback-cloning -S -debug-only=ipcloning 2>&1 | FileCheck %s
+; RUN: opt < %s -ip-cloning -ip-cloning-after-inl -ip-cloning-force-heuristics-off -ip-gen-cloning-force-off-callback-cloning -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(post-inline-ip-cloning)' -ip-cloning-force-heuristics-off -ip-gen-cloning-force-off-callback-cloning -S 2>&1 | FileCheck %s
 
-; Check that callback cloning occurs from the clones of @foo to the callback
-; functions referenced in the call to @__kmpc_fork_call.
+; Check that callback cloning does not occur from the clones of @foo to the
+; callback functions referenced in the call to @__kmpc_fork_call, because
+; -ip-gen-cloning-force-off-callback-cloning is specified.
 
-; CHECK: Attempting callback cloning for foo
-; CHECK: Cloned call:{{.*}}foo.1(i32 200)
-; CHECK: Cloned call:{{.*}}foo.2(i32 100)
-; CHECK-DAG: Cloned callback in foo.2:{{.*}}@__kmpc_fork_call{{.*}}@foo.DIR.OMP.PARALLEL.LOOP.2.split5.[[R0:[0-9]+]]
-; CHECK-DAG: Cloned callback in foo.1:{{.*}}@__kmpc_fork_call{{.*}}@foo.DIR.OMP.PARALLEL.LOOP.2.split5.[[R1:[0-9]+]]
+; This is the same test as ip_cloning_callback03.ll, but checks for IR without
+; requiring asserts.
 
 ; CHECK: define dso_local i32 @main()
 ; CHECK: tail call fastcc i32 @foo.2(i32 100)
 ; CHECK: tail call fastcc i32 @foo.1(i32 200)
+; CHECK: define internal void @foo.DIR.OMP.PARALLEL.LOOP.2.split5(
 ; CHECK: define internal fastcc i32 @foo.1
-; CHECK: call{{.*}}@__kmpc_fork_call{{.*}}@foo.DIR.OMP.PARALLEL.LOOP.2.split5.[[R1:[0-9]+]]
+; CHECK: call{{.*}}@__kmpc_fork_call{{.*}}@foo.DIR.OMP.PARALLEL.LOOP.2.split5 to
 ; CHECK: define internal fastcc i32 @foo.2
-; CHECK: call{{.*}}@__kmpc_fork_call{{.*}}@foo.DIR.OMP.PARALLEL.LOOP.2.split5.[[R0:[0-9]+]]
-; CHECK-DAG: define internal void @foo.DIR.OMP.PARALLEL.LOOP.2.split5.[[R0]]
-; CHECK-DAG: define internal void @foo.DIR.OMP.PARALLEL.LOOP.2.split5.[[R1]]
+; CHECK: call{{.*}}@__kmpc_fork_call{{.*}}@foo.DIR.OMP.PARALLEL.LOOP.2.split5 to
 
 %struct.ident_t = type { i32, i32, i32, i32, i8* }
 
