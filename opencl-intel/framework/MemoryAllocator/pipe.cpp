@@ -72,42 +72,34 @@ cl_err_code Pipe::Initialize(cl_mem_flags flags, cl_uint uiPacketSize,
     return CL_SUCCESS;
 }
 
-cl_int Pipe::GetPipeInfo(cl_pipe_info paramName, size_t szParamValueSize,
-                         void *pParamValue, size_t *pszParamValueSizeRet) {
-  size_t szSize;
-  const void *pValue;
-
-  switch (paramName) {
-  case CL_PIPE_PACKET_SIZE:
-    szSize = sizeof(cl_uint);
-    pValue = &m_uiPacketSize;
-    break;
-  case CL_PIPE_MAX_PACKETS:
-    szSize = sizeof(cl_uint);
-    pValue = &m_uiMaxPackets;
-    break;
-  case CL_PIPE_PROPERTIES:
-    // OCL3.0 doesn't define any optional properties for pipe,
-    // so we just return param_value_size_ret equal to 0 here
-    szSize = 0;
-    break;
-  default:
-    return CL_INVALID_VALUE;
-  }
-
-  if (nullptr != pParamValue && szParamValueSize < szSize) {
-    LOG_ERROR(TEXT("szParamValueSize (=%d) < szSize (=%d)"), szParamValueSize,
-              szSize);
-    return CL_INVALID_VALUE;
-  }
-
-  if (nullptr != pszParamValueSizeRet)
-    *pszParamValueSizeRet = szSize;
-
-  if (nullptr != pParamValue && szSize > 0 && pValue)
-    MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
-
-  return CL_SUCCESS;
+cl_int Pipe::GetPipeInfo(cl_pipe_info paramName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet)
+{
+    if (nullptr != pParamValue && szParamValueSize < sizeof(cl_uint))
+    {
+        return CL_INVALID_VALUE;
+    }
+    if (nullptr != pszParamValueSizeRet)
+    {
+        *pszParamValueSizeRet = sizeof(cl_uint);
+    }
+    switch (paramName)
+    {
+    case CL_PIPE_PACKET_SIZE:
+        if (nullptr != pParamValue)
+        {
+            *(cl_uint*)pParamValue = m_uiPacketSize;
+        }
+        break;
+    case CL_PIPE_MAX_PACKETS:
+        if (nullptr != pParamValue)
+        {
+            *(cl_uint*)pParamValue = m_uiMaxPackets;
+        }
+        break;
+    default:
+        return CL_INVALID_VALUE;
+    }
+    return CL_SUCCESS;
 }
 
 void* Pipe::Map(cl_mem_flags flags, size_t requestedSize,

@@ -63,7 +63,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_command_queue CreateCommandQueue(    cl_context                  IN  clContext,
                                                         cl_device_id                IN  clDevice,
                                                         const cl_command_queue_properties* IN  clQueueProperties,
-                                                        cl_bool                     IN  withProps,
                                                         cl_int*                     OUT pErrRet             ) = 0;
         /******************************************************************************************
          * Function:     RetainCommandQueue    

@@ -96,16 +96,6 @@ cl_err_code Sampler::Initialize(SharedPtr<Context> pContext, cl_bool bNormalized
 
 	return CL_SUCCESS;
 }
-
-void Sampler::ReserveProperties(
-    std::vector<cl_sampler_properties> &samplerPropsArray) {
-  if (samplerPropsArray.empty())
-    return;
-  m_clSamplerPropArrays.swap(samplerPropsArray);
-  // Add a terminator
-  m_clSamplerPropArrays.push_back(0);
-}
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Sampler::GetInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -143,10 +133,6 @@ cl_err_code	Sampler::GetInfo(cl_int iParamName, size_t szParamValueSize, void * 
 		clContext = m_pContext->GetHandle();
 		pValue = (void*)&clContext;
 		break;
-    case CL_SAMPLER_PROPERTIES:
-        szSize = sizeof(cl_sampler_properties) * m_clSamplerPropArrays.size();
-        pValue = m_clSamplerPropArrays.data();
-        break;
 	default:
 		LOG_ERROR(TEXT("param_name (=%d) isn't valid"), iParamName);
 		return CL_INVALID_VALUE;
