@@ -23,20 +23,6 @@
 
 extern cl_device_type gDeviceType;
 
-static int compareProperties(const std::vector<cl_sampler_properties> &queried,
-                             const std::vector<cl_sampler_properties> &check) {
-  if (queried.size() == 0 || check.size() == 0 ||
-      queried.size() != check.size())
-    return -1;
-
-  for (int i = 0; i < check.size(); i++) {
-    if (check[i] != queried[i])
-      return -1;
-  }
-
-  return 0;
-}
-
 bool clSampler()
 {
 	  cl_int iRet = CL_SUCCESS;
@@ -44,9 +30,6 @@ bool clSampler()
     bool bResult = true;
     cl_device_id device = NULL;
     cl_context context = NULL;
-    const size_t numProps = 7;
-    size_t szSize = 0;
-    std::vector<cl_sampler_properties> queriedProps;
 
     std::cout << "=============================================================" << std::endl;
     std::cout << "clSampler" << std::endl;
@@ -63,42 +46,11 @@ bool clSampler()
         context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
         CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
 
-        std::vector<cl_sampler_properties> samplerProps{
-            CL_SAMPLER_NORMALIZED_COORDS,
-            CL_FALSE,
-            CL_SAMPLER_ADDRESSING_MODE,
-            CL_ADDRESS_MIRRORED_REPEAT,
-            CL_SAMPLER_FILTER_MODE,
-            CL_FILTER_LINEAR,
-            0};
+        cl_sampler_properties samplerProps[7] = {CL_SAMPLER_NORMALIZED_COORDS, CL_FALSE,
+                                                 CL_SAMPLER_ADDRESSING_MODE, CL_ADDRESS_MIRRORED_REPEAT,
+                                                 CL_SAMPLER_FILTER_MODE, CL_FILTER_LINEAR, 0};
 
-        cl_sampler sampler =
-            clCreateSampler(context, CL_FALSE, CL_ADDRESS_MIRRORED_REPEAT,
-                            CL_FILTER_LINEAR, &iRet);
-        CheckException("clCreateSampler", CL_SUCCESS, iRet);
-        iRet = clGetSamplerInfo(sampler, CL_SAMPLER_PROPERTIES, 0, nullptr,
-                                &szSize);
-        CheckException("clGetSamplerInfo", CL_SUCCESS, iRet);
-        CheckException("clGetSamplerInfo queried properties is unexpected",
-                       size_t(0), szSize);
-        clReleaseSampler(sampler);
-
-        sampler =
-            clCreateSamplerWithProperties(context, samplerProps.data(), &iRet);
-
-        iRet = clGetSamplerInfo(sampler, CL_SAMPLER_PROPERTIES, 0, nullptr,
-                                &szSize);
-        CheckException("clGetSamplerInfo", CL_SUCCESS, iRet);
-        CheckException("CL_SAMPLER_PROPERTIES size is unexpected",
-                  numProps * sizeof(cl_sampler_properties), szSize);
-
-        queriedProps.resize(numProps);
-        iRet = clGetSamplerInfo(sampler, CL_SAMPLER_PROPERTIES, szSize,
-                                queriedProps.data(), nullptr);
-        CheckException("clGetSamplerInfo", CL_SUCCESS, iRet);
-        CheckException("clGetSamplerInfo queried properties is unexpected",
-                       CL_SUCCESS,
-                       compareProperties(queriedProps, samplerProps));
+        cl_sampler sampler = clCreateSamplerWithProperties(context, samplerProps, &iRet);
 
         // FPGA emulator doesn't support sampler
         if (gDeviceType == CL_DEVICE_TYPE_ACCELERATOR)
@@ -121,14 +73,14 @@ bool clSampler()
 
             // the same name appears twice
             samplerProps[2] = CL_SAMPLER_NORMALIZED_COORDS;
-            clCreateSamplerWithProperties(context, samplerProps.data(), &iRet);
+            clCreateSamplerWithProperties(context, samplerProps, &iRet);
             CheckException("clCreateSamplerWithProperties", CL_INVALID_VALUE, iRet);
 
             // invalid value for CL_SAMPLER_NORMALIZED_COORDS
             samplerProps[2] = CL_SAMPLER_ADDRESSING_MODE;
             assert(CL_FALSE != 2 && CL_TRUE != 2);
             samplerProps[1] = 2;
-            clCreateSamplerWithProperties(context, samplerProps.data(), &iRet);
+            clCreateSamplerWithProperties(context, samplerProps, &iRet);
             CheckException("clCreateSamplerWithProperties", CL_INVALID_VALUE, iRet);
 
             // invalid value for CL_SAMPLER_ADDRESSING_MODE
@@ -136,21 +88,21 @@ bool clSampler()
             const cl_sampler_properties invalidAddrMode = CL_ADDRESS_MIRRORED_REPEAT + 1;
             assert(CL_ADDRESS_NONE != invalidAddrMode && CL_ADDRESS_CLAMP_TO_EDGE != invalidAddrMode && CL_ADDRESS_CLAMP != invalidAddrMode && CL_ADDRESS_REPEAT != invalidAddrMode);
             samplerProps[3] = invalidAddrMode;
-            clCreateSamplerWithProperties(context, samplerProps.data(), &iRet);
+            clCreateSamplerWithProperties(context, samplerProps, &iRet);
             CheckException("clCreateSamplerWithProperties", CL_INVALID_VALUE, iRet);
 
             // invalid value for CL_SAMPLER_FILTER_MODE
             samplerProps[3] = CL_ADDRESS_MIRRORED_REPEAT;
             assert(CL_FILTER_LINEAR + 1 != CL_FILTER_NEAREST);
             samplerProps[5] = CL_FILTER_LINEAR + 1;
-            clCreateSamplerWithProperties(context, samplerProps.data(), &iRet);
+            clCreateSamplerWithProperties(context, samplerProps, &iRet);
             CheckException("clCreateSamplerWithProperties", CL_INVALID_VALUE, iRet);
 
             // invalid name
             samplerProps[5] = CL_FILTER_LINEAR;
             assert(1 != CL_SAMPLER_NORMALIZED_COORDS && 1 != CL_SAMPLER_ADDRESSING_MODE && 1 != CL_SAMPLER_FILTER_MODE);
             samplerProps[0] = 1;
-            clCreateSamplerWithProperties(context, samplerProps.data(), &iRet);
+            clCreateSamplerWithProperties(context, samplerProps, &iRet);
             CheckException("clCreateSamplerWithProperties", CL_INVALID_VALUE, iRet);
         }
     }

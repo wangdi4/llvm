@@ -713,12 +713,12 @@ cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  co
         apiLogger << "cl_context context" << context << "cl_device_id device" << device << "cl_command_queue_properties properties" << properties << "cl_int * errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device, propertiesArr, /* withProps */ false, errcode_ret),
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device, propertiesArr, errcode_ret),
            clCreateCommandQueue, &context, &device, const_cast<cl_command_queue_properties*>(&(propertiesArr[1])), &errcode_ret);
     }
     else
     {
-        CALL_TRACED_API(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device, propertiesArr, /* withProps */ false, errcode_ret),
+        CALL_TRACED_API(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device, propertiesArr, errcode_ret),
             clCreateCommandQueue, &context, &device, const_cast<cl_command_queue_properties*>(&(propertiesArr[1])), &errcode_ret);
     }
 }
@@ -3116,12 +3116,12 @@ cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context conte
         apiLogger << "cl_int* errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device_id, pCmdQueueProps, /* withProps */ true, errcode_ret),
+	      CALL_TRACED_API_LOGGER(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device_id, pCmdQueueProps, errcode_ret),
            clCreateCommandQueueWithProperties, &context, &device_id, &pCmdQueueProps, &errcode_ret);
     }
     else
     {
-        CALL_TRACED_API(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device_id, pCmdQueueProps, /* withProps */ true, errcode_ret),
+        CALL_TRACED_API(EXECUTION_MODULE, cl_command_queue, CreateCommandQueue(context, device_id, pCmdQueueProps, errcode_ret),
             clCreateCommandQueueWithProperties, &context, &device_id, &pCmdQueueProps, &errcode_ret);
     }
 }
