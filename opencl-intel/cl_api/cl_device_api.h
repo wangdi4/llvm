@@ -572,6 +572,9 @@ struct  cl_dev_cmd_param_kernel
  */
 #define MAX_PATTERN_SIZE (sizeof(cl_double16))
 
+// Maximum size of command queue properties array
+#define MAX_CMD_QUEUE_PROPS_ARRAY_SIZE (5 * sizeof(cl_command_queue_properties))
+
 /**
  * Used for fill image, and fill buffer commands.
  */
