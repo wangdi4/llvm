@@ -4279,6 +4279,14 @@ bool HIRParser::parsedDebugIntrinsic(const IntrinsicInst *Intrin) {
     return false;
   }
 
+  // Framework only handles dbg intrinsics which have a single instruction as
+  // the location. CodeGen emits a llvm.dbg.declare() intrinsic for each of
+  // them.
+  // TODO: Investigate whether other intrinsics can be preserved.
+  if (DbgIntrin->getNumVariableLocationOps() != 1) {
+    return true;
+  }
+
   Value *Variable = DbgIntrin->getVariableLocationOp(0);
 
   // Sometimes DbgIntrin can be @llvm.dbg.value(!{}, ...);
