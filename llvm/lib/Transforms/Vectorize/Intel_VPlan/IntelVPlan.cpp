@@ -779,23 +779,13 @@ void VPlanVector::execute(VPTransformState *State) {
     for (BB = VLoop->getLoopPreheader();
          BB && BB->getSinglePredecessor() &&
          BB->getSinglePredecessor()->getNumSuccessors() == 1;
-         BB = BB->getSinglePredecessor())
-      ;
-    assert(BB && "Can't find first executable VPlan block");
-    if (isa<VPlanNonMasked>(this)) {
-      // Sanity check: lookup for the VPVectorTripCountCalculation in
-      // the predecessor.
-      // We can create main loop w/o trip check, in case when TC is known and
-      // evenly divisible by VF, so check the predecessor.
-      VPBasicBlock* BBToCheck = BB->getSinglePredecessor();
-      if (!BBToCheck)
-        BBToCheck = BB;
-      auto I = llvm::find_if(*BBToCheck, [](VPInstruction &Inst) -> bool {
-        return isa<VPVectorTripCountCalculation>(Inst);
-      });
-      assert(I != BBToCheck->end() && "Incorrect basic block");
-      (void)I;
+         BB = BB->getSinglePredecessor()) {
+      if (any_of(*BB, [](VPInstruction &Inst) {
+            return isa<VPVectorTripCountCalculation>(Inst);
+          }))
+        break;
     }
+    assert(BB && "Can't find first executable VPlan block");
     State->CFG.FirstExecutableVPBB = BB;
   } else {
     BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();

@@ -351,6 +351,9 @@ private:
   /// Generate code for the VPPeelCount instruction.
   Value *codeGenVPInvSCEVWrapper(VPInvSCEVWrapper *SW);
 
+  /// Vectorize VPInstruction that corresponds to scalar peel/remainder.
+  void vectorizeScalarPeelRem(VPPeelRemainder *LoopReuse);
+
   /// Generate vector code for reduction finalization.
   /// The final vector reduction value is reduced horizontally using
   /// "llvm.experimental.vector.reduce" intrinsics. The scalar result is
