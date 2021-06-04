@@ -74,11 +74,35 @@ private:
   /// and have to go through intermediate integer bitcast.
   VPValue *createCast(VPBuilder &Builder, VPValue *From, Type *ToTy);
 
+  /// Utilities to perform the adjustments (reversal) for the case when the
+  /// group has negative stride. Basically, for
+  /// {i32 ld0, i32 ld1, i32 ld2} the "group" value after/before
+  /// VLSLoad/VLSStore is (VF == 2):
+  ///
+  /// Positive stride:
+  ///     (ld0, ld1, ld2), (ld0, ld1, ld2), (mask-out, mask-out)
+  ///     |   lane0            lane1
+  ///    AdjustedBase == Base
+  ///
+  /// Negative stride:
+  ///     (ld0, ld1, ld2), (ld 0, ld1, ld2), (mask-out, mask-out)
+  ///     |   lane1        |   lane0
+  ///    AdjustedBase      Base
+  ///
+  /// This routine converts one order into another and is used after/before the
+  /// load/store so that the "shape" of the value is "positive" during compute
+  /// and "negative" during the memory operation itself.
+  ///
+  /// These routines are no-op if the stride is positive.
+  VPValue *adjustBasePtrForReverse(VPValue *Base, VPBuilder &Builder);
+  VPValue *adjustGroupValForReverse(VPBuilder &Builder, VPValue *GroupVal);
+
 private:
   OVLSGroup *Group;
   VPlan &Plan;
   const DataLayout &DL;
   VPlanDivergenceAnalysisBase &DA;
+  unsigned VF;
 
   const char *FailureReason = nullptr;
 
@@ -104,7 +128,7 @@ private:
 
 VLSTransform::VLSTransform(OVLSGroup *Group, VPlan &Plan, unsigned VF)
     : Group(Group), Plan(Plan), DL(*Plan.getDataLayout()),
-      DA(*Plan.getVPlanDA()) {
+      DA(*Plan.getVPlanDA()), VF(VF) {
   if (Group->size() <= 1) {
     FailureReason = "Group doesn't contain enough elments (at least 2).";
     return;
@@ -116,7 +140,7 @@ VLSTransform::VLSTransform(OVLSGroup *Group, VPlan &Plan, unsigned VF)
                     "not supported.";
     return;
   }
-  if (*GroupStride > 64) {
+  if (std::abs(*GroupStride) > 64) {
     // TODO: Don't skip in LLVM IR case?
     FailureReason = "HIR only supports up to 64 bits in mask, skipping.";
     return;
@@ -137,7 +161,7 @@ VLSTransform::VLSTransform(OVLSGroup *Group, VPlan &Plan, unsigned VF)
 
   APInt AccessMask = Group->computeByteAccessMask();
   if (!AccessMask.isAllOnesValue() ||
-      AccessMask.getBitWidth() != *GroupStride) {
+      AccessMask.getBitWidth() != std::abs(*GroupStride)) {
     FailureReason =
         "Failing to transform OVLSGroup: groups with gaps are not supported.";
     return;
@@ -351,6 +375,8 @@ void VLSTransform::processLoadGroup(DenseSet<VPInstruction *> &InstsToRemove) {
     DA.updateDivergence(*LeaderAddress);
   }
 
+  LeaderAddress = adjustBasePtrForReverse(LeaderAddress, Builder);
+
   // The alignment for the wide load needs to be set using the group's first
   // memory (lowest offset) reference. Note that it is true because we don't
   // have a gap at the group start (or if we would start the load from the
@@ -361,11 +387,13 @@ void VLSTransform::processLoadGroup(DenseSet<VPInstruction *> &InstsToRemove) {
   DA.markUniform(*WideLoad);
   setMemOpProperties(WideLoad);
 
+  auto *ReverseAdjusted = adjustGroupValForReverse(Builder, WideLoad);
+
   for (OVLSMemref *Memref : *Group) {
     auto *OrigLoad = const_cast<VPLoadStoreInst *>(instruction(Memref));
     auto ExtractTy = getExtractInsertEltType(OrigLoad->getType());
     auto *Extract = Builder.create<VPVLSExtract>(
-        OrigLoad->getName(), WideLoad, ExtractTy,
+        OrigLoad->getName(), ReverseAdjusted, ExtractTy,
         GroupSizeInGranularityElements, getExtractInsertEltOffset(Memref));
     auto *ExtractCast =
         cast<VPInstruction>(createCast(Builder, Extract, OrigLoad->getType()));
@@ -395,9 +423,12 @@ void VLSTransform::processStoreGroup(DenseSet<VPInstruction *> &InstsToRemove) {
     DA.markUniform(*WideValue);
   }
 
+  WideValue = adjustGroupValForReverse(Builder, WideValue);
+
   // Insert point for stores is the last store, so the def for the address of
   // the first store is known to be available.
   auto *BaseAddr = FirstMemrefInst->getOperand(1);
+  BaseAddr = adjustBasePtrForReverse(BaseAddr, Builder);
   auto *WideStore = Builder.create<VPVLSStore>(
       "vls.store", WideValue, BaseAddr, GroupSizeInGranularityElements,
       FirstMemrefInst->getAlignment(), Group->size());
@@ -472,4 +503,56 @@ bool llvm::vpo::isTransformableVLSGroup(OVLSGroup *Group) {
   VPlan &Plan = *FirstInst->getParent()->getParent();
   VLSTransform Transform(Group, Plan, 1 /*VF*/);
   return Transform.getFailureReason() == nullptr;
+}
+
+VPValue *VLSTransform::adjustBasePtrForReverse(VPValue *Base,
+                                               VPBuilder &Builder) {
+  if (*GroupStride > 0)
+    return Base;
+
+  auto *Ty = cast<PointerType>(Base->getType())->getElementType();
+  // We rely on no gaps and equal sizes here.
+  assert(DL.getTypeSizeInBits(GroupTy->getElementType()) ==
+             DL.getTypeSizeInBits(Ty) &&
+         "Type combination isn't supported yet.");
+  unsigned Multiplier = 1;
+  if (auto *VecTy = dyn_cast<FixedVectorType>(Ty))
+    Multiplier = VecTy->getNumElements();
+
+  auto *Result = Builder.createGEP(
+      Base,
+      {Plan.getVPConstant(
+          -APInt(64, GroupSizeInGranularityElements * (VF - 1) * Multiplier,
+                 true /* Signed */))},
+      nullptr /* Underlying Instruction */);
+  Result->setName(Base->getName() + ".reverse.adjust");
+  return Result;
+}
+
+VPValue *VLSTransform::adjustGroupValForReverse(VPBuilder &Builder,
+                                                VPValue *GroupVal) {
+  if (*GroupStride > 0)
+    return GroupVal;
+
+  auto &Ctx = *Plan.getLLVMContext();
+  SmallVector<Constant *, 16> Mask;
+  for (unsigned i = 0; i < VF; ++i) {
+    for (unsigned j = 0; j < GroupSizeInGranularityElements; ++j)
+      Mask.push_back(ConstantInt::get(
+          Ctx, APInt(64, (VF - i - 1) * GroupSizeInGranularityElements + j)));
+  }
+  auto *Undef = UndefValue::get(Mask[0]->getType());
+  for (unsigned i = VF * GroupSizeInGranularityElements;
+       i < GroupTy->getNumElements(); ++i)
+    Mask.push_back(Undef);
+
+  // NOTE: we rely on the fact that all CGs would emit it unmasked, even though
+  // it's not guaranteed.
+  auto Shuffle = Builder.createNaryOp(
+      Instruction::ShuffleVector, GroupTy,
+      {GroupVal, GroupVal, Plan.getVPConstant(ConstantVector::get(Mask))});
+  DA.markUniform(*Shuffle);
+  Shuffle->setName(GroupVal->getName() + ".reverse");
+
+  return Shuffle;
 }
