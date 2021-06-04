@@ -49,7 +49,7 @@ define void @foo() {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_VL_COND]], [[BB0]], [[BB11:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB11]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB12:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB12]]

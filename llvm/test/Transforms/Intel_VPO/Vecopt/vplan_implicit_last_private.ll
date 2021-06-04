@@ -44,7 +44,7 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND_NOT]], [[BB3:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
-; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 live-in1 i64 1
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:     i32 [[VP__PRIV_FINAL]] = private-final-uc i32 [[VP0]]
 ; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
 ; CHECK-EMPTY:

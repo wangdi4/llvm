@@ -45,7 +45,7 @@ define dso_local void @test_memref_transform(i32 %n) {
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_CMP]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]
-; CHECK-NEXT:       [DA: Uni] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:       [DA: Uni] br middle.block
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      middle.block: # preds: [[BB3]]

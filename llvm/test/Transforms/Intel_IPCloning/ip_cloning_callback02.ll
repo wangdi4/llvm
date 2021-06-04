@@ -5,6 +5,7 @@
 ; Check that callback cloning does NOT happen, because there are no parameters
 ; that can be propagated from the primary clone to the callback function.
 
+; CHECK: Attempting callback cloning for foo
 ; CHECK: Cloned call:{{.*}}foo.1(i32 200)
 ; CHECK: Cloned call:{{.*}}foo.2(i32 100)
 ; CHECK-NOT: Cloned callback

@@ -62,7 +62,7 @@ define void @foo(i64 *%p, i1 %uniform) #0 {
 ; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND]], [[BB10:BB[0-9]+]], [[BB2]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB10]]: # preds: [[BB3]]
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-NEXT:     [DA: Uni] i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-NEXT:     [DA: Uni] br [[BB11:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB11]]: # preds: [[BB10]]
@@ -246,7 +246,7 @@ define void @uniform_with_undef(i64 *%p, i64 %n) #0 {
 ; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND]], [[BB7:BB[0-9]+]], [[BB2]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB7]]: # preds: [[BB3]]
-; VPLAN-NEXT:     [DA: Uni] i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
+; VPLAN-NEXT:     [DA: Uni] i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-NEXT:     [DA: Uni] br [[BB8:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB8]]: # preds: [[BB7]]

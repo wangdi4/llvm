@@ -46,7 +46,7 @@ define dso_local i64 @foo(i64* nocapture readonly %lp) local_unnamed_addr #0 {
 ; CMCHECK-NEXT:    Cost 0 for br i1 [[VP9]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i64 [[VP1]]
-; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in1 i64 1
+; CMCHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CMCHECK-NEXT:    Cost 0 for br [[BB4:BB[0-9]+]]
 ; CMCHECK-NEXT:  Analyzing VPBasicBlock [[BB4]], total cost: 0
 ; CMCHECK-NEXT:    Cost 0 for br <External Block>

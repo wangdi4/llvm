@@ -54,7 +54,6 @@ define dso_local float @getElement(i32 %idx) {
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB8:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB8:
 ; CHECK-NEXT:    [[TMP5:%.*]] = call float @llvm.vector.reduce.fadd.v2f32(float [[UNI_PHI]], <2 x float> [[TMP1]])
-; CHECK-NEXT:    [[TMP6:%.*]] = add i32 [[UNI_PHI1]], 4096
 ; CHECK-NEXT:    br label [[VPLANNEDBB9:%.*]]
 ; CHECK:       VPlannedBB9:
 ; CHECK-NEXT:    br label [[VPLANNEDBB10:%.*]]
@@ -62,7 +61,7 @@ define dso_local float @getElement(i32 %idx) {
 ; CHECK-NEXT:    br i1 true, label [[FINAL_MERGE:%.*]], label [[MERGE_BLK17]]
 ; CHECK:       merge.blk17:
 ; CHECK-NEXT:    [[UNI_PHI11:%.*]] = phi float [ [[TMP5]], [[VPLANNEDBB10]] ], [ 0.000000e+00, [[PEEL_CHECKV22]] ], [ [[UNI_PHI]], [[VPLANNEDBB2]] ]
-; CHECK-NEXT:    [[UNI_PHI12:%.*]] = phi i32 [ [[TMP6]], [[VPLANNEDBB10]] ], [ 0, [[PEEL_CHECKV22]] ], [ [[UNI_PHI1]], [[VPLANNEDBB2]] ]
+; CHECK-NEXT:    [[UNI_PHI12:%.*]] = phi i32 [ 4096, [[VPLANNEDBB10]] ], [ 0, [[PEEL_CHECKV22]] ], [ [[UNI_PHI1]], [[VPLANNEDBB2]] ]
 ; CHECK-NEXT:    br label [[VPLANNEDBB13:%.*]]
 ; CHECK:       VPlannedBB13:
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT20:%.*]] = insertelement <2 x float> poison, float [[REM_F]], i32 0
@@ -71,37 +70,36 @@ define dso_local float @getElement(i32 %idx) {
 ; CHECK:       VPlannedBB14:
 ; CHECK-NEXT:    [[UNI_PHI12IND_START_BCAST_SPLATINSERT:%.*]] = insertelement <2 x i32> poison, i32 [[UNI_PHI12]], i32 0
 ; CHECK-NEXT:    [[UNI_PHI12IND_START_BCAST_SPLAT:%.*]] = shufflevector <2 x i32> [[UNI_PHI12IND_START_BCAST_SPLATINSERT]], <2 x i32> poison, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP7:%.*]] = add <2 x i32> [[UNI_PHI12IND_START_BCAST_SPLAT]], <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP6:%.*]] = add <2 x i32> [[UNI_PHI12IND_START_BCAST_SPLAT]], <i32 0, i32 1>
 ; CHECK-NEXT:    br label [[VPLANNEDBB15:%.*]]
 ; CHECK:       VPlannedBB15:
-; CHECK-NEXT:    [[UNI_PHI16:%.*]] = phi i32 [ [[UNI_PHI12]], [[VPLANNEDBB14]] ], [ [[TMP11:%.*]], [[NEW_LATCH:%.*]] ]
-; CHECK-NEXT:    [[VEC_PHI17:%.*]] = phi <2 x i32> [ [[TMP7]], [[VPLANNEDBB14]] ], [ [[TMP10:%.*]], [[NEW_LATCH]] ]
+; CHECK-NEXT:    [[UNI_PHI16:%.*]] = phi i32 [ [[UNI_PHI12]], [[VPLANNEDBB14]] ], [ [[TMP10:%.*]], [[NEW_LATCH:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI17:%.*]] = phi <2 x i32> [ [[TMP6]], [[VPLANNEDBB14]] ], [ [[TMP9:%.*]], [[NEW_LATCH]] ]
 ; CHECK-NEXT:    [[VEC_PHI18:%.*]] = phi <2 x float> [ <float -0.000000e+00, float -0.000000e+00>, [[VPLANNEDBB14]] ], [ [[PREDBLEND:%.*]], [[NEW_LATCH]] ]
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp ult <2 x i32> [[VEC_PHI17]], <i32 4096, i32 4096>
+; CHECK-NEXT:    [[TMP7:%.*]] = icmp ult <2 x i32> [[VEC_PHI17]], <i32 4096, i32 4096>
 ; CHECK-NEXT:    br label [[VPLANNEDBB19:%.*]]
 ; CHECK:       VPlannedBB19:
-; CHECK-NEXT:    [[TMP9:%.*]] = fadd <2 x float> [[VEC_PHI18]], [[BROADCAST_SPLAT21]]
+; CHECK-NEXT:    [[TMP8:%.*]] = fadd <2 x float> [[VEC_PHI18]], [[BROADCAST_SPLAT21]]
 ; CHECK-NEXT:    br label [[NEW_LATCH]]
 ; CHECK:       new_latch:
-; CHECK-NEXT:    [[PREDBLEND]] = select <2 x i1> [[TMP8]], <2 x float> [[TMP9]], <2 x float> [[VEC_PHI18]]
-; CHECK-NEXT:    [[TMP10]] = add nuw nsw <2 x i32> [[VEC_PHI17]], <i32 2, i32 2>
-; CHECK-NEXT:    [[TMP11]] = add nuw nsw i32 [[UNI_PHI16]], 2
-; CHECK-NEXT:    [[TMP12:%.*]] = icmp ult <2 x i32> [[TMP10]], <i32 4096, i32 4096>
-; CHECK-NEXT:    [[TMP13:%.*]] = bitcast <2 x i1> [[TMP12]] to i2
-; CHECK-NEXT:    [[TMP14:%.*]] = icmp eq i2 [[TMP13]], 0
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT22:%.*]] = insertelement <2 x i1> poison, i1 [[TMP14]], i32 0
+; CHECK-NEXT:    [[PREDBLEND]] = select <2 x i1> [[TMP7]], <2 x float> [[TMP8]], <2 x float> [[VEC_PHI18]]
+; CHECK-NEXT:    [[TMP9]] = add nuw nsw <2 x i32> [[VEC_PHI17]], <i32 2, i32 2>
+; CHECK-NEXT:    [[TMP10]] = add nuw nsw i32 [[UNI_PHI16]], 2
+; CHECK-NEXT:    [[TMP11:%.*]] = icmp ult <2 x i32> [[TMP9]], <i32 4096, i32 4096>
+; CHECK-NEXT:    [[TMP12:%.*]] = bitcast <2 x i1> [[TMP11]] to i2
+; CHECK-NEXT:    [[TMP13:%.*]] = icmp eq i2 [[TMP12]], 0
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT22:%.*]] = insertelement <2 x i1> poison, i1 [[TMP13]], i32 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT23:%.*]] = shufflevector <2 x i1> [[BROADCAST_SPLATINSERT22]], <2 x i1> poison, <2 x i32> zeroinitializer
 ; CHECK-NEXT:    [[BROADCAST_SPLAT23_EXTRACT_0_:%.*]] = extractelement <2 x i1> [[BROADCAST_SPLAT23]], i32 0
 ; CHECK-NEXT:    br i1 [[BROADCAST_SPLAT23_EXTRACT_0_]], label [[VPLANNEDBB24:%.*]], label [[VPLANNEDBB15]]
 ; CHECK:       VPlannedBB24:
-; CHECK-NEXT:    [[TMP15:%.*]] = call float @llvm.vector.reduce.fadd.v2f32(float [[UNI_PHI11]], <2 x float> [[PREDBLEND]])
-; CHECK-NEXT:    [[TMP16:%.*]] = add i32 [[UNI_PHI12]], 4096
+; CHECK-NEXT:    [[TMP14:%.*]] = call float @llvm.vector.reduce.fadd.v2f32(float [[UNI_PHI11]], <2 x float> [[PREDBLEND]])
 ; CHECK-NEXT:    br label [[VPLANNEDBB25:%.*]]
 ; CHECK:       VPlannedBB25:
 ; CHECK-NEXT:    br label [[FINAL_MERGE]]
 ; CHECK:       final.merge:
-; CHECK-NEXT:    [[UNI_PHI26:%.*]] = phi float [ [[TMP15]], [[VPLANNEDBB25]] ], [ [[TMP5]], [[VPLANNEDBB10]] ]
-; CHECK-NEXT:    [[UNI_PHI27:%.*]] = phi i32 [ [[TMP16]], [[VPLANNEDBB25]] ], [ [[TMP6]], [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    [[UNI_PHI26:%.*]] = phi float [ [[TMP14]], [[VPLANNEDBB25]] ], [ [[TMP5]], [[VPLANNEDBB10]] ]
+; CHECK-NEXT:    [[UNI_PHI27:%.*]] = phi i32 [ 4096, [[VPLANNEDBB25]] ], [ 4096, [[VPLANNEDBB10]] ]
 ; CHECK-NEXT:    br label [[DIR_OMP_END_SIMD_4:%.*]]
 ; CHECK:       omp.inner.for.body:
 ; CHECK-NEXT:    [[DOTOMP_IV_LOCAL_0:%.*]] = phi i32 [ 0, [[PEELBLK13]] ], [ [[ADD3]], [[OMP_INNER_FOR_BODY]] ]

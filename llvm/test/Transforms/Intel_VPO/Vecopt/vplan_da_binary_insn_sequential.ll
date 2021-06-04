@@ -27,8 +27,8 @@ define dso_local void @XNU() local_unnamed_addr #0 {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXIT_COND]], [[BB4:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_FIRST_INDUCTION_PHI_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_SECOND_INDUCTION_PHI_IND_FINAL:%.*]] = induction-final{add} i64 live-in1 i64 2
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_FIRST_INDUCTION_PHI_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_SECOND_INDUCTION_PHI_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 2
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB5]]

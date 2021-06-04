@@ -74,12 +74,11 @@ define void @test_store(i64* nocapture %ary, i32 %c) {
 ; CHECK-NEXT:    [[BROADCAST_SPLAT18_EXTRACT_0_:%.*]] = extractelement <2 x i1> [[BROADCAST_SPLAT18]], i32 0
 ; CHECK-NEXT:    br i1 [[BROADCAST_SPLAT18_EXTRACT_0_]], label [[VPLANNEDBB19:%.*]], label [[VPLANNEDBB10]]
 ; CHECK:       VPlannedBB19:
-; CHECK-NEXT:    [[TMP16:%.*]] = add i64 [[UNI_PHI7]], 1024
 ; CHECK-NEXT:    br label [[VPLANNEDBB20:%.*]]
 ; CHECK:       VPlannedBB20:
 ; CHECK-NEXT:    br label [[FINAL_MERGE]]
 ; CHECK:       final.merge:
-; CHECK-NEXT:    [[UNI_PHI21:%.*]] = phi i64 [ [[TMP16]], [[VPLANNEDBB20]] ], [ 1024, [[VPLANNEDBB6]] ]
+; CHECK-NEXT:    [[UNI_PHI21:%.*]] = phi i64 [ 1024, [[VPLANNEDBB20]] ], [ 1024, [[VPLANNEDBB6]] ]
 ; CHECK-NEXT:    br label [[FOR_END:%.*]]
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[FOR_BODY:%.*]] ]
