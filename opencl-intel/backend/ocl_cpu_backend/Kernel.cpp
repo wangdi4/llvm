@@ -19,7 +19,6 @@
 #include "TypeAlignment.h"
 #include "exceptions.h"
 #include "Serializer.h"
-#include "SerializerCompatibility.h"
 
 #include "cpu_dev_limits.h"
 
@@ -839,8 +838,7 @@ void Kernel::Serialize(IOutputStream& ost, SerializationStatus* stats) const
   unsigned int vectorSize = m_explicitArgs.size();
   Serializer::SerialPrimitive<unsigned int>(&vectorSize, ost);
   for (size_t i = 0; i < vectorSize; ++i) {
-    KernelArgumentLegacy arg = cvtToKernelArgumentLegacy(m_explicitArgs[i]);
-    Serializer::SerialPrimitive<KernelArgumentLegacy>(&arg, ost);
+    Serializer::SerialPrimitive<KernelArgument>(&m_explicitArgs[i], ost);
   }
 
   // Serialize explicit argument buffer size
@@ -891,9 +889,7 @@ void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats, size_t m
   Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
   m_explicitArgs.resize(vectorSize);
   for (size_t i = 0; i < vectorSize; ++i) {
-    KernelArgumentLegacy arg;
-    Serializer::DeserialPrimitive<KernelArgumentLegacy>(&arg, ist);
-    m_explicitArgs[i] = arg.toNew();
+    Serializer::DeserialPrimitive<KernelArgument>(&m_explicitArgs[i], ist);
   }
 
   // Deserial explicit argument buffer size
