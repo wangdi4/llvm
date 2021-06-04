@@ -408,7 +408,7 @@ public:
           if (FI.getLLVMType()->isAggregateType()) {
             AnalyzeInitializer(GV, FI.getDTransType(), ConstVal);
           } else {
-            // TODO: Add value tracking of the field
+            updateFieldValueTracking(*StInfo, FI, I, ConstVal, &GV);
             CheckInitializerCompatibility(GV, FI.getDTransType(), ConstVal);
           }
         }
