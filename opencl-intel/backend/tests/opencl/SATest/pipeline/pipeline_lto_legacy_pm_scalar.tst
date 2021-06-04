@@ -1,4 +1,4 @@
-; RUN: SATest -BUILD -pass-manager-type=lto-legacy -debug-passes=Structure -config=%s.cfg 2>&1 | FileCheck %s
+; RUN: SATest -BUILD -tsize=1 -pass-manager-type=lto-legacy -debug-passes=Structure -config=%s.cfg 2>&1 | FileCheck %s
 
 ; CHECK:      Optimization report options pass
 ; CHECK-NEXT:   ModulePass Manager
@@ -8,11 +8,9 @@
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK-NEXT:     DPCPPKernelAnalysisLegacy
-; CHECK:          DPCPPKernelVecClone pass
-; CHECK-NOT:      VecClone
-; CHECK:          FunctionPass Manager
-; CHECK:            VPlan Vectorization Driver
-; CHECK:          VPlan post vectorization pass for DPCPP kernels
+; CHECK-NOT:      DPCPPKernelVecClone pass
+; CHECK-NOT:      VPlan Vectorization Driver
+; CHECK-NOT:      VPlan post vectorization pass for DPCPP kernels
 ; CHECK:          WGLoopCreatorLegacy
 ; CHECK-NEXT:       FunctionPass Manager
 ; CHECK:              PhiCanonicalization
