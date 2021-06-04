@@ -67,7 +67,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_command_queue
         CreateCommandQueue(cl_context clContext, cl_device_id clDevice,
                            const cl_command_queue_properties *clQueueProperties,
-                           cl_bool withProps,
                            cl_int *pErrRet) override;
         cl_err_code
         RetainCommandQueue(cl_command_queue clCommandQueue) override;
@@ -318,14 +317,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		bool				IsValidQueueHandle(cl_command_queue clCommandQueue);
 
         // Input parameters validation commands
-        cl_err_code CheckCreateCommandQueueParams(
-            cl_context clContext, cl_device_id clDevice,
-            const cl_command_queue_properties* clQueueProperties,
-            SharedPtr<Context>* ppContext,
-            std::vector<cl_command_queue_properties>& clQueuePropsArray,
-            cl_command_queue_properties& queueProps,
-            cl_uint& uiQueueSize, cl_bool withProps);
-
+        cl_err_code         CheckCreateCommandQueueParams( cl_context clContext, cl_device_id clDevice, const cl_command_queue_properties* clQueueProperties, SharedPtr<Context>* ppContext,
+														   cl_command_queue_properties& queueProps, cl_uint& uiQueueSize);
         cl_err_code         CheckImageFormats( SharedPtr<MemoryObject> pSrcImage, SharedPtr<MemoryObject> pDstImage);
         bool                CheckMemoryObjectOverlapping(SharedPtr<MemoryObject> pMemObj, const size_t* szSrcOrigin, const size_t* szDstOrigin, const size_t* szRegion);
 

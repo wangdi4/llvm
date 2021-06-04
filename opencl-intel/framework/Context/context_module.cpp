@@ -2511,7 +2511,6 @@ cl_sampler ContextModule::CreateSamplerWithProperties(cl_context clContext, cons
     cl_filter_mode clFilterMode = CL_FILTER_NEAREST;
     std::set<cl_sampler_properties> specifiedNames;
     cl_int iErrCode = CL_SUCCESS;
-    std::vector<cl_sampler_properties> samplerPropsArray;
 
       while (nullptr != pSamplerProperties && 0 != *pSamplerProperties && CL_SUCCEEDED(iErrCode))
       {
@@ -2523,8 +2522,6 @@ cl_sampler ContextModule::CreateSamplerWithProperties(cl_context clContext, cons
             }
             specifiedNames.insert(name);
             const cl_sampler_properties value = *(pSamplerProperties++);
-            samplerPropsArray.push_back(name);
-            samplerPropsArray.push_back(value);
 
             switch (name)
             {
@@ -2560,26 +2557,18 @@ cl_sampler ContextModule::CreateSamplerWithProperties(cl_context clContext, cons
                   iErrCode = CL_INVALID_VALUE;
             }
     }
-
-    if (CL_SUCCEEDED(iErrCode)) {
-      cl_sampler sampler =
-          CreateSampler(clContext, bNormalizedCoords, clAddressingMode,
-                        clFilterMode, pErrcodeRet);
-      SharedPtr<Sampler> pSampler =
-          m_mapSamplers.GetOCLObject((_cl_sampler_int *)sampler)
-              .DynamicCast<Sampler>();
-      // According to the specs of OCL3.0, the implementation of
-      // CL_SAMPLER_PROPERTIES must return the values specified in the
-      // properties argument in the same order, so we need to save a
-      // copy the original properties
-      pSampler->ReserveProperties(samplerPropsArray);
-      return sampler;
-    } else {
-      if (nullptr != pErrcodeRet) {
-        *pErrcodeRet = iErrCode;
-      }
-      return CL_INVALID_HANDLE;
+    if (CL_SUCCEEDED(iErrCode))
+    {
+        return CreateSampler(clContext, bNormalizedCoords, clAddressingMode, clFilterMode, pErrcodeRet);
     }
+    else
+    {
+        if (nullptr != pErrcodeRet)
+        {
+                *pErrcodeRet = iErrCode;
+        }
+        return CL_INVALID_HANDLE;
+    }    
 }
 
 //////////////////////////////////////////////////////////////////////////

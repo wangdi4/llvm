@@ -49,27 +49,23 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		******************************************************************************************/		
 		Sampler(_cl_context_int* context);
 
-        // get image info
-        cl_err_code
-        GetInfo(cl_int iParamName, size_t szParamValueSize,
-                void *pParamValue,
-                size_t *pszParamValueSizeRet) const override;
+		// get image info
+                cl_err_code
+                GetInfo(cl_int iParamName, size_t szParamValueSize,
+                        void *pParamValue,
+                        size_t *pszParamValueSizeRet) const override;
 
-        virtual cl_err_code
-        Initialize(SharedPtr<Context> pContext,
-                   cl_bool bNormalizedCoords,
-                   cl_addressing_mode clAddressingMode,
-                   cl_filter_mode clFilterMode);
+                virtual cl_err_code
+                Initialize(SharedPtr<Context> pContext,
+                           cl_bool bNormalizedCoords,
+                           cl_addressing_mode clAddressingMode,
+                           cl_filter_mode clFilterMode);
 
-        ConstSharedPtr<Context> GetContext() const {
-          return m_pContext; }
-
+                ConstSharedPtr<Context> GetContext() const {
+                  return m_pContext; }
         SharedPtr<Context> GetContext() { return m_pContext; }
 
-        cl_uint GetValue() const {return m_clSamlerProps;}
-
-        void ReserveProperties(
-            std::vector<cl_sampler_properties>& samplerPropsArray);
+		cl_uint	GetValue() const {return m_clSamlerProps;}
 
 	protected:
 		/******************************************************************************************
@@ -88,7 +84,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_bool				m_bNormalizedCoords;
 
 		cl_uint				m_clSamlerProps;
-        std::vector<cl_sampler_properties> m_clSamplerPropArrays;
 		
 		DECLARE_LOGGER_CLIENT;
 	
