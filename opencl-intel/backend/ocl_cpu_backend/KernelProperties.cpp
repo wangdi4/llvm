@@ -41,15 +41,14 @@ void KernelJITProperties::Deserialize(IInputStream &ist,
 
 KernelProperties::KernelProperties()
     : m_hasBarrier(false), m_hasGlobalSync(false), m_useNativeSubgroups(false),
-      m_DAZ(false), m_hasAVX1(false), m_hasAVX2(false), m_optWGSize(0),
-      m_totalImplSize(0), m_barrierBufferSize(0), m_privateMemorySize(0),
-      m_maxPrivateMemorySize(0), m_reqdNumSG(0), m_kernelExecutionLength(0),
-      m_vectorizationWidth(1), m_minGroupSizeFactorial(1),
-      m_isVectorizedWithTail(false), m_uiSizeT(sizeof(void *)),
-      m_bIsBlock(false), m_bIsAutorun(false), m_bNeedSerializeWGs(false),
-      m_bIsTask(false), m_bCanUseGlobalWorkOffset(true),
-      m_bIsNonUniformWGSizeSupported(false), m_canUniteWG(false),
-      m_verctorizeOnDimention(0), m_debugInfo(false) {
+      m_DAZ(false), m_optWGSize(0), m_totalImplSize(0), m_barrierBufferSize(0),
+      m_privateMemorySize(0), m_maxPrivateMemorySize(0), m_reqdNumSG(0),
+      m_kernelExecutionLength(0), m_vectorizationWidth(1),
+      m_minGroupSizeFactorial(1), m_isVectorizedWithTail(false),
+      m_uiSizeT(sizeof(void *)), m_bIsBlock(false), m_bIsAutorun(false),
+      m_bNeedSerializeWGs(false), m_bIsTask(false),
+      m_bCanUseGlobalWorkOffset(true), m_bIsNonUniformWGSizeSupported(false),
+      m_canUniteWG(false), m_verctorizeOnDimention(0), m_debugInfo(false) {
   memset(m_reqdWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
   memset(m_hintWGSize, 0, MAX_WORK_DIM * sizeof(size_t));
 }
@@ -64,8 +63,7 @@ void KernelProperties::Serialize(IOutputStream &ost,
   Serializer::SerialPrimitive<bool>(&m_useNativeSubgroups, ost);
   Serializer::SerialPrimitive<bool>(&m_DAZ, ost);
   Serializer::SerialPrimitive<unsigned int>(&m_optWGSize, ost);
-  Serializer::SerialPrimitive(&m_hasAVX1, ost);
-  Serializer::SerialPrimitive(&m_hasAVX2, ost);
+  Serializer::SerialPrimitive(&m_cpuId, ost);
 
   // using unsigned long long int instead of size_t is because that size_t
   // varies in it's size relating to the platform (32/64 bit)
@@ -125,8 +123,7 @@ void KernelProperties::Deserialize(IInputStream &ist,
   Serializer::DeserialPrimitive<bool>(&m_useNativeSubgroups, ist);
   Serializer::DeserialPrimitive<bool>(&m_DAZ, ist);
   Serializer::DeserialPrimitive<unsigned int>(&m_optWGSize, ist);
-  Serializer::DeserialPrimitive(&m_hasAVX1, ist);
-  Serializer::DeserialPrimitive(&m_hasAVX2, ist);
+  Serializer::DeserialPrimitive(&m_cpuId, ist);
 
   // using unsigned long long int instead of size_t is because that size_t
   // varies in it's size relating to the platform (32/64 bit)
