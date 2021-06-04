@@ -2384,27 +2384,17 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
     // Retrieve kernel group size info.
     auto &KernelProperty = DeviceInfo->KernelProperties[device_id][kernels[i]];
-    size_t kernel_simd_width = 1;
-    CALL_CL_RET_NULL(clGetKernelWorkGroupInfo, kernels[i],
-                     DeviceInfo->deviceIDs[device_id],
+    auto Device = DeviceInfo->deviceIDs[device_id];
+    CALL_CL_RET_NULL(clGetKernelWorkGroupInfo, kernels[i], Device,
                      CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
-                     sizeof(size_t), &kernel_simd_width, nullptr);
-    KernelProperty.Width = kernel_simd_width;
-    KernelProperty.SIMDWidth = kernel_simd_width;
-    uint32_t HWId = DeviceInfo->getPCIDeviceId(device_id) & 0xFF00;
-#if INTEL_CUSTOMIZATION
-    if (HWId == 0x0200 || HWId == 0x0b00 || HWId == 0x4900)
-#else // INTEL_CUSTOMIZATION
-    if (HWId == 0x4900)
-#endif // INTEL_CUSTOMIZATION
-      KernelProperty.SIMDWidth /= 2;
-
-    size_t kernel_wg_size = 1;
-    CALL_CL_RET_NULL(clGetKernelWorkGroupInfo, kernels[i],
-                     DeviceInfo->deviceIDs[device_id],
-                     CL_KERNEL_WORK_GROUP_SIZE,
-                     sizeof(size_t), &kernel_wg_size, nullptr);
-    KernelProperty.MaxThreadGroupSize = kernel_wg_size;
+                     sizeof(size_t), &KernelProperty.Width, nullptr);
+    CALL_CL_RET_NULL(clGetKernelSubGroupInfo, kernels[i], Device,
+                     CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE, sizeof(size_t),
+                     &KernelProperty.SIMDWidth, sizeof(size_t),
+                     &KernelProperty.SIMDWidth, nullptr);
+    CALL_CL_RET_NULL(clGetKernelWorkGroupInfo, kernels[i], Device,
+                     CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t),
+                     &KernelProperty.MaxThreadGroupSize, nullptr);
 
     if (DebugLevel > 0) {
       // Show kernel information
