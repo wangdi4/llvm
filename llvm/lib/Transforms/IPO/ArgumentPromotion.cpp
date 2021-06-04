@@ -1259,8 +1259,6 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
   PA.preserve<AndersensAA>();
   PA.preserve<WholeProgramAnalysis>();
   return PA;
-#else // INTEL_CUSTOMIZATION
-  return PreservedAnalyses::none();
 #endif // INTEL_CUSTOMIZATION
 }
 
