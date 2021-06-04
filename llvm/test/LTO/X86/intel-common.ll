@@ -3,7 +3,7 @@
 
 ; Check that the definition of the blank common is the right size
 
-; CHECK: IR Dump After Rewrite Symbols
+; CHECK: IR Dump After Module Verifier
 ; CHECK: @__BLNK__ = common unnamed_addr global [6643930048 x i8] zeroinitializer, align 32
 
 ; Check that the reference to the blank common has the right size
