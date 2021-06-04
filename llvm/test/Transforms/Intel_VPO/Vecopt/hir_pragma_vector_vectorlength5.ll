@@ -40,4 +40,4 @@ attributes #0 = { nofree uwtable mustprogress "denormal-fp-math"="preserve-sign,
 
 !6 = distinct !{!6, !7, !8}
 !7 = !{!"llvm.loop.mustprogress"}
-!8 = !{!"llvm.loop.vector.vectorlength", i64 0}
+!8 = !{!"llvm.loop.intel.vector.vectorlength", i64 0}

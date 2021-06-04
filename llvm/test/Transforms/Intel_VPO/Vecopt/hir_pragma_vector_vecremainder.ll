@@ -50,7 +50,7 @@ attributes #0 = { nofree uwtable mustprogress "denormal-fp-math"="preserve-sign,
 
 !6 = distinct !{!6, !7, !8}
 !7 = !{!"llvm.loop.mustprogress"}
-!8 = !{!"llvm.loop.vector.vecremainder", i1 false}
-!9 = !{!"llvm.loop.vector.vecremainder", i1 true}
+!8 = !{!"llvm.loop.intel.vector.novecremainder", !"true"}
+!9 = !{!"llvm.loop.intel.vector.vecremainder", !"true"}
 !10 = !{!"llvm.loop.mustprogress"}
 !11 = distinct !{!11, !9, !10}

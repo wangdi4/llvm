@@ -352,14 +352,17 @@ public:
     OVLSMemrefToInstMap MemrefToInstMap;
     OVLSMemrefToInstMap::iterator It1;
     std::multimap<ShuffleVectorInst *, OVLSMemref *>::iterator It;
+    OVLSInstructionVector AllInstVec;
 
     // Maps each LLVM-IR Instruction to an int.
     DenseMap<uint64_t, Value *> InstMap;
     // Generate optimized-sequence for each OVLSGroup.
     for (auto &Grp : Grps) {
       OVLSInstructionVector InstVec;
+      if (!OptVLSInterface::getSequence(*Grp, CM, InstVec, &MemrefToInstMap))
+        return false;
       // Get the optimized-sequence computed by OptVLS.
-      if (OptVLSInterface::getSequence(*Grp, CM, InstVec, &MemrefToInstMap)) {
+      else {
         Value *Addr;
         Type *ElemTy;
         unsigned Alignment = 0;
@@ -378,8 +381,11 @@ public:
         // to LLVM-IR instruction type.
         InstMap = OVLSConverter::genLLVMIR(Builder, InstVec, Shuffles[0], Addr,
                                            ElemTy, Alignment);
-      } else
-        return false;
+        AllInstVec.insert(AllInstVec.end(),
+          std::make_move_iterator(InstVec.begin()),
+          std::make_move_iterator(InstVec.end())
+        );
+      }
     }
 
     // Now replace the unoptimized-interleaved-vectors with the

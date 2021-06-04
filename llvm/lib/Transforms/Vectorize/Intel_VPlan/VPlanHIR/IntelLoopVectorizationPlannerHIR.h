@@ -73,14 +73,50 @@ public:
   /// successful, false if there was any late bailout during CG.
   bool executeBestPlan(VPOCodeGenHIR *CG, unsigned UF);
 
+  /// Returns true/false value if "llvm.loop.intel.vector.vecremainder"/
+  /// "llvm.loop.intel.vector.novecremainder" metadata is specified. If there is
+  ///  no such metadata, returns None.
+  Optional<bool> readVecRemainderEnabledHIR() {
+    if (TheLoop->getLoopStringMetadata("llvm.loop.intel.vector.vecremainder")) {
+      DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                       dbgs() << "Vector Remainder was set by the user's "
+                                 "#pragma vecremainder\n");
+      return true;
+    }
+    if (TheLoop->getLoopStringMetadata("llvm.loop.intel.vector.novecremainder")) {
+      DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                       dbgs() << "Scalar Remainder was set by the user's #pragma "
+                                 "novecremainder\n");
+      return false;
+    }
+    return None;
+  }
+
+  /// Returns true/false value if "llvm.loop.intel.vector.dynamic_align"/
+  /// "llvm.loop.intel.vector.nodynamic_align" metadata is specified. If there
+  /// is no such metadata, returns true.
+  bool readDynAlignEnabledHIR() {
+    if (TheLoop->getLoopStringMetadata("llvm.loop.intel.vector.dynamic_align")) {
+      DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                       dbgs() << "Dynamic Align was set by the user's "
+                                 "#pragma vector dynamic_align\n");
+      return true;
+    }
+    if (TheLoop->getLoopStringMetadata("llvm.loop.intel.vector.nodynamic_align")) {
+      DEBUG_WITH_TYPE("VPlan_pragma_metadata",
+                        dbgs() << "No dynamic Align was set by the user's "
+                                  "#pragma vector nodynamic_align\n");
+      return false;
+    }
+    return true;
+  }
+
   /// Reads all metadata specified by pragmas
   void readLoopMetadata() {
     VectorlengthMD =
-        TheLoop->getLoopStringMetadata("llvm.loop.vector.vectorlength");
-    IsVecRemainder = readVecRemainderEnabled(
-        TheLoop->getLoopStringMetadata("llvm.loop.vector.vecremainder"));
-    IsDynAlign = readDynAlignEnabled(
-        TheLoop->getLoopStringMetadata("llvm.loop.vectorize.dynamic_align"));
+        TheLoop->getLoopStringMetadata("llvm.loop.intel.vector.vectorlength");
+    IsVecRemainder = readVecRemainderEnabledHIR();
+    IsDynAlign = readDynAlignEnabledHIR();
   }
 
   /// Return Loop Unroll Factor either forced by option or pragma

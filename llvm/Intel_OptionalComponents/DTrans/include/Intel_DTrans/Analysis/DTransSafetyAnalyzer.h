@@ -194,6 +194,8 @@ public:
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
+  void PostProcessFieldValueInfo();
+
   std::unique_ptr<DTransTypeManager> TM;
   std::unique_ptr<TypeMetadataReader> MDReader;
   std::unique_ptr<PtrTypeAnalyzer> PtrAnalyzer;

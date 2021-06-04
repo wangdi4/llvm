@@ -72,7 +72,7 @@ typedef class raw_ostream OVLSostream;
 // OptVLS Abstract Types
 typedef OVLSVector<OVLSMemref *> OVLSMemrefVector;
 typedef OVLSVector<std::unique_ptr<OVLSGroup>> OVLSGroupVector;
-typedef OVLSVector<OVLSInstruction *> OVLSInstructionVector;
+typedef OVLSVector<std::unique_ptr<OVLSInstruction>> OVLSInstructionVector;
 
 typedef OVLSMap<OVLSMemref *, OVLSGroup *> OVLSMemrefToGroupMap;
 typedef OVLSMap<OVLSMemref *, OVLSInstruction *> OVLSMemrefToInstMap;

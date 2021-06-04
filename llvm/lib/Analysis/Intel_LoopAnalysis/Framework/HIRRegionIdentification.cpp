@@ -1344,6 +1344,11 @@ static bool isVectorizeMetadata(MDNode *Node) {
   return Str && Str->getString().startswith("llvm.loop.vector");
 }
 
+static bool isIntelVectorizeMetadata(MDNode *Node) {
+  MDString *Str = getStringMetadata(Node);
+  return Str && Str->getString().startswith("llvm.loop.intel.vector");
+}
+
 static bool isDebugMetadata(MDNode *Node) {
   return isa<DILocation>(Node) || isa<DINode>(Node);
 }
@@ -1371,7 +1376,7 @@ static bool isSupportedMetadata(MDNode *Node) {
       isDistributeMetadata(Node) || isVectorizeMetadata(Node) ||
       isLoopCountMetadata(Node) || LoopOptReport::isOptReportMetadata(Node) ||
       isFusionMetadata(Node) || isParallelAccessMetadata(Node) ||
-      isMustProgressMetadata(Node)) {
+      isMustProgressMetadata(Node) || isIntelVectorizeMetadata(Node)) {
     return true;
   }
 

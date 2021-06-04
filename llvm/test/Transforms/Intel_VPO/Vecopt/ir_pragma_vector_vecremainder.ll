@@ -64,6 +64,6 @@ declare token @llvm.directive.region.entry() nounwind
 declare void @llvm.directive.region.exit(token) nounwind
 
 !7 = distinct !{!7, !8}
-!8 = !{!"llvm.loop.vector.vecremainder", i1 true}
-!9 = !{!"llvm.loop.vector.vecremainder", i1 false}
+!8 = !{!"llvm.loop.intel.vector.vecremainder", !"true"}
+!9 = !{!"llvm.loop.intel.vector.novecremainder", !"true"}
 !10 = distinct !{!10, !9}
