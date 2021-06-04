@@ -538,8 +538,8 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
     kernelAttributesStr.pop_back();
   pProps->SetKernelAttributes(kernelAttributesStr);
   pProps->SetDAZ(buildOptions.GetDenormalsZero());
-  pProps->SetHasAVX1(GetCompiler()->GetCpuId()->HasAVX1());
-  pProps->SetHasAVX2(GetCompiler()->GetCpuId()->HasAVX2());
+  pProps->SetCpuId(
+      GetCompiler()->GetCpuId()->GetCPUIdForKernelPropertiesSerialize());
   if (HasNoBarrierPath)
     pProps->EnableVectorizedWithTail();
 

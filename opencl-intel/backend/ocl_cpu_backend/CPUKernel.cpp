@@ -45,14 +45,13 @@ CPUKernel::CPUKernel():
     m_hasAVX2(false)
     { }
 
-CPUKernel::CPUKernel(const std::string& name,
-    const std::vector<KernelArgument>& args,
-    const std::vector<unsigned int>& memArgs,
-    KernelProperties* pProps) :
-    Kernel(name, args, memArgs, pProps)
-{
-  m_hasAVX1 = m_pProps->GetHasAVX1();
-  m_hasAVX2 = m_pProps->GetHasAVX2();
+CPUKernel::CPUKernel(const std::string &name,
+                     const std::vector<KernelArgument> &args,
+                     const std::vector<unsigned int> &memArgs,
+                     KernelProperties *pProps)
+    : Kernel(name, args, memArgs, pProps) {
+  m_hasAVX1 = m_pProps->GetCpuId().HasAVX1();
+  m_hasAVX2 = m_pProps->GetCpuId().HasAVX2();
 }
 
 cl_dev_err_code CPUKernel::PrepareThreadState(ICLDevExecutionState& state) const
