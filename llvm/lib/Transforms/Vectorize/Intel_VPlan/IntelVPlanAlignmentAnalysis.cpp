@@ -122,11 +122,14 @@ void VPlanPeelingAnalysis::collectMemrefs(VPlanVector &Plan) {
 
 std::unique_ptr<VPlanPeelingVariant>
 VPlanPeelingAnalysis::selectBestPeelingVariant(int VF,
-                                               VPlanPeelingCostModel &CM) {
+                                               VPlanPeelingCostModel &CM,
+                                               bool EnableDynamic) {
   auto Static = selectBestStaticPeelingVariant(VF, CM);
-  auto DynamicOrNone = selectBestDynamicPeelingVariant(VF, CM);
-  if (DynamicOrNone && DynamicOrNone->second > Static.second)
-    return std::make_unique<VPlanDynamicPeeling>(DynamicOrNone->first);
+  if (EnableDynamic) {
+    auto DynamicOrNone = selectBestDynamicPeelingVariant(VF, CM);
+    if (DynamicOrNone && DynamicOrNone->second > Static.second)
+      return std::make_unique<VPlanDynamicPeeling>(DynamicOrNone->first);
+  }
   return std::make_unique<VPlanStaticPeeling>(Static.first);
 }
 

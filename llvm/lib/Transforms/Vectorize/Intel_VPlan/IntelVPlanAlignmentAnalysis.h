@@ -198,7 +198,8 @@ public:
 
   /// Find the most profitable peeling variant for a particular \p VF.
   std::unique_ptr<VPlanPeelingVariant>
-  selectBestPeelingVariant(int VF, VPlanPeelingCostModel &CM);
+  selectBestPeelingVariant(int VF, VPlanPeelingCostModel &CM,
+                           bool EnableDynamic);
 
   /// Returns best static peeling variant and its profit. The algorithm for
   /// selecting best peeling variant always succeeds. In the worst case
