@@ -1206,9 +1206,11 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(const TargetLibraryInfoImpl &TLI)
       ShouldExtI32Return(TLI.ShouldExtI32Return),
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param),
 #if INTEL_CUSTOMIZATION
-      CurVectorLibrary(TLI.CurVectorLibrary),
-#endif // INTEL_CUSTOMIZATION
+      SizeOfInt(TLI.SizeOfInt),
+      CurVectorLibrary(TLI.CurVectorLibrary) {
+#else // INTEL_CUSTOMIZATION
       SizeOfInt(TLI.SizeOfInt) {
+#endif // INTEL_CUSTOMIZATION
   memcpy(AvailableArray, TLI.AvailableArray, sizeof(AvailableArray));
   VectorDescs = TLI.VectorDescs;
   ScalarDescs = TLI.ScalarDescs;
@@ -1220,9 +1222,11 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(TargetLibraryInfoImpl &&TLI)
       ShouldExtI32Return(TLI.ShouldExtI32Return),
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param),
 #if INTEL_CUSTOMIZATION
-      CurVectorLibrary(TLI.CurVectorLibrary),
-#endif // INTEL_CUSTOMIZATION
+      SizeOfInt(TLI.SizeOfInt),
+      CurVectorLibrary(TLI.CurVectorLibrary) {
+#else // INTEL_CUSTOMIZATION
       SizeOfInt(TLI.SizeOfInt) {
+#endif // INTEL_CUSTOMIZATION
   std::move(std::begin(TLI.AvailableArray), std::end(TLI.AvailableArray),
             AvailableArray);
   VectorDescs = TLI.VectorDescs;
