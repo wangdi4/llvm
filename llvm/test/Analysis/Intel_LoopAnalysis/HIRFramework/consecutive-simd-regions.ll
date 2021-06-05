@@ -1,22 +1,51 @@
-; RUN: opt < %s -hir-ssa-deconstruction -S | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -print-after=hir-ssa-deconstruction -analyze -hir-framework 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print,print<hir>" 2>&1 | FileCheck %s
 
-; There are two omp loops with header omp.inner.for.body6 and
-; omp.inner.for.body23.
-; We verify that-
-; 1. omp.inner.for.body23.lr.ph which has the region exit intrinsic of first
-;    loop and reigon entry intrinsic of second loop is split into different
-;    blocks.
-; 2. A single operand phi copy is created for %conv which is liveout from first
-;    region.
+; There are two consecutive simd loops with header omp.inner.for.body6 and
+; omp.inner.for.body23 where the exit intrinsic of first loop jumps straight
+; to entry intrinsic of second loop. The basic block %omp.inner.for.body23.lr.ph
+; is split in between the intrinsics such that the region exit of first region
+; jumps to region entry of second region.
 
-; CHECK: call void @llvm.directive.region.exit(token %t4) [ "DIR.OMP.END.SIMD"() ]
-; CHECK-NEXT: br label %omp.inner.for.body23.lr.ph.split.split
+; This jump (goto) from first region was incorrectly tied to the label in the
+; second region (cross-region jump) resulting in an assertion.
+
+; To avoid direct jumps, we split the exiting edge after splitting the basic
+; block.
 
 ; CHECK: omp.inner.for.body23.lr.ph.split.split:
-; CHECK-NEXT: %liveoutcopy = phi float [ %conv, %omp.inner.for.body23.lr.ph ]
+; CHECK: omp.inner.for.body23.lr.ph.split:
 
-; liveout use of %conv should be replaced by the copy.
-; CHECK: %mul33 = fmul float %liveoutcopy, 8.000000e+00
+; CHECK: BEGIN REGION { }
+; CHECK:    %t4 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD() ]
+; CHECK:    %mul9 = %conv  *  0x3F40624DE0000000;
+
+; CHECK:    + DO i1 = 0, 4095, 1   <DO_LOOP> <simd>
+; CHECK:    |   %conv10 = sitofp.i32.float(i1);
+; CHECK:    |   %mul11 = %mul9  *  %conv10;
+; CHECK:    |   (%a)[0][%init][i1] = %mul11;
+; CHECK:    + END LOOP
+
+; CHECK:    @llvm.directive.region.exit(%t4); [ DIR.OMP.END.SIMD() ]
+; CHECK: END REGION
+
+; CHECK: BEGIN REGION { }
+; CHECK:    %t7 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD() ]
+; CHECK:    %mul33 = %conv  *  8.000000e+00;
+
+; CHECK:    + DO i1 = 0, 4095, 1   <DO_LOOP> <simd>
+; CHECK:    |   %t8 = (%a)[0][%init][i1 + 1];
+; CHECK:    |   %call = @expf(%t8);
+; CHECK:    |   %conv34 = sitofp.i32.float(i1);
+; CHECK:    |   %mul35 = %mul33  *  %conv34;
+; CHECK:    |   %call36 = @sinf(%mul35);
+; CHECK:    |   %add37 = %call  +  %call36;
+; CHECK:    |   (%a)[0][%init][i1] = %add37;
+; CHECK:    + END LOOP
+
+; CHECK:    @llvm.directive.region.exit(%t7); [ DIR.OMP.END.SIMD() ]
+; CHECK: END REGION
+
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -24,12 +53,12 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define hidden void @main.DIR.OMP.PARALLEL.LOOP.3([16384 x [4097 x float]]* nocapture %a, i64 %init) {
 entry:
+  %t5 = trunc i64 %init to i32
+  %conv = sitofp i32 %t5 to float
   br label %omp.inner.for.body6.lr.ph
 
 omp.inner.for.body6.lr.ph:                        ; preds = %entry
   %t4 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
-  %t5 = trunc i64 %init to i32
-  %conv = sitofp i32 %t5 to float
   %mul9 = fmul float %conv, 0x3F40624DE0000000
   br label %omp.inner.for.body6
 
@@ -46,8 +75,6 @@ omp.inner.for.body6:                              ; preds = %omp.inner.for.body6
 
 omp.inner.for.body23.lr.ph:                       ; preds = %omp.inner.for.body6
   call void @llvm.directive.region.exit(token %t4) [ "DIR.OMP.END.SIMD"() ]
-  %arrayidx17 = getelementptr inbounds [16384 x [4097 x float]], [16384 x [4097 x float]]* %a, i64 0, i64 %init, i64 4096
-  store float 1.000000e+00, float* %arrayidx17, align 4
   %t7 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   %mul33 = fmul float %conv, 8.000000e+00
   br label %omp.inner.for.body23

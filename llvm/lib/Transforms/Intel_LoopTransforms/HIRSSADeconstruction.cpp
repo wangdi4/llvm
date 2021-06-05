@@ -1091,10 +1091,12 @@ void HIRSSADeconstruction::splitNonLoopRegionExit(Instruction *SplitPos) {
 
     if (SplitPos) {
       // Check if the exit block of this region is also the entry block of the
-      // next region. If so, update next region's entry block.
+      // next region. If so, split the edge so we don't jump directly from one
+      // region to another and also update next region's entry block.
       auto NextRegIt = std::next(CurRegIt);
       if ((NextRegIt != RI->end()) &&
           (NextRegIt->getEntryBBlock() == RegionExitBB)) {
+        SplitEdge(RegionExitBB, NewSplitBB, DT, LI);
         NextRegIt->replaceEntryBBlock(NewSplitBB);
       }
     }
