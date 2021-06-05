@@ -105,6 +105,11 @@ public:
       m_CPUFeatures |= CFS_AVX10;
     if (hasAVX2)
       m_CPUFeatures |= CFS_AVX20;
+    // These variables are not used but they're kept for compatibility. To avoid
+    // compilation warning ("unused private field"), add (void)var; expressions
+    // for them.
+    (void)m_CPU;
+    (void)m_is64BitOS;
   }
   bool HasAVX1() const { return m_CPUFeatures & CFS_AVX10; }
   bool HasAVX2() const { return m_CPUFeatures & CFS_AVX20; }
