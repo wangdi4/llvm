@@ -71,7 +71,6 @@ struct UnrollLoopOptions {
   bool Force;
   bool AllowRuntime;
   bool AllowExpensiveTripCount;
-  bool PreserveCondBr;
   unsigned TripMultiple;
   unsigned PeelCount;
   bool UnrollRemainder;
