@@ -772,6 +772,18 @@ bool llvm::computeUnrollCount(
 
   UnrollCostEstimator UCE(*L, LoopSize);
 
+  // Use an explicit peel count that has been specified for testing. In this
+  // case it's not permitted to also specify an explicit unroll count.
+  if (PP.PeelCount) {
+    if (UnrollCount.getNumOccurrences() > 0) {
+      report_fatal_error("Cannot specify both explicit peel count and "
+                         "explicit unroll count");
+    }
+    UP.Count = 1;
+    UP.Runtime = false;
+    return true;
+  }
+
   // Check for explicit Count.
   // 1st priority is unroll count set by "unroll-count" option.
   bool UserUnrollCount = UnrollCount.getNumOccurrences() > 0;
@@ -1161,6 +1173,34 @@ static LoopUnrollResult tryToUnrollLoop(
   if (TripCount && UP.Count > TripCount)
     UP.Count = TripCount;
 
+  if (PP.PeelCount) {
+    assert(UP.Count == 1 && "Cannot perform peel and unroll in the same step");
+    LLVM_DEBUG(dbgs() << "PEELING loop %" << L->getHeader()->getName()
+                      << " with iteration count " << PP.PeelCount << "!\n");
+    ORE.emit([&]() {
+      return OptimizationRemark(DEBUG_TYPE, "Peeled", L->getStartLoc(),
+                                L->getHeader())
+             << " peeled loop by " << ore::NV("PeelCount", PP.PeelCount)
+             << " iterations";
+    });
+#if INTEL_CUSTOMIZATION
+    LORBuilder(*L, *LI).addRemark(OptReportVerbosity::Low,
+                                  "LLorg: Loop has been peeled by %d "
+                                  "iterations",
+                                  PP.PeelCount);
+#endif  // INTEL_CUSTOMIZATION
+
+    if (peelLoop(L, PP.PeelCount, LI, &SE, &DT, &AC, PreserveLCSSA)) {
+      simplifyLoopAfterUnroll(L, true, LI, &SE, &DT, &AC, &TTI);
+      // If the loop was peeled, we already "used up" the profile information
+      // we had, so we don't want to unroll or peel again.
+      if (PP.PeelProfiledIterations)
+        L->setLoopAlreadyUnrolled();
+      return LoopUnrollResult::PartiallyUnrolled;
+    }
+    return LoopUnrollResult::Unmodified;
+  }
+
   // Save loop properties before it is transformed.
   MDNode *OrigLoopID = L->getLoopID();
 
@@ -1169,7 +1209,7 @@ static LoopUnrollResult tryToUnrollLoop(
   LoopUnrollResult UnrollResult = UnrollLoop(
       L,
       {UP.Count, TripCount, UP.Force, UP.Runtime, UP.AllowExpensiveTripCount,
-       TripMultiple, PP.PeelCount, UP.UnrollRemainder, ForgetAllSCEV},
+       TripMultiple, UP.UnrollRemainder, ForgetAllSCEV},
        LI, &SE, &DT, &AC,                                      // INTEL
        LORBuilder, &TTI, &ORE, PreserveLCSSA, &RemainderLoop); // INTEL
   if (UnrollResult == LoopUnrollResult::Unmodified)
@@ -1198,10 +1238,7 @@ static LoopUnrollResult tryToUnrollLoop(
 
   // If loop has an unroll count pragma or unrolled by explicitly set count
   // mark loop as unrolled to prevent unrolling beyond that requested.
-  // If the loop was peeled, we already "used up" the profile information
-  // we had, so we don't want to unroll or peel again.
-  if (UnrollResult != LoopUnrollResult::FullyUnrolled &&
-      (IsCountSetExplicitly || (PP.PeelProfiledIterations && PP.PeelCount)))
+  if (UnrollResult != LoopUnrollResult::FullyUnrolled && IsCountSetExplicitly)
     L->setLoopAlreadyUnrolled();
 
   return UnrollResult;
