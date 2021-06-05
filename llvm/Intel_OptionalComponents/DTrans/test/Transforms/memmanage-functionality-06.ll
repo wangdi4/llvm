@@ -11,9 +11,14 @@
 ;  Reset:
 ;       1. Successor of bb26 is changed from bb126 to bb150.
 ;       2. Removed bb126.
+;       3. Merge bb83 and bb87 are merged together.
 ;
 ;  Destructor:
 ;       1. A phi node in bb11 is replaced with j12.
+;
+;  allocateBlock:
+;       1. False successor of bb221 is changed from bb230 to bb238
+;          and removed bb230 block completely.
 ;
 ; This test verifies the following functionalities are recognized for
 ; MemManageTrans:
@@ -1409,16 +1414,14 @@ bb77:                                             ; preds = %bb47
 bb83:                                             ; preds = %bb77
   %i84 = getelementptr inbounds %"ReusableArenaBlock<XStringCached>::NextBlock", %"ReusableArenaBlock<XStringCached>::NextBlock"* %i80, i64 0, i32 1
   %i85 = load i32, i32* %i84, align 4
-  %i86 = icmp eq i32 %i85, -2228259
-  br i1 %i86, label %bb87, label %bb91
-
-bb87:                                             ; preds = %bb83
-  %i88 = getelementptr inbounds %"ReusableArenaBlock<XStringCached>::NextBlock", %"ReusableArenaBlock<XStringCached>::NextBlock"* %i80, i64 0, i32 0
-  %i89 = load i16, i16* %i88, align 4
-  %i90 = icmp ugt i16 %i89, %i49
+  %i86 = icmp ne i32 %i85, -2228259
+  %i87 = getelementptr inbounds %"ReusableArenaBlock<XStringCached>::NextBlock", %"ReusableArenaBlock<XStringCached>::NextBlock"* %i80, i64 0, i32 0
+  %i88 = load i16, i16* %i87, align 4
+  %i89 = icmp ugt i16 %i88, %i49
+  %i90 = select i1 %i86, i1 true, i1 %i89
   br i1 %i90, label %bb91, label %bb100
 
-bb91:                                             ; preds = %bb87, %bb83, %bb77
+bb91:                                             ; preds = %bb83, %bb77
   %i92 = bitcast %XStringCached* %i79 to void (%XStringCached*)***
   %i93 = load void (%XStringCached*)**, void (%XStringCached*)*** %i92, align 8
   %i94 = bitcast void (%XStringCached*)** %i93 to i8*
@@ -1431,10 +1434,10 @@ bb91:                                             ; preds = %bb87, %bb83, %bb77
   %i99 = zext i16 %i98 to i64
   br label %bb100
 
-bb100:                                            ; preds = %bb91, %bb87
-  %i101 = phi i64 [ %i99, %bb91 ], [ %i81, %bb87 ]
-  %i102 = phi i16 [ %i98, %bb91 ], [ %i49, %bb87 ]
-  %i103 = phi i16 [ %i97, %bb91 ], [ %i50, %bb87 ]
+bb100:                                            ; preds = %bb91, %bb83
+  %i101 = phi i64 [ %i99, %bb91 ], [ %i81, %bb83 ]
+  %i102 = phi i16 [ %i98, %bb91 ], [ %i49, %bb83 ]
+  %i103 = phi i16 [ %i97, %bb91 ], [ %i50, %bb83 ]
   %i104 = add nuw nsw i64 %i48, 1
   %i105 = icmp ult i64 %i104, %i101
   br i1 %i105, label %bb47, label %bb53
@@ -1910,11 +1913,8 @@ bb221:                                            ; preds = %bb211
   %i227 = zext i16 %i223 to i64
   %i228 = getelementptr inbounds %ArenaBlockBase, %ArenaBlockBase* %i215, i64 0, i32 3
   %i229 = load %XStringCached*, %XStringCached** %i228, align 8
-  br i1 %i226, label %bb232, label %bb230
-
-bb230:                                            ; preds = %bb221
   %i231 = getelementptr inbounds %XStringCached, %XStringCached* %i229, i64 %i227
-  br label %bb238
+  br i1 %i226, label %bb232, label %bb238
 
 bb232:                                            ; preds = %bb221
   %i233 = getelementptr inbounds %XStringCached, %XStringCached* %i229, i64 %i227
@@ -1926,8 +1926,8 @@ bb232:                                            ; preds = %bb221
   store i16 %i237, i16* %i216, align 8
   br label %bb238
 
-bb238:                                            ; preds = %bb232, %bb230, %bb211
-  %i239 = phi %XStringCached* [ null, %bb211 ], [ %i231, %bb230 ], [ %i233, %bb232 ]
+bb238:                                            ; preds = %bb232, %bb221, %bb211
+  %i239 = phi %XStringCached* [ null, %bb211 ], [ %i231, %bb221 ], [ %i231, %bb232 ]
   ret %XStringCached* %i239
 }
 

@@ -3447,11 +3447,42 @@ bool MemManageTransImpl::identifyRABAllocateBlock(BasicBlock *BB,
                                 &NextFreeBlock, &IncrementBB, &NoIncrementBB))
     return false;
 
+  BasicBlock *NoIncrementPredBB = nullptr;
   // Check CFG here. Makes sure single successor of NoIncrementBB and
   // IncrementBB is RetBB
+  //
   BasicBlock *BB1 = getSingleSucc(NoIncrementBB);
-  if (!BB1 || BB1 != RetBB)
-    return false;
+  if (!BB1) {
+    // AllocInitBB:
+    //   %3 = getelementptr %S, %S* RABPtr->ArenaBlock.ObjBlock, i64 %2
+    //   br i1 %cond1, label %IncrementBB, label %RetBB
+    //
+    // IncrementBB:
+    //   br label %RetBB
+    //
+    // RetBB:
+    //   phi X* [ null, BB ], [ %3, AllocInitBB ], [ %3, IncrementBB ]
+    if (NoIncrementBB != RetBB)
+      return false;
+    NoIncrementPredBB = AllocInitBB;
+  } else {
+    // AllocInitBB:
+    //   br i1 %cond1, label %IncrementBB, label %NoIncrementBB
+    //
+    // NoIncrementBB:
+    //   %3 = getelementptr %S, %S* RABPtr->ArenaBlock.ObjBlock, i64 %2
+    //   br label %RetBB
+    //
+    // IncrementBB:
+    //   %5 = getelementptr %S, %S* RABPtr->ArenaBlock.ObjBlock, i64 %4
+    //   br label %RetBB
+    //
+    // RetBB:
+    //   phi X* [ null, BB ], [ %3, NoIncrementBB ], [ %5, IncrementBB ]
+    NoIncrementPredBB = NoIncrementBB;
+    if (BB1 != RetBB)
+      return false;
+  }
   BB1 = getSingleSucc(IncrementBB);
   if (!BB1 || BB1 != RetBB)
     return false;
@@ -3522,7 +3553,7 @@ bool MemManageTransImpl::identifyRABAllocateBlock(BasicBlock *BB,
   auto *RetPHI = dyn_cast<PHINode>(RetVal);
   if (!RetPHI)
     return false;
-  Value *IncPtr = RetPHI->getIncomingValueForBlock(NoIncrementBB);
+  Value *IncPtr = RetPHI->getIncomingValueForBlock(NoIncrementPredBB);
   if (!IsFirstFreeRABBlock(IncPtr, RABPtr))
     return false;
   IncPtr = RetPHI->getIncomingValueForBlock(IncrementBB);
@@ -5382,6 +5413,143 @@ bool MemManageTransImpl::identifyRABDtorInnerLoop(BasicBlock *LoopH,
                                                   Value *RABPtr,
                                                   BasicBlock **LoopEndBB) {
 
+  // Returns true if IR matches the pattern below starting with CondOneTBB.
+  //
+  // CondOneTBB:
+  //  %GEP2 = getelementptr %"NextBlock", %"NextBlock"* %BC1, i64 0, i32 1
+  //  %CondTwoLValue = load i32, i32* %GEP2, align 4
+  //  %ic2 = icmp eq i32 %CondTwoLValue, -2228259
+  //  br i1 %ic2, label %CondTwoTBB, label %CondThreeTBB
+  //
+  // CondTwoTBB:
+  //  %GEP3 = getelementptr %"NextBlock", %"NextBlock"* %BC1, i64 0, i32 0
+  //  %CondThreeLValue = load i16, i16* %GEP3, align 4
+  //  %ic3 = icmp ugt i16 %CondThreeLValue, %BlkSizePHI
+  //  br i1 %ic3, label %CondThreeTBB, label %CondThreeFBB
+  //
+  // PredBB, which is predecessor to CondThreeFBB, is set to CondTwoTBB.
+  //
+  auto CheckSeparateCondBBs = [this](BasicBlock *CondOneTBB,
+                                     LoadInst *ObjBlkLoad,
+                                     PHINode *LoopCountPHI, PHINode *BlkSizePHI,
+                                     BasicBlock **PredBB,
+                                     BasicBlock **CondThreeTBB,
+                                     BasicBlock **CondThreeFBB) {
+    Value *CondTwoLValue = nullptr;
+    Value *CondTwoRValue = nullptr;
+    BasicBlock *CondTwoTBB = nullptr;
+    BasicBlock *CondTwoFBB = nullptr;
+    ICmpInst::Predicate CondTwoP = ICmpInst::ICMP_NE;
+    if (!processBBTerminator(CondOneTBB, &CondTwoLValue, &CondTwoRValue,
+                             &CondTwoTBB, &CondTwoFBB, &CondTwoP))
+      return false;
+    if (CondTwoP != ICmpInst::ICMP_EQ)
+      return false;
+    auto *CInt = dyn_cast<ConstantInt>(CondTwoRValue);
+    if (!CInt || CInt->getLimitedValue() != ValidObjStamp)
+      return false;
+    Value *BaseAddr = nullptr;
+    Value *IndexAddr = nullptr;
+    int32_t Idx = 0;
+    if (!isNextBlockFieldLoad(CondTwoLValue, &BaseAddr, &IndexAddr, &Idx) ||
+        !checkInstructionInBlock(CondTwoLValue, CondOneTBB))
+      return false;
+    if (Idx != 1 || BaseAddr != ObjBlkLoad || IndexAddr != LoopCountPHI)
+      return false;
+
+    Value *CondThreeLValue = nullptr;
+    Value *CondThreeRValue = nullptr;
+    ICmpInst::Predicate CondThreeP = ICmpInst::ICMP_NE;
+    if (!processBBTerminator(CondTwoTBB, &CondThreeLValue, &CondThreeRValue,
+                             CondThreeTBB, CondThreeFBB, &CondThreeP))
+      return false;
+    if (CondThreeP != ICmpInst::ICMP_UGT)
+      return false;
+    if (!isNextBlockFieldLoad(CondThreeLValue, &BaseAddr, &IndexAddr, &Idx) ||
+        !checkInstructionInBlock(CondThreeLValue, CondTwoTBB))
+      return false;
+    if (Idx != 0 || BaseAddr != ObjBlkLoad || IndexAddr != LoopCountPHI)
+      return false;
+    if (CondThreeRValue != BlkSizePHI)
+      return false;
+
+    if (*CondThreeTBB != CondTwoFBB)
+      return false;
+    *PredBB = CondTwoTBB;
+    return true;
+  };
+
+  // Returns true if IR matches the pattern below starting with CondOneTBB.
+  //
+  // CondOneTBB:
+  //   %83 = getelementptr %"NextBlock", %"NextBlock"* %79, i64 0, i32 1
+  //   %84 = load i32, i32* %83
+  //   %85 = icmp ne i32 %84, -2228259
+  //   %86 = getelementptr %"NextBlock", %"NextBlock"* %79, i64 0, i32 0
+  //   %87 = load i16, i16* %86
+  //   %88 = icmp ugt i16 %87, %48
+  //   %89 = select i1 %85, i1 true, i1 %88
+  //   br i1 %89, label %CondThreeTBB, label %CondThreeFBB
+  //
+  // PredBB, which is predecessor to CondThreeFBB, is set to CondOneTBB.
+  //
+  auto CheckCombinedCondBBs =
+      [this](BasicBlock *CondOneTBB, LoadInst *ObjBlkLoad,
+             PHINode *LoopCountPHI, PHINode *BlkSizePHI, BasicBlock **PredBB,
+             BasicBlock **CondThreeTBB, BasicBlock **CondThreeFBB) {
+        auto *BI = dyn_cast<BranchInst>(CondOneTBB->getTerminator());
+        if (!BI || !BI->isConditional())
+          return false;
+        Value *BrCond = BI->getCondition();
+        auto *SelI = dyn_cast<SelectInst>(BrCond);
+        if (!SelI)
+          return false;
+
+        auto *CondOne = dyn_cast<ICmpInst>(SelI->getCondition());
+        if (!CondOne)
+          return false;
+        auto *CondTwo = dyn_cast<ICmpInst>(SelI->getFalseValue());
+        if (!CondTwo)
+          return false;
+        Value *TVal = SelI->getTrueValue();
+        Type *Ty = TVal->getType();
+        if (!Ty->isIntegerTy(1) || TVal != ConstantInt::getTrue(Ty))
+          return false;
+        if (CondOne->getPredicate() != ICmpInst::ICMP_NE)
+          return false;
+        auto *CInt = dyn_cast<ConstantInt>(CondOne->getOperand(1));
+        if (!CInt || CInt->getLimitedValue() != ValidObjStamp)
+          return false;
+        Value *BaseAddr = nullptr;
+        Value *IndexAddr = nullptr;
+        int32_t Idx = 0;
+        Value *CondOneLVal = CondOne->getOperand(0);
+        if (!isNextBlockFieldLoad(CondOneLVal, &BaseAddr, &IndexAddr, &Idx) ||
+            !checkInstructionInBlock(CondOneLVal, CondOneTBB))
+          return false;
+        if (Idx != 1 || BaseAddr != ObjBlkLoad || IndexAddr != LoopCountPHI)
+          return false;
+
+        if (CondTwo->getPredicate() != ICmpInst::ICMP_UGT)
+          return false;
+        Value *CondTwoLVal = CondTwo->getOperand(0);
+        if (!isNextBlockFieldLoad(CondTwoLVal, &BaseAddr, &IndexAddr, &Idx) ||
+            !checkInstructionInBlock(CondTwoLVal, CondOneTBB))
+          return false;
+        if (Idx != 0 || BaseAddr != ObjBlkLoad || IndexAddr != LoopCountPHI)
+          return false;
+        if (CondTwo->getOperand(1) != BlkSizePHI)
+          return false;
+        Visited.insert(SelI);
+        Visited.insert(BI);
+        Visited.insert(CondOne);
+        Visited.insert(CondTwo);
+        *CondThreeTBB = BI->getSuccessor(0);
+        *CondThreeFBB = BI->getSuccessor(1);
+        *PredBB = CondOneTBB;
+        return true;
+      };
+
   BasicBlock *Pred = PreHead;
   // Skip almost empty BB
   BasicBlock *Succ = getSingleSucc(LoopH);
@@ -5456,7 +5624,6 @@ bool MemManageTransImpl::identifyRABDtorInnerLoop(BasicBlock *LoopH,
     return false;
   if (CondOneP != ICmpInst::ICMP_ULT)
     return false;
-  // if (CondOneLValue)
   auto *ZExt = dyn_cast<ZExtInst>(CondOneRValue);
   if (!ZExt)
     return false;
@@ -5467,47 +5634,15 @@ bool MemManageTransImpl::identifyRABDtorInnerLoop(BasicBlock *LoopH,
   Visited.insert(ZExt);
   Visited.insert(ObjBlkLoad);
 
-  Value *CondTwoLValue = nullptr;
-  Value *CondTwoRValue = nullptr;
-  BasicBlock *CondTwoTBB = nullptr;
-  BasicBlock *CondTwoFBB = nullptr;
-  ICmpInst::Predicate CondTwoP = ICmpInst::ICMP_NE;
-  if (!processBBTerminator(CondOneTBB, &CondTwoLValue, &CondTwoRValue,
-                           &CondTwoTBB, &CondTwoFBB, &CondTwoP))
-    return false;
-  if (CondTwoP != ICmpInst::ICMP_EQ)
-    return false;
-  auto *CInt = dyn_cast<ConstantInt>(CondTwoRValue);
-  if (!CInt || CInt->getLimitedValue() != ValidObjStamp)
-    return false;
-  Value *BaseAddr = nullptr;
-  Value *IndexAddr = nullptr;
-  int32_t Idx = 0;
-  if (!isNextBlockFieldLoad(CondTwoLValue, &BaseAddr, &IndexAddr, &Idx) ||
-      !checkInstructionInBlock(CondTwoLValue, CondOneTBB))
-    return false;
-  if (Idx != 1 || BaseAddr != ObjBlkLoad || IndexAddr != LoopCountPHI)
-    return false;
-
-  Value *CondThreeLValue = nullptr;
-  Value *CondThreeRValue = nullptr;
   BasicBlock *CondThreeTBB = nullptr;
   BasicBlock *CondThreeFBB = nullptr;
-  ICmpInst::Predicate CondThreeP = ICmpInst::ICMP_NE;
-  if (!processBBTerminator(CondTwoTBB, &CondThreeLValue, &CondThreeRValue,
-                           &CondThreeTBB, &CondThreeFBB, &CondThreeP))
+  BasicBlock *PredBB = nullptr;
+  if (!CheckCombinedCondBBs(CondOneTBB, ObjBlkLoad, LoopCountPHI, BlkSizePHI,
+                            &PredBB, &CondThreeTBB, &CondThreeFBB) &&
+      !CheckSeparateCondBBs(CondOneTBB, ObjBlkLoad, LoopCountPHI, BlkSizePHI,
+                            &PredBB, &CondThreeTBB, &CondThreeFBB))
     return false;
-  if (CondThreeP != ICmpInst::ICMP_UGT)
-    return false;
-  if (!isNextBlockFieldLoad(CondThreeLValue, &BaseAddr, &IndexAddr, &Idx) ||
-      !checkInstructionInBlock(CondThreeLValue, CondTwoTBB))
-    return false;
-  if (Idx != 0 || BaseAddr != ObjBlkLoad || IndexAddr != LoopCountPHI)
-    return false;
-  if (CondThreeRValue != BlkSizePHI)
-    return false;
-
-  if (CondThreeTBB != CondOneFBB || CondThreeTBB != CondTwoFBB)
+  if (CondThreeTBB != CondOneFBB)
     return false;
   Value *WideBlkSize = nullptr;
   Value *BlkSize = nullptr;
@@ -5528,7 +5663,7 @@ bool MemManageTransImpl::identifyRABDtorInnerLoop(BasicBlock *LoopH,
     auto *PHI = dyn_cast<PHINode>(&I);
     if (!PHI)
       break;
-    Value *Op1 = PHI->getIncomingValueForBlock(CondTwoTBB);
+    Value *Op1 = PHI->getIncomingValueForBlock(PredBB);
     Value *Op2 = PHI->getIncomingValueForBlock(CondThreeTBB);
     if (Op1 == CondOneRValue) {
       if (WideBSizePHI)
