@@ -106,6 +106,8 @@ public:
     static const char *ValStr = BaseT::getRawValue();
     return ValStr;
   }
+
+  static const char *getName() { return BaseT::MConfigName; }
 };
 
 template <> class SYCLConfig<SYCL_BE> {
