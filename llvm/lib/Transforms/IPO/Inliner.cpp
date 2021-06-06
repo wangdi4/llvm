@@ -968,6 +968,54 @@ InlinerPass::getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
   return *IAA->getAdvisor();
 }
 
+template <typename T> class InlineOrder {
+public:
+  using reference = T &;
+
+  virtual ~InlineOrder() {}
+
+  virtual size_t size() = 0;
+
+  virtual void push(const T &Elt) = 0;
+
+  virtual void pop() = 0;
+
+  virtual reference front() = 0;
+
+  virtual void erase_if(function_ref<bool(T)> Pred) = 0;
+
+  bool empty() { return !size(); }
+};
+
+template <typename T, typename Container = SmallVector<T, 16>>
+class DefaultInlineOrder : public InlineOrder<T> {
+  using reference = T &;
+
+public:
+  size_t size() override { return Calls.end() - Calls.begin() - FirstIndex; }
+
+  void push(const T &Elt) override { Calls.push_back(Elt); }
+
+  void pop() override {
+    assert(size() > 0);
+    FirstIndex++;
+  }
+
+  reference front() override {
+    assert(Calls.begin() + FirstIndex < Calls.end());
+    return Calls[FirstIndex];
+  }
+
+  void erase_if(function_ref<bool(T)> Pred) override {
+    Calls.erase(std::remove_if(Calls.begin() + FirstIndex, Calls.end(), Pred),
+                Calls.end());
+  }
+
+private:
+  Container Calls;
+  size_t FirstIndex = 0;
+};
+
 PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
                                    CGSCCAnalysisManager &AM, LazyCallGraph &CG,
                                    CGSCCUpdateResult &UR) {
@@ -1023,7 +1071,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   // this model, but it is uniformly spread across all the functions in the SCC
   // and eventually they all become too large to inline, rather than
   // incrementally maknig a single function grow in a super linear fashion.
-  SmallVector<std::pair<CallBase *, int>, 16> Calls;
+  DefaultInlineOrder<std::pair<CallBase *, int>> Calls;
 
   // Populate the initial list of calls in this SCC.
   for (auto &N : InitialC) {
@@ -1049,7 +1097,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 #endif // INTEL_CUSTOMIZATION
         if (Function *Callee = CB->getCalledFunction()) {
           if (!Callee->isDeclaration())
-            Calls.push_back({CB, -1});
+            Calls.push({CB, -1});
           else if (!isa<IntrinsicInst>(I)) {
             using namespace ore;
             setInlineRemark(*CB, "unavailable definition");
@@ -1091,12 +1139,12 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
 
   // Loop forward over all of the calls. Note that we cannot cache the size as
   // inlining can introduce new calls that need to be processed.
-  for (int I = 0; I < (int)Calls.size(); ++I) {
+  while (!Calls.empty()) {
     // We expect the calls to typically be batched with sequences of calls that
     // have the same caller, so we first set up some shared infrastructure for
     // this caller. We also do any pruning we can at this layer on the caller
     // alone.
-    Function &F = *Calls[I].first->getCaller();
+    Function &F = *(Calls.front()).first->getCaller();
     LazyCallGraph::Node &N = *CG.lookup(F);
     if (CG.lookupSCC(N) != C)
       continue;
@@ -1113,8 +1161,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     // We bail out as soon as the caller has to change so we can update the
     // call graph and prepare the context of that new caller.
     bool DidInline = false;
-    for (; I < (int)Calls.size() && Calls[I].first->getCaller() == &F; ++I) {
-      auto &P = Calls[I];
+    while (!Calls.empty() && Calls.front().first->getCaller() == &F) {
+      auto &P = Calls.front();
+      Calls.pop();
       CallBase *CB = P.first;
       const int InlineHistoryID = P.second;
       Function &Caller = *CB->getCaller();  // INTEL
@@ -1240,7 +1289,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
           }
           if (NewCallee)
             if (!NewCallee->isDeclaration())
-              Calls.push_back({ICB, NewHistoryID});
+              Calls.push({ICB, NewHistoryID});
         }
       }
 
@@ -1257,12 +1306,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         // made dead by this operation on other functions).
         Callee.removeDeadConstantUsers();
         if (Callee.use_empty() && !CG.isLibFunction(Callee)) {
-          Calls.erase(
-              std::remove_if(Calls.begin() + I + 1, Calls.end(),
-                             [&](const std::pair<CallBase *, int> &Call) {
-                               return Call.first->getCaller() == &Callee;
-                             }),
-              Calls.end());
+          Calls.erase_if([&](const std::pair<CallBase *, int> &Call) {
+            return Call.first->getCaller() == &Callee;
+          });
           MDReport->setDead(&Callee); // INTEL
           // Clear the body and queue the function itself for deletion when we
           // finish inlining and call graph updates.
@@ -1281,10 +1327,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       else
         Advice->recordInlining();
     }
-
-    // Back the call index up by one to put us in a good position to go around
-    // the outer loop.
-    --I;
 
     if (!DidInline)
       continue;
