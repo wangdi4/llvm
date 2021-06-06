@@ -386,6 +386,26 @@ reportProblemSymbols(const SmallPtrSetImpl<Symbol *> &undefs,
 }
 
 void SymbolTable::reportUnresolvable() {
+#if INTEL_CUSTOMIZATION
+  // Return true if the input symbol is an SVML function
+  auto IsSVMLSymbol = [](StringRef &name) -> bool {
+    StringRef SVMLName;
+    StringRef ImportSVMLName;
+
+    // The __imp_ represents the dllimport version.
+    if (config->machine == I386) {
+      SVMLName = "___svml_";
+      ImportSVMLName = "__imp____svml_";
+    } else {
+      SVMLName = "__svml_";
+      ImportSVMLName = "__imp___svml_";
+    }
+
+    return name.startswith(SVMLName) ||
+           name.startswith(ImportSVMLName);
+  };
+#endif // INTEL_CUSTOMIZATION
+
   SmallPtrSet<Symbol *, 8> undefs;
   for (auto &i : symMap) {
     Symbol *sym = i.second;
@@ -403,9 +423,7 @@ void SymbolTable::reportUnresolvable() {
 #if INTEL_CUSTOMIZATION
     // If LTO is enabled then skip SVML intrinsics, these will
     // be emitted by CodeGen.
-    if (!BitcodeFile::instances.empty() &&
-        ((config->machine == I386 && name.startswith("___svml_")) ||
-        ((config->machine != I386 && name.startswith("__svml_")))))
+    if (!BitcodeFile::instances.empty() && IsSVMLSymbol(name))
       continue;
 #endif // INTEL_CUSTOMIZATION
     if (name.contains("_PchSym_"))
