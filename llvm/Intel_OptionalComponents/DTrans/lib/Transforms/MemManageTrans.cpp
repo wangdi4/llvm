@@ -806,6 +806,7 @@ bool MemManageTransImpl::categorizeFunctions() {
   auto CategorizeFunctionUsingSignature =
       [&, IsCalledFromInterfaceFunction](Function *F) -> MemManageFKind {
     bool NoReturn = false;
+    bool ClassReturn = false;
     bool MemManagerReturn = false;
     bool StrObjReturn = false;
     bool IntReturn = false;
@@ -826,7 +827,9 @@ bool MemManageTransImpl::categorizeFunctions() {
 
     case Type::PointerTyID: {
       Type *PTy = cast<PointerType>(RTy)->getElementType();
-      if (PTy == StringObjectType)
+      if (PTy == ReusableArenaAllocatorType || PTy == ArenaAllocatorType)
+        ClassReturn = true;
+      else if (PTy == StringObjectType)
         StrObjReturn = true;
       else if (PTy == MemInterfaceType)
         MemManagerReturn = true;
@@ -867,8 +870,8 @@ bool MemManageTransImpl::categorizeFunctions() {
 
     // Categorize function based on return and argument types.
     auto ArgsSize = F->arg_size();
-    if (NoReturn && MemInterfaceArgs == 1 && ClassArgs == 1 && IntArgs == 2 &&
-        ArgsSize == 4)
+    if ((NoReturn || ClassReturn) && MemInterfaceArgs == 1 && ClassArgs == 1 &&
+        IntArgs == 2 && ArgsSize == 4)
       return Constructor;
     else if (NoReturn && ClassArgs == 1 && StrObjArgs == 1 && ArgsSize == 2)
       return CommitAllocation;
@@ -2302,6 +2305,21 @@ bool MemManageTransImpl::getAllocDeallocCommonSucc(Instruction *Call1,
 //   %117 = extractvalue { i8*, i32 } %116, 0
 //   tail call void @__clang_call_terminate(i8* %117)
 //   unreachable
+//
+//   or
+//
+//  %98 = cleanuppad within none []
+//  ...
+// BB:
+//  %189 = cleanuppad within %98 []
+//  call void @__std_terminate()
+//  unreachable
+//
+//  or
+//
+// BB:
+//  call void @__std_terminate()
+//  unreachable
 bool MemManageTransImpl::isUnreachableOK(BasicBlock *BB) {
   BasicBlock *UnreachBB = BB;
   BasicBlock *Succ = getSingleSucc(BB);
@@ -2318,26 +2336,42 @@ bool MemManageTransImpl::isUnreachableOK(BasicBlock *BB) {
   auto &TLI = GetTLI(*CallT->getFunction());
   if (!F || !TLI.getLibFunc(*F, LibF) || !TLI.has(LibF))
     return false;
-  if (LibF != LibFunc_clang_call_terminate)
-    return false;
 
-  auto *EVI = dyn_cast<ExtractValueInst>(CallT->getArgOperand(0));
-  if (!EVI || EVI->getNumIndices() != 1 || *EVI->idx_begin() != 0)
-    return false;
-  Value *Op1 = EVI->getOperand(0);
-  if (auto *PN = dyn_cast<PHINode>(Op1)) {
-    if (UnreachBB == BB)
+  if (LibF == LibFunc_clang_call_terminate) {
+    auto *EVI = dyn_cast<ExtractValueInst>(CallT->getArgOperand(0));
+    if (!EVI || EVI->getNumIndices() != 1 || *EVI->idx_begin() != 0)
       return false;
-    Op1 = PN->getIncomingValueForBlock(BB);
-    Visited.insert(PN);
-  }
-  auto *LPI = dyn_cast<LandingPadInst>(Op1);
-  if (!LPI || LPI->getNumClauses() != 1 || !LPI->isCatch(0))
+    Value *Op1 = EVI->getOperand(0);
+    if (auto *PN = dyn_cast<PHINode>(Op1)) {
+      if (UnreachBB == BB)
+        return false;
+      Op1 = PN->getIncomingValueForBlock(BB);
+      Visited.insert(PN);
+    }
+    auto *LPI = dyn_cast<LandingPadInst>(Op1);
+    if (!LPI || LPI->getNumClauses() != 1 || !LPI->isCatch(0))
+      return false;
+    Visited.insert(EVI);
+    Visited.insert(LPI);
+  } else if (LibF == LibFunc_dunder_std_terminate) {
+    Instruction *II = CallT->getPrevNonDebugInstruction();
+    if (II) {
+      auto *CPI = dyn_cast<CleanupPadInst>(II);
+      if (!CPI)
+        return false;
+      auto *CleanupP = dyn_cast_or_null<CleanupPadInst>(CPI->getParentPad());
+      if (!CleanupP && !isa<ConstantTokenNone>(CPI->getParentPad()))
+        return false;
+      Visited.insert(CPI);
+      if (CleanupP)
+        Visited.insert(CleanupP);
+    }
+  } else {
     return false;
+  }
+
   Visited.insert(I);
   Visited.insert(CallT);
-  Visited.insert(EVI);
-  Visited.insert(LPI);
   return true;
 }
 
@@ -2872,8 +2906,7 @@ bool MemManageTransImpl::identifyCreate(BasicBlock *BB, Value *Obj,
   // Check EH code
   Instruction *I = UnBB->getFirstNonPHIOrDbg();
   auto *LPI = dyn_cast_or_null<LandingPadInst>(I);
-  if (!LPI || LPI->getNumClauses() != 0 || !LPI->isCleanup())
-    return false;
+  auto *CleanupP = dyn_cast_or_null<CleanupPadInst>(I);
   BasicBlock *EndBB = nullptr;
   if (!identifyDeallocCall(UnBB, Obj, RABAllocBC->getOperand(0), &EndBB))
     return false;
@@ -2881,10 +2914,31 @@ bool MemManageTransImpl::identifyCreate(BasicBlock *BB, Value *Obj,
   if (Succ)
     EndBB = Succ;
   auto *Res = dyn_cast<ResumeInst>(EndBB->getTerminator());
-  if (!Res || Res->getValue() != LPI)
+  auto *CRI = dyn_cast<CleanupReturnInst>(EndBB->getTerminator());
+  if (Res) {
+    // %i100 = landingpad { i8*, i32 }
+    //     Cleanup
+    //  ...
+    // resume { i8*, i32 } %i100
+    if (!LPI || LPI->getNumClauses() != 0 || !LPI->isCleanup())
+      return false;
+    if (Res->getValue() != LPI)
+      return false;
+    Visited.insert(LPI);
+    Visited.insert(Res);
+  } else if (CRI) {
+    // %102 = cleanuppad within none []
+    // ...
+    // cleanupret from %102 unwind to caller
+    if (!CleanupP)
+      return false;
+    if (CRI->getCleanupPad() != CleanupP)
+      return false;
+    Visited.insert(CRI);
+    Visited.insert(CleanupP);
+  } else {
     return false;
-  Visited.insert(LPI);
-  Visited.insert(Res);
+  }
 
   // Check for initialization of ArenaBlock and ReusableArenaBlock
   if (!identifyArenaBlockInit(InitBB, Obj, *RABAllocPtr, BlockAllocPtr, ABlock))
@@ -4668,7 +4722,7 @@ bool MemManageTransImpl::recognizeConstructor(Function *F) {
       DestroyObjFlagAssigned++;
     } else if (SITy->isIntegerTy(16)) {
       // Check "Obj->ArenaAllocator.blockSize = bSize;"
-      if (!isa<Argument>(ValOp))
+      if (!isa<Argument>(ValOp) && !isa<ConstantInt>(ValOp))
         return false;
       if (!isAllocatorBlockSizeAddr(PtrOp, ThisObj))
         return false;
@@ -4682,6 +4736,16 @@ bool MemManageTransImpl::recognizeConstructor(Function *F) {
       MemManagerAssigned != 1 || VTableAssigned != 1 || ListHeadAssigned != 1 ||
       ListFreeHeadAssigned != 1)
     return false;
+
+  // On windows, constructor returns "this" object.
+  auto *RI = dyn_cast<ReturnInst>(F->getEntryBlock().getTerminator());
+  if (!RI)
+    return false;
+  Value *RetVal = RI->getReturnValue();
+  if (RetVal && RetVal != ThisObj)
+    return false;
+  Visited.insert(RI);
+
   if (!verifyAllInstsProcessed(F))
     return false;
   DEBUG_WITH_TYPE(DTRANS_MEMMANAGETRANS, {
@@ -5285,7 +5349,8 @@ bool MemManageTransImpl::identifyStrObjDtorCall(Instruction *I,
   if (!BC2)
     return false;
   Visited.insert(BC2);
-  if (ObjDestCall->arg_size() != 1)
+  // On windows, destructor has two arguments.
+  if (ObjDestCall->arg_size() > 2)
     return false;
   Value *ArgOp = ObjDestCall->getArgOperand(0);
   if (LoopCountPHI) {

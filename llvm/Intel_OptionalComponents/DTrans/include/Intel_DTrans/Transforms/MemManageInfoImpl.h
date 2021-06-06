@@ -653,6 +653,10 @@ bool MemManageCandidateInfo::isArenaAllocatorType(Type *Ty) {
 // Ex:
 // %"ReusableArenaAllocator" = type { %"ArenaAllocator", i8, [7 x i8] }
 //
+//   or
+//
+// %"ReusableArenaAllocator" = type { %"ArenaAllocator", i8 }
+//
 bool MemManageCandidateInfo::isReusableArenaAllocatorType(Type *Ty) {
   auto *STy = getValidStructTy(Ty);
   if (!STy)
@@ -680,7 +684,7 @@ bool MemManageCandidateInfo::isReusableArenaAllocatorType(Type *Ty) {
     }
     return false;
   }
-  if (NumArenaAllocator != 1 || NumUnused != 1 || NumFlags != 1)
+  if (NumArenaAllocator != 1 || NumUnused > 1 || NumFlags != 1)
     return false;
   ReusableArenaAllocatorType = STy;
   return true;
