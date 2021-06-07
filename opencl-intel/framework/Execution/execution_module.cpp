@@ -4010,8 +4010,12 @@ cl_err_code ExecutionModule::EnqueueUSMMemcpy(cl_command_queue command_queue,
         return err;
     }
 
-    if (!blocking)
-        SetTrackerForUSM({src_ptr, dst_ptr}, trackerEvent, event != nullptr);
+    std::vector<const void *> usmPtrs;
+    if (!blocking) {
+        usmPtrs.push_back(src_ptr);
+        usmPtrs.push_back(dst_ptr);
+    }
+    SetTrackerForUSM(usmPtrs, trackerEvent, event != nullptr);
 
     return CL_SUCCESS;
 }
@@ -4206,8 +4210,15 @@ cl_err_code ExecutionModule::EnqueueLibraryCopy(
         return err;
     }
 
-    if (is_dst_usm)
-        SetTrackerForUSM({src, dst}, trackerEvent, event != nullptr);
+
+    std::vector<const void *> usmPtrs;
+    if (!blocking) {
+        if (is_src_usm)
+            usmPtrs.push_back(src);
+        if (is_dst_usm)
+            usmPtrs.push_back(dst);
+    }
+    SetTrackerForUSM(usmPtrs, trackerEvent, event != nullptr);
 
     return CL_SUCCESS;
 }
@@ -4291,8 +4302,12 @@ cl_err_code ExecutionModule::EnqueueLibrarySet(
         return err;
     }
 
-    if (is_dst_usm)
-        SetTrackerForUSM({dst}, trackerEvent, event != nullptr);
+    std::vector<const void *> usmPtrs;
+    if (is_dst_usm) {
+        usmPtrs.push_back(dst);
+    }
+    SetTrackerForUSM(usmPtrs, trackerEvent, event != nullptr);
+
 
     return CL_SUCCESS;
 }
