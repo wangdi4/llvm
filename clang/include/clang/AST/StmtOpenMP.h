@@ -2402,6 +2402,60 @@ public:
     return T->getStmtClass() == OMPTargetVariantDispatchDirectiveClass;
   }
 };
+
+/// This represents '#pragma omp prefetch' directive.
+///
+/// \code
+/// #pragma omp prefetch data(addr:1:2) if(b < c)
+/// \endcode
+/// In this example directive '#pragma omp prefetch' has clauses 'data'
+/// with address 'addr', hint value of 1, and number of elements equal 2, and
+/// 'if' with condition 'b < c'.
+///
+class OMPPrefetchDirective : public OMPExecutableDirective {
+  friend class ASTStmtReader;
+  friend class OMPExecutableDirective;
+
+  /// Build directive with the given start and end location.
+  ///
+  /// \param StartLoc Starting location of the directive (directive keyword).
+  /// \param EndLoc Ending Location of the directive.
+  ///
+  OMPPrefetchDirective(SourceLocation StartLoc, SourceLocation EndLoc)
+      : OMPExecutableDirective(OMPPrefetchDirectiveClass,
+                               llvm::omp::OMPD_prefetch, StartLoc, EndLoc) {}
+
+  /// Build an empty directive.
+  ///
+  explicit OMPPrefetchDirective()
+      : OMPExecutableDirective(OMPPrefetchDirectiveClass,
+                               llvm::omp::OMPD_prefetch, SourceLocation(),
+                               SourceLocation()) {}
+
+public:
+  /// Creates directive with a list of \a Clauses.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending Location of the directive.
+  /// \param Clauses List of clauses.
+  ///
+  static OMPPrefetchDirective *
+  Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+         ArrayRef<OMPClause *> Clauses);
+
+  /// Creates an empty directive with the place for \a N clauses.
+  ///
+  /// \param C AST context.
+  /// \param NumClauses Number of clauses.
+  ///
+  static OMPPrefetchDirective *CreateEmpty(const ASTContext &C,
+                                           unsigned NumClauses, EmptyShell);
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == OMPPrefetchDirectiveClass;
+  }
+};
 #endif // INTEL_COLLAB
 
 /// This represents '#pragma omp single' directive.

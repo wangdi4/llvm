@@ -724,6 +724,11 @@ void StmtPrinter::VisitOMPTargetParallelGenericLoopDirective(
   Indent() << "#pragma omp target parallel loop";
   PrintOMPExecutableDirective(Node);
 }
+
+void StmtPrinter::VisitOMPPrefetchDirective(OMPPrefetchDirective *Node) {
+  Indent() << "#pragma omp prefetch";
+  PrintOMPExecutableDirective(Node);
+}
 #endif // INTEL_COLLAB
 
 void StmtPrinter::VisitOMPSingleDirective(OMPSingleDirective *Node) {

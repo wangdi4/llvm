@@ -5914,6 +5914,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_subdevice:
   case OMPC_adjust_args:
   case OMPC_append_args:
+  case OMPC_data:
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:

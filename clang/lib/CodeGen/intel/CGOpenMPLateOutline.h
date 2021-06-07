@@ -298,6 +298,7 @@ class OpenMPLateOutliner {
   void emitOMPAllocateClause(const OMPAllocateClause *);
   void emitOMPNontemporalClause(const OMPNontemporalClause *);
   void emitOMPTileClause(const OMPTileClause *);
+  void emitOMPDataClause(const OMPDataClause *);
   void emitOMPFilterClause(const OMPFilterClause *);
   void emitOMPBindClause(const OMPBindClause *);
   void emitOMPOrderClause(const OMPOrderClause *);
@@ -453,6 +454,7 @@ public:
   void emitOMPDispatchDirective();
   void emitOMPGenericLoopDirective();
   void emitOMPInteropDirective();
+  void emitOMPPrefetchDirective();
   void emitVLAExpressions() {
     if (needsVLAExprEmission())
       CGF.VLASizeMapHandler->EmitVLASizeExpressions();

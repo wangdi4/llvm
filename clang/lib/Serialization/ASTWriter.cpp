@@ -6064,6 +6064,12 @@ void OMPClauseWriter::VisitOMPSubdeviceClause(OMPSubdeviceClause *C) {
   Record.AddStmt(C->getLength());
   Record.AddStmt(C->getStride());
 }
+
+void OMPClauseWriter::VisitOMPDataClause(OMPDataClause *C) {
+  Record.push_back(C->getNumDataClauseVals());
+  for (auto *E : C->val_exprs())
+    Record.AddStmt(E);
+}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClauseWriter::VisitOMPTileClause(OMPTileClause *C) {

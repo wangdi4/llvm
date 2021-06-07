@@ -2230,6 +2230,11 @@ void OMPClauseEnqueue::VisitOMPSubdeviceClause(const OMPSubdeviceClause *C) {
   Visitor->AddStmt(C->getLength());
   Visitor->AddStmt(C->getStride());
 }
+
+void OMPClauseEnqueue::VisitOMPDataClause(const OMPDataClause *C) {
+  for (auto *E : C->val_exprs())
+    Visitor->AddStmt(E);
+}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClauseEnqueue::VisitOMPTileClause(const OMPTileClause *C) {
@@ -5633,6 +5638,8 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("OMPTargetParallelGenericLoopDirective");
   case CXCursor_OMPTargetVariantDispatchDirective:
     return cxstring::createRef("OMPTargetVariantDispatchDirective");
+  case CXCursor_OMPPrefetchDirective:
+    return cxstring::createRef("OMPPrefetchDirective");
 #endif // INTEL_COLLAB
   case CXCursor_OMPSingleDirective:
     return cxstring::createRef("OMPSingleDirective");

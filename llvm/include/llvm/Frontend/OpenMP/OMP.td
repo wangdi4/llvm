@@ -311,6 +311,9 @@ def OMPC_bind : Clause<"bind"> {
 def OMPC_Subdevice : Clause<"subdevice"> {
   let clangClass = "OMPSubdeviceClause";
 }
+def OMPC_Data : Clause<"data"> {
+  let clangClass = "OMPDataClause";
+}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 def OMPC_tile : Clause<"tile"> {
@@ -1830,6 +1833,14 @@ def OMP_target_parallel_loop : Directive<"target parallel loop"> {
     VersionedClause<OMPC_Depend>,
     VersionedClause<OMPC_DefaultMap>,
     VersionedClause<OMPC_IsDevicePtr>
+  ];
+}
+def OMP_prefetch : Directive<"prefetch"> {
+  let allowedClauses = [
+    VersionedClause<OMPC_Data>
+  ];
+  let allowedOnceClauses = [
+    VersionedClause<OMPC_If>
   ];
 }
 #endif // INTEL_COLLAB

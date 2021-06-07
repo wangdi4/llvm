@@ -268,6 +268,7 @@ def OMPTeamsGenericLoopDirective : StmtNode<OMPLoopDirective>;
 def OMPTargetTeamsGenericLoopDirective : StmtNode<OMPLoopDirective>;
 def OMPParallelGenericLoopDirective : StmtNode<OMPLoopDirective>;
 def OMPTargetParallelGenericLoopDirective : StmtNode<OMPLoopDirective>;
+def OMPPrefetchDirective : StmtNode<OMPExecutableDirective>;
 //end INTEL_COLLAB
 def OMPTaskLoopDirective : StmtNode<OMPLoopDirective>;
 def OMPTaskLoopSimdDirective : StmtNode<OMPLoopDirective>;

@@ -199,6 +199,12 @@ private:
 // TypeInfo objects managed by the DTransSafetyInfo class. This will also
 // collect the field usage information for structure fields.
 class DTransSafetyInstVisitor : public InstVisitor<DTransSafetyInstVisitor> {
+
+  // Value type written for field value analysis by a memfunc call to indicate
+  // whether a zero value, non-zero value, or the existing value of a field is
+  // being written by the call.
+  enum FieldWriteType { FWT_ZeroValue, FWT_NonZeroValue, FWT_ExistingValue };
+
 public:
   // TODO: Making this public temporarily to avoid an unused variable warning
   // because the variable is not used yet. Change to private when it is used.
@@ -1998,7 +2004,7 @@ public:
       }
     }
 
-    return { StInfo, FieldNum };
+    return {StInfo, FieldNum};
   }
 
   void visitBitCastInst(BitCastInst &I) {
@@ -2700,6 +2706,16 @@ public:
     if (isValueTypeInfoUnhandled(*Info))
       DTInfo.setUnhandledPtrType(Call);
 
+    if (Kind == dtrans::AK_Calloc && Info->canAliasToAggregatePointer())
+      for (auto *Ty : Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+        if (!Ty->isPointerTy())
+          continue;
+
+        DTransType *ElemTy = Ty->getPointerElementType();
+        dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(ElemTy);
+        markAllFieldsWritten(ParentTI, *Call, FWT_ZeroValue);
+      }
+
     dtrans::AllocCallInfo *ACI = DTInfo.createAllocCallInfo(Call, Kind);
     populateCallInfo(*Info, ACI);
 
@@ -2904,6 +2920,9 @@ public:
                           << I.getFunction()->getName() << "] " << I << "\n");
     Value *DestArg = I.getRawDest();
     Value *SetSize = I.getLength();
+    Value *SetValue = I.getValue();
+    bool IsSettingNullValue = isa<ConstantInt>(SetValue) &&
+                              (cast<ConstantInt>(SetValue))->isZeroValue();
 
     // A memset of 0 bytes will not affect the safety of any data structure.
     if (dtrans::isValueEqualToSize(SetSize, 0))
@@ -2929,7 +2948,8 @@ public:
         // Check the structure, and mark any safety flags needed.
         dtrans::MemfuncRegion RegionDesc;
         if (analyzeMemfuncStructureMemberParam(
-                I, StructTy, FieldNum, PrePadBytes, SetSize, RegionDesc))
+                I, StructTy, FieldNum, PrePadBytes, SetSize, RegionDesc,
+                IsSettingNullValue ? FWT_ZeroValue : FWT_NonZeroValue))
           createMemsetCallInfo(I, StructTy, RegionDesc);
 
         return;
@@ -2964,10 +2984,12 @@ public:
       } else {
         Data = dtrans::BadMemFuncSize;
         Reason = "memset with array, invalid offset or size";
+
+        DTransType *DestPointeeTy = ElementPointees.begin()->first;
+        processBadMemFuncSize(I, DestPointeeTy);
       }
       setAllElementPointeeSafetyData(DstInfo, Data, Reason, &I);
       SetSafetyDataOnElementPointees(DstInfo, Data, Reason, &I);
-
       return;
     }
 
@@ -2988,7 +3010,8 @@ public:
     uint64_t ElementSize = DL.getTypeAllocSize(DestPointeeTy->getLLVMType());
     if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
       dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(DestPointeeTy);
-      markAllFieldsWritten(ParentTI, I);
+      markAllFieldsWritten(
+          ParentTI, I, IsSettingNullValue ? FWT_ZeroValue : FWT_NonZeroValue);
       dtrans::MemfuncRegion RegionDesc;
       RegionDesc.IsCompleteAggregate = true;
       createMemsetCallInfo(I, DestPointeeTy, RegionDesc);
@@ -2999,9 +3022,10 @@ public:
     // from field number zero.
     if (auto *StructTy = dyn_cast<DTransStructType>(DestPointeeTy)) {
       dtrans::MemfuncRegion RegionDesc;
-      if (analyzeMemfuncStructureMemberParam(I, StructTy, /*FieldNum=*/0,
-                                             /*PrePadBytes=*/0, SetSize,
-                                             RegionDesc)) {
+      if (analyzeMemfuncStructureMemberParam(
+              I, StructTy, /*FieldNum=*/0,
+              /*PrePadBytes=*/0, SetSize, RegionDesc,
+              IsSettingNullValue ? FWT_ZeroValue : FWT_NonZeroValue)) {
 
         createMemsetCallInfo(I, StructTy, RegionDesc);
         return;
@@ -3011,6 +3035,7 @@ public:
     setAllAliasedAndPointeeTypeSafetyData(
         DstInfo, dtrans::BadMemFuncSize,
         "memset could not match size to aggregate type", &I);
+    processBadMemFuncSize(I, DestPointeeTy);
   }
 
   // Check the source and destination pointer parameters of a call to memcpy or
@@ -3068,6 +3093,7 @@ public:
       setAllAliasedAndPointeeTypeSafetyData(
           SrcInfo, dtrans::BadMemFuncManipulation,
           "memcpy/memmove - src and dest must both be of interest", &I);
+      processBadMemFuncManipulation(I, DstInfo);
       return;
     }
 
@@ -3137,7 +3163,7 @@ public:
               createMemcpyOrMemmoveCallInfo(I, ElemTy, Kind, RegionDesc,
                                             RegionDesc);
               auto *ElemInfo = DTInfo.getOrCreateTypeInfo(ElemTy);
-              markAllFieldsWritten(ElemInfo, I);
+              markAllFieldsWritten(ElemInfo, I, FWT_ExistingValue);
               return;
             }
           }
@@ -3167,6 +3193,7 @@ public:
               DstInfo, dtrans::AmbiguousPointerTarget, AmbigMsg, &I);
           SetSafetyDataOnElementPointees(
               SrcInfo, dtrans::BadMemFuncManipulation, BadManipMsg, &I);
+          processBadMemFuncManipulation(I, DstInfo);
         } else {
           SetSafetyDataOnElementPointees(
               SrcInfo, dtrans::AmbiguousPointerTarget, AmbigMsg, &I);
@@ -3188,6 +3215,7 @@ public:
         SetSafetyDataOnElementPointees(
             SrcInfo, dtrans::BadMemFuncManipulation,
             "memcpy/memmove - dest was not supported", &I);
+        processBadMemFuncSize(I, DstStructTy);
         return;
       }
 
@@ -3203,6 +3231,7 @@ public:
         SetSafetyDataOnElementPointees(
             SrcInfo, dtrans::BadMemFuncSize,
             "memcpy/memmove - array, invalid offset or size", &I);
+        processBadMemFuncManipulation(I, DstInfo);
         return;
       }
 
@@ -3218,6 +3247,7 @@ public:
             "memcpy/memmove - non-identical src and dest element pointees";
         SetSafetyDataOnElementPointees(DstInfo, Data, Reason, &I);
         SetSafetyDataOnElementPointees(SrcInfo, Data, Reason, &I);
+        processBadMemFuncManipulation(I, DstInfo);
         return;
       }
 
@@ -3225,10 +3255,11 @@ public:
       dtrans::MemfuncRegion RegionDesc;
       if (!analyzeMemfuncStructureMemberParam(I, DstStructTy, DstFieldNum,
                                               DstPrePadBytes, SetSize,
-                                              RegionDesc)) {
+                                              RegionDesc, FWT_ExistingValue)) {
         SetSafetyDataOnElementPointees(
             DstInfo, dtrans::BadMemFuncSize,
             "memcpy/memmove - unsupport array, or invalid offset/size", &I);
+        processBadMemFuncSize(I, DstStructTy);
         return;
       }
 
@@ -3272,6 +3303,7 @@ public:
       StringRef Reason = "memcpy/memmove - different types for src and dest";
       setAllAliasedTypeSafetyData(DstInfo, Data, Reason, &I);
       setAllAliasedTypeSafetyData(SrcInfo, Data, Reason, &I);
+      processBadMemFuncManipulation(I, DstInfo);
       return;
     }
 
@@ -3280,7 +3312,7 @@ public:
     if (dtrans::isValueMultipleOfSize(SetSize, ElementSize)) {
       dtrans::TypeInfo *ParentTI = DTInfo.getTypeInfo(DestPointeeTy);
       // The call is safe, and is using the entire structure
-      markAllFieldsWritten(ParentTI, I);
+      markAllFieldsWritten(ParentTI, I, FWT_ExistingValue);
       dtrans::MemfuncRegion RegionDesc;
       RegionDesc.IsCompleteAggregate = true;
       createMemcpyOrMemmoveCallInfo(I, DestPointeeTy, Kind,
@@ -3298,7 +3330,7 @@ public:
       dtrans::MemfuncRegion RegionDesc;
       if (analyzeMemfuncStructureMemberParam(I, StructTy, /*FieldNum=*/0,
                                              /*PrePadBytes=*/0, SetSize,
-                                             RegionDesc)) {
+                                             RegionDesc, FWT_ExistingValue)) {
         // The call is safe, and affects the region described in RegionDesc
         createMemcpyOrMemmoveCallInfo(I, StructTy, Kind,
                                       /*RegionDescDest=*/RegionDesc,
@@ -3317,6 +3349,7 @@ public:
     setAllAliasedAndPointeeTypeSafetyData(
         SrcInfo, dtrans::BadMemFuncSize,
         "memcpy/memmove - could not match size to aggregate type", &I);
+    processBadMemFuncSize(I, DestPointeeTy);
   }
 
   // Helper function for retrieving information when the \p ValueTypeInfo
@@ -3433,7 +3466,8 @@ public:
                                           DTransStructType *StructTy,
                                           size_t FieldNum, uint64_t PrePadBytes,
                                           Value *SetSize,
-                                          dtrans::MemfuncRegion &RegionDesc) {
+                                          dtrans::MemfuncRegion &RegionDesc,
+                                          FieldWriteType WriteType) {
     auto *ParentTI = DTInfo.getTypeInfo(StructTy);
     llvm::StructType *LLVMTy = cast<llvm::StructType>(StructTy->getLLVMType());
 
@@ -3449,7 +3483,7 @@ public:
       }
 
       markStructFieldsWritten(ParentTI, RegionDesc.FirstField,
-                              RegionDesc.LastField, I);
+                              RegionDesc.LastField, I, WriteType);
       return true;
     }
 
@@ -3460,7 +3494,36 @@ public:
     setBaseTypeInfoSafetyData(StructTy, dtrans::BadMemFuncSize,
                               "size does not equal member field type(s) size",
                               &I);
+    processBadMemFuncSize(I, StructTy);
     return false;
+  }
+
+  // Treat 'Ty' which is the target of a memfunc call as having all the fields
+  // 'incomplete' for value tracking. This is a conservative behavior that may
+  // need to be relaxed for some cases in the future with an approach that only
+  // marks selected fields that are impacted by the call as 'incomplete'
+  void processBadMemFuncSize(Instruction &I, DTransType *Ty) {
+    dtrans::TypeInfo *ParentTI = DTInfo.getOrCreateTypeInfo(Ty);
+    markAllFieldsWritten(ParentTI, I, FWT_NonZeroValue);
+  }
+
+  // The legacy DTrans local pointer analyzer implementation only marked
+  // selected fields as 'incomplete' when a bad memfunc manipulation was
+  // encountered. It's not clear that all cases of bad memfunc manipulation
+  // would leave a complete known value set for some fields, so for now go
+  // conservative and set them all to 'incomplete'.
+  void processBadMemFuncManipulation(Instruction &I, ValueTypeInfo *Info) {
+    for (auto *AliasTy : Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+      if (AliasTy->isPointerTy()) {
+        dtrans::TypeInfo *TI =
+            DTInfo.getTypeInfo(AliasTy->getPointerElementType());
+        markAllFieldsWritten(TI, I, FWT_NonZeroValue);
+      }
+    for (auto &PointeePair :
+         Info->getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
+      dtrans::TypeInfo *TI = DTInfo.getTypeInfo(PointeePair.first);
+      markAllFieldsWritten(TI, I, FWT_NonZeroValue);
+    }
   }
 
   // For ReturnInst, we need to perform the following checks:
@@ -4179,7 +4242,8 @@ private:
 
   // Mark all the fields of the type, and fields of aggregates the type contains
   // as written.
-  void markAllFieldsWritten(dtrans::TypeInfo *TI, Instruction &I) {
+  void markAllFieldsWritten(dtrans::TypeInfo *TI, Instruction &I,
+                            FieldWriteType WriteType) {
     if (TI == nullptr)
       return;
 
@@ -4188,15 +4252,24 @@ private:
     }
 
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-      for (auto &FI : StInfo->getFields()) {
+      for (auto &Field : enumerate(StInfo->getFields())) {
+        dtrans::FieldInfo &FI = Field.value();
+        size_t Idx = Field.index();
         FI.setWritten(I);
+        if (WriteType != FWT_ExistingValue) {
+          Constant *C = (WriteType == FWT_ZeroValue)
+                            ? Constant::getNullValue(FI.getLLVMType())
+                            : nullptr;
+          updateFieldValueTracking(*StInfo, FI, Idx, C, &I);
+        }
+
         // TODO: Update frequency count for field info
         auto *ComponentTI = DTInfo.getTypeInfo(FI.getDTransType());
-        markAllFieldsWritten(ComponentTI, I);
+        markAllFieldsWritten(ComponentTI, I, WriteType);
       }
     } else if (auto *AInfo = dyn_cast<dtrans::ArrayInfo>(TI)) {
       auto *ComponentTI = AInfo->getElementDTransInfo();
-      markAllFieldsWritten(ComponentTI, I);
+      markAllFieldsWritten(ComponentTI, I, WriteType);
     }
   }
 
@@ -4204,7 +4277,8 @@ private:
   // subset of fields of a structure type as written. Any contained aggregates
   // within the subset are marked as completely written.
   void markStructFieldsWritten(dtrans::TypeInfo *TI, unsigned int FirstField,
-                               unsigned int LastField, Instruction &I) {
+                               unsigned int LastField, Instruction &I,
+                               FieldWriteType WriteType) {
     assert(TI && isa<dtrans::StructInfo>(TI) &&
            "markStructFieldsWritten requires Structure type");
 
@@ -4215,9 +4289,16 @@ private:
     for (unsigned int Idx = FirstField; Idx <= LastField; ++Idx) {
       auto &FI = StInfo->getField(Idx);
       FI.setWritten(I);
+      if (WriteType != FWT_ExistingValue) {
+        Constant *C = (WriteType == FWT_ZeroValue)
+                          ? Constant::getNullValue(FI.getLLVMType())
+                          : nullptr;
+        updateFieldValueTracking(*StInfo, FI, Idx, C, &I);
+      }
+
       // TODO: Update frequency count for field info
       auto *ComponentTI = DTInfo.getTypeInfo(FI.getDTransType());
-      markAllFieldsWritten(ComponentTI, I);
+      markAllFieldsWritten(ComponentTI, I, WriteType);
     }
   }
 
@@ -4516,8 +4597,7 @@ DTransSafetyInfo::getByteFlattenedGEPElement(GEPOperator *GEP) {
 }
 
 std::pair<DTransType *, size_t>
-DTransSafetyInfo::getByteFlattenedGEPElement(GetElementPtrInst *GEP)
-{
+DTransSafetyInfo::getByteFlattenedGEPElement(GetElementPtrInst *GEP) {
   return getByteFlattenedGEPElement(cast<GEPOperator>(GEP));
 }
 

@@ -11751,6 +11751,9 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_subdevice:
     C = new (Context) OMPSubdeviceClause();
     break;
+  case llvm::omp::OMPC_data:
+    C = OMPDataClause::CreateEmpty(Context, Record.readInt());
+    break;
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case llvm::omp::OMPC_tile:
@@ -12082,6 +12085,12 @@ void OMPClauseReader::VisitOMPSubdeviceClause(OMPSubdeviceClause *C) {
   C->setStart(Record.readSubExpr());
   C->setLength(Record.readSubExpr());
   C->setStride(Record.readSubExpr());
+}
+
+void OMPClauseReader::VisitOMPDataClause(OMPDataClause *C) {
+  for (unsigned I = 0, E = C->getNumDataClauseVals(); I < E; ++I) {
+    C->setDataInfo(I, Record.readSubExpr());
+  }
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

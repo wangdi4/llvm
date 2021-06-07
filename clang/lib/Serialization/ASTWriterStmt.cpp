@@ -2310,6 +2310,12 @@ void ASTStmtWriter::VisitOMPTargetParallelGenericLoopDirective(
   VisitOMPLoopDirective(D);
   Code = serialization::STMT_OMP_TARGET_PARALLEL_GENERIC_LOOP_DIRECTIVE;
 }
+
+void ASTStmtWriter::VisitOMPPrefetchDirective(OMPPrefetchDirective *D) {
+  VisitStmt(D);
+  VisitOMPExecutableDirective(D);
+  Code = serialization::STMT_OMP_PREFETCH_DIRECTIVE;
+}
 #endif // INTEL_COLLAB
 
 void ASTStmtWriter::VisitOMPSingleDirective(OMPSingleDirective *D) {

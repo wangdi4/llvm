@@ -2309,6 +2309,21 @@ public:
                                              EndLoc);
   }
 
+#if INTEL_COLLAB
+  /// Build a new OpenMP 'data' clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *RebuildOMPDataClause(ArrayRef<Expr *> Addrs,
+                                  ArrayRef<Expr *> Hints,
+                                  ArrayRef<Expr *> NumElements,
+                                  SourceLocation StartLoc,
+                                  SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPDataClause(Addrs, Hints, NumElements, StartLoc,
+                                           EndLoc);
+  }
+#endif // INTEL_COLLAB
+
   /// Rebuild the operand to an Objective-C \@synchronized statement.
   ///
   /// By default, performs semantic analysis to build the new statement.
@@ -8748,6 +8763,17 @@ StmtResult TreeTransform<Derived>::TransformOMPTargetVariantDispatchDirective(
   getDerived().getSema().EndOpenMPDSABlock(Res.get());
   return Res;
 }
+
+template <typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformOMPPrefetchDirective(OMPPrefetchDirective *D) {
+  DeclarationNameInfo DirName;
+  getDerived().getSema().StartOpenMPDSABlock(OMPD_prefetch, DirName, nullptr,
+                                             D->getBeginLoc());
+  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
+  getDerived().getSema().EndOpenMPDSABlock(Res.get());
+  return Res;
+}
 #endif // INTEL_COLLAB
 
 template <typename Derived>
@@ -9372,6 +9398,30 @@ TreeTransform<Derived>::TransformOMPSubdeviceClause(OMPSubdeviceClause *C) {
   return getDerived().RebuildOMPSubdeviceClause(
       Level.get(), Start.get(), Length.get(), Stride.get(), C->getBeginLoc(),
       C->getEndLoc());
+}
+
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPDataClause(OMPDataClause *C) {
+  llvm::SmallVector<Expr *> Addrs;
+  llvm::SmallVector<Expr *> Hints;
+  llvm::SmallVector<Expr *> NumElements;
+  for (unsigned I = 0; I < C->getNumDataClauseVals(); I += 3) {
+    ExprResult E = getDerived().TransformExpr(C->getDataInfo(I));
+    if (E.isInvalid())
+      return nullptr;
+    Addrs.push_back(E.get());
+    E = getDerived().TransformExpr(C->getDataInfo(I+1));
+    if (E.isInvalid())
+      return nullptr;
+    Hints.push_back(E.get());
+    E = getDerived().TransformExpr(C->getDataInfo(I+2));
+    if (E.isInvalid())
+      return nullptr;
+    NumElements.push_back(E.get());
+  }
+  return getDerived().RebuildOMPDataClause(
+      Addrs, Hints, NumElements, C->getBeginLoc(), C->getEndLoc());
 }
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION

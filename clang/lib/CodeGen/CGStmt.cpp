@@ -459,6 +459,8 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     llvm_unreachable("parallel loop not supported with FE outlining");
   case Stmt::OMPTargetParallelGenericLoopDirectiveClass:
     llvm_unreachable("target parallel loop not supported with FE outlining");
+  case Stmt::OMPPrefetchDirectiveClass:
+    llvm_unreachable("prefetch not supported with FE outlining");
 #endif // INTEL_COLLAB
   case Stmt::OMPMaskedDirectiveClass:
     EmitOMPMaskedDirective(cast<OMPMaskedDirective>(*S));

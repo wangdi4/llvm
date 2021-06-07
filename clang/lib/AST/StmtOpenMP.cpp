@@ -759,6 +759,21 @@ OMPTargetParallelGenericLoopDirective::CreateEmpty(const ASTContext &C,
       C, NumClauses, /*HasAssociatedStmt=*/true,
       numLoopChildren(CollapsedNum, OMPD_target_parallel_loop), CollapsedNum);
 }
+
+OMPPrefetchDirective *OMPPrefetchDirective::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+    ArrayRef<OMPClause *> Clauses) {
+  return createDirective<OMPPrefetchDirective>(
+      C, Clauses, /*AssociatedStmt=*/nullptr, /*NumChildren=*/0, StartLoc,
+      EndLoc);
+}
+
+OMPPrefetchDirective *OMPPrefetchDirective::CreateEmpty(const ASTContext &C,
+                                                        unsigned NumClauses,
+                                                        EmptyShell) {
+  return createEmptyDirective<OMPPrefetchDirective>(C, NumClauses,
+                                                    /*NumChildren=*/0);
+}
 #endif // INTEL_COLLAB
 
 OMPSingleDirective *OMPSingleDirective::Create(const ASTContext &C,

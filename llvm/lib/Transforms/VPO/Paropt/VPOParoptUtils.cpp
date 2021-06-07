@@ -4718,9 +4718,15 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
     else
       (VarName + Twine(".__global")).toStringRef(GlobalName);
 
+    bool IsArrayType = NumElements && isa<ConstantInt>(NumElements);
+    Type *GVType =
+        IsArrayType
+            ? ArrayType::get(ElementType,
+                             cast<ConstantInt>(NumElements)->getZExtValue())
+            : ElementType;
     GlobalVariable *GV =
-       new GlobalVariable(*M, ElementType, false, GlobalValue::InternalLinkage,
-                          Constant::getNullValue(ElementType), GlobalName,
+       new GlobalVariable(*M, GVType, false, GlobalValue::InternalLinkage,
+                          Constant::getNullValue(GVType), GlobalName,
                           nullptr,
                           GlobalValue::ThreadLocalMode::NotThreadLocal,
                           AllocaAddrSpace.getValue());

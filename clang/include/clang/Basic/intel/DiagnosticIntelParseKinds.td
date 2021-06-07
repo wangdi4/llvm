@@ -74,6 +74,8 @@ def warn_pragma_omp_ignored_for_target : Warning<
 def warn_pragma_omp_unimplemented : Warning<
   "OpenMP directive '%0' unimplemented - ignored">,
   InGroup<IgnoredPragmas>;
+def err_pragma_omp_expected_comma  : Error<
+  "Expected comma in '%0' clause">;
 
 // CQ#364426
 def warn_empty_enum : Warning<"use of empty enum">, InGroup<IntelCompat>;
