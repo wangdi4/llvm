@@ -53,7 +53,7 @@ target triple = "x86_64-pc-linux"
 declare i64 @_Z12get_local_idj(i32 %0) local_unnamed_addr #1
 
 ; Function Attrs: nounwind
-define void @foo(i32 addrspace(1)* %a, float addrspace(1)* %b) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_type_qual !9 !kernel_arg_base_type !10 !no_barrier_path !11 !ocl_recommended_vector_length !12 {
+define void @foo(i32 addrspace(1)* %a, float addrspace(1)* %b) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_type_qual !9 !kernel_arg_base_type !10 !no_barrier_path !11 !recommended_vector_length !12 {
 entry:
    %lid_call = call i64 @_Z12get_local_idj(i32 0) #1
    %non.trunc.user = add i64 %lid_call, 42
@@ -76,7 +76,7 @@ attributes #1 = { nounwind readnone }
 !opencl.used.extensions = !{!3}
 !opencl.used.optional.core.features = !{!3}
 !spirv.Generator = !{!4}
-!opencl.kernels = !{!5}
+!sycl.kernels = !{!5}
 
 !0 = !{i32 4, i32 100000}
 !1 = !{i32 1, i32 2}

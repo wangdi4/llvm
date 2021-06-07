@@ -14,7 +14,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent norecurse nounwind
-define void @test(i32 addrspace(1)* noalias %dst, i8 addrspace(3)* noalias %pLocalMemBase, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle) local_unnamed_addr #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 !kernel_arg_name !10 !vectorized_kernel !11 !no_barrier_path !8 !kernel_has_sub_groups !8 !scalarized_kernel !12 !vectorized_width !4 !kernel_execution_length !13 !kernel_has_barrier !14 !kernel_has_global_sync !8 !max_wg_dimensions !4 !barrier_buffer_size !15 !private_memory_size !15 !local_buffer_size !9 {
+define void @test(i32 addrspace(1)* noalias %dst, i8 addrspace(3)* noalias %pLocalMemBase, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle) local_unnamed_addr #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 !kernel_arg_name !10 !vectorized_kernel !11 !no_barrier_path !8 !kernel_has_sub_groups !8 !scalar_kernel !12 !vectorized_width !4 !kernel_execution_length !13 !kernel_has_barrier !14 !kernel_has_global_sync !8 !max_wg_dimensions !4 !barrier_buffer_size !15 !private_memory_size !15 !local_buffer_size !9 {
 entry:
 ; CHECK-LABEL: @test
 ; CHECK: [[MUL01:%[0-9]+]] = mul nuw nsw i64 %LocalSize_0, %LocalSize_1
@@ -64,7 +64,7 @@ SyncBB0:                                          ; preds = %SyncBB1
 }
 
 ; Function Attrs: convergent norecurse nounwind
-define void @__Vectorized_.test(i32 addrspace(1)* noalias %dst, i8 addrspace(3)* noalias %pLocalMemBase, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle) local_unnamed_addr #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 !kernel_arg_name !10 !vectorized_kernel !12 !no_barrier_path !8 !kernel_has_sub_groups !8 !scalarized_kernel !20 !vectorized_width !21 !vectorization_dimension !9 !can_unite_workgroups !8 !kernel_execution_length !22 !kernel_has_barrier !14 !kernel_has_global_sync !8 !max_wg_dimensions !4 !barrier_buffer_size !4 !private_memory_size !4 !local_buffer_size !9 {
+define void @__Vectorized_.test(i32 addrspace(1)* noalias %dst, i8 addrspace(3)* noalias %pLocalMemBase, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim, i64* noalias %pWGId, [4 x i64] %BaseGlbId, i8* noalias %pSpecialBuf, {}* noalias %RuntimeHandle) local_unnamed_addr #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 !kernel_arg_name !10 !vectorized_kernel !12 !no_barrier_path !8 !kernel_has_sub_groups !8 !scalar_kernel !20 !vectorized_width !21 !vectorization_dimension !9 !can_unite_workgroups !8 !kernel_execution_length !22 !kernel_has_barrier !14 !kernel_has_global_sync !8 !max_wg_dimensions !4 !barrier_buffer_size !4 !private_memory_size !4 !local_buffer_size !9 {
 entry:
 ; CHECK-LABEL: @__Vectorized_.test
 ; CHECK: [[RELAXED_LS0:%.*]] = add nuw nsw i64 %LocalSize_0, [[#VF_1:]]
@@ -126,7 +126,7 @@ attributes #0 = { convergent norecurse nounwind "correctly-rounded-divide-sqrt-f
 !opencl.used.optional.core.features = !{!1}
 !opencl.compiler.options = !{!1}
 !llvm.ident = !{!2}
-!opencl.kernels = !{!3}
+!sycl.kernels = !{!3}
 
 !0 = !{i32 1, i32 2}
 !1 = !{}

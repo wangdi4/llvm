@@ -88,7 +88,7 @@ cleanup:
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr
 declare i64 @_Z15get_global_sizej(i32) local_unnamed_addr
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i8 addrspace(1)*, i8 addrspace(1)*, i64)* @testKernel}
 !1 = !{i1 true}

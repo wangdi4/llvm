@@ -13,7 +13,6 @@
 #include "BarrierUtils.h"
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
-#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 
 #include "llvm/ADT/DepthFirstIterator.h"
@@ -22,13 +21,14 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include <tuple>
 
 #define DEBUG_TYPE "sg-emu-builtin"
 
 using namespace Intel::OpenCL::DeviceBackend;
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 
 bool EnableSubGroupEmulation = true;
 static cl::opt<bool, true> EnableSubGroupEmulationOpt(

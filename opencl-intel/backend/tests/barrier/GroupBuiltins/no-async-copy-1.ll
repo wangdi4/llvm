@@ -41,6 +41,6 @@ define void @main(i32 %x) nounwind {
 !13 = !{!"vectorized_kernel", null}
 !14 = !{!"vectorized_width", null}
 !15 = !{!"kernel_wrapper", null}
-!16 = !{!"scalarized_kernel", null}
+!16 = !{!"scalar_kernel", null}
 
 ; DEBUGIFY-NOT: WARNING

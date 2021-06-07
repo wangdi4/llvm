@@ -67,7 +67,7 @@ declare void @dummy_sg_barrier()
 
 attributes #0 = { "vector-variants"="_ZGVbM16v__Z13sub_group_alli(_Z13sub_group_allDv16_iDv16_j)" }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i32)* @test}
 !1 = !{i1 true}

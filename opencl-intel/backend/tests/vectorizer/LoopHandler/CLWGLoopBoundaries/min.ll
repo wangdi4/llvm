@@ -37,6 +37,6 @@ declare i32 @_Z3minii(i32, i32) nounwind readnone
 declare i32 @_Z3minjj(i32, i32) nounwind readnone
 
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (<4 x i8> addrspace(1)*, i32, i32)* @min_kernel}

@@ -30,7 +30,7 @@ declare i64 @_Z14get_local_sizej(i32)
 
 ; CHECK: attributes [[ATTR1]] = { "has-sub-groups" }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !0 = !{void (i32 addrspace(1)*)* @testKernel, void ()* @testKernel1}
 
 ; CHECK: [[SGMD1]] = !{i1 true}

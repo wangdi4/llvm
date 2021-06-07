@@ -4,22 +4,22 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent norecurse nounwind
-define void @testKernel() local_unnamed_addr #0 !ocl_recommended_vector_length !1 {
-; CHECK: define void @testKernel() local_unnamed_addr #0 !vectorized_kernel ![[#VecKernel1:]] !vectorized_width ![[#VecWidth1:]] !scalarized_kernel ![[#NULL:]]
+define void @testKernel() local_unnamed_addr #0 !recommended_vector_length !1 {
+; CHECK: define void @testKernel() local_unnamed_addr #0 !vectorized_kernel ![[#VecKernel1:]] !vectorized_width ![[#VecWidth1:]] !scalar_kernel ![[#NULL:]]
 entry:
   ret void
 }
 
 ; Function Attrs: convergent norecurse nounwind
 define void @_ZGVeN16_testKernel() local_unnamed_addr #0 {
-; CHECK: define void @_ZGVeN16_testKernel() local_unnamed_addr #0 !vectorized_kernel ![[#NULL]] !vectorized_width ![[#VecWidth2:]] !scalarized_kernel ![[#ScaKernel2:]]
+; CHECK: define void @_ZGVeN16_testKernel() local_unnamed_addr #0 !vectorized_kernel ![[#NULL]] !vectorized_width ![[#VecWidth2:]] !scalar_kernel ![[#ScaKernel2:]]
 entry:
   ret void
 }
 
 attributes #0 = { convergent norecurse nounwind "vector-variants"="_ZGVeN16_testKernel" }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void ()* @testKernel}
 !1 = !{i32 16}

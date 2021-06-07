@@ -11,12 +11,12 @@
 #include "SGFunctionWiden.h"
 
 #include "BarrierUtils.h"
-#include "MetadataAPI.h"
 
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
 
@@ -189,7 +189,7 @@ void FunctionWidener::run(FuncSet &Fns,
   FunctionsToWiden = Fns;
   Module &M = *(Fns[0]->getParent());
 
-  using namespace Intel::MetadataAPI;
+  using namespace DPCPPKernelMetadataAPI;
   auto Kernels = KernelList(M).getList();
   auto KernelRange = make_range(Kernels.begin(), Kernels.end());
 

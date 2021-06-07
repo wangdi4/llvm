@@ -133,4 +133,4 @@ declare i1 @__ocl_allZero(i1)
 !16 = !{!"vectorized_kernel", null}
 !17 = !{!"vectorized_width", null}
 !18 = !{!"kernel_wrapper", null}
-!19 = !{!"scalarized_kernel", null}
+!19 = !{!"scalar_kernel", null}

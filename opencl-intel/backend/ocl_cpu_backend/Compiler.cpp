@@ -19,7 +19,6 @@
 #include "BuiltinModules.h"
 #include "CompilationUtils.h"
 #include "CompilerConfig.h"
-#include "MetadataAPI.h"
 #include "OptimizerLTO.h"
 #include "OptimizerLTOLegacyPM.h"
 #include "VecConfig.h"
@@ -36,6 +35,7 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #ifdef _WIN32
 #include "lld/Common/TargetOptionsCommandFlags.h"

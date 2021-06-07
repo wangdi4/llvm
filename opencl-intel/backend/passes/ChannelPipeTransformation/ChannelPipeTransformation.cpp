@@ -15,6 +15,7 @@
 #include "ChannelPipeTransformation.h"
 #include "ChannelPipeUtils.h"
 
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/MapVector.h>
 #include <llvm/ADT/SetVector.h>
@@ -30,7 +31,6 @@
 #include <BuiltinLibInfo.h>
 #include <CompilationUtils.h>
 #include <InitializePasses.h>
-#include <MetadataAPI.h>
 #include <OCLAddressSpace.h>
 #include <OCLPassSupport.h>
 
@@ -41,7 +41,7 @@
 #include <stack>
 
 using namespace llvm;
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::OpenCL::DeviceBackend::ChannelPipeMetadata;
 

@@ -46,13 +46,13 @@
 #include "CompilationUtils.h"
 #include "LoopHandler/CLWGBoundDecoder.h"
 #include "LoopUtils.h"
-#include "MetadataAPI.h"
 #include "VectorizerCommon.h"
 
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 using namespace Intel::VectorizerCommon;
 
 extern bool EnableSubGroupEmulation;
@@ -126,7 +126,7 @@ void OCLVPOCheckVF::applyVFConstraints(Function *F) {
   auto KIMD = KernelInternalMetadataAPI(F);
 
   // In O0 case, InstCounter not run.
-  if (!KIMD.OclRecommendedVectorLength.hasValue()) {
+  if (!KIMD.RecommendedVL.hasValue()) {
     KernelToVF[F] = 1;
     LLVM_DEBUG(dbgs() << "Initial VF<O0 Mode>: " << KernelToVF[F] << "\n");
     return;
@@ -152,7 +152,7 @@ void OCLVPOCheckVF::applyVFConstraints(Function *F) {
     return;
   }
 
-  KernelToVF[F] = KIMD.OclRecommendedVectorLength.get();
+  KernelToVF[F] = KIMD.RecommendedVL.get();
   LLVM_DEBUG(dbgs() << "Initial VF<From InstCounter>: " << KernelToVF[F]
                     << "\n");
 }
@@ -258,8 +258,8 @@ OCLVPOCheckVF::checkHorizontalOps(Function *F) {
       // Check subgroup calls.
       if (FnName.contains("sub_group") && !FnName.contains("barrier") &&
           SupportedSubGroupVFs.count(VF) == 0) {
-        if (CanFallBack && KIMD.OclRecommendedVectorLength.hasValue()) {
-          VF = KIMD.OclRecommendedVectorLength.get();
+        if (CanFallBack && KIMD.RecommendedVL.hasValue()) {
+          VF = KIMD.RecommendedVL.get();
           logState([&](){
             (*CheckState)[std::string(F->getName())].isVFFalledBack = true;
           });
@@ -274,8 +274,8 @@ OCLVPOCheckVF::checkHorizontalOps(Function *F) {
       // Check workgroup calls.
       if (FnName.contains("work_group") && !FnName.contains("barrier") &&
           SupportedWorkGroupVFs.count(VF) == 0) {
-        if (CanFallBack && KIMD.OclRecommendedVectorLength.hasValue()) {
-          VF = KIMD.OclRecommendedVectorLength.get();
+        if (CanFallBack && KIMD.RecommendedVL.hasValue()) {
+          VF = KIMD.RecommendedVL.get();
           LLVM_DEBUG(dbgs() << "VF fall back to " << VF
                             << " due to unsupported work_group width\n");
           logState([&](){
@@ -398,9 +398,9 @@ bool OCLVPOCheckVF::runOnModule(Module &M) {
     // TODO report invalid VF as build fail and dump to build log.
     assert(VF && (VF & (VF - 1)) == 0 && "VF is not power of 2");
     auto KIMD = KernelInternalMetadataAPI(Kernel);
-    if (KIMD.OclRecommendedVectorLength.hasValue() &&
-        VF != (unsigned)KIMD.OclRecommendedVectorLength.get()) {
-      KIMD.OclRecommendedVectorLength.set(VF);
+    if (KIMD.RecommendedVL.hasValue() &&
+        VF != (unsigned)KIMD.RecommendedVL.get()) {
+      KIMD.RecommendedVL.set(VF);
       Changed = true;
     }
     LLVM_DEBUG(dbgs() << Kernel->getName() << " Final VF is: " << VF << "\n");

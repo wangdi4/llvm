@@ -34,7 +34,7 @@
 ; CHECK: define void @__internal.bar
 ;
 ; The following checks that @bar is still a kernel.
-; CHECK-DAG: !opencl.kernels = !{![[OCL_KERNELS:[0-9]+]]}
+; CHECK-DAG: !sycl.kernels = !{![[OCL_KERNELS:[0-9]+]]}
 ; CHECK-DAG: ![[OCL_KERNELS]] = !{{{.*}}void (float addrspace(1)*, float addrspace(1)*)* @bar{{.*}}}
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
@@ -115,7 +115,7 @@ attributes #6 = { convergent "uniform-work-group-size"="false" }
 !opencl.used.optional.core.features = !{!2}
 !opencl.compiler.options = !{!2}
 !llvm.ident = !{!7}
-!opencl.kernels = !{!8}
+!sycl.kernels = !{!8}
 
 !0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 8.0.0 ", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug, enums: !2, nameTableKind: None)
 !1 = !DIFile(filename: "/tmp/<stdin>", directory: "/tmp/tests")
