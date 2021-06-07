@@ -44,6 +44,8 @@ set_source_files_properties( cl_device_private_mem_size.cpp PROPERTIES COMPILE_D
 # thread dose not participate in kernel computations on O0 mode for Windows.
 set_source_files_properties( clDisableMasterJoinTest.cpp PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=8388608 )
 
+add_definitions(-DCURRENT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+
 set(INPUT_FILE test.cl)
 set(SPIRV_OUTPUT_FILE test.spv)
 set(INV_BC_OUTPUT_FILE inv_test.bc)
