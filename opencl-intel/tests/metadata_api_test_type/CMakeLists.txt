@@ -3,7 +3,6 @@ use_rtti(FALSE)
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
-  ${BACKEND_ROOT_DIR}/metadata_api
 )
 
 add_ocl_unittest(

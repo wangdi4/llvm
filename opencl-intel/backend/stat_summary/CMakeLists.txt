@@ -14,6 +14,5 @@ add_opencl_executable(SumStats
     ${BACKEND_ROOT_DIR}/metadata_api
 
     LINK_LIBS
-    metadataapi
     ${LLVM_MODULE_LIBS}
     )

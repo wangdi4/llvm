@@ -62,7 +62,6 @@ set(OCL_BE_PASSES
 set(OCL_BE_PASSES_DEPS
     LoopUtils
     OclBackendUtils
-    metadataapi
     reflection_module
 )
 

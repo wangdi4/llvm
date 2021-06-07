@@ -28,7 +28,6 @@ target_link_libraries(
   BuiltinLibInfo
   OclBackendUtils
   reflection_module
-  metadataapi
   gtest
   ${LLVM_MODULE_LIBS}
 )

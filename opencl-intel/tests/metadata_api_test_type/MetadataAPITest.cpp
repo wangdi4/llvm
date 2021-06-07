@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2021 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,14 +14,11 @@
 
 #include "MetadataAPITestFixture.h"
 
-#include "MetadataAPI.h"
 #include "MetadataStatsAPI.h"
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
@@ -32,6 +29,7 @@
 
 using namespace Intel;
 using namespace MetadataAPI;
+using namespace llvm::DPCPPKernelMetadataAPI;
 
 TEST_F(MetadataTest, Test_RecursiveCallMetadata) {
   auto pModule = GetTestModule();
@@ -57,147 +55,7 @@ TEST_F(MetadataTest, Test_GetRecursiveCallMetadataFromNoMetadataFunction) {
   EXPECT_FALSE(mdApi.RecursiveCall.get());
 }
 
-/// KernelArgNamespaces
 
-TEST_F(MetadataTest, Test_RetrieveKernelArgAddressSpacesFromNotAKernel) {
-  auto pModule = GetTestModule();
-
-  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_plain_func"));
-
-  EXPECT_FALSE(kernelMDApi.ArgAddressSpaceList.hasValue());
-}
-
-TEST_F(MetadataTest, Test_RetrieveKernelArgNamespacesThroughIndex) {
-  auto pModule = GetTestModule();
-
-  const std::vector<int32_t> expected = {0, 1, 1};
-
-  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
-
-  EXPECT_TRUE(kernelMDApi.ArgAddressSpaceList.hasValue());
-
-  for (size_t i = 0; i < kernelMDApi.ArgAddressSpaceList.size(); i++) {
-    EXPECT_EQ(expected[i], kernelMDApi.ArgAddressSpaceList.getItem(i));
-  }
-}
-
-TEST_F(MetadataTest, Test_RetrieveKernelArgNamespacesThroughForRangeLoop) {
-  auto pModule = GetTestModule();
-
-  const std::vector<int32_t> expected = {0, 1, 1};
-
-  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
-
-  EXPECT_TRUE(kernelMDApi.ArgAddressSpaceList.hasValue());
-
-  EXPECT_EQ(expected.size(), kernelMDApi.ArgAddressSpaceList.size());
-
-  auto expected_it = expected.begin();
-  for (auto addr_space : kernelMDApi.ArgAddressSpaceList) {
-    EXPECT_EQ(addr_space, *expected_it);
-    expected_it++;
-  }
-}
-
-/// kernel_arg_name
-
-TEST_F(MetadataTest, Test_RetrieveKernelArgNameFromNotAKernel) {
-  auto pModule = GetTestModule();
-
-  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_plain_func"));
-
-  EXPECT_FALSE(kernelMDApi.ArgNameList.hasValue());
-}
-
-TEST_F(MetadataTest, Test_RetrieveKernelArgNameThroughIndex) {
-  auto pModule = GetTestModule();
-
-  const std::vector<llvm::StringRef> expected = {"argFloat", "argIntBuffer",
-                                             "argImg"};
-
-  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
-
-  auto KernelArgNameAPI = kernelMDApi.ArgNameList;
-
-  EXPECT_TRUE(KernelArgNameAPI.hasValue());
-
-  for (size_t i = 0; i < KernelArgNameAPI.size(); i++) {
-    EXPECT_TRUE(expected[i] == KernelArgNameAPI.getItem(i));
-  }
-}
-
-TEST_F(MetadataTest, Test_RetrieveKernelArgNameThroughForRangeLoop) {
-  auto pModule = GetTestModule();
-
-  const std::vector<llvm::StringRef> expected = {"argFloat", "argIntBuffer",
-                                             "argImg"};
-
-  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
-
-  auto KernelArgNameAPI = kernelMDApi.ArgNameList;
-
-  EXPECT_TRUE(KernelArgNameAPI.hasValue());
-
-  EXPECT_EQ(expected.size(), KernelArgNameAPI.size());
-
-  auto expected_it = expected.begin();
-  for (auto addr_space : KernelArgNameAPI) {
-    EXPECT_TRUE(addr_space == *expected_it);
-    expected_it++;
-  }
-}
-
-/// kernel_arg_access_qual
-
-TEST_F(MetadataTest, Test_RetrieveKernelAccessQualFromNotAKernel) {
-  auto pModule = GetTestModule();
-
-  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_plain_func"));
-
-  EXPECT_FALSE(kernelMDApi.ArgAccessQualifierList.hasValue());
-}
-
-TEST_F(MetadataTest, Test_RetrieveKernelAccessQual) {
-  auto pModule = GetTestModule();
-
-  const std::vector<llvm::StringRef> expected = {"none", "none", "read_only"};
-
-  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
-
-  auto KernelArgAPI = kernelMDApi.ArgAccessQualifierList;
-
-  EXPECT_TRUE(KernelArgAPI.hasValue());
-
-  auto actual = KernelArgAPI.getList();
-
-  EXPECT_EQ(expected.size(), actual.size());
-
-  for (size_t i = 0; i < actual.size(); i++) {
-    EXPECT_TRUE(expected[i] == actual[i]);
-  }
-}
-
-/// kernel_arg_type
-
-TEST_F(MetadataTest, Test_RetrieveKernelArgType) {
-  auto pModule = GetTestModule();
-
-  const std::vector<llvm::StringRef> expected = {"float", "int*", "image2d_t"};
-
-  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
-
-  auto KernelArgAPI = kernelMDApi.ArgTypeList;
-
-  EXPECT_TRUE(KernelArgAPI.hasValue());
-
-  auto actual = KernelArgAPI.getList();
-
-  EXPECT_EQ(expected.size(), actual.size());
-
-  for (size_t i = 0; i < actual.size(); i++) {
-    EXPECT_TRUE(expected[i] == actual[i]);
-  }
-}
 
 /// kernel_arg_base_type
 
@@ -221,120 +79,6 @@ TEST_F(MetadataTest, Test_RetrieveKernelArgBaseType) {
   }
 }
 
-/// kernel_arg_type_qual
-
-TEST_F(MetadataTest, Test_RetrieveKernelArgTypeQual) {
-  auto pModule = GetTestModule();
-
-  const std::vector<llvm::StringRef> expected = {"", "", ""};
-
-  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
-
-  auto KernelArgAPI = kernelMDApi.ArgTypeQualifierList;
-
-  EXPECT_TRUE(KernelArgAPI.hasValue());
-
-  auto actual = KernelArgAPI.getList();
-
-  EXPECT_EQ(expected.size(), actual.size());
-
-  for (size_t i = 0; i < actual.size(); i++) {
-    EXPECT_TRUE(expected[i] == actual[i]);
-  }
-}
-
-TEST_F(MetadataTest, Test_UnsetKernelArgTypeQual) {
-  auto pModule = GetTestModule();
-
-  {
-    KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
-
-    auto KernelArgAPI = kernelMDApi.ArgTypeQualifierList;
-
-    EXPECT_TRUE(KernelArgAPI.hasValue());
-
-    KernelArgAPI.unset();
-  }
-  {
-    KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
-
-    auto KernelArgAPI = kernelMDApi.ArgTypeQualifierList;
-
-    EXPECT_FALSE(KernelArgAPI.hasValue());
-  }
-}
-
-/// KernelArgBufferLocation
-
-TEST_F(MetadataTest, Test_RetrieveKernelArgBufferLocationFromNotAKernel) {
-  auto pModule = GetTestModule();
-
-  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_plain_func"));
-
-  EXPECT_FALSE(kernelMDApi.ArgBufferLocationList.hasValue());
-}
-
-TEST_F(MetadataTest, Test_RetrieveKernelArgBufferLocationThroughIndex) {
-  auto pModule = GetTestModule();
-
-  const std::vector<llvm::StringRef> expected = {"", "", ""};
-
-  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
-
-  EXPECT_TRUE(kernelMDApi.ArgBufferLocationList.hasValue());
-
-  for (size_t i = 0; i < kernelMDApi.ArgBufferLocationList.size(); i++) {
-    EXPECT_EQ(expected[i], kernelMDApi.ArgBufferLocationList.getItem(i));
-  }
-}
-
-/// KernelArgHostAccessible
-
-TEST_F(MetadataTest, Test_RetrieveKernelArgHostAccessibleFromNotAKernel) {
-  auto pModule = GetTestModule();
-
-  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_plain_func"));
-
-  EXPECT_FALSE(kernelMDApi.ArgHostAccessibleList.hasValue());
-}
-
-TEST_F(MetadataTest, Test_RetrieveKernelArgHostAccessibleThroughIndex) {
-  auto pModule = GetTestModule();
-
-  const std::vector<bool> expected = {false, false, false};
-
-  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
-
-  EXPECT_TRUE(kernelMDApi.ArgHostAccessibleList.hasValue());
-
-  for (size_t i = 0; i < kernelMDApi.ArgHostAccessibleList.size(); i++) {
-    EXPECT_EQ(expected[i], kernelMDApi.ArgHostAccessibleList.getItem(i));
-  }
-}
-
-/// KernelArgPipeDepth
-
-TEST_F(MetadataTest, Test_RetrieveKernelArgPipeDepthFromNotAKernel) {
-  auto pModule = GetTestModule();
-
-  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_plain_func"));
-
-  EXPECT_FALSE(kernelMDApi.ArgPipeDepthTyList.hasValue());
-}
-
-TEST_F(MetadataTest, Test_RetrieveKernelArgPipeDepthThroughIndex) {
-  auto pModule = GetTestModule();
-
-  const std::vector<int32_t> expected = {0, 0, 0};
-
-  KernelMetadataAPI kernelMDApi(pModule->getFunction("metatest_kernel"));
-
-  EXPECT_TRUE(kernelMDApi.ArgPipeDepthTyList.hasValue());
-
-  for (size_t i = 0; i < kernelMDApi.ArgPipeDepthTyList.size(); i++) {
-    EXPECT_EQ(expected[i], kernelMDApi.ArgPipeDepthTyList.getItem(i));
-  }
-}
 
 /// work_group_size_hint
 
@@ -424,25 +168,6 @@ TEST_F(MetadataTest, Test_KernelList) {
   EXPECT_TRUE(containsKernel);
 }
 
-TEST_F(MetadataTest, Test_KernelListInternalContainer) {
-  auto pModule = GetTestModule();
-
-  auto kernels = KernelList(pModule);
-
-  bool containsPlainFunc =
-      std::find_if(kernels.begin(), kernels.end(), [](llvm::Function *F) {
-        return F->getName() == "metatest_plain_func";
-      }) != kernels.end();
-  EXPECT_FALSE(containsPlainFunc);
-
-  // should contain a kernel
-  bool containsKernel =
-      std::find_if(kernels.begin(), kernels.end(), [](llvm::Function *F) {
-        return F->getName() == "metatest_kernel";
-      }) != kernels.end();
-  EXPECT_TRUE(containsKernel);
-}
-
 TEST_F(MetadataTest, Test_SetGetVectorizerWidth) {
   auto pModule = GetTestModule();
 
@@ -510,74 +235,6 @@ TEST_F(MetadataTest, Test_ModuleSpirVersion) {
                                                  SpirVersionList.getItem(1)};
 
   EXPECT_TRUE(passed);
-}
-
-// save the list to Metadata.
-
-TEST_F(MetadataTest, Test_SaveKernelArgNamesMetadata) {
-  auto pModule = GetTestModule();
-
-  const KernelMetadataAPI::ArgNameListTy::vector_type
-    expected = {"foo", "bar", "baz"};
-
-  {
-    auto pKernel = pModule->getFunction("metatest_kernel");
-    KernelMetadataAPI kernelMDApi(pKernel);
-
-    auto ArgNameList = kernelMDApi.ArgNameList;
-
-    EXPECT_TRUE(ArgNameList.hasValue());
-
-    ArgNameList.set(expected);
-  }
-
-  {
-    auto pKernel = pModule->getFunction("metatest_kernel");
-    KernelMetadataAPI kernelMDApi(pKernel);
-
-    auto ArgNameList = kernelMDApi.ArgNameList;
-
-    EXPECT_TRUE(ArgNameList.hasValue());
-
-    auto actual = ArgNameList.getList();
-
-    EXPECT_EQ(expected.size(), actual.size());
-
-    for (size_t i = 0; i < actual.size(); i++) {
-      EXPECT_TRUE(expected[i] == actual[i]);
-    }
-  }
-}
-
-TEST_F(MetadataTest, Test_ReadSaveThenReadMetadata)
-{
-  // check that dirty flag in cache implementation works fine
-
-  auto pModule = GetTestModule();
-
-  const KernelMetadataAPI::ArgNameListTy::vector_type expected =
-  { "foo", "bar", "baz" };
-
-  auto pKernel = pModule->getFunction("metatest_kernel");
-  KernelMetadataAPI kernelMDApi(pKernel);
-  auto ArgNameList = kernelMDApi.ArgNameList;
-
-  // read
-  EXPECT_TRUE(ArgNameList.hasValue());
-
-  // set
-  ArgNameList.set(expected);
-
-  // read
-  EXPECT_TRUE(ArgNameList.hasValue());
-
-  auto actual = ArgNameList.getList();
-
-  EXPECT_EQ(expected.size(), actual.size());
-
-  for (size_t i = 0; i < actual.size(); i++) {
-    EXPECT_TRUE(expected[i] == actual[i]);
-  }
 }
 
 TEST_F(MetadataTest, Test_SaveModuleVersionListMetadata) {

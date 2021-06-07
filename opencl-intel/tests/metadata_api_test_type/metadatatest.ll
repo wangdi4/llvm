@@ -37,7 +37,7 @@ entry:
 
 attributes #0 = { convergent noinline norecurse nounwind optnone "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
-!opencl.kernels = !{!16}
+!sycl.kernels = !{!16}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.ocl.version = !{!0}
 !opencl.spir.version = !{!1}
