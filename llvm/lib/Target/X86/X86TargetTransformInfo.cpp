@@ -46,6 +46,7 @@
 #include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/IR/IRBuilder.h" // INTEL
 #include "llvm/IR/Module.h" // INTEL
 
 using namespace llvm;
