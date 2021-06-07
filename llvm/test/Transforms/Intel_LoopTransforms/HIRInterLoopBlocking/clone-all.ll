@@ -17,7 +17,7 @@
 ;               |
 ;               |   + DO i2 = 0, 2, 1   <DO_LOOP>
 ;               |   |   %globalvar_mod_mp_zstop__fetch = (@globalvar_mod_mp_zstop_)[0];
-;               |   |   %myrel = %MMM  |  %NNN;
+;               |   |   %myrel = %globalvar_mod_mp_zstop__fetch  |  %NNN;
 ;               |   |   if (%globalvar_mod_mp_zstop__fetch >= (@globalvar_mod_mp_zstart_)[0])
 ;               |   |   {
 ;               |   |      + DO i3 = 0, sext.i32.i64(%globalvar_mod_mp_zstop__fetch) + -1 * sext.i32.i64(%myrel), 1   <DO_LOOP>
@@ -33,8 +33,8 @@
 
 ;         BEGIN REGION { modified }
 ;               + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
-;               |   %clone = %MMM  |  %NNN;    // This cloned instruction is NOT a load instruction.
 ;               |   %clone6 = (@globalvar_mod_mp_zstop_)[0];
+;               |   %clone = %globalvar_mod_mp_zstop__fetch  |  %NNN;    // This cloned instruction is NOT a load instruction.
 ;               |
 ;               |   + DO i2 = 1, 3, 2   <DO_LOOP>
 ;               |   |   %tile_e_min = (i2 + 1 <= 3) ? i2 + 1 : 3;
@@ -59,7 +59,7 @@
 ;               |   |   |
 ;               |   |   |   + DO i4 = 0, -1 * %lb_max12 + %ub_min13, 1   <DO_LOOP>
 ;               |   |   |   |   %globalvar_mod_mp_zstop__fetch = (@globalvar_mod_mp_zstop_)[0];
-;               |   |   |   |   %myrel = %MMM  |  %NNN;
+;               |   |   |   |   %myrel = %globalvar_mod_mp_zstop__fetch  |  %NNN;
 ;               |   |   |   |   if (%globalvar_mod_mp_zstop__fetch >= (@globalvar_mod_mp_zstart_)[0])
 ;               |   |   |   |   {
 ;               |   |   |   |      %lb_max10 = (sext.i32.i64(%myrel) <= i3) ? i3 : sext.i32.i64(%myrel);
@@ -90,7 +90,7 @@
 ; CHECK:               |
 ; CHECK:               |   + DO i2 = 0, 2, 1   <DO_LOOP>
 ; CHECK:               |   |   %globalvar_mod_mp_zstop__fetch = (@globalvar_mod_mp_zstop_)[0];
-; CHECK:               |   |   %myrel = %MMM  |  %NNN;
+; CHECK:               |   |   %myrel = %globalvar_mod_mp_zstop__fetch |  %NNN;
 ; CHECK:               |   |   if (%globalvar_mod_mp_zstop__fetch >= (@globalvar_mod_mp_zstart_)[0])
 ; CHECK:               |   |   {
 ; CHECK:               |   |      + DO i3 = 0, sext.i32.i64(%globalvar_mod_mp_zstop__fetch) + -1 * sext.i32.i64(%myrel), 1   <DO_LOOP>
@@ -106,8 +106,8 @@
 
 ; CHECK:     BEGIN REGION { modified }
 ; CHECK:           + DO i1 = 0, %"sub1_$NTIMES_fetch" + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
-; CHECK:           |   [[CLONE_1:%clone[0-9]*]] = %MMM  |  %NNN;
-; CHECK:           |   [[CLONE_2:%clone[0-9]+]] = (@globalvar_mod_mp_zstop_)[0];
+; CHECK:           |   [[CLONE_2:%clone[0-9]*]] = (@globalvar_mod_mp_zstop_)[0];
+; CHECK:           |   [[CLONE_1:%clone[0-9]*]] = [[CLONE_2]] |  %NNN;
 ; CHECK:           |
 ; CHECK:           |   + DO i2 = 1, 3, 2   <DO_LOOP>
 ; CHECK:           |   |   [[TILE_1:%tile_e_min[0-9]*]] = (i2 + 1 <= 3) ? i2 + 1 : 3;
@@ -132,8 +132,7 @@
 ; CHECK:           |   |   |
 ; CHECK:           |   |   |   + DO i4 = 0, -1 * [[LB_3]] + [[UB_3]], 1   <DO_LOOP>
 ; CHECK:           |   |   |   |   %globalvar_mod_mp_zstop__fetch = (@globalvar_mod_mp_zstop_)[0];
-; CHECK:           |   |   |   |   %myrel = %MMM  |  %NNN;
-
+; CHECK:           |   |   |   |   %myrel = %globalvar_mod_mp_zstop__fetch  |  %NNN;
 ; CHECK:           |   |   |   |   if (%globalvar_mod_mp_zstop__fetch >= (@globalvar_mod_mp_zstart_)[0])
 ; CHECK:           |   |   |   |   {
 ; CHECK:           |   |   |   |      [[LB_4:%lb_max[0-9]*]] = (sext.i32.i64(%myrel) <= i3) ? i3 : sext.i32.i64(%myrel);
@@ -161,7 +160,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @globalvar_mod_mp_zstart_ = external local_unnamed_addr global i32, align 8
 
 ; Function Attrs: nofree nounwind uwtable
-define void @sub1_(%"QNCA_a0$double*$rank2$"* noalias nocapture readonly dereferenceable(96) "ptrnoalias" %"sub1_$A", %"QNCA_a0$double*$rank2$"* noalias nocapture readonly dereferenceable(96) "ptrnoalias" %"sub1_$B", i32* noalias nocapture readnone dereferenceable(4) %"sub1_$N", i32* noalias nocapture readonly dereferenceable(4) %"sub1_$NTIMES", i32* noalias nocapture readnone dereferenceable(4) %"sub1_$BLOB", i32 %NNN, i32 %MMM) local_unnamed_addr #0 {
+define void @sub1_(%"QNCA_a0$double*$rank2$"* noalias nocapture readonly dereferenceable(96) "ptrnoalias" %"sub1_$A", %"QNCA_a0$double*$rank2$"* noalias nocapture readonly dereferenceable(96) "ptrnoalias" %"sub1_$B", i32* noalias nocapture readnone dereferenceable(4) %"sub1_$N", i32* noalias nocapture readonly dereferenceable(4) %"sub1_$NTIMES", i32* noalias nocapture readnone dereferenceable(4) %"sub1_$BLOB", i32 %NNN) local_unnamed_addr #0 {
 alloca_0:
   %"sub1_$NTIMES_fetch" = load i32, i32* %"sub1_$NTIMES", align 1
   %rel = icmp slt i32 %"sub1_$NTIMES_fetch", 1
@@ -224,7 +223,7 @@ bb47:                                             ; preds = %bb47.preheader, %bb
   %indvars.iv205 = phi i64 [ %indvars.iv.next206, %bb52 ], [ 1, %bb47.preheader ]
   %globalvar_mod_mp_zstart__fetch = load i32, i32* @globalvar_mod_mp_zstart_, align 8
   %globalvar_mod_mp_zstop__fetch = load i32, i32* @globalvar_mod_mp_zstop_, align 8
-  %myrel = or i32 %MMM, %NNN
+  %myrel = or i32 %globalvar_mod_mp_zstop__fetch, %NNN
   %rel73 = icmp slt i32 %globalvar_mod_mp_zstop__fetch, %globalvar_mod_mp_zstart__fetch
   br i1 %rel73, label %bb52, label %bb51.preheader
 

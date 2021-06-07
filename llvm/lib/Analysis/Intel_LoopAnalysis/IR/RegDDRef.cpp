@@ -380,7 +380,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
 }
 
 void RegDDRef::printWithBlobDDRefs(formatted_raw_ostream &OS,
-                               unsigned Depth) const {
+                                   unsigned Depth) const {
 #if !INTEL_PRODUCT_RELEASE
   const HLDDNode *ParentNode = getHLDDNode();
   auto Indent = [&]() {
@@ -783,6 +783,10 @@ bool RegDDRef::isStructurallyRegionInvariant() const {
 
   auto &BU = getBlobUtils();
   auto *Reg = getHLDDNode()->getParentRegion();
+
+  if (isSelfBlob()) {
+    return Reg->isLiveIn(getSymbase());
+  }
 
   for (auto *BlobRef : make_range(blob_begin(), blob_end())) {
 
@@ -1310,9 +1314,8 @@ bool RegDDRef::replaceTempBlobs(
   return Res;
 }
 
-bool RegDDRef::replaceTempBlobs(
-    const DenseMap<unsigned, unsigned> &BlobMap,
-    bool AssumeLvalIfDetached) {
+bool RegDDRef::replaceTempBlobs(const DenseMap<unsigned, unsigned> &BlobMap,
+                                bool AssumeLvalIfDetached) {
   bool Res = false;
 
   for (auto &Pair : BlobMap) {
