@@ -1380,6 +1380,15 @@ static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
              DPxPTR(HstPtrVal));
           continue;
         }
+#if INTEL_COLLAB
+        // PointerTgtPtrBegin contains the device address of the attached
+        // object. For partially mapped objects we need to calculate their bases
+        // and update the device copy of the lambda struct with the result.
+        ptrdiff_t ObjDelta = (intptr_t) HstPtrVal - // begin address of object
+            (intptr_t) (*(void **)HstPtrBegin); // base address of object
+        PointerTgtPtrBegin =
+            (void *) ((intptr_t) PointerTgtPtrBegin - ObjDelta);
+#endif // INTEL_COLLAB
         DP("Update lambda reference (" DPxMOD ") -> [" DPxMOD "]\n",
            DPxPTR(PointerTgtPtrBegin), DPxPTR(TgtPtrBegin));
         Ret = Device.submitData(TgtPtrBegin, &PointerTgtPtrBegin,
