@@ -395,12 +395,10 @@ TEST(FrameworkTestType, Test_EventCallbackTest)
     EXPECT_TRUE(EventCallbackTest());
 }
 
-#ifndef _WIN32 // Flaky [CMPLRLLVM-22865]
 TEST(FrameworkTestType, Test_MT_order)
 {
     EXPECT_TRUE(MultithreadedOrderViolation());
 }
-#endif
 
 // Because we don't copy misaligned buffers with CL_MEM_USE_HOST_PTR anymore, the kernel code crashes. This can be fixed by changes in LLVM to handle misaligned access, if it is decided to be done.
 TEST(FrameworkTestType, DISABLED_Test_MisalignedHostPtr)
