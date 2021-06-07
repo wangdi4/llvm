@@ -96,19 +96,17 @@ class PrintPassInstrumentation {
 public:
   PrintPassInstrumentation(bool Enabled, PrintPassOptions Opts)
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-      : DebugLogging(DebugLogging), Enabled(Enabled), Opts(Opts) {}
-#else  // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-      : Enabled(Enabled), Opts(Opts) {}
+      : Enabled(Enabled), Opts(Opts)
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+      {} // INTEL
   void registerCallbacks(PassInstrumentationCallbacks &PIC);
 
 private:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  bool DebugLogging;
-#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   bool Enabled;
   PrintPassOptions Opts;
   int Indent = 0;
+#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 };
 
 class PreservedCFGCheckerInstrumentation {
