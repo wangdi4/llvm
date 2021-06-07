@@ -78,6 +78,10 @@ void VPlanPragmaOmpOrderedSimdExtract::getAnalysisUsage(
 }
 
 bool VPlanPragmaOmpOrderedSimdExtract::runOnModule(Module &M) {
+  // Don't run pass if module is skipped in opt-bisect mode.
+  if (skipModule(M))
+    return false;
+
   auto DT = [this](Function &F) -> DominatorTree * {
     return &this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
   };
