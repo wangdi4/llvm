@@ -74,10 +74,6 @@ static cl::opt<bool> SimulateGetNumThreadsInTarget(
     cl::desc("Simulate support for omp_get_num_threads in OpenMP target "
              "region. (This may have performance impact)."));
 
-static cl::opt<bool> EnableDeviceSimdCodeGen(
-    "vpo-paropt-enable-device-simd-codegen", cl::Hidden, cl::init(false),
-    cl::desc("Enable explicit SIMD code generation for OpenMP target region"));
-
 cl::opt<bool> llvm::vpo::UseMapperAPI(
     "vpo-paropt-use-mapper-api", cl::Hidden, cl::init(true),
     cl::desc("Emit calls to mapper specific functions in tgt RTL."));
@@ -378,7 +374,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
       SimdWidth = KernelSimdWidth;
   }
 #endif // INTEL_CUSTOMIZATION
-  if (EnableDeviceSimdCodeGen) {
+  if (VPOParoptUtils::enableDeviceSimdCodeGen()) {
     SimdWidth = 1;
     NFn->setMetadata("omp_simd_kernel", MDNode::get(NFn->getContext(), {}));
   }
@@ -390,7 +386,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
                      MDNode::get(NFn->getContext(), AttrMDArgs));
   }
 
-  if (EnableDeviceSimdCodeGen &&
+  if (VPOParoptUtils::enableDeviceSimdCodeGen() &&
       WRegionUtils::containsWRNsWith(
           W, [](WRegionNode *W) { return isa<WRNVecLoopNode>(W); }))
     // When W contains a SIMD directive (and SIMD device codegen is enabled),
@@ -659,7 +655,8 @@ void VPOParoptTransform::guardSideEffectStatements(
       // Distinguish between entry and other directives, since
       // we want to delete the entry directives after their
       // exit companions.
-      if (!EnableDeviceSimdCodeGen || !isSimdDirective(&*I)) {
+      if (!VPOParoptUtils::enableDeviceSimdCodeGen() ||
+          !isSimdDirective(&*I)) {
         if (VPOAnalysisUtils::isBeginDirective(&*I))
           EntryDirectivesToDelete.push_back(&*I);
         else
@@ -778,7 +775,7 @@ void VPOParoptTransform::guardSideEffectStatements(
     Value *LocalId = nullptr;
 
     for (unsigned Dim = 0; Dim < 3; ++Dim) {
-      if (EnableDeviceSimdCodeGen)
+      if (VPOParoptUtils::enableDeviceSimdCodeGen())
         LocalId = VPOParoptUtils::genSPIRVLocalIdCall(Dim, KernelEntryDir);
       else {
         auto *Arg = ConstantInt::get(Builder.getInt32Ty(), Dim);
@@ -978,7 +975,7 @@ void VPOParoptTransform::guardSideEffectStatements(
   KernelEntryDir->eraseFromParent();
   W->setEntryDirective(NewEntryDir);
 
-  if (EnableDeviceSimdCodeGen)
+  if (VPOParoptUtils::enableDeviceSimdCodeGen())
     VPOUtils::stripDirectives(*KernelExitDir->getParent());
 }
 

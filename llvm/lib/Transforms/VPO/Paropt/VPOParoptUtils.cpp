@@ -106,6 +106,11 @@ static cl::opt<bool> PushCodeLocation(
     "vpo-paropt-enable-push-code-location", cl::Hidden, cl::init(true),
     cl::desc("Emit calls to __tgt_push_code_location()"));
 
+// Enables explicit SIMD codegen for GPUs.
+static cl::opt<bool> EnableDeviceSimdCodeGen(
+    "vpo-paropt-enable-device-simd-codegen", cl::Hidden, cl::init(false),
+    cl::desc("Enable explicit SIMD code generation for OpenMP target region"));
+
 // If module M has a StructType of name Name, and element types ElementTypes,
 // return it.
 StructType *VPOParoptUtils::getStructTypeWithNameAndElementsFromModule(
@@ -4412,7 +4417,8 @@ bool VPOParoptUtils::genCriticalLoopForSPIR(WRegionNode *W,
   if (EndCriticalBB == W->getExitBBlock())
     W->setExitBBlock(NewExitBB);
 
-  if (SPIRVTargetHasEUFusion) {
+
+  if (SPIRVTargetHasEUFusion && !VPOParoptUtils::enableDeviceSimdCodeGen()) {
     BasicBlock *CondBB = BeginCritical->getParent();
     BasicBlock *BeginCriticalBB = SplitBlock(CondBB, BeginCritical, DT, LI);
 
@@ -4444,8 +4450,8 @@ bool VPOParoptUtils::genCriticalLoopForSPIR(WRegionNode *W,
     Instruction *BeginInst = CurBeginCritical->getNextNonDebugInstruction();
     assert(BeginInst && "No instructions after __kmpc_critical.");
     Instruction *EndInst = Regions[I].second;
-
-    VPOParoptUtils::genCriticalLoopForSPIRHelper(BeginInst, EndInst, DT, LI);
+    if (!VPOParoptUtils::enableDeviceSimdCodeGen())
+      VPOParoptUtils::genCriticalLoopForSPIRHelper(BeginInst, EndInst, DT, LI);
   }
 
 #ifndef NDEBUG
@@ -5792,6 +5798,11 @@ bool VPOParoptUtils::useSPMDMode(WRegionNode *W) {
 
 spirv::ExecutionSchemeTy VPOParoptUtils::getSPIRExecutionScheme() {
   return SPIRExecutionScheme;
+}
+
+
+bool VPOParoptUtils::enableDeviceSimdCodeGen() {
+  return EnableDeviceSimdCodeGen;
 }
 
 bool VPOParoptUtils::getSPIRImplicitMultipleTeams() {
