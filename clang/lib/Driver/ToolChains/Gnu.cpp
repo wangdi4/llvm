@@ -317,7 +317,7 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
   case llvm::Triple::csa:
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-    if (T.getEnvironment() == llvm::Triple::GNUX32)
+    if (T.isX32())
       return "elf32_x86_64";
     return "elf_x86_64";
   case llvm::Triple::ve:
@@ -1201,7 +1201,7 @@ void tools::gnutools::Assembler::ConstructJob(Compilation &C,
     CmdArgs.push_back("--32");
     break;
   case llvm::Triple::x86_64:
-    if (getToolChain().getTriple().getEnvironment() == llvm::Triple::GNUX32)
+    if (getToolChain().getTriple().isX32())
       CmdArgs.push_back("--x32");
     else
       CmdArgs.push_back("--64");
@@ -2209,7 +2209,7 @@ static bool findBiarchMultilibs(const Driver &D,
   // Determine default multilib from: 32, 64, x32
   // Also handle cases such as 64 on 32, 32 on 64, etc.
   enum { UNKNOWN, WANT32, WANT64, WANTX32 } Want = UNKNOWN;
-  const bool IsX32 = TargetTriple.getEnvironment() == llvm::Triple::GNUX32;
+  const bool IsX32 = TargetTriple.isX32();
   if (TargetTriple.isArch32Bit() && !NonExistent(Alt32))
     Want = WANT64;
   else if (TargetTriple.isArch64Bit() && IsX32 && !NonExistent(Altx32))
@@ -2846,7 +2846,7 @@ void Generic_GCC::GCCInstallationDetector::AddDefaultGCCPrefixes(
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
   case llvm::Triple::x86_64:
-    if (TargetTriple.getEnvironment() == llvm::Triple::GNUX32) {
+    if (TargetTriple.isX32()) {
       LibDirs.append(begin(X32LibDirs), end(X32LibDirs));
       TripleAliases.append(begin(X32Triples), end(X32Triples));
       BiarchLibDirs.append(begin(X86_64LibDirs), end(X86_64LibDirs));
