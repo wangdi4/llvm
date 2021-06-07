@@ -40,6 +40,20 @@
 //RUN:  -verify -Wsource-uses-openmp -o - %s \
 //RUN:  | FileCheck %s
 
+//RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
+//RUN:  -emit-llvm-bc -disable-llvm-passes -DSPLIT3 \
+//RUN:  -fopenmp -fopenmp-targets=spir64 \
+//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -Werror -Wsource-uses-openmp -o %t_host_split2.bc %s
+
+//RUN: %clang_cc1 -triple spir64 \
+//RUN:  -emit-llvm -disable-llvm-passes -DSPLIT3 \
+//RUN:  -fopenmp -fopenmp-targets=spir64 \
+//RUN:  -fopenmp-late-outline -fintel-compatibility \
+//RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t_host_split2.bc \
+//RUN:  -verify -Wsource-uses-openmp -o - %s \
+//RUN:  | FileCheck %s
+
 //expected-no-diagnostics
 
 void bar(int,int,...);
@@ -92,12 +106,20 @@ void foo2() {
 #elif defined(SPLIT2)
   #pragma omp target teams
   #pragma omp distribute parallel for
+#elif defined(SPLIT3)
+  #pragma omp target
+  {
+  #pragma omp teams distribute parallel for
 #else
   #pragma omp target teams distribute parallel for
 #endif
   for(i=0;i<16;++i) {
     bar(42,i,j);
   }
+#ifdef SPLIT3
+  }
+#endif // SPLIT3
+
   // CHECK: region.exit(token [[T2]]) [ "DIR.OMP.END.DISTRIBUTE.PARLOOP"
   // CHECK: region.exit(token [[T1]]) [ "DIR.OMP.END.TEAMS"
   // CHECK: region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"

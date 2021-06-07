@@ -357,6 +357,7 @@ void foo3() {
     for(i=0;i<16;++i) {
       bar(42,i,j);
     }
+    int q = 1;
   }
   // ALL: directive.region.exit(token [[T1]]) [ "DIR.OMP.END.PARALLEL.LOOP"
   // ALL: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.TARGET"
