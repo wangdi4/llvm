@@ -160,13 +160,12 @@ CPUCompileService::CheckProgramBinary(const void *pBinary,
         return CL_DEV_INVALID_BINARY;
     }
 
-    // Check does cached binary have up-to-date version. If not - return CL_INVALID_BINARY
-    // So there's no backward compatibility between cached binaries with
-    // different versions.
-    if (*((const unsigned int *)binaryVersion) !=
-        (unsigned int)OCL_CACHED_BINARY_VERSION) {
+    // Check if cached binary is build using gold release compiler or higher.
+    // If not - return CL_INVALID_BINARY
+    if (*((const unsigned int *)binaryVersion) < 10 ||
+        *((const unsigned int *)binaryVersion) >
+            (unsigned int)OCL_CACHED_BINARY_VERSION)
       return CL_DEV_INVALID_BINARY;
-    }
 
     // check maximum supported instruction
     // get maximum supported instruction from ELF header

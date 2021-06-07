@@ -114,6 +114,12 @@ void CPUDetect::GetDisabledCPUFeatures(
       forcedFeatures.push_back("-" + F.first().str());
 }
 
+CPUId CPUDetect::GetCPUIdForKernelPropertiesSerialize() const {
+  bool hasAVX1 = IsFeatureSupported(CFS_AVX10);
+  bool hasAVX2 = IsFeatureSupported(CFS_AVX20);
+  return CPUId(m_cpuArch, hasAVX1, hasAVX2, m_is64BitOS);
+}
+
 CPUDetect::CPUDetect(ECPU cpuId,
                      const llvm::SmallVectorImpl<std::string> &forcedFeatures,
                      bool is64BitOS)
