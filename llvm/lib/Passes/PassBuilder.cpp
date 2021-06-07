@@ -1869,11 +1869,6 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
   FPM.addPass(VPORestoreOperandsPass());
   FPM.addPass(VPOCFGRestructuringPass());
 #if INTEL_CUSTOMIZATION
-  FPM.addPass(VPOParoptOptimizeDataSharingPass());
-  // No need to rerun VPO CFG restructuring, since
-  // VPOParoptOptimizeDataSharing does not modify CFG,
-  // and keeps the basic blocks with directive calls
-  // consistent.
   if (OptLevel > 2 && EnableVPOParoptSharedPrivatization) {
     // Shared privatization pass should be combined with the argument
     // promotion pass (to do a cleanup) which currently runs only at O3,
@@ -1881,7 +1876,11 @@ void PassBuilder::addVPOPasses(ModulePassManager &MPM, OptimizationLevel Level,
     unsigned Mode = RunVPOParopt & vpo::OmpOffload;
     FPM.addPass(VPOParoptSharedPrivatizationPass(Mode));
   }
-
+  FPM.addPass(VPOParoptOptimizeDataSharingPass());
+  // No need to rerun VPO CFG restructuring, since
+  // VPOParoptOptimizeDataSharing does not modify CFG,
+  // and keeps the basic blocks with directive calls
+  // consistent.
 #endif // INTEL_CUSTOMIZATION
   FPM.addPass(LoopSimplifyUnskippablePass());
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
