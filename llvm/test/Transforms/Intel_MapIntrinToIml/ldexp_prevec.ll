@@ -43,7 +43,7 @@ define void @vector_foo(float* nocapture %varray, float* nocapture readonly %exp
 ; CHECK-NEXT:    [[TMP10:%.*]] = getelementptr inbounds float, float* [[TMP9]], i32 0
 ; CHECK-NEXT:    [[TMP11:%.*]] = bitcast float* [[TMP10]] to <4 x float>*
 ; CHECK-NEXT:    store <4 x float> [[TMP8]], <4 x float>* [[TMP11]], align 4, !alias.scope !3, !noalias !0
-; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 4
+; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 4
 ; CHECK-NEXT:    [[VEC_IND_NEXT]] = add <4 x i64> [[VEC_IND]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[VEC_IND_NEXT7]] = add <4 x i32> [[VEC_IND6]], <i32 4, i32 4, i32 4, i32 4>
 ; CHECK-NEXT:    [[TMP12:%.*]] = icmp eq i64 [[INDEX_NEXT]], 1000
