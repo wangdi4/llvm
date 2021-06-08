@@ -48,6 +48,14 @@ template <unsigned int N> constexpr unsigned int getNextPowerOf2() {
 
 template <> constexpr unsigned int getNextPowerOf2<0>() { return 0; }
 
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ESIMD_EMBARGO */
+constexpr unsigned int roundUpNextMultiple(unsigned int N, unsigned int M) {
+  return ((N + M - 1) / M) * M;
+}
+/* end INTEL_FEATURE_ESIMD_EMBARGO */
+/* end INTEL_CUSTOMIZATION */
+
 /// Compute binary logarithm of a constexpr with guaranteed compile-time
 /// evaluation.
 template <unsigned int N, bool N_gt_1> struct Log2;
