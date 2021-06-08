@@ -14757,4 +14757,25 @@ defm VCVTNE2PS2PH : avx512_ne_convert_3op<0x67, "vcvtne2ps2ph",
                                     avx512vl_f32_info, avx512vl_f16_info,
                                     X86vcvtne2ps2ph>, T8PD;
 #endif // INTEL_FEATURE_ISA_AVX512_NE_CONVERT
+
+#if INTEL_FEATURE_ISA_SM4
+multiclass avx512_sm4_base<string OpStr> {
+  // SM4_Base is in X86InstrSSE.td.
+  let Predicates = [HasSM4, HasVLX] in {
+    defm Z128 : SM4_Base<OpStr, avx512vl_i32_info.info128.RC,
+                "128", avx512vl_i32_info.info128.LdFrag,
+                avx512vl_i32_info.info128.MemOp>, EVEX_V128;
+    defm Z256 : SM4_Base<OpStr, avx512vl_i32_info.info256.RC,
+                "256", avx512vl_i32_info.info256.LdFrag,
+                avx512vl_i32_info.info256.MemOp>, EVEX_V256;
+  }
+  let Predicates = [HasSM4, HasAVX512] in
+    defm Z : SM4_Base<OpStr, avx512vl_i32_info.info512.RC,
+              "512", avx512vl_i32_info.info512.LdFrag,
+              avx512vl_i32_info.info512.MemOp>, EVEX_V512;
+}
+
+defm VSM4KEY4 : avx512_sm4_base<"vsm4key4">, T8XS, EVEX_4V;
+defm VSM4RNDS4 : avx512_sm4_base<"vsm4rnds4">, T8XD, EVEX_4V;
+#endif // INTEL_FEATURE_ISA_SM4
 #endif // INTEL_CUSTOMIZATION
