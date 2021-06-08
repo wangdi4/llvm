@@ -1560,7 +1560,7 @@ TEST_F(ValueTrackingTest, computePtrAlignment) {
                 "}");
   AssumptionCache AC(*F);
   DominatorTree DT(*F);
-  DataLayout DL = M->getDataLayout();
+  const DataLayout &DL = M->getDataLayout();
   EXPECT_EQ(getKnownAlignment(A, DL, CxtI, &AC, &DT), Align(1));
   EXPECT_EQ(getKnownAlignment(A, DL, CxtI2, &AC, &DT), Align(1));
   EXPECT_EQ(getKnownAlignment(A, DL, CxtI3, &AC, &DT), Align(16));
@@ -1610,7 +1610,7 @@ TEST_F(ValueTrackingTest, isNonZeroRecurrence) {
       ret i1 %CxtI
     }
   )");
-  DataLayout DL = M->getDataLayout();
+  const DataLayout &DL = M->getDataLayout();
   AssumptionCache AC(*F);
   EXPECT_TRUE(isKnownNonZero(A, DL, 0, &AC, CxtI));
 }
@@ -1634,7 +1634,7 @@ TEST_F(ValueTrackingTest, KnownNonZeroFromDomCond) {
   )");
   AssumptionCache AC(*F);
   DominatorTree DT(*F);
-  DataLayout DL = M->getDataLayout();
+  const DataLayout &DL = M->getDataLayout();
   EXPECT_EQ(isKnownNonZero(A, DL, 0, &AC, CxtI, &DT), true);
   EXPECT_EQ(isKnownNonZero(A, DL, 0, &AC, CxtI2, &DT), false);
 }
@@ -1658,7 +1658,7 @@ TEST_F(ValueTrackingTest, KnownNonZeroFromDomCond2) {
   )");
   AssumptionCache AC(*F);
   DominatorTree DT(*F);
-  DataLayout DL = M->getDataLayout();
+  const DataLayout &DL = M->getDataLayout();
   EXPECT_EQ(isKnownNonZero(A, DL, 0, &AC, CxtI, &DT), true);
   EXPECT_EQ(isKnownNonZero(A, DL, 0, &AC, CxtI2, &DT), false);
 }
@@ -1676,7 +1676,7 @@ TEST_F(ValueTrackingTest, IsImpliedConditionAnd) {
       ret void
     }
   )");
-  DataLayout DL = M->getDataLayout();
+  const DataLayout &DL = M->getDataLayout();
   EXPECT_EQ(isImpliedCondition(A, A2, DL), true);
   EXPECT_EQ(isImpliedCondition(A, A3, DL), false);
   EXPECT_EQ(isImpliedCondition(A, A4, DL), None);
@@ -1695,7 +1695,7 @@ TEST_F(ValueTrackingTest, IsImpliedConditionAnd2) {
       ret void
     }
   )");
-  DataLayout DL = M->getDataLayout();
+  const DataLayout &DL = M->getDataLayout();
   EXPECT_EQ(isImpliedCondition(A, A2, DL), true);
   EXPECT_EQ(isImpliedCondition(A, A3, DL), false);
   EXPECT_EQ(isImpliedCondition(A, A4, DL), None);
@@ -1714,7 +1714,7 @@ TEST_F(ValueTrackingTest, IsImpliedConditionOr) {
       ret void
     }
   )");
-  DataLayout DL = M->getDataLayout();
+  const DataLayout &DL = M->getDataLayout();
   EXPECT_EQ(isImpliedCondition(A, A2, DL, false), false);
   EXPECT_EQ(isImpliedCondition(A, A3, DL, false), true);
   EXPECT_EQ(isImpliedCondition(A, A4, DL, false), None);
@@ -1733,7 +1733,7 @@ TEST_F(ValueTrackingTest, IsImpliedConditionOr2) {
       ret void
     }
   )");
-  DataLayout DL = M->getDataLayout();
+  const DataLayout &DL = M->getDataLayout();
   EXPECT_EQ(isImpliedCondition(A, A2, DL, false), false);
   EXPECT_EQ(isImpliedCondition(A, A3, DL, false), true);
   EXPECT_EQ(isImpliedCondition(A, A4, DL, false), None);
