@@ -1282,10 +1282,16 @@ struct DSEState {
     // would also be valid but we currently disable that to limit compile time).
     if (Current->getParent() == KillingDef->getParent())
       return true;
+#if INTEL_CUSTOMIZATION
+      // This code doesn't look safe when KillingDef does not execute on every
+      // iteration. See CMPLRLLVM-28983.
+#if 0
     const Loop *CurrentLI = LI.getLoopFor(Current->getParent());
     if (!ContainsIrreducibleLoops && CurrentLI &&
         CurrentLI == LI.getLoopFor(KillingDef->getParent()))
       return true;
+#endif // 0
+#endif // INTEL_CUSTOMIZATION
 
     // Otherwise check the memory location is invariant to any loops.
     auto IsGuaranteedLoopInvariantBase = [this](const Value *Ptr) {
