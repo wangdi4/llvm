@@ -62,6 +62,15 @@ if (LLVM_TREE_AVAILABLE)
     ${LLVM_RUNTIME_OUTPUT_INTDIR}/clang${_host_executable_suffix})
   set(COMPILER_RT_TEST_CXX_COMPILER
     ${LLVM_RUNTIME_OUTPUT_INTDIR}/clang++${_host_executable_suffix})
+# INTEL_CUSTOMIZATION
+  # We want clang to use the gcc toolchain on rdrive instead of the system
+  # default.
+  if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    get_filename_component(COMPILER_ROOT "gcc" PROGRAM)
+    string(REGEX REPLACE "/bin/[^/]*" "" COMPILER_ROOT "${COMPILER_ROOT}")
+    append("--gcc-toolchain=${COMPILER_ROOT}" COMPILER_RT_TEST_COMPILER_CFLAGS)
+  endif()
+# end INTEL_CUSTOMIZATION
 else()
     # Take output dir and install path from the user.
   set(COMPILER_RT_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR} CACHE PATH
