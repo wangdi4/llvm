@@ -1324,8 +1324,9 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-internal-isystem");
     CmdArgs.push_back(Args.MakeArgString(getToolChain().GetACTypesIncludePath(Args)));
   }
+  // Add Intel headers for OpenMP and SYCL offloading.
+  if (JA.isOffloading(Action::OFK_SYCL) || JA.isOffloading(Action::OFK_OpenMP))
 #endif // INTEL_CUSTOMIZATION
-  if (JA.isOffloading(Action::OFK_SYCL))
     toolchains::SYCLToolChain::AddSYCLIncludeArgs(D, Args, CmdArgs);
 
   // If we are offloading to a target via OpenMP we need to include the
@@ -7645,8 +7646,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(Args.MakeArgString(OpenMPDeviceInput->getFilename()));
     }
 #if INTEL_CUSTOMIZATION
-    // Add SYCL headers path to include search path
-    toolchains::SYCLToolChain::AddSYCLIncludeArgs(D, Args, CmdArgs);
     if (Args.hasArg(options::OPT_fsycl) && Triple.isSPIR()) {
       // OpenMP device compile must use the same language options as the
       // host compile. So if this is SYCL source pass SYCL options.
