@@ -82,6 +82,47 @@ ModulePass *llvm::createSYCLLowerESIMDPass() {
 }
 
 namespace {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+enum class lsc_subopcode : uint8_t {
+  load = 0x00,
+  load_strided = 0x01,
+  load_quad = 0x02,
+  load_block2d = 0x03,
+  store = 0x04,
+  store_strided = 0x05,
+  store_quad = 0x06,
+  store_block2d = 0x07,
+  //
+  atomic_iinc = 0x08,
+  atomic_idec = 0x09,
+  atomic_load = 0x0a,
+  atomic_store = 0x0b,
+  atomic_iadd = 0x0c,
+  atomic_isub = 0x0d,
+  atomic_smin = 0x0e,
+  atomic_smax = 0x0f,
+  atomic_umin = 0x10,
+  atomic_umax = 0x11,
+  atomic_icas = 0x12,
+  atomic_fadd = 0x13,
+  atomic_fsub = 0x14,
+  atomic_fmin = 0x15,
+  atomic_fmax = 0x16,
+  atomic_fcas = 0x17,
+  atomic_and = 0x18,
+  atomic_or = 0x19,
+  atomic_xor = 0x1a,
+  //
+  load_status = 0x1b,
+  store_uncompressed = 0x1c,
+  ccs_update = 0x1d,
+  read_state_info = 0x1e,
+  fence = 0x1f,
+};
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
+
 // The regexp for ESIMD intrinsics:
 // /^_Z(\d+)__esimd_\w+/
 static constexpr char ESIMD_INTRIN_PREF0[] = "_Z";
@@ -98,6 +139,12 @@ struct ESIMDIntrinDesc {
     SRC_TMPL_ARG, // is an integer template argument
     NUM_BYTES,    // is a number of bytes (gather.scaled and scatter.scaled)
     UNDEF,        // is an undef value
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+    // This is used for PVC LSC emabrgo intrinsics
+    CONST_INT8,  // is an i8 constant
+#endif           // INTEL_FEATURE_ESIMD_EMBARGO
+#endif           // INTEL_CUSTOMIZATION
     CONST_INT16,  // is an i16 constant
     CONST_INT32,  // is an i32 constant
     CONST_INT64,  // is an i64 constant
@@ -106,6 +153,14 @@ struct ESIMDIntrinDesc {
   enum GenXArgConversion {
     NONE,  // no conversion
     TO_I1, // convert vector of N-bit integer to 1-bit
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+    // This is used for PVC LSC emabrgo intrinsics
+    TO_I8,  // convert vector of N-bit integer to 18-bit
+    TO_I16, // convert vector of N-bit integer to 16-bit
+    TO_I32, // convert vector of N-bit integer to 32-bit
+#endif      // INTEL_FEATURE_ESIMD_EMBARGO
+#endif      // INTEL_CUSTOMIZATION
     TO_SI  // convert to 32-bit integer surface index
   };
 
@@ -128,7 +183,12 @@ struct ESIMDIntrinDesc {
         int16_t Conv;      // GenXArgConversion
       } Arg;
       int NRemArgs;           // SRC_CALL_ALL: number of remaining args
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+#else                         // INTEL_FEATURE_ESIMD_EMBARGO
       unsigned int TmplArgNo; // SRC_TMPL_ARG: source template arg num
+#endif                        // INTEL_FEATURE_ESIMD_EMBARGO
+#endif                        // INTEL_CUSTOMIZATION
       unsigned int ArgConst;  // CONST_I16 OR CONST_I32: constant value
     } I;
   };
@@ -173,9 +233,49 @@ private:
     return ESIMDIntrinDesc::ArgRule{ESIMDIntrinDesc::Kind, {{N, {}}}};         \
   }
   DEF_ARG_RULE(l, SRC_CALL_ALL)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+#else  // INTEL_FEATURE_ESIMD_EMBARGO
   DEF_ARG_RULE(t, SRC_TMPL_ARG)
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
   DEF_ARG_RULE(u, UNDEF)
   DEF_ARG_RULE(nbs, NUM_BYTES)
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+  // This is used for PVC LSC emabrgo intrinsics
+  static constexpr ESIMDIntrinDesc::ArgRule t(int16_t N) {
+    return ESIMDIntrinDesc::ArgRule{
+        ESIMDIntrinDesc::SRC_TMPL_ARG,
+        {{N, ESIMDIntrinDesc::GenXArgConversion::NONE}}};
+  }
+
+  static constexpr ESIMDIntrinDesc::ArgRule t1(int16_t N) {
+    return ESIMDIntrinDesc::ArgRule{
+        ESIMDIntrinDesc::SRC_TMPL_ARG,
+        {{N, ESIMDIntrinDesc::GenXArgConversion::TO_I1}}};
+  }
+
+  static constexpr ESIMDIntrinDesc::ArgRule t8(int16_t N) {
+    return ESIMDIntrinDesc::ArgRule{
+        ESIMDIntrinDesc::SRC_TMPL_ARG,
+        {{N, ESIMDIntrinDesc::GenXArgConversion::TO_I8}}};
+  }
+
+  static constexpr ESIMDIntrinDesc::ArgRule t16(int16_t N) {
+    return ESIMDIntrinDesc::ArgRule{
+        ESIMDIntrinDesc::SRC_TMPL_ARG,
+        {{N, ESIMDIntrinDesc::GenXArgConversion::TO_I16}}};
+  }
+
+  static constexpr ESIMDIntrinDesc::ArgRule t32(int16_t N) {
+    return ESIMDIntrinDesc::ArgRule{
+        ESIMDIntrinDesc::SRC_TMPL_ARG,
+        {{N, ESIMDIntrinDesc::GenXArgConversion::TO_I32}}};
+  }
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
 
   static constexpr ESIMDIntrinDesc::ArgRule a(int16_t N) {
     return ESIMDIntrinDesc::ArgRule{
@@ -194,6 +294,18 @@ private:
         ESIMDIntrinDesc::SRC_CALL_ARG,
         {{N, ESIMDIntrinDesc::GenXArgConversion::TO_SI}}};
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+  // This is used for PVC LSC emabrgo intrinsics
+  static constexpr ESIMDIntrinDesc::ArgRule c8(int16_t N) {
+    return ESIMDIntrinDesc::ArgRule{ESIMDIntrinDesc::CONST_INT8, {{N, {}}}};
+  }
+
+  static constexpr ESIMDIntrinDesc::ArgRule c8(lsc_subopcode OpCode) {
+    return c8(static_cast<uint8_t>(OpCode));
+  }
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
 
   static constexpr ESIMDIntrinDesc::ArgRule c16(int16_t N) {
     return ESIMDIntrinDesc::ArgRule{ESIMDIntrinDesc::CONST_INT16, {{N, {}}}};
@@ -344,6 +456,86 @@ public:
         {"dpasw2", {"dpasw.nosrc0", {a(0), a(1), a(2)}}},
         {"nbarrier", {"nbarrier", {a(0), a(1), a(2)}}},
         {"raw_send_nbarrier_signal", {"raw.send.noresult", {a(0), ai1(4), a(1), a(2), a(3)}}},
+        {"lsc_load_slm",
+         {"lsc.load.slm",
+          {ai1(0), c8(lsc_subopcode::load), t8(1), t8(2), t16(3), t32(4), t8(5),
+           t8(6), t8(7), c8(0), a(1), c32(0)}}},
+        {"lsc_load_bti",
+         {"lsc.load.bti",
+          {ai1(0), c8(lsc_subopcode::load), t8(1), t8(2), t16(3), t32(4), t8(5),
+           t8(6), t8(7), c8(0), a(1), aSI(2)}}},
+        {"lsc_load_stateless",
+         {"lsc.load.stateless",
+          {ai1(0), c8(lsc_subopcode::load), t8(1), t8(2), t16(3), t32(4), t8(5),
+           t8(6), t8(7), c8(0), a(1), c32(0)}}},
+        {"lsc_prefetch_bti",
+         {"lsc.prefetch.bti",
+          {ai1(0), c8(lsc_subopcode::load), t8(1), t8(2), t16(3), t32(4), t8(5),
+           t8(6), t8(7), c8(0), a(1), aSI(2)}}},
+        {"lsc_prefetch_stateless",
+         {"lsc.prefetch.stateless",
+          {ai1(0), c8(lsc_subopcode::load), t8(1), t8(2), t16(3), t32(4), t8(5),
+           t8(6), t8(7), c8(0), a(1), c32(0)}}},
+        {"lsc_store_slm",
+         {"lsc.store.slm",
+          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4), t8(5),
+           t8(6), t8(7), c8(0), a(1), a(2), c32(0)}}},
+        {"lsc_store_bti",
+         {"lsc.store.bti",
+          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4), t8(5),
+           t8(6), t8(7), c8(0), a(1), a(2), aSI(3)}}},
+        {"lsc_store_stateless",
+         {"lsc.store.stateless",
+          {ai1(0), c8(lsc_subopcode::store), t8(1), t8(2), t16(3), t32(4), t8(5),
+           t8(6), t8(7), c8(0), a(1), a(2), c32(0)}}},
+        {"lsc_load2d_stateless",
+         {"lsc.load2d.stateless",
+          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8), a(1),
+           a(2), a(3), a(4), a(5), a(6)}}},
+        {"lsc_prefetch2d_stateless",
+         {"lsc.prefetch2d.stateless",
+          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8), a(1),
+           a(2), a(3), a(4), a(5), a(6)}}},
+        {"lsc_store2d_stateless",
+         {"lsc.store2d.stateless",
+          {ai1(0), t8(1), t8(2), t8(3), t8(4), t8(5), t16(6), t16(7), t8(8), a(1),
+           a(2), a(3), a(4), a(5), a(6), a(7)}}},
+        {"lsc_xatomic_slm_0",
+         {"lsc.xatomic.slm",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), u(-1), u(-1), c32(0), u(-1)}}},
+        {"lsc_xatomic_slm_1",
+         {"lsc.xatomic.slm",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), a(2), u(-1), c32(0), u(-1)}}},
+        {"lsc_xatomic_slm_2",
+         {"lsc.xatomic.slm",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), a(2), a(3), c32(0), u(-1)}}},
+        {"lsc_xatomic_bti_0",
+         {"lsc.xatomic.bti",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), u(-1), u(-1), aSI(2), u(-1)}}},
+        {"lsc_xatomic_bti_1",
+         {"lsc.xatomic.bti",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), a(2), u(-1), aSI(3), u(-1)}}},
+        {"lsc_xatomic_bti_2",
+         {"lsc.xatomic.bti",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), a(2), a(3), aSI(4), u(-1)}}},
+        {"lsc_xatomic_stateless_0",
+         {"lsc.xatomic.stateless",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), u(-1), u(-1), c32(0), u(-1)}}},
+        {"lsc_xatomic_stateless_1",
+         {"lsc.xatomic.stateless",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), a(2), u(-1), c32(0), u(-1)}}},
+        {"lsc_xatomic_stateless_2",
+         {"lsc.xatomic.stateless",
+          {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
+           c8(0), a(1), a(2), a(3), c32(0), u(-1)}}},
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
         {"satf", {"sat", {a(0)}}},
@@ -487,26 +679,95 @@ static const T *castNodeImpl(const id::Node *N, id::Node::Kind K) {
   castNodeImpl<id::NodeKind>(NodeObj, id::Node::K##NodeKind)
 
 static APInt parseTemplateArg(id::FunctionEncoding *FE, unsigned int N,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+                              // This is used for PVC LSC emabrgo intrinsics
+                              Type *&Ty, LLVMContext &Ctx,
+                              ESIMDIntrinDesc::GenXArgConversion Conv =
+                                  ESIMDIntrinDesc::GenXArgConversion::NONE) {
+#else  // INTEL_FEATURE_ESIMD_EMBARGO
                               Type *&Ty, LLVMContext &Ctx) {
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+  // parseTemplateArg returns APInt with a certain bitsize
+  // This bitsize (primitive size in bits) is deduced by the following rules:
+  // If Conv is not None, then bitsize is taken from Conv
+  // If Conv is None and Arg is IntegerLiteral, then bitsize is taken from
+  // Arg size
+  // If Conv is None and Arg is BoolExpr or Enum, the bitsize falls back to 32
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
+
   const auto *Nm = castNode(FE->getName(), NameWithTemplateArgs);
   const auto *ArgsN = castNode(Nm->TemplateArgs, TemplateArgs);
   id::NodeArray Args = ArgsN->getParams();
   assert(N < Args.size() && "too few template arguments");
   id::StringView Val;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+  // This is used for PVC LSC emabrgo intrinsics
+  switch (Conv) {
+  case ESIMDIntrinDesc::GenXArgConversion::NONE:
+    // Default fallback case, if we cannot deduce bitsize
+    Ty = IntegerType::getInt32Ty(Ctx);
+    break;
+  case ESIMDIntrinDesc::GenXArgConversion::TO_I1:
+    Ty = IntegerType::getInt1Ty(Ctx);
+    break;
+  case ESIMDIntrinDesc::GenXArgConversion::TO_I8:
+    Ty = IntegerType::getInt8Ty(Ctx);
+    break;
+  case ESIMDIntrinDesc::GenXArgConversion::TO_I16:
+    Ty = IntegerType::getInt16Ty(Ctx);
+    break;
+  case ESIMDIntrinDesc::GenXArgConversion::TO_I32:
+  case ESIMDIntrinDesc::GenXArgConversion::TO_SI:
+    Ty = IntegerType::getInt32Ty(Ctx);
+    break;
+  }
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
 
   switch (Args[N]->getKind()) {
   case id::Node::KIntegerLiteral: {
     auto *ValL = castNode(Args[N], IntegerLiteral);
     const id::StringView &TyStr = ValL->getType();
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+    // This is used for PVC LSC emabrgo intrinsics
+    if (Conv == ESIMDIntrinDesc::GenXArgConversion::NONE && TyStr.size() != 0)
+      // Overwrite Ty with IntegerLiteral's size
+      Ty =
+          parsePrimitiveTypeString(StringRef(TyStr.begin(), TyStr.size()), Ctx);
+#else  // INTEL_FEATURE_ESIMD_EMBARGO
     Ty = TyStr.size() == 0 ? IntegerType::getInt32Ty(Ctx)
                            : parsePrimitiveTypeString(
                                  StringRef(TyStr.begin(), TyStr.size()), Ctx);
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
     Val = ValL->getValue();
     break;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+  // This is used for PVC LSC emabrgo intrinsics
+  case id::Node::KBoolExpr: {
+    auto *ValL = castNode(Args[N], BoolExpr);
+    ValL->match([&Val](bool Value) { Value ? Val = "1" : Val = "0"; });
+    break;
+  }
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
   case id::Node::KEnumLiteral: {
     auto *CE = castNode(Args[N], EnumLiteral);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+#else  // INTEL_FEATURE_ESIMD_EMBARGO
     Ty = IntegerType::getInt32Ty(Ctx);
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
     Val = CE->getIntegerValue();
     break;
   }
@@ -1021,7 +1282,16 @@ static void createESIMDIntrinsicArgs(const ESIMDIntrinDesc &Desc,
       break;
     case ESIMDIntrinDesc::GenXArgRuleKind::SRC_TMPL_ARG: {
       Type *Ty = nullptr;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+      // This is used for PVC LSC emabrgo intrinsic
+      APInt Val = parseTemplateArg(
+          FE, Rule.I.Arg.CallArgNo, Ty, CI.getContext(),
+          static_cast<ESIMDIntrinDesc::GenXArgConversion>(Rule.I.Arg.Conv));
+#else  // INTEL_FEATURE_ESIMD_EMBARGO
       APInt Val = parseTemplateArg(FE, Rule.I.TmplArgNo, Ty, CI.getContext());
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
       Value *ArgVal = ConstantInt::get(
           Ty, static_cast<uint64_t>(Val.getSExtValue()), true /*signed*/);
       GenXArgs.push_back(ArgVal);
@@ -1047,6 +1317,16 @@ static void createESIMDIntrinsicArgs(const ESIMDIntrinDesc &Desc,
       GenXArgs.push_back(UndefValue::get(Ty));
       break;
     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ESIMD_EMBARGO
+    // This is used for PVC LSC emabrgo intrinsics
+    case ESIMDIntrinDesc::GenXArgRuleKind::CONST_INT8: {
+      auto Ty = IntegerType::getInt8Ty(CI.getContext());
+      GenXArgs.push_back(llvm::ConstantInt::get(Ty, Rule.I.ArgConst));
+      break;
+    }
+#endif // INTEL_FEATURE_ESIMD_EMBARGO
+#endif // INTEL_CUSTOMIZATION
     case ESIMDIntrinDesc::GenXArgRuleKind::CONST_INT16: {
       auto Ty = IntegerType::getInt16Ty(CI.getContext());
       GenXArgs.push_back(llvm::ConstantInt::get(Ty, Rule.I.ArgConst));
