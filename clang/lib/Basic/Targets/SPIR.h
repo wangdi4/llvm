@@ -133,7 +133,11 @@ public:
 
   Optional<unsigned>
   getDWARFAddressSpace(unsigned AddressSpace) const override {
+#if INTEL_CUSTOMIZATION
+    return None;
+#else
     return AddressSpace;
+#endif // INTEL_CUSTOMIZATION
   }
 
   CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
