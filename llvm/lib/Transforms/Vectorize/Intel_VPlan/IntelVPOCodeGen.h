@@ -697,7 +697,7 @@ private:
   void vectorizeInterleavedStore(VPInstruction *VPStore, OVLSGroup *Group);
 
   /// Create a mask to be used in @llvm.masked.[load|store] for the wide VLS
-  /// memory operation.
+  /// memory operation. Returns nullptr if operation is unmasked.
   Value *getVLSLoadStoreMask(VectorType *WidevalueType, int GroupSize);
 
   /// Return a guaranteed peeling variant. Null is returned if we are not sure
