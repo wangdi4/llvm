@@ -220,29 +220,16 @@ void LegalizerHelper::insertParts(Register DstReg,
     return;
   }
 
-  unsigned PartSize = PartTy.getSizeInBits();
-  unsigned LeftoverPartSize = LeftoverTy.getSizeInBits();
+  SmallVector<Register> GCDRegs;
+  LLT GCDTy;
+  for (Register PartReg : PartRegs)
+    GCDTy = extractGCDType(GCDRegs, ResultTy, LeftoverTy, PartReg);
 
-  Register CurResultReg = MRI.createGenericVirtualRegister(ResultTy);
-  MIRBuilder.buildUndef(CurResultReg);
+  for (Register PartReg : LeftoverRegs)
+    extractGCDType(GCDRegs, ResultTy, LeftoverTy, PartReg);
 
-  unsigned Offset = 0;
-  for (Register PartReg : PartRegs) {
-    Register NewResultReg = MRI.createGenericVirtualRegister(ResultTy);
-    MIRBuilder.buildInsert(NewResultReg, CurResultReg, PartReg, Offset);
-    CurResultReg = NewResultReg;
-    Offset += PartSize;
-  }
-
-  for (unsigned I = 0, E = LeftoverRegs.size(); I != E; ++I) {
-    // Use the original output register for the final insert to avoid a copy.
-    Register NewResultReg = (I + 1 == E) ?
-      DstReg : MRI.createGenericVirtualRegister(ResultTy);
-
-    MIRBuilder.buildInsert(NewResultReg, CurResultReg, LeftoverRegs[I], Offset);
-    CurResultReg = NewResultReg;
-    Offset += LeftoverPartSize;
-  }
+  LLT ResultLCMTy = buildLCMMergePieces(ResultTy, LeftoverTy, GCDTy, GCDRegs);
+  buildWidenedRemergeToDst(DstReg, ResultLCMTy, GCDRegs);
 }
 
 /// Append the result registers of G_UNMERGE_VALUES \p MI to \p Regs.
@@ -2791,17 +2778,15 @@ LegalizerHelper::lowerLoad(MachineInstr &MI) {
       LLT PtrTy = MRI.getType(PtrReg);
       unsigned AnyExtSize = NextPowerOf2(DstTy.getSizeInBits());
       LLT AnyExtTy = LLT::scalar(AnyExtSize);
-      Register LargeLdReg = MRI.createGenericVirtualRegister(AnyExtTy);
-      Register SmallLdReg = MRI.createGenericVirtualRegister(AnyExtTy);
       auto LargeLoad = MIRBuilder.buildLoadInstr(
-        TargetOpcode::G_ZEXTLOAD, LargeLdReg, PtrReg, *LargeMMO);
+        TargetOpcode::G_ZEXTLOAD, AnyExtTy, PtrReg, *LargeMMO);
 
       auto OffsetCst = MIRBuilder.buildConstant(
         LLT::scalar(PtrTy.getSizeInBits()), LargeSplitSize / 8);
       Register PtrAddReg = MRI.createGenericVirtualRegister(PtrTy);
       auto SmallPtr =
         MIRBuilder.buildPtrAdd(PtrAddReg, PtrReg, OffsetCst);
-      auto SmallLoad = MIRBuilder.buildLoad(SmallLdReg, SmallPtr,
+      auto SmallLoad = MIRBuilder.buildLoad(AnyExtTy, SmallPtr,
                                             *SmallMMO);
 
       auto ShiftAmt = MIRBuilder.buildConstant(AnyExtTy, LargeSplitSize);

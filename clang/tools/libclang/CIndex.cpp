@@ -6599,6 +6599,7 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   }
 
   case Decl::Using:
+  case Decl::UsingEnum:
     return MakeCursorOverloadedDeclRef(cast<BaseUsingDecl>(D), D->getLocation(),
                                        TU);
 

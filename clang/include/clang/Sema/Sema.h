@@ -6084,6 +6084,7 @@ public:
                                SourceLocation IdentLoc,
                                IdentifierInfo *Ident);
 
+  void FilterUsingLookup(Scope *S, LookupResult &lookup);
   void HideUsingShadowDecl(Scope *S, UsingShadowDecl *Shadow);
   bool CheckUsingShadowDecl(BaseUsingDecl *BUD, NamedDecl *Target,
                             const LookupResult &PreviousDecls,
@@ -6104,14 +6105,16 @@ public:
                                const LookupResult *R = nullptr,
                                const UsingDecl *UD = nullptr);
 
-  NamedDecl *BuildUsingDeclaration(Scope *S, AccessSpecifier AS,
-                                   SourceLocation UsingLoc,
-                                   bool HasTypenameKeyword,
-                                   SourceLocation TypenameLoc, CXXScopeSpec &SS,
-                                   DeclarationNameInfo NameInfo,
-                                   SourceLocation EllipsisLoc,
-                                   const ParsedAttributesView &AttrList,
-                                   bool IsInstantiation, bool IsUsingIfExists);
+  NamedDecl *BuildUsingDeclaration(
+      Scope *S, AccessSpecifier AS, SourceLocation UsingLoc,
+      bool HasTypenameKeyword, SourceLocation TypenameLoc, CXXScopeSpec &SS,
+      DeclarationNameInfo NameInfo, SourceLocation EllipsisLoc,
+      const ParsedAttributesView &AttrList, bool IsInstantiation,
+      bool IsUsingIfExists);
+  NamedDecl *BuildUsingEnumDeclaration(Scope *S, AccessSpecifier AS,
+                                       SourceLocation UsingLoc,
+                                       SourceLocation EnumLoc,
+                                       SourceLocation NameLoc, EnumDecl *ED);
   NamedDecl *BuildUsingPackDecl(NamedDecl *InstantiatedFrom,
                                 ArrayRef<NamedDecl *> Expansions);
 
@@ -6129,6 +6132,9 @@ public:
                               SourceLocation TypenameLoc, CXXScopeSpec &SS,
                               UnqualifiedId &Name, SourceLocation EllipsisLoc,
                               const ParsedAttributesView &AttrList);
+  Decl *ActOnUsingEnumDeclaration(Scope *CurScope, AccessSpecifier AS,
+                                  SourceLocation UsingLoc,
+                                  SourceLocation EnumLoc, const DeclSpec &);
   Decl *ActOnAliasDeclaration(Scope *CurScope, AccessSpecifier AS,
                               MultiTemplateParamsArg TemplateParams,
                               SourceLocation UsingLoc, UnqualifiedId &Name,
