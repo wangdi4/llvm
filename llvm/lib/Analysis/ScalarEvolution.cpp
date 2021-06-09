@@ -13081,9 +13081,9 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
 
   // INTEL - Use original SCEV to get precise wrap flags.
   auto OrigIV = cast<SCEVAddRecExpr>(getNonScopedSCEV(IV)); // INTEL
-  bool NoWrap = ControlsExit &&
-                OrigIV->getNoWrapFlags(                            // INTEL
-                        IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW); // INTEL
+  auto WrapType = IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW;
+  bool NoWrap = ControlsExit && OrigIV->getNoWrapFlags(WrapType); // INTEL
+  ICmpInst::Predicate Cond = IsSigned ? ICmpInst::ICMP_SLT : ICmpInst::ICMP_ULT;
 
   const SCEV *Stride = IV->getStepRecurrence(*this);
 
@@ -13179,8 +13179,6 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
       return getCouldNotCompute();
   }
 
-  ICmpInst::Predicate Cond = IsSigned ? ICmpInst::ICMP_SLT
-                                      : ICmpInst::ICMP_ULT;
   const SCEV *Start = IV->getStart();
   const SCEV *End = RHS;
   // When the RHS is not invariant, we do not know the end bound of the loop and
@@ -13277,9 +13275,9 @@ ScalarEvolution::howManyGreaterThans(const SCEV *LHS, const SCEV *RHS,
 
   // INTEL - Use original SCEV to get precise wrap flags.
   auto OrigIV = cast<SCEVAddRecExpr>(getNonScopedSCEV(IV)); // INTEL
-  bool NoWrap = ControlsExit &&
-                OrigIV->getNoWrapFlags(                            // INTEL
-                        IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW); // INTEL
+  auto WrapType = IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW;
+  bool NoWrap = ControlsExit && OrigIV->getNoWrapFlags(WrapType); // INTEL
+  ICmpInst::Predicate Cond = IsSigned ? ICmpInst::ICMP_SGT : ICmpInst::ICMP_UGT;
 
   const SCEV *Stride = getNegativeSCEV(IV->getStepRecurrence(*this));
 
@@ -13294,9 +13292,6 @@ ScalarEvolution::howManyGreaterThans(const SCEV *LHS, const SCEV *RHS,
   if (!Stride->isOne() && !NoWrap)
     if (canIVOverflowOnGT(RHS, Stride, IsSigned))
       return getCouldNotCompute();
-
-  ICmpInst::Predicate Cond = IsSigned ? ICmpInst::ICMP_SGT
-                                      : ICmpInst::ICMP_UGT;
 
   const SCEV *Start = IV->getStart();
   const SCEV *End = RHS;
