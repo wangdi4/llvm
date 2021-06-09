@@ -111,9 +111,6 @@ define void @test_loop(i32 %N, i32* noalias nocapture readonly %A, i32* noalias 
 ; CHECK:       for.body4.lr.ph:
 ; CHECK-NEXT:    [[I_028:%.*]] = phi i32 [ [[INC11:%.*]], [[FOR_COND_CLEANUP3:%.*]] ], [ 0, [[FOR_BODY4_LR_PH_PREHEADER]] ]
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[B:%.*]], i32 [[I_028]]
-; INTEL_CUSTOMIZATION
-; CMPLRLLVM-28983: This DSE improvement has been removed due a bug.
-; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    store i32 0, i32* [[ARRAYIDX]], align 4
 ; CHECK-NEXT:    [[MUL:%.*]] = mul nsw i32 [[I_028]], [[N]]
 ; CHECK-NEXT:    br label [[FOR_BODY4:%.*]]
