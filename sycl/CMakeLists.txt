@@ -261,6 +261,7 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      sycl
      pi_opencl
      pi_level_zero
+     pi_esimd_cpu
      libsycldevice
      ${XPTIFW_LIBS}
 # INTEL_CUSTOMIZATION
