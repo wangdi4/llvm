@@ -670,7 +670,7 @@ static void emitInitWithReductionInitializer(CodeGenFunction &CGF,
       return;
     }
     }
-    OpaqueValueExpr OVE(DRD->getLocation(), Ty, VK_RValue);
+    OpaqueValueExpr OVE(DRD->getLocation(), Ty, VK_PRValue);
     CodeGenFunction::OpaqueValueMapping OpaqueMap(CGF, &OVE, InitRVal);
     CGF.EmitAnyExprToMem(&OVE, Private, Ty.getQualifiers(),
                          /*IsInitializer=*/false);
@@ -4509,7 +4509,7 @@ CGOpenMPRuntime::emitTaskInit(CodeGenFunction &CGF, SourceLocation Loc,
       OpaqueValueExpr OVE(
           Loc,
           C.getIntTypeForBitwidth(C.getTypeSize(C.getSizeType()), /*Signed=*/0),
-          VK_RValue);
+          VK_PRValue);
       CodeGenFunction::OpaqueValueMapping OpaqueMap(CGF, &OVE,
                                                     RValue::get(NumOfElements));
       KmpTaskAffinityInfoArrayTy =
@@ -5003,7 +5003,7 @@ std::pair<llvm::Value *, Address> CGOpenMPRuntime::emitDependClause(
     }
     OpaqueValueExpr OVE(Loc,
                         C.getIntTypeForBitwidth(/*DestWidth=*/64, /*Signed=*/0),
-                        VK_RValue);
+                        VK_PRValue);
     CodeGenFunction::OpaqueValueMapping OpaqueMap(CGF, &OVE,
                                                   RValue::get(NumOfElements));
     KmpDependInfoArrayTy =
