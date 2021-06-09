@@ -100,7 +100,7 @@ class CPUId {
 public:
   CPUId() : m_CPU(CPU_UNKNOWN), m_CPUFeatures(0), m_is64BitOS(0) {}
   CPUId(ECPU CPU, bool hasAVX1, bool hasAVX2, bool is64BitOS)
-      : m_CPU(CPU), m_is64BitOS(is64BitOS ? 1 : 0) {
+      : m_CPU(CPU), m_CPUFeatures(0), m_is64BitOS(is64BitOS ? 1 : 0) {
     if (hasAVX1)
       m_CPUFeatures |= CFS_AVX10;
     if (hasAVX2)
