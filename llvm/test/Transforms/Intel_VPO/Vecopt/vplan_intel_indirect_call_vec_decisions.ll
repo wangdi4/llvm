@@ -40,7 +40,6 @@ define void @_ZGVbN4_direct() #1 {
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_INDVAR]] = add i32 [[VP_INDEX]] i32 [[VP_INDEX_IND_INIT_STEP]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP_VL_COND:%.*]] = icmp ult i32 [[VP_INDVAR]] i32 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 false, [[BB2]], [[BB4:BB[0-9]+]]
-; CHECK-NEXT:       Condition(external): i1 false
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]: # preds: [[BB3]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1

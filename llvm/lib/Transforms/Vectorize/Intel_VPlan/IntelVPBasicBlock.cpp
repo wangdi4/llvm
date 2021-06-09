@@ -659,27 +659,6 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
       OS << '\n';
     }
   }
-  const VPValue *CB = getCondBit();
-  if (CB) {
-    const VPInstruction *CBI = dyn_cast<VPInstruction>(CB);
-    if (CBI && CBI->getNumOperands()) {
-      if (CBI->getParent() != this) {
-        OS << StrIndent << " Condition(";
-        if (CBI->getParent()) {
-          OS << CBI->getParent()->getName();
-        }
-        OS << "): ";
-        CBI->print(OS);
-        OS << '\n';
-      }
-    } else {
-      // We fall here if VPInstruction has no operands or Value is
-      // constant - both match external defenition.
-      OS << StrIndent << " Condition(external): ";
-      CB->printAsOperand(OS);
-      OS << "\n";
-    }
-  }
   OS << "\n";
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

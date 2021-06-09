@@ -2,17 +2,43 @@
 ; Test to check that we make it obvious that vector loop backedge will never
 ; be taken when the scalar loop trip count is equal to VF.
 
-; RUN: opt -S -vplan-vec -vplan-force-vf=8 -vplan-print-after-single-trip-count-opt < %s | FileCheck %s
-; RUN: opt -S -passes="vplan-vec" -vplan-force-vf=8 -vplan-print-after-single-trip-count-opt < %s | FileCheck %s
+; RUN: opt -S -vplan-vec -vplan-force-vf=8 -vplan-print-after-single-trip-count-opt -disable-output < %s | FileCheck %s
+; RUN: opt -S -passes="vplan-vec" -vplan-force-vf=8 -vplan-print-after-single-trip-count-opt -disable-output < %s | FileCheck %s
 
-; CHECK:          Condition(external): i1 true
-
-; CHECK-LABEL: vector.body
-; CHECK: br i1 true, label {{.*}}, label %vector.body
 @arr = common dso_local local_unnamed_addr global i32* null, align 8
 
 ; Function Attrs: noinline norecurse nounwind uwtable
 define dso_local void @foo(i32* %ptr) local_unnamed_addr #0 {
+; CHECK-LABEL:  VPlan after single iteration optimization:
+; CHECK-NEXT:  VPlan IR for: foo:for.body
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB1:BB[0-9]+]] (SVAOpBits 0->F )
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 8, UF = 1 (SVAOpBits 0->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB2:BB[0-9]+]] (SVAOpBits 0->F )
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB2]]: # preds: [[BB1]], [[BB2]]
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Div, SVA: (F  )] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[PTR0:%.*]] i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 [[VP_TRUNC:%.*]] = trunc i64 [[VP_INDVARS_IV]] to i32 (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 [[VP_TRUNC]] i32* [[VP_ARRAYIDX]] (SVAOpBits 0->V 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br i1 true, [[BB3:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1 (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br [[BB4:BB[0-9]+]] (SVAOpBits 0->F )
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
+; CHECK-NEXT:     [DA: Uni, SVA: (F  )] br <External Block> (SVAOpBits )
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
+;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %for.body
