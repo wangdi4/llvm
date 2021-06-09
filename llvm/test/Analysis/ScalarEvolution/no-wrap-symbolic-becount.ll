@@ -103,7 +103,7 @@ define void @pointer_iv_nowrap(i8* %startptr, i8* %endptr) local_unnamed_addr {
 
 ; CHECK-NEXT:Determining loop execution counts for: @pointer_iv_nowrap
 ; CHECK-NEXT:Loop %loop: backedge-taken count is (-2000 + (-1 * %startptr) + ((2000 + %startptr)<nuw> umax %endptr))
-; CHECK-NEXT:Loop %loop: max backedge-taken count is -2001
+; CHECK-NEXT:Loop %loop: max backedge-taken count is -2002 ;INTEL
 ; CHECK-NEXT:Loop %loop: Predicated backedge-taken count is (-2000 + (-1 * %startptr) + ((2000 + %startptr)<nuw> umax %endptr))
 ;
 entry:
