@@ -6242,6 +6242,15 @@ static void handleSYCLUnmaskedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+static void handleSYCLGlobalVarAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  if (!S.Context.getSourceManager().isInSystemHeader(D->getLocation())) {
+    S.Diag(AL.getLoc(), diag::err_attribute_only_system_header) << AL;
+    return;
+  }
+
+  handleSimpleAttribute<SYCLGlobalVarAttr>(S, D, AL);
+}
+
 static void handleSYCLRegisterNumAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (!AL.checkExactlyNumArgs(S, 1))
     return;
@@ -10470,6 +10479,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleSYCLUnmaskedAttr(S, D, AL);
     break;
 #endif // INTEL_CUSTOMIZATION
+  case ParsedAttr::AT_SYCLGlobalVar:
+    handleSYCLGlobalVarAttr(S, D, AL);
+    break;
   case ParsedAttr::AT_SYCLRegisterNum:
     handleSYCLRegisterNumAttr(S, D, AL);
     break;
