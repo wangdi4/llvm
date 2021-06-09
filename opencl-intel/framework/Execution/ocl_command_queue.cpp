@@ -83,48 +83,44 @@ size_t OclCommandQueue::GetInfoInternal(cl_int iParamName, void* pBuf, size_t sz
     switch (iParamName)
     {
         case CL_QUEUE_CONTEXT:
-            assert(szBuf >= sizeof(cl_context));
             if (szBuf < sizeof(cl_context))
-            {
                 return 0;
-            }
             *(cl_context*)pBuf = (cl_context)GetParentHandle();
             return sizeof(cl_context);
         case CL_QUEUE_DEVICE:
-            assert(szBuf >= sizeof(cl_device_id));
             if (szBuf < sizeof(cl_device_id))
-            {
                 return 0;
-            }
             *(cl_device_id*)pBuf = m_clDefaultDeviceHandle;
             return sizeof(cl_device_id);
         case CL_QUEUE_REFERENCE_COUNT:
-            assert(szBuf >= sizeof(cl_uint));
             if (szBuf < sizeof(cl_uint))
-            {
                 return 0;
-            }
             *(cl_uint*)pBuf = m_uiRefCount;
             return sizeof(cl_uint);
         case CL_QUEUE_PROPERTIES:
             {
-                assert(szBuf >= sizeof(cl_command_queue_properties));
                 if (szBuf < sizeof(cl_command_queue_properties))
-                {
                     return 0;
-                }
                 int iOutOfOrder  = (m_bOutOfOrderEnabled) ? 1 : 0;
                 int iProfilingEn = (m_bProfilingEnabled)  ? 1 : 0;
                 *(cl_command_queue_properties*)pBuf = ((iOutOfOrder) | ( iProfilingEn<<1 ));
                 return sizeof(cl_command_queue_properties); 
             }
+        case CL_QUEUE_PROPERTIES_ARRAY:
+            {
+                size_t propsArraySize =
+                    sizeof(cl_command_queue_properties)
+                    * m_clQueuePropsArray.size();
+                if (szBuf < propsArraySize)
+                    return 0;
+                MEMCPY_S(pBuf, szBuf, m_clQueuePropsArray.data(),
+                         propsArraySize);
+                return propsArraySize;
+            }
         case CL_QUEUE_DEVICE_DEFAULT:
             {
-                assert(szBuf >= sizeof(cl_command_queue));
                 if (szBuf < sizeof(cl_command_queue))
-                {
                     return 0;
-                }
                 OclCommandQueue* device_queue = m_pDefaultDevice->GetDefaultDeviceQueue();
                 if(NULL != device_queue)
                     *(cl_command_queue*)pBuf = device_queue->GetHandle();
@@ -138,31 +134,34 @@ size_t OclCommandQueue::GetInfoInternal(cl_int iParamName, void* pBuf, size_t sz
     }
 }
 
+void OclCommandQueue::SetProperties(
+    std::vector<cl_command_queue_properties>& clQueuePropsArray) {
+    if (clQueuePropsArray.empty())
+        return;
+    m_clQueuePropsArray.swap(clQueuePropsArray);
+    // Add a terminator
+    m_clQueuePropsArray.push_back(0);
+}
+
 /******************************************************************
  *
  ******************************************************************/
 cl_err_code OclCommandQueue::GetInfo( cl_int iParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet ) const
 {
-    char localParamValue[sizeof(cl_ulong)];    // cl_ulong is the biggest information there is
-    const size_t szOutputValueSize = GetInfoInternal(iParamName, localParamValue, sizeof(localParamValue));
-    
+    // MAX_CMD_QUEUE_PROPS_ARRAY_SIZE is the biggest information there is
+    char localParamValue[MAX_CMD_QUEUE_PROPS_ARRAY_SIZE];
+    const size_t szOutputValueSize =
+        GetInfoInternal(iParamName, localParamValue, sizeof(localParamValue));
 
     if ( NULL != pszParamValueSizeRet )
-    {
         *pszParamValueSizeRet = szOutputValueSize;
-    }
+
     // check param_value_size
     if (((NULL != pParamValue) && (szParamValueSize < szOutputValueSize)) || 0 == szOutputValueSize)
-    {
         return CL_INVALID_VALUE;
-    }
-    else
-    {
-        if ( NULL != pParamValue )
-        {
-            MEMCPY_S(pParamValue, szParamValueSize, localParamValue, szOutputValueSize);
-        }
-    }
+    else if ( NULL != pParamValue )
+        MEMCPY_S(pParamValue, szParamValueSize, localParamValue, szOutputValueSize);
+
     return CL_SUCCESS;
 }
 
