@@ -14,3 +14,7 @@ if (CMAKE_SYCL_USE_LEVEL0)
   add_subdirectory(level_zero)
 endif()
 # end INTEL_CUSTOMIZATION
+
+if (SYCL_BUILD_PI_ESIMD_CPU)
+  add_subdirectory(esimd_cpu)
+endif()
