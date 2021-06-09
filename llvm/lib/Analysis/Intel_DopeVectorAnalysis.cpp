@@ -2171,7 +2171,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
       return nullptr;
     // Is this a GEPOPerator indexing the stride of a global dope vector?
     auto GEPO = dyn_cast<GEPOperator>(SIS->getPointerOperand());
-    if (GEPO->getPointerOperand() != Glob)
+    if (!GEPO || GEPO->getPointerOperand() != Glob)
       return nullptr;
     if (DopeVectorAnalyzer::identifyDopeVectorField(*GEPO) != DV_StrideBase)
       return nullptr;

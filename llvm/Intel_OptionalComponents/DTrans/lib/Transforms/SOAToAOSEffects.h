@@ -964,8 +964,7 @@ class DepMap : DepManager {
 public:
   const Dep *getApproximation(const Value *V) const {
     auto It = ValDependencies.find(V);
-    if (It == ValDependencies.end())
-      return nullptr;
+    assert(It != ValDependencies.end() && "Dependency should be found");
     return It->second;
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
