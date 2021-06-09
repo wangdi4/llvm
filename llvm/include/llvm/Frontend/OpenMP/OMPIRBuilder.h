@@ -753,6 +753,21 @@ public:
   CallInst *createOMPAlloc(const LocationDescription &Loc, Value *Size,
                            Value *Allocator, std::string Name = "");
 
+#if INTEL_COLLAB
+  /// Create a runtime call for kmpc_aligned_alloc
+  ///
+  /// \param Loc The insert and source location description.
+  /// \param Alignment Desired alignment of allocated memory space
+  /// \param Size Size of allocated memory space
+  /// \param Allocator Allocator information instruction
+  /// \param Name Name of call Instruction for OMP_aligned_alloc
+  ///
+  /// \returns CallInst to the OMP_aligned_alloc call
+  CallInst *createOMPAlignedAlloc(
+      const LocationDescription &Loc, Value *Align, Value *Size,
+      Value *Allocator, std::string Name);
+#endif // INTEL_COLLAB
+
   /// Create a runtime call for kmpc_free
   ///
   /// \param Loc The insert and source location description.
