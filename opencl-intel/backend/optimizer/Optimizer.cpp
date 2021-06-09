@@ -144,8 +144,6 @@ llvm::ModulePass *createOclSyncFunctionAttrsPass();
 llvm::ModulePass *createInternalizeNonKernelFuncPass();
 llvm::ModulePass *createExternalizeGlobalVariablesPass();
 llvm::ModulePass *createInternalizeGlobalVariablesPass();
-llvm::ModulePass *createGenericAddressStaticResolutionPass();
-llvm::ModulePass *createGenericAddressDynamicResolutionPass();
 llvm::ModulePass *createPrepareKernelArgsPass(bool useTLSGlobals);
 llvm::Pass *
 createBuiltinLibInfoPass(SmallVector<Module *, 2> pRtlModuleList,
@@ -324,7 +322,7 @@ static void populatePassesPreFailCheck(
     llvm::legacy::PassManagerBase &PM, llvm::Module * /*M*/,
     SmallVector<Module *, 2> &pRtlModuleList, unsigned OptLevel,
     const intel::OptimizerConfig *pConfig, bool isOcl20, bool isFpgaEmulator,
-    bool UnrollLoops, bool EnableInferAS, bool isSPIRV, bool UseVplan) {
+    bool UnrollLoops, bool isSPIRV, bool UseVplan) {
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
       pConfig->GetIRDumpOptionsBefore());
@@ -399,11 +397,7 @@ static void populatePassesPreFailCheck(
     if (OptLevel > 0) {
       PM.add(llvm::createPromoteMemoryToRegisterPass());
     }
-    if (EnableInferAS) {
-      PM.add(llvm::createInferAddressSpacesPass());
-    } else {
-      PM.add(createGenericAddressStaticResolutionPass());
-    }
+    PM.add(llvm::createInferAddressSpacesPass());
   }
 
   PM.add(llvm::createBasicAAWrapperPass());
@@ -453,9 +447,8 @@ static void populatePassesPostFailCheck(
     SmallVector<Module *, 2> &pRtlModuleList, unsigned OptLevel,
     const intel::OptimizerConfig *pConfig,
     std::vector<std::string> &UndefinedExternals, bool isOcl20,
-    bool isFpgaEmulator, bool isEyeQEmulator, bool UnrollLoops,
-    bool EnableInferAS, bool UseVplan, bool IsSYCL, bool IsOMP,
-    TStringToVFState &kernelVFStates) {
+    bool isFpgaEmulator, bool isEyeQEmulator, bool UnrollLoops, bool UseVplan,
+    bool IsSYCL, bool IsOMP, TStringToVFState &kernelVFStates) {
   bool isProfiling = pConfig->GetProfilingFlag();
   bool HasGatherScatter = pConfig->GetCpuId()->HasGatherScatter();
   bool HasGatherScatterPrefetch =
@@ -486,18 +479,14 @@ static void populatePassesPostFailCheck(
   if (isOcl20) {
     // Repeat resolution of generic address space pointers after LLVM
     // IR was optimized
-    if (EnableInferAS) {
-      PM.add(llvm::createInferAddressSpacesPass());
-      // Cleanup after InferAddressSpacesPass
-      if (OptLevel > 0) {
-        PM.add(llvm::createCFGSimplificationPass());
-        PM.add(llvm::createSROAPass());
-        PM.add(llvm::createEarlyCSEPass());
-        PM.add(llvm::createPromoteMemoryToRegisterPass());
-        PM.add(llvm::createInstructionCombiningPass());
-      }
-    } else {
-      PM.add(createGenericAddressStaticResolutionPass());
+    PM.add(llvm::createInferAddressSpacesPass());
+    // Cleanup after InferAddressSpacesPass
+    if (OptLevel > 0) {
+      PM.add(llvm::createCFGSimplificationPass());
+      PM.add(llvm::createSROAPass());
+      PM.add(llvm::createEarlyCSEPass());
+      PM.add(llvm::createPromoteMemoryToRegisterPass());
+      PM.add(llvm::createInstructionCombiningPass());
     }
     // No need to run function inlining pass here, because if there are still
     // non-inlined functions left - then we don't have to inline new ones.
@@ -685,14 +674,6 @@ static void populatePassesPostFailCheck(
   // precedence given to debugType.
   if (isProfiling) {
     PM.add(createProfilingInfoPass());
-  }
-
-  if (isOcl20 && !EnableInferAS) {
-    // Resolve (dynamically) generic address space pointers which are relevant
-    // for correct execution
-    PM.add(createGenericAddressDynamicResolutionPass());
-    // No need to run function inlining pass here, because if there are still
-    // non-inlined functions left - then we don't have to inline new ones.
   }
 
   // Get Some info about the kernel should be called before BarrierPass and
@@ -921,21 +902,18 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
   m_PreFailCheckPM.add(new TargetLibraryInfoWrapperPass(TLII));
   m_PostFailCheckPM.add(new TargetLibraryInfoWrapperPass(TLII));
 
-  bool EnableInferAS = !getenv("DISABLE_INFER_AS");
-
   bool IsOMP = CompilationUtils::generatedFromOMP(*pModule);
   // Add passes which will run unconditionally
-  populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_RtlModules,
-                             OptLevel, pConfig, isOcl20, m_IsFpgaEmulator,
-                             UnrollLoops, EnableInferAS, isSPIRV, EnableVPlan);
+  populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_RtlModules, OptLevel,
+                             pConfig, isOcl20, m_IsFpgaEmulator, UnrollLoops,
+                             isSPIRV, EnableVPlan);
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false
-  populatePassesPostFailCheck(m_PostFailCheckPM, pModule, m_RtlModules,
-                              OptLevel, pConfig, m_undefinedExternalFunctions,
-                              isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
-                              UnrollLoops, EnableInferAS, EnableVPlan, m_IsSYCL,
-                              IsOMP, m_kernelToVFState);
+  populatePassesPostFailCheck(
+      m_PostFailCheckPM, pModule, m_RtlModules, OptLevel, pConfig,
+      m_undefinedExternalFunctions, isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
+      UnrollLoops, EnableVPlan, m_IsSYCL, IsOMP, m_kernelToVFState);
 }
 
 void OptimizerOCL::Optimize() {
