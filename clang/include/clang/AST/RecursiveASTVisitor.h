@@ -3143,6 +3143,12 @@ RecursiveASTVisitor<Derived>::VisitOMPDataClause(OMPDataClause *C) {
   }
   return true;
 }
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPAlignClause(OMPAlignClause *C) {
+  TRY_TO(TraverseStmt(C->getAlignment()));
+  return true;
+}
 #endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 template <typename Derived>

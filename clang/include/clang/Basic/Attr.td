@@ -4445,6 +4445,9 @@ def OMPAllocateDecl : InheritableAttr {
                    "OMPUserDefinedMemAlloc"
                  ]>,
     ExprArgument<"Allocator">
+#if INTEL_COLLAB
+    , ExprArgument<"Alignment">
+#endif // INTEL_COLLAB
   ];
   let Documentation = [Undocumented];
 }

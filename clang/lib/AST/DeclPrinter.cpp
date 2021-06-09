@@ -1665,10 +1665,19 @@ void DeclPrinter::VisitOMPAllocateDecl(OMPAllocateDecl *D) {
     Out << ")";
   }
   if (!D->clauselist_empty()) {
+#if !INTEL_COLLAB
     Out << " ";
+#endif // !INTEL_COLLAB
     OMPClausePrinter Printer(Out, Policy);
+#if INTEL_COLLAB
+    for (OMPClause *C : D->clauselists()) {
+      Out << " ";
+      Printer.Visit(C);
+    }
+#else // INTEL_COLLAB
     for (OMPClause *C : D->clauselists())
       Printer.Visit(C);
+#endif // INTEL_COLLAB
   }
 }
 

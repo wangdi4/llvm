@@ -1989,6 +1989,7 @@ void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
 void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *) {}
 void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
 void OpenMPLateOutliner::emitOMPFilterClause(const OMPFilterClause *C) {}
+void OpenMPLateOutliner::emitOMPAlignClause(const OMPAlignClause *Cl) {}
 
 static unsigned getForeignRuntimeID(StringRef Str) {
   return llvm::StringSwitch<unsigned>(Str)

@@ -1481,9 +1481,9 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
 
 #if INTEL_CUSTOMIZATION
   // Add Intel specific headers
-  if (!Args.hasArg(options::OPT_nostdinc, options::OPT_nostdlibinc)) {
-    SmallString<128> IntelDir = llvm::sys::path::parent_path(D.Dir);
-    llvm::sys::path::append(IntelDir, "compiler", "include");
+  if (D.IsIntelMode()) {
+    SmallString<128> IntelDir(D.Dir);
+    llvm::sys::path::append(IntelDir, "..", "compiler", "include");
     CmdArgs.push_back("-internal-isystem");
     CmdArgs.push_back(Args.MakeArgString(IntelDir));
     // IA32ROOT
