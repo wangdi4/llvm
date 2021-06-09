@@ -7025,13 +7025,44 @@ getDomPredecessorCondition(const Instruction *ContextI) {
   return {PredCond, TrueBB == ContextBB};
 }
 
+#if INTEL_CUSTOMIZATION
+// Returns the first instruction of the dominating node of \p DomNode.
+// Also updates \p DomNode to the dominating node.
+// It can be used in the other version of isImpliedByDomCondition() too.
+static const Instruction *getDominatingContext(DomTreeNode *&DomNode) {
+  if (!DomNode)
+    return nullptr;
+
+  DomNode = DomNode->getIDom();
+
+  if (DomNode)
+    return &DomNode->getBlock()->front();
+
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
 Optional<bool> llvm::isImpliedByDomCondition(const Value *Cond,
                                              const Instruction *ContextI,
-                                             const DataLayout &DL) {
+#if INTEL_CUSTOMIZATION
+                                             const DataLayout &DL,
+                                             DominatorTree *DT) {
+#endif // INTEL_CUSTOMIZATION
   assert(Cond->getType()->isIntOrIntVectorTy(1) && "Condition must be bool");
-  auto PredCond = getDomPredecessorCondition(ContextI);
-  if (PredCond.first)
-    return isImpliedCondition(PredCond.first, Cond, DL, PredCond.second);
+#if INTEL_CUSTOMIZATION
+  // When DominatorTree is present, use all dominating blocks to detect implied
+  // condition.
+  DomTreeNode *DomNode = DT ? DT->getNode(ContextI->getParent()) : nullptr;
+  do {
+    auto PredCond = getDomPredecessorCondition(ContextI);
+    if (PredCond.first) {
+      auto Res = isImpliedCondition(PredCond.first, Cond, DL, PredCond.second);
+      if (Res != None)
+        return Res;
+    }
+
+    ContextI = getDominatingContext(DomNode);
+  } while (ContextI);
+#endif // INTEL_CUSTOMIZATION
   return None;
 }
 

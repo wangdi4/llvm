@@ -348,6 +348,18 @@ static void cleanupRefLowerBounds(HLRegion &Reg) {
   }
 }
 
+// If some nodes were eliminated in cleanup phase the number of loop exits may
+// have changed so we need to recompute them.
+void HIRFramework::updateNumLoopExits() {
+  for (auto &RegIt : make_range(hir_begin(), hir_end())) {
+    auto *Reg = &cast<HLRegion>(RegIt);
+
+    if (PhaseCleanup->isOptimizedRegion(Reg)) {
+      HLNodeUtils::updateNumLoopExits(Reg);
+    }
+  }
+}
+
 void HIRFramework::runImpl() {
   // TODO: Refactor code of the framework phases to make them local objects by
   // moving persistent data structures from individual phases to the
@@ -407,6 +419,8 @@ void HIRFramework::runImpl() {
   HNU->initTopSortNum();
 
   estimateMaxTripCounts();
+
+  updateNumLoopExits();
 
 #ifndef NDEBUG
   verify();

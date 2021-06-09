@@ -2685,6 +2685,34 @@ HLNode *HLNodeUtils::getLastLexicalChild(HLNode *Parent, HLNode *Node) {
       static_cast<const HLNode *>(Parent), static_cast<const HLNode *>(Node)));
 }
 
+bool HLNodeUtils::isLexicalLastChildOfParent(const HLNode *Node) {
+  auto *Parent = Node->getParent();
+
+  if (auto *If = dyn_cast<HLIf>(Parent)) {
+    return (Node == If->getLastThenChild()) || (Node == If->getLastElseChild());
+  }
+
+  if (auto *Switch = dyn_cast<HLSwitch>(Parent)) {
+    if (Node == Switch->getLastDefaultCaseChild()) {
+      return true;
+    }
+
+    for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
+      if (Node == Switch->getLastCaseChild(I)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  if (auto *Lp = dyn_cast<HLLoop>(Parent)) {
+    return (Node == Lp->getLastChild());
+  }
+
+  return (Node == cast<HLRegion>(Parent)->getLastChild());
+}
+
 const HLNode *
 HLNodeUtils::getImmediateChildContainingNode(const HLNode *ParentNode,
                                              const HLNode *Node) {
@@ -5476,6 +5504,11 @@ void HLNodeUtils::eliminateRedundantGotos(
     auto TargetLabel = Goto->getTargetLabel();
 
     HLNode *CurNode = Goto;
+
+    if (!Goto->isAttached()) {
+      HLNodeUtils::erase(Goto);
+      continue;
+    }
 
     // We either remove Goto as redundant by looking at its control flow
     // successors or link it to its target HLLabel.

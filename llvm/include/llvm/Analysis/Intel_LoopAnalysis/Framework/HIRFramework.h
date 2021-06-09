@@ -130,6 +130,9 @@ private:
   // Processes Ztts deferred by loop formation phase due to structural issues.
   void processDeferredZtts();
 
+  // Updates number of loop exits, if required.
+  void updateNumLoopExits();
+
   void runImpl();
 
 public:
