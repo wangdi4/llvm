@@ -562,7 +562,8 @@ Value *CGVisitor::HIRSCEVExpander::visitUnknown(const SCEVUnknown *S) {
   // otherwise some insertions may be in wrong place.
   // There will be many loads of same temp name, so a . is added to end
   // to distinguish second load of t2 vs first load of t22
-  return Builder.CreateLoad(TempAddr, TempAddr->getName() + ".");
+  auto *TempAddrTy = TempAddr->getAllocatedType();
+  return Builder.CreateLoad(TempAddrTy, TempAddr, TempAddr->getName() + ".");
 }
 
 void CGVisitor::preprocess(HLRegion *Reg) {
@@ -985,7 +986,8 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
 
       // We have a vector of pointers of BaseSrcType. We need to convert it to
       // vector of pointers of DestScType.
-      GEPVal = Builder.CreateBitCast(GEPVal, FixedVectorType::get(DestScPtrTy, VL));
+      GEPVal =
+          Builder.CreateBitCast(GEPVal, FixedVectorType::get(DestScPtrTy, VL));
     }
   } else if (BitCastDestTy) {
     // Base CE could have different src and dest types in which case we need a
@@ -1014,7 +1016,9 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
       LInst = VPOUtils::createMaskedLoadCall(GEPVal, Builder,
                                              Ref->getAlignment(), MaskVal);
     } else {
-      LInst = Builder.CreateAlignedLoad(GEPVal, MaybeAlign(Ref->getAlignment()),
+      auto *GEPValTy = GEPVal->getType()->getPointerElementType();
+      LInst = Builder.CreateAlignedLoad(GEPValTy, GEPVal,
+                                        MaybeAlign(Ref->getAlignment()),
                                         Ref->isVolatile(), "gepload");
     }
 
@@ -1078,7 +1082,8 @@ void CGVisitor::processLiveouts() {
         for (auto NewExitingBB : *NewExits) {
           if (SymSlot) {
             Builder.SetInsertPoint(NewExitingBB->getTerminator());
-            ReplVal = Builder.CreateLoad(SymSlot);
+            auto *SymSlotTy = SymSlot->getType()->getPointerElementType();
+            ReplVal = Builder.CreateLoad(SymSlotTy, SymSlot);
           }
           // NOTE: it should be okay to update phi while traversing the old
           // operands as the operand order should not change with addition.
@@ -1490,7 +1495,8 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
   ScopeDbgLoc DbgLocBottomTest(*this, Lp->getCmpDebugLoc());
 
   // increment IV
-  Value *CurVar = Builder.CreateLoad(Alloca);
+  auto *AllocaTy = Alloca->getAllocatedType();
+  Value *CurVar = Builder.CreateLoad(AllocaTy, Alloca);
   Value *StepVal = IsUnknownLoop ? ConstantInt::getSigned(Lp->getIVType(), 1)
                                  : visitRegDDRef(Lp->getStrideDDRef());
 
@@ -1733,7 +1739,8 @@ void CGVisitor::generateLvalStore(const HLInst *HInst, Value *StorePtr,
       //  %mload19 = load <4 x i32>, <4 x i32>* %t24
       //  %11 = select <4 x i1> %t22.18, <4 x i32> %10, <4 x i32> %mload19
       //  store <4 x i32> %11, <4 x i32>* %t24
-      auto MLoad = Builder.CreateLoad(StorePtr, "mload");
+      auto *StorePtrTy = StorePtr->getType()->getPointerElementType();
+      auto MLoad = Builder.CreateLoad(StorePtrTy, StorePtr, "mload");
       auto MSel = Builder.CreateSelect(MaskVal, StoreVal, MLoad);
       Builder.CreateStore(MSel, StorePtr);
     } else {
@@ -1883,7 +1890,6 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
         Builder.CreateCall(Call->getFunctionType(), FuncVal, Ops, Bundles);
     getInlineReport()->cloneCallBaseToCallBase(const_cast<CallInst *>(Call),
                                                ResCall);
-
 
     // TODO: Copy parameter attributes as well.
     ResCall->setCallingConv(Call->getCallingConv());
@@ -2084,7 +2090,9 @@ Value *CGVisitor::IVPairCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt,
                            Type *Ty) {
 
   // Load IV at given level from this loop nest
-  Value *IV = Builder.CreateLoad(CurIVValues[CE->getLevel(IVIt)]);
+  Value *CurIVValue = CurIVValues[CE->getLevel(IVIt)];
+  auto *CurIVValueTy = CurIVValue->getType()->getPointerElementType();
+  Value *IV = Builder.CreateLoad(CurIVValueTy, CurIVValue);
 
   // If IV type and Ty(CE src type) do not match, convert as needed.
   if (IV->getType() != Ty) {
