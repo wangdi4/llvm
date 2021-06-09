@@ -374,7 +374,16 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
 }
 
 void VPInstruction::print(raw_ostream &O) const {
-  const VPlan *Plan = getParent()->getParent();
+  const VPBasicBlock *VPBB = getParent();
+  if (!VPBB) {
+    printWithoutAnalyses(O);
+    return;
+  }
+  const VPlan *Plan = VPBB->getParent();
+  if (!Plan) {
+    printWithoutAnalyses(O);
+    return;
+  }
   const VPlanDivergenceAnalysisBase *DA = Plan->getVPlanDA();
   VPlanScalVecAnalysis *SVA = nullptr;
   if (auto *VecVPlan = dyn_cast<VPlanVector>(Plan))
