@@ -476,6 +476,18 @@ int32_t DeviceTy::deleteData(void *TgtPtrBegin) {
 // Submit data to device
 int32_t DeviceTy::submitData(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size,
                              AsyncInfoTy &AsyncInfo) {
+  if (getInfoLevel() & OMP_INFOTYPE_DATA_TRANSFER) {
+    LookupResult LR = lookupMapping(HstPtrBegin, Size);
+    auto *HT = &*LR.Entry;
+
+    INFO(OMP_INFOTYPE_DATA_TRANSFER, DeviceID,
+         "Copying data from host to device, HstPtr=" DPxMOD ", TgtPtr=" DPxMOD
+         ", Size=%" PRId64 ", Name=%s\n",
+         DPxPTR(HstPtrBegin), DPxPTR(TgtPtrBegin), Size,
+         (HT && HT->HstPtrName) ? getNameFromMapping(HT->HstPtrName).c_str()
+                                : "unknown");
+  }
+
 #if INTEL_COLLAB
   OMPT_TRACE(
       targetDataSubmitBegin(RTLDeviceID, TgtPtrBegin, HstPtrBegin, Size));
@@ -499,6 +511,17 @@ int32_t DeviceTy::submitData(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size,
 // Retrieve data from device
 int32_t DeviceTy::retrieveData(void *HstPtrBegin, void *TgtPtrBegin,
                                int64_t Size, AsyncInfoTy &AsyncInfo) {
+  if (getInfoLevel() & OMP_INFOTYPE_DATA_TRANSFER) {
+    LookupResult LR = lookupMapping(HstPtrBegin, Size);
+    auto *HT = &*LR.Entry;
+    INFO(OMP_INFOTYPE_DATA_TRANSFER, DeviceID,
+         "Copying data from device to host, TgtPtr=" DPxMOD ", HstPtr=" DPxMOD
+         ", Size=%" PRId64 ", Name=%s\n",
+         DPxPTR(TgtPtrBegin), DPxPTR(HstPtrBegin), Size,
+         (HT && HT->HstPtrName) ? getNameFromMapping(HT->HstPtrName).c_str()
+                                : "unknown");
+  }
+
 #if INTEL_COLLAB
   OMPT_TRACE(
       targetDataRetrieveBegin(RTLDeviceID, HstPtrBegin, TgtPtrBegin, Size));
