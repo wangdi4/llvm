@@ -1436,10 +1436,9 @@ void MSVCToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
 
 #if INTEL_CUSTOMIZATION
   // Add Intel specific headers
-  SmallString<128> IntelHeaderPath =
-      llvm::sys::path::parent_path(getDriver().Dir);
-  llvm::sys::path::append(IntelHeaderPath, "compiler", "include");
-  addSystemInclude(DriverArgs, CC1Args, IntelHeaderPath);
+  if (getDriver().IsIntelMode())
+    addSystemInclude(DriverArgs, CC1Args,
+                     getDriver().Dir + "/../compiler/include");
 
   // Add Intel performance library headers
   if (DriverArgs.hasArg(clang::driver::options::OPT_qmkl_EQ)) {
