@@ -1601,15 +1601,16 @@ public:
   // instruction.
   void readUnderlyingMetadata(const loopopt::RegDDRef *RDDR = nullptr) {
     assert(MDs.empty() && "Underlying metadata was already read");
-    if (auto *IRLoadStore = dyn_cast_or_null<Instruction>(getInstruction()))
+    if (auto *IRLoadStore = dyn_cast_or_null<Instruction>(getInstruction())) {
       IRLoadStore->getAllMetadataOtherThanDebugLoc(MDs);
-    else if (HIR().getUnderlyingNode()) {
-      if (!RDDR) {
-        RDDR = getHIRMemoryRef();
-        assert(RDDR && "Value should not be nullptr!");
-      }
-      RDDR->getAllMetadataOtherThanDebugLoc(MDs);
+      return;
     }
+    if (!RDDR && HIR().getUnderlyingNode()) {
+      RDDR = getHIRMemoryRef();
+      assert(RDDR && "Value should not be nullptr!");
+    }
+    if (RDDR)
+      RDDR->getAllMetadataOtherThanDebugLoc(MDs);
   }
 
   VPValue *getPointerOperand() const {
