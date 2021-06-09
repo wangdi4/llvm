@@ -1,13 +1,12 @@
-#include "CL/cl.h"
+#include "FrameworkTest.h"
+#include "TestsHelpClasses.h"
 #include "cl_cpu_detect.h"
 #include "cl_types.h"
-
+#include "common_utils.h"
+#include "llvm/Support/Path.h"
 #include <fstream>
 #include <gtest/gtest.h>
 #include <stdio.h>
-
-#include "FrameworkTest.h"
-#include "common_utils.h"
 
 extern cl_device_type gDeviceType;
 
@@ -16,6 +15,7 @@ protected:
   cl_platform_id m_platform;
   cl_device_id m_device;
   cl_context m_context;
+  cl_command_queue m_queue;
 
   std::string m_CachedBinaryWithoutSectionFileName =
       "cached_binary_without_section.bin";
@@ -38,62 +38,88 @@ protected:
   }
 
   void GenerateUpToDateBinaryFile() {
-    bool bResult = true;
-    cl_int rc = CL_OUT_OF_HOST_MEMORY;
-    const char *testProgram[] = {"__kernel void test_kernel(__global int* A) {"
-                                 "   int id = get_global_id(0);"
-                                 "   printf(\"%d \", A[id]);"
+    const char *testProgram[] = {"__kernel void test(__global int* A) {"
+                                 "   int lid = get_local_id(0);"
+                                 "   if (0 == lid)"
+                                 "     A[get_group_id(0)] = get_local_size(0);"
                                  "}"};
 
     cl_program clProg;
-    bResult &= BuildProgramSynch(m_context, 1, (const char **)&testProgram,
-                                 NULL, "", &clProg);
+    bool bResult = BuildProgramSynch(m_context, 1, (const char **)&testProgram,
+                                     NULL, "", &clProg);
     ASSERT_TRUE(bResult) << "Unable to build up-to-date binary";
 
     size_t binarySize = 0;
     char *pBinaries = NULL;
-    if (bResult) {
-      // get the binary
-      rc = clGetProgramInfo(clProg, CL_PROGRAM_BINARY_SIZES, sizeof(size_t),
-                            &binarySize, NULL);
-      ASSERT_EQ(CL_SUCCESS, rc) << "clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)";
 
-      // cache the binary
-      pBinaries = new char[binarySize];
-      rc = clGetProgramInfo(clProg, CL_PROGRAM_BINARIES, binarySize, &pBinaries,
-                            NULL);
-      ASSERT_EQ(CL_SUCCESS, rc) << "clGetProgramInfo(CL_PROGRAM_BINARIES)";
+    // get the binary
+    cl_int rc = clGetProgramInfo(clProg, CL_PROGRAM_BINARY_SIZES,
+                                 sizeof(size_t), &binarySize, NULL);
+    ASSERT_OCL_SUCCESS(rc, "clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)");
 
-      FILE *fout;
-      std::string filename = get_exe_dir() +
-          m_CachedBinaryUpToDateVersionFileName;
-      fout = fopen(filename.c_str(), "wb");
-      ASSERT_FALSE(fout == NULL) << "Failed to open file.\n";
+    // cache the binary
+    pBinaries = new char[binarySize];
+    rc = clGetProgramInfo(clProg, CL_PROGRAM_BINARIES, binarySize, &pBinaries,
+                          NULL);
+    ASSERT_OCL_SUCCESS(rc, "clGetProgramInfo(CL_PROGRAM_BINARIES)");
 
-      fwrite(pBinaries, 1, binarySize, fout);
-      ASSERT_EQ(ferror(fout), 0) << "Error in writing to file " << filename;
-      ASSERT_EQ(fclose(fout), 0) << "Failed to close file " << filename;
-    }
+    FILE *fout;
+    std::string filename =
+        get_exe_dir() + m_CachedBinaryUpToDateVersionFileName;
+    fout = fopen(filename.c_str(), "wb");
+    ASSERT_FALSE(fout == NULL) << "Failed to open file.\n";
+
+    fwrite(pBinaries, 1, binarySize, fout);
+    ASSERT_EQ(ferror(fout), 0) << "Error in writing to file " << filename;
+    ASSERT_EQ(fclose(fout), 0) << "Failed to close file " << filename;
+  }
+
+  void TestProgram(cl_program program, const std::string &errMsg) {
+    cl_int rc;
+    cl_kernel kernel = clCreateKernel(program, "test", &rc);
+    ASSERT_EQ(CL_SUCCESS, rc) << "clCreateKernel failed." << errMsg;
+
+    size_t gdim = 8;
+    size_t ldim = 2;
+    std::vector<int> results(gdim / ldim);
+    rc = clSetKernelArgMemPointerINTEL(kernel, 0, &results[0]);
+    ASSERT_EQ(CL_SUCCESS, rc)
+        << "clSetKernelArgMemPointerINTEL failed." << errMsg;
+
+    rc = clEnqueueNDRangeKernel(m_queue, kernel, 1, nullptr, &gdim, &ldim, 0,
+                                nullptr, nullptr);
+    ASSERT_EQ(CL_SUCCESS, rc) << "clEnqueueNDRangeKernel failed." << errMsg;
+    rc = clFinish(m_queue);
+    for (size_t i = 0; i < results.size(); ++i)
+      ASSERT_EQ(results[i], ldim)
+          << "results[" << i << "] validation failed." << errMsg;
+
+    rc = clReleaseKernel(kernel);
+    ASSERT_OCL_SUCCESS(rc, "clReleaseKernel");
   }
 
   void SetUp() override {
-    m_platform = 0;
-    cl_int rc = CL_OUT_OF_HOST_MEMORY;
-    rc = clGetPlatformIDs(1, &m_platform, NULL);
-    ASSERT_EQ(CL_SUCCESS, rc) << "Unable to get platform";
+    cl_int rc = clGetPlatformIDs(1, &m_platform, NULL);
+    ASSERT_OCL_SUCCESS(rc, "Unable to get platform");
 
     rc = clGetDeviceIDs(m_platform, gDeviceType, 1, &m_device, NULL);
-    ASSERT_EQ(CL_SUCCESS, rc) << "Unable to get device";
+    ASSERT_OCL_SUCCESS(rc, "Unable to get device");
 
     cl_context_properties prop[3] = {CL_CONTEXT_PLATFORM,
                                      (cl_context_properties)m_platform, 0};
     m_context = clCreateContext(prop, 1, &m_device, NULL, NULL, &rc);
-    ASSERT_EQ(CL_SUCCESS, rc) << "Unable to create context";
+    ASSERT_OCL_SUCCESS(rc, "Unable to create context");
+
+    m_queue =
+        clCreateCommandQueueWithProperties(m_context, m_device, nullptr, &rc);
+    ASSERT_OCL_SUCCESS(rc, "clCreateCommandQueueWithProperties");
   }
 
   void TearDown() override {
-    cl_int rc = clReleaseContext(m_context);
-    ASSERT_EQ(CL_SUCCESS, rc) << "Unable to release context";
+    cl_int rc = clReleaseCommandQueue(m_queue);
+    ASSERT_OCL_SUCCESS(rc, "clReleaseCommandQueue");
+    rc = clReleaseContext(m_context);
+    ASSERT_OCL_SUCCESS(rc, "Unable to release context");
   }
 };
 
@@ -130,7 +156,7 @@ TEST_F(CheckBinaryVersionSuit, BinaryWithWrongVersionTest) {
   clCreateProgramWithBinary(
       m_context, 1, &m_device, &binarySize,
       const_cast<const unsigned char **>(&p_binary), &binaryStatus, &rc);
-  ASSERT_EQ(CL_INVALID_BINARY, rc) << "Failed to create program with binary";
+  ASSERT_EQ(CL_INVALID_BINARY, rc) << "Binary with wrong version should fail";
 }
 
 // Trying to create program from cached binary file
@@ -156,21 +182,33 @@ TEST_F(CheckBinaryVersionSuit, BinaryWithCurrentVersionTest) {
       const_cast<const unsigned char **>(&p_binary), &binaryStatus, &rc);
   std::string updateMsg =
       "update " + m_CachedBinaryWithCurrentVersionFileName +
-      " according to following steps (only Linux is supported):\n"
+      " using following steps (only Linux is supported):\n"
       "1. export CL_CONFIG_CPU_TARGET_ARCH=corei7\n"
-      "2. cd " + get_exe_dir() + "\n"
+      "2. cd " +
+      get_exe_dir() +
+      "\n"
       "3. ./framework_test_type --gtest_filter=*BinaryWithUpToDateVersionTest\n"
-      "4. copy " + m_CachedBinaryUpToDateVersionFileName + " to " +
-      m_CachedBinaryWithCurrentVersionFileName + " in source dir";
-  ASSERT_EQ(CL_SUCCESS, rc) << "Failed to create program. If "
-                               "OCL_CACHED_BINARY_VERSION has changed, please "
-                            << updateMsg;
+      "4. cp " +
+      m_CachedBinaryUpToDateVersionFileName + " " + CURRENT_SOURCE_DIR +
+      llvm::sys::path::get_separator().str() +
+      m_CachedBinaryWithCurrentVersionFileName + "\n";
+  ASSERT_EQ(CL_SUCCESS, binaryStatus)
+      << "Failed to create program. If "
+         "OCL_CACHED_BINARY_VERSION has changed, please "
+      << updateMsg;
+  ASSERT_OCL_SUCCESS(rc, "clCreateProgramWithBinary");
+
+  updateMsg = "\nIf program serialization has changed, "
+              "please increment OCL_CACHED_BINARY_VERSION and " +
+              updateMsg;
 
   rc = clBuildProgram(program, 1, &m_device, "", nullptr, nullptr);
-  ASSERT_EQ(CL_SUCCESS, rc)
-      << "Failed to build program. If program serialization has changed, "
-         "please increment OCL_CACHED_BINARY_VERSION and "
-      << updateMsg;
+  ASSERT_EQ(CL_SUCCESS, rc) << "clBuildProgram failed." << updateMsg;
+
+  ASSERT_NO_FATAL_FAILURE(TestProgram(program, updateMsg));
+
+  rc = clReleaseProgram(program);
+  ASSERT_OCL_SUCCESS(rc, "clReleaseProgram");
 #endif
 }
 
@@ -187,8 +225,17 @@ TEST_F(CheckBinaryVersionSuit, BinaryWithUpToDateVersionTest) {
 
   cl_int binaryStatus;
   cl_int rc;
-  clCreateProgramWithBinary(
+  cl_program program = clCreateProgramWithBinary(
       m_context, 1, &m_device, &binarySize,
       const_cast<const unsigned char **>(&p_binary), &binaryStatus, &rc);
-  ASSERT_EQ(CL_SUCCESS, rc) << "Failed to create program with binary";
+  ASSERT_OCL_SUCCESS(binaryStatus, "clCreateProgramWithBinary failed");
+  ASSERT_OCL_SUCCESS(rc, "clCreateProgramWithBinary");
+
+  rc = clBuildProgram(program, 1, &m_device, "", nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(rc, "clBuildProgram");
+
+  ASSERT_NO_FATAL_FAILURE(TestProgram(program, ""));
+
+  rc = clReleaseProgram(program);
+  ASSERT_OCL_SUCCESS(rc, "clReleaseProgram");
 }
