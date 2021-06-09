@@ -1291,10 +1291,6 @@ cl_err_code Kernel::GetKernelArgInfo (    cl_uint argIndx,
         return CL_KERNEL_ARG_INFO_NOT_AVAILABLE;
     }
 
-    if  (!pszParamValueSizeRet && !pParamValue)
-    {
-        return CL_INVALID_VALUE;
-    }
     if ( argIndx > (GetKernelArgsCount()-1) )
     {
         return CL_INVALID_VALUE;

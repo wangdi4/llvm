@@ -22,8 +22,9 @@ bool clGetKernelArgInfoTest()
     // kernel 3 is used to check valid address qualifier
     const char *ocl_test_program[] = {\
       "__kernel void test_kernel1(__global char16 pBuff0[], __global char*"\
-        " pBuff1, __global const char* pBuff2, image2d_t"\
-        " __read_only test_image) __attribute__((vec_type_hint(uint8)))"\
+        " pBuff1, __global const char* pBuff2, image2d_t __read_only test_image,"\
+        "image2d_t __read_write test_image1, image2d_t __write_only test_image2)"\
+        " __attribute__((vec_type_hint(uint8)))"\
         " __attribute__((reqd_work_group_size(8,8,8)))\n"\
         "{\n"\
         "    size_t id = get_global_id(0);\n"\
@@ -156,7 +157,7 @@ bool clGetKernelArgInfoTest()
 
     cl_program clProg;
     bResult &= BuildProgramSynch(context, 1, (const char**)&ocl_test_program,
-                                 NULL, "-cl-kernel-arg-info", &clProg);
+                                 NULL, "-cl-std=CL2.0 -cl-kernel-arg-info", &clProg);
     if (!bResult)
     {
         clReleaseContext(context);
@@ -271,6 +272,9 @@ bool clGetKernelArgInfoTest()
         iRet = -1;
     }
 
+    // Ensure clGetKernelArgInfo returns successfully when param_value is set to null.
+    iRet |= clGetKernelArgInfo (clKernel3, 4, CL_KERNEL_ARG_ADDRESS_QUALIFIER, 0, NULL, NULL);
+
     const char **invalid_prog_ptr[] = { ocl_test_invalid_program1,
                                         ocl_test_invalid_program2,
                                         ocl_test_invalid_program3,
@@ -300,26 +304,27 @@ bool clGetKernelArgInfoTest()
         iRet = -1;
     }
 
-    iRet |= clGetKernelArgInfo (clKernel1, 1, CL_KERNEL_ARG_ACCESS_QUALIFIER,
-        sizeof(cl_kernel_arg_address_qualifier), &accessQualifier, NULL);
+    // Test access qualifier.
+    int arg_ids[4] = {1, 3, 4, 5};
+    cl_kernel_arg_access_qualifier expected_results[4] = { CL_KERNEL_ARG_ACCESS_NONE,
+                                                           CL_KERNEL_ARG_ACCESS_READ_ONLY,
+                                                           CL_KERNEL_ARG_ACCESS_READ_WRITE,
+                                                           CL_KERNEL_ARG_ACCESS_WRITE_ONLY };
+    for (int i = 0; i < 4; ++i) {
+        iRet |= clGetKernelArgInfo (clKernel1, arg_ids[i], CL_KERNEL_ARG_ACCESS_QUALIFIER,
+            sizeof(cl_kernel_arg_address_qualifier), &accessQualifier, NULL);
 
-    if (CL_KERNEL_ARG_ACCESS_NONE != accessQualifier)
-    {
-        iRet = -1;
+        if (expected_results[i] != accessQualifier)
+        {
+            iRet = -1;
+        }
     }
+
 
     iRet |= clGetKernelArgInfo (clKernel1, 2, CL_KERNEL_ARG_TYPE_QUALIFIER,
         sizeof(cl_kernel_arg_type_qualifier), &typeQualifier, NULL);
 
     if (CL_KERNEL_ARG_TYPE_CONST != typeQualifier)
-    {
-        iRet = -1;
-    }
-
-    iRet |= clGetKernelArgInfo (clKernel1, 3, CL_KERNEL_ARG_ACCESS_QUALIFIER,
-        sizeof(cl_kernel_arg_address_qualifier), &accessQualifier, NULL);
-
-    if (CL_KERNEL_ARG_ACCESS_READ_ONLY != accessQualifier)
     {
         iRet = -1;
     }

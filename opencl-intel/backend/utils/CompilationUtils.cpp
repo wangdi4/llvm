@@ -754,7 +754,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
               AccessQualifier->getString())
               .Case("read_only", CL_KERNEL_ARG_ACCESS_READ_ONLY)
               .Case("write_only", CL_KERNEL_ARG_ACCESS_WRITE_ONLY)
-              .Case("read_write", CL_KERNEL_ARG_ACCESS_READ_ONLY)
+              .Case("read_write", CL_KERNEL_ARG_ACCESS_READ_WRITE)
               .Default(CL_KERNEL_ARG_ACCESS_NONE);
 
       // Type qualifier
