@@ -1058,8 +1058,6 @@ constexpr int esimd_get_block_2d_data_size() {
   return detail::getNextPowerOf2<Width>() * Height * NBlocks;
 }
 
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
 template <typename T, int NBlocks, int Height, int Width, bool Transposed,
           bool Transformed>
 constexpr int esimd_get_lsc_block_2d_data_size() {
@@ -1068,8 +1066,6 @@ constexpr int esimd_get_lsc_block_2d_data_size() {
            detail::getNextPowerOf2<Width>() * NBlocks;
   return Width * Height * NBlocks;
 }
-/* end INTEL_FEATURE_ESIMD_EMBARGO */
-/* end INTEL_CUSTOMIZATION */
 
 /// @defgroup sycl_esimd_2d_stateless 2D stateless functions
 /// \ingroup sycl_esimd
@@ -1171,9 +1167,6 @@ esimd_2d_statelss_store(T *Ptr, unsigned SurfaceWidth, unsigned SurfaceHeight,
   esimd_raw_sends_store(payload, Data, exDesc, desc, execSize, sfid, numSrc0,
                         numSrc1);
 }
-
-/* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ESIMD_EMBARGO */
 
 /// SLM gather.
 /// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
