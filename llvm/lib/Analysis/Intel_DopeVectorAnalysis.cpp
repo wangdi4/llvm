@@ -2188,6 +2188,147 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
     return SF->getConstantValue();
   };
 
+  // If 'UU' is a byte-flattened GEP with I8 source element type and
+  // pointer operand 'V', constant index X, and a single user, subtract X
+  // from 'NE' and return the single user of that GEP. Otherwise, return UU.
+  //
+  auto ByteFlattenedGEPAdjustment = [](Value *V, User *UU,
+                                       uint64_t &NE) -> User * {
+    auto GEPI = dyn_cast<GetElementPtrInst>(UU);
+    if (!GEPI || GEPI->getNumIndices() != 1 ||
+        GEPI->getPointerOperand() != V || !GEPI->hasOneUser())
+      return UU;
+    LLVMContext &Ctx = GEPI->getContext();
+    if (GEPI->getSourceElementType() != llvm::Type::getInt8Ty(Ctx))
+      return UU;
+    auto CI = dyn_cast<ConstantInt>(GEPI->getOperand(1));
+    if (!CI)
+      return UU;
+    NE -= CI->getZExtValue();
+    return GEPI->user_back();
+  };
+
+  // Return 'true' if 'CB' is a call to a memfunc with 'InPtr' pointing to
+  // an argument of the memfunc that may write up to 'NE' bytes at that
+  // argument without invalidating the dope vector analysis.
+  //
+  auto IsSafeIntrinMemFunc = [](CallBase *CB, Value *InPtr,
+                               uint64_t NE) -> bool {
+    if (CB->getNumArgOperands() != 4)
+      return false;
+    if (CB->getArgOperand(0) != InPtr)
+      return false;
+    auto CI = dyn_cast<ConstantInt>(CB->getArgOperand(2));
+    if (!CI || CI->getZExtValue() > NE)
+      return false;
+    return true;
+  };
+
+  // Return 'true' if 'CB' is a call to an intrinsic with 'InPtr' pointing to
+  // an argument of the intrinsic that may write up to 'NE' bytes at that
+  // argument without invalidating the dope vector analysis.
+  //
+  auto IsSafeIntrinUser = [&](CallBase *CB, Value *InPtr, uint64_t NE) -> bool {
+    auto II = dyn_cast<IntrinsicInst>(CB);
+    if (!II)
+      return false;
+    switch (II->getIntrinsicID()) {
+    case Intrinsic::memcpy:
+    case Intrinsic::memset:
+      return IsSafeIntrinMemFunc(CB, InPtr, NE);
+    default:
+      break;
+    }
+    return false;
+  };
+
+  // Return 'true' if 'CB' is a call to the Fortran runtime library libFunc
+  // 'for_trim' with 'InPtr' pointing to its argument which may write up to
+  // 'NE' bytes at that argument without invalidating the dope vector analysis.
+  // Currently, the destination must be a local array large enough to hold
+  // the result.
+  //
+  auto IsSafeLibFuncForTrim = [](CallBase *CB, Value *InPtr,
+                                 uint64_t NE) -> bool {
+    if (CB->getNumArgOperands() != 4)
+      return false;
+    if (CB->getArgOperand(2) != InPtr)
+      return false;
+    auto CI1 = dyn_cast<ConstantInt>(CB->getArgOperand(1));
+    if (!CI1 || CI1->getZExtValue() > NE)
+      return false;
+    auto CI3 = dyn_cast<ConstantInt>(CB->getArgOperand(3));
+    if (!CI3 || CI3->getZExtValue() > NE)
+      return false;
+    auto GEPI = dyn_cast<GetElementPtrInst>(CB->getArgOperand(0));
+    if (!GEPI || !GEPI->hasAllZeroIndices())
+      return false;
+    auto AI = dyn_cast<AllocaInst>(GEPI->getPointerOperand());
+    if (!AI)
+      return false;
+    auto AT = dyn_cast<ArrayType>(AI->getAllocatedType());
+    if (!AT || AT->getNumElements() < NE)
+      return false;
+    return true;
+  };
+
+  // Return 'true' if 'CB' is a call to a libFunc with 'InPtr' pointing to
+  // an argument of the libFunc that may write up to 'NE' bytes at that
+  // argument without invalidating the dope vector analysis.
+  //
+  auto IsSafeLibFuncUser = [&](CallBase *CB, Value *InPtr,
+                               uint64_t NE) -> bool {
+    Function *F = CB->getCalledFunction();
+    if (!F)
+      return false;
+    LibFunc TheLibFunc;
+    const TargetLibraryInfo &TLI = GetTLI(*const_cast<Function *>(F));
+    if (!TLI.getLibFunc(F->getName(), TheLibFunc) || !TLI.has(TheLibFunc))
+      return false;
+    switch (TheLibFunc) {
+    case LibFunc_for_trim:
+      return IsSafeLibFuncForTrim(CB, InPtr, NE);
+    default:
+      break;
+    }
+    return false;
+  };
+
+  // Return 'true' if the User 'U' of 'V' is a GEP of i8* array type feeding
+  // an intrinsic or a libFunc that uses it in a way that does not invalidate
+  // dope vector analysis.
+  //
+  auto IsSafeIntrinOrLibFuncUser = [&](Value *V, User *U) -> bool {
+    if (!U->hasOneUser())
+      return false;
+    auto GEPI = dyn_cast<GetElementPtrInst>(U->user_back());
+    if (!GEPI)
+      return false;
+    if (GEPI->getPointerOperand() != U || !GEPI->hasAllZeroIndices())
+      return false;
+    Type *GEPITy = GEPI->getSourceElementType();
+    auto GEPIArTy = dyn_cast<ArrayType>(GEPITy);
+    if (!GEPIArTy)
+      return false;
+    LLVMContext &Ctx = GEPI->getContext();
+    if (GEPIArTy->getElementType() != llvm::Type::getInt8Ty(Ctx))
+      return false;
+    uint64_t NE = GEPIArTy->getNumElements();
+    for (User *UU : GEPI->users()) {
+      auto VV = ByteFlattenedGEPAdjustment(GEPI, UU, NE);
+      Value *InPtr = VV != UU ? UU : GEPI;
+      auto CB = dyn_cast<CallBase>(VV);
+      if (!CB)
+        return false;
+      if (IsSafeIntrinUser(CB, InPtr, NE))
+        continue;
+      if (IsSafeLibFuncUser(CB, InPtr, NE))
+        continue;
+      return false;
+    }
+    return true;
+  };
+
   // Return 'true' if 'U' is the user of a SubscriptInst that can be
   // properly collected. In that case, update 'AllocSiteFound'.
   //
@@ -2237,8 +2378,9 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
         if (!collectNestedDopeVectorFieldAddress(NestedDVInfo, U, GetTLI,
                                                  ValueChecked, true))
           return false;
-      } else {
-        // For now, if this is not a nested dope vector, give up if we
+      } else if (!IsSafeIntrinOrLibFuncUser(V, U)) {
+        // For now, if this is not a nested dope vector and does not involve
+        // easily recognized intrinsics operating on the field, give up if we
         // see anything other than a user which is a LoadInst or StoreInst
         // referencing U as a pointer operand. We can extend this analysis
         // if it proves to be useful to do that.
