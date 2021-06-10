@@ -1747,6 +1747,20 @@ static void TranslateDArg(Arg *A, llvm::opt::DerivedArgList &DAL,
   DAL.AddJoinedArg(A, Opts.getOption(options::OPT_D), NewVal);
 }
 
+static void TranslatePermissive(Arg *A, llvm::opt::DerivedArgList &DAL,
+                                const OptTable &Opts) {
+  DAL.AddFlagArg(A, Opts.getOption(options::OPT__SLASH_Zc_twoPhase_));
+  DAL.AddFlagArg(A, Opts.getOption(options::OPT_fno_operator_names));
+  // There is currently no /Zc:strictStrings- in clang-cl
+}
+
+static void TranslatePermissiveMinus(Arg *A, llvm::opt::DerivedArgList &DAL,
+                                     const OptTable &Opts) {
+  DAL.AddFlagArg(A, Opts.getOption(options::OPT__SLASH_Zc_twoPhase));
+  DAL.AddFlagArg(A, Opts.getOption(options::OPT_foperator_names));
+  DAL.AddFlagArg(A, Opts.getOption(options::OPT__SLASH_Zc_strictStrings));
+}
+
 llvm::opt::DerivedArgList *
 MSVCToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
                              StringRef BoundArch,
@@ -1792,12 +1806,17 @@ MSVCToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
     } else if (A->getOption().matches(options::OPT_D)) {
       // Translate -Dfoo#bar into -Dfoo=bar.
       TranslateDArg(A, *DAL, Opts);
-    }
+    } else if (A->getOption().matches(options::OPT__SLASH_permissive)) {
+      // Expand /permissive
+      TranslatePermissive(A, *DAL, Opts);
+    } else if (A->getOption().matches(options::OPT__SLASH_permissive_)) {
+      // Expand /permissive-
+      TranslatePermissiveMinus(A, *DAL, Opts);
 #if INTEL_CUSTOMIZATION
     // Add SYCL specific performance libraries.
     // These are transformed from the added base library names to the full
     // path including the library.
-    else if (A->getOption().matches(options::OPT_foffload_static_lib_EQ) &&
+    } else if (A->getOption().matches(options::OPT_foffload_static_lib_EQ) &&
              A->getValue() == StringRef("mkl_sycl.lib")) {
       SmallString<128> MKLPath(GetMKLLibPath());
       llvm::sys::path::append(MKLPath, "mkl_sycl.lib");
@@ -1812,9 +1831,8 @@ MSVCToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
       DAL->AddJoinedArg(A, Opts.getOption(options::OPT_foffload_static_lib_EQ),
                         Args.MakeArgString(DAALPath));
       continue;
-    }
 #endif // INTEL_CUSTOMIZATION
-    else if (OFK != Action::OFK_HIP) {
+    } else if (OFK != Action::OFK_HIP) {
       // HIP Toolchain translates input args by itself.
       DAL->append(A);
     }
