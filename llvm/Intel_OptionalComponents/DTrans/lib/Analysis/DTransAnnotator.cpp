@@ -1,6 +1,6 @@
 //===------DTransAnnotator.cpp - Annotation utilities for DTrans ----------===//
 //
-// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -55,9 +55,12 @@ static_assert(sizeof(AnnotNames) / sizeof(char *) == DTransAnnotator::DPA_Last,
 // when DTrans transformations run because when the instruction referencing the
 // metadata is remapped, the type within the metadata will be remapped as well,
 // if the type changes.
-void DTransAnnotator::createDTransTypeAnnotation(Instruction &I,
-                                                 llvm::Type *Ty) {
-  createDTransTypeAnnotationImpl(I, MetadataNames[DMD_DTransType], Ty);
+void DTransAnnotator::createDTransTypeAnnotation(Instruction &I, llvm::Type *Ty,
+                                                 unsigned PtrLevel) {
+  assert(!Ty->isPointerTy() &&
+         "Annotated type cannot be pointer type. Use PtrLevel");
+  createDTransTypeAnnotationImpl(I, MetadataNames[DMD_DTransType], Ty,
+                                 PtrLevel);
 }
 
 bool DTransAnnotator::removeDTransTypeAnnotation(Instruction &I) {
@@ -71,8 +74,12 @@ llvm::Type *DTransAnnotator::lookupDTransTypeAnnotation(Instruction &I) {
 }
 
 void DTransAnnotator::createDTransSOAToAOSTypeAnnotation(Function &F,
-                                                         llvm::Type *Ty) {
-  createDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToAOS], Ty);
+                                                         llvm::Type *Ty,
+                                                         unsigned PtrLevel) {
+  assert(!Ty->isPointerTy() &&
+         "Annotated type cannot be pointer type. Use PtrLevel");
+  createDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToAOS], Ty,
+                                 PtrLevel);
 }
 
 bool DTransAnnotator::removeDTransSOAToAOSTypeAnnotation(Function &F) {
@@ -84,9 +91,11 @@ llvm::Type *DTransAnnotator::lookupDTransSOAToAOSTypeAnnotation(Function &F) {
 }
 
 void DTransAnnotator::createDTransSOAToAOSPrepareTypeAnnotation(
-    Function &F, llvm::Type *Ty) {
+    Function &F, llvm::Type *Ty, unsigned PtrLevel) {
+  assert(!Ty->isPointerTy() &&
+    "Annotated type cannot be pointer type. Use PtrLevel");
   createDTransTypeAnnotationImpl(F, MetadataNames[DMD_DTransSOAToAOSPrepare],
-                                 Ty);
+                                 Ty, PtrLevel);
 }
 
 bool DTransAnnotator::removeDTransSOAToAOSPrepareTypeAnnotation(Function &F) {
