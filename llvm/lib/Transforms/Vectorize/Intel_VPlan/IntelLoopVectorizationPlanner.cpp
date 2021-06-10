@@ -694,6 +694,12 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     // Calculate cost for one iteration of the main loop.
     CostModelTy MainLoopCM(Plan, VF, TTI, TLI, DL, VLSA);
     VPlanPeelingVariant *PeelingVariant = Plan->getPreferredPeeling(VF);
+
+    // Peeling is not supported for non-normalized loops.
+    VPLoop *L = Plan->getMainLoop(true);
+    if (!L->hasNormalizedInduction())
+      PeelingVariant = &VPlanStaticPeeling::NoPeelLoop;
+
     const unsigned MainLoopIterationCost =
       MainLoopCM.getCost(PeelingVariant);
     if (MainLoopIterationCost == CostModelTy::UnknownCost) {
@@ -845,7 +851,7 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     if (VecScenario.hasPeel()) {
       VPlanVector *MPlan = getVPlanForVF(VF);
       VPLoop *L = *(MPlan->getVPLoopInfo())->begin();
-      if (VecScenario.hasMaskedPeel() && !hasLoopNormalizedInduction(L)) {
+      if (VecScenario.hasMaskedPeel() && !L->hasNormalizedInduction()) {
         // replace by scalar loop if there is no normalized induction
         VecScenario.setScalarPeel();
       }
@@ -1198,6 +1204,7 @@ void LoopVectorizationPlanner::emitVecSpecifics(VPlanVector *Plan) {
   Builder.setInsertPoint(PreHeader);
   VPValue *OrigTC = nullptr;
   bool HasNormalizedInd = hasLoopNormalizedInduction(CandidateLoop);
+  CandidateLoop->setHasNormalizedInductionFlag(HasNormalizedInd);
   if (!HasNormalizedInd) {
     // If loop does not have normalized induction then emit it.
     Type *VectorLoopIVType = Legal->getWidestInductionType();
@@ -1698,11 +1705,6 @@ bool LoopVectorizationPlanner::hasLoopNormalizedInduction(const VPLoop *Loop) {
       VPValue *Init = PN->getIncomingValue(Preheader);
       if (auto IndInit = dyn_cast<VPInductionInit>(Init)) {
         Init = IndInit->getStartValueOperand();
-        if (auto *VPLiveIn = dyn_cast<VPLiveInValue>(Init))
-          Init = IndInit->getParent()
-                     ->getParent()
-                     ->getExternals()
-                     .getOriginalIncomingValue(VPLiveIn->getMergeId());
       }
       if (isa<VPConstantInt>(Init) &&
           cast<VPConstantInt>(Init)->getValue() == 0)

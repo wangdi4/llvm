@@ -213,15 +213,21 @@ void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {
   auto *VPLInfo = Plan->getVPLoopInfo();
   VPLoop *CandidateLoop = *VPLInfo->begin();
 
+  // TODO. Modify the loop latch condition classification (in
+  // hasLoopNormalizedInduction) to accept HIR-normalized loops. They use 'le'
+  // condition which leads to execution of OrigUB + 1 iterations.
+  //
+  CandidateLoop->setHasNormalizedInductionFlag(true);
+
   // The multi-exit loops are processed in a special way
   if (!CandidateLoop->getUniqueExitBlock())
     return;
 
   auto *PreHeader = CandidateLoop->getLoopPreheader();
   assert(PreHeader && "Single pre-header is expected!");
-
   VPBuilderHIR Builder;
   Builder.setInsertPointFirstNonPhi(PreHeader);
+
   VPValue *OrigTC;
   VPInstruction *Cond;
   std::tie(OrigTC, Cond) = CandidateLoop->getLoopUpperBound();
