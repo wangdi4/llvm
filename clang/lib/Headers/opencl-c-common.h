@@ -55,6 +55,14 @@
 #define __opencl_c_images 1
 #endif
 
+// Define header-only feature macros for OpenCL C 3.0.
+#if (__OPENCL_C_VERSION__ == 300)
+// For the SPIR target all features are supported.
+#if defined(__SPIR__)
+#define __opencl_c_atomic_scope_all_devices 1
+#endif // defined(__SPIR__)
+#endif // (__OPENCL_C_VERSION__ == 300)
+
 // built-in scalar data types:
 
 /**
