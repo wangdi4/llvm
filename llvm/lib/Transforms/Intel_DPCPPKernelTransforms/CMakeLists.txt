@@ -28,6 +28,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   WIRelatedValuePass.cpp
   PrepareKernelArgs.cpp
   CleanupWrappedKernel.cpp
+  VectorVariantFillIn.cpp
 
   Utils/CPUDetect.cpp
   Utils/FunctionDescriptor.cpp

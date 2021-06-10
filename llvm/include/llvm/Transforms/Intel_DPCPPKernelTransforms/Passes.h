@@ -25,5 +25,6 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/RedundantPhiNodePass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/ResolveWICall.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/SplitBBonBarrierPass.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/VectorVariantFillIn.h"
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_PASSES_H
