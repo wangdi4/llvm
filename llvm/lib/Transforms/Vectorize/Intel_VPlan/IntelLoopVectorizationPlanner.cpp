@@ -229,7 +229,7 @@ namespace vpo {
 bool PrintSVAResults = false;
 bool PrintAfterCallVecDecisions = false;
 bool LoopMassagingEnabled = true;
-bool EnableSOAAnalysis = false;
+bool EnableSOAAnalysis = true;
 bool EnableNewCFGMerge = false;
 } // namespace vpo
 } // namespace llvm
