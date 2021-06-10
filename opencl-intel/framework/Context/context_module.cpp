@@ -425,6 +425,41 @@ cl_context ContextModule::CreateContextFromType(const cl_context_properties * cl
     //cl_return clContext;
     return clContext;
 }
+
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::SetContextDestructorCallback
+//////////////////////////////////////////////////////////////////////////
+cl_err_code ContextModule::SetContextDestructorCallback(
+    cl_context clContext,
+    void(CL_CALLBACK *pfnNotify)(cl_context context, void *userData),
+    void *pUserData) {
+  LOG_DEBUG(
+      TEXT("Enter SetContextDestructorCallback(clContext=%d, pUserData=%d)"),
+      clContext, pUserData);
+
+  cl_err_code clErrRet = CL_SUCCESS;
+  SharedPtr<Context> pContext =
+      m_mapContexts.GetOCLObject((_cl_context_int *)clContext)
+          .DynamicCast<Context>();
+  // Return CL_INVALID_CONTEXT if context is not a valid context.
+  if (!pContext.GetPtr()) {
+    LOG_DEBUG(TEXT("m_mapContexts.GetOCLObject(%d, %d) = nullptr"), clContext, &pContext);
+    return CL_INVALID_CONTEXT;
+  }
+
+  // Return CL_INVALID_VALUE if pfn_notify is NULL.
+  if (!pfnNotify) {
+    LOG_DEBUG(TEXT("%s"), TEXT("(!pfnNotify); return CL_INVALID_VALUE"));
+    return CL_INVALID_VALUE;
+  }
+
+  clErrRet = pContext->setDestructorCallback(clContext, pfnNotify, pUserData);
+  if (CL_FAILED(clErrRet))
+    pContext->NotifyError("clSetContextDestructorCallback failed", &clErrRet,
+                          sizeof(cl_int));
+  return clErrRet;
+}
+
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CheckDevices
 //////////////////////////////////////////////////////////////////////////

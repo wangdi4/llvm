@@ -345,6 +345,15 @@ Context::~Context()
 {
     LOG_INFO(TEXT("%s"), TEXT("Context destructor enter"));
     LOG_DEBUG(TEXT("CONTEXT_TEST: Context destructor enter. (id = %d)"), m_iId);
+    // The registered callback functions are called in the reverse order in
+    // which they were registered.
+    for (auto it = m_callbackFuncs.rbegin(); it != m_callbackFuncs.rend();
+         it++) {
+      auto clContext = std::get<0>(*it);
+      auto pfnNotify = std::get<1>(*it);
+      auto pUserData = std::get<2>(*it);
+      pfnNotify(clContext, pUserData);
+    }
 
     //
     // Free private resources
@@ -1120,6 +1129,16 @@ cl_err_code Context::CreateImageArray(cl_mem_flags clFlags, const cl_image_forma
     }
     m_mapMemObjects.AddObject(*ppImageArr);
     return CL_SUCCESS;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Context::setDestructorCallback
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Context::setDestructorCallback(
+    cl_context clContext, void(CL_CALLBACK *funcNotify)(cl_context, void *),
+    void *userData) {
+  m_callbackFuncs.push_back(std::make_tuple(clContext, funcNotify, userData));
+  return CL_SUCCESS;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

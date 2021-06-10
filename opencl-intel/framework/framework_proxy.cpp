@@ -92,6 +92,9 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clGetDeviceInfo = (cl_api_clGetDeviceInfo)GET_ALIAS(clGetDeviceInfo);
     ICDDispatchTable.clCreateContext = (cl_api_clCreateContext)GET_ALIAS(clCreateContext);
     ICDDispatchTable.clCreateContextFromType = (cl_api_clCreateContextFromType)GET_ALIAS(clCreateContextFromType);
+    ICDDispatchTable.clSetContextDestructorCallback =
+        (cl_api_clSetContextDestructorCallback)GET_ALIAS(
+            clSetContextDestructorCallback);
     ICDDispatchTable.clRetainContext = (cl_api_clRetainContext)GET_ALIAS(clRetainContext);
     ICDDispatchTable.clReleaseContext = (cl_api_clReleaseContext)GET_ALIAS(clReleaseContext);
     ICDDispatchTable.clGetContextInfo = (cl_api_clGetContextInfo)GET_ALIAS(clGetContextInfo);

@@ -170,6 +170,68 @@ class clBuildProgramTracer {
     tracing_notify_state_t state = TRACING_NOTIFY_STATE_NOTHING_CALLED;
 };
 
+class clSetContextDestructorCallbackTracer {
+public:
+  void enter(cl_context *context,
+             void(CL_CALLBACK **funcNotify)(cl_context context, void *userData),
+             void **userData) {
+    assert(state == TRACING_NOTIFY_STATE_NOTHING_CALLED);
+
+    params.context = context;
+    params.funcNotify = funcNotify;
+    params.userData = userData;
+
+    data.site = CL_CALLBACK_SITE_ENTER;
+    data.correlationId =
+        tracingCorrelationId.fetch_add(1, std::memory_order_acq_rel);
+    data.functionName = "clSetContextDestructorCallback";
+    data.functionParams = static_cast<const void *>(&params);
+    data.functionReturnValue = nullptr;
+
+    assert(tracingHandle.size() > 0);
+    assert(tracingHandle.size() < TRACING_MAX_HANDLE_COUNT);
+    for (size_t i = 0; i < tracingHandle.size(); ++i) {
+      TracingHandle *handle = tracingHandle[i];
+      assert(handle != nullptr);
+      if (handle->getTracingPoint(CL_FUNCTION_clSetContextDestructorCallback)) {
+        data.correlationData = correlationData + i;
+        handle->call(CL_FUNCTION_clSetContextDestructorCallback, &data);
+      }
+    }
+
+    state = TRACING_NOTIFY_STATE_ENTER_CALLED;
+  }
+
+  void exit(cl_int *retVal) {
+    assert(state == TRACING_NOTIFY_STATE_ENTER_CALLED);
+    data.site = CL_CALLBACK_SITE_EXIT;
+    data.functionReturnValue = retVal;
+
+    assert(tracingHandle.size() > 0);
+    assert(tracingHandle.size() < TRACING_MAX_HANDLE_COUNT);
+    for (size_t i = 0; i < tracingHandle.size(); ++i) {
+      TracingHandle *handle = tracingHandle[i];
+      assert(handle != nullptr);
+      if (handle->getTracingPoint(CL_FUNCTION_clSetContextDestructorCallback)) {
+        data.correlationData = correlationData + i;
+        handle->call(CL_FUNCTION_clSetContextDestructorCallback, &data);
+      }
+    }
+
+    state = TRACING_NOTIFY_STATE_EXIT_CALLED;
+  }
+
+  ~clSetContextDestructorCallbackTracer() {
+    assert(state != TRACING_NOTIFY_STATE_ENTER_CALLED);
+  }
+
+private:
+  cl_params_clSetContextDestructorCallback params;
+  cl_callback_data data;
+  uint64_t correlationData[TRACING_MAX_HANDLE_COUNT];
+  tracing_notify_state_t state = TRACING_NOTIFY_STATE_NOTHING_CALLED;
+};
+
 class clCloneKernelTracer {
   public:
     clCloneKernelTracer() {}

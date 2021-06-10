@@ -6,6 +6,7 @@
         clCreateCommandQueue;
         clCreateContext;
         clCreateContextFromType;
+        clSetContextDestructorCallback;
         clCreateImage2D;
         clCreateImage3D;
         clCreateKernel;

@@ -613,6 +613,29 @@ cl_context CL_API_CALL clCreateContext(const cl_context_properties * properties,
 }
 SET_ALIAS(clCreateContext);
 
+cl_int CL_API_CALL clSetContextDestructorCallback(
+    cl_context context,
+    void(CL_CALLBACK *pfnNotify)(cl_context context, void *userData),
+    void *pUserData) {
+  if (g_pUserLogger->IsApiLoggingEnabled()) {
+    START_LOG_API(clSetContextDestructorCallback);
+    apiLogger
+        << "cl_context context" << context
+        << "void (CL_CALLBACK *pfnNotify)(cl_program program, void * userData)"
+        << pfnNotify << "void * userData" << pUserData;
+    CALL_TRACED_API_LOGGER(
+        CONTEXT_MODULE, cl_int,
+        SetContextDestructorCallback(context, pfnNotify, pUserData),
+        clSetContextDestructorCallback, &context, &pfnNotify, &pUserData);
+  } else {
+    CALL_TRACED_API(CONTEXT_MODULE, cl_int,
+                    SetContextDestructorCallback(context, pfnNotify, pUserData),
+                    clSetContextDestructorCallback, &context, &pfnNotify,
+                    &pUserData);
+  }
+}
+SET_ALIAS(clSetContextDestructorCallback);
+
 cl_context CL_API_CALL clCreateContextFromType(const cl_context_properties * properties,
 								   cl_device_type          device_type,
 								   logging_fn              pfn_notify,
