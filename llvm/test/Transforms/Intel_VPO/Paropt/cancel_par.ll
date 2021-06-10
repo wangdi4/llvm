@@ -179,7 +179,7 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
 
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
 ; Reduction Handling
-; CRITICAL: call void @__kmpc_critical_with_hint({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, [8 x i32]*  @{{[a-zA-Z._0-9]*}}, i32 0)
+; CRITICAL: call void @__kmpc_critical({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, [8 x i32]*  @{{[a-zA-Z._0-9]*}})
 ; CRITICAL: call void @__kmpc_end_critical({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, [8 x i32]*  @{{[a-zA-Z._0-9]*}})
 
 ; FASTRED: call i32 @__kmpc_reduce({{[^,]+}}, i32 %{{[a-zA-Z._0-9]*}}, i32 {{[0-9]*}}, i32 {{[0-9]*}}, i8* %{{[a-zA-Z._0-9]*}}, void (i8*, i8*)* @{{[a-zA-Z._0-9]*}}, [8 x i32]* @{{[a-zA-Z._0-9]*}})

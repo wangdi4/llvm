@@ -87,7 +87,7 @@ entry:
 ; ALL-NEXT: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.init.body{{.*}} ]
 ; ALL: store {{.*}} 0, {{.*}}
 ; ALL: br i1 %red.cpy.done{{.*}}, label %red.init.done{{.*}}, label %red.init.body{{.*}}
-; CRITICAL: call void @__kmpc_critical_with_hint({{.*}})
+; CRITICAL: call void @__kmpc_critical({{.*}})
 ; FASTRED: call i32 @__kmpc_reduce({{.*}})
 ; ALL: red.update.body{{.*}}:
 ; ALL-NEXT: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.update.body{{.*}} ]

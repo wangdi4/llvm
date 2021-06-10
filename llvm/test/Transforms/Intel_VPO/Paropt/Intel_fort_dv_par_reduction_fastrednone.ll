@@ -59,7 +59,7 @@
 ; CHECK: store i16 1, i16* %"foo_$A.addr_a0$_fetch", align 1
 
 ; Check for calls to kmpc_[end_]critical, and that PRIV_DV and Orig (%"foo_$A") are used between those calls.
-; CHECK: call void @__kmpc_critical_with_hint(%struct.ident_t* {{[^ ,]+}}, i32 {{[^ ,]+}}, [8 x i32]* {{[^ ,]+}}, i32 0)
+; CHECK: call void @__kmpc_critical(%struct.ident_t* {{[^ ,]+}}, i32 {{[^ ,]+}}, [8 x i32]* {{[^ ,]+}})
 ; CHECK: {{[^ ]+}} = getelementptr inbounds %"QNCA_a0$i16*$rank3$", %"QNCA_a0$i16*$rank3$"* [[PRIV_DV]], i32 0, i32 0
 ; CHECK: {{[^ ]+}} = getelementptr inbounds %"QNCA_a0$i16*$rank3$", %"QNCA_a0$i16*$rank3$"* %"foo_$A", i32 0, i32 0
 ; CHECK: call void @__kmpc_end_critical(%struct.ident_t* {{[^ ,]+}}, i32 {{[^ ,]+}}, [8 x i32]* {{[^ ,]+}})

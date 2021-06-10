@@ -24,7 +24,7 @@ target triple = "unknown-unknown-unknown"
 define void @add_1(i32* nocapture %num) {
 entry:
 ; ALL-NOT: %ret = call token @llvm.directive.region.entry() [ "DIR.OMP.CRITICAL"() ]
-; ALL: call void @__kmpc_critical_with_hint({{[^,]+}}, i32 %{{[^\s]*}}, [8 x i32]* @[[LOCK]], i32 0)
+; ALL: call void @__kmpc_critical({{[^,]+}}, i32 %{{[^\s]*}}, [8 x i32]* @[[LOCK]])
   %ret = call token @llvm.directive.region.entry() [ "DIR.OMP.CRITICAL"() ]
 
 ; ALL: %0 = load i32, i32* %num, align 4
