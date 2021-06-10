@@ -681,6 +681,7 @@ void initializeAddImplicitArgsLegacyPass(PassRegistry &);
 void initializeResolveWICallLegacyPass(PassRegistry &);
 void initializePrepareKernelArgsLegacyPass(PassRegistry &);
 void initializeCleanupWrappedKernelLegacyPass(PassRegistry &);
+void initializeUpdateCallAttrsLegacyPass(PassRegistry &);
 void initializeVectorVariantFillInLegacyPass(PassRegistry &);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);

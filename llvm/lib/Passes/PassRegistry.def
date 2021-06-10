@@ -75,6 +75,7 @@ MODULE_PASS("dpcpp-kernel-cleanup-wrapped", CleanupWrappedKernelPass())
 MODULE_PASS("dpcpp-kernel-barrier", KernelBarrier())
 MODULE_PASS("dpcpp-kernel-barrier-in-function", BarrierInFunction())
 MODULE_PASS("dpcpp-kernel-split-on-barrier", SplitBBonBarrier())
+MODULE_PASS("dpcpp-kernel-update-call-attrs", UpdateCallAttrs())
 MODULE_PASS("dpcpp-kernel-vector-variant-fillin", VectorVariantFillIn())
 
 MODULE_PASS("print<dpcpp-kernel-data-per-barrier-analysis>", DataPerBarrierPrinter(dbgs()))
