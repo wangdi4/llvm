@@ -117,7 +117,7 @@
 ;CHECK-NEXT:         Lazy Block Frequency Analysis
 ;CHECK-NEXT:         Optimization Remark Emitter
 ;CHECK-NEXT:         VPO Work-Region Information
-;CHECK-NEXT:         VPO Paropt Optimize Data Sharing        ;INTEL
+;CHECK-NEXT:         VPO Paropt Shared Privatization Pass
 ;CHECK-NEXT:         Dominator Tree Construction
 ;CHECK-NEXT:         Natural Loop Information
 ;CHECK-NEXT:         Scalar Evolution Analysis
@@ -128,7 +128,7 @@
 ;CHECK-NEXT:         Lazy Block Frequency Analysis
 ;CHECK-NEXT:         Optimization Remark Emitter
 ;CHECK-NEXT:         VPO Work-Region Information
-;CHECK-NEXT:         VPO Paropt Shared Privatization Pass    ;INTEL
+;CHECK-NEXT:         VPO Paropt Optimize Data Sharing
 ; end INTEL_CUSTOMIZATION
 ;CHECK-NEXT:     VPO Paropt Pass
 ;CHECK-NEXT:       FunctionPass Manager
@@ -401,7 +401,7 @@
 ;CHECK-NEXT:       Lazy Block Frequency Analysis
 ;CHECK-NEXT:       Optimization Remark Emitter
 ;CHECK-NEXT:       VPO Work-Region Information
-;CHECK-NEXT:       VPO Paropt Optimize Data Sharing          ;INTEL
+;CHECK-NEXT:       VPO Paropt Shared Privatization Pass
 ;CHECK-NEXT:       Dominator Tree Construction
 ;CHECK-NEXT:       Natural Loop Information
 ;CHECK-NEXT:       Scalar Evolution Analysis
@@ -412,7 +412,7 @@
 ;CHECK-NEXT:       Lazy Block Frequency Analysis
 ;CHECK-NEXT:       Optimization Remark Emitter
 ;CHECK-NEXT:       VPO Work-Region Information
-;CHECK-NEXT:       VPO Paropt Shared Privatization Pass      ;INTEL
+;CHECK-NEXT:       VPO Paropt Optimize Data Sharing
 ; end INTEL_CUSTOMIZATION
 ;CHECK-NEXT:     VPO Paropt Pass
 ;CHECK-NEXT:       FunctionPass Manager
