@@ -673,6 +673,18 @@ int32_t DeviceTy::manifest_data_for_region(void *TgtEntryPtr) {
   }
   UsedPtrsMtx.unlock();
 
+  int32_t GTID = __kmpc_global_thread_num(nullptr);
+  LambdaPtrsMtx.lock();
+  if (LambdaPtrs.count(GTID) > 0 && LambdaPtrs.at(GTID).size() > 0) {
+    DP("Manifesting lambda mapped target pointers:\n");
+    for (auto Ptr : LambdaPtrs.at(GTID)) {
+      DP("\tTgtPtr=" DPxMOD "\n", DPxPTR(Ptr));
+      ObjectPtrs.push_back(Ptr);
+    }
+    LambdaPtrs.at(GTID).clear();
+  }
+  LambdaPtrsMtx.unlock();
+
   if (ObjectPtrs.empty())
     return OFFLOAD_SUCCESS;
 
@@ -966,6 +978,14 @@ int32_t DeviceTy::setSubDevice(int32_t Level) {
 void DeviceTy::unsetSubDevice(void) {
   PM->RootDeviceID = -1;
   PM->SubDeviceMask = 0;
+}
+
+void DeviceTy::addLambdaPtr(void *TgtPtr) {
+  int32_t GTID = __kmpc_global_thread_num(nullptr);
+  std::lock_guard<std::mutex> Lock(LambdaPtrsMtx);
+  if (LambdaPtrs.count(GTID) == 0)
+    LambdaPtrs.emplace(GTID, std::vector<void *>{});
+  LambdaPtrs.at(GTID).push_back(TgtPtr);
 }
 #endif // INTEL_COLLAB
 

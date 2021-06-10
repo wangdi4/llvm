@@ -153,6 +153,8 @@ struct DeviceTy {
 #if INTEL_COLLAB
   std::map<int32_t, UsedPtrsTy> UsedPtrs;
   std::mutex UsedPtrsMtx;
+  std::map<int32_t, std::vector<void *>> LambdaPtrs;
+  std::mutex LambdaPtrsMtx;
 #endif // INTEL_COLLAB
 
   // NOTE: Once libomp gains full target-task support, this state should be
@@ -274,6 +276,7 @@ struct DeviceTy {
   const char *getInteropRcDesc(int32_t RetCode);
   int32_t setSubDevice(int32_t Level);
   void unsetSubDevice(void);
+  void addLambdaPtr(void *TgtPtr);
 #endif // INTEL_COLLAB
 
   /// Synchronize device/queue/event based on \p AsyncInfo and return
