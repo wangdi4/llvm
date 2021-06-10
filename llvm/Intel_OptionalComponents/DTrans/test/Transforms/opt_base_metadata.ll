@@ -28,7 +28,7 @@ define dso_local i32 @test01() {
 
   ret i32 0
 }
-!0 = !{ %struct.test01a** null}
-; CHECK: !0 = !{%__DTT_struct.test01a** null}
+!0 = !{ %struct.test01a zeroinitializer, i32 2}
+; CHECK: !0 = !{%__DTT_struct.test01a zeroinitializer, i32 2}
 
 declare i8* @malloc(i64)

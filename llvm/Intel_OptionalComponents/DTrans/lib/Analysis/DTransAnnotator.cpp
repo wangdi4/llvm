@@ -49,7 +49,7 @@ static_assert(sizeof(AnnotNames) / sizeof(char *) == DTransAnnotator::DPA_Last,
 //
 // The format of the metadata is to store a null value of the specified type
 // as follows:
-//   { Ty null }
+//   { Ty null, i32 PtrLevel }
 //
 // The use of a null value of the type enables the type to be kept up-to-date
 // when DTrans transformations run because when the instruction referencing the
