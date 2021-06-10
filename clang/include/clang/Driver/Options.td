@@ -6852,6 +6852,12 @@ class CLRemainingArgsJoined<string name> : Option<["/", "-"], name,
 #if INTEL_CUSTOMIZATION
 class CLCommaJoined<string name> : Option<["/", "-"], name, KIND_COMMAJOINED>,
   Group<cl_Group>, Flags<[CLOption, NoXarchOption]>;
+
+class CLSeparate<string name> : Option<["/", "-"], name, KIND_SEPARATE>,
+  Group<cl_Group>, Flags<[CLOption, NoXarchOption]>;
+
+class CLJoinedAndSeparate<string name> : Option<["/", "-"], name,
+  KIND_JOINED_AND_SEPARATE>, Group<cl_Group>, Flags<[CLOption, NoXarchOption]>;
 #endif // INTEL_CUSTOMIZATION
 
 // Aliases:
@@ -6888,6 +6894,13 @@ def _SLASH_diagnostics_classic : CLFlag<"diagnostics:classic">,
 def _SLASH_D : CLJoinedOrSeparate<"D">, HelpText<"Define macro">,
   MetaVarName<"<macro[=value]>">, Alias<D>;
 def _SLASH_E : CLFlag<"E">, HelpText<"Preprocess to stdout">, Alias<E>;
+#if INTEL_CUSTOMIZATION
+def _SLASH_fintelfpga : CLFlag<"fintelfpga">, Alias<fintelfpga>;
+def _SLASH_fopenmp_device_lib_EQ : CLCommaJoined<"fopenmp-device-lib=">,
+  Alias<fopenmp_device_lib_EQ>;
+def _SLASH_fno_openmp_device_lib_EQ : CLCommaJoined<"fno-openmp-device-lib=">,
+  Alias<fno_openmp_device_lib_EQ>;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_fp_except : CLFlag<"fp:except">, HelpText<"">, Alias<ftrapping_math>;
 def _SLASH_fp_except_ : CLFlag<"fp:except-">,
   HelpText<"">, Alias<fno_trapping_math>;
@@ -6902,6 +6915,26 @@ def _SLASH_fp_strict : CLFlag<"fp:strict">, HelpText<"">, Alias<fno_fast_math>;
 def _SLASH_fsanitize_EQ_address : CLFlag<"fsanitize=address">,
   HelpText<"Enable AddressSanitizer">,
   Alias<fsanitize_EQ>, AliasArgs<["address"]>;
+#if INTEL_CUSTOMIZATION
+def _SLASH_fsycl_dead_args_optimization : CLFlag<"fsycl-dead-args-optimization">,
+  Alias<fsycl_dead_args_optimization>;
+def _SLASH_fno_sycl_dead_args_optimization : CLFlag<"fno-sycl-dead-args-optimization">,
+  Alias<fno_sycl_dead_args_optimization>;
+def _SLASH_fsycl_device_lib_EQ : CLCommaJoined<"fsycl-device-lib=">,
+  Alias<fsycl_device_lib_EQ>;
+def _SLASH_fno_sycl_device_lib_EQ : CLCommaJoined<"fno-sycl-device-lib=">,
+  Alias<fno_sycl_device_lib_EQ>;
+def _SLASH_fsycl_early_optimizations : CLFlag<"fsycl-early-optimizations">,
+  Alias<fsycl_early_optimizations>;
+def _SLASH_fno_sycl_early_optimizations : CLFlag<"fno-sycl-early-optimizations">,
+  Alias<fno_sycl_early_optimizations>;
+def _SLASH_fsycl_link : CLFlag<"fsycl-link">, Alias<fsycl_link_EQ>, AliasArgs<["early"]>;
+def _SLASH_fsycl_link_EQ : CLJoined<"fsycl-link=">, Alias<fsycl_link_EQ>;
+def _SLASH_fsycl_targets_EQ : CLCommaJoined<"fsycl-targets=">, Alias<fsycl_targets_EQ>;
+def _SLASH_fsycl_unnamed_lambda : CLFlag<"fsycl-unnamed-lambda">, Alias<fsycl_unnamed_lambda>;
+def _SLASH_fno_sycl_unnamed_lambda : CLFlag<"fno-sycl-unnamed-lambda">,
+  Alias<fno_sycl_unnamed_lambda>;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_GA : CLFlag<"GA">, Alias<ftlsmodel_EQ>, AliasArgs<["local-exec"]>,
   HelpText<"Assume thread-local variables are defined in the executable">;
 def _SLASH_GR : CLFlag<"GR">, HelpText<"Emit RTTI data (default)">;
@@ -7331,6 +7364,9 @@ def _SLASH_std : CLCompileJoined<"std:">,
   HelpText<"Set language version (c++14,c++17,c++20,c++latest,c11,c17)">;
 def _SLASH_U : CLJoinedOrSeparate<"U">, HelpText<"Undefine macro">,
   MetaVarName<"<macro>">, Alias<U>;
+#if INTEL_CUSTOMIZATION
+def _SLASH_v : CLFlag<"v">, Alias<v>;
+#endif //INTEL_CUSTOMIZATION
 def _SLASH_validate_charset : CLFlag<"validate-charset">,
   Alias<W_Joined>, AliasArgs<["invalid-source-encoding"]>;
 def _SLASH_validate_charset_ : CLFlag<"validate-charset-">,
@@ -7364,6 +7400,34 @@ def _SLASH_vd : CLJoined<"vd">, HelpText<"Control vtordisp placement">,
   Alias<vtordisp_mode_EQ>;
 def _SLASH_X : CLFlag<"X">,
   HelpText<"Do not add %INCLUDE% to include search path">, Alias<nostdlibinc>;
+#if INTEL_CUSTOMIZATION
+def _SLASH_Xopenmp_backend : CLSeparate<"Xopenmp-target-backend">,
+  Alias<Xopenmp_backend>;
+def _SLASH_Xopenmp_backend_EQ : CLJoinedAndSeparate<"Xopenmp-target-backend=">,
+  Alias<Xopenmp_backend_EQ>;
+def _SLASH_Xopenmp_frontend : CLSeparate<"Xopenmp-target-frontend">,
+  Alias<Xopenmp_target>;
+def _SLASH_Xopenmp_frontend_EQ : CLJoinedAndSeparate<"Xopenmp-target-frontend=">,
+  Alias<Xopenmp_target_EQ>;
+def _SLASH_Xopenmp_linker : CLSeparate<"Xopenmp-target-linker">,
+  Alias<Xopenmp_linker>;
+def _SLASH_Xopenmp_linker_EQ : CLJoinedAndSeparate<"Xopenmp-target-linker=">,
+  Alias<Xopenmp_linker_EQ>;
+def _SLASH_Xs : CLJoined<"Xs">, Alias<Xs>;
+def _SLASH_Xs_separate : CLSeparate<"Xs">, Alias<Xs_separate>;
+def _SLASH_Xsycl_backend : CLSeparate<"Xsycl-target-backend">,
+  Alias<Xsycl_backend>;
+def _SLASH_Xsycl_backend_EQ : CLJoinedAndSeparate<"Xsycl-target-backend=">,
+  Alias<Xsycl_backend_EQ>;
+def _SLASH_Xsycl_frontend : CLSeparate<"Xsycl-target-frontend">,
+  Alias<Xsycl_frontend>;
+def _SLASH_Xsycl_frontend_EQ : CLJoinedAndSeparate<"Xsycl-target-frontend=">,
+  Alias<Xsycl_frontend_EQ>;
+def _SLASH_Xsycl_linker : CLSeparate<"Xsycl-target-linker">,
+  Alias<Xsycl_linker>;
+def _SLASH_Xsycl_linker_EQ : CLJoinedAndSeparate<"Xsycl-target-linker=">,
+  Alias<Xsycl_linker_EQ>;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_Zc_sizedDealloc : CLFlag<"Zc:sizedDealloc">,
   HelpText<"Enable C++14 sized global deallocation functions">,
   Alias<fsized_deallocation>;
