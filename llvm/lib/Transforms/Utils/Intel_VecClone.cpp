@@ -228,12 +228,30 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   FunctionType::param_iterator ParmIt = OrigFunctionType->param_begin();
   FunctionType::param_iterator ParmEnd = OrigFunctionType->param_end();
   std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
-  for (; ParmIt != ParmEnd; ++ParmIt, ++VKIt) {
+  Function::arg_iterator ArgIt = F.arg_begin();
+  for (; ParmIt != ParmEnd; ++ParmIt, ++VKIt, ++ArgIt) {
     if (VKIt->isVector()) {
       unsigned VF = V.getVlen();
       if (auto *FVT = dyn_cast<FixedVectorType>(*ParmIt))
         VF *= FVT->getNumElements();
-      ParmTypes.push_back(FixedVectorType::get((*ParmIt)->getScalarType(), VF));
+      // Having a vector pointer argument means that a vector of pointers will be
+      // attempted to be constructed. However, if this argument is marked as
+      // byval, then converting pointer to a vector violates byval semantics.
+      //
+      // The transformation is this: the original argument:
+      //     %struct.A* byval(%struct.A)
+      // will be turned into
+      //     [4 x %struct.A]* byval([4 x %struct.A])
+      //
+      // The array is used since it is not allowed to construct a vector out of
+      // non-primitive types.
+      if (((*ArgIt).hasByValAttr())) {
+        unsigned AddrSpace = cast<PointerType>((*ArgIt).getType())->getAddressSpace();
+        Type *ByValType = (*ArgIt).getParamByValType();
+        ParmTypes.push_back(PointerType::get(ArrayType::get(ByValType, VF), AddrSpace));
+      }
+      else
+        ParmTypes.push_back(FixedVectorType::get((*ParmIt)->getScalarType(), VF));
     } else {
       ParmTypes.push_back(*ParmIt);
     }
@@ -271,7 +289,7 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
 
   // Remove incompatible argument attributes (applied to the scalar argument,
   // does not apply to its vector counterpart).
-  Function::arg_iterator ArgIt = Clone->arg_begin();
+  ArgIt = Clone->arg_begin();
   Function::arg_iterator ArgEnd = Clone->arg_end();
   // TODO (Dave Kreitzer): Once we pull down the changes that add the
   //   Function::removeParamAttrs method, we should use it in lieu of
@@ -299,6 +317,19 @@ Function *VecCloneImpl::CloneFunction(Function &F, VectorVariant &V,
   SmallVector<ReturnInst*, 8> Returns;
   CloneFunctionInto(Clone, &F, VMap, CloneFunctionChangeType::LocalChangesOnly,
                     Returns);
+
+  // Adjust byval arguments attribute for vector counterpart.
+  for (auto &Arg : enumerate(Clone->args())) {
+    if (!Arg.value().hasByValAttr())
+      continue;
+    Type* ByValType =
+      cast<PointerType>(ParmTypes[Arg.index()])->getElementType();
+    Clone->removeParamAttr(Arg.index(), Attribute::ByVal);
+    Clone->addParamAttr(Arg.index(),
+                        Attribute::getWithByValType(Clone->getContext(),
+                                                    ByValType));
+  }
+
   // For some reason, this causes DCE to remove calls to these functions.
   // Disable for now.
   //Clone->setCallingConv(CallingConv::X86_RegCall);
@@ -560,7 +591,20 @@ Instruction *VecCloneImpl::expandVectorParameters(
       continue;
 
     // This function is run after the arguments have been already widened!
-    VectorType *VecType = cast<VectorType>(Arg->getType());
+    Type *Ty = nullptr;
+    Type *ElementTy = nullptr;
+    if (VectorType *VecType = dyn_cast<VectorType>(Arg->getType())) {
+      Ty = VecType;
+      ElementTy = VecType->getElementType();
+    }
+    else {
+      // It is a pointer to array in form of:
+      // [4 x %struct.A]* byval([4 x %struct.A])
+      // for vector byval pointers.
+      PointerType *PtrTy = cast<PointerType>(Arg->getType());
+      Ty = PtrTy->getElementType();
+      ElementTy = cast<ArrayType>(Ty)->getElementType();
+    }
 
     // Some args other than the mask may not have users, but have not been
     // removed as dead. In those cases, just go on to the next argument.
@@ -589,8 +633,8 @@ Instruction *VecCloneImpl::expandVectorParameters(
     const DataLayout &DL = Clone->getParent()->getDataLayout();
 
     AllocaInst *VecAlloca =
-        new AllocaInst(VecType, DL.getAllocaAddrSpace(), nullptr,
-                       DL.getPrefTypeAlign(VecType), "vec." + Arg->getName());
+        new AllocaInst(Ty, DL.getAllocaAddrSpace(), nullptr,
+                       DL.getPrefTypeAlign(Ty), "vec." + Arg->getName());
     if (LastAlloca)
       VecAlloca->insertAfter(LastAlloca);
     else
@@ -599,12 +643,20 @@ Instruction *VecCloneImpl::expandVectorParameters(
 
     Type *ArgTy = nullptr;
     for (const auto &Pair : VMap)
-      if (Pair.second == Arg)
-        ArgTy = Pair.first->getType();
+      if (Pair.second == Arg) {
+        if (Arg->hasByValAttr())
+          // byval argument in form of %struct.A* byval(%struct.A),
+          // we are interested in the pointee type.
+          ArgTy = cast<PointerType>(Pair.first->getType())->getElementType();
+        else
+          ArgTy = Pair.first->getType();
+        // No need to traverse the map anymore.
+        break;
+      }
 
     // If the argument is a mask, it does not exist in VMap.
     if (!ArgTy)
-      ArgTy = VecType->getElementType();
+      ArgTy = ElementTy;
 
     PointerType *ElemTypePtr =
         PointerType::get(ArgTy, VecAlloca->getType()->getAddressSpace());
@@ -654,9 +706,20 @@ Instruction *VecCloneImpl::expandVectorParameters(
       // vector bitcast so that we can later update any users of the
       // parameter.
       Value *ArgValue = cast<Value>(Arg);
-      StoreInst *Store = new StoreInst(ArgValue, VecAlloca, false /*volatile*/,
-                                       DL.getABITypeAlign(ArgValue->getType()));
-
+      StoreInst *Store = nullptr;
+      if (Arg->hasByValAttr()) {
+        // Load the struct array and store it into the prepared alloca.
+        Type *Ty = cast<PointerType>(ArgValue->getType())->getElementType();
+        LoadInst *Load = new LoadInst(Ty, ArgValue, "vec." + Arg->getName() + ".byval.load",
+                                      false /*volatile*/, DL.getABITypeAlign(Ty));
+        Load->insertBefore(EntryBlock->getTerminator());
+        Store = new StoreInst(Load, VecAlloca, false /*volatile*/,
+                              DL.getABITypeAlign(Ty));
+        PRef->IsByValParam = true;
+      } else {
+        Store = new StoreInst(ArgValue, VecAlloca, false /*volatile*/,
+                               DL.getABITypeAlign(ArgValue->getType()));
+      }
       // Insert any necessary vector parameter stores here. This is needed for
       // when there were no existing scalar stores that we can update to
       // vector stores for the parameter. This is needed when Mem2Reg has
@@ -993,13 +1056,15 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
   // to the new vector one. A gep is inserted using the vector bitcast created
   // in the entry block and any uses of the parameter are replaced with this
   // gep. The only users that will not be updated are those in the entry block
-  // that do the initial store to the vector alloca of the parameter.
+  // that do the initial store (or load for byval) to the vector alloca of the
+  // parameter.
 
   for (auto VectorParmMapIt : VectorParmMap) {
 
     SmallVector<Instruction*, 4> InstsToUpdate;
     Value *Parm = VectorParmMapIt->VectorParm;
     Instruction *Cast = VectorParmMapIt->VectorParmCast;
+    bool IsByvalParam = VectorParmMapIt->IsByValParam;
 
     for (User *U : Parm->users()) {
       InstsToUpdate.push_back(dyn_cast<Instruction>(U));
@@ -1008,13 +1073,39 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
     for (unsigned I = 0; I < InstsToUpdate.size(); ++I) {
 
       Instruction *User = InstsToUpdate[I];
-      if (!(dyn_cast<StoreInst>(User) && User->getParent() == EntryBlock)) {
+      if (!((dyn_cast<StoreInst>(User) || dyn_cast<LoadInst>(User))
+             && User->getParent() == EntryBlock)) {
 
         BitCastInst *BitCast = cast<BitCastInst>(Cast);
         PointerType *BitCastType = cast<PointerType>(BitCast->getType());
         Type *PointeeType = BitCastType->getElementType();
 
         GetElementPtrInst *VecGep = nullptr;
+
+        if (IsByvalParam) {
+          if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(User)) {
+            // The original GEPs from the parameter are plain gep from a pointer
+            // with 0 as the first index (we only read one struct from the pointer),
+            // having the parameter changed to array of structs, we need to
+            // change this 0 index to get the indexing in this array.
+            SmallVector<Value *, 4> Ind{ GEP->indices() };
+            ZExtInst *ZExt = new ZExtInst(Phi, Type::getInt64Ty(Parm->getContext()),
+                                          BitCast->getName() + ".byval.zext",
+                                          User);
+            // Drop the original 0 index, replace it with phi.
+            Ind.erase(Ind.begin());
+            Ind.insert(Ind.begin(), ZExt);
+            VecGep = GetElementPtrInst::Create(PointeeType, BitCast, Ind,
+                                               BitCast->getName() + ".byval.gep",
+                                               User);
+            User->replaceAllUsesWith(VecGep);
+            User->eraseFromParent();
+            continue;
+          }
+          else
+            assert(false && "Do not expect non-GEP users yet!");
+        }
+
         if (!isa<PHINode>(User))
           VecGep = GetElementPtrInst::Create(PointeeType, BitCast, Phi,
                                              BitCast->getName() + ".gep", User);
@@ -1064,8 +1155,11 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
       } else {
         // The user is the parameter store to alloca in the entry block. Replace
         // the old scalar alloca with the new vector one.
-        AllocaInst *VecAlloca = dyn_cast<AllocaInst>(Cast->getOperand(0));
-        User->setOperand(1, VecAlloca);
+        // byval load does not require such handling.
+        if (dyn_cast<StoreInst>(User)) {
+          AllocaInst *VecAlloca = dyn_cast<AllocaInst>(Cast->getOperand(0));
+          User->setOperand(1, VecAlloca);
+        }
       }
     }
   }
