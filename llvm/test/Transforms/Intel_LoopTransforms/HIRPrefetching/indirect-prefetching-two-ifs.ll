@@ -38,12 +38,12 @@
 ; CHECK:           |   if (i1 + 20 <=u zext.i32.i64(%N) + -1)
 ; CHECK:           |   {
 ; CHECK:           |      %Load = (%M)[i1 + 20];
-; CHECK:           |      @llvm.prefetch.p0i8(&((i8*)(@B)[0][%Load]),  0,  2,  1);
+; CHECK:           |      @llvm.prefetch.p0i8(&((i8*)(@B)[0][%Load]),  0,  1,  1);
 ; CHECK:           |   }
 ; CHECK:           |   if (i1 + sext.i32.i64(%K) + 20 <=u zext.i32.i64(%N) + sext.i32.i64(%K) + -1)
 ; CHECK:           |   {
 ; CHECK:           |      %Load2 = (%M)[i1 + sext.i32.i64(%K) + 20];
-; CHECK:           |      @llvm.prefetch.p0i8(&((i8*)(@B)[0][%Load2]),  0,  2,  1);
+; CHECK:           |      @llvm.prefetch.p0i8(&((i8*)(@B)[0][%Load2]),  0,  1,  1);
 ; CHECK:           |   }
 ; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 24]),  0,  3,  1);
 ; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(%M)[i1 + 24]),  0,  3,  1);

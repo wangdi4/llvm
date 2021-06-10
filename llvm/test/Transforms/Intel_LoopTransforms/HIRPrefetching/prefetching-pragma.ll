@@ -45,7 +45,7 @@
 ; CHECK-NEXT:      |   %conv4 = fptrunc.double.float(%add);
 ; CHECK-NEXT:      |   (%3)[i1] = %conv4;
 ; CHECK-NEXT:      |   @llvm.prefetch.p0i8(&((i8*)(%1)[i1 + 36]),  0,  3,  1);
-; CHECK-NEXT:      |   @llvm.prefetch.p0i8(&((i8*)(%3)[i1 + 40]),  0,  2,  1);
+; CHECK-NEXT:      |   @llvm.prefetch.p0i8(&((i8*)(%3)[i1 + 40]),  0,  1,  1);
 ; CHECK-NEXT:      + END LOOP
 ;
 ; CHECK:           ret &((undef)[0]);

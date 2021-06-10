@@ -42,8 +42,8 @@
 ; CHECK:           |   {
 ; CHECK:           |      %Load = (%M)[i1 + 40];
 ; CHECK:           |      %Load2 = (%M)[i1 + 50];
-; CHECK:           |      @llvm.prefetch.p0i8(&((i8*)(@C)[0][%Load]),  0,  1,  1);
-; CHECK:           |      @llvm.prefetch.p0i8(&((i8*)(@C)[0][%Load2]),  0,  1,  1);
+; CHECK:           |      @llvm.prefetch.p0i8(&((i8*)(@C)[0][%Load]),  0,  0,  1);
+; CHECK:           |      @llvm.prefetch.p0i8(&((i8*)(@C)[0][%Load2]),  0,  0,  1);
 ; CHECK:           |   }
 ; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 15]),  0,  3,  1);
 ; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 15]),  0,  3,  1);
