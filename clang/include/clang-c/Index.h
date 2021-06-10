@@ -2588,17 +2588,21 @@ enum CXCursorKind {
    */
   CXCursor_OMPMaskedDirective = 292,
 
+  /** OpenMP unroll directive.
+   */
+  CXCursor_OMPUnrollDirective = 293,
+
 #if INTEL_COLLAB
-  CXCursor_OMPTargetVariantDispatchDirective = 293,
-  CXCursor_OMPGenericLoopDirective = 294,
-  CXCursor_OMPTeamsGenericLoopDirective = 295,
-  CXCursor_OMPTargetTeamsGenericLoopDirective = 296,
-  CXCursor_OMPParallelGenericLoopDirective = 297,
-  CXCursor_OMPTargetParallelGenericLoopDirective = 298,
-  CXCursor_OMPPrefetchDirective = 299,
+  CXCursor_OMPTargetVariantDispatchDirective = 294,
+  CXCursor_OMPGenericLoopDirective = 295,
+  CXCursor_OMPTeamsGenericLoopDirective = 296,
+  CXCursor_OMPTargetTeamsGenericLoopDirective = 297,
+  CXCursor_OMPParallelGenericLoopDirective = 298,
+  CXCursor_OMPTargetParallelGenericLoopDirective = 299,
+  CXCursor_OMPPrefetchDirective = 300,
   CXCursor_LastStmt = CXCursor_OMPPrefetchDirective,
 #else /* INTEL_COLLAB */
-  CXCursor_LastStmt = CXCursor_OMPMaskedDirective,
+  CXCursor_LastStmt = CXCursor_OMPUnrollDirective,
 #endif /* INTEL_COLLAB */
 
   /**
@@ -2607,7 +2611,11 @@ enum CXCursorKind {
    * The translation unit cursor exists primarily to act as the root
    * cursor for traversing the contents of a translation unit.
    */
+#if INTEL_COLLAB
+  CXCursor_TranslationUnit = 350,
+#else /* INTEL_COLLAB */
   CXCursor_TranslationUnit = 300,
+#endif /* INTEL_COLLAB */
 
   /* Attributes */
   CXCursor_FirstAttr = 400,

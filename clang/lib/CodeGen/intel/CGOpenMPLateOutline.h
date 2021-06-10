@@ -325,6 +325,8 @@ class OpenMPLateOutliner {
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   void emitOMPAlignClause(const OMPAlignClause *Cl);
+  void emitOMPFullClause(const OMPFullClause *Cl);
+  void emitOMPPartialClause(const OMPPartialClause *Cl);
 
   llvm::Value *emitOpenMPDefaultConstructor(const Expr *IPriv,
                                             bool IsUDR = false);
