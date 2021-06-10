@@ -38,7 +38,7 @@
 ; CHECK:           |   if (i1 + 40 <=u zext.i32.i64(%N) + -1)
 ; CHECK:           |   {
 ; CHECK:           |      %Load = (%M)[i1 + 40];
-; CHECK:           |      @llvm.prefetch.p0i8(&((i8*)(@A)[0][%Load]),  1,  3,  1);
+; CHECK:           |      @llvm.prefetch.p0i8(&((i8*)(@A)[0][%Load]),  1,  2,  1);
 ; CHECK:           |   }
 ; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@B)[0][i1 + 32]),  0,  3,  1);
 ; CHECK:           |   @llvm.prefetch.p0i8(&((i8*)(@C)[0][i1 + 32]),  0,  3,  1);

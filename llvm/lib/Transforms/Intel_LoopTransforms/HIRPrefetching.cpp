@@ -90,16 +90,16 @@ static cl::opt<unsigned> ForceIterationDistance(
     cl::desc("Iteration distance for prefetching distance computation"));
 
 // Pragma prefetch hint specifies the type of prefetch. Possible values:
-// 1: For integer data that will be reused
-// 2: For integer and floating point data that will be reused from L2 cache
-// 3: For data that will be reused from L3 cache
-// 4: For data that will not be reused
+// 0: For integer data that will be reused
+// 1: For integer and floating point data that will be reused from L2 cache
+// 2: For data that will be reused from L3 cache
+// 3: For data that will not be reused
 // However, prefetch intrinsic's locality is a temporal locality specifier
 // ranging from (0) - no locality, to (3) - extremely local keep in cache. Thus,
 // we need to transfer pragma prefetch hint to prefetch intrinsic's locality
-// using (4 - PrefetchHint)
+// using (3 - PrefetchHint)
 static cl::opt<unsigned>
-    ForceHint("hir-prefetching-hint", cl::init(1), cl::Hidden,
+    ForceHint("hir-prefetching-hint", cl::init(0), cl::Hidden,
               cl::desc("Prefetching hint to specify the type of prefetch"));
 
 static cl::opt<unsigned>
@@ -394,15 +394,15 @@ void HIRPrefetching::collectPrefetchPragmaInfo(
       Dist *= LpStride;
     }
 
-    // Prefetch pragma hint is ranging from 1 - 4, while
+    // Prefetch pragma hint is ranging from 0 - 3, while
     // Prefetch intrinsic's locality is ranging from (0) - no
     // locality, to (3) - extremely local keep in cache. Thus, we need to
     // transfer prefetch pragma hint to prefetch intrinsic's locality using
-    // 4 - Hint
+    // 3 - Hint
     if (Hint == -1) {
       Hint = DefaultPrefetchHint;
     } else {
-      Hint = 4 - Hint;
+      Hint = 3 - Hint;
     }
 
     if (Var->isNull()) {
@@ -569,7 +569,7 @@ bool HIRPrefetching::doAnalysis(
 
   DenseMap<unsigned, std::pair<int, int>> CandidateVarSBsDistsHints;
   int DefaultPrefetchDist = getPrefetchingDist(Lp);
-  int DefaultPrefetchHint = 4 - ForceHint;
+  int DefaultPrefetchHint = 3 - ForceHint;
 
   collectPrefetchPragmaInfo(Lp, CandidateVarSBsDistsHints, DefaultPrefetchDist,
                             DefaultPrefetchHint);

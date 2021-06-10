@@ -54,7 +54,7 @@
 ; CHECK-NEXT:       |   (%3)[i1] = %conv8;
 ; CHECK-NEXT:       |   @llvm.prefetch.p0i8(&((i8*)(%1)[i1 + 27]),  0,  3,  1);
 ; CHECK-NEXT:       |   @llvm.prefetch.p0i8(&((i8*)(%1)[i1 + 10027]),  0,  3,  1);
-; CHECK-NEXT:       |   @llvm.prefetch.p0i8(&((i8*)(%3)[i1 + 40]),  0,  3,  1);
+; CHECK-NEXT:       |   @llvm.prefetch.p0i8(&((i8*)(%3)[i1 + 40]),  0,  2,  1);
 ; CHECK-NEXT:       + END LOOP
 ;
 ; CHECK:            ret &((undef)[0]);
