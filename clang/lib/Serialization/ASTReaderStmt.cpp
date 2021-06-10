@@ -2507,6 +2507,10 @@ void ASTStmtReader::VisitOMPAtomicDirective(OMPAtomicDirective *D) {
   VisitOMPExecutableDirective(D);
   D->IsXLHSInRHSPart = Record.readBool();
   D->IsPostfixUpdate = Record.readBool();
+#if INTEL_COLLAB
+  D->IsCompareMin = Record.readBool();
+  D->IsCompareMax = Record.readBool();
+#endif // INTEL_COLLAB
 }
 
 void ASTStmtReader::VisitOMPTargetDirective(OMPTargetDirective *D) {

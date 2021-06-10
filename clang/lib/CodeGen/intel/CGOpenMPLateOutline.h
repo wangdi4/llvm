@@ -267,6 +267,7 @@ class OpenMPLateOutliner {
   void emitOMPWriteClause(const OMPWriteClause *);
   void emitOMPUpdateClause(const OMPUpdateClause *);
   void emitOMPCaptureClause(const OMPCaptureClause *);
+  void emitOMPCompareClause(const OMPCompareClause *);
   void emitOMPSeqCstClause(const OMPSeqCstClause *);
   void emitOMPDependClause(const OMPDependClause *);
   void emitOMPDeviceClause(const OMPDeviceClause *);

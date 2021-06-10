@@ -5865,6 +5865,11 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
     emitOMPAtomicCaptureExpr(CGF, AO, IsPostfixUpdate, V, X, E, UE,
                              IsXLHSInRHSPart, Loc);
     break;
+#if INTEL_COLLAB
+  case OMPC_compare:
+    llvm_unreachable("Atomic compare not yet implemented.");
+    break;
+#endif // INTEL_COLLAB
   case OMPC_if:
   case OMPC_final:
   case OMPC_num_threads:
