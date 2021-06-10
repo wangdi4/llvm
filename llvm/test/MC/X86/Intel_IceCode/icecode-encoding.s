@@ -380,3 +380,11 @@
 // CHECK: cccp %rbx
 // CHECK: encoding: [0xf2,0x48,0x0f,0xcb]
           cccp %rbx
+
+// CHECK: jmp_nopred %rbx
+// CHECK: encoding: [0xf3,0x48,0x0f,0xc7,0xfb]
+          jmp_nopred %rbx
+
+// CHECK: fe_serizlize
+// CHECK: encoding: [0x0f,0x01,0xd1]
+          fe_serizlize

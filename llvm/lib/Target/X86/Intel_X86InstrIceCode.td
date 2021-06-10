@@ -210,5 +210,10 @@ let Predicates = [InIceCodeMode] in {
     def CCCP : RI<0xc8, AddRegFrm, (outs GR64:$dst), (ins GR64:$src),
                   "cccp\t$dst", []>, XD;
   }
+
+  let isBranch = 1, isTerminator = 1, isBarrier = 1, isIndirectBranch = 1 in
+    def JMP_NOPRED : RI<0xc7, MRM7r, (outs), (ins GR64:$src), "jmp_nopred\t$src", []>, XS;
+
+  def FE_SERIZLIZE : I<0x01, MRM_D1, (outs), (ins), "fe_serizlize", []>, TB;
 }
 // end INTEL_FEATURE_ICECODE

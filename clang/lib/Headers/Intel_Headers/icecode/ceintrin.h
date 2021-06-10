@@ -379,6 +379,9 @@ _ce_cccp(unsigned long long reg) {
   return res;
 }
 
+#define _ce_jmp_nopred(addr) __asm__ __volatile__ ("jmp_nopred %0" :: "r"(addr))
+#define _ce_fe_serialize() __asm__ __volatile__ ("fe_serialize")
+
 #undef __DEFAULT_FN_ATTRS
 
 #endif /* __x86_64__ */
