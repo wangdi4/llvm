@@ -17,10 +17,12 @@
 #include "IntelVPLoopAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
+#include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanValue.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 
 #define DEBUG_TYPE "vploop-analysis"
 
@@ -707,8 +709,9 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
       StartIncluded ? Reduction->getRecurrenceStartValue() : nullptr;
   bool UseStart = StartValue != nullptr || Reduction->isMinMax();
 
-  VPInstruction *Init = Builder.createReductionInit(
-      Identity, StartValue, UseStart, Name + ".red.init");
+  VPInstruction *Init =
+      Builder.createReductionInit(Identity, StartValue, UseStart,
+                                  Name + Reduction->getNameSuffix() + ".init");
 
   processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
                    *Reduction->getRecurrenceStartValue());
@@ -735,20 +738,21 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
     Exit = Builder.createLoad(Ty, PrivateMem);
 
   VPReductionFinal *Final = nullptr;
+  std::string FinName = (Name + Reduction->getNameSuffix() + ".final").str();
   if (auto IndexRed = dyn_cast<VPIndexReduction>(Reduction)) {
     const VPReduction *Parent = IndexRed->getParentReduction();
     VPInstruction *ParentExit;
     VPReductionFinal *ParentFinal;
     std::tie(ParentFinal, ParentExit) = RedFinalMap[Parent];
     Final = Builder.create<VPReductionFinal>(
-        Name + ".red.final", Reduction->getReductionOpcode(), Exit, ParentExit,
-        ParentFinal, Reduction->isSigned());
+        FinName, Reduction->getReductionOpcode(), Exit, ParentExit, ParentFinal,
+        Reduction->isSigned());
     if (IndexRed->isLinearIndex())
       Final->setIsLinearIndex();
   } else {
     if (StartIncluded || Reduction->isMinMax()) {
       Final = Builder.create<VPReductionFinal>(
-          Name + ".red.final", Reduction->getReductionOpcode(), Exit);
+          FinName, Reduction->getReductionOpcode(), Exit);
     } else {
       // Create a load for Start value if it's a pointer.
       VPValue *FinalStartValue = Reduction->getRecurrenceStartValue();
@@ -758,8 +762,8 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
         FinalStartValue = Builder.createLoad(Ty, FinalStartValue);
       }
       Final = Builder.create<VPReductionFinal>(
-          Name + ".red.final", Reduction->getReductionOpcode(), Exit,
-          FinalStartValue, Reduction->isSigned());
+          FinName, Reduction->getReductionOpcode(), Exit, FinalStartValue,
+          Reduction->isSigned());
     }
   }
   // Attach FastMathFlags to reduction-final.
@@ -821,7 +825,10 @@ void VPLoopEntityList::preprocess() {
 }
 
 void VPLoopEntityList::identifyMinMaxLinearIdxs() {
-  // Relink parents of non-linear indexes.
+  // Create the absent linear indexes.
+  VPDominatorTree DomTree;
+  DomTree.recalculate(Plan);
+
   for (auto &RedPtr : ReductionList) {
     auto *Reduction = dyn_cast<VPIndexReduction>(RedPtr.get());
     if (!Reduction)
@@ -830,26 +837,109 @@ void VPLoopEntityList::identifyMinMaxLinearIdxs() {
       continue;
     auto *Parent = Reduction->getParentReduction();
     auto Index = getMinMaxIndex(Parent);
-    // TODO: implement adding of a new index-reduction in case when
-    // it's absent in the source.
+    if (!Index)
+      Index = createLinearIndexReduction(Reduction, DomTree);
+
     assert(Index && "linear index is not set for reduction");
+    assert(Index != Reduction && "unexpected linear index");
+
     Reduction->replaceParentReduction(Index);
   }
 }
 
-#if 0 //leaving for the future
 // Create linear index for min/max + index idiom.
+// The new code is created to handle min/max+index idioms that look like below.
+//    for(i = 0....) {
+//       mm = (mm > a[i]) ? mm : a[i];
+//       v2 = (mm > a[i]) ? v2 : b[i];
+//    }
+// Here, we can't calculate v2 last value directly using mm last value. We need
+// to know on which iteration the assignment occurs, select the maximum index
+// from all lanes, and get the corresponding value. We don't have anything to
+// calculate the maximum index as v2 value is not linear. Thus we create fake
+// linear index, effectively creating the following code.
+//    for(i = 0....) {
+//       mm = (mm > a[i]) ? mm : a[i];
+//       fake_i = (mm > a[i]) ? fake_i : i;
+//       v2 = (mm > a[i]) ? v2 : b[i];
+//    }
+// After that, fake_i is used to calculate maximum index which, in turn, allows
+// us to get the final value for v2.
+//
 // 1) Emit the following set of VPInstructions:
 //    ; in the loop header
 //    %phi_val = phi [-1, preheader], [%select, loop_latch]
 //    ; in the loop body, just after NonLinNdx update instruction.
+//    ; this corresponds to fake_i assignment in the source above.
 //    %select = select NonLinNdx.cond, %loop_induction, %phi_val
 // 2) Create VPIndexReduction descriptor for these instructions, setting
 //    parent reduction to the parent of NonLinNdx.
-VPIndexReduction* createLinearIndexReduction(VPIndexReduction* NonLinNdx) {
+// 3) Set "IsLinearIndex" flag on the new reduction and update parent's index
+//    reduction.
+VPIndexReduction *
+VPLoopEntityList::createLinearIndexReduction(VPIndexReduction *NonLinNdx,
+                                             VPDominatorTree &DomTree) {
 
+  assert((isa<VPIndexReduction>(NonLinNdx) && !NonLinNdx->isLinearIndex()) &&
+         "Expected non-linear index reduction");
+  assert(!getMinMaxIndex(NonLinNdx->getParentReduction()) &&
+         "Linear index already exists");
+
+  VPBuilder Builder;
+  VPBasicBlock *Header = Loop.getHeader();
+
+  bool InductionIsSigned;
+  const VPInduction *LoopIndex;
+  std::tie(LoopIndex, InductionIsSigned) = getLoopInduction();
+
+  VPBuilder::InsertPointGuard Guard(Builder);
+
+  // First create the needed VPInstructions.
+  VPPHINode *LoopIVPhi = getRecurrentVPHINode(*LoopIndex);
+
+  // Create init value. This should be the corresponding constant, either max or
+  // min integer value of the corresponding type. Using paropt utility to obtain
+  // it.
+  unsigned Opc = NonLinNdx->getReductionOpcode();
+  bool NeedMaxIntVal =
+      (Opc == VPInstruction::FMin || Opc == VPInstruction::SMin ||
+       Opc == VPInstruction::UMin);
+
+  Constant *MinMaxInt = VPOParoptUtils::getMinMaxIntVal(
+      *Plan.getLLVMContext(), LoopIVPhi->getType(), !NonLinNdx->isSigned(),
+      NeedMaxIntVal);
+
+  Builder.setInsertPointFirstNonPhi(Header);
+  VPConstant *IncomingVal = Plan.getVPConstant(MinMaxInt);
+  VPPHINode *StartPhi = Builder.createPhiInstruction(LoopIVPhi->getType());
+  StartPhi->addIncoming(IncomingVal, Loop.getLoopPreheader());
+  VPInstruction *OrigExit = NonLinNdx->getLoopExitInstr();
+  // TODO. Currently we support only select instructions for min/max+index.
+  // Need to enhance that and then the code below will not work.
+  assert(OrigExit->getOpcode() == Instruction::Select &&
+         "Expected select instruction");
+
+  VPInstruction *OrigPhi = getRecurrentVPHINode(*NonLinNdx);
+  bool IsPhiFirst = OrigExit->getOperand(1) == OrigPhi;
+  Builder.setInsertPoint(OrigExit);
+  VPInstruction *NewExit = Builder.createSelect(
+      OrigExit->getOperand(0), IsPhiFirst ? StartPhi : LoopIVPhi,
+      IsPhiFirst ? LoopIVPhi : StartPhi);
+
+  // TODO. Check whether the current block dominates latch. If not
+  // then we need a phi in the latch.
+  assert(DomTree.dominates(NewExit->getParent(), Loop.getLoopLatch()) &&
+         "Unsupported non-dominating update");
+  StartPhi->addIncoming(NewExit, Loop.getLoopLatch());
+
+  // Next, create LoopEntity.
+  VPIndexReduction *Ret =
+      addIndexReduction(StartPhi, NonLinNdx->getParentReduction(), IncomingVal,
+                        NewExit, LoopIVPhi->getType(), InductionIsSigned,
+                        NonLinNdx->isForLast(), true /*IsLinNdx*/);
+  MinMaxIndexes[NonLinNdx->getParentReduction()] = Ret;
+  return Ret;
 }
-#endif
 
 // Check whether \p Inst is a consistent update of induction, i.e. it
 // has correct opcode and contains induction step.

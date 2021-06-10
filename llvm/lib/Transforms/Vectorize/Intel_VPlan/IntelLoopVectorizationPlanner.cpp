@@ -430,6 +430,7 @@ void LoopVectorizationPlanner::createLiveInOutLists(VPlanVector &Plan) {
 void LoopVectorizationPlanner::selectBestPeelingVariants() {
   std::map<VPlanNonMasked *, VPlanPeelingAnalysis> VPPACache;
 
+  bool EnableDP = isDynAlignEnabled();
   for (auto &Pair : VPlans) {
     auto VF = Pair.first;
     auto *Plan = cast<VPlanNonMasked>(Pair.second.MainPlan.get());
@@ -450,10 +451,10 @@ void LoopVectorizationPlanner::selectBestPeelingVariants() {
     if (EnableGeneralPeelingCostModel) {
       VPlanCostModel GeneralCM(Plan, VF, TTI, TLI, DL, VLSA);
       VPlanPeelingCostModelGeneral PeelingCM(GeneralCM);
-      BestPeeling = VPPA.selectBestPeelingVariant(VF, PeelingCM);
+      BestPeeling = VPPA.selectBestPeelingVariant(VF, PeelingCM, EnableDP);
     } else {
       VPlanPeelingCostModelSimple PeelingCM(*DL);
-      BestPeeling = VPPA.selectBestPeelingVariant(VF, PeelingCM);
+      BestPeeling = VPPA.selectBestPeelingVariant(VF, PeelingCM, EnableDP);
     }
 
     Plan->setPreferredPeeling(VF, std::move(BestPeeling));
@@ -604,7 +605,7 @@ static bool makeGoUnalignedDecision(int64_t AlignedGain,
 /// the corresponding VPlan.
 template <typename CostModelTy>
 std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
-  if (VPlanEnablePeeling && isDynAlignEnabled())
+  if (VPlanEnablePeeling)
    selectBestPeelingVariants();
 
   LLVM_DEBUG(dbgs() << "Selecting VF for VPlan #" << VPlanOrderNumber << '\n');
