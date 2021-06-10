@@ -15,37 +15,37 @@ entry:
 ; CHECK: [[WIDE_LOAD_i64:%.*]] = zext <64 x i32> %wide.load to <64 x i64>
 
   %call1 = tail call spir_func i32 @_Z14work_group_alli(i32 %0) #4
-; CHECK: [[VECTOR_ALL:%.*]] = call spir_func <64 x i32> @_Z14work_group_allDv4_i(<64 x i32> %wide.load)
+; CHECK: [[VECTOR_ALL:%.*]] = call spir_func <64 x i32> @_Z14work_group_allDv64_i(<64 x i32> %wide.load)
   %call2 = tail call spir_func i32 @_Z14work_group_anyi(i32 %0) #4
-; CHECK: [[VECTOR_ANY:%.*]] = call spir_func <64 x i32> @_Z14work_group_anyDv4_i(<64 x i32> %wide.load)
+; CHECK: [[VECTOR_ANY:%.*]] = call spir_func <64 x i32> @_Z14work_group_anyDv64_i(<64 x i32> %wide.load)
 
   %call3 = tail call spir_func i32 @_Z20work_group_broadcastij(i32 %0, i32 0) #4
-; CHECK: = call spir_func <64 x i32> @_Z20work_group_broadcastDv4_ij(<64 x i32> %wide.load, i32 0)
+; CHECK: = call spir_func <64 x i32> @_Z20work_group_broadcastDv64_ij(<64 x i32> %wide.load, i32 0)
   %call4 = tail call spir_func i32 @_Z20work_group_broadcastijj(i32 %0, i32 0, i32 0) #4
-; CHECK: = call spir_func <64 x i32> @_Z20work_group_broadcastDv4_ijj(<64 x i32> %wide.load, i32 0, i32 0)
+; CHECK: = call spir_func <64 x i32> @_Z20work_group_broadcastDv64_ijj(<64 x i32> %wide.load, i32 0, i32 0)
   %call5 = tail call spir_func i32 @_Z20work_group_broadcastijjj(i32 %0, i32 0, i32 0, i32 0) #4
-; CHECK: = call spir_func <64 x i32> @_Z20work_group_broadcastDv4_ijjj(<64 x i32> %wide.load, i32 0, i32 0, i32 0)
+; CHECK: = call spir_func <64 x i32> @_Z20work_group_broadcastDv64_ijjj(<64 x i32> %wide.load, i32 0, i32 0, i32 0)
 
   %call6 = tail call spir_func i32 @_Z21work_group_reduce_addi(i32 %0) #4
   %call7 = tail call spir_func i32 @_Z21work_group_reduce_minj(i32 %0) #4
   %call8 = tail call spir_func i64 @_Z21work_group_reduce_maxl(i64 %1) #4
-; CHECK: = call spir_func <64 x i32> @_Z21work_group_reduce_addDv4_i(<64 x i32> %wide.load)
-; CHECK: = call spir_func <64 x i32> @_Z21work_group_reduce_minDv4_j(<64 x i32> %wide.load)
-; CHECK: = call spir_func <64 x i64> @_Z21work_group_reduce_maxDv4_l(<64 x i64> [[WIDE_LOAD_i64]])
+; CHECK: = call spir_func <64 x i32> @_Z21work_group_reduce_addDv64_i(<64 x i32> %wide.load)
+; CHECK: = call spir_func <64 x i32> @_Z21work_group_reduce_minDv64_j(<64 x i32> %wide.load)
+; CHECK: = call spir_func <64 x i64> @_Z21work_group_reduce_maxDv64_l(<64 x i64> [[WIDE_LOAD_i64]])
 
   %call9  = tail call spir_func i32 @_Z29work_group_scan_exclusive_addi(i32 %0) #4
   %call10 = tail call spir_func i32 @_Z29work_group_scan_exclusive_minj(i32 %0) #4
   %call11 = tail call spir_func i64 @_Z29work_group_scan_exclusive_maxl(i64 %1) #4
-; CHECK: = call spir_func <64 x i32> @_Z29work_group_scan_exclusive_addDv4_i(<64 x i32> %wide.load)
-; CHECK: = call spir_func <64 x i32> @_Z29work_group_scan_exclusive_minDv4_j(<64 x i32> %wide.load)
-; CHECK: = call spir_func <64 x i64> @_Z29work_group_scan_exclusive_maxDv4_l(<64 x i64> [[WIDE_LOAD_i64]])
+; CHECK: = call spir_func <64 x i32> @_Z29work_group_scan_exclusive_addDv64_i(<64 x i32> %wide.load)
+; CHECK: = call spir_func <64 x i32> @_Z29work_group_scan_exclusive_minDv64_j(<64 x i32> %wide.load)
+; CHECK: = call spir_func <64 x i64> @_Z29work_group_scan_exclusive_maxDv64_l(<64 x i64> [[WIDE_LOAD_i64]])
 
   %call12 = tail call spir_func i32 @_Z29work_group_scan_inclusive_addi(i32 %0) #4
   %call13 = tail call spir_func i32 @_Z29work_group_scan_inclusive_minj(i32 %0) #4
   %call14 = tail call spir_func i64 @_Z29work_group_scan_inclusive_maxl(i64 %1) #4
-; CHECK: = call spir_func <64 x i32> @_Z29work_group_scan_inclusive_addDv4_i(<64 x i32> %wide.load)
-; CHECK: = call spir_func <64 x i32> @_Z29work_group_scan_inclusive_minDv4_j(<64 x i32> %wide.load)
-; CHECK: = call spir_func <64 x i64> @_Z29work_group_scan_inclusive_maxDv4_l(<64 x i64> [[WIDE_LOAD_i64]])
+; CHECK: = call spir_func <64 x i32> @_Z29work_group_scan_inclusive_addDv64_i(<64 x i32> %wide.load)
+; CHECK: = call spir_func <64 x i32> @_Z29work_group_scan_inclusive_minDv64_j(<64 x i32> %wide.load)
+; CHECK: = call spir_func <64 x i64> @_Z29work_group_scan_inclusive_maxDv64_l(<64 x i64> [[WIDE_LOAD_i64]])
 
   ret void
 }
