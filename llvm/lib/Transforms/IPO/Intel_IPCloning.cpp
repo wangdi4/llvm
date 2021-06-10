@@ -1515,7 +1515,13 @@ static void addSpecialRecProCloneCode(Function *F, Function *FClone,
   SmallVector<Value *, 4> Args;
   for (Argument &Arg : F->args())
     Args.push_back(&Arg);
-  Builder.CreateCall(FClone, Args);
+  CallInst *CI = Builder.CreateCall(FClone, Args);
+  // CMPLRLLVM-29047: Create debug info for call, if needed.
+  if (DISubprogram *DIS = CI->getCaller()->getSubprogram()) {
+    DebugLoc CBDbgLoc = DILocation::get(CI->getContext(), DIS->getScopeLine(),
+                                        0, DIS);
+    CI->setDebugLoc(CBDbgLoc);
+  }
   Builder.CreateRetVoid();
   Builder.SetInsertPoint(BBConstStore);
   Constant *C1 =
