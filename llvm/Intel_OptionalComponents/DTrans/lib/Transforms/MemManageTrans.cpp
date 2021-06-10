@@ -663,7 +663,7 @@ bool MemManageTransImpl::checkTypesEscaped(void) {
   };
 
   for (auto &F : M) {
-    if (DTransAnnotator::lookupDTransSOAToAOSTypeAnnotation(F))
+    if (DTransAnnotator::hasDTransSOAToAOSTypeAnnotation(F))
       SOAToAOSDone = true;
     if (RelatedFunctions.count(&F))
       continue;
