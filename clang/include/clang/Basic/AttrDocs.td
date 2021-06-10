@@ -4727,7 +4727,7 @@ to a sub-group size supported by the device, or device compilation will fail.
 
 The ``[[intel::sub_group_size(n)]]`` attribute has the same effect as the other
 attribute spellings, except that it follows the SYCL 2020 Attribute Rules. See
- the ``[[intel::named_sub_group_size(NAME)]]`` documentation for clarification.
+the ``[[intel::named_sub_group_size(NAME)]]`` documentation for clarification.
 
 This attribute is mutually exclusive with ``[[intel::named_sub_group_size(NAME)]]``
 and ``[[intel::sycl_explicit_simd]]``.
