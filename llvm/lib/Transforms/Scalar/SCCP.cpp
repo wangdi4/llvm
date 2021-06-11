@@ -178,7 +178,7 @@ static bool simplifyInstsInBlock(SCCPSolver &Solver, BasicBlock &BB,
     if (tryToReplaceWithConstant(Solver, &Inst)) {
       if (Inst.isSafeToRemove())
         Inst.eraseFromParent();
-      // Hey, we just changed something!
+
       MadeChanges = true;
       ++InstRemovedStat;
     } else if (isa<SExtInst>(&Inst)) {
