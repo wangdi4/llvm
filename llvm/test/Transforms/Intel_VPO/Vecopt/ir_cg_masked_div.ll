@@ -54,7 +54,7 @@ define void @masked_divergent_div(i32 *%p, i64 %n) {
 ; CHECK-NEXT:  VPlannedBB5:
 ; CHECK-NEXT:    [[TMP16]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP17]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP18:%.*]] = icmp eq i64 [[TMP17]], [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP18:%.*]] = icmp uge i64 [[TMP17]], [[TMP0:%.*]]
 ; CHECK-NEXT:    br i1 [[TMP18]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB6:
@@ -127,7 +127,7 @@ define void @masked_uniform_div(i32 *%p, i64 %n, i32 %val) {
 ; CHECK-NEXT:  VPlannedBB6:
 ; CHECK-NEXT:    [[TMP13]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP14]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP15:%.*]] = icmp eq i64 [[TMP14]], [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP15:%.*]] = icmp uge i64 [[TMP14]], [[TMP0:%.*]]
 ; CHECK-NEXT:    br i1 [[TMP15]], label [[VPLANNEDBB70:%.*]], label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB7:
@@ -184,7 +184,7 @@ define void @masked_safe_speculation_div(i32 *%p, i64 %n, i32 %m) {
 ; CHECK-NEXT:  VPlannedBB4:
 ; CHECK-NEXT:    [[TMP7]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP8]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP9:%.*]] = icmp eq i64 [[TMP8]], [[TMP0]]
+; CHECK-NEXT:    [[TMP9:%.*]] = icmp uge i64 [[TMP8]], [[TMP0]]
 ; CHECK-NEXT:    br i1 [[TMP9]], label [[VPLANNEDBB50:%.*]], label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB5:
@@ -269,7 +269,7 @@ define void @masked_unsafe_speculation_div(i32 *%p, i64 %n, i32 %m) {
 ; CHECK-NEXT:  VPlannedBB5:
 ; CHECK-NEXT:    [[TMP16]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP17]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP18:%.*]] = icmp eq i64 [[TMP17]], [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP18:%.*]] = icmp uge i64 [[TMP17]], [[TMP0:%.*]]
 ; CHECK-NEXT:    br i1 [[TMP18]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB6:

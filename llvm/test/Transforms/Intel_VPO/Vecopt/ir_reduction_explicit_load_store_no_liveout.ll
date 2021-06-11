@@ -91,7 +91,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    store <8 x float> [[TMP1]], <8 x float>* [[X_VEC0]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <8 x i64> [[VEC_PHI0]], <i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI0]], 8
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i64 [[TMP3]], 1000
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i64 [[TMP3]], 1000
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB40:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:

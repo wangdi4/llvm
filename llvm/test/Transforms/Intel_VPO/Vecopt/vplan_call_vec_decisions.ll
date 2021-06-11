@@ -58,7 +58,7 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CALLVECDEC-NEXT:       [DA: Div] float* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x float]* @dst i64 0 i64 [[VP_INDVARS_IV]]
 ; CALLVECDEC-NEXT:       [DA: Div] store float [[VP6]] float* [[VP_ARRAYIDX2]]
 ; CALLVECDEC-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CALLVECDEC-NEXT:       [DA: Uni] br i1 [[VP_EXITCOND]], [[BB5:BB[0-9]+]], [[BB2]]
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      [[BB5]]: # preds: [[BB3]]
@@ -137,7 +137,7 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: (F  )] float* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x float]* @dst i64 0 i64 [[VP_INDVARS_IV]] (SVAOpBits 0->F 1->F 2->F )
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: ( V )] store float [[VP6]] float* [[VP_ARRAYIDX2]] (SVAOpBits 0->V 1->F )
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_EXITCOND]], [[BB5:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      [[BB5]]: # preds: [[BB3]]
@@ -253,7 +253,7 @@ define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32
 ; CALLVECDEC-NEXT:       [DA: Div] float* [[VP_ARRAYIDXA:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_IDXPROM]]
 ; CALLVECDEC-NEXT:       [DA: Div] store float [[VP_PUMP_CALL]] float* [[VP_ARRAYIDXA]]
 ; CALLVECDEC-NEXT:       [DA: Div] i32 [[VP_ADD6]] = add i32 [[VP__OMP_IV_LOCAL_014]] i32 [[VP__OMP_IV_LOCAL_014_IND_INIT_STEP]]
-; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_ADD6]] i32 [[VP_VECTOR_TRIP_COUNT]]
+; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp uge i32 [[VP_ADD6]] i32 [[VP_VECTOR_TRIP_COUNT]]
 ; CALLVECDEC-NEXT:       [DA: Uni] br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      [[BB3]]: # preds: [[BB2]]
@@ -308,7 +308,7 @@ define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: (F  )] float* [[VP_ARRAYIDXA:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_IDXPROM]] (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: ( V )] store float [[VP_PUMP_CALL]] float* [[VP_ARRAYIDXA]] (SVAOpBits 0->V 1->F )
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: (FV )] i32 [[VP_ADD6]] = add i32 [[VP__OMP_IV_LOCAL_014]] i32 [[VP__OMP_IV_LOCAL_014_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_EXITCOND:%.*]] = icmp eq i32 [[VP_ADD6]] i32 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_EXITCOND:%.*]] = icmp uge i32 [[VP_ADD6]] i32 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      [[BB3]]: # preds: [[BB2]]
@@ -410,7 +410,7 @@ define dso_local void @foo_unmasked_call_in_dpcpp(float* nocapture %A, float* no
 ; CALLVECDEC-EMPTY:
 ; CALLVECDEC-NEXT:      [[BB3]]: # preds: [[BB4]]
 ; CALLVECDEC-NEXT:       [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
-; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CALLVECDEC-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CALLVECDEC-NEXT:       [DA: Uni] br i1 true, [[BB5:BB[0-9]+]], [[BB2]]
 ; CALLVECDEC-NEXT:       Condition(external): i1 true
 ; CALLVECDEC-EMPTY:
@@ -471,7 +471,7 @@ define dso_local void @foo_unmasked_call_in_dpcpp(float* nocapture %A, float* no
 ; SVAPREFIX-EMPTY:
 ; SVAPREFIX-NEXT:      [[BB3]]: # preds: [[BB4]]
 ; SVAPREFIX-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
-; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; SVAPREFIX-NEXT:       [DA: Uni, SVA: (F  )] br i1 true, [[BB5:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; SVAPREFIX-NEXT:       Condition(external): i1 true
 ; SVAPREFIX-EMPTY:

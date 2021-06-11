@@ -20,7 +20,7 @@ define dso_local void @test() local_unnamed_addr {
 ; CHECK-NEXT:    call void @_ZGVbN2vvv_sincos(<2 x double> [[WIDE_LOAD]], <2 x double*> nonnull [[MM_VECTORGEP]], <2 x double*> nonnull [[MM_VECTORGEP5]])
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq i64 [[TMP2]], 128
+; CHECK-NEXT:    [[TMP3:%.*]] = icmp uge i64 [[TMP2]], 128
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[VPLANNEDBB6:%.*]], label [[VECTOR_BODY]], [[LOOP0:!llvm.loop !.*]]
 ;
 DIR.OMP.SIMD.1338:

@@ -67,7 +67,7 @@ define dso_local void @func(i32 %n) local_unnamed_addr {
 ; LLVM-CG-NEXT:    store <2 x [256 x i8]*> [[TMP17]], <2 x [256 x i8]*>* [[TMP18]], align 16
 ; LLVM-CG-NEXT:    [[TMP19]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; LLVM-CG-NEXT:    [[TMP20]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; LLVM-CG-NEXT:    [[TMP21:%.*]] = icmp eq i64 [[TMP20]], [[TMP0:%.*]]
+; LLVM-CG-NEXT:    [[TMP21:%.*]] = icmp uge i64 [[TMP20]], [[TMP0:%.*]]
 ; LLVM-CG-NEXT:    br i1 [[TMP21]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0:%.*]]
 ; LLVM-CG-EMPTY:
 ; LLVM-CG-NEXT:  VPlannedBB6:

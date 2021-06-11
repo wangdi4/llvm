@@ -69,7 +69,7 @@ define dso_local i32 @main() local_unnamed_addr #0 personality i8* bitcast (i32 
 ; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 i8* [[VP2]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:  Divergent: [Shape: Random] call i64 4 i8* [[VP0]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB6]]

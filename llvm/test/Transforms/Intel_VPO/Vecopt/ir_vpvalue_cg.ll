@@ -45,7 +45,7 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:    store <16 x i32> [[TMP19]], <16 x i32>* [[TMP20]], align 16
 ; CHECK-NEXT:    [[TMP21]] = add nuw nsw <16 x i64> [[VEC_PHI]], <i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16>
 ; CHECK-NEXT:    [[TMP22]] = add nuw nsw i64 [[UNI_PHI3]], 16
-; CHECK-NEXT:    [[TMP23:%.*]] = icmp slt i64 [[TMP22]], [[N_VEC:%.*]]
+; CHECK-NEXT:    [[TMP23:%.*]] = icmp ult i64 [[TMP22]], [[N_VEC:%.*]]
 ; CHECK-NEXT:    br i1 [[TMP23]], label [[VECTOR_BODY:%.*]], label [[VPLANNEDBB11:%.*]], [[LOOP0:!llvm.loop !.*]]
 ;
 entry:

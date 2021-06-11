@@ -27,7 +27,7 @@ define void @foo(<4 x float> %float_vec, float* %arr) {
 ; CHECK-NEXT:    store <2 x float> [[BROADCAST_SPLAT0]], <2 x float>* [[TMP1]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i64 [[TMP3]], 100
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i64 [[TMP3]], 100
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB30:%.*]], label [[VECTOR_BODY0]]
 ;
 entry:
@@ -65,7 +65,7 @@ define void @foo2(<4 x double> %double_vec, double* %arr) {
 ; CHECK-NEXT:    store <2 x double> [[TMP4]], <2 x double>* [[TMP5]], align 4
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP7]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i64 [[TMP7]], 100
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp uge i64 [[TMP7]], 100
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB30:%.*]], label [[VECTOR_BODY1]]
 ;
 entry:

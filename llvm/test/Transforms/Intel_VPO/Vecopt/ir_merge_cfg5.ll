@@ -30,7 +30,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:       [DA: Div] float [[VP_ADD]] = fadd float [[VP_ADD7]] float [[VP_A_LOAD]]
 ; CHECK-NEXT:       [DA: Div] store float [[VP_ADD]] float* [[VP_X]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]

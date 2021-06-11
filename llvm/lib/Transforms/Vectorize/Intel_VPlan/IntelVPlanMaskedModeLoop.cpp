@@ -105,9 +105,18 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   else
     VectorTC = cast<VPVectorTripCountCalculation>(OrigCondBit->getOperand(0));
   auto *OrigTC = VectorTC->getOperand(0);
-  VPCmpInst *NewBottomTest =
-      new VPCmpInst(VPIndIncrement, OrigTC, CmpInst::ICMP_ULT);
+
+  // Create new bottom test condition, which then will be cloned to use as loop
+  // body guarding test. Due to that re-use, we can't rely on the original
+  // condition and create a new one with strictly defined single order of
+  // successors, predicate and order of operands of the compare (see
+  // below). If the latch condition has an exact ub we use ULT predicate
+  // otherwise we use ULE predicate to have ub+1 iterations
+  VPCmpInst *NewBottomTest = new VPCmpInst(
+      VPIndIncrement, OrigTC,
+      TopVPLoop->exactUB() ? CmpInst::ICMP_ULT : CmpInst::ICMP_ULE);
   Latch->addInstruction(NewBottomTest, Term);
+
   // The new condition bit is divergent. However, in VPlan, it is required
   // that the bottom test is uniform. For this reason, we need to create a new
   // bottom test as it is shown below:
@@ -118,6 +127,7 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   VPBldr.setInsertPoint(Term);
   auto *AllZeroChk = VPBldr.createAllZeroCheck(NewBottomTest);
   Latch->setTerminator(TopVPLoop->getExitBlock(), Header, AllZeroChk);
+
   // The induction increment might be in a different basic block than the latch.
   // In this case, we have to move the induction increment at the bottom of the
   // latch.

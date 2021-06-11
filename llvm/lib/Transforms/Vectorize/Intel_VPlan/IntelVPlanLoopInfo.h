@@ -88,13 +88,22 @@ public:
     return HasNormalizedInduction.getValue();
   }
 
-  void setHasNormalizedInductionFlag(bool Val) {
+  /// Return true if the loop trip count is equal to upper bound.
+  bool exactUB() const {
+    assert(HasNormalizedInduction.hasValue() && "The flag is unset");
+    return ExactUB;
+  }
+
+
+  void setHasNormalizedInductionFlag(bool Val, bool EUB) {
     assert(!HasNormalizedInduction.hasValue() && "The flag is already set");
     HasNormalizedInduction = Val;
+    ExactUB = EUB;
   }
 
   void copyHasNormalizedInductionFlag(const VPLoop* L) {
     HasNormalizedInduction = L->HasNormalizedInduction;
+    ExactUB = L->ExactUB;
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -120,6 +129,11 @@ public:
 
 private:
   Optional<bool> HasNormalizedInduction;
+  // Flag indicating how the loop iteration count is related to the
+  // upper bound (invariant operand of the latch condition). False means
+  // trip count is equal to upper bound + 1, true means trip count is
+  // equal to upper bound exactly.
+  bool ExactUB = true;
 };
 class VPLoopInfo : public LoopInfoBase<VPBasicBlock, VPLoop> {
   using Base = LoopInfoBase<VPBasicBlock, VPLoop>;

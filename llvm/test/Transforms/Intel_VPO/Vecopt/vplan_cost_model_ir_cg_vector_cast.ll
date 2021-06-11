@@ -33,7 +33,7 @@ define void @foo(<2 x i32>* nocapture readonly %p) {
 ; CHECK-NEXT:    Cost 1000 for <2 x float> [[VP_SIFPTR:%.*]] = fptrunc <2 x double> [[VP_SIFPEX]] to <2 x float>
 ; CHECK-NEXT:    Cost 1000 for <2 x float> [[VP_UIFPTR:%.*]] = fptrunc <2 x double> [[VP_UIFPEX]] to <2 x float>
 ; CHECK-NEXT:    Cost 1000 for i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 [[VP_IV_IND_INIT_STEP]]
-; CHECK-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:    Cost 1000 for i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1

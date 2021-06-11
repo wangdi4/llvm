@@ -27,7 +27,7 @@ define void @foo(i64* nocapture %ptr, i64 %n) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI0]], 4
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw <4 x i64> [[VEC_PHI30]], [[VEC_PHI0]]
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i64 [[TMP3]], [[TMP0]]
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp uge i64 [[TMP3]], [[TMP0]]
 ; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB40:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:

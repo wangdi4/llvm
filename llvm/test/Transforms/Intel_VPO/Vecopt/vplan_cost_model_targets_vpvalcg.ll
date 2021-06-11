@@ -54,7 +54,7 @@ define void @foo() local_unnamed_addr {
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for i64* [[VP_ST_IDX:%.*]] = getelementptr inbounds [1024 x i64]* @arr.i64.2 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 2500 for store i64 [[VP_CMP_TO_I64]] i64* [[VP_ST_IDX]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 2000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-CM-AVX2-NEXT:    Cost 2000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-CM-AVX2-NEXT:    Cost 2000 for i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-AVX2-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -82,7 +82,7 @@ define void @foo() local_unnamed_addr {
 ; VPLAN-CM-SSE2-NEXT:    Cost 0 for i64* [[VP_ST_IDX:%.*]] = getelementptr inbounds [1024 x i64]* @arr.i64.2 i64 0 i64 [[VP_INDVARS_IV]]
 ; VPLAN-CM-SSE2-NEXT:    Cost 4000 for store i64 [[VP_CMP_TO_I64]] i64* [[VP_ST_IDX]]
 ; VPLAN-CM-SSE2-NEXT:    Cost 4000 for i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-CM-SSE2-NEXT:    Cost 32000 for i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-CM-SSE2-NEXT:    Cost 32000 for i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-CM-SSE2-NEXT:    Cost 0 for br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; VPLAN-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB3]], total cost: 0
 ; VPLAN-CM-SSE2-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -161,7 +161,7 @@ define void @foo() local_unnamed_addr {
 ; LLVM-CM-AVX2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP4:%.*]] = bitcast i64* [[SCALAR_GEP50]] to <8 x i64>*
 ; LLVM-CM-AVX2-NEXT:  Cost Model: Found an estimated cost of 2 for instruction:   store <8 x i64> [[TMP3]], <8 x i64>* [[TMP4]], align 16
 ; LLVM-CM-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP5]] = add nuw nsw i64 [[UNI_PHI0]], 8
-; LLVM-CM-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP6:%.*]] = icmp eq i64 [[TMP5]], 1024
+; LLVM-CM-AVX2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP6:%.*]] = icmp ugt i64 [[UNI_PHI0]], 1015
 ; LLVM-CM-AVX2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP6]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; LLVM-CM-AVX2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
 ;
@@ -180,7 +180,7 @@ define void @foo() local_unnamed_addr {
 ; LLVM-CM-SSE2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[TMP4:%.*]] = bitcast i64* [[SCALAR_GEP50]] to <8 x i64>*
 ; LLVM-CM-SSE2-NEXT:  Cost Model: Found an estimated cost of 4 for instruction:   store <8 x i64> [[TMP3]], <8 x i64>* [[TMP4]], align 16
 ; LLVM-CM-SSE2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP5]] = add nuw nsw i64 [[UNI_PHI0]], 8
-; LLVM-CM-SSE2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP6:%.*]] = icmp eq i64 [[TMP5]], 1024
+; LLVM-CM-SSE2-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP6:%.*]] = icmp ugt i64 [[UNI_PHI0]], 1015
 ; LLVM-CM-SSE2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP6]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; LLVM-CM-SSE2-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
 ;

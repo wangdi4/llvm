@@ -34,7 +34,7 @@ define void @foo_c(%Struct* %a) {
 ; CHECK-NEXT:  Divergent: [Shape: Random] <3 x i32>* [[VP_PHI:%.*]] = phi  [ <3 x i32>* [[VP_PTR1]], [[BB2]] ],  [ <3 x i32>* [[VP_PTR2]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] store <3 x i32> [[VP_LD]] <3 x i32>* [[VP_PHI]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] br i1 [[VP_EXITCOND]], [[BB5:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB5]]
