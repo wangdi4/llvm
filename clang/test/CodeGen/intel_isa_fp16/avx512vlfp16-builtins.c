@@ -2867,7 +2867,16 @@ __m128h test_mm_fcmadd_pch(__m128h __A, __m128h __B, __m128h __C) {
 __m128h test_mm_mask_fcmadd_pch(__m128h __A, __mmask8 __U, __m128h __B, __m128h __C) {
   // CHECK-LABEL: @test_mm_mask_fcmadd_pch
   // CHECK: @llvm.x86.avx512fp16.mask.vfcmaddc.ph.128
+  // CHECK:  %{{.*}} = shufflevector <8 x i1> %{{.*}}, <8 x i1> %{{.*}}, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  // CHECK:  %{{.*}} = select <4 x i1> %{{.*}}, <4 x float> %{{.*}}, <4 x float> %{{.*}}
   return _mm_mask_fcmadd_pch(__A, __U, __B, __C);
+}
+
+__m128h test_mm_mask3_fcmadd_pch(__m128h __A, __m128h __B, __m128h __C, __mmask8 __U) {
+  // CHECK-LABEL: @test_mm_mask3_fcmadd_pch
+  // CHECK: @llvm.x86.avx512fp16.mask.vfcmaddc.ph.128
+  // CHECK-NOT:  %{{.*}} = select <4 x i1> %{{.*}}, <4 x float> %{{.*}}, <4 x float> %{{.*}}
+  return _mm_mask3_fcmadd_pch(__A, __B, __C, __U);
 }
 
 __m128h test_mm_maskz_fcmadd_pch(__mmask8 __U, __m128h __A, __m128h __B, __m128h __C) {
@@ -2885,7 +2894,15 @@ __m256h test_mm256_fcmadd_pch(__m256h __A, __m256h __B, __m256h __C) {
 __m256h test_mm256_mask_fcmadd_pch(__m256h __A, __mmask8 __U, __m256h __B, __m256h __C) {
   // CHECK-LABEL: @test_mm256_mask_fcmadd_pch
   // CHECK: @llvm.x86.avx512fp16.mask.vfcmaddc.ph.256
+  // CHECK:  %{{.*}} = select <8 x i1> %{{.*}}, <8 x float> %{{.*}}, <8 x float> %{{.*}}
   return _mm256_mask_fcmadd_pch(__A, __U, __B, __C);
+}
+
+__m256h test_mm256_mask3_fcmadd_pch(__m256h __A, __m256h __B, __m256h __C, __mmask8 __U) {
+  // CHECK-LABEL: @test_mm256_mask3_fcmadd_pch
+  // CHECK: @llvm.x86.avx512fp16.mask.vfcmaddc.ph.256
+  // CHECK-NOT:  %{{.*}} = select <8 x i1> %{{.*}}, <8 x float> %{{.*}}, <8 x float> %{{.*}}
+  return _mm256_mask3_fcmadd_pch(__A, __B, __C, __U);
 }
 
 __m256h test_mm256_maskz_fcmadd_pch(__mmask8 __U, __m256h __A, __m256h __B, __m256h __C) {
@@ -2939,7 +2956,15 @@ __m128h test_mm_fmadd_pch(__m128h __A, __m128h __B, __m128h __C) {
 __m128h test_mm_mask_fmadd_pch(__m128h __A, __mmask8 __U, __m128h __B, __m128h __C) {
   // CHECK-LABEL: @test_mm_mask_fmadd_pch
   // CHECK: @llvm.x86.avx512fp16.mask.vfmaddc.ph.128
+  // CHECK:  %{{.*}} = shufflevector <8 x i1> %{{.*}}, <8 x i1> %{{.*}}, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  // CHECK:  %{{.*}} = select <4 x i1> %{{.*}}, <4 x float> %{{.*}}, <4 x float> %{{.*}}
   return _mm_mask_fmadd_pch(__A, __U, __B, __C);
+}
+
+__m128h test_mm_mask3_fmadd_pch(__m128h __A, __m128h __B, __m128h __C, __mmask8 __U) {
+  // CHECK-LABEL: @test_mm_mask3_fmadd_pch
+  // CHECK: @llvm.x86.avx512fp16.mask.vfmaddc.ph.128
+  return _mm_mask3_fmadd_pch(__A, __B, __C, __U);
 }
 
 __m128h test_mm_maskz_fmadd_pch(__mmask8 __U, __m128h __A, __m128h __B, __m128h __C) {
@@ -2957,7 +2982,14 @@ __m256h test_mm256_fmadd_pch(__m256h __A, __m256h __B, __m256h __C) {
 __m256h test_mm256_mask_fmadd_pch(__m256h __A, __mmask8 __U, __m256h __B, __m256h __C) {
   // CHECK-LABEL: @test_mm256_mask_fmadd_pch
   // CHECK: @llvm.x86.avx512fp16.mask.vfmaddc.ph.256
+  // CHECK:  %{{.*}} = select <8 x i1> %{{.*}}, <8 x float> %{{.*}}, <8 x float> %{{.*}}
   return _mm256_mask_fmadd_pch(__A, __U, __B, __C);
+}
+
+__m256h test_mm256_mask3_fmadd_pch(__m256h __A, __m256h __B, __m256h __C, __mmask8 __U) {
+  // CHECK-LABEL: @test_mm256_mask3_fmadd_pch
+  // CHECK: @llvm.x86.avx512fp16.mask.vfmaddc.ph.256
+  return _mm256_mask3_fmadd_pch(__A, __B, __C, __U);
 }
 
 __m256h test_mm256_maskz_fmadd_pch(__mmask8 __U, __m256h __A, __m256h __B, __m256h __C) {
