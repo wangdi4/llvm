@@ -1275,7 +1275,7 @@ bool InnermostLoopAnalyzer::tracebackEqualityOfLowersAndStrides(
   unsigned BasePtrIndex = Ref->getBasePtrBlobIndex();
   if (BaseIndexToLowersAndStrides.find(BasePtrIndex) ==
       BaseIndexToLowersAndStrides.end()) {
-    BaseIndexToLowersAndStrides.insert(std::make_pair(BasePtrIndex, Ref));
+    BaseIndexToLowersAndStrides.insert({BasePtrIndex, Ref});
   } else {
     if (!tracebackEqualityOfLowersAndStrides(
             BaseIndexToLowersAndStrides[BasePtrIndex], Ref, DDG, LCA))
@@ -1705,7 +1705,12 @@ public:
     SmallVector<std::pair<unsigned, unsigned>, 16> CopyToLoadIndexMap;
 
     if (CloneDVLoads) {
-      collectLoadsToClone(AnchorNode, LoadInstsToClone, CopyToLoadIndexMap);
+      if (!collectLoadsToClone(AnchorNode, LoadInstsToClone,
+                               CopyToLoadIndexMap)) {
+        LLVM_DEBUG_PROFIT_REPORT(dbgs() << "No transformation: Cannot collect"
+                                           "insts to clone\n");
+        return false;
+      }
     }
 
     // Align original spatial loops
@@ -1766,7 +1771,7 @@ public:
       unsigned NewKey = KV.first;
       unsigned NewVal = OrigToCloneIndexMap[KV.second];
       assert(NewVal);
-      OrigToCloneIndexMap.insert(std::make_pair(NewKey, NewVal));
+      OrigToCloneIndexMap.insert({NewKey, NewVal});
     }
 
     if (!computeByStripLoopBounds(InnermostLoopToAdjustingRef,
@@ -2190,68 +2195,6 @@ private:
     }
   }
 
-  // Start from the RHS of Copy or any other instruction
-  // to find the eventual load instruction or the instruction
-  // whose rvals are all liveIn to the region.
-  // If not found or meet an unexpected situation, return false.
-  // Example 1)
-  //   %t1 = %a[..] -- (1)
-  //   %t2 = %t1    -- (2)
-  // Starting from %t1, a load instruction (1) is found.
-  // Example 2)
-  //   %t1 = %a[..] -- (1)
-  //   %t3 = %b[..] -- (2)
-  //   %t2 = %t1 + %t3   -- (3)
-  // Starting from  %t1 and %t3, loads (1) and (2) are found.
-  // Example 3)
-  //   %t1 = %liveIn0 < %liveIn1; --(1)
-  //   %t2 = (%liveIn2 != 1) ? -1 : %t1; --(2)
-  // From %t1 in (2) inst (1) is found.
-  bool tracebackToLoad(const RegDDRef *Rval, DDGraph DDG,
-                       SmallVectorImpl<const HLInst *> &Res) const {
-    std::deque<const RegDDRef *> RvalQueue;
-    RvalQueue.push_back(Rval);
-    while (!RvalQueue.empty()) {
-      Rval = RvalQueue[0];
-      RvalQueue.pop_front();
-      if (Rval->isStructurallyRegionInvariant())
-        continue;
-
-      for (auto *Edge : DDG.incoming(Rval)) {
-        if (!Edge->isFlow())
-          continue;
-        HLNode *SrcNode = Edge->getSrc()->getHLDDNode();
-        const HLInst *LoadOrCopy = dyn_cast<HLInst>(SrcNode);
-        if (!LoadOrCopy)
-          return false;
-
-        if (isa<LoadInst>(LoadOrCopy->getLLVMInstruction())) {
-          printMarker(" == Found Load: \n", {LoadOrCopy});
-
-          if (!checkInvariance(LoadOrCopy))
-            return false;
-
-          Res.push_back(LoadOrCopy);
-        } else if (LoadOrCopy->isCopyInst()) {
-          printMarker("Found Copy: \n", {SrcNode});
-
-          // Trace-back to load.
-          RvalQueue.push_back(LoadOrCopy->getRvalDDRef());
-        } else if (LoadOrCopy->isCallInst()) {
-          printMarker("Found CallInst: \n", {LoadOrCopy});
-
-          return false;
-        } else {
-          for (auto *RvalRef : make_range(LoadOrCopy->rval_op_ddref_begin(),
-                                          LoadOrCopy->rval_op_ddref_end())) {
-            RvalQueue.push_back(RvalRef);
-          }
-        }
-      }
-    } // while
-    return true;
-  }
-
   // Only for debugging.
   static void printDDEdges(const HLInst *LoadInst, DDGraph DDG) {
     auto *RvalOfLoad = LoadInst->getRvalDDRef();
@@ -2308,47 +2251,117 @@ private:
     }
     return true;
   }
+
+  // Start from the RHS of Copy or any other instruction
+  // to find the eventual load instruction or the instruction
+  // whose rvals are all liveIn to the region.
+  // If not found or meet an unexpected situation, return false.
+  // Example 1)
+  //   %t1 = %a[..] -- (1)
+  //   %t2 = %t1    -- (2)
+  // Starting from %t1, a load instruction (1) is found.
+  // Example 2)
+  //   %t1 = %a[..] -- (1)
+  //   %t3 = %b[..] -- (2)
+  //   %t2 = %t1 + %t3   -- (3)
+  // Starting from  %t1 and %t3, loads (1) and (2) are found.
+  // Example 3)
+  //   %t1 = %liveIn0 < %liveIn1; --(1)
+  //   %t2 = (%liveIn2 != 1) ? -1 : %t1; --(2)
+  // From %t1 in (2) inst (1) is found.
+  bool tracebackToLoad(const RegDDRef *Rval, DDGraph DDG,
+                       SmallVectorImpl<const HLInst *> &Res) const {
+
+    std::deque<const RegDDRef *> RvalQueue;
+    RvalQueue.push_back(Rval);
+
+    while (!RvalQueue.empty()) {
+      Rval = RvalQueue[0];
+      RvalQueue.pop_front();
+      if (Rval->isStructurallyRegionInvariant())
+        continue;
+
+      for (auto *Edge : DDG.incoming(Rval)) {
+        if (!Edge->isFlow())
+          continue;
+
+        HLNode *SrcNode = Edge->getSrc()->getHLDDNode();
+        const HLInst *LoadOrCopy = dyn_cast<HLInst>(SrcNode);
+        if (!LoadOrCopy)
+          return false;
+
+        if (isa<LoadInst>(LoadOrCopy->getLLVMInstruction())) {
+
+          printMarker(" == Found Load: \n", {LoadOrCopy});
+
+          if (!checkInvariance(LoadOrCopy))
+            return false;
+
+          Res.push_back(LoadOrCopy);
+
+        } else if (LoadOrCopy->isCopyInst()) {
+
+          printMarker("Found Copy: \n", {LoadOrCopy});
+
+          RvalQueue.push_back(LoadOrCopy->getRvalDDRef());
+
+        } else if (LoadOrCopy->isCallInst()) {
+
+          printMarker("Found CallInst: \n", {LoadOrCopy});
+
+          return false;
+
+        } else {
+          for (auto *RvalRef : make_range(LoadOrCopy->rval_op_ddref_begin(),
+                                          LoadOrCopy->rval_op_ddref_end())) {
+            RvalQueue.push_back(RvalRef);
+          }
+        }
+      }
+    } // while
+    return true;
+  }
+
   // Find the load instruction starting from SrcNode.
   // If SrcNode is a load, return it.
   // If it is a copy, trace back to a load and return it.
   bool findLoad(
       const HLDDNode *SrcNode, DDGraph DDG,
       SmallVectorImpl<std::pair<const HLInst *, const HLInst *>> &Res) const {
+
     const HLInst *LoadOrCopy = dyn_cast<HLInst>(SrcNode);
     if (!LoadOrCopy)
       return false;
 
     if (isa<LoadInst>(LoadOrCopy->getLLVMInstruction())) {
 
-      LLVM_DEBUG(dbgs() << "Found Load: \n");
-      LLVM_DEBUG(SrcNode->dump());
-      LLVM_DEBUG(dbgs() << "\n");
+      printMarker(" == Found Load: \n", {LoadOrCopy});
 
-      Res.push_back(std::make_pair(LoadOrCopy, nullptr));
+      Res.push_back({LoadOrCopy, nullptr});
       return checkInvariance(LoadOrCopy);
-    } else if (LoadOrCopy->isCopyInst()) {
-      const HLInst *CopyInst = LoadOrCopy;
-      LLVM_DEBUG(dbgs() << "Found Copy: \n");
-      LLVM_DEBUG(SrcNode->dump());
-      LLVM_DEBUG(dbgs() << "\n");
 
-      // Trace-back to load.
+    } else if (LoadOrCopy->isCopyInst()) {
+
+      printMarker("Found Copy: \n", {LoadOrCopy});
+
       SmallVector<const HLInst *> Insts;
       if (!tracebackToLoad(LoadOrCopy->getRvalDDRef(), DDG, Insts) ||
           Insts.size() != 1)
         return false;
 
-      Res.push_back(std::make_pair(Insts[0], CopyInst));
-    } else if (LoadOrCopy->isCallInst()) {
-      llvm_unreachable("We don't expect a dependency to a call.");
-      return false;
-    } else {
-      // any other inst
-      LLVM_DEBUG(dbgs() << "Found non-load clone: \n");
-      LLVM_DEBUG(LoadOrCopy->dump(1));
-      LLVM_DEBUG(dbgs() << "\n");
+      Res.push_back({Insts.back(), LoadOrCopy});
 
-      Res.push_back(std::make_pair(LoadOrCopy, nullptr));
+    } else if (LoadOrCopy->isCallInst()) {
+
+      LLVM_DEBUG(dbgs() << "We don't expect a dependency to a call.");
+
+      return false;
+
+    } else { // any other inst
+
+      printMarker("Found non-load clone: \n", {LoadOrCopy});
+
+      Res.push_back({LoadOrCopy, nullptr});
       SmallVector<const HLInst *> Insts;
       for (auto *Rval : make_range(LoadOrCopy->rval_op_ddref_begin(),
                                    LoadOrCopy->rval_op_ddref_end())) {
@@ -2356,39 +2369,42 @@ private:
           return false;
       }
 
-      LLVM_DEBUG(for (auto *Inst
-                      : Insts) {
-        Inst->dump(1);
-        dbgs() << "\n";
-      });
-
       for (auto *Inst : Insts) {
-        Res.push_back(std::make_pair(Inst, nullptr));
+        Res.push_back({Inst, nullptr});
       }
     }
     return true;
   }
+
   template <typename IteratorTy>
   bool findLoadsOfTemp(
       DDGraph DDG, IteratorTy begin, IteratorTy end,
       unsigned AnchorNodeTopSortNum, InstsToCloneSetTy &LoadInsts,
       std::map<const HLInst *, const HLInst *> &CopyToLoadMap) const {
+
     for (IteratorTy It = begin; It != end; ++It) {
       auto *DestRef = *It;
+
       for (auto *Edge : DDG.incoming(DestRef)) {
+
         if (!Edge->isFlow())
           continue;
+
         SmallVector<std::pair<const HLInst *, const HLInst *>> InstPairs;
         if (!findLoad(Edge->getSrc()->getHLDDNode(), DDG, InstPairs))
           return false;
 
         for (auto &LoadAndCopy : InstPairs) {
+
           if (!LoadAndCopy.first ||
               LoadAndCopy.first->getTopSortNum() < AnchorNodeTopSortNum)
             continue;
+
           LLVM_DEBUG_DD_EDGES(printDDEdges(LoadAndCopy.first, DDG));
+
           if (LoadAndCopy.second)
             CopyToLoadMap.emplace(LoadAndCopy.second, LoadAndCopy.first);
+
           LoadInsts.insert(LoadAndCopy.first);
         }
       }
@@ -2396,9 +2412,10 @@ private:
     return true;
   }
 
-  void collectLoadsToClone(
-      const HLNode *AnchorNode, InstsToCloneSetTy &LoadInstsToClone,
-      SmallVectorImpl<std::pair<unsigned, unsigned>> &CopyToLoadIndexMap) {
+  bool collectLoadsToClone(const HLNode *AnchorNode,
+                           InstsToCloneSetTy &LoadInstsToClone,
+                           SmallVectorImpl<std::pair<unsigned, unsigned>>
+                               &CopyToLoadIndexMap) const {
 
     DDGraph DDG;
     if (OutermostLoop) {
@@ -2448,8 +2465,10 @@ private:
           RefsInIndices.push_back(BRef);
       }
 
-      findLoadsOfTemp(DDG, std::begin(RefsInIndices), std::end(RefsInIndices),
-                      AnchorNodeTopSortNum, LoadInstsToClone, CopyToLoadMap);
+      if (!findLoadsOfTemp(DDG, std::begin(RefsInIndices),
+                           std::end(RefsInIndices), AnchorNodeTopSortNum,
+                           LoadInstsToClone, CopyToLoadMap))
+        return false;
     }
 
     // Collect loads for Spatial loop's upper bounds
@@ -2468,9 +2487,11 @@ private:
         if (!TargetLoop)
           continue;
 
-        findLoadsOfTemp(DDG, TargetLoop->getUpperDDRef()->all_dd_begin(),
-                        TargetLoop->getUpperDDRef()->all_dd_end(),
-                        AnchorNodeTopSortNum, LoadInstsToClone, CopyToLoadMap);
+        if (!findLoadsOfTemp(DDG, TargetLoop->getUpperDDRef()->all_dd_begin(),
+                             TargetLoop->getUpperDDRef()->all_dd_end(),
+                             AnchorNodeTopSortNum, LoadInstsToClone,
+                             CopyToLoadMap))
+          return false;
       }
     }
 
@@ -2492,6 +2513,8 @@ private:
                  CopyToLoad.first->dump(1); dbgs() << "\n";
                  CopyToLoad.second->dump(1); dbgs() << "\n");
     }
+
+    return true;
   }
 
   // LB(UB) of a By-strip loop is the "min"("max") of all lower bounds of
@@ -2630,7 +2653,7 @@ private:
 
       assert(OldIndex != NewIndex);
 
-      OrigToCloneIndexMap.insert(std::make_pair(OldIndex, NewIndex));
+      OrigToCloneIndexMap.insert({OldIndex, NewIndex});
 
       printMarker("Orig Load: ", Load, true, true);
       printMarker("New Load: ", NewLoad, true, true);
@@ -2825,7 +2848,7 @@ private:
         for (const CanonExpr *CE :
              make_range(Ref->canon_begin(), Ref->canon_end())) {
           if (CanonExprUtils::areEqual(CE, TargetCE, false, true))
-            return std::make_pair(Ref, CE->getDefinedAtLevel());
+            return {Ref, CE->getDefinedAtLevel()};
         }
       }
     }
@@ -3191,11 +3214,9 @@ private:
 
     int64_t Val;
     if (CE->isIntConstant(&Val)) {
-      return std::make_pair(BU.createBlob(Val, CE->getDestType()),
-                            InvalidBlobIndex);
+      return {BU.createBlob(Val, CE->getDestType()), InvalidBlobIndex};
     } else {
-      return std::make_pair(BU.getBlob(CE->getSingleBlobIndex()),
-                            CE->getSingleBlobIndex());
+      return {BU.getBlob(CE->getSingleBlobIndex()), CE->getSingleBlobIndex()};
     }
   }
 
@@ -3211,7 +3232,7 @@ private:
     //       available.
     for (auto *CE : make_range(Bounds.begin(), Bounds.end())) {
       if (!CE->isIntConstant() && !CE->convertToStandAloneBlobOrConstant()) {
-        return std::make_pair(nullptr, InvalidBlobIndex);
+        return {nullptr, InvalidBlobIndex};
       }
     }
 
@@ -3242,7 +3263,7 @@ private:
                                             !BlobsAreConstant, &BlobIndex);
     }
 
-    return std::make_pair(LowerBlob, BlobIndex);
+    return {LowerBlob, BlobIndex};
   }
 
   // Given a ByStrip Loop, calculate the UB of the inner unit-strided loop
