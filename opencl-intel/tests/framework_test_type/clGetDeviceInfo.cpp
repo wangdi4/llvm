@@ -196,10 +196,20 @@ bool clGetDeviceInfoTest() {
 
   // Built-in kernels
   size_t szBuiltinsStringSize = 0;
+  std::string builtinsString;
   iRes = clGetDeviceInfo(devices[0], CL_DEVICE_BUILT_IN_KERNELS, 0, NULL,
                          &szBuiltinsStringSize);
   bResult &= Check("CL_DEVICE_BUILT_IN_KERNELS - query size", CL_SUCCESS, iRes);
-  bResult &= CheckSize("CL_DEVICE_BUILT_IN_KERNELS", 0, szBuiltinsStringSize);
+  if (bResult && 0 < szBuiltinsStringSize) {
+    builtinsString.resize(szBuiltinsStringSize);
+    iRes = clGetDeviceInfo(devices[0], CL_DEVICE_BUILT_IN_KERNELS,
+                           szBuiltinsStringSize, &builtinsString[0], NULL);
+    bResult &=
+        Check("CL_DEVICE_BUILT_IN_KERNELS - get string", CL_SUCCESS, iRes);
+    if (bResult) {
+      printf("CL_DEVICE_BUILT_IN_KERNELS: %s\n", builtinsString.c_str());
+    }
+  }
 
   // OpenCL 3.0: Built-in kernels with version
   size_t szBuiltinsVersionSize = 0;

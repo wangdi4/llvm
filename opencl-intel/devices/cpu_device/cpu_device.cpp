@@ -1643,7 +1643,27 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
             }
         case CL_DEVICE_OPENCL_C_ALL_VERSIONS:
         {
+            // [The OpenCL Specification - Section 4.2]
+            //
+            // Because OpenCL 3.0 is backwards compatible with OpenCL C 1.2, and
+            // OpenCL C 1.2 is backwards compatible with OpenCL C 1.1 and OpenCL
+            // C 1.0, support for at least OpenCL C 3.0, OpenCL C 1.2, OpenCL
+            // C 1.1, and OpenCL C 1.0 is required for an OpenCL 3.0 device.
+            //
+            // Support for OpenCL C 2.0, OpenCL C 1.2, OpenCL C 1.1, and OpenCL
+            // C 1.0 is required for an OpenCL 2.0, OpenCL 2.1, or OpenCL 2.2
+            // device.
+            //
+            // Support for OpenCL C 1.2, OpenCL C 1.1, and OpenCL C 1.0 is
+            // required for an OpenCL 1.2 device.
+            //
+            // Support for OpenCL C 1.1 and OpenCL C 1.0 is required for an
+            // OpenCL 1.1 device.
+            //
+            // Support for at least OpenCL C 1.0 is required for an OpenCL 1.0
+            // device.
             std::vector<cl_name_version> openclCVerAll;
+
             switch(ver)
             {
                 case OPENCL_VERSION_3_0: // FALL THROUGH
@@ -1657,7 +1677,10 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
                 case OPENCL_VERSION_1_2: // FALL THROUGH
                     openclCVerAll.push_back(
                         cl_name_version{CL_MAKE_VERSION(1, 2, 0), "OpenCL C"});
-                case OPENCL_VERSION_1_0: // FALL THROUGH
+                case OPENCL_VERSION_1_1: // FALL THROUGH
+                    openclCVerAll.push_back(
+                        cl_name_version{CL_MAKE_VERSION(1, 1, 0), "OpenCL C"});
+                case OPENCL_VERSION_1_0:
                     openclCVerAll.push_back(
                         cl_name_version{CL_MAKE_VERSION(1, 0, 0), "OpenCL C"});
                     break;
@@ -1886,7 +1909,10 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
         }
         case( CL_DEVICE_BUILT_IN_KERNELS):
         {
-            *pinternalRetunedValueSize = BuiltInKernelRegistry::GetInstance()->GetBuiltInKernelListSize();
+            // Reserve one more byte for null terminator.
+            *pinternalRetunedValueSize =
+                    BuiltInKernelRegistry::GetInstance()
+                            ->GetBuiltInKernelListSize() + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
@@ -2245,7 +2271,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
         }
         case CL_DEVICE_LATEST_CONFORMANCE_VERSION_PASSED:
         {
-            const char* cts_version = "2.1";
+            const char* cts_version = "v2021-03-25-00";
             *pinternalRetunedValueSize = strlen(cts_version) + 1;
             if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {

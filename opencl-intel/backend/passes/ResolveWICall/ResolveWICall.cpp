@@ -559,7 +559,7 @@ namespace intel {
       return ICT_PREFETCH;
 
     // OpenCL2.0 built-ins to resolve
-    if (m_oclVersion == OclVersion::CL_VER_2_0) {
+    if (m_oclVersion >= OclVersion::CL_VER_2_0) {
       if( CompilationUtils::isEnqueueKernelLocalMem(calledFuncName))
         return ICT_ENQUEUE_KERNEL_LOCALMEM;
       if( CompilationUtils::isEnqueueKernelEventsLocalMem(calledFuncName))
