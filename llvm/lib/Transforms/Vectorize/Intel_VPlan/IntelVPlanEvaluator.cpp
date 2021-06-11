@@ -72,7 +72,7 @@ unsigned VPlanPeelEvaluator::getScalarPeelTripCount(unsigned MainLoopVF) const {
 // Selects the best peeling variant (none, scalar, masked vector).
 VPlanPeelEvaluator::PeelLoopKind VPlanPeelEvaluator::calculateBestVariant() {
 
-  if (!PeelingVariant) {
+  if (!PeelingVariant || getScalarPeelTripCount(MainLoopVF) == 0) {
     PeelKind = PeelLoopKind::None;
     LoopCost = 0;
     PeelTC = 0;
