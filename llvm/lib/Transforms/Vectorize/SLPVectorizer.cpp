@@ -8704,6 +8704,10 @@ void BoUpSLP::scheduleBlock(BlockScheduling *BS) {
   for (auto *I = BS->ScheduleStart; I != BS->ScheduleEnd;
        I = I->getNextNode()) {
     BS->doForAllOpcodes(I, [this, &Idx, &NumToSchedule, BS](ScheduleData *SD) {
+#if INTEL_CUSTOMIZATION
+      // We can skip analysis of InsertElements, checked their scheduling
+      // manually already.
+#endif // INTEL_CUSTOMIZATION
       assert((isa<InsertElementInst>(SD->Inst) ||
               SD->isPartOfBundle() == (getTreeEntry(SD->Inst) != nullptr)) &&
              "scheduler and vectorizer bundle mismatch");
