@@ -16,6 +16,7 @@
 #include "HIRCleanup.h"
 
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ValueTracking.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
@@ -69,7 +70,60 @@ void HIRCleanup::eliminateRedundantLabels() {
   }
 }
 
+// Replaces HLIfs which can be proven to be true/false using ValueTracking's
+// isImpliedByDomCondition() functionality, by their then/else bodies.
+// TODO: Move this logic to SimplifyCFG pass when it is capable of using and
+// maintaining DominatorTree.
+void HIRCleanup::eliminateRedundantIfs() {
+
+  auto &DL = HNU.getDataLayout();
+  auto *DT = &HIRC.DT;
+
+  for (auto &IfBlockPair : HIRC.Ifs) {
+    auto *BI = cast<BranchInst>(IfBlockPair.second->getTerminator());
+
+    auto *Cond = BI->getCondition();
+
+    // Do not optimize undef conditions using dominating undefs as it
+    // doesn't make much sense and breaks existing lit tests.
+    if (isa<UndefValue>(Cond)) {
+      continue;
+    }
+
+    Optional<bool> Res = isImpliedByDomCondition(Cond, BI, DL, DT);
+
+    if (Res) {
+      bool ReplaceWithThenCase = *Res;
+      auto *If = IfBlockPair.first;
+
+      const HLNode *LastChild =
+          ReplaceWithThenCase ? If->getLastThenChild() : If->getLastElseChild();
+
+      auto *LastGoto = dyn_cast_or_null<HLGoto>(LastChild);
+      // If optimizing HLIf produces unconditional goto, verifier may complain
+      // about dead nodes after goto. It is non-trivial to clean up the nodes at
+      // this stage as we haven't formed loops out of loop header labels. It is
+      // better to simply give up.
+      if (LastGoto && !HLNodeUtils::isLexicalLastChildOfParent(If)) {
+        // If the next node is target of goto, eliminateRedundantGotos() will
+        // handle it.
+        auto *LabelSuccessor =
+            dyn_cast<HLLabel>(&*std::next(If->getIterator()));
+
+        if (!LabelSuccessor || (LastGoto->getTargetLabel() != LabelSuccessor)) {
+          continue;
+        }
+      }
+
+      OptimizedRegions.insert(If->getParentRegion());
+
+      HLNodeUtils::replaceNodeWithBody(If, ReplaceWithThenCase);
+    }
+  }
+}
+
 void HIRCleanup::run() {
+
   // Setup goto target labels so that we can eliminate any redundant gotos.
   // The call to eliminateRedundantGotos uses the target labels.
   for (auto *Goto : HIRC.Gotos) {
@@ -78,6 +132,9 @@ void HIRCleanup::run() {
     if (It != HIRC.Labels.end())
       Goto->setTargetLabel(It->second);
   }
+
+  // Setting target labels for gotos helps eliminate more ifs.
+  eliminateRedundantIfs();
 
   HLNodeUtils::eliminateRedundantGotos(HIRC.Gotos, RequiredLabels);
   eliminateRedundantLabels();

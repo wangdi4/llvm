@@ -43,3 +43,6 @@ entry:
 ; CHECK: ret void
 
 attributes #0 = { "sycl-kernel" }
+
+!sycl.kernels = !{!0}
+!0 = !{void (%struct.struct1*, <2 x i8>, i32, <8 x i16>, i8, i32*)* @t1}

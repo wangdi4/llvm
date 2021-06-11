@@ -20,7 +20,7 @@ define void @foo(<2 x i32>* nocapture readonly %p) {
 ; CHECK-NEXT:    [[TMP5:%.*]] = uitofp <8 x i32> [[WIDE_LOAD]] to <8 x float>
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP7]] = add nuw nsw i64 [[UNI_PHI1]], 4
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i64 [[TMP7]], 1024
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp uge i64 [[TMP7]], 1024
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], [[LOOP0:!llvm.loop !.*]]
 ;
 entry:

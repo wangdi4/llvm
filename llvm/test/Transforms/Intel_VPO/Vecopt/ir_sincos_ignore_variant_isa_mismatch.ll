@@ -22,7 +22,7 @@ define dso_local void @test() local_unnamed_addr {
 ; CHECK-NEXT:    store <4 x float> [[SINCOS_COS]], <4 x float>* [[COSVAL_VEC:%.*]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i64 [[TMP3]], 128
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i64 [[TMP3]], 128
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB3:%.*]], label [[VECTOR_BODY]], !llvm.loop [[LOOP0:![0-9]+]]
 ;
 DIR.OMP.SIMD.1338:

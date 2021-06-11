@@ -13,6 +13,7 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 namespace llvm {
 
@@ -189,8 +190,9 @@ FuncVector &DPCPPKernelBarrierUtils::getAllKernelsWithBarrier() {
     // In DPCPP path we require having this attrbiute on kernels.
     // Need to check if NoBarrierPath Value exists, it is not guaranteed that
     // KernelAnalysisPass is running in all scenarios.
-    bool NoBarrierPath = KernelAttribute::getAttributeAsBool(
-        *Kernel, KernelAttribute::NoBarrierPath, /*Default*/ false);
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+    bool NoBarrierPath =
+        KIMD.NoBarrierPath.hasValue() ? KIMD.NoBarrierPath.get() : 0;
     if (NoBarrierPath) {
       // Kernel that should not be handled in Barrier path, skip it.
       continue;
@@ -204,11 +206,13 @@ FuncVector &DPCPPKernelBarrierUtils::getAllKernelsWithBarrier() {
 
   // Collect functions to process.
   auto TodoList =
-      getAllKernelsAndVectorizedCounterparts(Kernels.getArrayRef(), M);
+      getAllKernelsAndVectorizedCounterparts(Kernels.getList(), M);
 
-  for (auto *F : TodoList)
-    KernelVectorizationWidths[F] = KernelAttribute::getAttributeAsInt(
-        *F, KernelAttribute::VectorizedWidth, /*Default*/ 1);
+  for (auto *F : TodoList) {
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+    KernelVectorizationWidths[F] =
+        KIMD.VectorizedWidth.hasValue() ? KIMD.VectorizedWidth.get() : 1;
+  }
 
   return KernelFunctions;
 }
@@ -267,13 +271,12 @@ FuncVector DPCPPKernelBarrierUtils::getAllKernelsAndVectorizedCounterparts(
     Result.push_back(F);
 
     // Set the vectorized function if present.
-    if (F->hasFnAttribute(KernelAttribute::VectorizedKernel)) {
-      Function *VectKernel =
-          DPCPPKernelCompilationUtils::getFnAttributeFunction(
-              *M, *F, KernelAttribute::VectorizedKernel);
-      if (VectKernel)
-        Result.push_back(VectKernel);
-    }
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+    Function *VectKernel = nullptr;
+    if (KIMD.VectorizedKernel.hasValue())
+      VectKernel = KIMD.VectorizedKernel.get();
+    if (VectKernel)
+      Result.push_back(VectKernel);
   }
 
   // Rely on move ctor.

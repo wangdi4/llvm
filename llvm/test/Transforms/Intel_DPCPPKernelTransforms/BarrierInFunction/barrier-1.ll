@@ -47,3 +47,6 @@ declare void @_Z18work_group_barrierj(i32)
 
 attributes #0 = { "no-barrier-path"="false" "sycl-kernel" }
 attributes #1 = { "no-barrier-path"="false" }
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32)* @main}

@@ -26,7 +26,7 @@ define void @simd_loop(<2 x i32>* %A, <2 x i32>* %B) #0 {
 ; CHECK-NEXT:     i1 [[VP_CMP3:%.*]] = icmp sgt i32 [[VP1]] i32 0
 ; CHECK-NEXT:     <2 x i32> [[VP_PRIV_OUTGOING:%.*]] = select i1 [[VP_CMP3]] <2 x i32> [[VP0]] <2 x i32> zeroinitializer
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp ne i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp ult i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB2]], [[BB3:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
@@ -82,7 +82,7 @@ define void @simd_loop(<2 x i32>* %A, <2 x i32>* %B) #0 {
 ; CHECK-NEXT:    [[TMP3:%.*]] = select <8 x i1> [[TMP2]], <8 x i32> [[WIDE_LOAD0]], <8 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP5]] = add nuw nsw i64 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp ne i64 [[TMP5]], 1024
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp ult i64 [[TMP5]], 1024
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[VECTOR_BODY0]], label [[VPLANNEDBB30:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:

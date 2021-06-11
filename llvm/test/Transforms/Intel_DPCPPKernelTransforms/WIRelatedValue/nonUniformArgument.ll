@@ -59,3 +59,6 @@ declare i64 @_Z12get_local_idj(i64)
 declare void @barrier_dummy()
 
 attributes #0 = { "sycl-kernel" }
+
+!sycl.kernels = !{!0}
+!0 = !{void (i64)* @main}

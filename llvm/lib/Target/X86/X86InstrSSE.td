@@ -8715,4 +8715,88 @@ def : InstAlias<"vcvtneps2bf16x\t{$src, $dst|$dst, $src}",
 def : InstAlias<"vcvtneps2bf16y\t{$src, $dst|$dst, $src}",
                 (VCVTNEPS2BF16Yrr VR128:$dst, VR256:$src), 0, "att">;
 #endif // INTEL_FEATURE_ISA_AVX_NE_CONVERT
+#if INTEL_FEATURE_ISA_SHA512
+let Predicates = [HasSHA512], Constraints = "$src1 = $dst" in {
+def VSHA512MSG1rr : I<0xcc, MRMSrcReg, (outs VR256:$dst),
+                    (ins VR256:$src1, VR128:$src2),
+                    "vsha512msg1\t{$src2, $dst|$dst, $src2}",
+                    [(set VR256:$dst,
+                     (int_x86_vsha512msg1 VR256:$src1, VR128:$src2))]>, VEX_L,
+                    VEX, T8XD;
+def VSHA512MSG2rr : I<0xcd, MRMSrcReg, (outs VR256:$dst),
+                    (ins VR256:$src1, VR256:$src2),
+                    "vsha512msg2\t{$src2, $dst|$dst, $src2}",
+                    [(set VR256:$dst,
+                     (int_x86_vsha512msg2 VR256:$src1, VR256:$src2))]>, VEX_L,
+                    VEX, T8XD;
+def VSHA512RNDS2rr : I<0xcb, MRMSrcReg, (outs VR256:$dst),
+                      (ins VR256:$src1, VR256:$src2, VR128:$src3),
+                      "vsha512rnds2\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                      [(set VR256:$dst,
+                       (int_x86_vsha512rnds2 VR256:$src1, VR256:$src2, VR128:$src3))]>,
+                      VEX_L, VEX_4V, T8XD;
+}
+#endif // INTEL_FEATURE_ISA_SHA512
+
+#if INTEL_FEATURE_ISA_SM3
+let Predicates = [HasSM3], Constraints = "$src1 = $dst" in {
+  multiclass SM3_Base<string OpStr> {
+    def rr : I<0xda, MRMSrcReg, (outs VR128:$dst),
+              (ins VR128:$src1, VR128:$src2, VR128:$src3),
+              !strconcat(OpStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
+              [(set VR128:$dst,
+               (!cast<Intrinsic>("int_x86_"#OpStr) VR128:$src1,
+                VR128:$src2, VR128:$src3))]>, VEX_4V;
+    def rm : I<0xda, MRMSrcMem, (outs VR128:$dst),
+              (ins VR128:$src1, VR128:$src2, i128mem:$src3),
+              !strconcat(OpStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
+              [(set VR128:$dst,
+               (!cast<Intrinsic>("int_x86_"#OpStr) VR128:$src1,
+                VR128:$src2, (loadv4i32 addr:$src3)))]>, VEX_4V;
+  }
+
+  multiclass VSM3RNDS2_Base {
+    def rr : Ii8<0xde, MRMSrcReg, (outs VR128:$dst),
+              (ins VR128:$src1, VR128:$src2, VR128:$src3, i32u8imm:$src4),
+              "vsm3rnds2\t{$src4, $src3, $src2, $dst|$dst, $src2, $src3, $src4}",
+              [(set VR128:$dst,
+               (int_x86_vsm3rnds2 VR128:$src1,
+                VR128:$src2, VR128:$src3, timm:$src4))]>;
+    def rm : Ii8<0xde, MRMSrcMem, (outs VR128:$dst),
+              (ins VR128:$src1, VR128:$src2, i128mem:$src3, i32u8imm:$src4),
+              "vsm3rnds2\t{$src4, $src3, $src2, $dst|$dst, $src2, $src3, $src4}",
+              [(set VR128:$dst,
+               (int_x86_vsm3rnds2 VR128:$src1,
+                VR128:$src2, (loadv4i32 addr:$src3), timm:$src4))]>;
+  }
+}
+
+defm VSM3MSG1 : SM3_Base<"vsm3msg1">, T8PS;
+defm VSM3MSG2 : SM3_Base<"vsm3msg2">, T8PD;
+defm VSM3RNDS2 : VSM3RNDS2_Base, VEX_4V, TAPD;
+
+#endif // INTEL_FEATURE_ISA_SM3
+
+#if INTEL_FEATURE_ISA_SM4
+let Predicates = [HasSM4, NoVLX] in {
+  multiclass SM4_Base<string OpStr, RegisterClass RC, string VL,
+                      PatFrag LD, X86MemOperand MemOp> {
+    def rr : I<0xda, MRMSrcReg, (outs RC:$dst),
+              (ins RC:$src1, RC:$src2),
+              !strconcat(OpStr, "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
+              [(set RC:$dst, (!cast<Intrinsic>("int_x86_"#OpStr#VL) RC:$src1,
+                RC:$src2))]>;
+    def rm : I<0xda, MRMSrcMem, (outs RC:$dst),
+              (ins RC:$src1, MemOp:$src2),
+              !strconcat(OpStr, "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
+              [(set RC:$dst, (!cast<Intrinsic>("int_x86_"#OpStr#VL) RC:$src1,
+               (LD addr:$src2)))]>;
+  }
+}
+
+defm VSM4KEY4  : SM4_Base<"vsm4key4", VR128, "128", loadv4i32, i128mem>, T8XS, VEX_4V;
+defm VSM4KEY4Y : SM4_Base<"vsm4key4", VR256, "256", loadv8i32, i256mem>, T8XS, VEX_L, VEX_4V;
+defm VSM4RNDS4  : SM4_Base<"vsm4rnds4", VR128, "128", loadv4i32, i128mem>, T8XD, VEX_4V;
+defm VSM4RNDS4Y : SM4_Base<"vsm4rnds4", VR256, "256", loadv8i32, i256mem>, T8XD, VEX_L, VEX_4V;
+#endif // INTEL_FEATURE_ISA_SM4
 #endif // INTEL_CUSTOMIZATION

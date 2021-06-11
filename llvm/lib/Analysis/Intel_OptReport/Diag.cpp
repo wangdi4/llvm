@@ -511,6 +511,7 @@ OptReportDiag OptReportDiag::Diags[] = {
     {25529, "VECTOR LENGTH"},
     {25530, "NORMALIZED VECTORIZATION OVERHEAD"},
     {25531, "LOOP WITH USER VECTOR INTRINSICS"},
+    {25532, "Loop completely unrolled"},
 };
 
 unsigned OptReportDiag::DiagsMax =

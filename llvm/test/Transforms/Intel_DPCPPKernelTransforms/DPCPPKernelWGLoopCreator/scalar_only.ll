@@ -8,7 +8,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: noinline nounwind optnone uwtable
-define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* %out, i32* %dummy) #0 {
+define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* %out, i32* %dummy) #0 !no_barrier_path !{i1 1} {
 ; CHECK-LABEL: @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(
 ; CHECK-NEXT:    [[OUT_ADDR:%.*]] = alloca i32*, align 8
 ; CHECK-NEXT:    [[DUMMY_ADDR:%.*]] = alloca i32*, align 8
@@ -67,3 +67,6 @@ entry:
 declare dso_local i64 @_Z13get_global_idj(i64 %0)
 
 attributes #0 = { noinline optnone "no-barrier-path"="true" "sycl-kernel" }
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm}

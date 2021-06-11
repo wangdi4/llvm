@@ -37,7 +37,7 @@ define void @test() local_unnamed_addr #1 {
 ; CHECK:       VPlannedBB4:
 ; CHECK-NEXT:    [[TMP8:%.*]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP9:%.*]] = add nuw nsw i64 [[UNI_PHI3]], 2
-; CHECK-NEXT:    [[TMP10:%.*]] = icmp eq i64 [[TMP9]], 2
+; CHECK-NEXT:    [[TMP10:%.*]] = icmp uge i64 [[TMP9]], 2
 ; CHECK-NEXT:    br i1 true, label [[VPLANNEDBB6:%.*]], label [[VECTOR_BODY:%.*]], [[LOOP0:!llvm.loop !.*]]
 ;
 entry:

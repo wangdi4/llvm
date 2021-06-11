@@ -73,3 +73,6 @@ define void @kernel_call_func_without_tid(i32 addrspace(1)* %out) #0 {
 declare i32 @_Z12get_local_idj(i32)
 
 attributes #0 = { "sycl-kernel" }
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32 addrspace(1)*)* @kernel_call_func_with_lid, void (i32 addrspace(1)*)* @kernel_call_func_without_tid}

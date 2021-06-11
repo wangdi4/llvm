@@ -38,7 +38,7 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CHECK-NEXT:       [DA: Div] float* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x float]* @dst i64 0 i64 [[VP_INDVARS_IV]]
 ; CHECK-NEXT:       [DA: Div] store float [[VP_LIB_TRUNC]] float* [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:       [DA: Uni] br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB2]]

@@ -75,3 +75,6 @@ attributes #1 = { "recommended-vector-length"="16" "prefer-vector-width"="512" "
 !0 = distinct !{!0, !1}
 !1 = !{!"llvm.loop.unroll.disable"}
 
+
+!sycl.kernels = !{!2}
+!2 = !{void (i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_}

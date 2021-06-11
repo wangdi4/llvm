@@ -17,6 +17,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 
@@ -134,7 +135,8 @@ void DPCPPKernelAnalysisPass::fillKernelCallers() {
 bool DPCPPKernelAnalysisPass::runImpl(Module &M) {
   this->M = &M;
   UnsupportedFuncs.clear();
-  Kernels = DPCPPKernelCompilationUtils::getKernels(M);
+  auto KernelList = DPCPPKernelCompilationUtils::getKernels(M);
+  Kernels.insert(KernelList.begin(), KernelList.end());
 
   fillKernelCallers();
   fillSyncUsersFuncs();
@@ -142,10 +144,8 @@ bool DPCPPKernelAnalysisPass::runImpl(Module &M) {
 
   for (Function *Kernel : Kernels) {
     assert(Kernel && "nullptr is not expected in KernelList!");
-    if (UnsupportedFuncs.count(Kernel))
-      Kernel->addFnAttr(KernelAttribute::NoBarrierPath, "false");
-    else
-      Kernel->addFnAttr(KernelAttribute::NoBarrierPath, "true");
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+    KIMD.NoBarrierPath.set(!UnsupportedFuncs.count(Kernel));
   }
 
   return (Kernels.size() != 0);
@@ -160,10 +160,10 @@ void DPCPPKernelAnalysisPass::print(raw_ostream &OS, const Module *M) const {
   for (Function *Kernel : Kernels) {
     assert(Kernel && "nullptr is not expected in KernelList!");
 
-    std::string FuncName = Kernel->getName().str();
+    StringRef FuncName = Kernel->getName();
 
-    bool NoBarrierPath = KernelAttribute::getAttributeAsBool(
-        *Kernel, KernelAttribute::NoBarrierPath);
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+    bool NoBarrierPath = KIMD.NoBarrierPath.get();
 
     if (NoBarrierPath) {
       OS << FuncName << " yes\n";

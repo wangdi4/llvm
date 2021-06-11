@@ -40,7 +40,7 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-NEXT:     i32 [[VP0]] = load i32* [[VP_PTRIDX]]
 ; CHECK-NEXT:     call i64 4 i8* [[TMP1]] void (i64, i8*)* @llvm.lifetime.end.p0i8
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP_EXITCOND_NOT:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     i1 [[VP_EXITCOND_NOT:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND_NOT]], [[BB3:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]
@@ -101,7 +101,7 @@ define dso_local i32 @_Z3fooPi(i32* nocapture readonly %A) {
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull [[TMP0]])
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i64 [[TMP3]], 100
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp uge i64 [[TMP3]], 100
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB30:%.*]], label [[VECTOR_BODY0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:

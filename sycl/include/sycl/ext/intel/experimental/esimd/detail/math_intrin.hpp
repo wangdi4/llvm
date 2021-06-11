@@ -330,18 +330,18 @@ __esimd_dpas(__SEIEED::vector_type_t<T0, N> src0,
              int depth, int repeat, int sign_res, int sign_acc);
 
 template <typename T, typename T1, typename T2, int N, int N1, int N2>
-SYCL_EXTERNAL __SEIEED::vector_type_t<T, N>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<T, N>
 __esimd_dpas2(__SEIEED::vector_type_t<T1, N1> src1,
               __SEIEED::vector_type_t<T2, N2> src2, int dpas_info);
 
 template <typename T, typename T1, typename T2, int N, int N1, int N2>
-SYCL_EXTERNAL __SEIEED::vector_type_t<T, N>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<T, N>
 __esimd_dpasw(__SEIEED::vector_type_t<T, N> src0,
               __SEIEED::vector_type_t<T1, N1> src1,
               __SEIEED::vector_type_t<T2, N2> src2, int dpas_info);
 
 template <typename T, typename T1, typename T2, int N, int N1, int N2>
-SYCL_EXTERNAL __SEIEED::vector_type_t<T, N>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<T, N>
 __esimd_dpasw2(__SEIEED::vector_type_t<T1, N1> src1,
                __SEIEED::vector_type_t<T2, N2> src2, int dpas_info);
 

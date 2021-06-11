@@ -4039,7 +4039,15 @@ GlobalVariable *VPOParoptUtils::genKmpcCriticalLockVar(
 
 // Generates a critical section around the instructions specified
 // by BeginInst and EndInst like this:
-//   __kmpc_critical_with_hint();
+// if (Hint == 0)
+//   __kmpc_critical()
+//   BeginInst
+//   ...
+//   __kmpc_end_critical()
+//   EndInst
+//
+// if (Hint != 0)
+//   void __kmpc_critical_with_hint();
 //   BeginInst
 //   ...
 //   __kmpc_end_critical()
@@ -4066,7 +4074,7 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
   auto *RetTy = Type::getVoidTy(C);
   Type *Int32Ty = Type::getInt32Ty(C);
 
-  StringRef BeginName = "__kmpc_critical_with_hint";
+  StringRef BeginName = "__kmpc_critical";
   CallInst *BeginCritical = nullptr;
   Value *Arg = LockVar;
   Module *M = BeginInst->getModule();
@@ -4080,13 +4088,17 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
   if (IsTargetSPIRV)
     // TODO: generate "__kmpc_critical_with_hint" with same host signature when
     // runtime provides the support
-    BeginCritical = genCall(M, "__kmpc_critical", RetTy, {Arg});
+    BeginCritical = genCall(M, BeginName, RetTy, {Arg});
+  else if (Hint != 0)
+    BeginCritical = genKmpcCallWithTid(W, IdentTy, TidPtr, BeginInst,
+                                       "__kmpc_critical_with_hint", RetTy,
+                                       {Arg, ConstantInt::get(Int32Ty, Hint)});
   else
     BeginCritical =
-        genKmpcCallWithTid(W, IdentTy, TidPtr, BeginInst, BeginName, RetTy,
-                           {Arg, ConstantInt::get(Int32Ty, Hint)});
+        genKmpcCallWithTid(W, IdentTy, TidPtr, BeginInst, BeginName,
+                           RetTy, { Arg });
 
-  assert(BeginCritical && "Could not call __kmpc_critical_with_hint");
+  assert(BeginCritical && "Could not call __kmpc_critical");
 
   StringRef EndName = "__kmpc_end_critical";
   CallInst *EndCritical = nullptr;

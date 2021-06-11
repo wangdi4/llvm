@@ -30,3 +30,6 @@ attributes #0 = { "sycl-kernel" }
 ; instructions are not from user code and they will not impact debuggability.
 ; We can ignore the warnings related to them.
 ; DEBUGIFY-NOT: WARNING: Missing line
+
+!sycl.kernels = !{!0}
+!0 = !{void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*, i32)* @A}

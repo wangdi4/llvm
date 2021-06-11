@@ -20,7 +20,7 @@ define void @simd_loop(i32* %A, i32* %B) #0 {
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 8
 ; CHECK-NEXT:    [[TMP1]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp ne i64 [[TMP2]], 1024
+; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i64 [[TMP2]], 1024
 ; CHECK-NEXT:    br i1 [[TMP3]], label [[VECTOR_BODY]], label [[VPLANNEDBB3:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ; CHECK:       VPlannedBB3:
 ; CHECK-NEXT:    [[EXTRACTED_PRIV:%.*]] = extractelement <4 x i32> [[WIDE_LOAD]], i64 3

@@ -102,7 +102,8 @@ entry:
   ret void
 }
 
-; CHECK: void @__device_side_enqueue_block_invoke_kernel(i8 addrspace(4)* %0) #2
+; CHECK: void @__device_side_enqueue_block_invoke_kernel(i8 addrspace(4)* %0)
+; CHECK-SAME: !block_literal_size ![[BLS1:[0-9]+]]
 
 ; Function Attrs: nounwind
 define internal spir_kernel void @__device_side_enqueue_block_invoke_kernel(i8 addrspace(4)*) #3 {
@@ -124,7 +125,8 @@ entry:
   ret void
 }
 
-; CHECK: void @__device_side_enqueue_block_invoke_2_kernel(i8 addrspace(4)* %0, i8 addrspace(3)* %1) #3
+; CHECK: void @__device_side_enqueue_block_invoke_2_kernel(i8 addrspace(4)* %0, i8 addrspace(3)* %1)
+; CHECK-SAME: !block_literal_size ![[BLS2:[0-9]+]]
 
 ; Function Attrs: nounwind
 define internal spir_kernel void @__device_side_enqueue_block_invoke_2_kernel(i8 addrspace(4)*, i8 addrspace(3)*) #3 {
@@ -155,7 +157,8 @@ entry:
   ret void
 }
 
-; CHECK: void @__device_side_enqueue_block_invoke_3_kernel(i8 addrspace(4)* %0) #3
+; CHECK: void @__device_side_enqueue_block_invoke_3_kernel(i8 addrspace(4)* %0)
+; CHECK-SAME: !block_literal_size ![[BLS2]]
 
 ; Function Attrs: nounwind
 define internal spir_kernel void @__device_side_enqueue_block_invoke_3_kernel(i8 addrspace(4)*) #3 {
@@ -166,7 +169,8 @@ entry:
 
 declare i32 @__get_kernel_work_group_size_impl(i8 addrspace(4)*, i8 addrspace(4)*)
 
-; CHECK: void @__device_side_enqueue_block_invoke_4_kernel(i8 addrspace(4)* %0, i8 addrspace(3)* %1) #3
+; CHECK: void @__device_side_enqueue_block_invoke_4_kernel(i8 addrspace(4)* %0, i8 addrspace(3)* %1)
+; CHECK-SAME: !block_literal_size ![[BLS2]]
 
 ; Function Attrs: nounwind
 define internal spir_kernel void @__device_side_enqueue_block_invoke_4_kernel(i8 addrspace(4)*, i8 addrspace(3)*) #3 {
@@ -180,8 +184,8 @@ declare i32 @__get_kernel_preferred_work_group_size_multiple_impl(i8 addrspace(4
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
 
-; CHECK: attributes #2 = { nounwind "block-literal-size"="21" "sycl-kernel" }
-; CHECK: attributes #3 = { nounwind "block-literal-size"="8" "sycl-kernel" }
+; CHECK: ![[BLS1]] = !{i32 21}
+; CHECK: ![[BLS2]] = !{i32 8}
 
 attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "uniform-work-group-size"="false" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }

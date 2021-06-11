@@ -48,7 +48,7 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
 ; CHECK-NEXT:     i32 [[VP_A_I:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     i32 [[VP_ADD]] = add i32 [[VP_A_I]] i32 [[VP_SUM_07]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB3:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB0]]

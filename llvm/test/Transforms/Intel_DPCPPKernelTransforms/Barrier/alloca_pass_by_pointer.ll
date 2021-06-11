@@ -120,3 +120,6 @@ attributes #4 = { convergent "kernel-call-once" "kernel-convergent-call" }
 attributes #5 = { convergent nounwind readnone }
 attributes #6 = { convergent }
 
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32 addrspace(1)*, i32 addrspace(3)*)* @test}

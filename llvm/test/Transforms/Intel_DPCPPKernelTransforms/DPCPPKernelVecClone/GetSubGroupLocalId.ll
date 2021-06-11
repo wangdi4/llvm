@@ -29,3 +29,6 @@ declare dso_local i32 @__builtin_get_sub_group_local_id()
 
 attributes #0 = { "prefer-vector-width"="512" "sycl-kernel" "target-cpu"="skylake-avx512" }
 
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_}

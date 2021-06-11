@@ -867,7 +867,10 @@ constexpr unsigned MaxAnalysisRecursionDepth = 6;
   /// if it is known based on dominating conditions.
   Optional<bool> isImpliedByDomCondition(const Value *Cond,
                                          const Instruction *ContextI,
-                                         const DataLayout &DL);
+#if INTEL_CUSTOMIZATION
+                                         const DataLayout &DL,
+                                         DominatorTree *DT = nullptr);
+#endif // INTEL_CUSTOMIZATION
   Optional<bool> isImpliedByDomCondition(CmpInst::Predicate Pred,
                                          const Value *LHS, const Value *RHS,
                                          const Instruction *ContextI,

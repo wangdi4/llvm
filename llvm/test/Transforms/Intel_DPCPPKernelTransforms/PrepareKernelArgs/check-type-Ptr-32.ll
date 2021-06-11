@@ -19,3 +19,6 @@ entry:
 
 
 attributes #0 = { "sycl-kernel" }
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32*)* @t1}

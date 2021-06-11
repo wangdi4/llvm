@@ -29,7 +29,7 @@ define void @main() {
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD]] = add i32 [[VP_ADD_PHI]] i32 1
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_ADD_2]] = add i32 [[VP_ADD_PHI_2]] i32 [[VP_ADD_PHI_2_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_BOTTOM_TEST:%.*]] = icmp eq i32 [[VP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_BOTTOM_TEST:%.*]] = icmp uge i32 [[VP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_BOTTOM_TEST]], [[BB4:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]

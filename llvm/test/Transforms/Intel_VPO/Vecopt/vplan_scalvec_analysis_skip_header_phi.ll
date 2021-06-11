@@ -49,7 +49,7 @@ define void @test_uni_inner(i64 *%p) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB6]]
 ; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_SIMD_IV_NEXT]] = add i64 [[VP_SIMD_IV]] i64 [[VP_SIMD_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_SIMD_EXITCOND:%.*]] = icmp eq i64 [[VP_SIMD_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_SIMD_EXITCOND:%.*]] = icmp uge i64 [[VP_SIMD_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_SIMD_EXITCOND]], [[BB7:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]: # preds: [[BB3]]
@@ -160,7 +160,7 @@ define void @test_self_user_phi(i64 *%p) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]: # preds: [[BB6]]
 ; CHECK-NEXT:       [DA: Div, SVA: (FV )] i64 [[VP_SIMD_IV_NEXT]] = add i64 [[VP_SIMD_IV]] i64 [[VP_SIMD_IV_IND_INIT_STEP]] (SVAOpBits 0->FV 1->FV )
-; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_SIMD_EXITCOND:%.*]] = icmp eq i64 [[VP_SIMD_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
+; CHECK-NEXT:       [DA: Uni, SVA: (F  )] i1 [[VP_SIMD_EXITCOND:%.*]] = icmp uge i64 [[VP_SIMD_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]] (SVAOpBits 0->F 1->F )
 ; CHECK-NEXT:       [DA: Uni, SVA: (F  )] br i1 [[VP_SIMD_EXITCOND]], [[BB7:BB[0-9]+]], [[BB2]] (SVAOpBits 0->F 1->F 2->F )
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]: # preds: [[BB3]]

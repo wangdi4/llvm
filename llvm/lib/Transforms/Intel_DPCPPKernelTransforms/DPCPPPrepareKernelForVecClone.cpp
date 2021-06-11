@@ -38,6 +38,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include <string>
 
@@ -155,7 +156,8 @@ void DPCPPPrepareKernelForVecClone::addVectorVariantAttrsToKernel() {
       TTI.getRegisterBitWidth(TargetTransformInfo::RGK_FixedWidthVector) / 32;
   LLVM_DEBUG(dbgs() << "VectorLength: " << VectorLength << '\n';);
 
-  F->addFnAttr(KernelAttribute::RecommendedVL, utostr(VectorLength));
+  DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+  KIMD.RecommendedVL.set(VectorLength);
 
   // Use "uniform" parameter for all arguments.
   SmallVector<ParamAttrTy, 4> ParamsVec;

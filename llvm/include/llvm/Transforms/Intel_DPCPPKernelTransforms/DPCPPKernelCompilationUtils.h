@@ -12,6 +12,7 @@
 #define LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_COMPILATION_UTILS_H
 
 #include "KernelArgType.h"
+#include "Utils/MetadataAPI.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
@@ -176,8 +177,11 @@ std::string mangledBarrier();
 /// Returns the mangled name of the function work_group_barrier.
 std::string mangledWGBarrier(BarrierType BT);
 
-/// Collect all kernel functions which have "sycl_kernel" attribute.
-FuncSet getKernels(Module &M);
+/// Collect all kernel functions.
+inline auto getKernels(Module &M) {
+  return DPCPPKernelMetadataAPI::KernelList(M);
+}
+
 
 /// Collect all kernel functions including vectorized and vectorized masked
 /// kernel.

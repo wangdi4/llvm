@@ -33,7 +33,7 @@ define dso_local void @foo(i64* noalias nocapture %larr) local_unnamed_addr #0 {
 ; IRCHECK-NEXT:  VPlannedBB6:
 ; IRCHECK-NEXT:    [[TMP7]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; IRCHECK-NEXT:    [[TMP8]] = add nuw nsw i64 [[UNI_PHI30]], 4
-; IRCHECK-NEXT:    [[TMP9:%.*]] = icmp eq i64 [[TMP8]], 100
+; IRCHECK-NEXT:    [[TMP9:%.*]] = icmp uge i64 [[TMP8]], 100
 ; IRCHECK-NEXT:    br i1 [[TMP9]], label [[VPLANNEDBB80:%.*]], label [[VECTOR_BODY0:%.*]]
 ;
 ; HIRCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR (VPlanDriverHIR) ***

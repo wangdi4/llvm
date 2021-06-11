@@ -13,6 +13,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 
@@ -36,7 +37,8 @@ bool runImpl(Module &M) {
   auto Kernels = DPCPPKernelCompilationUtils::getAllKernels(M);
   for (auto *Kernel : Kernels) {
     // If a kernel is wrapped - delete its body
-    if (Kernel->hasFnAttribute(KernelAttribute::KernelWrapper)) {
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Kernel);
+    if (KIMD.KernelWrapper.hasValue() && KIMD.KernelWrapper.get()) {
       Kernel->eraseMetadata(LLVMContext::MD_dbg);
       Kernel->eraseMetadata(LLVMContext::MD_prof);
       SmallVector<std::pair<unsigned, MDNode *>, 8> MDs;

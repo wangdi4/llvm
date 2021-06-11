@@ -34,3 +34,6 @@ L3:
 declare void @_Z18work_group_barrierj(i32)
 
 attributes #0 = { "sycl-kernel" }
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32)* @main}

@@ -91,21 +91,6 @@
 ;CHECK-NEXT: Invalidating analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Invalidating analysis: BasicAA on foo
 ; INTEL_CUSTOMIZATION
-;CHECK-NEXT: Running pass: VPOParoptOptimizeDataSharingPass on foo
-;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
-;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
-;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
-;CHECK-NEXT: Running analysis: LoopAnalysis on foo
-;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
-;CHECK-NEXT: Running analysis: AAManager on foo
-;CHECK-NEXT: Running analysis: BasicAA on foo
-;CHECK-NEXT: Invalidating analysis: DominatorTreeAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: LoopAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: ScalarEvolutionAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: BasicAA on foo
-;CHECK-NEXT: Invalidating analysis: AAManager on foo
-;CHECK-NEXT: Invalidating analysis: WRegionCollectionAnalysis on foo
-;CHECK-NEXT: Invalidating analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running pass: VPOParoptSharedPrivatizationPass on foo
 ;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
@@ -114,14 +99,29 @@
 ;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
 ;CHECK-NEXT: Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
+;CHECK-NEXT: Running pass: VPOParoptOptimizeDataSharingPass on foo
+;CHECK-NEXT: Invalidating analysis: DominatorTreeAnalysis on foo
+;CHECK-NEXT: Invalidating analysis: LoopAnalysis on foo
+;CHECK-NEXT: Invalidating analysis: ScalarEvolutionAnalysis on foo
+;CHECK-NEXT: Invalidating analysis: BasicAA on foo
+;CHECK-NEXT: Invalidating analysis: AAManager on foo
+;CHECK-NEXT: Invalidating analysis: WRegionCollectionAnalysis on foo
+;CHECK-NEXT: Invalidating analysis: WRegionInfoAnalysis on foo
 ; end INTEL_CUSTOMIZATION
 ;CHECK-NEXT: Running pass: LoopSimplifyPass on foo
+;CHECK-NEXT: Running analysis: LoopAnalysis on foo
+;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Invalidating analysis: CallGraphAnalysis on {{.*}}
 ;CHECK-NEXT: Invalidating analysis: LazyCallGraphAnalysis on {{.*}}
 ;CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::CGSCCAnalysisManager, llvm::Module> on {{.*}}
 ;CHECK-NEXT: Running pass: VPOParoptPass on [module]
 ;CHECK-NEXT: Running analysis: VPOParoptConfigAnalysis on [module]
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on [module] ;INTEL
+;CHECK-NEXT: Running analysis: WRegionInfoAnalysis on foo
+;CHECK-NEXT: Running analysis: WRegionCollectionAnalysis on foo
+;CHECK-NEXT: Running analysis: ScalarEvolutionAnalysis on foo
+;CHECK-NEXT: Running analysis: AAManager on foo
+;CHECK-NEXT: Running analysis: BasicAA on foo
 ;CHECK-NEXT: Running pass: AlwaysInlinerPass on [module]            ;INTEL
 ;CHECK-NEXT: Running pass: GlobalDCEPass on [module]                ;INTEL
 ;CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module> on {{.*}}

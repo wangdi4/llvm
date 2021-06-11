@@ -21,7 +21,7 @@ define void @foo(i64 *%a, i64 *%b) {
 ; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <2 x i32> [[EXTRACTSUBVEC_]], <2 x i32> [[EXTRACTSUBVEC_]], <2 x i32> <i32 3, i32 0>
 ; CHECK-NEXT:    [[TMP6]] = add nuw nsw <4 x i64> [[VEC_PHI]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP7]] = add nuw nsw i64 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i64 [[TMP7]], 128
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp uge i64 [[TMP7]], 128
 ; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB3:%.*]], label [[VECTOR_BODY]], [[LOOP0:!llvm.loop !.*]]
 ;
 entry:

@@ -19,6 +19,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
@@ -109,29 +110,27 @@ bool DPCPPKernelWGLoopCreatorPass::runImpl(Module &M) {
   for (auto *F : Kernels) {
     // No need to check if NoBarrierPath Value exists, it is guaranteed that
     // KernelAnalysisPass ran before WGLoopCreator pass.
-    bool NoBarrierPath = KernelAttribute::getAttributeAsBool(
-        *F, KernelAttribute::NoBarrierPath, /*Default*/ false);
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+    bool NoBarrierPath =
+        KIMD.NoBarrierPath.hasValue() ? KIMD.NoBarrierPath.get() : false;
     // Kernel that should be handled in barrier path, skip it.
     if (!NoBarrierPath)
       continue;
 
     unsigned int VectWidth = 0;
     // Get the vectorized function
-    Function *VectKernel = DPCPPKernelCompilationUtils::getFnAttributeFunction(
-        M, *F, KernelAttribute::VectorizedKernel);
+    Function *VectKernel = KIMD.VectorizedKernel.get();
     // Need to check if Vectorized Kernel Value exists, it is not guaranteed
     // that Vectorized is running in all scenarios.
     if (VectKernel) {
       // Get the vectorized width
-      VectWidth = KernelAttribute::getAttributeAsInt(
-          *VectKernel, KernelAttribute::VectorizedWidth);
+      DPCPPKernelMetadataAPI::KernelInternalMetadataAPI VKIMD(VectKernel);
+      VectWidth = VKIMD.VectorizedWidth.get();
 
       // save the relevant information from the vectorized kernel
       // prior to erasing this information.
-      F->removeFnAttr(KernelAttribute::VectorizedKernel);
-      F->addFnAttr(KernelAttribute::VectorizedKernel, "");
-      F->removeFnAttr(KernelAttribute::VectorizedWidth);
-      F->addFnAttr(KernelAttribute::VectorizedWidth, utostr(VectWidth));
+      KIMD.VectorizedKernel.set(nullptr);
+      KIMD.VectorizedWidth.set(VectWidth);
     }
 
     LLVM_DEBUG(dbgs() << "vectWidth for " << F->getName() << ": " << VectWidth
@@ -258,9 +257,6 @@ BasicBlock *DPCPPKernelWGLoopCreatorPass::inlineVectorFunction(BasicBlock *BB) {
   // assigned. The easiest way to assign the correct one is to erase both of
   // them by resetting the original scalar subprogram.
   Func->setSubprogram(SSP);
-
-  // Restore sycl-kernel attribute which was overwriten by CloneFunctionInto.
-  Func->addFnAttr(KernelAttribute::SyclKernel);
 
   for (auto &VBB : *VectorFunc) {
     BasicBlock *ClonedBB = dyn_cast<BasicBlock>(ValueMap[&VBB]);

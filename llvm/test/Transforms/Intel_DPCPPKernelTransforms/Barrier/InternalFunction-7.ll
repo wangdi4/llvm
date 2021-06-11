@@ -80,3 +80,6 @@ declare void @barrier_dummy()
 
 attributes #0 = { nounwind "no-barrier-path"="false" "sycl-kernel" }
 attributes #1 = { nounwind "no-barrier-path"="false" }
+
+!sycl.kernels = !{!0}
+!0 = !{void ()* @main}

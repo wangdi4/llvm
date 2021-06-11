@@ -21,3 +21,6 @@ declare i32 @__builtin_get_local_id(i32) local_unnamed_addr
 !0 = !{void (i32 addrspace(1)*)* @foo}
 
 attributes #0 = { "sycl-kernel" "target-cpu"="skylake-avx512" }
+
+!sycl.kernels = !{!1}
+!1 = !{void (i32 addrspace(1)*)* @foo}

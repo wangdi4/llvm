@@ -50,7 +50,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; VPLAN-NEXT:    [[BB6]]: # preds: [[BB5]]
 ; VPLAN-NEXT:     [DA: Div] i32 [[VP_PHI_BLEND_BB3:%.*]] = blend [ i32 42, i1 [[VP_TOBOOL_NOT]] ], [ i32 0, i1 [[VP_TOBOOL]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1:%.*]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:     [DA: Uni] br cloned.[[BB7:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB7]]: # preds: [[BB6]]
@@ -76,7 +76,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; VPLAN-NEXT:    cloned.[[BB10]]: # preds: cloned.[[BB9]]
 ; VPLAN-NEXT:     [DA: Div] i32 [[VP11:%.*]] = blend [ i32 42, i1 [[VP7]] ], [ i32 0, i1 [[VP_TOBOOL_1]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_2:%.*]] = add i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_1:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP12:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:     [DA: Uni] br cloned.[[BB11:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB11]]: # preds: cloned.[[BB10]]
@@ -102,7 +102,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; VPLAN-NEXT:    cloned.[[BB3]]: # preds: cloned.[[BB13]]
 ; VPLAN-NEXT:     [DA: Div] i32 [[VP18:%.*]] = blend [ i32 42, i1 [[VP14]] ], [ i32 0, i1 [[VP_TOBOOL_2]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_2:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_2:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND_2]], [[BB14:BB[0-9]+]], [[BB2]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB14]]: # preds: cloned.[[BB3]]
@@ -168,7 +168,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; CG-NEXT:    [[PREDBLEND0:%.*]] = select <4 x i1> [[TMP3]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
 ; CG-NEXT:    [[TMP8:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CG-NEXT:    [[TMP9:%.*]] = add nuw nsw i64 [[UNI_PHI0]], 4
-; CG-NEXT:    [[TMP10:%.*]] = icmp eq i64 [[TMP9]], [[N_VEC0]]
+; CG-NEXT:    [[TMP10:%.*]] = icmp uge i64 [[TMP9]], [[N_VEC0]]
 ; CG-NEXT:    br label [[VPLANNEDBB70:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB7:
@@ -197,7 +197,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; CG-NEXT:    [[PREDBLEND150:%.*]] = select <4 x i1> [[TMP13]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
 ; CG-NEXT:    [[TMP18:%.*]] = add nuw nsw <4 x i64> [[TMP8]], <i64 4, i64 4, i64 4, i64 4>
 ; CG-NEXT:    [[TMP19:%.*]] = add nuw nsw i64 [[TMP9]], 4
-; CG-NEXT:    [[TMP20:%.*]] = icmp eq i64 [[TMP19]], [[N_VEC0]]
+; CG-NEXT:    [[TMP20:%.*]] = icmp uge i64 [[TMP19]], [[N_VEC0]]
 ; CG-NEXT:    br label [[VPLANNEDBB160:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB16:
@@ -226,7 +226,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; CG-NEXT:    [[PREDBLEND240:%.*]] = select <4 x i1> [[TMP23]], <4 x i32> zeroinitializer, <4 x i32> <i32 42, i32 42, i32 42, i32 42>
 ; CG-NEXT:    [[TMP28]] = add nuw nsw <4 x i64> [[TMP18]], <i64 4, i64 4, i64 4, i64 4>
 ; CG-NEXT:    [[TMP29]] = add nuw nsw i64 [[TMP19]], 4
-; CG-NEXT:    [[TMP30:%.*]] = icmp eq i64 [[TMP29]], [[N_VEC0]]
+; CG-NEXT:    [[TMP30:%.*]] = icmp uge i64 [[TMP29]], [[N_VEC0]]
 ; CG-NEXT:    br i1 [[TMP30]], label [[VPLANNEDBB250:%.*]], label [[VECTOR_BODY0]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB25:
@@ -363,7 +363,7 @@ define dso_local void @uniform_control_flow(i32* nocapture %a, i32* nocapture %b
 ; VPLAN-NEXT:    [[BB6]]: # preds: [[BB5]], [[BB4]]
 ; VPLAN-NEXT:     [DA: Uni] i32 [[VP_PHI:%.*]] = phi  [ i32 42, [[BB5]] ],  [ i32 0, [[BB4]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1:%.*]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:     [DA: Uni] br cloned.[[BB7:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB7]]: # preds: [[BB6]]
@@ -386,7 +386,7 @@ define dso_local void @uniform_control_flow(i32* nocapture %a, i32* nocapture %b
 ; VPLAN-NEXT:    cloned.[[BB10]]: # preds: cloned.[[BB9]], cloned.[[BB8]]
 ; VPLAN-NEXT:     [DA: Uni] i32 [[VP_PHI_1:%.*]] = phi  [ i32 42, cloned.[[BB9]] ],  [ i32 0, cloned.[[BB8]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_2:%.*]] = add i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_1:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_1:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:     [DA: Uni] br cloned.[[BB11:BB[0-9]+]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB11]]: # preds: cloned.[[BB10]]
@@ -409,7 +409,7 @@ define dso_local void @uniform_control_flow(i32* nocapture %a, i32* nocapture %b
 ; VPLAN-NEXT:    cloned.[[BB3]]: # preds: cloned.[[BB13]], cloned.[[BB12]]
 ; VPLAN-NEXT:     [DA: Uni] i32 [[VP_PHI_2:%.*]] = phi  [ i32 42, cloned.[[BB13]] ],  [ i32 0, cloned.[[BB12]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_2:%.*]] = icmp eq i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; VPLAN-NEXT:     [DA: Uni] i1 [[VP_EXITCOND_2:%.*]] = icmp uge i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:     [DA: Uni] br i1 [[VP_EXITCOND_2]], [[BB14:BB[0-9]+]], [[BB2]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB14]]: # preds: cloned.[[BB3]]
@@ -474,7 +474,7 @@ define dso_local void @uniform_control_flow(i32* nocapture %a, i32* nocapture %b
 ; CG-NEXT:    [[UNI_PHI80:%.*]] = phi i32 [ 42, [[VPLANNEDBB50]] ], [ 0, [[VPLANNEDBB40]] ]
 ; CG-NEXT:    [[TMP7:%.*]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CG-NEXT:    [[TMP8:%.*]] = add nuw nsw i64 [[UNI_PHI0]], 4
-; CG-NEXT:    [[TMP9:%.*]] = icmp eq i64 [[TMP8]], [[N_VEC0]]
+; CG-NEXT:    [[TMP9:%.*]] = icmp uge i64 [[TMP8]], [[N_VEC0]]
 ; CG-NEXT:    br label [[VPLANNEDBB90:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB9:
@@ -502,7 +502,7 @@ define dso_local void @uniform_control_flow(i32* nocapture %a, i32* nocapture %b
 ; CG-NEXT:    [[UNI_PHI170:%.*]] = phi i32 [ 42, [[VPLANNEDBB140]] ], [ 0, [[VPLANNEDBB130]] ]
 ; CG-NEXT:    [[TMP16:%.*]] = add nuw nsw <4 x i64> [[TMP7]], <i64 4, i64 4, i64 4, i64 4>
 ; CG-NEXT:    [[TMP17:%.*]] = add nuw nsw i64 [[TMP8]], 4
-; CG-NEXT:    [[TMP18:%.*]] = icmp eq i64 [[TMP17]], [[N_VEC0]]
+; CG-NEXT:    [[TMP18:%.*]] = icmp uge i64 [[TMP17]], [[N_VEC0]]
 ; CG-NEXT:    br label [[VPLANNEDBB180:%.*]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB18:
@@ -530,7 +530,7 @@ define dso_local void @uniform_control_flow(i32* nocapture %a, i32* nocapture %b
 ; CG-NEXT:    [[UNI_PHI260:%.*]] = phi i32 [ 42, [[VPLANNEDBB230]] ], [ 0, [[VPLANNEDBB220]] ]
 ; CG-NEXT:    [[TMP25]] = add nuw nsw <4 x i64> [[TMP16]], <i64 4, i64 4, i64 4, i64 4>
 ; CG-NEXT:    [[TMP26]] = add nuw nsw i64 [[TMP17]], 4
-; CG-NEXT:    [[TMP27:%.*]] = icmp eq i64 [[TMP26]], [[N_VEC0]]
+; CG-NEXT:    [[TMP27:%.*]] = icmp uge i64 [[TMP26]], [[N_VEC0]]
 ; CG-NEXT:    br i1 [[TMP27]], label [[VPLANNEDBB270:%.*]], label [[VECTOR_BODY0]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB27:

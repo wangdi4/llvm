@@ -3066,8 +3066,8 @@ void HIRCompleteUnroll::doUnroll(HLLoop *Loop) {
       Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
   if (Loop->isInnermost()) {
-    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
-                                "Loop completely unrolled");
+    // Loop completely unrolled.
+    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25532u);
   } else {
     LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
                                 "Loopnest completely unrolled");

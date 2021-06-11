@@ -4455,6 +4455,7 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
     // Then make the calculations by the formula above.
     VPBasicBlock *VPIndFinalBB = VPInst->getParent()->getSinglePredecessor();
     VPLoop *L = Plan->getVPLoopInfo()->getLoopFor(VPIndFinalBB);
+    bool ExactUB = L->exactUB();
     VPCmpInst *Cond = L->getLatchComparison();
     Value *TripCnt = VectorTripCount;
     if (Cond) {
@@ -4462,10 +4463,15 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
                                  ? Cond->getOperand(0)
                                  : Cond->getOperand(1);
       TripCnt = getScalarValue(VPTripCount, 0);
+    } else {
+      assert(ExactUB && "Expected exact UB");
     }
     if (VPInst->isLastValPreIncrement())
       TripCnt =
           Builder.CreateSub(TripCnt, ConstantInt::get(TripCnt->getType(), 1));
+    if (!ExactUB)
+      TripCnt =
+          Builder.CreateAdd(TripCnt, ConstantInt::get(TripCnt->getType(), 1));
     Instruction::CastOps CastOp =
         CastInst::getCastOpcode(TripCnt, true, StepType, true);
     Value *CRD = Builder.CreateCast(CastOp, TripCnt, StepType, "cast.crd");

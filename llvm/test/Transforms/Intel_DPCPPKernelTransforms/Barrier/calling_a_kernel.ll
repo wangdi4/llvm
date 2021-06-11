@@ -29,3 +29,6 @@ declare void @barrier_dummy()
 
 attributes #0 = { "no-barrier-path"="false" "sycl-kernel" }
 attributes #1 = { convergent }
+
+!sycl.kernels = !{!0}
+!0 = !{void ()* @kernel}

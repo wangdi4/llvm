@@ -61,3 +61,6 @@ attributes #0 = { convergent noinline norecurse nounwind }
 attributes #1 = { convergent noinline norecurse nounwind "no-barrier-path"="false" "sycl-kernel" }
 attributes #2 = { convergent }
 
+
+!sycl.kernels = !{!0}
+!0 = !{void ()* @main_kernel}

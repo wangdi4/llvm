@@ -23,7 +23,7 @@ define void @scalar_soa() {
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i32>, <2 x i32>* [[PRIV_VEC]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp ne i64 [[TMP3]], 1024
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp ult i64 [[TMP3]], 1024
 ; CHECK-NEXT:    br i1 [[TMP4]], label [[VECTOR_BODY]], label [[VPLANNEDBB3:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ;
 

@@ -87,7 +87,7 @@ define void @test1(i64 %n, i64 addrspace(4)* %arr) {
 ; CHECK-NEXT:  VPlannedBB8:
 ; CHECK-NEXT:    [[TMP26]] = add nuw nsw <2 x i64> [[VEC_PHI0]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP27]] = add nuw nsw i64 [[UNI_PHI0]], 2
-; CHECK-NEXT:    [[TMP28:%.*]] = icmp eq i64 [[TMP27]], [[TMP0:%.*]]
+; CHECK-NEXT:    [[TMP28:%.*]] = icmp uge i64 [[TMP27]], [[TMP0:%.*]]
 ; CHECK-NEXT:    br i1 [[TMP28]], label [[VPLANNEDBB90:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB9:

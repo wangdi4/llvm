@@ -22,6 +22,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelLoopUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
 
@@ -93,6 +94,8 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
   FuncSet &FunctionsWithSync =
       BarrierUtils.getAllFunctionsWithSynchronization();
 
+  auto Kernels = DPCPPKernelCompilationUtils::getKernels(M);
+
   // Collect data for each function with synchronize instruction.
   for (Function *Func : FunctionsWithSync) {
     // Check if function has no synchronize instructions!
@@ -123,7 +126,7 @@ bool KernelBarrier::runImpl(Module &M, DataPerBarrier *DPB, DataPerValue *DPV) {
       if (!CI)
         continue;
       // Skip non-kernel calls.
-      if (!CI->getFunction()->hasFnAttribute(KernelAttribute::SyclKernel))
+      if (llvm::find(Kernels, CI->getFunction()) == Kernels.end())
         continue;
       // Handle call instruction operands and return value, if needed.
       fixCallInstruction(CI);
@@ -1499,8 +1502,9 @@ void KernelBarrier::updateStructureStride(Module &M,
   for (auto *Func : TodoList) {
     // Need to check if Vectorized Width Value exists, it is not guaranteed
     // that Vectorized is running in all scenarios.
-    auto VecWidth = KernelAttribute::getAttributeAsInt(
-        *Func, KernelAttribute::VectorizedWidth, /*Default*/ 1);
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(Func);
+    auto VecWidth =
+        KIMD.VectorizedWidth.hasValue() ? KIMD.VectorizedWidth.get() : 1;
     unsigned int StrideSize = DPV->getStrideSize(Func);
     assert(VecWidth && "VecWidth should not be 0!");
     StrideSize = (StrideSize + VecWidth - 1) / VecWidth;
@@ -1515,21 +1519,19 @@ void KernelBarrier::updateStructureStride(Module &M,
     // doesn't depend on non-uniform values) the private memory query returns a
     // smaller value than actual private memory usage. This subtle is taken into
     // account in the query for the maximum work-group.
-    bool NoBarrierPath = KernelAttribute::getAttributeAsBool(
-        *Func, KernelAttribute::NoBarrierPath, /*Default*/ false);
+    bool NoBarrierPath =
+        KIMD.NoBarrierPath.hasValue() ? KIMD.NoBarrierPath.get() : false;
     if (NoBarrierPath) {
-      Func->addFnAttr(KernelAttribute::BarrierBufferSize, utostr(0));
+      KIMD.BarrierBufferSize.set(0);
       // if there are no barrier in the kernel, strideSize is the kernel
       // body's private memory usage. So need to add sub-function's memory size.
-      Func->addFnAttr(
-          KernelAttribute::PrivateMemorySize,
-          utostr(StrideSize + PrivateSize - DPV->getStrideSize(Func)));
+      KIMD.PrivateMemorySize.set(StrideSize + PrivateSize -
+                                 DPV->getStrideSize(Func));
     } else {
-      Func->addFnAttr(KernelAttribute::BarrierBufferSize, utostr(StrideSize));
+      KIMD.BarrierBufferSize.set(StrideSize);
       // if there are some barriers in the kernel, stiderSize is barrier
       // buffer size. So need to add non barrier private memory.
-      Func->addFnAttr(KernelAttribute::PrivateMemorySize,
-                      utostr(StrideSize + PrivateSize));
+      KIMD.PrivateMemorySize.set(StrideSize + PrivateSize);
     }
   }
 }

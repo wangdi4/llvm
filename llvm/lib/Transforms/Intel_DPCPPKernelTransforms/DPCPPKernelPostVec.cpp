@@ -19,6 +19,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #define DEBUG_TYPE "DPCPPKernelPostVec"
 #define SV_NAME "dpcpp-kernel-postvec"
@@ -53,14 +54,13 @@ bool DPCPPKernelPostVec::runOnModule(Module &M) {
   bool ModifiedModule = false;
   for (Function *F : Kernels) {
     // Remove "recommended-vector-length" attribute.
-    F->removeFnAttr(KernelAttribute::RecommendedVL);
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI KIMD(F);
+    KIMD.RecommendedVL.set(0);
 
-    Function *ClonedKernel =
-        DPCPPKernelCompilationUtils::getFnAttributeFunction(
-            M, *F, KernelAttribute::VectorizedKernel);
+    Function *ClonedKernel = KIMD.VectorizedKernel.get();
     if (ClonedKernel && !isKernelVectorized(ClonedKernel)) {
       // Unset the metadata of the original kernel.
-      F->removeFnAttr(KernelAttribute::VectorizedKernel);
+      KIMD.VectorizedKernel.set(nullptr);
       // If the kernel is not vectorized, then the cloned kernel is removed.
       ClonedKernel->eraseFromParent();
       ModifiedModule = true;

@@ -74,7 +74,7 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]: # preds: [[BB2]], [[BB8]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_IV_NEXT]] = add i64 [[VP_OUTER_IV]] i64 [[VP_OUTER_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_OUTER_EXIT_COND:%.*]] = icmp eq i64 [[VP_OUTER_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_OUTER_EXIT_COND:%.*]] = icmp uge i64 [[VP_OUTER_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; CHECK-NEXT:     [DA: Uni] br i1 [[VP_OUTER_EXIT_COND]], [[BB9:BB[0-9]+]], [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]: # preds: [[BB3]]

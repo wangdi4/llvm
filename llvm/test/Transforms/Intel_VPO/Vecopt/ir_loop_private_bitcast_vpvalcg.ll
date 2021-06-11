@@ -87,7 +87,7 @@ define void @foo(i64 %n1, i32 %k1, float* nocapture %accumulated_grid, i32* noca
 ; CHECK-NEXT:    [[TMP12:%.*]] = call float @baz(float [[DOTEXTRACT_3_0]], i32 [[WIDE_LOAD_EXTRACT_3_0]])
 ; CHECK-NEXT:    [[TMP13]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 4, i64 4, i64 4, i64 4>
 ; CHECK-NEXT:    [[TMP14]] = add nuw nsw i64 [[UNI_PHI0]], 4
-; CHECK-NEXT:    [[TMP15:%.*]] = icmp eq i64 [[TMP14]], [[TMP1]]
+; CHECK-NEXT:    [[TMP15:%.*]] = icmp uge i64 [[TMP14]], [[TMP1]]
 ; CHECK-NEXT:    br i1 [[TMP15]], label [[VPLANNEDBB60:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; CHECK-NOT:     LastUpdatedLanePtr
 entry:

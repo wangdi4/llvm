@@ -41,3 +41,6 @@ attributes #0 = { "sycl-kernel" }
 ; DEBUGIFY: Instruction with empty DebugLoc in function {{.*}} getelementptr
 ; DEBUGIFY-NEXT: Instruction with empty DebugLoc in function {{.*}} bitcast
 ; DEBUGIFY-NOT: WARNING
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32 (i32)*, i32 addrspace(1)*)* @test}

@@ -2458,7 +2458,7 @@ esimd_dpas(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
                        (sizeof(T2) * 8)),
                 "invalid size for Src2");
 
-#if defined(__SYCL_DEVICE_ONLY__) && defined(__SYCL_EXPLICIT_SIMD__)
+#if defined(__SYCL_DEVICE_ONLY__)
   int dpas_info = (repeat_count << 24) + (systolic_depth << 16) +
                   (((int)src2_precision + 1) << 8) + ((int)src1_precision + 1);
   simd<T, N> result =
@@ -2467,7 +2467,7 @@ esimd_dpas(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
   simd<T, N> result =
       __esimd_dpas2<src1_precision, src2_precision, systolic_depth,
                     repeat_count, T, T1, T2, N, N1, N2>(src1, src2);
-#endif // __SYCL_DEVICE_ONLY__ && __SYCL_EXPLICIT_SIMD__
+#endif // __SYCL_DEVICE_ONLY__
 
   if (flag != GENX_SAT)
     return result;
@@ -2491,7 +2491,7 @@ ESIMD_NODEBUG ESIMD_INLINE simd<T, N>
 esimd_dpasw(simd<T, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
             int flag = GENX_NOSAT) {
   constexpr bool is_4xhf =
-      (is_type<T, cl::sycl::detail::half_impl::StorageT>()) &&
+      (detail::is_type<T, cl::sycl::detail::half_impl::StorageT>()) &&
       src1_precision == src2_precision && src1_precision == EsimdPrecisionType::FP16;
 
   constexpr bool is_4xbf = detail::is_word_type<T>::value &&
@@ -2537,7 +2537,7 @@ esimd_dpasw(simd<T, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
                        (sizeof(T2) * 8)),
                 "invalid size for Src2");
 
-#if defined(__SYCL_DEVICE_ONLY__) && defined(__SYCL_EXPLICIT_SIMD__)
+#if defined(__SYCL_DEVICE_ONLY__)
   int dpas_info = (repeat_count << 24) + (systolic_depth << 16) +
                   (((int)src2_precision + 1) << 8) + ((int)src1_precision + 1);
   simd<T, N> result =
@@ -2546,7 +2546,7 @@ esimd_dpasw(simd<T, N> src0, simd<T1, N1> src1, simd<T2, N2> src2,
   simd<T, N> result =
       __esimd_dpasw<src1_precision, src2_precision, systolic_depth,
                     repeat_count, T, T1, T2, N, N1, N2>(src0, src1, src2);
-#endif // __SYCL_DEVICE_ONLY__ && __SYCL_EXPLICIT_SIMD__
+#endif // __SYCL_DEVICE_ONLY__
 
   if (flag != GENX_SAT)
     return result;
@@ -2613,7 +2613,7 @@ esimd_dpasw2(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
                        (sizeof(T2) * 8)),
                 "invalid size for Src2");
 
-#if defined(__SYCL_DEVICE_ONLY__) && defined(__SYCL_EXPLICIT_SIMD__)
+#if defined(__SYCL_DEVICE_ONLY__)
   int dpas_info = (repeat_count << 24) + (systolic_depth << 16) +
                   (((int)src2_precision + 1) << 8) + ((int)src1_precision + 1);
   simd<T, N> result =
@@ -2622,7 +2622,7 @@ esimd_dpasw2(simd<T1, N1> src1, simd<T2, N2> src2, int flag = GENX_NOSAT) {
   simd<T, N> result =
       __esimd_dpasw2<src1_precision, src2_precision, systolic_depth,
                      repeat_count, T, T1, T2, N, N1, N2>(src1, src2);
-#endif // __SYCL_DEVICE_ONLY__ && __SYCL_EXPLICIT_SIMD__
+#endif // __SYCL_DEVICE_ONLY__
 
   if (flag != GENX_SAT)
     return result;

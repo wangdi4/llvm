@@ -1384,6 +1384,11 @@ static int processDataBefore(ident_t *loc, int64_t DeviceId, void *HostPtr,
            DPxPTR(PointerTgtPtrBegin), DPxPTR(TgtPtrBegin));
         Ret = Device.submitData(TgtPtrBegin, &PointerTgtPtrBegin,
                                 sizeof(void *), AsyncInfo);
+#if INTEL_COLLAB
+        // Base address of attached object may not have been passed to the
+        // device as a kernel argument, therefore we need to manifest it.
+        Device.addLambdaPtr(PointerTgtPtrBegin);
+#endif // INTEL_COLLAB
         if (Ret != OFFLOAD_SUCCESS) {
           REPORT("Copying data to device failed.\n");
           return OFFLOAD_FAIL;

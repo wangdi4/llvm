@@ -30,7 +30,7 @@ define void @foo1()  {
 ; CHECK-NEXT:    [[TMP13:%.*]] = bitcast <2 x i32>* [[SCALAR_GEP8]] to <8 x i32>*
 ; CHECK-NEXT:    store <8 x i32> [[TMP12]], <8 x i32>* [[TMP13]], align 4
 ; CHECK:         [[TMP15]] = add nuw nsw i64 [[UNI_PHI3]], 4
-; CHECK-NEXT:    [[TMP16:%.*]] = icmp eq i64 [[TMP15]], 48
+; CHECK-NEXT:    [[TMP16:%.*]] = icmp uge i64 [[TMP15]], 48
 ; CHECK-NEXT:    br i1 [[TMP16]], label [[VPLANNEDBB10:%.*]], label [[VECTOR_BODY:%.*]], [[LOOP0:!llvm.loop !.*]]
 ;
 entry:

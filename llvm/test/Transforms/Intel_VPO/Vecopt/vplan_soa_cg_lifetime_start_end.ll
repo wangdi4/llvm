@@ -39,11 +39,11 @@ define void @test_lifetime_start_end() {
 ; CHECK-NEXT:    store <2 x i32> <i32 30, i32 30>, <2 x i32>* [[SOA_SCALAR_GEP3]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI]], 2
-; CHECK-NEXT:    [[TMP4:%.*]] = icmp ult i64 [[TMP3]], 1024
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i8>* [[SOA_SCALAR_GEP]] to i8*
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 2048, i8* nonnull [[TMP5]])
+; CHECK-NEXT:    [[TMP4:%.*]] = bitcast <2 x i8>* [[SOA_SCALAR_GEP]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 2048, i8* nonnull [[TMP4]])
 ; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8192, i8* nonnull [[TMP0]])
-; CHECK-NEXT:    br i1 [[TMP4]], label [[VECTOR_BODY]], label [[VPLANNEDBB5:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
+; CHECK-NEXT:    [[TMP5:%.*]] = icmp ult i64 [[TMP3]], 1024
+; CHECK-NEXT:    br i1 [[TMP5]], label [[VECTOR_BODY]], label [[VPLANNEDBB5:%.*]], !llvm.loop [[LOOP0:![0-9]+]]
 ;
 entry:
   %arr.priv8 = alloca [1024 x i8], align 4
