@@ -3424,7 +3424,7 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
   }
 #endif
 
-  ScopedTimerTy tmDataWrite(DeviceId, "DataWrite");
+  ScopedTimerTy tmDataWrite(DeviceId, "DataWrite (Host to Device)");
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
@@ -3505,7 +3505,7 @@ static int32_t retrieveData(
   }
 #endif
 
-  ScopedTimerTy tmDataRead(DeviceId, "DataRead");
+  ScopedTimerTy tmDataRead(DeviceId, "DataRead (Device to Host)");
 
   // Add synthetic delay for experiments
   addDataTransferLatency();

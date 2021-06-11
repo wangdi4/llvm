@@ -1953,7 +1953,11 @@ void OpenMPLateOutliner::emitOMPDataClause(const OMPDataClause *C) {
     CGF.EmitStoreThroughLValue(RV, LV);
     addArg(Tmp.getPointer());
     addArg(CGF.EmitScalarExpr(Hint));
-    addArg(CGF.EmitScalarExpr(NumElems));
+    llvm::Value *NumElemsVal = CGF.EmitScalarExpr(NumElems);
+    NumElemsVal =
+        CGF.Builder.CreateIntCast(NumElemsVal, CGF.CGM.SizeTy,
+                                  /*isSigned=*/false);
+    addArg(NumElemsVal);
   }
 }
 

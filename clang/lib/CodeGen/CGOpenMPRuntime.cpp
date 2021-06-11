@@ -12663,17 +12663,38 @@ Address CGOpenMPRuntime::getAddressOfLocalVariable(CodeGenFunction &CGF,
     const auto *AA = CVD->getAttr<OMPAllocateDeclAttr>();
     assert(AA->getAllocator() &&
            "Expected allocator expression for non-default allocator.");
+#if INTEL_COLLAB
+    llvm::Value *Alignment = nullptr;
+    if (AA->getAlignment())
+      Alignment =
+          CGF.Builder.CreateIntCast(CGF.EmitScalarExpr(AA->getAlignment()),
+          CGM.SizeTy, /*isSigned=*/false);
+#endif // INTEL_COLLAB
     llvm::Value *Allocator = CGF.EmitScalarExpr(AA->getAllocator());
     // According to the standard, the original allocator type is a enum
     // (integer). Convert to pointer type, if required.
     Allocator = CGF.EmitScalarConversion(
         Allocator, AA->getAllocator()->getType(), CGF.getContext().VoidPtrTy,
         AA->getAllocator()->getExprLoc());
+#if INTEL_COLLAB
+    SmallVector<llvm::Value *, 4> Args;
+    Args.push_back(ThreadID);
+    if (Alignment)
+      Args.push_back(Alignment);
+    Args.push_back(Size);
+    Args.push_back(Allocator);
+    llvm::omp::RuntimeFunction FnID =
+        Alignment ?  OMPRTL___kmpc_aligned_alloc : OMPRTL___kmpc_alloc;
+#else // INTEL_COLLAB
     llvm::Value *Args[] = {ThreadID, Size, Allocator};
-
+#endif // INTEL_COLLAB
     llvm::Value *Addr =
         CGF.EmitRuntimeCall(OMPBuilder.getOrCreateRuntimeFunction(
+#if INTEL_COLLAB
+                                CGM.getModule(), FnID),
+#else // INTEL_COLLAB
                                 CGM.getModule(), OMPRTL___kmpc_alloc),
+#endif // INTEL_COLLAB
                             Args, getName({CVD->getName(), ".void.addr"}));
     llvm::FunctionCallee FiniRTLFn = OMPBuilder.getOrCreateRuntimeFunction(
         CGM.getModule(), OMPRTL___kmpc_free);

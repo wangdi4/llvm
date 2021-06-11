@@ -19,13 +19,150 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-static LoopVPlanDumpControl VLSDumpControl("vls",
-                                           "VPlan-to-VPlan VLS transformation");
-
 #define DEBUG_TYPE "vplan-vls-transform"
 
+static LoopVPlanDumpControl VLSDumpControl("vls",
+                                           "VPlan-to-VPlan VLS transformation");
+namespace {
+class VLSTransform {
+public:
+  VLSTransform(OVLSGroup *Group, VPlan &Plan, unsigned VF);
+
+  const char *getFailureReason() const { return FailureReason; }
+
+  /// Make the transformation for the OVLSGroup used to create an instance of
+  /// this transformer.
+  void run(DenseSet<VPInstruction *> &InstsToRemove);
+
+private:
+  // Setup metadata and HIR symbases for the newly created VLSLoad/VLSStore.
+  template <class VLSMemoryOpTy>
+  void setMemOpProperties(VLSMemoryOpTy *VLSMemoryOp);
+
+  /// Return the group granularity type (i.e. the one short enough to have all
+  /// the individual loads/offset expressed as a multiple of it) together with
+  /// the size of the group in terms of that type.
+  ///
+  /// E.g. for %struct = type <{ i32, i16, double }>, and the group consisting
+  /// of i32 and double accesses only (i.e. with a gap), this routine should
+  /// return {i16, 2+1+4=7}.
+  ///
+  /// However, current VLSAnalysis implementation isn't able to support such
+  /// generic cases and the transformation code exploits some of those
+  /// limitation. As such, the transformation itself (caller of this routine)
+  /// has it's own bailout. Note that some parts of the code are written in a
+  /// way that would work when such limitation are lifted yet others still rely
+  /// on it.
+  std::pair<Type *, int> getGroupGranularity();
+
+  /// E.g. for {i16, i16, i32} with VF=2. Group type would be <8 x i16> and
+  /// ExtractInsert element type for the i32 element would be <2 x i16>.
+  Type *getExtractInsertEltType(Type *EltType);
+
+  /// Return the position of the \p Memref as used in the operand for the
+  /// VLSInsert/VLSExtract instruction.
+  unsigned getExtractInsertEltOffset(OVLSMemref *Memref);
+
+  void processLoadGroup(DenseSet<VPInstruction *> &InstsToRemove);
+  void processStoreGroup(DenseSet<VPInstruction *> &InstsToRemove);
+
+  /// Helper function to handle different casts from VLSInsert/VLSExtract to the
+  /// desired value type of the original memory operation. We lower it into
+  /// explicit casts as part of the transformation to simplify CGs as the
+  /// lowering isn't trivial. For example, if the group consists of floating
+  /// point values and pointers we can't cast fp-value directly to the pointer
+  /// and have to go through intermediate integer bitcast.
+  VPValue *createCast(VPBuilder &Builder, VPValue *From, Type *ToTy);
+
+private:
+  OVLSGroup *Group;
+  VPlan &Plan;
+  const DataLayout &DL;
+  VPlanDivergenceAnalysisBase &DA;
+
+  const char *FailureReason = nullptr;
+
+  // Rest of the state is inaccessible if the group itself isn't transformable.
+  Optional<int64_t> GroupStride; // In bytes.
+  /// Group-wide memop should be performed at that position.
+  VPVLSClientMemref *InsertPointMemref;
+  /// VPInstruction associated with the insert point above.
+  VPLoadStoreInst *InsertPointInst;
+  /// Memref with lowest offset. We rely on the fact that the group actually
+  /// starts with it (i.e. no gap in the beginning of the group).
+  VPLoadStoreInst *FirstMemrefInst;
+  /// SIMD-wide load type is
+  ///    <GroupSizeInGranularityElements x GroupGranularityType>
+  /// extended to the next power of two. See getGroupGranularity for the
+  /// detailed documentation.
+  Type *GroupGranularityType;
+  unsigned GroupSizeInGranularityElements;
+  // Includes the spacing at the end for non-power-of two sizes.
+  FixedVectorType *GroupTy;
+};
+} // namespace
+
+VLSTransform::VLSTransform(OVLSGroup *Group, VPlan &Plan, unsigned VF)
+    : Group(Group), Plan(Plan), DL(*Plan.getDataLayout()),
+      DA(*Plan.getVPlanDA()) {
+  if (Group->size() <= 1) {
+    FailureReason = "Group doesn't contain enough elments (at least 2).";
+    return;
+  }
+
+  GroupStride = Group->getConstStride();
+  if (!GroupStride) {
+    FailureReason = "Failing to transform OVLSGroup: Indexed loads/stores are "
+                    "not supported.";
+    return;
+  }
+  if (*GroupStride > 64) {
+    // TODO: Don't skip in LLVM IR case?
+    FailureReason = "HIR only supports up to 64 bits in mask, skipping.";
+    return;
+  }
+
+  InsertPointMemref = cast<VPVLSClientMemref>(Group->getInsertPoint());
+  InsertPointInst =
+      const_cast<VPLoadStoreInst *>(instruction(InsertPointMemref));
+  if (computeInterleaveFactor(InsertPointMemref) == 1) {
+    // Not sure if possible at all. Maybe two identical unit-stride loads might
+    // theoretically result in that?
+    FailureReason = "Leader is unit-strided.";
+    return;
+  }
+
+  FirstMemrefInst =
+      const_cast<VPLoadStoreInst *>(instruction(Group->getFirstMemref()));
+
+  APInt AccessMask = Group->computeByteAccessMask();
+  if (!AccessMask.isAllOnesValue() ||
+      AccessMask.getBitWidth() != *GroupStride) {
+    FailureReason =
+        "Failing to transform OVLSGroup: groups with gaps are not supported.";
+    return;
+  }
+
+  if (!std::equal(
+          Group->begin() + 1, Group->end(), Group->begin(),
+          [this](const OVLSMemref *LHS, const OVLSMemref *RHS) {
+            return DL.getTypeSizeInBits(instruction(LHS)->getValueType()) ==
+                   DL.getTypeSizeInBits(instruction(RHS)->getValueType());
+          })) {
+    FailureReason = "We don't handle groups with elements of different sizes.";
+    return;
+  }
+
+  // Initialize whole group specific properties.
+  std::tie(GroupGranularityType, GroupSizeInGranularityElements) =
+      getGroupGranularity();
+  GroupTy = cast<FixedVectorType>(getWidenedType(
+      GroupGranularityType,
+      VF * llvm::NextPowerOf2(GroupSizeInGranularityElements - 1)));
+}
+
 template <class VLSMemoryOpTy>
-static void combineMetadata(VLSMemoryOpTy *VLSMemoryOp, OVLSGroup *Group) {
+void VLSTransform::setMemOpProperties(VLSMemoryOpTy *VLSMemoryOp) {
   static_assert(std::is_same<VLSMemoryOpTy, VPVLSLoad>::value ||
                     std::is_same<VLSMemoryOpTy, VPVLSStore>::value,
                 "Unexpected type!");
@@ -61,23 +198,13 @@ static void combineMetadata(VLSMemoryOpTy *VLSMemoryOp, OVLSGroup *Group) {
     }
     VLSMemoryOp->setMetadata(Kind, ResultMD);
   }
+
+  VLSMemoryOp->HIR().setSymbase(FirstMemrefInst->HIR().getSymbase());
+  for (const VPLoadStoreInst *Inst : instructions(Group))
+    VLSMemoryOp->HIR().addFakeSymbase(Inst->HIR().getSymbase());
 }
 
-/// Return the group granularity type (i.e. the one short enough to have all the
-/// individual loads/offset expressed as a multiple of it) together with the
-/// size of the group in terms of that type.
-///
-/// E.g. for %struct = type <{ i32, i16, double }>, and the group consisting of
-/// i32 and double accesses only (i.e. with a gap), this routine should return
-/// {i16, 2+1+4=7}.
-///
-/// However, current VLSAnalysis implementation isn't able to support such
-/// generic cases and the transformation code exploits some of those limitation.
-/// As such, the transformation itself (caller of this routine) has it's own
-/// bailout. Note that some parts of the code are written in a way that would
-/// work when such limitation are lifted yet others still rely on it.
-static std::pair<Type *, int> getGroupGranularity(OVLSGroup *Group,
-                                                  const DataLayout &DL) {
+std::pair<Type *, int> VLSTransform::getGroupGranularity() {
   Type *SomeLoadType = instruction(*Group->begin())->getValueType();
   Type *Result = SomeLoadType;
   for (const VPLoadStoreInst *MemrefInst : instructions(Group)) {
@@ -132,7 +259,8 @@ static std::pair<Type *, int> getGroupGranularity(OVLSGroup *Group,
   return {Result, GroupSize};
 }
 
-static VPValue *createVLSCast(VPBuilder &Builder, VPValue *From, Type *ToTy) {
+VPValue *VLSTransform::createCast(VPBuilder &Builder, VPValue *From,
+                                  Type *ToTy) {
   auto *FromTy = From->getType();
   if (FromTy == ToTy)
     return From;
@@ -173,19 +301,45 @@ static VPValue *createVLSCast(VPBuilder &Builder, VPValue *From, Type *ToTy) {
       {Builder.createNaryOp(Instruction::BitCast, IntermediateType, {From})});
 }
 
-static std::pair<VPVLSLoad *, unsigned /*Size*/>
-createGroupLoad(OVLSGroup *Group, unsigned VF) {
-  auto *LeaderMemref = cast<VPVLSClientMemref>(Group->getInsertPoint());
-  auto *Leader = const_cast<VPLoadStoreInst *>(instruction(LeaderMemref));
-  assert(Leader->getOpcode() == Instruction::Load &&
+Type *VLSTransform::getExtractInsertEltType(Type *EltType) {
+  auto *GroupEltTy = GroupTy->getElementType();
+  auto NumGroupEltsPerValue = getNumGroupEltsPerValue(DL, GroupTy, EltType);
+  if (NumGroupEltsPerValue == 1)
+    return GroupEltTy;
+
+  return FixedVectorType::get(GroupEltTy, NumGroupEltsPerValue);
+}
+
+unsigned VLSTransform::getExtractInsertEltOffset(OVLSMemref *Memref) {
+  auto InterleaveIndex = computeInterleaveIndex(Memref, Group);
+  auto InterleaveFactor = computeInterleaveFactor(Memref);
+  (void)InterleaveFactor;
+  assert(InterleaveIndex < std::abs(InterleaveFactor) &&
+         "InterleaveIndex must be less than InterleaveFactor");
+  assert(InterleaveFactor != 1 &&
+         "No transformation for unit-strided accesses is expected!");
+  return InterleaveIndex *
+         getNumGroupEltsPerValue(DL, GroupTy,
+                                 instruction(Memref)->getValueType());
+}
+
+void VLSTransform::processLoadGroup(DenseSet<VPInstruction *> &InstsToRemove) {
+  assert(InsertPointInst->getOpcode() == Instruction::Load &&
          "Expected VLS group for loads!");
 
-  auto &Plan = *Leader->getParent()->getParent();
   VPBuilder Builder;
-  Builder.setInsertPoint(Leader);
-  int LeaderInterleaveIndex = computeInterleaveIndex(LeaderMemref, Group);
-  auto *LeaderAddress = Leader->getPointerOperand();
+  Builder.setInsertPoint(InsertPointInst);
+
+  // That interface basically means we can't support generic different-size
+  // elements inside the group. E.g. { i16, i32, i16 } wouldn't be supported
+  // because interleave index for i32 would be 0.5.
+  int LeaderInterleaveIndex = computeInterleaveIndex(InsertPointMemref, Group);
+  auto *LeaderAddress = InsertPointInst->getPointerOperand();
   if (LeaderInterleaveIndex != 0) {
+    // Insert point for loads happens at the lexically first load which might
+    // not be the first memref in the group (sorted by adddress). As such, we
+    // can't simply use the address of the first memref as its def might be
+    // unavailable here.
     LeaderAddress =
         Builder.createGEP(LeaderAddress,
                           {Plan.getVPConstant(-APInt(64, LeaderInterleaveIndex,
@@ -194,101 +348,69 @@ createGroupLoad(OVLSGroup *Group, unsigned VF) {
     LeaderAddress->setName(
         cast<VPInstruction>(LeaderAddress)->getOperand(0)->getName() +
         ".group.base.offset");
-    Plan.getVPlanDA()->updateDivergence(*LeaderAddress);
+    DA.updateDivergence(*LeaderAddress);
   }
 
   // The alignment for the wide load needs to be set using the group's first
-  // memory (lowest offset) reference.
-  const auto *FirstGroupInst = instruction(Group->getFirstMemref());
-  Type *VLSSmallestType;
-  unsigned Size;
-  std::tie(VLSSmallestType, Size) =
-      getGroupGranularity(Group, *Plan.getDataLayout());
+  // memory (lowest offset) reference. Note that it is true because we don't
+  // have a gap at the group start (or if we would start the load from the
+  // address of non-gap element in case of gap presence).
+  auto *WideLoad = Builder.create<VPVLSLoad>(
+      "vls.load", LeaderAddress, GroupTy, GroupSizeInGranularityElements,
+      FirstMemrefInst->getAlignment(), Group->size());
+  DA.markUniform(*WideLoad);
+  setMemOpProperties(WideLoad);
 
-  Type *Ty = getWidenedType(VLSSmallestType, VF * llvm::NextPowerOf2(Size - 1));
-  auto *WideLoad =
-      Builder.create<VPVLSLoad>("vls.load", LeaderAddress, Ty, Size,
-                                FirstGroupInst->getAlignment(), Group->size());
-  Plan.getVPlanDA()->markUniform(*WideLoad);
-
-  WideLoad->HIR().setSymbase(FirstGroupInst->HIR().getSymbase());
-  for (auto *Memref : *Group)
-    WideLoad->HIR().addFakeSymbase(
-        cast<VPVLSClientMemref>(Memref)->getInstruction()->HIR().getSymbase());
-
-  combineMetadata(WideLoad, Group);
-
-  return {WideLoad, Size};
+  for (OVLSMemref *Memref : *Group) {
+    auto *OrigLoad = const_cast<VPLoadStoreInst *>(instruction(Memref));
+    auto ExtractTy = getExtractInsertEltType(OrigLoad->getType());
+    auto *Extract = Builder.create<VPVLSExtract>(
+        OrigLoad->getName(), WideLoad, ExtractTy,
+        GroupSizeInGranularityElements, getExtractInsertEltOffset(Memref));
+    auto *ExtractCast =
+        cast<VPInstruction>(createCast(Builder, Extract, OrigLoad->getType()));
+    ExtractCast->setDebugLocation(OrigLoad->getDebugLocation());
+    OrigLoad->replaceAllUsesWith(ExtractCast);
+    InstsToRemove.insert(OrigLoad);
+  }
 }
 
-bool llvm::vpo::isTransformableVLSGroup(OVLSGroup *Group) {
-  if (Group->size() <= 1) {
-    LLVM_DEBUG(dbgs() << "Group doesn't contain enough elments (at least 2).";
-               Group->dump(); dbgs() << '\n');
-    return false;
+void VLSTransform::processStoreGroup(DenseSet<VPInstruction *> &InstsToRemove) {
+  assert(InsertPointInst->getOpcode() == Instruction::Store &&
+         "Expected VLS group for stores!");
+
+  VPBuilder Builder;
+  Builder.setInsertPoint(InsertPointInst);
+  VPValue *WideValue = Plan.getUndef(GroupTy);
+
+  for (OVLSMemref *Memref : *Group) {
+    auto *Store = const_cast<VPLoadStoreInst *>(instruction(Memref));
+    InstsToRemove.insert(Store);
+    VPValue *V = Store->getOperand(0);
+    Type *InsertTy = getExtractInsertEltType(V->getType());
+    auto *Casted = createCast(Builder, V, InsertTy);
+    WideValue = Builder.create<VPVLSInsert>("vls.insert", WideValue, Casted,
+                                            GroupSizeInGranularityElements,
+                                            getExtractInsertEltOffset(Memref));
+    DA.markUniform(*WideValue);
   }
 
-  Optional<int64_t> GroupStride = Group->getConstStride();
-  if (!GroupStride) {
-    LLVM_DEBUG(dbgs() << "Failing to transform OVLSGroup: Indexed "
-                         "loads/stores are not supported. ";
-               Group->dump(); dbgs() << '\n');
-    return false;
-  }
-
-  auto *LeaderMemref = cast<VPVLSClientMemref>(Group->getInsertPoint());
-  auto InterleaveFactor = computeInterleaveFactor(LeaderMemref);
-  if (InterleaveFactor == 1) {
-    LLVM_DEBUG(
-        dbgs() << "No transformation for already unit-strided accesses. ";
-        Group->dump(); dbgs() << '\n');
-    return false;
-  }
-
-  if (*GroupStride > 64) {
-    // TODO: Don't skip in LLVM IR case?
-    LLVM_DEBUG(dbgs() << "HIR only supports up to 64 bits in mask, skipping. ";
-               Group->dump(); dbgs() << '\n');
-    return false;
-  }
-
-  APInt AccessMask = Group->computeByteAccessMask();
-  if (!AccessMask.isAllOnesValue() ||
-      AccessMask.getBitWidth() != *GroupStride) {
-    LLVM_DEBUG(dbgs() << "Failing to transform OVLSGroup: groups with gaps "
-                         "are not supported. ";
-               Group->dump(); dbgs() << '\n');
-    return false;
-  }
-
-  if (!std::equal(
-          Group->begin() + 1, Group->end(), Group->begin(),
-          [](const OVLSMemref *LHS, const OVLSMemref *RHS) {
-            auto *Plan = instruction(LHS)->getParent()->getParent();
-            auto *DL = Plan->getDataLayout();
-
-            return DL->getTypeSizeInBits(instruction(LHS)->getValueType()) ==
-                   DL->getTypeSizeInBits(instruction(RHS)->getValueType());
-          })) {
-    LLVM_DEBUG(
-        dbgs() << "We don't handle groups with elements of different sizes.";
-        Group->dump(); dbgs() << '\n');
-    return false;
-  }
-
-  return true;
+  // Insert point for stores is the last store, so the def for the address of
+  // the first store is known to be available.
+  auto *BaseAddr = FirstMemrefInst->getOperand(1);
+  auto *WideStore = Builder.create<VPVLSStore>(
+      "vls.store", WideValue, BaseAddr, GroupSizeInGranularityElements,
+      FirstMemrefInst->getAlignment(), Group->size());
+  setMemOpProperties(WideStore);
 }
 
-static Type *getExtractInsertEltType(VPValue *GroupValue, Type *EltType,
-                                     const DataLayout &DL) {
-  auto *GroupTy = cast<FixedVectorType>(GroupValue->getType());
-  auto *GroupEltTy = GroupTy->getElementType();
-  auto NumGroupEltsPerValue = getNumGroupEltsPerValue(DL, GroupTy,
-                                                      EltType);
-  if (NumGroupEltsPerValue == 1)
-    return GroupEltTy;
-
-  return FixedVectorType::get(GroupEltTy, NumGroupEltsPerValue);
+void VLSTransform::run(DenseSet<VPInstruction *> &InstsToRemove) {
+  assert(FailureReason == nullptr && "Transformation is impossible!");
+  if (Group->getAccessKind().isLoad()) {
+    processLoadGroup(InstsToRemove);
+  } else {
+    processStoreGroup(InstsToRemove);
+  }
 }
 
 // Small example:
@@ -316,98 +438,16 @@ static Type *getExtractInsertEltType(VPValue *GroupValue, Type *EltType,
 //   i64 %v2 = VLSExtract %vls.load, group_size=7, offset=3
 void llvm::vpo::applyVLSTransform(VPlan &Plan, VPlanVLSAnalysis &VLSA,
                                   unsigned VF) {
-  const DataLayout &DL = *Plan.getDataLayout();
   DenseSet<VPInstruction *> InstsToRemove;
   for (auto *Group : VLSA.groups(&Plan)) {
-    if (!isTransformableVLSGroup(Group))
-      continue;
-
-    auto *LeaderMemref = cast<VPVLSClientMemref>(Group->getInsertPoint());
-    auto *Leader = const_cast<VPLoadStoreInst *>(instruction(LeaderMemref));
-
-    if (Group->getAccessKind().isLoad()) {
-      assert(Leader->getOpcode() == Instruction::Load &&
-             "Expected VLS group for loads!");
-      VPVLSLoad *WideLoad;
-      unsigned Size;
-      std::tie(WideLoad, Size) = createGroupLoad(Group, VF);
-
-      VPBuilder Builder;
-      Builder.setInsertPoint(WideLoad->getParent(), ++WideLoad->getIterator());
-      for (auto MemrefIter : *Group) {
-        auto *Memref = cast<VPVLSClientMemref>(MemrefIter);
-        auto *OrigLoad = const_cast<VPLoadStoreInst *>(instruction(Memref));
-        assert(OrigLoad->getOpcode() == Instruction::Load &&
-               "Expected a load!");
-        auto InterleaveIndex = computeInterleaveIndex(Memref, Group);
-        auto InterleaveFactor = computeInterleaveFactor(Memref);
-        (void)InterleaveFactor;
-        assert(InterleaveIndex < InterleaveFactor &&
-               "InterleaveIndex must be less than InterleaveFactor");
-        assert(InterleaveFactor != 1 &&
-               "No transformation for unit-strided loads is expected!");
-
-        auto ExtractTy =
-          getExtractInsertEltType(WideLoad, OrigLoad->getType(), DL);
-        // We only support same-size elements.
-        auto *Extract = Builder.create<VPVLSExtract>(
-            OrigLoad->getName(), WideLoad, ExtractTy, Size,
-            InterleaveIndex * getNumGroupEltsPerValue(DL, WideLoad->getType(),
-                                                      OrigLoad->getType()));
-        auto *ExtractCast = cast<VPInstruction>(
-            createVLSCast(Builder, Extract, OrigLoad->getType()));
-        ExtractCast->setDebugLocation(OrigLoad->getDebugLocation());
-        OrigLoad->replaceAllUsesWith(ExtractCast);
-        InstsToRemove.insert(OrigLoad);
-      }
+    VLSTransform Transform(Group, Plan, VF);
+    if (auto *FailureReason = Transform.getFailureReason()) {
+      LLVM_DEBUG(dbgs() << FailureReason << '\n'; Group->dump();
+                 dbgs() << '\n');
       continue;
     }
 
-    assert(Group->getAccessKind().isStore() && "Unexpected access kind!");
-    assert(Leader->getOpcode() == Instruction::Store &&
-           "Expected VLS group for stores!");
-
-    Type *VLSSmallestType;
-    unsigned Size;
-    std::tie(VLSSmallestType, Size) =
-        getGroupGranularity(Group, *Plan.getDataLayout());
-
-    // Only same size elements are supported currently.
-    Type *GroupTy =
-        getWidenedType(VLSSmallestType, VF * llvm::NextPowerOf2(Size - 1));
-
-    VPBuilder Builder;
-    Builder.setInsertPoint(Leader);
-    VPValue *WideValue = Plan.getUndef(GroupTy);
-
-    for (OVLSMemref *Memref : *Group) {
-      auto InterleaveIndex = computeInterleaveIndex(Memref, Group);
-      auto *Store = const_cast<VPLoadStoreInst *>(instruction(Memref));
-      InstsToRemove.insert(Store);
-      VPValue *V = Store->getOperand(0);
-      Type *InsertTy = getExtractInsertEltType(WideValue, V->getType(), DL);
-      auto *Casted = createVLSCast(Builder, V, InsertTy);
-      WideValue = Builder.create<VPVLSInsert>(
-          "vls.insert", WideValue, Casted, Size,
-          InterleaveIndex * getNumGroupEltsPerValue(DL, GroupTy, V->getType()));
-      Plan.getVPlanDA()->markUniform(*WideValue);
-    }
-
-    auto *FirstMemrefInst =
-        const_cast<VPLoadStoreInst *>(instruction(Group->getFirstMemref()));
-    auto *BaseAddr = FirstMemrefInst->getOperand(1);
-    auto *WideStore = Builder.create<VPVLSStore>(
-        "vls.store", WideValue, BaseAddr, Size, FirstMemrefInst->getAlignment(),
-        Group->size());
-
-    WideStore->HIR().setSymbase(FirstMemrefInst->HIR().getSymbase());
-    for (auto *Memref : *Group)
-      WideStore->HIR().addFakeSymbase(cast<VPVLSClientMemref>(Memref)
-                                          ->getInstruction()
-                                          ->HIR()
-                                          .getSymbase());
-
-    combineMetadata(WideStore, Group);
+    Transform.run(InstsToRemove);
   }
 
   while (!InstsToRemove.empty()) {
@@ -424,4 +464,12 @@ void llvm::vpo::applyVLSTransform(VPlan &Plan, VPlanVLSAnalysis &VLSA,
   }
 
   VPLAN_DUMP(VLSDumpControl, Plan);
+}
+
+bool llvm::vpo::isTransformableVLSGroup(OVLSGroup *Group) {
+  auto Instructions = instructions(Group);
+  auto *FirstInst = const_cast<VPLoadStoreInst *>(&*(*Instructions.begin()));
+  VPlan &Plan = *FirstInst->getParent()->getParent();
+  VLSTransform Transform(Group, Plan, 1 /*VF*/);
+  return Transform.getFailureReason() == nullptr;
 }
