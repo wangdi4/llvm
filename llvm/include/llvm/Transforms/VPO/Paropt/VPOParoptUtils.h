@@ -1784,6 +1784,9 @@ public:
   /// Returns true, if OpenMP explicit SIMD code generation is enabled.
   static bool enableDeviceSimdCodeGen();
 
+  /// Returns true, if async-offload helper thread code generation is enabled.
+  static bool enableAsyncHelperThread();
+
   /// Returns true, if it is allowed to execute "omp target parallel for"
   /// with multiple teams/WGs. According to OpenMP specification only
   /// one team/WG is allowed, which corresponds to false return value.
