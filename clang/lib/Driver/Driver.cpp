@@ -4160,7 +4160,11 @@ class OffloadingActionBuilder final {
       for (Action *&A : OpenMPDeviceActions) {
         if (ToolChains[I]->getTriple().isSPIR() &&
             CurPhase == phases::Backend) {
-          A = C.MakeAction<BackendJobAction>(A, types::TY_LLVM_BC);
+          types::ID OutputTy = (Args.hasArg(options::OPT_emit_llvm) &&
+                                Args.hasArg(options::OPT_S))
+                                   ? types::TY_LLVM_IR
+                                   : types::TY_LLVM_BC;
+          A = C.MakeAction<BackendJobAction>(A, OutputTy);
           continue;
         }
         A = C.getDriver().ConstructPhaseAction(C, Args, CurPhase, A);
