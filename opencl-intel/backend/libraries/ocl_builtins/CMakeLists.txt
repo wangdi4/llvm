@@ -208,7 +208,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR CLANG_COMP
 
     add_custom_command(OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
       COMMENT "Optimizing ${OUTPUT_FILE}_noopt"
-      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt -generic-addr-static-resolution -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas
+      COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt -infer-address-spaces -o ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas
       COMMAND ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt_gas ${LLVM_IMAGES_OPT_PARAMS} -dpcpp-kernel-builtin-lib=${RTL_TO_LINK} -dpcpp-kernel-cpu-prefix=${ARCH} -o ${OUTPUT_DIR}/${OUTPUT_FILE}_opt
       DEPENDS ${OPT} ${OUTPUT_DIR}/${OUTPUT_FILE}_noopt ${RTL_TO_LINK}
       VERBATIM

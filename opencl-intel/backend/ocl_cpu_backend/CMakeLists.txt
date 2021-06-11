@@ -19,7 +19,7 @@ set(OCL_CPU_BACKEND_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 #
 if (NOT WIN32)
     # Compiler switches that CANNOT be modified during makefile generation
-    set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option -funsigned-bitfields")
+    set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option")
 
     set (ADD_C_FLAGS         "${ADD_COMMON_C_FLAGS} -std=gnu99")
     set (ADD_CXX_FLAGS       "${ADD_COMMON_C_FLAGS}")
@@ -240,7 +240,6 @@ set( BACKEND_PASSES
     InternalizeNonKernelFunc
     ExternalizeGlobalVariables
     InternalizeGlobalVariables
-    GenericAddressResolution
     LocalBuffers
     LocalBuffAnalysis
     PrepareKernelArgs

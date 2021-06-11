@@ -23,11 +23,17 @@ float __attribute__((overloadable))
 atomic_add(volatile __local float *p, float val);
 #if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 float __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile atomic_float *p, float val,
+                          memory_order order);
+float __attribute__((overloadable))
 atomic_fetch_add_explicit(volatile __global atomic_float *p, float val,
                           memory_order order);
 float __attribute__((overloadable))
 atomic_fetch_add_explicit(volatile __local atomic_float *p, float val,
                           memory_order order);
+float __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile atomic_float *p, float val,
+                          memory_order order, memory_scope scope);
 float __attribute__((overloadable))
 atomic_fetch_add_explicit(volatile __global atomic_float *p, float val,
                           memory_order order, memory_scope scope);
@@ -43,11 +49,17 @@ double __attribute__((overloadable))
 atomic_add(volatile __local double *p, double val);
 #if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 double __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile atomic_double *p, double val,
+                          memory_order order);
+double __attribute__((overloadable))
 atomic_fetch_add_explicit(volatile __global atomic_double *p, double val,
                           memory_order order);
 double __attribute__((overloadable))
 atomic_fetch_add_explicit(volatile __local atomic_double *p, double val,
                           memory_order order);
+double __attribute__((overloadable))
+atomic_fetch_add_explicit(volatile atomic_double *p, double val,
+                          memory_order order, memory_scope scope);
 double __attribute__((overloadable))
 atomic_fetch_add_explicit(volatile __global atomic_double *p, double val,
                           memory_order order, memory_scope scope);
@@ -62,11 +74,17 @@ float __attribute__((overloadable)) atomic_min(volatile __global float *p, float
 float __attribute__((overloadable)) atomic_min(volatile __local float *p, float val);
 #if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 float __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile atomic_float *p, float val,
+                          memory_order order);
+float __attribute__((overloadable))
 atomic_fetch_min_explicit(volatile __global atomic_float *p, float val,
                           memory_order order);
 float __attribute__((overloadable))
 atomic_fetch_min_explicit(volatile __local atomic_float *p, float val,
                           memory_order order);
+float __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile atomic_float *p, float val,
+                          memory_order order, memory_scope scope);
 float __attribute__((overloadable))
 atomic_fetch_min_explicit(volatile __global atomic_float *p, float val,
                           memory_order order, memory_scope scope);
@@ -83,11 +101,17 @@ atomic_min(volatile __local double *p, double val);
 
 #if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 double __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile atomic_double *p, double val,
+                          memory_order order);
+double __attribute__((overloadable))
 atomic_fetch_min_explicit(volatile __global atomic_double *p, double val,
                           memory_order order);
 double __attribute__((overloadable))
 atomic_fetch_min_explicit(volatile __local atomic_double *p, double val,
                           memory_order order);
+double __attribute__((overloadable))
+atomic_fetch_min_explicit(volatile atomic_double *p, double val,
+                          memory_order order, memory_scope scope);
 double __attribute__((overloadable))
 atomic_fetch_min_explicit(volatile __global atomic_double *p, double val,
                           memory_order order, memory_scope scope);
@@ -102,11 +126,17 @@ float __attribute__((overloadable)) atomic_max(volatile __global float *p, float
 float __attribute__((overloadable)) atomic_max(volatile __local float *p, float val);
 #if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 float __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile atomic_float *p, float val,
+                          memory_order order);
+float __attribute__((overloadable))
 atomic_fetch_max_explicit(volatile __global atomic_float *p, float val,
                           memory_order order);
 float __attribute__((overloadable))
 atomic_fetch_max_explicit(volatile __local atomic_float *p, float val,
                           memory_order order);
+float __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile atomic_float *p, float val,
+                          memory_order order, memory_scope scope);
 float __attribute__((overloadable))
 atomic_fetch_max_explicit(volatile __global atomic_float *p, float val,
                           memory_order order, memory_scope scope);
@@ -122,11 +152,17 @@ double __attribute__((overloadable))
 atomic_max(volatile __local double *p, double val);
 #if (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 double __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile atomic_double *p, double val,
+                          memory_order order);
+double __attribute__((overloadable))
 atomic_fetch_max_explicit(volatile __global atomic_double *p, double val,
                           memory_order order);
 double __attribute__((overloadable))
 atomic_fetch_max_explicit(volatile __local atomic_double *p, double val,
                           memory_order order);
+double __attribute__((overloadable))
+atomic_fetch_max_explicit(volatile atomic_double *p, double val,
+                          memory_order order, memory_scope scope);
 double __attribute__((overloadable))
 atomic_fetch_max_explicit(volatile __global atomic_double *p, double val,
                           memory_order order, memory_scope scope);

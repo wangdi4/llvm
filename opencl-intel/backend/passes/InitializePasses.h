@@ -87,8 +87,6 @@ void initializeSoaAllocaAnalysisPass(llvm::PassRegistry&);
 void initializePostDominanceFrontierPass(llvm::PassRegistry&);
 void initializeLocalBuffAnalysisPass(llvm::PassRegistry&);
 void initializeHandleVPlanMaskPass(llvm::PassRegistry&);
-void initializeGenericAddressStaticResolutionPass(llvm::PassRegistry&);
-void initializeGenericAddressDynamicResolutionPass(llvm::PassRegistry&);
 void initializeLLVMEqualizerPass(llvm::PassRegistry&);
 void initializeSubGroupAdaptationPass(llvm::PassRegistry&);
 void initializePrepareKernelArgsPass(llvm::PassRegistry&);

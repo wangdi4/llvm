@@ -27,7 +27,7 @@ else()
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${FSTACK_PROTECTOR_FLAG}")
 endif()
 
-set (ADD_COMMON_C_FLAGS         "-msse3 -mssse3 ${SSE4_VAL} ${ARCH_BIT} -fPIC -fdiagnostics-show-option -funsigned-bitfields -Wformat -Wformat-security" )
+set (ADD_COMMON_C_FLAGS         "-msse3 -mssse3 ${SSE4_VAL} ${ARCH_BIT} -fPIC -fdiagnostics-show-option -Wformat -Wformat-security" )
 
 set (ADD_C_FLAGS                "${ADD_COMMON_C_FLAGS}" )
 set (ADD_C_FLAGS_DEBUG          "-O0 -ggdb3 -D _DEBUG" )

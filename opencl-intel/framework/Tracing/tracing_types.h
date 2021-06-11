@@ -173,7 +173,8 @@ typedef enum _cl_function_id {
     CL_FUNCTION_clWaitForEvents = 117,
     CL_FUNCTION_clCreateImageWithProperties = 118,
     CL_FUNCTION_clCreateBufferWithProperties = 119,
-    CL_FUNCTION_COUNT = 120
+    CL_FUNCTION_clSetContextDestructorCallback = 120,
+    CL_FUNCTION_COUNT = 121
 } cl_function_id;
 
 /*!
@@ -198,6 +199,12 @@ typedef struct _cl_params_clBuildProgram {
     void(CL_CALLBACK **funcNotify)(cl_program program, void *userData);
     void **userData;
 } cl_params_clBuildProgram;
+
+typedef struct _cl_params_clSetContextDestructorCallback {
+  cl_context *context;
+  void(CL_CALLBACK **funcNotify)(cl_context context, void *userData);
+  void **userData;
+} cl_params_clSetContextDestructorCallback;
 
 typedef struct _cl_params_clCloneKernel {
     cl_kernel *sourceKernel;

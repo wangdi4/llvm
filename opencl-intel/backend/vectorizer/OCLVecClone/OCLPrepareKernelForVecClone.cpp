@@ -32,6 +32,7 @@
 #include "OCLPrepareKernelForVecClone.h"
 #include "InitializePasses.h"
 #include "MetadataAPI.h"
+#include "VectorizerCommon.h"
 
 #include "llvm/ADT/StringExtras.h"
 
@@ -40,6 +41,7 @@
 
 using namespace llvm;
 using namespace Intel::MetadataAPI;
+using namespace Intel::VectorizerCommon;
 
 cl::opt<VectorVariant::ISAClass> CPUIsaEncodingOverride(
     "ocl-vector-variant-isa-encoding-override", cl::Hidden,
@@ -50,18 +52,6 @@ cl::opt<VectorVariant::ISAClass> CPUIsaEncodingOverride(
                clEnumValN(VectorVariant::XMM,  "SSE42",      "SSE42")));
 
 namespace intel {
-
-static VectorVariant::ISAClass getCPUIdISA(
-    const Intel::OpenCL::Utils::CPUDetect *CPUId) {
-  assert(CPUId && "Valid CPUDetect is expected!");
-  if (CPUId->HasAVX512Core())
-    return VectorVariant::ZMM;
-  if (CPUId->HasAVX2())
-    return VectorVariant::YMM2;
-  if (CPUId->HasAVX1())
-    return VectorVariant::YMM1;
-  return VectorVariant::XMM;
-}
 
 OCLPrepareKernelForVecClone::OCLPrepareKernelForVecClone(
     const Intel::OpenCL::Utils::CPUDetect *CPUId)

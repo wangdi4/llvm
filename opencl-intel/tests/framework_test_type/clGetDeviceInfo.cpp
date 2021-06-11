@@ -194,6 +194,22 @@ bool clGetDeviceInfoTest() {
     }
   }
 
+  // Built-in kernels
+  size_t szBuiltinsStringSize = 0;
+  iRes = clGetDeviceInfo(devices[0], CL_DEVICE_BUILT_IN_KERNELS, 0, NULL,
+                         &szBuiltinsStringSize);
+  bResult &= Check("CL_DEVICE_BUILT_IN_KERNELS - query size", CL_SUCCESS, iRes);
+  bResult &= CheckSize("CL_DEVICE_BUILT_IN_KERNELS", 0, szBuiltinsStringSize);
+
+  // OpenCL 3.0: Built-in kernels with version
+  size_t szBuiltinsVersionSize = 0;
+  iRes = clGetDeviceInfo(devices[0], CL_DEVICE_BUILT_IN_KERNELS_WITH_VERSION, 0,
+                         NULL, &szBuiltinsVersionSize);
+  bResult &= Check("CL_DEVICE_BUILT_IN_KERNELS_WITH_VERSION - query size",
+                   CL_SUCCESS, iRes);
+  bResult &= CheckSize("CL_DEVICE_BUILT_IN_KERNELS_WITH_VERSION", 0,
+                       szBuiltinsVersionSize);
+
   // OpenCL 3.0: the latest version of the conformance test suite that device
   // passed
   size_t szPassedCTSVersionSize = 0;

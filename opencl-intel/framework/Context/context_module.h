@@ -140,6 +140,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_int RetainContext(cl_context context);
         virtual cl_int ReleaseContext(cl_context context);
         virtual cl_int GetContextInfo(cl_context context, cl_context_info param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
+        // OpenCL 3.0 function SetContextDestructorCallback
+        virtual cl_int SetContextDestructorCallback(
+            cl_context context,
+            void(CL_CALLBACK *pfnNotify)(cl_context context, void *userData),
+            void *pUserData);
         // program methods
         virtual cl_program CreateProgramWithSource(cl_context clContext, cl_uint uiCount, const char ** ppcStrings, const size_t * szLengths, cl_int * pErrcodeRet);
         virtual cl_program CreateProgramWithIL(cl_context clContext, const unsigned char* pIL, size_t length, cl_int* pErrcodeRet);

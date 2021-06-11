@@ -26,6 +26,7 @@
 #include <list>
 #include <map>
 #include <set>
+#include <tuple>
 #include "ocl_itt.h"
 #include "cl_heap.h"
 #include "cl_shared_ptr.h"
@@ -35,6 +36,7 @@
 namespace Intel { namespace OpenCL { namespace Framework {
 
     typedef void (CL_CALLBACK *pfnNotifyBuildDone)(cl_program, void *);
+    using CallbackType = void CL_CALLBACK(cl_context, void *);
 
     class Device;
     class FissionableDevice;
@@ -58,7 +60,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
     class Context : public OCLObject<_cl_context_int>
     {
     public:
-
         PREPARE_SHARED_PTR(Context)
 
         /******************************************************************************************
@@ -354,6 +355,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                                 cl_uint             uiNumEntries,
                                                 cl_image_format*    pclImageFormats,
                                                 cl_uint *           puiNumImageFormats);
+
+        // Register a callback function with a context, when the context is
+        // destroyed, the funcion is called
+        cl_err_code
+        setDestructorCallback(cl_context context,
+                              void(CL_CALLBACK *funcNotify)(cl_context, void *),
+                              void *userData);
 
         // get memory object according the mem id
         SharedPtr<MemoryObject> GetMemObject(cl_mem clMemId)
@@ -733,6 +741,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
     private:
         Context(const Context&);
         Context& operator=(const Context&);
+        // Store callback function and its parameters
+        std::vector<std::tuple<cl_context, CallbackType *, void *>>
+            m_callbackFuncs;
     };
 
 
