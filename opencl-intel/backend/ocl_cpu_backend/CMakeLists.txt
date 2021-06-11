@@ -240,7 +240,6 @@ set( BACKEND_PASSES
     InternalizeNonKernelFunc
     ExternalizeGlobalVariables
     InternalizeGlobalVariables
-    GenericAddressResolution
     LocalBuffers
     LocalBuffAnalysis
     PrepareKernelArgs

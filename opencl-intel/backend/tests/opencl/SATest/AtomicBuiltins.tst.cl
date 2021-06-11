@@ -1152,40 +1152,6 @@ __kernel void atomic_fetch_add_explicit_scope_ulong(__global ulong *object, __gl
 }
 
 // atomic add with float and double type
-float __attribute__((overloadable))
-atomic_fetch_add_explicit(volatile atomic_float *, float, memory_order);
-float __attribute__((overloadable))
-atomic_fetch_add_explicit(volatile atomic_float *, float, memory_order,
-                          memory_scope);
-float __attribute__((overloadable))
-atomic_fetch_add_explicit(volatile __global atomic_float *, float,
-                          memory_order);
-float __attribute__((overloadable))
-atomic_fetch_add_explicit(volatile __global atomic_float *, float, memory_order,
-                          memory_scope);
-float __attribute__((overloadable))
-atomic_fetch_add_explicit(volatile __local atomic_float *, float, memory_order);
-float __attribute__((overloadable))
-atomic_fetch_add_explicit(volatile __local atomic_float *, float, memory_order,
-                          memory_scope);
-double __attribute__((overloadable))
-atomic_fetch_add_explicit(volatile atomic_double *, double, memory_order);
-double __attribute__((overloadable))
-atomic_fetch_add_explicit(volatile atomic_double *, double, memory_order,
-                          memory_scope);
-double __attribute__((overloadable))
-atomic_fetch_add_explicit(volatile __global atomic_double *, double,
-                          memory_order);
-double __attribute__((overloadable))
-atomic_fetch_add_explicit(volatile __global atomic_double *, double,
-                          memory_order, memory_scope);
-double __attribute__((overloadable))
-atomic_fetch_add_explicit(volatile __local atomic_double *, double,
-                          memory_order);
-double __attribute__((overloadable))
-atomic_fetch_add_explicit(volatile __local atomic_double *, double,
-                          memory_order, memory_scope);
-
 __kernel void test_atomic_fetch_add_explicit_float(__global float *object,
                                                    __global float *desired,
                                                    float value) {
@@ -1567,40 +1533,6 @@ __kernel void atomic_fetch_min_explicit_scope_ulong(__global ulong *object, __gl
 }
 
 // atomic min with float and double type
-float __attribute__((overloadable))
-atomic_fetch_min_explicit(volatile atomic_float *, float, memory_order);
-float __attribute__((overloadable))
-atomic_fetch_min_explicit(volatile atomic_float *, float, memory_order,
-                          memory_scope);
-float __attribute__((overloadable))
-atomic_fetch_min_explicit(volatile __global atomic_float *, float,
-                          memory_order);
-float __attribute__((overloadable))
-atomic_fetch_min_explicit(volatile __global atomic_float *, float, memory_order,
-                          memory_scope);
-float __attribute__((overloadable))
-atomic_fetch_min_explicit(volatile __local atomic_float *, float, memory_order);
-float __attribute__((overloadable))
-atomic_fetch_min_explicit(volatile __local atomic_float *, float, memory_order,
-                          memory_scope);
-double __attribute__((overloadable))
-atomic_fetch_min_explicit(volatile atomic_double *, double, memory_order);
-double __attribute__((overloadable))
-atomic_fetch_min_explicit(volatile atomic_double *, double, memory_order,
-                          memory_scope);
-double __attribute__((overloadable))
-atomic_fetch_min_explicit(volatile __global atomic_double *, double,
-                          memory_order);
-double __attribute__((overloadable))
-atomic_fetch_min_explicit(volatile __global atomic_double *, double,
-                          memory_order, memory_scope);
-double __attribute__((overloadable))
-atomic_fetch_min_explicit(volatile __local atomic_double *, double,
-                          memory_order);
-double __attribute__((overloadable))
-atomic_fetch_min_explicit(volatile __local atomic_double *, double,
-                          memory_order, memory_scope);
-
 __kernel void test_atomic_fetch_min_explicit_float(__global float *object,
                                                    __global float *desired,
                                                    float value) {
@@ -1863,40 +1795,6 @@ __kernel void atomic_fetch_max_explicit_scope_intptr_t(__global intptr_t *object
 }
 
 // atomic max with float and double type
-float __attribute__((overloadable))
-atomic_fetch_max_explicit(volatile atomic_float *, float, memory_order);
-float __attribute__((overloadable))
-atomic_fetch_max_explicit(volatile atomic_float *, float, memory_order,
-                          memory_scope);
-float __attribute__((overloadable))
-atomic_fetch_max_explicit(volatile __global atomic_float *, float,
-                          memory_order);
-float __attribute__((overloadable))
-atomic_fetch_max_explicit(volatile __global atomic_float *, float, memory_order,
-                          memory_scope);
-float __attribute__((overloadable))
-atomic_fetch_max_explicit(volatile __local atomic_float *, float, memory_order);
-float __attribute__((overloadable))
-atomic_fetch_max_explicit(volatile __local atomic_float *, float, memory_order,
-                          memory_scope);
-double __attribute__((overloadable))
-atomic_fetch_max_explicit(volatile atomic_double *, double, memory_order);
-double __attribute__((overloadable))
-atomic_fetch_max_explicit(volatile atomic_double *, double, memory_order,
-                          memory_scope);
-double __attribute__((overloadable))
-atomic_fetch_max_explicit(volatile __global atomic_double *, double,
-                          memory_order);
-double __attribute__((overloadable))
-atomic_fetch_max_explicit(volatile __global atomic_double *, double,
-                          memory_order, memory_scope);
-double __attribute__((overloadable))
-atomic_fetch_max_explicit(volatile __local atomic_double *, double,
-                          memory_order);
-double __attribute__((overloadable))
-atomic_fetch_max_explicit(volatile __local atomic_double *, double,
-                          memory_order, memory_scope);
-
 __kernel void test_atomic_fetch_max_explicit_float(__global float *object,
                                                    __global float *desired,
                                                    float value) {

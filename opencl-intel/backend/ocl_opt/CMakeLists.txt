@@ -20,7 +20,6 @@ set(OCL_BE_PASSES
     DebugInfoPass
     DetectRecursion
     ExternalizeGlobalVariables
-    GenericAddressResolution
     HandleVPlanMask
     ImplicitArgsAnalysis
     InfiniteLoopCreator
