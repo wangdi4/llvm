@@ -159,8 +159,9 @@ public:
   /// HLoop from the IR and sets it as the Ztt.
   bool setRecognizedZtt(HLLoop *HLoop, HLIf *IfParent, bool PredicateInversion);
 
-  /// Reattaches loop label and bottom test back to this loop.
-  void reattachLoopLabelAndBottomTest(HLLoop *Loop);
+  /// Reattaches loop label and bottom test back to this loop if it was
+  /// previously removed and returns true, otherwise returns false.
+  bool reattachLoopLabelAndBottomTest(HLLoop *Loop);
 
   /// Erase all the stored loop labels and bottom tests.
   void eraseStoredLoopLabelsAndBottomTests();
