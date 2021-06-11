@@ -2668,6 +2668,18 @@ void HIRParser::parse(HLLoop *HLoop) {
     HLoop->setLowerDDRef(ZeroRef);
     HLoop->setStrideDDRef(ZeroRef->clone());
     HLoop->setUpperDDRef(ZeroRef->clone());
+
+    // In some odd cases, ScalarEvolution can return a proper backedge taken
+    // count when queried from loop formation phase but not when queried from
+    // parser. The caching behavior of ScalarEvolution is complicated and can
+    // return different results due to order of queries. So for safety purposes,
+    // we execute the following code for each unknown loop.
+
+    // Add the explicit loop label and bottom test back to the loop.
+    if (LF.reattachLoopLabelAndBottomTest(HLoop)) {
+      // Store this loop for Ztt extraction at the end of the phase.
+      CountableToUnkownLoops.insert(HLoop);
+    }
   }
 
   // TODO: assert that SIMD loops are always DO loops.

@@ -1159,11 +1159,15 @@ void HIRSSADeconstruction::processNonLoopRegionBlocks() {
   } else if (auto *RegionEntryIntrin =
                  findRegionEntryIntrinsic(RegionEntryBB)) {
     // Look for region entry intrinsic in the entry bblock and split the bblock
-    // starting at that instruction if it is not the first instruction or if the
-    // region entry block is also the function entry block.
+    // starting at that instruction if-
+    // 1) It is not the first bblock instruction, Or
+    // 2) The region entry block is also the function entry block, Or
+    // 3) Entry bblock is the same as previous region's successor bblock.
 
     if ((RegionEntryIntrin != &(*RegionEntryBB->begin())) ||
-        (RegionEntryBB == &RegionEntryBB->getParent()->getEntryBlock())) {
+        (RegionEntryBB == &RegionEntryBB->getParent()->getEntryBlock()) ||
+        ((CurRegIt != RI->begin()) &&
+         (std::prev(CurRegIt)->getSuccBBlock() == RegionEntryBB))) {
       auto *NewEntryBB = SplitBlock(RegionEntryBB, RegionEntryIntrin, DT, LI);
       CurRegIt->replaceEntryBBlock(NewEntryBB);
 

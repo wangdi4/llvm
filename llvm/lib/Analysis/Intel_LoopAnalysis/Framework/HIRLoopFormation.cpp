@@ -663,14 +663,20 @@ void HIRLoopFormation::run() {
   formLoops();
 }
 
-void HIRLoopFormation::reattachLoopLabelAndBottomTest(HLLoop *Loop) {
+bool HIRLoopFormation::reattachLoopLabelAndBottomTest(HLLoop *Loop) {
   auto It = LoopLabelAndBottomTestMap.find(Loop);
-  assert(It != LoopLabelAndBottomTestMap.end() && "Could not find loop label!");
+
+  // Loop label and bottom test was never removed in the first place.
+  if (It == LoopLabelAndBottomTestMap.end()) {
+    return false;
+  }
 
   HLNodeUtils::insertAsFirstChild(Loop, It->second.first);
   HLNodeUtils::insertAsLastChild(Loop, It->second.second);
 
   LoopLabelAndBottomTestMap.erase(It);
+
+  return true;
 }
 
 void HIRLoopFormation::eraseStoredLoopLabelsAndBottomTests() {
