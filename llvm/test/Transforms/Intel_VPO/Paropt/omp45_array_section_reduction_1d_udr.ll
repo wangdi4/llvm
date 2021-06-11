@@ -86,7 +86,7 @@ entry:
 ; CHECK-NEXT: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.init.body{{.*}} ]
 ; CHECK: store {{.*}} 0, {{.*}}
 ; CHECK: br i1 %red.cpy.done{{.*}}, label %red.init.done{{.*}}, label %red.init.body{{.*}}
-; CHECK: call void @__kmpc_critical_with_hint({{.*}})
+; CHECK: call void @__kmpc_critical({{.*}})
 ; CHECK: red.update.body{{.*}}:
 ; CHECK-NEXT: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.update.body{{.*}} ]
 ; CHECK: call void @.omp_combiner.(i16* %{{.*}}, i16* %{{.*}})
@@ -99,7 +99,7 @@ entry:
 ; ALL: store {{.*}} 0, {{.*}}
 ; ALL: br i1 %red.cpy.done{{.*}}, label %red.init.done{{.*}}, label %red.init.body{{.*}}
 
-; CRITICAL: call void @__kmpc_critical_with_hint({{.*}})
+; CRITICAL: call void @__kmpc_critical({{.*}})
 ; CRITICAL: red.update.body{{.*}}:
 ; CRITICAL-NEXT: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.update.body{{.*}} ]
 ; CRITICAL: call void @.omp_combiner.(i16* %{{.*}}, i16* %{{.*}})

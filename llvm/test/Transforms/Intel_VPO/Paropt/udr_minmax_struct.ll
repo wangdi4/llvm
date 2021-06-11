@@ -212,7 +212,7 @@ for.end:                                          ; preds = %for.cond
 ; CRITICAL-NOT: "QUAL.OMP.REDUCTION.UDR"
 ; CRITICAL: call void @.omp_initializer..2(%struct.point* %maxp.red{{.*}}, %struct.point* %maxp)
 ; CRITICAL: call void @.omp_initializer.(%struct.point* %minp.red{{.*}}, %struct.point* %minp)
-; CRITICAL: call void @__kmpc_critical_with_hint({{.*}})
+; CRITICAL: call void @__kmpc_critical({{.*}})
 ; CRITICAL: call void @.omp_combiner.(%struct.point* %minp, %struct.point* %minp.red{{.*}})
 ; CRITICAL: call void @.omp_combiner..1(%struct.point* %maxp, %struct.point* %maxp.red{{.*}})
 ; CRITICAL: call void @__kmpc_end_critical({{.*}})
