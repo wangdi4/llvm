@@ -1022,7 +1022,8 @@ Value *llvm::createSimpleTargetReduction(IRBuilderBase &Builder,
 
 Value *llvm::createTargetReduction(IRBuilderBase &B,
                                    const TargetTransformInfo *TTI,
-                                   RecurrenceDescriptor &Desc, Value *Src) {
+                                   const RecurrenceDescriptor &Desc,
+                                   Value *Src) {
   // TODO: Support in-order reductions based on the recurrence descriptor.
   // All ops in the reduction inherit fast-math-flags from the recurrence
   // descriptor.
@@ -1032,8 +1033,8 @@ Value *llvm::createTargetReduction(IRBuilderBase &B,
 }
 
 Value *llvm::createOrderedReduction(IRBuilderBase &B,
-                                    RecurrenceDescriptor &Desc, Value *Src,
-                                    Value *Start) {
+                                    const RecurrenceDescriptor &Desc,
+                                    Value *Src, Value *Start) {
   assert(Desc.getRecurrenceKind() == RecurKind::FAdd &&
          "Unexpected reduction kind");
   assert(Src->getType()->isVectorTy() && "Expected a vector type");
