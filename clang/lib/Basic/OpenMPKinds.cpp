@@ -564,7 +564,8 @@ bool clang::isOpenMPLoopDirective(OpenMPDirectiveKind DKind) {
          DKind == OMPD_target_teams_distribute ||
          DKind == OMPD_target_teams_distribute_parallel_for ||
          DKind == OMPD_target_teams_distribute_parallel_for_simd ||
-         DKind == OMPD_target_teams_distribute_simd || DKind == OMPD_tile;
+         DKind == OMPD_target_teams_distribute_simd || DKind == OMPD_tile ||
+         DKind == OMPD_unroll;
 }
 
 bool clang::isOpenMPWorksharingDirective(OpenMPDirectiveKind DKind) {
@@ -721,7 +722,7 @@ bool clang::isOpenMPLoopBoundSharingDirective(OpenMPDirectiveKind Kind) {
 }
 
 bool clang::isOpenMPLoopTransformationDirective(OpenMPDirectiveKind DKind) {
-  return DKind == OMPD_tile;
+  return DKind == OMPD_tile || DKind == OMPD_unroll;
 }
 
 void clang::getOpenMPCaptureRegions(
@@ -837,6 +838,7 @@ void clang::getOpenMPCaptureRegions(
     CaptureRegions.push_back(OMPD_unknown);
     break;
   case OMPD_tile:
+  case OMPD_unroll:
     // loop transformations do not introduce captures.
     break;
   case OMPD_threadprivate:
