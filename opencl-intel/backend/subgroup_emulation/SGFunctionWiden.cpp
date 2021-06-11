@@ -1,6 +1,6 @@
 //=----------------------- SGFunctionWiden.cpp -*- C++ -*--------------------=//
 //
-// Copyright (C) 2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -201,29 +201,37 @@ void FunctionWidener::run(FuncSet &Fns,
     VariantsStr.split(VecVariants, ',');
     // TODO: Need to support more than one variants.
     VectorVariant Variant(VecVariants[0]);
+    std::string VariantName = Variant.getName().getValue();
+    Function *FnWiden = Fn->getParent()->getFunction(VariantName);
+    if (FnWiden != nullptr) {
+      LLVM_DEBUG(dbgs() << "Skip widening function as the widened version "
+                        << "exists: " << VariantName << "\n");
+      FuncMap[Fn] = FnWiden;
+      continue;
+    }
 
     if (find(KernelRange, Fn) == Kernels.end() && !Fn->isDeclaration())
       RemoveByValAttr(*Fn);
     ValueToValueMapTy VMap;
-    Function *Clone = CloneFunction(*Fn, Variant, VMap);
-    FuncMap[Fn] = Clone;
+    FnWiden = CloneFunction(*Fn, Variant, VMap);
+    FuncMap[Fn] = FnWiden;
 
     // Skip SIMD Intrisincs.
-    if (Clone->isDeclaration())
+    if (FnWiden->isDeclaration())
       continue;
 
     // Invalidate helper for Cloned functions.
     Helper.initialize(M);
 
     // Make sub-group exclude BB, we will insert sth there.
-    auto &EntryBB = Clone->getEntryBlock();
+    auto &EntryBB = FnWiden->getEntryBlock();
     std::string BBName = EntryBB.getName().str();
     EntryBB.setName("sg.loop.exclude");
     EntryBB.splitBasicBlock(&*EntryBB.begin(), BBName);
 
-    expandVectorParameters(Clone, Variant, VMap);
-    expandReturn(Clone);
-    LLVM_DEBUG(Clone->dump());
+    expandVectorParameters(FnWiden, Variant, VMap);
+    expandReturn(FnWiden);
+    LLVM_DEBUG(FnWiden->dump());
   }
 }
 
