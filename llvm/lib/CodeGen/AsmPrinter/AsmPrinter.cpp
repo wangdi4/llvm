@@ -1356,7 +1356,7 @@ static void emitNotifyAnnotation(AsmPrinter *Asm,
   // TBD, The dwarf size of register which corresponding to expr is always 1?
   Entry->ExprDwarfReg = (Entry->ExprDwarfReg << 8) + 0x01;
 
-  std::string RegNumStr = APInt(32, DwarfReg).toString(10, false);
+  std::string RegNumStr = toString(APInt(32, DwarfReg), 10, false);
   std::string SS = Inst + "(" + AnnoStr + ", " + DwarfRegStr + RegNumStr + ")";
   Asm->OutStreamer->emitRawComment(SS);
 
