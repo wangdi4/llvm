@@ -14,6 +14,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 
@@ -62,6 +63,8 @@ bool BarrierInFunction::runImpl(Module &M) {
   FunctionsToHandle.assign(FunctionsAddedToHandle.begin(),
                            FunctionsAddedToHandle.end());
 
+  auto Kernels = DPCPPKernelCompilationUtils::getKernels(M);
+
   // As long as there are functions to handle...
   while (!FunctionsToHandle.empty()) {
     Function *FuncToHandle = FunctionsToHandle.pop_back_val();
@@ -80,7 +83,7 @@ bool BarrierInFunction::runImpl(Module &M) {
 
       // TBD: This neeeds whole CFG exploration.
       // Skip handling of a kernel funciton unless it is a kernel.
-      if (!CI->getFunction()->hasFnAttribute(KernelAttribute::SyclKernel))
+      if (llvm::find(Kernels, CI->getFunction()) == Kernels.end())
         continue;
 
       // Add Barrier before function call instruction.

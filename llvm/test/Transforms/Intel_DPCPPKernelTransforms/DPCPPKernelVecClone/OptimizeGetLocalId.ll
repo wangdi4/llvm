@@ -135,3 +135,6 @@ declare i64 @dummy(i64)
 declare dso_local i64 @_Z12get_local_idj(i64 %0)
 
 attributes #0 = { "prefer-vector-width"="512" "sycl-kernel" "target-cpu"="skylake-avx512" }
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_}

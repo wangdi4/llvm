@@ -14,19 +14,20 @@ entry:
   ret void
 }
 
-; CHECK: @_Z30ParallelForNDRangeImplKernel1DPiS_{{.*}}#0
-; CHECK: @_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_{{.*}}#1
+; CHECK: @_Z30ParallelForNDRangeImplKernel1DPiS_
+; CHECK-SAME: !recommended_vector_length ![[NODE0:[0-9]+]] !vectorized_width ![[NODE1:[0-9]+]] !vectorized_kernel ![[NODE2:[0-9]+]]
 
-; CHECK:        attributes #0 = {
-; CHECK-SAME:         "recommended-vector-length"="16"
-; CHECK-SAME:         "vectorized-kernel"="_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_"
-; CHECK-SAME:         "vectorized-width"="1"
+; CHECK: @_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_
+; CHECK-SAME: !recommended_vector_length ![[NODE0]] !vectorized_width ![[NODE0]] !scalar_kernel ![[NODE3:[0-9]+]]
 
-; CHECK:        attributes #1 = {
-; CHECK-SAME:         "recommended-vector-length"="16"
-; CHECK-SAME:         "scalar-kernel"="_Z30ParallelForNDRangeImplKernel1DPiS_"
-; CHECK-SAME:         "vectorized-width"="16"
+; CHECK-DAG: ![[NODE0]] = !{i32 16}
+; CHECK-DAG: ![[NODE1]] = !{i32 1}
+; CHECK-DAG: ![[NODE2]] = !{void (i32*, i32*)* @_ZGVeN16uu__Z30ParallelForNDRangeImplKernel1DPiS_}
+; CHECK-DAG: ![[NODE3]] = !{void (i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_}
 
 declare dso_local i64 @_Z12get_local_idj(i64 %0)
 
 attributes #0 = { "sycl-kernel" "target-cpu"="skylake-avx512" "prefer-vector-width"="512" }
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_}

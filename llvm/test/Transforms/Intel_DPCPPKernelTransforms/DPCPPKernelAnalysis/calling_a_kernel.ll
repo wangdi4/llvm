@@ -16,3 +16,6 @@ define void @func() #0 {
 }
 
 attributes #0 = { "sycl-kernel" }
+
+!sycl.kernels = !{!0}
+!0 = !{void ()* @kernel, void ()* @func}

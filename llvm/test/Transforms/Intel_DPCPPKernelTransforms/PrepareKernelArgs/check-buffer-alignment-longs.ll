@@ -49,3 +49,6 @@ entry:
 ; CHECK: ret void
 
 attributes #0 = { "sycl-kernel" }
+
+!sycl.kernels = !{!0}
+!0 = !{void (i64, <2 x i64>, <2 x i64>, <3 x i64>, <16 x i64>, <4 x i64>, <8 x i64>)* @t1}

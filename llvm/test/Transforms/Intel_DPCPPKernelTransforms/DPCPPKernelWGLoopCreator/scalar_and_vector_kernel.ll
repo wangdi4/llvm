@@ -8,7 +8,7 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocapture %out, i32* nocapture readnone %dummy1, i32* nocapture readnone %dummy2) #0 {
+define dso_local void @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocapture %out, i32* nocapture readnone %dummy1, i32* nocapture readnone %dummy2) #0 !no_barrier_path !{i1 1} !vectorized_kernel !{void(i32*, i32*, i32*)* @_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm} !vectorized_width !{i32 1} {
 ; CHECK-LABEL: @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm(
 ; CHECK-NEXT:    [[TMP1:%.*]] = call i64 @get_base_global_id.(i32 0)
 ; CHECK-NEXT:    [[TMP2:%.*]] = call i64 @_Z14get_local_sizej(i32 0)
@@ -105,7 +105,7 @@ entry:
 
 declare dso_local i64 @_Z12get_local_idj(i64 %0) local_unnamed_addr
 
-define dso_local void @_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocapture %out, i32* nocapture readnone %dummy1, i32* nocapture readnone %dummy2) #1 {
+define dso_local void @_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm(i32* nocapture %out, i32* nocapture readnone %dummy1, i32* nocapture readnone %dummy2) #1 !scalar_kernel !{void(i32*, i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm} !vectorized_width !{i32 16} {
 entry:
   %call = tail call i64 @_Z12get_local_idj(i64 0)
   %0 = trunc i64 %call to i32
@@ -119,3 +119,6 @@ entry:
 
 attributes #0 = { noinline "no-barrier-path"="true" "scalar-kernel" "sycl-kernel" "vectorized-kernel"="_ZGVbN16uuuuuu_30ParallelForNDRangeImplKernel1DPiS_S_mmm" "vectorized-width"="1" }
 attributes #1 = { noinline "scalar-kernel"="_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm" "vectorized-kernel" "vectorized-width"="16" }
+
+!sycl.kernels = !{!0}
+!0 = !{void (i32*, i32*, i32*)* @_Z30ParallelForNDRangeImplKernel1DPiS_S_mmm}

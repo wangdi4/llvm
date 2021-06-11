@@ -42,3 +42,6 @@ attributes #1 = { "sycl-kernel" }
 ; CHECK-NEXT: entry(0) : (0)
 ; CHECK-NEXT: entry(2) : (0)
 ; CHECK-LABEL: DONE
+
+!sycl.kernels = !{!0}
+!0 = !{void ()* @kernel}
