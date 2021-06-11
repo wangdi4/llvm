@@ -36,8 +36,8 @@ struct UserDataType {
   size_t valueToAdd;
 };
 
-static void callbackFoo(cl_context, void *) {}
-static void callbackBar(cl_context context, void *userData) {
+static void CL_API_CALL callbackFoo(cl_context, void *) {}
+static void CL_API_CALL callbackBar(cl_context context, void *userData) {
   auto pUserData = reinterpret_cast<UserDataType *>(userData);
   ASSERT_EQ(pUserData->expectedContext, context);
   pUserData->vectorToModify.push_back(pUserData->valueToAdd);
