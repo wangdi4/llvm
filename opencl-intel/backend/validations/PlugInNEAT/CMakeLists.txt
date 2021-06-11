@@ -4,7 +4,7 @@ set (TARGET_NAME PlugInNEAT)
 #
 if(NOT WIN32)
 # Compiler switches that CANNOT be modified during makefile generation
-set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option -funsigned-bitfields")
+set (ADD_COMMON_C_FLAGS  "-msse3 -mssse3 -fPIC -fdiagnostics-show-option")
 
 set (ADD_C_FLAGS         "${ADD_COMMON_C_FLAGS} -std=gnu99")
 set (ADD_CXX_FLAGS       "${ADD_COMMON_C_FLAGS} ")
