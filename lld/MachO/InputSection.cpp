@@ -108,13 +108,17 @@ void CStringInputSection::splitIntoPieces() {
   }
 }
 
-const StringPiece &CStringInputSection::getStringPiece(uint64_t off) const {
+StringPiece &CStringInputSection::getStringPiece(uint64_t off) {
   if (off >= data.size())
     fatal(toString(this) + ": offset is outside the section");
 
   auto it =
       partition_point(pieces, [=](StringPiece p) { return p.inSecOff <= off; });
   return it[-1];
+}
+
+const StringPiece &CStringInputSection::getStringPiece(uint64_t off) const {
+  return const_cast<CStringInputSection *>(this)->getStringPiece(off);
 }
 
 uint64_t CStringInputSection::getFileOffset(uint64_t off) const {
@@ -125,6 +129,48 @@ uint64_t CStringInputSection::getOffset(uint64_t off) const {
   const StringPiece &piece = getStringPiece(off);
   uint64_t addend = off - piece.inSecOff;
   return piece.outSecOff + addend;
+}
+
+WordLiteralInputSection::WordLiteralInputSection(StringRef segname,
+                                                 StringRef name,
+                                                 InputFile *file,
+                                                 ArrayRef<uint8_t> data,
+                                                 uint32_t align, uint32_t flags)
+    : InputSection(WordLiteralKind, segname, name, file, data, align, flags) {
+  switch (sectionType(flags)) {
+  case S_4BYTE_LITERALS:
+    power2LiteralSize = 2;
+    break;
+  case S_8BYTE_LITERALS:
+    power2LiteralSize = 3;
+    break;
+  case S_16BYTE_LITERALS:
+    power2LiteralSize = 4;
+    break;
+  default:
+    llvm_unreachable("invalid literal section type");
+  }
+
+  live.resize(data.size() >> power2LiteralSize, !config->deadStrip);
+}
+
+uint64_t WordLiteralInputSection::getFileOffset(uint64_t off) const {
+  return parent->fileOff + getOffset(off);
+}
+
+uint64_t WordLiteralInputSection::getOffset(uint64_t off) const {
+  auto *osec = cast<WordLiteralSection>(parent);
+  const uint8_t *buf = data.data();
+  switch (sectionType(flags)) {
+  case S_4BYTE_LITERALS:
+    return osec->getLiteral4Offset(buf + off);
+  case S_8BYTE_LITERALS:
+    return osec->getLiteral8Offset(buf + off);
+  case S_16BYTE_LITERALS:
+    return osec->getLiteral16Offset(buf + off);
+  default:
+    llvm_unreachable("invalid literal section type");
+  }
 }
 
 bool macho::isCodeSection(const InputSection *isec) {
