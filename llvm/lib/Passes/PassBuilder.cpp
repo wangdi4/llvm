@@ -200,6 +200,7 @@
 #include "llvm/Transforms/Scalar/JumpThreading.h"
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/LoopAccessAnalysisPrinter.h"
+#include "llvm/Transforms/Scalar/LoopBoundSplit.h"
 #include "llvm/Transforms/Scalar/LoopDataPrefetch.h"
 #include "llvm/Transforms/Scalar/LoopDeletion.h"
 #include "llvm/Transforms/Scalar/LoopDistribute.h"
@@ -931,7 +932,7 @@ PassBuilder::buildO1FunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(SimplifyCFGPass());
   addInstCombinePass(FPM, !DTransEnabled); // INTEL
   if (EnableLoopFlatten)
-    FPM.addPass(LoopFlattenPass());
+    FPM.addPass(createFunctionToLoopPassAdaptor(LoopFlattenPass()));
   // The loop passes in LPM2 (LoopFullUnrollPass) do not preserve MemorySSA.
   // *All* loop passes must preserve it, in order to be able to use it.
   FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM2),
@@ -1150,7 +1151,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   addInstCombinePass(FPM, !DTransEnabled);
 #endif // INTEL_CUSTOMIZATION
   if (EnableLoopFlatten)
-    FPM.addPass(LoopFlattenPass());
+    FPM.addPass(createFunctionToLoopPassAdaptor(LoopFlattenPass()));
   // The loop passes in LPM2 (LoopIdiomRecognizePass, IndVarSimplifyPass,
   // LoopDeletionPass and LoopFullUnrollPass) do not preserve MemorySSA.
   // *All* loop passes must preserve it, in order to be able to use it.
@@ -1695,7 +1696,8 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     // across the loop nests.
     // We do UnrollAndJam in a separate LPM to ensure it happens before unroll
     if (EnableUnrollAndJam && PTO.LoopUnrolling)
-      FPM.addPass(LoopUnrollAndJamPass(Level.getSpeedupLevel()));
+      FPM.addPass(createFunctionToLoopPassAdaptor(
+          LoopUnrollAndJamPass(Level.getSpeedupLevel())));
     FPM.addPass(LoopUnrollPass(LoopUnrollOptions(
         Level.getSpeedupLevel(), /*OnlyWhenForced=*/!PTO.LoopUnrolling,
         PTO.ForgetAllSCEVInLoopUnroll)));
@@ -1738,30 +1740,33 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     FPM.addPass(InstCombinePass());
   }
 
-  if (IsLTO) {
 #if INTEL_CUSTOMIZATION
+  if (IsLTO) {
     // 28038: Avoid excessive hoisting as it increases register pressure and
     // select conversion without clear gains.
     // FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions().hoistCommonInsts(true)));
     FPM.addPass(SimplifyCFGPass());
-#endif // INTEL_CUSTOMIZATION
   } else {
-    // Now that we've formed fast to execute loop structures, we do further
-    // optimizations. These are run afterward as they might block doing complex
-    // analyses and transforms such as what are needed for loop vectorization.
+#endif // INTEL_CUSTOMIZATION
+  // Now that we've formed fast to execute loop structures, we do further
+  // optimizations. These are run afterward as they might block doing complex
+  // analyses and transforms such as what are needed for loop vectorization.
 
-    // Cleanup after loop vectorization, etc. Simplification passes like CVP and
-    // GVN, loop transforms, and others have already run, so it's now better to
-    // convert to more optimized IR using more aggressive simplify CFG options.
-    // The extra sinking transform can create larger basic blocks, so do this
-    // before SLP vectorization.
-    FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions()
-                                    .forwardSwitchCondToPhi(true)
-                                    .convertSwitchToLookupTable(true)
-                                    .needCanonicalLoops(false)
-                                    .hoistCommonInsts(true)
-                                    .sinkCommonInsts(true)));
-  }
+  // Cleanup after loop vectorization, etc. Simplification passes like CVP and
+  // GVN, loop transforms, and others have already run, so it's now better to
+  // convert to more optimized IR using more aggressive simplify CFG options.
+  // The extra sinking transform can create larger basic blocks, so do this
+  // before SLP vectorization.
+  FPM.addPass(SimplifyCFGPass(SimplifyCFGOptions()
+                                  .forwardSwitchCondToPhi(true)
+                                  .convertSwitchToLookupTable(true)
+                                  .needCanonicalLoops(false)
+                                  .hoistCommonInsts(true)
+                                  .sinkCommonInsts(true)));
+#if INTEL_CUSTOMIZATION
+  } // IsLTO
+#endif // INTEL_CUSTOMIZATION
+
   if (IsLTO) {
     FPM.addPass(SCCPPass());
     addInstCombinePass(FPM, !DTransEnabled); // INTEL
@@ -1803,7 +1808,8 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
   if (!PrepareForLTO || !isLoopOptEnabled(Level)) {
 #endif // INTEL_CUSTOMIZATION
     if (EnableUnrollAndJam && PTO.LoopUnrolling) {
-      FPM.addPass(LoopUnrollAndJamPass(Level.getSpeedupLevel()));
+      FPM.addPass(createFunctionToLoopPassAdaptor(
+          LoopUnrollAndJamPass(Level.getSpeedupLevel())));
     }
     FPM.addPass(LoopUnrollPass(LoopUnrollOptions(
         Level.getSpeedupLevel(), /*OnlyWhenForced=*/!PTO.LoopUnrolling,
@@ -3007,7 +3013,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
 
   // More loops are countable; try to optimize them.
   if (EnableLoopFlatten && Level.getSpeedupLevel() > 1)
-    MainFPM.addPass(LoopFlattenPass());
+    MainFPM.addPass(createFunctionToLoopPassAdaptor(LoopFlattenPass()));
 
   if (EnableConstraintElimination)
     MainFPM.addPass(ConstraintEliminationPass());

@@ -6528,6 +6528,7 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::Concept:
   case Decl::LifetimeExtendedTemporary:
   case Decl::RequiresExprBody:
+  case Decl::UnresolvedUsingIfExists:
     return C;
 
   // Declaration kinds that don't make any sense here, but are
@@ -6602,7 +6603,8 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   }
 
   case Decl::Using:
-    return MakeCursorOverloadedDeclRef(cast<UsingDecl>(D), D->getLocation(),
+  case Decl::UsingEnum:
+    return MakeCursorOverloadedDeclRef(cast<BaseUsingDecl>(D), D->getLocation(),
                                        TU);
 
   case Decl::UsingShadow:

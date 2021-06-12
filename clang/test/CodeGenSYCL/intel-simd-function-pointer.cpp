@@ -20,7 +20,7 @@ __attribute__((opencl_private)) __attribute__((sycl_explicit_simd)) fptr one_one
 
 extern void test1();
 void test(int i);
-//CHECK: define {{.*}}_ZZ4mainENK3$_0clEv
+// CHECK: define {{.*}}_ZZ4mainENKUlvE_clEv
 int main()
 {
   kernel_single_task<class kernel_function>([]() __attribute__((sycl_explicit_simd)) {

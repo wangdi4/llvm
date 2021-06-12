@@ -169,8 +169,7 @@ static StringRef getOSLibDir(const llvm::Triple &Triple, const ArgList &Args,
       Triple.getArch() == llvm::Triple::sparc)
     return Distro.IsOpenSUSE() ? "lib" : "lib32"; // INTEL
 
-  if (Triple.getArch() == llvm::Triple::x86_64 &&
-      Triple.getEnvironment() == llvm::Triple::GNUX32)
+  if (Triple.getArch() == llvm::Triple::x86_64 && Triple.isX32())
     return "libx32";
 
   if (Triple.getArch() == llvm::Triple::riscv32)
@@ -422,9 +421,7 @@ std::string Linux::getDynamicLinker(const ArgList &Args) const {
       ArchName = "i386";
       break;
     case llvm::Triple::x86_64:
-      ArchName = Triple.getEnvironment() == llvm::Triple::MuslX32
-                     ? "x32"
-                     : Triple.getArchName().str();
+      ArchName = Triple.isX32() ? "x32" : Triple.getArchName().str();
       break;
     default:
       ArchName = Triple.getArchName().str();
@@ -535,7 +532,7 @@ std::string Linux::getDynamicLinker(const ArgList &Args) const {
     Loader = "ld-linux.so.2";
     break;
   case llvm::Triple::x86_64: {
-    bool X32 = Triple.getEnvironment() == llvm::Triple::GNUX32;
+    bool X32 = Triple.isX32();
 
     LibDir = X32 ? "libx32" : "lib64";
     Loader = X32 ? "ld-linux-x32.so.2" : "ld-linux-x86-64.so.2";

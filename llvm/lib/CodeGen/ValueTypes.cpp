@@ -24,8 +24,7 @@ EVT EVT::changeExtendedVectorElementTypeToInteger() const {
   assert(isExtended() && "Type is not extended!");
   LLVMContext &Context = LLVMTy->getContext();
   EVT IntTy = getIntegerVT(Context, getScalarSizeInBits());
-  return getVectorVT(Context, IntTy, getVectorNumElements(),
-                     isScalableVector());
+  return getVectorVT(Context, IntTy, getVectorElementCount());
 }
 
 EVT EVT::changeExtendedVectorElementType(EVT EltVT) const {
@@ -239,6 +238,10 @@ Type *EVT::getTypeForEVT(LLVMContext &Context) const {
     return FixedVectorType::get(Type::getInt8Ty(Context), 128);
   case MVT::v256i8:
     return FixedVectorType::get(Type::getInt8Ty(Context), 256);
+  case MVT::v512i8:
+    return FixedVectorType::get(Type::getInt8Ty(Context), 512);
+  case MVT::v1024i8:
+    return FixedVectorType::get(Type::getInt8Ty(Context), 1024);
   case MVT::v1i16:
     return FixedVectorType::get(Type::getInt16Ty(Context), 1);
   case MVT::v2i16:
@@ -259,6 +262,8 @@ Type *EVT::getTypeForEVT(LLVMContext &Context) const {
     return FixedVectorType::get(Type::getInt16Ty(Context), 128);
   case MVT::v256i16:
     return FixedVectorType::get(Type::getInt16Ty(Context), 256);
+  case MVT::v512i16:
+    return FixedVectorType::get(Type::getInt16Ty(Context), 512);
   case MVT::v1i32:
     return FixedVectorType::get(Type::getInt32Ty(Context), 1);
   case MVT::v2i32:
@@ -327,6 +332,8 @@ Type *EVT::getTypeForEVT(LLVMContext &Context) const {
     return FixedVectorType::get(Type::getHalfTy(Context), 128);
   case MVT::v256f16:
     return FixedVectorType::get(Type::getHalfTy(Context), 256);
+  case MVT::v512f16:
+    return FixedVectorType::get(Type::getHalfTy(Context), 512);
   case MVT::v2bf16:
     return FixedVectorType::get(Type::getBFloatTy(Context), 2);
   case MVT::v3bf16:

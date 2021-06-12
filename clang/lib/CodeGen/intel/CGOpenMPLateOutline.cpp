@@ -232,7 +232,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
                         ObjPtrTy, VK_LValue, SourceLocation());
     ImplicitCastExpr CastExpr(ImplicitCastExpr::OnStack,
                               C.getPointerType(ElemType), CK_BitCast, &SrcExpr,
-                              VK_RValue, FPOptionsOverride());
+                              VK_PRValue, FPOptionsOverride());
     UnaryOperator *SRC = UnaryOperator::Create(
         C, &CastExpr, UO_Deref, ElemType, VK_LValue, OK_Ordinary,
         SourceLocation(), /*CanOverflow=*/false, FPOptionsOverride());

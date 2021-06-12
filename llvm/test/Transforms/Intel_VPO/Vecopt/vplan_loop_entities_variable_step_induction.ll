@@ -9,7 +9,7 @@
 
 @Out = dso_local local_unnamed_addr global [1024 x [1024 x i32]] zeroinitializer, align 16
 
-define dso_local void @_Z11supersampleiiPi(i32 %x, i32 %y, i32* nocapture readonly %a) local_unnamed_addr {
+define dso_local void @_Z11supersampleiiPi(i32 %x, i32 %y, i32* nocapture readonly %a) local_unnamed_addr mustprogress {
 entry:
   %add.neg = sub i32 2, %x
   %sub = sub i32 %add.neg, %y

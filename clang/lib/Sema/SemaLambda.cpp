@@ -461,15 +461,18 @@ void Sema::handleLambdaNumbering(
   std::tie(MCtx, ManglingContextDecl) =
       getCurrentMangleNumberContext(Class->getDeclContext());
   bool HasKnownInternalLinkage = false;
+  if (!MCtx && (getLangOpts().CUDA || getLangOpts().SYCLIsDevice ||
 #if INTEL_COLLAB
-  if (!MCtx && (getLangOpts().CUDA || getLangOpts().OpenMPLateOutline)) {
-#else // INTEL_COLLAB
-  if (!MCtx && getLangOpts().CUDA) {
+                getLangOpts().OpenMPLateOutline ||
 #endif // INTEL_COLLAB
+                getLangOpts().SYCLIsHost)) {
     // Force lambda numbering in CUDA/HIP as we need to name lambdas following
     // ODR. Both device- and host-compilation need to have a consistent naming
     // on kernel functions. As lambdas are potential part of these `__global__`
     // function names, they needs numbering following ODR.
+    // Also force for SYCL, since we need this for the
+    // __builtin_sycl_unique_stable_name implementation, which depends on lambda
+    // mangling.
     MCtx = getMangleNumberingContext(Class, ManglingContextDecl);
     assert(MCtx && "Retrieving mangle numbering context failed!");
     HasKnownInternalLinkage = true;
@@ -686,7 +689,7 @@ static void adjustBlockReturnsToEnum(Sema &S, ArrayRef<ReturnStmt*> returns,
 
     Expr *E = (cleanups ? cleanups->getSubExpr() : retValue);
     E = ImplicitCastExpr::Create(S.Context, returnType, CK_IntegralCast, E,
-                                 /*base path*/ nullptr, VK_RValue,
+                                 /*base path*/ nullptr, VK_PRValue,
                                  FPOptionsOverride());
     if (cleanups) {
       cleanups->setSubExpr(E);

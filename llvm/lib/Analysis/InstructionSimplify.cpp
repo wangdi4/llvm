@@ -3913,10 +3913,12 @@ Value *llvm::SimplifyFCmpInst(unsigned Predicate, Value *LHS, Value *RHS,
   return ::SimplifyFCmpInst(Predicate, LHS, RHS, FMF, Q, RecursionLimit);
 }
 
-static Value *SimplifyWithOpReplaced(Value *V, Value *Op, Value *RepOp,
+static Value *simplifyWithOpReplaced(Value *V, Value *Op, Value *RepOp,
                                      const SimplifyQuery &Q,
                                      bool AllowRefinement,
                                      unsigned MaxRecurse) {
+  assert(!Op->getType()->isVectorTy() && "This is not safe for vectors");
+
   // Trivial replacement.
   if (V == Op)
     return RepOp;
@@ -4026,10 +4028,10 @@ static Value *SimplifyWithOpReplaced(Value *V, Value *Op, Value *RepOp,
   return ConstantFoldInstOperands(I, ConstOps, Q.DL, Q.TLI);
 }
 
-Value *llvm::SimplifyWithOpReplaced(Value *V, Value *Op, Value *RepOp,
+Value *llvm::simplifyWithOpReplaced(Value *V, Value *Op, Value *RepOp,
                                     const SimplifyQuery &Q,
                                     bool AllowRefinement) {
-  return ::SimplifyWithOpReplaced(V, Op, RepOp, Q, AllowRefinement,
+  return ::simplifyWithOpReplaced(V, Op, RepOp, Q, AllowRefinement,
                                   RecursionLimit);
 }
 
@@ -4151,17 +4153,17 @@ static Value *simplifySelectWithICmpCond(Value *CondVal, Value *TrueVal,
   // Note that the equivalence/replacement opportunity does not hold for vectors
   // because each element of a vector select is chosen independently.
   if (Pred == ICmpInst::ICMP_EQ && !CondVal->getType()->isVectorTy()) {
-    if (SimplifyWithOpReplaced(FalseVal, CmpLHS, CmpRHS, Q,
+    if (simplifyWithOpReplaced(FalseVal, CmpLHS, CmpRHS, Q,
                                /* AllowRefinement */ false, MaxRecurse) ==
             TrueVal ||
-        SimplifyWithOpReplaced(FalseVal, CmpRHS, CmpLHS, Q,
+        simplifyWithOpReplaced(FalseVal, CmpRHS, CmpLHS, Q,
                                /* AllowRefinement */ false, MaxRecurse) ==
             TrueVal)
       return FalseVal;
-    if (SimplifyWithOpReplaced(TrueVal, CmpLHS, CmpRHS, Q,
+    if (simplifyWithOpReplaced(TrueVal, CmpLHS, CmpRHS, Q,
                                /* AllowRefinement */ true, MaxRecurse) ==
             FalseVal ||
-        SimplifyWithOpReplaced(TrueVal, CmpRHS, CmpLHS, Q,
+        simplifyWithOpReplaced(TrueVal, CmpRHS, CmpLHS, Q,
                                /* AllowRefinement */ true, MaxRecurse) ==
             FalseVal)
       return FalseVal;
@@ -4554,9 +4556,13 @@ static Value *SimplifyExtractElementInst(Value *Vec, Value *Idx,
   // find a previously computed scalar that was inserted into the vector.
   if (auto *IdxC = dyn_cast<ConstantInt>(Idx)) {
     // For fixed-length vector, fold into undef if index is out of bounds.
-    if (isa<FixedVectorType>(VecVTy) &&
-        IdxC->getValue().uge(cast<FixedVectorType>(VecVTy)->getNumElements()))
+    unsigned MinNumElts = VecVTy->getElementCount().getKnownMinValue();
+    if (isa<FixedVectorType>(VecVTy) && IdxC->getValue().uge(MinNumElts))
       return PoisonValue::get(VecVTy->getElementType());
+    // Handle case where an element is extracted from a splat.
+    if (IdxC->getValue().ult(MinNumElts))
+      if (auto *Splat = getSplatValue(Vec))
+        return Splat;
     if (Value *Elt = findScalarElement(Vec, IdxC->getZExtValue()))
       return Elt;
   }

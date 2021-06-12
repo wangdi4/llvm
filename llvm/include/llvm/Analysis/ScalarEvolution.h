@@ -520,6 +520,17 @@ public:
   /// Erase Value from ValueExprMap and ExprValueMap.
   void eraseValueFromMap(Value *V);
 
+  /// Is operation \p BinOp between \p LHS and \p RHS provably does not have
+  /// a signed/unsigned overflow (\p Signed)?
+  bool willNotOverflow(Instruction::BinaryOps BinOp, bool Signed,
+                       const SCEV *LHS, const SCEV *RHS);
+
+  /// Parse NSW/NUW flags from add/sub/mul IR binary operation \p Op into
+  /// SCEV no-wrap flags, and deduce flag[s] that aren't known yet.
+  /// Does not mutate the original instruction.
+  std::pair<SCEV::NoWrapFlags, bool /*Deduced*/>
+  getStrengthenedNoWrapFlagsFromBinOp(const OverflowingBinaryOperator *OBO);
+
   /// Return a SCEV expression for the full generality of the specified
   /// expression.
   const SCEV *getSCEV(Value *V);
@@ -1314,7 +1325,8 @@ protected: // INTEL
 
   /// The type for ExprValueMap.
   using ValueOffsetPair = std::pair<Value *, ConstantInt *>;
-  using ExprValueMapType = DenseMap<const SCEV *, SetVector<ValueOffsetPair>>;
+  using ValueOffsetPairSetVector = SmallSetVector<ValueOffsetPair, 4>;
+  using ExprValueMapType = DenseMap<const SCEV *, ValueOffsetPairSetVector>;
 
   /// ExprValueMap -- This map records the original values from which
   /// the SCEV expr is generated from.
@@ -1384,7 +1396,7 @@ protected: // INTEL
 
 public: // INTEL
   /// Return the Value set from which the SCEV expr is generated.
-  SetVector<ValueOffsetPair> *getSCEVValues(const SCEV *S);
+  ValueOffsetPairSetVector *getSCEVValues(const SCEV *S);
 
   /// External interface for checkValidity. Returns false iff the SCEV has
   /// been deleted: there are SCEVUnknowns in the ops, and the value is null.
@@ -1612,6 +1624,10 @@ protected: // INTEL
   bool loopHasNoAbnormalExits(const Loop *L) {
     return getLoopProperties(L).HasNoAbnormalExits;
   }
+
+  /// Return true if this loop is finite by assumption.  That is,
+  /// to be infinite, it must also be undefined.
+  bool loopIsFiniteByAssumption(const Loop *L);
 
   /// Compute a LoopDisposition value.
   LoopDisposition computeLoopDisposition(const SCEV *S, const Loop *L);

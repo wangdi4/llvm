@@ -626,10 +626,13 @@ exit:
 define i16 @partial_override_overloop(i1 %c, i32 %i) {
 ; CHECK-LABEL: @partial_override_overloop(
 ; CHECK-NEXT:  entry:
+; CHECK-NEXT:    br label [[FIRST:%.*]]
+; CHECK:       first:
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds [10 x i16], [10 x i16]* @x, i16 0, i32 [[I:%.*]]
+; CHECK-NEXT:    store i16 1, i16* [[ARRAYIDX]], align 1
 ; CHECK-NEXT:    br label [[DO_BODY:%.*]]
 ; CHECK:       do.body:
-; CHECK-NEXT:    [[I_0:%.*]] = phi i16 [ 0, [[ENTRY:%.*]] ], [ [[INC:%.*]], [[DO_BODY]] ]
+; CHECK-NEXT:    [[I_0:%.*]] = phi i16 [ 0, [[FIRST]] ], [ [[INC:%.*]], [[DO_BODY]] ]
 ; CHECK-NEXT:    [[ARRAYIDX2:%.*]] = getelementptr inbounds [10 x i16], [10 x i16]* @x, i16 0, i16 [[I_0]]
 ; CHECK-NEXT:    store i16 2, i16* [[ARRAYIDX2]], align 1
 ; CHECK-NEXT:    [[EXITCOND:%.*]] = icmp eq i16 [[I_0]], 4
@@ -643,12 +646,16 @@ define i16 @partial_override_overloop(i1 %c, i32 %i) {
 ; CHECK-NEXT:    ret i16 0
 ;
 entry:
+  ; Branch to first so MemoryLoc is not in the entry block.
+  br label %first
+
+first:
   %arrayidx = getelementptr inbounds [10 x i16], [10 x i16]* @x, i16 0, i32 %i
   store i16 1, i16* %arrayidx, align 1
   br label %do.body
 
 do.body:
-  %i.0 = phi i16 [ 0, %entry ], [ %inc, %do.body ]
+  %i.0 = phi i16 [ 0, %first ], [ %inc, %do.body ]
   %arrayidx2 = getelementptr inbounds [10 x i16], [10 x i16]* @x, i16 0, i16 %i.0
   store i16 2, i16* %arrayidx2, align 1
   %exitcond = icmp eq i16 %i.0, 4
@@ -699,3 +706,59 @@ exit:
   ret i16 0
 }
 
+define void @InitializeMasks(i64* %p) {
+; CHECK-LABEL: @InitializeMasks(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    br label [[FOR_BODY98:%.*]]
+; CHECK:       for.body98:
+; CHECK-NEXT:    [[INDVARS_IV377:%.*]] = phi i64 [ 8, [[ENTRY:%.*]] ], [ [[INC2:%.*]], [[FOR_INC140:%.*]] ], [ [[INC1:%.*]], [[FOR_INC140_THREAD:%.*]] ]
+; CHECK-NEXT:    [[ARRAYIDX106:%.*]] = getelementptr inbounds i64, i64* [[P:%.*]], i64 [[INDVARS_IV377]]
+; CHECK-NEXT:    store i64 1, i64* [[ARRAYIDX106]], align 8
+; CHECK-NEXT:    [[CMP107:%.*]] = icmp ugt i64 [[INDVARS_IV377]], 15
+; CHECK-NEXT:    br i1 [[CMP107]], label [[IF_END:%.*]], label [[IF_END_THREAD:%.*]]
+; CHECK:       if.end.thread:
+; CHECK-NEXT:    br label [[FOR_INC140_THREAD]]
+; CHECK:       if.end:
+; CHECK-NEXT:    store i64 2, i64* [[ARRAYIDX106]], align 8
+; CHECK-NEXT:    [[CMP127:%.*]] = icmp ult i64 [[INDVARS_IV377]], 48
+; CHECK-NEXT:    br i1 [[CMP127]], label [[FOR_INC140_THREAD]], label [[FOR_INC140]]
+; CHECK:       for.inc140.thread:
+; CHECK-NEXT:    [[INC1]] = add i64 [[INDVARS_IV377]], 1
+; CHECK-NEXT:    br label [[FOR_BODY98]]
+; CHECK:       for.inc140:
+; CHECK-NEXT:    [[INC2]] = add i64 [[INDVARS_IV377]], 1
+; CHECK-NEXT:    [[EXITCOND384_NOT:%.*]] = icmp eq i64 [[INDVARS_IV377]], 56
+; CHECK-NEXT:    br i1 [[EXITCOND384_NOT]], label [[FOR_INC177:%.*]], label [[FOR_BODY98]]
+; CHECK:       for.inc177:
+; CHECK-NEXT:    ret void
+;
+entry:
+  br label %for.body98
+
+for.body98:                                       ; preds = %for.inc140, %for.inc140.thread, %entry
+  %indvars.iv377 = phi i64 [ 8, %entry ], [ %inc2, %for.inc140 ], [ %inc1, %for.inc140.thread ]
+  %arrayidx106 = getelementptr inbounds i64, i64* %p, i64 %indvars.iv377
+  store i64 1, i64* %arrayidx106, align 8
+  %cmp107 = icmp ugt i64 %indvars.iv377, 15
+  br i1 %cmp107, label %if.end, label %if.end.thread
+
+if.end.thread:                                    ; preds = %for.body98
+  br label %for.inc140.thread
+
+if.end:                                           ; preds = %for.body98
+  store i64 2, i64* %arrayidx106, align 8
+  %cmp127 = icmp ult i64 %indvars.iv377, 48
+  br i1 %cmp127, label %for.inc140.thread, label %for.inc140
+
+for.inc140.thread:                                ; preds = %if.end, %if.end.thread
+  %inc1 = add i64 %indvars.iv377, 1
+  br label %for.body98
+
+for.inc140:                                       ; preds = %if.end
+  %inc2 = add i64 %indvars.iv377, 1
+  %exitcond384.not = icmp eq i64 %indvars.iv377, 56
+  br i1 %exitcond384.not, label %for.inc177, label %for.body98
+
+for.inc177:                                       ; preds = %for.inc140
+  ret void
+}

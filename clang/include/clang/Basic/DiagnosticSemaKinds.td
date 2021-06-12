@@ -348,8 +348,12 @@ def note_riscv_repeated_interrupt_attribute : Note<
   "repeated RISC-V 'interrupt' attribute is here">;
 def warn_unused_parameter : Warning<"unused parameter %0">,
   InGroup<UnusedParameter>, DefaultIgnore;
+def warn_unused_but_set_parameter : Warning<"parameter %0 set but not used">,
+  InGroup<UnusedButSetParameter>, DefaultIgnore;
 def warn_unused_variable : Warning<"unused variable %0">,
   InGroup<UnusedVariable>, DefaultIgnore;
+def warn_unused_but_set_variable : Warning<"variable %0 set but not used">,
+  InGroup<UnusedButSetVariable>, DefaultIgnore;
 def warn_unused_local_typedef : Warning<
   "unused %select{typedef|type alias}0 %1">,
   InGroup<UnusedLocalTypedef>, DefaultIgnore;
@@ -569,6 +573,10 @@ def err_using_dependent_value_is_type : Error<
   "dependent using declaration resolved to type without 'typename'">;
 def err_using_decl_nested_name_specifier_is_not_class : Error<
   "using declaration in class refers into '%0', which is not a class">;
+def warn_cxx17_compat_using_decl_non_member_enumerator : Warning<
+  "member using declaration naming non-class '%0' enumerator is "
+  "incompatible with C++ standards before C++20">, InGroup<CXXPre20Compat>,
+  DefaultIgnore;
 def err_using_decl_nested_name_specifier_is_current_class : Error<
   "using declaration refers to its own class">;
 def err_using_decl_nested_name_specifier_is_not_base_class : Error<
@@ -577,6 +585,14 @@ def err_using_decl_constructor_not_in_direct_base : Error<
   "%0 is not a direct base of %1, cannot inherit constructors">;
 def err_using_decl_can_not_refer_to_class_member : Error<
   "using declaration cannot refer to class member">;
+def warn_cxx17_compat_using_decl_class_member_enumerator : Warning<
+  "member using declaration naming a non-member enumerator is incompatible "
+  "with C++ standards before C++20">, InGroup<CXXPre20Compat>, DefaultIgnore;
+def ext_using_decl_class_member_enumerator : ExtWarn<
+  "member using declaration naming a non-member enumerator is "
+  "a C++20 extension">, InGroup<CXX20>;
+def err_using_enum_is_dependent : Error<
+  "using-enum cannot name a dependent type">;
 def err_ambiguous_inherited_constructor : Error<
   "constructor of %0 inherited from multiple base class subobjects">;
 def note_ambiguous_inherited_constructor_using : Note<
@@ -586,8 +602,12 @@ def note_using_decl_class_member_workaround : Note<
   "a const variable|a constexpr variable}0 instead">;
 def err_using_decl_can_not_refer_to_namespace : Error<
   "using declaration cannot refer to a namespace">;
-def err_using_decl_can_not_refer_to_scoped_enum : Error<
-  "using declaration cannot refer to a scoped enumerator">;
+def warn_cxx17_compat_using_decl_scoped_enumerator: Warning<
+  "using declaration naming a scoped enumerator is incompatible with "
+  "C++ standards before C++20">, InGroup<CXXPre20Compat>, DefaultIgnore;
+def ext_using_decl_scoped_enumerator : ExtWarn<
+  "using declaration naming a scoped enumerator is a C++20 extension">,
+  InGroup<CXX20>;
 def err_using_decl_constructor : Error<
   "using declaration cannot refer to a constructor">;
 def warn_cxx98_compat_using_decl_constructor : Warning<
@@ -607,6 +627,15 @@ def err_using_decl_conflict_reverse : Error<
 def note_using_decl : Note<"%select{|previous }0using declaration">;
 def err_using_decl_redeclaration_expansion : Error<
   "using declaration pack expansion at block scope produces multiple values">;
+def err_use_of_empty_using_if_exists : Error<
+  "reference to unresolved using declaration">;
+def note_empty_using_if_exists_here : Note<
+  "using declaration annotated with 'using_if_exists' here">;
+def err_using_if_exists_on_ctor : Error<
+  "'using_if_exists' attribute cannot be applied to an inheriting constructor">;
+def err_using_enum_decl_redeclaration : Error<
+  "redeclaration of using-enum declaration">;
+def note_using_enum_decl : Note<"%select{|previous }0using-enum declaration">;
 
 def warn_access_decl_deprecated : Warning<
   "access declarations are deprecated; use using declarations instead">,
@@ -1783,6 +1812,8 @@ def warn_cxx98_compat_sfinae_access_control : Warning<
 // C++ name lookup
 def err_incomplete_nested_name_spec : Error<
   "incomplete type %0 named in nested name specifier">;
+def err_incomplete_enum : Error<
+  "enumeration %0 is incomplete">;
 def err_dependent_nested_name_spec : Error<
   "nested name specifier for a declaration cannot depend on a template "
   "parameter">;
@@ -3432,6 +3463,8 @@ def warn_attribute_wrong_decl_type_str : Warning<
   "%0 attribute only applies to %1">, InGroup<IgnoredAttributes>;
 def err_attribute_wrong_decl_type_str : Error<
   warn_attribute_wrong_decl_type_str.Text>;
+def err_attribute_only_system_header : Error<
+  "%0 attribute only supported within a system header">;
 def warn_attribute_wrong_decl_type : Warning<
   "%0 attribute only applies to %select{"
   "functions"
@@ -4026,6 +4059,9 @@ def warn_attribute_sentinel_named_arguments : Warning<
   InGroup<IgnoredAttributes>;
 def warn_attribute_sentinel_not_variadic : Warning<
   "'sentinel' attribute only supported for variadic %select{functions|blocks}0">,
+  InGroup<IgnoredAttributes>;
+def warn_deprecated_ignored_on_using : Warning<
+  "%0 currently has no effect on a using declaration">,
   InGroup<IgnoredAttributes>;
 def err_attribute_sentinel_less_than_zero : Error<
   "'sentinel' parameter 1 less than zero">;
@@ -6442,6 +6478,11 @@ def warn_pointer_arith_null_ptr : Warning<
 def warn_gnu_null_ptr_arith : Warning<
   "arithmetic on a null pointer treated as a cast from integer to pointer is a GNU extension">,
   InGroup<NullPointerArithmetic>, DefaultIgnore;
+def err_kernel_invalidates_sycl_unique_stable_name
+    : Error<"kernel %select{naming|instantiation}0 changes the result of an "
+            "evaluated '__builtin_sycl_unique_stable_name'">;
+def note_sycl_unique_stable_name_evaluated_here
+    : Note<"'__builtin_sycl_unique_stable_name' evaluated here">;
 
 def warn_floatingpoint_eq : Warning<
   "comparing floating point with == or != is unsafe">,
@@ -8412,6 +8453,10 @@ def err_global_call_not_config : Error<
 def err_ref_bad_target : Error<
   "reference to %select{__device__|__global__|__host__|__host__ __device__}0 "
   "%select{function|variable}1 %2 in %select{__device__|__global__|__host__|__host__ __device__}3 function">;
+def note_cuda_const_var_unpromoted : Note<
+  "const variable cannot be emitted on device side due to dynamic initialization">;
+def note_cuda_host_var : Note<
+  "host variable declared here">;
 def err_ref_bad_target_global_initializer : Error<
   "reference to %select{__device__|__global__|__host__|__host__ __device__}0 "
   "function %1 in global initializer">;
@@ -11440,6 +11485,21 @@ def warn_sycl_kernel_too_big_args : Warning<
 def err_sycl_virtual_types : Error<
   "no class with a vtable can be used in a SYCL kernel or any code included in the kernel">;
 def note_sycl_recursive_function_declared_here: Note<"function implemented using recursion declared here">;
+def err_sycl_type_trait_requires_complete_type : Error<
+  "'%select{__builtin_num_fields|__builtin_field_type|__builtin_num_bases|"
+  "__builtin_base_type}0' requires a complete type">;
+def err_sycl_type_trait_requires_record_type : Error<
+  "'%select{__builtin_num_fields|__builtin_field_type|__builtin_num_bases|"
+  "__builtin_base_type}0' requires a structure "
+  "or lambda type">;
+def err_sycl_builtin_type_trait_index_out_of_range : Error<
+  "index %0 is greater than the number of %select{fields|bases}2 in type %1">;
+def err_sycl_type_trait_requires_nonnegative_index : Error<
+  "'%select{__builtin_field_type|__builtin_base_type}0' requires a "
+  "non-negative index">;
+def err_sycl_builtin_type_trait_evaluated : Error<
+  "'%select{__builtin_field_type|__builtin_base_type}0' cannot be used in an "
+  "evaluated context">;
 def err_sycl_non_trivially_copy_ctor_dtor_type
     : Error<"kernel parameter has non-trivially %select{copy "
             "constructible|destructible}0 class/struct type %1">;
@@ -11506,6 +11566,8 @@ def err_sycl_mismatch_group_size
             "have a sub group size that matches the size specified for the "
             "kernel">;
 def note_sycl_kernel_declared_here : Note<"kernel declared here">;
+def err_sycl_expected_finalize_method : Error<
+  "expected a 'finalize' method for the 'stream' class">;
 def ext_sycl_2020_attr_spelling : ExtWarn<
   "use of attribute %0 is a SYCL 2020 extension">,
   InGroup<Sycl2017Compat>;

@@ -152,6 +152,13 @@ public:
     return (ForceKind)Force.Value;
   }
 
+  /// \return true if the cost-model for scalable vectorization should
+  /// favor vectorization with scalable vectors over fixed-width vectors when
+  /// the cost-model is inconclusive.
+  bool isScalableVectorizationPreferred() const {
+    return Scalable.Value == SK_PreferScalable;
+  }
+
   /// \return true if scalable vectorization has been explicitly enabled.
   bool isScalableVectorizationExplicitlyEnabled() const {
     return Scalable.Value == SK_PreferFixedWidth ||
@@ -303,7 +310,7 @@ public:
   RecurrenceSet &getFirstOrderRecurrences() { return FirstOrderRecurrences; }
 
   /// Return the set of instructions to sink to handle first-order recurrences.
-  DenseMap<Instruction *, Instruction *> &getSinkAfter() { return SinkAfter; }
+  MapVector<Instruction *, Instruction *> &getSinkAfter() { return SinkAfter; }
 
   /// Returns the widest induction type.
   Type *getWidestInductionType() { return WidestIndTy; }
@@ -526,7 +533,7 @@ private:
 
   /// Holds instructions that need to sink past other instructions to handle
   /// first-order recurrences.
-  DenseMap<Instruction *, Instruction *> SinkAfter;
+  MapVector<Instruction *, Instruction *> SinkAfter;
 
   /// Holds the widest induction type encountered.
   Type *WidestIndTy = nullptr;

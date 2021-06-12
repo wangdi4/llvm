@@ -46,12 +46,6 @@ else:
     config.environment['SYCL_DEVICELIB_NO_FALLBACK'] = "1"
 
 # INTEL_CUSTOMIZATION
-# Unconditionally enable persistent device code caching, as it is off
-# by default, and some unit tests depend on it.
-config.environment['SYCL_CACHE_PERSISTENT'] = "1"
-# end INTEL_CUSTOMIZATION
-
-# INTEL_CUSTOMIZATION
 # Tests assume that the host device is always available
 config.environment['SYCL_ENABLE_HOST_DEVICE'] = "1"
 # end INTEL_CUSTOMIZATION

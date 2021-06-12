@@ -1162,10 +1162,10 @@ EmitSpecialNode(SDNode *Node, bool IsClone, bool IsCloned,
 #endif // INTEL_CUSTOMIZATION
   case ISD::LIFETIME_START:
   case ISD::LIFETIME_END: {
-    unsigned TarOp = (Node->getOpcode() == ISD::LIFETIME_START) ?
-    TargetOpcode::LIFETIME_START : TargetOpcode::LIFETIME_END;
-
-    FrameIndexSDNode *FI = dyn_cast<FrameIndexSDNode>(Node->getOperand(1));
+    unsigned TarOp = (Node->getOpcode() == ISD::LIFETIME_START)
+                         ? TargetOpcode::LIFETIME_START
+                         : TargetOpcode::LIFETIME_END;
+    auto *FI = cast<FrameIndexSDNode>(Node->getOperand(1));
     BuildMI(*MBB, InsertPos, Node->getDebugLoc(), TII->get(TarOp))
     .addFrameIndex(FI->getIndex());
     break;

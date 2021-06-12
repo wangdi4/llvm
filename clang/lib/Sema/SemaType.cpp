@@ -2458,7 +2458,7 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
   }
 
   // Do lvalue-to-rvalue conversions on the array size expression.
-  if (ArraySize && !ArraySize->isRValue()) {
+  if (ArraySize && !ArraySize->isPRValue()) {
     ExprResult Result = DefaultLvalueConversion(ArraySize);
     if (Result.isInvalid())
       return QualType();
@@ -2860,6 +2860,10 @@ static void checkExtParameterInfos(Sema &S, ArrayRef<QualType> paramTypes,
 
     case ParameterABI::SwiftContext:
       checkForSwiftCC(paramIndex);
+      continue;
+
+    case ParameterABI::SwiftAsyncContext:
+      // FIXME: might want to require swiftasynccc when it exists
       continue;
 
     // swift_error parameters must be preceded by a swift_context parameter.
@@ -9089,7 +9093,7 @@ QualType Sema::getDecltypeForParenthesizedExpr(Expr *E) {
   case VK_LValue:
     return Context.getLValueReferenceType(T);
   //  - otherwise, decltype(e) is the type of e.
-  case VK_RValue:
+  case VK_PRValue:
     return T;
   }
   llvm_unreachable("Unknown value kind");

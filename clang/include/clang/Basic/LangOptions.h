@@ -306,6 +306,8 @@ public:
 
   /// Set of enabled sanitizers.
   SanitizerSet Sanitize;
+  /// Is at least one coverage instrumentation type enabled.
+  bool SanitizeCoverage = false;
 
   /// Paths to files specifying which objects
   /// (files, functions, variables) should not be instrumented.
@@ -499,6 +501,8 @@ public:
   bool hasWasmExceptions() const {
     return getExceptionHandling() == ExceptionHandlingKind::Wasm;
   }
+
+  bool isSYCL() const { return SYCLIsDevice || SYCLIsHost; }
 };
 
 /// Floating point control options

@@ -46,6 +46,7 @@
 #include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/IR/IRBuilder.h" // INTEL
 #include "llvm/IR/Module.h" // INTEL
 
 using namespace llvm;
@@ -709,11 +710,19 @@ InstructionCost X86TTIImpl::getArithmeticInstrCost(
     { ISD::FADD,    MVT::v8f64,      1 }, // Skylake from http://www.agner.org/
     { ISD::FSUB,    MVT::v8f64,      1 }, // Skylake from http://www.agner.org/
     { ISD::FMUL,    MVT::v8f64,      1 }, // Skylake from http://www.agner.org/
+    { ISD::FDIV,    MVT::f64,        4 }, // Skylake from http://www.agner.org/
+    { ISD::FDIV,    MVT::v2f64,      4 }, // Skylake from http://www.agner.org/
+    { ISD::FDIV,    MVT::v4f64,      8 }, // Skylake from http://www.agner.org/
+    { ISD::FDIV,    MVT::v8f64,     16 }, // Skylake from http://www.agner.org/
 
     { ISD::FNEG,    MVT::v16f32,     1 }, // Skylake from http://www.agner.org/
     { ISD::FADD,    MVT::v16f32,     1 }, // Skylake from http://www.agner.org/
     { ISD::FSUB,    MVT::v16f32,     1 }, // Skylake from http://www.agner.org/
     { ISD::FMUL,    MVT::v16f32,     1 }, // Skylake from http://www.agner.org/
+    { ISD::FDIV,    MVT::f32,        3 }, // Skylake from http://www.agner.org/
+    { ISD::FDIV,    MVT::v4f32,      3 }, // Skylake from http://www.agner.org/
+    { ISD::FDIV,    MVT::v8f32,      5 }, // Skylake from http://www.agner.org/
+    { ISD::FDIV,    MVT::v16f32,    10 }, // Skylake from http://www.agner.org/
   };
 
   if (ST->hasAVX512())
@@ -1800,10 +1809,13 @@ InstructionCost X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
     { ISD::TRUNCATE,    MVT::v16i8,  MVT::v16i16, 2 }, // widen to zmm
     { ISD::TRUNCATE,    MVT::v2i1,   MVT::v2i8,   2 }, // widen to zmm
     { ISD::TRUNCATE,    MVT::v2i1,   MVT::v2i16,  2 }, // widen to zmm
+    { ISD::TRUNCATE,    MVT::v2i8,   MVT::v2i16,  2 }, // vpmovwb
     { ISD::TRUNCATE,    MVT::v4i1,   MVT::v4i8,   2 }, // widen to zmm
     { ISD::TRUNCATE,    MVT::v4i1,   MVT::v4i16,  2 }, // widen to zmm
+    { ISD::TRUNCATE,    MVT::v4i8,   MVT::v4i16,  2 }, // vpmovwb
     { ISD::TRUNCATE,    MVT::v8i1,   MVT::v8i8,   2 }, // widen to zmm
     { ISD::TRUNCATE,    MVT::v8i1,   MVT::v8i16,  2 }, // widen to zmm
+    { ISD::TRUNCATE,    MVT::v8i8,   MVT::v8i16,  2 }, // vpmovwb
     { ISD::TRUNCATE,    MVT::v16i1,  MVT::v16i8,  2 }, // widen to zmm
     { ISD::TRUNCATE,    MVT::v16i1,  MVT::v16i16, 2 }, // widen to zmm
     { ISD::TRUNCATE,    MVT::v32i1,  MVT::v32i8,  2 }, // widen to zmm
@@ -1848,11 +1860,15 @@ InstructionCost X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
     { ISD::TRUNCATE,  MVT::v2i1,    MVT::v2i64,  2 }, // zmm vpsllq+vptestmq
     { ISD::TRUNCATE,  MVT::v4i1,    MVT::v4i64,  2 }, // zmm vpsllq+vptestmq
     { ISD::TRUNCATE,  MVT::v8i1,    MVT::v8i64,  2 }, // vpsllq+vptestmq
-    { ISD::TRUNCATE,  MVT::v16i8,   MVT::v16i32, 2 },
-    { ISD::TRUNCATE,  MVT::v16i16,  MVT::v16i32, 2 },
-    { ISD::TRUNCATE,  MVT::v8i8,    MVT::v8i64,  2 },
-    { ISD::TRUNCATE,  MVT::v8i16,   MVT::v8i64,  2 },
-    { ISD::TRUNCATE,  MVT::v8i32,   MVT::v8i64,  1 },
+    { ISD::TRUNCATE,  MVT::v2i8,    MVT::v2i32,  2 }, // vpmovdb
+    { ISD::TRUNCATE,  MVT::v4i8,    MVT::v4i32,  2 }, // vpmovdb
+    { ISD::TRUNCATE,  MVT::v16i8,   MVT::v16i32, 2 }, // vpmovdb
+    { ISD::TRUNCATE,  MVT::v16i16,  MVT::v16i32, 2 }, // vpmovdb
+    { ISD::TRUNCATE,  MVT::v2i8,    MVT::v2i64,  2 }, // vpmovqb
+    { ISD::TRUNCATE,  MVT::v2i16,   MVT::v2i64,  1 }, // vpshufb
+    { ISD::TRUNCATE,  MVT::v8i8,    MVT::v8i64,  2 }, // vpmovqb
+    { ISD::TRUNCATE,  MVT::v8i16,   MVT::v8i64,  2 }, // vpmovqw
+    { ISD::TRUNCATE,  MVT::v8i32,   MVT::v8i64,  1 }, // vpmovqd
     { ISD::TRUNCATE,  MVT::v4i32,   MVT::v4i64,  1 }, // zmm vpmovqd
     { ISD::TRUNCATE,  MVT::v16i8,   MVT::v16i64, 5 },// 2*vpmovqd+concat+vpmovdb
 
@@ -2106,7 +2122,9 @@ InstructionCost X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
     { ISD::ZERO_EXTEND, MVT::v16i32, MVT::v16i16, 3 },
     { ISD::SIGN_EXTEND, MVT::v16i32, MVT::v16i16, 3 },
 
-    { ISD::TRUNCATE,    MVT::v4i32,  MVT::v4i64,  2 },
+    { ISD::TRUNCATE,    MVT::v2i8,   MVT::v2i32,  1 },
+    { ISD::TRUNCATE,    MVT::v2i16,  MVT::v2i64,  1 },
+    { ISD::TRUNCATE,    MVT::v4i32,  MVT::v4i64,  1 },
     { ISD::TRUNCATE,    MVT::v8i1,   MVT::v8i32,  2 },
     { ISD::TRUNCATE,    MVT::v8i16,  MVT::v8i32,  2 },
 
@@ -2121,20 +2139,20 @@ InstructionCost X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
     { ISD::ZERO_EXTEND, MVT::v4i64,  MVT::v4i1,  4 },
     { ISD::SIGN_EXTEND, MVT::v8i32,  MVT::v8i1,  7 },
     { ISD::ZERO_EXTEND, MVT::v8i32,  MVT::v8i1,  4 },
-    { ISD::SIGN_EXTEND, MVT::v4i64,  MVT::v4i8,  4 },
-    { ISD::ZERO_EXTEND, MVT::v4i64,  MVT::v4i8,  4 },
-    { ISD::SIGN_EXTEND, MVT::v8i32,  MVT::v8i8,  4 },
-    { ISD::ZERO_EXTEND, MVT::v8i32,  MVT::v8i8,  4 },
+    { ISD::SIGN_EXTEND, MVT::v4i64,  MVT::v4i8,  3 },
+    { ISD::ZERO_EXTEND, MVT::v4i64,  MVT::v4i8,  3 },
+    { ISD::SIGN_EXTEND, MVT::v8i32,  MVT::v8i8,  3 },
+    { ISD::ZERO_EXTEND, MVT::v8i32,  MVT::v8i8,  3 },
     { ISD::SIGN_EXTEND, MVT::v16i16, MVT::v16i1, 4 },
     { ISD::ZERO_EXTEND, MVT::v16i16, MVT::v16i1, 4 },
-    { ISD::SIGN_EXTEND, MVT::v16i16, MVT::v16i8, 4 },
-    { ISD::ZERO_EXTEND, MVT::v16i16, MVT::v16i8, 4 },
-    { ISD::SIGN_EXTEND, MVT::v4i64,  MVT::v4i16, 4 },
+    { ISD::SIGN_EXTEND, MVT::v16i16, MVT::v16i8, 3 },
+    { ISD::ZERO_EXTEND, MVT::v16i16, MVT::v16i8, 3 },
+    { ISD::SIGN_EXTEND, MVT::v4i64,  MVT::v4i16, 3 },
     { ISD::ZERO_EXTEND, MVT::v4i64,  MVT::v4i16, 3 },
-    { ISD::SIGN_EXTEND, MVT::v8i32,  MVT::v8i16, 4 },
-    { ISD::ZERO_EXTEND, MVT::v8i32,  MVT::v8i16, 4 },
-    { ISD::SIGN_EXTEND, MVT::v4i64,  MVT::v4i32, 4 },
-    { ISD::ZERO_EXTEND, MVT::v4i64,  MVT::v4i32, 4 },
+    { ISD::SIGN_EXTEND, MVT::v8i32,  MVT::v8i16, 3 },
+    { ISD::ZERO_EXTEND, MVT::v8i32,  MVT::v8i16, 3 },
+    { ISD::SIGN_EXTEND, MVT::v4i64,  MVT::v4i32, 3 },
+    { ISD::ZERO_EXTEND, MVT::v4i64,  MVT::v4i32, 3 },
 
     { ISD::TRUNCATE,    MVT::v4i1,  MVT::v4i64,  4 },
     { ISD::TRUNCATE,    MVT::v8i1,  MVT::v8i32,  5 },
@@ -2142,11 +2160,12 @@ InstructionCost X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
     { ISD::TRUNCATE,    MVT::v8i1,  MVT::v8i64,  9 },
     { ISD::TRUNCATE,    MVT::v16i1, MVT::v16i64, 11 },
 
-    { ISD::TRUNCATE,    MVT::v16i8, MVT::v16i16, 4 },
+    { ISD::TRUNCATE,    MVT::v16i8, MVT::v16i16, 2 }, // and+extract+packuswb
+    { ISD::TRUNCATE,    MVT::v2i8,  MVT::v2i32,  2 }, // and+packusdw+packuswb
     { ISD::TRUNCATE,    MVT::v8i8,  MVT::v8i32,  4 },
     { ISD::TRUNCATE,    MVT::v8i16, MVT::v8i32,  5 },
     { ISD::TRUNCATE,    MVT::v4i8,  MVT::v4i64,  4 },
-    { ISD::TRUNCATE,    MVT::v4i16, MVT::v4i64,  4 },
+    { ISD::TRUNCATE,    MVT::v4i16, MVT::v4i64,  3 }, // and+extract+2*packusdw
     { ISD::TRUNCATE,    MVT::v4i32, MVT::v4i64,  2 },
     { ISD::TRUNCATE,    MVT::v8i8,  MVT::v8i64, 11 },
     { ISD::TRUNCATE,    MVT::v8i16, MVT::v8i64,  9 },
@@ -2718,6 +2737,9 @@ X86TTIImpl::getTypeBasedIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
     { ISD::BITREVERSE, MVT::v16i32,  5 },
     { ISD::BITREVERSE, MVT::v32i16,  5 },
     { ISD::BITREVERSE, MVT::v64i8,   5 },
+    { ISD::BSWAP,      MVT::v8i64,   1 },
+    { ISD::BSWAP,      MVT::v16i32,  1 },
+    { ISD::BSWAP,      MVT::v32i16,  1 },
     { ISD::CTLZ,       MVT::v8i64,  23 },
     { ISD::CTLZ,       MVT::v16i32, 22 },
     { ISD::CTLZ,       MVT::v32i16, 18 },
@@ -2758,6 +2780,9 @@ X86TTIImpl::getTypeBasedIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
     { ISD::BITREVERSE, MVT::v16i32, 24 },
     { ISD::BITREVERSE, MVT::v32i16, 10 },
     { ISD::BITREVERSE, MVT::v64i8,  10 },
+    { ISD::BSWAP,      MVT::v8i64,   4 },
+    { ISD::BSWAP,      MVT::v16i32,  4 },
+    { ISD::BSWAP,      MVT::v32i16,  4 },
     { ISD::CTLZ,       MVT::v8i64,  29 },
     { ISD::CTLZ,       MVT::v16i32, 35 },
     { ISD::CTLZ,       MVT::v32i16, 28 },

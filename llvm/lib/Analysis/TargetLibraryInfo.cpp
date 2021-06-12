@@ -155,6 +155,11 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
   TLI.setShouldExtI32Return(ShouldExtI32Return);
   TLI.setShouldSignExtI32Param(ShouldSignExtI32Param);
 
+  // Let's assume by default that the size of int is 32 bits, unless the target
+  // is a 16-bit architecture because then it most likely is 16 bits. If that
+  // isn't true for a target those defaults should be overridden below.
+  TLI.setIntSize(T.isArch16Bit() ? 16 : 32);
+
   if (T.isAMDGPU())
     TLI.disableAllFunctions();
 
@@ -1199,11 +1204,12 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(const Triple &T) {
 TargetLibraryInfoImpl::TargetLibraryInfoImpl(const TargetLibraryInfoImpl &TLI)
     : CustomNames(TLI.CustomNames), ShouldExtI32Param(TLI.ShouldExtI32Param),
       ShouldExtI32Return(TLI.ShouldExtI32Return),
-#if INTEL_CUSTOMIZATION
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param),
+#if INTEL_CUSTOMIZATION
+      SizeOfInt(TLI.SizeOfInt),
       CurVectorLibrary(TLI.CurVectorLibrary) {
 #else // INTEL_CUSTOMIZATION
-      ShouldSignExtI32Param(TLI.ShouldSignExtI32Param) {
+      SizeOfInt(TLI.SizeOfInt) {
 #endif // INTEL_CUSTOMIZATION
   memcpy(AvailableArray, TLI.AvailableArray, sizeof(AvailableArray));
   VectorDescs = TLI.VectorDescs;
@@ -1214,11 +1220,12 @@ TargetLibraryInfoImpl::TargetLibraryInfoImpl(TargetLibraryInfoImpl &&TLI)
     : CustomNames(std::move(TLI.CustomNames)),
       ShouldExtI32Param(TLI.ShouldExtI32Param),
       ShouldExtI32Return(TLI.ShouldExtI32Return),
-#if INTEL_CUSTOMIZATION
       ShouldSignExtI32Param(TLI.ShouldSignExtI32Param),
+#if INTEL_CUSTOMIZATION
+      SizeOfInt(TLI.SizeOfInt),
       CurVectorLibrary(TLI.CurVectorLibrary) {
 #else // INTEL_CUSTOMIZATION
-      ShouldSignExtI32Param(TLI.ShouldSignExtI32Param) {
+      SizeOfInt(TLI.SizeOfInt) {
 #endif // INTEL_CUSTOMIZATION
   std::move(std::begin(TLI.AvailableArray), std::end(TLI.AvailableArray),
             AvailableArray);
@@ -1236,6 +1243,7 @@ TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(const TargetLibraryInfoI
   VectorDescs = TLI.VectorDescs;
   ScalarDescs = TLI.ScalarDescs;
 #endif // INTEL_CUSTOMIZATION
+  SizeOfInt = TLI.SizeOfInt;
   memcpy(AvailableArray, TLI.AvailableArray, sizeof(AvailableArray));
   return *this;
 }
@@ -1250,6 +1258,7 @@ TargetLibraryInfoImpl &TargetLibraryInfoImpl::operator=(TargetLibraryInfoImpl &&
   VectorDescs = std::move(TLI.VectorDescs);
   ScalarDescs = std::move(TLI.ScalarDescs);
 #endif // INTEL_CUSTOMIZATION
+  SizeOfInt = TLI.SizeOfInt;
   std::move(std::begin(TLI.AvailableArray), std::end(TLI.AvailableArray),
             AvailableArray);
   return *this;
@@ -3015,7 +3024,7 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
   case LibFunc_ldexpl:
     return (NumParams == 2 && FTy.getReturnType()->isFloatingPointTy() &&
             FTy.getReturnType() == FTy.getParamType(0) &&
-            FTy.getParamType(1)->isIntegerTy(32));
+            FTy.getParamType(1)->isIntegerTy(getIntSize()));
 
   case LibFunc_ffs:
   case LibFunc_ffsl:

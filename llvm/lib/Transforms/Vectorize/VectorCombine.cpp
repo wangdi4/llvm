@@ -859,9 +859,6 @@ bool VectorCombine::scalarizeLoadExtract(Instruction &I) {
   if (!FixedVT)
     return false;
 
-  if (!canScalarizeAccess(FixedVT, Idx, &I, AC))
-    return false;
-
   InstructionCost OriginalCost = TTI.getMemoryOpCost(
       Instruction::Load, LI->getType(), Align(LI->getAlignment()),
       LI->getPointerAddressSpace());
@@ -895,6 +892,9 @@ bool VectorCombine::scalarizeLoadExtract(Instruction &I) {
     else if (LastCheckedInst->comesBefore(UI))
       LastCheckedInst = UI;
 
+    if (!canScalarizeAccess(FixedVT, UI->getOperand(1), &I, AC))
+      return false;
+
     auto *Index = dyn_cast<ConstantInt>(UI->getOperand(1));
     OriginalCost +=
         TTI.getVectorInstrCost(Instruction::ExtractElement, LI->getType(),
@@ -912,8 +912,13 @@ bool VectorCombine::scalarizeLoadExtract(Instruction &I) {
   for (User *U : LI->users()) {
     auto *EI = cast<ExtractElementInst>(U);
     Builder.SetInsertPoint(EI);
-    Value *GEP = Builder.CreateInBoundsGEP(
-        FixedVT, Ptr, {Builder.getInt32(0), EI->getOperand(1)});
+
+    Value *Idx = EI->getOperand(1);
+    if (!isGuaranteedNotToBePoison(Idx, &AC, LI, &DT))
+      Idx = Builder.CreateFreeze(Idx);
+
+    Value *GEP =
+        Builder.CreateInBoundsGEP(FixedVT, Ptr, {Builder.getInt32(0), Idx});
     auto *NewLoad = cast<LoadInst>(Builder.CreateLoad(
         FixedVT->getElementType(), GEP, EI->getName() + ".scalar"));
 

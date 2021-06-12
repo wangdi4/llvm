@@ -1471,7 +1471,7 @@ namespace llvm {
 
     /// If the target has a standard location for the stack protector cookie,
     /// returns the address of that location. Otherwise, returns nullptr.
-    Value *getIRStackGuard(IRBuilder<> &IRB) const override;
+    Value *getIRStackGuard(IRBuilderBase &IRB) const override;
 
     bool useLoadStackGuardNode() const override;
     bool useStackGuardXorFP() const override;
@@ -1485,7 +1485,7 @@ namespace llvm {
     /// Return true if the target stores SafeStack pointer at a fixed offset in
     /// some non-standard address space, and populates the address space and
     /// offset as appropriate.
-    Value *getSafeStackPointerLocation(IRBuilder<> &IRB) const override;
+    Value *getSafeStackPointerLocation(IRBuilderBase &IRB) const override;
 
     std::pair<SDValue, SDValue> BuildFILD(EVT DstVT, EVT SrcVT, const SDLoc &DL,
                                           SDValue Chain, SDValue Pointer,

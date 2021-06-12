@@ -747,7 +747,7 @@ static TryCastResult getCastAwayConstnessCastKind(CastAwayConstnessKind CACK,
 void CastOperation::CheckDynamicCast() {
   CheckNoDerefRAII NoderefCheck(*this);
 
-  if (ValueKind == VK_RValue)
+  if (ValueKind == VK_PRValue)
     SrcExpr = Self.DefaultFunctionArrayLvalueConversion(SrcExpr.get());
   else if (isPlaceholder())
     SrcExpr = Self.CheckPlaceholderExpr(SrcExpr.get());
@@ -815,7 +815,7 @@ void CastOperation::CheckDynamicCast() {
   } else {
     // If we're dynamic_casting from a prvalue to an rvalue reference, we need
     // to materialize the prvalue before we bind the reference to it.
-    if (SrcExpr.get()->isRValue())
+    if (SrcExpr.get()->isPRValue())
       SrcExpr = Self.CreateMaterializeTemporaryExpr(
           SrcType, SrcExpr.get(), /*IsLValueReference*/ false);
     SrcPointee = SrcType;
@@ -914,7 +914,7 @@ void CastOperation::CheckDynamicCast() {
 void CastOperation::CheckConstCast() {
   CheckNoDerefRAII NoderefCheck(*this);
 
-  if (ValueKind == VK_RValue)
+  if (ValueKind == VK_PRValue)
     SrcExpr = Self.DefaultFunctionArrayLvalueConversion(SrcExpr.get());
   else if (isPlaceholder())
     SrcExpr = Self.CheckPlaceholderExpr(SrcExpr.get());
@@ -1126,7 +1126,7 @@ static bool checkCastFunctionType(Sema &Self, const ExprResult &SrcExpr,
 /// like this:
 /// char *bytes = reinterpret_cast\<char*\>(int_ptr);
 void CastOperation::CheckReinterpretCast() {
-  if (ValueKind == VK_RValue && !isPlaceholder(BuiltinType::Overload))
+  if (ValueKind == VK_PRValue && !isPlaceholder(BuiltinType::Overload))
     SrcExpr = Self.DefaultFunctionArrayLvalueConversion(SrcExpr.get());
   else
     checkNonOverloadPlaceholders();
@@ -1179,13 +1179,6 @@ void CastOperation::CheckStaticCast() {
       return;
   }
 
-  if (DestType->getAs<MatrixType>() ||
-      SrcExpr.get()->getType()->getAs<MatrixType>()) {
-    if (Self.CheckMatrixCast(OpRange, DestType, SrcExpr.get()->getType(), Kind))
-      SrcExpr = ExprError();
-    return;
-  }
-
   // This test is outside everything else because it's the only case where
   // a non-lvalue-reference target type does not lead to decay.
   // C++ 5.2.9p4: Any expression can be explicitly converted to type "cv void".
@@ -1205,7 +1198,7 @@ void CastOperation::CheckStaticCast() {
     return;
   }
 
-  if (ValueKind == VK_RValue && !DestType->isRecordType() &&
+  if (ValueKind == VK_PRValue && !DestType->isRecordType() &&
       !isPlaceholder(BuiltinType::Overload)) {
     SrcExpr = Self.DefaultFunctionArrayLvalueConversion(SrcExpr.get());
     if (SrcExpr.isInvalid()) // if conversion failed, don't report another error
@@ -1451,6 +1444,14 @@ static TryCastResult TryStaticCast(Sema &Self, ExprResult &SrcExpr,
       if (SrcPointer->getPointeeType()->getAs<RecordType>() &&
           DestPointer->getPointeeType()->getAs<RecordType>())
        msg = diag::err_bad_cxx_cast_unrelated_class;
+
+  if (SrcType->isMatrixType() && DestType->isMatrixType()) {
+    if (Self.CheckMatrixCast(OpRange, DestType, SrcType, Kind)) {
+      SrcExpr = ExprError();
+      return TC_Failed;
+    }
+    return TC_Success;
+  }
 
   // We tried everything. Everything! Nothing works! :-(
   return TC_NotApplicable;
@@ -1901,7 +1902,7 @@ static TryCastResult TryConstCast(Sema &Self, ExprResult &SrcExpr,
       return TC_NotApplicable;
     }
 
-    if (isa<RValueReferenceType>(DestTypeTmp) && SrcExpr.get()->isRValue()) {
+    if (isa<RValueReferenceType>(DestTypeTmp) && SrcExpr.get()->isPRValue()) {
       if (!SrcType->isRecordType()) {
         // Cannot const_cast non-class prvalue to rvalue reference type. But if
         // this is C-style, static_cast can do this.
@@ -2173,7 +2174,8 @@ static bool fixOverloadedReinterpretCastExpr(Sema &Self, QualType DestType,
   // like it?
   if (Self.ResolveAndFixSingleFunctionTemplateSpecialization(
           Result,
-          Expr::getValueKindForType(DestType) == VK_RValue // Convert Fun to Ptr
+          Expr::getValueKindForType(DestType) ==
+              VK_PRValue // Convert Fun to Ptr
           ) &&
       Result.isUsable())
     return true;
@@ -2663,18 +2665,11 @@ void CastOperation::CheckCXXCStyleCast(bool FunctionalStyle,
     return;
   }
 
-  if (ValueKind == VK_RValue && !DestType->isRecordType() &&
+  if (ValueKind == VK_PRValue && !DestType->isRecordType() &&
       !isPlaceholder(BuiltinType::Overload)) {
     SrcExpr = Self.DefaultFunctionArrayLvalueConversion(SrcExpr.get());
     if (SrcExpr.isInvalid())
       return;
-  }
-
-  if (DestType->getAs<MatrixType>() ||
-      SrcExpr.get()->getType()->getAs<MatrixType>()) {
-    if (Self.CheckMatrixCast(OpRange, DestType, SrcExpr.get()->getType(), Kind))
-      SrcExpr = ExprError();
-    return;
   }
 
   // AltiVec vector initialization with a single literal.
@@ -3114,7 +3109,7 @@ void CastOperation::CheckBuiltinBitCast() {
     return;
   }
 
-  if (SrcExpr.get()->isRValue())
+  if (SrcExpr.get()->isPRValue())
     SrcExpr = Self.CreateMaterializeTemporaryExpr(SrcType, SrcExpr.get(),
                                                   /*IsLValueReference=*/false);
 
