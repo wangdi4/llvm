@@ -124,6 +124,7 @@ void AddTLSGlobals::runOnFunction(Function *pFunc) {
               ValName);
           B.CreateStore(GEP, m_pLocalMemBase);
           B.SetInsertPoint(pCall->getNextNode());
+          B.SetCurrentDebugLocation(pCall->getDebugLoc());
           B.CreateStore(Load, m_pLocalMemBase);
         }
       }
