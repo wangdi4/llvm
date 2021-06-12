@@ -5,8 +5,8 @@
 define <8 x i16> @test_int_x86_dvplutsincosw128(<8 x i16> %A) {
 ; CHECK-LABEL: test_int_x86_dvplutsincosw128:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    subl $28, %esp # encoding: [0x83,0xec,0x1c]
-; CHECK-NEXT:    .cfi_def_cfa_offset 32
+; CHECK-NEXT:    subl $16, %esp # encoding: [0x83,0xec,0x10]
+; CHECK-NEXT:    .cfi_def_cfa_offset 20
 ; CHECK-NEXT:    movups %xmm0, (%esp) # 16-byte Spill
 ; CHECK-NEXT:    # encoding: [0x0f,0x11,0x04,0x24]
 ; CHECK-NEXT:    #APP
@@ -14,7 +14,7 @@ define <8 x i16> @test_int_x86_dvplutsincosw128(<8 x i16> %A) {
 ; CHECK-NEXT:    #NO_APP
 ; CHECK-NEXT:    dvplutsincosw $127, (%esp), %xmm0 # 16-byte Folded Reload
 ; CHECK-NEXT:    # encoding: [0xc4,0xe3,0x78,0xa3,0x04,0x24,0x7f]
-; CHECK-NEXT:    addl $28, %esp # encoding: [0x83,0xc4,0x1c]
+; CHECK-NEXT:    addl $16, %esp # encoding: [0x83,0xc4,0x10]
 ; CHECK-NEXT:    .cfi_def_cfa_offset 4
 ; CHECK-NEXT:    retl # encoding: [0xc3]
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm1},~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{flags}"()
