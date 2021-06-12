@@ -12688,6 +12688,9 @@ void OMPClauseReader::VisitOMPAllocateClause(OMPAllocateClause *C) {
   C->setLParenLoc(Record.readSourceLocation());
   C->setColonLoc(Record.readSourceLocation());
   C->setAllocator(Record.readSubExpr());
+#if INTEL_COLLAB
+  C->setAlignment(Record.readSubExpr());
+#endif // INTEL_COLLAB
   unsigned NumVars = C->varlist_size();
   SmallVector<Expr *, 16> Vars;
   Vars.reserve(NumVars);

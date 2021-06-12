@@ -1005,11 +1005,17 @@ OMPPartialClause *OMPPartialClause::CreateEmpty(const ASTContext &C) {
 OMPAllocateClause *
 OMPAllocateClause::Create(const ASTContext &C, SourceLocation StartLoc,
                           SourceLocation LParenLoc, Expr *Allocator,
+#if INTEL_COLLAB
+                          Expr *Alignment,
+#endif // INTEL_COLLAB
                           SourceLocation ColonLoc, SourceLocation EndLoc,
                           ArrayRef<Expr *> VL) {
   // Allocate space for private variables and initializer expressions.
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(VL.size()));
   auto *Clause = new (Mem) OMPAllocateClause(StartLoc, LParenLoc, Allocator,
+#if INTEL_COLLAB
+                                             Alignment,
+#endif // INTEL_COLLAB
                                              ColonLoc, EndLoc, VL.size());
   Clause->setVarRefs(VL);
   return Clause;
@@ -2125,6 +2131,39 @@ void OMPClausePrinter::VisitOMPAllocateClause(OMPAllocateClause *Node) {
   if (Node->varlist_empty())
     return;
   OS << "allocate";
+#if INTEL_COLLAB
+  bool printComma = false;
+  Expr *Allocator = Node->getAllocator();
+  Expr *Alignment = Node->getAlignment();
+
+  if (Allocator) {
+    OS << "(";
+    // If there's an alignment, use the 'allocator' allocate-modifier when
+    // printing the allocator, as described in OpenMP 5.1 (Allocate Clause)
+    if (Alignment)
+      OS << "allocator(";
+    Allocator->printPretty(OS, nullptr, Policy, 0);
+    if (Alignment)
+      OS << ")";
+    printComma = true;
+  }
+  if (Alignment) {
+    // Print the alignment value using the 'align' allocate-modifier, as
+    // described in OpenMP 5.1 (Allocate Clause)
+    if (printComma)
+      OS << ", ";
+    else
+      OS << "(";
+    OS << "align(";
+    Alignment->printPretty(OS, nullptr, Policy, 0);
+    OS << ")";
+  }
+  if (Allocator || Alignment) {
+    OS << ":";
+    VisitOMPClauseList(Node, ' ');
+  } else
+    VisitOMPClauseList(Node, '(');
+#else // INTEL_COLLAB
   if (Expr *Allocator = Node->getAllocator()) {
     OS << "(";
     Allocator->printPretty(OS, nullptr, Policy, 0);
@@ -2133,6 +2172,7 @@ void OMPClausePrinter::VisitOMPAllocateClause(OMPAllocateClause *Node) {
   } else {
     VisitOMPClauseList(Node, '(');
   }
+#endif // INTEL_COLLAB
   OS << ")";
 }
 

@@ -11714,6 +11714,9 @@ public:
       ArrayRef<SourceLocation> MapTypeModifiersLoc, bool IsMapTypeImplicit,
       SourceLocation ExtraModifierLoc,
       ArrayRef<OpenMPMotionModifierKind> MotionModifiers,
+#if INTEL_COLLAB
+      Expr *AllocAlignModifier,
+#endif // INTEL_COLLAB
       ArrayRef<SourceLocation> MotionModifiersLoc);
   /// Called on well-formed 'inclusive' clause.
   OMPClause *ActOnOpenMPInclusiveClause(ArrayRef<Expr *> VarList,
@@ -11727,7 +11730,12 @@ public:
                                         SourceLocation EndLoc);
   /// Called on well-formed 'allocate' clause.
   OMPClause *
+#if INTEL_COLLAB
+  ActOnOpenMPAllocateClause(Expr *Allocator, Expr *Alignment,
+                            ArrayRef<Expr *> VarList,
+#else // INTEL_COLLAB
   ActOnOpenMPAllocateClause(Expr *Allocator, ArrayRef<Expr *> VarList,
+#endif // INTEL_COLLAB
                             SourceLocation StartLoc, SourceLocation ColonLoc,
                             SourceLocation LParenLoc, SourceLocation EndLoc);
   /// Called on well-formed 'private' clause.

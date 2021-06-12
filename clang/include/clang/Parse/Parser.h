@@ -3522,6 +3522,9 @@ public:
     SmallVector<SourceLocation, NumberOfOMPMotionModifiers> MotionModifiersLoc;
     bool IsMapTypeImplicit = false;
     SourceLocation ExtraModifierLoc;
+#if INTEL_COLLAB
+    Expr *AllocAlignModifier = nullptr;
+#endif // INTEL_COLLAB
   };
 
   /// Parses clauses with list.
@@ -3540,6 +3543,13 @@ public:
   /// map([ [map-type-modifier[,] [map-type-modifier[,] ...] map-type : ] list)
   /// where, map-type-modifier ::= always | close | mapper(mapper-identifier)
   bool parseMapTypeModifiers(OpenMPVarListDataTy &Data);
+#if INTEL_COLLAB
+  /// Parses allocate-modifiers in allocate clause.
+  bool ParseOpenMPAllocateModifiers(OpenMPDirectiveKind DKind,
+                                    OpenMPClauseKind CKind,
+                                    OpenMPVarListDataTy &Data,
+                                    SourceLocation LParLoc);
+#endif // INTEL_COLLAB
 
 private:
   //===--------------------------------------------------------------------===//
