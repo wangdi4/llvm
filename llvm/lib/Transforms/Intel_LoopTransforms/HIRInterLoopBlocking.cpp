@@ -1579,7 +1579,7 @@ HLNode *findTheLowestAncestor(HLLoop *InnermostLoop, const HLNode *Limit) {
 
 class Transformer {
   struct TopSortCompare {
-    bool operator()(const HLInst *Inst1, const HLInst *Inst2) {
+    bool operator()(const HLInst *Inst1, const HLInst *Inst2) const {
       return Inst1->getTopSortNum() < Inst2->getTopSortNum();
     }
   };
