@@ -268,7 +268,7 @@ bool WeakAlignImpl::analyzeModule(
       return false;
     }
 
-    if (DTransAnnotator::lookupDTransSOAToAOSTypeAnnotation(F))
+    if (DTransAnnotator::hasDTransSOAToAOSTypeAnnotation(F))
       SawSOAToAOS = true;
 
     if (!F.isDeclaration() && isMainFunction(F)) {
