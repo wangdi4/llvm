@@ -26,7 +26,7 @@ define dso_local i32 @test01() {
 
   ret i32 0
 }
-!0 = !{ %struct.test01a** null}
+!0 = !{ %struct.test01a zeroinitializer, i32 2}
 
 ; CHECK-LABEL: LLVMType: %struct.test01a = type { i64, i64 }
 ; CHECK: Safety data: No issues found
@@ -57,7 +57,7 @@ define dso_local i32 @test02() {
 
   ret i32 0
 }
-!1 = !{ %struct.test02bad** null}
+!1 = !{%struct.test02bad zeroinitializer, i32 2}
 
 ; CHECK-LABEL: LLVMType: %struct.test02a = type { i64, i64 }
 ; CHECK: Safety data: Bad casting | Unsafe pointer store

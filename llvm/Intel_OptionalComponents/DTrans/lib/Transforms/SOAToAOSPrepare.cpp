@@ -2250,10 +2250,16 @@ void SOAToAOSPrepCandidateInfo::convertCtorToCCtor(Function *NewCtor) {
   // Mark newly created member functions to help ClassInfo analysis
   // and SOAToAOS.
   auto *ElemTy = SetFunc->getArg(1)->getType();
+  unsigned PtrLevel = 0;
+  llvm::Type *BaseTy = ElemTy;
+  while (BaseTy->isPointerTy()) {
+    ++PtrLevel;
+    BaseTy = BaseTy->getPointerElementType();
+  }
   DTransAnnotator::createDTransSOAToAOSPrepareTypeAnnotation(*SimpleCCtor,
-                                                             ElemTy);
+                                                             BaseTy, PtrLevel);
   DTransAnnotator::createDTransSOAToAOSPrepareTypeAnnotation(*SimpleSetElem,
-                                                             ElemTy);
+                                                             BaseTy, PtrLevel);
 }
 
 // Reverse argument promotion for AppendFunc by converting pointer

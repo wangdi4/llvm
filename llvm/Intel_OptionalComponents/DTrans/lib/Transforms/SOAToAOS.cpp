@@ -410,7 +410,7 @@ private:
       if (CopyElemInsts) {
         auto *NewFunc = Impl.OrigFuncToCloneFuncMap[&OrigFunc];
         DTransAnnotator::createDTransSOAToAOSTypeAnnotation(
-            *NewFunc, NewElement->getPointerTo());
+            *NewFunc, NewElement, 1);
       }
     }
 

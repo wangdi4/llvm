@@ -958,9 +958,14 @@ private:
     // Check for metadata used to annotate the type from one of the
     // transformations to apply to the type.
     if (auto *I = dyn_cast<Instruction>(V))
-      if (auto *TyFromMD =
-              dtrans::DTransAnnotator::lookupDTransTypeAnnotation(*I))
-        Info.addPointerTypeAlias(TyFromMD);
+      if (auto TyFromMD =
+              dtrans::DTransAnnotator::lookupDTransTypeAnnotation(*I)) {
+        llvm::Type *Ty = TyFromMD.getValue().first;
+        unsigned Level = TyFromMD.getValue().second;
+        while (Level--)
+          Ty = Ty->getPointerTo();
+        Info.addPointerTypeAlias(Ty);
+      }
 
     // Build a stack of unresolved dependent values that must be analyzed
     // before we can complete the analysis of this value.

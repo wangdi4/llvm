@@ -1,6 +1,6 @@
 //===----------- DTransAnnotator.h - Interfaces for DTrans annotations-----===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -21,6 +21,7 @@
 #define INTEL_DTRANS_ANALYSIS_DTRANSANNOTOR_H
 
 #include "llvm/ADT/Twine.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Type.h"
 
@@ -79,11 +80,15 @@ public:
   // instruction aliases. This method can be used by a DTrans transformation for
   // cases where the generated IR is unable to be analyzed directly by the
   // DTransAnalysis.
-  static void createDTransTypeAnnotation(Instruction &I, llvm::Type *Ty);
+  // 'Ty' cannot be a pointer type. For pointer types, pass 'Ty' as the Type
+  // pointed to, and 'PtrLevel' as the number of levels of pointer indirection.
+  static void createDTransTypeAnnotation(Instruction &I, llvm::Type *Ty,
+                                         unsigned PtrLevel);
 
-  // Get the type that exists in an annotation, if one exists, for the
-  // instruction.
-  static llvm::Type *lookupDTransTypeAnnotation(Instruction &I);
+  // Get the type and level of pointer indirection that exists in an annotation,
+  // if one exists, for the instruction.
+  static Optional<std::pair<llvm::Type *, unsigned>>
+  lookupDTransTypeAnnotation(Instruction &I);
 
   // Remove a type annotation from the instruction. Return 'true' if the
   // instruction is changed.
@@ -91,11 +96,19 @@ public:
 
   // Annotate a function as having been transformed by the DTrans SOA-to-AOS
   // transformation with the data type used.
-  static void createDTransSOAToAOSTypeAnnotation(Function &F, llvm::Type *Ty);
+  // 'Ty' cannot be a pointer type. For pointer types, pass 'Ty' as the Type
+  // pointed to, and 'PtrLevel' as the number of levels of pointer indirection.
+  static void createDTransSOAToAOSTypeAnnotation(Function &F, llvm::Type *Ty,
+                                                 unsigned PtrLevel);
 
-  // Get the SOA-to-AOS transformation type for the Function, if one exists.
-  // Otherwise, nullptr.
-  static llvm::Type *lookupDTransSOAToAOSTypeAnnotation(Function &F);
+  // Get the SOA-to-AOS transformation type and level of pointer indirection for
+  // the Function, if one exists. Otherwise, nullptr
+  static Optional<std::pair<llvm::Type *, unsigned>>
+  lookupDTransSOAToAOSTypeAnnotation(Function &F);
+
+  // Return 'true' if the SOA-to-AOS transformation annotation is on the
+  // Function.
+  static bool hasDTransSOAToAOSTypeAnnotation(Function &F);
 
   // Remove the SOA-to-AOS transformation annotation marker from the Function.
   // Return 'true' if the metadata is changed.
@@ -103,12 +116,20 @@ public:
 
   // Annotate a function as having been created by the SOAToAOSPrepare
   // transformation with the data type used.
+  // 'Ty' cannot be a pointer type. For pointer types, pass 'Ty' as the Type
+  // pointed to, and 'PtrLevel' as the number of levels of pointer indirection.
   static void createDTransSOAToAOSPrepareTypeAnnotation(Function &F,
-                                                        llvm::Type *Ty);
+                                                        llvm::Type *Ty,
+                                                        unsigned PtrLevel);
 
-  // Get the type for the Function that is created by SOAToAOSPrepare, if one
-  // exists. Otherwise, nullptr.
-  static llvm::Type *lookupDTransSOAToAOSPrepareTypeAnnotation(Function &F);
+  // Get the type and level of pointer indirection for the Function that is
+  // created by SOAToAOSPrepare, if one exists. Otherwise, nullptr.
+  static Optional<std::pair<llvm::Type *, unsigned>>
+  lookupDTransSOAToAOSPrepareTypeAnnotation(Function &F);
+
+  // Return 'true' if the SOAToAOSPrepare transformation annotation is on the
+  // Function.
+  static bool hasDTransSOAToAOSPrepareTypeAnnotation(Function &F);
 
   // Remove the SOAToAOSPrepare transformation annotation marker from the
   // Function. Return 'true' if the metadata is changed.
@@ -177,7 +198,7 @@ private:
   //
   // The format of the metadata is to store a null value of the specified type
   // as follows:
-  //   { Ty null }
+  //   { Ty null, i32 PtrLevel }
   //
   // The use of a null value of the type enables the type to be kept up-to-date
   // when DTrans transformations run because when the instruction referencing
@@ -185,33 +206,61 @@ private:
   // well, if the type changes.
   template <typename Annotatable>
   static void createDTransTypeAnnotationImpl(Annotatable &A, StringRef Name,
-                                             llvm::Type *Ty) {
-    assert(Ty && Ty->isPointerTy() && "Annotation type must be pointer type");
+                                             llvm::Type *Ty,
+                                             unsigned PtrLevel) {
+    assert(Ty && "Type must be not be null");
     assert(A.getMetadata(Name) == nullptr &&
            "Only a single SOA-to-AOS type metadata attachment allowed.");
 
     LLVMContext &Ctx = A.getContext();
-    MDNode *MD =
-        MDNode::get(Ctx, {ConstantAsMetadata::get(Constant::getNullValue(Ty))});
+    auto *Int32Ty = Type::getInt32Ty(Ctx);
+    MDTuple *MD = MDTuple::get(
+        Ctx, {ConstantAsMetadata::get(Constant::getNullValue(Ty)),
+              ConstantAsMetadata::get(ConstantInt::get(Int32Ty, PtrLevel))});
     A.setMetadata(Name, MD);
   }
 
   // Get the type that exists in an annotation, if one exists, for the
   // Annotatable object.
   template <typename Annotatable>
-  static llvm::Type *lookupDTransTypeAnnotationImpl(Annotatable &A,
-                                                    StringRef Name) {
+  static Optional<std::pair<llvm::Type *, unsigned>>
+  lookupDTransTypeAnnotationImpl(Annotatable &A, StringRef Name) {
     auto *MD = A.getMetadata(Name);
     if (!MD)
-      return nullptr;
+      return None;
 
-    assert(MD->getNumOperands() == 1 && "Unexpected metadata operand count");
+    assert(MD->getNumOperands() == 2 && "Unexpected metadata operand count");
+    auto &MDOpp0 = MD->getOperand(0);
+    auto *TyMD = dyn_cast<ConstantAsMetadata>(MDOpp0);
+    if (!TyMD)
+      return None;
+
+    auto &MDOpp1 = MD->getOperand(1);
+    auto *PtrLevelMD = dyn_cast<ConstantAsMetadata>(MDOpp1);
+    if (!PtrLevelMD)
+      return None;
+
+    llvm::Type *BaseTy = TyMD->getType();
+    unsigned PtrLevel =
+        cast<ConstantInt>(PtrLevelMD->getValue())->getZExtValue();
+    return std::make_pair(BaseTy, PtrLevel);
+  }
+
+  // Return 'true' if an annotation of type 'Name' exists on the Annotatable
+  // object.
+  template <typename Annotatable>
+  static bool hasDTransTypeAnnotationImpl(Annotatable &A, StringRef Name) {
+    auto *MD = A.getMetadata(Name);
+    if (!MD)
+      return false;
+
+    assert(MD->getNumOperands() == 2 && "Unexpected metadata operand count");
     auto &MDOpp1 = MD->getOperand(0);
     auto *TyMD = dyn_cast<ConstantAsMetadata>(MDOpp1);
     if (!TyMD)
-      return nullptr;
+      return false;
 
-    return TyMD->getType();
+    return true;
   }
 
   // Remove a type annotation. Return 'true' if metadata was removed from the

@@ -23,4 +23,4 @@ define i32 @main() {
   ret i32 0
 }
 
-!0 = !{%__SOADT_EL_class.F* null}
+!0 = !{%__SOADT_EL_class.F zeroinitializer, i32 1}
