@@ -1,6 +1,6 @@
 //===----------- DTransAnnotator.h - Interfaces for DTrans annotations-----===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -79,7 +79,10 @@ public:
   // instruction aliases. This method can be used by a DTrans transformation for
   // cases where the generated IR is unable to be analyzed directly by the
   // DTransAnalysis.
-  static void createDTransTypeAnnotation(Instruction &I, llvm::Type *Ty);
+  // 'Ty' cannot be a pointer type. For pointer types, pass 'Ty' as the Type
+  // pointed to, and 'PtrLevel' as the number of levels of pointer indirection.
+  static void createDTransTypeAnnotation(Instruction &I, llvm::Type *Ty,
+                                         unsigned PtrLevel);
 
   // Get the type that exists in an annotation, if one exists, for the
   // instruction.
@@ -91,7 +94,10 @@ public:
 
   // Annotate a function as having been transformed by the DTrans SOA-to-AOS
   // transformation with the data type used.
-  static void createDTransSOAToAOSTypeAnnotation(Function &F, llvm::Type *Ty);
+  // 'Ty' cannot be a pointer type. For pointer types, pass 'Ty' as the Type
+  // pointed to, and 'PtrLevel' as the number of levels of pointer indirection.
+  static void createDTransSOAToAOSTypeAnnotation(Function &F, llvm::Type *Ty,
+                                                 unsigned PtrLevel);
 
   // Get the SOA-to-AOS transformation type for the Function, if one exists.
   // Otherwise, nullptr.
@@ -103,8 +109,11 @@ public:
 
   // Annotate a function as having been created by the SOAToAOSPrepare
   // transformation with the data type used.
+  // 'Ty' cannot be a pointer type. For pointer types, pass 'Ty' as the Type
+  // pointed to, and 'PtrLevel' as the number of levels of pointer indirection.
   static void createDTransSOAToAOSPrepareTypeAnnotation(Function &F,
-                                                        llvm::Type *Ty);
+                                                        llvm::Type *Ty,
+                                                        unsigned PtrLevel);
 
   // Get the type for the Function that is created by SOAToAOSPrepare, if one
   // exists. Otherwise, nullptr.
@@ -185,14 +194,21 @@ private:
   // well, if the type changes.
   template <typename Annotatable>
   static void createDTransTypeAnnotationImpl(Annotatable &A, StringRef Name,
-                                             llvm::Type *Ty) {
-    assert(Ty && Ty->isPointerTy() && "Annotation type must be pointer type");
+                                             llvm::Type *Ty,
+                                             unsigned PtrLevel) {
+    assert(Ty && "Type must be not be null");
     assert(A.getMetadata(Name) == nullptr &&
            "Only a single SOA-to-AOS type metadata attachment allowed.");
 
+    // TODO: Change the metadata encoding to be:
+    //   !{ Ty zeroinitializer, i32 PtrLevel }
+    llvm::Type *AnnotType = Ty;
+    while (PtrLevel--)
+      AnnotType = cast<llvm::Type>(AnnotType->getPointerTo());
+
     LLVMContext &Ctx = A.getContext();
-    MDNode *MD =
-        MDNode::get(Ctx, {ConstantAsMetadata::get(Constant::getNullValue(Ty))});
+    MDNode *MD = MDNode::get(
+        Ctx, {ConstantAsMetadata::get(Constant::getNullValue(AnnotType))});
     A.setMetadata(Name, MD);
   }
 
