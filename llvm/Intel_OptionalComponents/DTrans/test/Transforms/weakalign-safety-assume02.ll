@@ -48,4 +48,4 @@ define i32 @main() {
 declare void @llvm.assume(i1)
 declare i8* @malloc(i64)
 
-!0 = !{%__SOADT_EL_class.F* null}
+!0 = !{%__SOADT_EL_class.F zeroinitializer, i32 1}

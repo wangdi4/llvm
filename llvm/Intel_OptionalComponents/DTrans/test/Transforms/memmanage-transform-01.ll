@@ -2340,5 +2340,5 @@ declare void @__cxa_throw(i8* nonnull, i8*, i8*)
 
 attributes #0 = { "intel-mempool-constructor" }
 attributes #1 = { "intel-mempool-destructor" }
-!3 = !{%__SOADT_EL_class.F* null}
+!3 = !{%__SOADT_EL_class.F zeroinitializer, i32 1}
 

@@ -21,6 +21,7 @@
 #define INTEL_DTRANS_ANALYSIS_DTRANSANNOTOR_H
 
 #include "llvm/ADT/Twine.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Type.h"
 
@@ -197,7 +198,7 @@ private:
   //
   // The format of the metadata is to store a null value of the specified type
   // as follows:
-  //   { Ty null }
+  //   { Ty null, i32 PtrLevel }
   //
   // The use of a null value of the type enables the type to be kept up-to-date
   // when DTrans transformations run because when the instruction referencing
@@ -211,15 +212,11 @@ private:
     assert(A.getMetadata(Name) == nullptr &&
            "Only a single SOA-to-AOS type metadata attachment allowed.");
 
-    // TODO: Change the metadata encoding to be:
-    //   !{ Ty zeroinitializer, i32 PtrLevel }
-    llvm::Type *AnnotType = Ty;
-    while (PtrLevel--)
-      AnnotType = cast<llvm::Type>(AnnotType->getPointerTo());
-
     LLVMContext &Ctx = A.getContext();
-    MDNode *MD = MDNode::get(
-        Ctx, {ConstantAsMetadata::get(Constant::getNullValue(AnnotType))});
+    auto *Int32Ty = Type::getInt32Ty(Ctx);
+    MDTuple *MD = MDTuple::get(
+        Ctx, {ConstantAsMetadata::get(Constant::getNullValue(Ty)),
+              ConstantAsMetadata::get(ConstantInt::get(Int32Ty, PtrLevel))});
     A.setMetadata(Name, MD);
   }
 
@@ -232,18 +229,20 @@ private:
     if (!MD)
       return None;
 
-    assert(MD->getNumOperands() == 1 && "Unexpected metadata operand count");
-    auto &MDOpp1 = MD->getOperand(0);
-    auto *TyMD = dyn_cast<ConstantAsMetadata>(MDOpp1);
+    assert(MD->getNumOperands() == 2 && "Unexpected metadata operand count");
+    auto &MDOpp0 = MD->getOperand(0);
+    auto *TyMD = dyn_cast<ConstantAsMetadata>(MDOpp0);
     if (!TyMD)
       return None;
 
-    unsigned PtrLevel = 0;
+    auto &MDOpp1 = MD->getOperand(1);
+    auto *PtrLevelMD = dyn_cast<ConstantAsMetadata>(MDOpp1);
+    if (!PtrLevelMD)
+      return None;
+
     llvm::Type *BaseTy = TyMD->getType();
-    while (BaseTy->isPointerTy()) {
-      ++PtrLevel;
-      BaseTy = BaseTy->getPointerElementType();
-    }
+    unsigned PtrLevel =
+        cast<ConstantInt>(PtrLevelMD->getValue())->getZExtValue();
     return std::make_pair(BaseTy, PtrLevel);
   }
 
@@ -255,7 +254,7 @@ private:
     if (!MD)
       return false;
 
-    assert(MD->getNumOperands() == 1 && "Unexpected metadata operand count");
+    assert(MD->getNumOperands() == 2 && "Unexpected metadata operand count");
     auto &MDOpp1 = MD->getOperand(0);
     auto *TyMD = dyn_cast<ConstantAsMetadata>(MDOpp1);
     if (!TyMD)

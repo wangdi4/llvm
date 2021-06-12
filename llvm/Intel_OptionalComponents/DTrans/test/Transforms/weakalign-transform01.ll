@@ -24,4 +24,4 @@ define i32 @main() {
 ; CHECK-NEXT: call i32 @mallopt(i32 3225, i32 0)
 ; CHECK-NEXT: call void @test01()
 
-!0 = !{%__SOADT_EL_class.F* null}
+!0 = !{%__SOADT_EL_class.F zeroinitializer, i32 1}
