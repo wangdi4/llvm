@@ -45,6 +45,8 @@ ModulePass *createResolveWICallLegacyPass(bool IsUniformWGSize,
                                           bool UseTLSGlobals);
 ModulePass *createPrepareKernelArgsLegacyPass(bool UseTLSGlobals);
 ModulePass *createCleanupWrappedKernelLegacyPass();
+ModulePass *createUpdateCallAttrsLegacyPass();
+ModulePass *createVectorVariantFillInLegacyPass();
 } // namespace llvm
 
 #endif // LLVM_TRANSFORMS_INTEL_DPCPP_KERNEL_TRANSFORMS_LEGACY_PASSES_H
