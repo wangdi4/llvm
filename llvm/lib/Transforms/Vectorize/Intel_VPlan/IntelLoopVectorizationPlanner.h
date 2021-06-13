@@ -118,6 +118,7 @@ public:
   /// Convenience methods
   bool hasPeel() const { return Peel.Kind != LKNone; }
   bool hasMaskedPeel() const { return Peel.Kind == LKMasked; }
+  bool hasRemainder() const { return !Remainders.empty(); }
 
   /// Return list of vector factors used for the current selection.
   void getUsedVFs(SmallSet<unsigned, 4> &Ret) {

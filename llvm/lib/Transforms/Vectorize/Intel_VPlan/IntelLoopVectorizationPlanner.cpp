@@ -851,6 +851,18 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
   if (VecScenario.getMainVF() == 1 && IsVectorAlways) {
     selectSimplestVecScenario(VFs[0], 1);
   }
+
+  // Workaround for using DefaultTripCount: in some cases we can have situation
+  // when static peeling and current value of DefaultTripCount can lead to
+  // incorrect decision "the remainder is not needed". E.g. we have
+  // DefaultTripCount = 303, with static peel count 3 we have tc = 300, and for
+  // VF=4 or VF=2 we have no iterations for remainder.
+  // The correct fix should be made in remainder evaluator, but that fix
+  // requires the cost model tuning as with the current cost model we have
+  // regressions.
+  if (IsTripCountEstimated && !VecScenario.hasRemainder())
+    VecScenario.addScalarRemainder();
+
 #endif // INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (!VecScenarioStr.empty()) {

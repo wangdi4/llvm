@@ -1286,14 +1286,19 @@ void VPlanCFGMerger::emitSkeleton(std::list<PlanDescr> &Plans) {
         // After peel we should have at least two loops created, main and
         // remainder. The situation with one loop (e.g. masked mode loop) is not
         // supported.
-        auto PrevP = std::prev(Iter, 1);
-        assert(PrevP != Plans.begin() && "unsupported scenario with peel");
-        auto PPrev = std::prev(Iter, 2);
+        auto PrevP = std::prev(Iter, 1); // main VPlan
+        // Get a remainder VPlan that was placed before main VPlan. It's not
+        // required in case when we have static peel and a known trip count. All
+        // the needed assertions are done in the called routine.
+        PlanDescr *RemDescr = nullptr;
+        if (PrevP != Plans.begin())
+          RemDescr = &*std::prev(Iter, 2);
+
         // Create peel count instruction, updating the upper bound of the
         // peel and insert the needed checks before peel.
         insertPeelCntAndChecks(P, FinalRemainderMerge, PrevP->PrevMerge);
         // Create trip count checks before main loop.
-        createTCCheckBeforeMain(&P, *PrevP, &*PPrev);
+        createTCCheckBeforeMain(&P, *PrevP, RemDescr);
       } else {
         // Create the needed trip count checks after VPlan when needed.
         // See Check6, Check7 on the diagram above.
