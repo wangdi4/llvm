@@ -136,6 +136,23 @@ func @vectorization_test_2(%A: memref<8x16xf32>, %B: memref<16x32xf32>,
 
 // -----
 
+// CHECK-LABEL: func @test_vectorize_scalar_input
+func @test_vectorize_scalar_input(%A : memref<8x16xf32>, %arg0 : f32) {
+  //       CHECK: %[[V:.*]] = vector.broadcast {{.*}} : f32 to vector<8x16xf32>
+  //       CHECK: vector.transfer_write %[[V]], {{.*}} : vector<8x16xf32>, memref<8x16xf32>
+  linalg.generic {
+    indexing_maps = [affine_map<(m, n) -> ()>, affine_map<(m, n) -> (m, n)>],
+    iterator_types = ["parallel", "parallel"]}
+   ins(%arg0 : f32)
+  outs(%A: memref<8x16xf32>) {
+    ^bb(%0: f32, %1: f32) :
+      linalg.yield %0 : f32
+  }
+  return
+}
+
+// -----
+
 // CHECK-LABEL: func @test_vectorize_fill
 func @test_vectorize_fill(%A : memref<8x16xf32>, %arg0 : f32) {
   //       CHECK: %[[V:.*]] = vector.broadcast {{.*}} : f32 to vector<8x16xf32>
@@ -670,6 +687,35 @@ func @pad_and_subtensor_insert(
   } : tensor<5x6xf32> to tensor<7x9xf32>
   %r = subtensor_insert %0 into %arg1[0, 0][7, 9][1, 1] : tensor<7x9xf32> into tensor<12x13xf32>
   return %r : tensor<12x13xf32>
+}
+
+// -----
+
+// CHECK-LABEL: func @pad_tensor_non_const_pad_value
+//  CHECK-SAME:     %[[ARG0:.*]]: tensor<5x6xf32>
+//   CHECK-NOT:   linalg.pad_tensor
+//   CHECK-DAG:   %[[C0:.*]] = constant 0 : index
+//   CHECK-DAG:   %[[C3:.*]] = constant 3 : index
+//   CHECK-DAG:   %[[C4:.*]] = constant 4 : index
+//       CHECK:   %[[FILL:.*]] = tensor.generate
+//       CHECK:     %[[RES:.*]] = mulf
+//       CHECK:     tensor.yield %[[RES]] : f32
+//       CHECK:   %[[READ:.*]] = vector.transfer_read %[[ARG0]][%[[C0]], %[[C0]]], %{{.*}} {in_bounds = [true, true]} : tensor<5x6xf32>, vector<5x6xf32>
+//       CHECK:   %[[WRITE:.*]] = vector.transfer_write %[[READ]], %[[FILL]][%[[C3]], %[[C4]]] {in_bounds = [true, true]} : vector<5x6xf32>, tensor<12x13xf32>
+//       CHECK:   return %[[WRITE]]
+func @pad_tensor_non_const_pad_value(%arg0: tensor<5x6xf32>) -> tensor<12x13xf32> {
+  %c0 = constant 0 : index
+  %c5 = constant 5.0 : f32
+  %0 = linalg.pad_tensor %arg0 low[3, 4] high[4, 3] {
+    ^bb0(%arg1: index, %arg2: index):
+      %i1 = index_cast %arg1 : index to i32
+      %i2 = index_cast %arg2 : index to i32
+      %f1 = sitofp %i1 : i32 to f32
+      %f2 = sitofp %i2 : i32 to f32
+      %m = mulf %f1, %f2 : f32
+      linalg.yield %m : f32
+  } : tensor<5x6xf32> to tensor<12x13xf32>
+  return %0 : tensor<12x13xf32>
 }
 
 // -----

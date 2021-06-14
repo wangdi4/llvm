@@ -479,6 +479,10 @@ LogicalResult vectorizeAsLinalgGeneric(
   SmallVector<AffineMap> indexings;
   for (OpOperand *opOperand : linalgOp.getInputAndOutputOperands()) {
     BlockArgument bbarg = block.getArgument(opOperand->getOperandNumber());
+    if (linalgOp.isScalar(opOperand)) {
+      bvm.map(bbarg, opOperand->get());
+      continue;
+    }
     // TODO: 0-d vectors.
     if (linalgOp.getShape(opOperand).empty()) {
       Value loaded =
@@ -494,14 +498,13 @@ LogicalResult vectorizeAsLinalgGeneric(
     if (broadcastToMaximalCommonShape) {
       map = inverseAndBroadcastProjectedPermuation(
           linalgOp.getTiedIndexingMap(opOperand));
-      vectorType = VectorType::get(
-          commonVectorShape, getElementTypeOrSelf(opOperand->get().getType()));
+      vectorType = VectorType::get(commonVectorShape,
+                                   getElementTypeOrSelf(opOperand->get()));
     } else {
       map = inversePermutation(
           reindexIndexingMap(linalgOp.getTiedIndexingMap(opOperand)));
-      vectorType =
-          VectorType::get(map.compose(linalgOp.getShape(opOperand)),
-                          getElementTypeOrSelf(opOperand->get().getType()));
+      vectorType = VectorType::get(map.compose(linalgOp.getShape(opOperand)),
+                                   getElementTypeOrSelf(opOperand->get()));
     }
     Value vectorRead = buildVectorRead(b, opOperand->get(), vectorType, map);
     LLVM_DEBUG(dbgs() << "\n[" DEBUG_TYPE "]: new vectorized bbarg("
@@ -689,10 +692,6 @@ struct GenericPadTensorOpVectorizationPattern
           padOp.getLoc(), getIntFromAttr(ofr.get<Attribute>())).getResult();
     };
 
-    // Pad value must be a constant.
-    auto padValue = padOp.getConstantPaddingValue();
-    if (!padValue) return failure();
-
     auto resultType = padOp.getResultType();
     // Compute size of InitTensorOp. Any combination of static/dynamic is
     // supported.
@@ -712,20 +711,20 @@ struct GenericPadTensorOpVectorizationPattern
       staticSizes.push_back(resultType.getDimSize(dim));
     }
 
+    // Init tensor and fill it with padding.
     Value init = rewriter.create<InitTensorOp>(
         padOp.getLoc(), dynSizes, staticSizes, resultType.getElementType());
-    Value fill =
-        rewriter.create<FillOp>(padOp.getLoc(), init, padValue).result();
-
-    auto sourceType = padOp.getSourceType();
+    Value fill = tryVectorizeFill(rewriter, padOp, init, dynSizes);
 
     // Try vectorizing the copy of source.
-    if (tryVectorizeCopy(rewriter, padOp, padValue, fill).succeeded())
+    if (tryVectorizeCopy(rewriter, padOp, fill).succeeded())
       return success();
 
     // Neither source type nor PadTensorOp result type have static shape. Such
-    // PadTensorOps cannot be vectorized. Generate a SubTensorInsertOp instead.
+    // PadTensorOps cannot be vectorized. Generate a SubTensorInsertOp instead
+    // for copying the PadOp source.
 
+    auto sourceType = padOp.getSourceType();
     // Compute size of source of PadTensorOp.
     SmallVector<OpFoldResult> srcSizes;
     for (unsigned dim = 0; dim < sourceType.getRank(); ++dim) {
@@ -745,13 +744,53 @@ struct GenericPadTensorOpVectorizationPattern
     return success();
   }
 
+  /// Vectorize the filling of `dest`. This is possible if the padOp is padding
+  /// with a constant value. Otherwise, generate a tensor::GenerateOp.
+  Value tryVectorizeFill(PatternRewriter &rewriter, PadTensorOp padOp,
+                         Value dest, const SmallVector<Value> &dynSizes) const {
+    // Fill can be vectorized if padValue is a constant. (If there is enough
+    // static type information, the FillOp will be vectorized by another
+    // pattern.)
+    auto padValue = padOp.getConstantPaddingValue();
+    if (padValue)
+      return rewriter.create<FillOp>(padOp.getLoc(), dest, padValue).result();
+
+    // Fill could not be vectorized: Lower to tensor::GenerateOp with region.
+    auto generateOp = rewriter.create<tensor::GenerateOp>(
+        padOp.getLoc(), padOp.getResultType(), dynSizes);
+    // Copy region to new op.
+    BlockAndValueMapping bvm;
+    padOp.region().cloneInto(&generateOp.getRegion(), bvm);
+    // Rewrite linalg::YieldOp to tensor::YieldOp.
+    OpBuilder::InsertionGuard guard(rewriter);
+    auto yieldOp = dyn_cast<linalg::YieldOp>(
+        generateOp.getRegion().front().getTerminator());
+    assert(yieldOp && "malformed PadTensorOp: expected YieldOp terminator");
+    assert(yieldOp.values().size() == 1);
+    rewriter.setInsertionPoint(yieldOp);
+    rewriter.replaceOpWithNewOp<tensor::YieldOp>(yieldOp, yieldOp.values()[0]);
+    return generateOp;
+  }
+
   /// Vectorize the copying of a PadTensorOp's source. This is possible if each
   /// dimension size is statically know in the source type or the result type
   /// (or both).
   LogicalResult tryVectorizeCopy(PatternRewriter &rewriter, PadTensorOp padOp,
-                                 Value padValue, Value dest) const {
+                                 Value dest) const {
     auto sourceType = padOp.getSourceType();
     auto resultType = padOp.getResultType();
+
+    // Copy cannot be vectorized if pad value is non-constant and source shape
+    // is dynamic. In case of a dynamic source shape, padding must be appended
+    // by TransferReadOp, but TransferReadOp supports only constant padding.
+    auto padValue = padOp.getConstantPaddingValue();
+    if (!padValue) {
+      if (!sourceType.hasStaticShape()) return failure();
+      // Create dummy padding value.
+      auto elemType = sourceType.getElementType();
+      padValue = rewriter.create<ConstantOp>(padOp.getLoc(), elemType,
+                                             rewriter.getZeroAttr(elemType));
+    }
 
     SmallVector<int64_t> vecShape;
     SmallVector<bool> readInBounds;
@@ -1121,7 +1160,7 @@ LogicalResult ConvOpVectorization<ConvOp, N>::matchAndRewrite(
 
   int64_t rank = op.getRank(input);
   int64_t numDims = mapping.size();
-  Type elemType = getElementTypeOrSelf(input->get().getType());
+  Type elemType = getElementTypeOrSelf(input->get());
 
   auto map = AffineMap::get(rank, 0, mapping, context);
   SmallVector<Value, 4> zeros(rank, rewriter.create<ConstantIndexOp>(loc, 0));
