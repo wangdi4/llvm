@@ -368,23 +368,35 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_chmod);
     TLI.setUnavailable(LibFunc_closedir);
     TLI.setUnavailable(LibFunc_fdopen);
-    TLI.setUnavailable(LibFunc_fileno);
+#if INTEL_CUSTOMIZATION
+    // Enabled for Windows
+    // TLI.setUnavailable(LibFunc_fileno);
+#endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_fseeko);
     TLI.setUnavailable(LibFunc_fstat);
     TLI.setUnavailable(LibFunc_ftello);
     TLI.setUnavailable(LibFunc_gettimeofday);
     TLI.setUnavailable(LibFunc_memccpy);
     TLI.setUnavailable(LibFunc_mkdir);
-    TLI.setUnavailable(LibFunc_open);
+#if INTEL_CUSTOMIZATION
+    // Enabled for Windows
+    // TLI.setUnavailable(LibFunc_open);
+#endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_opendir);
     TLI.setUnavailable(LibFunc_pclose);
     TLI.setUnavailable(LibFunc_popen);
-    TLI.setUnavailable(LibFunc_read);
+#if INTEL_CUSTOMIZATION
+    // Enabled for Windows
+    // TLI.setUnavailable(LibFunc_read);
+#endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_rmdir);
     TLI.setUnavailable(LibFunc_stat);
     TLI.setUnavailable(LibFunc_strcasecmp);
     TLI.setUnavailable(LibFunc_strncasecmp);
-    TLI.setUnavailable(LibFunc_unlink);
+#if INTEL_CUSTOMIZATION
+    // Enabled for Windows
+    // TLI.setUnavailable(LibFunc_unlink);
+#endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_utime);
     TLI.setUnavailable(LibFunc_write);
   }
@@ -405,10 +417,6 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     // TLI.setUnavailable(LibFunc_fdopen);
 #endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_ffs);
-#if INTEL_CUSTOMIZATION
-    // Enabled for Windows
-    // TLI.setUnavailable(LibFunc_fileno);
-#endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_ffs);
     TLI.setUnavailable(LibFunc_flockfile);
     TLI.setUnavailable(LibFunc_fstatvfs);
@@ -423,10 +431,6 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_lstat);
     TLI.setUnavailable(LibFunc_ntohl);
     TLI.setUnavailable(LibFunc_ntohs);
-#if INTEL_CUSTOMIZATION
-    // This function should be available on Windows.
-    // TLI.setUnavailable(LibFunc_open);
-#endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_opendir);
     TLI.setUnavailable(LibFunc_pclose);
     TLI.setUnavailable(LibFunc_popen);
@@ -448,10 +452,6 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_stpncpy);
     TLI.setUnavailable(LibFunc_times);
     TLI.setUnavailable(LibFunc_uname);
-#if INTEL_CUSTOMIZATION
-    // Commented unlink since it is going to be used in Windows
-    // TLI.setUnavailable(LibFunc_unlink);
-#endif // INTEL_CUSTOMIZATION
     TLI.setUnavailable(LibFunc_unsetenv);
     TLI.setUnavailable(LibFunc_utimes);
 #if INTEL_CUSTOMIZATION
