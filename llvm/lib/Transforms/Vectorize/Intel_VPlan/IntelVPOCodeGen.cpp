@@ -62,11 +62,6 @@ static bool LLVM_ATTRIBUTE_UNUSED isScalarPointeeTy(const VPValue *Val) {
             PointeeTy->isPointerTy()));
 }
 
-/// Helper function to check if given VPValue is uniform based on DA.
-static bool isVPValueUniform(VPValue *V, const VPlanVector *Plan) {
-  return !Plan->getVPlanDA()->isDivergent(*V);
-}
-
 /// Helper function that returns widened type of given type \p VPInstTy.
 static Type *getVPInstVectorType(Type *VPInstTy, unsigned VF) {
   auto *VPInstVecTy = dyn_cast<VectorType>(VPInstTy);
@@ -946,6 +941,8 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   if (!needVectorCode(VPInst))
     return;
 
+  auto *DA = Plan->getVPlanDA();
+
   switch (VPInst->getOpcode()) {
   case Instruction::PHI: {
     vectorizeVPPHINode(cast<VPPHINode>(VPInst));
@@ -1017,8 +1014,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       CanBeScalar = false;
     }
 
-    if ((CanBeScalar && Plan->getVPlanDA()->isUnitStridePtr(GEP) &&
-         VPlanUseDAForUnitStride) ||
+    if ((CanBeScalar && DA->isUnitStridePtr(GEP) && VPlanUseDAForUnitStride) ||
         isSOAUnitStride(GEP, Plan)) {
       SmallVector<Value *, 6> ScalarOperands;
       for (unsigned Op = 0; Op < GEP->getNumOperands(); ++Op) {
@@ -1036,21 +1032,15 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     }
     // Serialize if all users of GEP are uniform load/store.
     if (all_of(GEP->users(), [&](VPUser *U) -> bool {
-          return getLoadStorePointerOperand(U) == GEP &&
-                 isVPValueUniform(U, Plan);
+          return getLoadStorePointerOperand(U) == GEP && DA->isUniform(*U);
         })) {
       serializeInstruction(GEP);
       return;
     }
     VPValue *GepBasePtr = GEP->getPointerOperand();
-    bool AllGEPIndicesUniform =
-        all_of(GEP->indices(), [&](VPValue *Op) -> bool {
-          // TODO: Using DA for loop invariance.
-          return isVPValueUniform(Op, Plan);
-        });
-
-    bool AllGEPOpsUniform =
-        isVPValueUniform(GepBasePtr, Plan) && AllGEPIndicesUniform;
+    bool AllGEPIndicesUniform = all_of(
+        GEP->indices(), [&](VPValue *Op) -> bool { return DA->isUniform(*Op); });
+    bool AllGEPOpsUniform = DA->isUniform(*GepBasePtr) && AllGEPIndicesUniform;
 
     auto GetOrigVL = [](Type *Type) -> unsigned {
       auto *VecType = dyn_cast<VectorType>(Type);
@@ -1141,7 +1131,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   }
 
   case Instruction::FNeg: {
-    if (isVPValueUniform(VPInst, Plan)) {
+    if (DA->isUniform(*VPInst)) {
       serializeInstruction(VPInst);
       return;
     }
@@ -1181,7 +1171,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
         DivisorIsSafe = true;
     }
     if (MaskValue && !DivisorIsSafe) {
-      if (isVPValueUniform(VPInst, Plan))
+      if (DA->isUniform(*VPInst))
         serializePredicatedUniformInstruction(VPInst);
       else
         serializeWithPredication(VPInst);
@@ -1204,7 +1194,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   case Instruction::Or:
   case Instruction::Xor: {
 
-    if (isVPValueUniform(VPInst, Plan)) {
+    if (DA->isUniform(*VPInst)) {
       serializeInstruction(VPInst);
       return;
     }
@@ -1311,7 +1301,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     return;
   }
   case Instruction::ShuffleVector: {
-    if (isVPValueUniform(VPInst, Plan)) {
+    if (DA->isUniform(*VPInst)) {
       serializeInstruction(VPInst);
       return;
     }
@@ -1607,7 +1597,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   }
   case VPInstruction::ActiveLane: {
     assert(!MaskValue && "ActiveLane calculation is expected to be unmasked!");
-    assert(isVPValueUniform(VPInst, Plan) &&
+    assert(DA->isUniform(*VPInst) &&
            "ActiveLane instruction is expected to be uniform!");
     VPValue *MaskOp = VPInst->getOperand(0);
     Value *WidenedMaskOp = getVectorValue(MaskOp);
@@ -1701,7 +1691,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   }
   case VPInstruction::InvSCEVWrapper: {
     auto *SCEVWrapper = cast<VPInvSCEVWrapper>(VPInst);
-    assert(isVPValueUniform(SCEVWrapper, Plan) &&
+    assert(DA->isUniform(*SCEVWrapper) &&
            "Expect the inv-scev-wrapper instruction to be uniform.");
     assert(Plan->getVPlanSVA()->instNeedsFirstScalarCode(SCEVWrapper) &&
            "Expected inv-scev-wrapper instruction to be marked first-scalar by "
@@ -1716,7 +1706,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   }
   case VPInstruction::VLSLoad: {
     auto *VLSLoad = cast<VPVLSLoad>(VPInst);
-    assert(isVPValueUniform(VLSLoad, Plan) &&
+    assert(DA->isUniform(*VLSLoad) &&
            "VLSLoad must produce a uniform value!");
     auto *Base = getScalarValue(VLSLoad->getOperand(0), 0);
     auto *VecTy = cast<VectorType>(VLSLoad->getType());
@@ -1746,7 +1736,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   }
   case VPInstruction::VLSExtract: {
     auto *Extract = cast<VPVLSExtract>(VPInst);
-    assert(isVPValueUniform(Extract->getOperand(0), Plan) &&
+    assert(DA->isUniform(*Extract->getOperand(0)) &&
            "Operand of VLSExtract must be a uniform value!");
 
     auto NumEltsPerValue = Extract->getNumGroupEltsPerValue();
@@ -1767,8 +1757,8 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   }
   case VPInstruction::VLSInsert: {
     auto *Insert = cast<VPVLSInsert>(VPInst);
-    assert(isVPValueUniform(Insert, Plan) && "VLSInsert must produce a uniform value!");
-    assert(isVPValueUniform(Insert->getOperand(0), Plan) &&
+    assert(DA->isUniform(*Insert) && "VLSInsert must produce a uniform value!");
+    assert(DA->isUniform(*Insert->getOperand(0)) &&
            "Orig wide value operand of VLSInsert must be a uniform vlaue!");
     auto *OrigWideValue = getScalarValue(Insert->getOperand(0), 0);
     auto *ValueToInsert = getVectorValue(Insert->getOperand(1));
@@ -1801,7 +1791,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   }
   case VPInstruction::VLSStore: {
     auto *VLSStore = cast<VPVLSStore>(VPInst);
-    assert(isVPValueUniform(VLSStore->getOperand(0), Plan) &&
+    assert(DA->isUniform(*VLSStore->getOperand(0)) &&
            "Value operand of VLSStore must be uniform!");
     auto *Base = getScalarValue(VLSStore->getOperand(1), 0);
     auto *StoredValue = getScalarValue(VLSStore->getOperand(0), 0);
@@ -2441,8 +2431,7 @@ void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {
   Value *Op1 = getVectorValue(VPInst->getOperand(2));
   auto *VPInstVecTy = dyn_cast<VectorType>(VPInst->getType());
 
-  // TODO: Using DA for loop invariance.
-  bool UniformCond = isVPValueUniform(Cond, Plan);
+  bool UniformCond = Plan->getVPlanDA()->isUniform(*Cond);
 
   // The condition can be loop invariant  but still defined inside the
   // loop. This means that we can't just use the original 'cond' value.
@@ -2681,7 +2670,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
   }
 
   // TODO: Using DA for loop invariance.
-  if (isVPValueUniform(Ptr, Plan)) {
+  if (Plan->getVPlanDA()->isUniform(*Ptr)) {
     if (MaskValue)
       serializePredicatedUniformInstruction(VPInst);
     else
@@ -2902,7 +2891,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   // TODO: Extend the optimization for masked uniform stores too. Will need
   // all-zero check (like masked uniform load) and functionality to find out
   // last unmasked lane for divergent data operand.
-  if (isVPValueUniform(Ptr, Plan) && !MaskValue) {
+  if (Plan->getVPlanDA()->isUniform(*Ptr) && !MaskValue) {
     Value *ScalarPtr = getScalarValue(Ptr, 0);
     VPValue *DataOp = VPInst->getOperand(0);
     Align Alignment = getOriginalLoadStoreAlignment(VPInst);
@@ -3445,8 +3434,7 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
   // instead. If it has been scalarized, and we actually need the value in
   // vector form, we will construct the vector values on demand.
   if (VPScalarMap.count(V)) {
-    // Use DA to check if VPValue is uniform.
-    bool IsUniform = isVPValueUniform(V, Plan);
+    bool IsUniform = Plan->getVPlanDA()->isUniform(*V);
 
     Value *VectorValue = nullptr;
     IRBuilder<>::InsertPointGuard Guard(Builder);
@@ -3531,7 +3519,7 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
   assert((isa<VPExternalDef>(V) || isa<VPConstant>(V) ||
           isa<VPMetadataAsValue>(V)) &&
          "Unknown external VPValue.");
-  assert(isVPValueUniform(V, Plan) && "External value is not uniform.");
+  assert(Plan->getVPlanDA()->isUniform(*V) && "External value is not uniform.");
   Value *UnderlyingV = getScalarValue(V, 0 /*Lane*/);
   assert(UnderlyingV &&
          "External VPValues are expected to have underlying IR value set.");
@@ -3623,7 +3611,7 @@ Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
 
   if (VPScalarMap.count(V)) {
     auto SV = VPScalarMap[V];
-    if (isVPValueUniform(V, Plan))
+    if (Plan->getVPlanDA()->isUniform(*V))
       // For uniform instructions the mapping is updated for lane zero only.
       Lane = 0;
 
@@ -3983,7 +3971,8 @@ bool VPOCodeGen::isSerialized(VPValue *V) const {
 void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
 
   unsigned Lanes =
-      (!VPInst->mayHaveSideEffects() && isVPValueUniform(VPInst, Plan)) ||
+      (!VPInst->mayHaveSideEffects() &&
+       Plan->getVPlanDA()->isUniform(*VPInst)) ||
               (isa<VPCallInstruction>(VPInst) &&
                cast<VPCallInstruction>(VPInst)->getVectorizationScenario() ==
                    VPCallInstruction::CallVecScenariosTy::DoNotWiden)
