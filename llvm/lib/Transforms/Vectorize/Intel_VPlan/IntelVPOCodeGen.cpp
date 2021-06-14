@@ -852,6 +852,9 @@ bool VPOCodeGen::isOpenCLSelectMask(StringRef FnName, unsigned Idx) {
 }
 
 Value *VPOCodeGen::getVLSLoadStoreMask(VectorType *WideValueType, int GroupSize) {
+  if (WideValueType->getNumElements() == VF * GroupSize && !MaskValue)
+    return nullptr;
+
   Value *MaskToUse = MaskValue;
   if (!MaskToUse)
     MaskToUse = ConstantInt::getTrue(
@@ -1749,7 +1752,8 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
         Base, VecTy->getPointerTo(
                   cast<PointerType>(Base->getType())->getAddressSpace()));
     auto GroupSize = VLSLoad->getGroupSize();
-    if (VecTy->getNumElements() == VF * GroupSize && !MaskValue) {
+    auto *LoadMask = getVLSLoadStoreMask(VecTy, GroupSize);
+    if (!LoadMask) {
       auto *WideLoad = cast<LoadInst>(Builder.CreateAlignedLoad(
           CastedBase, VLSLoad->getAlignment(), "vls.load"));
 
@@ -1761,7 +1765,6 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       return;
     }
 
-    auto *LoadMask = getVLSLoadStoreMask(VecTy, GroupSize);
     auto *WideLoad =
         Builder.CreateMaskedLoad(CastedBase, VLSLoad->getAlignment(), LoadMask,
                                  nullptr /* PassThru */, "vls.load");
@@ -1835,7 +1838,8 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
         Base, VecTy->getPointerTo(
                   cast<PointerType>(Base->getType())->getAddressSpace()));
     auto GroupSize = VLSStore->getGroupSize();
-    if (VecTy->getNumElements() == VF * GroupSize && !MaskValue) {
+    auto *StoreMask = getVLSLoadStoreMask(VecTy, GroupSize);
+    if (!StoreMask) {
       auto *WideStore = cast<StoreInst>(Builder.CreateAlignedStore(
           StoredValue, CastedBase, VLSStore->getAlignment()));
 
@@ -1846,7 +1850,6 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       return;
     }
 
-    auto *StoreMask = getVLSLoadStoreMask(VecTy, GroupSize);
     auto *WideStore = Builder.CreateMaskedStore(
         StoredValue, CastedBase, VLSStore->getAlignment(), StoreMask);
     (void)WideStore;

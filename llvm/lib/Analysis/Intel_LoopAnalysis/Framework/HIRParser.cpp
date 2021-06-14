@@ -2605,13 +2605,6 @@ void HIRParser::parse(HLLoop *HLoop) {
       // Parsing for upper failed. Treat loop as unknown as a backup option.
       IsUnknown = true;
 
-      // Add the explicit loop label and bottom test back to the loop.
-      LF.reattachLoopLabelAndBottomTest(HLoop);
-
-      // Store this loop for Ztt extraction at the end of the phase. Extracting
-      // Ztt in the visitor is not safe as it changes the structure of HIR.
-      CountableToUnkownLoops.insert(HLoop);
-
     } else {
       // In some cases, loop is recognized as unknown in loop formation phase
       // but recognized as countable by parsing phase due to better information
@@ -2672,12 +2665,17 @@ void HIRParser::parse(HLLoop *HLoop) {
     // In some odd cases, ScalarEvolution can return a proper backedge taken
     // count when queried from loop formation phase but not when queried from
     // parser. The caching behavior of ScalarEvolution is complicated and can
-    // return different results due to order of queries. So for safety purposes,
-    // we execute the following code for each unknown loop.
+    // return different results due to order of queries.
+    //
+    // Another scenario is when parsing for upper fails.
+    //
+    // So for safety purposes, we execute the following code for each unknown
+    // loop.
 
     // Add the explicit loop label and bottom test back to the loop.
     if (LF.reattachLoopLabelAndBottomTest(HLoop)) {
-      // Store this loop for Ztt extraction at the end of the phase.
+      // Store this loop for Ztt extraction at the end of the phase. Extracting
+      // Ztt in the visitor is not safe as it changes the structure of HIR.
       CountableToUnkownLoops.insert(HLoop);
     }
   }
