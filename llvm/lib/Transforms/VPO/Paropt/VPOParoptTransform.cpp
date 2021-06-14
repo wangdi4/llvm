@@ -11812,6 +11812,29 @@ bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
     RemoveKnownNDRange = true;
   }
 
+  // Detect cases that do not imply "distribute" behavior.
+  // We cannot use ND-range partitioning for them.
+  // For example,
+  // #pragma omp target teams
+  // #pragma omp parallel for
+  //   for (...) ...;
+  //
+  // The runtime will spawn some number of team, but each
+  // team has to run the same "parallel for" loop redundantly.
+  // If we use ND-range partitioning it will become:
+  // #pragma omp target teams
+  // #pragma omp distribute parallel for
+  //   for (...) ...;
+  //
+  // Note that "omp target parallel for" can still use ND-range
+  // partitioning under VPOParoptUtils::getSPIRImplicitMultipleTeams(),
+  // which we check above.
+  if (WTeams)
+    if (!WRegionUtils::isDistributeNode(W) &&
+        !WRegionUtils::isDistributeParLoopNode(W))
+      RemoveKnownNDRange = true;
+
+
   if (!RemoveKnownNDRange)
     return false;
 

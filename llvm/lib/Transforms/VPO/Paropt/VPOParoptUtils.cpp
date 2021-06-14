@@ -111,6 +111,11 @@ static cl::opt<bool> EnableDeviceSimdCodeGen(
     "vpo-paropt-enable-device-simd-codegen", cl::Hidden, cl::init(false),
     cl::desc("Enable explicit SIMD code generation for OpenMP target region"));
 
+// Enables Hidden Helper Threads for Async (nowait) offloading.
+static cl::opt<bool> EnableAsyncHelperThread(
+    "vpo-paropt-enable-async-helper-thread", cl::Hidden, cl::init(false),
+    cl::desc("Enable hidden helper threads for async offloading execution"));
+
 // If module M has a StructType of name Name, and element types ElementTypes,
 // return it.
 StructType *VPOParoptUtils::getStructTypeWithNameAndElementsFromModule(
@@ -1686,6 +1691,7 @@ CallInst *genKmpcTaskAllocImpl(WRegionNode *W, StructType *IdentTy, Value *Tid,
   Type *SizeTTy = GeneralUtils::getSizeTTy(F);
   Type *Int32Ty = Builder.getInt32Ty();
 
+
   auto *KmpTaskTWithPrivatesTySize =
       Builder.CreateZExtOrTrunc(KmpTaskTTWithPrivatesTySz, SizeTTy);
   auto *SharedsSize = ConstantInt::get(SizeTTy, KmpSharedTySz);
@@ -1808,7 +1814,7 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
       auto TaskFlagsAlloca = Builder.CreateAlloca(Int32Ty); // (1)
       Builder.CreateStore(TaskFlags, TaskFlagsAlloca);      // (2)
       Value *Cmp = Builder.CreateICmpNE(
-          VFinal, ConstantInt::get(VFinal->getType(), 0)); // (3)
+          VFinal, ConstantInt::get(VFinal->getType(), 0));  // (3)
 
       Instruction *ThenTerm, *ElseTerm;
       buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, InsertPt, DT); // (4)
@@ -1820,6 +1826,11 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
       Builder.SetInsertPoint(InsertPt);
       TaskFlags = Builder.CreateLoad(Int32Ty, TaskFlagsAlloca); // (6)
     }
+  }
+
+  if (VPOParoptUtils::enableAsyncHelperThread()) {
+    W->setTaskFlag(W->getTaskFlag() | WRNTaskFlag::HiddenHelper);
+    TaskFlags = ConstantInt::get(Int32Ty, W->getTaskFlag());
   }
 
   Value *TaskEntry = Builder.CreateBitCast(MicroTaskFn, KmpRoutineEntryPtrTy);
@@ -1851,7 +1862,15 @@ CallInst *VPOParoptUtils::genKmpcTaskAllocForAsyncObj(WRegionNode *W,
   Type *SizeTTy = GeneralUtils::getSizeTTy(InsertPt->getFunction());
 
   Value *ValueZero = ConstantInt::get(Int32Ty, 0);
-  Value *ProxyFlag = ConstantInt::get(Int32Ty, WRNTaskFlag::Proxy); // 0x10
+  Value *ProxyFlag = nullptr;
+
+  if (VPOParoptUtils::enableAsyncHelperThread()) {
+    ProxyFlag = ConstantInt::get(Int32Ty,
+                WRNTaskFlag::Proxy | WRNTaskFlag::HiddenHelper);
+  }
+  else
+    ProxyFlag = ConstantInt::get(Int32Ty, WRNTaskFlag::Proxy); // 0x10
+
   Value *ValueAsyncObjTySize = ConstantInt::get(SizeTTy, AsyncObjTySize);
 
   ConstantPointerNull *NullPtr = ConstantPointerNull::get(Int8PtrTy);
@@ -5815,6 +5834,10 @@ spirv::ExecutionSchemeTy VPOParoptUtils::getSPIRExecutionScheme() {
 
 bool VPOParoptUtils::enableDeviceSimdCodeGen() {
   return EnableDeviceSimdCodeGen;
+}
+
+bool VPOParoptUtils::enableAsyncHelperThread() {
+  return EnableAsyncHelperThread;
 }
 
 bool VPOParoptUtils::getSPIRImplicitMultipleTeams() {

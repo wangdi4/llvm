@@ -716,12 +716,14 @@ void VPOParoptTransform::guardSideEffectStatements(
   SmallPtrSet<BasicBlock *, 10> CriticalBBSet;
   SmallPtrSet<Instruction *, 10> SideEffectsInCritical;
 
-  for (auto &CriticalPair : OmpCriticalCalls) {
-    SmallVector<BasicBlock *, 32> BBSet;
-    GeneralUtils::collectBBSet(CriticalPair.first->getParent(),
-                               CriticalPair.second->getParent(),
-                               BBSet);
-    CriticalBBSet.insert(BBSet.begin(), BBSet.end());
+  if (!VPOParoptUtils::enableDeviceSimdCodeGen()) {
+    for (auto &CriticalPair : OmpCriticalCalls) {
+      SmallVector<BasicBlock *, 32> BBSet;
+      GeneralUtils::collectBBSet(CriticalPair.first->getParent(),
+                                 CriticalPair.second->getParent(),
+                                 BBSet);
+      CriticalBBSet.insert(BBSet.begin(), BBSet.end());
+    }
   }
 
   // Iterate over all instructions and add the side effect instructions

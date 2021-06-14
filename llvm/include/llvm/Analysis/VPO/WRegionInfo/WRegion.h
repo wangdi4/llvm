@@ -1103,8 +1103,9 @@ enum WRNTaskFlag : uint32_t {
   DtorThunk    = 0x00000008,
   Proxy        = 0x00000010,
   PriorityUsed = 0x00000020,
-  Detachable   = 0x00000040
-  // bits  8-16: reserved for compiler
+  Detachable   = 0x00000040,
+  HiddenHelper = 0x00000080
+  // bits  9-16: reserved for compiler
   // bits 17-20: library flags
   // bits 21-25: task state flags
   // bits 26-32: reserved for library
