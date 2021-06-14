@@ -671,6 +671,134 @@ static SmallVector<Value> ofrToIndexValues(OpBuilder &builder, Location loc,
   return result;
 }
 
+/// Rewrite a PadTensorOp into a sequence of InitTensorOp, FillOp and
+/// SubTensorInsertOp. For now, only constant padding values are supported.
+/// If there is enough static type information, TransferReadOps and
+/// TransferWriteOps may be generated instead of SubTensorInsertOps.
+struct GenericPadTensorOpVectorizationPattern
+    : public OpRewritePattern<PadTensorOp> {
+  using OpRewritePattern<PadTensorOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(PadTensorOp padOp,
+                                PatternRewriter &rewriter) const final {
+    // Given an OpFoldResult, return an index-typed value.
+    auto getIdxValue = [&](OpFoldResult ofr) {
+      if (auto val = ofr.dyn_cast<Value>())
+        return val;
+      return rewriter.create<ConstantIndexOp>(
+          padOp.getLoc(), getIntFromAttr(ofr.get<Attribute>())).getResult();
+    };
+
+    // Pad value must be a constant.
+    auto padValue = padOp.getConstantPaddingValue();
+    if (!padValue) return failure();
+
+    auto resultType = padOp.getResultType();
+    // Compute size of InitTensorOp. Any combination of static/dynamic is
+    // supported.
+    SmallVector<Value> dynSizes;
+    SmallVector<int64_t> staticSizes;
+    for (unsigned dim = 0; dim < resultType.getRank(); ++dim) {
+      if (resultType.isDynamicDim(dim)) {
+        auto srcSize = rewriter.createOrFold<memref::DimOp>(
+            padOp.getLoc(), padOp.source(), dim);
+        // Add low and high padding value.
+        auto plusLow = rewriter.createOrFold<AddIOp>(
+            padOp.getLoc(), srcSize, getIdxValue(padOp.getMixedLowPad()[dim]));
+        auto plusHigh = rewriter.createOrFold<AddIOp>(
+            padOp.getLoc(), plusLow, getIdxValue(padOp.getMixedHighPad()[dim]));
+        dynSizes.push_back(plusHigh);
+      }
+      staticSizes.push_back(resultType.getDimSize(dim));
+    }
+
+    Value init = rewriter.create<InitTensorOp>(
+        padOp.getLoc(), dynSizes, staticSizes, resultType.getElementType());
+    Value fill =
+        rewriter.create<FillOp>(padOp.getLoc(), init, padValue).result();
+
+    auto sourceType = padOp.getSourceType();
+
+    // Try vectorizing the copy of source.
+    if (tryVectorizeCopy(rewriter, padOp, padValue, fill).succeeded())
+      return success();
+
+    // Neither source type nor PadTensorOp result type have static shape. Such
+    // PadTensorOps cannot be vectorized. Generate a SubTensorInsertOp instead.
+
+    // Compute size of source of PadTensorOp.
+    SmallVector<OpFoldResult> srcSizes;
+    for (unsigned dim = 0; dim < sourceType.getRank(); ++dim) {
+      if (sourceType.isDynamicDim(dim)) {
+        srcSizes.push_back(rewriter.createOrFold<memref::DimOp>(
+            padOp.getLoc(), padOp.source(), dim));
+      } else {
+        srcSizes.push_back(rewriter.getIndexAttr(sourceType.getDimSize(dim)));
+      }
+    }
+    // Strides of SubTensorInsertOp are all 1.
+    SmallVector<OpFoldResult> strides(sourceType.getRank(),
+                                      rewriter.getIndexAttr(1));
+    rewriter.replaceOpWithNewOp<SubTensorInsertOp>(
+        padOp, padOp.source(), fill, padOp.getMixedLowPad(), srcSizes, strides);
+
+    return success();
+  }
+
+  /// Vectorize the copying of a PadTensorOp's source. This is possible if each
+  /// dimension size is statically know in the source type or the result type
+  /// (or both).
+  LogicalResult tryVectorizeCopy(PatternRewriter &rewriter, PadTensorOp padOp,
+                                 Value padValue, Value dest) const {
+    auto sourceType = padOp.getSourceType();
+    auto resultType = padOp.getResultType();
+
+    SmallVector<int64_t> vecShape;
+    SmallVector<bool> readInBounds;
+    SmallVector<bool> writeInBounds;
+    for (unsigned i = 0; i < sourceType.getRank(); ++i) {
+      if (!sourceType.isDynamicDim(i)) {
+        vecShape.push_back(sourceType.getDimSize(i));
+        // Source shape is statically known: Neither read nor write are out-of-
+        // bounds.
+        readInBounds.push_back(true);
+        writeInBounds.push_back(true);
+      } else if (!resultType.isDynamicDim(i)) {
+        // Source shape is not statically known, but result shape is. Vectorize
+        // with size of result shape. This may be larger than the source size.
+        vecShape.push_back(resultType.getDimSize(i));
+        // Read may be out-of-bounds because the result size could be larger
+        // than the source size.
+        readInBounds.push_back(false);
+        // Write is out-of-bounds if low padding > 0.
+        writeInBounds.push_back(
+            isEqualConstantIntOrValue(padOp.getMixedLowPad()[i],
+                                      rewriter.getIndexAttr(0)));
+      } else {
+        // Neither source nor result dim of padOp is static. Cannot vectorize
+        // the copy.
+        return failure();
+      }
+    }
+    auto vecType = VectorType::get(vecShape, sourceType.getElementType());
+
+    // Generate TransferReadOp.
+    SmallVector<Value> readIndices(
+        vecType.getRank(), rewriter.create<ConstantIndexOp>(padOp.getLoc(), 0));
+    auto read = rewriter.create<vector::TransferReadOp>(
+        padOp.getLoc(), vecType, padOp.source(), readIndices, padValue,
+        readInBounds);
+
+    // Generate TransferWriteOp.
+    auto writeIndices = ofrToIndexValues(
+        rewriter, padOp.getLoc(), padOp.getMixedLowPad());
+    rewriter.replaceOpWithNewOp<vector::TransferWriteOp>(
+        padOp, read, dest, writeIndices, writeInBounds);
+
+    return success();
+  }
+};
+
 /// Base pattern for rewriting PadTensorOps whose result is consumed by a given
 /// operation type OpTy.
 template <typename OpTy>
@@ -949,14 +1077,13 @@ struct PadTensorOpVectorizationWithSubTensorInsertPattern
 
 void mlir::linalg::populatePadTensorOpVectorizationPatterns(
     RewritePatternSet &patterns, PatternBenefit baseBenefit) {
-  // TODO: Canonicalizer handles simple cases where low = 0 and high = 0, but a
-  // generic vectorization pattern is still missing.
-
+  patterns.add<GenericPadTensorOpVectorizationPattern>(
+      patterns.getContext(), baseBenefit);
   // Try these specialized patterns first before resorting to the generic one.
   patterns.add<PadTensorOpVectorizationWithTransferReadPattern,
                PadTensorOpVectorizationWithTransferWritePattern,
                PadTensorOpVectorizationWithSubTensorInsertPattern>(
-      patterns.getContext(), baseBenefit);
+      patterns.getContext(), baseBenefit.getBenefit() + 1);
 }
 
 // TODO: cleanup all the convolution vectorization patterns.
