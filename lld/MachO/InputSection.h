@@ -40,7 +40,6 @@ public:
   // offset from the beginning of its parent OutputSection.
   virtual uint64_t getOffset(uint64_t off) const = 0;
   // The offset from the beginning of the file.
-  virtual uint64_t getFileOffset(uint64_t off) const = 0;
   uint64_t getVA(uint64_t off) const;
   // Whether the data at \p off in this InputSection is live.
   virtual bool isLive(uint64_t off) const = 0;
@@ -77,7 +76,7 @@ private:
 // ConcatInputSections are combined into (Concat)OutputSections through simple
 // concatenation, in contrast with literal sections which may have their
 // contents merged before output.
-class ConcatInputSection : public InputSection {
+class ConcatInputSection final : public InputSection {
 public:
   ConcatInputSection(StringRef segname, StringRef name)
       : InputSection(ConcatKind, segname, name) {}
@@ -86,7 +85,6 @@ public:
                      ArrayRef<uint8_t> data, uint32_t align, uint32_t flags)
       : InputSection(ConcatKind, segname, name, file, data, align, flags) {}
 
-  uint64_t getFileOffset(uint64_t off) const override;
   uint64_t getOffset(uint64_t off) const override { return outSecOff + off; }
   uint64_t getVA() const { return InputSection::getVA(0); }
   // ConcatInputSections are entirely live or dead, so the offset is irrelevant.
@@ -110,7 +108,6 @@ public:
   // How many symbols refer to this InputSection.
   uint32_t numRefs = 0;
   uint64_t outSecOff = 0;
-  uint64_t outSecFileOff = 0;
 };
 
 // We allocate a lot of these and binary search on them, so they should be as
@@ -139,13 +136,12 @@ static_assert(sizeof(StringPiece) == 16, "StringPiece is too big!");
 // ld64 is more conservative and does not do that. This was mostly done for
 // implementation simplicity; if we find programs that need the more
 // conservative behavior we can certainly implement that.
-class CStringInputSection : public InputSection {
+class CStringInputSection final : public InputSection {
 public:
   CStringInputSection(StringRef segname, StringRef name, InputFile *file,
                       ArrayRef<uint8_t> data, uint32_t align, uint32_t flags)
       : InputSection(CStringLiteralKind, segname, name, file, data, align,
                      flags) {}
-  uint64_t getFileOffset(uint64_t off) const override;
   uint64_t getOffset(uint64_t off) const override;
   bool isLive(uint64_t off) const override { return getStringPiece(off).live; }
   void markLive(uint64_t off) override { getStringPiece(off).live = true; }
@@ -172,12 +168,11 @@ public:
   std::vector<StringPiece> pieces;
 };
 
-class WordLiteralInputSection : public InputSection {
+class WordLiteralInputSection final : public InputSection {
 public:
   WordLiteralInputSection(StringRef segname, StringRef name, InputFile *file,
                           ArrayRef<uint8_t> data, uint32_t align,
                           uint32_t flags);
-  uint64_t getFileOffset(uint64_t off) const override;
   uint64_t getOffset(uint64_t off) const override;
   bool isLive(uint64_t off) const override {
     return live[off >> power2LiteralSize];

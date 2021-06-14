@@ -477,15 +477,6 @@ void StubHelperSection::setup() {
                     /*noDeadStrip=*/false);
 }
 
-ImageLoaderCacheSection::ImageLoaderCacheSection()
-    : ConcatInputSection(segment_names::data, section_names::data) {
-  uint8_t *arr = bAlloc.Allocate<uint8_t>(target->wordSize);
-  memset(arr, 0, target->wordSize);
-  data = {arr, target->wordSize};
-  align = target->wordSize;
-  live = true;
-}
-
 LazyPointerSection::LazyPointerSection()
     : SyntheticSection(segment_names::data, section_names::lazySymbolPtr) {
   align = target->wordSize;
@@ -783,7 +774,7 @@ uint32_t SymtabSection::getNumSymbols() const {
 }
 
 // This serves to hide (type-erase) the template parameter from SymtabSection.
-template <class LP> class SymtabSectionImpl : public SymtabSection {
+template <class LP> class SymtabSectionImpl final : public SymtabSection {
 public:
   SymtabSectionImpl(StringTableSection &stringTableSection)
       : SymtabSection(stringTableSection) {}
