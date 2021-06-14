@@ -245,27 +245,20 @@ public:
 
   // Build a VPGEPInstruction for the LLVM-IR instruction \p Inst using base
   // pointer \p Ptr and list of index operands \p IdxList
-  VPInstruction *createGEP(VPValue *Ptr, ArrayRef<VPValue *> IdxList,
-                           Instruction *Inst) {
+  VPGEPInstruction *createGEP(Type *SourceElementType, Type *ResultElementType,
+                              VPValue *Ptr, ArrayRef<VPValue *> IdxList,
+                              Instruction *Inst) {
     assert((Inst || Ptr->getType()->isPointerTy()) &&
            "Can't define type for GEP instruction");
     // TODO. Currently, it's expected that newly created GEP (e.g. w/o
     // underlying IR) is created for a non-array types. Need to handle those
     // arrays when simd reductions/privates will support arrays.
     Type *Ty = Inst ? Inst->getType() : Ptr->getType();
-    VPInstruction *NewVPInst = new VPGEPInstruction(Ty, Ptr, IdxList);
+    auto *NewVPInst = new VPGEPInstruction(SourceElementType, ResultElementType,
+                                           Ty, Ptr, IdxList);
     insert(NewVPInst);
     if (Inst)
       NewVPInst->setUnderlyingValue(*Inst);
-    return NewVPInst;
-  }
-
-  // Build an inbounds VPGEPInstruction for the LLVM-IR instruction \p Inst
-  // using base pointer \p Ptr and list of index operands \p IdxList
-  VPInstruction *createInBoundsGEP(VPValue *Ptr, ArrayRef<VPValue *> IdxList,
-                                   Instruction *Inst) {
-    VPInstruction *NewVPInst = createGEP(Ptr, IdxList, Inst);
-    cast<VPGEPInstruction>(NewVPInst)->setIsInBounds(true);
     return NewVPInst;
   }
 

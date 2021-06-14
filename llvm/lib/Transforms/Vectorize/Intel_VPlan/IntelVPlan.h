@@ -1242,14 +1242,29 @@ class VPGEPInstruction : public VPInstruction {
 
 private:
   bool InBounds;
+  /// SourceElementType/ResultElementType have the same meaning as for
+  /// llvm::GetElementPtrInst and are needed to make opaque pointers work as
+  /// that type is used for calculating the offsets.
+  Type *SourceElementType;
+  // It could be recomputed on demand using the SourceElementType and indices,
+  // but it's easier to just store it here (and that follows the
+  // llvm::GetElementPtrInst's approach).
+  Type *ResultElementType;
 
 public:
   /// Default constructor for VPGEPInstruction. The default value for \p
   /// InBounds is false.
-  VPGEPInstruction(Type *BaseTy, VPValue *Ptr, ArrayRef<VPValue *> IdxList,
+  //
+  // Technically, we could have computed ResultElementType from
+  // SourceElementType/indices list. However, there are existing inconsistencies
+  // (e.g. SOA geps), so delay the auto-deduction it untill those issues are
+  // fixed.
+  VPGEPInstruction(Type *SourceElementType, Type *ResultElementType,
+                   Type *BaseTy, VPValue *Ptr, ArrayRef<VPValue *> IdxList,
                    bool InBounds = false)
       : VPInstruction(Instruction::GetElementPtr, BaseTy, {}),
-        InBounds(InBounds) {
+        InBounds(InBounds), SourceElementType(SourceElementType),
+        ResultElementType(ResultElementType) {
     assert(Ptr && "Base pointer operand of GEP cannot be null.");
     // Base pointer should be the first operand of GEP followed by index
     // operands
@@ -1258,6 +1273,12 @@ public:
     addOperand(Ptr);
     for (auto Idx : IdxList)
       addOperand(Idx);
+    assert(cast<PointerType>(getOperand(0)->getType()->getScalarType())
+               ->isOpaqueOrPointeeTypeMatches(SourceElementType) &&
+           "SourceElemenType doesn't match non-opaque pointer base!");
+    assert(cast<PointerType>(getType()->getScalarType())
+               ->isOpaqueOrPointeeTypeMatches(ResultElementType) &&
+           "ResultElementType doesn't match non-opaque result ponter!");
   }
 
   /// Setter and getter functions for InBounds.
@@ -1266,6 +1287,18 @@ public:
 
   /// Get the base pointer operand of given VPGEPInstruction.
   VPValue *getPointerOperand() const { return getOperand(0); }
+
+  Type *getSourceElementType() const { return SourceElementType; }
+  Type *getResultElementType() const { return ResultElementType; }
+
+  /// Check if pointer operand is opaque.
+  ///
+  /// Temporary helper method to reduce boilerplate code. We should delete it
+  /// after transition to opaque ptrs is finished.
+  bool isOpaque() const {
+    return cast<PointerType>(getPointerOperand()->getType()->getScalarType())
+        ->isOpaque();
+  }
 
   /// Methods for supporting type inquiry through isa, cast and dyn_cast:
   static bool classof(const VPInstruction *VPI) {
@@ -1293,7 +1326,8 @@ public:
 protected:
   virtual VPGEPInstruction *cloneImpl() const final {
     VPGEPInstruction *Cloned =
-        new VPGEPInstruction(getType(), getOperand(0), {}, isInBounds());
+        new VPGEPInstruction(SourceElementType, ResultElementType, getType(),
+                             getOperand(0), {}, isInBounds());
     for (auto *O : make_range(op_begin()+1, op_end())) {
       Cloned->addOperand(O);
     }

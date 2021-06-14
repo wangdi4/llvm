@@ -181,10 +181,10 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
       // Build VPGEPInstruction to represent GEP instructions
       SmallVector<VPValue *, 3> IdxList(VPOperands.begin() + 1,
                                         VPOperands.end());
-      if (GEP->isInBounds())
-        NewVPInst = VPIRBuilder.createInBoundsGEP(VPOperands[0], IdxList, Inst);
-      else
-        NewVPInst = VPIRBuilder.createGEP(VPOperands[0], IdxList, Inst);
+      NewVPInst = VPIRBuilder.createGEP(GEP->getSourceElementType(),
+                                        GEP->getResultElementType(),
+                                        VPOperands[0], IdxList, Inst);
+      cast<VPGEPInstruction>(NewVPInst)->setIsInBounds(GEP->isInBounds());
     } else if (auto *Call = dyn_cast<CallInst>(Inst)) {
       // Build VPCallInstruction to represent Call instructions.
       SmallVector<VPValue *, 3> ArgList(VPOperands.begin(),

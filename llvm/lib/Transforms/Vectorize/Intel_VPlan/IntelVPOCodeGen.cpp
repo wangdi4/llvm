@@ -207,7 +207,14 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
            "VPGEPInstruction should have atleast two operands.");
     Value *GepBasePtr = Ops[0];
     Ops = Ops.drop_front();
-    SerialInst = Builder.CreateGEP(GepBasePtr, Ops);
+
+    Type *SourceElementType = VPGEP->getSourceElementType();
+    if (!VPGEP->isOpaque())
+      // FIXME: SOA transformation cuts lots of corners and doesn't preserve
+      // consistency in SourceElementType.
+      SourceElementType = nullptr;
+
+    SerialInst = Builder.CreateGEP(SourceElementType, GepBasePtr, Ops);
     cast<GetElementPtrInst>(SerialInst)->setIsInBounds(VPGEP->isInBounds());
     StringRef GepName =
         isSOAAccess(VPGEP, Plan) ? "soa.scalar.gep" : "scalar.gep";
@@ -1058,7 +1065,13 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
 
     StringRef GepName =
         isSOAAccess(GEP, Plan) ? "soa_vectorGEP" : "mm_vectorGEP";
-    Value *VectorGEP = Builder.CreateGEP(WideGepBasePtr, OpsV, GepName);
+    // FIXME: SOA transformation cuts lots of corners and doesn't preserve
+    // consistency in SourceElementType.
+    Type *SourceElementType =
+        GEP->isOpaque() ? GEP->getSourceElementType() : nullptr;
+
+    Value *VectorGEP = Builder.CreateGEP(SourceElementType,
+                                         WideGepBasePtr, OpsV, GepName);
     cast<GetElementPtrInst>(VectorGEP)->setIsInBounds(GEP->isInBounds());
 
     VPWidenMap[GEP] = VectorGEP;
