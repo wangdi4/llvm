@@ -136,6 +136,16 @@ void __kmpc_init_runtime() {
   __kmp_init_locals();
 }
 
+/// Named barrier support. These are empty intentionally for BE that do not
+/// replace them with intrinsics.
+EXTERN void __kmpc_nbarrier_init(uint nbarrier_count) {}
+
+EXTERN void __kmpc_nbarrier_wait(uint nbarrier_id) {}
+
+EXTERN void __kmpc_nbarrier_signal(
+    uint nbarrier_id, uint num_producers, uint num_consumers, uint op_type,
+    uint fence_type) {}
+
 
 ///
 /// Support for critical section

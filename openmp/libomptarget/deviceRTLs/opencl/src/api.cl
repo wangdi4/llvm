@@ -199,4 +199,19 @@ EXTERN void kmp_global_barrier(void) {
 #endif
 }
 
+EXTERN void ompx_nbarrier_init(uint nbarrier_count) {
+  __kmpc_nbarrier_init(nbarrier_count);
+}
+
+EXTERN void ompx_nbarrier_wait(uint nbarrier_id) {
+  __kmpc_nbarrier_wait(nbarrier_id);
+}
+
+EXTERN void ompx_nbarrier_signal(
+    uint nbarrier_id, uint num_producers, uint num_consumers, uint op_type,
+    uint fence_type) {
+  __kmpc_nbarrier_signal(nbarrier_id, num_producers, num_consumers, op_type,
+                         fence_type);
+}
+
 #endif // INTEL_COLLAB
