@@ -7872,6 +7872,15 @@ public:
         // can be associated with the combined storage if shared memory mode is
         // active or the base declaration is not global variable.
         const auto *VD = dyn_cast<VarDecl>(I->getAssociatedDeclaration());
+#if INTEL_COLLAB
+        if (CGF.CGM.getLangOpts().OpenMPLateOutline &&
+            VD && VD->getType()->isLValueReferenceType() &&
+            isa<llvm::LoadInst>(BP.getPointer()))
+          // For variable with reference type, the privatization is
+          // performed in the late outlining. Skip generate extra load.
+          FirstPointerInComplexData = true;
+        else
+#endif // INTEL_COLLAB
         if (CGF.CGM.getOpenMPRuntime().hasRequiresUnifiedSharedMemory() ||
             !VD || VD->hasLocalStorage())
           BP = CGF.EmitLoadOfPointer(BP, Ty->castAs<PointerType>());
