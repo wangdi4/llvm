@@ -851,12 +851,18 @@ VPlanPeelingVariant *VPOCodeGen::getGuaranteedPeeling() const {
   if (!PreferredPeeling)
     return &VPlanStaticPeeling::NoPeelLoop;
 
-  // As of now, any peel loop can be skipped at run-time because of the low
-  // number of iterations or because of missed targetAlignment. The only
-  // "peeling" that is currenly guaranteed to be preserved is the absence of any
-  // peeling (VPlanStaticPeeling{0}).
+  // As of now, dynamic peel loop can be skipped at run-time at least because of
+  // missed targetAlignment (i.e. when peeled pointer is not aligned on element
+  // boundary).
+  // With the new cfg merger, the static peeling is executed always except cases
+  // when it does not leave room for any vector iterations (i.e. when
+  // peel_tc + vf*uf > ub). In these cases we don't execute main loop but
+  // execute remainder.
+  // So we can guaranty that any static peeling will be executed before main
+  // vector looop but can't do the same for dynamic peeling.
   if (isa<VPlanStaticPeeling>(PreferredPeeling) &&
-      cast<VPlanStaticPeeling>(PreferredPeeling)->peelCount() == 0)
+      (cast<VPlanStaticPeeling>(PreferredPeeling)->peelCount() == 0 ||
+       Plan->hasExplicitRemainder()))
     return PreferredPeeling;
 
   return nullptr;
