@@ -66,6 +66,9 @@ int __kmpc_global_thread_num(void *) __attribute__((weak));
 #define LEVEL0_ALIGNMENT 0
 /// Staging buffer size for host to device copy
 #define LEVEL0_STAGING_BUFFER_SIZE (1 << 12)
+/// Initial value of ze structures
+#define LEVEL0_STRUCTURE_INIT(ST)                                              \
+  { .stype = ZE_STRUCTURE_TYPE_##ST, .pNext = nullptr }
 
 // Subdevice utilities
 // Device encoding (MSB=63, LSB=0)
@@ -713,7 +716,8 @@ static uint32_t getCmdQueueGroupOrdinal(ze_device_handle_t Device) {
   uint32_t groupCount = 0;
   CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
               &groupCount, nullptr);
-  std::vector<ze_command_queue_group_properties_t> groupProperties(groupCount);
+  std::vector<ze_command_queue_group_properties_t> groupProperties(
+      groupCount, LEVEL0_STRUCTURE_INIT(COMMAND_QUEUE_GROUP_PROPERTIES));
   CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
               &groupCount, groupProperties.data());
   uint32_t groupOrdinal = UINT32_MAX;
@@ -737,7 +741,8 @@ static uint32_t getCmdQueueGroupOrdinalCCS(ze_device_handle_t Device,
   uint32_t groupCount = 0;
   CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
               &groupCount, nullptr);
-  std::vector<ze_command_queue_group_properties_t> groupProperties(groupCount);
+  std::vector<ze_command_queue_group_properties_t> groupProperties(
+      groupCount, LEVEL0_STRUCTURE_INIT(COMMAND_QUEUE_GROUP_PROPERTIES));
   CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
               &groupCount, groupProperties.data());
   uint32_t groupOrdinal = UINT32_MAX;
@@ -764,7 +769,8 @@ static uint32_t getCmdQueueGroupOrdinalCopy(ze_device_handle_t Device) {
   uint32_t groupCount = 0;
   CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
               &groupCount, nullptr);
-  std::vector<ze_command_queue_group_properties_t> groupProperties(groupCount);
+  std::vector<ze_command_queue_group_properties_t> groupProperties(
+      groupCount, LEVEL0_STRUCTURE_INIT(COMMAND_QUEUE_GROUP_PROPERTIES));
   CALL_ZE_RET(UINT32_MAX, zeDeviceGetCommandQueueGroupProperties, Device,
               &groupCount, groupProperties.data());
   uint32_t groupOrdinal = UINT32_MAX;
@@ -2138,7 +2144,7 @@ void MemoryPoolTy::init(int32_t allocKind, RTLDeviceInfoTy *RTL) {
   }
 
   // Use fixed parameters for shared memory pool on discrete device.
-  ze_device_properties_t properties;
+  ze_device_properties_t properties = LEVEL0_STRUCTURE_INIT(DEVICE_PROPERTIES);
   bool fixedParams = false;
   if (allocKind == TARGET_ALLOC_SHARED) {
     CALL_ZE_EXIT_FAIL(zeDeviceGetProperties, Device, &properties);
@@ -2586,8 +2592,9 @@ static int32_t getSubDevices(
 }
 
 static int32_t appendDeviceProperties(ze_device_handle_t Device) {
-  ze_device_properties_t properties;
-  ze_device_compute_properties_t computeProperties;
+  ze_device_properties_t properties = LEVEL0_STRUCTURE_INIT(DEVICE_PROPERTIES);
+  ze_device_compute_properties_t computeProperties =
+      LEVEL0_STRUCTURE_INIT(DEVICE_COMPUTE_PROPERTIES);
 
   DeviceInfo->Devices.push_back(Device);
 
@@ -2598,6 +2605,8 @@ static int32_t appendDeviceProperties(ze_device_handle_t Device) {
 
   CALL_ZE_RET_FAIL(zeDeviceGetComputeProperties, Device, &computeProperties);
   DeviceInfo->ComputeProperties.push_back(computeProperties);
+
+  IDP("Found a GPU device, Name = %s\n", properties.name);
 
   return OFFLOAD_SUCCESS;
 }
@@ -2638,9 +2647,6 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
 
     for (uint32_t i = 0; i < numDevices; i++) {
       auto device = devices[i];
-      ze_device_properties_t properties = {};
-      CALL_ZE_RET_ZERO(zeDeviceGetProperties, device, &properties);
-      IDP("Found a GPU device, Name = %s\n", properties.name);
 
       if (deviceMode == DEVICE_MODE_TOP || deviceMode == DEVICE_MODE_ALL) {
         if (appendDeviceProperties(device) != OFFLOAD_SUCCESS)
@@ -3185,7 +3191,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
     RTLKernelProperties.Name = name;
 
     // Retrieve kernel group size info.
-    ze_kernel_properties_t kernelProperties;
+    ze_kernel_properties_t kernelProperties =
+        LEVEL0_STRUCTURE_INIT(KERNEL_PROPERTIES);
     CALL_ZE(rc, zeKernelGetProperties, kernels[i], &kernelProperties);
     if (DeviceInfo->ForcedKernelWidth > 0) {
       RTLKernelProperties.Width = DeviceInfo->ForcedKernelWidth;
