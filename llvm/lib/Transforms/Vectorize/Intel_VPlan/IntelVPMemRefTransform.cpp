@@ -30,75 +30,197 @@ static LoopVPlanDumpControl SOAGEPsDumpsControl("transformed-soa-geps",
 namespace llvm {
 namespace vpo {
 
+// Return true if this is a non unit-stride SOA GEP.
+bool VPMemRefTransform::isSOANonUnitStridedGEP(VPInstruction *I) {
+  return isa<VPGEPInstruction>(I) && DA.isSOAShape(I) && !DA.isSOAUnitStride(I);
+}
+
+// Return \true if the given GEP is a SOA-unit-stride GEP.
+bool VPMemRefTransform::isSOAUnitStridedGEP(VPInstruction *I) {
+  return isa<VPGEPInstruction>(I) && DA.isSOAUnitStride(I);
+}
+
+// Method which clones the instruction if predicate \p Pred is true for its
+// users. The cloned instruction is replaced in all users for which \p Pred
+// is true.
+void VPMemRefTransform::cloneAndReplaceUses(
+    VPInstruction *I, std::function<bool(const VPUser *)> Pred) {
+
+  if (none_of(I->users(), [&](const VPUser *User) { return Pred(User); }))
+    return;
+
+  Builder.setInsertPoint(I);
+  // Clone the GEP.
+  auto *ClonedInst = I->clone();
+
+  // Copy over the shape from the previous instruction.
+  DA.updateVectorShape(ClonedInst, DA.getVectorShape(*I));
+
+  // Use this GEP when we encounter the non-load/store user of this GEP.
+  Builder.insert(ClonedInst);
+
+  // Replace original GEP by cloned one in filtered users.
+  I->replaceUsesWithIf(ClonedInst,
+                       [&](const VPUser *User) { return Pred(User); });
+}
+
+// Helper method to update dependent PHI instructions.
+void VPMemRefTransform::updateDependentPHIs(VPInstruction *I) {
+  // Calling DA.updateDivergence(*I) does not quite work as
+  // the call marks the GEP as SOA unit-stride again, and as a
+  // consequence, shape of the PHIs are not updated.
+  for (auto *User : I->users())
+    if (auto *Phi = dyn_cast<VPPHINode>(User))
+      DA.updateDivergence(*Phi);
+}
+
+// Transform SOA-unitstrided GEPs to GEPs which return a vector of pointers to
+// the base-address of each element.
+void VPMemRefTransform::transformSOAUnitStrideGEPs(VPGEPInstruction *GEP) {
+  Builder.setInsertPoint(GEP->getParent(), std::next(GEP->getIterator(), 1));
+  Type *IndexTy = Type::getInt64Ty(*(Plan.getLLVMContext()));
+  VPInstruction *ConstVectorStepInst =
+      Builder.create<VPConstStepVector>("const.step", IndexTy, 0, 1, VF);
+  VPInstruction *BaseAddrGEP = Builder.createGEP(
+      GEP,
+      {Plan.getVPConstant(ConstantInt::get(IndexTy, 0)), ConstVectorStepInst},
+      nullptr);
+  GEP->replaceUsesWithIf(BaseAddrGEP, [&](VPUser *User) {
+    return isa<VPPHINode>(User) || isa<VPBlendInst>(User);
+  });
+  DA.markDivergent(*ConstVectorStepInst);
+  // We mark the instruction as 'Random' shaped now. This is because, it
+  // is no different from other 'Random' GEPs and we want to avoid
+  // double-processing of 'SOA'-GEPs.
+  DA.markDivergent(*BaseAddrGEP);
+  // Call updateDependentPHIs() to update the shape of dependent instructions.
+  updateDependentPHIs(BaseAddrGEP);
+}
+
+// Transform SOA-non-unitstride GEPs to GEPs which return a vector of pointers
+// to the base-address of each element.
+void VPMemRefTransform::transformSOANonUnitStrideGEPs(VPGEPInstruction *GEP) {
+  Builder.setInsertPoint(GEP);
+  VPInstruction *ConstVectorStepInst = Builder.create<VPConstStepVector>(
+      "const.step", Type::getInt64Ty(*(Plan.getLLVMContext())), 0, 1, VF);
+  GEP->addOperand(ConstVectorStepInst);
+  assert(DA.isDivergent(*GEP) && "Expect the GEP to be divergent.");
+  DA.markDivergent(*ConstVectorStepInst);
+  // We mark the instruction as 'Random' shaped now. This is because, it
+  // is no different from other 'Random' GEPs.
+  DA.updateVectorShape(GEP, VPVectorShape::Rnd);
+  // Call updateDependentPHIs() to update the shape of dependent instructions.
+  // NOTE: Blends are always random in the scenario. So, now special handling is
+  // required in the callee.
+  updateDependentPHIs(GEP);
+}
+
 /// Do appropriate transforms on SOA GEPs.
 // For SOARnd and SOAStr-shaped GEPs, we add an extra argument, a const-vector
 // <0, 1, .., VF-1>. This extra argument is represented as VPInstruction, which
 // is not materialized, but, during CG, is tranformed into a const-vector. This
 // const-vector aids in computation of address of the elements to be accessed
 // within each private-copy of the array.
-void VPMemRefTransform::transformSOAGEPs(unsigned VF) {
-
-  auto *DA = cast<VPlanDivergenceAnalysis>(Plan.getVPlanDA());
-  // Return true if this is a non unit-stride SOA-access GEPs, where atleast one
-  // user is a load/store instruction.
-  auto IsNonUnitStrideSOAAccessGEP = [&](const VPInstruction *I) {
-    return isa<VPGEPInstruction>(I) &&
-           (DA->isSOAShape(I) && !DA->isSOAUnitStride(I)) &&
-           any_of(I->users(), [](const VPValue *User) {
-             return isa<VPLoadStoreInst>(User);
-           });
-  };
-
-  // Determine if the GEP should be cloned. We decide to clone the GEPs only if
-  // any of it's users is a non load/store instruction.
-  auto HasNonLoadStoreUser = [](const VPInstruction *GEP) {
-    return any_of(GEP->users(),
-                  [](const auto *User) { return !isa<VPLoadStoreInst>(User); });
-  };
+// For SOASeq instruction, if the user happens to be a PHI(which merges SOA
+// non-unitstrided pointers)/blend, we just get the base-address of the
+// individual elements and pass the resultant GEP to the PHI. We also clone the
+// original instruction, if there are non-PHI users for the GEP.
+void VPMemRefTransform::transformSOAGEPs(unsigned InVF) {
 
   // Algorithm:
-  // 1) Iterate through the VPlan and look for non unit-stride SOA GEPs and make
-  // sure that they are used in a load/store.
-  // 2) For every such GEP, check if there is a non load/store user for that GEP.
-  // If such GEP exists, create a clone of the GEP and then replace all the uses
-  // of the original GEP in those instructions (typically other GEPs), with the
-  // new cloned GEPs.
-  // 3) Create a const-step-vector instruction and add it as an operand to the
-  // original GEP. These would continue to be used for load/store operation.
+  // Iterate through the VPlan and,
+  // 1) For SOAStr/SOARnd GEPs,
+  //   i) If there is a non load/store/PHI/Blend user for the GEP, clone the GEP
+  //   and then replace all those uses of the original GEP with the cloned GEP.
+  //   ii) For load/store/Phi/Blend uses, create a const-step-vector instruction
+  //   and add it as an operand to the original GEP.
+  // 2) For SOASeq GEP,
+  //   i) If there is a load/store/GEP or a PHI(which merges only SOAAeq ptrs),
+  //   user of that GEP, we want to maintain the SOASeq property of the GEP, so
+  //   that we generate wide load/store(s). Clone the GEP and replace all the
+  //   load/store uses with the cloned GEP.
+  //   ii) For PHI/Blend users, add a
+  //   ZeroInitializer and a const-step-vector as arguments to the original GEP.
+  //   This changes the GEP-type from <VF x Ty>*
+  //   -> <VF x Ty*>. Also, mark this new GEP as 'Random' shape and then invoke
+  //   updateDivergence() on dependent PHIs. This changes the shape of the PHIs
+  //   from SOARandom to just Random.
 
-  VPBuilder Builder;
+  VF = InVF;
   bool ResetSVA = false;
+  SmallVector<VPInstruction *, 50> InstructionsToProcess;
+
+  auto SOANonUnitStridedPHIUsersToProcess = [=](const VPUser *U) -> bool {
+    return isa<VPLoadStoreInst>(U) || isa<VPPHINode>(U) || isa<VPBlendInst>(U);
+  };
+
+  auto SOAUnitStridedPHIUsersToProcess = [=](const VPUser *U) -> bool {
+    return (isa<VPPHINode>(U) && !DA.isUnitStridePtr(U)) || isa<VPBlendInst>(U);
+  };
 
   for (auto &VPBB : Plan) {
     for (auto &I : VPBB) {
-      if (IsNonUnitStrideSOAAccessGEP(&I)) {
-        Builder.setInsertPoint(&I);
+      if (isSOANonUnitStridedGEP(&I)) {
 
-        // Clone the GEP instruction only if there is a non load/store user of
-        // this GEP.
-        if (HasNonLoadStoreUser(&I)) {
-          // Clone the GEP.
-          auto *ClonedGEP = I.clone();
-
-          // Copy over the shape from the previous instruction.
-          DA->updateVectorShape(ClonedGEP, DA->getVectorShape(I));
-
-          // Use this GEP when we encounter the non-load/store user of this GEP.
-          Builder.insert(ClonedGEP);
-
-          // Replace all non load/store uses of original GEP in the user
-          // instruction with the cloned GEP.
-          I.replaceUsesWithIf(ClonedGEP, [](VPUser *User) {
-            return !isa<VPLoadStoreInst>(User);
-          });
-        }
-        VPInstruction *ConstVectorStepInst = Builder.create<VPConstStepVector>(
-            "const.step", Type::getInt64Ty(*(Plan.getLLVMContext())), 0, 1, VF);
-        I.addOperand(ConstVectorStepInst);
-        assert(DA->isDivergent(I) && "Expect the GEP to be divergent.");
-        DA->markDivergent(*ConstVectorStepInst);
-        ResetSVA = true;
+        // We want to transform GEP only if it has one of the following users.
+        if (any_of(I.users(), [&](const VPUser *User) {
+              return SOANonUnitStridedPHIUsersToProcess(User);
+            }))
+          InstructionsToProcess.push_back(&I);
       }
+      if (isSOAUnitStridedGEP(&I)) {
+        // if:
+        //   %gep = getelementptr ..., %soa.ptr, i64 1 (SOA Unit-stride GEP.)
+        //   %ld  = load i64, %gep
+        //   ...
+        // merge.block:
+        //   %phi = phi [ [%gep, %if], [%some.gep, %else]]
+        //
+        // for VF = 2, is transformed to,
+        //
+        // if:
+        //   %gep.clone = getelementptr ..., %soa.ptr
+        //   %gep = getelementptr ..., %soa.ptr, <i64 0, i64 0> <i64 0, i64 1>
+        //   %ld  = load i64, %gep.clone
+        // ...
+        // merge.block:
+        //   %phi = phi [ [%gep, %if], [%some.gep, %else]]
+        //   %blend.res = blend [ [%gep, %if], [%some.gep, %else]]
+        //   ...
+
+        // We want to transform SOA unit-strided GEP only if it has the
+        // following users and constraints.
+        if (any_of(I.users(), [&](const VPUser *U) {
+              return SOAUnitStridedPHIUsersToProcess(U);
+            }))
+          InstructionsToProcess.push_back(&I);
+      }
+    }
+  }
+
+  // We are definitely transforming some instructions, so reset SVA.
+  if (!InstructionsToProcess.empty())
+    ResetSVA = true;
+
+  for (auto *I : InstructionsToProcess) {
+    if (isSOANonUnitStridedGEP(I)) {
+      // Clone the GEP instruction only if there is a non load/store/PHI/Blend
+      // user of this GEP.
+      cloneAndReplaceUses(
+          I, [SOANonUnitStridedPHIUsersToProcess](const VPUser *U) {
+            return !SOANonUnitStridedPHIUsersToProcess(U);
+          });
+      transformSOANonUnitStrideGEPs(cast<VPGEPInstruction>(I));
+    }
+
+    if (isSOAUnitStridedGEP(I)) {
+      // Clone the GEP instruction only if there is a non SOA-unitstrided
+      // PHI/Blend user of this GEP.
+      cloneAndReplaceUses(I,
+                          [SOAUnitStridedPHIUsersToProcess](const VPUser *U) {
+                            return !SOAUnitStridedPHIUsersToProcess(U);
+                          });
+      transformSOAUnitStrideGEPs(cast<VPGEPInstruction>(I));
     }
   }
 
