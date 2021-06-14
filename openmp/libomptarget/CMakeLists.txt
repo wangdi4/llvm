@@ -20,9 +20,15 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules ${CMAKE_MODULE_P
 # Set the path of all resulting libraries to a unified location so that it can
 # be used for testing.
 set(LIBOMPTARGET_LIBRARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIBOMPTARGET_LIBRARY_DIR})
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LIBOMPTARGET_LIBRARY_DIR})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${LIBOMPTARGET_LIBRARY_DIR})
+# INTEL_CUSTOMIZATION
+# These settings override CMAKE defaults. These are producing problems
+# for any dependencies libomptarget may depend on, e.g. libOpenCL.so. It leads
+# to non-determenistic placement of libOpenCL.so in the build directory.
+# Disabling for now to test more.
+#set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIBOMPTARGET_LIBRARY_DIR})
+#set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LIBOMPTARGET_LIBRARY_DIR})
+#set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${LIBOMPTARGET_LIBRARY_DIR})
+# end INTEL_CUSTOMIZATION
 
 # Message utilities.
 include(LibomptargetUtils)
