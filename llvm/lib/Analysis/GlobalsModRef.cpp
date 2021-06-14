@@ -290,7 +290,10 @@ void GlobalsAAResult::AnalyzeGlobals(Module &M) {
   SmallPtrSet<Function *, 32> TrackedFunctions;
   for (Function &F : M)
     if (F.hasLocalLinkage()) {
-      if (!AnalyzeUsesOfPointer(&F)) {
+#if INTEL_CUSTOMIZATION
+      SmallPtrSet<User *, 16> VisitedPhis;
+      if (!AnalyzeUsesOfPointer(&F, VisitedPhis)) {
+#endif // INTEL_CUSTOMIZATION
         // Remember that we are tracking this global.
         NonAddressTakenGlobals.insert(&F);
         TrackedFunctions.insert(&F);
@@ -304,7 +307,10 @@ void GlobalsAAResult::AnalyzeGlobals(Module &M) {
   SmallPtrSet<Function *, 16> Readers, Writers;
   for (GlobalVariable &GV : M.globals())
     if (GV.hasLocalLinkage()) {
-      if (!AnalyzeUsesOfPointer(&GV, &Readers,
+#if INTEL_CUSTOMIZATION
+      SmallPtrSet<User *, 16> VisitedPhis;
+      if (!AnalyzeUsesOfPointer(&GV, VisitedPhis, &Readers,
+#endif // INTEL_CUSTOMIZATION
                                 GV.isConstant() ? nullptr : &Writers)) {
         // Remember that we are tracking this global, and the mod/ref fns
         NonAddressTakenGlobals.insert(&GV);
@@ -367,6 +373,9 @@ static bool isNonEscapingArgsLibCall(const Value *I) {
 ///
 /// If OkayStoreDest is non-null, stores into this global are allowed.
 bool GlobalsAAResult::AnalyzeUsesOfPointer(Value *V,
+#if INTEL_CUSTOMIZATION
+                                           SmallPtrSetImpl<User *> &VisitedPhis,
+#endif // INTEL_CUSTOMIZATION
                                            SmallPtrSetImpl<Function *> *Readers,
                                            SmallPtrSetImpl<Function *> *Writers,
                                            GlobalValue *OkayStoreDest) {
@@ -390,11 +399,13 @@ bool GlobalsAAResult::AnalyzeUsesOfPointer(Value *V,
         return true; // Storing the pointer
       }
     } else if (Operator::getOpcode(I) == Instruction::GetElementPtr) {
-      if (AnalyzeUsesOfPointer(I, Readers, Writers))
+      if (AnalyzeUsesOfPointer(I, VisitedPhis, Readers, Writers)) // INTEL
         return true;
     } else if (Operator::getOpcode(I) == Instruction::BitCast ||
                Operator::getOpcode(I) == Instruction::AddrSpaceCast) {
-      if (AnalyzeUsesOfPointer(I, Readers, Writers, OkayStoreDest))
+#if INTEL_CUSTOMIZATION
+      if (AnalyzeUsesOfPointer(I, VisitedPhis, Readers, Writers, OkayStoreDest))
+#endif // INTEL_CUSTOMIZATION
         return true;
     } else if (auto *Call = dyn_cast<CallBase>(I)) {
       // Make sure that this is just the function being called, not that it is
@@ -402,7 +413,7 @@ bool GlobalsAAResult::AnalyzeUsesOfPointer(Value *V,
       if (Call->isDataOperand(&U)) {
 #if INTEL_CUSTOMIZATION
         if (isa<AddressInst>(I)) {
-          if (AnalyzeUsesOfPointer(I, Readers, Writers))
+          if (AnalyzeUsesOfPointer(I, VisitedPhis, Readers, Writers))
             return true;
           continue;
         }
@@ -420,6 +431,15 @@ bool GlobalsAAResult::AnalyzeUsesOfPointer(Value *V,
     } else if (ICmpInst *ICI = dyn_cast<ICmpInst>(I)) {
       if (!isa<ConstantPointerNull>(ICI->getOperand(1)))
         return true; // Allow comparison against null.
+#if INTEL_CUSTOMIZATION
+    } else if (isa<PHINode>(I)) {
+      // Ignore user if it has already been visited.
+      if (!VisitedPhis.insert(I).second)
+        continue;
+
+      if (AnalyzeUsesOfPointer(I, VisitedPhis, Readers, Writers))
+        return true;
+#endif // INTEL_CUSTOMIZATION
     } else if (Constant *C = dyn_cast<Constant>(I)) {
       // Ignore constants which don't have any live uses.
       if (isa<GlobalValue>(C) || C->isConstantUsed())
@@ -467,7 +487,10 @@ bool GlobalsAAResult::AnalyzeIndirectGlobalMemory(GlobalVariable *GV) {
       // The pointer loaded from the global can only be used in simple ways:
       // we allow addressing of it and loading storing to it.  We do *not* allow
       // storing the loaded pointer somewhere else or passing to a function.
-      if (AnalyzeUsesOfPointer(LI))
+#if INTEL_CUSTOMIZATION
+      SmallPtrSet<User *, 16> VisitedPhis;
+      if (AnalyzeUsesOfPointer(LI, VisitedPhis))
+#endif                // INTEL_CUSTOMIZATION
         return false; // Loaded pointer escapes.
       // TODO: Could try some IP mod/ref of the loaded pointer.
     } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
@@ -487,7 +510,11 @@ bool GlobalsAAResult::AnalyzeIndirectGlobalMemory(GlobalVariable *GV) {
 
       // Analyze all uses of the allocation.  If any of them are used in a
       // non-simple way (e.g. stored to another global) bail out.
-      if (AnalyzeUsesOfPointer(Ptr, /*Readers*/ nullptr, /*Writers*/ nullptr,
+#if INTEL_CUSTOMIZATION
+      SmallPtrSet<User *, 16> VisitedPhis;
+      if (AnalyzeUsesOfPointer(Ptr, VisitedPhis, /*Readers*/ nullptr,
+                               /*Writers*/ nullptr,
+#endif // INTEL_CUSTOMIZATION
                                GV))
         return false; // Loaded pointer escapes.
 
