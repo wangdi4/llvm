@@ -62,23 +62,6 @@ static bool LLVM_ATTRIBUTE_UNUSED isScalarPointeeTy(const VPValue *Val) {
             PointeeTy->isPointerTy()));
 }
 
-/// Helper function to check if given VPValue has consecutive pointer stride(1
-/// or -1) and return true if this is the case. IsNegOneStride is set to true if
-/// stride is -1 and false otherwise.
-static bool isVPValueConsecutivePtrStride(const VPValue *Ptr,
-                                          const VPlanVector *Plan,
-                                          bool &IsNegOneStride) {
-  return Plan->getVPlanDA()->isUnitStridePtr(Ptr, IsNegOneStride);
-}
-
-// Variant of isVPValueConsecutivePtrStride where the client does not care about
-// IsNegOneStride value.
-static bool isVPValueConsecutivePtrStride(const VPValue *Ptr,
-                                          const VPlanVector *Plan) {
-  bool IsNegOneStride = false;
-  return isVPValueConsecutivePtrStride(Ptr, Plan, IsNegOneStride);
-}
-
 /// Helper function to check if given VPValue is uniform based on DA.
 static bool isVPValueUniform(VPValue *V, const VPlanVector *Plan) {
   return !Plan->getVPlanDA()->isDivergent(*V);
@@ -1043,7 +1026,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       CanBeScalar = false;
     }
 
-    if ((CanBeScalar && isVPValueConsecutivePtrStride(GEP, Plan) &&
+    if ((CanBeScalar && Plan->getVPlanDA()->isUnitStridePtr(GEP) &&
          VPlanUseDAForUnitStride) ||
         isSOAUnitStride(GEP, Plan)) {
       SmallVector<Value *, 6> ScalarOperands;
@@ -2733,7 +2716,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
   if (VPlanUseDAForUnitStride) {
     bool IsNegOneStride = false;
     bool ConsecutiveStride =
-        isVPValueConsecutivePtrStride(Ptr, Plan, IsNegOneStride);
+        Plan->getVPlanDA()->isUnitStridePtr(Ptr, IsNegOneStride);
     if (ConsecutiveStride) {
       bool IsPvtPtr = getVPValuePrivateMemoryPtr(Ptr) != nullptr;
       NewLI = vectorizeUnitStrideLoad(VPInst, IsNegOneStride, IsPvtPtr);
@@ -2966,7 +2949,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   if (VPlanUseDAForUnitStride) {
     bool IsNegOneStride = false;
     bool ConsecutiveStride =
-        isVPValueConsecutivePtrStride(Ptr, Plan, IsNegOneStride);
+        Plan->getVPlanDA()->isUnitStridePtr(Ptr, IsNegOneStride);
     if (ConsecutiveStride) {
       // TODO: VPVALCG: Special handling for mask value is also needed for
       // conditional last privates.
@@ -3190,7 +3173,7 @@ void VPOCodeGen::generateStoreForSinCos(VPCallInstruction *VPCall,
 
     bool IsNegOneStride = false;
     bool ConsecutiveStride =
-        isVPValueConsecutivePtrStride(ScalarPtr, Plan, IsNegOneStride);
+        Plan->getVPlanDA()->isUnitStridePtr(ScalarPtr, IsNegOneStride);
 
     // TODO: Currently only address with stride = 1 can be optimized. Need to
     // handle other cases.
