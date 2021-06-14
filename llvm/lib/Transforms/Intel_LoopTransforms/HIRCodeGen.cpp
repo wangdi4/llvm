@@ -1082,7 +1082,7 @@ void CGVisitor::processLiveouts() {
         for (auto NewExitingBB : *NewExits) {
           if (SymSlot) {
             Builder.SetInsertPoint(NewExitingBB->getTerminator());
-            auto *SymSlotTy = SymSlot->getType()->getPointerElementType();
+            auto *SymSlotTy = SymSlot->getAllocatedType();
             ReplVal = Builder.CreateLoad(SymSlotTy, SymSlot);
           }
           // NOTE: it should be okay to update phi while traversing the old
