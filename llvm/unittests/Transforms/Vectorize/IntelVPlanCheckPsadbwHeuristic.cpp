@@ -77,7 +77,7 @@ declare i32 @llvm.abs.i32(i32, i1))";
   auto Plan = buildHCFG(LoopHeader);
   VPLoop *OuterMostVPL = *(Plan->getVPLoopInfo())->begin();
   Plan->setVPlanDA(std::make_unique<VPlanDivergenceAnalysis>());
-  auto *DA = cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA());
+  auto *DA = Plan->getVPlanDA();
   Plan->computeDT();
   Plan->computePDT();
   DA->compute(Plan.get(), OuterMostVPL, Plan->getVPLoopInfo(),

@@ -883,7 +883,7 @@ public:
     }
 
     auto *VecVPlan = cast<VPlanVector>(Block->getParent());
-    auto *DA = cast<VPlanDivergenceAnalysis>(VecVPlan->getVPlanDA());
+    auto *DA = VecVPlan->getVPlanDA();
     if (is_contained(IDFPHIBlocks, Block)) {
       if (VecVPlan->areActiveLaneInstructionsDisabled())
         return;

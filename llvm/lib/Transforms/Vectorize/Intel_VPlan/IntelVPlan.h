@@ -3811,6 +3811,10 @@ public:
   // TODO: Make this pure virtual.
   void computeDA();
 
+  VPlanDivergenceAnalysis *getVPlanDA() const {
+    return cast<VPlanDivergenceAnalysis>(VPlanDA.get());
+  }
+
   /// Methods for supporting type inquiry through isa, cast, and
   /// dyn_cast:
   static bool classof(const VPlan *V) {

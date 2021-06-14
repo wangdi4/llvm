@@ -68,8 +68,7 @@ static bool LLVM_ATTRIBUTE_UNUSED isScalarPointeeTy(const VPValue *Val) {
 static bool isVPValueConsecutivePtrStride(const VPValue *Ptr,
                                           const VPlanVector *Plan,
                                           bool &IsNegOneStride) {
-  return cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA())
-      ->isUnitStridePtr(Ptr, IsNegOneStride);
+  return Plan->getVPlanDA()->isUnitStridePtr(Ptr, IsNegOneStride);
 }
 
 // Variant of isVPValueConsecutivePtrStride where the client does not care about
@@ -82,7 +81,7 @@ static bool isVPValueConsecutivePtrStride(const VPValue *Ptr,
 
 /// Helper function to check if given VPValue is uniform based on DA.
 static bool isVPValueUniform(VPValue *V, const VPlanVector *Plan) {
-  return !cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA())->isDivergent(*V);
+  return !Plan->getVPlanDA()->isDivergent(*V);
 }
 
 /// Helper function to check if VPValue is linear and return linear step in \p
@@ -103,13 +102,12 @@ static Type *getVPInstVectorType(Type *VPInstTy, unsigned VF) {
 
 /// Return true if \p Var a variable identified for SOA-layout.
 static bool isSOAAccess(const VPValue *Var, const VPlanVector *Plan) {
-  return cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA())->isSOAShape(Var);
+  return Plan->getVPlanDA()->isSOAShape(Var);
 }
 
 /// Return true if \p Var has a SOA unit-stride access.
 static bool isSOAUnitStride(const VPValue *Var, const VPlanVector *Plan) {
-  return cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA())
-      ->isSOAUnitStride(Var);
+  return Plan->getVPlanDA()->isSOAUnitStride(Var);
 }
 
 // Generate SOA-type for the given input-type.

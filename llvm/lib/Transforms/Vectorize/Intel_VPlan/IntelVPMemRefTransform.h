@@ -31,7 +31,7 @@ public:
 
   // Constructor.
   VPMemRefTransform(VPlanVector &Plan)
-      : Plan(Plan), DA(*cast<VPlanDivergenceAnalysis>(Plan.getVPlanDA())) {}
+      : Plan(Plan), DA(*Plan.getVPlanDA()) {}
 
   /// Do appropriate transforms on SOA GEPs.
   void transformSOAGEPs(unsigned InVF);

@@ -88,7 +88,7 @@ bool VPlanScalVecAnalysis::instNeedsExtractFromLastActiveLane(
 
 bool VPlanScalVecAnalysis::computeSpecialInstruction(
     const VPInstruction *Inst) {
-  auto *DA = cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA());
+  auto *DA = Plan->getVPlanDA();
 
   switch (Inst->getOpcode()) {
   case Instruction::PHI: {

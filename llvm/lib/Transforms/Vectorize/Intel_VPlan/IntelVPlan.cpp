@@ -1432,7 +1432,7 @@ template void DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);
 void VPlanVector::computeDA() {
   VPLoopInfo *VPLInfo = getVPLoopInfo();
   VPLoop *CandidateLoop = *VPLInfo->begin();
-  auto *DA = cast<VPlanDivergenceAnalysis>(getVPlanDA());
+  auto *DA = getVPlanDA();
   DA->compute(this, CandidateLoop, VPLInfo, *getDT(), *getPDT(),
               false /*Not in LCSSA form*/);
   if (isSOAAnalysisEnabled()) {
@@ -1520,10 +1520,8 @@ void VPlanVector::copyData(VPAnalysesFactory &VPAF, UpdateDA UDA,
     if (UDA == UpdateDA::RecalculateDA)
       TargetPlan->computeDA();
     else if (UDA == UpdateDA::CloneDA) {
-      cast<VPlanDivergenceAnalysis>(getVPlanDA())
-          ->cloneVectorShapes(TargetPlan, OrigClonedValuesMap);
-      cast<VPlanDivergenceAnalysis>(TargetPlan->getVPlanDA())
-          ->disableDARecomputation();
+      getVPlanDA()->cloneVectorShapes(TargetPlan, OrigClonedValuesMap);
+      TargetPlan->getVPlanDA()->disableDARecomputation();
     }
   }
 }
