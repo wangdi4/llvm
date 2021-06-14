@@ -5077,6 +5077,15 @@ recurse:
     Out << "E";
     break;
   }
+  case Expr::SYCLUniqueStableIdExprClass: {
+    const auto *USID = cast<SYCLUniqueStableIdExpr>(E);
+    NotPrimaryExpr();
+
+    Out << "cl31__builtin_sycl_unique_stable_id";
+    mangleExpression(USID->getExpr());
+    Out << "E";
+    break;
+  }
   }
 
   if (AsTemplateArg && !IsPrimaryExpr)

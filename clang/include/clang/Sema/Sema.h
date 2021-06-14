@@ -5595,6 +5595,14 @@ public:
                                            SourceLocation LParen,
                                            SourceLocation RParen,
                                            ParsedType ParsedTy);
+
+  ExprResult BuildSYCLUniqueStableIdExpr(SourceLocation OpLoc,
+                                         SourceLocation LParen,
+                                         SourceLocation RParen, Expr *E);
+  ExprResult ActOnSYCLUniqueStableIdExpr(SourceLocation OpLoc,
+                                         SourceLocation LParen,
+                                         SourceLocation RParen, Expr *E);
+
 #if INTEL_CUSTOMIZATION
   bool CheckIntelBlockLoopAttribute(const IntelBlockLoopAttr *BLA);
   bool CheckLoopHintExpr(Expr *E, SourceLocation Loc, bool AllowZero = false);
