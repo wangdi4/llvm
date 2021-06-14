@@ -67,15 +67,6 @@ static bool isVPValueUniform(VPValue *V, const VPlanVector *Plan) {
   return !Plan->getVPlanDA()->isDivergent(*V);
 }
 
-/// Helper function to check if VPValue is linear and return linear step in \p
-/// Step.
-// TODO: Use new VPO legality infra to get this information.
-static bool isVPValueLinear(VPValue *V, int *Step = nullptr) {
-  if (Step)
-    *Step = 0;
-  return false;
-}
-
 /// Helper function that returns widened type of given type \p VPInstTy.
 static Type *getVPInstVectorType(Type *VPInstTy, unsigned VF) {
   auto *VPInstVecTy = dyn_cast<VectorType>(VPInstTy);
@@ -2683,20 +2674,10 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
 
   // Pointer operand of Load is always the first operand.
   VPValue *Ptr = VPInst->getOperand(0);
-  int LinStride = 0;
 
   // Loads that are non-vectorizable should be serialized.
   if (!isVectorizableLoadStore(VPInst)) {
     return serializeWithPredication(VPInst);
-  }
-
-  // Handle vectorization of a linear value load.
-  if (isVPValueLinear(Ptr, &LinStride)) {
-    llvm_unreachable("VPVALCG: Vectorization of linear load not uplifted.");
-#if 0
-    vectorizeLinearLoad(Inst, LinStride);
-    return;
-#endif
   }
 
   // TODO: Using DA for loop invariance.
@@ -2915,15 +2896,6 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   // Stores that are non-vectorizable should be serialized.
   if (!isVectorizableLoadStore(VPInst))
     return serializeWithPredication(VPInst);
-
-  // Handle vectorization of a linear value store.
-  if (isVPValueLinear(Ptr)) {
-    llvm_unreachable("VPVALCG: Vectorization of linear store not uplifted.");
-#if 0
-    vectorizeLinearStore(Inst);
-    return;
-#endif
-  }
 
   // Stores to uniform pointers can be optimally generated as a scalar store in
   // vectorized code.
