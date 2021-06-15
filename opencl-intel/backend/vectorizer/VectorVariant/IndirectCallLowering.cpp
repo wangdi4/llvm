@@ -133,7 +133,8 @@ bool IndirectCallLowering::runOnModule(Module &M) {
 
       // Preparing chosen variant call.
       Type *RetTy = FTy->getReturnType();
-      VectorType *VecRetTy = VectorType::get(RetTy, VecLen, false);
+      Type *VecRetTy =
+          RetTy->isVoidTy() ? RetTy : VectorType::get(RetTy, VecLen, false);
 
       Value *GV = Call.getArgOperand(0);
       PointerType *GVTy = cast<PointerType>(GV->getType());
@@ -149,9 +150,12 @@ bool IndirectCallLowering::runOnModule(Module &M) {
           ConstantInt::get(M.getContext(), APInt(32, Index, true)));
       Value *FPtr = Builder.CreateLoad(VecFPtrTy, FPtrPtr);
       Value *VecRes = Builder.CreateCall(VecFTy, FPtr, VecArgs);
-      Value *Res = Builder.CreateExtractElement(VecRes, Zero);
 
-      Call.replaceAllUsesWith(Res);
+      if (!RetTy->isVoidTy()) {
+        Value *Res = Builder.CreateExtractElement(VecRes, Zero);
+        Call.replaceAllUsesWith(Res);
+      }
+
       RemoveLater.insert(&Call);
 
       Modified = true;
