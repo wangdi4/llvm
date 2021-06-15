@@ -3074,7 +3074,8 @@ OMPClause *Parser::ParseOpenMPUsesAllocatorClause(OpenMPDirectiveKind DKind) {
     return nullptr;
   SmallVector<Sema::UsesAllocatorsData, 4> Data;
   do {
-    ExprResult Allocator = ParseCXXIdExpression();
+    ExprResult Allocator =
+        getLangOpts().CPlusPlus ? ParseCXXIdExpression() : ParseExpression();
     if (Allocator.isInvalid()) {
       SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_openmp_end,
                 StopBeforeMatch);
@@ -3086,7 +3087,8 @@ OMPClause *Parser::ParseOpenMPUsesAllocatorClause(OpenMPDirectiveKind DKind) {
       BalancedDelimiterTracker T(*this, tok::l_paren,
                                  tok::annot_pragma_openmp_end);
       T.consumeOpen();
-      ExprResult AllocatorTraits = ParseCXXIdExpression();
+      ExprResult AllocatorTraits =
+          getLangOpts().CPlusPlus ? ParseCXXIdExpression() : ParseExpression();
       T.consumeClose();
       if (AllocatorTraits.isInvalid()) {
         SkipUntil(tok::comma, tok::r_paren, tok::annot_pragma_openmp_end,
