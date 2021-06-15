@@ -32,7 +32,7 @@
 // CHK-TOOLS-AOT: llvm-link{{.*}} "[[OUTPUT1]]"{{.*}} "-o" "[[OUTPUT2:.+\.bc]]"
 // CHK-TOOLS-AOT: llvm-link{{.*}} "--only-needed" "[[OUTPUT2]]" {{.*}} "-o" "[[OUTPUT2T:.+\.bc]]"
 // CHK-TOOLS-AOT: sycl-post-link{{.*}} "-o" "[[OUTPUT2_1:.+\.bc]]" "[[OUTPUT2T]]"
-// CHK-TOOLS-AOT: llvm-spirv{{.*}} "-o" "[[OUTPUT3:.+\.spv]]" "-spirv-ext=+all{{.*}}" "[[OUTPUT2_1]]"
+// CHK-TOOLS-AOT: llvm-spirv{{.*}} "-o" "[[OUTPUT3:.+\.spv]]" {{.*}} "[[OUTPUT2_1]]"
 // CHK-TOOLS-GEN: ocloc{{.*}} "-output" "[[OUTPUT4:.+\.out]]" "-file" "[[OUTPUT3]]"
 // CHK-TOOLS-CPU: opencl-aot{{.*}} "-o=[[OUTPUT4:.+\.out]]" {{.*}} "[[OUTPUT3]]"
 // CHK-TOOLS-GEN: clang-offload-wrapper{{.*}} "-host" "x86_64-unknown-linux-gnu" "-o" "[[OUTPUT5:.+\.bc]]" "-kind=openmp" "-target=spir64_gen" "[[OUTPUT4]]"
