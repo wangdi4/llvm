@@ -3,7 +3,7 @@
 // CUDA does not support the function pointer as kernel argument extension.
 
 // RUN: %clangxx -fsycl -fsycl-enable-function-pointers %s -o %t.out
-// RUN: %CPU_RUN_PLACEHOLDER %t.out | FileCheck %s
+// RUN: %CPU_RUN_PLACEHOLDER %t.out %CPU_CHECK_PLACEHOLDER
 
 // CHECK: Test PASSED.
 
