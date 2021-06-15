@@ -1412,8 +1412,21 @@ void X86MCCodeEmitter::emitSegmentOverridePrefix(unsigned SegOperand,
                                                  const MCInst &MI,
                                                  raw_ostream &OS) const {
   // Check for explicit segment override on memory operand.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  bool IsExt = false;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
   if (unsigned Reg = MI.getOperand(SegOperand).getReg())
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+    emitByte(X86::getSegmentOverridePrefixForReg(Reg, IsExt), OS);
+  if (IsExt)
+    emitByte(0xf2, OS);
+#else // INTEL_FEATURE_ICECODE
     emitByte(X86::getSegmentOverridePrefixForReg(Reg), OS);
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// Emit all instruction prefixes prior to the opcode.

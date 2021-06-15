@@ -128,6 +128,42 @@ define void @loadseg_gs(i8* %addr) {
   ret void
 }
 
+define void @loadseg_gdtr(i8* %addr) {
+; CHECK-LABEL: loadseg_gdtr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    loadseg %gdtr:(%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.loadseg(i8* %addr, i32 7)
+  ret void
+}
+
+define void @loadseg_ldtr(i8* %addr) {
+; CHECK-LABEL: loadseg_ldtr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    loadseg %ldtr:(%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.loadseg(i8* %addr, i32 8)
+  ret void
+}
+
+define void @loadseg_idtr(i8* %addr) {
+; CHECK-LABEL: loadseg_idtr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    loadseg %idtr:(%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.loadseg(i8* %addr, i32 9)
+  ret void
+}
+
+define void @loadseg_tr(i8* %addr) {
+; CHECK-LABEL: loadseg_tr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    loadseg %tr:(%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.loadseg(i8* %addr, i32 10)
+  ret void
+}
+
 define void @storeseg(i8* %addr) {
 ; CHECK-LABEL: storeseg:
 ; CHECK:       # %bb.0:
@@ -188,6 +224,42 @@ define void @storeseg_gs(i8* %addr) {
 ; CHECK-NEXT:    storeseg %gs:(%rdi)
 ; CHECK-NEXT:    retq
   call void @llvm.x86.icecode.storeseg(i8* %addr, i32 6)
+  ret void
+}
+
+define void @storeseg_gdtr(i8* %addr) {
+; CHECK-LABEL: storeseg_gdtr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    storeseg %gdtr:(%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.storeseg(i8* %addr, i32 7)
+  ret void
+}
+
+define void @storeseg_ldtr(i8* %addr) {
+; CHECK-LABEL: storeseg_ldtr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    storeseg %ldtr:(%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.storeseg(i8* %addr, i32 8)
+  ret void
+}
+
+define void @storeseg_idtr(i8* %addr) {
+; CHECK-LABEL: storeseg_idtr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    storeseg %idtr:(%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.storeseg(i8* %addr, i32 9)
+  ret void
+}
+
+define void @storeseg_tr(i8* %addr) {
+; CHECK-LABEL: storeseg_tr:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    storeseg %tr:(%rdi)
+; CHECK-NEXT:    retq
+  call void @llvm.x86.icecode.storeseg(i8* %addr, i32 10)
   ret void
 }
 
