@@ -2176,8 +2176,7 @@ bool VPOCodeGenHIR::interleaveAccess(const OVLSGroup *Group,
 
   // If the reference is unit strided, we do not need interleaving.
   const VPValue *PtrOp = getLoadStorePointerOperand(VPInst);
-  bool IsNegOneStride;
-  if (isUnitStridePtr(PtrOp, IsNegOneStride))
+  if (Plan->getVPlanDA()->isUnitStridePtr(PtrOp))
     return false;
 
   return true;
@@ -3274,7 +3273,8 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
                                       bool Lane0Value) {
   const VPValue *VPPtr = getLoadStorePointerOperand(VPLdSt);
   bool IsNegOneStride;
-  bool IsUnitStride = isUnitStridePtr(VPPtr, IsNegOneStride);
+  bool IsUnitStride =
+      Plan->getVPlanDA()->isUnitStridePtr(VPPtr, IsNegOneStride);
   bool NeedScalarRef = IsUnitStride || Lane0Value;
   unsigned ScalSymbase = VPLdSt->HIR().getSymbase();
   if (auto *Priv = getVPValuePrivateMemoryPtr(VPPtr)) {
@@ -4053,7 +4053,8 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
 
   // Reverse mask for negative -1 stride.
   bool IsNegOneStride;
-  bool IsUnitStride = isUnitStridePtr(PtrOp, IsNegOneStride);
+  bool IsUnitStride =
+      Plan->getVPlanDA()->isUnitStridePtr(PtrOp, IsNegOneStride);
   if (Mask && IsNegOneStride) {
     auto *RevInst = createReverseVector(Mask->clone());
     Mask = RevInst->getLvalDDRef();
