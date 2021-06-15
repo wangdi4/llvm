@@ -15,6 +15,7 @@
 #include "Intel_DTrans/Transforms/Transpose.h"
 #include "Intel_DTrans/DTransCommon.h"
 
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -108,7 +109,15 @@ public:
   ~TransposeCandidate() { cleanup(); }
 
   // getters and setters for class.
+
   StringRef getName() const { return GV->getName(); }
+
+  Optional<uint64_t> getNestedFieldNumber() const {
+    if (IsNestedField)
+      return NestedFieldNumber;
+    return None;
+  }
+
   uint32_t getArrayRank() const { return ArrayRank; }
   void setIsProfitable(bool Val) { IsProfitable = Val; }
   void setTransposition(ArrayRef<uint32_t> A) {
@@ -158,28 +167,51 @@ public:
       return true;
     };
 
+    // Load the nested subscripts reachable from 'U'.
+    //
+    auto LoadNestedDVSubUser = [this, &IsMatchingGEPO](User *U) {
+      if (auto GEPO = dyn_cast<GEPOperator>(U))
+        if (IsMatchingGEPO(GEPO, NestedFieldNumber))
+          for (User *X : GEPO->users())
+            if (auto GEPO1 = dyn_cast<GEPOperator>(X))
+              if (GEPO1->hasAllZeroIndices())
+                for (User *Y : GEPO1->users())
+                  if (auto LI = dyn_cast<LoadInst>(Y))
+                    for (User *Z : LI->users())
+                      if (auto SI1 = dyn_cast<SubscriptInst>(Z))
+                        SubscriptCalls.insert(SI1);
+    };
+
+    // For each User of 'A' which is a CallBase of a relatively simple
+    // Function, propagate 'A' to that Function's formal argument, and
+    // repeat the process. For each User of 'A' which is not propagatable,
+    // load the nested subscript calls.
+    //
+    std::function<void(Argument *)>
+        PropagateArgument = [&](Argument *A) -> void {
+      for (User *U : A->users())
+        if (Argument *NewA = isIPOPropagatable(A, U))
+          PropagateArgument(NewA);
+        else
+          LoadNestedDVSubUser(U);
+    };
+
     // Load the subscripts of the TransposeCandidate for transposing.
     // Note that if this is not a nested field, 'SI' is the candidate
     // subscript itself. Otherwise, it is the subscript into the array
-    // of structures and must be further indexed to get to the candidate
-    // subscripts.
+    // of structures and must be further indexed and propagated through
+    // the call graph to get to the candidate subscripts.
     //
-    auto LoadSubscripts = [this, &IsMatchingGEPO](SubscriptInst *SI) {
+    auto LoadSubs = [&, this](SubscriptInst *SI) {
       if (!IsNestedField) {
         SubscriptCalls.insert(SI);
         return;
       }
       for (User *U : SI->users())
-        if (auto GEPO = dyn_cast<GEPOperator>(U))
-          if (IsMatchingGEPO(GEPO, NestedFieldNumber))
-            for (User *X : GEPO->users())
-              if (auto GEPO1 = dyn_cast<GEPOperator>(X))
-                if (GEPO1->hasAllZeroIndices())
-                  for (User *Y : GEPO1->users())
-                    if (auto LI = dyn_cast<LoadInst>(Y))
-                      for (User *Z : LI->users())
-                        if (auto SI1 = dyn_cast<SubscriptInst>(Z))
-                          SubscriptCalls.insert(SI1);
+        if (Argument *A = isIPOPropagatable(SI, U))
+          PropagateArgument(A);
+        else
+          LoadNestedDVSubUser(U);
     };
 
     // Main code for analyzeGlobalDV()
@@ -190,7 +222,7 @@ public:
             if (auto *LI = dyn_cast<LoadInst>(V))
               for (User *W : LI->users())
                 if (auto SI = dyn_cast<SubscriptInst>(W))
-                  LoadSubscripts(SI);
+                  LoadSubs(SI);
     IsValid = true;
     return true;
   }
@@ -1129,8 +1161,16 @@ public:
 
     bool Changed = false;
     if (ValidCandidate)
-      for (auto &Cand : Candidates)
+      for (auto &Cand : Candidates) {
+        DEBUG_WITH_TYPE(DEBUG_TRANSFORM, {
+          dbgs() << "Transform candidate: " << Cand.getName();
+          Optional<uint64_t> NFN = Cand.getNestedFieldNumber();
+          if (NFN)
+            dbgs() << "[" << *NFN << "]";
+          dbgs() << "\n";
+        });
         Changed |= Cand.transform();
+      }
 
     return Changed;
   }

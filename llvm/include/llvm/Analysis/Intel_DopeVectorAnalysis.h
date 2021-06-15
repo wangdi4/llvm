@@ -929,6 +929,19 @@ private:
   void validateGlobalDopeVector();
 };
 
+// If 'Val' is a unique actual argument of 'CI', return its position,
+// otherwise, return 'None'.
+//
+extern Optional<unsigned int> getArgumentPosition(const CallBase &CI,
+                                                  const Value *Val);
+
+// If 'U' is a user of 'V' and is passed as an actual argument of a
+// CallBase, which calls a Function 'F' that is not address-taken and has
+// IR, return the formal argument of 'F' corresponding to that actual
+// argument. Otherwise, return 'nullptr'.
+//
+extern Argument *isIPOPropagatable(const Value *V, const User *U);
+
 } // end namespace dvanalysis
 
 } // end namespace llvm
