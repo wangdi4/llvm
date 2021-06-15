@@ -468,25 +468,25 @@ void ControlDependenceGraph::writeDotGraph(StringRef fname) {
 
   LLVM_DEBUG(errs() << "Writing '" << Filename << "'...");
 
-  raw_fd_ostream File(Filename, EC, sys::fs::F_Text);
+  raw_fd_ostream File(Filename, EC, sys::fs::OF_Text);
   GraphWriter<ControlDependenceGraph *> gwr(File, this, false);
   gwr.writeGraph();
 
   Filename = fname.str() + "_CFG" + ".dot";
-  raw_fd_ostream File1(Filename, EC, sys::fs::F_Text);
+  raw_fd_ostream File1(Filename, EC, sys::fs::OF_Text);
   GraphWriter<MachineFunction *> gwr1(File1, thisMF, false);
   gwr1.writeGraph();
 
   MachinePostDominatorTree &pdt = getAnalysis<MachinePostDominatorTree>();
   Filename = fname.str() + "_PDT" + ".dot";
-  raw_fd_ostream File2(Filename, EC, sys::fs::F_Text);
+  raw_fd_ostream File2(Filename, EC, sys::fs::OF_Text);
   GraphWriter<MachinePostDominatorTree *> gwr2(File2, &pdt, false);
   gwr2.writeGraph();
   //pdt.print(File2);
 
   MachineDominatorTree &dt = getAnalysis<MachineDominatorTree>();
   Filename = fname.str() + "_DT" + ".dot";
-  raw_fd_ostream File3(Filename, EC, sys::fs::F_Text);
+  raw_fd_ostream File3(Filename, EC, sys::fs::OF_Text);
   GraphWriter<MachineDominatorTree *> gwr3(File3, &dt, false);
   gwr3.writeGraph();
 }
