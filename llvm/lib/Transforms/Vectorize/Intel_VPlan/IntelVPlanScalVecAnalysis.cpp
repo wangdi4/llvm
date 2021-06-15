@@ -133,9 +133,10 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     // Loads/stores are processed uniquely since the nature of the instruction
     // is not propagated to its operands. Specialization is done for possible
     // unit-stride and uniform memory accesses.
+    auto *LoadStore = cast<VPLoadStoreInst>(Inst);
 
-    VPValue *Ptr = getLoadStorePointerOperand(Inst);
-    unsigned PtrOpIdx = Inst->getOperandIndex(Ptr);
+    VPValue *Ptr = LoadStore->getPointerOperand();
+    unsigned PtrOpIdx = LoadStore->getPointerOperandIndex();
 
     if (Inst->isSimpleLoadStore() && !DA->isDivergent(*Ptr)) {
       // If the load/store is simple (non-atomic and non-volatile) and the
