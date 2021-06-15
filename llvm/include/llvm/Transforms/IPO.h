@@ -308,6 +308,10 @@ ModulePass *createIntelArgumentAlignmentLegacyPass();
 /// results from the whole program analysis.
 ModulePass *createIntelFoldWPIntrinsicLegacyPass();
 
+/// \brief This pass will add the declarations for math functions that are
+/// expressed as llvm intrinsics.
+ModulePass *createIntelMathLibrariesDeclarationWrapperPass();
+
 /// \brief This pass implements a simple partial inlining for small functions.
 /// This partial inliner will take care of small functions that the compiler
 /// will like to fully inline. The difference between this partial inliner and

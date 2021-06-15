@@ -696,6 +696,8 @@ void initializeVPOParoptSharedPrivatizationPass(PassRegistry&);
 void initializeTransformSinAndCosCallsLegacyPassPass(PassRegistry&);
 // Add attributes to loops
 void initializeIntelLoopAttrsWrapperPass(PassRegistry&);
+// Add math function declarations
+void initializeIntelMathLibrariesDeclarationWrapperPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
