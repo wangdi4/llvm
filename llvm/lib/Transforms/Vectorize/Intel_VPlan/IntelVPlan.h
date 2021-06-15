@@ -1738,7 +1738,7 @@ private:
           MatchedVecVariant != nullptr ? MatchedVecVariant->toString() : "None";
       OS << "  VecVariant: " << VecVariantName << "\n";
       OS << "  VecVariantIndex: " << MatchedVecVariantIndex << "\n";
-      OS << "  VecIntrinsic: " << Intrinsic::getName(VectorIntrinsic, {})
+      OS << "  VecIntrinsic: " << Intrinsic::getBaseName(VectorIntrinsic)
          << "\n";
       OS << "  UseMaskForUnmasked: " << UseMaskedForUnmasked << "\n";
       OS << "  VecLibFn: " << VectorLibraryFn << "\n";
@@ -2037,7 +2037,10 @@ public:
     assert(!getType()->isVoidTy() && "Expected non-void function");
     SmallVector<Type *, 1> TysForName;
     TysForName.push_back(getWidenedType(getType(), getVFForScenario()));
-    return Intrinsic::getName(VecID, TysForName);
+    // FIXME: Use a better way to obtain Module.
+    Function *F = getCalledFunction();
+    return Intrinsic::getName(
+        VecID, TysForName, F ? F->getParent() : getInstruction()->getModule());
   }
 
   /// Call argument list size.
