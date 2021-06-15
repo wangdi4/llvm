@@ -217,13 +217,12 @@ HLInst *HLNodeUtils::createUnaryHLInstImpl(unsigned OpCode, RegDDRef *RvalRef,
     assert(RvalRef->isMemRef() &&
            "Rval of load instruction should be a mem ref!");
 
-    auto DummyPtrType = PointerType::get(RvalRef->getDestType(),
-                                         RvalRef->getPointerAddressSpace());
+    Type *RvalType = RvalRef->getDestType();
+    auto DummyPtrType =
+        PointerType::get(RvalType, RvalRef->getPointerAddressSpace());
     auto DummyPtrVal = UndefValue::get(DummyPtrType);
-    auto *DummyPtrValTy = DummyPtrVal->getType()->getPointerElementType();
 
-    InstVal =
-        DummyIRBuilder->CreateLoad(DummyPtrValTy, DummyPtrVal, false, Name);
+    InstVal = DummyIRBuilder->CreateLoad(RvalType, DummyPtrVal, false, Name);
     break;
   }
 

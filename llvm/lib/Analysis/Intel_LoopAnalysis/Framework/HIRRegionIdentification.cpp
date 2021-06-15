@@ -1033,9 +1033,7 @@ static bool isStructFieldLoadCast(const Value *Val) {
     return false;
   }
 
-  auto *BasePtr = GEP->getPointerOperand();
-
-  if (!BasePtr->getType()->getPointerElementType()->isStructTy()) {
+  if (!GEP->getSourceElementType()->isStructTy()) {
     return false;
   }
 
@@ -1983,7 +1981,7 @@ static bool foundMatchingLoads(
 
       auto *Ptr1 = StoreUser1->getPointerOperand();
       uint64_t AllocSize =
-          DL.getTypeAllocSize(Ptr1->getType()->getPointerElementType());
+          DL.getTypeAllocSize(StoreUser1->getValueOperand()->getType());
 
       if (!haveExpectedDistance(Ptr1, StoreUser2->getPointerOperand(), SE,
                                 AllocSize)) {
@@ -2062,8 +2060,7 @@ foundMatchingStores(const StoreInst *SInst,
   auto *Ptr = SInst->getPointerOperand();
   auto *StoreVal = SInst->getValueOperand();
 
-  uint64_t AllocSize =
-      DL.getTypeAllocSize(Ptr->getType()->getPointerElementType());
+  uint64_t AllocSize = DL.getTypeAllocSize(StoreVal->getType());
 
   // Suppress stores of the form A[0].1. These are likely to be non-profitable
   // strided accesses.
