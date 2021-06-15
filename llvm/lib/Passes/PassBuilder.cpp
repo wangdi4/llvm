@@ -2790,6 +2790,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   }
 #endif // INTEL_INCLUDE_DTRANS
   MPM.addPass(DopeVectorConstPropPass());
+  MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(
+              ArgumentPromotionPass()));
   // Optimize some dynamic_cast calls.
   MPM.addPass(OptimizeDynamicCastsPass());
 #endif // INTEL_CUSTOMIZATION

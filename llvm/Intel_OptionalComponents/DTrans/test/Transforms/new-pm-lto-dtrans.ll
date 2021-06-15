@@ -60,6 +60,8 @@
 ; CHECK-NEXT: Running pass: dtrans::DynClonePass
 ; CHECK-NEXT: Running pass: dtrans::AnnotatorCleaner
 ; CHECK-NEXT: Running pass: DopeVectorConstProp
+; CHECK-NEXT: Running pass: ArgumentPromotionPass on (foo)
+; CHECK-NEXT: Running pass: ArgumentPromotionPass on (main)
 ; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
 ; CHECK: Running pass: IntelArgumentAlignmentPass
 ; CHECK: Running pass: QsortRecognizerPass

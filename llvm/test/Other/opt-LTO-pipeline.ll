@@ -55,6 +55,9 @@
 ; CHECK-NEXT:       FunctionPass Manager
 ; CHECK-NEXT:         Dominator Tree Construction
 ; CHECK-NEXT:     DopeVectorConstProp
+; CHECK-NEXT:     CallGraph Construction
+; CHECK-NEXT:     Call Graph SCC Pass Manager
+; CHECK-NEXT:       Promote 'by reference' arguments to scalars
 ; CHECK-NEXT:     Global Variable Optimizer
 ; CHECK-NEXT:       FunctionPass Manager
 ; CHECK-NEXT:         Dominator Tree Construction
