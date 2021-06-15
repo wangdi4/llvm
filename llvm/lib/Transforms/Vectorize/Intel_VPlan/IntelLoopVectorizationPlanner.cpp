@@ -695,11 +695,9 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
     CostModelTy MainLoopCM(Plan, VF, TTI, TLI, DL, VLSA);
     VPlanPeelingVariant *PeelingVariant = Plan->getPreferredPeeling(VF);
 
-    // Peeling is not supported for non-normalized loops and for loops with
-    // non-exact UB.
-    // TODO: remove the latter restriction.
+    // Peeling is not supported for non-normalized loops.
     VPLoop *L = Plan->getMainLoop(true);
-    if (!L->hasNormalizedInduction() || !L->exactUB())
+    if (!L->hasNormalizedInduction())
       PeelingVariant = &VPlanStaticPeeling::NoPeelLoop;
 
     const unsigned MainLoopIterationCost =

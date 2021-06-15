@@ -1114,7 +1114,29 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
     return isa<VPlanPeelAdapter>(I);
   });
   assert(Adapter != P.FirstBB->end() && "expected peel adapter");
-  cast<VPlanPeelAdapter>(Adapter)->setUpperBound(PeelCount);
+  // Set upper bound of the peel. We need to adjust it subtracting one if the
+  // the loop is marked as having not exact UB. E.g. it's  latch condition looks
+  // like below:
+  //   %c = icmp ule %ind_var, %UB
+  //   br %c, label %header, label %exit
+  //
+  // In this case to execute e.g. 3 iterations, we should set UB to 2 as
+  // induction always starts with 0.
+  VPLoop *VLoop = Plan.getMainLoop(true);
+  VPValue *PeelCnt = PeelCount;
+  if (!VLoop->exactUB()) {
+    Type *Ty = PeelCount->getType();
+    if (StaticPeel) {
+      PeelCnt =
+          Plan.getVPConstant(ConstantInt::get(Ty, StaticPeel->peelCount() - 1));
+    } else {
+      auto *I = cast<VPInstruction>(PeelCount);
+      Builder.setInsertPoint(I->getParent(), std::next(I->getIterator()));
+      VPConstant *One = Plan.getVPConstant(ConstantInt::get(Ty, 1));
+      PeelCnt = Builder.createNaryOp(Instruction::Sub, Ty, {PeelCount, One});
+    }
+  }
+  cast<VPlanPeelAdapter>(Adapter)->setUpperBound(PeelCnt);
 
   // Merge block after peel needs live out values.
   updateMergeBlockIncomings(P, P.PrevMerge, P.FirstBB, false /* UseLiveIn */);
