@@ -2527,15 +2527,19 @@ void ReassociatePass::ReassociateExpression(BinaryOperator *I) {
   // 3. The potential reassociation is not changing the tree shape/size
   // 4. The tree is non-trivial, consisting of more than one operation
   // 5. The tree directly involves a PHI node, likely an IV
+  // 6. The tree itself is not multiplied by constants
   const bool IsNarrow =
       I->getType()->getScalarType()->isIntegerTy() &&
       (I->getType()->getScalarType()->getPrimitiveSizeInBits() < 64);
   const bool SameTreeShape = (Ops.size() == OrigOps.size());
   const bool NonTrivial = (OrigOps.size() > 2);
   const bool HasPhi = any_of(Ops, [](auto &Op) { return isa<PHINode>(Op.Op); });
+  const bool NotAFactor =
+      !(I->hasOneUse() &&
+        match(I->user_back(), m_c_Mul(m_Constant(), m_Value())));
 
   if (PreserveNWFlags && TreeHasNoWrapFlags && IsNarrow && SameTreeShape &&
-      NonTrivial && HasPhi) {
+      NonTrivial && HasPhi && NotAFactor) {
     if (MadeChange)
       RewriteExprTree(I, OrigOps);
     return;
