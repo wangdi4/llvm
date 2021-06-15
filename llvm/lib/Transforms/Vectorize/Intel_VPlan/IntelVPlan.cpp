@@ -1399,21 +1399,26 @@ StringRef VPValue::getVPNamePrefix() const {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPValue::printAsOperand(raw_ostream &OS) const {
+void VPValue::printAsOperandNoType(raw_ostream &OS) const {
   const unsigned long long AddrBitsUsed = 0xFFFF;
 
-  if (getType()->isLabelTy()) {
-    OS << "label " << cast<VPBasicBlock>(this)->getName();
-    return;
-  }
   unsigned long long Num =
       AddrBitsUsed & ((unsigned long long)this / alignof(VPValue));
   if (EnableNames && !Name.empty())
     // There is no interface to enforce uniqueness of the names, so continue
     // using the pointer-based name for the suffix.
-    OS << *getType() << " %" << Name << "." << Num;
+    OS << '%' << Name << '.' << Num;
   else
-    OS << *getType() << " %vp" << Num;
+    OS << "%vp" << Num;
+}
+
+void VPValue::printAsOperand(raw_ostream &OS) const {
+  if (getType()->isLabelTy()) {
+    OS << "label " << cast<VPBasicBlock>(this)->getName();
+    return;
+  }
+  OS << *getType() << ' ';
+  printAsOperandNoType(OS);
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 

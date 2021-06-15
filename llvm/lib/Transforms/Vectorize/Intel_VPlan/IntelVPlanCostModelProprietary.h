@@ -33,6 +33,11 @@ public:
 
   ~VPlanCostModelProprietary() {}
 
+  // Temporal virtual method to invoke Heuristics initialization.
+  void initHeuristicsForVPlan() final {
+    HeuristicsPipelinePlan.initForVPlan();
+  }
+
   // Temporal virtual methods to invoke apply facilities on HeuristicsPipeline.
   void applyHeuristicsPipeline(
     unsigned TTICost, unsigned &Cost,

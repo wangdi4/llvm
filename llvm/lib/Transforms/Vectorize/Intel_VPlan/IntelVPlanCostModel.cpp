@@ -788,6 +788,10 @@ unsigned VPlanCostModel::getCost(
       DefaultPeelingVariant,
       PeelingVariant ? PeelingVariant : &VPlanStaticPeeling::NoPeelLoop);
 
+  // Initialize heuristics VPlan level data for each VPlan level getCost call.
+  // Note that VPBlock and VPInstruction level getCost interfaces bypass
+  // the initialization call.
+  initHeuristicsForVPlan();
   unsigned TTICost = getTTICost();
   return applyHeuristics(TTICost);
 }
