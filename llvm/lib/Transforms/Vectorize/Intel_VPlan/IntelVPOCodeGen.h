@@ -547,9 +547,8 @@ private:
 
   OptReportStatsTracker OptRptStats;
 
-  // Get alignment for load/store VPInstruction using underlying
-  // llvm::Instruction.
-  Align getOriginalLoadStoreAlignment(const VPInstruction *VPInst);
+  // Get alignment for VPLoadStoreInst using underlying llvm::Instruction.
+  Align getOriginalLoadStoreAlignment(const VPLoadStoreInst *VPInst);
 
   // Get alignment for the gather/scatter intrinsic when widening load/store
   // VPInstruction \p VPInst.
@@ -563,28 +562,28 @@ private:
   // from <2 x <3 x i32>*> to <6 x i32*>, i.e., two 16-byte aligned stores are
   // split to six 4-byte ones. And thus, the alignment for the scatter should
   // be adjusted to 4.
-  Align getAlignmentForGatherScatter(const VPInstruction *VPInst);
+  Align getAlignmentForGatherScatter(const VPLoadStoreInst *VPInst);
 
   // Widen the given load instruction. EmitIntrinsic needs to be set to true
   // when we can start emitting masked_gather intrinsic once we have support
   // in code gen. Without code gen support, we will serialize the intrinsic.
   // As a result, we simply serialize the instruction for now.
-  void vectorizeLoadInstruction(VPInstruction *VPInst,
+  void vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
                                 bool EmitIntrinsic = false);
 
   // Generate a wide (un)masked load for a given consecutive stride load.
-  Value *vectorizeUnitStrideLoad(VPInstruction *VPInst, bool IsNegOneStride,
+  Value *vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad, bool IsNegOneStride,
                                  bool IsPvtPtr);
 
   // Widen the given store instruction. EmitIntrinsic needs to be set to true
   // when we can start emitting masked_scatter intrinsic once we have support
   // in code gen. Without code gen support, we will serialize the intrinsic.
   // As a result, we simply serialize the instruction for now.
-  void vectorizeStoreInstruction(VPInstruction *VPInst,
+  void vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
                                  bool EmitIntrinsic = false);
 
   // Generate a wide (un)masked store for a given consecutive stride store.
-  void vectorizeUnitStrideStore(VPInstruction *VPInst, bool IsNegOneStride,
+  void vectorizeUnitStrideStore(VPLoadStoreInst *VPStore, bool IsNegOneStride,
                                 bool IsPvtPtr);
 
   // Widen a BitCast/AddrSpaceCast instructions

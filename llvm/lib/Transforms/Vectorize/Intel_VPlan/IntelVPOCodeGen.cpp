@@ -125,12 +125,12 @@ static Value *calculateVectorTC(Value *OrigTC, IRBuilder<> &Builder,
 
 // TODO: this method should be extended in future to preserve all required
 // metadata for memory operations.
-static void propagateLoadStoreInstAliasMetadata(Instruction *LoadStore,
-                                                const VPInstruction *VPInst) {
-  auto *VPStore = cast<VPLoadStoreInst>(VPInst);
-  if (auto *MD = VPStore->getMetadata(LLVMContext::MD_noalias))
+static void
+propagateLoadStoreInstAliasMetadata(Instruction *LoadStore,
+                                    const VPLoadStoreInst *VPMemInst) {
+  if (auto *MD = VPMemInst->getMetadata(LLVMContext::MD_noalias))
     LoadStore->setMetadata(LLVMContext::MD_noalias, MD);
-  if (auto *MD = VPStore->getMetadata(LLVMContext::MD_alias_scope))
+  if (auto *MD = VPMemInst->getMetadata(LLVMContext::MD_alias_scope))
     LoadStore->setMetadata(LLVMContext::MD_alias_scope, MD);
 }
 
@@ -159,7 +159,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     if (VPLoad->isAtomic())
       NewLoad->setSyncScopeID(VPLoad->getSyncScopeID());
     NewLoad->setAlignment(VPLoad->getAlignment());
-    propagateLoadStoreInstAliasMetadata(NewLoad, VPInst);
+    propagateLoadStoreInstAliasMetadata(NewLoad, VPLoad);
   } else if (VPInst->getOpcode() == Instruction::Store) {
     assert(Ops.size() == 2 &&
            "Store VPInstruction has incorrect number of operands.");
@@ -171,7 +171,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     if (VPStore->isAtomic())
       NewStore->setSyncScopeID(VPStore->getSyncScopeID());
     NewStore->setAlignment(VPStore->getAlignment());
-    propagateLoadStoreInstAliasMetadata(NewStore, VPInst);
+    propagateLoadStoreInstAliasMetadata(NewStore, VPStore);
   } else if (VPInst->getOpcode() == Instruction::Call) {
     assert(Ops.size() > 0 &&
            "Call VPInstruction should have atleast one operand.");
@@ -1268,11 +1268,11 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     return;
   }
   case Instruction::Load: {
-    vectorizeLoadInstruction(VPInst, true);
+    vectorizeLoadInstruction(cast<VPLoadStoreInst>(VPInst), true);
     return;
   }
   case Instruction::Store: {
-    vectorizeStoreInstruction(VPInst, true);
+    vectorizeStoreInstruction(cast<VPLoadStoreInst>(VPInst), true);
     return;
   }
   case Instruction::Select: {
@@ -2460,10 +2460,7 @@ void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {
   VPWidenMap[VPInst] = NewSelect;
 }
 
-Align VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
-  assert((VPInst->getOpcode() == Instruction::Load ||
-          VPInst->getOpcode() == Instruction::Store) &&
-         "Alignment helper called on non load/store instruction.");
+Align VPOCodeGen::getOriginalLoadStoreAlignment(const VPLoadStoreInst *VPInst) {
   // TODO: Using align 1 for new loads/stores introduced by VPlan-to-VPlan
   // transforms.
   if (VPInst->getUnderlyingValue() == nullptr)
@@ -2474,15 +2471,10 @@ Align VPOCodeGen::getOriginalLoadStoreAlignment(const VPInstruction *VPInst) {
 
   // Absence of alignment means target abi alignment. We need to use the
   // scalar's target abi alignment in such a case.
-  return DL.getValueOrABITypeAlignment(
-      cast<VPLoadStoreInst>(VPInst)->getAlignment(), OrigTy);
+  return DL.getValueOrABITypeAlignment(VPInst->getAlignment(), OrigTy);
 }
 
-Align VPOCodeGen::getAlignmentForGatherScatter(const VPInstruction *VPInst) {
-  assert((VPInst->getOpcode() == Instruction::Load ||
-          VPInst->getOpcode() == Instruction::Store) &&
-         "Alignment helper called on non load/store instruction.");
-
+Align VPOCodeGen::getAlignmentForGatherScatter(const VPLoadStoreInst *VPInst) {
   Align Alignment = getOriginalLoadStoreAlignment(VPInst);
 
   Type *OrigTy = getLoadStoreType(VPInst);
@@ -2537,8 +2529,7 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
 
   // The alignment for the wide load needs to be set using the group's first
   // memory(lowest offset) reference.
-  const VPInstruction *FirstGroupInst =
-      (cast<VPVLSClientMemref>(Group->getFirstMemref()))->getInstruction();
+  const VPLoadStoreInst *FirstGroupInst = instruction(Group->getFirstMemref());
   Align Alignment = getOriginalLoadStoreAlignment(FirstGroupInst);
 
   Instruction *GroupLoad;
@@ -2608,14 +2599,14 @@ Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
       "groupCast");
 }
 
-Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst,
+Value *VPOCodeGen::vectorizeUnitStrideLoad(VPLoadStoreInst *VPLoad,
                                            bool IsNegOneStride, bool IsPvtPtr) {
   Instruction *WideLoad = nullptr;
-  VPValue *Ptr = getLoadStorePointerOperand(VPInst);
-  Type *LoadType = getLoadStoreType(VPInst);
+  VPValue *Ptr = VPLoad->getPointerOperand();
+  Type *LoadType = VPLoad->getValueType();
   auto *LoadVecType = dyn_cast<VectorType>(LoadType);
   unsigned OriginalVL = LoadVecType ? LoadVecType->getNumElements() : 1;
-  Align Alignment = VPAA.getAlignmentUnitStride(*cast<VPLoadStoreInst>(VPInst),
+  Align Alignment = VPAA.getAlignmentUnitStride(*VPLoad,
                                                 getGuaranteedPeeling());
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, IsNegOneStride);
 
@@ -2623,7 +2614,7 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst,
   // TODO: This needs to be generalized for all "dereferenceable" pointers
   // identified in incoming LLVM-IR. Check CMPLRLLVM-10714.
   if (MaskValue && !IsPvtPtr) {
-    // Replicate the mask if VPInst is a vector instruction.
+    // Replicate the mask if VPLoad is a vector instruction.
     Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                               "replicatedMaskElts.");
     // We need to reverse the mask for -1 stride.
@@ -2644,37 +2635,36 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst,
   VPlanPeelingVariant *PreferredPeeling = Plan->getPreferredPeeling(VF);
   if (auto *DynPeeling =
           dyn_cast_or_null<VPlanDynamicPeeling>(PreferredPeeling))
-    if (VPInst == DynPeeling->memref())
+    if (VPLoad == DynPeeling->memref())
       attachPreferredAlignmentMetadata(WideLoad, DynPeeling->targetAlignment());
 
-  propagateLoadStoreInstAliasMetadata(WideLoad, VPInst);
+  propagateLoadStoreInstAliasMetadata(WideLoad, VPLoad);
 
   if (IsNegOneStride) // Reverse
     return reverseVector(WideLoad);
   return WideLoad;
 }
 
-void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
+void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
                                           bool EmitIntrinsic) {
-  Type *LoadType = VPInst->getType();
+  Type *LoadType = VPLoad->getValueType();
   auto *LoadVecType = dyn_cast<VectorType>(LoadType);
   assert((!LoadVecType || LoadVecType->getElementType()->isSingleValueType()) &&
          "Re-vectorization supports simple vectors only!");
 
-  // Pointer operand of Load is always the first operand.
-  VPValue *Ptr = VPInst->getOperand(0);
+  VPValue *Ptr = VPLoad->getPointerOperand();
 
   // Loads that are non-vectorizable should be serialized.
-  if (!isVectorizableLoadStore(VPInst)) {
-    return serializeWithPredication(VPInst);
+  if (!isVectorizableLoadStore(VPLoad)) {
+    return serializeWithPredication(VPLoad);
   }
 
   // TODO: Using DA for loop invariance.
   if (Plan->getVPlanDA()->isUniform(*Ptr)) {
     if (MaskValue)
-      serializePredicatedUniformInstruction(VPInst);
+      serializePredicatedUniformInstruction(VPLoad);
     else
-      serializeInstruction(VPInst);
+      serializeInstruction(VPLoad);
     return;
   }
 
@@ -2689,38 +2679,38 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
         Plan->getVPlanDA()->isUnitStridePtr(Ptr, IsNegOneStride);
     if (ConsecutiveStride) {
       bool IsPvtPtr = getVPValuePrivateMemoryPtr(Ptr) != nullptr;
-      NewLI = vectorizeUnitStrideLoad(VPInst, IsNegOneStride, IsPvtPtr);
-      VPWidenMap[VPInst] = NewLI;
+      NewLI = vectorizeUnitStrideLoad(VPLoad, IsNegOneStride, IsPvtPtr);
+      VPWidenMap[VPLoad] = NewLI;
       return;
     }
   }
 
   // Try to do GATHER-to-SHUFFLE optimization.
-  if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst)) {
+  if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPLoad)) {
     Optional<int64_t> GroupStride = Group->getConstStride();
     assert(GroupStride && "Indexed loads are not supported");
     // Groups with gaps are not supported either.
     APInt AccessMask = Group->computeByteAccessMask();
     if (AccessMask.isAllOnesValue() && AccessMask.getBitWidth() == *GroupStride)
-      NewLI = vectorizeInterleavedLoad(VPInst, Group);
+      NewLI = vectorizeInterleavedLoad(VPLoad, Group);
   }
 
   // If VLS failed to emit a wide load, we have to emit a GATHER instruction.
   if (!NewLI) {
-    // Replicate the mask if VPInst is a vector instruction originally.
+    // Replicate the mask if VPLoad is a vector instruction originally.
     Value *RepMaskValue = nullptr;
     if (MaskValue)
       RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                          "replicatedMaskElts.");
     Value *GatherAddress = getWidenedAddressForScatterGather(Ptr);
-    Align Alignment = getAlignmentForGatherScatter(VPInst);
+    Align Alignment = getAlignmentForGatherScatter(VPLoad);
     ++(RepMaskValue ? OptRptStats.MaskedGathers : OptRptStats.UnmaskedGathers);
     NewLI = Builder.CreateMaskedGather(GatherAddress, Alignment, RepMaskValue,
                                        nullptr, "wide.masked.gather");
-    propagateLoadStoreInstAliasMetadata(cast<Instruction>(NewLI), VPInst);
+    propagateLoadStoreInstAliasMetadata(cast<Instruction>(NewLI), VPLoad);
   }
 
-  VPWidenMap[VPInst] = NewLI;
+  VPWidenMap[VPLoad] = NewLI;
 }
 
 void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStoreArg,
@@ -2732,8 +2722,8 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStoreArg,
     return;
 
   // Now we forget about VPStoreArg and work with group leader only.
-  auto *Leader = cast<VPVLSClientMemref>(Group->getFirstMemref());
-  const VPInstruction *LeaderInst = Leader->getInstruction();
+  auto *Leader = Group->getFirstMemref();
+  const VPLoadStoreInst *LeaderInst = instruction(Leader);
   assert(LeaderInst->getOpcode() == Instruction::Store &&
          "Unexpected instruction in OVLSGroup");
   Type *LeaderAccessType = LeaderInst->getOperand(0)->getType();
@@ -2821,16 +2811,16 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStoreArg,
   (void) GroupStore;
 }
 
-void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
+void VPOCodeGen::vectorizeUnitStrideStore(VPLoadStoreInst *VPStore,
                                           bool IsNegOneStride, bool IsPvtPtr) {
-  VPValue *Ptr = getLoadStorePointerOperand(VPInst);
-  Value *VecDataOp = getVectorValue(VPInst->getOperand(0));
-  Type *StoreType = getLoadStoreType(VPInst);
+  VPValue *Ptr = VPStore->getPointerOperand();
+  Value *VecDataOp = getVectorValue(VPStore->getOperand(0));
+  Type *StoreType = VPStore->getValueType();
   auto *StoreVecType = dyn_cast<VectorType>(StoreType);
   unsigned OriginalVL = StoreVecType ? StoreVecType->getNumElements() : 1;
   Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, IsNegOneStride);
-  Align Alignment = VPAA.getAlignmentUnitStride(*cast<VPLoadStoreInst>(VPInst),
-                                                getGuaranteedPeeling());
+  Align Alignment =
+      VPAA.getAlignmentUnitStride(*VPStore, getGuaranteedPeeling());
 
   if (IsNegOneStride) // Reverse
     // If we store to reverse consecutive memory locations, then we need
@@ -2839,7 +2829,7 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
 
   Instruction *Store;
   if (MaskValue) {
-    // Replicate the mask if VPInst is a vector instruction originally.
+    // Replicate the mask if VPStore is a vector instruction originally.
     Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                               "replicatedMaskElts.");
     // We need to reverse the mask for -1 stride.
@@ -2856,8 +2846,7 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
 
   const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
   if (Alignment == DL.getTypeAllocSize(VecDataOp->getType()))
-    if (auto *NtmpMD = cast<VPLoadStoreInst>(VPInst)->getMetadata(
-            LLVMContext::MD_nontemporal))
+    if (auto *NtmpMD = VPStore->getMetadata(LLVMContext::MD_nontemporal))
       Store->setMetadata(LLVMContext::MD_nontemporal, NtmpMD);
 
   // We don't need GuaranteedPeeling here. PreferredAlignmentMetadata is just a
@@ -2865,26 +2854,25 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
   VPlanPeelingVariant *PreferredPeeling = Plan->getPreferredPeeling(VF);
   if (auto *DynPeeling =
           dyn_cast_or_null<VPlanDynamicPeeling>(PreferredPeeling))
-    if (VPInst == DynPeeling->memref())
+    if (VPStore == DynPeeling->memref())
       attachPreferredAlignmentMetadata(Store, DynPeeling->targetAlignment());
 
-  propagateLoadStoreInstAliasMetadata(Store, VPInst);
+  propagateLoadStoreInstAliasMetadata(Store, VPStore);
 }
 
-void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
+void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
                                            bool EmitIntrinsic) {
-  Type *StoreType = VPInst->getOperand(0)->getType();
+  Type *StoreType = VPStore->getValueType();
   auto *StoreVecType = dyn_cast<VectorType>(StoreType);
   assert(
       (!StoreVecType || StoreVecType->getElementType()->isSingleValueType()) &&
       "Re-vectorization supports simple vectors only!");
 
-  // Pointer operand of Store will always be second operand.
-  VPValue *Ptr = VPInst->getOperand(1);
+  VPValue *Ptr = VPStore->getPointerOperand();
 
   // Stores that are non-vectorizable should be serialized.
-  if (!isVectorizableLoadStore(VPInst))
-    return serializeWithPredication(VPInst);
+  if (!isVectorizableLoadStore(VPStore))
+    return serializeWithPredication(VPStore);
 
   // Stores to uniform pointers can be optimally generated as a scalar store in
   // vectorized code.
@@ -2893,18 +2881,18 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   // last unmasked lane for divergent data operand.
   if (Plan->getVPlanDA()->isUniform(*Ptr) && !MaskValue) {
     Value *ScalarPtr = getScalarValue(Ptr, 0);
-    VPValue *DataOp = VPInst->getOperand(0);
-    Align Alignment = getOriginalLoadStoreAlignment(VPInst);
+    VPValue *DataOp = VPStore->getOperand(0);
+    Align Alignment = getOriginalLoadStoreAlignment(VPStore);
     // Extract last lane of data operand to generate scalar store. For uniform
     // data operand, the same value is present on all lanes.
     auto *Inst = Builder.CreateAlignedStore(getScalarValue(DataOp, VF - 1),
                                             ScalarPtr, Alignment);
-    propagateLoadStoreInstAliasMetadata(Inst, VPInst);
+    propagateLoadStoreInstAliasMetadata(Inst, VPStore);
     return;
   }
 
   unsigned OriginalVL = StoreVecType ? StoreVecType->getNumElements() : 1;
-  Value *VecDataOp = getVectorValue(VPInst->getOperand(0));
+  Value *VecDataOp = getVectorValue(VPStore->getOperand(0));
 
   // Try to handle consecutive stores without VLS.
   if (VPlanUseDAForUnitStride) {
@@ -2915,20 +2903,20 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
       // TODO: VPVALCG: Special handling for mask value is also needed for
       // conditional last privates.
       bool IsPvtPtr = getVPValuePrivateMemoryPtr(Ptr) != nullptr;
-      vectorizeUnitStrideStore(VPInst, IsNegOneStride, IsPvtPtr);
+      vectorizeUnitStrideStore(VPStore, IsNegOneStride, IsPvtPtr);
       return;
     }
   }
 
   // Try to do SCATTER-to-SHUFFLE optimization.
-  if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst)) {
+  if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPStore)) {
     Optional<int64_t> GroupStride = Group->getConstStride();
     assert(GroupStride && "Indexed loads are not supported");
     // Groups with gaps are not supported either.
     APInt AccessMask = Group->computeByteAccessMask();
     if (AccessMask.isAllOnesValue() &&
         AccessMask.getBitWidth() == *GroupStride) {
-      vectorizeInterleavedStore(VPInst, Group);
+      vectorizeInterleavedStore(VPStore, Group);
       return;
     }
   }
@@ -2943,16 +2931,16 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   // transform can introduce it, if needed.
   VecDataOp = Builder.CreateBitCast(VecDataOp, DesiredDataTy, "cast");
 
-  // Replicate the mask if VPInst is a vector instruction originally.
+  // Replicate the mask if VPStore is a vector instruction originally.
   Value *RepMaskValue = nullptr;
   if (MaskValue)
     RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                        "replicatedMaskElts.");
-  Align Alignment = getAlignmentForGatherScatter(VPInst);
+  Align Alignment = getAlignmentForGatherScatter(VPStore);
   ++(RepMaskValue ? OptRptStats.MaskedScatters : OptRptStats.UnmaskedScatters);
   auto *Inst = Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment,
                                            RepMaskValue);
-  propagateLoadStoreInstAliasMetadata(Inst, VPInst);
+  propagateLoadStoreInstAliasMetadata(Inst, VPStore);
 }
 
 // This function returns computed addresses of memory locations which should be
