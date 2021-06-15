@@ -291,7 +291,7 @@ public:
   /// vectorization and interleaving should be avoided up front.
 #if INTEL_CUSTOMIZATION
   Optional<VectorizationFactor> plan(ElementCount UserVF, unsigned UserIC,
-                                     ArrayRef<unsigned> VFs);
+                                     ArrayRef<ElementCount> VFs);
 #endif // INTEL_CUSTOMIZATION
 
   /// Use the VPlan-native path to plan how to best vectorize, return the best

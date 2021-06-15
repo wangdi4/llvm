@@ -259,7 +259,7 @@ void LoopVectorizeHints::getHintsFromMetadata() {
 #if INTEL_CUSTOMIZATION
     if (S->getString() == "llvm.loop.intel.vector.vectorlength") {
       llvm::transform(Args, std::back_inserter(AllowedVFs), [](Metadata *Arg) {
-        return mdconst::dyn_extract<ConstantInt>(Arg)->getZExtValue();
+        return ElementCount::getFixed(mdconst::dyn_extract<ConstantInt>(Arg)->getZExtValue());
       });
       continue;
     }

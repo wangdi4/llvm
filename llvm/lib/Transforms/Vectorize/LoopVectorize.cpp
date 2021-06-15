@@ -1888,16 +1888,6 @@ public:
   /// Loop Vectorize Hint.
   const LoopVectorizeHints *Hints;
 
-#if INTEL_CUSTOMIZATION
-  /// Contains vector factor values from "llvm.loop.vector.vectorlength"
-  /// metadata, not larger than the MaxVF value. If metadata is not specified,
-  /// contains default vector factor values (from 2 to MaxVF). If
-  /// "-force-vector-width=..." option is used, the value is written to the
-  /// UserVF and AllowedVFs is not used (in this case vectorization happens for
-  ///  UserVF).
-  SmallVector<unsigned, 5> AllowedVFs;
-#endif // INTEL_CUSTOMIZATION
-
   /// The interleave access information contains groups of interleaved accesses
   /// with the same stride and close to each other.
   InterleavedAccessInfo &InterleaveInfo;
@@ -8018,7 +8008,7 @@ LoopVectorizationPlanner::planInVPlanNativePath(ElementCount UserVF) {
 #if INTEL_CUSTOMIZATION
 Optional<VectorizationFactor>
 LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC,
-                               ArrayRef<unsigned> VFs) {
+                               ArrayRef<ElementCount> VFs) {
 #endif // INTEL_CUSTOMIZATION
   assert(OrigLoop->isInnermost() && "Inner loop expected.");
   FixedScalableVFPair MaxFactors = CM.computeMaxVF(UserVF, UserIC);
@@ -8056,42 +8046,29 @@ LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC,
     return {{UserVF, 0}};
   }
 
+#if INTEL_CUSTOMIZATION
+  assert(all_of(VFs, [](ElementCount V) {
+           return isPowerOf2_32(V.getFixedValue()) ||  V.getFixedValue() == 0;
+         }) && "VF must be power of 2!");
+#endif // INTEL_CUSTOMIZATION
+
   // Populate the set of Vectorization Factor Candidates.
   ElementCountSet VFCandidates;
-#if INTEL_CUSTOMIZATION
-  ElementCount MaxVF = MaxFactors.FixedVF;
-  if (VFs.size() == 0) {
-    for (unsigned I = 1; I <= MaxVF.getFixedValue(); I *= 2)
-      CM.AllowedVFs.push_back(I);
-  } else {
-    for (unsigned V : VFs) {
-      if (V <= MaxVF.getFixedValue()) {
-        assert((isPowerOf2_32(V) || V == 0) && "VF must be power of 2!");
-        if (V == 0)
-          CM.AllowedVFs.push_back(1);
-        else
-          CM.AllowedVFs.push_back(V);
-      }
-    }
-  }
-  if (CM.AllowedVFs.size() == 0)
-    CM.AllowedVFs.push_back(MaxVF.getFixedValue());
+  for (auto I = ElementCount::getFixed(1);
+       ElementCount::isKnownLE(I, MaxFactors.FixedVF); I *= 2)
+    if (llvm::is_contained(VFs, I) || VFs.size() == 0) // INTEL_CUSTOMIZATION
+      VFCandidates.insert(I);                          // INTEL_CUSTOMIZATION
 
-  // Sort all the VF values ascending (MinVF will be the first element and MaxVF
-  // will be the last) and remove duplicate values.
-  if (CM.AllowedVFs.size() > 1) {
-    llvm::sort(CM.AllowedVFs.begin(), CM.AllowedVFs.end());
-    auto NewEnd = std::unique(CM.AllowedVFs.begin(), CM.AllowedVFs.end());
-    CM.AllowedVFs.erase(NewEnd, CM.AllowedVFs.end());
-  }
-
-  for (unsigned AllowedVF : CM.AllowedVFs) {
-    ElementCount VF = ElementCount::getFixed(AllowedVF);
-    VFCandidates.insert(VF);
-  }
-  // VFCandidates needs to contain 1 (assertion in selectVectorizationFactor()).
+  // The cost model should always be able to decide not to vectorize if
+  // vectorization is not forced
   VFCandidates.insert(ElementCount::getFixed(1));
+#if INTEL_CUSTOMIZATION
+  if(llvm::is_contained(VFs, ElementCount::getFixed(0)))
+    VFCandidates.insert(ElementCount::getFixed(1));
+  if(!VFCandidates.size())
+    VFCandidates.insert(MaxFactors.FixedVF);
 #endif // INTEL_CUSTOMIZATION
+
   for (auto VF = ElementCount::getScalable(1);
        ElementCount::isKnownLE(VF, MaxFactors.ScalableVF); VF *= 2)
     VFCandidates.insert(VF);
@@ -8106,21 +8083,31 @@ LoopVectorizationPlanner::plan(ElementCount UserVF, unsigned UserIC,
       CM.collectInstsToScalarize(VF);
   }
   CM.collectInLoopReductions();
+
 #if INTEL_CUSTOMIZATION
-  ElementCount First = ElementCount::getFixed(CM.AllowedVFs[0]),
-               Last = ElementCount::getFixed(
-                   CM.AllowedVFs[CM.AllowedVFs.size() - 1]);
-  buildVPlansWithVPRecipes(First, Last);
+  ElementCount MinVF = std::accumulate(VFCandidates.begin(), VFCandidates.end(),
+        *VFCandidates.begin(),
+        [] (const ElementCount PrevVF, const ElementCount VF) {
+            return (ElementCount::isKnownLT(VF, PrevVF)) ? VF : PrevVF;
+        });
+  ElementCount MaxVF = std::accumulate(VFCandidates.begin(), VFCandidates.end(),
+        *VFCandidates.begin(),
+        [] (const ElementCount PrevVF, const ElementCount VF) {
+            return (ElementCount::isKnownGT(VF, PrevVF)) ? VF : PrevVF;
+        });
+  buildVPlansWithVPRecipes(MinVF, MaxVF);
+  assert(MaxFactors.ScalableVF != ElementCount::getFixed(0) && "ScalableVF are not supported!");
+#endif // INTEL_CUSTOMIZATION
+
   buildVPlansWithVPRecipes(ElementCount::getScalable(1), MaxFactors.ScalableVF);
 
   LLVM_DEBUG(printPlans(dbgs()));
+#if INTEL_CUSTOMIZATION
   // TODO: add information about specified vector lengths in opt-report
   DEBUG_WITH_TYPE("loop-vectorize-vec-lengths",
-                  dbgs() << "Specified vectorlengths: ");
-  DEBUG_WITH_TYPE("loop-vectorize-vec-lengths",
-                  for (unsigned VF
-                       : CM.AllowedVFs) dbgs()
-                      << VF << " ";
+                  dbgs() << "Specified vectorlengths: ";
+                  for (auto &I : VFCandidates)
+                      dbgs() << I.getFixedValue() << " ";
                   dbgs() << "\n";);
 #endif // INTEL_CUSTOMIZATION
   if (!MaxFactors.hasVector())
@@ -10108,7 +10095,7 @@ bool LoopVectorizePass::processLoop(Loop *L) {
   // Get user vectorization factor and interleave count.
   ElementCount UserVF = Hints.getWidth();
   unsigned UserIC = Hints.getInterleave();
-  ArrayRef<unsigned> VFs = Hints.getAllowedVFs(); // INTEL
+  ArrayRef<ElementCount> VFs = Hints.getAllowedVFs(); // INTEL
   // Plan how to best vectorize, return the best VF and its cost.
 #if INTEL_CUSTOMIZATION
   Optional<VectorizationFactor> MaybeVF = LVP.plan(UserVF, UserIC, VFs);
