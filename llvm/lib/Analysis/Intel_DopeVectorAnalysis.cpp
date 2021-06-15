@@ -2064,6 +2064,21 @@ GlobalDopeVector::collectAndAnalyzeGlobalDopeVectorField(GEPOperator *GEP) {
   return true;
 }
 
+extern Argument *isIPOPropagatable(const Value *V, const User *U) {
+  if (isa<IntrinsicInst>(U))
+    return nullptr;
+  if (auto CB = dyn_cast<CallBase>(U)) {
+    if (CB->isIndirectCall())
+      return nullptr;
+    Function *F = CB->getCalledFunction();
+    if (!F || F->hasAddressTaken() || F->isDeclaration())
+      return nullptr;
+    if (auto ArgPos = getArgumentPosition(*CB, V))
+      return F->getArg(*ArgPos);
+  }
+  return nullptr;
+}
+
 // Collect the nested dope vectors and store the access to them. Return false
 // if there is any illegal access, else return true.
 bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
@@ -2400,26 +2415,6 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
     return true;
   };
 
-  // If 'U' is a user of 'V' and is passed as an actual argument of a
-  // CallBase, which calls a Function 'F' that is not address-taken and has
-  // IR, return the formal argument of 'F' corresponding to that actual
-  // argument. Otherwise, return 'nullptr'.
-  //
-  auto IsIPOPropagatable = [&](const Value *V, const User *U) -> Argument * {
-    if (isa<IntrinsicInst>(U))
-      return nullptr;
-    if (auto CB = dyn_cast<CallBase>(U)) {
-      if (CB->isIndirectCall())
-        return nullptr;
-      Function *F = CB->getCalledFunction();
-      if (!F || F->hasAddressTaken() || F->isDeclaration())
-        return nullptr;
-      if (auto ArgPos = getArgumentPosition(*CB, V))
-        return F->getArg(*ArgPos);
-    }
-    return nullptr;
-  };
-
   // Return 'true' if each use of 'A' can be propagated to a CallBase that
   // calls a Function with IR that is not address taken, or can be collected
   // inside its Function as usual. Update 'AllocSiteFound' if the alloc site
@@ -2429,7 +2424,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
       PropagateArgument = [&](Argument *A, const DataLayout &DL,
                               bool &AllocSiteFound) -> bool {
     for (User *U : A->users()) {
-      if (Argument *NewA = IsIPOPropagatable(A, U)) {
+      if (Argument *NewA = isIPOPropagatable(A, U)) {
         if (!PropagateArgument(NewA, DL, AllocSiteFound))
           return false;
       } else if (!CanCollectNDVSubscriptUser(A, U, DL, AllocSiteFound)) {
@@ -2457,7 +2452,7 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
   // Traverse through the users of the array entry and find the information
   // related to the nested dope vectors
   for (User *U : SI->users()) {
-    if (Argument *A = IsIPOPropagatable(SI, U)) {
+    if (Argument *A = isIPOPropagatable(SI, U)) {
       if (!PropagateArgument(A, DL, AllocSiteFound))
         return false;
     } else if (!CanCollectNDVSubscriptUser(SI, U, DL, AllocSiteFound)) {
