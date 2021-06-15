@@ -189,11 +189,12 @@ public:
 #endif // INTEL_CUSTOMIZATION
 
   /// Return \p true if the given pointer is unit-strided(1 or -1).
-  bool isUnitStridePtr(const VPValue *Ptr) const;
+  bool isUnitStridePtr(const VPValue *Ptr, Type *AccessType) const;
 
   /// Return \p true if the given pointer is unit-strided(1 or -1).
   /// \p IsNegOneStride is set to true if stride is -1 and false otherwise.
-  bool isUnitStridePtr(const VPValue *VPPtr, bool &IsNegOneStride) const;
+  bool isUnitStridePtr(const VPValue *VPPtr, Type *AccessType,
+                       bool &IsNegOneStride) const;
 
   /// Return true if the given variable has a SOA VectorShape.
   bool isSOAShape(const VPValue *Val) const;

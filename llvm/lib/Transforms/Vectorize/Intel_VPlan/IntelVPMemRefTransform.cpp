@@ -155,7 +155,11 @@ void VPMemRefTransform::transformSOAGEPs(unsigned InVF) {
   };
 
   auto SOAUnitStridedPHIUsersToProcess = [=](const VPUser *U) -> bool {
-    return (isa<VPPHINode>(U) && !DA.isUnitStridePtr(U)) || isa<VPBlendInst>(U);
+    return (isa<VPPHINode>(U) &&
+            !DA.isUnitStridePtr(
+                // FIXME: Get access type from the memory op.
+                U, cast<PointerType>(U->getType())->getElementType())) ||
+           isa<VPBlendInst>(U);
   };
 
   for (auto &VPBB : Plan) {

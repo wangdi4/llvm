@@ -2955,8 +2955,8 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
                                       bool Lane0Value) {
   const VPValue *VPPtr = VPLdSt->getPointerOperand();
   bool IsNegOneStride;
-  bool IsUnitStride =
-      Plan->getVPlanDA()->isUnitStridePtr(VPPtr, IsNegOneStride);
+  bool IsUnitStride = Plan->getVPlanDA()->isUnitStridePtr(
+      VPPtr, VPLdSt->getValueType(), IsNegOneStride);
   bool NeedScalarRef = IsUnitStride || Lane0Value;
   unsigned ScalSymbase = VPLdSt->HIR().getSymbase();
   if (auto *Priv = getVPValuePrivateMemoryPtr(VPPtr)) {
@@ -3725,8 +3725,8 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
 
   // Reverse mask for negative -1 stride.
   bool IsNegOneStride;
-  bool IsUnitStride =
-      Plan->getVPlanDA()->isUnitStridePtr(PtrOp, IsNegOneStride);
+  bool IsUnitStride = Plan->getVPlanDA()->isUnitStridePtr(
+      PtrOp, VPLoadStore->getValueType(), IsNegOneStride);
   if (Mask && IsNegOneStride) {
     auto *RevInst = createReverseVector(Mask->clone());
     Mask = RevInst->getLvalDDRef();

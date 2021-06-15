@@ -143,6 +143,7 @@ VPlanTTICostModel::getMemInstAlignment(const VPLoadStoreInst *LoadStore) const {
 bool VPlanTTICostModel::isUnitStrideLoadStore(const VPLoadStoreInst *LoadStore,
                                               bool &NegativeStride) const {
   return Plan->getVPlanDA()->isUnitStridePtr(LoadStore->getPointerOperand(),
+                                             LoadStore->getValueType(),
                                              NegativeStride);
 }
 
