@@ -1621,6 +1621,14 @@ public:
   VPValue *getPointerOperand() const {
     return getOperand(getPointerOperandIndex());
   }
+  /// Get type of the pointer operand. Note that it might be either PointerType
+  /// or VectorType.
+  Type *getPointerOperandType() const { return getPointerOperand()->getType(); }
+  /// Get address space of the pointer operand.
+  unsigned getPointerAddressSpace() const {
+    return cast<PointerType>(getPointerOperandType()->getScalarType())
+        ->getAddressSpace();
+  }
 
   Type *getValueType() const {
     if (getOpcode() == Instruction::Load)

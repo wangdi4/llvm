@@ -192,7 +192,8 @@ bool HeuristicSLP::checkForSLPRedn(const VPReductionFinal *RednFinal,
     return false;
 
   const VPInstruction *AddNonFmulInst = nullptr;
-  const VPInstruction *MinusOneStrideLoadInst = nullptr, *VLSLoadInst = nullptr;
+  const VPLoadStoreInst *MinusOneStrideLoadInst = nullptr,
+                        *VLSLoadInst = nullptr;
   if (!match(RednVal, m_c_FAdd(m_Bind(AddNonFmulInst),
                                m_c_FMul(m_Bind(MinusOneStrideLoadInst),
                                         m_UIToFP(m_Bind(VLSLoadInst))))))
@@ -435,7 +436,7 @@ unsigned HeuristicSpillFill::operator()(
     // registers such call requires.
     //
     auto SerializableLoadStore =
-      [&](const VPInstruction &VPInst) -> bool {
+      [&](const VPLoadStoreInst &VPInst) -> bool {
       // Don't need to serialize for Scalar VPlan but isLegalMaskedLoad/Store,
       // isLegalMaskedGather/Scatter return false for <1 x ...> vectors.
       // So special case VF = 1 here.
@@ -451,7 +452,7 @@ unsigned HeuristicSpillFill::operator()(
       bool IsMasked = (VPInst.getParent()->getPredicate() != nullptr);
 
       Align Alignment = Align(CM->getMemInstAlignment(&VPInst));
-      Type *VTy = getWidenedType(getLoadStoreType(&VPInst), VF);
+      Type *VTy = getWidenedType(VPInst.getValueType(), VF);
       bool NegativeStride = false;
 
       // Check for masked unit load/store presence in HW.
@@ -471,9 +472,8 @@ unsigned HeuristicSpillFill::operator()(
       return false;
     };
 
-    if ((VPInst.getOpcode() == Instruction::Load ||
-         VPInst.getOpcode() == Instruction::Store) &&
-        SerializableLoadStore(VPInst))
+    auto *LoadStore = dyn_cast<VPLoadStoreInst>(&VPInst);
+    if (LoadStore && SerializableLoadStore(*LoadStore))
       NumberLiveValuesCur += TranslateVPInstRPToHWRP(
         // VPlanTTIWrapper::estimateNumberOfInstructions(InstCost) gives
         // an estimation of the number of instructions the serialized
@@ -637,12 +637,15 @@ unsigned HeuristicGatherScatter::operator()(
   if (VF == 1)
     return 0;
 
+  auto *LoadStore = dyn_cast<VPLoadStoreInst>(VPInst);
+  if (!LoadStore)
+    return 0;
+
   bool NegativeStride;
-  if ((VPInst->getOpcode() == Instruction::Load ||
-       VPInst->getOpcode() == Instruction::Store) &&
-      !CM->isOptimizedVLSGroupMember(VPInst) &&
-      !CM->isUnitStrideLoadStore(VPInst, NegativeStride))
-    return CM->getLoadStoreCost(VPInst, VF);
+  if (!CM->isOptimizedVLSGroupMember(LoadStore) &&
+      !CM->isUnitStrideLoadStore(LoadStore, NegativeStride))
+    return CM->getLoadStoreCost(LoadStore, VF);
+
   return 0;
 }
 
@@ -1064,6 +1067,8 @@ void HeuristicOVLSMember::apply(
   if (!Group || Group->size() <= 1)
     return;
 
+  auto *LoadStore = cast<VPLoadStoreInst>(VPInst);
+
   // FIXME: OVLSCostModel abstructions need to be revisitted as
   // VPlanVLSCostModel::getInstructionCost() implementation requires external
   // VF to form Vector Type of OVLSInstruction, whereas
@@ -1071,7 +1076,7 @@ void HeuristicOVLSMember::apply(
   // elements using I->getType().
   //
   VPlanVLSCostModel VLSCM(VF, CM->VPTTI.getTTI(),
-                          VPInst->getType()->getContext());
+                          LoadStore->getType()->getContext());
   /// OptVLSInterface costs are not scaled up yet.
   unsigned VLSGroupCost =
     VPlanTTIWrapper::Multiplier * OptVLSInterface::getGroupCost(*Group, VLSCM);
@@ -1081,11 +1086,13 @@ void HeuristicOVLSMember::apply(
   // and pick the smaller cost.
   // TODO - Codegen currently does not rely on OVLS to generate wide accesses
   // and shuffles. Consider using the TTI based cost always.
-  if (CM->isOptimizedVLSGroupMember(VPInst)) {
-    Type *ValTy = getLoadStoreType(VPInst);
-    unsigned AddrSpace = getLoadStoreAddressSpace(VPInst);
+  if (CM->isOptimizedVLSGroupMember(LoadStore)) {
+    Type *ValTy = LoadStore->getValueType();
+    unsigned AddrSpace =
+        cast<PointerType>(LoadStore->getPointerOperand()->getType())
+            ->getAddressSpace();
     int InterleaveFactor =
-      std::abs(computeInterleaveFactor(Group->getInsertPoint()));
+        std::abs(computeInterleaveFactor(Group->getInsertPoint()));
     auto *WideVecTy = FixedVectorType::get(ValTy, VF * InterleaveFactor);
 
     // Holds the indices of existing members in an interleaved load group.
@@ -1095,14 +1102,14 @@ void HeuristicOVLSMember::apply(
     // NOTE: The code here mimics what is done in community LV to get the cost
     // of the interleaved access.
     SmallVector<unsigned, 4> Indices;
-    if (VPInst->getOpcode() == Instruction::Load)
+    if (LoadStore->getOpcode() == Instruction::Load)
       for (int i = 0; i < InterleaveFactor; i++)
         Indices.push_back(i);
 
     // Calculate the cost of the whole interleaved group.
     unsigned TTIInterleaveCost = CM->VPTTI.getInterleavedMemoryOpCost(
-        VPInst->getOpcode(), WideVecTy, InterleaveFactor, Indices,
-        cast<VPLoadStoreInst>(VPInst)->getAlignment(), AddrSpace,
+        LoadStore->getOpcode(), WideVecTy, InterleaveFactor, Indices,
+        cast<VPLoadStoreInst>(LoadStore)->getAlignment(), AddrSpace,
         TTI::TCK_RecipThroughput, false /* UseMaskForCond */,
         false /* UseMaskForGaps */);
     if (TTIInterleaveCost < VLSGroupCost)
@@ -1112,7 +1119,7 @@ void HeuristicOVLSMember::apply(
   if (ProcessedOVLSGroups.count(Group) != 0) {
     if (!ProcessedOVLSGroups[Group]) {
       LLVM_DEBUG(dbgs() << "TTI cost of memrefs in the Group containing ";
-                 VPInst->printWithoutAnalyses(dbgs());
+                 LoadStore->printWithoutAnalyses(dbgs());
                  dbgs() << " is less than its OVLS Group cost.\n");
       return;
     }
@@ -1121,9 +1128,9 @@ void HeuristicOVLSMember::apply(
            "OVLS Group's insertion point is not a member of the Group.");
 
     if (cast<VPVLSClientMemref>(Group->getInsertPoint())->getInstruction() ==
-        VPInst) {
+        LoadStore) {
       LLVM_DEBUG(dbgs() << "Whole OVLS Group cost is assigned on ";
-               VPInst->printWithoutAnalyses(dbgs());
+               LoadStore->printWithoutAnalyses(dbgs());
                dbgs() << '\n');
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1135,7 +1142,7 @@ void HeuristicOVLSMember::apply(
     }
 
     LLVM_DEBUG(dbgs() << "Group cost for ";
-               VPInst->printWithoutAnalyses(dbgs());
+               LoadStore->printWithoutAnalyses(dbgs());
                dbgs() << " has already been taken into account.\n");
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1150,10 +1157,10 @@ void HeuristicOVLSMember::apply(
   for (OVLSMemref *OvlsMemref : Group->getMemrefVec())
     TTIGroupCost += CM->getLoadStoreCost(
       cast<VPVLSClientMemref>(OvlsMemref)->getInstruction(),
-      Align(CM->getMemInstAlignment(VPInst)), VF);
+      Align(CM->getMemInstAlignment(LoadStore)), VF);
 
   if (VLSGroupCost >= TTIGroupCost) {
-    LLVM_DEBUG(dbgs() << "Cost for "; VPInst->printWithoutAnalyses(dbgs());
+    LLVM_DEBUG(dbgs() << "Cost for "; LoadStore->printWithoutAnalyses(dbgs());
                dbgs() << " was not reduced from " << Cost << " (TTI group cost "
                       << TTIGroupCost << ") to group cost " << VLSGroupCost
                       << '\n');
@@ -1162,7 +1169,7 @@ void HeuristicOVLSMember::apply(
   }
 
   LLVM_DEBUG(dbgs() << "Reduced cost for ";
-             VPInst->printWithoutAnalyses(dbgs());
+             LoadStore->printWithoutAnalyses(dbgs());
              dbgs() << " from " << Cost << " (TTI group cost " << TTIGroupCost
                     << " to group cost " << VLSGroupCost << ")\n");
   ProcessedOVLSGroups[Group] = true;
@@ -1171,9 +1178,9 @@ void HeuristicOVLSMember::apply(
   // returned if we are dealing with the instruction corresponding to insertion
   // point of the group. We return 0 otherwise.
   if (cast<VPVLSClientMemref>(Group->getInsertPoint())->getInstruction() ==
-      VPInst) {
+      LoadStore) {
     LLVM_DEBUG(dbgs() << "Whole OVLS Group cost is assigned on ";
-               VPInst->printWithoutAnalyses(dbgs()); dbgs() << '\n');
+               LoadStore->printWithoutAnalyses(dbgs()); dbgs() << '\n');
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     printCostChangeInline(OS, Cost, VLSGroupCost);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

@@ -94,7 +94,7 @@ protected:
 // is useful for testing purposes.
 class VPlanPeelingCostModelLog final : public VPlanPeelingCostModel {
 public:
-  int getCost(VPInstruction *Mrf, int VF, Align Alignment) override {
+  int getCost(VPLoadStoreInst *Mrf, int VF, Align Alignment) override {
     return -Log2(Alignment);
   }
 };

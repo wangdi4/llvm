@@ -1584,11 +1584,13 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
 void VPlanDivergenceAnalysis::improveStrideUsingIR() {
   for (const VPBasicBlock &VPBB : *Plan) {
     for (auto &VPInst : VPBB) {
+      auto *LoadStore = dyn_cast<VPLoadStoreInst>(&VPInst);
       // We are only attempting to improve the stride information of load/store
       // pointer operand.
-      const VPValue *PtrOp = getLoadStorePointerOperand(&VPInst);
-      if (!PtrOp)
+      if (!LoadStore)
         continue;
+
+      const VPValue *PtrOp = LoadStore->getPointerOperand();
 
       // Nothing further to do if pointer shape is already marked not random.
       if (!getVectorShape(*PtrOp).isRandom())

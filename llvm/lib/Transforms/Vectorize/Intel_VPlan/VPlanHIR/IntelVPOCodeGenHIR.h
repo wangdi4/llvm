@@ -190,7 +190,7 @@ public:
 
   // Return true if we want to interleave the memory access.
   bool interleaveAccess(const OVLSGroup *Group, const RegDDRef *Mask,
-                        const VPInstruction *VPInst);
+                        const VPLoadStoreInst *LoadStore);
 
   // Widen an interleaved memory access - operands correspond to operands of
   // WidenNode.

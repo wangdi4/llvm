@@ -2394,24 +2394,24 @@ void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {
   VPWidenMap[VPInst] = NewSelect;
 }
 
-Align VPOCodeGen::getOriginalLoadStoreAlignment(const VPLoadStoreInst *VPInst) {
+Align VPOCodeGen::getOriginalLoadStoreAlignment(const VPLoadStoreInst *LoadStore) {
   // TODO: Using align 1 for new loads/stores introduced by VPlan-to-VPlan
   // transforms.
-  if (VPInst->getUnderlyingValue() == nullptr)
+  if (LoadStore->getUnderlyingValue() == nullptr)
     return Align(1);
 
   const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
-  Type *OrigTy = getLoadStoreType(VPInst);
+  Type *OrigTy = LoadStore->getValueType();
 
   // Absence of alignment means target abi alignment. We need to use the
   // scalar's target abi alignment in such a case.
-  return DL.getValueOrABITypeAlignment(VPInst->getAlignment(), OrigTy);
+  return DL.getValueOrABITypeAlignment(LoadStore->getAlignment(), OrigTy);
 }
 
-Align VPOCodeGen::getAlignmentForGatherScatter(const VPLoadStoreInst *VPInst) {
-  Align Alignment = getOriginalLoadStoreAlignment(VPInst);
+Align VPOCodeGen::getAlignmentForGatherScatter(const VPLoadStoreInst *LoadStore) {
+  Align Alignment = getOriginalLoadStoreAlignment(LoadStore);
 
-  Type *OrigTy = getLoadStoreType(VPInst);
+  Type *OrigTy = LoadStore->getValueType();
   VectorType *VectorTy = dyn_cast<VectorType>(OrigTy);
   if (!VectorTy)
     return Alignment;
@@ -2439,10 +2439,9 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
   // in code generation yet.
   OVLSMemref *InsertPoint = Group->getInsertPoint();
   int InterleaveIndex = computeInterleaveIndex(InsertPoint, Group);
-  const VPInstruction *Leader =
-      cast<VPVLSClientMemref>(InsertPoint)->getInstruction();
+  const VPLoadStoreInst *Leader = instruction(InsertPoint);
 
-  Type *SingleAccessType = getLoadStoreType(Leader);
+  Type *SingleAccessType = Leader->getValueType();
   Type *GroupType = getWidenedType(SingleAccessType, VF * Group->size());
 
   Value *GatherAddress = getVectorValue(Leader->getOperand(0));

@@ -77,10 +77,10 @@ public:
 
   // getLoadStoreCost(LoadOrStore, Alignment, VF) interface returns the Cost
   // of Load/Store VPInstruction given VF and Alignment on input.
-  unsigned getLoadStoreCost(
-    const VPInstruction *LoadOrStore, Align Alignment, unsigned VF);
+  unsigned getLoadStoreCost(const VPLoadStoreInst *LoadStore, Align Alignment,
+                            unsigned VF);
   // The Cost of Load/Store using underlying IR/HIR Inst Alignment.
-  unsigned getLoadStoreCost(const VPInstruction *VPInst, unsigned VF);
+  unsigned getLoadStoreCost(const VPLoadStoreInst *LoadStore, unsigned VF);
 
   const VPlanVector *const Plan;
   const unsigned VF;
@@ -89,17 +89,17 @@ public:
   const VPlanTTIWrapper VPTTI;
   const VPlanVLSAnalysis *const VLSA;
 
-  /// \Returns the alignment of the load/store \p VPInst.
+  /// \Returns the alignment of the load/store \p LoadStore.
   ///
   /// This method guarantees to never return zero by returning default alignment
   /// for the base type in case of zero alignment in the underlying IR, so this
   /// method can freely be used even for widening of the \p VPInst.
-  unsigned getMemInstAlignment(const VPInstruction *VPInst) const;
+  unsigned getMemInstAlignment(const VPLoadStoreInst *LoadStore) const;
 
   /// \Returns True iff \p VPInst is Unit Strided load or store.
   /// When load/store is strided NegativeStride is set to true if the stride is
   /// negative (-1 in number of elements) or to false otherwise.
-  bool isUnitStrideLoadStore(const VPInstruction *VPInst,
+  bool isUnitStrideLoadStore(const VPLoadStoreInst *LoadStore,
                              bool &NegativeStride) const;
 
   /// \Returns true if VPInst is part of an optimized VLS group.
@@ -149,17 +149,9 @@ protected:
 private:
   VPlanAlignmentAnalysis VPAA;
 
-  // These utilities are private for the class instead of being defined as
-  // static functions because they need access to underlying Inst/HIRData in
-  // VPInstruction via the friends relation VPInstruction.
-  //
-  // Also, they won't be necessary if we had VPType for each VPValue.
-  static Type *getMemInstValueType(const VPInstruction *VPInst);
-  static unsigned getMemInstAddressSpace(const VPInstruction *VPInst);
-
   // The utility checks whether the Cost Model can assume that 32-bit indexes
   // will be used instead of 64-bit indexes for gather/scatter HW instructions.
-  unsigned getLoadStoreIndexSize(const VPInstruction *VPInst) const;
+  unsigned getLoadStoreIndexSize(const VPLoadStoreInst *LoadStore) const;
 
   // Calculates the sum of the cost of extracting VF elements of Ty type
   // or the cost of inserting VF elements of Ty type into a vector.
@@ -278,7 +270,7 @@ public:
   /// Return the cost of Load/Store VPInstruction given VF and Alignment
   /// on input.
   virtual unsigned getLoadStoreCost(
-    const VPInstruction *LoadOrStore, Align Alignment, unsigned VF) = 0;
+    const VPLoadStoreInst *LoadOrStore, Align Alignment, unsigned VF) = 0;
 };
 
 // Definition of 'Cost Model with Heuristics' template class. As the name
@@ -449,7 +441,7 @@ public:
   /// TTI cost (unmodified by VPInst-level heuristics).
   /// CUrrently we are Okay with that but may want to reconsider in future.
   unsigned getLoadStoreCost(
-    const VPInstruction *LoadOrStore, Align Alignment, unsigned VF) final {
+    const VPLoadStoreInst *LoadOrStore, Align Alignment, unsigned VF) final {
     return VPlanTTICostModel::getLoadStoreCost(LoadOrStore, Alignment, VF);
   }
 };

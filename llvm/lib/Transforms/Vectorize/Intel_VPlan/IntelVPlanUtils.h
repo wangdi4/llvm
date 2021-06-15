@@ -127,67 +127,16 @@ inline bool isScalarTy(Type *Ty) {
 
 /////////// VPValue version of common LLVM load/store utilities ///////////
 
-/// A helper function that returns the pointer operand of a load or store
-/// VPInstruction. Returns nullptr if not load or store.
-inline VPValue *getLoadStorePointerOperand(const VPValue *V) {
-  if (auto *LS = dyn_cast<VPLoadStoreInst>(V))
-    return LS->getPointerOperand();
-  return nullptr;
-}
-
-/// Helper function to return type of operand based on whether it is a
-/// load/store VPInstruction.
-inline Type *getLoadStoreType(const VPInstruction *VPI) {
-  if (VPI->getOpcode() == Instruction::Load)
-    return VPI->getType();
-  else if (VPI->getOpcode() == Instruction::Store)
-    return VPI->getOperand(0)->getType();
-  llvm_unreachable("Expected Load or Store VPI.");
-}
-
 /// Helper function to return pointer operand for a VPInstruction representing
 /// load, store, GEP or subscript.
 inline VPValue *getPointerOperand(const VPInstruction *VPI) {
-  if (auto *Ptr = getLoadStorePointerOperand(VPI))
-    return Ptr;
+  if (auto *LoadStore = dyn_cast<VPLoadStoreInst>(VPI))
+    return LoadStore->getPointerOperand();
   if (auto *Gep = dyn_cast<VPGEPInstruction>(VPI))
     return Gep->getPointerOperand();
   if (auto *Subscript = dyn_cast<VPSubscriptInst>(VPI))
     return Subscript->getPointerOperand();
   return nullptr;
-}
-
-/// Helper function that returns the address space of the pointer operand of
-/// load or store VPInstruction.
-inline unsigned getLoadStoreAddressSpace(const VPInstruction *VPI) {
-  assert((VPI->getOpcode() == Instruction::Load ||
-          VPI->getOpcode() == Instruction::Store) &&
-         "Expect 'VPI' to be either a LoadInst or a StoreInst");
-  VPValue *OperandPtr = getPointerOperand(VPI);
-  assert(OperandPtr && "OperandPtr should not be null pointer.");
-  return OperandPtr->getType()->getPointerAddressSpace();
-}
-
-/// Helper function to get preferred alignment for a VPInstruction representing
-/// load/store.
-inline unsigned getLoadStoreAlignment(VPInstruction *VPInst, Loop *L) {
-  assert((VPInst->getOpcode() == Instruction::Load ||
-          VPInst->getOpcode() == Instruction::Store) &&
-         "Expect 'VPInst' to be either a LoadInst or a StoreInst");
-
-  VPValue *Ptr = getLoadStorePointerOperand(VPInst);
-
-  Type *PtrType = nullptr;
-  // Ptr can be a GEP or the alloca directly
-  if (isa<VPGEPInstruction>(Ptr)) {
-    // First operand of GEP will be alloca
-    PtrType = cast<VPGEPInstruction>(Ptr)->getOperand(0)->getType();
-  } else {
-    PtrType = Ptr->getType();
-  }
-
-  const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
-  return DL.getPrefTypeAlignment(PtrType);
 }
 
 /// Helper function to determine if given VPValue \p V is a vectorizable
@@ -200,7 +149,7 @@ inline bool isVectorizableLoadStore(const VPValue *V) {
 
   // TODO: Load/store to struct types can be potentially vectorized by doing a
   // wide load/store followed by shuffle + bitcast.
-  if (!isVectorizableTy(getLoadStoreType(VPLoadStore)))
+  if (!isVectorizableTy(VPLoadStore->getValueType()))
     return false;
 
   return VPLoadStore->isSimple();

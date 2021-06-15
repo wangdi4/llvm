@@ -2148,7 +2148,7 @@ HLInst *VPOCodeGenHIR::createInterleavedStore(ArrayRef<RegDDRef *> StoreVals,
 
 bool VPOCodeGenHIR::interleaveAccess(const OVLSGroup *Group,
                                      const RegDDRef *Mask,
-                                     const VPInstruction *VPInst) {
+                                     const VPLoadStoreInst *LoadStore) {
   // TODO: Mask for the interleaved accesses must be shuffled as well. Currently
   // it's not done, thus disable CG for it.
   if (Mask)
@@ -2162,7 +2162,7 @@ bool VPOCodeGenHIR::interleaveAccess(const OVLSGroup *Group,
   if (!EnableVPlanVLSCG)
     return false;
 
-  auto Opcode = VPInst->getOpcode();
+  auto Opcode = LoadStore->getOpcode();
   if (Opcode == Instruction::Load && !EnableVPlanVLSLoads)
     return false;
   if (Opcode == Instruction::Store && !EnableVPlanVLSStores)
@@ -2175,7 +2175,7 @@ bool VPOCodeGenHIR::interleaveAccess(const OVLSGroup *Group,
     return false;
 
   // If the reference is unit strided, we do not need interleaving.
-  const VPValue *PtrOp = getLoadStorePointerOperand(VPInst);
+  const VPValue *PtrOp = LoadStore->getPointerOperand();
   if (Plan->getVPlanDA()->isUnitStridePtr(PtrOp))
     return false;
 
@@ -2254,9 +2254,9 @@ void VPOCodeGenHIR::widenInterleavedAccess(const VPLoadStoreInst *VPLdSt,
 
     // Set memory ref's bitcast dest type to a pointer to <VF * InterleaveFactor
     // x ValType>.
-    const VPValue *VPPtr = getLoadStorePointerOperand(LdSt);
+    const VPValue *VPPtr = LdSt->getPointerOperand();
     PointerType *PtrTy = cast<PointerType>(VPPtr->getType());
-    Type *ValTy = PtrTy->getElementType();
+    Type *ValTy = LdSt->getValueType();
     Type *VecValTy = FixedVectorType::get(ValTy, InterleaveFactor * VF);
     WMemRef->setBitCastDestType(
         PointerType::get(VecValTy, PtrTy->getAddressSpace()));
@@ -3271,7 +3271,7 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr) {
 
 RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
                                       bool Lane0Value) {
-  const VPValue *VPPtr = getLoadStorePointerOperand(VPLdSt);
+  const VPValue *VPPtr = VPLdSt->getPointerOperand();
   bool IsNegOneStride;
   bool IsUnitStride =
       Plan->getVPlanDA()->isUnitStridePtr(VPPtr, IsNegOneStride);
@@ -4028,7 +4028,7 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPLoadStoreInst *VPLoadStore,
 
   auto Opcode = VPLoadStore->getOpcode();
 
-  const VPValue *PtrOp = getLoadStorePointerOperand(VPLoadStore);
+  const VPValue *PtrOp = VPLoadStore->getPointerOperand();
   if (!Plan->getVPlanDA()->isDivergent(*PtrOp)) {
     // Handle uniform load
     if (Opcode == Instruction::Load) {

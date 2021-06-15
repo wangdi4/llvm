@@ -89,17 +89,18 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
 
   for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock())) {
     for (const VPInstruction &VPInst : *Block) {
-      if (!isa<VPLoadStoreInst>(VPInst))
+      auto *LoadStore = dyn_cast<VPLoadStoreInst>(&VPInst);
+      if (!LoadStore)
         continue;
 
       // FIXME: VPOCodeGen does not support widening of VLS groups composed of
       //        types with padding (e.g. <3 x i32> or x86_fp80). See
       //        CMPLRLLVM-23003 for more details.
-      Type *MrfTy = getLoadStoreType(&VPInst);
+      Type *MrfTy = LoadStore->getValueType();
       if (hasIrregularTypeForUnitStride(MrfTy, &DL))
         continue;
 
-      OVLSMemref *Memref = createVLSMemref(&cast<VPLoadStoreInst>(VPInst), VF);
+      OVLSMemref *Memref = createVLSMemref(LoadStore, VF);
       if (!Memref)
         continue;
 
