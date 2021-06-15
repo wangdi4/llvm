@@ -148,9 +148,8 @@ cl_err_code    MemoryObject::GetInfo(cl_int iParamName, size_t szParamValueSize,
         pValue = &bParam;
         break;
     case CL_MEM_PROPERTIES:
-        // OCL3.0 doesn't define any optional properties for memory object,
-        // so we just return param_value_size_ret equal to 0 here
-        szSize = 0;
+        szSize = sizeof(cl_mem_properties) * m_clMemobjPropArrays.size();
+        pValue = m_clMemobjPropArrays.data();
         break;
 #if defined (DX_MEDIA_SHARING)
     /* We handle the following values here and not in D3DResource, because it is required to return CL_INVALID_DX9_RESOURCE_INTEL in case the object is not a Direct3D
@@ -695,4 +694,12 @@ void MemoryObject::EnterZombieState(EnterZombieStateLevel /*call_level*/) {
         const_cast<MemoryObject *>(this));
   }
   OCLObject<_cl_mem_int>::EnterZombieState(RECURSIVE_CALL);
+}
+
+// set the properties of the memory object
+void MemoryObject::SetProperties(
+    std::vector<cl_mem_properties> &clMemObjPropsArray) {
+  if (clMemObjPropsArray.empty())
+    return;
+  m_clMemobjPropArrays.swap(clMemObjPropsArray);
 }

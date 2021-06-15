@@ -97,13 +97,11 @@ cl_err_code Sampler::Initialize(SharedPtr<Context> pContext, cl_bool bNormalized
 	return CL_SUCCESS;
 }
 
-void Sampler::ReserveProperties(
+void Sampler::SetProperties(
     std::vector<cl_sampler_properties> &samplerPropsArray) {
   if (samplerPropsArray.empty())
     return;
   m_clSamplerPropArrays.swap(samplerPropsArray);
-  // Add a terminator
-  m_clSamplerPropArrays.push_back(0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

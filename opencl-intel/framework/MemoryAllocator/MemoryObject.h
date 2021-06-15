@@ -352,6 +352,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // returns the address of the host pointer or NULL if there is none
         const void* GetHostPtr() const { return m_pHostPtr; }
 
+        // set the properties of the memory object
+        void SetProperties(std::vector<cl_mem_properties> &clMemobjPropsArray);
+
         protected:
             MemoryObject(SharedPtr<Context> pContext);
             virtual ~MemoryObject();
@@ -388,6 +391,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             Intel::OpenCL::Utils::OclSpinMutex          m_muMappedRegions;          // A mutex for accessing Mapped regions
             size_t                                      m_stMemObjSize;             // Size of the memory object in bytes
             volatile mutable bool                       m_bRegisteredInContextModule;// this memory object has an additional reference from context_module
+            std::vector<cl_mem_properties>              m_clMemobjPropArrays;       // A vector for storage of memory object's properties
     };
 
 
