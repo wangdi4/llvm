@@ -2884,16 +2884,17 @@ RegDDRef *VPOCodeGenHIR::createMemrefFromBlob(RegDDRef *PtrRef, int Index,
 }
 
 RegDDRef *
-VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr) {
+VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr,
+                                                 Type *ScalarAccessType) {
   assert(VPPtr->getType()->isPointerTy() && "Expected VPPtr to be PointerTy.");
 
   // Widened pointer.
   RegDDRef *WidePtr = widenRef(VPPtr, getVF());
 
   auto *PtrType = cast<PointerType>(VPPtr->getType());
-  auto *ElemType = dyn_cast<VectorType>(PtrType->getElementType());
+  auto *VecType = dyn_cast<VectorType>(ScalarAccessType);
   // No replication is needed for non-vector types.
-  if (!ElemType)
+  if (!VecType)
     return WidePtr;
 
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] WidePtr for replication : ";
@@ -2907,7 +2908,7 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr) {
   //                          V
   //                <VF x Ty addrspace(x)*>
   Type *FlattenedTy = FixedVectorType::get(
-      ElemType->getElementType()->getPointerTo(AddrSpace), getVF());
+      VecType->getElementType()->getPointerTo(AddrSpace), getVF());
   WidePtr->setBitCastDestType(FlattenedTy);
   LLVM_DEBUG(dbgs() << "[VPOCGHIR] WidePtr after flattening : ";
              WidePtr->dump(1); dbgs() << "\n");
@@ -2918,7 +2919,7 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr) {
   //                          |
   //                          V
   //      < 0, 0, .., OriginalVL times, 1, 1, ..., OriginalVL times, ...>
-  unsigned OriginalVL = ElemType->getNumElements();
+  unsigned OriginalVL = VecType->getNumElements();
   HLInst *ReplWidePtrInst = replicateVectorElts(WidePtr, OriginalVL);
   addInstUnmasked(ReplWidePtrInst);
 
@@ -2928,7 +2929,7 @@ VPOCodeGenHIR::getWidenedAddressForScatterGather(const VPValue *VPPtr) {
   for (unsigned J = 0; J < VF; ++J)
     for (unsigned I = 0; I < OriginalVL; ++I) {
       Indices.push_back(
-          ConstantInt::get(Type::getInt64Ty(ElemType->getContext()), I));
+          ConstantInt::get(Type::getInt64Ty(VecType->getContext()), I));
     }
 
   // Generate a ConstantVector of indices and build a corresponding CanonExpr.
@@ -2975,7 +2976,7 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPLoadStoreInst *VPLdSt,
   if (NeedScalarRef)
     PtrRef = getOrCreateScalarRef(VPPtr, 0 /*LaneID*/);
   else
-    PtrRef = getWidenedAddressForScatterGather(VPPtr);
+    PtrRef = getWidenedAddressForScatterGather(VPPtr, VPLdSt->getValueType());
 
   RegDDRef *MemRef;
   if (PtrRef->isAddressOf()) {

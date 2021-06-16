@@ -2608,9 +2608,22 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
   if (MaskValue)
     RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                        "replicatedMaskElts.");
-  Value *GatherAddress = getWidenedAddressForScatterGather(Ptr);
+  Value *GatherAddress = getWidenedAddressForScatterGather(Ptr, LoadType);
   Align Alignment = getAlignmentForGatherScatter(VPLoad);
   ++(RepMaskValue ? OptRptStats.MaskedGathers : OptRptStats.UnmaskedGathers);
+
+  auto *ScalarPtrTy = cast<PointerType>(GatherAddress->getType()->getScalarType());
+  if (ScalarPtrTy->isOpaque()) {
+    // FIXME: Revisit when community updates the gather intrinsic for opaque
+    // pointers.
+    Type *ElemTy = VPLoad->getValueType()->getScalarType();
+    VectorType *DesiredDataTy = FixedVectorType::get(ElemTy, VF * OriginalVL);
+    GatherAddress = Builder.CreateBitCast(
+        GatherAddress, DesiredDataTy->getWithNewType(
+                        DesiredDataTy->getScalarType()->getPointerTo(
+                            ScalarPtrTy->getAddressSpace())));
+  }
+
   Instruction *NewLI = Builder.CreateMaskedGather(
       GatherAddress, Alignment, RepMaskValue, nullptr, "wide.masked.gather");
   propagateLoadStoreInstAliasMetadata(NewLI, VPLoad);
@@ -2715,9 +2728,8 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
     return;
   }
 
-  Value *ScatterPtr = getWidenedAddressForScatterGather(Ptr);
-  Type *PtrToElemTy = cast<VectorType>(ScatterPtr->getType())->getElementType();
-  Type *ElemTy = PtrToElemTy->getPointerElementType();
+  Value *ScatterPtr = getWidenedAddressForScatterGather(Ptr, StoreType);
+  Type *ElemTy = VPStore->getValueType()->getScalarType();
   VectorType *DesiredDataTy = FixedVectorType::get(ElemTy, VF * OriginalVL);
   // TODO: Verify if this bitcast should be done this late. Maybe an earlier
   // transform can introduce it, if needed.
@@ -2730,6 +2742,17 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
                                        "replicatedMaskElts.");
   Align Alignment = getAlignmentForGatherScatter(VPStore);
   ++(RepMaskValue ? OptRptStats.MaskedScatters : OptRptStats.UnmaskedScatters);
+
+  auto *ScalarPtrTy = cast<PointerType>(ScatterPtr->getType()->getScalarType());
+  if (ScalarPtrTy->isOpaque()) {
+    // FIXME: Revisit when community updates the scatter intrinsic for opaque
+    // pointers.
+    ScatterPtr = Builder.CreateBitCast(
+        ScatterPtr, DesiredDataTy->getWithNewType(
+                        DesiredDataTy->getScalarType()->getPointerTo(
+                            ScalarPtrTy->getAddressSpace())));
+  }
+
   auto *Inst = Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment,
                                            RepMaskValue);
   propagateLoadStoreInstAliasMetadata(Inst, VPStore);
@@ -2739,7 +2762,8 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
 // accessed in the vectorized code. These addresses, take the form of a GEP
 // instruction, and this GEP is used as pointer operand of the resulting
 // scatter/gather intrinsic.
-Value *VPOCodeGen::getWidenedAddressForScatterGather(VPValue *VPBasePtr) {
+Value *VPOCodeGen::getWidenedAddressForScatterGather(VPValue *VPBasePtr,
+                                                     Type *ScalarAccessType) {
   assert(VPBasePtr->getType()->isPointerTy() &&
          "Expect 'VPBasePtr' to be a PointerType");
 
@@ -2747,8 +2771,8 @@ Value *VPOCodeGen::getWidenedAddressForScatterGather(VPValue *VPBasePtr) {
   Value *BasePtr = getVectorValue(VPBasePtr);
 
   // No replication is needed for non-vector types.
-  Type *LSIType = cast<PointerType>(VPBasePtr->getType())->getElementType();
-  if (!isa<VectorType>(LSIType))
+  auto *VecType = dyn_cast<VectorType>(ScalarAccessType);
+  if (!VecType)
     return BasePtr;
 
   unsigned AddrSpace =
@@ -2761,17 +2785,15 @@ Value *VPOCodeGen::getWidenedAddressForScatterGather(VPValue *VPBasePtr) {
   //                          V
   //                <VF x Ty addrspace(x)*>
   Value *TypeCastBasePtr = Builder.CreateBitCast(
-      BasePtr,
-      FixedVectorType::get(
-          cast<VectorType>(LSIType)->getElementType()->getPointerTo(AddrSpace),
-          VF));
+      BasePtr, FixedVectorType::get(
+                   VecType->getElementType()->getPointerTo(AddrSpace), VF));
   // Replicate the base-address OriginalVL times
   //                <VF x Ty addrspace(x)*>
   //                          |
   //                          |
   //                          V
   //      < 0, 1, .., OriginalVL-1, ..., 0, 1, ..., OriginalVL-1>
-  unsigned OriginalVL = cast<VectorType>(LSIType)->getNumElements();
+  unsigned OriginalVL = VecType->getNumElements();
   Value *VecBasePtr =
       replicateVectorElts(TypeCastBasePtr, OriginalVL, Builder, "vecBasePtr.");
 
@@ -2781,7 +2803,7 @@ Value *VPOCodeGen::getWidenedAddressForScatterGather(VPValue *VPBasePtr) {
   for (unsigned J = 0; J < VF; ++J)
     for (unsigned I = 0; I < OriginalVL; ++I) {
       Indices.push_back(
-          ConstantInt::get(Type::getInt64Ty(LSIType->getContext()), I));
+          ConstantInt::get(Type::getInt64Ty(VecType->getContext()), I));
     }
 
   // Add the consecutive indices to the vector value.
@@ -2927,11 +2949,8 @@ void VPOCodeGen::generateStoreForSinCos(VPCallInstruction *VPCall,
       else
         Builder.CreateAlignedStore(VecValue, VecPtr, Alignment);
     } else {
-      Value *VectorPtr = getWidenedAddressForScatterGather(ScalarPtr);
-      Type *PtrToElemTy =
-          cast<VectorType>(VectorPtr->getType())->getElementType();
-      Type *ElemTy = PtrToElemTy->getPointerElementType();
-      VectorType *DesiredDataTy = FixedVectorType::get(ElemTy, VF);
+      Value *VectorPtr = getWidenedAddressForScatterGather(ScalarPtr, OpTy);
+      VectorType *DesiredDataTy = FixedVectorType::get(OpTy, VF);
       VecValue = Builder.CreateBitCast(VecValue, DesiredDataTy, "cast");
 
       Builder.CreateMaskedScatter(VecValue, VectorPtr, Alignment, MaskValue);
