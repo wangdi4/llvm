@@ -14,19 +14,88 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/ADT/BitVector.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/OptReport/LoopOptReportSupport.h"
+#include "llvm/ADT/BitVector.h"
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/Analysis/Intel_OptReport/Diag.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#ifdef INTEL_ENABLE_PROTO_BIN_OPTRPT
+#include "opt_report_proto.pb.h"
+#include <google/protobuf/io/gzip_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
+#include <sstream>
+#endif // INTEL_ENABLE_PROTO_BIN_OPTRPT
 
 #define DEBUG_TYPE "opt-report-support-utils"
+
+#ifdef INTEL_ENABLE_PROTO_BIN_OPTRPT
+static llvm::cl::opt<bool> EnableProtobufBinOptReport(
+    "enable-protobuf-opt-report", llvm::cl::Hidden, llvm::cl::init(false),
+    llvm::cl::desc("Enable experimental feature: Protobuf-based binary "
+                   "opt-report embedded in generated object files."));
+#endif // INTEL_ENABLE_PROTO_BIN_OPTRPT
 
 namespace llvm {
 namespace LoopOptReportSupport {
 static int getMDNodeAsInt(const ConstantAsMetadata *CM) {
   return cast<ConstantInt>(CM->getValue())->getValue().getSExtValue();
 }
+
+#ifdef INTEL_ENABLE_PROTO_BIN_OPTRPT
+static unsigned getMDNodeAsUnsigned(const ConstantAsMetadata *CM) {
+  uint64_t V = cast<ConstantInt>(CM->getValue())->getValue().getZExtValue();
+  assert(V <= UINT32_MAX && "Value doesn't fit in unsigned range.");
+  return V;
+}
+
+// Helper to pretty-print Protobuf object that encodes a single loop's
+// opt-report.
+static void printProtoLoopOptReport(
+    const opt_report_proto::BinOptReport::LoopOptReport &LOR) {
+  LLVM_DEBUG(dbgs() << "\n=== Loop Begin ===\n");
+  LLVM_DEBUG(dbgs() << "Anchor ID: " << LOR.anchor_id() << "\n");
+  LLVM_DEBUG(dbgs() << "Number of remarks: " << LOR.remarks_size() << "\n");
+  for (auto I = 0; I < LOR.remarks_size(); ++I) {
+    const opt_report_proto::BinOptReport::Remark &R = LOR.remarks(I);
+    LLVM_DEBUG(
+        dbgs() << "  Property: "
+               << opt_report_proto::BinOptReport::Property_Name(R.prop_id()));
+    LLVM_DEBUG(dbgs() << ", Remark ID: " << R.remark_id());
+    LLVM_DEBUG(dbgs() << ", Remark Args: ");
+    for (auto J = 0; J < R.args_size(); ++J)
+      LLVM_DEBUG(dbgs() << R.args(J) << " ");
+    LLVM_DEBUG(dbgs() << "\n");
+  }
+  LLVM_DEBUG(dbgs() << "==== Loop End ====\n");
+}
+
+// Helper to pretty-print Protobuf object that encodes overall binary
+// opt-report.
+static void printProtoBinOptReport(opt_report_proto::BinOptReport &BOR) {
+  LLVM_DEBUG(dbgs() << "--- Start Protobuf Binary OptReport Printer ---\n");
+  LLVM_DEBUG(dbgs() << "Version: " << BOR.major_version() << "."
+                    << BOR.minor_version() << "\n");
+  LLVM_DEBUG(dbgs() << "Property Message Map:\n");
+  for (auto &MapIt : BOR.property_msg_map()) {
+    LLVM_DEBUG(
+        dbgs() << "  "
+               << opt_report_proto::BinOptReport::Property_Name(MapIt.first)
+               << " --> " << MapIt.second << "\n");
+  }
+  LLVM_DEBUG(dbgs() << "Number of reports: " << BOR.opt_reports_size() << "\n");
+  for (auto I = 0; I < BOR.opt_reports_size(); ++I) {
+    const opt_report_proto::BinOptReport::LoopOptReport &LOR =
+        BOR.opt_reports(I);
+    printProtoLoopOptReport(LOR);
+  }
+
+  LLVM_DEBUG(dbgs() << "--- End Protobuf Binary OptReport Printer ---\n\n");
+}
+#endif // INTEL_ENABLE_PROTO_BIN_OPTRPT
 
 // TODO (vzakhari 02/11/2019): this is an experimental implementation
 //       of binary opt-report representation for tech.preview release.
@@ -175,5 +244,152 @@ std::string formatBinaryStream(LoopOptReport OptReport) {
 
   return Stream;
 }
+
+bool isProtobufBinOptReportEnabled() {
+#ifdef INTEL_ENABLE_PROTO_BIN_OPTRPT
+  return EnableProtobufBinOptReport;
+#else
+  return false;
+#endif // INTEL_ENABLE_PROTO_BIN_OPTRPT
+}
+
+#ifdef INTEL_ENABLE_PROTO_BIN_OPTRPT
+// Central map to sync text opt-report diagnostic remarks with binary opt-report
+// properties. The Key is unique RemarkID used to identify diagnostic remark and
+// Value is the binary opt-report property that it corresponds to. Size of this
+// map is expected to match the number of properties defined by binary
+// opt-report Protobuf schema (check the enum Property in
+// opt_report_proto.proto).
+static const DenseMap<unsigned, opt_report_proto::BinOptReport::Property>
+    DiagPropertyMap = {
+        {15300, opt_report_proto::BinOptReport::C_LOOP_VECTORIZED},
+        {15305, opt_report_proto::BinOptReport::C_LOOP_VEC_VL},
+        {25532, opt_report_proto::BinOptReport::C_LOOP_COMPLETE_UNROLL},
+};
+#endif // INTEL_ENABLE_PROTO_BIN_OPTRPT
+
+std::string generateProtobufBinOptReport(OptRptAnchorMapTy &OptRptAnchorMap,
+                                         unsigned MajorVer, unsigned MinorVer) {
+  if (!isProtobufBinOptReportEnabled())
+    llvm_unreachable(
+        "Cannot generate binary opt-report if Protobuf is not enabled.");
+
+#ifndef INTEL_ENABLE_PROTO_BIN_OPTRPT
+  return "";
+#else
+  GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+  // TODO: If we need compile-time static_assert then use a list approach
+  // (similar to OptReportDiag::Diags class from Diag.h) instead of map.
+  assert(DiagPropertyMap.size() ==
+             opt_report_proto::BinOptReport::Property_MAX &&
+         "Mismatch in text opt-report diagnostics and binary opt-report "
+         "properties.");
+
+  // Return empty stream if there are no opt-reports.
+  if (OptRptAnchorMap.empty())
+    return "";
+
+  opt_report_proto::BinOptReport BOR;
+
+  // Set major and minor versions of binary opt-report.
+  BOR.set_major_version(MajorVer);
+  BOR.set_minor_version(MinorVer);
+
+  // Set used to collect unique remark IDs emitted in current list of
+  // opt-reports.
+  DenseSet<unsigned> EmittedRemarkIDs;
+
+  // Translate text opt-reports to binary opt-report format.
+  for (StringRef AnchorID : OptRptAnchorMap.keys()) {
+    LoopOptReport OptReport = OptRptAnchorMap[AnchorID];
+
+    if (!OptReport)
+      continue;
+
+    opt_report_proto::BinOptReport::LoopOptReport *LOR = BOR.add_opt_reports();
+
+    // Set anchoring info for the loop that this optreport corresponds to.
+    LOR->set_anchor_id(AnchorID.str());
+    // Translate diagnostic remarks to properties.
+    for (const LoopOptRemark Remark : OptReport.remarks()) {
+      // TODO: Promote interface to LoopOptRemark::getRemarkID.
+      const auto *RID = cast<ConstantAsMetadata>(Remark.getOperand(0));
+      unsigned RemarkID = getMDNodeAsUnsigned(RID);
+
+      // Ignore remark if it doesn't have an equivalent property in binary
+      // opt-report.
+      auto DiagPropMapIt = DiagPropertyMap.find(RemarkID);
+      if (DiagPropMapIt == DiagPropertyMap.end())
+        continue;
+
+      opt_report_proto::BinOptReport::Property PropID = (*DiagPropMapIt).second;
+      opt_report_proto::BinOptReport::Remark *BinRemark = LOR->add_remarks();
+      BinRemark->set_prop_id(PropID);
+      BinRemark->set_remark_id(RemarkID);
+      EmittedRemarkIDs.insert(RemarkID);
+
+      for (unsigned Op = 2; Op < Remark.getNumOperands(); ++Op) {
+        const auto *RemarkOp = dyn_cast<MDString>(Remark.getOperand(Op));
+        // TODO: Add support for int args, float args
+        if (!RemarkOp)
+          continue;
+        std::string ArgString = std::string(RemarkOp->getString());
+        BinRemark->add_args(ArgString);
+      }
+    }
+  }
+
+  // Populate Property->RemarkMsg map.
+  auto *PropMsgMap = BOR.mutable_property_msg_map();
+  for (unsigned RemarkID : EmittedRemarkIDs) {
+    auto DiagPropMapIt = DiagPropertyMap.find(RemarkID);
+    assert(DiagPropMapIt != DiagPropertyMap.end() &&
+           "Unknown remark ID emitted.");
+    int32_t PropID = DiagPropMapIt->second;
+    assert(opt_report_proto::BinOptReport::Property_IsValid(PropID) &&
+           "Invalid binary opt-report property.");
+    (*PropMsgMap)[PropID] = OptReportDiag::getMsg(RemarkID);
+  }
+
+  LLVM_DEBUG(dbgs() << "[ProtoBOR] BinOptReport before encoding:\n";
+             printProtoBinOptReport(BOR));
+
+  std::string BinOptRptStream;
+
+  int UncompressedBytes = BOR.ByteSizeLong();
+  LLVM_DEBUG(dbgs() << "Uncompressed protobuf msg size: " << UncompressedBytes
+                    << " bytes\n");
+  google::protobuf::io::StringOutputStream SOS(&BinOptRptStream);
+  google::protobuf::io::GzipOutputStream::Options GzipOptions;
+  GzipOptions.format = google::protobuf::io::GzipOutputStream::ZLIB;
+  GzipOptions.compression_level = 9;
+  google::protobuf::io::GzipOutputStream GOS(&SOS, GzipOptions);
+
+  if (BOR.SerializeToZeroCopyStream(&GOS)) {
+    GOS.Close();
+    if (GOS.ZlibErrorCode() > 0) {
+      auto CompressedBytes = SOS.ByteCount();
+      LLVM_DEBUG(dbgs() << "Compressed protobuf msg size: " << CompressedBytes
+                        << " bytes\n");
+    } else {
+      std::string ZlibErrorMsg(GOS.ZlibErrorMessage());
+      report_fatal_error("Failed to compress protobuf message (zlib error:" +
+                         ZlibErrorMsg + ")");
+    }
+  } else {
+    report_fatal_error("Failed to serialize protobuf message.");
+  }
+
+  assert(!BinOptRptStream.empty() && "Binary opt-report stream is empty.");
+  LLVM_DEBUG(
+      dbgs() << "Opt-report binary stream serialized via protobuf (size: "
+             << BinOptRptStream.length() << "):\n"
+             << BinOptRptStream << "\n");
+
+  return BinOptRptStream;
+#endif // INTEL_ENABLE_PROTO_BIN_OPTRPT
+}
+
 } // namespace LoopOptReportSupport
 } // namespace llvm

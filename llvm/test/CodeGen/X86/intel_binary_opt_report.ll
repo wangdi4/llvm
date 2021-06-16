@@ -1,7 +1,8 @@
-; RUN: llc < %s -O3 -intel-loop-optreport=high -intel-loop-optreport-emitter=mir -opt-report-embed -debug-only=opt-report-support-utils 2>&1 | FileCheck %s
-; REQUIRES: asserts
+; RUN: llc < %s -O3 -intel-loop-optreport=high -intel-loop-optreport-emitter=mir -opt-report-embed -enable-protobuf-opt-report=false -debug-only=opt-report-support-utils 2>&1 | FileCheck %s --check-prefixes=LEGACY,CHECK
+; RUN: llc < %s -O3 -intel-loop-optreport=high -intel-loop-optreport-emitter=mir -opt-report-embed -enable-protobuf-opt-report=true -debug-only=opt-report-support-utils 2>&1 | FileCheck %s --check-prefixes=PROTO-BOR,CHECK
+; REQUIRES: asserts, proto_bor
 
-; 7 loop with opt-reports must produce 7 binary streams
+; Check for 7 loop with opt-reports.
 ; CHECK: LOOP BEGIN
 ; CHECK: LOOP BEGIN
 ; CHECK: LOOP BEGIN
@@ -9,13 +10,63 @@
 ; CHECK: LOOP BEGIN
 ; CHECK: LOOP BEGIN
 ; CHECK: LOOP BEGIN
-; CHECK: Opt-report binary stream:
-; CHECK: Opt-report binary stream:
-; CHECK: Opt-report binary stream:
-; CHECK: Opt-report binary stream:
-; CHECK: Opt-report binary stream:
-; CHECK: Opt-report binary stream:
-; CHECK: Opt-report binary stream:
+
+; Check legacy mechanism of emitting binary stream for each loop.
+; LEGACY: Opt-report binary stream:
+; LEGACY: Opt-report binary stream:
+; LEGACY: Opt-report binary stream:
+; LEGACY: Opt-report binary stream:
+; LEGACY: Opt-report binary stream:
+; LEGACY: Opt-report binary stream:
+; LEGACY: Opt-report binary stream:
+
+; Check Protobuf-based binary opt-report feature.
+; PROTO-BOR-LABEL:    --- Start Protobuf Binary OptReport Printer ---
+; PROTO-BOR-NEXT:     Version: 1.5
+; PROTO-BOR-NEXT:     Property Message Map:
+; PROTO-BOR-DAG:        C_LOOP_VEC_VL --> vectorization support: vector length %s
+; PROTO-BOR-DAG:        C_LOOP_COMPLETE_UNROLL --> Loop completely unrolled
+; PROTO-BOR-DAG:        C_LOOP_VECTORIZED --> LOOP WAS VECTORIZED
+; PROTO-BOR-NEXT:     Number of reports: 7
+
+; PROTO-BOR-DAG:      === Loop Begin ===
+; PROTO-BOR-DAG:      Anchor ID: 59782deec23e72e34ee8c4f37ad91514
+; PROTO-BOR-DAG:      Number of remarks: 0
+; PROTO-BOR-DAG:      ==== Loop End ====
+
+; PROTO-BOR-DAG:      === Loop Begin ===
+; PROTO-BOR-DAG:      Anchor ID: fa1bbf46649ed0a2ce779d054e268257
+; PROTO-BOR-DAG:      Number of remarks: 0
+; PROTO-BOR-DAG:      ==== Loop End ====
+
+; PROTO-BOR-DAG:      === Loop Begin ===
+; PROTO-BOR-DAG:      Anchor ID: 17c264a03c74ab4ffdb033981dff60d2
+; PROTO-BOR-DAG:      Number of remarks: 2
+; PROTO-BOR-DAG:        Property: C_LOOP_VECTORIZED, Remark ID: 15300, Remark Args:
+; PROTO-BOR-DAG:        Property: C_LOOP_VEC_VL, Remark ID: 15305, Remark Args: 8
+; PROTO-BOR-DAG:      ==== Loop End ====
+
+; PROTO-BOR-DAG:      === Loop Begin ===
+; PROTO-BOR-DAG:      Anchor ID: 7570d5ba2a865bcde3ab13af9e215a98
+; PROTO-BOR-DAG:      Number of remarks: 1
+; PROTO-BOR-DAG:        Property: C_LOOP_COMPLETE_UNROLL, Remark ID: 25532, Remark Args:
+; PROTO-BOR-DAG:      ==== Loop End ====
+
+; PROTO-BOR-DAG:      === Loop Begin ===
+; PROTO-BOR-DAG:      Anchor ID: 63763e85a72f0bbe9041efd74d0475c5
+; PROTO-BOR-DAG:      Number of remarks: 0
+; PROTO-BOR-DAG:      ==== Loop End ====
+
+; PROTO-BOR-DAG:      === Loop Begin ===
+; PROTO-BOR-DAG:      Anchor ID: b5ce33333e51ead41791f54805249447
+; PROTO-BOR-DAG:      Number of remarks: 0
+; PROTO-BOR-DAG:      ==== Loop End ====
+
+; PROTO-BOR-DAG:      === Loop Begin ===
+; PROTO-BOR-DAG:      Anchor ID: e1a04b16fd921e22f9b82ca245f3f57b
+; PROTO-BOR-DAG:      Number of remarks: 0
+; PROTO-BOR-DAG:      ==== Loop End ====
+; PROTO-BOR:          --- End Protobuf Binary OptReport Printer ---
 
 ; ModuleID = 'vec.cpp'
 source_filename = "vec.cpp"
@@ -305,7 +356,7 @@ attributes #1 = { nounwind readnone speculatable }
 !33 = !{!"intel.optreport.debug_location", !34}
 !34 = !DILocation(line: 21, column: 3, scope: !27)
 !35 = !{!"intel.optreport.remarks", !36}
-!36 = !{!"intel.optreport.remark", i32 0, !"Loop completely unrolled"}
+!36 = !{!"intel.optreport.remark", i32 25532, !"Loop completely unrolled"}
 !37 = !DILocation(line: 3, column: 20, scope: !13)
 !38 = !DILocation(line: 3, column: 27, scope: !13)
 !39 = !DILocation(line: 10, column: 12, scope: !21)

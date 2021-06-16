@@ -1,6 +1,6 @@
 //===- Intel_AsmOptReport.h - Collect and dump OptReport --------*- C++ -*-===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -104,6 +104,9 @@ private:
     // in endModule().
     MCSymbol *EntrySym = nullptr;
 
+    // Unique ID used to indicate the MBBSym that this OptReport is anchored to.
+    SmallString<32> AnchorID;
+
     OptReportDesc(MCSymbol *MBBSym, LoopOptReport OptReport)
       : MBBSym(MBBSym), OptReport(OptReport) {}
   };
@@ -117,13 +120,17 @@ private:
     // functions we create separate sections with .debug_opt_report prefix.
     MCSection *Section = nullptr;
 
+    // llvm::Function that this FunctionDesc corresponds to.
+    const Function *F = nullptr;
+
     // A collection of optimization report descriptors for the loops
     // in this function.  It is initialized in endFunction().
     SmallVector<std::unique_ptr<OptReportDesc>, 20> OptReports;
 
-    explicit FunctionDesc(MCSection *Section)
-      : Section(Section) {
+    explicit FunctionDesc(MCSection *Section, const Function *F)
+        : Section(Section), F(F) {
       assert(Section && "Invalid nullptr section.");
+      assert(F && "Invalid nullptr function.");
     }
   };
 
@@ -185,6 +192,14 @@ private:
   // OptReports vector was moved to OptReports vector of another function
   // will have its OptReports vector empty.
   void combineFunctionDescs();
+
+  // Emits Protobuf-based binary opt-report to encode various optimization
+  // remarks collected across loops and functions. A new .debug_opt_report
+  // section layout (documented in defintion) is emitted instead of the legacy
+  // version. This function is expected to eventually replace current
+  // implementation in endModule(). Returns true if the new encoding scheme
+  // succeeded, false otherwise.
+  bool emitOptReportUsingProtobuf();
 };
 } // end namespace llvm
 

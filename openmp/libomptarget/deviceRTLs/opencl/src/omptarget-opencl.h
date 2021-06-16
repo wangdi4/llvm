@@ -486,6 +486,17 @@ EXTERN void __kmpc_barrier();
 /// Runtime initializer
 EXTERN void __kmpc_init_runtime();
 
+/// Initialize named barrier
+EXTERN void __kmpc_nbarrier_init(uint nbarrier_count);
+
+/// Wait on the specified named barrier id
+EXTERN void __kmpc_nbarrier_wait(uint nbarrier_id);
+
+/// Signal named barrier
+EXTERN void __kmpc_nbarrier_signal(
+    uint nbarrier_id, uint num_producers, uint num_consumers, uint op_type,
+    uint fence_type);
+
 
 ///
 /// Atomics
@@ -776,6 +787,23 @@ EXTERN int omp_get_initial_device(void);
 EXTERN void kmp_global_barrier_init(void);
 
 EXTERN void kmp_global_barrier(void);
+
+
+///
+/// Extensions
+///
+
+/// Initialize named barrier
+EXTERN void ompx_nbarrier_init(uint nbarrier_count);
+
+/// Wait on the specified named barrier id
+EXTERN void ompx_nbarrier_wait(uint nbarrier_id);
+
+/// Signal named barrier
+EXTERN void ompx_nbarrier_signal(
+    uint nbarrier_id, uint num_producers, uint num_consumers, uint op_type,
+    uint fence_type);
+
 
 ///
 /// Device runtime initialization

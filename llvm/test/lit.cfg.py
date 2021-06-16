@@ -237,6 +237,9 @@ if config.have_tf_aot:
 
 # INTEL_CUSTOMIZATION
 llvm_config.add_intel_features()
+
+if config.enable_proto_bor:
+    config.available_features.add("proto_bor")
 # end INTEL_CUSTOMIZATION
 if config.have_tf_api:
     config.available_features.add("have_tf_api")
