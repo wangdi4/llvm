@@ -92,7 +92,7 @@ void VPlanAllZeroBypass::createLiveOutPhisAndReplaceUsers(
     VPBasicBlock *BypassEnd,
     LiveOutUsersMapTy &LiveOutMap) {
 
-  auto *DA = cast<VPlanDivergenceAnalysis>(Plan.getVPlanDA());
+  auto *DA = Plan.getVPlanDA();
   Builder.setInsertPoint(BypassEnd, BypassEnd->begin());
   // Create a new phi at the end of the split for all values live-out of
   // the bypassed block and replace all users with this phi.

@@ -110,8 +110,7 @@ public:
 
     auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
     Plan->setVPlanDA(std::move(VPDA));
-    cast<VPlanDivergenceAnalysis>(Plan->getVPlanDA())
-        ->compute(Plan.get(), nullptr, VPLInfo, *Plan->getDT(), *Plan->getPDT(),
+    Plan->getVPlanDA()->compute(Plan.get(), nullptr, VPLInfo, *Plan->getDT(), *Plan->getPDT(),
                   false /*Not in LCSSA form*/);
 
     VPLAN_DUMP(DADumpControl, *Plan);

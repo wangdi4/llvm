@@ -1611,11 +1611,15 @@ public:
       RDDR->getAllMetadataOtherThanDebugLoc(MDs);
   }
 
-  VPValue *getPointerOperand() const {
+  unsigned getPointerOperandIndex() const {
     if (getOpcode() == Instruction::Load)
-      return getOperand(0);
+      return 0;
     assert(getOpcode() == Instruction::Store && "Unknown LoadStore opcode");
-    return getOperand(1);
+    return 1;
+  }
+
+  VPValue *getPointerOperand() const {
+    return getOperand(getPointerOperandIndex());
   }
 
   Type *getValueType() const {
@@ -3813,6 +3817,10 @@ public:
 
   // TODO: Make this pure virtual.
   void computeDA();
+
+  VPlanDivergenceAnalysis *getVPlanDA() const {
+    return cast<VPlanDivergenceAnalysis>(VPlanDA.get());
+  }
 
   /// Methods for supporting type inquiry through isa, cast, and
   /// dyn_cast:

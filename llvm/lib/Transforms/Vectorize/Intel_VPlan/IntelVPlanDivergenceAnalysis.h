@@ -70,6 +70,8 @@ public:
 
   /// Return whether \p Val is a divergent value.
   virtual bool isDivergent(const VPValue &V) const = 0;
+  /// Return whether \p Val is a uniform value.
+  bool isUniform(const VPValue &V) { return !isDivergent(V); }
 
   /// Get the vector-shape of the VPValue \p V.
   virtual VPVectorShape getVectorShape(const VPValue &V) const = 0;

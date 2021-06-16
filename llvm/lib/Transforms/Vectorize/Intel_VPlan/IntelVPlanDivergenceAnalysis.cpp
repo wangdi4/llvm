@@ -1723,7 +1723,7 @@ void VPlanDivergenceAnalysis::cloneVectorShapes(
     VPlanVector *ClonedVPlan,
     DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap) {
 
-  auto *ClonedVPDA = cast<VPlanDivergenceAnalysis>(ClonedVPlan->getVPlanDA());
+  auto *ClonedVPDA = ClonedVPlan->getVPlanDA();
   ClonedVPDA->Plan = ClonedVPlan;
   for (const auto &Pair : OrigClonedValuesMap) {
     VPValue *OrigVal = Pair.first;
