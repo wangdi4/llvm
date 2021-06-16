@@ -48,7 +48,6 @@
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
-#include "IntelVPlanCostModelProprietary.h"
 #include "VPlanHIR/IntelLoopVectorizationPlannerHIR.h"
 #include "VPlanHIR/IntelVPlanScalarEvolutionHIR.h"
 #include "VPlanHIR/IntelVPlanValueTrackingHIR.h"
@@ -320,7 +319,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   std::string HeaderStr =
     std::string(Fn.getName()) + "." + std::string(Lp->getName());
-  LVP.printCostModelAnalysisIfRequested(HeaderStr);
+  LVP.printCostModelAnalysisIfRequested<VPlanCostModel>(HeaderStr);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // VPlan construction stress test ends here.
@@ -331,7 +330,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 
   unsigned VF;
   VPlanVector *Plan;
-  std::tie(VF, Plan) = LVP.selectBestPlan();
+  std::tie(VF, Plan) = LVP.selectBestPlan<VPlanCostModel>();
   assert(Plan && "Unexpected null VPlan");
 
   LLVM_DEBUG(std::string PlanName; raw_string_ostream RSO(PlanName);

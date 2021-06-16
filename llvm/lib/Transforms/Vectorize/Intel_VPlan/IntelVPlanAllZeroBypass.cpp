@@ -15,7 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanAllZeroBypass.h"
-#include "IntelVPlanCostModelProprietary.h"
+#include "IntelVPlanCostModel.h"
 #include "IntelVPlanTTIWrapper.h"
 #include "IntelVPlanUtils.h"
 #include "llvm/Support/CommandLine.h"
@@ -420,7 +420,7 @@ bool VPlanAllZeroBypass::blendTerminatesRegion(const VPBlendInst *Blend,
 void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     AllZeroBypassRegionsTy &AllZeroBypassRegions,
     RegionsCollectedTy &RegionsCollected,
-    VPlanCostModel *CM) {
+    VPlanCostModelInterface *CM) {
 
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
 

@@ -38,7 +38,7 @@ DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
   br label %omp.inner.for.body
 
 omp.inner.for.body:                               ; preds = %omp.inner.for.body, %DIR.OMP.SIMD.2
-; CHECK-LABEL: Cost Model for VPlan foo.omp.inner.for.body with VF = 4:
+; CHECK-LABEL: Cost Model for VPlan foo:omp.inner.for.body with VF = 4:
   %indvars.iv = phi i64 [ 0, %DIR.OMP.SIMD.2 ], [ %indvars.iv.next, %omp.inner.for.body ]
   %2 = trunc i64 %indvars.iv to i32
   store i32 %2, i32* %i.lpriv, align 4

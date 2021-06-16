@@ -5,7 +5,7 @@
 
 ; RUN: opt -VPlanDriver -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s | FileCheck %s
 
-; CHECK-LABEL:   Cost Model for VPlan foo.for.body with VF = 4:
+; CHECK-LABEL:   Cost Model for VPlan foo:for.body with VF = 4:
 ; CHECK:         Cost Unknown for float {{%vp.*}} = call float {{%vp.*}} float {{%vp.*}} i32 {{%vp.*}} _Z6selectDv4_fS_Dv4_i [x 1]
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

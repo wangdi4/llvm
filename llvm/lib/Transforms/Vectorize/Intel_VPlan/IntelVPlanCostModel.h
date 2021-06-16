@@ -25,6 +25,7 @@
 #include "IntelVPlanTTIWrapper.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
+#include "llvm/Support/SaveAndRestore.h"
 
 namespace llvm {
 class DataLayout;
@@ -37,6 +38,12 @@ namespace vpo {
 class VPlan;
 class VPBasicBlock;
 class VPInstruction;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#define CM_DEBUG(OS, X) { if (OS) { X; }}
+#else  // !NDEBUG || LLVM_ENABLE_DUMP
+#define CM_DEBUG(OS, X)
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 #if INTEL_CUSTOMIZATION
 class VPlanVLSCostModel : public OVLSCostModel {
@@ -238,88 +245,235 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
-// TODO: VPlanCostModel class is temporal, for transition to template based
-// Cost Model types.
-class VPlanCostModel : public VPlanTTICostModel {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Helper to print 'Unknown' word for UnknownCost in debug dumps.
+inline static std::string getCostNumberString(unsigned Cost) {
+  if (Cost == VPlanTTICostModel::UnknownCost)
+    return std::string("Unknown");
+  return std::to_string(Cost);
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+// VPlanCostModelInterface is pure virtual class defining the interface all
+// VPlan CMs are expected to implement. External users can only use methods
+// listed in this class.
+class VPlanCostModelInterface {
 public:
-  VPlanCostModel(const VPlanVector *Plan, const unsigned VF,
-                 const TargetTransformInfo *TTI, const TargetLibraryInfo *TLI,
-                 const DataLayout *DL, VPlanVLSAnalysis *VLSA = nullptr)
-    : VPlanTTICostModel(Plan, VF, TTI, TLI, DL, VLSA),
-      HeuristicsPipeline(this) {}
-  // Get Cost for VPlan with specified peeling.
-  unsigned getCost(VPlanPeelingVariant *PeelingVariant = nullptr);
+  virtual ~VPlanCostModelInterface() = default;
+
+  /// Get Cost for the range of basic blocks specified through \p Begin and
+  /// \p End with optionally specified peeling \p PeelingVariant and optionally
+  /// specified pointer to output stream \p OS if debug output is requested.
   virtual unsigned getBlockRangeCost(
     const VPBasicBlock *Begin, const VPBasicBlock *End,
-    VPlanPeelingVariant *PeelingVariant = nullptr);
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &OS, const std::string &Header);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-  virtual ~VPlanCostModel() {}
+    VPlanPeelingVariant *PeelingVariant = nullptr,
+    raw_ostream *OS = nullptr) = 0;
 
-protected:
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  std::string getCostNumberString(unsigned Cost) const {
-    if (Cost == UnknownCost)
-      return std::string("Unknown");
-    return std::to_string(Cost);
-  };
-  // Printed in debug dumps.  Helps to distiguish base Cost Model dumps vs
-  // inherited Cost Model dump.
-  virtual std::string getHeaderPrefix() const {
-    return "";
-  };
-  void printForVPInstruction(raw_ostream &OS, const VPInstruction *VPInst);
-  void printForVPBasicBlock(raw_ostream &OS, const VPBasicBlock *VPBlock);
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  /// Get Cost for VPlan with optionally specified peeling \p PeelingVariant
+  /// and optionally specified pointer to output stream \p OS if debug output
+  /// is requested.
+  virtual unsigned getCost(VPlanPeelingVariant *PeelingVariant = nullptr,
+                           raw_ostream *OS = nullptr) = 0;
 
-  virtual unsigned getCost(const VPInstruction *VPInst);
-  unsigned getCost(const VPBasicBlock *VPBB);
-  // Return TTI contribution to the whole cost.
-  unsigned getTTICost();
-
-  // Temporal virtual method to invoke Heuristics initialization.
-  virtual void initHeuristicsForVPlan() {
-    HeuristicsPipeline.initForVPlan();
-  }
-
-  // Temporal virtual methods to invoke apply facilities on
-  // HeuristicsPipelines on all levels.
-  virtual void applyHeuristicsPipeline(
-    unsigned TTICost, unsigned &Cost,
-    const VPlanVector *Plan, raw_ostream *OS = nullptr) const {
-    HeuristicsPipeline.apply(TTICost, Cost, Plan, OS);
-  }
-
-  virtual void applyHeuristicsPipeline(
-    unsigned TTICost, unsigned &Cost,
-    const VPInstruction *VPInst, raw_ostream *OS = nullptr) const {
-  }
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  // Temporal virtual methods to invoke dump facilities on HeuristicsPipeline.
-  virtual void dumpHeuristicsPipeline(raw_ostream &OS,
-                                      const VPlanVector *Plan) const {
-    HeuristicsPipeline.dump(OS, Plan);
-  }
-  virtual void dumpHeuristicsPipeline(raw_ostream &OS,
-                                      const VPBasicBlock *VPBB) const {
-    HeuristicsPipeline.dump(OS, VPBB);
-  }
-  virtual void dumpHeuristicsPipeline(raw_ostream &OS,
-                                      const VPInstruction *VPInst) const {
-    HeuristicsPipeline.dump(OS, VPInst);
-  }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-private:
-  // Apply all heuristics scheduled in the pipeline for the current VPlan
-  // and return modified input Cost.
-  unsigned applyHeuristics(unsigned Cost);
-
-  // Heuristics list type specific to base cost model.
-  HeuristicsList<const VPlanVector,
-    VPlanCostModelHeuristics::HeuristicSLP,
-    VPlanCostModelHeuristics::HeuristicSpillFill> HeuristicsPipeline;
+  /// Return the cost of Load/Store VPInstruction given VF and Alignment
+  /// on input.
+  virtual unsigned getLoadStoreCost(
+    const VPInstruction *LoadOrStore, Align Alignment, unsigned VF) = 0;
 };
+
+// Definition of 'Cost Model with Heuristics' template class. As the name
+// implies the class extends TTI Cost Model class with a set of Heuristics
+// that are specified through their types rather than object, exercising static
+// polymorphism. Cost Model object creates Heuristics objects per set of
+// Heuristics type provided.
+//
+// Heuristics types are provided through the three list of heuristics
+// HeuristicsList: separate list of Heuristics for VPlan, VPBasicBlock and
+// VPInstruction levels.
+//
+// 'Cost Model with Heuristics' class also features debug printing facility for
+// its getCost() methods. Debug printing happens when getCost() methods are
+// invoked with specified output stream argument.
+//
+// The template class implements VPlanCostModelInterface virtual functions
+// and internal *Impl functions are used in imlementation that are not virtual.
+//
+template <typename HeuristicsListVPInstTy,
+          typename HeuristicsListVPBlockTy,
+          typename HeuristicsListVPlanTy>
+class VPlanCostModelWithHeuristics :
+    public VPlanTTICostModel, public VPlanCostModelInterface {
+private:
+  HeuristicsListVPInstTy HeuristicsListVPInst;
+  HeuristicsListVPBlockTy HeuristicsListVPBlock;
+  HeuristicsListVPlanTy HeuristicsListVPlan;
+
+  // The method applies the heuristics from input heuristics list modifing
+  // the input Cost and returns adjusted cost.
+  template <typename HeuristicsListTy, typename ScopeTy>
+  unsigned applyHeuristics(HeuristicsListTy HeuristicsList,
+                           ScopeTy *Scope, unsigned Cost,
+                           raw_ostream *OS = nullptr) {
+    unsigned RetCost = Cost;
+    HeuristicsList.apply(Cost, RetCost, Scope, OS);
+    return RetCost;
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // The method invokes debug dump() facility of each heuristics list on
+  // given input Scope.
+  template <typename ScopeTy>
+  void dumpAllHeuristics(raw_ostream &OS, ScopeTy *Scope) {
+    HeuristicsListVPInst.dump(OS, Scope);
+    HeuristicsListVPBlock.dump(OS, Scope);
+    HeuristicsListVPlan.dump(OS, Scope);
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  // VPInstruction level internal getCostImpl().
+  unsigned getCostImpl(const VPInstruction *VPInst,
+                       raw_ostream *OS = nullptr) {
+    unsigned TTICost = getTTICost(VPInst);
+
+    CM_DEBUG(OS, *OS << "  Cost " << getCostNumberString(TTICost) << " for ";
+             VPInst->printWithoutAnalyses(*OS););
+
+    unsigned AdjCost = applyHeuristics(HeuristicsListVPInst, VPInst,
+                                       TTICost, OS);
+
+    CM_DEBUG(OS, dumpAllHeuristics(*OS, VPInst);
+             if (TTICost != AdjCost)
+               *OS << " AdjCost: " << getCostNumberString(AdjCost);
+             *OS << '\n';);
+
+    return AdjCost;
+  }
+
+  // VPBasicBlock level internal getCostImpl().
+  unsigned getCostImpl(const VPBasicBlock *VPBB,
+                       raw_ostream *OS = nullptr) {
+
+    CM_DEBUG(OS, *OS << "Analyzing VPBasicBlock " << VPBB->getName() << '\n');
+
+    unsigned BaseCost = 0;
+    for (const VPInstruction &VPInst : *VPBB) {
+      unsigned InstCost = getCostImpl(&VPInst, OS);
+      if (InstCost == UnknownCost)
+        continue;
+      BaseCost += InstCost;
+    }
+
+    CM_DEBUG(OS, *OS << VPBB->getName() << ": base cost: " <<
+             getCostNumberString(BaseCost) << '\n';);
+
+    unsigned AdjCost = applyHeuristics(HeuristicsListVPBlock, VPBB,
+                                       BaseCost, OS);
+    CM_DEBUG(OS, dumpAllHeuristics(*OS, VPBB);
+             if(BaseCost != AdjCost)
+               *OS << " Adjusted Cost for BasicBlock: " <<
+                 VPBB->getName() << getCostNumberString(AdjCost) << '\n';);
+    return AdjCost;
+  }
+
+  // Internal helper function to reduce code duplication.
+  template <typename RangeTy>
+  unsigned getRangeCost(RangeTy Range, raw_ostream *OS) {
+    unsigned Cost = 0;
+    for (auto *Block : Range)
+      Cost += getCostImpl(Block, OS);
+    return Cost;
+  }
+
+public:
+  VPlanCostModelWithHeuristics() = delete;
+  VPlanCostModelWithHeuristics(const VPlanVector *Plan, const unsigned VF,
+                               const TargetTransformInfo *TTI,
+                               const TargetLibraryInfo *TLI,
+                               const DataLayout *DL,
+                               VPlanVLSAnalysis *VLSA = nullptr) :
+    VPlanTTICostModel(Plan, VF, TTI, TLI, DL, VLSA),
+    HeuristicsListVPInst(this), HeuristicsListVPBlock(this),
+    HeuristicsListVPlan(this) {}
+
+  unsigned getBlockRangeCost(const VPBasicBlock *Begin,
+                             const VPBasicBlock *End,
+                             VPlanPeelingVariant *PeelingVariant = nullptr,
+                             raw_ostream *OS = nullptr) final {
+    // Assume no peeling if it is not specified.
+    SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
+        DefaultPeelingVariant,
+        PeelingVariant ? PeelingVariant : &VPlanStaticPeeling::NoPeelLoop);
+
+    unsigned Cost = getRangeCost(sese_depth_first(Begin, End), OS);
+    CM_DEBUG(OS, *OS << "Cost Model for Block range " <<
+             Begin->getName() << " : " << End->getName() <<
+             " for VF = " << VF << " resulted Cost = " <<
+             getCostNumberString(Cost) << '\n';);
+
+    // TODO: Consider which (and how) VPlan heuristics we should run here.
+    return Cost;
+  }
+
+  unsigned getCost(VPlanPeelingVariant *PeelingVariant = nullptr,
+                   raw_ostream *OS = nullptr) final {
+    // Assume no peeling if it is not specified.
+    SaveAndRestore<VPlanPeelingVariant*> RestoreOnExit(
+        DefaultPeelingVariant,
+        PeelingVariant ? PeelingVariant : &VPlanStaticPeeling::NoPeelLoop);
+
+    // Initialize heuristics VPlan level data for each VPlan level getCost
+    // call.
+    // Note that VPBlack and VPInstruction level getCost interfaces and
+    // getBlockRangeCost interface bypass the initialization call.
+    HeuristicsListVPlan.initForVPlan();
+
+    CM_DEBUG(OS, *OS << "Cost Model for VPlan " << Plan->getName() <<
+             " with VF = " <<VF << ":\n";);
+
+    unsigned BaseCost = getRangeCost(depth_first(Plan->getEntryBlock()), OS);
+
+    CM_DEBUG(OS, *OS << "Base Cost: " <<
+             getCostNumberString(BaseCost) << '\n';);
+
+    unsigned TotCost = applyHeuristics(HeuristicsListVPlan, Plan,
+                                       BaseCost, OS);
+
+    CM_DEBUG(OS, dumpAllHeuristics(*OS, Plan);
+             if (BaseCost != TotCost)
+               *OS << "Total Cost: " << getCostNumberString(TotCost) << '\n';);
+
+    return TotCost;
+  }
+
+  /// This mehod is proxy to implementation in TTI cost model, which returns
+  /// TTI cost (unmodified by VPInst-level heuristics).
+  /// CUrrently we are Okay with that but may want to reconsider in future.
+  unsigned getLoadStoreCost(
+    const VPInstruction *LoadOrStore, Align Alignment, unsigned VF) final {
+    return VPlanTTICostModel::getLoadStoreCost(LoadOrStore, Alignment, VF);
+  }
+};
+
+using VPlanCostModel = VPlanCostModelWithHeuristics<
+  HeuristicsList<const VPInstruction>, // empty list
+  HeuristicsList<const VPBasicBlock>,  // empty list
+  HeuristicsList<const VPlanVector,
+                 VPlanCostModelHeuristics::HeuristicSLP,
+                 VPlanCostModelHeuristics::HeuristicSpillFill>>;
+
+using VPlanCostModelProprietary = VPlanCostModelWithHeuristics<
+  HeuristicsList<
+    const VPInstruction,
+    VPlanCostModelHeuristics::HeuristicOVLSMember,
+    VPlanCostModelHeuristics::HeuristicSVMLIDivIRem>,
+  HeuristicsList<const VPBasicBlock>, // emptry list
+  HeuristicsList<
+    const VPlanVector,
+    VPlanCostModelHeuristics::HeuristicSearchLoop,
+    VPlanCostModelHeuristics::HeuristicSLP,
+    VPlanCostModelHeuristics::HeuristicGatherScatter,
+    VPlanCostModelHeuristics::HeuristicSpillFill,
+    VPlanCostModelHeuristics::HeuristicPsadbw>>;
 
 } // namespace vpo
 

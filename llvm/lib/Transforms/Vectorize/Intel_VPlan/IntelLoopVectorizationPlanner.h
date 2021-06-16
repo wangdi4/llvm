@@ -48,7 +48,6 @@ class VPOCodeGen;
 class VPOVectorizationLegality;
 class WRNVecLoopNode;
 class VPlanHCFGBuilder;
-class VPlanCostModel;
 class VPlanRemainderEvaluator;
 class VPlanPeelEvaluator;
 class VPlanCFGMerger;
@@ -347,7 +346,7 @@ public:
 
   /// Select the best plan and dispose all other VPlans.
   /// \Returns the selected vectorization factor and corresponding VPlan.
-  template <typename CostModelTy = VPlanCostModel>
+  template <typename CostModelTy>
   std::pair<unsigned, VPlanVector *> selectBestPlan();
 
   /// \Returns the VPlan for selected best vectorization factor.
@@ -398,7 +397,7 @@ public:
   unroll(VPlanVector &Plan,
          VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart = nullptr);
 
-  template <typename CostModelTy = VPlanCostModel>
+  template <typename CostModelTy>
   void printCostModelAnalysisIfRequested(const std::string &Header);
 
   virtual bool isNewCFGMergeEnabled() const { return EnableNewCFGMerge; }
