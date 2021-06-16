@@ -524,8 +524,8 @@ bool HIRIdiomRecognition::processMemset(HLLoop *Loop, bool &ExtractPreheader,
     LoopOptReportBuilder &LORBuilder =
         Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
-    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
-                                "The memset idiom has been recognized");
+    // The memset idiom has been recognized
+    LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25560u);
     return true;
   }
 
@@ -585,8 +585,8 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop, bool &ExtractPreheader,
   LoopOptReportBuilder &LORBuilder =
       Loop->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
-  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
-                              "The memcpy idiom has been recognized");
+  // The memcpy idiom has been recognized
+  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25561u);
   return true;
 }
 
@@ -722,11 +722,10 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
       HLNodeUtils::insertAsFirstThenChild(SmallTripCountCheck, Loop);
       HLNodeUtils::insertAsFirstElseChild(SmallTripCountCheck, OrigLoopClone);
 
+      // The loop has been multiversioned for the small trip count
       LORBuilder(*Loop)
           .addOrigin("Small trip count multiversioned v1")
-          .addRemark(
-              OptReportVerbosity::Low,
-              "The loop has been multiversioned for the small trip count");
+          .addRemark(OptReportVerbosity::Low, 25562u);
 
       LORBuilder(*OrigLoopClone)
           .addOrigin("Small trip count multiversioned v2 (small)");

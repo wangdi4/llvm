@@ -1471,7 +1471,7 @@ void HIRLoopInterchange::reportTransformation(
   HLLoop *OutermostLp = nullptr;
 
   std::ostringstream OS;
-  OS << "Loopnest Interchanged: ( ";
+  OS << "( ";
   for (unsigned I = OutmostNestingLevel; I <= InnermostNestingLevel; ++I) {
     OS << I << " ";
   }
@@ -1484,10 +1484,11 @@ void HIRLoopInterchange::reportTransformation(
     }
   }
   OS << ")";
-  LORBuilder(*OutermostLp).addRemark(OptReportVerbosity::Low, OS.str().c_str());
+  LORBuilder(*OutermostLp)
+      .addRemark(OptReportVerbosity::Low, 25578u, OS.str().c_str());
 
   // This is needed for lit-tests for now.
-  LLVM_DEBUG(dbgs() << OS.str() << '\n');
+  LLVM_DEBUG(dbgs() << "Loopnest Interchanged: " << OS.str() << '\n');
 }
 
 bool HIRLoopInterchange::transformLoop(HLLoop *Loop) {

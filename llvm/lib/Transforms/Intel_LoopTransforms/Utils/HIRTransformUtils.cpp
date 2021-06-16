@@ -378,12 +378,14 @@ HLLoop *HIRTransformUtils::createUnrollOrVecLoop(
   // report with it.
   LORBuilder(*OrigLoop).moveOptReportTo(*NewLoop);
   if (OptTy == OptimizationType::Unroll) {
-    LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
-                                   "Loop has been unrolled by %d factor",
+
+    // Loop has been unrolled by %d factor
+    LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25536u,
                                    UnrollOrVecFactor);
   } else if (OptTy == OptimizationType::UnrollAndJam) {
-    LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
-                                   "Loop has been unrolled and jammed by %d",
+
+    // Loop has been unrolled and jammed by %d
+    LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25540u,
                                    UnrollOrVecFactor);
   } else {
     assert(OptTy == OptimizationType::Vectorizer &&

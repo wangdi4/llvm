@@ -140,8 +140,7 @@ static cl::opt<unsigned> RtlThreshold(
     cl::desc("Number of tests when LibraryCall method would be used."));
 
 static cl::opt<unsigned>
-    MaximumNumberOfTests(OPT_SWITCH "-max-tests",
-                         cl::init(60), cl::Hidden,
+    MaximumNumberOfTests(OPT_SWITCH "-max-tests", cl::init(60), cl::Hidden,
                          cl::desc("Maximum number of runtime tests for loop."));
 
 static cl::opt<bool> IgnoreIVDepLoopLoops(
@@ -272,7 +271,8 @@ static unsigned getMinMaxZeroBlob(BlobUtils &BU, unsigned Index,
 // Returns true if IV replacement succeeded, false if failed and {} if no
 // replacement required.
 static Optional<bool> replaceIVByBound(CanonExpr *CE, const HLLoop *Loop,
-                             const HLLoop *InnerLoop, bool IsLowerBound) {
+                                       const HLLoop *InnerLoop,
+                                       bool IsLowerBound) {
   unsigned Level = Loop->getNestingLevel();
 
   unsigned IVBlobIndex;
@@ -552,7 +552,6 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "Could not find MIN and MAX bounds";
   }
   llvm_unreachable("Unexpected give up reason");
-
 }
 #endif
 
@@ -1333,8 +1332,7 @@ HLIf *HIRRuntimeDD::createLibraryCallCondition(
   return MasterIf;
 }
 
-HLIf *HIRRuntimeDD::createCompareCondition(LoopContext &Context,
-                                           HLIf *MasterIf,
+HLIf *HIRRuntimeDD::createCompareCondition(LoopContext &Context, HLIf *MasterIf,
                                            HLContainerTy &Nodes) {
   // The HIR structure will be the following:
   //
@@ -1489,8 +1487,8 @@ void HIRRuntimeDD::generateHLNodes(LoopContext &Context,
       NoAliasLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
   LORBuilder(*NoAliasLoop).addOrigin("Multiversioned loop");
-  LORBuilder(*ClonedLoop).addRemark(OptReportVerbosity::Low,
-                                  "The loop has been multiversioned");
+  // The loop has been multiversioned
+  LORBuilder(*ClonedLoop).addRemark(OptReportVerbosity::Low, 25582u);
 
   HLContainerTy Nodes;
   SmallVector<unsigned, 1> NewLiveinSymbases;

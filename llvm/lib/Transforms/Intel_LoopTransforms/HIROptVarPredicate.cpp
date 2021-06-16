@@ -176,6 +176,7 @@ public:
   }
 
   virtual ~HIROptVarPredicate() {}
+
 private:
   static std::unique_ptr<CanonExpr>
   findIVSolution(Type *IVType, const RegDDRef *LHSDDref, PredicateTy Pred,
@@ -363,7 +364,7 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
     bool Overflow;
     APInt RHSConstAP(RHSType->getPrimitiveSizeInBits(), RHSConst, true);
     APInt LHSConstAP(LHSType->getPrimitiveSizeInBits(), -LHSConst, true);
-    (void) RHSConstAP.sadd_ov(LHSConstAP, Overflow);
+    (void)RHSConstAP.sadd_ov(LHSConstAP, Overflow);
 
     if (Overflow) {
       return nullptr;
@@ -497,7 +498,8 @@ void HIROptVarPredicate::updateLoopUpperBound(HLLoop *Loop, BlobTy UpperBlob,
                                 &MinBlobIndex);
   }
 
-  HIRTransformUtils::setSelfBlobDDRef(Loop->getUpperDDRef(), MinBlob, MinBlobIndex);
+  HIRTransformUtils::setSelfBlobDDRef(Loop->getUpperDDRef(), MinBlob,
+                                      MinBlobIndex);
 }
 
 void HIROptVarPredicate::updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
@@ -519,7 +521,8 @@ void HIROptVarPredicate::updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
                                 &MaxBlobIndex);
   }
 
-  HIRTransformUtils::setSelfBlobDDRef(Loop->getLowerDDRef(), MaxBlob, MaxBlobIndex);
+  HIRTransformUtils::setSelfBlobDDRef(Loop->getLowerDDRef(), MaxBlob,
+                                      MaxBlobIndex);
 }
 
 static bool isLoopRedundant(const HLLoop *Loop, const HLNode *ContextNode) {
@@ -560,8 +563,9 @@ void HIROptVarPredicate::addVarPredicateReport(
     VOS << " at line ";
     VOS << LineNum;
   }
-  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low,
-                              "Condition%s was optimized", LoopNum);
+
+  // Condition%s was optimized
+  LORBuilder(*Loop).addRemark(OptReportVerbosity::Low, 25580u, LoopNum);
 }
 
 // The loop could be split into two loops:

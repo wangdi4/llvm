@@ -554,7 +554,7 @@ bool HIRLMM::isLoopInvariant(const RegDDRef *MemRef, const HLLoop *Lp,
 
 #if INTEL_INCLUDE_DTRANS
   if (!doLoopPreliminaryChecks(Lp, FieldModRef != nullptr)) {
-#else // INTEL_INCLUDE_DTRANS
+#else  // INTEL_INCLUDE_DTRANS
   if (!doLoopPreliminaryChecks(Lp, false)) {
 #endif // INTEL_INCLUDE_DTRANS
     LLVM_DEBUG(dbgs() << "HIRLMM: failed Loop Preliminary Checks\n";);
@@ -1066,8 +1066,8 @@ bool HIRLMM::hoistedLoadsUsingExistingTemp(HLLoop *Lp, MemRefGroup &Group,
 
   LoadRef->updateDefLevel(LoopLevel - 1);
 
-  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                            "Load hoisted out of the loop");
+  // Load hoisted out of the loop
+  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25563u);
 
   return true;
 }
@@ -1091,8 +1091,8 @@ bool HIRLMM::sinkedStoresUsingExistingTemp(HLLoop *Lp, RegDDRef *StoreRef,
   StoreRef->updateDefLevel(LoopLevel - 1);
   TempRef->updateDefLevel(LoopLevel - 1);
 
-  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                            "Store sinked out of the loop");
+  // Store sinked out of the loop
+  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25564u);
   return true;
 }
 
@@ -1149,8 +1149,8 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
 
   // Create a Load in prehdr if needed
   if (NeedLoadInPrehdr) {
-    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                              "Load hoisted out of the loop");
+    // Load hoisted out of the loop
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25563u);
     // Passing FirstRef's lexical parent loop as it can be different than Lp in
     // loopnest hoisting mode.
     LoadInPrehdr = createLoadInPreheader(FirstRef->getLexicalParentLoop(),
@@ -1168,8 +1168,8 @@ void HIRLMM::doLIMMRef(HLLoop *Lp, MemRefGroup &Group,
 
   // Create a Store in postexit if needed
   if (NeedStoreInPostexit) {
-    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                              "Store sinked out of the loop");
+    // Store sinked out of the loop
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25564u);
     RegDDRef *FirstStore = FirstRef;
 
     // In the multi-exit loop, we need to find the exact store ref to compare

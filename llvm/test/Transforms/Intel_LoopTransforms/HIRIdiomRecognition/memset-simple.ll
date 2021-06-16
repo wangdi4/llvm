@@ -30,8 +30,8 @@
 ;
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT-NEXT: <Small trip count multiversioned v1>
-;OPTREPORT-NEXT:     remark: The memset idiom has been recognized
-;OPTREPORT-NEXT:     remark: The loop has been multiversioned for the small trip count
+;OPTREPORT-NEXT:     remark #25560: Memset(with guard) generated
+;OPTREPORT-NEXT:     remark #25562: The loop has been multiversioned for the small trip count
 ;OPTREPORT-NEXT: LOOP END
 ;
 ;OPTREPORT: LOOP BEGIN
