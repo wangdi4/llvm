@@ -7330,6 +7330,11 @@ CodeGenFunction::GetLoopForHoisting(const OMPExecutableDirective &S,
   // Try to hoist a loop directly under a target or target teams
   if (DKind == OMPD_target || DKind == OMPD_target_teams) {
     if (const Stmt *CS = S.getInnermostCapturedStmt()->getCapturedStmt()) {
+      if (const auto *CompStmt = dyn_cast<CompoundStmt>(CS)) {
+        if (CompStmt->body_front() &&
+            CompStmt->body_front() == CompStmt->body_back())
+          CS = CompStmt->body_front();
+      }
       if (auto *TeamsDir = dyn_cast<OMPTeamsDirective>(CS))
         CS = TeamsDir->getInnermostCapturedStmt()->getCapturedStmt();
       if (auto *LD = dyn_cast<OMPLoopDirective>(CS)) {
