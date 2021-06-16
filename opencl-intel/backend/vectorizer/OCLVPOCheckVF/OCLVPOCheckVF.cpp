@@ -48,6 +48,7 @@
 #include "LoopUtils.h"
 #include "MetadataAPI.h"
 #include "VectorizerCommon.h"
+#include "cpu_dev_limits.h"
 
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -242,7 +243,7 @@ OCLVPOCheckVF::checkHorizontalOps(Function *F) {
   unsigned &VF = KernelToVF[F];
 
   static std::set<unsigned> SupportedWorkGroupVFs = {1, 4, 8, 16, 32, 64};
-  static std::set<unsigned> SupportedSubGroupVFs = {4, 8, 16, 32, 64};
+  static std::set<unsigned> SupportedSubGroupVFs = CPU_DEV_SUB_GROUP_SIZES;
 
   if (EnableSubGroupEmulation)
     SupportedSubGroupVFs.insert((unsigned)1);
