@@ -12,7 +12,6 @@
 
 #include "CompilationUtils.h"
 #include "LoopHandler/CLWGBoundDecoder.h"
-#include "MetadataAPI.h"
 #include "VectorizerCommon.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SmallSet.h"
@@ -21,12 +20,13 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #define DEBUG_TYPE "SGSizeCollector"
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::VectorizerCommon;
 
@@ -73,7 +73,7 @@ SGSizeCollectorImpl::SGSizeCollectorImpl(
 //
 // Example:
 //
-//   define void @kernel() !ocl_recommended_vector_length !0 {
+//   define void @kernel() !recommended_vector_length !0 {
 //   entry:
 //     call void @foo()
 //     ret void
@@ -184,8 +184,8 @@ bool SGSizeCollectorImpl::runImpl(Module &M) {
 
 bool SGSizeCollectorImpl::hasVecLength(Function *F, int &VecLength) {
   auto KIMD = KernelInternalMetadataAPI(F);
-  if (KIMD.OclRecommendedVectorLength.hasValue()) {
-    VecLength = KIMD.OclRecommendedVectorLength.get();
+  if (KIMD.RecommendedVL.hasValue()) {
+    VecLength = KIMD.RecommendedVL.get();
     return VecLength > 1;
   }
   return false;

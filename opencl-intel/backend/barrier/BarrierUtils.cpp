@@ -14,18 +14,18 @@
 
 #include "BarrierUtils.h"
 #include "CompilationUtils.h"
-#include "MetadataAPI.h"
 
-#include "llvm/IR/Module.h"
+#include "llvm/IR/CFG.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/CFG.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include <vector>
 
 using namespace Intel::OpenCL::DeviceBackend;
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 
 namespace intel {
 

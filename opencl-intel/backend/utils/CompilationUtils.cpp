@@ -14,7 +14,6 @@
 
 #include "CompilationUtils.h"
 #include "ImplicitArgsUtils.h"
-#include "MetadataAPI.h"
 #include "NameMangleAPI.h"
 #include "ParameterType.h"
 #include "TypeAlignment.h"
@@ -30,10 +29,11 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 using namespace llvm::NameMangleAPI;
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -454,9 +454,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     auto kimd = KernelInternalMetadataAPI(pFunc);
     Function *pOriginalFunc = pFunc;
     //Check if this is a vectorized version of the kernel
-    if (kimd.ScalarizedKernel.hasValue() && kimd.ScalarizedKernel.get()) {
+    if (kimd.ScalarKernel.hasValue() && kimd.ScalarKernel.get()) {
       //Get the scalarized version of the vectorized kernel
-      pOriginalFunc = kimd.ScalarizedKernel.get();
+      pOriginalFunc = kimd.ScalarKernel.get();
     } else if (pFunc->hasFnAttribute("scalar_kernel")) {
       pOriginalFunc = pModule->getFunction(
           pFunc->getFnAttribute("scalar_kernel").getValueAsString());
@@ -506,7 +506,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           // in that case 0 argument is block_literal pointer
           // update with special type
           // should be before handling ptrs by addr space
-          auto kimd = Intel::MetadataAPI::KernelInternalMetadataAPI(pFunc);
+          auto kimd = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(pFunc);
           if ((i == 0) && kimd.BlockLiteralSize.hasValue()) {
             auto *PTy = dyn_cast<PointerType>(pArg->getType());
             if (!PTy || !PTy->getElementType()->isIntegerTy(8))

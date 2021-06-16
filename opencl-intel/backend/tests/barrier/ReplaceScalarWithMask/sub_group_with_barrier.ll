@@ -21,7 +21,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent nounwind
-define void @test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !vectorized_kernel !12 !vectorized_masked_kernel !13 !no_barrier_path !9 !kernel_has_sub_groups !14 !vectorized_width !5 !scalarized_kernel !15 !kernel_execution_length !16 !kernel_has_barrier !14 !kernel_has_global_sync !9 {
+define void @test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !vectorized_kernel !12 !vectorized_masked_kernel !13 !no_barrier_path !9 !kernel_has_sub_groups !14 !vectorized_width !5 !scalar_kernel !15 !kernel_execution_length !16 !kernel_has_barrier !14 !kernel_has_global_sync !9 {
 entry:
   store i32 1, i32 addrspace(1)* %a, align 4, !tbaa !17
   tail call void @_Z7barrierj(i32 1) #5
@@ -32,7 +32,7 @@ entry:
 declare void @_Z7barrierj(i32) local_unnamed_addr #2
 
 ; Function Attrs: convergent nounwind
-define void @_ZGVcN4u_test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !vectorized_kernel !15 !no_barrier_path !9 !kernel_has_sub_groups !14 !ocl_recommended_vector_length !21 !vectorized_width !21 !vectorization_dimension !10 !scalarized_kernel !4 !can_unite_workgroups !9 !kernel_execution_length !16 !kernel_has_barrier !14 !kernel_has_global_sync !9 {
+define void @_ZGVcN4u_test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !vectorized_kernel !15 !no_barrier_path !9 !kernel_has_sub_groups !14 !recommended_vector_length !21 !vectorized_width !21 !vectorization_dimension !10 !scalar_kernel !4 !can_unite_workgroups !9 !kernel_execution_length !16 !kernel_has_barrier !14 !kernel_has_global_sync !9 {
 entry:
   store i32 4, i32 addrspace(1)* %a, align 4
   call void @_Z7barrierj(i32 1) #3
@@ -46,7 +46,7 @@ declare token @llvm.directive.region.entry() #3
 declare void @llvm.directive.region.exit(token) #3
 
 ; Function Attrs: convergent nounwind
-define void @_ZGVcM4u_test(i32 addrspace(1)* noalias %a, <4 x i32> %mask) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !vectorized_kernel !15 !no_barrier_path !9 !kernel_has_sub_groups !14 !ocl_recommended_vector_length !21 !vectorized_width !21 !vectorization_dimension !10 !scalarized_kernel !4 !can_unite_workgroups !9 !kernel_execution_length !22 !kernel_has_barrier !14 !kernel_has_global_sync !9 {
+define void @_ZGVcM4u_test(i32 addrspace(1)* noalias %a, <4 x i32> %mask) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !vectorized_kernel !15 !no_barrier_path !9 !kernel_has_sub_groups !14 !recommended_vector_length !21 !vectorized_width !21 !vectorization_dimension !10 !scalar_kernel !4 !can_unite_workgroups !9 !kernel_execution_length !22 !kernel_has_barrier !14 !kernel_has_global_sync !9 {
 entry:
   %broadcast.splatinsert = insertelement <4 x i32 addrspace(1)*> undef, i32 addrspace(1)* %a, i32 0
   %broadcast.splat = shufflevector <4 x i32 addrspace(1)*> %broadcast.splatinsert, <4 x i32 addrspace(1)*> undef, <4 x i32> zeroinitializer
@@ -91,7 +91,7 @@ attributes #5 = { convergent nounwind "kernel-call-once" "kernel-convergent-call
 !opencl.used.optional.core.features = !{!1}
 !opencl.compiler.options = !{!2}
 !llvm.ident = !{!3}
-!opencl.kernels = !{!4}
+!sycl.kernels = !{!4}
 
 !0 = !{i32 2, i32 0}
 !1 = !{}

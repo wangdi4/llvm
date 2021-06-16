@@ -106,14 +106,14 @@ declare <4 x i32> @_Z20work_group_broadcastDv4_ij(<4 x i32>, i32) nounwind readn
 !17 = !{!"vectorized_kernel", void (i32 addrspace(1)*, i32 addrspace(1)*)* @__Vectorized_.wg_test_broadcast}
 !18 = !{!"vectorized_width", i32 1}
 !19 = !{!"kernel_wrapper", null}
-!20 = !{!"scalarized_kernel", null}
+!20 = !{!"scalar_kernel", null}
 !21 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @__Vectorized_.wg_test_broadcast, !22}
 !22 = !{!12, !13, !23, !15, !24, !25, !26, !19, !27}
 !23 = !{!"kernel_execution_length", i32 9}
 !24 = !{!"no_barrier_path", null}
 !25 = !{!"vectorized_kernel", null}
 !26 = !{!"vectorized_width", i32 4}
-!27 = !{!"scalarized_kernel", void (i32 addrspace(1)*, i32 addrspace(1)*)* @wg_test_broadcast}
+!27 = !{!"scalar_kernel", void (i32 addrspace(1)*, i32 addrspace(1)*)* @wg_test_broadcast}
 !28 = !{!29, !30}
 !29 = !{!"gen_addr_space_pointer_counter", null}
 !30 = !{!"gen_addr_space_pointer_warnings"}

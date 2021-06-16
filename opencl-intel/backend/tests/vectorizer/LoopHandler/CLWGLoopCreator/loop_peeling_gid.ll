@@ -14,7 +14,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent norecurse nounwind
-define void @test(i32 addrspace(1)* noalias %dst) local_unnamed_addr #0 !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 !kernel_arg_host_accessible !11 !kernel_arg_pipe_depth !12 !kernel_arg_pipe_io !10 !kernel_arg_buffer_location !10 !kernel_arg_name !13 !vectorized_kernel !14 !no_barrier_path !15 !opencl.stats.Vectorizer.CanVect !7 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !12 !vectorized_width !7 !scalarized_kernel !16 !kernel_execution_length !17 !kernel_has_barrier !11 !kernel_has_global_sync !11 !max_wg_dimensions !7 {
+define void @test(i32 addrspace(1)* noalias %dst) local_unnamed_addr #0 !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 !kernel_arg_host_accessible !11 !kernel_arg_pipe_depth !12 !kernel_arg_pipe_io !10 !kernel_arg_buffer_location !10 !kernel_arg_name !13 !vectorized_kernel !14 !no_barrier_path !15 !opencl.stats.Vectorizer.CanVect !7 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !12 !vectorized_width !7 !scalar_kernel !16 !kernel_execution_length !17 !kernel_has_barrier !11 !kernel_has_global_sync !11 !max_wg_dimensions !7 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #3
   %ptridx = getelementptr inbounds i32, i32 addrspace(1)* %dst, i64 %call
@@ -67,7 +67,7 @@ entry:
 ; Function Attrs: convergent nounwind readnone
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #1
 
-define [7 x i64] @WG.boundaries.test(i32 addrspace(1)* %0) !ocl_recommended_vector_length !22 {
+define [7 x i64] @WG.boundaries.test(i32 addrspace(1)* %0) !recommended_vector_length !22 {
 entry:
   %1 = call i64 @_Z14get_local_sizej(i32 0)
   %2 = call i64 @get_base_global_id.(i32 0)
@@ -90,7 +90,7 @@ declare i64 @_Z14get_local_sizej(i32)
 declare i64 @get_base_global_id.(i32)
 
 ; Function Attrs: convergent norecurse nounwind
-define void @_ZGVeN16u_test(i32 addrspace(1)* noalias %dst) local_unnamed_addr #0 !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 !kernel_arg_host_accessible !11 !kernel_arg_pipe_depth !12 !kernel_arg_pipe_io !10 !kernel_arg_buffer_location !10 !kernel_arg_name !13 !vectorized_kernel !16 !no_barrier_path !15 !ocl_recommended_vector_length !22 !opencl.stats.Vectorizer.CanVect !7 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !12 !vectorized_width !22 !vectorization_dimension !12 !scalarized_kernel !4 !can_unite_workgroups !15 !kernel_execution_length !23 !kernel_has_barrier !11 !kernel_has_global_sync !11 !max_wg_dimensions !7 {
+define void @_ZGVeN16u_test(i32 addrspace(1)* noalias %dst) local_unnamed_addr #0 !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 !kernel_arg_host_accessible !11 !kernel_arg_pipe_depth !12 !kernel_arg_pipe_io !10 !kernel_arg_buffer_location !10 !kernel_arg_name !13 !vectorized_kernel !16 !no_barrier_path !15 !recommended_vector_length !22 !opencl.stats.Vectorizer.CanVect !7 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !12 !vectorized_width !22 !vectorization_dimension !12 !scalar_kernel !4 !can_unite_workgroups !15 !kernel_execution_length !23 !kernel_has_barrier !11 !kernel_has_global_sync !11 !max_wg_dimensions !7 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #3
   %scalar.gep = getelementptr inbounds i32, i32 addrspace(1)* %dst, i64 %call
@@ -118,7 +118,7 @@ attributes #3 = { convergent nounwind readnone }
 !opencl.used.optional.core.features = !{!1}
 !opencl.compiler.options = !{!2}
 !llvm.ident = !{!3}
-!opencl.kernels = !{!4}
+!sycl.kernels = !{!4}
 !opencl.stats.Vectorizer.CanVect = !{!5}
 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim = !{!6}
 

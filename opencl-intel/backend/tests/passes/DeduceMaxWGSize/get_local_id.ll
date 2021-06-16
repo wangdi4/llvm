@@ -18,7 +18,7 @@ entry:
 
 declare i64 @_Z12get_local_idj(i32) nounwind readnone
 
-define void @__Vectorized_.A(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* nocapture %B) nounwind !vectorized_width !26 !scalarized_kernel !27 {
+define void @__Vectorized_.A(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* nocapture %B) nounwind !vectorized_width !26 !scalar_kernel !27 {
 entry:
   %call = tail call i64 @_Z12get_local_idj(i32 1) nounwind readnone
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %B, i64 %call
@@ -30,7 +30,7 @@ entry:
   ret void
 }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!7}
 !opencl.ocl.version = !{!8}

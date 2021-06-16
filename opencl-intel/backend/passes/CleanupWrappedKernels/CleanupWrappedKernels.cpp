@@ -14,8 +14,9 @@
 
 #include "CleanupWrappedKernels.h"
 #include "CompilationUtils.h"
-#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
+
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 
@@ -48,7 +49,7 @@ namespace intel {
   }
 
   bool CleanupWrappedKernels::runOnModule(Module& M) {
-    using namespace Intel::MetadataAPI;
+    using namespace DPCPPKernelMetadataAPI;
 
     bool Changed = false;
     using namespace Intel::OpenCL::DeviceBackend;

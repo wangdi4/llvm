@@ -140,6 +140,6 @@ if.end:
 ; CHECK-NEXT:  %31 = insertvalue [7 x i64] %30, i64 %zext_cast, 0
 ; CHECK-NEXT:  ret [7 x i64] %31
 
-!opencl.kernels = !{!1}
+!sycl.kernels = !{!1}
 
 !1 = !{void (i32, i32)* @test_and, void (i32, i32)* @test_or}

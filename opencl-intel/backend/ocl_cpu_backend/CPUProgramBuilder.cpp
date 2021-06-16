@@ -19,7 +19,6 @@
 #include "CompilerConfig.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
-#include "MetadataAPI.h"
 #include "Program.h"
 #include "StaticObjectLoader.h"
 #include "debuggingservicetype.h"
@@ -30,6 +29,7 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include "BitCodeContainer.h"
 #include "CPUSerializationService.h"
@@ -251,7 +251,7 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
                                     const char* pBuildOpts,
                                     ProgramBuildResult& buildResult) const
 {
-    using namespace Intel::MetadataAPI;
+    using namespace DPCPPKernelMetadataAPI;
 
     std::unique_ptr<KernelSet> spKernels(new KernelSet);
 
@@ -491,7 +491,7 @@ void CPUProgramBuilder::JitProcessing(
 
   // Record kernel names and trigger JIT compilation of kernels
   std::vector<std::string> kernelNames;
-  using namespace Intel::MetadataAPI;
+  using namespace DPCPPKernelMetadataAPI;
   auto Kernels = KernelList(module).getList();
   if (Kernels.empty()) {
     auto FSet = DPCPPKernelCompilationUtils::getKernels(*module);
@@ -500,7 +500,7 @@ void CPUProgramBuilder::JitProcessing(
   }
   for (auto *pFunc : Kernels) {
     llvm::Function *pWrapperFunc = nullptr;
-    auto kimd = Intel::MetadataAPI::KernelInternalMetadataAPI(pFunc);
+    auto kimd = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(pFunc);
     if (kimd.KernelWrapper.hasValue())
       pWrapperFunc = kimd.KernelWrapper.get();
     else if (pFunc->hasFnAttribute("kernel_wrapper"))

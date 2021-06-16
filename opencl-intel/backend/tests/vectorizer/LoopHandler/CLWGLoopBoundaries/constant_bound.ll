@@ -30,7 +30,7 @@ define void @test(float addrspace(1)* nocapture %paths) nounwind {
 
 declare i32 @_Z13get_global_idj(i32)
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.compiler.options = !{!2}
 
 !0 = !{void (float addrspace(1)*)* @test}

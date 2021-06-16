@@ -7,7 +7,7 @@ target triple = "x86_64-pc-linux"
 
 ; CHECK-LABEL: @_ZGVeN16u_test
 ; Function Attrs: convergent norecurse nounwind
-define void @test(%opencl.image2d_ro_t.5 addrspace(1)* noalias %img) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !no_barrier_path !10 !kernel_has_sub_groups !13 !ocl_recommended_vector_length !14 {
+define void @test(%opencl.image2d_ro_t.5 addrspace(1)* noalias %img) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !no_barrier_path !10 !kernel_has_sub_groups !13 !recommended_vector_length !14 {
 entry:
   %call = tail call signext i16 @_Z23intel_sub_group_shufflesj(i16 signext 1, i32 0) #3
 ; CHECK: call signext i16 @_Z23intel_sub_group_shufflesj(i16 signext 1, i32 0) #[[SHUFFLE_ATTR:[0-9]+]]
@@ -45,7 +45,7 @@ attributes #4 = { convergent nounwind "kernel-call-once" "kernel-convergent-call
 !opencl.used.optional.core.features = !{!2}
 !opencl.compiler.options = !{!3}
 !llvm.ident = !{!4}
-!opencl.kernels = !{!5}
+!sycl.kernels = !{!5}
 
 !0 = !{i32 2, i32 0}
 !1 = !{}

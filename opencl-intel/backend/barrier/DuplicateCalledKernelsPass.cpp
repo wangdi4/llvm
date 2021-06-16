@@ -14,11 +14,11 @@
 
 #include "DuplicateCalledKernelsPass.h"
 #include "OCLPassSupport.h"
-#include "MetadataAPI.h"
 
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <vector>
@@ -32,7 +32,7 @@ namespace intel {
   DuplicateCalledKernels::DuplicateCalledKernels() : ModulePass(ID) {}
 
   bool DuplicateCalledKernels::runOnModule(Module &M) {
-    using namespace Intel::MetadataAPI;
+    using namespace DPCPPKernelMetadataAPI;
 
     bool changed = false;
     for(auto pFunc : KernelList(&M)) {

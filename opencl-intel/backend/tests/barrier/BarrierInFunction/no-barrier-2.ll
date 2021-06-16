@@ -37,7 +37,7 @@ define void @foo(i32 %x) nounwind {
 ; CHECK: ret
 }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.disabled.FP_CONTRACT = !{}
 
 !0 = !{void (i32)* @main}

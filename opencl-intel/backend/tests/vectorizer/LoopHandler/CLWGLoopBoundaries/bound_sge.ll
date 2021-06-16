@@ -55,7 +55,7 @@ declare void @_Z7barrierm(i32)
 
 
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i32 addrspace(1)*, i32, i32, i32, i32)* @program}
 

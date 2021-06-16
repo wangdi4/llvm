@@ -16,7 +16,6 @@
 #include "BitCodeContainer.h"
 #include "ObjectCodeContainer.h"
 #include "Compiler.h"
-#include "MetadataAPI.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

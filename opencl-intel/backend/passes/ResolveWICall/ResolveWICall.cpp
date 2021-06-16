@@ -19,14 +19,14 @@
 #include "OCLAddressSpace.h"
 #include "common_dev_limits.h"
 #include "OCLPassSupport.h"
-#include "MetadataAPI.h"
 
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include <algorithm>
 
@@ -44,7 +44,7 @@ ModulePass *createResolveWICallPass(bool isUniformWGSize, bool useTLSGlobals) {
 }
 
 using namespace Intel::OpenCL::DeviceBackend;
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 
 namespace intel {
 

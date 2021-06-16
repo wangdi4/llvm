@@ -24,7 +24,7 @@ declare i64 @_Z13get_global_idj(i32) nounwind readnone
 
 declare float @_Z3sinf(float) nounwind readnone
 
-define void @__Vectorized_.D(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* nocapture %B) nounwind !kernel_execution_length !24 !vectorized_width !27 !scalarized_kernel !28 {
+define void @__Vectorized_.D(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* nocapture %B) nounwind !kernel_execution_length !24 !vectorized_width !27 !scalar_kernel !28 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %0 = getelementptr inbounds i32, i32 addrspace(1)* %B, i64 %call
@@ -44,7 +44,7 @@ entry:
 
 declare <8 x float> @_Z3sinDv8_f(<8 x float>) nounwind readnone
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!7}
 !opencl.ocl.version = !{!8}
