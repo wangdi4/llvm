@@ -668,8 +668,6 @@ public:
 
   bool visitBasicBlock(const BasicBlock &BB);
   bool visitInstruction(const Instruction &Inst);
-  bool visitLoadInst(const LoadInst &LI);
-  bool visitStoreInst(const StoreInst &SI);
   bool visitCallInst(const CallInst &CI);
   bool visitBranchInst(const BranchInst &BI);
 
@@ -855,26 +853,6 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitInstruction(
   }
 
   return Ret;
-}
-
-bool HIRRegionIdentification::CostModelAnalyzer::visitLoadInst(
-    const LoadInst &LI) {
-  if (LI.isVolatile()) {
-    printOptReportRemark(&Lp, "Throttled due to presence of volatile load.");
-    return false;
-  }
-
-  return visitInstruction(static_cast<const Instruction &>(LI));
-}
-
-bool HIRRegionIdentification::CostModelAnalyzer::visitStoreInst(
-    const StoreInst &SI) {
-  if (SI.isVolatile()) {
-    printOptReportRemark(&Lp, "Throttled due to presence of volatile store.");
-    return false;
-  }
-
-  return visitInstruction(static_cast<const Instruction &>(SI));
 }
 
 bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
@@ -1626,6 +1604,12 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
       return false;
     }
 
+    if (Inst->isVolatile()) {
+      printOptReportRemark(
+          Lp, "Volatile instructions are currently not supported.");
+      return false;
+    }
+
     if (auto CInst = dyn_cast<CallInst>(Inst)) {
       if (CInst->isInlineAsm()) {
         printOptReportRemark(Lp, "Inline assembly currently not supported.");
@@ -2104,19 +2088,11 @@ static bool isLoopMaterializationCandidate(const BasicBlock &BB,
 
   for (auto &Inst : BB) {
     if (auto *LInst = dyn_cast<LoadInst>(&Inst)) {
-      if (LInst->isVolatile()) {
-        return false;
-      }
-
       if (foundMatchingLoads(LInst, CandidateLoads, SE, DL)) {
         return true;
       }
 
     } else if (auto *SInst = dyn_cast<StoreInst>(&Inst)) {
-      if (SInst->isVolatile()) {
-        return false;
-      }
-
       if (foundMatchingStores(SInst, CandidateStores, SE, DL)) {
         return true;
       }

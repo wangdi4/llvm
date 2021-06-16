@@ -1017,9 +1017,8 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
                                              Ref->getAlignment(), MaskVal);
     } else {
       auto *GEPValTy = GEPVal->getType()->getPointerElementType();
-      LInst = Builder.CreateAlignedLoad(GEPValTy, GEPVal,
-                                        MaybeAlign(Ref->getAlignment()),
-                                        Ref->isVolatile(), "gepload");
+      LInst = Builder.CreateAlignedLoad(
+          GEPValTy, GEPVal, MaybeAlign(Ref->getAlignment()), false, "gepload");
     }
 
     setMetadata(LInst, Ref);
@@ -1715,9 +1714,8 @@ void CGVisitor::generateLvalStore(const HLInst *HInst, Value *StorePtr,
       ResInst = VPOUtils::createMaskedStoreCall(
           StorePtr, StoreVal, Builder, LvalRef->getAlignment(), MaskVal);
     } else {
-      ResInst = Builder.CreateAlignedStore(StoreVal, StorePtr,
-                                           MaybeAlign(LvalRef->getAlignment()),
-                                           LvalRef->isVolatile());
+      ResInst = Builder.CreateAlignedStore(
+          StoreVal, StorePtr, MaybeAlign(LvalRef->getAlignment()), false);
     }
 
     setMetadata(ResInst, LvalRef);

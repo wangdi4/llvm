@@ -1252,9 +1252,8 @@ HLInst *HLNodeUtils::createPrefetch(RegDDRef *AddressRef, RegDDRef *RW,
 
 HLInst *HLNodeUtils::createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef,
                                   RegDDRef *Size) {
-  RegDDRef *IsVolatile = getDDRefUtils().createConstDDRef(
-      Type::getInt1Ty(getContext()),
-      LoadRef->isVolatile() || StoreRef->isVolatile());
+  RegDDRef *IsVolatile =
+      getDDRefUtils().createConstDDRef(Type::getInt1Ty(getContext()), false);
 
   Type *Tys[] = {StoreRef->getDestType(), LoadRef->getDestType(),
                  Size->getDestType()};
@@ -1279,8 +1278,8 @@ HLInst *HLNodeUtils::createMemcpy(RegDDRef *StoreRef, RegDDRef *LoadRef,
 
 HLInst *HLNodeUtils::createMemset(RegDDRef *StoreRef, RegDDRef *Value,
                                   RegDDRef *Size) {
-  RegDDRef *IsVolatile = getDDRefUtils().createConstDDRef(
-      Type::getInt1Ty(getContext()), StoreRef->isVolatile());
+  RegDDRef *IsVolatile =
+      getDDRefUtils().createConstDDRef(Type::getInt1Ty(getContext()), false);
 
   Type *Tys[] = {StoreRef->getDestType(), Size->getDestType()};
   Function *MemsetFunc =
@@ -5210,8 +5209,8 @@ public:
 
   static bool containsSideEffect(HLDDNode *Node) {
     for (RegDDRef *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
-      // Record side effect of LVal or volatile memref.
-      if (Ref->isMemRef() && (Ref->isVolatile() || Ref->isLval())) {
+      // Record side effect of LVal memref.
+      if (Ref->isMemRef() && Ref->isLval()) {
         return true;
       }
     }

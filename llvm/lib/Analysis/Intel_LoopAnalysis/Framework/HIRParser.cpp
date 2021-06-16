@@ -4195,7 +4195,6 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
   } else if (auto LInst = dyn_cast<LoadInst>(Inst)) {
     Ref = createGEPDDRef(LInst->getPointerOperand(), Level, true);
 
-    Ref->setVolatile(LInst->isVolatile());
     Ref->setAlignment(LInst->getAlignment());
 
     parseMetadata(LInst, Ref);
@@ -4224,7 +4223,6 @@ RegDDRef *HIRParser::createLvalDDRef(HLInst *HInst, unsigned Level) {
   if (auto SInst = dyn_cast<StoreInst>(Inst)) {
     Ref = createGEPDDRef(SInst->getPointerOperand(), Level, true);
 
-    Ref->setVolatile(SInst->isVolatile());
     Ref->setAlignment(SInst->getAlignment());
 
     parseMetadata(Inst, Ref);

@@ -749,10 +749,6 @@ bool TempSubstituter::isLoad(HLInst *HInst) const {
     return false;
   }
 
-  if (HInst->getRvalDDRef()->isVolatile()) {
-    return false;
-  }
-
   if (auto *ParLoop = HInst->getParentLoop()) {
     // Bail out on loops with distribute point as we do not track whether we are
     // crossing a distribute point due to substitution. For example-
