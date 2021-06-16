@@ -53,6 +53,7 @@ VERS1.0 {
     omp_target_disassociate_ptr;
 # INTEL_COLLAB
     omp_get_mapped_ptr;
+    omp_target_is_accessible;
     omp_target_alloc_device;
     omp_target_alloc_host;
     omp_target_alloc_shared;

@@ -370,6 +370,9 @@ int omp_target_disassociate_ptr(const void *host_ptr, int device_num);
 EXTERN
 void * omp_get_mapped_ptr(void *host_ptr, int device_num);
 
+EXTERN
+int omp_target_is_accessible(const void *ptr, size_t size, int device_num);
+
 ///
 /// 5.1 Interop Routines
 ///

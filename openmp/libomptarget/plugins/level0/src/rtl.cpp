@@ -1023,6 +1023,34 @@ public:
   }
 };
 
+/// Memory ranges for tracking allocated memory region
+class MemRangeTy {
+  std::multimap<void *, size_t> Ranges;
+  std::mutex Mtx;
+
+public:
+  void add(void *Ptr, size_t Size) {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    Ranges.insert({Ptr, Size});
+  }
+
+  void remove(void *Ptr) {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    Ranges.erase(Ptr);
+  }
+
+  bool contains(const void *Ptr, size_t Size) {
+    std::lock_guard<std::mutex> Lock(Mtx);
+    auto I = Ranges.insert({const_cast<void *>(Ptr), 0});
+    auto J = I--;
+    bool Ret = (uintptr_t)I->first <= (uintptr_t)Ptr &&
+        (uintptr_t)Ptr + (uintptr_t)Size <=
+        (uintptr_t)I->first + (uintptr_t)I->second;
+    Ranges.erase(J);
+    return Ret;
+  }
+};
+
 /// Device information
 class RTLDeviceInfoTy {
   /// Type of the device version of the offload table.
@@ -1167,6 +1195,10 @@ public:
   MemStatTy MemStatHost;
   std::map<ze_device_handle_t, MemStatTy> MemStatShared;
   std::map<ze_device_handle_t, MemStatTy> MemStatDevice;
+
+  /// Allocated USM host/shared memory range
+  /// We need to track the valid address ranges known to libomptarget and users.
+  std::map<ze_device_handle_t, std::unique_ptr<MemRangeTy>> MemHostAccessible;
 
   /// Flags, parameters, options
   RTLFlagsTy Flags;
@@ -1684,13 +1716,20 @@ public:
                   bool *PoolAllocated = nullptr);
 
   /// Return memory allocation type
-  uint32_t getMemAllocType(void *Ptr);
+  uint32_t getMemAllocType(const void *Ptr);
 
   /// Create command queue with the given device ID
   ze_command_queue_handle_t createCommandQueue(int32_t DeviceId);
 
   /// Get thread-local staging buffer for copying
   void *getStagingBuffer();
+
+  /// Add host-accessible memory range
+  void addHostAccessible(int32_t DeviceId, void *Ptr, size_t Size,
+                         int32_t Kind = TARGET_ALLOC_DEFAULT);
+
+  /// Remove host-accessible memory range
+  void removeHostAccessible(int32_t DeviceId, void *Ptr);
 };
 
 /// Libomptarget-defined handler and argument.
@@ -2288,7 +2327,7 @@ int32_t RTLDeviceInfoTy::enqueueMemCopy(
 }
 
 /// Return the memory allocation type for the specified memory location.
-uint32_t RTLDeviceInfoTy::getMemAllocType(void *Ptr) {
+uint32_t RTLDeviceInfoTy::getMemAllocType(const void *Ptr) {
   ze_memory_allocation_properties_t properties = {
     ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES,
     nullptr, // extension
@@ -2398,6 +2437,27 @@ void *RTLDeviceInfoTy::getStagingBuffer() {
   }
 
   return Buffer;
+}
+
+void RTLDeviceInfoTy::addHostAccessible(
+    int32_t DeviceId, void *Ptr, size_t Size, int32_t Kind) {
+  uint32_t MemType = ZE_MEMORY_TYPE_UNKNOWN;
+  if (Kind == TARGET_ALLOC_DEFAULT)
+    MemType = getMemAllocType(Ptr);
+
+  if (Kind == TARGET_ALLOC_HOST || MemType == ZE_MEMORY_TYPE_HOST)
+    MemHostAccessible.at(nullptr)->add(Ptr, Size);
+  else if (Kind == TARGET_ALLOC_SHARED || MemType == ZE_MEMORY_TYPE_SHARED)
+    MemHostAccessible.at(Devices[DeviceId])->add(Ptr, Size);
+}
+
+void RTLDeviceInfoTy::removeHostAccessible(int32_t DeviceId, void *Ptr) {
+  auto MemType = getMemAllocType(Ptr);
+
+  if (MemType == ZE_MEMORY_TYPE_HOST)
+    MemHostAccessible.at(nullptr)->remove(Ptr);
+  else if (MemType == ZE_MEMORY_TYPE_SHARED)
+    MemHostAccessible.at(Devices[DeviceId])->remove(Ptr);
 }
 
 static void dumpImageToFile(
@@ -2769,6 +2829,12 @@ EXTERN int32_t __tgt_rtl_number_of_devices() {
     DeviceInfo->ProfileEvents.init(DeviceInfo->Context);
   DeviceInfo->SubDeviceEvents.resize(DeviceInfo->NumRootDevices);
   DeviceInfo->RTLMutex = new std::mutex();
+
+  // null-key for host memory type
+  DeviceInfo->MemHostAccessible.emplace(nullptr,
+                                        std::make_unique<MemRangeTy>());
+  for (auto D : DeviceInfo->Devices)
+    DeviceInfo->MemHostAccessible.emplace(D, std::make_unique<MemRangeTy>());
 
   if (DebugLevel > 0)
     DeviceInfo->initMemoryStat();
@@ -3315,7 +3381,9 @@ void *RTLDeviceInfoTy::allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
 
 EXTERN void *__tgt_rtl_data_alloc(int32_t DeviceId, int64_t Size, void *HstPtr,
                                   int32_t Kind) {
-  return DeviceInfo->allocData(DeviceId, Size, HstPtr, HstPtr);
+  void *Mem = DeviceInfo->allocData(DeviceId, Size, HstPtr, HstPtr);
+  DeviceInfo->addHostAccessible(DeviceId, Mem, Size);
+  return Mem;
 }
 
 EXTERN void *__tgt_rtl_data_alloc_user(
@@ -3331,7 +3399,9 @@ EXTERN void *__tgt_rtl_data_alloc_user(
 
 EXTERN void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size,
                                        void *HstPtr, void *HstBase) {
-  return DeviceInfo->allocData(DeviceId, Size, HstPtr, HstBase);
+  void *Mem = DeviceInfo->allocData(DeviceId, Size, HstPtr, HstBase);
+  DeviceInfo->addHostAccessible(DeviceId, Mem, Size);
+  return Mem;
 }
 
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
@@ -3359,6 +3429,7 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
     mem = allocDataExplicit(DeviceId, Size, Kind);
 
   if (mem) {
+    DeviceInfo->addHostAccessible(DeviceId, mem, Size, Kind);
     std::unique_lock<std::mutex>(DeviceInfo->DataMutexes[DeviceId]);
     DeviceInfo->addImplicitArgs(DeviceId, mem, Kind);
   }
@@ -3625,6 +3696,8 @@ EXTERN int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   mutex.lock();
   DeviceInfo->removeImplicitArgs(DeviceId, TgtPtr);
   mutex.unlock();
+
+  DeviceInfo->removeHostAccessible(DeviceId, TgtPtr);
 
   if (DeviceInfo->Flags.UseMemoryPool) {
     bool deallocated = DeviceInfo->poolFree(DeviceId, TgtPtr);
@@ -4534,6 +4607,24 @@ EXTERN int32_t __tgt_rtl_get_num_sub_devices(int32_t DeviceId, int32_t Level) {
   IDP("%s returns %" PRId32 " sub-devices at level %" PRId32 "\n", __func__,
       ret, Level);
   return ret;
+}
+
+EXTERN int32_t __tgt_rtl_is_accessible_addr_range(
+    int32_t DeviceId, const void *Ptr, size_t Size) {
+  if (!Ptr || Size == 0)
+    return 0;
+
+  auto MemType = DeviceInfo->getMemAllocType(Ptr);
+  auto Device = DeviceInfo->Devices[DeviceId];
+  if (MemType == ZE_MEMORY_TYPE_HOST)
+    Device = nullptr;
+  else if (MemType != ZE_MEMORY_TYPE_SHARED)
+    return 0;
+
+  if (DeviceInfo->MemHostAccessible.at(Device)->contains(Ptr, Size))
+    return 1;
+  else
+    return 0;
 }
 
 void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(

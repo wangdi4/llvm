@@ -987,6 +987,13 @@ void DeviceTy::addLambdaPtr(void *TgtPtr) {
     LambdaPtrs.emplace(GTID, std::vector<void *>{});
   LambdaPtrs.at(GTID).push_back(TgtPtr);
 }
+
+int32_t DeviceTy::isAccessibleAddrRange(const void *Ptr, size_t Size) {
+  if (RTL->is_accessible_addr_range)
+    return RTL->is_accessible_addr_range(RTLDeviceID, Ptr, Size);
+  else
+    return 0;
+}
 #endif // INTEL_COLLAB
 
 // Whether data can be copied to DstDevice directly
