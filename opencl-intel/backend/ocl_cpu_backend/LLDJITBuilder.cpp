@@ -59,7 +59,7 @@ void LLDJITBuilder::prepareModuleForLLD(llvm::Module *M) {
 #if 0
   // Enable this to dump the prepared module to disk for debugging purposes.
   std::error_code EC;
-  llvm::raw_fd_ostream OS("module.bc", EC, llvm::sys::fs::F_None);
+  llvm::raw_fd_ostream OS("module.bc", EC, llvm::sys::fs::OF_None);
   WriteBitcodeToFile(*M, OS);
   OS.close();
 #endif

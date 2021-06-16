@@ -535,7 +535,7 @@ int main(int argc, char **argv) {
   if (RemarksFilename != "") {
     std::error_code EC;
     OptRemarkFile =
-        std::make_unique<ToolOutputFile>(RemarksFilename, EC, sys::fs::F_None);
+        std::make_unique<ToolOutputFile>(RemarksFilename, EC, sys::fs::OF_None);
     if (EC) {
       errs() << EC.message() << '\n';
       return 1;
@@ -597,7 +597,7 @@ int main(int argc, char **argv) {
       OutputFilename = "-";
 
     std::error_code EC;
-    Out.reset(new ToolOutputFile(OutputFilename, EC, sys::fs::F_None));
+    Out.reset(new ToolOutputFile(OutputFilename, EC, sys::fs::OF_None));
     if (EC) {
       errs() << EC.message() << '\n';
       return 1;
@@ -605,7 +605,7 @@ int main(int argc, char **argv) {
 
     if (!ThinLinkBitcodeFile.empty()) {
       ThinLinkOut.reset(
-          new ToolOutputFile(ThinLinkBitcodeFile, EC, sys::fs::F_None));
+          new ToolOutputFile(ThinLinkBitcodeFile, EC, sys::fs::OF_None));
       if (EC) {
         errs() << EC.message() << '\n';
         return 1;
@@ -696,7 +696,7 @@ int main(int argc, char **argv) {
 
       std::error_code EC;
       Out = std::make_unique<ToolOutputFile>(OutputFilename, EC,
-                                              sys::fs::F_None);
+                                              sys::fs::OF_None);
       if (EC) {
         errs() << EC.message() << '\n';
         return 1;
