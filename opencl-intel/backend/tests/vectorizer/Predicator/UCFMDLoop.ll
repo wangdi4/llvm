@@ -20,7 +20,7 @@ declare i32 @_Z10atomic_addPU3AS1Vjj(i32 addrspace(1)* %0, i32 %1) local_unnamed
 declare void @llvm.dbg.value(metadata %0, metadata %1, metadata %2) #3
 
 ; Function Attrs: convergent nounwind
-define void @__Vectorized_.test_single_wi(i32 addrspace(1)* %p, i32 addrspace(1)* %res) local_unnamed_addr #0 !dbg !52 !kernel_arg_addr_space !22 !kernel_arg_access_qual !23 !kernel_arg_type !24 !kernel_arg_base_type !24 !kernel_arg_type_qual !25 !kernel_arg_host_accessible !26 !kernel_arg_pipe_depth !27 !kernel_arg_pipe_io !25 !kernel_arg_buffer_location !25 !kernel_arg_name !28 !use_fpga_pipes !29 !vectorized_kernel !59 !ocl_recommended_vector_length !60 {
+define void @__Vectorized_.test_single_wi(i32 addrspace(1)* %p, i32 addrspace(1)* %res) local_unnamed_addr #0 !dbg !52 !kernel_arg_addr_space !22 !kernel_arg_access_qual !23 !kernel_arg_type !24 !kernel_arg_base_type !24 !kernel_arg_type_qual !25 !kernel_arg_host_accessible !26 !kernel_arg_pipe_depth !27 !kernel_arg_pipe_io !25 !kernel_arg_buffer_location !25 !kernel_arg_name !28 !use_fpga_pipes !29 !vectorized_kernel !59 !recommended_vector_length !60 {
 entry:
   call void @llvm.dbg.value(metadata i32 addrspace(1)* %p, metadata !54, metadata !DIExpression()), !dbg !61
   call void @llvm.dbg.value(metadata i32 addrspace(1)* %res, metadata !55, metadata !DIExpression()), !dbg !61

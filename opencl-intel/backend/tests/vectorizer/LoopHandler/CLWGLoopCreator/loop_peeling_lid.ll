@@ -14,7 +14,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent norecurse nounwind
-define void @test(i32 addrspace(1)* noalias %dst) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !vectorized_kernel !12 !no_barrier_path !13 !scalarized_kernel !14 !vectorized_width !5 !kernel_execution_length !15 !kernel_has_barrier !9 !kernel_has_global_sync !9 !max_wg_dimensions !5 {
+define void @test(i32 addrspace(1)* noalias %dst) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !vectorized_kernel !12 !no_barrier_path !13 !scalar_kernel !14 !vectorized_width !5 !kernel_execution_length !15 !kernel_has_barrier !9 !kernel_has_global_sync !9 !max_wg_dimensions !5 {
 entry:
   %call = tail call i64 @_Z12get_group_idj(i32 0) #2
   %call1 = tail call i64 @_Z14get_local_sizej(i32 0) #2
@@ -106,7 +106,7 @@ entry:
 declare i64 @get_base_global_id.(i32)
 
 ; Function Attrs: convergent norecurse nounwind
-define void @__Vectorized_.test(i32 addrspace(1)* noalias %dst) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !vectorized_kernel !14 !no_barrier_path !13 !scalarized_kernel !4 !vectorized_width !20 !vectorization_dimension !10 !can_unite_workgroups !9 !kernel_execution_length !21 !kernel_has_barrier !9 !kernel_has_global_sync !9 !max_wg_dimensions !5 {
+define void @__Vectorized_.test(i32 addrspace(1)* noalias %dst) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !vectorized_kernel !14 !no_barrier_path !13 !scalar_kernel !4 !vectorized_width !20 !vectorization_dimension !10 !can_unite_workgroups !9 !kernel_execution_length !21 !kernel_has_barrier !9 !kernel_has_global_sync !9 !max_wg_dimensions !5 {
 entry:
   %call = tail call i64 @_Z12get_group_idj(i32 0) #2
   %call1 = tail call i64 @_Z14get_local_sizej(i32 0) #2
@@ -137,7 +137,7 @@ attributes #2 = { convergent nounwind readnone }
 !opencl.used.optional.core.features = !{!1}
 !opencl.compiler.options = !{!2}
 !llvm.ident = !{!3}
-!opencl.kernels = !{!4}
+!sycl.kernels = !{!4}
 
 !0 = !{i32 2, i32 0}
 !1 = !{}

@@ -30,7 +30,7 @@ entry:
 ; CHECK-NEXT: exit:
 ; CHECK-NEXT: ret void
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void ()* @kernel_separated_args}
 !1 = !{void ()* @kernel}

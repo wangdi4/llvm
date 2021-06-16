@@ -171,7 +171,7 @@ attributes #2 = { convergent noinline norecurse nounwind "correctly-rounded-divi
 !opencl.used.optional.core.features = !{!6}
 !opencl.compiler.options = !{!7}
 !llvm.ident = !{!8}
-!opencl.kernels = !{!9}
+!sycl.kernels = !{!9}
 
 !0 = !{i32 4}
 !1 = !{!"ch_in0"}

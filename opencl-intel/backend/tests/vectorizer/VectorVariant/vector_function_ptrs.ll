@@ -24,7 +24,7 @@ $I1B = comdat any
 @V1A = constant { [3 x i8*] } { [3 x i8*] [i8* null, i8* bitcast ({ i8*, i8* }* @I1A to i8*), i8* bitcast ([1 x i32 (%class.S1A.A addrspace(4)*, i32)*]* @"A_foo$SIMDTable" to i8*)] }
 @"A_foo$SIMDTable" = weak global [1 x i32 (%class.S1A.A addrspace(4)*, i32)*] [i32 (%class.S1A.A addrspace(4)*, i32)* @A_foo]
 
-define void @test() !ocl_recommended_vector_length !0 {
+define void @test() !recommended_vector_length !0 {
 entry:
   %bA = alloca %class.S1B.B
   %a = alloca %class.S1A.A addrspace(4)*

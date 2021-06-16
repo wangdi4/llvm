@@ -68,7 +68,7 @@ __zero_imm_separated_args.exit:                   ; preds = %scalar_kernel_entry
 !0 = !{void ()* @thisIsKernel, !1}
 !1 = !{!"kernel_wrapper", void ()* @thisIsKernel}
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.compiler.options = !{!8}
 !opencl.kernel_info = !{!15}
 

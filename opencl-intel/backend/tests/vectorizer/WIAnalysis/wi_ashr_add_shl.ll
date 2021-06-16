@@ -35,7 +35,7 @@ define void @ashr_add_shl(float addrspace(1)* nocapture %a) nounwind {
   ret void
 }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.compiler.options = !{!2}
 
 !0 = !{null, !1}

@@ -454,7 +454,7 @@ define void @externalUnBranchDivLoopMX(i32 addrspace(1)* nocapture %a, i32 addrs
   ret void
 }
 
-!opencl.kernels = !{!0, !2, !3, !4, !5, !6, !7, !8, !9}
+!sycl.kernels = !{!0, !2, !3, !4, !5, !6, !7, !8, !9}
 !opencl.compiler.options = !{!10}
 
 !0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @internalDivBranchMX, !1}

@@ -5,7 +5,7 @@
 ; CHECK: define void @_ZGVeM4u_test
 
 ; Function Attrs: convergent nounwind
-define void @test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !no_barrier_path !12 !kernel_has_sub_groups !12 !ocl_recommended_vector_length !13 {
+define void @test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !no_barrier_path !12 !kernel_has_sub_groups !12 !recommended_vector_length !13 {
 entry:
   %call = tail call i32 @_Z22get_max_sub_group_sizev() #2
   store i32 %call, i32 addrspace(1)* %a, align 4, !tbaa !14
@@ -15,7 +15,7 @@ entry:
 ; Function Attrs: convergent
 declare i32 @_Z22get_max_sub_group_sizev() local_unnamed_addr #1
 
-define [7 x i64] @WG.boundaries.test(i32 addrspace(1)* %0) !ocl_recommended_vector_length !13 {
+define [7 x i64] @WG.boundaries.test(i32 addrspace(1)* %0) !recommended_vector_length !13 {
 entry:
   %1 = call i64 @_Z14get_local_sizej(i32 0)
   %2 = call i64 @get_base_global_id.(i32 0)
@@ -49,7 +49,7 @@ attributes #2 = { convergent nounwind }
 !opencl.used.optional.core.features = !{!1}
 !opencl.compiler.options = !{!2}
 !llvm.ident = !{!3}
-!opencl.kernels = !{!4}
+!sycl.kernels = !{!4}
 
 !0 = !{i32 2, i32 0}
 !1 = !{}

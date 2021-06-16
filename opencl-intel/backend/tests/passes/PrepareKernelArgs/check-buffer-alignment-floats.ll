@@ -50,7 +50,7 @@ entry:
 ; CHECK: call void @__t1_separated_args(float %explicit_0, <2 x float> %explicit_1, <2 x float> %explicit_2, <3 x float> %explicit_3, <16 x float> %explicit_4, <4 x float> %explicit_5, <8 x float> %explicit_6, [[IMPLICIT_ARGS:[a-zA-Z0-9]+]]
 ; CHECK-NEXT: ret void
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!6}
 !opencl.ocl.version = !{!7}

@@ -5,7 +5,7 @@ target triple = "x86_64-pc-linux"
 
 ; CHECK-NOT: max_wg_dimensions
 ; Function Attrs: convergent nounwind
-define void @kern(i32 addrspace(1)* noalias %res) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !5 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !11 !vectorized_kernel !12 !no_barrier_path !13 !kernel_has_sub_groups !13 !vectorized_width !6 !scalarized_kernel !14 !kernel_execution_length !15 !kernel_has_barrier !10 !kernel_has_global_sync !10 {
+define void @kern(i32 addrspace(1)* noalias %res) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !5 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !11 !vectorized_kernel !12 !no_barrier_path !13 !kernel_has_sub_groups !13 !vectorized_width !6 !scalar_kernel !14 !kernel_execution_length !15 !kernel_has_barrier !10 !kernel_has_global_sync !10 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #4
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %call
@@ -24,7 +24,7 @@ declare i64 @_Z14get_local_sizej(i32 %0)
 declare i64 @get_base_global_id.(i32 %0)
 
 ; Function Attrs: convergent nounwind
-define void @_ZGVeN16u_kern(i32 addrspace(1)* noalias %res) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !5 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9!kernel_arg_name !11 !vectorized_kernel !14 !no_barrier_path !13 !kernel_has_sub_groups !13 !ocl_recommended_vector_length !20 !vectorized_width !20 !vectorization_dimension !5 !scalarized_kernel !4 !can_unite_workgroups !10 !kernel_execution_length !21 !kernel_has_barrier !10 !kernel_has_global_sync !10 {
+define void @_ZGVeN16u_kern(i32 addrspace(1)* noalias %res) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !5 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9!kernel_arg_name !11 !vectorized_kernel !14 !no_barrier_path !13 !kernel_has_sub_groups !13 !recommended_vector_length !20 !vectorized_width !20 !vectorization_dimension !5 !scalar_kernel !4 !can_unite_workgroups !10 !kernel_execution_length !21 !kernel_has_barrier !10 !kernel_has_global_sync !10 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #4
   %scalar.gep. = getelementptr inbounds i32, i32 addrspace(1)* %res, i64 %call
@@ -53,7 +53,7 @@ attributes #4 = { convergent nounwind readnone }
 !opencl.used.extensions = !{!2}
 !opencl.used.optional.core.features = !{!2}
 !opencl.compiler.options = !{!2}
-!opencl.kernels = !{!4}
+!sycl.kernels = !{!4}
 !opencl.global_variable_total_size = !{!5}
 
 !0 = !{i32 1, !"wchar_size", i32 4}

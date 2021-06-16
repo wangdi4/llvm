@@ -197,7 +197,7 @@ define void @nestedUnBranchedUnBranchDivBranch(i32 addrspace(1)* nocapture %res,
   ret void
 }
 
-!opencl.kernels = !{!0, !2, !3, !4, !5}
+!sycl.kernels = !{!0, !2, !3, !4, !5}
 !opencl.compiler.options = !{!6}
 
 !0 = !{void (i32 addrspace(1)*, i32)* @divBranchNestedUnLoop, !1}

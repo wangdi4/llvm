@@ -96,7 +96,7 @@ if.end:                                           ; preds = %if.then, %entry
   ret void
 }
 
-!opencl.kernels = !{!0, !2, !4, !5}
+!sycl.kernels = !{!0, !2, !4, !5}
 !opencl.compiler.options = !{!6}
 
 !0 = !{void (float addrspace(1)*, float addrspace(1)*)* @test_consecutive, !1}

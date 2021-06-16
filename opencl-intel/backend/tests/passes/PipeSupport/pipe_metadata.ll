@@ -263,7 +263,7 @@ attributes #9 = { convergent "uniform-work-group-size"="true" }
 !opencl.used.optional.core.features = !{!3}
 !opencl.compiler.options = !{!3}
 !llvm.ident = !{!4}
-!opencl.kernels = !{!5}
+!sycl.kernels = !{!5}
 
 !0 = !{i32 4}
 !1 = !{i32 1, !"wchar_size", i32 4}

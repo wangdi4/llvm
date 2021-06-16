@@ -43,6 +43,6 @@ declare void @dummybarrier.()
 
 attributes #0 = { nounwind }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (%opencl.pipe_wo_t.6 addrspace(1)*, %opencl.pipe_ro_t.7 addrspace(1)*)* @main}

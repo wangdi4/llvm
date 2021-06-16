@@ -51,7 +51,7 @@ declare i32 @_Z3anyDv4_c(<4 x i8>) nounwind readnone
 
 declare void @foo(<4 x i32>)
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (<4 x i8>, <4 x i8>, <4 x i8>, <4 x i8>)* @run_any, !1}
 !1 = !{!"image_access_qualifier", i32 3, i32 3, i32 3, i32 3}

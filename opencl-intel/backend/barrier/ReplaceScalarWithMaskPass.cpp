@@ -16,15 +16,15 @@
 
 #include "InitializePasses.h"
 #include "LoopUtils/LoopUtils.h"
-#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 #include "SGHelper.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 
 namespace intel {
 
@@ -96,8 +96,8 @@ kernel has barrier path and subgroup calls", false, false)
 
       // Set the masked kernel to itself.
       SKIMD.VectorizedMaskedKernel.set(ScalarKernel);
-      // Unset scalarized kernel.
-      SKIMD.ScalarizedKernel.set(nullptr);
+      // Unset scalar kernel.
+      SKIMD.ScalarKernel.set(nullptr);
       // Restore vectorized kernel.
       SKIMD.VectorizedKernel.set(VectorKernel);
 

@@ -16,13 +16,13 @@
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "OCLPassSupport.h"
-#include "MetadataAPI.h"
 
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include <algorithm>
 #include <cassert>
@@ -30,7 +30,7 @@
 #include <vector>
 
 using namespace llvm;
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 using namespace Intel::OpenCL::DeviceBackend;
 
 extern "C" {

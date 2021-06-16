@@ -30,7 +30,7 @@ target triple = "x86_64-pc-linux"
 !opencl.spir.version = !{!1}
 !opencl.used.extensions = !{!2}
 !opencl.used.optional.core.features = !{!2}
-!opencl.kernels = !{!2}
+!sycl.kernels = !{!2}
 !opencl.global_variable_total_size = !{!3}
 
 !0 = !{i32 1, !"wchar_size", i32 4}

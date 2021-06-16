@@ -48,6 +48,6 @@ declare i32 @_Z16get_sub_group_idv() local_unnamed_addr #3
 
 attributes #3 = { nounwind readnone }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void ()* @test_get_sub_group_id, void ()* @test_get_sub_group_local_id}

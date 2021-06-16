@@ -50,7 +50,7 @@ entry:
 ; CHECK: call void @__t1_separated_args(i32 %explicit_0, <2 x i32> %explicit_1, <2 x i32> %explicit_2, <3 x i32> %explicit_3, <16 x i32> %explicit_4, <4 x i32> %explicit_5, <8 x i32> %explicit_6, [[IMPLICIT_ARGS:[a-zA-Z0-9]+]]
 ; CHECK-NEXT: ret void
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!6}
 !opencl.ocl.version = !{!7}

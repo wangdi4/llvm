@@ -66,7 +66,7 @@ declare void @_Z7barrierj(i32)
 
 
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 
 !0 = !{void ()* @kernel_contains_barrier, void ()* @kernel_not_contains_barrier, void ()* @kernel_call_func_call_barrier, void ()* @kernel_call_func_call_func_call_barrier, void ()* @kernel_call_func_no_call_barrier}

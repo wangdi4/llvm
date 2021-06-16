@@ -33,7 +33,7 @@ L3:
 
 declare void @_Z7barrierj(i32)
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.compiler.options = !{}
 
 !0 = !{void (i32)* @main, !1, !1, !"", !"int", !"opencl_main_locals_anchor", !2, !3, !4, !5, !""}

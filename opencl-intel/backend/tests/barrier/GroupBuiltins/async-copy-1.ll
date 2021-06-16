@@ -65,7 +65,7 @@ declare void @_Z17wait_group_eventsiP9ocl_event(i32, %opencl.event_t**)
 ; CHECK: declare void @_Z7barrierj(i32)
 ; CHECK: declare void @dummybarrier.()
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.build.options = !{}
 !opencl.kernel_info = !{!6}
 !opencl.disabled.FP_CONTRACT = !{}
@@ -86,7 +86,7 @@ declare void @_Z17wait_group_eventsiP9ocl_event(i32, %opencl.event_t**)
 !13 = !{!"vectorized_kernel", null}
 !14 = !{!"vectorized_width", null}
 !15 = !{!"kernel_wrapper", null}
-!16 = !{!"scalarized_kernel", null}
+!16 = !{!"scalar_kernel", null}
 
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function main -- call void @dummybarrier.()
 ; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function foo -- call void @dummybarrier.()

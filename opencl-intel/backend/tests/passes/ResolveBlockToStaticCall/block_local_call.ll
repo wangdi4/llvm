@@ -74,7 +74,7 @@ attributes #4 = { convergent }
 !opencl.used.optional.core.features = !{!2}
 !opencl.compiler.options = !{!3}
 !llvm.ident = !{!4}
-!opencl.kernels = !{!5}
+!sycl.kernels = !{!5}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 2, i32 0}

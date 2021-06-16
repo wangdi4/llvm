@@ -11,7 +11,7 @@ target triple = "x86_64-pc-linux"
 %"class._ZTSN2cl4sycl6detail5arrayILi2EEE.cl::sycl::detail::array" = type { [2 x i64] }
 %"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec" = type { <4 x i8> }
 ; Function Attrs: nounwind
-define void @_ZTS17mandelbrot_kernelIdE(%struct._ZTS13pixel_block_t.pixel_block_t addrspace(1)* noalias, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"* byval(%"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"), i32, i32, i32, double, double, double, i32) local_unnamed_addr #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !13 !kernel_arg_type !14 !kernel_arg_type_qual !15 !kernel_arg_base_type !16 !intel_reqd_sub_group_size !17 !vectorized_kernel !18 !no_barrier_path !19 !kernel_has_sub_groups !19 !scalarized_kernel !20 !vectorized_width !21 {
+define void @_ZTS17mandelbrot_kernelIdE(%struct._ZTS13pixel_block_t.pixel_block_t addrspace(1)* noalias, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"* byval(%"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"), i32, i32, i32, double, double, double, i32) local_unnamed_addr #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !13 !kernel_arg_type !14 !kernel_arg_type_qual !15 !kernel_arg_base_type !16 !intel_reqd_sub_group_size !17 !vectorized_kernel !18 !no_barrier_path !19 !kernel_has_sub_groups !19 !scalar_kernel !20 !vectorized_width !21 {
 entry:
   ret void
 }
@@ -65,7 +65,7 @@ entry:
 declare i64 @_Z14get_local_sizej(i32)
 declare i64 @get_base_global_id.(i32)
 ; Function Attrs: nounwind
-define void @__Vectorized_._ZTS17mandelbrot_kernelIdE(%struct._ZTS13pixel_block_t.pixel_block_t addrspace(1)* noalias, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"* byval(%"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"), i32, i32, i32, double, double, double, i32) local_unnamed_addr #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !13 !kernel_arg_type !14 !kernel_arg_type_qual !15 !kernel_arg_base_type !16 !intel_reqd_sub_group_size !17 !vectorized_kernel !20 !no_barrier_path !19 !kernel_has_sub_groups !19 !scalarized_kernel !25 !vectorized_width !17 !vectorization_dimension !26 !can_unite_workgroups !27 {
+define void @__Vectorized_._ZTS17mandelbrot_kernelIdE(%struct._ZTS13pixel_block_t.pixel_block_t addrspace(1)* noalias, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi2EEE.cl::sycl::range"), %"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"* byval(%"class._ZTSN2cl4sycl3vecIhLi4EEE.cl::sycl::vec"), i32, i32, i32, double, double, double, i32) local_unnamed_addr #0 !kernel_arg_addr_space !12 !kernel_arg_access_qual !13 !kernel_arg_type !14 !kernel_arg_type_qual !15 !kernel_arg_base_type !16 !intel_reqd_sub_group_size !17 !vectorized_kernel !20 !no_barrier_path !19 !kernel_has_sub_groups !19 !scalar_kernel !25 !vectorized_width !17 !vectorization_dimension !26 !can_unite_workgroups !27 {
 entry:
   ret void
 }
@@ -78,7 +78,7 @@ attributes #1 = { nounwind readnone }
 !opencl.used.extensions = !{!3}
 !opencl.used.optional.core.features = !{!4}
 !spirv.Generator = !{!5}
-!opencl.kernels = !{!11}
+!sycl.kernels = !{!11}
 !0 = !{i32 4, i32 100000}
 !1 = !{i32 1, i32 2}
 !2 = !{i32 1, i32 0}

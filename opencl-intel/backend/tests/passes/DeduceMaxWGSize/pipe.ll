@@ -22,7 +22,7 @@ entry:
   ret void
 }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!7}
 !opencl.ocl.version = !{!8}
@@ -56,7 +56,7 @@ entry:
 !18 = !{!"vectorized_kernel", void (%opencl.pipe_t addrspace(1)*, i8 addrspace(1)*)* @__Vectorized_.A}
 !19 = !{!"vectorized_width", i32 1}
 !20 = !{!"kernel_wrapper", null}
-!21 = !{!"scalarized_kernel", null}
+!21 = !{!"scalar_kernel", null}
 !22 = !{void (%opencl.pipe_t addrspace(1)*, i8 addrspace(1)*)* @__Vectorized_.A, !23}
 !23 = !{!12, !13, !24, !15, !16, !25, !26, !27, !20, !28}
 ; CHECK: !23 = !{!12, !13, !24, !15, !16, !25, !26, !27, !20, !28}
@@ -64,5 +64,5 @@ entry:
 !25 = !{!"no_barrier_path", null}
 !26 = !{!"vectorized_kernel", null}
 !27 = !{!"vectorized_width", i32 4}
-!28 = !{!"scalarized_kernel", void (%opencl.pipe_t addrspace(1)*, i8 addrspace(1)*)* @A}
+!28 = !{!"scalar_kernel", void (%opencl.pipe_t addrspace(1)*, i8 addrspace(1)*)* @A}
 ; DEBUGIFY-NOT: WARNING

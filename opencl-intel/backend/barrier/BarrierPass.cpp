@@ -17,7 +17,6 @@
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "LoopUtils/LoopUtils.h"
-#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 #include "common_dev_limits.h"
 
@@ -30,6 +29,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
 
@@ -40,7 +40,7 @@
 #define DEBUG_TYPE "B-Barrier"
 
 using namespace Intel::OpenCL::DeviceBackend;
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 
 extern bool OptUseTLSGlobals;
 
@@ -1323,7 +1323,7 @@ namespace intel {
         } else
           BaseGID = m_util.createGetBaseGlobalId(Dim, pOldCall);
 
-        auto kimd = Intel::MetadataAPI::KernelInternalMetadataAPI(pFunc);
+        auto kimd = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(pFunc);
         if (kimd.NoBarrierPath.hasValue() && kimd.NoBarrierPath.get()) {
           pOldCall->replaceAllUsesWith(BaseGID);
         } else {

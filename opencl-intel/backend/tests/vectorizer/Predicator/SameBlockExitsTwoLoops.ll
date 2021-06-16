@@ -115,7 +115,7 @@ declare i1 @__ocl_allOne(i1)
 
 declare i1 @__ocl_allZero(i1)
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!6}
 !opencl.ocl.version = !{!7}
@@ -145,4 +145,4 @@ declare i1 @__ocl_allZero(i1)
 !16 = !{!"vectorized_kernel", null}
 !17 = !{!"vectorized_width", null}
 !18 = !{!"kernel_wrapper", null}
-!19 = !{!"scalarized_kernel", null}
+!19 = !{!"scalar_kernel", null}
