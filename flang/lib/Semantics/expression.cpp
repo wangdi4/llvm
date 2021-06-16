@@ -174,7 +174,8 @@ private:
 // Wraps a data reference in a typed Designator<>, and a procedure
 // or procedure pointer reference in a ProcedureDesignator.
 MaybeExpr ExpressionAnalyzer::Designate(DataRef &&ref) {
-  const Symbol &symbol{ref.GetLastSymbol().GetUltimate()};
+  const Symbol &last{ref.GetLastSymbol()};
+  const Symbol &symbol{last.GetUltimate()};
   if (semantics::IsProcedure(symbol)) {
     if (auto *component{std::get_if<Component>(&ref.u)}) {
       return Expr<SomeType>{ProcedureDesignator{std::move(*component)}};
@@ -193,8 +194,17 @@ MaybeExpr ExpressionAnalyzer::Designate(DataRef &&ref) {
           symbol.name());
     }
     return std::nullopt;
+  } else if (MaybeExpr result{AsGenericExpr(std::move(ref))}) {
+    return result;
   } else {
-    return AsGenericExpr(std::move(ref));
+    if (!context_.HasError(last) && !context_.HasError(symbol)) {
+      AttachDeclaration(
+          Say("'%s' is not an object that can appear in an expression"_err_en_US,
+              last.name()),
+          symbol);
+      context_.SetError(last);
+    }
+    return std::nullopt;
   }
 }
 
@@ -1817,6 +1827,12 @@ auto ExpressionAnalyzer::AnalyzeProcedureComponentRef(
       if (context_.HasError(sym)) {
         return std::nullopt;
       }
+      if (!IsProcedure(*sym)) {
+        AttachDeclaration(
+            Say(sc.component.source, "'%s' is not a procedure"_err_en_US,
+                sc.component.source),
+            *sym);
+      }
       if (auto *dtExpr{UnwrapExpr<Expr<SomeDerived>>(*base)}) {
         if (sym->has<semantics::GenericDetails>()) {
           AdjustActuals adjustment{
@@ -2081,9 +2097,15 @@ auto ExpressionAnalyzer::GetCalleeAndArguments(const parser::Name &name,
           return CalleeAndArguments{
               semantics::SymbolRef{*symbol}, std::move(arguments)};
         }
-      } else {
+      } else if (IsProcedure(*symbol)) {
         return CalleeAndArguments{
             ProcedureDesignator{*symbol}, std::move(arguments)};
+      }
+      if (!context_.HasError(*symbol)) {
+        AttachDeclaration(
+            Say(name.source, "'%s' is not a callable procedure"_err_en_US,
+                name.source),
+            *symbol);
       }
     } else if (std::optional<SpecificCall> specificCall{
                    context_.intrinsics().Probe(
