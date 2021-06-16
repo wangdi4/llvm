@@ -17,7 +17,7 @@ define void @test(i32 %a) #0 {
   ret void
 }
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void(i32)* @test}
 

@@ -120,7 +120,7 @@ attributes #3 = { nounwind }
 !opencl.used.optional.core.features = !{!5}
 !opencl.compiler.options = !{!5}
 !llvm.ident = !{!6}
-!sycl.kernels = !{!7}
+!opencl.kernels = !{!7}
 
 !0 = !{[4 x [2 x %opencl.channel_t addrspace(1)*]] addrspace(1)* @ch, !1, !2}
 !1 = !{!"packet_size", i32 4}

@@ -72,7 +72,7 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %a,
 ; CHECK-TLS:     call void @__A_separated_args(i32 addrspace(1)* %explicit_0, i32 addrspace(1)* %explicit_1, i32 %explicit_2)
 ; CHECK:     ret void
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!10}
 !opencl.ocl.version = !{!11}

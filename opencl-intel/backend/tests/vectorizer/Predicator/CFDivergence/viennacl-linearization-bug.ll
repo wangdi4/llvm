@@ -84,5 +84,5 @@ declare i64 @_Z15get_global_sizej(i32) nounwind readnone
 !17 = !{!"vectorized_kernel", null}
 !18 = !{!"vectorized_width", null}
 !19 = !{!"kernel_wrapper", null}
-!20 = !{!"scalar_kernel", null}
+!20 = !{!"scalarized_kernel", null}
 

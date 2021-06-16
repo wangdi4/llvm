@@ -54,7 +54,7 @@ entry:
 }
 
 ; Function Attrs: convergent norecurse nounwind
-define dso_local void @_ZGVbN4u_test(i32 addrspace(1)* noalias %m) local_unnamed_addr #3 !no_barrier_path !9 !vectorized_kernel !6 !scalar_kernel !4 !vectorized_width !8 !kernel_execution_length !18 !kernel_has_barrier !9 !vectorization_dimension !14 {
+define dso_local void @_ZGVbN4u_test(i32 addrspace(1)* noalias %m) local_unnamed_addr #3 !no_barrier_path !9 !vectorized_kernel !6 !scalarized_kernel !4 !vectorized_width !8 !kernel_execution_length !18 !kernel_has_barrier !9 !vectorization_dimension !14 {
 entry:
   call void @dummybarrier.()
   %call = tail call i64 @_Z12get_local_idj(i32 0) #16

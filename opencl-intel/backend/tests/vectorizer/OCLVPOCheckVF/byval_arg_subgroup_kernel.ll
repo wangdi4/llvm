@@ -22,9 +22,9 @@ define void @f3(%struct.A* nocapture readonly %arr) #0 {
   ret void
 }
 
-define void @kernel(%struct.A* nocapture readonly %arr, %struct.A* byval(%struct.A) align 8 %arg) #0 !kernel_has_sub_groups !1 !recommended_vector_length !2 {
-;; We have recommended_vector_length set to the original value.
-; CHECK: !recommended_vector_length !2
+define void @kernel(%struct.A* nocapture readonly %arr, %struct.A* byval(%struct.A) align 8 %arg) #0 !kernel_has_sub_groups !1 !ocl_recommended_vector_length !2 {
+;; We have ocl_recommended_vector_length set to the original value.
+; CHECK: !ocl_recommended_vector_length !2
 entry:
   call void @f3(%struct.A* nocapture readonly %arr)
   ret void

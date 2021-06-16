@@ -41,7 +41,7 @@ declare void @__global_pipes_ctor()
 ; global ctor/dtor must be declared
 ; CHECK: declare{{.*}}__global_pipes_ctor
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void ()* @kernel_separated_args}
 !1 = !{void ()* @kernel}

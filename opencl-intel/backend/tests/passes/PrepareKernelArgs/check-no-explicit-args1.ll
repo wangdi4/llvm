@@ -47,7 +47,7 @@ entry:
 ; CHECK-NEXT: call void @__t1_separated_args(i8 addrspace(3)* null, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }* %pWorkDim, i32* %pWGId, [4 x i32] %BaseGlbId, i8* %pSpecialBuf, {}* %RuntimeHandle)
 ; CHECK-NEXT: ret void
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!6}
 !opencl.ocl.version = !{!7}

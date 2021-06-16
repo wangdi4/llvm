@@ -5,7 +5,7 @@ target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: convergent nounwind
-define spir_kernel void @a(i32 addrspace(1)* nocapture readonly %a, i32 addrspace(1)* nocapture %b) local_unnamed_addr #0 !recommended_vector_length !5 {
+define spir_kernel void @a(i32 addrspace(1)* nocapture readonly %a, i32 addrspace(1)* nocapture %b) local_unnamed_addr #0 !ocl_recommended_vector_length !5 {
 entry:
   %call = tail call spir_func i64 @_Z13get_global_idj(i32 0) #0
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %a, i64 %call
@@ -115,7 +115,7 @@ declare spir_func i64 @_Z13get_global_idj(i32) local_unnamed_addr #0
 
 attributes #0 = { convergent nounwind readnone }
 
-!sycl.kernels = !{!4}
+!opencl.kernels = !{!4}
 
 !0 = !{!1, !1, i64 0}
 !1 = !{!"int", !2, i64 0}

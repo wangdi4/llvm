@@ -18,15 +18,15 @@
 #include "BuiltinLibInfo.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
+#include "MetadataAPI.h"
 #include "OCLAddressSpace.h"
 #include "CompilationUtils.h"
 #include "LoopUtils/LoopUtils.h"
 
+#include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Type.h"
-#include "llvm/Pass.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -83,7 +83,7 @@ enum class PreferredOption : unsigned {
 /// specifically: a) KernelAnalysis pass determined no barrier
 /// b) no get_local_id and get_group_id c) no access to local memory.
 static bool canSwitchDimensions(Function* F) {
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace Intel::MetadataAPI;
 
   // 1. test whether KernelAnalysis pass said: "no barrier", otherwise
   // switching dimensions is not supported.
@@ -441,7 +441,7 @@ OCL_INITIALIZE_PASS_END(ChooseVectorizationDimensionModulePass,
 
 bool ChooseVectorizationDimensionModulePass::runOnModule(Module &M) {
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
-  auto Kernels = DPCPPKernelMetadataAPI::KernelList(*&M).getList();
+  auto Kernels = Intel::MetadataAPI::KernelList(*&M).getList();
   ChooseVectorizationDimensionImpl Impl;
   for (Function *Kernel : Kernels) {
     if (Kernel->hasOptNone())

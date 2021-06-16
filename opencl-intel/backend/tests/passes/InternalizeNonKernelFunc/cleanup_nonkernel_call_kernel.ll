@@ -23,7 +23,7 @@ entry:
   ret void
 }
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void ()* @thisIsKernel}
 

@@ -17,8 +17,8 @@
 #include "BarrierUtils.h"
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
+#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/SmallPtrSet.h>
 #include <llvm/IR/InstIterator.h>
@@ -30,7 +30,7 @@
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
-using namespace DPCPPKernelMetadataAPI;
+using namespace Intel::MetadataAPI;
 
 extern "C" {
   /// @brief Creates new PipeOrdering pass

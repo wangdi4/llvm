@@ -16,7 +16,7 @@ entry:
   ret i32 %x
 }
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void ()* @thisIsKernel}
 

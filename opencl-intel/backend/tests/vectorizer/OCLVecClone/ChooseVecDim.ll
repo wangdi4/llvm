@@ -13,7 +13,7 @@ target triple = "x86_64-pc-linux"
 
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #0
 
-define void @test_0(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %in) !no_barrier_path !1 !kernel_has_sub_groups !2 !recommended_vector_length !3 {
+define void @test_0(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %in) !no_barrier_path !1 !kernel_has_sub_groups !2 !ocl_recommended_vector_length !3 {
   %gid.0 = call i64 @_Z13get_global_idj(i32 0)
   %gid.1 = call i64 @_Z13get_global_idj(i32 1)
   %gid.2 = call i64 @_Z13get_global_idj(i32 2)
@@ -31,7 +31,7 @@ define void @test_0(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocaptur
 ; CHECK0: [[VEC_DIM_1]] = !{i32 1}
 
 
-define void @test_1(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %in) !no_barrier_path !1 !kernel_has_sub_groups !2 !recommended_vector_length !3 {
+define void @test_1(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %in) !no_barrier_path !1 !kernel_has_sub_groups !2 !ocl_recommended_vector_length !3 {
   %gid.0 = call i64 @_Z13get_global_idj(i32 0)
   %gid.1 = call i64 @_Z13get_global_idj(i32 1)
   %gid.2 = call i64 @_Z13get_global_idj(i32 2)
@@ -49,7 +49,7 @@ define void @test_1(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocaptur
 
 
 ; Same as test_0, but with no_barrier_path being false, choose dim 0.
-define void @test_2(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %in) !no_barrier_path !2 !kernel_has_sub_groups !2 !recommended_vector_length !3 {
+define void @test_2(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %in) !no_barrier_path !2 !kernel_has_sub_groups !2 !ocl_recommended_vector_length !3 {
   %gid.0 = call i64 @_Z13get_global_idj(i32 0)
   %gid.1 = call i64 @_Z13get_global_idj(i32 1)
   %gid.2 = call i64 @_Z13get_global_idj(i32 2)
@@ -68,7 +68,7 @@ define void @test_2(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocaptur
 
 
 ; Same as test_0, but with kernel_has_sub_groups being true, choose dim 0.
-define void @test_3(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %in) !no_barrier_path !1 !kernel_has_sub_groups !1 !recommended_vector_length !3 {
+define void @test_3(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %in) !no_barrier_path !1 !kernel_has_sub_groups !1 !ocl_recommended_vector_length !3 {
   %gid.0 = call i64 @_Z13get_global_idj(i32 0)
   %gid.1 = call i64 @_Z13get_global_idj(i32 1)
   %gid.2 = call i64 @_Z13get_global_idj(i32 2)
@@ -86,7 +86,7 @@ define void @test_3(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocaptur
 ; CHECK3: [[VEC_DIM_0]] = !{i32 0}
 
 
-define void @test_4(<4 x i32> addrspace(1)* nocapture %out, <4 x i32> addrspace(1)* nocapture %in) !no_barrier_path !1 !kernel_has_sub_groups !2 !recommended_vector_length !3 {
+define void @test_4(<4 x i32> addrspace(1)* nocapture %out, <4 x i32> addrspace(1)* nocapture %in) !no_barrier_path !1 !kernel_has_sub_groups !2 !ocl_recommended_vector_length !3 {
   %gid.0 = call i64 @_Z13get_global_idj(i32 0)
   %gid.1 = call i64 @_Z13get_global_idj(i32 1)
   %gid.2 = call i64 @_Z13get_global_idj(i32 2)
@@ -103,7 +103,7 @@ define void @test_4(<4 x i32> addrspace(1)* nocapture %out, <4 x i32> addrspace(
 ; CHECK4: [[VEC_DIM_1]] = !{i32 1}
 
 
-define void @test_5(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %in) !no_barrier_path !1 !kernel_has_sub_groups !2 !recommended_vector_length !3 {
+define void @test_5(i32 addrspace(1)* nocapture %out, i32 addrspace(1)* nocapture %in) !no_barrier_path !1 !kernel_has_sub_groups !2 !ocl_recommended_vector_length !3 {
   %gid.0 = call i64 @_Z13get_global_idj(i32 0)
   %gid.1 = call i64 @_Z13get_global_idj(i32 1)
   %gid.2 = call i64 @_Z13get_global_idj(i32 2)
@@ -130,7 +130,7 @@ return:
 attributes #0 = { nounwind readnone }
 attributes #0 = { nounwind }
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @test_0, void (i32 addrspace(1)*, i32 addrspace(1)*)* @test_1, void (i32 addrspace(1)*, i32 addrspace(1)*)* @test_2, void (i32 addrspace(1)*, i32 addrspace(1)*)* @test_3, void (<4 x i32> addrspace(1)*, <4 x i32> addrspace(1)*)* @test_4, void (i32 addrspace(1)*, i32 addrspace(1)*)* @test_5}
 !1 = !{i1 true}

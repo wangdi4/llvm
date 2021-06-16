@@ -34,6 +34,6 @@ declare i32 @_Z3maxii(i32, i32) nounwind readnone
 declare i32 @_Z3maxjj(i32, i32) nounwind readnone
 
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void (<4 x i8> addrspace(1)*, i32, i32)* @max_kernel}

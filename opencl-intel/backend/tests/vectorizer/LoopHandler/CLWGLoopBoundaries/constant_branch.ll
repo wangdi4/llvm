@@ -13,6 +13,6 @@ f:
 ; following function.
 ; CHECK: define [7 x i64] @WG.boundaries.func(i8 addrspace(1)* %0)
 
-!sycl.kernels =  !{!0}
+!opencl.kernels =  !{!0}
 !0 = !{ void(i8 addrspace(1)*)* @func }
 !1 = !{i1 true}

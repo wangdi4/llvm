@@ -142,7 +142,7 @@ attributes #3 = { nounwind }
 !opencl.used.optional.core.features = !{!3}
 !opencl.compiler.options = !{!3}
 !llvm.ident = !{!4}
-!sycl.kernels = !{!5}
+!opencl.kernels = !{!5}
 
 !0 = !{i32 4}
 !1 = !{i32 1, !"wchar_size", i32 4}

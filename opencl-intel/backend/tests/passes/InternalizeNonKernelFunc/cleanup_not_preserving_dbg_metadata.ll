@@ -21,7 +21,7 @@ define void @test() {
   ret void
 }
 
-!sycl.kernels = !{!4}
+!opencl.kernels = !{!4}
 
 !4 = !{void ()* @test}
 !12 = distinct !DISubprogram(name: "helper1", scope: !13, file: !13, line: 1, type: !14, isLocal: false, isDefinition: true, scopeLine: 2, isOptimized: true)

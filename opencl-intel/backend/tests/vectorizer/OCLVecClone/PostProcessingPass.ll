@@ -8,7 +8,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent nounwind
-define void @test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !vectorized_kernel !12 !vectorized_masked_kernel !13 !no_barrier_path !14 !kernel_has_sub_groups !14 !recommended_vector_length !15 !vectorized_width !5 !scalar_kernel !16 {
+define void @test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !vectorized_kernel !12 !vectorized_masked_kernel !13 !no_barrier_path !14 !kernel_has_sub_groups !14 !ocl_recommended_vector_length !15 !vectorized_width !5 !scalarized_kernel !16 {
 entry:
   %call = tail call i32 @_Z22get_max_sub_group_sizev() #3
   store i32 %call, i32 addrspace(1)* %a, align 4, !tbaa !17
@@ -18,7 +18,7 @@ entry:
 ; Function Attrs: convergent
 declare i32 @_Z22get_max_sub_group_sizev() local_unnamed_addr #1
 
-define [7 x i64] @WG.boundaries.test(i32 addrspace(1)* %0) !recommended_vector_length !15 {
+define [7 x i64] @WG.boundaries.test(i32 addrspace(1)* %0) !ocl_recommended_vector_length !15 {
 entry:
   %1 = call i64 @_Z14get_local_sizej(i32 0)
   %2 = call i64 @get_base_global_id.(i32 0)
@@ -41,7 +41,7 @@ declare i64 @_Z14get_local_sizej(i32)
 declare i64 @get_base_global_id.(i32)
 
 ; Function Attrs: convergent nounwind
-define void @_ZGVcN4u_test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !vectorized_kernel !16 !no_barrier_path !14 !kernel_has_sub_groups !14 !recommended_vector_length !15 !vectorized_width !15 !vectorization_dimension !10 !scalar_kernel !4 !can_unite_workgroups !9 {
+define void @_ZGVcN4u_test(i32 addrspace(1)* noalias %a) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !vectorized_kernel !16 !no_barrier_path !14 !kernel_has_sub_groups !14 !ocl_recommended_vector_length !15 !vectorized_width !15 !vectorization_dimension !10 !scalarized_kernel !4 !can_unite_workgroups !9 {
 entry:
   %alloca.a = alloca i32 addrspace(1)*
   store i32 addrspace(1)* %a, i32 addrspace(1)** %alloca.a
@@ -81,7 +81,7 @@ declare token @llvm.directive.region.entry() #2
 declare void @llvm.directive.region.exit(token) #2
 
 ; Function Attrs: convergent nounwind
-define void @_ZGVcM4u_test(i32 addrspace(1)* noalias %a, <4 x i32> %mask) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !vectorized_kernel !16 !no_barrier_path !14 !kernel_has_sub_groups !14 !recommended_vector_length !15 !vectorized_width !15 !vectorization_dimension !10 !scalar_kernel !4 !can_unite_workgroups !9 {
+define void @_ZGVcM4u_test(i32 addrspace(1)* noalias %a, <4 x i32> %mask) local_unnamed_addr #0 !kernel_arg_addr_space !5 !kernel_arg_access_qual !6 !kernel_arg_type !7 !kernel_arg_base_type !7 !kernel_arg_type_qual !8 !kernel_arg_host_accessible !9 !kernel_arg_pipe_depth !10 !kernel_arg_pipe_io !8 !kernel_arg_buffer_location !8 !kernel_arg_name !11 !vectorized_kernel !16 !no_barrier_path !14 !kernel_has_sub_groups !14 !ocl_recommended_vector_length !15 !vectorized_width !15 !vectorization_dimension !10 !scalarized_kernel !4 !can_unite_workgroups !9 {
 entry:
   %alloca.a = alloca i32 addrspace(1)*
   store i32 addrspace(1)* %a, i32 addrspace(1)** %alloca.a
@@ -139,7 +139,7 @@ attributes #3 = { convergent nounwind }
 !opencl.used.optional.core.features = !{!1}
 !opencl.compiler.options = !{!2}
 !llvm.ident = !{!3}
-!sycl.kernels = !{!4}
+!opencl.kernels = !{!4}
 
 !0 = !{i32 2, i32 0}
 !1 = !{}

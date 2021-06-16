@@ -196,7 +196,7 @@ attributes #3 = { nounwind }
 !opencl.used.optional.core.features = !{!5}
 !opencl.compiler.options = !{!5}
 !llvm.ident = !{!6}
-!sycl.kernels = !{!7}
+!opencl.kernels = !{!7}
 
 !0 = !{i32 4}
 !1 = !{!"test_ch_in"}

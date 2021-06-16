@@ -71,7 +71,7 @@ attributes #3 = { convergent }
 !opencl.used.optional.core.features = !{!2}
 !opencl.compiler.options = !{!2}
 !llvm.ident = !{!6}
-!sycl.kernels = !{!7}
+!opencl.kernels = !{!7}
 
 !0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 7.0.0 ", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !2)
 !1 = !DIFile(filename: "/tmp/<stdin>", directory: "/tmp/tests2")

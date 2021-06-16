@@ -17,10 +17,10 @@
 #include "ImplicitArgsUtils.h"
 #include "InitializePasses.h"
 #include "common_dev_limits.h"
+#include "MetadataAPI.h"
 
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/IR/DataLayout.h"
 
 extern "C"
 {
@@ -43,7 +43,7 @@ namespace intel{
   }
 
   bool LocalBuffers::runOnModule(Module &M) {
-    using namespace DPCPPKernelMetadataAPI;
+    using namespace Intel::MetadataAPI;
 
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();

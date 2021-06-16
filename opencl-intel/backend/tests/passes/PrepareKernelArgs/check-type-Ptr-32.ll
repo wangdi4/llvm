@@ -20,7 +20,7 @@ entry:
 ; CHECK-NEXT: ret void
 
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!6}
 !opencl.ocl.version = !{!7}

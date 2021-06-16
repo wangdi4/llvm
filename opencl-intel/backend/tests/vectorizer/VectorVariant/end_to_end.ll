@@ -1,6 +1,6 @@
 ; RUN: %oclopt %s -enable-direct-function-call-vectorization -vector-variant-lowering -sg-size-collector -sg-size-collector-indirect -ocl-vecclone -ocl-vector-variant-isa-encoding-override=AVX512Core -vector-variant-fillin -update-call-attrs -S | FileCheck %s
 
-define void @test(i32 addrspace(1)* noalias %a) !kernel_has_sub_groups !12 !recommended_vector_length !13 {
+define void @test(i32 addrspace(1)* noalias %a) !kernel_has_sub_groups !12 !ocl_recommended_vector_length !13 {
 entry:
   call void() @direct() #0
 
@@ -29,7 +29,7 @@ attributes #0 = { "vector-variants"="_ZGVxN4u_test,_ZGVxM4u_test" }
 
 ; CHECK: attributes #[[ATTR0]] = { "vector-variants"="_ZGVeM4vv___intel_indirect_call_XXX,_ZGVeN4vv___intel_indirect_call_XXX" }
 
-!sycl.kernels = !{!4}
+!opencl.kernels = !{!4}
 
 !4 = !{void (i32 addrspace(1)*)* @test}
 !12 = !{i1 true}

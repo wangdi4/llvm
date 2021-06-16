@@ -4,13 +4,13 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent norecurse nounwind
-define void @testKernel() !recommended_vector_length !1 {
+define void @testKernel() !ocl_recommended_vector_length !1 {
 ; CHECK: define void @testKernel(){{.*}} !vectorized_width ![[#VecWidth:]]
 entry:
   ret void
 }
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void ()* @testKernel}
 !1 = !{i32 1}

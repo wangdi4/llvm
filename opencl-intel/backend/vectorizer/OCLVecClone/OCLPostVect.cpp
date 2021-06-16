@@ -14,20 +14,20 @@
 // ===--------------------------------------------------------------------=== //
 #include "OCLPostVect.h"
 #include "InitializePasses.h"
+#include "MetadataAPI.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/LegacyPassManager.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #define DEBUG_TYPE "OCLPostVect"
 #define SV_NAME "ocl-postvect"
 
 using namespace llvm;
 using namespace llvm::vpo;
-using namespace DPCPPKernelMetadataAPI;
+using namespace Intel::MetadataAPI;
 
 namespace intel {
 
@@ -72,13 +72,13 @@ static bool rebindVectorizedKernel(Module &M, Function *F) {
   SmallVector<StringRef, 4> VecVariants;
   SplitString(Attr.getValueAsString(), VecVariants, ",");
 
-  auto VL = FMD.RecommendedVL.get();
+  auto VL = FMD.OclRecommendedVectorLength.get();
   Function *Clone = nullptr;
 
   // Set origin's metadata if vectorizer didn't run.
   if (!FMD.VectorizedWidth.hasValue()) {
     FMD.VectorizedWidth.set(1);
-    FMD.ScalarKernel.set(nullptr);
+    FMD.ScalarizedKernel.set(nullptr);
     ModifiedModule = true;
   }
 
@@ -92,7 +92,7 @@ static bool rebindVectorizedKernel(Module &M, Function *F) {
 
     CloneMD.VectorizedKernel.set(nullptr);
     CloneMD.VectorizedWidth.set(VL);
-    CloneMD.ScalarKernel.set(F);
+    CloneMD.ScalarizedKernel.set(F);
 
     if (F->getFunctionType() == Clone->getFunctionType()) {
       assert(nullptr == FMD.VectorizedKernel.get() &&
@@ -116,8 +116,8 @@ bool OCLPostVect::runOnModule(Module &M) {
   for (Function *F : Kernels) {
     // Try to rebind vectorized kernel if missing.
     ModifiedModule |= rebindVectorizedKernel(M, F);
-    // Remove "recommended_vector_length" metadata.
-    MDValueGlobalObjectStrategy::unset(F, "recommended_vector_length");
+    // Remove "ocl_recommended_vector_length" metadata.
+    MDValueGlobalObjectStrategy::unset(F, "ocl_recommended_vector_length");
     auto FMD = KernelInternalMetadataAPI(F);
     Function *ClonedKernel = FMD.VectorizedKernel.get();
     if (ClonedKernel && !isKernelVectorized(ClonedKernel)) {

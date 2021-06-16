@@ -13,6 +13,7 @@
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "LoopUtils/LoopUtils.h"
+#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 #include "SGFunctionWiden.h"
 
@@ -26,7 +27,6 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Local.h"
 
 #include <set>
@@ -64,7 +64,7 @@ bool SGValueWiden::runOnModule(Module &M) {
 
   // Kernels to be emulated must be scalar kernels, no need to
   // find all kernels.
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace Intel::MetadataAPI;
   auto Kernels = KernelList(M).getList();
   auto KernelRange = make_range(Kernels.begin(), Kernels.end());
 

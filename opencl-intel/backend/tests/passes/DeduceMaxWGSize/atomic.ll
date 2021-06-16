@@ -12,7 +12,7 @@ entry:
 
 declare i32 @_Z10atomic_addPU3AS1Vii(i32 addrspace(1)*, i32)
 
-define void @__Vectorized_.A(i32 addrspace(1)* noalias %A, i32 %B) nounwind !kernel_execution_length !24 !vectorized_width !27 !scalar_kernel !28 {
+define void @__Vectorized_.A(i32 addrspace(1)* noalias %A, i32 %B) nounwind !kernel_execution_length !24 !vectorized_width !27 !scalarized_kernel !28 {
 entry:
   %0 = tail call i32 @_Z10atomic_addPU3AS1Vii(i32 addrspace(1)* %A, i32 %B) nounwind
   %1 = tail call i32 @_Z10atomic_addPU3AS1Vii(i32 addrspace(1)* %A, i32 %B) nounwind

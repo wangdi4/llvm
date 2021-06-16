@@ -17,21 +17,21 @@
 #include "CLWGLoopBoundaries.h"
 #include "CLWGBoundDecoder.h"
 #include "LoopUtils/LoopUtils.h"
+#include "MetadataAPI.h"
 #include "CompilationUtils.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "common_dev_limits.h"
 
-#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Analysis/ConstantFolding.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/IR/DataLayout.h"
 
 #include <set>
 
@@ -63,7 +63,7 @@ CLWGLoopBoundaries::~CLWGLoopBoundaries()
 }
 
 bool CLWGLoopBoundaries::runOnModule(Module &M) {
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace Intel::MetadataAPI;
 
   bool changed = false;
 

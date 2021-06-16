@@ -12,11 +12,11 @@
 
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
+#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #define DEBUG_TYPE "sg-loop-construct"
 
@@ -375,7 +375,7 @@ void SGLoopConstruct::resolveSGLIdCalls(Module &M) {
 }
 
 void SGLoopConstruct::updateMetadata(Module &M) {
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace Intel::MetadataAPI;
   auto Kernels = KernelList(M).getList();
   auto KernelRange = make_range(Kernels.begin(), Kernels.end());
   for (auto &Pair : FuncToSGBarriers) {

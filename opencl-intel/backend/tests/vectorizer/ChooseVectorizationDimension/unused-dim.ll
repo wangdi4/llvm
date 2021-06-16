@@ -9,7 +9,7 @@ target triple = "x86_64-pc-linux"
 
 %struct.input_pair_t = type { i32, i32 }
 
-define void @sample_test(%struct.input_pair_t addrspace(1)* %src, i32 addrspace(1)* %dst) local_unnamed_addr #0 !recommended_vector_length !1 {
+define void @sample_test(%struct.input_pair_t addrspace(1)* %src, i32 addrspace(1)* %dst) local_unnamed_addr #0 !ocl_recommended_vector_length !1 {
 entry:
   %0 = tail call i64 @_Z13get_global_idj(i32 0) #1
   %1 = tail call i64 @_Z13get_global_idj(i32 1) #1
@@ -32,7 +32,7 @@ declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #1
 attributes #0 = { nounwind }
 attributes #1 = { nounwind readnone }
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void (%struct.input_pair_t addrspace(1)*, i32 addrspace(1)*)* @sample_test}
 !1 = !{i32 16}
