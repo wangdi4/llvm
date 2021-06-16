@@ -196,12 +196,38 @@ static cl::opt<unsigned> MaxBBOuterDoubleExternalFxn(
     "max-bb-outer-double-external-fxn", cl::init(30), cl::ReallyHidden);
 
 // worthInliningForFusion()
+
+// Options for early fusion heuristic
+//
+// Maximum number of BasicBlocks in the callee.
+static cl::opt<unsigned>
+     NumBBsForEarlyFusion("inline-for-early-fusion-num-bbs",
+                          cl::init(30), cl::ReallyHidden);
+
+// Minimum number of BasicBlocks in the callee that terminate in a SwitchInst.
+static cl::opt<unsigned>
+     NumSwitchesForEarlyFusion("inline-for-early-fusion-num-switches",
+                               cl::init(11), cl::ReallyHidden);
+
+// Minimum number of total cases in BasicBlocks in the callee that terminate
+// in a SwitchInst.
+static cl::opt<unsigned>
+     NumCasesForEarlyFusion("inline-for-early-fusion-num-cases",
+                            cl::init(25), cl::ReallyHidden);
+
+// Minimum number of incoming values in a PHI node that feeds a single return
+// value.
+static cl::opt<unsigned>
+     NumRetPHIInputsForEarlyFusion("inline-for-early-fusion-num-ret-phi-inputs",
+                                   cl::init(11), cl::ReallyHidden);
+
+// Options for standard fusion heuristic
+//
 // Number of successive callsites need to be inlined to benefit
-// from loops fusion.
+// from regular loops fusion.
 static cl::list<int> NumCallSitesForFusion("inline-for-fusion-num-callsites",
                                            cl::ReallyHidden,
                                            cl::CommaSeparated);
-
 // Temporary switch to control new callsite inlining heuristics
 // for fusion until tuning of loopopt is complete.
 static cl::opt<cl::boolOrDefault>
@@ -2480,7 +2506,90 @@ static bool worthInliningForFusion(CallBase &CB, TargetLibraryInfo *TLI,
     return true;
   };
 
-  // Must have at least AVX2 for this heuristic.
+  //
+  // Early test for inlining to promote fusion. We are looking for a
+  // case where the callee is called twice in the caller, each time within
+  // a single loop. The callee may be a state machine that could get fully
+  // expanded after the inlining. To predict whether the callee is a
+  // likely candidate, we check that a large number of BasicBlocks
+  // terminate in switch statements with a large number of cases, and
+  // that the callee has a single ReturnInst where the return value is
+  // fed by a PHINode with a large number of inputs.
+  //
+  auto IsEarlyFusionCandidate = [](Function *Caller, Function *Callee,
+                                   InliningLoopInfoCache &ILIC,
+                                   SmallPtrSetImpl<CallBase *>
+                                       &FusionCBs) -> bool {
+    // The Callee is called by the Caller twice.
+    unsigned CallerCount = 0;
+    for (User *U : Callee->users()) {
+      auto TCB = dyn_cast<CallBase>(U);
+      if (!TCB || TCB->getCaller() != Caller || ++CallerCount > 2)
+        return false;
+      FusionCBs.insert(TCB);
+    }
+    if (CallerCount != 2 || Caller->hasAddressTaken())
+      return false;
+    // Each of the Callee's calls is enclosed in a single loop.
+    LoopInfo *LI = ILIC.getLI(Caller);
+    if (!LI)
+      return false;
+    for (CallBase *CB : FusionCBs) {
+      Loop *InnerLoop = LI->getLoopFor(CB->getParent());
+      if (!InnerLoop || InnerLoop->getLoopDepth() != 1)
+        return false;
+    }
+    // Not too many BasicBlocks in the Callee.
+    if (Callee->size() > NumBBsForEarlyFusion)
+      return false;
+    // Many of the Callee's BasicBlocks should terminate in SwitchInsts
+    // with a fair number of cases. The Callee should have a single
+    // ReturnInst fed by a PHINode with many inputs.
+    unsigned SwitchCount = 0;
+    unsigned CasesCount = 0;
+    bool SawGoodReturnInst = false;
+    for (auto &BB : *Callee) {
+      auto TI = BB.getTerminator();
+      if (auto SI = dyn_cast<SwitchInst>(TI)) {
+        ++SwitchCount;
+        CasesCount += SI->getNumCases();
+      } else if (auto RI = dyn_cast<ReturnInst>(TI)) {
+        if (SawGoodReturnInst)
+          return false;
+        auto PN = dyn_cast_or_null<PHINode>(RI->getReturnValue());
+        if (!PN || PN->getNumIncomingValues() < NumRetPHIInputsForEarlyFusion)
+          return false;
+        SawGoodReturnInst = true;
+      }
+    }
+    if (SwitchCount < NumSwitchesForEarlyFusion)
+      return false;
+    if (CasesCount < NumCasesForEarlyFusion)
+      return false;
+    return true;
+  };
+
+  Function *Caller = CB.getCaller();
+  Function *Callee = CB.getCalledFunction();
+
+  // CMPLRLLVM-28952: Early inlining for fusion heuristic test. The call
+  // Callee->isPreLoopOpt() tests if LoopOpt will be run.
+  SmallPtrSet<CallBase *, 2> FusionCBs;
+  if (PrepareForLTO && Callee->isPreLoopOpt() &&
+      !CB.hasFnAttr("inline-fusion") &&
+      IsEarlyFusionCandidate(Caller, Callee, ILIC, FusionCBs)) {
+    for (CallBase *CB : FusionCBs)
+      CB->addAttribute(AttributeList::FunctionIndex, "inline-fusion");
+    return true;
+  }
+
+  // The call site was marked as candidate for inlining for fusion.
+  if (CB.hasFnAttr("inline-fusion")) {
+    CB.removeAttribute(AttributeList::FunctionIndex, "inline-fusion");
+    return true;
+  }
+
+  // Must have at least AVX2 for the standard heuristic.
   if (InliningForFusionHeuristics != cl::BOU_TRUE) {
     auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasIntelAVX2;
     if (!CalleeTTI.isAdvancedOptEnabled(TTIAVX2)) {
@@ -2497,14 +2606,6 @@ static bool worthInliningForFusion(CallBase &CB, TargetLibraryInfo *TLI,
     return false;
   }
 
-  // The call site was marked as candidate for inlining for fusion.
-  if (CB.hasFnAttr("inline-fusion")) {
-    CB.removeAttribute(AttributeList::FunctionIndex, "inline-fusion");
-    return true;
-  }
-
-  Function *Caller = CB.getCaller();
-  Function *Callee = CB.getCalledFunction();
   BasicBlock *CSBB = CB.getParent();
 
   //
