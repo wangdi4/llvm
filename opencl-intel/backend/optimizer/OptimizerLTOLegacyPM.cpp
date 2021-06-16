@@ -92,6 +92,7 @@ void OptimizerLTOLegacyPM::CreatePasses() {
 void OptimizerLTOLegacyPM::registerPipelineStartCallback(
     PassManagerBuilder &PMBuilder) {
   FPM.add(createUnifyFunctionExitNodesPass());
+  FPM.add(createInferAddressSpacesPass());
 
   auto EP = Config->GetDisableOpt()
                 ? PassManagerBuilder::EP_EnabledOnOptLevel0
