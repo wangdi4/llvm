@@ -850,7 +850,10 @@ void X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
   case X86II::T_MAP6:
     VEX_5M = 0x6;
     break; // 0F 3B
-#endif     // INTEL_CUSTOMIZATION
+  case X86II::T_MAP8:
+    VEX_5M = 0x8;
+    break;
+#endif // INTEL_CUSTOMIZATION
   }
 
   // VEX_4V (VEX vvvv field): a register specifier

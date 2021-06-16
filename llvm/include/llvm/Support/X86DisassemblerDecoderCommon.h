@@ -35,6 +35,7 @@ namespace X86Disassembler {
 #if INTEL_CUSTOMIZATION
 #define THREEBYTE39_SYM   x86DisassemblerThreeByte39Opcodes
 #define THREEBYTE3B_SYM   x86DisassemblerThreeByte3BOpcodes
+#define MAP8_SYM          x86DisassemblerMap8Opcodes
 #endif // INTEL_CUSTOMIZATION
 
 #define INSTRUCTIONS_STR  "x86DisassemblerInstrSpecifiers"
@@ -51,6 +52,7 @@ namespace X86Disassembler {
 #if INTEL_CUSTOMIZATION
 #define THREEBYTE39_STR   "x86DisassemblerThreeByte39Opcodes"
 #define THREEBYTE3B_STR   "x86DisassemblerThreeByte3BOpcodes"
+#define MAP8_STR          "x86DisassemblerMap8Opcodes"
 #endif // INTEL_CUSTOMIZATION
 
 // Attributes of an instruction that must be known before the opcode can be
@@ -338,7 +340,8 @@ enum OpcodeType {
 #if INTEL_CUSTOMIZATION
   THREEDNOW_MAP = 7,
   THREEBYTE_39  = 8,
-  THREEBYTE_3B  = 9
+  THREEBYTE_3B  = 9,
+  MAP8 = 10
 #endif // INTEL_CUSTOMIZATION
 };
 

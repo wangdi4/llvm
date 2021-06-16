@@ -835,6 +835,9 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::T_MAP5:    opcodeType = THREEBYTE_39;  break;
   case X86Local::T_MAP6:    opcodeType = THREEBYTE_3B;  break;
 #endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_DSPV1
+  case X86Local::T_MAP8:    opcodeType = MAP8;          break;
+#endif // INTEL_FEATURE_ISA_DSPV1
 #endif // INTEL_CUSTOMIZATION
   }
 

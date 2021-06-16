@@ -181,6 +181,7 @@ def ThreeDNow : Map<7>;
 #if INTEL_CUSTOMIZATION
 def T_MAP5    : Map<8>;
 def T_MAP6    : Map<9>;
+def T_MAP8    : Map<10>;
 #endif // INTEL_CUSTOMIZATION
 
 // Class specifying the encoding
@@ -237,6 +238,11 @@ class T_MAP6PS : T_MAP6 { Prefix OpPrefix = PS; }
 class T_MAP6PD : T_MAP6 { Prefix OpPrefix = PD; }
 class T_MAP6XS : T_MAP6 { Prefix OpPrefix = XS; }
 class T_MAP6XD : T_MAP6 { Prefix OpPrefix = XD; }
+class T_MAP8     { Map OpMap = T_MAP8; }
+class T_MAP8PS : T_MAP8 { Prefix OpPrefix = PS; } // none
+class T_MAP8PD : T_MAP8 { Prefix OpPrefix = PD; } // 0x66
+class T_MAP8XS : T_MAP8 { Prefix OpPrefix = XS; } // 0xF3
+class T_MAP8XD : T_MAP8 { Prefix OpPrefix = XD; } // 0xF2
 class OBXD   { Prefix OpPrefix = XD; }
 #endif // INTEL_CUSTOMIZATION
 class OBXS   { Prefix OpPrefix = XS; }
