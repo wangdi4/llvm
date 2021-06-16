@@ -1084,8 +1084,8 @@ void HeuristicOVLSMember::apply(
   if (CM->isOptimizedVLSGroupMember(VPInst)) {
     Type *ValTy = getLoadStoreType(VPInst);
     unsigned AddrSpace = getLoadStoreAddressSpace(VPInst);
-    unsigned InterleaveFactor =
-        computeInterleaveFactor(Group->getInsertPoint());
+    int InterleaveFactor =
+      std::abs(computeInterleaveFactor(Group->getInsertPoint()));
     auto *WideVecTy = FixedVectorType::get(ValTy, VF * InterleaveFactor);
 
     // Holds the indices of existing members in an interleaved load group.
@@ -1096,7 +1096,7 @@ void HeuristicOVLSMember::apply(
     // of the interleaved access.
     SmallVector<unsigned, 4> Indices;
     if (VPInst->getOpcode() == Instruction::Load)
-      for (unsigned i = 0; i < InterleaveFactor; i++)
+      for (int i = 0; i < InterleaveFactor; i++)
         Indices.push_back(i);
 
     // Calculate the cost of the whole interleaved group.
