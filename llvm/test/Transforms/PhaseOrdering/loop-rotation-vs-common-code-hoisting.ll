@@ -1,8 +1,6 @@
 ; INTEL: This test runs the whole -O3 pipeline and checks for specific
 ; loop transformations. Our -O3 pipeline with regard to loops is so different,
 ; this test will require too many modifications to be useful and mergeable.
-; I will leave this test in the original llorg state and disable it, and
-; make a clone which tests the xmain pipeline.
 
 ; XFAIL: *
 
