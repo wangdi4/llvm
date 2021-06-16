@@ -175,3 +175,17 @@ void foo_seven(int *&y) {
   #pragma omp target
   (*y) = 3;
 }
+
+void foo_eight(int *&v) {
+// CHECK: [[V_ADDR:%v.addr]] = alloca i32**,
+// CHECK: [[V_MAP:%v.map.ptr.tmp]] = alloca i32**,
+// CHECK: [[L0:%[0-9]+]] = load i32**, i32*** [[V_ADDR]]
+// CHECK: [[L:%[0-9]+]] = load i32**, i32*** [[V_ADDR]]
+// CHECK: [[TV:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
+// CHECK-SAME: "QUAL.OMP.MAP.TO"(i32** [[L]]
+// CHECK-SAME: "QUAL.OMP.PRIVATE"(i32*** [[V_MAP]]
+// CHECK: store i32** [[L]], i32*** [[V_MAP]]
+// CHECK: region.exit(token [[TV]]) [ "DIR.OMP.END.TARGET"() ]
+  #pragma omp target map(to: v[0:3])
+    v[2]++;
+}
