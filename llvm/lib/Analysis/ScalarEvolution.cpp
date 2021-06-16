@@ -5704,7 +5704,8 @@ const SCEV *ScalarEvolution::createAddRecFromPHI(PHINode *PN) {
     //  %iv = phi i1 [ false, %entry ], [ true, %L ]
     //  br i1 %iv, label %L, label %exit
     if (isa<SCEVConstant>(BEValue) && isa<ConstantInt>(StartValueV)) {
-      auto *Backedge = getBackedgeTakenCount(L);
+      // Use max backedge taken count to handle multi-exit loops.
+      auto *Backedge = getConstantMaxBackedgeTakenCount(L);
 
       if (Backedge->isOne()) {
         const SCEV *Start = getSCEV(StartValueV);
