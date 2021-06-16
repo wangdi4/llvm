@@ -15,16 +15,16 @@
 #include "StripIntelIP.h"
 
 #include "InitializePasses.h"
+#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 
-#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace Intel::MetadataAPI;
 
 namespace intel {
 
@@ -141,13 +141,17 @@ bool StripIntelIP::runOnModule(Module &M) {
   // Collection stage 4. Spare only OpenCL-specific Metadata.
   // Note, that IntelProprietaryFlag will be scheduled for deletion as well.
   SmallSet<StringRef, 16> NamedMDNodesToSpare;
+  ModuleInternalMetadataAPI ModuleInternalMetadata(&M);
+  for (auto MDNameToSpare : ModuleInternalMetadata.getMDNames()) {
+    NamedMDNodesToSpare.insert(MDNameToSpare);
+  }
 
   ModuleMetadataAPI ModuleMetadata(&M);
   for (auto MDNameToSpare : ModuleMetadata.getMDNames()) {
     NamedMDNodesToSpare.insert(MDNameToSpare);
   }
 
-  NamedMDNodesToSpare.insert("sycl.kernels");
+  NamedMDNodesToSpare.insert("opencl.kernels");
   for (auto &NamedMD : M.named_metadata()) {
     if (!(NamedMDNodesToSpare.count(NamedMD.getName()) > 0))
       NamedMDNodesToRemove.push_back(&NamedMD);

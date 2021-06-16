@@ -90,7 +90,7 @@ attributes #6 = { convergent nounwind readnone }
 !opencl.compiler.options = !{!2}
 !llvm.ident = !{!3}
 !opencl.stats.InstCounter.CantVectNonInlineUnsupportedFunctions = !{!4}
-!sycl.kernels = !{!5}
+!opencl.kernels = !{!5}
 
 !0 = !{i32 2, i32 0}
 !1 = !{}

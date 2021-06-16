@@ -22,7 +22,7 @@ define void @f3(%struct.A* nocapture readonly %arr) #0 {
   ret void
 }
 
-define void @kernel(%struct.A* nocapture readonly %arr) #0 !recommended_vector_length !0 {
+define void @kernel(%struct.A* nocapture readonly %arr) #0 !ocl_recommended_vector_length !0 {
 entry:
   call void @f3(%struct.A* nocapture readonly %arr)
   ret void
@@ -36,7 +36,7 @@ attributes #0 = { "has-sub-groups" }
 ; CHECK: attributes #2 = { "has-sub-groups" }
 ; CHECK-NOT: attributes
 
-!sycl.kernels = !{!1}
+!opencl.kernels = !{!1}
 
 !0 = !{i32 8}
 !1 = !{void (%struct.A*)* @kernel}

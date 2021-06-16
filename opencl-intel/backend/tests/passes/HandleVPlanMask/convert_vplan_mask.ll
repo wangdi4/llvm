@@ -7,7 +7,7 @@ target triple = "x86_64-pc-linux"
 %opencl.image2d_ro_t.5 = type opaque
 
 ; Function Attrs: convergent norecurse nounwind
-define void @test(%opencl.image2d_ro_t.5 addrspace(1)* noalias %img) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !vectorized_kernel !13 !vectorized_masked_kernel !14 !no_barrier_path !10 !kernel_has_sub_groups !15 !vectorized_width !6 !scalar_kernel !16 {
+define void @test(%opencl.image2d_ro_t.5 addrspace(1)* noalias %img) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !vectorized_kernel !13 !vectorized_masked_kernel !14 !no_barrier_path !10 !kernel_has_sub_groups !15 !vectorized_width !6 !scalarized_kernel !16 {
 entry:
   %call = tail call signext i16 @_Z23intel_sub_group_shufflesj(i16 signext 0, i32 0) #4
   %call1 = tail call zeroext i16 @_Z29intel_sub_group_block_read_us14ocl_image2d_roDv2_i(%opencl.image2d_ro_t.5 addrspace(1)* %img, <2 x i32> zeroinitializer) #4
@@ -29,7 +29,7 @@ declare float @_Z21work_group_reduce_minf(float) local_unnamed_addr #2
 declare double @_Z21work_group_reduce_addd(double) local_unnamed_addr #2
 
 ; Function Attrs: convergent norecurse nounwind
-define void @_ZGVcN4u_test(%opencl.image2d_ro_t.5 addrspace(1)* noalias %img) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !vectorized_kernel !16 !no_barrier_path !10 !kernel_has_sub_groups !15 !recommended_vector_length !17 !vectorized_width !17 !vectorization_dimension !11 !scalar_kernel !5 !can_unite_workgroups !10 {
+define void @_ZGVcN4u_test(%opencl.image2d_ro_t.5 addrspace(1)* noalias %img) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !vectorized_kernel !16 !no_barrier_path !10 !kernel_has_sub_groups !15 !ocl_recommended_vector_length !17 !vectorized_width !17 !vectorization_dimension !11 !scalarized_kernel !5 !can_unite_workgroups !10 {
 entry:
   %0 = call signext <4 x i16> @_Z23intel_sub_group_shuffleDv4_sDv4_jS0_(<4 x i16> signext zeroinitializer, <4 x i32> zeroinitializer, <4 x i16> <i16 -1, i16 -1, i16 -1, i16 -1>) #6
 ; CHECK: %mask.i32. = sext <4 x i16> <i16 -1, i16 -1, i16 -1, i16 -1> to <4 x i32>
@@ -51,7 +51,7 @@ declare token @llvm.directive.region.entry() #3
 declare void @llvm.directive.region.exit(token) #3
 
 ; Function Attrs: convergent norecurse nounwind
-define void @_ZGVcM4u_test(%opencl.image2d_ro_t.5 addrspace(1)* noalias %img, <4 x i32> %mask) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !vectorized_kernel !16 !no_barrier_path !10 !kernel_has_sub_groups !15 !recommended_vector_length !17 !vectorized_width !17 !vectorization_dimension !11 !scalar_kernel !5 !can_unite_workgroups !10 {
+define void @_ZGVcM4u_test(%opencl.image2d_ro_t.5 addrspace(1)* noalias %img, <4 x i32> %mask) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !8 !kernel_arg_type_qual !9 !kernel_arg_host_accessible !10 !kernel_arg_pipe_depth !11 !kernel_arg_pipe_io !9 !kernel_arg_buffer_location !9 !kernel_arg_name !12 !vectorized_kernel !16 !no_barrier_path !10 !kernel_has_sub_groups !15 !ocl_recommended_vector_length !17 !vectorized_width !17 !vectorization_dimension !11 !scalarized_kernel !5 !can_unite_workgroups !10 {
 entry:
   %vec.mask = alloca <4 x i32>, align 16
   store <4 x i32> %mask, <4 x i32>* %vec.mask, align 16

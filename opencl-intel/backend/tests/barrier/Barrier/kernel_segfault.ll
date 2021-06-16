@@ -281,7 +281,7 @@ attributes #2 = { nounwind readnone }
 !opencl.used.optional.core.features = !{!3}
 !opencl.compiler.options = !{!2}
 !llvm.ident = !{!4}
-!sycl.kernels = !{!5}
+!opencl.kernels = !{!5}
 !opencl.global_variable_total_size = !{!6}
 
 !0 = !{i32 1, !"wchar_size", i32 4}

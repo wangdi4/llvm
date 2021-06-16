@@ -502,5 +502,5 @@ declare i1 @__ocl_allZero(i1)
 !10 = !{!"vectorized_kernel", null}
 !11 = !{!"vectorized_width", null}
 !12 = !{!"kernel_wrapper", null}
-!13 = !{!"scalar_kernel", null}
+!13 = !{!"scalarized_kernel", null}
 !14 = !{float 2.500000e+00}

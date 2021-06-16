@@ -13,7 +13,6 @@
 // License.
 #include "ChannelPipeUtils.h"
 
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include <llvm/ADT/SmallString.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/GlobalVariable.h>
@@ -24,6 +23,7 @@
 #include <llvm/Transforms/Utils/ModuleUtils.h>
 
 #include <CompilationUtils.h>
+#include <MetadataAPI.h>
 
 int Intel::OpenCL::DeviceBackend::ChannelDepthEmulationMode;
 
@@ -137,7 +137,7 @@ Function *createGlobalPipeCtor(Module &M) {
 void
 setPipeMetadata(GlobalVariable *GV,
                 const ChannelPipeMetadata::ChannelPipeMD &MD) {
-  auto PipeMD = DPCPPKernelMetadataAPI::GlobalVariableMetadataAPI(GV);
+  auto PipeMD = MetadataAPI::GlobalVariableMetadataAPI(GV);
   PipeMD.PipePacketSize.set(MD.PacketSize);
   PipeMD.PipePacketAlign.set(MD.PacketAlign);
   PipeMD.PipeDepth.set(MD.Depth);

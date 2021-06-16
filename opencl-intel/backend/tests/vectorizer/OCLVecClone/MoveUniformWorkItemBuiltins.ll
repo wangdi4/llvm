@@ -29,7 +29,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent nounwind
-define void @f([16384 x i32] addrspace(1)* %A, [16384 x i32] addrspace(1)* %B, [16384 x i32] addrspace(1)* %C) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 !kernel_arg_host_accessible !11 !kernel_arg_pipe_depth !12 !kernel_arg_pipe_io !10 !kernel_arg_buffer_location !10 !kernel_arg_name !13 !no_barrier_path !14 !recommended_vector_length !15 {
+define void @f([16384 x i32] addrspace(1)* %A, [16384 x i32] addrspace(1)* %B, [16384 x i32] addrspace(1)* %C) local_unnamed_addr #0 !kernel_arg_addr_space !6 !kernel_arg_access_qual !7 !kernel_arg_type !8 !kernel_arg_base_type !9 !kernel_arg_type_qual !10 !kernel_arg_host_accessible !11 !kernel_arg_pipe_depth !12 !kernel_arg_pipe_io !10 !kernel_arg_buffer_location !10 !kernel_arg_name !13 !no_barrier_path !14 !ocl_recommended_vector_length !15 {
 entry:
   %call = tail call i64 @_Z14get_local_sizej(i32 0) #2
   %call1 = tail call i64 @_Z12get_group_idj(i32 0) #2
@@ -94,7 +94,7 @@ declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #1
 ; Function Attrs: convergent nounwind readnone
 declare i64 @_Z12get_local_idj(i32) local_unnamed_addr #1
 
-define [7 x i64] @WG.boundaries.f([16384 x i32] addrspace(1)*, [16384 x i32] addrspace(1)*, [16384 x i32] addrspace(1)*) !recommended_vector_length !15 {
+define [7 x i64] @WG.boundaries.f([16384 x i32] addrspace(1)*, [16384 x i32] addrspace(1)*, [16384 x i32] addrspace(1)*) !ocl_recommended_vector_length !15 {
 entry:
   %3 = call i64 @_Z14get_local_sizej(i32 0)
   %4 = call i64 @get_base_global_id.(i32 0)
@@ -126,7 +126,7 @@ attributes #2 = { convergent nounwind readnone }
 !opencl.used.optional.core.features = !{!2}
 !opencl.compiler.options = !{!3}
 !llvm.ident = !{!4}
-!sycl.kernels = !{!5}
+!opencl.kernels = !{!5}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 1, i32 2}

@@ -18,7 +18,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent norecurse nounwind
-define void @foo(i32 addrspace(1)* noalias %dst) local_unnamed_addr #0 !dbg !11 !kernel_arg_addr_space !23 !kernel_arg_access_qual !24 !kernel_arg_type !25 !kernel_arg_base_type !25 !kernel_arg_type_qual !26 !kernel_arg_name !27 !kernel_arg_host_accessible !28 !kernel_arg_pipe_depth !29 !kernel_arg_pipe_io !26 !kernel_arg_buffer_location !26 !vectorized_kernel !30 !no_barrier_path !31 !kernel_has_sub_groups !28 !opencl.stats.Vectorizer.CanVect !23 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !29 !vectorized_width !23 !scalar_kernel !32 !kernel_execution_length !33 !kernel_has_barrier !28 !kernel_has_global_sync !28 !max_wg_dimensions !23 {
+define void @foo(i32 addrspace(1)* noalias %dst) local_unnamed_addr #0 !dbg !11 !kernel_arg_addr_space !23 !kernel_arg_access_qual !24 !kernel_arg_type !25 !kernel_arg_base_type !25 !kernel_arg_type_qual !26 !kernel_arg_name !27 !kernel_arg_host_accessible !28 !kernel_arg_pipe_depth !29 !kernel_arg_pipe_io !26 !kernel_arg_buffer_location !26 !vectorized_kernel !30 !no_barrier_path !31 !kernel_has_sub_groups !28 !opencl.stats.Vectorizer.CanVect !23 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !29 !vectorized_width !23 !scalarized_kernel !32 !kernel_execution_length !33 !kernel_has_barrier !28 !kernel_has_global_sync !28 !max_wg_dimensions !23 {
 entry:
 ; CHECK-LABEL: @foo
 ; CHECK: %__ocl_dbg_gid0 = alloca
@@ -59,7 +59,7 @@ entry:
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr #1
 
 ; Function Attrs: convergent norecurse nounwind
-define void @bar(i32 addrspace(1)* noalias %dst) local_unnamed_addr #2 !dbg !48 !kernel_arg_addr_space !23 !kernel_arg_access_qual !24 !kernel_arg_type !25 !kernel_arg_base_type !25 !kernel_arg_type_qual !26 !kernel_arg_name !27 !kernel_arg_host_accessible !28 !kernel_arg_pipe_depth !29 !kernel_arg_pipe_io !26 !kernel_arg_buffer_location !26 !vectorized_kernel !52 !no_barrier_path !31 !kernel_has_sub_groups !28 !opencl.stats.Vectorizer.CanVect !23 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !29 !vectorized_width !23 !scalar_kernel !32 !kernel_execution_length !33 !kernel_has_barrier !28 !kernel_has_global_sync !28 !max_wg_dimensions !23 {
+define void @bar(i32 addrspace(1)* noalias %dst) local_unnamed_addr #2 !dbg !48 !kernel_arg_addr_space !23 !kernel_arg_access_qual !24 !kernel_arg_type !25 !kernel_arg_base_type !25 !kernel_arg_type_qual !26 !kernel_arg_name !27 !kernel_arg_host_accessible !28 !kernel_arg_pipe_depth !29 !kernel_arg_pipe_io !26 !kernel_arg_buffer_location !26 !vectorized_kernel !52 !no_barrier_path !31 !kernel_has_sub_groups !28 !opencl.stats.Vectorizer.CanVect !23 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !29 !vectorized_width !23 !scalarized_kernel !32 !kernel_execution_length !33 !kernel_has_barrier !28 !kernel_has_global_sync !28 !max_wg_dimensions !23 {
 entry:
 ; CHECK-LABEL: @bar
 ; CHECK: %__ocl_dbg_gid0 = alloca
@@ -99,7 +99,7 @@ entry:
 ; Function Attrs: nofree nosync nounwind readnone speculatable willreturn
 declare void @llvm.dbg.value(metadata, metadata, metadata) #3
 
-define [7 x i64] @WG.boundaries.foo(i32 addrspace(1)* %0) !recommended_vector_length !61 {
+define [7 x i64] @WG.boundaries.foo(i32 addrspace(1)* %0) !ocl_recommended_vector_length !61 {
 entry:
   %1 = call i64 @_Z14get_local_sizej(i32 0)
   %2 = call i64 @get_base_global_id.(i32 0)
@@ -121,7 +121,7 @@ declare i64 @_Z14get_local_sizej(i32)
 
 declare i64 @get_base_global_id.(i32)
 
-define [7 x i64] @WG.boundaries.bar(i32 addrspace(1)* %0) !recommended_vector_length !61 {
+define [7 x i64] @WG.boundaries.bar(i32 addrspace(1)* %0) !ocl_recommended_vector_length !61 {
 entry:
   %1 = call i64 @_Z14get_local_sizej(i32 0)
   %2 = call i64 @get_base_global_id.(i32 0)
@@ -140,7 +140,7 @@ entry:
 }
 
 ; Function Attrs: convergent norecurse nounwind
-define void @_ZGVeN16u_foo(i32 addrspace(1)* noalias %dst) local_unnamed_addr #0 !dbg !62 !kernel_arg_addr_space !23 !kernel_arg_access_qual !24 !kernel_arg_type !25 !kernel_arg_base_type !25 !kernel_arg_type_qual !26 !kernel_arg_name !27 !kernel_arg_host_accessible !28 !kernel_arg_pipe_depth !29 !kernel_arg_pipe_io !26 !kernel_arg_buffer_location !26 !vectorized_kernel !32 !no_barrier_path !31 !kernel_has_sub_groups !28 !recommended_vector_length !61 !opencl.stats.Vectorizer.CanVect !23 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !29 !vectorized_width !61 !vectorization_dimension !29 !scalar_kernel !66 !can_unite_workgroups !31 !kernel_execution_length !67 !kernel_has_barrier !28 !kernel_has_global_sync !28 !max_wg_dimensions !23 {
+define void @_ZGVeN16u_foo(i32 addrspace(1)* noalias %dst) local_unnamed_addr #0 !dbg !62 !kernel_arg_addr_space !23 !kernel_arg_access_qual !24 !kernel_arg_type !25 !kernel_arg_base_type !25 !kernel_arg_type_qual !26 !kernel_arg_name !27 !kernel_arg_host_accessible !28 !kernel_arg_pipe_depth !29 !kernel_arg_pipe_io !26 !kernel_arg_buffer_location !26 !vectorized_kernel !32 !no_barrier_path !31 !kernel_has_sub_groups !28 !ocl_recommended_vector_length !61 !opencl.stats.Vectorizer.CanVect !23 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !29 !vectorized_width !61 !vectorization_dimension !29 !scalarized_kernel !66 !can_unite_workgroups !31 !kernel_execution_length !67 !kernel_has_barrier !28 !kernel_has_global_sync !28 !max_wg_dimensions !23 {
 entry:
   %__ocl_dbg_gid0 = alloca i64, align 8
   %GlobalID_0 = call i64 @_Z13get_global_idj(i32 0)
@@ -165,7 +165,7 @@ declare token @llvm.directive.region.entry() #4
 declare void @llvm.directive.region.exit(token) #4
 
 ; Function Attrs: convergent norecurse nounwind
-define void @_ZGVeN16u_bar(i32 addrspace(1)* noalias %dst) local_unnamed_addr #2 !dbg !72 !kernel_arg_addr_space !23 !kernel_arg_access_qual !24 !kernel_arg_type !25 !kernel_arg_base_type !25 !kernel_arg_type_qual !26 !kernel_arg_name !27 !kernel_arg_host_accessible !28 !kernel_arg_pipe_depth !29 !kernel_arg_pipe_io !26 !kernel_arg_buffer_location !26 !vectorized_kernel !32 !no_barrier_path !31 !kernel_has_sub_groups !28 !recommended_vector_length !61 !opencl.stats.Vectorizer.CanVect !23 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !29 !vectorized_width !61 !vectorization_dimension !29 !scalar_kernel !76 !can_unite_workgroups !31 !kernel_execution_length !67 !kernel_has_barrier !28 !kernel_has_global_sync !28 !max_wg_dimensions !23 {
+define void @_ZGVeN16u_bar(i32 addrspace(1)* noalias %dst) local_unnamed_addr #2 !dbg !72 !kernel_arg_addr_space !23 !kernel_arg_access_qual !24 !kernel_arg_type !25 !kernel_arg_base_type !25 !kernel_arg_type_qual !26 !kernel_arg_name !27 !kernel_arg_host_accessible !28 !kernel_arg_pipe_depth !29 !kernel_arg_pipe_io !26 !kernel_arg_buffer_location !26 !vectorized_kernel !32 !no_barrier_path !31 !kernel_has_sub_groups !28 !ocl_recommended_vector_length !61 !opencl.stats.Vectorizer.CanVect !23 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim !29 !vectorized_width !61 !vectorization_dimension !29 !scalarized_kernel !76 !can_unite_workgroups !31 !kernel_execution_length !67 !kernel_has_barrier !28 !kernel_has_global_sync !28 !max_wg_dimensions !23 {
 entry:
   %__ocl_dbg_gid0 = alloca i64, align 8
   %GlobalID_0 = call i64 @_Z13get_global_idj(i32 0)
@@ -203,7 +203,7 @@ attributes #5 = { convergent nounwind readnone }
 !opencl.used.optional.core.features = !{!2}
 !opencl.compiler.options = !{!6}
 !llvm.ident = !{!7}
-!sycl.kernels = !{!8}
+!opencl.kernels = !{!8}
 !opencl.stats.Vectorizer.CanVect = !{!9}
 !opencl.stats.Vectorizer.Chosen_Vectorization_Dim = !{!10}
 

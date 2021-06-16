@@ -36,6 +36,6 @@ exit:
 
 declare i64 @_Z13get_global_idj(i32) local_unnamed_addr
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void (i1)* @test_indirect_call}

@@ -16,18 +16,18 @@
 
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
+#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
-using namespace DPCPPKernelMetadataAPI;
+using namespace Intel::MetadataAPI;
 
 namespace intel {
 

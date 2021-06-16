@@ -52,7 +52,7 @@ declare void @_Z7barrierj(i32)
 declare void @_Z17sub_group_barrierj(i32)
 declare void @dummy_sg_barrier()
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void (i32)* @test}
 !1 = !{i1 true}

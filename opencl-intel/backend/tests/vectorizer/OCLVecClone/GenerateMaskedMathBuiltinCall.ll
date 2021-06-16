@@ -20,7 +20,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent norecurse nounwind
-define void @test_acos_mask_d(double addrspace(1)* %a, double addrspace(1)* %c) local_unnamed_addr #0 !recommended_vector_length !10 {
+define void @test_acos_mask_d(double addrspace(1)* %a, double addrspace(1)* %c) local_unnamed_addr #0 !ocl_recommended_vector_length !10 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #1
   %sext = shl i64 %call, 32
@@ -62,7 +62,7 @@ attributes #1 = { convergent nounwind readnone }
 !opencl.used.optional.core.features = !{!2}
 !opencl.compiler.options = !{!3}
 !llvm.ident = !{!4}
-!sycl.kernels = !{!5}
+!opencl.kernels = !{!5}
 
 !0 = !{i32 2, i32 0}
 !1 = !{}

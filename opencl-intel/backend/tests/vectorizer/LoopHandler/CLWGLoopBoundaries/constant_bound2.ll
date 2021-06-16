@@ -35,7 +35,7 @@ if.end:
 
 ; CHECK: define {{.*}} @WG.boundaries.constant_kernel(i32 {{.*}}* %0)
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void (i32 addrspace(1)*)* @constant_kernel}
 !1 = !{i1 true}

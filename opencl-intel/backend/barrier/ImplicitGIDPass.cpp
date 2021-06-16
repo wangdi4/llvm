@@ -16,9 +16,9 @@
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "LoopUtils/LoopUtils.h"
+#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -65,13 +65,13 @@ bool ImplicitGlobalIdPass::runOnModule(Module &M) {
 
   // Collect kernels.
   SmallSet<Function *, 8> Kernels;
-  for (Function *F : DPCPPKernelMetadataAPI::KernelList(&M))
+  for (Function *F : Intel::MetadataAPI::KernelList(&M))
     Kernels.insert(F);
 
   bool ModuleChanged = false;
 
   for (auto &F : M) {
-    auto kimd = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
+    auto kimd = Intel::MetadataAPI::KernelInternalMetadataAPI(&F);
     if (m_handleBarrier) {
       if (!(kimd.NoBarrierPath.hasValue() && kimd.NoBarrierPath.get()))
         ModuleChanged |= runOnFunction(F);
@@ -171,7 +171,7 @@ void ImplicitGlobalIdPass::insertGIDStore(Function &F, bool HasSyncInst,
   IRBuilder<> B(m_pInsertPoint);
 
   if (!m_handleBarrier) {
-    auto kimd = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
+    auto kimd = Intel::MetadataAPI::KernelInternalMetadataAPI(&F);
     if (!(kimd.NoBarrierPath.hasValue() && kimd.NoBarrierPath.get()))
       return;
     insertGIDStore(B, m_pInsertPoint);

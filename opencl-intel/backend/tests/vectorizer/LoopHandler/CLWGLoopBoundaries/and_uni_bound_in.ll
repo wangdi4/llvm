@@ -37,5 +37,5 @@ declare i32 @_Z13get_global_idj(i32)
 
 declare void @_Z7barrierm(i32)
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 !0 = !{void (i32 addrspace(1)* , <4 x i32>, i32)* @program}

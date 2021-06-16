@@ -24,14 +24,14 @@
 #include "InitializePasses.h"
 #include "CompilationUtils.h"
 #include "OclTune.h"
+#include "MetadataAPI.h"
 
-#include "llvm/Analysis/DominanceFrontier.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/DominanceFrontier.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
-#include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include <iomanip>
 #include <sstream>
@@ -39,7 +39,7 @@
 extern bool EnableDirectFunctionCallVectorization;
 extern bool EnableSubgroupDirectCallVectorization;
 
-using namespace DPCPPKernelMetadataAPI;
+using namespace Intel::MetadataAPI;
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
@@ -268,10 +268,10 @@ bool WeightedInstCounter::runOnFunction(Function &F) {
   if (m_preVec) {
     m_desiredWidth = getPreferredVectorizationWidth(F, IterMap, ProbMap);
 
-    // Here, recommended_vector_length is set. This metadata is
+    // Here, ocl_recommended_vector_length is set. This metadata is
     // only used by VPO-VecClone.
-    auto vkimd = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
-    vkimd.RecommendedVL.set(m_desiredWidth);
+    auto vkimd = Intel::MetadataAPI::KernelInternalMetadataAPI(&F);
+    vkimd.OclRecommendedVectorLength.set(m_desiredWidth);
   }
   return false;
 }
@@ -289,7 +289,7 @@ int WeightedInstCounter::getPreferredVectorizationWidth(Function &F, DenseMap<Lo
   // This logic was inherited from the old heuristic, but the types
   // are computed slightly more rationally now.
   if (!hasAVX2()) {
-    auto kimd = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
+    auto kimd = Intel::MetadataAPI::KernelInternalMetadataAPI(&F);
     // For AVX, there is only x4 native sub-group implementation.
     if (kimd.KernelHasSubgroups.hasValue() && kimd.KernelHasSubgroups.get())
       return 4;
@@ -1551,7 +1551,7 @@ bool CanVectorizeImpl::hasIllegalTypes(Function &F) {
 }
 
 bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
-  using namespace DPCPPKernelMetadataAPI;
+  using namespace Intel::MetadataAPI;
 
   Module *pM = F.getParent();
   std::set<Function *> unsupportedFunctions;

@@ -63,7 +63,7 @@ attributes #3 = { convergent nounwind readnone }
 !llvm.module.flags = !{!0}
 !opencl.ocl.version = !{!1}
 !llvm.ident = !{!2}
-!sycl.kernels = !{!3}
+!opencl.kernels = !{!3}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 1, i32 2}

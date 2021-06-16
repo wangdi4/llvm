@@ -19,10 +19,10 @@ attributes #0 = { alwaysinline }
 
 !not.ocl.module.metadata = !{!2}
 !llvm.module.flags = !{}
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 ; CHECK-NOT: !not.ocl.module.metadata
 ; CHECK-NOT: !llvm.module.flags
-; CHECK: !sycl.kernels
+; CHECK: !opencl.kernels
 
 !0 = !{void ()* @kernel_separated_args}
 !1 = !{void ()* @kernel}

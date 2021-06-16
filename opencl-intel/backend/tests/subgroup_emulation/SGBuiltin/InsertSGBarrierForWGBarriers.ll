@@ -20,7 +20,7 @@ entry:
 declare void @dummybarrier.()
 declare void @_Z7barrierj(i32)
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void (i32)* @test}
 !1 = !{i1 true}

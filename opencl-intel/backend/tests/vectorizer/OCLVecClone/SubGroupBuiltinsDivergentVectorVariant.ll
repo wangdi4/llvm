@@ -8,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 %opencl.image2d_rw_t = type opaque
 %opencl.image2d_wo_t = type opaque
 
-define void @test(i32 addrspace(1)* %ints, <2 x i32> addrspace(1)* %coords) !recommended_vector_length !3 {
+define void @test(i32 addrspace(1)* %ints, <2 x i32> addrspace(1)* %coords) !ocl_recommended_vector_length !3 {
   %gid = tail call i64 @_Z13get_global_idj(i32 0)
   %ints.i = getelementptr inbounds i32, i32 addrspace(1)* %ints, i64 %gid
   %coords.i = getelementptr inbounds <2 x i32>, <2 x i32> addrspace(1)* %coords, i64 %gid
@@ -96,7 +96,7 @@ declare i64 @_Z13get_global_idj(i32)
 !opencl.used.optional.core.features = !{!1}
 !opencl.compiler.options = !{!1}
 
-!sycl.kernels = !{!2}
+!opencl.kernels = !{!2}
 
 !0 = !{i32 2, i32 0}
 !1 = !{}

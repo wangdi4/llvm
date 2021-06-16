@@ -16,18 +16,18 @@
 
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
+#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Metadata.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
-using namespace DPCPPKernelMetadataAPI;
+using namespace Intel::MetadataAPI;
 
 namespace intel {
 
@@ -117,7 +117,7 @@ bool AutorunReplicator::createReplicas(Function *F,
 
           auto vkimd = KernelInternalMetadataAPI(VecCloned);
           kimd.VectorizedKernel.set(VecCloned);
-          vkimd.ScalarKernel.set(Cloned);
+          vkimd.ScalarizedKernel.set(Cloned);
         }
 
         Replicas.push_back(Cloned);

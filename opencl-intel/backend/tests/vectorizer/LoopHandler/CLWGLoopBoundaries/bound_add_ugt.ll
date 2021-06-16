@@ -31,7 +31,7 @@ if.end:
   ret void
 }
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void (i32 addrspace(1)*,i32,i32)* @constant_kernel}
 !1 = !{i1 true}

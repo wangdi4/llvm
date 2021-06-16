@@ -14,15 +14,14 @@
 
 #include "DeduceMaxWGDim.h"
 #include "CompilationUtils.h"
+#include "MetadataAPI.h"
 #include "LoopUtils/LoopUtils.h"
 #include "OpenclRuntime.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
-
 using namespace Intel::OpenCL::DeviceBackend;
-using namespace DPCPPKernelMetadataAPI;
+using namespace Intel::MetadataAPI;
 
 namespace intel {
 

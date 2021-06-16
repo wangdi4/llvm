@@ -61,12 +61,12 @@ declare void @llvm.dbg.value(metadata, metadata, metadata) #1
 declare [7 x i64] @"WG.boundaries.test_kernel"(i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*)
 
 ; Function Attrs: nounwind
-define void @"test_kernel"(i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*) local_unnamed_addr #0 !dbg !3 !kernel_arg_addr_space !10 !kernel_arg_access_qual !11 !kernel_arg_type !12 !kernel_arg_type_qual !13 !kernel_arg_base_type !14 !vectorized_kernel !15 !no_barrier_path !16 !scalar_kernel !17 !vectorized_width !18 !kernel_execution_length !19 !kernel_has_barrier !20 !kernel_has_global_sync !20 !max_wg_dimensions !18 {
+define void @"test_kernel"(i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*) local_unnamed_addr #0 !dbg !3 !kernel_arg_addr_space !10 !kernel_arg_access_qual !11 !kernel_arg_type !12 !kernel_arg_type_qual !13 !kernel_arg_base_type !14 !vectorized_kernel !15 !no_barrier_path !16 !scalarized_kernel !17 !vectorized_width !18 !kernel_execution_length !19 !kernel_has_barrier !20 !kernel_has_global_sync !20 !max_wg_dimensions !18 {
   ret void, !dbg !28
 }
 
 ; Function Attrs: nounwind
-define void @"__Vectorized_.test_kernel"(i32 addrspace(1)* %0, i32 addrspace(1)* %1, i32 addrspace(1)* %2, i32 addrspace(1)* %3) local_unnamed_addr #0 !dbg !21 !kernel_arg_addr_space !10 !kernel_arg_access_qual !11 !kernel_arg_type !12 !kernel_arg_type_qual !13 !kernel_arg_base_type !14 !vectorized_kernel !17 !no_barrier_path !16 !scalar_kernel !1 !vectorized_width !22 !kernel_execution_length !23 !kernel_has_barrier !20 !kernel_has_global_sync !20 !max_wg_dimensions !18 !vectorization_dimension !2 !can_unite_workgroups !16 {
+define void @"__Vectorized_.test_kernel"(i32 addrspace(1)* %0, i32 addrspace(1)* %1, i32 addrspace(1)* %2, i32 addrspace(1)* %3) local_unnamed_addr #0 !dbg !21 !kernel_arg_addr_space !10 !kernel_arg_access_qual !11 !kernel_arg_type !12 !kernel_arg_type_qual !13 !kernel_arg_base_type !14 !vectorized_kernel !17 !no_barrier_path !16 !scalarized_kernel !1 !vectorized_width !22 !kernel_execution_length !23 !kernel_has_barrier !20 !kernel_has_global_sync !20 !max_wg_dimensions !18 !vectorization_dimension !2 !can_unite_workgroups !16 {
   call void @llvm.dbg.value(metadata i32 addrspace(1)* %0, metadata !24, metadata !DIExpression()), !dbg !25
   call void @llvm.dbg.declare(metadata i32 addrspace(1)* %1, metadata !26, metadata !DIExpression()), !dbg !25
   %5 = load i32, i32 addrspace(1)* %1, align 4, !dbg !29
@@ -82,7 +82,7 @@ attributes #2 = { readnone }
 
 !llvm.module.flags = !{!0}
 !llvm.dbg.cu = !{!9}
-!sycl.kernels = !{!1}
+!opencl.kernels = !{!1}
 !opencl.global_variable_total_size = !{!2}
 
 !0 = !{i32 2, !"Debug Info Version", i32 3}

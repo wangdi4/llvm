@@ -29,7 +29,7 @@ not_zero:
 
 declare void @_Z17sub_group_barrierj(i32)
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void (i32)* @test}
 !1 = !{i1 true}

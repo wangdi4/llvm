@@ -46,7 +46,7 @@ attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"=
 attributes #1 = { nounwind readnone }
 
 !llvm.dbg.cu = !{!0}
-!sycl.kernels = !{!19}
+!opencl.kernels = !{!19}
 !llvm.module.flags = !{!25, !26}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!27}

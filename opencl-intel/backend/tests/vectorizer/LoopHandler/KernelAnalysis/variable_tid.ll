@@ -62,6 +62,6 @@ declare i32 @_Z12get_local_idj(i32) nounwind readnone
 
 
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void (i32 addrspace(1)* , i32 )* @variable_gid, void (i32 addrspace(1)* , i32 )* @variable_lid, void (i32 addrspace(1)* )* @out_of_range_gid, void (i32 addrspace(1)* )* @out_of_range_lid, void (i32 addrspace(1)* )* @in_range_gid, void (i32 addrspace(1)* )* @in_range_lid}

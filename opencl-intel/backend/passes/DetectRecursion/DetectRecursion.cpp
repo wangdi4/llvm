@@ -13,16 +13,16 @@
 // License.
 
 #include "DetectRecursion.h"
+#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
-using namespace DPCPPKernelMetadataAPI;
+using namespace Intel::MetadataAPI;
 
 namespace intel {
 
@@ -75,6 +75,8 @@ bool DetectRecursion::DetectRecursionInFunction(Function *fn) {
 
 // print out results
 void DetectRecursion::print(raw_ostream &O, const Module *M) const {
+  using namespace Intel;
+
   if (m_recursionExists) {
     O << "DetectRecursion: Found recursive calls.\n";
     O << "DetectRecursion: Functions with recursive calls:\n";

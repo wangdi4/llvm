@@ -6,20 +6,20 @@
 %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range" = type { %"class._ZTSN2cl4sycl6detail5arrayILi1EEE.cl::sycl::detail::array" }
 %"class._ZTSN2cl4sycl6detail5arrayILi1EEE.cl::sycl::detail::array" = type { [1 x i64] }
 
-define i32 @_Z3addii(i32 %A, i32 %B) #0 !recommended_vector_length !7 {
+define i32 @_Z3addii(i32 %A, i32 %B) #0 !ocl_recommended_vector_length !7 {
 entry:
   %add = add nsw i32 %B, %A
   ret i32 %add
 }
 
-define i32 @_Z3subii(i32 %A, i32 %B) #1 !recommended_vector_length !7 {
+define i32 @_Z3subii(i32 %A, i32 %B) #1 !ocl_recommended_vector_length !7 {
 entry:
   %sub = sub nsw i32 %A, %B
   ret i32 %sub
 }
 
-; CHECK: define i32 @_Z3addii(i32 %A, i32 %B) #[[ATTRS1:.*]] !recommended_vector_length
-; CHECK: define i32 @_Z3subii(i32 %A, i32 %B) #[[ATTRS2:.*]] !recommended_vector_length
+; CHECK: define i32 @_Z3addii(i32 %A, i32 %B) #[[ATTRS1:.*]] !ocl_recommended_vector_length
+; CHECK: define i32 @_Z3subii(i32 %A, i32 %B) #[[ATTRS2:.*]] !ocl_recommended_vector_length
 
 define void @"_ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE4Init"(%"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFiiiENS1_8int_listIJLi16ELi16EEEEJFNS1_6maskedENS1_7varyingENS1_6linearEEFNS1_8unmaskedENS1_7uniformESB_EEEE.cl::sycl::INTEL::function_ref_tuned" addrspace(1)* noalias %_arg_, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_1, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_2, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_3) {
 entry:

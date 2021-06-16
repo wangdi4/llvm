@@ -16,13 +16,13 @@
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "LoopUtils/LoopUtils.h"
+#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include <map>
 #include <utility>
@@ -30,7 +30,7 @@
 #define DEBUG_TYPE "resolve-sub-group-wi-call"
 
 using namespace Intel::OpenCL::DeviceBackend;
-using namespace DPCPPKernelMetadataAPI;
+using namespace Intel::MetadataAPI;
 
 extern "C" {
 void *createResolveSubGroupWICallPass(bool ResolveSGBarrier) {

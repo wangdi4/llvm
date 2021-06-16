@@ -19,7 +19,7 @@ declare i32 @_Z13sub_group_alli(i32)
 ; CHECK-DAG: attributes #[[#FUNC_ATTR]] = { "vector-variants"="_ZGVbM16v__Z13sub_group_alli(_Z13sub_group_allDv16_iDv16_j)" }
 ; CHECK-DAG: attributes #[[#CALL_ATTR]] = { "has-vplan-mask" }
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void (i32)* @test}
 !1 = !{i1 true}

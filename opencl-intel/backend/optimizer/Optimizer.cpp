@@ -16,6 +16,7 @@
 #include "ChannelPipeUtils.h"
 #include "CompilationUtils.h"
 #include "InitializeOCLPasses.hpp"
+#include "MetadataAPI.h"
 #include "OCLAliasAnalysis.h"
 #include "OclTune.h"
 #include "VecConfig.h"
@@ -29,6 +30,7 @@
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -36,17 +38,15 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
-#include "llvm/Transforms/InstCombine/InstCombine.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/InstSimplifyPass.h"
@@ -1001,7 +1001,7 @@ std::vector<std::string> Optimizer::GetInvalidGlobals(InvalidGVType Ty) const {
   std::vector<std::string> Res;
 
   for (auto &GV : m_M->globals()) {
-    auto GVM = DPCPPKernelMetadataAPI::GlobalVariableMetadataAPI(&GV);
+    auto GVM = MetadataAPI::GlobalVariableMetadataAPI(&GV);
 
     switch (Ty) {
       case FPGA_DEPTH_IS_IGNORED:
@@ -1022,7 +1022,7 @@ Optimizer::GetInvalidFunctions(InvalidFunctionType Ty) const {
   std::vector<std::string> Res;
 
   for (auto &F : *m_M) {
-    auto KMD = DPCPPKernelMetadataAPI::FunctionMetadataAPI(&F);
+    auto KMD = MetadataAPI::FunctionMetadataAPI(&F);
 
     bool Invalid = false;
 

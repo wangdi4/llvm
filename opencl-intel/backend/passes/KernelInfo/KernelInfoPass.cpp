@@ -15,16 +15,16 @@
 #include "KernelInfoPass.h"
 #include "CompilationUtils.h"
 #include "OCLAddressSpace.h"
-#include "llvm/Analysis/LoopInfo.h"
+#include "MetadataAPI.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
-#include <math.h>
 #include <string>
+#include <math.h>
 
 using namespace Intel::OpenCL::DeviceBackend;
-using namespace DPCPPKernelMetadataAPI;
+using namespace Intel::MetadataAPI;
 
 namespace intel {
 

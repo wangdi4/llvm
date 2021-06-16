@@ -145,7 +145,7 @@ declare <16 x i32> @_Z13sub_group_allDv16_iDv16_j(<16 x i32>, <16 x i32>)
 declare i32 @_Z22get_sub_group_local_idv()
 declare i32 @_Z18get_sub_group_sizev()
 
-!sycl.kernels = !{!0}
+!opencl.kernels = !{!0}
 
 !0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @testKernel}
 !1 = !{i1 true}
