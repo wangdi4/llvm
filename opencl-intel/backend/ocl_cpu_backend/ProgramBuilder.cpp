@@ -434,7 +434,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
 
     kernelAttributes << "vec_type_hint(";
 
-    if (kmd.VecTypeHint.getSign() == 0)
+    if (VTHTy->isIntegerTy() && kmd.VecTypeHint.getSign() == 0)
       kernelAttributes << "u";
 
     if (VTHTy->isFloatTy()) {
