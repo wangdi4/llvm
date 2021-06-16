@@ -43,7 +43,8 @@ inline bool isTrivialPointerAliasingInst(const InstTy *Inst) {
   // In case of VPInstructions, we can have aliasing on account of InductionInit
   // instruction as well.
   if (std::is_same<InstTy, VPInstruction>::value)
-    if (Inst->getOpcode() == VPInstruction::InductionInit)
+    if (Inst->getOpcode() == VPInstruction::InductionInit ||
+        Inst->getOpcode() == VPInstruction::Subscript)
       return true;
 
   return (Inst->getOpcode() == Instruction::BitCast ||

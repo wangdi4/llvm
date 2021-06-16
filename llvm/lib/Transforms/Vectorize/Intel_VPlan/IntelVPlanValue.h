@@ -517,6 +517,13 @@ private:
   // Hold the DDRef or IV information related to this external definition.
   std::unique_ptr<VPOperandHIR> HIROperand;
 
+  const std::string getVPValueName() const {
+    std::string Name = "";
+    raw_string_ostream SOS(Name);
+    getOperandHIR()->print(SOS);
+    //We drop the leading '%'.
+    return Name.substr(1);
+  }
   // Construct a VPExternalDef given a Value \p ExtVal.
   VPExternalDef(Value *ExtVal)
       : VPValue(VPValue::VPExternalDefSC, ExtVal->getType(), ExtVal) {
@@ -525,23 +532,31 @@ private:
   // Construct a VPExternalDef given an underlying DDRef \p DDR.
   VPExternalDef(const loopopt::DDRef *DDR)
       : VPValue(VPValue::VPExternalDefSC, DDR->getDestType()),
-        HIROperand(new VPBlob(DDR)) {}
+        HIROperand(new VPBlob(DDR)) {
+    setName(getVPValueName());
+  }
 
   // Construct a VPExternalDef for blob with index \p BI in \p DDR. \p BType
   // specifies the blob type.
   VPExternalDef(const loopopt::RegDDRef *DDR, unsigned BI, Type *BType)
       : VPValue(VPValue::VPExternalDefSC, BType),
-        HIROperand(new VPBlob(DDR, BI)) {}
+        HIROperand(new VPBlob(DDR, BI)) {
+    setName(getVPValueName());
+  }
 
   // Construct a VPExternalDef given an underlying CanonExpr \p CE.
   VPExternalDef(const loopopt::CanonExpr *CE, const loopopt::RegDDRef *DDR)
       : VPValue(VPValue::VPExternalDefSC, CE->getDestType()),
-        HIROperand(new VPCanonExpr(CE, DDR)) {}
+        HIROperand(new VPCanonExpr(CE, DDR)) {
+    setName(getVPValueName());
+  }
 
   // Construct a VPExternalDef given an underlying IV level \p IVLevel.
   VPExternalDef(unsigned IVLevel, Type *BaseTy)
       : VPValue(VPValue::VPExternalDefSC, BaseTy),
-        HIROperand(new VPIndVar(IVLevel)) {}
+        HIROperand(new VPIndVar(IVLevel)) {
+    setName(getVPValueName());
+  }
 
   // DESIGN PRINCIPLE: Access to the underlying IR must be strictly limited to
   // the front-end and back-end of VPlan so that the middle-end is as

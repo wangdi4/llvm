@@ -93,8 +93,9 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
   VPlanVector *Plan = SharedPlan.get();
   Plan->setName(VPlanName);
 
-  // Disable SOA-analysis for HIR.
-  Plan->disableSOAAnalysis();
+  // Enable SOA-analysis if enabled in the header.
+  if (EnableSOAAnalysisHIR)
+    Plan->enableSOAAnalysis();
 
   // Build hierarchical CFG
   const DDGraph &DDG = DDA->getGraph(TheLoop);
