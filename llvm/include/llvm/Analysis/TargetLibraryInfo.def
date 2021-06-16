@@ -1650,6 +1650,9 @@ TLI_DEFINE_STRING_INTERNAL("__kmpc_barrier")
 /// void __kmpc_critical(indent_t *loc, kmp_int32 global_tid, kmp_cricital_name *crit);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_critical)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_critical")
+/// void __kmpc_critical_with_hint(indent_t *loc, kmp_int32 global_tid, kmp_cricital_name *crit, kmp_int32 hint);
+TLI_DEFINE_ENUM_INTERNAL(kmpc_critical_with_hint)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_critical_with_hint")
 /// void __kmpc_dispatch_init_4(ident_t *loc, kmp_int32 gtid,  enum sched_type schedule, kmp_int32 lb, kmp_int32 ub, kmp_int32 st, kmp_int32 chunk);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_dispatch_init_4)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_dispatch_init_4")
