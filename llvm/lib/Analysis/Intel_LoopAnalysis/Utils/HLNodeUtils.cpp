@@ -4670,6 +4670,20 @@ HLNodeRangeTy HLNodeUtils::replaceNodeWithBody(HLSwitch *Switch,
   return make_range(NodeRange.first, std::next(LastNode));
 }
 
+static HLNode *getLastNodeOrLabel(HLNode *Node) {
+  HLNode *LastNode = nullptr;
+  auto *NodeToRemove = Node->getNextNode();
+  if (NodeToRemove && !isa<HLLabel>(NodeToRemove)) {
+    auto *NextNode = NodeToRemove->getNextNode();
+    while (NextNode && !isa<HLLabel>(NextNode)) {
+      NodeToRemove = NextNode;
+      NextNode = NextNode->getNextNode();
+    }
+    LastNode = NodeToRemove;
+  }
+  return LastNode;
+}
+
 namespace {
 
 STATISTIC(InvalidatedRegions, "Number of regions invalidated by utility");
@@ -5174,18 +5188,22 @@ public:
 
     if (HLNodeUtils::hasGotoOnAllBranches(If)) {
       // remove all nodes after IF-stmt up to label or end of linear code.
-      auto *NodeToRemove = If->getNextNode();
-      if (NodeToRemove && !isa<HLLabel>(NodeToRemove)) {
-        auto *NextNode = NodeToRemove->getNextNode();
-        while (NextNode && !isa<HLLabel>(NextNode)) {
-          NodeToRemove = NextNode;
-          NextNode = NextNode->getNextNode();
-        }
-        LastNodeToRemove = NodeToRemove;
-      }
+      LastNodeToRemove = getLastNodeOrLabel(If);
     }
 
     postVisitImpl(If);
+  }
+
+  // Remove nodes after switch-stmt if it does not fall through.
+  void postVisit(HLSwitch *Switch) {
+    LastNodeToRemove = nullptr;
+
+    if (HLNodeUtils::hasGotoOnAllBranches(Switch)) {
+      // remove all nodes after switch up to label or end of linear code.
+      LastNodeToRemove = getLastNodeOrLabel(Switch);
+    }
+
+    postVisitImpl(Switch);
   }
 
   template <typename NodeTy> void postVisit(NodeTy *Node) {
@@ -5563,8 +5581,8 @@ void HLNodeUtils::eliminateRedundantGotos(
   }
 }
 
-// Retruns true if IF-stmt does not fall through on any path.
-// Ex.:
+// Returns true for nodes that does not fall through on any path.
+// E.g. for if:
 // if (C1) {
 //    ...
 //    if (C3) {
@@ -5590,31 +5608,43 @@ void HLNodeUtils::eliminateRedundantGotos(
 //  L4:
 //  ...
 //
-// Here we never reach <some code> after if, so this code should be cleaned up.
-//
-bool HLNodeUtils::hasGotoOnAllBranches(HLIf *If) {
-  // TODO: add support for switch statement.
-  assert(If && "IF-statement expected");
+// Here we never reach <some code> after if, so <some code> can be cleaned up.
+// Same logic applies for switches as well.
+bool HLNodeUtils::hasGotoOnAllBranches(HLNode *Node) {
+  assert(Node && "Expect non-null HLNode!\n");
 
-  auto *IfLastThenChild = If->getLastThenChild();
-  auto *IfLastElseChild = If->getLastElseChild();
-  HLGoto *LastThenGoto = dyn_cast_or_null<HLGoto>(IfLastThenChild);
-  HLGoto *LastElseGoto = dyn_cast_or_null<HLGoto>(IfLastElseChild);
+  // Every last branch node must either be goto or another switch/if w/goto.
+  // Bailout if inverse.
+  if (auto *If = dyn_cast<HLIf>(Node)) {
+    auto *IfLastThenChild = If->getLastThenChild();
+    auto *IfLastElseChild = If->getLastElseChild();
 
-  if (LastThenGoto && LastElseGoto)
+    if (!IfLastThenChild ||
+        (!isa<HLGoto>(IfLastThenChild) &&
+         !HLNodeUtils::hasGotoOnAllBranches(IfLastThenChild)))
+      return false;
+
+    if (!IfLastElseChild ||
+        (!isa<HLGoto>(IfLastElseChild) &&
+         !HLNodeUtils::hasGotoOnAllBranches(IfLastElseChild)))
+      return false;
+
     return true;
+  } else if (auto *Switch = dyn_cast<HLSwitch>(Node)) {
+    for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
+      auto *LastChild = Switch->getLastCaseChild(I);
+      if (!LastChild || (!isa<HLGoto>(LastChild) &&
+                         !HLNodeUtils::hasGotoOnAllBranches(LastChild)))
+        return false;
+    }
 
-  HLIf *LastThenIf = dyn_cast_or_null<HLIf>(IfLastThenChild);
-  HLIf *LastElseIf = dyn_cast_or_null<HLIf>(IfLastElseChild);
+    auto *LastChild = Switch->getLastDefaultCaseChild();
+    if (!LastChild || (!isa<HLGoto>(LastChild) &&
+                       !HLNodeUtils::hasGotoOnAllBranches(LastChild)))
+      return false;
 
-  // We expect either goto or another if at the end of each branch.
-  if (!LastThenGoto &&
-      !(LastThenIf && HLNodeUtils::hasGotoOnAllBranches(LastThenIf)))
-    return false;
+    return true;
+  }
 
-  if (!LastElseGoto &&
-      !(LastElseIf && HLNodeUtils::hasGotoOnAllBranches(LastElseIf)))
-    return false;
-
-  return true;
+  return false;
 }
