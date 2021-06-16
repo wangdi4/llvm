@@ -1,5 +1,5 @@
-; RUN: opt -S -wholeprogramdevirt -whole-program-visibility %s 2>&1 | FileCheck %s
-; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility %s 2>&1 | FileCheck %s
+; RUN: opt -S -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=false %s 2>&1 | FileCheck %s
+; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=false %s 2>&1 | FileCheck %s
 
 ; This test is to check that the virtual function constant variables are not
 ; changed to unnamed variables in the case where aliases get introduced to

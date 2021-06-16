@@ -169,7 +169,7 @@ void IntelDevirtMultiversion::addTarget(Function *Fn) {
   if (functionIsLibFuncOrExternal(Fn))
     VCallsData.HasLibFuncAsTarget = true;
 
-  VCallsData.TargetFunctions.push_back(Fn);
+  VCallsData.TargetFunctions.insert(Fn);
 }
 
 // Insert a new virtual call site that needs to be multiversioned. If
@@ -197,15 +197,15 @@ void IntelDevirtMultiversion::resetData() {
 }
 
 // Create the BasicBlocks with the direct call sites.
-//   TargetVector:   a TargetData vector that will be used to store the
-//                     information related to the targets
-//   VCallSite:      callsite of the virtual call
-//   TargetsForSlot: possible targets to the current virtual callsite
-//   MDNode:         node containing the metadata information for the
-//                     target functions
+//   TargetVector:    a TargetData vector that will be used to store the
+//                      information related to the targets
+//   VCallSite:       callsite of the virtual call
+//   TargetFunctions: possible targets to the current virtual callsite
+//   MDNode:          node containing the metadata information for the
+//                      target functions
 void IntelDevirtMultiversion::createCallSiteBasicBlocks(
     Module &M, std::vector<TargetData *> &TargetVector, CallBase *VCallSite,
-    const SmallVectorImpl<Function *> &TargetFunctions, MDNode *Node) {
+    const SmallPtrSetImpl<Function *> &TargetFunctions, MDNode *Node) {
 
   IRBuilder<> Builder(M.getContext());
   StringRef BaseName = StringRef("BBDevirt_");
@@ -585,7 +585,7 @@ void IntelDevirtMultiversion::generatePhiNodes(
 // whole program safe or not.
 void IntelDevirtMultiversion::multiversionVCallSite(
     Module &M, CallBase *VCallSite, bool LibFuncFound,
-    const SmallVectorImpl<Function *> &TargetFunctions) {
+    const SmallPtrSetImpl<Function *> &TargetFunctions) {
 
   if (TargetFunctions.empty() || !EnableDevirtMultiversion)
     return;
@@ -651,8 +651,8 @@ bool IntelDevirtMultiversion::tryAddingDefaultTargetIntoVCallSite(
       !functionIsLibFuncOrExternal(CallerFunc))
     return false;
 
-  SmallVector<Function *, 1> TargetFunction;
-  TargetFunction.push_back(TargetFunc);
+  SmallPtrSet<Function *, 1> TargetFunction;
+  TargetFunction.insert(TargetFunc);
   multiversionVCallSite(M, VCallSite, true /* LibFuncFound */, TargetFunction);
 
   return true;
