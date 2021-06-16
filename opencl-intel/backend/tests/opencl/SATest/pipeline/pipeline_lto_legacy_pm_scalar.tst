@@ -11,9 +11,16 @@
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK-NEXT:     DPCPPKernelAnalysisLegacy
+
+; CHECK:          Call Graph SCC Pass Manager
+; CHECK:            FunctionPass Manager
+; CHECK:              Loop Pass Manager
+; CHECK:                Unroll loops
+
 ; CHECK-NOT:      DPCPPKernelVecClone pass
 ; CHECK-NOT:      VPlan Vectorization Driver
 ; CHECK-NOT:      VPlan post vectorization pass for DPCPP kernels
+
 ; CHECK:          WGLoopCreatorLegacy
 ; CHECK-NEXT:       FunctionPass Manager
 ; CHECK:              PhiCanonicalization

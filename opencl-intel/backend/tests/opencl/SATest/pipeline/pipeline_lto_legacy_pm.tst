@@ -11,6 +11,12 @@
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK-NEXT:     DPCPPKernelAnalysisLegacy
+
+; CHECK:          Call Graph SCC Pass Manager
+; CHECK:            FunctionPass Manager
+; CHECK:              Loop Pass Manager
+; CHECK:                Unroll loops
+
 ; CHECK:          DPCPPKernelVecClone pass
 ; CHECK-NOT:      VecClone
 ; CHECK:          FunctionPass Manager

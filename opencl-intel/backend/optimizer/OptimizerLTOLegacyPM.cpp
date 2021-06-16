@@ -51,7 +51,7 @@ void OptimizerLTOLegacyPM::CreatePasses() {
   PMBuilder.SLPVectorize = false;
   PMBuilder.LoopVectorize = false;
   PMBuilder.CallGraphProfile = true;
-  PMBuilder.DisableUnrollLoops = true;
+  PMBuilder.DisableUnrollLoops = false;
   PMBuilder.LoopsInterleaved = false;
   PMBuilder.MergeFunctions = false;
   PMBuilder.PrepareForThinLTO = false;
