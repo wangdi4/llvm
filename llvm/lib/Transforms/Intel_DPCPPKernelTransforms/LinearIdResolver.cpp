@@ -28,7 +28,9 @@ class LinearIdResolverLegacy : public ModulePass {
 public:
   static char ID;
 
-  LinearIdResolverLegacy() : ModulePass(ID) {}
+  LinearIdResolverLegacy() : ModulePass(ID) {
+    initializeLinearIdResolverLegacyPass(*PassRegistry::getPassRegistry());
+  }
 
   llvm::StringRef getPassName() const override {
     return "LinearIdResolverLegacy";

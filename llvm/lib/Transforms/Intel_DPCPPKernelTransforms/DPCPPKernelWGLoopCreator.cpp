@@ -37,7 +37,10 @@ class DPCPPKernelWGLoopCreatorLegacy : public ModulePass {
 public:
   static char ID;
 
-  DPCPPKernelWGLoopCreatorLegacy() : ModulePass(ID) {}
+  DPCPPKernelWGLoopCreatorLegacy() : ModulePass(ID) {
+    initializeDPCPPKernelWGLoopCreatorLegacyPass(
+        *PassRegistry::getPassRegistry());
+  }
 
   llvm::StringRef getPassName() const override { return "WGLoopCreatorLegacy"; }
 

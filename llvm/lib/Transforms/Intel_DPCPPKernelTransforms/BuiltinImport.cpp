@@ -46,7 +46,9 @@ public:
   BuiltinImportLegacy(const SmallVector<Module *, 2> &BuiltinModules =
                           SmallVector<Module *, 2>(),
                       StringRef CPUPrefix = "")
-      : ModulePass(ID), Impl(BuiltinModules, CPUPrefix) {}
+      : ModulePass(ID), Impl(BuiltinModules, CPUPrefix) {
+    initializeBuiltinImportLegacyPass(*PassRegistry::getPassRegistry());
+  }
 
   ~BuiltinImportLegacy() {}
 
@@ -106,7 +108,9 @@ static GlobalVariable *FindGlobalDef(const GlobalVariable *GV,
 
 BuiltinImportPass::BuiltinImportPass(
     const SmallVector<Module *, 2> &BuiltinModules, StringRef CPUPrefix)
-    : BuiltinModules(BuiltinModules), CPUPrefix(CPUPrefix) {}
+    : BuiltinModules(BuiltinModules), CPUPrefix(CPUPrefix) {
+  initializeBuiltinImportLegacyPass(*PassRegistry::getPassRegistry());
+}
 
 // This function replaces keyword "shared" in the builtin name by current CPU
 // prefix, for example:

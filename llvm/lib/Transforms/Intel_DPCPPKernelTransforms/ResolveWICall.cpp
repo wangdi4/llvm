@@ -72,7 +72,7 @@ char ResolveWICallLegacy::ID = 0;
 ResolveWICallLegacy::ResolveWICallLegacy(bool IsUniformWG, bool UseTLSGlobals)
     : ModulePass(ID), UniformLocalSize(IsUniformWG),
       UseTLSGlobals(UseTLSGlobals) {
-  initializeImplicitArgsAnalysisLegacyPass(*PassRegistry::getPassRegistry());
+  initializeResolveWICallLegacyPass(*PassRegistry::getPassRegistry());
 }
 
 bool ResolveWICallLegacy::runOnModule(Module &M) {

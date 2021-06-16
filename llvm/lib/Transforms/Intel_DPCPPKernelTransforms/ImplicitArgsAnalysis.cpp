@@ -261,7 +261,9 @@ INITIALIZE_PASS(ImplicitArgsAnalysisLegacy,
 
 char ImplicitArgsAnalysisLegacy::ID = 0;
 
-ImplicitArgsAnalysisLegacy::ImplicitArgsAnalysisLegacy() : ModulePass(ID) {}
+ImplicitArgsAnalysisLegacy::ImplicitArgsAnalysisLegacy() : ModulePass(ID) {
+  initializeImplicitArgsAnalysisLegacyPass(*PassRegistry::getPassRegistry());
+}
 
 bool ImplicitArgsAnalysisLegacy::runOnModule(Module &M) {
   Result.reset(new ImplicitArgsInfo(M));

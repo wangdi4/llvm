@@ -27,7 +27,9 @@ INITIALIZE_PASS(
 
 char BarrierInFunctionLegacy::ID = 0;
 
-BarrierInFunctionLegacy::BarrierInFunctionLegacy() : ModulePass(ID) {}
+BarrierInFunctionLegacy::BarrierInFunctionLegacy() : ModulePass(ID) {
+  initializeBarrierInFunctionLegacyPass(*PassRegistry::getPassRegistry());
+}
 
 bool BarrierInFunctionLegacy::runOnModule(Module &M) { return Impl.runImpl(M); }
 
