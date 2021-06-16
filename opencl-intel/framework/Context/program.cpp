@@ -198,6 +198,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 	cl_device_id* clDevIds = nullptr;
     size_t* puiNumKernels = nullptr;
     char* szKernelsNames = nullptr;
+    const cl_bool bUnconditionalFalse = false;
 
 	switch ( (cl_program_info)param_name )
 	{
@@ -462,6 +463,12 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 
             break;
         }
+    // return CL_FALSE, Program initialization is not supported in OpenCL 3.0
+    case CL_PROGRAM_SCOPE_GLOBAL_CTORS_PRESENT: // FALL_THROUGH
+    case CL_PROGRAM_SCOPE_GLOBAL_DTORS_PRESENT:
+        szParamValueSize = sizeof(cl_bool);
+        pValue = &bUnconditionalFalse;
+        break;
 		
 	default:
 		LOG_ERROR(TEXT("param_name (=%d) isn't valid"), param_name);

@@ -15,6 +15,7 @@
         clCreateProgramWithSource;
         clCreateProgramWithIL;
         clCreateProgramWithILKHR;
+        clSetProgramReleaseCallback;
         clSetProgramSpecializationConstant;
         clCreateSampler;
         clEnqueueBarrier;

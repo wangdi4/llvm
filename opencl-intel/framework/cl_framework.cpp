@@ -636,6 +636,18 @@ cl_int CL_API_CALL clSetContextDestructorCallback(
 }
 SET_ALIAS(clSetContextDestructorCallback);
 
+// Clean-up kernels are not supported in OpenCL 3.0, and the API for clean-up
+// kernels are deprecated in OpenCL 3.0. Returns CL_INVALID_OPERATION if no
+// devices in the context associated with program support program initialization
+// and clean-up kernels.
+cl_int CL_API_CALL clSetProgramReleaseCallback(
+    cl_program program,
+    void(CL_CALLBACK *pfnNotify)(cl_program program, void *userData),
+    void *pUserData) {
+  return CL_INVALID_OPERATION;
+}
+SET_ALIAS(clSetProgramReleaseCallback);
+
 cl_context CL_API_CALL clCreateContextFromType(const cl_context_properties * properties,
 								   cl_device_type          device_type,
 								   logging_fn              pfn_notify,
