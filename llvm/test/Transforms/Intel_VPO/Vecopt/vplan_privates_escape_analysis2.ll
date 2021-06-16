@@ -47,7 +47,7 @@ omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %omp.inner.for.body.lr.ph
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_ne.priv), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_e.priv), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.LASTPRIVATE"(i32* %index.lpriv) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_ne.priv), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_e.priv), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null), "QUAL.OMP.PRIVATE"(i32* %index.lpriv)]
   br label %DIR.OMP.SIMD.2
 
 DIR.OMP.SIMD.2:                                   ; preds = %DIR.OMP.SIMD.1
@@ -102,36 +102,6 @@ DIR.OMP.END.SIMD.4:                               ; preds = %DIR.OMP.END.SIMD.3
   %arrayidx13 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr_e, i64 0, i64 %idxprom12
   %3 = load i32, i32* %arrayidx13, align 4
   ret i32 %3
-}
-
-; This test checks that we mark private variable with volatile stores as unsafe.
-; CHECK: SOAUnsafe = priv
-define void @scalar_soa() {
-entry:
-  %priv = alloca [1024 x i32], align 4
-  br label %SIMD.BEGIN
-
-SIMD.BEGIN:
-  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 2), "QUAL.OMP.PRIVATE"([1024 x i32]* %priv) ]
-  br label %for.body
-
-for.body:
-  %indvars.iv = phi i64 [ 0, %SIMD.BEGIN ], [ %indvars.iv.next, %for.body ]
-  %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %priv, i64 0, i64 %indvars.iv
-  store volatile i32 1, i32* %arrayidx, align 4
-  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp ne i64 %indvars.iv.next, 1024
-  br i1 %exitcond, label %for.body, label %omp.loop.exit
-
-omp.loop.exit:
-  br label %SIMD.END
-
-SIMD.END:
-  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
-  br label %EXIT
-
-EXIT:
-  ret void
 }
 
 ; Function Attrs: nounwind
