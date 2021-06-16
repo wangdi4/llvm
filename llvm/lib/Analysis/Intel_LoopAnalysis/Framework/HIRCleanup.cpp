@@ -80,13 +80,20 @@ void HIRCleanup::eliminateRedundantIfs() {
   auto *DT = &HIRC.DT;
 
   for (auto &IfBlockPair : HIRC.Ifs) {
-    auto *BI = cast<BranchInst>(IfBlockPair.second->getTerminator());
+    auto *SrcBB = IfBlockPair.second;
+    auto *BI = cast<BranchInst>(SrcBB->getTerminator());
 
     auto *Cond = BI->getCondition();
 
     // Do not optimize undef conditions using dominating undefs as it
     // doesn't make much sense and breaks existing lit tests.
     if (isa<UndefValue>(Cond)) {
+      continue;
+    }
+
+    auto *Lp = LI.getLoopFor(SrcBB);
+    // Do not optimize away loop latches.
+    if (Lp && (Lp->getLoopLatch() == SrcBB)) {
       continue;
     }
 
