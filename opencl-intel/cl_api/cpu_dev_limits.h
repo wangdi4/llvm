@@ -97,3 +97,6 @@
 
 // Minmum size in bytes that triggers parallel mem copy/fill.
 #define DEV_PARALLEL_COPY_MIN_SIZE (512)
+
+// Supported subgroup sizes on cpu device.
+#define CPU_DEV_SUB_GROUP_SIZES {4, 8, 16, 32, 64}

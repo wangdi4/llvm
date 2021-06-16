@@ -2200,27 +2200,18 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN /*dev_id*/,
             return CL_DEV_SUCCESS;
         case CL_DEVICE_SUB_GROUP_SIZES_INTEL:
         {
-            const bool avx1Support = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10);
-            const bool avx2Support = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX20);
-            const bool avx512Support = CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX512F);
-
-            std::vector<size_t> sizes;
-            sizes.push_back(4);
-
-            if (avx2Support || avx1Support)
-                sizes.push_back(8);
-            if (avx512Support)
-                sizes.push_back(16);
-
+            std::vector<size_t> sizes = CPU_DEV_SUB_GROUP_SIZES;
             *pinternalRetunedValueSize = sizeof(size_t) * sizes.size();
-
-            if (paramVal != nullptr)
+            if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            if (nullptr != paramVal)
             {
                 MEMCPY_S(paramVal, valSize, sizes.data(),
                         *pinternalRetunedValueSize);
             }
-
-            break;
+            return CL_DEV_SUCCESS;
         }
         case CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL: // FALL THROUG
         case CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL: // FALL THROUGH
