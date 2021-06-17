@@ -3270,6 +3270,27 @@ __m512h _mm512_mask_pow_ph(__m512h __src, __mmask32 __k, __m512h __a,
                            __m512h __b);
 
 /*
+ * Computes the reciprocal of packed half-precision (16-bit) floating-point
+ * elements in "a", storing the results in "dst".
+ */
+static __inline __m512h __DEFAULT_FN_ATTRS512
+_mm512_recip_ph(__m512h __a)
+{
+  return _mm512_rcp_ph(__a);
+}
+
+/*
+ * Computes the reciprocal of packed half-precision (16-bit) floating-point
+ * elements in "a", storing the results in "dst" using writemask "k" (elements
+ * are copied from "src" when the corresponding mask bit is not set).
+ */
+static __inline __m512h __DEFAULT_FN_ATTRS512
+_mm512_mask_recip_ph(__m512h __src, __mmask32 __k, __m512h __a)
+{
+  return _mm512_mask_rcp_ph(__src, __k, __a);
+}
+
+/*
  * Compute the square root of packed half-precision (16-bit) floating-point
  * elements in "a", and store the results in "dst". Note that this intrinsic is
  * less efficient than "_mm_sqrt_ps".
