@@ -412,33 +412,20 @@ public:
     // TODO: AssertingVH<VPBasicBlock> Block;
     VPBasicBlock* Block;
     VPBasicBlock::iterator Point;
+    DebugLoc DbgLoc;
 
   public:
     InsertPointGuard(VPBuilder &B)
-        : Builder(B), Block(B.getInsertBlock()), Point(B.getInsertPoint()) {}
+        : Builder(B), Block(B.getInsertBlock()), Point(B.getInsertPoint()),
+          DbgLoc(B.getCurrentDebugLocation()) {}
 
     InsertPointGuard(const InsertPointGuard &) = delete;
     InsertPointGuard &operator=(const InsertPointGuard &) = delete;
 
     ~InsertPointGuard() {
       Builder.restoreIP(VPInsertPoint(Block, Point));
+      Builder.setCurrentDebugLocation(DbgLoc);
     }
-  };
-
-  /// RAII object that stores the current builder debug location and restores it
-  /// when the object is destroyed.
-  class DbgLocGuard {
-    VPBuilder &Builder;
-    DebugLoc DbgLoc;
-
-  public:
-    DbgLocGuard(const DbgLocGuard &) = delete;
-    DbgLocGuard &operator=(const DbgLocGuard &) = delete;
-
-    DbgLocGuard(VPBuilder &B) : Builder(B) {
-      DbgLoc = Builder.getCurrentDebugLocation();
-    }
-    ~DbgLocGuard() { Builder.setCurrentDebugLocation(DbgLoc); }
   };
 };
 } // namespace vpo
