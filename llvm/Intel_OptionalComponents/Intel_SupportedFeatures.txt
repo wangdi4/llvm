@@ -1,6 +1,6 @@
 # ./Intel_OptionalComponents/Intel_SupportedFeatures.txt
 #
-# Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+# Copyright (C) 2018-2021 Intel Corporation. All rights reserved.
 #
 # The information and source code contained herein is the exclusive
 # property of Intel Corporation and may not be disclosed, examined
@@ -20,13 +20,12 @@
 #   * Feature name must be a valid C identifier.  In general, it should
 #     use all capital letters, numbers and '_', and should not start
 #     with '_'.
-#   * SECRET features are only for xmain repositories.
-#   * SHARED features will appear in the collaborative repositories.
-#   * Note that SHARED does not mean "public", i.e. features shared
-#     via collaborative repositories may not be made public by Intel
-#     yet.  In general, codes for public features must be upstreamed,
-#     which implies removing the feature guards and, thus, removing
-#     these features' declarations from this file.
+#   * SECRET features are only for xmain repositories. They are not expected to
+#     be shared in source form, but may or may not be shared in binary form as
+#     specified in llvm/CMakeLists.txt
+#   * SHARED features will appear in the collaborative repositories. They can
+#     be shared in source form with collaborators, but may or may not be shared
+#     in binary form as specified in llvm/CMakeLists.txt
 #
 # Extra text (e.g. comments) are allowed after the terminating '@'.
 # By convention this file uses '#' as a comment symbol.  At the same time,
@@ -300,9 +299,13 @@
 # end INTEL_FEATURE_ICECODE
 # === New targets section end ===
 
-# Software features that need to be kept in the "safe" repo use SW_ prefix,
-# e.g. SW_G2S.
+# Software features use SW_ prefix, e.g. SW_G2S.
 # === New SW features section begin ===
+# Special advanced optimizations that can be shipped in binary form only but
+# should be removed in all compiler source code sharing
+# INTEL_FEATURE_SW_ADVANCED
+@SW_ADVANCED:SECRET@
+# end INTEL_FEATURE_SW_ADVANCED
 # === New SW features section end ===
 
 # === New CPU section begin ===

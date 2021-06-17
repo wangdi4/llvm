@@ -877,14 +877,21 @@ if(INTEL_CUSTOMIZATION)
   # enable such features (until they are upstreamed and the feature controls
   # are removed).
   set(features_enabled_by_default ${LLVM_INTEL_FEATURES})
-  list(APPEND features_enabled_by_default
-    # Add each feature enabled by default in a separate line.
-    #
-    # WARNING: features added here will be enabled for any compiler build,
-    #          so you must not add here any features that must be controlled
-    #          depending on the compiler build flavor, e.g. INTEL_INTERNAL_BUILD
-    #          must never be enabled for Intel release builds.
+  # Add each feature enabled by default below
+  # WARNING: features added here will be enabled for any compiler build,
+  #          so you must not add here any features that must be controlled
+  #          depending on the compiler build flavor, e.g. INTEL_INTERNAL_BUILD
+  #          must never be enabled for Intel release builds.
+
+# INTEL_FEATURE_SW_ADVANCED
+  option(INTEL_ENABLE_SW_ADVANCED "Advanced optimizations not to be shared in
+    source form" ON)
+  if (INTEL_ENABLE_SW_ADVANCED)
+    list(APPEND features_enabled_by_default
+       "${LLVM_INTELFEATURE_PREFIX}_SW_ADVANCED"
     )
+  endif(INTEL_ENABLE_SW_ADVANCED)
+# end INTEL_FEATURE_SW_ADVANCED
 
   # Force adding features enabled by default to CMake cache.
   # features_enabled_by_default list now contains all features
