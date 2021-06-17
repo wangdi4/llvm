@@ -681,7 +681,9 @@ private:
 
   /// This function return an appropriate BasePtr for cases where we are have
   /// load/store to consecutive memory locations
-  Value *createWidenedBasePtrConsecutiveLoadStore(VPValue *Ptr, bool Reverse);
+  Value *createWidenedBasePtrConsecutiveLoadStore(VPValue *Ptr,
+                                                  Type *ScalarAccessType,
+                                                  bool Reverse);
 
   /// Create a mask to be used in @llvm.masked.[load|store] for the wide VLS
   /// memory operation. Returns nullptr if operation is unmasked.
