@@ -57,6 +57,22 @@
 // CHECK: encoding: [0x65,0x0f,0xb2,0x02]
           loadseg %gs:(%rdx)
 
+// CHECK: loadseg %gdtr:(%rdx)
+// CHECK: encoding: [0x26,0xf2,0x0f,0xb2,0x02]
+          loadseg %gdtr:(%rdx)
+
+// CHECK: loadseg %ldtr:(%rdx)
+// CHECK: encoding: [0x2e,0xf2,0x0f,0xb2,0x02]
+          loadseg %ldtr:(%rdx)
+
+// CHECK: loadseg %idtr:(%rdx)
+// CHECK: encoding: [0x36,0xf2,0x0f,0xb2,0x02]
+          loadseg %idtr:(%rdx)
+
+// CHECK: loadseg %tr:(%rdx)
+// CHECK: encoding: [0x3e,0xf2,0x0f,0xb2,0x02]
+          loadseg %tr:(%rdx)
+
 // CHECK: storeseg %cs:(%rdx)
 // CHECK: encoding: [0x2e,0x66,0x0f,0xb2,0x02]
           storeseg %cs:(%rdx)
@@ -80,6 +96,22 @@
 // CHECK: storeseg %gs:(%rdx)
 // CHECK: encoding: [0x65,0x66,0x0f,0xb2,0x02]
           storeseg %gs:(%rdx)
+
+// CHECK: storeseg %gdtr:(%rdx)
+// CHECK: encoding: [0x26,0xf2,0x66,0x0f,0xb2,0x02]
+          storeseg %gdtr:(%rdx)
+
+// CHECK: storeseg %ldtr:(%rdx)
+// CHECK: encoding: [0x2e,0xf2,0x66,0x0f,0xb2,0x02]
+          storeseg %ldtr:(%rdx)
+
+// CHECK: storeseg %idtr:(%rdx)
+// CHECK: encoding: [0x36,0xf2,0x66,0x0f,0xb2,0x02]
+          storeseg %idtr:(%rdx)
+
+// CHECK: storeseg %tr:(%rdx)
+// CHECK: encoding: [0x3e,0xf2,0x66,0x0f,0xb2,0x02]
+          storeseg %tr:(%rdx)
 
 // CHECK: gtranslaterd_epc (%rdx)
 // CHECK: encoding: [0xf3,0x0f,0x00,0x22]

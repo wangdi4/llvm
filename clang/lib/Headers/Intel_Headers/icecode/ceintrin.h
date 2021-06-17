@@ -36,7 +36,11 @@ typedef enum {
   _CE_SEGMENT_SS = 3,
   _CE_SEGMENT_ES = 4,
   _CE_SEGMENT_FS = 5,
-  _CE_SEGMENT_GS = 6
+  _CE_SEGMENT_GS = 6,
+  _CE_SEGMENT_GDTR = 7,
+  _CE_SEGMENT_LDTR = 8,
+  _CE_SEGMENT_IDTR = 9,
+  _CE_SEGMENT_TR = 10
 } _CE_SEGMENT_ENUM;
 
 /* Define the default attributes for the functions in this file. */
@@ -114,6 +118,26 @@ _ce_loadseg_gs(void *mem) {
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
+_ce_loadseg_gdtr(void *mem) {
+  __builtin_ia32_icecode_loadseg(mem, _CE_SEGMENT_GDTR);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_loadseg_ldtr(void *mem) {
+  __builtin_ia32_icecode_loadseg(mem, _CE_SEGMENT_LDTR);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_loadseg_idtr(void *mem) {
+  __builtin_ia32_icecode_loadseg(mem, _CE_SEGMENT_IDTR);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_loadseg_tr(void *mem) {
+  __builtin_ia32_icecode_loadseg(mem, _CE_SEGMENT_TR);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
 _ce_storeseg_cs(void *mem) {
   __builtin_ia32_icecode_storeseg(mem, _CE_SEGMENT_CS);
 }
@@ -141,6 +165,26 @@ _ce_storeseg_fs(void *mem) {
 static __inline__ void __DEFAULT_FN_ATTRS
 _ce_storeseg_gs(void *mem) {
   __builtin_ia32_icecode_storeseg(mem, _CE_SEGMENT_GS);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_storeseg_gdtr(void *mem) {
+  __builtin_ia32_icecode_storeseg(mem, _CE_SEGMENT_GDTR);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_storeseg_ldtr(void *mem) {
+  __builtin_ia32_icecode_storeseg(mem, _CE_SEGMENT_LDTR);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_storeseg_idtr(void *mem) {
+  __builtin_ia32_icecode_storeseg(mem, _CE_SEGMENT_IDTR);
+}
+
+static __inline__ void __DEFAULT_FN_ATTRS
+_ce_storeseg_tr(void *mem) {
+  __builtin_ia32_icecode_storeseg(mem, _CE_SEGMENT_TR);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS

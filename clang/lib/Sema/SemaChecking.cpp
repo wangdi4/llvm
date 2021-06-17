@@ -4640,7 +4640,7 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
     break;
   case X86::BI__builtin_ia32_icecode_loadseg:
   case X86::BI__builtin_ia32_icecode_storeseg:
-    i = 1; l = 1; u = 6;
+    i = 1; l = 1; u = 10;
     break;
   case X86::BI__builtin_ia32_icecode_cmodemov:
     i = 2; l = 0; u = 15;
