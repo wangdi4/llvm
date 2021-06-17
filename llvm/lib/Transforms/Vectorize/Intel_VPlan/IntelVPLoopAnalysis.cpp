@@ -897,6 +897,9 @@ VPLoopEntityList::createLinearIndexReduction(VPIndexReduction *NonLinNdx,
   // First create the needed VPInstructions.
   VPPHINode *LoopIVPhi = getRecurrentVPHINode(*LoopIndex);
 
+  assert(LoopIVPhi && "Expected getRecurrentVPHINode() to return a non-null "
+                      "value in this context.");
+
   // Create init value. This should be the corresponding constant, either max or
   // min integer value of the corresponding type. Using paropt utility to obtain
   // it.
