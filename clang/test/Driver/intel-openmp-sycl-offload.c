@@ -264,3 +264,15 @@
 // FOFFLOAD_STATIC_LIB_SRC: 39: file-table-tform, {36, 38}, tempfiletable, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 40: clang-offload-wrapper, {39}, object, (device-sycl)
 // FOFFLOAD_STATIC_LIB_SRC: 41: offload, "host-openmp-sycl (x86_64-unknown-linux-gnu)" {34}, "device-sycl (spir64-unknown-unknown-sycldevice)" {40}, image
+
+/// ###########################################################################
+
+/// Check -std= is passed to all clang calls when performing interop (OpenMP+SYCL)
+// RUN:   %clang_cl -### -fsycl -Qiopenmp -Qopenmp-targets=spir64 /Qstd:c++20 -c %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-STD %s
+// RUN:   %clang_cl -### -fsycl -Qiopenmp -Qopenmp-targets=spir64 /std:c++20 -c %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-STD %s
+
+// CHK-STD: clang{{.*}} "-cc1" "-triple" "spir64-unknown-unknown-sycldevice"{{.*}} "-std=c++20"
+// CHK-STD: clang{{.*}} "-cc1" "-triple" "x86_64-pc-windows-msvc{{.*}} "-include"{{.*}} "-std=c++20"
+// CHK-STD: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-std=c++20"

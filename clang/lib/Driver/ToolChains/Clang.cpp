@@ -6315,6 +6315,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       ImplyVCPPCXXVer = true;
 
 #if INTEL_CUSTOMIZATION
+    // When performing interop (OpenMP+SYCL) we need to pass -std=c++xx or
+    // -std=cxx specified by /std: to all clang calls.
+    else if ((IsSYCL || Args.hasArg(options::OPT_fsycl)) &&
+             Args.hasArg(options::OPT_fopenmp_targets_EQ) &&
+             Args.hasArg(options::OPT__SLASH_std)) {
+      const Arg *StdArg = Args.getLastArg(options::OPT__SLASH_std);
+      ImplyVCPPCXXVer = StringRef(StdArg->getValue()).contains_lower("c++");
+      ImplyVCPPCVer = !ImplyVCPPCXXVer;
+    }
+
     // When performing interop (OpenMP+SYCL) we need to be sure to maintain
     // C++17 settings even if we aren't doing the SYCL offloading.  We do this
     // by checking for the -fsycl option.
