@@ -1176,6 +1176,17 @@ static void handleAMDGPUCodeObjectVersionOptions(const Driver &D,
   }
 }
 
+/// Check whether the given input tree contains any append footer actions
+static bool ContainsAppendFooterAction(const Action *A) {
+  if (isa<AppendFooterJobAction>(A))
+    return true;
+  for (const auto &AI : A->inputs())
+    if (ContainsAppendFooterAction(AI))
+      return true;
+
+  return false;
+}
+
 void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
                                     const Driver &D, const ArgList &Args,
                                     ArgStringList &CmdArgs,
@@ -1188,6 +1199,13 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
 
   Args.AddLastArg(CmdArgs, options::OPT_C);
   Args.AddLastArg(CmdArgs, options::OPT_CC);
+
+  // When preprocessing using the integration footer, add the comments
+  // to the first preprocessing step.
+  if (JA.isOffloading(Action::OFK_SYCL) && !ContainsAppendFooterAction(&JA) &&
+      Args.hasArg(options::OPT_fsycl_use_footer) &&
+      JA.isDeviceOffloading(Action::OFK_None))
+    CmdArgs.push_back("-C");
 
   // Handle dependency file generation.
   Arg *ArgM = Args.getLastArg(options::OPT_MM);
@@ -4490,17 +4508,6 @@ static bool ContainsWrapperAction(const Action *A) {
   return false;
 }
 
-/// Check whether the given input tree contains any append footer actions
-static bool ContainsAppendFooterAction(const Action *A) {
-  if (isa<AppendFooterJobAction>(A))
-    return true;
-  for (const auto &AI : A->inputs())
-    if (ContainsAppendFooterAction(AI))
-      return true;
-
-  return false;
-}
-
 // Put together an external compiler compilation call which is used instead
 // of the clang invocation for the host compile of an offload compilation.
 // Enabling command line:  clang++ -fsycl -fsycl-host-compiler=<HostExe>
@@ -4582,6 +4589,15 @@ void Clang::ConstructHostCompilerJob(Compilation &C, const JobAction &JA,
       }
     } else
       HostCompileArgs.push_back("-E");
+
+    // Add the integration header.
+    StringRef Header =
+        TC.getDriver().getIntegrationHeader(InputFile.getBaseInput());
+    if (types::getPreprocessedType(InputFile.getType()) != types::TY_INVALID &&
+        !Header.empty()) {
+      HostCompileArgs.push_back(IsMSVCHostCompiler ? "-FI" : "-include");
+      HostCompileArgs.push_back(TCArgs.MakeArgString(Header));
+    }
   } else if (isa<AssembleJobAction>(JA)) {
     HostCompileArgs.push_back("-c");
     if (IsMSVCHostCompiler)
@@ -4624,15 +4640,6 @@ void Clang::ConstructHostCompilerJob(Compilation &C, const JobAction &JA,
     // with the '-o' option that is used to designate the output file.
     HostCompileArgs.push_back("-o");
     HostCompileArgs.push_back(Output.getFilename());
-  }
-
-  // Add the integration header.
-  StringRef Header =
-      TC.getDriver().getIntegrationHeader(InputFile.getBaseInput());
-  if (types::getPreprocessedType(InputFile.getType()) != types::TY_INVALID &&
-      !Header.empty()) {
-    HostCompileArgs.push_back(IsMSVCHostCompiler ? "-FI" : "-include");
-    HostCompileArgs.push_back(TCArgs.MakeArgString(Header));
   }
 
   SmallString<128> ExecPath;
@@ -5605,8 +5612,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (Arg *A = Args.getLastArg(options::OPT_Wframe_larger_than_EQ)) {
     StringRef v = A->getValue();
-    CmdArgs.push_back("-mllvm");
-    CmdArgs.push_back(Args.MakeArgString("-warn-stack-size=" + v));
+    CmdArgs.push_back(Args.MakeArgString("-fwarn-stack-size=" + v));
     A->claim();
   }
 
@@ -6587,11 +6593,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   Args.AddLastArg(CmdArgs, options::OPT_ftlsmodel_EQ);
 
+  if (Args.hasFlag(options::OPT_fno_operator_names,
+                   options::OPT_foperator_names, false))
+    CmdArgs.push_back("-fno-operator-names");
+
   // Forward -f (flag) options which we can pass directly.
   Args.AddLastArg(CmdArgs, options::OPT_femit_all_decls);
   Args.AddLastArg(CmdArgs, options::OPT_fheinous_gnu_extensions);
   Args.AddLastArg(CmdArgs, options::OPT_fdigraphs, options::OPT_fno_digraphs);
-  Args.AddLastArg(CmdArgs, options::OPT_fno_operator_names);
   Args.AddLastArg(CmdArgs, options::OPT_femulated_tls,
                   options::OPT_fno_emulated_tls);
 

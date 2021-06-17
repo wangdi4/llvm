@@ -6480,9 +6480,13 @@ def warn_gnu_null_ptr_arith : Warning<
   InGroup<NullPointerArithmetic>, DefaultIgnore;
 def err_kernel_invalidates_sycl_unique_stable_name
     : Error<"kernel %select{naming|instantiation}0 changes the result of an "
-            "evaluated '__builtin_sycl_unique_stable_name'">;
+            "evaluated '__builtin_sycl_unique_stable_%select{name|id}1'">;
 def note_sycl_unique_stable_name_evaluated_here
-    : Note<"'__builtin_sycl_unique_stable_name' evaluated here">;
+    : Note<"'__builtin_sycl_unique_stable_%select{name|id}0' evaluated here">;
+def err_unique_stable_id_expected_var : Error<"expected variable name">;
+def err_unique_stable_id_global_storage
+    : Error<"argument passed to '__builtin_sycl_unique_stable_id' must have "
+            "global storage">;
 
 def warn_floatingpoint_eq : Warning<
   "comparing floating point with == or != is unsafe">,
@@ -9274,6 +9278,14 @@ def warn_array_index_precedes_bounds : Warning<
 def warn_array_index_exceeds_bounds : Warning<
   "array index %0 is past the end of the array (which contains %1 "
   "element%s2)">, InGroup<ArrayBounds>;
+def warn_ptr_arith_exceeds_max_addressable_bounds : Warning<
+  "the pointer incremented by %0 refers past the last possible element for an array in %1-bit "
+  "address space containing %2-bit (%3-byte) elements (max possible %4 element%s5)">,
+  InGroup<ArrayBounds>;
+def warn_array_index_exceeds_max_addressable_bounds : Warning<
+  "array index %0 refers past the last possible element for an array in %1-bit "
+  "address space containing %2-bit (%3-byte) elements (max possible %4 element%s5)">,
+  InGroup<ArrayBounds>;
 def note_array_declared_here : Note<
   "array %0 declared here">;
 
@@ -10873,6 +10885,9 @@ def err_omp_interop_var_multiple_actions : Error<
 def err_omp_dispatch_statement_call
     : Error<"statement after '#pragma omp dispatch' must be a direct call"
             " to a target function or an assignment to one">;
+def err_omp_unroll_full_variable_trip_count : Error<
+  "loop to be fully unrolled must have a constant trip count">;
+def note_omp_directive_here : Note<"'%0' directive found here">;
 #if INTEL_COLLAB
 def err_omp_adjust_arg_multiple_clauses : Error<
   "adjust_arg argument %0 used in multiple clauses">;

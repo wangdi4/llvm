@@ -673,7 +673,7 @@ void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
             // Mark the call argument with the stride value in number of
             // elements.
             AttrList.addAttribute("stride",
-                                  APInt(32, StrideVal).toString(10, false));
+                                  toString(APInt(32, StrideVal), 10, false));
           }
         }
       } else {
@@ -917,7 +917,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
     assert(Call && "VPVALCG: OpenCL read/write channels not uplifted to be "
                    "call independent.");
     Value *Alloca = getOpenCLReadWriteChannelAlloc(Call);
-    std::string VLStr = APInt(32, VL).toString(10, false);
+    std::string VLStr = toString(APInt(32, VL), 10, false);
     std::string TyStr =
         typeToString(Alloca->getType()->getPointerElementType());
     std::string VFnName = FnName.str() + "_v" + VLStr + TyStr;

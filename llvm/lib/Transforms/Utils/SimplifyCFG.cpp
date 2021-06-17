@@ -2771,6 +2771,12 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
       continue;
     }
 
+    // Don't try to fold an unreachable block. For example, the phi node itself
+    // can't be the candidate if-condition for a select that we want to form.
+    if (auto *IfCondPhiInst = dyn_cast<PHINode>(IfCond))
+      if (IfCondPhiInst->getParent() == BB)
+        continue;
+
     // Loop over the PHI's seeing if we can promote them all to select
     // instructions.  While we are at it, keep track of the instructions
     // that need to be moved to the conditional block.

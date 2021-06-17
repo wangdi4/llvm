@@ -1359,7 +1359,7 @@ define i1 @allones_v64i8_and1(<64 x i8> %arg) {
 ;
 ; SKX-LABEL: allones_v64i8_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmb {{.*}}(%rip), %zmm0, %k0
+; SKX-NEXT:    vptestmb {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %k0
 ; SKX-NEXT:    kortestq %k0, %k0
 ; SKX-NEXT:    setb %al
 ; SKX-NEXT:    vzeroupper
@@ -1424,7 +1424,7 @@ define i1 @allzeros_v64i8_and1(<64 x i8> %arg) {
 ;
 ; SKX-LABEL: allzeros_v64i8_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmb {{.*}}(%rip), %zmm0, %k0
+; SKX-NEXT:    vptestmb {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %k0
 ; SKX-NEXT:    kortestq %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    vzeroupper
@@ -1469,7 +1469,7 @@ define i1 @allones_v8i16_and1(<8 x i16> %arg) {
 ;
 ; SKX-LABEL: allones_v8i16_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmw {{.*}}(%rip), %xmm0, %k0
+; SKX-NEXT:    vptestmw {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    setb %al
 ; SKX-NEXT:    retq
@@ -1511,7 +1511,7 @@ define i1 @allzeros_v8i16_and1(<8 x i16> %arg) {
 ;
 ; SKX-LABEL: allzeros_v8i16_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmw {{.*}}(%rip), %xmm0, %k0
+; SKX-NEXT:    vptestmw {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    retq
@@ -1569,7 +1569,7 @@ define i1 @allones_v16i16_and1(<16 x i16> %arg) {
 ;
 ; SKX-LABEL: allones_v16i16_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmw {{.*}}(%rip), %ymm0, %k0
+; SKX-NEXT:    vptestmw {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %k0
 ; SKX-NEXT:    kortestw %k0, %k0
 ; SKX-NEXT:    setb %al
 ; SKX-NEXT:    vzeroupper
@@ -1645,7 +1645,7 @@ define i1 @allones_v32i16_and1(<32 x i16> %arg) {
 ;
 ; SKX-LABEL: allones_v32i16_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmw {{.*}}(%rip), %zmm0, %k0
+; SKX-NEXT:    vptestmw {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %k0
 ; SKX-NEXT:    kortestd %k0, %k0
 ; SKX-NEXT:    setb %al
 ; SKX-NEXT:    vzeroupper
@@ -1717,7 +1717,7 @@ define i1 @allzeros_v32i16_and1(<32 x i16> %arg) {
 ;
 ; SKX-LABEL: allzeros_v32i16_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmw {{.*}}(%rip), %zmm0, %k0
+; SKX-NEXT:    vptestmw {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %k0
 ; SKX-NEXT:    kortestd %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    vzeroupper
@@ -1774,7 +1774,7 @@ define i1 @allzeros_v16i16_and1(<16 x i16> %arg) {
 ;
 ; SKX-LABEL: allzeros_v16i16_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmw {{.*}}(%rip), %ymm0, %k0
+; SKX-NEXT:    vptestmw {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %k0
 ; SKX-NEXT:    kortestw %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    vzeroupper
@@ -1806,7 +1806,7 @@ define i1 @allones_v4i32_and1(<4 x i32> %arg) {
 ; KNL-LABEL: allones_v4i32_and1:
 ; KNL:       # %bb.0:
 ; KNL-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
-; KNL-NEXT:    vptestnmd {{.*}}(%rip){1to16}, %zmm0, %k0
+; KNL-NEXT:    vptestnmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    testb $15, %al
 ; KNL-NEXT:    sete %al
@@ -1815,7 +1815,7 @@ define i1 @allones_v4i32_and1(<4 x i32> %arg) {
 ;
 ; SKX-LABEL: allones_v4i32_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmd {{.*}}(%rip){1to4}, %xmm0, %k0
+; SKX-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %k0
 ; SKX-NEXT:    kmovd %k0, %eax
 ; SKX-NEXT:    cmpb $15, %al
 ; SKX-NEXT:    sete %al
@@ -1847,7 +1847,7 @@ define i1 @allzeros_v4i32_and1(<4 x i32> %arg) {
 ; KNL-LABEL: allzeros_v4i32_and1:
 ; KNL:       # %bb.0:
 ; KNL-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
-; KNL-NEXT:    vptestmd {{.*}}(%rip){1to16}, %zmm0, %k0
+; KNL-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    testb $15, %al
 ; KNL-NEXT:    sete %al
@@ -1856,7 +1856,7 @@ define i1 @allzeros_v4i32_and1(<4 x i32> %arg) {
 ;
 ; SKX-LABEL: allzeros_v4i32_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmd {{.*}}(%rip){1to4}, %xmm0, %k0
+; SKX-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    retq
@@ -1903,7 +1903,7 @@ define i1 @allones_v8i32_and1(<8 x i32> %arg) {
 ; KNL-LABEL: allones_v8i32_and1:
 ; KNL:       # %bb.0:
 ; KNL-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
-; KNL-NEXT:    vptestmd {{.*}}(%rip){1to16}, %zmm0, %k0
+; KNL-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    cmpb $-1, %al
 ; KNL-NEXT:    sete %al
@@ -1912,7 +1912,7 @@ define i1 @allones_v8i32_and1(<8 x i32> %arg) {
 ;
 ; SKX-LABEL: allones_v8i32_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmd {{.*}}(%rip){1to8}, %ymm0, %k0
+; SKX-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    setb %al
 ; SKX-NEXT:    vzeroupper
@@ -1959,7 +1959,7 @@ define i1 @allzeros_v8i32_and1(<8 x i32> %arg) {
 ; KNL-LABEL: allzeros_v8i32_and1:
 ; KNL:       # %bb.0:
 ; KNL-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
-; KNL-NEXT:    vptestmd {{.*}}(%rip){1to16}, %zmm0, %k0
+; KNL-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    testb %al, %al
 ; KNL-NEXT:    sete %al
@@ -1968,7 +1968,7 @@ define i1 @allzeros_v8i32_and1(<8 x i32> %arg) {
 ;
 ; SKX-LABEL: allzeros_v8i32_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmd {{.*}}(%rip){1to8}, %ymm0, %k0
+; SKX-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    vzeroupper
@@ -2029,7 +2029,7 @@ define i1 @allones_v16i32_and1(<16 x i32> %arg) {
 ;
 ; AVX512-LABEL: allones_v16i32_and1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptestmd {{.*}}(%rip){1to16}, %zmm0, %k0
+; AVX512-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; AVX512-NEXT:    kortestw %k0, %k0
 ; AVX512-NEXT:    setb %al
 ; AVX512-NEXT:    vzeroupper
@@ -2088,7 +2088,7 @@ define i1 @allzeros_v16i32_and1(<16 x i32> %arg) {
 ;
 ; AVX512-LABEL: allzeros_v16i32_and1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptestmd {{.*}}(%rip){1to16}, %zmm0, %k0
+; AVX512-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; AVX512-NEXT:    kortestw %k0, %k0
 ; AVX512-NEXT:    sete %al
 ; AVX512-NEXT:    vzeroupper
@@ -2130,7 +2130,7 @@ define i1 @allones_v2i64_and1(<2 x i64> %arg) {
 ;
 ; SKX-LABEL: allones_v2i64_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmq {{.*}}(%rip), %xmm0, %k0
+; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %k0
 ; SKX-NEXT:    kmovd %k0, %eax
 ; SKX-NEXT:    cmpb $3, %al
 ; SKX-NEXT:    sete %al
@@ -2172,7 +2172,7 @@ define i1 @allzeros_v2i64_and1(<2 x i64> %arg) {
 ;
 ; SKX-LABEL: allzeros_v2i64_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmq {{.*}}(%rip), %xmm0, %k0
+; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    retq
@@ -2218,7 +2218,7 @@ define i1 @allones_v4i64_and1(<4 x i64> %arg) {
 ; KNL-LABEL: allones_v4i64_and1:
 ; KNL:       # %bb.0:
 ; KNL-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
-; KNL-NEXT:    vptestnmq {{.*}}(%rip){1to8}, %zmm0, %k0
+; KNL-NEXT:    vptestnmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    testb $15, %al
 ; KNL-NEXT:    sete %al
@@ -2227,7 +2227,7 @@ define i1 @allones_v4i64_and1(<4 x i64> %arg) {
 ;
 ; SKX-LABEL: allones_v4i64_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmq {{.*}}(%rip){1to4}, %ymm0, %k0
+; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %ymm0, %k0
 ; SKX-NEXT:    kmovd %k0, %eax
 ; SKX-NEXT:    cmpb $15, %al
 ; SKX-NEXT:    sete %al
@@ -2275,7 +2275,7 @@ define i1 @allzeros_v4i64_and1(<4 x i64> %arg) {
 ; KNL-LABEL: allzeros_v4i64_and1:
 ; KNL:       # %bb.0:
 ; KNL-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
-; KNL-NEXT:    vptestmq {{.*}}(%rip){1to8}, %zmm0, %k0
+; KNL-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    testb $15, %al
 ; KNL-NEXT:    sete %al
@@ -2284,7 +2284,7 @@ define i1 @allzeros_v4i64_and1(<4 x i64> %arg) {
 ;
 ; SKX-LABEL: allzeros_v4i64_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmq {{.*}}(%rip){1to4}, %ymm0, %k0
+; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %ymm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    vzeroupper
@@ -2345,7 +2345,7 @@ define i1 @allones_v8i64_and1(<8 x i64> %arg) {
 ;
 ; KNL-LABEL: allones_v8i64_and1:
 ; KNL:       # %bb.0:
-; KNL-NEXT:    vptestmq {{.*}}(%rip){1to8}, %zmm0, %k0
+; KNL-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    cmpb $-1, %al
 ; KNL-NEXT:    sete %al
@@ -2354,7 +2354,7 @@ define i1 @allones_v8i64_and1(<8 x i64> %arg) {
 ;
 ; SKX-LABEL: allones_v8i64_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmq {{.*}}(%rip){1to8}, %zmm0, %k0
+; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    setb %al
 ; SKX-NEXT:    vzeroupper
@@ -2414,7 +2414,7 @@ define i1 @allzeros_v8i64_and1(<8 x i64> %arg) {
 ;
 ; KNL-LABEL: allzeros_v8i64_and1:
 ; KNL:       # %bb.0:
-; KNL-NEXT:    vptestmq {{.*}}(%rip){1to8}, %zmm0, %k0
+; KNL-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    testb %al, %al
 ; KNL-NEXT:    sete %al
@@ -2423,7 +2423,7 @@ define i1 @allzeros_v8i64_and1(<8 x i64> %arg) {
 ;
 ; SKX-LABEL: allzeros_v8i64_and1:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmq {{.*}}(%rip){1to8}, %zmm0, %k0
+; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    vzeroupper
@@ -2647,7 +2647,7 @@ define i1 @allones_v64i8_and4(<64 x i8> %arg) {
 ;
 ; SKX-LABEL: allones_v64i8_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmb {{.*}}(%rip), %zmm0, %k0
+; SKX-NEXT:    vptestmb {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %k0
 ; SKX-NEXT:    kortestq %k0, %k0
 ; SKX-NEXT:    setb %al
 ; SKX-NEXT:    vzeroupper
@@ -2712,7 +2712,7 @@ define i1 @allzeros_v64i8_and4(<64 x i8> %arg) {
 ;
 ; SKX-LABEL: allzeros_v64i8_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmb {{.*}}(%rip), %zmm0, %k0
+; SKX-NEXT:    vptestmb {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %k0
 ; SKX-NEXT:    kortestq %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    vzeroupper
@@ -2757,7 +2757,7 @@ define i1 @allones_v8i16_and4(<8 x i16> %arg) {
 ;
 ; SKX-LABEL: allones_v8i16_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmw {{.*}}(%rip), %xmm0, %k0
+; SKX-NEXT:    vptestmw {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    setb %al
 ; SKX-NEXT:    retq
@@ -2799,7 +2799,7 @@ define i1 @allzeros_v8i16_and4(<8 x i16> %arg) {
 ;
 ; SKX-LABEL: allzeros_v8i16_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmw {{.*}}(%rip), %xmm0, %k0
+; SKX-NEXT:    vptestmw {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    retq
@@ -2857,7 +2857,7 @@ define i1 @allones_v16i16_and4(<16 x i16> %arg) {
 ;
 ; SKX-LABEL: allones_v16i16_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmw {{.*}}(%rip), %ymm0, %k0
+; SKX-NEXT:    vptestmw {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %k0
 ; SKX-NEXT:    kortestw %k0, %k0
 ; SKX-NEXT:    setb %al
 ; SKX-NEXT:    vzeroupper
@@ -2933,7 +2933,7 @@ define i1 @allones_v32i16_and4(<32 x i16> %arg) {
 ;
 ; SKX-LABEL: allones_v32i16_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmw {{.*}}(%rip), %zmm0, %k0
+; SKX-NEXT:    vptestmw {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %k0
 ; SKX-NEXT:    kortestd %k0, %k0
 ; SKX-NEXT:    setb %al
 ; SKX-NEXT:    vzeroupper
@@ -3005,7 +3005,7 @@ define i1 @allzeros_v32i16_and4(<32 x i16> %arg) {
 ;
 ; SKX-LABEL: allzeros_v32i16_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmw {{.*}}(%rip), %zmm0, %k0
+; SKX-NEXT:    vptestmw {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %zmm0, %k0
 ; SKX-NEXT:    kortestd %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    vzeroupper
@@ -3062,7 +3062,7 @@ define i1 @allzeros_v16i16_and4(<16 x i16> %arg) {
 ;
 ; SKX-LABEL: allzeros_v16i16_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmw {{.*}}(%rip), %ymm0, %k0
+; SKX-NEXT:    vptestmw {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %ymm0, %k0
 ; SKX-NEXT:    kortestw %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    vzeroupper
@@ -3094,7 +3094,7 @@ define i1 @allones_v4i32_and4(<4 x i32> %arg) {
 ; KNL-LABEL: allones_v4i32_and4:
 ; KNL:       # %bb.0:
 ; KNL-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
-; KNL-NEXT:    vptestnmd {{.*}}(%rip){1to16}, %zmm0, %k0
+; KNL-NEXT:    vptestnmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    testb $15, %al
 ; KNL-NEXT:    sete %al
@@ -3103,7 +3103,7 @@ define i1 @allones_v4i32_and4(<4 x i32> %arg) {
 ;
 ; SKX-LABEL: allones_v4i32_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmd {{.*}}(%rip){1to4}, %xmm0, %k0
+; SKX-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %k0
 ; SKX-NEXT:    kmovd %k0, %eax
 ; SKX-NEXT:    cmpb $15, %al
 ; SKX-NEXT:    sete %al
@@ -3135,7 +3135,7 @@ define i1 @allzeros_v4i32_and4(<4 x i32> %arg) {
 ; KNL-LABEL: allzeros_v4i32_and4:
 ; KNL:       # %bb.0:
 ; KNL-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
-; KNL-NEXT:    vptestmd {{.*}}(%rip){1to16}, %zmm0, %k0
+; KNL-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    testb $15, %al
 ; KNL-NEXT:    sete %al
@@ -3144,7 +3144,7 @@ define i1 @allzeros_v4i32_and4(<4 x i32> %arg) {
 ;
 ; SKX-LABEL: allzeros_v4i32_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmd {{.*}}(%rip){1to4}, %xmm0, %k0
+; SKX-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %xmm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    retq
@@ -3191,7 +3191,7 @@ define i1 @allones_v8i32_and4(<8 x i32> %arg) {
 ; KNL-LABEL: allones_v8i32_and4:
 ; KNL:       # %bb.0:
 ; KNL-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
-; KNL-NEXT:    vptestmd {{.*}}(%rip){1to16}, %zmm0, %k0
+; KNL-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    cmpb $-1, %al
 ; KNL-NEXT:    sete %al
@@ -3200,7 +3200,7 @@ define i1 @allones_v8i32_and4(<8 x i32> %arg) {
 ;
 ; SKX-LABEL: allones_v8i32_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmd {{.*}}(%rip){1to8}, %ymm0, %k0
+; SKX-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    setb %al
 ; SKX-NEXT:    vzeroupper
@@ -3247,7 +3247,7 @@ define i1 @allzeros_v8i32_and4(<8 x i32> %arg) {
 ; KNL-LABEL: allzeros_v8i32_and4:
 ; KNL:       # %bb.0:
 ; KNL-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
-; KNL-NEXT:    vptestmd {{.*}}(%rip){1to16}, %zmm0, %k0
+; KNL-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    testb %al, %al
 ; KNL-NEXT:    sete %al
@@ -3256,7 +3256,7 @@ define i1 @allzeros_v8i32_and4(<8 x i32> %arg) {
 ;
 ; SKX-LABEL: allzeros_v8i32_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmd {{.*}}(%rip){1to8}, %ymm0, %k0
+; SKX-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    vzeroupper
@@ -3317,7 +3317,7 @@ define i1 @allones_v16i32_and4(<16 x i32> %arg) {
 ;
 ; AVX512-LABEL: allones_v16i32_and4:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptestmd {{.*}}(%rip){1to16}, %zmm0, %k0
+; AVX512-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; AVX512-NEXT:    kortestw %k0, %k0
 ; AVX512-NEXT:    setb %al
 ; AVX512-NEXT:    vzeroupper
@@ -3376,7 +3376,7 @@ define i1 @allzeros_v16i32_and4(<16 x i32> %arg) {
 ;
 ; AVX512-LABEL: allzeros_v16i32_and4:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vptestmd {{.*}}(%rip){1to16}, %zmm0, %k0
+; AVX512-NEXT:    vptestmd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %k0
 ; AVX512-NEXT:    kortestw %k0, %k0
 ; AVX512-NEXT:    sete %al
 ; AVX512-NEXT:    vzeroupper
@@ -3418,7 +3418,7 @@ define i1 @allones_v2i64_and4(<2 x i64> %arg) {
 ;
 ; SKX-LABEL: allones_v2i64_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmq {{.*}}(%rip), %xmm0, %k0
+; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %k0
 ; SKX-NEXT:    kmovd %k0, %eax
 ; SKX-NEXT:    cmpb $3, %al
 ; SKX-NEXT:    sete %al
@@ -3460,7 +3460,7 @@ define i1 @allzeros_v2i64_and4(<2 x i64> %arg) {
 ;
 ; SKX-LABEL: allzeros_v2i64_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmq {{.*}}(%rip), %xmm0, %k0
+; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    retq
@@ -3506,7 +3506,7 @@ define i1 @allones_v4i64_and4(<4 x i64> %arg) {
 ; KNL-LABEL: allones_v4i64_and4:
 ; KNL:       # %bb.0:
 ; KNL-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
-; KNL-NEXT:    vptestnmq {{.*}}(%rip){1to8}, %zmm0, %k0
+; KNL-NEXT:    vptestnmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    testb $15, %al
 ; KNL-NEXT:    sete %al
@@ -3515,7 +3515,7 @@ define i1 @allones_v4i64_and4(<4 x i64> %arg) {
 ;
 ; SKX-LABEL: allones_v4i64_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmq {{.*}}(%rip){1to4}, %ymm0, %k0
+; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %ymm0, %k0
 ; SKX-NEXT:    kmovd %k0, %eax
 ; SKX-NEXT:    cmpb $15, %al
 ; SKX-NEXT:    sete %al
@@ -3563,7 +3563,7 @@ define i1 @allzeros_v4i64_and4(<4 x i64> %arg) {
 ; KNL-LABEL: allzeros_v4i64_and4:
 ; KNL:       # %bb.0:
 ; KNL-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
-; KNL-NEXT:    vptestmq {{.*}}(%rip){1to8}, %zmm0, %k0
+; KNL-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    testb $15, %al
 ; KNL-NEXT:    sete %al
@@ -3572,7 +3572,7 @@ define i1 @allzeros_v4i64_and4(<4 x i64> %arg) {
 ;
 ; SKX-LABEL: allzeros_v4i64_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmq {{.*}}(%rip){1to4}, %ymm0, %k0
+; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to4}, %ymm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    vzeroupper
@@ -3633,7 +3633,7 @@ define i1 @allones_v8i64_and4(<8 x i64> %arg) {
 ;
 ; KNL-LABEL: allones_v8i64_and4:
 ; KNL:       # %bb.0:
-; KNL-NEXT:    vptestmq {{.*}}(%rip){1to8}, %zmm0, %k0
+; KNL-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    cmpb $-1, %al
 ; KNL-NEXT:    sete %al
@@ -3642,7 +3642,7 @@ define i1 @allones_v8i64_and4(<8 x i64> %arg) {
 ;
 ; SKX-LABEL: allones_v8i64_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmq {{.*}}(%rip){1to8}, %zmm0, %k0
+; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    setb %al
 ; SKX-NEXT:    vzeroupper
@@ -3702,7 +3702,7 @@ define i1 @allzeros_v8i64_and4(<8 x i64> %arg) {
 ;
 ; KNL-LABEL: allzeros_v8i64_and4:
 ; KNL:       # %bb.0:
-; KNL-NEXT:    vptestmq {{.*}}(%rip){1to8}, %zmm0, %k0
+; KNL-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
 ; KNL-NEXT:    testb %al, %al
 ; KNL-NEXT:    sete %al
@@ -3711,7 +3711,7 @@ define i1 @allzeros_v8i64_and4(<8 x i64> %arg) {
 ;
 ; SKX-LABEL: allzeros_v8i64_and4:
 ; SKX:       # %bb.0:
-; SKX-NEXT:    vptestmq {{.*}}(%rip){1to8}, %zmm0, %k0
+; SKX-NEXT:    vptestmq {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %zmm0, %k0
 ; SKX-NEXT:    kortestb %k0, %k0
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    vzeroupper

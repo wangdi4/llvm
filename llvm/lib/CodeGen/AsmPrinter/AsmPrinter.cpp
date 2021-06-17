@@ -1356,7 +1356,7 @@ static void emitNotifyAnnotation(AsmPrinter *Asm,
   // TBD, The dwarf size of register which corresponding to expr is always 1?
   Entry->ExprDwarfReg = (Entry->ExprDwarfReg << 8) + 0x01;
 
-  std::string RegNumStr = APInt(32, DwarfReg).toString(10, false);
+  std::string RegNumStr = toString(APInt(32, DwarfReg), 10, false);
   std::string SS = Inst + "(" + AnnoStr + ", " + DwarfRegStr + RegNumStr + ")";
   Asm->OutStreamer->emitRawComment(SS);
 
@@ -2487,6 +2487,11 @@ void AsmPrinter::emitXXStructorList(const DataLayout &DL, const Constant *List,
   preprocessXXStructorList(DL, List, Structors);
   if (Structors.empty())
     return;
+
+  // Emit the structors in reverse order if we are using the .ctor/.dtor
+  // initialization scheme.
+  if (!TM.Options.UseInitArray)
+    std::reverse(Structors.begin(), Structors.end());
 
   const Align Align = DL.getPointerPrefAlignment();
   for (Structor &S : Structors) {

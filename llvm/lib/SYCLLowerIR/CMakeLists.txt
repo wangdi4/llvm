@@ -19,17 +19,28 @@ if (NOT TARGET LLVMGenXIntrinsics)
 
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
 
-    set(LLVMGenXIntrinsics_GIT_TAG b831d10e49e1fb8fcd92b5b50e2cdc8f9cb6277b)
+    # FIXME: temporarily use a fork of intel/vc-intrinsics.git with getAnyName function
+    # disabled as it is not compatible with https://reviews.llvm.org/D99173.
+    if( INTEL_CUSTOMIZATION )
+        # ef6c92cd is 8b31d10 with workaroudn for D99173, hosted on intel-innersource.
+        set(LLVMGenXIntrinsics_GIT_TAG ef6c92cd3511e4eee638ce6ad0b957e5891ee764)
+    else(INTEL_CUSTOMIZATION)
+        set(LLVMGenXIntrinsics_GIT_TAG c3ecb918fc00913b0dc9b1bef1912df0361b74b0)
+    endif(INTEL_CUSTOMIZATION)
 
     if( INTEL_CUSTOMIZATION )
       set( LLVMGenXIntrinsics_GIT_REPO_PATH ssh://git-amr-2.devtools.intel.com:29418 )
-      set( LLVMGenXIntrinsics_GIT_REPO_NAME dpd_icl-vc-intrinsics.git )
+      #set( LLVMGenXIntrinsics_GIT_REPO_NAME dpd_icl-vc-intrinsics.git )
+      # Temporarily use intel-innersource repo even for open-source
+      # vc-intrinsics, to be able to use the workaround for D99173.
+      set( LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git )
 
 # INTEL_FEATURE_ESIMD_EMBARGO
       if( IS_INTERNAL_ESIMD_BUILD )
         # use different git repo and tag for the internal ESIMD EMBARGO build
         set( LLVMGenXIntrinsics_GIT_REPO_NAME drivers.gpu.compute.vc-intrinsics.git )
-        set( LLVMGenXIntrinsics_GIT_TAG b0cf256acb08d8c59cd0d49f12173540c63084bc )
+        # f3164c49735fa3 is b0cf256acb08d8 with workaround for D99173.
+        set( LLVMGenXIntrinsics_GIT_TAG f3164c49735fa322d4b2062fe144767e98b27ecf )
       endif()
 # end INTEL_FEATURE_ESIMD_EMBARGO
 
@@ -46,7 +57,7 @@ if (NOT TARGET LLVMGenXIntrinsics)
         ${LLVMGenXIntrinsics_GIT_REPO_PATH}/${LLVMGenXIntrinsics_GIT_REPO_NAME} )
     else(INTEL_CUSTOMIZATION)
       set( LLVMGenXIntrinsics_GIT_REPO
-         https://github.com/intel/vc-intrinsics.git )
+         https://github.com/abhinavgaba/vc-intrinsics.git )
     endif(INTEL_CUSTOMIZATION)
 
     message(STATUS "vc-intrinsics are missing. Will try to download them from ${LLVMGenXIntrinsics_GIT_REPO} ") #INTEL_CUSTOMIZATION

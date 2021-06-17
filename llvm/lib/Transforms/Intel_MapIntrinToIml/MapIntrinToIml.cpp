@@ -765,7 +765,7 @@ StringRef MapIntrinToImlImpl::findX86SVMLVariantForScalarFunction(
   // the lookup is based on the legal target vector length. This is important
   // to remember since the input function (FuncName) could be a logical vector
   // that is larger.
-  std::string TargetVLStr = APInt(32, TargetVL).toString(10, false);
+  std::string TargetVLStr = toString(APInt(32, TargetVL), 10, false);
   std::string TempFuncName = "__svml_" + ScalarFuncName.str() + TargetVLStr;
   if (Masked)
     TempFuncName += "_mask";
@@ -807,7 +807,7 @@ StringRef MapIntrinToImlImpl::getSVMLFunctionProperties(StringRef FuncName,
     ScalarFuncName = ScalarFuncName.rtrim("_mask");
   }
 
-  std::string ReturnVLStr = APInt(32, ReturnVL).toString(10, false);
+  std::string ReturnVLStr = toString(APInt(32, ReturnVL), 10, false);
   LogicalVL = ReturnVL;
   StringRef LogicalVLStr = ReturnVLStr;
 

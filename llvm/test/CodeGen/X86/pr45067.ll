@@ -7,7 +7,7 @@ define void @foo(<8 x i32>* %x, <8 x i1> %y) {
 ; CHECK-LABEL: foo:
 ; CHECK:       ## %bb.0:
 ; CHECK-NEXT:    vpcmpeqd %ymm1, %ymm1, %ymm1
-; CHECK-NEXT:    movq _global@{{.*}}(%rip), %rax
+; CHECK-NEXT:    movq _global@GOTPCREL(%rip), %rax
 ; CHECK-NEXT:    vpxor %xmm2, %xmm2, %xmm2
 ; CHECK-NEXT:    vpxor   %xmm3, %xmm3, %xmm3                ;INTEL
 ; CHECK-NEXT:    vpgatherdd %ymm1, (%rax,%ymm2), %ymm3

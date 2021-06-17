@@ -392,7 +392,7 @@ define internal i32 @x264_pixel_satd_16x16(i8* nocapture readonly %pix1, i32 %i_
 ; CHECK-NEXT:    [[TMP40:%.*]] = extractelement <2 x i32> [[TMP6]], i32 0
 ; CHECK-NEXT:    [[TMP41:%.*]] = insertelement <16 x i32> [[TMP39]], i32 [[TMP40]], i32 8
 ; CHECK-NEXT:    [[TMP42:%.*]] = insertelement <16 x i32> [[TMP41]], i32 [[BRIDGE_T797_2968]], i32 9
-; CHECK-NEXT:    [[TMP43:%.*]] = shufflevector <2 x i32> [[TMP6]], <2 x i32> undef, <16 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP43:%.*]] = shufflevector <2 x i32> [[TMP6]], <2 x i32> poison, <16 x i32> <i32 0, i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP44:%.*]] = shufflevector <16 x i32> [[TMP42]], <16 x i32> [[TMP43]], <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 16, i32 17, i32 12, i32 13, i32 14, i32 15>
 ; CHECK-NEXT:    [[TMP45:%.*]] = insertelement <16 x i32> [[TMP44]], i32 [[BRIDGE_T775_2757]], i32 12
 ; CHECK-NEXT:    [[TMP46:%.*]] = insertelement <16 x i32> [[TMP45]], i32 [[BRIDGE_T770_]], i32 13

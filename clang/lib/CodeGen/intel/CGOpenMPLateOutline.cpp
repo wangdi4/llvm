@@ -1994,6 +1994,8 @@ void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *) {}
 void OpenMPLateOutliner::emitOMPSizesClause(const OMPSizesClause *) {}
 void OpenMPLateOutliner::emitOMPFilterClause(const OMPFilterClause *C) {}
 void OpenMPLateOutliner::emitOMPAlignClause(const OMPAlignClause *Cl) {}
+void OpenMPLateOutliner::emitOMPFullClause(const OMPFullClause *Cl) {}
+void OpenMPLateOutliner::emitOMPPartialClause(const OMPPartialClause *Cl) {}
 
 static unsigned getForeignRuntimeID(StringRef Str) {
   return llvm::StringSwitch<unsigned>(Str)
@@ -3072,6 +3074,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_depobj:
   case OMPD_scan:
   case OMPD_tile:
+  case OMPD_unroll:
     break;
 
   // These directives do not create region directives.
