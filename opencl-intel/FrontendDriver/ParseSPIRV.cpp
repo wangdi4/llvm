@@ -203,6 +203,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::internal::CapabilityMemoryAccessAliasingINTEL:
       // SPV_INTEL_token_type
     case spv::internal::CapabilityTokenTypeINTEL:
+    case spv::internal::CapabilityDebugInfoModuleINTEL:
       break;
     case spv::CapabilityInt64Atomics:
     case spv::CapabilityAtomicFloat64AddEXT:
