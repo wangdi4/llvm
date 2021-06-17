@@ -474,6 +474,9 @@ static BasicBlock *moveFunctionData(Function &Old, Function &New) {
 
     for (Instruction *I : DebugInsts)
       I->eraseFromParent();
+#if INTEL_CUSTOMIZATION
+    DebugInsts.clear();
+#endif // INTEL_CUSTOMIZATION
   }
 
   assert(NewEnd && "No return instruction for new function?");
