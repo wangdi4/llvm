@@ -65,7 +65,7 @@ char PrepareKernelArgsLegacy::ID = 0;
 
 PrepareKernelArgsLegacy::PrepareKernelArgsLegacy(bool UseTLSGlobals)
     : ModulePass(ID), UseTLSGlobals(UseTLSGlobals) {
-  initializeImplicitArgsAnalysisLegacyPass(*PassRegistry::getPassRegistry());
+  initializePrepareKernelArgsLegacyPass(*PassRegistry::getPassRegistry());
 }
 
 bool PrepareKernelArgsLegacy::runOnModule(Module &M) {

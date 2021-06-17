@@ -23,7 +23,9 @@ INITIALIZE_PASS(SplitBBonBarrierLegacy, "dpcpp-kernel-split-on-barrier",
 
 char SplitBBonBarrierLegacy::ID = 0;
 
-SplitBBonBarrierLegacy::SplitBBonBarrierLegacy() : ModulePass(ID) {}
+SplitBBonBarrierLegacy::SplitBBonBarrierLegacy() : ModulePass(ID) {
+  initializeSplitBBonBarrierLegacyPass(*PassRegistry::getPassRegistry());
+}
 
 bool SplitBBonBarrierLegacy::runOnModule(Module &M) { return Impl.runImpl(M); }
 

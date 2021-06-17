@@ -23,7 +23,9 @@ class CleanupWrappedKernelLegacy : public ModulePass {
 public:
   static char ID;
 
-  CleanupWrappedKernelLegacy() : ModulePass(ID) {}
+  CleanupWrappedKernelLegacy() : ModulePass(ID) {
+    initializeCleanupWrappedKernelLegacyPass(*PassRegistry::getPassRegistry());
+  }
 
   StringRef getPassName() const override {
     return "CleanupWrappedKernelLegacy";

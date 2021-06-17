@@ -34,7 +34,9 @@ INITIALIZE_PASS(DPCPPKernelPostVec, SV_NAME, lv_name, false /* modifies CFG */,
                 false /* transform pass */)
 
 namespace llvm {
-DPCPPKernelPostVec::DPCPPKernelPostVec() : ModulePass(ID) {}
+DPCPPKernelPostVec::DPCPPKernelPostVec() : ModulePass(ID) {
+  initializeDPCPPKernelPostVecPass(*PassRegistry::getPassRegistry());
+}
 
 // Checks if the kernel has directives. If not, then the kernel was vectorized.
 bool DPCPPKernelPostVec::isKernelVectorized(Function *Clone) {

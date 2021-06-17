@@ -64,8 +64,7 @@ INITIALIZE_PASS_END(AddImplicitArgsLegacy, DEBUG_TYPE,
 char AddImplicitArgsLegacy::ID = 0;
 
 AddImplicitArgsLegacy::AddImplicitArgsLegacy() : ModulePass(ID) {
-  initializeLocalBufferAnalysisLegacyPass(*PassRegistry::getPassRegistry());
-  initializeImplicitArgsAnalysisLegacyPass(*PassRegistry::getPassRegistry());
+  initializeAddImplicitArgsLegacyPass(*PassRegistry::getPassRegistry());
 }
 
 ModulePass *llvm::createAddImplicitArgsLegacyPass() {

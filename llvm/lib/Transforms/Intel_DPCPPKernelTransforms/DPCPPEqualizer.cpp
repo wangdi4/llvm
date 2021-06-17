@@ -91,7 +91,9 @@ class DPCPPEqualizerLegacy : public ModulePass {
 public:
   static char ID;
 
-  DPCPPEqualizerLegacy() : ModulePass(ID) {}
+  DPCPPEqualizerLegacy() : ModulePass(ID) {
+    initializeDPCPPEqualizerLegacyPass(*PassRegistry::getPassRegistry());
+  }
 
   ~DPCPPEqualizerLegacy() {}
 

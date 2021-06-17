@@ -31,7 +31,9 @@ public:
   /// Pass identifier.
   static char ID;
 
-  DPCPPKernelAnalysisLegacy() : ModulePass(ID) {}
+  DPCPPKernelAnalysisLegacy() : ModulePass(ID) {
+    initializeDPCPPKernelAnalysisLegacyPass(*PassRegistry::getPassRegistry());
+  }
 
   StringRef getPassName() const override { return "DPCPPKernelAnalysisLegacy"; }
 

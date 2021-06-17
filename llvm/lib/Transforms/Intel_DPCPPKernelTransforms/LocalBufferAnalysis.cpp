@@ -163,7 +163,9 @@ INITIALIZE_PASS_END(LocalBufferAnalysisLegacy, DEBUG_TYPE,
 
 char LocalBufferAnalysisLegacy::ID = 0;
 
-LocalBufferAnalysisLegacy::LocalBufferAnalysisLegacy() : ModulePass(ID) {}
+LocalBufferAnalysisLegacy::LocalBufferAnalysisLegacy() : ModulePass(ID) {
+  initializeLocalBufferAnalysisLegacyPass(*PassRegistry::getPassRegistry());
+}
 
 bool LocalBufferAnalysisLegacy::runOnModule(Module &M) {
   CallGraph *CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
