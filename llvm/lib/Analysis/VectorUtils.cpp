@@ -918,6 +918,9 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
     assert(!RetTy->isVoidTy() && "Expected non-void function");
     SmallVector<Type *, 1> TysForDecl;
     TysForDecl.push_back(VecRetTy);
+    for (auto &I : enumerate(ArgTys))
+      if (hasVectorInstrinsicOverloadedScalarOpd(ID, I.index()))
+        TysForDecl.push_back(I.value());
     return Intrinsic::getDeclaration(M, ID, TysForDecl);
   }
 

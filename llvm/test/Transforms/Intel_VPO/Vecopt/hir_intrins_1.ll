@@ -11,12 +11,12 @@
 ; CHECK: @llvm.cttz.v4i64(%.vec,  {{-1|true}})
 
 ; CHECK-LABEL: powi_f64
-; CHECK: @llvm.powi.v4f64(%.vec,  %P)
+; CHECK: @llvm.powi.v4f64.i32(%.vec,  %P)
 
 ; Check that loop is not vectorized, when intrinsic with always scalar operand is loop variant.
 ; CHECK-LABEL: powi_f64_variant
 ; CHECK: DO i1 = 0, sext.i32.i64((-1 + %n)), 1   <DO_LOOP>
-; CHECK: %call = @llvm.powi.f64(%0,  i1)
+; CHECK: %call = @llvm.powi.f64.i32(%0,  i1)
 
 declare i64  @llvm.ctlz.i64 (i64, i1) nounwind readnone
 
@@ -76,7 +76,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
   ret void
 }
 
-declare double @llvm.powi.f64(double %Val, i32 %power) nounwind readnone
+declare double @llvm.powi.f64.i32(double %Val, i32 %power) nounwind readnone
 
 define void @powi_f64(i32 %n, double* noalias nocapture readonly %y, double* noalias nocapture %x, i32 %P) local_unnamed_addr #2 {
 entry:
@@ -90,7 +90,7 @@ for.body:                                         ; preds = %for.body.preheader,
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %for.body.preheader ]
   %arrayidx = getelementptr inbounds double, double* %y, i64 %indvars.iv
   %0 = load double, double* %arrayidx, align 8
-  %call = tail call double @llvm.powi.f64(double %0, i32 %P) #4
+  %call = tail call double @llvm.powi.f64.i32(double %0, i32 %P) #4
   %arrayidx4 = getelementptr inbounds double, double* %x, i64 %indvars.iv
   store double %call, double* %arrayidx4, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
@@ -119,7 +119,7 @@ for.body:                                         ; preds = %for.body.preheader,
   %arrayidx = getelementptr inbounds double, double* %y, i64 %indvars.iv
   %0 = load double, double* %arrayidx, align 8
   %exponent = trunc i64 %indvars.iv to i32
-  %call = tail call double @llvm.powi.f64(double %0, i32 %exponent) #4
+  %call = tail call double @llvm.powi.f64.i32(double %0, i32 %exponent) #4
   %arrayidx4 = getelementptr inbounds double, double* %x, i64 %indvars.iv
   store double %call, double* %arrayidx4, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
