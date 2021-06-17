@@ -805,9 +805,8 @@ private:
 
   VPInstruction *getInductionLoopExitInstr(const VPInduction *Induction) const;
 
-  /// Return induction descriptor that corresponds to the loop IV and
-  /// signedness of induction.
-  std::pair<const VPInduction *, bool> getLoopInduction() const;
+  /// Return induction descriptor that corresponds to the main loop IV.
+  const VPInduction *getLoopInduction() const;
 
   /// Return true if live out value of the induction \p Ind is calculated on the
   /// penultimate iteration of the loop.
