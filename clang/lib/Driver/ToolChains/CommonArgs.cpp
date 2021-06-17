@@ -1036,6 +1036,9 @@ static bool addSanitizerDynamicList(const ToolChain &TC, const ArgList &Args,
 }
 
 static const char *getAsNeededOption(const ToolChain &TC, bool as_needed) {
+  assert(!TC.getTriple().isOSAIX() &&
+         "AIX linker does not support any form of --as-needed option yet.");
+
   // While the Solaris 11.2 ld added --as-needed/--no-as-needed as aliases
   // for the native forms -z ignore/-z record, they are missing in Illumos,
   // so always use the native form.
@@ -1721,11 +1724,11 @@ static void AddUnwindLibrary(const ToolChain &TC, const Driver &D,
 
   LibGccType LGT = getLibGccType(TC, D, Args);
   bool AsNeeded = LGT == LibGccType::UnspecifiedLibGcc &&
-#if INTEL_CUSTOMIZATION
                   !TC.getTriple().isAndroid() &&
-                  !TC.getTriple().isOSCygMing() &&
-                  !Args.hasArg(options::OPT_traceback);
+#if INTEL_CUSTOMIZATION
+                  !Args.hasArg(options::OPT_traceback) &&
 #endif // INTEL_CUSTOMIZATION
+                  !TC.getTriple().isOSCygMing() && !TC.getTriple().isOSAIX();
   if (AsNeeded)
     CmdArgs.push_back(getAsNeededOption(TC, true));
 
