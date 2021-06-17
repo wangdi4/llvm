@@ -608,7 +608,8 @@ bool HIRLMM::processLegalityAndProfitability(const HLLoop *Lp) {
 
 static bool areDDEdgesLegal(const RegDDRef *MemRef, const DDGraph &DDG,
                             unsigned LoopLevel,
-                            ArrayRef<HLInst *> UnknownAliasingCallInsts) {
+                            ArrayRef<HLInst *> UnknownAliasingCallInsts,
+                            const MemRefGroup &Group) {
   bool IsLoad = MemRef->isRval();
   const RegDDRef *OtherMemRef = nullptr;
 
@@ -655,7 +656,7 @@ static bool areDDEdgesLegal(const RegDDRef *MemRef, const DDGraph &DDG,
       }
     }
 
-    if (!DDRefUtils::areEqual(MemRef, OtherMemRef)) {
+    if (!is_contained(Group, OtherMemRef)) {
       // Test: DV has any < or > before the loop level
       const DirectionVector &DV = Edge->getDV();
       if (!DV.isIndepFromLevel(LoopLevel)) {
@@ -702,13 +703,14 @@ bool HIRLMM::isLegal(const HLLoop *Lp, const MemRefGroup &Group,
     }
 
     if (!areDDEdgesLegal(BasePtrLoadRef, DDG, LoopLevel,
-                         UnknownAliasingCallInsts)) {
+                         UnknownAliasingCallInsts, Group)) {
       return false;
     }
   }
 
   for (const RegDDRef *Ref : Group) {
-    if (!areDDEdgesLegal(Ref, DDG, LoopLevel, UnknownAliasingCallInsts)) {
+    if (!areDDEdgesLegal(Ref, DDG, LoopLevel, UnknownAliasingCallInsts,
+                         Group)) {
       return false;
     }
   }
