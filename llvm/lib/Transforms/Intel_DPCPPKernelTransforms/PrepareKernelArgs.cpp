@@ -346,9 +346,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
     case ImplicitArgsUtils::IA_BARRIER_BUFFER: {
       // We obtain the number of bytes needed per item from the Metadata
       // which is set by the Barrier pass
-      uint64_t SizeInBytes = KernelAttribute::getAttributeAsInt(
-          *WrappedKernel, KernelAttribute::BarrierBufferSize,
-          /*Default*/ 0);
+      uint64_t SizeInBytes =
+          KIMD.BarrierBufferSize.hasValue() ? KIMD.BarrierBufferSize.get() : 0;
       // BarrierBufferSize := BytesNeededPerWI
       //                      * ((LocalSize(0) + VF - 1) / VF) * VF
       //                      * LocalSize(1) * LocalSize(2)
@@ -365,9 +364,8 @@ std::vector<Value *> PrepareKernelArgsPass::createArgumentLoads(
       // Work-Group is vectorized with tail here, in such cases, this action
       // may waste a little memory.
       Value *LocalSizeProd = LocalSize[0];
-      unsigned VF = KernelAttribute::getAttributeAsInt(
-          *WrappedKernel, KernelAttribute::VectorizedWidth,
-          /*Default*/ 1);
+      unsigned VF =
+          KIMD.VectorizedWidth.hasValue() ? KIMD.VectorizedWidth.get() : 1;
       if (VF > 1) {
         Value *VFValue = ConstantInt::get(SizetTy, VF);
         Value *VFMinus1 = ConstantInt::get(SizetTy, VF - 1);
