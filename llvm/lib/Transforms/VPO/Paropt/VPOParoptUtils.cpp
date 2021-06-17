@@ -4104,10 +4104,14 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
     Arg = VPOParoptUtils::genAddrSpaceCast(Arg, BeginInst,
                                            vpo::ADDRESS_SPACE_GENERIC);
 
-  if (IsTargetSPIRV)
+  if (IsTargetSPIRV) {
+    if (VPOParoptUtils::enableDeviceSimdCodeGen())
+      BeginName = "__kmpc_critical_simd";
+
     // TODO: generate "__kmpc_critical_with_hint" with same host signature when
     // runtime provides the support
     BeginCritical = genCall(M, BeginName, RetTy, {Arg});
+  }
   else if (Hint != 0)
     BeginCritical = genKmpcCallWithTid(W, IdentTy, TidPtr, BeginInst,
                                        "__kmpc_critical_with_hint", RetTy,
@@ -4122,8 +4126,11 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
   StringRef EndName = "__kmpc_end_critical";
   CallInst *EndCritical = nullptr;
 
-  if (IsTargetSPIRV)
+  if (IsTargetSPIRV) {
+    if (VPOParoptUtils::enableDeviceSimdCodeGen())
+      EndName = "__kmpc_end_critical_simd";
     EndCritical = genCall(M, EndName, RetTy, { Arg });
+  }
   else
     EndCritical =
         genKmpcCallWithTid(W, IdentTy, TidPtr, EndInst, "__kmpc_end_critical",

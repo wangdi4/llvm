@@ -498,7 +498,8 @@ static CallInst *getCriticalEndCall(CallInst *CallI) {
   auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
 
   if (!CalledF || !CalledF->hasName() ||
-      CalledF->getName() != "__kmpc_critical")
+      CalledF->getName() != "__kmpc_critical" ||
+      CalledF->getName() != "__kmpc_critical_simd")
     return nullptr;
 
   SmallVector<BasicBlock *, 32> WorkStack{CallI->getParent()};
@@ -511,7 +512,8 @@ static CallInst *getCriticalEndCall(CallInst *CallI) {
         auto CalledF = EndCallI->getCalledOperand()->stripPointerCasts();
 
         if (CalledF && CalledF->hasName() &&
-            CalledF->getName() == "__kmpc_end_critical")
+            (CalledF->getName() == "__kmpc_end_critical" ||
+             CalledF->getName() == "__kmpc_critical_simd"))
           return EndCallI;
       }
 
