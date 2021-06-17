@@ -1,10 +1,11 @@
+; RUN: opt < %s -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -S 2>&1 | FileCheck %s
+
 ; This test case checks that the multiversioning doesn't produce multiple
 ; branches that call the function @_ZN8Derived23fooEi even though it is in both
 ; vtables, $_ZTV8Derived2 and $_ZTV9Derived3. The multiversioning should
 ; produce only one branch that compares the pointer with the target function,
 ; even if the function is available in multiple vtables.
-
-; RUN: opt < %s -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion -wholeprogramdevirt-multiversion-verify -S 2>&1 | FileCheck %s
 
 %"class.std::ios_base::Init" = type { i8 }
 %class.Base = type { i32 (...)** }
