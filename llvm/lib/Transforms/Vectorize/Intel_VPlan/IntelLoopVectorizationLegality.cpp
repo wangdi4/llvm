@@ -104,7 +104,8 @@ static bool isOrHasScalableTy(Type *InTy) {
       return true;
 
     if (auto *CastTy = dyn_cast<PointerType>(Ty))
-      WL.insert(CastTy->getElementType());
+      if (!CastTy->isOpaque())
+        WL.insert(CastTy->getElementType());
 
     if (auto *CastTy = dyn_cast<VectorType>(Ty))
       WL.insert(CastTy->getElementType());
