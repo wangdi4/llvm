@@ -132,11 +132,12 @@ class MapIntrinToImlImpl {
   /// Extract information of an SVML function using it's function name and VL of
   /// its return type. Returns the scalar function name for the SVML function.
   /// The number of components is returned with out parameter \p LogicalVL (for
-  /// complex functions, \p LogicalVL is half of \p ReturnVL, otherwise they are
-  /// identical). If the SVML function is masked, out parameter \p Masked will
-  /// be set to true.
-  StringRef getSVMLFunctionProperties(StringRef FuncName, unsigned ReturnVL,
-                                      unsigned &LogicalVL, bool &Masked);
+  /// complex functions, \p LogicalVL is half of number of elements of \p
+  /// VecCallType, otherwise they are identical). If the SVML function is
+  /// masked, out parameter \p Masked will be set to true.
+  std::string getSVMLFunctionProperties(StringRef FuncName,
+                                        VectorType *VecCallType,
+                                        unsigned &LogicalVL, bool &Masked);
 
   /// Generate \p LogicalVL calls to the scalar function \p ScalarFuncName.
   void scalarizeVectorCall(CallInst *CI, StringRef ScalarFuncName,

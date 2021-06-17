@@ -792,10 +792,9 @@ StringRef MapIntrinToImlImpl::findX86SVMLVariantForScalarFunction(
   return VariantFuncName;
 }
 
-StringRef MapIntrinToImlImpl::getSVMLFunctionProperties(StringRef FuncName,
-                                                        unsigned ReturnVL,
-                                                        unsigned &LogicalVL,
-                                                        bool &Masked) {
+std::string MapIntrinToImlImpl::getSVMLFunctionProperties(
+    StringRef FuncName, VectorType *VecCallType, unsigned &LogicalVL,
+    bool &Masked) {
 
   assert(!Masked && "Expect Masked to be false");
   // Incoming FuncName is something like '__svml_sinf4'. Removing the '__svml_'
@@ -807,6 +806,7 @@ StringRef MapIntrinToImlImpl::getSVMLFunctionProperties(StringRef FuncName,
     ScalarFuncName = ScalarFuncName.rtrim("_mask");
   }
 
+  unsigned ReturnVL = VecCallType->getNumElements();
   std::string ReturnVLStr = toString(APInt(32, ReturnVL), 10, false);
   LogicalVL = ReturnVL;
   StringRef LogicalVLStr = ReturnVLStr;
@@ -828,7 +828,7 @@ StringRef MapIntrinToImlImpl::getSVMLFunctionProperties(StringRef FuncName,
   }
   ScalarFuncName = ScalarFuncName.drop_back(LogicalVLStr.size());
 
-  return ScalarFuncName;
+  return ScalarFuncName.str();
 }
 
 /// Build function name for SVML integer div/rem from opcode, scalar type and
@@ -1137,16 +1137,16 @@ bool MapIntrinToImlImpl::runImpl() {
         getVectorTypeForSVMLFunction(CI->getFunctionType());
 
     Type *ElemType = VecCallType->getElementType();
-    unsigned ReturnVL = VecCallType->getNumElements();
     unsigned LogicalVL = 0;
     bool Masked = false;
-    StringRef ScalarFuncName =
-        getSVMLFunctionProperties(FuncName, ReturnVL, LogicalVL, Masked);
+    std::string ScalarFuncName =
+        getSVMLFunctionProperties(FuncName, VecCallType, LogicalVL, Masked);
 
     // Need to go through DataLayout in cases where we have pointer types to
     // get the correct pointer bit size.
     unsigned ScalarBitWidth = DL.getTypeSizeInBits(ElemType);
-    unsigned ComponentBitWidth = (ReturnVL / LogicalVL) * ScalarBitWidth;
+    unsigned ComponentBitWidth =
+        (VecCallType->getNumElements() / LogicalVL) * ScalarBitWidth;
 
     // Get the number of library calls that will be required, indicated by
     // NumRet. NumRet is determined by getting the vector type info from the
