@@ -3560,7 +3560,10 @@ private:
   bool postCheck(const HLLoop *StopLoop) const {
 
     // We don't work on a single spatial loopnest.
-    if (!FirstSpatialLoop || FirstSpatialLoop == LastSpatialLoop) {
+    if (!FirstSpatialLoop)
+      return false;
+
+    if (FirstSpatialLoop == LastSpatialLoop) {
       LLVM_DEBUG(dbgs() << "Fail 1: " << FirstSpatialLoop->getNumber() << "\n");
       return false;
     }
@@ -3579,9 +3582,8 @@ private:
     }
 
     // Structural check.
-    if (!isCleanCut(LastSpatialLoop, StopLoop)) {
+    if (!isCleanCut(LastSpatialLoop, StopLoop))
       return false;
-    }
 
     assert(verifyTopSortOrderOfInnermostLoops() &&
            "InnermostLoops are not in Order.");
