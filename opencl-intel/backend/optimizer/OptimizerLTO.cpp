@@ -41,7 +41,7 @@ void OptimizerLTO::Optimize() {
   assert(TM && "Uninitialized TargetMachine!");
 
   PipelineTuningOptions PTO;
-  PTO.LoopUnrolling = false;
+  PTO.LoopUnrolling = true;
   PTO.LoopInterleaving = false;
   PTO.LoopVectorization = false;
   PTO.SLPVectorization = false;

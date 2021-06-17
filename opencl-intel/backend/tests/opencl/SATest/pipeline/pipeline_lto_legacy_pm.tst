@@ -1,13 +1,22 @@
 ; RUN: SATest -BUILD -pass-manager-type=lto-legacy -debug-passes=Structure -config=%s.cfg 2>&1 | FileCheck %s
 
-; CHECK:      Optimization report options pass
-; CHECK-NEXT:   ModulePass Manager
+; CHECK:        FunctionPass Manager
+; CHECK-NEXT:     Unify function exit nodes
+; CHECK-NEXT:     Infer address spaces
+
+; CHECK:        ModulePass Manager
 ; CHECK:          DPCPPEqualizerLegacy
 ; CHECK-NEXT:     CallGraph Construction
 ; CHECK-NEXT:     LinearIdResolverLegacy
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       BuiltinCallToInstLegacy
 ; CHECK-NEXT:     DPCPPKernelAnalysisLegacy
+
+; CHECK:          Call Graph SCC Pass Manager
+; CHECK:            FunctionPass Manager
+; CHECK:              Loop Pass Manager
+; CHECK:                Unroll loops
+
 ; CHECK:          DPCPPKernelVecClone pass
 ; CHECK-NOT:      VecClone
 ; CHECK:          FunctionPass Manager

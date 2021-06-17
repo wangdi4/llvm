@@ -51,7 +51,7 @@ void OptimizerLTOLegacyPM::CreatePasses() {
   PMBuilder.SLPVectorize = false;
   PMBuilder.LoopVectorize = false;
   PMBuilder.CallGraphProfile = true;
-  PMBuilder.DisableUnrollLoops = true;
+  PMBuilder.DisableUnrollLoops = false;
   PMBuilder.LoopsInterleaved = false;
   PMBuilder.MergeFunctions = false;
   PMBuilder.PrepareForThinLTO = false;
@@ -92,6 +92,7 @@ void OptimizerLTOLegacyPM::CreatePasses() {
 void OptimizerLTOLegacyPM::registerPipelineStartCallback(
     PassManagerBuilder &PMBuilder) {
   FPM.add(createUnifyFunctionExitNodesPass());
+  FPM.add(createInferAddressSpacesPass());
 
   auto EP = Config->GetDisableOpt()
                 ? PassManagerBuilder::EP_EnabledOnOptLevel0
