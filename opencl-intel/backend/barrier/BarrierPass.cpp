@@ -507,9 +507,9 @@ namespace intel {
   //   store i32 1, i32* %12, align 4, !dbg !48
   // while.end:
   // for.inc:
-  void Barrier::bindUsersToBasicBlock(
-      AllocaInst * AI, DbgDeclareInst * DI,
-      TBasicBlockToInstructionMapVector & BBUsers) {
+  void
+  Barrier::bindUsersToBasicBlock(AllocaInst *AI, DbgVariableIntrinsic *DI,
+                                 TBasicBlockToInstructionMapVector &BBUsers) {
     Function &F = *AI->getFunction();
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
 
@@ -598,7 +598,8 @@ namespace intel {
         if (BBBindToNearestSyncDominator.count(DominatedBB))
           continue;
         // Skip if DominatedBB is already bound to either the basic block
-        // containing DbgDeclareInst or a basic block that BB doesn't dominate.
+        // containing DbgVariableIntrinsic or a basic block that BB doesn't
+        // dominate.
         if ((BB != DIBB) &&
             (!DT.dominates(BB, BBBindToDominator[DominatedBB]) ||
              BBBindToDominator[DominatedBB] == DIBB))
@@ -656,15 +657,35 @@ namespace intel {
       m_addrAllocaSize[&F] += ASize;
 
       // Collect debug intrinsic.
-      TinyPtrVector<DbgDeclareInst *> DIs;
+      TinyPtrVector<DbgVariableIntrinsic *> DIs;
       if (m_isNativeDBG) {
-        for (DbgVariableIntrinsic *DVI : FindDbgAddrUses(AI)) {
-          if (auto *DDI = dyn_cast<DbgDeclareInst>(DVI))
-            DIs.push_back(DDI);
-        }
+        auto findDbgVariableOfAlloca = [AI]() {
+          TinyPtrVector<DbgVariableIntrinsic *> DIs = FindDbgAddrUses(AI);
+          if (DIs.empty()) {
+            // Try debug info of addrspacecast user.
+            for (auto *U : AI->users()) {
+              if (auto *ASC = dyn_cast<AddrSpaceCastInst>(U)) {
+                DIs = FindDbgAddrUses(ASC);
+                if (!DIs.empty())
+                  break;
+              }
+            }
+          }
+          return DIs;
+        };
+        DIs = findDbgVariableOfAlloca();
       }
-      // Only use the first DbgDeclareInst.
-      DbgDeclareInst *DI = DIs.empty() ? nullptr : DIs.front();
+      // Only use the first DbgVariableIntrinsic.
+      // TODO there might be multiple llvm.dbg.addr calls when llvm.dbg.declare
+      // is deprecated. We probably need to insert new llvm.dbg.addr for each
+      // call.
+      DbgVariableIntrinsic *DI = DIs.empty() ? nullptr : DIs.front();
+      if (DI) {
+        DIExpression *Expr = DIExpression::prepend(DI->getExpression(),
+                                                   DIExpression::DerefBefore);
+        DIB.insertDeclare(AddrAI, DI->getVariable(), Expr,
+                          DI->getDebugLoc().get(), AddrAI->getNextNode());
+      }
 
       // Get offset of alloca value in special buffer.
       unsigned int Offset = m_pDataPerValue->getOffset(AI);
@@ -703,17 +724,8 @@ namespace intel {
         IRBuilder<> Builder(InsertBefore);
         Builder.CreateStore(AddrInSpecialBuffer, AddrAI);
         LoadInst *LI = Builder.CreateLoad(AddrAI->getAllocatedType(), AddrAI);
-        if (m_isNativeDBG && DI) {
-          DILocalVariable *Variable = DI->getVariable();
-          DIExpression *Expression =
-            DIExpression::prepend(DI->getExpression(),
-                                  DIExpression::DerefBefore);
-          const DILocation *Location = DI->getDebugLoc().get();
-          Instruction *Insert = AddrAI->getNextNode();
-          DIB.insertDeclare(AddrAI, Variable, Expression, Location, Insert);
-        }
         for (Instruction *UI : BBUser.second) {
-          if (!isa<DbgDeclareInst>(UI))
+          if (!isa<DbgVariableIntrinsic>(UI))
             UI->replaceUsesOfWith(AI, LI);
         }
       }
@@ -728,7 +740,7 @@ namespace intel {
       }
       m_toRemoveInstructions.push_back(AI);
 
-      // Remove old DbgDeclareInst
+      // Remove old DbgVariableIntrinsic
       if (m_isNativeDBG) {
         for (auto *DI : DIs)
           DI->eraseFromParent();

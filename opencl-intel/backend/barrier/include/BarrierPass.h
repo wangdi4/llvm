@@ -308,10 +308,10 @@ namespace intel {
     /// @brief Bind AI's users to basic blocks so that a user will be replaced
     ///  by value loaded from AI's new address alloca in its bound basic block.
     /// @param AI AllocaInst to process.
-    /// @param DI DbgDeclareInst of AI.
+    /// @param DI DbgVariableIntrinsic of AI.
     /// @param BBUsers Output binding map.
-    void bindUsersToBasicBlock(AllocaInst *AI, DbgDeclareInst *DI,
-        TBasicBlockToInstructionMapVector &BBUsers);
+    void bindUsersToBasicBlock(AllocaInst *AI, DbgVariableIntrinsic *DI,
+                               TBasicBlockToInstructionMapVector &BBUsers);
 
    private:
     static const unsigned MaxNumDims = 3;
