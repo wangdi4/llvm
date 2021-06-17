@@ -39,10 +39,6 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-ir-loop-vectorize"
 
-static cl::opt<bool> VPlanUseDAForUnitStride(
-    "vplan-use-da-unit-stride-accesses", cl::init(true), cl::Hidden,
-    cl::desc("Use DA knowledge in VPlan for unit-stride accesses."));
-
 static cl::opt<bool> PredicateSafeValueDivision(
     "vplan-predicate-safe-value-div", cl::init(false), cl::Hidden,
     cl::desc("Always serialize masked integer division, even if divisor is "
@@ -1014,7 +1010,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
       CanBeScalar = false;
     }
 
-    if ((CanBeScalar && DA->isUnitStridePtr(GEP) && VPlanUseDAForUnitStride) ||
+    if ((CanBeScalar && DA->isUnitStridePtr(GEP)) ||
         isSOAUnitStride(GEP, Plan)) {
       SmallVector<Value *, 6> ScalarOperands;
       for (unsigned Op = 0; Op < GEP->getNumOperands(); ++Op) {
@@ -2673,16 +2669,14 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
   Value *NewLI = nullptr;
 
   // Try to handle consecutive loads without VLS.
-  if (VPlanUseDAForUnitStride) {
-    bool IsNegOneStride = false;
-    bool ConsecutiveStride =
-        Plan->getVPlanDA()->isUnitStridePtr(Ptr, IsNegOneStride);
-    if (ConsecutiveStride) {
-      bool IsPvtPtr = getVPValuePrivateMemoryPtr(Ptr) != nullptr;
-      NewLI = vectorizeUnitStrideLoad(VPLoad, IsNegOneStride, IsPvtPtr);
-      VPWidenMap[VPLoad] = NewLI;
-      return;
-    }
+  bool IsNegOneStride = false;
+  bool ConsecutiveStride =
+      Plan->getVPlanDA()->isUnitStridePtr(Ptr, IsNegOneStride);
+  if (ConsecutiveStride) {
+    bool IsPvtPtr = getVPValuePrivateMemoryPtr(Ptr) != nullptr;
+    NewLI = vectorizeUnitStrideLoad(VPLoad, IsNegOneStride, IsPvtPtr);
+    VPWidenMap[VPLoad] = NewLI;
+    return;
   }
 
   // Try to do GATHER-to-SHUFFLE optimization.
@@ -2895,17 +2889,15 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
   Value *VecDataOp = getVectorValue(VPStore->getOperand(0));
 
   // Try to handle consecutive stores without VLS.
-  if (VPlanUseDAForUnitStride) {
-    bool IsNegOneStride = false;
-    bool ConsecutiveStride =
-        Plan->getVPlanDA()->isUnitStridePtr(Ptr, IsNegOneStride);
-    if (ConsecutiveStride) {
-      // TODO: VPVALCG: Special handling for mask value is also needed for
-      // conditional last privates.
-      bool IsPvtPtr = getVPValuePrivateMemoryPtr(Ptr) != nullptr;
-      vectorizeUnitStrideStore(VPStore, IsNegOneStride, IsPvtPtr);
-      return;
-    }
+  bool IsNegOneStride = false;
+  bool ConsecutiveStride =
+      Plan->getVPlanDA()->isUnitStridePtr(Ptr, IsNegOneStride);
+  if (ConsecutiveStride) {
+    // TODO: VPVALCG: Special handling for mask value is also needed for
+    // conditional last privates.
+    bool IsPvtPtr = getVPValuePrivateMemoryPtr(Ptr) != nullptr;
+    vectorizeUnitStrideStore(VPStore, IsNegOneStride, IsPvtPtr);
+    return;
   }
 
   // Try to do SCATTER-to-SHUFFLE optimization.
