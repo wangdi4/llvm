@@ -8,6 +8,27 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @foo() local_unnamed_addr {
+; CHECK-LABEL: @foo()
+; CHECK-LABEL: vector.ph:
+; CHECK:  %[[SRC_GEP:.*]] = getelementptr inbounds i32, i32* %private.src.vec.base.addr.extract.0., i64 0
+; CHECK:  %[[SRC_GEP_INSERT:.*]] = insertelement <4 x i32*> poison, i32* %[[SRC_GEP]], i32 0
+; CHECK:  %[[SRC_GEP_BCAST:.*]] = shufflevector <4 x i32*> %[[SRC_GEP_INSERT]], <4 x i32*> poison, <4 x i32> zeroinitializer
+; CHECK:  %[[SRC_BC_0:.*]] = bitcast <4 x i32*> %[[SRC_GEP_BCAST]] to <4 x i8*>
+; CHECK:  %[[SRC_BC_1:.*]] = bitcast <4 x i8*> %[[SRC_BC_0]] to <4 x i32*>
+; CHECK:  %[[SRC_IDX:.*]] = extractelement <4 x i32*> %[[SRC_BC_1]], i32 0
+; CHECK:  %[[DST_GEP:.*]] = getelementptr inbounds i32, i32* %private.dst.vec.base.addr.extract.0., i64 0
+; CHECK:  %[[DST_GEP_INSERT:.*]] = insertelement <4 x i32*> poison, i32* %[[DST_GEP]], i32 0
+; CHECK:  %[[DST_GEP_BCAST:.*]] = shufflevector <4 x i32*> %[[DST_GEP_INSERT]], <4 x i32*> poison, <4 x i32> zeroinitializer
+; CHECK:  %[[DST_BC_0:.*]] = bitcast <4 x i32*> %[[DST_GEP_BCAST]] to <4 x i8*>
+; CHECK:  %[[DST_BC_1:.*]] = bitcast <4 x i8*> %[[DST_BC_0]] to <4 x i32*>
+; CHECK:  %[[DST_IDX:.*]] = extractelement <4 x i32*> %[[DST_BC_1]], i32 0
+
+; CHECK-LABEL: vector.body:
+; CHECK:  %[[SRC:.*]] = bitcast i32* %[[SRC_IDX]] to <4 x i32>*
+; CHECK:  %[[LOAD:.*]] = load <4 x i32>, <4 x i32>* %[[SRC]], align 4
+; CHECK:  %[[DST:.*]] = bitcast i32* %[[DST_IDX]] to <4 x i32>*
+; CHECK:  store <4 x i32> %[[LOAD]], <4 x i32>* %[[DST]], align 4
+;
 entry:
   %private.src = alloca i32
   %private.dst = alloca i32
@@ -46,24 +67,6 @@ simd.end.region:
 return:
   ret void
 }
-
-; CHECK-LABEL: vector.ph:
-; CHECK:  %[[SRC_GEP:.*]] = getelementptr inbounds i32, <4 x i32*> %private.src.vec.base.addr, <4 x i64> zeroinitializer
-; CHECK:  %[[SRC_BC_0:.*]] = bitcast <4 x i32*> %[[SRC_GEP]] to <4 x i8*>
-; CHECK:  %[[SRC_BC_1:.*]] = bitcast <4 x i8*> %[[SRC_BC_0]] to <4 x i32*>
-; CHECK:  %[[SRC_IDX:.*]] = extractelement <4 x i32*> %[[SRC_BC_1]], i32 0
-; CHECK:  %[[DST_GEP:.*]] = getelementptr inbounds i32, <4 x i32*> %private.dst.vec.base.addr, <4 x i64> zeroinitializer
-; CHECK:  %[[DST_BC_0:.*]] = bitcast <4 x i32*> %[[DST_GEP]] to <4 x i8*>
-; CHECK:  %[[DST_BC_1:.*]] = bitcast <4 x i8*> %[[DST_BC_0]] to <4 x i32*>
-; CHECK:  %[[DST_IDX:.*]] = extractelement <4 x i32*> %[[DST_BC_1]], i32 0
-
-; CHECK-LABEL: vector.body:
-; CHECK:  %[[SRC:.*]] = bitcast i32* %[[SRC_IDX]] to <4 x i32>*
-; CHECK:  %[[LOAD:.*]] = load <4 x i32>, <4 x i32>* %[[SRC]], align 4
-; CHECK:  %[[DST:.*]] = bitcast i32* %[[DST_IDX]] to <4 x i32>*
-; CHECK:  store <4 x i32> %[[LOAD]], <4 x i32>* %[[DST]], align 4
-
-
 
 define dso_local void @test_alias_store_outside_loop() local_unnamed_addr {
 ; CHECK: @test_alias_store_outside_loop

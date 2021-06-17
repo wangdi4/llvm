@@ -34,9 +34,8 @@ define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK-NEXT:   #6 <4 x 128> SStore
 ;
 ; CHECK-LABEL: @foo(
-; CHECK:         [[MM_VECTORGEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x <4 x i32>*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_PHI:%.*]]
-; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_:%.*]] = extractelement <4 x <4 x i32>*> [[MM_VECTORGEP]], i32 0
-; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <4 x i32>* [[MM_VECTORGEP_EXTRACT_0_]] to <16 x i128>*
+; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr inbounds <4 x i32>, <4 x i32>* [[ARY:%.*]], i64 [[UNI_PHI:%.*]]
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <4 x i32>* [[SCALAR_GEP]] to <16 x i128>*
 ; CHECK-NEXT:    [[VLS_LOAD:%.*]] = call <16 x i128> @llvm.masked.load.v16i128.p0v16i128(<16 x i128>* [[TMP0]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>, <16 x i128> undef)
 ; CHECK-NEXT:    [[TMP1:%.*]] = shufflevector <16 x i128> [[VLS_LOAD]], <16 x i128> [[VLS_LOAD]], <4 x i32> <i32 0, i32 3, i32 6, i32 9>
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <4 x i128> [[TMP1]] to <16 x i32>
@@ -56,7 +55,7 @@ define void @foo(<4 x i32>* nocapture %ary) {
 ; CHECK-NEXT:    [[TMP16:%.*]] = bitcast <16 x i32> [[TMP9]] to <4 x i128>
 ; CHECK-NEXT:    [[TMP17:%.*]] = shufflevector <4 x i128> [[TMP16]], <4 x i128> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
 ; CHECK-NEXT:    [[TMP18:%.*]] = shufflevector <16 x i128> [[TMP15]], <16 x i128> [[TMP17]], <16 x i32> <i32 0, i32 1, i32 16, i32 3, i32 4, i32 17, i32 6, i32 7, i32 18, i32 9, i32 10, i32 19, i32 12, i32 13, i32 14, i32 15>
-; CHECK-NEXT:    [[TMP19:%.*]] = bitcast <4 x i32>* [[MM_VECTORGEP_EXTRACT_0_]] to <16 x i128>*
+; CHECK-NEXT:    [[TMP19:%.*]] = bitcast <4 x i32>* [[SCALAR_GEP]] to <16 x i128>*
 ; CHECK-NEXT:    call void @llvm.masked.store.v16i128.p0v16i128(<16 x i128> [[TMP18]], <16 x i128>* [[TMP19]], i32 4, <16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 false, i1 false, i1 false, i1 false>)
 ;
 entry:

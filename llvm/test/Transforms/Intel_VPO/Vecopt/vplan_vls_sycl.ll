@@ -33,23 +33,22 @@ define void @foo(i32* nocapture %dst, i32* nocapture %src, i64 %x) {
 ; CHECK-NEXT:   #4 <4 x 32> SStore
 ;
 ; CHECK-LABEL: @foo(
-; CHECK:         [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT5:%.*]], <4 x i64> [[TMP0:%.*]]
-; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP]], i32 0
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[MM_VECTORGEP_EXTRACT_0_]] to <8 x i32>*
-; CHECK-NEXT:    [[TMP2:%.*]] = load <8 x i32>, <8 x i32>* [[TMP1]], align 4
-; CHECK-NEXT:    [[VP_SRC_0:%.*]] = shufflevector <8 x i32> [[TMP2]], <8 x i32> [[TMP2]], <4 x i32> <i32 0, i32 2, i32 4, i32 6>
-; CHECK-NEXT:    [[VP_SRC_1:%.*]] = shufflevector <8 x i32> [[TMP2]], <8 x i32> [[TMP2]], <4 x i32> <i32 1, i32 3, i32 5, i32 7>
-; CHECK-NEXT:    [[TMP3:%.*]] = add <4 x i32> [[VP_SRC_0]], <i32 7, i32 7, i32 7, i32 7>
-; CHECK-NEXT:    [[TMP4:%.*]] = add <4 x i32> [[VP_SRC_1]], <i32 11, i32 11, i32 11, i32 11>
-; CHECK-NEXT:    [[TMP5:%.*]] = add nsw <4 x i64> [[BROADCAST_SPLAT7:%.*]], [[VEC_PHI:%.*]]
-; CHECK-NEXT:    [[MM_VECTORGEP10:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT9:%.*]], <4 x i64> [[TMP5]]
-; CHECK-NEXT:    [[MM_VECTORGEP10_EXTRACT_0_:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP10]], i32 0
-; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP7:%.*]] = shufflevector <8 x i32> undef, <8 x i32> [[TMP6]], <8 x i32> <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>
-; CHECK-NEXT:    [[TMP8:%.*]] = shufflevector <4 x i32> [[TMP4]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
-; CHECK-NEXT:    [[TMP9:%.*]] = shufflevector <8 x i32> [[TMP7]], <8 x i32> [[TMP8]], <8 x i32> <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>
-; CHECK-NEXT:    [[TMP10:%.*]] = bitcast i32* [[MM_VECTORGEP10_EXTRACT_0_]] to <8 x i32>*
-; CHECK-NEXT:    store <8 x i32> [[TMP9]], <8 x i32>* [[TMP10]], align 4
+; CHECK:         [[SCALAR_GEP:%.*]] = getelementptr inbounds i32, i32* [[SRC:%.*]], i64 [[DOTEXTRACT_0_:%.*]]
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32* [[SCALAR_GEP]] to <8 x i32>*
+; CHECK-NEXT:    [[VLS_LOAD:%.*]] = load <8 x i32>, <8 x i32>* [[TMP1]], align 4
+; CHECK-NEXT:    [[VP_SRC_0:%.*]] = shufflevector <8 x i32> [[VLS_LOAD]], <8 x i32> [[VLS_LOAD]], <4 x i32> <i32 0, i32 2, i32 4, i32 6>
+; CHECK-NEXT:    [[VP_SRC_1:%.*]] = shufflevector <8 x i32> [[VLS_LOAD]], <8 x i32> [[VLS_LOAD]], <4 x i32> <i32 1, i32 3, i32 5, i32 7>
+; CHECK-NEXT:    [[TMP2:%.*]] = add <4 x i32> [[VP_SRC_0]], <i32 7, i32 7, i32 7, i32 7>
+; CHECK-NEXT:    [[TMP3:%.*]] = add <4 x i32> [[VP_SRC_1]], <i32 11, i32 11, i32 11, i32 11>
+; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <4 x i64> [[BROADCAST_SPLAT5:%.*]], [[VEC_PHI:%.*]]
+; CHECK-NEXT:    [[DOTEXTRACT_0_6:%.*]] = extractelement <4 x i64> [[TMP4]], i32 0
+; CHECK-NEXT:    [[SCALAR_GEP7:%.*]] = getelementptr inbounds i32, i32* [[DST:%.*]], i64 [[DOTEXTRACT_0_6]]
+; CHECK-NEXT:    [[EXTENDED_:%.*]] = shufflevector <4 x i32> [[TMP2]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP5:%.*]] = shufflevector <8 x i32> undef, <8 x i32> [[EXTENDED_]], <8 x i32> <i32 8, i32 1, i32 9, i32 3, i32 10, i32 5, i32 11, i32 7>
+; CHECK-NEXT:    [[EXTENDED_8:%.*]] = shufflevector <4 x i32> [[TMP3]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>
+; CHECK-NEXT:    [[TMP6:%.*]] = shufflevector <8 x i32> [[TMP5]], <8 x i32> [[EXTENDED_8]], <8 x i32> <i32 0, i32 8, i32 2, i32 9, i32 4, i32 10, i32 6, i32 11>
+; CHECK-NEXT:    [[TMP7:%.*]] = bitcast i32* [[SCALAR_GEP7]] to <8 x i32>*
+; CHECK-NEXT:    store <8 x i32> [[TMP6]], <8 x i32>* [[TMP7]], align 4
 ;
 entry:
   %x3 = mul nsw i64 %x, 3

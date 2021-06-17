@@ -199,6 +199,9 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     Ops = Ops.drop_front();
     SerialInst = Builder.CreateGEP(GepBasePtr, Ops);
     cast<GetElementPtrInst>(SerialInst)->setIsInBounds(VPGEP->isInBounds());
+    StringRef GepName =
+        isSOAAccess(VPGEP, Plan) ? "soa.scalar.gep" : "scalar.gep";
+    SerialInst->setName(GepName);
   } else if (VPInst->getOpcode() == Instruction::InsertElement) {
     assert(Ops.size() == 3 &&
            "InsertElement instruction should have three operands.");
@@ -913,6 +916,8 @@ void VPOCodeGen::generateScalarCode(VPInstruction *VPInst) {
         << "[VPOCG] SVA-based scalarization is not supported for opcode.\n");
     return;
   }
+  case Instruction::GetElementPtr:
+    break;
   }
 
   // Helper lambda to scalarize the VPInstruction for a specific lane.
@@ -933,6 +938,8 @@ void VPOCodeGen::generateScalarCode(VPInstruction *VPInst) {
 }
 
 void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
+  auto *SVA = Plan->getVPlanSVA();
+
   // Don't vectorize if VPInst is only used in scalar context.
   if (!needVectorCode(VPInst))
     return;
@@ -976,67 +983,12 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
   }
 
   case Instruction::GetElementPtr: {
-    // For consecutive load/store we create a scalar GEP.
-    // TODO: Extend support for private pointers and VLS-based unit-stride
-    // optimization.
     VPGEPInstruction *GEP = cast<VPGEPInstruction>(VPInst);
-    auto IsAddrSpaceCast = [](VPValue *V) -> bool {
-      auto *I = dyn_cast<VPInstruction>(V);
-      return I && I->getOpcode() == Instruction::AddrSpaceCast;
-    };
 
-    auto SkipAddrSpaceCasts = [IsAddrSpaceCast](VPValue *V) {
-      while (IsAddrSpaceCast(V))
-        V = cast<VPInstruction>(V)->getOperand(0);
-      return V;
-    };
-
-    // Check for load/stores users and addrspace casts with their users.
-    // Check if vectorizable laod/store uses GEP's result or address space cast
-    // as pointer operand.
-    // TODO: When CG would rely completely on SVA, this traversal with a
-    // worklist can be removed.
-    SmallVector<VPUser *, 16> Worklist(GEP->user_begin(), GEP->user_end());
-    bool CanBeScalar = true;
-    while (!Worklist.empty() && CanBeScalar) {
-      auto *UserI = cast<VPInstruction>(Worklist.pop_back_val());
-      if (IsAddrSpaceCast(UserI)) {
-        Worklist.insert(Worklist.end(), UserI->user_begin(), UserI->user_end());
-        continue;
-      } else if (isVectorizableLoadStore(UserI))
-          if (SkipAddrSpaceCasts(getLoadStorePointerOperand(UserI)) == GEP)
-            continue;
-
-      CanBeScalar = false;
-    }
-
-    if ((CanBeScalar && DA->isUnitStridePtr(GEP)) ||
-        isSOAUnitStride(GEP, Plan)) {
-      SmallVector<Value *, 6> ScalarOperands;
-      for (unsigned Op = 0; Op < GEP->getNumOperands(); ++Op) {
-        auto *ScalarOp = getScalarValue(GEP->getOperand(Op), 0 /*Lane*/);
-        assert(ScalarOp && "Operand for scalar GEP not found.");
-        ScalarOperands.push_back(ScalarOp);
-      }
-
-      Value *ScalarGep = generateSerialInstruction(GEP, ScalarOperands);
-      StringRef GepName =
-          isSOAAccess(GEP, Plan) ? "soa.scalar.gep" : "scalar.gep";
-      ScalarGep->setName(GepName);
-      VPScalarMap[GEP][0] = ScalarGep;
-      break;
-    }
-    // Serialize if all users of GEP are uniform load/store.
-    if (all_of(GEP->users(), [&](VPUser *U) -> bool {
-          return getLoadStorePointerOperand(U) == GEP && DA->isUniform(*U);
-        })) {
-      serializeInstruction(GEP);
+    // Nothing more to do for fully scalarized GEPs.
+    // TODO: Drop this check when needVectorCode is updated to use SVA.
+    if (!SVA->instNeedsVectorCode(GEP))
       return;
-    }
-    VPValue *GepBasePtr = GEP->getPointerOperand();
-    bool AllGEPIndicesUniform = all_of(
-        GEP->indices(), [&](VPValue *Op) -> bool { return DA->isUniform(*Op); });
-    bool AllGEPOpsUniform = DA->isUniform(*GepBasePtr) && AllGEPIndicesUniform;
 
     auto GetOrigVL = [](Type *Type) -> unsigned {
       auto *VecType = dyn_cast<VectorType>(Type);
@@ -1058,47 +1010,33 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
                                  MaxVL / GetOrigVL(V->getType()), Builder);
     };
 
-    // We check the pointer-operand and the indices seperately. For the
-    // pointer-operand, decision on whether to use the scalar pointer or the
-    // vector pointer depends on the pointer itself. For the decision to widen
-    // the indices, we look at the the uniformity as well as whether the GEP
-    // itself is an unit-stride GEP or not.
-
-    // To correctly widen the  base-pointer, we check if all the operands of
-    // the GEP are uniform. If they are uniform, we retain the scalar-pointer.
-    // Another scenario where this is true is when we have pointer which are
-    // SOA-unit stride. In case of SOA-unit stride pointer, we retain the
-    // scalar-type pointer, typically <VF x Ty>*. Otherwise, we get the vector
-    // version of the pointer, which is typically a vector of pointers, i.e.,
-    // <VF x Ty*>.
-    // TODO: When CG would rely completely on SVA, this check can be removed.
-
-    // Widen the base-pointer.
-    Value *WideGepBasePtr =
-        AllGEPOpsUniform || isSOAUnitStride(GepBasePtr, Plan)
-            ? getScalarValue(GepBasePtr, 0)
-            : GetVectorOp(GepBasePtr);
+    VPValue *GepBasePtr = GEP->getPointerOperand();
+    // Widen the base-pointer if needed.
+    Value *WideGepBasePtr;
+    if (SVA->operandNeedsVectorCode(GEP, 0 /*PtrOp*/))
+      WideGepBasePtr = GetVectorOp(GepBasePtr);
+    else {
+      assert(SVA->operandNeedsFirstScalarCode(GEP, 0 /*PtrOp*/) &&
+             "Only Vector or FirstScalar pointer operand is expected during "
+             "GEP vectorization.");
+      WideGepBasePtr = getScalarValue(GepBasePtr, 0);
+    }
 
     // Widen the indices.
+    assert(all_of(GEP->indices(),
+                  [GEP, SVA](VPValue *Idx) {
+                    return SVA->operandNeedsVectorCode(
+                        GEP, GEP->getOperandIndex(Idx));
+                  }) &&
+           "Trying to vectorize a strictly scalar index.");
     SmallVector<Value *, 4> OpsV;
-    if (AllGEPOpsUniform)
-      llvm::transform(GEP->indices(), std::back_inserter(OpsV),
-                      [this](VPValue *Op) { return getScalarValue(Op, 0); });
-    else
-      llvm::transform(
-          GEP->indices(), std::back_inserter(OpsV),
-          [GetVectorOp](VPValue *Op) { return GetVectorOp(Op); });
-
+    llvm::transform(GEP->indices(), std::back_inserter(OpsV),
+                    [GetVectorOp](VPValue *Op) { return GetVectorOp(Op); });
 
     StringRef GepName =
         isSOAAccess(GEP, Plan) ? "soa_vectorGEP" : "mm_vectorGEP";
     Value *VectorGEP = Builder.CreateGEP(WideGepBasePtr, OpsV, GepName);
     cast<GetElementPtrInst>(VectorGEP)->setIsInBounds(GEP->isInBounds());
-
-    // We need to bcast the scalar GEP to all lanes if all its operands were
-    // uniform.
-    if (AllGEPOpsUniform)
-      VectorGEP = Builder.CreateVectorSplat(VF, VectorGEP);
 
     VPWidenMap[GEP] = VectorGEP;
 

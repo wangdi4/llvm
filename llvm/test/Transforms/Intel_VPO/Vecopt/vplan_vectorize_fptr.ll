@@ -7,10 +7,9 @@
 %"class._ZTSN2cl4sycl6detail5arrayILi1EEE.cl::sycl::detail::array" = type { [1 x i64] }
 
 define void @fn(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_, double addrspace(1)* %_arg_1, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_2, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_3, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_4, %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned" addrspace(1)* %_arg_5, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_7, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_8, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_9, i64 addrspace(1)* %_arg_10, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_12, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_13, %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") %_arg_14) {
-; CHECK:  define void @fn(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") [[_ARG_0:%.*]], double addrspace(1)* [[_ARG_10:%.*]], %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") [[_ARG_20:%.*]], %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") [[_ARG_30:%.*]], %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") [[_ARG_40:%.*]], %"class._ZTSN2cl4sycl5INTEL18function_ref_tunedIFdiiENS1_8int_listIJLi4ELi8EEEEJFNS1_6maskedENS1_7varyingES7_EFNS1_8unmaskedENS1_7uniformESA_EEEE.cl::sycl::INTEL::function_ref_tuned" addrspace(1)* [[_ARG_50:%.*]], %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") [[_ARG_70:%.*]], %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") [[_ARG_80:%.*]], %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") [[_ARG_90:%.*]], i64 addrspace(1)* [[_ARG_100:%.*]], %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") [[_ARG_120:%.*]], %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") [[_ARG_130:%.*]], %"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range") [[_ARG_140:%.*]]) #0 {
 ;
 ; CHECK:       indirect.call.loop.entry:
-; CHECK-NEXT:    [[VECTOR_OF_FUNC_PTRS0:%.*]] = phi <8 x double (i32, i32)* addrspace(4)*> [ [[TMP12:%.*]], [[VECTOR_BODY0:%.*]] ], [ [[CURRENT_VECTOR_OF_FUNC_PTRS0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0:%.*]] ]
+; CHECK-NEXT:    [[VECTOR_OF_FUNC_PTRS0:%.*]] = phi <8 x double (i32, i32)* addrspace(4)*> [ [[TMP9:%.*]], [[VECTOR_BODY0:%.*]] ], [ [[CURRENT_VECTOR_OF_FUNC_PTRS0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0:%.*]] ]
 ; CHECK-NEXT:    [[CUR_INDIRECT_CALL_RETURN0:%.*]] = phi <8 x double> [ zeroinitializer, [[VECTOR_BODY0]] ], [ [[FINAL_INDIRECT_CALL_RETURN0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0]] ]
 ; CHECK-NEXT:    [[INDX0:%.*]] = phi i64 [ 0, [[VECTOR_BODY0]] ], [ [[INDX_UPDATED0:%.*]], [[INDIRECT_CALL_LOOP_LATCH0]] ]
 ; CHECK-NEXT:    [[CURRENT_FPTR0:%.*]] = extractelement <8 x double (i32, i32)* addrspace(4)*> [[VECTOR_OF_FUNC_PTRS0]], i64 [[INDX0]]
@@ -23,11 +22,11 @@ define void @fn(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"cla
 ; CHECK-NEXT:    [[FUNC_PTR_MASK0:%.*]] = icmp eq <8 x double (i32, i32)* addrspace(4)*> [[CURRENT_FPTR_SPLAT0]], [[VECTOR_OF_FUNC_PTRS0]]
 ; CHECK-NEXT:    [[MASKEXT0:%.*]] = sext <8 x i1> [[FUNC_PTR_MASK0]] to <8 x i64>
 ; CHECK-NEXT:    [[MASKCAST0:%.*]] = bitcast <8 x i64> [[MASKEXT0]] to <8 x double>
-; CHECK-NEXT:    [[TMP13:%.*]] = bitcast double (i32, i32)* addrspace(4)* [[CURRENT_FPTR0]] to <8 x double> (<8 x i32>, <8 x i32>, <8 x double>) addrspace(4)* addrspace(4)*
-; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr <8 x double> (<8 x i32>, <8 x i32>, <8 x double>) addrspace(4)*, <8 x double> (<8 x i32>, <8 x i32>, <8 x double>) addrspace(4)* addrspace(4)* [[TMP13]], i32 2
-; CHECK-NEXT:    [[TMP15:%.*]] = load <8 x double> (<8 x i32>, <8 x i32>, <8 x double>) addrspace(4)*, <8 x double> (<8 x i32>, <8 x i32>, <8 x double>) addrspace(4)* addrspace(4)* [[TMP14]], align 8
-; CHECK-NEXT:    [[TMP16:%.*]] = call addrspace(4) <8 x double> [[TMP15]](<8 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, <8 x i32> [[TMP11:%.*]], <8 x double> [[MASKCAST0]])
-; CHECK-NEXT:    [[INDIRECT_CALL_RETURN_UPDATED0:%.*]] = select <8 x i1> [[FUNC_PTR_MASK0]], <8 x double> [[TMP16]], <8 x double> [[CUR_INDIRECT_CALL_RETURN0]]
+; CHECK-NEXT:    [[TMP10:%.*]] = bitcast double (i32, i32)* addrspace(4)* [[CURRENT_FPTR0]] to <8 x double> (<8 x i32>, <8 x i32>, <8 x double>) addrspace(4)* addrspace(4)*
+; CHECK-NEXT:    [[TMP11:%.*]] = getelementptr <8 x double> (<8 x i32>, <8 x i32>, <8 x double>) addrspace(4)*, <8 x double> (<8 x i32>, <8 x i32>, <8 x double>) addrspace(4)* addrspace(4)* [[TMP10]], i32 2
+; CHECK-NEXT:    [[TMP12:%.*]] = load <8 x double> (<8 x i32>, <8 x i32>, <8 x double>) addrspace(4)*, <8 x double> (<8 x i32>, <8 x i32>, <8 x double>) addrspace(4)* addrspace(4)* [[TMP11]], align 8
+; CHECK-NEXT:    [[TMP13:%.*]] = call addrspace(4) <8 x double> [[TMP12]](<8 x i32> <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>, <8 x i32> [[TMP8:%.*]], <8 x double> [[MASKCAST0]])
+; CHECK-NEXT:    [[INDIRECT_CALL_RETURN_UPDATED0:%.*]] = select <8 x i1> [[FUNC_PTR_MASK0]], <8 x double> [[TMP13]], <8 x double> [[CUR_INDIRECT_CALL_RETURN0]]
 ; CHECK-NEXT:    [[VECTOR_OF_FUNC_PTRS_UPDATED0:%.*]] = select <8 x i1> [[FUNC_PTR_MASK0]], <8 x double (i32, i32)* addrspace(4)*> zeroinitializer, <8 x double (i32, i32)* addrspace(4)*> [[VECTOR_OF_FUNC_PTRS0]]
 ; CHECK-NEXT:    br label [[INDIRECT_CALL_LOOP_LATCH0]]
 ; CHECK-EMPTY:
@@ -40,18 +39,18 @@ define void @fn(%"class._ZTSN2cl4sycl5rangeILi1EEE.cl::sycl::range"* byval(%"cla
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  indirect.call.loop.exit:
 ; CHECK-NEXT:    [[INDIRECT_CALL_RETURN_LCSSA_PHI0:%.*]] = phi <8 x double> [ [[FINAL_INDIRECT_CALL_RETURN0]], [[INDIRECT_CALL_LOOP_LATCH0]] ]
-; CHECK-NEXT:    [[SCALAR_GEP100:%.*]] = getelementptr inbounds double, double addrspace(1)* [[DOTSPLAT7_EXTRACT_0_0:%.*]], i64 [[DOTEXTRACT_0_0:%.*]]
-; CHECK-NEXT:    [[TMP17:%.*]] = bitcast double addrspace(1)* [[SCALAR_GEP100]] to <8 x double> addrspace(1)*
-; CHECK-NEXT:    store <8 x double> [[INDIRECT_CALL_RETURN_LCSSA_PHI0]], <8 x double> addrspace(1)* [[TMP17]], align 8
+; CHECK-NEXT:    [[SCALAR_GEP120:%.*]] = getelementptr inbounds double, double addrspace(1)* [[SCALAR_GEP70:%.*]], i64 [[DOTEXTRACT_0_0:%.*]]
+; CHECK-NEXT:    [[TMP14:%.*]] = bitcast double addrspace(1)* [[SCALAR_GEP120]] to <8 x double> addrspace(1)*
+; CHECK-NEXT:    store <8 x double> [[INDIRECT_CALL_RETURN_LCSSA_PHI0]], <8 x double> addrspace(1)* [[TMP14]], align 8
 ; CHECK-NEXT:    br label [[VPLANNEDBB130:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB12:
-; CHECK-NEXT:    [[TMP18:%.*]] = add nuw <8 x i32> [[VEC_PHI0:%.*]], <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>
-; CHECK-NEXT:    [[TMP19:%.*]] = add nuw i32 [[UNI_PHI10:%.*]], 8
-; CHECK-NEXT:    [[TMP20:%.*]] = icmp ult i32 [[TMP19]], 8
+; CHECK-NEXT:  VPlannedBB13:
+; CHECK-NEXT:    [[TMP15:%.*]] = add nuw <8 x i32> [[VEC_PHI0:%.*]], <i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8, i32 8>
+; CHECK-NEXT:    [[TMP16:%.*]] = add nuw i32 [[UNI_PHI0:%.*]], 8
+; CHECK-NEXT:    [[TMP17:%.*]] = icmp ult i32 [[TMP16]], 8
 ; CHECK-NEXT:    br i1 false, label [[VECTOR_BODY0]], label [[VPLANNEDBB140:%.*]], !llvm.loop !0
 ; CHECK-EMPTY:
-; CHECK-NEXT:  VPlannedBB13:
+; CHECK-NEXT:  VPlannedBB14:
 ; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
 ;
 entry:

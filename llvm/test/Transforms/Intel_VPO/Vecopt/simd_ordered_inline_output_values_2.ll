@@ -45,15 +45,15 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:  vector.body:
 ; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ [[TMP5:%.*]], [[VPLANNEDBB50:%.*]] ], [ 0, [[VECTOR_PH0]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP4:%.*]], [[VPLANNEDBB50]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
+; CHECK-NEXT:    [[SCALAR_GEP0:%.*]] = getelementptr inbounds i32, i32* [[IP0]], i64 [[UNI_PHI0]]
 ; CHECK-NEXT:    [[MM_VECTORGEP0:%.*]] = getelementptr inbounds i32, <2 x i32*> [[BROADCAST_SPLAT0]], <2 x i64> [[VEC_PHI0]]
 ; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_1_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP0]], i32 1
-; CHECK-NEXT:    [[MM_VECTORGEP_EXTRACT_0_0:%.*]] = extractelement <2 x i32*> [[MM_VECTORGEP0]], i32 0
 ; CHECK-NEXT:    br label [[VPLANNEDBB30:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB3:
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <2 x i32>* [[VAL_LOC_VEC0]] to i8*
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 -1, i8* [[TMP2]])
-; CHECK-NEXT:    [[VAL_I0:%.*]] = load i32, i32* [[MM_VECTORGEP_EXTRACT_0_0]], align 4
+; CHECK-NEXT:    [[VAL_I0:%.*]] = load i32, i32* [[SCALAR_GEP0]], align 4
 ; CHECK-NEXT:    store i32 [[VAL_I0]], i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_0_0]], align 4
 ; CHECK-NEXT:    [[VAL_I130:%.*]] = load i32, i32* [[MM_VECTORGEP_EXTRACT_1_0]], align 4
 ; CHECK-NEXT:    store i32 [[VAL_I130]], i32* [[VAL_LOC_VEC_BASE_ADDR_EXTRACT_1_0]], align 4
@@ -62,7 +62,7 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK-NEXT:    br label [[VPLANNEDBB40:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB4:
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[MM_VECTORGEP_EXTRACT_0_0]] to <2 x i32>*
+; CHECK-NEXT:    [[TMP3:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <2 x i32>*
 ; CHECK-NEXT:    store <2 x i32> [[WIDE_LOAD0]], <2 x i32>* [[TMP3]], align 4
 ; CHECK-NEXT:    br label [[VPLANNEDBB50]]
 ; CHECK-EMPTY:
