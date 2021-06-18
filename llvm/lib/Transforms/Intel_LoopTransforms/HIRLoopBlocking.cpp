@@ -826,8 +826,8 @@ static RefAnalysisResult analyzeRefs(SmallVectorImpl<RegDDRef *> &Refs,
     if (Ref->isNonLinear()) {
       HasNonLinear = true;
       // Allow blocking for nonlinear rvals
-      // Non-linear refs are usually unprofitable. We can do profitability checks
-      // later checked for IV computation (stencil B case)
+      // Non-linear refs are usually unprofitable. We can do profitability
+      // checks later checked for IV computation (stencil B case)
       if (Loop->isLiveIn(SB) || Loop->isLiveOut(SB) || Ref->isLval()) {
         LLVM_DEBUG(dbgs() << "Found Nonlinear refs:\n";);
         return NON_LINEAR;
