@@ -1189,7 +1189,7 @@ static bool isValid(RefGroupTy &Group, unsigned LoopLevel) {
   //
   auto *BitCastTy = FirstRef->getBitCastDestType();
   for (auto *Ref : Group) {
-    if (Ref->isVolatile() || Ref->isFake() || Ref->isMasked() ||
+    if (Ref->isFake() || Ref->isMasked() ||
         (BitCastTy != Ref->getBitCastDestType())) {
       return false;
     }

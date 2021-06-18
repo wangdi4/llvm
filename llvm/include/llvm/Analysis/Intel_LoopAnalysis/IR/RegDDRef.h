@@ -199,7 +199,6 @@ private:
     // This is set if this DDRef represents an address computation (GEP) instead
     // of a load or store.
     bool AddressOf;
-    bool Volatile;
     bool IsCollapsed; // Set if the DDRef has been collapsed through Loop
                       // Collapse Pass. Needed for DD test to bail out often.
     unsigned Alignment;
@@ -620,15 +619,6 @@ public:
   void setAddressOf(bool IsAddressOf) {
     createGEP();
     getGEPInfo()->AddressOf = IsAddressOf;
-  }
-
-  /// Returns true if this is a volatile load/store.
-  bool isVolatile() const { return getGEPInfo()->Volatile; }
-
-  /// Sets/resets this ref as a volatile load/store.
-  void setVolatile(bool IsVolatile) {
-    createGEP();
-    getGEPInfo()->Volatile = IsVolatile;
   }
 
   /// Returns alignment info for this ref.
