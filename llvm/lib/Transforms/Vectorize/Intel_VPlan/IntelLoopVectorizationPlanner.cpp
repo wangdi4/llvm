@@ -1252,7 +1252,7 @@ void LoopVectorizationPlanner::emitVecSpecifics(VPlanVector *Plan) {
 
     VF = Builder.create<VPInductionInitStep>("VF", VPOne, Instruction::Add);
   } else {
-    VPInstruction *Cond = nullptr;
+    VPCmpInst *Cond;
     std::tie(OrigTC, Cond) = CandidateLoop->getLoopUpperBound();
     IVUpdate = cast<VPInstruction>(Cond->getOperand(0) == OrigTC
                                        ? Cond->getOperand(1)

@@ -942,10 +942,9 @@ void VPlanPeelAdapter::setUpperBound(VPValue *TC) {
   assert(isa<VPlanMasked>(Plan) && "unexpected peel VPlan");
 
   VPLoop *TopVPLoop = *cast<VPlanMasked>(Plan).getVPLoopInfo()->begin();
-  VPValue *OrigTC = nullptr;
-  VPInstruction *Cond = nullptr;
+  VPValue *OrigTC;
+  VPCmpInst *Cond;
   std::tie(OrigTC, Cond) = TopVPLoop->getLoopUpperBound();
-  assert((OrigTC && Cond) && "A normalized loop expected");
   VPBasicBlock *Header = TopVPLoop->getHeader();
   // Replace OrigTC in the latch condition and in the header
   // top condition.
