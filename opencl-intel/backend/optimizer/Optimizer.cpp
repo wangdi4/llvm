@@ -23,6 +23,7 @@
 #include "PrintIRPass.h"
 #include "mic_dev_limits.h"
 
+#include "cl_config.h"
 #include "cl_cpu_detect.h"
 
 #include "llvm/Analysis/BasicAliasAnalysis.h"
@@ -506,7 +507,28 @@ static void populatePassesPostFailCheck(
 
   PM.add(createDuplicateCalledKernelsPass());
 
-  if (debugType == Simulator) {
+  // Dirty hack:
+  // On Windows, Intel(R) Advisor doesn't work with LLDJIT (based on MCJIT), so
+  // native debugger cannot be used. However, in simulator mode, we insert a
+  // lot debug callbacks, which cause significant performance degradation. So I
+  // add an environment veriables to disable DebugInfo pass.  When using
+  // Advisor, CL_CONFIG_CPU_NO_DBG_CBK should be explicitly set to non-false
+  // value and CL_CONFIG_USE_NATIVE_DEBUGGER should be explicitly set to false,
+  // so that no redundant call to ocl_dbg_* will be inserted and LLJIT engine
+  // will be used.
+  // On Linux, there's no such issue so 'NoDbgCbk' is always false.
+  // This part of ugly code should be definitely removed if we switch the JIT
+  // engine of LLDJIT from MCJIT to LLJIT, or when Advisor can happily work
+  // with MCJIT.
+#ifdef _WIN32
+  const char *NoDbgCbkEnv = getenv("CL_CONFIG_CPU_NO_DBG_CBK");
+  bool NoDbgCbk =
+      Intel::OpenCL::Utils::ConfigFile::ConvertStringToType<bool>(NoDbgCbkEnv);
+#else
+  constexpr bool NoDbgCbk = false;
+#endif
+
+  if (debugType == Simulator && !NoDbgCbk) {
     // DebugInfo pass must run before KernelAnalysis and Barrier pass when
     // debugging with simulator. DebugInfo inserts get_global_id call to
     // un-inlined callee, and KernelAnalysis will set no_barrier_path to false

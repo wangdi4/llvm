@@ -33,7 +33,7 @@
 #define MIC_DEV_DCU_LINE_SIZE            64
 #define MIC_DEV_MAXIMUM_ALIGN            (DEV_MAXIMUM_ALIGN)
 
-#define ADJUST_SIZE_TO_DCU_LINE(X)       (((X)+MIC_DEV_DCU_LINE_SIZE-1) & (~(MIC_DEV_DCU_LINE_SIZE-1)))
+// #define ADJUST_SIZE_TO_DCU_LINE(X)       (((X)+MIC_DEV_DCU_LINE_SIZE-1) & (~(MIC_DEV_DCU_LINE_SIZE-1)))
 #define MIN_PARAM(X,Y) ((X)<(Y)?(X):(Y))
 
 // Maximum number of arguments to be passed to the kernel
