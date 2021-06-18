@@ -11,6 +11,7 @@
 // License.
 
 #include "OptimizerLTOLegacyPM.h"
+#include "LLVMSPIRVLib.h"
 #include "VecConfig.h"
 
 #include "llvm/Transforms/IPO.h"
@@ -99,6 +100,7 @@ void OptimizerLTOLegacyPM::registerPipelineStartCallback(
                 : PassManagerBuilder::EP_ModuleOptimizerEarly;
   PMBuilder.addExtension(
       EP, [](const PassManagerBuilder &PMB, legacy::PassManagerBase &MPM) {
+        MPM.add(createSPIRVToOCL20Legacy());
         MPM.add(createParseAnnotateAttributesPass());
         MPM.add(createDPCPPEqualizerLegacyPass());
         if (PMB.OptLevel > 0)
