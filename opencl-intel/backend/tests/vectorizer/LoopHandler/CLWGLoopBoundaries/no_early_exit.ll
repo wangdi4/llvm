@@ -20,7 +20,7 @@ define void @program(i32 addrspace(1)* %out, <4 x i32> %dim, i32 %uni) nounwind 
 
 declare i32 @_Z13get_global_idj(i32)
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i32 addrspace(1)*, <4 x i32>, i32)* @program}
 

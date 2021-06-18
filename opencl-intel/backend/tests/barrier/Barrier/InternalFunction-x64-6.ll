@@ -135,7 +135,7 @@ declare void @_Z7barrierj(i32)
 declare i64 @_Z12get_local_idj(i32)
 declare void @dummybarrier.()
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i64)* @main}
 ;; barrier key values

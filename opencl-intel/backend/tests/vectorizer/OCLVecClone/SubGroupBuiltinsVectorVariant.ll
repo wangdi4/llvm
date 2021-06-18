@@ -9,7 +9,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: declare spir_func i32 @_Z13sub_group_alli(i32) local_unnamed_addr #[[SCALAR_ALL_ATTR:.*]]
 
 ; Function Attrs: convergent nounwind
-define spir_kernel void @a(i32 addrspace(1)* nocapture readonly %a, i32 addrspace(1)* nocapture %b, %opencl.image2d_ro_t.4 addrspace(1)* %c, %opencl.image2d_wo_t.5 addrspace(1)* %d) local_unnamed_addr #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 !ocl_recommended_vector_length !15 {
+define spir_kernel void @a(i32 addrspace(1)* nocapture readonly %a, i32 addrspace(1)* nocapture %b, %opencl.image2d_ro_t.4 addrspace(1)* %c, %opencl.image2d_wo_t.5 addrspace(1)* %d) local_unnamed_addr #0 !kernel_arg_addr_space !4 !kernel_arg_access_qual !5 !kernel_arg_type !6 !kernel_arg_base_type !6 !kernel_arg_type_qual !7 !kernel_arg_host_accessible !8 !kernel_arg_pipe_depth !9 !kernel_arg_pipe_io !7 !kernel_arg_buffer_location !7 !recommended_vector_length !15 {
 entry:
 ; CHECK-LABEL: vector.body
 ; CHECK: [[VEC_IND:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, {{.*}} ], [ [[VEC_IND_NEXT:%.*]], {{.*}} ]
@@ -233,7 +233,7 @@ attributes #4 = { convergent nounwind }
 !opencl.used.optional.core.features = !{!2}
 !opencl.compiler.options = !{!2}
 
-!opencl.kernels = !{!14}
+!sycl.kernels = !{!14}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
 !1 = !{i32 2, i32 0}

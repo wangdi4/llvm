@@ -15,16 +15,16 @@
 #include "LocalBuffAnalysis.h"
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
-#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 #include "common_dev_limits.h"
 
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel{

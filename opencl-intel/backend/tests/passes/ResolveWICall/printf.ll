@@ -23,7 +23,7 @@ declare i32 @printf(i8 addrspace(2)*, ...)
 
 attributes #0 = { nounwind }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!6}
 !opencl.ocl.version = !{!7}

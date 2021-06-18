@@ -13,8 +13,9 @@
 // License.
 
 #include "InternalizeNonKernelFunc.h"
-#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
+
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 
@@ -33,7 +34,7 @@ namespace intel {
     false, false)
 
   bool InternalizeNonKernelFunc::runOnModule(Module& M) {
-    using namespace Intel::MetadataAPI;
+    using namespace DPCPPKernelMetadataAPI;
     bool Changed = false;
     auto Kernels = KernelList(&M).getList();
 

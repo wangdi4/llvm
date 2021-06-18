@@ -16,7 +16,7 @@ entry:
   ret void
 }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !0 = !{void ()* @thisIsKernel, void (i32)* @alsoKernel}
 
 ; CHECK:        define void @thisIsKernel()

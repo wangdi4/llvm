@@ -13,20 +13,20 @@
 // License.
 //
 #include "CoerceWin64Types.h"
-#include "InitializePasses.h"
 #include "CompilationUtils.h"
+#include "InitializePasses.h"
 #include "OCLPassSupport.h"
-#include "MetadataAPI.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Attributes.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include <utility>
 
 using namespace llvm;
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 using namespace Intel::OpenCL::DeviceBackend;
 
 extern "C" {

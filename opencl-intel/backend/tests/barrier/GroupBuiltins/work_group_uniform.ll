@@ -133,7 +133,7 @@ declare void @__ocl_masked_store_int4(<4 x i32>*, <4 x i32>, <4 x i32>)
 ; CHECK: declare <4 x i32> @_Z14work_group_allDv4_iPS_(<4 x i32>, <4 x i32>*)
 ; CHECK: declare <4 x i32> @_Z25__finalize_work_group_allDv4_i(<4 x i32>)
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!6}
 !opencl.ocl.version = !{!7}
@@ -164,14 +164,14 @@ declare void @__ocl_masked_store_int4(<4 x i32>*, <4 x i32>, <4 x i32>)
 !17 = !{!"vectorized_kernel", void (i32 addrspace(1)*, i32 addrspace(1)*)* @__Vectorized_.wg_test_uniform}
 !18 = !{!"vectorized_width", i32 1}
 !19 = !{!"kernel_wrapper", null}
-!20 = !{!"scalarized_kernel", null}
+!20 = !{!"scalar_kernel", null}
 !21 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @__Vectorized_.wg_test_uniform, !22}
 !22 = !{!12, !13, !23, !15, !24, !25, !26, !19, !27}
 !23 = !{!"kernel_execution_length", i32 25}
 !24 = !{!"no_barrier_path", null}
 !25 = !{!"vectorized_kernel", null}
 !26 = !{!"vectorized_width", i32 4}
-!27 = !{!"scalarized_kernel", void (i32 addrspace(1)*, i32 addrspace(1)*)* @wg_test_uniform}
+!27 = !{!"scalar_kernel", void (i32 addrspace(1)*, i32 addrspace(1)*)* @wg_test_uniform}
 !28 = !{!29, !30}
 !29 = !{!"gen_addr_space_pointer_counter", null}
 !30 = !{!"gen_addr_space_pointer_warnings"}

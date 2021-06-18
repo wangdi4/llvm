@@ -21,9 +21,9 @@ entry:
   ret void
 }
 
-define void @kernel(%struct.A* nocapture readonly %arr) #0 !kernel_has_sub_groups !1 !ocl_recommended_vector_length !2 {
-; CHECK:   !ocl_recommended_vector_length !2 !sg_emu_size !3 !no_barrier_path !4
-; CHECK-FLAG: !ocl_recommended_vector_length !2
+define void @kernel(%struct.A* nocapture readonly %arr) #0 !kernel_has_sub_groups !1 !recommended_vector_length !2 {
+; CHECK:   !recommended_vector_length !2 !sg_emu_size !3 !no_barrier_path !4
+; CHECK-FLAG: !recommended_vector_length !2
 ; CHECK-NOT: !sg_emu_size
 entry:
   %ptridx = getelementptr inbounds %struct.A, %struct.A* %arr, i64 0
@@ -33,7 +33,7 @@ entry:
 
 attributes #0 = { "has-sub-groups" }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (%struct.A*)* @kernel}
 !1 = !{i1 true}

@@ -81,7 +81,7 @@ attributes #2 = { convergent }
 !opencl.used.optional.core.features = !{!1}
 !opencl.compiler.options = !{!2}
 !llvm.ident = !{!3}
-!opencl.kernels = !{!4}
+!sycl.kernels = !{!4}
 
 !0 = !{i32 1, i32 2}
 !1 = !{}

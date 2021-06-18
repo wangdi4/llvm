@@ -10,7 +10,7 @@ target triple = "x86_64-pc-linux"
 
 ; Function Attrs: convergent nounwind
 ; CHECK-LABEL: @_ZGVeN4uuuuuuuuuu_compute_sum
-define void @compute_sum(i32 addrspace(1)* %a, i32 %n, i32 addrspace(1)* %tmp_sum, i32 addrspace(1)* %sum, %opencl.pipe_wo_t.6 addrspace(1)* %out_pipe, %opencl.pipe_ro_t.7 addrspace(1)* %in_pipe, i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %add.ptr, i64 %conv6, i64 %conv7) local_unnamed_addr #0 !ocl_recommended_vector_length !1 {
+define void @compute_sum(i32 addrspace(1)* %a, i32 %n, i32 addrspace(1)* %tmp_sum, i32 addrspace(1)* %sum, %opencl.pipe_wo_t.6 addrspace(1)* %out_pipe, %opencl.pipe_ro_t.7 addrspace(1)* %in_pipe, i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %add.ptr, i64 %conv6, i64 %conv7) local_unnamed_addr #0 !recommended_vector_length !1 {
 entry:
   %call = tail call i64 @_Z12get_local_idj(i32 0) #2
   %conv = trunc i64 %call to i32
@@ -136,7 +136,7 @@ attributes #3 = { nounwind }
 
 ; CHECK: attributes #[[BARRIER_ATTR]] = { {{.*}} "kernel-uniform-call" }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.ocl.version = !{!2}
 
 !0 = !{void (i32 addrspace(1)*, i32, i32 addrspace(1)*, i32 addrspace(1)*, %opencl.pipe_wo_t.6 addrspace(1)*, %opencl.pipe_ro_t.7 addrspace(1)*, i8 addrspace(3)*, i8 addrspace(1)*, i64, i64)* @compute_sum}

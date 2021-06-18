@@ -35,6 +35,6 @@ define void @test_function_to_call() nounwind {
 }
 
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void ()* @test_kernel_to_call, void ()* @test_kernel_call_kernel, void ()* @test_kernel_call_function}

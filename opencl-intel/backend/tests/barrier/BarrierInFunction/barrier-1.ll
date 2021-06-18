@@ -46,7 +46,7 @@ define void @foo(i32 %x) nounwind {
 
 declare void @_Z7barrierj(i32)
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.disabled.FP_CONTRACT = !{}
 
 !0 = !{void (i32)* @main}

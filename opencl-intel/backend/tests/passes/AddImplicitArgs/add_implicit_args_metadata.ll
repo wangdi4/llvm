@@ -12,7 +12,7 @@ entry:
   ret void
 }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i32)* @functionWithBody, void (i32, i32)* @functionWithoutBody}
 
@@ -29,7 +29,7 @@ entry:
 ; CHECK-NEXT:   %res = add i32 100, 10
 ; CHECK-NEXT:   ret void
 
-; CHECK:        !opencl.kernels = !{!0}
+; CHECK:        !sycl.kernels = !{!0}
 ; CHECK:        !0 = !{void (i32, i8 addrspace(3)*, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }*, i32*, [4 x i32], i8*, {}*)* @functionWithBody, void (i32, i32)* @functionWithoutBody}
 
 ; DEBUGIFY-NOT: WARNING

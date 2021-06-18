@@ -58,7 +58,7 @@ define void @KernelFunc(i32 addrspace(1)* %G, i32 %val, i32 addrspace(3)* %L1, i
 
 declare void @_Z7barrierj(i32)
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!13}
 !opencl.ocl.version = !{!14}

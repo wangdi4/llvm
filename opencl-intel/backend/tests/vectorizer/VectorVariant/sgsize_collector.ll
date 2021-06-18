@@ -17,19 +17,19 @@ entry:
   ret void
 }
 
-define void @kernel() !ocl_recommended_vector_length !0 {
+define void @kernel() !recommended_vector_length !0 {
 entry:
   call void @foo()
   ret void
 }
 
-define void @kernel2() !ocl_recommended_vector_length !1 {
+define void @kernel2() !recommended_vector_length !1 {
 entry:
   call void @bar()
   ret void
 }
 
-define void @kernel3() !ocl_recommended_vector_length !2 {
+define void @kernel3() !recommended_vector_length !2 {
 entry:
   call void @foo()
   call void @bar()

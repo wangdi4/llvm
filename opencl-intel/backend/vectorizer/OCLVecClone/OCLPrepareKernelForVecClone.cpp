@@ -31,17 +31,17 @@
 // ===--------------------------------------------------------------------=== //
 #include "OCLPrepareKernelForVecClone.h"
 #include "InitializePasses.h"
-#include "MetadataAPI.h"
 #include "VectorizerCommon.h"
 
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include <string>
 #include <vector>
 
 using namespace llvm;
-using namespace Intel::MetadataAPI;
 using namespace Intel::VectorizerCommon;
+using namespace DPCPPKernelMetadataAPI;
 
 cl::opt<VectorVariant::ISAClass> CPUIsaEncodingOverride(
     "ocl-vector-variant-isa-encoding-override", cl::Hidden,
@@ -96,9 +96,9 @@ void OCLPrepareKernelForVecClone::addVectorVariantAttrsToKernel(Function *F) {
   // used to communicate the vector length value between the two passes.
   auto MD = KernelInternalMetadataAPI(F);
   auto KMD = KernelMetadataAPI(F);
-  assert(MD.OclRecommendedVectorLength.hasValue() &&
+  assert(MD.RecommendedVL.hasValue() &&
            "Vector Length was not set!");
-  unsigned VectorLength = MD.OclRecommendedVectorLength.get();
+  unsigned VectorLength = MD.RecommendedVL.get();
 
   // Use "uniform" parameter for all arguments.
   std::vector<VectorKind> ParametersKind(F->arg_size(), VectorKind::uniform());

@@ -17,14 +17,14 @@ entry:
   ret void
 }
 
-define void @kernel(%struct.A* nocapture readonly %arr) !ocl_recommended_vector_length !0 {
+define void @kernel(%struct.A* nocapture readonly %arr) !recommended_vector_length !0 {
 entry:
   %ptridx = getelementptr inbounds %struct.A, %struct.A* %arr, i64 0
   call void @foo(%struct.A* nonnull byval(%struct.A) align 8 %ptridx)
   ret void
 }
 
-define void @kernel2(%struct.A* nocapture readonly %arr) !ocl_recommended_vector_length !1 {
+define void @kernel2(%struct.A* nocapture readonly %arr) !recommended_vector_length !1 {
 entry:
   %ptridx = getelementptr inbounds %struct.A, %struct.A* %arr, i64 0
   call void @bar(%struct.A* nonnull byval(%struct.A) align 8 %ptridx)
@@ -39,7 +39,7 @@ attributes #0 = { "vector-variants"="_ZGVbM16v_bar" }
 ; CHECK-NO-FLAG: attributes #0 = { "vector-variants"="_ZGVbM16v_bar" }
 ; CHECK-NO-FLAG-NOT: vector-variants
 
-!opencl.kernels = !{!2}
+!sycl.kernels = !{!2}
 
 !0 = !{i32 8}
 !1 = !{i32 16}

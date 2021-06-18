@@ -20,20 +20,20 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/NoFolder.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
 #include <BuiltinLibInfo.h>
 #include <CompilationUtils.h>
 #include <InitializePasses.h>
-#include <MetadataAPI.h>
 #include <OCLAddressSpace.h>
 #include <OCLPassSupport.h>
 
 #include <string>
 
 using namespace llvm;
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 using namespace Intel::OpenCL::DeviceBackend;
 using namespace Intel::OpenCL::DeviceBackend::ChannelPipeMetadata;
 

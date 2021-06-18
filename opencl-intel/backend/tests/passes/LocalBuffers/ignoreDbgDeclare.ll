@@ -73,7 +73,7 @@ entry:
 }
 
 !llvm.dbg.cu = !{!0}
-!opencl.kernels = !{!21}
+!sycl.kernels = !{!21}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!27}
 !opencl.ocl.version = !{!28}

@@ -45,7 +45,7 @@ attributes #1 = { convergent }
 !opencl.used.optional.core.features = !{!2}
 !opencl.compiler.options = !{!6}
 !llvm.ident = !{!7}
-!opencl.kernels = !{!8}
+!sycl.kernels = !{!8}
 
 !0 = distinct !DICompileUnit(language: DW_LANG_OpenCL, file: !1, producer: "clang based Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug, enums: !2, nameTableKind: None)
 !1 = !DIFile(filename: "empty.cl", directory: ".")

@@ -32,7 +32,7 @@ ret:
 
 declare i32 @_Z13get_global_idj(i32)
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i32 addrspace(1)*)* @program}
 

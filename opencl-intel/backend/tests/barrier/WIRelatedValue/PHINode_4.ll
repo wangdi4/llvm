@@ -35,6 +35,6 @@ L3:
 declare i32 @_Z12get_local_idj(i32)
 declare void @_Z7barrierj(i32)
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i32)* @main}

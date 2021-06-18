@@ -58,7 +58,7 @@ attributes #2 = { nounwind readnone "disable-tail-calls"="false" "less-precise-f
 attributes #3 = { nounwind readnone }
 attributes #4 = { nounwind }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.ocl.version = !{!6}
 !opencl.spir.version = !{!6}

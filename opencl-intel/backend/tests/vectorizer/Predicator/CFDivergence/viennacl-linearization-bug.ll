@@ -53,7 +53,7 @@ declare i64 @_Z13get_global_idj(i32) nounwind readnone
 
 declare i64 @_Z15get_global_sizej(i32) nounwind readnone
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!7}
 !opencl.ocl.version = !{!8}
@@ -84,5 +84,5 @@ declare i64 @_Z15get_global_sizej(i32) nounwind readnone
 !17 = !{!"vectorized_kernel", null}
 !18 = !{!"vectorized_width", null}
 !19 = !{!"kernel_wrapper", null}
-!20 = !{!"scalarized_kernel", null}
+!20 = !{!"scalar_kernel", null}
 

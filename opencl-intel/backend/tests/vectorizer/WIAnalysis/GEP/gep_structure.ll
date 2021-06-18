@@ -112,7 +112,7 @@ attributes #1 = { nounwind readnone }
 attributes #3 = { nounwind readnone }
 attributes #4 = { nounwind }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!7}
 !opencl.ocl.version = !{!8}
@@ -146,7 +146,7 @@ attributes #4 = { nounwind }
 !20 = !{!"vectorized_kernel", null}
 !21 = !{!"vectorized_width", null}
 !22 = !{!"kernel_wrapper", null}
-!23 = !{!"scalarized_kernel", null}
+!23 = !{!"scalar_kernel", null}
 !24 = !{!"block_literal_size", null}
 !25 = !{!"private_memory_size", null}
 !26 = !{!27, !28, !29}

@@ -18,7 +18,6 @@
 #include "InitializePasses.h"
 #include "LoopPeeling.h"
 #include "LoopUtils/LoopUtils.h"
-#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 #include "OclTune.h"
 #include "VectorizerUtils.h"
@@ -28,6 +27,7 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <sstream>
@@ -61,7 +61,7 @@ CLWGLoopCreator::~CLWGLoopCreator()
 }
 
 bool CLWGLoopCreator::runOnModule(Module &M) {
-  using namespace Intel::MetadataAPI;
+  using namespace DPCPPKernelMetadataAPI;
 
   bool changed = false;
   if (KernelList(&M).empty() ) {
@@ -111,7 +111,7 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
 }
 
 unsigned CLWGLoopCreator::computeNumDim() {
-  using namespace Intel::MetadataAPI;
+  using namespace DPCPPKernelMetadataAPI;
 
   if (KernelList(m_F->getParent()).empty())
     return m_rtServices->getNumJitDimensions();
@@ -123,7 +123,7 @@ unsigned CLWGLoopCreator::computeNumDim() {
 
 bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
                                     unsigned packetWidth) {
-  using namespace Intel::MetadataAPI;
+  using namespace DPCPPKernelMetadataAPI;
 
   m_vectorizedDim = 0;
   if (vectorFunc != nullptr) {

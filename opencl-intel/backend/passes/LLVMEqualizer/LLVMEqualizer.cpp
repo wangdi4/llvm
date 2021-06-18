@@ -17,7 +17,6 @@
 #include "InitializePasses.h"
 #include "OCLPassSupport.h"
 #include "OCLAddressSpace.h"
-#include "MetadataAPI.h"
 #include <NameMangleAPI.h>
 
 #include "llvm/ADT/SmallVector.h"
@@ -28,6 +27,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 
@@ -305,7 +305,7 @@ static void setBlockLiteralSizeMetadata(Function &F) {
       } else {
         llvm_unreachable("Unexpected instruction");
       }
-      auto KIMD = Intel::MetadataAPI::KernelInternalMetadataAPI(&F);
+      auto KIMD = DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F);
       KIMD.BlockLiteralSize.set(BlockSize);
       return;
     }
@@ -316,7 +316,7 @@ static void FormOpenCLKernelsMetadata(Module &M) {
   assert(!M.getNamedMetadata("opencl.kernels") &&
     "Do not expect opencl.kernels Metadata");
 
-  using namespace Intel::MetadataAPI;
+  using namespace DPCPPKernelMetadataAPI;
 
   KernelList::KernelVectorTy kernels;
 

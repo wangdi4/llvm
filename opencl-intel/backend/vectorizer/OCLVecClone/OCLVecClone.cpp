@@ -36,7 +36,6 @@
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "LoopUtils/LoopUtils.h"
-#include "MetadataAPI.h"
 #include "NameMangleAPI.h"
 #include "OCLPrepareKernelForVecClone.h"
 
@@ -52,6 +51,7 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Threading.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include <mutex>
 #include <string>
@@ -80,7 +80,7 @@
 
 using namespace llvm;
 using namespace llvm::NameMangleAPI;
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 using namespace PatternMatch;
 
 // Static container storing all the vector info entries.
@@ -164,8 +164,8 @@ OCLVecCloneImpl::OCLVecCloneImpl(const Intel::OpenCL::Utils::CPUDetect *CPUId,
 
 OCLVecCloneImpl::OCLVecCloneImpl() : VecCloneImpl() {}
 
-// Remove the "ocl_recommended_vector_length" metadata from the original kernel.
-// "ocl_recommened_vector_length" metadata is used only by OCLVecClone. The rest
+// Remove the "recommended_vector_length" metadata from the original kernel.
+// "recommened_vector_length" metadata is used only by OCLVecClone. The rest
 // of the Volcano passes recognize the "vector_width" metadata. Thus, we add
 // "vector_width" metadata to the original kernel and the cloned kernel.
 static void updateMetadata(Function &F, Function *Clone,
@@ -174,18 +174,18 @@ static void updateMetadata(Function &F, Function *Clone,
   auto KMD = KernelMetadataAPI(&F);
   auto CloneMD = KernelInternalMetadataAPI(Clone);
   // Get VL from the metadata from the original kernel.
-  unsigned VectorLength = FMD.OclRecommendedVectorLength.get();
+  unsigned VectorLength = FMD.RecommendedVL.get();
   // Set the "vector_width" metadata to the cloned kernel.
   CloneMD.VectorizedKernel.set(nullptr);
   CloneMD.VectorizedWidth.set(VectorLength);
   CloneMD.VectorizationDimension.set(VecDim);
   // Set the metadata that points to the orginal kernel of the clone.
-  CloneMD.ScalarizedKernel.set(&F);
+  CloneMD.ScalarKernel.set(&F);
   CloneMD.CanUniteWorkgroups.set(CanUniteWorkgroups);
 
   // Set "vector_width" for the original kernel.
   FMD.VectorizedWidth.set(1);
-  FMD.ScalarizedKernel.set(nullptr);
+  FMD.ScalarKernel.set(nullptr);
 
   if (F.getFunctionType() == Clone->getFunctionType())
     FMD.VectorizedKernel.set(Clone);
@@ -913,7 +913,7 @@ void OCLVecCloneImpl::languageSpecificInitializations(Module &M) {
 
   for (Function *F : Kernels) {
     auto FMD = KernelInternalMetadataAPI(F);
-    unsigned VectorLength = FMD.OclRecommendedVectorLength.get();
+    unsigned VectorLength = FMD.RecommendedVL.get();
     if ((VectorLength > 1) && (!F->hasOptNone()))
       PK.run(F);
   }

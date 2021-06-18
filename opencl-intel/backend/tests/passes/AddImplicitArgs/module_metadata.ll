@@ -13,9 +13,9 @@ entry:
   ret void
 }
 
-!opencl.kernels = !{!4}
+!sycl.kernels = !{!4}
 
-; CHECK: !opencl.kernels = !{![[KERNELS:[0-9]+]]}
+; CHECK: !sycl.kernels = !{![[KERNELS:[0-9]+]]}
 
 !4 = !{void ()* @UniformAddKernel}
 

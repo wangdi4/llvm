@@ -62,7 +62,7 @@ if.end39:                                         ; preds = %if.then32, %if.then
 
 declare i32 @_Z13get_global_idj(i32) readnone
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.compiler.options = !{}
 
 !0 = !{void (i32, i32, float addrspace(1)*, float addrspace(1)*)* @PhiCanonCase5, !1, !1, !"", !"int, int, float __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *", !"opencl_PhiCanonCase5_locals_anchor", !2, !3, !4, !5, !""}

@@ -37,6 +37,6 @@ L0:
 ; CHECK-NOT: entry
 ; CHECK: DONE
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i32)* @main}

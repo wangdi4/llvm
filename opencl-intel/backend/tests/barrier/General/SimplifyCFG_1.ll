@@ -19,7 +19,7 @@
 ; CHECK: call void @_Z7barrierj(i64 1)
 ; CHECK: call void @_Z7barrierj(i64 1)
 ; CHECK-NOT: call void @_Z7barrierj(i64 1)
-; CHECK: !opencl.kernels
+; CHECK: !sycl.kernels
 
 ; ModuleID = 'Program'
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
@@ -196,7 +196,7 @@ declare i64 @get_group_id(i32)
 
 declare void @_Z7barrierj(i64)
 
-!opencl.kernels = !{!2}
+!sycl.kernels = !{!2}
 !opencl_spmv_csr_vector_kernel_locals_anchor = !{!4}
 
 !1 = !{i32 0, i32 0, i32 0}

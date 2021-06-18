@@ -56,7 +56,7 @@ attributes #1 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disa
 !opencl.used.optional.core.features = !{!5, !5}
 !opencl.compiler.options = !{!6, !4}
 !llvm.ident = !{!7, !8}
-!opencl.kernels = !{!4}
+!sycl.kernels = !{!4}
 
 !0 = !{i32 2, !"Dwarf Version", i32 4}
 !1 = !{i32 2, !"Debug Info Version", i32 3}

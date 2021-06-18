@@ -6,11 +6,11 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: nounwind
-define void @"_ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE7kernel0"() local_unnamed_addr #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !3 !kernel_arg_type !3 !kernel_arg_type_qual !3 !kernel_arg_base_type !3 !no_barrier_path !7 !ocl_recommended_vector_length !8 {
+define void @"_ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE7kernel0"() local_unnamed_addr #0 !kernel_arg_addr_space !3 !kernel_arg_access_qual !3 !kernel_arg_type !3 !kernel_arg_type_qual !3 !kernel_arg_base_type !3 !no_barrier_path !7 !recommended_vector_length !8 {
   ret void
 }
 
-define [7 x i64] @"WG.boundaries._ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE7kernel0"() !ocl_recommended_vector_length !8 {
+define [7 x i64] @"WG.boundaries._ZTSZZ4mainENK3$_0clERN2cl4sycl7handlerEE7kernel0"() !recommended_vector_length !8 {
 entry:
   %0 = call i64 @_Z14get_local_sizej(i32 0)
   %1 = call i64 @get_base_global_id.(i32 0)
@@ -41,7 +41,7 @@ attributes #0 = { nounwind }
 !opencl.used.extensions = !{!3}
 !opencl.used.optional.core.features = !{!3}
 !spirv.Generator = !{!4}
-!opencl.kernels = !{!5}
+!sycl.kernels = !{!5}
 !opencl.gen_addr_space_pointer_counter = !{!6}
 
 !0 = !{i32 4, i32 100000}

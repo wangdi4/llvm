@@ -47,7 +47,7 @@ declare i32 @_Z22get_sub_group_local_idv()
 declare void @dummy_sg_barrier()
 declare void @_Z17sub_group_barrierj(i32)
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i32)* @test}
 !1 = !{i1 true}

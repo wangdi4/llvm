@@ -19,7 +19,7 @@ define void @test_if() {
   ret void
 }
 
-!opencl.kernels = !{!4}
+!sycl.kernels = !{!4}
 
 !4 = !{void ()* @__test_if_separated_args}
 !15 = !{void ()* @test_if}

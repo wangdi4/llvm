@@ -40,6 +40,6 @@ define void @main(i32 %x) nounwind {
 ; CHECK: entry(0) : (0)
 ; CHECK: DONE
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i32)* @main}

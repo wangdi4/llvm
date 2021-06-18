@@ -15,21 +15,21 @@ entry:
   ret void
 }
 
-define void @kernel() #1 !ocl_recommended_vector_length !0 {
+define void @kernel() #1 !recommended_vector_length !0 {
 ; CHECK: define void @kernel() #[[ATTR2:[0-9]+]]
 entry:
   call void @foo()
   ret void
 }
 
-define void @kernel2() #1 !ocl_recommended_vector_length !1 {
+define void @kernel2() #1 !recommended_vector_length !1 {
 ; CHECK: define void @kernel2() #[[ATTR3:[0-9]+]]
 entry:
   call void @bar()
   ret void
 }
 
-define void @kernel3() #1 !ocl_recommended_vector_length !2 {
+define void @kernel3() #1 !recommended_vector_length !2 {
 ; CHECK: define void @kernel3() #[[ATTR4:[0-9]+]]
 entry:
   call void @foo()

@@ -142,7 +142,7 @@ attributes #3 = { convergent "uniform-work-group-size"="true" }
 !opencl.used.optional.core.features = !{!4}
 !opencl.compiler.options = !{!19}
 !llvm.ident = !{!20}
-!opencl.kernels = !{!21}
+!sycl.kernels = !{!21}
 !opencl.global_variable_total_size = !{!22}
 
 !0 = !DIGlobalVariableExpression(var: !1, expr: !DIExpression())

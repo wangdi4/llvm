@@ -17,11 +17,11 @@
 #include <BuiltinLibInfo.h>
 #include <CompilationUtils.h>
 #include <InitializePasses.h>
-#include <MetadataAPI.h>
 #include <OCLAddressSpace.h>
 #include <OCLPassSupport.h>
 #include "ICLDevBackendOptions.h"
 
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/InstIterator.h>
@@ -332,7 +332,7 @@ bool PipeSupport::runOnModule(Module &M) {
     bool FuncUseFPGAPipes = addImplicitFlushCalls(F, Builtins, PipeTypes);
     Changed |= FuncUseFPGAPipes;
 
-    Intel::MetadataAPI::KernelInternalMetadataAPI(&F).UseFPGAPipes.set(
+    DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(&F).UseFPGAPipes.set(
         FuncUseFPGAPipes);
     if (!FuncUseFPGAPipes)
       continue;
@@ -341,7 +341,7 @@ bool PipeSupport::runOnModule(Module &M) {
     // operations. Disable vectorization of the functions with
     // these operations by setting vector width to 1.
 
-    Intel::MetadataAPI::KernelMetadataAPI(&F).VecLenHint.set(TRANSPOSE_SIZE_1);
+    DPCPPKernelMetadataAPI::KernelMetadataAPI(&F).VecLenHint.set(TRANSPOSE_SIZE_1);
 
     WorkList.push(&F);
   }
@@ -353,7 +353,7 @@ bool PipeSupport::runOnModule(Module &M) {
       if (CallInst *Call = dyn_cast<CallInst>(U)) {
         auto ParentFunction = Call->getFunction();
         auto UseFPGAPipesMD =
-            Intel::MetadataAPI::KernelInternalMetadataAPI(ParentFunction)
+            DPCPPKernelMetadataAPI::KernelInternalMetadataAPI(ParentFunction)
                 .UseFPGAPipes;
         // In WorkList all functions have pipes, so all parent functions
         // should have pipes.

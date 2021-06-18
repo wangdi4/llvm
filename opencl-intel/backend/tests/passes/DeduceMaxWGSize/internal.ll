@@ -23,7 +23,7 @@ entry:
 }
 declare i64 @_Z13get_global_idj(i32) nounwind readnone
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!7}
 !opencl.ocl.version = !{!8}
