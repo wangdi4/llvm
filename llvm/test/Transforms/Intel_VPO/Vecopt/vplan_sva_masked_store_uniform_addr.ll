@@ -2,8 +2,7 @@
 ; Test to check VPlan SVA results and vector CG for masked stores to uniform
 ; address.
 
-; RUN: opt -S < %s -VPlanDriver -vplan-print-after-all-zero-bypass -disable-vplan-codegen | FileCheck %s
-; TODO: Enable CG and use -vplan-print-scalvec-results after fixing SVA bug.
+; RUN: opt -S < %s -VPlanDriver -vplan-print-scalvec-results | FileCheck %s
 
 define dso_local void @foo(i32 addrspace(4)** %uni.addr) {
 entry:
@@ -15,9 +14,9 @@ simd.begin.region:
   br label %simd.loop.preheader
 
 simd.loop.preheader:
-; CHECK:          [DA: Div, SVA: (  L)] i32* [[VP_PRIV:%.*]] = allocate-priv i32*, OrigAlign = 4 (SVAOpBits )
-; CHECK-NEXT:     [DA: Div, SVA: (  L)] i32 addrspace(4)* [[VP_PRIV_ADDRCAST:%.*]] = addrspacecast i32* [[VP_PRIV]] (SVAOpBits 0->L )
-; CHECK-NEXT:     [DA: Div, SVA: (  L)] i32 addrspace(4)* [[VP_PRIV_GEP:%.*]] = getelementptr inbounds i32 addrspace(4)* [[VP_PRIV_ADDRCAST]] i64 0 (SVAOpBits 0->L 1->L )
+; CHECK:          [DA: Div, SVA: ( V )] i32* [[VP_PRIV:%.*]] = allocate-priv i32*, OrigAlign = 4 (SVAOpBits )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 addrspace(4)* [[VP_PRIV_ADDRCAST:%.*]] = addrspacecast i32* [[VP_PRIV]] (SVAOpBits 0->V )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] i32 addrspace(4)* [[VP_PRIV_GEP:%.*]] = getelementptr inbounds i32 addrspace(4)* [[VP_PRIV_ADDRCAST]] i64 0 (SVAOpBits 0->V 1->V )
   %priv.addrcast = addrspacecast i32* %priv to i32 addrspace(4)*
   %priv.gep = getelementptr inbounds i32, i32 addrspace(4)* %priv.addrcast, i64 0
   br label %simd.loop
@@ -29,8 +28,7 @@ simd.loop:
 
 if.then:
 ; CHECK:          [DA: Div, SVA: ( V )] i1 [[VP0:%.*]] = block-predicate i1 [[VP_COND:%.*]] (SVAOpBits 0->V )
-; FIXME: Masked stores to uniform address are vectorized, not kept as scalar for last lane.
-; CHECK-NEXT:     [DA: Div, SVA: (  L)] store i32 addrspace(4)* [[VP_PRIV_GEP]] i32 addrspace(4)** [[UNI_ADDR0:%.*]] (SVAOpBits 0->L 1->F )
+; CHECK-NEXT:     [DA: Div, SVA: ( V )] store i32 addrspace(4)* [[VP_PRIV_GEP]] i32 addrspace(4)** [[UNI_ADDR0:%.*]] (SVAOpBits 0->V 1->V )
   store i32 addrspace(4)* %priv.gep, i32 addrspace(4)** %uni.addr, align 4
   br label %merge
 

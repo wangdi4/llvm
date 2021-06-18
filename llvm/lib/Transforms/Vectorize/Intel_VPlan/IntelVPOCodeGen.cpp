@@ -2588,7 +2588,8 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
   // vectorized code.
   // TODO: Extend the optimization for masked uniform stores too. Will need
   // all-zero check (like masked uniform load) and functionality to find out
-  // last unmasked lane for divergent data operand.
+  // last unmasked lane for divergent data operand. Update SVA after
+  // implementing this optimization.
   if (Plan->getVPlanDA()->isUniform(*Ptr) && !MaskValue) {
     Value *ScalarPtr = getScalarValue(Ptr, 0);
     VPValue *DataOp = VPStore->getOperand(0);
