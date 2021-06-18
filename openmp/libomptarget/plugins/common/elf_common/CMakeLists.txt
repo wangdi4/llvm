@@ -30,6 +30,7 @@ endif(INTEL_COLLAB)
   # in two flavors).
   set_msvc_crt_flags(elf_common)
 # end INTEL_CUSTOMIZATION
+include_directories(${LIBOMPTARGET_LLVM_INCLUDE_DIRS})
 add_dependencies(elf_common ${LINK_LLVM_LIBS})
 
 # The code uses Debug.h, which requires threads support.
