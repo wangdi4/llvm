@@ -1135,7 +1135,8 @@ std::string ToolChain::GetMKLIncludePathExtra(const ArgList &Args) const {
 
 std::string ToolChain::GetMKLLibPath(void) const {
   SmallString<128> P(getMKLBasePath(getDriver().Dir));
-  if (getTriple().getArch() == llvm::Triple::x86_64)
+  llvm::Triple HostTriple(getAuxTriple() ? *getAuxTriple() : getTriple());
+  if (HostTriple.getArch() == llvm::Triple::x86_64)
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
@@ -1213,7 +1214,8 @@ std::string ToolChain::GetDAALIncludePath(const ArgList &Args) const {
 
 std::string ToolChain::GetDAALLibPath(void) const {
   SmallString<128> P(getDAALBasePath(getDriver().Dir));
-  if (getTriple().getArch() == llvm::Triple::x86_64)
+  llvm::Triple HostTriple(getAuxTriple() ? *getAuxTriple() : getTriple());
+  if (HostTriple.getArch() == llvm::Triple::x86_64)
     llvm::sys::path::append(P, "lib/intel64");
   else
     llvm::sys::path::append(P, "lib/ia32");
@@ -1306,9 +1308,13 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
                        options::OPT_fno_openmp, false))))
       return;
     SmallVector<StringRef, 8> MKLLibs;
-    if (!getTriple().isWindowsMSVCEnvironment() &&
-        !Args.hasArg(options::OPT_static) && Args.hasArg(options::OPT_fsycl))
-      MKLLibs.push_back("mkl_sycl");
+    bool IsMSVC = getTriple().isWindowsMSVCEnvironment();
+    if (Args.hasArg(options::OPT_fsycl)) {
+      SmallString<32> LibName("mkl_sycl");
+      if (IsMSVC && Args.hasArg(options::OPT__SLASH_MDd))
+        LibName += "d";
+      MKLLibs.push_back(Args.MakeArgString(LibName));
+    }
     auto addMKLExt = [](std::string LN, const llvm::Triple &Triple) {
       std::string LibName(LN);
       if (Triple.getArch() == llvm::Triple::x86_64)
@@ -1317,10 +1323,13 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
     };
     MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_intel", getTriple())));
     if (A->getValue() == StringRef("parallel")) {
-      if (Args.hasArg(options::OPT_qtbb) || getDriver().IsDPCPPMode())
+      if (Args.hasArg(options::OPT_qtbb) || getDriver().IsDPCPPMode()) {
         // Use TBB when -tbb or DPC++
-        MKLLibs.push_back("mkl_tbb_thread");
-      else
+        SmallString<32> LibName("mkl_tbb_thread");
+        if (IsMSVC && Args.hasArg(options::OPT__SLASH_MDd))
+          LibName += "d";
+        MKLLibs.push_back(Args.MakeArgString(LibName));
+      } else
         MKLLibs.push_back("mkl_intel_thread");
     }
     if (A->getValue() == StringRef("cluster")) {
@@ -1355,6 +1364,8 @@ void ToolChain::AddDAALLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
                               std::string Prefix) const {
   if (const Arg *A = Args.getLastArg(options::OPT_qdaal_EQ)) {
     SmallVector<StringRef, 4> DAALLibs;
+    if (Args.hasArg(options::OPT_fsycl))
+      DAALLibs.push_back("onedal_sycl");
     DAALLibs.push_back("onedal_core");
     if (A->getValue() == StringRef("parallel"))
       DAALLibs.push_back("onedal_thread");
