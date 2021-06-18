@@ -502,15 +502,14 @@ def GR64 : RegisterClass<"X86", [i64], 64,
 // Segment registers for use by MOV instructions (and others) that have a
 //   segment register as one operand.  Always contain a 16-bit segment
 //   descriptor.
+def SEGMENT_REG : RegisterClass<"X86", [i16], 16, (add CS, DS, SS, ES, FS, GS)>;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
-def SEGMENT_REG : RegisterClass<"X86", [i16], 16, (add CS, DS, SS, ES, FS, GS,
-                                                       PHYSEG_SUPOVR, GDTR,
-                                                       LDTR, IDTR, TR,
-                                                       LINSEG_NOSUPOVR,
-                                                       LINSEG_SUPOVR)>;
-#else // INTEL_FEATURE_ICECODE
-def SEGMENT_REG : RegisterClass<"X86", [i16], 16, (add CS, DS, SS, ES, FS, GS)>;
+def SEGMENTEX_REG : RegisterClass<"X86", [i16], 16, (add SEGMENT_REG,
+                                                         PHYSEG_SUPOVR, GDTR,
+                                                         LDTR, IDTR, TR,
+                                                         LINSEG_NOSUPOVR,
+                                                         LINSEG_SUPOVR)>;
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
 
