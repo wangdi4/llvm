@@ -84,7 +84,7 @@ class LoopVectorizeHints {
   Hint Scalable;
 
 #if INTEL_CUSTOMIZATION
-  SmallVector<unsigned, 5> AllowedVFs;
+  SmallVector<ElementCount, 5> AllowedVFs;
 #endif // INTEL_CUSTOMIZATION
 
   /// Return the loop metadata prefix.
@@ -124,7 +124,7 @@ public:
                           bool VectorizeOnlyWhenForced) const;
 
 #if INTEL_CUSTOMIZATION
-  ArrayRef<unsigned> getAllowedVFs() { return AllowedVFs; }
+  ArrayRef<ElementCount> getAllowedVFs() { return AllowedVFs; }
 #endif // INTEL_CUSTOMIZATION
 
   /// Dumps all the hint information.
