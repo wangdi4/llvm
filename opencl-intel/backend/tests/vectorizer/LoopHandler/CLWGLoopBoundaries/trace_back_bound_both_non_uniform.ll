@@ -50,7 +50,7 @@ attributes #2 = { nounwind readnone }
 !opencl.used.extensions = !{!4}
 !opencl.used.optional.core.features = !{!4}
 !spirv.Generator = !{!5}
-!opencl.kernels = !{!6}
+!sycl.kernels = !{!6}
 
 !0 = !{i32 2, i32 2}
 !1 = !{i32 4, i32 100000}

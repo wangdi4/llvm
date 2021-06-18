@@ -89,7 +89,7 @@ attributes #3 = { nounwind readnone }
 !opencl.stat.run_time_version = !{!10}
 !opencl.stat.workload_name = !{!11}
 !opencl.stat.module_name = !{!12}
-!opencl.kernels = !{!13}
+!sycl.kernels = !{!13}
 
 !0 = distinct !DICompileUnit(language: DW_LANG_OpenCL, file: !1, producer: "clang based Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !2, nameTableKind: None)
 !1 = !DIFile(filename: "alloca_no_use.cl", directory: "")

@@ -10,15 +10,15 @@
 
 #include "SGSizeAnalysis.h"
 
-#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #define DEBUG_TYPE "sg-size-analysis"
 
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 
 namespace intel {
 

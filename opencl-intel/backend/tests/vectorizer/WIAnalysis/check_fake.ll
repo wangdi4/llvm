@@ -51,7 +51,7 @@ declare spir_func i64 @_Z13get_global_idj(i32) nounwind readnone
 
 declare spir_func i32 @_Z6selectiii(i32, i32, i32) nounwind readnone
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!6}
 !opencl.ocl.version = !{!7}

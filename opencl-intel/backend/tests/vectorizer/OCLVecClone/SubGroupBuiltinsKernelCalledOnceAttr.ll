@@ -6,7 +6,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: convergent nounwind
 ; CHECK-LABEL: @_ZGVeN4uu_a
-define spir_kernel void @a(i32 addrspace(1)* nocapture readonly %a, i32 addrspace(1)* nocapture %b) #0 !ocl_recommended_vector_length !1 {
+define spir_kernel void @a(i32 addrspace(1)* nocapture readonly %a, i32 addrspace(1)* nocapture %b) #0 !recommended_vector_length !1 {
 entry:
   %call = tail call spir_func i64 @_Z13get_global_idj(i32 0) #3
   %slid = tail call i32 @_Z22get_sub_group_local_idv() #3
@@ -191,7 +191,7 @@ attributes #0 = { convergent nounwind }
 ; CHECK: attributes #[[BALLOT_ATTR_1]] = { {{.*}} "kernel-call-once" {{.*}} }
 ; CHECK: attributes #[[BALLOT_ATTR_2]] = { {{.*}} "kernel-call-once" {{.*}} }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @a}
 !1 = !{i32 4}

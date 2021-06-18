@@ -53,7 +53,7 @@ attributes #2 = { convergent nounwind }
 !opencl.used.optional.core.features = !{!2}
 !opencl.compiler.options = !{!3}
 !llvm.ident = !{!4}
-!opencl.kernels = !{!5}
+!sycl.kernels = !{!5}
 !opencl.gen_addr_space_pointer_counter = !{!6}
 !opencl.global_variable_total_size = !{!6}
 

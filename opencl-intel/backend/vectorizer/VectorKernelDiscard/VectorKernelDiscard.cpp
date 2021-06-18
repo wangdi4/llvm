@@ -16,16 +16,16 @@
 
 #include "VectorKernelDiscard.h"
 #include "InitializePasses.h"
-#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 
 #include "llvm/ADT/Triple.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace intel;
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 using namespace llvm;
 
 extern "C" {

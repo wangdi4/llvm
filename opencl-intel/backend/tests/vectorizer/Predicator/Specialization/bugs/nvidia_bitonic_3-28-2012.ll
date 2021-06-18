@@ -205,7 +205,7 @@ declare i1 @allOne(i1)
 
 declare i1 @allZero(i1)
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl_bitonicSortLocal1_locals_anchor = !{!6, !7}
 !opencl.compiler.options = !{}
 

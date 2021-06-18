@@ -98,7 +98,7 @@ attributes #1 = { "vector-variants"="_ZGVbM16v__Z20sub_group_reduce_addi(_Z20sub
 attributes #2 = { "vector-variants"="_ZGVbM16vv__Z23intel_sub_group_shuffleDv2_ij(_Z23intel_sub_group_shuffleDv32_iDv16_jS0_)" }
 attributes #3 = { "vector-variants"="_ZGVbM16u__Z26intel_sub_group_block_readPU3AS1Kj(_Z30intel_sub_group_block_read1_16PU3AS1KjDv16_j)" }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i32 addrspace(1)*)* @test}
 !1 = !{i1 true}

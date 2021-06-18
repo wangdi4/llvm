@@ -32,6 +32,6 @@ declare i32 @_Z25atomic_fetch_add_explicitPU3AS1VU7_Atomicjjjj(i32 addrspace(1)*
 attributes #0 = { nounwind }
 
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i32 addrspace(1)*)* @main}

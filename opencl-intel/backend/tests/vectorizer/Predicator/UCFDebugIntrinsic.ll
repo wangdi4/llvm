@@ -25,7 +25,7 @@ declare void @llvm.dbg.value(metadata %0, metadata %1, metadata %2) #2
 declare void @llvm.dbg.label(metadata %0) #2
 
 ; Function Attrs: convergent nounwind
-define void @__Vectorized_.test(i32 addrspace(1)* %out, i32 addrspace(1)* %in) local_unnamed_addr #0 !dbg !48 !kernel_arg_addr_space !24 !kernel_arg_access_qual !25 !kernel_arg_type !26 !kernel_arg_base_type !26 !kernel_arg_type_qual !27 !kernel_arg_host_accessible !28 !kernel_arg_pipe_depth !29 !kernel_arg_pipe_io !27 !kernel_arg_buffer_location !27 !kernel_arg_name !30 !vectorized_kernel !58 !ocl_recommended_vector_length !59 {
+define void @__Vectorized_.test(i32 addrspace(1)* %out, i32 addrspace(1)* %in) local_unnamed_addr #0 !dbg !48 !kernel_arg_addr_space !24 !kernel_arg_access_qual !25 !kernel_arg_type !26 !kernel_arg_base_type !26 !kernel_arg_type_qual !27 !kernel_arg_host_accessible !28 !kernel_arg_pipe_depth !29 !kernel_arg_pipe_io !27 !kernel_arg_buffer_location !27 !kernel_arg_name !30 !vectorized_kernel !58 !recommended_vector_length !59 {
 entry:
   call void @llvm.dbg.value(metadata i32 addrspace(1)* %out, metadata !50, metadata !DIExpression()), !dbg !60
   call void @llvm.dbg.value(metadata i32 addrspace(1)* %in, metadata !51, metadata !DIExpression()), !dbg !60

@@ -17,15 +17,15 @@
 #include "TypeAlignment.h"
 #include "CompilationUtils.h"
 #include "ImplicitArgsUtils.h"
-#include "MetadataAPI.h"
 #include "OCLAddressSpace.h"
 #include "OCLPassSupport.h"
 #include "OclTune.h"
 
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/ValueHandle.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/IR/Attributes.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/ValueHandle.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include <sstream>
 #include <memory>
@@ -43,7 +43,7 @@ ModulePass *createPrepareKernelArgsPass(bool useTLSGlobals) {
 extern bool OptUseTLSGlobals;
 
 using namespace Intel::OpenCL::DeviceBackend;
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 
 namespace intel{
 
@@ -479,7 +479,7 @@ namespace intel{
   }
 
   bool PrepareKernelArgs::runOnFunction(Function *pFunc) {
-    using namespace Intel::MetadataAPI;
+    using namespace DPCPPKernelMetadataAPI;
 
     // Create wrapper function
     Function *pWrapper = createWrapper(pFunc);

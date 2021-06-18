@@ -76,7 +76,7 @@ attributes #7 = { convergent }
 !opencl.used.optional.core.features = !{!1}
 !opencl.compiler.options = !{!1}
 !llvm.ident = !{!2}
-!opencl.kernels = !{!3}
+!sycl.kernels = !{!3}
 
 !0 = !{i32 1, i32 2}
 !1 = !{}

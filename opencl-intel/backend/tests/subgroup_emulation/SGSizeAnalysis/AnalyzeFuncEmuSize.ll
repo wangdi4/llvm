@@ -29,7 +29,7 @@ define i32 @foo(i32 %a) {
     ret i32 %a
 }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i32)* @test16, void (i32)* @test4, void (i32)* @test}
 !1 = !{i1 true}

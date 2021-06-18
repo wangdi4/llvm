@@ -67,7 +67,7 @@ attributes #2 = { convergent nounwind readnone "disable-tail-calls"="false" "fra
 attributes #3 = { convergent }
 attributes #4 = { convergent nounwind readnone }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (<3 x double> addrspace(1)*)* @test}
 !1 = !{i32 1, i32 1}

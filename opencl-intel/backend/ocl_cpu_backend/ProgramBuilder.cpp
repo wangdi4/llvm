@@ -28,7 +28,6 @@
 #include "exceptions.h"
 #include "BackendConfiguration.h"
 #include "BuiltinModuleManager.h"
-#include "MetadataAPI.h"
 #include "BitCodeContainer.h"
 #include "CompilationUtils.h"
 #include "ObjectCodeContainer.h"
@@ -57,6 +56,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 #include <algorithm>
@@ -66,7 +66,7 @@
 #include <vector>
 
 using std::string;
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 using namespace intel;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {

@@ -80,7 +80,7 @@ L2:
 declare void @_Z7barrierj(i32)
 declare void @dummybarrier.()
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void ()* @main}
 

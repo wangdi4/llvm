@@ -4,7 +4,7 @@
 %"class.cl::sycl::intel::SimdFunction" = type { %"struct.std::array" }
 %"struct.std::array" = type { [2 x i32 (i32, float)*] }
 
-define dso_local i32 @_Z3barPii(i32* nocapture readnone %a, i32 %n) !ocl_recommended_vector_length !0 {
+define dso_local i32 @_Z3barPii(i32* nocapture readnone %a, i32 %n) !recommended_vector_length !0 {
 entry:
   %foo_simd = alloca %"class.cl::sycl::intel::SimdFunction", align 8
   %0 = bitcast %"class.cl::sycl::intel::SimdFunction"* %foo_simd to i8*

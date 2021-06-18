@@ -57,7 +57,7 @@ entry:
 
 declare i32 @_Z13get_global_idj(i32)
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (float addrspace(1)*, float addrspace(1)*, i32)* @BinaryKernel, !1, !1, !"", !"float __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *, uint const", !"opencl_BinaryKernel_locals_anchor"}
 !1 = !{i32 0, i32 0, i32 0}

@@ -60,6 +60,6 @@ declare void @foo(i8*)
 
 attributes #0 = { nounwind readnone speculatable willreturn }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void()* @test, void()* @test2}

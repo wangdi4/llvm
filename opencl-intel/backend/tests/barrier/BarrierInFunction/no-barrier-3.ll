@@ -31,7 +31,7 @@ define void @__Vectorized_.main(i32 %x) nounwind {
 ; CHECK: @_Z7barrierj(i32 1)
 ; CHECK: ret
 }
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.disabled.FP_CONTRACT = !{}
 
 !0 = !{void (i32)* @main}

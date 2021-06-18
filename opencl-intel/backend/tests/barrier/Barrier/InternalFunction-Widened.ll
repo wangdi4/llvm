@@ -41,7 +41,7 @@ declare void @dummybarrier.()
 
 attributes #0 = { "widened-size"="8" }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i32)* @main}
 !1 = !{i32 8}

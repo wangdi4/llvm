@@ -23,7 +23,7 @@ define void @vector_prefetch_test(<4 x i32> addrspace(1)* noalias %A, <4 x i32> 
 declare i64 @_Z13get_global_idj(i32) nounwind readnone
 declare void @_Z8prefetchPU3AS1KDv4_im(<4 x i32> addrspace(1)*, i64)
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 !opencl.compiler.options = !{!2}
 !opencl.kernel_info = !{!4}
 

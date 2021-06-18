@@ -13,7 +13,7 @@ define void @foo(i32 %val, i32 addrspace(1)* %ret) {
   ret void
 }
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (i32, i32 addrspace(1)*)* @foo}
 

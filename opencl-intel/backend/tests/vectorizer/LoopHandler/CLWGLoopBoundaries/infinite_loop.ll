@@ -29,7 +29,7 @@ while.end:                                        ; preds = %entry
 }
 
 
-!opencl.kernels = !{!4}
+!sycl.kernels = !{!4}
 
 !4 = !{void (i32)* @test}
 !11 = !{i1 true}

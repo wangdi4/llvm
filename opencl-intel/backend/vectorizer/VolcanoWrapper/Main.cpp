@@ -14,20 +14,20 @@
 
 #include "Main.h"
 #include "VectorizerCore.h"
-#include "MetadataAPI.h"
 #include "OclTune.h"
 
-#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Pass.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/LegacyPassManager.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace llvm;
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 
 char intel::Vectorizer::ID = 0;
 
@@ -150,7 +150,7 @@ bool Vectorizer::runOnModule(Module &M)
 
     auto vkimd = KernelInternalMetadataAPI(clone);
     vkimd.VectorizedKernel.set(nullptr);
-    vkimd.ScalarizedKernel.set(F);
+    vkimd.ScalarKernel.set(F);
 
     vectPM.run(*clone);
     if (vectCore->isFunctionVectorized()) {
@@ -170,11 +170,11 @@ bool Vectorizer::runOnModule(Module &M)
     }
     V_ASSERT(vectFuncWidth > 0 && "vect width for non vectoized kernels should be 1");
 
-    // unset ocl_recommended_vector_length metadata. This metadata is only used
+    // unset recommended_vector_length metadata. This metadata is only used
     // by VPO-VecClone.
     if (vectFunc)
       MDValueGlobalObjectStrategy::unset(
-          vectFunc, "ocl_recommended_vector_length");
+          vectFunc, "recommended_vector_length");
 
     //Initialize scalar kernel information, which contains:
     // * pointer to vectorized kernel
@@ -183,7 +183,7 @@ bool Vectorizer::runOnModule(Module &M)
     auto skimd = KernelInternalMetadataAPI(F);
     skimd.VectorizedKernel.set(vectFunc);
     skimd.VectorizedWidth.set(1);
-    skimd.ScalarizedKernel.set(nullptr);
+    skimd.ScalarKernel.set(nullptr);
     if (vectFunc) {
       //Initialize vector kernel information
       // * NULL pointer to vectorized kernel (as there is no vectorized version for vectroized kernel)
@@ -192,7 +192,7 @@ bool Vectorizer::runOnModule(Module &M)
       auto vkimd = KernelInternalMetadataAPI(vectFunc);
       vkimd.VectorizedKernel.set(nullptr);
       vkimd.VectorizedWidth.set(vectFuncWidth);
-      vkimd.ScalarizedKernel.set(F);
+      vkimd.ScalarKernel.set(F);
       vkimd.VectorizationDimension.set(vectDim);
       vkimd.CanUniteWorkgroups.set(canUniteWorkgroups);
     }

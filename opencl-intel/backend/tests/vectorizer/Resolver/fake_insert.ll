@@ -43,7 +43,7 @@ declare i1 @allOne(i1)
 
 declare i1 @allZero(i1)
 
-!opencl.kernels = !{!0}
+!sycl.kernels = !{!0}
 
 !0 = !{void (<4 x i8>, <4 x i8>, <4 x i8>, <4 x i8>)* @run_all, !1}
 !1 = !{!"image_access_qualifier", i32 3, i32 3, i32 3, i32 3}

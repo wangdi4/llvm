@@ -14,19 +14,19 @@
 
 #include "ChannelsUsageAnalysis.h"
 
-#include "MetadataAPI.h"
 #include "CompilationUtils.h"
 #include "OCLPassSupport.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 #include <utility>
 
 using namespace llvm;
-using namespace Intel::MetadataAPI;
+using namespace DPCPPKernelMetadataAPI;
 using Intel::OpenCL::DeviceBackend::CompilationUtils;
 using Intel::OpenCL::DeviceBackend::PipeKind;
 using Intel::OpenCL::DeviceBackend::PipeTypesHelper;

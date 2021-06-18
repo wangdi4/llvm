@@ -16,12 +16,12 @@ entry:
 ; CHECK: @UniformAddKernel{{.*}} !vectorized_kernel ![[VEC:[0-9]+]]
 
 ; Function Attrs: noduplicate nounwind
-define void @__Vectorized_.UniformAddKernel() !scalarized_kernel !4 {
+define void @__Vectorized_.UniformAddKernel() !scalar_kernel !4 {
 entry:
   ret void
 }
 
-; CHECK: @__Vectorized_.UniformAddKernel{{.*}} !scalarized_kernel ![[SCAL:[0-9]+]]
+; CHECK: @__Vectorized_.UniformAddKernel{{.*}} !scalar_kernel ![[SCAL:[0-9]+]]
 
 !4 = !{void ()* @UniformAddKernel}
 !14 = !{void ()* @__Vectorized_.UniformAddKernel}
