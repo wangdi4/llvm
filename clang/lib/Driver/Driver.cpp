@@ -3125,40 +3125,6 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
       Diag(clang::diag::warn_drv_deprecated_option)
           << A->getAsString(Args) << A->getValue();
     }
-#if INTEL_CUSTOMIZATION
-    // Handle Performance library inputs that imply specific libraries that
-    // need to be unbundled (i.e. are fat static libraries).  MKL and DAAL
-    // are part of this.
-    if ((A->getOption().matches(options::OPT_qmkl_EQ) ||
-         A->getOption().matches(options::OPT_qdaal_EQ)) &&
-        Args.hasArg(options::OPT_fsycl)) {
-      SmallString<128> LibName;
-      bool IsMSVC = TC.getTriple().isWindowsMSVCEnvironment();
-      if (A->getOption().matches(options::OPT_qmkl_EQ)) {
-        LibName = TC.GetMKLLibPath();
-        llvm::sys::path::append(LibName, IsMSVC ? "mkl_sycl.lib"
-                                                : "libmkl_sycl.a");
-      }
-      if (A->getOption().matches(options::OPT_qdaal_EQ)) {
-        LibName = TC.GetDAALLibPath();
-        llvm::sys::path::append(LibName, IsMSVC ? "onedal_sycl.lib"
-                                                : "libonedal_sycl.a");
-      }
-      // Only add the static lib if used with -static or is Windows.
-      // DAAL is also only available in static form.
-      if ((Args.hasArg(options::OPT_static) ||
-           A->getOption().matches(options::OPT_qdaal_EQ) || IsMSVC) &&
-          !LibName.empty()) {
-        // Add the library as an offload static library and also add as a lib
-        // direct on the command line.
-        Args.AddJoinedArg(A,
-            Opts.getOption(options::OPT_foffload_static_lib_EQ),
-            Args.MakeArgString(LibName));
-        Arg *InputArg = MakeInputArg(Args, Opts, Args.MakeArgString(LibName));
-        Inputs.push_back(std::make_pair(types::TY_Object, InputArg));
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
   }
   addIntelOMPDeviceLibs(TC, Inputs, Opts, Args); // INTEL
   if (CCCIsCPP() && Inputs.empty()) {
@@ -3339,6 +3305,37 @@ static bool IsSYCLDeviceLibObj(std::string ObjFilePath, bool isMSVCEnv) {
   return Ret;
 }
 
+#if INTEL_CUSTOMIZATION
+static bool HasIntelSYCLPerflib(Compilation &C, const DerivedArgList &Args) {
+  // Performance libraries with -fsycl use offload static libs.
+  bool IsMSVC = C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment();
+  return Args.hasArg(options::OPT_fsycl) &&
+             (Args.hasArg(options::OPT_qmkl_EQ) &&
+              (Args.hasArg(options::OPT_static) || IsMSVC)) ||
+         Args.hasArg(options::OPT_qdaal_EQ);
+}
+
+const char *resolveLib(const StringRef &LibName, DerivedArgList &Args,
+                       Compilation &C) {
+  bool isMSVC = C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment();
+  StringRef RetLib(LibName);
+  const char *envVar(isMSVC ? "LIB" : "LIBRARY_PATH");
+  // TODO - We may want to leverage this for Linux library searches.  This
+  // is currently only used for Windows.
+  if (llvm::Optional<std::string> LibDir = llvm::sys::Process::GetEnv(envVar)) {
+    SmallVector<StringRef, 8> Dirs;
+    StringRef(*LibDir).split(Dirs, llvm::sys::EnvPathSeparator, -1, false);
+    for (StringRef Dir : Dirs) {
+      SmallString<128> FullName(Dir);
+      llvm::sys::path::append(FullName, LibName);
+      if (llvm::sys::fs::exists(FullName))
+        return Args.MakeArgString(FullName.c_str());
+    }
+  }
+  return Args.MakeArgString(RetLib);
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Goes through all of the arguments, including inputs expected for the
 // linker directly, to determine if we need to perform additional work for
 // static offload libraries.
@@ -3348,20 +3345,27 @@ bool Driver::checkForOffloadStaticLib(Compilation &C,
   if (!Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false) &&
       !Args.hasArg(options::OPT_fopenmp_targets_EQ))
     return false;
-
+#if INTEL_CUSTOMIZATION
+  if (HasIntelSYCLPerflib(C, Args))
+    return true;
+#endif // INTEL_CUSTOMIZATION
   // Right off the bat, assume the presence of -foffload-static-lib means
   // the need to perform linking steps for fat static archive offloading.
   // TODO: remove when -foffload-static-lib support is dropped.
   if (Args.hasArg(options::OPT_offload_lib_Group))
     return true;
   SmallVector<const char *, 16> OffloadLibArgs(getLinkerArgs(C, Args));
-  for (StringRef OLArg : OffloadLibArgs)
+#if INTEL_CUSTOMIZATION
+  for (StringRef tOLArg : OffloadLibArgs) {
+    StringRef OLArg(resolveLib(tOLArg, Args, C));
+#endif // INTEL_CUSTOMIZATION
     if (isStaticArchiveFile(OLArg) && hasOffloadSections(C, OLArg, Args)) {
       // FPGA binaries with AOCX or AOCR sections are not considered fat
       // static archives.
       return !(hasFPGABinary(C, OLArg.str(), types::TY_FPGA_AOCR) ||
                hasFPGABinary(C, OLArg.str(), types::TY_FPGA_AOCX));
     }
+  } // INTEL
   return false;
 }
 
@@ -4684,6 +4688,48 @@ class OffloadingActionBuilder final {
       SYCLDeviceActions.clear();
     }
 
+#if INTEL_CUSTOMIZATION
+    bool addPerformanceDeviceLibs(const ToolChain *TC,
+                                  ActionList &DeviceLinkObjects,
+                                  bool IsMSVCEnv) {
+      bool PerflibAdded = false;
+      auto AddToActionList = [&](StringRef LibName) {
+        Arg *InputArg = MakeInputArg(Args, C.getDriver().getOpts(),
+                                     Args.MakeArgString(LibName));
+        auto *SYCLDeviceLibsInputAction =
+            C.MakeAction<InputAction>(*InputArg, types::TY_Archive);
+        auto *SYCLDeviceLibsUnbundleAction =
+            C.MakeAction<OffloadUnbundlingJobAction>(SYCLDeviceLibsInputAction);
+        addDeviceDepences(SYCLDeviceLibsUnbundleAction);
+        DeviceLinkObjects.push_back(SYCLDeviceLibsUnbundleAction);
+        PerflibAdded = true;
+      };
+      // Only add the MKL static lib if used with -static or is Windows.
+      if (Args.hasArg(options::OPT_qmkl_EQ) &&
+          (IsMSVCEnv || Args.hasArg(options::OPT_static))) {
+        SmallString<128> LibName(TC->GetMKLLibPath());
+        LibName = TC->GetMKLLibPath();
+        SmallString<128> MKLLib("libmkl_sycl.a");
+        if (IsMSVCEnv) {
+          MKLLib = "mkl_sycl";
+          if (Args.hasArg(options::OPT__SLASH_MDd))
+            MKLLib += "d";
+          MKLLib += ".lib";
+        }
+        llvm::sys::path::append(LibName, MKLLib);
+        AddToActionList(LibName);
+      }
+      // DAAL is also only available in static form.
+      if (Args.hasArg(options::OPT_qdaal_EQ)) {
+        SmallString<128> LibName(TC->GetDAALLibPath());
+        llvm::sys::path::append(LibName, IsMSVCEnv ? "onedal_sycl.lib"
+                                                   : "libonedal_sycl.a");
+        AddToActionList(LibName);
+      }
+      return PerflibAdded;
+    }
+#endif // INTEL_CUSTOMIZATION
+
     bool addSYCLDeviceLibs(const ToolChain *TC, ActionList &DeviceLinkObjects,
                            bool isSpirvAOT, bool isMSVCEnv) {
       enum SYCLDeviceLibType {
@@ -4911,7 +4957,11 @@ class OffloadingActionBuilder final {
               *TC, FullLinkObjects, true,
               C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment());
         }
-
+#if INTEL_CUSTOMIZATION
+        SYCLDeviceLibLinked |= addPerformanceDeviceLibs(
+            *TC, FullLinkObjects,
+            C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment());
+#endif // INTEL_CUSTOMIZATION
         Action *FullDeviceLinkAction = nullptr;
         if (SYCLDeviceLibLinked)
           FullDeviceLinkAction =
@@ -5695,28 +5745,6 @@ void Driver::handleArguments(Compilation &C, DerivedArgList &Args,
   }
 }
 
-#if INTEL_CUSTOMIZATION
-const char *resolveLib(const StringRef &LibName, DerivedArgList &Args,
-                       Compilation &C) {
-  bool isMSVC = C.getDefaultToolChain().getTriple().isWindowsMSVCEnvironment();
-  StringRef RetLib(LibName);
-  const char *envVar(isMSVC ? "LIB" : "LIBRARY_PATH");
-  // TODO - We may want to leverage this for Linux library searches.  This
-  // is currently only used for Windows.
-  if (llvm::Optional<std::string> LibDir = llvm::sys::Process::GetEnv(envVar)) {
-    SmallVector<StringRef, 8> Dirs;
-    StringRef(*LibDir).split(Dirs, llvm::sys::EnvPathSeparator, -1, false);
-    for (StringRef Dir : Dirs) {
-      SmallString<128> FullName(Dir);
-      llvm::sys::path::append(FullName, LibName);
-      if (llvm::sys::fs::exists(FullName))
-        return Args.MakeArgString(FullName.c_str());
-    }
-  }
-  return Args.MakeArgString(RetLib);
-}
-#endif // INTEL_CUSTOMIZATION
-
 void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
                           const InputList &Inputs, ActionList &Actions) const {
   llvm::PrettyStackTraceString CrashInfo("Building compilation actions");
@@ -5903,7 +5931,10 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
 
   // With static fat archives we need to create additional steps for
   // generating dependence objects for device link actions.
-  if (!LinkerInputs.empty() && C.getDriver().getOffloadStaticLibSeen())
+#if INTEL_CUSTOMIZATION
+  if ((!LinkerInputs.empty() || HasIntelSYCLPerflib(C, Args)) &&
+      C.getDriver().getOffloadStaticLibSeen())
+#endif // INTEL_CUSTOMIZATION
     OffloadBuilder.addDeviceLinkDependenciesFromHost(LinkerInputs);
 
   // Go through all of the args, and create a Linker specific argument list.
@@ -6948,16 +6979,7 @@ InputInfo Driver::BuildJobsForActionNoCache(
           (JA->getType() == types::TY_Object &&
            EffectiveTriple.getSubArch() == llvm::Triple::SPIRSubArch_fpga &&
            C.getInputArgs().hasArg(options::OPT_fsycl_link_EQ));
-#if INTEL_CUSTOMIZATION
-      // We create list files for unbundling when using -foffload-static-lib.
-      // This is also true for -qmkl and -daal, as they imply additional
-      // fat static libraries.
-      if (((C.getInputArgs().hasArg(options::OPT_qmkl_EQ) &&
-            C.getInputArgs().hasArg(options::OPT_static)) ||
-           C.getInputArgs().hasArg(options::OPT_qdaal_EQ) ||
-           C.getDriver().getOffloadStaticLibSeen() ||
-           JA->getType() == types::TY_Archive) &&
-#endif // INTEL_CUSTOMIZATION
+      if (C.getDriver().getOffloadStaticLibSeen() &&
           JA->getType() == types::TY_Archive) {
         // Host part of the unbundled static archive is not used.
         if (UI.DependentOffloadKind == Action::OFK_Host)

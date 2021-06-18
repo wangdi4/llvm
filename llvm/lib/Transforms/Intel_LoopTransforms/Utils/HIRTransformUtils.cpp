@@ -22,6 +22,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeIterator.h"
@@ -1916,4 +1917,180 @@ bool HIRTransformUtils::contractMemRef(RegDDRef *ToContractRef,
 
   return HIRArrayContractionUtil::contractMemRef(
       ToContractRef, PreservedDims, ToContractDims, Reg, AfterContractRef);
+}
+
+bool HIRTransformUtils::doSpecialSinkForPerfectLoopnest(HLLoop *OuterLp,
+                                                        HLLoop *InnerLp,
+                                                        HIRDDAnalysis &HDDA) {
+
+  // Check the [OuterLp, InnerLp] formed loonest is near perfect,
+  // except code in the preheader of the InnerLp.
+  auto CheckLoopNestSanity = [](HLLoop *InnerLp) -> bool {
+    // Check InnerLp:
+    if (!InnerLp->hasPreheader() || InnerLp->hasPostexit()) {
+      LLVM_DEBUG(dbgs() << "Expect InnerLp have only non-empty preheader\n";);
+      return false;
+    }
+
+    // Only allow certain instruction types in InnerLp's preheader:
+    for (auto I = InnerLp->pre_begin(), E = InnerLp->pre_end(); I != E; ++I) {
+      HLInst *HInst = cast<HLInst>(I);
+      auto *LLVMInst = HInst->getLLVMInstruction();
+
+      // Only support the following instruction types:
+      // - % (mod)
+      // - select
+      const unsigned Opcode = LLVMInst->getOpcode();
+      if (Opcode == Instruction::SRem || Opcode == Instruction::URem ||
+          Opcode == Instruction::Select) {
+        continue;
+      }
+
+      LLVM_DEBUG(dbgs() << "Encounter unsupported instruction type\n";
+                 HInst->dump(););
+      return false;
+    }
+
+    return true;
+  };
+
+  // Do legal that HInst* (a mod operator) can sink into SinkLp
+  //
+  // It is legal to sink the HInst* into SinkLp if&f the HInst* remains loop-inv
+  // after sinking.
+  //
+  // That is :
+  // (1) HInst's Lval Ref is not redefined in SinkLp
+  // and
+  // (2) non of HInst's Rval Blob is redefined in SinkLp
+  //
+  auto DoLegalTestForSinking = [&](SmallVectorImpl<HLInst *> &PreLoopInsts,
+                                   HLLoop *SinkLp, DDGraph &DDG) {
+    SmallVector<DDRef *, 8> RefVec;
+
+    for (auto *I : PreLoopInsts) {
+      RefVec.push_back(I->getLvalDDRef());
+
+      // Collect Rval blob:
+      for (const RegDDRef *UseRef :
+           make_range(I->rval_op_ddref_begin(), I->rval_op_ddref_end())) {
+
+        if (UseRef->isSelfBlob()) {
+          RefVec.push_back(const_cast<RegDDRef *>(UseRef));
+        } else {
+          for (auto *BRef :
+               make_range(UseRef->blob_begin(), UseRef->blob_end())) {
+            RefVec.push_back(const_cast<BlobDDRef *>(BRef));
+          }
+        }
+      }
+    }
+
+    // *** Search any Ref's redefinition(s) in SinkLp:
+    for (auto &Ref : RefVec) {
+      unsigned LvalCount = 0, RvalCount = 0;
+      if (DDUtils::countEdgeToLoop(DDG, Ref, SinkLp, LvalCount, RvalCount) &&
+          LvalCount) {
+        LLVM_DEBUG({
+          dbgs() << "LvalCount: " << LvalCount << "\tRvalCount: " << RvalCount
+                 << "\nFound Ref's redefinition in Lp. Offending Ref: ";
+          Ref->dump(1);
+          dbgs() << "\n";
+        });
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  // ****  BEGIN FUNCTION: after the lambdas ****
+
+  // Sanity check that the loopnest has the following properties:
+  // - none-perfectness is due to only statements in InnerLp's preheader.
+  if (!CheckLoopNestSanity(InnerLp)) {
+    LLVM_DEBUG(dbgs() << "Fail in CheckLoopNestSanity(InnerLp)\n";);
+    return false;
+  }
+
+  // Collect:
+  SmallVector<HLInst *, 8> PreLoopInsts;
+  for (auto I = InnerLp->pre_begin(), E = InnerLp->pre_end(); I != E; ++I) {
+    PreLoopInsts.push_back(cast<HLInst>(I));
+  }
+
+  if (PreLoopInsts.empty()) {
+    LLVM_DEBUG(dbgs() << "Nothing collected\n";);
+    return false;
+  }
+
+  // Legal test:
+  DDGraph DDG = HDDA.getGraph(InnerLp->getParentLoop());
+  if (!DoLegalTestForSinking(PreLoopInsts, InnerLp, DDG)) {
+    LLVM_DEBUG(dbgs() << "Fail DoLegalTestForSinking(.)\n";);
+    return false;
+  }
+
+  // Do transformation: sink the statements from InnerLp's preheader into the
+  // InnerLp.
+  //
+  // E.g.
+  // [Before]
+  //   ...
+  // + DO i2 = 0, sext.i32.i64(%6) + -1, 1   <DO_LOOP>
+  // |   + DO i3 = 0, sext.i32.i64(%3) + -1, 1   <DO_LOOP>
+  // |   |      %1472 = i3 + 1  %  %3;
+  // |   |      %1476 = i3 + %3 + -1  %  %3;
+  // |   |   + DO i4 = 0, sext.i32.i64(%2) + -1, 1   <DO_LOOP>
+  // |   |   |   ...
+  // |   |   + END LOOP
+  // |   + END LOOP
+  // + END LOOP
+  //
+  // [After]
+  //   ...
+  // + DO i2 = 0, sext.i32.i64(%6) + -1, 1   <DO_LOOP>
+  // |   + DO i3 = 0, sext.i32.i64(%3) + -1, 1   <DO_LOOP>
+  // |   |   + DO i4 = 0, sext.i32.i64(%2) + -1, 1   <DO_LOOP>
+  // |   |   |   %1472 = i3 + 1  %  %3;
+  // |   |   |   %1476 = i3 + %3 + -1  %  %3;
+  // |   |   |   ...
+  // |   |   + END LOOP
+  // |   + END LOOP
+  // + END LOOP
+
+  // - Update def@level for each use:
+  unsigned const TargetLevel = InnerLp->getNestingLevel();
+  for (auto *I : PreLoopInsts) {
+    DDRef *DDRefSrc = I->getLvalDDRef();
+    LLVM_DEBUG({
+      dbgs() << "Src: ";
+      I->dump();
+      dbgs() << "DDRefSink(s): <" << DDG.getNumOutgoingEdges(DDRefSrc)
+             << ">: \n";
+    });
+    for (auto II = DDG.outgoing_edges_begin(DDRefSrc),
+              IE = DDG.outgoing_edges_end(DDRefSrc);
+         II != IE; ++II) {
+      DDEdge *Edge = (*II);
+      if (RegDDRef *RRef = dyn_cast<RegDDRef>(Edge->getSink())) {
+        RRef->updateDefLevel(TargetLevel);
+      } else if (BlobDDRef *BRef = dyn_cast<BlobDDRef>(Edge->getSink())) {
+        BRef->setDefinedAtLevel(TargetLevel);
+      }
+    }
+  }
+
+  // -Move each instruction from InnerLp's preheader into its body:
+  for (auto I = PreLoopInsts.rbegin(), E = PreLoopInsts.rend(); I != E; ++I) {
+    HLNodeUtils::moveAsFirstChild(InnerLp, *I);
+    DDUtils::updateLiveinsLiveoutsForSinkedInst(InnerLp, *I, true);
+  }
+
+  // Update the temp DDRefs from linear-at-level to non-linear
+  DDUtils::updateDDRefsLinearity(PreLoopInsts, DDG);
+  HIRInvalidationUtils::invalidateBody(InnerLp);
+  HIRInvalidationUtils::invalidateBody(InnerLp->getParentLoop());
+
+  return true;
 }

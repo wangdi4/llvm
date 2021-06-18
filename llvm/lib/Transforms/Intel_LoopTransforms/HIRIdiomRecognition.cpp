@@ -360,10 +360,6 @@ bool HIRIdiomRecognition::analyzeStore(HLLoop *Loop, RegDDRef *Ref,
       return false;
     }
 
-    if (RHS->isVolatile()) {
-      return false;
-    }
-
     bool IsNegStride;
     if (!RHS->isUnitStride(LoopLevel, IsNegStride)) {
       return false;
@@ -657,7 +653,7 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
 
     RegDDRef *Ref = Inst->getLvalDDRef();
 
-    if (!Ref || !Ref->isMemRef() || Ref->isVolatile() ||
+    if (!Ref || !Ref->isMemRef() ||
         !isa<StoreInst>(Inst->getLLVMInstruction())) {
       continue;
     }

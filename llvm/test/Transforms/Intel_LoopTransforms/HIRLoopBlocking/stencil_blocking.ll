@@ -1,5 +1,6 @@
+; REQUIRES: 0
+;
 ; RUN: opt -mattr=+avx2 -enable-intel-advanced-opts -hir-create-function-level-region -hir-ssa-deconstruction -hir-loop-interchange -hir-loop-blocking -hir-cost-model-throttling=0 -hir-loop-interchange-prepare-special-interchange=true -print-after=hir-loop-blocking -disable-output < %s 2>&1 | FileCheck %s
-
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-interchange,hir-loop-blocking,print<hir>" -aa-pipeline="basic-aa" -hir-create-function-level-region -mattr=+avx2 -enable-intel-advanced-opts -hir-cost-model-throttling=0 -hir-loop-interchange-prepare-special-interchange=true -disable-output < %s 2>&1 | FileCheck %s
 
 ; This lit is created from Bwaves shell function using:
@@ -80,7 +81,7 @@ declare dso_local i32 @for_write_seq_lis(i8* %0, i32 %1, i64 %2, i8* %3, i8* %4,
 declare dso_local i32 @for_write_seq_lis_xmit(i8* %0, i8* %1, i8* %2) local_unnamed_addr #1
 
 ; Function Attrs: nounwind uwtable
-define dso_local void @MAIN__() local_unnamed_addr #2 {
+define dso_local void @test1() local_unnamed_addr #2 {
   %1 = alloca [8 x i64], align 32
   %2 = alloca [4 x i8], align 1
   %3 = alloca { i64, i8* }, align 8
@@ -1023,7 +1024,7 @@ declare dso_local i32 @for_close(i8* %0, i32 %1, i64 %2, i8* %3, i8* %4, ...) lo
 declare double @llvm.pow.f64(double %0, double %1) #4
 
 ; Function Attrs: nofree nounwind uwtable
-define internal fastcc void @shell_(double %0, double %1, i32 %2, i32 %3, i32 %4, i32 %5, i32 %6, double %7, double %8, double %9, double %10, i32 %11, i32 %12, i32 %13) unnamed_addr #5 {
+define internal fastcc void @test0(double %0, double %1, i32 %2, i32 %3, i32 %4, i32 %5, i32 %6, double %7, double %8, double %9, double %10, i32 %11, i32 %12, i32 %13) unnamed_addr #5 {
   %15 = alloca [8 x i64], align 32
   %16 = alloca [4 x i8], align 1
   %17 = alloca { double }, align 8

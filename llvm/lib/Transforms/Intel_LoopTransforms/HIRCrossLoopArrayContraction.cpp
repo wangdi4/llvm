@@ -246,6 +246,10 @@ void HIRCrossLoopArrayContraction::runPostProcessors(
   PostProcessors.clear();
 }
 
+static void markLoopasArrayContracted(HLLoop *Loop) {
+  Loop->addInt32LoopMetadata(EnableSpecialLoopInterchangeMetaName, 1);
+}
+
 bool HIRCrossLoopArrayContraction::run() {
   bool Modified = false;
   for (auto &Reg : make_range(HIRF.hir_begin(), HIRF.hir_end())) {
@@ -1639,6 +1643,9 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
       unsigned NumMappings = HasMappedDim ? MappedDim.getMappedCEs().size() : 1;
       addPostProcCand(UseLp);
 
+      // Mark the unique UseLp, later loop interchange will pick it up
+      markLoopasArrayContracted(UseLp);
+
       for (unsigned I = 0; I < NumMappings; ++I) {
         HLLoop *DefLoopClone = DefLp->clone();
 
@@ -1651,7 +1658,6 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
                         Reg, UseRefMappedDim, UseRefMappedCE, AfterContractSBS,
                         NumContractedRefs);
 
-        HIRLoopsWithArrayContraction += 2;
         HIRArrayRefsContracted += NumContractedRefs;
 
         HLNodeUtils::insertBefore(UseLp, DefLoopClone);
@@ -1749,6 +1755,7 @@ bool HIRCrossLoopArrayContraction::runOnRegion(HLRegion &Reg) {
   for (auto Loop : PostProcLoops) {
     if (Loop->isAttached()) {
       HIRInvalidationUtils::invalidateLoopNestBody(Loop);
+      ++HIRLoopsWithArrayContraction;
     }
   }
 

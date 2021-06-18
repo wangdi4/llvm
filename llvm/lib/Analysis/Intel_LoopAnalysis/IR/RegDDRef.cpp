@@ -65,15 +65,15 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
 
 RegDDRef::GEPInfo::GEPInfo()
     : BaseCE(nullptr), BitCastDestTy(nullptr), InBounds(false),
-      AddressOf(false), Volatile(false), IsCollapsed(false), Alignment(0),
-      DummyGepLoc(nullptr) {}
+      AddressOf(false), IsCollapsed(false), Alignment(0), DummyGepLoc(nullptr) {
+}
 
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), BitCastDestTy(Info.BitCastDestTy),
       InBounds(Info.InBounds), AddressOf(Info.AddressOf),
-      Volatile(Info.Volatile), IsCollapsed(Info.IsCollapsed),
-      Alignment(Info.Alignment), DimensionOffsets(Info.DimensionOffsets),
-      DimTypes(Info.DimTypes), MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
+      IsCollapsed(Info.IsCollapsed), Alignment(Info.Alignment),
+      DimensionOffsets(Info.DimensionOffsets), DimTypes(Info.DimTypes),
+      MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
       MemDbgLoc(Info.MemDbgLoc), DummyGepLoc(nullptr) {
 
   for (auto *Lower : Info.LowerBounds) {
@@ -295,10 +295,6 @@ void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
       if (isAddressOf()) {
         OS << "&(";
       } else {
-        // Only print these for loads/stores.
-        if (isVolatile()) {
-          OS << "{vol}";
-        }
 
         if (Detailed && getAlignment()) {
           OS << "{al:" << getAlignment() << "}";

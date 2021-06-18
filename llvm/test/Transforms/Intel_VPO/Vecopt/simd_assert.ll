@@ -9,7 +9,6 @@
 ;   }
 
 ; RUN: not opt -S -VPlanDriver -transform-warning -vplan-simd-assert-default < %s 2>&1 | FileCheck %s
-; RUN: not opt -S -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -hir-cg -force-hir-cg -transform-warning -vplan-simd-assert-default < %s 2>&1 | FileCheck %s
 ; CHECK: error: {{.*}}: loop not vectorized:
 
 source_filename = "simd_assert.c"
