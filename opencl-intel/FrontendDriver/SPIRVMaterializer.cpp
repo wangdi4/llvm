@@ -91,25 +91,6 @@ bool ClangFECompilerMaterializeSPIRVTask::MaterializeSPIRV(llvm::Module *&pM) {
       SPIRV::BIsRepresentation::SPIRVFriendlyIR) {
     // Rename those user functions conflicting with OpenCL builtins
     std::for_each(pM->begin(), pM->end(), renameUserFunctionConflictingWithBI);
-
-    // SPV-IR --> SPV
-    std::stringstream spv_ss;
-    std::string err;
-    bool success = writeSpirv(pM, spv_ss, err);
-    if (!success) {
-      errs() << "[MaterializeSPIRV] Error during SPV-IR --> SPV translation: "
-             << err << '\n';
-      return success;
-    }
-
-    // SPV --> CL20-IR
-    m_opts.setDesiredBIsRepresentation(SPIRV::BIsRepresentation::OpenCL20);
-    success &= readSpirv(pM->getContext(), m_opts, spv_ss, pM, err);
-    if (!success)
-      errs() << "[MaterializeSPIRV] Error during SPV --> CL20-IR translation: "
-             << err << '\n';
-
-    return success;
   }
 
   return true;
