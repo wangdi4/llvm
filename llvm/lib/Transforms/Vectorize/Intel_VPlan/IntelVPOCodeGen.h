@@ -686,15 +686,6 @@ private:
   /// load/store to consecutive memory locations
   Value *createWidenedBasePtrConsecutiveLoadStore(VPValue *Ptr, bool Reverse);
 
-  /// Create a wide load for the \p Group (or get existing one).
-  Value *getOrCreateWideLoadForGroup(OVLSGroup *Group);
-
-  /// Vectorize \p VPLoad instruction that is part of a \p Group.
-  Value *vectorizeInterleavedLoad(VPInstruction *VPLoad, OVLSGroup *Group);
-
-  /// Vectorize \p VPStore instruction that is part of a \p Group.
-  void vectorizeInterleavedStore(VPInstruction *VPStore, OVLSGroup *Group);
-
   /// Create a mask to be used in @llvm.masked.[load|store] for the wide VLS
   /// memory operation. Returns nullptr if operation is unmasked.
   Value *getVLSLoadStoreMask(VectorType *WidevalueType, int GroupSize);

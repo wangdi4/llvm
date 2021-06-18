@@ -31,6 +31,7 @@ class VPlanVector;
 class VPLoop;
 class VPInstruction;
 class VPValue;
+class VPLoadStoreInst;
 
 extern bool VPlanDisplaySOAAnalysisInformation;
 
@@ -125,7 +126,7 @@ private:
 
   /// Collect all the loads/stores resulting from a given private \p Alloca.
   void collectLoadStores(const VPAllocatePrivate *Alloca,
-                         DenseSet<VPInstruction *> &LoadStores);
+                         DenseSet<VPLoadStoreInst *> &LoadStores);
 
   /// Return the iterator-range to the list of currently analyzed SOA-profitable
   // instructions.

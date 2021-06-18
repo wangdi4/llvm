@@ -121,7 +121,7 @@ public:
 
   /// Compute cost of unit stride memory access \p Mrf with the given
   /// \p Alignment and \p VF.
-  virtual int getCost(VPInstruction *Mrf, int VF, Align Alignment) = 0;
+  virtual int getCost(VPLoadStoreInst *Mrf, int VF, Align Alignment) = 0;
 };
 
 /// A simple (but reasonable) implementation of VPlanPeelingCostModel. It
@@ -131,7 +131,7 @@ class VPlanPeelingCostModelSimple final : public VPlanPeelingCostModel {
 public:
   VPlanPeelingCostModelSimple(const DataLayout &DL) : DL(&DL) {}
 
-  int getCost(VPInstruction *Mrf, int VF, Align Alignment) override;
+  int getCost(VPLoadStoreInst *Mrf, int VF, Align Alignment) override;
 
 private:
   const DataLayout *DL;
@@ -143,7 +143,7 @@ class VPlanPeelingCostModelGeneral final : public VPlanPeelingCostModel {
 public:
   VPlanPeelingCostModelGeneral(VPlanCostModelInterface &CM) : CM(&CM) {}
 
-  int getCost(VPInstruction *Mrf, int VF, Align Alignment) override;
+  int getCost(VPLoadStoreInst *Mrf, int VF, Align Alignment) override;
 
 private:
   VPlanCostModelInterface *CM;
@@ -231,7 +231,7 @@ private:
   /// pairs [(MrfX, AlignX)], where AlignX is the maximum alignment that can be
   /// propagated from Mrf to MrfX. Notice that for the sake of efficiency, the
   /// map doesn't contain non-interesting cases with AlignX ≤ RequiredAlignment.
-  DenseMap<VPInstruction *, std::vector<std::pair<VPInstruction *, Align>>>
+  DenseMap<VPLoadStoreInst *, std::vector<std::pair<VPLoadStoreInst *, Align>>>
       CongruentMemrefs;
 };
 

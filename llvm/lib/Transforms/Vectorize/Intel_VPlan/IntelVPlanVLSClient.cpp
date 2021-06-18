@@ -78,7 +78,7 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
     return false;
 
   VPlanScalarEvolutionLLVM &VPSE = getVPSE();
-  Type *AccessType = getLoadStoreType(FromInst);
+  Type *AccessType = FromInst->getValueType();
   int64_t AccessSize = VLSA->getDL().getTypeStoreSize(AccessType);
 
   if (!FromSCEV)
@@ -132,9 +132,8 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
     //   +------------+--------------+------------+--------------+------------+
     // If FromInst is A[4*(i+0)] and IterInst fits completely into area SL or
     // area SR, then it is safe to swap IterInst and FromInst.
-    if (IterInst->getOpcode() == Instruction::Load ||
-        IterInst->getOpcode() == Instruction::Store) {
-      auto *IterSCEV = getAddressSCEV(cast<VPLoadStoreInst>(IterInst));
+    if (auto *LoadStore = dyn_cast<VPLoadStoreInst>(IterInst)) {
+      auto *IterSCEV = getAddressSCEV(LoadStore);
       if (!IterSCEV)
         return false;
 
@@ -145,7 +144,7 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
       if (!Distance)
         return false;
 
-      Type *IterType = getLoadStoreType(IterInst);
+      Type *IterType = LoadStore->getValueType();
       int64_t IterAccessSize = VLSA->getDL().getTypeStoreSize(IterType);
       if (IterAccessSize != AccessSize)
         return false;

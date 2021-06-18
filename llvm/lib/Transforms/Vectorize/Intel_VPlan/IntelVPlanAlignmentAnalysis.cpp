@@ -75,9 +75,9 @@ VPlanDynamicPeeling::VPlanDynamicPeeling(VPLoadStoreInst *Memref,
       Multiplier(computeMultiplierForPeeling(
           AccessAddress.Step, RequiredAlignment, TargetAlignment)) {}
 
-int VPlanPeelingCostModelSimple::getCost(VPInstruction *Mrf, int VF,
+int VPlanPeelingCostModelSimple::getCost(VPLoadStoreInst *Mrf, int VF,
                                          Align Alignment) {
-  auto Size = DL->getTypeAllocSize(getLoadStoreType(Mrf));
+  auto Size = DL->getTypeAllocSize(Mrf->getValueType());
   Align BestAlign(VF * MinAlign(0, Size));
   auto Opcode = Mrf->getOpcode();
 
@@ -93,7 +93,7 @@ int VPlanPeelingCostModelSimple::getCost(VPInstruction *Mrf, int VF,
   llvm_unreachable("Unexpected Opcode");
 }
 
-int VPlanPeelingCostModelGeneral::getCost(VPInstruction *Mrf, int VF,
+int VPlanPeelingCostModelGeneral::getCost(VPLoadStoreInst *Mrf, int VF,
                                           Align Alignment) {
   return CM->getLoadStoreCost(Mrf, Alignment, VF);
 }
@@ -105,7 +105,7 @@ VPlanPeelingCandidate::VPlanPeelingCandidate(VPLoadStoreInst *Memref,
       InvariantBaseKnownBits(std::move(InvariantBaseKnownBits)) {
 #ifndef NDEBUG
   auto *DL = Memref->getParent()->getParent()->getDataLayout();
-  auto AccessSize = DL->getTypeAllocSize(getLoadStoreType(Memref));
+  auto AccessSize = DL->getTypeAllocSize(Memref->getValueType());
   auto AccessStep = AccessAddress.Step;
   assert(AccessSize == TypeSize::Fixed(AccessStep) &&
          "Non-unit stride memory access");
@@ -143,7 +143,7 @@ VPlanPeelingAnalysis::selectBestStaticPeelingVariant(
   std::vector<int> PeelCountProfit(VF);
 
   for (VPlanPeelingCandidate &Cand : CandidateMemrefs) {
-    VPInstruction *Memref = Cand.memref();
+    VPLoadStoreInst *Memref = Cand.memref();
     auto Step = Cand.accessAddress().Step;
     const KnownBits &KB = Cand.invariantBaseKnownBits();
 

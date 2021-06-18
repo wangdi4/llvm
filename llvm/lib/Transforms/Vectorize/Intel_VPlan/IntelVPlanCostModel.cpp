@@ -38,16 +38,6 @@ static unsigned getMemInstAlignment(const Value *I) {
   return cast<StoreInst>(I)->getAlignment();
 }
 
-/// A helper function that returns the address space of the pointer operand of
-/// load or store instruction.
-static unsigned getMemInstAddressSpace(const Value *I) {
-  assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
-         "Expected Load or Store instruction");
-  if (auto *LI = dyn_cast<LoadInst>(I))
-    return LI->getPointerAddressSpace();
-  return cast<StoreInst>(I)->getPointerAddressSpace();
-}
-
 #if INTEL_CUSTOMIZATION
 static const Instruction *getLLVMInstFromDDNode(const HLDDNode *Node) {
   const HLInst *HLInstruction = cast<HLInst>(Node);
@@ -100,59 +90,20 @@ VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
 }
 #endif // INTEL_CUSTOMIZATION
 
-Type *VPlanTTICostModel::getMemInstValueType(const VPInstruction *VPInst) {
-  unsigned Opcode = VPInst->getOpcode();
-  assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
-  return Opcode == Instruction::Load ?
-    VPInst->getType() : VPInst->getOperand(0)->getType();
-}
-
-unsigned VPlanTTICostModel::getMemInstAddressSpace(
-  const VPInstruction *VPInst) {
-  unsigned Opcode = VPInst->getOpcode();
-  (void)Opcode;
-  assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
-
-  // TODO: getType() working without underlying Inst - seems we can return
-  // address space too.
-
-  if (const Value *Val = VPInst->getUnderlyingValue())
-    return ::getMemInstAddressSpace(Val);
-
-#if INTEL_CUSTOMIZATION
-  if (!VPInst->HIR().isMaster())
-    return 0; // CHECKME: Is that correct?
-  const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR().getUnderlyingNode());
-  if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode)) {
-    if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst))
-      return ::getMemInstAddressSpace(Inst);
-
-    // Handle cases such as a[i] = b + c, the store to a[i] will be the master
-    // VPInst. However, Inst will be an add instruction.
-    const RegDDRef *LvalRef = DDNode->getLvalDDRef();
-    if (LvalRef && LvalRef->isMemRef())
-      return LvalRef->getPointerAddressSpace();
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  return 0; // CHECKME: Is that correct?
-}
-
 unsigned
-VPlanTTICostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
-  // For unit stride loads and stores account for selected peeling variant.
-  auto *LS = cast<VPLoadStoreInst>(VPInst);
+VPlanTTICostModel::getMemInstAlignment(const VPLoadStoreInst *LoadStore) const {
   // getMemInstAlignment is invoked from getLoadStoreCost() when no Alignment
   // is passed to getLoadStoreCost(), which means getLoadStoreCost() is invoked
   // during getCost() pass though every Instruction. In such scenario
   // DefaultPeelingVariant is expected to be set.
   assert(DefaultPeelingVariant && "PeelingVariant is not set.");
   bool NegativeStride = false;
-  if (isUnitStrideLoadStore(VPInst, NegativeStride)) {
+  if (isUnitStrideLoadStore(LoadStore, NegativeStride)) {
     // VPAA method takes alignment from IR as a base.
     // Alignment computed by VPAA in most cases is not guaranteed if we skip
     // the peel loop at runtime.
-    return VPAA.getAlignmentUnitStride(*LS, DefaultPeelingVariant).value();
+    return VPAA.getAlignmentUnitStride(*LoadStore, DefaultPeelingVariant)
+        .value();
   }
 
   // TODO:
@@ -160,13 +111,13 @@ VPlanTTICostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
   //   return VPAA.getAlignment(*LS).value();
   // once VPAA.getAlignment is ready.
 
-  if (const Instruction *Inst = VPInst->getInstruction())
+  if (const Instruction *Inst = LoadStore->getInstruction())
     if (unsigned Align = ::getMemInstAlignment(Inst))
       return Align;
 
 #if INTEL_CUSTOMIZATION
-  if (VPInst->HIR().isMaster()) {
-    const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR().getUnderlyingNode());
+  if (LoadStore->HIR().isMaster()) {
+    const HLDDNode *DDNode = cast<HLDDNode>(LoadStore->HIR().getUnderlyingNode());
     if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode)) {
       if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
         if (unsigned Align = ::getMemInstAlignment(Inst))
@@ -186,22 +137,20 @@ VPlanTTICostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
   // If underlying instruction had default alignment (0) we need to query
   // DataLayout what it is, because default alignment for the widened type will
   // be different.
-  return DL->getABITypeAlignment(getMemInstValueType(VPInst));
+  return DL->getABITypeAlignment(LoadStore->getValueType());
 }
 
-bool VPlanTTICostModel::isUnitStrideLoadStore(const VPInstruction *VPInst,
+bool VPlanTTICostModel::isUnitStrideLoadStore(const VPLoadStoreInst *LoadStore,
                                               bool &NegativeStride) const {
-  const VPValue *P = getLoadStorePointerOperand(VPInst);
-  return Plan->getVPlanDA()->isUnitStridePtr(P, NegativeStride);
+  return Plan->getVPlanDA()->isUnitStridePtr(LoadStore->getPointerOperand(),
+                                             NegativeStride);
 }
 
 unsigned VPlanTTICostModel::getLoadStoreIndexSize(
-  const VPInstruction *VPInst) const {
-  assert((VPInst->getOpcode() == Instruction::Load ||
-          VPInst->getOpcode() == Instruction::Store) &&
-         "Expect 'VPInst' to be either a LoadInst or a StoreInst");
+  const VPLoadStoreInst *LoadStore) const {
 
-  const VPValue *Ptr = getLoadStorePointerOperand(VPInst);
+  const VPValue *Ptr = LoadStore->getPointerOperand();
+  const VPInstruction *VPInst;
   // Skip all NOP BitCasts/AddrSpaceCasts on the way to GEP.
   while ((VPInst = dyn_cast<VPInstruction>(Ptr)) &&
          (VPInst->getOpcode() == Instruction::BitCast ||
@@ -313,31 +262,19 @@ unsigned VPlanTTICostModel::getArithmeticInstructionCost(const unsigned Opcode,
     TargetTransformInfo::TCK_RecipThroughput, Op1VK, Op2VK, Op1VP, Op2VP);
 }
 
-unsigned VPlanTTICostModel::getLoadStoreCost(const VPInstruction *VPInst,
+unsigned VPlanTTICostModel::getLoadStoreCost(const VPLoadStoreInst *LoadStore,
                                              unsigned VF) {
-  unsigned Alignment = getMemInstAlignment(VPInst);
-  return getLoadStoreCost(VPInst, Align(Alignment), VF);
+  unsigned Alignment = getMemInstAlignment(LoadStore);
+  return getLoadStoreCost(LoadStore, Align(Alignment), VF);
 }
 
 unsigned VPlanTTICostModel::getLoadStoreCost(
-  const VPInstruction *VPInst, Align Alignment, unsigned VF) {
-  assert(VPInst &&
-         ((VPInst->getOpcode() == Instruction::Load) ||
-         (VPInst->getOpcode() == Instruction::Store)) &&
-         "Expect Load or Store operation!");
-  Type *OpTy = getMemInstValueType(VPInst);
-  assert(OpTy && "Can't get type of the load/store instruction!");
-
-  unsigned Opcode = VPInst->getOpcode();
-  unsigned AddrSpace = getMemInstAddressSpace(VPInst);
-  Type *VecTy;
-  unsigned Scale;
-
+  const VPLoadStoreInst *LoadStore, Align Alignment, unsigned VF) {
   // TODO: VF check in IsMasked might become redundant once a separate VPlan
   // is maintained for VF = 1 meaning that the cost calculation for scalar loop
   // is done over VPlan that doesn't undergo any vector transformations such as
   // predication.
-  bool IsMasked = (VF > 1) && (VPInst->getParent()->getPredicate() != nullptr);
+  bool IsMasked = (VF > 1) && (LoadStore->getParent()->getPredicate() != nullptr);
 
   // Aggregates are serialized.  If we see an aggregate type we set Scale to VF
   // and substitude VecTy with base aggregate type.
@@ -345,6 +282,10 @@ unsigned VPlanTTICostModel::getLoadStoreCost(
   // TODO:
   // ScalarCost * VF is Zero order approximation of scalarization for aggregate
   // types.  Yet to be tuned further.
+  Type *VecTy;
+  unsigned Scale;
+
+  Type *OpTy = LoadStore->getValueType();
   if (isVectorizableTy(OpTy)) {
     Scale = 1;
     VecTy = getWidenedType(OpTy, VF);
@@ -354,13 +295,17 @@ unsigned VPlanTTICostModel::getLoadStoreCost(
     VecTy = OpTy;
   }
 
+  unsigned Opcode = LoadStore->getOpcode();
+  unsigned AddrSpace = LoadStore->getPointerAddressSpace();
+
   // Call get[Masked]MemoryOpCost() for the following cases.
   // 1. VF = 1 VPlan even for vector OpTy.
   // 2. Unit stride load/store.
   // 3. Aggregate OpTy (they enter this code though Scale > 1 check of VF == 1
   //    check).
   bool NegativeStride = false;
-  if (VF == 1 || Scale > 1 || isUnitStrideLoadStore(VPInst, NegativeStride)) {
+  if (VF == 1 || Scale > 1 ||
+      isUnitStrideLoadStore(LoadStore, NegativeStride)) {
     unsigned Cost = 0;
 
     // For negative stride we need to reverse elements in the vector after load
@@ -387,7 +332,7 @@ unsigned VPlanTTICostModel::getLoadStoreCost(
   // Currently TTI doesn't add cost of index split and data join in case
   // gather/scatter operation is implemented with two HW gathers/scatters.
   return VPTTI.getGatherScatterOpCost(
-    Opcode, VecTy, getLoadStoreIndexSize(VPInst),
+    Opcode, VecTy, getLoadStoreIndexSize(LoadStore),
     IsMasked, Alignment.value(), AddrSpace);
 }
 
@@ -625,7 +570,7 @@ unsigned VPlanTTICostModel::getTTICostForVF(
 #endif // INTEL_CUSTOMIZATION
   case Instruction::Load:
   case Instruction::Store:
-    return getLoadStoreCost(VPInst, VF);
+    return getLoadStoreCost(cast<VPLoadStoreInst>(VPInst), VF);
   case Instruction::Add:
   case Instruction::FAdd:
   case Instruction::Sub:

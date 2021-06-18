@@ -328,7 +328,7 @@ bool VPSOAAnalysis::isProfitableForSOA(const VPInstruction *I) {
 
 // Determine if SOA-layout is profitable for the given alloca (loop-entity).
 void VPSOAAnalysis::collectLoadStores(const VPAllocatePrivate *Alloca,
-                                      DenseSet<VPInstruction *> &LoadStores) {
+                                      DenseSet<VPLoadStoreInst *> &LoadStores) {
 
   // Use a WL-based approach to collect loads and stores on a particular alloca.
   std::queue<const VPValue *> WL;
@@ -336,13 +336,6 @@ void VPSOAAnalysis::collectLoadStores(const VPAllocatePrivate *Alloca,
   // Set of visited instructions to avoid infinite-loop arising out of cyclic
   // use-def chains.
   DenseSet<const VPValue *> Visited;
-
-  auto isLoadStore = [](const VPValue *Val) {
-    if (auto *I = dyn_cast<VPInstruction>(Val))
-      return I->getOpcode() == Instruction::Load ||
-             I->getOpcode() == Instruction::Store;
-    return false;
-  };
 
   WL.push(Alloca);
 
@@ -361,11 +354,11 @@ void VPSOAAnalysis::collectLoadStores(const VPAllocatePrivate *Alloca,
       continue;
 
     // Analyze the users of the current Instruction.
-    for (auto *I : CurrentI->users())
-      if (isLoadStore(I))
-        LoadStores.insert(cast<VPInstruction>(I));
+    for (auto *User : CurrentI->users())
+      if (auto *LoadStore = dyn_cast<VPLoadStoreInst>(User))
+        LoadStores.insert(LoadStore);
       else
-        WL.push(I);
+        WL.push(User);
   }
 }
 
@@ -384,11 +377,11 @@ bool VPSOAAnalysis::isSOAProfitable(VPAllocatePrivate *Alloca) {
   // that memory access is an uniform memory access.
 
   // Collect the Loads and Stores on the alloca.
-  DenseSet<VPInstruction *> LoadStores;
+  DenseSet<VPLoadStoreInst *> LoadStores;
   collectLoadStores(Alloca, LoadStores);
 
   for (auto *LSI : LoadStores) {
-    VPValue *PtrOp = getLoadStorePointerOperand(LSI);
+    VPValue *PtrOp = LSI->getPointerOperand();
     // Return true if there is a single load/store instruction which has a
     // profitable memory access.
     if (isProfitableForSOA(cast<VPInstruction>(PtrOp)))

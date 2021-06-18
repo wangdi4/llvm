@@ -89,17 +89,18 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
 
   for (const VPBasicBlock *Block : depth_first(Plan->getEntryBlock())) {
     for (const VPInstruction &VPInst : *Block) {
-      if (!isa<VPLoadStoreInst>(VPInst))
+      auto *LoadStore = dyn_cast<VPLoadStoreInst>(&VPInst);
+      if (!LoadStore)
         continue;
 
       // FIXME: VPOCodeGen does not support widening of VLS groups composed of
       //        types with padding (e.g. <3 x i32> or x86_fp80). See
       //        CMPLRLLVM-23003 for more details.
-      Type *MrfTy = getLoadStoreType(&VPInst);
+      Type *MrfTy = LoadStore->getValueType();
       if (hasIrregularTypeForUnitStride(MrfTy, &DL))
         continue;
 
-      OVLSMemref *Memref = createVLSMemref(&cast<VPLoadStoreInst>(VPInst), VF);
+      OVLSMemref *Memref = createVLSMemref(LoadStore, VF);
       if (!Memref)
         continue;
 
@@ -225,8 +226,6 @@ int computeInterleaveFactor(OVLSMemref *Memref) {
   return InterleaveFactor;
 }
 
-extern bool EnableExplicitVLS;
-
 Optional<std::tuple<OVLSGroup *, int, int>>
 getOptimizedVLSGroupData(const VPInstruction *VPInst,
                          const VPlanVLSAnalysis *VLSA, const VPlan *Plan) {
@@ -242,15 +241,6 @@ getOptimizedVLSGroupData(const VPInstruction *VPInst,
 
   if (!isTransformableVLSGroup(Group))
     return None;
-
-  if (!EnableExplicitVLS)
-    // Non-explicit VLS doesn't support mixed types.
-    if (!std::equal(Group->begin() + 1, Group->end(), Group->begin(),
-                    [](const OVLSMemref *LHS, const OVLSMemref *RHS) {
-                      return instruction(LHS)->getValueType() ==
-                             instruction(RHS)->getValueType();
-                    }))
-      return None;
 
   VPVLSClientMemref *VPInstMemref = cast<VPVLSClientMemref>(
       *find_if(*Group, [VPInst](const OVLSMemref *Memref) {

@@ -713,9 +713,22 @@ std::pair<unsigned, VPlanVector *> LoopVectorizationPlanner::selectBestPlan() {
       }
       continue;
     }
+    LLVM_DEBUG(dbgs() << "Selected peeling: ";
+      if (PeelingVariant) {
+        if (isa<VPlanDynamicPeeling>(PeelingVariant))
+          dbgs() << "Dynamic\n";
+        else
+          dbgs() << "Static("
+                 << cast<VPlanStaticPeeling>(PeelingVariant)->peelCount()
+                 << ")\n";
+      } else {
+        dbgs() << "None\n";
+      }
+    );
+
     // Calculate the total cost of peel loop if there is one.
     VPlanPeelEvaluator PeelEvaluator(*this, ScalarIterationCost, TLI, TTI, DL,
-                                     VLSA, VF, Plan->getPreferredPeeling(VF));
+                                     VLSA, VF, PeelingVariant);
     // Calculate the total cost of remainder loop if there is one.
     VPlanRemainderEvaluator RemainderEvaluator(
         *this, ScalarIterationCost, TLI, TTI, DL, VLSA, TripCount,
