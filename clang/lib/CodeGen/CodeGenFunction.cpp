@@ -1192,6 +1192,9 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
   if (D && D->hasAttr<CFICanonicalJumpTableAttr>())
     Fn->addFnAttr("cfi-canonical-jump-table");
 
+  if (D && D->hasAttr<NoProfileFunctionAttr>())
+    Fn->addFnAttr(llvm::Attribute::NoProfile);
+
 #if INTEL_CUSTOMIZATION
   if (D && (D->hasAttr<PreferDSPAttr>() || D->hasAttr<PreferSoftLogicAttr>())) {
     auto *MDValueWrapper = llvm::ConstantAsMetadata::get(
