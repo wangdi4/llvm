@@ -2027,12 +2027,11 @@ struct AAUndefinedBehaviorImpl : public AAUndefinedBehavior {
             A.getAAFor<AANoUndef>(*this, CalleeArgumentIRP, DepClassTy::NONE);
         if (!NoUndefAA.isKnownNoUndef())
           continue;
-        auto &ValueSimplifyAA = A.getAAFor<AAValueSimplify>(
-            *this, IRPosition::value(*ArgVal), DepClassTy::NONE);
-        if (!ValueSimplifyAA.isKnown())
+        bool UsedAssumedInformation = false;
+        Optional<Value *> SimplifiedVal = A.getAssumedSimplified(
+            IRPosition::value(*ArgVal), *this, UsedAssumedInformation);
+        if (UsedAssumedInformation)
           continue;
-        Optional<Value *> SimplifiedVal =
-            ValueSimplifyAA.getAssumedSimplifiedValue(A);
         if (!SimplifiedVal.hasValue() ||
             isa<UndefValue>(*SimplifiedVal.getValue())) {
           KnownUBInsts.insert(&I);
@@ -2196,11 +2195,10 @@ private:
   // use for specific processing.
   Optional<Value *> stopOnUndefOrAssumed(Attributor &A, const Value *V,
                                          Instruction *I) {
-    const auto &ValueSimplifyAA = A.getAAFor<AAValueSimplify>(
-        *this, IRPosition::value(*V), DepClassTy::REQUIRED);
-    Optional<Value *> SimplifiedV =
-        ValueSimplifyAA.getAssumedSimplifiedValue(A);
-    if (!ValueSimplifyAA.isKnown()) {
+    bool UsedAssumedInformation = false;
+    Optional<Value *> SimplifiedV = A.getAssumedSimplified(
+        IRPosition::value(*V), *this, UsedAssumedInformation);
+    if (UsedAssumedInformation) {
       // Don't depend on assumed values.
       return llvm::None;
     }
@@ -2388,12 +2386,9 @@ struct AAReachabilityImpl : AAReachability {
     return "reachable";
   }
 
-  /// See AbstractAttribute::initialize(...).
-  void initialize(Attributor &A) override { indicatePessimisticFixpoint(); }
-
   /// See AbstractAttribute::updateImpl(...).
   ChangeStatus updateImpl(Attributor &A) override {
-    return indicatePessimisticFixpoint();
+    return ChangeStatus::UNCHANGED;
   }
 };
 
@@ -4550,20 +4545,15 @@ struct AAValueSimplifyImpl : AAValueSimplify {
   }
 
   /// Helper function for querying AAValueSimplify and updating candicate.
-  /// \param QueryingValue Value trying to unify with SimplifiedValue
+  /// \param IRP The value position we are trying to unify with SimplifiedValue
   /// \param AccumulatedSimplifiedValue Current simplification result.
   static bool checkAndUpdate(Attributor &A, const AbstractAttribute &QueryingAA,
-                             Value &QueryingValue,
+                             const IRPosition &IRP,
                              Optional<Value *> &AccumulatedSimplifiedValue) {
     // FIXME: Add a typecast support.
-
-    auto &ValueSimplifyAA = A.getAAFor<AAValueSimplify>(
-        QueryingAA,
-        IRPosition::value(QueryingValue, QueryingAA.getCallBaseContext()),
-        DepClassTy::REQUIRED);
-
+    bool UsedAssumedInformation = false;
     Optional<Value *> QueryingValueSimplified =
-        ValueSimplifyAA.getAssumedSimplifiedValue(A);
+        A.getAssumedSimplified(IRP, QueryingAA, UsedAssumedInformation);
 
     if (!QueryingValueSimplified.hasValue())
       return true;
@@ -4582,7 +4572,7 @@ struct AAValueSimplifyImpl : AAValueSimplify {
         isa<UndefValue>(QueryingValueSimplifiedUnwrapped))
       return true;
 
-    LLVM_DEBUG(dbgs() << "[ValueSimplify] " << QueryingValue
+    LLVM_DEBUG(dbgs() << "[ValueSimplify] " << IRP.getAssociatedValue()
                       << " is assumed to be "
                       << QueryingValueSimplifiedUnwrapped << "\n");
 
@@ -4634,10 +4624,10 @@ struct AAValueSimplifyImpl : AAValueSimplify {
     auto *C = SimplifiedAssociatedValue.hasValue()
                   ? dyn_cast<Constant>(SimplifiedAssociatedValue.getValue())
                   : UndefValue::get(V.getType());
-    if (C && C != &V) {
+    if (C && C != &V && !V.user_empty()) {
       Value *NewV = AA::getWithType(*C, *V.getType());
       // We can replace the AssociatedValue with the constant.
-      if (!V.user_empty() && &V != C && NewV) {
+      if (NewV && NewV != &V) {
         LLVM_DEBUG(dbgs() << "[ValueSimplify] " << V << " -> " << *NewV
                           << " :: " << *this << "\n");
         if (A.changeValueAfterManifest(V, *NewV))
@@ -4722,7 +4712,7 @@ struct AAValueSimplifyArgument final : AAValueSimplifyImpl {
         if (auto *C = dyn_cast<Constant>(&ArgOp))
           if (C->isThreadDependent())
             return false;
-      return checkAndUpdate(A, *this, ArgOp, SimplifiedAssociatedValue);
+      return checkAndUpdate(A, *this, ACSArgPos, SimplifiedAssociatedValue);
     };
 
     // Generate a answer specific to a call site context.
@@ -4759,7 +4749,9 @@ struct AAValueSimplifyReturned : AAValueSimplifyImpl {
     auto Before = SimplifiedAssociatedValue;
 
     auto PredForReturned = [&](Value &V) {
-      return checkAndUpdate(A, *this, V, SimplifiedAssociatedValue);
+      return checkAndUpdate(A, *this,
+                            IRPosition::value(V, getCallBaseContext()),
+                            SimplifiedAssociatedValue);
     };
 
     if (!A.checkForAllReturnedValues(PredForReturned, *this))
@@ -4776,35 +4768,34 @@ struct AAValueSimplifyReturned : AAValueSimplifyImpl {
 
     if (SimplifiedAssociatedValue.hasValue() &&
         !SimplifiedAssociatedValue.getValue())
-      return Changed;
+      return Changed | AAValueSimplify::manifest(A);
 
-    Value &V = getAssociatedValue();
     auto *C = SimplifiedAssociatedValue.hasValue()
                   ? dyn_cast<Constant>(SimplifiedAssociatedValue.getValue())
-                  : UndefValue::get(V.getType());
-    if (C && C != &V) {
-      auto PredForReturned =
-          [&](Value &V, const SmallSetVector<ReturnInst *, 4> &RetInsts) {
-            // We can replace the AssociatedValue with the constant.
-            if (&V == C || isa<UndefValue>(V))
-              return true;
+                  : UndefValue::get(getAssociatedType());
+    if (!C || C == &getAssociatedValue())
+      return Changed | AAValueSimplify::manifest(A);
 
-            for (ReturnInst *RI : RetInsts) {
-              if (RI->getFunction() != getAnchorScope())
-                continue;
-              Value *NewV =
-                  AA::getWithType(*C, *RI->getReturnValue()->getType());
-              if (!NewV)
-                continue;
-              LLVM_DEBUG(dbgs() << "[ValueSimplify] " << V << " -> " << *NewV
-                                << " in " << *RI << " :: " << *this << "\n");
-              if (A.changeUseAfterManifest(RI->getOperandUse(0), *NewV))
-                Changed = ChangeStatus::CHANGED;
-            }
+    auto PredForReturned =
+        [&](Value &V, const SmallSetVector<ReturnInst *, 4> &RetInsts) {
+          // We can replace the AssociatedValue with the constant.
+          if (&V == C || isa<UndefValue>(V))
             return true;
-          };
-      A.checkForAllReturnedValuesAndReturnInsts(PredForReturned, *this);
-    }
+
+          for (ReturnInst *RI : RetInsts) {
+            if (RI->getFunction() != getAnchorScope())
+              continue;
+            Value *NewV = AA::getWithType(*C, *RI->getReturnValue()->getType());
+            if (!NewV)
+              continue;
+            LLVM_DEBUG(dbgs() << "[ValueSimplify] " << V << " -> " << *NewV
+                              << " in " << *RI << " :: " << *this << "\n");
+            if (A.changeUseAfterManifest(RI->getOperandUse(0), *NewV))
+              Changed = ChangeStatus::CHANGED;
+          }
+          return true;
+        };
+    A.checkForAllReturnedValuesAndReturnInsts(PredForReturned, *this);
 
     return Changed | AAValueSimplify::manifest(A);
   }
@@ -4915,7 +4906,9 @@ struct AAValueSimplifyFloating : AAValueSimplifyImpl {
                           << "\n");
         return false;
       }
-      return checkAndUpdate(A, *this, V, SimplifiedAssociatedValue);
+      return checkAndUpdate(A, *this,
+                            IRPosition::value(V, getCallBaseContext()),
+                            SimplifiedAssociatedValue);
     };
 
     bool Dummy = false;
@@ -5019,7 +5012,8 @@ struct AAHeapToStackImpl : public AAHeapToStack {
       : AAHeapToStack(IRP, A) {}
 
   const std::string getAsStr() const override {
-    return "[H2S] Mallocs: " + std::to_string(MallocCalls.size());
+    return "[H2S] Mallocs Good/Bad: " + std::to_string(MallocCalls.size()) +
+           "/" + std::to_string(BadMallocCalls.size());
   }
 
   bool isAssumedHeapToStack(CallBase &CB) const override {
@@ -5128,10 +5122,29 @@ ChangeStatus AAHeapToStackImpl::updateImpl(Attributor &A) {
   MustBeExecutedContextExplorer &Explorer =
       A.getInfoCache().getMustBeExecutedContextExplorer();
 
+  bool StackIsAccessibleByOtherThreads =
+      A.getInfoCache().stackIsAccessibleByOtherThreads();
+
   auto FreeCheck = [&](Instruction &I) {
+    // If the stack is not accessible by other threads, the "must-free" logic
+    // doesn't apply as the pointer could be shared and needs to be places in
+    // "shareable" memory.
+    if (!StackIsAccessibleByOtherThreads) {
+      auto &NoSyncAA =
+          A.getAAFor<AANoSync>(*this, getIRPosition(), DepClassTy::OPTIONAL);
+      if (!NoSyncAA.isAssumedNoSync()) {
+        LLVM_DEBUG(
+            dbgs() << "[H2S] found an escaping use, stack is not accessible by "
+                      "other threads and function is not nosync:\n");
+        return false;
+      }
+    }
     const auto &Frees = FreesForMalloc.lookup(&I);
-    if (Frees.size() != 1)
+    if (Frees.size() != 1) {
+      LLVM_DEBUG(dbgs() << "[H2S] did not find one free call but "
+                        << Frees.size() << "\n");
       return false;
+    }
     Instruction *UniqueFree = *Frees.begin();
     return Explorer.findInContextOf(UniqueFree, I.getNextNode());
   };
@@ -5172,12 +5185,12 @@ ChangeStatus AAHeapToStackImpl::updateImpl(Attributor &A) {
 
         const auto &NoCaptureAA = A.getAAFor<AANoCapture>(
             *this, IRPosition::callsite_argument(*CB, ArgNo),
-            DepClassTy::REQUIRED);
+            DepClassTy::OPTIONAL);
 
         // If a callsite argument use is nofree, we are fine.
         const auto &ArgNoFreeAA = A.getAAFor<AANoFree>(
             *this, IRPosition::callsite_argument(*CB, ArgNo),
-            DepClassTy::REQUIRED);
+            DepClassTy::OPTIONAL);
 
         if (!NoCaptureAA.isAssumedNoCapture() ||
             !ArgNoFreeAA.isAssumedNoFree()) {
@@ -8053,9 +8066,9 @@ struct AANoUndefImpl : AANoUndef {
     // A position whose simplified value does not have any value is
     // considered to be dead. We don't manifest noundef in such positions for
     // the same reason above.
-    auto &ValueSimplifyAA =
-        A.getAAFor<AAValueSimplify>(*this, getIRPosition(), DepClassTy::NONE);
-    if (!ValueSimplifyAA.getAssumedSimplifiedValue(A).hasValue())
+    bool UsedAssumedInformation = false;
+    if (!A.getAssumedSimplified(getIRPosition(), *this, UsedAssumedInformation)
+             .hasValue())
       return ChangeStatus::UNCHANGED;
     return AANoUndef::manifest(A);
   }
@@ -8243,11 +8256,7 @@ AACallGraphNode *AACallEdgeIterator::operator*() const {
 }
 
 void AttributorCallGraph::print() {
-  std::string Filename = "AttributorCallGraph.dot";
-  std::error_code EC;
-
-  raw_fd_ostream File(Filename, EC, sys::fs::OF_TextWithCRLF);
-  llvm::WriteGraph(File, this);
+  llvm::WriteGraph(outs(), this);
 }
 
 const char AAReturnedValues::ID = 0;

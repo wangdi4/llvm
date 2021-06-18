@@ -102,6 +102,7 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/Analysis/AssumeBundleQueries.h"
 #include "llvm/Analysis/CFG.h"
@@ -818,7 +819,7 @@ struct InformationCache {
             [&](const Function &F) {
               return AG.getAnalysis<PostDominatorTreeAnalysis>(F);
             }),
-        AG(AG), CGSCC(CGSCC) {
+        AG(AG), CGSCC(CGSCC), TargetTriple(M.getTargetTriple()) {
     if (CGSCC)
       initializeModuleSlice(*CGSCC);
   }
@@ -968,6 +969,14 @@ struct InformationCache {
     return ModuleSlice.count(const_cast<Function *>(&F));
   }
 
+  /// Return true if the stack (llvm::Alloca) can be accessed by other threads.
+  bool stackIsAccessibleByOtherThreads() { return !targetIsGPU(); }
+
+  /// Return true if the target is a GPU.
+  bool targetIsGPU() {
+    return TargetTriple.isAMDGPU() || TargetTriple.isNVPTX();
+  }
+
 private:
   struct FunctionInfo {
     ~FunctionInfo();
@@ -1030,6 +1039,9 @@ private:
   /// A map for caching results of queries for isPotentiallyReachable
   DenseMap<std::pair<const Instruction *, const Instruction *>, bool>
       PotentiallyReachableMap;
+
+  /// The triple describing the target machine.
+  Triple TargetTriple;
 
   /// Give the Attributor access to the members so
   /// Attributor::identifyDefaultAbstractAttributes(...) can initialize them.
@@ -1134,9 +1146,10 @@ struct Attributor {
   /// function.
   /// NOTE: ForceUpdate is ignored in any stage other than the update stage.
   template <typename AAType>
-  const AAType &
-  getOrCreateAAFor(IRPosition IRP, const AbstractAttribute *QueryingAA,
-                   DepClassTy DepClass, bool ForceUpdate = false) {
+  const AAType &getOrCreateAAFor(IRPosition IRP,
+                                 const AbstractAttribute *QueryingAA,
+                                 DepClassTy DepClass, bool ForceUpdate = false,
+                                 bool UpdateAfterInit = true) {
     if (!shouldPropagateCallBaseContext(IRP))
       IRP = IRP.stripCallBaseContext();
 
@@ -1204,12 +1217,14 @@ struct Attributor {
 
     // Allow seeded attributes to declare dependencies.
     // Remember the seeding state.
-    AttributorPhase OldPhase = Phase;
-    Phase = AttributorPhase::UPDATE;
+    if (UpdateAfterInit) {
+      AttributorPhase OldPhase = Phase;
+      Phase = AttributorPhase::UPDATE;
 
-    updateAA(AA);
+      updateAA(AA);
 
-    Phase = OldPhase;
+      Phase = OldPhase;
+    }
 
     if (QueryingAA && AA.getState().isValidState())
       recordDependence(AA, const_cast<AbstractAttribute &>(*QueryingAA),
@@ -1405,6 +1420,39 @@ struct Attributor {
                                           const AbstractAttribute &AA,
                                           bool &UsedAssumedInformation);
 
+  /// If \p V is assumed simplified, return it, if it is unclear yet,
+  /// return None, otherwise return `nullptr`.
+  Optional<Value *> getAssumedSimplified(const IRPosition &IRP,
+                                         const AbstractAttribute &AA,
+                                         bool &UsedAssumedInformation) {
+    return getAssumedSimplified(IRP, &AA, UsedAssumedInformation);
+  }
+
+  /// Register \p CB as a simplification callback.
+  /// `Attributor::getAssumedSimplified` will use these callbacks before
+  /// we it will ask `AAValueSimplify`. It is important to ensure this
+  /// is called before `identifyDefaultAbstractAttributes`, assuming the
+  /// latter is called at all.
+  using SimplifictionCallbackTy = std::function<Optional<Value *>(
+      const IRPosition &, const AbstractAttribute *, bool &)>;
+  void registerSimplificationCallback(const IRPosition &IRP,
+                                      const SimplifictionCallbackTy &CB) {
+    SimplificationCallbacks[IRP].emplace_back(CB);
+  }
+
+private:
+  /// The vector with all simplification callbacks registered by outside AAs.
+  DenseMap<IRPosition, SmallVector<SimplifictionCallbackTy, 1>>
+      SimplificationCallbacks;
+
+  /// If \p V is assumed simplified, return it, if it is unclear yet,
+  /// return None, otherwise return `nullptr`. Same as the public version
+  /// except that it can be used without recording dependences on any \p AA.
+  Optional<Value *> getAssumedSimplified(const IRPosition &V,
+                                         const AbstractAttribute *AA,
+                                         bool &UsedAssumedInformation);
+
+public:
   /// Return true if \p AA (or its context instruction) is assumed dead.
   ///
   /// If \p LivenessAA is not provided it is queried.
@@ -2704,6 +2752,8 @@ struct AAReachability : public StateWrapper<BooleanState, AbstractAttribute> {
   /// determines (and caches) reachability.
   bool isAssumedReachable(Attributor &A, const Instruction &From,
                           const Instruction &To) const {
+    if (!getState().isValidState())
+      return true;
     return A.getInfoCache().getPotentiallyReachable(From, To);
   }
 
@@ -2712,6 +2762,8 @@ struct AAReachability : public StateWrapper<BooleanState, AbstractAttribute> {
   /// determines (and caches) reachability.
   bool isKnownReachable(Attributor &A, const Instruction &From,
                         const Instruction &To) const {
+    if (!getState().isValidState())
+      return false;
     return A.getInfoCache().getPotentiallyReachable(From, To);
   }
 
@@ -3197,11 +3249,6 @@ struct AAValueSimplify : public StateWrapper<BooleanState, AbstractAttribute> {
   using Base = StateWrapper<BooleanState, AbstractAttribute>;
   AAValueSimplify(const IRPosition &IRP, Attributor &A) : Base(IRP) {}
 
-  /// Return an assumed simplified value if a single candidate is found. If
-  /// there cannot be one, return original value. If it is not clear yet, return
-  /// the Optional::NoneType.
-  virtual Optional<Value *> getAssumedSimplifiedValue(Attributor &A) const = 0;
-
   /// Create an abstract attribute view for the position \p IRP.
   static AAValueSimplify &createForPosition(const IRPosition &IRP,
                                             Attributor &A);
@@ -3220,6 +3267,16 @@ struct AAValueSimplify : public StateWrapper<BooleanState, AbstractAttribute> {
 
   /// Unique ID (due to the unique address)
   static const char ID;
+
+private:
+  /// Return an assumed simplified value if a single candidate is found. If
+  /// there cannot be one, return original value. If it is not clear yet, return
+  /// the Optional::NoneType.
+  ///
+  /// Use `Attributor::getAssumedSimplified` for value simplification.
+  virtual Optional<Value *> getAssumedSimplifiedValue(Attributor &A) const = 0;
+
+  friend struct Attributor;
 };
 
 struct AAHeapToStack : public StateWrapper<BooleanState, AbstractAttribute> {
@@ -4012,6 +4069,37 @@ struct DOTGraphTraits<AttributorCallGraph *> : public DefaultDOTGraphTraits {
     // Hide the synth root.
     return static_cast<const AACallGraphNode *>(Graph) == Node;
   }
+};
+
+struct AAExecutionDomain
+    : public StateWrapper<BooleanState, AbstractAttribute> {
+  using Base = StateWrapper<BooleanState, AbstractAttribute>;
+  AAExecutionDomain(const IRPosition &IRP, Attributor &A) : Base(IRP) {}
+
+  /// Create an abstract attribute view for the position \p IRP.
+  static AAExecutionDomain &createForPosition(const IRPosition &IRP,
+                                              Attributor &A);
+
+  /// See AbstractAttribute::getName().
+  const std::string getName() const override { return "AAExecutionDomain"; }
+
+  /// See AbstractAttribute::getIdAddr().
+  const char *getIdAddr() const override { return &ID; }
+
+  /// Check if an instruction is executed only by the initial thread.
+  virtual bool isExecutedByInitialThreadOnly(const Instruction &) const = 0;
+
+  /// Check if a basic block is executed only by the initial thread.
+  virtual bool isExecutedByInitialThreadOnly(const BasicBlock &) const = 0;
+
+  /// This function should return true if the type of the \p AA is
+  /// AAExecutionDomain.
+  static bool classof(const AbstractAttribute *AA) {
+    return (AA->getIdAddr() == &ID);
+  }
+
+  /// Unique ID (due to the unique address)
+  static const char ID;
 };
 
 /// Run options, used by the pass manager.
