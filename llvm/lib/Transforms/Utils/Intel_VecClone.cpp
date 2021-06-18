@@ -1026,9 +1026,11 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
             bool TypesAreCompatible = false;
 
             if (isa<LoadInst>(User)) {
+              assert(VecGep && "Expect VecGep to be a non-null value.");
               TypesAreCompatible =
                   typesAreCompatibleForLoad(VecGep->getType(), User->getType());
             } else if (auto *Store = dyn_cast<StoreInst>(User)) {
+              assert(VecGep && "Expect VecGep to be a non-null value.");
               TypesAreCompatible = typesAreCompatibleForLoad(
                   VecGep->getType(), Store->getValueOperand()->getType());
             }
@@ -1048,6 +1050,7 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
                     PointeeType, BitCast, Phi, BitCast->getName() + ".gep",
                     IncommingBB->getTerminator());
               }
+              assert(VecGep && "Expect VecGep to be a non-null value.");
               Type *LoadTy = VecGep->getResultElementType();
               LoadInst *ParmElemLoad = new LoadInst(
                   LoadTy, VecGep, "vec." + Parm->getName() + ".elem",

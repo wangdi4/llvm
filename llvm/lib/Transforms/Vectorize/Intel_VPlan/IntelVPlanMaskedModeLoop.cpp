@@ -71,6 +71,7 @@ std::shared_ptr<VPlanMasked> MaskedModeLoopCreator::createMaskedModeLoop(void) {
   // Collect information before applying masked mode transformation.
   VPLoop *TopVPLoop = MaskedVPlan->getMainLoop(true);
   VPInstruction *VPIndIncrement = getInductionVariable(TopVPLoop);
+  assert(VPIndIncrement && "Expected a non-null induction-variable.");
   VPBasicBlock *Header = TopVPLoop->getHeader();
   // Find the phi node of the header that its incoming value is the induction
   // variable.
