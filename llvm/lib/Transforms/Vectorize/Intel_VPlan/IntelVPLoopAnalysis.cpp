@@ -678,7 +678,9 @@ void VPLoopEntityList::insertOneReductionVPInstructions(
              std::pair<VPReductionFinal *, VPInstruction *>> &RedFinalMap,
     SmallPtrSetImpl<const VPReduction *> &ProcessedReductions) {
 
-  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
+  // Note: the insert location guard also guards builder debug location.
+  VPBuilder::InsertPointGuard Guard(Builder);
+
   VPValue *AI = nullptr;
   Builder.setInsertPoint(Preheader);
   Builder.setCurrentDebugLocation(
@@ -968,9 +970,8 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
   assert(Preheader && "Expect valid Preheader to be passed as input argument.");
   assert(PostExit && "Expect valid PostExit to be passed as input argument.");
 
-  // Set the insert and debug location guard-points.
+  // Note: the insert location guard also guards builder debug location.
   VPBuilder::InsertPointGuard Guard(Builder);
-  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
 
   // Process the list of Inductions.
   for (VPInduction *Induction : vpinductions()) {

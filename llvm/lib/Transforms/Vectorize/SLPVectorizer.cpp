@@ -6975,10 +6975,6 @@ InstructionCost BoUpSLP::getGatherCost(ArrayRef<Value *> VL) const {
   Type *ScalarTy = VL[0]->getType();
   if (StoreInst *SI = dyn_cast<StoreInst>(VL[0]))
     ScalarTy = SI->getValueOperand()->getType();
-#if INTEL_CUSTOMIZATION
-  else if (auto *IE = dyn_cast<InsertElementInst>(VL[0]))
-    ScalarTy = IE->getOperand(1)->getType();
-#endif // INTEL_CUSTOMIZATION
   auto *VecTy = FixedVectorType::get(ScalarTy, VL.size());
   // Find the cost of inserting/extracting values from the vector.
   // Check if the same elements are inserted several times and count them as

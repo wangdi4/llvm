@@ -284,7 +284,9 @@ static void processIVRemoval(CanonExpr *CE, unsigned LoopLevel,
 // Decompose a CanonExpr. Return the last VPValue resulting from its
 // decomposition.
 VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
-  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
+
+  // Note: the insert location guard also guards builder debug location.
+  VPBuilder::InsertPointGuard Guard(Builder);
   LLVM_DEBUG(dbgs() << "  Decomposing CanonExpr: "; CE->dump(); dbgs() << "\n");
   VPValue *DecompDef = nullptr;
   // Set debug locations for all newly created VPIs from decomposition of this
@@ -488,7 +490,8 @@ static Align getAlignForMemref(RegDDRef *Ref) {
 //    as operand.
 //
 VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
-  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
+  // Note: the insert location guard also guards builder debug location.
+  VPBuilder::InsertPointGuard Guard(Builder);
   LLVM_DEBUG(dbgs() << "VPDecomp: Decomposing memory operand: "; Ref->dump();
              dbgs() << "\n");
 
@@ -902,7 +905,8 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   };
 
   if (auto *HInst = dyn_cast<HLInst>(Node)) {
-    VPBuilder::DbgLocGuard DbgLocGuard(Builder);
+    // Note: the insert location guard also guards builder debug location.
+    VPBuilder::InsertPointGuard Guard(Builder);
     const Instruction *LLVMInst = HInst->getLLVMInstruction();
     assert(LLVMInst && "Missing LLVM Instruction for HLInst.");
     // Set debug location for VPInstruction generated for given HLInst.
@@ -974,7 +978,8 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
 VPInstruction *
 VPDecomposerHIR::createVPInstsForHLIf(HLIf *HIf,
                                       ArrayRef<VPValue *> VPOperands) {
-  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
+  // Note: the insert location guard also guards builder debug location.
+  VPBuilder::InsertPointGuard Guard(Builder);
   // Check if number of operands for a HLIf is twice the number of its
   // predicates
   assert((HIf->getNumPredicates() * 2 == VPOperands.size()) &&
@@ -1211,7 +1216,8 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   // created VPInstruction. Only normalized loops are expected so we use step 1.
   assert(HLp->getStrideCanonExpr()->isOne() &&
          "Expected positive unit-stride HLLoop.");
-  VPBuilder::DbgLocGuard DbgLocGuard(Builder);
+  // Note: the insert location guard also guards builder debug location.
+  VPBuilder::InsertPointGuard Guard(Builder);
   Builder.setInsertPoint(LpLatch);
   Builder.setCurrentDebugLocation(HLp->getCmpDebugLoc());
   VPConstant *One =
