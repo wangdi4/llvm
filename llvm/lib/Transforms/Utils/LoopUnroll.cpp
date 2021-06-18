@@ -301,11 +301,6 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
 
 //if (ULO.Count == 6) ULO.Count = 3;
 
-  if (ULO.TripCount != 0)
-    LLVM_DEBUG(dbgs() << "  Trip Count = " << ULO.TripCount << "\n");
-  if (ULO.TripMultiple != 1)
-    LLVM_DEBUG(dbgs() << "  Trip Multiple = " << ULO.TripMultiple << "\n");
-
   // Don't enter the unroll code if there is nothing to do.
   if (ULO.TripCount == 0 && ULO.Count < 2) {
     LLVM_DEBUG(dbgs() << "Won't unroll; almost nothing to do\n");
@@ -362,6 +357,10 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
     }
     Info.ExitOnTrue = !L->contains(BI->getSuccessor(0));
     Info.ExitingBlocks.push_back(ExitingBlock);
+    LLVM_DEBUG(dbgs() << "  Exiting block %" << ExitingBlock->getName()
+                      << ": TripCount=" << Info.TripCount
+                      << ", TripMultiple=" << Info.TripMultiple
+                      << ", BreakoutTrip=" << Info.BreakoutTrip << "\n");
   }
 
   // Are we eliminating the loop control altogether?  Note that we can know
@@ -374,8 +373,8 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
   // We assume a run-time trip count if the compiler cannot
   // figure out the loop trip count and the unroll-runtime
   // flag is specified.
-  bool RuntimeTripCount =
-      !CompletelyUnroll && ULO.TripCount == 0 && ULO.AllowRuntime;
+  bool RuntimeTripCount = !CompletelyUnroll && ULO.TripCount == 0 &&
+                          ULO.TripMultiple % ULO.Count != 0 && ULO.AllowRuntime;
 
   // Go through all exits of L and see if there are any phi-nodes there. We just
   // conservatively assume that they're inserted to preserve LCSSA form, which
@@ -423,7 +422,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
       UnrollRuntimeEpilog.getNumOccurrences() ? UnrollRuntimeEpilog
                                               : isEpilogProfitable(L);
 
-  if (RuntimeTripCount && ULO.TripMultiple % ULO.Count != 0 &&
+  if (RuntimeTripCount &&
       !UnrollRuntimeLoopRemainder(L, ULO.Count, ULO.AllowExpensiveTripCount,
                                   EpilogProfitability, ULO.UnrollRemainder,
                                   ULO.ForgetAllSCEV, LI, SE, DT, AC,
@@ -438,29 +437,17 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
     }
   }
 
-  // If we know the trip count, we know the multiple...
-  // TODO: This is only used for the ORE code, remove it.
-  unsigned BreakoutTrip = 0;
-  if (ULO.TripCount != 0) {
-    BreakoutTrip = ULO.TripCount % ULO.Count;
-    ULO.TripMultiple = 0;
-  } else {
-    // Figure out what multiple to use.
-    BreakoutTrip = ULO.TripMultiple =
-        (unsigned)GreatestCommonDivisor64(ULO.Count, ULO.TripMultiple);
-  }
-
   using namespace ore;
   // Report the unrolling decision.
   if (CompletelyUnroll) {
     LLVM_DEBUG(dbgs() << "COMPLETELY UNROLLING loop %" << Header->getName()
-                      << " with trip count " << ULO.TripCount << "!\n");
+                      << " with trip count " << ULO.Count << "!\n");
     if (ORE)
       ORE->emit([&]() {
         return OptimizationRemark(DEBUG_TYPE, "FullyUnrolled", L->getStartLoc(),
                                   L->getHeader())
                << "completely unrolled loop with "
-               << NV("UnrollCount", ULO.TripCount) << " iterations";
+               << NV("UnrollCount", ULO.Count) << " iterations";
       });
 #if INTEL_CUSTOMIZATION
     LORBuilder(*L, *LI).
@@ -469,13 +456,6 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
         preserveLostLoopOptReport();
 #endif  // INTEL_CUSTOMIZATION
   } else {
-    auto DiagBuilder = [&]() {
-      OptimizationRemark Diag(DEBUG_TYPE, "PartialUnrolled", L->getStartLoc(),
-                              L->getHeader());
-      return Diag << "unrolled loop by a factor of "
-                  << NV("UnrollCount", ULO.Count);
-    };
-
 #if INTEL_CUSTOMIZATION
     // TODO (vzakhari 5/22/2018): we may want to be more precise
     //       and report all the different unrolling cases in the
@@ -484,32 +464,21 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
                                   "LLorg: Loop has been unrolled by %d factor",
                                   ULO.Count);
 #endif  // INTEL_CUSTOMIZATION
-
     LLVM_DEBUG(dbgs() << "UNROLLING loop %" << Header->getName() << " by "
                       << ULO.Count);
-
-    if (ULO.TripMultiple == 0 || BreakoutTrip != ULO.TripMultiple) {
-      LLVM_DEBUG(dbgs() << " with a breakout at trip " << BreakoutTrip);
-      if (ORE)
-        ORE->emit([&]() {
-          return DiagBuilder() << " with a breakout at trip "
-                               << NV("BreakoutTrip", BreakoutTrip);
-        });
-    } else if (ULO.TripMultiple != 1) {
-      LLVM_DEBUG(dbgs() << " with " << ULO.TripMultiple << " trips per branch");
-      if (ORE)
-        ORE->emit([&]() {
-          return DiagBuilder()
-                 << " with " << NV("TripMultiple", ULO.TripMultiple)
-                 << " trips per branch";
-        });
-    } else if (RuntimeTripCount) {
+    if (RuntimeTripCount)
       LLVM_DEBUG(dbgs() << " with run-time trip count");
-      if (ORE)
-        ORE->emit(
-            [&]() { return DiagBuilder() << " with run-time trip count"; });
-    }
     LLVM_DEBUG(dbgs() << "!\n");
+
+    if (ORE)
+      ORE->emit([&]() {
+        OptimizationRemark Diag(DEBUG_TYPE, "PartialUnrolled", L->getStartLoc(),
+                                L->getHeader());
+        Diag << "unrolled loop by a factor of " << NV("UnrollCount", ULO.Count);
+        if (RuntimeTripCount)
+          Diag << " with run-time trip count";
+        return Diag;
+      });
   }
 
   // We are going to make changes to this loop. SCEV may be keeping cached info
