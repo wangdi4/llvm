@@ -148,7 +148,7 @@ public:
 
   DopeVectorFieldUse(bool AllowMultipleFieldAddresses = false)
       : IsBottom(false), IsRead(false), IsWritten(false),
-        ConstantValue(nullptr),
+        IsOnlyWrittenWithNull(false), ConstantValue(nullptr),
         AllowMultipleFieldAddresses(AllowMultipleFieldAddresses) {}
 
   DopeVectorFieldUse(const DopeVectorFieldUse &) = delete;
@@ -159,6 +159,7 @@ public:
   bool getIsBottom() const { return IsBottom; }
   bool getIsRead() const { return IsRead; }
   bool getIsWritten() const { return IsWritten; }
+  bool getIsOnlyWrittenWithNull() const { return IsOnlyWrittenWithNull; }
   bool getIsSingleValue() const { return !getIsBottom() && Stores.size() == 1; }
   Value *getSingleValue() const {
     if (!getIsSingleValue())
@@ -228,6 +229,7 @@ private:
   bool IsBottom;
   bool IsRead;
   bool IsWritten;
+  bool IsOnlyWrittenWithNull;
 
   // SetVector that contains the addresses for the field.
   SetVector<Value *> FieldAddr;

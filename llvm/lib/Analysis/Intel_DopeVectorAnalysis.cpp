@@ -241,6 +241,15 @@ bool DopeVectorFieldUse::analyzeLoadOrStoreInstruction(Value *V,
     // field address being stored somewhere.
     if (SI->getValueOperand() != Pointer) {
       Stores.insert(SI);
+      bool IsWrittenWithNull = false;
+      if (auto CV = dyn_cast<Constant>(SI->getValueOperand())) {
+        if (CV->isNullValue())
+          IsWrittenWithNull = true;
+      }
+      if (!IsWritten && IsWrittenWithNull)
+        IsOnlyWrittenWithNull = true;
+      else if (!IsWrittenWithNull)
+        IsOnlyWrittenWithNull = false;
       IsWritten = true;
     } else {
       return false;
@@ -1500,12 +1509,19 @@ void DopeVectorInfo::validateDopeVector() {
   auto ValidateDopeVectorField =
       [&StoreHappensWithAllocation, this](DopeVectorFieldUse &Field,
                                           bool ComputeConstant,
-                                          bool WriteAllowed,
+                                          bool AnyWriteAllowed,
+                                          bool NullWriteAllowed,
                                           bool ReadAllowed) -> bool {
     if (Field.getIsBottom())
       return false;
 
-    if (!WriteAllowed && Field.getIsWritten()) {
+    if (!AnyWriteAllowed && Field.getIsWritten() &&
+        !Field.getIsOnlyWrittenWithNull()) {
+      AnalysisRes = DopeVectorInfo::AnalysisResult::AR_WriteIllegality;
+      return false;
+    }
+
+    if (!NullWriteAllowed && Field.getIsOnlyWrittenWithNull()) {
       AnalysisRes = DopeVectorInfo::AnalysisResult::AR_WriteIllegality;
       return false;
     }
@@ -1537,7 +1553,8 @@ void DopeVectorInfo::validateDopeVector() {
   // Pointer address should not be written, only allocated and read
   PassValidation &= ValidateDopeVectorField(PtrAddr,
                                             false /* ComputeConstant */,
-                                            false /* WriteAllowed */,
+                                            false /* AnyWriteAllowed */,
+                                            true /* NullWriteAllowed */,
                                             true /* ReadAllowed */);
 
   // The element size, co-dimension, flags and dimensions should be
@@ -1545,11 +1562,13 @@ void DopeVectorInfo::validateDopeVector() {
   // compiler can use for analysis.
   PassValidation &= ValidateDopeVectorField(ElementSizeAddr,
                                             true /* ComputeConstant */,
-                                            true /* WriteAllowed */,
+                                            true /* AnyWriteAllowed */,
+                                            true /* NullWriteAllowed */,
                                             false /* ReadAllowed */);
   PassValidation &= ValidateDopeVectorField(CodimAddr,
                                             true /* ComputeConstant */,
-                                            true /* WriteAllowed */,
+                                            true /* AnyWriteAllowed */,
+                                            true /* NullWriteAllowed */,
                                             false /* ReadAllowed */);
 
   // NOTE: The FE can generate a load to the flags field, then do some
@@ -1561,12 +1580,14 @@ void DopeVectorInfo::validateDopeVector() {
   // invalidate the information for the current dope vector.
   PassValidation &= ValidateDopeVectorField(FlagsAddr,
                                             false /* ComputeConstant */,
-                                            true /* WriteAllowed */,
+                                            true /* AnyWriteAllowed */,
+                                            true /* NullWriteAllowed */,
                                             true /* ReadAllowed */);
 
   PassValidation &= ValidateDopeVectorField(DimensionsAddr,
                                             true /* ComputeConstant */,
-                                            true /* WriteAllowed */,
+                                            true /* AnyWriteAllowed */,
+                                            true /* NullWriteAllowed */,
                                             false /* ReadAllowed */);
 
   // This is the actual information of the dope vector. The extent,
@@ -1579,15 +1600,18 @@ void DopeVectorInfo::validateDopeVector() {
   for (uint64_t I = 0; I < Rank; I++) {
     PassValidation &= ValidateDopeVectorField(ExtentAddr[I],
                                               true /* ComputeConstant */,
-                                              true /* WriteAllowed */,
+                                              true /* AnyWriteAllowed */,
+                                              true /* NullWriteAllowed */,
                                               ReadAllowed);
     PassValidation &= ValidateDopeVectorField(StrideAddr[I],
                                               true /* ComputeConstant */,
-                                              true /* WriteAllowed */,
+                                              true /* AnyWriteAllowed */,
+                                              true /* NullWriteAllowed */,
                                               ReadAllowed);
     PassValidation &= ValidateDopeVectorField(LowerBoundAddr[I],
                                               true /* ComputeConstant */,
-                                              true /* WriteAllowed */,
+                                              true /* AnyWriteAllowed */,
+                                              true /* NullWriteAllowed */,
                                               ReadAllowed);
   }
 
@@ -2344,6 +2368,45 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
     return true;
   };
 
+  // Recursive version of 'PropagatesToLoadOrStore' that uses a 'Visited'
+  // set to exclude recursive descent on Arguments that have already been
+  // evaluated.
+  //
+  std::function<bool(Value *V, SmallPtrSetImpl<Argument *> &Visited)>
+      PropagatesToLoadOrStoreX = [&](Value *V,
+                                     SmallPtrSetImpl<Argument *> &Visited)
+                                     -> bool {
+    for (User *U: V->users()) {
+      if (auto SI = dyn_cast<StoreInst>(U)) {
+        if (SI->getPointerOperand() != V)
+          return false;
+      } else if (isa<LoadInst>(U)) {
+        continue;
+      } else if (auto CB = dyn_cast<CallBase>(U)) {
+        auto ArgPos = getArgumentPosition(*CB, V);
+        if (!ArgPos)
+          return false;
+        Function *Callee = CB->getCalledFunction();
+        if (!Callee)
+          return false;
+        Argument *Arg = Callee->getArg(*ArgPos);
+        if (!Visited.count(Arg) && !PropagatesToLoadOrStoreX(Arg, Visited))
+          return false;
+      } else {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Return 'true' if 'V' is propagated down the call chain and terminates
+  // with a LoadInst or StoreInst.
+  //
+  auto PropagatesToLoadOrStore = [&PropagatesToLoadOrStoreX](Value *V) {
+    SmallPtrSet<Argument *, 10> Visited;
+    return PropagatesToLoadOrStoreX(V, Visited);
+  };
+
   // Return 'true' if 'U' is the user of a SubscriptInst that can be
   // properly collected. In that case, update 'AllocSiteFound'.
   //
@@ -2393,6 +2456,8 @@ bool GlobalDopeVector::collectNestedDopeVectorFromSubscript(
         if (!collectNestedDopeVectorFieldAddress(NestedDVInfo, U, GetTLI,
                                                  ValueChecked, true))
           return false;
+      } else if (PropagatesToLoadOrStore(U)) {
+         return true;
       } else if (!IsSafeIntrinOrLibFuncUser(V, U)) {
         // For now, if this is not a nested dope vector and does not involve
         // easily recognized intrinsics operating on the field, give up if we
