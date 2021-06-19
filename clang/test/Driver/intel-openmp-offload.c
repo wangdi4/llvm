@@ -290,6 +290,11 @@
 // RUN:  | FileCheck -check-prefix=CHK-TOOLS-IMPLIED-OPTS %s
 // CHK-TOOLS-IMPLIED-OPTS: clang-offload-wrapper{{.*}} "-compile-opts=-g -cl-opt-disable -DFOO1 -DFOO2"
 
+/// Check for proper override (device vs host)
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -g -fiopenmp -fopenmp-targets=spir64="-g0" %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHK-TOOLS-G-OVERRIDE %s
+// CHK-TOOLS-G-OVERRIDE-NOT: clang-offload-wrapper{{.*}} "-compile-opts=-g"
+
 // RUN: %clang -### -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64_x86_64 -Xopenmp-target-linker "-DFOO1 -DFOO2" %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=CHK-TOOLS-CPU-OPTS2 %s
 // RUN: %clang_cl -### --target=x86_64-pc-windows-msvc -Qopenmp -Qopenmp-targets=spir64_x86_64 -Xopenmp-target-linker "-DFOO1 -DFOO2" %s 2>&1 \
