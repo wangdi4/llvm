@@ -1201,6 +1201,13 @@ static LoopUnrollResult tryToUnrollLoop(
     return LoopUnrollResult::Unmodified;
   }
 
+  // At this point, UP.Runtime indicates that run-time unrolling is allowed.
+  // However, we only want to actually perform it if we don't know the trip
+  // count and the unroll count doesn't divide the known trip multiple.
+  // TODO: This decision should probably be pushed up into
+  // computeUnrollCount().
+  UP.Runtime &= TripCount == 0 && TripMultiple % UP.Count != 0;
+
   // Save loop properties before it is transformed.
   MDNode *OrigLoopID = L->getLoopID();
 
@@ -1208,8 +1215,8 @@ static LoopUnrollResult tryToUnrollLoop(
   Loop *RemainderLoop = nullptr;
   LoopUnrollResult UnrollResult = UnrollLoop(
       L,
-      {UP.Count, TripCount, UP.Force, UP.Runtime, UP.AllowExpensiveTripCount,
-       TripMultiple, UP.UnrollRemainder, ForgetAllSCEV},
+      {UP.Count, UP.Force, UP.Runtime, UP.AllowExpensiveTripCount,
+       UP.UnrollRemainder, ForgetAllSCEV},
        LI, &SE, &DT, &AC,                                      // INTEL
        LORBuilder, &TTI, &ORE, PreserveLCSSA, &RemainderLoop); // INTEL
   if (UnrollResult == LoopUnrollResult::Unmodified)
