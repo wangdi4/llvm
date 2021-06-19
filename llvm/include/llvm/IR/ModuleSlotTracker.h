@@ -9,7 +9,10 @@
 #ifndef LLVM_IR_MODULESLOTTRACKER_H
 #define LLVM_IR_MODULESLOTTRACKER_H
 
+#include <functional>
 #include <memory>
+#include <utility>
+#include <vector>
 
 namespace llvm {
 
@@ -17,6 +20,18 @@ class Module;
 class Function;
 class SlotTracker;
 class Value;
+class MDNode;
+
+/// Abstract interface of slot tracker storage.
+class AbstractSlotTrackerStorage {
+public:
+  virtual ~AbstractSlotTrackerStorage();
+
+  virtual unsigned getNextMetadataSlot() = 0;
+
+  virtual void createMetadataSlot(const MDNode *) = 0;
+  virtual int getMetadataSlot(const MDNode *) = 0;
+};
 
 /// Manage lifetime of a slot tracker for printing IR.
 ///
@@ -40,6 +55,11 @@ class ModuleSlotTracker {
   SlotTracker *Machine = nullptr;
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 
+  std::function<void(AbstractSlotTrackerStorage *, const Module *, bool)>
+      ProcessModuleHookFn;
+  std::function<void(AbstractSlotTrackerStorage *, const Function *, bool)>
+      ProcessFunctionHookFn;
+
 public:
   /// Wrap a preinitialized SlotTracker.
   ModuleSlotTracker(SlotTracker &Machine, const Module *M,
@@ -56,7 +76,7 @@ public:
                              bool ShouldInitializeAllMetadata = true);
 
   /// Destructor to clean up storage.
-  ~ModuleSlotTracker();
+  virtual ~ModuleSlotTracker();
 
   /// Lazily creates a slot tracker.
   SlotTracker *getMachine();
@@ -76,6 +96,16 @@ public:
   /// this method.
   /// Return -1 if the value is not in the function's SlotTracker.
   int getLocalSlot(const Value *V);
+
+  void setProcessHook(
+      std::function<void(AbstractSlotTrackerStorage *, const Module *, bool)>);
+  void setProcessHook(std::function<void(AbstractSlotTrackerStorage *,
+                                         const Function *, bool)>);
+
+  using MachineMDNodeListType =
+      std::vector<std::pair<unsigned, const MDNode *>>;
+
+  void collectMDNodes(MachineMDNodeListType &L, unsigned LB, unsigned UB) const;
 };
 
 } // end namespace llvm
