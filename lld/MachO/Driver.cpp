@@ -78,9 +78,9 @@ static HeaderFileType getOutputType(const InputArgList &args) {
   }
 }
 
-static Optional<std::string> findLibrary(StringRef name) {
+static Optional<StringRef> findLibrary(StringRef name) {
   if (config->searchDylibsFirst) {
-    if (Optional<std::string> path = findPathCombination(
+    if (Optional<StringRef> path = findPathCombination(
             "lib" + name, config->librarySearchPaths, {".tbd", ".dylib"}))
       return path;
     return findPathCombination("lib" + name, config->librarySearchPaths,
@@ -235,6 +235,8 @@ static std::vector<ArchiveMember> getArchiveMembers(MemoryBufferRef mb) {
   return v;
 }
 
+static DenseMap<StringRef, ArchiveFile *> loadedArchives;
+
 static InputFile *addFile(StringRef path, bool forceLoadArchive,
                           bool isExplicit = true,
                           bool isBundleLoader = false) {
@@ -247,6 +249,16 @@ static InputFile *addFile(StringRef path, bool forceLoadArchive,
   file_magic magic = identify_magic(mbref.getBuffer());
   switch (magic) {
   case file_magic::archive: {
+    // Avoid loading archives twice. If the archives are being force-loaded,
+    // loading them twice would create duplicate symbol errors. In the
+    // non-force-loading case, this is just a minor performance optimization.
+    // We don't take a reference to cachedFile here because the
+    // loadArchiveMember() call below may recursively call addFile() and
+    // invalidate this reference.
+    ArchiveFile *cachedFile = loadedArchives[path];
+    if (cachedFile)
+      return cachedFile;
+
     std::unique_ptr<object::Archive> file = CHECK(
         object::Archive::create(mbref), path + ": failed to parse archive");
 
@@ -286,7 +298,7 @@ static InputFile *addFile(StringRef path, bool forceLoadArchive,
       }
     }
 
-    newFile = make<ArchiveFile>(std::move(file));
+    newFile = loadedArchives[path] = make<ArchiveFile>(std::move(file));
     break;
   }
   case file_magic::macho_object:
@@ -328,7 +340,7 @@ static InputFile *addFile(StringRef path, bool forceLoadArchive,
 
 static void addLibrary(StringRef name, bool isNeeded, bool isWeak,
                        bool isReexport, bool isExplicit, bool forceLoad) {
-  if (Optional<std::string> path = findLibrary(name)) {
+  if (Optional<StringRef> path = findLibrary(name)) {
     if (auto *dylibFile = dyn_cast_or_null<DylibFile>(
             addFile(*path, forceLoad, isExplicit))) {
       if (isNeeded)
