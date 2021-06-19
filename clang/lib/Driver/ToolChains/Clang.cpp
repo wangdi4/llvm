@@ -2866,15 +2866,11 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
       if (Val.equals("fast")) {
         optID = options::OPT_ffast_math;
         FPModel = Val;
-<<<<<<< HEAD
-        FPContract = "fast";
+        FPContract = Val;
 #if INTEL_CUSTOMIZATION // This should be upstreamed.
         DenormalFPMath = llvm::DenormalMode::getPreserveSign();
         DenormalFP32Math = llvm::DenormalMode::getPreserveSign();
 #endif // INTEL_CUSTOMIZATION
-=======
-        FPContract = Val;
->>>>>>> a1449a10dbcfcf353f4f761281c4e572b4ce9308
       } else if (Val.equals("precise")) {
         optID = options::OPT_ffp_contract;
         FPModel = Val;
