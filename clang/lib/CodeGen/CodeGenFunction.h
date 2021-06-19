@@ -2354,6 +2354,7 @@ public:
     return getInvokeDestImpl();
   }
 #if INTEL_CUSTOMIZATION
+  ImplicitParamDecl *getCXXABIThisDecl() { return CXXABIThisDecl; }
   llvm::Intrinsic::ID getContainerIntrinsic(
       CodeGenModule::StdContainerOptKind OptKind, StringRef FieldName);
 #endif // INTEL_CUSTOMIZATION
