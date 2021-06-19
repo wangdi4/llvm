@@ -72,7 +72,8 @@ EXTERN int omp_get_thread_num(void) {
 EXTERN int omp_get_num_threads(void) {
 #if KMP_ASSUME_SIMPLE_SPMD_MODE
   size_t group_id = __kmp_get_group_id();
-  if (group_id < KMP_MAX_SPMD_NUM_GROUPS &&
+  if (__omp_spirv_program_data.device_type == 0 &&
+      group_id < KMP_MAX_SPMD_NUM_GROUPS &&
       __omp_spirv_spmd_num_threads[group_id] > 0)
     return __omp_spirv_spmd_num_threads[group_id];
   else

@@ -564,6 +564,7 @@ struct ModuleDataTy {
   uint32_t HWThreadsPerEU = 0;
   uintptr_t DynamicMemoryLB = 0;
   uintptr_t DynamicMemoryUB = 0;
+  int DeviceType = 0;
 };
 
 /// RTL profile -- only host timer for now
@@ -2257,7 +2258,8 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t DeviceId) {
     totalEUs,            // Total EUs
     P.numThreadsPerEU,   // HW threads per EU
     (uintptr_t)memLB,    // Dynamic memory LB
-    memUB                // Dynamic memory UB
+    memUB,               // Dynamic memory UB
+    0                    // Device type (0 for GPU, 1 for CPU)
   };
 
   // Look up program data location on device

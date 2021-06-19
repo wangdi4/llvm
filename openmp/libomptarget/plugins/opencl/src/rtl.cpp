@@ -459,6 +459,7 @@ struct ProgramData {
   uint32_t HWThreadsPerEU = 0;
   uintptr_t DynamicMemoryLB = 0;
   uintptr_t DynamicMemoryUB = 0;
+  int DeviceType = 0;
 };
 
 /// RTL flags
@@ -1285,6 +1286,8 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t deviceId) {
     memUB = (uintptr_t)memLB + KernelDynamicMemorySize;
   }
 
+  int DType = (DeviceType == CL_DEVICE_TYPE_GPU) ? 0 : 1;
+
   ProgramData hostData = {
     1,                   // Initialized
     (int32_t)NumDevices, // Number of devices
@@ -1292,7 +1295,8 @@ int32_t RTLDeviceInfoTy::initProgramData(int32_t deviceId) {
     totalEUs,            // Total EUs
     numThreadsPerEU,     // HW threads per EU
     (uintptr_t)memLB,    // Dynamic memory LB
-    memUB                // Dynamic memory UB
+    memUB,               // Dynamic memory UB
+    DType                // Device type (0 for GPU, 1 for CPU)
   };
 
 #if INTEL_CUSTOMIZATION

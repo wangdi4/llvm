@@ -288,6 +288,7 @@ typedef struct kmp_program_data {
   uint hw_threads_per_eu;
   uintptr_t dyna_mem_cur;
   uintptr_t dyna_mem_ub;
+  int device_type; // 0 for GPU, 1 for CPU
 } kmp_program_data_t;
 
 /// Global state
