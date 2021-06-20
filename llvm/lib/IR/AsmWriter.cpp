@@ -4949,6 +4949,17 @@ int ModuleSlotTracker::getLocalSlot(const Value *V) {
   return -1;
 }
 
+void ModuleSlotTracker::setProcessHook(
+    std::function<void(AbstractSlotTrackerStorage *, const Module *, bool)>
+        Fn) {}
+
+void ModuleSlotTracker::setProcessHook(
+    std::function<void(AbstractSlotTrackerStorage *, const Function *, bool)>
+        Fn) {}
+
+void ModuleSlotTracker::collectMDNodes(MachineMDNodeListType &L, unsigned LB,
+                                       unsigned UB) const {}
+
 //===----------------------------------------------------------------------===//
 //                       External Interface declarations
 //===----------------------------------------------------------------------===//
