@@ -2921,6 +2921,11 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
       continue;
     }
 
+    // If either of the blocks has it's address taken, we can't do this fold.
+    if ((IfBlock1 && IfBlock1->hasAddressTaken()) ||
+        (IfBlock2 && IfBlock2->hasAddressTaken()))
+      continue;
+
     assert(CondBlock && "Failed to find root CondBlock");
     LLVM_DEBUG(dbgs() << "FOUND IF CONDITION!  " << *IfCond
                       << "  T: " << IfTrue->getName()
