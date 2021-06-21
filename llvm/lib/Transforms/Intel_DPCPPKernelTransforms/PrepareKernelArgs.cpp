@@ -132,6 +132,7 @@ Function *PrepareKernelArgsPass::createWrapper(Function *F) {
   auto FnAttrs = F->getAttributes().getAttributes(AttributeList::FunctionIndex);
   AttrBuilder B(std::move(FnAttrs));
   NewF->addAttributes(AttributeList::FunctionIndex, B);
+  F->removeFnAttr(Attribute::OptimizeNone);
   F->removeFnAttr(Attribute::NoInline);
   F->addFnAttr(Attribute::AlwaysInline);
 
