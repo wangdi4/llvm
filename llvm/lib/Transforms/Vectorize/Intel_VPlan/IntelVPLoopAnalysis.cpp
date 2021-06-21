@@ -889,12 +889,7 @@ VPLoopEntityList::createLinearIndexReduction(VPIndexReduction *NonLinNdx,
 
   VPBuilder Builder;
   VPBasicBlock *Header = Loop.getHeader();
-
-  bool InductionIsSigned;
-  const VPInduction *LoopIndex;
-  std::tie(LoopIndex, InductionIsSigned) = getLoopInduction();
-
-  VPBuilder::InsertPointGuard Guard(Builder);
+  const VPInduction *LoopIndex = getLoopInduction();
 
   // First create the needed VPInstructions.
   VPPHINode *LoopIVPhi = getRecurrentVPHINode(*LoopIndex);
@@ -936,12 +931,14 @@ VPLoopEntityList::createLinearIndexReduction(VPIndexReduction *NonLinNdx,
   assert(DomTree.dominates(NewExit->getParent(), Loop.getLoopLatch()) &&
          "Unsupported non-dominating update");
   StartPhi->addIncoming(NewExit, Loop.getLoopLatch());
-
+  const auto *LatchCmp = cast<VPCmpInst>(Loop.getLoopLatch()->getCondBit());
+  assert(LatchCmp->getOpcode() == Instruction::ICmp &&
+         "Expected ICmp in latch cond");
   // Next, create LoopEntity.
-  VPIndexReduction *Ret =
-      addIndexReduction(StartPhi, NonLinNdx->getParentReduction(), IncomingVal,
-                        NewExit, LoopIVPhi->getType(), InductionIsSigned,
-                        NonLinNdx->isForLast(), true /*IsLinNdx*/);
+  VPIndexReduction *Ret = addIndexReduction(
+      StartPhi, NonLinNdx->getParentReduction(), IncomingVal, NewExit,
+      LoopIVPhi->getType(), ICmpInst::isSigned(LatchCmp->getPredicate()),
+      NonLinNdx->isForLast(), true /*IsLinNdx*/);
   MinMaxIndexes[NonLinNdx->getParentReduction()] = Ret;
   return Ret;
 }
@@ -1058,37 +1055,23 @@ static void createNonPODPrivateCtorDtorCalls(Function *F, VPValue *NonPODMemory,
   Builder.insert(VPCall);
 }
 
-std::pair<const VPInduction *, bool>
+const VPInduction *
 VPLoopEntityList::getLoopInduction() const {
-  // There are two ways.
+  // There are two ways to find main loop induction:
   // 1) Get latch -> condbit -> operand which is induction. This relies on that
   //    we always have canonical loops with bottom test and will give exactly
   //    loop IV.
-  // 2) Get header, scan phis until induction is found. That is more reliable
-  //    but will give the first IV which is not necessary loop IV.
+  // 2) Get header, scan phis until the induction is found. That is more
+  //    reliable but will give the first IV which is not necessary the main
+  //    loop IV.
+  // The method implements the first way.
 
-  // Going the first way.
-  VPBasicBlock *Latch = Loop.getLoopLatch();
-  VPCmpInst *CondBit = dyn_cast<VPCmpInst>(Latch->getCondBit());
-  assert((CondBit && CondBit->getOpcode() == Instruction::ICmp) &&
-         "Expected ICmp in latch cond");
-  bool IsSigned;
-  auto Pred = CondBit->getPredicate();
-  switch (Pred) {
-  case CmpInst::ICMP_SGT:
-  case CmpInst::ICMP_SGE:
-  case CmpInst::ICMP_SLT:
-  case CmpInst::ICMP_SLE:
-    IsSigned = true;
-    break;
-  default:
-    IsSigned = false;
-    break;
-  }
-  const VPInduction *Ret = getInduction(CondBit->getOperand(0));
+  const auto *LatchCond = cast<VPCmpInst>(Loop.getLoopLatch()->getCondBit());
+  const VPInduction *Ret = getInduction(LatchCond->getOperand(0));
   if (!Ret)
-    Ret = getInduction(CondBit->getOperand(1));
-  return {Ret, IsSigned};
+    Ret = getInduction(LatchCond->getOperand(1));
+  assert(Ret && "Expected non-null induction");
+  return Ret;
 }
 
 static void collectPhiOperands(VPPHINode *I, VPPHINode *HeaderPhi,
@@ -1108,8 +1091,7 @@ void VPLoopEntityList::insertConditionalLastPrivateInst(
     VPBasicBlock *PostExit, VPValue *PrivateMem, VPValue *AI) {
   assert(Private.isConditional() && "Expected conditional private");
 
-  const VPInduction *LoopIndex;
-  std::tie(LoopIndex, std::ignore) = getLoopInduction();
+  const VPInduction *LoopIndex = getLoopInduction();
   VPPHINode *InductionHeaderPhi = getRecurrentVPHINode(*LoopIndex);
   assert(InductionHeaderPhi && "Value should not be nullptr!");
   VPConstant *IncomingVal =

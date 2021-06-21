@@ -165,16 +165,20 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
 
     VPValue *Ptr = LoadStore->getPointerOperand();
     unsigned PtrOpIdx = LoadStore->getPointerOperandIndex();
+    bool IsLoadOrUnmaskedStore = Inst->getOpcode() == Instruction::Load ||
+                                 (Inst->getOpcode() == Instruction::Store &&
+                                  Inst->getParent()->getPredicate() == nullptr);
 
-    if (Inst->isSimpleLoadStore() && !DA->isDivergent(*Ptr)) {
-      // If the load/store is simple (non-atomic and non-volatile) and the
-      // pointer operand is uniform, then the access itself is uniform and hence
-      // scalar (for first/last lane) in nature.
+    if (Inst->isSimpleLoadStore() && !DA->isDivergent(*Ptr) &&
+        IsLoadOrUnmaskedStore) {
+      // If the load/unmasked store is simple (non-atomic and non-volatile) and
+      // the pointer operand is uniform, then the access itself is uniform and
+      // hence scalar (for first/last lane) in nature.
       setSVAKindForOperand(Inst, PtrOpIdx, SVAKind::FirstScalar);
       if (Inst->getOpcode() == Instruction::Load)
         setSVAKindForInst(Inst, SVAKind::FirstScalar);
-      // For uniform stores, the value operand maybe divergent. Set it as
-      // last/first scalar based on uniformity, and accordingly decide the
+      // For uniform unmasked stores, the value operand maybe divergent. Set it
+      // as last/first scalar based on uniformity, and accordingly decide the
       // nature of store itself.
       if (Inst->getOpcode() == Instruction::Store) {
         VPValue *ValueOp = Inst->getOperand(0);
