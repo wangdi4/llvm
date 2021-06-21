@@ -919,9 +919,10 @@ namespace X86II {
     ThreeDNow = 7 << OpMapShift,
 
 #if INTEL_CUSTOMIZATION
-    // MAP5, MAP6 - Prefix after the 0x0F prefix.
+    // MAP5, MAP6, MAP8 - Prefix after the 0x0F prefix.
     T_MAP5 = 8 << OpMapShift,
     T_MAP6 = 9 << OpMapShift,
+    T_MAP8 = 10 << OpMapShift,
 #endif // INTEL_CUSTOMIZATION
 
     //===------------------------------------------------------------------===//

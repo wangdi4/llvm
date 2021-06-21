@@ -588,10 +588,11 @@ enum SegmentOverride {
 enum VEXLeadingOpcodeByte {
   VEX_LOB_0F = 0x1,
   VEX_LOB_0F38 = 0x2,
-#if INTEL_CUSTOMIZATION
   VEX_LOB_0F3A = 0x3,
+#if INTEL_CUSTOMIZATION
   VEX_LOB_0F39 = 0x5,
-  VEX_LOB_0F3B = 0x6
+  VEX_LOB_0F3B = 0x6,
+  VEX_LOB_MAP8 = 0x8
 #endif // INTEL_CUSTOMIZATION
 };
 

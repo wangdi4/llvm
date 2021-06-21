@@ -2,8 +2,8 @@
 ; REQUIRES: intel_feature_isa_dspv1
 ; RUN: llc < %s -O3 -disable-peephole -verify-machineinstrs -mtriple=i686-unknown-unknown --show-mc-encoding -mattr=+dspv1 | FileCheck %s
 
-define <8 x i16> @test_int_x86_dvplutsincosw128(<8 x i16> %A) {
-; CHECK-LABEL: test_int_x86_dvplutsincosw128:
+define <8 x i16> @test_int_x86_dvplutsincosw(<8 x i16> %A) {
+; CHECK-LABEL: test_int_x86_dvplutsincosw:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    subl $16, %esp # encoding: [0x83,0xec,0x10]
 ; CHECK-NEXT:    .cfi_def_cfa_offset 20
@@ -18,7 +18,7 @@ define <8 x i16> @test_int_x86_dvplutsincosw128(<8 x i16> %A) {
 ; CHECK-NEXT:    .cfi_def_cfa_offset 4
 ; CHECK-NEXT:    retl # encoding: [0xc3]
   %1 = tail call <2 x i64> asm sideeffect "nop", "=x,~{xmm1},~{xmm2},~{xmm3},~{xmm4},~{xmm5},~{xmm6},~{xmm7},~{flags}"()
-  %ret = call <8 x i16> @llvm.x86.dvplutsincosw128(<8 x i16> %A, i32 127)
+  %ret = call <8 x i16> @llvm.x86.dvplutsincosw(<8 x i16> %A, i32 127)
   ret <8 x i16> %ret
 }
-declare <8 x i16> @llvm.x86.dvplutsincosw128(<8 x i16> %A, i32 %C)
+declare <8 x i16> @llvm.x86.dvplutsincosw(<8 x i16> %A, i32 %C)

@@ -44,7 +44,8 @@ private:
 #if INTEL_CUSTOMIZATION
   /// [8] three-byte opcodes of the form 0f 39 __
   /// [9] three-byte opcodes of the form 0f 3B __
-  std::unique_ptr<ContextDecision> Tables[10];
+  /// [10] fixed length opcodes of the form MAP8 __
+  std::unique_ptr<ContextDecision> Tables[11];
 #endif // INTEL_CUSTOMIZATION
 
   // Table of ModRM encodings.

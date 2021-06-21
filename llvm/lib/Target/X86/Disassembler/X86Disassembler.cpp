@@ -157,6 +157,9 @@ static InstrUID decode(OpcodeType type, InstructionContext insnContext,
   case THREEBYTE_3B:
     dec = &THREEBYTE3B_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
     break;
+  case MAP8:
+    dec = &MAP8_SYM.opcodeDecisions[insnContext].modRMDecisions[opcode];
+    break;
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -1007,6 +1010,9 @@ static bool readOpcode(struct InternalInstruction *insn) {
     case VEX_LOB_0F3B:
       insn->opcodeType = THREEBYTE_3B;
       return consume(insn, insn->opcode);
+    case VEX_LOB_MAP8:
+      insn->opcodeType = MAP8;
+      return consume(insn, insn->opcode);
 #endif // INTEL_CUSTOMIZATION
     }
   } else if (insn->vectorExtensionType == TYPE_VEX_2B) {
@@ -1156,6 +1162,8 @@ static int getInstructionIDWithAttrMask(uint16_t *instructionID,
   case THREEBYTE_3B:
     decision = &THREEBYTE3B_SYM;
     break;
+  case MAP8:
+    decision = &MAP8_SYM;
 #endif // INTEL_CUSTOMIZATION
   }
 

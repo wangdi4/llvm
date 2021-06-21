@@ -2,22 +2,22 @@
 ; REQUIRES: intel_feature_isa_dspv1
 ; RUN: llc < %s -O0 -verify-machineinstrs -mtriple=i686-unknown-unknown --show-mc-encoding -mattr=+dspv1 | FileCheck %s
 
-define <8 x i16> @test_int_x86_dvplutsincosw128(<8 x i16> %A) {
-; CHECK-LABEL: test_int_x86_dvplutsincosw128:
+define <8 x i16> @test_int_x86_dvplutsincosw(<8 x i16> %A) {
+; CHECK-LABEL: test_int_x86_dvplutsincosw:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    dvplutsincosw $127, %xmm0, %xmm0 # encoding: [0xc4,0xe3,0x78,0xa3,0xc0,0x7f]
 ; CHECK-NEXT:    retl # encoding: [0xc3]
-  %ret = call <8 x i16> @llvm.x86.dvplutsincosw128(<8 x i16> %A, i32 127)
+  %ret = call <8 x i16> @llvm.x86.dvplutsincosw(<8 x i16> %A, i32 127)
   ret <8 x i16> %ret
 }
-declare <8 x i16> @llvm.x86.dvplutsincosw128(<8 x i16> %A, i32 %C)
+declare <8 x i16> @llvm.x86.dvplutsincosw(<8 x i16> %A, i32 %C)
 
-define <8 x i16> @test_int_x86_dvpcr2bfrsw128(<8 x i16> %A, <8 x i16> %B, <8 x i16> %C) {
-; CHECK-LABEL: test_int_x86_dvpcr2bfrsw128:
+define <8 x i16> @test_int_x86_dvpcr2bfrsw(<8 x i16> %A, <8 x i16> %B, <8 x i16> %C) {
+; CHECK-LABEL: test_int_x86_dvpcr2bfrsw:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    dvpcr2bfrsw $127, %xmm2, %xmm1, %xmm0 # encoding: [0xc4,0xe3,0xf3,0xa3,0xc2,0x7f]
 ; CHECK-NEXT:    retl # encoding: [0xc3]
-  %ret = call <8 x i16> @llvm.x86.dvpcr2bfrsw128(<8 x i16> %A, <8 x i16> %B, <8 x i16> %C, i32 127)
+  %ret = call <8 x i16> @llvm.x86.dvpcr2bfrsw(<8 x i16> %A, <8 x i16> %B, <8 x i16> %C, i32 127)
   ret <8 x i16> %ret
 }
-declare <8 x i16> @llvm.x86.dvpcr2bfrsw128(<8 x i16> %A, <8 x i16> %B, <8 x i16> %C, i32 %D)
+declare <8 x i16> @llvm.x86.dvpcr2bfrsw(<8 x i16> %A, <8 x i16> %B, <8 x i16> %C, i32 %D)
