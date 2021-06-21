@@ -1740,8 +1740,8 @@ public:
   /// be OK to use erase method.
   static void eliminateRedundantGotos(const SmallVectorImpl<HLGoto *> &Gotos,
                                       RequiredLabelsTy &RequiredLabels);
-  /// Returns true if IF-stmt never falls through to the code right after it.
-  static bool hasGotoOnAllBranches(HLIf *If);
+  /// Returns true if "IF/SWITCH" never falls through.
+  static bool hasGotoOnAllBranches(HLNode *Node);
 };
 
 } // End namespace loopopt
