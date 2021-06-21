@@ -29,23 +29,11 @@
 extern cl_device_type gDeviceType;
 
 class CheckOpenCLCFeatures : public CL_base {
-protected:
-  virtual void SetUp() {
-    cl_int err = clGetPlatformIDs(1, &m_platform, NULL);
-    ASSERT_OCL_SUCCESS(err, "clGetPlatformIDs");
-
-    err = clGetDeviceIDs(m_platform, gDeviceType, 1, &m_device, NULL);
-    ASSERT_OCL_SUCCESS(err, "clGetDeviceIDs");
-  }
-
-protected:
-  cl_platform_id m_platform;
-  cl_device_id m_device;
 };
 
 // Reference OpenCL C features. Update this list if supported features names or
 // version changes.
-const static std::unordered_map<const char *, cl_version> featsRefCPU = {
+const static std::unordered_map<std::string, cl_version> featsRefCPU = {
     {"__opencl_c_3d_image_writes",                 CL_MAKE_VERSION(3, 0, 0)},
     {"__opencl_c_atomic_order_acq_rel",            CL_MAKE_VERSION(3, 0, 0)},
     {"__opencl_c_atomic_order_seq_cst",            CL_MAKE_VERSION(3, 0, 0)},
@@ -98,14 +86,15 @@ TEST_F(CheckOpenCLCFeatures, CpuDevice) {
   ASSERT_OCL_SUCCESS(err, "clGetDeviceInfo");
 
   // Check each queried features is present in reference features
-  std::unordered_map<const char *, cl_version> featsRef(featsRefCPU);
+  std::unordered_map<std::string, cl_version> featsRef(featsRefCPU);
   for (auto feat : featsCPU) {
     ASSERT_EQ(featsRef.count(feat.name), 1)
         << ("Expect " + std::string(feat.name) + "(" +
             makeVersonString(feat.version) +
             ") exists once in reference OpenCL C features");
-    if (feat.version == featsRef[feat.name])
-      featsRef.erase(feat.name);
+    ASSERT_EQ(feat.version, featsRef[feat.name])
+        << (std::string(feat.name) + ": version mismatched.");
+    featsRef.erase(feat.name);
   }
 
   // Check featsRef is empty.
@@ -117,4 +106,76 @@ TEST_F(CheckOpenCLCFeatures, CpuDevice) {
     FAIL() << ("Reference OpenCL C features " + ss.str() +
                "are not in features queried from clGetDeviceInfo");
   }
+}
+
+TEST_F(CheckOpenCLCFeatures, Compiler) {
+  // Require OpenCL 3.0 or newer.
+  if (m_version < OPENCL_VERSION::OPENCL_VERSION_3_0)
+    return;
+
+  // Construct source string.
+  std::ostringstream ss;
+  ss << "__kernel void test_feature_macros(__global int *result) {\n";
+  ss << "  uint i = 0;\n";
+  for (auto feat : featsRefCPU) {
+    ss << "#if " << feat.first << "\n";
+    ss << "  result[i++] = 1;\n";
+    ss << "#endif\n";
+  }
+  ss << "}";
+
+  std::string source(ss.str());
+  const char *sourcePtr = source.c_str();
+  const size_t sourceSz = source.size();
+
+  std::vector<cl_int> result(featsRefCPU.size(), 0);
+
+  cl_int err = 0;
+  cl_program program =
+      clCreateProgramWithSource(m_context, 1, &sourcePtr, &sourceSz, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
+
+  err =
+      clBuildProgram(program, 1, &m_device, "-cl-std=CL3.0", nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clBuildProgram");
+
+  cl_kernel kernel = clCreateKernel(program, "test_feature_macros", &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateKernel");
+
+  cl_mem resultBuf =
+      clCreateBuffer(m_context, CL_MEM_READ_WRITE,
+                     result.size() * sizeof(cl_int), nullptr, &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateBuffer");
+
+  err = clEnqueueWriteBuffer(m_queue, resultBuf, CL_FALSE, 0,
+                             result.size() * sizeof(cl_int), result.data(), 0,
+                             nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueWriteBuffer");
+
+  err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &resultBuf);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArg");
+
+  size_t global_work_size = 1;
+  err = clEnqueueNDRangeKernel(m_queue, kernel, 1, nullptr, &global_work_size,
+                               nullptr, 0, nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
+
+  err = clEnqueueReadBuffer(m_queue, resultBuf, CL_TRUE, 0,
+                            result.size() * sizeof(cl_int), result.data(), 0,
+                            nullptr, nullptr);
+  ASSERT_OCL_SUCCESS(err, "clEnqueueReadBuffer");
+
+  // Check results.
+  for (auto r : result)
+    ASSERT_EQ(r, CL_TRUE);
+
+  // Release resource.
+  err = clReleaseMemObject(resultBuf);
+  ASSERT_OCL_SUCCESS(err, "clReleaseMemObject");
+
+  err = clReleaseKernel(kernel);
+  ASSERT_OCL_SUCCESS(err, "clReleaseKernel");
+
+  err = clReleaseProgram(program);
+  ASSERT_OCL_SUCCESS(err, "clReleaseProgram");
 }

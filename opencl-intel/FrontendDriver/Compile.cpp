@@ -180,21 +180,21 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   // Define OpenCL C 3.0 feature macros.
   // FPGA emulator only support OpenCL C 1.2, so no macro will be defined.
   if (!m_pProgDesc->bEyeQEmulator && !m_pProgDesc->bFpgaEmulator) {
-    optionsEx << " -D" OPENCL_C_3D_IMAGE_WRITES;
-    optionsEx << " -D" OPENCL_C_ATOMIC_ORDER_ACQ_REL;
-    optionsEx << " -D" OPENCL_C_ATOMIC_ORDER_SEQ_CST;
-    optionsEx << " -D" OPENCL_C_ATOMIC_SCOPE_DEVICE;
-    optionsEx << " -D" OPENCL_C_ATOMIC_SCOPE_ALL_DEVICES;
-    optionsEx << " -D" OPENCL_C_DEVICE_ENQUEUE;
-    optionsEx << " -D" OPENCL_C_GENERIC_ADDRESS_SPACE;
-    optionsEx << " -D" OPENCL_C_FP64;
-    optionsEx << " -D" OPENCL_C_IMAGES;
-    optionsEx << " -D" OPENCL_C_INT64;
-    optionsEx << " -D" OPENCL_C_PIPES;
-    optionsEx << " -D" OPENCL_C_PROGRAM_SCOPE_GLOBAL_VARIABLES;
-    optionsEx << " -D" OPENCL_C_READ_WRITE_IMAGES;
-    optionsEx << " -D" OPENCL_C_SUBGROUPS;
-    optionsEx << " -D" OPENCL_C_WORK_GROUP_COLLECTIVE_FUNCTIONS;
+    optionsEx << " -cl-ext=+" OPENCL_C_3D_IMAGE_WRITES;
+    optionsEx << " -cl-ext=+" OPENCL_C_ATOMIC_ORDER_ACQ_REL;
+    optionsEx << " -cl-ext=+" OPENCL_C_ATOMIC_ORDER_SEQ_CST;
+    optionsEx << " -D" OPENCL_C_ATOMIC_SCOPE_DEVICE "=1";
+    optionsEx << " -D" OPENCL_C_ATOMIC_SCOPE_ALL_DEVICES "=1";
+    optionsEx << " -cl-ext=+" OPENCL_C_DEVICE_ENQUEUE;
+    optionsEx << " -cl-ext=+" OPENCL_C_GENERIC_ADDRESS_SPACE;
+    optionsEx << " -cl-ext=+" OPENCL_C_FP64;
+    optionsEx << " -cl-ext=+" OPENCL_C_IMAGES;
+    optionsEx << " -cl-ext=+" OPENCL_C_INT64;
+    optionsEx << " -cl-ext=+" OPENCL_C_PIPES;
+    optionsEx << " -cl-ext=+" OPENCL_C_PROGRAM_SCOPE_GLOBAL_VARIABLES;
+    optionsEx << " -cl-ext=+" OPENCL_C_READ_WRITE_IMAGES;
+    optionsEx << " -cl-ext=+" OPENCL_C_SUBGROUPS;
+    optionsEx << " -D" OPENCL_C_WORK_GROUP_COLLECTIVE_FUNCTIONS "=1";
   }
 
   // If working as fpga emulator, pass special triple.
