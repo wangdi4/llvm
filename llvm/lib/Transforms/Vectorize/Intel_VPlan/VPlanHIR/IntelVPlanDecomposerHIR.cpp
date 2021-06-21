@@ -890,10 +890,18 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       NewVPInst = Builder.createCall(
           CalledValue, ArgList, HInst /*Used to get underlying call*/,
           DDNode /*Used to determine if this VPCall is master/slave*/);
-    } else
+    } else if(auto *GEP = dyn_cast<GetElementPtrInst>(LLVMInst)) {
+      NewVPInst = Builder.createGEP(
+          VPOperands[0],
+          ArrayRef<VPValue *>(VPOperands.begin() + 1, VPOperands.end()),
+          nullptr /* Inst */);
+      if (DDNode)
+        NewVPInst->HIR().setUnderlyingNode(DDNode);
+    } else {
       // Generic VPInstruction.
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
           LLVMInst->getOpcode(), VPOperands, LLVMInst->getType(), DDNode));
+    }
 
     // Capture operator flags like FastMathFlags, overflowing flags (nsw/nuw)
     // and exact flag.
