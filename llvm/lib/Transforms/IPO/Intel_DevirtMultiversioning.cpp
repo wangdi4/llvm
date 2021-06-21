@@ -205,7 +205,7 @@ void IntelDevirtMultiversion::resetData() {
 //                      target functions
 void IntelDevirtMultiversion::createCallSiteBasicBlocks(
     Module &M, std::vector<TargetData *> &TargetVector, CallBase *VCallSite,
-    const SmallPtrSetImpl<Function *> &TargetFunctions, MDNode *Node) {
+    const SetVector<Function *> &TargetFunctions, MDNode *Node) {
 
   IRBuilder<> Builder(M.getContext());
   StringRef BaseName = StringRef("BBDevirt_");
@@ -585,7 +585,7 @@ void IntelDevirtMultiversion::generatePhiNodes(
 // whole program safe or not.
 void IntelDevirtMultiversion::multiversionVCallSite(
     Module &M, CallBase *VCallSite, bool LibFuncFound,
-    const SmallPtrSetImpl<Function *> &TargetFunctions) {
+    const SetVector<Function *> &TargetFunctions) {
 
   if (TargetFunctions.empty() || !EnableDevirtMultiversion)
     return;
@@ -651,7 +651,7 @@ bool IntelDevirtMultiversion::tryAddingDefaultTargetIntoVCallSite(
       !functionIsLibFuncOrExternal(CallerFunc))
     return false;
 
-  SmallPtrSet<Function *, 1> TargetFunction;
+  SetVector<Function *> TargetFunction;
   TargetFunction.insert(TargetFunc);
   multiversionVCallSite(M, VCallSite, true /* LibFuncFound */, TargetFunction);
 
