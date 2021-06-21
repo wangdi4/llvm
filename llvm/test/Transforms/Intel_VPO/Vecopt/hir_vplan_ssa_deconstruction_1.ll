@@ -32,10 +32,6 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=vplan-driver-hir -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MIXED
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=vplan-driver-hir -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MIXED
-
-
 define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2, i32 %n1) {
 ; CHECK-LABEL:  VPlan after SSA deconstruction:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
@@ -119,34 +115,6 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:  <26>               + END LOOP
 ; CHECK-NEXT:  <48>                  [[RED_PHI0:%.*]] = @llvm.vector.reduce.fadd.v4f32([[RED_PHI0]],  [[RED_VAR0]])
 ; CHECK-NEXT:  <0>          END REGION
-;
-; MIXED-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
-; MIXED-NEXT:  Function: foo
-; MIXED-EMPTY:
-; MIXED-NEXT:  <0>          BEGIN REGION { modified }
-; MIXED-NEXT:  <27>                  [[RED_VAR0:%.*]] = 0.000000e+00
-; MIXED-NEXT:  <26>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; MIXED-NEXT:  <29>               |   [[WIDE_CMP_0:%.*]] = [[N10:%.*]] == 0
-; MIXED-NEXT:  <30>               |   [[UNIFCOND0:%.*]] = extractelement [[WIDE_CMP_0]],  0
-; MIXED-NEXT:  <31>               |   if ([[UNIFCOND0]] == 1)
-; MIXED-NEXT:  <31>               |   {
-; MIXED-NEXT:  <32>               |      goto [[BB1:BB[0-9]+]].40
-; MIXED-NEXT:  <31>               |   }
-; MIXED-NEXT:  <35>               |   [[LD_FALSE_VEC0:%.*]] = (<4 x float>*)([[ARR20:%.*]])[i1]
-; MIXED-NEXT:  <36>               |   [[MERGE_PHI_IN1_VEC0:%.*]] = [[LD_FALSE_VEC0]]
-; MIXED-NEXT:  <37>               |   [[PHI_TEMP0:%.*]] = [[RED_VAR0]]
-; MIXED-NEXT:  <38>               |   [[PHI_TEMP20:%.*]] = [[MERGE_PHI_IN1_VEC0]]
-; MIXED-NEXT:  <39>               |   goto [[BB3:BB[0-9]+]].46
-; MIXED-NEXT:  <40>               |   [[BB1]].40:
-; MIXED-NEXT:  <41>               |   [[LD_TRUE_VEC0:%.*]] = (<4 x float>*)([[ARR10:%.*]])[i1]
-; MIXED-NEXT:  <42>               |   [[MERGE_PHI_IN1_VEC0]] = [[LD_TRUE_VEC0]]
-; MIXED-NEXT:  <43>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
-; MIXED-NEXT:  <44>               |   [[PHI_TEMP20]] = [[MERGE_PHI_IN1_VEC0]]
-; MIXED-NEXT:  <46>               |   [[BB3]].46:
-; MIXED-NEXT:  <47>               |   [[RED_VAR0]] = [[PHI_TEMP20]]  +  [[PHI_TEMP0]]
-; MIXED-NEXT:  <26>               + END LOOP
-; MIXED-NEXT:  <48>                  [[RED_PHI0:%.*]] = @llvm.vector.reduce.fadd.v4f32([[RED_PHI0]],  [[RED_VAR0]])
-; MIXED-NEXT:  <0>          END REGION
 ;
 
 entry:

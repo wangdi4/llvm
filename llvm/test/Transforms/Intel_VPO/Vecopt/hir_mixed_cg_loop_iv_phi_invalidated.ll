@@ -1,4 +1,4 @@
-; Test to check correctness of mixed-CG approach when master user of loop IV PHI is invalidated.
+; Test to check correctness of generated code when master user of loop IV PHI is invalidated.
 
 ; HIR incoming to vectorizer
 ; <0>     BEGIN REGION { }
@@ -14,10 +14,9 @@
 ; <0>     END REGION
 
 ; In the above loop node <7> will be invalidated when VPEntities are used to represent the reduction.
-; Mixed CG should generate explicit vector code for the loop IV PHI to prevent compfails.
-
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -enable-vp-value-codegen-hir=false -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
+; CG should generate explicit vector code for the loop IV PHI to prevent compfails.
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
 
 ; CHECK:            %red.var = 0;

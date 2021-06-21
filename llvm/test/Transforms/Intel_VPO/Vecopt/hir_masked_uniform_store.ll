@@ -13,9 +13,6 @@
 ;   return 0;
 ; }
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir=0 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MIXED
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -vplan-force-vf=4 -enable-vp-value-codegen-hir=0 < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-MIXED
-
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
 
@@ -49,13 +46,6 @@
 
 ; Check HIR
 ; CHECK: DO i2 = 0, 4 * {{%.*}} + -1, 4   <DO_LOOP>
-; Checks for mixed-mode CG.
-; CHECK-MIXED-NEXT:   [[Load:%.*]] = undef
-; CHECK-MIXED-NEXT:   [[Mask:%.*]] = i2 + <i32 0, i32 1, i32 2, i32 3> + 1 >u 1;
-; CHECK-MIXED:        [[Load]] = (<4 x i32>*)(%yarrrr)[0][i2 + <i32 0, i32 1, i32 2, i32 3> + -1]; Mask = @{[[Mask]]}
-; CHECK-MIXED-NEXT:   (<4 x i32>*)(%ar)[0][i1 + 1] = [[Load]]; Mask = @{[[Mask]]}
-
-; Checks for full VPValue-based CG.
 ; CHECK-VPVAL:        [[Mask:%.*]] = {{.*}} >u 1;
 ; CHECK-VPVAL:        [[Load:%.*]] = (<4 x i32>*)(%yarrrr)[0][{{.*}}]; Mask = @{[[Mask]]}
 ; CHECK-VPVAL:        (<4 x i32>*)(%ar)[0][{{.*}}] = [[Load]]; Mask = @{[[Mask]]}

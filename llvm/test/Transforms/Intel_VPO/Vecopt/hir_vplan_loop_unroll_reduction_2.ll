@@ -5,9 +5,6 @@
 ; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output 2>&1 | FileCheck %s
 
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir=0 -print-after=VPlanDriverHIR -disable-output 2>&1 | FileCheck %s --check-prefix=CGCHECK
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir=0 -print-after=vplan-driver-hir -disable-output 2>&1 | FileCheck %s --check-prefix=CGCHECK
-
 ; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -disable-output 2>&1 | FileCheck %s --check-prefix=CGCHECK
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir -print-after=vplan-driver-hir -disable-output 2>&1 | FileCheck %s --check-prefix=CGCHECK
 

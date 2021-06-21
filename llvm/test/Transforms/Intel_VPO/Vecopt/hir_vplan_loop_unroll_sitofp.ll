@@ -1,5 +1,3 @@
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 -disable-output 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,vplan-driver-hir,print<hir>" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir=0 -disable-output 2>&1 | FileCheck %s
 
 ; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -disable-output 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,vplan-driver-hir,print<hir>" -S < %s -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir -disable-output 2>&1 | FileCheck %s

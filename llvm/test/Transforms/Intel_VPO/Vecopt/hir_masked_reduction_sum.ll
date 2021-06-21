@@ -17,9 +17,6 @@
 ;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-entities-dump -vplan-print-after-initial-transforms -print-after=VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=ENTITY,CHECK
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-entities-dump -vplan-print-after-initial-transforms -vplan-force-vf=4 -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=ENTITY,CHECK
-
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-entities-dump -vplan-print-after-initial-transforms -print-after=VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=ENTITY,VPCHECK
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-entities-dump -vplan-print-after-initial-transforms -vplan-force-vf=4 -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=ENTITY,VPCHECK
 
@@ -29,27 +26,6 @@
 ; ENTITY:  (+) Start: float %tsum.015 Exit: float [[EXIT_BLEND_PHI:%vp.*]]
 
 ; Checks for generated HIR code
-; CHECK-LABEL: Function: ifsum1
-; CHECK:      %tgu = (sext.i32.i64(%N))/u4;
-; CHECK-NEXT: if (0 <u 4 * %tgu)
-; CHECK-NEXT: {
-; CHECK-NEXT:    %red.var = 0.000000e+00;
-
-; CHECK:         + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <auto-vectorized> <nounroll> <novectorize>
-; CHECK-NEXT:    |   %.vec1 = undef;
-; CHECK-NEXT:    |   %add.vec = undef
-; CHECK-NEXT:    |   %.vec = (<4 x float>*)(@B)[0][i1];
-; CHECK-NEXT:    |   %wide.cmp. = %.vec > 0.000000e+00;
-; CHECK-NEXT:    |   %add.vec = %.vec  +  (<4 x float>*)(@C)[0][i1]; Mask = @{%wide.cmp.}
-; CHECK-NEXT:    |   %.vec1 = %red.var  +  %add.vec; Mask = @{%wide.cmp.}
-; CHECK-NEXT:    |   %select = (%wide.cmp. == <i1 true, i1 true, i1 true, i1 true>) ? %.vec1 : %red.var;
-; CHECK-NEXT:    |   %red.var = %select;
-; CHECK-NEXT:    + END LOOP
-
-; CHECK:         %tsum.015 = @llvm.vector.reduce.fadd.v4f32(%tsum.015,  %red.var);
-; CHECK-NEXT: }
-
-; VPValue based CG checks for HIR
 ; VPCHECK:      %tgu = (sext.i32.i64(%N))/u4;
 ; VPCHECK-NEXT: if (0 <u 4 * %tgu)
 ; VPCHECK-NEXT: {

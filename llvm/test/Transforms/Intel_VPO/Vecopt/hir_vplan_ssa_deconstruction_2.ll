@@ -50,10 +50,6 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=vplan-driver-hir -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MIXED
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=vplan-driver-hir -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MIXED
-
-
 define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-LABEL:  VPlan after SSA deconstruction:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
@@ -167,46 +163,6 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:  <36>               + END LOOP
 ; CHECK-NEXT:  <71>                  [[RED_PHI0:%.*]] = @llvm.vector.reduce.fadd.v4f32([[RED_PHI0]],  [[RED_VAR0]])
 ; CHECK-NEXT:  <0>          END REGION
-;
-; MIXED-LABEL:  *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
-; MIXED-NEXT:  Function: foo
-; MIXED-EMPTY:
-; MIXED-NEXT:  <0>          BEGIN REGION { modified }
-; MIXED-NEXT:  <37>                  [[RED_VAR0:%.*]] = 0.000000e+00
-; MIXED-NEXT:  <36>               + DO i1 = 0, 99, 4   <DO_LOOP> <auto-vectorized> <novectorize>
-; MIXED-NEXT:  <63>               |   [[DOTVEC90:%.*]] = undef
-; MIXED-NEXT:  <59>               |   [[MERGE_PHI_IN_VEC0:%.*]] = undef
-; MIXED-NEXT:  <56>               |   [[DOTVEC70:%.*]] = undef
-; MIXED-NEXT:  <39>               |   [[LD_VEC0:%.*]] = (<4 x float>*)([[ARR0:%.*]])[i1]
-; MIXED-NEXT:  <40>               |   [[MERGE_PHI_IN_VEC0]] = [[LD_VEC0]]
-; MIXED-NEXT:  <41>               |   [[WIDE_CMP_0:%.*]] = [[N10:%.*]] != 0
-; MIXED-NEXT:  <42>               |   [[PHI_TEMP0:%.*]] = [[RED_VAR0]]
-; MIXED-NEXT:  <43>               |   [[PHI_TEMP30:%.*]] = [[MERGE_PHI_IN_VEC0]]
-; MIXED-NEXT:  <44>               |   [[UNIFCOND0:%.*]] = extractelement [[WIDE_CMP_0]],  0
-; MIXED-NEXT:  <45>               |   if ([[UNIFCOND0]] == 1)
-; MIXED-NEXT:  <45>               |   {
-; MIXED-NEXT:  <45>               |   }
-; MIXED-NEXT:  <45>               |   else
-; MIXED-NEXT:  <45>               |   {
-; MIXED-NEXT:  <47>               |      goto [[BB2:BB[0-9]+]].71
-; MIXED-NEXT:  <45>               |   }
-; MIXED-NEXT:  <49>               |   [[DOTVEC0:%.*]] = [[LD_VEC0]]  +  0.000000e+00
-; MIXED-NEXT:  <50>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC0]]
-; MIXED-NEXT:  <51>               |   [[WIDE_CMP_50:%.*]] = [[LD_VEC0]] == 0.000000e+00
-; MIXED-NEXT:  <52>               |   [[DOTVEC60:%.*]] = [[WIDE_CMP_50]]  ^  -1
-; MIXED-NEXT:  <55>               |   [[DOTVEC70]] = [[DOTVEC0]]  +  2.000000e+00
-; MIXED-NEXT:  <57>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC70]]
-; MIXED-NEXT:  <58>               |   [[MERGE_PHI_IN_VEC0]] = [[DOTVEC70]]
-; MIXED-NEXT:  <62>               |   [[DOTVEC90]] = [[DOTVEC0]]  +  1.000000e+00
-; MIXED-NEXT:  <64>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC90]]
-; MIXED-NEXT:  <65>               |   [[MERGE_PHI_IN_VEC0]] = [[DOTVEC90]]
-; MIXED-NEXT:  <68>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
-; MIXED-NEXT:  <69>               |   [[PHI_TEMP30]] = [[MERGE_PHI_IN_VEC0]]
-; MIXED-NEXT:  <71>               |   [[BB2]].71:
-; MIXED-NEXT:  <72>               |   [[RED_VAR0]] = [[PHI_TEMP30]]  +  [[PHI_TEMP0]]
-; MIXED-NEXT:  <36>               + END LOOP
-; MIXED-NEXT:  <73>                  [[RED_PHI0:%.*]] = @llvm.vector.reduce.fadd.v4f32([[RED_PHI0]],  [[RED_VAR0]])
-; MIXED-NEXT:  <0>          END REGION
 ;
 
 entry:

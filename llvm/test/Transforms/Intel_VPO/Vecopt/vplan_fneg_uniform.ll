@@ -1,6 +1,5 @@
 ; Check that VPlan vectorizes uniform fneg instruction properly
 ; RUN: opt -S -VPlanDriver -vplan-force-vf=4 < %s 2>&1 | FileCheck %s -check-prefixes=CHECK-IR
-; RUN: opt -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -enable-vp-value-codegen-hir=false -vplan-force-vf=4 < %s | FileCheck %s -check-prefix=CHECK-HIR
 ; RUN: opt -S -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -enable-vp-value-codegen-hir -vplan-force-vf=4 < %s | FileCheck %s -check-prefix=CHECK-HIR
 
 ; CHECK-IR: vector.body:

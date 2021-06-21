@@ -11,8 +11,6 @@
 ;
 ; Test to check that we preserve tbaa metadata.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -S -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 < %s 2>&1  | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -vplan-force-vf=4 -S -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -S -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=1 < %s 2>&1  | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -vplan-force-vf=4 -S -enable-vp-value-codegen-hir=1 < %s 2>&1 | FileCheck %s

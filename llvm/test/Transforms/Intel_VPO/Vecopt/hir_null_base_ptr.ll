@@ -1,5 +1,3 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -vplan-force-vf=4 -disable-output -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -disable-output -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s
 
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -vplan-force-vf=4 -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s --check-prefix=VPVAL
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=4 -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s --check-prefix=VPVAL
@@ -7,10 +5,7 @@
 
 ; Verify that vectorizer handles memref with null base pointer successfully.
 
-; CHECK: (<4 x float>*)(null)[i1] = {{.*}};
-
-; TODO - We should be able to match mixed CG mode code in VPValue based CG. We
-; are also generating duplicate copies.
+; TODO - Look into the duplicate copies.
 ; VPVAL: [[COPY1:%.*]] = null
 ; VPVAL: [[COPY2:%.*]] = null
 ; VPVAL: (<4 x float>*)([[COPY2]])[i1] = {{.*}}
