@@ -700,11 +700,31 @@ static Function *getTargetCall(BasicBlock *BB) {
   if (BB->empty())
     return nullptr;
   BasicBlock::iterator I = BB->begin();
-  while (isa<DbgInfoIntrinsic>(I))
+
+  // There is the chance that argument promotion hoists the load of some
+  // arguments up through the callsite. If that is the case, then collect all
+  // load instructions before the callsite and then check that they are only
+  // used as arguments in the callsite.
+  SmallSetVector<LoadInst *, 4> LoadInstsForCall;
+  while (isa<DbgInfoIntrinsic>(I) || isa<LoadInst>(&*I)) {
+    if (auto *LI = dyn_cast<LoadInst>(&*I))
+      LoadInstsForCall.insert(LI);
     ++I;
+  }
   auto CB = dyn_cast<CallBase>(&*I);
   if (!CB)
     return nullptr;
+
+  // If we found load instructions before the callsite then we need to check
+  // that the only user of them is the callsite.
+  for (auto *LI : LoadInstsForCall) {
+    if (!LI->hasOneUser())
+      return nullptr;
+    auto *Call = dyn_cast<CallBase>(LI->user_back());
+    if (!Call || Call != CB)
+      return nullptr;
+  }
+
   return CB->getCalledFunction();
 }
 
