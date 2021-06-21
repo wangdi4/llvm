@@ -304,6 +304,8 @@ private:
   /// entity descriptors.
   SmallDenseMap<VPBasicBlock *, HLLoop *> &Header2HLLoop;
 
+  HIRVectorizationLegality *Legal;
+
   /// Hold the set of dangling predecessors to be connected to the next active
   /// VPBasicBlock.
   std::deque<VPBasicBlock *> Predecessors;
@@ -350,7 +352,7 @@ public:
   PlainCFGBuilderHIR(HLLoop *Lp, const DDGraph &DDG, VPlanVector *Plan,
                      SmallDenseMap<VPBasicBlock *, HLLoop *> &H2HLLp,
                      HIRVectorizationLegality *HIRLegality)
-      : TheLoop(Lp), Plan(Plan), Header2HLLoop(H2HLLp),
+      : TheLoop(Lp), Plan(Plan), Header2HLLoop(H2HLLp), Legal(HIRLegality),
         Decomposer(Plan, Lp, DDG, *HIRLegality) {}
 
   /// Build a plain CFG for an HLLoop loop nest.
@@ -358,8 +360,7 @@ public:
 
   /// Convert incoming loop entities to the VPlan format.
   void
-  convertEntityDescriptors(HIRVectorizationLegality *Legal,
-                           VPlanHCFGBuilder::VPLoopEntityConverterList &CvtVec);
+  convertEntityDescriptors(VPlanHCFGBuilder::VPLoopEntityConverterList &CvtVec);
 };
 
 /// Retrieve an existing VPBasicBlock for \p HNode. It there is no existing
@@ -1293,7 +1294,6 @@ typedef VPLoopEntitiesConverter<PrivateDescr, HLLoop, HLLoop2VPLoopMapper>
     PrivatesConverter;
 
 void PlainCFGBuilderHIR::convertEntityDescriptors(
-    HIRVectorizationLegality *Legal,
     VPlanHCFGBuilder::VPLoopEntityConverterList &CvtVec) {
 
   using InductionList = VPDecomposerHIR::VPInductionHIRList;
@@ -1381,7 +1381,7 @@ void VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {
                                  HIRLegality);
 
   PCFGBuilder.buildPlainCFG();
-  PCFGBuilder.convertEntityDescriptors(HIRLegality, CvtVec);
+  PCFGBuilder.convertEntityDescriptors(CvtVec);
 }
 
 void VPlanHCFGBuilderHIR::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
