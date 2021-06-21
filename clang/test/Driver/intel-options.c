@@ -686,12 +686,18 @@
 // RUN: %clang_cl -### -Qvec-threshold:101 -c %s 2>&1 \
 // RUN:    | FileCheck -check-prefix=VEC_THRESHOLD %s
 // VEC_THRESHOLD: "-mllvm" "-vec-threshold=101"
-//
+
 // -qoverride-limits
 // RUN: %clang -### -qoverride-limits -c %s 2>&1 | FileCheck -check-prefix=OVERRIDE-LIMITS %s
 // RUN: %clang_cl -### /Qoverride-limits -c %s 2>&1 | FileCheck -check-prefix=OVERRIDE-LIMITS %s
 // OVERRIDE-LIMITS: "-mllvm" "-hir-cost-model-throttling=0"
-//
+
 // -fortlib
 // RUN: %clang -### --intel -target x86_64-unknown-linux -fortlib %s 2>&1 | FileCheck -check-prefix=LIBS_FORTRAN %s
 // LIBS_FORTRAN: "--as-needed" "-lpthread" "--no-as-needed"{{.*}} "-Bstatic" "-lifcoremt" "-Bdynamic"
+
+// Verify /Qextend-arguments= and /Qextend-arguments: are accepted
+// They are aliases to -fextend-arguments= and the functionality is tested in fextend-args.c
+// RUN: %clang_cl -### /Qextend-arguments=64 -c %s 2>&1 | FileCheck -check-prefix=EXTEND_ARGS %s
+// RUN: %clang_cl -### /Qextend-arguments:64 -c %s 2>&1 | FileCheck -check-prefix=EXTEND_ARGS %s
+// EXTEND_ARGS: "-cc1" {{.*}}"-fextend-arguments=64"
