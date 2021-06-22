@@ -402,22 +402,21 @@ void SplitLandingPadPredecessors(
     DomTreeUpdater *DTU = nullptr, LoopInfo *LI = nullptr,
     MemorySSAUpdater *MSSAU = nullptr, bool PreserveLCSSA = false);
 
-#if INTEL_CUSTOMIZATION
-/// This method splits the edge from Preds to an EHPad in OrigBB, by inserting a
-/// basic block before OrigBB. All edges from Preds basic blocks, go into the
-/// new BB created. This method currently handles only cleanuppad instructions.
-/// The cleanuppad instruction is cloned from OrigBB, and the cleanupret
-/// instruction unwinds to OrigBB. NewBB has Suffix added to it's name.
+#if INTEL_COLLAB
+/// This method splits the edge from Preds to a CleanupPad in OrigBB, by
+/// inserting a basic block before OrigBB. All edges from Preds basic blocks, go
+/// into the new BB created. The cleanuppad instruction is cloned from OrigBB,
+/// and the cleanupret instruction unwinds to OrigBB. NewBB has Suffix added to
+/// its name.
 ///
 /// This currently updates the DominatorTree, LoopInfo, and LCCSA but no other
 /// analyses. It might not preserve LoopSimplify.
-void SplitEHPadPredecessors(BasicBlock *OrigBB, ArrayRef<BasicBlock *> Preds,
-                            const char *Suffix, BasicBlock *&NewBB,
-                            DomTreeUpdater *DTU = nullptr,
-                            DominatorTree *DT = nullptr, LoopInfo *LI = nullptr,
-                            MemorySSAUpdater *MSSAU = nullptr,
-                            bool PreserveLCSSA = false);
-#endif // INTEL_CUSTOMIZATION
+void SplitCleanupPadPredecessors(
+    BasicBlock *OrigBB, ArrayRef<BasicBlock *> SplitPreds, const char *Suffix,
+    BasicBlock *&NewBB, DomTreeUpdater *DTU = nullptr,
+    DominatorTree *DT = nullptr, LoopInfo *LI = nullptr,
+    MemorySSAUpdater *MSSAU = nullptr, bool PreserveLCSSA = false);
+#endif // INTEL_COLLAB
 
 /// This method duplicates the specified return instruction into a predecessor
 /// which ends in an unconditional branch. If the return instruction returns a
