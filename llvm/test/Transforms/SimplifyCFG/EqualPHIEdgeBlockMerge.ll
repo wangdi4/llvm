@@ -114,7 +114,10 @@ define i8 @testmergesome(i32 %u, i32* %A) {
 ; CHECK-NEXT:    store i32 0, i32* [[A]], align 4
 ; CHECK-NEXT:    br label [[Y]]
 ; CHECK:       Y:
-; CHECK-NEXT:    [[VAL_0:%.*]] = phi i8 [ 2, [[W]] ], [ 1, [[Z]] ], [ 1, [[V:%.*]] ]
+; INTEL_CUSTOMIZATION
+; Our SimplifyCFG customizations cause a different phi ordering.
+; CHECK-NEXT:    [[VAL_0:%.*]] = phi i8 [ 1, [[V:%.*]] ], [ 1, [[Z]] ], [ 2, [[W]] ]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    ret i8 [[VAL_0]]
 ;
 V:
