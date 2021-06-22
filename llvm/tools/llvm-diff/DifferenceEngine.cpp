@@ -287,6 +287,27 @@ class FunctionDifferenceEngine {
       }
       return false;
 
+    } else if (isa<CallBrInst>(L)) {
+      const CallBrInst &LI = cast<CallBrInst>(*L);
+      const CallBrInst &RI = cast<CallBrInst>(*R);
+      if (LI.getNumIndirectDests() != RI.getNumIndirectDests()) {
+        if (Complain)
+          Engine.log("callbr # of indirect destinations differ");
+        return true;
+      }
+
+      // Perform the "try unify" step so that we can equate the indirect
+      // destinations before checking the call site.
+      for (unsigned I = 0; I < LI.getNumIndirectDests(); I++)
+        tryUnify(LI.getIndirectDest(I), RI.getIndirectDest(I));
+
+      if (diffCallSites(LI, RI, Complain))
+        return true;
+
+      if (TryUnify)
+        tryUnify(LI.getDefaultDest(), RI.getDefaultDest());
+      return false;
+
     } else if (isa<BranchInst>(L)) {
       const BranchInst *LI = cast<BranchInst>(L);
       const BranchInst *RI = cast<BranchInst>(R);
@@ -383,6 +404,7 @@ class FunctionDifferenceEngine {
     return false;
   }
 
+public:
   bool equivalentAsOperands(const Constant *L, const Constant *R) {
     // Use equality as a preliminary filter.
     if (L == R)
@@ -422,6 +444,24 @@ class FunctionDifferenceEngine {
         if (!equivalentAsOperands(CVL->getOperand(i), CVR->getOperand(i)))
           return false;
       }
+      return true;
+    }
+
+    // If L and R are ConstantArrays, compare the element count and types.
+    if (isa<ConstantArray>(L)) {
+      const ConstantArray *CAL = cast<ConstantArray>(L);
+      const ConstantArray *CAR = cast<ConstantArray>(R);
+      // Sometimes a type may be equivalent, but not uniquified---e.g. it may
+      // contain a GEP instruction. Do a deeper comparison of the types.
+      if (CAL->getType()->getNumElements() != CAR->getType()->getNumElements())
+        return false;
+
+      for (unsigned I = 0; I < CAL->getType()->getNumElements(); ++I) {
+        if (!equivalentAsOperands(CAL->getAggregateElement(I),
+                                  CAR->getAggregateElement(I)))
+          return false;
+      }
+
       return true;
     }
 
@@ -745,7 +785,8 @@ bool DifferenceEngine::equivalentAsOperands(const GlobalValue *L,
     const GlobalVariable *GVR = cast<GlobalVariable>(R);
     if (GVL->hasLocalLinkage() && GVL->hasUniqueInitializer() &&
         GVR->hasLocalLinkage() && GVR->hasUniqueInitializer())
-      return GVL->getInitializer() == GVR->getInitializer();
+      return FunctionDifferenceEngine(*this).equivalentAsOperands(
+          GVL->getInitializer(), GVR->getInitializer());
   }
 
   return L->getName() == R->getName();
