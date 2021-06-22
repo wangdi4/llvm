@@ -211,7 +211,7 @@ class X86InterleavedAccessGroup {
 
   /// Creates an OVLSMemref for each shuffle in the Shuffles and returns
   /// the memrefs in \p Memrefs.
-  void createOVLSMemrefs(OVLSMemrefVector &Memrefs) {
+  void createOVLSMemrefs(OVLSVector<std::unique_ptr<OVLSMemref>> &Memrefs) {
     // For Loads, Shuffles points to a vector of ShuffleVectorInst , which
     // represent the strided accesses; so OVLSMemrefs can be directly generated.
     // For Stores, the ShuffleVectorInst consists of the reinterleaved accesses,
@@ -246,9 +246,8 @@ class X86InterleavedAccessGroup {
       OVLSMemref *Mrf = new X86InterleavedClientMemref(
           i + 1, Dist, ShuffleEltTy, VecTy->getNumElements(), AKind,
           Factor * EltSizeInByte);
-      Memrefs.push_back(Mrf);
-      ShuffleToMemrefMap.insert(
-          std::pair<ShuffleVectorInst *, OVLSMemref *>(Shuffles[i], Mrf));
+      Memrefs.emplace_back(Mrf);
+      ShuffleToMemrefMap.emplace(Shuffles[i], Memrefs.back().get());
     }
   }
 #endif // INTEL_CUSTOMIZATION
@@ -300,9 +299,9 @@ public:
           (VecTy->getScalarSizeInBits() == 16 && Factor == 8)))
       return false;
 
-    // Create OVLSMemrefVector for the members(shuffles) of
+    // Create OVLSVector of OVLSMemref for the members(shuffles) of
     // X86InterleavedAccessGroup.
-    OVLSMemrefVector Mrfs;
+    OVLSVector<std::unique_ptr<OVLSMemref>> Mrfs;
     createOVLSMemrefs(Mrfs);
 
     // Create OVLSGroups for the shuffles.
@@ -382,9 +381,8 @@ public:
         InstMap = OVLSConverter::genLLVMIR(Builder, InstVec, Shuffles[0], Addr,
                                            ElemTy, Alignment);
         AllInstVec.insert(AllInstVec.end(),
-          std::make_move_iterator(InstVec.begin()),
-          std::make_move_iterator(InstVec.end())
-        );
+                          std::make_move_iterator(InstVec.begin()),
+                          std::make_move_iterator(InstVec.end()));
       }
     }
 
