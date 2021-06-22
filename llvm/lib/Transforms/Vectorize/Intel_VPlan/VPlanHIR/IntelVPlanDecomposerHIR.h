@@ -312,10 +312,10 @@ public:
   }
 
   VPExternalDef *getVPExternalDefForSIMDDescr(const loopopt::DDRef *Ref) {
-    bool IsSIMDDescr = HIRLegality.isReduction(Ref) != nullptr ||
-                       HIRLegality.isLinear(Ref) != nullptr ||
-                       HIRLegality.isPrivate(Ref) != nullptr ||
-                       HIRLegality.getNonPODPrivate(Ref) != nullptr;
+    bool IsSIMDDescr = HIRLegality.getReductionDescr(Ref) != nullptr ||
+                       HIRLegality.getLinearDescr(Ref) != nullptr ||
+                       HIRLegality.getPrivateDescr(Ref) != nullptr ||
+                       HIRLegality.getPrivateDescrNonPOD(Ref) != nullptr;
     assert(IsSIMDDescr && "DDRef is not a SIMD entity descriptor.");
     (void)IsSIMDDescr;
     return Plan->getVPExternalDefForDDRef(Ref);

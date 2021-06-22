@@ -135,8 +135,7 @@ public:
   /// Returns the widest induction type.
   Type *getWidestInductionType() { return WidestIndTy; }
 
-  void setIsSimd() { IsSimdLoop = true; }
-  bool getIsSimd() const { return IsSimdLoop; }
+  void setIsSimdFlag() { IsSimdLoop = true; }
 
 private:
   /// The loop that we evaluate.
