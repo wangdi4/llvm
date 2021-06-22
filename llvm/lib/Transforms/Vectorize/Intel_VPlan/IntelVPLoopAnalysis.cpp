@@ -1254,8 +1254,7 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
       // Handling of last privates generating last value calculation.
       if (Private->hasPrivateTag()) {
         // No last value for non-pod types and arrays
-        assert(Private->getPrivateTag() != VPPrivate::PrivateTag::PTArray &&
-               Private->getPrivateTag() != VPPrivate::PrivateTag::PTNonPod &&
+        assert(Private->getPrivateTag() != VPPrivate::PrivateTag::PTNonPod &&
                "Unsupported aggregate type");
 
         if (Private->getPrivateTag() == VPPrivate::PrivateTag::PTInMemory) {
@@ -1263,6 +1262,15 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
           // private which was completely registerized.
           if (!VPEntityImportDescr::hasRealUserInLoop(PrivateMem, &Loop))
             continue;
+        }
+
+        if (Private->getPrivateTag() == VPPrivate::PrivateTag::PTArray) {
+          VPBuilder::InsertPointGuard Guard(Builder);
+          Builder.setInsertPoint(PostExit);
+          Builder.createNaryOp(VPInstruction::PrivateFinalArray,
+                               Type::getVoidTy(*Plan.getLLVMContext()),
+                               {PrivateMem, AI});
+          continue;
         }
       }
 
