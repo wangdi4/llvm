@@ -716,7 +716,7 @@ static bool isCountableLoop(const BasicBlock *HeaderBB,
         ((OpInst->getOpcode() == Instruction::Add) ||
         (OpInst->getOpcode() == Instruction::Sub) ||
         (OpInst->getOpcode() == Instruction::GetElementPtr) ||
-        (DefinedInHeader && isa<PHINode>(OpInst))))
+        (isa<PHINode>(OpInst))))
       return true;
   }
 
