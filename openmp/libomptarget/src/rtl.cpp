@@ -158,6 +158,15 @@ DllMain(HINSTANCE const instance, // handle to DLL module
 #endif // INTEL_CUSTOMIZATION
 
 void RTLsTy::LoadRTLs() {
+#if INTEL_CUSTOMIZATION
+#if !_WIN32
+  // Turn on helper threads/tasks
+  if (!getenv("LIBOMP_USE_HIDDEN_HELPER_TASK"))
+    kmp_set_defaults("LIBOMP_USE_HIDDEN_HELPER_TASK=1");
+  if (!getenv("LIBOMP_NUM_HIDDEN_HELPER_THREADS"))
+    kmp_set_defaults("LIBOMP_NUM_HIDDEN_HELPER_THREADS=8");
+#endif // !_WIN32
+#endif // INTEL_CUSTOMIZATION
   // Parse environment variable OMP_TARGET_OFFLOAD (if set)
   PM->TargetOffloadPolicy =
       (kmp_target_offload_kind_t)__kmpc_get_target_offload();

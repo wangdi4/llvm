@@ -111,6 +111,7 @@ int32_t __kmpc_omp_taskwait(void *loc_ref, int32_t gtid) __attribute__((weak));
 int32_t __kmpc_global_thread_num(void *) __attribute__((weak));
 int __kmpc_get_target_offload(void) __attribute__((weak));
 void __kmpc_proxy_task_completed_ooo(void *);
+void kmp_set_defaults(const char *);
 #endif
 #else  // INTEL_COLLAB
 int omp_get_default_device(void) __attribute__((weak));
