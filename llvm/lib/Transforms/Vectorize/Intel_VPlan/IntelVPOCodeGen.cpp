@@ -1664,7 +1664,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     auto *LoadMask = getVLSLoadStoreMask(VecTy, GroupSize);
     if (!LoadMask) {
       auto *WideLoad = cast<LoadInst>(Builder.CreateAlignedLoad(
-          CastedBase, VLSLoad->getAlignment(), "vls.load"));
+          VecTy, CastedBase, VLSLoad->getAlignment(), "vls.load"));
 
       for (std::pair<unsigned, MDNode *> It : VLSLoad->getMetadata())
         WideLoad->setMetadata(It.first, It.second);
