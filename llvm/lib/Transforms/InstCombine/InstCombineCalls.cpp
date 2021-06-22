@@ -2483,6 +2483,15 @@ static bool isSafeToEliminateVarargsCast(const CallBase &Call,
       isa<GCResultInst>(Call))
     return false;
 
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-24644
+  // If this is a "broker" function that sets up a callback, the argument
+  // types should be preserved. SCCP may propagate the arguments directly
+  // into the callback and will require accurate types.
+  auto *Callee = Call.getCalledFunction();
+  if (Callee && Callee->hasMetadata(LLVMContext::MD_callback))
+      return false;
+#endif // INTEL_CUSTOMIZATION
   // The size of ByVal or InAlloca arguments is derived from the type, so we
   // can't change to a type with a different size.  If the size were
   // passed explicitly we could avoid this check.
