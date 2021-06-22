@@ -1,7 +1,7 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the pointer IV is handled correctly.
-; CHECK: DO i1 = 0, (-1 * %p + %q + -4)/u4
+; CHECK: DO i1 = 0, (-1 * ptrtoint.i32*.i64(%p) + ptrtoint.i32*.i64(%q) + -4)/u4, 1
 ; CHECK-NEXT: (%p)[2 * i1] = i1;
 ; CHECK-NEXT:  END LOOP
 

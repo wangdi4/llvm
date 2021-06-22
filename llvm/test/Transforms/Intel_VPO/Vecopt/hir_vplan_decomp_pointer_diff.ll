@@ -38,7 +38,7 @@ define dso_local void @make_simple_name(i8* %name) local_unnamed_addr #0 {
 ; CHECK-NEXT:  VPlan IR for: make_simple_name:HIR
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%spec.select}
-; CHECK-DAG:     [[VP1:%.*]] = {-1 * %name + %spec.select + -1}
+; CHECK-DAG:     [[VP1:%.*]] = {-1 * ptrtoint.i8*.i64(%name) + ptrtoint.i8*.i64(%spec.select) + -1}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]

@@ -12,7 +12,7 @@
 ; first. This inconsistency in IV and trip count type triggered assertion
 ; in parser.
 
-; CHECK: DO i1 = 0, umin((-1 + (-1 * %in.addr.3454.i) + umax((1 + %in.addr.3454.i), %add.ptr2.i)), (zext.i32.i64((-1 + (-1 * %lc.3452.i) + smax(zext.i6.i32(trunc.i64.i6(%t80)), (8 + %lc.3452.i)))) /u 8)), 1
+; CHECK: DO i1 = 0, trunc.i64.i32(umin((-1 + (-1 * ptrtoint.i8*.i64(%in.addr.3454.i)) + umax((1 + ptrtoint.i8*.i64(%in.addr.3454.i)), ptrtoint.i8*.i64(%add.ptr2.i))), (zext.i32.i64((-1 + (-1 * %lc.3452.i) + smax(zext.i6.i32(trunc.i64.i6(%t80)), (8 + %lc.3452.i)))) /u 8))), 1
 
 
 define void @foo(i8* %in.addr.3454.i, i64 %c.3453.i, i32 %lc.3452.i, i8* %add.ptr2.i, i64 %t80) {

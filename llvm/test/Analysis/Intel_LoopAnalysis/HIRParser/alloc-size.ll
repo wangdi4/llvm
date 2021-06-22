@@ -3,7 +3,7 @@
 ; Verify that we use (padded) size of 16 bytes for memrefs based on x86_fp80* type.
 ; We shouldn't see any denominator in parsing of (%start)[i1].
 
-; CHECK: + DO i1 = 0, (-1 * %start + %end + -16)/u16, 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, (-1 * ptrtoint.x86_fp80*.i64(%start) + ptrtoint.x86_fp80*.i64(%end) + -16)/u16, 1 <DO_LOOP>
 ; CHECK: |   %conv.i = fpext.double.x86_fp80(%f.019.i);
 ; CHECK: |   %t2 = (%start)[i1];
 ; CHECK: |   %mul.i = %t2  *  %conv.i;
