@@ -115,6 +115,7 @@ static const std::pair<LibFunc, AllocFnsTy> AllocationFnData[] = {
   {LibFunc_reallocf,            {ReallocLike, 2, 1,  -1}},
   {LibFunc_strdup,              {StrDupLike,  1, -1, -1}},
   {LibFunc_strndup,             {StrDupLike,  2, 1,  -1}},
+  {LibFunc___kmpc_alloc_shared, {MallocLike,  1, 0,  -1}}, // INTEL
 #if INTEL_CUSTOMIZATION
   {LibFunc_free, {FreeLike, 1, 0, -1}}, // free(i8*)
 #endif //INTEL_CUSTOMIZATION
@@ -559,7 +560,10 @@ bool llvm::isLibFreeFunction(const Function *F, const LibFunc TLIFn) {
 /// isLibDeleteFunction - Returns true if the function is a builtin delete()
 bool llvm::isLibDeleteFunction(const Function *F, const LibFunc TLIFn) {
   unsigned ExpectedNumParams;
-  if (TLIFn == LibFunc_ZdlPv || // operator delete(void*)
+#if INTEL_CUSTOMIZATION
+  if (TLIFn == LibFunc___kmpc_free_shared || // OpenMP Offloading RTL free
+#endif // INTEL_CUSTOMIZATION
+      TLIFn == LibFunc_ZdlPv || // operator delete(void*)
       TLIFn == LibFunc_ZdaPv || // operator delete[](void*)
       TLIFn == LibFunc_msvc_delete_ptr32 || // operator delete(void*)
       TLIFn == LibFunc_msvc_delete_ptr64 || // operator delete(void*)
