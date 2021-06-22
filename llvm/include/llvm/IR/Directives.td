@@ -137,6 +137,9 @@ def "DIR.OMP.END.GENERICLOOP" : Directive;
 def "DIR.OMP.INTEROP"     : Directive;
 def "DIR.OMP.END.INTEROP" : Directive;
 
+def "DIR.OMP.PREFETCH"     : Directive;
+def "DIR.OMP.END.PREFETCH" : Directive;
+
 #if INTEL_CUSTOMIZATION
 // Directives used to mark begin/end of a loop determined by VPO vectorizer
 // legality analysis to be legal to vectorize.
@@ -299,6 +302,7 @@ def "QUAL.OMP.ORDER.CONCURRENT" : Clause;
 def "QUAL.OMP.ALLOCATE" : Clause;
 def "QUAL.OMP.NOCONTEXT" : Clause;
 def "QUAL.OMP.NOVARIANTS" : Clause;
+def "QUAL.OMP.DATA" : Clause;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 // Support Intel extension for CSA.

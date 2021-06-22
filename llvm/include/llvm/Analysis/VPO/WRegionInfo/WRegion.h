@@ -49,12 +49,14 @@
 ///   WRNCancelNode           | #pragma omp cancel
 ///   WRNCriticalNode         | #pragma omp critical
 ///   WRNFlushNode            | #pragma omp flush
+///   WRNPrefetchNode         | #pragma omp prefetch
 ///   WRNOrderedNode          | #pragma omp ordered
 ///   WRNMasterNode           | #pragma omp master
 ///   WRNSingleNode           | #pragma omp single
 ///   WRNTaskgroupNode        | #pragma omp taskgroup
 ///   WRNTaskwaitNode         | #pragma omp taskwait
 ///   WRNTaskyieldNode        | #pragma omp taskyield
+///   WRNInteropNode          | #pragma omp interop
 ///
 /// One exception is WRNTaskloopNode, which is derived from WRNTasknode.
 //===----------------------------------------------------------------------===//
@@ -1633,6 +1635,35 @@ public:
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNFlush;
+  }
+};
+
+/// WRN for
+/// \code
+///   #pragma omp prefetch
+/// \endcode
+class WRNPrefetchNode : public WRegionNode {
+private:
+  EXPR IfExpr;
+  DataClause Data;
+
+public:
+  WRNPrefetchNode(BasicBlock *BB);
+
+protected:
+  void setIf(EXPR E) override { IfExpr = E; }
+
+public:
+  DEFINE_GETTER(DataClause, getData, Data)
+
+  EXPR getIf() const override { return IfExpr; }
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                  unsigned Verbosity = 1) const override;
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const WRegionNode *W) {
+    return W->getWRegionKindID() == WRegionNode::WRNPrefetch;
   }
 };
 

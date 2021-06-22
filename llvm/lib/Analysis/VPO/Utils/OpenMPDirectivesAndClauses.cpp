@@ -455,6 +455,7 @@ bool VPOAnalysisUtils::isStandAloneBeginDirective(int DirID) {
   case DIR_OMP_CANCELLATION_POINT:
   case DIR_OMP_THREADPRIVATE:
   case DIR_OMP_INTEROP:
+  case DIR_OMP_PREFETCH:
     return true;
   }
   return false;
@@ -487,6 +488,7 @@ bool VPOAnalysisUtils::isStandAloneEndDirective(int DirID) {
   case DIR_OMP_END_CANCEL:
   case DIR_OMP_END_CANCELLATION_POINT:
   case DIR_OMP_END_INTEROP:
+  case DIR_OMP_END_PREFETCH:
     return true;
   }
   return false;
@@ -614,6 +616,8 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
     return DIR_OMP_END_CANCELLATION_POINT;
   case DIR_OMP_INTEROP:
       return DIR_OMP_END_INTEROP;
+  case DIR_OMP_PREFETCH:
+      return DIR_OMP_END_PREFETCH;
   }
   return -1;
 }

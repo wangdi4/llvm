@@ -270,6 +270,7 @@ public:
   bool canHaveAligned() const;
   bool canHaveNontemporal() const;
   bool canHaveFlush() const;
+  bool canHaveData() const;
   bool canHaveCancellationPoints() const; ///< Constructs that can be cancelled
   bool canHaveCollapse() const;
   bool canHaveNowait() const;
@@ -337,6 +338,7 @@ public:
   virtual AllocateClause &getAllocate()      {WRNERROR(QUAL_OMP_ALLOCATE);    }
   virtual CopyinClause &getCopyin()          {WRNERROR(QUAL_OMP_COPYIN);      }
   virtual CopyprivateClause &getCpriv()      {WRNERROR(QUAL_OMP_COPYPRIVATE); }
+  virtual DataClause &getData()              {WRNERROR(QUAL_OMP_DATA);        }
   virtual DependClause &getDepend()          {WRNERROR("DEPEND");             }
   virtual DepSinkClause &getDepSink()        {WRNERROR("DEPEND(SINK:..)");    }
   virtual DepSourceClause &getDepSource()    {WRNERROR("DEPEND(SOURCE)");     }
@@ -378,6 +380,7 @@ public:
                                            {WRNERROR(QUAL_OMP_COPYIN);      }
   virtual const CopyprivateClause &getCpriv() const
                                            {WRNERROR(QUAL_OMP_COPYPRIVATE); }
+  virtual const DataClause &getData() const {WRNERROR(QUAL_OMP_DATA);       }
   virtual const DependClause &getDepend() const
                                            {WRNERROR("DEPEND");             }
   virtual const DepSinkClause &getDepSink() const
@@ -868,6 +871,7 @@ public:
     WRNCancel,
     WRNCritical,
     WRNFlush,
+    WRNPrefetch,
     WRNOrdered,
     WRNMaster,
     WRNSingle,

@@ -1246,6 +1246,7 @@ public:
 //   AlignedItem   (for the aligned clause in simd constructs)
 //   FlushItem     (for the flush clause)
 //   AllocateItem  (for the allocate clause)
+//   DataItem      (for the data clause in prefetch constructs)
 //   NontemporalItem (for the nontemporal clause in simd constructs)
 //
 // Clang collapses the 'n' loops for 'ordered(n)'. So VPO always
@@ -1450,6 +1451,33 @@ class AllocateItem
     }
 };
 
+// DATA clause for PREFETCH construct is of the form
+//   DATA(Ptr:Hint:NumElem)
+class DataItem {
+private:
+  VAR Ptr;
+  unsigned Hint;    // Valid values are 1 to 4
+  uint64_t NumElem;
+
+public:
+  DataItem(VAR V, unsigned H, uint64_t N) : Ptr(V), Hint(H), NumElem(N) {}
+  void setOrig(VAR V) { Ptr = V; }
+  void setHint(unsigned H) { Hint = H; }
+  void setNumElem(uint64_t N) { NumElem = N; }
+  VAR getOrig() const { return Ptr; }
+  unsigned getHint() const { return Hint; }
+  uint64_t getNumElem() const { return NumElem; }
+
+  void print(formatted_raw_ostream &OS, bool PrintType = true) const {
+    OS << "(";
+    getOrig()->printAsOperand(OS, PrintType);
+    OS << " : ";
+    OS << getHint();
+    OS << " : ";
+    OS << getNumElem();
+    OS << ") ";
+  }
+};
 
 //
 // The list-type clauses are essentially vectors of the clause items above
@@ -1705,6 +1733,7 @@ typedef Clause<AlignedItem>       AlignedClause;
 typedef Clause<NontemporalItem>   NontemporalClause;
 typedef Clause<FlushItem>         FlushSet;
 typedef Clause<AllocateItem>      AllocateClause;
+typedef Clause<DataItem>          DataClause;
 
 typedef std::vector<SharedItem>::iterator        SharedIter;
 typedef std::vector<PrivateItem>::iterator       PrivateIter;
@@ -1727,6 +1756,7 @@ typedef std::vector<AlignedItem>::iterator       AlignedIter;
 typedef std::vector<NontemporalItem>::iterator   NontemporalIter;
 typedef std::vector<FlushItem>::iterator         FlushIter;
 typedef std::vector<AllocateItem>::iterator      AllocateIter;
+typedef std::vector<DataItem>::iterator          DataIter;
 
 
 //

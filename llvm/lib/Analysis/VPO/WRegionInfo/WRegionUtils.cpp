@@ -137,6 +137,9 @@ WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
     case DIR_OMP_INTEROP:
       W = new WRNInteropNode(EntryBB);
       break;
+    case DIR_OMP_PREFETCH:
+      W = new WRNPrefetchNode(EntryBB);
+      break;
     case DIR_OMP_TARGET:
       W = new WRNTargetNode(EntryBB);
       break;
