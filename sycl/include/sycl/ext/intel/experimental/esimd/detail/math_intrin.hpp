@@ -346,6 +346,14 @@ SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<T, N>
 __esimd_dpasw2(__SEIEED::vector_type_t<T1, N1> src1,
                __SEIEED::vector_type_t<T2, N2> src2, int dpas_info);
 
+template <int N>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<uint32_t, N>
+__esimd_tf32_cvt(__SEIEED::vector_type_t<float, N> src);
+
+template <int N, typename DstType, typename SrcType>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<DstType, N>
+__esimd_qf_cvt(__SEIEED::vector_type_t<SrcType, N> src);
+
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
 /* end INTEL_CUSTOMIZATION */
 
@@ -1635,6 +1643,20 @@ __esimd_dpasw2(__SEIEED::vector_type_t<T1, N1> src1,
                __SEIEED::vector_type_t<T2, N2> src2) {
   throw cl::sycl::feature_not_supported();
   return __SEIEED::vector_type_t<T, N>();
+}
+
+template <int N>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<uint32_t, N>
+__esimd_tf32_cvt(__SEIEED::vector_type_t<float, N> src) {
+  throw cl::sycl::feature_not_supported();
+  return __SEIEED::vector_type_t<uint32_t, N>();
+}
+
+template <int N, typename DstType, typename SrcType>
+SYCL_EXTERNAL SYCL_ESIMD_FUNCTION __SEIEED::vector_type_t<DstType, N>
+__esimd_qf_cvt(__SEIEED::vector_type_t<SrcType, N> src) {
+  throw cl::sycl::feature_not_supported();
+  return __SEIEED::vector_type_t<DstType, N>();
 }
 
 /* end INTEL_FEATURE_ESIMD_EMBARGO */
