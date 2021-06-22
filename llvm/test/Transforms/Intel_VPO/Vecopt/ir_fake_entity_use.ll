@@ -14,7 +14,7 @@ declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #0
 ; Function Attrs: norecurse nounwind uwtable
 define void @_Z20initialize_variablesiPfS_() {
 entry:
-; CHECK: <4 x i32>
+; CHECK-COUNT-4: call void @llvm.lifetime.start.p0i8
   %0 = alloca i32, align 4
   br label %region
 region:

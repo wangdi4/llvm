@@ -59,14 +59,14 @@ define internal void @test_lifetime_intrins() #3 {
 ; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST:%.*]] = addrspacecast <2 x float>* [[XTMP_ASCAST_PRIV_ASCAST_VEC]] to <2 x float> addrspace(4)*
 ; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST_BC:%.*]] = bitcast <2 x float> addrspace(4)* [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST]] to float addrspace(4)*
 ; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST_BASE_ADDR:%.*]] = getelementptr float, float addrspace(4)* [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST_BC]], <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST_BASE_ADDR_EXTRACT_0:%.*]] = extractelement <2 x float addrspace(4)*> [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST_BASE_ADDR]], i32 0
 
 ; CHECK:       vector.body:
-; CHECK:         [[TMP0:%.*]] = bitcast <2 x float addrspace(4)*> [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST_BASE_ADDR]] to <2 x i8 addrspace(4)*>
-; CHECK-NEXT:    [[TMP1:%.*]] = addrspacecast <2 x i8 addrspace(4)*> [[TMP0]] to <2 x i8*>
-; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <2 x i8*> [[TMP1]], i32 0
-; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[DOTEXTRACT_0_]])
+; CHECK:         [[TMP0:%.*]] = bitcast float addrspace(4)* [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST_BASE_ADDR_EXTRACT_0]] to i8 addrspace(4)*
+; CHECK-NEXT:    [[TMP1:%.*]] = addrspacecast i8 addrspace(4)* [[TMP0]] to i8*
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[TMP1]])
 ; CHECK-NEXT:    store <2 x float> zeroinitializer, <2 x float> addrspace(4)* [[XTMP_ASCAST_PRIV_ASCAST_VEC_ASCAST]], align 4
-; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8, i8* [[DOTEXTRACT_0_]])
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8, i8* [[TMP1]])
 ;
 DIR.OMP.SIMD.4:
   %xtmp.ascast.priv = alloca float, align 4

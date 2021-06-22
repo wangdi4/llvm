@@ -1,9 +1,7 @@
 ; RUN: opt -S -VPlanDriver -vplan-force-vf=4 %s | FileCheck %s
 
-; If there already exists a widened operand of address space cast
-; we do not generate a scalar address space cast because there may
-; be situations where value for each lane is required, as for example
-; in this test for uniform store
+; Check that we generate scalar addrspacecast for last lane
+; when we have stores of the casted value to uniform location.
 
 define dso_local void @test_single_scalar(i32** %to.store, i32 addrspace(4)** %to.store.ascast) {
 entry:
@@ -18,9 +16,8 @@ simd.begin.region:
   br label %simd.loop
 simd.loop:
 ; CHECK: store i32* [[VEC_ALLOCA_BASE_ADDR_EXTRACT_3]], i32** %to.store, align 8
-; CHECK: [[VEC_ALLOCA_BASE_ADDR_AS_CAST:%.*]] = addrspacecast <4 x i32*> [[VEC_ALLOCA_BASE_ADDR]] to <4 x i32 addrspace(4)*>
-; CHECK-NEXT: [[VEC_ALLOCA_BASE_ADDR_AS_CAST_EXTRACT_3:%.*]] = extractelement <4 x i32 addrspace(4)*> [[VEC_ALLOCA_BASE_ADDR_AS_CAST]], i32 3
-; CHECK-NEXT:  store i32 addrspace(4)* [[VEC_ALLOCA_BASE_ADDR_AS_CAST_EXTRACT_3]], i32 addrspace(4)** %to.store.ascast, align 8
+; CHECK: [[VEC_ALLOCA_BASE_ADDR_EXTRACT_3_AS_CAST:%.*]] = addrspacecast i32* [[VEC_ALLOCA_BASE_ADDR_EXTRACT_3]] to i32 addrspace(4)*
+; CHECK-NEXT:  store i32 addrspace(4)* [[VEC_ALLOCA_BASE_ADDR_EXTRACT_3_AS_CAST]], i32 addrspace(4)** %to.store.ascast, align 8
   %index = phi i32 [ 0, %simd.begin.region], [ %indvar, %simd.loop]
   store i32* %ptr, i32** %to.store
   %indvar = add nuw i32 %index, 1
