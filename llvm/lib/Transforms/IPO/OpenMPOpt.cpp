@@ -9,6 +9,8 @@
 // OpenMP specific optimizations:
 //
 // - Deduplication of runtime calls, e.g., omp_get_thread_num.
+// - Replacing globalized device memory with stack memory.
+// - Replacing globalized device memory with shared memory.
 //
 //===----------------------------------------------------------------------===//
 
@@ -1623,9 +1625,13 @@ private:
     };
     GlobalizationRFI.foreachUse(SCC, CreateAA);
 
+    // Create an ExecutionDomain AA for every function and a HeapToStack AA for
+    // every function if there is a device kernel.
     for (auto *F : SCC) {
       if (!F->isDeclaration())
         A.getOrCreateAAFor<AAExecutionDomain>(IRPosition::function(*F));
+      if (!OMPInfoCache.Kernels.empty())
+        A.getOrCreateAAFor<AAHeapToStack>(IRPosition::function(*F));
     }
   }
 };
@@ -2499,6 +2505,15 @@ struct AAHeapToSharedFunction : public AAHeapToShared {
       auto *NewBuffer =
           ConstantExpr::getPointerCast(SharedMem, Int8Ty->getPointerTo());
 
+      auto Remark = [&](OptimizationRemark OR) {
+        return OR << "Replaced globalized variable with "
+                  << ore::NV("SharedMemory", AllocSize->getZExtValue())
+                  << ((AllocSize->getZExtValue() != 1) ? " bytes " : " byte ")
+                  << "of shared memory";
+      };
+      A.emitRemark<OptimizationRemark>(CB, "OpenMPReplaceGlobalization",
+                                       Remark);
+
       SharedMem->setAlignment(MaybeAlign(32));
 
       A.changeValueAfterManifest(*CB, *NewBuffer);
@@ -2653,7 +2668,9 @@ PreservedAnalyses OpenMPOptPass::run(Module &M, ModuleAnalysisManager &AM) {
   OMPInformationCache InfoCache(M, AG, Allocator, /*CGSCC*/ Functions,
                                 OMPInModule.getKernels());
 
-  Attributor A(Functions, InfoCache, CGUpdater, nullptr, true, false);
+  unsigned MaxFixponitIterations = (!OMPInModule.getKernels().empty()) ? 64 : 32;
+  Attributor A(Functions, InfoCache, CGUpdater, nullptr, true, false, MaxFixponitIterations, OREGetter,
+               DEBUG_TYPE);
 
   OpenMPOpt OMPOpt(SCC, CGUpdater, OREGetter, InfoCache, A);
   bool Changed = OMPOpt.run(true);
@@ -2708,7 +2725,9 @@ PreservedAnalyses OpenMPOptCGSCCPass::run(LazyCallGraph::SCC &C,
   OMPInformationCache InfoCache(*(Functions.back()->getParent()), AG, Allocator,
                                 /*CGSCC*/ Functions, OMPInModule.getKernels());
 
-  Attributor A(Functions, InfoCache, CGUpdater, nullptr, false);
+  unsigned MaxFixponitIterations = (!OMPInModule.getKernels().empty()) ? 64 : 32;
+  Attributor A(Functions, InfoCache, CGUpdater, nullptr, false, true, MaxFixponitIterations, OREGetter,
+               DEBUG_TYPE);
 
   OpenMPOpt OMPOpt(SCC, CGUpdater, OREGetter, InfoCache, A);
   bool Changed = OMPOpt.run(false);
@@ -2784,7 +2803,9 @@ struct OpenMPOptCGSCCLegacyPass : public CallGraphSCCPass {
         *(Functions.back()->getParent()), AG, Allocator,
         /*CGSCC*/ Functions, OMPInModule.getKernels());
 
-    Attributor A(Functions, InfoCache, CGUpdater, nullptr, false);
+    unsigned MaxFixponitIterations = (!OMPInModule.getKernels().empty()) ? 64 : 32;
+    Attributor A(Functions, InfoCache, CGUpdater, nullptr, false, true,
+                 MaxFixponitIterations, OREGetter, DEBUG_TYPE);
 
     OpenMPOpt OMPOpt(SCC, CGUpdater, OREGetter, InfoCache, A);
     return OMPOpt.run(false);
