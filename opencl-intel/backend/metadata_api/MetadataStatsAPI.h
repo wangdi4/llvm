@@ -15,9 +15,11 @@
 #ifndef METADATASTATSAPI_H
 #define METADATASTATSAPI_H
 
-#include "MetadataAPI.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPIImpl.h"
 
 #include <algorithm>
+
+using namespace llvm::DPCPPKernelMetadataAPI;
 
 namespace Intel {
 namespace MetadataAPI {

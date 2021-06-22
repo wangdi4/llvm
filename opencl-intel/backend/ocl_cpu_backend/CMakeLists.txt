@@ -280,7 +280,6 @@ set(LINK_LIBS
     reflection_module
     dynamic_load
     cl_sys_utils
-    metadataapi
     CacheBinaryHandler
     CLElfLib
     emutls
