@@ -42,35 +42,33 @@ cl_err_code DeviceQueue::Initialize()
 	return CL_SUCCESS;
 }
 
-size_t DeviceQueue::GetInfoInternal(cl_int iParamName, void* pBuf, size_t szBuf) const
+cl_int DeviceQueue::GetInfoInternal(cl_int iParamName, void* pBuf, size_t szBuf, size_t *szOuput) const
 {
 	switch (iParamName)
 	{
 	case CL_QUEUE_SIZE:
-		assert(szBuf >= sizeof(cl_uint));
 		if (szBuf < sizeof(cl_uint))
-		{
-			return 0;
-		}
+			return CL_INVALID_VALUE;
 		*(cl_uint*)pBuf = m_uiSize;
-		return sizeof(cl_uint);
+		*szOuput = sizeof(cl_uint);
+        break;
 	case CL_QUEUE_PROPERTIES:
 		{
-			const size_t szSize = OclCommandQueue::GetInfoInternal(iParamName, pBuf, szBuf);
-			if (0 == szSize)
-			{
-				return 0;
-			}
+			cl_int iErrCode = OclCommandQueue::GetInfoInternal(iParamName, pBuf, szBuf, szOuput);
+			if (CL_FAILED(iErrCode))
+				return CL_INVALID_VALUE;
 			*(cl_command_queue_properties*)pBuf |= CL_QUEUE_ON_DEVICE;
 			if (m_bIsDefault)
 			{
 				*(cl_command_queue_properties*)pBuf |= CL_QUEUE_ON_DEVICE_DEFAULT;
 			}
-			return szSize;
+			break;
 		}
 	default:
-		return OclCommandQueue::GetInfoInternal(iParamName, pBuf, szBuf);
+		return OclCommandQueue::GetInfoInternal(iParamName, pBuf,
+                                                           szBuf, szOuput);
 	}
+    return CL_SUCCESS;
 }
 
 void DeviceQueue::BecomeVisible()

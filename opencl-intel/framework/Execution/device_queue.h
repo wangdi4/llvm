@@ -37,8 +37,9 @@ public:
 
         virtual cl_err_code Initialize() override;
 
-        virtual size_t GetInfoInternal(cl_int iParamName, void *pBuf,
-                                       size_t szBuf) const override;
+        virtual cl_int GetInfoInternal(cl_int iParamName, void *pBuf,
+                                       size_t szBuf,
+                                       size_t *szOutput) const override;
 
         virtual void BecomeVisible() override;
 

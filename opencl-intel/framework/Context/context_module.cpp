@@ -1870,17 +1870,45 @@ cl_mem ContextModule::CreateBufferWithProperties(
                  " szSize=%u, pHostPtr=%d, pErrcodeRet=%d)"),
             clContext, properties, (unsigned long long)clFlags, szSize,
             pHostPtr, pErrcodeRet);
+  cl_int iErrCode = CL_SUCCESS;
+  std::vector<cl_mem_properties> bufferPropsArray;
 
-  // properties is an optional list of properties for the buffer object and
-  // their corresponding values. OpenCL 3.0 does not define any optional
-  // properties for buffers.
-  cl_mem bufHandle =
-      CreateBufferImpl(clContext, clFlags, szSize, pHostPtr, pErrcodeRet);
+  while (nullptr != properties && 0 != *properties && CL_SUCCEEDED(iErrCode)) {
+    const cl_mem_properties name = *(properties++);
+    if (std::find(bufferPropsArray.begin(), bufferPropsArray.end(), name) !=
+        bufferPropsArray.end()) {
+      iErrCode = CL_INVALID_VALUE;
+      break;
+    }
+    const cl_mem_properties value = *(properties++);
+    bufferPropsArray.push_back(name);
+    bufferPropsArray.push_back(value);
 
-  if (bufHandle != CL_INVALID_HANDLE) {
-    LOG_DEBUG(TEXT("CreateBufferWithProperties return handle %d"), bufHandle);
+    // OpenCL 3.0 does not define any optional properties for buffers.
   }
-  return bufHandle;
+
+  // Add a terminator
+  if (nullptr != properties)
+    bufferPropsArray.push_back(0);
+
+  if (CL_SUCCEEDED(iErrCode)) {
+    cl_mem bufHandle =
+        CreateBufferImpl(clContext, clFlags, szSize, pHostPtr, pErrcodeRet);
+
+    if (bufHandle != CL_INVALID_HANDLE) {
+      LOG_DEBUG(TEXT("CreateBufferWithProperties return handle %d"), bufHandle);
+      SharedPtr<MemoryObject> pBuffer =
+          m_mapMemObjects.GetOCLObject((_cl_mem_int *)bufHandle)
+              .DynamicCast<MemoryObject>();
+      if (pBuffer)
+        pBuffer->SetProperties(bufferPropsArray);
+    }
+    return bufHandle;
+  } else {
+    if (nullptr != pErrcodeRet)
+      *pErrcodeRet = iErrCode;
+    return CL_INVALID_HANDLE;
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2137,16 +2165,43 @@ cl_mem ContextModule::CreateImageWithProperties(
                  "errcode_ret=%p"),
             context, properties, (unsigned long long)flags, image_format,
             image_desc, host_ptr, errcode_ret);
+  cl_int iErrCode = CL_SUCCESS;
+  std::vector<cl_mem_properties> imagePropsArray;
 
-  // properties is an optional list of properties for the image object and their
-  // corresponding values. OpenCL 3.0 does not define any optional properties
-  // for images.
-  cl_mem clMemObj = CreateImageImpl(context, flags, image_format, image_desc,
-                                    host_ptr, errcode_ret);
-  if (clMemObj == CL_INVALID_HANDLE)
-    LOG_DEBUG(TEXT("CreateImageWithProperties returned handle = %d"), clMemObj);
+  while (nullptr != properties && 0 != *properties && CL_SUCCEEDED(iErrCode)) {
+    const cl_mem_properties name = *(properties++);
+    if (std::find(imagePropsArray.begin(), imagePropsArray.end(), name) !=
+        imagePropsArray.end()) {
+      iErrCode = CL_INVALID_VALUE;
+      break;
+    }
+    const cl_mem_properties value = *(properties++);
+    imagePropsArray.push_back(name);
+    imagePropsArray.push_back(value);
 
-  return clMemObj;
+    // OpenCL 3.0 does not define any optional properties for image.
+  }
+
+  if (nullptr != properties)
+    imagePropsArray.push_back(0);
+
+  if (CL_SUCCEEDED(iErrCode)) {
+    cl_mem clMemObj = CreateImageImpl(context, flags, image_format, image_desc,
+                                      host_ptr, errcode_ret);
+    if (clMemObj != CL_INVALID_HANDLE) {
+      LOG_DEBUG(TEXT("CreateImageWithProperties returned handle = %d"), clMemObj);
+      SharedPtr<MemoryObject> pImage =
+          m_mapMemObjects.GetOCLObject((_cl_mem_int *)clMemObj)
+              .DynamicCast<MemoryObject>();
+      if (pImage)
+        pImage->SetProperties(imagePropsArray);
+    }
+    return clMemObj;
+  } else {
+    if (nullptr != errcode_ret)
+      *errcode_ret = iErrCode;
+    return CL_INVALID_HANDLE;
+  }
 }
 
 bool ContextModule::Check2DImageFromBufferPitch(const ConstSharedPtr<GenericMemObject>& pBuffer, const cl_image_desc& desc, const cl_image_format& format) const
@@ -2596,6 +2651,10 @@ cl_sampler ContextModule::CreateSamplerWithProperties(cl_context clContext, cons
             }
     }
 
+    // Add a terminator
+    if (nullptr != pSamplerProperties)
+      samplerPropsArray.push_back(0);
+
     if (CL_SUCCEEDED(iErrCode)) {
       cl_sampler sampler =
           CreateSampler(clContext, bNormalizedCoords, clAddressingMode,
@@ -2608,7 +2667,7 @@ cl_sampler ContextModule::CreateSamplerWithProperties(cl_context clContext, cons
       // properties argument in the same order, so we need to save a
       // copy the original properties
       if (pSampler)
-        pSampler->ReserveProperties(samplerPropsArray);
+        pSampler->SetProperties(samplerPropsArray);
       return sampler;
     } else {
       if (nullptr != pErrcodeRet) {

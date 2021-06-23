@@ -78,33 +78,38 @@ OclCommandQueue::~OclCommandQueue()
     RELEASE_LOGGER_CLIENT;
 }
 
-size_t OclCommandQueue::GetInfoInternal(cl_int iParamName, void* pBuf, size_t szBuf) const
+cl_int OclCommandQueue::GetInfoInternal(
+    cl_int iParamName, void* pBuf, size_t szBuf, size_t *szOuput) const
 {
     switch (iParamName)
     {
         case CL_QUEUE_CONTEXT:
             if (szBuf < sizeof(cl_context))
-                return 0;
+                return CL_INVALID_VALUE;
             *(cl_context*)pBuf = (cl_context)GetParentHandle();
-            return sizeof(cl_context);
+            *szOuput = sizeof(cl_context);
+            break;
         case CL_QUEUE_DEVICE:
             if (szBuf < sizeof(cl_device_id))
-                return 0;
+                return CL_INVALID_VALUE;
             *(cl_device_id*)pBuf = m_clDefaultDeviceHandle;
-            return sizeof(cl_device_id);
+            *szOuput = sizeof(cl_device_id);
+            break;
         case CL_QUEUE_REFERENCE_COUNT:
             if (szBuf < sizeof(cl_uint))
-                return 0;
+                return CL_INVALID_VALUE;
             *(cl_uint*)pBuf = m_uiRefCount;
-            return sizeof(cl_uint);
+            *szOuput = sizeof(cl_uint);
+            break;
         case CL_QUEUE_PROPERTIES:
             {
                 if (szBuf < sizeof(cl_command_queue_properties))
-                    return 0;
+                    return CL_INVALID_VALUE;
                 int iOutOfOrder  = (m_bOutOfOrderEnabled) ? 1 : 0;
                 int iProfilingEn = (m_bProfilingEnabled)  ? 1 : 0;
                 *(cl_command_queue_properties*)pBuf = ((iOutOfOrder) | ( iProfilingEn<<1 ));
-                return sizeof(cl_command_queue_properties); 
+                *szOuput = sizeof(cl_command_queue_properties);
+                break;
             }
         case CL_QUEUE_PROPERTIES_ARRAY:
             {
@@ -112,26 +117,30 @@ size_t OclCommandQueue::GetInfoInternal(cl_int iParamName, void* pBuf, size_t sz
                     sizeof(cl_command_queue_properties)
                     * m_clQueuePropsArray.size();
                 if (szBuf < propsArraySize)
-                    return 0;
+                    return CL_INVALID_VALUE;
                 MEMCPY_S(pBuf, szBuf, m_clQueuePropsArray.data(),
                          propsArraySize);
-                return propsArraySize;
+                *szOuput = propsArraySize;
+                break;
             }
         case CL_QUEUE_DEVICE_DEFAULT:
             {
                 if (szBuf < sizeof(cl_command_queue))
-                    return 0;
+                    return CL_INVALID_VALUE;
                 OclCommandQueue* device_queue = m_pDefaultDevice->GetDefaultDeviceQueue();
                 if(NULL != device_queue)
                     *(cl_command_queue*)pBuf = device_queue->GetHandle();
                 else
-                    return 0;
+                    return CL_INVALID_VALUE;
 
-                return sizeof(cl_command_queue);
+                *szOuput = sizeof(cl_command_queue);
+                break;
             }
         default:
-            return 0;
+            *szOuput = 0;
+            return CL_INVALID_VALUE;
     }
+    return CL_SUCCESS;
 }
 
 void OclCommandQueue::SetProperties(
@@ -139,8 +148,6 @@ void OclCommandQueue::SetProperties(
     if (clQueuePropsArray.empty())
         return;
     m_clQueuePropsArray.swap(clQueuePropsArray);
-    // Add a terminator
-    m_clQueuePropsArray.push_back(0);
 }
 
 /******************************************************************
@@ -150,14 +157,15 @@ cl_err_code OclCommandQueue::GetInfo( cl_int iParamName, size_t szParamValueSize
 {
     // MAX_CMD_QUEUE_PROPS_ARRAY_SIZE is the biggest information there is
     char localParamValue[MAX_CMD_QUEUE_PROPS_ARRAY_SIZE];
-    const size_t szOutputValueSize =
-        GetInfoInternal(iParamName, localParamValue, sizeof(localParamValue));
+    size_t szOutputValueSize;
+    const cl_int iErrCode =
+        GetInfoInternal(iParamName, localParamValue, sizeof(localParamValue), &szOutputValueSize);
 
     if ( NULL != pszParamValueSizeRet )
         *pszParamValueSizeRet = szOutputValueSize;
 
     // check param_value_size
-    if (((NULL != pParamValue) && (szParamValueSize < szOutputValueSize)) || 0 == szOutputValueSize)
+    if (((NULL != pParamValue) && (szParamValueSize < szOutputValueSize)) || CL_FAILED(iErrCode))
         return CL_INVALID_VALUE;
     else if ( NULL != pParamValue )
         MEMCPY_S(pParamValue, szParamValueSize, localParamValue, szOutputValueSize);

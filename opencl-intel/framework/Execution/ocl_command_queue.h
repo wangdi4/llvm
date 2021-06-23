@@ -111,9 +111,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * @param iParamName    the parameter's name
          * @param pBuf            a buffer into which the parameter's information is to be written
          * @param szBuf            pBuf's size
-         * @return the size of the data or 0 in case of error 
+         * @param szOuput       the size of the data
+         * @return CL_SUCCESS if the function is executed successfully.
          */
-        virtual size_t GetInfoInternal(cl_int iParamName, void* pBuf, size_t szBuf) const;
+        virtual cl_int GetInfoInternal(cl_int iParamName, void* pBuf, size_t szBuf, size_t *szOutput) const;
 
         SharedPtr<Context> m_pContext;
         SharedPtr<FissionableDevice> m_pDefaultDevice;

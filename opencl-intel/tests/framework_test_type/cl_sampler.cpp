@@ -63,6 +63,8 @@ bool clSampler()
         context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
         CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
 
+        std::vector<cl_sampler_properties> samplerPropsEmpty{0};
+
         std::vector<cl_sampler_properties> samplerProps{
             CL_SAMPLER_NORMALIZED_COORDS,
             CL_FALSE,
@@ -84,13 +86,31 @@ bool clSampler()
         clReleaseSampler(sampler);
 
         sampler =
+            clCreateSamplerWithProperties(context, samplerPropsEmpty.data(), &iRet);
+
+        iRet = clGetSamplerInfo(sampler, CL_SAMPLER_PROPERTIES, 0, nullptr,
+                                &szSize);
+        CheckException("clGetSamplerInfo", CL_SUCCESS, iRet);
+        CheckException("CL_SAMPLER_PROPERTIES size is unexpected",
+                       sizeof(cl_sampler_properties), szSize);
+
+        queriedProps.resize(szSize/sizeof(cl_sampler_properties));
+        iRet = clGetSamplerInfo(sampler, CL_SAMPLER_PROPERTIES, szSize,
+                                queriedProps.data(), nullptr);
+        CheckException("clGetSamplerInfo", CL_SUCCESS, iRet);
+        CheckException("clGetSamplerInfo queried properties is unexpected",
+                       CL_SUCCESS,
+                       compareProperties(queriedProps, samplerPropsEmpty));
+        clReleaseSampler(sampler);
+
+        sampler =
             clCreateSamplerWithProperties(context, samplerProps.data(), &iRet);
 
         iRet = clGetSamplerInfo(sampler, CL_SAMPLER_PROPERTIES, 0, nullptr,
                                 &szSize);
         CheckException("clGetSamplerInfo", CL_SUCCESS, iRet);
         CheckException("CL_SAMPLER_PROPERTIES size is unexpected",
-                  numProps * sizeof(cl_sampler_properties), szSize);
+                       numProps * sizeof(cl_sampler_properties), szSize);
 
         queriedProps.resize(numProps);
         iRet = clGetSamplerInfo(sampler, CL_SAMPLER_PROPERTIES, szSize,
