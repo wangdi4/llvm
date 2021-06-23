@@ -39,7 +39,6 @@ set(OCL_BE_PASSES
     PipeOrdering
     PipeSupport
     Prefetch
-    PrepareKernelArgs
     PreventDivCrashes
     RelaxedPass
     ResolveBlockToStaticCall
