@@ -312,10 +312,12 @@ static cl::opt<bool> EnableDTrans("enable-dtrans",
     cl::init(false), cl::Hidden,
     cl::desc("Enable DTrans optimizations"));
 
+#if INTEL_FEATURE_SW_ADVANCED
 // Partial inline simple functions
 static cl::opt<bool>
     EnableIntelPI("enable-intelpi", cl::init(true), cl::Hidden,
                     cl::desc("Enable partial inlining for simple functions"));
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_INCLUDE_DTRANS
 
 // PGO based function splitting
@@ -1846,14 +1848,20 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createTileMVInlMarkerLegacyPass());
   }
 
+#if INTEL_FEATURE_SW_ADVANCED
   bool EnableIntelPartialInlining = EnableIntelPI && EnableDTrans;
+#endif // INTEL_FEATURE_SW_ADVANCED
 #else
+#if INTEL_FEATURE_SW_ADVANCED
   bool EnableIntelPartialInlining = false;
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_INCLUDE_DTRANS
 
+#if INTEL_FEATURE_SW_ADVANCED
   // Partial inlining for simple functions
   if (EnableIntelPartialInlining)
     PM.add(createIntelPartialInlineLegacyPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   bool RunInliner = Inliner;
 #if INTEL_CUSTOMIZATION

@@ -156,7 +156,9 @@ MODULE_PASS("invalidate<all>", InvalidateAllAnalysesPass())
 MODULE_PASS("ip-cloning", IPCloningPass(/*AfterInl*/ false,
                                         /*IFSwitchHeuristic*/ false))
 MODULE_PASS("intel-argument-alignment", IntelArgumentAlignmentPass())
+#if INTEL_FEATURE_SW_ADVANCED
 MODULE_PASS("intel-partialinline", IntelPartialInlinePass())
+#endif // INTEL_FEATURE_SW_ADVANCED
 MODULE_PASS("post-inline-ip-cloning", IPCloningPass(/*AfterInl*/ true,
                                         /*IFSwitchHeuristic*/ false))
 MODULE_PASS("call-tree-clone", CallTreeCloningPass())

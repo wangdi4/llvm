@@ -1,7 +1,9 @@
-; REQUIRES: asserts
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: asserts, intel_feature_sw_advanced
 
 ; Test for checking that the simple Intel partial inliner didn't work
-; because the function was marked as always_inline.
+; in this case. It should fail because the iteration doesn't stop in
+; NULL.
 ;
 ; This test case is very simple. In C++ it can be seen as follows:
 ;
@@ -10,36 +12,36 @@
 ;  Node *Next;
 ; };
 ;
-; __attribute__((always_inline))
-; bool foo(Node *List) {
+; bool foo(Node *List, Node *End) {
 ;   Node *Head;
 ;   bool val = true;
 ;   int Num = 0;
 ;
-;   for (Head = List; Head != NULL; Head = Head->Next()) {
+;   for (Head = List; Head != End; Head = Head->Next()) {
 ;     Num += Head->Num;
 ;     val = Num == 0;
 ;   }
 ;   return val;
 ; }
 ;
-; bool bar(Node *List) {
-;   return foo(List);
+; bool bar(Node *List, Node, *End) {
+;   return foo(List, End);
 ; }
 ;
 ; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -debug-only=intel_partialinline 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline)' -debug-only=intel_partialinline 2>&1 | FileCheck %s
 
-; CHECK: No candidates for partial inlining
-; CHECK-NOT: Candidates for partial inlining: 1
-; CHECK-NOT: Analyzing Function: _Z3fooP4Node
+; CHECK: Candidates for partial inlining: 1
+; CHECK:     _Z3fooP4Node
+; CHECK: Analyzing Function: _Z3fooP4Node
+; CHECK:     Result: Function can't be cloned
 ; CHECK-NOT:     Result: Can partial inline
 
 %struct.Node = type { i32, %struct.Node* }
 
-define i1 @_Z3fooP4Node(%struct.Node* %List) #1 {
+define i1 @_Z3fooP4Node(%struct.Node* %List, %struct.Node* %End) {
 entry:
-  %cmp8 = icmp eq %struct.Node* %List, null
+  %cmp8 = icmp eq %struct.Node* %List, %End
   br i1 %cmp8, label %for.end, label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
@@ -51,7 +53,7 @@ for.body:                                         ; preds = %entry, %for.body
   %phitmp = icmp eq i32 %add, 0
   %Next = getelementptr inbounds %struct.Node, %struct.Node* %Head.09, i64 0, i32 1
   %1 = load %struct.Node*, %struct.Node** %Next
-  %cmp = icmp eq %struct.Node* %1, null
+  %cmp = icmp eq %struct.Node* %1, %End
   br i1 %cmp, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.end, %entry
@@ -60,14 +62,18 @@ for.end:                                          ; preds = %for.end, %entry
 }
 
 
-define i1 @_Z3barP4Node(%struct.Node* %List) #0 {
+define i1 @_Z3barP4Node(%struct.Node* %List, %struct.Node* %End) #0 {
 entry:
   %List.addr = alloca %struct.Node*
   store %struct.Node* %List, %struct.Node** %List.addr
   %0 = load %struct.Node*, %struct.Node** %List.addr
-  %call = call zeroext i1 @_Z3fooP4Node(%struct.Node* %0)
+  %End.addr = alloca %struct.Node*
+  store %struct.Node* %End, %struct.Node** %End.addr
+  %1 = load %struct.Node*, %struct.Node** %End.addr
+
+  %call = call zeroext i1 @_Z3fooP4Node(%struct.Node* %0, %struct.Node* %1)
   ret i1 %call
 }
 
 attributes #0 = { noinline }
-attributes #1 = { alwaysinline }
+; end INTEL_FEATURE_SW_ADVANCED

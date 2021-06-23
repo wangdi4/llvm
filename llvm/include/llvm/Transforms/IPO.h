@@ -312,6 +312,7 @@ ModulePass *createIntelFoldWPIntrinsicLegacyPass();
 /// expressed as llvm intrinsics.
 ModulePass *createIntelMathLibrariesDeclarationWrapperPass();
 
+#if INTEL_FEATURE_SW_ADVANCED
 /// \brief This pass implements a simple partial inlining for small functions.
 /// This partial inliner will take care of small functions that the compiler
 /// will like to fully inline. The difference between this partial inliner and
@@ -321,6 +322,7 @@ ModulePass *createIntelMathLibrariesDeclarationWrapperPass();
 /// the new function that calls the original, creating a partial inline
 /// behavior. The traditional partial inliner will actually do inlining.
 ModulePass *createIntelPartialInlineLegacyPass();
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 /// \brief This pass conducts IPO-based Array Transpose.
 ModulePass *createIPArrayTransposeLegacyPass();

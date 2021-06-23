@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: asserts, intel_feature_sw_advanced
+
 ; Test for checking the simple Intel partial inliner. This partial inliner
 ; will identify small functions that use an argument as iterator and return a
 ; boolean. The result will be a cloned function that checks if the input
@@ -5,17 +8,15 @@
 ; will actually perform the partial inlining.
 ;
 ; This test case is the same as intel_simple_partial_inline_2_ir.ll, but it
-; checks that the inlining report was printed correctly.
+; checks the debug information.
+;
+; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -debug-only=intel_partialinline -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline)' -debug-only=intel_partialinline -disable-output 2>&1 | FileCheck %s
 
-; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -inline -inline-report=7 -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline),cgscc(inline)' -inline-report=7 -disable-output 2>&1 | FileCheck %s
-
-; CHECK: COMPILE FUNC: _Z3fooP4Node.1
-; CHECK:   -> _Z3fooP4Node.1.for.body {{.*}}Outlined function from partial inlining
-
-; CHECK: COMPILE FUNC: _Z3barP4Node
-; CHECK: -> INLINE: _Z3fooP4Node.1{{.*}}<<Preferred for partial inlining>>
-; CHECK:      -> _Z3fooP4Node.1.for.body {{.*}}Outlined function from partial inlining
+; CHECK: Candidates for partial inlining: 1
+; CHECK:     _Z3fooP4Node
+; CHECK: Analyzing Function: _Z3fooP4Node
+; CHECK:     Result: Can partial inline
 
 %struct.Node = type { i32, %struct.Node* }
 
@@ -66,3 +67,4 @@ entry:
 }
 
 attributes #0 = { noinline }
+; end INTEL_FEATURE_SW_ADVANCED

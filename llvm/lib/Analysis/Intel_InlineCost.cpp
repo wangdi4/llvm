@@ -22,7 +22,9 @@
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"
+#if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Analysis/Intel_PartialInlineAnalysis.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
@@ -1646,6 +1648,7 @@ static bool preferToDelayInlineForCopyArrElems(CallBase &CB, bool PrepareForLTO,
   return true;
 }
 
+#if INTEL_FEATURE_SW_ADVANCED
 //
 // Return 'true' if 'Callee' is a function that is preferred to be
 // partially inlined over fully inlined. This function won't be inlined
@@ -1725,6 +1728,7 @@ static bool preferToIntelPartialInline(Function &F, bool PrepareForLTO,
   };
   return isIntelPartialInlineCandidate(&F, GetLoopInfo, PrepareForLTO);
 }
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 //
 // Return 'true' if 'I' is an instruction related to exception handling that
@@ -1831,12 +1835,14 @@ extern Optional<InlineResult> intelWorthNotInlining(
   if (preferToDelayInlineForCopyArrElems(CandidateCall, PrepareForLTO, *ILIC))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrDelayInlineDecision);
+#if INTEL_FEATURE_SW_ADVANCED
   if (preferPartialInlineOutlinedFunc(Callee))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrPreferPartialInline);
   if (preferToIntelPartialInline(*Callee, PrepareForLTO, *ILIC))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrDelayInlineDecision);
+#endif // INTEL_FEATURE_SW_ADVANCED
   if (preferNotToInlineEHIntoLoop(CandidateCall, *ILIC))
     return InlineResult::failure("not profitable")
         .setIntelInlReason(NinlrCalleeHasExceptionHandling);

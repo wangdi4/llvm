@@ -92,7 +92,9 @@ add_llvm_component_library(LLVMAnalysis
   Intel_FPValueRangeAnalysis.cpp
   Intel_IPCloningAnalysis.cpp
   Intel_InlineCost.cpp
+# INTEL_FEATURE_SW_ADVANCED
   Intel_PartialInlineAnalysis.cpp
+#end INTEL_FEATURE_SW_ADVANCED
   Intel_SNode.cpp
   Intel_StdContainerAA.cpp
   Intel_OptVLS.cpp

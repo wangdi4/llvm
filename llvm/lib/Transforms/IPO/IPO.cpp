@@ -74,7 +74,11 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeIPCloningLegacyPassPass(Registry);          // INTEL
   initializeCallTreeCloningLegacyPassPass(Registry);    // INTEL
   initializeIntelAdvancedFastCallWrapperPassPass(Registry); // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
   initializeIntelPartialInlineLegacyPassPass(Registry); // INTEL
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
   initializeIntelIPOPrefetchWrapperPassPass(Registry); // INTEL
   initializeDopeVectorConstPropLegacyPassPass(Registry); // INTEL
   initializeIntelArgumentAlignmentLegacyPassPass(Registry); // INTEL

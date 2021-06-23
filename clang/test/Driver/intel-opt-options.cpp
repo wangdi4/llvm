@@ -15,7 +15,6 @@
 // LAYOUT_TRANS_DEFAULT: "-mllvm" "-dtrans-outofboundsok=false"
 // LAYOUT_TRANS_DEFAULT: "-mllvm" "-dtrans-usecrulecompat=true"
 // LAYOUT_TRANS_DEFAULT: "-mllvm" "-dtrans-inline-heuristics=true"
-// LAYOUT_TRANS_DEFAULT: "-mllvm" "-dtrans-partial-inline=true"
 // LAYOUT_TRANS_DEFAULT: "-mllvm" "-irmover-type-merging=false"
 // LAYOUT_TRANS_DEFAULT: "-mllvm" "-spill-freq-boost=true"
 
@@ -30,7 +29,6 @@
 // LAYOUT_TRANS_LTO: "[[OPTION]]-dtrans-outofboundsok=false"
 // LAYOUT_TRANS_LTO: "[[OPTION]]-dtrans-usecrulecompat=true"
 // LAYOUT_TRANS_LTO: "[[OPTION]]-dtrans-inline-heuristics=true"
-// LAYOUT_TRANS_LTO: "[[OPTION]]-dtrans-partial-inline=true"
 // LAYOUT_TRANS_LTO: "[[OPTION]]-irmover-type-merging=false"
 // LAYOUT_TRANS_LTO: "[[OPTION]]-spill-freq-boost=true"
 
