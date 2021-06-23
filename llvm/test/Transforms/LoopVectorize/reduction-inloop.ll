@@ -821,7 +821,10 @@ define float @reduction_conditional(float* %A, float* %B, float* %C, float %S) {
 ; CHECK-NEXT:    [[TMP12:%.*]] = xor <4 x i1> [[TMP5]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK-NEXT:    [[PREDPHI_V:%.*]] = select <4 x i1> [[TMP9]], <4 x float> [[WIDE_LOAD1]], <4 x float> [[WIDE_LOAD]]
 ; CHECK-NEXT:    [[PREDPHI:%.*]] = fadd fast <4 x float> [[VEC_PHI]], [[PREDPHI_V]]
-; CHECK-NEXT:    [[TMP13:%.*]] = select <4 x i1> [[TMP12]], <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i1> [[TMP11]]
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[DOTFR:%.*]] = freeze <4 x i1> [[TMP11]]
+; CHECK-NEXT:    [[TMP13:%.*]] = or <4 x i1> [[DOTFR]], [[TMP12]]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[PREDPHI3]] = select <4 x i1> [[TMP13]], <4 x float> [[VEC_PHI]], <4 x float> [[PREDPHI]]
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 4
 ; CHECK-NEXT:    [[TMP14:%.*]] = icmp eq i64 [[INDEX_NEXT]], 128
@@ -1075,7 +1078,6 @@ define i8 @reduction_and_trunc(i8* noalias nocapture %A) {
 ; CHECK-NEXT:    [[RET:%.*]] = trunc i32 [[SUM_0_LCSSA]] to i8
 ; CHECK-NEXT:    ret i8 [[RET]]
 ; end INTEL_CUSTOMIZATION
-;
 entry:
   br label %.lr.ph
 
