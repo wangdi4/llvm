@@ -111,15 +111,17 @@ public:
     void Release() override;
 
     /**
-     * Prints the JIT code in assembly x86
+     * Dumps the JIT code
      *
      * @param codeContainer Code container
      * @param options Pointer to the options object which may contain the dump
      *                settings. /see cl_dev_backend_dump_options
+     * @param dumpBinary Dump code as ELF binary or disassembled x86 assembly
      */
     cl_dev_err_code
     DumpJITCodeContainer(const ICLDevBackendCodeContainer *codeContainer,
-                         const ICLDevBackendOptions *options) const override;
+                         const ICLDevBackendOptions *options,
+                         bool dumpBinary = false) const override;
 
   protected:
     virtual const ProgramBuilder* GetProgramBuilder() const = 0;
