@@ -183,11 +183,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   unsigned OclVersion::CLStrToVal(const char* S) {
     // Constants for OpenCL spec revisions
     const unsigned VersionValues[] = {
-      CL_VER_1_0, CL_VER_1_1, CL_VER_1_2, CL_VER_2_0
+      CL_VER_1_0, CL_VER_1_1, CL_VER_1_2, CL_VER_2_0, CL_VER_3_0
     };
     // The possible values that can be passed to be -cl-std compile option
     const StringRef VersionStrings[] = {
-      "CL1.0", "CL1.1", "CL1.2", "CL2.0"
+      "CL1.0", "CL1.1", "CL1.2", "CL2.0", "CL3.0"
     };
 
     auto B = std::begin(VersionStrings);

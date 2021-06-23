@@ -326,7 +326,10 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
     SPIRV::BIsRepresentation TargetRepr = SPIRV::BIsRepresentation::OpenCL12;
 
     std::string Options(m_pProgDesc->pszOptions);
-    if (Options.find("-cl-std=CL2.0") != std::string::npos) {
+    // The lowering of built-in(s) in OpenCL C 3.0 is compatible with which in
+    // OpenCL C 2.0 for our runtime.
+    if (Options.find("-cl-std=CL2.0") != std::string::npos ||
+        Options.find("-cl-std=CL3.0") != std::string::npos) {
       TargetRepr = SPIRV::BIsRepresentation::OpenCL20;
     }
 
