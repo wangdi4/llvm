@@ -226,15 +226,15 @@ void LoopVectorizationPlannerHIR::emitVecSpecifics(VPlanVector *Plan) {
   Builder.setInsertPointFirstNonPhi(PreHeader);
 
   VPValue *OrigTC;
-  VPInstruction *Cond;
+  VPCmpInst *Cond;
   std::tie(OrigTC, Cond) = CandidateLoop->getLoopUpperBound();
-  assert((OrigTC && Cond) && "A normalized loop expected");
-  if (auto Instr = dyn_cast<VPInstruction>(OrigTC)) {
+
+  if (auto *Instr = dyn_cast<VPInstruction>(OrigTC)) {
     auto Parent = Instr->getParent();
     assert(
         (Parent == PreHeader || Plan->getDT()->dominates(Parent, PreHeader)) &&
         "Unexpected loop upper bound placement");
-    Builder.setInsertPoint(Parent, std::next(Instr->getIterator(),1));
+    Builder.setInsertPoint(Parent, std::next(Instr->getIterator(), 1));
   }
   auto *VTC = Builder.create<VPVectorTripCountCalculation>(
       TheLoop, "vector.trip.count", OrigTC);
