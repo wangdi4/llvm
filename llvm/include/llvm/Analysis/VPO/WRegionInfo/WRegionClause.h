@@ -1239,7 +1239,8 @@ public:
 // base "Item" class above.
 //
 //   SubdeviceItem (for the Subdevice clause)
-//   DependItem    (for the depend  clause in task and target constructs)
+//   DependItem    (for the depend  clause in task, taskwait and target
+//                  constructs)
 //   DepSinkItem   (for the depend(sink:<vec>) clause in ordered constructs)
 //   DepSourceItem (for the depend(source) clause in ordered constructs)
 //   AlignedItem   (for the aligned clause in simd constructs)

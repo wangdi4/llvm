@@ -1842,12 +1842,16 @@ public:
 /// \endcode
 class WRNTaskwaitNode : public WRegionNode {
 
+private:
+  DependClause Depend;
+
 public:
   WRNTaskwaitNode(BasicBlock *BB);
 /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTaskwait;
   }
+  DEFINE_GETTER(DependClause, getDepend, Depend)
 };
 
 /// WRN for
