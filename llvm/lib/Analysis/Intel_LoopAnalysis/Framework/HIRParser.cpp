@@ -4442,14 +4442,15 @@ bool HIRParser::processedRemovableIntrinsic(HLInst *HInst) {
   return true;
 }
 
-static HLLoop *getNextLexicalLoop(HLNode *Node) {
+HLLoop *HIRParser::getNextLexicalLoop(HLNode *Node) {
   HLNode *NextNode = Node;
 
   do {
-    NextNode = NextNode->getNextNode();
-  } while (NextNode && !isa<HLLoop>(NextNode));
+    NextNode = &*std::next(NextNode->getIterator());
+  } while (!isa<HLLoop>(NextNode) &&
+           !HLNodeUtils::isLexicalLastChildOfParent(NextNode));
 
-  return cast_or_null<HLLoop>(NextNode);
+  return dyn_cast<HLLoop>(NextNode);
 }
 
 bool HIRParser::processBlockLoopBeginDirective(HLInst *HInst) {
