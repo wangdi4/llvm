@@ -60,14 +60,23 @@ protected:
     m_queue = clCreateCommandQueueWithProperties(m_context, m_device,
                                                  properties, &err);
     ASSERT_OCL_SUCCESS(err, "clCreateCommandQueueWithProperties");
+
+    m_buildOptions = "-cl-std=CL2.0";
+    m_program = nullptr;
+    m_kernel = nullptr;
   }
 
   virtual void TearDown() override {
-    cl_int err = clReleaseKernel(m_kernel);
-    ASSERT_OCL_SUCCESS(err, "clReleaseKernel");
+    int err;
+    if (m_kernel) {
+      err = clReleaseKernel(m_kernel);
+      ASSERT_OCL_SUCCESS(err, "clReleaseKernel");
+    }
 
-    err = clReleaseProgram(m_program);
-    ASSERT_OCL_SUCCESS(err, "clReleaseProgram");
+    if (m_program) {
+      err = clReleaseProgram(m_program);
+      ASSERT_OCL_SUCCESS(err, "clReleaseProgram");
+    }
 
     err = clReleaseCommandQueue(m_queue);
     ASSERT_OCL_SUCCESS(err, "clReleaseCommandQueue");
@@ -76,7 +85,7 @@ protected:
     ASSERT_OCL_SUCCESS(err, "clReleaseContext");
   }
 
-  void BuildProgram(unsigned workDim) {
+  void BuildProgram(unsigned workDim, bool createKernel = true) {
     ASSERT_TRUE(workDim == 1 || workDim == 2 || workDim == 3);
     const char *source;
     if (workDim == 1)
@@ -116,16 +125,18 @@ protected:
     m_program = clCreateProgramWithSource(m_context, 1, &source, nullptr, &err);
     ASSERT_OCL_SUCCESS(err, "clCreateProgramWithSource");
 
-    err = clBuildProgram(m_program, 1, &m_device, "-cl-std=CL2.0", nullptr,
-                         nullptr);
+    err = clBuildProgram(m_program, 1, &m_device, m_buildOptions.c_str(),
+                         nullptr, nullptr);
     if (CL_SUCCESS != err) {
       std::string log;
       ASSERT_NO_FATAL_FAILURE(GetBuildLog(m_device, m_program, log));
       FAIL() << log;
     }
 
-    m_kernel = clCreateKernel(m_program, "test", &err);
-    ASSERT_OCL_SUCCESS(err, "clCreateKernel test");
+    if (createKernel) {
+      m_kernel = clCreateKernel(m_program, "test", &err);
+      ASSERT_OCL_SUCCESS(err, "clCreateKernel test");
+    }
   }
 
   bool IsNegative(unsigned workDim) {
@@ -149,6 +160,8 @@ protected:
   cl_device_id m_device;
   cl_context m_context;
   cl_command_queue m_queue;
+
+  std::string m_buildOptions;
   cl_program m_program;
   cl_kernel m_kernel;
 
@@ -217,6 +230,52 @@ TEST_P(ForceWGSizeTest, dim1Null) {
 
   for (size_t i = 0; i < dummy.size(); ++i)
     ASSERT_EQ(i, dummy[i]);
+}
+
+TEST_P(ForceWGSizeTest, dim1AOT) {
+  unsigned workDim = 1;
+  ASSERT_NO_FATAL_FAILURE(BuildProgram(workDim, /*createKernel*/ false));
+
+  cl_program program;
+  ASSERT_NO_FATAL_FAILURE(CreateAndBuildProgramFromProgramBinaries(
+      m_context, m_device, m_buildOptions, m_program, program));
+
+  cl_int err;
+  cl_kernel kernel = clCreateKernel(program, "test", &err);
+  ASSERT_OCL_SUCCESS(err, "clCreateKernel test");
+
+  cl_int result = 0;
+  err = clSetKernelArgMemPointerINTEL(kernel, 0, &result);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+
+  size_t gdim = 32;
+  size_t ldim = 4;
+
+  std::vector<cl_int> dummy(gdim);
+  err = clSetKernelArgMemPointerINTEL(kernel, 1, &dummy[0]);
+  ASSERT_OCL_SUCCESS(err, "clSetKernelArgMemPointerINTEL");
+
+  err = clEnqueueNDRangeKernel(m_queue, kernel, workDim, nullptr, &gdim, &ldim,
+                               0, nullptr, nullptr);
+  if (IsNegative(workDim) || IsGreater(workDim, &gdim)) {
+    ASSERT_EQ(err, CL_INVALID_WORK_GROUP_SIZE);
+    return;
+  }
+  ASSERT_OCL_SUCCESS(err, "clEnqueueNDRangeKernel");
+
+  err = clFinish(m_queue);
+  ASSERT_OCL_SUCCESS(err, "clFinish");
+
+  ASSERT_EQ(m_forceWGSize[0], result);
+
+  for (size_t i = 0; i < dummy.size(); ++i)
+    ASSERT_EQ(i, dummy[i]);
+
+  err = clReleaseKernel(kernel);
+  ASSERT_OCL_SUCCESS(err, "clReleaseKernel");
+
+  err = clReleaseProgram(program);
+  ASSERT_OCL_SUCCESS(err, "clReleaseProgram");
 }
 
 TEST_P(ForceWGSizeTest, dim2) {

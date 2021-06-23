@@ -571,6 +571,38 @@ void GetBuildLog(cl_device_id device, cl_program program, std::string &log) {
   ASSERT_EQ(CL_SUCCESS, err) << "clGetProgramBuildInfo failed";
 }
 
+void CreateAndBuildProgramFromProgramBinaries(cl_context context,
+                                              cl_device_id device,
+                                              const std::string &buildOptions,
+                                              cl_program srcProgram,
+                                              cl_program &dstProgram) {
+  cl_int err;
+  size_t binarySize;
+  err = clGetProgramInfo(srcProgram, CL_PROGRAM_BINARY_SIZES,
+                         sizeof(binarySize), &binarySize, nullptr);
+  ASSERT_EQ(CL_SUCCESS, err)
+      << "clGetProgramInfo CL_PROGRAM_BINARY_SIZES failed";
+  std::vector<unsigned char> binary(binarySize);
+  const unsigned char *binaries[1] = {&binary[0]};
+  err = clGetProgramInfo(srcProgram, CL_PROGRAM_BINARIES, sizeof(binaries),
+                         &binaries, nullptr);
+  ASSERT_EQ(CL_SUCCESS, err) << "clGetProgramInfo CL_PROGRAM_BINARIES failed";
+
+  cl_int binaryStatus[1];
+  dstProgram = clCreateProgramWithBinary(context, 1, &device, &binarySize,
+                                         binaries, binaryStatus, &err);
+  ASSERT_EQ(CL_SUCCESS, err) << "clCreateProgramWithBinary failed";
+  ASSERT_EQ(CL_SUCCESS, binaryStatus[0]) << "clCreateProgramWithBinary failed";
+
+  err = clBuildProgram(dstProgram, 1, &device, buildOptions.c_str(), nullptr,
+                       nullptr);
+  if (CL_SUCCESS != err) {
+    std::string log;
+    ASSERT_NO_FATAL_FAILURE(GetBuildLog(device, dstProgram, log));
+    FAIL() << log;
+  }
+}
+
 // LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
 // DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 // THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT

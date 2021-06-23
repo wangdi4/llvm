@@ -141,31 +141,14 @@ protected:
   // Test clCreateProgramWithBinary
   void TestProgramWithBinary(cl_program program, const char *gvName,
                              size_t gvSize, const char *negativeName) {
-    cl_int err;
-    size_t binarySize;
-    err = clGetProgramInfo(program, CL_PROGRAM_BINARY_SIZES, sizeof(binarySize),
-                           &binarySize, nullptr);
-    ASSERT_OCL_SUCCESS(err, "clGetProgramInfo CL_PROGRAM_BINARY_SIZES");
-    std::vector<unsigned char> binary(binarySize);
-    const unsigned char *binaries[1] = {&binary[0]};
-    err = clGetProgramInfo(program, CL_PROGRAM_BINARIES, sizeof(binaries),
-                           &binaries, nullptr);
-    ASSERT_OCL_SUCCESS(err, "clGetProgramInfo CL_PROGRAM_BINARIES");
-
-    cl_int binaryStatus[1];
-    cl_program program1 = clCreateProgramWithBinary(
-        m_context, 1, &m_device, &binarySize, binaries, binaryStatus, &err);
-    ASSERT_OCL_SUCCESS(err, "clCreateProgramWithBinary");
-    ASSERT_OCL_SUCCESS(binaryStatus[0], "clCreateProgramWithBinary");
-
-    err = clBuildProgram(program1, 1, &m_device, m_options.c_str(), nullptr,
-                         nullptr);
-    ASSERT_NO_FATAL_FAILURE(CheckBuildError(program1, err));
+    cl_program program1;
+    ASSERT_NO_FATAL_FAILURE(CreateAndBuildProgramFromProgramBinaries(
+        m_context, m_device, m_options, program, program1));
 
     size_t size;
     void *ptr;
-    err = m_clGetDeviceGlobalVariablePointerINTEL(m_device, program1, gvName,
-                                                  &size, &ptr);
+    cl_int err = m_clGetDeviceGlobalVariablePointerINTEL(m_device, program1,
+                                                         gvName, &size, &ptr);
     ASSERT_OCL_SUCCESS(err, "m_clGetDeviceGlobalVariablePointerINTEL");
     ASSERT_NE(nullptr, ptr);
     ASSERT_EQ(size, gvSize);

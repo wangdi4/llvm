@@ -248,13 +248,16 @@ public:
      * @param pDevMemObjArray [internal use] pointer to the explicit arguments
      * @param devMemObjArrayLength [internal use] size of the array
      * @param numOfComputeUnits number of compute units ND-range is to be run on
+     * @param calculateWGSize whether we need to calculate workgroup size.
      * @returns CL_DEV_SUCCESS in success; CL_DEV_ERROR_FAIL otherwise
      */
-    virtual cl_dev_err_code PrepareKernelArguments(
-      void* pKernelUniformArgs,
-      const cl_mem_obj_descriptor* *pDevMemObjArray,  // TODO-NDRANGE: change type
-      unsigned int devMemObjArrayLength,
-      size_t numOfComputeUnits) const = 0;
+    virtual cl_dev_err_code
+    PrepareKernelArguments(void *pKernelUniformArgs,
+                           const cl_mem_obj_descriptor *
+                               *pDevMemObjArray, // TODO-NDRANGE: change type
+                           unsigned int devMemObjArrayLength,
+                           size_t numOfComputeUnits,
+                           bool calculateWGSize) const = 0;
 
     /**
      * @effects prepares the thread for kernel execution

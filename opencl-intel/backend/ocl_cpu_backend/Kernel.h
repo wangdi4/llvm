@@ -237,13 +237,13 @@ public:
    * @param pDevMemObjArray [internal use] pointer to the exiplicit arguments
    * @param devMemObjArrayLength [internal use] size of the array
    * @param numOfComputeUnits number of compute units ND-range is to be run on
+   * @param calculateWGSize whether we need to calculate workgroup size.
    * @returns CL_DEV_SUCCESS in success; CL_DEV_ERROR_FAIL otherwise
    */
-  virtual cl_dev_err_code
-  PrepareKernelArguments(void *pKernelUniformArgs,
-                         const cl_mem_obj_descriptor **pDevMemObjArray,
-                         unsigned int devMemObjArrayLength,
-                         size_t numOfComputeUnits) const override;
+  virtual cl_dev_err_code PrepareKernelArguments(
+      void *pKernelUniformArgs, const cl_mem_obj_descriptor **pDevMemObjArray,
+      unsigned int devMemObjArrayLength, size_t numOfComputeUnits,
+      bool calculateWGSize) const override;
 
   /**
    * Execute the specified kernel with the given arguments
