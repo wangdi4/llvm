@@ -53,8 +53,8 @@
 //
 // TODO: Add opt-report messages.
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJamPass.h"
 #include "HIRUnroll.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJamPass.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
@@ -1496,7 +1496,6 @@ static void unrollLoopRecursive(HLLoop *OrigLoop, HLLoop *NewLoop,
                               UHelper);
       HLNodeUtils::insertAsFirstPostexitNodes(NewLoop, &NodeRange);
     }
-
   }
 }
 
@@ -1610,10 +1609,9 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap,
     MainLoop->setNumExits(MainLoop->getNumExits() * UnrollFactor);
     MainLoop->dividePragmaBasedTripCount(UnrollFactor);
 
-    LORBuilder(*MainLoop).addRemark(
-        OptReportVerbosity::Low,
-        "Unknown loop has been partially unrolled with %d factor",
-        UnrollFactor);
+    // Loop has been unrolled by %d factor
+    LORBuilder(*MainLoop).addRemark(OptReportVerbosity::Low, 25536u,
+                                    UnrollFactor);
 
   } else {
     // Create the unrolled main loop and setup remainder loop.

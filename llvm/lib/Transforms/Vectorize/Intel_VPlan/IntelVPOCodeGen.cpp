@@ -2363,33 +2363,48 @@ void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {
   // If the selector is loop invariant we can create a select
   // instruction with a scalar condition. Otherwise, use vector-select.
   VPValue *Cond = VPInst->getOperand(0);
-  Value *VCond = getVectorValue(Cond);
   Value *Op0 = getVectorValue(VPInst->getOperand(1));
   Value *Op1 = getVectorValue(VPInst->getOperand(2));
-  auto *VPInstVecTy = dyn_cast<VectorType>(VPInst->getType());
-
   bool UniformCond = Plan->getVPlanDA()->isUniform(*Cond);
 
-  // The condition can be loop invariant  but still defined inside the
-  // loop. This means that we can't just use the original 'cond' value.
-
+  // Table to summarize special handling done for condition operand. Row heading
+  // indicates DA nature of the condition, while column heading indicates the
+  // incoming datatype of (condition/result) of select -
+  //
+  //          | scal/scal |    scal/vec      |      vec/vec     |
+  // ---------|-----------|------------------|------------------|
+  //    UNI   |  getScal  |      getScal     | getScal + repVec |
+  //    DIV   |  getVec   | getVec + repElem |      getVec      |
+  Value *VCond = nullptr;
   if (UniformCond) {
-    // TODO: Handle uniform vector condition in selects.
-    assert(!Cond->getType()->isVectorTy() &&
-           "Uniform vector condition is not supported.");
     VCond = getScalarValue(Cond, 0);
-  } else if (!Cond->getType()->isVectorTy() && VPInstVecTy) {
-    unsigned OriginalVL = VPInstVecTy->getNumElements();
-    // Widen the cond variable as following
-    //                        <0, 1, 0, 1>
-    //                             |
-    //                             | VF = 4,
-    //                             | OriginalVL = 2
-    //                             |
-    //                             V
-    //                  <0, 0, 1, 1, 0, 0, 1, 1>
+    if (Cond->getType()->isVectorTy()) {
+      // For uniform vector cond variable, replicate it VF times as following
+      //                        <0, 1>
+      //                           |
+      //                           | VF = 2,
+      //                           | OriginalVL = 2
+      //                           |
+      //                           V
+      //                      <0, 1, 0, 1>
+      VCond = replicateVector(VCond, VF, Builder);
+    }
+  } else {
+    VCond = getVectorValue(Cond);
+    auto *ResultVecTy = dyn_cast<VectorType>(VPInst->getType());
+    if (!Cond->getType()->isVectorTy() && ResultVecTy) {
+      unsigned OriginalVL = ResultVecTy->getNumElements();
+      // Widen the cond variable as following
+      //                        <0, 1, 0, 1>
+      //                             |
+      //                             | VF = 4,
+      //                             | OriginalVL = 2
+      //                             |
+      //                             V
+      //                  <0, 0, 1, 1, 0, 0, 1, 1>
 
-    VCond = replicateVectorElts(VCond, OriginalVL, Builder);
+      VCond = replicateVectorElts(VCond, OriginalVL, Builder);
+    }
   }
 
   Value *NewSelect = Builder.CreateSelect(VCond, Op0, Op1);

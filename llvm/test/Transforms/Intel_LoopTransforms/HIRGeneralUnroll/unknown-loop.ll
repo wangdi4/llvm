@@ -54,7 +54,7 @@
 ; Check opt-report
 
 ; CHECK: LOOP BEGIN
-; CHECK:    remark: Unknown loop has been partially unrolled with 8 factor
+; CHECK:    remark #25536: Loop has been unrolled by 8 factor
 ; CHECK: LOOP END
 
 

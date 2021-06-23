@@ -31,10 +31,10 @@
 ;RUN: opt -passes="loop-simplify,hir-ssa-deconstruction,hir-loop-fusion,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa" -hir-create-function-level-region -intel-loop-optreport=low 2>&1 < %s -S | FileCheck %s  -check-prefix=OPTREPORT
 ;
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT:     remark: Loops have been fused
+;OPTREPORT:     remark #25577: Loops have been fused
 ;OPTREPORT: LOOP END
 ;OPTREPORT: LOOP BEGIN
-;OPTREPORT:     remark: Loop lost in Fusion
+;OPTREPORT:     remark #25576: Loop lost in Fusion
 ;OPTREPORT: LOOP END
 
 
