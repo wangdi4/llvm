@@ -1,5 +1,5 @@
-; RUN: opt -S -VPlanDriver -vplan-force-vf=4 < %s | FileCheck %s
-; RUN: opt -S -passes="vplan-driver" -vplan-force-vf=4 < %s | FileCheck %s
+; RUN: opt -S -vplan-vec -vplan-force-vf=4 < %s | FileCheck %s
+; RUN: opt -S -passes="vplan-vec" -vplan-force-vf=4 < %s | FileCheck %s
 
 ; CHECK: vector.body: ; preds = %[[VPlannedBB11:.*]], %vector.ph
 ; CHECK: [[VPlannedBB4:.*]]: ; preds = %[[VPlannedBB10:.*]], %vector.body

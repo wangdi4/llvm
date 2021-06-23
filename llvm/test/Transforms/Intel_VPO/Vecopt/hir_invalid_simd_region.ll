@@ -32,8 +32,8 @@
 ; builds.
 ; REQUIRES: !asserts
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -VPlanDriverHIR -S < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,vplan-driver-hir" -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vplan-vec -S < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-vplan-vec" -S < %s 2>&1 | FileCheck %s
 
 
 ; Check that loop was not vectorized

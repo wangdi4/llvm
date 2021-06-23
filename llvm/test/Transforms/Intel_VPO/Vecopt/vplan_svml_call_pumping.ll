@@ -1,6 +1,6 @@
 ; Test to check SVML call pumping feature for simple masked and unmasked calls in LLVM-IR vector CG.
 
-; RUN: opt -VPlanDriver -S -vector-library=SVML < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-vec -S -vector-library=SVML < %s 2>&1 | FileCheck %s
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(float* nocapture %A, float* nocapture %B, i32 %N) {

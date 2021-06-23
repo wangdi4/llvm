@@ -1,5 +1,5 @@
-; RUN: opt -VPlanDriver -S < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -hir-cg -S < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-vec -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -hir-cg -S < %s 2>&1 | FileCheck %s
 ;
 ; VPlan vectorizers are currently not setup to deal with reductions/inductions
 ; on vector types. For now, bail out for such cases. Test checks that it does

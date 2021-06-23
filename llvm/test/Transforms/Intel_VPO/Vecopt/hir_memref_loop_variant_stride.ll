@@ -12,8 +12,8 @@
 ;           @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ;     END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -vplan-force-vf=2 -hir-details-dims -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPVAL-CG
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-force-vf=2 -hir-details-dims -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPVAL-CG
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -print-after=hir-vplan-vec -vplan-force-vf=2 -hir-details-dims -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPVAL-CG
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -vplan-force-vf=2 -hir-details-dims -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPVAL-CG
 
 ; VPVAL-CG:           + DO i1 = 0, 1023, 2   <DO_LOOP> <auto-vectorized> <novectorize>
 ; VPVAL-CG-NEXT:      |   %.unifload = (%q)[0:0:8(i64*:0)];

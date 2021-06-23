@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR \
+; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mattr=+avx2 -hir-cg -simplifycfg -mem2reg -S | FileCheck %s
 
 ; The test is a part of hotspot of SAD benchmark.  The test verifies that it is

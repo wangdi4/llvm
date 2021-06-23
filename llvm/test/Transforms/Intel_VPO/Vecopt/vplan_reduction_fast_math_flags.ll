@@ -3,8 +3,8 @@
 ; LLVM-IR/HIR are checked.
 
 ; REQUIRES: asserts
-; RUN: opt -VPlanDriver -vplan-print-after-vpentity-instrs -vplan-dump-details -S < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vplan-print-after-vpentity-instrs -vplan-dump-details -print-after=VPlanDriverHIR -hir-details-llvm-inst -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -vplan-vec -vplan-print-after-vpentity-instrs -vplan-dump-details -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vplan-print-after-vpentity-instrs -vplan-dump-details -print-after=hir-vplan-vec -hir-details-llvm-inst -disable-output < %s 2>&1 | FileCheck %s
 
 ; Checks for VPReductionFinal in VPlan IR
 ; CHECK:        float [[RED_FINAL:%vp.*]] = reduction-final{fadd} float [[VEC:%vp.*]]  float [[START:%.*]]

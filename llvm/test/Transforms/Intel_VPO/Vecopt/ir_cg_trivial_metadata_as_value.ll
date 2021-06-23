@@ -2,7 +2,7 @@
 ; Check that VPlan's LLVM-IR vector codegen can handle trivial MetadataAsValue operands
 ; represented via VPMetadataAsValue in VPlan CFG.
 
-; RUN: opt < %s -S -VPlanDriver -vplan-force-vf=2 | FileCheck %s
+; RUN: opt < %s -S -vplan-vec -vplan-force-vf=2 | FileCheck %s
 
 define void @mod_gauss_hermite_mp_derquadgausshermite_(double* %ptr, double %T_fetch, i64 %N) local_unnamed_addr {
 ; CHECK-LABEL: @mod_gauss_hermite_mp_derquadgausshermite_(

@@ -4,7 +4,7 @@
 ; an assert in VPValue's destructor that an extraneous user was not dropped
 ; before deleting the VPValue.
 
-; RUN: opt -VPlanDriver -vplan-force-vf=4 -S < %s | FileCheck %s
+; RUN: opt -vplan-vec -vplan-force-vf=4 -S < %s | FileCheck %s
 
 ; CHECK: @foo
 

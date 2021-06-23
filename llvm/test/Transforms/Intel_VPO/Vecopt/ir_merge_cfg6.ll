@@ -1,6 +1,6 @@
 
-; RUN: opt -S -VPlanDriver -disable-vplan-codegen -disable-output -vplan-enable-cfg-merge -vplan-print-after-cfg-merge < %s 2>&1 | FileCheck %s --check-prefix=MERGE
-; RUN: opt -S -passes="vplan-driver" -disable-vplan-codegen -disable-output -vplan-enable-cfg-merge -vplan-print-after-cfg-merge < %s 2>&1 | FileCheck %s --check-prefix=MERGE
+; RUN: opt -S -vplan-vec -disable-vplan-codegen -disable-output -vplan-enable-cfg-merge -vplan-print-after-cfg-merge < %s 2>&1 | FileCheck %s --check-prefix=MERGE
+; RUN: opt -S -passes="vplan-vec" -disable-vplan-codegen -disable-output -vplan-enable-cfg-merge -vplan-print-after-cfg-merge < %s 2>&1 | FileCheck %s --check-prefix=MERGE
 
 ; Verify that vector TC check is correctly placed before instructions that
 ; are created before the loop preheader.

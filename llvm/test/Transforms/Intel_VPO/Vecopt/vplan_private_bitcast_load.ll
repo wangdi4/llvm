@@ -4,7 +4,7 @@
 ; locations as they could be when we assume SOA layout.
 
 
-; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -VPlanDriver -vplan-force-vf=4  2>&1 | FileCheck %s
+; RUN: opt %s -S -mem2reg -loop-simplify -lcssa -vpo-cfg-restructuring -vplan-vec -vplan-force-vf=4  2>&1 | FileCheck %s
 ; CHECK: [[WIDE_ARR:%.*]] = alloca [4 x [2520 x double]], align 8
 ; CHECK: [[WIDE_ARR_BC:%.*]] = bitcast [4 x [2520 x double]]* [[WIDE_ARR]] to [2520 x double]*
 ; CHECK: [[PRIV_BASE:%.*]] = getelementptr [2520 x double], [2520 x double]* [[WIDE_ARR_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>

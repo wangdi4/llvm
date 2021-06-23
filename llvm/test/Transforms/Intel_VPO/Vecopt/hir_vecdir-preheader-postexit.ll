@@ -1,5 +1,5 @@
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=hir-vec-dir-insert -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -disable-output -vplan-force-vf=4 -print-after=hir-vec-dir-insert -print-after=vplan-driver-hir < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vec-dir-insert -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM1
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" -disable-output -vplan-force-vf=4 -print-after=hir-vec-dir-insert -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s -check-prefixes=PM2
 
 ;
 ; The test checks that HIRParVecAnalysis doesn't look into loop preheader or
@@ -34,7 +34,8 @@ define void @foo(i64* nocapture %ary, i64 %size.inner) {
 ; CHECK-NEXT:        + END LOOP
 ; CHECK-NEXT:  END REGION
 ;
-; CHECK:   *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}} ***
+; PM1:     *** IR Dump After VPlan HIR Vectorizer {{.*}}***
+; PM2:     *** IR Dump After{{.+}}VPlan{{.*}}Driver{{.*}}HIR{{.*}}***
 ; CHECK:       BEGIN REGION { modified }
 ; CHECK-NEXT:        + DO i1 = 0, 127, 1   <DO_LOOP>
 ; CHECK-NEXT:        |   if (%size.inner != 0)

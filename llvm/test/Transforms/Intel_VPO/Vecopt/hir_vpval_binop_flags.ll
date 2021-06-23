@@ -5,8 +5,8 @@
 ; worked on (CMPLRLLVM-11656). Preserving the fast math flags is important for
 ; achieving performance parity with mixed code generation mode.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -hir-details -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -aa-pipeline="basic-aa" -vplan-force-vf=4 -enable-vp-value-codegen-hir -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -vplan-force-vf=4 -print-after=hir-vplan-vec -enable-vp-value-codegen-hir -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>" -aa-pipeline="basic-aa" -vplan-force-vf=4 -enable-vp-value-codegen-hir -hir-details -disable-output < %s 2>&1 | FileCheck %s
 
 define double @foo(double* nocapture readonly %darr) #0 {
 ; CHECK:      [[RED_VAR0:%.*]] = 0.000000e+00

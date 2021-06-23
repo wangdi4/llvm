@@ -354,7 +354,7 @@
 ;                  VPO Work-Region Information
 ;                  Demanded bits analysis
 ;                  Loop Access Analysis
-;                  VPlan Vectorization Driver
+;                  VPlan Vectorizer
 ;                  Dominator Tree Construction
 ;                  Replace known math operations with optimized library functions
 ;                CallGraph Construction

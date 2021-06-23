@@ -21,12 +21,12 @@
 ; REQUIRES: asserts
 
 ; Check for HIR driver
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-pre-vec-complete-unroll -VPlanDriverHIR -debug-only=VPlanDriver -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-pre-vec-complete-unroll -hir-vplan-vec -debug-only=vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-HIR
 ; CHECK-HIR-LABEL: VPlan HIR Driver for Function
 ; CHECK-HIR: VPLAN_OPTREPORT: Loop was optimized out. 
 
 ; Check for LLVM-IR driver
-; RUN: opt -loop-unroll -VPlanDriver -debug-only=VPlanDriver -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM
+; RUN: opt -loop-unroll -vplan-vec -debug-only=vplan-vec -disable-output < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM
 ; CHECK-LLVM-LABEL: VPlan LLVM-IR Driver for Function
 ; CHECK-LLVM: VPLAN_OPTREPORT: Loop was optimized out. 
 

@@ -7,7 +7,7 @@
 ; Run the following command and intercept the function and print module
 ; before VPlanDriver is invoked on a function.
 ;
-; icx -Xclang -fintel-openmp-region -c -fopenmp -mllvm --vplan-driver
+; icx -Xclang -fintel-openmp-region -c -fopenmp -mllvm --vplan-vec
 ; -mllvm -vplan-force-vf=2 -mllvm --loopopt=0 <input>.cpp
 ;
 ; Source code
@@ -23,7 +23,7 @@
 ;   return arr[RetIdx];
 ; }
 
-; RUN: opt -vplan-enable-soa=false -VPlanDriver -vplan-force-vf=2 -vplan-enable-cfg-merge=1 -S %s | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -vplan-vec -vplan-force-vf=2 -vplan-enable-cfg-merge=1 -S %s | FileCheck %s
 
 ; CHECK:      entry:
 ; CHECK:       [[PRIV1:%.*]] = alloca [2 x [1024 x i32]], align 4

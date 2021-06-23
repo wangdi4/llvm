@@ -3,8 +3,8 @@
 ; for cost-model's purpose we treat them like llvm.sin/llvm.cos intrinsics
 ; instead of unknown user calls.
 
-; RUN: opt -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s | FileCheck %s
-; RUN: opt -VPlanDriver -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s | FileCheck %s
+; RUN: opt -vplan-vec -vector-library=SVML -vplan-cost-model-print-analysis-for-vf=4 -disable-output < %s | FileCheck %s
 
 ; CHECK-LABEL:   Cost Model for VPlan foo:{{.*}} with VF = 4:
 ; CHECK:         Cost 26000 for float {{%vp.*}} = call float [[ARG:%vp.*]] __svml_cospif4 [x 1]

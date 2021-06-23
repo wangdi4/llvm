@@ -1,5 +1,5 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -xmain-opt-level=3 \
-; RUN:     -hir-vec-dir-insert -VPlanDriverHIR -disable-output \
+; RUN:     -hir-vec-dir-insert -hir-vplan-vec -disable-output \
 ; RUN:     -vplan-cost-model-print-analysis-for-vf=4 | FileCheck %s
 
 ; The test checks that OVLS group is detected by CM ("OVLS" string in

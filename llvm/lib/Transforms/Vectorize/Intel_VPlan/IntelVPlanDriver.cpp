@@ -63,7 +63,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #endif // INTEL_CUSTOMIZATION
 
-#define DEBUG_TYPE "VPlanDriver"
+#define DEBUG_TYPE "vplan-vec"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -807,7 +807,7 @@ void VPlanOptReportBuilder::addRemark(Loop *Lp,
   LORBuilder(*Lp, *LI).addRemark(Verbosity, MsgID, std::forward<Args>(args)...);
 }
 
-INITIALIZE_PASS_BEGIN(VPlanDriver, "VPlanDriver", "VPlan Vectorization Driver",
+INITIALIZE_PASS_BEGIN(VPlanDriver, "vplan-vec", "VPlan Vectorizer",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
@@ -823,7 +823,7 @@ INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LCSSAWrapperPass)
-INITIALIZE_PASS_END(VPlanDriver, "VPlanDriver", "VPlan Vectorization Driver",
+INITIALIZE_PASS_END(VPlanDriver, "vplan-vec", "VPlan Vectorizer",
                     false, false)
 
 char VPlanDriver::ID = 0;
@@ -1002,8 +1002,8 @@ void VPlanDriverImpl::collectAllLoops<vpo::HLLoop>(
 } // namespace llvm
 
 #if INTEL_CUSTOMIZATION
-INITIALIZE_PASS_BEGIN(VPlanDriverHIR, "VPlanDriverHIR",
-                      "VPlan Vectorization Driver HIR", false, false)
+INITIALIZE_PASS_BEGIN(VPlanDriverHIR, "hir-vplan-vec",
+                      "VPlan HIR Vectorizer", false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
@@ -1016,8 +1016,8 @@ INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(OptReportOptionsPass)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_END(VPlanDriverHIR, "VPlanDriverHIR",
-                    "VPlan Vectorization Driver HIR", false, false)
+INITIALIZE_PASS_END(VPlanDriverHIR, "hir-vplan-vec",
+                    "VPlan HIR Vectorizer", false, false)
 
 char VPlanDriverHIR::ID = 0;
 

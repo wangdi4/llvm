@@ -11,7 +11,7 @@
 ; CHECK-NEXT:      DPCPPKernelVecClone pass
 ; CHECK-NEXT:      VecClone
 ; CHECK-NEXT:      FunctionPass Manager
-; CHECK:             VPlan Vectorization Driver
+; CHECK:             VPlan Vectorizer
 ; CHECK:           VPlan post vectorization pass for DPCPP kernels
 ; CHECK-NEXT:      FunctionPass Manager
 ; CHECK:             VPO Directive Cleanup

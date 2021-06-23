@@ -1,9 +1,9 @@
 ; RUN: opt -padded-pointer-prop \
 ; RUN:     -dtrans-test-paddedmalloc -hir-ssa-deconstruction -hir-temp-cleanup \
 ; RUN:     -hir-last-value-computation -hir-vec-dir-insert \
-; RUN:     -vplan-force-vf=4 -VPlanDriverHIR -hir-cg -disable-output \
+; RUN:     -vplan-force-vf=4 -hir-vplan-vec -hir-cg -disable-output \
 ; RUN:     -debug-only=vplan-idioms -vplan-use-padding-info=true < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir,hir-cg" \
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,hir-vplan-vec,hir-cg" \
 ; RUN:     -dtrans-test-paddedmalloc -vplan-force-vf=4 -disable-output \
 ; RUN:     -debug-only=vplan-idioms -vplan-use-padding-info=true < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts

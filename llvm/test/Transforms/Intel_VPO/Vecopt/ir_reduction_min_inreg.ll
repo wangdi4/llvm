@@ -1,4 +1,4 @@
-;RUN: opt -VPlanDriver -vplan-force-vf=4 -S %s | FileCheck %s
+;RUN: opt -vplan-vec -vplan-force-vf=4 -S %s | FileCheck %s
 
 ; TODO: This test needs support to generate scalar stores for uniform stores in VPlan. It will be fixed
 ; in https://git-amr-2.devtools.intel.com/gerrit/#/c/215460/

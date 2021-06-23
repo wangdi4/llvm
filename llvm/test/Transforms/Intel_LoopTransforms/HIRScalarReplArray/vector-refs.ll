@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir=0 -hir-scalarrepl-array -vplan-force-vf=4 -print-after=hir-scalarrepl-array -hir-details -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir -hir-scalarrepl-array -vplan-force-vf=4 -print-after=hir-scalarrepl-array -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -enable-vp-value-codegen-hir=0 -hir-scalarrepl-array -vplan-force-vf=4 -print-after=hir-scalarrepl-array -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -enable-vp-value-codegen-hir -hir-scalarrepl-array -vplan-force-vf=4 -print-after=hir-scalarrepl-array -hir-details -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that we are successfully able to handle vector refs. In this case the inner loop is vectorized and completely unrolled. The vector refs of @B[][] are then scalar replaced.
 

@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -enable-intel-advanced-opts -mcpu=core-avx2 -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -enable-intel-advanced-opts -mcpu=core-avx2 -disable-output -print-after=hir-vplan-vec < %s 2>&1 | FileCheck %s
 ; The input HIR coming into the vectorizer looks like the following:
 ;   DO i1 = 0, %n + -1, 1   <DO_LOOP>
 ;     %0 = (%k)[-1 * i1 + %n];

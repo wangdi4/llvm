@@ -13,8 +13,8 @@
 ;   return 0;
 ; }
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec -hir-cg -print-after=hir-vplan-vec -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec,print<hir>,hir-cg" -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-VPVAL
 
 
 ; Incoming HIR into the vectorizer is expected to look like:

@@ -5,7 +5,7 @@
 ; the unit-stride GEP is used in memory pointer context.
 
 ; TODO: enable cfg merge after private support enabled
-; RUN: opt -VPlanDriver -vplan-force-vf=4 -vplan-enable-cfg-merge=0 < %s -S | FileCheck %s
+; RUN: opt -vplan-vec -vplan-force-vf=4 -vplan-enable-cfg-merge=0 < %s -S | FileCheck %s
 
 define i32 @multiple_uses(i32* %src, i32** %dest) {
 ; CHECK-LABEL: @multiple_uses(

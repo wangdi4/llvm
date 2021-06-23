@@ -1,7 +1,7 @@
 ; Test if debug information for PrivDescr class are generated correctly.
 
-; RUN: opt -S -VPlanDriver -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump < %s 2>&1 | FileCheck %s -check-prefix=LLVMIR
-; RUN: opt -S -hir-ssa-deconstruction -hir-framework -VPlanDriverHIR -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump < %s 2>&1 | FileCheck %s -check-prefix=HIR
+; RUN: opt -S -vplan-vec -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump < %s 2>&1 | FileCheck %s -check-prefix=LLVMIR
+; RUN: opt -S -hir-ssa-deconstruction -hir-framework -hir-vplan-vec -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump < %s 2>&1 | FileCheck %s -check-prefix=HIR
 
 ; LLVMIR: VPOLegality PrivateList:
 ; LLVMIR-NEXT: Ref:   %myPoint2.priv = alloca %struct.point2d, align 4
@@ -23,6 +23,7 @@
 ; HIR-NEXT:    Private tag: Non-POD
 ; HIR-NEXT:    Linked values: %struct.point2d* %myPoint2.priv,
 ; HIR-NEXT:   Memory: %struct.point2d* %myPoint2.priv
+
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

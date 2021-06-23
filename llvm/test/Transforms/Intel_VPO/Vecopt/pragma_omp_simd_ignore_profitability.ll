@@ -1,5 +1,5 @@
-;RUN: opt < %s -VPlanDriver -S | FileCheck %s
-;RUN: opt < %s -passes="vplan-driver" -S | FileCheck %s
+;RUN: opt < %s -vplan-vec -S | FileCheck %s
+;RUN: opt < %s -passes="vplan-vec" -S | FileCheck %s
 
 
 ; This test checks that the code is force-vectorized when #pragma omp simd is specified on the loop.

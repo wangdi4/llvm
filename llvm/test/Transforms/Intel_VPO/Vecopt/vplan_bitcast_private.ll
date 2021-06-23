@@ -1,6 +1,6 @@
 ; This test checks that bitcast instruction is correctly widened for pointers to private aggregate type.
 
-; RUN: opt -vplan-enable-soa=false -S -VPlanDriver -vplan-force-vf=2 %s | FileCheck %s
+; RUN: opt -vplan-enable-soa=false -S -vplan-vec -vplan-force-vf=2 %s | FileCheck %s
 
 ; CHECK:  [[VEC1:%.*]] = alloca [2 x [624 x i32]], align 4
 ; CHECK:  [[BC:%.*]] = bitcast [2 x [624 x i32]]*  [[VEC1]] to i8*

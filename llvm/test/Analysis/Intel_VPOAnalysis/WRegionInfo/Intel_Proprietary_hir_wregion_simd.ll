@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -hir-framework  -vpo-wrncollection -vpo-wrninfo -VPlanDriverHIR -debug-only=vpo-wrninfo 2>&1 | FileCheck %s
-; RUN: opt < %s -passes="vplan-driver-hir,print<hir-framework>,print<vpo-wrncollection>,require<vpo-wrninfo>" -debug-only=vpo-wrninfo 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-framework  -vpo-wrncollection -vpo-wrninfo -hir-vplan-vec -debug-only=vpo-wrninfo 2>&1 | FileCheck %s
+; RUN: opt < %s -passes="hir-vplan-vec,print<hir-framework>,print<vpo-wrncollection>,require<vpo-wrninfo>" -debug-only=vpo-wrninfo 2>&1 | FileCheck %s
 ;
 ; WARNING!!!
 ; WARNING!!!      ** CONTAINS INTEL IP **

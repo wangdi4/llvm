@@ -19,8 +19,8 @@
 
 ; REQUIRES: asserts
 
-; RUN: opt -S -VPlanDriver -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM
-; RUN: opt -S -passes="vplan-driver" -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM
+; RUN: opt -S -vplan-vec -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM
+; RUN: opt -S -passes="vplan-vec" -debug-only=LoopVectorizationPlanner < %s 2>&1 | FileCheck %s --check-prefix=CHECK-LLVM
 
 ; CHECK-LLVM: LVP: Safelen: [[Safelen:[0-9]+]]
 ; CHECK-LLVM-NEXT: LVP: Orig MinVF: 4  Orig MaxVF: {{[0-9]+}}

@@ -219,7 +219,7 @@
 ; CHECK-NEXT:       VPO Work-Region Information
 ; CHECK-NEXT:       Demanded bits analysis
 ; CHECK-NEXT:       Loop Access Analysis
-; CHECK-NEXT:       VPlan Vectorization Driver
+; CHECK-NEXT:       VPlan Vectorizer
 ; CHECK-NEXT:       Dominator Tree Construction
 ; CHECK-NEXT:       Replace known math operations with optimized library functions
 ; CHECK-NEXT:     CallGraph Construction

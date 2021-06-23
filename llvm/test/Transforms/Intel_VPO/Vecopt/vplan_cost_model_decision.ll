@@ -1,12 +1,12 @@
-; RUN: opt < %s -S -VPlanDriver -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
+; RUN: opt < %s -S -vplan-vec -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-LLVM
-; RUN: opt < %s -S -passes="vplan-driver" -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
+; RUN: opt < %s -S -passes="vplan-vec" -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN: | FileCheck %s --check-prefix=CHECK-LLVM
 
-; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR \
+; RUN: opt < %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -hir-vplan-vec \
 ; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-HIR
-; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" \
+; RUN: opt < %s -S -passes="hir-ssa-deconstruction,hir-vec-dir-insert,hir-vplan-vec" \
 ; RUN: -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
 ; RUN: | FileCheck %s --check-prefix=CHECK-HIR
 

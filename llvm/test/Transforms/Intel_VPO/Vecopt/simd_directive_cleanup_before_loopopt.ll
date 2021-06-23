@@ -1,10 +1,10 @@
 ; Verify that SIMD directives are cleaned up before loop-opt passes even if VPlan fails to vectorize the SIMD loop.
 ; HIR VPlan now works before LLVM VPlan by default so we need -pre-loopopt-vpo-passes option to make this test work
 
-; RUN: opt -O3 -pre-loopopt-vpo-passes -loopopt -print-after=VPlanDriver -print-before=hir-ssa-deconstruction -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -O3 -pre-loopopt-vpo-passes -loopopt -print-after=vplan-vec -print-before=hir-ssa-deconstruction -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that VPlan didn't vectorize loop (SIMD directive will be present)
-; CHECK-LABEL: IR Dump After VPlan Vectorization Driver
+; CHECK-LABEL: IR Dump After VPlan Vectorizer
 ; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
 
 ; Check that SIMD driectives are removed before loop-opt

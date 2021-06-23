@@ -186,7 +186,7 @@ class VPlanDriverHIRPass
   VPlanDriverHIRImpl Impl;
 
 public:
-  static constexpr auto PassName = "vplan-driver-hir";
+  static constexpr auto PassName = "hir-vplan-vec";
   PreservedAnalyses runImpl(Function &F, FunctionAnalysisManager &AM,
                             loopopt::HIRFramework &);
 };
