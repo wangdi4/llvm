@@ -151,16 +151,19 @@ MODULE_PASS("instrorderfile", InstrOrderFilePass())
 MODULE_PASS("instrprof", InstrProfiling())
 MODULE_PASS("internalize", InternalizePass())
 MODULE_PASS("invalidate<all>", InvalidateAllAnalysesPass())
-MODULE_PASS("ip-cloning", IPCloningPass(/*AfterInl*/ false,             // INTEL
-                                        /*IFSwitchHeuristic*/ false))   // INTEL
-MODULE_PASS("intel-argument-alignment", IntelArgumentAlignmentPass())   // INTEL
-MODULE_PASS("intel-partialinline", IntelPartialInlinePass())            // INTEL
-MODULE_PASS("post-inline-ip-cloning", IPCloningPass(/*AfterInl*/ true,  // INTEL
-                                        /*IFSwitchHeuristic*/ false))   // INTEL
-MODULE_PASS("call-tree-clone", CallTreeCloningPass())                   // INTEL
-MODULE_PASS("deadarrayopselimination", DeadArrayOpsEliminationPass())   // INTEL
-MODULE_PASS("dopevectorconstprop", DopeVectorConstPropPass())           // INTEL
-MODULE_PASS("intel-fold-wp-intrinsic", IntelFoldWPIntrinsicPass())      // INTEL
+#if INTEL_CUSTOMIZATION
+MODULE_PASS("ip-cloning", IPCloningPass(/*AfterInl*/ false,
+                                        /*IFSwitchHeuristic*/ false))
+MODULE_PASS("intel-argument-alignment", IntelArgumentAlignmentPass())
+MODULE_PASS("intel-partialinline", IntelPartialInlinePass())
+MODULE_PASS("post-inline-ip-cloning", IPCloningPass(/*AfterInl*/ true,
+                                        /*IFSwitchHeuristic*/ false))
+MODULE_PASS("call-tree-clone", CallTreeCloningPass())
+MODULE_PASS("deadarrayopselimination", DeadArrayOpsEliminationPass())
+MODULE_PASS("dopevectorconstprop", DopeVectorConstPropPass())
+MODULE_PASS("intel-fold-wp-intrinsic", IntelFoldWPIntrinsicPass())
+MODULE_PASS("intel-math-libraries-decl", IntelMathLibrariesDeclarationPass())
+#endif // INTEL_CUSTOMIZATION
 MODULE_PASS("ipsccp", IPSCCPPass())
 MODULE_PASS("iroutliner", IROutlinerPass())
 MODULE_PASS("print-ir-similarity", IRSimilarityAnalysisPrinterPass(dbgs()))
@@ -375,7 +378,7 @@ FUNCTION_PASS("infer-address-spaces", InferAddressSpacesPass())
 FUNCTION_PASS("instcombine", InstCombinePass())
 FUNCTION_PASS("instcount", InstCountPass())
 FUNCTION_PASS("instsimplify", InstSimplifyPass())
-FUNCTION_PASS("intel-loop-attrs", IntelLoopAttrsPass())     // INTEL
+FUNCTION_PASS("intel-loop-attrs", IntelLoopAttrsPass())  // INTEL
 FUNCTION_PASS("invalidate<all>", InvalidateAllAnalysesPass())
 FUNCTION_PASS("irce", IRCEPass())
 FUNCTION_PASS("float2int", Float2IntPass())

@@ -86,6 +86,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeIPArrayTransposeLegacyPassPass(Registry); // INTEL
   initializeArgNoAliasPropPass(Registry);            // INTEL
   initializeIntelVTableFixupLegacyPassPass(Registry); // INTEL
+  initializeIntelMathLibrariesDeclarationWrapperPass(Registry); // INTEL
 }
 
 void LLVMInitializeIPO(LLVMPassRegistryRef R) {

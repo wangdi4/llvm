@@ -1,0 +1,287 @@
+//=-- Intel_MathLibrariesDeclaration.cpp - Add math function declaration -*--=//
+//
+// Copyright (C) 2021-2021 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive property
+// of Intel Corporation and may not be disclosed, examined or reproduced in
+// whole or in part without explicit written authorization from the company.
+//
+//===----------------------------------------------------------------------===//
+//
+// This pass goes through each llvm math intrinsic and adds a declaration for
+// the corresponding math function in the IR if we are compiling for LTO. For
+// example, if the IR contains this llvm intrinsic:
+//
+//   declare double @llvm.exp.f64(double %0)
+//
+// Then this pass will add the follow:
+//
+//   declare double @exp(double %0)
+//
+// The reason for adding these declarations is that we want the undefined math
+// symbols during the first linker's symbol resolution. That will force the
+// linker to pull Intel's math libraries before GNU math libraries to get the
+// resolution.
+//
+//===----------------------------------------------------------------------===//
+
+#include "llvm/Transforms/IPO/Intel_MathLibrariesDeclaration.h"
+#include "llvm/ADT/Statistic.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/IPO.h"
+
+using namespace llvm;
+
+#define DEBUG_TYPE "intel-math-libraries-decl"
+
+STATISTIC(NumOfNewPrototypesGenerated, "Number of new prototypes generated");
+
+// Enable the generation of math function prototypes by default
+static cl::opt<bool> EnableMathLibsDecl("enable-math-libs-decls",
+                                        cl::init(true), cl::ReallyHidden);
+
+// Helper class to add the declaration for math libraries
+class MathLibrariesDeclImpl {
+public:
+  MathLibrariesDeclImpl(Module &M) : M(M) {}
+  bool run();
+
+private:
+  Module &M;
+
+  // Return true if the input function is an intrinsic to a simple math
+  // function and we could generate the float, double or long prototype.
+  // A simple math intrinsic is a function where all the arguments and
+  // the return types are same. For example, assume that the module
+  // contains the following intrinsic:
+  //
+  //   declare double @llvm.exp.f64(double %0)
+  //
+  // Then this function will generate the following declaration:
+  //
+  //   declare double @exp(double %0)
+  //
+  bool isSimpleTypesMathIntrinsic(Function &F);
+
+  // Given a function F and a string, copy the prototype and replace the name
+  // with NewFuncName. If the supplied name is a nullptr then the function will
+  // return false.
+  bool generateFuncPrototype(Function &F, const char *NewFuncName);
+};
+
+// Generate the new function prototype
+bool MathLibrariesDeclImpl::generateFuncPrototype(Function &F,
+                                                  const char *NewFuncName) {
+
+  if (NewFuncName == nullptr)
+    return false;
+
+  StringRef NewFuncNameRef(NewFuncName);
+
+  assert(!NewFuncNameRef.empty() && "Trying to create a new math declaration "
+                                    "with an empty name");
+
+  // If the function exists then there is nothing to do
+  if (M.getFunction(NewFuncNameRef))
+    return false;
+
+  auto *MathFunc =
+      Function::Create(F.getFunctionType(), F.getLinkage(), NewFuncNameRef, M);
+  MathFunc->setAttributes(F.getAttributes());
+
+  NumOfNewPrototypesGenerated++;
+
+  LLVM_DEBUG(dbgs() << "  Intrinsic @" << F.getName() << " generates "
+                    << "function @" << NewFuncNameRef << "\n");
+
+  return true;
+}
+
+// Return true if the input function is an intrisic to a simple math
+// function and the prototype for the actual math function was generated.
+bool MathLibrariesDeclImpl::isSimpleTypesMathIntrinsic(Function &F) {
+
+  // Identify which prototype needs to be created for a math intrinsic and
+  // generate it. The input strings Fname, DName and LName represent the names
+  // used for float, double or long version of the function declaration.
+  auto GenerateSimpleTypesPrototype = [&F, this](const char *FName,
+                                            const char *DName,
+                                            const char *LName) -> bool {
+
+    if (F.arg_size() == 0)
+      return false;
+
+    Type *TypeToCheck = F.getArg(0)->getType();
+    for (unsigned I = 1; I < F.arg_size(); I++)
+      if (F.getArg(I)->getType() != TypeToCheck)
+        return false;
+
+    if (F.getReturnType() != TypeToCheck)
+      return false;
+
+    bool Result = false;
+    switch (TypeToCheck->getTypeID()) {
+    case Type::FloatTyID:
+      Result = generateFuncPrototype(F, FName);
+      break;
+    case Type::DoubleTyID:
+      Result = generateFuncPrototype(F, DName);
+      break;
+    case Type::X86_FP80TyID:
+    case Type::FP128TyID:
+      Result = generateFuncPrototype(F, LName);
+      break;
+    default:
+      break;
+    }
+
+    return Result;
+  };
+
+  if (!F.isIntrinsic())
+    return false;
+
+  bool Changed = false;
+
+  // How to insert a new entry:
+  //
+  // 1) Make sure that the intrinsic will be lowered into the function you are
+  //    expecting. You can check the LLVM reference manual or CodeGen sources
+  //    to have an idea how it will be lowered.
+  //
+  // 2) Call the function GenerateSimpleTypesPrototype(FName, DName, LName), where
+  //    there parameters are:
+  //
+  //    * FName: name of the function to be called to handle single precision
+  //    * DName: name of the function that handles double precision
+  //    * LName: name of the function that handles quadruple precision
+  //
+  //    If one of the names is nullptr then it won't generate a prototype for
+  //    that precision. Make sure that the name of the function actually
+  //    exists.
+  //
+  // 3) If you are trying to catch libimf version of the function, make sure
+  //    that there is a definition for it in libimf.
+  //
+  // 4) If GenerateSimpleTypesPrototype won't do the lowering you need, then you may
+  //    need to define your own function for specialized lowering.
+  switch (F.getIntrinsicID()) {
+  case Intrinsic::ceil:
+    Changed = GenerateSimpleTypesPrototype("ceilf", "ceil", "ceill");
+    break;
+  case Intrinsic::copysign:
+    Changed =
+        GenerateSimpleTypesPrototype("copysignf", "copysign", "copysignl");
+    break;
+  case Intrinsic::cos:
+    Changed = GenerateSimpleTypesPrototype("cosf", "cos", "cosl");
+    break;
+  case Intrinsic::exp:
+    Changed = GenerateSimpleTypesPrototype("expf", "exp", "expl");
+    break;
+  case Intrinsic::exp2:
+    Changed = GenerateSimpleTypesPrototype("exp2f", "exp2", "exp2l");
+    break;
+  case Intrinsic::floor:
+    Changed = GenerateSimpleTypesPrototype("floorf", "floor", "floorl");
+    break;
+  case Intrinsic::log:
+    Changed = GenerateSimpleTypesPrototype("logf", "log", "logl");
+    break;
+  case Intrinsic::log2:
+    Changed = GenerateSimpleTypesPrototype("log2f", "log2", "log2l");
+    break;
+  case Intrinsic::pow:
+    Changed = GenerateSimpleTypesPrototype("powf", "pow", "powl");
+    break;
+  case Intrinsic::sin:
+    Changed = GenerateSimpleTypesPrototype("sinf", "sin", "sinl");
+    break;
+  case Intrinsic::sqrt:
+    Changed = GenerateSimpleTypesPrototype("sqrtf", "sqrt", "sqrtl");
+    break;
+  case Intrinsic::round:
+    Changed = GenerateSimpleTypesPrototype("roundf", "round", "roundl");
+    break;
+  case Intrinsic::trunc:
+    Changed = GenerateSimpleTypesPrototype("truncf", "trunc", "truncl");
+    break;
+  default:
+    break;
+  }
+
+  return Changed;
+}
+
+bool MathLibrariesDeclImpl::run() {
+
+  if (!EnableMathLibsDecl)
+    return false;
+
+  bool Changed = false;
+
+  LLVM_DEBUG(dbgs() << "Math function declarations added:\n");
+
+  for (Function &F : M) {
+    // NOTE: This function handles the cases where the arguments and return
+    // types are the same. We may need to define other cases.
+    Changed |= isSimpleTypesMathIntrinsic(F);
+  }
+
+  LLVM_DEBUG(dbgs() << "  Total functions added: "
+                    << NumOfNewPrototypesGenerated << "\n");
+
+  return Changed;
+}
+
+// New pass manager
+PreservedAnalyses
+IntelMathLibrariesDeclarationPass::run(Module &M, ModuleAnalysisManager &AM) {
+
+  MathLibrariesDeclImpl MathLibsDecl(M);
+  MathLibsDecl.run();
+
+  return PreservedAnalyses::all();
+}
+
+// Legacy pass manager
+namespace {
+
+class IntelMathLibrariesDeclarationWrapper : public ModulePass {
+public:
+  static char ID;
+
+  IntelMathLibrariesDeclarationWrapper() : ModulePass(ID) {
+    initializeIntelMathLibrariesDeclarationWrapperPass(
+        *PassRegistry::getPassRegistry());
+  }
+
+  bool runOnModule(Module &M) override {
+    if (skipModule(M))
+      return false;
+
+    MathLibrariesDeclImpl MathLibsDecl(M);
+    return MathLibsDecl.run();
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesAll();
+  }
+};
+
+} // end of anonymous namespace
+
+char IntelMathLibrariesDeclarationWrapper::ID = 0;
+
+INITIALIZE_PASS_BEGIN(IntelMathLibrariesDeclarationWrapper, DEBUG_TYPE,
+                      "Intel Math Libraries Declaration", false, false)
+INITIALIZE_PASS_END(IntelMathLibrariesDeclarationWrapper, DEBUG_TYPE,
+                    "Intel Math Libraries Declaration", false, false)
+
+ModulePass *llvm::createIntelMathLibrariesDeclarationWrapperPass() {
+  return new IntelMathLibrariesDeclarationWrapper();
+}

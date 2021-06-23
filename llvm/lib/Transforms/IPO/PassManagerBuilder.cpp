@@ -71,6 +71,7 @@
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
+#include "llvm/Transforms/IPO/Intel_MathLibrariesDeclaration.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
 #include "llvm/Transforms/Scalar/Intel_DopeVectorHoist.h"
 #include "llvm/Transforms/Scalar/Intel_LoopAttrs.h"
@@ -1592,6 +1593,10 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createAnnotationRemarksLegacyPass());
 
 #if INTEL_CUSTOMIZATION
+  // If LTO is enabled, then check if the declaration for math libraries are
+  // needed
+  if (PrepareForLTO)
+    MPM.add(createIntelMathLibrariesDeclarationWrapperPass()); // INTEL
   MPM.add(createInlineReportEmitterPass(OptLevel, SizeLevel,
                                         PrepareForLTO || PrepareForThinLTO));
   if (EnableDPCPPKernelTransforms && !PrepareForLTO)
