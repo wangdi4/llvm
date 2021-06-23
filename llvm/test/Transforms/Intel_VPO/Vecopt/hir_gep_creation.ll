@@ -24,9 +24,9 @@ define void @Perl_do_open6( i8* %arg1,    i32 %arg5, i8* %i87, i8 *%i85) {
 ; CHECK-LABEL:  VPlan after importing plain CFG:
 ; CHECK-NEXT:  VPlan IR for: Perl_do_open6:HIR
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {%i87 + -1 * umin((-1 + %i87), %i85) + -1}
-; CHECK-DAG:     [[VP1:%.*]] = {@PL_charclass}
-; CHECK-DAG:     [[VP2:%.*]] = {%i87}
+; CHECK-DAG:     [[VP0:%.*]] = {@PL_charclass}
+; CHECK-DAG:     [[VP1:%.*]] = {%i87}
+; CHECK-DAG:     [[VP2:%.*]] = {-1 * umin((-1 + ptrtoint.i8*.i64(%i87)), ptrtoint.i8*.i64(%i85)) + ptrtoint.i8*.i64(%i87) + -1}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
@@ -60,7 +60,7 @@ define void @Perl_do_open6( i8* %arg1,    i32 %arg5, i8* %i87, i8 *%i85) {
 ; CHECK-NEXT:       i8* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds i8* [[I870]] i64 [[VP16]]
 ; CHECK-NEXT:       store i8 0 i8* [[VP_SUBSCRIPT_4]]
 ; CHECK-NEXT:       i64 [[VP4]] = add i64 [[VP3]] i64 1
-; CHECK-NEXT:       i1 [[VP17:%.*]] = icmp sle i64 [[VP4]] i64 [[VP0]]
+; CHECK-NEXT:       i1 [[VP17:%.*]] = icmp sle i64 [[VP4]] i64 [[VP2]]
 ; CHECK-NEXT:       br i1 [[VP17]], [[BB2]], [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: [[BB3]]
