@@ -141,20 +141,12 @@ static inline void dumpTargetPointerMappings(const ident_t *Loc,
   Device.DataMapMtx.lock();
   for (const auto &HostTargetMap : Device.HostDataToTargetMap) {
     SourceInfo Info(HostTargetMap.HstPtrName);
-#if INTEL_CUSTOMIZATION
     INFO(OMP_INFOTYPE_ALL, Device.DeviceID,
          DPxMOD " " DPxMOD " %-8" PRIuPTR " %-8s %s at %s:%d:%d\n",
          DPxPTR(HostTargetMap.HstPtrBegin), DPxPTR(HostTargetMap.TgtPtrBegin),
          HostTargetMap.HstPtrEnd - HostTargetMap.HstPtrBegin,
-<<<<<<< HEAD
-         HostTargetMap.getRefCount(), Info.getName(), Info.getFilename(),
-         Info.getLine(), Info.getColumn());
-#endif // INTEL_CUSTOMIZATION
-
-=======
          HostTargetMap.refCountToStr().c_str(), Info.getName(),
          Info.getFilename(), Info.getLine(), Info.getColumn());
->>>>>>> 48421ac441bf64ec940b13c2dee1bc1a7671e878
   }
   Device.DataMapMtx.unlock();
 }
@@ -190,11 +182,9 @@ printKernelArguments(const ident_t *Loc, const int64_t DeviceId,
       type = "alloc";
     else
       type = "use_address";
-#if INTEL_CUSTOMIZATION
+
     INFO(OMP_INFOTYPE_ALL, DeviceId, "%s(%s)[%" PRId64 "] %s\n", type,
          getNameFromMapping(varName).c_str(), ArgSizes[i], implicit);
-#endif // INTEL_CUSTOMIZATION
-
   }
 }
 

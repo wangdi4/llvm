@@ -257,20 +257,13 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     // In addition to the mapping rules above, the close map modifier forces the
     // mapping of the variable to the device.
     if (Size) {
-<<<<<<< HEAD
-      DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
-         DPxPTR((uintptr_t)HstPtrBegin), Size,
-         (UpdateRefCount ? " updated" : ""));
+      DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " for unified shared "
+         "memory\n",
+         DPxPTR((uintptr_t)HstPtrBegin), Size);
 #if INTEL_COLLAB
       if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
 #endif // INTEL_COLLAB
          IsHostPtr = true;
-=======
-      DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " for unified shared "
-         "memory\n",
-         DPxPTR((uintptr_t)HstPtrBegin), Size);
-      IsHostPtr = true;
->>>>>>> 48421ac441bf64ec940b13c2dee1bc1a7671e878
       rc = HstPtrBegin;
     }
   } else if (HasPresentModifier) {
@@ -317,12 +310,7 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
          DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
          newEntry.refCountToStr().c_str(),
          (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "unknown");
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
-    HostDataToTargetMap.emplace((uintptr_t)HstPtrBase, (uintptr_t)HstPtrBegin,
-                                (uintptr_t)HstPtrBegin + Size, tp, HstPtrName);
-=======
->>>>>>> 48421ac441bf64ec940b13c2dee1bc1a7671e878
     rc = (void *)tp;
   }
 
@@ -377,20 +365,13 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
     // If the value isn't found in the mapping and unified shared memory
     // is on then it means we have stumbled upon a value which we need to
     // use directly from the host.
-<<<<<<< HEAD
-    DP("Get HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
-       DPxPTR((uintptr_t)HstPtrBegin), Size,
-       (UpdateRefCount ? " updated" : ""));
+    DP("Get HstPtrBegin " DPxMOD " Size=%" PRId64 " for unified shared "
+       "memory\n",
+       DPxPTR((uintptr_t)HstPtrBegin), Size);
 #if INTEL_COLLAB
     if (PM->RTLs.RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY)
 #endif // INTEL_COLLAB
        IsHostPtr = true;
-=======
-    DP("Get HstPtrBegin " DPxMOD " Size=%" PRId64 " for unified shared "
-       "memory\n",
-       DPxPTR((uintptr_t)HstPtrBegin), Size);
-    IsHostPtr = true;
->>>>>>> 48421ac441bf64ec940b13c2dee1bc1a7671e878
     rc = HstPtrBegin;
   }
 
