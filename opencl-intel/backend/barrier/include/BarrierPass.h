@@ -287,7 +287,6 @@ namespace intel {
     Value *getLocalSize(unsigned Dim) {
       return m_currBarrierKeyValues->m_pLocalSize[Dim];
     }
-    void createDebugInstrumentation(BasicBlock *Then, BasicBlock *Else);
     Instruction *createOOBCheckGetLocalId(CallInst *Call);
     // resolveGetLocalIDCall - emits code equivalent to get_local_id()
     // Call - a call where first arg is dimension. New instructions are emitted before this instruction.

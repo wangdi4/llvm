@@ -9,7 +9,6 @@ set(OCL_BE_PASSES
     AddImplicitArgs
     AddTLSGlobals
     AutorunReplicator
-    BackendPassesWrappers
     BuiltinLibInfo
     ChannelPipeTransformation
     ChannelsUsageAnalysis

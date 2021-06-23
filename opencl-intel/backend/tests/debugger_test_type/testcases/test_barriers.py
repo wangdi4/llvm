@@ -2,11 +2,9 @@ from testlib.debuggertestcase import DebuggerTestCase
 
 class TestBarriers(DebuggerTestCase):
     CLNAME = 'barriers_and_mem_sync.cl'
-    FIRST_BARRIER_ROW = 20
+    FIRST_BARRIER_ROW = 19
     FENCE_BREAKPOINT = 22
-    SECOND_BARRIER_ROW = 39
-    FIRST_COPY_ROW = 48
-    SECOND_COPY_ROW = 39
+    SECOND_BARRIER_ROW = 44
 
     def test_barrier_and_mem_fence(self):
         # test use of barrier and calls some mem fence commands
@@ -37,31 +35,32 @@ class TestBarriers(DebuggerTestCase):
         # go before 4 mem fence command
         bp = (self.CLNAME, self.FENCE_BREAKPOINT + 3)
         self.assertEqual(self.client.debug_run([bp]), bp)
-
-        #####################################################################################################
-        #   ERROR WHEN USING COMMAND WRITE_MEM_FENCE()                                                      #
-        #   clearQuest ticket number - CSSD100007351                                                        #
-        #   all following comment lines should be executed after the bug will be fixed                      #
-        #   need to fix barriers_and_mem_sync.cl file                                                       #
-        #####################################################################################################
-
         # go before 5 mem fence command
-        #bp = (self.CLNAME, self.FENCE_BREAKPOINT + 4)
-        #self.assertEqual(self.client.debug_run([bp]), bp)
+        bp = (self.CLNAME, self.FENCE_BREAKPOINT + 4)
+        self.assertEqual(self.client.debug_run([bp]), bp)
          # go before 6 mem fence command
-        #bp = (self.CLNAME, self.FENCE_BREAKPOINT + 5)
-        #self.assertEqual(self.client.debug_run([bp]), bp)
+        bp = (self.CLNAME, self.FENCE_BREAKPOINT + 5)
+        self.assertEqual(self.client.debug_run([bp]), bp)
         # go before 7 mem fence command
-        #bp = (self.CLNAME, self.FENCE_BREAKPOINT + 6)
-        #self.assertEqual(self.client.debug_run([bp]), bp)
+        bp = (self.CLNAME, self.FENCE_BREAKPOINT + 6)
+        self.assertEqual(self.client.debug_run([bp]), bp)
 
         # pass second barrier
         bp = (self.CLNAME, self.SECOND_BARRIER_ROW)
         self.assertEqual(self.client.debug_run([bp]), bp)
-        # initiallized to 0,1,2,3 and cell 0 was incremented 32 times by each WI
+        # local_arr
+        # initiallized to 0,1,1,1 and cell 0 was incremented 32 times by each WI
         # GDB and simulator clients print arrays with different notations...
         if self.use_gdb or self.use_cdb:
             self.assertEqual(self.client.var_query_value('local_arr'), '32,1,1,1')
         else:
             self.assertEqual(self.client.var_query_value('local_arr'), '[32|1|1|1]')
+
+        # local_long_arr
+        # initiallized to 0,1,1,1 and cell 1 was incremented by 2 for 32 times by each WI
+        # GDB and simulator clients print arrays with different notations...
+        if self.use_gdb or self.use_cdb:
+            self.assertEqual(self.client.var_query_value('local_long_arr'), '0,65,1,1')
+        else:
+            self.assertEqual(self.client.var_query_value('local_long_arr'), '[0|65|1|1]')
         self.client.debug_run_finish()

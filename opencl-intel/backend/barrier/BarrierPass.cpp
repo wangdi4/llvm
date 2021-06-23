@@ -981,56 +981,7 @@ namespace intel {
       }
       B.CreateBr(pSyncBB);
     }
-    // Only if we are debugging, copy data into the stack from local buffer
-    // for execution and copy data out when finished. This allows for proper
-    // DWARF based debugging.
-    if (m_isNativeDBG) {
-      createDebugInstrumentation(Dispatch, InnerMost);
-    }
     return InnerMost;
-  }
-
-  void Barrier::createDebugInstrumentation(BasicBlock *Then, BasicBlock *Else) {
-    // Use the then and else blocks to copy local buffer data.
-    Instruction &pThenFront = Then->front();
-    Instruction &pElseFront = Else->front();
-
-    // I add the function DebugCopy as a marker so it can be handled later
-    // in LocalBuffers pass.
-    // LocalBuffers pass is responsible for implementing __local variables
-    // correctly in OpenCL
-    // (ie. as work-group globals and not thread globals). I insert them
-    // in these marked blocks
-    // so that I know when I need to copy from the local buffer into the
-    // thread local (global).
-    // This is also how I know where the beginning of each work item
-    // iteration is (in the presence
-    // of barriers) which is where the copying occurs.
-
-    // Maybe there is a better way, I'm not sure. The problem I found is
-    // LocalBuffers finds all
-    // uses of a __local variable and updates the references to a local
-    // buffer memory location
-    // rather then the thread specific global for which the __local
-    // variable symbol is defined.
-    // So any changes to __local variables would have to be delayed until
-    // this pass or LocalBuffers
-    // would have to behave very differently.
-
-    // There is also a copy that occurs from the local buffer into the
-    // global variable after each
-    // use of the __local variable so that the thread specific global
-    // stays updated. This is
-    // independent of the function markers. This is done in LocalBuffers
-    // pass.
-
-    // This only allows for reading of __local variables and not setting.
-
-    Type *pResult = Type::getVoidTy(*m_pContext);
-    Module *M = Then->getParent()->getParent();
-    FunctionCallee pFunc = M->getOrInsertFunction("DebugCopy.", pResult);
-    CallInst::Create(pFunc, "", &pThenFront);
-    CallInst::Create(pFunc, "", &pElseFront);
   }
 
   void Barrier::replaceSyncInstructions() {
