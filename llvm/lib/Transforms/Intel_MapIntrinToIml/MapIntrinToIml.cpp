@@ -766,7 +766,16 @@ StringRef MapIntrinToImlImpl::findX86SVMLVariantForScalarFunction(
   // to remember since the input function (FuncName) could be a logical vector
   // that is larger.
   std::string TargetVLStr = toString(APInt(32, TargetVL), 10, false);
+
+#if INTEL_FEATURE_ISA_FP16
+  std::string VectorFuncStem = ScalarFuncName.str();
+  // Use "s" suffix for FP16 functions
+  if (ScalarFuncName.endswith("f16"))
+    VectorFuncStem.replace(VectorFuncStem.end() - 3, VectorFuncStem.end(), "s");
+  std::string TempFuncName = "__svml_" + VectorFuncStem + TargetVLStr;
+#else // INTEL_FEATURE_ISA_FP16
   std::string TempFuncName = "__svml_" + ScalarFuncName.str() + TargetVLStr;
+#endif // INTEL_FEATURE_ISA_FP16
   if (Masked)
     TempFuncName += "_mask";
   char *ParentFuncName = new char[TempFuncName.size() + 1];
@@ -827,6 +836,17 @@ std::string MapIntrinToImlImpl::getSVMLFunctionProperties(
     }
   }
   ScalarFuncName = ScalarFuncName.drop_back(LogicalVLStr.size());
+
+#if INTEL_FEATURE_ISA_FP16
+  // Use "f16" suffix for FP16 scalar functions
+  if (VecCallType->getElementType() ==
+      Type::getHalfTy(VecCallType->getContext())) {
+    assert(ScalarFuncName.back() == 's' &&
+           "Name of FP16 vector function should ends with 's'.");
+    ScalarFuncName = ScalarFuncName.drop_back(1);
+    return ScalarFuncName.str() + "f16";
+  }
+#endif // INTEL_FEATURE_ISA_FP16
 
   return ScalarFuncName.str();
 }
