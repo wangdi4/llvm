@@ -321,6 +321,12 @@ typedef uint cl_mem_fence_flags;
  */
 #define CLK_GLOBAL_MEM_FENCE   0x02
 
+/**
+  * Queue a memory fence to ensure correct
+  * ordering of memory operations to channel
+  */
+#define CLK_CHANNEL_MEM_FENCE  0x04
+
 #if defined(__OPENCL_CPP_VERSION__) || (__OPENCL_C_VERSION__ >= CL_VERSION_2_0)
 
 typedef enum memory_scope {

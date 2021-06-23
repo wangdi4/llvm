@@ -451,13 +451,6 @@ set(files
   msa.h
   mwaitxintrin.h
   nmmintrin.h
-# INTEL_CUSTOMIZATION
-  opencl-c-20.h
-  opencl-c-common.h
-  opencl-c-platform-12.h
-  opencl-c-platform-20.h
-  opencl-c-platform.h
-# end INTEL_CUSTOMIZATION
   opencl-c.h
   opencl-c-base.h
   pkuintrin.h
