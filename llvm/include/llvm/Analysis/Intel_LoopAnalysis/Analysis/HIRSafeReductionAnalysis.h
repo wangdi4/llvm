@@ -240,7 +240,7 @@ public:
   /// \ref computeSafeReductionChains must be called on a parent loop of the
   /// instruction containing \p Ref before calling this function in order for
   /// its results to be correct.
-  bool isReductionRef(const RegDDRef *Ref, unsigned &RedOpCode);
+  bool isReductionRef(const RegDDRef *Ref, unsigned &RedOpCode) const;
 
   void printAnalysis(raw_ostream &OS) const override;
   void print(formatted_raw_ostream &OS, const HLLoop *Loop) override;

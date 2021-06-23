@@ -758,7 +758,7 @@ HIRSafeReductionAnalysis::getSafeRedInfo(const HLInst *Inst) const {
 }
 
 bool HIRSafeReductionAnalysis::isReductionRef(const RegDDRef *Ref,
-                                              unsigned &RedOpCode) {
+                                              unsigned &RedOpCode) const {
   auto Node = Ref->getHLDDNode();
 
   assert(Node && "RegDDRef with null HLDDNode?");
