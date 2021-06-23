@@ -125,6 +125,7 @@ public:
   using PrivDescrNonPODTy = PrivDescrNonPOD<DDRef>;
   using PrivateKindTy = PrivDescrTy::PrivateKind;
   typedef SmallVector<PrivDescrTy, 8> PrivatesListTy;
+  using PrivatesNonPODListTy = SmallVector<PrivDescrNonPODTy, 8>;
   // Specialized class to represent linear descriptors specified explicitly via
   // SIMD linear clause. The linear's Step value is also stored within this
   // class.
@@ -159,8 +160,6 @@ public:
       Kind = PrivateKindTy::Last;
     if (IsConditional)
       Kind = PrivateKindTy::Conditional;
-    // TODO Put new element in PrivatesList - requires change of PrivatesList
-    // vector to use unique_ptr
     PrivatesList.emplace_back(PrivVal, Kind);
   }
 
@@ -172,9 +171,7 @@ public:
     PrivateKindTy Kind = PrivateKindTy::NonLast;
     if (IsLast)
       Kind = PrivateKindTy::Last;
-    // TODO Put new element in PrivatesList - requires change of PrivatesList
-    // vector to use unique_ptr
-    PrivatesList.emplace_back(PrivVal, Kind);
+    PrivatesNonPODList.emplace_back(PrivVal, Kind, Constr, Destr, CopyAssign);
   }
 
   /// Register explicit reduction variables provided from outside.
@@ -210,11 +207,17 @@ public:
   const HIRVectorIdioms *getVectorIdioms(HLLoop *Loop) const;
 
   const PrivatesListTy &getPrivates() const { return PrivatesList; }
+  const PrivatesNonPODListTy &getNonPODPrivates() const {
+    return PrivatesNonPODList;
+  }
   const LinearListTy &getLinears() const { return LinearList; }
   const ReductionListTy &getReductions() const { return ReductionList; }
 
   PrivDescrTy *isPrivate(const DDRef *Ref) const {
     return findDescr<PrivDescrTy>(PrivatesList, Ref);
+  }
+  PrivDescrNonPODTy *getNonPODPrivate(const DDRef *Ref) const {
+    return findDescr<PrivDescrNonPODTy>(PrivatesNonPODList, Ref);
   }
   LinearDescr *isLinear(const DDRef *Ref) const {
     return findDescr<LinearDescr>(LinearList, Ref);
@@ -288,6 +291,7 @@ private:
   HIRSafeReductionAnalysis *SRA;
   HIRDDAnalysis *DDAnalysis;
   PrivatesListTy PrivatesList;
+  PrivatesNonPODListTy PrivatesNonPODList;
   LinearListTy LinearList;
   ReductionListTy ReductionList;
   struct HIRVectorIdiomDeleter {

@@ -180,12 +180,14 @@ unsigned VPlanDivergenceAnalysis::getTypeSizeInBytes(Type *Ty) const {
   return Plan->getDataLayout()->getTypeAllocSize(Ty);
 }
 
-bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr) const {
+bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
+                                              Type *AccessType) const {
   bool IsNegOneStride;
-  return isUnitStridePtr(Ptr, IsNegOneStride);
+  return isUnitStridePtr(Ptr, AccessType, IsNegOneStride);
 }
 
 bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
+                                              Type *AccessType,
                                               bool &IsNegOneStride) const {
   // Set IsNegOneStride to false. This will be set to true later if necessary.
   IsNegOneStride = false;
@@ -210,10 +212,7 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
   if (isSOAUnitStride(Ptr))
     return true;
 
-  // Compute the pointee-size in bytes.
-  Type *PointeeTy = Ptr->getType()->getPointerElementType();
-
-  if (hasIrregularTypeForUnitStride(PointeeTy, Plan->getDataLayout()))
+  if (hasIrregularTypeForUnitStride(AccessType, Plan->getDataLayout()))
     return false;
 
   auto VectorShape = getVectorShape(*Ptr);
@@ -222,7 +221,7 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
   // IsNegOneStride and return true for unit stride case.
   if (VectorShape.isStrided() && VectorShape.hasKnownStride()) {
     auto StrideVal = VectorShape.getStrideVal();
-    unsigned PtrNumBytes = getTypeSizeInBytes(PointeeTy);
+    unsigned PtrNumBytes = getTypeSizeInBytes(AccessType);
     if (std::abs(StrideVal) == PtrNumBytes) {
       IsNegOneStride = StrideVal < 0;
       return true;

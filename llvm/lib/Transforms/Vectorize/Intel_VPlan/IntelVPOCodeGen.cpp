@@ -2516,8 +2516,8 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
 
   // Try to handle consecutive loads.
   bool IsNegOneStride = false;
-  bool ConsecutiveStride =
-      Plan->getVPlanDA()->isUnitStridePtr(Ptr, IsNegOneStride);
+  bool ConsecutiveStride = Plan->getVPlanDA()->isUnitStridePtr(
+      Ptr, VPLoad->getValueType(), IsNegOneStride);
   if (ConsecutiveStride) {
     bool IsPvtPtr = getVPValuePrivateMemoryPtr(Ptr) != nullptr;
     VPWidenMap[VPLoad] = vectorizeUnitStrideLoad(VPLoad, IsNegOneStride, IsPvtPtr);
@@ -2625,8 +2625,8 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
 
   // Try to handle consecutive stores.
   bool IsNegOneStride = false;
-  bool ConsecutiveStride =
-      Plan->getVPlanDA()->isUnitStridePtr(Ptr, IsNegOneStride);
+  bool ConsecutiveStride = Plan->getVPlanDA()->isUnitStridePtr(
+      Ptr, VPStore->getValueType(), IsNegOneStride);
   if (ConsecutiveStride) {
     // TODO: VPVALCG: Special handling for mask value is also needed for
     // conditional last privates.
@@ -2827,14 +2827,14 @@ void VPOCodeGen::generateStoreForSinCos(VPCallInstruction *VPCall,
       cast<VectorType>(ExtractSinInst->getType())->getElementType()));
 
   // Widen ScalarPtr and generate instructions to store VecValue into it.
-  auto storeVectorValue = [this](Value *VecValue, VPValue *ScalarPtr,
-                                 Align Alignment) {
+  auto storeVectorValue = [this, VPCall](Value *VecValue, VPValue *ScalarPtr,
+                                         Align Alignment) {
     assert(cast<VectorType>(VecValue->getType())->getNumElements() == VF &&
            "Invalid vector width of value");
 
     bool IsNegOneStride = false;
-    bool ConsecutiveStride =
-        Plan->getVPlanDA()->isUnitStridePtr(ScalarPtr, IsNegOneStride);
+    bool ConsecutiveStride = Plan->getVPlanDA()->isUnitStridePtr(
+        ScalarPtr, VPCall->getOperand(0)->getType(), IsNegOneStride);
 
     // TODO: Currently only address with stride = 1 can be optimized. Need to
     // handle other cases.
