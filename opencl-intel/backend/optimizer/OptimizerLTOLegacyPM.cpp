@@ -86,7 +86,7 @@ void OptimizerLTOLegacyPM::CreatePasses() {
   PMBuilder.populateFunctionPassManager(FPM);
   PMBuilder.populateModulePassManager(MPM);
 
-  registerLastPasses();
+  registerLastPasses(PMBuilder);
 }
 
 void OptimizerLTOLegacyPM::registerPipelineStartCallback(
@@ -94,13 +94,15 @@ void OptimizerLTOLegacyPM::registerPipelineStartCallback(
   FPM.add(createUnifyFunctionExitNodesPass());
   FPM.add(createInferAddressSpacesPass());
 
-  auto EP = Config->GetDisableOpt()
+  auto EP = (PMBuilder.OptLevel == 0)
                 ? PassManagerBuilder::EP_EnabledOnOptLevel0
                 : PassManagerBuilder::EP_ModuleOptimizerEarly;
   PMBuilder.addExtension(
-      EP, [](const PassManagerBuilder &, legacy::PassManagerBase &MPM) {
+      EP, [](const PassManagerBuilder &PMB, legacy::PassManagerBase &MPM) {
         MPM.add(createParseAnnotateAttributesPass());
         MPM.add(createDPCPPEqualizerLegacyPass());
+        if (PMB.OptLevel > 0)
+          MPM.add(createInternalizeNonKernelFuncLegacyPass());
         MPM.add(createLinearIdResolverPass());
         MPM.add(createBuiltinCallToInstLegacyPass());
         MPM.add(createDPCPPKernelAnalysisLegacyPass());
@@ -150,8 +152,9 @@ void OptimizerLTOLegacyPM::registerOptimizerLastCallback(
       });
 }
 
-void OptimizerLTOLegacyPM::registerLastPasses() {
-  if (Config->GetDisableOpt()) {
+void OptimizerLTOLegacyPM::registerLastPasses(
+    llvm::PassManagerBuilder &PMBuilder) {
+  if (PMBuilder.OptLevel == 0) {
     // In O0 pipeline, there is no EP_OptimizerLast extension point, so we add
     // following passes to the end of pipeline.
     MPM.add(createDPCPPKernelWGLoopCreatorLegacyPass());
