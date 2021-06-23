@@ -20,12 +20,12 @@
 ;   }
 ;
 ; CHECK:       BEGIN REGION { }
-; CHECK-NEXT:        + DO i1 = 0, zext.i32.i64(%size) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK-NEXT:        + DO i1 = 0, zext.i32.i64(%size) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK-NEXT:        |   %2 = (%dst)[i1 + sext.i32.i64(%x)];
 ; CHECK-NEXT:        |   (%dst)[i1] = %2;
 ; CHECK-NEXT:        |   %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
 ; CHECK-NEXT:        |
-; CHECK-NEXT:        |   + DO i2 = 0, zext.i32.i64(%size) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK-NEXT:        |   + DO i2 = 0, zext.i32.i64(%size) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK-NEXT:        |   |   %6 = (%src)[2048 * i1 + i2];
 ; CHECK-NEXT:        |   |   (%dst)[1024 * i1 + i2] = %6;
 ; CHECK-NEXT:        |   + END LOOP

@@ -3,14 +3,14 @@
 
 ; Incoming HIR
 ; BEGIN REGION { }
-;       + DO i1 = 0, zext.i32.i64(%m) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+;       + DO i1 = 0, zext.i32.i64(%m) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ;       |   %sum.sroa.0.1 = 0;
 ;       |
 ;       |      %sum.red = alloca 1;
 ;       |      %0 = @llvm.directive.region.entry(); [ DIR.OMP.SIMD(),  QUAL.OMP.SIMDLEN(32),  QUAL.OMP.REDUCTION.ADD(&((%sum.red)[0])),  QUAL.OMP.NORMALIZED.IV(null),  QUAL.OMP.NORMALIZED.UB(null) ]
 ;       |      (%sum.red)[0] = 0.000000e+00;
 ;       |      %1 = 0.000000e+00;
-;       |   + DO i2 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295> <simd>
+;       |   + DO i2 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647> <simd>
 ;       |   |   %2 = (%A)[i2];
 ;       |   |   %3 = (%B)[i2];
 ;       |   |   %mul9 = %2  *  %3;
@@ -34,7 +34,7 @@
 
 
 ; CHECK:                 %red.var = 0.000000e+00;
-; CHECK-NEXT:         + DO i2 = 0, 32 * %tgu + -1, 32   <DO_LOOP>  <MAX_TC_EST = 134217727> <simd-vectorized> <nounroll> <novectorize>
+; CHECK-NEXT:         + DO i2 = 0, 32 * %tgu + -1, 32   <DO_LOOP>  <MAX_TC_EST = 67108863> <simd-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:         |   %.vec = (<32 x float>*)(%A)[i2];
 ; CHECK-NEXT:         |   %.vec3 = (<32 x float>*)(%B)[i2];
 ; CHECK-NEXT:         |   [[MUL:%.*]] = %.vec  *  %.vec3;

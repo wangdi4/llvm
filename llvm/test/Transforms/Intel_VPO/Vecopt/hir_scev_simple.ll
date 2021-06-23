@@ -17,7 +17,7 @@
 ; CHECK:       BEGIN REGION { }
 ; CHECK-NEXT:        %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
 ; CHECK-NEXT:<{{.*}}>
-; CHECK-NEXT:        + DO i1 = 0, zext.i32.i64(%size) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK-NEXT:        + DO i1 = 0, zext.i32.i64(%size) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK-NEXT:        |   %0 = (%src)[i1];
 ; CHECK-NEXT:        |   %mul = i1  *  i1;
 ; CHECK-NEXT:        |   (%dst)[i1] = %0 + %mul;

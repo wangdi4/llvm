@@ -4,7 +4,7 @@
 ; Verify that unroll & jam gives up in the presence of unsafe call @bar(i1).
 
 ; CHECK: BEGIN REGION { }
-; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK: |   + DO i2 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>
 ; CHECK: |   |   %call.us = @bar(i1);
 ; CHECK: |   |   %ld = (%A)[i2];

@@ -4,7 +4,7 @@
 ; <0>     BEGIN REGION { }
 ; <15>          %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
 ; <14>
-; <14>          + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; <14>          + DO i1 = 0, zext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; <2>           |   %a.010.out = %a.010; <Safe Reduction>
 ; <4>           |   %0 = (%A)[i1];
 ; <7>           |   %a.010 = i1 + %a.010.out  +  %0; <Safe Reduction>
@@ -22,7 +22,7 @@
 ; CHECK:            %red.var = 0;
 ; CHECK-NEXT:       %red.var = insertelement %red.var,  %a.010,  0;
 
-; CHECK:            + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 1073741823> <auto-vectorized> <nounroll> <novectorize>
+; CHECK:            + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ; CHECK-NEXT:       |   %.copy = %red.var;
 ; CHECK-NEXT:       |   %.vec = (<4 x i32>*)(%A)[i1];
 ; CHECK-NEXT:       |   %.vec1 = %.copy  +  i1 + <i32 0, i32 1, i32 2, i32 3>;

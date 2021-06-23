@@ -5,16 +5,16 @@
 ; It was failing because we updated the def level of deferred ztt candidate
 ; 'if (%m > 0)' in anticipation of it being successfuly recognized.
 
-; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK: + DO i1 = 0, %n + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK: |   %m = (%m_ptr)[0];
 ; CHECK: |
-; CHECK: |   + DO i2 = 0, zext.i32.i64(%m) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK: |   + DO i2 = 0, zext.i32.i64(%m) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK: |   |   %0 = (%A)[i2];
 ; CHECK: |   |   (%A)[i2] = i2 + %0;
 ; CHECK: |   + END LOOP
 ; CHECK: |
 ; CHECK: |
-; CHECK: |   + DO i2 = 0, zext.i32.i64(%m) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK: |   + DO i2 = 0, zext.i32.i64(%m) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK: |   |   %2 = (%A)[i2];
 ; CHECK: |   |   (%A)[i2] = i1 + %2;
 ; CHECK: |   + END LOOP

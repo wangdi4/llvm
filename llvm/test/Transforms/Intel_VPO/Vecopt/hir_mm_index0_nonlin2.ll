@@ -171,7 +171,7 @@ define dso_local i32 @maxloc(i32 %m, i32* nocapture readonly %ordering) local_un
 ;CHECK-NEXT:           %red.var1 = 9223372036854775807;
 ;CHECK-NEXT:           %red.var2 = %tmp.024;
 ;CHECK-NEXT:           %red.var3 = %val.025;
-;CHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP> <auto-vectorized> <nounroll> <novectorize>
+;CHECK:                + DO i1 = 0, 4 * %tgu + -1, 4 <DO_LOOP> <MAX_TC_EST = 536870911> <auto-vectorized> <nounroll> <novectorize>
 ;CHECK-NEXT:           |   %.vec = (<4 x i32>*)(%ordering)[i1];
 ;CHECK-NEXT:           |   %.vec7 = %.vec > %red.var;
 ;CHECK-NEXT:           |   %red.var1 = (%.vec > %red.var) ? i1 + <i64 0, i64 1, i64 2, i64 3> : %red.var1;

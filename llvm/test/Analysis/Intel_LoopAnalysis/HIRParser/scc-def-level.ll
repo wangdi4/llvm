@@ -6,7 +6,7 @@
 ; (%add41.lcssa -> %add41 -> %add41.lcssa78) and then used the definition level
 ; of SCC root %add41.lcssa78 which is the outer loop header phi.
 
-; CHECK: + DO i32 i1 = 0, %div + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
+; CHECK: + DO i32 i1 = 0, %div + -1, 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK: |   + DO i64 i2 = 0, 9, 1   <DO_LOOP>
 ; CHECK: |   |   %ld1 = (%ptr1)[2 * i2 + 2];
 ; CHECK: |   |   %ld2 = (%ptr2)[2 * i2 + 2];
