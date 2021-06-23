@@ -143,13 +143,18 @@ static inline void dumpTargetPointerMappings(const ident_t *Loc,
     SourceInfo Info(HostTargetMap.HstPtrName);
 #if INTEL_CUSTOMIZATION
     INFO(OMP_INFOTYPE_ALL, Device.DeviceID,
-         DPxMOD " " DPxMOD " %-8" PRIuPTR " %-8" PRId64 " %s at %s:%d:%d\n",
+         DPxMOD " " DPxMOD " %-8" PRIuPTR " %-8s %s at %s:%d:%d\n",
          DPxPTR(HostTargetMap.HstPtrBegin), DPxPTR(HostTargetMap.TgtPtrBegin),
          HostTargetMap.HstPtrEnd - HostTargetMap.HstPtrBegin,
+<<<<<<< HEAD
          HostTargetMap.getRefCount(), Info.getName(), Info.getFilename(),
          Info.getLine(), Info.getColumn());
 #endif // INTEL_CUSTOMIZATION
 
+=======
+         HostTargetMap.refCountToStr().c_str(), Info.getName(),
+         Info.getFilename(), Info.getLine(), Info.getColumn());
+>>>>>>> 48421ac441bf64ec940b13c2dee1bc1a7671e878
   }
   Device.DataMapMtx.unlock();
 }
