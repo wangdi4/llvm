@@ -2154,6 +2154,7 @@ void OpenMPLateOutliner::emitOMPToClause(const OMPToClause *) {assert(false);}
 void OpenMPLateOutliner::emitOMPMapClause(const OMPMapClause *) {assert(false);}
 void OpenMPLateOutliner::emitOMPUpdateClause(const OMPUpdateClause *) {}
 void OpenMPLateOutliner::emitOMPCaptureClause(const OMPCaptureClause *) {}
+void OpenMPLateOutliner::emitOMPCompareClause(const OMPCompareClause *) {}
 void OpenMPLateOutliner::emitOMPSeqCstClause(const OMPSeqCstClause *) {}
 void OpenMPLateOutliner::emitOMPUnifiedAddressClause(
     const OMPUnifiedAddressClause *) {}

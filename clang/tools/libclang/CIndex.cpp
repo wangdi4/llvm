@@ -2315,6 +2315,10 @@ void OMPClauseEnqueue::VisitOMPUpdateClause(const OMPUpdateClause *) {}
 
 void OMPClauseEnqueue::VisitOMPCaptureClause(const OMPCaptureClause *) {}
 
+#if INTEL_COLLAB
+void OMPClauseEnqueue::VisitOMPCompareClause(const OMPCompareClause *) {}
+#endif // INTEL_COLLAB
+
 void OMPClauseEnqueue::VisitOMPSeqCstClause(const OMPSeqCstClause *) {}
 
 void OMPClauseEnqueue::VisitOMPAcqRelClause(const OMPAcqRelClause *) {}

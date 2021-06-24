@@ -3390,6 +3390,26 @@ class OMPAtomicDirective : public OMPExecutableDirective {
   /// This field is true for the first(postfix) form of the expression and false
   /// otherwise.
   bool IsPostfixUpdate = false;
+#if INTEL_COLLAB
+  /// Used for 'atomic compare' constructs. True for forms that result in a
+  /// 'min' operation:
+  /// \code
+  /// x = expr < x ? expr : x;
+  /// x = x > expr ? expr : x;
+  /// if (expr < x) { x = expr; }
+  /// if (x > expr) { x = expr; }
+  /// \endcode
+  bool IsCompareMin = false;
+  /// Used for 'atomic compare' constructs. True for forms that result in a
+  /// 'max' operation:
+  /// \code
+  /// x = expr > x ? expr : x;
+  /// x = x < expr ? expr : x;
+  /// if (expr > x) { x = expr; }
+  /// if (x < expr) { x = expr; }
+  /// \endcode
+  bool IsCompareMax = false;
+#endif // INTEL_COLLAB
 
   /// Build directive with the given start and end location.
   ///
@@ -3415,7 +3435,15 @@ class OMPAtomicDirective : public OMPExecutableDirective {
   /// Set 'v' part of the associated expression/statement.
   void setV(Expr *V) { Data->getChildren()[2] = V; }
   /// Set 'expr' part of the associated expression/statement.
+#if INTEL_COLLAB
+  /// This is also in the CAS 'compare' form for the 'desired' value.
+#endif // INTEL_COLLAB
   void setExpr(Expr *E) { Data->getChildren()[3] = E; }
+#if INTEL_COLLAB
+  /// Set 'expected' part of the associated expression/statement.
+  /// This is used in the CAS 'compare' forms.
+  void setExpected(Expr *E) { Data->getChildren()[4] = E; }
+#endif // INTEL_COLLAB
 
 public:
   /// Creates directive with a list of \a Clauses and 'x', 'v' and 'expr'
@@ -3430,6 +3458,9 @@ public:
   /// \param X 'x' part of the associated expression/statement.
   /// \param V 'v' part of the associated expression/statement.
   /// \param E 'expr' part of the associated expression/statement.
+#if INTEL_COLLAB
+  /// \param Expected 'expected' part of the associated expression/statement.
+#endif // INTEL_COLLAB
   /// \param UE Helper expression of the form
   /// 'OpaqueValueExpr(x) binop OpaqueValueExpr(expr)' or
   /// 'OpaqueValueExpr(expr) binop OpaqueValueExpr(x)'.
@@ -3437,10 +3468,19 @@ public:
   /// second.
   /// \param IsPostfixUpdate true if original value of 'x' must be stored in
   /// 'v', not an updated one.
+#if INTEL_COLLAB
+  /// \param IsCompareMin true if 'compare' min case
+  /// \param IsCompareMax true if 'compare' max case
+#endif // INTEL_COLLAB
   static OMPAtomicDirective *
   Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
          ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt, Expr *X, Expr *V,
+#if INTEL_COLLAB
+         Expr *E, Expr *Expected, Expr *UE, bool IsXLHSInRHSPart,
+         bool IsPostfixUpdate, bool IsCompareMin, bool IsCompareMax);
+#else // INTEL_COLLAB
          Expr *E, Expr *UE, bool IsXLHSInRHSPart, bool IsPostfixUpdate);
+#endif // INTEL_COLLAB
 
   /// Creates an empty directive with the place for \a NumClauses
   /// clauses.
@@ -3470,16 +3510,35 @@ public:
   /// Return true if 'v' expression must be updated to original value of
   /// 'x', false if 'v' must be updated to the new value of 'x'.
   bool isPostfixUpdate() const { return IsPostfixUpdate; }
+
+#if INTEL_COLLAB
+  /// Return true if atomic compare is 'min' form.
+  bool isCompareMin() const { return IsCompareMin; }
+  /// Return true if atomic compare is 'max' form.
+  bool isCompareMax() const { return IsCompareMax; }
+#endif // INTEL_COLLAB
+
   /// Get 'v' part of the associated expression/statement.
   Expr *getV() { return cast_or_null<Expr>(Data->getChildren()[2]); }
   const Expr *getV() const {
     return cast_or_null<Expr>(Data->getChildren()[2]);
   }
   /// Get 'expr' part of the associated expression/statement.
+#if INTEL_COLLAB
+  /// Or if the 'compare' CAS form, the 'desired' expression.
+#endif // INTEL_COLLAB
   Expr *getExpr() { return cast_or_null<Expr>(Data->getChildren()[3]); }
   const Expr *getExpr() const {
     return cast_or_null<Expr>(Data->getChildren()[3]);
   }
+
+#if INTEL_COLLAB
+  /// Get 'expected' part of the associated expression/statement.
+  Expr *getExpected() { return cast_or_null<Expr>(Data->getChildren()[4]); }
+  const Expr *getExpected() const {
+    return cast_or_null<Expr>(Data->getChildren()[4]);
+  }
+#endif // INTEL_COLLAB
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OMPAtomicDirectiveClass;
