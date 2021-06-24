@@ -290,11 +290,17 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     IsNew = true;
 #if INTEL_COLLAB
     uintptr_t tp = (uintptr_t)data_alloc_base(Size, HstPtrBegin, HstPtrBase);
+    const HostDataToTargetTy &newEntry =
+        *HostDataToTargetMap
+             .emplace((uintptr_t)HstPtrBase, (uintptr_t)HstPtrBegin,
+                      (uintptr_t)HstPtrBegin + Size, tp, HstPtrName)
+             .first;
     INFO(OMP_INFOTYPE_MAPPING_CHANGED, DeviceID,
          "Creating new map entry with "
-         "HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%" PRId64
-         ", Name=%s\n",
+         "HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD ", Size=%" PRId64 ", "
+         "RefCount=%s, Name=%s\n",
          DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
+         newEntry.refCountToStr().c_str(),
          (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "unknown");
 #else // INTEL_COLLAB
     uintptr_t tp = (uintptr_t)allocData(Size, HstPtrBegin);
