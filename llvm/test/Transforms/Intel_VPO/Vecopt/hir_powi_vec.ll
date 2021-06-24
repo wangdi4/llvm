@@ -8,22 +8,22 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,print<hir>,hir-cg" -hir-details -vplan-force-vf=4 -disable-output < %s 2>&1 | FileCheck %s
 
 
-; CHECK:          @llvm.powi.v4f64(%.vec,  %P)
-; CHECK:          <RVAL-REG> LINEAR trunc.i64.i32(%P)
-; CHECK-NEXT:        <BLOB> LINEAR i64 %P
+; CHECK:          @llvm.powi.v4f64.i16(%.vec,  %P)
+; CHECK:          <RVAL-REG> LINEAR trunc.i32.i16(%P)
+; CHECK-NEXT:        <BLOB> LINEAR i32 %P
 
-declare double @llvm.powi.f64(double %Val, i32 %power) nounwind readnone
+declare double @llvm.powi.f64.i16(double %Val, i16 %power) nounwind readnone
 
-define void @powi_f64(double* noalias nocapture readonly %y, i64 %P) local_unnamed_addr #2 {
+define void @powi_f64(double* noalias nocapture readonly %y, i32 %P) local_unnamed_addr #2 {
 entry:
-  %P.CVT = trunc i64 %P to i32
+  %P.CVT = trunc i32 %P to i16
   br label %for.body
 
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body ], [ 0, %entry ]
   %arrayidx = getelementptr inbounds double, double* %y, i64 %indvars.iv
   %0 = load double, double* %arrayidx, align 8
-  %call = tail call double @llvm.powi.f64(double %0, i32 %P.CVT) #4
+  %call = tail call double @llvm.powi.f64.i16(double %0, i16 %P.CVT) #4
   store double %call, double* %arrayidx, align 8
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 100

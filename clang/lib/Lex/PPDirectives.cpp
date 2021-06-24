@@ -2795,7 +2795,7 @@ void Preprocessor::HandleMicrosoftImportIntelDirective(SourceLocation HashLoc,
     WrapperFilename = std::string(WrapperFilenameImpl);
   } else if (std::error_code ErrorCode = llvm::sys::fs::openFileForWrite(
                  WrapperFilename, WrapperFileDesc,
-                 llvm::sys::fs::CD_CreateAlways, llvm::sys::fs::F_Append)) {
+                 llvm::sys::fs::CD_CreateAlways, llvm::sys::fs::OF_Append)) {
     Diag(FilenameTok, clang::diag::err_unable_to_make_temp)
         << ErrorCode.message();
     return;

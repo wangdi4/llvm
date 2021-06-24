@@ -916,8 +916,6 @@ void CodeGenModule::Release() {
         getCodeGenOpts().StackProtectorGuardOffset);
   if (getCodeGenOpts().StackAlignment)
     getModule().setOverrideStackAlignment(getCodeGenOpts().StackAlignment);
-  if (getCodeGenOpts().WarnStackSize != UINT_MAX)
-    getModule().setWarnStackSize(getCodeGenOpts().WarnStackSize);
 
   getTargetCodeGenInfo().emitTargetMetadata(*this, MangledDeclNames);
 
@@ -7219,7 +7217,7 @@ void CodeGenModule::EmitIntelDriverTempfile() {
 
   std::error_code EC;
   llvm::raw_fd_ostream Out(getLangOpts().IntelDriverTempfileName, EC,
-                           llvm::sys::fs::F_None);
+                           llvm::sys::fs::OF_None);
 
   Out << "\xEF\xBB\xBF"; // BOM UTF-8 file marker.
   Out << "<compiler_to_driver_communication>\n";

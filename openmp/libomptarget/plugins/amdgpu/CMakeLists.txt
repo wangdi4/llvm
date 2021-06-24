@@ -70,7 +70,6 @@ add_library(omptarget.rtl.amdgpu SHARED
 install(TARGETS omptarget.rtl.amdgpu LIBRARY DESTINATION "lib${OPENMP_LIBDIR_SUFFIX}")
 
 set_property(TARGET omptarget.rtl.amdgpu PROPERTY INSTALL_RPATH "$ORIGIN")
-if(INTEL_COLLAB)
 target_link_libraries(
   omptarget.rtl.amdgpu
   PRIVATE
@@ -82,17 +81,6 @@ target_link_libraries(
   "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports"
   "-Wl,-z,defs"
   )
-else(INTEL_COLLAB)
-target_link_libraries(
-  omptarget.rtl.amdgpu
-  PRIVATE
-  elf_common
-  hsa-runtime64::hsa-runtime64
-  pthread dl elf
-  "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/../exports"
-  "-Wl,-z,defs"
-  )
-endif(INTEL_COLLAB)
 
 if (LLVM_BINARY_DIR)
   # for in-tree build using LLVM_ENABLE_RUNTIMES

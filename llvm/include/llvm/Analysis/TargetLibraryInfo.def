@@ -1626,7 +1626,9 @@ TLI_DEFINE_STRING_INTERNAL("__isoc99_scanf")
 /// int __isoc99_sscanf(const char *s, const char *format, ...)
 TLI_DEFINE_ENUM_INTERNAL(dunder_isoc99_sscanf)
 TLI_DEFINE_STRING_INTERNAL("__isoc99_sscanf")
-
+/// void __kmpc_alloc_shared(size_t nbyte);
+TLI_DEFINE_ENUM_INTERNAL(__kmpc_alloc_shared)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_alloc_shared")
 #if INTEL_COLLAB
 /// bool __kmpc_atomic_compare_exchange(size_t size, void *ptr, void *expected,
 ///     void *desired, int32_t success_order, int32_t failure_order);
@@ -1713,6 +1715,11 @@ TLI_DEFINE_ENUM_INTERNAL(kmpc_for_static_init_8u)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_for_static_init_8u")
 TLI_DEFINE_ENUM_INTERNAL(kmpc_fork_call)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_fork_call")
+#endif // INTEL_COLLAB
+/// void __kmpc_free_shared(void *ptr);
+TLI_DEFINE_ENUM_INTERNAL(__kmpc_free_shared)
+TLI_DEFINE_STRING_INTERNAL("__kmpc_free_shared")
+#if INTEL_COLLAB
 /// kmp_int32 __kmpc_global_thread_num(ident_t * loc);
 TLI_DEFINE_ENUM_INTERNAL(kmpc_global_thread_num)
 TLI_DEFINE_STRING_INTERNAL("__kmpc_global_thread_num")

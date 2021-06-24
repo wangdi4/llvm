@@ -551,6 +551,8 @@ private:
   void verifyAttributeTypes(AttributeSet Attrs, bool IsFunction,
                             const Value *V);
   void verifyParameterAttrs(AttributeSet Attrs, Type *Ty, const Value *V);
+  void checkUnsignedBaseTenFuncAttr(AttributeList Attrs, StringRef Attr,
+                                    const Value *V);
   void verifyFunctionAttrs(FunctionType *FT, AttributeList Attrs,
                            const Value *V, bool IsIntrinsic);
   void verifyFunctionMetadata(ArrayRef<std::pair<unsigned, MDNode *>> MDs);
@@ -1868,40 +1870,51 @@ void Verifier::verifyParameterAttrs(AttributeSet Attrs, Type *Ty,
          V);
 
   if (PointerType *PTy = dyn_cast<PointerType>(Ty)) {
-    SmallPtrSet<Type*, 4> Visited;
-    if (!PTy->getElementType()->isSized(&Visited)) {
-      Assert(!Attrs.hasAttribute(Attribute::ByVal) &&
-             !Attrs.hasAttribute(Attribute::ByRef) &&
-             !Attrs.hasAttribute(Attribute::InAlloca) &&
-             !Attrs.hasAttribute(Attribute::Preallocated),
-             "Attributes 'byval', 'byref', 'inalloca', and 'preallocated' do not "
-             "support unsized types!",
-             V);
+    if (Attrs.hasAttribute(Attribute::ByVal)) {
+      SmallPtrSet<Type *, 4> Visited;
+      Assert(Attrs.getByValType()->isSized(&Visited),
+             "Attribute 'byval' does not support unsized types!", V);
     }
-    if (!isa<PointerType>(PTy->getElementType()))
-      Assert(!Attrs.hasAttribute(Attribute::SwiftError),
-             "Attribute 'swifterror' only applies to parameters "
-             "with pointer to pointer type!",
-             V);
-
     if (Attrs.hasAttribute(Attribute::ByRef)) {
-      Assert(Attrs.getByRefType() == PTy->getElementType(),
-             "Attribute 'byref' type does not match parameter!", V);
+      SmallPtrSet<Type *, 4> Visited;
+      Assert(Attrs.getByRefType()->isSized(&Visited),
+             "Attribute 'byref' does not support unsized types!", V);
     }
-
-    if (Attrs.hasAttribute(Attribute::ByVal) && Attrs.getByValType()) {
-      Assert(Attrs.getByValType() == PTy->getElementType(),
-             "Attribute 'byval' type does not match parameter!", V);
-    }
-
-    if (Attrs.hasAttribute(Attribute::Preallocated)) {
-      Assert(Attrs.getPreallocatedType() == PTy->getElementType(),
-             "Attribute 'preallocated' type does not match parameter!", V);
-    }
-
     if (Attrs.hasAttribute(Attribute::InAlloca)) {
-      Assert(Attrs.getInAllocaType() == PTy->getElementType(),
-             "Attribute 'inalloca' type does not match parameter!", V);
+      SmallPtrSet<Type *, 4> Visited;
+      Assert(Attrs.getInAllocaType()->isSized(&Visited),
+             "Attribute 'inalloca' does not support unsized types!", V);
+    }
+    if (Attrs.hasAttribute(Attribute::Preallocated)) {
+      SmallPtrSet<Type *, 4> Visited;
+      Assert(Attrs.getPreallocatedType()->isSized(&Visited),
+             "Attribute 'preallocated' does not support unsized types!", V);
+    }
+    if (!PTy->isOpaque()) {
+      if (!isa<PointerType>(PTy->getElementType()))
+        Assert(!Attrs.hasAttribute(Attribute::SwiftError),
+               "Attribute 'swifterror' only applies to parameters "
+               "with pointer to pointer type!",
+               V);
+      if (Attrs.hasAttribute(Attribute::ByRef)) {
+        Assert(Attrs.getByRefType() == PTy->getElementType(),
+               "Attribute 'byref' type does not match parameter!", V);
+      }
+
+      if (Attrs.hasAttribute(Attribute::ByVal) && Attrs.getByValType()) {
+        Assert(Attrs.getByValType() == PTy->getElementType(),
+               "Attribute 'byval' type does not match parameter!", V);
+      }
+
+      if (Attrs.hasAttribute(Attribute::Preallocated)) {
+        Assert(Attrs.getPreallocatedType() == PTy->getElementType(),
+               "Attribute 'preallocated' type does not match parameter!", V);
+      }
+
+      if (Attrs.hasAttribute(Attribute::InAlloca)) {
+        Assert(Attrs.getInAllocaType() == PTy->getElementType(),
+               "Attribute 'inalloca' type does not match parameter!", V);
+      }
     }
   } else {
     Assert(!Attrs.hasAttribute(Attribute::ByVal),
@@ -1914,6 +1927,17 @@ void Verifier::verifyParameterAttrs(AttributeSet Attrs, Type *Ty,
            "Attribute 'swifterror' only applies to parameters "
            "with pointer type!",
            V);
+  }
+}
+
+void Verifier::checkUnsignedBaseTenFuncAttr(AttributeList Attrs, StringRef Attr,
+                                            const Value *V) {
+  if (Attrs.hasFnAttribute(Attr)) {
+    StringRef S = Attrs.getAttribute(AttributeList::FunctionIndex, Attr)
+                      .getValueAsString();
+    unsigned N;
+    if (S.getAsInteger(10, N))
+      CheckFailed("\"" + Attr + "\" takes an unsigned integer: " + S, V);
   }
 }
 
@@ -2116,26 +2140,9 @@ void Verifier::verifyFunctionAttrs(FunctionType *FT, AttributeList Attrs,
       CheckFailed("invalid value for 'frame-pointer' attribute: " + FP, V);
   }
 
-  if (Attrs.hasFnAttribute("patchable-function-prefix")) {
-    StringRef S = Attrs
-                      .getAttribute(AttributeList::FunctionIndex,
-                                    "patchable-function-prefix")
-                      .getValueAsString();
-    unsigned N;
-    if (S.getAsInteger(10, N))
-      CheckFailed(
-          "\"patchable-function-prefix\" takes an unsigned integer: " + S, V);
-  }
-  if (Attrs.hasFnAttribute("patchable-function-entry")) {
-    StringRef S = Attrs
-                      .getAttribute(AttributeList::FunctionIndex,
-                                    "patchable-function-entry")
-                      .getValueAsString();
-    unsigned N;
-    if (S.getAsInteger(10, N))
-      CheckFailed(
-          "\"patchable-function-entry\" takes an unsigned integer: " + S, V);
-  }
+  checkUnsignedBaseTenFuncAttr(Attrs, "patchable-function-prefix", V);
+  checkUnsignedBaseTenFuncAttr(Attrs, "patchable-function-entry", V);
+  checkUnsignedBaseTenFuncAttr(Attrs, "warn-stack-size", V);
 }
 
 void Verifier::verifyFunctionMetadata(

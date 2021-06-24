@@ -79,17 +79,16 @@ int DeviceTy::associatePtr(void *HstPtrBegin, void *TgtPtrBegin, int64_t Size) {
   }
 
   // Mapping does not exist, allocate it with refCount=INF
-  HostDataToTargetTy newEntry((uintptr_t)HstPtrBegin /*HstPtrBase*/,
-                              (uintptr_t)HstPtrBegin /*HstPtrBegin*/,
-                              (uintptr_t)HstPtrBegin + Size /*HstPtrEnd*/,
-                              (uintptr_t)TgtPtrBegin /*TgtPtrBegin*/, nullptr,
-                              true /*IsRefCountINF*/);
-
+  auto Res = HostDataToTargetMap.emplace(
+      (uintptr_t)HstPtrBegin /*HstPtrBase*/,
+      (uintptr_t)HstPtrBegin /*HstPtrBegin*/,
+      (uintptr_t)HstPtrBegin + Size /*HstPtrEnd*/,
+      (uintptr_t)TgtPtrBegin /*TgtPtrBegin*/, nullptr, true /*IsRefCountINF*/);
+  auto NewEntry = Res.first;
   DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD
      ", HstEnd=" DPxMOD ", TgtBegin=" DPxMOD "\n",
-     DPxPTR(newEntry.HstPtrBase), DPxPTR(newEntry.HstPtrBegin),
-     DPxPTR(newEntry.HstPtrEnd), DPxPTR(newEntry.TgtPtrBegin));
-  HostDataToTargetMap.insert(newEntry);
+     DPxPTR(NewEntry->HstPtrBase), DPxPTR(NewEntry->HstPtrBegin),
+     DPxPTR(NewEntry->HstPtrEnd), DPxPTR(NewEntry->TgtPtrBegin));
 
   DataMapMtx.unlock();
 
@@ -303,9 +302,8 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
          DPxPTR(HstPtrBegin), DPxPTR(tp), Size,
          (HstPtrName) ? getNameFromMapping(HstPtrName).c_str() : "unknown");
 #endif // INTEL_COLLAB
-    HostDataToTargetMap.emplace(
-        HostDataToTargetTy((uintptr_t)HstPtrBase, (uintptr_t)HstPtrBegin,
-                           (uintptr_t)HstPtrBegin + Size, tp, HstPtrName));
+    HostDataToTargetMap.emplace((uintptr_t)HstPtrBase, (uintptr_t)HstPtrBegin,
+                                (uintptr_t)HstPtrBegin + Size, tp, HstPtrName);
     rc = (void *)tp;
   }
 

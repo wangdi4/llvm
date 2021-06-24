@@ -14,6 +14,8 @@
 ///
 /// \ingroup sycl_pi_ocl
 
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+
 #include <CL/sycl/detail/cl.h>
 #include <CL/sycl/detail/pi.h>
 
@@ -1336,7 +1338,6 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   _PI_CL(piextKernelSetArgMemObj, piextKernelSetArgMemObj)
   _PI_CL(piextKernelSetArgSampler, piextKernelSetArgSampler)
   _PI_CL(piTearDown, piTearDown)
-
 
 #undef _PI_CL
 

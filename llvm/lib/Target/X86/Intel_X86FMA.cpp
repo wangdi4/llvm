@@ -719,7 +719,7 @@ private:
             MMO->getPointerInfo(),
             MMO->getFlags() & ~MachineMemOperand::MOStore, MMO->getSize(),
             MMO->getBaseAlign(), MMO->getAAInfo(), nullptr,
-            MMO->getSyncScopeID(), MMO->getOrdering(),
+            MMO->getSyncScopeID(), MMO->getSuccessOrdering(),
             MMO->getFailureOrdering()));
       }
     }

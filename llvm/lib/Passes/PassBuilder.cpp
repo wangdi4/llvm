@@ -3640,7 +3640,7 @@ static bool isFunctionPassName(StringRef Name, CallbacksT &Callbacks) {
 #define FUNCTION_PASS(NAME, CREATE_PASS)                                       \
   if (Name == NAME)                                                            \
     return true;
-#define FUNCTION_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER)                   \
+#define FUNCTION_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER, PARAMS)           \
   if (checkParametrizedPassName(Name, NAME))                                   \
     return true;
 #define FUNCTION_ANALYSIS(NAME, CREATE_PASS)                                   \
@@ -3664,7 +3664,7 @@ static bool isLoopPassName(StringRef Name, CallbacksT &Callbacks) {
 #define LOOP_PASS(NAME, CREATE_PASS)                                           \
   if (Name == NAME)                                                            \
     return true;
-#define LOOP_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER)                       \
+#define LOOP_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER, PARAMS)               \
   if (checkParametrizedPassName(Name, NAME))                                   \
     return true;
 #define LOOP_ANALYSIS(NAME, CREATE_PASS)                                       \
@@ -3854,7 +3854,7 @@ Error PassBuilder::parseModulePass(ModulePassManager &MPM,
     MPM.addPass(createModuleToFunctionPassAdaptor(CREATE_PASS));               \
     return Error::success();                                                   \
   }
-#define FUNCTION_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER)                   \
+#define FUNCTION_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER, PARAMS)           \
   if (checkParametrizedPassName(Name, NAME)) {                                 \
     auto Params = parsePassParameters(PARSER, Name, NAME);                     \
     if (!Params)                                                               \
@@ -3868,7 +3868,7 @@ Error PassBuilder::parseModulePass(ModulePassManager &MPM,
         createFunctionToLoopPassAdaptor(CREATE_PASS, false, false)));          \
     return Error::success();                                                   \
   }
-#define LOOP_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER)                       \
+#define LOOP_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER, PARAMS)               \
   if (checkParametrizedPassName(Name, NAME)) {                                 \
     auto Params = parsePassParameters(PARSER, Name, NAME);                     \
     if (!Params)                                                               \
@@ -3961,7 +3961,7 @@ Error PassBuilder::parseCGSCCPass(CGSCCPassManager &CGPM,
     CGPM.addPass(createCGSCCToFunctionPassAdaptor(CREATE_PASS));               \
     return Error::success();                                                   \
   }
-#define FUNCTION_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER)                   \
+#define FUNCTION_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER, PARAMS)           \
   if (checkParametrizedPassName(Name, NAME)) {                                 \
     auto Params = parsePassParameters(PARSER, Name, NAME);                     \
     if (!Params)                                                               \
@@ -3975,7 +3975,7 @@ Error PassBuilder::parseCGSCCPass(CGSCCPassManager &CGPM,
         createFunctionToLoopPassAdaptor(CREATE_PASS, false, false)));          \
     return Error::success();                                                   \
   }
-#define LOOP_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER)                       \
+#define LOOP_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER, PARAMS)               \
   if (checkParametrizedPassName(Name, NAME)) {                                 \
     auto Params = parsePassParameters(PARSER, Name, NAME);                     \
     if (!Params)                                                               \
@@ -4046,7 +4046,7 @@ Error PassBuilder::parseFunctionPass(FunctionPassManager &FPM,
     FPM.addPass(CREATE_PASS);                                                  \
     return Error::success();                                                   \
   }
-#define FUNCTION_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER)                   \
+#define FUNCTION_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER, PARAMS)           \
   if (checkParametrizedPassName(Name, NAME)) {                                 \
     auto Params = parsePassParameters(PARSER, Name, NAME);                     \
     if (!Params)                                                               \
@@ -4075,7 +4075,7 @@ Error PassBuilder::parseFunctionPass(FunctionPassManager &FPM,
     FPM.addPass(createFunctionToLoopPassAdaptor(CREATE_PASS, false, false));   \
     return Error::success();                                                   \
   }
-#define LOOP_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER)                       \
+#define LOOP_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER, PARAMS)               \
   if (checkParametrizedPassName(Name, NAME)) {                                 \
     auto Params = parsePassParameters(PARSER, Name, NAME);                     \
     if (!Params)                                                               \
@@ -4133,7 +4133,7 @@ Error PassBuilder::parseLoopPass(LoopPassManager &LPM,
     LPM.addPass(CREATE_PASS);                                                  \
     return Error::success();                                                   \
   }
-#define LOOP_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER)                       \
+#define LOOP_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER, PARAMS)               \
   if (checkParametrizedPassName(Name, NAME)) {                                 \
     auto Params = parsePassParameters(PARSER, Name, NAME);                     \
     if (!Params)                                                               \
@@ -4393,6 +4393,10 @@ bool PassBuilder::isAnalysisPassName(StringRef PassName) {
 static void printPassName(StringRef PassName, raw_ostream &OS) {
   OS << "  " << PassName << "\n";
 }
+static void printPassName(StringRef PassName, StringRef Params,
+                          raw_ostream &OS) {
+  OS << "  " << PassName << "<" << Params << ">\n";
+}
 
 void PassBuilder::printPassNames(raw_ostream &OS) {
   // TODO: print pass descriptions when they are available
@@ -4421,6 +4425,11 @@ void PassBuilder::printPassNames(raw_ostream &OS) {
 #define FUNCTION_PASS(NAME, CREATE_PASS) printPassName(NAME, OS);
 #include "PassRegistry.def"
 
+  OS << "Function passes with params:\n";
+#define FUNCTION_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER, PARAMS)    \
+  printPassName(NAME, PARAMS, OS);
+#include "PassRegistry.def"
+
   OS << "Function analyses:\n";
 #define FUNCTION_ANALYSIS(NAME, CREATE_PASS) printPassName(NAME, OS);
 #include "PassRegistry.def"
@@ -4431,6 +4440,11 @@ void PassBuilder::printPassNames(raw_ostream &OS) {
 
   OS << "Loop passes:\n";
 #define LOOP_PASS(NAME, CREATE_PASS) printPassName(NAME, OS);
+#include "PassRegistry.def"
+
+  OS << "Loop passes with params:\n";
+#define LOOP_PASS_WITH_PARAMS(NAME, CREATE_PASS, PARSER, PARAMS)        \
+  printPassName(NAME, PARAMS, OS);
 #include "PassRegistry.def"
 
   OS << "Loop analyses:\n";

@@ -2,26 +2,20 @@
 ; RUN: opt < %s -passes=hir-ssa-deconstruction | opt -passes="print<hir-framework>" -hir-framework-debug=parser 2>&1 | FileCheck %s
 
 ; Verify that the countable inner loop is converted to unknown loop when parsing for the upper bound fails.
+; NOTE: Inner loop became countable with community changes.
 
 ; CHECK: + DO i1 = 0, sext.i32.i64(%2) + -1 * sext.i32.i64(%1) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 4294967295>
 ; CHECK: |   %zz.040.out = &((%zz.040)[0]);
 ; CHECK: |   %umax = (&((%scevgep42)[-1 * i1 + -1 * %1 + %3 + -1]) >u &((%R)[i1 + sext.i32.i64(%1) + sext.i32.i64(%indvars.iv)])) ? &((%scevgep42)[-1 * i1 + -1 * %1 + %3 + -1]) : &((%R)[i1 + sext.i32.i64(%1) + sext.i32.i64(%indvars.iv)]);
 ; CHECK: |   %umax48 = bitcast.double*.i8*(&((%umax)[0]));
-; CHECK: |   %scevgep5051 = ptrtoint.i8*.i64(&((%umax48)[-8 * sext.i32.i64(%indvars.iv) + -1 * ptrtoint.double*.i64(%R) + -1]));
+; CHECK: |   %scevgep5051 = ptrtoint.i8*.i64(&((%umax48)[-1 * ptrtoint.double*.i64(%R) + -8 * sext.i32.i64(%indvars.iv) + -1]));
 ; CHECK: |   %12 = %scevgep5051  >>  3;
 ; CHECK: |   %sub3 = %3  +  -1 * i1 + -1 * %1 + -1;
 ; CHECK: |   if (i1 + sext.i32.i64(%1) > 0)
 ; CHECK: |   {
-; CHECK: |      + UNKNOWN LOOP i2
-; CHECK: |      |   <i2 = 0>
-; CHECK: |      |   for.body9:
+; CHECK: |      + DO i2 = 0, (-8 * sext.i32.i64(%sub3) + -1 * ptrtoint.double*.i64(%R) + umax((8 + (8 * sext.i32.i64(%sub3)) + ptrtoint.double*.i64(%R)), ((8 * sext.i32.i64(%sub3)) + (8 * %indvars.iv54) + ptrtoint.double*.i64(%R))) + -1)/u8, 1   <DO_LOOP>
 ; CHECK: |      |   %15 = (i64*)(%R)[i2 + sext.i32.i64(%sub3)];
 ; CHECK: |      |   (i64*)(%zz.040.out)[i2] = %15;
-; CHECK: |      |   if (&((%R)[i2 + sext.i32.i64(%sub3) + 1]) <u &((%R)[i1 + sext.i32.i64(%1) + sext.i32.i64(%sub3)]))
-; CHECK: |      |   {
-; CHECK: |      |      <i2 = i2 + 1>
-; CHECK: |      |      goto for.body9;
-; CHECK: |      |   }
 ; CHECK: |      + END LOOP
 ; CHECK: |
 ; CHECK: |      %zz.040 = &((%zz.040.out)[%12 + 1]);

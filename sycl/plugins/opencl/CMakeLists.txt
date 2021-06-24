@@ -50,13 +50,7 @@ endif()
 
 add_common_options(pi_opencl)
 
-# INTEL_CUSTOMIZATION CORC-4868
-#
-# Try to prevent use of deprecated interface warning
-# and do not treat warnings as error unless it fixed upstream
-#
-target_compile_definitions (pi_opencl PRIVATE CL_USE_DEPRECATED_OPENCL_1_2_APIS)
-
+# INTEL_CUSTOMIZATION
 dpcpptarget_add_resource_file(pi_opencl
                               "pi_opencl.dll"
                               "Intel(R) oneAPI DPC++ Library"

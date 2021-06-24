@@ -576,20 +576,6 @@ static void collectSYCLAttributes(Sema &S, FunctionDecl *FD,
                SYCLIntelNoGlobalWorkOffsetAttr, SYCLSimdAttr>(A);
   });
 
-  // Allow the kernel attribute "use_stall_enable_clusters" only on lambda
-  // functions and function objects called directly from a kernel.
-  // For all other cases, emit a warning and ignore.
-  if (auto *A = FD->getAttr<SYCLIntelUseStallEnableClustersAttr>()) {
-    if (DirectlyCalled) {
-      Attrs.push_back(A);
-    } else {
-      S.Diag(A->getLocation(),
-             diag::warn_attribute_on_direct_kernel_callee_only)
-          << A;
-      FD->dropAttr<SYCLIntelUseStallEnableClustersAttr>();
-    }
-  }
-
 #if INTEL_CUSTOMIZATION
   if (FD->hasAttr<SYCLUnmaskedAttr>()) {
     if (CallerFD && !Util::isSyclInvokeUnmaskedFunction(CallerFD)) {
@@ -4161,7 +4147,6 @@ static void PropagateAndDiagnoseDeviceAttr(
   case attr::Kind::SYCLIntelSchedulerTargetFmaxMhz:
   case attr::Kind::SYCLIntelMaxGlobalWorkDim:
   case attr::Kind::SYCLIntelNoGlobalWorkOffset:
-  case attr::Kind::SYCLIntelUseStallEnableClusters:
   case attr::Kind::SYCLIntelLoopFuse:
   case attr::Kind::SYCLIntelFPGAMaxConcurrency:
   case attr::Kind::SYCLIntelFPGADisableLoopPipelining:
@@ -4875,9 +4860,18 @@ SYCLIntegrationHeader::SYCLIntegrationHeader(bool _UnnamedLambdaSupport,
     : UnnamedLambdaSupport(_UnnamedLambdaSupport), S(_S) {}
 
 void SYCLIntegrationFooter::addVarDecl(const VarDecl *VD) {
+  // Variable template declaration can result in an error case of 'nullptr'
+  // here.
+  if (!VD)
+    return;
   // Skip the dependent version of these variables, we only care about them
   // after instantiation.
   if (VD->getDeclContext()->isDependentContext())
+    return;
+
+  // Skip partial specializations of a variable template, treat other variable
+  // template instantiations as a VarDecl.
+  if (isa<VarTemplatePartialSpecializationDecl>(VD))
     return;
   // Step 1: ensure that this is of the correct type-spec-constant template
   // specialization).
@@ -5029,10 +5023,14 @@ static void EmitSpecIdShims(raw_ostream &OS, unsigned &ShimCounter,
 // Returns a string containing the FQN of the 'top most' shim, including its
 // function call parameters.
 static std::string EmitSpecIdShims(raw_ostream &OS, unsigned &ShimCounter,
-                                   const VarDecl *VD) {
+                                   PrintingPolicy &Policy, const VarDecl *VD) {
   if (!VD->isInAnonymousNamespace())
     return "";
-  std::string RelativeName = VD->getNameAsString();
+  std::string RelativeName;
+  llvm::raw_string_ostream stream(RelativeName);
+  VD->getNameForDiagnostic(stream, Policy, false);
+  stream.flush();
+
   EmitSpecIdShims(OS, ShimCounter, VD->getDeclContext(), RelativeName);
   return RelativeName;
 }
@@ -5061,7 +5059,7 @@ bool SYCLIntegrationFooter::emit(raw_ostream &OS) {
       continue;
 
     VisitedSpecConstants.insert(VD);
-    std::string TopShim = EmitSpecIdShims(OS, ShimCounter, VD);
+    std::string TopShim = EmitSpecIdShims(OS, ShimCounter, Policy, VD);
     OS << "__SYCL_INLINE_NAMESPACE(cl) {\n";
     OS << "namespace sycl {\n";
     OS << "namespace detail {\n";
@@ -5072,7 +5070,7 @@ bool SYCLIntegrationFooter::emit(raw_ostream &OS) {
       OS << TopShim;
     } else {
       OS << "::";
-      VD->printQualifiedName(OS, Policy);
+      VD->getNameForDiagnostic(OS, Policy, true);
     }
 
     OS << ">() {\n";

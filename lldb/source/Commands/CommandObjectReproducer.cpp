@@ -138,9 +138,7 @@ llvm::Expected<T> static ReadFromYAML(StringRef filename) {
 }
 
 static void SetError(CommandReturnObject &result, Error err) {
-  result.GetErrorStream().Printf("error: %s\n",
-                                 toString(std::move(err)).c_str());
-  result.SetStatus(eReturnStatusFailed);
+  result.AppendError(toString(std::move(err)));
 }
 
 /// Create a loader from the given path if specified. Otherwise use the current
@@ -202,7 +200,6 @@ protected:
       return result.Succeeded();
     } else {
       result.AppendErrorWithFormat("Unable to get the reproducer generator");
-      result.SetStatus(eReturnStatusFailed);
       return false;
     }
 

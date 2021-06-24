@@ -115,6 +115,16 @@ bool llvm::hasVectorInstrinsicScalarOpd(Intrinsic::ID ID,
   }
 }
 
+bool llvm::hasVectorInstrinsicOverloadedScalarOpd(Intrinsic::ID ID,
+                                                  unsigned ScalarOpdIdx) {
+  switch (ID) {
+  case Intrinsic::powi:
+    return (ScalarOpdIdx == 1);
+  default:
+    return false;
+  }
+}
+
 /// Returns intrinsic ID for call.
 /// For the input call instruction it finds mapping intrinsic and returns
 /// its ID, in case it does not found it return not_intrinsic.
@@ -908,6 +918,9 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
     assert(!RetTy->isVoidTy() && "Expected non-void function");
     SmallVector<Type *, 1> TysForDecl;
     TysForDecl.push_back(VecRetTy);
+    for (auto &I : enumerate(ArgTys))
+      if (hasVectorInstrinsicOverloadedScalarOpd(ID, I.index()))
+        TysForDecl.push_back(I.value());
     return Intrinsic::getDeclaration(M, ID, TysForDecl);
   }
 
