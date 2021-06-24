@@ -997,6 +997,7 @@ CallInst *CompilationUtils::AddMoreArgsToCall(CallInst *OldC,
 
   // Replace the original function with a call
   CallInst *NewC = CallInst::Create(NewF, Args, "", OldC);
+  NewC->setCallingConv(OldC->getCallingConv());
 
   // Copy debug metadata to new function if available
   if (OldC->hasMetadata()) {
@@ -1039,6 +1040,7 @@ CompilationUtils::AddMoreArgsToIndirectCall(CallInst *OldC,
   // Replace the original function with a call
   auto *NewC = CallInst::Create(NewFType, Cast, Args, "", OldC);
   assert(NewC && "Failed to create CallInst");
+  NewC->setCallingConv(OldC->getCallingConv());
 
   // Copy debug metadata to new function if available
   if (OldC->hasMetadata())

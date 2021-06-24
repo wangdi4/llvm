@@ -8,12 +8,12 @@
 ; CHECK: %[[SUB:.*]] = bitcast i32 (i32, i32, {{.*}})* @_Z3subii to i32 (i32, i32)*
 ; CHECK: %[[SELECT:.*]] = select i1 %{{.*}}, i32 (i32, i32)* %[[ADD]], i32 (i32, i32)* %[[SUB]]
 ; CHECK: %[[BITCAST:.*]] = bitcast i32 (i32, i32)* %[[SELECT]] to i32 (i32, i32,
-; CHECK: call i32 %[[BITCAST]]
+; CHECK: call spir_func i32 %[[BITCAST]]
 ; CHECK: %[[ADD2:.*]] = bitcast i32 (i32, i32, {{.*}})* @_Z3addii to i32 (i32, i32)*
 ; CHECK: %[[SUB2:.*]] = bitcast i32 (i32, i32, {{.*}})* @_Z3subii to i32 (i32, i32)*
 ; CHECK: %[[SELECT2:.*]] = select i1 %{{.*}}, i32 (i32, i32)* %[[ADD2]], i32 (i32, i32)* %[[SUB2]]
 ; CHECK: %[[BITCAST2:.*]] = bitcast i32 (i32, i32)* %[[SELECT2]] to i32 (i32, i32,
-; CHECK: call i32 %[[BITCAST2]]
+; CHECK: call spir_func i32 %[[BITCAST2]]
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-linux-sycldevice"
