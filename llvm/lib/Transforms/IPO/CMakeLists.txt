@@ -40,6 +40,7 @@ add_llvm_component_library(LLVMipo
   Intel_IPOPrefetch.cpp   # INTEL
   Utils/Intel_IPOUtils.cpp # INTEL
   Intel_InlineLists.cpp   # INTEL
+  Intel_MathLibrariesDeclaration.cpp #INTEL
   Intel_OptimizeDynamicCasts.cpp    # INTEL
   Intel_PartialInline.cpp           # INTEL
   Intel_TileMVInlMarker.cpp         # INTEL

@@ -766,7 +766,16 @@ StringRef MapIntrinToImlImpl::findX86SVMLVariantForScalarFunction(
   // to remember since the input function (FuncName) could be a logical vector
   // that is larger.
   std::string TargetVLStr = toString(APInt(32, TargetVL), 10, false);
+
+#if INTEL_FEATURE_ISA_FP16
+  std::string VectorFuncStem = ScalarFuncName.str();
+  // Use "s" suffix for FP16 functions
+  if (ScalarFuncName.endswith("f16"))
+    VectorFuncStem.replace(VectorFuncStem.end() - 3, VectorFuncStem.end(), "s");
+  std::string TempFuncName = "__svml_" + VectorFuncStem + TargetVLStr;
+#else // INTEL_FEATURE_ISA_FP16
   std::string TempFuncName = "__svml_" + ScalarFuncName.str() + TargetVLStr;
+#endif // INTEL_FEATURE_ISA_FP16
   if (Masked)
     TempFuncName += "_mask";
   char *ParentFuncName = new char[TempFuncName.size() + 1];
@@ -792,10 +801,9 @@ StringRef MapIntrinToImlImpl::findX86SVMLVariantForScalarFunction(
   return VariantFuncName;
 }
 
-StringRef MapIntrinToImlImpl::getSVMLFunctionProperties(StringRef FuncName,
-                                                        unsigned ReturnVL,
-                                                        unsigned &LogicalVL,
-                                                        bool &Masked) {
+std::string MapIntrinToImlImpl::getSVMLFunctionProperties(
+    StringRef FuncName, VectorType *VecCallType, unsigned &LogicalVL,
+    bool &Masked) {
 
   assert(!Masked && "Expect Masked to be false");
   // Incoming FuncName is something like '__svml_sinf4'. Removing the '__svml_'
@@ -807,6 +815,7 @@ StringRef MapIntrinToImlImpl::getSVMLFunctionProperties(StringRef FuncName,
     ScalarFuncName = ScalarFuncName.rtrim("_mask");
   }
 
+  unsigned ReturnVL = VecCallType->getNumElements();
   std::string ReturnVLStr = toString(APInt(32, ReturnVL), 10, false);
   LogicalVL = ReturnVL;
   StringRef LogicalVLStr = ReturnVLStr;
@@ -828,7 +837,18 @@ StringRef MapIntrinToImlImpl::getSVMLFunctionProperties(StringRef FuncName,
   }
   ScalarFuncName = ScalarFuncName.drop_back(LogicalVLStr.size());
 
-  return ScalarFuncName;
+#if INTEL_FEATURE_ISA_FP16
+  // Use "f16" suffix for FP16 scalar functions
+  if (VecCallType->getElementType() ==
+      Type::getHalfTy(VecCallType->getContext())) {
+    assert(ScalarFuncName.back() == 's' &&
+           "Name of FP16 vector function should ends with 's'.");
+    ScalarFuncName = ScalarFuncName.drop_back(1);
+    return ScalarFuncName.str() + "f16";
+  }
+#endif // INTEL_FEATURE_ISA_FP16
+
+  return ScalarFuncName.str();
 }
 
 /// Build function name for SVML integer div/rem from opcode, scalar type and
@@ -1137,16 +1157,16 @@ bool MapIntrinToImlImpl::runImpl() {
         getVectorTypeForSVMLFunction(CI->getFunctionType());
 
     Type *ElemType = VecCallType->getElementType();
-    unsigned ReturnVL = VecCallType->getNumElements();
     unsigned LogicalVL = 0;
     bool Masked = false;
-    StringRef ScalarFuncName =
-        getSVMLFunctionProperties(FuncName, ReturnVL, LogicalVL, Masked);
+    std::string ScalarFuncName =
+        getSVMLFunctionProperties(FuncName, VecCallType, LogicalVL, Masked);
 
     // Need to go through DataLayout in cases where we have pointer types to
     // get the correct pointer bit size.
     unsigned ScalarBitWidth = DL.getTypeSizeInBits(ElemType);
-    unsigned ComponentBitWidth = (ReturnVL / LogicalVL) * ScalarBitWidth;
+    unsigned ComponentBitWidth =
+        (VecCallType->getNumElements() / LogicalVL) * ScalarBitWidth;
 
     // Get the number of library calls that will be required, indicated by
     // NumRet. NumRet is determined by getting the vector type info from the

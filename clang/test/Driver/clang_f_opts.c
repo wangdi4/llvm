@@ -530,6 +530,9 @@
 
 // RUN: %clang -### -S -fdiscard-value-names %s 2>&1 | FileCheck -check-prefix=CHECK-DISCARD-NAMES %s
 // RUN: %clang -### -S -fno-discard-value-names %s 2>&1 | FileCheck -check-prefix=CHECK-NO-DISCARD-NAMES %s
+// INTEL_CUSTOMIZATION
+// RUN: %clang -### -O3 -fiopenmp -fopenmp-targets=spir64 -c -Rpass-analysis=openmp %s 2>&1 | FileCheck -check-prefix=CHECK-NO-DISCARD-NAMES %s
+// end INTEL_CUSTOMIZATION
 // CHECK-DISCARD-NAMES: "-discard-value-names"
 // CHECK-NO-DISCARD-NAMES-NOT: "-discard-value-names"
 

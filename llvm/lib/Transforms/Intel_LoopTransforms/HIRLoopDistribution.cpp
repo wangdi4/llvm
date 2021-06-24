@@ -68,13 +68,19 @@ enum PragmaReturnCode {
 const std::string DistributeLoopnestEnable =
     "intel.loop.distribute.loopnest.enable";
 
-const std::string OptReportMsg[Last] = {
-    "Distribute point pragma not processed",
-    "No Distribution as requested by pragma",
-    "Distribute point pragma processed",
-    "Distribute point pragma not processed: Unsupported constructs in loops",
-    "Distribute point pragma not processed: Loop is too complex",
-    "Distribute point pragma not processed: Too many Distribute points"};
+const unsigned OptReportMsg[Last] = {
+    //"Distribute point pragma not processed",
+    25568u,
+    //"No Distribution as requested by pragma",
+    25569u,
+    //"Distribute point pragma processed",
+    25570u,
+    //"Distribute point pragma not processed: Unsupported constructs in loops",
+    25571u,
+    //"Distribute point pragma not processed: Loop is too complex",
+    25572u,
+    //"Distribute point pragma not processed: Too many Distribute points"
+    25573u};
 
 bool HIRLoopDistribution::run() {
   if (DisableDist) {
@@ -144,8 +150,8 @@ bool HIRLoopDistribution::run() {
       AllowScalarExpansion = Lp->isInnermost();
     }
 
-    std::unique_ptr<PiGraph> PG(new PiGraph(
-        Lp, DDA, SARA, AllowScalarExpansion, CreateControlNodes));
+    std::unique_ptr<PiGraph> PG(
+        new PiGraph(Lp, DDA, SARA, AllowScalarExpansion, CreateControlNodes));
 
     if (!PG->isGraphValid()) {
       LLVM_DEBUG(
@@ -497,10 +503,11 @@ bool ScalarExpansion::findDepInst(const RegDDRef *RVal,
   return false;
 }
 
-bool ScalarExpansion::isSafeToRecompute(
-    const RegDDRef *SrcRef, unsigned ChunkIdx,
-    const SymbaseLoopSetTy &SymbaseLoopSet,
-    const SparseBitVector<> &ModifiedBases, const HLInst *&DepInst) {
+bool ScalarExpansion::isSafeToRecompute(const RegDDRef *SrcRef,
+                                        unsigned ChunkIdx,
+                                        const SymbaseLoopSetTy &SymbaseLoopSet,
+                                        const SparseBitVector<> &ModifiedBases,
+                                        const HLInst *&DepInst) {
   assert(SrcRef->isLval() && "SrcRef is expected to be LVal");
 
   const HLInst *Inst = cast<HLInst>(SrcRef->getHLDDNode());
@@ -517,13 +524,12 @@ bool ScalarExpansion::isSafeToRecompute(
     }
 
     if (RVal->isSelfBlob()) {
-      bool Ret = RVal->isLinearAtLevel(Level) ||
-                 SymbaseLoopSet.count({SB, ChunkIdx});
+      bool Ret =
+          RVal->isLinearAtLevel(Level) || SymbaseLoopSet.count({SB, ChunkIdx});
 
-      return Ret ||
-             (findDepInst(RVal, DepInst) &&
-              isSafeToRecompute(DepInst->getLvalDDRef(), ChunkIdx,
-                                SymbaseLoopSet, ModifiedBases, DepInst));
+      return Ret || (findDepInst(RVal, DepInst) &&
+                     isSafeToRecompute(DepInst->getLvalDDRef(), ChunkIdx,
+                                       SymbaseLoopSet, ModifiedBases, DepInst));
     }
 
     for (auto &Blob : make_range(RVal->blob_begin(), RVal->blob_end())) {
@@ -555,8 +561,7 @@ bool ScalarExpansion::isSafeToRecompute(
                               RValLevel != NonLinearLevel ? RValLevel : Level);
 
       // Find if it has IVs greater than found level.
-      for (unsigned IV = SrcRValLevel + 1; IV <= MaxLoopNestLevel;
-           ++IV) {
+      for (unsigned IV = SrcRValLevel + 1; IV <= MaxLoopNestLevel; ++IV) {
         if (RVal->hasIV(IV)) {
           SrcRValLevel = IV;
         }
@@ -571,7 +576,7 @@ bool ScalarExpansion::isSafeToRecompute(
 void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
   // Symbase-to-Candidate map
   DenseMap<unsigned, unsigned> CandidatesSymbaseIndex;
-  auto GetCandidateForSymbase = [&](unsigned Symbase) -> Candidate& {
+  auto GetCandidateForSymbase = [&](unsigned Symbase) -> Candidate & {
     unsigned &Index = CandidatesSymbaseIndex[Symbase];
     if (Index == 0) {
       Candidates.emplace_back();
@@ -903,8 +908,9 @@ void HIRLoopDistribution::distributeLoop(
         LORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low,
                                         OptReportMsg[Success]);
       }
-      LORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low,
-                                      "Loop distributed (%d way)", LoopCount);
+      // Loop distributed (%d way)
+      LORBuilder(*LoopNode).addRemark(OptReportVerbosity::Low, 25574u,
+                                      LoopCount);
     }
 
     if (CurLoopIndex == PreheaderLoopIndex) {

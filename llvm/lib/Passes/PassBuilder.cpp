@@ -129,6 +129,7 @@
 #include "llvm/Transforms/IPO/Intel_IPArrayTranspose.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_IPOPrefetch.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_MathLibrariesDeclaration.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"   //INTEL
 #include "llvm/Transforms/IPO/Intel_PartialInline.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_QsortRecognizer.h" // INTEL
@@ -2410,6 +2411,10 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
     MPM.addPass(RelLookupTableConverterPass());
 
 #if INTEL_CUSTOMIZATION
+  // If LTO is enabled, then check if the declaration for math libraries are
+  // needed
+  if (PrepareForLTO)
+    MPM.addPass(IntelMathLibrariesDeclarationPass());
   MPM.addPass(InlineReportEmitterPass(Level.getSpeedupLevel(),
                                       Level.getSizeLevel(), LTOPreLink));
 #endif // INTEL_CUSTOMIZATION

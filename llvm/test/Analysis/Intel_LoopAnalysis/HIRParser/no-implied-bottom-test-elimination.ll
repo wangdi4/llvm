@@ -8,17 +8,16 @@
 
 
 ; CHECK: + DO i1 = 0, 1, 1   <DO_MULTI_EXIT_LOOP>
-; CHECK: |   %storemerge12.out = %storemerge12;
+; CHECK: |   %storemerge12.out = 5 * i1 + 1;
 ; CHECK: |   %indvars.iv.out = 5 * i1 + 10;
-; CHECK: |   if (%cmp29 == 0)
+; CHECK: |   if (-1 * i1 + -1 == 0)
 ; CHECK: |   {
 ; CHECK: |      goto for.end7;
 ; CHECK: |   }
-; CHECK: |   %1 = (@nz)[0][%storemerge12];
-; CHECK: |   (@nz)[0][%storemerge12] = %1 + %0;
-; CHECK: |   %cmp29 = 0;
-; CHECK: |   %storemerge12 = 6;
+; CHECK: |   %1 = (@nz)[0][5 * i1 + 1];
+; CHECK: |   (@nz)[0][5 * i1 + 1] = %1 + %0;
 ; CHECK: + END LOOP
+
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

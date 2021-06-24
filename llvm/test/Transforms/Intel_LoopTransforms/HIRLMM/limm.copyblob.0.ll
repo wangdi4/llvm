@@ -58,8 +58,8 @@
 ;
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:    LOOP BEGIN
-; OPTREPORT:        remark: Load hoisted out of the loop
-; OPTREPORT:        remark: Store sinked out of the loop
+; OPTREPORT:        remark #25563: Load hoisted out of the loop
+; OPTREPORT:        remark #25564: Store sinked out of the loop
 ; OPTREPORT:    LOOP END
 ; OPTREPORT: LOOP END
 ;

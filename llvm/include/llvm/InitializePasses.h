@@ -676,6 +676,7 @@ void initializeDataPerValueWrapperPass(PassRegistry &);
 void initializeKernelBarrierLegacyPass(PassRegistry &);
 void initializeBarrierInFunctionLegacyPass(PassRegistry &);
 void initializeImplicitArgsAnalysisLegacyPass(PassRegistry &);
+void initializeInternalizeNonKernelFuncLegacyPass(PassRegistry &);
 void initializeLinearIdResolverLegacyPass(PassRegistry &);
 void initializeLocalBufferAnalysisLegacyPass(PassRegistry &);
 void initializeAddImplicitArgsLegacyPass(PassRegistry &);
@@ -696,6 +697,8 @@ void initializeVPOParoptSharedPrivatizationPass(PassRegistry&);
 void initializeTransformSinAndCosCallsLegacyPassPass(PassRegistry&);
 // Add attributes to loops
 void initializeIntelLoopAttrsWrapperPass(PassRegistry&);
+// Add math function declarations
+void initializeIntelMathLibrariesDeclarationWrapperPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB

@@ -120,8 +120,7 @@ class HIRLoopFusion {
   HIRLoopStatistics &HLS;
 
   template <bool PreLoop>
-  bool generatePreOrPostLoops(HLNode *AnchorNode,
-                              ArrayRef<unsigned> Indices,
+  bool generatePreOrPostLoops(HLNode *AnchorNode, ArrayRef<unsigned> Indices,
                               ArrayRef<int64_t> Bounds,
                               ArrayRef<HLLoop *> Candidates,
                               SmallDenseSet<unsigned> &IndexSet);
@@ -209,8 +208,8 @@ bool HIRLoopFusion::generatePreOrPostLoops(HLNode *AnchorNode,
     NewLoop->removeLoopMetadata("llvm.loop.intel.loopcount_minimum");
     NewLoop->removeLoopMetadata("llvm.loop.intel.loopcount_average");
 
-    LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low,
-                                   "Peeled loop after fusion");
+    // Peeled loop after fusion
+    LORBuilder(*NewLoop).addRemark(OptReportVerbosity::Low, 25575u);
     NewLoop->setLowerDDRef(LowerDDRef);
     NewLoop->setUpperDDRef(UpperDDRef);
 
@@ -682,8 +681,8 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
                 E = std::prev(FNode.loops().rend());
            LoopI != E; ++LoopI) {
 
-        LORBuilder(**LoopI).addRemark(OptReportVerbosity::Low,
-                                      "Loop lost in Fusion");
+        // Loop lost in Fusion
+        LORBuilder(**LoopI).addRemark(OptReportVerbosity::Low, 25576u);
         LORBuilder(**LoopI).preserveLostLoopOptReport();
       }
 
@@ -704,8 +703,9 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
         VOSLN << ")";
       }
 
-      LORBuilder(*NextLoop).addRemark(OptReportVerbosity::Low,
-                                      "Loops have been fused %s", FuseLoopNums);
+      // Loops have been fused %s
+      LORBuilder(*NextLoop).addRemark(OptReportVerbosity::Low, 25577u,
+                                      FuseLoopNums);
     } else {
       NextLoop = FNode.pilotLoop();
     }

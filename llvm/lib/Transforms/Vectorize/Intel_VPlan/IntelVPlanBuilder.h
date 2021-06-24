@@ -33,6 +33,9 @@ protected:
            "Expected 2 operands");
     assert((!Instruction::isUnaryOp(Opcode) || Operands.size() == 1) &&
            "Expected 1 operand");
+    assert((Opcode != Instruction::GetElementPtr &&
+            Opcode != Instruction::Load && Opcode != Instruction::Store) &&
+           "Expected to be handled elsewhere!");
 
     VPInstruction *Instr = new VPInstruction(Opcode, BaseTy, Operands);
     insert(Instr);

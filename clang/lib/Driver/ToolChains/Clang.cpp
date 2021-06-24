@@ -5430,6 +5430,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                      }))) {
       D.Diag(diag::warn_ignoring_fdiscard_for_bitcode);
     }
+#if INTEL_CUSTOMIZATION
+    // Do not discard value names when using -Rpass* options
+    // unless -fdiscard-value-names is explicitly set
+    if (Args.hasArg(options::OPT_fdiscard_value_names) ||
+        !Args.hasArg(options::OPT_Rpass_EQ, options::OPT_Rpass_missed_EQ,
+                     options::OPT_Rpass_analysis_EQ))
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-discard-value-names");
   }
 

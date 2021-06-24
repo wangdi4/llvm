@@ -17,6 +17,7 @@
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DevLimits.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/LegacyPasses.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Utils/MetadataAPI.h"
 
 using namespace llvm;
 
@@ -79,9 +80,10 @@ void LocalBufferInfo::updateDirectLocals(Module &M) {
   } // Find globals done.
 }
 
-size_t LocalBufferInfo::calculateLocalsSize(Function *F) {
+size_t LocalBufferInfo::calculateLocalsSize(Function *F, unsigned MaxDepth) {
+  --MaxDepth;
 
-  if (!F || F->isDeclaration()) {
+  if (!F || F->isDeclaration() || !MaxDepth) {
     // Not module function, no need for local buffer, return size zero.
     return 0;
   }
@@ -114,7 +116,7 @@ size_t LocalBufferInfo::calculateLocalsSize(Function *F) {
   // look for calls to other kernels.
   for (auto &N : *(*CG)[F]) {
     auto *CI = cast<CallInst>(*N.first);
-    size_t CallLocalSize = calculateLocalsSize(CI->getCalledFunction());
+    size_t CallLocalSize = calculateLocalsSize(CI->getCalledFunction(), MaxDepth);
     if (ExtraLocalBufferSize < CallLocalSize) {
       // Found Function that needs more local size,
       // update max ExtraLocalBufferSize
@@ -138,9 +140,12 @@ void LocalBufferInfo::analyzeModule(CallGraph *CG) {
   // Initialize localUsageMap
   updateDirectLocals(*M);
 
-  // Update localSizeMap
-  for (auto &F : *M)
-    calculateLocalsSize(&F);
+  for (auto &F : *M) {
+    auto FMD = DPCPPKernelMetadataAPI::FunctionMetadataAPI(&F);
+    bool isRecursive = FMD.RecursiveCall.hasValue() && FMD.RecursiveCall.get();
+    unsigned MaxDepth = isRecursive ? MAX_RECURSION_DEPTH : UINT_MAX;
+    calculateLocalsSize(&F, MaxDepth);
+  }
 }
 
 // Provide a definition for the static class member used to identify passes.

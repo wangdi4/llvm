@@ -11,8 +11,8 @@
 ;
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT: <Distributed chunk 1>
-;OPTREPORT:    remark: Distribute point pragma processed
-;OPTREPORT:    remark: Loop distributed (2 way)
+;OPTREPORT:    remark #25570: Distribute point pragma processed
+;OPTREPORT:    remark #25574: Loop distributed (2 way)
 ;OPTREPORT: LOOP END
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT: <Distributed chunk 2>

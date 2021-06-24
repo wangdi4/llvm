@@ -100,6 +100,11 @@ void HIRVectorizationLegality::dump(raw_ostream &OS) const {
     Pvt.dump();
     OS << "\n";
   }
+  OS << "\n\nHIRLegality PrivatesNonPODList:\n";
+  for (auto &NPPvt : PrivatesNonPODList) {
+    NPPvt.dump();
+    OS << "\n";
+  }
   OS << "\n\nHIRLegality LinearList:\n";
   for (auto &Lin : LinearList) {
     Lin.dump();
@@ -140,6 +145,10 @@ template HIRVectorizationLegality::PrivDescrTy *
 HIRVectorizationLegality::findDescr(
     ArrayRef<HIRVectorizationLegality::PrivDescrTy> List,
     const DDRef *Ref) const;
+template HIRVectorizationLegality::PrivDescrNonPODTy *
+HIRVectorizationLegality::findDescr(
+    ArrayRef<HIRVectorizationLegality::PrivDescrNonPODTy> List,
+    const DDRef *Ref) const;
 template HIRVectorizationLegality::LinearDescr *
 HIRVectorizationLegality::findDescr(
     ArrayRef<HIRVectorizationLegality::LinearDescr> List,
@@ -176,7 +185,11 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUpdate(
   if (!Ref)
     return;
 
+  // Check, whether Ref is POD or non-POD Private
   DescrWithAliasesTy *Descr = isPrivate(Ref);
+  if (!Descr)
+    Descr = getNonPODPrivate(Ref);
+  // If Ref is not private check if it is linear reduction
   if (!Descr)
     Descr = getLinearRednDescriptors(Ref);
 
@@ -233,6 +246,8 @@ void HIRVectorizationLegality::findAliasDDRefs(HLNode *ClauseNode,
 
       // Check if RVal is any of explicit SIMD descriptors
       DescrWithAliasesTy *Descr = isPrivate(RVal);
+      if (Descr == nullptr)
+        Descr = getNonPODPrivate(RVal);
       if (Descr == nullptr)
         Descr = isLinear(RVal);
       if (Descr == nullptr)
@@ -1064,6 +1079,7 @@ public:
   using LinearList = HIRVectorizationLegality::LinearListTy;
   using ExplicitReductionList = HIRVectorizationLegality::ReductionListTy;
   using PrivatesListTy = HIRVectorizationLegality::PrivatesListTy;
+  using PrivatesNonPODListTy = HIRVectorizationLegality::PrivatesNonPODListTy;
   using InductionKind = VPInduction::InductionKind;
 
 
@@ -1256,6 +1272,21 @@ public:
     Descriptor.setIsExplicit(true);
     Descriptor.setIsMemOnly(false);
   }
+
+  void operator()(PrivateDescr &Descriptor,
+                  const PrivatesNonPODListTy::value_type &CurValue) {
+    auto *DescrRef = cast<RegDDRef>(CurValue.getRef());
+    DDRef *BasePtrRef = DescrRef->getBlobDDRef(DescrRef->getBasePtrBlobIndex());
+    Descriptor.setAllocaInst(
+        Decomposer.getVPExternalDefForSIMDDescr(BasePtrRef));
+    Descriptor.setIsConditional(CurValue.isCond());
+    Descriptor.setIsLast(CurValue.isLast());
+    Descriptor.setCtor(CurValue.getCtor());
+    Descriptor.setDtor(CurValue.getDtor());
+    Descriptor.setCopyAssign(CurValue.getCopyAssign());
+    Descriptor.setIsExplicit(true);
+    Descriptor.setIsMemOnly(false);
+  }
 };
 
 class HLLoop2VPLoopMapper {
@@ -1300,10 +1331,12 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
   using LinearList = HIRVectorizationLegality::LinearListTy;
   using ExplicitReductionList = HIRVectorizationLegality::ReductionListTy;
   using PrivatesList = HIRVectorizationLegality::PrivatesListTy;
+  using PrivatesNonPODList = HIRVectorizationLegality::PrivatesNonPODListTy;
 
   ReductionConverter *RedCvt = new ReductionConverter(Plan);
   InductionConverter *IndCvt = new InductionConverter(Plan);
   PrivatesConverter *PrivCvt = new PrivatesConverter(Plan);
+  PrivatesConverter *PrivNonPODCvt = new PrivatesConverter(Plan);
 
   for (auto LoopDescr = Header2HLLoop.begin(), End = Header2HLLoop.end();
        LoopDescr != End; ++LoopDescr) {
@@ -1360,6 +1393,12 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
     PrivatesListCvt PrivListCvt(Decomposer);
     auto PrivatesPair = std::make_pair(PrivRange, PrivListCvt);
 
+    const PrivatesNonPODList &PNPL = Legal->getNonPODPrivates();
+    auto PrivNonPODRange = make_range(PNPL.begin(), PNPL.end());
+    PrivatesListCvt PrivNonPODListCvt(Decomposer);
+    auto PrivatesNonPODPair =
+        std::make_pair(PrivNonPODRange, PrivNonPODListCvt);
+
     const HIRVectorIdioms *Idioms = Legal->getVectorIdioms(HL);
     iterator_range<MinMaxIdiomsInputIteratorHIR> MinMaxIdiomRange(
         MinMaxIdiomsInputIteratorHIR(true, *Idioms),
@@ -1370,10 +1409,12 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
     RedCvt->createDescrList(HL, ReducPair, ExplRedPair, RedIdiomPair);
     IndCvt->createDescrList(HL, InducPair, LinearPair);
     PrivCvt->createDescrList(HL, PrivatesPair);
+    PrivNonPODCvt->createDescrList(HL, PrivatesNonPODPair);
   }
   CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(RedCvt));
   CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(IndCvt));
   CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(PrivCvt));
+  CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(PrivNonPODCvt));
 }
 
 void VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {

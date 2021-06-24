@@ -54,7 +54,7 @@
 ;
 ;OPTREPORT: LOOP BEGIN
 ;OPTREPORT: <Predicate Optimized v1>
-;OPTREPORT:     remark: Condition was optimized
+;OPTREPORT:     remark #25580: Condition was optimized
 ;OPTREPORT: LOOP END
 ;
 ;OPTREPORT: LOOP BEGIN

@@ -1664,7 +1664,7 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     auto *LoadMask = getVLSLoadStoreMask(VecTy, GroupSize);
     if (!LoadMask) {
       auto *WideLoad = cast<LoadInst>(Builder.CreateAlignedLoad(
-          CastedBase, VLSLoad->getAlignment(), "vls.load"));
+          VecTy, CastedBase, VLSLoad->getAlignment(), "vls.load"));
 
       for (std::pair<unsigned, MDNode *> It : VLSLoad->getMetadata())
         WideLoad->setMetadata(It.first, It.second);
@@ -2363,33 +2363,48 @@ void VPOCodeGen::vectorizeSelectInstruction(VPInstruction *VPInst) {
   // If the selector is loop invariant we can create a select
   // instruction with a scalar condition. Otherwise, use vector-select.
   VPValue *Cond = VPInst->getOperand(0);
-  Value *VCond = getVectorValue(Cond);
   Value *Op0 = getVectorValue(VPInst->getOperand(1));
   Value *Op1 = getVectorValue(VPInst->getOperand(2));
-  auto *VPInstVecTy = dyn_cast<VectorType>(VPInst->getType());
-
   bool UniformCond = Plan->getVPlanDA()->isUniform(*Cond);
 
-  // The condition can be loop invariant  but still defined inside the
-  // loop. This means that we can't just use the original 'cond' value.
-
+  // Table to summarize special handling done for condition operand. Row heading
+  // indicates DA nature of the condition, while column heading indicates the
+  // incoming datatype of (condition/result) of select -
+  //
+  //          | scal/scal |    scal/vec      |      vec/vec     |
+  // ---------|-----------|------------------|------------------|
+  //    UNI   |  getScal  |      getScal     | getScal + repVec |
+  //    DIV   |  getVec   | getVec + repElem |      getVec      |
+  Value *VCond = nullptr;
   if (UniformCond) {
-    // TODO: Handle uniform vector condition in selects.
-    assert(!Cond->getType()->isVectorTy() &&
-           "Uniform vector condition is not supported.");
     VCond = getScalarValue(Cond, 0);
-  } else if (!Cond->getType()->isVectorTy() && VPInstVecTy) {
-    unsigned OriginalVL = VPInstVecTy->getNumElements();
-    // Widen the cond variable as following
-    //                        <0, 1, 0, 1>
-    //                             |
-    //                             | VF = 4,
-    //                             | OriginalVL = 2
-    //                             |
-    //                             V
-    //                  <0, 0, 1, 1, 0, 0, 1, 1>
+    if (Cond->getType()->isVectorTy()) {
+      // For uniform vector cond variable, replicate it VF times as following
+      //                        <0, 1>
+      //                           |
+      //                           | VF = 2,
+      //                           | OriginalVL = 2
+      //                           |
+      //                           V
+      //                      <0, 1, 0, 1>
+      VCond = replicateVector(VCond, VF, Builder);
+    }
+  } else {
+    VCond = getVectorValue(Cond);
+    auto *ResultVecTy = dyn_cast<VectorType>(VPInst->getType());
+    if (!Cond->getType()->isVectorTy() && ResultVecTy) {
+      unsigned OriginalVL = ResultVecTy->getNumElements();
+      // Widen the cond variable as following
+      //                        <0, 1, 0, 1>
+      //                             |
+      //                             | VF = 4,
+      //                             | OriginalVL = 2
+      //                             |
+      //                             V
+      //                  <0, 0, 1, 1, 0, 0, 1, 1>
 
-    VCond = replicateVectorElts(VCond, OriginalVL, Builder);
+      VCond = replicateVectorElts(VCond, OriginalVL, Builder);
+    }
   }
 
   Value *NewSelect = Builder.CreateSelect(VCond, Op0, Op1);
@@ -2501,8 +2516,8 @@ void VPOCodeGen::vectorizeLoadInstruction(VPLoadStoreInst *VPLoad,
 
   // Try to handle consecutive loads.
   bool IsNegOneStride = false;
-  bool ConsecutiveStride =
-      Plan->getVPlanDA()->isUnitStridePtr(Ptr, IsNegOneStride);
+  bool ConsecutiveStride = Plan->getVPlanDA()->isUnitStridePtr(
+      Ptr, VPLoad->getValueType(), IsNegOneStride);
   if (ConsecutiveStride) {
     bool IsPvtPtr = getVPValuePrivateMemoryPtr(Ptr) != nullptr;
     VPWidenMap[VPLoad] = vectorizeUnitStrideLoad(VPLoad, IsNegOneStride, IsPvtPtr);
@@ -2610,8 +2625,8 @@ void VPOCodeGen::vectorizeStoreInstruction(VPLoadStoreInst *VPStore,
 
   // Try to handle consecutive stores.
   bool IsNegOneStride = false;
-  bool ConsecutiveStride =
-      Plan->getVPlanDA()->isUnitStridePtr(Ptr, IsNegOneStride);
+  bool ConsecutiveStride = Plan->getVPlanDA()->isUnitStridePtr(
+      Ptr, VPStore->getValueType(), IsNegOneStride);
   if (ConsecutiveStride) {
     // TODO: VPVALCG: Special handling for mask value is also needed for
     // conditional last privates.
@@ -2812,14 +2827,14 @@ void VPOCodeGen::generateStoreForSinCos(VPCallInstruction *VPCall,
       cast<VectorType>(ExtractSinInst->getType())->getElementType()));
 
   // Widen ScalarPtr and generate instructions to store VecValue into it.
-  auto storeVectorValue = [this](Value *VecValue, VPValue *ScalarPtr,
-                                 Align Alignment) {
+  auto storeVectorValue = [this, VPCall](Value *VecValue, VPValue *ScalarPtr,
+                                         Align Alignment) {
     assert(cast<VectorType>(VecValue->getType())->getNumElements() == VF &&
            "Invalid vector width of value");
 
     bool IsNegOneStride = false;
-    bool ConsecutiveStride =
-        Plan->getVPlanDA()->isUnitStridePtr(ScalarPtr, IsNegOneStride);
+    bool ConsecutiveStride = Plan->getVPlanDA()->isUnitStridePtr(
+        ScalarPtr, VPCall->getOperand(0)->getType(), IsNegOneStride);
 
     // TODO: Currently only address with stride = 1 can be optimized. Need to
     // handle other cases.

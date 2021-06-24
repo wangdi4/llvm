@@ -835,17 +835,17 @@ bool HIRPrefetching::doPrefetching(
   LoopOptReportBuilder &LORBuilder =
       Lp->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
-  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                            "Number of spatial prefetches=%d",
+  // Number of spatial prefetches=%d
+  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25420u,
                             NumSpatialPrefetches);
   if (HasPragmaInfo) {
     Lp->getParentRegion()->setGenCode();
-    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                              "Number of spatial prefetches=%d",
+    // Number of spatial prefetches=%d
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25420u,
                               NumSpatialPrefetches);
+    // Number of indirect prefetches=%d
     if (NumIndirectPrefetches) {
-      LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                                "Number of indirect prefetches=%d",
+      LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25421u,
                                 NumIndirectPrefetches);
     }
   } else {
@@ -854,8 +854,8 @@ bool HIRPrefetching::doPrefetching(
     StrideRef->isIntConstant(&Stride);
     int Distance = PrefetchDist / Stride;
 
-    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                              "Number of spatial prefetches=%d, dist=%d",
+    // Number of spatial prefetches=%d, dist=%d
+    LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, 25419u,
                               NumSpatialPrefetches, Distance);
   }
 

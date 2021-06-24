@@ -1114,7 +1114,29 @@ void VPlanCFGMerger::insertPeelCntAndChecks(PlanDescr &P,
     return isa<VPlanPeelAdapter>(I);
   });
   assert(Adapter != P.FirstBB->end() && "expected peel adapter");
-  cast<VPlanPeelAdapter>(Adapter)->setUpperBound(PeelCount);
+  // Set upper bound of the peel. We need to adjust it subtracting one if the
+  // the loop is marked as having not exact UB. E.g. it's  latch condition looks
+  // like below:
+  //   %c = icmp ule %ind_var, %UB
+  //   br %c, label %header, label %exit
+  //
+  // In this case to execute e.g. 3 iterations, we should set UB to 2 as
+  // induction always starts with 0.
+  VPLoop *VLoop = Plan.getMainLoop(true);
+  VPValue *PeelCnt = PeelCount;
+  if (!VLoop->exactUB()) {
+    Type *Ty = PeelCount->getType();
+    if (StaticPeel) {
+      PeelCnt =
+          Plan.getVPConstant(ConstantInt::get(Ty, StaticPeel->peelCount() - 1));
+    } else {
+      auto *I = cast<VPInstruction>(PeelCount);
+      Builder.setInsertPoint(I->getParent(), std::next(I->getIterator()));
+      VPConstant *One = Plan.getVPConstant(ConstantInt::get(Ty, 1));
+      PeelCnt = Builder.createNaryOp(Instruction::Sub, Ty, {PeelCount, One});
+    }
+  }
+  cast<VPlanPeelAdapter>(Adapter)->setUpperBound(PeelCnt);
 
   // Merge block after peel needs live out values.
   updateMergeBlockIncomings(P, P.PrevMerge, P.FirstBB, false /* UseLiveIn */);
@@ -1375,14 +1397,12 @@ void VPlanCFGMerger::updateOrigUB() {
     OrigUB = findVectorUB(Plan)->getOperand(0);
   else {
     // Get the UB from the latch condition (its invariant operand).
+    // Note that if the original loop did not have normalized loop IV, here
+    // we know that we emitted one. Thus we rely on that.
     VPLoop *L = *cast<VPlanMasked>(Plan).getVPLoopInfo()->begin();
-    VPCmpInst *Cond = L->getLatchComparison();
-    assert(Cond && "expected comparison instruction");
-    auto Op = Cond->getOperand(0);
-    if (isa<VPInstruction>(Op) && L->contains(cast<VPInstruction>(Op)))
-      OrigUB = Cond->getOperand(1);
-    else
-      OrigUB = Cond->getOperand(0);
+    std::tie(OrigUB, std::ignore) =
+        L->getLoopUpperBound(/*AssumeNormalizedIV*/ true);
+
     // TODO: remove this when masked vplan creation is fixed to use original UB
     // in the latch.
     if (auto OrigUBInst = dyn_cast<VPVectorTripCountCalculation>(OrigUB))

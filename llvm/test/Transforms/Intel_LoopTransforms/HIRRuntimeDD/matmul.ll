@@ -32,7 +32,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,hir-post-vec-complete-unroll,hir-cg,simplify-cfg,intel-ir-optreport-emitter" -aa-pipeline="basic-aa"  -S -intel-loop-optreport=low 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
 ; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:     remark: The loop has been multiversioned{{[[:space:]]}}
+; OPTREPORT-NEXT:     remark #25582: Loop multiversioned for Data Dependence{{[[:space:]]}}
 ; OPTREPORT-NEXT:     LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:         LOOP BEGIN{{[[:space:]]}}
 ; OPTREPORT-NEXT:             LOOP BEGIN

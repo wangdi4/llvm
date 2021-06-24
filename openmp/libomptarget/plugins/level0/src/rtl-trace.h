@@ -16,6 +16,14 @@
 #include <string>
 #include "omptarget.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#define  print_pid() fprintf(stderr, " (pid:%lu) ", GetCurrentProcessId());
+#else
+#include <unistd.h>
+#define  print_pid() fprintf(stderr, " (pid:%d) ", getpid());
+#endif // _WIN32
+
 #define STR(x) #x
 #define TO_STRING(x) STR(x)
 
@@ -24,7 +32,11 @@ extern int DebugLevel;
 #define IDPLEVEL(Level, ...)                                                   \
   do {                                                                         \
     if (DebugLevel > Level) {                                                  \
-      fprintf(stderr, "%s --> ", "Target " TO_STRING(TARGET_NAME) " RTL");     \
+      fprintf(stderr, "%s", " Target " TO_STRING(TARGET_NAME) " RTL");         \
+      if (DebugLevel > 2) {                                                    \
+        print_pid();                                                           \
+      }                                                                        \
+      fprintf(stderr, " --> ");                                                \
       fprintf(stderr, __VA_ARGS__);                                            \
     }                                                                          \
   } while (0)

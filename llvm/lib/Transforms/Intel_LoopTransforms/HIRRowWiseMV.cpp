@@ -1313,7 +1313,7 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
 
 #if INTEL_INTERNAL_BUILD
   LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
-                            "Loop has been row-wise multiversioned");
+                            25581u);
 #endif
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(SafeCheckLevelParent);
   if (SafeCheckIf)

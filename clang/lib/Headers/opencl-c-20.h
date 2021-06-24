@@ -9,6 +9,22 @@
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 #endif
 
+// opencl-c-common.h already contains __opencl_c_atomic_scope_all_devices, but
+// opencl-c-common.h is compiled with CL1.2, so the macro is not enabled and
+// we have to define it here again.
+
+// Define feature macros for OpenCL C 2.0
+#if (defined(__OPENCL_CPP_VERSION__) || __OPENCL_C_VERSION__ == 200)
+#define __opencl_c_atomic_scope_all_devices 1
+#endif
+
+// Define header-only feature macros for OpenCL C 3.0.
+#if (__OPENCL_C_VERSION__ == 300)
+// For the SPIR target all features are supported.
+#if defined(__SPIR__)
+#define __opencl_c_atomic_scope_all_devices 1
+#endif // defined(__SPIR__)
+#endif // (__OPENCL_C_VERSION__ == 300)
 
 typedef int kernel_enqueue_flags_t;
 typedef int clk_profiling_info;

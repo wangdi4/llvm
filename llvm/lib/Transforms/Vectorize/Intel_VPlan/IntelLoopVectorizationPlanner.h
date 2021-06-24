@@ -474,11 +474,16 @@ protected:
   /// - the latch condition is used only as back-edge condition.
   /// - the latch condition and back edge are in a form that allows
   ///   us to use the upper bound as the loop trip count.
-  ///   One example of normalized case:
-  ///     cond = cmp lt iv_incr, ub
+  /// If second returned value \p ExactUB set to true, it means that the
+  /// upper bound value can be directly used as the exact trip count of the
+  /// loop. That basically depends on the loop latch comparison predicate:
+  /// ExactUB is true => UB is the exact loop trip count:
+  ///     iv = add iv, 1
+  ///     cond = cmp lt iv, ub
   ///     br cond loopheader, loopexit
-  ///   One example of non-normalized case:
-  ///     cond = cmp le iv_incr, ub
+  /// ExactUB is false ==> the loop trip count is "UB + 1":
+  ///     iv = add iv, 1
+  ///     cond = cmp le iv, ub
   ///     br cond loopheader, loopexit
   static bool hasLoopNormalizedInduction(const VPLoop *Loop, bool &ExactUB);
 
