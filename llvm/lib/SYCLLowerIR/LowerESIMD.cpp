@@ -512,6 +512,7 @@ public:
          {"lsc.xatomic.stateless",
           {ai1(0), t8(1), t8(2), t8(3), t16(4), t32(5), t8(6), t8(7), t8(8),
            c8(0), a(1), a(2), a(3), c32(0), u(-1)}}},
+        {"lsc_fence", {"lsc.fence", {ai1(0), t8(0), t8(1), t8(2)}}},
 #endif // INTEL_FEATURE_ESIMD_EMBARGO
 #endif // INTEL_CUSTOMIZATION
         {"satf", {"sat", {a(0)}}},

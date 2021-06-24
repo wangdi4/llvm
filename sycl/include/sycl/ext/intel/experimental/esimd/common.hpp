@@ -266,6 +266,41 @@ using EsimdAtomicOpType = atomic_op;
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ESIMD_EMBARGO */
 
+// DO NOT MODIFY THE FOLLOWING ENCODING
+/// The scope that lsc_fence operation should apply to
+/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
+enum class lsc_scope : uint8_t {
+  group = 0,  /// flush out to the threadgroup's scope
+  local = 1,  /// flush out to the local scope
+  tile = 2,   /// tile, flush out to several DSSs
+  gpu = 3,    /// entire GPU, flush out to the GPUs LLC
+  gpus = 4,   /// all GPUs in the system, flush out to memory shared by all GPUs
+  system = 5, /// the entire system memory space
+  sysacq = 6, /// the entire system memory space with system-acquire semantics
+};
+
+// DO NOT MODIFY THE FOLLOWING ENCODING
+/// The lsc_fence operation to apply to caches
+/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
+enum class lsc_fence_op : uint8_t {
+  none = 0,       /// no operation
+  evict = 1,      /// dirty lines evicted and invalidated from L1
+  invalidate = 2, /// invalidate all clean lines
+  discard = 3,    /// direct and clean lines are discarded w/o eviction
+  clean = 4,      /// dirty lines are written to memory, but retained in cache in clean state
+  flushl3 = 5,    /// flush only L3
+};
+
+// DO NOT MODIFY THE FOLLOWING ENCODING
+/// The specific LSC shared function to fence with lsc_fence
+/// Supported platforms: XEHP, DG2, PVC, PVC_XT, ELG+
+enum class lsc_sfid : uint8_t {
+  ugm = 0,  /// unified global memory
+  ugml = 1, /// low-bandwith untyped global memory
+  tgm = 2,  /// typed global memory
+  slm = 3,  /// shared local memory
+};
+
 // Data size or format to read or store
 // DO NOT MODIFY THE FOLLOWING ENCODING
 enum class lsc_data_size : uint8_t {

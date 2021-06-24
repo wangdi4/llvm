@@ -152,5 +152,8 @@ SYCL_ESIMD_FUNCTION SYCL_EXTERNAL void foo() {
   lsc_flat_prefetch2d<int, Width, Height, NumBlocks, false, false,
                       CacheHint::Uncached, CacheHint::Uncached>(
       ptr, data_width, data_height, data_pitch, x, y);
+
+  lsc_fence<lsc_sfid::slm, lsc_fence_op::none, lsc_scope::group, 16>();
+  // CHECK: call void @llvm.genx.lsc.fence.v16i1(<16 x i1> <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i8 3, i8 0, i8 0)
 }
 // end INTEL_FEATURE_ESIMD_EMBARGO
