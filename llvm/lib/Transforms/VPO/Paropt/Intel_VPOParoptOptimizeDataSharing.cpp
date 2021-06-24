@@ -328,6 +328,8 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems(
           Derivatives.push(BCO);
         else if (Operator::getOpcode(U) == Instruction::AddrSpaceCast)
           Derivatives.push(U);
+        else if (auto *SI = dyn_cast<SelectInst>(U))
+          Derivatives.push(SI);
         else if (auto *LI = dyn_cast<LoadInst>(U)) {
           if (LI->isVolatile()) {
             // In case of volatile load, we probably cannot change
@@ -369,8 +371,10 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems(
   for (auto I = WRegionList.begin(), E = WRegionList.end(); I != E; ++I) {
     WRegionNode *W = *I;
 
-    if (!isa<WRNTargetNode>(W) && !isa<WRNTeamsNode>(W))
-      // Optimize PRIVATE/FIRSTPRIVATE clauses of "target" regions.
+    if (!isa<WRNTargetNode>(W) && !isa<WRNTeamsNode>(W) &&
+        !WRegionUtils::isDistributeNode(W))
+      // Optimize PRIVATE/FIRSTPRIVATE clauses of "target", "teams" and
+      // "distribute" regions.
       continue;
 
     // No need to reset the BBSets afterwards.
