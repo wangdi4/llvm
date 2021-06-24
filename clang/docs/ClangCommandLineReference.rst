@@ -3683,6 +3683,12 @@ X86
 .. end INTEL_CUSTOMIZATION
 .. option:: -mavxvnni, -mno-avxvnni
 
+.. INTEL_CUSTOMIZATION
+.. INTEL_FEATURE_ISA_AVX_VNNI_INT16
+.. option:: -mavxvnniint16, -mno-avxvnniint16
+.. end INTEL_FEATURE_ISA_AVX_VNNI_INT16
+.. end INTEL_CUSTOMIZATION
+
 .. option:: -mbmi, -mno-bmi
 
 .. option:: -mbmi2, -mno-bmi2
