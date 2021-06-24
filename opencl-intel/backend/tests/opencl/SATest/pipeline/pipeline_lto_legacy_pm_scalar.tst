@@ -6,6 +6,7 @@
 
 ; CHECK:        ModulePass Manager
 ; CHECK:          DPCPPEqualizerLegacy
+; CHECK-NEXT:     InternalizeNonKernelFuncLegacy
 ; CHECK-NEXT:     CallGraph Construction
 ; CHECK-NEXT:     LinearIdResolverLegacy
 ; CHECK-NEXT:     FunctionPass Manager

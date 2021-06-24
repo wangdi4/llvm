@@ -902,7 +902,9 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
     }
     if(!zero_enqueue)
     {
-        m_pRunner->PrepareKernelArguments(pLockedParams, memArgs, memObjCount, numberOfThreads);
+      bool hasForcedWGSize = applyForcedWGSize();
+      m_pRunner->PrepareKernelArguments(pLockedParams, memArgs, memObjCount,
+                                        numberOfThreads, !hasForcedWGSize);
     }
 
     // if logger is enabled, always print local work size from BE
@@ -1166,6 +1168,38 @@ queue_t NDRange::GetDefaultQueueForDevice() const
         return 0 != m_parent ? m_parent->GetDefaultQueueForDevice() : nullptr;
     }
     return m_pTaskDispatcher->GetDefaultQueue();
+}
+
+bool NDRange::applyForcedWGSize() {
+  // If CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE is set, we'll use it regardless of
+  // whether workgroup size is specified in clEnqueueNDRangeKernel.
+  std::string forcedWGSizeStr =
+      m_pTaskDispatcher->getCPUDeviceConfig()->GetForcedWGSize();
+  if (forcedWGSizeStr.empty())
+    return false;
+
+  std::vector<size_t> forcedWGSize;
+  (void)SplitStringInteger(forcedWGSizeStr, ',', forcedWGSize);
+
+  size_t forcedWorkDim =
+      std::min(forcedWGSize.size(), m_pImplicitArgs->WorkDim);
+  if (0 == forcedWorkDim)
+    return false;
+
+  size_t i = 0;
+  for (; i < forcedWorkDim; ++i) {
+    m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i] = forcedWGSize[i];
+    size_t remainder = m_pImplicitArgs->GlobalSize[i] % forcedWGSize[i];
+    m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] =
+        remainder > 0 ? remainder : forcedWGSize[i];
+  }
+
+  // Set workgroup size of higher dim to 1.
+  for (; i < m_pImplicitArgs->WorkDim; ++i) {
+    m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i] = 1;
+    m_pImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] = 1;
+  }
+  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////

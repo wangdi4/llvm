@@ -121,6 +121,8 @@ public:
     void OnThreadExit(void *currentThreadData) override;
     TE_BOOLEAN_ANSWER MayThreadLeaveDevice(void *currentThreadData) override;
 
+    CPUDeviceConfig *getCPUDeviceConfig() { return m_pCPUDeviceConfig; }
+
 #if defined(__INCLUDE_MKL__) && !defined(__OMP2TBB__)
     OMPExecutorThread*			getOmpExecutionThread() const {return m_pOMPExecutionThread;}
 #endif

@@ -157,28 +157,6 @@ void Kernel::CreateWorkDescription(UniformKernelArgs *UniformImplicitArgs,
                             ? FPGA_MAX_WORK_GROUP_SIZE
                             : m_pProps->GetCpuMaxWGSize();
 
-  // If CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE is set, we'll use it regardless of
-  // whether workgroup size is specified in clEnqueueNDRangeKernel.
-  const std::vector<size_t> &forcedWGSize = m_pProps->GetForcedWGSize();
-  size_t forcedWorkDim =
-      std::min(forcedWGSize.size(), UniformImplicitArgs->WorkDim);
-  if (forcedWorkDim > 0) {
-    size_t i = 0;
-    for (; i < forcedWorkDim; ++i) {
-      UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i] =
-          forcedWGSize[i];
-      size_t remainder = UniformImplicitArgs->GlobalSize[i] % forcedWGSize[i];
-      UniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] =
-          remainder > 0 ? remainder : forcedWGSize[i];
-    }
-    // Set workgroup size of higher dim to 1.
-    for (; i < UniformImplicitArgs->WorkDim; ++i) {
-      UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i] = 1;
-      UniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] = 1;
-    }
-    return;
-  }
-
   bool UseAutoGroupSize = true;
   for (unsigned int i = 0; i < UniformImplicitArgs->WorkDim; ++i) {
     UseAutoGroupSize = UseAutoGroupSize && ((UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i]) == 0);
@@ -472,18 +450,18 @@ cl_dev_err_code Kernel::PrepareThreadState(ICLDevExecutionState &state) const {
   return CL_DEV_SUCCESS;
 }
 
-cl_dev_err_code
-Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
-                               const cl_mem_obj_descriptor **pDevMemObjArray,
-                               unsigned int devMemObjArrayLength,
-                               size_t numOfComputeUnits) const {
+cl_dev_err_code Kernel::PrepareKernelArguments(
+    void *pKernelUniformArgs, const cl_mem_obj_descriptor **pDevMemObjArray,
+    unsigned int devMemObjArrayLength, size_t numOfComputeUnits,
+    bool calculateWGSize) const {
   assert(pKernelUniformArgs && "Uniform Arguments Pointer is null");
   void *pKernelUniformImplicitArgsPosition =
       (char *)pKernelUniformArgs + m_explicitArgsSizeInBytes;
   UniformKernelArgs *pKernelUniformImplicitArgs =
       static_cast<UniformKernelArgs *>(pKernelUniformImplicitArgsPosition);
 
-  CreateWorkDescription(pKernelUniformImplicitArgs, numOfComputeUnits);
+  if (calculateWGSize)
+    CreateWorkDescription(pKernelUniformImplicitArgs, numOfComputeUnits);
 
   // local cannot be zero at this point
   assert(pKernelUniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][0] != 0 &&

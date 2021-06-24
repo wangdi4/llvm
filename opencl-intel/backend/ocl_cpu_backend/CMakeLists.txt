@@ -242,7 +242,6 @@ set( BACKEND_PASSES
     InternalizeGlobalVariables
     LocalBuffers
     LocalBuffAnalysis
-    PrepareKernelArgs
     PreventDivCrashes
     PrintIRPass
     ProfilingInfoPass

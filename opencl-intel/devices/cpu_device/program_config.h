@@ -51,7 +51,6 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             m_channelDepthEmulationMode(CHANNEL_DEPTH_MODE_STRICT),
             m_targetDevice(CPU_DEVICE),
             m_cpuMaxWGSize(CPU_MAX_WORK_GROUP_SIZE),
-            m_forcedWGSize(""),
             m_streamingAlways(false),
             m_expensiveMemOpts(0),
             m_passManagerType(PM_OCL)
@@ -106,11 +105,6 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         virtual const char *
         GetStringValue(int optionId,
                        const char *defaultValue) const override {
-          switch (optionId) {
-            case CL_DEV_BACKEND_OPTION_FORCED_WG_SIZE:
-              return m_forcedWGSize.empty() ? defaultValue
-                                            : m_forcedWGSize.c_str();
-          }
           return defaultValue;
         }
 
@@ -132,7 +126,6 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         int  m_channelDepthEmulationMode;
         DeviceMode  m_targetDevice;
         size_t m_cpuMaxWGSize;
-        std::string m_forcedWGSize;
         bool m_streamingAlways;
         unsigned m_expensiveMemOpts;
         PassManagerType m_passManagerType;

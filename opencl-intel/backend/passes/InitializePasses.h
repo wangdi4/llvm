@@ -88,7 +88,6 @@ void initializeLocalBuffAnalysisPass(llvm::PassRegistry&);
 void initializeHandleVPlanMaskPass(llvm::PassRegistry&);
 void initializeLLVMEqualizerPass(llvm::PassRegistry&);
 void initializeSubGroupAdaptationPass(llvm::PassRegistry&);
-void initializePrepareKernelArgsPass(llvm::PassRegistry&);
 void initializeRemovePrefetchPass(llvm::PassRegistry&);
 void initializeResolveWICallPass(llvm::PassRegistry&);
 void initializeResolveSubGroupWICallPass(llvm::PassRegistry&);
