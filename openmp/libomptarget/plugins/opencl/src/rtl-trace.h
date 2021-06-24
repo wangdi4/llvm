@@ -22,12 +22,24 @@
 #define STR(x) #x
 #define TO_STRING(x) STR(x)
 
+#ifdef _WIN32
+#include <windows.h>
+#define  print_pid() fprintf(stderr, " (pid:%lu) ", GetCurrentProcessId());
+#else
+#include <unistd.h>
+#define  print_pid() fprintf(stderr, " (pid:%d) ", getpid());
+#endif // _WIN32
+
 extern int DebugLevel;
 
 #define IDPLEVEL(Level, ...)                                                   \
   do {                                                                         \
     if (DebugLevel > Level) {                                                  \
-      fprintf(stderr, "Target OPENCL RTL --> ");                               \
+      fprintf(stderr, "Target OPENCL RTL");                                    \
+      if (DebugLevel > 2) {                                                    \
+         print_pid();                                                          \
+      }                                                                        \
+      fprintf(stderr, " --> ");                                                \
       fprintf(stderr, __VA_ARGS__);                                            \
     }                                                                          \
   } while (0)

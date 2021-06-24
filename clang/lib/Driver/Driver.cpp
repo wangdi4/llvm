@@ -459,10 +459,10 @@ void Driver::addIntelOMPDeviceLibs(const ToolChain &TC, Driver::InputList &Input
           return (Flag | Bit);
       };
 
-  // TODO - this will become the default sometime in the future.
   // FIXME - There is a bit of common code in this function that can be
   // cleaned up.
-  unsigned LinkForOMP = LinkFP32 | LinkFP64 | LinkRtl | LinkITT;
+  // -fopenmp-device-lib=all is the default
+  unsigned LinkForOMP = LinkFP32 | LinkFP64 | LinkLibc | LinkRtl | LinkITT;
 
   // TODO - Clean out -device-math-lib usage when it is removed.  For now
   // it is deprecated.  Also, we do nothing special for when both options

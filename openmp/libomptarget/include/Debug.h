@@ -62,9 +62,14 @@ enum OpenMPInfoType : uint32_t {
 #if INTEL_CUSTOMIZATION
 
 #ifdef _WIN32
+#define NOMINMAX 1
+#include <windows.h>
 #define __ATTRIBUTE__(X)
+#define  print_pid() fprintf(stderr, " (pid:%lu) ", GetCurrentProcessId());
 #else
 #define __ATTRIBUTE__(X)  __attribute__((X))
+#include <unistd.h>
+#define  print_pid() fprintf(stderr, " (pid:%d) ", getpid());
 #endif // _WIN32
 #endif // INTEL_CUSTOMIZATION
 
@@ -162,11 +167,27 @@ USED inline uint32_t getDebugLevel() {
 #ifdef OMPTARGET_DEBUG
 #include <stdio.h>
 
+#if INTEL_CUSTOMIZATION
+// Print Process id when DebugLevel is > 2 to distinguish different MPI ranks
+// as they will be intermingled when run with 2 or more ranks
+// Ideally we want the LIBOMPTARGET_DEBUG be bit  vector to select different
+// dumps.
+#define DEBUGP(prefix, ...)                                                    \
+  {                                                                            \
+    fprintf(stderr, "%s", prefix);                                             \
+    if (getDebugLevel() > 2) {                                                 \
+       print_pid();                                                            \
+    }                                                                          \
+    fprintf(stderr, " --> ");                                                  \
+    fprintf(stderr, __VA_ARGS__);                                              \
+  }
+#else // INTEL_CUSTOMIZATION
 #define DEBUGP(prefix, ...)                                                    \
   {                                                                            \
     fprintf(stderr, "%s --> ", prefix);                                        \
     fprintf(stderr, __VA_ARGS__);                                              \
   }
+#endif // INTEL_CUSTOMIZATION
 
 /// Emit a message for debugging
 #define DP(...)                                                                \
