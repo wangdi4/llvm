@@ -140,7 +140,6 @@ llvm::ModulePass *createCleanupWrappedKernelsPass();
 llvm::ModulePass *createPipeOrderingPass();
 llvm::ModulePass *createPipeSupportPass();
 llvm::ModulePass *createLocalBuffersPass(bool useTLSGlobals);
-llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
 llvm::ModulePass *createOclSyncFunctionAttrsPass();
 llvm::ModulePass *createInternalizeNonKernelFuncPass();
@@ -744,12 +743,12 @@ static void populatePassesPostFailCheck(
     PM.add(createRelaxedPass());
   }
 
-  // The following three passes (AddImplicitArgs/AddTLSGlobals, ResolveWICall,
-  // LocalBuffer) must run before createBuiltinImportLegacyPass!
+  // The following three passes (AddImplicitArgsLegacy/AddTLSGlobals,
+  // ResolveWICall, LocalBuffer) must run before createBuiltinImportLegacyPass!
   if (UseTLSGlobals)
     PM.add(createAddTLSGlobalsPass());
   else
-    PM.add(createAddImplicitArgsPass());
+    PM.add(llvm::createAddImplicitArgsLegacyPass());
 
   PM.add(createResolveWICallPass(pConfig->GetUniformWGSize(), UseTLSGlobals));
   PM.add(createLocalBuffersPass(UseTLSGlobals));

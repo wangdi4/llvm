@@ -1,7 +1,7 @@
 ; Test to check that users of local buffers in scatter intrinsics are llvm::Constant and not llvm::ConstantExpr.
 
-; RUN: %oclopt -add-implicit-args -debugify -local-buffers -check-debugify -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -add-implicit-args -local-buffers -S < %s | FileCheck %s
+; RUN: %oclopt -dpcpp-kernel-add-implicit-args -debugify -local-buffers -check-debugify -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt -dpcpp-kernel-add-implicit-args -local-buffers -S < %s | FileCheck %s
 
 ; CHECK-LABEL: void @foo
 ; CHECK: [[GEP:%.*]] = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0

@@ -218,7 +218,6 @@ set( BACKEND_PASSES
     ImplicitArgsAnalysis
     LLVMVectorizer
     AddFastMath
-    AddImplicitArgs
     AddTLSGlobals
     AutorunReplicator
     ChannelPipeTransformation

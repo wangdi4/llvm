@@ -1,5 +1,5 @@
-; RUN: %oclopt -debugify -resolve-block-call -check-debugify -add-implicit-args -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -resolve-block-call -add-implicit-args -S < %s | FileCheck %s
+; RUN: %oclopt -debugify -resolve-block-call -check-debugify -dpcpp-kernel-add-implicit-args -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt -resolve-block-call -dpcpp-kernel-add-implicit-args -S < %s | FileCheck %s
 ;
 ; Regression test. Check if byval stuct paasing to block always have
 ; the same aligment on a call site and a callee.

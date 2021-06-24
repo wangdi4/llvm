@@ -1,5 +1,5 @@
-; RUN: %oclopt -add-implicit-args -debugify -resolve-wi-call -check-debugify -S %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -add-implicit-args -resolve-wi-call -S %s -o - | FileCheck %s --check-prefixes CHECK,CHECK-ARG
+; RUN: %oclopt -dpcpp-kernel-add-implicit-args -debugify -resolve-wi-call -check-debugify -S %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt -dpcpp-kernel-add-implicit-args -resolve-wi-call -S %s -o - | FileCheck %s --check-prefixes CHECK,CHECK-ARG
 ; RUN: %oclopt -add-tls-globals -debugify -resolve-wi-call -check-debugify -use-tls-globals -S %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
 ; RUN: %oclopt -add-tls-globals -resolve-wi-call -use-tls-globals -S %s -o - | FileCheck %s --check-prefixes CHECK,CHECK-TLS
 
