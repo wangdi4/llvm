@@ -2473,8 +2473,8 @@ static bool isSafeToEliminateVarargsCast(const CallBase &Call,
   if (isa<GCStatepointInst>(Call) || isa<GCRelocateInst>(Call) ||
       isa<GCResultInst>(Call))
     return false;
-
 #if INTEL_CUSTOMIZATION
+
   // CMPLRLLVM-24644
   // If this is a "broker" function that sets up a callback, the argument
   // types should be preserved. SCCP may propagate the arguments directly
@@ -2483,20 +2483,28 @@ static bool isSafeToEliminateVarargsCast(const CallBase &Call,
   if (Callee && Callee->hasMetadata(LLVMContext::MD_callback))
       return false;
 #endif // INTEL_CUSTOMIZATION
+
+  // Opaque pointers are compatible with any byval types.
+  PointerType *SrcTy = cast<PointerType>(CI->getOperand(0)->getType());
+  if (SrcTy->isOpaque())
+    return true;
+
   // The size of ByVal or InAlloca arguments is derived from the type, so we
   // can't change to a type with a different size.  If the size were
   // passed explicitly we could avoid this check.
   if (!Call.isPassPointeeByValueArgument(ix))
     return true;
 
-  Type* SrcTy =
-            cast<PointerType>(CI->getOperand(0)->getType())->getElementType();
-  Type *DstTy = Call.isByValArgument(ix)
-                    ? Call.getParamByValType(ix)
-                    : cast<PointerType>(CI->getType())->getElementType();
-  if (!SrcTy->isSized() || !DstTy->isSized())
+  // The transform currently only handles type replacement for byval, not other
+  // type-carrying attributes.
+  if (!Call.isByValArgument(ix))
     return false;
-  if (DL.getTypeAllocSize(SrcTy) != DL.getTypeAllocSize(DstTy))
+
+  Type *SrcElemTy = SrcTy->getElementType();
+  Type *DstElemTy = Call.getParamByValType(ix);
+  if (!SrcElemTy->isSized() || !DstElemTy->isSized())
+    return false;
+  if (DL.getTypeAllocSize(SrcElemTy) != DL.getTypeAllocSize(DstElemTy))
     return false;
   return true;
 }
@@ -2762,6 +2770,7 @@ Instruction *InstCombinerImpl::visitCallBase(CallBase &Call) {
   if (IntrinsicInst *II = findInitTrampoline(Callee))
     return transformCallThroughTrampoline(Call, *II);
 
+  // TODO: Drop this transform once opaque pointer transition is done.
   FunctionType *FTy = Call.getFunctionType();
   if (FTy->isVarArg()) {
     int ix = FTy->getNumParams();
@@ -2773,13 +2782,14 @@ Instruction *InstCombinerImpl::visitCallBase(CallBase &Call) {
       if (CI && isSafeToEliminateVarargsCast(Call, DL, CI, ix)) {
         replaceUse(*I, CI->getOperand(0));
 
-        // Update the byval type to match the argument type.
-        if (Call.isByValArgument(ix)) {
+        // Update the byval type to match the pointer type.
+        // Not necessary for opaque pointers.
+        PointerType *NewTy = cast<PointerType>(CI->getOperand(0)->getType());
+        if (!NewTy->isOpaque() && Call.isByValArgument(ix)) {
           Call.removeParamAttr(ix, Attribute::ByVal);
           Call.addParamAttr(
               ix, Attribute::getWithByValType(
-                      Call.getContext(),
-                      CI->getOperand(0)->getType()->getPointerElementType()));
+                      Call.getContext(), NewTy->getElementType()));
         }
         Changed = true;
       }
