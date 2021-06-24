@@ -137,15 +137,13 @@ llvm::ModulePass *createPipeIOTransformationPass();
 llvm::ModulePass *createCleanupWrappedKernelsPass();
 llvm::ModulePass *createPipeOrderingPass();
 llvm::ModulePass *createPipeSupportPass();
-llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug,
-                                         bool useTLSGlobals);
+llvm::ModulePass *createLocalBuffersPass(bool useTLSGlobals);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
 llvm::ModulePass *createOclSyncFunctionAttrsPass();
 llvm::ModulePass *createInternalizeNonKernelFuncPass();
 llvm::ModulePass *createExternalizeGlobalVariablesPass();
 llvm::ModulePass *createInternalizeGlobalVariablesPass();
-llvm::ModulePass *createPrepareKernelArgsPass(bool useTLSGlobals);
 llvm::Pass *
 createBuiltinLibInfoPass(SmallVector<Module *, 2> pRtlModuleList,
                          std::string type);
@@ -699,7 +697,7 @@ static void populatePassesPostFailCheck(
   }
 
   // Get Some info about the kernel should be called before BarrierPass and
-  // createPrepareKernelArgsPass
+  // createPrepareKernelArgsLegacyPass.
   if (!pRtlModuleList.empty()) {
     PM.add(createKernelInfoWrapperPass());
   }
@@ -755,7 +753,7 @@ static void populatePassesPostFailCheck(
     PM.add(createAddImplicitArgsPass());
 
   PM.add(createResolveWICallPass(pConfig->GetUniformWGSize(), UseTLSGlobals));
-  PM.add(createLocalBuffersPass(debugType == Native, UseTLSGlobals));
+  PM.add(createLocalBuffersPass(UseTLSGlobals));
   // clang converts OCL's local to global.
   // createLocalBuffersPass changes the local allocation from global to a
   // kernel argument.
@@ -843,11 +841,11 @@ static void populatePassesPostFailCheck(
     PM.add(createLoopDeletionPass()); // Delete dead loops
   }
 
-  // PrepareKernelArgsPass must run in debugging mode as well
-  PM.add(createPrepareKernelArgsPass(UseTLSGlobals));
+  // PrepareKernelArgsLegacyPass must run in debugging mode as well
+  PM.add(llvm::createPrepareKernelArgsLegacyPass(UseTLSGlobals));
 
   if ( OptLevel > 0 ) {
-    // These passes come after PrepareKernelArgs pass to eliminate the
+    // These passes come after PrepareKernelArgsLegacyPass to eliminate the
     // redundancy reducced by it
     PM.add(llvm::createFunctionInliningPass());    // Inline
     PM.add(llvm::createDeadCodeEliminationPass()); // Delete dead instructions

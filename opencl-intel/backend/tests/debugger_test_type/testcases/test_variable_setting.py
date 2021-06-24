@@ -54,10 +54,6 @@ class TestVariableSetting(DebuggerTestCase):
         self.client.debug_run_finish()
 
     @skipNotGDBorCDB
-    @expectedFailureGDB
-    @expectedFailureCDB
-    # Expected to fail due to ClearQuest defect CSSD100014001
-    # (setting __local variables has no effect on program execution)
     def test_local_variable_setting(self):
     #
     # Test that setting variable in local AS has taken effect

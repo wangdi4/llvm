@@ -182,6 +182,10 @@ bool clCreateBufferWithPropertiesTest() {
       context, properties, CL_MEM_READ_ONLY, 100, NULL, &iRet));
   EXPECT_EQ(oclErr(CL_SUCCESS), oclErr(iRet))
       << "clCreateBufferWithProperties with properties 0 should be OK.";
+  size_t szSize;
+  iRet = clGetMemObjectInfo(buffer1, CL_MEM_PROPERTIES, 0, nullptr, &szSize);
+  EXPECT_EQ(sizeof(cl_mem_properties), szSize)
+      << "clGetMemObjectInfo queried size is unexpected.";
 
   // Release all
   clReleaseMemObject(buffer1);

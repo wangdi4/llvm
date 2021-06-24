@@ -190,8 +190,10 @@ public:
 
         m_pKernelRunner = pKernel->GetKernelRunner();
 
-        m_pKernelRunner->PrepareKernelArguments(reinterpret_cast<void*>(m_pArgumentBuffer.get()),
-                                                0, 0, 1); // the second and third parameters are not used.
+        // the second and third parameters are not used.
+        m_pKernelRunner->PrepareKernelArguments(
+            reinterpret_cast<void *>(m_pArgumentBuffer.get()), 0, 0, 1,
+            /*calculateWGSize*/ true);
 
         //local group size calculated by PrepareKernelArguments (using heuristic)
         memcpy(m_LocalSize, pKernelArgs->LocalSize[UNIFORM_WG_SIZE_INDEX], sizetMaxWorkDim );

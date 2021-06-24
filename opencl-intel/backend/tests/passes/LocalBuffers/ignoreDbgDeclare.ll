@@ -1,5 +1,5 @@
-; RUN: %oclopt -add-implicit-args -debugify -local-buffers -check-debugify -prepare-kernel-args -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
-; RUN: %oclopt -add-implicit-args -local-buffers -prepare-kernel-args -S < %s | FileCheck %s
+; RUN: %oclopt -add-implicit-args -debugify -local-buffers -check-debugify -dpcpp-kernel-prepare-args -S < %s -disable-output 2>&1 | FileCheck -check-prefix=DEBUGIFY %s
+; RUN: %oclopt -add-implicit-args -local-buffers -dpcpp-kernel-prepare-args -S < %s | FileCheck %s
 
 ; The test checks that global variables usages marked with the dbg_declare_inst metadata are ignored by the pass, and do not cause extra local memory allocation.
 ; The request size is 100 bytes. Together with 256 bytes of padding needed for vectorizer, it is 356, which we expect to be rounded to 384 (128*3).
@@ -43,8 +43,6 @@ entry:
   %_Z13get_global_idj2 = call i32 @_Z13get_global_idj(i32 2)
   %gid2_i64 = zext i32 %_Z13get_global_idj2 to i64
   call void @__opencl_dbg_enter_function(i64 6683384, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
-  %var_addr = addrspacecast [100 x i8] addrspace(3)* @mykernel.x to i8*, !dbg_declare_inst !30
-  call void @__opencl_dbg_declare_global(i8* %var_addr, i64 6721800, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)
   %a.addr = alloca i8 addrspace(3)*, align 4
   store i8 addrspace(3)* %a, i8 addrspace(3)** %a.addr, align 4
   call void @__opencl_dbg_stoppoint(i64 6722880, i64 %gid0_i64, i64 %gid1_i64, i64 %gid2_i64)

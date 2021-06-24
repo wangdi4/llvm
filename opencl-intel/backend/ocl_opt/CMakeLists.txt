@@ -9,7 +9,6 @@ set(OCL_BE_PASSES
     AddImplicitArgs
     AddTLSGlobals
     AutorunReplicator
-    BackendPassesWrappers
     BuiltinLibInfo
     ChannelPipeTransformation
     ChannelsUsageAnalysis
@@ -40,7 +39,6 @@ set(OCL_BE_PASSES
     PipeOrdering
     PipeSupport
     Prefetch
-    PrepareKernelArgs
     PreventDivCrashes
     RelaxedPass
     ResolveBlockToStaticCall

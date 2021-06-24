@@ -65,9 +65,8 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeOclFunctionAttrsPass(Registry);
     intel::initializeOclSyncFunctionAttrsPass(Registry);
     intel::initializeBuiltinLibInfoPass(Registry);
+    intel::initializeLocalBuffersPass(Registry);
     intel::initializeLocalBuffAnalysisPass(Registry);
-    intel::initializeLocalBuffersWrapperPass(Registry);
-    intel::initializeLocalBuffersWithDebugWrapperPass(Registry);
     intel::initializeLoopStridedCodeMotionPass(Registry);
     intel::initializeRelaxedPassPass(Registry);
     intel::initializeShiftZeroUpperBitsPass(Registry);
@@ -75,7 +74,6 @@ static void initializeOCLPasses(llvm::PassRegistry &Registry) {
     intel::initializeHandleVPlanMaskPass(Registry);
     intel::initializeLLVMEqualizerPass(Registry);
     intel::initializeSubGroupAdaptationPass(Registry);
-    intel::initializePrepareKernelArgsPass(Registry);
     intel::initializeRemovePrefetchPass(Registry);
     intel::initializeResolveWICallPass(Registry);
     intel::initializeResolveSubGroupWICallPass(Registry);

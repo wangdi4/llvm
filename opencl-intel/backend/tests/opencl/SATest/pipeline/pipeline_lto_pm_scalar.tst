@@ -2,6 +2,7 @@
 ; TODO: check VPlan driver pass is not run when VPlan is enabled in buildPerModuleDefaultPipeline.
 
 ; CHECK:      Running pass: DPCPPEqualizerPass
+; CHECK-NEXT: Running pass: InternalizeNonKernelFuncPass
 ; CHECK-NEXT: Running pass: LinearIdResolverPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy

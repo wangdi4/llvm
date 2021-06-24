@@ -242,6 +242,10 @@ public:
   protected:
     NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskList* pList, KernelCommand* parent);
 
+    // Apply forced WG sizes.
+    // Return true if forced WG sizes are applied successfully.
+    bool applyForcedWGSize();
+
     cl_int                                      m_lastError;
     const ICLDevBackendKernelRunner*            m_pRunner;
     UniformKernelArgs*                          m_pImplicitArgs;

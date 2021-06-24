@@ -48,7 +48,7 @@ private:
   void registerOptimizerLastCallback(llvm::PassManagerBuilder &PMBuilder);
 
   /// Register passes that run at the end of pipeline.
-  void registerLastPasses();
+  void registerLastPasses(llvm::PassManagerBuilder &PMBuilder);
 
   std::unique_ptr<llvm::TargetLibraryInfoImpl> TLII;
 

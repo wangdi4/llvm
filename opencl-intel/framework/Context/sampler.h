@@ -68,7 +68,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_uint GetValue() const {return m_clSamlerProps;}
 
-        void ReserveProperties(
+        void SetProperties(
             std::vector<cl_sampler_properties>& samplerPropsArray);
 
 	protected:

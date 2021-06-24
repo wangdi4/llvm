@@ -323,6 +323,11 @@ static cl_err_code ParseQueueProperties(
         }
         currProperties++;
     }
+
+    // Add a terminator
+    if (nullptr != clQueueProperties)
+      clQueuePropsArray.push_back(0);
+
     if (bQueueSizeSpecified && !(queueProps & CL_QUEUE_ON_DEVICE))
     {
         return CL_INVALID_VALUE;

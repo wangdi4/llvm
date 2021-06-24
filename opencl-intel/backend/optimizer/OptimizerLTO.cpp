@@ -94,6 +94,8 @@ void OptimizerLTO::registerPipelineStartCallback(PassBuilder &PB) {
   PB.registerPipelineStartEPCallback(
       [](ModulePassManager &MPM, PassBuilder::OptimizationLevel Level) {
         MPM.addPass(DPCPPEqualizerPass());
+        if (Level != PassBuilder::OptimizationLevel::O0)
+          MPM.addPass(InternalizeNonKernelFuncPass());
         MPM.addPass(LinearIdResolverPass());
         MPM.addPass(createModuleToFunctionPassAdaptor(BuiltinCallToInstPass()));
         MPM.addPass(DPCPPKernelAnalysisPass());

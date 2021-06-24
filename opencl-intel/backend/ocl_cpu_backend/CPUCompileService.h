@@ -38,7 +38,8 @@ public:
 
     cl_dev_err_code
     DumpJITCodeContainer(const ICLDevBackendCodeContainer *codeContainer,
-                         const ICLDevBackendOptions *options) const override;
+                         const ICLDevBackendOptions *options,
+                         bool dumpBinary = false) const override;
 
     cl_dev_err_code CheckProgramBinary(const void *pBinary,
                                        size_t uiBinarySize) override;

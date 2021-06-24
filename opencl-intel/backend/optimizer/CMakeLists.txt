@@ -28,9 +28,6 @@ include_directories(
     ${BACKEND_ROOT_DIR}/passes/PrintIRPass
     ${BACKEND_ROOT_DIR}/passes/
 )
-link_libraries(
-    BackendPassesWrappers
-)
 
 add_opencl_library(${TARGET_NAME} STATIC
     ${TARGET_INCLUDE_FILES}

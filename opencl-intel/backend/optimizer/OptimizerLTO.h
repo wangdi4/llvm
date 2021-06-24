@@ -37,13 +37,13 @@ public:
 
 private:
   /// Register a callback to the start of the pipeline.
-  void registerPipelineStartCallback(PassBuilder &PB);
+  void registerPipelineStartCallback(llvm::PassBuilder &PB);
 
   /// Register a callback to before the vectorizer.
-  void registerVectorizerStartCallback(PassBuilder &PB);
+  void registerVectorizerStartCallback(llvm::PassBuilder &PB);
 
   /// Register a callback to the very end of the function optimization pipeline.
-  void registerOptimizerLastCallback(PassBuilder &PB);
+  void registerOptimizerLastCallback(llvm::PassBuilder &PB);
 
   bool DebugPassManager;
 
