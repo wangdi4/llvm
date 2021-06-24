@@ -3482,6 +3482,20 @@ case LibFunc_msvc_std_num_put_do_put_ulong:
     else
       return false;
 
+  case LibFunc_kmpc_critical_with_hint:
+    if (NumParams == 2)
+      return (FTy.getReturnType()->isVoidTy() &&
+              FTy.getParamType(0)->isPointerTy() &&
+              FTy.getParamType(1)->isIntegerTy());
+    else if (NumParams == 4)
+      return (FTy.getReturnType()->isVoidTy() &&
+              FTy.getParamType(0)->isPointerTy() &&
+              FTy.getParamType(1)->isIntegerTy() &&
+              FTy.getParamType(2)->isPointerTy() &&
+              FTy.getParamType(3)->isIntegerTy());
+    else
+      return false;
+
   case LibFunc_kmpc_dispatch_init_4:
   case LibFunc_kmpc_dispatch_init_4u:
   case LibFunc_kmpc_dispatch_init_8:
