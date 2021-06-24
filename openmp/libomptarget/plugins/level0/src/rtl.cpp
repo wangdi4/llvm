@@ -332,7 +332,8 @@ int DebugLevel = 0;
 
 /// Forward declarations
 static void *allocDataExplicit(ze_device_handle_t Device, int64_t Size,
-                               int32_t Kind, bool LogMemAlloc = true);
+                               int32_t Kind, bool LargeMem = false,
+                               bool LogMemAlloc = true);
 static void logMemUsage(ze_device_handle_t Device, size_t Requested, void *Ptr,
                         size_t MemSize = 0);
 class RTLDeviceInfoTy;
@@ -2130,7 +2131,8 @@ static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size,
 
 /// Allocate data explicitly
 static void *allocDataExplicit(ze_device_handle_t Device, int64_t Size,
-                               int32_t Kind, bool LogMemAlloc) {
+                               int32_t Kind, bool LargeMem,
+                               bool LogMemAlloc) {
   void *mem = nullptr;
   ze_device_mem_alloc_desc_t deviceDesc = {
     ZE_STRUCTURE_TYPE_DEVICE_MEM_ALLOC_DESC,
@@ -2143,6 +2145,18 @@ static void *allocDataExplicit(ze_device_handle_t Device, int64_t Size,
     nullptr, // extension
     0 // flags
   };
+
+  // Use relaxed allocation limit if driver supports
+  ze_relaxed_allocation_limits_exp_desc_t relaxedAllocDesc = {
+    ZE_STRUCTURE_TYPE_RELAXED_ALLOCATION_LIMITS_EXP_DESC,
+    nullptr,
+    ZE_RELAXED_ALLOCATION_LIMITS_EXP_FLAG_MAX_SIZE
+  };
+  if (LargeMem && DeviceInfo->DriverAPIVersion >= ZE_API_VERSION_1_1) {
+    deviceDesc.pNext = &relaxedAllocDesc;
+    hostDesc.pNext = &relaxedAllocDesc;
+  }
+
   auto context = DeviceInfo->Context;
 
   switch (Kind) {
@@ -2173,7 +2187,8 @@ static void *allocDataExplicit(ze_device_handle_t Device, int64_t Size,
 
 static void *allocDataExplicit(int32_t DeviceId, int64_t Size, int32_t Kind) {
   auto device = DeviceInfo->Devices[DeviceId];
-  return allocDataExplicit(device, Size, Kind);
+  auto DeviceMaxMem = DeviceInfo->DeviceProperties[DeviceId].maxMemAllocSize;
+  return allocDataExplicit(device, Size, Kind, (uint64_t)Size > DeviceMaxMem);
 }
 
 TLSTy::~TLSTy() {
@@ -2220,7 +2235,7 @@ void MemoryPoolTy::init(int32_t allocKind, RTLDeviceInfoTy *RTL) {
   PoolSize = 0;
 
   // Decide AllocUnit. Do not log this allocation.
-  void *mem = allocDataExplicit(Device, 8, AllocKind, false);
+  void *mem = allocDataExplicit(Device, 8, AllocKind, false, false);
   CALL_ZE_EXIT_FAIL(zeMemGetAddressRange, Context, mem, nullptr,
                     &AllocUnit);
   CALL_ZE_EXIT_FAIL(zeMemFree, Context, mem);
