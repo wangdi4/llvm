@@ -2031,6 +2031,7 @@ bool WRegionNode::canHaveDepend() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNTask:
+  case WRNTaskwait:
   case WRNTarget:
   case WRNTargetEnterData:
   case WRNTargetExitData:
