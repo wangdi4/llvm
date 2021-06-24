@@ -1851,7 +1851,7 @@ getExprLocation(llvm::SmallVector<const Expr *> MapVarExprs,
           if (const auto *VF = dyn_cast_or_null<FieldDecl>(*Var))
             if (FD == VF)
               return E->getExprLoc();
-    if (const auto *CTE = dyn_cast<CXXThisExpr>(E))
+    if (isa<CXXThisExpr>(E))
       if (!(*Var)) {
         *Var = CXXABIThisDecl;
         return E->getExprLoc();
