@@ -5328,10 +5328,9 @@ uint64_t VPOParoptUtils::getMinInt(Type *Ty, bool IsUnsigned) {
 //---------------------------------------+-------------------------------------
 //        Before                         |  After
 //---------------------------------------+-------------------------------------
-// src:     ; no predecessors            | src:     ; no predecessors
+// src:                                  | src:
 //   ...                                 |   ...
 //   br label %dst                       | unreachable             ; (1)
-//                                       |
 //                                       |
 // dst:     ; preds: %src, %other, ...   | dst:     ; preds: %other, ...
 //                                       |
@@ -5339,15 +5338,28 @@ uint64_t VPOParoptUtils::getMinInt(Type *Ty, bool IsUnsigned) {
 //                [1, %other], ...       |                [1, %other], ...
 //                                       |
 //---------------------------------------+-------------------------------------
-//        Before                         |  After
-//---------------------------------------+-------------------------------------
-// src:     ; no predecessors            | src:     ; no predecessors
+// src:                                  | src:
 //   ...                                 |   ...
 //   br i1 %x, label %dst, label %y      |   br label %y           ; (3)
 //                                       |
 // dst:     ; preds: %src, %other, ...   | dst:     ; preds: %other, ...
 //   ...                                 |   ...
 //                                       |
+//---------------------------------------+-------------------------------------
+// src:                                  | src:
+//   ...                                 |   ...
+//   catchswitch ... unwind label %dst   |   catchswitch ... unwind
+//                                       |                label %termpad ; (4)
+//                                       |
+//                                       | termpad:
+//                                       |   unreachable
+//                                       |
+// dst:     ; preds: %src, %other, ...   | dst:     ; preds: %other, ...
+//   ...                                 |   ...
+//                                       |
+// "src" is a block which enters or exits the region incorrectly, creating
+// a malformed path. src may be unreachable, or src may be an EH cleanup
+// exit path.
 static void BreakEdge(BasicBlock *Src, BasicBlock *Dst, DominatorTree *DT) {
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Breaking edge %" << Src->getName()
                     << " -> %" << Dst->getName() << "\n");
@@ -5368,10 +5380,43 @@ static void BreakEdge(BasicBlock *Src, BasicBlock *Dst, DominatorTree *DT) {
   };
 
   Instruction *Terminator = Src->getTerminator();
+  // Try to remove the edge, as per lines (1) (2) (3) above.
   if (!RemoveEdgeFromConditionalBranch(Terminator)) {
-    Terminator->eraseFromParent();
-    Builder.SetInsertPoint(Src);
-    Builder.CreateUnreachable(); //                                  (1)
+    // If the edge was not a branch, but a catchswitch:
+    if (auto *CS = dyn_cast<CatchSwitchInst>(Terminator)) {
+      (void)CS;
+      assert(CS->getUnwindDest() == Dst &&
+             "Can't break a catch handler out of a catchswitch");
+      // Call the utility to insert a new handler block between src->dst.
+      SmallVector<BasicBlock *> ToSplit;
+      BasicBlock *NewPad = nullptr;
+      ToSplit.push_back(Src);
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Src has catchswitch:\n"
+                        << *CS << "\n");
+      SplitCleanupPadPredecessors(Dst, ToSplit, ".termpad", NewPad, nullptr, DT,
+                                  nullptr, nullptr, false);
+      // Now we have this:
+      // catchswitch XXX unwind to %x.termpad
+      // %x.termpad:
+      //   cleanuppad...
+      //   cleanupret Dst;
+      // Dst:
+      //
+      // Change "cleanupret Dst" to "unreachable".
+      LLVM_DEBUG(dbgs() << __FUNCTION__
+                        << "Changing unwind dest to new terminal handler "
+                        << NewPad->getName() << "\n");
+      NewPad->getTerminator()->eraseFromParent();
+      Builder.SetInsertPoint(NewPad);
+      Builder.CreateUnreachable();
+    } else {
+      // unconditional branch, or call. Terminate the flow here.
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Src has unconditional branch:\n"
+                        << *Terminator << "\nReplacing with unreachable.\n");
+      Terminator->eraseFromParent();
+      Builder.SetInsertPoint(Src);
+      Builder.CreateUnreachable(); //                                  (1)
+    }
   }
 
   // Fix any phis at the inside/outside join.
@@ -5389,8 +5434,10 @@ static void BreakEdge(BasicBlock *Src, BasicBlock *Dst, DominatorTree *DT) {
 // If the region exits to BB, which is also reachable from outside the region,
 // and the exit is through an EH pad, the exit path is undefined. We can make
 // the exit edge unreachable, and exclude BB from the region.
-static void BreakEHToBlock(BasicBlock *BB,
-                           const SmallSet<BasicBlock *, 8> &BBSet,
+// If we want to add any blocks to the region or delete them, we need to
+// insert them to AddSet or DeleteSet.
+static void BreakEHToBlock(BasicBlock *BB, SmallSet<BasicBlock *, 8> &BBSet,
+                           SmallSet<BasicBlock *, 4> &AddSet,
                            SmallSet<BasicBlock *, 4> &DeleteSet,
                            DominatorTree *DT) {
   // Copy the preds as we will be breaking edges.
@@ -5428,6 +5475,10 @@ static void BreakEHToBlock(BasicBlock *BB,
       }
       if (Found) {
         BreakEdge(PredBB, BB, DT);
+        // If we broke a catchswitch, the unwind block is new. Add it
+        // to the AddSet.
+        if (auto *CS = dyn_cast<CatchSwitchInst>(PredBB->getTerminator()))
+          AddSet.insert(CS->getUnwindDest());
       } else {
         // need braces for non-debug build
         LLVM_DEBUG(dbgs() << "Did not find EH path to block.\n");
@@ -5435,7 +5486,8 @@ static void BreakEHToBlock(BasicBlock *BB,
     }
   }
 
-  // If BB no longer has any incoming edges from the region, exclude it.
+  // If BB no longer has any incoming edges from the region, exclude it from
+  // the region.
   // Even if we didn't break any edges, the block may be excluded by an
   // earlier break.
   bool HasPredInSet = llvm::any_of(predecessors(BB), [&](BasicBlock *PredBB) {
@@ -5452,9 +5504,8 @@ static void BreakEHToBlock(BasicBlock *BB,
   }
 }
 
-// If BB has a predecessor that is not in BBSet, but it is unreachable from
-// function entry, then remove that predecessor and break the branch from that
-// predecessor to BB.
+// If BB has a predecessor that is unreachable from the function entry, break
+// the edge from that predecessor to BB.
 static void RemoveDeadPredecessors(BasicBlock *BB, DominatorTree *DT) {
   // Copy the preds as we will be breaking edges.
   SmallVector<BasicBlock *, 4> PredCopy(predecessors(BB));
@@ -5505,10 +5556,14 @@ static void RemoveDeadPredecessors(BasicBlock *BB, DominatorTree *DT) {
 // (2) Also, if there is any block in BBVec, which has predecessors that are
 // unreachable from entry, then remove branches from those predecessors to the
 // block.
+//
+// BBVec: Vector of region blocks.
+// OutputVec: New vector of region blocks. Empty if no action was taken.
 static void FixEHEscapesAndDeadPredecessors(ArrayRef<BasicBlock *> &BBVec,
                          SmallVectorImpl<BasicBlock *> &OutputVec,
                          DominatorTree *DT) {
   SmallSet<BasicBlock *, 4> DeleteSet;
+  SmallSet<BasicBlock *, 4> AddSet;
 
   // Scan for EH first, as we only break edges from exception paths.
   bool EHFound = false;
@@ -5569,18 +5624,20 @@ static void FixEHEscapesAndDeadPredecessors(ArrayRef<BasicBlock *> &BBVec,
           continue;
 
         // Try to break the edge from the region to the block.
-        if (EHFound)
-          BreakEHToBlock(BB, BBSet, DeleteSet, DT);
+        if (EHFound) {
+          BreakEHToBlock(BB, BBSet, AddSet, DeleteSet, DT);
+        }
       }
     }
 
-    // If BB isn't already marked for removal, unlink it from dead
+    // If BB isn't already marked for removal, unlink it from any dead
     // predecessors.
     if (SeenOutOfSetPredecessors && DeleteSet.find(BB) == DeleteSet.end())
       RemoveDeadPredecessors(BB, DT);
   }
 
-  if (!DeleteSet.empty()) {
+  // If we need to modify the region blocks, copy the new set to OutputVec.
+  if (!AddSet.empty() || !DeleteSet.empty()) {
     // Copy BBVec to OutputVec, excluding the former shared blocks that are
     // no longer part of the region.
     LLVM_DEBUG(for (auto *BB
@@ -5589,6 +5646,11 @@ static void FixEHEscapesAndDeadPredecessors(ArrayRef<BasicBlock *> &BBVec,
 
     llvm::copy_if(BBVec, std::back_inserter(OutputVec),
                   [&](BasicBlock *R) { return DeleteSet.count(R) == 0; });
+    // Add any new handler blocks to the region.
+    LLVM_DEBUG(for (auto *BB
+                    : AddSet) dbgs()
+                   << "Adding block to region: " << BB->getName() << "\n";);
+    llvm::copy(AddSet, std::back_inserter(OutputVec));
   }
 }
 
