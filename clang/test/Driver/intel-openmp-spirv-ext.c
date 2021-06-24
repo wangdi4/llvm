@@ -25,7 +25,9 @@
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_arbitrary_precision_floating_point
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_variable_length_array,+SPV_INTEL_fp_fast_math_mode
 // CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse
-// CHECK-DEFAULT-SAME:,+SPV_INTEL_long_constant_composite,+SPV_INTEL_optnone"
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_long_constant_composite
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_fpga_invocation_pipelining_attributes
+// CHECK-DEFAULT-SAME:,+SPV_INTEL_optnone"
 // CHECK-SIMD: llvm-spirv{{.*}}"-spirv-ext=-all
 // CHECK-SIMD-SAME:,+SPV_EXT_shader_atomic_float_add
 // CHECK-SIMD-SAME:,+SPV_EXT_shader_atomic_float_min_max
@@ -46,4 +48,5 @@
 // CHECK-SIMD-SAME:,+SPV_INTEL_arbitrary_precision_floating_point
 // CHECK-SIMD-SAME:,+SPV_INTEL_variable_length_array,+SPV_INTEL_fp_fast_math_mode
 // CHECK-SIMD-SAME:,+SPV_INTEL_fpga_cluster_attributes,+SPV_INTEL_loop_fuse
-// CHECK-SIMD-SAME:,+SPV_INTEL_long_constant_composite"
+// CHECK-SIMD-SAME:,+SPV_INTEL_long_constant_composite
+// CHECK-SIMD-SAME:,+SPV_INTEL_fpga_invocation_pipelining_attributes"
