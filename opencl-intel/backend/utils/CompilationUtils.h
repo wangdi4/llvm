@@ -54,6 +54,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const unsigned CL_VER_1_1 = 110;
     static const unsigned CL_VER_1_2 = 120;
     static const unsigned CL_VER_2_0 = 200;
+    static const unsigned CL_VER_3_0 = 300;
     // The default revision defined by OpenCL spec
     static const unsigned CL_VER_DEFAULT = CL_VER_1_2;
 
