@@ -152,13 +152,12 @@ bool SGValueWiden::runOnModule(Module &M) {
     if (WideFn->isDeclaration())
       continue;
     runOnFunction(*WideFn, SizeAnalysis->getEmuSizes(Fn));
-
     auto It = find(KernelRange, Fn);
     if (It != Kernels.end()) {
       Kernels.erase(It);
       Kernels.push_back(WideFn);
       std::string FName = Fn->getName().str();
-      Fn->setName(FName + "after_value_widen");
+      Fn->setName(FName + "_after_value_widen");
       WideFn->setName(FName);
     }
   }
@@ -247,7 +246,6 @@ bool SGValueWiden::isWIRelated(Value *V) {
 }
 
 void SGValueWiden::runOnFunction(Function &F, const std::set<unsigned> &Sizes) {
-
   // TODO: Support mutilple SG Emulation Size.
   assert(Sizes.size() == 1 && "Multiple SG emu size is unsupported");
   auto Size = *Sizes.begin();
@@ -493,8 +491,8 @@ Value *SGValueWiden::getVectorValue(Value *V, unsigned Size, Instruction *IP) {
     if (WideValPtr == nullptr)
       return loadVectorByVecElement(VecValueMap[V], OrigValType, Size, Builder);
 
-    // For <VF x i1> type, since we were storing it one by one , we were
-    // actually setting value to <VF x i8>*, so we need to load it as <VF x i8>.
+    // For <VF x i1> type, since we were storing it one by one, we were actually
+    // setting value to <VF x i8>*, so we need to load it as <VF x i8>.
     return fixIntNVector(getVectorType(V, Size), WideValPtr, IP);
   } else {
     if (UniValueMap.count(V))
@@ -601,7 +599,7 @@ Instruction *SGValueWiden::getInsertPoint(Instruction *I, Value *V) {
 void SGValueWiden::widenCalls() {
   for (auto *I : WideCalls) {
     auto *CI = cast<CallInst>(I);
-    LLVM_DEBUG(dbgs() << "Widening Call: " << *CI);
+    LLVM_DEBUG(dbgs() << "Widening Call: " << *CI << "\n");
     assert(CI->hasFnAttr("vector-variants") &&
            "wide call doesn't have vector-variants attribute");
     Function *WideFunc = FuncMap[CI->getCalledFunction()];
@@ -615,9 +613,9 @@ void SGValueWiden::widenCalls() {
       Instruction *PrevInst = CI->getPrevNonDebugInstruction();
       Instruction *NextInst = CI->getNextNonDebugInstruction();
       assert(Utils.isBarrierCall(PrevInst) &&
-             "there shoud be a barrier before widened call");
+             "there should be a barrier before widened call");
       assert(Utils.isDummyBarrierCall(NextInst) &&
-             "there shoud be a dummybarrier after widened call");
+             "there should be a dummybarrier after widened call");
       ParamIP = PrevInst;
       RetValIP = NextInst->getNextNode();
     }
@@ -662,6 +660,7 @@ void SGValueWiden::widenCalls() {
 
     // Create new call.
     auto *NewReturnVal = Builder.CreateCall(WideFunc, NewArgs);
+    NewReturnVal->setCallingConv(CI->getCallingConv());
     LLVM_DEBUG(dbgs() << "  -> " << *NewReturnVal << "\n");
     if (UniValueMap.count(CI) || VecValueMap.count(CI)) {
       // Store the vectorized return value.

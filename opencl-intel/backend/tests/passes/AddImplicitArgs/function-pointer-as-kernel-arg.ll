@@ -18,7 +18,7 @@
 ;
 ; CHECK: define spir_kernel void @test
 ; CHECK: %[[BITCAST:[0-9]+]] = bitcast i32 (i32)* %fp to i32 (i32, i8 addrspace(3)*, { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*, i64*, [4 x i64], i8*, {}*)*
-; CHECK: call i32 %[[BITCAST]](i32 %0,
+; CHECK: call spir_func i32 %[[BITCAST]](i32 %0,
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown"

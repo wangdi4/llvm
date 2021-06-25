@@ -7,7 +7,7 @@
 ; CHECK: store i32 (i32, i32)* %[[BITCAST1]], i32 (i32, i32)** %[[ALLOCA]]
 ; CHECK: %[[LOAD:.*]] = load i32 (i32, i32)*, i32 (i32, i32)** %[[ALLOCA]]
 ; CHECK: %[[BITCAST2:.*]] = bitcast i32 (i32, i32)* %[[LOAD]] to i32 (i32, i32,
-; CHECK: call i32 %[[BITCAST2]]
+; CHECK: call spir_func i32 %[[BITCAST2]]
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-linux-sycldevice"
