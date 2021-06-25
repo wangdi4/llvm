@@ -685,6 +685,11 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
   if (!MinMaxInst->isMinOrMax())
     return false;
 
+  const SelectInst *MinMaxSelectInst =
+      dyn_cast<SelectInst>(MinMaxInst->getLLVMInstruction());
+  if (!MinMaxSelectInst)
+    return false;
+
   // If the instruction is safe reduction then it can't be idiom.
   if (SRAnalysis.getSafeRedInfo(MinMaxInst))
     return false;
@@ -699,8 +704,12 @@ bool HIRIdiomAnalyzer::tryMinMaxIdiom(HLDDNode *Node) {
   // Temporary disable FP data types for primary minmax. For FP data type
   // we need some additional checks to be generated (eg for NAN) which is
   // not implemented yet.
-  if (!Lval->getDestType()->isIntegerTy())
-    return false;
+  if (!Lval->getDestType()->isIntegerTy()) {
+    const Instruction *Cond =
+      cast<Instruction>(MinMaxSelectInst->getCondition());
+    if (!Cond->getFastMathFlags().noNaNs())
+      return false;
+  }
 
   PredicateTy Pred = MinMaxInst->getPredicate();
 
