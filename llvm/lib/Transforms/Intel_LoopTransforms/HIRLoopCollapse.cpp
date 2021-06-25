@@ -49,6 +49,7 @@
 // -hir-loop-collapse:          Perform HIR Loop Collapse
 // -disable-hir-loop-collapse:  Disable/Bypass HIR Loop Collapse
 //
+//
 // TODO:
 // Revise transformation to allow collapse from non-innermost level.
 // E.g.
@@ -751,7 +752,7 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
   LoopOptReportBuilder &LORBuilder =
       ToCollapseLp->getHLNodeUtils().getHIRFramework().getLORBuilder();
 
-  // %d loops have been collapsed
+  // ID: 25567u, remark string: "%d loops have been collapsed"
   LORBuilder(*ToCollapseLp)
       .addRemark(OptReportVerbosity::Low, 25567u, NumCollapsableLoops);
 
