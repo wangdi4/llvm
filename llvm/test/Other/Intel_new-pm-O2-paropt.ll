@@ -28,7 +28,7 @@
 ;CHECK-NEXT: Running analysis: AAManager on foo
 ;CHECK-NEXT: Running analysis: BasicAA on foo
 ;CHECK-NEXT: Running analysis: XmainOptLevelAnalysis on foo ;INTEL
-;CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, llvm::Function> on foo
+;CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{llvm::ModuleAnalysisManager|llvm::AnalysisManager<llvm::Module>}}, llvm::Function> on foo
 ;CHECK-NEXT: Running analysis: ScopedNoAliasAA on foo
 ;CHECK-NEXT: Running analysis: TypeBasedAA on foo
 ;CHECK-NEXT: Running analysis: StdContainerAA on foo
@@ -76,10 +76,10 @@
 ;CHECK-NEXT: Invalidating analysis: WRegionInfoAnalysis on foo
 ;CHECK-NEXT: Running pass: RequireAnalysisPass<llvm::ProfileSummaryAnalysis{{.*}}> on [module]
 ;CHECK-NEXT: Running analysis: ProfileSummaryAnalysis on [module]
-;CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<llvm::CGSCCAnalysisManager, llvm::Module> on [module]
+;CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{llvm::CGSCCAnalysisManager|llvm::AnalysisManager<llvm::LazyCallGraph::SCC, llvm::LazyCallGraph&>}}, llvm::Module> on [module]
 ;CHECK-NEXT: Running analysis: LazyCallGraphAnalysis on [module]
 ;CHECK-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy on (foo)
-;CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<llvm::ModuleAnalysisManager, LazyCallGraph::SCC, llvm::LazyCallGraph &> on (foo)
+;CHECK-NEXT: Running analysis: OuterAnalysisManagerProxy<{{llvm::ModuleAnalysisManager|llvm::AnalysisManager<llvm::Module>}}, {{llvm::LazyCallGraph::SCC|LazyCallGraph::SCC}}, llvm::LazyCallGraph{{&| &}}> on (foo)
 ;CHECK-NEXT: Running pass: InlinerPass on (foo)
 ;CHECK-NEXT: Running pass: InlinerPass on (foo)
 ;CHECK-NEXT: Running pass: SimplifyCFGPass on foo
@@ -111,7 +111,7 @@
 ;CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ;CHECK-NEXT: Invalidating analysis: CallGraphAnalysis on {{.*}}
 ;CHECK-NEXT: Invalidating analysis: LazyCallGraphAnalysis on {{.*}}
-;CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::CGSCCAnalysisManager, llvm::Module> on {{.*}}
+;CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{llvm::CGSCCAnalysisManager|llvm::AnalysisManager<llvm::LazyCallGraph::SCC, llvm::LazyCallGraph&>}}, llvm::Module> on {{.*}}
 ;CHECK-NEXT: Running pass: VPOParoptPass on [module]
 ;CHECK-NEXT: Running analysis: VPOParoptConfigAnalysis on [module]
 ;CHECK-NEXT: Running analysis: OptReportOptionsAnalysis on [module]
@@ -122,7 +122,7 @@
 ;CHECK-NEXT: Running analysis: BasicAA on foo
 ;CHECK-NEXT: Running pass: AlwaysInlinerPass on [module] ;INTEL
 ;CHECK-NEXT: Running pass: GlobalDCEPass on [module]     ;INTEL
-;CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module> on {{.*}}
+;CHECK-NEXT: Invalidating analysis: InnerAnalysisManagerProxy<{{llvm::FunctionAnalysisManager|llvm::AnalysisManager<llvm::Function>}}, llvm::Module> on {{.*}}
 ;            Running pass: ModuleInlinerWrapperPass on [module]
 ;            Running analysis: InnerAnalysisManagerProxy<llvm::FunctionAnalysisManager, llvm::Module> on [module]
 ;            Running pass: RequireAnalysisPass<llvm::GlobalsAA, llvm::Module> on [module]
