@@ -182,24 +182,25 @@ findVCToolChainViaEnvironment(llvm::vfs::FileSystem &VFS, std::string &Path,
 
       // whatever/VC/bin --> old toolchain, VC dir is toolchain dir.
       llvm::StringRef TestPath = PathEntry;
-      bool IsBin = llvm::sys::path::filename(TestPath).equals_lower("bin");
+      bool IsBin =
+          llvm::sys::path::filename(TestPath).equals_insensitive("bin");
       if (!IsBin) {
         // Strip any architecture subdir like "amd64".
         TestPath = llvm::sys::path::parent_path(TestPath);
-        IsBin = llvm::sys::path::filename(TestPath).equals_lower("bin");
+        IsBin = llvm::sys::path::filename(TestPath).equals_insensitive("bin");
       }
       if (IsBin) {
         llvm::StringRef ParentPath = llvm::sys::path::parent_path(TestPath);
         llvm::StringRef ParentFilename = llvm::sys::path::filename(ParentPath);
-        if (ParentFilename.equals_lower("VC")) {
+        if (ParentFilename.equals_insensitive("VC")) {
           Path = std::string(ParentPath);
           VSLayout = MSVCToolChain::ToolsetLayout::OlderVS;
           return true;
         }
-        if (ParentFilename.equals_lower("x86ret") ||
-            ParentFilename.equals_lower("x86chk") ||
-            ParentFilename.equals_lower("amd64ret") ||
-            ParentFilename.equals_lower("amd64chk")) {
+        if (ParentFilename.equals_insensitive("x86ret") ||
+            ParentFilename.equals_insensitive("x86chk") ||
+            ParentFilename.equals_insensitive("amd64ret") ||
+            ParentFilename.equals_insensitive("amd64chk")) {
           Path = std::string(ParentPath);
           VSLayout = MSVCToolChain::ToolsetLayout::DevDivInternal;
           return true;
@@ -218,7 +219,7 @@ findVCToolChainViaEnvironment(llvm::vfs::FileSystem &VFS, std::string &Path,
         for (llvm::StringRef Prefix : ExpectedPrefixes) {
           if (It == End)
             goto NotAToolChain;
-          if (!It->startswith_lower(Prefix))
+          if (!It->startswith_insensitive(Prefix))
             goto NotAToolChain;
           ++It;
         }
@@ -626,14 +627,15 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // Control Flow Guard checks
   if (Arg *A = Args.getLastArg(options::OPT__SLASH_guard)) {
     StringRef GuardArgs = A->getValue();
-    if (GuardArgs.equals_lower("cf") || GuardArgs.equals_lower("cf,nochecks")) {
+    if (GuardArgs.equals_insensitive("cf") ||
+        GuardArgs.equals_insensitive("cf,nochecks")) {
       // MSVC doesn't yet support the "nochecks" modifier.
       CmdArgs.push_back("-guard:cf");
-    } else if (GuardArgs.equals_lower("cf-")) {
+    } else if (GuardArgs.equals_insensitive("cf-")) {
       CmdArgs.push_back("-guard:cf-");
-    } else if (GuardArgs.equals_lower("ehcont")) {
+    } else if (GuardArgs.equals_insensitive("ehcont")) {
       CmdArgs.push_back("-guard:ehcont");
-    } else if (GuardArgs.equals_lower("ehcont-")) {
+    } else if (GuardArgs.equals_insensitive("ehcont-")) {
       CmdArgs.push_back("-guard:ehcont-");
     }
   }
@@ -724,14 +726,14 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     = Args.getLastArgValue(options::OPT_fuse_ld_EQ, CLANG_DEFAULT_LINKER);
   if (Linker.empty())
     Linker = "link";
-  if (Linker.equals_lower("lld"))
+  if (Linker.equals_insensitive("lld"))
     Linker = "lld-link";
 
 #if INTEL_CUSTOMIZATION
   // TODO: Create a more streamlined and centralized way to add the additional
   // llvm options that are set.  i.e. set once and use for both Linux and
   // Windows compilation paths.
-  if (Linker.equals_lower("lld-link") && (C.getDriver().isUsingLTO())) {
+  if (Linker.equals_insensitive("lld-link") && (C.getDriver().isUsingLTO())) {
     // Handle flags for selecting CPU variants.
     std::string CPU = getCPUName(Args, C.getDefaultToolChain().getTriple());
     if (!CPU.empty())
@@ -775,7 +777,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  if (Linker.equals_lower("link")) {
+  if (Linker.equals_insensitive("link")) {
     // If we're using the MSVC linker, it's not sufficient to just use link
     // from the program PATH, because other environments like GnuWin32 install
     // their own link.exe which may come first.
@@ -834,7 +836,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       // find it.
       for (const char *Cursor = EnvBlock.data(); *Cursor != '\0';) {
         llvm::StringRef EnvVar(Cursor);
-        if (EnvVar.startswith_lower("path=")) {
+        if (EnvVar.startswith_insensitive("path=")) {
           using SubDirectoryType = toolchains::MSVCToolChain::SubDirectoryType;
           constexpr size_t PrefixLen = 5; // strlen("path=")
           Environment.push_back(Args.MakeArgString(
