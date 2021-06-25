@@ -14,4 +14,4 @@
 kernel void empty() {}
 
 // CHECK-OPENCL: distinct !DICompileUnit(language: DW_LANG_OpenCL,
-// CHECK-C99: distinct !DICompileUnit(language: DW_LANG_C99,
+// CHECK-C99: distinct !DICompileUnit(language: DW_LANG_OpenCL, ;INTEL
