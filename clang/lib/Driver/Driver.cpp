@@ -2265,7 +2265,7 @@ void Driver::PrintHelp(const llvm::opt::ArgList &Args) const {
     ExcludedFlagsBitmask |= options::FlangOnlyOption;
 
   std::string Usage = llvm::formatv("{0} [options] file...", Name).str();
-  getOpts().PrintHelp(llvm::outs(), Usage.c_str(), DriverTitle.c_str(),
+  getOpts().printHelp(llvm::outs(), Usage.c_str(), DriverTitle.c_str(),
                       IncludedFlagsBitmask, ExcludedFlagsBitmask,
                       /*ShowAllAliases=*/false);
 #if INTEL_CUSTOMIZATION
