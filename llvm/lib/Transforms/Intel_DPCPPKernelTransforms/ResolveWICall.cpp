@@ -45,7 +45,6 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<CallGraphWrapperPass>();
     AU.addRequired<ImplicitArgsAnalysisLegacy>();
-    AU.addPreserved<CallGraphWrapperPass>();
     AU.addPreserved<ImplicitArgsAnalysisLegacy>();
   }
 
@@ -93,7 +92,6 @@ PreservedAnalyses ResolveWICallPass::run(Module &M, ModuleAnalysisManager &AM) {
   if (!runImpl(M, false, false, IAInfo, CG))
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
-  PA.preserve<CallGraphAnalysis>();
   PA.preserve<ImplicitArgsAnalysis>();
   return PA;
 }
