@@ -62,6 +62,11 @@ declare void @foo(i64) #1
 attributes #0 = { nounwind }
 attributes #1 = { noduplicate }
 
+; TODO: SimplifyCFG changes led to missing debug info. Will remove after this
+; issue is fixed.
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function bar --  br label %common.ret
 ; DEBUGIFY: WARNING: Missing line 3
+; DEBUGIFY: WARNING: Missing line 14
+; DEBUGIFY: WARNING: Missing line 15
 
 ; DEBUGIFY-NOT: WARNING

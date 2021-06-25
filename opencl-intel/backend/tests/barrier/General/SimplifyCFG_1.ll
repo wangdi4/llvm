@@ -203,4 +203,11 @@ declare void @_Z7barrierj(i64)
 !2 = !{void (float addrspace(1)*, float addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32, float addrspace(1)*)* @spmv_csr_vector_kernel, !1, !1, !"float4",!"float const __attribute__((address_space(1))) *restrict, float const __attribute__((address_space(1))) *restrict, int const __attribute__((address_space(1))) *restrict, int const __attribute__((address_space(1))) *restrict, int const, float __attribute__((address_space(1))) *restrict", !"opencl_spmv_csr_vector_kernel_locals_anchor"}
 !4 = !{!"opencl_spmv_csr_vector_kernel_local_partialSums"}
 
+
+; TODO: SimplifyCFG changes led to missing debug info. Will remove after this
+; issue is fixed.
+; DEBUGIFY: WARNING: Instruction with empty DebugLoc in function spmv_csr_vector_kernel --  br label %common.ret
+; DEBUGIFY: WARNING: Missing line 113
+; DEBUGIFY: WARNING: Missing line 114
+
 ; DEBUGIFY-NOT: WARNING
