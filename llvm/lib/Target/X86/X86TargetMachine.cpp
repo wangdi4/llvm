@@ -99,6 +99,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeX86Target() {
   initializePseudoProbeInserterPass(PR);
 #if INTEL_CUSTOMIZATION
   initializeX86GlobalFMAPass(PR);
+  initializeX86CFMAPass(PR);
   initializeGenerateLEAPassPass(PR);
   initializeX86Gather2LoadPermutePassPass(PR);
   initializeX86FeatureInitPassPass(PR);
@@ -521,6 +522,7 @@ bool X86PassConfig::addILPOpts() {
 
 void X86PassConfig::addAdvancedPatternMatchingOpts() { // INTEL
   addPass(createX86GlobalFMAPass());                   // INTEL
+  addPass(createX86CFMAPass());                        // INTEL
 }                                                      // INTEL
 
 bool X86PassConfig::addPreISel() {
