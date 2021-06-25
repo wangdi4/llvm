@@ -1811,12 +1811,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   // Emit the standard function prologue.
   StartFunction(GD, ResTy, Fn, FnInfo, Args, Loc, BodyRange.getBegin());
 
-#if INTEL_CUSTOMIZATION
-  OptReportHandler &SyclOptReportHandler =
-      CGM.getDiags().getSYCLOptReportHandler();
-  if (SyclOptReportHandler.HasSyclOptReportInfo(FD)) {
+  SyclOptReportHandler &SyclOptReport = CGM.getDiags().getSYCLOptReport();
+  if (SyclOptReport.HasOptReportInfo(FD)) {
     llvm::OptimizationRemarkEmitter ORE(Fn);
-    for (auto ORI : llvm::enumerate(SyclOptReportHandler.GetSyclInfo(FD))) {
+    for (auto ORI : llvm::enumerate(SyclOptReport.GetInfo(FD))) {
       llvm::DiagnosticLocation DL =
           SourceLocToDebugLoc(ORI.value().KernelArgLoc);
       StringRef NameInDesc = ORI.value().KernelArgDescName;
@@ -1834,11 +1832,12 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
       ORE.emit(Remark);
     }
   }
-  OptReportHandler &OpenMPOptReportHandler =
-      CGM.getDiags().OpenMPOptReportHandler;
-  if (OpenMPOptReportHandler.HasOpenMPReportInfo(FD)) {
+
+#if INTEL_CUSTOMIZATION
+  OpenMPOptReportHandler &OpenMPOptReport = CGM.getDiags().OpenMPOptReport;
+  if (OpenMPOptReport.HasOpenMPReportInfo(FD)) {
     llvm::OptimizationRemarkEmitter ORE(Fn);
-    for (auto &ORI : OpenMPOptReportHandler.GetClangInfo(FD)) {
+    for (auto &ORI : OpenMPOptReport.GetClangInfo(FD)) {
       llvm::DiagnosticLocation DL = SourceLocToDebugLoc(ORI.DirectiveLoc);
       llvm::OptimizationRemarkMissed R("openmp", "Region", DL,
                                        &Fn->getEntryBlock());

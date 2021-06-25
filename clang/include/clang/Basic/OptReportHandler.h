@@ -1,4 +1,5 @@
-//===---------------------- ReportHandler.h ---------------------*- C++ -*-===//
+//===---------------------- OptReportHandler.h ---------------------*- C++
+//-*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,7 +8,8 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// Defines clang::OptReportHandler class.
+/// Defines clang::SyclOptReportHandler class.
+/// Defines clang::OpenMPOptReportHandler class.
 ///
 //===----------------------------------------------------------------------===//
 
@@ -18,17 +20,13 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 
-// FIXME: This file needs to be refactored to fit better with its upstream
-// version. The INTEL markers for the SYCL portions of this file are a result
-// of naming inconsistencies between the two versions.
-
 namespace clang {
 
 class FunctionDecl;
 
-class OptReportHandler { // INTEL
+class SyclOptReportHandler {
 private:
-  struct SyclOptReportInfo { // INTEL
+  struct OptReportInfo {
     std::string KernelArgDescName; // Kernel argument name itself, or the name
                                    // of the parent class if the kernel argument
                                    // is a decomposed member.
@@ -38,18 +36,34 @@ private:
     std::string KernelArgDesc;
     std::string KernelArgDecomposedField;
 
-    SyclOptReportInfo(std::string ArgDescName, std::string ArgType, // INTEL
-                      SourceLocation ArgLoc, unsigned ArgSize,
-                      std::string ArgDesc, std::string ArgDecomposedField)
+    OptReportInfo(std::string ArgDescName, std::string ArgType,
+                  SourceLocation ArgLoc, unsigned ArgSize, std::string ArgDesc,
+                  std::string ArgDecomposedField)
         : KernelArgDescName(std::move(ArgDescName)),
           KernelArgType(std::move(ArgType)), KernelArgLoc(ArgLoc),
           KernelArgSize(ArgSize), KernelArgDesc(std::move(ArgDesc)),
           KernelArgDecomposedField(std::move(ArgDecomposedField)) {}
   };
-  llvm::DenseMap<const FunctionDecl *, SmallVector<SyclOptReportInfo>>
-      SyclMap; // INTEL
+  llvm::DenseMap<const FunctionDecl *, SmallVector<OptReportInfo>> Map;
 
+public:
+  void AddKernelArgs(const FunctionDecl *FD, StringRef ArgDescName,
+                     StringRef ArgType, SourceLocation ArgLoc, unsigned ArgSize,
+                     StringRef ArgDesc, StringRef ArgDecomposedField) {
+    Map[FD].emplace_back(ArgDescName.data(), ArgType.data(), ArgLoc, ArgSize,
+                         ArgDesc.data(), ArgDecomposedField.data());
+  }
+  SmallVector<OptReportInfo> &GetInfo(const FunctionDecl *FD) {
+    auto It = Map.find(FD);
+    assert(It != Map.end());
+    return It->second;
+  }
+  bool HasOptReportInfo(const FunctionDecl *FD) const {
+    return Map.find(FD) != Map.end();
+  }
+};
 #if INTEL_CUSTOMIZATION
+class OpenMPOptReportHandler {
   struct OpenMPOptReportInfo {
     StringRef DirectiveKindName;
     SourceLocation DirectiveLoc;
@@ -65,23 +79,6 @@ private:
       OpenMPMap;
 
 public:
-  void AddKernelArgs(const FunctionDecl *FD, StringRef ArgDescName,
-                     StringRef ArgType, SourceLocation ArgLoc, unsigned ArgSize,
-                     StringRef ArgDesc, StringRef ArgDecomposedField) {
-    SyclMap[FD].emplace_back(ArgDescName.data(), ArgType.data(), ArgLoc,
-                             ArgSize, ArgDesc.data(),
-                             ArgDecomposedField.data());
-  }
-  SmallVector<SyclOptReportInfo> &GetSyclInfo(const FunctionDecl *FD) {
-    auto It = SyclMap.find(FD);
-    assert(It != SyclMap.end());
-    return It->second;
-  }
-
-  bool HasSyclOptReportInfo(const FunctionDecl *FD) const {
-    return SyclMap.find(FD) != SyclMap.end();
-  }
-
   void AddIgnoredPragma(const FunctionDecl *FD, StringRef DirName,
                         SourceLocation Loc,
                         StringRef ClauseName = StringRef()) {
@@ -96,8 +93,8 @@ public:
   bool HasOpenMPReportInfo(const FunctionDecl *FD) {
     return OpenMPMap.find(FD) != OpenMPMap.end();
   }
-#endif // INTEL_CUSTOMIZATION
 };
+#endif // INTEL_CUSTOMIZATION
 
 } // namespace clang
 
