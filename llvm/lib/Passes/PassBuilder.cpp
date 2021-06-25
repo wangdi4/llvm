@@ -131,7 +131,11 @@
 #include "llvm/Transforms/IPO/Intel_IPOPrefetch.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_MathLibrariesDeclaration.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"   //INTEL
-#include "llvm/Transforms/IPO/Intel_PartialInline.h" // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/IPO/Intel_PartialInline.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/Intel_QsortRecognizer.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_TileMVInlMarker.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_VTableFixup.h" // INTEL
@@ -477,10 +481,12 @@ static cl::opt<bool> EnableDTrans("enable-npm-dtrans",
     cl::init(false), cl::Hidden,
     cl::desc("Enable DTrans optimizations"));
 
+#if INTEL_FEATURE_SW_ADVANCED
 // Partial inlining for simple functions
 static cl::opt<bool>
     EnableIntelPI("enable-npm-intel-pi", cl::init(true), cl::Hidden,
                 cl::desc("Enable the partial inlining for simple functions"));
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
@@ -2872,14 +2878,20 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
     MPM.addPass(TileMVInlMarkerPass());
   }
 
+#if INTEL_FEATURE_SW_ADVANCED
   bool EnableIntelPartialInlining = EnableIntelPI && EnableDTrans;
+#endif // INTEL_FEATURE_SW_ADVANCED
 #else
+#if INTEL_FEATURE_SW_ADVANCED
   bool EnableIntelPartialInlining = false;
+#endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_INCLUDE_DTRANS
 
+#if INTEL_FEATURE_SW_ADVANCED
   // Partially inline small functions
   if (EnableIntelPartialInlining)
     MPM.addPass(IntelPartialInlinePass());
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   // Parse -[no]inline-list option and set corresponding attributes.
   MPM.addPass(InlineListsPass());

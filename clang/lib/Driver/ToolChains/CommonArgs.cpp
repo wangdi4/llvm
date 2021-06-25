@@ -773,7 +773,9 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       addllvmOption("-dtrans-outofboundsok=false");
       addllvmOption("-dtrans-usecrulecompat=true");
       addllvmOption("-dtrans-inline-heuristics=true");
+#if INTEL_FEATURE_SW_ADVANCED
       addllvmOption("-dtrans-partial-inline=true");
+#endif // INTEL_FEATURE_SW_ADVANCED
       addllvmOption("-irmover-type-merging=false");
       addllvmOption("-spill-freq-boost=true");
     } else if (MLTVal != "0")

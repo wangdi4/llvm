@@ -10,12 +10,12 @@
 ; CHECK: %[[INT:.*]] = load i32, i32* %[[ALLOCA]]
 ; CHECK: %[[INTTOPTR:.*]] = inttoptr i32 %[[INT]] to i32 (i32, i32)*
 ; CHECK: %[[BITCAST:.*]] = bitcast i32 (i32, i32)* %[[INTTOPTR]] to i32 (i32, i32, {{.*}})*
-; CHECK: call i32 %[[BITCAST]]
+; CHECK: call spir_func i32 %[[BITCAST]]
 ; CHECK: store i32 ptrtoint (i32 (i32, i32, {{.*}})* @_Z3addii to i32), i32* %[[ALLOCA]]
 ; CHECK: %[[INT:.*]] = load i32, i32* %[[ALLOCA]]
 ; CHECK: %[[INTTOPTR:.*]] = inttoptr i32 %[[INT]] to i32 (i32, i32)*
 ; CHECK: %[[BITCAST:.*]] = bitcast i32 (i32, i32)* %[[INTTOPTR]] to i32 (i32, i32, {{.*}})*
-; CHECK: call i32 %[[BITCAST]]
+; CHECK: call spir_func i32 %[[BITCAST]]
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-linux-sycldevice"
@@ -25,7 +25,7 @@ target triple = "spir64-unknown-linux-sycldevice"
 
 @__spirv_BuiltInGlobalInvocationId = external dso_local local_unnamed_addr addrspace(2) constant <3 x i64>, align 32
 
-define i32 @_Z3addii(i32 %a, i32 %b) local_unnamed_addr {
+define spir_func i32 @_Z3addii(i32 %a, i32 %b) local_unnamed_addr {
 entry:
   %add = add nsw i32 %b, %a
   ret i32 %add
@@ -54,13 +54,13 @@ entry:
   %9 = load i32, i32 addrspace(1)* %arrayidx.i10.i, align 4
   %10 = load i32, i32* %alloca
   %11 = inttoptr i32 %10 to i32 (i32, i32)*
-  %call4.i = tail call i32 %11(i32 %8, i32 %9)
+  %call4.i = tail call spir_func i32 %11(i32 %8, i32 %9)
   store i32 %call4.i, i32 addrspace(1)* %arrayidx.i.i, align 4
   store i32 %_arg_, i32 addrspace(1)* %add.ptr.i26, align 4
   store i32 ptrtoint(i32 (i32, i32)* @_Z3addii to i32), i32* %alloca
   %12 = load i32, i32* %alloca
   %13 = inttoptr i32 %12 to i32 (i32, i32)*
-  %call6.i = tail call i32 %13(i32 %8, i32 %9)
+  %call6.i = tail call spir_func i32 %13(i32 %8, i32 %9)
   store i32 %call4.i, i32 addrspace(1)* %arrayidx.i.i, align 4
   store i32 %_arg_, i32 addrspace(1)* %add.ptr.i26, align 4
   ret void

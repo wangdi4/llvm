@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
+
 ; Test for checking the simple Intel partial inliner. This partial inliner
 ; will identify small functions that use an argument as iterator and return a
 ; boolean. The result will be a cloned function that checks if the input
@@ -114,3 +117,4 @@ entry:
 }
 
 attributes #0 = { noinline }
+; end INTEL_FEATURE_SW_ADVANCED

@@ -42,7 +42,9 @@ add_llvm_component_library(LLVMipo
   Intel_InlineLists.cpp   # INTEL
   Intel_MathLibrariesDeclaration.cpp #INTEL
   Intel_OptimizeDynamicCasts.cpp    # INTEL
+# INTEL_FEATURE_SW_ADVANCED
   Intel_PartialInline.cpp           # INTEL
+# end INTEL_FEATURE_SW_ADVANCED
   Intel_TileMVInlMarker.cpp         # INTEL
   Intel_VTableFixup.cpp             # INTEL
   Internalize.cpp

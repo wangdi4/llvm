@@ -1,6 +1,7 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_PartialInline.cpp - Intel Partial Inlining      -*------===//
 //
-// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -798,3 +799,4 @@ PreservedAnalyses IntelPartialInlinePass::run(Module &M,
 
   return PA;
 }
+#endif // INTEL_FEATURE_SW_ADVANCED

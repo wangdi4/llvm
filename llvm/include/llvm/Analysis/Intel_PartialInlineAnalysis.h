@@ -1,7 +1,8 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===------------------- Intel_PartialInlineAnalysis.h ------------------===//
 //===----------- Utilities for Intel Partial Inlining Analysis ----------===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2021 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -38,3 +39,4 @@ bool isIntelPartialInlineCandidate(Function *F,
 } // namespace llvm
 
 #endif // LLVM_ANALYSIS_INTEL_PARTIALINLINEANALYSIS_H
+#endif // INTEL_FEATURE_SW_ADVANCED

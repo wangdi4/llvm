@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
+
 ; RUN: opt -inline -disable-output -inline-report=7 -dtrans-inline-heuristics -pre-lto-inline-cost < %s 2>&1 | FileCheck %s
 
 ; Ensure that inlining of
@@ -286,3 +289,4 @@ for.end:                                          ; preds = %for.cond
 
 declare dso_local i8* @_ZN3pov10pov_mallocEmPKciS1_(i64 %0, i8* %1, i32 %2, i8* %3) local_unnamed_addr
 
+; end INTEL_FEATURE_SW_ADVANCED

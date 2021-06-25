@@ -1,8 +1,13 @@
-; Test for checking the simple Intel partial inliner. This partial inliner
-; will identify small functions that use an argument as iterator and return a
-; boolean. The result will be a cloned function that checks if the input
-; parameter is null to exit early, or call the original function. The inliner
-; will actually perform the partial inlining.
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: asserts, intel_feature_sw_advanced
+
+; Test for checking the simple Intel partial inliner and the inlining
+; heuristic for inlining recursive calls within extracted functions.
+;
+; This partial inliner will identify small functions that use an argument as
+; iterator and return a boolean. The result will be a cloned function that
+; checks if the input parameter is null to exit early, or call the original
+; function. The inliner will actually perform the partial inlining.
 ;
 ; This test case is very simple. In C++ it can be seen as follows:
 ;
@@ -18,7 +23,9 @@
 ;
 ;   for (Head = List; Head != NULL; Head = Head->Next()) {
 ;     Num += Head->Num;
-;     val = Num == 0;
+;     val1 = foo(Head);
+;     val2 = Num == 0;
+;     val = val1 | val2;
 ;   }
 ;   return val;
 ; }
@@ -37,7 +44,10 @@
 ;
 ;   for (Head = List; Head != NULL; Head = Head->Next()) {
 ;     Num += Head->Num;
-;     *result = Num == 0;
+;     val1 = foo(Head);
+;     val2 = Num == 0;
+;     val = val1 | val2;
+;     *result = val;
 ;   }
 ; }
 ;
@@ -61,45 +71,29 @@
 ;   bool res = true;
 ;   if (List != NULL)
 ;     foo.for.body(List, &res);
-;
 ;   return res;
 ; }
 ;
 ; This produces a partial inlining of foo into bar rather than fully inlining.
+; Finally a call within the extracted function will be inlined due to the
+; "recursive call in extracted function" heuristic.
 ;
-; This test checks that the IR was generated correctly after combining the
-; partial inlining with full inlining.
+; This test case will check that debug information is printed correctly in
+; the partial inlining trace, and that a call within _Z3fooP4Node.1.for.body
+; is inlined because it is an extracted recursive call.
 ;
-; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -inline -S 2>&1 | FileCheck %s
-; RUN: opt < %s -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline),cgscc(inline)' -S 2>&1 | FileCheck %s
+; RUN: opt < %s -dtrans-inline-heuristics -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -intel-partialinline -inline -debug-only=intel_partialinline -inline-report=7 2>&1 | FileCheck --check-prefix=CHECK-OLD %s
+; RUN: opt < %s -dtrans-inline-heuristics -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -intel-pi-test -passes='module(intel-partialinline),cgscc(inline)' -debug-only=intel_partialinline -inline-report=7 2>&1 | FileCheck --check-prefix=CHECK-NEW %s
 
-; Check that foo was marked as "prefer-partial-inline-outlined-func"
-;
-; CHECK: define i1 @_Z3fooP4Node(%struct.Node* %List) #0
-;
-; Check that bar inlines foo.1
-;
-; CHECK: define i1 @_Z3barP4Node(%struct.Node* %List) #1
-; CHECK: codeRepl.i
-; CHECK: call void @_Z3fooP4Node.1.for.body(%struct.Node* %0, i1* %phitmp.loc.i)
-; CHECK: %Num.0.lcssa.i = phi i1 [ true, %entry ], [ %phitmp.reload.i, %codeRepl.i ]
-;
-; Check that foo was cloned correctly
-;
-; CHECK: define i1 @_Z3fooP4Node.1(%struct.Node* %List) #2
-; CHECK: codeRepl:
-; CHECK: call void @_Z3fooP4Node.1.for.body(%struct.Node* %List, i1* %phitmp.loc)
-; CHECK: %Num.0.lcssa = phi i1 [ true, %entry ], [ %phitmp.reload, %for.body.for.end_crit_edge ]
-; CHECK: ret i1 %Num.0.lcssa
-;
-; Check the outline function
-;
-; CHECK: define internal void @_Z3fooP4Node.1.for.body(%struct.Node* %List, i1* %phitmp.out) #3
-;
-; Check the attributes were created
-;
-; CHECK: attributes #2 = { "prefer-partial-inline-inlined-clone"
-; CHECK: attributes #3 = { "prefer-partial-inline-outlined-func"
+; CHECK: Candidates for partial inlining: 1
+; CHECK:     _Z3fooP4Node
+; CHECK: Analyzing Function: _Z3fooP4Node
+; CHECK:     Result: Can partial inline
+; CHECK-OLD: COMPILE FUNC: _Z3fooP4Node.1.for.body
+; CHECK-OLD: INLINE:{{.*}}<<Callee has extracted recursive call>>
+; CHECK-NOT: call{{.*}}_Z3barP4Node
+; CHECK-NEW: COMPILE FUNC: _Z3fooP4Node.1.for.body
+; CHECK-NEW: INLINE:{{.*}}<<Callee has extracted recursive call>>
 
 %struct.Node = type { i32, %struct.Node* }
 
@@ -114,19 +108,20 @@ for.body:                                         ; preds = %entry, %for.body
   %Num1 = getelementptr inbounds %struct.Node, %struct.Node* %Head.09, i64 0, i32 0
   %0 = load i32, i32* %Num1
   %add = add nsw i32 %0, %Num.010
+  %mybool = tail call i1 @_Z3barP4Node(%struct.Node* nonnull %Head.09)
   %phitmp = icmp eq i32 %add, 0
   %Next = getelementptr inbounds %struct.Node, %struct.Node* %Head.09, i64 0, i32 1
   %1 = load %struct.Node*, %struct.Node** %Next
   %cmp = icmp eq %struct.Node* %1, null
-  br i1 %cmp, label %for.end, label %for.body
+  %cmp1 = and i1 %cmp, %mybool
+  br i1 %cmp1, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.end, %entry
   %Num.0.lcssa = phi i1 [ true, %entry ], [ %phitmp, %for.body ]
   ret i1 %Num.0.lcssa
 }
 
-
-define i1 @_Z3barP4Node(%struct.Node* %List) #0 {
+define i1 @_Z3barP4Node(%struct.Node* %List) {
 entry:
   %List.addr = alloca %struct.Node*
   store %struct.Node* %List, %struct.Node** %List.addr
@@ -134,5 +129,4 @@ entry:
   %call = call zeroext i1 @_Z3fooP4Node(%struct.Node* %0)
   ret i1 %call
 }
-
-attributes #0 = { noinline }
+; end INTEL_FEATURE_SW_ADVANCED
