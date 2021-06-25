@@ -6347,7 +6347,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
              Args.hasArg(options::OPT_fopenmp_targets_EQ) &&
              Args.hasArg(options::OPT__SLASH_std)) {
       const Arg *StdArg = Args.getLastArg(options::OPT__SLASH_std);
-      ImplyVCPPCXXVer = StringRef(StdArg->getValue()).contains_lower("c++");
+      ImplyVCPPCXXVer = StringRef(StdArg->getValue()).contains_insensitive("c++");
       ImplyVCPPCVer = !ImplyVCPPCXXVer;
     }
 
