@@ -130,6 +130,16 @@ propagateLoadStoreInstAliasMetadata(Instruction *LoadStore,
     LoadStore->setMetadata(LLVMContext::MD_alias_scope, MD);
 }
 
+// Helper to check if the given value/instruction is used only in a
+// lifetime.start/end intrinsic.
+static bool isOnlyUsedInLifetimeIntrinsics(const VPValue *Val) {
+  return all_of(Val->users(), [&](const VPUser *U) {
+    if (auto *VPCall = dyn_cast<VPCallInstruction>(U))
+      return VPCall->isLifetimeStartOrEndIntrinsic();
+    return false;
+  });
+}
+
 Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
                                              ArrayRef<Value *> Ops) {
   Value *SerialInst = nullptr;
@@ -2077,21 +2087,13 @@ void VPOCodeGen::vectorizeCast(
   bool IsNonSerializedAllocaPointer = LoopPrivateVPWidenMap.count(
       VPInst->getOperand(0)); // Is this AOS-widened ptr,
                               // TODO: Add SOA-pointer check here.
-  bool IsOnlyUsedInLifetimeIntrinsics =
-      all_of(VPInst->users(),
-             [&](VPValue *V) { // All users of this cast should be the
-                               // lifetime_start and lifetime_end intrinsics.
-               if (auto *VPCall = dyn_cast<VPCallInstruction>(V))
-                 return VPCall->isLifetimeStartOrEndIntrinsic();
-               return false;
-             });
 
   // If the pointer is a bitcast and is exclusively used in
   // lifetime_start/end intrinsics, use the correct operands.
   // TODO: Move these checks to SVA, FirstScalar should be propagated from
   // lifetime_start/end intrinsics.
   if (IsBitCastInst && IsNonSerializedAllocaPointer &&
-      IsOnlyUsedInLifetimeIntrinsics) {
+      isOnlyUsedInLifetimeIntrinsics(VPInst)) {
     Value *ScalarOp = LoopPrivateVPWidenMap[VPInst->getOperand(0)];
     Type *ScalarTy = VPInst->getType();
     Value *ScalarCast = Builder.CreateCast(Opcode, ScalarOp, ScalarTy);
@@ -3724,7 +3726,7 @@ void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
   auto PhiTy = VPPhi->getType();
   PHINode *NewPhi;
   // PHI-arguments with SOA accesses need to be set up with correct-types.
-  if (isSOAAccess(VPPhi, Plan)) {
+  if (isSOAAccess(VPPhi, Plan) && !isOnlyUsedInLifetimeIntrinsics(VPPhi)) {
     Type *ElemTy = PhiTy->getPointerElementType();
     PhiTy = PointerType::get(getSOAType(ElemTy, VF),
                              cast<PointerType>(PhiTy)->getAddressSpace());

@@ -80,6 +80,84 @@ simd.end:
   ret void
 }
 
+; This test simulates the behavior of AZB which inserts a region around
+; bitcasts which are fed into the lifetime.start/end intrinsics and causes
+; failure during CG. A utility function is changed to handle proper
+; identification of Private memory.
+define void @test_lifetime_start_end_with_phi_inputs() {
+; CHECK-LABEL: @test_lifetime_start_end_with_phi_inputs(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[ARR_PRIV32:%.*]] = alloca [1024 x i32], align 4
+; CHECK-NEXT:    [[ARR_PRIV32_SOA_VEC:%.*]] = alloca [1024 x <2 x i32>], align 8
+; CHECK-NEXT:    br label [[SIMD_BEGIN_REGION:%.*]]
+; CHECK:       simd.begin.region:
+; CHECK-NEXT:    br label [[SIMD_LOOP_PREHEADER:%.*]]
+; CHECK:       simd.loop.preheader:
+; CHECK-NEXT:    [[UNI_GEP:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* [[ARR_PRIV32]], i64 0, i64 0
+; CHECK-NEXT:    br label [[VPLANNEDBB:%.*]]
+; CHECK:       VPlannedBB:
+; CHECK-NEXT:    br label [[VPLANNEDBB1:%.*]]
+; CHECK:       VPlannedBB1:
+; CHECK-NEXT:    br i1 false, label [[SCALAR_PH:%.*]], label [[VECTOR_PH:%.*]]
+; CHECK:       vector.ph:
+; CHECK-NEXT:    [[SOA_SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x <2 x i32>], [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]], i64 0, i64 0
+; CHECK-NEXT:    br label [[VECTOR_BODY:%.*]]
+; CHECK:       vector.body:
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VPLANNEDBB7:%.*]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <2 x i64> [ <i64 0, i64 1>, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VPLANNEDBB7]] ]
+; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i32>, <2 x i32>* [[SOA_SCALAR_GEP]], align 4
+; CHECK-NEXT:    br i1 true, label [[VPLANNEDBB3:%.*]], label [[VPLANNEDBB4:%.*]]
+; CHECK:       VPlannedBB4:
+; CHECK-NEXT:    br label [[VPLANNEDBB5:%.*]]
+; CHECK:       VPlannedBB3:
+; CHECK-NEXT:    [[TMP0:%.*]] = bitcast [1024 x <2 x i32>]* [[ARR_PRIV32_SOA_VEC]] to i8*
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i8*> poison, i8* [[TMP0]], i32 0
+; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i8*> [[BROADCAST_SPLATINSERT]], <2 x i8*> poison, <2 x i32> zeroinitializer
+; CHECK-NEXT:    br label [[VPLANNEDBB5]]
+; CHECK:       VPlannedBB5:
+; CHECK-NEXT:    [[VEC_PHI6:%.*]] = phi <2 x i8*> [ [[BROADCAST_SPLAT]], [[VPLANNEDBB3]] ], [ zeroinitializer, [[VPLANNEDBB4]] ]
+; CHECK-NEXT:    [[VEC_PHI6_EXTRACT_0_:%.*]] = extractelement <2 x i8*> [[VEC_PHI6]], i32 0
+; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8192, i8* nonnull [[VEC_PHI6_EXTRACT_0_]])
+; CHECK-NEXT:    br label [[VPLANNEDBB7]]
+; CHECK:       VPlannedBB7:
+; CHECK-NEXT:    [[TMP1]] = add nuw nsw <2 x i64> [[VEC_PHI]], <i64 2, i64 2>
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw i64 [[UNI_PHI]], 2
+; CHECK-NEXT:    call void @llvm.lifetime.end.p0i8(i64 8192, i8* nonnull [[VEC_PHI6_EXTRACT_0_]])
+; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i64 [[TMP2]], 1024
+; CHECK-NEXT:    br i1 [[TMP3]], label [[VECTOR_BODY]], label [[VPLANNEDBB8:%.*]], !llvm.loop [[LOOP4:![0-9]+]]
+;
+entry:
+  %arr.priv32 = alloca [1024 x i32], align 4
+  br label %simd.begin.region
+simd.begin.region:
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr.priv32)]
+  br label %simd.loop.preheader
+simd.loop.preheader:
+  %uni.gep = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr.priv32, i64 0, i64 0
+  br label %simd.loop
+simd.loop:
+  %iv1 = phi i64 [ 0, %simd.loop.preheader ], [ %iv1.next, %post.merge]
+  %ld8 = load i32, i32* %uni.gep, align 4
+  br i1 true, label %if, label %else
+if:
+  %bc.if = bitcast [1024 x i32]* %arr.priv32 to i8*
+  br label %merge
+else:
+  br label %merge
+merge:
+  %phi.mix.pointer = phi i8* [%bc.if, %if], [null, %else]
+  call void @llvm.lifetime.start.p0i8(i64 1024, i8* nonnull %phi.mix.pointer)
+  br label %post.merge
+post.merge:
+  %iv1.next = add nuw nsw i64 %iv1, 1
+  %cmp = icmp ult i64 %iv1.next, 1024
+  call void @llvm.lifetime.end.p0i8(i64 1024, i8* nonnull %phi.mix.pointer)
+  br i1 %cmp, label %simd.loop, label %simd.end
+simd.end:
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
+  ret void
+}
+
 declare void @llvm.lifetime.start.p0i8(i64, i8* nocapture)
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture)
 declare token @llvm.directive.region.entry()
