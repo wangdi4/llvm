@@ -37,7 +37,11 @@ add_llvm_component_library(LLVMipo
   Intel_FoldWPIntrinsic.cpp         # INTEL
   Intel_IPArrayTranspose.cpp     # INTEL
   Intel_IPCloning.cpp     # INTEL
-  Intel_IPOPrefetch.cpp   # INTEL
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_SW_ADVANCED
+  Intel_IPOPrefetch.cpp
+#end INTEL_FEATURE_SW_ADVANCED
+#end INTEL_CUSTOMIZATION
   Utils/Intel_IPOUtils.cpp # INTEL
   Intel_InlineLists.cpp   # INTEL
   Intel_MathLibrariesDeclaration.cpp #INTEL

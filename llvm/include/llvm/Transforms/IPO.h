@@ -297,8 +297,10 @@ ModulePass *createGlobalSplitPass();
 /// calling convention.
 ModulePass *createIntelAdvancedFastCallWrapperPass();
 
+#if INTEL_FEATURE_SW_ADVANCED
 /// \brief This pass conducts IPO-based prefetching
 ModulePass *createIntelIPOPrefetchWrapperPass();
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 /// \brief This pass implements a constant propagation in those places where
 /// the memory alignment is being computed.

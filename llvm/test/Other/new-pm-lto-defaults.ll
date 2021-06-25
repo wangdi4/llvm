@@ -125,8 +125,7 @@
 ; CHECK-O23SZ-NEXT: Running pass: InlinerPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: GlobalOptPass
-; CHECK-O23SZ-NEXT: Running pass: IntelIPOPrefetchPass
-; CHECK-O23SZ-NEXT: Running pass: PartialInlinerPass
+; CHECK-O23SZ: Running pass: PartialInlinerPass
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: IPCloningPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: GlobalDCEPass

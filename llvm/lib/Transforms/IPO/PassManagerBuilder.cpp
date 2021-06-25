@@ -301,10 +301,12 @@ static cl::opt<bool>
     EnableInlineAggAnalysis("enable-inline-aggressive-analysis",
     cl::init(true), cl::Hidden, cl::desc("Enable Inline Aggressive Analysis"));
 
+#if INTEL_FEATURE_SW_ADVANCED
 // IPO Prefetch
 static cl::opt<bool>
     EnableIPOPrefetch("enable-ipo-prefetch",
   cl::init(true), cl::Hidden, cl::desc("Enable IPO Prefetch"));
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 #if INTEL_INCLUDE_DTRANS
 // DTrans optimizations -- this is a placeholder for future work.
@@ -1705,9 +1707,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createGlobalDCEPass());
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
   // IPO Prefetching: make it before IPClone and Inline
   if (EnableIPOPrefetch)
     PM.add(createIntelIPOPrefetchWrapperPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   if (EnableWPA)
     PM.add(createIntelFoldWPIntrinsicLegacyPass());
