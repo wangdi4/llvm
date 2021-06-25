@@ -1411,7 +1411,7 @@ bool LinkerDriver::processLibInResponseFile(ArrayRef<const char *> argv) {
 
     // Check that "/lib" is the first argument in the expanded command
     if (expandedArgv.size() > 1 &&
-        StringRef(expandedArgv[1]).equals_lower("/lib")) {
+        StringRef(expandedArgv[1]).equals_insensitive("/lib")) {
       if (llvm::libDriverMain(makeArrayRef(expandedArgv).slice(1)) != 0)
         fatal("lib failed");
       return true;

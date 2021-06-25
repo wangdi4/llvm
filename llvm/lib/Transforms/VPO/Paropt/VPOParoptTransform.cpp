@@ -1477,7 +1477,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
   StringRef S = F->getName();
 
-  if (!S.compare_lower(StringRef("@main"))) {
+  if (!S.compare_insensitive(StringRef("@main"))) {
     BasicBlock::iterator I = F->getEntryBlock().begin();
     CallInst *RI = VPOParoptUtils::genKmpcBeginCall(F, &*I, IdentTy);
     RI->insertBefore(&*I);
