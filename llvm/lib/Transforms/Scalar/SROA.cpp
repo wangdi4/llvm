@@ -949,9 +949,14 @@ private:
       return PI.setAborted(&II);
 
 #if INTEL_CUSTOMIZATION
-    if (auto *VAI = dyn_cast<VarAnnotIntrinsic>(&II))
-      if (VAI->hasRegisterAttributeSet())
+    if (auto *VAI = dyn_cast<VarAnnotIntrinsic>(&II)) {
+      if (VAI->hasRegisterAttributeSet()) {
+        // We mark the VAI as a use, to guarantee that related instructions
+        // will be optimized by SROA (such as bitcasts, etc.)
+        insertUse(II, APInt(Offset.getBitWidth(), 0), AllocSize, true);
         return;
+      }
+    }
 
     // If alloca is for private structure variable used inside SIMD region, we
     // allow SROA on it.
@@ -3340,13 +3345,25 @@ private:
     // for the new alloca slice.
     Type *PointerTy = IRB.getInt8PtrTy(OldPtr->getType()->getPointerAddressSpace());
     Value *Ptr = getNewAllocaSlicePtr(IRB, PointerTy);
-    Value *New;
+    Value *New = nullptr; // INTEL
     if (II.getIntrinsicID() == Intrinsic::lifetime_start)
       New = IRB.CreateLifetimeStart(Ptr, Size);
     if (II.getIntrinsicID() == Intrinsic::lifetime_end)         //INTEL
       New = IRB.CreateLifetimeEnd(Ptr, Size);
-
     (void)New;
+
+#if INTEL_CUSTOMIZATION
+    if (II.getIntrinsicID() == Intrinsic::var_annotation) {
+      // Keep the original var.annotation intrinsic in case SROA can't
+      // fully replace the object. Copy it and replace OldPtr with Ptr.
+      // (Ptr points to the new SROA slice)
+      SmallVector<OperandBundleDef, 4> Bundles;
+      New = IntrinsicInst::Create(&II, Bundles, &II);
+      // We checked above that OldPtr is arg(0).
+      cast<IntrinsicInst>(New)->setArgOperand(0, Ptr);
+    }
+    assert(New && "Unknown registerizable use.");
+#endif // INTEL_CUSTOMIZATION
     LLVM_DEBUG(dbgs() << "          to: " << *New << "\n");
 
     return true;
