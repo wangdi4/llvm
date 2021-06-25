@@ -282,7 +282,6 @@ void VPlanPeelingAnalysis::collectCandidateMemrefs(VPlanVector &Plan) {
       if (!LS)
         continue;
 
-      auto *Pointer = LS->getPointerOperand();
       auto *Expr = LS->getAddressSCEV();
       Optional<VPConstStepInduction> Ind = VPSE->asConstStepInduction(Expr);
 
@@ -291,7 +290,7 @@ void VPlanPeelingAnalysis::collectCandidateMemrefs(VPlanVector &Plan) {
         continue;
 
       // Skip accesses that are not unit-strided.
-      Type *EltTy = cast<PointerType>(Pointer->getType())->getElementType();
+      Type *EltTy = LS->getValueType();
       if (DL->getTypeAllocSize(EltTy) != TypeSize::Fixed(Ind->Step))
         continue;
 
