@@ -70,6 +70,9 @@ namespace intel{
 
     m_localBuffersAnalysis = &getAnalysis<LocalBuffAnalysis>();
 
+    m_GVEToRemove.clear();
+    m_GVToRemove.clear();
+
     // Run on all defined function in the module
     for ( auto &F : M ) {
       Function *pFunc = &F;
@@ -90,6 +93,10 @@ namespace intel{
     }
 
     UpdateDICompileUnitGlobals();
+
+    // Safely erase useless GVs
+    for (auto *GV : m_GVToRemove)
+      GV->eraseFromParent();
 
     return true;
   }
@@ -164,6 +171,8 @@ namespace intel{
 
     for (auto *DIGVExpr : DIGVExprs) {
       auto *DIGV = DIGVExpr->getVariable();
+      if (DIGV->getScope() != m_pSubprogram)
+        continue;
       auto *DIExpr = DIGVExpr->getExpression();
       DIExpr = DIExpression::prepend(DIExpr, DIExpression::DerefBefore, offset);
 
@@ -179,7 +188,7 @@ namespace intel{
     }
 
     m_GVEToRemove.insert(DIGVExprs.begin(), DIGVExprs.end());
-    GV->eraseFromParent();
+    m_GVToRemove.insert(GV);
   }
 
   void LocalBuffers::UpdateDICompileUnitGlobals() {

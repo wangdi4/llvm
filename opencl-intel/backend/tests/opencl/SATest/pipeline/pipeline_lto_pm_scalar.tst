@@ -30,7 +30,7 @@
 ; CHECK-NEXT: Running analysis: ImplicitArgsAnalysis
 ; CHECK:      Running pass: ResolveWICallPass
 ; CHECK-NEXT: Running analysis: CallGraphAnalysis
-; CHECK-NEXT: Running pass: BuiltinImportPass
+; CHECK:      Running pass: BuiltinImportPass
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy
 ; CHECK-NEXT: Running pass: BuiltinCallToInstPass
 ; CHECK-NEXT: Running pass: PrepareKernelArgsPass

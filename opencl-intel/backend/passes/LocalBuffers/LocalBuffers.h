@@ -116,6 +116,9 @@ namespace intel{
     /// @brief stores all the DIGlobalVariableExpression's need to be removed
     ///        in DICompileUnit.globals
     SmallPtrSet<DIGlobalVariableExpression *, 4> m_GVEToRemove;
+
+    /// @brief stores all the GlobalVariable's need to be removed
+    SmallPtrSet<GlobalVariable *, 4> m_GVToRemove;
   };
 
 } // namespace intel
