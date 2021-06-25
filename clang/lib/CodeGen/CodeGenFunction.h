@@ -4191,6 +4191,12 @@ public:
   void EmitAtomicStore(RValue rvalue, LValue lvalue, llvm::AtomicOrdering AO,
                        bool IsVolatile, bool isInit);
 
+#if INTEL_COLLAB
+  void EmitAtomicCompareAndSwap(RValue Expected, RValue Desired, LValue Lvalue,
+                                llvm::CmpInst::Predicate Op,
+                                llvm::AtomicOrdering AO, bool IsVolatile);
+#endif // INTEL_COLLAB
+
   std::pair<RValue, llvm::Value *> EmitAtomicCompareExchange(
       LValue Obj, RValue Expected, RValue Desired, SourceLocation Loc,
       llvm::AtomicOrdering Success =

@@ -5841,10 +5841,43 @@ static void emitOMPAtomicCaptureExpr(CodeGenFunction &CGF,
   }
 }
 
+#if INTEL_COLLAB
+static void emitOMPAtomicCompareExpr(CodeGenFunction &CGF,
+                                     llvm::AtomicOrdering AO, const Expr *X,
+                                     const Expr *E, const Expr *Expected,
+                                     bool IsCompareMin, bool IsCompareMax,
+                                     SourceLocation Loc) {
+  LValue LVal = CGF.EmitLValue(X);
+  RValue Desired = CGF.EmitAnyExpr(E);
+  RValue Exp;
+  llvm::CmpInst::Predicate Op;
+  if (IsCompareMin || IsCompareMax) {
+    Exp = Desired;
+    if (X->getType()->isFloatingType())
+      Op = IsCompareMin ? llvm::CmpInst::FCMP_OGT : llvm::CmpInst::FCMP_OLT;
+    else if (X->getType()->isUnsignedIntegerType())
+      Op = IsCompareMin ? llvm::CmpInst::ICMP_UGT : llvm::CmpInst::ICMP_ULT;
+    else
+      Op = IsCompareMin ? llvm::CmpInst::ICMP_SGT : llvm::CmpInst::ICMP_SLT;
+  } else {
+    Exp = CGF.EmitAnyExpr(Expected);
+    if (X->getType()->isFloatingType())
+      Op = llvm::CmpInst::FCMP_OEQ;
+    else
+      Op = llvm::CmpInst::ICMP_EQ;
+  }
+  CGF.EmitAtomicCompareAndSwap(Exp, Desired, LVal, Op, AO, LVal.isVolatile());
+}
+#endif // INTEL_COLLAB
+
 static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
                               llvm::AtomicOrdering AO, bool IsPostfixUpdate,
                               const Expr *X, const Expr *V, const Expr *E,
                               const Expr *UE, bool IsXLHSInRHSPart,
+#if INTEL_COLLAB
+                              const Expr *Expected, bool IsCompareMin,
+                              bool IsCompareMax,
+#endif // INTEL_COLLAB
                               SourceLocation Loc) {
   switch (Kind) {
   case OMPC_read:
@@ -5863,7 +5896,8 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
     break;
 #if INTEL_COLLAB
   case OMPC_compare:
-    llvm_unreachable("Atomic compare not yet implemented.");
+    emitOMPAtomicCompareExpr(CGF, AO, X, E, Expected, IsCompareMin,
+                             IsCompareMax, Loc);
     break;
 #endif // INTEL_COLLAB
   case OMPC_if:
@@ -6018,6 +6052,9 @@ void CodeGenFunction::EmitOMPAtomicDirective(const OMPAtomicDirective &S) {
   EmitStopPoint(S.getAssociatedStmt());
   emitOMPAtomicExpr(*this, Kind, AO, S.isPostfixUpdate(), S.getX(), S.getV(),
                     S.getExpr(), S.getUpdateExpr(), S.isXLHSInRHSPart(),
+#if INTEL_COLLAB
+                    S.getExpected(), S.isCompareMin(), S.isCompareMax(),
+#endif // INTEL_COLLAB
                     S.getBeginLoc());
 }
 
