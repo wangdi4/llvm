@@ -1394,6 +1394,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_kmpc_atomic_float8_add:
     return Changed;
   case LibFunc_kmpc_critical:
+  case LibFunc_kmpc_critical_with_hint:
     return Changed;
   case LibFunc_kmpc_dispatch_init_4:
   case LibFunc_kmpc_dispatch_init_4u:

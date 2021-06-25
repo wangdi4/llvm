@@ -2392,6 +2392,10 @@ void ASTStmtWriter::VisitOMPAtomicDirective(OMPAtomicDirective *D) {
   VisitOMPExecutableDirective(D);
   Record.writeBool(D->isXLHSInRHSPart());
   Record.writeBool(D->isPostfixUpdate());
+#if INTEL_COLLAB
+  Record.writeBool(D->isCompareMin());
+  Record.writeBool(D->isCompareMax());
+#endif // INTEL_COLLAB
   Code = serialization::STMT_OMP_ATOMIC_DIRECTIVE;
 }
 

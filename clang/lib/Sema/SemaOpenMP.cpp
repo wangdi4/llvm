@@ -11769,6 +11769,234 @@ bool OpenMPAtomicUpdateChecker::checkStatement(Stmt *S, unsigned DiagId,
   return ErrorFound != NoError;
 }
 
+#if INTEL_COLLAB
+namespace {
+/// Helper class for checking 'omp atomic compare' construct
+class OpenMPAtomicCompareChecker {
+  /// Error results for atomic compare.
+  enum AtomicCompareCheckerErrorCode {
+    NotIfOrAssignment,
+    NotAScalarType,
+    NotAConditionalOperator,
+    NotAnOrdOp,
+    CannotMatchX,
+    NotCompoundStmt,
+    UnexpectedElse,
+    NotAssignment,
+    // No error found.
+    NoError
+  };
+  /// Reference to Sema.
+  Sema &SemaRef;
+  /// A location for note diagnostics (when error is found).
+  SourceLocation NoteLoc;
+  /// 'x' lvalue part of the source atomic expression.
+  Expr *X = nullptr;
+  /// 'expr' rvalue part of the source atomic expression.
+  Expr *E = nullptr;
+  /// 'e' (expected) rvalue part of the source atomic expression.
+  Expr *Expected = nullptr;
+  /// 'd' (desired) rvalue part of the source atomic expression.
+  Expr *Desired = nullptr;
+  /// True if the form is a minimum operation.
+  bool IsCompareMin = false;
+  /// True if the form is a maximum operation.
+  bool IsCompareMax = false;
+
+  bool checkConditionOperation(BinaryOperator *CondOp, unsigned DiagId, unsigned NoteId);
+public:
+  OpenMPAtomicCompareChecker(Sema &SemaRef) : SemaRef(SemaRef) {}
+  /// Check specified statement that it is suitable for 'atomic compare'
+  /// constructs and extract 'x' and 'expr' or 'x', 'e', and 'd' from
+  /// the original expression. If DiagId and NoteId == 0, then only check is
+  /// performed without error notification.
+  /// \param S The body of the atomic statement.
+  /// \param DiagId Diagnostic which should be emitted if error is found.
+  /// \param NoteId Diagnostic note for the main error message.
+  /// \return true if statement is not an update expression, false otherwise.
+  bool checkStatement(Stmt *S, unsigned DiagId = 0, unsigned NoteId = 0);
+  /// Return the 'x' lvalue part of the source atomic expression.
+  Expr *getX() const { return X; }
+  /// Return the 'expr' rvalue part of the source atomic expression.
+  Expr *getExpr() const { return E; }
+  /// Return the 'e' (expected) rvalue part of the source atomic expression.
+  Expr *getExpected() const { return Expected; }
+  /// Return the 'd' (desired) part of the source atomic expression.
+  Expr *getDesired() const { return Desired; }
+  /// Return true if a minimum form was found.
+  bool getIsCompareMin() const { return IsCompareMin; }
+  /// Return true if a maximum form was found.
+  bool getIsCompareMax() const { return IsCompareMax; }
+};
+}
+
+// Check and classify the compare expression. X must have been already determined.
+bool OpenMPAtomicCompareChecker::checkConditionOperation(BinaryOperator *CondOp,
+                                                         unsigned DiagId,
+                                                         unsigned NoteId) {
+  AtomicCompareCheckerErrorCode ErrorFound = NoError;
+  SourceLocation ErrorLoc, NoteLoc;
+  SourceRange ErrorRange, NoteRange;
+
+  BinaryOperator::Opcode OC = CondOp->getOpcode();
+  if (OC == BO_GT || OC == BO_LT || OC == BO_EQ) {
+    Expr *CompareL = CondOp->getLHS()->IgnoreParenImpCasts();
+    Expr *CompareR = CondOp->getRHS()->IgnoreParenImpCasts();
+    llvm::FoldingSetNodeID XId, CLId, CRId;
+    X->Profile(XId, SemaRef.getASTContext(), /*Canonical=*/true);
+    CompareL->Profile(CLId, SemaRef.getASTContext(),
+                      /*Canonical=*/true);
+    CompareR->Profile(CRId, SemaRef.getASTContext(),
+                      /*Canonical=*/true);
+    bool XOnLeft = (XId == CLId);
+    bool XOnRight = (XId == CRId);
+    if (XOnLeft || XOnRight) {
+      if (OC == BO_EQ) {
+        // x = x == e ? d : x;
+        if (XOnLeft) {
+          Expected = CompareR;
+        } else {
+          // 'x' not matched to LHS of comparison.
+          ErrorFound = CannotMatchX;
+          NoteLoc = ErrorLoc = CompareL->getBeginLoc();
+          NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+        }
+      } else {
+        // x = expr ordop x ? expr : x;
+        // x = x ordop expr ? expr : x;
+        E = XOnLeft ? CompareR : CompareL;
+        IsCompareMin = (XOnRight && OC == BO_LT) || (XOnLeft && OC == BO_GT);
+        IsCompareMax = (XOnRight && OC == BO_GT) || (XOnLeft && OC == BO_LT);
+      }
+    } else {
+      ErrorFound = CannotMatchX;
+      NoteLoc = ErrorLoc = CondOp->getBeginLoc();
+      NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+    }
+  } else {
+    ErrorFound = NotAnOrdOp;
+    NoteLoc = ErrorLoc = CondOp->getOperatorLoc();
+    NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+  }
+  if (ErrorFound != NoError && DiagId != 0 && NoteId != 0) {
+    SemaRef.Diag(ErrorLoc, DiagId) << ErrorRange;
+    SemaRef.Diag(NoteLoc, NoteId) << ErrorFound << NoteRange;
+    return true;
+  }
+  return ErrorFound != NoError;
+}
+
+bool OpenMPAtomicCompareChecker::checkStatement(Stmt *S, unsigned DiagId,
+                                                unsigned NoteId) {
+  AtomicCompareCheckerErrorCode ErrorFound = NoError;
+  SourceLocation ErrorLoc, NoteLoc;
+  SourceRange ErrorRange, NoteRange;
+  // Allowed constructs are:
+  // x = expr ordop x ? expr : x;
+  // x = x ordop expr ? expr : x;
+  // x = x == e ? d : x;
+  // if (expr ordop x) { x = expr; }
+  // if (x ordop expr) { x = expr; }
+  // if (x == e) { x = d; }
+
+  if (auto *If = dyn_cast<IfStmt>(S)) {
+    if (auto *CS = dyn_cast<CompoundStmt>(If->getThen())) {
+      if (If->getElse() == nullptr) {
+        if (CS->size() == 1) {
+          Stmt *S = CS->body_front();
+          if (auto *EWC = dyn_cast<ExprWithCleanups>(S))
+            S = EWC->getSubExpr()->IgnoreParenImpCasts();
+          if (auto *BO = dyn_cast<BinaryOperator>(S)) {
+            if (BO->getOpcode() == BO_Assign) {
+              X = BO->getLHS()->IgnoreParenImpCasts();
+              if (auto *CondOp = dyn_cast<BinaryOperator>(If->getCond())) {
+                if (checkConditionOperation(CondOp, DiagId, NoteId))
+                  return false;
+                if (Expected)
+                  Desired = BO->getRHS()->IgnoreParenImpCasts();
+              } else {
+                ErrorFound = NotAnOrdOp;
+                NoteLoc = ErrorLoc = If->getCond()->getBeginLoc();
+                NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+              }
+            } else {
+              ErrorFound = NotAssignment;
+              NoteLoc = ErrorLoc = BO->getOperatorLoc();
+              NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+            }
+          } else {
+            ErrorFound = NotAssignment;
+            NoteLoc = ErrorLoc = S->getBeginLoc();
+            NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+          }
+        } else {
+          ErrorFound = NotCompoundStmt;
+          NoteLoc = ErrorLoc = CS->getBeginLoc();
+          NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+        }
+      } else {
+        ErrorFound = UnexpectedElse;
+        NoteLoc = ErrorLoc = If->getElse()->getBeginLoc();
+        NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+      }
+    } else {
+      ErrorFound = NotCompoundStmt;
+      NoteLoc = ErrorLoc = If->getThen()->getBeginLoc();
+      NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+    }
+  } else if (auto *BO = dyn_cast<BinaryOperator>(S)) {
+    if (BO->getType()->isScalarType() ||
+        BO->isInstantiationDependent()) {
+      X = BO->getLHS()->IgnoreParenImpCasts();
+      if (auto *CE = dyn_cast<ConditionalOperator>(
+              BO->getRHS()->IgnoreParenImpCasts())) {
+        if (auto *CondOp = dyn_cast<BinaryOperator>(CE->getCond())) {
+          if (checkConditionOperation(CondOp, DiagId, NoteId))
+            return false;
+          if (Expected)
+            Desired = CE->getLHS()->IgnoreParenImpCasts();
+          // Check the true/false part of the expression.
+          llvm::FoldingSetNodeID XId, RightId;
+          X->Profile(XId, SemaRef.getASTContext(), /*Canonical=*/true);
+          Expr *CondR = CE->getRHS()->IgnoreParenImpCasts();
+          CondR->Profile(RightId, SemaRef.getASTContext(), /*Canonical=*/true);
+          if (XId != RightId) {
+            // 'x' not matched to RHS of conditional.
+            ErrorFound = CannotMatchX;
+            NoteLoc = ErrorLoc = CondR->getBeginLoc();
+            NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+          }
+        } else {
+          ErrorFound = NotAnOrdOp;
+          NoteLoc = ErrorLoc = CE->getCond()->getBeginLoc();
+          NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+        }
+      } else {
+        ErrorFound = NotAConditionalOperator;
+        NoteLoc = ErrorLoc = BO->getRHS()->getBeginLoc();
+        NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+      }
+    } else {
+      ErrorFound = NotAScalarType;
+      NoteLoc = ErrorLoc = BO->getBeginLoc();
+      NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+    }
+  } else {
+    ErrorFound = NotIfOrAssignment;
+    NoteLoc = ErrorLoc = S->getBeginLoc();
+    NoteRange = ErrorRange = SourceRange(NoteLoc, NoteLoc);
+  }
+  if (ErrorFound != NoError && DiagId != 0 && NoteId != 0) {
+    SemaRef.Diag(ErrorLoc, DiagId) << ErrorRange;
+    SemaRef.Diag(NoteLoc, NoteId) << ErrorFound << NoteRange;
+    return true;
+  }
+  if (SemaRef.CurContext->isDependentContext())
+    E = X = Expected = Desired = nullptr;
+  return ErrorFound != NoError;
+}
+#endif // INTEL_COLLAB
+
 StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
                                             Stmt *AStmt,
                                             SourceLocation StartLoc,
@@ -11790,6 +12018,9 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
   for (const OMPClause *C : Clauses) {
     if (C->getClauseKind() == OMPC_read || C->getClauseKind() == OMPC_write ||
         C->getClauseKind() == OMPC_update ||
+#if INTEL_COLLAB
+        C->getClauseKind() == OMPC_compare ||
+#endif // INTEL_COLLAB
         C->getClauseKind() == OMPC_capture) {
       if (AtomicKind != OMPC_unknown) {
         Diag(C->getBeginLoc(), diag::err_omp_atomic_several_clauses)
@@ -11851,6 +12082,11 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
   Expr *UE = nullptr;
   bool IsXLHSInRHSPart = false;
   bool IsPostfixUpdate = false;
+#if INTEL_COLLAB
+  Expr *Expected = nullptr;
+  bool IsCompareMin = false;
+  bool IsCompareMax = false;
+#endif // INTEL_COLLAB
   // OpenMP [2.12.6, atomic Construct]
   // In the next expressions:
   // * x and v (as applicable) are both l-value expressions with scalar type.
@@ -12234,13 +12470,35 @@ StmtResult Sema::ActOnOpenMPAtomicDirective(ArrayRef<OMPClause *> Clauses,
       if (CurContext->isDependentContext())
         UE = V = E = X = nullptr;
     }
+#if INTEL_COLLAB
+  } else if (AtomicKind == OMPC_compare) {
+    OpenMPAtomicCompareChecker Checker(*this);
+    if (Checker.checkStatement(Body, diag::err_omp_atomic_compare_bad_form, diag::note_omp_atomic_compare))
+      return StmtError();
+    if (!CurContext->isDependentContext()) {
+      X = Checker.getX();
+      if (Expr *Exp = Checker.getExpected()) {
+        Expected = Exp;
+        E = Checker.getDesired();
+      } else {
+        E = Checker.getExpr();
+      }
+      IsCompareMin = Checker.getIsCompareMin();
+      IsCompareMax = Checker.getIsCompareMax();
+    }
+#endif // INTEL_COLLAB
   }
 
   setFunctionHasBranchProtectedScope();
 
   return OMPAtomicDirective::Create(Context, StartLoc, EndLoc, Clauses, AStmt,
+#if INTEL_COLLAB
+                                    X, V, E, Expected, UE, IsXLHSInRHSPart,
+                                    IsPostfixUpdate, IsCompareMin, IsCompareMax);
+#else // INTEL_COLLAB
                                     X, V, E, UE, IsXLHSInRHSPart,
                                     IsPostfixUpdate);
+#endif // INTEL_COLLAB
 }
 
 StmtResult Sema::ActOnOpenMPTargetDirective(ArrayRef<OMPClause *> Clauses,
@@ -16395,6 +16653,11 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_capture:
     Res = ActOnOpenMPCaptureClause(StartLoc, EndLoc);
     break;
+#if INTEL_COLLAB
+  case OMPC_compare:
+    Res = ActOnOpenMPCompareClause(StartLoc, EndLoc);
+    break;
+#endif // INTEL_COLLAB
   case OMPC_seq_cst:
     Res = ActOnOpenMPSeqCstClause(StartLoc, EndLoc);
     break;
@@ -16548,6 +16811,13 @@ OMPClause *Sema::ActOnOpenMPCaptureClause(SourceLocation StartLoc,
                                           SourceLocation EndLoc) {
   return new (Context) OMPCaptureClause(StartLoc, EndLoc);
 }
+
+#if INTEL_COLLAB
+OMPClause *Sema::ActOnOpenMPCompareClause(SourceLocation StartLoc,
+                                          SourceLocation EndLoc) {
+  return new (Context) OMPCompareClause(StartLoc, EndLoc);
+}
+#endif // INTEL_COLLAB
 
 OMPClause *Sema::ActOnOpenMPSeqCstClause(SourceLocation StartLoc,
                                          SourceLocation EndLoc) {

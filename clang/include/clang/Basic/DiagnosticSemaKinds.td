@@ -10534,6 +10534,21 @@ def err_omp_atomic_capture_not_compound_statement : Error<
   " where x is an lvalue expression with scalar type">;
 def note_omp_atomic_capture: Note<
   "%select{expected assignment expression|expected compound statement|expected exactly two expression statements|expected in right hand side of the first expression}0">;
+#if INTEL_COLLAB
+def err_omp_atomic_compare_bad_form : Error<
+  "the statement for 'atomic compare' must be 'x = expr ordop x ? expr : x;', "
+  "'x = x ordop expr ? expr : x;', 'x = x == e ? d : x;', "
+  "'if(expr ordop x) {x=expr;}', 'if(x ordop expr) {x=expr;}', "
+  "or 'if(x==e) {x=d;}' where x is an lvalue with scalar type">;
+def note_omp_atomic_compare: Note<
+  "%select{expected an if statement or assignment expression|"
+  "expected expression of scalar type|expected a conditional operator|"
+  "expected a '<', '>', or '==' expression|"
+  "cannot match 'x' component in expression|"
+  "expected compound statement containing one assignment|"
+  "unexpected else in if statement|"
+  "expected an assignment expression}0">;
+#endif // INTEL_COLLAB
 def err_omp_atomic_several_clauses : Error<
   "directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update' or 'capture' clause">;
 def err_omp_several_mem_order_clauses : Error<
