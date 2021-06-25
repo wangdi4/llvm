@@ -424,6 +424,7 @@ namespace {
       (void)llvm::createImplicitArgsAnalysisLegacyPass();
       (void)llvm::createInternalizeNonKernelFuncLegacyPass();
       (void)llvm::createLocalBufferAnalysisLegacyPass();
+      (void)llvm::createLocalBuffersLegacyPass(false);
       (void)llvm::createAddImplicitArgsLegacyPass();
       (void)llvm::createResolveWICallLegacyPass(false, false);
       (void)llvm::createPrepareKernelArgsLegacyPass(false);

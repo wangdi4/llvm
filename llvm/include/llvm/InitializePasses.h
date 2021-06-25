@@ -699,6 +699,7 @@ void initializeImplicitArgsAnalysisLegacyPass(PassRegistry &);
 void initializeInternalizeNonKernelFuncLegacyPass(PassRegistry &);
 void initializeLinearIdResolverLegacyPass(PassRegistry &);
 void initializeLocalBufferAnalysisLegacyPass(PassRegistry &);
+void initializeLocalBuffersLegacyPass(PassRegistry &);
 void initializeAddImplicitArgsLegacyPass(PassRegistry &);
 void initializeResolveWICallLegacyPass(PassRegistry &);
 void initializePrepareKernelArgsLegacyPass(PassRegistry &);
