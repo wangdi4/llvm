@@ -143,6 +143,9 @@
 ; CHECK-O23SZ-NEXT: Running analysis: GlobalsAA on [module]
 ; CHECK-O23SZ-NEXT: Running pass: InvalidateAnalysisPass<{{.*}}AAManager
 ; CHECK-O23SZ-NEXT: Invalidating analysis: AAManager on foo
+; INTEL_CUSTOMIZATION
+; CHECK-O23SZ-NEXT: Running pass: IntelIPODeadArgEliminationPass on [module]
+; END INTEL_CUSTOMIZATION
 ; CHECK-O23SZ-NEXT: Running pass: LoopSimplifyPass on foo
 ; INTEL_CUSTOMIZATION
 ; LoopAnalysis will earlier with the IntelLoopAttrsPass

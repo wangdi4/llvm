@@ -142,6 +142,7 @@
 ; CHECK-NEXT:       Deduce function attributes
 ; CHECK-NEXT:     Globals Alias Analysis
 ; CHECK-NEXT:     Andersen Interprocedural AA
+; CHECK-NEXT:     Intel IPO Dead Argument Elimination
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       Dominator Tree Construction
 ; CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)

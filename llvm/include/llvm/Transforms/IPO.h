@@ -306,6 +306,12 @@ ModulePass *createIntelIPOPrefetchWrapperPass();
 /// the memory alignment is being computed.
 ModulePass *createIntelArgumentAlignmentLegacyPass();
 
+/// \brief This pass implements a simplified dead argument elimination with
+/// IPO analysis. The goal is to eliminate an argument if it initializes data
+/// that won't be use across multiple functions. The actual value will be
+/// removed too.
+ModulePass *createIntelIPODeadArgEliminationWrapperPass();
+
 /// \brief This pass folds the intrinsic llvm.intel.wholeprogramsafe using the
 /// results from the whole program analysis.
 ModulePass *createIntelFoldWPIntrinsicLegacyPass();
