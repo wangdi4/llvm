@@ -559,13 +559,13 @@ to see more location information.
         return emit_spmdization_warning();
 
       const StringRef user_approach = glob_array->getAsCString();
-      if (user_approach.compare_lower("cyclic") == 0) {
+      if (user_approach.compare_insensitive("cyclic") == 0) {
         chunk_size = ConstantInt::get(IntegerType::get(context, 32), 1);
-      } else if (user_approach.compare_lower("blocked") == 0 ||
-                 user_approach.compare_lower("blocking") == 0 ||
-                 user_approach.compare_lower("block") == 0) {
+      } else if (user_approach.compare_insensitive("blocked") == 0 ||
+                 user_approach.compare_insensitive("blocking") == 0 ||
+                 user_approach.compare_insensitive("block") == 0) {
         chunk_size = ConstantInt::get(IntegerType::get(context, 32), 0);
-      } else if (user_approach.compare_lower("hybrid") == 0) {
+      } else if (user_approach.compare_insensitive("hybrid") == 0) {
         // When using this SPMD syntax, we assume a fixed chunk size of 8
         chunk_size = ConstantInt::get(IntegerType::get(context, 32), 8);
       } else {
