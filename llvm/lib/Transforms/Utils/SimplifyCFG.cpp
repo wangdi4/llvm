@@ -75,6 +75,7 @@
 #if INTEL_COLLAB
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #endif //INTEL_COLLAB
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -4498,6 +4499,49 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
       Cond->getParent() != BB || !Cond->hasOneUse())
     return Changed;
 
+  // Below code was moved from bottom of function, the original commit is:
+  // https://reviews.llvm.org/rGb582202
+
+  // Only allow this transformation if computing the condition doesn't involve
+  // too many instructions and these involved instructions can be executed
+  // unconditionally. We denote all involved instructions except the condition
+  // as "bonus instructions", and only allow this transformation when the
+  // number of the bonus instructions we'll need to create when cloning into
+  // each predecessor does not exceed a certain threshold.
+  auto TooManyInsts = [&](unsigned PredCount) -> bool {
+    unsigned NumBonusInsts = 0;
+    for (Instruction &I : *BB) {
+      // Don't check the branch condition comparison itself.
+      if (&I == Cond)
+        continue;
+      // Ignore dbg intrinsics, and the terminator.
+      if (isa<DbgInfoIntrinsic>(I) || isa<BranchInst>(I))
+        continue;
+      // I must be safe to execute unconditionally.
+      if (!isSafeToSpeculativelyExecute(&I))
+        return true;
+
+      // Account for the cost of duplicating this instruction into each
+      // predecessor.
+      NumBonusInsts += PredCount;
+      // Early exits once we reach the limit.
+      if (NumBonusInsts > BonusInstThreshold)
+        return true;
+    }
+    return false;
+  };
+
+  // CMPLRLLVM-29144
+  // If we may have explicit vectorization, we compute the cost model
+  // early, which has a more conservative result. The branch folding may
+  // prevent efficient vectorization.
+  // Otherwise, we compute the cost model at the end of the function, after
+  // we know which predecessors will be affected.
+  Function *F = BB->getParent();
+  bool MayHaveOpenMP = vpo::VPOAnalysisUtils::mayHaveOpenmpDirective(*F);
+  if (MayHaveOpenMP && TooManyInsts(pred_size(BB)))
+    return Changed;
+
   Value* Operands[2] = { nullptr, nullptr };
   if (isa<SelectInst>(Cond)) {
     SelectInst* SI = cast<SelectInst>(Cond);
@@ -4579,32 +4623,16 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
   if (Preds.empty())
     return Changed;
 
-  // Only allow this transformation if computing the condition doesn't involve
-  // too many instructions and these involved instructions can be executed
-  // unconditionally. We denote all involved instructions except the condition
-  // as "bonus instructions", and only allow this transformation when the
-  // number of the bonus instructions we'll need to create when cloning into
-  // each predecessor does not exceed a certain threshold.
-  unsigned NumBonusInsts = 0;
-  const unsigned PredCount = Preds.size();
-  for (Instruction &I : *BB) {
-    // Don't check the branch condition comparison itself.
-    if (&I == Cond)
-      continue;
-    // Ignore dbg intrinsics, and the terminator.
-    if (isa<DbgInfoIntrinsic>(I) || isa<BranchInst>(I))
-      continue;
-    // I must be safe to execute unconditionally.
-    if (!isSafeToSpeculativelyExecute(&I))
-      return Changed;
-
-    // Account for the cost of duplicating this instruction into each
-    // predecessor.
-    NumBonusInsts += PredCount;
-    // Early exits once we reach the limit.
-    if (NumBonusInsts > BonusInstThreshold)
-      return Changed;
-  }
+#if INTEL_CUSTOMIZATION
+  // Code from this commit:
+  // https://reviews.llvm.org/rGb582202
+  // was moved to the lambda function above. If this code is modified
+  // in llorg, the lambda will need to be modified.
+  // For normal (non-OpenMP) cases, check the cost model after we know
+  // how many preds will actually be affected.
+  if (!MayHaveOpenMP && TooManyInsts(Preds.size()))
+    return Changed;
+#endif // INTEL_CUSTOMIZATION
 
   // Ok, we have the budget. Perform the transformation.
   for (BasicBlock *PredBlock : Preds) {
