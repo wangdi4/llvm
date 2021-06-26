@@ -33,7 +33,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
 OPENCL_VERSION GetOpenclVerByCpuModel()
 {
-    return OPENCL_VERSION_2_1;
+    return OPENCL_VERSION_3_0;
 }
 
 }}}
