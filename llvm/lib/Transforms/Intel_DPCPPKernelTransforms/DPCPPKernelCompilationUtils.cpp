@@ -45,6 +45,9 @@ const char *KernelAttribute::VectorVariants = "vector-variants";
 
 const char *KernelAttribute::BlockLiteralSize = "block-literal-size";
 
+const char *DPCPPKernelCompilationUtils::ATTR_RECURSION_WITH_BARRIER =
+    "barrier_with_recursion";
+
 namespace DPCPPKernelCompilationUtils {
 
 namespace {
@@ -69,6 +72,38 @@ const StringRef NAME_BARRIER = "barrier";
 const StringRef NAME_WG_BARRIER = "work_group_barrier";
 const StringRef NAME_PREFETCH = "prefetch";
 const StringRef SAMPLER = "sampler_t";
+
+// work-group functions
+const StringRef NAME_WORK_GROUP_ALL = "work_group_all";
+const StringRef NAME_WORK_GROUP_ANY = "work_group_any";
+const StringRef NAME_WORK_GROUP_BROADCAST = "work_group_broadcast";
+const StringRef NAME_WORK_GROUP_REDUCE_ADD = "work_group_reduce_add";
+const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_ADD =
+    "work_group_scan_exclusive_add";
+const StringRef NAME_WORK_GROUP_SCAN_INCLUSIVE_ADD =
+    "work_group_scan_inclusive_add";
+const StringRef NAME_WORK_GROUP_REDUCE_MIN = "work_group_reduce_min";
+const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_MIN =
+    "work_group_scan_exclusive_min";
+const StringRef NAME_WORK_GROUP_SCAN_INCLUSIVE_MIN =
+    "work_group_scan_inclusive_min";
+const StringRef NAME_WORK_GROUP_REDUCE_MAX = "work_group_reduce_max";
+const StringRef NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX =
+    "work_group_scan_exclusive_max";
+const StringRef NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX =
+    "work_group_scan_inclusive_max";
+const StringRef NAME_ASYNC_WORK_GROUP_COPY = "async_work_group_copy";
+const StringRef NAME_ASYNC_WORK_GROUP_STRIDED_COPY =
+    "async_work_group_strided_copy";
+const StringRef NAME_WORK_GROUP_RESERVE_READ_PIPE =
+    "__work_group_reserve_read_pipe";
+const StringRef NAME_WORK_GROUP_COMMIT_READ_PIPE =
+    "__work_group_commit_read_pipe";
+const StringRef NAME_WORK_GROUP_RESERVE_WRITE_PIPE =
+    "__work_group_reserve_write_pipe";
+const StringRef NAME_WORK_GROUP_COMMIT_WRITE_PIPE =
+    "__work_group_commit_write_pipe";
+const StringRef NAME_FINALIZE_WG_FUNCTION_PREFIX = "__finalize_";
 
 /// Not mangled names.
 const StringRef NAME_GET_BASE_GID = "get_base_global_id.";
@@ -128,6 +163,28 @@ bool isGeneratedFromOCLCPP(const Module &M) {
   return false;
 }
 
+bool isImplicitGID(AllocaInst *AI) {
+  StringRef Name = AI->getName();
+  static const std::vector<StringRef> ImplicitGIDs = {
+      "__ocl_dbg_gid0", "__ocl_dbg_gid1", "__ocl_dbg_gid2"};
+  for (auto &GID : ImplicitGIDs) {
+    if (Name.equals(GID))
+      return true;
+  }
+  return false;
+}
+
+std::string AppendWithDimension(StringRef S, int Dimension) {
+  return Dimension >= 0 ? (S + Twine(Dimension)).str() : (S + "var").str();
+}
+
+std::string AppendWithDimension(StringRef S, const Value *Dimension) {
+  int D = -1;
+  if (const ConstantInt *C = dyn_cast<ConstantInt>(Dimension))
+    D = C->getZExtValue();
+  return AppendWithDimension(S, D);
+}
+
 bool isGetEnqueuedLocalSize(StringRef S) {
   return isMangleOf(S, NAME_GET_ENQUEUED_LOCAL_SIZE);
 }
@@ -183,6 +240,140 @@ bool isPrefetch(StringRef S) { return isMangleOf(S, NAME_PREFETCH); }
 
 bool isPrintf(StringRef S) { return S == NAME_PRINTF; }
 
+// Work-Group builtins
+bool isWorkGroupAll(StringRef S) { return isMangleOf(S, NAME_WORK_GROUP_ALL); }
+
+bool isWorkGroupAny(StringRef S) { return isMangleOf(S, NAME_WORK_GROUP_ANY); }
+
+bool isWorkGroupBroadCast(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_BROADCAST);
+}
+
+bool isWorkGroupReduceAdd(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_ADD);
+}
+
+bool isWorkGroupReduceMin(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_MIN);
+}
+
+bool isWorkGroupReduceMax(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_REDUCE_MAX);
+}
+
+bool isWorkGroupScanExclusiveAdd(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_ADD);
+}
+
+bool isWorkGroupScanInclusiveAdd(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_ADD);
+}
+
+bool isWorkGroupScanExclusiveMin(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_MIN);
+}
+
+bool isWorkGroupScanInclusiveMin(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_MIN);
+}
+
+bool isWorkGroupScanExclusiveMax(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX);
+}
+
+bool isWorkGroupScanInclusiveMax(StringRef S) {
+  return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX);
+}
+
+bool isWorkGroupReserveReadPipe(StringRef S) {
+  return S == NAME_WORK_GROUP_RESERVE_READ_PIPE;
+}
+
+bool isWorkGroupCommitReadPipe(StringRef S) {
+  return S == NAME_WORK_GROUP_COMMIT_READ_PIPE;
+}
+
+bool isWorkGroupReserveWritePipe(StringRef S) {
+  return S == NAME_WORK_GROUP_RESERVE_WRITE_PIPE;
+}
+
+bool isWorkGroupCommitWritePipe(StringRef S) {
+  return S == NAME_WORK_GROUP_COMMIT_WRITE_PIPE;
+}
+
+bool isAsyncWorkGroupCopy(StringRef S) {
+  return isMangleOf(S, NAME_ASYNC_WORK_GROUP_COPY);
+}
+
+bool isAsyncWorkGroupStridedCopy(StringRef S) {
+  return isMangleOf(S, NAME_ASYNC_WORK_GROUP_STRIDED_COPY);
+}
+
+bool isWorkGroupAsyncOrPipeBuiltin(StringRef S, const Module &M) {
+  return isAsyncWorkGroupCopy(S) || isAsyncWorkGroupStridedCopy(S) ||
+         (OclVersion::CL_VER_2_0 <= fetchCLVersionFromMetadata(M) &&
+          (isWorkGroupReserveReadPipe(S) || isWorkGroupCommitReadPipe(S) ||
+           isWorkGroupReserveWritePipe(S) || isWorkGroupCommitWritePipe(S)));
+}
+
+bool isWorkGroupScan(StringRef S) {
+  return isWorkGroupScanExclusiveAdd(S) || isWorkGroupScanInclusiveAdd(S) ||
+         isWorkGroupScanExclusiveMin(S) || isWorkGroupScanInclusiveMin(S) ||
+         isWorkGroupScanExclusiveMax(S) || isWorkGroupScanInclusiveMax(S);
+}
+
+bool isWorkGroupUniform(StringRef S) {
+  return isWorkGroupAll(S) || isWorkGroupAny(S) || isWorkGroupBroadCast(S) ||
+         isWorkGroupReduceAdd(S) || isWorkGroupReduceMin(S) ||
+         isWorkGroupReduceMax(S);
+}
+
+bool isWorkGroupMin(StringRef S) {
+  return isWorkGroupReduceMin(S) || isWorkGroupScanExclusiveMin(S) ||
+         isWorkGroupScanInclusiveMin(S);
+}
+
+bool isWorkGroupMax(StringRef S) {
+  return isWorkGroupReduceMax(S) || isWorkGroupScanExclusiveMax(S) ||
+         isWorkGroupScanInclusiveMax(S);
+}
+
+bool isWorkGroupDivergent(StringRef S) { return isWorkGroupScan(S); }
+
+bool hasWorkGroupFinalizePrefix(StringRef S) {
+  if (!isMangledName(S))
+    return false;
+  std::string FuncName = std::string(stripName(S));
+  return StringRef(FuncName).startswith(NAME_FINALIZE_WG_FUNCTION_PREFIX);
+}
+
+std::string appendWorkGroupFinalizePrefix(StringRef S) {
+  assert(isMangledName(S) && "expected mangled name of work group built-in");
+  reflection::FunctionDescriptor FD = demangle(S);
+  FD.Name = NAME_FINALIZE_WG_FUNCTION_PREFIX.str() + FD.Name;
+  std::string finalizeFuncName = mangle(FD);
+  return finalizeFuncName;
+}
+
+std::string removeWorkGroupFinalizePrefix(StringRef S) {
+  assert(hasWorkGroupFinalizePrefix(S) && "expected finilize prefix");
+  reflection::FunctionDescriptor FD = demangle(S);
+  FD.Name = FD.Name.substr(NAME_FINALIZE_WG_FUNCTION_PREFIX.size());
+  std::string FuncName = mangle(FD);
+  return FuncName;
+}
+
+bool isWorkGroupBuiltin(StringRef S) {
+  return isWorkGroupUniform(S) || isWorkGroupDivergent(S);
+}
+
+bool isWorkGroupAsyncOrPipeBuiltin(StringRef S, const Module *pModule) {
+  return isAsyncWorkGroupCopy(S) || isAsyncWorkGroupStridedCopy(S) ||
+         (OclVersion::CL_VER_2_0 <= fetchCLVersionFromMetadata(*pModule) &&
+          (isWorkGroupReserveReadPipe(S) || isWorkGroupCommitReadPipe(S) ||
+           isWorkGroupReserveWritePipe(S) || isWorkGroupCommitWritePipe(S)));
+}
+
 template <reflection::TypePrimitiveEnum... ParamTys>
 static std::string optionalMangleWithParam(StringRef N) {
   reflection::FunctionDescriptor FD;
@@ -233,6 +424,87 @@ std::string mangledWGBarrier(BarrierType BT) {
 
   llvm_unreachable("Unknown work_group_barrier version");
   return "";
+}
+
+StructType *getStructFromTypePtr(Type *Ty) {
+  auto *PtrTy = dyn_cast<PointerType>(Ty);
+  if (!PtrTy)
+    return nullptr;
+  // Handle also pointer to pointer to ...
+  while (auto *PtrTyNext = dyn_cast<PointerType>(PtrTy->getElementType()))
+    PtrTy = PtrTyNext;
+  return dyn_cast<StructType>(PtrTy->getElementType());
+}
+
+bool isSameStructType(StructType *STy1, StructType *STy2) {
+  if (!STy1->hasName() || !STy2->hasName())
+    return false;
+  return 0 == stripStructNameTrailingDigits(STy1->getName())
+                  .compare(stripStructNameTrailingDigits(STy2->getName()));
+}
+
+PointerType *mutatePtrElementType(PointerType *SrcPTy, Type *DstTy) {
+  // The function changes the base type of SrcPTy to DstTy
+  // SrcPTy = %struct.__pipe_t addrspace(1)**
+  // DstTy  = %struct.__pipe_t.1
+  // =>
+  // %struct.__pipe_t.1 addrspace(1)**
+
+  assert(SrcPTy && DstTy && "Invalid types!");
+
+  SmallVector<PointerType *, 2> Types{SrcPTy};
+  while ((SrcPTy = dyn_cast<PointerType>(SrcPTy->getElementType())))
+    Types.push_back(SrcPTy);
+
+  for (auto It = Types.rbegin(), E = Types.rend(); It != E; ++It)
+    DstTy = PointerType::get(DstTy, (*It)->getAddressSpace());
+
+  return cast<PointerType>(DstTy);
+}
+
+Function *importFunctionDecl(Module *Dst, const Function *Orig,
+                             bool DuplicateIfExists) {
+  assert(Dst && "Invalid module");
+  assert(Orig && "Invalid function");
+
+  std::vector<StructType *> DstSTys = Dst->getIdentifiedStructTypes();
+  FunctionType *OrigFnTy = Orig->getFunctionType();
+
+  SmallVector<Type *, 8> NewArgTypes;
+  bool Changed = false;
+  for (auto *ArgTy : Orig->getFunctionType()->params()) {
+    NewArgTypes.push_back(ArgTy);
+
+    auto *STy = getStructFromTypePtr(ArgTy);
+    if (!STy)
+      continue;
+
+    for (auto *DstSTy : DstSTys) {
+      if (isSameStructType(DstSTy, STy)) {
+        NewArgTypes.back() =
+            mutatePtrElementType(cast<PointerType>(ArgTy), DstSTy);
+        Changed = true;
+        break;
+      }
+    }
+  }
+
+  FunctionType *NewFnType =
+      (!Changed) ? OrigFnTy
+                 : FunctionType::get(Orig->getReturnType(), NewArgTypes,
+                                     Orig->isVarArg());
+  if (!DuplicateIfExists)
+    return cast<Function>(Dst->getOrInsertFunction(Orig->getName(), NewFnType,
+                                                   Orig->getAttributes())
+                              .getCallee());
+
+  // Create a declaration of the function to import disrespecting the fact of
+  // it's existence in the module.
+  Function *NewF = Function::Create(NewFnType, GlobalVariable::ExternalLinkage,
+                                    Orig->getName(), Dst);
+  NewF->setAttributes(Orig->getAttributes());
+
+  return NewF;
 }
 
 FuncSet getAllKernels(Module &M) {
@@ -379,8 +651,15 @@ Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
     I->replaceAllUsesWith(&*NI);
   }
 
-  // Make NewF a kernel instead of F.
-  F->removeFnAttr(KernelAttribute::SyclKernel);
+  // Replace F by NewF in KernelList module Metadata (if any)
+  using namespace DPCPPKernelMetadataAPI;
+  llvm::Module *M = F->getParent();
+  assert(M && "Module is NULL");
+  auto Kernels = KernelList(M).getList();
+  std::replace_if(
+      std::begin(Kernels), std::end(Kernels),
+      [F](llvm::Function *Func) { return F == Func; }, NewF);
+  KernelList(M).set(Kernels);
 
   return NewF;
 }
