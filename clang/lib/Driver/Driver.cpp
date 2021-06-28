@@ -1285,7 +1285,7 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
     if (SYCLTargetsValues) {
       if (SYCLTargetsValues->getNumValues()) {
         for (StringRef Val : SYCLTargetsValues->getValues()) {
-          llvm::Triple TT(Val);
+          llvm::Triple TT(MakeSYCLDeviceTriple(Val));
           if (!isValidSYCLTriple(TT)) {
             Diag(clang::diag::err_drv_invalid_sycl_target) << Val;
             continue;
@@ -2277,12 +2277,18 @@ void Driver::PrintHelp(const llvm::opt::ArgList &Args) const {
 }
 
 llvm::Triple Driver::MakeSYCLDeviceTriple(StringRef TargetArch) const {
-  llvm::Triple TT;
-  TT.setArchName(TargetArch);
-  TT.setVendor(llvm::Triple::UnknownVendor);
-  TT.setOS(llvm::Triple::UnknownOS);
-  TT.setEnvironment(llvm::Triple::SYCLDevice);
-  return TT;
+  ArrayRef<StringRef> SYCLAlias = {"spir", "spir64", "spir64_fpga",
+                                   "spir64_x86_64", "spir64_gen"};
+  if (std::find(SYCLAlias.begin(), SYCLAlias.end(), TargetArch) !=
+      SYCLAlias.end()) {
+    llvm::Triple TT;
+    TT.setArchName(TargetArch);
+    TT.setVendor(llvm::Triple::UnknownVendor);
+    TT.setOS(llvm::Triple::UnknownOS);
+    TT.setEnvironment(llvm::Triple::SYCLDevice);
+    return TT;
+  }
+  return llvm::Triple(TargetArch);
 }
 
 // Print the help from any of the given tools which are used for AOT
@@ -5189,7 +5195,7 @@ class OffloadingActionBuilder final {
         if (SYCLTargets) {
           llvm::StringMap<StringRef> FoundNormalizedTriples;
           for (const char *Val : SYCLTargets->getValues()) {
-            llvm::Triple TT(Val);
+            llvm::Triple TT(C.getDriver().MakeSYCLDeviceTriple(Val));
             std::string NormalizedName = TT.normalize();
 
             // Make sure we don't have a duplicate triple.
