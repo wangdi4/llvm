@@ -14,14 +14,6 @@ Xmain
 .. toctree::
    :hidden:
 
-   OpenSourceGuidelines
-   OpenSourceProcesses
-   XmainProcesses
-   PulldownProcess
-   JIRA
-   XmainAlloyGerrit
-   XmainGatekeeperDuties
-   XmainCurrentLITFailures
    IRSuppression
    IRVersionCompatibility
    LoopOptReport
@@ -80,30 +72,12 @@ same principles by which Xmain manages its source code:
 Intel LLVM Development Process Documentation
 ============================================
 
-The Intel LLVM development process documentation is currently under review. If
-anything looks wrong to you, please contact `ICL Process Team
-<mailto:ICLProcessTeam@intel.com>`_.
+The LLVM development processes are governed by the `CE DevOps
+<mailto:CE.DevOps@intel.com>`_. Please direct process related questions or
+process change requests to this team.
 
-The LLVM development processes are governed by the `ICL Process Management Team
-<mailto:ICLProcessTeam@intel.com>`_. Please direct process related questions or
-process change requests to them.
-
-:doc:`Open Source Guidelines <OpenSourceGuidelines>`
-   Describes the decision making process for determining what technology will
-   be contributed to open source and what technology will be Intel
-   customizations in xmain.
-
-:doc:`Open Source Development Processes <OpenSourceProcesses>`
-   Describes the processes for open source (llvm.org) development.
-
-:doc:`Xmain Development Processes <XmainProcesses>`
-   Describes the processes for xmain development.
-
-:doc:`Xmain llorg Pulldown Process <PulldownProcess>`
-   Describes the processes for syncing xmain with open source LLVM.
-
-:doc:`LLVM Specific JIRA Usage <JIRA>`
-   Describes JIRA usage policies specific to LLVM development.
+Homepage for Xmain Processes documentation:
+https://wiki.ith.intel.com/display/ITSCompilersDevOps/Xmain
 
 :doc:`IR Suppression in Product Executables <IRSuppression>`
    Describes the rationale behind suppressing IR output in released products
