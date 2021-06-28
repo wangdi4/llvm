@@ -541,12 +541,12 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
             : m_pConfigFile(nullptr)
         {}
 
-        ~BasicCLConfigWrapper()
+        virtual ~BasicCLConfigWrapper()
         {
             Release();
         }
 
-        cl_err_code Initialize(std::string filename)
+        virtual cl_err_code Initialize(std::string filename)
         {
             m_pConfigFile = new ConfigFile(filename);
             return CL_SUCCESS;

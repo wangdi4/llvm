@@ -48,6 +48,17 @@ CPUDeviceConfig::~CPUDeviceConfig()
     // ~BasicCLConfigWrapper
 }
 
+cl_err_code CPUDeviceConfig::Initialize(std::string filename) {
+  BasicCLConfigWrapper::Initialize(filename);
+
+  // Initialize m_forcedWGSizeVec.
+  std::string forcedWGSizeStr = GetForcedWGSize();
+  if (!forcedWGSizeStr.empty())
+    (void)SplitStringInteger(forcedWGSizeStr, ',', m_forcedWGSizeVec);
+
+  return CL_SUCCESS;
+}
+
 int CPUDeviceConfig::GetNumDevices() const
 {
     if (FPGA_EMU_DEVICE == this->GetDeviceMode())
