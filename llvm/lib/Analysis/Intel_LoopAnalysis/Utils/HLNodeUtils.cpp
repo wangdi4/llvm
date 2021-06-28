@@ -2583,6 +2583,8 @@ bool HLNodeUtils::isInTopSortNumRangeImpl(const HLNode *Node,
   assert(LastNode && "Last node is null!");
 
   unsigned Num = Node->getTopSortNum();
+  assert(Num != 0 && "Node does not have a top sort number!");
+
   unsigned FirstNum =
       IsMaxMode ? FirstNode->getMinTopSortNum() : FirstNode->getTopSortNum();
   unsigned LastNum =

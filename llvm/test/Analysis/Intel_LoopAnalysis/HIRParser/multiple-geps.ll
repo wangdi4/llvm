@@ -12,12 +12,14 @@
 ;       + END LOOP
 ; END REGION
 
-; CHECK: DO i1 = 0, %n + -1
-; CHECK-NEXT: DO i2 = 0, %n + -1
-; CHECK-NEXT: %[[TMP:.*]] = (@B)[0:0:40000([100 x [100 x i32]]*:0)][0:i2:400([100 x [100 x i32]]:100)][0:i1:4([100 x i32]:100)]
-; CHECK-NEXT: (@A)[0:0:40000([100 x [100 x i32]]*:0)][0:i1:400([100 x [100 x i32]]:100)][0:i2:4([100 x i32]:100)] = %[[TMP]]
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: END LOOP
+; CHECK:      + DO i1 = 0, %n + -1
+; CHECK-NEXT: |
+; CHECK-NEXT: |   + DO i2 = 0, %n + -1
+; CHECK-NEXT: |   |   %[[TMP:.*]] = (@B)[0:0:40000([100 x [100 x i32]]*:0)][0:i2:400([100 x [100 x i32]]:100)][0:i1:4([100 x i32]:100)]
+; CHECK-NEXT: |   |   (@A)[0:0:40000([100 x [100 x i32]]*:0)][0:i1:400([100 x [100 x i32]]:100)][0:i2:4([100 x i32]:100)] = %[[TMP]]
+; CHECK-NEXT: |   + END LOOP
+; CHECK-NEXT: |
+; CHECK-NEXT: + END LOOP
 
 
 ; ModuleID = 'multiple-gep.c'

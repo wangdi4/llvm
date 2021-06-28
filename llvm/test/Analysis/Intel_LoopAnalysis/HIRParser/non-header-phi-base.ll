@@ -1,11 +1,13 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that non header phi base '%C.addr.0' is handled correctly.
-; CHECK: DO i1 = 0, 9
-; CHECK-NEXT: DO i2 = 0, 9
-; CHECK-NEXT: (%C.addr.0)[i1][i2] = i1 + i2
-; CHECK-NEXT: END LOOP
-; CHECK-NEXT: END LOOP
+; CHECK:      + DO i1 = 0, 9
+; CHECK-NEXT: |
+; CHECK-NEXT: |   + DO i2 = 0, 9
+; CHECK-NEXT: |   |   (%C.addr.0)[i1][i2] = i1 + i2
+; CHECK-NEXT: |   + END LOOP
+; CHECK-NEXT: |
+; CHECK-NEXT: + END LOOP
 
 
 declare void @bar(i32)
