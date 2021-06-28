@@ -37,7 +37,7 @@ target device_triples = "spir64"
 ; Function Attrs: noinline uwtable
 define dso_local void @_Z4datav() #0 {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.ALWAYS.TOFROM"([100 x i32]* @a) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.MAP.TOFROM:ALWAYS"([100 x i32]* @a, [100 x i32]* @a, i64 400, i64 7, i8* null, i8* null) ]
   call void @_Z22modify_array_on_targetv()
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.TARGET.DATA"() ]
   ret void

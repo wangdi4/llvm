@@ -289,7 +289,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
   // must be addrspacecasted to their original address spaces.
   for (auto ArgTyI = FnTy->param_begin(), ArgTyE = FnTy->param_end();
        ArgTyI != ArgTyE; ++ArgTyI) {
-    if (isa<PointerType>(*ArgTyI)) {
+    if (auto *PtrTy = dyn_cast<PointerType>(*ArgTyI)) {
       // TODO: OPAQUEPOINTER: this needs to be reimplemented,
       // since we will not be able to detect function pointer
       // arguments after outlining.
@@ -298,11 +298,8 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
         // must be declared as 64-bit integers.
         ParamsTy.push_back(Type::getInt64Ty(Fn->getContext()));
       } else {
-        // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType
-        // to a specific AddressSpace. The API currently needs the Element Type
-        // as well.
         ParamsTy.push_back(
-            (*ArgTyI)->getPointerElementType()->getPointerTo(AddrSpaceGlobal));
+            PointerType::getWithSamePointeeType(PtrTy, AddrSpaceGlobal));
       }
     } else {
       // A non-pointer argument may appear as a result of scalar
@@ -1090,8 +1087,9 @@ void VPOParoptTransform::renameDuplicateBasesInMapClauses(WRegionNode *W) {
     // The code below replicates the logic of creating map items from the
     // parsing routine WRegionNode::extractMapOpndList().
     if (CS.getIsArraySection()) {
-      assert(MapIt != Map.end());
-      RenameBase(*MapIt++, Args[0]);
+      // TODO: this needs to be cleaned up, after the parsing
+      //       code is removed from WRegion analysis code.
+      llvm_unreachable("Paropt only supports map chains now.");
     } else if (CS.getIsMapAggrHead() || CS.getIsMapAggr() ||
                ((Args.size() == 4 || Args.size() == 6) &&
                 isa<ConstantInt>(Args[3]))) {
@@ -1475,7 +1473,6 @@ void VPOParoptTransform::genTgtInformationForPtrs(
       continue;
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Working with Map Item: '";
                MapI->dump(); dbgs() << "'.\n");
-    Type *T = MapI->getOrig()->getType()->getPointerElementType();
     if (MapI->getIsMapChain()) {
       MapChainTy const &MapChain = MapI->getMapChain();
       MapAggrTy *AggrHead = MapChain[0];
@@ -1488,8 +1485,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         auto ConstValue = dyn_cast<ConstantInt>(Aggr->getSize());
         if (!ConstValue) {
           hasRuntimeEvaluationCaptureSize = true;
-          ConstSizes.push_back(ConstantInt::get(
-              Type::getInt64Ty(C), DL.getTypeAllocSize(T)));
+          ConstSizes.push_back(Constant::getNullValue(Type::getInt64Ty(C)));
         } else {
           // Sign extend the constant to signed 64-bit integer.
           // This is the format of arg_sizes passed to __tgt_target.
@@ -1592,13 +1588,9 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         Mappers.push_back(Aggr->getMapper());
       }
     } else {
-      assert(!MapI->getIsArraySection() &&
-             "Map with an array section must have a map chain.");
-      ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
-                                            DL.getTypeAllocSize(T)));
-      MapTypes.push_back(getMapTypeFlag(MapI, true, true, VIsTargetKernelArg));
-      Names.push_back(getMapNameForVar(MapI->getOrig()));
-      Mappers.push_back(nullptr);
+      // TODO: this needs to be cleaned up, after the parsing
+      //       code is removed from WRegion analysis code.
+      llvm_unreachable("Paropt only supports map chains now.");
     }
   }
 
@@ -1624,6 +1616,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C), 0));
         MapTypes.push_back(TGT_MAP_TARGET_PARAM);
       } else {
+        // TODO: OPAQUEPOINTER: element type must be taken from the clause.
         Type *ObjectTy = ItemTy->getPointerElementType();
         ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
                                               DL.getTypeAllocSize(ObjectTy)));
@@ -1745,47 +1738,6 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
   return DummyCLLoopParameterRec;
 }
 
-void VPOParoptTransform::genMapChainsForMapArraySections(
-    WRegionNode *W, Instruction *InsertPt) {
-  LLVMContext &C = F->getContext();
-  MapClause const &MpClause = W->getMap();
-  const auto DL = F->getParent()->getDataLayout();
-
-  for (MapItem *MapI : MpClause.items()) {
-    if (!MapI->getIsArraySection())
-      continue;
-
-    computeArraySectionTypeOffsetSize(*MapI, InsertPt);
-    IRBuilder<> GepBuilder(InsertPt);
-    const ArraySectionInfo &ArrSecInfo = MapI->getArraySectionInfo();
-    auto *BasePtr = MapI->getOrig();
-    if (ArrSecInfo.getBaseIsPointer())
-      BasePtr = GepBuilder.CreateLoad(
-          BasePtr->getType()->getPointerElementType(),
-          BasePtr, BasePtr->getName() + ".load");
-
-    auto *ElementTy = ArrSecInfo.getElementType();
-    auto *SectionPtr =
-        GepBuilder.CreateBitCast(BasePtr,
-                                 PointerType::getUnqual(ElementTy),
-                                 BasePtr->getName() + ".cast");
-    SectionPtr = GepBuilder.CreateGEP(SectionPtr, ArrSecInfo.getOffset(),
-                                      SectionPtr->getName() + ".plus.offset");
-
-    auto *NumElements = ArrSecInfo.getSize();
-    NumElements = GepBuilder.CreateSExtOrTrunc(NumElements,
-                                               Type::getInt64Ty(C));
-
-    auto *TypeSize = ConstantInt::get(Type::getInt64Ty(C),
-                                      DL.getTypeAllocSize(ElementTy));
-    auto *Size = GepBuilder.CreateMul(NumElements, TypeSize,
-                                      BasePtr->getName() + ".map.size");
-
-    auto *Chain = new MapAggrTy(BasePtr, SectionPtr, Size);
-    MapI->setMapChainForArraySection(Chain);
-  }
-}
-
 // Generate the initialization code for the directive omp target.
 // Given a program as follows. The compiler creates the four arrays
 // offload_baseptrs, offload_ptrs, offload_sizes and offload_maptypes.
@@ -1841,10 +1793,6 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
       // items, but we still have to notify the runtime about the mappings.
       isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
       isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
-
-  // Transform array sections in maps to map chains to handle
-  // them uniformly.
-  genMapChainsForMapArraySections(W, InsertPt);
 
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
     Info.NumberOfPtrs++;
@@ -2544,12 +2492,9 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
             hasRuntimeEvaluationCaptureSize, I == 0 ? &BasePtrGEP : nullptr);
       }
     } else {
-      assert(!MapI->getIsArraySection() &&
-             "Map with an array section must have a map chain.");
-      genOffloadArraysInitUtil(Builder, BPVal, BPVal,
-                               /*Size=*/nullptr,
-                               /*Mapper=*/nullptr, Info, ConstSizes, Cnt,
-                               hasRuntimeEvaluationCaptureSize, &BasePtrGEP);
+      // TODO: this needs to be cleaned up, after the parsing
+      //       code is removed from WRegion analysis code.
+      llvm_unreachable("Paropt only supports map chains now.");
     }
     MapI->setBasePtrGEPForOrig(BasePtrGEP);
   }

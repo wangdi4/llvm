@@ -36,7 +36,7 @@ entry:
   br label %DIR.OMP.TARGET.1
 
 DIR.OMP.TARGET.1:                                 ; preds = %entry
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.FROM"(i32* %result), "QUAL.OMP.FIRSTPRIVATE"(i32* %N) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.FROM"(i32* %result, i32* %result, i64 4, i64 34, i8* null, i8* null), "QUAL.OMP.FIRSTPRIVATE"(i32* %N) ]
   %3 = load i32, i32* %N, align 4, !tbaa !3
   store i32 %3, i32* %result, align 4, !tbaa !3
   br label %DIR.OMP.END.TARGET.3

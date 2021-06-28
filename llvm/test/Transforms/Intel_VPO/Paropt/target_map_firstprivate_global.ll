@@ -30,7 +30,7 @@ entry:
   %call = call i32 (i8*, ...) @__isoc99_scanf(i8* getelementptr inbounds ([3 x i8], [3 x i8]* @.str, i32 0, i32 0), i32* @pvtPtr)
   %0 = bitcast i32* %out to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #3
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.FIRSTPRIVATE"(i32* @pvtPtr), "QUAL.OMP.MAP.FROM"(i32* %out) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.FIRSTPRIVATE"(i32* @pvtPtr), "QUAL.OMP.MAP.FROM"(i32* %out, i32* %out, i64 4, i64 34, i8* null, i8* null) ]
   %2 = load i32, i32* @pvtPtr, align 4, !tbaa !3
   %add = add nsw i32 %2, 1
   store i32 %add, i32* %out, align 4, !tbaa !3

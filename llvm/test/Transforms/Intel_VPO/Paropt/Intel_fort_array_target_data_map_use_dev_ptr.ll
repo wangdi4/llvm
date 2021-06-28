@@ -39,7 +39,7 @@ define void @foo_(i32* %"foo_$B") #0 {
 alloca_0:
   %"foo_$B_entry" = bitcast i32* %"foo_$B" to [10 x i32]*
 
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR"([10 x i32]* %"foo_$B_entry"), "QUAL.OMP.MAP.TOFROM"([10 x i32]* %"foo_$B_entry") ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR"([10 x i32]* %"foo_$B_entry"), "QUAL.OMP.MAP.TOFROM"([10 x i32]* %"foo_$B_entry", [10 x i32]* %"foo_$B_entry", i64 40, i64 3, i8* null, i8* null) ]
 
 ; Check that only one map is created, and map-type for %"foo_$B_entry" is
 ; RETURN_PARAM | TO_FROM, i.e. 67 (0x23).
