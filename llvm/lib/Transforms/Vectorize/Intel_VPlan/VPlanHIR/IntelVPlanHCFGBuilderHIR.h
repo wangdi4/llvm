@@ -119,12 +119,12 @@ public:
     RecurKind Kind;
     bool IsSigned;
   };
-  typedef SmallVector<RedDescr, 8> ReductionListTy;
+  using ReductionListTy = SmallVector<RedDescr, 8>;
 
   using PrivDescrTy = PrivDescr<DDRef>;
   using PrivDescrNonPODTy = PrivDescrNonPOD<DDRef>;
   using PrivateKindTy = PrivDescrTy::PrivateKind;
-  typedef SmallVector<PrivDescrTy, 8> PrivatesListTy;
+  using PrivatesListTy = SmallVector<PrivDescrTy, 8>;
   using PrivatesNonPODListTy = SmallVector<PrivDescrNonPODTy, 8>;
   // Specialized class to represent linear descriptors specified explicitly via
   // SIMD linear clause. The linear's Step value is also stored within this
@@ -137,7 +137,7 @@ public:
 
     const DDRef *Step;
   };
-  typedef SmallVector<LinearDescr, 8> LinearListTy;
+  using LinearListTy = SmallVector<LinearDescr, 8>;
 
   // Delete copy/assignment/move operations
   HIRVectorizationLegality(const HIRVectorizationLegality &) = delete;
@@ -213,16 +213,16 @@ public:
   const LinearListTy &getLinears() const { return LinearList; }
   const ReductionListTy &getReductions() const { return ReductionList; }
 
-  PrivDescrTy *isPrivate(const DDRef *Ref) const {
+  PrivDescrTy *getPrivateDescr(const DDRef *Ref) const {
     return findDescr<PrivDescrTy>(PrivatesList, Ref);
   }
-  PrivDescrNonPODTy *getNonPODPrivate(const DDRef *Ref) const {
+  PrivDescrNonPODTy *getPrivateDescrNonPOD(const DDRef *Ref) const {
     return findDescr<PrivDescrNonPODTy>(PrivatesNonPODList, Ref);
   }
-  LinearDescr *isLinear(const DDRef *Ref) const {
+  LinearDescr *getLinearDescr(const DDRef *Ref) const {
     return findDescr<LinearDescr>(LinearList, Ref);
   }
-  RedDescr *isReduction(const DDRef *Ref) const {
+  RedDescr *getReductionDescr(const DDRef *Ref) const {
     return findDescr<RedDescr>(ReductionList, Ref);
   }
 
@@ -247,8 +247,7 @@ public:
   /// instruction.
   void recordPotentialSIMDDescrUpdate(HLInst *UpdateInst);
 
-  void setIsSimd() { IsSimdLoop = true; }
-  bool getIsSimd() const { return IsSimdLoop; }
+  void setIsSimdFlag() { IsSimdLoop = true; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Debug print utility to display contents of the descriptor lists
@@ -279,11 +278,11 @@ private:
   /// \p Ref is not a SIMD descriptor variable nullptr is returned.
   DescrWithInitValue *getLinearRednDescriptors(DDRef *Ref) {
     // Check if Ref is a linear descriptor
-    DescrWithInitValue *Descr = isLinear(Ref);
+    DescrWithInitValue *Descr = getLinearDescr(Ref);
 
     // If Ref is not linear, check if it is a reduction variable
     if (!Descr)
-      Descr = isReduction(Ref);
+      Descr = getReductionDescr(Ref);
 
     return Descr;
   }

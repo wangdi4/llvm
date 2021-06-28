@@ -206,19 +206,44 @@ inline unsigned getNumGroupEltsPerValue(const DataLayout &DL, Type *GroupTy,
 
 /// Helper function to check if VPValue is a private memory pointer that was
 /// allocated by VPlan. The implementation also checks for any aliases obtained
-/// via casts and gep instructions.
+/// via casts, gep and PHI-instructions.
 // TODO: Check if this utility is still relevant after data layout
 // representation is finalized in VPlan.
 inline const VPValue *getVPValuePrivateMemoryPtr(const VPValue *V) {
+
+  // Early quick-check to seen if this is a VPAllocatePrivte.
   if (isa<VPAllocatePrivate>(V))
     return V;
-  // Check that it is a valid transform of private memory's address, by
-  // recurring into operand.
-  if (auto *VPI = dyn_cast<VPInstruction>(V))
-    if (VPI->isCast() || isa<VPGEPInstruction>(VPI) ||
-        isa<VPSubscriptInst>(VPI))
-      return getVPValuePrivateMemoryPtr(VPI->getOperand(0));
 
+  SmallVector<const VPValue *, 20> WL;
+  SmallPtrSet<const VPValue *, 20> Visited;
+  WL.push_back(V);
+
+  while (!WL.empty()) {
+    const VPValue *CurrentI = WL.pop_back_val();
+
+    // If we encounter VPAllocatePrivate, we have reached the end and return the
+    // instruction.
+    if (isa<VPAllocatePrivate>(CurrentI))
+      return CurrentI;
+
+    // If this instruction/value has been incountered before, continue.
+    if (!Visited.insert(CurrentI).second)
+      continue;
+
+    // Check that it is a valid transform of private memory's address, by
+    // recurring into operand.
+    if (auto *VPI = dyn_cast<VPInstruction>(CurrentI))
+      if (VPI->isCast() || isa<VPGEPInstruction>(VPI) ||
+          isa<VPSubscriptInst>(VPI))
+        WL.push_back(VPI->getOperand(0));
+
+    // This can be a PHI instruction.
+    if (auto *PHI = dyn_cast<VPPHINode>(CurrentI)) {
+      for (auto *InVal : PHI->incoming_values())
+        WL.push_back(InVal);
+    }
+  }
   // All checks failed.
   return nullptr;
 }

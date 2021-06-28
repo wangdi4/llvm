@@ -1105,6 +1105,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare void @_ZSt20__throw_out_of_rangePKc(i8*)\n"
       "declare void @_ZSt24__throw_out_of_range_fmtPKcz(i8*)\n"
       "declare i8* @_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_(i8*, i8*)\n"
+      "declare void @_ZSt28__throw_bad_array_new_lengthv()\n"
       "declare void @_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_(i32, i8*, i8*, i8*)\n"
       "declare %struct* @_ZSt4endlIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_(%struct*)\n"
       "declare %struct* @_ZSt5flushIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_(%struct*)\n"

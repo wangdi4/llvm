@@ -1341,7 +1341,7 @@ bool VPOCodeGenHIR::isReductionRef(const RegDDRef *Ref, unsigned &Opcode) {
     return false;
 
   // Check for explicit SIMD reductions.
-  if (auto *Descr = HIRLegality->isReduction(Ref)) {
+  if (auto *Descr = HIRLegality->getReductionDescr(Ref)) {
     Opcode = VPReduction::getReductionOpcode(Descr->Kind);
     return true;
   }

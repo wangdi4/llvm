@@ -186,9 +186,9 @@ void HIRVectorizationLegality::recordPotentialSIMDDescrUpdate(
     return;
 
   // Check, whether Ref is POD or non-POD Private
-  DescrWithAliasesTy *Descr = isPrivate(Ref);
+  DescrWithAliasesTy *Descr = getPrivateDescr(Ref);
   if (!Descr)
-    Descr = getNonPODPrivate(Ref);
+    Descr = getPrivateDescrNonPOD(Ref);
   // If Ref is not private check if it is linear reduction
   if (!Descr)
     Descr = getLinearRednDescriptors(Ref);
@@ -245,13 +245,13 @@ void HIRVectorizationLegality::findAliasDDRefs(HLNode *ClauseNode,
         continue;
 
       // Check if RVal is any of explicit SIMD descriptors
-      DescrWithAliasesTy *Descr = isPrivate(RVal);
+      DescrWithAliasesTy *Descr = getPrivateDescr(RVal);
       if (Descr == nullptr)
-        Descr = getNonPODPrivate(RVal);
+        Descr = getPrivateDescrNonPOD(RVal);
       if (Descr == nullptr)
-        Descr = isLinear(RVal);
+        Descr = getLinearDescr(RVal);
       if (Descr == nullptr)
-        Descr = isReduction(RVal);
+        Descr = getReductionDescr(RVal);
 
       // RVal is not a SIMD descriptor, move to next HLInst
       if (Descr == nullptr)

@@ -681,6 +681,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_ZSt20__throw_out_of_rangePKc);
     TLI.setUnavailable(LibFunc_ZSt24__throw_out_of_range_fmtPKcz);
     TLI.setUnavailable(LibFunc_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_);
+    TLI.setUnavailable(LibFunc_ZSt28__throw_bad_array_new_lengthv);
     TLI.setUnavailable(LibFunc_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_);
     TLI.setUnavailable(LibFunc_std_basic_ostream_std_endl);
     TLI.setUnavailable(LibFunc_std_basic_ostream_std_flush);
@@ -4887,6 +4888,10 @@ case LibFunc_under_commit:
     return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy());
+
+  // static call (not a member function)
+  case LibFunc_ZSt28__throw_bad_array_new_lengthv:
+    return (NumParams == 0 && FTy.getReturnType()->isVoidTy());
 
   // static call (not a member function)
   case LibFunc_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_:
