@@ -8,6 +8,7 @@
 // or reproduced in whole or in part without explicit written authorization
 // from the company.
 //
+#if INTEL_FEATURE_SW_ADVANCED
 // This is a special pattern-recognition and matching pass for JIRA-43393, a
 // 4.5% performance gain!
 //
@@ -144,6 +145,7 @@
 // function: void FastBoard::remove_neighbour(.) {.}.
 // This becomes a LIT named testcase hir-pm-symbolictripcountcompleteunroll1.ll.
 //
+#endif //INTEL_FEATURE_SW_ADVANCED
 
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UNROLLSYMTCIMPL_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UNROLLSYMTCIMPL_H
@@ -159,6 +161,7 @@ namespace loopopt {
 class DDGraph;
 class HIRFramework;
 class HIRDDAnalysis;
+#if INTEL_FEATURE_SW_ADVANCED
 
 namespace unrollsymtc {
 
@@ -512,7 +515,9 @@ private:
 #endif
 };
 } // namespace unrollsymtc
+#endif //INTEL_FEATURE_SW_ADVANCED
+
 } // namespace loopopt
 } // namespace llvm
 
-#endif
+#endif //LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UNROLLSYMTCIMPL_H
