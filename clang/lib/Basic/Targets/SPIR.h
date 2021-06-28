@@ -153,8 +153,8 @@ public:
     AddrSpaceMap = DefaultIsGeneric ? &SPIRDefIsGenMap : &SPIRDefIsPrivMap;
   }
 
-  void adjust(LangOptions &Opts) override {
-    TargetInfo::adjust(Opts);
+  void adjust(DiagnosticsEngine &Diags, LangOptions &Opts) override {
+    TargetInfo::adjust(Diags, Opts);
 #if INTEL_COLLAB
     bool OpenMPDefIsGen = false;
     if (Opts.OpenMPLateOutline && Opts.UseAutoOpenCLAddrSpaceForOpenMP) {
