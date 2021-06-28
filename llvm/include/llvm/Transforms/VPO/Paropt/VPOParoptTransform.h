@@ -1100,6 +1100,23 @@ private:
   /// Generate the code for the directive omp target
   bool genTargetOffloadingCode(WRegionNode *W);
 
+  /// Collect the data mapping information for the given region \p W
+  /// based on the \p Call instruction created during the region outlining.
+  /// The method populates \p ConstSizes, \p MapTypes, \p Names and \p Mappers
+  /// vectors with the mapping information for each argument of \p Call.
+  /// See genTgtInformationForPtrs() for more details about the meaning
+  /// of these vectors. \p HasRuntimeEvaluationCaptureSize is set to true
+  /// iff any of the mappings requires dynamically computed size,
+  /// otherwise, it is set to false.
+  /// Return the number of entries in the output \p MapTypes.
+  unsigned getTargetDataInfo(
+      WRegionNode *W, const CallInst *Call,
+      SmallVectorImpl<Constant *> &ConstSizes,
+      SmallVectorImpl<uint64_t> &MapTypes,
+      SmallVectorImpl<GlobalVariable *> &Names,
+      SmallVectorImpl<Value *> &Mappers,
+      bool &HasRuntimeEvaluationCaptureSize) const;
+
   /// Generate the initialization code for the directive omp target
   CallInst *genTargetInitCode(WRegionNode *W, CallInst *Call, Value *RegionId,
                               Instruction *InsertPt);
@@ -1165,7 +1182,7 @@ private:
                                 SmallVectorImpl<GlobalVariable *> &Names,
                                 SmallVectorImpl<Value *> &Mappers,
                                 bool &hasRuntimeEvaluationCaptureSize,
-                                bool VIsTargetKernelArg = false);
+                                bool VIsTargetKernelArg = false) const;
 
   /// Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);
@@ -1558,7 +1575,7 @@ private:
   uint64_t getMapTypeFlag(MapItem *MpI,
                          bool AddrIsTargetParamFlag,
                          bool IsFirstComponentFlag,
-                         bool IsTargetKernelArg);
+                         bool IsTargetKernelArg) const;
 
   /// Create a pointer, store address of \p V to the pointer, and replace uses
   /// of \p V with a load from that pointer.
@@ -1913,7 +1930,8 @@ private:
   /// Propagate the address space from the arguments to the usage of the
   /// arguments.
   Function *finalizeKernelFunction(WRegionNode *W, Function *Fn,
-                                   CallInst *&Call);
+      CallInst *&Call, const SmallVectorImpl<uint64_t> &MapTypes,
+      const SmallVectorImpl<Constant *> &ConstSizes);
 
   ///  Generate the iteration space partitioning code based on OpenCL.
   ///  Given a loop as follows.

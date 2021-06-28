@@ -97,6 +97,10 @@ static cl::opt<bool> DisableParallelBarriers(
     cl::init(false), cl::ZeroOrMore,
     cl::desc("Disable adding workgroup barriers after parallel regions"));
 
+static cl::opt<uint64_t> KernelArgsSizeLimit(
+    "vpo-paropt-kernel-args-size-limit", cl::Hidden, cl::init(1024),
+    cl::desc("Maximum total size in bytes of the arguments for a kernel"));
+
 // Reset the value in the Map clause to be empty.
 //
 // Do not reset base pointers (including the item's getOrig() pointer),
@@ -274,17 +278,135 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
     I->eraseFromParent();
 }
 
-Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
-                                                     Function *Fn,
-                                                     CallInst *&Call) {
+Function *VPOParoptTransform::finalizeKernelFunction(
+    WRegionNode *W, Function *Fn, CallInst *&Call,
+    const SmallVectorImpl<uint64_t> &MapTypes,
+    const SmallVectorImpl<Constant *> &ConstSizes) {
 
   assert(isTargetSPIRV() &&
          "finalizeKernelFunction called for non-SPIRV target.");
 
   FunctionType *FnTy = Fn->getFunctionType();
+  auto &C = Fn->getContext();
+  Module *M = Fn->getParent();
+  const DataLayout &DL = M->getDataLayout();
   SmallVector<Type *, 8> ParamsTy;
 
   unsigned AddrSpaceGlobal = vpo::ADDRESS_SPACE_GLOBAL;
+
+  // Initialize a descriptor for each kernel argument.
+  struct KernelArgInfoDesc {
+    // If true, then the argument is passed "by value" rather than
+    // as a pointer.
+    bool IsByVal = false;
+    // Size of the argument in bytes, which is a size of the argument data
+    // for "by value" arguments, and a size of a pointer for pointer arguments.
+    uint32_t Size = 0;
+    // If the argument is passed "by value", then it specifies the new data type
+    // for the argument, otherwise it is nullptr.
+    // For example, if the original argument is 'struct { int x; }* %arg', then
+    // it is passed "by value" as 'struct { char xx[4]; }* byval(...) %arg',
+    // and the ByValTy is 'struct { char xx[4]; }'.
+    Type *ByValTy = nullptr;
+    KernelArgInfoDesc(bool IsByVal, uint32_t Size, Type *ByValTy = nullptr)
+      : IsByVal(IsByVal), Size(Size), ByValTy(ByValTy) {
+      assert((!IsByVal || ByValTy) &&
+             "Must specify ByValTy for IsByVal arguments.");
+    }
+  };
+  std::vector<KernelArgInfoDesc> KernelArgInfo;
+
+  // Maximum total size in bytes of the arguments passed by value.
+  uint64_t ByValLimit = KernelArgsSizeLimit + 1;
+
+  // For the given argument of the kernel return the corresponding index
+  // in the mapping structures.
+  auto GetMapIdxForArgNum =
+      [&MapTypes](uint32_t ArgNum) {
+        uint32_t Idx = 0;
+        for (auto MT : MapTypes) {
+          if ((MT & TGT_MAP_TARGET_PARAM) != 0) {
+            if (ArgNum == 0)
+              return Idx;
+            --ArgNum;
+          }
+          ++Idx;
+        }
+        llvm_unreachable("kernel argument without a map descriptor.");
+      };
+
+  // Generate '<kernel-name>_kernel_info' global variable that specifies
+  // whether a kernel argument is passed by value or not.
+  // Version 1 of the data structure uses the following format:
+  //   struct KernelInfoTy {
+  //     uint32_t Version = 1;
+  //     uint32_t ArgsNum = <number of the kernel arguments>;
+  //     struct ArgDescTy {
+  //       uint32_t IsByVal = 0/1;
+  //       uint32_t Size = <argument size>;
+  //     } ArgsDesc[ArgsNum];
+  //   };
+  auto GenerateKernelArgInfoVar =
+      [](const std::vector<KernelArgInfoDesc> &KernelArgInfo,
+         Function *Fn) {
+        auto &C = Fn->getContext();
+        size_t ArgsNum = KernelArgInfo.size();
+        assert(ArgsNum == Fn->getFunctionType()->params().size() &&
+               "Missing param description.");
+        assert(ArgsNum <= std::numeric_limits<uint32_t>::max() &&
+               "Too many kernel arguments for version 1 kernel info.");
+        SmallVector<Type *, 3> KernelInfoInitMemberTypes;
+        SmallVector<Constant *, 10> KernelInfoInitBuffer;
+
+        // The current version is 1.
+        KernelInfoInitMemberTypes.push_back(Type::getInt32Ty(C));
+        KernelInfoInitBuffer.push_back(
+            ConstantInt::get(Type::getInt32Ty(C), 1));
+        // Specify the number of kernel argument.
+        KernelInfoInitMemberTypes.push_back(Type::getInt32Ty(C));
+        KernelInfoInitBuffer.push_back(
+            ConstantInt::get(Type::getInt32Ty(C), ArgsNum));
+
+        StructType *KernelInfoInitTy;
+
+        if (ArgsNum > 0) {
+          StructType *KernelArgInfoTy =
+              StructType::create({Type::getInt32Ty(C), Type::getInt32Ty(C)});
+
+          SmallVector<Constant *, 10> KernelArgInfoInitBuffer;
+          for (auto &ArgInfo : KernelArgInfo) {
+            // For each argument specify whether it is passed by value
+            // and the argument size.
+            Constant *ArgInit = ConstantStruct::get(KernelArgInfoTy,
+                {ConstantInt::get(KernelArgInfoTy->getElementType(0),
+                                  ArgInfo.IsByVal),
+                 ConstantInt::get(KernelArgInfoTy->getElementType(1),
+                                  ArgInfo.Size)});
+            KernelArgInfoInitBuffer.push_back(ArgInit);
+          }
+          ArrayType *KernelArgInfoInitArrayTy = ArrayType::get(KernelArgInfoTy,
+                                                               ArgsNum);
+          Constant *KernelArgInfoInitArray =
+              ConstantArray::get(KernelArgInfoInitArrayTy,
+                                 KernelArgInfoInitBuffer);
+          KernelInfoInitMemberTypes.push_back(KernelArgInfoInitArrayTy);
+          KernelInfoInitBuffer.push_back(KernelArgInfoInitArray);
+        }
+
+        KernelInfoInitTy = StructType::create(KernelInfoInitMemberTypes);
+        Constant *KernelInfoInit =
+          ConstantStruct::get(KernelInfoInitTy, KernelInfoInitBuffer);
+
+        GlobalVariable *KernelInfoVar =
+          new GlobalVariable(*Fn->getParent(), KernelInfoInitTy,
+                             /*isConstant=*/true, GlobalValue::WeakAnyLinkage,
+                             KernelInfoInit,
+                             Fn->getName() + "_kernel_info",
+                             /*InsertBefore=*/nullptr,
+                             GlobalValue::ThreadLocalMode::NotThreadLocal,
+                             vpo::ADDRESS_SPACE_CONSTANT);
+        KernelInfoVar->setTargetDeclare(true);
+      };
 
   // Modify the kernel function declaration so that function pointer arguments
   // are received by the kernel as cl_ulong values, and all other pointer
@@ -295,6 +417,9 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
   // must be addrspacecasted to their original address spaces.
   for (auto ArgTyI = FnTy->param_begin(), ArgTyE = FnTy->param_end();
        ArgTyI != ArgTyE; ++ArgTyI) {
+    auto ArgNum = std::distance(FnTy->param_begin(), ArgTyI);
+    auto MapIdx = GetMapIdxForArgNum(ArgNum);
+    uint64_t ArgSize = 0;
     if (auto *PtrTy = dyn_cast<PointerType>(*ArgTyI)) {
       // TODO: OPAQUEPOINTER: this needs to be reimplemented,
       // since we will not be able to detect function pointer
@@ -302,17 +427,51 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
       if (isa<FunctionType>((*ArgTyI)->getPointerElementType())) {
         // Kernel arguments representing function pointers
         // must be declared as 64-bit integers.
-        ParamsTy.push_back(Type::getInt64Ty(Fn->getContext()));
+        Type *ArgTy = Type::getInt64Ty(C);
+        ParamsTy.push_back(ArgTy);
+        ArgSize = DL.getTypeStoreSize(ArgTy).getFixedSize();
+        KernelArgInfo.emplace_back(false, ArgSize);
       } else {
-        ParamsTy.push_back(
-            PointerType::getWithSamePointeeType(PtrTy, AddrSpaceGlobal));
+        // Check if we can pass this argument "by value". We have to be sure
+        // that libomptarget will be actually able to pass it by value,
+        // so we have to do the same checks as in libomptarget (e.g. see
+        // the member-of check below).
+        ConstantInt *MapSize = cast<ConstantInt>(ConstSizes[MapIdx]);
+        uint64_t MapType = MapTypes[MapIdx];
+        uint64_t MapSizeVal = MapSize->getLimitedValue(ByValLimit);
+        const auto MapMask =
+            TGT_MAP_TO | TGT_MAP_TARGET_PARAM | TGT_MAP_PRIVATE;
+        if (MapSizeVal != 0 && MapSizeVal < ByValLimit &&
+            (MapType & MapMask) == MapMask &&
+            (MapIdx + 1 >= MapTypes.size() ||
+             (MapTypes[MapIdx + 1] & TGT_MAP_MEMBER_OF) == 0)) {
+          // We can pass it by value, but we have to adjust the data type.
+          Type *BlobTy = ArrayType::get(Type::getInt1Ty(C), MapSizeVal);
+          Type *AggrTy = StructType::get(BlobTy);
+          // ByVal pointer arguments must be in addrspace(0).
+          ParamsTy.push_back(PointerType::get(AggrTy,
+                                              vpo::ADDRESS_SPACE_PRIVATE));
+          KernelArgInfo.emplace_back(true, MapSizeVal, AggrTy);
+          ArgSize = MapSizeVal;
+        } else {
+          // This is a pointer argument.
+          ArgSize = DL.getPointerSize(AddrSpaceGlobal);
+          KernelArgInfo.emplace_back(false, ArgSize);
+          ParamsTy.push_back(
+              PointerType::getWithSamePointeeType(PtrTy, AddrSpaceGlobal));
+        }
       }
     } else {
       // A non-pointer argument may appear as a result of scalar
       // FIRSTPRIVATE.
       ParamsTy.push_back(*ArgTyI);
+      ArgSize = DL.getTypeStoreSize(*ArgTyI).getFixedSize();
+      KernelArgInfo.emplace_back(false, ArgSize);
     }
+    ByValLimit -= std::min(ByValLimit, ArgSize);
   }
+
+  GenerateKernelArgInfoVar(KernelArgInfo, Fn);
 
   Type *RetTy = FnTy->getReturnType();
   FunctionType *NFnTy = FunctionType::get(RetTy, ParamsTy, false);
@@ -347,6 +506,17 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
         NewArgV = Builder.CreateIntToPtr(
             ArgV, OldArgPtrTy, ArgV->getName() + Twine(".cast"));
       } else {
+        KernelArgInfoDesc &ArgDesc =
+            KernelArgInfo[std::distance(Fn->arg_begin(), I)];
+        if (ArgDesc.IsByVal) {
+          ArgV->addAttr(Attribute::getWithByValType(Builder.getContext(),
+                                                    ArgDesc.ByValTy));
+          NewArgV = Builder.CreateInBoundsGEP(ArgDesc.ByValTy, ArgV,
+                                              {Builder.getInt32(0),
+                                               Builder.getInt32(0)},
+                                              ArgV->getName() +
+                                              Twine(".byval.base"));
+        }
         // Create an address space cast for pointer argument.
         unsigned NewAddressSpace =
             cast<PointerType>(ArgV->getType())->getAddressSpace();
@@ -1240,7 +1410,14 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       // which is responsible for cleaning up all directive calls that
       // were left until this point for guardSideEffectStatements() to work.
       // The extra directive call may prevent address space inferring.
-      NewF = finalizeKernelFunction(W, NewF, NewCall);
+      SmallVector<Constant *, 16> ConstSizes;
+      SmallVector<uint64_t, 16> MapTypes;
+      SmallVector<GlobalVariable *, 16> Names;
+      SmallVector<Value *, 16> Mappers;
+      bool HasRuntimeEvaluationCaptureSize = false;
+      (void)getTargetDataInfo(W, NewCall, ConstSizes, MapTypes,
+                              Names, Mappers, HasRuntimeEvaluationCaptureSize);
+      NewF = finalizeKernelFunction(W, NewF, NewCall, MapTypes, ConstSizes);
 
       LLVM_DEBUG(dbgs() << "\nAfter finalizeKernel Dump the function ::"
                         << *NewF << "\n");
@@ -1342,8 +1519,9 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
       SmallVector<Value *, 4> FnArgs(NewCall->arg_operands());
       Builder.CreateCall(NewF, FnArgs, "");
     }
-  } else
+  } else {
     Call = genTargetInitCode(W, NewCall, RegionId, InsertPt);
+  }
 
   if (!hasOffloadCompilation()) {
     if (isa<WRNTargetNode>(W)) {
@@ -1434,7 +1612,7 @@ void VPOParoptTransform::resetValueInSubdeviceClause(WRegionNode* W) {
 uint64_t VPOParoptTransform::getMapTypeFlag(MapItem *MapI,
                                             bool AddrIsTargetParamFlag,
                                             bool IsFirstComponentFlag,
-                                            bool IsTargetKernelArg) {
+                                            bool IsTargetKernelArg) const {
 
   auto printAndReturn = [&](uint64_t RetVal) {
     LLVM_DEBUG(dbgs() << "genMapTypeFlag : Map-type for '";
@@ -1499,7 +1677,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
     WRegionNode *W, Value *V, SmallVectorImpl<Constant *> &ConstSizes,
     SmallVectorImpl<uint64_t> &MapTypes,
     SmallVectorImpl<GlobalVariable *> &Names, SmallVectorImpl<Value *> &Mappers,
-    bool &hasRuntimeEvaluationCaptureSize, bool VIsTargetKernelArg) {
+    bool &hasRuntimeEvaluationCaptureSize, bool VIsTargetKernelArg) const {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTgtInformationForPtrs:"
                     << " ConstSizes.size()=" << ConstSizes.size()
@@ -1810,6 +1988,52 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
   return DummyCLLoopParameterRec;
 }
 
+// Collect the data mapping information for the given region.
+// Return the number of entries in the mapping data structures.
+unsigned VPOParoptTransform::getTargetDataInfo(
+    WRegionNode *W, const CallInst *Call,
+    SmallVectorImpl<Constant *> &ConstSizes,
+    SmallVectorImpl<uint64_t> &MapTypes,
+    SmallVectorImpl<GlobalVariable *> &Names,
+    SmallVectorImpl<Value *> &Mappers,
+    bool &HasRuntimeEvaluationCaptureSize) const {
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::getTargetDataInfo\n");
+  unsigned NumberOfPtrs = Call->getNumArgOperands();
+  HasRuntimeEvaluationCaptureSize = false;
+  bool ForceMapping =
+      // These regions will not have any real references to the mapped
+      // items, but we still have to notify the runtime about the mappings.
+      isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
+      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
+
+  if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
+    NumberOfPtrs++;
+
+  if (NumberOfPtrs || ForceMapping) {
+    if (ForceMapping) {
+      genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes, Names, Mappers,
+                               HasRuntimeEvaluationCaptureSize);
+    } else {
+      for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
+        Value *BPVal = Call->getArgOperand(II);
+        genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes, Names, Mappers,
+                                 HasRuntimeEvaluationCaptureSize,
+                                 /*VIsTargetKernelArg=*/isa<WRNTargetNode>(W));
+      }
+      if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
+        genTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
+                                 MapTypes, Names, Mappers,
+                                 HasRuntimeEvaluationCaptureSize,
+                                 /*VIsTargetKernelArg=*/true);
+    }
+
+    NumberOfPtrs = MapTypes.size();
+  }
+
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::getTargetDataInfo\n");
+  return NumberOfPtrs;
+}
+
 // Generate the initialization code for the directive omp target.
 // Given a program as follows. The compiler creates the four arrays
 // offload_baseptrs, offload_ptrs, offload_sizes and offload_maptypes.
@@ -1847,57 +2071,25 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
 //       [1 x i64]* @.offload_sizes, i32 0, i32 0),
 //       i64* getelementptr inbounds ([1 x i64],
 //       [1 x i64]* @.offload_maptypes, i32 0, i32 0))
-
 //
-CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
-                                                Value *RegionId,
-                                                Instruction *InsertPt) {
+CallInst *VPOParoptTransform::genTargetInitCode(
+    WRegionNode *W, CallInst *Call, Value *RegionId, Instruction *InsertPt) {
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTargetInitCode\n");
   assert(!hasOffloadCompilation() &&
          "genTargetInitCode() called for device compilation.");
 
   TgDataInfo Info;
+  SmallVector<Constant *, 16> ConstSizes;
+  SmallVector<uint64_t, 16> MapTypes;
+  SmallVector<GlobalVariable *, 16> Names;
+  SmallVector<Value *, 16> Mappers;
+  bool HasRuntimeEvaluationCaptureSize = false;
+  Info.NumberOfPtrs = getTargetDataInfo(W, Call,
+      ConstSizes, MapTypes, Names, Mappers, HasRuntimeEvaluationCaptureSize);
 
-  Info.NumberOfPtrs = Call->getNumArgOperands();
-  bool hasRuntimeEvaluationCaptureSize = false;
-  bool ForceMapping =
-      // These regions will not have any real references to the mapped
-      // items, but we still have to notify the runtime about the mappings.
-      isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
-      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
-
-  if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
-    Info.NumberOfPtrs++;
-
-  if (Info.NumberOfPtrs || ForceMapping) {
-
-    SmallVector<Constant *, 16> ConstSizes;
-    SmallVector<uint64_t, 16> MapTypes;
-    SmallVector<GlobalVariable *, 16> Names;
-    SmallVector<Value *, 16> Mappers;
-
-    if (ForceMapping)
-      genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes, Names, Mappers,
-                               hasRuntimeEvaluationCaptureSize);
-    else {
-      for (unsigned II = 0; II < Call->getNumArgOperands(); ++II) {
-        Value *BPVal = Call->getArgOperand(II);
-        genTgtInformationForPtrs(W, BPVal, ConstSizes, MapTypes, Names, Mappers,
-                                 hasRuntimeEvaluationCaptureSize,
-                                 /*VIsTargetKernelArg=*/isa<WRNTargetNode>(W));
-      }
-      if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca())
-        genTgtInformationForPtrs(W, W->getParLoopNdInfoAlloca(), ConstSizes,
-                                 MapTypes, Names, Mappers,
-                                 hasRuntimeEvaluationCaptureSize,
-                                 /*VIsTargetKernelArg=*/true);
-    }
-
-    Info.NumberOfPtrs = MapTypes.size();
-
+  if (Info.NumberOfPtrs)
     genOffloadArraysInit(W, &Info, Call, InsertPt, ConstSizes, MapTypes, Names,
-                         Mappers, hasRuntimeEvaluationCaptureSize);
-  }
+                         Mappers, HasRuntimeEvaluationCaptureSize);
 
   genOffloadArraysArgument(&Info, InsertPt);
 

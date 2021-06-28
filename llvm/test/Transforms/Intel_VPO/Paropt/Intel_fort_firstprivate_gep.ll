@@ -46,7 +46,7 @@ alloca:
   br label %bb3
 
 bb3:                                              ; preds = %alloca
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.ALLOC"(i32 addrspace(4)* addrspace(4)* %"test_map_derived_type_alloc$MYPTR$_0"), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %1) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.ALLOC"(i32 addrspace(4)* addrspace(4)* %"test_map_derived_type_alloc$MYPTR$_0", i32 addrspace(4)* addrspace(4)* %"test_map_derived_type_alloc$MYPTR$_0", i64 4, i64 32, i8 addrspace(4)* null, i8 addrspace(4)* null), "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* %1) ]
   br label %bb4
 
 bb4:                                              ; preds = %bb3

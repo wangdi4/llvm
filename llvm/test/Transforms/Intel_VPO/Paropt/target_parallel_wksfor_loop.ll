@@ -127,7 +127,7 @@ DIR.OMP.TARGET.1:                                 ; preds = %entry
   br label %DIR.OMP.TARGET.2
 
 DIR.OMP.TARGET.2:                                 ; preds = %DIR.OMP.TARGET.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.FROM"(i32 addrspace(4)* %counts1.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %counts_team.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %atomic-temp.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %atomic-temp1.ascast) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.FROM"(i32 addrspace(4)* %counts1.ascast, i32 addrspace(4)* %counts1.ascast, i32 4, i64 34, i8* null, i8* null), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %counts_team.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %atomic-temp.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %atomic-temp1.ascast) ]
   br label %DIR.OMP.TARGET.3151
 
 DIR.OMP.TARGET.3151:                              ; preds = %DIR.OMP.TARGET.2
@@ -249,7 +249,7 @@ DIR.OMP.TARGET.18:                                ; preds = %DIR.OMP.END.TARGET.
   br label %DIR.OMP.TARGET.19
 
 DIR.OMP.TARGET.19:                                ; preds = %DIR.OMP.TARGET.18
-  %16 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1), "QUAL.OMP.MAP.FROM"(i32 addrspace(4)* %counts2.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.ub8.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.lb7.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i12.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv6.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %counts_team4.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp5.ascast) ]
+  %16 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1), "QUAL.OMP.MAP.FROM"(i32 addrspace(4)* %counts2.ascast, i32 addrspace(4)* %counts2.ascast, i32 4, i64 34, i8* null, i8* null), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.ub8.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.lb7.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i12.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv6.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %counts_team4.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp5.ascast) ]
   br label %DIR.OMP.TARGET.20
 
 DIR.OMP.TARGET.20:                                ; preds = %DIR.OMP.TARGET.19

@@ -30,7 +30,7 @@
 
 ; 'xvar' must be globalized, because it is modified by multiple
 ; threads:
-; CHECK-LABEL: @__omp_offloading_804_3121174_test1_l3
+; CHECK-LABEL: @__omp_offloading_804_3121174_test1_l3(
 ; CHECK-DAG: [[ID0:%[a-zA-Z._0-9]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
 ; CHECK-DAG: [[CMP0:%[a-zA-Z._0-9]+]] = icmp eq i64 [[ID0]], 0
 ; CHECK-DAG: [[ID1:%[a-zA-Z._0-9]+]] = call spir_func i64 @_Z12get_local_idj(i32 1)
@@ -48,7 +48,7 @@
 
 ; 'xvar' must be WI local, because it is only modified inside "target"
 ; and only read by WI threads:
-; CHECK-LABEL: @__omp_offloading_804_3121174_test2_l18
+; CHECK-LABEL: @__omp_offloading_804_3121174_test2_l18(
 ; CHECK-NOT: call{{.*}}@_Z12get_local_idj(i32 1)
 ; CHECK-NOT: call{{.*}}@_Z12get_local_idj(i32 2)
 ; CHECK: store i32 10, i32* %xvar{{.*}}
@@ -79,7 +79,7 @@ entry:
   %atomic-temp.ascast = addrspacecast i32* %atomic-temp to i32 addrspace(4)*
   %atomic-temp1 = alloca i32, align 4
   %atomic-temp1.ascast = addrspacecast i32* %atomic-temp1 to i32 addrspace(4)*
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.FROM"(i32 addrspace(4)* %res.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %xvar.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %atomic-temp.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %atomic-temp1.ascast) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.FROM"(i32 addrspace(4)* %res.ascast, i32 addrspace(4)* %res.ascast, i64 4, i64 34, i8* null, i8* null), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %xvar.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %atomic-temp.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %atomic-temp1.ascast) ]
   store i32 10, i32 addrspace(4)* %xvar.ascast, align 4
   store i32 0, i32 addrspace(4)* %.omp.lb.ascast, align 4
   store i32 76, i32 addrspace(4)* %.omp.ub.ascast, align 4
@@ -164,7 +164,7 @@ entry:
   %i = alloca i32, align 4
   %i.ascast = addrspacecast i32* %i to i32 addrspace(4)*
   store i32 addrspace(4)* %output, i32 addrspace(4)* addrspace(4)* %output.addr.ascast, align 8
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1), "QUAL.OMP.MAP.FROM"(i32 addrspace(4)* %res.ascast), "QUAL.OMP.MAP.FROM"(i32 addrspace(4)* addrspace(4)* %output.addr.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %xvar.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 1), "QUAL.OMP.MAP.FROM"(i32 addrspace(4)* %res.ascast, i32 addrspace(4)* %res.ascast, i64 4, i64 34, i8* null, i8* null), "QUAL.OMP.MAP.FROM"(i32 addrspace(4)* addrspace(4)* %output.addr.ascast, i32 addrspace(4)* addrspace(4)* %output.addr.ascast, i64 8, i64 34, i8* null, i8* null), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %xvar.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.lb.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %i.ascast), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* %tmp.ascast) ]
   store i32 10, i32 addrspace(4)* %xvar.ascast, align 4
   store i32 0, i32 addrspace(4)* %.omp.lb.ascast, align 4
   store i32 76, i32 addrspace(4)* %.omp.ub.ascast, align 4

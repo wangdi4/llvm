@@ -1044,6 +1044,13 @@ int32_t DeviceTy::notifyIndirectAccess(const void *Ptr, size_t Offset) {
   else
     return OFFLOAD_SUCCESS;
 }
+
+int32_t DeviceTy::isPrivateArgOnHost(const void *TgtEntryPtr, uint32_t Idx) {
+  if (RTL->is_private_arg_on_host)
+    return RTL->is_private_arg_on_host(RTLDeviceID, TgtEntryPtr, Idx);
+  else
+    return 0;
+}
 #endif // INTEL_COLLAB
 
 // Whether data can be copied to DstDevice directly

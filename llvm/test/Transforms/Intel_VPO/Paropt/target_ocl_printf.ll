@@ -41,7 +41,7 @@ DIR.OMP.TARGET.1:                                 ; preds = %entry
   br label %DIR.OMP.TARGET.2
 
 DIR.OMP.TARGET.2:                                 ; preds = %DIR.OMP.TARGET.1
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"(i32 addrspace(4)* %var.ascast) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TOFROM"(i32 addrspace(4)* %var.ascast, i32 addrspace(4)* %var.ascast, i32 4, i64 35, i8* null, i8* null) ]
   br label %DIR.OMP.TARGET.32
 
 DIR.OMP.TARGET.32:                                ; preds = %DIR.OMP.TARGET.2

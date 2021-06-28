@@ -7,7 +7,7 @@
 ;
 ; int a;
 ; void foo() {
-; #pragma omp target
+; #pragma omp target map(to:a)
 ; #pragma omp teams private(a)
 ;   {
 ;     a = 10;
@@ -28,7 +28,7 @@ target device_triples = "spir64"
 ; Function Attrs: noinline nounwind optnone uwtable
 define hidden spir_func void @foo() #0 {
 entry:
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO"(i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @a to i32 addrspace(4)*)) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0), "QUAL.OMP.MAP.TO"(i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @a to i32 addrspace(4)*), i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @a to i32 addrspace(4)*), i64 4, i64 1, i8* null, i8* null) ]
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TEAMS"(), "QUAL.OMP.PRIVATE"(i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @a to i32 addrspace(4)*)) ]
 
   store i32 10, i32 addrspace(4)* addrspacecast (i32 addrspace(1)* @a to i32 addrspace(4)*), align 4
