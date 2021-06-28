@@ -218,16 +218,33 @@ static bool containsLoopDirective(const BasicBlock *BB, bool BeginDir,
 /// and looks for loop begin/end directive. Returns the bblock containing the
 /// directive.
 static BasicBlock *findLoopDirective(BasicBlock *BB, bool BeginDir) {
+  assert(BB && "Non-null starting bblock expected to find directive!");
 
-  for (; BB != nullptr;) {
+  do {
+    // We shouldn't be trying to cross-over any other kind of terminators like
+    // switches when looking for loop directive as that can result in incorrect
+    // region formation. It is better to give up on the directive if the
+    // incoming IR is not in expected form due to prior optimizations.
+    //
+    // The check is done before or after containsLoopDirective() based on
+    // whether we are looking for begin or end directive.
+    if (BeginDir && !isa<BranchInst>(BB->getTerminator())) {
+      return nullptr;
+    }
+
     // Ignore distribute point directives as they are only found within the loop
     // body.
-    if (containsLoopDirective(BB, BeginDir, true)) {
+    if (containsLoopDirective(BB, BeginDir, /* SkipDistributePoint */ true)) {
       return BB;
     }
 
+    if (!BeginDir && !isa<BranchInst>(BB->getTerminator())) {
+      return nullptr;
+    }
+
     BB = BeginDir ? BB->getSinglePredecessor() : BB->getSingleSuccessor();
-  }
+
+  } while (BB != nullptr);
 
   return nullptr;
 }
