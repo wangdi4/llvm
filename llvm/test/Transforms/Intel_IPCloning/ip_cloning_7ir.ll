@@ -1,8 +1,10 @@
+; INTEL_FEATURE_SW_ADVANCED
 ; Test that generic cloning based on the if-switch heuristic did not occur
 ; because the number of ifs and/or switches was not sufficient.
 ; This is the same test as ip_cloning_7.ll, but checks for IR without
 ; requiring asserts.
 
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -ip-cloning -ip-cloning-after-inl -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(post-inline-ip-cloning)' -ip-cloning-if-heuristic -ip-cloning-switch-heuristic -ip-gen-cloning-force-if-switch-heuristic -ip-gen-cloning-min-if-count=2 -ip-gen-cloning-min-switch-count=1 -S 2>&1 | FileCheck %s
 
@@ -64,3 +66,4 @@ return:                                           ; preds = %sw.epilog, %sw.bb
   ret i32 %t3
 }
 
+; end INTEL_FEATURE_SW_ADVANCED

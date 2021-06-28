@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -inline -ip-cloning -ip-cloning-after-inl -ip-cloning-force-heuristics-off -inline-report=7 -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='cgscc(inline),module(post-inline-ip-cloning)' -ip-cloning-force-heuristics-off -inline-report=7 -S 2>&1 | FileCheck %s
 
@@ -48,3 +50,4 @@ entry:
 }
 
 attributes #0 = { noinline }
+; end INTEL_FEATURE_SW_ADVANCED

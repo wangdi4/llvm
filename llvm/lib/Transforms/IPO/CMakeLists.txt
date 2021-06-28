@@ -33,16 +33,20 @@ add_llvm_component_library(LLVMipo
 #end INTEL_INCLUDE_DTRANS
   Intel_DevirtMultiversioning.cpp # INTEL
   Intel_DopeVectorConstProp.cpp   # INTEL
-  Intel_QsortRecognizer.cpp # INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+  Intel_QsortRecognizer.cpp
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
   InlineSimple.cpp
   Inliner.cpp
   Intel_ArgumentAlignment.cpp      # INTEL
   Intel_CallTreeCloning.cpp # INTEL
   Intel_FoldWPIntrinsic.cpp         # INTEL
   Intel_IPArrayTranspose.cpp     # INTEL
-  Intel_IPCloning.cpp     # INTEL
 # INTEL_CUSTOMIZATION
 # INTEL_FEATURE_SW_ADVANCED
+  Intel_IPCloning.cpp
   Intel_IPOPrefetch.cpp
 #end INTEL_FEATURE_SW_ADVANCED
 #end INTEL_CUSTOMIZATION

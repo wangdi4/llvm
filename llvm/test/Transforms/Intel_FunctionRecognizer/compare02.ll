@@ -1,4 +1,5 @@
-; REQUIRES: asserts
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced,asserts
 ; RUN: opt < %s -enable-dtrans -functionrecognizer -debug-only=functionrecognizer -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-dtrans -passes='function(functionrecognizer)' -debug-only=functionrecognizer -S 2>&1 | FileCheck %s
 
@@ -59,3 +60,4 @@ return:                                           ; preds = %if.end10, %if.then9
   %retval.0 = phi i32 [ 1, %if.then ], [ -1, %if.then5 ], [ -1, %if.then9 ], [ 1, %if.end10 ]
   ret i32 %retval.0
 }
+; end INTEL_FEATURE_SW_ADVANCED

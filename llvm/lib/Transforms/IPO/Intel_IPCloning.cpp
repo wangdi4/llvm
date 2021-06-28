@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_IPCloning.cpp - IP Cloning -*------===//
 //
 // Copyright (C) 2016-2021 Intel Corporation. All rights reserved.
@@ -5552,3 +5553,4 @@ PreservedAnalyses IPCloningPass::run(Module &M, ModuleAnalysisManager &AM) {
   PA.preserve<AndersensAA>();
   return PA;
 }
+#endif // INTEL_FEATURE_SW_ADVANCED

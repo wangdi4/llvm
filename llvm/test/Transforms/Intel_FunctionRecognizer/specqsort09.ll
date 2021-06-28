@@ -1,4 +1,5 @@
-; REQUIRES: asserts
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced,asserts
 ; UNSUPPORTED: windows
 ; RUN: opt < %s -enable-dtrans -functionrecognizer -debug-only=functionrecognizer,functionrecognizer-verbose -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-dtrans -passes='function(functionrecognizer)' -debug-only=functionrecognizer,functionrecognizer-verbose -S 2>&1 | FileCheck %s
@@ -600,3 +601,4 @@ if.end296:                                        ; preds = %if.end286
 cleanup:                                          ; preds = %if.end296, %for.end224, %for.end47
   ret void
 }
+; end INTEL_FEATURE_SW_ADVANCED

@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -enable-dtrans -functionrecognizer -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -enable-dtrans -passes='function(functionrecognizer)' -S 2>&1 | FileCheck %s
 
@@ -91,3 +93,4 @@ do.end35:                                         ; preds = %do.body27
 if.end36:                                         ; preds = %do.end20, %do.end35, %do.end
   ret void
 }
+; end INTEL_FEATURE_SW_ADVANCED

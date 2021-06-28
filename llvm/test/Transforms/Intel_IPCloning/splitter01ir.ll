@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -ip-cloning -force-ip-manyreccalls-splitting -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(ip-cloning)' -force-ip-manyreccalls-splitting -S 2>&1 | FileCheck %s
 
@@ -1460,3 +1462,4 @@ define internal %struct._PixelPacket* @GetVirtualPixelsFromNexus(%struct._Image*
   call void @llvm.lifetime.end.p0i8(i64 2, i8* nonnull %11) #19
   ret %struct._PixelPacket* %634
 }
+; end INTEL_FEATURE_SW_ADVANCED

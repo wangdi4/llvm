@@ -18,9 +18,8 @@
 ; CHECK-NEXT:       Module Verifier
 ; CHECK-NEXT:     Whole program analysis
 ; CHECK-NEXT:     Dead Global Elimination
-; CHECK:     Intel fold WP intrinsic
-; CHECK-NEXT:     IP Cloning
-; CHECK-NEXT:     Dynamic Casts Optimization Pass
+; CHECK:          Intel fold WP intrinsic
+; CHECK:          Dynamic Casts Optimization Pass
 ; CHECK-NEXT:     Force set function attributes
 ; CHECK-NEXT:     Infer set function attributes
 ; CHECK-NEXT:     FunctionPass Manager
@@ -95,8 +94,7 @@
 ; CHECK-NEXT:         Branch Probability Analysis
 ; CHECK-NEXT:         Block Frequency Analysis
 ; CHECK-NEXT:     Partial Inliner
-; CHECK-NEXT:     IP Cloning
-; CHECK-NEXT:     Call-Tree Cloning (with MultiVersioning)
+; CHECK:          Call-Tree Cloning (with MultiVersioning)
 ; CHECK-NEXT:       FunctionPass Manager
 ; CHECK-NEXT:         Dominator Tree Construction
 ; CHECK-NEXT:         Natural Loop Information

@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt -ip-cloning -force-ip-manyreccalls-splitting -inline -inline-report=7 -dtrans-inline-heuristics  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-CL %s
 ; RUN: opt -passes='cgscc(inline)' -inline-report=7 -dtrans-inline-heuristics -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 < %s -S 2>&1 | FileCheck --check-prefixes=CHECK,CHECK-CL %s
 ; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -inline -inline-report=134 -dtrans-inline-heuristics -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-META
@@ -1743,3 +1745,4 @@ define %struct._PixelPacket* @GetVirtualPixelsFromNexus.split.1(%struct._Image* 
 attributes #0 = { argmemonly nounwind willreturn }
 attributes #1 = { nounwind readnone speculatable willreturn }
 attributes #2 = { "prefer-inline-mrc-split" }
+; end INTEL_FEATURE_SW_ADVANCED

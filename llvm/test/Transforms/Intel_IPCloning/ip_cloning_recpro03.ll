@@ -1,3 +1,5 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -tailcallelim -no-tail-call-for-rec-pro-clone -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes=tailcallelim -no-tail-call-for-rec-pro-clone -S 2>&1 | FileCheck %s
 
@@ -1088,3 +1090,4 @@ if.then115:                                       ; preds = %land.lhs.true94, %l
 if.end118:                                        ; preds = %land.lhs.true94, %land.lhs.true98, %land.lhs.true101
   ret void
 }
+; end INTEL_FEATURE_SW_ADVANCED

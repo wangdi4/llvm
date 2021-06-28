@@ -1,4 +1,5 @@
-; REQUIRES: asserts
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced,asserts
 ; RUN: opt < %s -ip-cloning -ip-cloning-after-inl -ip-cloning-force-heuristics-off -ip-gen-cloning-force-on-callback-cloning -S -debug-only=ipcloning 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(post-inline-ip-cloning)' -ip-cloning-force-heuristics-off -ip-gen-cloning-force-on-callback-cloning -S -debug-only=ipcloning 2>&1 | FileCheck %s
 
@@ -93,3 +94,4 @@ declare !callback !28 void @__kmpc_fork_call(%struct.ident_t* %0, i32 %1, void (
 !27 = !{!"llvm.loop.unroll.runtime.disable"}
 !28 = !{!29}
 !29 = !{i64 2, i64 -1, i64 -1, i1 true}
+; end INTEL_FEATURE_SW_ADVANCED

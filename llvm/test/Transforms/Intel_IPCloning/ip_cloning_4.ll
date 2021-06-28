@@ -1,3 +1,4 @@
+; INTEL_FEATURE_SW_ADVANCED
 ; It checks two function clones are created even if zext is used for
 ; trip counter. Options -ip-cloning, ; -ip-cloning-after-inl and
 ; -ip-cloning-loop-heuristic are specified to enable generic cloning.
@@ -5,6 +6,7 @@
 ; -ip-cloning-loop-heuristic option enables loop based heuristic for Cloning.
 ; This test expects "bar" function is cloned two times.
 
+; REQUIRES: intel_feature_sw_advanced
 ; RUN: opt < %s -ip-cloning -ip-cloning-after-inl -ip-cloning-loop-heuristic -S 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='module(post-inline-ip-cloning)' -ip-cloning-loop-heuristic -S 2>&1 | FileCheck %s
 
@@ -47,3 +49,4 @@ for.body:                                         ; preds = %for.body.preheader,
 for.end:                                          ; preds = %for.body, %entry
   ret void
 }
+; end INTEL_FEATURE_SW_ADVANCED

@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_QsortRecognizer.cpp --------------------------------===//
 //
 // Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
@@ -113,3 +114,4 @@ PreservedAnalyses QsortRecognizerPass::run(Module &M,
   QsortRecognizerImpl(M);
   return PreservedAnalyses::all();
 }
+#endif // INTEL_FEATURE_SW_ADVANCED

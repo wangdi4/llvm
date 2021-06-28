@@ -90,7 +90,9 @@ add_llvm_component_library(LLVMAnalysis
   Intel_DopeVectorAnalysis.cpp
   Intel_FPValueRange.cpp
   Intel_FPValueRangeAnalysis.cpp
+# INTEL_FEATURE_SW_ADVANCED
   Intel_IPCloningAnalysis.cpp
+#end INTEL_FEATURE_SW_ADVANCED
   Intel_InlineCost.cpp
 # INTEL_FEATURE_SW_ADVANCED
   Intel_PartialInlineAnalysis.cpp
