@@ -74,23 +74,23 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeIPCloningLegacyPassPass(Registry);          // INTEL
   initializeCallTreeCloningLegacyPassPass(Registry);    // INTEL
   initializeIntelAdvancedFastCallWrapperPassPass(Registry); // INTEL
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_SW_ADVANCED
-  initializeIntelPartialInlineLegacyPassPass(Registry);
-  initializeIntelIPOPrefetchWrapperPassPass(Registry);
-#endif // INTEL_FEATURE_SW_ADVANCED
-#endif // INTEL_CUSTOMIZATION
   initializeDopeVectorConstPropLegacyPassPass(Registry); // INTEL
   initializeIntelArgumentAlignmentLegacyPassPass(Registry); // INTEL
   initializeQsortRecognizerLegacyPassPass(Registry); // INTEL
   initializeAggInlinerLegacyPassPass(Registry); // INTEL
   initializeIntelFoldWPIntrinsicLegacyPassPass(Registry); // INTEL
-  initializeDeadArrayOpsEliminationLegacyPassPass(Registry); // INTEL
   initializeTileMVInlMarkerLegacyPassPass(Registry); // INTEL
   initializeIPArrayTransposeLegacyPassPass(Registry); // INTEL
   initializeArgNoAliasPropPass(Registry);            // INTEL
   initializeIntelVTableFixupLegacyPassPass(Registry); // INTEL
   initializeIntelMathLibrariesDeclarationWrapperPass(Registry); // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+  initializeIntelPartialInlineLegacyPassPass(Registry);
+  initializeIntelIPOPrefetchWrapperPassPass(Registry);
+  initializeDeadArrayOpsEliminationLegacyPassPass(Registry);
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 }
 
 void LLVMInitializeIPO(LLVMPassRegistryRef R) {

@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: intel_feature_sw_advanced
+
 ; This test verifies that transformations for DeadArrayOpsElimination
 ; optimization are done correctly. "s_qsort" is treated as Qsort function
 ; since it is marked with "is-qsort". Array Analysis helps to detect that
@@ -95,3 +98,5 @@ entry:
 }
 
 attributes #0 = { "is-qsort" }
+
+; end INTEL_FEATURE_SW_ADVANCED

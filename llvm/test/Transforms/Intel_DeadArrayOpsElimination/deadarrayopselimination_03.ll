@@ -1,10 +1,12 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: asserts, intel_feature_sw_advanced
+
 ; This test verifies that DeadArrayOpsElimination optimization is not triggered
 ; for s_qsort even though "dead-array-ops-functions" is used to indicate
 ; s_qsort is Qsort function and used high index for %perm is 60 since s_qsort
 ; has more than 2 calls.
 ; Note that the functions don't have any valid IR or meaning.
 
-; REQUIRES: asserts
 ; RUN: opt < %s  -deadarrayopselimination -dead-array-ops-functions="s_qsort,60" -debug-only=deadarrayopselimination -whole-program-assume -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s  -passes='module(deadarrayopselimination)' -dead-array-ops-functions="s_qsort,60" -debug-only=deadarrayopselimination -whole-program-assume -disable-output 2>&1 | FileCheck %s
 
@@ -63,3 +65,4 @@ entry:
   ret i32 0
 }
 
+; end INTEL_FEATURE_SW_ADVANCED

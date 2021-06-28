@@ -282,10 +282,12 @@ static cl::opt<bool> EnableWPA("enable-whole-program-analysis",
 static cl::opt<bool> EnableIPCloning("enable-ip-cloning",
     cl::init(true), cl::Hidden, cl::desc("Enable IP Cloning"));
 
+#if INTEL_FEATURE_SW_ADVANCED
 // Dead Array Element Ops Elimination
 static cl::opt<bool> EnableDeadArrayOpsElim(
    "enable-dead-array-ops-elim", cl::init(true), cl::Hidden,
    cl::desc("Enable Dead Array Ops Elimination"));
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 // IPO Array Transpose
 static cl::opt<bool> EnableIPArrayTranspose(
@@ -1974,8 +1976,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableIPArrayTranspose)
     PM.add(createIPArrayTransposeLegacyPass());
 
+#if INTEL_FEATURE_SW_ADVANCED
   if (EnableDeadArrayOpsElim)
     PM.add(createDeadArrayOpsEliminationLegacyPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   PM.add(createCorrelatedValuePropagationPass());
 

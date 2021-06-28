@@ -26,7 +26,11 @@ add_llvm_component_library(LLVMipo
   Intel_AdvancedFastCall.cpp   # INTEL
   Intel_AggInliner.cpp # INTEL
   Intel_ArgNoAliasProp.cpp # INTEL
-  Intel_DeadArrayOpsElimination.cpp   # INTEL
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_SW_ADVANCED
+  Intel_DeadArrayOpsElimination.cpp
+#end INTEL_FEATURE_SW_ADVANCED
+#end INTEL_INCLUDE_DTRANS
   Intel_DevirtMultiversioning.cpp # INTEL
   Intel_DopeVectorConstProp.cpp   # INTEL
   Intel_QsortRecognizer.cpp # INTEL

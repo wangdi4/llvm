@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: asserts, intel_feature_sw_advanced
+
 ; This test verifies that transformations for DeadArrayOpsElimination
 ; optimization are done correctly. "-dead-array-ops-functions" is used to
 ; indicate s_qsort is Qsort function and used high index for %perm is 60.
@@ -95,3 +98,4 @@ entry:
   ret i32 0
 }
 
+; end INTEL_FEATURE_SW_ADVANCED

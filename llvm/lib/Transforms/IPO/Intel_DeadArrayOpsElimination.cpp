@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_DeadArrayOpsElimination.cpp ----------------------------===//
 //
 // Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
@@ -874,3 +875,5 @@ PreservedAnalyses DeadArrayOpsEliminationPass::run(Module &M,
   PA.preserve<WholeProgramAnalysis>();
   return PA;
 }
+
+#endif // INTEL_FEATURE_SW_ADVANCED
