@@ -22,7 +22,7 @@
 ; CHECK:          DPCPPKernelVecClone pass
 ; CHECK-NOT:      VecClone
 ; CHECK:          FunctionPass Manager
-; CHECK:            VPlan Vectorization Driver
+; CHECK:            VPlan Vectorizer
 ; CHECK:          VPlan post vectorization pass for DPCPP kernels
 ; CHECK:          WGLoopCreatorLegacy
 ; CHECK-NEXT:       FunctionPass Manager
