@@ -1812,11 +1812,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   StartFunction(GD, ResTy, Fn, FnInfo, Args, Loc, BodyRange.getBegin());
 
 #if INTEL_CUSTOMIZATION
-  OptReportHandler &SyclOptReportHandler =
-      CGM.getDiags().getSYCLOptReportHandler();
-  if (SyclOptReportHandler.HasSyclOptReportInfo(FD)) {
+  OptReportHandler &SyclOptReport = CGM.getDiags().getSYCLOptReport();
+  if (SyclOptReport.HasSyclOptReportInfo(FD)) {
     llvm::OptimizationRemarkEmitter ORE(Fn);
-    for (auto ORI : llvm::enumerate(SyclOptReportHandler.GetSyclInfo(FD))) {
+    for (auto ORI : llvm::enumerate(SyclOptReport.GetSyclInfo(FD))) {
       llvm::DiagnosticLocation DL =
           SourceLocToDebugLoc(ORI.value().KernelArgLoc);
       StringRef NameInDesc = ORI.value().KernelArgDescName;
