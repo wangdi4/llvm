@@ -4368,8 +4368,7 @@ void InnerLoopVectorizer::fixReduction(VPWidenPHIRecipe *PhiR,
   // any loop invariant values.
   BasicBlock *VectorLoopLatch = LI->getLoopFor(LoopVectorBody)->getLoopLatch();
 
-  bool IsOrdered = State.VF.isVector() && IsInLoopReductionPhi &&
-                   Cost->useOrderedReductions(RdxDesc);
+  bool IsOrdered = IsInLoopReductionPhi && Cost->useOrderedReductions(RdxDesc);
 
   for (unsigned Part = 0; Part < UF; ++Part) {
     if (IsOrdered && Part > 0)
@@ -4783,8 +4782,7 @@ void InnerLoopVectorizer::widenPHIInstruction(Instruction *PN,
     Type *VecTy =
         ScalarPHI ? PN->getType() : VectorType::get(PN->getType(), State.VF);
 
-    bool IsOrdered = State.VF.isVector() &&
-                     Cost->isInLoopReduction(cast<PHINode>(PN)) &&
+    bool IsOrdered = Cost->isInLoopReduction(cast<PHINode>(PN)) &&
                      Cost->useOrderedReductions(*RdxDesc);
     unsigned LastPartForNewPhi = IsOrdered ? 1 : State.UF;
     for (unsigned Part = 0; Part < LastPartForNewPhi; ++Part) {
@@ -9354,8 +9352,7 @@ VPlanPtr LoopVectorizationPlanner::buildVPlanWithVPRecipes(
   }
 
   // Adjust the recipes for any inloop reductions.
-  if (Range.Start.isVector())
-    adjustRecipesForInLoopReductions(Plan, RecipeBuilder);
+  adjustRecipesForInLoopReductions(Plan, RecipeBuilder, Range.Start);
 
   // Finally, if tail is folded by masking, introduce selects between the phi
   // and the live-out instruction of each reduction, at the end of the latch.
@@ -9430,11 +9427,14 @@ VPlanPtr LoopVectorizationPlanner::buildVPlan(VFRange &Range) {
 // reductions, with one operand being vector and the other being the scalar
 // reduction chain.
 void LoopVectorizationPlanner::adjustRecipesForInLoopReductions(
-    VPlanPtr &Plan, VPRecipeBuilder &RecipeBuilder) {
+    VPlanPtr &Plan, VPRecipeBuilder &RecipeBuilder, ElementCount MinVF) {
   for (auto &Reduction : CM.getInLoopReductionChains()) {
     PHINode *Phi = Reduction.first;
     RecurrenceDescriptor &RdxDesc = Legal->getReductionVars()[Phi];
     const SmallVector<Instruction *, 4> &ReductionOperations = Reduction.second;
+
+    if (MinVF.isScalar() && !CM.useOrderedReductions(RdxDesc))
+      continue;
 
     // ReductionOperations are orders top-down from the phi's use to the
     // LoopExitValue. We keep a track of the previous item (the Chain) to tell
@@ -9452,7 +9452,7 @@ void LoopVectorizationPlanner::adjustRecipesForInLoopReductions(
                "Expected to replace a VPWidenSelectSC");
         FirstOpId = 1;
       } else {
-        assert(isa<VPWidenRecipe>(WidenRecipe) &&
+        assert((MinVF.isScalar() || isa<VPWidenRecipe>(WidenRecipe)) &&
                "Expected to replace a VPWidenSC");
         FirstOpId = 0;
       }
@@ -9601,8 +9601,13 @@ void VPReductionRecipe::execute(VPTransformState &State) {
     Value *NewRed;
     Value *NextInChain;
     if (IsOrdered) {
-      NewRed = createOrderedReduction(State.Builder, *RdxDesc, NewVecOp,
-                                      PrevInChain);
+      if (State.VF.isVector())
+        NewRed = createOrderedReduction(State.Builder, *RdxDesc, NewVecOp,
+                                        PrevInChain);
+      else
+        NewRed = State.Builder.CreateBinOp(
+            (Instruction::BinaryOps)getUnderlyingInstr()->getOpcode(),
+            PrevInChain, NewVecOp);
       PrevInChain = NewRed;
     } else {
       PrevInChain = State.get(getChainOp(), Part);
