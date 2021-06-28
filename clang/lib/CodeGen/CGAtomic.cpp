@@ -245,6 +245,16 @@ namespace {
     void EmitAtomicUpdate(llvm::AtomicOrdering AO, RValue UpdateRVal,
                           bool IsVolatile);
 
+#if INTEL_COLLAB
+    llvm::Value *GenerateCompare(llvm::Value *AtomicVal, RValue CompareVal,
+                                 llvm::CmpInst::Predicate Op);
+
+    /// Emits atomic compare and swap.
+    void EmitAtomicCompareAndSwap(llvm::AtomicOrdering AO, RValue Desired,
+                                  RValue Expected, llvm::CmpInst::Predicate Op,
+                                  bool IsVolatile);
+#endif // INTEL_COLLAB
+
     /// Materialize an atomic r-value in atomic-layout memory.
     Address materializeRValue(RValue rvalue) const;
 
@@ -2491,6 +2501,111 @@ void AtomicInfo::EmitAtomicUpdate(llvm::AtomicOrdering AO, RValue UpdateRVal,
     EmitAtomicUpdateOp(AO, UpdateRVal, IsVolatile);
   }
 }
+
+#if INTEL_COLLAB
+llvm::Value *AtomicInfo::GenerateCompare(llvm::Value *AtomicVal,
+                                         RValue CompareVal,
+                                         llvm::CmpInst::Predicate Op) {
+  if (!LVal.isSimple()) {
+    Address CompareAddr = materializeRValue(RValue::get(AtomicVal));
+    RValue AtomicRV =
+        convertAtomicTempToRValue(CompareAddr, AggValueSlot::ignored(),
+                                  SourceLocation(), /*asValue=*/true);
+    if (Op == llvm::CmpInst::FCMP_OEQ)
+      AtomicVal = convertRValueToInt(AtomicRV);
+    else
+      AtomicVal = AtomicRV.getScalarVal();
+  } else if (CompareVal.getScalarVal()->getType() == CGF.Builder.getInt1Ty()) {
+    // Normally types are already the same, expect for _Bool case.
+    AtomicVal = CGF.Builder.CreateTrunc(AtomicVal, CGF.Builder.getInt1Ty());
+  }
+  llvm::Value *Cond;
+  switch (Op) {
+  case llvm::CmpInst::ICMP_SGT:
+  case llvm::CmpInst::ICMP_SLT:
+  case llvm::CmpInst::ICMP_UGT:
+  case llvm::CmpInst::ICMP_ULT:
+  case llvm::CmpInst::ICMP_EQ:
+    Cond =
+        CGF.Builder.CreateICmp(Op, AtomicVal, CompareVal.getScalarVal(), "cmp");
+    break;
+  case llvm::CmpInst::FCMP_OGT:
+  case llvm::CmpInst::FCMP_OLT:
+    Cond = CGF.Builder.CreateFCmp(
+        Op,
+        CGF.Builder.CreateBitCast(AtomicVal,
+                                  CompareVal.getScalarVal()->getType()),
+        CompareVal.getScalarVal(), "cmp");
+    break;
+  case llvm::CmpInst::FCMP_OEQ:
+    // == cases are like memcmp according to the spec.  So do the comparison
+    // as an integer.
+    Cond = CGF.Builder.CreateICmp(llvm::CmpInst::ICMP_EQ, AtomicVal,
+                                  convertRValueToInt(CompareVal), "cmp");
+    break;
+  default:
+    llvm_unreachable("unhandled atomic compare operator");
+  }
+  return Cond;
+}
+
+void AtomicInfo::EmitAtomicCompareAndSwap(llvm::AtomicOrdering AO,
+                                          RValue Expected, RValue Desired,
+                                          llvm::CmpInst::Predicate Op,
+                                          bool IsVolatile) {
+  auto Failure = llvm::AtomicCmpXchgInst::getStrongestFailureOrdering(AO);
+
+  // Do the atomic load.
+  auto *OldVal = EmitAtomicLoadOp(Failure, IsVolatile);
+
+  llvm::Value *Cond = GenerateCompare(OldVal, Expected, Op);
+  auto *ContBB = CGF.createBasicBlock("atomic_cont");
+  auto *ExitBB = CGF.createBasicBlock("atomic_exit");
+
+  CGF.Builder.CreateCondBr(Cond, ContBB, ExitBB);
+
+  auto *CurBB = CGF.Builder.GetInsertBlock();
+  CGF.EmitBlock(ContBB);
+  llvm::PHINode *PHI = CGF.Builder.CreatePHI(OldVal->getType(),
+                                             /*NumReservedValues=*/2);
+  PHI->addIncoming(OldVal, CurBB);
+  Address NewAtomicAddr = CreateTempAlloca();
+  Address NewAtomicIntAddr = emitCastToAtomicIntPointer(NewAtomicAddr);
+
+  if ((LVal.isBitField() && BFI.Size != ValueSizeInBits) ||
+      requiresMemSetZero(getAtomicAddress().getElementType())) {
+    CGF.Builder.CreateStore(PHI, NewAtomicIntAddr);
+  }
+  if (LVal.isSimple())
+    CGF.Builder.CreateStore(convertRValueToInt(Desired), NewAtomicIntAddr);
+  else
+    EmitAtomicUpdateValue(CGF, *this, Desired, NewAtomicAddr);
+
+  auto *DesiredVal = CGF.Builder.CreateLoad(NewAtomicIntAddr);
+  // Try to write new value using cmpxchg operation.
+  auto Res = EmitAtomicCompareExchangeOp(PHI, DesiredVal, AO, Failure);
+
+  auto *CmpBB = CGF.createBasicBlock("atomic_cmp");
+  CGF.Builder.CreateCondBr(Res.second, ExitBB, CmpBB);
+  CGF.EmitBlock(CmpBB);
+
+  llvm::Value *Cond2 = GenerateCompare(Res.first, Expected, Op);
+  PHI->addIncoming(Res.first, CGF.Builder.GetInsertBlock());
+  CGF.Builder.CreateCondBr(Cond2, ContBB, ExitBB);
+
+  CGF.EmitBlock(ExitBB, /*IsFinished=*/true);
+}
+
+void CodeGenFunction::EmitAtomicCompareAndSwap(RValue Expected, RValue Desired,
+                                               LValue Lvalue,
+                                               llvm::CmpInst::Predicate Op,
+                                               llvm::AtomicOrdering AO,
+                                               bool IsVolatile) {
+  AtomicInfo atomics(*this, Lvalue);
+  assert(!atomics.shouldUseLibcall() && "libcalls not yet implemented");
+  atomics.EmitAtomicCompareAndSwap(AO, Expected, Desired, Op, IsVolatile);
+}
+#endif // INTEL_COLLAB
 
 void CodeGenFunction::EmitAtomicStore(RValue rvalue, LValue lvalue,
                                       bool isInit) {

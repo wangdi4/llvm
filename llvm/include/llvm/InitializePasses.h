@@ -257,9 +257,9 @@ void initializeInstrOrderFileLegacyPassPass(PassRegistry&);
 void initializeInstructionCombiningPassPass(PassRegistry&);
 void initializeInstructionSelectPass(PassRegistry&);
 void initializeIntelAdvancedFastCallWrapperPassPass(PassRegistry &); // INTEL
-void initializeIntelIPOPrefetchWrapperPassPass(PassRegistry &); // INTEL
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_SW_ADVANCED
+void initializeIntelIPOPrefetchWrapperPassPass(PassRegistry &);
 void initializeIntelPartialInlineLegacyPassPass(PassRegistry &);
 #endif // INTEL_FEATURE_SW_ADVANCED
 #endif // INTEL_CUSTOMIZATION

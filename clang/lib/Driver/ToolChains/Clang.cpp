@@ -7477,6 +7477,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_fno_xl_pragma_pack, RawTriple.isOSAIX()))
     CmdArgs.push_back("-fxl-pragma-pack");
 
+#if INTEL_CUSTOMIZATION
+  if (Args.hasFlag(options::OPT_fno_intel_pragma_prefetch,
+                   options::OPT_fintel_pragma_prefetch, false))
+    CmdArgs.push_back("-fno-intel-pragma-prefetch");
+#endif // INTEL_CUSTOMIZATION
+
   // Remarks can be enabled with any of the `-f.*optimization-record.*` flags.
   if (willEmitRemarks(Args) && checkRemarksOptions(D, Args, Triple))
     renderRemarksOptions(Args, CmdArgs, Triple, Input, Output, JA);

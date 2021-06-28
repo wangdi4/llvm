@@ -18,11 +18,7 @@
 ; CHECK-NEXT:       Module Verifier
 ; CHECK-NEXT:     Whole program analysis
 ; CHECK-NEXT:     Dead Global Elimination
-; CHECK-NEXT:     Intel IPO Prefetch
-; CHECK-NEXT:       FunctionPass Manager
-; CHECK-NEXT:         Dominator Tree Construction
-; CHECK-NEXT:         Post-Dominator Tree Construction
-; CHECK-NEXT:     Intel fold WP intrinsic
+; CHECK:     Intel fold WP intrinsic
 ; CHECK-NEXT:     IP Cloning
 ; CHECK-NEXT:     Dynamic Casts Optimization Pass
 ; CHECK-NEXT:     Force set function attributes
@@ -302,17 +298,13 @@
 ; CHECK-NEXT:       Annotation Remarks
 ; CHECK-NEXT:       Module Verifier
 ; CHECK-NEXT:     Bitcode Writer
-; CHECK-NEXT: Pass Arguments:  -domtree -postdomtree
+; CHECK: Pass Arguments:  -domtree
 ; CHECK-NEXT:   FunctionPass Manager
 ; CHECK-NEXT:     Dominator Tree Construction
-; CHECK-NEXT:     Post-Dominator Tree Construction
-; CHECK-NEXT: Pass Arguments:  -domtree
+; CHECK: Pass Arguments:  -domtree
 ; CHECK-NEXT:   FunctionPass Manager
 ; CHECK-NEXT:     Dominator Tree Construction
-; CHECK-NEXT: Pass Arguments:  -domtree
-; CHECK-NEXT:   FunctionPass Manager
-; CHECK-NEXT:     Dominator Tree Construction
-; CHECK-NEXT: Pass Arguments:  -targetlibinfo -tti -domtree -loops -postdomtree -branch-prob -block-freq
+; CHECK: Pass Arguments:  -targetlibinfo -tti -domtree -loops -postdomtree -branch-prob -block-freq
 ; CHECK-NEXT: Target Library Information
 ; CHECK-NEXT: Target Transform Information
 ; CHECK-NEXT:   FunctionPass Manager

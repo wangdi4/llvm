@@ -42,4 +42,13 @@ void test() {
   if (s.expr < arr[0]) { arr[1] = s.expr; }
 }
 
+ register int rix __asm__("esp");
+
+ void test_reg()
+ {
+   int expr;
+   // expected-error@+2 {{global register variable not supported in 'atomic compare'}}
+   #pragma omp atomic compare
+   rix = expr < rix ? expr : rix;
+ }
 // end INTEL_COLLAB

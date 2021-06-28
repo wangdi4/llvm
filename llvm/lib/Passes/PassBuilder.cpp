@@ -128,10 +128,12 @@
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_IPArrayTranspose.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
-#include "llvm/Transforms/IPO/Intel_IPOPrefetch.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_MathLibrariesDeclaration.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"   //INTEL
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/IPO/Intel_IPOPrefetch.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/IPO/Intel_MathLibrariesDeclaration.h"
+#include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
 #if INTEL_FEATURE_SW_ADVANCED
 #include "llvm/Transforms/IPO/Intel_PartialInline.h"
 #endif // INTEL_FEATURE_SW_ADVANCED
@@ -450,10 +452,12 @@ static cl::opt<bool> EnableDeadArrayOpsElim(
    "enable-npm-dead-array-ops-elim", cl::init(true), cl::Hidden,
    cl::desc("Enable Dead Array Ops Elimination for the new PM (default = on)"));
 
+#if INTEL_FEATURE_SW_ADVANCED
 // IPO Prefetch
 static cl::opt<bool> EnableIPOPrefetch(
     "enable-npm-ipo-prefetch", cl::init(true), cl::Hidden,
     cl::desc("Enable IPO Prefetch"));
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 // Indirect call Conv
 static cl::opt<bool> EnableIndirectCallConv("enable-npm-ind-call-conv",
@@ -2946,9 +2950,11 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(GlobalOptPass());
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
   // IPO-based prefetch
   if (EnableIPOPrefetch)
     MPM.addPass(IntelIPOPrefetchPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   if (RunLTOPartialInlining)
     MPM.addPass(PartialInlinerPass(true /*RunLTOPartialInline*/,

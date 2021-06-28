@@ -1,3 +1,6 @@
+; INTEL_FEATURE_SW_ADVANCED
+; REQUIRES: asserts, intel_feature_sw_advanced
+
 ; Checks that IPO Prefetch pass can properly identify the prefetch opportunity, generate the prefetch
 ; function, and generate 2 calls to the prefetch function in 2 DL host functions: 1 call to prefetch inside
 ; each host function.
@@ -18,8 +21,6 @@
 ; All other functions in the module are reduced to declarations only. Their function bodies are purged, as is any global
 ; variable or metadata that is not used directly by any of the above 4 functions.
 ;
-
-; REQUIRES: asserts
 
 ; *** Run command section ***
 ; RUN: opt < %s -intel-ipoprefetch -ipo-prefetch-be-lit-friendly=1 -ipo-prefetch-suppress-inline-report=0 -enable-intel-advanced-opts=1 -mtriple=i686-- -mattr=+avx2  -S 2>&1 | FileCheck %s
@@ -2731,3 +2732,5 @@ attributes #7 = { nounwind }
 !86 = !{!11, !13, i64 4088}
 !87 = !{!11, !7, i64 4096}
 !88 = distinct !{!88, !31}
+
+; end INTEL_FEATURE_SW_ADVANCED

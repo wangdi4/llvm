@@ -10556,6 +10556,8 @@ def note_omp_atomic_compare: Note<
   "expected compound statement containing one assignment|"
   "unexpected else in if statement|"
   "expected an assignment expression}0">;
+def err_omp_atomic_compare_global_register : Error<
+  "global register variable not supported in 'atomic compare'">;
 #endif // INTEL_COLLAB
 def err_omp_atomic_several_clauses : Error<
   "directive '#pragma omp atomic' cannot contain more than one 'read', 'write', 'update' or 'capture' clause">;

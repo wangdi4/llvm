@@ -53,7 +53,11 @@
 #include "llvm/Transforms/IPO/Attributor.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_IPOPrefetch.h" // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/IPO/Intel_IPOPrefetch.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/Intel_InlineLists.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h" // INTEL
@@ -124,7 +128,9 @@ namespace {
       (void) llvm::createInlineReportSetupPass();
       (void) llvm::createInlineReportEmitterPass();
       (void) llvm::createIntelAdvancedFastCallWrapperPass();
+#if INTEL_FEATURE_SW_ADVANCED
       (void) llvm::createIntelIPOPrefetchWrapperPass();
+#endif // INTEL_FEATURE_SW_ADVANCED
       (void) llvm::createXmainOptLevelWrapperPass();
       (void) llvm::createOptReportOptionsPass();
       (void) llvm::createRemoveRegionDirectivesLegacyPass();

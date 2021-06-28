@@ -11993,6 +11993,31 @@ bool OpenMPAtomicCompareChecker::checkStatement(Stmt *S, unsigned DiagId,
   }
   if (SemaRef.CurContext->isDependentContext())
     E = X = Expected = Desired = nullptr;
+  else {
+    if (X) {
+      if (auto *DRE = dyn_cast<DeclRefExpr>(X)) {
+        if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
+          if (VD->getStorageClass() == SC_Register &&
+              VD->hasAttr<AsmLabelAttr>() && !VD->isLocalVarDecl()) {
+            SemaRef.Diag(X->getBeginLoc(),
+                         diag::err_omp_atomic_compare_global_register);
+            return true;
+          }
+        }
+      }
+    }
+    auto Convert = [this](Expr *E) {
+      return E ? SemaRef
+                     .PerformImplicitConversion(E, X->getType(),
+                                                Sema::AA_Converting,
+                                                /*AllowExplicit=*/true)
+                     .get()
+               : nullptr;
+    };
+    E = Convert(E);
+    Expected = Convert(Expected);
+    Desired = Convert(Desired);
+  }
   return ErrorFound != NoError;
 }
 #endif // INTEL_COLLAB
