@@ -1941,6 +1941,10 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_:
+    return Changed;
+  case LibFunc_ZSt28__throw_bad_array_new_lengthv:
+    Changed |= setDoesNotReturn(F);
+    return Changed;
   case LibFunc_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_:
   case LibFunc_std_basic_ostream_std_endl:
   case LibFunc_std_basic_ostream_std_flush:
