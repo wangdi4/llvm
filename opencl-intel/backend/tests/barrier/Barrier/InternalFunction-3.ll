@@ -44,7 +44,7 @@ L4:
 ; CHECK: br label %
 ;;;; TODO: add regular expression for the below values.
 
-; CHECK: SyncBB2:                                          ; preds = %Dispatch, %L3
+; CHECK: SyncBB{{[0-9]*}}:                                          ; preds = %Dispatch{{[0-9]*}}, %L3
 ; CHECK: %SBIndex = load i32, i32* %pCurrSBIndex
 ; CHECK: %SB_LocalId_Offset = add nuw i32 %SBIndex, 4
 ; CHECK: %7 = getelementptr inbounds i8, i8* %pSB, i32 %SB_LocalId_Offset
