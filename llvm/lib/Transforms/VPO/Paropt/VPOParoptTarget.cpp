@@ -938,6 +938,16 @@ void VPOParoptTransform::guardSideEffectStatements(
     I = std::next(I);
   }
 
+  // Return true if W has more than one child in any nested region.
+  auto HasMoreThanOneChildAtAnyNestingLevel = [](WRegionNode *W) {
+    while (W) {
+      if (W->getNumChildren() > 1)
+        return true;
+      W = W->getFirstChild();
+    }
+    return false;
+  };
+
   if (!SideEffectInstructions.empty() ||
       // FIXME: if there are multiple parallel regions,
       //        then we need to synchronize between them, otherwise
@@ -947,12 +957,12 @@ void VPOParoptTransform::guardSideEffectStatements(
       //        because we may read data written in a parallel region
       //        in "omp target" code succeeding the parallel region.
       //        For now to avoid performance regressions, we insert
-      //        barriers only when there are multiple parallel regions
-      //        inside "omp target". The complete fix would be
-      //        to check if any load operation after a parallel region
+      //        barriers only when there are multiple regions inside
+      //        "omp target" at any nesting level. The complete fix would
+      //        be to check if any load operation after a parallel region
       //        may read data that was potentially updated inside
       //        the parallel region. Can we use alias information for that?
-      W->getChildren().size() > 1) {
+      HasMoreThanOneChildAtAnyNestingLevel(W)) {
     for (auto *InsertPt : InsertBarrierAt) {
       LLVM_DEBUG(dbgs() << "Insert Barrier at :" << *InsertPt << "\n");
       InsertWorkGroupBarrier(InsertPt);
