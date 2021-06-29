@@ -238,10 +238,6 @@ public:
     return HasGatherScatterPrefetch(m_cpuArch);
   }
 
-  bool RequirePrefetch() const {
-    // There are no architectures that use prefetch by now
-    return false;
-  }
   bool HasAVX1() const { return IsFeatureSupported(CFS_AVX10); }
   bool HasAVX2() const { return IsFeatureSupported(CFS_AVX20); }
   bool HasSSE2() const { return IsFeatureSupported(CFS_SSE2); }

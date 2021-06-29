@@ -158,7 +158,6 @@ llvm::ModulePass *createPatchCallbackArgsPass(bool useTLSGlobals);
 llvm::ModulePass *createDeduceMaxWGDimPass();
 
 llvm::ModulePass *createLLVMEqualizerPass();
-llvm::FunctionPass *createPrefetchPassLevel(int level);
 llvm::ModulePass *createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation,
                                     std::string dumpDir);
@@ -452,8 +451,6 @@ static void populatePassesPostFailCheck(
     bool IsSYCL, bool IsOMP, TStringToVFState &kernelVFStates) {
   bool isProfiling = pConfig->GetProfilingFlag();
   bool HasGatherScatter = pConfig->GetCpuId()->HasGatherScatter();
-  bool HasGatherScatterPrefetch =
-      pConfig->GetCpuId()->HasGatherScatterPrefetch();
   // Tune the maximum size of the basic block for memory dependency analysis
   // utilized by GVN.
   DebuggingServiceType debugType =
@@ -868,22 +865,6 @@ static void populatePassesPostFailCheck(
   // After kernels are inlined into their wrappers we can cleanup the bodies
   PM.add(createCleanupWrappedKernelsPass());
 
-  // Add prefetches if useful for micro-architecture,
-  // and don't change libraries
-  if (OptLevel > 0 && HasGatherScatterPrefetch) {
-    int APFLevel = pConfig->GetAPFLevel();
-    // do APF and following cleaning passes only if APF is not disabled
-    if (APFLevel != APFLEVEL_0_DISAPF) {
-      if (pConfig->GetCpuId()->RequirePrefetch())
-        PM.add(createPrefetchPassLevel(pConfig->GetAPFLevel()));
-      PM.add(llvm::createDeadCodeEliminationPass()); // Delete dead instructions
-      PM.add(llvm::createInstructionCombiningPass()); // Instruction combining
-      PM.add(createSmartGVNPass(false));
-#ifdef _DEBUG
-      PM.add(llvm::createVerifierPass());
-#endif
-    }
-  }
   if (UnrollLoops && OptLevel > 0) {
     // Unroll small loops
     PM.add(llvm::createLoopUnrollPass(OptLevel, false, false, 4, 0, 0));
