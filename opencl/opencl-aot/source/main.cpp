@@ -30,6 +30,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 using namespace llvm;
@@ -391,6 +392,22 @@ int main(int Argc, char *Argv[]) {
                                         cl::desc("Set OpenCL build options"),
                                         cl::value_desc("build options"));
 
+#if INTEL_CUSTOMIZATION
+  std::unordered_set<cl::Option *> IgnoredAOCOptions;
+  cl::OptionCategory CatIgnoredAOCOptions(
+      "Ignored Options",
+      "These aoc flags intended for FPGA hardware flow will be ignored.");
+#define OPTION_VALUE(name, flag, type)                                         \
+    cl::opt<type> name(flag, cl::cat(CatIgnoredAOCOptions), cl::ReallyHidden); \
+    IgnoredAOCOptions.insert(&name)
+#define OPTION_ENUM(name, flag, N_opts, ...)                                   \
+    cl::opt<EnumClass##N_opts> name(flag, cl::cat(CatIgnoredAOCOptions),       \
+                                    EnumVal##N_opts(__VA_ARGS__),              \
+                                    cl::ReallyHidden);                         \
+    IgnoredAOCOptions.insert(&name)
+#include "Intel_IgnoredOptions.def"
+#endif
+
 #if INTEL_PRODUCT_RELEASE
 #if INTEL_CUSTOMIZATION
   // --help option implementation is disabled in LLVM CommandLine
@@ -412,6 +429,18 @@ int main(int Argc, char *Argv[]) {
       "In addition, separated building (compiling and linking) is optional.\n");
 
   // step 1: perform checks for command line options
+
+#if INTEL_CUSTOMIZATION
+  // Ignored options only for FPGA emulator. Issue error message for other
+  // device types.
+  if (OptDevice != fpga_fast_emu) {
+    for (auto opt : IgnoredAOCOptions)
+      if (opt->getNumOccurrences() != 0) {
+        opt->error("unknown command line argument");
+        exit(1);
+      }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   std::map<Commands, std::pair<std::string, std::string>> CmdToCmdInfoMap = {
       {Commands::build, {"build", "binary"}},
