@@ -3378,6 +3378,9 @@ Error BitcodeReader::parseFunctionRecord(ArrayRef<uint64_t> Record) {
       if (!Func->hasParamAttribute(i, Kind))
         continue;
 
+      if (Func->getParamAttribute(i, Kind).getValueAsType())
+        continue;
+
       Func->removeParamAttr(i, Kind);
 
       Type *PTy = cast<FunctionType>(FTy)->getParamType(i);
