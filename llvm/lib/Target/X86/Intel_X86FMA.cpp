@@ -113,7 +113,11 @@ public:
 private:
   /// Known FMA opcodes.
   static const FMAOpcodeDesc VEXOpcodes[15][6];
+#if INTEL_FEATURE_ISA_FP16
+  static const FMAOpcodeDesc EVEXOpcodes[15][12];
+#else // INTEL_FEATURE_ISA_FP16
   static const FMAOpcodeDesc EVEXOpcodes[15][8];
+#endif // INTEL_FEATURE_ISA_FP16
 
   static const FMAOpcodeDesc *findByOpcode(unsigned Opcode,
                                            FMAOpcodeKind OpcodeKind, bool EVEX);
@@ -291,155 +295,338 @@ const FMAOpcodesInfo::FMAOpcodeDesc FMAOpcodesInfo::VEXOpcodes[15][6] = {
     { X86::VFNMSUB231PDYr, X86::VFNMSUB231PDYm, MVT::v4f64 },
   }
 };
-
+#if INTEL_FEATURE_ISA_FP16
+const FMAOpcodesInfo::FMAOpcodeDesc FMAOpcodesInfo::EVEXOpcodes[15][12] = {
+#else // INTEL_FEATURE_ISA_FP16
 const FMAOpcodesInfo::FMAOpcodeDesc FMAOpcodesInfo::EVEXOpcodes[15][8] = {
+#endif // INTEL_FEATURE_ISA_FP16
   { // ADD
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VADDSHZrr,         X86::VADDSHZrm,         MVT::f16    },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VADDSSZrr,         X86::VADDSSZrm,         MVT::f32    },
     { X86::VADDSDZrr,         X86::VADDSDZrm,         MVT::f64    },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VADDPHZ128rr,      X86::VADDPHZ128rm,      MVT::v8f16  },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VADDPSZ128rr,      X86::VADDPSZ128rm,      MVT::v4f32  },
     { X86::VADDPDZ128rr,      X86::VADDPDZ128rm,      MVT::v2f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VADDPHZ256rr,      X86::VADDPHZ256rm,      MVT::v16f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VADDPSZ256rr,      X86::VADDPSZ256rm,      MVT::v8f32  },
     { X86::VADDPDZ256rr,      X86::VADDPDZ256rm,      MVT::v4f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VADDPHZrr,         X86::VADDPHZrm,         MVT::v32f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VADDPSZrr,         X86::VADDPSZrm,         MVT::v16f32 },
     { X86::VADDPDZrr,         X86::VADDPDZrm,         MVT::v8f64  },
   },
   { // SUB
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VSUBSHZrr,         X86::VSUBSHZrm,         MVT::f16    },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VSUBSSZrr,         X86::VSUBSSZrm,         MVT::f32    },
     { X86::VSUBSDZrr,         X86::VSUBSDZrm,         MVT::f64    },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VSUBPHZ128rr,      X86::VSUBPHZ128rm,      MVT::v8f16  },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VSUBPSZ128rr,      X86::VSUBPSZ128rm,      MVT::v4f32  },
     { X86::VSUBPDZ128rr,      X86::VSUBPDZ128rm,      MVT::v2f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VSUBPHZ256rr,      X86::VSUBPHZ256rm,      MVT::v16f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VSUBPSZ256rr,      X86::VSUBPSZ256rm,      MVT::v8f32  },
     { X86::VSUBPDZ256rr,      X86::VSUBPDZ256rm,      MVT::v4f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VSUBPHZrr,         X86::VSUBPHZrm,         MVT::v32f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VSUBPSZrr,         X86::VSUBPSZrm,         MVT::v16f32 },
     { X86::VSUBPDZrr,         X86::VSUBPDZrm,         MVT::v8f64  },
   },
   { // MUL
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VMULSHZrr,         X86::VMULSHZrm,         MVT::f16    },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VMULSSZrr,         X86::VMULSSZrm,         MVT::f32    },
     { X86::VMULSDZrr,         X86::VMULSDZrm,         MVT::f64    },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VMULPHZ128rr,      X86::VMULPHZ128rm,      MVT::v8f16  },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VMULPSZ128rr,      X86::VMULPSZ128rm,      MVT::v4f32  },
     { X86::VMULPDZ128rr,      X86::VMULPDZ128rm,      MVT::v2f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VMULPHZ256rr,      X86::VMULPHZ256rm,      MVT::v16f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VMULPSZ256rr,      X86::VMULPSZ256rm,      MVT::v8f32  },
     { X86::VMULPDZ256rr,      X86::VMULPDZ256rm,      MVT::v4f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VMULPHZrr,         X86::VMULPHZrm,         MVT::v32f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VMULPSZrr,         X86::VMULPSZrm,         MVT::v16f32 },
     { X86::VMULPDZrr,         X86::VMULPDZrm,         MVT::v8f64  },
   },
   { // FMA213
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMADD213SHZr,     X86::VFMADD213SHZm,     MVT::f16    },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMADD213SSZr,     X86::VFMADD213SSZm,     MVT::f32    },
     { X86::VFMADD213SDZr,     X86::VFMADD213SDZm,     MVT::f64    },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMADD213PHZ128r,  X86::VFMADD213PHZ128m,  MVT::v8f16  },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMADD213PSZ128r,  X86::VFMADD213PSZ128m,  MVT::v4f32  },
     { X86::VFMADD213PDZ128r,  X86::VFMADD213PDZ128m,  MVT::v2f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMADD213PHZ256r,  X86::VFMADD213PHZ256m,  MVT::v16f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMADD213PSZ256r,  X86::VFMADD213PSZ256m,  MVT::v8f32  },
     { X86::VFMADD213PDZ256r,  X86::VFMADD213PDZ256m,  MVT::v4f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMADD213PHZr,     X86::VFMADD213PHZm,     MVT::v32f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMADD213PSZr,     X86::VFMADD213PSZm,     MVT::v16f32 },
     { X86::VFMADD213PDZr,     X86::VFMADD213PDZm,     MVT::v8f64  },
   },
   { // FMA132
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMADD132SHZr,     X86::VFMADD132SHZm,     MVT::f16    },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMADD132SSZr,     X86::VFMADD132SSZm,     MVT::f32    },
     { X86::VFMADD132SDZr,     X86::VFMADD132SDZm,     MVT::f64    },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMADD132PHZ128r,  X86::VFMADD132PHZ128m,  MVT::v8f16  },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMADD132PSZ128r,  X86::VFMADD132PSZ128m,  MVT::v4f32  },
     { X86::VFMADD132PDZ128r,  X86::VFMADD132PDZ128m,  MVT::v2f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMADD132PHZ256r,  X86::VFMADD132PHZ256m,  MVT::v16f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMADD132PSZ256r,  X86::VFMADD132PSZ256m,  MVT::v8f32  },
     { X86::VFMADD132PDZ256r,  X86::VFMADD132PDZ256m,  MVT::v4f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMADD132PHZr,     X86::VFMADD132PHZm,     MVT::v32f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMADD132PSZr,     X86::VFMADD132PSZm,     MVT::v16f32 },
     { X86::VFMADD132PDZr,     X86::VFMADD132PDZm,     MVT::v8f64  },
   },
   { // FMA231
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMADD231SHZr,     X86::VFMADD231SHZm,     MVT::f16    },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMADD231SSZr,     X86::VFMADD231SSZm,     MVT::f32    },
     { X86::VFMADD231SDZr,     X86::VFMADD231SDZm,     MVT::f64    },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMADD231PHZ128r,  X86::VFMADD231PHZ128m,  MVT::v8f16  },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMADD231PSZ128r,  X86::VFMADD231PSZ128m,  MVT::v4f32  },
     { X86::VFMADD231PDZ128r,  X86::VFMADD231PDZ128m,  MVT::v2f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMADD231PHZ256r,  X86::VFMADD231PHZ256m,  MVT::v16f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMADD231PSZ256r,  X86::VFMADD231PSZ256m,  MVT::v8f32  },
     { X86::VFMADD231PDZ256r,  X86::VFMADD231PDZ256m,  MVT::v4f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMADD231PHZr,     X86::VFMADD231PHZm,     MVT::v32f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMADD231PSZr,     X86::VFMADD231PSZm,     MVT::v16f32 },
     { X86::VFMADD231PDZr,     X86::VFMADD231PDZm,     MVT::v8f64  },
   },
   { // FMS213
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMSUB213SHZr,     X86::VFMSUB213SHZm,     MVT::f16    },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMSUB213SSZr,     X86::VFMSUB213SSZm,     MVT::f32    },
     { X86::VFMSUB213SDZr,     X86::VFMSUB213SDZm,     MVT::f64    },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMSUB213PHZ128r,  X86::VFMSUB213PHZ128m,  MVT::v8f16  },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMSUB213PSZ128r,  X86::VFMSUB213PSZ128m,  MVT::v4f32  },
     { X86::VFMSUB213PDZ128r,  X86::VFMSUB213PDZ128m,  MVT::v2f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMSUB213PHZ256r,  X86::VFMSUB213PHZ256m,  MVT::v16f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMSUB213PSZ256r,  X86::VFMSUB213PSZ256m,  MVT::v8f32  },
     { X86::VFMSUB213PDZ256r,  X86::VFMSUB213PDZ256m,  MVT::v4f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMSUB213PHZr,     X86::VFMSUB213PHZm,     MVT::v32f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMSUB213PSZr,     X86::VFMSUB213PSZm,     MVT::v16f32 },
     { X86::VFMSUB213PDZr,     X86::VFMSUB213PDZm,     MVT::v8f64  },
   },
   { // FMS132
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMSUB132SHZr,     X86::VFMSUB132SHZm,     MVT::f16    },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMSUB132SSZr,     X86::VFMSUB132SSZm,     MVT::f32    },
     { X86::VFMSUB132SDZr,     X86::VFMSUB132SDZm,     MVT::f64    },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMSUB132PHZ128r,  X86::VFMSUB132PHZ128m,  MVT::v8f16  },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMSUB132PSZ128r,  X86::VFMSUB132PSZ128m,  MVT::v4f32  },
     { X86::VFMSUB132PDZ128r,  X86::VFMSUB132PDZ128m,  MVT::v2f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMSUB132PHZ256r,  X86::VFMSUB132PHZ256m,  MVT::v16f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMSUB132PSZ256r,  X86::VFMSUB132PSZ256m,  MVT::v8f32  },
     { X86::VFMSUB132PDZ256r,  X86::VFMSUB132PDZ256m,  MVT::v4f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMSUB132PHZr,     X86::VFMSUB132PHZm,     MVT::v32f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMSUB132PSZr,     X86::VFMSUB132PSZm,     MVT::v16f32 },
     { X86::VFMSUB132PDZr,     X86::VFMSUB132PDZm,     MVT::v8f64  },
   },
   { // FMS231
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMSUB231SHZr,     X86::VFMSUB231SHZm,     MVT::f16    },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMSUB231SSZr,     X86::VFMSUB231SSZm,     MVT::f32    },
     { X86::VFMSUB231SDZr,     X86::VFMSUB231SDZm,     MVT::f64    },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMSUB231PHZ128r,  X86::VFMSUB231PHZ128m,  MVT::v8f16  },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMSUB231PSZ128r,  X86::VFMSUB231PSZ128m,  MVT::v4f32  },
     { X86::VFMSUB231PDZ128r,  X86::VFMSUB231PDZ128m,  MVT::v2f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMSUB231PHZ256r,  X86::VFMSUB231PHZ256m,  MVT::v16f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMSUB231PSZ256r,  X86::VFMSUB231PSZ256m,  MVT::v8f32  },
     { X86::VFMSUB231PDZ256r,  X86::VFMSUB231PDZ256m,  MVT::v4f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFMSUB231PHZr,     X86::VFMSUB231PHZm,     MVT::v32f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFMSUB231PSZr,     X86::VFMSUB231PSZm,     MVT::v16f32 },
     { X86::VFMSUB231PDZr,     X86::VFMSUB231PDZm,     MVT::v8f64  },
   },
   { // FNMA213
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMADD213SHZr,    X86::VFNMADD213SHZm,    MVT::f16    },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMADD213SSZr,    X86::VFNMADD213SSZm,    MVT::f32    },
     { X86::VFNMADD213SDZr,    X86::VFNMADD213SDZm,    MVT::f64    },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMADD213PHZ128r, X86::VFNMADD213PHZ128m, MVT::v8f16  },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMADD213PSZ128r, X86::VFNMADD213PSZ128m, MVT::v4f32  },
     { X86::VFNMADD213PDZ128r, X86::VFNMADD213PDZ128m, MVT::v2f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMADD213PHZ256r, X86::VFNMADD213PHZ256m, MVT::v16f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMADD213PSZ256r, X86::VFNMADD213PSZ256m, MVT::v8f32  },
     { X86::VFNMADD213PDZ256r, X86::VFNMADD213PDZ256m, MVT::v4f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMADD213PHZr,    X86::VFNMADD213PHZm,    MVT::v32f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMADD213PSZr,    X86::VFNMADD213PSZm,    MVT::v16f32 },
     { X86::VFNMADD213PDZr,    X86::VFNMADD213PDZm,    MVT::v8f64  },
   },
   { // FNMA132
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMADD132SHZr,    X86::VFNMADD132SHZm,    MVT::f16    },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMADD132SSZr,    X86::VFNMADD132SSZm,    MVT::f32    },
     { X86::VFNMADD132SDZr,    X86::VFNMADD132SDZm,    MVT::f64    },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMADD132PHZ128r, X86::VFNMADD132PHZ128m, MVT::v8f16  },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMADD132PSZ128r, X86::VFNMADD132PSZ128m, MVT::v4f32  },
     { X86::VFNMADD132PDZ128r, X86::VFNMADD132PDZ128m, MVT::v2f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMADD132PHZ256r, X86::VFNMADD132PHZ256m, MVT::v16f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMADD132PSZ256r, X86::VFNMADD132PSZ256m, MVT::v8f32  },
     { X86::VFNMADD132PDZ256r, X86::VFNMADD132PDZ256m, MVT::v4f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMADD132PHZr,    X86::VFNMADD132PHZm,    MVT::v32f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMADD132PSZr,    X86::VFNMADD132PSZm,    MVT::v16f32 },
     { X86::VFNMADD132PDZr,    X86::VFNMADD132PDZm,    MVT::v8f64  },
   },
   { // FNMA231
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMADD231SHZr,    X86::VFNMADD231SHZm,    MVT::f16    },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMADD231SSZr,    X86::VFNMADD231SSZm,    MVT::f32    },
     { X86::VFNMADD231SDZr,    X86::VFNMADD231SDZm,    MVT::f64    },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMADD231PHZ128r, X86::VFNMADD231PHZ128m, MVT::v8f16  },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMADD231PSZ128r, X86::VFNMADD231PSZ128m, MVT::v4f32  },
     { X86::VFNMADD231PDZ128r, X86::VFNMADD231PDZ128m, MVT::v2f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMADD231PHZ256r, X86::VFNMADD231PHZ256m, MVT::v16f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMADD231PSZ256r, X86::VFNMADD231PSZ256m, MVT::v8f32  },
     { X86::VFNMADD231PDZ256r, X86::VFNMADD231PDZ256m, MVT::v4f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMADD231PHZr,    X86::VFNMADD231PHZm,    MVT::v32f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMADD231PSZr,    X86::VFNMADD231PSZm,    MVT::v16f32 },
     { X86::VFNMADD231PDZr,    X86::VFNMADD231PDZm,    MVT::v8f64  },
   },
   { // FNMS213
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMSUB213SHZr,    X86::VFNMSUB213SHZm,    MVT::f16    },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMSUB213SSZr,    X86::VFNMSUB213SSZm,    MVT::f32    },
     { X86::VFNMSUB213SDZr,    X86::VFNMSUB213SDZm,    MVT::f64    },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMSUB213PHZ128r, X86::VFNMSUB213PHZ128m, MVT::v8f16  },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMSUB213PSZ128r, X86::VFNMSUB213PSZ128m, MVT::v4f32  },
     { X86::VFNMSUB213PDZ128r, X86::VFNMSUB213PDZ128m, MVT::v2f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMSUB213PHZ256r, X86::VFNMSUB213PHZ256m, MVT::v16f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMSUB213PSZ256r, X86::VFNMSUB213PSZ256m, MVT::v8f32  },
     { X86::VFNMSUB213PDZ256r, X86::VFNMSUB213PDZ256m, MVT::v4f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMSUB213PHZr,    X86::VFNMSUB213PHZm,    MVT::v32f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMSUB213PSZr,    X86::VFNMSUB213PSZm,    MVT::v16f32 },
     { X86::VFNMSUB213PDZr,    X86::VFNMSUB213PDZm,    MVT::v8f64  },
   },
   { // FNMS132
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMSUB132SHZr,    X86::VFNMSUB132SHZm,    MVT::f16    },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMSUB132SSZr,    X86::VFNMSUB132SSZm,    MVT::f32    },
     { X86::VFNMSUB132SDZr,    X86::VFNMSUB132SDZm,    MVT::f64    },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMSUB132PHZ128r, X86::VFNMSUB132PHZ128m, MVT::v8f16  },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMSUB132PSZ128r, X86::VFNMSUB132PSZ128m, MVT::v4f32  },
     { X86::VFNMSUB132PDZ128r, X86::VFNMSUB132PDZ128m, MVT::v2f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMSUB132PHZ256r, X86::VFNMSUB132PHZ256m, MVT::v16f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMSUB132PSZ256r, X86::VFNMSUB132PSZ256m, MVT::v8f32  },
     { X86::VFNMSUB132PDZ256r, X86::VFNMSUB132PDZ256m, MVT::v4f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMSUB132PHZr,    X86::VFNMSUB132PHZm,    MVT::v32f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMSUB132PSZr,    X86::VFNMSUB132PSZm,    MVT::v16f32 },
     { X86::VFNMSUB132PDZr,    X86::VFNMSUB132PDZm,    MVT::v8f64  },
   },
   { // FNMS231
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMSUB231SHZr,    X86::VFNMSUB231SHZm,    MVT::f16    },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMSUB231SSZr,    X86::VFNMSUB231SSZm,    MVT::f32    },
     { X86::VFNMSUB231SDZr,    X86::VFNMSUB231SDZm,    MVT::f64    },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMSUB231PHZ128r, X86::VFNMSUB231PHZ128m, MVT::v8f16  },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMSUB231PSZ128r, X86::VFNMSUB231PSZ128m, MVT::v4f32  },
     { X86::VFNMSUB231PDZ128r, X86::VFNMSUB231PDZ128m, MVT::v2f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMSUB231PHZ256r, X86::VFNMSUB231PHZ256m, MVT::v16f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMSUB231PSZ256r, X86::VFNMSUB231PSZ256m, MVT::v8f32  },
     { X86::VFNMSUB231PDZ256r, X86::VFNMSUB231PDZ256m, MVT::v4f64  },
+#if INTEL_FEATURE_ISA_FP16
+    { X86::VFNMSUB231PHZr,    X86::VFNMSUB231PHZm,    MVT::v32f16 },
+#endif // INTEL_FEATURE_ISA_FP16
     { X86::VFNMSUB231PSZr,    X86::VFNMSUB231PSZm,    MVT::v16f32 },
     { X86::VFNMSUB231PDZr,    X86::VFNMSUB231PDZm,    MVT::v8f64  },
   }
@@ -486,10 +673,19 @@ static bool isADDSUBMULIntrinsic(const MCInstrDesc &Desc) {
     return true;
 
   // Otherwise it should be a scalar register class.
+#if INTEL_FEATURE_ISA_FP16
+  assert((RegClassID == X86::FR16XRegClassID ||
+          RegClassID == X86::FR32RegClassID ||
+          RegClassID == X86::FR32XRegClassID ||
+          RegClassID == X86::FR64RegClassID ||
+          RegClassID == X86::FR64XRegClassID) &&
+         "Unexpected regclass!");
+#else // INTEL_FEATURE_ISA_FP16
   assert((RegClassID == X86::FR32RegClassID ||
           RegClassID == X86::FR32XRegClassID ||
           RegClassID == X86::FR64RegClassID ||
           RegClassID == X86::FR64XRegClassID) && "Unexpected regclass!");
+#endif // INTEL_FEATURE_ISA_FP16
 
   return false;
 }
@@ -506,9 +702,15 @@ bool FMAOpcodesInfo::recognizeInstr(const MachineInstr &MI,
   if (((TSFlags & X86II::EncodingMask) == X86II::VEX ||
        (TSFlags & X86II::EncodingMask) == X86II::EVEX) &&
       (TSFlags & X86II::EVEX_B) == 0 && (TSFlags & X86II::EVEX_K) == 0 &&
+#if INTEL_FEATURE_ISA_FP16
+      ((TSFlags & X86II::OpMapMask) == X86II::TB ||
+       // FP16 instructions use TMAP5.
+       (TSFlags & X86II::OpMapMask) == X86II::T_MAP5) &&
+#else // INTEL_FEATURE_ISA_FP16
       (TSFlags & X86II::OpMapMask) == X86II::TB &&
-      (BaseOpcode == 0x59/*MUL*/ || BaseOpcode == 0x58/*ADD*/ ||
-       BaseOpcode == 0x5c/*SUB*/) &&
+#endif // INTEL_FEATURE_ISA_FP16
+      (BaseOpcode == 0x59 /*MUL*/ || BaseOpcode == 0x58 /*ADD*/ ||
+       BaseOpcode == 0x5c /*SUB*/) &&
       !isADDSUBMULIntrinsic(MI.getDesc())) {
     switch (BaseOpcode) {
     default: llvm_unreachable("Unexpected opcode!");
@@ -531,16 +733,18 @@ bool FMAOpcodesInfo::recognizeInstr(const MachineInstr &MI,
   const X86InstrFMA3Group *FMA3Group = getFMA3Group(Opcode, TSFlags);
   if (FMA3Group && !FMA3Group->isIntrinsic() &&
       (BaseOpcode & 0x8) == 0x8 && // Reject ADDSUB/SUBADD.
-#if INTEL_FEATURE_ISA_FP16
-      // FP16 instructions use a similar encoding on a different opcode map.
-      (TSFlags & X86II::OpMapMask) == X86II::T8 &&
-#endif // INTEL_FEATURE_ISA_FP16
       (TSFlags & X86II::EVEX_B) == 0 && (TSFlags & X86II::EVEX_K) == 0) {
     assert(((TSFlags & X86II::EncodingMask) == X86II::VEX ||
             (TSFlags & X86II::EncodingMask) == X86II::EVEX) &&
            "Unexpected encoding!");
+#if INTEL_FEATURE_ISA_FP16
+    assert(((TSFlags & X86II::OpMapMask) == X86II::T8 ||
+            (TSFlags & X86II::OpMapMask) == X86II::T_MAP6) &&
+           "Unexpected opcode map!");
+#else // INTEL_FEATURE_ISA_FP16
     assert((TSFlags & X86II::OpMapMask) == X86II::T8 &&
            "Unexpected opcode map!");
+#endif // INTEL_FEATURE_ISA_FP16
     assert((TSFlags & X86II::OpPrefixMask) == X86II::PD &&
            "Unexpected prefix!");
     assert(((BaseOpcode >= 0x98 && BaseOpcode <= 0x9F) ||
@@ -580,6 +784,11 @@ bool FMAOpcodesInfo::recognizeInstr(const MachineInstr &MI,
 
   // Regular opcodes did not match. Check ZERO opcodes below.
   switch (Opcode) {
+#if INTEL_FEATURE_ISA_FP16
+  case X86::AVX512_FsFLD0SH:
+    VT = MVT::f16;
+    break;
+#endif // INTEL_FEATURE_ISA_FP16
   case X86::FsFLD0SS:
   case X86::AVX512_FsFLD0SS:
     VT = MVT::f32;
@@ -614,9 +823,19 @@ bool FMAOpcodesInfo::recognizeInstr(const MachineInstr &MI,
 unsigned FMAOpcodesInfo::getOpcodeOfKind(const X86Subtarget *ST,
                                          FMAOpcodeKind OpcodeKind, MVT VT) {
   if (OpcodeKind == ZEROOpc) {
+#if INTEL_FEATURE_ISA_FP16
+    assert((VT.getScalarType() == MVT::f16 || VT.getScalarType() == MVT::f32 ||
+            VT.getScalarType() == MVT::f64) &&
+           "Only F16, F32 and F64 ZERO vectors/scalars are supported.");
+#else // INTEL_FEATURE_ISA_FP16
     assert((VT.getScalarType() == MVT::f32 || VT.getScalarType() == MVT::f64) &&
            "Only F32 and F64 ZERO vectors/scalars are supported.");
+#endif // INTEL_FEATURE_ISA_FP16
     switch (VT.getSizeInBits()) {
+#if INTEL_FEATURE_ISA_FP16
+    case 16:
+      return X86::AVX512_FsFLD0SH;
+#endif // INTEL_FEATURE_ISA_FP16
     case 32:
       return ST->hasAVX512() ? X86::AVX512_FsFLD0SS : X86::FsFLD0SS;
     case 64:
@@ -683,6 +902,14 @@ private:
     TuneForLatency = 0x200,
     TuneForThroughput = 0x400
   };
+
+  typedef enum {
+#if INTEL_FEATURE_ISA_FP16
+    IsF16,
+#endif // INTEL_FEATURE_ISA_FP16
+    IsF32,
+    IsF64
+  } FloatKind;
 
   /// Returns true iff all of the passed features \p F are enabled
   /// by the internal switch FMAControl/"-x86-global-fma-control".
@@ -790,7 +1017,8 @@ private:
   /// the size of the broadcasted vector and the size of the element to be
   /// broadcasted.
   unsigned selectBroadcastFromGPR(unsigned VecBitSize, unsigned ElemBitSize,
-                                  const TargetRegisterClass **RC) const;
+                                  const TargetRegisterClass **RC,
+                                  FloatKind FK) const;
 };
 
 /// X86 specific variant of the immediate term.
@@ -1415,24 +1643,47 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag) {
   DeleteMI(MI);
 }
 
-unsigned
-X86GlobalFMA::selectBroadcastFromGPR(unsigned VecBitSize, unsigned ElemBitSize,
-                                     const TargetRegisterClass **RC) const {
-  bool IsF32 = ElemBitSize == 32;
-  assert((IsF32 || ElemBitSize == 64) &&
-         "Unsupported element size in selectBroadcastFromGPR()");
+unsigned X86GlobalFMA::selectBroadcastFromGPR(unsigned VecBitSize,
+                                              unsigned ElemBitSize,
+                                              const TargetRegisterClass **RC,
+                                              FloatKind FK) const {
+#if INTEL_FEATURE_ISA_FP16
+  assert(FK == IsF16 || FK == IsF32 ||
+         FK == IsF64 && "Unsupported element size in selectBroadcastFromGPR()");
+#else // INTEL_FEATURE_ISA_FP16
+  assert(FK == IsF32 ||
+         FK == IsF64 && "Unsupported element size in selectBroadcastFromGPR()");
+#endif // INTEL_FEATURE_ISA_FP16
   switch (VecBitSize) {
   case 128:
     assert(ST->hasVLX() && "Expected AVX512VL");
     *RC = &X86::VR128XRegClass;
-    return IsF32 ? X86::VPBROADCASTDrZ128rr : X86::VPBROADCASTQrZ128rr;
+#if INTEL_FEATURE_ISA_FP16
+    return FK == IsF16   ? X86::VPBROADCASTWrZ128rr
+           : FK == IsF32 ? X86::VPBROADCASTDrZ128rr
+                         : X86::VPBROADCASTQrZ128rr;
+#else // INTEL_FEATURE_ISA_FP16
+    return FK == IsF32 ? X86::VPBROADCASTDrZ128rr : X86::VPBROADCASTQrZ128rr;
+#endif // INTEL_FEATURE_ISA_FP16
   case 256:
     assert(ST->hasVLX() && "Expected AVX512VL");
     *RC = &X86::VR256XRegClass;
-    return IsF32 ? X86::VPBROADCASTDrZ256rr : X86::VPBROADCASTQrZ256rr;
+#if INTEL_FEATURE_ISA_FP16
+    return FK == IsF16   ? X86::VPBROADCASTWrZ256rr
+           : FK == IsF32 ? X86::VPBROADCASTDrZ256rr
+                         : X86::VPBROADCASTQrZ256rr;
+#else // INTEL_FEATURE_ISA_FP16
+    return FK == IsF32 ? X86::VPBROADCASTDrZ256rr : X86::VPBROADCASTQrZ256rr;
+#endif // INTEL_FEATURE_ISA_FP16
   case 512:
     *RC = &X86::VR512RegClass;
-    return IsF32 ? X86::VPBROADCASTDrZrr : X86::VPBROADCASTQrZrr;
+#if INTEL_FEATURE_ISA_FP16
+    return FK == IsF16   ? X86::VPBROADCASTWrZrr
+           : FK == IsF32 ? X86::VPBROADCASTDrZrr
+                         : X86::VPBROADCASTQrZrr;
+#else // INTEL_FEATURE_ISA_FP16
+    return FK == IsF32 ? X86::VPBROADCASTDrZrr : X86::VPBROADCASTQrZrr;
+#endif // INTEL_FEATURE_ISA_FP16
   default:
     break;
   }
@@ -1447,8 +1698,19 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   unsigned Opc;
 
   MVT ElementType = VT.getScalarType();
-  bool IsF32 = ElementType == MVT::f32;
-  assert(IsF32 || ElementType == MVT::f64 && "Unexpected element type!");
+  FloatKind FK =
+#if INTEL_FEATURE_ISA_FP16
+      ElementType == MVT::f16 ? IsF16 :
+#endif // INTEL_FEATURE_ISA_FP16
+      ElementType == MVT::f32 ? IsF32
+                              : IsF64;
+
+#if INTEL_FEATURE_ISA_FP16
+  assert(FK == IsF16 || FK == IsF32 || FK == IsF64 &&
+         "Unexpected element type!");
+#else // INTEL_FEATURE_ISA_FP16
+  assert(FK == IsF32 || FK == IsF64 && "Unexpected element type!");
+#endif // INTEL_FEATURE_ISA_FP16
   unsigned GPReg;
   unsigned R;
   uint64_t Imm;
@@ -1459,10 +1721,18 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   // the upper 32-bits of fp64 1.0 are loaded to 32-bit GPR register. Such
   // solution would require additional shift left or permute operation
   // on the destination vector register.
-  if (IsF32) {
+#if INTEL_FEATURE_ISA_FP16
+  if (FK == IsF16 || FK == IsF32) {
+#else // INTEL_FEATURE_ISA_FP16
+  if (FK == IsF32) {
+#endif // INTEL_FEATURE_ISA_FP16
     GPReg = MRI->createVirtualRegister(&X86::GR32RegClass);
     Opc = X86::MOV32ri;
-    Imm = IsF32 ? 0x3f800000 : 0x3ff00000;
+#if INTEL_FEATURE_ISA_FP16
+    Imm = FK == IsF32 ? 0x3f800000 : 0x3c00;
+#else // INTEL_FEATURE_ISA_FP16
+    Imm = 0x3f800000;
+#endif // INTEL_FEATURE_ISA_FP16
   } else {
     GPReg = MRI->createVirtualRegister(&X86::GR64RegClass);
     Opc = X86::MOV64ri;
@@ -1472,12 +1742,23 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
 
   // For scalars, use the instructions that use a scalar register class.
   if (!VT.isVector()) {
-    const TargetRegisterClass *RC = ST->getTargetLowering()->getRegClassFor(VT);
-    R = MRI->createVirtualRegister(RC);
-    if (IsF32)
+#if INTEL_FEATURE_ISA_FP16
+    if (FK == IsF16) {
+      R = MRI->createVirtualRegister(&X86::VR128XRegClass);
+      Opc = X86::VMOVW2SHrr;
+    } else if (FK == IsF32) {
+#else // INTEL_FEATURE_ISA_FP16
+    if (FK == IsF32) {
+#endif // INTEL_FEATURE_ISA_FP16
+      R = MRI->createVirtualRegister(
+          ST->getTargetLowering()->getRegClassFor(VT));
       Opc = ST->hasAVX512() ? X86::VMOVDI2SSZrr : X86::VMOVDI2SSrr;
-    else
+    } else {
+      R = MRI->createVirtualRegister(
+          ST->getTargetLowering()->getRegClassFor(VT));
       Opc = ST->hasAVX512() ? X86::VMOV64toSDZrr : X86::VMOV64toSDrr;
+    }
+
     BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
         .addReg(GPReg, RegState::Kill);
 
@@ -1488,10 +1769,15 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   if (ST->hasAVX512()) {
     bool UseVLX = ST->hasVLX() && VTBitSize <= 256;
     unsigned VecBitSize = UseVLX ? VTBitSize : 512;
-    unsigned ElemSize = IsF32 ? 32 : 64;
+    unsigned ElemSize =
+#if INTEL_FEATURE_ISA_FP16
+        FK == IsF16 ? 16 :
+#endif // INTEL_FEATURE_ISA_FP16
+        FK == IsF32 ? 32
+                    : 64;
 
     const TargetRegisterClass *RC;
-    Opc = selectBroadcastFromGPR(VecBitSize, ElemSize, &RC);
+    Opc = selectBroadcastFromGPR(VecBitSize, ElemSize, &RC, FK);
     unsigned VReg = MRI->createVirtualRegister(RC);
     BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), VReg)
         .addReg(GPReg, RegState::Kill);
@@ -1518,7 +1804,10 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
 
   // For vectors we need to insert into 128 bits and then broadcast.
   unsigned R128 = MRI->createVirtualRegister(&X86::VR128RegClass);
-  if (IsF32)
+#if INTEL_FEATURE_ISA_FP16
+  assert(FK != IsF16 && "FP16 should be handled upper");
+#endif // INTEL_FEATURE_ISA_FP16
+  if (FK == IsF32)
     Opc = ST->hasAVX512() ? X86::VMOVDI2PDIZrr : X86::VMOVDI2PDIrr;
   else
     Opc = ST->hasAVX512() ? X86::VMOV64toPQIZrr : X86::VMOV64toPQIrr;
@@ -1528,11 +1817,11 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   // Broadcast the lowest element of the XMM to the bigger vector register.
   if (VT.getSizeInBits() == 128) {
     R = MRI->createVirtualRegister(&X86::VR128RegClass);
-    Opc = IsF32 ? X86::VBROADCASTSSrr : X86::VMOVDDUPrr;
+    Opc = FK == IsF32 ? X86::VBROADCASTSSrr : X86::VMOVDDUPrr;
   } else {
     assert(VT.getSizeInBits() == 256 && "Unexpected size!");
     R = MRI->createVirtualRegister(&X86::VR256RegClass);
-    Opc = IsF32 ? X86::VBROADCASTSSYrr : X86::VBROADCASTSDYrr;
+    Opc = FK == IsF32 ? X86::VBROADCASTSSYrr : X86::VBROADCASTSDYrr;
   }
 
   auto MIB = BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R);
@@ -1554,6 +1843,12 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
   unsigned Opc;
   Type *Ty;
   switch (VT.SimpleTy) {
+#if INTEL_FEATURE_ISA_FP16
+  case MVT::f16:
+    Opc = X86::VMOVSHZrm_alt;
+    Ty = Type::getHalfTy(Context);
+    break;
+#endif // INTEL_FEATURE_ISA_FP16
   case MVT::f32:
     Opc = ST->hasAVX512() ? X86::VMOVSSZrm_alt : X86::VMOVSSrm_alt;
     Ty = Type::getFloatTy(Context);
@@ -1562,6 +1857,12 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
     Opc = ST->hasAVX512() ? X86::VMOVSDZrm_alt : X86::VMOVSDrm_alt;
     Ty = Type::getDoubleTy(Context);
     break;
+#if INTEL_FEATURE_ISA_FP16
+  case MVT::v8f16:
+    Opc = ST->hasVLX() ? X86::VMOVAPSZ128rm : X86::VMOVAPSrm;
+    Ty = FixedVectorType::get(Type::getHalfTy(Context), 8);
+    break;
+#endif // INTEL_FEATURE_ISA_FP16
   case MVT::v4f32:
     Opc = ST->hasVLX() ? X86::VMOVAPSZ128rm : X86::VMOVAPSrm;
     Ty = FixedVectorType::get(Type::getFloatTy(Context), 4);
@@ -1570,6 +1871,12 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
     Opc = ST->hasVLX() ? X86::VMOVAPDZ128rm : X86::VMOVAPDrm;
     Ty = FixedVectorType::get(Type::getDoubleTy(Context), 2);
     break;
+#if INTEL_FEATURE_ISA_FP16
+  case MVT::v16f16:
+    Opc = ST->hasVLX() ? X86::VMOVAPSZ256rm : X86::VMOVAPSYrm;
+    Ty = FixedVectorType::get(Type::getHalfTy(Context), 16);
+    break;
+#endif // INTEL_FEATURE_ISA_FP16
   case MVT::v8f32:
     Opc = ST->hasVLX() ? X86::VMOVAPSZ256rm : X86::VMOVAPSYrm;
     Ty = FixedVectorType::get(Type::getFloatTy(Context), 8);
@@ -1578,6 +1885,13 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
     Opc = ST->hasVLX() ? X86::VMOVAPDZ256rm : X86::VMOVAPDYrm;
     Ty = FixedVectorType::get(Type::getDoubleTy(Context), 4);
     break;
+#if INTEL_FEATURE_ISA_FP16
+  case MVT::v32f16:
+    assert(ST->hasAVX512() && "Expected AVX512 enabled!");
+    Opc = X86::VMOVAPSZrm;
+    Ty = FixedVectorType::get(Type::getHalfTy(Context), 32);
+    break;
+#endif // INTEL_FEATURE_ISA_FP16
   case MVT::v16f32:
     assert(ST->hasAVX512() && "Expected AVX512 enabled!");
     Opc = X86::VMOVAPSZrm;
