@@ -104,7 +104,7 @@ static RT::PiProgram createSpirvProgram(const ContextImplPtr Context,
 }
 
 RTDeviceBinaryImage &
-ProgramManager::getDeviceImage(OSModuleHandle M, const string_class &KernelName,
+ProgramManager::getDeviceImage(OSModuleHandle M, const std::string &KernelName,
                                const context &Context, const device &Device,
                                bool JITCompilationIsRequired) {
   if (DbgProgMgr > 0)
@@ -261,7 +261,7 @@ static bool isDeviceBinaryTypeSupported(const context &C,
     return true;
 #endif // INTEL_CUSTOMIZATION
 
-  vector_class<device> Devices = C.get_devices();
+  std::vector<device> Devices = C.get_devices();
 
   // Program type is SPIR-V, so we need a device compiler to do JIT.
   for (const device &D : Devices) {
@@ -282,7 +282,7 @@ static bool isDeviceBinaryTypeSupported(const context &C,
   for (const device &D : Devices) {
     // We need cl_khr_il_program extension to be present
     // and we can call clCreateProgramWithILKHR using the extension
-    vector_class<string_class> Extensions =
+    std::vector<std::string> Extensions =
         D.get_info<info::device::extensions>();
     if (Extensions.end() ==
         std::find(Extensions.begin(), Extensions.end(), "cl_khr_il_program"))
@@ -416,7 +416,7 @@ static void applyOptionsFromEnvironment(std::string &CompileOpts,
 RT::PiProgram ProgramManager::getBuiltPIProgram(OSModuleHandle M,
                                                 const context &Context,
                                                 const device &Device,
-                                                const string_class &KernelName,
+                                                const std::string &KernelName,
                                                 const program_impl *Prg,
                                                 bool JITCompilationIsRequired) {
   // TODO: Make sure that KSIds will be different for the case when the same
@@ -517,7 +517,7 @@ RT::PiProgram ProgramManager::getBuiltPIProgram(OSModuleHandle M,
 
 std::pair<RT::PiKernel, std::mutex *> ProgramManager::getOrCreateKernel(
     OSModuleHandle M, const context &Context, const device &Device,
-    const string_class &KernelName, const program_impl *Prg) {
+    const std::string &KernelName, const program_impl *Prg) {
   if (DbgProgMgr > 0) {
     std::cerr << ">>> ProgramManager::getOrCreateKernel(" << M << ", "
               << getRawSyclObjImpl(Context) << ", " << getRawSyclObjImpl(Device)
@@ -574,18 +574,18 @@ ProgramManager::getPiProgramFromPiKernel(RT::PiKernel Kernel,
   return Program;
 }
 
-string_class ProgramManager::getProgramBuildLog(const RT::PiProgram &Program,
-                                                const ContextImplPtr Context) {
+std::string ProgramManager::getProgramBuildLog(const RT::PiProgram &Program,
+                                               const ContextImplPtr Context) {
   size_t PIDevicesSize = 0;
   const detail::plugin &Plugin = Context->getPlugin();
   Plugin.call<PiApiKind::piProgramGetInfo>(Program, PI_PROGRAM_INFO_DEVICES, 0,
                                            nullptr, &PIDevicesSize);
-  vector_class<RT::PiDevice> PIDevices(PIDevicesSize / sizeof(RT::PiDevice));
+  std::vector<RT::PiDevice> PIDevices(PIDevicesSize / sizeof(RT::PiDevice));
   Plugin.call<PiApiKind::piProgramGetInfo>(Program, PI_PROGRAM_INFO_DEVICES,
                                            PIDevicesSize, PIDevices.data(),
                                            nullptr);
-  string_class Log = "The program was built for " +
-                     std::to_string(PIDevices.size()) + " devices";
+  std::string Log = "The program was built for " +
+                    std::to_string(PIDevices.size()) + " devices";
   for (RT::PiDevice &Device : PIDevices) {
     std::string DeviceBuildInfoString;
     size_t DeviceBuildInfoStrSize = 0;
@@ -593,7 +593,7 @@ string_class ProgramManager::getProgramBuildLog(const RT::PiProgram &Program,
         Program, Device, CL_PROGRAM_BUILD_LOG, 0, nullptr,
         &DeviceBuildInfoStrSize);
     if (DeviceBuildInfoStrSize > 0) {
-      vector_class<char> DeviceBuildInfo(DeviceBuildInfoStrSize);
+      std::vector<char> DeviceBuildInfo(DeviceBuildInfoStrSize);
       Plugin.call<PiApiKind::piProgramGetBuildInfo>(
           Program, Device, CL_PROGRAM_BUILD_LOG, DeviceBuildInfoStrSize,
           DeviceBuildInfo.data(), nullptr);
@@ -605,7 +605,7 @@ string_class ProgramManager::getProgramBuildLog(const RT::PiProgram &Program,
     Plugin.call<PiApiKind::piDeviceGetInfo>(Device, PI_DEVICE_INFO_NAME, 0,
                                             nullptr, &DeviceNameStrSize);
     if (DeviceNameStrSize > 0) {
-      vector_class<char> DeviceName(DeviceNameStrSize);
+      std::vector<char> DeviceName(DeviceNameStrSize);
       Plugin.call<PiApiKind::piDeviceGetInfo>(Device, PI_DEVICE_INFO_NAME,
                                               DeviceNameStrSize,
                                               DeviceName.data(), nullptr);
@@ -894,7 +894,7 @@ static std::vector<RT::PiProgram> getDeviceLibPrograms(
 
 ProgramManager::ProgramPtr ProgramManager::build(
     ProgramPtr Program, const ContextImplPtr Context,
-    const string_class &CompileOptions, const string_class &LinkOptions,
+    const std::string &CompileOptions, const std::string &LinkOptions,
     const RT::PiDevice &Device,
     std::map<std::pair<DeviceLibExt, RT::PiDevice>, RT::PiProgram>
         &CachedLibPrograms,
@@ -1059,7 +1059,7 @@ KernelSetId ProgramManager::getNextKernelSetId() const {
 
 KernelSetId
 ProgramManager::getKernelSetId(OSModuleHandle M,
-                               const string_class &KernelName) const {
+                               const std::string &KernelName) const {
   // If the env var instructs to use image from a file,
   // return the kernel set associated with it
   if (m_UseSpvFile && M == OSUtil::ExeModuleHandle)
@@ -1164,8 +1164,7 @@ uint32_t ProgramManager::getDeviceLibReqMask(const RTDeviceBinaryImage &Img) {
 // header instead.
 ProgramManager::KernelArgMask ProgramManager::getEliminatedKernelArgMask(
     OSModuleHandle M, const context &Context, const device &Device,
-    pi::PiProgram NativePrg, const string_class &KernelName,
-    bool KnownProgram) {
+    pi::PiProgram NativePrg, const std::string &KernelName, bool KnownProgram) {
   // If instructed to use a spv file, assume no eliminated arguments.
   if (m_UseSpvFile && M == OSUtil::ExeModuleHandle)
     return {};
@@ -1515,7 +1514,7 @@ ProgramManager::link(const std::vector<device_image_plain> &DeviceImages,
       /*user_data=*/nullptr, &LinkedProg);
 
   if (Error != PI_SUCCESS) {
-    const string_class ErrorMsg =
+    const std::string ErrorMsg =
         LinkedProg ? getProgramBuildLog(LinkedProg, ContextImpl)
                    : "Online link operation failed";
     throw sycl::exception(make_error_code(errc::build), ErrorMsg);
@@ -1694,7 +1693,7 @@ device_image_plain ProgramManager::build(const device_image_plain &DeviceImage,
 }
 
 std::pair<RT::PiKernel, std::mutex *> ProgramManager::getOrCreateKernel(
-    const context &Context, const string_class &KernelName,
+    const context &Context, const std::string &KernelName,
     const property_list &PropList, RT::PiProgram Program) {
 
   (void)PropList;
