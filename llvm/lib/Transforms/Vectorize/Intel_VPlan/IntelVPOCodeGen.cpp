@@ -1661,6 +1661,69 @@ void VPOCodeGen::generateVectorCode(VPInstruction *VPInst) {
     vectorizePrivateFinalUncond(VPInst);
     return;
   }
+  case VPInstruction::PrivateFinalArray: {
+    // We need to copy array from last private allocated memory into the
+    // original array location.
+    Value *Orig = getScalarValue(VPInst->getOperand(1), 0);
+    ArrayType *ArrTy =
+        cast<ArrayType>(Orig->getType()->getPointerElementType());
+
+    VPAllocatePrivate *Priv = cast<VPAllocatePrivate>(VPInst->getOperand(0));
+    if (Priv->isSOALayout()) {
+
+      assert(LoopPrivateVPWidenMap.count(Priv) > 0 &&
+             "Expected widened alloca for SOA last private.");
+      Value *Res = LoopPrivateVPWidenMap[Priv];
+
+      // In case of SOA layout we need to extract array elements one by one from
+      // the each vector and then store it to the original array. To do so we
+      // create a fixed trip count loop.
+      BasicBlock *BBLoop =
+          SplitBlock(Builder.GetInsertBlock(), &*Builder.GetInsertPoint(), DT,
+                     LI, nullptr, "array.last.private.loop");
+      BasicBlock *BBExit = SplitBlock(BBLoop, BBLoop->getTerminator(), DT, LI,
+                                      nullptr, "array.last.private.loop.exit");
+      Builder.SetInsertPoint(BBLoop->getTerminator());
+
+      // Creating phi node to count loop iterations.
+      PHINode *Phi =
+          Builder.CreatePHI(Type::getInt64Ty(Builder.getContext()), 2);
+      Phi->addIncoming(Builder.getInt64(0), BBLoop->getSinglePredecessor());
+
+      // Loop body. Copying element in VF - 1 position from each vector.
+      Value *Ptr = Builder.CreateGEP(
+          Res, {Builder.getInt64(0), Phi, Builder.getInt64(VF - 1)});
+      Value *Val =
+          Builder.CreateLoad(Ptr->getType()->getPointerElementType(), Ptr);
+      Value *Target = Builder.CreateGEP(Orig, {Builder.getInt64(0), Phi});
+      Builder.CreateStore(Val, Target);
+
+      // Increment of loop variable.
+      Value *Index = Builder.CreateAdd(Phi, Builder.getInt64(1));
+      Phi->addIncoming(Index, BBLoop);
+      Value *Cond = Builder.CreateICmpULT(
+          Index, Builder.getInt64(ArrTy->getNumElements()));
+
+      Builder.CreateCondBr(Cond, BBLoop, BBExit);
+      BBLoop->getTerminator()->eraseFromParent();
+
+      State->CFG.PrevBB = BBExit;
+
+    } else {
+
+      // In case of non-SOA layout it will be enough to copy memory from last
+      // private into the original array.
+      Value *Res = getScalarValue(Priv, VF - 1);
+      const DataLayout &DL =
+          OrigLoop->getHeader()->getModule()->getDataLayout();
+      Builder.CreateMemCpy(Orig, DL.getPrefTypeAlign(Orig->getType()), Res,
+                           Priv->getOrigAlignment(),
+                           DL.getTypeAllocSize(ArrTy->getElementType()) *
+                               ArrTy->getNumElements());
+    }
+
+    return;
+  }
   case VPInstruction::VLSLoad: {
     auto *VLSLoad = cast<VPVLSLoad>(VPInst);
     assert(DA->isUniform(*VLSLoad) &&

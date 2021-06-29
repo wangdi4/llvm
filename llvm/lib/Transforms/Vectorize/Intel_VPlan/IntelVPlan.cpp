@@ -365,6 +365,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "private-final-c";
   case VPInstruction::PrivateFinalCondMem:
     return "private-final-c-mem";
+  case VPInstruction::PrivateFinalArray:
+    return "private-final-array";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);

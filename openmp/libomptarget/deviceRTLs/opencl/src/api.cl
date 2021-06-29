@@ -27,7 +27,8 @@ EXTERN int omp_get_team_num(void) {
 }
 
 EXTERN int omp_get_num_teams(void) {
-  return __kmp_get_num_groups();
+  int ret = __kmp_get_num_groups();
+  return ret;
 }
 
 EXTERN int omp_get_team_size(int level) {
