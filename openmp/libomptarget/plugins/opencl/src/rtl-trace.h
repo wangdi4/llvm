@@ -18,34 +18,34 @@
 #include <inttypes.h>
 #include <string>
 #include "omptarget.h"
+#include "Debug.h"
 
 #define STR(x) #x
 #define TO_STRING(x) STR(x)
 
-#ifdef _WIN32
-#include <windows.h>
-#define  print_pid() fprintf(stderr, " (pid:%lu) ", GetCurrentProcessId());
-#else
-#include <unistd.h>
-#define  print_pid() fprintf(stderr, " (pid:%d) ", getpid());
-#endif // _WIN32
+#define TARGET_NAME OPENCL
+#define DEBUG_PREFIX "Target " GETNAME(TARGET_NAME) " RTL"
 
 extern int DebugLevel;
 
-#define IDPLEVEL(Level, ...)                                                   \
+#define DPCALL(...)                                                            \
   do {                                                                         \
-    if (DebugLevel > Level) {                                                  \
-      fprintf(stderr, "Target OPENCL RTL");                                    \
-      if (DebugLevel > 2) {                                                    \
-         print_pid();                                                          \
-      }                                                                        \
-      fprintf(stderr, " --> ");                                                \
-      fprintf(stderr, __VA_ARGS__);                                            \
-    }                                                                          \
+    if (DebugLevel > 1)                                                        \
+      DP(__VA_ARGS__);                                                         \
   } while (0)
 
-#define IDP(...) IDPLEVEL(0, __VA_ARGS__)
-#define IDP1(...) IDPLEVEL(1, __VA_ARGS__)
+#define FATAL_ERROR(Msg)                                                       \
+  do {                                                                         \
+    fprintf(stderr, "%s --> ", DEBUG_PREFIX);                                  \
+    fprintf(stderr, "Error: %s failed (%s) -- exiting...\n", __func__, Msg);   \
+    exit(EXIT_FAILURE);                                                        \
+  } while (0)
+
+#define WARNING(...)                                                           \
+  do {                                                                         \
+    fprintf(stderr, "%s --> ", DEBUG_PREFIX);                                  \
+    fprintf(stderr, "Warning: " __VA_ARGS__);                                  \
+  } while (0)
 
 #if INTEL_CUSTOMIZATION
 // DPI() is for printing sensitive information in the debug output.
@@ -53,7 +53,7 @@ extern int DebugLevel;
 // Note that DPI is not defined for non-INTEL_CUSTOMIZATION builds,
 // so that the INTEL_COLLAB build fails, if DPI used in there.
 #if INTEL_INTERNAL_BUILD
-#define DPI(...) IDP(__VA_ARGS__)
+#define DPI(...) DP(__VA_ARGS__)
 #else  // !INTEL_INTERNAL_BUILD
 #define DPI(...)
 #endif // !INTEL_INTERNAL_BUILD
@@ -179,24 +179,16 @@ static const char *getCLErrorName(int error) {
   }
 }
 
-#define FATAL_ERROR(msg)                                                       \
-  do {                                                                         \
-    IDPLEVEL(-1, "Error: %s failed (%s) -- exiting...\n", __func__, msg);      \
-    exit(EXIT_FAILURE);                                                        \
-  } while (0)
-
-#define WARNING(...) IDPLEVEL(-1, "Warning: " __VA_ARGS__)
-
 #define TRACE_FN(Name) CLTR##Name
 #define TRACE_FN_ARG_BEGIN()                                                   \
   do {                                                                         \
     std::string fn(__func__);                                                  \
-    IDP1("CL_CALLEE: %s (\n", fn.substr(4).c_str());                           \
+    DPCALL("CL_CALLEE: %s (\n", fn.substr(4).c_str());                         \
   } while (0)
-#define TRACE_FN_ARG_END() IDP1(")\n")
-#define TRACE_FN_ARG(Arg, Fmt) IDP1("    %s = " Fmt "\n", TO_STRING(Arg), Arg)
+#define TRACE_FN_ARG_END() DPCALL(")\n")
+#define TRACE_FN_ARG(Arg, Fmt) DPCALL("    %s = " Fmt "\n", TO_STRING(Arg), Arg)
 #define TRACE_FN_ARG_PTR(Arg)                                                  \
-  IDP1("    %s = " DPxMOD "\n", TO_STRING(Arg), DPxPTR(Arg))
+  DPCALL("    %s = " DPxMOD "\n", TO_STRING(Arg), DPxPTR(Arg))
 #define TRACE_FN_ARG_INT(Arg) TRACE_FN_ARG(Arg, "%" PRId32)
 #define TRACE_FN_ARG_SIZE(Arg) TRACE_FN_ARG(Arg, "%zu")
 #define TRACE_FN_ARG_UINT(Arg) TRACE_FN_ARG(Arg, "%" PRIu32)
@@ -1094,7 +1086,7 @@ cl_int TRACE_FN(clSetProgramSpecializationConstant)(
 #define CALL_CL_SILENT(Rc, Fn, ...)                                            \
   do {                                                                         \
     if (DebugLevel > 1) {                                                      \
-      IDP1("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ )));   \
+      DPCALL("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ ))); \
       Rc = TRACE_FN(Fn)(__VA_ARGS__);                                          \
     } else {                                                                   \
       Rc = Fn(__VA_ARGS__);                                                    \
@@ -1106,7 +1098,7 @@ cl_int TRACE_FN(clSetProgramSpecializationConstant)(
   do {                                                                         \
     CALL_CL_SILENT(Rc, Fn, __VA_ARGS__);                                       \
     if (Rc != CL_SUCCESS) {                                                    \
-      IDP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, Rc,   \
+      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, Rc,    \
          getCLErrorName(Rc));                                                  \
     }                                                                          \
   } while (0)
@@ -1116,7 +1108,7 @@ cl_int TRACE_FN(clSetProgramSpecializationConstant)(
   do {                                                                         \
     CALL_CL_SILENT(Rc, Fn, __VA_ARGS__);                                       \
     if (Rc != CL_SUCCESS) {                                                    \
-      IDP("Warning: %s:%s returned %d, %s\n", __func__, #Fn, Rc,               \
+      DP("Warning: %s:%s returned %d, %s\n", __func__, #Fn, Rc,                \
          getCLErrorName(Rc));                                                  \
     }                                                                          \
   } while (0)
@@ -1155,13 +1147,13 @@ cl_int TRACE_FN(clSetProgramSpecializationConstant)(
 #define CALL_CL_RVRC(Rv, Fn, Rc, ...)                                          \
   do {                                                                         \
     if (DebugLevel > 1) {                                                      \
-      IDP1("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ )));   \
+      DPCALL("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ ))); \
       Rv = TRACE_FN(Fn)(__VA_ARGS__, &Rc);                                     \
     } else {                                                                   \
       Rv = Fn(__VA_ARGS__, &Rc);                                               \
     }                                                                          \
     if (Rc != CL_SUCCESS) {                                                    \
-      IDP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, Rc,   \
+      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, Rc,    \
          getCLErrorName(Rc));                                                  \
     }                                                                          \
   } while (0)
@@ -1170,7 +1162,7 @@ cl_int TRACE_FN(clSetProgramSpecializationConstant)(
 #define CALL_CL_RV(Rv, Fn, ...)                                                \
   do {                                                                         \
     if (DebugLevel > 1) {                                                      \
-      IDP1("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ )));   \
+      DPCALL("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ ))); \
       Rv = TRACE_FN(Fn)(__VA_ARGS__);                                          \
     } else {                                                                   \
       Rv = Fn(__VA_ARGS__);                                                    \
@@ -1181,7 +1173,7 @@ cl_int TRACE_FN(clSetProgramSpecializationConstant)(
 #define CALL_CL_VOID(Fn, ...)                                                  \
   do {                                                                         \
     if (DebugLevel > 1) {                                                      \
-      IDP1("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ )));   \
+      DPCALL("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ ))); \
       TRACE_FN(Fn)(__VA_ARGS__);                                               \
     } else {                                                                   \
       Fn(__VA_ARGS__);                                                         \
@@ -1194,7 +1186,7 @@ cl_int TRACE_FN(clSetProgramSpecializationConstant)(
     Name##_fn Fn = reinterpret_cast<Name##_fn>(                                \
         DeviceInfo->getExtensionFunctionPtr(DeviceId, Name##Id));              \
     if (DebugLevel > 1) {                                                      \
-      IDP1("CL_CALLER: %s %s\n",                                               \
+      DPCALL("CL_CALLER: %s %s\n",                                             \
            TO_STRING(Name), TO_STRING(( __VA_ARGS__ )));                       \
       TRACE_FN(Name)(Fn, __VA_ARGS__);                                         \
     } else {                                                                   \
@@ -1208,7 +1200,7 @@ cl_int TRACE_FN(clSetProgramSpecializationConstant)(
     Name##_fn Fn = reinterpret_cast<Name##_fn>(                                \
         DeviceInfo->getExtensionFunctionPtr(DeviceId, Name##Id));              \
     if (DebugLevel > 1) {                                                      \
-      IDP1("CL_CALLER: %s %s\n",                                               \
+      DPCALL("CL_CALLER: %s %s\n",                                             \
            TO_STRING(Name), TO_STRING(( __VA_ARGS__ )));                       \
       Rc = TRACE_FN(Name)(Fn, __VA_ARGS__);                                    \
     } else {                                                                   \
@@ -1221,8 +1213,8 @@ cl_int TRACE_FN(clSetProgramSpecializationConstant)(
   do {                                                                         \
     CALL_CL_EXT_SILENT(DeviceId, Rc, Name, __VA_ARGS__);                       \
     if (Rc != CL_SUCCESS) {                                                    \
-      IDP("Error: %s:%s failed with error code %d, %s\n",                      \
-          __func__, TO_STRING(Name), Rc, getCLErrorName(Rc));                  \
+      DP("Error: %s:%s failed with error code %d, %s\n",                       \
+         __func__, TO_STRING(Name), Rc, getCLErrorName(Rc));                   \
     }                                                                          \
   } while (0)
 
@@ -1232,15 +1224,15 @@ cl_int TRACE_FN(clSetProgramSpecializationConstant)(
     Name##_fn Fn = reinterpret_cast<Name##_fn>(                                \
         DeviceInfo->getExtensionFunctionPtr(DeviceId, Name##Id));              \
     if (DebugLevel > 1) {                                                      \
-      IDP1("CL_CALLER: %s %s\n",                                               \
+      DPCALL("CL_CALLER: %s %s\n",                                             \
            TO_STRING(Name), TO_STRING(( __VA_ARGS__ )));                       \
       Rv = TRACE_FN(Name)(Fn, __VA_ARGS__, &Rc);                               \
     } else {                                                                   \
       Rv = (*Fn)(__VA_ARGS__, &Rc);                                            \
     }                                                                          \
     if (Rc != CL_SUCCESS) {                                                    \
-      IDP("Error: %s:%s failed with error code %d, %s\n",                      \
-          __func__, TO_STRING(Name), Rc, getCLErrorName(Rc));                  \
+      DP("Error: %s:%s failed with error code %d, %s\n",                       \
+         __func__, TO_STRING(Name), Rc, getCLErrorName(Rc));                   \
     }                                                                          \
   } while (0)
 
