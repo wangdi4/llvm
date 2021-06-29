@@ -21,6 +21,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/passes/ChannelPipeTransformation
     ${BACKEND_ROOT_DIR}/passes/OCLAliasAnalysis
     ${CMAKE_BINARY_DIR}/include/
+    ${LLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR}/include
 )
 
 include_directories(
@@ -37,6 +38,7 @@ add_opencl_library(${TARGET_NAME} STATIC
 if (OPENCL_INTREE_BUILD)
   add_dependencies(${TARGET_NAME} intrinsics_gen)
   add_dependencies(${TARGET_NAME} directives_gen)
+  add_dependencies(${TARGET_NAME} LLVMSPIRVLib)
 endif()
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )

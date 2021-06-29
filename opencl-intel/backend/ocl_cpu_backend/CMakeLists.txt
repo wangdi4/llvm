@@ -284,6 +284,7 @@ set(LINK_LIBS
     emutls
     fp_extend_trunc
     ObjDump
+    LLVMSPIRVLib
 )
 
 if (WIN32)

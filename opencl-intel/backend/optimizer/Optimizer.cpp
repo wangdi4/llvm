@@ -54,6 +54,8 @@
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
+#include "LLVMSPIRVLib.h"
+
 // TODO:
 // #include "llvm/Transforms/Intel_OpenCLTransforms/Passes.h"
 llvm::FunctionPass* createFMASplitterPass();
@@ -938,6 +940,8 @@ OptimizerOCL::OptimizerOCL(llvm::Module *pModule,
 
 void OptimizerOCL::Optimize() {
   legacy::PassManager materializerPM;
+  if (m_IsSYCL)
+    materializerPM.add(createSPIRVToOCL20Legacy());
   materializerPM.add(createBuiltinLibInfoPass(m_RtlModules, ""));
   materializerPM.add(createLLVMEqualizerPass());
   Triple TargetTriple(m_M->getTargetTriple());
