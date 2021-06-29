@@ -1,4 +1,4 @@
-; RUN: %oclopt -add-implicit-args -local-buffers -S < %s | FileCheck %s
+; RUN: %oclopt -dpcpp-kernel-add-implicit-args -local-buffers -S < %s | FileCheck %s
 
 ; transfer debug info from global variables to pLocalMemBase
 

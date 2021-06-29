@@ -15,8 +15,8 @@
 ; Optimizer options:
 ;   %oclopt -llvm-equalizer -verify %s -S
 ; ----------------------------------------------------
-; RUN: %oclopt -add-implicit-args -verify -S %s | FileCheck %s
-; RUN: %oclopt -add-implicit-args -local-buffers -dpcpp-kernel-prepare-args -verify -S %s | FileCheck %s --check-prefixes CHECK,CHECK-PKA
+; RUN: %oclopt -dpcpp-kernel-add-implicit-args -verify -S %s | FileCheck %s
+; RUN: %oclopt -dpcpp-kernel-add-implicit-args -local-buffers -dpcpp-kernel-prepare-args -verify -S %s | FileCheck %s --check-prefixes CHECK,CHECK-PKA
 
 ; The test checks that the passes preserve debug info.
 ;

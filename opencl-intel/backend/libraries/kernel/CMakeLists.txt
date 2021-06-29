@@ -19,9 +19,9 @@ function(create_ocl_kernel_target CLANG_FLAGS INPUT_CL TMP_DIR OUTPUT_DIR OUTPUT
             -o ${TMP_DIR}/${OUTPUT_BC_FILE}
     COMMAND ${OPT} ${TMP_DIR}/${OUTPUT_BC_FILE} -verify -llvm-equalizer
             -kernel-analysis -cl-loop-bound -deduce-max-dim -cl-loop-creator
-            -loop-idiom -loop-deletion -add-implicit-args -resolve-wi-call
-            -dpcpp-kernel-prepare-args -inline -dce -globaldce -instcombine
-            -cleanup-wrapped-kernels
+            -loop-idiom -loop-deletion -dpcpp-kernel-add-implicit-args
+            -resolve-wi-call -dpcpp-kernel-prepare-args -inline -dce -globaldce
+            -instcombine -cleanup-wrapped-kernels
             -o ${OUTPUT_OPT_FILE}
     COMMENT "Compiling ${OPT_RTL_FILE}"
   )
