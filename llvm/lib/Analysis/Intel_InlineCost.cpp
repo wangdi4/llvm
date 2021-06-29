@@ -3506,7 +3506,7 @@ static bool worthInliningForSmallApp(CallBase &CB,
   // heuristic. Currently, we are looking for callsites that have at least
   // one matching actual parameter and for which all other matching parameters
   // are either both fed by an AllocInst, SubscriptInst, GetElementPtrInst,
-  // or matching Arguments.
+  // matching Arguments, ConstantFP or LoadInst where the operands match.
   //
   auto MatchedPair = [](CallBase &CB0, CallBase &CB1) -> bool {
     if (CB0.getNumArgOperands() != CB1.getNumArgOperands())
@@ -3525,6 +3525,14 @@ static bool worthInliningForSmallApp(CallBase &CB,
         continue;
       if (isa<Argument>(V0) && V0 == V1)
         continue;
+      if (isa<ConstantFP>(V0) && V0 == V1)
+        continue;
+      if (isa<LoadInst>(V0) && isa<LoadInst>(V1)) {
+        auto Op0 = cast<LoadInst>(V0)->getOperand(0);
+        auto Op1 = cast<LoadInst>(V1)->getOperand(0);
+        if (Op0 == Op1)
+          continue;
+      }
       return false;
     }
     return SawMatch;
