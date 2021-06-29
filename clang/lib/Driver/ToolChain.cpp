@@ -1385,8 +1385,8 @@ void ToolChain::AddACTypesLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
   SmallVector<StringRef, 4> ACTypesLibs;
   ACTypesLibs.push_back("dspba_mpir");
   ACTypesLibs.push_back("dspba_mpfr");
-  ACTypesLibs.push_back("hls_fixed_point_math_x86");
-  ACTypesLibs.push_back("hls_vpfp_library");
+  ACTypesLibs.push_back("ac_types_fixed_point_math_x86");
+  ACTypesLibs.push_back("ac_types_vpfp_library");
   for (const auto &Lib : ACTypesLibs) {
     std::string LibName(Lib);
     if (Prefix.size() > 0)

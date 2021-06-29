@@ -130,8 +130,7 @@
 ; CHECK-O23SZ-NEXT: Running pass: IPCloningPass ;INTEL
 ; CHECK-O23SZ-NEXT: Running pass: GlobalDCEPass
 ; CHECK-O23SZ-NEXT: Running pass: IPArrayTransposePass ;INTEL
-; CHECK-O23SZ-NEXT: Running pass: DeadArrayOpsEliminationPass ;INTEL
-; CHECK-O23SZ-NEXT: Running pass: InstCombinePass
+; CHECK-O23SZ: Running pass: InstCombinePass ;INTEL
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O23SZ-NEXT: Running pass: JumpThreadingPass
 ; CHECK-O23SZ-NEXT: Running analysis: LazyValueAnalysis

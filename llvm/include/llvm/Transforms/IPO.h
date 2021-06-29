@@ -363,8 +363,10 @@ ModulePass *createQsortRecognizerLegacyPass(void);
 /// inlined with the "prefer-inline-aggressive" attribute.
 ModulePass *createAggInlinerLegacyPass(void);
 
+#if INTEL_FEATURE_SW_ADVANCED
 /// \brief This pass eliminates dead array element operations.
 ModulePass *createDeadArrayOpsEliminationLegacyPass(void);
+#endif // INTEL_FEATURE_SW_ADVANCED
 
 /// \brief This pass multiversions for tiling and marks tiled functions for
 /// inlining.

@@ -7,10 +7,19 @@
 ; CHECK-NEXT:       FunctionPass Manager
 ; CHECK-NEXT:         Dominator Tree Construction
 ; CHECK-NEXT:         Post-Dominator Tree Construction
+
+; CHECK:     DeadArrayOpsElimination
+; CHECK-NEXT:       FunctionPass Manager
+; CHECK-NEXT:         Dominator Tree Construction
+; CHECK-NEXT:         Natural Loop Information
+; CHECK-NEXT:         Scalar Evolution Analysis
+; CHECK-NEXT:         Array Use Analysis
+
 ; CHECK: Pass Arguments:  -domtree -postdomtree
 ; CHECK-NEXT:   FunctionPass Manager
 ; CHECK-NEXT:     Dominator Tree Construction
 ; CHECK-NEXT:     Post-Dominator Tree Construction
+
 
 define void @f() {
   ret void

@@ -125,15 +125,9 @@
 ; CHECK-NEXT:         Dominator Tree Construction
 ; CHECK-NEXT:         Natural Loop Information
 ; CHECK-NEXT:         Scalar Evolution Analysis
-; CHECK-NEXT:     DeadArrayOpsElimination
-; CHECK-NEXT:       FunctionPass Manager
-; CHECK-NEXT:         Dominator Tree Construction
-; CHECK-NEXT:         Natural Loop Information
-; CHECK-NEXT:         Scalar Evolution Analysis
-; CHECK-NEXT:         Array Use Analysis
-; CHECK-NEXT:     FunctionPass Manager
+; CHECK:          FunctionPass Manager
 ; CHECK-NEXT:       Dominator Tree Construction
-; CHECK-NEXT:       Lazy Value Information Analysis
+; CHECK:            Lazy Value Information Analysis
 ; CHECK-NEXT:       Value Propagation
 ; CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
 ; CHECK-NEXT:       Function Alias Analysis Results

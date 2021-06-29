@@ -120,7 +120,11 @@
 #include "llvm/Transforms/IPO/Intel_ArgNoAliasProp.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_ArgumentAlignment.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_CallTreeCloning.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_DeadArrayOpsElimination.h" // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_SW_ADVANCED
+#include "llvm/Transforms/IPO/Intel_DeadArrayOpsElimination.h"
+#endif // INTEL_FEATURE_SW_ADVANCED
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO/Intel_DopeVectorConstProp.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_FoldWPIntrinsic.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
@@ -447,12 +451,12 @@ static cl::opt<bool> EnableIPArrayTranspose(
    "enable-npm-ip-array-transpose", cl::init(true), cl::Hidden,
    cl::desc("Enable IPO Array Transpose for the new PM (default = on)"));
 
+#if INTEL_FEATURE_SW_ADVANCED
 // Dead Array Element Ops Elimination
 static cl::opt<bool> EnableDeadArrayOpsElim(
    "enable-npm-dead-array-ops-elim", cl::init(true), cl::Hidden,
    cl::desc("Enable Dead Array Ops Elimination for the new PM (default = on)"));
 
-#if INTEL_FEATURE_SW_ADVANCED
 // IPO Prefetch
 static cl::opt<bool> EnableIPOPrefetch(
     "enable-npm-ipo-prefetch", cl::init(true), cl::Hidden,
@@ -3001,8 +3005,10 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   if (EnableIPArrayTranspose)
     MPM.addPass(IPArrayTransposePass());
 
+#if INTEL_FEATURE_SW_ADVANCED
   if (EnableDeadArrayOpsElim)
     MPM.addPass(DeadArrayOpsEliminationPass());
+#endif // INTEL_FEATURE_SW_ADVANCED
 
   if (EnableMultiVersioning)
     FPM.addPass(MultiVersioningPass());

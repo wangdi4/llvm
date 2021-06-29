@@ -1,3 +1,4 @@
+#if INTEL_FEATURE_SW_ADVANCED
 //===------- Intel_DeadArrayOpsElimination.h ------------------------------===//
 //
 // Copyright (C) 2019 Intel Corporation. All rights reserved.
@@ -32,3 +33,4 @@ public:
 
 } // end namespace llvm
 #endif // LLVM_TRANSFORMS_IPO_INTEL_DEADARRAYOPSELIMINATION_H
+#endif // INTEL_FEATURE_SW_ADVANCED

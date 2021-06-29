@@ -162,7 +162,9 @@ MODULE_PASS("intel-partialinline", IntelPartialInlinePass())
 MODULE_PASS("post-inline-ip-cloning", IPCloningPass(/*AfterInl*/ true,
                                         /*IFSwitchHeuristic*/ false))
 MODULE_PASS("call-tree-clone", CallTreeCloningPass())
+#if INTEL_FEATURE_SW_ADVANCED
 MODULE_PASS("deadarrayopselimination", DeadArrayOpsEliminationPass())
+#endif // INTEL_FEATURE_SW_ADVANCED
 MODULE_PASS("dopevectorconstprop", DopeVectorConstPropPass())
 MODULE_PASS("intel-fold-wp-intrinsic", IntelFoldWPIntrinsicPass())
 MODULE_PASS("intel-math-libraries-decl", IntelMathLibrariesDeclarationPass())
