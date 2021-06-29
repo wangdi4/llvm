@@ -9677,7 +9677,12 @@ void SPIRVTranslator::ConstructJob(Compilation &C, const JobAction &JA,
 #endif // INTEL_CUSTOMIZATION
     else
       // Don't enable several freshly added extensions on FPGA H/W
+#if INTEL_CUSTOMIZATION
+      ExtArg += ",+SPV_INTEL_token_type"
+                ",+SPV_INTEL_memory_access_aliasing";
+#else
       ExtArg += ",+SPV_INTEL_token_type";
+#endif // INTEL_CUSTOMIZATION
     TranslatorArgs.push_back(TCArgs.MakeArgString(ExtArg));
   }
 
