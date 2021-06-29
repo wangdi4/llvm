@@ -85,6 +85,9 @@ add_ocl_unittest_artifacts(
     data/cached_binary_gold_release_windows.bin
     data/cached_binary_gold_update1_release_windows.bin
     data/cached_binary_gold_update2_release_windows.bin
+    data/cached_binary_gold_release_windows32.bin
+    data/cached_binary_gold_update1_release_windows32.bin
+    data/cached_binary_gold_update2_release_windows32.bin
     data/cached_binary_without_section.bin
     data/cached_binary_with_wrong_version.bin
     data/fp-as-kernel-arg.spv
