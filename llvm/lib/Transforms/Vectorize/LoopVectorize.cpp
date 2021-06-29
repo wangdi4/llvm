@@ -3080,7 +3080,9 @@ PHINode *InnerLoopVectorizer::createInductionVariable(Loop *L, Value *Start,
   if (!Latch)
     Latch = Header;
 
-  IRBuilder<> Builder(&*Header->getFirstInsertionPt());
+  IRBuilder<>::InsertPointGuard Guard(Builder);
+  Builder.SetInsertPoint(&*Header->getFirstInsertionPt());
+
   Instruction *OldInst = getDebugLocFromInstOrOperands(OldInduction);
   setDebugLocFromInst(Builder, OldInst);
   auto *Induction = Builder.CreatePHI(Start->getType(), 2, "index");
