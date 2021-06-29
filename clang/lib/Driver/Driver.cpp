@@ -2277,10 +2277,8 @@ void Driver::PrintHelp(const llvm::opt::ArgList &Args) const {
 }
 
 llvm::Triple Driver::MakeSYCLDeviceTriple(StringRef TargetArch) const {
-#if INTEL_CUSTOMIZATION
   SmallVector<StringRef, 5> SYCLAlias = {"spir", "spir64", "spir64_fpga",
-#endif // INTEL_CUSTOMIZATION
-                                   "spir64_x86_64", "spir64_gen"};
+                                         "spir64_x86_64", "spir64_gen"};
   if (std::find(SYCLAlias.begin(), SYCLAlias.end(), TargetArch) !=
       SYCLAlias.end()) {
     llvm::Triple TT;
