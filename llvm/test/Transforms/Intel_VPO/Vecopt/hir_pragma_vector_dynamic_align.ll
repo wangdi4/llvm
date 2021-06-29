@@ -1,4 +1,5 @@
 ; RUN: opt %s -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR --debug-only="VPlan_pragma_metadata" 2>&1 | FileCheck %s
+; REQUIRES: asserts
 ;
 ; Checks if the code with #pragma vector [no]dynamic_align (!{!"llvm.loop.vectorize.dynamic_align", i1 false|true}) metadata
 ; is being vectorized correctly with HIR

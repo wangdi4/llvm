@@ -82,7 +82,7 @@ define void @test04(%struct.test04* %pStruct) !dtrans_type !15 {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test04
 ; CHECK: 0)Field LLVM Type: i32
-; CHECK: Field info: Read UnusedValue{{ *$}}
+; CHECK: Field info: Read UnusedValue NonGEPAccess{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: No issues found
@@ -105,7 +105,7 @@ define i32 @test05(%struct.test05a* %pStruct) !dtrans_type !19 {
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test05b
 ; CHECK: 0)Field LLVM Type: i32
-; CHECK: Field info: Read{{ *$}}
+; CHECK: Field info: Read NonGEPAccess{{ *$}}
 ; CHECK: 1)Field LLVM Type: i32
 ; CHECK: Field info:{{ *$}}
 ; CHECK: Safety data: Nested structure{{ *$}}

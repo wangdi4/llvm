@@ -1,4 +1,5 @@
 ; RUN: opt %s -S -VPlanDriver --debug-only="VPlan_pragma_metadata" 2>&1 | FileCheck %s
+; REQUIRES: asserts
 ;
 ; Checks if the code with #pragma [no]vecremainder (!{!"llvm.loop.vector.vecremainder", i1 true|false}) metadata
 ; and #pragma omp simd is being vectorized correctly with LLVM-IR
