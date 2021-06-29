@@ -730,6 +730,7 @@ public:
 
   const char *getISASetForIMLFunctions() const { return "all"; }
 
+  bool hasCDI() const { return false; }
 #endif
   Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                                   unsigned SrcAddrSpace, unsigned DestAddrSpace,

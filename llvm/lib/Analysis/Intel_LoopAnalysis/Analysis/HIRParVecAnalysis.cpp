@@ -69,6 +69,8 @@ private:
   ParVecInfo::AnalysisMode Mode;
   /// InfoMap - Map associating HLLoops with corresponding par vec info.
   HIRParVecInfoMapType &InfoMap;
+
+  const TargetTransformInfo *TTI;
   /// TLI - Target library info analysis.
   TargetLibraryInfo *TLI;
   /// DDA - Data dependency analysis handle.
@@ -77,10 +79,10 @@ private:
   HIRSafeReductionAnalysis *SRA;
 
 public:
-  ParVecVisitor(ParVecInfo::AnalysisMode Mode, TargetLibraryInfo *TLI,
+  ParVecVisitor(ParVecInfo::AnalysisMode Mode, const TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
                 HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA,
                 HIRParVecInfoMapType &InfoMap)
-      : Mode(Mode), InfoMap(InfoMap), TLI(TLI), DDA(DDA), SRA(SRA) {}
+      : Mode(Mode), InfoMap(InfoMap), TTI(TTI), TLI(TLI), DDA(DDA), SRA(SRA) {}
   /// \brief Determine parallelizability/vectorizability of the loop
   void postVisit(HLLoop *Loop);
 
@@ -191,7 +193,7 @@ private:
 
 void ParVecVisitor::postVisit(HLLoop *Loop) {
   // Analyze parallelizability/vectorizability if not cached.
-  ParVecInfo::get(Mode, InfoMap, TLI, DDA, SRA, Loop);
+  ParVecInfo::get(Mode, InfoMap, TTI, TLI, DDA, SRA, Loop);
 }
 
 FunctionPass *llvm::createHIRParVecAnalysisPass() {
@@ -207,6 +209,7 @@ HIRParVecAnalysisWrapperPass::HIRParVecAnalysisWrapperPass()
 
 INITIALIZE_PASS_BEGIN(HIRParVecAnalysisWrapperPass, "hir-parvec-analysis",
                       "HIR Parallel/Vector Candidate Analysis", false, true)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
@@ -216,6 +219,7 @@ INITIALIZE_PASS_END(HIRParVecAnalysisWrapperPass, "hir-parvec-analysis",
 
 void HIRParVecAnalysisWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
+  AU.addRequiredTransitive<TargetTransformInfoWrapperPass>();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
   AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
@@ -225,10 +229,11 @@ void HIRParVecAnalysisWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
 bool HIRParVecAnalysisWrapperPass::runOnFunction(Function &F) {
   if (HIRParVecAnalysis::isSIMDEnabledFunction(F)) {
     HPVA.reset(
-        new HIRParVecAnalysis(false, nullptr, nullptr, nullptr, nullptr));
+        new HIRParVecAnalysis(false, nullptr, nullptr, nullptr, nullptr, nullptr));
     return false;
   }
 
+  auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   auto HIRF = &getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   auto DDA = &getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
@@ -238,11 +243,11 @@ bool HIRParVecAnalysisWrapperPass::runOnFunction(Function &F) {
   // In the debug mode, run actual analysis in ParallelVector mode, print
   // the result, and releas memory as if nothing happened. "opt -analyze"
   // doesn't print anything.
-  LLVM_DEBUG(HPVA.reset(new HIRParVecAnalysis(true, TLI, HIRF, DDA, SRA)));
+  LLVM_DEBUG(HPVA.reset(new HIRParVecAnalysis(true, TTI, TLI, HIRF, DDA, SRA)));
   LLVM_DEBUG(HPVA->analyze(ParVecInfo::ParallelVector));
   LLVM_DEBUG(HPVA->printAnalysis(dbgs()));
 
-  HPVA.reset(new HIRParVecAnalysis(true, TLI, HIRF, DDA, SRA));
+  HPVA.reset(new HIRParVecAnalysis(true, TTI, TLI, HIRF, DDA, SRA));
 
   return false;
 }
@@ -252,14 +257,15 @@ AnalysisKey HIRParVecAnalysisPass::Key;
 HIRParVecAnalysis HIRParVecAnalysisPass::run(Function &F,
                                              FunctionAnalysisManager &AM) {
   if (HIRParVecAnalysis::isSIMDEnabledFunction(F))
-    return HIRParVecAnalysis(false, nullptr, nullptr, nullptr, nullptr);
+    return HIRParVecAnalysis(false, nullptr, nullptr, nullptr, nullptr, nullptr);
 
+  auto TTI = &AM.getResult<TargetIRAnalysis>(F);
   auto TLI = &AM.getResult<TargetLibraryAnalysis>(F);
   auto HIRF = &AM.getResult<HIRFrameworkAnalysis>(F);
   auto DDA = &AM.getResult<HIRDDAnalysisPass>(F);
   auto SRA = &AM.getResult<HIRSafeReductionAnalysisPass>(F);
 
-  return HIRParVecAnalysis(true, TLI, HIRF, DDA, SRA);
+  return HIRParVecAnalysis(true, TTI, TLI, HIRF, DDA, SRA);
 }
 
 const ParVecInfo *HIRParVecAnalysis::getInfo(ParVecInfo::AnalysisMode Mode,
@@ -267,7 +273,7 @@ const ParVecInfo *HIRParVecAnalysis::getInfo(ParVecInfo::AnalysisMode Mode,
   if (!Enabled) {
     return nullptr;
   }
-  auto Info = ParVecInfo::get(Mode, InfoMap, TLI, DDA, SRA, Loop);
+  auto Info = ParVecInfo::get(Mode, InfoMap, TTI, TLI, DDA, SRA, Loop);
   return Info;
 }
 
@@ -275,7 +281,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode) {
   if (!Enabled) {
     return;
   }
-  ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
+  ParVecVisitor Vis(Mode, TTI, TLI, DDA, SRA, InfoMap);
   HIRF.getHLNodeUtils().visitAll(Vis);
 }
 
@@ -284,7 +290,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode,
   if (!Enabled) {
     return;
   }
-  ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
+  ParVecVisitor Vis(Mode, TTI, TLI, DDA, SRA, InfoMap);
   HLNodeUtils::visit(Vis, Region);
 }
 
@@ -292,7 +298,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop) {
   if (!Enabled) {
     return;
   }
-  ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
+  ParVecVisitor Vis(Mode, TTI, TLI, DDA, SRA, InfoMap);
   HLNodeUtils::visit(Vis, Loop);
 }
 
@@ -518,7 +524,7 @@ static bool loopInSIMD(HLLoop *Loop) {
   return false;
 }
 
-void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
+void ParVecInfo::analyze(HLLoop *Loop,  const TargetTransformInfo *TTI, TargetLibraryInfo *TLI,
                          HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA) {
   if (Loop->hasCompleteUnrollEnablingPragma()) {
     // Bail out of vectorization if complete unroll requested.
@@ -565,7 +571,7 @@ void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
     HIRVectorIdioms IList;
     if (isVectorMode()) {
       HIRVectorIdiomAnalysis IdAnalysis;
-      IdAnalysis.gatherIdioms(IList, DDA->getGraph(Loop), *SRA, Loop);
+      IdAnalysis.gatherIdioms(TTI, IList, DDA->getGraph(Loop), *SRA, Loop);
     }
     DDWalk DDW(*TLI, *DDA, *SRA, Loop, this, IList); // Legality checker.
     // This ignores preheader/postexit blocks in legality check.
@@ -650,6 +656,7 @@ const std::string ParVecInfo::LoopTypeString[4] = {
     "loop has SIMD directive"};
 
 class HIRIdiomAnalyzer final : public HLNodeVisitorBase {
+  const TargetTransformInfo *TTI;
   const DDGraph &DDG;
   HIRSafeReductionAnalysis &SRAnalysis;
 
@@ -659,9 +666,9 @@ class HIRIdiomAnalyzer final : public HLNodeVisitorBase {
   HLLoop *Loop;
 
 public:
-  HIRIdiomAnalyzer(HIRVectorIdioms &IList, const DDGraph &DDG,
+  HIRIdiomAnalyzer(const TargetTransformInfo *TTI, HIRVectorIdioms &IList, const DDGraph &DDG,
                    HIRSafeReductionAnalysis &SRA, HLLoop *Loop)
-      : DDG(DDG), SRAnalysis(SRA), IdiomList(IList), Loop(Loop) {
+      : TTI(TTI), DDG(DDG), SRAnalysis(SRA), IdiomList(IList), Loop(Loop) {
     SRAnalysis.computeSafeReductionChains(Loop);
   }
 
@@ -976,18 +983,18 @@ void HIRIdiomAnalyzer::visit(HLDDNode *Node) {
   if (MinMaxIndexEnabled && tryMinMaxIdiom(Node))
     return;
 
-  if (VConflictIdiomEnabled && tryVConflictIdiom(Node))
+  if (TTI->hasCDI() && VConflictIdiomEnabled && tryVConflictIdiom(Node))
     return;
 
   return;
 }
 
-void HIRVectorIdiomAnalysis::gatherIdioms(HIRVectorIdioms &IList,
+void HIRVectorIdiomAnalysis::gatherIdioms(const TargetTransformInfo *TTI, HIRVectorIdioms &IList,
                                           const DDGraph &DDG,
                                           HIRSafeReductionAnalysis &SRA,
                                           HLLoop *Loop) {
   if (MinMaxIndexEnabled || VConflictIdiomEnabled) {
-    HIRIdiomAnalyzer IdiomAnalyzer(IList, DDG, SRA, Loop);
+    HIRIdiomAnalyzer IdiomAnalyzer(TTI, IList, DDG, SRA, Loop);
     Loop->getHLNodeUtils().visit(IdiomAnalyzer, Loop);
     LLVM_DEBUG(IList.dump());
   } else

@@ -1344,6 +1344,9 @@ public:
   /// for selecting math library function variants. Returns "all" if no
   /// specific ISA can be inferred from information available in the Subtarget.
   const char *getISASetForIMLFunctions() const;
+
+  // Indicate whether target has conflict detection instruction.
+  bool hasCDI() const;
 #endif // INTEL_CUSTOMIZATION
 
   /// \returns The type to use in a loop expansion of a memcpy call.
@@ -1807,6 +1810,7 @@ public:
       const Module *M) const = 0;
   virtual bool needsStructuredCFG() const = 0;
   virtual const char *getISASetForIMLFunctions() const = 0;
+  virtual bool hasCDI() const = 0;
 #endif // INTEL_CUSTOMIZATION
   virtual Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                                           unsigned SrcAddrSpace,
@@ -2410,6 +2414,10 @@ public:
 
   const char *getISASetForIMLFunctions() const override {
     return Impl.getISASetForIMLFunctions();
+  }
+
+  bool hasCDI() const override {
+    return Impl.hasCDI();
   }
 #endif // INTEL_CUSTOMIZATION
   Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,

@@ -1150,7 +1150,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   VPlanVLSAnalysisHIR VLSA(DDA, Fn.getContext(), *DL, TTI);
 
-  HIRVectorizationLegality HIRVecLegal(SafeRedAnalysis, DDA);
+  HIRVectorizationLegality HIRVecLegal(TTI, SafeRedAnalysis, DDA);
   LoopVectorizationPlannerHIR LVP(WRLp, Lp, TLI, TTI, DL, &HIRVecLegal, DDA,
                                   &VLSA);
 
