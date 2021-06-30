@@ -1306,52 +1306,6 @@ AliasResult BasicAAResult::aliasGEP(
     return BaseAlias;
   }
 
-#if INTEL_CUSTOMIZATION
-  // GCD test for same base. https://en.wikipedia.org/wiki/GCD_test
-  // aliasSameBasePointerGEPs.
-  if (DecompGEP1.Base == DecompGEP2.Base && DecompGEP1.Offset != 0 &&
-      V1Size != MemoryLocation::UnknownSize &&
-      V2Size != MemoryLocation::UnknownSize &&
-      // Safe to convert V1Size to int64_t.
-      V1Size.getValue() <= (uint64_t)std::numeric_limits<int64_t>::max() &&
-      // Safe to convert V2Size to int64_t.
-      V2Size.getValue() <= (uint64_t)std::numeric_limits<int64_t>::max() &&
-      !DecompGEP1.VarIndices.empty()) {
-
-    APInt MinCoeff = DecompGEP1.VarIndices[0].Scale.abs();
-    for (unsigned i = 1, e = DecompGEP1.VarIndices.size(); i != e; ++i)
-      MinCoeff = MinCoeff.sle(DecompGEP1.VarIndices[i].Scale.abs()) ?
-                  MinCoeff : DecompGEP1.VarIndices[i].Scale.abs();
-
-    bool CoeffsAreDivisible = true;
-    for (unsigned i = 0, e = DecompGEP1.VarIndices.size(); i != e; ++i)
-      if (!!(DecompGEP1.VarIndices[i].Scale.srem(MinCoeff))) {
-        CoeffsAreDivisible = false;
-        break;
-      }
-
-    if (CoeffsAreDivisible && MinCoeff.sge((int64_t)V1Size.getValue()) &&
-        MinCoeff.sge((int64_t)V2Size.getValue())) {
-      APInt GEP1BaseOffsetReduced = DecompGEP1.Offset.srem(MinCoeff);
-      if (GEP1BaseOffsetReduced.sgt(0)) {
-        // | V2 ... V2 + V2Size |
-        // | GEP1BaseOffsetReduced | V1 ... V1 + V1Size
-        // | MinCoeff                                     |
-        if (GEP1BaseOffsetReduced.sge((int64_t)V2Size.getValue()) &&
-            GEP1BaseOffsetReduced.sle(MinCoeff - (int64_t)V1Size.getValue()))
-          return AliasResult::NoAlias;
-      } else if (GEP1BaseOffsetReduced.slt(0)) {
-        // | V1 ... V1 + V1Size |
-        // | GEP1BaseOffsetReduced | V2 ... V2 + V2Size
-        // | MinCoeff                                     |
-        if ((-GEP1BaseOffsetReduced).sge((int64_t)V1Size.getValue()) &&
-            (-GEP1BaseOffsetReduced).sle(MinCoeff - (int64_t)V2Size.getValue()))
-          return AliasResult::NoAlias;
-      }
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
-
   // If there is a constant difference between the pointers, but the difference
   // is less than the size of the associated memory object, then we know
   // that the objects are partially overlapping.  If the difference is
