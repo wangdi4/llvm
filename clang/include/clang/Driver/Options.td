@@ -2968,10 +2968,10 @@ def fsycl_host_compiler_options_EQ : Joined<["-"], "fsycl-host-compiler-options=
   Flags<[CoreOption, DpcppOption]>, HelpText<"When performing the host compilation with "
   "-fsycl-host-compiler specified, use the given options during that compile. "
   "Options are expected to be a quoted list of space separated options.">;
-def fsycl_use_footer : Flag<["-"], "fsycl-use-footer">, Flags<[CoreOption]>,
-  HelpText<"Enable usage of the integration footer during SYCL enabled "
-  "compilations.">;
 #endif // INTEL_CUSTOMIZATION
+def fno_sycl_use_footer : Flag<["-"], "fno-sycl-use-footer">, Flags<[CoreOption]>,
+  HelpText<"Disable usage of the integration footer during SYCL enabled "
+   "compilations.">;
 def fsyntax_only : Flag<["-"], "fsyntax-only">,
   Flags<[NoXarchOption,CoreOption,CC1Option,FC1Option]>, Group<Action_Group>;
 def ftabstop_EQ : Joined<["-"], "ftabstop=">, Group<f_Group>;
