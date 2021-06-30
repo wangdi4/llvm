@@ -17,6 +17,7 @@
 #include "IntelVPlanDecomposerHIR.h"
 #include "../IntelVPlanIDF.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDGraph.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRParser.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
@@ -490,6 +491,15 @@ static Align getAlignForMemref(RegDDRef *Ref) {
 //    as operand.
 //
 VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
+  // Check if Ref is related to VConflict idiom. In legality, we mark the store
+  // instructions, but we cannot do the same for load instructions since the
+  // load memory references might not be in separate instructions. For this
+  // reason, in legality, we mark the DDRef that includes VConflict load memory
+  // references. Here, we collect load instructions along with their index.
+  const HIRVectorIdioms *Idioms =
+      HIRLegality.getVectorIdioms(const_cast<HLLoop *>(OutermostHLp));
+  bool IsVConflictLoad = Idioms->isVConflictLoad(Ref);
+
   // Note: the insert location guard also guards builder debug location.
   VPBuilder::InsertPointGuard Guard(Builder);
   LLVM_DEBUG(dbgs() << "VPDecomp: Decomposing memory operand: "; Ref->dump();
@@ -551,6 +561,14 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
       VPValue *DecompStride =
           decomposeCanonExpr(Ref, Ref->getDimensionStride(I));
       VPValue *DecompIndex = decomposeCanonExpr(Ref, Ref->getDimensionIndex(I));
+
+      if (IsVConflictLoad) {
+        assert(NumDims == 1 &&
+               "VConflict is only supported for one-dimensional arrays.");
+        // Add the conflicting index in the map.
+        RefToConflictingIndex[Ref] = DecompIndex;
+      }
+
       LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompLower: "; DecompLower->dump();
                  dbgs() << "\n");
       LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompStride: ";
@@ -618,6 +636,11 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
     // Copy metadata for the created load instruction.
     auto *MemOpVPInst = cast<VPLoadStoreInst>(MemOpVPI);
     MemOpVPInst->readUnderlyingMetadata(Ref);
+
+    if (IsVConflictLoad)
+      // Add newly created load instruction to the map that we keep VConflict
+      // load instructions.
+      RefToVPLoadConflict[Ref] = MemOpVPInst;
 
     // Save away scalar memref symbase and original alignment for later use.
     MemOpVPInst->HIR().setSymbase(Ref->getSymbase());

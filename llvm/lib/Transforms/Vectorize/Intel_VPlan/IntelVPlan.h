@@ -108,6 +108,7 @@ class VPlanBranchDependenceAnalysis;
 class VPValueMapper;
 class VPlanMasked;
 class VPlanScalarPeel;
+class VPRegionLiveOut;
 
 typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 
@@ -564,6 +565,7 @@ public:
                            // TODO: Remove when non-explicit remainder loop
                            // support is deprecated.
     PrivateFinalArray,
+    GeneralMemOptConflict,
   };
 
 private:
@@ -3504,6 +3506,153 @@ public:
   VPVLSInsert *cloneImpl() const override {
     return new VPVLSInsert(getOperand(0), getOperand(1), GroupSize, Offset);
   }
+};
+
+// Represent SESE region inside VPlan.
+class VPRegion final : public VPValue {
+public:
+  VPRegion(LLVMContext *C, const Twine &Name = "")
+      : VPValue(VPValue::VPRegionSC, Type::getVoidTy(*C)), Context(C) {
+    setName(Name);
+  }
+
+  auto getBBs() {
+    return map_range(
+        BBs, [](std::unique_ptr<VPBasicBlock> &VPBB) { return VPBB.get(); });
+  }
+
+  auto getBBs() const {
+    return map_range(BBs, [](const std::unique_ptr<VPBasicBlock> &VPBB) {
+      return VPBB.get();
+    });
+  }
+
+  auto getLiveIns() const {
+    return map_range(
+        LiveIns, [](const std::unique_ptr<VPValue> &LIn) { return LIn.get(); });
+  }
+
+  auto getLiveOuts() const {
+    return map_range(LiveOuts,
+                     [](const std::unique_ptr<VPRegionLiveOut> &LOut) {
+                       return LOut.get();
+                     });
+  }
+
+  void
+  addRgnLiveInsOuts(SmallVector<std::unique_ptr<VPValue>> RgnLiveIns,
+                    SmallVector<std::unique_ptr<VPRegionLiveOut>> RgnLiveOuts) {
+    LiveIns = std::move(RgnLiveIns);
+    LiveOuts = std::move(RgnLiveOuts);
+  }
+
+  VPBasicBlock *addBB(const Twine &Name = "") {
+    BBs.push_back(std::make_unique<VPBasicBlock>(Name, Context));
+    return BBs.back().get();
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump(raw_ostream &OS) const {
+    for (auto *LIn : getLiveIns())
+      OS << "    live-in : " << *LIn << "\n";
+    OS << "    Region:\n";
+    for (auto *VPBB : getBBs()) {
+      OS << "    " << VPBB->getName() << "\n";
+      for (const VPInstruction &I : *VPBB)
+        OS << "    " << I << "\n";
+    }
+    for (auto *LOut : getLiveOuts())
+      OS << "    live-out : " << *LOut << "\n";
+  }
+
+  void dump() const { dump(dbgs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPValue *VPVal) {
+    return VPVal->getVPValueID() == VPValue::VPRegionSC;
+  }
+
+  // TODO: Clone the region along with its live-ins and live-outs.
+  std::unique_ptr<VPRegion> clone() const {
+    llvm_unreachable("Unimplemented code");
+  }
+
+private:
+  LLVMContext *Context;
+  // Keeps Region's live-ins. NOTE: LiveIns must be freed after BBs.
+  SmallVector<std::unique_ptr<VPValue>, 2> LiveIns;
+  // Keeps Region's basic blocks.
+  SmallVector<std::unique_ptr<VPBasicBlock>, 1> BBs;
+  // Keeps Region's live-outs. NOTE: LiveOuts must be freed before BBs.
+  SmallVector<std::unique_ptr<VPRegionLiveOut>, 1> LiveOuts;
+};
+
+// Represents optimized general conflict in VPlan.
+class VPGeneralMemOptConflict final : public VPInstruction {
+public:
+  // For this IR in VPlan/Region, when calling with <%vp.conflict.index,
+  // %vp.region, %vp.param1, %vp.param2> parameters, we'll create the following
+  // dump fo VPGeneralMemOptConflict:
+  // %vp.general.mem.opt.conflict = vp-general-mem-opt-conflict
+  // %vp.conflict.index %vp.region %vp.conflict.load %vp.param2 ->
+  // VConflictRegion (%live.in1 %live.in2) {
+  //  value :
+  //  mask :
+  //  live-in : %live.in1
+  //  live-in : %live.in2
+  //  Region:
+  //  VConflictBB
+  //  ...
+  //  live-out :
+  // }
+  // The first three of VPGeneralMemOptConflict are:
+  // i. conflicting index
+  // ii. conflict region
+  // iii. conflict load
+  // The rest operands are related to live-ins of VPRegion. There is an implicit
+  // mapping of the operands [2:] of VPGeneralMemOptConflict and the live-ins of
+  // the region.
+  VPGeneralMemOptConflict(Type *BaseTy, VPValue *VConflictIndex,
+                          std::unique_ptr<VPRegion> Rgn, VPValue *VConflictLoad,
+                          const SmallVector<VPValue *, 2> &Params)
+      : VPInstruction(VPInstruction::GeneralMemOptConflict, BaseTy, {}),
+        Region(std::move(Rgn)), Context(&BaseTy->getContext()) {
+    // Add conflicting index as operand.
+    addOperand(VConflictIndex);
+    // Region has the instructions of VConflict pattern that should be included
+    // in the loop that we generate for optimized general conflict.
+    addOperand(Region.get());
+    // Add conflict load as operand.
+    addOperand(VConflictLoad);
+    for (auto *P : Params)
+      // There is an implicit mapping between the operands [2:] of
+      // VPGeneralMemOptConflict and the live-ins of the region.
+      addOperand(P);
+  }
+
+  VPRegion *getRegion() const { return Region.get(); }
+
+  /// Methods for supporting type inquiry through isa, cast and dyn_cast:
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::GeneralMemOptConflict;
+  }
+
+  static inline bool classof(const VPValue *V) {
+    return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+  VPGeneralMemOptConflict *cloneImpl() const override {
+    SmallVector<VPValue *, 2> NewParams;
+    for (unsigned i = 2; i < getNumOperands(); i++)
+      NewParams.push_back(getOperand(i));
+    return new VPGeneralMemOptConflict(
+        getType(), getOperand(0), Region->clone(), getOperand(2), NewParams);
+  }
+
+private:
+  std::unique_ptr<VPRegion> Region;
+  LLVMContext *Context;
 };
 
 /// VPlan models a candidate for vectorization, encoding various decisions take

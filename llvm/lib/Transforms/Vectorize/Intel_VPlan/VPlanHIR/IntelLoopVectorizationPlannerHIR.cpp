@@ -101,7 +101,8 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlannerHIR::buildInitialVPlan(
   const DDGraph &DDG = DDA->getGraph(TheLoop);
 
   VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG);
-  HCFGBuilder.buildHierarchicalCFG();
+  if (!HCFGBuilder.buildHierarchicalCFG())
+    return nullptr;
 
   // Search loop representation is not yet explicit and search loop idiom
   // recognition is picky. Avoid any changes in predicator behavior for search

@@ -23,6 +23,7 @@
 
 #include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -137,6 +138,8 @@ public:
     VPBasicBlockSC,
     VPLiveInValueSC,
     VPLiveOutValueSC,
+    VPRegionSC,
+    VPRegionLiveOutSC,
   };
 
   VPValue(Type *BaseTy, Value *UV = nullptr)
@@ -243,6 +246,13 @@ public:
   /// invalidate the underlying IR if \p InvalidateIR is set.
   void replaceAllUsesWithInLoop(VPValue *NewVal, VPLoop &Loop,
                                 bool InvalidateIR = true);
+
+  /// Replace all uses of *this with \p NewVal in the \p Region. Region is a
+  /// collection of BBs. Additionally invalidate the underlying IR if \p
+  /// InvalidateIR is set.
+  void replaceAllUsesWithInRegion(VPValue *NewVal,
+                                  ArrayRef<VPBasicBlock *> Region,
+                                  bool InvalidateIR = true);
 
   /// Replace all uses of *this with \p NewVal. Additionally invalidate the
   /// underlying IR if \p InvalidateIR is set.
@@ -386,6 +396,23 @@ public:
   const_operand_range operands() const {
     return const_operand_range(op_begin(), op_end());
   }
+};
+
+class VPRegionLiveOut : public VPUser {
+public:
+  VPRegionLiveOut(VPValue *Operand, Type *BaseTy)
+      : VPUser(VPValue::VPRegionLiveOutSC, {Operand}, BaseTy) {
+    addOperand(Operand);
+  }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS) const override { OS << *getOperand(0); }
+  friend raw_ostream &operator<<(raw_ostream &OS, const VPUser &VPU) {
+    VPU.print(OS);
+    return OS;
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  // VPUser's destructor won't drop references.
+  ~VPRegionLiveOut() { dropAllReferences(); }
 };
 
 /// This class augments VPValue with constant operands that encapsulates LLVM
@@ -901,7 +928,19 @@ public:
 private:
   unsigned MergeId;
 };
-
 } // namespace vpo
+
+template <> struct GraphTraits<vpo::VPUser *> {
+  using NodeRef = vpo::VPUser *;
+  using ChildIteratorType = vpo::VPValue::user_iterator;
+
+  static NodeRef getEntryNode(NodeRef N) { return N; }
+
+  static inline ChildIteratorType child_begin(NodeRef N) {
+    return N->user_begin();
+  }
+
+  static inline ChildIteratorType child_end(NodeRef N) { return N->user_end(); }
+};
 } // namespace llvm
 #endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPLANVALUE_H

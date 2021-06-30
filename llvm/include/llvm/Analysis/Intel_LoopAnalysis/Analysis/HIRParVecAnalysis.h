@@ -313,13 +313,14 @@ public:
     // Non-monotonic value, the last value calculation requires a MMFirstLastIdx
     // to be present and uses its last value for final calculation.
     MMFirstLastVal,
-    VConflict,
+    VConflictLikeStore,
   };
 
 private:
   using IdiomListTy = MapVector<const Instruction *, IdiomId>;
   using IdiomLinksTy =
       DenseMap<const Instruction *, SmallPtrSet<const Instruction *, 2>>;
+  SmallDenseMap<const HLInst *, DDRef *> VConflictStoreToLoadMap;
 
 public:
   using iterator = typename IdiomListTy::iterator;
@@ -377,9 +378,7 @@ public:
   static bool isStandaloneIdiom(IdiomId Id) { return false; }
 
   /// Predicate whether \p Id marks idioms that require the linked ones.
-  static bool isMasterIdiom(IdiomId Id) {
-    return Id == MinOrMax || Id == VConflict;
-  }
+  static bool isMasterIdiom(IdiomId Id) { return Id == MinOrMax; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const {
@@ -404,10 +403,27 @@ public:
 
   static const char *getIdiomName(IdiomId Id) {
     static const char *Names[] = {"NoIdiom", "MinOrMax", "MMFirstLastIdx",
-                                  "MMFirstLastVal", "VConflict"};
+                                  "MMFirstLastVal", "VConflictLikeStore"};
     return Names[Id];
   }
 #endif
+
+  void recordVConflictIdiom(const HLInst *StoreInst, DDRef *LoadRef) {
+    // Add the root of VConflict idiom (StoreInst) in idiom list.
+    addIdiom(StoreInst, VectorIdioms::VConflictLikeStore);
+    // Add load and store of VConflict idiom in VConflictStoreToLoadMap.
+    VConflictStoreToLoadMap[StoreInst] = LoadRef;
+  }
+
+  DDRef *getVConflictLoad(const HLInst *StoreInst) const {
+    return VConflictStoreToLoadMap.find(StoreInst)->second;
+  }
+
+  bool isVConflictLoad(DDRef *LoadRef) const {
+    return llvm::find_if(VConflictStoreToLoadMap, [LoadRef](const auto &Pair) {
+             return Pair.second == LoadRef;
+           }) != VConflictStoreToLoadMap.end();
+  }
 
 private:
   IdiomListTy IdiomData;

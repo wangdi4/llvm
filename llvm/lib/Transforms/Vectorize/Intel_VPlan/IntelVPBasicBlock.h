@@ -254,6 +254,8 @@ public:
 
   VPBasicBlock(const Twine &Name, VPlan *Plan);
 
+  VPBasicBlock(const Twine &Name, LLVMContext *C);
+
   ~VPBasicBlock();
 
   /// Drop an existing terminator (if there is one) and append a new terminator

@@ -321,7 +321,7 @@ private:
   /// Loop header VPBasicBlock to HLLoop map.
   SmallDenseMap<VPBasicBlock *, HLLoop *, 4> Header2HLLoop;
 
-  void buildPlainCFG(VPLoopEntityConverterList &CvtVec) override;
+  bool buildPlainCFG(VPLoopEntityConverterList &CvtVec) override;
 
   void populateVPLoopMetadata(VPLoopInfo *VPLInfo) override;
 

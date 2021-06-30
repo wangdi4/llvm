@@ -367,6 +367,18 @@ private:
   void visit(HLGoto *HGoto);
   void visit(HLLabel *HLabel);
 
+  // Collects all VConflict load and store instructions.
+  bool collectVConflictLoadAndStoreInsns();
+
+  /// Collects the instructions of VConflict pattern and replaces them with
+  /// VPGeneralMemOptConflict instruction. Returns true if it emits VPConflict
+  /// instruction.
+  bool collectVConflictPatternInsnsAndEmitVPConflict();
+
+  // Keep VConflict store and load instructions and conflict index.
+  SmallVector<std::tuple<VPInstruction *, VPInstruction *, VPValue *>, 2>
+      VConflictStoreLoadIndexInsns;
+
 public:
   PlainCFGBuilderHIR(HLLoop *Lp, const DDGraph &DDG, VPlanVector *Plan,
                      SmallDenseMap<VPBasicBlock *, HLLoop *> &H2HLLp,
@@ -375,7 +387,7 @@ public:
         Decomposer(Plan, Lp, DDG, *HIRLegality) {}
 
   /// Build a plain CFG for an HLLoop loop nest.
-  void buildPlainCFG();
+  bool buildPlainCFG();
 
   /// Convert incoming loop entities to the VPlan format.
   void
@@ -715,7 +727,234 @@ void VPlanHCFGBuilderHIR::populateVPLoopMetadata(VPLoopInfo *VPLInfo) {
   }
 }
 
-void PlainCFGBuilderHIR::buildPlainCFG() {
+// Creates VPConflict idiom and its region. First, we form the region by
+// collecting the uses of VConflictLoad until we reach VConflictStore. All these
+// instructions will be removed from the original VPlan and they will be placed
+// inside VConflict region. For the following example,
+//
+// for (int i=0; i<N; i++){
+//   index = B[i];
+//   A[index] = A[index] + C[0];
+// }
+//
+// the code before VConflict generation is:
+//
+// i32* %vp.subscript.B = subscript inbounds i32* %B i64 %induction
+// i32 %vp.load.B = load i32* %vp.subscript.B
+// i64 %vp.conflict.index = sext i32 %vp.load.B to i64
+// i32* %vp.subscript.A = subscript inbounds i32* %A i64 %vp.conflict.index
+// i32 %vp.load.A = load i32* %vp.subscript.A
+// i32 %vp.load.C = load i32* %C
+// i32 %data = add i32 %vp.load.A i32 %vp.load.C
+// i64 %vp.load.B.sext = sext i32 %vp.load.B to i64
+// i32* %vp.subscript.A = subscript inbounds i32* %A i64 %vp.load.b.sext
+// store i32 %data i32* %vp.subscript.A
+//
+// the code after VConflict generation is:
+//
+// i32* %vp.subscript.B = subscript inbounds i32* %B i64 %induction
+// i32 %vp.load.B = load i32* %vp.subscript.B
+// i64 %vp.conflict.index = sext i32 %vp.load.B to i64
+// i32* %vp.subscript.A = subscript inbounds i32* %A i64 %vp.conflict.index
+// i32 %vp.load.A = load i32* %vp.subscript.A
+// i32 %vp.load.C = load i32* %C
+// i64 %vp.load.B.sext = sext i32 %vp.load.B to i64
+// i32* %vp.subscript.A = subscript inbounds i32* %A i64 %vp.load.b.sext
+// i32 %vp.general.mem.opt.conflict = vp-general-mem-opt-conflict i64
+// %vp.vconflict.index void %vp.conflict.region i32 %vp.load.A i32 %vp.load.C ->
+// VConflictRegion (i32 %vp.live.in0 i32 %vp.live.in1 ) {
+//   value : none
+//   mask : none
+//   live-in : i32 %vp.live.in0
+//   live-in : i32 %vp.live.in1
+//   Region:
+//   VConflictBB
+//   i32 %data = add i32 %vp.live.in0 i32 %vp.live.in1
+//   live-out : i32 %data = add i32 %vp.live.in0 i32 %vp.live.in1
+// }
+// store i32 %vp.general.mem.opt.conflict i32* %vp.subscript.A
+//
+// The first three operands of VPGeneralMemOptConflict are always the
+// conflicting index, conflict region and the load for array A. The rest are the
+// live-ins. The load for array A is also a live-in. There is an implicit
+// mapping of the operands [2:] of VPGeneralMemOptConflict and the live-ins of
+// the region. The live-ins of the region are the renamed operands [2:] of
+// VPGeneralMemOptConflict. For example, %vp.load.A and %vp.load.C operands of
+// VPGeneralMemOptConflict correspond to %vp.live.in0 and %vp.line.in1
+// respectively.
+bool PlainCFGBuilderHIR::collectVConflictPatternInsnsAndEmitVPConflict() {
+  for (auto &T : VConflictStoreLoadIndexInsns) {
+    VPInstruction *VConflictStore;
+    VPInstruction *VConflictLoad;
+    VPValue *VConflictIndex;
+    std::tie(VConflictStore, VConflictLoad, VConflictIndex) = T;
+    VConflictIndex->setName("vconflict.index");
+
+    if (!VConflictLoad)
+      return false;
+
+    // Collect the instructions of VConflict region by checking the uses of
+    // VConflictLoad. In the simplest case, one value of the data of store
+    // instruction is the load instruction and the other one is the value:
+    //
+    //   %Val = add i32 %VConflictLoad, 100
+    //   i64 %sext = sext i32 %VPStoreLoadIndex to i64
+    //   i32* %subscript = subscript inbounds i32* %A i64 %sext
+    //   store i32 %Val i32* %subscript
+    //
+    // In other cases (as it is shown below), we have to find the chain of the
+    // instructions that lead to the data of store:
+    //
+    //   i32 %add = add i32 %VConflictLoad i32 %Val1
+    //   i32 %mul = mul i32 %add i32 %Val2
+    //   i32 %Val = add i32 %mul i32 %Val3
+    //   i64 %sext = sext i32 %VPStoreLoadIndex to i64
+    //   i32* %subscript = subscript inbounds i32* %A i64 %sext
+    //   store i32 %Val i32* %subscript
+    //
+    // Here, we collect all the uses of VConflictLoad and the uses of its uses
+    // until we reach the definition of the data of VConflictStore.
+    // TODO: Remove redundant instructions from VConflict pattern.
+
+    if (VConflictLoad->getParent() != VConflictStore->getParent())
+      return false;
+
+    // First, we collect all the instructions between VConflictLoad and
+    // VConflcitStore.
+    SmallPtrSet<VPInstruction *, 2> InsnsBetweenLoadStore;
+    for (auto *I = VConflictLoad; I != VConflictStore; I = I->getNextNode())
+      InsnsBetweenLoadStore.insert(I);
+
+    if (any_of(VConflictLoad->users(),
+               [InsnsBetweenLoadStore](const VPUser *U) {
+                 return !InsnsBetweenLoadStore.count(cast<VPInstruction>(U));
+               }))
+      return false;
+
+    // Next, we start from VConflictLoad uses and we collect all the uses until
+    // we reach VConflictStore.
+    SmallVector<VPInstruction *, 2> RegionInsns;
+    for (auto *U : VConflictLoad->users())
+      for (auto It = df_begin(U), End = df_end(U); It != End;) {
+        if (*It == VConflictStore ||
+            !InsnsBetweenLoadStore.count(cast<VPInstruction>(*It))) {
+          It.skipChildren();
+          continue;
+        }
+        RegionInsns.push_back(cast<VPInstruction>(*It));
+        It++;
+      }
+
+    // In Histogram, all the pattern insns belong to the same basic block.
+    // TODO: Remove this check when we add support for general conflict,
+    // tree-conflict, unoptimized histogram.
+    bool PatternHasControlFlow =
+        any_of(RegionInsns, [VConflictStore, VConflictLoad](VPInstruction *I) {
+          return I->getParent() != VConflictStore->getParent() &&
+                 I->getParent() != VConflictLoad->getParent();
+        });
+
+    if (PatternHasControlFlow)
+      return false;
+
+    // Collect the live-ins of VConflict region. We check if any operands of the
+    // VConflct region's instructions have definition outside of the region.
+    SmallVector<VPValue *, 2> RgnLiveIns;
+    for (auto *VPInst : RegionInsns) {
+      for (auto *Op : VPInst->operands()) {
+        if (isa<VPConstant>(Op) || isa<VPExternalDef>(Op)) {
+          RgnLiveIns.push_back(Op);
+          continue;
+        }
+        if (!is_contained(RegionInsns, Op))
+          if (!is_contained(RgnLiveIns, Op)) {
+            if (cast<VPInstruction>(Op) == VConflictLoad) {
+              // We want VConflictLoad to be the third operand of VConflict
+              // instruction.
+              continue;
+            }
+            RgnLiveIns.push_back(Op);
+          }
+      }
+    }
+
+    // Create new region and fill it with instructions, live-ins and live-outs.
+    auto Region =
+        std::make_unique<VPRegion>(Plan->getLLVMContext(), "conflict.region");
+
+    // The optimized version of Histogram does not have control-flow. Therefore,
+    // the region consists of one basic block.
+    VPBasicBlock *VConflictBB = Region->addBB("VConflictBB");
+    SmallVector<VPBasicBlock *, 2> VConflictBBs(1, VConflictBB);
+    // Fill Region with the RegionInsns of VConflict pattern.
+    for (auto It = RegionInsns.rbegin(), End = RegionInsns.rend(); It != End;
+         It++) {
+      VPInstruction *I = *It;
+      VPBasicBlock *ParentBB = I->getParent();
+      ParentBB->removeInstruction(I);
+      VConflictBB->addInstructionAfter(I, nullptr);
+    }
+    // Replace the live-in operands of the region with new values. The
+    // instructions that do not belong to VConflict region should not have
+    // uses inside the region because this breaks the algorithms e.g.
+    // divergence analysis, scalar vector analysis. The RenamedLiveIns are owned
+    // by the region.
+    int LInIt = 0;
+    SmallVector<std::unique_ptr<VPValue>, 2> RenamedLiveIns;
+    // VConflictLoad is also a live-in for VPGeneralMemOptConflict. Therefore,
+    // we need to rename it.
+    auto NewValue = std::make_unique<VPValue>(VConflictLoad->getType());
+    NewValue->setName("live.in" + std::to_string(LInIt));
+    VConflictLoad->replaceAllUsesWithInRegion(NewValue.get(), VConflictBBs);
+    RenamedLiveIns.push_back(std::move(NewValue));
+    LInIt++;
+    for (auto *LIn : RgnLiveIns) {
+      auto NewValue = std::make_unique<VPValue>(LIn->getType());
+      NewValue->setName("live.in" + std::to_string(LInIt));
+      LIn->replaceAllUsesWithInRegion(NewValue.get(), VConflictBBs);
+      RenamedLiveIns.push_back(std::move(NewValue));
+      LInIt++;
+    }
+    // Generate new live-out. Its operand is the original live-out.
+    VPUser *User = cast<VPRegionLiveOut>(VConflictStore->getOperand(0));
+    SmallVector<std::unique_ptr<VPRegionLiveOut>, 2> RgnLiveOuts;
+    auto NewLiveOut = std::make_unique<VPRegionLiveOut>(
+        User, Type::getVoidTy(*Plan->getLLVMContext()));
+    RgnLiveOuts.push_back(std::move(NewLiveOut));
+
+    Region->addRgnLiveInsOuts(std::move(RenamedLiveIns),
+                              std::move(RgnLiveOuts));
+
+    // Create VPGeneralMemOptConflict instruction.
+    VPBuilder VPBldr;
+    VPBldr.setInsertPoint(VConflictStore);
+    auto *Conflict = VPBldr.create<VPGeneralMemOptConflict>(
+        "vp.general.mem.opt.conflict", VConflictStore->getOperand(0)->getType(),
+        VConflictIndex, std::move(Region), VConflictLoad, RgnLiveIns);
+    // Update VPConflictStore's first operand with VPGeneralMemOptConflict.
+    VConflictStore->setOperand(0, Conflict);
+  }
+  return true;
+}
+
+bool PlainCFGBuilderHIR::collectVConflictLoadAndStoreInsns() {
+  const HIRVectorIdioms *Idioms = Legal->getVectorIdioms(TheLoop);
+  for (auto &Idiom : *Idioms)
+    if (Idiom.second == HIRVectorIdioms::IdiomId::VConflictLikeStore) {
+      const HLInst *HIRStore = Idiom.first;
+      VPInstruction *VConflictStore =
+          cast<VPInstruction>(Decomposer.getVPValueForNode(HIRStore));
+      VPInstruction *VConflictLoad =
+          Decomposer.getVPLoadConflict(Idioms->getVConflictLoad(HIRStore));
+      VPValue *VConflictIndex =
+          Decomposer.getVPConflictIndex(Idioms->getVConflictLoad(HIRStore));
+      VConflictStoreLoadIndexInsns.push_back(
+          std::make_tuple(VConflictStore, VConflictLoad, VConflictIndex));
+    }
+  return !VConflictStoreLoadIndexInsns.empty();
+}
+
+bool PlainCFGBuilderHIR::buildPlainCFG() {
   // Create a dummy VPBB as Plan's Entry.
   assert(!ActiveVPBB && "ActiveVPBB must be null.");
   updateActiveVPBB();
@@ -740,8 +979,18 @@ void PlainCFGBuilderHIR::buildPlainCFG() {
   // VPInstructions for single temp/symbase.
   Decomposer.fixExternalUses();
 
+  // If the loop has load and store instructions which are marked as
+  // VConflictLoad and VConflictStore respectively, then we emit VConflict
+  // idiom.
+  if (collectVConflictLoadAndStoreInsns())
+    if (!collectVConflictPatternInsnsAndEmitVPConflict()) {
+      LLVM_DEBUG(dbgs() << "The current VConflict idiom is not supported.\n");
+      return false;
+    }
+
   VPLAN_DUMP(VPlanHIRDecomposerControl, Plan);
-  return;
+
+  return true;
 }
 
 VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
@@ -1423,12 +1672,16 @@ void PlainCFGBuilderHIR::convertEntityDescriptors(
   CvtVec.push_back(std::unique_ptr<VPLoopEntitiesConverterBase>(PrivNonPODCvt));
 }
 
-void VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {
+bool VPlanHCFGBuilderHIR::buildPlainCFG(VPLoopEntityConverterList &CvtVec) {
   PlainCFGBuilderHIR PCFGBuilder(TheLoop, DDG, Plan, Header2HLLoop,
                                  HIRLegality);
 
-  PCFGBuilder.buildPlainCFG();
+  if (!PCFGBuilder.buildPlainCFG())
+    return false;
+
   PCFGBuilder.convertEntityDescriptors(CvtVec);
+
+  return true;
 }
 
 void VPlanHCFGBuilderHIR::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {

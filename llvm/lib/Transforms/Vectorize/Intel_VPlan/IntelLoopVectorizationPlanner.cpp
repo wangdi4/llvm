@@ -378,8 +378,12 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   UnlinkedVPInsts = std::make_unique<VPUnlinkedInstructions>();
 
   // TODO: revisit when we build multiple VPlans.
-  std::shared_ptr<VPlanVector> Plan = buildInitialVPlan(*Externals, *UnlinkedVPInsts,
-                                                        VPlanName, SE);
+  std::shared_ptr<VPlanVector> Plan =
+      buildInitialVPlan(*Externals, *UnlinkedVPInsts, VPlanName, SE);
+  if (!Plan) {
+    LLVM_DEBUG(dbgs() << "LVP: VPlan was not created.\n");
+    return 0;
+  }
 
   VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
@@ -1208,7 +1212,8 @@ std::shared_ptr<VPlanVector> LoopVectorizationPlanner::buildInitialVPlan(
 
   // Build hierarchical CFG
   VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal, SE);
-  HCFGBuilder.buildHierarchicalCFG();
+  if (!HCFGBuilder.buildHierarchicalCFG())
+    return nullptr;
 
   return SharedPlan;
 }
