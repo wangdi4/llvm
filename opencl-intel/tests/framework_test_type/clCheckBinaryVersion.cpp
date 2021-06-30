@@ -24,7 +24,11 @@ protected:
     "cached_binary_gold_release_linux.bin",
     "cached_binary_gold_update1_release_linux.bin",
     "cached_binary_gold_update2_release_linux.bin",
-#elif defined(_WIN32)
+#elif defined(_WIN32) && !defined(_WIN64)
+    "cached_binary_gold_release_windows32.bin",
+    "cached_binary_gold_update1_release_windows32.bin",
+    "cached_binary_gold_update2_release_windows32.bin"
+#elif defined(_WIN64)
     "cached_binary_gold_release_windows.bin",
     "cached_binary_gold_update1_release_windows.bin",
     "cached_binary_gold_update2_release_windows.bin"
