@@ -49,6 +49,8 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         CPUDeviceConfig();
         ~CPUDeviceConfig();
 
+        cl_err_code Initialize(std::string filename) override;
+
         cl_ulong        GetForcedGlobalMemSize() const;
         cl_ulong        GetForcedMaxMemAllocSize() const;
         cl_int          GetVectorizerMode() const;
@@ -74,6 +76,10 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         const std::vector<cl_name_version>& GetExtensionsWithVersion() const;
         const std::vector<cl_name_version>& GetOpenCLCFeatures() const;
 
+        const std::vector<size_t> &GetForcedWGSizeVec() const {
+          return m_forcedWGSizeVec;
+        }
+
 #ifdef __HARD_TRAPPING__
         bool            UseTrapping()   const { return m_pConfigFile->Read<bool>(CL_CONFIG_USE_TRAPPING,    false); }
 #endif
@@ -83,6 +89,8 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
 
         static std::vector<cl_name_version>  m_extensions;
         static std::vector<cl_name_version>  m_c_features;
+
+        std::vector<size_t> m_forcedWGSizeVec;
     };
 
 }}}

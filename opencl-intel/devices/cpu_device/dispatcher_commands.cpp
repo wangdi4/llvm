@@ -1173,13 +1173,10 @@ queue_t NDRange::GetDefaultQueueForDevice() const
 bool NDRange::applyForcedWGSize() {
   // If CL_CONFIG_CPU_FORCE_WORK_GROUP_SIZE is set, we'll use it regardless of
   // whether workgroup size is specified in clEnqueueNDRangeKernel.
-  std::string forcedWGSizeStr =
-      m_pTaskDispatcher->getCPUDeviceConfig()->GetForcedWGSize();
-  if (forcedWGSizeStr.empty())
+  const std::vector<size_t> &forcedWGSize =
+      m_pTaskDispatcher->getCPUDeviceConfig()->GetForcedWGSizeVec();
+  if (forcedWGSize.empty())
     return false;
-
-  std::vector<size_t> forcedWGSize;
-  (void)SplitStringInteger(forcedWGSizeStr, ',', forcedWGSize);
 
   size_t forcedWorkDim =
       std::min(forcedWGSize.size(), m_pImplicitArgs->WorkDim);
